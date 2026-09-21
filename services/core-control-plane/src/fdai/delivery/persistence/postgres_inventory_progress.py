@@ -7,10 +7,11 @@ from dataclasses import dataclass
 from typing import Any
 
 import psycopg
-from fdai_service_contracts import InventoryProgressRecord
+from fdai_service_contracts import InventoryProgressRecord, InventoryProgressState
 from psycopg.rows import dict_row
 
 _INVENTORY_PROGRESS_GENESIS_DIGEST = "sha256:" + "0" * 64
+_DEFAULT_TERMINAL_ATTEMPT_RETENTION = 16
 
 
 @dataclass(frozen=True, slots=True)
@@ -20,12 +21,15 @@ class PostgresInventoryProgressStoreConfig:
     dsn: str
     statement_timeout_ms: int = 15_000
     connect_timeout_s: int = 10
+    terminal_attempt_retention: int = _DEFAULT_TERMINAL_ATTEMPT_RETENTION
 
     def __post_init__(self) -> None:
         if not self.dsn:
             raise ValueError("inventory progress PostgreSQL DSN MUST NOT be empty")
         if self.statement_timeout_ms < 1 or self.connect_timeout_s < 1:
             raise ValueError("inventory progress PostgreSQL timeouts MUST be positive")
+        if not 1 <= self.terminal_attempt_retention <= 1_000:
+            raise ValueError("inventory progress terminal retention MUST be in [1, 1000]")
 
 
 class PostgresInventoryProgressStore:
@@ -82,6 +86,14 @@ class PostgresInventoryProgressStore:
                         json.dumps(payload, sort_keys=True, separators=(",", ":")),
                     ),
                 )
+                if record.sequence == 1 or record.state is not InventoryProgressState.RUNNING:
+                    prune_cursor = await connection.execute(
+                        "SELECT fdai_prune_inventory_progress(%s) AS deleted_rows",
+                        (self._config.terminal_attempt_retention,),
+                    )
+                    pruned = await prune_cursor.fetchone()
+                    if pruned is None or int(pruned["deleted_rows"]) < 0:
+                        raise RuntimeError("inventory progress retention returned invalid evidence")
                 return True
 
     async def _verify_duplicate(

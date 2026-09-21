@@ -363,7 +363,7 @@
     {
       "label": "console: restart full stack",
       "type": "shell",
-      "command": "bash scripts/deployment/local/start-console-services.sh --auth-mode browser-entra --replace-existing",
+      "command": "bash scripts/deployment/local/restart-console-services.sh --auth-mode browser-entra",
       "dependsOn": ["console: require primary worktree"],
       "isBackground": true,
       "problemMatcher": {
@@ -578,11 +578,10 @@
     {
       "label": "dev discuss: start or restart profiled services",
       "type": "shell",
-      "command": "bash scripts/deployment/local/start-console-services.sh --auth-mode browser-entra --replace-existing",
+      "command": "bash scripts/deployment/local/restart-console-services.sh --auth-mode browser-entra",
       "dependsOrder": "sequence",
       "dependsOn": [
-        "console: require primary worktree",
-        "console: prepare full stack"
+        "console: require primary worktree"
       ],
       "isBackground": true,
       "problemMatcher": {

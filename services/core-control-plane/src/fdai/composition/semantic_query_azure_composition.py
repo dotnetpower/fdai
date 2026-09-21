@@ -19,6 +19,7 @@ from fdai.core.ontology_platform import (
 )
 from fdai.core.ontology_platform.graph_query_refresh import BoundedGraphLiveRefreshProvider
 from fdai.core.ontology_platform.incident_queries import IncidentEvidenceReader
+from fdai.core.ontology_platform.instance_candidate_queries import InstanceCandidateQuery
 from fdai.core.ontology_platform.kubernetes_pod_diagnosis_queries import (
     KubernetesPodLogEvidenceReader,
 )
@@ -54,6 +55,7 @@ from fdai.shared.providers.workload_identity import WorkloadIdentity
 
 from ._helpers import Container
 from .resolved_models_revision import resolved_models_for_binding
+from .semantic_query_instance_candidates import declare_instance_candidate_query
 from .semantic_query_model_targets import t1_model_targets, t2_model_targets
 from .semantic_query_value_domains import resource_type_value_domains
 from .wire_adaptive_conversation import build_adaptive_conversation_service
@@ -102,6 +104,7 @@ def compose_azure_semantic_query_runtime(
     graph_live_refresh_provider: BoundedGraphLiveRefreshProvider | None = None,
     resource_freshness_seconds: int | None = None,
     adaptive_model_factory: Callable[[], AdaptiveModel | None] | None = None,
+    instance_candidate_query: InstanceCandidateQuery | None = None,
 ) -> SemanticQueryRuntimeComposition:
     """Compose Azure semantic querying over optional exact Rule retrieval."""
 
@@ -204,6 +207,7 @@ def compose_azure_semantic_query_runtime(
             schema_registry=container.schema_registry,
             probes_root=(catalog_root / "probes" if (catalog_root / "probes").is_dir() else None),
         )
+        catalog = declare_instance_candidate_query(catalog)
         runtime = build_semantic_query_runtime(
             model=t1_model,
             adaptive_service=adaptive_service,
@@ -236,6 +240,7 @@ def compose_azure_semantic_query_runtime(
             graph_live_refresh_provider=graph_live_refresh_provider,
             resource_freshness_seconds=resource_freshness_seconds,
             governed_document_reader=container.governed_document_reader,
+            instance_candidate_query=instance_candidate_query,
             property_values=_resource_type_property_values(catalog_root),
             inventory_query_language=_inventory_query_language(catalog_root),
             purpose=purpose,

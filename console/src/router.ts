@@ -6,6 +6,7 @@ let transientRoute: ConsoleRoute | null = null;
 
 export const PANEL_PATHS: Readonly<Record<string, string>> = {
   dashboard: "/overview",
+  "dashboard-v2": "/resource-dashboard",
   live: "/live",
   incidents: "/incidents",
   agents: "/agents",
@@ -60,6 +61,7 @@ export const PANEL_PATHS: Readonly<Record<string, string>> = {
 };
 
 const PATH_ALIASES: Readonly<Record<string, string>> = {
+  "/dashboard-v2": "dashboard-v2",
   "/detection-readiness": "detection-readiness",
   "/handover": "handover",
   "/settings": "settings-general",

@@ -10,6 +10,12 @@ export const OPERATIONS_SAMPLE_LIVE_VISIBLE_COUNT = 3;
 export const OPERATIONS_SAMPLE_LIVE_HISTORY_COUNT = 180;
 export const OPERATIONS_SAMPLE_LIVE_LOOP_INTERVAL_MS = 1_000;
 export const OPERATIONS_SAMPLE_LIVE_EVENTS_PER_LOOP = 2;
+export const OPERATIONS_SAMPLE_TIER_COHORT = {
+  total: 100,
+  t0: 94,
+  t1: 5,
+  t2: 1,
+} as const;
 
 /** Place Sample stages inside the specimen's T0/T1/T2 durations without inventing runtime progress. */
 export function sampleLiveStageDelay(index: number, stageIndex: number, stageCount: number): number {
@@ -77,8 +83,16 @@ export function sampleLiveObservations(
 }
 
 const SAMPLE_WORKLOADS = LIVE_SAMPLE_STORIES;
-const TIERS = ["t0", "t1", "t2"] as const;
 const NON_HIL_DECISIONS = ["auto", "deny", "abstain"] as const;
+
+function sampleTier(index: number): "t0" | "t1" | "t2" {
+  const cohortIndex = index % OPERATIONS_SAMPLE_TIER_COHORT.total;
+  if (cohortIndex < OPERATIONS_SAMPLE_TIER_COHORT.t0) return "t0";
+  if (cohortIndex < OPERATIONS_SAMPLE_TIER_COHORT.t0 + OPERATIONS_SAMPLE_TIER_COHORT.t1) {
+    return "t1";
+  }
+  return "t2";
+}
 
 function sampleDecision(index: number): "auto" | "deny" | "abstain" | "hil" {
   if (index === 0) return "hil";
@@ -129,7 +143,7 @@ export function sampleLiveEvents(
     const eventId = `sample-event-${sequence}`;
     const correlationId = `sample-correlation-${sequence}`;
     const workload = SAMPLE_WORKLOADS[index % SAMPLE_WORKLOADS.length]!;
-    const tier = TIERS[index % TIERS.length]!;
+    const tier = sampleTier(index);
     const decision = sampleDecision(index);
     const decisionContext = sampleDecisionContext(decision);
     const approvedDemo = index === 0;

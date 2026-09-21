@@ -82,6 +82,7 @@ from fdai.core.ontology_platform.incident_queries import (
     IncidentEvidenceReader,
     incident_evidence_function,
 )
+from fdai.core.ontology_platform.instance_candidate_queries import InstanceCandidateQuery
 from fdai.core.ontology_platform.kubernetes_pod_diagnosis_queries import (
     KUBERNETES_POD_DIAGNOSIS_FUNCTION_NAME,
     KubernetesPodLogEvidenceReader,
@@ -222,6 +223,7 @@ from .semantic_query_current_evidence import (
     bind_semantic_current_evidence,
 )
 from .semantic_query_descriptor_selector import ManifestDescriptorIndex
+from .semantic_query_instance_candidates import bind_instance_candidate_query
 from .semantic_query_invocation_context import semantic_query_invocation_context
 from .semantic_query_runtime_composition import SemanticQueryRuntimeComposition
 from .semantic_query_scoped_sources import scoped_source_handlers, secured_resource_selector
@@ -263,6 +265,7 @@ def build_semantic_query_runtime(
     decision_evidence_admission_provider: DecisionEvidenceAdmissionProvider | None = None,
     adaptive_service: AdaptiveConversationService | None = None,
     governed_document_reader: GovernedDocumentReader | None = None,
+    instance_candidate_query: InstanceCandidateQuery | None = None,
 ) -> SemanticQueryConversationRuntime:
     """Build a read-only runtime over one exact catalog release and instance store."""
 
@@ -310,6 +313,7 @@ def build_semantic_query_runtime(
     function_registry = OntologyFunctionRegistry(release=ontology_release)
     declarations = {item.name: item for item in function_types}
 
+    bind_instance_candidate_query(function_registry, ontology_catalog, instance_candidate_query)
     inventory_function = declarations.get("inventory.select_resources")
     if inventory_function is not None:
         function_registry.register_contextual(

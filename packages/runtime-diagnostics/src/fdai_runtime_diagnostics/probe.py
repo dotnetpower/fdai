@@ -70,6 +70,8 @@ class RuntimeProbe:
         owned_tracemalloc = heap and not tracemalloc.is_tracing()
         before_heap = None
         heap_current_before = None
+        sleep_started_ns: int | None = None
+        sleep_completed_ns: int | None = None
         limitations: list[str] = []
         try:
             if heap:
@@ -81,7 +83,9 @@ class RuntimeProbe:
                 profiler.enable()
             try:
                 if duration_ms:
+                    sleep_started_ns = time.monotonic_ns()
                     await asyncio.sleep(duration_ms / 1000)
+                    sleep_completed_ns = time.monotonic_ns()
             finally:
                 if profiler is not None:
                     profiler.disable()
@@ -102,7 +106,14 @@ class RuntimeProbe:
         if cpu and not cpu_rows:
             limitations.append("cpu_no_repository_samples")
         measured_ms = max(0, (time.monotonic_ns() - started_ns) // 1_000_000)
-        event_loop_lag = max(0.0, measured_ms - duration_ms)
+        event_loop_lag = (
+            max(
+                0.0,
+                (sleep_completed_ns - sleep_started_ns) / 1_000_000 - duration_ms,
+            )
+            if sleep_started_ns is not None and sleep_completed_ns is not None
+            else 0.0
+        )
         untracked = (
             max(0, after.rss_bytes - heap_current_after) if heap_current_after is not None else None
         )

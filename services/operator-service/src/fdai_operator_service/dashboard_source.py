@@ -20,7 +20,7 @@ from fdai_operator_service.dashboard_aggregation import (
     MetricObservation,
 )
 
-MEASUREMENT_ROW_LIMIT = 20_000
+MEASUREMENT_ROW_LIMIT = 100_000
 MEASUREMENT_AUDIT_CLOCK_SKEW = timedelta(minutes=5)
 MEASUREMENT_KINDS = (
     CONTROL_LOOP_MEASUREMENT_ACTION_KIND,

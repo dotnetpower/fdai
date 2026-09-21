@@ -14,7 +14,7 @@ const AUTHENTICATED_EXTERNAL_STACK = Boolean(
 
 const ROUTES = [
   "/overview",
-  "/dashboard-v2",
+  "/resource-dashboard",
   "/live",
   "/incidents",
   "/agents",

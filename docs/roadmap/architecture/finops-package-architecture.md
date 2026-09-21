@@ -37,6 +37,9 @@ domain code and assets. It does not create another control plane or move authori
 > not change Njord ownership, package activation, or action authority.
 > Shared Pantheon composition also binds reviewed test-context reads and case-derived retention.
 > These bindings cannot activate Cost Governance, publish Njord records, or raise package authority.
+> The separately typed ontology ContextIndex path keeps Muninn preparation, Heimdall validation,
+> and Saga audit on their owned topics. Its candidate projections cannot enable Cost Governance,
+> publish Njord records, grant package data access, or change execution authority.
 > Exact-signal anomaly sources and original Action preparation in the shared Forseti factory
 > likewise supply no package authority. Registration and durable human approval readback cannot
 > enable Cost Governance, change Njord's publisher ownership, or grant package data access.

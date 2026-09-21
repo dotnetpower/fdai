@@ -1,8 +1,8 @@
 ---
 title: 온톨로지 구조 모델
 translation_of: ontology-structural-model.md
-translation_source_sha: b1b639f73ceca1973e641a50c37d4409857da31f
-translation_revised: 2026-09-20
+translation_source_sha: 695a4b1531b082d10eb9a1ea4b5cedb880f27ddd
+translation_revised: 2026-09-21
 ---
 # 온톨로지 구조 모델
 
@@ -57,6 +57,9 @@ AKS 진단 증적은 선택한 Resource 조회 응답에 연결된 형식화된 
 LinkType을 만들지 않으며 내용 신원은 Resource UID나 관계 신원을 대체할 수 없습니다.
 모든 정본 ResourceType에는 명시적인 기록 상태 처리 결과가 하나씩 있습니다. 누락된 상태를 일반
 정상 값으로 바꾸지 않습니다. 공유 Operator 워크플로 어댑터는 서버에 기록된 개수 또는 명시적인 `evaluated: false`를 포함하는 선택적 `rule.findings-summary` 변환 결과를 노출할 수 있습니다. 이 운영 요약은 온톨로지 선언, 관계, 근거 승인 또는 권한 출처가 아닙니다.
+Operator 온톨로지 변환 결과와 역할 선택은 이제 목적별 운영 계열 어댑터가 소유하고, Rule,
+모범 사례, CAF, MCSB 및 WARA 카탈로그 렌더링은 각각 별도의 순수 변환 소유자가 담당합니다.
+이 소유권 분리는 선언 신원, 관계 방향, 변환 리비전, 근거 승인 또는 권한을 바꾸지 않습니다.
 규칙별 결과 조회는 같은 리비전의 규칙 카탈로그에서 요청한 식별자를 검증합니다. 결과 프로바이더가
 연결되지 않았으면 카탈로그에 있는 규칙에 대해 `evaluated: false`와 빈 결과 목록을 반환합니다.
 요약 개수에서 Resource 식별자나 결과 세부 정보를 도출하지 않습니다.
@@ -112,6 +115,9 @@ LinkType, 리소스 식별자 또는 관측된 토폴로지를 만들지 않습�
 넓은 범주 쿼리 별칭과 `ResourceClass` 멤버 자격은 서로 독립적입니다. 한 유형은 검토된 데이터
 서비스 클래스에 남으면서도 `database` 언어 그룹에서는 제외될 수 있습니다. 따라서
 `search-service`는 일반 데이터베이스 질의가 아니라 정확한 유형 질의에 응답합니다.
+검토된 Azure 매핑은 `Microsoft.Compute/images`를 스토리지 클래스 멤버 `compute.image`로,
+`Microsoft.Network/firewallPolicies`를 네트워크 클래스 멤버 `network.firewall-policy`로
+분류합니다. 두 매핑 모두 상태, 관계 또는 권한을 파생하지 않고 정확한 공급자 신원을 보존합니다.
 
 ### ResourceClass 분류 체계
 

@@ -1591,7 +1591,7 @@ def test_runtime_image_revision_does_not_require_executor() -> None:
 
 
 def test_runtime_image_revision_cannot_mix_with_monitoring_only() -> None:
-    with pytest.raises(ValueError, match="monitoring deployment cannot be combined"):
+    with pytest.raises(ValueError, match="monitoring-only deployment cannot specify"):
         DeploymentSelection(
             deploy_console=False,
             deploy_operator_api=False,

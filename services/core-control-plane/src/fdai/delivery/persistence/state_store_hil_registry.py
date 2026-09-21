@@ -50,6 +50,8 @@ class StateStoreHilApprovalRegistry(HilApprovalRegistry):
                 _PARK_PREFIX,
                 limit=min(100, cap),
                 offset=offset,
+                field="status",
+                value="pending",
             )
             for park in parks:
                 item = _pending_from_park(park)

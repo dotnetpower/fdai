@@ -19,6 +19,10 @@ import psycopg
 from psycopg.rows import dict_row
 from psycopg.types.json import Jsonb
 
+from fdai.delivery.persistence.postgres_ontology_partitions import (
+    partition_descriptor,
+    validate_partition_set,
+)
 from fdai.delivery.persistence.postgres_ontology_prepared import (
     PreparedOntologyReplacement,
     _digest,
@@ -27,7 +31,7 @@ from fdai.delivery.persistence.postgres_ontology_prepared import (
 from fdai.delivery.persistence.postgres_ontology_source_coverage import (
     resource_graph_source_coverage,
 )
-from fdai.shared.contracts.models import OntologyTypeRef
+from fdai.shared.contracts.models import OntologyDeclarationKind, OntologyTypeRef
 from fdai.shared.providers.ontology_instance import (
     OntologyGraphSnapshot,
     OntologyInstanceValidationError,
@@ -47,7 +51,7 @@ _DIGEST = re.compile(r"sha256:[a-f0-9]{64}")
 
 @dataclass(frozen=True, slots=True)
 class CommittedOntologyPage:
-    """One page of the published owner's subgraph, not other owners' endpoint contents."""
+    """One owner page with exact external endpoint evidence, never live endpoint fallback."""
 
     snapshot_digest: str
     generation: str
@@ -56,6 +60,9 @@ class CommittedOntologyPage:
     links: tuple[OntologyLinkRecord, ...]
     next_cursor: str | None
     total_count: int
+    dependencies: tuple[OntologyObjectRecord, ...] = ()
+    dependency_complete: bool = False
+    partition_complete: bool = False
 
 
 async def _prune_committed_snapshots(
@@ -95,6 +102,32 @@ async def _prune_committed_snapshots(
                 )
             prepared_keys.add(_PREPARED_PREFIX + digest)
     expired_prepared_keys: set[str] = set()
+    pending_cursor = await connection.execute(
+        "SELECT value FROM state_kv WHERE starts_with(key,'ontology-version-prepared:') "
+        "AND updated_at>=clock_timestamp()-INTERVAL '30 minutes' LIMIT 17 FOR SHARE"
+    )
+    pending = await pending_cursor.fetchall()
+    if len(pending) > 16:
+        raise OntologyInstanceValidationError(
+            "ontology pending preparation retention is over capacity"
+        )
+    for row in pending:
+        value = row["value"]
+        digest = value.get("prepared_digest") if isinstance(value, dict) else None
+        manifest = await _read_content(connection, _PREPARED_PREFIX, digest, 32 * 1024 * 1024)
+        prepared_keys.add(_PREPARED_PREFIX + str(digest))
+        chunks = manifest.get("chunks")
+        if (
+            not isinstance(chunks, list)
+            or len(chunks) > 1000
+            or any(
+                not isinstance(chunk, str) or _DIGEST.fullmatch(chunk) is None for chunk in chunks
+            )
+        ):
+            raise OntologyInstanceValidationError(
+                "ontology pending preparation partitions are invalid"
+            )
+        prepared_keys.update(_PREPARED_PREFIX + chunk for chunk in chunks)
     for row in rows[_COMMITTED_SNAPSHOT_RETENTION:]:
         receipt = row["value"]
         if not isinstance(receipt, Mapping):
@@ -321,6 +354,17 @@ async def read_snapshot_page(
                 raise OntologyInstanceValidationError(
                     "committed ontology snapshot partition changed"
                 )
+            if "partition_set" in index.manifest:
+                descriptor = partition_descriptor(_encode(chunk, limit=1024 * 1024))
+                expected_partition = next(
+                    part
+                    for part in index.manifest["partition_set"]["partitions"]
+                    if part["digest"] == partition["digest"]
+                )
+                if descriptor != expected_partition:
+                    raise OntologyInstanceValidationError(
+                        "committed ontology partition bounds changed"
+                    )
             for values in records[
                 max(0, offset - start) : max(0, offset - start) + limit - selected
             ]:
@@ -345,6 +389,7 @@ async def read_snapshot_page(
                     links.append(OntologyLinkRecord(**values))
                 selected += 1
         next_offset = offset + selected
+        dependencies, dependency_complete = _page_dependencies(index, tuple(links))
         return CommittedOntologyPage(
             snapshot_digest=snapshot_digest,
             generation=receipt["generation"],
@@ -353,7 +398,52 @@ async def read_snapshot_page(
             links=tuple(links),
             total_count=total,
             next_cursor=f"{snapshot_digest}:{kind}:{next_offset}" if next_offset < total else None,
+            dependencies=dependencies,
+            dependency_complete=dependency_complete,
+            partition_complete="partition_set" in index.manifest,
         )
+
+
+def _page_dependencies(
+    index: _SnapshotIndex, links: tuple[OntologyLinkRecord, ...]
+) -> tuple[tuple[OntologyObjectRecord, ...], bool]:
+    identifiers = sorted(
+        {identifier for link in links for identifier in (link.from_id, link.to_id)}
+        - index.revisions.keys()
+    )
+    retained = index.manifest.get("dependency_revisions")
+    if not isinstance(retained, dict):
+        return (), not identifiers
+    dependencies = []
+    for identifier in identifiers:
+        record = retained.get(identifier)
+        if not isinstance(record, dict) or "properties" not in record:
+            return (), False
+        if (
+            set(record)
+            != {"revision", "object_type", "type_version", "catalog_digest", "properties"}
+            or type(record["revision"]) is not int
+            or record["revision"] < 1
+            or not isinstance(record["object_type"], str)
+            or not record["object_type"]
+            or not isinstance(record["properties"], dict)
+        ):
+            raise OntologyInstanceValidationError("committed ontology dependency is malformed")
+        dependencies.append(
+            OntologyObjectRecord(
+                id=identifier,
+                object_type=record["object_type"],
+                properties=record["properties"],
+                revision=record["revision"],
+                type_ref=OntologyTypeRef(
+                    kind=OntologyDeclarationKind.OBJECT,
+                    name=record["object_type"],
+                    version=record["type_version"],
+                    catalog_digest=record["catalog_digest"],
+                ),
+            )
+        )
+    return tuple(dependencies), True
 
 
 @dataclass(frozen=True, slots=True)
@@ -398,6 +488,13 @@ async def _read_index(connection: psycopg.AsyncConnection[Any], digest: str) -> 
         != manifest.get("link_count")
     ):
         raise OntologyInstanceValidationError("committed ontology snapshot receipt is malformed")
+    if "partition_set" in manifest:
+        validate_partition_set(manifest["partition_set"], partitions)
+        if (
+            manifest["partition_set"]["object_count"] != manifest["object_count"]
+            or manifest["partition_set"]["link_count"] != manifest["link_count"]
+        ):
+            raise OntologyInstanceValidationError("committed ontology partition coverage changed")
     return _SnapshotIndex(connection, digest, receipt, manifest, tuple(partitions), revisions)
 
 

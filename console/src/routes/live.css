@@ -323,6 +323,68 @@ main:has(.live) {
   color: var(--fg);
 }
 
+.live-sample-tier-cohort {
+  display: grid;
+  gap: 8px;
+}
+
+.live-sample-tier-cohort > header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.live-sample-tier-cohort > header span,
+.live-sample-tier-cohort > p {
+  color: var(--fg-muted);
+  font-size: var(--cs-type-compact-size);
+}
+
+.live-sample-tier-cohort > p {
+  margin: 0;
+}
+
+.live-sample-tier-bars {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.live-sample-tier-bars > div {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+}
+
+.live-sample-tier-bars > div > span,
+.live-sample-tier-bars > div > strong {
+  font-size: var(--cs-type-compact-size);
+}
+
+.live-sample-tier-bars > div > i {
+  height: 6px;
+  overflow: hidden;
+  border-radius: 3px;
+  background: var(--border);
+}
+
+.live-sample-tier-bars > div > i > i {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--tier-t0);
+}
+
+.live-sample-tier-t1 > i > i {
+  background: var(--tier-t1);
+}
+
+.live-sample-tier-t2 > i > i {
+  background: var(--tier-t2);
+}
+
 .live-sample-scenario-steps {
   display: grid;
   grid-template-columns: repeat(6, minmax(0, 1fr));
@@ -554,7 +616,7 @@ main:has(.live) {
 }
 
 .live .live-kpi {
-  min-height: 141px;
+  min-height: 124px;
   padding: 8px 44px 8px 11px;
   gap: 2px;
   border-radius: 7px;
@@ -1410,6 +1472,7 @@ body.live-fullscreen-active { overflow: hidden; }
   }
 
   .live-sample-scenario-facts,
+  .live-sample-tier-bars,
   .live-sample-scenario-steps {
     grid-template-columns: minmax(0, 1fr);
   }

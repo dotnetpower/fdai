@@ -102,6 +102,30 @@ class TerminalMeasurementRecorder:
         for identity, fields in tuple(self._pending.items()):
             await self._persist(identity, fields)
 
+    async def recorded(self, event: Event) -> bool:
+        """Return true only when the exact normalized event already has a terminal."""
+
+        identity = control_loop_measurement_id(event.idempotency_key)
+        existing = await self._store.read_state(f"{_STATE_PREFIX}{identity}")
+        if existing is None:
+            return False
+        previous = ControlLoopMeasurement.model_validate(existing)
+        synthetic = event.payload.get("synthetic")
+        expected = {
+            "measurement_id": identity,
+            "event_id": event.event_id,
+            "idempotency_key": event.idempotency_key,
+            "correlation_id": event.correlation_id,
+            "source": event.source,
+            "event_type": event.event_type,
+            "mode": event.mode.value,
+            "synthetic": synthetic if isinstance(synthetic, bool) else None,
+            "occurred_at": event.detected_at,
+        }
+        if any(getattr(previous, field) != value for field, value in expected.items()):
+            raise ValueError("event identity conflicts with retained terminal measurement")
+        return True
+
     async def _persist(self, identity: UUID, fields: dict[str, object]) -> None:
         try:
             measurement = ControlLoopMeasurement.model_validate(fields)
@@ -148,6 +172,7 @@ class TerminalMeasurementRecorder:
                 }
             )
             if comparable != measurement:
+                self._pending.pop(identity, None)
                 raise ValueError("terminal measurement identity conflicts with retained evidence")
         else:
             self._writes_since_retention += 1

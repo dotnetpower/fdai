@@ -23,6 +23,7 @@ import {
   OPERATIONS_SAMPLE_LIVE_EVENTS_PER_LOOP,
   OPERATIONS_SAMPLE_LIVE_HISTORY_COUNT,
   OPERATIONS_SAMPLE_LIVE_LOOP_INTERVAL_MS,
+  OPERATIONS_SAMPLE_TIER_COHORT,
   OPERATIONS_SAMPLE_PROVISION_EVENTS,
   sampleLiveStageDelay,
   sampleLivePreviewEvents,
@@ -181,6 +182,22 @@ describe("Operations Sample registry", () => {
   });
 
   test("keeps direct-stream fixtures bounded and non-authoritative", () => {
+    expect(OPERATIONS_SAMPLE_TIER_COHORT).toEqual({ total: 100, t0: 94, t1: 5, t2: 1 });
+    expect(
+      OPERATIONS_SAMPLE_TIER_COHORT.t0
+      + OPERATIONS_SAMPLE_TIER_COHORT.t1
+      + OPERATIONS_SAMPLE_TIER_COHORT.t2,
+    ).toBe(OPERATIONS_SAMPLE_TIER_COHORT.total);
+    const cohort = sampleLiveEvents(0, OPERATIONS_SAMPLE_TIER_COHORT.total)
+      .filter((event) => event.stage === "audit");
+    expect(Object.fromEntries(["t0", "t1", "t2"].map((tier) => [
+      tier,
+      cohort.filter((event) => event.detail?.["tier"] === tier).length,
+    ]))).toEqual({
+      t0: OPERATIONS_SAMPLE_TIER_COHORT.t0,
+      t1: OPERATIONS_SAMPLE_TIER_COHORT.t1,
+      t2: OPERATIONS_SAMPLE_TIER_COHORT.t2,
+    });
     expect(OPERATIONS_SAMPLE_LIVE_EVENTS.length).toBeGreaterThan(720);
     const terminal = OPERATIONS_SAMPLE_LIVE_EVENTS.filter((event) => event.stage === "audit");
     expect(new Set(terminal.map((event) => event.event_id)).size)

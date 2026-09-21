@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import { describe, expect, test } from "vitest";
 
 const source = readFileSync(new URL("./dashboard-v2.tsx", import.meta.url), "utf8");
+const styles = readFileSync(new URL("./dashboard-v2.css", import.meta.url), "utf8");
 
 describe("Dashboard v2 refresh presentation", () => {
   test("keeps the completed view while an explicit refresh reports progress", () => {
@@ -16,5 +17,11 @@ describe("Dashboard v2 refresh presentation", () => {
     expect(source).toContain("DASHBOARD_V2_REFRESH_INTERVAL_MS = 300_000");
     expect(source).toContain("enabled: streamSnapshot !== null");
     expect(source).toContain("String(streamSnapshot.invalidationWatermark)");
+  });
+
+  test("keeps each state count inside its wrapping legend chip", () => {
+    expect(source).toContain('text={`${stateText(key)} ${number(count)}`}');
+    expect(styles).toMatch(/\.dv2-legend button \{[^}]*max-width: 100%/s);
+    expect(styles).toMatch(/\.dv2-legend \.dv2-state \{[^}]*white-space: normal/s);
   });
 });

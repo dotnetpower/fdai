@@ -141,7 +141,7 @@ async def _database() -> AsyncIterator[tuple[PostgresInventorySnapshotStore, str
                     "CREATE TABLE inventory_snapshot "
                     "(id TEXT PRIMARY KEY, status TEXT, source TEXT, "
                     "observation_kind TEXT, scopes JSONB, resource_types JSONB, metadata JSONB, "
-                    "started_at TIMESTAMPTZ, completed_at TIMESTAMPTZ, "
+                    "started_at TIMESTAMPTZ, completed_at TIMESTAMPTZ, promoted_at TIMESTAMPTZ, "
                     "failure_code TEXT, failure_message TEXT);"
                     "CREATE TABLE inventory_snapshot_resource (snapshot_id TEXT, resource_id TEXT, "
                     "resource_type TEXT NOT NULL, props JSONB, "
@@ -469,7 +469,7 @@ async def test_completed_collection_resumes_in_new_process_without_provider_read
     async with _database() as (store, unused_attempt, context):
         async with await store._connect() as connection:
             await connection.execute(
-                "ALTER TABLE inventory_snapshot ADD COLUMN promoted_at TIMESTAMPTZ, "
+                "ALTER TABLE inventory_snapshot "
                 "ADD COLUMN resource_count INTEGER, ADD COLUMN link_count INTEGER;"
                 "CREATE TABLE inventory_active (singleton BOOLEAN PRIMARY KEY, "
                 "snapshot_id TEXT, updated_at TIMESTAMPTZ);"

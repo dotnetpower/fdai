@@ -92,7 +92,12 @@ export function DashboardRoute({ client, dataMode }: Props) {
       <PageHeader
         title={t("route.dashboard")}
         subtitle={tDashboard("subtitle")}
-        actions={<a class="btn" href={routeHref("dashboard-v2")}>{tDashboard("resources")}</a>}
+        actions={
+          <a class="cs-control-button overview-resource-dashboard-link" href={routeHref("dashboard-v2")}>
+            <ResourceDashboardIcon />
+            <span>{tDashboard("resources")}</span>
+          </a>
+        }
       />
       <AsyncBoundary state={state} resourceLabel="overview" loading={<DashboardSkeleton />}>
         {(data) => (
@@ -112,6 +117,17 @@ export function DashboardRoute({ client, dataMode }: Props) {
         </div>
       )}
     </div>
+  );
+}
+
+function ResourceDashboardIcon() {
+  return (
+    <svg viewBox="0 0 20 20" width="18" height="18" aria-hidden="true" focusable="false">
+      <rect x="2.5" y="2.5" width="6" height="6" rx="1" />
+      <rect x="11.5" y="2.5" width="6" height="6" rx="1" />
+      <rect x="2.5" y="11.5" width="6" height="6" rx="1" />
+      <rect x="11.5" y="11.5" width="6" height="6" rx="1" />
+    </svg>
   );
 }
 

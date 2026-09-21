@@ -106,6 +106,15 @@ Exact values always win over the missing-value classification. Missing metadata,
 conflicts continue to qualify the retained value without changing its source, observation time,
 recording time, freshness, or completeness.
 
+Azure managed images and Firewall policies have exact reviewed mappings to `compute.image` and
+`network.firewall-policy`. Both are configuration resources with no single operational state, and
+the current provider contract exposes no Resource Health availability for them. Their mapping
+removes unclassified evidence without inventing operation, availability, or health.
+Mapping rollout requires both a reconciled active generation and readers loaded with the matching
+shared applicability contract. A long-running older reader may temporarily retain
+`state_applicability_unknown` after inventory classification advances; validation checks the active
+generation and reader revision separately instead of treating that transition as a provider fault.
+
 ## Batch query and consistency
 
 `GET /ontology/instances/states` is a read-only route in the existing authenticated operations family.
@@ -311,6 +320,12 @@ the exact ResourceTypes whose ARM type is supported:
   Resource landscape as the primary workspace, aligns evidence coverage beneath it, and reserves
   the secondary rail for Check first highlights or the selected Resource Inspector. This hierarchy
   changes presentation only; every count retains its filtered recorded-state destination.
+- The Overview header exposes Resource dashboard as an icon-led 44 px control, while the Resource
+  dashboard header provides a matching Overview dashboard return control. The stable
+  `/resource-dashboard` route does not appear as a duplicate Explorer entry. The former
+  `/dashboard-v2` path remains a query-preserving compatibility alias and canonicalizes to the new
+  path. These controls change navigation only; they do not alter state, evidence, provider access,
+  approval, or execution authority.
 - Ontology directory and exploration records expose the same additive `states` field from the
   ontology-owned current Resource state.
 - `/ontology` opens on the observed Resource instance workspace and requests the declaration graph
@@ -345,6 +360,15 @@ the exact ResourceTypes whose ARM type is supported:
   timestamp only for a compact summary. A null fact never discards its machine reason. A legacy
   resource without recorded axes is never treated as Serving from its generic status, and the
   selected Serving lens returns to Operational when a refreshed projection no longer has that axis.
+- The Resource dashboard honeycomb defaults to a representative Resource state without merging
+  facts. It uses the exact operational fact first. Only when operation is not applicable or the
+  provider does not expose it may the shared selector use serving, availability, or provisioning.
+  Every cell retains an `O`, `S`, `A`, or `P` axis marker and names the selected axis in its
+  accessible label and tooltip. The separate axis lenses remain available.
+- Every representative `?` state uses the amber Needs review treatment. The snapshot summary links
+  the complete count to the representative-state filtered list, and Check first prioritizes those
+  records before transitional operational values. Needs review means the evidence is inconclusive,
+  missing, or unclassified; it does not itself establish failure, an Incident, or action authority.
 - Compact ontology graph nodes use an exact operational value first. When operation is not
   applicable or the provider exposes no operational state, an exact availability value or useful
   availability evidence gap leads, followed by an exact provisioning value. A missing applicable
@@ -356,7 +380,20 @@ the exact ResourceTypes whose ARM type is supported:
   ResourceTypes with no reviewed operational source.
 - Dashboard labels the source as `inventory_snapshot_resource`, groups Unknown records by their
   machine reason, and refreshes on the shared interval, browser resume, and inventory invalidation.
-- State colors organize recorded values; they do not assert a current operational success.
+- Each Dashboard state filter keeps its symbol, localized label, and count inside one bounded
+  wrapping chip. Long labels and counts remain inside the Resource panel at desktop and mobile
+  widths without changing the selected filter or recorded-state meaning.
+- State colors organize qualified recorded values; they do not assert a current operational
+  success. Running, Available, Serving, Enabled, Active, Online, Ready, and qualified Provisioning
+  Succeeded use green. The Provisioning axis marker keeps Succeeded distinct from operational
+  health or availability. Stopped, Deallocated, Offline, Disabled, Failed, and Unavailable use red.
+  Transitioning, Degraded, Stale, Paused, and every Needs review `?` use amber. Other recorded
+  values remain neutral, while Not provided and Not applicable retain gray or patterned treatment.
+- A `managed-identity` with no applicable operational state, no recorded provisioning state, and no
+  provider availability state uses green `Observed` only when it is present in one complete
+  generation-fenced `inventory_snapshot_resource` page. Observed proves Resource presence, not
+  identity usability, role assignment, token issuance, operational health, or availability. The
+  explicit axis lenses and Inspector retain Not applicable, Not recorded, and Not provided.
 - A retained value with stale, conflicting, synthetic, future-dated, invalid, or incomplete
   evidence keeps its exact text but uses a stale or unknown tone and stays outside the qualified
   operational-state count.

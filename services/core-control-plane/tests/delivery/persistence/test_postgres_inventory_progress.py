@@ -55,7 +55,11 @@ class _Connection:
 
     async def execute(self, query: str, params: object = None) -> _Cursor:
         self.executions.append((query, params))
-        if query.startswith("SELECT sequence") or query.startswith("SELECT payload"):
+        if (
+            query.startswith("SELECT sequence")
+            or query.startswith("SELECT payload")
+            or query.startswith("SELECT fdai_prune_inventory_progress")
+        ):
             return _Cursor(self.rows.pop(0))
         return _Cursor()
 
@@ -63,21 +67,32 @@ class _Connection:
 def _record(
     sequence: int = 1,
     previous: str = INVENTORY_PROGRESS_GENESIS_DIGEST,
+    *,
+    state: InventoryProgressState = InventoryProgressState.RUNNING,
 ) -> InventoryProgressRecord:
+    stage = (
+        InventoryProgressStage.COMPLETE
+        if state is InventoryProgressState.COMPLETE
+        else InventoryProgressStage.FAILED
+        if state is InventoryProgressState.FAILED
+        else InventoryProgressStage.COUNT
+    )
+    complete = state is InventoryProgressState.COMPLETE
     values: dict[str, object] = {
         "run_id": "run.abcdef",
         "attempt_id": "attempt.1",
         "sequence": sequence,
         "previous_digest": previous,
-        "stage": InventoryProgressStage.COUNT,
-        "state": InventoryProgressState.RUNNING,
-        "scopes_completed": 0,
+        "stage": stage,
+        "state": state,
+        "generation_digest": "sha256:" + "1" * 64 if complete else None,
+        "scopes_completed": 1 if complete else 0,
         "scopes_total": 1,
-        "provider_types_completed": 0,
+        "provider_types_completed": 2 if complete else 0,
         "provider_types_total": 2,
-        "resources_observed": 0,
+        "resources_observed": 10 if complete else 0,
         "resources_expected": 10,
-        "pages_completed": 0,
+        "pages_completed": 2 if complete else 0,
         "pages_expected": 2,
         "links_observed": 0,
         "unmapped_objects": 0,
@@ -85,8 +100,12 @@ def _record(
         "started_at": NOW,
         "last_progress_at": NOW + timedelta(seconds=1),
         "deadline_at": NOW + timedelta(minutes=5),
-        "fraction": 0.05,
-        "fraction_basis": InventoryProgressFractionBasis.COUNT,
+        "fraction": 1.0 if complete else 0.05,
+        "fraction_basis": (
+            InventoryProgressFractionBasis.VERIFIED_CLOSURE
+            if complete
+            else InventoryProgressFractionBasis.COUNT
+        ),
     }
     return InventoryProgressRecord(
         **values,
@@ -107,12 +126,16 @@ def _store(connection: _Connection) -> PostgresInventoryProgressStore:
 
 
 async def test_append_locks_chain_and_inserts_exact_payload() -> None:
-    connection = _Connection([None])
+    connection = _Connection([None, {"deleted_rows": 0}])
     assert await _store(connection).append(_record()) is True
 
     assert any("pg_advisory_xact_lock" in query for query, _ in connection.executions)
     assert any(
         query.startswith("INSERT INTO inventory_progress_event")
+        for query, _ in connection.executions
+    )
+    assert any(
+        query.startswith("SELECT fdai_prune_inventory_progress")
         for query, _ in connection.executions
     )
 
@@ -145,3 +168,22 @@ async def test_append_rejects_gap_and_wrong_previous_digest() -> None:
         await _store(_Connection([None])).append(_record(sequence=2))
     with pytest.raises(ValueError, match="previous digest"):
         await _store(_Connection([None])).append(_record(previous="sha256:" + "f" * 64))
+
+
+async def test_terminal_append_prunes_only_through_database_guard() -> None:
+    connection = _Connection([None, {"deleted_rows": 2}])
+
+    assert await _store(connection).append(_record(state=InventoryProgressState.COMPLETE)) is True
+
+    assert any(
+        query.startswith("SELECT fdai_prune_inventory_progress") and params == (16,)
+        for query, params in connection.executions
+    )
+
+
+def test_inventory_progress_retention_must_be_bounded() -> None:
+    with pytest.raises(ValueError, match="terminal retention"):
+        PostgresInventoryProgressStoreConfig(
+            dsn="postgresql://example",
+            terminal_attempt_retention=0,
+        )

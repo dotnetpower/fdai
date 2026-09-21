@@ -12,21 +12,72 @@ from typing import Any
 from urllib.parse import urlsplit
 from uuid import UUID
 
-from service_contract import (
-    ServiceContract,
-    ServiceContractError,
-    resolve_service,
+from guard_plan_bindings import (
+    MODEL_BINDING_ENVIRONMENT as _MODEL_BINDING_ENVIRONMENT,
 )
+from guard_plan_bindings import (
+    guard_database_host_binding as _guard_database_host_binding,
+)
+from guard_plan_bindings import (
+    valid_https_origin as _valid_https_origin,
+)
+from guard_plan_bindings import (
+    valid_model_endpoints as _valid_model_endpoints,
+)
+from guard_plan_bindings import (
+    valid_web_search_domains as _valid_web_search_domains,
+)
+from guard_plan_structure import (
+    _DIGEST_IMAGE,
+    PlanGuardError,
+)
+from guard_plan_structure import (
+    actions as _actions,
+)
+from guard_plan_structure import (
+    bounded_string_array as _bounded_string_array,
+)
+from guard_plan_structure import (
+    container_layout as _container_layout,
+)
+from guard_plan_structure import (
+    containers as _containers,
+)
+from guard_plan_structure import (
+    difference_paths as _difference_paths,
+)
+from guard_plan_structure import (
+    environment_binding as _environment_binding,
+)
+from guard_plan_structure import (
+    environment_by_name as _environment_by_name,
+)
+from guard_plan_structure import (
+    guard_sidecars as _guard_sidecars,
+)
+from guard_plan_structure import (
+    identity_ids as _identity_ids,
+)
+from guard_plan_structure import (
+    planned_image as _planned_image,
+)
+from guard_plan_structure import (
+    primary_container as _primary_container,
+)
+from guard_plan_structure import (
+    resource as _resource,
+)
+from guard_plan_structure import (
+    runtime_contract as _runtime_contract,
+)
+from guard_plan_structure import (
+    runtime_contract_drift_names as _runtime_contract_drift_names,
+)
+from guard_plan_structure import (
+    sort_primary_environment as _sort_primary_environment,
+)
+from service_contract import ServiceContract, ServiceContractError, resolve_service
 
-
-class PlanGuardError(ValueError):
-    """Raised when a Terraform plan exceeds one service's resource boundary."""
-
-
-_DIGEST_IMAGE = re.compile(r"[^\s]+@sha256:[0-9a-f]{64}")
-_ALLOWED_SIDECARS = {
-    "document-processing-worker": frozenset({"clamav"}),
-}
 _OPERATOR_CHANNEL_EDGE_ADDRESS = (
     "module.operator_service.module.channel_edge[0].azurerm_container_app.service"
 )
@@ -128,31 +179,6 @@ _OPERATOR_TEAMS_ATTACHMENT_REQUIRED_ENVIRONMENT = frozenset(
         "FDAI_TEAMS_ATTACHMENT_URL_TEMPLATE",
     }
 )
-_MODEL_BINDING_ENVIRONMENT = frozenset(
-    {
-        "FDAI_LLM_ENDPOINT",
-        "FDAI_MODEL_ENDPOINTS_JSON",
-        "FDAI_WEB_SEARCH_ALLOWED_DOMAINS",
-        "FDAI_WEB_SEARCH_ENABLED",
-        "FDAI_WEB_SEARCH_MAX_RESULTS",
-        "FDAI_WEB_SEARCH_TIMEOUT_SECONDS",
-        "LLM_MODE",
-        "LLM_RESOLVED_MODELS_PATH",
-        "LLM_RESOLVED_MODELS_SHA256",
-    }
-)
-_OPERATOR_RUNTIME_BINDINGS = {
-    "FDAI_HIL_DECISION_TOPIC": "fdai.hil.decisions",
-    "FDAI_INCIDENT_INTERVENTION_REQUEST_TOPIC": "operator.incident-intervention.requests",
-    "FDAI_NOTIFICATION_RECEIPT_TOPIC": "fdai.notifications.delivery-receipts",
-    "FDAI_READ_INVESTIGATION_COMPLETION_CONSUMER_GROUP_ID": (
-        "operator-read-investigation-completion-v1"
-    ),
-    "FDAI_READ_INVESTIGATION_COMPLETION_TOPIC": "core.read-investigation.completions",
-    "FDAI_READ_INVESTIGATION_REQUEST_TOPIC": "operator.read-investigation.requests",
-    "FDAI_SEMANTIC_TURN_PROJECTION_TOPIC": "core.semantic-turn.projections",
-    "FDAI_SEMANTIC_TURN_REQUEST_TOPIC": "operator.semantic-turn.requests",
-}
 _SHAREPOINT_CONNECTOR_ENVIRONMENT = frozenset(
     {
         "FDAI_SHAREPOINT_ACCESS_DESCRIPTOR_REF",
@@ -170,12 +196,7 @@ _SHAREPOINT_CONNECTOR_ENVIRONMENT = frozenset(
     }
 )
 _SHAREPOINT_PURPOSES = frozenset(
-    {
-        "handover_bootstrap",
-        "handover_evidence",
-        "knowledge_base",
-        "manual_distillation",
-    }
+    {"handover_bootstrap", "handover_evidence", "knowledge_base", "manual_distillation"}
 )
 _CORE_STEWARDSHIP_ENVIRONMENT = frozenset(
     {
@@ -207,10 +228,7 @@ _APP_GITHUB_AUTH_ENVIRONMENT = frozenset(
 )
 _RCA_READER_ENVIRONMENT = frozenset({"FDAI_RCA_AZURE_READER_CLIENT_ID"})
 _RUNTIME_CALL_EVIDENCE_ENVIRONMENT = frozenset(
-    {
-        "FDAI_RUNTIME_CALL_CALLER_RESOURCE_ID",
-        "FDAI_RUNTIME_CALL_TARGET_RESOURCE_ID",
-    }
+    {"FDAI_RUNTIME_CALL_CALLER_RESOURCE_ID", "FDAI_RUNTIME_CALL_TARGET_RESOURCE_ID"}
 )
 _RUNTIME_CALL_OUTBOX_NAMESPACE = "FDAI_SEMANTIC_TURN_OUTBOX_NAMESPACE"
 _CORE_EVIDENCE_BINDING_REQUIRED_ENVIRONMENT = frozenset(
@@ -262,6 +280,8 @@ _CORE_HANDOVER_CADENCE_MINIMUMS = {
     "FDAI_HANDOVER_KNOWLEDGE_INTERVAL_SECONDS": 10,
 }
 _NOTIFICATION_RECEIPT_TOPIC = "fdai.notifications.delivery-receipts"
+_MAX_PLAN_FILE_BYTES = 64 * 1024 * 1024
+_MAX_PLAN_RESOURCE_ENTRIES = 10_000
 
 
 def _operator_channel_edge_contract(base: ServiceContract) -> ServiceContract:
@@ -287,270 +307,6 @@ def _document_channel_intake_contract(base: ServiceContract) -> ServiceContract:
         image_repository=base.image_repository,
         entrypoint="fdai-document-channel-intake",
         required_environment=tuple(sorted(_DOCUMENT_CHANNEL_INTAKE_REQUIRED_ENVIRONMENT)),
-    )
-
-
-def _difference_paths(before: Any, after: Any, *, path: str = "$") -> list[str]:
-    if type(before) is not type(after):
-        return [path]
-    if isinstance(before, dict):
-        paths: list[str] = []
-        for key in sorted(set(before) | set(after)):
-            nested = f"{path}.{key}"
-            if key not in before or key not in after:
-                paths.append(nested)
-            else:
-                paths.extend(_difference_paths(before[key], after[key], path=nested))
-        return paths
-    if isinstance(before, list):
-        paths = [path] if len(before) != len(after) else []
-        for index, (left, right) in enumerate(zip(before, after, strict=False)):
-            paths.extend(_difference_paths(left, right, path=f"{path}[{index}]"))
-        return paths
-    return [] if before == after else [path]
-
-
-def _bounded_string_array(value: object, *, maximum: int = 32) -> tuple[str, ...] | None:
-    if not isinstance(value, str):
-        return None
-    try:
-        loaded = json.loads(value)
-    except json.JSONDecodeError:
-        return None
-    if (
-        not isinstance(loaded, list)
-        or not 1 <= len(loaded) <= maximum
-        or any(not isinstance(item, str) or not item.strip() or len(item) > 512 for item in loaded)
-        or len(loaded) != len(set(loaded))
-    ):
-        return None
-    return tuple(loaded)
-
-
-def _actions(change: Any, *, address: str) -> tuple[str, ...]:
-    if not isinstance(change, dict) or not isinstance(change.get("actions"), list):
-        raise PlanGuardError(f"plan change for {address} has no action list")
-    actions = tuple(change["actions"])
-    if not all(isinstance(action, str) for action in actions):
-        raise PlanGuardError(f"plan change for {address} has an invalid action")
-    return actions
-
-
-def _planned_image(
-    change: dict[str, Any],
-    *,
-    address: str,
-    contract: ServiceContract,
-) -> str:
-    image = _primary_container(
-        _resource(change, side="after", address=address),
-        address=address,
-        contract=contract,
-    ).get("image")
-    if not isinstance(image, str):
-        raise PlanGuardError(f"resource at {address} has no container image")
-    return image
-
-
-def _resource(change: dict[str, Any], *, side: str, address: str) -> dict[str, Any]:
-    resource = change.get(side)
-    if not isinstance(resource, dict):
-        raise PlanGuardError(f"plan change for {address} has no {side} resource")
-    return resource
-
-
-def _containers(resource: dict[str, Any], *, address: str) -> dict[str, dict[str, Any]]:
-    templates = resource.get("template")
-    if not isinstance(templates, list) or len(templates) != 1:
-        raise PlanGuardError(f"resource at {address} has an invalid template")
-    containers = templates[0].get("container") if isinstance(templates[0], dict) else None
-    if not isinstance(containers, list) or not containers:
-        raise PlanGuardError(f"resource at {address} has no containers")
-    result: dict[str, dict[str, Any]] = {}
-    for container in containers:
-        if not isinstance(container, dict):
-            raise PlanGuardError(f"resource at {address} has an invalid container")
-        name = container.get("name")
-        image = container.get("image")
-        if not isinstance(name, str) or not name or name in result:
-            raise PlanGuardError(f"resource at {address} has invalid container names")
-        if not isinstance(image, str) or not image:
-            raise PlanGuardError(f"container {name} at {address} has no image")
-        result[name] = container
-    return result
-
-
-def _container_layout(
-    resource: dict[str, Any],
-    *,
-    address: str,
-    contract: ServiceContract,
-) -> tuple[dict[str, Any], dict[str, dict[str, Any]]]:
-    containers = _containers(resource, address=address)
-    expected_sidecars = _ALLOWED_SIDECARS.get(contract.service, frozenset())
-    primary_names = set(containers) - expected_sidecars
-    if len(primary_names) != 1 or set(containers) != primary_names | expected_sidecars:
-        raise PlanGuardError(
-            f"resource at {address} must contain one primary and the exact allowed sidecar set"
-        )
-    primary = containers[primary_names.pop()]
-    sidecars = {name: containers[name] for name in expected_sidecars}
-    return primary, sidecars
-
-
-def _primary_container(
-    resource: dict[str, Any],
-    *,
-    address: str,
-    contract: ServiceContract,
-) -> dict[str, Any]:
-    primary, _ = _container_layout(resource, address=address, contract=contract)
-    return primary
-
-
-def _guard_sidecars(
-    resource: dict[str, Any],
-    *,
-    address: str,
-    contract: ServiceContract,
-) -> list[str]:
-    _, sidecars = _container_layout(resource, address=address, contract=contract)
-    violations: list[str] = []
-    for name, sidecar in sidecars.items():
-        image = sidecar.get("image")
-        if not isinstance(image, str) or _DIGEST_IMAGE.fullmatch(image) is None:
-            violations.append(f"sidecar {name} image is not immutable at {address}")
-        probes: dict[str, dict[str, Any]] = {}
-        for probe_name in ("startup_probe", "liveness_probe", "readiness_probe"):
-            raw_probe = sidecar.get(probe_name)
-            if (
-                not isinstance(raw_probe, list)
-                or len(raw_probe) != 1
-                or not isinstance(raw_probe[0], dict)
-            ):
-                violations.append(f"sidecar {name} has invalid {probe_name} at {address}")
-                continue
-            probes[probe_name] = raw_probe[0]
-        if len(probes) != 3:
-            continue
-        ports = {probe.get("port") for probe in probes.values()}
-        if (
-            len(ports) != 1
-            or not all(
-                isinstance(port, int) and not isinstance(port, bool) and 0 < port < 65536
-                for port in ports
-            )
-            or not all(probe.get("transport") == "TCP" for probe in probes.values())
-            or probes["startup_probe"].get("failure_count_threshold") != 30
-        ):
-            violations.append(f"sidecar {name} probe contract changed at {address}")
-    return violations
-
-
-def _identity_ids(resource: dict[str, Any], *, address: str) -> frozenset[str]:
-    identities = resource.get("identity")
-    if not isinstance(identities, list) or len(identities) != 1:
-        raise PlanGuardError(f"resource at {address} must contain one identity block")
-    identity = identities[0]
-    raw_ids = identity.get("identity_ids") if isinstance(identity, dict) else None
-    if (
-        not isinstance(raw_ids, list)
-        or not raw_ids
-        or not all(isinstance(identity_id, str) and identity_id for identity_id in raw_ids)
-    ):
-        raise PlanGuardError(f"resource at {address} has invalid workload identities")
-    return frozenset(raw_ids)
-
-
-def _runtime_contract(
-    resource: dict[str, Any],
-    *,
-    address: str,
-    contract: ServiceContract,
-) -> dict[str, Any]:
-    container = _primary_container(resource, address=address, contract=contract)
-    return {key: container.get(key) for key in ("name", "command", "args", "env")}
-
-
-def _runtime_contract_by_name(
-    resource: dict[str, Any],
-    *,
-    address: str,
-    contract: ServiceContract,
-) -> dict[str, Any]:
-    container = _primary_container(resource, address=address, contract=contract)
-    environment = _environment_by_name(container, address=address)
-    return {
-        "name": container.get("name"),
-        "command": container.get("command"),
-        "args": container.get("args"),
-        "env": {name: _environment_binding(item) for name, item in sorted(environment.items())},
-    }
-
-
-def _runtime_contract_drift_names(
-    before: dict[str, Any],
-    after: dict[str, Any],
-    *,
-    address: str,
-    contract: ServiceContract,
-) -> tuple[str, ...]:
-    before_runtime = _runtime_contract_by_name(before, address=address, contract=contract)
-    after_runtime = _runtime_contract_by_name(after, address=address, contract=contract)
-    changed = [
-        key for key in ("name", "command", "args") if before_runtime[key] != after_runtime[key]
-    ]
-    before_environment = before_runtime["env"]
-    after_environment = after_runtime["env"]
-    if not isinstance(before_environment, dict) or not isinstance(after_environment, dict):
-        raise PlanGuardError(f"resource at {address} has an invalid normalized environment")
-    changed.extend(
-        f"env:{name}"
-        for name in sorted(set(before_environment) | set(after_environment))
-        if before_environment.get(name) != after_environment.get(name)
-    )
-    return tuple(changed)
-
-
-def _sort_primary_environment(
-    resource: dict[str, Any],
-    *,
-    address: str,
-    contract: ServiceContract,
-) -> dict[str, Any]:
-    normalized = copy.deepcopy(resource)
-    container = _primary_container(normalized, address=address, contract=contract)
-    environment = container.get("env")
-    if not isinstance(environment, list):
-        raise PlanGuardError(f"resource at {address} has an invalid environment")
-    container["env"] = sorted(
-        environment,
-        key=lambda item: str(item.get("name")) if isinstance(item, dict) else "",
-    )
-    return normalized
-
-
-def _environment_by_name(container: dict[str, Any], *, address: str) -> dict[str, dict[str, Any]]:
-    environment = container.get("env")
-    if not isinstance(environment, list):
-        raise PlanGuardError(f"resource at {address} has an invalid environment")
-    result: dict[str, dict[str, Any]] = {}
-    for item in environment:
-        name = item.get("name") if isinstance(item, dict) else None
-        if not isinstance(name, str) or not name or name in result:
-            raise PlanGuardError(f"resource at {address} has invalid environment names")
-        result[name] = item
-    return result
-
-
-def _environment_binding(item: dict[str, Any] | None) -> tuple[Any, Any] | None:
-    if item is None:
-        return None
-    secret_name = item.get("secret_name")
-    normalized_secret = None if secret_name in (None, "") else secret_name
-    return (
-        None if normalized_secret is not None else item.get("value"),
-        normalized_secret,
     )
 
 
@@ -808,160 +564,6 @@ def _has_canonical_notification_receipt_topic(
         _NOTIFICATION_RECEIPT_TOPIC,
         None,
     )
-
-
-def _valid_https_origin(value: str) -> bool:
-    try:
-        parsed = urlsplit(value.strip().rstrip("/"))
-        port = parsed.port
-    except ValueError:
-        return False
-    return (
-        parsed.scheme == "https"
-        and parsed.hostname is not None
-        and parsed.username is None
-        and parsed.password is None
-        and parsed.path == ""
-        and parsed.query == ""
-        and parsed.fragment == ""
-        and port != 0
-        and "\\" not in value
-        and not any(character.isspace() for character in value)
-    )
-
-
-def _valid_console_origin(value: str) -> bool:
-    """Return whether a value is one exact Static Web Apps HTTPS origin."""
-    if not _valid_https_origin(value) or value != value.strip().rstrip("/"):
-        return False
-    parsed = urlsplit(value)
-    hostname = parsed.hostname
-    return (
-        hostname is not None and hostname.endswith(".azurestaticapps.net") and parsed.port is None
-    )
-
-
-def _valid_web_search_domains(value: str) -> bool:
-    domains = [] if value == "" else value.split(",")
-    return (
-        len(domains) <= 100
-        and len(domains) == len(set(domains))
-        and all(
-            re.fullmatch(r"[A-Za-z0-9](?:[A-Za-z0-9.-]{0,251}[A-Za-z0-9])?", domain) is not None
-            and ".." not in domain
-            and all(len(label) <= 63 for label in domain.split("."))
-            for domain in domains
-        )
-    )
-
-
-def _valid_model_endpoints(value: str, *, primary_endpoint: str) -> bool:
-    try:
-        raw = json.loads(value)
-    except json.JSONDecodeError:
-        return False
-    if not isinstance(raw, dict) or not 1 <= len(raw) <= 16:
-        return False
-    primary_matches = 0
-    for reference, endpoint in raw.items():
-        if not isinstance(reference, str) or not isinstance(endpoint, str):
-            return False
-        if reference.startswith("azure-openai:"):
-            prefix = "azure-openai:"
-            suffix = ".openai.azure.com"
-        elif reference.startswith("azure-foundry:"):
-            prefix = "azure-foundry:"
-            suffix = ".services.ai.azure.com"
-        else:
-            return False
-        if not _valid_https_origin(endpoint):
-            return False
-        parsed = urlsplit(endpoint.strip().rstrip("/"))
-        hostname = (parsed.hostname or "").lower()
-        if not hostname.endswith(suffix):
-            return False
-        account = hostname.removesuffix(suffix)
-        if not account or reference != f"{prefix}{account}":
-            return False
-        if prefix == "azure-openai:" and endpoint.rstrip("/") == primary_endpoint.rstrip("/"):
-            primary_matches += 1
-    return primary_matches == 1
-
-
-def _guard_database_host_binding(
-    before: dict[str, Any],
-    after: dict[str, Any],
-    *,
-    address: str,
-    contract: ServiceContract,
-    additional_allowed_names: frozenset[str] = frozenset(),
-) -> list[str]:
-    before_primary = _primary_container(before, address=address, contract=contract)
-    after_primary = _primary_container(after, address=address, contract=contract)
-    if any(
-        before_primary.get(key) != after_primary.get(key) for key in ("name", "command", "args")
-    ):
-        return [f"database host binding changes the service command at {address}"]
-    before_environment = _environment_by_name(before_primary, address=address)
-    after_environment = _environment_by_name(after_primary, address=address)
-    changed_names = {
-        name
-        for name in set(before_environment) | set(after_environment)
-        if _environment_binding(before_environment.get(name))
-        != _environment_binding(after_environment.get(name))
-    }
-    operator_runtime_bindings = {
-        name
-        for name in changed_names
-        if contract.service == "operator-service"
-        and _environment_binding(after_environment.get(name))
-        == (_OPERATOR_RUNTIME_BINDINGS.get(name), None)
-        and name in _OPERATOR_RUNTIME_BINDINGS
-    }
-    console_origin_binding = _environment_binding(
-        after_environment.get("FDAI_OPERATOR_API_CORS_ALLOW_ORIGINS")
-    )
-    console_origin, console_origin_secret = console_origin_binding or (None, None)
-    console_origin_changed = "FDAI_OPERATOR_API_CORS_ALLOW_ORIGINS" in changed_names
-    valid_console_origin = (
-        contract.service == "operator-service"
-        and isinstance(console_origin, str)
-        and console_origin_secret is None
-        and _valid_console_origin(console_origin)
-    )
-    if console_origin_changed and valid_console_origin:
-        operator_runtime_bindings.add("FDAI_OPERATOR_API_CORS_ALLOW_ORIGINS")
-    deployed_venue_binding = {
-        name
-        for name in changed_names
-        if name == "FDAI_EXECUTION_VENUE"
-        and _environment_binding(after_environment.get(name)) == ("deployed", None)
-    }
-    unexpected = sorted(
-        changed_names.difference(
-            {"POSTGRES_HOST"}
-            | additional_allowed_names
-            | operator_runtime_bindings
-            | deployed_venue_binding
-        )
-    )
-    host_binding = _environment_binding(after_environment.get("POSTGRES_HOST"))
-    violations: list[str] = []
-    if unexpected:
-        violations.append(
-            f"database host binding changes unapproved environment at {address}: "
-            f"unexpected={unexpected}"
-        )
-    if console_origin_changed and not valid_console_origin:
-        violations.append(f"database host binding has invalid Console origin at {address}")
-    if (
-        host_binding is None
-        or not isinstance(host_binding[0], str)
-        or not host_binding[0].strip()
-        or host_binding[1] is not None
-    ):
-        violations.append(f"database host binding is invalid at {address}")
-    return violations
 
 
 def _guard_model_binding_transition(
@@ -2707,8 +2309,8 @@ def validate_plan(
     channel_edge_contract = _operator_channel_edge_contract(contract)
     channel_intake_contract = _document_channel_intake_contract(contract)
     resource_changes = payload.get("resource_changes", [])
-    if not isinstance(resource_changes, list):
-        raise PlanGuardError("Terraform plan resource_changes must be an array")
+    if not isinstance(resource_changes, list) or len(resource_changes) > _MAX_PLAN_RESOURCE_ENTRIES:
+        raise PlanGuardError("Terraform plan resource_changes must be a bounded array")
     violations: list[str] = []
     selected_after: dict[str, Any] | None = None
     selected_before: dict[str, Any] | None = None
@@ -2953,6 +2555,10 @@ def validate_plan(
     elif _DOCUMENT_CHANNEL_INTAKE_CONTRACT_ADDRESS in channel_intake_actions:
         violations.append("document channel intake standard update changed its contract marker")
     resource_drift = payload.get("resource_drift", [])
+    if resource_drift is not None and (
+        not isinstance(resource_drift, list) or len(resource_drift) > _MAX_PLAN_RESOURCE_ENTRIES
+    ):
+        raise PlanGuardError("Terraform plan resource_drift must be a bounded array or null")
     allowed_worker_drift = (
         initial_cutover
         and selected_after is not None
@@ -3043,6 +2649,8 @@ def main() -> int:
     )
     args = parser.parse_args()
     try:
+        if args.plan_json.stat().st_size > _MAX_PLAN_FILE_BYTES:
+            raise PlanGuardError("Terraform plan JSON exceeds the validation size limit")
         payload = json.loads(args.plan_json.read_text(encoding="utf-8"))
         if not isinstance(payload, dict):
             raise PlanGuardError("Terraform plan must contain a JSON object")

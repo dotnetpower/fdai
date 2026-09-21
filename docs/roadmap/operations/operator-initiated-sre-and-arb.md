@@ -7,7 +7,7 @@ title: Operator-Initiated SRE and Architecture Review
 This plan defines how FDAI identifies operational work that is not an incident, turns an
 operator's SRE request into a governed incident response, and runs the Architecture Review Board
 (ARB) process as an observable workflow. It also defines the safety boundary for shadow and
-enforce operation in both local and deployed environments.
+enforce operation in both local and deployed environments. Consumers import typed proposal claims from the focused persistence-model owner without changing Incident lifecycle ownership.
 
 > **Scope:** This design reuses the existing incident registry, typed action pipeline, Process
 > journal, risk gate, and executor adapters. It does not add a console-owned executor or a second
@@ -24,6 +24,11 @@ enforce operation in both local and deployed environments.
 > remain open and are tracked below.
 
 ## Design at a glance
+
+Operator production composition now delegates lifecycle ordering, route-family assembly, and
+read-source declarations to focused modules. Incident confirmation bridge construction and
+readiness remain in the production facade, so this split changes no Incident topic, durable
+acceptance, service identity, or execution authority.
 
 FDAI uses one trace identity for every unit of work and creates an Incident only for an
 evidence-backed problem or an operator-confirmed problem-response request. Read-only discovery
@@ -63,6 +68,7 @@ converging to audited no-op outcomes, and expiry reconciliation cannot create an
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-21 | implemented | Separated Operator lifecycle and resource cleanup, route-family assembly, and read-source declarations from the production composition facade while preserving Incident confirmation wiring and readiness. | `current change`; Operator composition tests passed 120 cases with one optional PDF skip; Ruff, strict mypy, Operator boundary, independent-service, design-route, and LOC gates passed. | No Incident transport or authority work remains for this internal ownership split. |
 | 2026-09-17 | implemented | Bound each detector episode's action idempotency key to the Incident actually returned by the registry, then allowed independent effect verification to apply only its legal terminal path. | `current change`; `bootstrap_incidents.py`; focused same-resource recurrence and replay test | Retain deployed authenticated episode and effect evidence before claiming live recovery. |
 | 2026-09-17 | implemented | Kept the Incident creation consumer independent from the always-composed approval-expiry reconciler in shared runtime task supervision. | `current change`; `bootstrap_tasks.py`; focused HIL and bootstrap tests | No remaining work for this task-isolation boundary. |
 | 2026-08-13 | in-progress | Adopted the implementation ledger, corrected the ARB surface and Operator workflow authority boundary, and did not reconstruct earlier provenance. | Current change; focused Incident, investigation, ARB, event-correlation, and Operator workflow tests listed in the scope table. | Complete the integrated SRE command/progress path and record governed evidence for authority-bearing Workflow enforce and parity. |

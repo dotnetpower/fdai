@@ -21,6 +21,40 @@ from fdai.shared.providers.ontology_instance import (
 _BATCH_SIZE = 1000
 
 
+async def update_existing_object(
+    connection: psycopg.AsyncConnection[Any],
+    *,
+    record: OntologyObjectRecord,
+    existing: Mapping[str, Any],
+    expected_revision: int | None,
+) -> int:
+    current_type = str(existing["object_type"])
+    current_revision = int(existing["revision"])
+    if current_type != record.object_type:
+        raise OntologyInstanceValidationError(
+            f"ontology object {record.id!r} cannot change type "
+            f"from {current_type} to {record.object_type}"
+        )
+    if expected_revision is not None and expected_revision != current_revision:
+        raise OntologyInstanceValidationError(
+            f"ontology object {record.id!r} revision mismatch: "
+            f"expected {expected_revision}, current {current_revision}"
+        )
+    revision = current_revision + 1
+    await connection.execute(
+        "UPDATE ontology_resource SET properties=%s::jsonb, revision=%s, type_version=%s, "
+        "catalog_digest=%s, updated_at=NOW() WHERE id=%s",
+        (
+            canonical_json_mapping(record.properties, path=f"{record.object_type}.properties")[1],
+            revision,
+            _require_type_ref(record.type_ref).version,
+            _require_type_ref(record.type_ref).catalog_digest,
+            record.id,
+        ),
+    )
+    return revision
+
+
 async def replace_records(
     connection: psycopg.AsyncConnection[Any],
     *,

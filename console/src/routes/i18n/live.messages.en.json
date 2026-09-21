@@ -119,7 +119,7 @@
     "error": "Projection error"
   },
   "attention": {"ariaLabel": "Operator attention triage", "label": "Attention", "approvals": "{count} approvals waiting", "denied": "{count} denied", "failed": "{count} failed", "stuck": "{count} stuck", "approvalTitle": "High-risk actions awaiting approval", "deniedTitle": "The risk gate refused these actions. Inspect the policy evidence.", "failedTitle": "A control-loop stage failed. Inspect the recorded audit entry.", "stuckTitle": "These items exceeded the latency budget published by the control plane.", "openApprovals": "Open approvals", "none": "No control-loop work currently needs attention.", "unavailable": "Live attention is unavailable. Recorded outcomes remain in History."},
-  "kpi": {"events": "Events / sec", "average": "/s - 60s avg", "messagesHelp": "Unique SSE activity messages - last 60s", "partial": "Partial window - some measurements excluded", "noGate": "No gate decision observed", "noTier": "No tier assignment observed", "controlOnly": "Control-loop only; source reads are not classified here.", "gateMix": "Gate mix (60s)", "auto": "auto", "tierMix": "Tier mix (60s)", "finalized": "{count} observed decisions", "routed": "{count} routed events", "emptyTitle": "0 control-loop events in the last 60 seconds", "emptyDetail": "No gate or tier distribution is available for an empty measured window.", "tierLabel": {"t0": "Deterministic", "t1": "Evidence-backed", "t2": "Adaptive"}},
+  "kpi": {"events": "Events / sec", "average": "/s - 60s avg", "messagesHelp": "Unique SSE activity messages - last 60s", "partial": "Partial window - some measurements excluded", "noGate": "No current gate decision", "noTier": "No current tier assignment", "controlOnly": "Current control-loop cards only; source reads are not classified here.", "gateMix": "Gate mix (current)", "auto": "auto", "tierMix": "Tier mix (current)", "finalized": "{count} current decisions", "routed": "{count} current routed events", "emptyTitle": "0 control-loop events in the last 60 seconds", "emptyDetail": "No gate or tier distribution is available for an empty measured window.", "tierLabel": {"t0": "Deterministic", "t1": "Evidence-backed", "t2": "Adaptive"}},
   "decision": {"auto": "Auto", "hil": "Approval", "abstain": "Held", "deny": "Denied"},
   "work": {
     "fullscreen": "View activity full screen",
@@ -143,6 +143,9 @@
     "target": "One synthetic checkout capacity VM",
     "authorityLabel": "Authority",
     "authority": "Per-execution human approval",
+    "tierCohortLabel": "Synthetic tier cohort",
+    "tierCohortSize": "{count} generated events",
+    "tierCohortBoundary": "Presentation-only distribution. It does not change Live routing or create operational evidence.",
     "boundary": "Synthetic walkthrough only. It does not claim a live Azure action or measured business outcome.",
     "inspect": "Inspect complete correlation",
     "steps": {

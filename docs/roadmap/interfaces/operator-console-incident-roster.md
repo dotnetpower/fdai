@@ -95,7 +95,8 @@ the canonical incident.
 itself prove that an Incident lifecycle record exists. The Incident roster, attention stream, and
 outcome cohorts admit a correlation only after a canonical `incident.open` audit entry exists.
 Audit, Trace, and RCA continue to expose operational correlations that have not entered the Incident
-lifecycle. The temporal projection retains a durable canonical Incident id, display number, opening
+lifecycle directly from their bounded evidence readers; those correlations do not consume temporal
+Incident projection rows. The temporal projection retains a durable canonical Incident id, display number, opening
 time, latest lifecycle state, and optional ticket id independently from its 100-row presentation
 history, so an old opening row cannot make a real Incident lose its identity.
 
@@ -156,11 +157,10 @@ FDAI adopts the operator-facing strengths documented for Azure SRE Agent without
 
 Missing correlations remain missing. The projection treats empty values and historical `None` or
 `null` string sentinels as absent, so unrelated audit-only rows cannot form a synthetic Incident.
-A correlation group whose every row is platform housekeeping is excluded from the broader temporal
-projection using the first `action_kind` segment (`background-task`, `iam`, `startup_readiness`,
-`semantic_turn`, `observation-campaign`, and `read-investigation`). A new operational action kind
-remains available to Audit, Trace, RCA, and Agent activity, but it does not enter the Incident roster
-or its outcome denominator until the canonical lifecycle records `incident.open`.
+A correlation group is admitted to temporal Incident storage only after the canonical lifecycle
+records `incident.open` with a nonblank Incident id. Generic audit traffic, including platform
+housekeeping, remains available to Audit, Trace, RCA, and Agent activity without creating an
+Incident projection row or entering the roster and outcome denominator.
 
 The cohort panel discloses its own bound. The projection reports `matched_total`, the number of
 incidents the snapshot matched before the 500-incident measurement bound, so the panel can state

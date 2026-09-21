@@ -56,6 +56,17 @@ def _details(
     }
 
 
+@pytest.mark.parametrize("value", [float("nan"), float("inf"), float("-inf")])
+def test_non_finite_scalar_evidence_fails_closed(value: float) -> None:
+    artifact = compile_presentation_artifact_v2(
+        semantic=_SEMANTIC,
+        technical_details=_details([{"name": "resource-a", "value": value}]),
+        locale="en",
+    )
+
+    assert artifact is None
+
+
 def test_target_health_assessment_uses_compact_overview_and_gap_blocks() -> None:
     details = _details(
         [

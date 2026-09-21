@@ -52,6 +52,14 @@ from fdai.shared.providers.event_bus import PublishReceipt
 from fdai.shared.providers.ontology_instance import OntologyGraphSnapshot
 from fdai.shared.providers.testing.event_bus import InMemoryEventBus
 from fdai.shared.providers.testing.state_store import InMemoryStateStore
+from fdai_core_service.semantic_incident_answer import (
+    incident_next_step_text as _incident_next_step_text,
+)
+from fdai_core_service.semantic_incident_evidence import (
+    incident_next_step_actions,
+    incident_profile_facts,
+    incident_timeline_rows,
+)
 from fdai_core_service.semantic_relationship_projection import render_ontology_relationship_answer
 from fdai_core_service.semantic_service_health_answer import render_service_health_answer
 from fdai_core_service.semantic_turn_consumer import (
@@ -68,7 +76,6 @@ from fdai_core_service.semantic_turn_processor import (
     _bounded_document_text,
     _decode_request,
     _execution_output_incomplete,
-    _incident_next_step_text,
     _project_investigation_continuation,
     _render_general_query_answer,
     _render_partial_causal_answer,
@@ -78,9 +85,6 @@ from fdai_core_service.semantic_turn_processor import (
     _semantic_projection_id,
     _semantic_turn_timing,
     _typed_extension_answer_output,
-    incident_next_step_actions,
-    incident_profile_facts,
-    incident_timeline_rows,
 )
 from fdai_service_contracts import (
     AdaptiveAnswer,

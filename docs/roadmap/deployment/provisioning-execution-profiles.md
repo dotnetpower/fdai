@@ -10,6 +10,16 @@ that applies before Terraform changes infrastructure or role assignments.
 > **Scope:** Azure is the implemented target. The profiles do not change the Terraform source of
 > truth or allow local fallback around a private endpoint.
 
+The package retains an internal development and staging client for already protected repository
+workflows. That library dispatches context-bound plan or apply requests and validates bounded
+status artifacts; it is not a public tenant-provisioning transport. Its facade delegates immutable
+request values, subprocess transport, dispatch, plan metadata, apply receipts, and provider-schema
+evidence to focused modules. This split adds no command, credential, Azure role, or apply authority.
+The command facade also delegates source and offline-kit Foundation planning, private filesystem
+handling, target checks, provider-lock validation, and bounded Terraform execution to one focused
+plan module. Parser handlers, output contracts, exact approval requirements, and mutation authority
+remain unchanged.
+
 ## Implementation status
 
 ### Implementation scope
@@ -32,6 +42,8 @@ that applies before Terraform changes infrastructure or role assignments.
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-21 | implemented | Separated source and offline-kit Foundation planning plus private Terraform/filesystem helpers from the deployment CLI command facade. | `current change`; 12-lens critique; 184 focused plan and help-hardening tests; Ruff and strict mypy passed. | No parser handler, output contract, target binding, approval, or mutation authority changed. |
+| 2026-09-21 | implemented | Split the retained internal GitHub protected-workflow client into immutable values, bounded subprocess transport, dispatch, private artifact I/O, plan metadata, apply receipts, and provider-schema evidence modules while preserving the public facade. | `current change`; 12-lens critique; 42 focused GitHub Actions tests; Ruff, strict mypy, LOC, design-route, and documentation gates. | Public tenant provisioning remains manual and GitHub-free. No command, credential, Azure role, or apply authority changed. |
 | 2026-09-19 | implemented | Added a claim-first, source-address-bound, certificate-pinned private TLS relay for the explicit audited Action Run Command access path. It creates no cloud staging artifact, allows one verification-only recovery, and grants no apply authority. | `current change`; execution bundle and receiver modules, fixed relay/bootstrap/orchestration modules, 25 focused tests, Ruff. | Retain one exact live peered-host transfer receipt, then connect the explicit adapter to reviewed `fdaictl` access-profile routing without changing VM lifecycle or application approval. |
 | 2026-09-17 | in-progress | Removed public release publication and online Azure convergence as operational-validation prerequisites. One exact locally built signed kit now supplies both the local coordinator and appliance entry points; online acquisition remains a supported optional distribution path. | `current change`; owner documents and Azure deployment skill; no runtime, signature, approval, or Azure behavior changed. | Build and independently verify one local complete kit, then retain separately approved local-coordinator and appliance-entry-point convergence receipts from those same bytes. |
 | 2026-09-16 | not-started | Made AKS the explicit basic-deployment target and moved selected peering, private endpoints, private DNS, private-cluster mode and public-access removal into a Console-originated detailed provisioning plan. Tenant provisioning consumes prebuilt signed images and never builds or captures them. | `current change`; documentation and deployment-skill contracts only; no CLI, Console, Terraform or Azure effect claimed. | Implement the API-server subnet and public baseline, remove tenant image builders, add Console network request states and protected execution, and retain both baseline and private-transition receipts. |

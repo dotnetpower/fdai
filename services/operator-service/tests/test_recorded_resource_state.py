@@ -390,6 +390,9 @@ def test_every_canonical_resource_type_has_a_reviewed_operational_state_outcome(
         | {"unclassified-resource"}
     )
     assert classified == canonical
+    assert OPERATIONAL_STATE_NOT_APPLICABLE_RESOURCE_TYPES.isdisjoint(
+        PROVIDER_OPERATIONAL_STATE_NOT_EXPOSED_RESOURCE_TYPES
+    )
     assert set(AVAILABILITY_STATE_SOURCE_PATHS_BY_RESOURCE_TYPE).isdisjoint(
         AVAILABILITY_STATE_NOT_APPLICABLE_RESOURCE_TYPES
     )
@@ -406,6 +409,16 @@ def test_every_canonical_resource_type_has_a_reviewed_operational_state_outcome(
     assert AVAILABILITY_STATE_NOT_APPLICABLE_RESOURCE_TYPES.isdisjoint(
         PROVIDER_AVAILABILITY_STATE_NOT_EXPOSED_RESOURCE_TYPES
     )
+
+
+@pytest.mark.parametrize("resource_type", ["compute.image", "network.firewall-policy"])
+def test_configuration_resources_have_reviewed_missing_state_outcomes(
+    resource_type: str,
+) -> None:
+    states = recorded_resource_states({}, resource_type=resource_type, now=NOW)
+
+    assert states["operational"]["reason"] == "state_not_applicable"
+    assert states["availability"]["reason"] == "provider_availability_state_not_exposed"
 
 
 @pytest.mark.parametrize(

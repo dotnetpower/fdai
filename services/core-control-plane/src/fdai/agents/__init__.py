@@ -74,6 +74,11 @@ from fdai.agents._framework.introspection import agent_state_evidence_ref
 from fdai.agents._framework.muninn_investigation_strategy import (
     MuninnInvestigationStrategyCohortSink,
 )
+from fdai.agents._framework.ontology_index import (
+    ContextIndexMessage,
+    ContextIndexWorkerBindings,
+    recover_context_index_publications,
+)
 from fdai.agents._framework.pantheon import (
     HARD_DEPENDENCY_AGENTS,
     LLM_HOT_PATH_ALLOWLIST,
@@ -139,7 +144,19 @@ async def request_rule_generation(
     await mimir.request_rule_generation(request)
 
 
+async def request_context_index(runtime: PantheonRuntime, request: ContextIndexMessage) -> None:
+    """Publish one typed reconciliation request through the Huginn-owned ingress topic."""
+    request = ContextIndexMessage.model_validate_json(request.model_dump_json())
+    if request.phase not in {"prepare", "transition"} or "Huginn" not in runtime.agents:
+        raise ValueError("ontology ContextIndex reconciliation requires available Huginn ingress")
+    await runtime.bridge.publish("Huginn", request.topic, request.model_dump(mode="json"))
+
+
 __all__ = [
+    "ContextIndexMessage",
+    "ContextIndexWorkerBindings",
+    "request_context_index",
+    "recover_context_index_publications",
     "ActionSemanticsCatalog",
     "AssignmentWorkflowBindings",
     "Agent",

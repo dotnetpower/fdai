@@ -1,7 +1,7 @@
 ---
 title: 리포팅 서브시스템
 translation_of: reporting-subsystem.md
-translation_source_sha: 0adc81ea1dbf782db0532e52b1c0fa658f2d3fd0
+translation_source_sha: 0ec439f0a76d13efff72d0ea48d8ff89871da118
 translation_revised: 2026-09-21
 ---
 # 리포팅 서브시스템
@@ -597,7 +597,6 @@ shipped된 서브시스템을 OWASP + `app-shape` 관점에서 체계적으로
 | 2026-08-15 | validated | Built-in Incident dossier에 대한 인증된 inventory, registry, audit-backed render, Console, PDF 및 no-RCA 사용 불가 근거를 보존했습니다. | `current change`; `docs/baselines/incident-rca-report-assurance-2026-08-15.json`; source `014974045e70e35c26e489fa238345cf70bc3ca3`에 중앙 receipt가 있습니다. | 더 넓은 프로덕션 데이터 원본 캠페인은 아래 열린 항목으로 유지합니다. |
 | 2026-08-15 | implemented | format 모듈이 정확히 하나의 `FormatEncoder`를 제공하고, 내보내진 뒤 등록되거나 opt-in으로 문서화되며, `core/reporting`과 공유 계약 밖의 어떤 것도 import하지 않도록 `check-report-format-boundary` 게이트를 추가했습니다. | `current change`; `scripts/quality/architecture/check-report-format-boundary.py`; `pytest tests/integration/scripts/test_report_format_boundary.py` (5 passed); pre-commit, `verify.sh`, CI 연결. | 프로덕션 데이터 원본 및 인증된 표면 증적은 계속 열려 있습니다. |
 | 2026-09-21 | implemented | 엄격한 카오스 적용 리포트 가져오기, SELECT-only Operator 변환 결과 및 제한된 구간의 측정된 Console 리포트를 추가했습니다. | `current change`; 가져오기, report-feed, Operator 변환 결과 및 마이그레이션 경로; focused pytest, Ruff 및 strict mypy 검사입니다. | 아래 데이터 원본 근거 항목에 따라 관리되는 프로덕션 렌더링 증적을 보존해야 합니다. |
-| 2026-09-21 | implemented | PostgreSQL 카오스 판독기 생성을 리포팅 변환 결과 factory 뒤로 이동해 현재 Operator 조립 루트가 검토된 import 상한을 지키게 했습니다. | `current change`; 리포팅 변환 결과 factory, 현재 조립 연결, focused 변환 결과 및 조립 테스트, Operator 경계 게이트입니다. | 이 연결에 남은 추가 조립 작업은 없습니다. |
 
 ### 남은 작업
 

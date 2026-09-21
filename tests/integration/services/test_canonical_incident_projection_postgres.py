@@ -27,6 +27,10 @@ CANONICAL_MIGRATION = (
     REPO_ROOT / "service-migrations/branches/core-control-plane/versions/"
     "20260825_core_canonical_incident_projection.py"
 )
+CANONICAL_STORAGE_MIGRATION = (
+    REPO_ROOT / "service-migrations/branches/core-control-plane/versions/"
+    "20260921_core_canonical_incident_storage.py"
+)
 
 
 def _migration_sql(path: Path, action: str) -> str:
@@ -119,6 +123,7 @@ def test_canonical_projection_excludes_audit_only_correlations_and_pins_identity
             """
         )
         connection.execute(_migration_sql(CANONICAL_MIGRATION, "upgrade"))
+        connection.execute(_migration_sql(CANONICAL_STORAGE_MIGRATION, "upgrade"))
         trigger_definition = connection.execute(
             """
             SELECT pg_get_triggerdef(trigger.oid, TRUE) AS definition
@@ -229,7 +234,7 @@ def test_canonical_projection_excludes_audit_only_correlations_and_pins_identity
             """
         ).fetchone()
 
-    assert audit_only == {"has_canonical_incident": False}
+    assert audit_only is None
     assert trigger_definition is not None
     assert (
         "fdai_mark_operator_incident_projection_canonical_trigger()"
@@ -358,6 +363,7 @@ def test_canonical_projection_backfill_is_set_based_and_historical(
         )
 
         connection.execute(_migration_sql(CANONICAL_MIGRATION, "upgrade"))
+        connection.execute(_migration_sql(CANONICAL_STORAGE_MIGRATION, "upgrade"))
         rows = connection.execute(
             """
             SELECT valid_from_seq,
@@ -404,4 +410,4 @@ def test_canonical_projection_backfill_is_set_based_and_historical(
             "canonical_ticket_id": "ticket-2",
         },
     ]
-    assert audit_only == {"has_canonical_incident": False}
+    assert audit_only is None

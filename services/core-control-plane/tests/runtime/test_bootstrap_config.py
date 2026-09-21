@@ -715,6 +715,40 @@ async def test_semantic_turn_bootstrap_reports_bound_runtime_available() -> None
     assert report.decision is ReadinessDecision.READY
 
 
+async def test_ontology_index_bootstrap_schedules_only_bound_runtime() -> None:
+    from unittest.mock import AsyncMock, Mock
+
+    from fdai.runtime.bootstrap_tasks import schedule_ontology_index_reconciliation
+
+    binding = Mock(run=AsyncMock())
+    runtime = Mock()
+    stop = asyncio.Event()
+
+    class Ready:
+        async def run_when_ready(self, stop: asyncio.Event, operation: object) -> None:
+            await operation()  # type: ignore[operator]
+
+    ready = Ready()
+    assert (
+        schedule_ontology_index_reconciliation(
+            binding=None, runtime=runtime, readiness=ready, stop=stop
+        )
+        is None
+    )
+    assert (
+        schedule_ontology_index_reconciliation(
+            binding=binding, runtime=None, readiness=ready, stop=stop
+        )
+        is None
+    )
+    task = schedule_ontology_index_reconciliation(
+        binding=binding, runtime=runtime, readiness=ready, stop=stop
+    )
+    assert task is not None and task.get_name() == "ontology-instance-index-reconciliation"
+    await task
+    binding.run.assert_awaited_once_with(runtime, stop)
+
+
 async def test_semantic_turn_bootstrap_schedules_configured_binding() -> None:
     calls: list[tuple[LocalEventBus, asyncio.Event]] = []
 

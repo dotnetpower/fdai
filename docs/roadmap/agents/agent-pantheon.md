@@ -30,7 +30,7 @@ The pantheon is a thin re-framing of the existing FDAI control loop into named o
 - **Single-writer, multi-reader topics.** Each object type has exactly one publishing owner agent; anyone may subscribe (§6.1).
 - **Judge is not the executor.** Forseti judges and Var carries authorized non-expired approval. Thor rechecks the authority ceiling, Saga receipt, stable idempotency reservation, and owner-fenced distributed resource claim before execution; restart ambiguity stays `execution_unknown`.
 - **Pantheon fixed upstream.** The 15-agent set, org chart, and role assignments are locked. Forks customize configured seams (§10), never add, remove, or rename agents.
-- **Repository layout preserves the boundary.** Named agents live in [`services/core-control-plane/src/fdai/agents/`](../../../services/core-control-plane/src/fdai/agents); shared runtime machinery stays in private `_framework`. External callers import only `fdai.agents`, as the layout test enforces. Runtime composition uses explicitly exported callback types from the owning agent module; exporting a type grants no topic, observation, approval, or execution authority. Heimdall's action-observation relay and Thor's `ActionRun` state and effect-closure mechanics use focused private helpers; these helpers own no `AgentSpec`, topic, approval, or execution authority.
+- **Repository layout preserves the boundary.** Named agents live in [`services/core-control-plane/src/fdai/agents/`](../../../services/core-control-plane/src/fdai/agents); shared runtime machinery stays in private `_framework`. External callers import only `fdai.agents`, as the layout test enforces. Runtime composition uses explicitly exported callback types from the owning agent module; exporting a type grants no topic, observation, approval, or execution authority. Heimdall's action-observation relay and Thor's durable `ActionRun` codec, verdict validation, audit-gated execution phase, replay/publication lifecycle, effect closure, and read-only conversation projection use focused private helpers. Thor remains their only privileged caller and the sole `ActionRun` publisher; the helpers own no `AgentSpec`, topic, judgment, approval, audit, recovery, or execution authority. Durable replay rejects prospective lineage without its exact kinetic proposal.
 Composition and scenario replay import `ActionSemanticsCatalog` from `fdai.agents` to bind
 catalog-backed reversibility. The export grants no authority and preserves the conservative
 approval quorum when no catalog is bound. Frozen replay inputs and digest pins remain immutable.
@@ -63,6 +63,19 @@ record and current independent human eligibility without calling Var or creating
 Var's pending ticket data lives beside its durable decision records in private `var_decisions`.
 The public `PendingHilTicket` and `PendingShadowReview` imports remain available from Var with
 unchanged fields, defaults, and mutability; no approval policy or publishing owner moves.
+
+Ontology instance indexing uses the separate `ontology_context_index` event family on existing
+topics. Muninn owns `ContextIndex` preparation and pointer transitions, Heimdall subscribes to
+`object.context-index` for independent validation, and Saga subscribes for intent and terminal
+audit before publishing its seals. The runtime verifies each phase, publishing owner, topic, and
+content identity and excludes these events from ordinary judgment and learning. Missing mechanical
+bindings or durable Saga audit fail closed. This transport wiring grants no index, package,
+promotion, or execution authority. Mechanical workers now connect secured source/vector preparation,
+independent current-source validation, audited pointer admission, terminal sealing, and current-graph
+candidate reads. Immutable phase outcomes support bounded owner-local publication recovery without
+re-embedding. Invalidation, retained rollback, and retirement use the same independent validation and
+Saga-sealed transitions. Generation-local reclamation follows retirement fencing and preserves audit
+and command history. Production bootstrap and governed quality remain separate work.
 
 - **Assignment review:** [Assignment commands](../interfaces/human-agent-assignment-implementation-plan.md#commands-events-and-actions) use Huginn ingress, Forseti validation, independent Var review, Saga seals, and Muninn case materialization on existing topics. Operator projections are not authority. Legacy IAM notices remain shadow-only; fresh removal review and independent IAM removal still precede a review-only old-duty PR. Forseti's receipt handling remains in its private assignment mixin.
 - **Incident guidance:** After Core durably applies `operator_guidance`, the request re-enters through Huginn as `incident.operator_guidance.v1` with `incident_correlation: none` and `execution_authority: false`. Saga accepts only that event type from its declared `object.event` subscription and appends accountable audit. Forseti recognizes the same normalized event but does not judge it, so guidance cannot create a Verdict, HIL request, or ActionRun.

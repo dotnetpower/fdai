@@ -22,13 +22,13 @@
     },
     "ontology_query_function_any_contract_coverage": {
       "covered": 12,
-      "rate": 0.32432432432432434,
-      "total": 37
+      "rate": 0.3157894736842105,
+      "total": 38
     },
     "ontology_query_function_golden_coverage": {
       "covered": 7,
-      "rate": 0.1891891891891892,
-      "total": 37
+      "rate": 0.18421052631578946,
+      "total": 38
     },
     "paired_model_case_coverage": {
       "covered": 0,
@@ -304,7 +304,7 @@
     "unverified_operational_success_claim_rate",
     "worst_slice_regression_count"
   ],
-  "inventory_digest": "sha256:39a210f40b4242c2d447b28b0afd04c39727551da563b9e04e72cab8825ecdaf",
+  "inventory_digest": "sha256:ce0a75ba81423f3872798007282e4bfb113806c2563f55d7eb18115a1d65b248",
   "metric_contract": {
     "ambiguity": [
       {
@@ -951,10 +951,10 @@
     "scripts/automation/conversation_quality_sources.py": "sha256:d6c6e311ef2b4532916148086fc2badee40fa7589dab78d137f2ab88a97107aa",
     "scripts/automation/presentation_quality_metrics.py": "sha256:d5ad9c62e2e8fb29e58a2d7fe708417be5a4fbefe35cb0f5d66bed391c4284f9",
     "scripts/automation/semantic_intent_metrics.py": "sha256:c590f8e15bfc22d3f6ce124a1e42aa915800bdc10b2e2049a958395724bf4add",
-    "services/core-control-plane/src/fdai/agents/_framework/pantheon.py": "sha256:dd48ae7eafb557de0fdcc4f9394c3898d3952ba0d8b456487b5a8d2b706fc2b5",
+    "services/core-control-plane/src/fdai/agents/_framework/pantheon.py": "sha256:aefebf6e35865a6dddadc33eb491c72bf40b2c8e5bd78f0019f5575e352e7835",
     "services/core-control-plane/src/fdai/core/conversation/question_adequacy.py": "sha256:fe9a5288e009fdf4dac438717e0ac3128a0e4caac4885b870604e732591d9aec",
     "services/core-control-plane/src/fdai/core/conversation_assurance/models.py": "sha256:4c191e51be8e6515a3508b97ae9e157c3761430cd29f63b78722f09ad9240020",
-    "services/core-control-plane/src/fdai/core/ontology_platform/*.py": "sha256:6871a96c5879e87c9713505ece2d24fa419247d105ecd89620e2505cc5aaae68",
+    "services/core-control-plane/src/fdai/core/ontology_platform/*.py": "sha256:a82b5ceed40403fcb22b29ddcdfe43ccf5a9a9dd2ad53365059b29306b60e9c3",
     "services/operator-service/src/fdai_operator_service/families/conversation/presentation_artifact_v3.py": "sha256:618e049ecfc064c3dcc3972c1508dd1d0a7d48def7e8e1ab4411777f3d260299",
     "services/operator-service/src/fdai_operator_service/families/conversation/presentation_planner.py": "sha256:2a5a515d0ebb49a4389df1ff662e99f3afbd234efaa613c92a722dc91d31795f"
   },
@@ -1105,6 +1105,12 @@
         "golden_expectation_count": 2,
         "intent_contract_case_count": 0,
         "topic_id": "query.ontology_evidence_health"
+      },
+      {
+        "coverage_state": "missing_case",
+        "golden_expectation_count": 0,
+        "intent_contract_case_count": 0,
+        "topic_id": "query.ontology_instance_candidates"
       },
       {
         "coverage_state": "reviewed_golden",

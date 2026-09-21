@@ -21,6 +21,8 @@ from fdai.core.investigation import (
     InvestigationRequest,
 )
 from fdai.core.investigation.contract import InvestigationReport
+from fdai.core.tiers.t0_deterministic import RuleIndex
+from fdai.core.trust_router import RoutingTier, TrustRouter
 from fdai.delivery.analyzer_receipt_store import (
     ANALYZER_RECEIPT_STATE_PREFIX,
     StateStoreAnalyzerReceiptStore,
@@ -48,6 +50,7 @@ from fdai.delivery.persistence.postgres_analyzer_publication import (
     PostgresAnalyzerPublicationLedger,
 )
 from fdai.shared.contracts.models import (
+    Event,
     IncidentCorrelation,
     IncidentSeverity,
     Mode,
@@ -253,7 +256,15 @@ async def test_each_finding_publishes_one_canonical_event() -> None:
     bus = RecordingBus()
     runner = _runner(StubCoordinator(findings=(_finding(),)), bus)
 
-    report = await runner.run_once((AnalyzerTarget(resource_ref="res-1", resource_kind="aks"),))
+    report = await runner.run_once(
+        (
+            AnalyzerTarget(
+                resource_ref="res-1",
+                resource_kind="aks",
+                resource_type="kubernetes-cluster",
+            ),
+        )
+    )
 
     assert report.published == 1
     topic, key, payload = bus.published[0]
@@ -265,8 +276,15 @@ async def test_each_finding_publishes_one_canonical_event() -> None:
     assert payload["incident_correlation"] == IncidentCorrelation.CORRELATE.value
     assert payload["mode"] == Mode.SHADOW.value
     assert payload["payload"]["remediation_ref"] == "ops.scale-out"
+    assert payload["payload"]["resource"] == {
+        "id": "res-1",
+        "type": "kubernetes-cluster",
+    }
     assert payload["payload"]["window_seconds"] == 300
     assert payload["payload"]["publication_window_seconds"] == 60
+    routing = TrustRouter(index=RuleIndex.build(())).route(Event.model_validate(payload))
+    assert routing.tier is RoutingTier.T1
+    assert routing.resource_type == "kubernetes-cluster"
 
 
 @pytest.mark.asyncio

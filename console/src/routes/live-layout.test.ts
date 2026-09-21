@@ -115,13 +115,25 @@ describe("Live responsive header", () => {
     );
     expect(panels).toContain('<section class="live-sample-scenario"');
     expect(panels).toContain('selectEvent("sample-event-001")');
+    expect(panels).toContain('class="live-sample-tier-cohort"');
+    expect(panels).toContain("OPERATIONS_SAMPLE_TIER_COHORT[tier]");
     expect(routeStyles).toMatch(
       /\.live-sample-scenario-steps\s*\{[^}]*grid-template-columns: repeat\(6/,
+    );
+    expect(routeStyles).toMatch(
+      /\.live-sample-tier-bars\s*\{[^}]*grid-template-columns: repeat\(3/,
     );
   });
 
   it("packs flow events sequentially while signaling semantic updates", () => {
     expect(panels).toContain("<LiveActivityWorkspace");
+    expect(panels.indexOf("<LiveCoverage")).toBeLessThan(
+      panels.indexOf('<section class="grid live-kpis">'),
+    );
+    expect(panels.indexOf('<section class="grid live-kpis">')).toBeLessThan(
+      panels.indexOf("<LiveActivityWorkspace"),
+    );
+    expect(routeStyles).toMatch(/\.live \.live-kpi\s*\{[^}]*min-height: 124px/);
     expect(activity).toContain("composeLiveActivityItems");
     expect(activity).toContain("right.observedAt - left.observedAt");
     expect(activity).not.toContain("slotIndex");

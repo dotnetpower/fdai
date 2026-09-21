@@ -101,7 +101,7 @@ async function installApi(page: Page, graph: () => unknown = inventory) {
 async function openV2(page: Page) {
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.emulateMedia({ reducedMotion: "reduce" });
-  await page.goto("/dashboard-v2");
+  await page.goto("/resource-dashboard");
   await expect(page.locator(".dv2-summary")).toBeVisible();
 }
 
@@ -158,7 +158,7 @@ test.describe("Native Dashboard v2", () => {
     await page.route("**/ontology/instances/states*", route => available
       ? json(route, recordedPage(inventory(6)))
       : json(route, { error: { status: 409, message: "ontology_generation_changed", reason: "ontology_projection_missing" } }, 409));
-    await page.goto("/dashboard-v2?locale=en");
+    await page.goto("/resource-dashboard?locale=en");
     await expect(page.getByText("Waiting for a consistent inventory and ontology snapshot.")).toBeVisible();
     await expect(page.locator(".loading-skeleton")).toBeVisible();
     await expect(page.getByRole("alert")).toHaveCount(0);
@@ -178,7 +178,7 @@ test.describe("Native Dashboard v2", () => {
       reads += 1;
       return json(route, { error: { status: 409, message: "ontology_generation_changed", reason: "ontology_release_mismatch" } }, 409);
     });
-    await page.goto("/dashboard-v2?locale=ko");
+    await page.goto("/resource-dashboard?locale=ko");
     await expect(page.getByText("인벤토리와 API의 온톨로지 릴리스가 달라 자동 재시도를 중단했습니다. 배포 버전을 맞춰야 합니다.")).toBeVisible();
     await expect(page.getByRole("link", { name: "진단 보기", exact: true })).toBeVisible();
     await page.clock.fastForward(360_000);
@@ -198,7 +198,7 @@ test.describe("Native Dashboard v2", () => {
       return available ? json(route, recordedPage(inventory(6)))
         : json(route, { error: { status: 409, message: "ontology_generation_changed", reason: "ontology_generation_pending" } }, 409);
     });
-    await page.goto("/dashboard-v2?locale=en");
+    await page.goto("/resource-dashboard?locale=en");
     await expect(page.getByText("Waiting for a consistent inventory and ontology snapshot.")).toBeVisible();
     await page.clock.fastForward(180_000);
     await expect(page.getByText("Resource synchronization has not converged. Automatic retries have stopped; check the inventory projection in Diagnostics.")).toBeVisible();
@@ -228,13 +228,16 @@ test.describe("Native Dashboard v2", () => {
     await expect(page.locator(".dv2-coverage")).toContainText("example-snapshot-2");
   });
 
-  test("retains the original Dashboard and navigates to an independent resource route", async ({ page }, testInfo) => {
+  test("retains Overview and navigates to an independent resource route", async ({ page }, testInfo) => {
     const requests = await installApi(page);
     await openV2(page);
     await expect.poll(() => requests).toContain("GET /ontology/instances/stream 42");
-    await expect(page.locator(".page-header-title")).toContainText("Dashboard v2");
+    await expect(page.locator(".page-header-title")).toContainText("Resource dashboard");
+    await expect(page.getByRole("button", { name: "Resource state", exact: true })).toHaveAttribute("aria-pressed", "true");
     await expect(page.locator(".dv2-snapshot-card .dv2-summary")).toBeVisible();
     await expect(page.locator(".dv2-summary strong")).toHaveText(["600", "500", "100", "0", "0", "100"]);
+    await expect(page.locator(".dv2-summary a").filter({ hasText: "Needs review" }))
+      .toHaveAttribute("href", "/resource-dashboard?state=unknown&lens=resource");
     await expect(page.locator(".dv2-scope")).toContainText("Immutable inventory snapshot");
     await page.locator(".activity-bar").getByRole("button", { name: "Overview", exact: true }).hover();
     await expect(page.getByRole("tooltip")).toContainText("Overview");
@@ -243,6 +246,48 @@ test.describe("Native Dashboard v2", () => {
     await expect(page.locator(".dv2-coverage")).toContainText("Unknown causes");
     expect(await page.locator(".dashboard-v2-map-cell").count()).toBeGreaterThan(200);
     expect(await page.locator(".dashboard-v2-map-cell").count()).toBeLessThanOrEqual(476);
+    await expect(page.locator(".dashboard-v2-map-cell[data-resource-id='resource-0']"))
+      .toHaveAttribute("data-tone", "active");
+    await expect(page.locator(".dashboard-v2-map-cell[data-resource-id='resource-1']"))
+      .toHaveAttribute("data-tone", "negative");
+    await expect(page.locator(".dashboard-v2-map-cell[data-resource-id='resource-2']"))
+      .toHaveAttribute("data-tone", "attention");
+    await expect(page.locator(".dashboard-v2-map-cell[data-resource-id='resource-0'] .dashboard-v2-map-axis"))
+      .toHaveText("O");
+    await expect(page.locator(".dashboard-v2-map-cell[data-resource-id='resource-1'] .dashboard-v2-map-axis"))
+      .toHaveText("O");
+    const contrastByTheme = await page.locator(".dashboard-v2-map").evaluate((map) => {
+      const rgb = (value: string): number[] => {
+        const values = (value.match(/[\d.]+/g) ?? []).slice(0, 3).map(Number);
+        return value.startsWith("color(srgb") ? values.map((item) => item * 255) : values;
+      };
+      const luminance = (values: number[]): number => values.map((item) => {
+        const channel = item / 255;
+        return channel <= 0.04045 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4;
+      }).reduce((total, item, index) => total + item * [0.2126, 0.7152, 0.0722][index]!, 0);
+      const contrast = (foreground: string, background: string): number => {
+        const values = [luminance(rgb(foreground)), luminance(rgb(background))]
+          .sort((left, right) => right - left);
+        return (values[0]! + 0.05) / (values[1]! + 0.05);
+      };
+      const collect = () => ["active", "negative", "neutral"].map((tone) => {
+        const cell = map.querySelector(`.dashboard-v2-map-cell[data-tone="${tone}"]`)!;
+        const symbol = cell.querySelector(".dashboard-v2-map-symbol")!;
+        const surface = cell.querySelector(".dashboard-v2-map-surface")!;
+        return contrast(getComputedStyle(symbol).fill, getComputedStyle(surface).fill);
+      });
+      const root = document.documentElement;
+      const previous = root.getAttribute("data-theme");
+      root.setAttribute("data-theme", "light");
+      const light = collect();
+      root.setAttribute("data-theme", "dark");
+      const dark = collect();
+      if (previous === null) root.removeAttribute("data-theme");
+      else root.setAttribute("data-theme", previous);
+      return { light, dark };
+    });
+    expect(contrastByTheme.light.every((ratio) => ratio >= 4.5), JSON.stringify(contrastByTheme)).toBe(true);
+    expect(contrastByTheme.dark.every((ratio) => ratio >= 4.5), JSON.stringify(contrastByTheme)).toBe(true);
     expect(await page.locator(".dashboard-v2-map").evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
     const desktopLayout = await page.locator(".dv2-workspace").evaluate((workspace) => {
       const resource = workspace.querySelector(".dv2-resource-panel")!.getBoundingClientRect();
@@ -263,16 +308,16 @@ test.describe("Native Dashboard v2", () => {
     await page.locator(".dv2-summary a").nth(1).click();
     await expect(page.locator(".dv2-meta")).toContainText("500 match filters");
     await expect(page.locator(".dv2-table-wrap")).toBeVisible();
-    await page.getByRole("link", { name: "Original Dashboard", exact: true }).click();
+    await page.getByRole("link", { name: "Overview dashboard", exact: true }).click();
     await expect(page).toHaveURL(/\/overview$/);
     await expect(page.locator(".overview-page")).toBeVisible();
     await expect(page.locator(".dashboard-v2-page")).toHaveCount(0);
     await page.goBack();
     await expect(page.locator(".dashboard-v2-page")).toBeVisible();
     await page.getByRole("button", { name: "Overview", exact: true }).last().click();
-    await expect(page.locator(".navigation-explorer").getByRole("link", { name: "Dashboard v2", exact: true })).toBeVisible();
+    await expect(page.locator(".navigation-explorer").getByRole("link", { name: "Resource dashboard", exact: true })).toHaveCount(0);
     await expect(page.locator(".navigation-explorer").getByRole("link", { name: "Dashboard", exact: true })).toBeVisible();
-    await page.goto("/dashboard-v2?state=unknown");
+    await page.goto("/resource-dashboard?state=unknown");
     await expect(page.locator(".dv2-meta")).toContainText("100 match filters");
   });
 
@@ -377,7 +422,7 @@ test.describe("Native Dashboard v2", () => {
         },
       }, 503);
     });
-    await page.goto("/dashboard-v2");
+    await page.goto("/resource-dashboard");
     await expect(page.locator(".dashboard-v2-page .loading-skeleton")).toBeVisible();
     await expect(page.locator(".dv2-summary")).toHaveCount(0);
     release!();
@@ -467,9 +512,9 @@ test.describe("Native Dashboard v2", () => {
         finish!();
       } else await json(route, recordedPage({ ...inventory(6), snapshot_id: "example-snapshot-2" }));
     });
-    await page.goto("/dashboard-v2");
+    await page.goto("/resource-dashboard");
     await expect(page.locator(".dashboard-v2-page .loading-skeleton")).toBeVisible();
-    await page.getByRole("link", { name: "Original Dashboard", exact: true }).click();
+    await page.getByRole("link", { name: "Overview dashboard", exact: true }).click();
     await expect(page.locator(".overview-page")).toBeVisible();
     await page.goBack();
     await expect(page.locator(".dv2-summary strong").first()).toHaveText("6");
@@ -490,8 +535,8 @@ test.describe("Native Dashboard v2", () => {
     const mobile = await touch.newPage();
     try {
       await installApi(mobile);
-      await mobile.goto("/dashboard-v2?locale=ko");
-      await expect(mobile.locator(".page-header-title")).toContainText("대시보드 v2");
+      await mobile.goto("/resource-dashboard?locale=ko");
+      await expect(mobile.locator(".page-header-title")).toContainText("리소스 대시보드");
       await expect(mobile.locator(".dv2-snapshot-card .dv2-summary a")).toHaveCount(6);
       await expect(mobile.getByRole("button", { name: "조밀하게", exact: true })).toBeDisabled();
       await expect(mobile.locator(".dashboard-v2-map-cell")).toHaveCount(48);

@@ -35,6 +35,10 @@ from fdai.delivery.persistence.postgres_inventory_prepared import (
     require_unsealed,
     verify_prepared_candidate,
 )
+from fdai.delivery.persistence.postgres_inventory_retention import (
+    prune_terminal_snapshots as _prune_terminal_snapshots,
+)
+from fdai.delivery.persistence.postgres_inventory_retention import require_snapshot_capacity
 from fdai.delivery.persistence.postgres_inventory_snapshot_providers import (
     _PROMOTION_LOCK as _PROVIDERS_PROMOTION_LOCK,
 )
@@ -64,7 +68,6 @@ from fdai.shared.providers.inventory_snapshot import (
 
 _PROMOTION_LOCK = _PROVIDERS_PROMOTION_LOCK
 _MAX_GRAPH_ROWS: Final[int] = 5000
-_TERMINAL_SNAPSHOT_RETENTION: Final[int] = 3
 _ALL_RESOURCES_QUERY = (
     "WITH effective_resources AS ("
     "SELECT r.resource_id, r.resource_type, r.props, r.provider_ref, r.last_seen "
@@ -87,33 +90,6 @@ _SELECT_EFFECTIVE_LINKS_QUERY = (
     "WHERE from_id=ANY(%s::text[]) AND to_id=ANY(%s::text[]) "
     "AND link_type=ANY(%s::text[]) ORDER BY from_id, link_type, to_id"
 )
-
-
-async def _prune_terminal_snapshots(connection: psycopg.AsyncConnection[Any]) -> int:
-    cursor = await connection.execute(
-        "SELECT id FROM ("
-        "SELECT id, status, ROW_NUMBER() OVER ("
-        "PARTITION BY status ORDER BY COALESCE(promoted_at, completed_at, started_at) DESC, id DESC"
-        ") AS retained_rank FROM inventory_snapshot "
-        "WHERE status IN ('superseded', 'failed')"
-        ") terminal WHERE retained_rank > %s ORDER BY id",
-        (_TERMINAL_SNAPSHOT_RETENTION,),
-    )
-    snapshot_ids = [str(row["id"]) for row in await cursor.fetchall()]
-    if not snapshot_ids:
-        return 0
-    await connection.execute(
-        "DELETE FROM state_kv WHERE EXISTS ("
-        "SELECT 1 FROM unnest(%s::text[]) AS doomed(snapshot_id) "
-        "WHERE starts_with(state_kv.key, 'inventory-collection:' || doomed.snapshot_id || ':')"
-        ")",
-        (snapshot_ids,),
-    )
-    await connection.execute(
-        "DELETE FROM inventory_snapshot WHERE id=ANY(%s::text[])",
-        (snapshot_ids,),
-    )
-    return len(snapshot_ids)
 
 
 @dataclass(frozen=True, slots=True)
@@ -150,11 +126,13 @@ class PostgresInventorySnapshotStore:
         async with await self._connect() as connection:
             async with connection.transaction():
                 await self._set_timeout(connection)
+                await connection.execute("SELECT pg_advisory_xact_lock(%s)", (_PROMOTION_LOCK,))
                 await connection.execute(
                     "UPDATE inventory_snapshot SET status='failed', completed_at=NOW(), "
                     "failure_code='source_unavailable', failure_message='attempt lease expired' "
                     "WHERE status='collecting' AND started_at < NOW() - INTERVAL '30 minutes'"
                 )
+                await require_snapshot_capacity(connection)
                 await connection.execute(
                     "INSERT INTO inventory_snapshot "
                     "(id, status, source, observation_kind, scopes, resource_types, "

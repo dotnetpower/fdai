@@ -17,6 +17,11 @@ from typing import TextIO
 _PLAIN_CONTEXT_FIELDS = (
     "topic",
     "consumer_group",
+    "partition",
+    "committed_offset",
+    "highwater_offset",
+    "consumer_lag",
+    "progress_kind",
     "client_id",
     "auth_mechanism",
     "stage",

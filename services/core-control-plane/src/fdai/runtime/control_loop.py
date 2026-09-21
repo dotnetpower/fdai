@@ -238,6 +238,11 @@ def _build_control_loop(
             schema_registry=registry,
             probes_root=probes_root if probes_root.is_dir() else None,
         )
+        from fdai.composition.semantic_query_instance_candidates import (
+            declare_instance_candidate_query,
+        )
+
+        ontology_catalog = declare_instance_candidate_query(ontology_catalog)
         action_types = ontology_catalog.action_types
         ontology_object_types = ontology_catalog.object_types
         ontology_link_types = ontology_catalog.link_types

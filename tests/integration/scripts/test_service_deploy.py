@@ -15,7 +15,7 @@ import textwrap
 from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
-from types import ModuleType
+from types import ModuleType, SimpleNamespace
 
 import pytest
 
@@ -1628,6 +1628,80 @@ def test_plan_guard_rejects_image_substitution(guard: ModuleType) -> None:
             environment="dev",
             image_ref="ghcr.io/example/fdai/fdai-operator-service@sha256:" + "a" * 64,
         )
+
+
+def test_plan_guard_rejects_unbounded_or_malformed_plan_arrays(guard: ModuleType) -> None:
+    plan = _plan(
+        "module.operator_service.module.container_app.azurerm_container_app.service",
+        ["no-op"],
+    )
+
+    malformed_drift = {**plan, "resource_drift": {"change": {}}}
+    with pytest.raises(guard.PlanGuardError, match="resource_drift must be a bounded array"):
+        guard.validate_plan(
+            malformed_drift,
+            service="operator-service",
+            environment="dev",
+            image_ref=_image("operator-service"),
+        )
+
+    oversized_changes = {
+        **plan,
+        "resource_changes": plan["resource_changes"] * 10_001,  # type: ignore[operator]
+    }
+    with pytest.raises(guard.PlanGuardError, match="resource_changes must be a bounded array"):
+        guard.validate_plan(
+            oversized_changes,
+            service="operator-service",
+            environment="dev",
+            image_ref=_image("operator-service"),
+        )
+
+
+def test_plan_guard_rejects_excessive_drift_nesting(guard: ModuleType) -> None:
+    before: object = "before"
+    after: object = "after"
+    for _ in range(66):
+        before = {"nested": before}
+        after = {"nested": after}
+
+    with pytest.raises(guard.PlanGuardError, match="nesting exceeds"):
+        guard._difference_paths(before, after)
+
+
+def test_plan_guard_cli_rejects_oversized_plan_before_reading(
+    guard: ModuleType,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    plan_path = tmp_path / "plan.json"
+
+    def fail_read_text(_path: Path, *, encoding: str) -> str:
+        del encoding
+        raise AssertionError("oversized plan must not be read")
+
+    monkeypatch.setattr(Path, "stat", lambda _path: SimpleNamespace(st_size=64 * 1024 * 1024 + 1))
+    monkeypatch.setattr(Path, "read_text", fail_read_text)
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "guard-plan",
+            "--plan-json",
+            str(plan_path),
+            "--service",
+            "operator-service",
+            "--environment",
+            "dev",
+            "--image-ref",
+            _image("operator-service"),
+        ],
+    )
+
+    with pytest.raises(SystemExit) as exc_info:
+        guard.main()
+
+    assert exc_info.value.code == 2
 
 
 def test_plan_guard_rejects_untrusted_runtime_on_update(guard: ModuleType) -> None:

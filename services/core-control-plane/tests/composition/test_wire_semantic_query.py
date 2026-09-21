@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
+from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace
 from typing import Any
+from unittest.mock import AsyncMock
 
 import pytest
 from fdai.composition import build_semantic_query_runtime, compose_azure_semantic_query_runtime
@@ -27,6 +29,10 @@ from fdai.core.ontology_platform.evidence_health_queries import (
     ONTOLOGY_EVIDENCE_HEALTH_FUNCTION_NAME,
 )
 from fdai.core.ontology_platform.incident_queries import INCIDENT_EVIDENCE_FUNCTION_NAME
+from fdai.core.ontology_platform.instance_candidate_queries import (
+    INSTANCE_CANDIDATES_FUNCTION_NAME,
+    instance_candidates_function_type,
+)
 from fdai.core.ontology_platform.inventory_impact_queries import INVENTORY_IMPACT_FUNCTION_NAME
 from fdai.core.ontology_platform.latency_recovery_evidence import (
     LATENCY_RECOVERY_FUNCTION_NAME,
@@ -117,7 +123,7 @@ from fdai.shared.providers.state_evidence import (
     StateFactMetadata,
 )
 from fdai.shared.providers.testing import InMemoryOntologyInstanceStore
-from fdai_service_contracts.ontology_query import EvidenceAuthority, TaskStatus
+from fdai_service_contracts.ontology_query import EvidenceAuthority, TaskStatus, content_digest
 from tests.decision_evidence import StubDecisionEvidenceAdmissionProvider
 
 NOW = datetime(2026, 8, 11, 12, tzinfo=UTC)
@@ -1744,6 +1750,161 @@ async def test_runtime_executes_incident_evidence_with_distinct_identities() -> 
     assert evidence["correlation_id"] == "incident-correlation-101"
     assert evidence["cause_claim_supported"] is False
     assert evidence["execution_authority"] is False
+
+
+@pytest.mark.parametrize(
+    "binding", ["available", "unbound", "missing_declaration", "wrong_read_set"]
+)
+@pytest.mark.parametrize("candidate_count", [0, 1, 11])
+async def test_runtime_binds_only_exact_declared_instance_candidate_function(
+    binding: str, candidate_count: int
+) -> None:
+    from fdai_core_service.semantic_turn_processor import _project_runtime_result
+    from fdai_service_contracts import SemanticTurnRequest
+
+    object_type = _object_type()
+    declaration = instance_candidates_function_type(
+        object_type_names=("Incident",) if binding == "wrong_read_set" else ("Resource",),
+    )
+    catalog = replace(
+        _catalog(object_type),
+        function_types=() if binding == "missing_declaration" else (declaration,),
+    )
+    release = build_ontology_release(
+        object_types=catalog.object_types,
+        function_types=operational_function_types(catalog.function_types),
+    )
+    principal = Principal(id="example-reader", role=Role.READER)
+    arguments = {"query": "example resource", "limit": 10}
+    body = {
+        "candidates": [
+            {
+                "id": f"example-resource-{index}",
+                "object_type": "Resource",
+                "properties": {"private_token": "synthetic-secret-value"},
+                "revision": 1,
+            }
+            for index in range(min(candidate_count, 10))
+        ],
+        "evidence_refs": [content_digest("current-graph-receipt")] if candidate_count else [],
+        "candidate_count": candidate_count,
+        "truncated": candidate_count > 10,
+        "authority": "candidate_only",
+        "execution_authority": False,
+        "exhaustive": False,
+        "principal_scope_digest": semantic_principal_scope_digest(
+            principal=principal, purpose="operations-review"
+        ),
+        "ontology_release_digest": release.digest,
+        "query_digest": content_digest(arguments),
+    }
+    body["result_digest"] = content_digest(body)
+    query = AsyncMock(return_value=body)
+
+    class CandidateModel(_Model):
+        def propose_plan(self, **_kwargs: Any) -> dict[str, object]:
+            return {
+                "nodes": [
+                    {
+                        "node_id": "instance-candidates",
+                        "kind": "function",
+                        "depends_on": [],
+                        "arguments": {
+                            "function_name": INSTANCE_CANDIDATES_FUNCTION_NAME,
+                            "arguments": arguments,
+                            "dependency_arguments": {},
+                        },
+                        "output_kind": "ontology.instance-candidates",
+                    }
+                ],
+                "output_node_ids": ["instance-candidates"],
+            }
+
+    options = dict(
+        model=CandidateModel(_definition()),
+        ontology_release=release,
+        ontology_catalog=catalog,
+        ontology_store=InMemoryOntologyInstanceStore(object_types=(object_type,), link_types=()),
+        instance_candidate_query=None if binding == "unbound" else query,
+        now=lambda: NOW,
+    )
+    if binding in {"missing_declaration", "wrong_read_set"}:
+        with pytest.raises(ValueError, match="exact declared read sets"):
+            build_semantic_query_runtime(**options)
+        query.assert_not_awaited()
+        return
+    runtime = build_semantic_query_runtime(**options)
+    assert (INSTANCE_CANDIDATES_FUNCTION_NAME in runtime.function_bindings) == (
+        binding == "available"
+    )
+    result = await runtime.handle(
+        utterance="Find example resource candidates.", prior_turns=(), principal=principal
+    )
+    if binding == "unbound":
+        assert result.disposition == "unsupported"
+        query.assert_not_awaited()
+        return
+    assert result.disposition == "answered"
+    assert result.execution is not None
+    assert result.execution.results["instance-candidates"].value == body
+    query.assert_awaited_once()
+    context = query.await_args.args[2]
+    assert context.principal_ref == principal.id
+    assert context.principal_scope_digest == body["principal_scope_digest"]
+    for locale in ("en", "ko"):
+        request = SemanticTurnRequest.model_validate(
+            {
+                "utterance": "Find example resource candidates.",
+                "principal": {"subject_id": principal.id, "roles": ["Reader"]},
+                "session_id": "example-session",
+                "turn_id": "example-turn",
+                "turn_sequence": 1,
+                "locale": locale,
+                "purpose": "operations-review",
+                "deadline_at": NOW + timedelta(seconds=30),
+                "execution_authority": False,
+            }
+        )
+        terminal, extensions = _project_runtime_result(request, result)
+        assert terminal.disposition.value == "answered"
+        assert terminal.reason_code == "semantic_answer_partial"
+        assert terminal.execution_authority is False
+        assert (
+            "전체 목록" in terminal.answer
+            if locale == "ko"
+            else "not an exhaustive list" in terminal.answer
+        )
+        assert "synthetic-secret-value" not in terminal.answer
+        assert extensions is not None and extensions.technical_details is not None
+        projected = extensions.technical_details["outputs"][0]
+        assert projected["exhaustive"] is False
+        assert projected["candidate_count"] == candidate_count
+        assert "properties" not in str(projected)
+    for field, substituted in (
+        ("principal_scope_digest", content_digest("other-principal")),
+        ("ontology_release_digest", content_digest("other-release")),
+        ("query_digest", content_digest("other-query")),
+        ("exhaustive", True),
+        ("execution_authority", True),
+        ("candidate_count", 0 if candidate_count else 1),
+    ):
+        changed = {**body, field: substituted}
+        changed["result_digest"] = content_digest(
+            {name: value for name, value in changed.items() if name != "result_digest"}
+        )
+        changed_result = replace(
+            result,
+            execution=replace(
+                result.execution,
+                results={
+                    "instance-candidates": replace(
+                        result.execution.results["instance-candidates"], value=changed
+                    )
+                },
+            ),
+        )
+        terminal, _extensions = _project_runtime_result(request, changed_result)
+        assert terminal.disposition.value == "held"
 
 
 async def test_runtime_executes_exact_generation_rule_search_without_authority() -> None:

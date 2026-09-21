@@ -13,7 +13,7 @@ boundaries, connections, traffic paths, routing intent, and security inspection.
 > fact.
 >
 > **Provider scope:** The vocabulary is cloud-provider-neutral. Azure is the only implemented icon
-> and inventory adapter, so Azure resource types receive the first complete visual mapping.
+> and inventory adapter, so Azure resource types receive the first complete visual mapping. Every canonical resource type has an explicit layer, color token, and abbreviation.
 
 ## Design at a glance
 

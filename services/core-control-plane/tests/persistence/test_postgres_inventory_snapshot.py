@@ -320,7 +320,7 @@ async def test_failed_candidate_retains_last_active_snapshot() -> None:
     assert await context_provider("missing-resource") is None
 
 
-async def test_inventory_snapshot_retention_bounds_terminal_generations() -> None:
+async def test_inventory_snapshot_retention_preserves_unacknowledged_generations() -> None:
     _upgrade()
     config = PostgresInventorySnapshotStoreConfig(dsn=_dsn())
     store = PostgresInventorySnapshotStore(config=config)
@@ -365,12 +365,12 @@ async def test_inventory_snapshot_retention_bounds_terminal_generations() -> Non
         )
         oldest_resource_count = int((await cursor.fetchone())["total"])
 
-    assert promoted[0] not in retained
+    assert promoted[0] in retained
     assert retained[promoted[-1]] == "active"
-    assert sum(status == "superseded" for status in retained.values()) == 3
+    assert sum(status == "superseded" for status in retained.values()) == 4
     assert failed[0] not in retained and failed[1] not in retained
     assert sum(status == "failed" for status in retained.values()) == 3
-    assert oldest_resource_count == 0
+    assert oldest_resource_count == 1
 
 
 async def test_inventory_coverage_summary_does_not_decode_resource_properties() -> None:

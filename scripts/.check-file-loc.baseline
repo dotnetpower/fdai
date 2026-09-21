@@ -1,12 +1,5 @@
-# Pre-existing main-branch agent debt (bragi); growth blocked until tracker #14 extraction.
-# Pre-existing main-branch agent debt (forseti); growth blocked until tracker #14 extraction.
-1111 services/core-control-plane/src/fdai/agents/forseti.py
 # Pre-existing main-branch agent debt (heimdall); growth blocked until tracker #14 extraction.
 837 services/core-control-plane/src/fdai/agents/heimdall.py
-# Pre-existing main-branch agent debt (thor); growth blocked until tracker #14 extraction.
-1482 services/core-control-plane/src/fdai/agents/thor.py
-# Pre-existing main-branch conversation-preflight debt; this change restores the file below its prior 1054-line cap.
-1054 services/core-control-plane/src/fdai/core/conversation/conversation_preflight.py
 # Pre-existing main-branch semantic-planning cascade debt; growth blocked until tracker #14 extraction.
 811 services/core-control-plane/src/fdai/core/conversation/semantic_planning_cascade.py
 # Pre-existing main-branch semantic-runtime debt; this change remains below its prior 871-line size.
@@ -22,3 +15,39 @@
 801 services/core-control-plane/src/fdai/delivery/persistence/postgres_background_task.py
 # Pre-existing main-branch promotion debt; growth blocked until tracker #14 extraction.
 880 services/core-control-plane/src/fdai/delivery/promotion.py
+# Pre-existing semantic-turn processor debt; request binding and Incident presentation were extracted and
+# this cap ratchets each subsequent responsibility split instead of permitting regrowth.
+5925 services/core-control-plane/src/fdai_core_service/semantic_turn_processor.py
+# Pre-existing deployment CLI orchestration debt; private state and value projection were extracted,
+# and these caps prevent regrowth while later SRP batches continue the package split.
+4609 packages/deployment-cli/src/fdai_deployment_cli/standalone_host.py
+# Pre-existing standalone coordinator debt; growth is blocked pending lifecycle-stage extraction.
+978 packages/deployment-cli/src/fdai_deployment_cli/standalone_application.py
+# Pre-existing Console publication debt; growth is blocked pending artifact/readback separation.
+832 packages/deployment-cli/src/fdai_deployment_cli/console_update.py
+# Family-store orchestration debt after extracting models, row projections, and evidence codecs.
+3697 services/operator-service/src/fdai_operator_service/postgres_family_store.py
+# Conversation presentation debt after extracting assurance, Incident, and trajectory renderers.
+1480 services/operator-service/src/fdai_operator_service/families/conversation/semantic_turn_presentation.py
+# Semantic runtime debt after extracting document answers and query activity projection.
+1771 services/operator-service/src/fdai_operator_service/families/conversation/semantic_turn_runtime.py
+# Pre-existing runtime projection reader debt; growth is blocked pending source-specific extraction.
+954 services/operator-service/src/fdai_operator_service/runtime_projection_reader.py
+# Pre-existing instance explorer debt; growth is blocked pending projection/query separation.
+934 services/operator-service/src/fdai_operator_service/families/operations/instance_explorer.py
+# Pre-existing route assembly debt; growth is blocked pending route-family extraction.
+913 services/operator-service/src/fdai_operator_service/routes.py
+# Pre-existing SQL catalog debt; growth is blocked pending query-family extraction.
+886 services/operator-service/src/fdai_operator_service/postgres_sql.py
+# Pre-existing investigation projection debt; growth is blocked pending codec extraction.
+866 services/operator-service/src/fdai_operator_service/investigation_projection.py
+# Pre-existing semantic turn persistence debt; growth is blocked pending repository decomposition.
+834 services/operator-service/src/fdai_operator_service/postgres_semantic_turn_store.py
+# Pre-existing IAM contract aggregation debt; growth is blocked pending contract-family extraction.
+801 services/operator-service/src/fdai_operator_service/families/iam/contracts.py
+# Service plan guard debt after extracting structure and external binding validation.
+2679 scripts/deployment/service/guard_plan.py
+# Pre-existing service plan bundle debt; growth is blocked pending artifact-stage extraction.
+876 scripts/deployment/service/plan_bundle.py
+# Pre-existing service tfvars materialization debt; growth is blocked pending binding extraction.
+839 scripts/deployment/service/materialize_tfvars.py

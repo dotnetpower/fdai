@@ -1,8 +1,8 @@
 ---
 title: Provisioning 실행 Profile
 translation_of: provisioning-execution-profiles.md
-translation_source_sha: 537ef516a5e09ad92c97d24c0b9014ff1115aafb
-translation_revised: 2026-09-19
+translation_source_sha: 5a9911aaec51c909f9ede8680aa873c624802360
+translation_revised: 2026-09-21
 ---
 # 프로비저닝 실행 프로파일
 
@@ -12,6 +12,15 @@ translation_revised: 2026-09-19
 
 > **범위:** Azure가 구현된 대상입니다. 이 프로파일은 Terraform 정본을 변경하거나
 > 비공개 엔드포인트를 우회하는 로컬 대체 경로를 허용하지 않습니다.
+
+패키지는 이미 보호된 저장소 workflow를 위한 내부 개발 및 스테이징 client를 유지합니다. 이
+라이브러리는 맥락에 결속된 plan 또는 apply 요청을 전달하고 범위가 제한된 상태 산출물을
+검증하며, 공개 tenant 프로비저닝 전송 수단이 아닙니다. 파사드는 변경 불가능한 요청 값, 하위
+프로세스 전송, 전달, plan 메타데이터, apply 증적 및 provider-schema 근거를 목적별 모듈에
+위임합니다. 이 분리는 명령, 자격 증명, Azure 역할 또는 apply 권한을 추가하지 않습니다.
+명령 파사드는 source 및 offline-kit Foundation plan, 비공개 파일 시스템 처리, 대상 검사,
+provider lock 검증 및 범위가 제한된 Terraform 실행도 하나의 목적별 plan 모듈에 위임합니다.
+Parser handler, 출력 계약, 정확한 승인 요건 및 변경 권한은 바뀌지 않습니다.
 
 ## 구현 상태
 
@@ -35,6 +44,8 @@ translation_revised: 2026-09-19
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-21 | implemented | Source 및 offline-kit Foundation plan과 비공개 Terraform 및 파일 시스템 helper를 배포 CLI 명령 파사드에서 분리했습니다. | `current change`, 12개 관점 비평, plan 및 도움말 강화 집중 테스트 184개, Ruff 및 strict mypy 통과 | Parser handler, 출력 계약, 대상 결속, 승인 또는 변경 권한은 바뀌지 않았습니다. |
+| 2026-09-21 | implemented | 유지 중인 내부 GitHub 보호 workflow client를 변경 불가능한 값, 범위가 제한된 하위 프로세스 전송, 전달, 비공개 산출물 I/O, plan 메타데이터, apply 증적 및 provider-schema 근거 모듈로 분리하고 공개 파사드를 보존했습니다. | `current change`, 12개 관점 비평, 집중 GitHub Actions 테스트 42개, Ruff, strict mypy, LOC, 설계 경로 및 문서 게이트 통과 | 공개 tenant 프로비저닝은 수동이며 GitHub를 사용하지 않습니다. 명령, 자격 증명, Azure 역할 또는 apply 권한은 바뀌지 않았습니다. |
 | 2026-09-19 | implemented | 명시적으로 선택하는 감사된 Action Run Command 접근 경로에 실행 전 기록을 우선하는 출발지 주소 제한 및 인증서 고정 비공개 TLS 중계를 추가했습니다. 클라우드 staging 산출물을 만들지 않고 검증 전용 복구를 한 번만 허용하며 적용 권한을 부여하지 않습니다. | `current change`, 실행 묶음 및 수신기 모듈, 고정 중계·초기 구성·조정 모듈, 집중 테스트 25개, Ruff | 정확한 실제 피어링 호스트 전송 증적을 보존한 뒤 VM 수명 주기나 애플리케이션 승인을 바꾸지 않고 명시적 adapter를 검토된 `fdaictl` 접근 프로파일 라우팅에 연결합니다. |
 | 2026-09-17 | in-progress | 공개 release 게시와 온라인 Azure 수렴을 운영 검증의 필수 조건에서 제거했습니다. 로컬에서 빌드한 정확한 서명 키트 하나를 로컬 조정기와 어플라이언스 진입점에 함께 사용하며, 온라인 획득은 지원되는 선택적 배포판 경로로 유지합니다. | `current change`, 설계 소유자 문서 및 Azure 배포 스킬, 런타임·서명·승인·Azure 동작 변경 없음 | 로컬 완전한 키트 하나를 빌드하고 독립적으로 검증한 뒤 같은 바이트에서 별도 승인된 로컬 조정기 및 어플라이언스 진입점 수렴 증적을 보존합니다. |
 | 2026-09-16 | not-started | AKS를 명시적인 기본 배포 대상으로 정하고, 선택한 피어링, 비공개 엔드포인트, 비공개 DNS, 비공개 클러스터 모드와 공개 접근 제거를 Console에서 시작하는 상세 프로비저닝 계획으로 옮겼습니다. 테넌트 프로비저닝은 미리 빌드하고 서명한 이미지만 사용하며 이미지를 빌드하거나 캡처하지 않습니다. | `current change`, 문서 및 배포 스킬 계약만 변경했으며 CLI, Console, Terraform 또는 Azure 효과는 주장하지 않습니다. | API 서버 서브넷과 공개 기본 구성을 구현하고 테넌트 이미지 builder를 제거하며 Console 네트워크 요청 상태와 보호된 실행을 추가한 뒤 기본 및 비공개 전환 증적을 보존합니다. |

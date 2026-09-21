@@ -503,7 +503,7 @@ production inventory reader. Its local fixture adapter covers 24, 100, 1,000, an
 | Evidence states | Keep operating state, availability, and observation coverage independent. Partial inventory has an unknown full total. Stale observations cannot establish current state. Loading starts with a skeleton; read failure is not zero; an empty inventory is distinct from no filter matches. |
 | Exceptions and history | Authored highlights remain independent of map filters and are not a complete queue. Sample events and historical performance keep their own time windows. An event whose resource is absent from received inventory cannot select an invented record. |
 
-The additive native `/dashboard-v2` route keeps `/overview` and its default Dashboard unchanged.
+The additive native `/resource-dashboard` route keeps `/overview` and its default Dashboard unchanged. The former `/dashboard-v2` path remains a compatibility alias that preserves the query string and is replaced in browser history with the canonical path.
 It uses the [shared recorded-state API](recorded-resource-state.md) with Ontology Instances, retaining separate state axes and evidence.
 Server pages bind generation, cutoff, search and principal context; local filters use only received records. Unknown freshness does not erase recorded values or prove health.
 No mock fixtures enter the route. Snapshot replacement clears selection and rejects late responses; the common query excludes role assignments and scope containers.

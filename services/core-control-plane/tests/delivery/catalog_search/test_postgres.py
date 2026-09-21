@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
+from unittest.mock import MagicMock, Mock
 
 import pytest
 from fdai.delivery.catalog_search.postgres import (
@@ -15,6 +16,48 @@ from fdai.shared.providers.catalog_search import (
     catalog_generation_digest,
     catalog_search_document_digest,
 )
+from psycopg.conninfo import conninfo_to_dict
+
+
+@pytest.mark.parametrize("interrupted", [False, True])
+def test_isolated_catalog_harness_never_migrates_or_cleans_shared_tables(
+    interrupted: bool,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from tests.delivery.catalog_search import test_postgres_integration as integration
+
+    monkeypatch.setenv(
+        "FDAI_ONTOLOGY_SNAPSHOT_TEST_DSN", "host=127.0.0.1 dbname=example user=example"
+    )
+    connection = MagicMock()
+    connection.__enter__.return_value = connection
+    connection.execute.return_value.fetchone.return_value = (True,)
+    monkeypatch.setattr(integration.psycopg, "connect", Mock(return_value=connection))
+    monkeypatch.setattr(integration.uuid, "uuid4", lambda: Mock(hex="1" * 32))
+    iterator = integration.isolated_local_catalog.__wrapped__(monkeypatch)
+    next(iterator)
+    assert (
+        conninfo_to_dict(integration._dsn())["options"]
+        == "-c search_path=test_catalog_" + "1" * 32 + ",public"
+    )
+    assert integration._upgrade() is None
+    if interrupted:
+        with pytest.raises(RuntimeError, match="example interruption"):
+            iterator.throw(RuntimeError("example interruption"))
+    else:
+        with pytest.raises(StopIteration):
+            next(iterator)
+    statements = [
+        call.args[0] if isinstance(call.args[0], str) else call.args[0].as_string()
+        for call in connection.execute.call_args_list
+    ]
+    assert sum(statement.startswith("CREATE SCHEMA") for statement in statements) == 1
+    assert sum(statement.startswith("CREATE TABLE") for statement in statements) == 2
+    assert statements[-1] == 'DROP SCHEMA "test_catalog_' + "1" * 32 + '" CASCADE'
+    assert not any(
+        statement.startswith(("DELETE", "UPDATE", "DROP TABLE", "CREATE EXTENSION"))
+        for statement in statements
+    )
 
 
 class _Embedder:

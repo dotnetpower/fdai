@@ -26,6 +26,14 @@ _ROOT = Path(__file__).resolve().parents[5]
 _CATALOG = _ROOT / "rule-catalog"
 
 
+def test_profile_catalog_declares_its_editor_schema() -> None:
+    profile_path = _CATALOG / "prompts" / "profiles" / "catalog.yaml"
+
+    assert profile_path.read_text(encoding="utf-8").splitlines()[0] == (
+        "# yaml-language-server: $schema=./schema/prompt-profile.schema.json"
+    )
+
+
 def test_shipped_active_profiles_pin_exact_versions() -> None:
     registry = FileSystemPromptRegistry(_CATALOG)
 

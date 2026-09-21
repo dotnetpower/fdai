@@ -22,10 +22,8 @@ from fdai_service_contracts.read_investigation import (
     read_investigation_task_id,
 )
 
-from fdai_operator_service.postgres_family_store import (
-    PostgresFamilyStore,
-    ReadInvestigationProposalClaim,
-)
+from fdai_operator_service.postgres_family_models import ReadInvestigationProposalClaim
+from fdai_operator_service.postgres_family_store import PostgresFamilyStore
 
 _LOGGER = logging.getLogger(__name__)
 

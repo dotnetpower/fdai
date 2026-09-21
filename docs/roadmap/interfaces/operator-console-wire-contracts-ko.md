@@ -1,8 +1,8 @@
 ---
 title: Operator Console - Data and Wire Contracts
 translation_of: operator-console-wire-contracts.md
-translation_source_sha: 2525d1fb6600bca1c5b15115beefb86e75cd0aca
-translation_revised: 2026-09-20
+translation_source_sha: 28b09aef51894b13a2f10354d5528f5ecd44047a
+translation_revised: 2026-09-21
 ---
 
 # Operator Console - 데이터 and Wire Contracts
@@ -10,6 +10,7 @@ translation_revised: 2026-09-20
 > [operator-console-ko.md](operator-console-ko.md) 섹션 13 (13.1-13.3, 13.6-13.9)에서 분리한 focused 소유자 문서입니다.
 
 ## 13. 데이터 + wire 계약
+Core가 감독하는 인스턴스 인덱스 조정은 Incident 생성 및 전송과 분리됩니다. 접수는 모델 인자나 인덱스 레코드가 아닌 인증된 Function 호출 문맥에서만 이뤄집니다. 후보 준비와 정확한 ID 조회는 Incident를 생성하거나 변경을 승인하거나 의미 전송 계약의 실행 권한 없음 원칙을 바꿀 수 없습니다. 전용 최종 변환은 principal, release, 검색어, 결과 다이제스트, 호출 근거 및 후보 집계를 검증합니다. 식별자/타입/수정 버전 행만 표시하고 전체 목록이나 실행 권한이 아니라는 안내를 두 언어로 제공합니다. 후보 0개는 부재를 입증하지 않으며 원시 속성은 제외합니다.
 
 관측 구성은 기존 전송에서 별도의 `observer-proposal-projection` 스키마와
 `core.observer-deployment.projections` 논리 토픽을 사용합니다. Operator가 순서 보장된
@@ -115,6 +116,14 @@ strict JSON-schema `TurnPlan`을 반환합니다. 브라우저는 액션 의도�
 스키마가 유효하지만 정책에서 거부한 요청은 권한 없는 보류 최종 결과를 즉시 반환합니다. 선택적
 관찰 실패는 전달을 막지 않으며 발신함 종료 실패는 재시도할 수 있습니다. 잘못된 묶음만 배달 못 한
 편지 경로로 들어가며 보류 또는 재시도 상태는 인시던트를 만들거나 작업 초안을 확인할 수 없습니다.
+Core는 의미 요청 결속, 인시던트 근거 변환, 현지화된 인시던트 답변 렌더링을 전용 모듈에
+유지하며 의미 턴 프로세서는 조정을 계속 담당합니다. 이 분리는 모든 wire 필드, 행 한도,
+로케일, 근거 참조 및 권한 없음 값을 보존합니다.
+Operator의 PostgreSQL 제품군 facade도 변경 불가능한 레코드, 행 변환 및 근거 디코딩을 위임하며
+조회 매개 변수, 제안 claim, 재생 순서 또는 wire 필드를 바꾸지 않습니다.
+Operator terminal 표현은 Pantheon 품질 보증, 현지화된 Incident 블록 및 내용이 제거된 읽기
+trajectory를 전용 renderer에 위임하며 필드, 상한, 로케일, 근거 권위 또는 고정된 실행 권한 없음
+계약을 바꾸지 않습니다.
 
 - **인시던트 초안**: 검증된 `incident_create` 판정은 범위가 제한된 심각도와 대상,
   대화 `session_id`, 요청 범위 멱등성 키를 포함한 권한 없는 `incident.create`

@@ -11,6 +11,12 @@ from uuid import uuid4
 
 import pytest
 from fdai_document_worker_service.adapters import processing as processing_module
+from fdai_document_worker_service.adapters import (
+    processing_extraction as processing_extraction_module,
+)
+from fdai_document_worker_service.adapters import (
+    processing_extraction_support as processing_extraction_support_module,
+)
 from fdai_document_worker_service.adapters.ooxml import (
     OoxmlParserBudget,
     extract_ooxml,
@@ -121,7 +127,7 @@ async def test_input_byte_budget_reports_typed_extraction_reason() -> None:
 
 def test_native_pdf_uses_canonical_page_block_locator(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(
-        processing_module,
+        processing_extraction_support_module,
         "inspect_pdf_pages_isolated",
         lambda _content: (PdfPageInspection("Native text", False),),
     )
@@ -136,7 +142,7 @@ async def test_scanned_pdf_reports_ocr_extractor_provenance(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr(
-        processing_module,
+        processing_extraction_module,
         "_pdf_inspection",
         lambda _content: ((None,), (True,)),
     )
@@ -157,7 +163,7 @@ async def test_mixed_pdf_uses_ocr_only_for_pages_without_native_text(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr(
-        processing_module,
+        processing_extraction_module,
         "_pdf_inspection",
         lambda _content: (
             (
@@ -192,7 +198,7 @@ async def test_mixed_pdf_fails_closed_when_scanned_page_has_no_ocr_text(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr(
-        processing_module,
+        processing_extraction_module,
         "_pdf_inspection",
         lambda _content: (
             (
@@ -227,7 +233,7 @@ async def test_native_pdf_page_with_image_merges_nonduplicate_ocr(
         text="Native text",
     )
     monkeypatch.setattr(
-        processing_module,
+        processing_extraction_module,
         "_pdf_inspection",
         lambda _content: ((native,), (True,)),
     )

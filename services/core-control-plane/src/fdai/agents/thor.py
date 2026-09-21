@@ -16,16 +16,18 @@ from __future__ import annotations
 import asyncio
 from collections.abc import Awaitable, Callable, Mapping
 from copy import deepcopy
-from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
-from typing import Any, Literal, Protocol, runtime_checkable
+from typing import Any
 from weakref import WeakValueDictionary
 
-from pydantic import ValidationError
-
-from fdai.agents._framework import action_run_lineage
+from fdai.agents._framework import (
+    action_run_lineage,
+    thor_dispatch_validation,
+    thor_execution,
+    thor_introspection,
+    thor_persistence,
+)
 from fdai.agents._framework.action_run_identity import (
-    action_run_identity_digest,
     approval_matches_action_run,
     bounded_rollback_ref,
     rollback_matches_action_run,
@@ -33,38 +35,41 @@ from fdai.agents._framework.action_run_identity import (
 from fdai.agents._framework.action_run_lineage import (
     bounded_operational_context as _bounded_operational_context,
 )
-from fdai.agents._framework.action_run_lineage import optional_datetime as _optional_datetime
 from fdai.agents._framework.action_run_state import (
     TERMINAL_ACTION_RUN_STATES as _TERMINAL_STATES,
 )
 from fdai.agents._framework.action_run_state import ActionRunState
 from fdai.agents._framework.base import Agent
 from fdai.agents._framework.bus import PantheonBus
-from fdai.agents._framework.introspection import (
-    IntrospectionResult,
-    agent_state_evidence_ref,
-    capability_facts,
-    mentioned,
-)
+from fdai.agents._framework.introspection import IntrospectionResult
 from fdai.agents._framework.pantheon import _THOR
-from fdai.agents._framework.role_answers import thor_role_answer
-from fdai.agents._framework.thor_correlation import resolve_correlation_claim
-from fdai.agents._framework.thor_effect_verification import (
-    ThorEffectVerificationMixin,
-    durable_effect_verification,
-    effect_publication_fields,
-    effect_verification_mapping,
-    validate_effect_verification,
+from fdai.agents._framework.thor_action_run import (
+    ActionRun,
+    ActionRunStore,
 )
-from fdai.core.executor.safeguards import resource_lock_key
+from fdai.agents._framework.thor_action_run import (
+    kinetic_proposal as _kinetic_proposal,
+)
+from fdai.agents._framework.thor_action_run import (
+    kinetic_proposal_matches as _kinetic_proposal_matches,
+)
+from fdai.agents._framework.thor_action_run import (
+    prospective_lineage as _prospective_lineage,
+)
+from fdai.agents._framework.thor_correlation import resolve_correlation_claim
+from fdai.agents._framework.thor_effect_verification import ThorEffectVerificationMixin
+from fdai.agents._framework.thor_execution import (
+    ExecutionResourceUnavailableError as _ExecutionResourceUnavailableError,
+)
 from fdai.core.operational_context.test_context_dispatch import (
     TestContextDispatchBinding,
     TestContextDispatchGuard,
 )
-from fdai.core.operational_planning import KineticActionProposal
-from fdai.core.operational_planning.prospective_lineage import ProspectiveLineage
 from fdai.shared.contracts.models import Autonomy
 from fdai.shared.providers.resource_lock import ResourceLock
+
+_resolved_autonomy_ceiling = thor_dispatch_validation.resolved_autonomy_ceiling
+_selected_action_matches = thor_dispatch_validation.selected_action_matches
 
 ActionExecutor = Callable[[dict[str, Any]], Awaitable[bool]]
 """Callable that mutates the target and returns True on success."""
@@ -97,178 +102,6 @@ class _ReentrantAsyncLock:
         if self._depth == 0:
             self._owner = None
             self._lock.release()
-
-
-class _ExecutionResourceUnavailableError(RuntimeError):
-    """The cross-replica mutation lock could not be acquired."""
-
-
-@dataclass
-class ActionRun:
-    correlation_id: str
-    action_type: str
-    resource_id: str | None
-    state: ActionRunState
-    verdict: str  # auto | hil | deny
-    action_id: str | None = None
-    idempotency_key: str = ""
-    params: dict[str, Any] = field(default_factory=dict)
-    shadow_mode: bool = False
-    resolved_autonomy_ceiling: Autonomy = Autonomy.SHADOW_ONLY
-    quorum_required: int = 1
-    outcome: str | None = None
-    initiator_principal: str | None = None
-    rollback_contract: str = "state_forward_only"
-    rollback_ref: str | None = None
-    decision_case: dict[str, Any] | None = None
-    operational_context: dict[str, Any] | None = None
-    test_context_guard: TestContextDispatchBinding | None = None
-    workflow_action: dict[str, Any] | None = None
-    kinetic_proposal: dict[str, Any] | None = None
-    prospective_lineage: dict[str, Any] | None = None
-    execution_audit_receipt: str | None = None
-    effect_verification_ref: str | None = None
-    execution_closure_ref: str | None = None
-    effect_verified_at: datetime | None = None
-    approval_expires_at: datetime | None = None
-    terminal_published: bool = False
-    resource_claimed: bool = False
-    history: list[ActionRunState] = field(default_factory=list)
-
-    def __post_init__(self) -> None:
-        action_run_lineage.validate_action_run_lineage(self.action_id, self.workflow_action)
-        if not self.idempotency_key:
-            self.idempotency_key = self.correlation_id
-        validate_effect_verification(
-            self.effect_verification_ref,
-            self.execution_closure_ref,
-            self.effect_verified_at,
-        )
-
-    def transition(self, new_state: ActionRunState) -> None:
-        self.history.append(self.state)
-        self.state = new_state
-
-    def to_dict(self) -> dict[str, Any]:
-        """Serialize for a durable :class:`ActionRunStore` backend."""
-        return {
-            "correlation_id": self.correlation_id,
-            "action_type": self.action_type,
-            "resource_id": self.resource_id,
-            "state": self.state.value,
-            "verdict": self.verdict,
-            "action_id": self.action_id,
-            "idempotency_key": self.idempotency_key,
-            "params": deepcopy(self.params),
-            "shadow_mode": self.shadow_mode,
-            "resolved_autonomy_ceiling": self.resolved_autonomy_ceiling.value,
-            "quorum_required": self.quorum_required,
-            "outcome": self.outcome,
-            "initiator_principal": self.initiator_principal,
-            "rollback_contract": self.rollback_contract,
-            "rollback_ref": self.rollback_ref,
-            "decision_case": self.decision_case,
-            "operational_context": deepcopy(self.operational_context),
-            **(
-                {"test_context_guard": self.test_context_guard.model_dump(mode="json")}
-                if self.test_context_guard is not None
-                else {}
-            ),
-            "workflow_action": deepcopy(self.workflow_action),
-            "kinetic_proposal": deepcopy(self.kinetic_proposal),
-            "prospective_lineage": deepcopy(self.prospective_lineage),
-            "execution_audit_receipt": self.execution_audit_receipt,
-            **effect_verification_mapping(self),
-            "approval_expires_at": (
-                self.approval_expires_at.isoformat()
-                if self.approval_expires_at is not None
-                else None
-            ),
-            "terminal_published": False,
-            "resource_claimed": self.resource_claimed,
-            "history": [s.value for s in self.history],
-        }
-
-    @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> ActionRun:
-        operational_context = _bounded_operational_context(data.get("operational_context"))
-        resolved_autonomy_ceiling = Autonomy(
-            data.get("resolved_autonomy_ceiling", Autonomy.SHADOW_ONLY.value)
-        )
-        if data.get("operational_context") is not None and operational_context is None:
-            resolved_autonomy_ceiling = Autonomy.SHADOW_ONLY
-        run = cls(
-            correlation_id=str(data["correlation_id"]),
-            action_type=str(data["action_type"]),
-            resource_id=data.get("resource_id"),
-            state=ActionRunState(data["state"]),
-            verdict=str(data["verdict"]),
-            action_id=action_run_lineage.optional_bounded_text(
-                data.get("action_id"),
-                field_name="action_id",
-            ),
-            idempotency_key=str(data.get("idempotency_key") or data["correlation_id"]),
-            params=deepcopy(dict(data.get("params") or {})),
-            shadow_mode=bool(data.get("shadow_mode", False)),
-            resolved_autonomy_ceiling=resolved_autonomy_ceiling,
-            quorum_required=int(data.get("quorum_required", 1)),
-            outcome=data.get("outcome"),
-            initiator_principal=data.get("initiator_principal"),
-            rollback_contract=str(data.get("rollback_contract", "state_forward_only")),
-            rollback_ref=data.get("rollback_ref"),
-            decision_case=action_run_lineage.bounded_decision_case(data.get("decision_case")),
-            operational_context=operational_context,
-            test_context_guard=(
-                TestContextDispatchBinding.model_validate(data["test_context_guard"])
-                if data.get("test_context_guard") is not None
-                else None
-            ),
-            workflow_action=action_run_lineage.bounded_workflow_action(data.get("workflow_action")),
-            kinetic_proposal=_durable_kinetic_proposal(data.get("kinetic_proposal")),
-            prospective_lineage=_durable_prospective_lineage(data.get("prospective_lineage")),
-            execution_audit_receipt=action_run_lineage.optional_bounded_text(
-                data.get("execution_audit_receipt"),
-                field_name="execution_audit_receipt",
-            ),
-            **durable_effect_verification(data),
-            approval_expires_at=_optional_datetime(
-                data.get("approval_expires_at"),
-                field_name="approval_expires_at",
-            ),
-            terminal_published=bool(data.get("terminal_published", False)),
-            resource_claimed=bool(data.get("resource_claimed", False)),
-        )
-        run.history = [ActionRunState(s) for s in data.get("history", [])]
-        _require_bound_kinetic_proposal(run)
-        return run
-
-
-@runtime_checkable
-class ActionRunStore(Protocol):
-    """Durable persistence seam for in-flight ActionRuns.
-
-    Upstream default is in-memory (no store); a fork injects a
-    StateStore-backed implementation so an enforce-mode pantheon does not
-    lose track of in-progress mutations across a restart. Terminal runs
-    are deleted, so :meth:`load_active` returns only in-flight work.
-    """
-
-    async def save(self, run: ActionRun) -> None: ...
-
-    async def load_active(self) -> list[ActionRun]: ...
-
-    async def delete(self, correlation_id: str) -> None: ...
-
-    async def claim_resource(
-        self,
-        run: ActionRun,
-    ) -> Literal["acquired", "contended", "completed"]: ...
-
-    async def release_resource(self, resource_id: str, correlation_id: str) -> bool: ...
-
-    async def refresh_resource_claim(self, run: ActionRun) -> bool: ...
-
-    async def validate_resource_claim(self, run: ActionRun) -> bool: ...
 
 
 class Thor(ThorEffectVerificationMixin, Agent):
@@ -364,100 +197,10 @@ class Thor(ThorEffectVerificationMixin, Agent):
         self._require_execution_resource_lock = required
 
     async def rehydrate(self) -> int:
-        """Reload in-flight ActionRuns from the durable store on startup.
-
-        Restores the per-resource locks so a restart cannot start a second
-        run on a resource that already had one in flight. Returns the
-        number of runs restored. No-op without a store.
-        """
-        if self._state_store is None:
-            return 0
-        active = await self._state_store.load_active()
-        resource_counts: dict[str, int] = {}
-        claimed_counts: dict[str, int] = {}
-        for run in active:
-            if run.resource_id and run.state not in _TERMINAL_STATES:
-                resource_id = str(run.resource_id)
-                resource_counts[resource_id] = resource_counts.get(resource_id, 0) + 1
-                if run.resource_claimed:
-                    claimed_counts[resource_id] = claimed_counts.get(resource_id, 0) + 1
-        for run in active:
-            if run.state in _TERMINAL_STATES:
-                self.action_runs[run.correlation_id] = run
-                self._idempotency_runs[run.idempotency_key] = run
-                await self._emit_action_run(run)
-                await self._finalize_terminal_replay(run)
-                continue
-            if run.resource_claimed and run.state in {
-                ActionRunState.VERDICTED,
-                ActionRunState.APPROVED,
-                ActionRunState.EXECUTING,
-            }:
-                run.transition(ActionRunState.EXECUTION_UNKNOWN)
-                run.outcome = "claimed_execution_requires_reconciliation"
-                run.shadow_mode = True
-                self.action_runs[run.correlation_id] = run
-                self._idempotency_runs[run.idempotency_key] = run
-                if run.resource_id:
-                    self._resource_locks.add(str(run.resource_id))
-                await self._emit_action_run(run)
-                continue
-            if (
-                run.resource_id
-                and resource_counts.get(str(run.resource_id), 0) > 1
-                and (not run.resource_claimed or claimed_counts.get(str(run.resource_id), 0) > 1)
-            ):
-                if not run.resource_claimed:
-                    run.outcome = "resource_claim_contended_after_restart"
-                    self.action_runs[run.correlation_id] = run
-                    self._idempotency_runs[run.idempotency_key] = run
-                    self._resource_locks.add(str(run.resource_id))
-                    continue
-                if run.state is not ActionRunState.EXECUTION_UNKNOWN:
-                    run.transition(ActionRunState.EXECUTION_UNKNOWN)
-                run.outcome = "duplicate_active_resource_after_restart"
-                run.shadow_mode = True
-                self.action_runs[run.correlation_id] = run
-                self._idempotency_runs[run.idempotency_key] = run
-                self._resource_locks.add(str(run.resource_id))
-                await self._emit_action_run(run)
-                continue
-            if run.state is ActionRunState.EXECUTING:
-                run.transition(ActionRunState.EXECUTION_UNKNOWN)
-                run.outcome = "execution_state_unknown_after_restart"
-                run.shadow_mode = True
-            if run.resolved_autonomy_ceiling is Autonomy.SHADOW_ONLY:
-                run.shadow_mode = True
-            self.action_runs[run.correlation_id] = run
-            self._idempotency_runs[run.idempotency_key] = run
-            if run.resource_id:
-                self._resource_locks.add(str(run.resource_id))
-            await self._resume_rehydrated(run)
-        return len(active)
+        return await thor_persistence.rehydrate(self)
 
     async def _resume_rehydrated(self, run: ActionRun) -> None:
-        """Republish or safely continue one durable non-terminal state."""
-
-        if run.state is ActionRunState.VERDICTED:
-            await self._emit_action_run(run)
-            if run.verdict == "deny":
-                run.transition(ActionRunState.DENY_DROPPED)
-                await self._emit_action_run(run)
-                self._release_lock(run.resource_id)
-            elif run.verdict == "hil":
-                run.transition(ActionRunState.HIL_PENDING)
-                await self._emit_action_run(run)
-            else:
-                await self._execute(run)
-            return
-        if run.state is ActionRunState.APPROVED:
-            await self._execute(run)
-            return
-        if run.state is ActionRunState.EXECUTING:
-            run.transition(ActionRunState.EXECUTION_UNKNOWN)
-            run.outcome = "execution_publication_unknown"
-            run.shadow_mode = True
-        await self._emit_action_run(run)
+        await thor_persistence.resume_rehydrated(self, run)
 
     def set_shadow(self, enabled: bool) -> None:
         """Force shadow mode on / off for every future dispatch.
@@ -799,193 +542,13 @@ class Thor(ThorEffectVerificationMixin, Agent):
             raise
 
     async def _execute(self, run: ActionRun) -> None:
-        # The per-resource lock MUST be released no matter how _execute exits:
-        # it always drives the run to a terminal state, so even if a lifecycle
-        # emit raises (a bus hiccup), leaving the resource locked would
-        # deadlock every future action on it (permanent dispatch:lock_contention).
-        release_lock = False
-        try:
-            run.shadow_mode = (
-                run.shadow_mode
-                or run.resolved_autonomy_ceiling is Autonomy.SHADOW_ONLY
-                or self._must_shadow()
-            )
-            if not run.shadow_mode and self._require_execution_audit:
-                recorder = self._execution_audit_recorder
-                if recorder is None:
-                    run.transition(ActionRunState.DENY_DROPPED)
-                    run.outcome = "execution_audit_unavailable"
-                    await self._emit_action_run(run)
-                    await self._release_resource_claim(run)
-                    self.record_behavior("execution_audit:unavailable")
-                    release_lock = True
-                    return
-                try:
-                    receipt = await recorder(run)
-                except Exception:  # noqa: BLE001 - audit failure blocks executor I/O
-                    run.transition(ActionRunState.DENY_DROPPED)
-                    run.outcome = "execution_audit_failed"
-                    await self._emit_action_run(run)
-                    await self._release_resource_claim(run)
-                    self.record_behavior("execution_audit:failed")
-                    release_lock = True
-                    return
-                if not receipt.strip() or len(receipt) > 512:
-                    run.transition(ActionRunState.DENY_DROPPED)
-                    run.outcome = "execution_audit_invalid"
-                    await self._emit_action_run(run)
-                    await self._release_resource_claim(run)
-                    self.record_behavior("execution_audit:invalid")
-                    release_lock = True
-                    return
-                run.execution_audit_receipt = receipt
-                self.record_behavior("execution_audit:recorded")
-            if not run.shadow_mode and not run.resource_claimed:
-                if not await self._claim_execution_resource(run):
-                    run.transition(ActionRunState.DENY_DROPPED)
-                    run.outcome = "duplicate_execution_already_completed"
-                    await self._emit_action_run(run)
-                    self._release_lock(run.resource_id)
-                    return
-            run.transition(ActionRunState.EXECUTING)
-            await self._emit_action_run(run)
-            if run.test_context_guard is not None:
-                guard = self._test_context_dispatch_guard
-                if guard is None or not await guard.current(
-                    run.test_context_guard, target_ref=run.resource_id
-                ):
-                    run.transition(ActionRunState.DENY_DROPPED)
-                    run.outcome = "test_context_changed_before_dispatch"
-                    await self._emit_action_run(run)
-                    await self._release_resource_claim(run)
-                    self.record_behavior("test_context:dispatch_held")
-                    release_lock = True
-                    return
-            if run.shadow_mode:
-                run.transition(ActionRunState.SUCCEEDED)
-                run.outcome = "shadow_success"
-                await self._emit_action_run(run)
-                await self._release_resource_claim(run)
-                self.record_behavior("executed:shadow")
-                release_lock = True
-                return
-            try:
-                async with asyncio.timeout(self._executor_timeout_seconds):
-                    success = await self._invoke_executor(run)
-            except _ExecutionResourceUnavailableError as exc:
-                retry_state = (
-                    ActionRunState.APPROVED if run.verdict == "hil" else ActionRunState.VERDICTED
-                )
-                run.transition(retry_state)
-                run.outcome = "execution_resource_temporarily_unavailable"
-                await self._emit_action_run(run)
-                self.record_behavior("execution_resource_lock:unavailable")
-                raise RuntimeError("execution resource is temporarily unavailable") from exc
-            except TimeoutError:
-                run.transition(ActionRunState.EXECUTION_UNKNOWN)
-                run.outcome = "executor_timeout"
-                await self._emit_action_run(run)
-                self.record_behavior("executed:unknown")
-                release_lock = False
-                return
-            except Exception as exc:  # noqa: BLE001 (surface adapter errors)
-                success = False
-                run.outcome = f"executor_error:{type(exc).__name__}"
-            if run.outcome == "command_accepted_lock_release_unknown":
-                run.transition(ActionRunState.EXECUTION_UNKNOWN)
-                await self._emit_action_run(run)
-                self.record_behavior("executed:unknown")
-                return
-            run.transition(ActionRunState.SUCCEEDED if success else ActionRunState.FAILED)
-            if success and run.outcome is None:
-                run.outcome = "command_accepted_verification_pending"
-            if not success and run.outcome is None:
-                run.outcome = "executor returned false"
-            await self._emit_action_run(run)
-            self.record_behavior("executed:success" if success else "executed:failed")
-            if success:
-                await self._release_resource_claim(run)
-            release_lock = success
-        finally:
-            if release_lock:
-                self._release_lock(run.resource_id)
+        await thor_execution.execute(self, run)
 
     async def _invoke_executor(self, run: ActionRun) -> bool:
-        resource_id = str(run.resource_id or "")
-        if not resource_id:
-            raise ValueError("execution resource_id MUST be non-empty")
-        resource_lock = self._execution_resource_lock
-        if resource_lock is None:
-            if self._require_execution_resource_lock:
-                raise RuntimeError("cross-replica execution resource lock is unavailable")
-            return await self._executor({"run": run})
-        context = resource_lock.acquire(resource_lock_key(resource_id))
-        try:
-            await context.__aenter__()
-        except Exception as exc:
-            raise _ExecutionResourceUnavailableError from exc
-        if run.resource_claimed:
-            try:
-                lease_seconds = getattr(self._state_store, "claim_lease_seconds", None)
-                refresh_claim = getattr(self._state_store, "refresh_resource_claim", None)
-                if (
-                    isinstance(lease_seconds, bool)
-                    or not isinstance(lease_seconds, int)
-                    or lease_seconds <= self._executor_timeout_seconds
-                    or not callable(refresh_claim)
-                    or not await refresh_claim(run)
-                ):
-                    raise _ExecutionResourceUnavailableError
-                validate_claim = getattr(self._state_store, "validate_resource_claim", None)
-                if not callable(validate_claim) or not await validate_claim(run):
-                    raise _ExecutionResourceUnavailableError
-            except asyncio.CancelledError:
-                try:
-                    await context.__aexit__(None, None, None)
-                except Exception:  # noqa: BLE001 - preserve cancellation semantics
-                    self.record_behavior("execution_resource_lock:release_unknown")
-                raise
-            except Exception as exc:
-                try:
-                    await context.__aexit__(None, None, None)
-                except Exception:  # noqa: BLE001 - preserve non-execution classification
-                    self.record_behavior("execution_resource_lock:release_unknown")
-                raise _ExecutionResourceUnavailableError from exc
-        if run.outcome == "execution_resource_temporarily_unavailable":
-            run.outcome = None
-        try:
-            result = await self._executor({"run": run})
-        except BaseException as exc:
-            try:
-                await context.__aexit__(type(exc), exc, exc.__traceback__)
-            except Exception:  # noqa: BLE001 - preserve cancellation/timeout ambiguity
-                self.record_behavior("execution_resource_lock:release_unknown")
-            raise
-        try:
-            await context.__aexit__(None, None, None)
-        except Exception:  # noqa: BLE001 - mutation result remains unknown, never failed
-            run.outcome = "command_accepted_lock_release_unknown"
-            self.record_behavior("execution_resource_lock:release_unknown")
-        return result
+        return await thor_execution.invoke_executor(self, run)
 
     async def _claim_execution_resource(self, run: ActionRun) -> bool:
-        if run.resource_claimed:
-            return True
-        state_store = self._state_store
-        claim = getattr(state_store, "claim_resource", None)
-        if not callable(claim):
-            if self._require_execution_resource_lock:
-                raise _ExecutionResourceUnavailableError
-            return True
-        result = await claim(run)
-        if result == "completed":
-            run.resource_claimed = False
-            return False
-        if result != "acquired":
-            run.resource_claimed = False
-            raise _ExecutionResourceUnavailableError
-        run.resource_claimed = True
-        return True
+        return await thor_execution.claim_execution_resource(self, run)
 
     async def _handle_approval(self, approval: dict[str, Any]) -> None:
         correlation = str(approval.get("correlation_id", ""))
@@ -1136,186 +699,39 @@ class Thor(ThorEffectVerificationMixin, Agent):
     # ---- helpers -------------------------------------------------------
 
     def _release_lock(self, resource_id: Any) -> None:
-        if not resource_id:
-            return
-        normalized = str(resource_id)
-        if any(
-            run.resource_id == normalized and run.state not in _TERMINAL_STATES
-            for run in self.action_runs.values()
-        ):
-            return
-        self._resource_locks.discard(normalized)
+        thor_persistence.release_lock(self, resource_id)
 
     def _evict_terminal_overflow(self) -> None:
-        """Bound ``action_runs`` by evicting the oldest terminal runs.
-
-        Active (non-terminal) runs are never evicted - they back the
-        per-resource mutex and HIL approval lookup. Only once the map
-        exceeds the retention cap are the oldest *terminal* runs dropped
-        (dict-insertion order), so recent history stays inspectable while
-        memory stays bounded over a long-running dispatcher.
-        """
-        if len(self.action_runs) <= self._max_retained_runs:
-            return
-        overflow = len(self.action_runs) - self._max_retained_runs
-        for cid, run in list(self.action_runs.items()):
-            if overflow <= 0:
-                break
-            if (
-                run.state in _TERMINAL_STATES
-                and run.state is not ActionRunState.ROLLBACK_FAILED
-                and not run.resource_claimed
-                and run.terminal_published
-            ):
-                del self.action_runs[cid]
-                if self._idempotency_runs.get(run.idempotency_key) is run:
-                    del self._idempotency_runs[run.idempotency_key]
-                overflow -= 1
+        thor_persistence.evict_terminal_overflow(self)
 
     def _find_active_run(self, resource_id: str) -> ActionRun | None:
-        for run in self.action_runs.values():
-            if run.resource_id == resource_id and run.state not in _TERMINAL_STATES:
-                return run
-        return None
+        return thor_persistence.find_active_run(self, resource_id)
 
     async def _emit_action_run(self, run: ActionRun) -> None:
-        # Durable write-through records every transition before publication.
-        # Terminal rows are deleted only after publish succeeds, so a restart
-        # can replay a terminal transition that the broker never accepted.
-        if self._state_store is not None:
-            await self._state_store.save(run)
-        self._evict_terminal_overflow()
-        if self.bus is None:
-            if (
-                self._state_store is not None
-                and run.state in _TERMINAL_STATES
-                and not run.resource_claimed
-            ):
-                await self._state_store.delete(run.correlation_id)
-            if run.state in _TERMINAL_STATES:
-                run.terminal_published = True
-            return
-        payload = {
-            "producer_principal": "Thor",
-            "correlation_id": run.correlation_id,
-            "idempotency_key": f"{run.correlation_id}:{run.state.value}",
-            "action_idempotency_key": run.idempotency_key,
-            "action_type": run.action_type,
-            "resource_id": run.resource_id,
-            "state": run.state.value,
-            "shadow_mode": run.shadow_mode,
-            "resolved_autonomy_ceiling": run.resolved_autonomy_ceiling.value,
-            "outcome": run.outcome,
-            **effect_publication_fields(run),
-            "verdict": run.verdict,
-            "params": deepcopy(run.params),
-            "quorum_required": run.quorum_required,
-            "initiator_principal": run.initiator_principal,
-            "rollback_contract": run.rollback_contract,
-            "rollback_ref": run.rollback_ref,
-            "decision_case": run.decision_case,
-            "operational_context": deepcopy(run.operational_context),
-            "workflow_action": deepcopy(run.workflow_action),
-            "kinetic_proposal": deepcopy(run.kinetic_proposal),
-            "prospective_lineage": deepcopy(run.prospective_lineage),
-            "execution_audit_receipt": run.execution_audit_receipt,
-            "approval_expires_at": (
-                run.approval_expires_at.isoformat() if run.approval_expires_at is not None else None
-            ),
-        }
-        if run.action_id is not None:
-            payload["action_id"] = run.action_id
-        payload["action_run_identity"] = action_run_identity_digest(payload)
-        if run.state in _TERMINAL_STATES:
-            payload["terminal_at"] = datetime.now(tz=UTC).isoformat().replace("+00:00", "Z")
-        await self.bus.publish("Thor", "object.action-run", payload)
-        if run.state in _TERMINAL_STATES:
-            run.terminal_published = True
-            if not run.resource_claimed:
-                await self._delete_terminal_state(run)
+        await thor_persistence.emit_action_run(self, run)
 
     async def _delete_terminal_state(self, run: ActionRun) -> None:
-        if self._state_store is not None:
-            await self._state_store.delete(run.correlation_id)
+        await thor_persistence.delete_terminal_state(self, run)
 
     async def _finalize_terminal_replay(self, run: ActionRun) -> None:
-        if run.state is ActionRunState.ROLLBACK_FAILED:
-            return
-        await self._release_resource_claim(run)
-        if run.resource_claimed:
-            return
-        await self._delete_terminal_state(run)
-        self._release_lock(run.resource_id)
+        await thor_persistence.finalize_terminal_replay(self, run)
 
     async def _release_resource_claim(self, run: ActionRun) -> None:
-        if not run.resource_claimed or not run.resource_id or self._state_store is None:
-            return
-        release = getattr(self._state_store, "release_resource", None)
-        if not callable(release):
-            return
-        if run.state in _TERMINAL_STATES and run.terminal_published:
-            refresh = getattr(self._state_store, "refresh_resource_claim", None)
-            if not callable(refresh) or not await refresh(run):
-                self.record_behavior("execution_resource_claim:refresh_failed")
-                return
-            await self._delete_terminal_state(run)
-        if await release(str(run.resource_id), run.correlation_id):
-            run.resource_claimed = False
-        else:
-            self.record_behavior("execution_resource_claim:retained")
+        await thor_persistence.release_resource_claim(self, run)
 
     # ---- conversational port -------------------------------------------
 
     def conversation_evidence_available(self, context: dict[str, Any]) -> bool:
-        """Thor answers from dispatched runs; before the first one there are none."""
-        return bool(self.action_runs)
+        return thor_introspection.evidence_available(self.action_runs)
 
     async def introspect(self, question: str, context: dict[str, Any]) -> IntrospectionResult:
-        runs = self.action_runs
-        active = [r for r in runs.values() if r.state not in _TERMINAL_STATES]
-        facts = {
-            **capability_facts(self.spec),
-            "total_runs": len(runs),
-            "active_runs": len(active),
-            "shadow_forced": self._shadow_by_default,
-        }
-        selectors = list(runs) + [r.resource_id for r in runs.values() if r.resource_id]
-        keys = set(mentioned(question, selectors))
-        target = None
-        for run in runs.values():
-            if run.correlation_id in keys or (run.resource_id and run.resource_id in keys):
-                target = run
-                break
-        if target is not None:
-            facts.update(
-                {
-                    "correlation_id": target.correlation_id,
-                    "action_type": target.action_type,
-                    "resource_id": target.resource_id,
-                    "state": target.state.value,
-                    # The attempt chain the charter promises: every state this
-                    # run passed through, in order, then its current state.
-                    "state_history": [s.value for s in target.history],
-                    "verdict": target.verdict,
-                    "quorum_required": target.quorum_required,
-                    "outcome": target.outcome,
-                    "shadow_mode": target.shadow_mode,
-                    "rollback_contract": target.rollback_contract,
-                    "rollback_ref": target.rollback_ref,
-                }
-            )
-            evidence_ref = agent_state_evidence_ref(self.spec.name, facts)
-            facts["evidence_refs"] = [evidence_ref]
-            location = f" on {target.resource_id}" if target.resource_id else ""
-            answer = (
-                f"ActionRun {target.correlation_id!r} ({target.action_type}) is "
-                f"{target.state.value}{location}. Evidence: {evidence_ref}."
-            )
-            return IntrospectionResult(answer=answer, facts=facts)
-        evidence_ref = agent_state_evidence_ref(self.spec.name, facts)
-        facts["evidence_refs"] = [evidence_ref]
-        answer = thor_role_answer(str(context.get("locale")), len(runs), len(active), evidence_ref)
-        return IntrospectionResult(answer=answer, facts=facts)
+        return thor_introspection.introspect(
+            spec=self.spec,
+            runs=self.action_runs,
+            shadow_forced=self._shadow_by_default,
+            question=question,
+            context=context,
+        )
 
 
 async def _default_executor(context: dict[str, Any]) -> bool:
@@ -1331,143 +747,3 @@ __all__ = [
     "ActionRunStore",
     "ExecutionAuditRecorder",
 ]
-
-
-def _resolved_autonomy_ceiling(verdict: Mapping[str, Any]) -> Autonomy:
-    """Return the restrictive typed ceiling carried by one verdict."""
-
-    values: list[Autonomy] = []
-    raw = verdict.get("resolved_autonomy_ceiling")
-    if raw is not None:
-        if not isinstance(raw, str):
-            return Autonomy.SHADOW_ONLY
-        try:
-            values.append(Autonomy(raw))
-        except ValueError:
-            return Autonomy.SHADOW_ONLY
-    operational_context = verdict.get("operational_context")
-    if operational_context is not None:
-        if not isinstance(operational_context, Mapping):
-            return Autonomy.SHADOW_ONLY
-        context_ceiling = operational_context.get("autonomy_ceiling")
-        if not isinstance(context_ceiling, str):
-            return Autonomy.SHADOW_ONLY
-        try:
-            values.append(Autonomy(context_ceiling))
-        except ValueError:
-            return Autonomy.SHADOW_ONLY
-    if not values:
-        return Autonomy.SHADOW_ONLY
-    rank = {
-        Autonomy.SHADOW_ONLY: 0,
-        Autonomy.ENFORCE_HIL: 1,
-        Autonomy.ENFORCE_AUTO: 2,
-    }
-    return min(values, key=rank.__getitem__)
-
-
-def _kinetic_proposal(raw: object) -> KineticActionProposal | None:
-    if raw is None:
-        return None
-    try:
-        return KineticActionProposal.model_validate(raw)
-    except (TypeError, ValueError, ValidationError):
-        return None
-
-
-def _durable_kinetic_proposal(raw: object) -> dict[str, Any] | None:
-    proposal = _kinetic_proposal(raw)
-    if raw is not None and proposal is None:
-        raise ValueError("durable ActionRun kinetic proposal is invalid")
-    return proposal.model_dump(mode="json") if proposal is not None else None
-
-
-def _prospective_lineage(raw: object) -> ProspectiveLineage | None:
-    if raw is None:
-        return None
-    try:
-        return ProspectiveLineage.model_validate(raw)
-    except (TypeError, ValueError, ValidationError):
-        return None
-
-
-def _durable_prospective_lineage(raw: object) -> dict[str, Any] | None:
-    lineage = _prospective_lineage(raw)
-    if raw is not None and lineage is None:
-        raise ValueError("durable ActionRun prospective lineage is invalid")
-    return lineage.model_dump(mode="json") if lineage is not None else None
-
-
-def _require_bound_kinetic_proposal(run: ActionRun) -> None:
-    """Reject rehydrated exact-argument evidence that belongs to another run.
-
-    ``dispatch_verdict`` denies a verdict whose proposal is not bound to it.
-    Rehydration reads the same untrusted durable boundary, so it MUST apply the
-    same binding; otherwise a tampered row restores another correlation's exact
-    arguments into an in-flight run and republishes them to the executor.
-    """
-    if run.kinetic_proposal is None:
-        return
-    proposal = _kinetic_proposal(run.kinetic_proposal)
-    if proposal is None or not _kinetic_proposal_matches(
-        proposal,
-        correlation_id=run.correlation_id,
-        action_type=run.action_type,
-        resource_id=run.resource_id,
-        params=run.params,
-        decision_case=run.decision_case,
-    ):
-        raise ValueError("durable ActionRun kinetic proposal is not bound to its run")
-    if run.prospective_lineage is not None:
-        lineage = _prospective_lineage(run.prospective_lineage)
-        if (
-            lineage is None
-            or lineage.correlation_id != run.correlation_id
-            or lineage.proposal_id != proposal.proposal_id
-            or lineage.operational_plan_id != proposal.operational_plan_id
-            or lineage.mutation_plan_digest != proposal.plan.digest
-        ):
-            raise ValueError("durable ActionRun prospective lineage is not bound to its run")
-
-
-def _kinetic_proposal_matches(
-    proposal: KineticActionProposal,
-    *,
-    correlation_id: str,
-    action_type: str,
-    resource_id: object,
-    params: Mapping[str, Any],
-    decision_case: Mapping[str, Any] | None,
-) -> bool:
-    if (
-        proposal.correlation_id != correlation_id
-        or proposal.plan.action_type_ref.name != action_type
-        or proposal.target_resource_ref != str(resource_id or "")
-        or proposal.arguments() != dict(params)
-        or decision_case is None
-    ):
-        return False
-    operational_plan = decision_case.get("operational_plan")
-    return bool(
-        decision_case.get("correlation_id") == proposal.correlation_id
-        and decision_case.get("process_id") == proposal.process_id
-        and decision_case.get("selected_option_id") == proposal.selected_option_id
-        and isinstance(operational_plan, Mapping)
-        and operational_plan.get("complete") is True
-        and operational_plan.get("plan_id") == proposal.operational_plan_id
-    )
-
-
-def _selected_action_matches(decision_case: Mapping[str, Any], action_type: str) -> bool:
-    selected = decision_case.get("selected_option_id")
-    options = decision_case.get("options")
-    if not isinstance(selected, str) or not isinstance(options, list):
-        return False
-    return any(
-        isinstance(option, Mapping)
-        and option.get("option_id") == selected
-        and option.get("action_type") == action_type
-        and isinstance(option.get("effects"), list)
-        and bool(option["effects"])
-        for option in options
-    )

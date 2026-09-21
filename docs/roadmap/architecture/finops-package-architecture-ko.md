@@ -1,8 +1,8 @@
 ---
 title: 온톨로지 기반 FinOps 패키지 아키텍처
 translation_of: finops-package-architecture.md
-translation_source_sha: 68f57c4707b19052ec7881e27b2cdca2592835c9
-translation_revised: 2026-09-20
+translation_source_sha: 74646222209d9f93fa7b70981c33db1c2b915d23
+translation_revised: 2026-09-21
 ---
 
 # 온톨로지 기반 FinOps 패키지 아키텍처
@@ -42,6 +42,9 @@ translation_revised: 2026-09-20
 > 또는 작업 권한을 바꾸지 않습니다.
 > 공유 Pantheon 조립은 검토된 테스트 맥락 조회와 파생 사례 보존도 연결합니다. 이 연결은
 > Cost Governance를 활성화하거나 Njord 기록을 발행하거나 패키지 권한을 높일 수 없습니다.
+> 별도 타입으로 구분하는 온톨로지 ContextIndex 경로는 Muninn 준비, Heimdall 검증,
+> Saga 감사를 각 소유 토픽에서 처리합니다. 이 경로의 후보 변환 결과는 Cost Governance를
+> 활성화하거나 Njord 기록을 게시하거나 패키지 데이터 접근 또는 실행 권한을 바꿀 수 없습니다.
 > 공유 Forseti 팩터리의 정확한 신호별 이상 관측 조회와 원래 Action 준비도 패키지 권한을
 > 부여하지 않습니다. 등록과 영속 사람 승인 재조회로 Cost Governance를 활성화하거나
 > Njord의 게시 소유권을 바꾸거나 패키지 데이터 접근 권한을 얻을 수 없습니다.

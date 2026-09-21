@@ -9,6 +9,7 @@ from types import MappingProxyType
 from typing import Any, cast
 
 import pytest
+from fdai.composition.semantic_query_descriptor_selector import ManifestDescriptorIndex
 from fdai.composition.semantic_query_model_targets import t1_model_targets, t2_model_targets
 from fdai.core.conversation.conversation_preflight import (
     ContextDependency,
@@ -3921,6 +3922,7 @@ def test_exact_service_judgment_never_uses_frame_or_plan_model(
         model=frame_model,
         semantic_judgment=judgment,
         manifests=_ManifestProvider(manifest),
+        descriptor_selector=ManifestDescriptorIndex(),
         verifier=OntologyQueryPlanVerifier(
             available_kinds=(
                 QueryNodeKind.OBJECT_SET,

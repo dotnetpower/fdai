@@ -19,8 +19,6 @@ from fdai_operator_service.reporting.chaos_results_projection import (
 )
 from fdai_operator_service.reporting.chaos_results_projection import (
     ChaosResultReader,
-    PostgresChaosResultReader,
-    PostgresChaosResultReaderConfig,
 )
 from fdai_operator_service.reporting.chaos_results_projection import (
     registry_source as chaos_registry_source,
@@ -88,27 +86,6 @@ class IncidentRcaReportingProjectionReader:
             correlation_id=correlations[0].strip(),
             partial=page.next_cursor is not None,
         )
-
-
-def postgres_incident_rca_reporting_projection(
-    fallback: ProjectionReader,
-    read_model: OperatorReadModel,
-    *,
-    dsn: str,
-    statement_timeout_ms: int,
-    connect_timeout_s: int,
-) -> IncidentRcaReportingProjectionReader:
-    return IncidentRcaReportingProjectionReader(
-        fallback,
-        read_model,
-        PostgresChaosResultReader(
-            PostgresChaosResultReaderConfig(
-                dsn=dsn,
-                statement_timeout_ms=statement_timeout_ms,
-                connect_timeout_s=connect_timeout_s,
-            )
-        ),
-    )
 
 
 def _report_list(*, include_chaos: bool) -> Mapping[str, object]:
@@ -379,8 +356,4 @@ def _integer(value: object) -> int:
     return value
 
 
-__all__ = [
-    "IncidentRcaReportingProjectionReader",
-    "REPORT_ID",
-    "postgres_incident_rca_reporting_projection",
-]
+__all__ = ["IncidentRcaReportingProjectionReader", "REPORT_ID"]

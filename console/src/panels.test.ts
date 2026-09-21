@@ -31,7 +31,7 @@ describe("panel navigation placement", () => {
 
   test("uses stable domain groups for every visible panel", () => {
     expect(panelsInGroup("overview").map((panel) => panel.id)).toEqual([
-      "dashboard", "dashboard-v2", "operating-outcomes", "control-assurance", "verticals", "trust-routing", "llm-cost", "aks-commerce", "cost-governance",
+      "dashboard", "operating-outcomes", "control-assurance", "verticals", "trust-routing", "llm-cost", "aks-commerce", "cost-governance",
     ]);
     expect(panelsInGroup("agents").map((panel) => panel.id)).toEqual([
       "agents", "pantheon", "agent-activity",
@@ -54,6 +54,7 @@ describe("panel navigation placement", () => {
   test("preserves legacy environment routes without showing duplicate menu items", () => {
     expect(panelForId("provision").hiddenFromNavigation).toBe(true);
     expect(panelForId("onboarding").hiddenFromNavigation).toBe(true);
+    expect(panelForId("dashboard-v2").hiddenFromNavigation).toBe(true);
     expect(resolvePanels().map((panel) => panel.id)).toContain("settings-environment");
   });
 

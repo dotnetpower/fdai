@@ -53,6 +53,7 @@ EXPECTED_RUNTIME_MODULES = {
     "blast_probe.py",
     "bootstrap.py",
     "model_lifecycle_startup.py",
+    "ontology_index_runtime.py",
     "bootstrap_bindings.py",
     "bootstrap_core.py",
     "bootstrap_assignment.py",

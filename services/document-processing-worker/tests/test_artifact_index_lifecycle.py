@@ -5,7 +5,7 @@ from collections.abc import AsyncIterator, Sequence
 from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
-import fdai_document_worker_service.adapters.processing as processing_adapter_module
+import fdai_document_worker_service.adapters.processing_index as processing_index_module
 import pytest
 from fdai_document_worker_service.adapters.processing import PgvectorDocumentIndex
 from fdai_document_worker_service.artifact_manifest import build_artifact_manifest
@@ -745,7 +745,7 @@ async def test_pgvector_tombstone_accepts_inactive_legacy_deleted_version(
     async def connect(_dsn: str) -> Connection:
         return connection
 
-    monkeypatch.setattr(processing_adapter_module.psycopg.AsyncConnection, "connect", connect)
+    monkeypatch.setattr(processing_index_module.psycopg.AsyncConnection, "connect", connect)
     index = PgvectorDocumentIndex(
         dsn="postgresql://example.invalid/fdai",
         embedder=UnusedEmbedder(),

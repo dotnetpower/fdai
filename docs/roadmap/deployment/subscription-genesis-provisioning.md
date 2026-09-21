@@ -6,7 +6,7 @@ title: Subscription Genesis Provisioning
 This document defines the zero-to-ready lifecycle for provisioning FDAI into a new or partially
 configured Azure subscription. It composes the existing Terraform, protected runner, database,
 catalog, model, and inventory paths behind one resumable `fdaictl` operation without weakening
-exact-plan approval or private-network boundaries.
+exact-plan approval or private-network boundaries. The focused `cli_plan` module owns plan-time dependencies while the public command contract remains unchanged.
 
 > **Scope:** Azure is the implemented target. Basic deployment can start from an ordinary PC and
 > creates AKS with API Server VNet Integration plus authenticated restricted public management
@@ -61,7 +61,7 @@ when every inventory source is exhausted so the genesis orchestrator can observe
 Activity Log recovery accelerator has one canonical composition entry in
 `inventory_change_acceleration.py`; the CLI imports it rather than duplicating recovery behavior, with short imports compacted and aliases separately sorted below the structural size ceiling, in
 its source-construction helpers. That entry declares sparse property completeness explicitly and
-advances each scope cursor only after its final fence. The
+advances each scope cursor only after its final fence. Immediately after a complete reconciliation, a scope without a durable Activity Log cursor suppresses only recovery observations strictly older than the collection start. An observation at the boundary or later still publishes before the final cursor advances, so provider timestamp granularity cannot hide a concurrent change. The
 local long-running profile records that exact failure and retries only after its configured loop
 interval. Neither mode changes source authority or readiness semantics.
 AKS fleet observation accepts at most 32 exact cluster bindings and keeps them mutually exclusive
@@ -483,7 +483,7 @@ Operator API. Private versioned Blob records are immutable bootstrap and resume 
 managed host; the Console has no Blob credential or direct Blob path. Neither store grants scan,
 promotion, retry, approval, or execution authority. The tenant deployment transport remains
 `fdai-up.sh` to the Bastion-reachable managed host; GitHub Actions never transports tenant
-plan/apply or initial-scan execution.
+plan/apply or initial-scan execution. The PostgreSQL hot replay window retains every unexpired running attempt and the complete hash chains of the 16 newest terminal attempts. A first or terminal append invokes a database-owned guarded retention function; Core receives no table-wide delete permission. Expiry removes stale running and older terminal attempts as whole chains, never partial chains. Immutable private Blob evidence remains the older bootstrap and resume source, and retention grants no readiness or execution authority.
 
 The same inventory attempt can enrich reviewed Resource types with exact provider state before
 promotion. The active snapshot generation is captured before enrichment and compared again inside

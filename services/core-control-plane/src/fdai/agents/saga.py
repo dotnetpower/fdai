@@ -124,6 +124,8 @@ class Saga(Agent, HandoverKnowledgeMixin):
             correlation_id=correlation_id,
             payload=payload,
         )
+        if payload.get("kind") == "ontology_context_index":
+            return
         if await self._handover_message(topic, payload):
             return
         if payload.get("kind") == "human_access_execution":

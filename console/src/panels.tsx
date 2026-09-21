@@ -561,8 +561,9 @@ export const CORE_PANELS: readonly ConsolePanel[] = [
   DASHBOARD_PANEL,
   {
     id: "dashboard-v2",
-    label: `${t("nav.panel.dashboard")} v2`,
+    label: t("nav.panel.dashboard"),
     group: "overview",
+    hiddenFromNavigation: true,
     component: DashboardV2Route,
   },
   {

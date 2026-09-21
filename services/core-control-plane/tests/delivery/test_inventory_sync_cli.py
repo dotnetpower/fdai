@@ -2310,6 +2310,7 @@ async def test_recovery_delta_forwards_every_scope(monkeypatch: pytest.MonkeyPat
     assert published == 5
     assert [call.kwargs["scope"] for call in forward.await_args_list] == list(config.scopes)
     assert all(call.kwargs["properties_complete"] is False for call in forward.await_args_list)
+    assert all(call.kwargs["initial_replay_after"] is None for call in forward.await_args_list)
     assert locked_scopes == [f"inventory-recovery-delta:{scope}" for scope in config.scopes]
     state_store.aclose.assert_awaited_once_with()
 
@@ -2319,3 +2320,14 @@ def test_container_entrypoint_translates_positional_modes() -> None:
     assert container_argv(["loop"]) == ["--loop"]
     with pytest.raises(ValueError, match="accepts once or loop"):
         container_argv([])
+
+
+def test_successful_inventory_run_terminalizes_progress_after_delta_drain() -> None:
+    source = inspect.getsource(run)
+
+    assert source.index("InventoryProgressStage.VERIFY") < source.index(
+        "await observed_store.publish_terminal"
+    )
+    assert source.index("try_recovery_delta_operation") < source.index(
+        "await progress_recorder.complete()"
+    )

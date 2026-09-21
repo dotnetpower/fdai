@@ -118,6 +118,62 @@ class TestCheckFileLoc:
         assert result.returncode == 1
         assert "failed=1" in result.stdout
 
+    def test_enforce_mode_covers_core_service_package(self, tmp_path: Path) -> None:
+        repo = _make_repo(tmp_path)
+        _copy_scripts(repo)
+        _seed_python_file(
+            repo,
+            "services/core-control-plane/src/fdai_core_service/huge.py",
+            900,
+        )
+
+        result = _run(repo, repo / "scripts" / "check-file-loc.sh", FILE_LOC_MODE="enforce")
+
+        assert result.returncode == 1
+        assert "fdai_core_service/huge.py" in result.stdout
+        assert "failed=1" in result.stdout
+
+    def test_enforce_mode_covers_deployment_cli_package(self, tmp_path: Path) -> None:
+        repo = _make_repo(tmp_path)
+        _copy_scripts(repo)
+        _seed_python_file(
+            repo,
+            "packages/deployment-cli/src/fdai_deployment_cli/huge.py",
+            900,
+        )
+
+        result = _run(repo, repo / "scripts" / "check-file-loc.sh", FILE_LOC_MODE="enforce")
+
+        assert result.returncode == 1
+        assert "fdai_deployment_cli/huge.py" in result.stdout
+        assert "failed=1" in result.stdout
+
+    def test_enforce_mode_covers_operator_service_package(self, tmp_path: Path) -> None:
+        repo = _make_repo(tmp_path)
+        _copy_scripts(repo)
+        _seed_python_file(
+            repo,
+            "services/operator-service/src/fdai_operator_service/huge.py",
+            900,
+        )
+
+        result = _run(repo, repo / "scripts" / "check-file-loc.sh", FILE_LOC_MODE="enforce")
+
+        assert result.returncode == 1
+        assert "fdai_operator_service/huge.py" in result.stdout
+        assert "failed=1" in result.stdout
+
+    def test_enforce_mode_covers_service_deployment_scripts(self, tmp_path: Path) -> None:
+        repo = _make_repo(tmp_path)
+        _copy_scripts(repo)
+        _seed_python_file(repo, "scripts/deployment/service/huge.py", 900)
+
+        result = _run(repo, repo / "scripts" / "check-file-loc.sh", FILE_LOC_MODE="enforce")
+
+        assert result.returncode == 1
+        assert "scripts/deployment/service/huge.py" in result.stdout
+        assert "failed=1" in result.stdout
+
     def test_enforce_mode_passes_without_fails(self, tmp_path: Path) -> None:
         repo = _make_repo(tmp_path)
         _copy_scripts(repo)

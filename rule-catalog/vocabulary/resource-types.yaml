@@ -27,7 +27,7 @@
 #
 # All values are English, secret-free, and customer-agnostic.
 schema_version: "1.0.0"
-version: "0.5.1"
+version: "0.5.2"
 category_query_terms:
   database: [database, databases, db, dbs, 데이터베이스, 디비]
 query_groups:
@@ -44,6 +44,12 @@ types:
     description: Long-running virtual machine.
     azure_arm_type: Microsoft.Compute/virtualMachines
     query_terms: [virtual machine, virtual machines, vm, vms, 가상 머신, 가상머신, 가상 머신들, 가상머신들]
+    typical_parents: [resource-group]
+  - id: compute.image
+    category: compute
+    description: Reusable managed machine image used to create virtual machines.
+    azure_arm_type: Microsoft.Compute/images
+    query_terms: [managed image, managed images, machine image, machine images, 관리형 이미지, 머신 이미지]
     typical_parents: [resource-group]
   - id: compute.vm-extension
     category: compute
@@ -290,6 +296,12 @@ types:
     description: Managed network firewall that applies centralized traffic policy.
     azure_arm_type: Microsoft.Network/azureFirewalls
     query_terms: [azure firewall, azure firewalls, firewall, firewalls, 애저 방화벽, 방화벽]
+    typical_parents: [resource-group]
+  - id: network.firewall-policy
+    category: network
+    description: Reusable policy configuration applied by managed network firewalls.
+    azure_arm_type: Microsoft.Network/firewallPolicies
+    query_terms: [firewall policy, firewall policies, 방화벽 정책]
     typical_parents: [resource-group]
   - id: network.interface
     category: network

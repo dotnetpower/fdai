@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from datetime import datetime
+
 import httpx
 import yaml
 
@@ -107,6 +109,7 @@ async def forward_recovery_deltas(
     event_bus: EventBus,
     topic: str,
     scope_lock: ResourceLock,
+    initial_replay_after: datetime | None = None,
 ) -> int:
     """Forward every configured scope and commit each cursor only at its final fence."""
 
@@ -143,6 +146,7 @@ async def forward_recovery_deltas(
                     topic=topic,
                     scope=scope,
                     properties_complete=False,
+                    initial_replay_after=initial_replay_after,
                 )
         return published
     finally:

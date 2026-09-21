@@ -1,7 +1,7 @@
 import { describe, expect, test } from "vitest";
 import {
-  dashboardCounts, dashboardLens, dashboardMapColumns, dashboardResourceState, dashboardScope, dashboardServingRecordedCount, dashboardStateMatchesFilter, dashboardStatusFilter, dashboardTypeLabel, dashboardUnknownCounts, dashboardUnknownReason,
-  decodeDashboardSnapshot, EMPTY_DASHBOARD_FILTERS,
+  dashboardCounts, dashboardLens, dashboardMapColumns, dashboardResourceState, dashboardScope, dashboardServingRecordedCount, dashboardStateAxis, dashboardStateMatchesFilter, dashboardStatusFilter, dashboardTypeLabel, dashboardUnknownCounts, dashboardUnknownReason,
+  decodeDashboardSnapshot, EMPTY_DASHBOARD_FILTERS, STATE_STYLE,
 } from "./dashboard-v2.model";
 import en from "./i18n/dashboard-v2.en.json";
 import ko from "./i18n/dashboard-v2.ko.json";
@@ -109,9 +109,9 @@ describe("Dashboard v2 inventory projection", () => {
     expect(dashboardStatusFilter("__proto__")).toBe("");
     expect(dashboardStatusFilter(null)).toBe("");
     expect(dashboardLens("serving")).toBe("serving");
-    expect(dashboardLens("serving", false)).toBe("operation");
+    expect(dashboardLens("serving", false)).toBe("resource");
     expect(dashboardLens("availability")).toBe("availability");
-    expect(dashboardLens("invalid")).toBe("operation");
+    expect(dashboardLens("invalid")).toBe("resource");
   });
 
   test("native locale catalogs have matching keys and nonempty readable values", () => {
@@ -187,6 +187,8 @@ describe("Dashboard v2 inventory projection", () => {
     };
 
     expect(dashboardResourceState(snapshot.resources[0]!, snapshot, "operation")).toBe("not-provided");
+    expect(dashboardResourceState(snapshot.resources[0]!, snapshot, "resource")).toBe("serving");
+    expect(dashboardStateAxis(snapshot.resources[0]!, "resource")).toBe("serving");
     expect(dashboardResourceState(snapshot.resources[0]!, snapshot, "availability")).toBe("not-provided");
     expect(dashboardResourceState(snapshot.resources[0]!, snapshot, "serving")).toBe("serving");
     expect(dashboardResourceState(snapshot.resources[0]!, snapshot, "observation")).toBe("fresh");
@@ -194,6 +196,138 @@ describe("Dashboard v2 inventory projection", () => {
     expect(dashboardStateMatchesFilter(snapshot.resources[0]!, snapshot, "serving", "serving")).toBe(true);
     expect(dashboardServingRecordedCount(snapshot.resources)).toBe(1);
     expect(dashboardUnknownCounts(snapshot.resources, snapshot).size).toBe(0);
+  });
+
+  test("uses semantic colors for qualified success without treating it as health", () => {
+    expect(STATE_STYLE.running.tone).toBe("active");
+    expect(STATE_STYLE.available.tone).toBe("active");
+    expect(STATE_STYLE.stopped.tone).toBe("negative");
+    expect(STATE_STYLE.unavailable.tone).toBe("negative");
+    expect(STATE_STYLE.transitioning.tone).toBe("attention");
+    expect(STATE_STYLE.unknown.tone).toBe("attention");
+    expect(STATE_STYLE.succeeded.tone).toBe("active");
+    expect(STATE_STYLE.recorded.tone).toBe("neutral");
+  });
+
+  test("uses qualified provisioning success as a positive representative fallback", () => {
+    const state = (value: string | null, reason: string | null) => ({
+      value,
+      source_path: value === null ? null : "provisioningState",
+      observed_at: value === null ? null : "2026-09-05T03:00:00Z",
+      recorded_at: value === null ? null : "2026-09-05T03:00:00Z",
+      freshness: value === null ? "unknown" as const : "fresh" as const,
+      completeness: value === null ? null : 1,
+      conflicts: [],
+      reason,
+    });
+    const snapshot = decodeDashboardSnapshot(base);
+    const resource = {
+      ...snapshot.resources[0]!,
+      states: {
+        schema_version: "1.0.0" as const,
+        operational: state(null, "provider_operational_state_not_exposed"),
+        provisioning: state("Succeeded", null),
+        availability: state(null, "provider_availability_state_not_exposed"),
+      },
+    };
+
+    expect(dashboardStateAxis(resource, "resource")).toBe("provisioning");
+    expect(dashboardResourceState(resource, snapshot, "resource")).toBe("succeeded");
+    expect(STATE_STYLE[dashboardResourceState(resource, snapshot, "resource")].tone).toBe("active");
+  });
+
+  test("shows a generation-recorded managed identity as observed without inventing health", () => {
+    const missing = (reason: string) => ({
+      value: null, source_path: null, observed_at: null, recorded_at: null,
+      freshness: "unknown" as const, completeness: null, conflicts: [], reason,
+    });
+    const snapshot = {
+      ...decodeDashboardSnapshot(base),
+      source: "inventory_snapshot_resource",
+      recordedStates: true,
+    };
+    const resource = {
+      ...snapshot.resources[0]!,
+      type: "managed-identity",
+      observedAt: null,
+      states: {
+        schema_version: "1.0.0" as const,
+        operational: missing("state_not_applicable"),
+        provisioning: missing("state_not_recorded"),
+        availability: missing("provider_availability_state_not_exposed"),
+      },
+    };
+
+    expect(dashboardResourceState(resource, snapshot, "resource")).toBe("observed");
+    expect(STATE_STYLE[dashboardResourceState(resource, snapshot, "resource")].tone).toBe("active");
+    expect(dashboardStateAxis(resource, "resource")).toBeNull();
+    expect(dashboardResourceState(resource, snapshot, "operation")).toBe("not-applicable");
+    expect(dashboardResourceState(resource, snapshot, "availability")).toBe("not-provided");
+    expect(dashboardResourceState(resource, { ...snapshot, freshness: "stale" }, "resource")).toBe("unknown");
+    for (const patch of [
+      { recordedStates: false },
+      { source: "other-source" },
+      { truncated: true },
+      { limitations: ["source_incomplete"] },
+    ]) {
+      expect(dashboardResourceState(resource, { ...snapshot, ...patch }, "resource")).toBe("unknown");
+    }
+  });
+
+  test("prefers a recorded provisioning value over a no-traffic serving reason", () => {
+    const state = (value: string | null, reason: string | null) => ({
+      value,
+      source_path: value === null ? null : "state",
+      observed_at: value === null ? null : "2026-09-05T03:00:00Z",
+      recorded_at: value === null ? null : "2026-09-05T03:00:00Z",
+      freshness: value === null ? "unknown" as const : "fresh" as const,
+      completeness: value === null ? null : 1,
+      conflicts: [],
+      reason,
+    });
+    const snapshot = decodeDashboardSnapshot(base);
+    const resource = {
+      ...snapshot.resources[0]!,
+      states: {
+        schema_version: "1.0.0" as const,
+        operational: state(null, "provider_operational_state_not_exposed"),
+        provisioning: state("Succeeded", null),
+        availability: state(null, "provider_availability_state_not_exposed"),
+        serving: state(null, "model_serving_not_observed"),
+      },
+    };
+
+    expect(dashboardStateAxis(resource, "resource")).toBe("provisioning");
+    expect(dashboardResourceState(resource, snapshot, "resource")).toBe("succeeded");
+  });
+
+  test("renders an explicit provider Unknown value as neutral recorded evidence", () => {
+    const snapshot = decodeDashboardSnapshot(base);
+    const resource = {
+      ...snapshot.resources[0]!,
+      states: {
+        schema_version: "1.0.0" as const,
+        operational: {
+          value: null, source_path: null, observed_at: null, recorded_at: null,
+          freshness: "unknown" as const, completeness: null, conflicts: [],
+          reason: "state_not_applicable",
+        },
+        provisioning: {
+          value: null, source_path: null, observed_at: null, recorded_at: null,
+          freshness: "unknown" as const, completeness: null, conflicts: [],
+          reason: "state_not_recorded",
+        },
+        availability: {
+          value: "Unknown", source_path: "availabilityState",
+          observed_at: "2026-09-05T03:00:00Z", recorded_at: "2026-09-05T03:00:00Z",
+          freshness: "fresh" as const, completeness: 1, conflicts: [], reason: null,
+        },
+      },
+    };
+
+    expect(dashboardStateAxis(resource, "resource")).toBe("availability");
+    expect(dashboardResourceState(resource, snapshot, "resource")).toBe("recorded");
+    expect(dashboardResourceState(resource, snapshot, "availability")).toBe("unknown");
   });
 
   test("stale serving evidence is visible but not counted as currently serving", () => {

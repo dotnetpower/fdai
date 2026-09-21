@@ -559,6 +559,20 @@ def test_durable_action_run_rejects_unbound_kinetic_proposal() -> None:
             ActionRun.from_dict(raw)
 
 
+def test_durable_action_run_rejects_orphan_prospective_lineage() -> None:
+    run = ActionRun(
+        correlation_id="correlation-1",
+        action_type="ops.scale",
+        resource_id="workload-a",
+        state=ActionRunState.HIL_PENDING,
+        verdict="hil",
+        prospective_lineage={"schema_version": "1.0.0"},
+    )
+
+    with pytest.raises(ValueError, match="prospective lineage requires a kinetic proposal"):
+        ActionRun.from_dict(run.to_dict())
+
+
 @pytest.mark.parametrize(
     ("field", "value"),
     (

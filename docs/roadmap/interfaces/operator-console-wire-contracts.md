@@ -7,6 +7,7 @@ title: Operator Console - Data and Wire Contracts
 > Focused owner document extracted from [operator-console.md](operator-console.md) section 13 (13.1-13.3, 13.6-13.9).
 
 ## 13. Data + wire contracts
+Core's supervised instance-index reconciliation is separate from Incident creation and transport. Enrollment comes only from authenticated Function invocation context, not model arguments or index records. Candidate preparation and exact-ID reads cannot create an Incident, approve a change, or alter the semantic wire's no-execution-authority contract. The dedicated terminal projection verifies principal, release, query, result digest, invocation evidence, and candidate accounting. It displays only identity/type/revision rows with bilingual non-exhaustive and no-authority notices; zero candidates never establish absence and raw properties stay excluded.
 
 Observer setup uses a separate `observer-proposal-projection` schema and
 `core.observer-deployment.projections` logical topic on the existing transport. Operator owns the
@@ -118,6 +119,14 @@ store failure while waiting returns an explicit held projection.
 Schema-valid requests that policy rejects return an immediate no-authority held terminal. Optional
 observation failure cannot block delivery, and outbox closure failure remains retryable. Only malformed
 envelopes dead-letter; no held or retry state can create an Incident or confirm an action draft.
+Core keeps semantic request binding, Incident evidence projection, and localized Incident answer
+rendering in dedicated modules while the semantic turn processor retains orchestration.
+The split preserves every wire field, row limit, locale, evidence reference, and no-authority value.
+Operator's PostgreSQL family facade similarly delegates immutable records, row projection, and
+evidence decoding without changing query parameters, proposal claims, replay order, or wire fields.
+Operator terminal presentation delegates Pantheon assurance, localized Incident blocks, and
+content-redacted read trajectories to focused renderers without changing fields, bounds, locale,
+evidence authority, or the fixed no-execution contract.
 
 - **Incident draft**: A verified `incident_create` judgment returns an
   authority-free `incident.create` draft with bounded severity and target,

@@ -3,6 +3,8 @@ from __future__ import annotations
 import os
 import subprocess
 import sys
+import uuid
+from collections.abc import Iterator
 from dataclasses import replace
 from datetime import UTC, datetime
 from pathlib import Path
@@ -23,6 +25,8 @@ from fdai.shared.providers.catalog_search import (
     catalog_generation_digest,
     catalog_search_document_digest,
 )
+from psycopg import sql
+from psycopg.conninfo import conninfo_to_dict, make_conninfo
 
 pytestmark = pytest.mark.integration
 REPO_ROOT = Path(__file__).resolve().parents[5]
@@ -30,6 +34,53 @@ FIRST_ID = "integration-rule-search-active-first"
 SECOND_ID = "integration-rule-search-active-second"
 THIRD_ID = "integration-rule-search-active-third"
 NOW = datetime(2026, 8, 13, tzinfo=UTC)
+
+
+@pytest.fixture(autouse=True)
+def isolated_local_catalog(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
+    dsn = os.environ.get("FDAI_ONTOLOGY_SNAPSHOT_TEST_DSN")
+    if not dsn:
+        yield
+        return
+    options = conninfo_to_dict(dsn)
+    for field in ("host", "hostaddr"):
+        if field in options and options[field] not in {"127.0.0.1", "localhost", "::1"}:
+            pytest.fail("isolated catalog tests require a loopback database")
+    if not options.get("host") and not options.get("hostaddr"):
+        pytest.fail("isolated catalog tests require an explicit loopback host")
+    namespace = "test_catalog_" + uuid.uuid4().hex
+    tables = ("catalog_search_generation", "catalog_search_generation_document")
+    with psycopg.connect(dsn, autocommit=True) as connection:
+        if not connection.execute(
+            "SELECT has_database_privilege(current_database(), 'CREATE')"
+        ).fetchone()[0]:
+            pytest.skip("local service role cannot create an isolated catalog test schema")
+        if any(
+            connection.execute("SELECT to_regclass(%s)", ("public." + table,)).fetchone()[0] is None
+            for table in tables
+        ):
+            pytest.fail("local catalog schema is unavailable; no migration was attempted")
+        connection.execute(sql.SQL("CREATE SCHEMA {}").format(sql.Identifier(namespace)))
+        try:
+            for table in tables:
+                connection.execute(
+                    sql.SQL("CREATE TABLE {}.{} (LIKE public.{} INCLUDING ALL)").format(
+                        sql.Identifier(namespace), sql.Identifier(table), sql.Identifier(table)
+                    )
+                )
+            connection.execute(
+                sql.SQL(
+                    "ALTER TABLE {}.catalog_search_generation_document "
+                    "ADD FOREIGN KEY (generation_id) REFERENCES "
+                    "{}.catalog_search_generation(generation_id) ON DELETE CASCADE"
+                ).format(sql.Identifier(namespace), sql.Identifier(namespace))
+            )
+            isolated_dsn = make_conninfo(dsn, options=f"-c search_path={namespace},public")
+            monkeypatch.setenv("FDAI_DATABASE_URL", isolated_dsn)
+            monkeypatch.setattr(sys.modules[__name__], "_upgrade", lambda: None)
+            yield
+        finally:
+            connection.execute(sql.SQL("DROP SCHEMA {} CASCADE").format(sql.Identifier(namespace)))
 
 
 class _Embedder:

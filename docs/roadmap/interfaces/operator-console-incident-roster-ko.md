@@ -1,8 +1,8 @@
 ---
 title: Operator Console - Incident Roster and Fix History
 translation_of: operator-console-incident-roster.md
-translation_source_sha: 2d082c77b1aa41f3dfb66a68cb03f773b2f9659b
-translation_revised: 2026-09-20
+translation_source_sha: b7437578c17bd94e8bb797ca6e685e215c5cbc47
+translation_revised: 2026-09-21
 ---
 
 # Operator Console - 인시던트 명단 and Fix 이력
@@ -100,7 +100,8 @@ expected-state 검사가 필요합니다. Illegal 간선, 알 수 없음 id, cro
 `correlation_id`는 근거를 연결하는 조사 키이며 그 자체로 인시던트 수명 주기
 기록이 존재한다는 증거가 아닙니다. Incident 명단, 주의 스트림, 결과 cohort에는 정본
 `incident.open` 감사 항목이 존재하는 상관관계만 포함합니다. Incident 수명 주기에 들어오지
-않은 운영 상관관계는 Audit, Trace, RCA에서 계속 볼 수 있습니다. Temporal 변환 결과는 정본
+않은 운영 상관관계는 범위가 제한된 각 근거 reader를 통해 Audit, Trace, RCA에서 계속 볼 수 있으며
+temporal Incident 변환 결과 행을 사용하지 않습니다. Temporal 변환 결과는 정본
 Incident ID, 표시 번호, 열린 시각, 최신 수명 주기 상태, 선택적 ticket ID를 표시용 이력
 100건과 별도로 영속하므로 오래된 열기 항목이 이력 범위 밖으로 밀려나도 실제 Incident의
 identity가 사라지지 않습니다.
@@ -160,11 +161,10 @@ FDAI는 Azure SRE Agent 문서에 나타난 운영자 중심 강점을 차용하
 
 누락된 상관관계는 누락 상태로 유지합니다. 변환 결과는 빈 값과 과거의 `None` 또는
 `null` 문자열 sentinel을 결측으로 처리하므로 관련 없는 audit-only 행이 synthetic 인시던트를
-구성하지 않습니다. 모든 행이 플랫폼 유지 관리인 상관관계 그룹은 `action_kind`의 첫 세그먼트
-(`background-task`, `iam`, `startup_readiness`, `semantic_turn`, `observation-campaign`,
-`read-investigation`)를 사용해 더 넓은 temporal 변환 결과에서도 제외합니다. 새로운 운영 action
-kind는 Audit, Trace, RCA, Agent 활동에서 계속 볼 수 있지만, 정본 수명 주기에 `incident.open`이
-기록되기 전에는 Incident 명단이나 결과 분모에 포함되지 않습니다.
+구성하지 않습니다. 정본 수명 주기에 비어 있지 않은 Incident ID와 `incident.open`이 기록된 뒤에만
+상관관계 그룹을 temporal Incident 저장소에 포함합니다. 플랫폼 유지 관리를 포함한 일반 감사
+트래픽은 Incident 변환 결과 행을 만들거나 명단 및 결과 분모에 들어가지 않고 Audit, Trace, RCA,
+Agent 활동에서 계속 볼 수 있습니다.
 
 cohort 패널은 자신의 상한을 공개합니다. 변환 결과는 500건 측정 상한 이전에 스냅샷이 일치시킨
 인시던트 수인 `matched_total`을 보고하므로 패널은 `일치 1557건 중 500건`과 측정하지 않은 일치

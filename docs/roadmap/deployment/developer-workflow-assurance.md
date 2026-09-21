@@ -37,7 +37,13 @@ Operator URL and owner-only bearer-token file path, but never the bearer value, 
 and task restart preserve the authenticated local contract without relying on the editor's ambient
 environment.
 
-`console: restart full stack` explicitly replaces the same-checkout managed supervisor through `--replace-existing`, preserving Browser Entra and the standard service topology. It reuses prepared private environments rather than running preparation again. Run `console: prepare full stack` first if configuration, dependencies, migrations, or environment bindings changed. The task has its own terminal and readiness matcher; stale output from a completed start task is not evidence of a new process or readiness.
+`console: restart full stack` stops only a verified same-checkout managed supervisor, waits for its
+lock to release, runs managed preparation, and then starts the standard Browser Entra topology.
+Stopping first lets database and broker generation maintenance reject active consumers and
+connections without preparing against stale processes. The task has its own terminal and readiness
+matcher; stale output from a completed start task is not evidence of a new process or readiness.
+Managed local preparation also keeps inactive consumer-group offsets within the same 24-hour
+horizon as ordinary topic data and checks expiry every minute; active groups are unaffected.
 
 ![Design at a glance. The main stages are Edit and focused check, Workflow diagnostics, Focused commit, Structural pre-push, SHA-addressed CI, Remote work, Bounded handover.](../../diagrams/generated/fdai-roadmap-deployment-developer-workflow-assurance-01.en.svg)
 
@@ -52,7 +58,7 @@ environment.
 | Focused tests | Detect Python import, database, runtime environment, and checkout contamination before a test starts. | A contaminated check fails before importing task code or opening a database connection. |
 | Hooks | Detect staged and unstaged overlap and preserve deterministic recovery guidance before a mutating hook runs. | Hook failure does not silently discard task-owned work. |
 | Browser checks | Prefer focused CLI Playwright checks and preserve the shared 10-slot lease contract. | Browser-tool use is limited to one bounded final interaction when CLI evidence is sufficient. |
-| Local services | Probe every standard local service independently with bounded timeout and ownership diagnostics. | Full-stack readiness names every unavailable service and never infers readiness from the SPA. |
+| Local services | Probe every standard local service independently with bounded timeout and ownership diagnostics. Require fresh per-partition progress from the primary Core change consumer and aggregate its latest lag. | Full-stack readiness names every unavailable service, rejects missing or stale lag evidence and aggregate lag above 1,000 records, and never infers readiness from the SPA. |
 | Development diagnostics | Profile each Core or Operator process started by the standard task-backed local launcher through an owner-only Unix socket and bind the result to its exact source inputs. | A bounded packet separates latency, CPU, Python heap, and untracked memory, then GitHub Copilot diagnoses only an exact matching workspace snapshot. |
 | Editor pressure | Separate host pressure, extension pressure, and upstream browser payload cost. | Diagnostics identify the owning process or classify the limitation as upstream. |
 | Remote preflight | Retry only transient read failures within a fixed attempt and time budget. | Permanent authorization and policy failures fail immediately; retries never mutate Azure. |
@@ -87,11 +93,16 @@ The process-local probe retains bounded latency aggregates and reads content-fre
 An explicit capture can run `cProfile` and `tracemalloc` for at most 30 seconds, one capture per
 process. The packet reports repository-relative function or file locations, CPU time, Python heap
 differences, resident memory, garbage collection, thread and file-descriptor counts, event-loop
-delay, capture overhead, truncation, and unavailable reasons. It does not persist heap objects,
+delay, capture overhead, truncation, and unavailable reasons. Event-loop delay is only the
+overshoot of the requested asynchronous sleep; CPU/heap snapshot processing remains visible in
+total measured duration and cannot inflate the lag field. It does not persist heap objects,
 request or answer bodies, environment values, provider payloads, credentials, or hidden reasoning.
 The Operator semantic runtime may validate assurance answer-generation attribution, evaluator-model
 attribution, and a held assessment state for the product projection. Those fields remain product
 conversation data and never enter the diagnostic probe, packet, export, or Copilot review.
+The runtime delegates content-redacted query activity projection and verified document-answer
+materialization to focused modules. Event ordering, replay cursors, progress monotonicity, deadline
+holds, diagnostic timing, and no-execution authority remain owned by the durable runtime.
 
 Every packet binds the Git revision, local service input digest, worktree patch digest, process
 identity, runtime-scope receipt digest, time window, and packet digest. Capture admission compares
@@ -122,7 +133,9 @@ channel. A profiled service reuse fingerprint includes its canonical service inp
 the runtime-diagnostics package. A relevant input change replaces the stale process without
 restarting it for an unrelated commit or worktree edit.
 Local readiness recognizes the service-owned Core executable as the process owner and
-accepts fresh semantic-consumer progress followed by a fresh heartbeat. When an inventory
+accepts fresh semantic-consumer progress followed by a fresh heartbeat. It also requires
+timestamped primary change-consumer progress no older than 75 seconds, aggregates the newest lag
+for every observed partition, and rejects missing evidence or a total above 1,000 records. When an inventory
 generation changes before its ontology checkpoint is projected, the local analyzer remains
 unready but retries target resolution within five seconds instead of waiting its full loop interval.
 The profiled Core runtime also owns one bounded asynchronous pool for its shared StateStore and
@@ -131,6 +144,9 @@ the resulting process and connection counts but never turn those measurements in
 The local analyzer closes its tick-scoped decision-evidence and run-receipt StateStore pools before
 the next loop interval. A clean tick cannot leave asynchronous pool workers for garbage collection,
 and a persistence failure still closes its store before readiness remains unavailable.
+The managed launcher explicitly forwards the service-owned StateStore DSN to that analyzer process,
+so the decision-evidence admission provider is bound before target selection. The binding is
+read-only and cannot promote an ActionType, raise autonomy, or grant execution authority.
 
 ## Validation stages and reuse
 

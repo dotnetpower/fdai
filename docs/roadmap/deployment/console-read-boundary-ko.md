@@ -1,8 +1,8 @@
 ---
 title: Console 읽기 경계
 translation_of: console-read-boundary.md
-translation_source_sha: 9d97098aa0647d76e91b165e4fdd9c679c1311e5
-translation_revised: 2026-09-14
+translation_source_sha: 75f45265944f2744bcf5ba27d49ef3266f69d697
+translation_revised: 2026-09-21
 ---
 # Console 읽기 경계
 
@@ -30,6 +30,7 @@ translation_revised: 2026-09-14
 
 | 날짜 | 상태 | 변경 | 근거 | 잔여 작업 |
 |------|------|------|------|-----------|
+| 2026-09-21 | implemented | 보수적인 가용성 의미와 파사드 가져오기를 보존하면서 전체 읽기 출처 선언 레지스트리와 경로 계열 조립을 목적별 Operator 조립 모듈 뒤로 옮겼습니다. | `current change`, 집중 데이터 출처 테스트 10개와 전체 조립 테스트 120개 통과 및 선택적 PDF 테스트 1개 건너뜀, Ruff, strict mypy 및 Operator 경계 검사 통과. | 이 내부 소유권 분리에 남은 읽기 출처 또는 권한 작업은 없습니다. |
 | 2026-09-14 | implemented | Browser Entra 온톨로지 보증 스택이 Operator 및 Console 프로세스를 시작하기 전에 API와 Vite 플래그 쌍을 모두 해제하여 주변 CLI 인증 준비와 격리되도록 했습니다. | `current change`; `run_ontology_assurance.py`; 집중 보증 프로세스 사양 회귀 테스트. | 독립 통합 비평을 반복합니다. |
 | 2026-09-14 | implemented | 라이브 E2E 프런트엔드도 API 실행기와 동일하게 Vite CLI principal 값 두 개를 모두 해제하도록 하고, 제거된 기존 모듈 예시를 지원되는 실행기로 교체했습니다. | `current change`; `playwright.live.config.ts`; 집중 라이브 E2E 구성 테스트; 문서 검사. | 독립 통합 비평을 반복합니다. |
 | 2026-09-14 | implemented | 인증된 라이브 E2E Operator 실행기가 Browser Entra 테스트 애플리케이션을 만들기 전에 CLI principal 값 두 개를 모두 해제하도록 했습니다. 이제 Azure CLI로 준비된 로컬 환경의 남은 확인 값 때문에 라이브 E2E 시작이 실패하지 않습니다. | `current change`; `console/tests/live-e2e/operator_service.py`; 집중 실행기 파싱 회귀 테스트. | 독립 통합 비평을 반복합니다. |
@@ -74,6 +75,10 @@ translation_revised: 2026-09-14
 
 Console은 각 선택적 읽기 전에 서버가 소유한 선언된 출처를 확인합니다. 누락되거나 승인되지 않은
 근거는 사용 불가 상태를 유지하고, 로컬 및 배포 프로파일은 같은 제한과 읽기 전용 권한을 보존합니다.
+
+전체 출처 레지스트리는 하나의 목적별 조립 소유자에 두고, 경로 계열 조립은 다른 소유자에 둡니다.
+운영 파사드는 인증, 브리지 배선 및 준비 상태를 유지합니다. 기존 가져오기, 가용성 값, 영속 출처
+주장 및 실행기 없음 경계는 바뀌지 않습니다.
 
 ## 출처 선언
 

@@ -1,8 +1,8 @@
 ---
 title: 에이전트 판테온 구현 계획
 translation_of: agent-pantheon-implementation.md
-translation_source_sha: e00fa6ad5fa2866bbae055ec56ee4617951d982a
-translation_revised: 2026-09-20
+translation_source_sha: d983b4100d22f716a6238b80803ee4f658e9e358
+translation_revised: 2026-09-21
 ---
 
 # 에이전트 판테온 구현 계획
@@ -22,6 +22,7 @@ translation_revised: 2026-09-20
 
 | 영역 | 상태 | 근거 | 참고 |
 |------|------|------|------|
+| 온톨로지 ContextIndex 소유자 라우팅 | implemented | `agents/_framework/ontology_index.py`; `test_ontology_context_index.py`; 실제 인메모리 EventBus 단계 연결 검사 | Huginn 유입, Muninn 준비 및 전이 게시, Heimdall 검증 게시, Saga 감사 및 봉인 게시는 기존 소유 토픽을 사용합니다. 래퍼는 소유자, 토픽, 내용, 단계 불일치를 거부하고 일반 판단과 학습에서 분리합니다. 이 라우팅 검사의 기계적 처리기는 합성이며 영속 원본 및 수명주기 처리기와 운영 bootstrap 연결은 남아 있습니다. |
 | W0-W1 문서, 온톨로지 및 프레임워크 기반 | implemented | [`test_framework_layout.py`](../../../services/core-control-plane/tests/agents/test_framework_layout.py), [`test_pantheon_doc_parity.py`](../../../services/core-control-plane/tests/agents/test_pantheon_doc_parity.py), [`test_topics.py`](../../../services/core-control-plane/tests/agents/test_topics.py) | 고정 레지스트리, 패키지 경계, 문서 일치 및 타입이 지정된 토픽 기반을 실행하고 검사할 수 있습니다. |
 | Bus 및 graph ownership 분리 | implemented | `_framework/{pantheon,topics}.py`; ontology alignment, topic, registry, doc parity 및 Console agent contract 검사 | 이제 `AgentSpec.owns`에는 생산 가능한 event-bus 객체만 포함됩니다. `Budget`과 `SizingRecommendation`은 사용되지 않는 topic을 만들지 않고 Njord와 Freyr의 graph lifecycle ownership을 유지합니다. ActionRun에 포함된 attempt 상태와 core RCA projection은 bus registry 밖에 유지됩니다. |
 | 소유 topic producer 완전성 | implemented | [`test_registry.py`](../../../services/core-control-plane/tests/agents/test_registry.py) | AST 기반 registry 검증은 모든 `AgentSpec.publishes` topic이 구체적인 publish call에 도달하도록 요구하고, 선언되지 않은 topic의 producer 근거를 거부합니다. 임의의 문자열 언급을 producer로 취급하지 않고 literal call, import된 topic 상수 및 정확한 dynamic-topic 비교를 인식합니다. |
@@ -42,6 +43,9 @@ translation_revised: 2026-09-20
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-21 | implemented | 닫힌 온톨로지 ContextIndex 메시지 묶음과 소유자별 런타임 구독 래퍼를 추가했습니다. Heimdall과 Saga의 ContextIndex 구독 및 타입이 지정된 Huginn 유입을 연결하고 실제 버스 검사에서 드러난 도메인 스키마와 전송 버전 구분을 수정했습니다. | `current change`; 집중 ContextIndex 라우팅, 프레임워크 구조, 인접 Rule 생성 경로, 정확한 감사 후 봉인 검사. | 실제 원본 및 벡터 검증, 감사된 포인터 허용, 최종 결과 재생, 런타임 소비자를 연결합니다. 고정 에이전트 역할, 주요 경로의 모델 정책, 패키지 활성화, 실행 권한은 바뀌지 않았습니다. |
+| 2026-09-21 | implemented | Forseti의 소유자 인증 cross-vertical 유입, Odin 중재, 결정 사례 마무리, HIL 대체 경로, kinetic proposal 검증 및 prospective-lineage 게시를 하나의 목적별 비공개 framework mixin으로 분리했습니다. Forseti는 Judge이자 자신이 소유한 네 객체 topic의 유일한 게시자로 유지되며 승인 또는 실행 권한을 얻지 않습니다. | `현재 변경`, `agents/{forseti.py,_framework/forseti_arbitration.py}`, 12개 관점 비평, 역할·중재·정족수 집중 테스트 145개와 layout, 동등성, import, Ruff 및 strict mypy 게이트 통과. | timeout HIL 종결, Odin 사용 불가, 중복 전달 및 prospective-lineage 구체화에 대한 통제된 runtime 근거를 보존합니다. |
+| 2026-09-21 | implemented | Thor의 영속 ActionRun codec, verdict 검증, 감사로 통제된 실행 단계, 재생 및 게시 lifecycle, 효과 종결 지원, 읽기 전용 대화 변환을 용도별 비공개 framework 모듈로 분리했습니다. 이제 영속 재생은 짝을 이루는 kinetic proposal이 없는 prospective lineage를 거부합니다. Thor는 유일한 privileged 실행기이자 ActionRun 게시자로 유지됩니다. AgentSpec, topic, 정족수, 승인, 감사, rollback, 효과 검증 및 모델 정책은 바뀌지 않았습니다. | `현재 변경`; `agents/{thor.py,_framework/thor_*.py}`; Thor durability, conversation 및 framework layout 검사 203개 통과, 집중 strict mypy 통과. | 성능 저하 shadow, 실행 전 감사, 재시작 replay, 독립 효과 종결 및 기존 live 승격 전제 조건에 대한 통제된 runtime 근거를 보존합니다. |
 | 2026-09-20 | implemented | 기존 pipeline 테스트가 의도한 운영자 RBAC와 ActionType 의미를 명시적으로 주입하도록 했습니다. 알 수 없는 principal 거부와 카탈로그 부재 시 정족수 2를 유지하고, Bragi fixture는 Conversation 이후 Turn을 게시하는 순서에 맞췄습니다. 런타임 코드는 기존 800줄 상한을 위한 주석 축약만 포함합니다. | `현재 변경`; 집중 에이전트 테스트 83개와 고정 replay 테스트 122개 통과, 집중 Ruff 및 strict mypy 통과. | 보호된 CI 근거를 보존합니다. 역할, topic, 승인, 실행 또는 복구 권한은 바뀌지 않았습니다. |
 | 2026-09-20 | implemented | Huginn의 범위가 제한된 영속 유입 원장을 최대 64개의 결정론적 shard로 분할하고, 기존 단일 행을 압축하는 개정 번호 CAS 이행을 추가했습니다. 일반 claim 및 게시 갱신은 더 이상 권한 없는 전달 checkpoint를 감사에 중복 기록하지 않으며 복구와 이행은 계속 감사합니다. 정확한 전체 용량, 대기 lease, 정규화된 재시도 payload, 재시작 replay, 충돌 거부 및 broker 수락/checkpoint 경계는 바뀌지 않습니다. | `현재 변경`; 기존 원장 이행, 제거, 재시작, lease, 충돌, checkpoint 감사, discovery, Ruff 및 strict mypy 집중 검사. | 통제된 broker 중단 및 재시작 근거를 보존합니다. Broker 수락/checkpoint crash 구간에서는 at-least-once 재전달 가능성이 남습니다. |
 | 2026-09-20 | implemented | Huginn discovery 상태에서 관측 부재를 명시하도록 했습니다. Snapshot은 projection 결속 여부를 보고하고, 전달 소유 cursor, backpressure 및 source-health 신호가 없을 때 정상으로 간주하지 않고 `not_observed`로 표시합니다. | `현재 변경`; 집중 Huginn 상태 계약 및 discovery 검사. | 배포 소유 관측값이 준비되면 결속합니다. Cursor, transport 또는 provider 권한은 Huginn으로 이동하지 않았습니다. |

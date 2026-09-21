@@ -37,6 +37,8 @@ evidence admission, replay, or results. Its generation-fenced runtime-call relat
 likewise outside both assessment families and cannot contribute assessment evidence. Its shared
 source-state decoder admits only canonical machine-token reasons and cannot pass principal text or
 provider details into any Operator family.
+Immutable records, row projections, and these evidence decoders are separate internal modules; the
+split changes no WAF or CAF query, projection, evidence, replay, or authority contract.
 The shared authenticator may pass a bounded verified username only to the IAM display projection.
 It does not enter WAF or CAF identity, evidence admission, replay, or results.
 The shared Operator outbox lifecycle facade can also supervise the Incident intervention worker.
@@ -211,6 +213,10 @@ generation and records the failed revision and reason.
 The shared local catalog materializer keeps framework projections separate from ontology evidence
 health. If the active inventory and ontology projection generations differ, it publishes explicit
 unavailable evidence instead of joining cross-generation timestamps or counts into the catalog set.
+It builds Rule, framework, ontology, workflow, and stewardship projections in focused modules, then
+publishes the complete projection set in one PostgreSQL transaction. A failed write publishes none
+of the new generation. Referenced policy and remediation text is bounded and must be valid UTF-8;
+invalid content fails materialization instead of entering a projection with replacement characters.
 Repository mapping documents use PyYAML's compiled safe loader when available, with the Python safe
 loader as the fallback. Each call reads the current file and retains mapping-root and typed catalog
 validation; unsafe YAML tags remain rejected. Parser acceleration never grants evidence or authority.
