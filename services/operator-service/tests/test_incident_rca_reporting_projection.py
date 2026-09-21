@@ -10,9 +10,13 @@ from fdai_operator_service.families.operations.contracts import (
     ProjectionQuery,
     ProjectionUnavailableError,
 )
-from fdai_operator_service.reporting.chaos_results_projection import ChaosResult
+from fdai_operator_service.reporting.chaos_results_projection import (
+    ChaosResult,
+    PostgresChaosResultReader,
+)
 from fdai_operator_service.reporting.incident_rca_projection import (
     IncidentRcaReportingProjectionReader,
+    postgres_incident_rca_reporting_projection,
 )
 from fdai_service_contracts import AuditQuery, JsonObject, PageProjection
 
@@ -78,6 +82,18 @@ def _item(seq: int, action_kind: str, entry: JsonObject) -> JsonObject:
         "previous_hash": f"hash-{seq - 1}",
         "recorded_at": datetime(2026, 8, 14, 1, seq, tzinfo=UTC).isoformat(),
     }
+
+
+def test_postgres_factory_binds_measured_chaos_reader() -> None:
+    projection = postgres_incident_rca_reporting_projection(
+        Fallback(),
+        cast(object, AuditReader(())),
+        dsn="postgresql://example",
+        statement_timeout_ms=1_000,
+        connect_timeout_s=2,
+    )
+
+    assert isinstance(projection.chaos_results, PostgresChaosResultReader)
 
 
 @pytest.mark.asyncio
