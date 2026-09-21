@@ -245,6 +245,8 @@ def test_scenario_lab_workflow_is_plan_first_and_approval_gated() -> None:
         "environment: ${{ inputs.action == 'plan' && 'plan-only' || 'scenario-lab' }}" in workflow
     )
     assert "approval_ref is required for a live sweep" in workflow
+    assert "scenario_id:" in workflow
+    assert "SCENARIO_LAB_SCENARIO_ID: ${{ inputs.scenario_id }}" in workflow
     assert "enable_vpn_operator_access" in workflow
     assert "SCENARIO_LAB_OPERATOR_PRINCIPAL_ID" in workflow
     assert "SCENARIO_LAB_RESOURCE_GROUP_NAME" in workflow
@@ -269,6 +271,13 @@ def test_scenario_lab_workflow_is_plan_first_and_approval_gated() -> None:
     )
     assert "SCENARIO_LAB_BACKEND_IMAGE" not in workflow
     assert "Configure AKS test substrate" in workflow
+    assert "Start stopped AKS sweep target" in workflow
+    assert 'cluster_name="$(terraform output -raw aks_cluster_name)"' in workflow
+    assert '[[ "$cluster_name" == "aks-store-demo" ]]' in workflow
+    assert '"$RUNNER_TEMP/sre-demo-lab-aks-started-by-run"' in workflow
+    assert "Restore AKS power state" in workflow
+    assert "timeout 900 az aks start" in workflow
+    assert "timeout 900 az aks stop" in workflow
     assert "printf 'store_front_url=%s\\n' \"$store_front_url\"" in workflow
     assert "AKS Store Demo: %s" in workflow
     assert "DEV_ACCESS_VNET_ID" in workflow
@@ -404,7 +413,9 @@ def test_scenario_lab_workflow_is_plan_first_and_approval_gated() -> None:
     assert "az network private-dns link vnet delete" in workflow
     assert "scenario-lab Terraform destroy completed after bounded DNS reconciliation" in workflow
     assert "Verify reference sweep outcomes" in workflow
-    assert "(.runs | length) == 10" in workflow
+    assert "expected_runs=10" in workflow
+    assert "expected_runs=1" in workflow
+    assert "(.runs | length) == $expected_runs" in workflow
     assert "approval_ref_digest" in workflow
     assert "sre-demo-lab-summary-${{ github.run_id }}-${{ github.run_attempt }}" in workflow
     assert "retention-days: 30" in workflow
@@ -544,6 +555,8 @@ def test_live_runner_records_current_approval_reference() -> None:
         assert 'bad_image=f"{BACKEND_IMAGE}:does-not-exist-' in source
     assert 'export FDAI_ENFORCE_APPROVAL_REF="$approval_ref"' in sweep
     assert 'SCENARIO_LAB_CONFIRM_ENFORCE:-}" != "true"' in sweep
+    assert "SCENARIO_LAB_SCENARIO_ID:-all" in sweep
+    assert 'scenario_args+=("$scenario_id")' in sweep
     assert 'os.environ.get("FDAI_ENFORCE_REPORT_ROOT")' in runner
     assert "must be an absolute non-root path" in runner
     prepare = PREPARE_SCRIPT.read_text(encoding="utf-8")

@@ -76,9 +76,11 @@ commit already present on protected `main`:
    from the earlier private cluster, first review `action=plan`, then run `action=recreate-aks` with
    `confirm_aks_recreation=recreate-aks-store-demo`. That action accepts only replacement of the
    exact scenario cluster and its cluster-scoped role assignments, and rejects any other delete.
-3. Set `run_reference_sweep=true` only with a current `approval_ref`. The workflow prepares the
-   authenticated AKS context, retrieves the MySQL password into a mode-0600 temporary file, and runs
-   reference sweep sequentially.
+3. Set `run_reference_sweep=true` only with a current `approval_ref`. Keep `scenario_id=all` for the
+  complete sweep or select one allowlisted scenario for a bounded rehearsal. The workflow starts
+  the exact Terraform-owned AKS target only when it was stopped, prepares the authenticated context,
+  runs the selected scenarios sequentially, and restores `Stopped` before cleanup when this run
+  started the cluster.
 4. Run `action=destroy` with `confirm_destroy=destroy-sre-demo-lab` after evidence review. Destroy
    applies an exact destroy plan from the same job.
 

@@ -342,6 +342,10 @@ The scenario-lab profile deploys the commerce workload with these boundaries:
 - Ordinary apply continues to reject every replacement. A one-time `recreate-aks` operation accepts
   only the reviewed private-to-public cluster replacement and its cluster-scoped role assignments,
   requires exact human confirmation, and rejects any other destructive address.
+- An approved reference sweep may select all scenarios or one exact allowlisted scenario. The
+  protected runner starts only the Terraform-selected `aks-store-demo` when it was stopped, records
+  that run-local transition before the effect, and restores `Stopped` in an `always()` cleanup step.
+  A cluster that was already running remains running.
 
 Gateway API is the preferred long-term ingress contract. An ingress compatibility profile may be
 used only for a time-bounded lab where its support window and migration path are recorded.

@@ -1,7 +1,7 @@
 ---
 translation_of: aks-commerce-business-scenario.md
-translation_source_sha: 858ee6e87fc62a86d448c4890ea7c451c9a8441a
-translation_revised: 2026-09-19
+translation_source_sha: bc984ccadfc38fb15b1e7d74b0052d32f1f08098
+translation_revised: 2026-09-21
 ---
 # AKS 상거래 비즈니스 시나리오
 
@@ -338,6 +338,10 @@ Kubernetes API 수락은 성공이 아닙니다.
 - 일반 apply는 모든 교체를 계속 거부합니다. 일회성 `recreate-aks` 작업은 검토된
   비공개-공개 클러스터 교체와 해당 클러스터 범위 역할 할당만 허용하고 정확한 사람
   확인을 요구하며, 그 밖의 모든 파괴적 주소를 거부합니다.
+- 승인된 참조 sweep은 전체 시나리오 또는 allowlist의 정확한 시나리오 하나를 선택할 수
+  있습니다. 보호된 실행기는 Terraform이 선택한 `aks-store-demo`가 중지 상태였을 때만
+  시작하고, 효과 전에 실행별 전환을 기록하며, `always()` 정리 단계에서 다시 중지 상태로
+  복원합니다. 이미 실행 중이던 클러스터는 계속 실행 상태를 유지합니다.
 
 Gateway API를 장기 수신 계약으로 권장합니다. Ingress 호환 프로필은 지원 기간과 이행
 경로를 기록한 기간 제한 랩에서만 사용할 수 있습니다.

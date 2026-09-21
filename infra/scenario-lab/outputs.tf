@@ -3,6 +3,11 @@ output "resource_group_name" {
   value       = data.azurerm_resource_group.scenario_lab.name
 }
 
+output "aks_cluster_name" {
+  description = "Exact disposable AKS cluster selected by the protected scenario workflow."
+  value       = azurerm_kubernetes_cluster.scenario_lab.name
+}
+
 output "operator_dns_routing_domains" {
   description = "Private service suffixes added to the generated P2S VPN profile for workstation testing."
   value = [
