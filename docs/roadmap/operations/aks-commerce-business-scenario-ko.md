@@ -1,6 +1,6 @@
 ---
 translation_of: aks-commerce-business-scenario.md
-translation_source_sha: bc984ccadfc38fb15b1e7d74b0052d32f1f08098
+translation_source_sha: 578af19c9931c2105b15363a3c60e312829e58af
 translation_revised: 2026-09-21
 ---
 # AKS 상거래 비즈니스 시나리오
@@ -335,6 +335,9 @@ Kubernetes API 수락은 성공이 아닙니다.
   stress VM NIC는 명시적인 Terraform 소유 association을 유지합니다.
 - 배포는 스토어프런트 URL과 불투명한 리소스 참조를 출력합니다. 테넌트 값을
   커밋하지 않습니다.
+- stress VM은 보존된 `Standard_LRS` OS 디스크 기준을 사용합니다. 일반 apply는 디스크
+  SKU만 변경하기 위해 VM을 교체하면 안 됩니다. 이후 SKU 변경에는 별도의 파괴적 plan과
+  정확한 확인이 필요합니다.
 - 일반 apply는 모든 교체를 계속 거부합니다. 일회성 `recreate-aks` 작업은 검토된
   비공개-공개 클러스터 교체와 해당 클러스터 범위 역할 할당만 허용하고 정확한 사람
   확인을 요구하며, 그 밖의 모든 파괴적 주소를 거부합니다.

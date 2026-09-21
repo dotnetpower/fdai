@@ -126,6 +126,10 @@ def test_dev_access_owns_only_removable_fdai_connections() -> None:
 
     assert 'resource "azurerm_virtual_network_peering" "dev_access_to_fdai"' in main
     assert 'resource "azurerm_virtual_network_peering" "fdai_to_dev_access"' in main
+    assert 'resource "azurerm_virtual_network_peering" "dev_access_to_additional"' in main
+    assert 'resource "azurerm_virtual_network_peering" "additional_to_dev_access"' in main
+    assert 'dynamic "custom_route"' in main
+    assert "values(var.additional_vnets)" in main
     assert re.search(r"allow_gateway_transit\s*=\s*true", main)
     assert re.search(r"use_remote_gateways\s*=\s*true", main)
     assert re.search(r"allow_forwarded_traffic\s*=\s*true", main)
@@ -136,6 +140,10 @@ def test_dev_access_owns_only_removable_fdai_connections() -> None:
 
     variables = (_DEV_ACCESS / "infra" / "variables.tf").read_text(encoding="utf-8")
     assert 'default     = "VpnGw1AZ"' in variables
+
+    example = (_DEV_ACCESS / "infra" / "terraform.tfvars.example").read_text(encoding="utf-8")
+    assert "additional_vnets" in example
+    assert "address_spaces" in example
 
 
 def test_dev_access_ships_repeatable_client_checks() -> None:
