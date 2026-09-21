@@ -210,6 +210,16 @@
         "inventory_progress_event"
       ],
       "provider_rollback": "blocked-until-operator-inventory-progress-read-rollback"
+    },
+    {
+      "consumer_service": "operator-service",
+      "consumer_revision": "operator_chaos_report_read_20260921",
+      "provider_service": "core-control-plane",
+      "provider_revision": "core_runtime_role_20260809",
+      "schema_prerequisites": [
+        "report_signal"
+      ],
+      "provider_rollback": "blocked-until-operator-chaos-report-read-rollback"
     }
   ],
   "legacy_inventory": {

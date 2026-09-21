@@ -37,6 +37,10 @@ import {
 } from "./dashboard.loading";
 import type { ConsoleDataMode } from "../console-data-mode";
 import { CurrentPosture } from "./dashboard.posture";
+import {
+  useChaosResultSummary,
+  type ChaosResultSummary,
+} from "./chaos-results-summary";
 import { tDashboard } from "./i18n/dashboard-essential";
 import "./dashboard.css";
 
@@ -54,6 +58,11 @@ interface Props {
 export function DashboardRoute({ client, dataMode }: Props) {
   const [state, setState] = useState<AsyncState<DashboardOverviewData>>({ status: "loading" });
   const [attempt, setAttempt] = useState(0);
+  const chaosResults = useChaosResultSummary(
+    client,
+    dataMode,
+    tDashboard("chaosUnavailable"),
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -86,7 +95,12 @@ export function DashboardRoute({ client, dataMode }: Props) {
         actions={<a class="btn" href={routeHref("dashboard-v2")}>{tDashboard("resources")}</a>}
       />
       <AsyncBoundary state={state} resourceLabel="overview" loading={<DashboardSkeleton />}>
-        {(data) => <OverviewBody data={data} />}
+        {(data) => (
+          <OverviewBody
+            chaosResults={dataMode === "live" ? chaosResults : null}
+            data={data}
+          />
+        )}
       </AsyncBoundary>
       {state.status === "error" && (
         <div class="overview-error-actions">
@@ -101,7 +115,13 @@ export function DashboardRoute({ client, dataMode }: Props) {
   );
 }
 
-function OverviewBody({ data }: { readonly data: DashboardOverviewData }) {
+function OverviewBody({
+  chaosResults,
+  data,
+}: {
+  readonly chaosResults: AsyncState<ChaosResultSummary> | null;
+  readonly data: DashboardOverviewData;
+}) {
   const { kpi, cost, gates, autonomy, optionalPending = false } = data;
   const comparisonExpired = useCohortExpiry(autonomy?.comparison?.valid_until);
   const sampleParams = auditSampleParams(kpi);
@@ -272,6 +292,12 @@ function OverviewBody({ data }: { readonly data: DashboardOverviewData }) {
             value: gateTotal !== null ? `${readyCount}/${gateTotal}` : "n/a",
             group: "guards",
           },
+          ...(chaosResults?.status === "ready" ? [
+            { key: "chaos_experiments", value: chaosResults.data.experiments, group: "chaos_validation" },
+            { key: "chaos_validated", value: chaosResults.data.validated, group: "chaos_validation" },
+            { key: "chaos_detection_gaps", value: chaosResults.data.detectionGaps, group: "chaos_validation" },
+            { key: "chaos_rollback_failures", value: chaosResults.data.rollbackFailures, group: "chaos_validation" },
+          ] : []),
           ...autonomyFacts,
         ],
         records: {
@@ -345,10 +371,11 @@ function OverviewBody({ data }: { readonly data: DashboardOverviewData }) {
             .sort(([, a], [, b]) => b - a)
             .map(([key, count]) => ({ key, count })),
           ...autonomyRecords,
+          chaos_validation: chaosResults?.status === "ready" ? [{ ...chaosResults.data }] : [],
         },
       };
     },
-    [kpi, cost, gates, autonomy, health, savings, t0Share, optionalPending, comparisonExpired],
+    [kpi, cost, gates, autonomy, health, savings, t0Share, optionalPending, comparisonExpired, chaosResults],
   );
 
   return (
@@ -402,6 +429,24 @@ function OverviewBody({ data }: { readonly data: DashboardOverviewData }) {
           <OverviewSection id="controls" title={t("overview.section.attention")} description={t("overview.section.attentionHint")}>
             <RequiredAttention kpi={kpi} gates={gates} autonomy={autonomy} policyEscapes={policyEscapes} optionalPending={optionalPending} />
           </OverviewSection>
+          {chaosResults ? (
+            <OverviewSection
+              id="chaos-validation"
+              title={tDashboard("chaosTitle")}
+              description={tDashboard("chaosDescription")}
+            >
+              <AsyncBoundary state={chaosResults} resourceLabel={tDashboard("chaosResourceLabel")}>
+                {(summary) => (
+                  <KpiGrid>
+                    <KpiCard href={routeHref("reports", { segments: ["chaos-enforce-results"] })} label={tDashboard("chaosExperiments")} value={summary.experiments} hint={tDashboard("chaosMeasuredHint")} />
+                    <KpiCard href={routeHref("reports", { segments: ["chaos-enforce-results"] })} label={tDashboard("chaosValidated")} value={summary.validated} hint={tDashboard("chaosMeasuredHint")} tone="positive" />
+                    <KpiCard href={routeHref("reports", { segments: ["chaos-enforce-results"] })} label={tDashboard("chaosDetectionGaps")} value={summary.detectionGaps} hint={tDashboard("chaosMeasuredHint")} tone={summary.detectionGaps > 0 ? "warning" : "positive"} />
+                    <KpiCard href={routeHref("reports", { segments: ["chaos-enforce-results"] })} label={tDashboard("chaosRollbackFailures")} value={summary.rollbackFailures} hint={tDashboard("chaosMeasuredHint")} tone={summary.rollbackFailures > 0 ? "warning" : "positive"} />
+                  </KpiGrid>
+                )}
+              </AsyncBoundary>
+            </OverviewSection>
+          ) : null}
           <OverviewSection id="verticals" title={t("overview.section.verticals")} description={t("overview.section.verticalsHint")}>
             {autonomy ? (
               <VerticalCards verticals={autonomy.verticals} />

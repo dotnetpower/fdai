@@ -92,6 +92,16 @@ resource "azurerm_virtual_network_gateway" "dev_access" {
     aad_audience         = var.entra_audience
     aad_issuer           = "https://sts.windows.net/${data.azurerm_client_config.current.tenant_id}/"
   }
+
+  dynamic "custom_route" {
+    for_each = length(var.additional_vnets) == 0 ? [] : [1]
+
+    content {
+      address_prefixes = toset(flatten([
+        for vnet in values(var.additional_vnets) : tolist(vnet.address_spaces)
+      ]))
+    }
+  }
 }
 
 resource "azurerm_private_dns_resolver" "dev_access" {
@@ -147,6 +157,35 @@ resource "azurerm_virtual_network_peering" "fdai_to_dev_access" {
   depends_on = [
     azurerm_virtual_network_gateway.dev_access,
     azurerm_virtual_network_peering.dev_access_to_fdai,
+  ]
+}
+
+resource "azurerm_virtual_network_peering" "dev_access_to_additional" {
+  for_each = var.additional_vnets
+
+  name                         = "peer-dev-access-to-${each.key}"
+  resource_group_name          = azurerm_resource_group.dev_access.name
+  virtual_network_name         = azurerm_virtual_network.dev_access.name
+  remote_virtual_network_id    = each.value.id
+  allow_virtual_network_access = true
+  allow_forwarded_traffic      = true
+  allow_gateway_transit        = true
+}
+
+resource "azurerm_virtual_network_peering" "additional_to_dev_access" {
+  for_each = var.additional_vnets
+
+  name                         = "peer-${each.key}-to-dev-access"
+  resource_group_name          = each.value.resource_group_name
+  virtual_network_name         = each.value.name
+  remote_virtual_network_id    = azurerm_virtual_network.dev_access.id
+  allow_virtual_network_access = true
+  allow_forwarded_traffic      = true
+  use_remote_gateways          = true
+
+  depends_on = [
+    azurerm_virtual_network_gateway.dev_access,
+    azurerm_virtual_network_peering.dev_access_to_additional,
   ]
 }
 

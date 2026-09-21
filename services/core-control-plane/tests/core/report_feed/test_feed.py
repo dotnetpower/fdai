@@ -189,6 +189,16 @@ def test_signal_from_experiment_flags_detection_gap() -> None:
 
     assert signal.kind is SignalKind.CHAOS
     assert signal.severity is Severity.HIGH  # a detection gap is high severity
+    assert signal.metadata == {
+        "scenario_id": "aks-pod-cpu-spike",
+        "outcome": "not_detected",
+        "mode": "enforce",
+        "expected_signal": "node_cpu",
+        "detected": "false",
+        "reverted": "true",
+        "injected": "true",
+        "stopped": "true",
+    }
 
 
 def test_signal_from_experiment_rollback_failed_is_critical() -> None:

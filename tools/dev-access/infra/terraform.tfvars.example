@@ -11,6 +11,18 @@ fdai_vnet = {
   resource_group_name = "<fdai-dev-resource-group>"
 }
 
+# Add a directly reachable VNet when a required private endpoint lives outside
+# fdai_vnet. The gateway advertises each address space to P2S clients and the
+# stack owns both removable peering directions.
+additional_vnets = {
+  ops = {
+    id                  = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/<fdai-ops-resource-group>/providers/Microsoft.Network/virtualNetworks/<fdai-ops-vnet>"
+    name                = "<fdai-ops-vnet>"
+    resource_group_name = "<fdai-ops-resource-group>"
+    address_spaces      = ["10.70.0.0/24"]
+  }
+}
+
 fdai_private_dns_zones = {
   vault = {
     name                = "privatelink.vaultcore.azure.net"

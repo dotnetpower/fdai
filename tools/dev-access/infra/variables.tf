@@ -40,6 +40,30 @@ variable "fdai_vnet" {
   }
 }
 
+variable "additional_vnets" {
+  description = "Additional private VNets that require direct P2S reachability. Map keys are stable peering-name tokens."
+  type = map(object({
+    id                  = string
+    name                = string
+    resource_group_name = string
+    address_spaces      = set(string)
+  }))
+  default = {}
+
+  validation {
+    condition = alltrue([
+      for key, vnet in var.additional_vnets :
+      can(regex("^[a-z0-9-]{1,40}$", key)) &&
+      startswith(lower(vnet.id), "/subscriptions/") &&
+      trimspace(vnet.name) != "" &&
+      trimspace(vnet.resource_group_name) != "" &&
+      length(vnet.address_spaces) > 0 &&
+      alltrue([for address_space in vnet.address_spaces : can(cidrhost(address_space, 0))])
+    ])
+    error_message = "Additional VNet keys must be lowercase link tokens and every VNet must include an ID, name, resource group, and valid address spaces."
+  }
+}
+
 variable "fdai_private_dns_zones" {
   description = "Existing FDAI Private DNS zones to link to the development-access VNet. Map keys are stable link-name tokens."
   type = map(object({

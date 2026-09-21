@@ -69,7 +69,7 @@ Integrations also renders the incident-open email through a sandboxed iframe. Th
 preview endpoint calls the same production renderer used by Azure Communication Services Email and
 supplies only synthetic placeholders. The preview exposes no runtime incident, endpoint, recipient,
 or identity value and provides no send, approval, or execution control.
-Operations exposes `Detection coverage` at `/detection-coverage` and keeps `/detection-readiness` as a compatibility alias. The route separates the newest attempt, latest successful run, retained findings, and optional exact-resource Kubernetes evidence. Filters and selection are URL-backed, canonical reasons remain in technical detail, and the browser never probes resources or derives health, readiness, coverage, or authority from a successful response.
+Operations exposes `Detection coverage` at `/detection-coverage` and keeps `/detection-readiness` as a compatibility alias. The route separates the newest attempt, latest successful run, retained findings, optional exact-resource Kubernetes evidence, and measured chaos validation. Chaos experiment counts, detected signals, detection gaps, and rollback failures come only from the bounded read-only report and remain distinct from analyzer findings. Filters and selection are URL-backed, canonical reasons remain in technical detail, and the browser never probes resources or derives health, readiness, coverage, or authority from a successful response.
 The standard authenticated route inventory includes `Alert quality` at `/alert-quality`. Its
 Browser Entra assurance uses only the canonical Console and Operator API origins, restores an
 existing provider-hosted session through the owner-only state contract, and never intercepts
@@ -173,15 +173,15 @@ their narrowest audit, approval, or promotion destination. Synthetic guards neve
 operational pass or failure, and a missing projection renders unavailable instead of supplying a
 prototype value or inferred zero.
 
-Vertical Outcomes is one portfolio overview rather than three selected-detail routes. Each vertical
-card uses the same visual grammar but names a distinct primary outcome and links directly to its
+Vertical Outcomes is one portfolio overview rather than three selected-detail routes. Each vertical card uses the same visual grammar but names a distinct primary outcome and links directly to its
 owning evidence surface: Incidents for Resilience, promotion evidence for Change Safety, and Audit
 for Cost Governance. The shared comparison table is the only place that repeats events,
-auto-resolution, unresolved risk, and savings across verticals. A domain metric such as change
-failure rate or recovery drill success remains unavailable until the read model supplies attributed
-evidence; global confidence and trend values aren't relabeled as vertical-specific claims. An empty
-vertical has no inferred resolution rate, and synthetic evidence never creates an operational health
-label or a filtered runtime-evidence claim.
+auto-resolution, unresolved risk, and savings across verticals. The bounded measured chaos report may
+supply validated fault-injection experiment and tested rollback-path facts for Resilience with a direct Reports
+destination, but it doesn't supply auto-resolution, MTTR, Incident state, or general vertical event
+attribution. Other domain metrics remain unavailable until their owning read model supplies attributed
+evidence; global values aren't relabeled as vertical claims, and synthetic evidence never creates an
+operational health label, inferred resolution rate, or filtered runtime-evidence claim.
 
 Trust Routing presents T0 (deterministic rules), T1 (lightweight similarity reuse), and T2
 (grounded LLM reasoning) as one measured tier map. Routed share, event count, and target band come

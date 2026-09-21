@@ -42,6 +42,31 @@ describe("panel source availability", () => {
     expect(panelSourceAvailability("dashboard", partial)).toBe("unknown");
   });
 
+  test("requires the reporting source for chaos-summary consumers", () => {
+    const withReport: ReadDataSourcesPayload = {
+      surface: "read-data-sources",
+      sources: [
+        {
+          key: "measurement", source: "postgres", routes: ["/kpi/autonomy", "/detection-coverage"],
+          availability: "available", configured: true, reachable: true, authoritative: true,
+          durable: true, synthetic: false, reason: null, last_observed_at: null,
+        },
+        {
+          key: "reports", source: "postgres", routes: ["/reports"],
+          availability: "available", configured: true, reachable: true, authoritative: true,
+          durable: true, synthetic: false, reason: null, last_observed_at: null,
+        },
+      ],
+    };
+
+    expect(panelSourceAvailability("verticals", withReport)).toBe("available");
+    expect(panelSourceAvailability("detection-readiness", withReport)).toBe("available");
+    expect(panelSourceAvailability("verticals", {
+      ...withReport,
+      sources: withReport.sources.slice(0, 1),
+    })).toBe("unknown");
+  });
+
   test("classifies every registered console panel by source ownership", () => {
     const panels = resolvePanels();
     expect(panels).toHaveLength(61);

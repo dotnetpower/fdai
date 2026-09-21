@@ -25,6 +25,11 @@ on:
         description: "Run the ten live reference faults after apply."
         type: boolean
         default: false
+      scenario_id:
+        description: "Run all reference faults or one exact allowlisted scenario."
+        type: choice
+        options: [all, aks-pod-kill, aks-pod-cpu-spike, aks-http-abort, vm-cpu-stress, vm-mem-stress, aks-bad-deploy, aoai-tpm-throttle, mysql-cpu-pressure, appgw-backend-failure, network-rtt-delay]
+        default: all
       enable_vpn_operator_access:
         description: "Allow the configured operator principal to test directly through the P2S VPN."
         type: boolean
@@ -90,6 +95,7 @@ jobs:
       SCENARIO_LAB_CHAOS_MESH_CHART_VERSION: ${{ vars.SCENARIO_LAB_CHAOS_MESH_CHART_VERSION }}
       SCENARIO_LAB_APPROVAL_REF: ${{ inputs.approval_ref }}
       SCENARIO_LAB_CONFIRM_ENFORCE: ${{ inputs.run_reference_sweep && 'true' || 'false' }}
+      SCENARIO_LAB_SCENARIO_ID: ${{ inputs.scenario_id }}
       KUBELOGIN_VERSION: v0.2.19
       KUBELOGIN_LINUX_AMD64_SHA256: ebaeff02aa899c5cae6a2b954b64fc02738185319df2570f7dc053451efa4b2f
       KUBECTL_VERSION: v1.31.14
@@ -867,6 +873,41 @@ jobs:
           fi
           echo "scenario-lab Terraform apply completed."
 
+      - name: Start stopped AKS sweep target
+        if: inputs.action == 'apply' && inputs.run_reference_sweep
+        working-directory: infra/scenario-lab
+        run: |
+          set -euo pipefail
+          cluster_name="$(terraform output -raw aks_cluster_name)"
+          resource_group="$(terraform output -raw resource_group_name)"
+          [[ "$cluster_name" == "aks-store-demo" ]] || {
+            echo "reference sweep requires the exact disposable AKS cluster." >&2
+            exit 1
+          }
+          [[ "$resource_group" == "$SCENARIO_LAB_RESOURCE_GROUP_NAME" ]] || {
+            echo "reference sweep resource group does not match the protected scope." >&2
+            exit 1
+          }
+          power_state="$(az aks show --name "$cluster_name" --resource-group "$resource_group" \
+            --query powerState.code --output tsv --only-show-errors)"
+          case "$power_state" in
+            Running) ;;
+            Stopped)
+              : >"$RUNNER_TEMP/sre-demo-lab-aks-started-by-run"
+              timeout 900 az aks start --name "$cluster_name" --resource-group "$resource_group" \
+                --output none --only-show-errors
+              ;;
+            *)
+              echo "reference sweep requires a Running or Stopped AKS cluster." >&2
+              exit 1
+              ;;
+          esac
+          [[ "$(az aks show --name "$cluster_name" --resource-group "$resource_group" \
+            --query powerState.code --output tsv --only-show-errors)" == "Running" ]] || {
+              echo "reference sweep AKS cluster did not reach Running." >&2
+              exit 1
+            }
+
       - name: Configure AKS test substrate
         if: inputs.action == 'apply' || inputs.action == 'recreate-aks'
         id: prepare
@@ -946,11 +987,15 @@ jobs:
         run: |
           set -euo pipefail
           summary="$RUNNER_TEMP/sre-demo-lab-summary.json"
-          jq -e '
-            (.runs | length) == 10 and
+          expected_runs=10
+          if [[ "$SCENARIO_LAB_SCENARIO_ID" != "all" ]]; then
+            expected_runs=1
+          fi
+          jq -e --argjson expected_runs "$expected_runs" '
+            (.runs | length) == $expected_runs and
             all(.runs[]; .outcome == "validated" and .detected == true and .reverted == true)
           ' "$summary" >/dev/null || {
-            echo "reference sweep did not validate and revert all ten scenarios." >&2
+            echo "reference sweep did not validate and revert the exact selected scenarios." >&2
             exit 1
           }
 
@@ -966,6 +1011,31 @@ jobs:
           path: ${{ runner.temp }}/sre-demo-lab-summary.json
           if-no-files-found: error
           retention-days: 30
+
+      - name: Restore AKS power state
+        if: >-
+          always() &&
+          steps.protected-source.outcome == 'success' &&
+          inputs.action == 'apply' &&
+          inputs.run_reference_sweep
+        working-directory: infra/scenario-lab
+        run: |
+          set -euo pipefail
+          marker="$RUNNER_TEMP/sre-demo-lab-aks-started-by-run"
+          [[ -f "$marker" ]] || exit 0
+          cluster_name="$(terraform output -raw aks_cluster_name)"
+          resource_group="$(terraform output -raw resource_group_name)"
+          [[ "$cluster_name" == "aks-store-demo" && "$resource_group" == "$SCENARIO_LAB_RESOURCE_GROUP_NAME" ]] || {
+            echo "AKS power-state rollback target changed." >&2
+            exit 1
+          }
+          timeout 900 az aks stop --name "$cluster_name" --resource-group "$resource_group" \
+            --output none --only-show-errors
+          [[ "$(az aks show --name "$cluster_name" --resource-group "$resource_group" \
+            --query powerState.code --output tsv --only-show-errors)" == "Stopped" ]] || {
+              echo "AKS power-state rollback did not reach Stopped." >&2
+              exit 1
+            }
 
       - name: Destroy exact lab state
         if: inputs.action == 'destroy'
@@ -1101,7 +1171,8 @@ jobs:
             "$RUNNER_TEMP/sre-demo-lab-plan.log" \
             "$RUNNER_TEMP/sre-demo-lab-apply.log" \
             "$RUNNER_TEMP/sre-demo-lab-destroy.log" \
-            "$RUNNER_TEMP/sre-demo-lab-destroy-retry.log"; do
+            "$RUNNER_TEMP/sre-demo-lab-destroy-retry.log" \
+            "$RUNNER_TEMP/sre-demo-lab-aks-started-by-run"; do
             if [[ -f "$artifact" ]]; then
               shred --force --remove "$artifact"
             fi

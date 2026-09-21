@@ -339,9 +339,16 @@ The scenario-lab profile deploys the commerce workload with these boundaries:
   VM NIC retain their explicit Terraform-owned associations.
 - The deployment emits the storefront URL and opaque resource references as outputs. It does not
   commit tenant values.
+- The stress VM uses the retained `Standard_LRS` OS disk baseline. A routine apply must not replace
+  the VM only to change its disk SKU; a later SKU change requires a separate destructive plan and
+  exact confirmation.
 - Ordinary apply continues to reject every replacement. A one-time `recreate-aks` operation accepts
   only the reviewed private-to-public cluster replacement and its cluster-scoped role assignments,
   requires exact human confirmation, and rejects any other destructive address.
+- An approved reference sweep may select all scenarios or one exact allowlisted scenario. The
+  protected runner starts only the Terraform-selected `aks-store-demo` when it was stopped, records
+  that run-local transition before the effect, and restores `Stopped` in an `always()` cleanup step.
+  A cluster that was already running remains running.
 
 Gateway API is the preferred long-term ingress contract. An ingress compatibility profile may be
 used only for a time-bounded lab where its support window and migration path are recorded.

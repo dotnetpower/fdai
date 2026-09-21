@@ -63,8 +63,11 @@ provisioning commonly takes 30-45 minutes. New gateways use the availability-zon
 
 Populate `fdai_private_dns_zones` with every FDAI private service needed from the workstation.
 Typical deployments link zones for Key Vault, PostgreSQL, Storage Blob/DFS, Event Hubs, and Azure
-OpenAI when those services are enabled. Do not link the private Terraform state zone unless local
-state access is an explicit requirement.
+OpenAI when those services are enabled. When a required endpoint is in a VNet other than
+`fdai_vnet`, add that network to `additional_vnets`. The stack creates removable bidirectional
+peering and advertises its declared address spaces to P2S clients. Link only the matching private
+DNS zone used by that endpoint. Do not enable local Terraform state access unless it is an explicit
+requirement.
 
 ## Configure Windows and WSL
 

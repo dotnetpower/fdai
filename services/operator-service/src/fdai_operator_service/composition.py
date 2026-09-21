@@ -159,7 +159,7 @@ from fdai_operator_service.read_investigation_completion_runtime import (
 from fdai_operator_service.read_investigation_runtime import ReadInvestigationBridge
 from fdai_operator_service.reporting import optional_pdf_report_encoder
 from fdai_operator_service.reporting.incident_rca_projection import (
-    IncidentRcaReportingProjectionReader,
+    postgres_incident_rca_reporting_projection,
 )
 from fdai_operator_service.routes import OperatorRouteFamilies
 from fdai_operator_service.runtime import OperatorRuntime
@@ -741,7 +741,13 @@ def _build_route_families(
         )
     )
     operations_reader: ProjectionReader = (
-        IncidentRcaReportingProjectionReader(postgres_operations, read_model)
+        postgres_incident_rca_reporting_projection(
+            postgres_operations,
+            read_model,
+            dsn=database_url,
+            statement_timeout_ms=environment.database_statement_timeout_ms,
+            connect_timeout_s=environment.database_connect_timeout_s,
+        )
         if read_model is not None
         else postgres_operations
     )

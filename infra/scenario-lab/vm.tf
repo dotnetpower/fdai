@@ -49,7 +49,7 @@ resource "azurerm_linux_virtual_machine" "stress" {
   os_disk {
     name                 = "osdisk-${local.suffix}-stress"
     caching              = "ReadWrite"
-    storage_account_type = "StandardSSD_LRS"
+    storage_account_type = "Standard_LRS"
     disk_size_gb         = 30
   }
 
