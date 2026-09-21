@@ -1,8 +1,8 @@
 ---
 title: 네트워크 토폴로지 시각화
 translation_of: network-topology-visualization.md
-translation_source_sha: 29bd594647721c3ae40043128439f825ce6725bd
-translation_revised: 2026-09-15
+translation_source_sha: 49895762f95d4ea977ec60eb98476659e0774e89
+translation_revised: 2026-09-22
 ---
 # 네트워크 토폴로지 시각화
 
@@ -15,7 +15,7 @@ translation_revised: 2026-09-15
 > 네트워크 또는 실행 권한을 부여하지 않으며 추론한 경로를 관측된 사실로 바꾸지 않습니다.
 >
 > **프로바이더 범위:** 어휘는 클라우드 프로바이더 중립입니다. Azure가 유일하게 구현된 아이콘 및
-> 인벤토리 어댑터이므로 Azure 리소스 타입에 첫 번째 완전한 시각 매핑을 제공합니다.
+> 인벤토리 어댑터이므로 Azure 리소스 타입에 첫 번째 완전한 시각 매핑을 제공합니다. 모든 정본 리소스 타입에는 명시적인 계층, 색상 토큰 및 약어가 있습니다.
 
 ## 설계 요약
 

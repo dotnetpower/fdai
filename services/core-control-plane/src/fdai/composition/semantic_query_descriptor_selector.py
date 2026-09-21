@@ -71,7 +71,7 @@ class ManifestDescriptorIndex:
             try:
                 _semantic_judgment_capabilities(full)
             except ValueError as error:
-                if str(error) != "semantic judgment capability projection exceeds its byte budget":
+                if str(error) != "semantic judgment capability projection exceeds its byte bound":
                     raise
             else:
                 _LOGGER.info(
@@ -94,7 +94,7 @@ class ManifestDescriptorIndex:
             try:
                 _semantic_judgment_capabilities((*selected, descriptor))
             except ValueError as error:
-                if str(error) != "semantic judgment capability projection exceeds its byte budget":
+                if str(error) != "semantic judgment capability projection exceeds its byte bound":
                     raise
                 continue
             selected.append(descriptor)

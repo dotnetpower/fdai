@@ -26,6 +26,9 @@ for _source in ("services/core-control-plane/src", "packages/service-contracts/s
 
 from fdai.agents import PANTHEON_SPECS  # noqa: E402
 from fdai.core.conversation_assurance import (  # noqa: E402
+    COPILOT_RUBRIC_NAMES as COPILOT_RUBRIC_NAMES,
+)
+from fdai.core.conversation_assurance import (  # noqa: E402
     CampaignHoldError,
     ConversationTurnTraceReceipt,
     PantheonCampaignController,
@@ -72,6 +75,9 @@ from scripts.automation.conversation_assurance_operator import (  # noqa: E402
     _open_operator_request,
     _semantic_reviews,
     _terminal_payload,
+)
+from scripts.automation.conversation_assurance_operator import (  # noqa: E402
+    _NoRedirectHandler as _NoRedirectHandler,
 )
 from scripts.automation.conversation_assurance_reporting import (  # noqa: E402
     _compare_transcripts,

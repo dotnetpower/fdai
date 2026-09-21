@@ -9,7 +9,7 @@ from types import SimpleNamespace
 import pytest
 from test_foundation_input import BINDING, foundation_values, write_values
 
-from fdai_deployment_cli import cli
+from fdai_deployment_cli import cli, cli_plan
 from fdai_deployment_cli.contracts import ProvisionProfile
 
 
@@ -29,12 +29,12 @@ def foundation_command(
         approval_quorum=1,
         monthly_cost_ceiling=500,
     )
-    monkeypatch.setattr(cli, "load_profile", lambda _: profile)
-    monkeypatch.setattr(cli, "azure_active_target_binding", lambda: BINDING)
-    monkeypatch.setattr(cli, "verify_foundation_runner_image", lambda *a, **kw: "f" * 64)
-    monkeypatch.setattr(cli, "_read_public_key", lambda _: b"synthetic-public-key")
+    monkeypatch.setattr(cli_plan, "load_profile", lambda _: profile)
+    monkeypatch.setattr(cli_plan, "azure_active_target_binding", lambda: BINDING)
+    monkeypatch.setattr(cli_plan, "verify_foundation_runner_image", lambda *a, **kw: "f" * 64)
+    monkeypatch.setattr(cli_plan, "_read_public_key", lambda _: b"synthetic-public-key")
     monkeypatch.setattr(
-        cli,
+        cli_plan,
         "verify_offline_kit",
         lambda *a, **kw: SimpleNamespace(
             bundle_version="test",
@@ -49,7 +49,7 @@ def foundation_command(
     root.mkdir(parents=True)
     (root / ".terraform.lock.hcl").write_text("# synthetic lock", encoding="utf-8")
     monkeypatch.setattr(
-        cli,
+        cli_plan,
         "materialize_verified_artifacts",
         lambda *a, **kw: SimpleNamespace(
             terraform_binary=tmp_path / "terraform",
@@ -57,16 +57,16 @@ def foundation_command(
             deployment_bundle=tmp_path / "bundle.tar.gz",
         ),
     )
-    monkeypatch.setattr(cli, "extract_bundle_archive", lambda *a, **kw: bundle)
+    monkeypatch.setattr(cli_plan, "extract_bundle_archive", lambda *a, **kw: bundle)
     monkeypatch.setattr(
-        cli,
+        cli_plan,
         "verify_bundle",
         lambda *a, **kw: SimpleNamespace(
             bundle_version="test",
             manifest_digest="b" * 64,
         ),
     )
-    monkeypatch.setattr(cli, "_terraform_environment", lambda **kw: {"TF_IN_AUTOMATION": "1"})
+    monkeypatch.setattr(cli_plan, "_terraform_environment", lambda **kw: {"TF_IN_AUTOMATION": "1"})
     monkeypatch.delenv("ARM_USE_MSI", raising=False)
     source = tmp_path / "input.json"
     write_values(source, foundation_values())
@@ -108,7 +108,7 @@ def test_foundation_cli_uses_only_selected_root_and_locked_providers(
         assert kwargs["timeout"] == 300
         return subprocess.CompletedProcess(command, 0, "opaque-provider-marker", "")
 
-    monkeypatch.setattr(cli.subprocess, "run", run)
+    monkeypatch.setattr(cli_plan.subprocess, "run", run)
     assert cli.main(args) == 0
     assert [call[1] for call in calls] == ["init", "plan"]
     assert "-backend=false" in calls[0]
@@ -130,9 +130,9 @@ def test_foundation_online_connectivity_accepts_verified_kit(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     args, _root, profile = foundation_command
-    monkeypatch.setattr(cli, "load_profile", lambda _: replace(profile, connectivity="online"))
+    monkeypatch.setattr(cli_plan, "load_profile", lambda _: replace(profile, connectivity="online"))
     monkeypatch.setattr(
-        cli.subprocess,
+        cli_plan.subprocess,
         "run",
         lambda command, **kwargs: subprocess.CompletedProcess(command, 0, "", ""),
     )
@@ -164,9 +164,9 @@ def test_failed_foundation_attempt_removes_snapshot_and_never_reports_success(
     def invalid_environment(**kwargs: object) -> dict[str, str]:
         raise ValueError("ambient Terraform control variables are not accepted")
 
-    monkeypatch.setattr(cli.subprocess, "run", run)
+    monkeypatch.setattr(cli_plan.subprocess, "run", run)
     if stage == "environment":
-        monkeypatch.setattr(cli, "_terraform_environment", invalid_environment)
+        monkeypatch.setattr(cli_plan, "_terraform_environment", invalid_environment)
     assert cli.main(args) == 3
     captured = capsys.readouterr()
     assert not captured.out
@@ -198,19 +198,19 @@ def test_foundation_preconditions_block_terraform(
     elif condition == "zero-cost":
         profile = replace(profile, monthly_cost_ceiling=0)
     elif condition == "target":
-        monkeypatch.setattr(cli, "azure_active_target_binding", lambda: "c" * 64)
+        monkeypatch.setattr(cli_plan, "azure_active_target_binding", lambda: "c" * 64)
     elif condition == "unauthenticated":
-        monkeypatch.setattr(cli, "azure_active_target_binding", lambda: None)
+        monkeypatch.setattr(cli_plan, "azure_active_target_binding", lambda: None)
     elif condition == "msi":
         monkeypatch.setenv("ARM_USE_MSI", "true")
     elif condition == "missing-root":
         (root / ".terraform.lock.hcl").unlink()
-    monkeypatch.setattr(cli, "load_profile", lambda _: profile)
+    monkeypatch.setattr(cli_plan, "load_profile", lambda _: profile)
 
     def forbidden(*args: object, **kwargs: object) -> None:
         pytest.fail("Terraform must not run before foundation preconditions pass")
 
-    monkeypatch.setattr(cli.subprocess, "run", forbidden)
+    monkeypatch.setattr(cli_plan.subprocess, "run", forbidden)
     assert cli.main(args) == 3
 
 
@@ -271,7 +271,7 @@ def test_platform_default_preserves_root_input_and_result(
             assert json.loads(snapshot.read_bytes())["env"] == "dev"
         return subprocess.CompletedProcess(command, 0, "", "")
 
-    monkeypatch.setattr(cli.subprocess, "run", run)
+    monkeypatch.setattr(cli_plan.subprocess, "run", run)
     assert cli.main(args) == 0
     assert json.loads(capsys.readouterr().out) == {
         "schema_version": "fdai.provision-plan.v1",

@@ -1,7 +1,7 @@
 ---
 title: 구독 초기 프로비저닝
 translation_of: subscription-genesis-provisioning.md
-translation_source_sha: 4f9c894861150bdb37e94a1b52de92af83f6f306
+translation_source_sha: 8a39979e84c83e5b49fed9f8a7d885a312544ea7
 translation_revised: 2026-09-22
 ---
 # 구독 초기 프로비저닝
@@ -9,7 +9,7 @@ translation_revised: 2026-09-22
 이 문서는 신규 또는 일부만 구성된 Azure 구독에 FDAI를 배포해 준비 완료 상태로 만드는 전체
 수명 주기를 정의합니다. 기존 Terraform, 보호된 실행기, 데이터베이스, 카탈로그, 모델,
 인벤토리 경로를 하나의 재개 가능한 `fdaictl` 작업으로 구성하되, 정확한 계획 승인과 비공개
-네트워크 경계를 약화하지 않습니다.
+네트워크 경계를 약화하지 않습니다. 목적별 `cli_plan` 모듈이 계획 시점 의존성을 소유하며 공개 명령 계약은 바뀌지 않습니다.
 
 > **범위:** 현재 구현 대상은 Azure입니다. 일반 PC에서 기본 배포를 시작할 수 있으며 API Server
 > VNet Integration과 인증되고 제한된 공개 관리 접근을 포함한 AKS를 만듭니다. 정책상 필요하거나

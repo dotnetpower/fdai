@@ -1,8 +1,8 @@
 ---
 title: 오퍼레이터 시작 SRE 및 아키텍처 리뷰
 translation_of: operator-initiated-sre-and-arb.md
-translation_source_sha: f3726def73d3f29acc2657d70e54bd1a170fb077
-translation_revised: 2026-09-21
+translation_source_sha: 6959b9ca20a1fbf06083d5400158d6e791b39dbe
+translation_revised: 2026-09-22
 ---
 
 # 오퍼레이터 시작 SRE 및 아키텍처 리뷰
@@ -10,7 +10,7 @@ translation_revised: 2026-09-21
 이 계획은 인시던트가 아닌 운영 작업을 FDAI가 식별하는 방법, 오퍼레이터의 SRE 요청을
 거버넌스가 적용되는 인시던트 대응으로 전환하는 방법, 아키텍처 검토 Board(ARB)
 프로세스를 관찰 가능한 작업 흐름으로 실행하는 방법을 정의합니다. 또한 로컬 환경과 배포
-환경에서 shadow 및 강제 적용 작업에 적용되는 안전 경계를 정의합니다.
+환경에서 shadow 및 강제 적용 작업에 적용되는 안전 경계를 정의합니다. 공유 영속 모델을 분리해도 타입이 지정된 제안 claim 가져오기를 보존하며 인시던트 수명 주기 소유권은 바뀌지 않습니다.
 
 > **범위:** 이 설계는 기존 인시던트 레지스트리, 타입이 지정된 액션 파이프라인, 프로세스 저널, risk
 > 게이트, 실행기 어댑터를 재사용합니다. Console 소유 실행기 또는 두 번째 판단 경로를

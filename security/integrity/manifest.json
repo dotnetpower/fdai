@@ -139,7 +139,7 @@
     "services/core-control-plane/src/fdai/composition/semantic_judgment_model_binding.py": "bf2d2c2b0af2838b75acefb9085757b491ce9b623fe88ba7a27e9c6534413e3c",
     "services/core-control-plane/src/fdai/composition/semantic_query_azure_composition.py": "2f4579c640f60b08ff221d4f68dfd70cacd3f44ba9b653b66077e0fc09390dcc",
     "services/core-control-plane/src/fdai/composition/semantic_query_current_evidence.py": "3579693b62d3bc656b76ca7c26f25d786ceec938cabd1e31e7344f7205de6f6b",
-    "services/core-control-plane/src/fdai/composition/semantic_query_descriptor_selector.py": "713b6d8161f335664d994591f75d34d635270a096a657b75eb0f7132da2da730",
+    "services/core-control-plane/src/fdai/composition/semantic_query_descriptor_selector.py": "f21b7fd90031c225400adb321f85e9206d88f9bd92e512f7161d126a30bb07e8",
     "services/core-control-plane/src/fdai/composition/semantic_query_health_values.py": "8dfa2239f3fae41e3a1dcad74359feb6be1aff6512f8e4c1a9ec8a7812899470",
     "services/core-control-plane/src/fdai/composition/semantic_query_instance_candidates.py": "e7b92866891c1125d13313675fe68ce8dd1eea999dfba426f10c91301b7f4079",
     "services/core-control-plane/src/fdai/composition/semantic_query_invocation_context.py": "567c192a947c56914ad70b874ec95e968086869bc66de8011363fd95aa846080",
@@ -1629,7 +1629,7 @@
     "services/core-control-plane/src/fdai/shared/providers/workflow_definition.py": "01c40a52343b9b0f301a921d7931cc03ae5cc1d916b12f8fcaf06816d0b1c23a",
     "services/core-control-plane/src/fdai/shared/providers/workload_identity.py": "96f26525f5d243ff4c818766d0ee9223a23f1c31c76b141708a01e405a8fd204"
   },
-  "generated_at": "2026-09-21T21:54:54Z",
+  "generated_at": "2026-09-21T22:23:29Z",
   "surface": [
     "services/core-control-plane/src/fdai/core/",
     "services/core-control-plane/src/fdai/composition.py",

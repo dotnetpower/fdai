@@ -6,7 +6,7 @@ title: Subscription Genesis Provisioning
 This document defines the zero-to-ready lifecycle for provisioning FDAI into a new or partially
 configured Azure subscription. It composes the existing Terraform, protected runner, database,
 catalog, model, and inventory paths behind one resumable `fdaictl` operation without weakening
-exact-plan approval or private-network boundaries.
+exact-plan approval or private-network boundaries. The focused `cli_plan` module owns plan-time dependencies while the public command contract remains unchanged.
 
 > **Scope:** Azure is the implemented target. Basic deployment can start from an ordinary PC and
 > creates AKS with API Server VNet Integration plus authenticated restricted public management

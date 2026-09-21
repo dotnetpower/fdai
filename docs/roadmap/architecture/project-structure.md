@@ -8,7 +8,7 @@ The system is a **headless control plane + thin console + ChatOps**, not one web
 Operator production composition keeps runtime wiring in its facade. Focused sibling modules own
 lifecycle and resource cleanup, route-family assembly, and read-source declarations. Compatibility
 exports preserve existing imports, and the split changes no service, identity, data owner, wire
-contract, or authority.
+contract, or authority. Bounded semantic candidate selection treats capability byte limits as a normal index-reduction boundary rather than failing the request.
 The shared Operator family-adapter facade now retains workflow persistence and compatibility
 exports. Conversation persistence, operations projection and webhook handling, and pure workflow
 catalog rendering have focused owners. This split preserves principal scope, durable proposal

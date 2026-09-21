@@ -10,7 +10,7 @@ from pathlib import Path
 
 import pytest
 
-from fdai_deployment_cli import cli, source_foundation
+from fdai_deployment_cli import cli, cli_plan, source_foundation
 from fdai_deployment_cli.contracts import canonical_digest
 from fdai_deployment_cli.foundation_plan import verify_foundation_plan
 from fdai_deployment_cli.private_output import write_private_bytes
@@ -21,9 +21,9 @@ pytest_plugins = ["test_foundation_plan"]
 def test_source_plan_retains_distinct_provenance(foundation_command, monkeypatch, capsys) -> None:
     arguments, root, profile = foundation_command
     profile = replace(profile, connectivity="online")
-    monkeypatch.setattr(cli, "load_profile", lambda _: profile)
+    monkeypatch.setattr(cli_plan, "load_profile", lambda _: profile)
     monkeypatch.setattr(
-        cli, "verify_offline_kit", lambda *_, **__: pytest.fail("kit verification invoked")
+        cli_plan, "verify_offline_kit", lambda *_, **__: pytest.fail("kit verification invoked")
     )
     snapshot = root.parents[1]
     monkeypatch.setattr(
