@@ -1,7 +1,7 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: 19f8d9686399ded85d5557721b0c9618b05ad551
+translation_source_sha: 367afde51b38c69fea747bd9e32c1f28160eefdd
 translation_revised: 2026-09-21
 ---
 # 콘솔 근거 및 복원력
@@ -83,7 +83,7 @@ Integrations는 sandboxed iframe으로 incident-open 이메일도 렌더링합�
 엔드포인트는 Azure Communication Services 이메일이 사용하는 동일한 운영 렌더러를 호출하고
 합성 자리 표시자만 제공합니다. 미리 보기는 런타임 인시던트, 엔드포인트, recipient 또는 신원 값을
 노출하지 않으며 전송, 승인 또는 실행 컨트롤을 제공하지 않습니다.
-Operations는 `/detection-coverage`에서 감지 커버리지를 제공하고 `/detection-readiness`를 호환 별칭으로 유지합니다. 이 경로는 최신 시도, 최근 성공한 실행, 보존된 발견 사항 및 정확한 리소스의 선택형 Kubernetes 근거를 분리합니다. 필터와 선택은 URL에 유지하고 정규 사유는 기술 상세에 보존합니다. 브라우저는 성공 응답에서 리소스 상태, 준비도, 커버리지 또는 권한을 추론하지 않습니다.
+Operations는 `/detection-coverage`에서 감지 커버리지를 제공하고 `/detection-readiness`를 호환 별칭으로 유지합니다. 이 경로는 최신 시도, 최근 성공한 실행, 보존된 발견 사항, 정확한 리소스의 선택형 Kubernetes 근거 및 측정된 카오스 검증을 분리합니다. 카오스 실험 수, 감지된 신호, 감지 공백 및 롤백 실패는 범위가 제한된 읽기 전용 리포트에서만 가져오며 분석기 발견 사항과 구분합니다. 필터와 선택은 URL에 유지하고 정규 사유는 기술 상세에 보존합니다. 브라우저는 성공 응답에서 리소스 상태, 준비도, 커버리지 또는 권한을 추론하지 않습니다.
 표준 인증 경로 목록에는 `/alert-quality`의 `알림 품질`이 포함됩니다. Browser Entra 검증은
 정본 Console 및 Operator API 원본만 사용하고 소유자 전용 상태 계약을 통해 공급자가 호스팅하는
 기존 세션을 복원하며 신원 또는 API 응답을 가로채지 않습니다. 자동화 근거는 허용된 범위 검색,
@@ -191,10 +191,12 @@ filtered 근거로 연결됩니다. 분포 구간과 attention 행은 가장 좁
 영역 카드는 같은 visual grammar를 사용하지만 서로 다른 기본 결과를 표시하고 owning 근거
 표면으로 직접 연결됩니다. 복원력은 Incidents, 변경 안전성은 승격 근거, 비용
 거버넌스는 감사로 연결됩니다. 이벤트, auto-resolution, 미해결 위험 및 절감액은 공유 비교
-표에서만 영역별로 반복합니다. 변경 실패 비율나 복구 drill 성공 같은 domain 메트릭은
-읽기 모델이 귀속 근거를 제공할 때까지 사용 불가로 유지하며 global 확신도와 trend 값을
-vertical-specific 점유로 바꾸지 않습니다. 빈 영역에는 해석 비율을 추론하지 않으며
-synthetic 근거는 operational 상태 라벨이나 filtered runtime-evidence 점유를 만들지 않습니다.
+표에서만 영역별로 반복합니다. 범위가 제한된 측정 카오스 리포트는 복원력 영역에 검증된
+장애 주입 실험과 검증된 롤백 경로 사실을 제공하고 Reports로 직접 연결할 수 있습니다. 이 근거는
+auto-resolution, MTTR, Incident 상태 또는 일반 영역 이벤트 귀속을 제공하지 않습니다. 다른
+도메인 지표는 소유하는 읽기 모델이 귀속 근거를 제공할 때까지 사용 불가로 유지하며 전역
+확신도와 추세 값을 영역별 주장으로 바꾸지 않습니다. 빈 영역에는 해결 비율을 추론하지 않으며
+합성 근거는 운영 상태 라벨이나 필터링된 런타임 근거 주장을 만들지 않습니다.
 
 Trust 라우팅은 T0(결정론적 규칙), T1(경량 유사도 재사용), T2(근거 기반 LLM 추론)를 하나의 측정된
 tier 지도로 표시합니다. 라우팅 비율, 이벤트 수 및 목표 범위는 자율성 및 감사 KPI 변환 결과에서

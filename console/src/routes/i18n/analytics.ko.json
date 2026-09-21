@@ -185,6 +185,7 @@
     "simulatedTitle": "예시 비교입니다.",
     "attributionIncomplete": "관측 이벤트 {count}건에 운영 영역이 귀속되지 않아 영역별 값에서 제외됩니다.",
     "attributionUnavailable": "하나 이상의 운영 영역에 이 기간의 귀속 측정값이 없습니다. 누락된 영역 값은 근거 없음으로 표시됩니다.",
+    "chaosUnavailable": "측정된 카오스 결과 근거를 사용할 수 없습니다.",
     "contractUnavailable": "이 기간에 영역별 측정값이 보고되지 않았습니다.",
     "primary": {
       "autoResolution": "자동 해결률",
@@ -206,7 +207,7 @@
       }
     },
     "fact": {
-      "recoveryDrills": "통과한 복구 훈련",
+      "validatedExperiments": "검증된 실험",
       "medianMttr": "중앙값 MTTR",
       "rollbackPaths": "검증된 롤백 경로",
       "rollbackSuccess": "롤백 성공률",
@@ -218,7 +219,9 @@
     "contract": {
       "resilience": {
         "source": "공유 변환 결과: {source}; 복구 귀속은 연결되지 않음",
-        "measures": "MTTR, RTO/RPO, 복구 성공률"
+        "measures": "MTTR, RTO/RPO, 복구 성공률",
+        "chaosSource": "측정된 카오스 리포트: {source}",
+        "chaosMeasures": "검증된 장애 주입 실험 및 롤백 경로이며 MTTR은 별도 근거로 유지"
       },
       "change-safety": {
         "source": "공유 변환 결과: {source}; 변경 귀속은 연결되지 않음",

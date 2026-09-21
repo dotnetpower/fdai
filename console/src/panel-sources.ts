@@ -2,11 +2,11 @@ import type { ReadDataSourcesPayload, ReadSourceAvailability } from "./api-data-
 import { sourceForRoute } from "./api-data-sources";
 
 const PANEL_SOURCE_ROUTES: Readonly<Record<string, readonly string[]>> = {
-  dashboard: ["/kpi", "/finops", "/kpi/promotion-gates", "/kpi/autonomy"],
+  dashboard: ["/kpi", "/finops", "/kpi/promotion-gates", "/kpi/autonomy", "/reports"],
   "dashboard-v2": ["/ontology/instances/states"],
   "operating-outcomes": ["/kpi/autonomy"],
   "control-assurance": ["/kpi/autonomy", "/kpi/promotion-gates", "/hil-queue"],
-  verticals: ["/kpi/autonomy"],
+  verticals: ["/kpi/autonomy", "/reports"],
   "trust-routing": ["/kpi/autonomy"],
   "llm-cost": ["/kpi/llm-cost"],
   "cost-governance": ["/cost-governance/availability"],
@@ -16,7 +16,7 @@ const PANEL_SOURCE_ROUTES: Readonly<Record<string, readonly string[]>> = {
   "hil-queue": ["/hil-queue"],
   provision: ["/provision/stream"],
   onboarding: ["/onboarding"],
-  "detection-readiness": ["/detection-coverage"],
+  "detection-readiness": ["/detection-coverage", "/reports"],
   "alert-quality": ["/alert-quality"],
   processes: ["/views/process"],
   "workflow-apps": ["/views/workflow-apps"],

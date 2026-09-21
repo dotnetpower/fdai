@@ -185,6 +185,7 @@
     "simulatedTitle": "Illustrative comparison.",
     "attributionIncomplete": "{count} observed events are not attributed to an operating vertical and are excluded from domain values.",
     "attributionUnavailable": "One or more operating verticals have no attributed measurement for this window. Missing domain values remain unavailable.",
+    "chaosUnavailable": "Measured chaos result evidence is unavailable.",
     "contractUnavailable": "No vertical-specific measurement was reported for this window.",
     "primary": {
       "autoResolution": "Auto-resolution rate",
@@ -206,7 +207,7 @@
       }
     },
     "fact": {
-      "recoveryDrills": "Recovery drills passed",
+      "validatedExperiments": "Validated experiments",
       "medianMttr": "Median MTTR",
       "rollbackPaths": "Rollback paths tested",
       "rollbackSuccess": "Rollback success",
@@ -218,7 +219,9 @@
     "contract": {
       "resilience": {
         "source": "Shared projection: {source}; recovery attribution not connected",
-        "measures": "MTTR, RTO/RPO, recovery success"
+        "measures": "MTTR, RTO/RPO, recovery success",
+        "chaosSource": "Measured chaos report: {source}",
+        "chaosMeasures": "Validated fault-injection experiments and rollback paths; MTTR remains separate"
       },
       "change-safety": {
         "source": "Shared projection: {source}; change attribution not connected",

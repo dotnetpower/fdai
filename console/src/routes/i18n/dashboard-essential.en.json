@@ -26,6 +26,15 @@
   "controlOutcomes": "Control outcomes",
   "viewEvidence": "View evidence",
   "noRecordedEntries": "0 recorded entries",
+  "chaosTitle": "Measured resilience validation",
+  "chaosDescription": "Fault-injection detection and rollback outcomes retained by the read-only report feed.",
+  "chaosResourceLabel": "measured resilience validation",
+  "chaosExperiments": "Experiments",
+  "chaosValidated": "Validated",
+  "chaosDetectionGaps": "Detection gaps",
+  "chaosRollbackFailures": "Rollback failures",
+  "chaosMeasuredHint": "Measured chaos result evidence",
+  "chaosUnavailable": "Measured chaos result evidence is unavailable.",
   "retry": "Retry",
   "diagnostics": "View diagnostics"
 }

@@ -420,6 +420,7 @@
       ],
       "docs_update_routes": [
         "development-diagnostic-channel",
+        "operator-surfaces",
         "reporting-subsystem"
       ],
       "docs_update": [
@@ -2869,6 +2870,7 @@
         "human-report-lines",
         "aks-commerce-business-scenario",
         "development-diagnostic-channel",
+        "operator-surfaces",
         "reporting-subsystem"
       ],
       "docs_update": [

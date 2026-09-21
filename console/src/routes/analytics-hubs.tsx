@@ -20,6 +20,7 @@ import {
   type AnalyticsData,
 } from "./analytics-data";
 import { buildOperatingOutcomeViewSnapshot } from "./analytics-hubs.view";
+import { useChaosResultSummary } from "./chaos-results-summary";
 import { ControlAssuranceBody } from "./control-assurance";
 import { VerticalOutcomesBody } from "./vertical-outcomes";
 export { formatMeasuredSavings, verticalResolutionRate } from "./vertical-outcomes";
@@ -174,6 +175,11 @@ export function ControlAssuranceRoute({ client, dataMode }: Props) {
 
 export function VerticalOutcomesRoute({ client, dataMode }: Props) {
   const state = useAutonomyData(client, dataMode);
+  const chaosResults = useChaosResultSummary(
+    client,
+    dataMode,
+    t("analytics.verticals.chaosUnavailable"),
+  );
   return (
     <div class="stack analytics-route">
       <PageHeader title={t("analytics.verticals.title")} subtitle={t("analytics.verticals.subtitle")} />
@@ -181,6 +187,9 @@ export function VerticalOutcomesRoute({ client, dataMode }: Props) {
         {(autonomy) => (
           <VerticalOutcomesBody
             autonomy={autonomy}
+            chaosResults={dataMode === "live" && chaosResults.status === "ready"
+              ? chaosResults.data
+              : null}
             context={searchParamsRecord(currentRoute().search)}
             evidence={autonomy ? <EvidenceStrip autonomy={autonomy} /> : null}
           />

@@ -26,6 +26,15 @@
   "controlOutcomes": "통제 결과",
   "viewEvidence": "근거 보기",
   "noRecordedEntries": "기록된 항목 0건",
+  "chaosTitle": "측정된 복원력 검증",
+  "chaosDescription": "읽기 전용 리포트 피드에 보존된 장애 주입 감지 및 롤백 결과입니다.",
+  "chaosResourceLabel": "측정된 복원력 검증",
+  "chaosExperiments": "실험",
+  "chaosValidated": "검증 완료",
+  "chaosDetectionGaps": "감지 공백",
+  "chaosRollbackFailures": "롤백 실패",
+  "chaosMeasuredHint": "측정된 카오스 결과 근거",
+  "chaosUnavailable": "측정된 카오스 결과 근거를 사용할 수 없습니다.",
   "retry": "다시 시도",
   "diagnostics": "진단 보기"
 }

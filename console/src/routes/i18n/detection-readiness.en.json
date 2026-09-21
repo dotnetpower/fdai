@@ -7,6 +7,17 @@
   "contextHeadline": "{evaluated} of {candidates} candidate resources evaluated",
   "bannerTitle": "Coverage is not health.",
   "bannerBody": "No finding means evaluated only; it grants no readiness or action authority.",
+  "chaosValidation": {
+    "title": "Measured chaos validation",
+    "description": "Fault-injection outcomes are separate from analyzer findings and grant no readiness or action authority.",
+    "resourceLabel": "measured chaos validation",
+    "experiments": "Experiments",
+    "detected": "Signals detected",
+    "detectionGaps": "Detection gaps",
+    "rollbackFailures": "Rollback failures",
+    "measuredHint": "Measured chaos result evidence",
+    "unavailable": "Measured chaos result evidence is unavailable."
+  },
   "targets": "Monitored targets",
   "ready": "Ready",
   "attention": "Needs attention",

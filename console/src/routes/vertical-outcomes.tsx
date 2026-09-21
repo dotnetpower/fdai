@@ -4,6 +4,7 @@ import { StatusPill, UnavailableState } from "../components/ui";
 import { routeHref } from "../router";
 import { t } from "./i18n/analytics";
 import { formatUsd } from "./dashboard.model";
+import type { ChaosResultSummary } from "./chaos-results-summary";
 
 export type VerticalDisplayState = "measured" | "review" | "simulated" | "unavailable";
 export type VerticalSlug = "resilience" | "change-safety" | "cost-governance";
@@ -82,11 +83,12 @@ export function verticalOutcomeViews(
 
 interface Props {
   readonly autonomy: AutonomyPayload | null;
+  readonly chaosResults: ChaosResultSummary | null;
   readonly context: Readonly<Record<string, string>>;
   readonly evidence: ComponentChildren;
 }
 
-export function VerticalOutcomesBody({ autonomy, context, evidence }: Props) {
+export function VerticalOutcomesBody({ autonomy, chaosResults, context, evidence }: Props) {
   const views = verticalOutcomeViews(autonomy?.verticals ?? []);
   const hasMissingVerticals = views.some(({ vertical }) => vertical === null);
   const hasUnattributedEvents = autonomy !== null
@@ -128,22 +130,25 @@ export function VerticalOutcomesBody({ autonomy, context, evidence }: Props) {
           </div>
         </header>
         <VerticalSignalGrid
+          chaosResults={chaosResults}
           context={context}
           synthetic={autonomy?.synthetic ?? false}
           views={views}
         />
       </section>
       <CrossVerticalComparison autonomy={autonomy} context={context} views={views} />
-      <EvidenceContracts autonomy={autonomy} context={context} views={views} />
+      <EvidenceContracts autonomy={autonomy} chaosResults={chaosResults} context={context} views={views} />
     </div>
   );
 }
 
 function VerticalSignalGrid({
+  chaosResults,
   context,
   synthetic,
   views,
 }: {
+  readonly chaosResults: ChaosResultSummary | null;
   readonly context: Readonly<Record<string, string>>;
   readonly synthetic: boolean;
   readonly views: readonly VerticalOutcomeView[];
@@ -152,6 +157,7 @@ function VerticalSignalGrid({
     <section class="vertical-summary-grid" aria-label={t("analytics.verticals.summaryLabel")}>
       {views.map(({ slug, vertical }) => (
         <VerticalSignalCard
+          chaosResults={chaosResults}
           context={context}
           key={slug}
           slug={slug}
@@ -164,11 +170,13 @@ function VerticalSignalGrid({
 }
 
 function VerticalSignalCard({
+  chaosResults,
   context,
   slug,
   synthetic,
   vertical,
 }: {
+  readonly chaosResults: ChaosResultSummary | null;
   readonly context: Readonly<Record<string, string>>;
   readonly slug: VerticalSlug;
   readonly synthetic: boolean;
@@ -184,7 +192,7 @@ function VerticalSignalCard({
       </span>
       <PrimarySignal metric={primaryMetric} vertical={vertical} />
       <p class="vertical-summary-purpose">{t(`analytics.verticals.card.${slug}.purpose`)}</p>
-      <dl><DomainFacts slug={slug} vertical={vertical} /></dl>
+      <dl><DomainFacts chaosResults={chaosResults} slug={slug} vertical={vertical} /></dl>
       <a class="vertical-summary-link" href={destination}>
         {t(`analytics.verticals.card.${slug}.link`)}<span aria-hidden="true">&rarr;</span>
       </a>
@@ -227,14 +235,17 @@ function PrimarySignal({
 }
 
 function DomainFacts({
+  chaosResults,
   slug,
   vertical,
 }: {
+  readonly chaosResults: ChaosResultSummary | null;
   readonly slug: VerticalSlug;
   readonly vertical: VerticalSummary | null;
 }) {
   if (slug === "resilience") {
-    return <><VerticalFact label={t("analytics.verticals.fact.recoveryDrills")} /><VerticalFact label={t("analytics.verticals.fact.medianMttr")} /><VerticalFact label={t("analytics.verticals.fact.rollbackPaths")} /></>;
+    const reportHref = routeHref("reports", { segments: ["chaos-enforce-results"] });
+    return <><VerticalFact href={chaosResults ? reportHref : undefined} label={t("analytics.verticals.fact.validatedExperiments")} value={chaosResults?.validated} /><VerticalFact label={t("analytics.verticals.fact.medianMttr")} /><VerticalFact href={chaosResults ? reportHref : undefined} label={t("analytics.verticals.fact.rollbackPaths")} value={chaosResults?.reverted} /></>;
   }
   if (slug === "change-safety") {
     return <><VerticalFact label={t("analytics.verticals.fact.rollbackSuccess")} /><VerticalFact label={t("analytics.verticals.fact.medianLeadTime")} /><VerticalFact label={t("analytics.verticals.fact.promotionGuards")} /></>;
@@ -291,10 +302,12 @@ function CrossVerticalComparison({
 
 function EvidenceContracts({
   autonomy,
+  chaosResults,
   context,
   views,
 }: {
   readonly autonomy: AutonomyPayload | null;
+  readonly chaosResults: ChaosResultSummary | null;
   readonly context: Readonly<Record<string, string>>;
   readonly views: readonly VerticalOutcomeView[];
 }) {
@@ -303,13 +316,21 @@ function EvidenceContracts({
       <header class="vertical-section-head"><div><h3>{t("analytics.verticals.contractsTitle")}</h3><p>{t("analytics.verticals.contractsSubtitle")}</p></div></header>
       <div class="vertical-contract-list">
         {views.map(({ slug, vertical }) => (
-          <a href={verticalDestination(slug, autonomy?.synthetic ?? false, context)} key={slug}>
+          <a href={slug === "resilience" && chaosResults
+            ? routeHref("reports", { segments: ["chaos-enforce-results"] })
+            : verticalDestination(slug, autonomy?.synthetic ?? false, context)} key={slug}>
             <strong>{t(`analytics.vertical.${slug}`)}</strong>
-            <span>{vertical === null || autonomy === null
+            <span>{slug === "resilience" && chaosResults
+              ? t("analytics.verticals.contract.resilience.chaosSource", { source: chaosResults.source })
+              : vertical === null || autonomy === null
               ? t("analytics.verticals.contractUnavailable")
               : t(`analytics.verticals.contract.${slug}.source`, { source: autonomy.source.name })}</span>
-            <span>{t(`analytics.verticals.contract.${slug}.measures`)}</span>
-            <small>{vertical !== null && autonomy?.source.as_of
+            <span>{slug === "resilience" && chaosResults
+              ? t("analytics.verticals.contract.resilience.chaosMeasures")
+              : t(`analytics.verticals.contract.${slug}.measures`)}</span>
+            <small>{slug === "resilience" && chaosResults?.asOf
+              ? t("overview.evidence.asOf", { time: chaosResults.asOf })
+              : vertical !== null && autonomy?.source.as_of
               ? t("overview.evidence.asOf", { time: autonomy.source.as_of })
               : t("analytics.unavailable")}</small>
           </a>
@@ -329,8 +350,8 @@ function VerticalStatePill({ state }: { readonly state: VerticalDisplayState }) 
   return <StatusPill kind={kind} label={t(`analytics.verticals.state.${state}`)} />;
 }
 
-function VerticalFact({ label, value }: { readonly label: string; readonly value?: string | number | undefined }) {
-  return <div><dt>{label}</dt><dd class={value === undefined ? "is-unavailable" : undefined}>{value ?? t("analytics.unavailable")}</dd></div>;
+function VerticalFact({ href, label, value }: { readonly href?: string | undefined; readonly label: string; readonly value?: string | number | undefined }) {
+  return <div><dt>{label}</dt><dd class={value === undefined ? "is-unavailable" : undefined}>{href && value !== undefined ? <a href={href}>{value}</a> : value ?? t("analytics.unavailable")}</dd></div>;
 }
 
 function verticalDestination(slug: VerticalSlug, synthetic: boolean, context: Readonly<Record<string, string>>): string {

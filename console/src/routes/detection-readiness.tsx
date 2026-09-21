@@ -42,6 +42,11 @@ import {
 } from "./detection-readiness.analyzer-run";
 import { t } from "./i18n/detection-readiness";
 import {
+  useChaosResultSummary,
+  type ChaosResultSummary,
+} from "./chaos-results-summary";
+import type { ConsoleDataMode } from "../console-data-mode";
+import {
   panelArray,
   panelBoolean,
   panelNonEmptyString,
@@ -222,8 +227,19 @@ interface DetectionLifecycleView {
   readonly targets: readonly DetectionLifecycleTarget[];
 }
 
-export function DetectionReadinessRoute({ client }: { readonly client: OperatorApiClient }) {
+export function DetectionReadinessRoute({
+  client,
+  dataMode,
+}: {
+  readonly client: OperatorApiClient;
+  readonly dataMode: ConsoleDataMode;
+}) {
   const [state, setState] = useState<AsyncState<DetectionReadinessView>>({ status: "loading" });
+  const chaosResults = useChaosResultSummary(
+    client,
+    dataMode,
+    t("chaosValidation.unavailable"),
+  );
   useEffect(() => {
     let active = true;
     void loadDetectionReadinessState(client).then((nextState) => {
@@ -236,7 +252,12 @@ export function DetectionReadinessRoute({ client }: { readonly client: OperatorA
     <div class="stack detection-readiness-route">
       <PageHeader title={t("title")} subtitle={t("subtitle")} />
       <AsyncBoundary state={state} resourceLabel={t("resourceLabel")}>
-        {(data) => <DetectionReadinessBody data={data} />}
+        {(data) => (
+          <DetectionReadinessBody
+            chaosResults={dataMode === "live" ? chaosResults : null}
+            data={data}
+          />
+        )}
       </AsyncBoundary>
     </div>
   );
@@ -625,7 +646,13 @@ export function adjacentDetectionCoverageView(
   ]!;
 }
 
-function DetectionReadinessBody({ data }: { readonly data: DetectionReadinessView }) {
+function DetectionReadinessBody({
+  chaosResults,
+  data,
+}: {
+  readonly chaosResults: AsyncState<ChaosResultSummary> | null;
+  readonly data: DetectionReadinessView;
+}) {
   const [activeView, setActiveView] = useState<DetectionCoverageViewId>(() =>
     detectionCoverageViewFromHash(
       typeof window === "undefined" ? "" : window.location.hash,
@@ -730,6 +757,11 @@ function DetectionReadinessBody({ data }: { readonly data: DetectionReadinessVie
             group: "latest_successful_run",
           },
         ]),
+        ...(chaosResults?.status === "ready" ? [
+          { key: "chaos_experiments", value: chaosResults.data.experiments, group: "chaos_validation" },
+          { key: "chaos_detected", value: chaosResults.data.detected, group: "chaos_validation" },
+          { key: "chaos_detection_gaps", value: chaosResults.data.detectionGaps, group: "chaos_validation" },
+        ] : []),
         { key: "kubernetes_readiness_targets", value: data.target_count, group: "kubernetes" },
         { key: "retained_finding_targets", value: data.lifecycle.target_count, group: "findings" },
         ...(selectedResource === null ? [] : [
@@ -748,6 +780,7 @@ function DetectionReadinessBody({ data }: { readonly data: DetectionReadinessVie
           ? coverage.resource_types.map((resourceType) => ({ ...resourceType }))
           : [],
         retained_findings: data.lifecycle.targets.map((target) => ({ ...target })),
+        chaos_validation: chaosResults?.status === "ready" ? [{ ...chaosResults.data }] : [],
         kubernetes_readiness: data.targets.map((target) => ({ ...target })),
       },
       ...(selectedResource === null ? {} : {
@@ -764,6 +797,7 @@ function DetectionReadinessBody({ data }: { readonly data: DetectionReadinessVie
       activeView,
       coverage,
       coverageAvailable,
+      chaosResults,
       data,
       resourceControls.evaluation,
       resourceControls.resourceType,
@@ -834,6 +868,7 @@ function DetectionReadinessBody({ data }: { readonly data: DetectionReadinessVie
           onOpenFindings={() => selectView("findings")}
           onSelectResourceType={openResourceType}
         />
+        {chaosResults ? <ChaosDetectionValidation state={chaosResults} /> : null}
       </div>
       <div
         id="detection-readiness-panel-resources"
@@ -871,6 +906,32 @@ function DetectionReadinessBody({ data }: { readonly data: DetectionReadinessVie
         <DetectionLifecycle lifecycle={data.lifecycle} />
       </div>
     </div>
+  );
+}
+
+function ChaosDetectionValidation({
+  state,
+}: {
+  readonly state: AsyncState<ChaosResultSummary>;
+}) {
+  const reportHref = routeHref("reports", { segments: ["chaos-enforce-results"] });
+  return (
+    <section class="stack-section" aria-labelledby="chaos-detection-validation-title">
+      <header>
+        <h3 id="chaos-detection-validation-title" class="section-title">{t("chaosValidation.title")}</h3>
+        <p class="muted">{t("chaosValidation.description")}</p>
+      </header>
+      <AsyncBoundary state={state} resourceLabel={t("chaosValidation.resourceLabel")}>
+        {(summary) => (
+          <KpiGrid>
+            <KpiCard href={reportHref} label={t("chaosValidation.experiments")} value={summary.experiments} hint={t("chaosValidation.measuredHint")} />
+            <KpiCard href={reportHref} label={t("chaosValidation.detected")} value={summary.detected} hint={t("chaosValidation.measuredHint")} tone="positive" />
+            <KpiCard href={reportHref} label={t("chaosValidation.detectionGaps")} value={summary.detectionGaps} hint={t("chaosValidation.measuredHint")} tone={summary.detectionGaps > 0 ? "warning" : "positive"} />
+            <KpiCard href={reportHref} label={t("chaosValidation.rollbackFailures")} value={summary.rollbackFailures} hint={t("chaosValidation.measuredHint")} tone={summary.rollbackFailures > 0 ? "warning" : "positive"} />
+          </KpiGrid>
+        )}
+      </AsyncBoundary>
+    </section>
   );
 }
 
