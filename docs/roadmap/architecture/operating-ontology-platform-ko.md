@@ -1,8 +1,8 @@
 ---
 title: FDAI 온톨로지 안전 인프라
 translation_of: operating-ontology-platform.md
-translation_source_sha: bb4de680b7b70ab952e5cbd8bd75beabb3523e9b
-translation_revised: 2026-09-20
+translation_source_sha: 7e2c9d2f6421e3e11ba04fa89ad438517ed1d29c
+translation_revised: 2026-09-21
 ---
 # FDAI 온톨로지 안전 인프라
 
@@ -45,7 +45,7 @@ Console은 redaction, 호환성, 완전성 또는 권한을 계산하지 않습�
 대화 계획은 스키마로 검증된 의도 분류 뒤 모델에 전달할 더 작은 변환 결과를 만들 수 있습니다.
 구독 인벤토리 문서는 `Resource`를 유지하고, 구성 비교는 검토된 구성 함수 두 개를 추가하며,
 게이트웨이 진단은 `routes_to`와 검토된 게이트웨이 함수를 추가합니다. 이 변환 결과는 프롬프트
-최소화를 위한 보기이며 다른 매니페스트나 권한 원본이 아닙니다. 포함된 각 서술자는 완전한 상태로 매니페스트 순위를 따릅니다. 너무 큰 속성 축이나 32 KiB 예산을 처음 초과하는 서술자는 일부만 표시하지 않고 생략합니다. 모든 서술자는 여전히 전체
+최소화를 위한 보기이며 다른 매니페스트나 권한 원본이 아닙니다. 선택한 각 서술자와 정규 속성 축은 완전한 상태로 매니페스트 순위를 따릅니다. 변환 결과가 32 KiB 예산을 넘으면 판단 전에 명시적인 사용 불가 결과를 반환하며 속성 축이나 뒤쪽 서술자를 조용히 버리지 않습니다. 모든 서술자는 여전히 전체
 principal 범위 매니페스트에서 오고 계획 검증은 정확한 release에 대해 수행됩니다.
 생성된 의미 의도 범위 산출물은 정본 온톨로지 조회 또는 Resource 어휘가 바뀌면 다시 생성합니다.
 오래된 산출물은 런타임 근거가 아니라 CI 실패로 유지됩니다. 범위가 지정된 운영 Pattern을 읽으려면 상태에 접근하기 전에 인증된 principal과 정확한 인자에 결합된 독립 `case-history-read` 허용 근거가 필요합니다. 경계 인벤토리는 허용 여부를 결정하는 함수와 집중 테스트를 고정합니다. 다시 컴파일한 요약은 비활성 상태를 유지하며 현재 원본 근거가 없다고 접근 권한이나 실행 권한이 생기지 않습니다.
@@ -55,8 +55,11 @@ principal 범위 매니페스트에서 오고 계획 검증은 정확한 release
 
 Core 런타임 시작은 이제 Rule, PolicyArtifact, ResourceClass, ResourceType, SignalType,
 Property 및 ActionType 인스턴스를 catalog-owned 하위 그래프 하나에 변환합니다. 분류 체계는
-중립 ResourceType 112개 전체에 대해 클래스 11개, 멤버 자격 112개, 범위가 제한된 특수화 링크
-11개를 보존합니다. 순수 빌더는 의미 또는 아이덴티티 결함을 차단하며 동일 재생은 no-op입니다.
+중립 ResourceType 114개 전체에 대해 클래스 11개, 멤버 자격 114개, 범위가 제한된 특수화 링크
+11개를 보존합니다. 검토된 매핑은 Azure 관리형 이미지를 `compute.image` 스토리지 리소스로,
+Azure Firewall 정책을 `network.firewall-policy` 네트워크 리소스로 분류합니다. 어느 매핑도
+런타임 상태나 권한을 만들지 않습니다. 순수 빌더는 의미 또는 아이덴티티 결함을 차단하며 동일
+재생은 no-op입니다.
 범주 기반 언어 그룹은 ResourceClass 멤버 자격이 아니라 별도의 조회 보조 수단입니다.
 `search-service`는 검토된 데이터 서비스 클래스 멤버로 유지하면서도 넓은 `database` 또는
 `데이터베이스` 질의어에는 응답하지 않을 수 있습니다.

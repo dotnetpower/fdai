@@ -52,6 +52,26 @@ reconcile_redpanda_community_config() {
     echo "dev-up: failed to set the two-partition local topic default" >&2
     return 1
   fi
+  if ! docker exec fdai-redpanda \
+    rpk cluster config set log_retention_ms 86400000; then
+    echo "dev-up: failed to set the 24-hour local topic retention" >&2
+    return 1
+  fi
+  if ! docker exec fdai-redpanda \
+    rpk cluster config set retention_bytes 268435456; then
+    echo "dev-up: failed to set the local per-partition byte retention" >&2
+    return 1
+  fi
+  if ! docker exec fdai-redpanda \
+    rpk cluster config set group_offset_retention_sec 86400; then
+    echo "dev-up: failed to set the 24-hour local consumer-group retention" >&2
+    return 1
+  fi
+  if ! docker exec fdai-redpanda \
+    rpk cluster config set group_offset_retention_check_ms 60000; then
+    echo "dev-up: failed to set the local consumer-group cleanup cadence" >&2
+    return 1
+  fi
 }
 
 reconcile_semantic_topic_partitions() {

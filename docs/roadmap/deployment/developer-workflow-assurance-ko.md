@@ -1,7 +1,7 @@
 ---
 translation_of: developer-workflow-assurance.md
-translation_source_sha: eb1669f2b798cf3f867d76fb0ddb221011e61854
-translation_revised: 2026-09-20
+translation_source_sha: 082d29574ec969d09df49cfe572555bb6e6e3f6c
+translation_revised: 2026-09-21
 ---
 
 # 개발 워크플로 보증
@@ -41,7 +41,13 @@ FDAI는 로컬 스크립트 전반에서 하나의 읽기 전용 개발 워크�
 bearer-token 파일 경로를 전달하지만 bearer 값 자체는 전달하지 않습니다. 따라서 source를 다시
 불러오고 작업을 재시작해도 editor의 주변 환경에 의존하지 않고 인증된 로컬 계약을 유지합니다.
 
-`console: restart full stack`은 `--replace-existing`으로 같은 체크아웃의 관리 supervisor를 명시적으로 교체하며 Browser Entra와 표준 서비스 구성을 유지합니다. 준비를 반복하지 않고 준비된 비공개 환경을 재사용합니다. 구성, 의존성, 마이그레이션 또는 환경 연결이 바뀌었으면 먼저 `console: prepare full stack`을 실행합니다. 전용 터미널과 준비 상태 검사기를 사용하며, 완료된 시작 작업의 오래된 출력은 새 프로세스나 준비 완료의 근거가 아닙니다.
+`console: restart full stack`은 같은 checkout의 검증된 관리 supervisor만 중지하고 lock 해제를
+기다린 뒤 관리 준비 과정을 실행하고 표준 Browser Entra 구성을 시작합니다. 먼저 중지하므로
+데이터베이스와 브로커 세대 유지 관리가 오래된 프로세스에 대해 준비를 실행하지 않고 활성 consumer와
+연결을 거부할 수 있습니다. 전용 터미널과 준비 상태 검사기를 사용하며, 완료된 시작 작업의 오래된
+출력은 새 프로세스나 준비 완료의 근거가 아닙니다.
+관리되는 로컬 준비 과정은 비활성 consumer group offset도 일반 topic 데이터와 같은 24시간 구간으로
+제한하고 1분마다 만료를 확인하며, 활성 group에는 영향을 주지 않습니다.
 
 ![설계 개요. 주요 단계는 편집과 집중 검사, 워크플로 진단, 집중 커밋, 구조 pre-push, SHA 기반 CI, 원격 작업, 제한된 인계입니다.](../../diagrams/generated/fdai-roadmap-deployment-developer-workflow-assurance-01.ko.svg)
 
@@ -56,7 +62,7 @@ bearer-token 파일 경로를 전달하지만 bearer 값 자체는 전달하지 
 | 집중 테스트 | 테스트 시작 전에 Python import, 데이터베이스, 런타임 환경 및 checkout 오염을 감지합니다. | 오염된 검사는 작업 코드를 import하거나 데이터베이스 연결을 열기 전에 실패합니다. |
 | Hook | 변경형 hook 실행 전에 staged 및 unstaged 중첩을 감지하고 결정론적 복구 지침을 보존합니다. | Hook 실패가 작업 소유 변경을 조용히 버리지 않습니다. |
 | 브라우저 검사 | 집중 CLI Playwright 검사를 우선하고 공유 10-slot lease 계약을 보존합니다. | CLI 근거가 충분하면 브라우저 도구 사용을 제한된 최종 상호 작용 1회로 제한합니다. |
-| 로컬 서비스 | 제한된 timeout과 소유권 진단으로 모든 표준 로컬 서비스를 독립적으로 probe합니다. | Full-stack 준비 상태가 사용 불가능한 모든 서비스를 지목하며 SPA만으로 준비 상태를 추론하지 않습니다. |
+| 로컬 서비스 | 제한된 timeout과 소유권 진단으로 모든 표준 로컬 서비스를 독립적으로 probe합니다. Primary Core 변경 consumer의 최신 partition별 진행을 요구하고 각 최신 lag를 합산합니다. | Full-stack 준비 상태가 사용 불가능한 모든 서비스를 지목하고, 누락되거나 오래된 lag 근거 및 합계 1,000건 초과를 거부하며, SPA만으로 준비 상태를 추론하지 않습니다. |
 | 개발 진단 | 표준 작업 기반 로컬 실행기가 시작한 각 Core 또는 Operator 프로세스를 소유자 전용 Unix 소켓을 통해 프로파일링하고 결과를 정확한 소스 입력에 연결합니다. | 범위가 제한된 패킷이 지연 시간, CPU, Python 힙 및 추적되지 않는 메모리를 분리하고, GitHub Copilot은 정확히 일치하는 workspace snapshot만 진단합니다. |
 | 편집기 부하 | 호스트 부하, extension 부하 및 upstream 브라우저 payload 비용을 분리합니다. | 진단이 소유 프로세스를 식별하거나 제한을 upstream으로 분류합니다. |
 | 원격 사전 검사 | 고정된 시도 및 시간 예산 안에서 transient 읽기 실패만 retry합니다. | 영구 권한 및 policy 실패는 즉시 실패하며 retry는 Azure를 변경하지 않습니다. |
@@ -92,10 +98,14 @@ Operator 워커 준비 검사에 참여하지만 GET 표시 경로로 진단 소
 있습니다. 패킷은 저장소 상대 함수 또는 파일 위치, CPU 시간, Python 힙 차이, 상주 메모리,
 가비지 컬렉션, 스레드 및 파일 서술자 수, 이벤트 루프 지연, 캡처 오버헤드, 잘림 및 사용 불가
 이유를 보고합니다. 힙 객체, 요청이나 답변 본문, 환경 값, 공급자 payload, 자격 증명 또는 숨겨진
-추론은 영속화하지 않습니다.
+추론은 영속화하지 않습니다. 이벤트 루프 지연은 요청한 비동기 sleep의 초과 시간만 측정하며,
+CPU/힙 snapshot 처리 시간은 전체 측정 기간에 남아 있어도 지연 필드를 부풀리지 않습니다.
 Operator semantic runtime은 제품 projection을 위해 assurance 답변 생성 귀속, evaluator model
 귀속 및 판단 보류 상태를 검증할 수 있습니다. 이러한 필드는 제품 대화 데이터로 유지되며 진단
 probe, packet, export 또는 Copilot 검토에 들어가지 않습니다.
+Runtime은 내용이 제거된 조회 활동 변환과 검증된 문서 답변 구체화를 전용 모듈에 위임합니다.
+이벤트 순서, 재생 cursor, 진행 단조성, 기한 보류, 진단 timing 및 실행 권한 없음은 영속 runtime이
+계속 소유합니다.
 
 모든 패킷은 Git 리비전, 로컬 서비스 입력 digest, worktree patch digest, 프로세스 신원,
 runtime-scope receipt digest, 시간 구간 및 패킷 digest를 연결합니다. 캡처 허용 여부는 정식
@@ -126,8 +136,9 @@ Azure OpenAI 배포를 선택하거나 호출하지 않습니다.
 포함됩니다. 관련 입력이 바뀌면 오래된 프로세스를 교체하지만 관련 없는 commit이나 worktree
 편집 때문에 재시작하지는 않습니다. 로컬 준비
 상태 검사는 서비스 소유 Core 실행기를 프로세스 소유자로 인식하고 새로운 semantic consumer
-진행 뒤의 새로운 heartbeat를
-허용합니다. 인벤토리 세대가 ontology checkpoint 변환보다 먼저 바뀌면 로컬 analyzer는 준비되지
+진행 뒤의 새로운 heartbeat를 허용합니다. 또한 75초보다 오래되지 않은 primary 변경 consumer의
+타임스탬프가 있는 진행을 요구하고, 관측된 각 partition의 최신 lag를 합산하며, 근거가 없거나 합계가
+1,000건을 넘으면 준비되지 않은 상태로 유지합니다. 인벤토리 세대가 ontology checkpoint 변환보다 먼저 바뀌면 로컬 analyzer는 준비되지
 않은 상태를 유지하지만 전체 loop interval을 기다리지 않고 5초 안에 target resolution을 다시
 시도합니다.
 프로파일링된 Core 런타임은 공유 StateStore에 대해 범위가 제한된 비동기 connection pool 하나를
@@ -136,6 +147,9 @@ Azure OpenAI 배포를 선택하거나 호출하지 않습니다.
 로컬 analyzer는 다음 loop interval 전에 tick 범위의 decision-evidence 및 run-receipt StateStore
 pool을 닫습니다. 정상 tick은 garbage collection 대상으로 비동기 pool worker를 남길 수 없으며,
 영속화 실패도 준비 상태를 사용할 수 없음으로 유지하기 전에 store를 닫습니다.
+관리 launcher는 서비스 소유 StateStore DSN을 해당 analyzer 프로세스에 명시적으로 전달하므로 대상
+선택 전에 결정 근거 admission provider가 연결됩니다. 이 binding은 읽기 전용이며 ActionType을
+승격하거나 자율성을 높이거나 실행 권한을 부여할 수 없습니다.
 
 ## 검증 단계와 결과 재사용
 

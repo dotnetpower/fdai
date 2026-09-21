@@ -38,7 +38,7 @@ The workbench is complete only when it answers these bounded operational questio
 | C7 - Change safety | What changed between two retained releases? | Exact release digests, declaration-ref additions/changes/removals, compatibility verdict, migration requirement, and deterministic diff digest. |
 
 Conversation planning can project a smaller model-facing view after schema-validated intent classification. Subscription inventory documents retain `Resource`; configuration comparison adds the two reviewed configuration functions; gateway diagnostics add `routes_to` and the reviewed gateway function. This projection is a prompt-minimization view, not another manifest or authority
-source. Every included descriptor remains complete and follows manifest rank; an oversized property axis or the first descriptor that exceeds the 32 KiB budget is omitted rather than partially represented. Every descriptor still originates in the complete principal-scoped manifest, and plan verification still resolves against the exact release. The generated semantic-intent coverage artifact is regenerated when canonical ontology query or
+source. Every selected descriptor and canonical property axis remains complete and follows manifest rank. A projection that exceeds the 32 KiB budget returns an explicit unavailable outcome before judgment; it never silently drops the property axis or descriptor tail. Every descriptor still originates in the complete principal-scoped manifest, and plan verification still resolves against the exact release. The generated semantic-intent coverage artifact is regenerated when canonical ontology query or
 Resource vocabulary changes. A stale artifact remains a CI failure, not runtime evidence. Scoped operating Pattern reads require independent `case-history-read` admission bound to the authenticated principal and exact arguments before state access. The boundary inventory pins the controlling admission function and its focused tests. Recompiled summaries remain inert, and missing current source evidence never grants access or execution authority.
 The [structured retrieval owner](../interfaces/cloud-resource-knowledge-structured-rag.md)
 separates accepted query terms from applicability/access; excerpts never become observations or authority.
@@ -46,7 +46,10 @@ separates accepted query terms from applicability/access; excerpts never become 
 
 Core runtime startup now projects Rule, PolicyArtifact, ResourceClass, ResourceType, SignalType,
 Property, and ActionType instances into one catalog-owned subgraph. Its taxonomy slice retains 11
-classes, 112 memberships, and 11 bounded specialization links over all 112 neutral ResourceTypes.
+classes, 114 memberships, and 11 bounded specialization links over all 114 neutral ResourceTypes.
+Reviewed mappings classify Azure managed images as `compute.image` storage resources and Azure
+Firewall policies as `network.firewall-policy` network resources. Neither mapping creates runtime
+state or authority.
 The pure builder rejects semantic or identity defects; atomic identical replay remains a no-op.
 Category-backed language groups are a separate query aid, not ResourceClass membership. The
 `search-service` type can remain a reviewed data-service class member without answering the broad

@@ -9,7 +9,7 @@ import { composeGlossary, TERMS } from "../deck/glossary";
 import { currentRoute, routeHref } from "../router";
 import { DashboardResourceMap } from "./dashboard-v2-map";
 import {
-  dashboardCounts, dashboardLens, dashboardMapColumns, dashboardResourceState, dashboardScope, dashboardServingRecordedCount, dashboardStateMatchesFilter, dashboardStatusFilter, dashboardTypeKeywords, dashboardTypeLabel, dashboardUnknownCounts, dashboardUnknownReason,
+  dashboardCounts, dashboardLens, dashboardMapColumns, dashboardResourceState, dashboardScope, dashboardServingRecordedCount, dashboardStateAxis, dashboardStateMatchesFilter, dashboardStatusFilter, dashboardTypeKeywords, dashboardTypeLabel, dashboardUnknownCounts, dashboardUnknownReason,
   EMPTY_DASHBOARD_FILTERS, STATE_STYLE, dashboardStateFact,
   type DashboardFilters, type DashboardLens, type DashboardResource, type DashboardSnapshot, type DashboardState, type DashboardView,
 } from "./dashboard-v2.model";
@@ -137,7 +137,11 @@ function stateText(key: DashboardState): string { return t(`state.${key}`); }
 function stateBadgeText(resource: DashboardResource, lens: DashboardLens): string | null {
   if (lens === "observation") return null;
   const fact = dashboardStateFact(resource, lens);
-  return fact === null ? null : recordedStateValueText(fact);
+  if (fact === null) return null;
+  if (lens !== "resource") return recordedStateValueText(fact);
+  const axis = dashboardStateAxis(resource, lens);
+  const axisText = axis === "operational" ? t("operation") : axis === null ? t("resource") : t(axis);
+  return `${axisText}: ${recordedStateValueText(fact)}`;
 }
 
 function StateBadge({ value, text }: { readonly value: DashboardState; readonly text?: string | null | undefined }) {
@@ -165,7 +169,7 @@ function DashboardBody({ snapshot }: { readonly snapshot: DashboardSnapshot }) {
   const panelRef = useRef<HTMLElement | null>(null);
   useEffect(() => {
     if (!hasServing && lens === "serving") {
-      setLens("operation");
+      setLens("resource");
       setFilters((current) => ({ ...current, status: "" }));
       setPage(0);
     }
@@ -230,6 +234,10 @@ function DashboardBody({ snapshot }: { readonly snapshot: DashboardSnapshot }) {
     () => dashboardCounts(snapshot.resources, snapshot, "operation"),
     [snapshot],
   );
+  const resourceStates = useMemo(
+    () => dashboardCounts(snapshot.resources, snapshot, "resource"),
+    [snapshot],
+  );
   const unknownCounts = useMemo(
     () => dashboardUnknownCounts(snapshot.resources, snapshot),
     [snapshot],
@@ -250,11 +258,14 @@ function DashboardBody({ snapshot }: { readonly snapshot: DashboardSnapshot }) {
     [snapshot],
   );
   const highlights = useMemo(
-    () => snapshot.resources.filter(
-      (resource) => ["unknown", "transitioning"].includes(
-        dashboardResourceState(resource, snapshot, "operation"),
-      ),
-    ).slice(0, 3),
+    () => [
+      ...snapshot.resources
+        .filter((resource) => dashboardResourceState(resource, snapshot, "resource") === "unknown")
+        .map((resource) => ({ resource, lens: "resource" as const })),
+      ...snapshot.resources
+        .filter((resource) => dashboardResourceState(resource, snapshot, "operation") === "transitioning")
+        .map((resource) => ({ resource, lens: "operation" as const })),
+    ].slice(0, 3),
     [snapshot],
   );
   const options = (axis: "subscription" | "group") => [...new Map(snapshot.resources
@@ -287,16 +298,13 @@ function DashboardBody({ snapshot }: { readonly snapshot: DashboardSnapshot }) {
       {snapshot.freshness === "stale" && <p class="dv2-notice">{t("stale")}</p>}
       <div class="dv2-summary">
         {([
-          ["received", snapshot.resources.length, ""],
-          ["known", known, "known"],
-          ["unknown", operations.get("unknown") ?? 0, "unknown"],
-          ["notProvided", operations.get("not-provided") ?? 0, "not-provided"],
-          ["notApplicable", operations.get("not-applicable") ?? 0, "not-applicable"],
-          ["provisioningRecorded", provisioningRecorded, "known"],
-        ] as const).map(([label, value, status]) => {
-          const targetLens = label === "provisioningRecorded"
-            ? "provisioning"
-            : "operation";
+          ["received", snapshot.resources.length, "", "resource"],
+          ["known", known, "known", "operation"],
+          ["needsReview", resourceStates.get("unknown") ?? 0, "unknown", "resource"],
+          ["notProvided", operations.get("not-provided") ?? 0, "not-provided", "operation"],
+          ["notApplicable", operations.get("not-applicable") ?? 0, "not-applicable", "operation"],
+          ["provisioningRecorded", provisioningRecorded, "known", "provisioning"],
+        ] as const).map(([label, value, status, targetLens]) => {
           return <a href={routeHref("dashboard-v2", { params: { state: status, lens: targetLens === "operation" ? null : targetLens } })} key={label} onClick={(event) => {
             if (event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
             event.preventDefault();
@@ -317,6 +325,7 @@ function DashboardBody({ snapshot }: { readonly snapshot: DashboardSnapshot }) {
             <button type="button" class="cs-control-button" key={key} aria-pressed={view === key} onClick={() => { setView(key); setPage(0); }}>{t(key)}</button>)}</div></header>
         <div class="dv2-lenses"><div class="dv2-controls" role="group" aria-label={t("observation")}>
           {([
+            "resource",
             "operation",
             "provisioning",
             ...(hasServing ? ["serving"] as const : []),
@@ -333,15 +342,15 @@ function DashboardBody({ snapshot }: { readonly snapshot: DashboardSnapshot }) {
         </div>
         <div class="dv2-meta"><span role="status">{view === "groups" ? t("groupShown", { shown: Math.min(6, Math.max(0, groups.length - currentPage * 6)), matches: number(matches.length) }) : t("shown", { shown: number(displayed.length), matches: number(matches.length), received: number(snapshot.resources.length) })}</span><button type="button" class="cs-control-button is-quiet" onClick={() => { setFilters(EMPTY_DASHBOARD_FILTERS); setPage(0); }}>{t("clear")}</button></div>
         <div class="dv2-legend" role="group" aria-label={t("allStates")}><button type="button" class="cs-control-button" aria-pressed={!filters.status} onClick={() => update("status", "")}>{t("allStates")} {number(scoped.length)}</button>
-          {[...counts].map(([key, count]) => <button type="button" class="cs-control-button" key={key} aria-pressed={filters.status === key} onClick={() => update("status", key)}><StateBadge value={key} /> {number(count)}</button>)}</div>
+          {[...counts].map(([key, count]) => <button type="button" class="cs-control-button" key={key} aria-pressed={filters.status === key} onClick={() => update("status", key)}><StateBadge value={key} text={`${stateText(key)} ${number(count)}`} /></button>)}</div>
         {matches.length === 0 ? <EmptyState title={t("empty")} body={t("emptyBody")} /> : view === "honeycomb"
-          ? <DashboardResourceMap resources={displayed} snapshot={snapshot} lens={lens} density={effectiveDensity} columns={columns} selectedId={selectedId} onSelect={setSelectedId} labels={{ operation: t("operation"), provisioning: t("provisioning"), serving: t("serving"), availability: t("availability"), observation: t("observation"), observedAt: t("observedAt"), snapshotAt: t("snapshotAt"), missing: t("missing"), state: stateText }} />
+          ? <DashboardResourceMap resources={displayed} snapshot={snapshot} lens={lens} density={effectiveDensity} columns={columns} selectedId={selectedId} onSelect={setSelectedId} labels={{ resource: t("resource"), operation: t("operation"), provisioning: t("provisioning"), serving: t("serving"), availability: t("availability"), observation: t("observation"), observedAt: t("observedAt"), snapshotAt: t("snapshotAt"), missing: t("missing"), state: stateText }} />
           : view === "list" ? <div class="dv2-table-wrap"><table><thead><tr><th>{t("find")}</th><th>{t("type")}</th><th>{t(lens)}</th><th>{t("group")}</th></tr></thead><tbody>{displayed.map((resource) =>
             <tr key={resource.id}><td><button type="button" class="dv2-link" aria-pressed={selectedId === resource.id} onClick={() => setSelectedId(resource.id)}>{resource.name}</button></td><td>{resource.type}</td><td><StateBadge value={dashboardResourceState(resource, snapshot, lens)} text={stateBadgeText(resource, lens)} /></td><td>{resource.groupLabel ?? t("missing")}</td></tr>)}</tbody></table></div>
           : <div class="dv2-groups">{groups.slice(currentPage * 6, (currentPage + 1) * 6).map(([key, group]) =>
             <section key={key}><button type="button" class="dv2-link" onClick={() => { update("group", key || null); setView("honeycomb"); }}>{group.label} / {number(group.items.length)}</button><div>{[...dashboardCounts(group.items, snapshot, lens)].map(([key, count]) => <span key={key}><StateBadge value={key} /> {number(count)}</span>)}</div></section>)}</div>}
         {pages > 1 && <nav class="dv2-pagination" aria-label={t("page", { page: currentPage + 1, pages })}><button type="button" class="cs-control-button" disabled={currentPage === 0} onClick={() => setPage(currentPage - 1)}>{t("previous")}</button><span>{t("page", { page: currentPage + 1, pages })}</span><button type="button" class="cs-control-button" disabled={currentPage + 1 >= pages} onClick={() => setPage(currentPage + 1)}>{t("next")}</button></nav>}
-        <p class="dv2-note">{t(lens === "operation" ? "operationHelp" : lens === "provisioning" ? "provisioningHelp" : lens === "serving" ? "servingHelp" : lens === "availability" ? "availabilityHelp" : "observationHelp")}</p>
+        <p class="dv2-note">{t(lens === "resource" ? "resourceHelp" : lens === "operation" ? "operationHelp" : lens === "provisioning" ? "provisioningHelp" : lens === "serving" ? "servingHelp" : lens === "availability" ? "availabilityHelp" : "observationHelp")}</p>
         <p class="dv2-note">{t("pageBoundary")}</p>
       </section>
       <aside class={`dv2-side${selected ? " has-selection" : ""}`}>
@@ -356,7 +365,7 @@ function DashboardBody({ snapshot }: { readonly snapshot: DashboardSnapshot }) {
           <a href={resourceHref(selected)}>{t("inspectOntology")}</a>
           <details><summary>{t("evidence")}</summary><pre>{JSON.stringify({ snapshot_id: snapshot.id, snapshot_at: snapshot.at, source: snapshot.source, ontology_generation: snapshot.ontologyGeneration, ontology_manifest_digest: snapshot.ontologyManifestDigest, observation_kind: snapshot.observationKind, resource: selected, execution_authority: false }, null, 2)}</pre></details>
         </section> : <section class="dv2-attention" aria-labelledby="dashboard-v2-attention-title"><header class="dv2-attention-head"><h3 id="dashboard-v2-attention-title">{t("checkFirst")}</h3><p class="dv2-note">{t("checkHelp")}</p></header>
-          {highlights.length === 0 ? <p>{t("noHighlights")}</p> : highlights.map((resource) => <div key={resource.id}><StateBadge value={dashboardResourceState(resource, snapshot, "operation")} /><button type="button" class="dv2-link" onClick={() => setSelectedId(resource.id)}>{resource.name}</button><p class="dv2-note">{resource.type}</p></div>)}
+          {highlights.length === 0 ? <p>{t("noHighlights")}</p> : highlights.map(({ resource, lens: highlightLens }) => <div key={resource.id}><StateBadge value={dashboardResourceState(resource, snapshot, highlightLens)} text={stateBadgeText(resource, highlightLens)} /><button type="button" class="dv2-link" onClick={() => setSelectedId(resource.id)}>{resource.name}</button><p class="dv2-note">{resource.type}</p></div>)}
           <a href={resourceHref()}>{t("browseOntology")}</a></section>}
       </aside>
       <section class="dv2-coverage" aria-labelledby="dashboard-v2-coverage-title"><header class="dv2-coverage-head"><h3 id="dashboard-v2-coverage-title">{t("coverage")}</h3></header><dl>

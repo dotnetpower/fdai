@@ -265,6 +265,8 @@ class OntologyGenerationSnapshotStore:
             document_count=len(build.documents),
         ).model_dump(mode="json")
         snapshot_digest = _digest(header)
+        if await self._store.read_state(f"{_PREFIX}{snapshot_digest}:retired") is not None:
+            raise ValueError("ontology snapshot was retired and cannot be restaged")
         for ordinal, chunk in enumerate(chunks):
             await self._write_immutable(_chunk_key(snapshot_digest, ordinal), chunk)
         await self._write_immutable(f"{_PREFIX}{snapshot_digest}:header", header)

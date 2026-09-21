@@ -4,255 +4,39 @@ from __future__ import annotations
 
 import asyncio
 import hashlib
-import ipaddress
 import json
-import os
-import re
 import sys
 from collections.abc import Awaitable, Callable, Mapping
-from dataclasses import dataclass
-from typing import TYPE_CHECKING, Protocol
-from urllib.parse import parse_qsl, urlparse
+from typing import TYPE_CHECKING
 
 import httpx
 
+from delivery.dev_operations_gateway.gateway_arm import ArmClient, _ArmSubmission
+from delivery.dev_operations_gateway.gateway_contracts import (
+    _EXECUTOR_VERTICAL_ORDER,
+    _MUTATION_OPERATIONS,
+    _OPERATION_VERTICALS,
+    GatewayConfig,
+    GatewayError,
+    GatewayPrincipal,
+    ManagedIdentityTokenProvider,
+    PrivateProbe,
+    TokenProvider,
+)
+from delivery.dev_operations_gateway.gateway_resources import (
+    GatewayResourceOperations,
+    _bounded,
+)
+
 if TYPE_CHECKING:
     from delivery.dev_operations_gateway.idempotency import (
-        AzureBlobIdempotencyConfig,
         IdempotencyError,
         IdempotencyLedger,
     )
 elif __package__:
-    from .idempotency import AzureBlobIdempotencyConfig, IdempotencyError, IdempotencyLedger
+    from .idempotency import IdempotencyError, IdempotencyLedger
 else:
-    from idempotency import AzureBlobIdempotencyConfig, IdempotencyError, IdempotencyLedger
-
-_ARM_AUDIENCE = "https://management.azure.com"
-_NETWORK_API_VERSION = "2025-05-01"
-_COMPUTE_API_VERSION = "2025-04-01"
-_TAGS_API_VERSION = "2021-04-01"
-_IDENTIFIER = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.()-]{0,127}$")
-_TAG_NAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$")
-_TAG_VALUE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.:@ -]{0,255}$")
-_LOGICAL_RESOURCE_REF = re.compile(
-    r"^scope-[a-f0-9]{16,64}/resource-group/"
-    r"(?P<resource_group>[A-Za-z0-9][A-Za-z0-9_.()-]{0,127})"
-    r"(?P<provider_path>/providers(?:/[A-Za-z0-9][A-Za-z0-9_.()-]{0,127}){3,15})?$",
-    re.IGNORECASE,
-)
-_MUTATION_OPERATIONS = frozenset(
-    {
-        "azure.network.nsg.rule.upsert",
-        "azure.network.nsg.rule.delete",
-        "azure.compute.vm.start",
-        "azure.compute.vm.deallocate",
-        "azure.compute.vmss.scale",
-        "azure.resource.tags.merge",
-    }
-)
-_EXECUTOR_VERTICAL_ORDER = ("change", "resilience", "finops")
-_OPERATION_VERTICALS = {
-    "azure.network.nsg.rule.upsert": "change",
-    "azure.network.nsg.rule.delete": "change",
-    "azure.compute.vm.start": "resilience",
-    "azure.compute.vm.deallocate": "finops",
-    "azure.compute.vmss.scale": "finops",
-    "azure.resource.tags.merge": "change",
-}
-
-
-class GatewayError(RuntimeError):
-    def __init__(self, status_code: int, code: str, message: str) -> None:
-        self.status_code = status_code
-        self.code = code
-        super().__init__(message)
-
-
-@dataclass(frozen=True, slots=True)
-class GatewayPrincipal:
-    object_id: str
-    groups: frozenset[str]
-    roles: frozenset[str] = frozenset()
-
-
-@dataclass(frozen=True, slots=True)
-class _ArmSubmission:
-    status_url: str
-
-
-@dataclass(frozen=True, slots=True)
-class PrivateProbe:
-    url: str
-    audience: str
-    result_contract: str = "http_status"
-
-    def __post_init__(self) -> None:
-        parsed = urlparse(self.url)
-        hostname = parsed.hostname or ""
-        try:
-            ipaddress.ip_address(hostname)
-            literal_ip = True
-        except ValueError:
-            literal_ip = False
-        if (
-            parsed.scheme != "https"
-            or not parsed.netloc
-            or parsed.username is not None
-            or parsed.password is not None
-            or parsed.fragment
-            or hostname.casefold() == "localhost"
-            or literal_ip
-            or len(self.url) > 2_048
-            or any(character in self.url for character in ("\x00", "\r", "\n"))
-        ):
-            raise ValueError("private probe URL MUST be an absolute HTTPS URL")
-        if (
-            not self.audience.strip()
-            or len(self.audience) > 256
-            or any(character in self.audience for character in ("\x00", "\r", "\n"))
-        ):
-            raise ValueError("private probe audience MUST be bounded")
-        if self.result_contract not in {"http_status", "application_database_dependency"}:
-            raise ValueError("private probe result_contract is unsupported")
-
-
-@dataclass(frozen=True, slots=True)
-class GatewayConfig:
-    subscription_id: str
-    resource_groups: frozenset[str]
-    contributor_group_id: str
-    executor_principal_ids: tuple[str, str, str]
-    reader_identity_client_id: str
-    executor_identity_client_id: str
-    idempotency_container_url: str
-    private_probes: Mapping[str, PrivateProbe]
-    mutations_enabled: bool = False
-
-    @classmethod
-    def from_env(cls, env: Mapping[str, str] | None = None) -> GatewayConfig:
-        values = os.environ if env is None else env
-        if values.get("FDAI_DEV_GATEWAY_ENABLED", "").strip() != "1":
-            raise ValueError("development operations gateway is disabled")
-        if values.get("FDAI_ENV", "").strip().casefold() != "dev":
-            raise ValueError("development operations gateway requires FDAI_ENV=dev")
-        groups = frozenset(
-            item.strip()
-            for item in values.get("FDAI_DEV_GATEWAY_RESOURCE_GROUPS", "").split(",")
-            if item.strip()
-        )
-        probes_raw = json.loads(values.get("FDAI_DEV_GATEWAY_PRIVATE_PROBES_JSON", "{}"))
-        if not isinstance(probes_raw, Mapping):
-            raise ValueError("private probes configuration MUST be an object")
-        probes: dict[str, PrivateProbe] = {}
-        for alias, item in probes_raw.items():
-            if not isinstance(alias, str) or _IDENTIFIER.fullmatch(alias) is None:
-                raise ValueError("private probe aliases MUST be bounded identifiers")
-            if not isinstance(item, Mapping):
-                raise ValueError("private probe entries MUST be objects")
-            probes[alias] = PrivateProbe(
-                url=str(item.get("url", "")),
-                audience=str(item.get("audience", "")),
-                result_contract=str(item.get("result_contract", "http_status")),
-            )
-        idempotency_container_url = values.get(
-            "FDAI_DEV_GATEWAY_IDEMPOTENCY_CONTAINER_URL", ""
-        ).strip()
-        AzureBlobIdempotencyConfig(container_url=idempotency_container_url)
-        mutations_raw = values.get("FDAI_DEV_GATEWAY_MUTATIONS_ENABLED", "0").strip()
-        if mutations_raw not in {"0", "1"}:
-            raise ValueError("FDAI_DEV_GATEWAY_MUTATIONS_ENABLED MUST be 0 or 1")
-        parsed_executor_principal_ids = tuple(
-            item.strip()
-            for item in values.get("FDAI_DEV_GATEWAY_EXECUTOR_PRINCIPAL_IDS", "").split(",")
-            if item.strip()
-        )
-        if len(parsed_executor_principal_ids) != len(_EXECUTOR_VERTICAL_ORDER):
-            raise ValueError(
-                "executor principal ids MUST contain change, resilience, and finops in order"
-            )
-        if len(set(parsed_executor_principal_ids)) != len(parsed_executor_principal_ids):
-            raise ValueError("executor principal ids MUST be distinct")
-        if any(len(item) > 256 for item in parsed_executor_principal_ids):
-            raise ValueError("executor principal ids MUST be bounded")
-        executor_principal_ids = (
-            parsed_executor_principal_ids[0],
-            parsed_executor_principal_ids[1],
-            parsed_executor_principal_ids[2],
-        )
-        config = cls(
-            subscription_id=values.get("FDAI_DEV_GATEWAY_SUBSCRIPTION_ID", "").strip(),
-            resource_groups=groups,
-            contributor_group_id=values.get("FDAI_DEV_GATEWAY_CONTRIBUTOR_GROUP_ID", "").strip(),
-            executor_principal_ids=executor_principal_ids,
-            reader_identity_client_id=values.get(
-                "FDAI_DEV_GATEWAY_READER_MI_CLIENT_ID", ""
-            ).strip(),
-            executor_identity_client_id=values.get(
-                "FDAI_DEV_GATEWAY_EXECUTOR_MI_CLIENT_ID", ""
-            ).strip(),
-            idempotency_container_url=idempotency_container_url,
-            private_probes=probes,
-            mutations_enabled=mutations_raw == "1",
-        )
-        for name, value in (
-            ("subscription id", config.subscription_id),
-            ("contributor group id", config.contributor_group_id),
-            ("reader identity client id", config.reader_identity_client_id),
-            ("executor identity client id", config.executor_identity_client_id),
-            ("idempotency container URL", config.idempotency_container_url),
-        ):
-            if not value or len(value) > 256:
-                raise ValueError(f"{name} MUST be configured")
-        if not config.resource_groups:
-            raise ValueError("at least one development resource group MUST be configured")
-        return config
-
-
-class TokenProvider(Protocol):
-    async def get_token(self, audience: str) -> str: ...
-
-
-class ManagedIdentityTokenProvider:
-    def __init__(self, *, client_id: str, http_client: httpx.AsyncClient) -> None:
-        self._client_id = client_id
-        self._http = http_client
-
-    async def get_token(self, audience: str) -> str:
-        endpoint = os.environ.get("IDENTITY_ENDPOINT", "").strip()
-        identity_header = os.environ.get("IDENTITY_HEADER", "").strip()
-        if not endpoint or not identity_header:
-            raise GatewayError(503, "identity_unavailable", "managed identity is unavailable")
-        try:
-            response = await self._http.get(
-                endpoint,
-                headers={"X-IDENTITY-HEADER": identity_header},
-                params={
-                    "api-version": "2019-08-01",
-                    "resource": audience,
-                    "client_id": self._client_id,
-                },
-                timeout=10.0,
-            )
-        except httpx.HTTPError as exc:
-            raise GatewayError(
-                503,
-                "identity_unavailable",
-                "managed identity token request failed",
-            ) from exc
-        if response.status_code >= 400:
-            raise GatewayError(503, "identity_unavailable", "managed identity token failed")
-        try:
-            payload = response.json()
-        except ValueError as exc:
-            raise GatewayError(
-                503,
-                "identity_unavailable",
-                "managed identity token response was invalid",
-            ) from exc
-        token = payload.get("access_token") if isinstance(payload, Mapping) else None
-        if not isinstance(token, str) or not token:
-            raise GatewayError(503, "identity_unavailable", "managed identity token was empty")
-        return token
+    from idempotency import IdempotencyError, IdempotencyLedger
 
 
 class OperationsGateway:
@@ -271,7 +55,19 @@ class OperationsGateway:
         self._executor_tokens = executor_token_provider
         self._http = http_client
         self._idempotency = idempotency_ledger
-        self._sleep = sleep
+        self._arm_client = ArmClient(
+            config=config,
+            reader_token_provider=reader_token_provider,
+            executor_token_provider=executor_token_provider,
+            http_client=http_client,
+            sleep=sleep,
+        )
+        self._resources = GatewayResourceOperations(
+            config=config,
+            reader_token_provider=reader_token_provider,
+            http_client=http_client,
+            arm_client=self._arm_client,
+        )
 
     async def invoke(
         self,
@@ -289,16 +85,16 @@ class OperationsGateway:
                 raise GatewayError(404, "operation_not_found", "operation is not registered")
             return await self._operation_status(payload, principal)
         handlers = {
-            "azure.network.nsg.read": self._read_nsg,
-            "azure.network.peering.read": self._read_peerings,
-            "azure.private.http.probe": self._probe_private_endpoint,
-            "azure.network.nsg.rule.upsert": self._upsert_nsg_rule,
-            "azure.network.nsg.rule.delete": self._delete_nsg_rule,
-            "azure.compute.vm.start": self._start_vm,
-            "azure.compute.vm.deallocate": self._deallocate_vm,
-            "azure.compute.vmss.scale": self._scale_vmss,
-            "azure.resource.tags.read": self._read_resource_tag,
-            "azure.resource.tags.merge": self._merge_resource_tag,
+            "azure.network.nsg.read": self._resources._read_nsg,
+            "azure.network.peering.read": self._resources._read_peerings,
+            "azure.private.http.probe": self._resources._probe_private_endpoint,
+            "azure.network.nsg.rule.upsert": self._resources._upsert_nsg_rule,
+            "azure.network.nsg.rule.delete": self._resources._delete_nsg_rule,
+            "azure.compute.vm.start": self._resources._start_vm,
+            "azure.compute.vm.deallocate": self._resources._deallocate_vm,
+            "azure.compute.vmss.scale": self._resources._scale_vmss,
+            "azure.resource.tags.read": self._resources._read_resource_tag,
+            "azure.resource.tags.merge": self._resources._merge_resource_tag,
         }
         handler = handlers.get(operation_id)
         if handler is None:
@@ -339,7 +135,7 @@ class OperationsGateway:
             except IdempotencyError as abort_error:
                 exc.add_note(f"idempotency claim cleanup also failed: {abort_error.code}")
             raise GatewayError(exc.status_code, exc.code, str(exc)) from exc
-        resource_key = self._mutation_resource_key(operation_id, payload)
+        resource_key = self._resources._mutation_resource_key(operation_id, payload)
         try:
             lease_id = await self._idempotency.acquire_resource(resource_key)
         except IdempotencyError as exc:
@@ -443,7 +239,7 @@ class OperationsGateway:
             await self._idempotency.renew_resource(resource_key, lease_id)
         except IdempotencyError as exc:
             raise GatewayError(exc.status_code, exc.code, str(exc)) from exc
-        provider_status = await self._poll_arm_status(status_url)
+        provider_status = await self._arm_client.poll_status(status_url)
         normalized = _normalize_provider_status(provider_status)
         if normalized in {"succeeded", "failed"}:
             terminal_response = {
@@ -479,9 +275,9 @@ class OperationsGateway:
             raise GatewayError(400, "safety_missing", "plan safety envelope is required")
         if target_operation not in _MUTATION_OPERATIONS:
             raise GatewayError(404, "operation_not_found", "mutation operation is not registered")
-        self._validate_mutation_payload(target_operation, arguments)
+        self._resources._validate_mutation_payload(target_operation, arguments)
         self._validate_safety(safety, require_dry_run_receipt=False)
-        await self._preflight_mutation(target_operation, arguments)
+        await self._resources._preflight_mutation(target_operation, arguments)
         try:
             receipt = await self._idempotency.issue_dry_run(
                 _mutation_digest(target_operation, {**arguments, "safety": safety})
@@ -557,644 +353,6 @@ class OperationsGateway:
                 "Thor executor identity is not authorized for this operation vertical",
             )
 
-    def _mutation_resource_key(
-        self,
-        operation_id: str,
-        payload: Mapping[str, object],
-    ) -> str:
-        if operation_id == "azure.resource.tags.merge":
-            subscription, group, target_path = self._tag_target(payload)
-            target = f"tags/{target_path.lstrip('/')}"
-        else:
-            subscription, group = self._scope(payload)
-        if operation_id == "azure.compute.vmss.scale":
-            _, _, vmss_name = self._vmss_target(payload)
-            target = f"vmss/{vmss_name}"
-        elif operation_id.startswith("azure.compute.vm."):
-            target = f"vm/{_identifier(payload, 'vm_name')}"
-        elif operation_id != "azure.resource.tags.merge":
-            target = (
-                f"nsg/{_identifier(payload, 'nsg_name')}/rule/{_identifier(payload, 'rule_name')}"
-            )
-        return f"{subscription}/{group}/{target}".casefold()
-
-    def _validate_mutation_payload(
-        self,
-        operation_id: str,
-        payload: Mapping[str, object],
-    ) -> None:
-        self._mutation_resource_key(operation_id, payload)
-        if operation_id == "azure.network.nsg.rule.upsert":
-            _nsg_rule_body(payload)
-        elif operation_id == "azure.resource.tags.merge":
-            _tag_argument(payload, "tag_name", _TAG_NAME)
-            _tag_argument(payload, "tag_value", _TAG_VALUE)
-        elif operation_id == "azure.compute.vmss.scale":
-            _integer(payload, "replica_count", minimum=1, maximum=1000)
-            _scale_reason(payload)
-
-    async def _preflight_mutation(
-        self,
-        operation_id: str,
-        payload: Mapping[str, object],
-    ) -> None:
-        if operation_id == "azure.resource.tags.merge":
-            await self._read_tag_document(payload)
-            return
-        subscription, group = self._scope(payload)
-        if operation_id == "azure.compute.vmss.scale":
-            _, group, vmss_name = self._vmss_target(payload)
-            path = (
-                f"/subscriptions/{subscription}/resourceGroups/{group}/providers/"
-                f"Microsoft.Compute/virtualMachineScaleSets/{vmss_name}"
-            )
-            api_version = _COMPUTE_API_VERSION
-        elif operation_id.startswith("azure.compute.vm."):
-            vm_name = _identifier(payload, "vm_name")
-            path = (
-                f"/subscriptions/{subscription}/resourceGroups/{group}/providers/"
-                f"Microsoft.Compute/virtualMachines/{vm_name}"
-            )
-            api_version = _COMPUTE_API_VERSION
-        else:
-            nsg_name = _identifier(payload, "nsg_name")
-            path = (
-                f"/subscriptions/{subscription}/resourceGroups/{group}/providers/"
-                f"Microsoft.Network/networkSecurityGroups/{nsg_name}"
-            )
-            api_version = _NETWORK_API_VERSION
-        observed = await self._arm("GET", path, api_version=api_version)
-        if not isinstance(observed, Mapping):
-            raise GatewayError(
-                502,
-                "azure_response_invalid",
-                "Azure mutation preflight did not return a resource object",
-            )
-        if operation_id == "azure.compute.vmss.scale":
-            self._validate_vmss_scale_observation(payload, observed, require_etag=False)
-
-    def _scope(self, payload: Mapping[str, object]) -> tuple[str, str]:
-        resource_group = _identifier(payload, "resource_group")
-        if resource_group.casefold() not in {
-            value.casefold() for value in self._config.resource_groups
-        }:
-            raise GatewayError(403, "scope_denied", "resource group is outside dev scope")
-        return self._config.subscription_id, resource_group
-
-    async def _read_nsg(self, payload: Mapping[str, object]) -> object:
-        subscription, group = self._scope(payload)
-        name = _identifier(payload, "nsg_name")
-        raw = await self._arm(
-            "GET",
-            f"/subscriptions/{subscription}/resourceGroups/{group}/providers/"
-            f"Microsoft.Network/networkSecurityGroups/{name}",
-            api_version=_NETWORK_API_VERSION,
-        )
-        if not isinstance(raw, Mapping):
-            raise GatewayError(502, "azure_response_invalid", "NSG response was not an object")
-        properties = raw.get("properties")
-        if not isinstance(properties, Mapping):
-            raise GatewayError(502, "azure_response_invalid", "NSG properties were missing")
-        projected_rules: list[Mapping[str, object]] = []
-        for collection_name, kind in (
-            ("securityRules", "custom"),
-            ("defaultSecurityRules", "default"),
-        ):
-            collection = properties.get(collection_name)
-            if not isinstance(collection, list):
-                continue
-            for item in collection:
-                if not isinstance(item, Mapping):
-                    continue
-                rule = item.get("properties")
-                if not isinstance(rule, Mapping):
-                    continue
-                projected_rules.append(
-                    {
-                        "name": str(item.get("name", ""))[:128],
-                        "kind": kind,
-                        "access": str(rule.get("access", ""))[:16],
-                        "direction": str(rule.get("direction", ""))[:16],
-                        "protocol": str(rule.get("protocol", ""))[:16],
-                        "priority": rule.get("priority"),
-                        "source_address_prefix": _prefixes(
-                            rule, "sourceAddressPrefix", "sourceAddressPrefixes"
-                        ),
-                        "source_port_range": _prefixes(rule, "sourcePortRange", "sourcePortRanges"),
-                        "destination_address_prefix": _prefixes(
-                            rule,
-                            "destinationAddressPrefix",
-                            "destinationAddressPrefixes",
-                        ),
-                        "destination_port_range": _prefixes(
-                            rule, "destinationPortRange", "destinationPortRanges"
-                        ),
-                    }
-                )
-        return {
-            "name": name,
-            "rules": projected_rules[:64],
-            "truncated": len(projected_rules) > 64,
-        }
-
-    async def _read_peerings(self, payload: Mapping[str, object]) -> object:
-        subscription, group = self._scope(payload)
-        name = _identifier(payload, "vnet_name")
-        raw = await self._arm(
-            "GET",
-            f"/subscriptions/{subscription}/resourceGroups/{group}/providers/"
-            f"Microsoft.Network/virtualNetworks/{name}/virtualNetworkPeerings",
-            api_version=_NETWORK_API_VERSION,
-        )
-        if not isinstance(raw, Mapping) or not isinstance(raw.get("value"), list):
-            raise GatewayError(
-                502,
-                "azure_response_invalid",
-                "VNet peering response was not an object",
-            )
-        peerings: list[Mapping[str, object]] = []
-        values = raw["value"]
-        for item in values[:64]:
-            if not isinstance(item, Mapping):
-                continue
-            properties = item.get("properties")
-            if not isinstance(properties, Mapping):
-                continue
-            peerings.append(
-                {
-                    "name": str(item.get("name", ""))[:128],
-                    "remote_vnet": _resource_name(properties.get("remoteVirtualNetwork")),
-                    "state": str(properties.get("peeringState", ""))[:32],
-                    "sync_level": str(properties.get("peeringSyncLevel", ""))[:32],
-                    "allow_vnet_access": properties.get("allowVirtualNetworkAccess"),
-                    "allow_forwarded_traffic": properties.get("allowForwardedTraffic"),
-                    "allow_gateway_transit": properties.get("allowGatewayTransit"),
-                    "use_remote_gateways": properties.get("useRemoteGateways"),
-                    "remote_address_prefixes": _address_prefixes(
-                        properties.get("remoteVirtualNetworkAddressSpace")
-                        or properties.get("remoteAddressSpace")
-                    ),
-                }
-            )
-        return {
-            "name": name,
-            "peerings": peerings,
-            "truncated": len(values) > 64 or isinstance(raw.get("nextLink"), str),
-        }
-
-    async def _probe_private_endpoint(self, payload: Mapping[str, object]) -> object:
-        alias = _identifier(payload, "probe")
-        probe = self._config.private_probes.get(alias)
-        if probe is None:
-            raise GatewayError(404, "probe_not_found", "private probe is not registered")
-        token = await self._reader_tokens.get_token(probe.audience)
-        response = await self._http.get(
-            probe.url,
-            headers={"Authorization": f"Bearer {token}"},
-            timeout=10.0,
-            follow_redirects=False,
-        )
-        if probe.result_contract == "application_database_dependency":
-            if len(response.content) > 16_384:
-                raise GatewayError(
-                    502,
-                    "probe_response_too_large",
-                    "private probe response exceeded cap",
-                )
-            try:
-                receipt = response.json()
-            except ValueError as exc:
-                raise GatewayError(
-                    502,
-                    "probe_response_invalid",
-                    "private dependency probe response was not JSON",
-                ) from exc
-            if (
-                not isinstance(receipt, Mapping)
-                or receipt.get("dependency") != "database"
-                or not isinstance(receipt.get("reachable"), bool)
-            ):
-                raise GatewayError(
-                    502,
-                    "probe_response_invalid",
-                    "private dependency probe receipt was invalid",
-                )
-            return {
-                "probe": alias,
-                "probe_contract": probe.result_contract,
-                "dependency": "database",
-                "reachable": receipt["reachable"] is True and 200 <= response.status_code < 300,
-                "http_status": response.status_code,
-            }
-        return {
-            "probe": alias,
-            "probe_contract": probe.result_contract,
-            "reachable": 200 <= response.status_code < 300,
-            "http_status": response.status_code,
-        }
-
-    async def _upsert_nsg_rule(self, payload: Mapping[str, object]) -> object:
-        subscription, group = self._scope(payload)
-        nsg_name = _identifier(payload, "nsg_name")
-        rule_name = _identifier(payload, "rule_name")
-        body = _nsg_rule_body(payload)
-        return await self._arm(
-            "PUT",
-            f"/subscriptions/{subscription}/resourceGroups/{group}/providers/"
-            f"Microsoft.Network/networkSecurityGroups/{nsg_name}/securityRules/{rule_name}",
-            api_version=_NETWORK_API_VERSION,
-            json_body=body,
-            executor=True,
-        )
-
-    async def _read_resource_tag(self, payload: Mapping[str, object]) -> object:
-        tag_name = _tag_argument(payload, "tag_name", _TAG_NAME)
-        expected = _tag_argument(payload, "tag_value", _TAG_VALUE)
-        tags = await self._read_tag_document(payload)
-        return {
-            "matches": tags.get(tag_name) == expected,
-            "present": tag_name in tags,
-        }
-
-    async def _merge_resource_tag(self, payload: Mapping[str, object]) -> object:
-        tag_name = _tag_argument(payload, "tag_name", _TAG_NAME)
-        tag_value = _tag_argument(payload, "tag_value", _TAG_VALUE)
-        prior = await self._read_tag_document(payload)
-        target_path = self._tag_extension_path(payload)
-        mutation = await self._arm(
-            "PATCH",
-            target_path,
-            api_version=_TAGS_API_VERSION,
-            json_body={
-                "operation": "Merge",
-                "properties": {"tags": {tag_name: tag_value}},
-            },
-            executor=True,
-        )
-        if isinstance(mutation, _ArmSubmission):
-            raise GatewayError(
-                502,
-                "azure_response_invalid",
-                "Azure tag merge unexpectedly returned an asynchronous operation",
-            )
-        observed = await self._read_tag_document(payload)
-        if observed.get(tag_name) == tag_value:
-            return {"verified": True}
-        await self._restore_tag_snapshot(payload, prior)
-        raise GatewayError(
-            502,
-            "effect_verification_failed",
-            "Azure tag readback mismatched and the prior tag snapshot was restored",
-        )
-
-    async def _restore_tag_snapshot(
-        self,
-        payload: Mapping[str, object],
-        prior: Mapping[str, str],
-    ) -> None:
-        target_path = self._tag_extension_path(payload)
-        restored = await self._arm(
-            "PATCH",
-            target_path,
-            api_version=_TAGS_API_VERSION,
-            json_body={
-                "operation": "Replace",
-                "properties": {"tags": dict(prior)},
-            },
-            executor=True,
-        )
-        if isinstance(restored, _ArmSubmission):
-            raise GatewayError(
-                502,
-                "tag_rollback_failed",
-                "Azure tag rollback unexpectedly returned an asynchronous operation",
-            )
-        if await self._read_tag_document(payload) != dict(prior):
-            raise GatewayError(
-                500,
-                "tag_rollback_failed",
-                "Azure tag rollback could not restore the prior snapshot",
-            )
-
-    async def _read_tag_document(self, payload: Mapping[str, object]) -> dict[str, str]:
-        raw = await self._arm(
-            "GET",
-            self._tag_extension_path(payload),
-            api_version=_TAGS_API_VERSION,
-        )
-        if not isinstance(raw, Mapping):
-            raise GatewayError(
-                502,
-                "azure_response_invalid",
-                "Azure tag response was not an object",
-            )
-        properties = raw.get("properties")
-        tags = properties.get("tags") if isinstance(properties, Mapping) else None
-        if not isinstance(tags, Mapping) or any(
-            not isinstance(key, str) or not isinstance(value, str) for key, value in tags.items()
-        ):
-            raise GatewayError(
-                502,
-                "azure_response_invalid",
-                "Azure tag response did not contain a string map",
-            )
-        return dict(tags)
-
-    def _tag_extension_path(self, payload: Mapping[str, object]) -> str:
-        subscription, _group, target_path = self._tag_target(payload)
-        return (
-            f"/subscriptions/{subscription}{target_path}/providers/Microsoft.Resources/tags/default"
-        )
-
-    def _tag_target(self, payload: Mapping[str, object]) -> tuple[str, str, str]:
-        target_ref = _bounded(payload, "target_resource_ref", maximum=2048)
-        match = _LOGICAL_RESOURCE_REF.fullmatch(target_ref)
-        if match is None:
-            raise GatewayError(
-                400,
-                "argument_invalid",
-                "target_resource_ref MUST identify one bounded logical Azure resource",
-            )
-        group = match.group("resource_group")
-        provider_path = match.group("provider_path") or ""
-        segments = provider_path.split("/")[2:] if provider_path else []
-        if segments and len(segments) % 2 == 0:
-            raise GatewayError(
-                400,
-                "argument_invalid",
-                "target_resource_ref provider path is incomplete",
-            )
-        if group.casefold() not in {value.casefold() for value in self._config.resource_groups}:
-            raise GatewayError(403, "scope_denied", "resource group is outside dev scope")
-        target_path = f"/resourceGroups/{group}{provider_path}"
-        return self._config.subscription_id, group, target_path
-
-    async def _delete_nsg_rule(self, payload: Mapping[str, object]) -> object:
-        subscription, group = self._scope(payload)
-        nsg_name = _identifier(payload, "nsg_name")
-        rule_name = _identifier(payload, "rule_name")
-        return await self._arm(
-            "DELETE",
-            f"/subscriptions/{subscription}/resourceGroups/{group}/providers/"
-            f"Microsoft.Network/networkSecurityGroups/{nsg_name}/securityRules/{rule_name}",
-            api_version=_NETWORK_API_VERSION,
-            executor=True,
-        )
-
-    async def _start_vm(self, payload: Mapping[str, object]) -> object:
-        return await self._vm_action(payload, "start")
-
-    async def _deallocate_vm(self, payload: Mapping[str, object]) -> object:
-        return await self._vm_action(payload, "deallocate")
-
-    async def _vm_action(self, payload: Mapping[str, object], action: str) -> object:
-        subscription, group = self._scope(payload)
-        vm_name = _identifier(payload, "vm_name")
-        return await self._arm(
-            "POST",
-            f"/subscriptions/{subscription}/resourceGroups/{group}/providers/"
-            f"Microsoft.Compute/virtualMachines/{vm_name}/{action}",
-            api_version=_COMPUTE_API_VERSION,
-            executor=True,
-        )
-
-    async def _scale_vmss(self, payload: Mapping[str, object]) -> object:
-        subscription, group, vmss_name = self._vmss_target(payload)
-        replica_count = _integer(payload, "replica_count", minimum=1, maximum=1000)
-        path = (
-            f"/subscriptions/{subscription}/resourceGroups/{group}/providers/"
-            f"Microsoft.Compute/virtualMachineScaleSets/{vmss_name}"
-        )
-        observed = await self._arm("GET", path, api_version=_COMPUTE_API_VERSION)
-        if not isinstance(observed, Mapping):
-            raise GatewayError(
-                502,
-                "azure_response_invalid",
-                "Azure VMSS pre-mutation observation was not an object",
-            )
-        etag = self._validate_vmss_scale_observation(payload, observed, require_etag=True)
-        return await self._arm(
-            "PATCH",
-            path,
-            api_version=_COMPUTE_API_VERSION,
-            json_body={"sku": {"capacity": replica_count}},
-            executor=True,
-            request_headers={"If-Match": etag},
-        )
-
-    def _validate_vmss_scale_observation(
-        self,
-        payload: Mapping[str, object],
-        observed: Mapping[str, object],
-        *,
-        require_etag: bool,
-    ) -> str:
-        sku = observed.get("sku")
-        properties = observed.get("properties")
-        current_capacity = sku.get("capacity") if isinstance(sku, Mapping) else None
-        orchestration_mode = (
-            properties.get("orchestrationMode") if isinstance(properties, Mapping) else None
-        )
-        if orchestration_mode != "Uniform":
-            raise GatewayError(
-                409,
-                "orchestration_mode_unsupported",
-                "development VMSS scale-out requires Uniform orchestration",
-            )
-        requested_capacity = _integer(payload, "replica_count", minimum=1, maximum=1000)
-        if (
-            not isinstance(current_capacity, int)
-            or isinstance(current_capacity, bool)
-            or requested_capacity != current_capacity + 1
-        ):
-            raise GatewayError(
-                409,
-                "scale_out_of_bounds",
-                "development VMSS scale-out MUST increase capacity by exactly one",
-            )
-        if not require_etag:
-            return ""
-        etag = observed.get("etag")
-        if (
-            not isinstance(etag, str)
-            or not etag
-            or len(etag) > 512
-            or any(ord(character) < 32 or ord(character) == 127 for character in etag)
-        ):
-            raise GatewayError(
-                502,
-                "azure_response_invalid",
-                "Azure VMSS observation omitted a bounded ETag",
-            )
-        return etag
-
-    def _vmss_target(self, payload: Mapping[str, object]) -> tuple[str, str, str]:
-        subscription, group = self._scope(payload)
-        vmss_name = _identifier(payload, "vmss_name")
-        target_ref = _bounded(payload, "target_resource_ref", maximum=1024)
-        expected = (
-            f"/subscriptions/{subscription}/resourceGroups/{group}/providers/"
-            f"Microsoft.Compute/virtualMachineScaleSets/{vmss_name}"
-        )
-        if target_ref.casefold() != expected.casefold():
-            raise GatewayError(
-                403,
-                "target_mismatch",
-                "VMSS target does not match the configured subscription and resource group",
-            )
-        return subscription, group, vmss_name
-
-    async def _arm(
-        self,
-        method: str,
-        path: str,
-        *,
-        api_version: str,
-        json_body: Mapping[str, object] | None = None,
-        executor: bool = False,
-        request_headers: Mapping[str, str] | None = None,
-    ) -> object:
-        token_provider = self._executor_tokens if executor else self._reader_tokens
-        token = await token_provider.get_token(_ARM_AUDIENCE)
-        for attempt in range(3):
-            response = await self._http.request(
-                method,
-                f"https://management.azure.com{path}",
-                params={"api-version": api_version},
-                headers={
-                    "Authorization": f"Bearer {token}",
-                    **(request_headers or {}),
-                },
-                json=json_body,
-                timeout=30.0,
-            )
-            if response.status_code != 429 or attempt == 2:
-                break
-            await self._sleep(_retry_after_seconds(response))
-        if response.status_code == 404:
-            raise GatewayError(404, "azure_resource_not_found", "Azure resource was not found")
-        if response.status_code == 412:
-            raise GatewayError(
-                409,
-                "target_revision_changed",
-                "Azure resource changed after the scale-out observation",
-            )
-        if response.status_code == 429 or response.status_code >= 500:
-            raise GatewayError(
-                503,
-                "azure_temporarily_unavailable",
-                f"Azure operation returned retryable HTTP {response.status_code}",
-            )
-        if response.status_code >= 400:
-            raise GatewayError(
-                502,
-                "azure_operation_failed",
-                f"Azure operation returned HTTP {response.status_code}",
-            )
-        if response.status_code == 202:
-            status_url = response.headers.get("Azure-AsyncOperation") or response.headers.get(
-                "Location"
-            )
-            if not status_url:
-                raise GatewayError(
-                    502,
-                    "azure_response_invalid",
-                    "Azure accepted the operation without a status URL",
-                )
-            self._validate_arm_status_url(status_url)
-            return _ArmSubmission(status_url=status_url)
-        if response.status_code == 204 or not response.content:
-            return {"accepted": True}
-        body = response.json()
-        if not isinstance(body, (Mapping, list)):
-            raise GatewayError(502, "azure_response_invalid", "Azure response was not JSON")
-        return body
-
-    async def _poll_arm_status(self, status_url: str) -> str:
-        self._validate_arm_status_url(status_url)
-        token = await self._executor_tokens.get_token(_ARM_AUDIENCE)
-        for attempt in range(3):
-            response = await self._http.get(
-                status_url,
-                headers={"Authorization": f"Bearer {token}"},
-                timeout=30.0,
-            )
-            if response.status_code != 429 or attempt == 2:
-                break
-            await self._sleep(_retry_after_seconds(response))
-        if response.status_code == 404:
-            raise GatewayError(
-                404,
-                "azure_operation_not_found",
-                "Azure operation status was not found",
-            )
-        if response.status_code == 429 or response.status_code >= 500:
-            raise GatewayError(
-                503,
-                "azure_temporarily_unavailable",
-                f"Azure operation status returned retryable HTTP {response.status_code}",
-            )
-        if response.status_code >= 400:
-            raise GatewayError(
-                502,
-                "azure_operation_failed",
-                f"Azure operation status returned HTTP {response.status_code}",
-            )
-        try:
-            body = response.json()
-        except ValueError as exc:
-            raise GatewayError(
-                502,
-                "azure_response_invalid",
-                "Azure operation status was not JSON",
-            ) from exc
-        provider_status = body.get("status") if isinstance(body, Mapping) else None
-        if not isinstance(provider_status, str) or not provider_status:
-            raise GatewayError(
-                502,
-                "azure_response_invalid",
-                "Azure operation status was missing",
-            )
-        return provider_status[:64]
-
-    def _validate_arm_status_url(self, status_url: str) -> None:
-        parsed = urlparse(status_url)
-        subscription_prefix = f"/subscriptions/{self._config.subscription_id}/".casefold()
-        query = parse_qsl(parsed.query, keep_blank_values=True)
-        if (
-            parsed.scheme != "https"
-            or parsed.hostname != "management.azure.com"
-            or parsed.username is not None
-            or parsed.password is not None
-            or parsed.fragment
-            or not parsed.path.casefold().startswith(subscription_prefix)
-            or len(query) > 1
-            or any(key != "api-version" or not value or len(value) > 64 for key, value in query)
-        ):
-            raise GatewayError(
-                502,
-                "azure_response_invalid",
-                "Azure operation status URL was outside the configured subscription",
-            )
-
-
-def _identifier(payload: Mapping[str, object], name: str) -> str:
-    value = payload.get(name)
-    if not isinstance(value, str) or _IDENTIFIER.fullmatch(value) is None:
-        raise GatewayError(400, "argument_invalid", f"{name} MUST be a bounded identifier")
-    return value
-
-
-def _tag_argument(
-    payload: Mapping[str, object],
-    name: str,
-    pattern: re.Pattern[str],
-) -> str:
-    value = payload.get(name)
-    if not isinstance(value, str) or pattern.fullmatch(value) is None:
-        raise GatewayError(400, "argument_invalid", f"{name} is invalid")
-    return value
-
 
 def _request_digest(operation_id: str, payload: Mapping[str, object]) -> str:
     try:
@@ -1218,13 +376,6 @@ def _mutation_digest(operation_id: str, payload: Mapping[str, object]) -> str:
     return _request_digest(operation_id, bound_payload)
 
 
-def _bounded(payload: Mapping[str, object], name: str, *, maximum: int = 256) -> str:
-    value = payload.get(name)
-    if not isinstance(value, str) or not value.strip() or len(value) > maximum:
-        raise GatewayError(400, "argument_invalid", f"{name} MUST be bounded")
-    return value
-
-
 def _public_response(response: Mapping[str, object]) -> Mapping[str, object]:
     result = response.get("result")
     if not isinstance(result, Mapping) or not any(str(key).startswith("_") for key in result):
@@ -1245,90 +396,6 @@ def _normalize_provider_status(status: str) -> str:
     if normalized in {"failed", "canceled", "cancelled"}:
         return "failed"
     return "running"
-
-
-def _retry_after_seconds(response: httpx.Response) -> float:
-    raw = response.headers.get("Retry-After", "")
-    try:
-        delay = float(raw)
-    except ValueError:
-        return 1.0
-    return min(5.0, max(0.0, delay))
-
-
-def _choice(payload: Mapping[str, object], name: str, choices: set[str]) -> str:
-    value = _bounded(payload, name)
-    if value not in choices:
-        raise GatewayError(400, "argument_invalid", f"{name} is not allowed")
-    return value
-
-
-def _integer(payload: Mapping[str, object], name: str, *, minimum: int, maximum: int) -> int:
-    value = payload.get(name)
-    if not isinstance(value, int) or isinstance(value, bool) or not minimum <= value <= maximum:
-        raise GatewayError(400, "argument_invalid", f"{name} is outside its allowed range")
-    return value
-
-
-def _scale_reason(payload: Mapping[str, object]) -> str:
-    reason = payload.get("reason")
-    if (
-        not isinstance(reason, str)
-        or not 10 <= len(reason) <= 200
-        or any(ord(character) < 32 or ord(character) == 127 for character in reason)
-    ):
-        raise GatewayError(
-            400,
-            "argument_invalid",
-            "reason MUST contain 10..200 characters without controls",
-        )
-    return reason
-
-
-def _nsg_rule_body(payload: Mapping[str, object]) -> Mapping[str, object]:
-    rule = payload.get("rule")
-    if not isinstance(rule, Mapping):
-        raise GatewayError(400, "rule_invalid", "rule MUST be an object")
-    return {
-        "properties": {
-            "access": _choice(rule, "access", {"Allow", "Deny"}),
-            "direction": _choice(rule, "direction", {"Inbound", "Outbound"}),
-            "protocol": _choice(rule, "protocol", {"Tcp", "Udp", "Icmp", "*"}),
-            "priority": _integer(rule, "priority", minimum=100, maximum=4096),
-            "sourceAddressPrefix": _bounded(rule, "source_address_prefix"),
-            "sourcePortRange": _bounded(rule, "source_port_range"),
-            "destinationAddressPrefix": _bounded(rule, "destination_address_prefix"),
-            "destinationPortRange": _bounded(rule, "destination_port_range"),
-        }
-    }
-
-
-def _prefixes(payload: Mapping[str, object], singular: str, plural: str) -> str:
-    values = payload.get(plural)
-    if isinstance(values, list):
-        rendered = ",".join(item for item in values if isinstance(item, str))
-        if rendered:
-            return rendered[:512]
-    value = payload.get(singular)
-    return str(value)[:512] if value is not None else ""
-
-
-def _resource_name(value: object) -> str:
-    if not isinstance(value, Mapping):
-        return ""
-    resource_id = value.get("id")
-    if not isinstance(resource_id, str):
-        return ""
-    return resource_id.rstrip("/").rsplit("/", maxsplit=1)[-1][:128]
-
-
-def _address_prefixes(value: object) -> str:
-    if not isinstance(value, Mapping):
-        return ""
-    prefixes = value.get("addressPrefixes")
-    if not isinstance(prefixes, list):
-        return ""
-    return ",".join(item for item in prefixes if isinstance(item, str))[:512]
 
 
 __all__ = [

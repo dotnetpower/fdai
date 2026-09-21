@@ -32,8 +32,12 @@ describe("clean console routes", () => {
   });
   test("maps internal panel ids to user-facing kebab-case paths", () => {
     expect(panelPath("dashboard")).toBe("/overview");
-    expect(panelPath("dashboard-v2")).toBe("/dashboard-v2");
-    expect(parseConsoleRoute("/dashboard-v2").panelId).toBe("dashboard-v2");
+    expect(panelPath("dashboard-v2")).toBe("/resource-dashboard");
+    expect(parseConsoleRoute("/resource-dashboard").panelId).toBe("dashboard-v2");
+    expect(parseConsoleRoute("/dashboard-v2", "?locale=ko")).toMatchObject({
+      panelId: "dashboard-v2",
+      canonicalPathname: "/resource-dashboard",
+    });
     expect(parseConsoleRoute("/overview").panelId).toBe("dashboard");
     expect(panelPath("hil-queue")).toBe("/approvals");
     expect(panelPath("agent-activity")).toBe("/agent-activity");

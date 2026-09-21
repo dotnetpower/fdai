@@ -23,6 +23,7 @@ from fdai.delivery.persistence.postgres_ontology import (
     _SUBGRAPH_REPLACEMENT_LOCK,
     PostgresOntologyInstanceStoreConfig,
 )
+from fdai.delivery.persistence.postgres_ontology_publication import versioned_storage_active
 from fdai.runtime.inventory_ontology import (
     INVENTORY_ONTOLOGY_CURSOR_FLOOR_KEY,
     INVENTORY_ONTOLOGY_INVALIDATION_KEY,
@@ -158,6 +159,8 @@ async def repair_inventory_cursor(
             "SELECT pg_advisory_xact_lock(hashtextextended(%s, 0))",
             ("inventory-ontology-projection",),
         )
+        if await versioned_storage_active(connection):
+            await _read_basis(connection)
         await connection.execute("SELECT pg_advisory_xact_lock(%s)", (_SUBGRAPH_REPLACEMENT_LOCK,))
         cursor = await connection.execute(
             "SELECT value FROM state_kv WHERE key=%s FOR UPDATE", (key,)

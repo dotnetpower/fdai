@@ -95,7 +95,33 @@ async def test_retained_terminal_rejects_identity_collision_without_another_audi
     changed = _event().model_copy(update={"source": "another-observer"})
     with pytest.raises(ValueError, match="conflicts with retained"):
         await TerminalMeasurementRecorder(store).record(changed, _result(), recorded_at=NOW)
+    await TerminalMeasurementRecorder(store).retry_pending()
     assert len(_measurements(store)) == 1
+
+
+async def test_restart_redelivery_uses_exact_durable_terminal_before_processing(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    store = InMemoryStateStore()
+    runner = AsyncMock(return_value=_result())
+    monkeypatch.setattr(_process, "_process_normalized_event", runner)
+    initial = await _process.process_event(_host(store), _event())
+    assert initial.outcome is ControlLoopOutcome.COMPLIANT
+
+    replay = await _process.process_event(_host(store), _event())
+
+    assert replay.outcome is ControlLoopOutcome.DEDUPED
+    assert replay.reason == "durable_terminal_measurement"
+    runner.assert_awaited_once()
+
+
+async def test_restart_redelivery_rejects_durable_identity_substitution() -> None:
+    store = InMemoryStateStore()
+    await TerminalMeasurementRecorder(store).record(_event(), _result(), recorded_at=NOW)
+    changed = _event().model_copy(update={"source": "another-observer"})
+
+    with pytest.raises(ValueError, match="event identity conflicts"):
+        await _process.process_event(_host(store), changed)
 
 
 async def test_replay_capture_times_do_not_replace_original_terminal() -> None:

@@ -34,8 +34,27 @@
 }
 
 .dashboard-v2-page .page-header-actions .cs-control-button {
+  min-height: 44px;
   border-color: color-mix(in srgb, var(--border) 88%, var(--fg-muted));
   box-shadow: 0 1px 2px color-mix(in srgb, var(--fg) 5%, transparent);
+}
+
+.dashboard-v2-page .dashboard-v2-map-cell[data-tone="active"] {
+  --dashboard-v2-map-tone: color-mix(in srgb, var(--success, var(--cs-sage)) 88%, black);
+}
+
+.dashboard-v2-page .dashboard-v2-map-cell[data-tone="attention"] {
+  --dashboard-v2-map-tone: color-mix(in srgb, var(--warning, var(--cs-terracotta)) 82%, black);
+}
+
+:root[data-theme="dark"] .dashboard-v2-page .dashboard-v2-map[data-density="dense"] .dashboard-v2-map-cell:not([data-tone="unknown"], [data-tone="na"]) :is(.dashboard-v2-map-symbol, .dashboard-v2-map-axis) {
+  fill: var(--cs-bg);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme]) .dashboard-v2-page .dashboard-v2-map[data-density="dense"] .dashboard-v2-map-cell:not([data-tone="unknown"], [data-tone="na"]) :is(.dashboard-v2-map-symbol, .dashboard-v2-map-axis) {
+    fill: var(--cs-bg);
+  }
 }
 
 .dv2-snapshot-card,
@@ -300,6 +319,7 @@
 }
 
 .dv2-legend button {
+  max-width: 100%;
   min-height: 30px;
   padding: 4px 8px;
   border: 1px solid transparent;
@@ -309,8 +329,12 @@
 }
 
 .dv2-legend .dv2-state {
+  max-width: 100%;
   padding: 0;
   background: transparent;
+  text-align: start;
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 
 .dv2-state {
@@ -330,18 +354,18 @@
 }
 
 .dv2-state[data-tone="active"] {
-  color: var(--cs-steel);
-  background: color-mix(in srgb, var(--cs-steel) 9%, var(--bg-elevated));
+  color: var(--success, var(--cs-sage));
+  background: color-mix(in srgb, var(--success, var(--cs-sage)) 9%, var(--bg-elevated));
 }
 
 .dv2-state[data-tone="attention"] {
-  color: var(--cs-terracotta);
-  background: color-mix(in srgb, var(--cs-terracotta) 10%, var(--bg-elevated));
+  color: var(--warning, var(--cs-terracotta));
+  background: color-mix(in srgb, var(--warning, var(--cs-terracotta)) 10%, var(--bg-elevated));
 }
 
 .dv2-state[data-tone="negative"] {
-  color: var(--cs-dusty-red);
-  background: color-mix(in srgb, var(--cs-dusty-red) 10%, var(--bg-elevated));
+  color: var(--danger, var(--cs-dusty-red));
+  background: color-mix(in srgb, var(--danger, var(--cs-dusty-red)) 10%, var(--bg-elevated));
 }
 
 .dv2-state[data-tone="na"] {

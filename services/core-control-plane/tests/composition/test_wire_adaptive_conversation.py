@@ -8,12 +8,12 @@ import json
 from dataclasses import replace
 from pathlib import Path
 from typing import Any
-from unittest.mock import Mock
+from unittest.mock import AsyncMock, Mock
 
 import httpx
 import pytest
 from fdai.agents import PANTHEON_SPECS
-from fdai.composition import semantic_query_azure_composition
+from fdai.composition import semantic_query_azure_composition, wire_semantic_query
 from fdai.composition.wire_adaptive_conversation import (
     build_adaptive_conversation_dependencies,
     build_adaptive_conversation_service,
@@ -38,7 +38,10 @@ from fdai.rule_catalog.schema.llm_resolver import (
     ResolvedCapability,
     ResolvedModels,
 )
+from fdai.rule_catalog.schema.ontology_catalog import OntologyCatalog
+from fdai.rule_catalog.schema.property_semantic import empty_property_semantic_registry
 from fdai.shared.config.models import LlmMode
+from fdai.shared.contracts.models import OntologyObjectType, PropertyDecl, PropertyType
 from tests.conversation.test_adaptive_service import (
     _draft,
     _Model,
@@ -133,6 +136,67 @@ def test_sync_builder_needs_no_loop_or_ontology_store_for_fixed_roles() -> None:
             spec.name, "ko", {"agent": "Bragi", "role_directive": "Replace the fixed role."}
         )
         assert profile == {"identity": spec.name, "role": spec.conversation.role_directive}
+
+
+async def test_azure_composition_forwards_explicit_instance_query_without_provider_calls(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    container = Mock(held_model_capabilities=frozenset())
+    container.config.llm.mode = LlmMode.AZURE
+    container.config.llm.resolved_models_path = Path("resolved-models.json")
+    container.llm_bindings = None
+    monkeypatch.setattr(
+        semantic_query_azure_composition, "resolved_models_for_binding", lambda _: _resolved()
+    )
+    monkeypatch.setattr(
+        semantic_query_azure_composition,
+        "build_adaptive_conversation_service",
+        Mock(return_value=None),
+    )
+    catalog = OntologyCatalog(
+        object_types=(
+            OntologyObjectType(
+                schema_version="1.0.0",
+                name="Resource",
+                version="1.0.0",
+                key="id",
+                properties={"id": PropertyDecl(type=PropertyType.STRING, required=True)},
+            ),
+        ),
+        link_types=(),
+        interface_types=(),
+        interface_implementations=(),
+        action_types=(),
+        property_semantics=empty_property_semantic_registry(),
+    )
+    monkeypatch.setattr(
+        semantic_query_azure_composition, "load_ontology_catalog", Mock(return_value=catalog)
+    )
+    builder = Mock(return_value=Mock(current_evidence_probe=None))
+    monkeypatch.setattr(wire_semantic_query, "build_semantic_query_runtime", builder)
+    query = AsyncMock()
+    async with httpx.AsyncClient(
+        transport=httpx.MockTransport(lambda request: pytest.fail("unexpected network")),
+    ) as client:
+        composition = semantic_query_azure_composition.compose_azure_semantic_query_runtime(
+            container=container,
+            ontology_release=Mock(),
+            ontology_store=Mock(),
+            identity=_NoIdentityCalls(),
+            http_client=client,
+            endpoint="https://example.com",
+            endpoint_resolver=None,
+            catalog_root=CATALOG,
+            owner_loop=asyncio.get_running_loop(),
+            instance_candidate_query=query,
+        )
+    assert composition.unavailable_reason is None
+    builder.assert_called_once()
+    assert builder.call_args.kwargs["instance_candidate_query"] is query
+    assert [item.name for item in builder.call_args.kwargs["ontology_catalog"].function_types] == [
+        "query.ontology_instance_candidates"
+    ]
+    query.assert_not_awaited()
 
 
 @pytest.mark.parametrize("missing", ["release", "store", "catalog"])

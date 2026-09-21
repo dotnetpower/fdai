@@ -4,7 +4,9 @@ from __future__ import annotations
 
 import logging
 import time
+from collections.abc import Awaitable, Callable, Mapping
 from datetime import UTC, datetime
+from typing import Any, cast
 
 from fdai_service_contracts import (
     AgentOperationalActivity,
@@ -84,6 +86,14 @@ class ObservedInventorySnapshotStore:
 
     async def stage(self, attempt_id: str, batch: InventoryBatch) -> None:
         await self._store.stage(attempt_id, batch)
+
+    @property
+    def stage_chunk(self) -> Callable[..., Awaitable[Mapping[str, Any]]] | None:
+        """Expose durable chunk capability only when the wrapped store supports it."""
+        return cast(
+            Callable[..., Awaitable[Mapping[str, Any]]] | None,
+            getattr(self._store, "stage_chunk", None),
+        )
 
     async def promote(self, attempt_id: str, manifest: InventoryCoverageManifest) -> None:
         await self._store.promote(attempt_id, manifest)

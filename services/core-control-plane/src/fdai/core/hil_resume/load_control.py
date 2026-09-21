@@ -176,6 +176,8 @@ class ApprovalLoadController:
             self._state_store,
             _PARK_PREFIX,
             page_size=self.policy.scan_limit,
+            field="status",
+            value="pending",
         )
         pending_for_assignee = sum(
             1
@@ -306,11 +308,23 @@ class ApprovalExpiryReconciler:
         now = self._clock()
         if now.tzinfo is None:
             raise RuntimeError("approval expiry clock MUST be timezone-aware")
-        parks = await _read_all_state_pages(
-            self._state_store,
-            _PARK_PREFIX,
-            page_size=self._policy.scan_limit,
+        pending, awaiting_contact = await asyncio.gather(
+            _read_all_state_pages(
+                self._state_store,
+                _PARK_PREFIX,
+                page_size=self._policy.scan_limit,
+                field="status",
+                value="pending",
+            ),
+            _read_all_state_pages(
+                self._state_store,
+                _PARK_PREFIX,
+                page_size=self._policy.scan_limit,
+                field="status",
+                value="awaiting_contact_consent",
+            ),
         )
+        parks = (*pending, *awaiting_contact)
         expired = 0
         for park in parks:
             if _expiry_due(park, now=now):
@@ -596,6 +610,8 @@ async def _read_all_state_pages(
     prefix: str,
     *,
     page_size: int,
+    field: str | None = None,
+    value: str | None = None,
 ) -> tuple[Mapping[str, Any], ...]:
     records: list[Mapping[str, Any]] = []
     offset = 0
@@ -605,6 +621,8 @@ async def _read_all_state_pages(
             prefix,
             limit=page_size,
             offset=offset,
+            field=field,
+            value=value,
         )
         if not page:
             break

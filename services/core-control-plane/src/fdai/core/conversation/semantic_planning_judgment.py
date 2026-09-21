@@ -257,11 +257,10 @@ def _semantic_judgment_capabilities(
                 if isinstance(key, str) and key in property_names:
                     property_names.remove(key)
                     property_names.insert(0, key)
-                if len(property_names) <= 32:
-                    capability["canonical_values"] = [
-                        name,
-                        *(f"{name}.{property_name}" for property_name in property_names),
-                    ]
+                capability["canonical_values"] = [
+                    name,
+                    *(f"{name}.{property_name}" for property_name in property_names),
+                ]
         capability_bytes = len(
             json.dumps(
                 capability,
@@ -272,7 +271,7 @@ def _semantic_judgment_capabilities(
         )
         candidate_bytes = encoded_bytes + int(bool(capabilities)) + capability_bytes
         if candidate_bytes > _MAX_JUDGMENT_CAPABILITY_BYTES:
-            break
+            raise ValueError("semantic judgment capability projection exceeds its byte bound")
         capabilities.append(capability)
         encoded_bytes = candidate_bytes
     return tuple(capabilities)

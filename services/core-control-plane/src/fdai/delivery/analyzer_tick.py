@@ -378,11 +378,13 @@ class AnalyzerTickRunner:
         publish_errors: list[tuple[str, str]] = []
         receipt_errors: list[tuple[str, str]] = []
         receipts: list[AnalyzerFindingReceipt] = []
+        resource_types = {target.resource_ref: target.resource_type for target in targets}
         for finding in report.findings:
             ingested_at = max(tick_started_at, self._clock())
             event = self._build_event(
                 finding,
                 ingested_at=ingested_at,
+                resource_type=resource_types.get(finding.resource_ref),
             )
             _finding_receipt(
                 finding,
@@ -636,6 +638,7 @@ class AnalyzerTickRunner:
         finding: AnalyzerFinding,
         *,
         ingested_at: datetime,
+        resource_type: str | None,
     ) -> Event:
         if finding.occurred_at.tzinfo is None:
             raise ValueError(
@@ -650,6 +653,11 @@ class AnalyzerTickRunner:
             finding,
             window_seconds=self._publication_window_seconds,
         )
+        resource = (
+            {"id": finding.resource_ref, "type": resource_type}
+            if resource_type is not None
+            else None
+        )
         return Event(
             schema_version="1.0.0",
             event_id=uuid5(_EVENT_ID_NAMESPACE, idempotency_key),
@@ -660,6 +668,7 @@ class AnalyzerTickRunner:
             resource_ref=finding.resource_ref,
             payload={
                 "resource_kind": finding.resource_kind,
+                **({"resource": resource} if resource is not None else {}),
                 "signal": finding.signal,
                 "observation": finding.observation,
                 "severity": finding.severity.value,

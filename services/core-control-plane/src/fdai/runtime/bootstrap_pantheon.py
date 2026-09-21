@@ -13,6 +13,7 @@ from typing import Any, cast
 import httpx
 
 from fdai.agents import (
+    ContextIndexWorkerBindings,
     Heimdall,
     Norns,
     PantheonRuntime,
@@ -155,6 +156,7 @@ class PantheonInitialization:
     semantic_router_config_from_env: Callable[[], SemanticRouterConfig]
     assignment_workflow: Any = None
     effect_request_sink: EffectReconciliationRequestSink | None = None
+    context_index_workers: ContextIndexWorkerBindings | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -514,6 +516,7 @@ async def initialize_pantheon(
             else None
         ),
         rule_generation_activation_binder=config.rule_generation_binding.activation_binder,
+        context_index_workers=config.context_index_workers,
         rule_generation_state_store=config.incident_audit_store,
         semantic_feedback_store=StateStoreSemanticFeedbackCandidateStore(
             config.incident_audit_store

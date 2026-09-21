@@ -28,7 +28,7 @@ from fdai.core.conversation.semantic_runtime import (
     SemanticTurnResult as RuntimeSemanticTurnResult,
 )
 from fdai.core.conversation.semantic_runtime import optional_document_evidence_degraded
-from fdai.core.conversation.session import Principal, Role, Turn
+from fdai.core.conversation.session import Principal, Turn
 from fdai.core.ontology_platform import (
     CausalEvidenceJoin,
     MetricWindow,
@@ -51,7 +51,6 @@ from fdai.shared.contracts.models import OntologyDeclarationKind
 from fdai_service_contracts import (
     MAX_SEMANTIC_EVIDENCE_REFS,
     OperationalEvidenceProjection,
-    OperatorRole,
     RuleSearchProjection,
     RuleSearchRequest,
     SemanticAssuranceObservation,
@@ -88,9 +87,19 @@ from .contract_codecs import (
     OPERATOR_PROJECTION_PRODUCER_V14,
     OPERATOR_PROJECTION_PRODUCER_V16,
     OPERATOR_PROJECTION_PRODUCER_V17,
-    OPERATOR_REQUEST_CONSUMER_V18,
 )
 from .semantic_assurance_projection import project_semantic_assurance
+from .semantic_incident_answer import incident_next_step_text, render_incident_answer
+from .semantic_incident_evidence import (
+    incident_next_step_actions as _incident_next_step_actions,
+)
+from .semantic_incident_evidence import (
+    incident_profile_facts as _incident_profile_facts,
+)
+from .semantic_incident_evidence import (
+    incident_timeline_rows as _incident_timeline_rows,
+)
+from .semantic_instance_candidates import project_instance_candidates, render_instance_candidates
 from .semantic_logical_service_answer import render_logical_service_current_state_answer
 from .semantic_presentation_semantics import project_presentation_semantics
 from .semantic_relationship_projection import (
@@ -107,23 +116,44 @@ from .semantic_target_suggestions import (
     observed_resource_name_candidates,
     resource_name_suggestions,
 )
+from .semantic_turn_request import (
+    SemanticTurnRejectedError,
+)
+from .semantic_turn_request import (
+    aware_utc as _aware_utc,
+)
+from .semantic_turn_request import (
+    bound_incident as _bound_incident,
+)
+from .semantic_turn_request import (
+    bound_investigation_continuation as _bound_investigation_continuation,
+)
+from .semantic_turn_request import (
+    bound_resource_context as _bound_resource_context,
+)
+from .semantic_turn_request import (
+    canonical_incident_id as _canonical_incident_id,
+)
+from .semantic_turn_request import (
+    decode_request as _decode_request,
+)
+from .semantic_turn_request import (
+    principal as _principal,
+)
+from .semantic_turn_request import (
+    prior_turns as _prior_turns,
+)
+
+_incident_next_step_text = incident_next_step_text
+_render_incident_answer = render_incident_answer
+incident_next_step_actions = _incident_next_step_actions
+incident_profile_facts = _incident_profile_facts
+incident_timeline_rows = _incident_timeline_rows
 
 _LOGGER = logging.getLogger(__name__)
 _PROCESSING_STARTED_AT_FIELD = "_fdai_processing_started_at"
 _PROJECTION_NAMESPACE = UUID("00000000-0000-0000-0000-000000000000")
 _MAX_REQUEST_LIFETIME_SECONDS = 90.0
-_ROLE_ORDER = (
-    OperatorRole.READER,
-    OperatorRole.CONTRIBUTOR,
-    OperatorRole.APPROVER,
-    OperatorRole.OWNER,
-)
-_ROLE_MAP = {
-    OperatorRole.READER: Role.READER,
-    OperatorRole.CONTRIBUTOR: Role.CONTRIBUTOR,
-    OperatorRole.APPROVER: Role.APPROVER,
-    OperatorRole.OWNER: Role.OWNER,
-}
 _ROUTE_BY_DISPOSITION: dict[str, SemanticRoute] = {
     "direct_response": "semantic_direct_response",
     "clarification": "semantic_clarification",
@@ -174,10 +204,6 @@ class _ObservedModelCall(Protocol):
     usage: Mapping[str, int] | None
     trace_call: Mapping[str, object]
     prompt_replay_manifest: PromptReplayManifest | None
-
-
-class SemanticTurnRejectedError(ValueError):
-    """Reject one malformed or unauthorized semantic request before runtime I/O."""
 
 
 class SemanticTurnRuntime(Protocol):
@@ -1111,180 +1137,6 @@ class SemanticTurnProcessor:
         )
 
 
-def _decode_request(
-    payload: Mapping[str, Any],
-) -> tuple[dict[str, Any], SemanticTurnRequest, datetime]:
-    try:
-        envelope = OPERATOR_REQUEST_CONSUMER_V18.decode_mapping(payload)
-        if envelope.get("request_kind") != "semantic_query":
-            raise SemanticTurnRejectedError("semantic_request_kind_required")
-        semantic_turn = envelope.get("semantic_turn")
-        if not isinstance(semantic_turn, dict):
-            raise SemanticTurnRejectedError("semantic_turn_required")
-        request = SemanticTurnRequest.model_validate(semantic_turn)
-        _validate_investigation_continuation(request)
-        requested_at_raw = envelope["requested_at"]
-        if not isinstance(requested_at_raw, str):
-            raise SemanticTurnRejectedError("semantic_requested_at_invalid")
-        requested_at = _aware_utc(
-            datetime.fromisoformat(requested_at_raw.replace("Z", "+00:00")),
-            field="semantic requested_at",
-        )
-        _aware_utc(request.deadline_at, field="semantic deadline_at")
-        return envelope, request, requested_at
-    except SemanticTurnRejectedError:
-        raise
-    except Exception as exc:
-        raise SemanticTurnRejectedError("semantic_request_invalid") from exc
-
-
-def _principal(request: SemanticTurnRequest) -> Principal:
-    ordinary_roles = [role for role in _ROLE_ORDER if role in request.principal.roles]
-    if not ordinary_roles:
-        raise SemanticTurnRejectedError("semantic_break_glass_only")
-    selected = ordinary_roles[-1]
-    return Principal(
-        id=request.principal.subject_id,
-        role=_ROLE_MAP[selected],
-        groups=frozenset(request.principal.groups),
-    )
-
-
-def _prior_turns(
-    request: SemanticTurnRequest,
-    *,
-    requested_at: datetime,
-) -> tuple[Turn, ...]:
-    turns = [
-        Turn(
-            turn_id=f"{request.turn_id}:prior:{index}",
-            direction="inbound" if item.role == "user" else "outbound",
-            content=item.content,
-            timestamp=requested_at,
-        )
-        for index, item in enumerate(request.prior_turns)
-    ]
-    anchor = _bound_context_turn(request, requested_at=requested_at)
-    if anchor is not None:
-        # Kept last so the planner's bounded context window never drops the binding.
-        turns.append(anchor)
-    return tuple(turns)
-
-
-def _bound_context_turn(
-    request: SemanticTurnRequest,
-    *,
-    requested_at: datetime,
-) -> Turn | None:
-    binding = request.bound_context
-    if binding is None:
-        return None
-    fields = [f"kind={binding.kind}"]
-    if binding.incident_id is not None:
-        fields.append(f"incident_id={binding.incident_id}")
-    if binding.correlation_id is not None:
-        fields.append(f"correlation_id={binding.correlation_id}")
-    return Turn(
-        turn_id=f"{request.turn_id}:bound-context",
-        direction="system",
-        content="Bound conversation context: " + ", ".join(fields),
-        timestamp=requested_at,
-    )
-
-
-def _bound_incident(request: SemanticTurnRequest) -> BoundIncident | None:
-    """Expose the conversation's incident identity to planning as trusted input."""
-    binding = request.bound_context
-    if (
-        binding is None
-        or binding.kind != "incident"
-        or binding.incident_id is None
-        or binding.correlation_id is None
-    ):
-        return None
-    return BoundIncident(
-        incident_id=_canonical_incident_id(binding.incident_id),
-        correlation_id=binding.correlation_id,
-    )
-
-
-def _bound_resource_context(request: SemanticTurnRequest) -> BoundResourceContext | None:
-    """Expose only the exact server-selected screen or group scope to planning."""
-    binding = request.bound_context
-    if binding is None or binding.kind == "incident":
-        return None
-    if binding.kind == "screen" and binding.screen_id is not None:
-        return BoundResourceContext(
-            kind="screen",
-            screen_id=binding.screen_id,
-            resource_ids=binding.resource_ids,
-            principal_id=binding.principal_id or "",
-            principal_scope_digest=binding.principal_scope_digest or "",
-            ontology_release_digest=binding.ontology_release_digest or "",
-            source_generation=binding.source_generation or "",
-            selection_digest=binding.selection_digest or "",
-            selection_token=binding.selection_token or "",
-            complete=binding.complete is True,
-        )
-    if binding.kind == "resource_group" and binding.resource_group_id is not None:
-        return BoundResourceContext(
-            kind="resource_group",
-            resource_group_id=binding.resource_group_id,
-            resource_ids=binding.resource_ids,
-            principal_id=binding.principal_id or "",
-            principal_scope_digest=binding.principal_scope_digest or "",
-            ontology_release_digest=binding.ontology_release_digest or "",
-            source_generation=binding.source_generation or "",
-            selection_digest=binding.selection_digest or "",
-            selection_token=binding.selection_token or "",
-            complete=binding.complete is True,
-        )
-    return None
-
-
-def _validate_investigation_continuation(request: SemanticTurnRequest) -> None:
-    continuation = request.investigation_continuation
-    if continuation is None:
-        return
-    if (
-        continuation.source_session_id != request.session_id
-        or continuation.source_turn_sequence >= request.turn_sequence
-    ):
-        raise SemanticTurnRejectedError("semantic_investigation_continuation_mismatched")
-
-
-def _bound_investigation_continuation(
-    request: SemanticTurnRequest,
-) -> BoundInvestigationContinuation | None:
-    continuation = request.investigation_continuation
-    if continuation is None:
-        return None
-    return BoundInvestigationContinuation(
-        source_session_id=continuation.source_session_id,
-        source_turn_id=continuation.source_turn_id,
-        source_turn_sequence=continuation.source_turn_sequence,
-        target_type=continuation.target_type,
-        target_value=continuation.target_value,
-        recovery_measure_concepts=continuation.recovery_measure_concepts,
-        baseline_start=continuation.baseline_start,
-        baseline_end=continuation.baseline_end,
-        initial_observation_cutoff=continuation.initial_observation_cutoff,
-        ontology_release_digest=continuation.ontology_release_digest,
-        principal_manifest_digest=continuation.principal_manifest_digest,
-        source_frame_digest=continuation.source_frame_digest,
-        source_plan_digest=continuation.source_plan_digest,
-        source_execution_receipt_digest=continuation.source_execution_receipt_digest,
-    )
-
-
-def _canonical_incident_id(value: str) -> str:
-    """The evidence function echoes a canonical UUID, so compare against the same form."""
-    try:
-        return str(UUID(value))
-    except ValueError:
-        return value
-
-
 def _project_runtime_result(
     request: SemanticTurnRequest,
     result: RuntimeSemanticTurnResult,
@@ -1478,6 +1330,13 @@ def _project_runtime_result(
     )
     checks_total = len(execution.receipts)
     checks_completed = sum(receipt.status is TaskStatus.COMPLETED for receipt in execution.receipts)
+    candidates_found, candidate_output = project_instance_candidates(request, result, execution)
+    if candidates_found and candidate_output is None:
+        return _evidence_incomplete(
+            request,
+            "instance_candidates_projection_rejected",
+            result=result,
+        ), model_extensions
     rule_search_found, rule_search, rule_search_node_id = _project_rule_search(result, execution)
     if rule_search_found and rule_search is None:
         return _evidence_incomplete(
@@ -1539,6 +1398,7 @@ def _project_runtime_result(
         ontology_relationships=relationships,
         ontology_relationships_node_id=relationships_node_id,
         optional_document_node_ids=optional_document_node_ids,
+        instance_candidate_output=candidate_output,
     )
     if answer is None or technical_details is None:
         return _evidence_incomplete(
@@ -1550,7 +1410,8 @@ def _project_runtime_result(
         disposition=SemanticTurnDisposition.ANSWERED,
         reason_code=(
             "semantic_answer_partial"
-            if optional_document_evidence_degraded(planning, execution)
+            if candidates_found
+            or optional_document_evidence_degraded(planning, execution)
             or _execution_output_incomplete(execution)
             else "semantic_answer_verified"
         ),
@@ -2915,6 +2776,7 @@ def _render_query_answer(
     ontology_relationships: dict[str, object] | None = None,
     ontology_relationships_node_id: tuple[str, ...] | None = None,
     optional_document_node_ids: tuple[str, ...] = (),
+    instance_candidate_output: dict[str, object] | None = None,
 ) -> tuple[str | None, dict[str, object] | None]:
     outputs: list[dict[str, object]] = []
     inventory_document = (
@@ -2979,6 +2841,11 @@ def _render_query_answer(
                     }
                 )
                 projected_rule_search = True
+            elif (
+                instance_candidate_output is not None
+                and node_id == instance_candidate_output["node_id"]
+            ):
+                outputs.append(instance_candidate_output)
             else:
                 return None, None
             continue
@@ -3069,6 +2936,12 @@ def _render_query_answer(
     answer_output_limit = 220_000 if inventory_document else 48_000
     if len(_answer_json(outputs).encode("utf-8")) > answer_output_limit:
         return None, None
+    if instance_candidate_output is not None:
+        if outputs != [instance_candidate_output]:
+            return None, None
+        return render_instance_candidates(
+            request.locale, instance_candidate_output
+        ), technical_details
     answer = (
         _render_incident_answer(request, outputs[0])
         if projected_incident and len(outputs) == 1
@@ -3301,395 +3174,6 @@ def _incident_answer_output(
             "execution_authority": False,
         },
     }
-
-
-def _humanized_gap(gap: str, *, korean: bool) -> str:
-    """Never surface a raw gap key: Markdown reads its underscores as emphasis."""
-    labels = (
-        {
-            "root_cause_missing": "근거에 기반한 근본 원인 가설",
-            "impact_evidence_missing": "영향 근거",
-            "grounded_citations_missing": "근거 인용",
-            "incident_profile_missing": "인시던트 프로파일",
-            "correlated_audit_truncated": "잘리지 않은 감사 기록",
-        }
-        if korean
-        else {
-            "root_cause_missing": "a grounded root-cause hypothesis",
-            "impact_evidence_missing": "impact evidence",
-            "grounded_citations_missing": "grounded citations",
-            "incident_profile_missing": "the incident profile",
-            "correlated_audit_truncated": "untruncated audit records",
-        }
-    )
-    known = labels.get(gap)
-    if known is not None:
-        return known
-    readable = gap.replace("_", " ").strip()
-    return readable or gap
-
-
-_INCIDENT_GAP_NEXT_STEPS: tuple[tuple[str, str, str], ...] = (
-    (
-        "incident_profile_missing",
-        "이 상관관계에 인시던트 레코드가 존재하는지 확인하세요",
-        "confirm an incident record exists for this correlation",
-    ),
-    (
-        "root_cause_missing",
-        "근거 인용이 포함된 RCA 가설이 기록되었는지 확인하세요",
-        "confirm that an RCA hypothesis with grounded citations has been recorded",
-    ),
-    (
-        "impact_evidence_missing",
-        "영향받은 리소스의 영향 근거를 수집하세요",
-        "collect impact evidence for the affected resources",
-    ),
-    (
-        "grounded_citations_missing",
-        "각 주장을 감사 기록에 연결하는 근거 인용을 수집하세요",
-        "collect grounded citations that link each claim to an audit record",
-    ),
-    (
-        "correlated_audit_truncated",
-        "더 높은 레코드 한도로 이 조회를 다시 실행하세요",
-        "re-run this query with a higher record limit",
-    ),
-)
-
-
-def incident_next_step_actions(
-    gaps: Sequence[str],
-    *,
-    korean: bool,
-) -> tuple[str, ...]:
-    """Derive concrete read-only steps from the gaps this answer actually found."""
-    present = set(gaps)
-    return tuple(
-        korean_step if korean else english_step
-        for key, korean_step, english_step in _INCIDENT_GAP_NEXT_STEPS
-        if key in present
-    )
-
-
-def _incident_next_step_text(
-    gaps: Sequence[str],
-    *,
-    korean: bool,
-    root_cause: object = None,
-) -> str:
-    actions = incident_next_step_actions(gaps, korean=korean)
-    if not actions:
-        if (
-            isinstance(root_cause, Mapping)
-            and root_cause.get("next_safe_step") == "configure_notification_route"
-        ):
-            return (
-                "알림 전달을 다시 시도하기 전에 notification registry에 운영 알림 채널을 "
-                "하나 이상 구성하세요."
-                if korean
-                else (
-                    "Before retrying delivery, configure at least one operational-alert channel "
-                    "in the notification registry."
-                )
-            )
-        return (
-            "상관된 감사 근거가 완전합니다. 변경을 제안하기 전에 기록된 활동을 검토하세요."
-            if korean
-            else (
-                "The correlated audit evidence is complete. "
-                "Review the recorded activity before proposing a change."
-            )
-        )
-    if korean:
-        if len(actions) == 1:
-            return f"변경을 제안하기 전에 {actions[0]}."
-        joined = " ".join(f"{action}." for action in actions)
-        return f"변경을 제안하기 전에 다음을 수행하세요. {joined}"
-    joined = actions[0] if len(actions) == 1 else ", ".join(actions[:-1]) + f", and {actions[-1]}"
-    return f"Before proposing a change, {joined}."
-
-
-_INCIDENT_PROFILE_FIELDS: tuple[tuple[str, str, str], ...] = (
-    ("title", "제목", "Title"),
-    ("severity", "심각도", "Severity"),
-    ("status", "상태", "Status"),
-    ("vertical", "버티컬", "Vertical"),
-    ("opened_at", "최초 기록", "First recorded"),
-    ("last_updated_at", "최종 기록", "Last recorded"),
-    ("actors", "관여 주체", "Actors"),
-)
-_INCIDENT_TIMELINE_ROWS = 10
-
-
-def _incident_scalar(value: object) -> str | None:
-    """Render one profile cell without inventing a value for a missing field."""
-    if isinstance(value, str):
-        stripped = value.strip()
-        return stripped or None
-    if isinstance(value, bool) or value is None:
-        return None
-    if isinstance(value, int | float):
-        return str(value)
-    if isinstance(value, list | tuple):
-        parts = [item for item in (_incident_scalar(entry) for entry in value) if item]
-        return ", ".join(parts) or None
-    return None
-
-
-def incident_profile_facts(
-    profile: object,
-    *,
-    korean: bool,
-) -> tuple[tuple[str, str], ...]:
-    """Surface every populated profile field the audit projection already carries."""
-    if not isinstance(profile, Mapping):
-        return ()
-    facts: list[tuple[str, str]] = []
-    for key, korean_label, english_label in _INCIDENT_PROFILE_FIELDS:
-        rendered = _incident_scalar(profile.get(key))
-        if rendered is not None:
-            facts.append((korean_label if korean else english_label, rendered))
-    return tuple(facts)
-
-
-def incident_timeline_rows(evidence: object) -> tuple[Mapping[str, str], ...]:
-    """Return the most recent bounded audit records in ascending recorded order."""
-    if not isinstance(evidence, list):
-        return ()
-    rows: list[Mapping[str, str]] = []
-    for entry in evidence[-_INCIDENT_TIMELINE_ROWS:]:
-        if not isinstance(entry, Mapping):
-            continue
-        recorded_at = _incident_scalar(entry.get("recorded_at"))
-        audit_ref = _incident_scalar(entry.get("audit_ref"))
-        if recorded_at is None or audit_ref is None:
-            continue
-        rows.append(
-            {
-                "recorded_at": recorded_at,
-                "actor": _incident_scalar(entry.get("actor")) or "-",
-                "action_kind": _incident_scalar(entry.get("action_kind")) or "-",
-                "mode": _incident_scalar(entry.get("mode")) or "-",
-                "audit_ref": audit_ref,
-            }
-        )
-    return tuple(rows)
-
-
-def _incident_timeline_markdown(
-    rows: tuple[Mapping[str, str], ...],
-    *,
-    korean: bool,
-) -> str:
-    if not rows:
-        return ""
-    header = (
-        "| 기록 시각 | 주체 | 활동 | 모드 | 감사 참조 |"
-        if korean
-        else "| Recorded | Actor | Activity | Mode | Audit ref |"
-    )
-    lines = [header, "| --- | --- | --- | --- | --- |"]
-    lines.extend(
-        f"| {row['recorded_at']} | {row['actor']} | {row['action_kind']} "
-        f"| {row['mode']} | `{row['audit_ref']}` |"
-        for row in rows
-    )
-    return "\n".join(lines)
-
-
-def _incident_rca_markdown(
-    root_cause: object,
-    impacts: object,
-    citations: object,
-    *,
-    korean: bool,
-) -> str:
-    sections: list[str] = []
-    if isinstance(root_cause, Mapping):
-        cause = _incident_scalar(root_cause.get("cause"))
-        if cause is not None:
-            tier = _incident_scalar(root_cause.get("tier")) or "-"
-            confidence = _incident_scalar(root_cause.get("confidence")) or "-"
-            lines = [
-                f"- {'원인' if korean else 'Cause'}: {cause}",
-                f"- {'티어' if korean else 'Tier'}: {tier}",
-                f"- {'신뢰도' if korean else 'Confidence'}: {confidence}",
-            ]
-            reason = _incident_scalar(root_cause.get("reason"))
-            recorded_at = _incident_scalar(root_cause.get("recorded_at"))
-            if reason is not None:
-                lines.append(f"- {'근거' if korean else 'Reason'}: {reason}")
-            if recorded_at is not None:
-                lines.append(f"- {'기록 시각' if korean else 'Recorded'}: {recorded_at}")
-            sections.append(f"## {'근본 원인' if korean else 'Root cause'}\n\n" + "\n".join(lines))
-    impact_rows = impacts if isinstance(impacts, list) else []
-    if impact_rows:
-        header = (
-            "| 메트릭 | 기준 | 관측 | 임계값 | 단위 | 영향 | 근거 |"
-            if korean
-            else "| Metric | Baseline | Observed | Threshold | Unit | Impact | Evidence |"
-        )
-        lines = [header, "| --- | --- | --- | --- | --- | --- | --- |"]
-        for row in impact_rows[:20]:
-            if not isinstance(row, Mapping):
-                continue
-            values = [
-                _incident_markdown_cell(row.get(key))
-                for key in (
-                    "metric",
-                    "baseline",
-                    "observed",
-                    "threshold",
-                    "unit",
-                    "impact",
-                    "evidence_ref",
-                )
-            ]
-            lines.append("| " + " | ".join(values) + " |")
-        sections.append(f"## {'영향 근거' if korean else 'Impact evidence'}\n\n" + "\n".join(lines))
-    citation_rows = citations if isinstance(citations, list) else []
-    if citation_rows:
-        header = (
-            "| 티어 | 종류 | 참조 | 요약 | 기록 시각 |"
-            if korean
-            else "| Tier | Kind | Reference | Summary | Recorded |"
-        )
-        lines = [header, "| --- | --- | --- | --- | --- |"]
-        for row in citation_rows[:20]:
-            if not isinstance(row, Mapping):
-                continue
-            values = [
-                _incident_markdown_cell(row.get(key))
-                for key in ("tier", "kind", "ref", "summary", "recorded_at")
-            ]
-            lines.append("| " + " | ".join(values) + " |")
-        sections.append(
-            f"## {'근거 인용' if korean else 'Grounded citations'}\n\n" + "\n".join(lines)
-        )
-    return "\n\n".join(sections)
-
-
-def _incident_markdown_cell(value: object) -> str:
-    rendered = _incident_scalar(value) or "-"
-    return rendered.replace("|", "\\|").replace("\n", " ")
-
-
-def _incident_profile_lines(
-    facts: tuple[tuple[str, str], ...],
-    profile: object,
-    *,
-    korean: bool,
-) -> str:
-    """An absent profile, an unrecorded status, and a reported status are three answers.
-
-    Populated fields are listed, but silence about status would read as absence of
-    trouble, so an unrecorded status is still stated even when other fields render.
-    """
-    lines = "".join(f"- {label}: {value}\n" for label, value in facts)
-    if profile is None:
-        return lines + (
-            "- 인시던트 프로파일이 없어 상태를 보고할 수 없습니다.\n"
-            if korean
-            else "- Status can't be reported because the incident profile is missing.\n"
-        )
-    status = profile.get("status") if isinstance(profile, Mapping) else None
-    if _incident_scalar(status) is None:
-        return lines + (
-            "- 조회한 감사 기록에 인시던트 상태가 없습니다.\n"
-            if korean
-            else "- The audit records read for this incident record no status.\n"
-        )
-    return lines
-
-
-def _render_incident_answer(
-    request: SemanticTurnRequest,
-    output: Mapping[str, object],
-) -> str:
-    evidence = output.get("correlated_evidence")
-    profile = output.get("incident_profile")
-    root_cause = output.get("root_cause")
-    gaps = output.get("evidence_gaps")
-    shown = len(evidence) if isinstance(evidence, list) else 0
-    verified = output.get("verified_records")
-    evidence_count = (
-        verified if isinstance(verified, int) and not isinstance(verified, bool) else shown
-    )
-    gap_values = (
-        tuple(item for item in gaps if isinstance(item, str)) if isinstance(gaps, list) else ()
-    )
-    korean = request.locale.casefold().startswith("ko")
-    facts = incident_profile_facts(profile, korean=korean)
-    timeline = _incident_timeline_markdown(incident_timeline_rows(evidence), korean=korean)
-    timeline_truncated = shown > _INCIDENT_TIMELINE_ROWS
-    missing = ", ".join(_humanized_gap(gap, korean=korean) for gap in gap_values) or (
-        "없음" if korean else "none"
-    )
-    if korean:
-        found = (
-            f"- 상관관계가 있는 감사 기록 {evidence_count}건을 검증했습니다.\n"
-            if evidence_count
-            else "- 이 상관관계로 조회한 감사 기록이 없습니다.\n"
-        )
-        if shown < evidence_count:
-            found += f"- 아래에는 가장 최근 {shown}건만 담겨 있습니다.\n"
-        found += _incident_profile_lines(facts, profile, korean=True)
-        timeline_section = (
-            "## 기록된 활동\n\n"
-            + timeline
-            + (
-                f"\n\n표에는 가장 최근 {_INCIDENT_TIMELINE_ROWS}건만 담았습니다. "
-                f"담긴 {shown}건 전체는 기술 상세에 있습니다.\n\n"
-                if timeline_truncated
-                else "\n\n"
-            )
-            if timeline
-            else ""
-        )
-        return (
-            "## 검증된 인시던트 근거\n\n"
-            f"{found}\n"
-            f"{timeline_section}"
-            "## 제한 사항\n\n"
-            f"- 누락된 근거: {missing}\n\n"
-            "## 다음 안전 단계\n\n"
-            "- ACTION_DRAFT 후보: "
-            f"{_incident_next_step_text(gap_values, korean=True, root_cause=root_cause)}\n\n"
-            "이 결과는 읽기 전용이며 실행 권한을 부여하지 않습니다."
-        )
-    evidence_label = "record was" if evidence_count == 1 else "records were"
-    found = (
-        f"- {evidence_count} correlated audit {evidence_label} verified.\n"
-        if evidence_count
-        else "- No audit record was found for this correlation.\n"
-    )
-    if shown < evidence_count:
-        found += f"- Only the most recent {shown} are carried below.\n"
-    found += _incident_profile_lines(facts, profile, korean=False)
-    timeline_section = (
-        "## Recorded activity\n\n"
-        + timeline
-        + (
-            f"\n\nThe table lists only the most recent {_INCIDENT_TIMELINE_ROWS} records. "
-            f"All {shown} carried records are in technical details.\n\n"
-            if timeline_truncated
-            else "\n\n"
-        )
-        if timeline
-        else ""
-    )
-    return (
-        "## Verified incident evidence\n\n"
-        f"{found}\n"
-        f"{timeline_section}"
-        "## Limitations\n\n"
-        f"- Missing evidence: {missing}\n\n"
-        "## Next safe step\n\n"
-        "- Candidate ACTION_DRAFT: "
-        f"{_incident_next_step_text(gap_values, korean=False, root_cause=root_cause)}\n\n"
-        "This result is read-only and grants no execution authority."
-    )
 
 
 def _render_general_query_answer(
@@ -6452,12 +5936,6 @@ def _validate_pantheon_assurance_result(result: Mapping[str, object]) -> None:
         or result.get("execution_authority") is not False
     ):
         raise ValueError("Pantheon conversation assurance result is malformed")
-
-
-def _aware_utc(value: datetime, *, field: str) -> datetime:
-    if value.tzinfo is None or value.utcoffset() is None:
-        raise SemanticTurnRejectedError(f"{field.replace(' ', '_')}_invalid")
-    return value.astimezone(UTC)
 
 
 __all__ = [

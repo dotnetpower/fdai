@@ -7,16 +7,22 @@ import hashlib
 import json
 import logging
 import re
+import socket
 from collections.abc import AsyncIterator, Awaitable, Callable, Iterator, Mapping
+from dataclasses import asdict
 from itertools import islice
 from pathlib import Path
 from typing import Any
+
+import httpx
 
 from fdai.delivery.azure.inventory_redaction import redact_runtime_environment
 from fdai.delivery.inventory_sync_models import PromotedInventoryObservation
 from fdai.shared.providers.inventory import InventoryBatch, ResourceRecord
 from fdai.shared.providers.inventory_snapshot import (
+    InventoryAttemptFailure,
     InventoryCoverageManifest,
+    InventoryFailureCode,
     InventorySnapshotStore,
     InventorySource,
     InventorySyncResult,
@@ -37,6 +43,78 @@ class InventoryPromotionObserverError(RuntimeError):
 
 class InventoryStreamError(RuntimeError):
     """An inventory stream violated its atomic-fence contract."""
+
+
+class NormalizedCollectionBudget:
+    """Bound retained normalized records, independent from transport and process RSS."""
+
+    def __init__(self) -> None:
+        self.byte_count = 0
+
+    def consume(self, batch: InventoryBatch | PromotedInventoryObservation) -> None:
+        encoder = json.JSONEncoder(ensure_ascii=True, separators=(",", ":"), default=str)
+        for records in (batch.resources, batch.links, batch.relationship_drops):
+            for record in records:
+                for part in encoder.iterencode(asdict(record)):
+                    self.byte_count += len(part)
+                    if self.byte_count > MAX_COLLECTION_BYTES:
+                        raise InventoryStreamError(
+                            "inventory normalized generation exceeds its byte bound"
+                        )
+
+
+def classify_inventory_failure(exc: Exception) -> InventoryAttemptFailure:
+    """Map transport and contract failures to a bounded, secret-free code."""
+    message = type(exc).__name__
+    code = InventoryFailureCode.SOURCE_UNAVAILABLE
+    internal_reason = _internal_inventory_failure_reason(exc)
+    if internal_reason is not None:
+        return InventoryAttemptFailure(
+            code=InventoryFailureCode.INVALID_DATA, message=internal_reason
+        )
+    if isinstance(exc, InventoryStreamError):
+        code = InventoryFailureCode.PARTIAL
+        message = str(exc)
+    elif isinstance(exc, (httpx.ConnectTimeout, httpx.ConnectError)):
+        code = (
+            InventoryFailureCode.DNS_FAILED
+            if isinstance(exc.__cause__, socket.gaierror)
+            else InventoryFailureCode.NETWORK_BLOCKED
+        )
+    else:
+        text = str(exc).lower()
+        if "http 401" in text or "identity token request failed" in text:
+            code = InventoryFailureCode.TOKEN_FAILED
+        elif "http 403" in text or "forbidden" in text:
+            code = InventoryFailureCode.FORBIDDEN
+        elif "http 429" in text or "throttl" in text:
+            code = InventoryFailureCode.THROTTLED
+        elif any(
+            reason in text for reason in ("pagination cap", "partial", "truncated", "continuation")
+        ):
+            code = InventoryFailureCode.PARTIAL
+        elif isinstance(exc, (ValueError, TypeError)):
+            code = InventoryFailureCode.INVALID_DATA
+    return InventoryAttemptFailure(code=code, message=message[:200])
+
+
+def _internal_inventory_failure_reason(exc: Exception) -> str | None:
+    text = str(exc)
+    exact = {
+        "inventory candidate contains a link with a missing endpoint": (
+            "dangling_relationship_endpoint"
+        ),
+        "inventory candidate violates contains parent cardinality": "ambiguous_containment_parent",
+    }
+    if reason := exact.get(text):
+        return reason
+    if (
+        isinstance(exc, RuntimeError)
+        and text.startswith("inventory resource ")
+        and text.endswith(" has conflicting duplicates")
+    ):
+        return "conflicting_resource_duplicate"
+    return None
 
 
 async def close_inventory_stream(

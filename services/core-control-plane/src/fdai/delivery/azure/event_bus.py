@@ -40,6 +40,7 @@ _LOGGER = logging.getLogger(__name__)
 _AIOKAFKA_CONNECTION_LOGGER = logging.getLogger("aiokafka.conn")
 _CONSUMER_STOP_TIMEOUT_SECONDS: Final[float] = 5.0
 _CONSUMER_PROGRESS_INTERVAL_SECONDS: Final[float] = 60.0
+_CONSUMER_INITIAL_PROGRESS_SECONDS: Final[float] = 1.0
 
 
 def _default_ssl_context() -> ssl.SSLContext:
@@ -494,8 +495,9 @@ async def _monitor_consumer_progress(
     """Export broker-backed lag even while downstream processing is stalled."""
     last_end_offsets: dict[TopicPartition, int] = {}
     last_lags: dict[TopicPartition, int | None] = {}
+    delay_seconds = min(_CONSUMER_INITIAL_PROGRESS_SECONDS, interval_seconds)
     while True:
-        await asyncio.sleep(interval_seconds)
+        await asyncio.sleep(delay_seconds)
         try:
             async with asyncio.timeout(interval_seconds):
                 partitions = tuple(
@@ -503,6 +505,7 @@ async def _monitor_consumer_progress(
                 )
                 if not partitions:
                     continue
+                delay_seconds = interval_seconds
                 end_offsets = await consumer.end_offsets(partitions)
                 for topic_partition in partitions:
                     highwater_offset = end_offsets.get(topic_partition)

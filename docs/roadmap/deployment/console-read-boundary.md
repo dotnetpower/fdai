@@ -27,6 +27,7 @@ read-only, without giving the Operator API an executor identity.
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-21 | implemented | Moved the complete read-source declaration registry and route-family assembly behind focused Operator composition modules while preserving facade imports and conservative availability semantics. | `current change`; ten focused data-source tests and 120 full composition tests passed with one optional PDF skip; Ruff, strict mypy, and Operator boundary checks passed. | No read-source or authority work remains for this internal ownership split. |
 | 2026-09-14 | implemented | Isolated the Browser Entra ontology-assurance stack from ambient CLI-auth preparation by clearing both API and Vite pairs before starting its Operator and Console processes. | `current change`; `run_ontology_assurance.py`; focused assurance process-spec regression. | Repeat the independent integrated critique. |
 | 2026-09-14 | implemented | Made the live-E2E frontend clear both Vite CLI-principal values, matching the API launcher, and replaced removed legacy-module examples with supported launchers. | `current change`; `playwright.live.config.ts`; focused live-E2E config test; documentation checks. | Repeat the independent integrated critique. |
 | 2026-09-14 | implemented | Made the authenticated live-E2E Operator launcher clear both CLI-principal values before building its Browser Entra test application. A CLI-prepared local environment can no longer break live-E2E startup through a leftover confirmation value. | `current change`; `console/tests/live-e2e/operator_service.py`; focused launcher parse regression. | Repeat the independent integrated critique. |
@@ -73,6 +74,10 @@ read-only, without giving the Operator API an executor identity.
 The Console resolves a declared server-owned source before each optional read. Missing or
 unauthorized evidence stays unavailable, while local and deployed profiles apply the same bounds
 and preserve the same read-only authority.
+
+The complete source registry now has one focused composition owner, while route-family assembly
+has another. The production facade keeps authentication, bridge wiring, and readiness. Existing
+imports, availability values, durable-source claims, and the no-executor boundary stay unchanged.
 
 ## Source declarations
 

@@ -119,7 +119,7 @@
     "error": "Projection 오류"
   },
   "attention": {"ariaLabel": "운영자 주의 항목 분류", "label": "주의 필요", "approvals": "승인 대기 {count}건", "denied": "거부 {count}건", "failed": "실패 {count}건", "stuck": "지연 {count}건", "approvalTitle": "승인을 기다리는 고위험 작업", "deniedTitle": "위험 게이트가 거부한 작업입니다. 정책 근거를 확인하세요.", "failedTitle": "제어 루프 단계가 실패했습니다. 기록된 감사 항목을 확인하세요.", "stuckTitle": "컨트롤 플레인이 게시한 지연 예산을 초과한 항목입니다.", "openApprovals": "승인 열기", "none": "현재 주의가 필요한 제어 루프 작업이 없습니다.", "unavailable": "실시간 주의 항목을 확인할 수 없습니다. 기록된 결과는 이력에 남아 있습니다."},
-  "kpi": {"events": "초당 이벤트", "average": "/초 - 60초 평균", "messagesHelp": "최근 60초 SSE 활동 메시지 - 중복 제외", "partial": "일부 측정이 제외된 불완전한 구간", "noGate": "관측된 게이트 결정 없음", "noTier": "관측된 티어 배정 없음", "controlOnly": "제어 루프 전용이며 소스 읽기는 분류하지 않습니다.", "gateMix": "게이트 구성 (60초)", "auto": "자동", "tierMix": "티어 구성 (60초)", "finalized": "관측된 결정 {count}건", "routed": "라우팅 이벤트 {count}건", "emptyTitle": "최근 60초 동안 제어 루프 이벤트 0건", "emptyDetail": "측정된 빈 구간에는 게이트 또는 티어 분포가 없습니다.", "tierLabel": {"t0": "결정론적", "t1": "근거 기반", "t2": "적응형"}},
+  "kpi": {"events": "초당 이벤트", "average": "/초 - 60초 평균", "messagesHelp": "최근 60초 SSE 활동 메시지 - 중복 제외", "partial": "일부 측정이 제외된 불완전한 구간", "noGate": "현재 게이트 결정 없음", "noTier": "현재 티어 배정 없음", "controlOnly": "현재 제어 루프 카드만 집계하며 소스 읽기는 분류하지 않습니다.", "gateMix": "게이트 구성 (현재)", "auto": "자동", "tierMix": "티어 구성 (현재)", "finalized": "현재 결정 {count}건", "routed": "현재 라우팅 이벤트 {count}건", "emptyTitle": "최근 60초 동안 제어 루프 이벤트 0건", "emptyDetail": "측정된 빈 구간에는 게이트 또는 티어 분포가 없습니다.", "tierLabel": {"t0": "결정론적", "t1": "근거 기반", "t2": "적응형"}},
   "decision": {"auto": "자동", "hil": "승인", "abstain": "보류", "deny": "거부"},
   "work": {
     "fullscreen": "활동 전체화면 보기",
@@ -143,6 +143,9 @@
     "target": "합성 결제 용량 VM 1대",
     "authorityLabel": "권한",
     "authority": "실행별 사람 승인",
+    "tierCohortLabel": "합성 티어 코호트",
+    "tierCohortSize": "생성 이벤트 {count}건",
+    "tierCohortBoundary": "표시 전용 분포입니다. Live 라우팅을 변경하거나 운영 근거를 만들지 않습니다.",
     "boundary": "합성 설명용 흐름입니다. 실제 Azure 작업이나 측정된 비즈니스 성과를 주장하지 않습니다.",
     "inspect": "전체 상관관계 확인",
     "steps": {

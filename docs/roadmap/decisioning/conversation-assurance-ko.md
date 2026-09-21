@@ -1,7 +1,7 @@
 ---
 translation_of: conversation-assurance.md
-translation_source_sha: b9864ae5d39284901b32efcbbea089796b10fd4c
-translation_revised: 2026-09-20
+translation_source_sha: e3c0fcff6db4461f7907c627cfe0b6ac74727394
+translation_revised: 2026-09-21
 ---
 # 대화 품질 보증
 
@@ -17,6 +17,9 @@ translation_revised: 2026-09-20
 Bragi는 최종 턴을 저장합니다. Norns는 응답 경로 밖에서 이를 평가하고, Saga는 각 평가와
 정책 전환을 기록하며, Mimir는 고정 루브릭을 관리합니다. 이 루프는 RBAC, 승인, 위험, 정책,
 에이전트 역할 또는 실행기 권한을 변경할 수 없습니다.
+로컬 캠페인 CLI는 명령과 상태 조정을 파사드에 유지하고, 목적별 모듈은 범위가 제한된 Operator
+응답 해석과 비공개 보고를 소유합니다. 이 분리는 보증 게이트, 자격 결과, 보존 콘텐츠 정책 또는
+권한을 바꾸지 않습니다.
 
 ![설계 요약. 주요 단계는 최종 turn, 결정론적 검사, 평가 원장, 독립 평가자 A, 독립 평가자 B, 결정론적 reducer, 독립 중재자, Norns 실패 군집화, 제한된 정책 후보, 블라인드 이중 언어 재실행, shadow 및 canary, 자동 승격입니다.](../../diagrams/generated/fdai-roadmap-decisioning-conversation-assurance-01.ko.svg)
 

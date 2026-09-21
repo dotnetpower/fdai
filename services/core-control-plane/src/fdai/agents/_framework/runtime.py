@@ -135,6 +135,7 @@ class PantheonRuntime:
         rule_generation_workers: runtime_subscriptions.RuleGenerationWorkerBindings | None = None,
         rule_generation_activation_binder: RuleGenerationActivationBinder | None = None,
         rule_generation_state_store: StateStore | None = None,
+        context_index_workers: runtime_subscriptions.ContextIndexWorkerBindings | None = None,
         disabled_agents: frozenset[str] | None = None,
         divergence: ShadowDivergenceLedger | None = None,
         kpi_collector: KpiCollector | None = None,
@@ -355,9 +356,7 @@ class PantheonRuntime:
                 human_access_bound=human_access_bound,
             )
 
-        # Disabled agents are neither bound nor subscribed; their owned topics stay idle.
         agents = {n: a for n, a in instantiated.items() if n not in disabled}
-
         for agent in agents.values():
             agent.bind_bus(bridge)
 
@@ -368,6 +367,7 @@ class PantheonRuntime:
             rule_generation_workers=rule_generation_workers,
             rule_generation_activation_binder=rule_generation_activation_binder,
             rule_generation_state_store=rule_generation_state_store,
+            context_index_workers=context_index_workers,
             human_access=assignment_workflow.human_access
             if assignment_workflow is not None
             else None,

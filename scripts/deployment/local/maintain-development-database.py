@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import os
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any
 
 import psycopg
@@ -13,7 +14,7 @@ from psycopg import sql
 from psycopg.conninfo import conninfo_to_dict, make_conninfo
 
 _DEFAULT_MAX_BYTES = 1024 * 1024 * 1024
-_MIN_MAX_BYTES = 256 * 1024 * 1024
+_MIN_MAX_BYTES = 64 * 1024 * 1024
 _LOOPBACK_HOSTS = frozenset({"127.0.0.1", "::1", "localhost"})
 
 
@@ -59,7 +60,18 @@ def _parser() -> argparse.ArgumentParser:
         action="store_true",
         help="return nonzero when the database exceeds its recreation threshold",
     )
+    parser.add_argument(
+        "--recreated-marker",
+        type=Path,
+        help="retain a private marker until matching local broker state is reset",
+    )
     return parser
+
+
+def _write_recreated_marker(path: Path) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text("database_recreated\n", encoding="ascii")
+    path.chmod(0o600)
 
 
 def main() -> int:
@@ -85,6 +97,8 @@ def main() -> int:
             raise RuntimeError(
                 "local database exceeds its size bound; stop local services before preparation"
             )
+        if args.recreated_marker is not None:
+            _write_recreated_marker(args.recreated_marker)
         connection.execute(sql.SQL("DROP DATABASE {}").format(sql.Identifier(target.database)))
         connection.execute(
             sql.SQL("CREATE DATABASE {} OWNER {}").format(

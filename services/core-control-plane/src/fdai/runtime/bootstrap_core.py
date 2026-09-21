@@ -169,6 +169,7 @@ class CoreRuntime:
             runtime_settings=self.runtime_settings,
             discovery_activation=self.discovery_activation,
             semantic_turn_binding=self.semantic.semantic_turn_binding,
+            ontology_index_runtime=self.semantic.ontology_index_runtime,
             t1_mini_probe=self.semantic.t1_mini_probe,
             alert_noise_handler=self.pantheon.alert_noise_handler,
             divergence_ledger=self.pantheon.divergence_ledger,
@@ -563,10 +564,8 @@ async def build_core_runtime(
             extra={"reason": "artifact_resolver_and_observation_verifier_absent"},
         )
     catalog_projection_result = await project_catalog_ontology(control_loop)
-    # One deployment-wide lock provider serializes every operating-model manifest
-    # read, interrupted-apply recovery, and projection - startup included - so a
-    # concurrently starting replica never reads another replica's in-flight
-    # ``applying`` manifest as an interrupted apply and deletes its subgraph.
+    # Serialize manifest reads, recovery, and projection across startup replicas;
+    # another replica's in-flight apply must never trigger recovery deletion.
     operating_model_lock = _build_resource_lock(environment)
     operating_model_result = await project_initial_operating_model_from_env(
         store=control_loop.ontology_instance_store,
@@ -702,6 +701,7 @@ async def build_core_runtime(
             control_loop=control_loop,
             rule_generation_reconciliation=semantic.rule_generation_reconciliation,
             rule_generation_binding=semantic.rule_generation_binding,
+            context_index_workers=semantic.context_index_workers,
             open_incident_candidate=incident_runtime.open_incident_candidate,
             resolve_verified_incident=incident_runtime.resolve_verified_incident,
             read_investigation_hook=semantic.read_investigation_hook,

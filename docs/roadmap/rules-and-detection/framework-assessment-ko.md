@@ -1,8 +1,8 @@
 ---
 title: WAF 및 CAF 근거 기반 평가
 translation_of: framework-assessment.md
-translation_source_sha: d446ca506270edb70d138ed721061721249c6fb2
-translation_revised: 2026-09-17
+translation_source_sha: bdf4c8b7b57e0a1346925efffa7a80b0a75227de
+translation_revised: 2026-09-21
 ---
 # WAF 및 CAF 근거 기반 평가
 
@@ -38,6 +38,8 @@ Framework(CAF) 카탈로그를 범위에 결합되고 재현 가능한 shadow �
 않습니다. 세대 경계를 확인하는 런타임 호출 관계 디코더도 두 평가 계열의 범위 밖에 있으며 평가
 근거에 기여할 수 없습니다. 공유 원본 상태 디코더는 정식 기계 토큰 사유만 허용하며 principal
 텍스트나 프로바이더 세부 정보를 어떤 Operator 계열에도 전달할 수 없습니다.
+변경 불가능한 레코드, 행 변환 및 이러한 근거 디코더는 별도의 내부 모듈입니다. 이 분리는 WAF
+또는 CAF 조회, 변환 결과, 근거, 재생 또는 권한 계약을 바꾸지 않습니다.
 공유 인증기는 범위가 제한된 검증 사용자명을 IAM 표시 변환 결과에만 전달할 수 있습니다. 이
 값은 WAF 또는 CAF 신원, 근거 수락, 재현 또는 결과에 들어가지 않습니다.
 공유 Operator 보낼 편지함 수명 주기 facade는 Incident 개입 작업자도 감독할 수 있습니다. 해당
@@ -210,6 +212,10 @@ WAF는 기존 Controls 보기에 유지합니다. CAF는 동일하게 차분한 
 공유 로컬 카탈로그 materializer는 프레임워크 변환 결과와 온톨로지 근거 상태를 분리합니다.
 활성 인벤토리와 온톨로지 변환 결과의 세대가 다르면 서로 다른 세대의 시각이나 개수를 카탈로그
 집합에 결합하지 않고 명시적인 사용 불가 근거를 게시합니다.
+Rule, 프레임워크, 온톨로지, workflow, stewardship 변환 결과를 용도별 모듈에서 만든 뒤 전체
+projection 집합을 PostgreSQL transaction 하나로 게시합니다. 쓰기 하나가 실패하면 새 세대는
+아무것도 게시하지 않습니다. 참조한 policy와 remediation 텍스트는 크기를 제한하고 유효한
+UTF-8이어야 합니다. 유효하지 않은 내용은 replacement 문자로 projection에 넣지 않고 materialization을 실패시킵니다.
 저장소의 매핑 문서는 사용 가능한 경우 PyYAML의 컴파일된 안전 로더로 읽으며, 없으면 Python
 안전 로더를 사용합니다. 매번 현재 파일을 읽고 최상위 매핑과 타입이 지정된 카탈로그 검증을
 유지하며 안전하지 않은 YAML 태그를 거부합니다. 파싱 속도 개선은 근거나 권한을 부여하지 않습니다.

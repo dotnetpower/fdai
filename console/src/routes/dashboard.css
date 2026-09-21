@@ -22,7 +22,28 @@
   padding-bottom: 0;
   border: 0;
 }
-.overview-essential .page-header-actions .btn { min-height: 44px; }
+.overview-essential .overview-resource-dashboard-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 44px;
+  padding-inline: 14px;
+  color: var(--overview-steel);
+  border-color: color-mix(in srgb, var(--overview-steel) 34%, var(--overview-border));
+  background: color-mix(in srgb, var(--overview-steel) 5%, var(--overview-card));
+  font-weight: 600;
+  text-decoration: none;
+}
+.overview-essential .overview-resource-dashboard-link:hover {
+  background: color-mix(in srgb, var(--overview-steel) 10%, var(--overview-card));
+}
+.overview-essential .overview-resource-dashboard-link > svg {
+  flex: 0 0 auto;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.5;
+}
 .overview-essential .overview-report,
 .overview-essential .overview-skeleton-content {
   display: grid;
@@ -273,7 +294,7 @@
   .overview-metrics.is-summary > .overview-evidence-row + .overview-evidence-row { border-top: 1px solid var(--overview-border); }
   .overview-essential > .page-header { flex-direction: column; align-items: stretch; }
   .overview-essential .page-header-actions { min-width: 0; }
-  .overview-essential .page-header-actions .btn { white-space: normal; }
+  .overview-essential .overview-resource-dashboard-link { width: 100%; white-space: normal; }
   .overview-essential .overview-attention-cards,
   .overview-essential .overview-verticals,
   .overview-essential .overview-skeleton-grid.is-attention,

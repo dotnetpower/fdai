@@ -27,6 +27,7 @@ from fdai.runtime.bootstrap_bindings import (
 from fdai.runtime.bootstrap_incidents import IncidentNotificationReplayWorker
 from fdai.runtime.case_history import CaseHistoryRetentionTickPublisher
 from fdai.runtime.discovery_activation import DiscoveryActivationRuntime
+from fdai.runtime.ontology_index_runtime import OntologyIndexRuntime
 from fdai.runtime.readiness import StartupReadinessRuntime
 from fdai.runtime.rule_generation_documents import RuleGenerationReconciliation
 from fdai.shared.providers.event_bus import EventBus
@@ -83,6 +84,7 @@ class RuntimeTaskConfiguration:
     human_access_reconciliation: Any = None
     t1_mini_probe: T1MiniProbe | None = None
     alert_noise_handler: Any = None
+    ontology_index_runtime: OntologyIndexRuntime | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -105,6 +107,21 @@ class RuntimeTaskHooks:
     log_rule_generation_outbox_exit: Any
     publish_rule_generation_reconciliation: Any
     supervise_runtime_tasks: Any
+
+
+def schedule_ontology_index_reconciliation(
+    *,
+    binding: OntologyIndexRuntime | None,
+    runtime: PantheonRuntime | None,
+    readiness: StartupReadinessRuntime,
+    stop: asyncio.Event,
+) -> asyncio.Task[None] | None:
+    if binding is None or runtime is None:
+        return None
+    return asyncio.create_task(
+        readiness.run_when_ready(stop, lambda: binding.run(runtime, stop)),
+        name="ontology-instance-index-reconciliation",
+    )
 
 
 def schedule_semantic_turn_consumer(
@@ -584,6 +601,12 @@ async def run_runtime_tasks(
         if config.assignment_intake_consumer is not None
         else None
     )
+    ontology_index_task = schedule_ontology_index_reconciliation(
+        binding=config.ontology_index_runtime,
+        runtime=config.pantheon_runtime,
+        readiness=config.readiness,
+        stop=config.stop,
+    )
     await hooks.supervise_runtime_tasks(
         required=(
             (
@@ -633,6 +656,7 @@ async def run_runtime_tasks(
             assignment_intake_task,
         ),
         background=(
+            ontology_index_task,
             pantheon_task,
             agent_introspection_task,
             runtime_state_task,

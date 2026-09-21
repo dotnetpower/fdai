@@ -10,12 +10,10 @@ from dataclasses import dataclass, replace
 from datetime import UTC, datetime
 from typing import Protocol
 
-import httpx
 from fdai_service_contracts import (
     AgentActivityQuery,
     OperatorReadModel,
     OperatorTokenVerifier,
-    ReadDataSource,
 )
 from fdai_service_contracts.venue import (
     bus_security_protocol,
@@ -29,7 +27,6 @@ from fdai_operator_service.adapters import (
     LiveStageKafkaRelay,
     OperatorSemanticKafkaBus,
     OperatorSemanticKafkaConfig,
-    StartupOwnedLocalAzureNarratorAdapters,
     create_workload_credential,
 )
 from fdai_operator_service.adapters.narrator_periodic_scheduler import (
@@ -49,20 +46,29 @@ from fdai_operator_service.azure_monitor_webhook_runtime import AzureMonitorWebh
 from fdai_operator_service.background_task_projection_runtime import (
     BackgroundTaskProjectionBridge,
 )
-from fdai_operator_service.context_selection import ContextSelectionRegistry
-from fdai_operator_service.contracts import ApplicationLifecycle, ReadinessProbe
-from fdai_operator_service.conversation_assurance_reader import (
-    ConversationAssuranceReader,
-    ConversationAssuranceReaderConfig,
+from fdai_operator_service.composition_data_sources import _build_data_sources
+from fdai_operator_service.composition_lifecycle import (
+    CompositeLifecycle as _CompositeLifecycle,
 )
+from fdai_operator_service.composition_lifecycle import (
+    OwnedHttpClient as _OwnedHttpClient,
+)
+from fdai_operator_service.composition_lifecycle import (
+    application_lifecycle as _application_lifecycle,
+)
+from fdai_operator_service.composition_lifecycle import (
+    compose_application_lifecycle,
+)
+from fdai_operator_service.composition_routes import (
+    COST_PSEUDONYM_KEY_ENV,
+    REFERENCE_PANEL_ROUTES,
+    WEBHOOK_SIGNING_SECRET_ENV,
+    _build_route_families,
+)
+from fdai_operator_service.context_selection import ContextSelectionRegistry
+from fdai_operator_service.contracts import ReadinessProbe
 from fdai_operator_service.environment import (
     OperatorEnvironment,
-)
-from fdai_operator_service.families.conversation import (
-    ConversationFamilyDependencies,
-)
-from fdai_operator_service.families.conversation.document_export import (
-    ConversationDocumentExporter,
 )
 from fdai_operator_service.families.conversation.semantic_turn import SemanticTurnEnvelopeBuilder
 from fdai_operator_service.families.conversation.semantic_turn_runtime import (
@@ -71,31 +77,10 @@ from fdai_operator_service.families.conversation.semantic_turn_runtime import (
     DialogueRelationshipResolver,
     RuntimeCallEndpointObserver,
     SemanticTurnBridge,
-    SemanticTurnConversationAdapters,
     SemanticTurnEventPublisher,
     SemanticTurnResultSource,
-    T1ModelHealthReader,
     runtime_call_endpoint_observer_from_config,
 )
-from fdai_operator_service.families.cost_governance import (
-    CostGovernanceFamilyDependencies,
-    decode_cost_pseudonym_key,
-)
-from fdai_operator_service.families.operations import PanelRoute
-from fdai_operator_service.families.operations.contracts import ProjectionReader
-from fdai_operator_service.family_adapters import (
-    AksCommerceFamilyDependencies,
-    PostgresConversationAdapters,
-    PostgresOperationsAdapters,
-    PostgresWorkflowAdapters,
-    StateStoreAksCommerceProjectionReader,
-    UnavailableAksCommerceProjectionReader,
-    UnavailableConversationAdapters,
-    UnavailableOperationsAdapters,
-    UnavailableWorkflowAdapters,
-    build_postgres_document_context_resolver,
-)
-from fdai_operator_service.family_authorization import OperatorFamilyAuthorizer
 from fdai_operator_service.iam_composition import (
     HIL_SIGNING_SECRET_ENV,
     AssignmentNoticeBridge,
@@ -103,13 +88,10 @@ from fdai_operator_service.iam_composition import (
     build_adaptive_relationship_resolver,
     build_assignment_notice_bridge,
     build_hil_decision_outbox_bridge,
-    build_postgres_iam_bindings,
     build_teams_hil_http_client,
-    build_unavailable_iam_bindings,
 )
 from fdai_operator_service.model_lifecycle_composition import (
     AsyncResolvedModelsSource,
-    OperatorResolvedModelsRevisionOwner,
     build_model_revision_owner,
 )
 from fdai_operator_service.observer_deployment_projection import (
@@ -132,11 +114,6 @@ from fdai_operator_service.postgres_background_task_projection import (
     PostgresBackgroundTaskProjectionConfig,
     PostgresBackgroundTaskProjectionRepository,
 )
-from fdai_operator_service.postgres_cost_governance import (
-    PostgresCostGovernanceConfig,
-    PostgresCostGovernanceReader,
-    UnavailableCostGovernanceReader,
-)
 from fdai_operator_service.postgres_family_store import (
     PostgresFamilyStore,
     PostgresFamilyStoreConfig,
@@ -144,10 +121,6 @@ from fdai_operator_service.postgres_family_store import (
 from fdai_operator_service.postgres_read_investigation_completion import (
     PostgresReadInvestigationCompletionConfig,
     PostgresReadInvestigationCompletionRepository,
-)
-from fdai_operator_service.postgres_read_investigation_replay import (
-    PostgresReadInvestigationReplayConfig,
-    PostgresReadInvestigationReplayStore,
 )
 from fdai_operator_service.projections import (
     ProjectionUnavailableError,
@@ -157,39 +130,10 @@ from fdai_operator_service.read_investigation_completion_runtime import (
     ReadInvestigationCompletionBridge,
 )
 from fdai_operator_service.read_investigation_runtime import ReadInvestigationBridge
-from fdai_operator_service.reporting import optional_pdf_report_encoder
-from fdai_operator_service.reporting.incident_rca_projection import (
-    postgres_incident_rca_reporting_projection,
-)
-from fdai_operator_service.routes import OperatorRouteFamilies
 from fdai_operator_service.runtime import OperatorRuntime
-from fdai_operator_service.runtime_projection_reader import (
-    RuntimeProjectionReader,
-    RuntimeProjectionReaderConfig,
-)
 from fdai_operator_service.streaming import LiveStreamEvent, LiveStreamHub
 
-WEBHOOK_SIGNING_SECRET_ENV = "FDAI_OPERATOR_WEBHOOK_SECRET"  # noqa: S105
-COST_PSEUDONYM_KEY_ENV = "FDAI_COST_PSEUDONYM_KEY"  # noqa: S105
 _LOGGER = logging.getLogger(__name__)
-REFERENCE_PANEL_ROUTES = (
-    PanelRoute("/kpi/autonomy", "autonomy", "autonomy"),
-    PanelRoute("/capabilities", "capabilities", "capabilities"),
-    PanelRoute(
-        "/configuration-baselines",
-        "configuration-baselines",
-        "configuration-baselines",
-    ),
-    PanelRoute(
-        "/conversation-delivery",
-        "conversation-delivery",
-        "conversation-delivery",
-    ),
-    PanelRoute("/forecast-learning", "forecast-learning", "forecast-learning"),
-    PanelRoute("/onboarding", "onboarding", "onboarding"),
-    PanelRoute("/operator-memory", "operator-memory", "operator-memory"),
-    PanelRoute("/skills", "skills", "skills"),
-)
 
 
 def _agent_state_key(event: LiveStreamEvent) -> str | None:
@@ -538,21 +482,6 @@ class ProductionOperatorComposition:
         )
 
 
-class _OwnedHttpClient:
-    """Close one composition-owned HTTP client with the application lifecycle."""
-
-    def __init__(self, client: httpx.AsyncClient) -> None:
-        self._client = client
-
-    async def start(self) -> None:
-        """Own no startup work; the client is ready when it is constructed."""
-
-    async def aclose(self) -> None:
-        """Close the owned client exactly once."""
-        if not self._client.is_closed:
-            await self._client.aclose()
-
-
 class _LiveActivitySnapshotLoader:
     """Seed current Live activity from the authoritative durable projection."""
 
@@ -628,194 +557,6 @@ def _postgres_read_model(environment: OperatorEnvironment) -> OperatorReadModel 
             connect_timeout_s=environment.database_connect_timeout_s,
         )
     )
-
-
-def _build_route_families(
-    *,
-    environment: OperatorEnvironment,
-    model_revision_owner: OperatorResolvedModelsRevisionOwner | None,
-    authenticator: OperatorAuthenticator,
-    store: PostgresFamilyStore | None,
-    semantic_bridge: SemanticTurnBridge | None,
-    semantic_bus: OperatorSemanticKafkaBus | None,
-    read_model: OperatorReadModel | None,
-    webhook_enabled: bool,
-    context_selection_registry: ContextSelectionRegistry,
-    teams_http_client: httpx.AsyncClient | None = None,
-) -> tuple[
-    OperatorRouteFamilies,
-    StartupOwnedLocalAzureNarratorAdapters | None,
-]:
-    authorizer = OperatorFamilyAuthorizer(authenticator)
-    report_pdf_encoder = optional_pdf_report_encoder()
-    role_group_ids = {role.value: group_id for role, group_id in environment.group_ids.items()}
-    if store is None:
-        unavailable_conversation = UnavailableConversationAdapters()
-        unavailable_workflow = UnavailableWorkflowAdapters()
-        unavailable_operations = UnavailableOperationsAdapters()
-        unavailable_cost = UnavailableCostGovernanceReader()
-        routes = OperatorRouteFamilies(
-            conversation=ConversationFamilyDependencies(
-                authorizer=authorizer,
-                projections=unavailable_conversation,
-                outbox=unavailable_conversation,
-                streams=unavailable_conversation,
-            ),
-            iam=build_unavailable_iam_bindings(
-                authorizer=authorizer,
-                role_group_ids=role_group_ids,
-            ),
-            workflow_authorize=authorizer.workflow,
-            workflow_read_store=unavailable_workflow,
-            workflow_proposal_writer=unavailable_workflow,
-            operations_projection_reader=unavailable_operations,
-            operations_proposal_writer=unavailable_operations,
-            operations_replay_reader=unavailable_operations,
-            operations_webhook_verifier=unavailable_operations,
-            report_pdf_encoder=report_pdf_encoder,
-            operation_panels=REFERENCE_PANEL_ROUTES,
-            aks_commerce=AksCommerceFamilyDependencies(
-                authenticator=authenticator,
-                projections=UnavailableAksCommerceProjectionReader(),
-            ),
-            cost_governance=CostGovernanceFamilyDependencies(
-                authenticator=authenticator,
-                access=unavailable_cost,
-                activation=unavailable_cost,
-                projections=unavailable_cost,
-            ),
-        )
-        return routes, None
-
-    database_url = environment.database_url
-    if database_url is None:  # pragma: no cover - store construction requires the same URL
-        raise RuntimeError("validated Operator database URL is missing")
-    postgres_adapters = PostgresConversationAdapters(store)
-    postgres_conversation = ConversationAssuranceReader(
-        ConversationAssuranceReaderConfig(
-            dsn=database_url,
-            statement_timeout_ms=environment.database_statement_timeout_ms,
-            connect_timeout_s=environment.database_connect_timeout_s,
-        ),
-        fallback=postgres_adapters,
-    )
-    local_narrator = None
-    if environment.local_azure_narrator:
-        if model_revision_owner is None:
-            raise RuntimeError("local Azure narrator requires a resolved-model revision owner")
-        local_narrator = StartupOwnedLocalAzureNarratorAdapters(
-            revision_owner=model_revision_owner,
-            fallback_projections=postgres_conversation,
-            fallback_streams=postgres_conversation,
-        )
-    conversation = local_narrator or postgres_conversation
-    semantic_adapters = (
-        SemanticTurnConversationAdapters(
-            bridge=semantic_bridge,
-            fallback_projections=conversation,
-            fallback_outbox=postgres_conversation,
-            fallback_streams=postgres_conversation,
-            document_exporter=ConversationDocumentExporter(
-                store=store,
-                pdf_encoder=report_pdf_encoder,
-            ),
-            t1_model_health_reader=T1ModelHealthReader(store),
-        )
-        if semantic_bridge is not None
-        else None
-    )
-    postgres_workflow = PostgresWorkflowAdapters(store)
-    postgres_operations = PostgresOperationsAdapters(
-        store,
-        webhook_secret=environment.values.get(WEBHOOK_SIGNING_SECRET_ENV, "").strip() or None,
-        read_investigation_replay=PostgresReadInvestigationReplayStore(
-            config=PostgresReadInvestigationReplayConfig(dsn=database_url)
-        ),
-        context_selection_registry=context_selection_registry,
-    )
-    cost_reader = PostgresCostGovernanceReader(
-        PostgresCostGovernanceConfig(
-            dsn=database_url,
-            statement_timeout_ms=environment.database_statement_timeout_ms,
-            connect_timeout_s=environment.database_connect_timeout_s,
-        )
-    )
-    operations_reader: ProjectionReader = (
-        postgres_incident_rca_reporting_projection(
-            postgres_operations,
-            read_model,
-            dsn=database_url,
-            statement_timeout_ms=environment.database_statement_timeout_ms,
-            connect_timeout_s=environment.database_connect_timeout_s,
-        )
-        if read_model is not None
-        else postgres_operations
-    )
-    operations_reader = RuntimeProjectionReader(
-        RuntimeProjectionReaderConfig(
-            dsn=database_url,
-            statement_timeout_ms=environment.database_statement_timeout_ms,
-            connect_timeout_s=environment.database_connect_timeout_s,
-        ),
-        fallback=operations_reader,
-    )
-    routes = OperatorRouteFamilies(
-        conversation=ConversationFamilyDependencies(
-            authorizer=authorizer,
-            projections=semantic_adapters or conversation,
-            outbox=semantic_adapters or postgres_conversation,
-            streams=semantic_adapters or conversation,
-            document_context_resolver=build_postgres_document_context_resolver(
-                dsn=database_url,
-                statement_timeout_ms=environment.database_statement_timeout_ms,
-                connect_timeout_s=environment.database_connect_timeout_s,
-            ),
-        ),
-        iam=build_postgres_iam_bindings(
-            environment=environment,
-            authenticator=authenticator,
-            authorizer=authorizer,
-            store=store,
-            semantic_bus=semantic_bus,
-            teams_http_client=teams_http_client,
-            role_group_ids=role_group_ids,
-        ),
-        workflow_authorize=authorizer.workflow,
-        workflow_read_store=postgres_workflow,
-        workflow_proposal_writer=postgres_workflow,
-        operations_projection_reader=operations_reader,
-        operations_proposal_writer=postgres_operations,
-        operations_replay_reader=postgres_operations,
-        operations_webhook_verifier=(
-            postgres_operations if webhook_enabled else UnavailableOperationsAdapters()
-        ),
-        report_pdf_encoder=report_pdf_encoder,
-        operation_panels=REFERENCE_PANEL_ROUTES,
-        aks_commerce=AksCommerceFamilyDependencies(
-            authenticator=authenticator,
-            projections=StateStoreAksCommerceProjectionReader(store),
-        ),
-        cost_governance=CostGovernanceFamilyDependencies(
-            authenticator=authenticator,
-            access=cost_reader,
-            activation=cost_reader,
-            activation_writer=cost_reader,
-            projections=cost_reader,
-            analytics=cost_reader,
-            disclosure_audit=cost_reader,
-            pseudonym_key=decode_cost_pseudonym_key(environment.values.get(COST_PSEUDONYM_KEY_ENV)),
-            authenticated_review_access=(
-                environment.values.get(
-                    "FDAI_COST_GOVERNANCE_AUTHENTICATED_REVIEW_ACCESS",
-                    "",
-                )
-                .strip()
-                .casefold()
-                in {"1", "true", "yes", "on"}
-            ),
-        ),
-    )
-    return routes, local_narrator
 
 
 def _postgres_family_store(environment: OperatorEnvironment) -> PostgresFamilyStore | None:
@@ -926,104 +667,6 @@ def _build_live_stage_relay(
     )
 
 
-@dataclass(frozen=True, slots=True)
-class _CompositeLifecycle:
-    services: tuple[ApplicationLifecycle, ...]
-
-    async def start(self) -> None:
-        """Start dependencies in order and close every acquired resource on failure."""
-        started: list[ApplicationLifecycle] = []
-        for service in self.services:
-            try:
-                await service.start()
-            except BaseException as start_error:
-                cleanup_errors: list[BaseException] = []
-                for acquired in (service, *reversed(started)):
-                    try:
-                        await acquired.aclose()
-                    except BaseException as cleanup_error:
-                        cleanup_errors.append(cleanup_error)
-                if cleanup_errors:
-                    raise BaseExceptionGroup(
-                        "Operator startup and cleanup failed",
-                        [start_error, *cleanup_errors],
-                    ) from None
-                raise
-            started.append(service)
-
-    async def aclose(self) -> None:
-        """Close dependencies in reverse order so bridge consumers stop before Kafka."""
-        first_error: BaseException | None = None
-        for service in reversed(self.services):
-            try:
-                await service.aclose()
-            except BaseException as exc:
-                if first_error is None:
-                    first_error = exc
-        if first_error is not None:
-            raise first_error
-
-
-def compose_application_lifecycle(
-    *services: ApplicationLifecycle | None,
-) -> ApplicationLifecycle | None:
-    """Combine application lifecycles while preserving startup and shutdown order."""
-    active_services = tuple(service for service in services if service is not None)
-    if not active_services:
-        return None
-    if len(active_services) == 1:
-        return active_services[0]
-    return _CompositeLifecycle(active_services)
-
-
-def _application_lifecycle(
-    model_revision_owner: OperatorResolvedModelsRevisionOwner | None,
-    local_narrator: StartupOwnedLocalAzureNarratorAdapters | None,
-    bridge: SemanticTurnBridge | None,
-    read_investigation_bridge: ReadInvestigationBridge | None,
-    background_task_projection_bridge: BackgroundTaskProjectionBridge | None,
-    wara_assessment_projection_bridge: WaraAssessmentProjectionBridge | None,
-    framework_assessment_projection_bridge: FrameworkAssessmentProjectionBridge | None,
-    read_investigation_completion_bridge: ReadInvestigationCompletionBridge | None,
-    action_confirmation_bridge: ActionConfirmationBridge | None,
-    incident_intervention_bridge: IncidentInterventionBridge | None,
-    azure_monitor_webhook_bridge: AzureMonitorWebhookBridge | None,
-    live_activity_snapshot_loader: _LiveActivitySnapshotLoader | None,
-    bus: OperatorSemanticKafkaBus | None,
-    live_stage_relay: LiveStageKafkaRelay | None,
-    narrator_scheduler: PeriodicNarratorRefreshScheduler | None,
-    hil_decision_outbox_bridge: HilDecisionOutboxBridge | None,
-    teams_http_client: httpx.AsyncClient | None,
-    assignment_notice_bridge: AssignmentNoticeBridge | None = None,
-    alert_quality_bridge: AlertQualityBridge | None = None,
-    test_context_bridge: TestContextBridge | None = None,
-    observer_proposal_bridge: ObserverProposalBridge | None = None,
-) -> ApplicationLifecycle | None:
-    return compose_application_lifecycle(
-        model_revision_owner,
-        local_narrator,
-        bus,
-        bridge,
-        read_investigation_bridge,
-        background_task_projection_bridge,
-        wara_assessment_projection_bridge,
-        framework_assessment_projection_bridge,
-        read_investigation_completion_bridge,
-        action_confirmation_bridge,
-        incident_intervention_bridge,
-        azure_monitor_webhook_bridge,
-        alert_quality_bridge,
-        live_activity_snapshot_loader,
-        live_stage_relay,
-        narrator_scheduler,
-        hil_decision_outbox_bridge,
-        test_context_bridge,
-        assignment_notice_bridge,
-        observer_proposal_bridge,
-        _OwnedHttpClient(teams_http_client) if teams_http_client is not None else None,
-    )
-
-
 def _readiness_probe(
     store: PostgresFamilyStore | None,
     bus: OperatorSemanticKafkaBus | None,
@@ -1088,272 +731,20 @@ def _readiness_probe(
     return probe
 
 
-def _build_data_sources(
-    *, configured: bool, inventory_configured: bool
-) -> tuple[ReadDataSource, ...]:
-    reason = None if configured else "Authoritative service-local projections are not configured."
-    return (
-        ReadDataSource(
-            key="observer-deployment-proposals",
-            source="operator-observer-proposal-projection"
-            if inventory_configured
-            else "not-configured",
-            routes=("/observer-deployment-proposals",),
-            availability="unknown" if inventory_configured else "unavailable",
-            configured=inventory_configured,
-            reachable=None,
-            authoritative=inventory_configured,
-            durable=True if inventory_configured else None,
-            reason=None
-            if inventory_configured
-            else "Observer proposal projection is not configured.",
-        ),
-        ReadDataSource(
-            key="alert-quality",
-            source="operator-alert-quality-projection"
-            if inventory_configured
-            else "not-configured",
-            routes=("/alert-quality",),
-            availability="unknown" if inventory_configured else "unavailable",
-            configured=inventory_configured,
-            reachable=None,
-            authoritative=inventory_configured,
-            durable=True if inventory_configured else None,
-            reason=(
-                None
-                if inventory_configured
-                else "Authoritative alert quality projections are not configured."
-            ),
-        ),
-        ReadDataSource(
-            key="ontology-instances",
-            source="service-local-inventory" if inventory_configured else "not-configured",
-            routes=(
-                "/ontology/instances",
-                "/ontology/instances/explore",
-                "/ontology/instances/states",
-            ),
-            availability="unknown" if inventory_configured else "unavailable",
-            configured=inventory_configured,
-            reachable=None,
-            authoritative=inventory_configured,
-            durable=True if inventory_configured else None,
-            reason=(
-                None
-                if inventory_configured
-                else "Authoritative inventory instance projections are not configured."
-            ),
-        ),
-        ReadDataSource(
-            key="operational-state",
-            source="service-local-projection" if configured else "not-configured",
-            routes=(
-                "/audit",
-                "/audit/{correlation_id}/trace",
-                "/browser-evidence",
-                "/hil-queue",
-                "/incidents",
-                "/incidents/stream",
-                "/kpi",
-                "/kpi/llm-cost",
-                "/rca",
-                "/assurance-twin/posture",
-                "/assurance-twin/reviews",
-                "/assurance-twin/review",
-            ),
-            availability="unknown" if configured else "unavailable",
-            configured=configured,
-            reachable=None,
-            authoritative=configured,
-            durable=True if configured else None,
-            reason=reason,
-        ),
-        ReadDataSource(
-            key="aks-commerce",
-            source="core-tracked-state" if configured else "not-configured",
-            routes=("/aks-commerce/overview",),
-            availability="unknown" if configured else "unavailable",
-            configured=configured,
-            reachable=None,
-            authoritative=configured,
-            durable=True if configured else None,
-            reason=reason,
-        ),
-        ReadDataSource(
-            key="cost-governance",
-            source="retained-cost-observation" if configured else "not-configured",
-            routes=(
-                "/cost-governance/availability",
-                "/cost-governance/settings",
-                "/cost-governance/overview",
-                "/cost-governance/resource-efficiency",
-                "/cost-governance/optimization-cases",
-                "/cost-governance/outcomes",
-                "/finops",
-            ),
-            availability="unknown" if configured else "unavailable",
-            configured=configured,
-            reachable=None,
-            authoritative=configured,
-            durable=True if configured else None,
-            reason=reason,
-        ),
-        ReadDataSource(
-            key="overview-measurement",
-            source="not-served-by-operator-service",
-            routes=("/overview/measurement",),
-            availability="unavailable",
-            configured=False,
-            reachable=False,
-            authoritative=False,
-            durable=None,
-            reason="Overview measurement is owned by a separate projection service.",
-        ),
-        ReadDataSource(
-            key="autonomy-measurement",
-            source="outcome-assurance-measurement" if configured else "not-configured",
-            routes=("/kpi/autonomy",),
-            availability="unknown" if configured else "unavailable",
-            configured=configured,
-            reachable=None,
-            authoritative=configured,
-            durable=True if configured else None,
-            reason=reason,
-        ),
-        ReadDataSource(
-            key="promotion-gate-evidence",
-            source=(
-                "catalog-and-promotion-registry-projection" if configured else "not-configured"
-            ),
-            routes=("/kpi/promotion-gates",),
-            availability="unknown" if configured else "unavailable",
-            configured=configured,
-            reachable=None,
-            authoritative=configured,
-            durable=True if configured else None,
-            reason=reason,
-        ),
-        ReadDataSource(
-            key="onboarding-probe",
-            source="repository-catalog-projection" if configured else "not-configured",
-            routes=("/onboarding",),
-            availability="unknown" if configured else "unavailable",
-            configured=configured,
-            reachable=None,
-            authoritative=configured,
-            durable=True if configured else None,
-            reason=reason,
-        ),
-        ReadDataSource(
-            key="detection-readiness",
-            source="service-local-projection" if configured else "not-configured",
-            routes=("/detection-coverage", "/detection-readiness"),
-            availability="unknown" if configured else "unavailable",
-            configured=configured,
-            reachable=None,
-            authoritative=configured,
-            durable=True if configured else None,
-            reason=reason,
-        ),
-        ReadDataSource(
-            key="workflow-app-catalog",
-            source="repository-catalog-projection" if configured else "not-configured",
-            routes=("/views/workflow-apps",),
-            availability="unknown" if configured else "unavailable",
-            configured=configured,
-            reachable=None,
-            authoritative=configured,
-            durable=True if configured else None,
-            reason=reason,
-        ),
-        ReadDataSource(
-            key="configuration-baseline",
-            source="service-local-projection" if configured else "not-configured",
-            routes=("/configuration-baselines",),
-            availability="unknown" if configured else "unavailable",
-            configured=configured,
-            reachable=None,
-            authoritative=configured,
-            durable=True if configured else None,
-            reason=reason,
-        ),
-        ReadDataSource(
-            key="conversation-delivery",
-            source="operator-delivery-ledger" if configured else "not-configured",
-            routes=("/conversation-delivery",),
-            availability="unknown" if configured else "unavailable",
-            configured=configured,
-            reachable=None,
-            authoritative=configured,
-            durable=True if configured else None,
-            reason=reason,
-        ),
-        ReadDataSource(
-            key="capability-contract",
-            source="repository-catalog-projection" if configured else "not-configured",
-            routes=("/capabilities",),
-            availability="unknown" if configured else "unavailable",
-            configured=configured,
-            reachable=None,
-            authoritative=configured,
-            durable=True if configured else None,
-            reason=reason,
-        ),
-        ReadDataSource(
-            key="runtime-skill",
-            source="service-local-projection" if configured else "not-configured",
-            routes=("/skills",),
-            availability="unknown" if configured else "unavailable",
-            configured=configured,
-            reachable=None,
-            authoritative=configured,
-            durable=True if configured else None,
-            reason=reason,
-        ),
-        ReadDataSource(
-            key="forecast-learning",
-            source="service-local-projection" if configured else "not-configured",
-            routes=("/forecast-learning",),
-            availability="unknown" if configured else "unavailable",
-            configured=configured,
-            reachable=None,
-            authoritative=configured,
-            durable=True if configured else None,
-            reason=reason,
-        ),
-        ReadDataSource(
-            key="operator-memory",
-            source="service-local-projection" if configured else "not-configured",
-            routes=("/operator-memory",),
-            availability="unknown" if configured else "unavailable",
-            configured=configured,
-            reachable=None,
-            authoritative=configured,
-            durable=True if configured else None,
-            reason=reason,
-        ),
-        ReadDataSource(
-            key="notification-template",
-            source="operator-service",
-            routes=("/notification-templates/incident-opened",),
-            availability="available",
-            configured=True,
-            reachable=True,
-            authoritative=True,
-            durable=False,
-        ),
-    )
-
-
 async def _unavailable() -> bool:
     return False
 
 
 __all__ = [
-    "HIL_SIGNING_SECRET_ENV",
     "COST_PSEUDONYM_KEY_ENV",
+    "HIL_SIGNING_SECRET_ENV",
     "OperatorComposition",
     "ProductionOperatorComposition",
+    "REFERENCE_PANEL_ROUTES",
     "TokenVerifierFactory",
     "WEBHOOK_SIGNING_SECRET_ENV",
+    "_CompositeLifecycle",
+    "_OwnedHttpClient",
+    "_application_lifecycle",
+    "compose_application_lifecycle",
 ]

@@ -1013,8 +1013,8 @@ def test_terraform_failure_is_redacted_to_stable_reason() -> None:
 
 
 def test_runtime_platform_is_not_caller_controlled(monkeypatch: object) -> None:
-    monkeypatch.setattr("fdai_deployment_cli.cli.sys.platform", "linux")  # type: ignore[attr-defined]
-    monkeypatch.setattr("fdai_deployment_cli.cli.platform.machine", lambda: "AMD64")  # type: ignore[attr-defined]
+    monkeypatch.setattr("fdai_deployment_cli.cli_plan.sys.platform", "linux")  # type: ignore[attr-defined]
+    monkeypatch.setattr("fdai_deployment_cli.cli_plan.platform.machine", lambda: "AMD64")  # type: ignore[attr-defined]
     assert _runtime_platform_tag() == "linux-x86_64"
 
 
@@ -1168,11 +1168,11 @@ def test_complete_plan_handler_reaches_verification_under_msi(
     )
     monkeypatch.setenv("ARM_USE_MSI", "true")  # type: ignore[attr-defined]
     monkeypatch.setattr(  # type: ignore[attr-defined]
-        "fdai_deployment_cli.cli.load_profile",
+        "fdai_deployment_cli.cli_plan.load_profile",
         lambda _path: profile,
     )
     monkeypatch.setattr(  # type: ignore[attr-defined]
-        "fdai_deployment_cli.cli.azure_active_target_binding",
+        "fdai_deployment_cli.cli_plan.azure_active_target_binding",
         lambda: "b" * 64,
     )
 
@@ -1180,7 +1180,7 @@ def test_complete_plan_handler_reaches_verification_under_msi(
         raise RuntimeError("reached-verification")
 
     monkeypatch.setattr(  # type: ignore[attr-defined]
-        "fdai_deployment_cli.cli.verify_offline_kit",
+        "fdai_deployment_cli.cli_plan.verify_offline_kit",
         reached_verification,
     )
     args = _parser().parse_args(

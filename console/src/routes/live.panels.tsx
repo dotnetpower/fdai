@@ -30,6 +30,7 @@ import {
   LiveActivityWorkspace,
   type LiveViewMode,
 } from "./live.activity";
+import { OPERATIONS_SAMPLE_TIER_COHORT } from "./operations.sample";
 
 export type { LiveViewMode } from "./live.activity";
 
@@ -76,6 +77,27 @@ function SampleScenario({ onInspect }: { readonly onInspect: () => void }) {
           <dd>A3-H - {t("live.scenario.authority")}</dd>
         </div>
       </dl>
+      <section
+        class="live-sample-tier-cohort"
+        aria-label={t("live.scenario.tierCohortLabel")}
+      >
+        <header>
+          <strong>{t("live.scenario.tierCohortLabel")}</strong>
+          <span>{t("live.scenario.tierCohortSize", {
+            count: OPERATIONS_SAMPLE_TIER_COHORT.total,
+          })}</span>
+        </header>
+        <div class="live-sample-tier-bars">
+          {(["t0", "t1", "t2"] as const).map((tier) => (
+            <div key={tier} class={`live-sample-tier-${tier}`}>
+              <span>{tier.toUpperCase()}</span>
+              <i><i style={{ width: `${OPERATIONS_SAMPLE_TIER_COHORT[tier]}%` }} /></i>
+              <strong>{OPERATIONS_SAMPLE_TIER_COHORT[tier]}%</strong>
+            </div>
+          ))}
+        </div>
+        <p>{t("live.scenario.tierCohortBoundary")}</p>
+      </section>
       <ol class="live-sample-scenario-steps">
         {SAMPLE_SCENARIO_STEPS.map((step, index) => (
           <li key={step}>
@@ -357,9 +379,9 @@ export function LivePanels({
 
       {isSample ? (
         <SampleScenario onInspect={() => selectEvent("sample-event-001")} />
-      ) : (
-        <LiveCoverage coverage={coverage} sample={false} />
-      )}
+      ) : null}
+
+      {!isSample ? <LiveCoverage coverage={coverage} sample={false} /> : null}
 
       {!isSample ? <section class="grid live-kpis">
         <a class={`card kpi live-kpi live-kpi-eps${epsUpdated ? " is-content-updated" : ""}`} href={routeHref("agent-activity")}>
@@ -410,7 +432,7 @@ export function LivePanels({
             ))}
             </div>
           </div>}
-          <span class="live-kpi-meta">{t(metrics.partial ? "live.kpi.partial" : "live.kpi.finalized", { count: view.gateTotal })}</span>
+          <span class="live-kpi-meta">{t("live.kpi.finalized", { count: view.gateTotal })}</span>
         </a>
         <a class={`card kpi live-kpi${tierUpdated ? " is-content-updated" : ""}`} href={routeHref("trust-routing")}>
           <span class="label">{t("live.kpi.tierMix")}</span>
@@ -430,7 +452,7 @@ export function LivePanels({
             ))}
             <div class="live-tier-axis"><span>0</span><span>50</span><span>100%</span></div>
           </div>}
-          <span class="live-kpi-meta">{t(metrics.partial ? "live.kpi.partial" : "live.kpi.routed", { count: view.tierTotal })}</span>
+          <span class="live-kpi-meta">{t("live.kpi.routed", { count: view.tierTotal })}</span>
         </a>
       </section> : null}
 

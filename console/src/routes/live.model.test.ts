@@ -21,6 +21,7 @@ import {
   liveObservationPresentation,
   mergeLiveObservations,
 } from "./live.observations";
+import { summarizeCurrentDecisionMix } from "./live.view-model";
 
 describe("live event selection", () => {
   test("merges authoritative observation activity by id and newest timestamp", () => {
@@ -150,6 +151,30 @@ function stageEvent(
 }
 
 describe("Live cockpit model", () => {
+  test("summarizes gate and tier mix from the bounded current tile pool", () => {
+    let state = makeInitialState(3);
+    state = applyEvent(state, stageEvent("route", { tier: "t0" }));
+    state = applyEvent(state, stageEvent("gate", { gate_decision: "hil" }));
+    state = applyEvent(state, {
+      ...stageEvent("route", { tier: "t1" }),
+      event_id: "evt-live-2",
+      correlation_id: "corr-live-2",
+    });
+    state = applyEvent(state, {
+      ...stageEvent("gate", { gate_decision: "auto" }),
+      event_id: "evt-live-2",
+      correlation_id: "corr-live-2",
+    });
+
+    expect(summarizeCurrentDecisionMix(state.tiles)).toEqual({
+      tierCounts: { t0: 1, t1: 1, t2: 0 },
+      gateCounts: { auto: 1, hil: 1, abstain: 0, deny: 0 },
+      tierTotal: 2,
+      gateTotal: 2,
+      autoShare: 50,
+    });
+  });
+
   test("replay resets bounded activity and selection while preserving the current filter", () => {
     const populated = applyEvent(makeInitialState(3), stageEvent("route", { tier: "t0" }));
     const reset = reducer({

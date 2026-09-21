@@ -1,8 +1,8 @@
 ---
 title: Runtime Parity - Authoritative Local Development 및 Test Fixture
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: dc75b8f191d84a00c0156ab799a44e98e958864a
-translation_revised: 2026-09-20
+translation_source_sha: b8f120d3130c2a8cc728f778daf750d26e167bdd
+translation_revised: 2026-09-21
 ---
 # 런타임 동등성 - 권위 있는 로컬 개발 및 테스트 고정본
 **목표**: 자동화 테스트는 결정론적이고 비밀 없는 상태를 유지하며, 대화형 로컬 Console은 권위 있는 Azure 상태를 표시합니다. Azure 배포는 **배포자 권한과 리전 카탈로그로 프로비저닝할 리소스를 선택**합니다. 별도 `docs site: serve (4321)` 작업은 루프백에서 공개 문서만 미리 보여 줍니다. 백엔드나 채널 경계를 시작하지 않으며 런타임 권한을 부여하지 않습니다. 세 명제가 동시에 참입니다:
@@ -87,7 +87,7 @@ SPA, Manual Studio를 시작합니다. 일반 Console 빌드는 모듈 진입점
 
 작업 기반 `console: start full stack` 감독기는 Manual Studio와 Core 배포판의 지속 인벤토리 조정 및 관찰 캠페인 모드를 추가로 시작합니다. 관리되는 준비 명령은 권위 있는 인벤토리 새로 고침을 해당 조정 프로세스에 맡기므로 인벤토리 수집이 진행되는 동안 frontend와 서비스 프로세스를 시작할 수 있습니다. 준비가 완료됐지만 복합 작업이 감독기를 연결하지 못한 경우 표시되는 `console: start local services` 작업이 준비를 반복하지 않고 동일한 서비스 집합을 시작합니다. 로컬 준비 상태와 10분 감시기는 세 프로세스와 활성 범위 인벤토리 커버리지 경계를 포함하므로 도움말 라이브러리나 인벤토리 생성기가 중지되거나 checkpoint가 활성 세대 및 정확한 범위 집합과 일치하지 않으면 스택을 사용할 수 없는 상태로 유지합니다. 이후 관측이 대기 중이면 답변 완전성은 낮아지지만 지속적으로 수집하는 프로세스를 준비되지 않은 상태로 만들지는 않습니다. 시작 감독기는 실패를 보고하고 하위 프로세스를 중지하기 전에 세대 복구와 그래프 변환 결과에 범위가 제한된 180초 준비 구간을 제공합니다. 독립 실행 준비는 동기 권위 인벤토리 단계를 유지하며 같은 checkpoint 검사가 통과할 때만 재사용하므로 변경되지 않은 파일이 오래된 데이터베이스 세대를 숨길 수 없습니다.
 
-프로세스 launcher는 `RUNTIME_ENV`와 독립적으로 `FDAI_EXECUTION_VENUE=local`을 설정합니다. 로컬 상태는 `127.0.0.1:5432`의 Docker PostgreSQL과 담당 서비스 역할을 사용하며, 로컬 이벤트 전송은 `127.0.0.1:19092`의 Redpanda를 사용합니다. Console 준비 과정은 폐기 가능한 개발 이력에 기본 1 GiB 상한을 적용합니다. Loopback `fdai` 데이터베이스가 `FDAI_LOCAL_DATABASE_RECREATE_MAX_BYTES`를 초과하면 준비 과정은 cache 재사용을 거부하고 정본 legacy 및 서비스 migration을 적용하기 전에 전체 데이터베이스를 다시 만듭니다. 원격, 대체 포트, 대체 데이터베이스 및 활성 연결 대상은 거부합니다. 이 개발 전용 전체 데이터베이스 초기화는 감사 또는 관측 계열 하나만 따로 자르지 않으며, 배포된 근거에는 검증된 archive, 복원, 보존, hold 및 purge 정책을 계속 적용합니다.
+프로세스 launcher는 `RUNTIME_ENV`와 독립적으로 `FDAI_EXECUTION_VENUE=local`을 설정합니다. 로컬 상태는 `127.0.0.1:5432`의 Docker PostgreSQL과 담당 서비스 역할을 사용하며, 로컬 이벤트 전송은 `127.0.0.1:19092`의 Redpanda를 사용합니다. Console 준비 과정은 폐기 가능한 개발 이력에 기본 1 GiB 상한을 적용합니다. Loopback `fdai` 데이터베이스가 `FDAI_LOCAL_DATABASE_RECREATE_MAX_BYTES`를 초과하면 재시작 과정은 먼저 같은 checkout의 검증된 supervisor를 중지하고, 준비 과정은 cache 재사용을 거부하며 정본 legacy 및 서비스 migration을 적용하기 전에 전체 데이터베이스와 전용 local broker 세대를 함께 다시 만듭니다. 보존된 reset marker는 비어 있는 local consumer group과 topic을 모두 함께 제거할 때까지 시작을 차단합니다. Redpanda는 모든 local topic에 24시간 및 partition당 256 MiB 기본 보존을 적용합니다. 비활성 consumer group offset도 같은 24시간 상한과 1분 정리 주기를 사용하며 startup probe topic에는 더 엄격한 상한을 유지합니다. 원격, 대체 포트, 대체 데이터베이스, 활성 연결, 활성 consumer, 외부 supervisor 및 local이 아닌 Docker 대상은 거부합니다. Local readiness는 측정된 primary Core lag가 1,000건을 초과해도 거부합니다. 이 개발 전용 세대 초기화는 감사 또는 관측 계열 하나만 따로 자르지 않으며, 배포된 근거에는 검증된 archive, 복원, 보존, hold 및 purge 정책을 계속 적용합니다.
 준비 과정은 의미 physical topic을 배포된 Event Hubs와 같은 최소 두 partition으로 유지하고 `FDAI_OPERATING_MODEL_TOPIC=fdai.operating-model`을 설정합니다. 같은 논리 토픽 필터와 단조 프로바이더가 로컬 및 배포 환경에서 동작하며 게시자가 없으면 매핑을 사용할 수 없는 상태로 유지하고 sample 서비스 신원을 만들지 않습니다.
 Azure에 배포된 프로세스는 `FDAI_EXECUTION_VENUE=deployed`와 서비스 소유 Azure Database for PostgreSQL DSN 및 Event Hubs Kafka endpoint를 사용합니다. Venue 선택은 근거 권한, 승격 상태, 사람 신원 또는 executor 권한을 변경하지 않습니다. 서비스가 소유하는 모든 프로세스 시작 경로는 시작 전에 버전이 지정되고 내용 주소를 사용하는 `RuntimeScopeReceipt`를 정확히 하나 기록합니다. 이 증적은 안정적인 서비스 ID, 클라우드 운영 제품 목적, 선택한 실행 위치, 완전한 기능 행, 허용되는 유일한 차이 종류인 자격 증명, 엔드포인트, 프로바이더 범위 및 규모를 결속합니다. 같은 모듈의 `serve("module:factory")` 위임은 팩터리에서 이 증적 하나를 기록하므로 Uvicorn 직접 로드와 서비스 소유 CLI 실행 모두 증적을 누락하거나 중복할 수 없습니다. 외부 상태 권한과 실행 권한은 모두 false이며, 이 증적은 시작 구성을 증명할 뿐 프로바이더 접근 가능성이나 운영 성공을 증명하지 않습니다. AST 실행 위치 게이트는 모든 진입점을 찾아내고 공유 계약 밖의 직접, 별칭 또는 계산된 원시 실행 위치 읽기를 거부합니다. Schema parity는 legacy 및 서비스 소유 migration 5개로 이동한 뒤 대상 Settings, catalog, ontology 및 inventory projection을 권위 있는 입력에서 다시 생성합니다. 로컬 `audit_log`, `state_kv`, 승인, idempotency record, lease 또는 executor receipt를 배포 환경에 복제하지 않습니다. 이러한 record는 출처 venue의 인과 관계와 권한을 유지합니다.
 
@@ -104,6 +104,10 @@ Azure에 배포된 프로세스는 `FDAI_EXECUTION_VENUE=deployed`와 서비스 
 
 Supervisor는 허용된 각 `run-console-service.sh`을 자체 잠금, fingerprint, 로그 및 수명주기와 함께 병렬 시작합니다. 모든 launcher를 시작한 뒤 `started`를 내보내지만 VS Code 태스크는 supervisor가 terminal `ready` 또는 `failed` 중 하나를 정확히 한 번 내보낼 때까지 활성 상태를 유지합니다. 전체 readiness gate의 기본값은 60초이며 외부 process-group deadline은 65초입니다. Readiness 전의 모든 child exit, readiness 실패, signal 또는 managed-lock 실패는 `failed`를 내보내고 0이 아닌 값으로 종료합니다. 중복된 명시적 시작은 조용히 무시되지 않고 managed lock과 fingerprint 재사용 경로를 통해 동시에 실행됩니다. 활성 supervisor는 재시도에 안정적인 로컬 analyzer 실행 식별자 하나를 유지합니다. 중복 시작은 이 식별자를 재사용하고 새 supervisor 세대는 첫 번째 정상 tick을 준비 상태에 계속 요구하는 새 식별자를 만듭니다. 공유 준비 상태 검사를 통과하면 중복 시작은 성공으로 종료하고 세대 소유자만 장기 실행 child를 계속 감독합니다. 스키마에 맞는 `silent` 초과 정책은 instance 2개 상한에 도달한 뒤에만 적용되며 대화형 prompt를 열지 않습니다. `console: wait full stack ready`는 성공한 시작 뒤 사용하는 별도 10초 진단이며 두 번째 시작 단계가 아닙니다. 텍스트 모드는 반복 확인 전에 대기 예산을 내보내고 JSON 모드는 하나의 기계 판독 문서를 유지합니다. Core 실행기는 수정되었거나 추적되지 않는 활성 프롬프트 파일을 차단하여 로컬 답변이 체크인된 버전과 다른 프롬프트를 조용히 사용하지 못하게 합니다. 의도적인 프롬프트 개발 실행은 `FDAI_LOCAL_ALLOW_DIRTY_PROMPTS=1`로 허용할 수 있으며 표준 시작은 계속 차단 상태를 유지합니다. Core와 Operator 복구 작업은 이름이 지정된 동일한 서비스 준비 상태 검사를 적용하고 프로세스 시작을 준비 상태로 취급하지 않도록 terminal 표식을 내보냅니다. 변경되거나 다른 소유권은 관리 대상만 교체하거나 실패합니다. 준비 상태를 기다리는 launcher는 관리 대상 runner를 시작하기 전에 `INT`와 `TERM` 전달을 설정합니다. 종료 신호는 준비 상태 probe와 runner를 모두 중지하고 회수하므로 `run-local-service.sh`이 분리된 하위 process group을 닫으며 Analyzer 또는 Cost Analytics loop를 남기지 않습니다.
 
+로컬 analyzer launcher는 인벤토리 DSN과 함께 서비스 소유 `FDAI_STATE_STORE_DSN`을 명시적으로
+전달합니다. 이 binding은 대상 선택기가 사용하는 동일한 읽기 전용 결정 근거 admission provider를
+연결합니다. 이 값이 누락되면 상태 사실이 있는 후보가 `unverified_state_fact`로 hold됩니다. 이
+binding은 ActionType을 승격하거나 자율성을 높이거나 finding을 만들거나 실행 권한을 부여하지 않습니다.
 독립 실행 순서형 준비 작업은 해당 단계 입력이 바뀐 경우에만 읽기 전용 Azure Resource Graph 인벤토리를 새로 읽고 정제된 모델, 런타임 Settings, Rule 및 Ontology 변환 결과를 구체화합니다. 관리되는 전체 스택 준비는 인벤토리 새로 고침만 지속 조정 프로세스에 맡깁니다. 이러한 선언은 발견된 문제, 관측된 인벤토리, 준비 상태 또는 실행 권한을 만들지 않습니다. 프로바이더를 사용할 수 없거나 권한이 없으면 고정본 데이터로 대체하지 않고 인벤토리를 명시적으로 사용할 수 없는 상태로 유지합니다. 전체 스택 시작에는 신뢰된 workspace와 커밋된 정책이 필요하며 권한을 약화하지 않습니다.
 Loopback 소유권 확인에는 범위가 250ms로 제한된 IPv4 및 IPv6 소켓 검사를 사용하며 연결 중에는
 서비스 잠금을 유지하지 않습니다. 종료는 10초 뒤 자식 process group을 중지하고 wrapper가 사라지면

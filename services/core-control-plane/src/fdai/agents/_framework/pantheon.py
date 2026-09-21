@@ -273,6 +273,7 @@ _HEIMDALL = AgentSpec(
         "object.security-event",
         "object.chaos-experiment",
         "object.rule-generation-build-result",
+        "object.context-index",
     ),
     question_domains=(
         "resource_change_history",
@@ -436,6 +437,7 @@ _SAGA = AgentSpec(
         "object.approval",
         "object.security-event",
         "object.state-snapshot",
+        "object.context-index",
         "object.issue",
         "object.forecast-outcome",
         "object.retrieval-validation",

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+from datetime import UTC, datetime
 from unittest.mock import AsyncMock, Mock
 
 import pytest
@@ -267,6 +268,46 @@ async def test_forward_delta_publishes_event_and_advances_cursor() -> None:
     ]
     cursor = await state.read_state("inventory_delta_cursor:subscription-1")
     assert cursor == {"cursor": "cursor-next"}
+
+
+@pytest.mark.asyncio
+async def test_initial_delta_skips_observations_covered_by_complete_snapshot() -> None:
+    state = InMemoryStateStore()
+    bus = InMemoryEventBus()
+
+    published = await forward_inventory_delta(
+        inventory=_Inventory(),
+        state_store=state,
+        event_bus=bus,
+        topic="events",
+        scope="subscription-1",
+        properties_complete=False,
+        initial_replay_after=datetime(2026, 7, 16, tzinfo=UTC),
+    )
+
+    assert published == 0
+    assert [item async for item in bus.subscribe("events", "reader")] == []
+    assert await state.read_state("inventory_delta_cursor:subscription-1") == {
+        "cursor": "cursor-next"
+    }
+
+
+async def test_initial_delta_publishes_observation_at_snapshot_start_boundary() -> None:
+    state = InMemoryStateStore()
+    bus = InMemoryEventBus()
+
+    published = await forward_inventory_delta(
+        inventory=_Inventory(last_seen="2026-07-16T00:00:00Z"),
+        state_store=state,
+        event_bus=bus,
+        topic="events",
+        scope="subscription-1",
+        properties_complete=False,
+        initial_replay_after=datetime(2026, 7, 16, tzinfo=UTC),
+    )
+
+    assert published == 1
+    assert len([item async for item in bus.subscribe("events", "reader")]) == 1
 
 
 @pytest.mark.asyncio

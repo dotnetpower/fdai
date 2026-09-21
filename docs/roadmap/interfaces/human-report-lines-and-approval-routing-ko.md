@@ -1,7 +1,7 @@
 ---
 translation_of: human-report-lines-and-approval-routing.md
-translation_source_sha: 82dc83e8338b1ba11fce76fe96a9f7df3d68ec41
-translation_revised: 2026-09-20
+translation_source_sha: b151bdeabcaf4fe31129a22d1f976e7ff3890f19
+translation_revised: 2026-09-21
 title: 사람 보고선 및 승인 라우팅
 ---
 # 사람 보고선 및 승인 라우팅
@@ -260,8 +260,10 @@ Report-line 정책과 런타임은 quorum `1`만 허용합니다. 더 높은 quo
 
 `GET /hil/report-line-contact-requests`는 요청자 표시 범위를 적용하기 전에 현재
 `awaiting_contact_consent` 집합의 완전성을 확인합니다. 종료된 보류 승인 이력은 감사 근거로
-남지만 범위가 제한된 목록 조회 한도를 소비하지 않습니다. 현재 대기 집합이 조회 한도를 넘으면
-일부 결과를 반환하지 않고 엔드포인트를 사용할 수 없는 상태로 유지합니다.
+남지만 범위가 제한된 목록 조회 한도를 소비하지 않습니다. Core 레지스트리, 부하 계획, 만료 조회는
+활성 수명 주기 상태를 `StateStore`에 전달해 필터링합니다. PostgreSQL 부분 인덱스는 해결된 park를
+삭제하지 않고 최신순 큐 페이지 조회를 지원합니다. 현재 대기 집합이 조회 한도를 넘으면 일부
+결과를 반환하지 않고 엔드포인트를 사용할 수 없는 상태로 유지합니다.
 
 ## 에이전트 및 서비스 소유권
 

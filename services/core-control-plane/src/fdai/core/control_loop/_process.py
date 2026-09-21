@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from collections.abc import Mapping, Sequence
 from dataclasses import replace
 from typing import Any, cast
@@ -41,6 +42,24 @@ from fdai.shared.contracts.models import Event
 from fdai.shared.providers.execution_authorization import ExecutionAuthorizationStatus
 from fdai.shared.providers.stage_publisher import StageName, StagePhase
 
+_SHA256 = re.compile(r"sha256:[0-9a-f]{64}")
+
+
+def _deterministic_inventory_baseline(event: Event) -> bool:
+    observation = event.payload.get("inventory_observation")
+    return (
+        event.source == "fdai.delivery.inventory_configuration_events"
+        and event.event_type == "inventory.resource_observed"
+        and event.payload.get("signal_kind") == "inventory.full_reconciliation"
+        and isinstance(observation, Mapping)
+        and observation.get("kind") == "full"
+        and observation.get("properties_complete") is True
+        and isinstance(observation.get("generation_digest"), str)
+        and _SHA256.fullmatch(str(observation["generation_digest"])) is not None
+        and isinstance(observation.get("scope_ref"), str)
+        and bool(str(observation["scope_ref"]).strip())
+    )
+
 
 async def process_event(host: Any, raw_event: Event | Mapping[str, Any]) -> ControlLoopResult:
     """Run one event and durably record its terminal classification exactly once."""
@@ -57,6 +76,14 @@ async def process_event(host: Any, raw_event: Event | Mapping[str, Any]) -> Cont
             decision="dedupe",
             resource_type=None,
             reason="duplicate_idempotency_key",
+        )
+    if await recorder.recorded(event):
+        return ControlLoopResult(
+            outcome=ControlLoopOutcome.DEDUPED,
+            tier="abstain",
+            decision="dedupe",
+            resource_type=None,
+            reason="durable_terminal_measurement",
         )
 
     result = await _process_normalized_event(host, event)
@@ -123,6 +150,41 @@ async def _process_normalized_event(host: Any, event: Event) -> ControlLoopResul
         cs_decision = await host._change_safety_detector.detect(event)
 
     decision = host._trust_router.route(event)
+    if decision.tier is RoutingTier.T1 and _deterministic_inventory_baseline(event):
+        reason = "inventory_baseline_no_rule_match"
+        await host._emit_stage(
+            event_id=event_id,
+            correlation_id=correlation_id,
+            stage=StageName.ROUTE,
+            phase=StagePhase.DONE,
+            detail={
+                "routed_to": "abstain",
+                "resource_type": decision.resource_type,
+                "reason": reason,
+            },
+        )
+        await host._write_abstain_audit(
+            event=event,
+            decision=decision,
+            reason=reason,
+            stage="inventory_baseline",
+        )
+        await host._emit_stage(
+            event_id=event_id,
+            correlation_id=correlation_id,
+            stage=StageName.AUDIT,
+            phase=StagePhase.DONE,
+            detail={"outcome": ControlLoopOutcome.ABSTAINED_ROUTING.value},
+        )
+        return ControlLoopResult(
+            outcome=ControlLoopOutcome.ABSTAINED_ROUTING,
+            tier="t0",
+            decision="abstain",
+            resource_type=decision.resource_type,
+            reason=reason,
+            event_id=event_id,
+            change_safety_decision=cs_decision,
+        )
     if decision.tier is RoutingTier.ABSTAIN:
         await host._emit_stage(
             event_id=event_id,

@@ -400,6 +400,7 @@ def test_local_services_report_each_unavailable_owner(tmp_path: Path) -> None:
         repo,
         probe=lambda url: not url.endswith(("8011/healthz", "8013/ready")),
         core_probe=lambda _root: True,
+        core_lag_probe=lambda _root: True,
         analyzer_probe=lambda _root: True,
         cost_analytics_probe=lambda _root: True,
         inventory_probe=lambda _root: True,
@@ -470,6 +471,7 @@ def test_local_services_reject_core_owned_by_another_checkout(tmp_path: Path) ->
         repo,
         probe=lambda _url: True,
         core_probe=lambda _root: True,
+        core_lag_probe=lambda _root: True,
         analyzer_probe=lambda _root: True,
         cost_analytics_probe=lambda _root: True,
         inventory_probe=lambda _root: True,
@@ -520,6 +522,7 @@ def test_local_service_probes_run_concurrently_in_stable_order(tmp_path: Path) -
         repo,
         probe=probe,
         core_probe=lambda _root: True,
+        core_lag_probe=lambda _root: True,
         inventory_probe=lambda _root: True,
         process_records=[],
     )
@@ -565,6 +568,7 @@ def test_local_services_require_continuous_local_jobs(tmp_path: Path) -> None:
         repo,
         probe=lambda _url: True,
         core_probe=lambda _root: True,
+        core_lag_probe=lambda _root: True,
         inventory_probe=lambda _root: True,
         process_records=[(repo, ["python", "-m", "fdai"])],
     )
@@ -765,6 +769,39 @@ def test_core_restart_readiness_spans_one_log_rotation(tmp_path: Path) -> None:
         tmp_path,
         not_before=started,
         now=current,
+    )
+
+
+def test_core_change_consumer_readiness_rejects_measured_backlog(tmp_path: Path) -> None:
+    log_dir = tmp_path / ".fdai" / "logs"
+    log_dir.mkdir(parents=True)
+    log_file = log_dir / "core-runtime.log"
+    current = datetime(2026, 8, 20, 13, 1, tzinfo=UTC)
+    prefix_zero = (
+        "2026-08-20T13:00:00.000000+00:00 event_bus_consumer_progress "
+        '[topic="fdai.change.events", consumer_group="fdai-local-example-core", '
+        "partition=0, committed_offset=1, highwater_offset=2002, "
+    )
+    prefix_one = prefix_zero.replace("partition=0", "partition=1")
+    log_file.write_text(
+        prefix_zero
+        + 'consumer_lag=600, progress_kind="commit"]\n'
+        + prefix_one
+        + 'consumer_lag=500, progress_kind="commit"]\n',
+        encoding="utf-8",
+    )
+
+    assert not developer_workflow_runtime._core_change_consumer_ready(tmp_path, now=current)
+
+    with log_file.open("a", encoding="utf-8") as handle:
+        handle.write(prefix_zero + 'consumer_lag=10, progress_kind="commit"]\n')
+        handle.write(prefix_one + 'consumer_lag=10, progress_kind="commit"]\n')
+
+    assert developer_workflow_runtime._core_change_consumer_ready(tmp_path, now=current)
+
+    assert not developer_workflow_runtime._core_change_consumer_ready(
+        tmp_path,
+        now=current + timedelta(seconds=76),
     )
 
 

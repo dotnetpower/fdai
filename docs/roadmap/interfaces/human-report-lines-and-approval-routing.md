@@ -268,7 +268,9 @@ directory writer or executor credential is added.
 
 `GET /hil/report-line-contact-requests` checks completeness over the current
 `awaiting_contact_consent` set before applying requester visibility. Terminal parked approvals
-remain audit evidence but do not consume the bounded listing scan. If the current pending set
+remain audit evidence but do not consume the bounded listing scan. Core registry, load planning,
+and expiry reads push their active lifecycle status into `StateStore`; a partial PostgreSQL index
+supports newest-first queue paging without deleting resolved parks. If the current pending set
 exceeds the scan bound, the endpoint stays unavailable instead of returning partial data.
 
 ## Agent and service ownership

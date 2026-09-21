@@ -5,6 +5,7 @@ import { DashboardResourcePreview } from "./dashboard-v2-preview";
 import { date } from "./i18n/dashboard-v2";
 import {
   dashboardResourceState,
+  dashboardStateAxis,
   dashboardStateFact,
   STATE_STYLE,
   type DashboardLens,
@@ -24,6 +25,7 @@ export interface DashboardResourceMapProps {
   readonly selectedId: string | null;
   readonly onSelect: (id: string) => void;
   readonly labels: {
+    readonly resource: string;
     readonly operation: string;
     readonly provisioning: string;
     readonly serving: string;
@@ -38,6 +40,22 @@ export interface DashboardResourceMapProps {
 
 const HEXAGON = "12,1 23,7.5 23,20.5 12,27 1,20.5 1,7.5";
 
+function axisLabel(
+  axis: ReturnType<typeof dashboardStateAxis>,
+  labels: DashboardResourceMapProps["labels"],
+): string {
+  if (axis === "operational") return labels.operation;
+  return axis === null ? labels.resource : labels[axis];
+}
+
+function axisSymbol(axis: ReturnType<typeof dashboardStateAxis>): string | null {
+  if (axis === "operational") return "O";
+  if (axis === "serving") return "S";
+  if (axis === "availability") return "A";
+  if (axis === "provisioning") return "P";
+  return null;
+}
+
 function resourceTooltip(
   resource: DashboardResource,
   snapshot: DashboardSnapshot,
@@ -48,6 +66,7 @@ function resourceTooltip(
     resource.groupLabel ?? resource.group ?? labels.missing,
   ].join(" / ");
   const lenses: readonly DashboardLens[] = [
+    "resource",
     "operation",
     "provisioning",
     ...(resource.states?.serving === undefined ? [] : ["serving"] as const),
@@ -63,6 +82,7 @@ function resourceTooltip(
       <span class="dashboard-v2-map-tooltip-facts">
         {lenses.map((lens) => {
           const fact = dashboardStateFact(resource, lens);
+          const axis = dashboardStateAxis(resource, lens);
           return <span class="dashboard-v2-map-tooltip-fact" key={lens}>
             <span>{labels[lens]}</span>
             <span class="dashboard-v2-map-tooltip-value">
@@ -70,6 +90,8 @@ function resourceTooltip(
                 ? labels.state(dashboardResourceState(resource, snapshot, lens))
                 : fact === null
                 ? labels.state(dashboardResourceState(resource, snapshot, lens))
+                : lens === "resource"
+                ? `${axisLabel(axis, labels)}: ${recordedStateValueText(fact)}`
                 : recordedStateValueText(fact)}</span>
               {fact?.observed_at
                 ? <time dateTime={fact.observed_at}>{date(fact.observed_at)}</time>
@@ -156,11 +178,15 @@ export function DashboardResourceMap({
       {resources.map((resource, index) => {
         const state = dashboardResourceState(resource, snapshot, lens);
         const fact = dashboardStateFact(resource, lens);
+        const axis = dashboardStateAxis(resource, lens);
         const accessibleState = lens === "observation"
           ? labels.state(state)
           : fact === null
           ? labels.state(state)
           : recordedStateValueText(fact);
+        const accessibleDetail = lens === "resource" && axis !== null
+          ? `${axisLabel(axis, labels)}: ${accessibleState}`
+          : accessibleState;
         const style = STATE_STYLE[state];
         const row = Math.floor(index / columnCount);
         const pattern = style.tone === "unknown" ? `${id}-unknown`
@@ -177,7 +203,7 @@ export function DashboardResourceMap({
               data-resource-id={resource.id}
               data-tone={style.tone}
               data-state={state}
-              aria-label={`${resource.name}, ${resource.type}, ${labels[lens]}: ${accessibleState}`}
+              aria-label={`${resource.name}, ${resource.type}, ${labels[lens]}: ${accessibleDetail}`}
               aria-pressed={resource.id === selectedId}
               aria-describedby={preview?.id === resource.id ? `${id}-preview` : undefined}
               tabIndex={resource.id === tabStop ? 0 : -1}
@@ -198,6 +224,11 @@ export function DashboardResourceMap({
                   ? <polygon class="dashboard-v2-map-pattern" points={HEXAGON} fill={`url(#${pattern})`} />
                   : null}
                 <polygon class="dashboard-v2-map-outline" points={HEXAGON} fill="none" />
+                {lens === "resource" && axisSymbol(axis)
+                  ? <text class="dashboard-v2-map-axis" x="5" y="7" text-anchor="middle" dominant-baseline="central">
+                    {axisSymbol(axis)}
+                  </text>
+                  : null}
                 <text class="dashboard-v2-map-symbol" x="12" y="14" text-anchor="middle" dominant-baseline="central">
                   {style.symbol}
                 </text>

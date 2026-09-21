@@ -1,5 +1,5 @@
 schema_version: "1.0.0"
-version: "0.3.0"
+version: "0.3.1"
 classes:
   - id: class.resource
     description: Reviewed cloud or runtime resource identity.
@@ -72,6 +72,7 @@ classes:
       - network.dns-resolver-inbound-endpoint
       - network.dns-zone
       - network.firewall
+      - network.firewall-policy
       - network.load-balancer
       - network.nat-gateway
       - network.nsg
@@ -126,6 +127,7 @@ classes:
     description: Resource that retains images, objects, files, disks, or snapshots.
     members:
       - container-registry
+      - compute.image
       - disk
       - disk-snapshot
       - file-share

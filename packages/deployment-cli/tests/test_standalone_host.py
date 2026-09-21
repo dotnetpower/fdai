@@ -11,7 +11,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from fdai_deployment_cli import standalone_application, standalone_host
+from fdai_deployment_cli import standalone_application, standalone_host, standalone_host_state
 from fdai_deployment_cli.application_state_adoption import ApplicationStateAdoption
 from fdai_deployment_cli.contracts import canonical_digest
 
@@ -443,6 +443,25 @@ def test_standalone_checkpoint_lock_allows_only_one_writer(tmp_path: Path) -> No
 
     second = standalone_host._acquire_checkpoint_lock(tmp_path)
     os.close(second)
+
+
+def test_private_json_replace_cleans_temporary_file_after_publish_failure(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    tmp_path.chmod(0o700)
+    target = tmp_path / "state.json"
+
+    def fail_replace(_source: Path, _destination: Path) -> None:
+        raise OSError("synthetic publish failure")
+
+    monkeypatch.setattr(standalone_host_state.os, "replace", fail_replace)
+
+    with pytest.raises(OSError, match="synthetic publish failure"):
+        standalone_host._replace_private_json(target, {"state": "prepared"})
+
+    assert not target.exists()
+    assert list(tmp_path.glob(".state.json.tmp-*")) == []
 
 
 def test_standalone_apply_rejects_tampered_review_and_context() -> None:

@@ -5,7 +5,11 @@ import { TERMS, composeGlossary } from "../deck/glossary";
 import type { LiveConnectionStatus } from "../hooks/use-live-stream";
 import type { ObservationSource } from "../hooks/observation-source";
 import { t } from "./i18n/live";
-import type { LiveMetricSummary } from "./live.metrics";
+import {
+  LIVE_METRIC_GATES,
+  LIVE_METRIC_TIERS,
+  type LiveMetricSummary,
+} from "./live.metrics";
 import {
   formatDuration,
   isTileStuck,
@@ -20,6 +24,29 @@ export interface LiveAttention {
   stuck: number;
 }
 
+export function summarizeCurrentDecisionMix(
+  tiles: readonly (TileState | null)[],
+) {
+  const tierCounts = { t0: 0, t1: 0, t2: 0 };
+  const gateCounts = { auto: 0, hil: 0, abstain: 0, deny: 0 };
+  for (const tile of tiles) {
+    if (tile === null) continue;
+    const tier = LIVE_METRIC_TIERS.find((value) => value === tile.tier);
+    if (tier) tierCounts[tier] += 1;
+    const gate = LIVE_METRIC_GATES.find((value) => value === tile.gate_decision);
+    if (gate) gateCounts[gate] += 1;
+  }
+  const tierTotal = Object.values(tierCounts).reduce((sum, value) => sum + value, 0);
+  const gateTotal = Object.values(gateCounts).reduce((sum, value) => sum + value, 0);
+  return {
+    tierCounts,
+    gateCounts,
+    tierTotal,
+    gateTotal,
+    autoShare: gateTotal === 0 ? 0 : Math.round(gateCounts.auto / gateTotal * 100),
+  };
+}
+
 export function useLiveViewModel(
   state: LiveState,
   metrics: LiveMetricSummary,
@@ -29,10 +56,16 @@ export function useLiveViewModel(
   droppedFrames = 0,
   observations: readonly AgentOperationalActivityMessage[] = [],
 ) {
-  const { eps, gateTotal, tierTotal, gateCounts, tierCounts } = metrics;
-  const autoShare = gateTotal > 0
-    ? Math.round((gateCounts.auto / gateTotal) * 100)
-    : 0;
+  const { eps } = metrics;
+  const currentMix = useMemo(
+    () => summarizeCurrentDecisionMix(state.tiles),
+    [state.tiles],
+  );
+  const { gateTotal, tierTotal, gateCounts, tierCounts, autoShare } = currentMix;
+  const displayMetrics = useMemo(
+    () => ({ ...metrics, ...currentMix }),
+    [currentMix, metrics],
+  );
   const attention = state.tiles.reduce<LiveAttention>(
     (counts, tile) => {
       if (!tile) return counts;
@@ -225,7 +258,7 @@ export function useLiveViewModel(
   );
 
   return {
-    metrics,
+    metrics: displayMetrics,
     eps,
     gateTotal,
     tierTotal,

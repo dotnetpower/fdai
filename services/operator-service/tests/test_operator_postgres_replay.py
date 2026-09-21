@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import hashlib
+import hmac
 from collections.abc import Mapping
 from dataclasses import replace
 from datetime import UTC, datetime
@@ -43,6 +45,39 @@ from fdai_service_contracts.runtime_call import (
     RUNTIME_CALL_SOURCE_SCHEMA_VERSION,
     RUNTIME_CALL_VERIFICATION_METHOD,
 )
+from starlette.exceptions import HTTPException
+
+
+async def test_postgres_operations_verifies_fdai_webhook_signature() -> None:
+    secret = "example-webhook-signing-input"
+    body = b'{"event":"alert"}'
+    digest = hmac.new(secret.encode(), body, hashlib.sha256).hexdigest()
+    adapter = PostgresOperationsAdapters(
+        PostgresFamilyStore(PostgresFamilyStoreConfig("postgresql://example.invalid/fdai")),
+        webhook_secret=secret,
+    )
+
+    assert await adapter.verify(
+        "webhook.azure_monitor",
+        {"x-fdai-signature": f"sha256={digest}"},
+        body,
+    )
+    assert not await adapter.verify(
+        "webhook.azure_monitor",
+        {"x-fdai-signature": "sha256=deadbeef"},
+        body,
+    )
+
+
+async def test_postgres_operations_requires_webhook_signing_input() -> None:
+    adapter = PostgresOperationsAdapters(
+        PostgresFamilyStore(PostgresFamilyStoreConfig("postgresql://example.invalid/fdai"))
+    )
+
+    with pytest.raises(HTTPException, match="webhook signing input is unavailable") as exc_info:
+        await adapter.verify("webhook.azure_monitor", {}, b"{}")
+
+    assert exc_info.value.status_code == 503
 
 
 async def test_postgres_operations_builds_dynamic_impact_instead_of_reading_static_key(

@@ -5,13 +5,11 @@ from __future__ import annotations
 import asyncio
 import logging
 import math
-import socket
 from collections import Counter
 from collections.abc import AsyncIterator, Awaitable, Callable, Mapping, Sequence
 from datetime import UTC, datetime
 from typing import Protocol, cast
 
-import httpx
 from fdai_service_contracts.recorded_resource_state import (
     RECORDED_STATE_UNAVAILABLE_REASONS,
     STATE_FACT_UNAVAILABLE_REASONS_PROPERTY,
@@ -22,12 +20,17 @@ from fdai.delivery.inventory_collection import (
 )
 from fdai.delivery.inventory_collection import InventoryStreamError as InventoryStreamError
 from fdai.delivery.inventory_collection import (
+    NormalizedCollectionBudget,
     close_inventory_stream,
     collection_context_digest,
     notify_inventory_promotion,
     resource_chunk_batches,
     resume_prepared_collection,
 )
+from fdai.delivery.inventory_collection import (
+    classify_inventory_failure as classify_inventory_failure,
+)
+from fdai.delivery.inventory_collection_resume import ResumedInventoryCollection
 from fdai.delivery.inventory_relationship_verifier import verify_inventory_relationships
 from fdai.delivery.inventory_sync_models import (
     InventoryProjectionSourceState as InventoryProjectionSourceState,
@@ -124,6 +127,10 @@ class InventorySyncCoordinator:
             Awaitable[tuple[InventoryCoverageManifest, PromotedInventoryObservation] | None],
         ]
         | None = None,
+        collection_loader: Callable[
+            [InventoryCoverageManifest], Awaitable[ResumedInventoryCollection | None]
+        ]
+        | None = None,
         run_lock: ResourceLock | None = None,
         relationship_mapping_catalog: ProviderRelationshipMappingCatalog | None = None,
         progress_deadline_seconds: float = DEFAULT_PROGRESS_DEADLINE_SECONDS,
@@ -148,6 +155,7 @@ class InventorySyncCoordinator:
         self._pre_run_recovery = pre_run_recovery
         self._candidate_preparer = candidate_preparer
         self._candidate_loader = candidate_loader
+        self._collection_loader = collection_loader
         self._run_lock = run_lock
         self._relationship_mapping_catalog = relationship_mapping_catalog
         self._progress_deadline_seconds = progress_deadline_seconds
@@ -188,7 +196,18 @@ class InventorySyncCoordinator:
                 )
                 if resumed is not None:
                     return resumed
-            attempt_id = await self._store.begin(source.manifest)
+            collection = None
+            if self._collection_loader is not None:
+                if self._run_lock is None:
+                    raise ValueError("unfinished inventory recovery requires its run lock")
+                collection = await self._collection_loader(source.manifest)
+                if collection is not None:
+                    source = InventorySource(
+                        name=source.name, inventory=source.inventory, manifest=collection.manifest
+                    )
+            attempt_id = (
+                collection.attempt_id if collection else await self._store.begin(source.manifest)
+            )
             observed = _ObservationAccumulator(
                 enabled=True,
                 relationship_mapping_catalog=self._relationship_mapping_catalog,
@@ -199,6 +218,7 @@ class InventorySyncCoordinator:
                     cast(Inventory, source.inventory).full_snapshot(),
                     observed,
                     context_digest=collection_context_digest(source.manifest),
+                    collection=collection,
                 )
                 promoted_observation = observed.result(
                     generation=attempt_id,
@@ -215,6 +235,7 @@ class InventorySyncCoordinator:
                 if self._enricher is not None:
                     original_drop_count = len(promoted_observation.relationship_drops)
                     enriched = await self._enricher.enrich(promoted_observation)
+                    NormalizedCollectionBudget().consume(enriched)
                     changed_resources, added_links = _validate_enrichment(
                         promoted_observation,
                         enriched,
@@ -325,13 +346,14 @@ class InventorySyncCoordinator:
         observed: _ObservationAccumulator,
         *,
         context_digest: str | None = None,
+        collection: ResumedInventoryCollection | None = None,
     ) -> tuple[datetime, ProviderScopeCoverage | None]:
         """Stage one source under a re-arming progress deadline and hard ceiling."""
 
         saw_final = False
         provider_scope_coverage: ProviderScopeCoverage | None = None
-        chunk_sequence = 0
-        previous_chunk_digest: str | None = None
+        chunk_sequence = collection.checkpoint["next_sequence"] if collection else 0
+        previous_chunk_digest: str | None = collection.checkpoint["digest"] if collection else None
         stage_chunk = getattr(self._store, "stage_chunk", None)
         loop = asyncio.get_running_loop()
         ceiling_at = loop.time() + self._attempt_deadline_seconds
@@ -348,14 +370,17 @@ class InventorySyncCoordinator:
                         raise InventoryStreamError(
                             "inventory stream emitted data after final fence"
                         )
+                    staging_batch = batch
+                    if collection is not None:
+                        batch, staging_batch = collection.revalidate(batch)
                     if batch.final:
                         saw_final = True
                         provider_scope_coverage = batch.provider_scope_coverage
                     if batch.resources or batch.links or batch.relationship_drops:
                         observed.add(batch)
-                    if batch.resources:
+                    if staging_batch.resources:
                         if callable(stage_chunk) and context_digest is not None:
-                            for chunk_batch in resource_chunk_batches(batch):
+                            for chunk_batch in resource_chunk_batches(staging_batch):
                                 receipt = await stage_chunk(
                                     attempt_id,
                                     chunk_batch,
@@ -368,7 +393,9 @@ class InventorySyncCoordinator:
                         else:
                             await self._store.stage(
                                 attempt_id,
-                                InventoryBatch(resources=batch.resources, cursor=batch.cursor),
+                                InventoryBatch(
+                                    resources=staging_batch.resources, cursor=batch.cursor
+                                ),
                             )
         except TimeoutError as exc:
             reason = "absolute ceiling" if loop.time() >= ceiling_at else "no-progress deadline"
@@ -395,8 +422,10 @@ class _ObservationAccumulator:
         self._links: list[LinkRecord] = []
         self._relationship_drops: list[RelationshipDrop] = []
         self._truncated = False
+        self._budget = NormalizedCollectionBudget()
 
     def add(self, batch: InventoryBatch) -> None:
+        self._budget.consume(batch)
         if any(resource.props.get("_truncated") is True for resource in batch.resources):
             raise InventoryStreamError(
                 "truncated inventory properties cannot promote a full snapshot"
@@ -518,66 +547,6 @@ class _ObservationAccumulator:
             relationship_drops=verified.dropped,
             recorded_at=recorded_at,
         )
-
-
-def classify_inventory_failure(exc: Exception) -> InventoryAttemptFailure:
-    """Map transport and contract failures to a bounded, secret-free code."""
-
-    message = type(exc).__name__
-    code = InventoryFailureCode.SOURCE_UNAVAILABLE
-    internal_reason = _internal_inventory_failure_reason(exc)
-    if internal_reason is not None:
-        return InventoryAttemptFailure(
-            code=InventoryFailureCode.INVALID_DATA,
-            message=internal_reason,
-        )
-    if isinstance(exc, InventoryStreamError):
-        code = InventoryFailureCode.PARTIAL
-        message = str(exc)
-    elif isinstance(exc, (httpx.ConnectTimeout, httpx.ConnectError)):
-        cause = exc.__cause__
-        code = (
-            InventoryFailureCode.DNS_FAILED
-            if isinstance(cause, socket.gaierror)
-            else InventoryFailureCode.NETWORK_BLOCKED
-        )
-    else:
-        text = str(exc).lower()
-        if "http 401" in text or "identity token request failed" in text:
-            code = InventoryFailureCode.TOKEN_FAILED
-        elif "http 403" in text or "forbidden" in text:
-            code = InventoryFailureCode.FORBIDDEN
-        elif "http 429" in text or "throttl" in text:
-            code = InventoryFailureCode.THROTTLED
-        elif any(
-            reason in text for reason in ("pagination cap", "partial", "truncated", "continuation")
-        ):
-            code = InventoryFailureCode.PARTIAL
-        elif isinstance(exc, (ValueError, TypeError)):
-            code = InventoryFailureCode.INVALID_DATA
-    return InventoryAttemptFailure(code=code, message=message[:200])
-
-
-def _internal_inventory_failure_reason(exc: Exception) -> str | None:
-    """Classify reviewed invariant failures without retaining target identifiers."""
-    text = str(exc)
-    exact = {
-        "inventory candidate contains a link with a missing endpoint": (
-            "dangling_relationship_endpoint"
-        ),
-        "inventory candidate violates contains parent cardinality": (
-            "ambiguous_containment_parent"
-        ),
-    }
-    if reason := exact.get(text):
-        return reason
-    if (
-        isinstance(exc, RuntimeError)
-        and text.startswith("inventory resource ")
-        and text.endswith(" has conflicting duplicates")
-    ):
-        return "conflicting_resource_duplicate"
-    return None
 
 
 def _validate_enrichment(

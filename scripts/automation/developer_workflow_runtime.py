@@ -269,6 +269,38 @@ def _core_log_lines(root: Path) -> tuple[str, ...]:
     return _service_log_lines(root, "core-runtime")
 
 
+_CORE_CHANGE_LAG_LIMIT = 1_000
+_CORE_CHANGE_PROGRESS_MAX_AGE_SECONDS = 75.0
+_CORE_CHANGE_PROGRESS = re.compile(
+    r'event_bus_consumer_progress .*topic="fdai\.change\.events".*'
+    r'consumer_group="fdai-local-[^"]+-core".*consumer_lag=(?P<lag>[0-9]+)'
+)
+
+
+def _core_change_consumer_ready(root: Path, *, now: datetime | None = None) -> bool:
+    """Reject a measured primary Core backlog above the local readiness bound."""
+
+    current = now or datetime.now(UTC)
+    if current.tzinfo is None:
+        raise ValueError("core lag readiness time MUST be timezone-aware")
+    partition_lags: dict[int, int] = {}
+    for line in reversed(_core_log_lines(root)):
+        match = _CORE_CHANGE_PROGRESS.search(line)
+        if match is not None:
+            observed = _log_timestamp(line)
+            if observed is None:
+                continue
+            age_seconds = (current - observed.astimezone(UTC)).total_seconds()
+            if not -1.0 <= age_seconds <= _CORE_CHANGE_PROGRESS_MAX_AGE_SECONDS:
+                continue
+            partition_match = re.search(r"partition=(?P<partition>[0-9]+)", line)
+            if partition_match is None:
+                continue
+            partition = int(partition_match.group("partition"))
+            partition_lags.setdefault(partition, int(match.group("lag")))
+    return bool(partition_lags) and sum(partition_lags.values()) <= _CORE_CHANGE_LAG_LIMIT
+
+
 def _analyzer_tick_ready(root: Path) -> bool:
     """Require a clean analyzer tick after the latest start or readiness regression."""
 
@@ -318,6 +350,7 @@ def local_services_diagnostic(
     *,
     probe: Callable[[str], bool] = _http_ready,
     core_probe: Callable[[Path], bool] = _core_heartbeat_ready,
+    core_lag_probe: Callable[[Path], bool] = _core_change_consumer_ready,
     analyzer_probe: Callable[[Path], bool] = _analyzer_tick_ready,
     cost_analytics_probe: Callable[[Path], bool] = _cost_analytics_ready,
     inventory_probe: Callable[[Path], bool] = _inventory_coverage_ready,
@@ -341,7 +374,7 @@ def local_services_diagnostic(
     ]
     records = _process_records() if process_records is None else process_records
     core_owners = _core_runtime_owners(records)
-    core_ready = repo_root in core_owners and core_probe(repo_root)
+    core_ready = repo_root in core_owners and core_probe(repo_root) and core_lag_probe(repo_root)
     services.insert(0, {"name": "core-runtime", "ready": core_ready})
     for name, module in LOCAL_LOOP_SERVICES:
         ready = repo_root in _module_owners(records, module)

@@ -682,6 +682,7 @@ def test_supervisor_waits_for_the_analyzer_first_clean_tick() -> None:
     assert 'FDAI_CONSOLE_START_READINESS_SECONDS="$readiness_seconds"' in source
     assert "FDAI_ANALYZER_RUN_ID:-local-analyzer-$(date -u +%s)-$$" in service_source
     assert 'FDAI_ANALYZER_RUN_ID="$local_analyzer_run_id"' in service_source
+    assert 'FDAI_STATE_STORE_DSN="$FDAI_STATE_STORE_DSN"' in service_source
     assert "cost-governance-analytics" in source
     assert 'FDAI_COST_STORE_DSN="$FDAI_STATE_STORE_DSN"' in service_source
     assert "collect-cost-governance-analytics.py" in service_source
@@ -1325,6 +1326,10 @@ case "$*" in
   "exec fdai-redpanda rpk cluster config set default_topic_partitions 2")
     printf 'topic-default-set\\n'
     ;;
+    "exec fdai-redpanda rpk cluster config set log_retention_ms 86400000") exit 0 ;;
+    "exec fdai-redpanda rpk cluster config set retention_bytes 268435456") exit 0 ;;
+    "exec fdai-redpanda rpk cluster config set group_offset_retention_sec 86400") exit 0 ;;
+    "exec fdai-redpanda rpk cluster config set group_offset_retention_check_ms 60000") exit 0 ;;
   "exec fdai-redpanda rpk topic describe fdai.pantheon.objects --print-partitions")
     printf 'PARTITION LEADER\\n0 0\\n'
     ;;
@@ -1356,6 +1361,10 @@ case "$*" in
   "exec fdai-redpanda rpk cluster config set partition_autobalancing_mode node_add") exit 0 ;;
   "exec fdai-redpanda rpk cluster config set core_balancing_continuous false") exit 0 ;;
   "exec fdai-redpanda rpk cluster config set default_topic_partitions 2") exit 0 ;;
+    "exec fdai-redpanda rpk cluster config set log_retention_ms 86400000") exit 0 ;;
+    "exec fdai-redpanda rpk cluster config set retention_bytes 268435456") exit 0 ;;
+    "exec fdai-redpanda rpk cluster config set group_offset_retention_sec 86400") exit 0 ;;
+    "exec fdai-redpanda rpk cluster config set group_offset_retention_check_ms 60000") exit 0 ;;
   "exec fdai-redpanda rpk topic describe fdai.pantheon.objects --print-partitions")
     printf 'PARTITION LEADER\\n'
     ;;
@@ -1380,6 +1389,10 @@ case "$*" in
   "exec fdai-redpanda rpk cluster config set partition_autobalancing_mode node_add") exit 0 ;;
   "exec fdai-redpanda rpk cluster config set core_balancing_continuous false") exit 0 ;;
   "exec fdai-redpanda rpk cluster config set default_topic_partitions 2") exit 0 ;;
+    "exec fdai-redpanda rpk cluster config set log_retention_ms 86400000") exit 0 ;;
+    "exec fdai-redpanda rpk cluster config set retention_bytes 268435456") exit 0 ;;
+    "exec fdai-redpanda rpk cluster config set group_offset_retention_sec 86400") exit 0 ;;
+    "exec fdai-redpanda rpk cluster config set group_offset_retention_check_ms 60000") exit 0 ;;
   "exec fdai-redpanda rpk topic describe fdai.pantheon.objects --print-partitions")
     printf 'PARTITION LEADER\\n0 0\\n1 0\\n'
     ;;

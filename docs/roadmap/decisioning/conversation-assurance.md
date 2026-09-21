@@ -15,6 +15,9 @@ model families, bounded debate, blind replay, automatic promotion, and automatic
 Bragi persists the terminal turn. Norns evaluates it off path, Saga records each assessment and
 policy transition, and Mimir governs the fixed rubric. This loop cannot change RBAC, approval,
 risk, policy, agent roles, or executor authority.
+The local campaign CLI keeps command and state orchestration in its facade while focused modules
+own bounded Operator response parsing and private reporting. This split changes no assurance gate,
+qualification result, retained content policy, or authority.
 
 ![Design at a glance. The main stages are Terminal turn, Deterministic checks, Assessment ledger, Independent evaluator A, Independent evaluator B, Deterministic reducer, Independent tie-breaker, Norns failure clustering, Bounded policy candidate, Blind bilingual replay, Shadow and canary, Automatic promotion.](../../diagrams/generated/fdai-roadmap-decisioning-conversation-assurance-01.en.svg)
 

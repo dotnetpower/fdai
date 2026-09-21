@@ -58,6 +58,7 @@ from fdai.delivery.inventory_job_config import InventoryJobConfig
 from fdai.delivery.inventory_ontology_observer import (
     build_ontology_observer as _build_ontology_observer,
 )
+from fdai.delivery.inventory_process_budget import run_inventory_process
 from fdai.delivery.inventory_progress import InventoryProgressUnavailableError
 from fdai.delivery.inventory_progress_wiring import build_inventory_progress_recorder
 from fdai.delivery.inventory_scheduler import CollectionScheduleDecision
@@ -102,6 +103,7 @@ from fdai.delivery.persistence.postgres_inventory_reconciliation import (
     InventoryReconciliationHealthState,
     PostgresInventoryReconciliationGate,
 )
+from fdai.delivery.persistence.postgres_inventory_resume import load_unfinished_collection
 from fdai.delivery.persistence.postgres_inventory_snapshot import (
     PostgresInventorySnapshotStore,
     PostgresInventorySnapshotStoreConfig,
@@ -380,6 +382,7 @@ async def run(
             stack=stack,
         )
         try:
+            collection_started_at = datetime.now(tz=UTC)
             result = await InventorySyncCoordinator(
                 store=observed_store,
                 promotion_enricher=effective_enricher,
@@ -390,6 +393,9 @@ async def run(
                 ),
                 candidate_loader=partial(
                     load_prepared_candidate, PostgresInventorySnapshotStoreConfig(dsn=config.dsn)
+                ),
+                collection_loader=partial(
+                    load_unfinished_collection, PostgresInventorySnapshotStoreConfig(dsn=config.dsn)
                 ),
                 run_lock=PostgresAdvisoryResourceLock(
                     config=PostgresAdvisoryResourceLockConfig(
@@ -407,7 +413,7 @@ async def run(
                     resource_types=resource_types,
                     identity=identity,
                     http_client=client,
-                    started_at=datetime.now(tz=UTC),
+                    started_at=collection_started_at,
                     progress_recorder=progress_recorder,
                 )
             )
@@ -442,9 +448,11 @@ async def run(
                         event_bus=event_bus,
                         topic=event_topic,
                         scope_lock=_recovery_delta_lock(config),
+                        initial_replay_after=collection_started_at,
                     ),
                     logger=_LOGGER,
                 )
+            await progress_recorder.complete()
         except Exception:
             try:
                 await progress_recorder.fail("inventory_reconciliation_failed")
@@ -768,12 +776,12 @@ def container_argv(argv: list[str]) -> list[str]:
 def container_main() -> None:
     """Run inventory synchronization from a positional Container Apps command."""
 
-    asyncio.run(_main(container_argv(sys.argv[1:])))
+    run_inventory_process(lambda: _main(container_argv(sys.argv[1:])))
 
 
 def main() -> None:
     """Run one due-checked reconciliation under the job process identity."""
-    asyncio.run(_main(sys.argv[1:]))
+    run_inventory_process(lambda: _main(sys.argv[1:]))
 
 
 if __name__ == "__main__":

@@ -5,6 +5,7 @@ repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
 database_url="postgresql+psycopg://fdai:devonly@127.0.0.1:5432/fdai"
 validation_database_url="postgresql+psycopg://fdai:devonly@127.0.0.1:5433/fdai_validation"
 adoption_dir="$repo_root/.fdai/service-migration-adoption"
+database_recreated_marker="$repo_root/.fdai/local-database-recreated"
 rollback_reference="$(git -C "$repo_root" rev-parse HEAD)"
 
 if [[ $# -gt 1 || ( $# -eq 1 && "${1:-}" != "--dependencies-ready" && "${1:-}" != "--check" ) ]]; then
@@ -49,7 +50,14 @@ fi
 
 FDAI_DATABASE_URL="$database_url" \
   "$repo_root/.venv/bin/python" \
-    "$repo_root/scripts/deployment/local/maintain-development-database.py"
+    "$repo_root/scripts/deployment/local/maintain-development-database.py" \
+      --recreated-marker "$database_recreated_marker"
+
+if [[ -f "$database_recreated_marker" ]]; then
+  "$repo_root/.venv/bin/python" \
+    "$repo_root/scripts/deployment/local/reset-development-broker.py"
+  rm -f "$database_recreated_marker"
+fi
 
 FDAI_DATABASE_URL="$validation_database_url" \
   "$repo_root/.venv/bin/python" -m alembic -c "$repo_root/alembic.ini" upgrade head

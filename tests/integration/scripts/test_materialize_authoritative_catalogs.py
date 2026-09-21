@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import importlib.util
 import json
 import sys
@@ -9,10 +10,53 @@ from types import ModuleType
 
 import pytest
 import yaml
+from fdai.delivery.authoritative_catalog_persistence import write_catalog_snapshots_atomic
+from fdai.delivery.authoritative_rule_projection import _read_reference
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 SCRIPT = REPO_ROOT / "scripts/deployment/local/materialize-authoritative-catalogs.py"
 GENERATOR = REPO_ROOT / "mocks/ui/scripts/generate-ontology-knowledge-graph.py"
+
+
+class _FakeCatalogTransaction:
+    def __init__(self, connection: _FakeCatalogConnection) -> None:
+        self.connection = connection
+
+    async def __aenter__(self) -> None:
+        self.connection.in_transaction = True
+
+    async def __aexit__(self, exc_type: object, *_args: object) -> None:
+        self.connection.rolled_back = exc_type is not None
+        self.connection.committed = exc_type is None
+        self.connection.in_transaction = False
+
+
+class _FakeCatalogConnection:
+    def __init__(self, *, fail_key: str | None = None) -> None:
+        self.fail_key = fail_key
+        self.in_transaction = False
+        self.committed = False
+        self.rolled_back = False
+        self.keys: list[str] = []
+
+    async def __aenter__(self) -> _FakeCatalogConnection:
+        return self
+
+    async def __aexit__(self, *_args: object) -> None:
+        return None
+
+    def transaction(self) -> _FakeCatalogTransaction:
+        return _FakeCatalogTransaction(self)
+
+    async def execute(self, query: str, params: object = None) -> object:
+        assert self.in_transaction
+        if params is not None:
+            assert isinstance(params, tuple)
+            key = str(params[0])
+            self.keys.append(key)
+            if key == self.fail_key:
+                raise RuntimeError("injected catalog write failure")
+        return object()
 
 
 def _module() -> ModuleType:
@@ -95,6 +139,75 @@ def test_collected_rules_match_python_safe_loader(monkeypatch: pytest.MonkeyPatc
 
     assert preferred == reference
     assert len(preferred) == len(list(root.rglob("*.yaml")))
+
+
+def test_catalog_reference_rejects_invalid_utf8(tmp_path: Path) -> None:
+    (tmp_path / "invalid.rego").write_bytes(b"package example\n\xff")
+
+    with pytest.raises(RuntimeError, match="MUST be valid UTF-8"):
+        _read_reference(tmp_path, "policies/invalid.rego", prefix="policies/")
+
+
+def test_catalog_reference_rejects_path_escape(tmp_path: Path) -> None:
+    outside = tmp_path.parent / "outside.rego"
+    outside.write_text("package outside", encoding="utf-8")
+
+    assert _read_reference(tmp_path, "policies/../outside.rego", prefix="policies/") is None
+
+
+def test_catalog_snapshot_batch_commits_one_transaction(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    connection = _FakeCatalogConnection()
+
+    async def connect(*_args: object, **_kwargs: object) -> _FakeCatalogConnection:
+        return connection
+
+    monkeypatch.setattr(
+        "fdai.delivery.authoritative_catalog_persistence.psycopg.AsyncConnection.connect",
+        connect,
+    )
+
+    asyncio.run(
+        write_catalog_snapshots_atomic(
+            dsn="postgresql://catalog",
+            snapshots={"b": {"revision": 2}, "a": {"revision": 1}},
+            statement_timeout_ms=100,
+            connect_timeout_s=1,
+        )
+    )
+
+    assert connection.keys == ["a", "b"]
+    assert connection.committed is True
+    assert connection.rolled_back is False
+
+
+def test_catalog_snapshot_batch_rolls_back_mid_write(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    connection = _FakeCatalogConnection(fail_key="b")
+
+    async def connect(*_args: object, **_kwargs: object) -> _FakeCatalogConnection:
+        return connection
+
+    monkeypatch.setattr(
+        "fdai.delivery.authoritative_catalog_persistence.psycopg.AsyncConnection.connect",
+        connect,
+    )
+
+    with pytest.raises(RuntimeError, match="injected catalog write failure"):
+        asyncio.run(
+            write_catalog_snapshots_atomic(
+                dsn="postgresql://catalog",
+                snapshots={"a": {"revision": 1}, "b": {"revision": 2}},
+                statement_timeout_ms=100,
+                connect_timeout_s=1,
+            )
+        )
+
+    assert connection.keys == ["a", "b"]
+    assert connection.committed is False
+    assert connection.rolled_back is True
 
 
 def test_inventory_evidence_health_rejects_a_cross_generation_join() -> None:

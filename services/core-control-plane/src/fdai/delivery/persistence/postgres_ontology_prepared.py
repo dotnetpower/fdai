@@ -14,6 +14,7 @@ import psycopg
 from psycopg.rows import dict_row
 from psycopg.types.json import Jsonb
 
+from fdai.delivery.persistence.postgres_ontology_partitions import prepare_partition_set
 from fdai.shared.contracts.models import OntologyTypeRef
 from fdai.shared.providers.ontology_instance import (
     OntologyInstanceValidationError,
@@ -149,8 +150,10 @@ def prepare_replacement(
             "object_count": len(objects),
             "link_count": len(links),
             "chunks": [_digest(chunk) for chunk in chunks],
+            "partition_set": prepare_partition_set(chunks),
             "state_updates": state_updates,
             "dependency_revisions": {},
+            "ownership_digest": None,
             "observation_projection_watermark": observation_projection_watermark,
         },
         limit=_MAX_MANIFEST_BYTES,
@@ -171,6 +174,10 @@ def restore_replacement(
         _digest(chunk) for chunk in prepared.chunks
     ]:
         raise OntologyInstanceValidationError("prepared ontology chunk manifest changed")
+    if "partition_set" in manifest and manifest["partition_set"] != prepare_partition_set(
+        prepared.chunks
+    ):
+        raise OntologyInstanceValidationError("prepared ontology partition set changed")
     objects = []
     links = []
     for chunk in prepared.chunks:
@@ -194,7 +201,8 @@ async def _dependency_revisions(
     retained: dict[str, Any] = dict.fromkeys(identifiers)
     for offset in range(0, len(identifiers), 1000):
         query = (
-            "SELECT id, revision, object_type, type_version, catalog_digest FROM ontology_resource "
+            "SELECT id, revision, object_type, type_version, catalog_digest, properties "
+            "FROM ontology_resource "
             "WHERE id=ANY(%s::text[]) ORDER BY id"
         )
         cursor = await connection.execute(
@@ -215,7 +223,9 @@ async def pin_replacement_dependencies(
     identifiers = sorted(foreign | (set(manifest["previous_object_ids"]) - desired))
     if len(identifiers) > 250_000:
         raise OntologyInstanceValidationError("prepared ontology dependencies exceed their bound")
-    if not identifiers:
+    desired_ownership = manifest["state_updates"].get("inventory-ontology:manifest")
+    ownership_bound = isinstance(desired_ownership, dict) and "object_ids" in desired_ownership
+    if not identifiers and not ownership_bound:
         return prepared
     async with (
         asyncio.timeout(30),
@@ -228,6 +238,32 @@ async def pin_replacement_dependencies(
             "SELECT set_config('statement_timeout', %s, true)", (str(config.statement_timeout_ms),)
         )
         revisions = await _dependency_revisions(connection, identifiers, lock=False)
+        if ownership_bound:
+            cursor = await connection.execute(
+                "SELECT value FROM state_kv WHERE key='inventory-ontology:manifest'"
+            )
+            row = await cursor.fetchone()
+            prior = row["value"] if row is not None else {"object_ids": [], "link_keys": []}
+            if not isinstance(prior, dict) or (
+                "object_ids" not in prior
+                or "link_keys" not in prior
+                or sorted(prior.get("object_ids", [])) != sorted(manifest["previous_object_ids"])
+                or sorted(prior.get("link_keys", [])) != sorted(manifest["previous_link_keys"])
+                or sorted(desired_ownership["object_ids"]) != sorted(desired)
+                or sorted(desired_ownership.get("link_keys", []))
+                != sorted([record.from_id, record.link_type, record.to_id] for record in links)
+            ):
+                raise OntologyInstanceValidationError("prepared ontology ownership set changed")
+            newly_claimed = await _dependency_revisions(
+                connection, sorted(desired - set(prior["object_ids"])), lock=False
+            )
+            if any(value is not None for value in newly_claimed.values()):
+                raise OntologyInstanceValidationError(
+                    "prepared ontology ownership collides with existing objects"
+                )
+            manifest["ownership_digest"] = _digest(
+                _encode({"present": row is not None, "manifest": prior}, limit=_MAX_MANIFEST_BYTES)
+            )
     if any(revisions[identifier] is None for identifier in foreign):
         raise OntologyInstanceValidationError("prepared ontology external endpoint is missing")
     manifest["dependency_revisions"] = revisions
@@ -247,6 +283,17 @@ async def verify_replacement_dependencies(
     actual = await _dependency_revisions(connection, sorted(expected), lock=True)
     if _encode(actual, limit=_MAX_MANIFEST_BYTES) != _encode(expected, limit=_MAX_MANIFEST_BYTES):
         raise OntologyInstanceValidationError("prepared ontology dependency revision changed")
+    if manifest.get("ownership_digest") is not None:
+        cursor = await connection.execute(
+            "SELECT value FROM state_kv WHERE key='inventory-ontology:manifest' FOR SHARE"
+        )
+        row = await cursor.fetchone()
+        prior = row["value"] if row is not None else {"object_ids": [], "link_keys": []}
+        actual_digest = _digest(
+            _encode({"present": row is not None, "manifest": prior}, limit=_MAX_MANIFEST_BYTES)
+        )
+        if actual_digest != manifest["ownership_digest"]:
+            raise OntologyInstanceValidationError("prepared ontology ownership manifest changed")
 
 
 async def persist_replacement(

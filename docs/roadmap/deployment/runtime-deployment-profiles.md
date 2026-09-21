@@ -14,6 +14,14 @@ authority. Azure Container Apps remains a supported compatibility profile for ex
 
 ## Design at a glance
 
+Operator production composition uses the same focused lifecycle, route-family, and read-source
+modules in every runtime profile. The internal ownership split changes no platform selection,
+identity, source binding, readiness condition, or deployment authority.
+Both profiles also use the same authenticated instance-index enrollment and bounded Core reconciliation task. Governed embedding identity gates adapter construction; cached candidates never replace current graph authorization. Unqualified semantic ranking remains closed, and exact-ID availability does not establish AKS diagnostic evidence, provider health, or deployment readiness.
+Preparation and retired-generation cleanup share the existing deployment-wide ResourceLock provider and a principal-scoped projection key. Lock contention consumes the original preparation deadline; neither profile may substitute independent per-replica locks for shared storage writes.
+Authenticated index enrollment persists a five-minute service-owned receipt so another worker replica can resolve the same principal, role, groups, and purpose. Each source read recomputes scope and validates receipt lifetime; expired receipts cannot authorize work. Local active enrollment stays bounded at eight per process, and a two-second admission lock includes persistence without extending the receipt lifetime.
+When a source change encounters eight retained rollback generations, reconciliation requests audited retirement of the oldest inactive generation before invalidating the current one. It never increases the retention limit or deletes an active generation directly.
+
 Shared Operator outbox composition preserves the same test-context worker on both platforms.
 Its facade grouping creates no AKS observation, Cost Governance activation, or deployment authority. Both runtimes use the same [bounded projection recovery](../interfaces/recorded-resource-state.md#bounded-automatic-recovery) inside the existing inventory coordinator. Recovery changes neither provider scope nor infrastructure, and a release mismatch requires deployment review rather than an automatic rollout or access override. After that review, only an explicit operator-requested full reconciliation may preserve an unreplayable pending generation and collect fresh evidence under the current release; recurring recovery remains blocked.
 
@@ -122,7 +130,7 @@ Both initial and recurring collection apply source-policy page and concurrency l
 policies cannot exceed 50,000 Resources or 200,000 relationships, matching the current projection
 capacity. ARM page collection also enforces policy record and accumulated-response byte limits.
 
-Initial and recurring inventory runs share the same projection bounds: an oversized candidate retains the previous active generation, and incomplete observations cannot confirm resource deletion.
+Initial and recurring inventory runs share the same projection bounds: an oversized candidate retains the previous active generation, and incomplete observations cannot confirm resource deletion. Both use durable chunk forwarding and exact-context unfinished recovery under the existing run lock. Recovery repeats the full provider read without trusting a continuation token, preserves original clocks, and requires fresh relationship and final coverage verification before sealing and promotion. Changed or missing retained identities block that candidate. Source accumulation and enrichment each retain a 16 MiB normalized-record ceiling. Dedicated Linux entrypoints impose a 2048 MiB OS address-space limit across collection, enrichment and publication; `FDAI_INVENTORY_MEMORY_LIMIT_MIB` permits 256-4096 MiB but cannot raise an inherited lower limit. Insufficient startup headroom blocks before collection. Database memory and embedded calls remain separately owned; no read, deployment or execution authority changes.
 Their end-to-end deadline also covers enrichment, promotion, and notification, with bounded cancellation cleanup rather than an indefinitely collecting candidate.
 Both profiles retain a content-bound delivery marker before graph commit and recover pending Resource Events independently of the graph completion watermark; delivery never grants execution authority.
 
@@ -275,6 +283,10 @@ change-accelerator, and private-cluster proposal database pools through the same
 lifecycle that closes provider clients and event transport.
 
 The managed host records the selected Deployment names, image references, and replica bounds.
+Its checkpoint coordinator delegates descriptor-safe private state, locking, digests, and atomic
+JSON replacement to one state module, while a separate pure module validates plan summaries and
+Foundation-derived values. This split changes no target, plan, approval, identity, apply, or
+independent readback contract. Failed JSON publication removes its random private temporary file.
 Health readback requires that complete set, current observed generations, ready replicas, and
 running Pod image digests from the same source revision. Empty, duplicate, stale, malformed, or
 partially healthy responses are unavailable, not success. The expected set must contain all five
@@ -294,6 +306,11 @@ database membership nor supplies service-owned DSNs, and never enables Executor 
 Each FDAI workload keeps its current user-assigned Managed Identity. On AKS, one namespaced
 Kubernetes ServiceAccount receives one federated identity credential. The privileged Executor
 identity is never shared with the console, Operator Service, jobs, or other workloads. The optional dev operations gateway keeps reader and executor identities separate: tag canaries grant only `Tag Contributor` on the FDAI application resource group, while reader access covers preflight, post-write verification, and rollback confirmation. Versioning the ActionType refreshes exact ontology and Cost Governance profile pins, including both convergence-test expectations, without activating the package. This role does not promote `remediate.tag-add`; deployment and ActionType promotion remain separate approvals. When Kubernetes effect routing is configured, one namespace Role binds only to the isolated Executor ServiceAccount and permits Pod `get` and `delete`, Deployment `get` and `patch`, and Deployment scale `get` and `update`. It grants no cluster-wide mutation, resource creation, secret access, or inventory-job permission. The runtime binds the in-cluster API origin, projected credential paths, exact AKS resource ID, and `fdai-runtime` namespace allowlist without embedding a credential.
+
+The gateway facade coordinates authorization, dry-run binding, idempotency, and resource leases.
+Focused modules own configuration and identity contracts, bounded ARM transport, and scoped Azure
+resource reads and mutations. The split preserves the three vertical executor identities, one-resource
+blast radius, effect readback, rollback, and no-authority defaults.
 
 ### Exact external Deployment scaling
 

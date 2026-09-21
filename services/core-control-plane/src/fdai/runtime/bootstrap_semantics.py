@@ -13,13 +13,14 @@ from typing import Any
 import httpx
 from fdai_core_service.operational_evidence_projection import SemanticOperationalEvidenceReader
 
-from fdai.agents import Saga
+from fdai.agents import ContextIndexWorkerBindings, Saga
 from fdai.composition import (
     Container,
     build_t1_mini_probe,
     compose_azure_semantic_query_runtime,
     compose_resource_state_shadow_hook,
 )
+from fdai.composition.semantic_query_instance_candidates import declare_instance_candidate_query
 from fdai.core.control_loop import ControlLoop
 from fdai.core.ontology_platform.incident_queries import IncidentEvidenceReader
 from fdai.core.ontology_platform.inventory_projection import (
@@ -53,6 +54,7 @@ from fdai.delivery.persistence.postgres_state_transitions import (
     PostgresStateTransitionStoreConfig,
 )
 from fdai.delivery.runtime_settings import RuntimeSettingsService
+from fdai.rule_catalog.schema.ontology_catalog import load_ontology_catalog
 from fdai.runtime.bootstrap_bindings import (
     RuleGenerationRuntimeBinding,
     build_rule_generation_runtime_binding,
@@ -73,10 +75,12 @@ from fdai.runtime.conversation_assurance_readiness import (
     observe_runtime_readiness,
     write_runtime_readiness_receipt,
 )
+from fdai.runtime.ontology_index_runtime import OntologyIndexRuntime, build_ontology_index_runtime
 from fdai.runtime.providers import (
     _build_read_investigation_provider,
     _build_resource_event_history_reader,
     _build_resource_health_collection_reader,
+    _build_resource_lock,
     _build_service_health_reader,
     _build_subscription_scope_reader,
     _build_vm_process_cpu_reader,
@@ -151,6 +155,16 @@ class SemanticRuntime:
     readiness_specs: tuple[Any, ...]
     readiness_probes: tuple[Any, ...]
     t1_mini_probe: T1MiniProbe | None = None
+    ontology_index_runtime: OntologyIndexRuntime | None = None
+
+    @property
+    def context_index_workers(self) -> ContextIndexWorkerBindings | None:
+        runtime = self.ontology_index_runtime
+        return (
+            runtime.workers.bindings
+            if runtime is not None and runtime.workers is not None
+            else None
+        )
 
 
 async def build_semantic_runtime(
@@ -299,6 +313,32 @@ async def build_semantic_runtime(
         endpoint=endpoint,
         endpoint_resolver=endpoint_resolver,
     )
+    ontology_index_runtime = None
+    if (
+        control_loop.ontology_release is not None
+        and control_loop.ontology_instance_store is not None
+    ):
+        ontology_catalog = declare_instance_candidate_query(
+            load_ontology_catalog(
+                catalog_root,
+                schema_registry=container.schema_registry,
+                probes_root=catalog_root / "probes" if (catalog_root / "probes").is_dir() else None,
+            )
+        )
+        ontology_index_runtime = build_ontology_index_runtime(
+            store=state_store,
+            ontology_store=control_loop.ontology_instance_store,
+            catalog=ontology_catalog,
+            release=control_loop.ontology_release,
+            embedder=llm_bindings.embedding_model,
+            clock=lambda: datetime.now(UTC),
+            projection_lock=_build_resource_lock(environment),
+        )
+    if ontology_index_runtime is None:
+        _LOGGER.warning(
+            "ontology_instance_index_unavailable",
+            extra={"reason": "controlled_source_or_embedding_identity_unavailable"},
+        )
     semantic_composition = compose_azure_semantic_query_runtime(
         container=container,
         ontology_release=control_loop.ontology_release,
@@ -315,6 +355,9 @@ async def build_semantic_runtime(
         purpose=environment.get("FDAI_SEMANTIC_TURN_PURPOSE", "operations-review").strip(),
         catalog_index=query_catalog_index,
         catalog_digest=query_catalog_digest,
+        instance_candidate_query=ontology_index_runtime.query
+        if ontology_index_runtime is not None
+        else None,
         topology_reader=topology_reader,
         metric_registry=metric_registry,
         metric_window_provider=metric_window_provider,
@@ -449,6 +492,7 @@ async def build_semantic_runtime(
         readiness_specs=(*semantic_specs, *catalog_specs, *model_identity_specs),
         readiness_probes=(*semantic_probes, *catalog_probes, *model_identity_probes),
         t1_mini_probe=t1_mini_probe,
+        ontology_index_runtime=ontology_index_runtime,
     )
 
 

@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import argparse
 import base64
-import fcntl
 import hashlib
 import json
 import os
@@ -37,6 +36,26 @@ from fdai_deployment_cli.license import inspect_license
 from fdai_deployment_cli.oci_archive import validate_oci_archive
 from fdai_deployment_cli.private_output import read_private_bytes, write_private_output
 from fdai_deployment_cli.runtime_profile import RuntimeDeploymentProfile
+from fdai_deployment_cli.standalone_host_state import (
+    absolute as _absolute,
+    acquire_checkpoint_lock as _acquire_checkpoint_lock,
+    executable_digest as _executable_digest,
+    file_digest as _file_digest,
+    moment as _moment,
+    parse_moment as _parse_moment,
+    private_directory as _private_directory,
+    private_json as _private_json,
+    replace_or_verify_private_json as _replace_or_verify_private_json,
+    replace_private_json as _replace_private_json,
+)
+from fdai_deployment_cli.standalone_host_values import (
+    console_origin as _console_origin,
+    foundation_application_workload as _foundation_application_workload,
+    foundation_binding_digest as _foundation_binding_digest,
+    plan_summary as _plan_summary,
+    required_image_digest as _required_image_digest,
+    vault_name as _vault_name,
+)
 from fdai_deployment_cli.target import compute_target_binding
 from fdai_deployment_cli.trust_roots import license_public_key_pem
 
@@ -4439,105 +4458,6 @@ def _container_app_health(context: dict[str, object], infra: Path) -> bool:
     return True
 
 
-def _plan_summary(value: object) -> dict[str, object]:
-    changes = value.get("resource_changes") if isinstance(value, dict) else None
-    if not isinstance(changes, list) or len(changes) > 5000:
-        raise ValueError("Terraform plan resource change inventory is invalid")
-    counts = {name: 0 for name in ("create", "update", "delete", "replace", "read", "no-op")}
-    types: dict[str, int] = {}
-    projected: list[dict[str, object]] = []
-    for item in changes:
-        if (
-            not isinstance(item, dict)
-            or not isinstance(item.get("type"), str)
-            or not isinstance(item.get("address"), str)
-            or not item["address"]
-        ):
-            raise ValueError("Terraform plan resource change is invalid")
-        change = item.get("change")
-        actions = change.get("actions") if isinstance(change, dict) else None
-        if not isinstance(actions, list) or not all(isinstance(action, str) for action in actions):
-            raise ValueError("Terraform plan action is invalid")
-        action_set = set(actions)
-        if action_set == {"create", "delete"}:
-            counts["replace"] += 1
-        else:
-            for action in action_set:
-                if action in counts:
-                    counts[action] += 1
-        types[item["type"]] = types.get(item["type"], 0) + 1
-        projected.append({"address": item["address"], "actions": actions})
-    return {
-        "action_counts": counts,
-        "resource_type_counts": dict(sorted(types.items())),
-        "resource_changes": projected,
-    }
-
-
-def _required_image_digest(records: dict[str, object], name: str) -> str:
-    record = _mapping(records.get(name), f"runtime image {name}")
-    digest = record.get("image_digest")
-    if not isinstance(digest, str) or re.fullmatch(r"sha256:[0-9a-f]{64}", digest) is None:
-        raise ValueError("runtime image digest is invalid")
-    return digest
-
-
-def _foundation_binding_digest(
-    handoff: dict[str, object],
-    *,
-    runner: dict[str, object],
-    state: dict[str, object],
-    ops: dict[str, object],
-    app: dict[str, object],
-) -> str:
-    return canonical_digest(
-        {
-            "source_commit": handoff.get("source_commit"),
-            "run_digest": handoff.get("run_digest"),
-            "region": handoff.get("region"),
-            "region_short": handoff.get("region_short"),
-            "runner": runner,
-            "state": state,
-            "ops": ops,
-            "app_resource_group": app,
-        }
-    )
-
-
-def _foundation_application_workload(
-    app: dict[str, object], *, environment: str, region_short: str
-) -> str:
-    name = app.get("name")
-    suffix = f"-{environment}-{region_short}"
-    if not isinstance(name, str) or not name.startswith("rg-") or not name.endswith(suffix):
-        raise ValueError("Foundation application resource-group name is invalid")
-    workload = name[3 : -len(suffix)]
-    if re.fullmatch(r"[a-z][a-z0-9]{1,11}", workload) is None:
-        raise ValueError("Foundation application workload is invalid")
-    return workload
-
-
-def _vault_name(uri: str) -> str:
-    match = re.fullmatch(r"https://([a-z0-9-]{3,24})[.]vault[.]azure[.]net/?", uri)
-    if match is None:
-        raise ValueError("Terraform Key Vault URI is invalid")
-    return match.group(1)
-
-
-def _console_origin(hostname: str) -> str:
-    """Return the HTTPS origin for one deployed Static Web App hostname."""
-
-    if (
-        re.fullmatch(
-            r"[a-z0-9](?:[a-z0-9-]*[a-z0-9])?(?:[.][0-9]+)?[.]azurestaticapps[.]net",
-            hostname,
-        )
-        is None
-    ):
-        raise ValueError("Console Static Web App hostname is invalid")
-    return f"https://{hostname}"
-
-
 def _subnet_network_security_group(
     subnet_id: str,
     *,
@@ -4672,37 +4592,6 @@ def _capture_env(
     return result.stdout
 
 
-def _private_json(path: Path, label: str) -> dict[str, Any]:
-    try:
-        value = json.loads(read_private_bytes(path, max_bytes=4 * 1024 * 1024))
-    except json.JSONDecodeError as exc:
-        raise ValueError(f"{label} is invalid") from exc
-    if not isinstance(value, dict):
-        raise ValueError(  # noqa: TRY004 - normalize untrusted JSON into a stable CLI error
-            f"{label} is invalid"
-        )
-    return {str(key): item for key, item in value.items()}
-
-
-def _replace_private_json(path: Path, value: dict[str, object]) -> None:
-    temporary = path.parent / f".{path.name}.tmp-{os.getpid()}"
-    temporary.unlink(missing_ok=True)
-    write_private_output(
-        temporary,
-        json.dumps(value, sort_keys=True, separators=(",", ":")) + "\n",
-    )
-    os.replace(temporary, path)
-    path.chmod(0o600)
-
-
-def _replace_or_verify_private_json(path: Path, value: dict[str, object]) -> None:
-    if path.exists():
-        if _private_json(path, path.name) != value:
-            raise ValueError(f"retained {path.name} differs")
-        return
-    _replace_private_json(path, value)
-
-
 def _mapping(value: object, label: str) -> dict[str, Any]:
     if not isinstance(value, dict) or any(not isinstance(key, str) for key in value):
         raise ValueError(f"{label} is invalid")
@@ -4714,92 +4603,6 @@ def _required_guid(value: dict[str, Any], field: str) -> str:
     if not isinstance(item, str) or _GUID.fullmatch(item) is None:
         raise ValueError(f"{field} is invalid")
     return item
-
-
-def _file_digest(path: Path) -> str:
-    return hashlib.sha256(read_private_bytes(path, max_bytes=512 * 1024 * 1024)).hexdigest()
-
-
-def _executable_digest(path: Path) -> str:
-    descriptor = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
-    try:
-        details = os.fstat(descriptor)
-        mode = stat.S_IMODE(details.st_mode)
-        if (
-            not stat.S_ISREG(details.st_mode)
-            or details.st_uid != os.geteuid()
-            or details.st_nlink != 1
-            or not mode & stat.S_IXUSR
-            or mode & 0o022
-            or details.st_size > 512 * 1024 * 1024
-        ):
-            raise PermissionError("verified executable permissions are invalid")
-        digest = hashlib.sha256()
-        while chunk := os.read(descriptor, 1024 * 1024):
-            digest.update(chunk)
-        return digest.hexdigest()
-    finally:
-        os.close(descriptor)
-
-
-def _private_directory(path: Path) -> None:
-    path.mkdir(parents=True, mode=0o700, exist_ok=True)
-    details = path.lstat()
-    if (
-        not path.is_absolute()
-        or not stat.S_ISDIR(details.st_mode)
-        or stat.S_IMODE(details.st_mode) != 0o700
-        or details.st_uid != os.geteuid()
-    ):
-        raise PermissionError("standalone host work directory must be current-UID mode 0700")
-
-
-def _acquire_checkpoint_lock(work_dir: Path) -> int:
-    """Acquire one nonblocking lock for all stateful managed-host checkpoints."""
-
-    directory = os.open(work_dir, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
-    try:
-        descriptor = os.open(
-            ".checkpoint.lock",
-            os.O_RDWR | os.O_CREAT | os.O_NOFOLLOW,
-            0o600,
-            dir_fd=directory,
-        )
-    finally:
-        os.close(directory)
-    details = os.fstat(descriptor)
-    if (
-        not stat.S_ISREG(details.st_mode)
-        or stat.S_IMODE(details.st_mode) != 0o600
-        or details.st_uid != os.geteuid()
-        or details.st_nlink != 1
-    ):
-        os.close(descriptor)
-        raise PermissionError("standalone checkpoint lock is not a private regular file")
-    try:
-        fcntl.flock(descriptor, fcntl.LOCK_EX | fcntl.LOCK_NB)
-    except BlockingIOError as exc:
-        os.close(descriptor)
-        raise ValueError("another standalone checkpoint is already running") from exc
-    return descriptor
-
-
-def _absolute(path: Path) -> Path:
-    return path if path.is_absolute() else Path.cwd() / path
-
-
-def _moment(value: datetime) -> str:
-    return value.astimezone(UTC).isoformat().replace("+00:00", "Z")
-
-
-def _parse_moment(value: str) -> datetime:
-    try:
-        result = datetime.fromisoformat(value)
-    except ValueError as exc:
-        raise ValueError("approval expiry is invalid") from exc
-    if result.tzinfo is None:
-        raise ValueError("approval expiry is invalid")
-    return result.astimezone(UTC)
 
 
 if __name__ == "__main__":

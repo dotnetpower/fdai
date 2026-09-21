@@ -14,6 +14,10 @@ from psycopg.rows import dict_row
 from fdai.delivery.persistence.postgres_inventory_observation import (
     advance_ontology_projection,
 )
+from fdai.delivery.persistence.postgres_ontology_durable_preparation import (
+    consume_preparation,
+    prepare_inventory_version,
+)
 from fdai.delivery.persistence.postgres_ontology_graph import (
     _cardinality_links,
     _load_objects,
@@ -28,6 +32,12 @@ from fdai.delivery.persistence.postgres_ontology_prepared import (
     verify_replacement_content,
     verify_replacement_dependencies,
 )
+from fdai.delivery.persistence.postgres_ontology_publication import (
+    lock_projection_state,
+    require_active_generation,
+    write_fenced_projection_state,
+    write_projection_state,
+)
 from fdai.delivery.persistence.postgres_ontology_records import (
     _inventory_manifest_object_ids,
     _inventory_state_base_available,
@@ -40,7 +50,10 @@ from fdai.delivery.persistence.postgres_ontology_records import (
 from fdai.delivery.persistence.postgres_ontology_records import (
     _require_projection_revision as _require_projection_revision,
 )
-from fdai.delivery.persistence.postgres_ontology_replacement import replace_records
+from fdai.delivery.persistence.postgres_ontology_replacement import (
+    replace_records,
+    update_existing_object,
+)
 from fdai.delivery.persistence.postgres_ontology_snapshot import (
     CommittedOntologyPage,
     pin_current_snapshot,
@@ -53,6 +66,11 @@ from fdai.delivery.persistence.postgres_ontology_source_coverage import (
 )
 from fdai.delivery.persistence.postgres_ontology_source_coverage import (
     resource_graph_source_coverage as _resource_graph_source_coverage,  # noqa: F401
+)
+from fdai.delivery.persistence.postgres_ontology_version_retention import prune_graph_versions
+from fdai.delivery.persistence.postgres_ontology_version_writer import (
+    begin_versioned_write,
+    finish_versioned_write,
 )
 from fdai.shared.contracts.models import (
     OntologyLinkType,
@@ -263,6 +281,7 @@ class PostgresOntologyInstanceStore:
         async with await self._connect() as connection:
             async with connection.transaction():
                 await self._set_timeout(connection)
+                versioned_write = await begin_versioned_write(connection)
                 cursor = await connection.execute(
                     "SELECT object_type, revision FROM ontology_resource WHERE id = %s FOR UPDATE",
                     (record.id,),
@@ -284,12 +303,15 @@ class PostgresOntologyInstanceStore:
                         ),
                     )
                 else:
-                    revision = await self._update_existing(
+                    revision = await update_existing_object(
                         connection,
                         record=record,
                         existing=existing,
                         expected_revision=expected_revision,
                     )
+                await finish_versioned_write(connection, versioned_write)
+        if versioned_write is not None:
+            await prune_graph_versions(self._config)
         return OntologyObjectRecord(
             id=record.id,
             object_type=record.object_type,
@@ -313,6 +335,7 @@ class PostgresOntologyInstanceStore:
         async with await self._connect() as connection:
             async with connection.transaction():
                 await self._set_timeout(connection)
+                versioned_write = await begin_versioned_write(connection)
                 cursor = await connection.execute(
                     "INSERT INTO ontology_resource "
                     "(id, object_type, properties, revision, type_version, catalog_digest) "
@@ -328,6 +351,9 @@ class PostgresOntologyInstanceStore:
                 )
                 if await cursor.fetchone() is None:
                     return None
+                await finish_versioned_write(connection, versioned_write)
+        if versioned_write is not None:
+            await prune_graph_versions(self._config)
         return OntologyObjectRecord(
             id=record.id,
             object_type=record.object_type,
@@ -344,45 +370,6 @@ class PostgresOntologyInstanceStore:
             )
         return 1
 
-    async def _update_existing(
-        self,
-        connection: psycopg.AsyncConnection[Any],
-        *,
-        record: OntologyObjectRecord,
-        existing: Mapping[str, Any],
-        expected_revision: int | None,
-    ) -> int:
-        current_type = str(existing["object_type"])
-        current_revision = int(existing["revision"])
-        if current_type != record.object_type:
-            raise OntologyInstanceValidationError(
-                f"ontology object {record.id!r} cannot change type "
-                f"from {current_type} to {record.object_type}"
-            )
-        if expected_revision is not None and expected_revision != current_revision:
-            raise OntologyInstanceValidationError(
-                f"ontology object {record.id!r} revision mismatch: "
-                f"expected {expected_revision}, current {current_revision}"
-            )
-        revision = current_revision + 1
-        await connection.execute(
-            "UPDATE ontology_resource "
-            "SET properties = %s::jsonb, revision = %s, type_version = %s, "
-            "catalog_digest = %s, updated_at = NOW() "
-            "WHERE id = %s",
-            (
-                canonical_json_mapping(
-                    record.properties,
-                    path=f"{record.object_type}.properties",
-                )[1],
-                revision,
-                _require_type_ref(record.type_ref).version,
-                _require_type_ref(record.type_ref).catalog_digest,
-                record.id,
-            ),
-        )
-        return revision
-
     async def upsert_link(self, record: OntologyLinkRecord) -> None:
         record = normalize_link_record(pin_link_record(record, self._release))
         _, properties_json = canonical_json_mapping(
@@ -392,6 +379,7 @@ class PostgresOntologyInstanceStore:
         async with await self._connect() as connection:
             async with connection.transaction():
                 await self._set_timeout(connection)
+                versioned_write = await begin_versioned_write(connection)
                 await connection.execute(
                     "SELECT name FROM ontology_link_type WHERE name = %s FOR UPDATE",
                     (record.link_type,),
@@ -429,6 +417,9 @@ class PostgresOntologyInstanceStore:
                         _require_type_ref(record.type_ref).catalog_digest,
                     ),
                 )
+                await finish_versioned_write(connection, versioned_write)
+        if versioned_write is not None:
+            await prune_graph_versions(self._config)
 
     async def replace_subgraph(
         self,
@@ -456,6 +447,7 @@ class PostgresOntologyInstanceStore:
         for object_record in normalized_objects:
             validate_object_record(object_record, self._object_types)
         prepared = None
+        durable = None
         if _expected_active_generation is not None:
             prepared = prepare_replacement(
                 objects=normalized_objects,
@@ -473,13 +465,20 @@ class PostgresOntologyInstanceStore:
                 prepared,
                 expected_digest=prepared.digest,
             )
+            durable = await prepare_inventory_version(
+                self._config, prepared, releases=self._releases, link_types=self._link_types
+            )
         async with asyncio.timeout(60), await self._connect() as connection:
             async with connection.transaction():
                 await self._set_timeout(connection)
-                await connection.execute(
-                    "SELECT pg_advisory_xact_lock(%s)",
-                    (_SUBGRAPH_REPLACEMENT_LOCK,),
+                versioned_write = (
+                    durable.write if durable else await begin_versioned_write(connection)
                 )
+                if versioned_write is None:
+                    await connection.execute(
+                        "SELECT pg_advisory_xact_lock(%s)",
+                        (_SUBGRAPH_REPLACEMENT_LOCK,),
+                    )
                 if prepared is not None:
                     await verify_replacement_content(connection, prepared)
                     previous_object_ids = tuple(manifest["previous_object_ids"])
@@ -496,6 +495,8 @@ class PostgresOntologyInstanceStore:
                 if _expected_active_generation is not None:
                     active_cursor = await connection.execute(
                         "SELECT snapshot_id FROM inventory_active WHERE singleton=TRUE FOR UPDATE"
+                        if versioned_write is None
+                        else "SELECT snapshot_id FROM inventory_active WHERE singleton=TRUE"
                     )
                     active = await active_cursor.fetchone()
                     if active is None or str(active["snapshot_id"]) != _expected_active_generation:
@@ -503,22 +504,28 @@ class PostgresOntologyInstanceStore:
                             "inventory ontology generation is no longer active"
                         )
                 link_type_names = sorted({record.link_type for record in normalized_links})
-                if link_type_names:
+                if link_type_names and versioned_write is None:
                     await connection.execute(
                         "SELECT name FROM ontology_link_type WHERE name = ANY(%s) "
                         "ORDER BY name FOR UPDATE",
                         (link_type_names,),
                     )
                 if prepared is not None:
+                    if versioned_write is not None:
+                        await lock_projection_state(connection, _state_updates or {})
                     await verify_replacement_dependencies(connection, manifest)
-                committed_revisions = await replace_records(
-                    connection,
-                    objects=normalized_objects,
-                    links=normalized_links,
-                    previous_object_ids=previous_object_ids,
-                    previous_link_keys=previous_link_keys,
-                    releases=self._releases,
-                    link_types=self._link_types,
+                committed_revisions = (
+                    durable.revisions
+                    if durable
+                    else await replace_records(
+                        connection,
+                        objects=normalized_objects,
+                        links=normalized_links,
+                        previous_object_ids=previous_object_ids,
+                        previous_link_keys=previous_link_keys,
+                        releases=self._releases,
+                        link_types=self._link_types,
+                    )
                 )
                 if prepared is not None:
                     _state_updates = await record_committed_snapshot(
@@ -527,15 +534,7 @@ class PostgresOntologyInstanceStore:
                         committed_revisions,
                         _state_updates or {},
                     )
-                for key, value in sorted((_state_updates or {}).items()):
-                    await connection.execute(
-                        "INSERT INTO state_kv (key, value) VALUES (%s, %s::jsonb) "
-                        "ON CONFLICT (key) DO UPDATE SET value=EXCLUDED.value, updated_at=NOW()",
-                        (
-                            key,
-                            canonical_json_mapping(value, path=f"state_updates.{key}")[1],
-                        ),
-                    )
+                await write_projection_state(connection, _state_updates or {})
                 if _observation_projection_watermark is not None:
                     if _expected_active_generation is None:
                         raise ValueError(
@@ -546,6 +545,13 @@ class PostgresOntologyInstanceStore:
                         generation=_expected_active_generation,
                         watermark=_observation_projection_watermark,
                     )
+                if durable is not None and prepared is not None:
+                    await consume_preparation(connection, prepared, durable)
+                await finish_versioned_write(connection, versioned_write)
+                if versioned_write is not None and _expected_active_generation is not None:
+                    await require_active_generation(connection, _expected_active_generation)
+        if versioned_write is not None:
+            await prune_graph_versions(self._config)
 
     async def replace_subgraph_with_state(
         self,
@@ -600,27 +606,11 @@ class PostgresOntologyInstanceStore:
         async with await self._connect() as connection:
             async with connection.transaction():
                 await self._set_timeout(connection)
-                await connection.execute(
-                    "SELECT pg_advisory_xact_lock(%s)",
-                    (_SUBGRAPH_REPLACEMENT_LOCK,),
+                await write_fenced_projection_state(
+                    connection,
+                    expected_generation=expected_active_generation,
+                    updates=state_updates,
                 )
-                active_cursor = await connection.execute(
-                    "SELECT snapshot_id FROM inventory_active WHERE singleton=TRUE FOR UPDATE"
-                )
-                active = await active_cursor.fetchone()
-                if active is None or str(active["snapshot_id"]) != expected_active_generation:
-                    raise OntologyInstanceValidationError(
-                        "inventory ontology generation is no longer active"
-                    )
-                for key, value in sorted(state_updates.items()):
-                    await connection.execute(
-                        "INSERT INTO state_kv (key, value) VALUES (%s, %s::jsonb) "
-                        "ON CONFLICT (key) DO UPDATE SET value=EXCLUDED.value, updated_at=NOW()",
-                        (
-                            key,
-                            canonical_json_mapping(value, path=f"state_updates.{key}")[1],
-                        ),
-                    )
 
     async def get_object(self, object_id: str) -> OntologyObjectRecord | None:
         async with await self._connect() as connection:
@@ -636,6 +626,7 @@ class PostgresOntologyInstanceStore:
         async with await self._connect() as connection:
             async with connection.transaction():
                 await self._set_timeout(connection)
+                versioned_write = await begin_versioned_write(connection)
                 await connection.execute(
                     "DELETE FROM ontology_link WHERE from_id = %s OR to_id = %s",
                     (object_id, object_id),
@@ -644,7 +635,11 @@ class PostgresOntologyInstanceStore:
                     "DELETE FROM ontology_resource WHERE id = %s RETURNING id",
                     (object_id,),
                 )
-                return await cursor.fetchone() is not None
+                deleted = await cursor.fetchone() is not None
+                await finish_versioned_write(connection, versioned_write)
+        if versioned_write is not None:
+            await prune_graph_versions(self._config)
+        return deleted
 
     async def query_objects(
         self,

@@ -37,6 +37,14 @@ describe("Dashboard drill-down contract", () => {
     expect(source("./dashboard.skeleton.tsx")).toContain('layout="metrics" blocks={4}');
   });
 
+  test("uses the header action as the resource dashboard navigation path", () => {
+    const dashboard = source("./dashboard.tsx");
+
+    expect(dashboard).toContain('class="cs-control-button overview-resource-dashboard-link"');
+    expect(dashboard).toContain('href={routeHref("dashboard-v2")}');
+    expect(dashboard).toContain("<ResourceDashboardIcon />");
+  });
+
   test("links distribution headers, bar segments, legends, and attention cards", () => {
     const distributions = source("./dashboard.distributions.tsx");
 

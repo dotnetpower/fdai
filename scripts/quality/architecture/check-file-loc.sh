@@ -16,8 +16,8 @@
 #   FILE_LOC_WARN=400   - warn threshold
 #   FILE_LOC_FAIL=800   - fail threshold
 #
-# Scope: services/core-control-plane/src/fdai/**/*.py only. Excludes tests, migrations, third-party,
-# generated code, and __pycache__.
+# Scope: Core service and deployment CLI production packages. Excludes tests, migrations,
+# third-party, generated code, and __pycache__.
 #
 # Allowlist: scripts/.check-file-loc.allowlist (one path per line, '#'
 # comments, blanks ignored). Each entry MUST document *why* it is
@@ -152,8 +152,24 @@ fi
 # tool-cache / virtualenv dot-dirs. The generic exclusion keeps the
 # gate honest when a developer runs it inside a repo that also carries
 # .pytest_cache/ or a nested .venv (checked-out for a debug session).
-mapfile -t files < <(
-  find services/core-control-plane/src/fdai -type f -name '*.py' \
+source_roots=(
+  services/core-control-plane/src/fdai
+  services/core-control-plane/src/fdai_core_service
+  services/operator-service/src/fdai_operator_service
+  packages/deployment-cli/src/fdai_deployment_cli
+  scripts/deployment/service
+)
+existing_roots=()
+for root in "${source_roots[@]}"; do
+  if [[ -d "$root" ]]; then
+    existing_roots+=("$root")
+  fi
+done
+
+files=()
+if (( ${#existing_roots[@]} > 0 )); then
+  mapfile -t files < <(
+    find "${existing_roots[@]}" -type f -name '*.py' \
     ! -path '*/__pycache__/*' \
     ! -path '*/.pytest_cache/*' \
     ! -path '*/.mypy_cache/*' \
@@ -163,7 +179,8 @@ mapfile -t files < <(
     ! -path '*/venv/*' \
     ! -path '*/.git/*' \
     | LC_ALL=C sort
-)
+  )
+fi
 
 if (( ${#files[@]} == 0 )); then
   echo "check-file-loc: no Core service Python files - skipping."

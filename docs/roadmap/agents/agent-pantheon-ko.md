@@ -1,8 +1,8 @@
 ---
 title: 에이전트 판테온
 translation_of: agent-pantheon.md
-translation_source_sha: d7ceda4fb9206034e3474da627c5a39ab9de3d3a
-translation_revised: 2026-09-20
+translation_source_sha: b9994b514684ebf0e672dad4bade179fffd682ab
+translation_revised: 2026-09-21
 ---
 # 에이전트 판테온
 FDAI의 고정된 15개 명명 에이전트 조직이 cloud-operations 런타임을 소유합니다. 에이전트는 schema-checked 이벤트로 관측, 판단, 계획, 승인, 실행, 검증, 복구, 감사, 학습합니다. 운영 온톨로지는 타입이 지정된 meaning과 범위가 제한된 맥락을 제공하며 행위자, 권한 또는 실행기가 아닙니다. 판테온은 업스트림에서 정의되고 포크는 에이전트를 추가하거나 이름을 바꾸지 않습니다.
@@ -32,7 +32,7 @@ FDAI의 고정된 15개 명명 에이전트 조직이 cloud-operations 런타임
 - **단일 게시자, 여러 구독자.** 각 객체 타입은 정확히 하나의 소유 에이전트만 게시하며 누구나 구독할 수 있습니다 (§6.1).
 - **판단자는 실행기가 아님.** Forseti가 판단하고 Var가 권한이 있으며 만료되지 않은 승인을 전달합니다. Thor는 권한 상한, Saga 증적, 안정적인 멱등성 예약, 소유자 경계가 적용된 분산 리소스 점유를 다시 확인한 뒤 실행하며 재시작 모호성은 `execution_unknown`으로 유지합니다.
 - **판테온은 업스트림에서 고정.** 15개 에이전트, 조직도, 역할 배정은 고정됩니다. 포크는 설정 가능한 경계 (§10)만 변경하며 에이전트를 추가, 제거하거나 이름을 바꾸지 않습니다.
-- **저장소 구조가 경계를 보존.** 이름이 있는 에이전트는 [`services/core-control-plane/src/fdai/agents/`](../../../services/core-control-plane/src/fdai/agents)에, 공통 런타임은 비공개 `_framework`에 둡니다. 외부 호출자는 `fdai.agents`만 가져오며 구조 테스트가 이 경계를 강제합니다. 런타임 조립은 소유 에이전트 모듈이 명시적으로 공개한 콜백 타입을 사용하며 타입 공개는 토픽, 관측, 승인 또는 실행 권한을 부여하지 않습니다. Heimdall의 작업 관측 중계와 Thor의 `ActionRun` 상태 및 효과 종결 로직은 용도별 비공개 도우미에 둡니다. 이 도우미는 `AgentSpec`, 토픽, 승인 또는 실행 권한을 소유하지 않습니다.
+- **저장소 구조가 경계를 보존.** 이름이 있는 에이전트는 [`services/core-control-plane/src/fdai/agents/`](../../../services/core-control-plane/src/fdai/agents)에, 공통 런타임은 비공개 `_framework`에 둡니다. 외부 호출자는 `fdai.agents`만 가져오며 구조 테스트가 이 경계를 강제합니다. 런타임 조립은 소유 에이전트 모듈이 명시적으로 공개한 콜백 타입을 사용하며 타입 공개는 토픽, 관측, 승인 또는 실행 권한을 부여하지 않습니다. Heimdall의 작업 관측 중계와 Thor의 영속 `ActionRun` codec, verdict 검증, 감사로 통제된 실행 단계, 재생 및 게시 lifecycle, 효과 종결, 읽기 전용 대화 변환은 용도별 비공개 도우미에 둡니다. Thor는 이 도우미의 유일한 privileged 호출자이자 유일한 `ActionRun` 게시자로 유지됩니다. 도우미는 `AgentSpec`, topic, 판단, 승인, 감사, 복구 또는 실행 권한을 소유하지 않습니다. 영속 재생은 정확한 kinetic proposal이 없는 prospective lineage를 거부합니다.
 런타임 조립과 시나리오 재생은 `fdai.agents`에서 `ActionSemanticsCatalog`를 가져와
 카탈로그에 근거한 복구 가능 여부를 연결합니다. 타입 공개는 권한을 부여하지 않으며
 카탈로그가 없을 때의 보수적인 승인 정족수를 유지합니다. 동결된 재생 입력과 다이제스트 고정값은 변경하지 않습니다.
@@ -65,6 +65,18 @@ Forseti는 등록된 작업 결정을 게시하기 전에 원본의 선택적 `A
 Var의 승인 대기 데이터는 비공개 `var_decisions`에서 영속 결정 레코드와 함께 관리합니다.
 공개 `PendingHilTicket`과 `PendingShadowReview`는 Var에서 계속 가져올 수 있으며 필드,
 기본값, 변경 가능성은 그대로입니다. 승인 정책이나 게시 소유권은 이동하지 않습니다.
+
+온톨로지 인스턴스 인덱싱은 기존 토픽에서 별도 `ontology_context_index` 이벤트 계열을
+사용합니다. Muninn은 `ContextIndex` 준비와 포인터 전이를 소유하고, Heimdall은 독립 검증을
+위해 `object.context-index`를 구독합니다. Saga도 이 토픽을 구독해 의도와 최종 결과를 감사한
+뒤 봉인 증적을 게시합니다. 런타임은 각 단계, 발행 소유자, 토픽, 내용 신원을 검증하고 이
+이벤트를 일반 판단과 학습에서 제외합니다. 기계적 처리기나 영속 Saga 감사가 없으면 처리를
+차단합니다. 이 전달 연결은 인덱스, 패키지, 승격 또는 실행 권한을 부여하지 않습니다. 기계적
+처리기는 인가된 원본 및 벡터 준비, 독립적인 현재 원본 검증, 감사된 포인터 허용, 최종 봉인,
+현재 그래프 후보 조회를 연결합니다. 불변 단계 결과로 임베딩을 다시 호출하지 않고 소유자별
+범위가 제한된 게시 복구를 수행합니다. 무효화, 보존 세대로의 롤백, 퇴역도 같은 독립 검증과
+Saga 봉인 전이를 사용합니다. 세대별 데이터 정리는 퇴역 경계를 적용한 뒤 수행하며 감사와
+명령 이력을 보존합니다. 운영 bootstrap과 통제된 품질 검증은 별도 작업으로 남습니다.
 
 - **배정 검토:** [배정 명령](../interfaces/human-agent-assignment-implementation-plan-ko.md#명령-이벤트-작업)은 기존 토픽에서 Huginn 유입, Forseti 검증, 독립 Var 검토, Saga 봉인, Muninn 사례 반영을 거칩니다. Operator 조회 결과는 권한이 아닙니다. 이전 IAM 알림은 shadow 전용이며 새 제거 검토와 독립 IAM 제거 근거가 있어야 검토 전용 이전 임무 PR을 만듭니다. Forseti의 증적 처리는 비공개 배정 믹스인에 유지합니다.
 - **인시던트 지침:** Core가 `operator_guidance`를 영속 적용한 뒤 요청은 `incident_correlation: none`과 `execution_authority: false`를 유지한 `incident.operator_guidance.v1` 이벤트로 Huginn을 통해 다시 유입됩니다. Saga는 선언된 `object.event` 구독에서 이 이벤트 유형만 받아 담당 감사 기록을 추가합니다. Forseti는 같은 정규화 이벤트를 인식하지만 판단하지 않으므로 지침은 Verdict, HIL 요청 또는 ActionRun을 만들 수 없습니다.

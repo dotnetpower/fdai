@@ -321,6 +321,40 @@ async def test_absent_t1_engine_preserves_existing_abstain_flow(tmp_path: Path) 
     assert "control_loop.t1_evaluate" not in kinds
 
 
+async def test_complete_inventory_baseline_without_rule_skips_model_fallback(
+    tmp_path: Path,
+) -> None:
+    audit = InMemoryStateStore()
+    loop = _make_loop(t1_engine=None, audit=audit, tmp_path=tmp_path)
+    loop._t1_engine = AsyncMock()  # type: ignore[assignment]  # noqa: SLF001
+    loop._analyze_t2_rca_on_abstain = AsyncMock()  # type: ignore[method-assign]  # noqa: SLF001
+    event = _event_dict("inventory-baseline")
+    event.update(
+        {
+            "source": "fdai.delivery.inventory_configuration_events",
+            "event_type": "inventory.resource_observed",
+            "payload": {
+                "signal_kind": "inventory.full_reconciliation",
+                "resource": {"type": "compute.vm.novel", "resource_id": "res-01"},
+                "inventory_observation": {
+                    "kind": "full",
+                    "properties_complete": True,
+                    "generation_digest": "sha256:" + "a" * 64,
+                    "scope_ref": "scope:example",
+                },
+            },
+        }
+    )
+
+    result = await loop.process(event)
+
+    assert result.outcome is ControlLoopOutcome.ABSTAINED_ROUTING
+    assert result.tier == "t0"
+    assert result.reason == "inventory_baseline_no_rule_match"
+    loop._t1_engine.evaluate.assert_not_awaited()  # type: ignore[union-attr]  # noqa: SLF001
+    loop._analyze_t2_rca_on_abstain.assert_not_awaited()  # type: ignore[attr-defined]  # noqa: SLF001
+
+
 class _Correlator:
     def correlate(self, event):  # type: ignore[no-untyped-def]
         return SimpleNamespace(correlated=True, incident_id="incident-novel")

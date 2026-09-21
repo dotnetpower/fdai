@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from datetime import UTC, datetime
+from typing import Any
 
 import pytest
 from fdai.delivery.persistence.state_store_hil_registry import (
@@ -15,6 +17,30 @@ from fdai.shared.providers.hil_registry import (
     HilItemAlreadyResolvedError,
 )
 from fdai.shared.providers.testing.state_store import InMemoryStateStore
+
+
+class _RecordingStateStore(InMemoryStateStore):
+    def __init__(self) -> None:
+        super().__init__()
+        self.page_filters: list[tuple[str | None, str | None]] = []
+
+    async def read_state_page(
+        self,
+        prefix: str,
+        *,
+        limit: int,
+        offset: int = 0,
+        field: str | None = None,
+        value: str | None = None,
+    ) -> tuple[tuple[Mapping[str, Any], ...], int]:
+        self.page_filters.append((field, value))
+        return await super().read_state_page(
+            prefix,
+            limit=limit,
+            offset=offset,
+            field=field,
+            value=value,
+        )
 
 
 async def _seed(store: InMemoryStateStore) -> None:
@@ -55,6 +81,25 @@ async def test_registry_satisfies_protocol_and_projects_park() -> None:
     assert pending[0].submitter_oid == "submitter-1"
     assert pending[0].citing_rule_ids == ("rule-1",)
     assert pending[0].requested_at == datetime(2026, 7, 15, tzinfo=UTC)
+
+
+@pytest.mark.asyncio
+async def test_pending_list_pushes_status_filter_into_state_store() -> None:
+    store = _RecordingStateStore()
+    await _seed(store)
+    await store.write_state(
+        "hil_park:resolved",
+        {
+            "status": "resolved",
+            "approval_id": "resolved",
+            "idempotency_key": "resolved-key",
+        },
+    )
+
+    pending = await StateStoreHilApprovalRegistry(store=store).list_pending()
+
+    assert tuple(item.approval_id for item in pending) == ("approval-1",)
+    assert store.page_filters == [("status", "pending")]
 
 
 @pytest.mark.asyncio

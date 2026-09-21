@@ -50,6 +50,10 @@ not create another ObjectType or LinkType, and its content identity cannot repla
 or relationship identity.
 Every canonical ResourceType also has one explicit recorded-state disposition. Missing state is
 never converted into a generic healthy value. The shared Operator workflow adapter may expose an optional `rule.findings-summary` projection with server-recorded counts or explicit `evaluated: false`; that operational summary is not an ontology declaration, relationship, evidence admission, or authority source.
+Operator ontology projection and role selection now live with the focused operations family
+adapter, while Rule, best-practice, CAF, MCSB, and WARA catalog rendering have separate pure
+projection owners. The ownership split changes no declaration identity, relationship direction,
+projection revision, evidence admission, or authority.
 The per-rule findings read validates the requested identity against the same revisioned Rule catalog. Without a connected findings provider it returns `evaluated: false` and no findings for a known rule; it never derives Resource identities or finding details from summary counts.
 Committed inventory invalidation markers coordinate browser rereads without becoming graph state.
 Bulk state pages carry the marker watermark bound to their committed generation, and SSE resumes
@@ -102,6 +106,10 @@ provider category, or query alias never creates classification.
 Broad category query aliases are independent from `ResourceClass` membership. A type may retain a
 reviewed data-service class while remaining outside the `database` language group; `search-service`
 therefore answers its exact type, not generic database queries.
+The reviewed Azure mappings classify `Microsoft.Compute/images` as the storage-class member
+`compute.image` and `Microsoft.Network/firewallPolicies` as the network-class member
+`network.firewall-policy`. Both preserve exact provider identity without deriving state,
+relationships, or authority.
 
 ### ResourceClass taxonomy
 

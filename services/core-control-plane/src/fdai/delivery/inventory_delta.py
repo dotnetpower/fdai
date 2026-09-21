@@ -35,6 +35,7 @@ async def forward_inventory_delta(
     scope: str,
     properties_complete: bool,
     deadline_seconds: float = DEFAULT_DELTA_DEADLINE_SECONDS,
+    initial_replay_after: datetime | None = None,
 ) -> int:
     """Publish one delta stream and advance its cursor only at the final fence.
 
@@ -44,6 +45,8 @@ async def forward_inventory_delta(
     """
     if not math.isfinite(deadline_seconds) or deadline_seconds <= 0:
         raise ValueError("inventory delta deadline_seconds MUST be finite and > 0")
+    if initial_replay_after is not None and initial_replay_after.tzinfo is None:
+        raise ValueError("inventory delta initial_replay_after MUST be timezone-aware")
     try:
         async with asyncio.timeout(deadline_seconds):
             return await _forward_inventory_delta(
@@ -53,6 +56,7 @@ async def forward_inventory_delta(
                 topic=topic,
                 scope=scope,
                 properties_complete=properties_complete,
+                initial_replay_after=initial_replay_after,
             )
     except TimeoutError as exc:
         raise RuntimeError("inventory delta stream exceeded its deadline") from exc
@@ -66,11 +70,17 @@ async def _forward_inventory_delta(
     topic: str,
     scope: str,
     properties_complete: bool,
+    initial_replay_after: datetime | None,
 ) -> int:
     """Persist a final cursor only after the bounded stream has been fully published."""
 
     cursor_key = f"{_CURSOR_PREFIX}{scope}"
     saved = await state_store.read_state(cursor_key)
+    replay_cutoff = (
+        initial_replay_after.astimezone(UTC)
+        if saved is None and initial_replay_after is not None
+        else None
+    )
     cursor = "" if saved is None else saved.get("cursor")
     if not isinstance(cursor, str):
         raise RuntimeError("inventory delta persisted cursor MUST be text")
@@ -119,6 +129,8 @@ async def _forward_inventory_delta(
             for resource in batch.resources
         )
         for resource, event in events:
+            if replay_cutoff is not None and event.detected_at < replay_cutoff:
+                continue
             await event_bus.publish(topic, resource.resource_id, event.model_dump(mode="json"))
             published += 1
     if final_cursor is None:

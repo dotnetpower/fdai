@@ -285,8 +285,7 @@ def test_workspace_exposes_explicit_complete_console_topology() -> None:
 
     restart_stack = tasks_by_label["console: restart full stack"]
     assert restart_stack["command"] == (
-        "bash scripts/deployment/local/start-console-services.sh "
-        "--auth-mode browser-entra --replace-existing"
+        "bash scripts/deployment/local/restart-console-services.sh --auth-mode browser-entra"
     )
     assert restart_stack["dependsOn"] == ["console: require primary worktree"]
     assert restart_stack["isBackground"] is True
@@ -415,13 +414,9 @@ def test_workspace_exposes_explicit_local_development_diagnostics() -> None:
     tasks_by_label = {task["label"]: task for task in tasks["tasks"]}
     start = tasks_by_label["dev discuss: start or restart profiled services"]
     assert start["command"] == (
-        "bash scripts/deployment/local/start-console-services.sh --auth-mode browser-entra "
-        "--replace-existing"
+        "bash scripts/deployment/local/restart-console-services.sh --auth-mode browser-entra"
     )
-    assert start["dependsOn"] == [
-        "console: require primary worktree",
-        "console: prepare full stack",
-    ]
+    assert start["dependsOn"] == ["console: require primary worktree"]
     assert start["runOptions"] == {
         "instanceLimit": 1,
         "instancePolicy": "terminateOldest",

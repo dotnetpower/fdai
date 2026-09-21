@@ -81,6 +81,7 @@ from fdai_operator_service.families.iam.hil_decision_outbox import (
 )
 from fdai_operator_service.postgres_family_store import StoredProposal
 from fdai_operator_service.postgres_iam import PostgresIamAdapters
+from fdai_operator_service.postgres_iam_access_projection import assignment_case_from_proposal
 from fdai_service_contracts import DocumentOcrPolicy, OperatorPrincipalKind, OperatorRole
 from starlette.applications import Starlette
 from starlette.requests import Request
@@ -90,6 +91,33 @@ from starlette.testclient import TestClient
 REPO_ROOT = Path(__file__).resolve().parents[3]
 FAMILY_SOURCE = REPO_ROOT / "services/operator-service/src/fdai_operator_service/families/iam"
 NOW = datetime(2026, 8, 8, 12, 0, tzinfo=UTC)
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        ("duty_bindings", ["not-an-object"]),
+        ("goal_refs", [{"not": "a-reference"}]),
+    ],
+)
+def test_assignment_projection_rejects_malformed_nested_collections(
+    field: str,
+    value: list[object],
+) -> None:
+    payload: dict[str, object] = {
+        "principal": {"oid": "requester"},
+        "subject_provider": "entra",
+        "subject_id": "subject",
+        "requested_role": "Reader",
+        "idempotency_key": "request-one",
+        "justification": "bounded review",
+        "duty_bindings": [],
+        "goal_refs": [],
+        field: value,
+    }
+
+    with pytest.raises(IamUnavailableError, match="assignment proposal fields"):
+        assignment_case_from_proposal({"proposal_id": "proposal-one", "payload": payload})
 
 
 class _RuntimeSettingsStore:

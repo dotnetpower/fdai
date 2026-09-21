@@ -9,6 +9,7 @@ from pathlib import Path
 
 import pytest
 from pydantic import ValidationError
+from fdai_runtime_diagnostics import probe as probe_module
 
 from fdai_runtime_diagnostics import (
     DevelopmentDiagnosticServer,
@@ -97,6 +98,18 @@ async def test_profile_attributes_cpu_and_python_heap_to_repository(tmp_path: Pa
     assert any(row.path.endswith("test_runtime_diagnostics.py") for row in packet.heap_top)
     assert all(row.path.endswith(".py") and not row.path.startswith(".") for row in packet.cpu_top)
     assert all(row.path.endswith(".py") and not row.path.startswith(".") for row in packet.heap_top)
+
+
+async def test_profile_lag_excludes_capture_postprocessing(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    ticks = iter((0, 1_000_000, 3_000_000, 103_000_000))
+    monkeypatch.setattr(probe_module.time, "monotonic_ns", lambda: next(ticks))
+
+    packet = await RuntimeProbe(_config(tmp_path)).capture(duration_ms=1, cpu=True)
+
+    assert packet.measured_duration_ms == 103
+    assert packet.event_loop_lag_ms == 1.0
 
 
 async def test_probe_rejects_a_second_capture(tmp_path: Path) -> None:
