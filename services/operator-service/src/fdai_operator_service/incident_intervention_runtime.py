@@ -17,10 +17,8 @@ from fdai_service_contracts.incident_intervention import (
 )
 from fdai_service_contracts.operator import OperatorRole
 
-from fdai_operator_service.postgres_family_store import (
-    IncidentInterventionProposalClaim,
-    PostgresFamilyStore,
-)
+from fdai_operator_service.postgres_family_models import IncidentInterventionProposalClaim
+from fdai_operator_service.postgres_family_store import PostgresFamilyStore
 
 _LOGGER = logging.getLogger(__name__)
 

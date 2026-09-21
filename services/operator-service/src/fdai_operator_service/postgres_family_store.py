@@ -3678,9 +3678,7 @@ async def _cancel_and_close(
 
 
 __all__ = [
-    "ActionProposalClaim",
     "HilDecisionProposalClaim",
-    "IncidentInterventionProposalClaim",
     "ReportLineContactProposalClaim",
     "PostgresFamilyStore",
     "PostgresFamilyStoreConfig",
@@ -3688,7 +3686,6 @@ __all__ = [
     "PostgresProcessNotVisibleError",
     "PostgresProposalConflict",
     "PostgresSemanticTurnConflict",
-    "ReadInvestigationProposalClaim",
     "SemanticTurnClaim",
     "StoredProposal",
     "StoredReplayEvent",

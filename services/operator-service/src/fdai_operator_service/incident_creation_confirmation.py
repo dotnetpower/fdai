@@ -28,8 +28,8 @@ from fdai_operator_service.families.conversation.contracts import (
     OutboxReceipt,
     PrincipalScope,
 )
+from fdai_operator_service.postgres_family_models import ActionProposalClaim
 from fdai_operator_service.postgres_family_store import (
-    ActionProposalClaim,
     PostgresFamilyStore,
     PostgresFamilyStoreUnavailable,
     PostgresProposalConflict,

@@ -20,6 +20,7 @@ estate guidance without duplicating the normative design.
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-22 | implemented | Superseded the same-day compatibility export by importing proposal-claim types directly from their focused persistence-model owner. | `current change`; strict mypy passed for the store and three exact consumers. | No WAF or CAF scope, evidence admission, satisfaction, replay, topic, or authority changed. |
 | 2026-09-22 | implemented | Restored typed proposal-claim exports after splitting the shared Operator PostgreSQL models from their compatibility facade. | `current change`; strict mypy passed for the store and three exact consumers. | No WAF or CAF scope, evidence admission, satisfaction, replay, topic, or authority changed. |
 | 2026-09-21 | implemented | Separated Rule and best-practice rendering from CAF, MCSB, and WARA catalog rendering behind focused pure projection modules. | `current change`; 43 workflow family tests and strict mypy passed. | No WAF or CAF scope, evidence admission, satisfaction, replay, topic, or authority changed. |
 | 2026-09-21 | implemented | Moved shared Operator route-family assembly and read-source declarations into focused composition modules without changing WAF or CAF projection wiring. | `current change`; 120 composition tests passed with one optional PDF skip; Ruff, strict mypy, and Operator boundary checks passed. | No framework scope, evidence admission, satisfaction, replay, topic, or authority changed. |

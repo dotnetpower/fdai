@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: c00bd86f265e9417680cc22e38a990ea156befe4
+translation_source_sha: 6195dbe9c616557bc03e84084df763bf7974fd9c
 translation_revised: 2026-09-22
 ---
 # 프로젝트 구조
@@ -10,7 +10,7 @@ translation_revised: 2026-09-22
 
 Operator 운영 조립 파사드는 런타임 배선을 유지합니다. 목적별 인접 모듈은 수명 주기와 리소스
 정리, 경로 계열 조립 및 읽기 출처 선언을 소유합니다. 호환 내보내기는 기존 가져오기를 보존하며,
-이 분리는 서비스, 신원, 데이터 소유자, wire 계약 또는 권한을 바꾸지 않습니다. 범위가 제한된 의미 후보 선택은 기능 byte 한도를 요청 실패가 아닌 정상적인 인덱스 축소 경계로 처리합니다.
+이 분리는 서비스, 신원, 데이터 소유자, wire 계약 또는 권한을 바꾸지 않습니다. 범위가 제한된 의미 후보 선택은 크기가 큰 서술자 축을 생략하고 기능 byte 한도에 맞는 순위 접두사를 보존하며 요청을 실패시키지 않습니다.
 공유 Operator 계열 어댑터 파사드는 이제 workflow 영속 처리와 호환 내보내기를 유지합니다.
 대화 영속 처리, 운영 변환 결과와 webhook 처리 및 순수 workflow 카탈로그 렌더링은 각각 목적별
 소유자를 가집니다. 이 분리는 principal 범위, 영속 제안 멱등성, 사용 불가 동작 및 실행기 없음

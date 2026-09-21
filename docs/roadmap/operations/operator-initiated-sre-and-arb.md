@@ -7,7 +7,7 @@ title: Operator-Initiated SRE and Architecture Review
 This plan defines how FDAI identifies operational work that is not an incident, turns an
 operator's SRE request into a governed incident response, and runs the Architecture Review Board
 (ARB) process as an observable workflow. It also defines the safety boundary for shadow and
-enforce operation in both local and deployed environments. Shared persistence model splits preserve typed proposal-claim imports without changing Incident lifecycle ownership.
+enforce operation in both local and deployed environments. Consumers import typed proposal claims from the focused persistence-model owner without changing Incident lifecycle ownership.
 
 > **Scope:** This design reuses the existing incident registry, typed action pipeline, Process
 > journal, risk gate, and executor adapters. It does not add a console-owned executor or a second

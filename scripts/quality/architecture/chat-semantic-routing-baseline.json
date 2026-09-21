@@ -513,10 +513,10 @@
       "issue": 252
     },
     {
-      "path": "services/core-control-plane/src/fdai/delivery/inventory_sync.py",
+      "path": "services/core-control-plane/src/fdai/delivery/inventory_collection.py",
       "disposition": "retain",
       "owner": "inventory-delivery",
-      "reason": "Retains deterministic inventory lifecycle, deadline, and relationship verification.",
+      "reason": "Retains deterministic classification of provider and collection exceptions into fixed inventory failure codes. It does not inspect operator language, select semantic intent, or grant authority.",
       "issue": 252
     },
     {
@@ -562,10 +562,10 @@
       "issue": 252
     },
     {
-      "path": "services/operator-service/src/fdai_operator_service/composition.py",
+      "path": "services/operator-service/src/fdai_operator_service/composition_routes.py",
       "disposition": "retain",
       "owner": "operator-composition",
-      "reason": "Retains composition and validation of machine-record agent, tool, and action identities.",
+      "reason": "Retains exact environment-token validation for route composition. It does not inspect operator language, select semantic intent, or grant authority.",
       "issue": 252
     },
     {
@@ -573,6 +573,20 @@
       "disposition": "retain",
       "owner": "operator-presentation",
       "reason": "Retains validated semantic operation and output enums when compiling presentation artifacts.",
+      "issue": 252
+    },
+    {
+      "path": "services/operator-service/src/fdai_operator_service/families/conversation/semantic_assurance_presentation.py",
+      "disposition": "retain",
+      "owner": "operator-presentation",
+      "reason": "Retains schema and machine-field validation for structured assurance presentation. It does not inspect operator language, select semantic intent, or grant authority.",
+      "issue": 252
+    },
+    {
+      "path": "services/operator-service/src/fdai_operator_service/families/conversation/semantic_trajectory_presentation.py",
+      "disposition": "retain",
+      "owner": "operator-presentation",
+      "reason": "Retains locale selection and exact task-id and status validation for verified trajectory presentation. It does not classify operator intent or grant authority.",
       "issue": 252
     },
     {

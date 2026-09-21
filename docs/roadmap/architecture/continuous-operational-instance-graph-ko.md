@@ -1,13 +1,13 @@
 ---
 translation_of: continuous-operational-instance-graph.md
-translation_source_sha: d90bb2d5c0c19bbd3d2ed425c1730b5a0e350a6c
+translation_source_sha: c633a9b20ebf52e55670bf1911a365a726484ef7
 translation_revised: 2026-09-22
 ---
 # 지속형 운영 인스턴스 그래프
 
 이 문서는 클라우드 리소스 인스턴스, 관계, 관측 상태를 FDAI 온톨로지에서 최신으로
 유지하는 런타임 계약을 소유합니다. 수집은 지속적이며 부하를 고려하고, 원시 이력은 타입이
-지정된 rollup과 검증된 archive를 거쳐 활성 데이터 플레인의 크기를 제한합니다. principal 범위 의미 후보는 byte 한도를 유지하며 생성된 적용 범위는 정확한 카탈로그 함수 분모를 사용합니다.
+지정된 rollup과 검증된 archive를 거쳐 활성 데이터 플레인의 크기를 제한합니다. principal 범위 의미 후보는 크기가 큰 축을 생략하고 byte 한도 안의 순위 접두사를 보존하며, 생성된 적용 범위는 정확한 카탈로그 함수 분모를 사용합니다.
 
 [알림 과다 수신 관리](../operations/alert-noise-governance-ko.md)는 경보, 수신 대상 및 전달 근거를
 별도의 비공개 기록으로 보존합니다. 이 기록이나 범위 연결로 인벤토리 세대를 승격하거나 관측된

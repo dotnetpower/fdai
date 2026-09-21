@@ -89,16 +89,7 @@ from .contract_codecs import (
     OPERATOR_PROJECTION_PRODUCER_V17,
 )
 from .semantic_assurance_projection import project_semantic_assurance
-from .semantic_incident_answer import incident_next_step_text, render_incident_answer
-from .semantic_incident_evidence import (
-    incident_next_step_actions as _incident_next_step_actions,
-)
-from .semantic_incident_evidence import (
-    incident_profile_facts as _incident_profile_facts,
-)
-from .semantic_incident_evidence import (
-    incident_timeline_rows as _incident_timeline_rows,
-)
+from .semantic_incident_answer import render_incident_answer
 from .semantic_instance_candidates import project_instance_candidates, render_instance_candidates
 from .semantic_logical_service_answer import render_logical_service_current_state_answer
 from .semantic_presentation_semantics import project_presentation_semantics
@@ -143,12 +134,6 @@ from .semantic_turn_request import (
 from .semantic_turn_request import (
     prior_turns as _prior_turns,
 )
-
-_incident_next_step_text = incident_next_step_text
-_render_incident_answer = render_incident_answer
-incident_next_step_actions = _incident_next_step_actions
-incident_profile_facts = _incident_profile_facts
-incident_timeline_rows = _incident_timeline_rows
 
 _LOGGER = logging.getLogger(__name__)
 _PROCESSING_STARTED_AT_FIELD = "_fdai_processing_started_at"
@@ -1333,9 +1318,7 @@ def _project_runtime_result(
     candidates_found, candidate_output = project_instance_candidates(request, result, execution)
     if candidates_found and candidate_output is None:
         return _evidence_incomplete(
-            request,
-            "instance_candidates_projection_rejected",
-            result=result,
+            request, "instance_candidates_projection_rejected", result=result
         ), model_extensions
     rule_search_found, rule_search, rule_search_node_id = _project_rule_search(result, execution)
     if rule_search_found and rule_search is None:
@@ -1398,7 +1381,7 @@ def _project_runtime_result(
         ontology_relationships=relationships,
         ontology_relationships_node_id=relationships_node_id,
         optional_document_node_ids=optional_document_node_ids,
-        instance_candidate_output=candidate_output,
+        candidate_output=candidate_output,
     )
     if answer is None or technical_details is None:
         return _evidence_incomplete(
@@ -2776,7 +2759,7 @@ def _render_query_answer(
     ontology_relationships: dict[str, object] | None = None,
     ontology_relationships_node_id: tuple[str, ...] | None = None,
     optional_document_node_ids: tuple[str, ...] = (),
-    instance_candidate_output: dict[str, object] | None = None,
+    candidate_output: dict[str, object] | None = None,
 ) -> tuple[str | None, dict[str, object] | None]:
     outputs: list[dict[str, object]] = []
     inventory_document = (
@@ -2841,11 +2824,8 @@ def _render_query_answer(
                     }
                 )
                 projected_rule_search = True
-            elif (
-                instance_candidate_output is not None
-                and node_id == instance_candidate_output["node_id"]
-            ):
-                outputs.append(instance_candidate_output)
+            elif candidate_output is not None and node_id == candidate_output["node_id"]:
+                outputs.append(candidate_output)
             else:
                 return None, None
             continue
@@ -2936,14 +2916,12 @@ def _render_query_answer(
     answer_output_limit = 220_000 if inventory_document else 48_000
     if len(_answer_json(outputs).encode("utf-8")) > answer_output_limit:
         return None, None
-    if instance_candidate_output is not None:
-        if outputs != [instance_candidate_output]:
+    if candidate_output is not None:
+        if outputs != [candidate_output]:
             return None, None
-        return render_instance_candidates(
-            request.locale, instance_candidate_output
-        ), technical_details
+        return render_instance_candidates(request.locale, candidate_output), technical_details
     answer = (
-        _render_incident_answer(request, outputs[0])
+        render_incident_answer(request, outputs[0])
         if projected_incident and len(outputs) == 1
         else (
             render_ontology_relationship_answer(request.locale, outputs[0])

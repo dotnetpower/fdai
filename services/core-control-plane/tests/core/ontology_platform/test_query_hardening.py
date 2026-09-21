@@ -212,7 +212,7 @@ def test_hidden_and_unknown_projection_fields_are_rejected(kind: QueryNodeKind) 
             )
 
 
-def test_large_property_projection_preserves_all_canonical_values() -> None:
+def test_large_property_projection_omits_oversized_canonical_values() -> None:
     result = _semantic_judgment_capabilities(
         (
             {
@@ -223,20 +223,18 @@ def test_large_property_projection_preserves_all_canonical_values() -> None:
             },
         )
     )
-    assert result[0]["name"] == "Example"
-    assert result[0]["canonical_values"] == [
-        "Example",
-        "Example.id",
-        *(f"Example.{name}" for name in sorted(f"property_{index}" for index in range(40))),
-    ]
+    assert result == ({"kind": "object_type", "name": "Example"},)
 
 
-def test_capability_budget_rejects_incomplete_projection() -> None:
+def test_capability_budget_preserves_complete_ranked_prefix() -> None:
     descriptors = tuple(
         {"kind": "function", "name": f"query.{index}" + "x" * 90} for index in range(512)
     )
-    with pytest.raises(ValueError, match="capability projection exceeds"):
-        _semantic_judgment_capabilities(descriptors)
+    result = _semantic_judgment_capabilities(descriptors)
+    assert 0 < len(result) < len(descriptors)
+    assert [item["name"] for item in result] == [
+        item["name"] for item in descriptors[: len(result)]
+    ]
 
 
 async def test_unknown_metric_target_never_calls_provider() -> None:

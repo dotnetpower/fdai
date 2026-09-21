@@ -68,12 +68,8 @@ class ManifestDescriptorIndex:
             len(full) <= limit
             and len(json.dumps(full, ensure_ascii=True).encode("utf-8")) <= 262_144
         ):
-            try:
-                _semantic_judgment_capabilities(full)
-            except ValueError as error:
-                if str(error) != "semantic judgment capability projection exceeds its byte bound":
-                    raise
-            else:
+            capabilities = _semantic_judgment_capabilities(full)
+            if len(capabilities) == len(full):
                 _LOGGER.info(
                     "semantic_descriptor_candidates_selected",
                     extra={
@@ -91,12 +87,9 @@ class ManifestDescriptorIndex:
             size = len(json.dumps(descriptor, ensure_ascii=True).encode("utf-8")) + 1
             if encoded_bytes + size > 262_144:
                 continue
-            try:
-                _semantic_judgment_capabilities((*selected, descriptor))
-            except ValueError as error:
-                if str(error) != "semantic judgment capability projection exceeds its byte bound":
-                    raise
-                continue
+            capabilities = _semantic_judgment_capabilities((*selected, descriptor))
+            if len(capabilities) != len(selected) + 1:
+                break
             selected.append(descriptor)
             encoded_bytes += size
             if len(selected) >= min(limit, self._candidate_limit):
