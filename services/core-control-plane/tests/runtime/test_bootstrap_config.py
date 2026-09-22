@@ -43,6 +43,7 @@ from fdai.delivery.persistence.postgres_topology_history import PostgresTopology
 from fdai.runtime.approval_policy import approver_authorizer_from_environment
 from fdai.runtime.bootstrap import (
     _RUNTIME_LOGICAL_TOPICS,
+    _load_runtime_values,
     _schedule_semantic_turn_consumer,
 )
 from fdai.runtime.bootstrap_bindings import (
@@ -104,6 +105,27 @@ from fdai_service_contracts.semantic_turn import (
 
 def test_pantheon_starts_by_default() -> None:
     assert pantheon_start_enabled({}) is True
+
+
+async def test_runtime_settings_snapshot_reuses_runtime_owned_state_store() -> None:
+    class _TrackedStore(InMemoryStateStore):
+        def __init__(self) -> None:
+            super().__init__()
+            self.read_keys: list[str] = []
+
+        async def read_state(self, key: str):  # noqa: ANN201 - test double mirrors protocol
+            self.read_keys.append(key)
+            return await super().read_state(key)
+
+    store = _TrackedStore()
+
+    values = await _load_runtime_values(
+        environment={"RUNTIME_ENV": "dev", "FDAI_STATE_STORE_DSN": "configured"},
+        state_store=store,
+    )
+
+    assert values["logging.level"] == "INFO"
+    assert store.read_keys == ["runtime-settings:policy"]
 
 
 class _PostTurnBinding:

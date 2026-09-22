@@ -405,6 +405,39 @@ def test_unavailable_activation_returns_404_without_cost_query(
     assert dependencies.calls == ["access", "activation"]
 
 
+@pytest.mark.parametrize(
+    ("activation", "reason"),
+    [
+        (None, "package_absent"),
+        (
+            _activation(
+                available=False,
+                enabled=False,
+                reasons=("missing_provider:cost-estimator",),
+            ),
+            "missing_provider",
+        ),
+    ],
+)
+def test_unavailable_activation_is_reported_by_availability(
+    activation: CostActivationSnapshot | None,
+    reason: str,
+) -> None:
+    dependencies = RecordingCostDependencies()
+    dependencies.activation = activation
+
+    response = _client(dependencies).get(
+        "/cost-governance/availability",
+        headers=HEADERS,
+    )
+
+    assert response.status_code == 200
+    assert response.json()["available"] is False
+    assert response.json()["enabled"] is False
+    assert response.json()["reason"] == reason
+    assert dependencies.calls == ["access", "activation"]
+
+
 def test_available_but_disabled_is_not_reported_as_unavailable() -> None:
     dependencies = RecordingCostDependencies()
     dependencies.activation = _activation(available=True, enabled=False)
@@ -505,7 +538,7 @@ def test_unavailable_preflight_projects_persisted_reason_and_attribution() -> No
         headers=HEADERS,
     )
 
-    assert response.status_code == 404
+    assert response.status_code == 200
     assert response.json()["available"] is False
     assert response.json()["enabled"] is False
     assert response.json()["reason"] == "ontology_incompatible"

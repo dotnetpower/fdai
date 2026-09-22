@@ -1,4 +1,5 @@
 import type { ConversationTurnPayload } from "../user-context-client";
+import { consoleDateTimeLocale } from "../time-format";
 import { hasAdvisoryResponse, parseActionDraftExplanation, parseAdvisoryResponse, type AdaptiveAnswer } from "./adaptive-answer";
 import { parseTestContextDraft } from "./test-context";
 import { semanticUnavailable } from "./backend-unavailable";
@@ -86,7 +87,11 @@ export function restoredTurn(turn: ConversationTurnPayload): RestoredTurn {
   const at = new Date(turn.recorded_at);
   const time = Number.isNaN(at.getTime())
     ? turn.recorded_at
-    : at.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+    : at.toLocaleTimeString(consoleDateTimeLocale(), {
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+    });
   const replay = parseReplayPayload(turn);
   const advisoryAnswer = parseAdvisoryResponse(replay);
   const adaptiveAnswer = advisoryAnswer ?? parseActionDraftExplanation(replay);

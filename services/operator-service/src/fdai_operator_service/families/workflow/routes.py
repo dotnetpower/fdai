@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import json
 from collections.abc import Awaitable, Callable, Mapping
-from typing import cast
+from typing import Annotated, Literal, cast
 
 from fdai_operator_service.families.workflow.contracts import (
     WorkflowOperation,
@@ -28,7 +28,8 @@ from fdai_operator_service.families.workflow.manifest import (
 )
 from fdai_operator_service.redaction import redact_mapping
 from fdai_service_contracts import JsonObject, RuleSearchRequest
-from pydantic import ValidationError
+from fdai_service_contracts.rule_activation import RuleActivationDelta
+from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_validator
 from starlette.exceptions import HTTPException
 from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
@@ -38,6 +39,30 @@ _MAX_QUERY_VALUE_CHARS = 2_048
 _MAX_PATH_VALUE_CHARS = 256
 _MAX_IDEMPOTENCY_CHARS = 200
 _MAX_REVISION_CHARS = 256
+
+
+class _RuleActivationRequestBody(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    mode: Literal["shadow"]
+    reason: Annotated[str, Field(strict=True, min_length=20, max_length=1000)]
+    changes: Annotated[tuple[RuleActivationDelta, ...], Field(min_length=1, max_length=10_000)]
+
+    @model_validator(mode="after")
+    def _canonical_changes(self) -> _RuleActivationRequestBody:
+        if self.reason != self.reason.strip():
+            raise ValueError("Rule activation reason MUST NOT contain surrounding whitespace")
+        rule_ids = tuple(change.rule_id for change in self.changes)
+        if rule_ids != tuple(sorted(rule_ids)) or len(set(rule_ids)) != len(rule_ids):
+            raise ValueError("Rule activation changes MUST be unique and sorted by rule_id")
+        return self
+
+
+class _RuleActivationApprovalBody(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    mode: Literal["shadow"]
+    decision: Literal["approve"]
 
 
 def build_workflow_family_routes(
@@ -83,6 +108,28 @@ def _build_endpoint(
                     status_code=400,
                     detail="Rule search request is invalid",
                 ) from exc
+        if spec.operation is WorkflowOperation.RULE_ACTIVATION_REQUEST:
+            try:
+                body = _RuleActivationRequestBody.model_validate(body).model_dump(mode="json")
+            except ValidationError as exc:
+                raise HTTPException(
+                    status_code=400,
+                    detail="Rule activation request is invalid",
+                ) from exc
+        if spec.operation is WorkflowOperation.RULE_ACTIVATION_APPROVE:
+            try:
+                body = _RuleActivationApprovalBody.model_validate(body).model_dump(mode="json")
+            except ValidationError as exc:
+                raise HTTPException(
+                    status_code=400,
+                    detail="Rule activation approval is invalid",
+                ) from exc
+            request_id = path_parameters.get("request_id", "")
+            if not _operator_proposal_id(request_id):
+                raise HTTPException(
+                    status_code=400,
+                    detail="Rule activation request id is invalid",
+                )
 
         if spec.dispatch == "read":
             result = await read_store.read(
@@ -116,6 +163,14 @@ def _build_endpoint(
             "If-Match",
             maximum=_MAX_REVISION_CHARS,
         )
+        if spec.operation in {
+            WorkflowOperation.RULE_ACTIVATION_REQUEST,
+            WorkflowOperation.RULE_ACTIVATION_APPROVE,
+        } and not _sha256(expected_revision):
+            raise HTTPException(
+                status_code=400,
+                detail="Rule activation If-Match MUST be a lowercase SHA-256 digest",
+            )
         proposal = WorkflowProposal(
             operation=spec.operation,
             principal_id=principal.subject_id,
@@ -143,6 +198,18 @@ def _build_endpoint(
 
     endpoint.__name__ = spec.name
     return endpoint
+
+
+def _sha256(value: str) -> bool:
+    return len(value) == 64 and all(character in "0123456789abcdef" for character in value)
+
+
+def _operator_proposal_id(value: str) -> bool:
+    return (
+        value.startswith("operator-")
+        and len(value) == 41
+        and _sha256(value.removeprefix("operator-") + "0" * 32)
+    )
 
 
 def _validated_query(

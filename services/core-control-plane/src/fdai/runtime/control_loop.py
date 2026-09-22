@@ -7,7 +7,6 @@ import os
 from collections.abc import Awaitable, Callable, Mapping, Sequence
 from dataclasses import replace
 from datetime import timedelta
-from pathlib import Path
 from typing import Any
 
 import httpx
@@ -84,21 +83,17 @@ from fdai.delivery.reconciliation_artifacts import StateStoreExecutedActionArtif
 from fdai.rule_catalog.schema.action_type import load_action_type_catalog
 from fdai.rule_catalog.schema.governance_catalog import load_governance_catalog
 from fdai.rule_catalog.schema.ontology_catalog import load_ontology_catalog
-from fdai.rule_catalog.schema.parameter_relaxation_policy import (
-    ParameterRelaxationPolicy,
-    parameter_relaxation_policies_from_mapping,
-)
 from fdai.rule_catalog.schema.property_semantic import empty_property_semantic_registry
-from fdai.rule_catalog.schema.resource_type import (
-    ResourceTypeRegistry,
-    load_resource_type_registry_from_mapping,
-)
 from fdai.rule_catalog.schema.rule import load_rule_catalog
 from fdai.rule_catalog.schema.signal_type import load_signal_type_registry_from_mapping
 from fdai.rule_catalog.schema.workflow import load_workflow_catalog
 from fdai.runtime.adaptive_telemetry import build_adaptive_telemetry_from_container
 from fdai.runtime.alert_noise_control import build_alert_workflow_bindings
 from fdai.runtime.configuration import _resolve_catalog_root, _resolve_policies_root
+from fdai.runtime.control_loop_catalogs import (
+    load_parameter_relaxation_policies as _load_parameter_relaxation_policies,
+)
+from fdai.runtime.control_loop_catalogs import load_resource_types as _load_resource_types
 from fdai.runtime.control_loop_execution_ports import (
     build_thor_execution_port,
     build_workflow_action_dispatcher,
@@ -161,34 +156,14 @@ from .control_loop_auxiliary import (
 )
 from .control_loop_auxiliary import rca_catalog_revision as _rca_catalog_revision
 
-__all__ = ["_build_irp_event_handler"]
+__all__ = [
+    "_build_irp_event_handler",
+    "_load_parameter_relaxation_policies",
+    "_load_resource_types",
+]
 
 _LOGGER = logging.getLogger("fdai.startup")
 _TEMPORAL_CAUSAL_METHOD_VERSION = "temporal-causality-v1"
-
-
-def _load_resource_types() -> ResourceTypeRegistry:
-    vocabulary_file = _resolve_catalog_root() / "vocabulary" / "resource-types.yaml"
-    with vocabulary_file.open("r", encoding="utf-8") as handle:
-        return load_resource_type_registry_from_mapping(yaml.safe_load(handle))
-
-
-def _load_parameter_relaxation_policies(
-    catalog_root: Path,
-) -> dict[str, ParameterRelaxationPolicy]:
-    """Load the separately reviewed override parameter-relaxation bounds.
-
-    A missing ``override-parameter-bounds.yaml`` is the strict default (empty
-    mapping - no rule may use ``mode: parameter-relaxation`` until a reviewer
-    adds a policy entry), matching the fail-closed design in
-    rule-governance.md "Overrides § Rules (MUST)".
-    """
-    policy_file = catalog_root / "override-parameter-bounds.yaml"
-    if not policy_file.is_file():
-        return {}
-    with policy_file.open("r", encoding="utf-8") as handle:
-        raw = yaml.safe_load(handle) or {}
-    return parameter_relaxation_policies_from_mapping(raw)
 
 
 def _build_control_loop(
@@ -737,6 +712,7 @@ def _build_control_loop(
         executor=executor,
         audit_store=audit_store,
         rules_by_id=rules_by_id,
+        available_rules_by_id={rule.id: rule for rule in rules},
         change_safety_detector=container.change_safety_detector,
         change_safety_evidence_provider=container.change_safety_evidence_provider,
         risk_table=risk_table,

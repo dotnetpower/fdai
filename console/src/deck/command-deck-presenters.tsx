@@ -1,6 +1,7 @@
 import type { ComponentChildren } from "preact";
 import { Tooltip } from "../components/tooltip";
 import { getLocale, t } from "../i18n";
+import { consoleDateTimeLocale } from "../time-format";
 import { useEffect, useState } from "preact/hooks";
 import {
   type AnswerVerification,
@@ -513,14 +514,17 @@ export function conversationTimeLabel(value: string, nowMs: number = Date.now())
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return value;
   const now = new Date(nowMs);
-  const time = date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  const time = date.toLocaleTimeString(consoleDateTimeLocale(), {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
   if (date.toDateString() === now.toDateString()) return time;
   const yesterday = new Date(now);
   yesterday.setDate(now.getDate() - 1);
   if (date.toDateString() === yesterday.toDateString()) {
     return t("deck.yesterdayAt", { time });
   }
-  return date.toLocaleDateString([], { month: "short", day: "numeric" });
+  return date.toLocaleDateString(consoleDateTimeLocale(), { month: "short", day: "numeric" });
 }
 
 export function TurnBubble({

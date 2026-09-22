@@ -37,14 +37,11 @@ def test_validation_database_uses_an_isolated_local_postgres_cluster() -> None:
     assert runtime["volumes"] != validation["volumes"]
 
 
-def test_semantic_fallback_loads_shared_contract() -> None:
+def test_local_runtime_has_no_terraform_dependency() -> None:
     script = _SCRIPT.read_text(encoding="utf-8")
 
-    assert "fdai_service_contracts/semantic_turn.py" in script
-    assert "ast.parse" in script
-    assert "SEMANTIC_REQUEST_TOPIC" in script
-    assert "SEMANTIC_PROJECTION_TOPIC" in script
-    assert "SEMANTIC_PHYSICAL_TOPIC" in script
+    assert "terraform" not in script.casefold()
+    assert "FDAI_TERRAFORM_BIN" not in script
 
 
 _EXECUTOR_RESOURCE_ID = (
@@ -73,17 +70,15 @@ _EXECUTOR_RESOURCE_ID = (
         ([], "0", "core-incompatible"),
     ],
 )
-@pytest.mark.parametrize("semantic_outputs_present", [True, False])
 @pytest.mark.parametrize(
     "local_kubernetes_binding_mode",
     ["disabled", "legacy", "fleet", "subscription"],
 )
-def test_prepares_deployed_transport_without_copying_stale_transport(
+def test_prepares_local_transport_without_copying_stale_transport(
     tmp_path: Path,
     web_search_candidates: list[dict[str, str]],
     expected_web_search_enabled: str,
     local_vision_state: str,
-    semantic_outputs_present: bool,
     local_kubernetes_binding_mode: str,
 ) -> None:
     repo = tmp_path / "repo"
@@ -203,46 +198,6 @@ def test_prepares_deployed_transport_without_copying_stale_transport(
             encoding="utf-8",
         )
         bindings_path.chmod(0o600)
-    semantic_outputs = (
-        'elif [[ "$*" == *"output -json event_bus_semantic_topics"* ]]; then\n'
-        f'  printf \'["{SEMANTIC_REQUEST_TOPIC}",'
-        f'"{SEMANTIC_PROJECTION_TOPIC}",'
-        '"operator.read-investigation.requests"]\'\n'
-        'elif [[ "$*" == *"output -raw event_bus_semantic_physical_topic"* ]]; then\n'
-        f"  printf '{SEMANTIC_PHYSICAL_TOPIC}'\n"
-        if semantic_outputs_present
-        else ""
-    )
-    terraform = tmp_path / "terraform"
-    terraform.write_text(
-        "#!/usr/bin/env bash\n"
-        'if [[ "$*" == *"output -raw event_bus_kafka_bootstrap"* ]]; then\n'
-        "  printf 'example.servicebus.windows.net:9093'\n"
-        'elif [[ "$*" == *"output -raw event_bus_operational_kafka_bootstrap"* ]]; then\n'
-        "  printf 'example-ops.servicebus.windows.net:9093'\n"
-        'elif [[ "$*" == *"output -json event_bus_topics"* ]]; then\n'
-        '  printf \'["fdai.finops.events","fdai.change.events","fdai.pantheon.objects"]\'\n'
-        + semantic_outputs
-        + 'elif [[ "$*" == *"output -json event_bus_auxiliary_topics"* ]]; then\n'
-        "  printf '[\"fdai.pipeline.stages\"]'\n"
-        'elif [[ "$*" == *"output -json event_bus_operational_topics"* ]]; then\n'
-        '  printf \'["fdai.control.canary","fdai.control.canary.dlq","fdai.inventory.raw"]\'\n'
-        'elif [[ "$*" == *"output -raw resource_group_name"* ]]; then\n'
-        "  printf 'rg-example'\n"
-        'elif [[ "$*" == *"output -raw log_workspace_customer_id"* ]]; then\n'
-        "  printf '00000000-0000-0000-0000-000000000003'\n"
-        'elif [[ "$*" == *"output -raw dev_operations_gateway_url"* ]]; then\n'
-        "  printf 'https://gateway.example.com'\n"
-        'elif [[ "$*" == *"output -raw dev_operations_gateway_audience"* ]]; then\n'
-        "  printf 'api-application-id'\n"
-        'elif [[ "$*" == *"output -raw executor_identity_resource_id"* ]]; then\n'
-        f"  printf '{_EXECUTOR_RESOURCE_ID}'\n"
-        "else\n"
-        "  exit 2\n"
-        "fi\n",
-        encoding="utf-8",
-    )
-    terraform.chmod(0o755)
     az = tmp_path / "az"
     az.write_text(
         "#!/usr/bin/env bash\n"
@@ -252,8 +207,8 @@ def test_prepares_deployed_transport_without_copying_stale_transport(
         "  printf '00000000-0000-0000-0000-000000000002'\n"
         'elif [[ "$*" == *"group show"* ]]; then\n'
         "  printf 'example-region'\n"
-        'elif [[ "$*" == *"eventhubs eventhub show"* ]]; then\n'
-        f"  printf '{SEMANTIC_PHYSICAL_TOPIC}'\n"
+        'elif [[ "$*" == *"monitor log-analytics workspace list"* ]]; then\n'
+        "  printf '00000000-0000-0000-0000-000000000003'\n"
         "else\n"
         "  exit 2\n"
         "fi\n",
@@ -269,9 +224,10 @@ def test_prepares_deployed_transport_without_copying_stale_transport(
         env={
             **os.environ,
             "FDAI_REPO_ROOT": str(repo),
-            "FDAI_TERRAFORM_BIN": str(terraform),
+            "FDAI_TERRAFORM_BIN": "/provider-access-must-not-run",
             "FDAI_AZ_BIN": str(az),
             "FDAI_LOCAL_CONSUMER_INSTANCE": "developer-a",
+            "FDAI_LOCAL_RESOURCE_GROUP": "rg-example",
             "FDAI_LOCAL_KUBERNETES_LIFECYCLE": (
                 "0" if local_kubernetes_binding_mode == "disabled" else "1"
             ),
@@ -338,7 +294,6 @@ def test_prepares_deployed_transport_without_copying_stale_transport(
         "FDAI_STAGE_TOPIC=fdai.pipeline.stages",
         "FDAI_PANTHEON_OBJECT_TOPIC=fdai.pantheon.objects",
         "FDAI_HIL_DECISION_TOPIC=fdai.hil.decisions",
-        "FDAI_INVENTORY_RAW_TOPIC=fdai.inventory.raw",
         "POSTGRES_HOST=127.0.0.1",
         "POSTGRES_DATABASE=fdai",
         "FDAI_DATABASE_URL=postgresql+psycopg://fdai:devonly@127.0.0.1:5432/fdai",
@@ -357,9 +312,6 @@ def test_prepares_deployed_transport_without_copying_stale_transport(
         "FDAI_START_PANTHEON=1",
         "FDAI_TEAMS_NOTIFICATION_ACTIVATION=1",
         "FDAI_STARTUP_KAFKA_PROBE_TOPIC=fdai.startup.probes",
-        "FDAI_STARTUP_KAFKA_SETTLE_SECONDS=20",
-        "FDAI_STARTUP_PROBE_TIMEOUT_SECONDS=90",
-        "FDAI_STARTUP_PHASE_TIMEOUT_SECONDS=180",
         "FDAI_RUNTIME_LOCAL_AZURE_CLI=1",
         "FDAI_CORE_CONSUMER_GROUP_ID=fdai-local-developer-a-core",
         "FDAI_PANTHEON_CONSUMER_GROUP_PREFIX=fdai-local-developer-a-pantheon",
@@ -367,9 +319,8 @@ def test_prepares_deployed_transport_without_copying_stale_transport(
         "FDAI_AZURE_READER_SUBSCRIPTION_ID=00000000-0000-0000-0000-000000000001",
         "FDAI_AZURE_READER_RESOURCE_GROUPS=rg-example",
         "FDAI_MONITOR_WORKSPACE_ID=00000000-0000-0000-0000-000000000003",
-        "FDAI_DEV_OPERATIONS_GATEWAY_URL=https://gateway.example.com",
-        "FDAI_DEV_OPERATIONS_GATEWAY_AUDIENCE=api-application-id",
     ]
+    assert "provider-access-must-not-run" not in completed.stderr
     if local_vision_state in {"invalid", "core-incompatible"}:
         assert "ignored invalid local vision model artifact" in completed.stderr
     assert stat.S_IMODE(output.stat().st_mode) == 0o600
@@ -398,7 +349,6 @@ def test_full_stack_cache_binds_local_activation_inputs() -> None:
     assert "FDAI_LOCAL_KUBERNETES_BINDINGS_PATH" in source
     assert "kubernetes-bindings-path=" in runtime_stage
     assert "FDAI_LOCAL_KUBERNETES_BINDINGS_PATH|" in _SCRIPT.read_text(encoding="utf-8")
-    assert "FDAI_LOCAL_NO_AZURE_DEPLOYMENT" in runtime_stage
     assert "FDAI_LOCAL_RESOURCE_GROUP" in runtime_stage
 
 
@@ -572,32 +522,14 @@ def test_rejects_mixed_local_kubernetes_bindings_before_provider_access(
     assert not output.exists()
 
 
-def test_detects_single_log_workspace_when_terraform_state_omits_customer_id(
+def test_detects_single_log_workspace_in_selected_azure_scope(
     tmp_path: Path,
 ) -> None:
     repo = tmp_path / "repo"
     (repo / "console").mkdir(parents=True)
-    (repo / "infra").mkdir()
     (repo / ".venv/bin").mkdir(parents=True)
     (repo / ".venv/bin/python").symlink_to(Path(os.sys.executable))
     (repo / "console/.env.local").write_text("VITE_DEV_MODE=0\n", encoding="utf-8")
-    terraform = tmp_path / "terraform"
-    terraform.write_text(
-        "#!/usr/bin/env bash\n"
-        'if [[ "$*" == *"output -raw event_bus_kafka_bootstrap"* ]]; then\n'
-        "  printf 'example.servicebus.windows.net:9093'\n"
-        'elif [[ "$*" == *"output -json event_bus_topics"* ]]; then\n'
-        "  printf '[\"fdai.change.events\"]'\n"
-        'elif [[ "$*" == *"output -raw resource_group_name"* ]]; then\n'
-        "  printf 'rg-example'\n"
-        'elif [[ "$*" == *"output -raw executor_identity_resource_id"* ]]; then\n'
-        f"  printf '{_EXECUTOR_RESOURCE_ID}'\n"
-        "else\n"
-        "  exit 2\n"
-        "fi\n",
-        encoding="utf-8",
-    )
-    terraform.chmod(0o755)
     az = tmp_path / "az"
     az.write_text(
         "#!/usr/bin/env bash\n"
@@ -624,9 +556,10 @@ def test_detects_single_log_workspace_when_terraform_state_omits_customer_id(
         env={
             **os.environ,
             "FDAI_REPO_ROOT": str(repo),
-            "FDAI_TERRAFORM_BIN": str(terraform),
+            "FDAI_TERRAFORM_BIN": "/provider-access-must-not-run",
             "FDAI_AZ_BIN": str(az),
             "FDAI_LOCAL_CONSUMER_INSTANCE": "developer-workspace",
+            "FDAI_LOCAL_RESOURCE_GROUP": "rg-example",
         },
         capture_output=True,
         text=True,
@@ -634,7 +567,8 @@ def test_detects_single_log_workspace_when_terraform_state_omits_customer_id(
 
     rendered = output.read_text(encoding="utf-8")
     assert "FDAI_MONITOR_WORKSPACE_ID=00000000-0000-0000-0000-000000000003" in rendered
-    assert "workspace detected via Azure CLI" in completed.stderr
+    assert "workspace detected via the selected Azure CLI read scope" in completed.stderr
+    assert "provider-access-must-not-run" not in completed.stderr
 
 
 def test_rejects_resolved_models_without_core_endpoint_before_provider_access(
@@ -672,7 +606,6 @@ def test_rejects_resolved_models_without_core_endpoint_before_provider_access(
 def test_uses_local_semantic_topics_without_inventory_invalidation(tmp_path: Path) -> None:
     repo = tmp_path / "repo"
     (repo / "console").mkdir(parents=True)
-    (repo / "infra").mkdir()
     (repo / ".venv/bin").mkdir(parents=True)
     (repo / ".venv/bin/python").symlink_to(Path(os.sys.executable))
     (repo / "console/.env.local").write_text(
@@ -681,25 +614,6 @@ def test_uses_local_semantic_topics_without_inventory_invalidation(tmp_path: Pat
         "FDAI_SEMANTIC_TURN_PROJECTION_TOPIC=stale.projections\n",
         encoding="utf-8",
     )
-    terraform = tmp_path / "terraform"
-    terraform.write_text(
-        "#!/usr/bin/env bash\n"
-        'if [[ "$*" == *"output -raw event_bus_kafka_bootstrap"* ]]; then\n'
-        "  printf 'example.servicebus.windows.net:9093'\n"
-        'elif [[ "$*" == *"output -json event_bus_topics"* ]]; then\n'
-        "  printf '[\"fdai.change.events\"]'\n"
-        'elif [[ "$*" == *"output -json event_bus_auxiliary_topics"* ]]; then\n'
-        "  exit 1\n"
-        'elif [[ "$*" == *"output -raw resource_group_name"* ]]; then\n'
-        "  printf 'rg-example'\n"
-        'elif [[ "$*" == *"output -raw executor_identity_resource_id"* ]]; then\n'
-        f"  printf '{_EXECUTOR_RESOURCE_ID}'\n"
-        "else\n"
-        "  exit 2\n"
-        "fi\n",
-        encoding="utf-8",
-    )
-    terraform.chmod(0o755)
     az = tmp_path / "az"
     az.write_text(
         "#!/usr/bin/env bash\n"
@@ -724,9 +638,10 @@ def test_uses_local_semantic_topics_without_inventory_invalidation(tmp_path: Pat
         env={
             **os.environ,
             "FDAI_REPO_ROOT": str(repo),
-            "FDAI_TERRAFORM_BIN": str(terraform),
+            "FDAI_TERRAFORM_BIN": "/provider-access-must-not-run",
             "FDAI_AZ_BIN": str(az),
             "FDAI_LOCAL_CONSUMER_INSTANCE": "developer-b",
+            "FDAI_LOCAL_RESOURCE_GROUP": "rg-example",
         },
         capture_output=True,
         text=True,
@@ -740,39 +655,18 @@ def test_uses_local_semantic_topics_without_inventory_invalidation(tmp_path: Pat
     assert f"FDAI_OPERATING_MODEL_TOPIC={_OPERATING_MODEL_TOPIC}" in rendered
     assert "FDAI_CORE_CONSUMER_GROUP_ID=fdai-local-developer-b-core" in rendered
     assert "invalidation uses TTL refresh" in completed.stderr
-    # No operations gateway is provisioned here, so the governed direct-API
-    # executor must fall back to the in-memory shadow fake automatically.
-    assert "FDAI_DIRECT_API_FAKE=1" in rendered
+    assert "FDAI_DIRECT_API_FAKE=" not in rendered
     assert "FDAI_DEV_OPERATIONS_GATEWAY_URL=" not in rendered
-    assert "uses the in-memory shadow fake" in completed.stderr
+    assert "managed-resource execution remains unavailable" in completed.stderr
+    assert "provider-access-must-not-run" not in completed.stderr
 
 
-def test_rejects_cli_subscription_that_differs_from_terraform(tmp_path: Path) -> None:
+def test_rejects_resource_group_absent_from_active_subscription(tmp_path: Path) -> None:
     repo = tmp_path / "repo"
     (repo / "console").mkdir(parents=True)
-    (repo / "infra").mkdir()
     (repo / ".venv/bin").mkdir(parents=True)
     (repo / ".venv/bin/python").symlink_to(Path(os.sys.executable))
     (repo / "console/.env.local").write_text("VITE_DEV_MODE=0\n", encoding="utf-8")
-    terraform = tmp_path / "terraform"
-    terraform.write_text(
-        "#!/usr/bin/env bash\n"
-        'if [[ "$*" == *"output -raw event_bus_kafka_bootstrap"* ]]; then\n'
-        "  printf 'example.servicebus.windows.net:9093'\n"
-        'elif [[ "$*" == *"output -json event_bus_topics"* ]]; then\n'
-        "  printf '[\"fdai.change.events\"]'\n"
-        'elif [[ "$*" == *"output -json event_bus_auxiliary_topics"* ]]; then\n'
-        "  printf '[]'\n"
-        'elif [[ "$*" == *"output -raw resource_group_name"* ]]; then\n'
-        "  printf 'rg-example'\n"
-        'elif [[ "$*" == *"output -raw executor_identity_resource_id"* ]]; then\n'
-        f"  printf '{_EXECUTOR_RESOURCE_ID}'\n"
-        "else\n"
-        "  exit 2\n"
-        "fi\n",
-        encoding="utf-8",
-    )
-    terraform.chmod(0o755)
     az = tmp_path / "az"
     az.write_text(
         "#!/usr/bin/env bash\n"
@@ -798,17 +692,18 @@ def test_rejects_cli_subscription_that_differs_from_terraform(tmp_path: Path) ->
         env={
             **os.environ,
             "FDAI_REPO_ROOT": str(repo),
-            "FDAI_TERRAFORM_BIN": str(terraform),
+            "FDAI_TERRAFORM_BIN": "/provider-access-must-not-run",
             "FDAI_AZ_BIN": str(az),
             "FDAI_LOCAL_CONSUMER_INSTANCE": "developer-c",
+            "FDAI_LOCAL_RESOURCE_GROUP": "rg-example",
         },
         capture_output=True,
         text=True,
     )
 
     assert completed.returncode != 0
-    assert "does not match the applied Terraform deployment" in completed.stderr
-    assert "group lookup MUST NOT run" not in completed.stderr
+    assert "group lookup MUST NOT run after a subscription mismatch" in completed.stderr
+    assert "provider-access-must-not-run" not in completed.stderr
     assert not output.exists()
 
 
@@ -871,30 +766,15 @@ def test_rejects_invalid_resolved_models_override_before_provider_access(
     assert not output.exists()
 
 
-def test_detects_gateway_via_azure_cli_when_terraform_state_omits_it(tmp_path: Path) -> None:
+def test_detects_gateway_via_azure_cli_without_terraform(tmp_path: Path) -> None:
     repo = tmp_path / "repo"
     (repo / "console").mkdir(parents=True)
-    (repo / "infra").mkdir()
     (repo / ".venv/bin").mkdir(parents=True)
     (repo / ".venv/bin/python").symlink_to(Path(os.sys.executable))
-    (repo / "console/.env.local").write_text("VITE_DEV_MODE=0\n", encoding="utf-8")
-    terraform = tmp_path / "terraform"
-    terraform.write_text(
-        "#!/usr/bin/env bash\n"
-        'if [[ "$*" == *"output -raw event_bus_kafka_bootstrap"* ]]; then\n'
-        "  printf 'example.servicebus.windows.net:9093'\n"
-        'elif [[ "$*" == *"output -json event_bus_topics"* ]]; then\n'
-        "  printf '[\"fdai.change.events\"]'\n"
-        'elif [[ "$*" == *"output -raw resource_group_name"* ]]; then\n'
-        "  printf 'rg-example'\n"
-        'elif [[ "$*" == *"output -raw executor_identity_resource_id"* ]]; then\n'
-        f"  printf '{_EXECUTOR_RESOURCE_ID}'\n"
-        "else\n"
-        "  exit 2\n"
-        "fi\n",
+    (repo / "console/.env.local").write_text(
+        "VITE_DEV_MODE=0\nVITE_MSAL_API_SCOPE=api://gateway-app-id/access_as_user\n",
         encoding="utf-8",
     )
-    terraform.chmod(0o755)
     gateway_app_id = (
         "/subscriptions/00000000-0000-0000-0000-000000000001/resourceGroups/"
         "rg-example/providers/Microsoft.Web/sites/func-example-devgw-abc123"
@@ -909,11 +789,8 @@ def test_detects_gateway_via_azure_cli_when_terraform_state_omits_it(tmp_path: P
         'elif [[ "$*" == *"group show"* ]]; then\n'
         "  printf 'example-region'\n"
         'elif [[ "$*" == *"functionapp list"* ]]; then\n'
-        f"  printf '{gateway_app_id}'\n"
-        'elif [[ "$*" == *"functionapp show"* ]]; then\n'
-        "  printf 'func-example-devgw-abc123.azurewebsites.net'\n"
-        'elif [[ "$*" == *"rest --method post"* ]]; then\n'
-        "  printf 'api://gateway-app-id'\n"
+        f'  printf \'[{{"id":"{gateway_app_id}",'
+        '"host":"func-example-devgw-abc123.azurewebsites.net"}]\'\n'
         "else\n"
         "  exit 2\n"
         "fi\n",
@@ -929,27 +806,77 @@ def test_detects_gateway_via_azure_cli_when_terraform_state_omits_it(tmp_path: P
         env={
             **os.environ,
             "FDAI_REPO_ROOT": str(repo),
-            "FDAI_TERRAFORM_BIN": str(terraform),
+            "FDAI_TERRAFORM_BIN": "/provider-access-must-not-run",
             "FDAI_AZ_BIN": str(az),
             "FDAI_LOCAL_CONSUMER_INSTANCE": "developer-d",
+            "FDAI_LOCAL_RESOURCE_GROUP": "rg-example",
         },
         capture_output=True,
         text=True,
     )
 
     rendered = output.read_text(encoding="utf-8")
-    # Terraform state omits the gateway, so the URL/audience are recovered from
-    # the live Azure CLI probe and the shadow fake must NOT be wired.
+    # The URL comes from the scoped Azure CLI probe and the audience comes from
+    # the same private API scope used by the local Operator Service.
     assert (
         "FDAI_DEV_OPERATIONS_GATEWAY_URL=https://func-example-devgw-abc123.azurewebsites.net"
         in rendered
     )
-    assert "FDAI_DEV_OPERATIONS_GATEWAY_AUDIENCE=api://gateway-app-id" in rendered
+    assert "FDAI_DEV_OPERATIONS_GATEWAY_AUDIENCE=gateway-app-id" in rendered
     assert "FDAI_DIRECT_API_FAKE=" not in rendered
     assert "detected via Azure CLI" in completed.stderr
+    assert "provider-access-must-not-run" not in completed.stderr
 
 
-def test_no_azure_deployment_mode_skips_terraform_and_verifies_explicit_scope(
+def test_rejects_multiple_gateways_in_selected_azure_scope(tmp_path: Path) -> None:
+    repo = tmp_path / "repo"
+    (repo / "console").mkdir(parents=True)
+    (repo / ".venv/bin").mkdir(parents=True)
+    (repo / ".venv/bin/python").symlink_to(Path(os.sys.executable))
+    (repo / "console/.env.local").write_text("VITE_DEV_MODE=0\n", encoding="utf-8")
+    az = tmp_path / "az"
+    az.write_text(
+        "#!/usr/bin/env bash\n"
+        'if [[ "$*" == *"account show --query id"* ]]; then\n'
+        "  printf '00000000-0000-0000-0000-000000000001'\n"
+        'elif [[ "$*" == *"account show --query tenantId"* ]]; then\n'
+        "  printf '00000000-0000-0000-0000-000000000002'\n"
+        'elif [[ "$*" == *"group show"* ]]; then\n'
+        "  printf 'example-region'\n"
+        'elif [[ "$*" == *"functionapp list"* ]]; then\n'
+        '  printf \'[{"id":"/subscriptions/example/resourceGroups/rg-example/providers/'
+        'Microsoft.Web/sites/func-example-devgw-a","host":"a.example.com"},'
+        '{"id":"/subscriptions/example/resourceGroups/rg-example/providers/'
+        'Microsoft.Web/sites/func-example-devgw-b","host":"b.example.com"}]\'\n'
+        "else\n"
+        "  exit 2\n"
+        "fi\n",
+        encoding="utf-8",
+    )
+    az.chmod(0o755)
+    output = repo / ".fdai/local-runtime.env"
+
+    completed = subprocess.run(  # noqa: S603 - test-controlled binary
+        [_BASH, str(_SCRIPT), str(output)],
+        check=False,
+        cwd=_REPO_ROOT,
+        env={
+            **os.environ,
+            "FDAI_REPO_ROOT": str(repo),
+            "FDAI_AZ_BIN": str(az),
+            "FDAI_LOCAL_CONSUMER_INSTANCE": "developer-gateway",
+            "FDAI_LOCAL_RESOURCE_GROUP": "rg-example",
+        },
+        capture_output=True,
+        text=True,
+    )
+
+    assert completed.returncode != 0
+    assert "multiple development operations gateways" in completed.stderr
+    assert not output.exists()
+
+
+def test_local_runtime_skips_terraform_and_verifies_explicit_scope(
     tmp_path: Path,
 ) -> None:
     repo = tmp_path / "repo"
@@ -990,7 +917,6 @@ def test_no_azure_deployment_mode_skips_terraform_and_verifies_explicit_scope(
             "FDAI_TERRAFORM_BIN": "/provider-access-must-not-run",
             "FDAI_AZ_BIN": str(az),
             "FDAI_LOCAL_CONSUMER_INSTANCE": "no-deploy",
-            "FDAI_LOCAL_NO_AZURE_DEPLOYMENT": "1",
             "FDAI_LOCAL_RESOURCE_GROUP": "rg-example",
         },
         capture_output=True,
@@ -1017,33 +943,8 @@ def test_no_azure_deployment_mode_skips_terraform_and_verifies_explicit_scope(
     assert stat.S_IMODE(output.stat().st_mode) == 0o600
 
 
-def test_rejects_invalid_no_azure_deployment_flag_before_provider_access(
-    tmp_path: Path,
-) -> None:
-    repo = tmp_path / "repo"
-    (repo / "console").mkdir(parents=True)
-    (repo / "console/.env.local").write_text("VITE_MSAL_CLIENT_ID=client\n", encoding="utf-8")
-
-    completed = subprocess.run(  # noqa: S603 - test-controlled environment
-        [_BASH, str(_SCRIPT), str(repo / ".fdai/local-runtime.env")],
-        env={
-            **os.environ,
-            "FDAI_REPO_ROOT": str(repo),
-            "FDAI_TERRAFORM_BIN": "/provider-access-must-not-run",
-            "FDAI_AZ_BIN": "/provider-access-must-not-run",
-            "FDAI_LOCAL_NO_AZURE_DEPLOYMENT": "invalid",
-        },
-        capture_output=True,
-        text=True,
-    )
-
-    assert completed.returncode != 0
-    assert "FDAI_LOCAL_NO_AZURE_DEPLOYMENT MUST be 0 or 1" in completed.stderr
-    assert "provider-access-must-not-run" not in completed.stderr
-
-
 @pytest.mark.parametrize("scope", ["", "invalid;scope", "../scope"])
-def test_no_deployment_requires_explicit_valid_scope_before_provider_access(
+def test_local_runtime_requires_explicit_valid_scope_before_provider_access(
     tmp_path: Path,
     scope: str,
 ) -> None:
@@ -1057,7 +958,6 @@ def test_no_deployment_requires_explicit_valid_scope_before_provider_access(
             **os.environ,
             "FDAI_REPO_ROOT": str(repo),
             "FDAI_AZ_BIN": "/provider-access-must-not-run",
-            "FDAI_LOCAL_NO_AZURE_DEPLOYMENT": "1",
             "FDAI_LOCAL_RESOURCE_GROUP": scope,
         },
         capture_output=True,

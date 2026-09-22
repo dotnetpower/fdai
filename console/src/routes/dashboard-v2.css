@@ -74,51 +74,67 @@
 }
 
 .dv2-scope {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  flex-wrap: wrap;
-  gap: 12px 24px;
-  padding: 20px 22px 14px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 8px 24px;
+  padding: 8px 16px 6px;
   font-size: var(--cs-type-compact-size);
 }
 
-.dv2-scope > div:first-child {
-  flex: 1 1 400px;
+.dv2-scope-heading {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 2px 12px;
 }
 
-.dv2-scope > div:first-child > strong {
+.dv2-scope-heading > strong {
   font-family: "Segoe UI Variable Display", var(--cs-font);
-  font-size: var(--cs-type-section-title-size);
+  font-size: var(--cs-type-panel-title-size);
   font-weight: 600;
-  line-height: var(--cs-type-section-title-line-height);
+  line-height: var(--cs-type-panel-title-line-height);
 }
 
-.dv2-scope > div:last-child {
+.dv2-scope-heading > span,
+.dv2-scope p {
+  color: var(--cs-text-soft);
+}
+
+.dv2-snapshot-meta {
+  display: flex;
+  align-items: baseline;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 2px 8px;
   text-align: right;
 }
 
 .dv2-scope p {
   max-width: 76ch;
-  margin: 5px 0 0;
-  color: var(--cs-text-soft);
+  margin: 0;
+}
+
+.dv2-scope p.dv2-scope-boundary {
+  grid-column: 1 / -1;
+  max-width: none;
 }
 
 .dv2-summary {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 12px;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 6px;
   margin: 0;
-  padding: 0 22px 20px;
+  padding: 0 16px 12px;
 }
 
 .dv2-summary a {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
   align-items: center;
-  gap: 12px;
-  min-height: 76px;
-  padding: 13px 15px;
+  gap: 6px;
+  min-height: 58px;
+  padding: 7px 8px;
   border: 1px solid transparent;
   border-radius: 6px;
   background: var(--bg-subtle);
@@ -134,7 +150,7 @@
 
 .dv2-summary strong {
   font-family: "Segoe UI Variable Display", var(--cs-font);
-  font-size: var(--cs-type-page-title-size);
+  font-size: var(--cs-type-section-title-size);
   font-weight: 600;
 }
 
@@ -608,10 +624,12 @@
 
 @media (max-width: 700px) {
   .dv2-scope {
+    grid-template-columns: minmax(0, 1fr);
     padding-inline: 18px;
   }
 
-  .dv2-scope > div:last-child {
+  .dv2-snapshot-meta {
+    justify-content: flex-start;
     text-align: left;
   }
 

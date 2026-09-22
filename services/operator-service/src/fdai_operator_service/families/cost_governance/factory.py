@@ -199,7 +199,6 @@ def _build_route(
                 )
                 return JSONResponse(
                     availability_payload.model_dump(mode="json"),
-                    status_code=404,
                 )
             return _error(404, unavailable.value, "Cost Governance is unavailable")
         if activation is None:  # Defensive narrowing after the typed reason check.

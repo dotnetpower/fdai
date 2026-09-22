@@ -3302,6 +3302,7 @@
       "activitySummary": "{queries} read queries / {commands} commands",
       "activityCompact": "Reads {queries} / cmds {commands}",
       "endToEndDuration": "End-to-end {duration}",
+      "serverProcessingDuration": "Server processing {duration}",
       "executionKind": {
         "turn": "Turn",
         "phase": "Phase",

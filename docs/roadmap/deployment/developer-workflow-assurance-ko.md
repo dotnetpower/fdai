@@ -1,7 +1,7 @@
 ---
 translation_of: developer-workflow-assurance.md
-translation_source_sha: 082d29574ec969d09df49cfe572555bb6e6e3f6c
-translation_revised: 2026-09-21
+translation_source_sha: 68bac0ba122b33e20e032d5a381cc81e0f10b088
+translation_revised: 2026-09-22
 ---
 
 # 개발 워크플로 보증
@@ -35,6 +35,7 @@ FDAI는 로컬 스크립트 전반에서 하나의 읽기 전용 개발 워크�
 이 명령은 기존 Git common dir 상태와 프로세스 메타데이터를 읽습니다. 두 번째 감사 로그를
 추가하거나, 커밋 후 세션 소유권을 추론하거나, 사용할 수 없는 진단을 성공 결과로 바꾸지
 않습니다.
+Core 초기화는 기존 `runtime_settings_service_from_env` 테스트 seam을 유지하면서 운영 시작에서는 런타임 소유 `StateStore`를 재사용해 설정 스냅샷 하나를 읽습니다. 이 호환 경로는 진단 소켓, 실행 위치, 프로바이더 신원 또는 배포 권한을 변경하지 않습니다.
 
 장기 실행 workspace supervisor는 커밋된 VS Code 작업에서 필요한 모든 endpoint와 비공개 파일
 경로를 받습니다. 대화 품질 보증 supervisor 작업은 표준 loopback Operator URL과 소유자 전용
@@ -46,6 +47,8 @@ bearer-token 파일 경로를 전달하지만 bearer 값 자체는 전달하지 
 데이터베이스와 브로커 세대 유지 관리가 오래된 프로세스에 대해 준비를 실행하지 않고 활성 consumer와
 연결을 거부할 수 있습니다. 전용 터미널과 준비 상태 검사기를 사용하며, 완료된 시작 작업의 오래된
 출력은 새 프로세스나 준비 완료의 근거가 아닙니다.
+관리되는 준비 과정은 로컬 PostgreSQL 및 Redpanda와 명시적 Azure CLI 읽기 범위를 사용합니다.
+Terraform 상태를 초기화하거나 읽지 않으며 게이트웨이 검색은 로컬 실행기 신원을 부여하지 않습니다.
 관리되는 로컬 준비 과정은 비활성 consumer group offset도 일반 topic 데이터와 같은 24시간 구간으로
 제한하고 1분마다 만료를 확인하며, 활성 group에는 영향을 주지 않습니다.
 
@@ -144,12 +147,18 @@ Azure OpenAI 배포를 선택하거나 호출하지 않습니다.
 프로파일링된 Core 런타임은 공유 StateStore에 대해 범위가 제한된 비동기 connection pool 하나를
 소유하고, 의존하는 worker와 transport가 중지된 뒤 해당 pool을 닫습니다. 개발 진단은 그 결과인
 프로세스 및 연결 수를 측정할 수 있지만, 측정값을 권한으로 바꾸지는 않습니다.
+시작 설정 snapshot은 해당 런타임 소유 pool을 재사용하며, worker가 event loop보다 오래 남는 임시
+pool을 만들지 않습니다. Pantheon subscriber 종료에서 broker 정리가 첫 drain 기한에 도달하면 두
+번째 범위 제한 마무리 단계를 사용하며, 완료된 작업의 참조를 제거하기 전에 해당 작업을 수집합니다.
 로컬 analyzer는 다음 loop interval 전에 tick 범위의 decision-evidence 및 run-receipt StateStore
 pool을 닫습니다. 정상 tick은 garbage collection 대상으로 비동기 pool worker를 남길 수 없으며,
 영속화 실패도 준비 상태를 사용할 수 없음으로 유지하기 전에 store를 닫습니다.
 관리 launcher는 서비스 소유 StateStore DSN을 해당 analyzer 프로세스에 명시적으로 전달하므로 대상
 선택 전에 결정 근거 admission provider가 연결됩니다. 이 binding은 읽기 전용이며 ActionType을
 승격하거나 자율성을 높이거나 실행 권한을 부여할 수 없습니다.
+데이터베이스 재생성으로 로컬 broker 세대를 파괴적으로 초기화해야 할 때 준비 단계는 group과 topic을
+삭제하는 동안 stack lock과 모든 관리형 서비스 lock을 유지합니다. 따라서 연결이 끊겼지만 계속 실행
+중인 consumer를 유휴 상태로 오인해 삭제된 topic에 다시 연결하게 할 수 없습니다.
 
 ## 검증 단계와 결과 재사용
 
@@ -160,6 +169,10 @@ pool을 닫습니다. 정상 tick은 garbage collection 대상으로 비동기 p
 범위에 따라 명시적으로 선택하며, 경로 계획에 범위 없는 저장소 검사를 일괄 추가하지 않습니다.
 워크플로 지침은 헌법과 추적 근거 문맥을 유지합니다. 상세 런타임 권한 문서는 모든 CI 도구
 편집이 아니라 해당 런타임 계약을 변경할 때 불러옵니다.
+Pre-commit 파생 출처 검사는 경량 staged-input selector에 항상 진입합니다. 고정된 문서, System
+Knowledge 출처, 카탈로그, 검사기 또는 hook 설정이 바뀔 때만 전체 검사를 실행합니다. selector는
+staged 카탈로그에서 출처 집합을 파생하므로 새 출처를 등록할 때 hook 경로 필터를 수동으로 맞출
+필요가 없습니다.
 Core 수량·리소스 계산 검사는 클러스터에 접속하지 않고 루트 개발 의존성의 잠긴 Kubernetes 도구를 사용합니다. 타입 선언 부재에 대한 예외는 `kubernetes.utils.quantity`에만 적용하며 어댑터는 반환된 Decimal 값을 검증합니다. 의존성 변경은 소유 범위와 Core wheel 검사를 유지하며 진단 채널이나 실제 수집을 활성화하지 않습니다.
 루트 CI가 서비스 소스를 수집할 때는 해당 소스가 가져오는 모든 서드파티 패키지를 `dev`
 extra에 반영합니다. 런타임 이미지와 패키지 소유권은 서비스 매니페스트가 계속 담당합니다.

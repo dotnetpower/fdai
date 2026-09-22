@@ -73,10 +73,14 @@ def preflight_input_digest(utterance: str) -> str:
     return content_digest({"utterance": utterance})
 
 
-def repair_instruction(exc: TypeError | ValueError | ValidationError) -> dict[str, str]:
-    """Map validation failures to one bounded schema-repair instruction."""
+def repair_instruction(
+    exc: TypeError | ValueError | ValidationError,
+) -> dict[str, str] | None:
+    """Map repairable validation failures to one bounded instruction."""
 
     reason = str(exc)
+    if "operational preflight family requires an explicit operational signal" in reason:
+        return None
     if "locale" in reason:
         return {"path": "direct_response.locale", "reason": "copy the supplied locale exactly"}
     if "profile digest" in reason:

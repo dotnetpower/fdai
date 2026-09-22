@@ -15,6 +15,29 @@ const KPI: DashboardKpi = {
   audit_sample: null,
 };
 
+const COST_AVAILABLE = {
+  available: true,
+  enabled: true,
+  access_allowed: true,
+  availability_reasons: [],
+  reason: null,
+  activation_revision: 1,
+  package_version: "1.0.0",
+  image_digest: null,
+  asset_manifest_digest: null,
+  semantic_profile_digest: null,
+  ontology_release_digest: null,
+} as const;
+
+const COST_UNAVAILABLE = {
+  ...COST_AVAILABLE,
+  available: false,
+  enabled: false,
+  availability_reasons: ["package_absent"],
+  activation_revision: null,
+  package_version: null,
+} as const;
+
 describe("loadDashboardOverview", () => {
   it("publishes the KPI backbone before optional projections settle", async () => {
     const pending = new Promise<never>(() => undefined);
@@ -22,6 +45,7 @@ describe("loadDashboardOverview", () => {
     const panelCall = vi.fn();
     const client = {
       dashboardMetrics: vi.fn(async () => KPI),
+      costGovernanceAvailability: vi.fn(async () => COST_AVAILABLE),
       costGovernance: vi.fn(() => pending),
       panel<T>(path: string): Promise<T> {
         panelCall(path);
@@ -52,6 +76,7 @@ describe("loadDashboardOverview", () => {
     const publishBackbone = vi.fn();
     const client = {
       dashboardMetrics: vi.fn(async () => KPI),
+      costGovernanceAvailability: vi.fn(async () => COST_AVAILABLE),
       costGovernance: vi.fn(async () => {
         throw new OperatorApiError(503, "not served here", "projection-unavailable");
       }),
@@ -75,7 +100,10 @@ describe("loadDashboardOverview", () => {
     const publishBackbone = vi.fn();
     const client = {
       dashboardMetrics: vi.fn(async () => KPI),
-      costGovernance: vi.fn(async () => { throw new OperatorApiError(403, "access required"); }),
+      costGovernanceAvailability: vi.fn(async () => {
+        throw new OperatorApiError(403, "access required");
+      }),
+      costGovernance: vi.fn(),
       panel: vi.fn(async () => {
         throw new OperatorApiError(503, "unavailable", "projection-unavailable");
       }),
@@ -88,6 +116,26 @@ describe("loadDashboardOverview", () => {
       gates: null,
       autonomy: null,
     });
+    expect(client.costGovernance).not.toHaveBeenCalled();
+  });
+
+  it("does not request a cost projection when the package is unavailable", async () => {
+    const client = {
+      dashboardMetrics: vi.fn(async () => KPI),
+      costGovernanceAvailability: vi.fn(async () => COST_UNAVAILABLE),
+      costGovernance: vi.fn(),
+      panel: vi.fn(async () => { throw new OperatorApiError(404, "not found"); }),
+      autonomy: vi.fn(async () => { throw new OperatorApiError(404, "not found"); }),
+    };
+
+    await expect(loadDashboardOverview(client, vi.fn())).resolves.toEqual({
+      kpi: KPI,
+      cost: null,
+      gates: null,
+      autonomy: null,
+    });
+    expect(client.costGovernanceAvailability).toHaveBeenCalledOnce();
+    expect(client.costGovernance).not.toHaveBeenCalled();
   });
 
   it("surfaces decoder failures from an optional projection", async () => {
@@ -97,6 +145,7 @@ describe("loadDashboardOverview", () => {
     );
     const client = {
       dashboardMetrics: vi.fn(async () => KPI),
+      costGovernanceAvailability: vi.fn(async () => COST_AVAILABLE),
       costGovernance: vi.fn(async () => {
         throw new OperatorApiError(404, "not found");
       }),
@@ -115,6 +164,7 @@ describe("loadDashboardOverview", () => {
     const serviceFailure = new OperatorApiError(503, "upstream service unavailable");
     const client = {
       dashboardMetrics: vi.fn(async () => KPI),
+      costGovernanceAvailability: vi.fn(async () => COST_AVAILABLE),
       costGovernance: vi.fn(async () => {
         throw serviceFailure;
       }),

@@ -29,6 +29,7 @@ export async function postGovernedJson(
   path: string,
   body: Record<string, unknown>,
   idempotencyKey: string,
+  expectedRevision?: string,
 ): Promise<unknown> {
   return writeGovernedJson(
     authorizationHeader,
@@ -37,6 +38,7 @@ export async function postGovernedJson(
     body,
     "POST",
     idempotencyKey,
+    expectedRevision,
   );
 }
 
@@ -47,6 +49,7 @@ async function writeGovernedJson(
   body: Record<string, unknown>,
   method: "POST" | "PUT",
   idempotencyKey?: string,
+  expectedRevision?: string,
 ): Promise<unknown> {
   const authorization = await authorizationHeader();
   const headers: Record<string, string> = {
@@ -55,6 +58,7 @@ async function writeGovernedJson(
   };
   if (authorization !== null) headers.authorization = authorization;
   if (idempotencyKey !== undefined) headers["idempotency-key"] = idempotencyKey;
+  if (expectedRevision !== undefined) headers["if-match"] = expectedRevision;
   const controller = new AbortController();
   const timer = globalThis.setTimeout(() => controller.abort(), 10_000);
   let response: Response;

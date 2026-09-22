@@ -169,9 +169,11 @@ def build_ontology_observer(
         if catalog_available:
             history_succeeded = False
             try:
-                history_available = reused_journal_generation is not None or (
-                    await topology_publisher.publish(observation) is not None
-                )
+                if reused_journal_generation is not None:
+                    await topology_publisher.publish(observation, retain_topology=False)
+                    history_available = True
+                else:
+                    history_available = await topology_publisher.publish(observation) is not None
                 history_succeeded = True
             except Exception as exc:  # noqa: BLE001 - independent derived read model
                 failures.append(("topology_history_failed", exc))

@@ -1,8 +1,8 @@
 ---
 title: Operator Console Module Map and Boundaries
 translation_of: operator-console-module-map.md
-translation_source_sha: 4e51eb152a8e1114e15996949029876b27491a70
-translation_revised: 2026-09-17
+translation_source_sha: 964bd89f647e73975302499a65353d691037f7bf
+translation_revised: 2026-09-22
 ---
 # Operator Console 모듈 지도 and Boundaries
 
@@ -630,6 +630,7 @@ typed-pipeline 결정을 변경하지 않습니다.
 ## 설정, 컴포넌트 및 계정 신원 표현 경계
 
 Console 설정 경로와 정적 디자인 시안은 Calm Slate 컨트롤 토큰과 표현 프리미티브를 공유합니다. 데스크톱 폼은 34px 표준 높이와 28px 작업 높이를 사용하고 터치 레이아웃은 44px 대상을 사용합니다. 설정 화면은 브라우저 로컬 및 계정 환경 설정, 배포 정책, 근거, 권한을 시각적으로 구분하지만 영속성이나 권한 부여를 변경하지 않습니다.
+`console/src/routes/dashboard-v2.tsx`와 `dashboard-v2.css`는 리소스 대시보드의 간결한 반환 범위 표현을 소유합니다. 출처 정보와 스냅샷 시각을 계속 표시하고, 모든 개수를 필터가 적용된 기본 링크로 유지하며, 높이가 낮은 데스크톱 스트립을 좁은 너비에서 다시 배치합니다. 이 표현은 기록 데이터, 권한 부여 또는 실행 권한을 변경하지 않습니다.
 `console/src/components/account-menu.tsx`는 로그인 계정 표현을 소유하고 MSAL 이름과 사용자 이름을 표시하며 서버가 검증한 `GET /iam/self` 변환 결과에서만 FDAI 역할을 읽고 IAM 경로로 연결합니다. `console/src/auth.ts`는 로그인 힌트 없이 Entra 계정 선택기를 열고 일반 토큰 획득 및 IAM 권한 확인으로 돌아옵니다. 이 컴포넌트는 디렉터리를 전환하거나 기능을 부여하거나 프로바이더 자격 증명을 받지 않습니다.
 `console/src/browser-notifications.ts`, `console/src/components/browser-notification-control.tsx` 및 scope가 제한된 `console/public/notification-sw.js`는 클라이언트 로컬 알림 모듈을 소유하며, [Console Web 알림](console-web-notifications-ko.md)은 전체 선택, 기능, 전달, 확인, 복구 및 권한 계약을 정의합니다. 모든 전달 원장 변경은 같은 출처의 탭 전체가 공유하는 단기 Web Lock을 사용하며, 다시 활성화된 컨트롤은 보존된 원장에서 표시할 전달 상태를 가져옵니다.
 화면에 보이는 제목 컴포넌트는 렌더링되는 제목 내용에만 `title`을 사용합니다. 기본 HTML `title` 말풍선은 접근성과 호환되는 요소로 제한하며, 그 밖의 맥락 도움말은 공통 Tooltip 컴포넌트를 사용합니다.

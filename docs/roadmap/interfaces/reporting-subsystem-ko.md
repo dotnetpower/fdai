@@ -1,8 +1,8 @@
 ---
 title: 리포팅 서브시스템
 translation_of: reporting-subsystem.md
-translation_source_sha: 0ec439f0a76d13efff72d0ea48d8ff89871da118
-translation_revised: 2026-09-21
+translation_source_sha: 576321003414a5085c3d412f0acf7abe30298739
+translation_revised: 2026-09-22
 ---
 # 리포팅 서브시스템
 
@@ -591,6 +591,7 @@ shipped된 서브시스템을 OWASP + `app-shape` 관점에서 체계적으로
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-22 | implemented | Core 소유 Rule 활성화 receipt table을 공유 service migration inventory에 등록했으며 reporting source, widget, 경로 또는 쓰기 권한에는 추가하지 않았습니다. | `current change`; service migration inventory 73개 통과, 실제 PostgreSQL role 테스트에서 Operator에 receipt table 직접 접근이 없음을 확인. | Reporting 동작이나 data source 근거는 변경되지 않았습니다. |
 | 2026-08-14 | in-progress | 구현 ledger를 도입하고 선택적 PDF 구현 주장을 수정했으며 이전 출처 이력은 재구성하지 않았습니다. | `current change`; 구현 범위 표에 나열된 현재 reporting core, 카탈로그, Operator, Console 및 focused 검사입니다. | 권위 있는 데이터 원본 근거를 보존하고 PDF를 표시하기 전에 선택적 delivery를 구현해야 합니다. |
 | 2026-08-14 | implemented | 독립 Operator Service에 opt-in PDF delivery를 추가하고 catalog와 runtime registry가 일치할 때만 Console 다운로드 컨트롤을 노출했습니다. | `current change`; service-local encoder, operations 경로 negotiation, package extra, Console 컨트롤, focused PDF, 경로, composition 및 Console 테스트입니다. | 인증된 inventory, render, 사용 불가, 오류 격리 및 읽기 전용 runtime 증적을 보존해야 합니다. |
 | 2026-08-14 | implemented | Materialize되지 않은 generic operations row를 요구하는 대신 built-in Incident RCA dossier를 authoritative Operator audit reader에 연결했습니다. | `current change`; `incident_rca_projection.py`, composition binding, focused reader 테스트 3개 및 Operator family/composition 테스트 65개입니다. | 인증된 roster-to-RCA-to-report/PDF receipt를 보존해야 합니다. |

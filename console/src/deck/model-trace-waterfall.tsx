@@ -1,4 +1,5 @@
 import { t } from "../i18n";
+import { consoleDateTimeLocale } from "../time-format";
 import type { ModelTrace, ModelTraceCall, ModelTraceMessage } from "./backend";
 import { formatJsonValue, JsonCodeBlock } from "./json-code-block";
 
@@ -260,7 +261,7 @@ function TraceHash({ label, value }: { readonly label: string; readonly value: s
 }
 
 function formatClock(value: string): string {
-  return new Date(value).toLocaleTimeString([], {
+  return new Date(value).toLocaleTimeString(consoleDateTimeLocale(), {
     hour: "2-digit",
     minute: "2-digit",
     second: "2-digit",

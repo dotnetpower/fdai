@@ -80,11 +80,78 @@ export interface FindingsResponse {
   readonly findings: readonly FindingDto[];
 }
 
+export interface RuleActivationDeltaDto {
+  readonly rule_id: string;
+  readonly enabled: boolean;
+}
+
+export interface PendingRuleActivationRequest {
+  readonly request_id: string;
+  readonly proposal_digest: string;
+  readonly expected_generation_digest: string;
+  readonly requested_by: string;
+  readonly requested_at: string;
+  readonly reason: string;
+  readonly changes: readonly RuleActivationDeltaDto[];
+}
+
+export interface RuleActivationStatusDto {
+  readonly revision: number;
+  readonly generation_id: string;
+  readonly generation_digest: string;
+  readonly profile_id: string;
+  readonly profile_version: string;
+  readonly active_rule_count: number;
+  readonly active_rule_ids: readonly string[];
+  readonly source: string;
+  readonly source_ref: string;
+  readonly requested_by: string;
+  readonly approver_ids: readonly string[];
+  readonly activated_at: string;
+  readonly pending_requests: readonly PendingRuleActivationRequest[];
+  readonly pending_truncated: boolean;
+  readonly execution_authority: false;
+}
+
+export interface RuleActivationHistoryItem {
+  readonly request_id: string;
+  readonly status: "applied" | "already_applied" | "conflict" | "rejected" | "failed";
+  readonly enabled: boolean;
+  readonly source: string;
+  readonly source_ref: string;
+  readonly requested_by: string;
+  readonly approver_ids: readonly string[];
+  readonly reason: string;
+  readonly previous_generation_digest: string | null;
+  readonly resulting_generation_digest: string | null;
+  readonly completed_at: string;
+  readonly readback_verified: boolean;
+  readonly failure_reason: string | null;
+}
+
+export interface RuleActivationHistoryDto {
+  readonly rule_id: string;
+  readonly history: readonly RuleActivationHistoryItem[];
+  readonly truncated: boolean;
+}
+
 export type DetailState = RuleDetailState<RuleDetailDto>;
 
 export type FindingsState =
   | { readonly status: "loading" }
   | { readonly status: "ready"; readonly data: FindingsResponse }
+  | { readonly status: "error"; readonly message: string };
+
+export type ActivationState =
+  | { readonly status: "loading" }
+  | { readonly status: "ready"; readonly data: RuleActivationStatusDto }
+  | { readonly status: "unavailable"; readonly message: string }
+  | { readonly status: "error"; readonly message: string };
+
+export type ActivationHistoryState =
+  | { readonly status: "loading" }
+  | { readonly status: "ready"; readonly data: RuleActivationHistoryDto }
+  | { readonly status: "unavailable"; readonly message: string }
   | { readonly status: "error"; readonly message: string };
 
 export const SEVERITY_PILL: Readonly<Record<string, PillKind>> = {

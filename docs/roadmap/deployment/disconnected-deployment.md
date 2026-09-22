@@ -311,6 +311,13 @@ directory or a git remote, so an internal mirror of the upstream sources is a su
 Public source URLs are not required at run time
 ([rule-catalog-collection.md](../rules-and-detection/rule-catalog-collection.md)).
 
+An offline kit can also bind one Rule activation profile with
+`--rule-activation-profile`, `--rule-activation-profile-id`, and
+`--rule-activation-profile-created-at`. The signed manifest covers the exact profile bytes, id, and
+source time. `offline prepare` returns the profile digest and the Core environment bindings needed
+to reconcile that reviewed membership into the deployment-local PostgreSQL generation. It does not
+apply the profile or grant enforcement authority during preparation.
+
 ### 6. Expect degraded evidence, not fabricated evidence
 
 Restricted egress changes what the control plane can observe, and every fallback is ordered and

@@ -66,6 +66,9 @@ def sign_offline_kit(
     provider_mirror_prefix: str,
     opa_binary: str,
     sbom_path: str,
+    rule_activation_profile: str | None = None,
+    rule_activation_profile_id: str | None = None,
+    rule_activation_profile_created_at: str | None = None,
 ) -> str:
     """Write the manifest and detached signature, then re-verify the kit."""
     private_key = _private_key(private_key_pem)
@@ -81,6 +84,9 @@ def sign_offline_kit(
         provider_mirror_prefix=provider_mirror_prefix,
         opa_binary=opa_binary,
         sbom_path=sbom_path,
+        rule_activation_profile=rule_activation_profile,
+        rule_activation_profile_id=rule_activation_profile_id,
+        rule_activation_profile_created_at=rule_activation_profile_created_at,
     )
     signature = private_key.sign(manifest_bytes)
     manifest_path = root / MANIFEST_NAME
@@ -133,6 +139,9 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--provider-mirror-prefix", required=True)
     parser.add_argument("--opa-binary", required=True)
     parser.add_argument("--sbom-path", required=True)
+    parser.add_argument("--rule-activation-profile")
+    parser.add_argument("--rule-activation-profile-id")
+    parser.add_argument("--rule-activation-profile-created-at")
     args = parser.parse_args(argv)
     try:
         report = sign_offline_kit(
@@ -149,6 +158,9 @@ def main(argv: list[str] | None = None) -> int:
             provider_mirror_prefix=args.provider_mirror_prefix,
             opa_binary=args.opa_binary,
             sbom_path=args.sbom_path,
+            rule_activation_profile=args.rule_activation_profile,
+            rule_activation_profile_id=args.rule_activation_profile_id,
+            rule_activation_profile_created_at=args.rule_activation_profile_created_at,
         )
     except (OSError, ValueError, OfflineKitBuildError) as exc:
         print(f"offline kit build failed: {exc}", file=sys.stderr)

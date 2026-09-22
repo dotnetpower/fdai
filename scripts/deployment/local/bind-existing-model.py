@@ -25,8 +25,25 @@ def bind_existing_model(
     *,
     family: str,
     now: datetime,
+    capability: str = "t2.reasoner.primary",
 ) -> dict[str, Any]:
-    """Preserve T1 and review policy while binding only the requested T2 producer."""
+    """Bind a T2 producer or seal the selected legacy embedding deployment from readback."""
+    if capability not in {"t2.reasoner.primary", "t1.embedding"}:
+        raise ValueError("existing model binding capability is unsupported")
+    if capability == "t1.embedding":
+        selected = next(
+            (item for item in original["capabilities"] if item["name"] == capability), None
+        )
+        if (
+            selected is None
+            or selected["status"] not in {"resolved", "capacity-reduced"}
+            or selected["publisher"] != "OpenAI"
+            or selected["family"] != family
+            or any(
+                item["capability"] == capability for item in original.get("endpoint_bindings", [])
+            )
+        ):
+            raise ValueError("embedding binding requires the unchanged unbound legacy selection")
     observed_at = datetime.fromisoformat(evidence["observed_at"])
     if observed_at.tzinfo is None or not timedelta(0) <= now - observed_at <= timedelta(minutes=5):
         raise ValueError("model deployment evidence MUST be current and timezone-aware")
@@ -40,6 +57,7 @@ def bind_existing_model(
         if item["properties"].get("model", {}).get("name") == family
         and item["properties"].get("model", {}).get("format") == "OpenAI"
         and item["properties"].get("provisioningState") == "Succeeded"
+        and (capability != "t1.embedding" or item["name"] == capability)
     ]
     if len(matches) != 1:
         raise ValueError("model binding requires exactly one successful observed deployment")
@@ -56,28 +74,31 @@ def bind_existing_model(
         raise ValueError("observed deployment capacity MUST be positive")
     version = deployment["properties"]["model"]["version"]
     result = copy.deepcopy(original)
-    if any(
+    if capability == "t2.reasoner.primary" and any(
         item["name"] == "t2.reasoner.secondary"
         and item["status"] in {"resolved", "capacity-reduced"}
         and item.get("publisher") == "OpenAI"
         for item in result["capabilities"]
     ):
         raise ValueError("T2 primary binding MUST preserve the distinct-publisher reviewer")
-    primary = next(item for item in result["capabilities"] if item["name"] == "t2.reasoner.primary")
-    primary.update(
-        status="resolved",
-        publisher="OpenAI",
-        family=family,
-        version=version,
-        sku=deployment["sku"]["name"],
-        capacity_tpm=capacity * 1000,
-        selection_mode="pinned",
-        reasons=["existing_deployment_observed"],
-    )
-    primary["capacity"] = {"unit": "tpm", "value": capacity * 1000}
+    producer = next(item for item in result["capabilities"] if item["name"] == capability)
+    if capability == "t1.embedding":
+        producer["version"] = version
+    else:
+        producer.update(
+            status="resolved",
+            publisher="OpenAI",
+            family=family,
+            version=version,
+            sku=deployment["sku"]["name"],
+            capacity_tpm=capacity * 1000,
+            selection_mode="pinned",
+            reasons=["existing_deployment_observed"],
+        )
+        producer["capacity"] = {"unit": "tpm", "value": capacity * 1000}
     binding = {
-        "binding_id": "local-existing:t2.reasoner.primary",
-        "capability": "t2.reasoner.primary",
+        "binding_id": f"local-existing:{capability}",
+        "capability": capability,
         "provider_kind": "azure-openai",
         "route_kind": "direct",
         "api_style": "azure-openai",
@@ -89,7 +110,7 @@ def bind_existing_model(
         "capacity": {"unit": "tpm", "value": capacity * 1000},
         "features": {
             "streaming": False,
-            "embeddings": False,
+            "embeddings": capability == "t1.embedding",
             "structured_output": False,
             "tool_calling": False,
         },
@@ -101,11 +122,10 @@ def bind_existing_model(
     }
     ModelEndpointBinding.from_dict(binding)
     result["endpoint_bindings"] = [
-        item
-        for item in result.get("endpoint_bindings", [])
-        if item["capability"] != "t2.reasoner.primary"
+        item for item in result.get("endpoint_bindings", []) if item["capability"] != capability
     ] + [binding]
-    result.pop("reasoner_primary_candidates", None)
+    if capability == "t2.reasoner.primary":
+        result.pop("reasoner_primary_candidates", None)
     ResolvedModels.from_json(json.dumps(result))
     return result
 
@@ -199,9 +219,17 @@ def main() -> int:
     parser.add_argument("--artifact", type=Path, required=True)
     parser.add_argument("--evidence", type=Path, required=True)
     parser.add_argument("--family", required=True)
+    parser.add_argument(
+        "--capability",
+        choices=("t2.reasoner.primary", "t1.embedding"),
+        default="t2.reasoner.primary",
+        help="Seal only the selected capability; embedding mode preserves model selection",
+    )
     parser.add_argument("--restore-account", help="Explicitly restore an observed direct account")
     parser.add_argument("--backup-dir", type=Path, default=Path(".fdai/model-binding-backups"))
     args = parser.parse_args()
+    if args.restore_account and args.capability != "t2.reasoner.primary":
+        raise ValueError("embedding binding cannot be combined with account restoration")
     if (
         args.artifact.is_symlink()
         or subprocess.run(
@@ -213,7 +241,11 @@ def main() -> int:
         raise ValueError("existing model binding requires an ignored, non-symlink artifact")
     original = args.artifact.read_bytes()
     binder = restore_existing_account if args.restore_account else bind_existing_model
-    options = {"account_name": args.restore_account} if args.restore_account else {}
+    options = (
+        {"account_name": args.restore_account}
+        if args.restore_account
+        else {"capability": args.capability}
+    )
     result = binder(
         json.loads(original),
         json.loads(args.evidence.read_text()),

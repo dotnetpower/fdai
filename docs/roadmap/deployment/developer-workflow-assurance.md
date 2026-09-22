@@ -30,6 +30,7 @@ commands:
 The command reads existing Git-common-dir state and process metadata. It does not add a second
 audit log, infer session ownership after a commit, or convert an unavailable diagnostic into a
 successful result.
+Core bootstrap retains the existing `runtime_settings_service_from_env` test seam while production startup reuses its runtime-owned `StateStore` for one settings snapshot. This compatibility path changes no diagnostic socket, execution venue, provider identity, or deployment authority.
 
 Long-running workspace supervisors receive every required endpoint and private-file path from their
 committed VS Code task. The Conversation Assurance supervisor task passes the standard loopback
@@ -42,6 +43,8 @@ lock to release, runs managed preparation, and then starts the standard Browser 
 Stopping first lets database and broker generation maintenance reject active consumers and
 connections without preparing against stale processes. The task has its own terminal and readiness
 matcher; stale output from a completed start task is not evidence of a new process or readiness.
+Managed preparation uses local PostgreSQL and Redpanda plus an explicit Azure CLI read scope. It
+never initializes or reads Terraform state, and gateway discovery grants no local executor identity.
 Managed local preparation also keeps inactive consumer-group offsets within the same 24-hour
 horizon as ordinary topic data and checks expiry every minute; active groups are unaffected.
 
@@ -141,12 +144,19 @@ unready but retries target resolution within five seconds instead of waiting its
 The profiled Core runtime also owns one bounded asynchronous pool for its shared StateStore and
 closes that pool after dependent workers and transports stop. Development diagnostics can measure
 the resulting process and connection counts but never turn those measurements into authority.
+The startup settings snapshot reuses that runtime-owned pool instead of creating a temporary pool
+whose workers outlive their event loop. Pantheon subscriber shutdown uses a second bounded
+finalization phase when broker cleanup reaches the first drain deadline; completed tasks are
+gathered before their references are removed.
 The local analyzer closes its tick-scoped decision-evidence and run-receipt StateStore pools before
 the next loop interval. A clean tick cannot leave asynchronous pool workers for garbage collection,
 and a persistence failure still closes its store before readiness remains unavailable.
 The managed launcher explicitly forwards the service-owned StateStore DSN to that analyzer process,
 so the decision-evidence admission provider is bound before target selection. The binding is
 read-only and cannot promote an ActionType, raise autonomy, or grant execution authority.
+When database recreation requires a destructive local broker generation reset, preparation holds
+the stack lock and every managed service lock through group and topic deletion. A disconnected but
+still-running consumer therefore cannot appear idle and reconnect to a deleted topic.
 
 ## Validation stages and reuse
 
@@ -157,6 +167,10 @@ requested local whole-suite run supplies `--allow-full-suite`. The focused
 checks are explicit; route plans never add an unscoped repository runner to every path.
 Workflow guidance keeps the Constitution and traceability context; deeper runtime authority
 documents load for changes to those runtime contracts rather than every CI tooling edit.
+The pre-commit derived-source gate always enters a lightweight staged-input selector. It runs the
+complete check only when a pinned document, a System Knowledge source, the catalog, its checker, or
+the hook configuration changes. The selector derives the source set from the staged catalog, so a
+new registered source does not require a manually synchronized hook path filter.
 Core quantity/accounting checks use the root development extra's locked Kubernetes utility without contacting a cluster. Its untyped import exception is limited to `kubernetes.utils.quantity`; the adapter validates returned Decimal values. Dependency changes retain focused ownership and Core-wheel checks and do not enable the diagnostic channel or live collection.
 When root CI collects service sources, its `dev` extra mirrors every third-party package imported by
 those sources. Service manifests remain authoritative for runtime images and package ownership.

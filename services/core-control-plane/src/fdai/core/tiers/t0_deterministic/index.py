@@ -132,6 +132,11 @@ class RuleIndex:
         except KeyError as exc:
             raise LookupError(f"unknown rule id: {rule_id!r}") from exc
 
+    def with_rules(self, rules: Iterable[Rule]) -> RuleIndex:
+        """Build a replacement index while preserving SignalType semantics."""
+
+        return RuleIndex.build(rules, signal_types=self._signal_types)
+
     def ids(self) -> frozenset[str]:
         return frozenset(self._by_id.keys())
 

@@ -109,8 +109,10 @@ class InventoryTopologyHistoryPublisher:
     async def publish(
         self,
         observation: PromotedInventoryObservation,
+        *,
+        retain_topology: bool = True,
     ) -> TopologyRevisionBatch | None:
-        """Append one complete baseline, or abstain from a truncated observation."""
+        """Append state history and optionally retain a complete topology baseline."""
 
         if not observation.complete:
             return None
@@ -147,6 +149,8 @@ class InventoryTopologyHistoryPublisher:
                 observation=observation,
                 previous_objects=previous_objects,
             )
+        if not retain_topology:
+            return None
         if not projection.complete or not projection.relationship_complete:
             return None
 

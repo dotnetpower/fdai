@@ -87,6 +87,25 @@ def _engine(rules: list[Rule], evaluator: Any = None) -> T0Engine:
     return T0Engine(index=RuleIndex.build(rules), evaluator=evaluator)
 
 
+def test_with_rules_preserves_evaluator_and_replaces_candidates() -> None:
+    original = _engine(
+        [_rule(rule_id="a.x", resource_type="compute.vm")],
+        evaluator=_AlwaysDeny(),
+    )
+    replacement = _rule(rule_id="b.x", resource_type="object-storage")
+
+    rebound = original.with_rules((replacement,))
+    verdict = rebound.evaluate(
+        event_id="evt-1",
+        signal_id="sig-1",
+        resource_id="rid-1",
+        resource_type="object-storage",
+        resource_props={},
+    )
+
+    assert tuple(finding.rule_id for finding in verdict.findings) == ("b.x",)
+
+
 def test_abstain_when_no_rule_matches_resource_type() -> None:
     engine = _engine([_rule(rule_id="a.x", resource_type="compute.vm")])
     verdict = engine.evaluate(

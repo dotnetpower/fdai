@@ -2,11 +2,13 @@
 
 from __future__ import annotations
 
-import asyncio
 import logging
 from collections.abc import Mapping
-from dataclasses import dataclass, replace
+from dataclasses import replace
+from datetime import UTC, datetime
 from typing import Any
+
+from fdai_service_contracts.rule_activation import RuleActivationSource
 
 from fdai.composition import (
     Container,
@@ -14,23 +16,19 @@ from fdai.composition import (
     bind_decision_evidence_admission,
 )
 from fdai.composition.readiness import (
-    OperationalReadinessEventHandler,
     build_operational_readiness_event_handler,
 )
 from fdai.composition.readiness_catalog import load_runtime_best_practice_bindings
 from fdai.core.chaos.symptom_index import build_from_promoted
-from fdai.core.control_loop import ControlLoop
 from fdai.core.licensing import LicenseEntitlementAuthority
 from fdai.delivery.azure.diagnostic_event_ingest import DiagnosticEventIngestBridge
 from fdai.delivery.azure.monitor_events import DiagnosticNormalizerOptions
-from fdai.delivery.notifications import NotificationDeliveryReceiptApplier
 from fdai.delivery.notifications.local_binding import resolve_local_notification_endpoints
 from fdai.delivery.repo_assets import repo_asset_root
 from fdai.delivery.runtime_settings import RuntimeSettingsService
 from fdai.delivery.startup_probe import OpaCompileStartupProbe
 from fdai.runtime import bootstrap_incidents
 from fdai.runtime.blast_probe import bind_live_blast_probe_failure_streak
-from fdai.runtime.bootstrap_bindings import EffectReconciliationRequestRuntimeBinding
 from fdai.runtime.bootstrap_bindings import (
     build_effect_reconciliation_request_binding as _build_effect_reconciliation_request_binding,
 )
@@ -43,8 +41,11 @@ from fdai.runtime.bootstrap_bindings import (
 from fdai.runtime.bootstrap_bindings import (
     build_vertical_execution_identities as _build_vertical_execution_identities,
 )
+from fdai.runtime.bootstrap_core_model import CoreRuntime
+from fdai.runtime.bootstrap_hil import (
+    build_hil_workflow_registry as _build_hil_workflow_registry,
+)
 from fdai.runtime.bootstrap_lifecycle import (
-    DiscoveryActivationRuntime,
     build_discovery_activation_runtime,
 )
 from fdai.runtime.bootstrap_lifecycle import (
@@ -57,16 +58,14 @@ from fdai.runtime.bootstrap_lifecycle import (
 from fdai.runtime.bootstrap_lifecycle import (
     semantic_router_config_from_env as _semantic_router_config_from_env,
 )
-from fdai.runtime.bootstrap_messaging import MessagingRuntime, build_messaging_runtime
+from fdai.runtime.bootstrap_messaging import build_messaging_runtime
 from fdai.runtime.bootstrap_pantheon import (
     PantheonInitialization,
-    PantheonInitializationResult,
     initialize_pantheon,
 )
 from fdai.runtime.bootstrap_plan import BootstrapPlan
 from fdai.runtime.bootstrap_resources import RuntimeResources
-from fdai.runtime.bootstrap_semantics import SemanticRuntime, build_semantic_runtime
-from fdai.runtime.bootstrap_tasks import RuntimeTaskConfiguration
+from fdai.runtime.bootstrap_semantics import build_semantic_runtime
 from fdai.runtime.catalog_ontology import project_catalog_ontology, sync_ontology_catalog
 from fdai.runtime.configuration import (
     _attach_runtime_github_change_feed,
@@ -90,7 +89,6 @@ from fdai.runtime.dynamic_evidence import bind_dynamic_evidence_from_env
 from fdai.runtime.github_auth import github_credentials_configured
 from fdai.runtime.governed_rca import bind_governed_rca_from_environment
 from fdai.runtime.handover_knowledge_lifecycle import HandoverKnowledgeLifecycleWorker
-from fdai.runtime.human_assignment_reconciliation import AssignmentReconciliationWorker
 from fdai.runtime.observation_evidence import bind_executed_action_observation_from_env
 from fdai.runtime.operating_intent_revalidation import (
     OperatingIntentSourceRevalidationWorker,
@@ -103,106 +101,33 @@ from fdai.runtime.providers import (
     _build_resource_lock,
 )
 from fdai.runtime.rca_bindings import bind_t1_rca_from_environment
-from fdai.runtime.readiness import StartupReadinessRuntime, build_startup_readiness_runtime
+from fdai.runtime.readiness import build_startup_readiness_runtime
+from fdai.runtime.rule_activation import (
+    BOOTSTRAP_APPROVER_ENV,
+    BOOTSTRAP_REQUESTER_ENV,
+    PACKAGE_DIGEST_ENV,
+    SOURCE_ENV,
+    SOURCE_RECORDED_AT_ENV,
+    SOURCE_REF_ENV,
+    RuleActivationRuntimeReconciler,
+    build_rule_activation_generation,
+    reconcile_rule_activation,
+)
+from fdai.runtime.rule_activation_transport import build_rule_activation_consumer
 from fdai.runtime.stewardship_governance import (
     StewardshipGovernanceWorker,
     build_stewardship_governance_worker,
 )
 from fdai.runtime.stewardship_identity_health import (
-    StewardshipIdentityHealthWorker,
     build_stewardship_identity_health_worker,
 )
 from fdai.runtime.stewardship_merge_effects import StewardshipMergeEffectsWorker
-from fdai.runtime.task_workers import TaskWorkerRuntimeBinding, bind_task_workers
+from fdai.runtime.task_workers import bind_task_workers
 from fdai.runtime.venue import ExecutionVenue, resolve_execution_venue
 from fdai.shared.contracts.models import ResponseOutcome
-from fdai.shared.providers.hil_registry import HilWorkflowDecisionRegistry
 from fdai.shared.providers.state_store import StateStore
 
 _LOGGER = logging.getLogger("fdai.startup")
-
-
-@dataclass(frozen=True, slots=True)
-class CoreRuntime:
-    """Fully assembled active runtime consumed by health and task supervision."""
-
-    container: Container
-    messaging: MessagingRuntime
-    control_loop: ControlLoop
-    readiness: StartupReadinessRuntime
-    runtime_settings: RuntimeSettingsService
-    discovery_activation: DiscoveryActivationRuntime | None
-    semantic: SemanticRuntime
-    pantheon: PantheonInitializationResult
-    assignment_reconciliation_worker: AssignmentReconciliationWorker | None
-    effect_reconciliation_worker: Any
-    effect_reconciliation_request_binding: EffectReconciliationRequestRuntimeBinding | None
-    operational_readiness_handler: OperationalReadinessEventHandler | None
-    continuous_operating_model_worker: Any
-    operating_intent_revalidation_worker: OperatingIntentSourceRevalidationWorker | None
-    incident_creation_binding: bootstrap_incidents.IncidentCreationConsumerBinding
-    incident_intervention_binding: bootstrap_incidents.IncidentInterventionConsumerBinding
-    incident_notification_replay_worker: bootstrap_incidents.IncidentNotificationReplayWorker
-    notification_receipt_applier: NotificationDeliveryReceiptApplier
-    environment: Mapping[str, str]
-    diagnostic_event_ingest_bridge: DiagnosticEventIngestBridge | None = None
-    hil_workflow_registry: HilWorkflowDecisionRegistry | None = None
-    stewardship_governance_worker: StewardshipGovernanceWorker | None = None
-    stewardship_identity_health_worker: StewardshipIdentityHealthWorker | None = None
-    stewardship_merge_effects_worker: StewardshipMergeEffectsWorker | None = None
-    handover_knowledge_lifecycle_worker: HandoverKnowledgeLifecycleWorker | None = None
-    assignment_intake_consumer: Any = None
-    assignment_outcome_consumer: Any = None
-    human_access_reconciliation: Any = None
-    task_workers: TaskWorkerRuntimeBinding | None = None
-
-    def task_configuration(self, stop: asyncio.Event) -> RuntimeTaskConfiguration:
-        """Project assembled bindings into the task-supervision contract."""
-
-        return RuntimeTaskConfiguration(
-            container=self.container,
-            bus=self.messaging.bus,
-            operational_bus=self.messaging.operational_bus,
-            control_loop=self.control_loop,
-            readiness=self.readiness,
-            stop=stop,
-            runtime_settings=self.runtime_settings,
-            discovery_activation=self.discovery_activation,
-            semantic_turn_binding=self.semantic.semantic_turn_binding,
-            ontology_index_runtime=self.semantic.ontology_index_runtime,
-            t1_mini_probe=self.semantic.t1_mini_probe,
-            alert_noise_handler=self.pantheon.alert_noise_handler,
-            divergence_ledger=self.pantheon.divergence_ledger,
-            pantheon_runtime=self.pantheon.runtime,
-            pantheon_heartbeat=self.pantheon.heartbeat,
-            agent_introspection_server=self.pantheon.agent_introspection_server,
-            runtime_state_publisher=self.pantheon.runtime_state_publisher,
-            t2_recovery_maintenance=self.pantheon.t2_recovery_maintenance,
-            assignment_reconciliation_worker=self.assignment_reconciliation_worker,
-            effect_reconciliation_worker=self.effect_reconciliation_worker,
-            effect_reconciliation_request_binding=(self.effect_reconciliation_request_binding),
-            continuous_operating_model_worker=self.continuous_operating_model_worker,
-            operating_intent_revalidation_worker=(self.operating_intent_revalidation_worker),
-            rule_generation_binding=self.semantic.rule_generation_binding,
-            rule_generation_reconciliation=self.semantic.rule_generation_reconciliation,
-            case_history_retention_publisher=(self.pantheon.case_history_retention_publisher),
-            environment=self.environment,
-            read_investigation_binding=self.semantic.read_investigation_binding,
-            operational_readiness_handler=self.operational_readiness_handler,
-            incident_creation_binding=self.incident_creation_binding,
-            incident_intervention_binding=self.incident_intervention_binding,
-            incident_notification_replay_worker=self.incident_notification_replay_worker,
-            notification_receipt_applier=self.notification_receipt_applier,
-            diagnostic_event_ingest_bridge=self.diagnostic_event_ingest_bridge,
-            hil_workflow_registry=self.hil_workflow_registry,
-            stewardship_governance_worker=self.stewardship_governance_worker,
-            stewardship_identity_health_worker=self.stewardship_identity_health_worker,
-            stewardship_merge_effects_worker=self.stewardship_merge_effects_worker,
-            handover_knowledge_lifecycle_worker=self.handover_knowledge_lifecycle_worker,
-            assignment_intake_consumer=self.assignment_intake_consumer,
-            assignment_outcome_consumer=self.assignment_outcome_consumer,
-            human_access_reconciliation=self.human_access_reconciliation,
-        )
 
 
 async def build_core_runtime(
@@ -543,6 +468,78 @@ async def build_core_runtime(
         mutation_dependency_readiness=mutation_readiness,
         workflow_event_bus=messaging.bus,
     )
+    from fdai.core.rule_activation import StateStoreRuleActivationLedger
+
+    profile_id = environment.get("FDAI_PROFILE_ID", "").strip() or "default"
+    desired_activation_rules = control_loop.rules
+    activation_package_digest = environment.get(PACKAGE_DIGEST_ENV, "").strip()
+    activation_source_value = environment.get(SOURCE_ENV, "").strip()
+    activation_source = (
+        RuleActivationSource(activation_source_value)
+        if activation_source_value
+        else RuleActivationSource.OFFLINE_PACKAGE
+        if activation_package_digest
+        else RuleActivationSource.INSTALLATION
+    )
+    if activation_source is RuleActivationSource.DIRECT:
+        raise RuntimeError("Rule activation startup source MUST NOT be direct")
+    activation_source_ref = environment.get(SOURCE_REF_ENV, "").strip()
+    activation_source_recorded_at = environment.get(SOURCE_RECORDED_AT_ENV, "").strip()
+    if activation_source in {
+        RuleActivationSource.PULL_REQUEST,
+        RuleActivationSource.OFFLINE_PACKAGE,
+    } and (
+        not activation_package_digest
+        or not activation_source_ref
+        or not activation_source_recorded_at
+    ):
+        raise RuntimeError("Reviewed Rule activation source requires ref, digest, and time")
+    source_time = datetime.now(UTC)
+    if activation_source_recorded_at:
+        try:
+            source_time = datetime.fromisoformat(activation_source_recorded_at)
+        except ValueError as exc:
+            raise RuntimeError("Rule activation source time is invalid") from exc
+        if source_time.tzinfo is None or source_time.utcoffset() is None:
+            raise RuntimeError("Rule activation source time MUST be timezone-aware")
+    activation_ledger = StateStoreRuleActivationLedger(store=state_store)
+    activation_preview = build_rule_activation_generation(
+        control_loop.available_rules,
+        profile_id=profile_id,
+        profile_version="1.0.0",
+        created_at=datetime.now(UTC),
+    )
+    activated_rules, activation_generation = await reconcile_rule_activation(
+        ledger=activation_ledger,
+        available_rules=control_loop.available_rules,
+        profile_id=profile_id,
+        profile_version="1.0.0",
+        source_ref=activation_source_ref or f"runtime-artifact:{profile_id}",
+        source_digest=(activation_package_digest or activation_preview.catalog_digest),
+        requested_by=(
+            environment.get(BOOTSTRAP_REQUESTER_ENV, "").strip() or "fdai.release-profile"
+        ),
+        approved_by=(environment.get(BOOTSTRAP_APPROVER_ENV, "").strip() or "fdai.deployment-plan"),
+        source=activation_source,
+        desired_rules=desired_activation_rules,
+        clock=lambda: source_time,
+    )
+    await control_loop.replace_rule_generation(
+        rules=activated_rules,
+        generation_digest=activation_generation.generation_digest,
+    )
+    rule_activation_consumer = build_rule_activation_consumer(
+        store=state_store,
+        ledger=activation_ledger,
+        runtime=control_loop,
+        available_rules=control_loop.available_rules,
+        environment=environment,
+    )
+    rule_activation_reconciliation = (
+        RuleActivationRuntimeReconciler(rule_activation_consumer.coordinator)
+        if rule_activation_consumer is not None
+        else None
+    )
     if resources.isolated_executor_client is not None:
         await resources.isolated_executor_client.start()
     if control_loop.ontology_instance_store is not None:
@@ -775,23 +772,12 @@ async def build_core_runtime(
             if assignment_transport is not None
             else None
         ),
+        rule_activation_consumer=rule_activation_consumer,
+        rule_activation_reconciliation=rule_activation_reconciliation,
         assignment_outcome_consumer=assignment_outcome_consumer,
         human_access_reconciliation=human_access_reconciliation,
         task_workers=resources.task_workers,
     )
-
-
-def _build_hil_workflow_registry(state_store: StateStore) -> HilWorkflowDecisionRegistry:
-    """Bind the authoritative quorum owner used by the HIL decision consumer.
-
-    Composition owns the delivery import so ``fdai.core`` and the consumer's
-    own module keep depending only on the shared provider contract.
-    """
-    from fdai.delivery.persistence.state_store_hil_registry import (
-        StateStoreHilApprovalRegistry,
-    )
-
-    return StateStoreHilApprovalRegistry(store=state_store)
 
 
 __all__ = [

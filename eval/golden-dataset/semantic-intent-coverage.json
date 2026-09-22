@@ -304,7 +304,7 @@
     "unverified_operational_success_claim_rate",
     "worst_slice_regression_count"
   ],
-  "inventory_digest": "sha256:ce0a75ba81423f3872798007282e4bfb113806c2563f55d7eb18115a1d65b248",
+  "inventory_digest": "sha256:89522fc0f26a76c3f2182fdb6a8e48fcfbe98464e6c4c87ca813dfe0cc5f42df",
   "metric_contract": {
     "ambiguity": [
       {
@@ -944,7 +944,7 @@
     "console/src/deck/presentation-modules/types.ts": "sha256:b58265852af941105f1b65fc24394f7b7b204c78f8ea95aa952edc23fb8212a2",
     "eval/golden-dataset/azure-incident-intent-golden.yaml": "sha256:38d78bbc193d0c4b3609b8ad345845cd711434ef447b09f843e50a017ef0ca73",
     "eval/golden-dataset/expectations.json": "sha256:5617de665fab4aec0bd038a8a1809d9a662f6cb51c8a0221036997807eb6c97c",
-    "eval/golden-dataset/question-bank/question-bank.json": "sha256:754ae39ecbfeb7e98128a73133226ee399d97ba764593160de065d8226081503",
+    "eval/golden-dataset/question-bank/question-bank.json": "sha256:03b1240b9e7233abfd61e24a10fa1492ff5f34a0c8005dabac2ba10fb8d17209",
     "eval/golden-dataset/question-bank/question-bank.source.yaml": "sha256:de3d78de7327eec563742fe7402f3827438152ed27f5c519a2ac3ae66fced495",
     "packages/service-contracts/src/fdai_service_contracts/adaptive_answer.py": "sha256:24b3680abade67a122f7c64c87a7121538a09c4e47ec46bdcc3a8c73c1e9039e",
     "scripts/automation/conversation_quality_metrics.py": "sha256:18b2a8c0fd2eafd708889a1610f776da65e6e514f3ef07b4beaa331200868614",

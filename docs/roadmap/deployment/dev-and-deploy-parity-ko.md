@@ -1,8 +1,8 @@
 ---
 title: Runtime Parity - Authoritative Local Development 및 Test Fixture
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: b8f120d3130c2a8cc728f778daf750d26e167bdd
-translation_revised: 2026-09-21
+translation_source_sha: 6fcee376740888437f95893816743fea60dd562a
+translation_revised: 2026-09-22
 ---
 # 런타임 동등성 - 권위 있는 로컬 개발 및 테스트 고정본
 **목표**: 자동화 테스트는 결정론적이고 비밀 없는 상태를 유지하며, 대화형 로컬 Console은 권위 있는 Azure 상태를 표시합니다. Azure 배포는 **배포자 권한과 리전 카탈로그로 프로비저닝할 리소스를 선택**합니다. 별도 `docs site: serve (4321)` 작업은 루프백에서 공개 문서만 미리 보여 줍니다. 백엔드나 채널 경계를 시작하지 않으며 런타임 권한을 부여하지 않습니다. 세 명제가 동시에 참입니다:
@@ -17,7 +17,7 @@ AKS fleet 인벤토리는 두 프로필에서 같은 정확한 managed cluster A
 Cost Governance 공개 전달도 같은 동등성 규칙을 따릅니다. 두 프로필은 비용 데이터를 반환하기 전에 내용이 없는 승인 증적을 하나 영속화하고 감사 영속화가 실패하면 응답을 차단하며, 변경할 수 없는 증적에 같은 400일 보존, 30일 삭제 유예, 법적 보존 및 tombstone 계약을 적용합니다. 비용 분석도 하나의 예약 실행 계약을 사용합니다. 로컬 실행은 원본을 명시적으로 활성화한 뒤 운영자의 기존 Azure CLI 읽기 신원만 사용하고 배포는 전용 읽기 전용 관리 ID를 사용합니다. 두 프로필은 동일한 범위가 제한된 실행 증적과 분석 스냅샷을 영속합니다. 현재 partial tick 또는 현재 snapshot을 보존한 refresh 실패는 degraded 프로세스 준비 상태를 충족하지만 누락된 facet과 실패는 명시적으로 유지합니다. snapshot이 없거나 오래되면 준비되지 않은 상태로 남고 Sample 데이터를 선택하지 않습니다. 예약 작업은 `DecisionCase`, 승인 또는 실행 요청을 만들지 않습니다. 로컬 고정본은 실제 W7 근거가 되지 않습니다.
 ## 전수조사 - 로컬 동작 vs Azure 필요
 테스트 맥락 명령은 로컬과 배포 프로필에서 같은 영속 발신함 facade와 준비 상태 의존성을 사용합니다. import를 모아도 테스트 고정본을 활성화하거나 실행 권한을 부여하지 않습니다.
-로컬 준비는 의존성이나 공급자 작업 전에 OPA를 확인하며, VS Code 작업 터미널은 사용자 설치 도구를 찾도록 `~/.local/bin`을 포함합니다. 모델 파일을 선택하면 해당 파일의 정확한 `LLM_RESOLVED_MODELS_SHA256`을 Operator 환경에 전달하고, 시작 시 확인값이 없거나 파일이 변경되었으면 차단합니다. `FDAI_LOCAL_NO_AZURE_DEPLOYMENT=1`에서는 활성 구독에서 명시적인 `FDAI_LOCAL_RESOURCE_GROUP`을 확인한 뒤에만 Terraform 검색을 생략합니다. 프로세스 환경에서 값을 정의하지 않은 경우 준비 작업은 Git에서 무시되는 `console/.env.local`에서 서버가 소유하는 이 두 설정만 읽을 수 있습니다. 키가 중복되면 안전하게 차단하며 모드와 범위는 모두 환경 캐시 다이제스트에 포함됩니다. PostgreSQL과 Redpanda는 로컬로 유지하고, 없는 소스는 사용 불가로 남으며, 가짜 실행기나 실행 게이트웨이는 선택하지 않습니다. HTTP 생존 확인과 `pantheon_ready`만으로 소비자 준비 상태나 대화 추론 성공을 입증할 수는 없습니다.
+로컬 준비는 의존성이나 프로바이더 작업 전에 OPA를 확인하며, VS Code 작업 터미널은 사용자 설치 도구를 찾도록 `~/.local/bin`을 포함합니다. 모델 파일을 선택하면 해당 파일의 정확한 `LLM_RESOLVED_MODELS_SHA256`을 Operator 환경에 전달하고, 시작 시 확인값이 없거나 파일이 변경되었으면 차단합니다. 로컬 Console 준비 과정은 Terraform 상태를 초기화하거나 읽지 않습니다. 활성 Azure CLI 구독에서 명시적인 `FDAI_LOCAL_RESOURCE_GROUP`을 검증하고, 프로세스 환경에 값이 없으면 Git에서 무시되는 `console/.env.local`에서 서버 소유 설정 하나만 읽을 수 있습니다. 키가 중복되면 안전하게 차단하며 범위를 환경 캐시 다이제스트에 포함합니다. 한 번 성공적으로 실행한 뒤에는 이전 소유자 전용 생성 범위를 재사용할 수 있습니다. PostgreSQL과 Redpanda는 로컬로 유지합니다. 범위 안에서 Function App이 정확히 하나일 때만 개발 운영 게이트웨이를 연결하고, audience는 로컬 Operator Service와 공유하는 검증된 비공개 `VITE_MSAL_API_SCOPE`에서 추출합니다. 로컬 Console에는 실행기 신원을 제공하지 않으며, Azure 변경에는 영속 승격 근거, 필요한 사람 승인, 안전조건 및 독립 효과 검증이 계속 필요합니다. HTTP 생존 확인과 `pantheon_ready`만으로 소비자 준비 상태나 대화 추론 성공을 입증할 수는 없습니다.
 2026-07-21 기준. "자동화 테스트"는 테스트 실행기가 실행하는 pytest 또는 committed mock을 뜻합니다. "Full-stack 로컬"은 운영자에 브라우저 Entra를 사용하고 서버 측 Azure 어댑터에 현재 Azure CLI 맥락을 사용하는 VS 코드 compound launch입니다. 테스트 고정본은 이 launch 프로파일에서 활성화되지 않습니다. [배포된 AKS 자격 증명](runtime-deployment-profiles-ko.md#신원-및-secret)은 명시적 연합 인증을 사용하고 Container Apps는 기존 MI를 유지합니다. Thor의 격리된 실행기는 [런타임 배포 프로파일](runtime-deployment-profiles-ko.md#연결된-신원으로-kubernetes-인증)이 소유하는 기본 비활성 상태의 정확한 Kubernetes API 및 공개 CA 계약으로만 연결할 수 있습니다. 이 연결은 역할을 부여하거나 로컬 권한을 바꿀 수 없습니다. 로컬 실행 위치 정책과 이벤트/역할/승인 경계는 바뀌지 않으며 모의 토큰 테스트는 실제 연합 인증이나 권한의 근거가 아닙니다.
 ### 자동화 테스트에서 완전 동작 (Azure 불필요)
 | 서브시스템 | 로컬 백엔드 | 비고 |
@@ -36,6 +36,8 @@ Operator 브라우저 E2E 테스트는 명시적인 dev-test 프로파일에서 
 채팅 SSE 응답을 제공합니다. 이 고정본은 테스트 실행기 안에서만 존재하며 `Console Web: Full
 Stack`에서는 활성화되지 않습니다. 백엔드 통합 테스트는 같은 요청과 범위가 제한된 최종
 turn-timing 계약을 실제 Starlette 경로와 근거 해석기로 별도 검증합니다.
+Command Deck 실행 기록은 처리 구간에 서버가 작성한 turn timing을 우선 사용하며, 최종 응답에
+유효한 turn-timing envelope가 없을 때만 브라우저 대화 기록 시각을 사용합니다.
 두 격리 Playwright 구성은 `*.spec.ts` 파일만 찾아 같은 위치의 단위 테스트가 호환되지 않는
 테스트 런타임을 불러오지 않게 합니다. 고정본 실행기는 Vite를 즉시 시작하고 사용하지 않는
 loopback URL 또는 dual-stack port를 probe하는 대신 stdout의 `ready in` 표시를 기다립니다. 각
@@ -131,13 +133,13 @@ raw-group 대체 경로를 비활성화하고 `SET ROLE fdai_operator`로 연결
 브라우저 OAuth 캐시, 대화 이력, 응답 환경 설정 및 화면 컨텍스트는 origin별로 분리되므로 실행기는 항상 표준 origin을 열고, 프런트엔드는 계속 IPv4 loopback에서만 수신합니다.
 원격 VS Code 통합 브라우저는 전달된 원본을 `127.0.0.1`로 다시 쓸 수 있으므로 표준 인증 근거는 일반 호스트 브라우저의 `http://localhost:5273`을 사용합니다. 보조 로직은 기존 redirect를 보존하고 해당
 loopback 호스트에만 HTTP를 허용하며, 활성 테넌트가 다르거나 운영자가
-등록을 읽거나 업데이트할 수 없으면 서비스 시작 전에 중단합니다. 로컬 Event Hubs 토큰 새로 고침은
-준비된 `AZURE_TENANT_ID`와 `AZURE_SUBSCRIPTION_ID`에 고정되므로 이후 기본값 계정이 바뀌어도
-실행 중인 서비스의 Event Hubs 발급자를 바꿀 수 없습니다.
+등록을 읽거나 업데이트할 수 없으면 서비스 시작 전에 중단합니다. 로컬 전송은 항상 루프백
+Redpanda를 사용합니다. 배포된 Event Hubs 자격 증명과 갱신 동작은 배포 런타임 프로필이 계속
+소유합니다.
 Resolved-model 산출물이 있으면 같은 준비 단계에서 서술기 엔드포인트가 HTTPS 출처인지 검증하고
 `FDAI_LLM_ENDPOINT`와 `LLM_RESOLVED_MODELS_PATH`를 비공개 로컬 런타임 환경에 기록합니다.
-Narrator 엔드포인트가 없거나 올바르지 않으면 코어 런타임을 시작한 뒤 실패하게 두지 않고 Terraform
-또는 Azure 프로바이더에 접근하기 전에 준비 단계를 중단합니다.
+Narrator 엔드포인트가 없거나 올바르지 않으면 코어 런타임을 시작한 뒤 실패하게 두지 않고 Azure
+프로바이더에 접근하기 전에 준비 단계를 중단합니다.
 선택적인 로컬 configuration-baseline 대화는 ignored 산출물 세 개를 `FDAI_CONFIGURATION_BASELINE_JSON`, `FDAI_CONFIGURATION_BASELINE_DOCX`, `FDAI_CONFIGURATION_OBSERVATION_JSON`으로 연결합니다. Full-stack preparation 이후 Operator API launch에 세 값을 모두 제공합니다. Preparation이 생성된 `.fdai/local-runtime.env`를 교체하므로 해당 파일을 직접 수정하지 않는 것이 좋습니다.
 일부 값만 구성하거나 기준선 무결성 또는 DOCX 다이제스트가 일치하지 않으면 Operator API 시작이 중단되며 호출자는 고정된 범위, 버전, 다이제스트 또는 문서를 바꿀 수 없습니다. 연결이 성공하면 로컬 조립은 같은 맥락을 결정론적 채팅과 GET-only 구성 기준선 패널에 등록합니다.
 패널은 요청마다 관측 출처를 실행하고 연결 부재를 사용 불가로 보고하며 고정본나 cached Azure 상태를 대체 근거로 사용하지 않습니다. 가능한 경우 캠페인 상태를 PostgreSQL에 연결합니다.
@@ -289,14 +291,13 @@ Supervisor 작업은 표준 loopback Operator URL과 소유자 전용 token 파�
 `FDAI_MONITOR_WORKSPACE_ID`가 설정되면 명시적 Command Deck `query_log` 명령은 두 프로파일에서 같은 범위가 제한된 Azure Monitor Logs 프로바이더를 사용합니다. Interactive 로컬은 현재
 Azure CLI 맥락에서 데이터 평면 토큰을 얻고 배포는 `FDAI_MI_CLIENT_ID`가 선택한 전용 Operator API managed 신원을 사용합니다. Workspace는 서버 구성으로 정하며 브라우저가 변경할 수 없습니다.
 Workspace, 신원, 권한 또는 텔레메트리를 사용할 수 없으면 고정본나 모델 대체 경로 없이 사용 불가로 보류합니다. 배포된 런타임 호출 근거는 명시적인 배포 인벤토리 플래그가 있을 때만 같은 프로바이더를 사용합니다. Operator는 브로커 수락을 기록하고 Core는 소비자 수신을 기록하며, Azure Monitor는 두 정확한 replica를 결속하고 인벤토리 기록기는 권한이 없는 일치 쌍만 결합합니다. 저장소 변수 `ENABLE_RUNTIME_CALL_EVIDENCE`는 기존 Operator 모듈과 독립적으로 Inventory Job 플래그를 보존하고 플랫폼 `plan-runtime-*` 또는 `apply-runtime-*` 요청은 해당 작업만 대상으로 하며 작업 밖의 의존성 드리프트를 거부합니다. 서비스 계획은 별도 전환으로 두 정확한 Resource ID 바인딩을 추가하거나 제거하며, 헤드리스 및 로컬 프로필은 `runtime_call_graph`를 사용 불가로 유지합니다. 두 서비스 루트는 서로 다른 두 정식 비공백 Container App ARM ID를 요구합니다. 이행된 플랫폼 출력이 없으면 Core는 독립 peer state의 정확한 Operator 이름을 권한 모드 0600의 임시 파일로 읽고 Azure에서 두 ID를 해석한 뒤 정제된 매니페스트에 이름을 남기지 않고 파일을 제거합니다.
-로컬 준비는 적용된 Terraform의 `log_workspace_customer_id` 출력에서 workspace customer GUID를 읽습니다. 이전 상태 또는 대상이 제한된 상태가 해당 출력을 노출하지 않거나 운영자가 명시적인 no-deployment 읽기 범위를 선택하면, 선택한 리소스 그룹 안의 workspace만 나열하고 정확히 하나가 있을 때만 대체 경로를 수락합니다.
+로컬 준비는 선택한 리소스 그룹 안의 Log Analytics workspace만 나열하고 정확히 하나가 있을 때만 customer GUID를 수락합니다.
 Workspace가 0개이면 프로바이더를 사용 불가로 유지하고 여러 개이면 암시적으로 하나를 선택하지 않고 준비를 중지합니다. 재생성할 때 stale 로컬 workspace id는 제거합니다.
 원격 Kubernetes 수명 주기 수집은 명시적인 로컬 실시간 데이터 선택 사항이며, 준비 과정은 기본적으로 상속된 `FDAI_KUBERNETES_*` 바인딩을 제거합니다.
 기존 값이 `console/.env.local`에 모두 있거나 소유자 전용 fleet JSON 파일을 사용할 때만 `FDAI_LOCAL_KUBERNETES_LIFECYCLE=1`을 설정하세요. 기본 파일은 `.fdai/local-kubernetes-bindings.json`이며 다른 파일은 절대 경로인 `FDAI_LOCAL_KUBERNETES_BINDINGS_PATH`로 선택합니다.
 캐시는 선택한 경로와 바이트를 결합하며, 일부 구성, 그룹 읽기 가능, 잘못된 형식, 상대 경로 또는 혼합 입력은 프로바이더 접근 전에 중단됩니다.
 파일에는 엔드포인트, CA, 신원 및 token 경로 메타데이터만 있고 token 값은 없습니다. 로컬 수집은 클러스터를 검색하거나 읽기 신원을 암묵적으로 바꾸지 않으며, 비활성 상태에서는 중지된 클러스터를 조회하지 않습니다.
-로컬 런타임 환경 generator는 applied 구독 및 리소스 그룹도 범위가 제한된 Azure read-investigation 어댑터에 제공합니다. Terraform이 선택적 개발 operations 게이트웨이 URL과 Easy Auth 대상을 모두 출력하면 NSG 및 VNet 피어링 질문은 로컬 Azure CLI 신원으로
-게이트웨이의 등록된 읽기 연산만 호출합니다. 쌍이 없으면 래퍼를 비활성화하고 구성된 게이트웨이가 실패하면 direct ARM 대체 경로 없이 사용 불가를 보고합니다. 게이트웨이는 읽기 담당/실행기 managed 신원을 분리하며 로컬 Operator
+로컬 런타임 환경 생성기는 활성 Azure CLI 구독과 명시적으로 선택한 리소스 그룹을 범위가 제한된 Azure 읽기 조사 어댑터에 제공합니다. 해당 범위에서만 개발 운영 게이트웨이 후보를 검색하고 정확히 하나의 URL이 확인될 때만 연결합니다. Audience는 배포와 같은 Operator API audience를 제공하는 검증된 비공개 `VITE_MSAL_API_SCOPE`에서 추출합니다. 후보가 없으면 래퍼를 비활성화하고 여러 후보가 있으면 준비를 중단하며, 구성된 게이트웨이가 실패하면 direct ARM 대체 경로 없이 사용 불가를 보고합니다. 게이트웨이는 읽기 담당/실행기 Managed Identity를 분리하며 로컬 Operator
 API에 실행 신원을 제공하지 않습니다. 변경은 target-scoped Blob 임차 기간과 영속 멱등성 점유를 사용하며 업스트림 Terraform은 구성된 실행기 principal에 development-only 변경 연산을 활성화하고 게이트웨이
 URL과 대상은 headless 코어 Container App에만 전달합니다. 해당 런타임은 `AzureGatewayDirectApiExecutor`를 연결하며 Operator API는 읽기 전용 게이트웨이 전송 계층을 유지하고 강제 적용 기능을 받지
 않습니다. 실행기는 정확한 등록된 연산, arguments, 멱등성, 감사, stop-condition, 롤백 및 영향 근거에 대해 server-issued 예행 실행 증적을 먼저 요청해야 합니다. 게이트웨이는 범위가 제한된
@@ -334,9 +335,7 @@ Kafka가 구성된 토픽을 시작 중 거부하면 Event Hubs 어댑터는 오
 Container Apps 작업으로 raw 틱을 제공하고 로컬 개발은 synthetic 메트릭을 만들거나
 콘솔에 쓰기 경로를 주지 않고 동일한 기계적 틱 CLI를 호출할 수 있습니다.
 
-로컬 런타임 환경 generator는 applied Terraform 출력에서 기한이 제한된 영속 재생에 사용하는
-semantic logical/physical topic을 포함한 전송 계층 설정을 읽습니다. Terraform 실행기 신원의 구독과
-Azure CLI 구독을 비교하고 둘이 다르면 리소스 조회나 파일 생성 전에 중단합니다. 두 프로파일은 명시적으로 타입이 지정된 동일한 semantic JSONB claim 및 변환 결과 statement를 실행합니다.
+로컬 런타임 환경 생성기는 배포 상태를 읽지 않고 루프백 Redpanda의 정본 논리 및 물리 토픽 이름을 기록합니다. 환경 파일을 만들기 전에 활성 Azure CLI 구독에서 선택한 리소스 그룹을 검증합니다. 두 프로파일은 명시적으로 타입이 지정된 동일한 semantic JSONB claim 및 변환 결과 statement를 실행합니다.
 또한 로컬 user와 호스트에서 식별 정보를 노출하지 않는 소비자 인스턴스 해시를 파생하므로 동시에
 실행하는 개발자가 같은 Event Hubs Kafka 소비자 그룹에 참여하지 않습니다. 자동화에서
 명시적으로 안정된 이름이 필요하면 `FDAI_LOCAL_CONSUMER_INSTANCE`에 최대 20자의 lowercase

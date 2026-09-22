@@ -1,8 +1,8 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: e3bc4efa77c063621854ec7f6b306126c2af291d
-translation_revised: 2026-09-19
+translation_source_sha: 43e9302c2f809e9268feeac3112599467a6bb3ac
+translation_revised: 2026-09-22
 ---
 # 코드 맵
 
@@ -50,6 +50,7 @@ Core 배포 단위는 전체 `fdai` 네임스페이스를 유지합니다. 다�
 | 근본 원인 분석과 평가 | [RCA](../../../services/core-control-plane/src/fdai/core/rca/) 및 [framework_assessment](../../../services/core-control-plane/src/fdai/core/framework_assessment/) | [RCA 테스트](../../../services/core-control-plane/tests/core/rca/) 및 [평가 테스트](../../../services/core-control-plane/tests/core/framework_assessment/) | [근본 원인 분석](../rules-and-detection/root-cause-analysis-ko.md) |
 | Workflow와 실행 조정 | [workflow](../../../services/core-control-plane/src/fdai/core/workflow/) 및 [executor](../../../services/core-control-plane/src/fdai/core/executor/) | [Workflow 테스트](../../../services/core-control-plane/tests/core/workflow/) 및 [실행기 테스트](../../../services/core-control-plane/tests/core/executor/) | [실행 권한 온톨로지](../decisioning/execution-authorization-ontology-ko.md) |
 | Rule Catalog 런타임 | [rule_catalog](../../../services/core-control-plane/src/fdai/rule_catalog/) | [Rule Catalog 테스트](../../../services/core-control-plane/tests/rule_catalog/) | [Rule Catalog 수집](../rules-and-detection/rule-catalog-collection-ko.md) |
+| Rule 활성화 세대 | [rule_activation](../../../services/core-control-plane/src/fdai/core/rule_activation/) 및 [런타임 바인딩](../../../services/core-control-plane/src/fdai/runtime/rule_activation.py) | [Rule 활성화 테스트](../../../services/core-control-plane/tests/core/rule_activation/) | [Rule Governance](../rules-and-detection/rule-governance-ko.md) |
 | 측정 및 통제된 코호트 근거 | [측정 코어](../../../services/core-control-plane/src/fdai/core/measurement/) 및 [측정 전달](../../../services/core-control-plane/src/fdai/delivery/measurement/) | [측정 테스트](../../../services/core-control-plane/tests/core/measurement/) 및 [전달 측정 테스트](../../../services/core-control-plane/tests/delivery/measurement/) | [목표와 메트릭](goals-and-metrics-ko.md) |
 | Prompt와 모델 바인딩 | [prompts](../../../services/core-control-plane/src/fdai/core/prompts/) 및 [LLM 조립](../../../services/core-control-plane/src/fdai/composition/wire_llm.py) | [Prompt 테스트](../../../services/core-control-plane/tests/core/prompts/) | [Prompt 조립](../decisioning/prompt-composition-ko.md) |
 | 전달과 영속성 어댑터 | [delivery](../../../services/core-control-plane/src/fdai/delivery/) | [전달 테스트](../../../services/core-control-plane/tests/delivery/) 및 [영속성 테스트](../../../services/core-control-plane/tests/persistence/) | [프로젝트 구조](project-structure-ko.md) |

@@ -49,7 +49,10 @@ Capability preparation preserves all selected canonical property tokens, includi
 > current-state filter without canonical operands. Core binds those phrases through the current
 > ontology value domains and inventory-state catalog. An absent or ambiguous binding retains full
 > judgment or returns a typed clarification; it never broadens the request to an unfiltered Resource
-> collection, and the preflight model cannot invent a query operand. Exact Azure Resource Manager
+> collection, and the preflight model cannot invent a query operand. A state-only collection such
+> as `Show resources that are currently not running.` uses
+> the same inventory-state grounding and deterministic current-state frame without requiring a
+> subtype filter. Exact Azure Resource Manager
 > identities remain `Resource.id equals` predicates instead of being reduced to the final name
 > segment. Accepted collection judgments use a deterministic frame, and any remaining model planner
 > receives only the descriptors required by that operational family. Subscription identity and

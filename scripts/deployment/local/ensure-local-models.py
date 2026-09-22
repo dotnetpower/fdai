@@ -146,7 +146,7 @@ def resolve_existing(
                     selection_mode="pinned",
                     reasons=("existing_deployment_observed",),
                 )
-                if selected["name"] != name:
+                if selected["name"] != name or name == "t1.embedding":
                     bindings.append(
                         ModelEndpointBinding.from_dict(
                             {
@@ -170,7 +170,7 @@ def resolve_existing(
                                 "capacity": {"unit": "tpm", "value": capability.capacity_tpm},
                                 "features": {
                                     "streaming": False,
-                                    "embeddings": False,
+                                    "embeddings": name == "t1.embedding",
                                     "structured_output": False,
                                     "tool_calling": False,
                                 },
@@ -318,16 +318,6 @@ def main() -> int:
     def azure(*arguments: str) -> Any:
         return command([os.environ.get("FDAI_AZ_BIN", "az"), *arguments, "--output", "json"])
 
-    if not args.resource_group:
-        args.resource_group = command(
-            [
-                os.environ.get("FDAI_TERRAFORM_BIN", "terraform"),
-                f"-chdir={args.repo_root / 'infra'}",
-                "output",
-                "-json",
-                "resource_group_name",
-            ]
-        )
     if not re.fullmatch(r"[A-Za-z0-9._()-]{1,90}", args.resource_group):
         raise ValueError("model discovery requires an explicitly selected resource group")
     identity = azure("account", "show")

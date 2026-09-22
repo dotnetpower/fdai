@@ -52,6 +52,7 @@ from fdai_operator_service.process_transition_projection import (
     ProcessControlUnavailableError,
     ProcessTransitionDeniedError,
 )
+from fdai_operator_service.rule_activation_notice import rule_activation_proposal_revision
 from fdai_operator_service.workflow_catalog_projection import (
     _best_practice_catalog_payload,
     _caf_catalog_payload,
@@ -60,6 +61,8 @@ from fdai_operator_service.workflow_catalog_projection import (
     _rule_catalog_payload,
     _rule_findings_summary_payload,
     _wara_catalog_payload,
+    rule_activation_history_payload,
+    rule_activation_status_payload,
 )
 
 
@@ -129,6 +132,76 @@ class PostgresWorkflowAdapters:
                     "evaluated": False,
                     "findings": [],
                 }
+            elif request.operation is WorkflowOperation.RULE_ACTIVATION_STATUS:
+                pointer = await self.store.read_state("rule-activation:current")
+                if pointer is None:
+                    raise HTTPException(
+                        status_code=503,
+                        detail="authoritative Rule activation projection is unavailable",
+                    )
+                generation_id = pointer.get("generation_id")
+                if not isinstance(generation_id, str):
+                    raise HTTPException(
+                        status_code=503,
+                        detail="authoritative Rule activation projection is malformed",
+                    )
+                generation = await self.store.read_state(
+                    f"rule-activation:generation:{generation_id}"
+                )
+                if generation is None:
+                    raise HTTPException(
+                        status_code=503,
+                        detail="authoritative Rule activation generation is unavailable",
+                    )
+                request_page = await self.store.read_state_page(
+                    prefix="rule-activation:request:",
+                    limit=200,
+                )
+                result_page = await self.store.read_state_page(
+                    prefix="rule-activation:result:",
+                    limit=200,
+                )
+                stored = pointer
+                projection_key = "rule-activation:current"
+                payload = rule_activation_status_payload(
+                    pointer,
+                    generation,
+                    tuple(record.value for record in request_page.records),
+                    tuple(record.value for record in result_page.records),
+                    pending_truncated=request_page.truncated or result_page.truncated,
+                )
+                joined_revision = hashlib.sha256(
+                    json.dumps(
+                        payload,
+                        sort_keys=True,
+                        separators=(",", ":"),
+                        default=str,
+                    ).encode()
+                ).hexdigest()
+            elif request.operation is WorkflowOperation.RULE_ACTIVATION_HISTORY:
+                page = await self.store.read_state_page(
+                    prefix="rule-activation:result:",
+                    limit=request.limit or 50,
+                )
+                rule_id = request.path_parameters.get("rule_id", "")
+                records = tuple(record.value for record in page.records)
+                payload = rule_activation_history_payload(
+                    records,
+                    rule_id=rule_id,
+                    truncated=page.truncated,
+                )
+                revision_payload = [record.value.get("result", {}) for record in page.records]
+                stored = {
+                    "_revision": hashlib.sha256(
+                        json.dumps(
+                            revision_payload,
+                            sort_keys=True,
+                            separators=(",", ":"),
+                            default=str,
+                        ).encode()
+                    ).hexdigest()
+                }
+                projection_key = "rule-activation:result:"
             elif request.operation in {
                 WorkflowOperation.BEST_PRACTICE_LIST,
                 WorkflowOperation.BEST_PRACTICE_DETAIL,
@@ -263,9 +336,16 @@ class PostgresWorkflowAdapters:
             raise HTTPException(status_code=503, detail=str(exc)) from exc
         except ProcessTransitionDeniedError as exc:
             raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
+        revision = stored.accepted_at
+        if proposal.operation is WorkflowOperation.RULE_ACTIVATION_REQUEST:
+            key_digest = hashlib.sha256(proposal.idempotency_key.encode()).hexdigest()
+            revision = rule_activation_proposal_revision(
+                f"operator-proposal:workflow:{key_digest}",
+                stored.record,
+            )
         return WorkflowProposalReceipt(
             proposal_id=stored.proposal_id,
-            revision=stored.accepted_at,
+            revision=revision,
             duplicate=stored.duplicate,
         )
 

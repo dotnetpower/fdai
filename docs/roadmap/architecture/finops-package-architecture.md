@@ -382,6 +382,9 @@ reasons even while the workspace is disabled. An Owner can change only `enabled`
 exact-revision database function. The function updates the manager-derived activation row and
 appends a retained lifecycle receipt in one transaction. It cannot install an absent package, make
 an unavailable package available, grant cost-data access, or promote an action.
+After authentication and cost-data access succeed, `GET /cost-governance/availability` returns
+HTTP 200 with typed availability and enablement state even when the package is unavailable.
+Data-bearing Cost Governance surfaces remain HTTP 404 until package activation is valid.
 The shared Console transport treats only an explicitly classified source-gate failure as an
 unavailable projection. A generic `503` remains an operational error and cannot be used to imply
 that Cost Governance is merely unconfigured.

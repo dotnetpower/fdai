@@ -703,9 +703,11 @@ async def test_consumer_flushes_partial_batch_at_commit_interval_while_idle(
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("security_protocol", ["SASL_SSL", "PLAINTEXT"])
 async def test_consumer_exports_partition_progress_and_lag_after_commit(
     monkeypatch: pytest.MonkeyPatch,
     caplog: pytest.LogCaptureFixture,
+    security_protocol: str,
 ) -> None:
     delivered = False
 
@@ -718,10 +720,11 @@ async def test_consumer_exports_partition_progress_and_lag_after_commit(
 
     class _RecordingConsumer:
         def __init__(self, *_args: object, **kwargs: object) -> None:
-            self.provider = kwargs["sasl_oauth_token_provider"]
+            self.provider = kwargs.get("sasl_oauth_token_provider")
 
         async def start(self) -> None:
-            await self.provider.token()
+            if self.provider is not None:
+                await self.provider.token()
 
         async def stop(self) -> None:
             return None
@@ -744,10 +747,16 @@ async def test_consumer_exports_partition_progress_and_lag_after_commit(
     caplog.set_level(logging.INFO, logger=event_bus_module.__name__)
     iterator = _iter_consumer(
         topic="fdai.change.events",
-        group_id="fdai-pantheon.Huginn",
-        config=_cfg(commit_max_records=1),
-        identity=_StaticIdentity(),
-        audience="https://evhns.servicebus.windows.net/.default",
+        group_id=(
+            "fdai-pantheon.Huginn" if security_protocol == "SASL_SSL" else "fdai-local-example-core"
+        ),
+        config=_cfg(commit_max_records=1, security_protocol=security_protocol),
+        identity=_StaticIdentity() if security_protocol == "SASL_SSL" else None,
+        audience=(
+            "https://evhns.servicebus.windows.net/.default"
+            if security_protocol == "SASL_SSL"
+            else None
+        ),
     )
 
     assert (await anext(iterator)).offset == 7
@@ -758,12 +767,65 @@ async def test_consumer_exports_partition_progress_and_lag_after_commit(
         record for record in caplog.records if record.message == "event_bus_consumer_progress"
     )
     assert progress.topic == "fdai.change.events"
-    assert progress.consumer_group == "fdai-pantheon.Huginn"
+    assert progress.consumer_group == (
+        "fdai-pantheon.Huginn" if security_protocol == "SASL_SSL" else "fdai-local-example-core"
+    )
     assert progress.partition == 1
     assert progress.committed_offset == 8
     assert progress.highwater_offset == 13
     assert progress.consumer_lag == 5
     assert progress.progress_kind == "commit"
+
+
+@pytest.mark.asyncio
+async def test_plaintext_non_primary_consumer_does_not_log_every_commit(
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    delivered = False
+
+    class _Message:
+        topic = "fdai.pantheon.objects"
+        partition = 0
+        key = b"resource"
+        value = b'{"event_id": "e"}'
+        offset = 7
+
+    class _RecordingConsumer:
+        def __init__(self, *_args: object, **_kwargs: object) -> None:
+            pass
+
+        async def start(self) -> None:
+            return None
+
+        async def stop(self) -> None:
+            return None
+
+        async def getone(self) -> object:
+            nonlocal delivered
+            if delivered:
+                raise RuntimeError("consumer complete")
+            delivered = True
+            return _Message()
+
+        async def commit(self) -> None:
+            return None
+
+    monkeypatch.setattr(event_bus_module, "AIOKafkaConsumer", _RecordingConsumer)
+    caplog.set_level(logging.INFO, logger=event_bus_module.__name__)
+    iterator = _iter_consumer(
+        topic="fdai.pantheon.objects",
+        group_id="fdai-local-example-pantheon.Huginn",
+        config=_cfg(commit_max_records=1, security_protocol="PLAINTEXT"),
+        identity=None,
+        audience=None,
+    )
+
+    assert (await anext(iterator)).offset == 7
+    with pytest.raises(RuntimeError, match="consumer complete"):
+        await anext(iterator)
+
+    assert all(record.message != "event_bus_consumer_progress" for record in caplog.records)
 
 
 @pytest.mark.asyncio

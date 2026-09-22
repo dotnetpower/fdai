@@ -41,6 +41,9 @@ RUNTIME_SOURCE_ROOT=""
 WITH_RUNTIME_WHEELS=0
 SOURCE_COMMIT=""
 SOURCE_FINGERPRINT=""
+RULE_ACTIVATION_PROFILE=""
+RULE_ACTIVATION_PROFILE_ID=""
+RULE_ACTIVATION_PROFILE_CREATED_AT=""
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -56,9 +59,20 @@ while [[ $# -gt 0 ]]; do
     --with-runtime-wheels) WITH_RUNTIME_WHEELS=1; shift ;;
     --source-commit) SOURCE_COMMIT="$2"; shift 2 ;;
     --source-fingerprint) SOURCE_FINGERPRINT="$2"; shift 2 ;;
+    --rule-activation-profile) RULE_ACTIVATION_PROFILE="$2"; shift 2 ;;
+    --rule-activation-profile-id) RULE_ACTIVATION_PROFILE_ID="$2"; shift 2 ;;
+    --rule-activation-profile-created-at) RULE_ACTIVATION_PROFILE_CREATED_AT="$2"; shift 2 ;;
     *) echo "stage-offline-kit: unknown argument: $1" >&2; exit 2 ;;
   esac
 done
+profile_option_count=0
+[[ -z "$RULE_ACTIVATION_PROFILE" ]] || ((profile_option_count += 1))
+[[ -z "$RULE_ACTIVATION_PROFILE_ID" ]] || ((profile_option_count += 1))
+[[ -z "$RULE_ACTIVATION_PROFILE_CREATED_AT" ]] || ((profile_option_count += 1))
+if [[ "$profile_option_count" -ne 0 && "$profile_option_count" -ne 3 ]]; then
+  echo "stage-offline-kit: Rule activation profile path, id, and time are required together." >&2
+  exit 2
+fi
 if [[ -n "$RUNTIME_RELEASE" && -n "$RUNTIME_DESCRIPTOR" ]]; then
   echo "stage-offline-kit: --runtime-release and --runtime-descriptor are mutually exclusive." >&2
   exit 2
@@ -258,7 +272,7 @@ trap 'stop_background; exit 143' TERM
 rm -rf "$KIT" "$OUT/bundle" "$OUT/wheels" "$OUT/mirror" "$OUT/mirror-src" \
   "$OUT/toolchain" "$OUT/runtime-build" "$OUT/runtime-python" "$OUT/cli-build-env"
 rm -f "$OUT/bundle.tar.gz" "$OUT/cli-requirements.txt"
-mkdir -p "$OUT/toolchain" "$KIT"/{python,deployment,terraform,bin,sbom}
+mkdir -p "$OUT/toolchain" "$KIT"/{python,deployment,terraform,bin,sbom,rule-activation}
 chmod 700 "$OUT/toolchain" "$KIT"
 
 PYTHONPATH=scripts/deployment/release:services/core-control-plane/src "$PYTHON" -c '
@@ -415,6 +429,13 @@ cp -r "$OUT/mirror" "$KIT/terraform/providers"
 cp "$OUT/toolchain/opa" "$KIT/bin/opa"
 cp "$OUT/toolchain/kubectl" "$KIT/bin/kubectl"
 cp "$OUT/toolchain/kubelogin" "$KIT/bin/kubelogin"
+if [[ -n "$RULE_ACTIVATION_PROFILE" ]]; then
+  [[ "$RULE_ACTIVATION_PROFILE" == /* && -f "$RULE_ACTIVATION_PROFILE" && ! -L "$RULE_ACTIVATION_PROFILE" ]] || {
+    echo "stage-offline-kit: --rule-activation-profile must be an absolute regular file." >&2
+    exit 2
+  }
+  cp "$RULE_ACTIVATION_PROFILE" "$KIT/rule-activation/profile.yaml"
+fi
 
 if [[ -n "$RUNTIME_RELEASE" ]]; then
   echo "-- prebuilt runtime release"
@@ -500,6 +521,12 @@ PY
 
 source_boundary
 echo "-- sign kit"
+activation_profile_args=()
+[[ -z "$RULE_ACTIVATION_PROFILE" ]] || activation_profile_args+=(
+  --rule-activation-profile rule-activation/profile.yaml
+  --rule-activation-profile-id "$RULE_ACTIVATION_PROFILE_ID"
+  --rule-activation-profile-created-at "$RULE_ACTIVATION_PROFILE_CREATED_AT"
+)
 PYTHONPATH=packages/deployment-cli/src:services/core-control-plane/src "$PYTHON" \
   scripts/deployment/release/build-offline-kit.py \
   --kit "$KIT" --private-key "$RELEASE_KEY" --release-root "$OUT/release-root.pub" \
@@ -507,7 +534,8 @@ PYTHONPATH=packages/deployment-cli/src:services/core-control-plane/src "$PYTHON"
   --bundle-version "$BUNDLE_VERSION" --platform-tag "$PLATFORM_TAG" \
   --python-wheel "$WHEEL" --deployment-bundle "$BUNDLE_IN_KIT" \
   --terraform-binary terraform/terraform --provider-mirror-prefix terraform/providers \
-  --opa-binary bin/opa --sbom-path sbom/offline-kit.cdx.json
+  --opa-binary bin/opa --sbom-path sbom/offline-kit.cdx.json \
+  "${activation_profile_args[@]}"
 
 source_boundary
 echo "stage-offline-kit: OK - signed kit at $KIT (cli_version=$CLI_VERSION)"

@@ -1,8 +1,8 @@
 ---
 title: 온톨로지 구조 모델
 translation_of: ontology-structural-model.md
-translation_source_sha: 695a4b1531b082d10eb9a1ea4b5cedb880f27ddd
-translation_revised: 2026-09-21
+translation_source_sha: 831607c769027bd7c1777cfe117137625825c6f3
+translation_revised: 2026-09-22
 ---
 # 온톨로지 구조 모델
 
@@ -77,8 +77,9 @@ Operator 온톨로지 변환 결과와 역할 선택은 이제 목적별 운영 
 완전한 reconciliation은 항상 세대별 최신 snapshot 증적을 유지합니다. 내용 전용 그래프 digest가
 projection과 Resource Event handoff를 완료한 이전 세대와 같으면, replay는 변경되지 않은 사실을
 추가하는 대신 해당 이전 원장 세대를 참조할 수 있습니다. 세대와 관측 전용 시각은 이 동등성
-digest에 포함하지 않지만 리소스 값, 관계 의미, 검증 상태, 완전성 및 충돌은
-포함합니다. 원본 상태 증적은 각 최신 snapshot에 남으며 Resource 또는 Link 원장 사실을
+digest에 포함하지 않지만 리소스 값, 관계 의미, 검증 상태, 완전성 및 충돌은 포함합니다.
+이 최적화를 적용해도 운영 상태 전이 적용 범위는 최신 스냅샷의 기준 시점까지 전진합니다. 중복
+토폴로지 및 저널 사실만 생략합니다. 원본 상태 증적은 각 최신 snapshot에 남으며 Resource 또는 Link 원장 사실을
 중복시키지 않습니다. 현재 projection은 계속 최신 관측에서 전진하며, 의미 있는 그래프 변경,
 불완전한 이전 handoff 또는 누락된 이전 원장은 전체 새 append를 요구합니다.
 일회성 inventory coordinator는 runtime-settings, ontology-status, collection-health, change

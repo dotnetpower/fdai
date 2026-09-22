@@ -1,8 +1,8 @@
 ---
 title: AKS 역방향 커넥터
 translation_of: aks-outbound-connector.md
-translation_source_sha: d3fe7b72059f9a0fe64db93938fec31c7b4a9973
-translation_revised: 2026-09-20
+translation_source_sha: edec5c459d903527426d14b520654b86fb9eda1d
+translation_revised: 2026-09-22
 ---
 # AKS 역방향 커넥터
 
@@ -19,6 +19,7 @@ translation_revised: 2026-09-20
 HTTPS 통신으로 제한된 근거와 형식이 지정된 작업을 비권한 게이트웨이와 교환합니다.
 기존 에이전트가 판단, 승인, 실행, 복구, 감사를 담당합니다. 별도 실행기는 기존 실행 계약을
 사용하며, 선택적 네트워크 분리는 설치된 정책 엔진을 사용합니다.
+집중 커넥터 테스트는 읽기 probe를 임시로 바꾸기 전에 실제 리소스 사전 점검 하위 클래스를 불러옵니다. 따라서 테스트 순서가 가짜 클러스터 신원 검사를 대체하거나 런타임 동작을 바꿀 수 없습니다.
 
 ```mermaid
 flowchart LR

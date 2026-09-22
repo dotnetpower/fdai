@@ -1,8 +1,8 @@
 ---
 title: 기록된 리소스 상태
 translation_of: recorded-resource-state.md
-translation_source_sha: bb52289e9403b79a664d332d12e7226d72cb66bc
-translation_revised: 2026-09-21
+translation_source_sha: 4427565429aa616e0a2a534a2ed49cea04a549f0
+translation_revised: 2026-09-22
 ---
 # 기록된 리소스 상태
 
@@ -304,7 +304,9 @@ ResourceType을 선언합니다.
 - Dashboard v2는 반환 범위와 스냅샷 개수를 하나의 절제된 요약 표면에 표시하고, Resource 현황을
   기본 작업 영역으로 유지하며, 근거 범위를 그 아래에 맞춰 배치합니다. 보조 열에는 우선 확인
   항목 또는 선택한 Resource Inspector만 표시합니다. 이 계층은 표현만 바꾸며 각 개수는 기존과
-  같은 필터가 적용된 기록 상태 화면으로 계속 연결됩니다.
+  같은 필터가 적용된 기록 상태 화면으로 계속 연결됩니다. 반환 범위의 출처 정보와 스냅샷 시각은
+  간결한 헤더를 공유하며, 개수는 너비가 충분할 때 높이가 낮은 데스크톱 스트립 하나에 표시되고
+  좁은 너비에서는 잘림 없이 다시 배치됩니다.
 - 전체 현황 헤더는 아이콘이 있는 44 px 리소스 대시보드 컨트롤을 제공하고, 리소스 대시보드 헤더는
   같은 크기의 전체 현황 대시보드 복귀 컨트롤을 제공합니다. 안정적인 `/resource-dashboard` 경로는
   탐색기에 중복 항목으로 표시하지 않습니다. 이전 `/dashboard-v2` 경로는 쿼리 문자열을 보존하는

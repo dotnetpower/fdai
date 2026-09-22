@@ -287,9 +287,17 @@ def test_workspace_exposes_explicit_complete_console_topology() -> None:
     assert restart_stack["command"] == (
         "bash scripts/deployment/local/restart-console-services.sh --auth-mode browser-entra"
     )
-    assert restart_stack["dependsOn"] == ["console: require primary worktree"]
+    assert "dependsOn" not in restart_stack
+    restart_script = (
+        REPO_ROOT / "scripts/deployment/local/restart-console-services.sh"
+    ).read_text()
+    assert "git rev-parse --path-format=absolute --git-dir" in restart_script
+    assert "git rev-parse --path-format=absolute --git-common-dir" in restart_script
+    assert restart_script.index('if [[ "$git_dir" != "$common_dir" ]]') < restart_script.index(
+        'bash "$repo_root/scripts/deployment/local/stop-console-services.sh"'
+    )
     assert restart_stack["isBackground"] is True
-    assert restart_stack["runOptions"] == {"instanceLimit": 1}
+    assert restart_stack["runOptions"] == {"instanceLimit": 2, "instancePolicy": "silent"}
     assert (
         restart_stack["problemMatcher"]["background"]
         == local_services["problemMatcher"]["background"]

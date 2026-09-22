@@ -48,6 +48,7 @@ Reusable quantity conversion and ordinary Pod CPU/memory accounting are defined 
 [connector preflight boundary](aks-outbound-connector.md#capacity-and-storage-preflight).
 These pure helpers consume complete Pod records; existing normalized diagnostic quantity text
 is unchanged. Arithmetic alone proves neither source completeness nor schedulability. Explicit signed preflight now collects complete Node/Pod lists and exact PVC/PV binding separately; it neither expands diagnostic normalization nor proves placement, mount/write effects or source promotion.
+The focused test harness fixes the concrete resource-preflight class before any temporary read-probe substitution, so suite order cannot alter the exact namespace UID boundary or diagnostic evidence.
 
 The [outbound connector](aks-outbound-connector.md) offers explicit certificate-authenticated
 snapshot transfer without changing this plane's observation authority. Its stored-source adapter

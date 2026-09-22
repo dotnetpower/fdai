@@ -25,6 +25,7 @@ from fdai_service_contracts.incident_intervention import (
     INCIDENT_INTERVENTION_REQUEST_TOPIC,
 )
 from fdai_service_contracts.observer_deployment import OBSERVER_PROPOSAL_TOPIC
+from fdai_service_contracts.rule_activation_transport import RULE_ACTIVATION_REQUEST_TOPIC
 from fdai_service_contracts.semantic_turn import (
     LOGICAL_TOPIC_FIELD,
     multiplexed_consumer_group,
@@ -77,6 +78,7 @@ class OperatorSemanticKafkaConfig:
     incident_intervention_topic: str = INCIDENT_INTERVENTION_REQUEST_TOPIC
     assignment_request_topic: str = ASSIGNMENT_REQUEST_TOPIC
     assignment_projection_topic: str = ASSIGNMENT_PROJECTION_TOPIC
+    rule_activation_request_topic: str = RULE_ACTIVATION_REQUEST_TOPIC
     observer_proposal_topic: str = OBSERVER_PROPOSAL_TOPIC
     client_id: str = "fdai-operator-service"
     auto_offset_reset: str = "earliest"
@@ -108,6 +110,11 @@ class OperatorSemanticKafkaConfig:
                 occupied=configured_topics,
                 error_message="assignment topic MUST be distinct and valid",
             )
+        _require_distinct_topic(
+            self.rule_activation_request_topic,
+            occupied=configured_topics,
+            error_message="Rule activation request topic MUST be distinct and valid",
+        )
         _require_distinct_topic(
             self.alert_quality_topic,
             occupied=configured_topics,
@@ -257,6 +264,7 @@ class OperatorSemanticKafkaBus:
         allowed.add(self._config.incident_intervention_topic)
         allowed.add(self._config.alert_quality_topic + self._config.dlq_suffix)
         allowed.add(self._config.assignment_request_topic)
+        allowed.add(self._config.rule_activation_request_topic)
         allowed.add(f"{self._config.assignment_projection_topic}{self._config.dlq_suffix}")
         allowed.add(f"{self._config.observer_proposal_topic}{self._config.dlq_suffix}")
         if topic not in allowed:

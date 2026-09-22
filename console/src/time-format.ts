@@ -3,6 +3,10 @@ import { getLocale } from "./i18n";
 const timeFormatters = new Map<string, Intl.DateTimeFormat>();
 let browserTimeZone: string | undefined;
 
+export function consoleDateTimeLocale(): "en-US" | "ko-KR" {
+  return getLocale() === "ko" ? "ko-KR" : "en-US";
+}
+
 function cachedTimeFormatter(
   locale: string,
   options: Intl.DateTimeFormatOptions,

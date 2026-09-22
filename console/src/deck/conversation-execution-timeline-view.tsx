@@ -1,4 +1,5 @@
 import { t } from "../i18n";
+import { consoleDateTimeLocale } from "../time-format";
 import type { ConversationTrajectory } from "./conversation-trajectory";
 import { phaseStateLabel } from "./conversation-trajectory-decision-context";
 import {
@@ -28,9 +29,9 @@ export function ConversationExecutionTimelineView({
       </header>
       <div class="deck-execution-axis" aria-hidden="true">
         <div class="deck-execution-axis-range">
-          <time>{formatAxisClock(window.startedAt)}</time>
+          <time>{formatExecutionTimelineAxisClock(window.startedAt)}</time>
           <span>{formatDuration(window.durationMs)}</span>
-          <time>{formatAxisClock(window.completedAt)}</time>
+          <time>{formatExecutionTimelineAxisClock(window.completedAt)}</time>
         </div>
       </div>
       <ol>
@@ -71,8 +72,8 @@ export function ConversationExecutionTimelineView({
                 ) : null}
                 <dl class="deck-execution-facts">
                   <div><dt>{t("deck.trajectory.status")}</dt><dd>{executionDetail(item)}</dd></div>
-                  <div><dt>{t("deck.investigation.startedAt")}</dt><dd><time dateTime={item.startedAt}>{formatClock(item.startedAt)}</time></dd></div>
-                  <div><dt>{t("deck.investigation.completedAt")}</dt><dd><time dateTime={item.completedAt}>{formatClock(item.completedAt)}</time></dd></div>
+                  <div><dt>{t("deck.investigation.startedAt")}</dt><dd><time dateTime={item.startedAt}>{formatExecutionTimelineClock(item.startedAt)}</time></dd></div>
+                  <div><dt>{t("deck.investigation.completedAt")}</dt><dd><time dateTime={item.completedAt}>{formatExecutionTimelineClock(item.completedAt)}</time></dd></div>
                   {item.details.facts.map((fact) => (
                     <div key={`${fact.key}-${fact.value}`}>
                       <dt>{executionFactLabel(fact)}</dt>
@@ -145,8 +146,8 @@ function executionDetail(item: ExecutionTimelineItem): string {
   return phaseStateLabel(item.state);
 }
 
-function formatClock(value: string): string {
-  return new Date(value).toLocaleTimeString([], {
+export function formatExecutionTimelineClock(value: string): string {
+  return new Date(value).toLocaleTimeString(consoleDateTimeLocale(), {
     hour: "2-digit",
     minute: "2-digit",
     second: "2-digit",
@@ -154,8 +155,8 @@ function formatClock(value: string): string {
   });
 }
 
-function formatAxisClock(value: string): string {
-  return new Date(value).toLocaleTimeString([], {
+export function formatExecutionTimelineAxisClock(value: string): string {
+  return new Date(value).toLocaleTimeString(consoleDateTimeLocale(), {
     hour: "2-digit",
     minute: "2-digit",
     second: "2-digit",

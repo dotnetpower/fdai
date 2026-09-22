@@ -9,20 +9,37 @@ import {
 import { routeHref } from "../router";
 import { t } from "./i18n/governance";
 import { DetailRow, DetailSection } from "./rule-catalog-components";
+import { RuleActivationPanel } from "./rule-catalog-activation-panel";
+import type { RuleActivationProposalReceipt } from "./rule-catalog-activation";
 import {
+  type ActivationHistoryState,
+  type ActivationState,
   SEVERITY_PILL,
   type DetailState,
   type FindingsState,
   type RuleDetailDto,
+  type PendingRuleActivationRequest,
 } from "./rule-catalog-types";
 
 interface RuleDetailDrawerProps {
   readonly detail: DetailState;
   readonly findings: FindingsState;
+  readonly activation: ActivationState;
+  readonly activationHistory: ActivationHistoryState;
+  readonly onRequestActivation: (enabled: boolean, reason: string) => Promise<RuleActivationProposalReceipt>;
+  readonly onApproveActivation: (request: PendingRuleActivationRequest) => Promise<RuleActivationProposalReceipt>;
   readonly onClose: () => void;
 }
 
-export function RuleDetailDrawer({ detail, findings, onClose }: RuleDetailDrawerProps) {
+export function RuleDetailDrawer({
+  detail,
+  findings,
+  activation,
+  activationHistory,
+  onRequestActivation,
+  onApproveActivation,
+  onClose,
+}: RuleDetailDrawerProps) {
   // WCAG dialog behaviour: move focus into the drawer on open, restore
   // it to the trigger on close, and trap Tab within the drawer.
   const panelRef = useRef<HTMLElement>(null);
@@ -98,7 +115,14 @@ export function RuleDetailDrawer({ detail, findings, onClose }: RuleDetailDrawer
           ) : detail.status === "error" ? (
             <ErrorState message={t("governance.rules.detail.loadFailed", { message: detail.message })} />
           ) : (
-            <RuleDetailContent data={detail.data} findings={findings} />
+            <RuleDetailContent
+              data={detail.data}
+              findings={findings}
+              activation={activation}
+              activationHistory={activationHistory}
+              onRequestActivation={onRequestActivation}
+              onApproveActivation={onApproveActivation}
+            />
           )}
         </div>
       </aside>
@@ -109,9 +133,17 @@ export function RuleDetailDrawer({ detail, findings, onClose }: RuleDetailDrawer
 function RuleDetailContent({
   data,
   findings,
+  activation,
+  activationHistory,
+  onRequestActivation,
+  onApproveActivation,
 }: {
   readonly data: RuleDetailDto;
   readonly findings: FindingsState;
+  readonly activation: ActivationState;
+  readonly activationHistory: ActivationHistoryState;
+  readonly onRequestActivation: RuleDetailDrawerProps["onRequestActivation"];
+  readonly onApproveActivation: RuleDetailDrawerProps["onApproveActivation"];
 }) {
   return (
     <div class="stack">
@@ -122,6 +154,14 @@ function RuleDetailContent({
       </div>
 
       <RuleOverview data={data} />
+
+      <RuleActivationPanel
+        ruleId={data.id}
+        activation={activation}
+        history={activationHistory}
+        onRequest={onRequestActivation}
+        onApprove={onApproveActivation}
+      />
 
       <AffectedResources findings={findings} />
 

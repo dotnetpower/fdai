@@ -17,6 +17,7 @@ A read-only Observer collects exact Kubernetes evidence inside the cluster. An o
 connection transfers bounded evidence and receives typed work through a non-privileged gateway.
 Existing agents retain judgment, approval, execution, recovery, and audit ownership. A separate
 Executor uses existing execution contracts; optional segmentation uses the installed policy engine.
+Focused connector tests load the real resource-preflight subclass before temporarily replacing the read probe. Test order therefore cannot substitute a fake cluster-identity check or change runtime behavior.
 
 ```mermaid
 flowchart LR

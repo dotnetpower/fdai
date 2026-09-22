@@ -64,9 +64,6 @@ load_optional_console_setting() {
   if (( ${#matches[@]} == 1 )); then
     value="${matches[0]#*=}"
     case "$key" in
-      FDAI_LOCAL_NO_AZURE_DEPLOYMENT)
-        export FDAI_LOCAL_NO_AZURE_DEPLOYMENT="$value"
-        ;;
       FDAI_LOCAL_RESOURCE_GROUP)
         export FDAI_LOCAL_RESOURCE_GROUP="$value"
         ;;
@@ -84,10 +81,19 @@ load_optional_console_setting() {
   fi
 }
 
-load_optional_console_setting FDAI_LOCAL_NO_AZURE_DEPLOYMENT
 load_optional_console_setting FDAI_LOCAL_RESOURCE_GROUP
 load_optional_console_setting FDAI_LOCAL_KUBERNETES_LIFECYCLE
 load_optional_console_setting FDAI_LOCAL_KUBERNETES_BINDINGS_PATH
+if [[ ! -v FDAI_LOCAL_RESOURCE_GROUP && -f "$repo_root/.fdai/local-runtime.env" ]]; then
+  mapfile -t previous_scope < <(grep -E '^AZURE_RESOURCE_GROUP=' "$repo_root/.fdai/local-runtime.env" || true)
+  if (( ${#previous_scope[@]} > 1 )); then
+    echo "duplicate resource-group scope in prior local runtime environment" >&2
+    exit 1
+  fi
+  if (( ${#previous_scope[@]} == 1 )); then
+    export FDAI_LOCAL_RESOURCE_GROUP="${previous_scope[0]#*=}"
+  fi
+fi
 local_kubernetes_bindings_path="${FDAI_LOCAL_KUBERNETES_BINDINGS_PATH:-$repo_root/.fdai/local-kubernetes-bindings.json}"
 if [[ -v FDAI_LOCAL_KUBERNETES_BINDINGS_PATH ]] && {
   [[ "$local_kubernetes_bindings_path" != /* ]] ||
@@ -105,6 +111,10 @@ if ! command -v npm >/dev/null 2>&1; then
 fi
 if ! command -v opa >/dev/null 2>&1; then
   echo "missing OPA: install the Core image's OPA version on PATH before starting the Console" >&2
+  exit 1
+fi
+if [[ ! "${FDAI_LOCAL_RESOURCE_GROUP:-}" =~ ^[A-Za-z0-9._()-]+$ ]]; then
+  echo "FDAI_LOCAL_RESOURCE_GROUP MUST name an existing, explicitly selected read scope" >&2
   exit 1
 fi
 
@@ -142,8 +152,7 @@ required_outputs=(
 )
 for optional_input in \
   resolved-models.json \
-  .fdai/resolved-models-vision.json \
-  infra/terraform.tfstate; do
+  .fdai/resolved-models-vision.json; do
   if [[ -f "$repo_root/$optional_input" ]]; then
     legacy_preparation_inputs+=("$optional_input")
   fi
@@ -362,14 +371,9 @@ if [[ "$force_preparation" == "1" ]]; then
   rm -f "$stage_marker_dir"/*.sha256
 fi
 
-terraform_bin="${FDAI_TERRAFORM_BIN:-terraform}"
 az_bin="${FDAI_AZ_BIN:-az}"
 
 require_cloud_tools() {
-  if [[ "${FDAI_LOCAL_NO_AZURE_DEPLOYMENT:-0}" != "1" ]] && ! command -v "$terraform_bin" >/dev/null 2>&1; then
-    echo "missing Terraform CLI: $terraform_bin" >&2
-    return 1
-  fi
   if ! command -v "$az_bin" >/dev/null 2>&1; then
     echo "missing Azure CLI: $az_bin" >&2
     return 1
@@ -505,7 +509,7 @@ run_bounded local-model-settings \
   "$repo_root/.venv/bin/python" \
   "$repo_root/scripts/deployment/local/ensure-local-models.py" \
   --repo-root "$repo_root" \
-  --resource-group "${FDAI_LOCAL_RESOURCE_GROUP:-}"
+  --resource-group "$FDAI_LOCAL_RESOURCE_GROUP"
 
 write_database_identity
 database_identity="$stage_marker_dir/database-volumes.sha256"
@@ -532,8 +536,7 @@ runtime_environment_inputs=(
 )
 for optional_input in \
   resolved-models.json \
-  .fdai/resolved-models-vision.json \
-  infra/terraform.tfstate; do
+  .fdai/resolved-models-vision.json; do
   if [[ -f "$repo_root/$optional_input" ]]; then
     runtime_environment_inputs+=("$optional_input")
   fi
@@ -586,7 +589,6 @@ run_stage \
     "kubernetes=${FDAI_LOCAL_KUBERNETES_LIFECYCLE:-0}" \
     "kubernetes-bindings-path=$local_kubernetes_bindings_path" \
     "teams-notifications=${FDAI_LOCAL_TEAMS_NOTIFICATION_ACTIVATION:-0}" \
-    "no-azure-deployment=${FDAI_LOCAL_NO_AZURE_DEPLOYMENT:-0}" \
     "local-resource-group=${FDAI_LOCAL_RESOURCE_GROUP:-}" \
     "resolved-models-override=$resolved_models_override")" \
   prepare_runtime_environment \

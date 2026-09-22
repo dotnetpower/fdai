@@ -1,7 +1,7 @@
 ---
 translation_of: continuous-question-space.md
-translation_source_sha: a3e188f40e4ecfc8277e9eb2cdfc5a528a47d2c3
-translation_revised: 2026-09-21
+translation_source_sha: 503e3d87d7f5265d32316e068ebeef5fe53accb7
+translation_revised: 2026-09-22
 ---
 # 지속형 질문 공간
 
@@ -28,6 +28,7 @@ translation_revised: 2026-09-21
 결정론적 사전 프레임 선택은 함수 요약, 온톨로지 추적, 서비스 담당 프레임을 서로 다른 타입
 후보로 유지한 뒤 읽기 전용 프레임 하나를 선택합니다. Cascade는 결정론적 fallback helper의
 안정적인 호환성 import를 유지합니다.
+의미 계획 파사드는 사전 판정 분류를 목적별 모듈에 위임하면서 같은 모델 판단, 범위가 제한된 문맥, 취소, 로캘 및 권한 없음 계약을 유지합니다. 이 소유권 분리는 온톨로지 범위나 첨부 근거 접수를 변경하지 않습니다.
 영속 의미 실행 claim에는 lease가 적용됩니다. 대기 중인 중복 요청은 만료된 claim을 복구할 수
 있으므로 실패한 worker 때문에 요청 기한까지 차단되지 않습니다. 저장소 실패는 타입이 없는
 전송 오류를 발생시키는 대신 turn을 보류 상태로 유지합니다.
@@ -64,6 +65,7 @@ logical-topic 표시를 받습니다. 스키마로 검증되는 request payload�
 관계와 콘텐츠 검토, 의미 계약, 런타임 연결, 근거 출처, 검증 상태를 서로 독립적으로
 보존합니다.
 시작 질문 카탈로그의 질문이 아닌 Console 레이블을 포함해 연결된 원본이 변경되면 기계 판독용 인벤토리와 사람 검토용 카탈로그를 모두 다시 생성하며, 생성물 테스트는 오래된 원본 다이제스트를 거부합니다. 브라우저 근거 문구를 전역 카탈로그에서 경로 전용 카탈로그로 옮기는 작업도 이러한 다이제스트 전용 원본 변경이며, 다시 생성해도 질문 400개의 식별자와 문구를 모두 보존합니다. 원본 다이제스트만 변경된 경우 다시 생성해도 모든 논리 질문 신원, 검토 상태 및 분모를 유지합니다. 연결된 원본 다이제스트를 바꾸는 병합 커밋을 포함한 upstream 통합 뒤에 다시 생성하여 파생 약속값이 최종 병합 원본 집합을 결속하게 하되, 다이제스트 갱신을 새로운 의미 범위로 취급하지 않습니다.
+현재 생성기 갱신도 누적 Console 카탈로그 변경에 이 규칙을 적용합니다. 원본 및 인벤토리 다이제스트만 바뀌고 400개 질문 코호트, 온톨로지 범위 수치, 근거 제한 및 권한은 변경되지 않습니다.
 표시 문구만 변경해도 `uv run python scripts/automation/build_question_bank.py`를 실행한 뒤
 `uv run python scripts/automation/build_semantic_intent_coverage.py`로 의존하는 CQAS 인벤토리도
 다시 생성해야 합니다. 생성된 산출물을 직접 편집하는 방식은 지원하지 않습니다.
@@ -162,7 +164,7 @@ query 함수 12/36입니다. 검토된 대응표가 없으므로 Pantheon-to-sem
 | 구독 범위 리소스 상태 계획 | validated | `semantic_resource_state_planning.py`, `object_sets.py`, `resource_state_queries.py`, PostgreSQL 온톨로지 완전성 경계, 집중 검사, 인증된 표준 포트 Console 근거 | 검토된 리소스 하위 유형, 구독 범위, 일반 상태 확인 요청이 명시되면 구독 Service Health 또는 정확한 대상 명확화 대신 컬렉션 상태 함수를 사용합니다. 해당 ObjectSet은 `include_relationships=false`를 명시하므로 관련 없는 관계 조정이 불완전해도 검증된 상태 일치 항목이 사라지지 않습니다. 다른 탐색 없는 ObjectSet은 소유자가 제외를 명시할 때까지 기존 관계 포함 동작을 유지합니다. 쿼리는 인식할 수 있고 최신인 일치 상태 행을 모두 보존하고 일부 리소스에 적용 가능한 상태 근거가 없을 때 완전성을 별도로 낮춥니다. |
 | 정확한 대상 메트릭 시각화 | validated | `semantic_resource_metric_planning.py`, `resource_metric_queries.py`, 의미 frame prompt v37, Operator v2 presentation compiler, 집중 검사, 인증된 current-source Browser 근거 | 정확한 시각화 요청은 T2 없이 별도의 읽기 전용 FunctionType을 선택하고 source 표본 1085개에서 양 끝점 및 구간별 최솟값/최댓값 20/20개를 표시 잘림 없이 반환했으며, 검증된 차트와 exact-values 대체 표 20행을 렌더링했습니다. 집계 경로는 분리된 상태를 유지하고 sampling metadata가 일치하지 않으면 artifact를 계속 거부하며 실행 권한을 추가하지 않습니다. |
 | 정확한 대상이 없는 하위 유형 질문 커버리지 | validated | `semantic_target_candidate_planning.py`, `inventory-query-language.yaml`, `eval/sre-agent-container-apps.yaml`, 집중 플래너 검사 204개 통과, 인증된 한국어 Console 행렬 | 컬렉션 표현은 하위 유형 컬렉션 경로를 유지합니다. 정확한 신원이 하나로 정해지지 않은 단수 하위 유형 질문은 모델을 사용할 수 없거나 frame이 유효하지 않아도 범위가 제한된 검증 후보와 정확한 대상 선택 다음 단계를 반환합니다. Current-source SRE 예시 8개 행렬은 첫 턴 전체가 검증된 결과로 완료됐으며 context-required, unsupported, held, unverified, 의미 대체 카운터는 모두 0이었습니다. 이 행은 별도의 정확한 대상 후속 기능을 인증하지 않습니다. |
-| 공유 의미 판단 경계 | implemented | `core/conversation/semantic_judgment.py`, `core/conversation/conversation_preflight*.py`, `fdai_service_contracts/semantic_judgment.py`, Azure 모델 어댑터 및 집중 경계 보증 | 사전 판정 facade는 공개 import를 유지하면서 계약, 모델 호출, 대상 승격, 가족별 형태 검증을 책임이 분리된 모듈에 위임합니다. 범위가 제한된 context와 selector 순서를 보존한 32 KiB 후보 기능 변환 결과가 스키마로 검증된 intent, target, facet, confidence, ambiguity, discourse mode, action posture를 생성합니다. 검증된 preflight Resource 컬렉션 필터는 서술자 축소나 요약 계획보다 먼저 결속됩니다. 상태 필터 유무와 관계없이 알 수 없는 타입은 범위를 넓히지 않고 결정론적 명확화 결과를 반환합니다. 수락되지 않은 Resource 이벤트 이력 제안은 다음 frame 모델의 context만 축소할 수 있습니다. 의도 map 일치는 명시적인 bool을 반환합니다. Unbound, unavailable, malformed, ambiguous, low-confidence 결과는 명시적으로 유지되고 exact-source, knowledge-status, reference-context 또는 phrase classifier로 fallback하지 않습니다. Exact capability availability, query verification, policy, authorization, execution은 결정론적으로 유지됩니다. |
+| 공유 의미 판단 경계 | implemented | `core/conversation/semantic_judgment.py`, `core/conversation/conversation_preflight*.py`, `fdai_service_contracts/semantic_judgment.py`, Azure 모델 어댑터 및 집중 경계 보증 | 사전 판정 facade는 공개 import를 유지하면서 계약, 모델 호출, 대상 승격, 가족별 형태 검증을 책임이 분리된 모듈에 위임합니다. 범위가 제한된 context와 selector 순서를 보존한 32 KiB 후보 기능 변환 결과가 스키마로 검증된 intent, target, facet, confidence, ambiguity, discourse mode, action posture를 생성합니다. 검증된 preflight Resource 컬렉션 필터는 서술자 축소나 요약 계획보다 먼저 결속됩니다. 상태 필터 유무와 관계없이 알 수 없는 타입은 범위를 넓히지 않고 결정론적 명확화 결과를 반환합니다. 수락되지 않은 Resource 이벤트 이력 제안은 다음 frame 모델의 context만 축소할 수 있습니다. 의도 map 일치는 명시적인 bool을 반환합니다. 알려진 운영 유형을 혼합 또는 맥락 의존 신호와 함께 제안하면 잘못된 형식으로 한 번 기록하고 repair 호출 없이 전체 의미 판단으로 넘어갑니다. Unbound, unavailable, malformed, ambiguous, low-confidence 결과는 명시적으로 유지되고 exact-source, knowledge-status, reference-context 또는 phrase classifier로 fallback하지 않습니다. Exact capability availability, query verification, policy, authorization, execution은 결정론적으로 유지됩니다. |
 | 2026-08-21 | implemented | Exact-source, knowledge-status, reference-context, investigation-completion phrase classifier를 공유 구조화 의미 판단 경계로 교체했습니다. 결정론적 capability 및 evidence 검증은 유지되고 모델 실패에는 lexical fallback이 없습니다. | `current change`; 의미 경계, 고정 35/280 기반 edge assurance, 저장소 routing guard 집중 검사. | 실제 exact-source 인증은 exact committed revision을 위한 별도 근거로 유지됩니다. |
 | 후보 생성 및 검증 | implemented | `core/conversation/question_candidates.py`; `delivery/azure/llm/question_generation.py`; `rule-catalog/prompts/base/question-generation.v2.yaml`; `scripts/automation/question_space_copilot.py`; 집중 생성기 및 검증기 검사 | 로컬 Copilot은 명시적으로만 실행되고 도구가 비활성화됩니다. 예약 생성은 분리된 `t1.question.generator`와 `t1.question.reviewer` 기능을 사용합니다. 생성기는 질문 문구만 반환할 수 있습니다. Core는 독립 검토 전에 서버 소유 사례에서 모든 불변 의미 축을 결속합니다. 로캘, 식별자, 포함된 자격 증명, 실행 가능한 텍스트, 프롬프트 주입, 중복, 초안 자세, 독립 동등성은 계속 안전하게 차단됩니다. |
 | 캠페인 근거 체인 | implemented | `core/conversation/question_campaign*.py`; `delivery/persistence/postgres_question_campaign.py`; Core service migration `core_question_campaign_20260819`; legacy compatibility revision `0086`; 집중 캠페인, 영속성, 마이그레이션 검사 | Core service branch만 캠페인, 시도, 불변 완료, 만료형 사례 claim table을 만들고 권한을 부여합니다. 레코드는 다이제스트, 형식화된 처리 결과, 증적 연결, 사용량, hard-zero 카운터를 보존합니다. Claim은 동시 의미 실행 중복을 막습니다. 어떤 레코드도 질문, 답변, 공급자 페이로드, 엔드포인트, 결합된 리소스 식별자를 복제하지 않습니다. |
@@ -176,6 +178,7 @@ query 함수 12/36입니다. 검토된 대응표가 없으므로 Pantheon-to-sem
 ### 구현 이력
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-22 | implemented | 모델이 알려진 운영 유형을 혼합 또는 맥락 의존 신호와 함께 제안할 때 발생하던 효과 없는 두 번째 preflight 호출을 제거했습니다. 잘못된 제안은 권한 없이 유지되며 전체 의미 판단으로 계속 진행됩니다. | `current change`, 읽기 전용 로컬 trace 진단, 재현 payload 회귀, 집중 preflight 테스트 147개, strict mypy, Ruff 및 형식 검사 | 이 형식에서 preflight 호출이 한 번인 인증된 재생은 별도 승인을 받아 보존해야 합니다. 이 변경에서는 실제 모델 검증을 주장하지 않습니다. |
 | 2026-09-18 | implemented | 전체 런타임 설정 카탈로그가 통합 영어 및 한국어 원본 다이제스트를 바꾼 뒤 통합 질문은행과 이에 의존하는 CQAS 출처 이력을 다시 생성했습니다. 질문 400개의 신원, 지표 정의 93개, 분모, 범위 개수 및 권한 필드는 모두 그대로입니다. | `current change`, 공식 질문은행 및 의미 의도 생성기, 질문은행 테스트 8개와 의미 범위 테스트 4개 통과 | 의미, 런타임 연결, 근거 또는 권한 동작은 바뀌지 않았습니다. |
 | 2026-09-17 | implemented | 기본 브랜치 통합으로 Console 카탈로그 원본 다이제스트가 바뀐 뒤 통합 질문은행과 이에 의존하는 CQAS 출처 이력을 다시 생성했습니다. 질문 400개의 신원, 지표 정의 93개, 분모 및 권한 필드는 모두 그대로입니다. | `current change`; 공식 질문은행 및 의미 의도 생성기, 집중 산출물 검사 12개 통과. | 의미, 런타임 연결, 근거 또는 권한 동작은 바뀌지 않았습니다. |
 | 2026-09-17 | implemented | 통합으로 판테온 원본 다이제스트가 바뀐 뒤 CQAS 출처 이력을 다시 생성했습니다. 지표 93개, 질문 400개 분모, 범위 개수 및 권한 필드는 모두 그대로입니다. | `current change`; 공식 의미 의도 생성기; 집중 산출물 동등성 검사. | 의미, 런타임 연결, 근거 또는 권한 동작은 바뀌지 않았습니다. |

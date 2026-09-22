@@ -117,6 +117,15 @@ describe("navigation shell groups", () => {
     expect(source).not.toContain("aria-pressed={selected && preferences.explorerOpen}");
   });
 
+  test("restores focus before hiding the Explorer", () => {
+    expect(source).toContain("explorerRef.current?.contains(document.activeElement)");
+    expect(source).toContain("groupRefs.current.get(selectedGroup)?.focus();");
+    expect(source).toContain("ref={explorerRef}");
+    expect(source).not.toContain(
+      "window.requestAnimationFrame(() => groupRefs.current.get(selectedGroup)?.focus())",
+    );
+  });
+
   test("implements wrapping keyboard navigation for the action menu", () => {
     expect(nextMenuItemIndex(0, "ArrowDown", 3)).toBe(1);
     expect(nextMenuItemIndex(2, "ArrowDown", 3)).toBe(0);

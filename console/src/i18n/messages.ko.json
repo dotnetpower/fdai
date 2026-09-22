@@ -3302,6 +3302,7 @@
       "activitySummary": "읽기 쿼리 {queries}건 / 명령 {commands}건",
       "activityCompact": "읽기 {queries} / 명령 {commands}",
       "endToEndDuration": "전체 처리 {duration}",
+      "serverProcessingDuration": "서버 처리 {duration}",
       "executionKind": {
         "turn": "대화",
         "phase": "단계",

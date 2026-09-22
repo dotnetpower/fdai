@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import copy
+import hashlib
 import importlib.util
 import json
 import stat
@@ -91,6 +92,23 @@ def resolve(accounts):
     )
 
 
+def test_same_name_embedding_preserves_observed_identity():
+    observed = account()
+    result = resolve([observed])
+    bindings = [item for item in result.endpoint_bindings if item.capability == "t1.embedding"]
+    assert len(bindings) == 1
+    binding = bindings[0]
+    assert binding.deployment == "t1.embedding"
+    assert binding.family == "embedding"
+    assert binding.version == "1"
+    assert binding.features.embeddings is True
+    assert (
+        binding.discovery.resource_ref_digest
+        == hashlib.sha256(f"{ACCOUNT_ID}/deployments/t1.embedding".encode()).hexdigest()
+    )
+    assert ResolvedModels.from_json(result.to_json()) == result
+
+
 def test_generates_from_observed_endpoints_names_and_capacities():
     original = account()
     before = copy.deepcopy(original)
@@ -98,8 +116,8 @@ def test_generates_from_observed_endpoints_names_and_capacities():
     assert original == before
     assert result.narrator.endpoint == "https://models.example.com"
     assert result.narrator.deployment == "narrator-small"
-    assert result.endpoint_bindings[0].capability == "t1.judge"
-    assert result.endpoint_bindings[0].deployment == "narrator-small"
+    judge_binding = next(item for item in result.endpoint_bindings if item.capability == "t1.judge")
+    assert judge_binding.deployment == "narrator-small"
     assert result.capabilities[0].capacity_tpm == 10000
     assert result.mixed_model_mode == "hil-only"
     assert ResolvedModels.from_json(result.to_json()) == result
@@ -230,6 +248,22 @@ def test_missing_explicit_settings_never_trigger_discovery(tmp_path, monkeypatch
     with pytest.raises(ValueError, match="explicit model artifact is missing"):
         MODULE.main()
     assert not target.exists()
+
+
+def test_missing_default_settings_require_explicit_scope_before_provider_access(
+    tmp_path, monkeypatch
+):
+    monkeypatch.delenv("FDAI_LOCAL_RESOLVED_MODELS_PATH", raising=False)
+    monkeypatch.setattr(sys, "argv", ["ensure-local-models", "--repo-root", str(tmp_path)])
+
+    def observed_command(arguments, **kwargs):
+        if arguments[0] == "git":
+            return MODULE.subprocess.CompletedProcess(arguments, 0, "", "")
+        pytest.fail("missing scope must not trigger provider discovery")
+
+    monkeypatch.setattr(MODULE.subprocess, "run", observed_command)
+    with pytest.raises(ValueError, match="explicitly selected resource group"):
+        MODULE.main()
 
 
 @pytest.mark.parametrize("discovery_fails", [False, True])

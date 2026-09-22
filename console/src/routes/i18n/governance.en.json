@@ -222,7 +222,7 @@
     "lifecycleInvalid": "The requested rule lifecycle status is not registered.",
     "lifecycleUnavailable": "Rule {status} lifecycle evidence is not exposed by this deployment.",
     "routeUnavailable": "The rule-catalog route is not wired on this deployment, so no reviewed rule is claimed here.",
-    "subtitle": "Every policy the system knows: the active catalog T0 evaluates plus the imported collected corpus. Read-only - rule changes flow through the catalog pipeline as PRs.",
+    "subtitle": "Installed Rule artifacts, current T0 activation membership, and audited change history. Membership changes can enter through reviewed PR, direct approval, or a signed offline package.",
     "loadFailed": "Failed to load rule catalog: {message}",
     "refreshFailed": "Failed to refresh rule catalog: {message}",
     "loading": "Loading rule catalog...",
@@ -236,6 +236,7 @@
       "rule": "Rule",
       "provenance": "provenance",
       "origin": "Origin",
+      "activation": "Activation",
       "severity": "Severity",
       "category": "Category",
       "resource": "Resource",
@@ -243,13 +244,15 @@
       "affected": "Affected"
     },
     "banner": {
-      "title": "Catalog-as-code.",
-      "body": "Every rule is a versioned artifact. This page renders active and collected entries; changes land through the catalog PR pipeline."
+      "title": "Catalog and activation are separate.",
+      "body": "Origin identifies the installed artifact source. Activation selects T0 membership and does not grant enforcement or execution authority."
     },
     "kpi": {
       "total": "Total rules",
-      "active": "Active catalog",
-      "activeHint": "Curated - T0 evaluates these",
+      "active": "Curated catalog",
+      "activeHint": "Installed reviewed artifacts",
+      "activated": "Activated",
+      "activatedHint": "Current database generation",
       "collected": "Collected corpus",
       "collectedHint": "Imported upstream sources",
       "resourceTypes": "Resource types"
@@ -303,6 +306,32 @@
       "inventoryUnavailable": "No inventory evaluation is wired on this deployment. When this rule runs against your inventory, each affected resource and the exact attribute at fault (the deny reason) appears here.",
       "noViolations": "No resources currently violate this rule.",
       "viewArchitecture": "View on architecture"
+    },
+    "activation": {
+      "loading": "Loading activation state...",
+      "unavailable": "Authoritative Rule activation state is unavailable.",
+      "historyUnavailable": "Authoritative Rule activation history is unavailable.",
+      "currentTitle": "Current activation",
+      "enabled": "Activated",
+      "disabled": "Inactive",
+      "enable": "Enable",
+      "disable": "Disable",
+      "generation": "Generation",
+      "source": "Change source",
+      "requestedBy": "Requested by",
+      "approvers": "Approved by",
+      "activatedAt": "Activated at",
+      "requestTitle": "Request membership change",
+      "reason": "Operational reason",
+      "requestEnable": "Request activation",
+      "requestDisable": "Request deactivation",
+      "requestAccepted": "Request {id} was accepted for separate approval.",
+      "pendingTitle": "Pending approval",
+      "approve": "Approve request",
+      "approvalAccepted": "Approval was accepted for Core verification.",
+      "historyTitle": "Activation history",
+      "historyLoading": "Loading activation history...",
+      "historyEmpty": "No activation changes are recorded for this Rule."
     },
     "controls": {
       "routeUnavailable": "Best-practice controls are not available in this deployment.",
