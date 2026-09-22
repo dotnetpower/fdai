@@ -97,6 +97,7 @@ def test_every_legacy_table_has_one_migrator_and_one_write_contract() -> None:
     assert future_tables == {
         "handover_semantic_package",
         "operator_assignment_receipt",
+        "operator_rule_activation_receipt",
         "document_knowledge_source",
         "document_knowledge_check",
         "document_knowledge_release",
@@ -1700,6 +1701,10 @@ def test_core_runtime_role_and_forward_grants_cover_only_core_owned_tables() -> 
     ontology_version_migration = inventory_module.load_revision_metadata(
         MIGRATION_ROOT / "branches/core-control-plane/versions/20260921_core_ontology_versions.py"
     )
+    rule_activation_receipt_migration = inventory_module.load_revision_metadata(
+        MIGRATION_ROOT
+        / "branches/core-control-plane/versions/20260922_core_rule_activation_receipts.py"
+    )
 
     expected_tables = {
         table for table, owner in ownership.table_migrators.items() if owner == "core-control-plane"
@@ -1739,6 +1744,7 @@ def test_core_runtime_role_and_forward_grants_cover_only_core_owned_tables() -> 
         | set(inventory_progress_migration.owned_tables)
         | set(cost_governance_live_migration.owned_tables)
         | set(ontology_version_migration.owned_tables)
+        | set(rule_activation_receipt_migration.owned_tables)
     )
     assert granted_tables == expected_tables
     source = role_path.read_text(encoding="utf-8")

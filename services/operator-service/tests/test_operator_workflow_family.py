@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import ast
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Any, cast
 
 import pytest
@@ -46,6 +47,14 @@ EXPECTED_MANIFEST = (
     ("GET", "/rules", "list_handler"),
     ("POST", "/rules/search", "search_handler"),
     ("GET", "/rules/findings-summary", "summary_handler"),
+    ("GET", "/rules/activation", "activation_status"),
+    ("POST", "/rules/activation-changes", "request_activation_change"),
+    (
+        "POST",
+        "/rules/activation-changes/{request_id}/approve",
+        "approve_activation_change",
+    ),
+    ("GET", "/rules/{rule_id}/activation-history", "activation_history"),
     ("GET", "/rules/{rule_id}/findings", "findings_handler"),
     ("GET", "/rules/{rule_id}", "detail_handler"),
     ("GET", "/best-practices", "list_handler"),
@@ -163,8 +172,8 @@ def test_manifest_preserves_exact_legacy_method_path_and_name_surface() -> None:
         tuple((spec.method, spec.path, spec.name) for spec in WORKFLOW_FAMILY_ROUTE_MANIFEST)
         == EXPECTED_MANIFEST
     )
-    assert len(WORKFLOW_FAMILY_ROUTE_MANIFEST) == 43
-    assert sum(spec.dispatch == "proposal" for spec in WORKFLOW_FAMILY_ROUTE_MANIFEST) == 13
+    assert len(WORKFLOW_FAMILY_ROUTE_MANIFEST) == 47
+    assert sum(spec.dispatch == "proposal" for spec in WORKFLOW_FAMILY_ROUTE_MANIFEST) == 15
 
     client, _, _, _ = _client()
     snapshot = tuple(_route_contract(route) for route in cast(Starlette, client.app).routes)
@@ -183,6 +192,60 @@ def test_catalog_read_preserves_pagination_and_provenance() -> None:
     assert reads.requests[0].offset == 3
     assert reads.requests[0].query == {"origin": "active"}
     assert proposals.proposals == []
+
+
+def test_rule_activation_reads_are_typed_and_bounded() -> None:
+    client, _, reads, _ = _client(role=OperatorRole.READER)
+
+    status = client.get("/rules/activation")
+    history = client.get("/rules/rule.alpha/activation-history?limit=25")
+
+    assert status.status_code == 200
+    assert history.status_code == 200
+    assert reads.requests[0].operation is WorkflowOperation.RULE_ACTIVATION_STATUS
+    assert reads.requests[1].operation is WorkflowOperation.RULE_ACTIVATION_HISTORY
+    assert reads.requests[1].path_parameters == {"rule_id": "rule.alpha"}
+    assert reads.requests[1].limit == 25
+
+
+def test_rule_activation_request_is_contributor_proposal_only() -> None:
+    client, _, _, proposals = _client(role=OperatorRole.CONTRIBUTOR)
+
+    response = client.post(
+        "/rules/activation-changes",
+        headers={"Idempotency-Key": "change-1", "If-Match": "a" * 64},
+        json={
+            "mode": "shadow",
+            "reason": "Disable the reviewed Rule after an operational false positive.",
+            "changes": [{"rule_id": "rule.alpha", "enabled": False}],
+        },
+    )
+
+    assert response.status_code == 202
+    proposal = proposals.proposals[0]
+    assert proposal.operation is WorkflowOperation.RULE_ACTIVATION_REQUEST
+    assert proposal.principal_id == "operator"
+    assert proposal.expected_revision == "a" * 64
+    assert proposal.mode == "shadow"
+
+
+def test_rule_activation_approval_requires_approver_role() -> None:
+    contributor, _, _, _ = _client(role=OperatorRole.CONTRIBUTOR)
+    approver, _, _, proposals = _client(role=OperatorRole.APPROVER)
+    request_id = "operator-" + "a" * 32
+    headers = {"Idempotency-Key": "approve-1", "If-Match": "b" * 64}
+    body = {"mode": "shadow", "decision": "approve"}
+
+    denied = contributor.post(
+        f"/rules/activation-changes/{request_id}/approve", headers=headers, json=body
+    )
+    accepted = approver.post(
+        f"/rules/activation-changes/{request_id}/approve", headers=headers, json=body
+    )
+
+    assert denied.status_code == 403
+    assert accepted.status_code == 202
+    assert proposals.proposals[0].operation is WorkflowOperation.RULE_ACTIVATION_APPROVE
 
 
 def test_rule_search_validates_and_canonicalizes_exact_body() -> None:
@@ -807,6 +870,55 @@ async def test_postgres_workflow_adapter_submits_inert_proposal() -> None:
     assert store.calls[0]["operation"] == "workflow.run-request"
     payload = cast(dict[str, object], store.calls[0]["payload"])
     assert payload["mode"] == "shadow"
+
+
+async def test_activation_status_hashes_complete_payload_for_provenance(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class ActivationStore:
+        pending = False
+
+        async def read_state(self, key: str) -> dict[str, object] | None:
+            if key == "rule-activation:current":
+                return {"generation_id": "generation-1", "revision": 1}
+            if key == "rule-activation:generation:generation-1":
+                return {"generation": {}}
+            return None
+
+        async def read_state_page(self, *, prefix: str, limit: int):  # noqa: ANN201
+            del limit
+            records = (
+                (SimpleNamespace(value={"request": "pending"}),)
+                if self.pending and prefix == "rule-activation:request:"
+                else ()
+            )
+            return SimpleNamespace(records=records, truncated=False)
+
+    monkeypatch.setattr(
+        "fdai_operator_service.family_adapters.rule_activation_status_payload",
+        lambda _pointer, _generation, requests, _results, **_kwargs: {
+            "revision": 1,
+            "pending_requests": len(requests),
+            "execution_authority": False,
+        },
+    )
+    store = ActivationStore()
+    adapter = PostgresWorkflowAdapters(cast(Any, store))
+    request = WorkflowReadRequest(
+        operation=WorkflowOperation.RULE_ACTIVATION_STATUS,
+        principal_id="operator-a",
+        query={},
+        path_parameters={},
+    )
+
+    current = await adapter.read(request)
+    store.pending = True
+    changed = await adapter.read(request)
+
+    assert len(current.provenance.revision) == 64
+    assert current.provenance.revision != changed.provenance.revision
+    assert changed.payload["pending_requests"] == 1
+    assert changed.payload["execution_authority"] is False
 
 
 async def test_postgres_workflow_adapter_prechecks_authoritative_process_transition() -> None:

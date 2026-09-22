@@ -48,6 +48,14 @@
     },
     {
       "consumer_service": "operator-service",
+      "consumer_revision": "operator_rule_activation_receipts_20260922",
+      "provider_service": "core-control-plane",
+      "provider_revision": "core_rule_activation_receipts_20260922",
+      "schema_prerequisites": ["operator_rule_activation_receipt"],
+      "provider_rollback": "blocked-while-rule-activation-receipts-are-retained"
+    },
+    {
+      "consumer_service": "operator-service",
       "consumer_revision": "operator_cost_governance_20260828",
       "provider_service": "core-control-plane",
       "provider_revision": "core_cost_governance_runtime_20260828",
@@ -231,6 +239,7 @@
     "core-control-plane": [
       "handover_semantic_package",
       "operator_assignment_receipt",
+      "operator_rule_activation_receipt",
       "action_outbox",
       "audit_log",
       "case_history",
@@ -572,6 +581,7 @@
     ],
     "operator-service": [
       "operator_assignment_receipt",
+      "operator_rule_activation_receipt",
       "automation_blueprint_candidate",
       "background_task_attempt",
       "background_task_completion",

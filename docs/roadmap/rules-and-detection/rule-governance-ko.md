@@ -1,8 +1,8 @@
 ---
 title: 규칙 거버넌스(Rule Governance)
 translation_of: rule-governance.md
-translation_source_sha: 66eec347eff1656472786590d6a70e1d8472074e
-translation_revised: 2026-09-16
+translation_source_sha: 58aef13f05cad73a2ec5cf80e08fc72978c046bb
+translation_revised: 2026-09-22
 ---
 
 # 규칙 거버넌스(Rule 거버넌스)
@@ -13,10 +13,13 @@ Azure Policy가 운영자에게 정의, 할당, 예외를 관리하게 하는 �
 
 [rule-catalog-collection-ko.md](rule-catalog-collection-ko.md) 의 수집·정규화 규칙과
 [phase-1-rule-catalog-t0-ko.md](../phases/phase-1-rule-catalog-t0-ko.md) 의 결정론적 평가 위에
-구축. **콘솔은 읽기 전용이며 액션은 PR로 흐른다** 는 app-shape 규칙
-([app-shape.instructions.md](../../../.github/instructions/app-shape.instructions.md)) 과
-[architecture.instructions.md](../../../.github/instructions/architecture.instructions.md) 의
-shadow-before-enforce 및 안전 불변식을 준수.
+구축됩니다. Console은 권한이 없는 Operator API를 통해 형식화된 요청을 제출하며 관리
+리소스 실행 신원을 받지 않는다는 애플리케이션 구조 규칙
+([app-shape.instructions.md](../../../.github/instructions/app-shape.instructions.md))을 따릅니다.
+Rule 활성화에는 검토된 pull request, 인증된 직접 요청 또는 서명된 오프라인 패키지를 사용할
+수 있으며, 모든 경로는
+[architecture.instructions.md](../../../.github/instructions/architecture.instructions.md)의
+shadow-before-enforce 및 안전 불변식을 유지합니다.
 
 > 고객-비종속: 아래 모든 식별자, 스코프, 값은
 > [generic-scope.instructions.md](../../../.github/instructions/generic-scope.instructions.md) 에
@@ -194,21 +197,62 @@ Azure Policy는 *정의* 를 *할당* 과 *예외* 에서 분리. FDAI가 이를
   감사 트레일에 기록되어 해결이 리뷰 가능하며, time-boxed exemption이 엄격한 결과를 완화하는
   유일한 승인 방법.
 
-## 관리자 컨트롤 흐름 (GitOps, 버튼 아님)
+## 관리자 제어 흐름
 
-관리자는 Azure Policy 변경처럼 규칙을 컨트롤 - 작성, 파라미터화, 할당, 예외 - 하지만 변경은
-**catalog-as-code로의 리뷰된 PR** 로 전달, 감사·롤백·승인을 git에서 무료로:
+관리자는 환경에서 사용할 수 있는 전달 채널을 선택할 수 있습니다. 연결된 설치에서는
+catalog-as-code pull request를 검토할 수 있습니다. GitHub에 접근할 수 없는 설치에서는
+Operator API를 통해 인증된 직접 변경을 제출할 수 있습니다. 공용 산출물 송신이 없는
+네트워크에서는 같은 변경 계약을 서명된 오프라인 패키지로 가져올 수 있습니다.
 
-![관리자 컨트롤 흐름 (GitOps, 버튼 아님). 주요 단계는 administrator, draft change: rule / assignment / exemption, catalog-as-code PR, CI: schema + policy-as-code + shadow eval, review + approval, blocked, separate enforce-promotion approval, merge → catalog, T0 loads at runtime입니다.](../../diagrams/generated/fdai-roadmap-rules-and-detection-rule-governance-01.ko.svg)
+세 채널은 권위 변경 전에 다음 흐름으로 합쳐집니다.
 
-- 콘솔은 **authoring UI** 를 제공할 수 있지만 **초안 PR을 생산** 만 할 뿐 - 라이브 카탈로그를
-  절대 직접 실행/변형하지 않음(콘솔 읽기 전용 유지).
-- 모든 거버넌스 변경(룰, 배정, exemption 생성/수정, 효과 변경)은 저자, 리뷰어, 감사
-  트레일 있는 PR. 강제 적용 방향으로 효과를 올리는 것은 추가 승격 승인 필요.
-- 초안 PR은 authoring UI의 로컬 뷰가 아니라 **현재 머지된 카탈로그** 에 대해 검증; stale
-  초안은 rebase해야 하므로 라이브 카탈로그가 단일 진실 원본 유지, 동시 편집이 조용히 서로를
-  덮어쓸 수 없음. 승인은 git(또는 ChatOps)에서 발생, 콘솔 버튼 아님 - 콘솔은 상태 렌더링과
-  초안 PR 발행만.
+1. 채널은 예상 세대, 안정적인 멱등성 키, 요청한 구성원 차이, 사유, 범위, 출처 근거 및
+  인증된 요청자를 포함한 버전형 `RuleActivationChange`를 생성합니다.
+2. 서버는 완전한 후보 세대를 검증하고 현재 승인 근거를 확인하며, 오래되거나 모호하거나
+  자기 승인된 입력과 권한을 높이는 입력을 차단합니다.
+3. Mimir는 Rule 수명 주기의 책임 주체입니다. 검증에 성공한 뒤 Core PostgreSQL에 하나의
+  불변 세대를 원자적으로 설치하고 현재 포인터를 변경합니다.
+4. Saga는 요청, 승인, 이전 및 결과 세대 다이제스트, 행위자 신원, 출처 채널 및 최종 결과를
+  추가 전용 감사 체인에 기록합니다.
+5. 런타임은 변경을 적용된 것으로 보고하기 전에 정확한 현재 세대를 다시 읽습니다. 충돌하거나
+  재확인에 실패하면 이전 세대를 계속 활성 상태로 유지합니다.
+
+PostgreSQL의 현재 세대 포인터는 배포별 Rule 구성원 상태의 단일 진실 원본입니다. Git과 서명된
+패키지는 인증된 작성 및 전달 채널이며 런타임 의존성이 아닙니다. 직접 요청은 브라우저의 SQL
+접근을 의미하지 않습니다. Console은 Operator API에 형식화된 요청을 보내고, Operator API는
+권한 없는 제안을 영속화한 뒤 Core가 소유하는 검증 및 적용을 위해 이벤트 버스로 게시합니다.
+
+각 Core replica는 이 포인터를 대상으로 범위가 제한된 조정 루프를 실행합니다. replica는 자체
+generation digest가 다를 때만 메모리의 Rule 멤버십을 교체하고, 교체 전에 모든 멤버를 정확한
+설치 Rule 아티팩트와 대조합니다. 승인 재처리도 이 조정을 수행하므로 영속 pointer commit 후
+runtime 교체가 실패해도 권위 전이를 다시 실행하거나 되돌리지 않고 복구할 수 있습니다.
+
+구성원 상태는 실행 권한과 독립적입니다. 활성 세대에 Rule을 추가하면 관찰 모드에서 T0 평가
+대상이 됩니다. 이 작업은 배정 효과를 변경하거나 `do-not-enforce`를 `enforce`로 바꾸거나,
+승격 게이트를 충족하거나, 승인을 부여하거나, Operator API에 실행기 신원을 부여하지 않습니다.
+구성원 제거는 기능을 낮춥니다. 적용 모드 승격은 기존의 별도 승인과 승격 레지스트리를 계속
+사용합니다.
+
+연결된 pull request 채널은 기존 검토 흐름을 유지합니다.
+
+검토된 profile rollout은 Core에 `FDAI_PROFILE_ID`, `FDAI_RULE_ACTIVATION_SOURCE`,
+`FDAI_RULE_ACTIVATION_SOURCE_REF`, `FDAI_RULE_ACTIVATION_PACKAGE_DIGEST`,
+`FDAI_RULE_ACTIVATION_SOURCE_RECORDED_AT`을 제공합니다. Pull request 및 오프라인 source는
+5개 값을 모두 제공해야 합니다. Core는 해석한 profile 멤버십을 현재 데이터베이스 세대와
+비교하고 같은 CAS ledger를 통해 정확한 차이를 적용합니다. source 메타데이터가 없거나
+모호하면 멤버십을 넓히지 않고 시작 조정을 차단합니다.
+
+![관리자 pull request 채널. 주요 단계는 administrator, draft change: rule / assignment / exemption, catalog-as-code PR, CI: schema + policy-as-code + shadow eval, review + approval, blocked, separate enforce-promotion approval, merge -> activation change, T0 loads the committed database generation입니다.](../../diagrams/generated/fdai-roadmap-rules-and-detection-rule-governance-01.ko.svg)
+
+직접 변경과 오프라인 변경은 pull request 채널과 같은 검증 정책을 사용합니다. 승인 근거는
+저장소에서 추론하지 않고 PostgreSQL에 저장합니다. 요청자와 승인자 신원은 검증된 principal에서
+가져오고 서로 달라야 하며 정확한 후보 다이제스트에 바인딩됩니다. 동시 변경은 예상 세대에 대한
+compare-and-set을 사용합니다. 서버는 충돌을 반환하며 권한을 포함한 변경을 암묵적으로 rebase하거나
+재시도하지 않습니다.
+
+성공한 각 세대는 직전 세대를 rollback 대상으로 저장합니다. Rollback도 감사되고 승인에
+바인딩된 포인터 전이입니다. 실행 중인 결정은 사용한 세대를 고정하므로 이후 활성화가 결정 도중
+Rule 신원이나 의미를 변경할 수 없습니다.
 
 ## 커스텀 규칙과 우선순위
 
@@ -524,12 +568,16 @@ provenance:
 | 재정의 아티팩트 및 해석 | implemented | `services/core-control-plane/src/fdai/rule_catalog/schema/override.py`; `override.schema.json`; `parameter_relaxation_policy.py`; `governance_loader.py`; `governance_catalog.py`; `rule-catalog/overrides/`; `rule-catalog/override-parameter-bounds.yaml`; `core/control_loop/_execution.py`, `_helpers.py`, `_process.py`, `_audit_helpers.py`, `_boundary.py`, `orchestrator.py`; 집중 스키마, 로더, 카탈로그, 파이프라인 테스트 | 디렉터리 로더, resource-group-이하 범위 강제, no-stacking, 서로 다른 승인자, 리뷰된 parameter-relaxation-bounds 정책 모두 카탈로그 로드에서 fail closed 됩니다. `resolve_override` 와 T0 소비가 배정 해석 위에 `disabled` / `severity-downgrade` / `parameter-relaxation` 을 적용하고 모든 해석을 감사합니다. |
 | T0 배정 소비 | implemented | `services/core-control-plane/src/fdai/runtime/control_loop.py`; `services/core-control-plane/src/fdai/core/control_loop/_execution.py`; `services/core-control-plane/src/fdai/core/control_loop/_process.py`; 집중 거버넌스 및 파이프라인 테스트 | 하나의 불변 시작 카탈로그가 범위, 제외, 선택기, 효과, 적용, 파라미터 및 우선순위를 제공합니다. 적용되는 remediation도 실행 권한 부여와 통합 안전성 검토를 통과합니다. |
 | 거버넌스 pull request 신원 검사 | implemented | `services/core-control-plane/src/fdai/rule_catalog/schema/governance_review_authority.py`; `services/core-control-plane/src/fdai/delivery/gitops_pr/governance_review.py`; `scripts/governance/check-governance-review-authority.py`; `.github/workflows/ci.yml`; 집중 권한, 메타데이터, CLI 및 workflow 테스트 | CI는 exact-head GitHub commit, review, Check Run 사실을 수집하고 구성된 trusted verifier App의 identity 근거만 수락합니다. 강제 적용 승격, 예외, 재정의 및 A1 라우팅은 정족수 2를 요구하고 제안자, 공동 작성자 또는 커미터의 자기 승인을 차단합니다. 구성이나 attestation이 없으면 관리되는 변경을 차단합니다. |
+| Rule 활성화 세대 및 채널 | implemented | `packages/service-contracts/src/fdai_service_contracts/rule_activation*.py`; `services/core-control-plane/src/fdai/core/rule_activation/`; `services/core-control-plane/src/fdai/runtime/rule_activation.py`; Operator 활성화 경로, outbox, receipt migration 및 Console Rules workspace; 집중 계약, Core, Operator, migration 및 Console 검사 | PostgreSQL이 하나의 CAS 선택 세대를 소유합니다. 검토된 profile PR, 별도 승인이 필요한 인증된 직접 요청 및 서명된 오프라인 profile이 같은 세대 계약으로 수렴합니다. 각 Core replica는 메모리 멤버십을 현재 pointer에 맞춰 조정합니다. 멤버십은 enforce 또는 실행 권한을 부여하지 않습니다. |
 | 탐지 및 라우팅 절대 범위 | implemented | `shared/contracts/ontology/detection-routing-bounds.json`; `shared/ontology/threshold_bounds.py`; 집중 임계값 테스트 | LLM 제어 7개와 인시던트 제어 5개가 버전이 지정된 의미 범위에 정확하게 결속됩니다. 활성 값은 구성에 남고 어떤 범위도 권한을 부여하지 않습니다. |
 
 ### 구현 이력
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-22 | implemented | 신뢰하는 활성화 receipt에 대한 Operator의 직접 쓰기 권한을 제거했습니다. 잠긴 `SECURITY DEFINER` trigger가 이제 `state_kv`의 인증된 활성화 proposal만 캡처하며 Operator는 Core receipt table을 직접 insert, update, delete 또는 read할 수 없습니다. | `current change`; 실제 일회용 loopback PostgreSQL role 테스트 통과; migration inventory 73개 통과; strict mypy 및 Ruff 통과. | 전달 근거를 주장하기 전에 pushed-SHA CI에서 같은 role-bound receipt 검사를 보존합니다. |
+| 2026-09-22 | implemented | commit 이후 runtime 실패와 다중 replica 수렴 공백을 닫았습니다. 승인 재처리는 이제 권위 있는 현재 세대로부터 실패한 메모리 교체를 복구하고, 각 Core replica는 정확한 설치 아티팩트 검증 후에만 pointer 변경을 반영하는 필수 bounded reconciler를 실행합니다. | `current change`; `services/core-control-plane/src/fdai/core/rule_activation/coordinator.py`; `services/core-control-plane/src/fdai/runtime/rule_activation.py`; 집중 coordinator, runtime, supervision, strict mypy 및 Ruff 검사 통과. | 운영 검증을 주장하기 전에 Core replica 2개가 같은 세대로 수렴하는 scaled deployment receipt를 보존합니다. |
+| 2026-09-22 | implemented | 불변 멤버십, 감사되는 단일 CAS pointer, 정확한 요청자 및 승인자 이력, 직접 Operator 요청/승인 전송, 검토된 profile 조정 및 서명된 오프라인 profile 메타데이터를 갖춘 배포 로컬 Rule 활성화 세대를 추가했습니다. 런타임은 완전한 판단 사이에서만 Rule 세대를 교체하며 멤버십을 enforce와 구분합니다. | `current change`; 집중 service-contract, Core ledger/coordinator/runtime, Operator workflow/outbox/migration, offline-kit 및 Console 검사. | 운영 검증을 주장하기 전에 인증된 직접 승인 end-to-end receipt와 서명된 disconnected 배포 receipt를 보존합니다. |
 | 2026-09-16 | implemented | 기존 이력을 다시 쓰지 않고 2026-08-19 적응형 임계값 행에 남아 있던 레지스트리 잔여를 닫았습니다. 새로 고정한 온톨로지 계약은 프로덕션 LLM 라우팅 제어 7개와 Heimdall 인시던트 제어 5개 모두의 형식, 단위, 적용 범위 및 절대 허용 구간을 선언합니다. AST 기반의 정확한 결속 테스트는 모든 활성 구성 범위를 온톨로지와 비교하고 추가되거나 누락된 항목을 거부하며 각 한계의 경계값 안팎을 검사합니다. | `current change`; `detection-routing-bounds.json`; `threshold_bounds.py`; `test_threshold_bounds.py`; 헌법 증명 선택자. | FDAI-CONST-004 소스 경계에 남은 작업은 없습니다. 활성 정책 값과 승격 근거는 별도의 버전이 지정된 기록으로 유지합니다. |
 | 2026-08-19 | implemented | 헌법 제4조에 맞춰 오래된 탐지 및 라우팅 threshold 잔여를 닫았습니다. Production T1, quality gate 및 self-consistency 값은 이미 versioned `config/1.0.0` schema에서 오고 Heimdall 반복 정책은 bounded Runtime Settings에서 옵니다. 남아 있던 Heimdall 보안 상관관계 literal 3개도 기본값을 바꾸지 않고 bounded startup setting을 사용합니다. AST 기반 테스트가 숫자 LLM consumer 7개와 Heimdall setting consumer 5개의 exact 집합을 고정하므로 새로운 unbound production threshold는 gate를 실패시킵니다. | [이슈 #219](https://github.com/dotnetpower/fdai/issues/219). Focused setting, runtime, framework layout, ingress 및 threshold 검사 134개가 통과했습니다. | Production composition의 routing 및 detection threshold bound에 남은 작업은 없습니다. 순수 detector constructor default는 active composition policy가 아니라 주입 가능한 algorithm default로 남습니다. |
 | 2026-08-19 | implemented | 마지막까지 남아 있던 미바운드 적응 임계값 2개를 선언했습니다. 출하되는 `ontology/action-type` 계약의 `promotion_gate`가 이제 `min_fidelity`와 `max_recurrence_rate`를 선택적 비율 범위로 선언하며, ActionType 승격 평가기가 읽지 않는 범위 선언 전용임을 문서화했습니다. `GraphModelPromotionPolicy`는 다시 적은 리터럴 `0.0 <= value <= 1.0` 대신 이 선언에서 허용 범위를 도출합니다. `UNBOUND_ADAPTIVE_THRESHOLDS`는 이제 비어 있고, focused 테스트가 발견된 모든 수치 임계값이 바인딩되었음을 단언합니다. 아울러 `544e80a72`가 `sre.*` 시나리오 3건을 추가하면서 갱신하지 않아 깨져 있던 `test_shadow_eval.py`의 고정 시나리오 개수도 바로잡았습니다. | `current change`, `tests/core/operational_learning/test_threshold_bounds.py`·`tests/core/assurance_twin`·`tests/contracts`·`tests/rule_catalog`·`tests/core/measurement`가 focused 1640건 통과, 작업 범위 Ruff·format·mypy 통과, `check-core-imports`와 `check-property-semantic-coverage` 통과 | promotion gate 밖의 탐지·라우팅 임계값까지 등록부를 넓혀야 합니다. 그 값들은 아직 사용 지점의 리터럴입니다. |

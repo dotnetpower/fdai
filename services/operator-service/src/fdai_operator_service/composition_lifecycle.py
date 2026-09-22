@@ -37,6 +37,7 @@ from fdai_operator_service.read_investigation_completion_runtime import (
     ReadInvestigationCompletionBridge,
 )
 from fdai_operator_service.read_investigation_runtime import ReadInvestigationBridge
+from fdai_operator_service.rule_activation_outbox import RuleActivationNoticeBridge
 
 
 class OwnedHttpClient:
@@ -125,6 +126,7 @@ def application_lifecycle(
     hil_decision_outbox_bridge: HilDecisionOutboxBridge | None,
     teams_http_client: httpx.AsyncClient | None,
     assignment_notice_bridge: AssignmentNoticeBridge | None = None,
+    rule_activation_notice_bridge: RuleActivationNoticeBridge | None = None,
     alert_quality_bridge: AlertQualityBridge | None = None,
     test_context_bridge: TestContextBridge | None = None,
     observer_proposal_bridge: ObserverProposalBridge | None = None,
@@ -150,6 +152,7 @@ def application_lifecycle(
         hil_decision_outbox_bridge,
         test_context_bridge,
         assignment_notice_bridge,
+        rule_activation_notice_bridge,
         observer_proposal_bridge,
         OwnedHttpClient(teams_http_client) if teams_http_client is not None else None,
     )

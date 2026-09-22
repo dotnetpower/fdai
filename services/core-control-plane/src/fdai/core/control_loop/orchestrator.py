@@ -6,6 +6,7 @@ mixins implement RCA, fallback, execution-authority, and boundary stages.
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import math
 from collections.abc import Awaitable, Callable, Iterable, Mapping
@@ -113,6 +114,7 @@ class ControlLoop(
         executor: ShadowExecutor,
         audit_store: StateStore,
         rules_by_id: Mapping[str, Rule],
+        available_rules_by_id: Mapping[str, Rule] | None = None,
         change_safety_detector: ChangeSafetyDetector | None = None,
         change_safety_evidence_provider: ChangeSafetyPreAuthorityEvidenceProvider | None = None,
         risk_table: RiskTable | None = None,
@@ -216,6 +218,8 @@ class ControlLoop(
         self._event_ingest = event_ingest
         self._trust_router = trust_router
         self._t0_engine = t0_engine
+        self._rule_generation_lock = asyncio.Lock()
+        self._rule_generation_digest: str | None = None
         self._action_builder = action_builder
         # One clock for the action lifecycle: creation, dispatch window, and
         # effect recording. A frozen replay binds it so an observation can be
@@ -228,6 +232,7 @@ class ControlLoop(
         self._executor = executor
         self._audit_store = audit_store
         self._rules_by_id = dict(rules_by_id)
+        self._available_rules_by_id = dict(available_rules_by_id or rules_by_id)
         self._change_safety_detector = change_safety_detector
         self._change_safety_evidence_provider = change_safety_evidence_provider
         self._risk_table = risk_table
@@ -323,11 +328,35 @@ class ControlLoop(
 
     async def process(self, raw_event: Event | Mapping[str, Any]) -> ControlLoopResult:
         """Process one raw or normalized event through the control loop."""
-        return await process_event(self, raw_event)
+        async with self._rule_generation_lock:
+            return await process_event(self, raw_event)
 
     async def process_canary(self, raw_event: Event | Mapping[str, Any]) -> ControlLoopResult:
         """Record one event consumed from the separately authorized canary topic."""
-        return await process_canary(self, raw_event)
+        async with self._rule_generation_lock:
+            return await process_canary(self, raw_event)
+
+    async def replace_rule_generation(
+        self,
+        *,
+        rules: Iterable[Rule],
+        generation_digest: str,
+    ) -> None:
+        """Atomically replace T0 membership between complete decisions."""
+
+        prepared = tuple(rules)
+        prepared_rules = {rule.id: rule for rule in prepared}
+        if not prepared_rules or len(prepared_rules) != len(prepared):
+            raise ValueError("Rule generation MUST contain unique non-empty membership")
+        if len(generation_digest) != 64 or any(
+            character not in "0123456789abcdef" for character in generation_digest
+        ):
+            raise ValueError("Rule generation digest MUST be lowercase SHA-256")
+        prepared_engine = self._t0_engine.with_rules(prepared)
+        async with self._rule_generation_lock:
+            self._t0_engine = prepared_engine
+            self._rules_by_id = prepared_rules
+            self._rule_generation_digest = generation_digest
 
     @property
     def action_types(self) -> tuple[OntologyActionType, ...]:
@@ -336,8 +365,20 @@ class ControlLoop(
 
     @property
     def rules(self) -> tuple[Rule, ...]:
-        """Return the immutable Rule catalog loaded by this loop."""
+        """Return the current active Rule membership."""
         return tuple(self._rules_by_id.values())
+
+    @property
+    def available_rules(self) -> tuple[Rule, ...]:
+        """Return the immutable installed Rule catalog available for activation."""
+
+        return tuple(self._available_rules_by_id.values())
+
+    @property
+    def rule_generation_digest(self) -> str | None:
+        """Return the exact active membership generation, when DB-backed."""
+
+        return self._rule_generation_digest
 
     @property
     def ontology_release(self) -> OntologyRelease | None:

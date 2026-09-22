@@ -89,6 +89,21 @@ def prepare_offline_release(
             "genesis_manifest_digest": manifest.digest,
             "image_content_digests": image_digests,
         }
+        if verification.rule_activation_profile is not None:
+            binding["rule_activation_profile"] = verification.rule_activation_profile
+            binding["rule_activation_profile_digest"] = dict(verification.file_digests)[
+                verification.rule_activation_profile
+            ]
+            binding["rule_activation_package_digest"] = verification.manifest_digest
+            binding["rule_activation_runtime_environment"] = {
+                "FDAI_PROFILE_ID": verification.rule_activation_profile_id,
+                "FDAI_RULE_ACTIVATION_SOURCE": "offline_package",
+                "FDAI_RULE_ACTIVATION_SOURCE_REF": (f"offline-kit:{verification.manifest_digest}"),
+                "FDAI_RULE_ACTIVATION_PACKAGE_DIGEST": verification.manifest_digest,
+                "FDAI_RULE_ACTIVATION_SOURCE_RECORDED_AT": (
+                    verification.rule_activation_profile_created_at
+                ),
+            }
         result: dict[str, object] = {
             "schema_version": "fdai.offline-preparation.v2",
             "state": "prepared",

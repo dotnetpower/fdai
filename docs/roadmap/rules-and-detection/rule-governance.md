@@ -9,10 +9,12 @@ exemptions. This is the human-facing control surface over the rule catalog.
 
 It builds on the collected/normalized rules in
 [rule-catalog-collection.md](rule-catalog-collection.md) and the deterministic evaluation in
-[phase-1-rule-catalog-t0.md](../phases/phase-1-rule-catalog-t0.md). It obeys the app-shape rule
-that the **console is read-only and actions flow through PRs**, never UI buttons
-([app-shape.instructions.md](../../../.github/instructions/app-shape.instructions.md)), and the
-shadow-before-enforce and safety invariants in
+[phase-1-rule-catalog-t0.md](../phases/phase-1-rule-catalog-t0.md). It obeys the app-shape rule that
+the Console submits typed requests through the non-privileged Operator API and never receives
+managed-resource execution identity
+([app-shape.instructions.md](../../../.github/instructions/app-shape.instructions.md)). Rule
+activation may use a reviewed pull request, an authenticated direct request, or a signed offline
+package, while every path retains the shadow-before-enforce and safety invariants in
 [architecture.instructions.md](../../../.github/instructions/architecture.instructions.md).
 
 > Customer-agnostic: all identifiers, scopes, and values below are synthetic placeholders per
@@ -194,23 +196,66 @@ Scope selects which resources an assignment covers, CSP-neutrally:
   rule; the losing assignment is recorded in the audit trail so the resolution is reviewable, and a
   time-boxed exemption is the only sanctioned way to relax the strict outcome.
 
-## Administrator Control Flow (GitOps, not buttons)
+## Administrator Control Flow
 
-Administrators control rules exactly like changing Azure Policy - author, parameterize, assign,
-exempt - but the change is delivered as a **reviewed PR to catalog-as-code**, so audit, rollback,
-and approval come from git for free:
+Administrators can use the delivery channel available in their environment. Connected
+installations may review a catalog-as-code pull request. An installation without GitHub access may
+submit an authenticated direct change through the Operator API. A network without public artifact
+egress may import the same change contract in a signed offline package.
 
-![Administrator Control Flow (GitOps, not buttons). The main stages are administrator, draft change: rule / assignment / exemption, catalog-as-code PR, CI: schema + policy-as-code + shadow eval, review + approval, blocked, separate enforce-promotion approval, merge → catalog, T0 loads at runtime.](../../diagrams/generated/fdai-roadmap-rules-and-detection-rule-governance-01.en.svg)
+The three channels converge before authority changes:
 
-- The console MAY offer an **authoring UI**, but it only **produces a draft PR** - it never
-  executes or mutates the live catalog directly (keeps the console read-only).
-- Every governance change (create/modify rule, assignment, exemption, effect change) is a PR with
-  an author, reviewer, and audit trail. Raising an effect toward enforce requires the extra
-  promotion approval.
-- A draft PR is validated **against the current merged catalog**, not the authoring UI's local
-  view; a stale draft must rebase, so the live catalog stays the single source of truth and
-  concurrent edits cannot silently clobber each other. Approvals happen in git (or ChatOps), never
-  as a console button - the console only renders state and emits draft PRs.
+1. The channel produces a versioned `RuleActivationChange` with an expected generation, stable
+  idempotency key, requested membership diff, reason, scope, source evidence, and authenticated
+  requester.
+2. The server validates the complete candidate generation, checks current approval evidence, and
+  rejects stale, ambiguous, self-approved, or authority-raising input.
+3. Mimir is the accountable Rule lifecycle owner. It atomically installs one immutable generation
+  in Core PostgreSQL and changes the current pointer only after validation succeeds.
+4. Saga records the request, approval, prior and resulting generation digests, actor identities,
+  source channel, and terminal result in the append-only audit chain.
+5. The runtime reads back the exact current generation before reporting the change as applied. A
+  conflict or failed readback leaves the prior generation active.
+
+The PostgreSQL current-generation pointer is the deployment-local source of truth for Rule
+membership. Git and signed packages are authenticated authoring and transport channels, not
+runtime dependencies. A direct request never means browser SQL access: the Console sends a typed
+request to the Operator API, which persists an inert proposal and publishes it through the event
+bus for Core-owned validation and application.
+
+Every Core replica runs a bounded reconciliation loop against that pointer. A replica replaces
+its in-memory Rule membership only when its generation digest differs, and it resolves every
+member against the exact installed Rule artifact before replacement. Approval replay also performs
+this reconciliation, so a runtime swap that fails after the durable pointer commit is recoverable
+without replaying or reverting the authority transition.
+
+Membership is independent from execution authority. Adding a Rule to an activation generation
+makes it eligible for T0 evaluation in observation mode. It does not change an assignment's
+effect, flip `do-not-enforce` to `enforce`, satisfy a promotion gate, grant approval, or give the
+Operator API an executor identity. A membership removal lowers capability. An enforce promotion
+continues to use its separate approval and promotion registry.
+
+The connected pull-request channel retains the existing reviewed flow:
+
+A reviewed profile rollout supplies `FDAI_PROFILE_ID`, `FDAI_RULE_ACTIVATION_SOURCE`,
+`FDAI_RULE_ACTIVATION_SOURCE_REF`, `FDAI_RULE_ACTIVATION_PACKAGE_DIGEST`, and
+`FDAI_RULE_ACTIVATION_SOURCE_RECORDED_AT` to Core. Pull-request and offline sources require all
+five values. Core compares the resolved profile membership with the current database generation
+and applies the exact diff through the same CAS ledger. Missing or ambiguous source metadata blocks
+startup reconciliation instead of widening membership.
+
+![Administrator pull-request channel. The main stages are administrator, draft change: rule / assignment / exemption, catalog-as-code PR, CI: schema + policy-as-code + shadow eval, review + approval, blocked, separate enforce-promotion approval, merge -> activation change, T0 loads the committed database generation.](../../diagrams/generated/fdai-roadmap-rules-and-detection-rule-governance-01.en.svg)
+
+Direct and offline changes use the same validation policy as the pull-request channel. Their
+approval evidence is stored in PostgreSQL rather than inferred from a repository. Requester and
+approver identities come from verified principals, remain distinct, and are bound to the exact
+candidate digest. Concurrent changes use compare-and-set against the expected generation; the
+server returns a conflict and never rebases or retries an authority-bearing change implicitly.
+
+Each successful generation stores its immediate predecessor as the rollback target. Rollback is
+another audited, approval-bound pointer transition. A running decision pins the generation it
+used, so a later activation cannot change the Rule identity or semantics midway through that
+decision.
 
 ## Custom Rules and Precedence
 
@@ -532,12 +577,16 @@ provenance:
 | Override artifact and resolution | implemented | `services/core-control-plane/src/fdai/rule_catalog/schema/override.py`; `override.schema.json`; `parameter_relaxation_policy.py`; `governance_loader.py`; `governance_catalog.py`; `rule-catalog/overrides/`; `rule-catalog/override-parameter-bounds.yaml`; `core/control_loop/_execution.py`, `_helpers.py`, `_process.py`, `_audit_helpers.py`, `_boundary.py`, `orchestrator.py`; focused schema, loader, catalog, and pipeline tests | Directory loader, resource-group-or-narrower scope enforcement, no-stacking, distinct-approver, and the reviewed parameter-relaxation-bounds policy all fail closed at catalog load. `resolve_override` + T0 consumption apply `disabled` / `severity-downgrade` / `parameter-relaxation` on top of assignment resolution and audit every resolution. |
 | T0 assignment consumption | implemented | `services/core-control-plane/src/fdai/runtime/control_loop.py`; `services/core-control-plane/src/fdai/core/control_loop/_execution.py`; `services/core-control-plane/src/fdai/core/control_loop/_process.py`; focused governance and pipeline tests | One immutable startup catalog supplies scope, exclusions, selectors, effect, enforcement, parameters, and precedence. Enforcing remediation still passes through execution authorization and the unified safety check. |
 | Governance pull-request identity checks | implemented | `services/core-control-plane/src/fdai/rule_catalog/schema/governance_review_authority.py`; `services/core-control-plane/src/fdai/delivery/gitops_pr/governance_review.py`; `scripts/governance/check-governance-review-authority.py`; `.github/workflows/ci.yml`; focused authority, metadata, CLI, and workflow tests | CI fetches exact-head GitHub commit, review, and Check Run facts and accepts identity evidence only from the configured trusted verifier App. Enforce promotions, exemptions, overrides, and A1 routing require quorum 2 and reject proposer, co-author, or committer self-approval. Missing configuration or attestation blocks governed changes. |
+| Rule activation generations and channels | implemented | `packages/service-contracts/src/fdai_service_contracts/rule_activation*.py`; `services/core-control-plane/src/fdai/core/rule_activation/`; `services/core-control-plane/src/fdai/runtime/rule_activation.py`; Operator activation routes, outbox, receipt migration, and Console Rules workspace; focused contract, Core, Operator, migration, and Console checks | PostgreSQL owns one CAS-selected generation. Reviewed profile PRs, authenticated direct requests with separate approval, and signed offline profiles converge on the same generation contract. Every Core replica reconciles its in-memory membership to the current pointer. Membership grants no enforcement or execution authority. |
 | Detection and routing hard bounds | implemented | `shared/contracts/ontology/detection-routing-bounds.json`; `shared/ontology/threshold_bounds.py`; focused threshold tests | Seven LLM and five incident controls bind exactly to versioned semantic bounds; active values remain configuration and no bound grants authority. |
 
 ### Implementation history
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-22 | implemented | Removed Operator's direct write authority over trusted activation receipts. A locked `SECURITY DEFINER` trigger now captures only authenticated activation proposals from `state_kv`; Operator cannot insert, update, delete, or read the Core receipt table directly. | `current change`; real disposable loopback PostgreSQL role test passed; migration inventory passed 73 cases; strict mypy and Ruff passed. | Retain the same role-bound receipt check in pushed-SHA CI before claiming delivery evidence. |
+| 2026-09-22 | implemented | Closed the post-commit runtime failure and multi-replica convergence gaps. Approval replay now repairs a failed in-memory swap from the authoritative current generation, and every Core replica runs a required bounded reconciler that adopts pointer changes only after exact installed-artifact validation. | `current change`; `services/core-control-plane/src/fdai/core/rule_activation/coordinator.py`; `services/core-control-plane/src/fdai/runtime/rule_activation.py`; focused coordinator, runtime, supervision, strict mypy, and Ruff checks passed. | Retain a scaled deployment receipt showing two Core replicas converge on the same generation before claiming operational validation. |
+| 2026-09-22 | implemented | Added deployment-local Rule activation generations with immutable membership, one audited CAS pointer, exact requester and approver history, direct Operator request/approval transport, reviewed profile reconciliation, and signed offline profile metadata. Runtime swaps complete Rule generations between decisions and keeps membership separate from enforcement. | `current change`; focused service-contract, Core ledger/coordinator/runtime, Operator workflow/outbox/migration, offline-kit, and Console checks. | Retain an authenticated end-to-end direct approval receipt and a signed disconnected deployment receipt before claiming operational validation. |
 | 2026-09-16 | implemented | Closed the registry residual left by the 2026-08-19 adaptive-threshold row without rewriting that history. The new pinned ontology contract declares type, unit, scope, and hard range for all seven production LLM routing and five Heimdall incident controls. The exact AST-derived binding test compares every active config bound with the ontology, rejects extra or missing entries, and sweeps each limit. | `current change`; `detection-routing-bounds.json`; `threshold_bounds.py`; `test_threshold_bounds.py`; Constitution proof selectors. | None for the FDAI-CONST-004 source boundary. Active policy values and promotion evidence remain separate versioned records. |
 | 2026-08-19 | implemented | Closed the stale detection-and-routing threshold residual against Constitution Article 4. Production T1, quality-gate, and self-consistency values already come from the versioned `config/1.0.0` schema; Heimdall repeat policy comes from bounded Runtime Settings. The remaining three Heimdall security-correlation literals now use bounded startup settings with unchanged defaults. An AST-derived test fixes the exact seven numeric LLM consumers and five Heimdall setting consumers, so a new unbound production threshold fails the gate. | [Issue #219](https://github.com/dotnetpower/fdai/issues/219); focused setting, runtime, framework-layout, ingress, and threshold checks pass 134 cases. | None for production-composed routing and detection threshold bounds. Pure detector constructor defaults remain injectable algorithm defaults, not active composition policy. |
 | 2026-08-19 | implemented | Declared the last two unbound adaptive thresholds. `promotion_gate` in the shipped `ontology/action-type` contract now also declares `min_fidelity` and `max_recurrence_rate` as optional ratio bounds, documented as bound declarations that the ActionType promotion evaluator does not read, and `GraphModelPromotionPolicy` derives its accepted range from them instead of the literal `0.0 <= value <= 1.0` it restated. `UNBOUND_ADAPTIVE_THRESHOLDS` is now empty and the focused test asserts that every discovered numeric threshold is bound. Also corrected the frozen scenario count in `test_shadow_eval.py`, which `544e80a72` broke by adding three `sre.*` scenarios without updating it. | `current change`; `tests/core/operational_learning/test_threshold_bounds.py`, `tests/core/assurance_twin`, `tests/contracts`, `tests/rule_catalog`, and `tests/core/measurement` passed 1640 focused cases; task-scoped Ruff, format, and mypy passed; `check-core-imports` and `check-property-semantic-coverage` passed. | Extend the registry beyond the promotion gate to detection and routing thresholds; those are still literals at their use sites. |

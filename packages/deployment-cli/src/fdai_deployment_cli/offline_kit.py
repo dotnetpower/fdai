@@ -11,6 +11,7 @@ import stat
 import sys
 import sysconfig
 from dataclasses import dataclass
+from datetime import datetime
 from pathlib import Path, PurePosixPath
 from typing import Final
 
@@ -27,6 +28,7 @@ _MAX_FILES = 20_000
 _MAX_FILE_BYTES = 512 * 1024 * 1024
 _MAX_TOTAL_BYTES = 8 * 1024 * 1024 * 1024
 _DIGEST = re.compile(r"^[0-9a-f]{64}$")
+_PROFILE_ID = re.compile(r"^[a-z][a-z0-9._-]{0,127}$")
 
 
 class OfflineKitVerificationError(ValueError):
@@ -49,6 +51,9 @@ class OfflineKitVerification:
     terraform_binary: str
     provider_mirror_prefix: str
     deployment_bundle: str
+    rule_activation_profile: str | None
+    rule_activation_profile_id: str | None
+    rule_activation_profile_created_at: str | None
     file_digests: tuple[tuple[str, str], ...]
     file_sizes: tuple[tuple[str, int], ...]
 
@@ -86,6 +91,9 @@ def build_offline_kit_manifest(
     provider_mirror_prefix: str,
     opa_binary: str,
     sbom_path: str,
+    rule_activation_profile: str | None = None,
+    rule_activation_profile_id: str | None = None,
+    rule_activation_profile_created_at: str | None = None,
     python_tag: str | None = None,
     libc_tag: str | None = None,
 ) -> bytes:
@@ -99,6 +107,34 @@ def build_offline_kit_manifest(
         "opa_binary": _relative_path(opa_binary),
         "sbom_path": _relative_path(sbom_path),
     }
+    activation_profile = (
+        _relative_path(rule_activation_profile) if rule_activation_profile is not None else None
+    )
+    if activation_profile is not None and not activation_profile.startswith("rule-activation/"):
+        raise OfflineKitVerificationError(
+            "offline kit Rule activation profile MUST be under rule-activation/"
+        )
+    profile_values = (
+        activation_profile,
+        rule_activation_profile_id,
+        rule_activation_profile_created_at,
+    )
+    if any(value is None for value in profile_values) and any(
+        value is not None for value in profile_values
+    ):
+        raise OfflineKitVerificationError(
+            "offline kit Rule activation profile path, id, and time MUST be supplied together"
+        )
+    if (
+        rule_activation_profile_id is not None
+        and _PROFILE_ID.fullmatch(rule_activation_profile_id) is None
+    ):
+        raise OfflineKitVerificationError("offline kit Rule activation profile id is invalid")
+    if rule_activation_profile_created_at is not None:
+        _absolute_timestamp(
+            rule_activation_profile_created_at,
+            "offline kit Rule activation profile time",
+        )
     if not required["python_wheel"].startswith("python/"):
         raise OfflineKitVerificationError("offline kit Python wheel MUST be under python/")
     files, _sizes, _total = _scan_tree(root)
@@ -111,22 +147,27 @@ def build_offline_kit_manifest(
     ):
         if required[label] not in files:
             raise OfflineKitVerificationError(f"offline kit is missing {label}")
+    if activation_profile is not None and activation_profile not in files:
+        raise OfflineKitVerificationError("offline kit is missing rule_activation_profile")
     prefix = required["provider_mirror_prefix"].rstrip("/") + "/"
     if not any(path.startswith(prefix) for path in files):
         raise OfflineKitVerificationError("offline kit provider mirror is empty")
-    return canonical_bytes(
-        {
-            "schema_version": "fdai.offline-kit.v1",
-            "kit_version": kit_version,
-            "cli_version": cli_version,
-            "bundle_version": bundle_version,
-            "platform_tag": platform_tag,
-            "python_tag": python_tag or _runtime_python_tag(),
-            "libc_tag": libc_tag or _runtime_libc_tag(),
-            **required,
-            "files": files,
-        }
-    )
+    payload: dict[str, object] = {
+        "schema_version": "fdai.offline-kit.v1",
+        "kit_version": kit_version,
+        "cli_version": cli_version,
+        "bundle_version": bundle_version,
+        "platform_tag": platform_tag,
+        "python_tag": python_tag or _runtime_python_tag(),
+        "libc_tag": libc_tag or _runtime_libc_tag(),
+        **required,
+        "files": files,
+    }
+    if activation_profile is not None:
+        payload["rule_activation_profile"] = activation_profile
+        payload["rule_activation_profile_id"] = rule_activation_profile_id
+        payload["rule_activation_profile_created_at"] = rule_activation_profile_created_at
+    return canonical_bytes(payload)
 
 
 def verify_offline_kit(
@@ -169,7 +210,15 @@ def verify_offline_kit(
             "sbom_path",
             "files",
         }
-        if set(payload) != expected or payload["schema_version"] != "fdai.offline-kit.v1":
+        allowed = expected | {
+            "rule_activation_profile",
+            "rule_activation_profile_id",
+            "rule_activation_profile_created_at",
+        }
+        keys = set(payload)
+        if (keys != expected and keys != allowed) or payload[
+            "schema_version"
+        ] != "fdai.offline-kit.v1":
             raise OfflineKitVerificationError("offline kit manifest schema does not match")
         if payload["cli_version"] != cli_version:
             raise OfflineKitVerificationError("offline kit CLI version does not match")
@@ -201,6 +250,46 @@ def verify_offline_kit(
             value = payload[field]
             if not isinstance(value, str) or _relative_path(value) not in declared:
                 raise OfflineKitVerificationError(f"offline kit {field} is not declared")
+        activation_profile_value = payload.get("rule_activation_profile")
+        activation_profile_id_value = payload.get("rule_activation_profile_id")
+        activation_profile_time_value = payload.get("rule_activation_profile_created_at")
+        activation_profile = None
+        activation_profile_id = None
+        activation_profile_created_at = None
+        if activation_profile_value is not None:
+            if not isinstance(activation_profile_value, str):
+                raise OfflineKitVerificationError(
+                    "offline kit Rule activation profile path is invalid"
+                )
+            activation_profile = _relative_path(activation_profile_value)
+            if (
+                not activation_profile.startswith("rule-activation/")
+                or activation_profile not in declared
+            ):
+                raise OfflineKitVerificationError(
+                    "offline kit Rule activation profile is not declared"
+                )
+            if (
+                not isinstance(activation_profile_id_value, str)
+                or _PROFILE_ID.fullmatch(activation_profile_id_value) is None
+            ):
+                raise OfflineKitVerificationError(
+                    "offline kit Rule activation profile id is invalid"
+                )
+            activation_profile_id = activation_profile_id_value
+            if not isinstance(activation_profile_time_value, str):
+                raise OfflineKitVerificationError(
+                    "offline kit Rule activation profile time is invalid"
+                )
+            _absolute_timestamp(
+                activation_profile_time_value,
+                "offline kit Rule activation profile time",
+            )
+            activation_profile_created_at = activation_profile_time_value
+        elif activation_profile_id_value is not None or activation_profile_time_value is not None:
+            raise OfflineKitVerificationError(
+                "offline kit Rule activation profile id has no profile artifact"
+            )
         if not _payload_text(payload, "python_wheel").startswith("python/"):
             raise OfflineKitVerificationError("offline kit Python wheel MUST be under python/")
         prefix_value = payload["provider_mirror_prefix"]
@@ -228,6 +317,9 @@ def verify_offline_kit(
             terraform_binary=_payload_text(payload, "terraform_binary"),
             provider_mirror_prefix=_payload_text(payload, "provider_mirror_prefix"),
             deployment_bundle=_payload_text(payload, "deployment_bundle"),
+            rule_activation_profile=activation_profile,
+            rule_activation_profile_id=activation_profile_id,
+            rule_activation_profile_created_at=activation_profile_created_at,
             file_digests=tuple(sorted(declared.items())),
             file_sizes=tuple(sorted(sizes.items())),
         )
@@ -498,6 +590,16 @@ def _payload_text(value: dict[str, object], field: str) -> str:
     if not isinstance(item, str) or not item:
         raise OfflineKitVerificationError(f"offline kit {field} MUST be text")
     return item
+
+
+def _absolute_timestamp(value: str, label: str) -> datetime:
+    try:
+        parsed = datetime.fromisoformat(value)
+    except ValueError as exc:
+        raise OfflineKitVerificationError(f"{label} is invalid") from exc
+    if parsed.tzinfo is None or parsed.utcoffset() is None:
+        raise OfflineKitVerificationError(f"{label} MUST be timezone-aware")
+    return parsed
 
 
 def _runtime_python_tag() -> str:

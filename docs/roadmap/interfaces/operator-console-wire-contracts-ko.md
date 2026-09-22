@@ -1,8 +1,8 @@
 ---
 title: Operator Console - Data and Wire Contracts
 translation_of: operator-console-wire-contracts.md
-translation_source_sha: 28b09aef51894b13a2f10354d5528f5ecd44047a
-translation_revised: 2026-09-21
+translation_source_sha: 630d21797a4036705c81689579030dcd8ea64c24
+translation_revised: 2026-09-22
 ---
 
 # Operator Console - 데이터 and Wire Contracts
@@ -391,6 +391,7 @@ ActionType은 정확한 의미 ObjectType 또는 InterfaceType target이 있을 
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-22 | implemented | 전용 논리 topic에 content-free Rule 활성화 notice를 추가했습니다. Operator는 인증된 inert 요청과 별도 승인을 저장하고 Core는 정확한 불변 receipt를 다시 읽어 세대 적용을 소유합니다. 이 경로는 Incident를 만들거나 실행 권한을 부여할 수 없습니다. | `current change`; 공유 transport 계약, Operator outbox, Core consumer, 서비스 간 roundtrip 및 실제 PostgreSQL role 테스트. | 운영 검증을 주장하기 전에 배포된 request-to-generation receipt를 보존합니다. |
 | 2026-09-19 | implemented | Assurance terminal과 펼친 Run Record에 필수 content-free Pantheon 참여자 및 평가자 프롬프트 프로필 근거를 추가했습니다. | `current change`, 집중 Core projection, Operator validation, Console parser, persistence, presentation, browser worker, Ruff, strict mypy 및 typecheck 검사. | 이후 clean committed revision에서 새로운 인증 Run Record 하나를 보존합니다. Raw prompt, live score 또는 qualification 근거를 주장하지 않습니다. |
 | 2026-09-19 | implemented | 캡처된 각 semantic 모델 호출에 optional content-free prompt replay manifest를 추가해 Console이 raw hidden 프롬프트 텍스트 없이 동적 SYSTEM 프로필, 순서가 지정된 레이어, digest 및 예산 근거를 확인할 수 있게 했습니다. | `current change`, 집중 Core semantic projection 및 Console model-trace parser와 presentation 테스트, Ruff, strict mypy 및 typecheck. | 이후 정리된 커밋 리비전에서 새로운 인증 browser Run Record를 보존합니다. 이 변경은 live 프롬프트 품질이나 qualification을 주장하지 않습니다. |
 | 2026-09-19 | implemented | 완료되지 않은 assurance 평가가 생성된 답변과 범위가 제한된 정확한 실패 사유를 보존하면서도 Operator wire에서 답변 완료 상태로 표시되지 않도록 했습니다. | `current change`, 집중 Operator 대화 테스트 57개 통과, Ruff 및 format 통과. | 배포 후 새로운 인증된 판단 보류 최종 증적을 보존합니다. 공급자 실패를 답변 완료로 보고해서는 안 됩니다. |

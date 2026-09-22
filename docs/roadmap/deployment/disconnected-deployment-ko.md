@@ -1,8 +1,8 @@
 ---
 title: 폐쇄망 배포
 translation_of: disconnected-deployment.md
-translation_source_sha: 6db8a7e856470ef40a93fa81d8055941cdcf3b7d
-translation_revised: 2026-09-16
+translation_source_sha: 67600288bda75fa95b3471bd3b723f2ef3606771
+translation_revised: 2026-09-22
 ---
 # 폐쇄망 배포
 
@@ -312,6 +312,12 @@ CLI 및 platform 버전을 연결하며, symlink와 추가 파일을 거부하�
 업스트림 출처의 내부 mirror가 지원되는 입력입니다. 런타임에 공개 출처 URL은 필요하지
 않습니다
 ([rule-catalog-collection-ko.md](../rules-and-detection/rule-catalog-collection-ko.md)).
+
+오프라인 키트는 `--rule-activation-profile`, `--rule-activation-profile-id`,
+`--rule-activation-profile-created-at`으로 하나의 Rule 활성화 profile을 바인딩할 수 있습니다.
+서명된 매니페스트는 정확한 profile 바이트, ID 및 source 시각을 포함합니다. `offline prepare`는
+검토된 멤버십을 배포 로컬 PostgreSQL 세대에 조정하는 데 필요한 profile digest와 Core 환경
+바인딩을 반환합니다. 준비 단계에서는 profile을 적용하거나 enforce 권한을 부여하지 않습니다.
 
 ### 6. 조작된 증거가 아니라 저하된 증거를 기대할 것
 

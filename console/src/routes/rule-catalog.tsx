@@ -12,6 +12,10 @@ import {
 import { currentRoute, navigate, pushRouteState, replaceRouteState, routeHref } from "../router";
 import { t } from "./i18n/governance";
 import { RuleCatalogBody } from "./rule-catalog-body";
+import {
+  approveRuleActivation,
+  requestRuleActivation,
+} from "./rule-catalog-activation";
 import { RuleDetailDrawer } from "./rule-catalog-detail";
 import { isRuleListUpdating } from "./rule-catalog.model";
 import {
@@ -25,10 +29,15 @@ import {
 } from "./rule-catalog-state";
 import {
   type DetailState,
+  type ActivationHistoryState,
+  type ActivationState,
   type FindingsResponse,
   type FindingsState,
   type RuleCatalogResponse,
+  type RuleActivationHistoryDto,
+  type RuleActivationStatusDto,
   type RuleDetailDto,
+  type PendingRuleActivationRequest,
 } from "./rule-catalog-types";
 export {
   ruleCatalogHref,
@@ -125,6 +134,26 @@ function AtomicRuleCatalogRoute({ client }: Props) {
   const [data, setData] = useState<RuleCatalogResponse | null>(null);
   const [status, setStatus] = useState<"loading" | "ready" | "error" | "unavailable">("loading");
   const [errorMsg, setErrorMsg] = useState("");
+  const [activationRefresh, setActivationRefresh] = useState(0);
+  const [activation, setActivation] = useState<ActivationState>({ status: "loading" });
+
+  useEffect(() => {
+    let cancelled = false;
+    setActivation({ status: "loading" });
+    (async () => {
+      try {
+        const activationData = await client.panel<RuleActivationStatusDto>("/rules/activation");
+        if (!cancelled) setActivation({ status: "ready", data: activationData });
+      } catch (error) {
+        if (cancelled) return;
+        const message = error instanceof Error ? error.message : String(error);
+        setActivation(isOptionalOperatorApiUnavailable(error)
+          ? { status: "unavailable", message: t("governance.rules.activation.unavailable") }
+          : { status: "error", message });
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [activationRefresh, client]);
 
   // Debounce the free-text box so a keystroke does not fire a request
   // per character.
@@ -304,6 +333,56 @@ function AtomicRuleCatalogRoute({ client }: Props) {
     };
   }, [client, selected]);
 
+  const [activationHistory, setActivationHistory] = useState<ActivationHistoryState>({
+    status: "loading",
+  });
+  useEffect(() => {
+    if (selected === null) return;
+    let cancelled = false;
+    setActivationHistory({ status: "loading" });
+    (async () => {
+      try {
+        const history = await client.panel<RuleActivationHistoryDto>(
+          `/rules/${encodeURIComponent(selected.id)}/activation-history`,
+          { limit: "50" },
+        );
+        if (!cancelled) setActivationHistory({ status: "ready", data: history });
+      } catch (error) {
+        if (cancelled) return;
+        const message = error instanceof Error ? error.message : String(error);
+        setActivationHistory(isOptionalOperatorApiUnavailable(error)
+          ? { status: "unavailable", message: t("governance.rules.activation.historyUnavailable") }
+          : { status: "error", message });
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [activationRefresh, client, selected]);
+
+  async function submitActivation(enabled: boolean, reason: string) {
+    if (selected === null || activation.status !== "ready") {
+      throw new Error(t("governance.rules.activation.unavailable"));
+    }
+    const receipt = await requestRuleActivation(client, {
+      ruleId: selected.id,
+      enabled,
+      reason,
+      generationDigest: activation.data.generation_digest,
+    });
+    setActivation({ status: "loading" });
+    setActivationRefresh((value) => value + 1);
+    return receipt;
+  }
+
+  async function submitApproval(request: PendingRuleActivationRequest) {
+    const receipt = await approveRuleActivation(client, {
+      requestId: request.request_id,
+      proposalDigest: request.proposal_digest,
+    });
+    setActivation({ status: "loading" });
+    setActivationRefresh((value) => value + 1);
+    return receipt;
+  }
+
   // Close the drawer on Escape, and lock background scroll while it is
   // open so the list behind the overlay does not scroll (and wheel
   // events at the drawer's edge do not chain to the document).
@@ -378,6 +457,7 @@ function AtomicRuleCatalogRoute({ client }: Props) {
         selected={selected}
         detail={detail}
         findings={findings}
+        activation={activation}
         affectedCounts={affectedCounts}
         onSelect={selectRule}
         onFilter={updateFilter}
@@ -385,7 +465,15 @@ function AtomicRuleCatalogRoute({ client }: Props) {
         onPage={(nextOffset) => navigate(ruleCatalogHref(filters, nextOffset, selected))}
       />
       {selected !== null ? (
-        <RuleDetailDrawer detail={detail} findings={findings} onClose={closeRuleDetail} />
+        <RuleDetailDrawer
+          detail={detail}
+          findings={findings}
+          activation={activation}
+          activationHistory={activationHistory}
+          onRequestActivation={submitActivation}
+          onApproveActivation={submitApproval}
+          onClose={closeRuleDetail}
+        />
       ) : null}
     </div>
   );

@@ -1,8 +1,8 @@
 ---
 title: 보안과 아이덴티티
 translation_of: security-and-identity.md
-translation_source_sha: e0b21fdf24e01f490804f94adf07bee7301a85ef
-translation_revised: 2026-09-20
+translation_source_sha: 464805e18a4627c64fafe8e3704f273601a15f60
+translation_revised: 2026-09-22
 ---
 
 # 보안과 아이덴티티
@@ -34,6 +34,7 @@ translation_revised: 2026-09-20
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-22 | implemented | 직접 Rule 활성화를 인증된 요청자와 서로 다른 승인자 신원에 결속하고 Core 소유의 불변 receipt table에 대한 Operator의 직접 접근을 제거했습니다. 잠긴 definer trigger가 수락된 source proposal을 캡처하며 Core는 receipt 읽기 전용 접근만 유지합니다. | `current change`; 집중 계약 및 HTTP 경계 테스트; 실제 일회용 PostgreSQL role 테스트; migration inventory; strict mypy 및 Ruff. | 운영 검증을 주장하기 전에 배포된 role 및 감사 근거를 보존합니다. 멤버십은 계속 enforce 또는 실행 권한을 부여하지 않습니다. |
 | 2026-09-20 | validated | 자동 RCA 로그와 추적 읽기를 독립 출처 deadline과 현재 Azure Monitor 조회 endpoint 뒤에 격리했습니다. Timeout은 사용 불가 근거로 남고 한 출처가 다른 출처의 완료된 인용을 막지 않으며, 어떤 결과도 판단 또는 실행 권한을 부여하지 않습니다. | `current change`; 집중 RCA 및 Azure 어댑터 테스트 353건, Ruff 및 strict mypy 통과, 구성된 로컬 읽기 신원으로 실제 프로바이더 둘을 5초 side-path 상한 안에서 1.793초에 완료했으며 probe 범위의 인용은 0건이었습니다. | 운영 원인 정확도를 주장하기 전에 실제 오류 행이 있는 통제된 다중 작업 영역 근거를 보존합니다. |
 | 2026-09-17 | implemented | 정확한 Pod 재시작, Deployment 크기 조정 및 다이제스트 고정 롤아웃 복구를 위해 격리된 실행기에 namespace 범위의 Kubernetes 효과 신원을 추가했습니다. | `current change`; 격리된 실행기 어댑터와 테스트, AKS 렌더러, namespace Role 및 RoleBinding 테스트, 런타임 지원 매니페스트. | 클러스터 사용 가능 후 정확한 AKS 계획을 검토하고 적용한 뒤, 런타임 검증을 주장하기 전에 독립 효과 확인을 보존합니다. |
 | 2026-09-14 | implemented | 컨트롤 루프 측정, RCA, 관측, 시작, 감사 미러 및 Operator 투영 경계 전반에서 운영 활동 소유권을 기계 실행과 인증된 게시 신원으로부터 분리했습니다. | `current change`; 집중 서비스 계약, Core, 파이프라인 및 Operator 투영 테스트 통과. | 정확히 병합된 개정 번호의 배포 근거를 수집합니다. 귀속 정보는 설명용이며 런타임 권한을 부여하지 않습니다. |

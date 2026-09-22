@@ -1,8 +1,8 @@
 ---
 title: MSCP Operational Profile
 translation_of: mscp-operational-profile.md
-translation_source_sha: bb96aaeea04895ada55077b7b51ab0f60980fe52
-translation_revised: 2026-09-14
+translation_source_sha: 84cd26e5fa3cd47523a75313d746b3f7d62929e3
+translation_revised: 2026-09-22
 ---
 # MSCP Operational 프로파일
 
@@ -47,6 +47,7 @@ MSCP 레벨을 구현하거나 전체 MSCP conformance를 충족한다고 주장
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-22 | implemented | 완전한 판단 사이에서 활성 Rule 멤버십을 교체할 수 있게 하면서 MSCP 프로파일 경계를 보존했습니다. 세대 변경은 효과 관측을 활성화하지 않으며 `ResponseOutcome`, 권한 상한, 승인 또는 실행을 변경하지 않습니다. | `current change`; 컨트롤 루프 세대 교체와 집중 T0 및 활성화 테스트. | 기존 측정 준비 상태 및 통제된 게이팅 작업은 변경되지 않습니다. |
 | 2026-09-14 | implemented | MSCP를 활성화하거나 권한 상한을 바꾸지 않고 기존 효과 조정 요청 싱크를 HIL 재개에 연결했습니다. | `current change`; 이슈 #962; 집중 HIL 조정 및 런타임 배선 검사입니다. | HIL 승인 액션 하나의 배포된 독립 관측 근거를 보존합니다. |
 | 2026-08-31 | implemented | 아직 기록되지 않은 관측을 버리기만 하지 않고 보류하도록 만들고, 액션 수명 주기를 주입 가능한 시계 위에 올렸습니다. 이전 변환 결과는 계약이 표현할 수 없는 관측을 버리면서도 판정을 `verified`로 남겨 두었기 때문에, 실제 `verify_effect` 결과의 관측 시각이 `recorded_at`보다 뒤일 때 여전히 발송 내부에서 계약 검증 오류가 발생했습니다. 이제 허용성 판단이 결정, shadow 감사 항목, 변환 결과보다 먼저 실행되어 그런 근거를 `observation_not_yet_recorded` 사유의 `hold`로 낮추며, 이미 보류된 판정은 사유를 유지합니다. shadow 효과 항목은 액션 생성과 전달 구간을 추가로 기록하고, `ControlLoop`와 `ActionBuilder`는 하나의 공유 시계를 받아 고정 재생이 생성, 예측, 전달, 관측, 기록을 벽시계가 아닌 시나리오 시간선 위에서 정렬합니다. | `current change`; `core/mscp_profile/effect_verification.py`; `core/mscp_profile/response_outcome.py`; `core/mscp_profile/shadow_effect.py`; `core/control_loop/_execution.py`; `core/executor/action_builder.py`; `tests/scenarios/test_v2026_07_replay.py::test_sre_full_loop_fails_closed_on_deficient_effect_evidence`의 `not_yet_recorded` 사례는 보류를 되돌리면 계약 검증 오류로 실패합니다; `uv run pytest -q --no-cov services/core-control-plane/tests/scenarios services/core-control-plane/tests/core/mscp_profile services/core-control-plane/tests/core/executor services/core-control-plane/tests/pipeline`가 통과했습니다. | 근거는 여전히 shadow에서 실행한 프로세스 내 고정 재생이므로, 배포 환경에 고정된 shadow 근거 관측 구간은 열려 있습니다. |
 | 2026-08-31 | implemented | 계약이 표현할 수 없는 관측에 대해 `ResponseOutcome` 변환 결과가 실패 시 차단하도록 만들었습니다. 효과 창을 벗어났거나 아직 기록되지 않은 관측은 이전에는 발송 내부에서 계약 검증 오류를 일으켜, 부족한 효과 근거가 shadow `hold` 근거가 아니라 발송 시점 오류가 되었습니다. 이제 변환 결과는 그런 관측을 버리고 `unscorable`로 기록하며, shadow 효과 감사 항목이 원본 값을 보존하고 계약 불변 조건 자체는 그대로입니다. | `current change`; `core/mscp_profile/response_outcome.py`; `tests/core/mscp_profile/test_response_outcome.py`; `tests/scenarios/test_v2026_07_replay.py::test_sre_full_loop_fails_closed_on_deficient_effect_evidence`의 기한 초과 사례는 변환 결과 수정을 되돌리면 계약 검증 오류로 실패합니다; `uv run pytest -q --no-cov services/core-control-plane/tests/scenarios services/core-control-plane/tests/core/mscp_profile services/core-control-plane/tests/contracts/test_response_outcome.py`가 통과했습니다. | 근거는 shadow에서 실행한 프로세스 내 고정 재생에서 나오므로, 배포 환경에 고정된 shadow 근거 관측 구간은 여전히 열려 있습니다. |

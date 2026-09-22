@@ -1,7 +1,7 @@
 ---
 title: FDAI Console 대화
 translation_of: operator-console.md
-translation_source_sha: 1529f9ea9d01c7da469d1252abe78dced0c4838f
+translation_source_sha: c04264cc8ba1cab4295ac123ce0da4570c22b0b9
 translation_revised: 2026-09-22
 ---
 # FDAI Console 대화
@@ -53,6 +53,12 @@ Console shell은 헤더에 간결한 FDAI 브랜드 락업을 유지하고, 외�
 Tab과 Deck이 idle 상태이면 브라우저에서 인시던트를 처음 관찰할 때 localized 읽기 전용 조사 턴을 한 번 제출합니다. Browser-local 인시던트 원장은 reload 뒤 재생을 억제하며, 인시던트 배지를 누르면 명시적으로 다시 조사할 수 있습니다. 인시던트 질문이 여러 기록과 같은 정도로 일치하면 최종 답변은 plain-text 안내 대신 범위가 제한된 후보 버튼을 포함합니다. 버튼은 해당 후보의 exact 인시던트 대화를 열고 localized 읽기 전용 조사 턴을 즉시 제출합니다. 버튼 click은 운영자의 명시적인 요청입니다. 자동 active-incident 스트림 열림은 managed-resource 액션을 제출하지 않습니다.
 
 이 문서는 **pull 방향**, 즉 오퍼레이터가 묻고 시뮬레이션하고 승인하는 경로를 다룹니다. Push와 pull은 같은 채널 자격 증명과 감사 계약을 공유하지만 서로 다른 통합 표면입니다. 로컬 준비에서 비공개 `console/.env.local`에는 브라우저 연결과 서버가 소유하는 `FDAI_LOCAL_RESOURCE_GROUP` 선택자만 추가할 수 있습니다. 명시적 프로세스 값이 우선하고 중복 키는 안전하게 차단하며 이 선택자는 실행 권한을 부여하지 않습니다. 로컬 준비 과정은 Terraform 상태를 읽지 않습니다. 로컬 상태 준비 캐시를 재사용하려면 실제 legacy migration과 서비스 migration 5개의 head가 모두 일치해야 하므로, 같은 Docker volume 안에서 데이터베이스를 다시 만들면 schema 준비를 다시 실행합니다.
+
+Rules workspace는 카탈로그 출처와 배포 로컬 활성화 멤버십을 구분합니다. 선택한 Rule은
+현재 PostgreSQL 세대와 변경자 이력을 표시합니다. Contributor는 영향이 없는 멤버십 요청을
+제출할 수 있고, 별도의 Approver 또는 Owner가 정확한 proposal digest를 승인할 수 있습니다.
+브라우저는 PostgreSQL에 직접 쓰거나 actor identity를 제공하지 않으며 enforce 또는 실행
+권한을 부여하지 않습니다.
 > 고객-무관: 아래의 모든 채널 id, LLM 배포 이름, 리소스 id, 그룹 이름은 자리 표시자. 포크는 구성으로 실제 값을 공급합니다 ([generic-scope.instructions.md](../../../.github/instructions/generic-scope.instructions.md)).
 ## 1. Framing - 무엇인가 (그리고 무엇이 아닌가)
 인스턴스 후보 접수는 인증된 principal, 역할 및 그룹 범위를 사용하며 사람 보고 관계, 할당, 승인 또는 액션 권한을 바꾸지 않습니다. 기본 Core 인덱스 수명 주기는 계속 에이전트가 소유하는 읽기 전용 경로입니다. 정확한 ID 결과는 의미 순위 검색의 자격이나 전체 목록을 뜻하지 않습니다. 식별자 중심의 이중 언어 최종 응답은 전체 목록이 아닌 부분 후보이며 실행 권한이 없음을 명시합니다. 임의 속성을 표시하지 않으며 첨부 파일 인가, 정확한 문서 인용 또는 문서 근거의 완전성을 대신하지 않습니다.

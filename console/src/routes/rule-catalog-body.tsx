@@ -16,6 +16,7 @@ import { ruleCatalogHref, type RuleFilters as Filters, type RuleSelection as Sel
 import {
   SEVERITY_PILL,
   type DetailState,
+  type ActivationState,
   type FindingsState,
   type RuleCatalogResponse,
   type RuleDto,
@@ -29,6 +30,7 @@ export interface RuleCatalogBodyProps {
   readonly selected: Selection | null;
   readonly detail: DetailState;
   readonly findings: FindingsState;
+  readonly activation: ActivationState;
   readonly affectedCounts: Readonly<Record<string, number>>;
   readonly onSelect: (selection: Selection) => void;
   readonly onFilter: (patch: Partial<Filters>) => void;
@@ -44,14 +46,19 @@ export function RuleCatalogBody({
   selected,
   detail,
   findings,
+  activation,
   affectedCounts,
   onSelect,
   onFilter,
   onSearch,
   onPage,
 }: RuleCatalogBodyProps) {
-  const active = data.facets.by_origin["active"] ?? 0;
+  const catalogActive = data.facets.by_origin["active"] ?? 0;
   const collected = data.facets.by_origin["collected"] ?? 0;
+  const activeMembership = activation.status === "ready" ? activation.data.active_rule_count : null;
+  const activeRuleIds = new Set(
+    activation.status === "ready" ? activation.data.active_rule_ids : [],
+  );
 
   usePublishViewContext(
     () => {
@@ -119,18 +126,19 @@ export function RuleCatalogBody({
             ? t("governance.rules.context.selectedHeadline", {
                 id: selected.id,
                 total: data.total,
-                active,
+                active: catalogActive,
                 collected,
               })
             : t("governance.rules.context.headline", {
                 total: data.total,
-                active,
+                active: catalogActive,
                 collected,
               }),
         capturedAt: new Date().toISOString(),
         facts: [
           { key: "total_rules", value: data.total, group: "catalog" },
-          { key: "active_rules", value: active, group: "catalog" },
+          { key: "catalog_active_rules", value: catalogActive, group: "catalog" },
+          { key: "activation_active_rules", value: activeMembership, group: "activation" },
           { key: "collected_rules", value: collected, group: "catalog" },
           { key: "filtered_total", value: data.filtered_total, group: "catalog" },
           { key: "resource_types", value: data.resource_type_count, group: "catalog" },
@@ -161,7 +169,7 @@ export function RuleCatalogBody({
         },
       };
     },
-    [data, active, collected, filters, selected, detail, findings],
+    [data, catalogActive, collected, activeMembership, filters, selected, detail, findings],
   );
 
   const columns: readonly Column<RuleDto>[] = useMemo(
@@ -182,6 +190,18 @@ export function RuleCatalogBody({
         render: (rule) => (
           <StatusPill kind={rule.origin === "active" ? "enforce" : "neutral"} label={displayValue("origin", rule.origin)} />
         ),
+      },
+      {
+        key: "activation",
+        header: t("governance.rules.column.activation"),
+        render: (rule) => activation.status === "ready" ? (
+          <StatusPill
+            kind={activeRuleIds.has(rule.id) ? "success" : "neutral"}
+            label={activeRuleIds.has(rule.id)
+              ? t("governance.rules.activation.enabled")
+              : t("governance.rules.activation.disabled")}
+          />
+        ) : <span class="muted">-</span>,
       },
       {
         key: "severity",
@@ -239,7 +259,7 @@ export function RuleCatalogBody({
         render: () => <span class="row-chevron" aria-hidden="true">›</span>,
       },
     ],
-    [affectedCounts],
+    [activation, affectedCounts],
   );
 
   const pageStart = data.filtered_total === 0 ? 0 : data.offset + 1;
@@ -256,7 +276,8 @@ export function RuleCatalogBody({
       </div>
       <KpiGrid>
         <KpiCard href={`${routeHref("rules")}${tableFragment}`} label={t("governance.rules.kpi.total")} value={data.total} />
-        <KpiCard href={`${ruleCatalogHref({ ...filters, origin: "active" }, 0, null)}${tableFragment}`} label={t("governance.rules.kpi.active")} value={active} hint={t("governance.rules.kpi.activeHint")} />
+        <KpiCard href={`${ruleCatalogHref({ ...filters, origin: "active" }, 0, null)}${tableFragment}`} label={t("governance.rules.kpi.active")} value={catalogActive} hint={t("governance.rules.kpi.activeHint")} />
+        <KpiCard href={`${routeHref("rules")}${tableFragment}`} label={t("governance.rules.kpi.activated")} value={activeMembership ?? "-"} hint={t("governance.rules.kpi.activatedHint")} />
         <KpiCard href={`${ruleCatalogHref({ ...filters, origin: "collected" }, 0, null)}${tableFragment}`} label={t("governance.rules.kpi.collected")} value={collected} hint={t("governance.rules.kpi.collectedHint")} />
         <KpiCard href={`${routeHref("rules")}${tableFragment}`} label={t("governance.rules.kpi.resourceTypes")} value={data.resource_type_count} />
       </KpiGrid>
@@ -292,7 +313,7 @@ export function RuleCatalogBody({
               </a>
               <a class={filters.origin === "active" ? "is-active" : undefined} aria-current={filters.origin === "active" ? "page" : undefined} href={ruleCatalogHref({ ...filters, origin: "active" }, 0, null)}>
                 <strong>{t("governance.rules.kpi.active")}</strong>
-                <small>{active} - {t("governance.rules.kpi.activeHint")}</small>
+                <small>{catalogActive} - {t("governance.rules.kpi.activeHint")}</small>
               </a>
               <a class={filters.origin === "collected" ? "is-active" : undefined} aria-current={filters.origin === "collected" ? "page" : undefined} href={ruleCatalogHref({ ...filters, origin: "collected" }, 0, null)}>
                 <strong>{t("governance.rules.kpi.collected")}</strong>

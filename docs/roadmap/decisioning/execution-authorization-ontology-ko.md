@@ -1,7 +1,7 @@
 ---
 translation_of: execution-authorization-ontology.md
-translation_source_sha: 912e9ada164e9db81e83ce8169118da55b9c3554
-translation_revised: 2026-09-17
+translation_source_sha: 74d4da21a32b5f1846f15375bf3d94cfd67e0bd4
+translation_revised: 2026-09-22
 ---
 # 실행 권한 부여 온톨로지
 
@@ -49,6 +49,7 @@ translation_revised: 2026-09-17
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-22 | implemented | 실행 권한을 변경하지 않고 배포 로컬 Rule 멤버십 활성화를 추가했습니다. 선택된 Rule도 프로바이더 작업 전에 배정 효과, 승격 상태, effective-access 근거, risk 결정 및 별도 실행 승인을 계속 통과해야 합니다. | `current change`; 활성화 계약, 컨트롤 루프 세대 교체, 집중 T0 및 활성화 테스트. | 배포된 활성화 근거는 별도로 보존합니다. 멤버십에서 기능, 프로바이더 권한 또는 실행기 신원을 추론하지 않습니다. |
 | 2026-09-17 | implemented | `AccessGrantRequest` ObjectType을 6개 속성에서 검토에 필요한 의미 필드 11개를 갖는 버전 `2.0.0`으로 확장했습니다. 제공되는 정규화된 `id` 키와 기존 역할 필터 범위를 보존하면서 기능, 권한 부여 모드, 요청 시각, 정족수 및 개정 번호를 추가했습니다. | `current change`, `AccessGrantRequest.yaml`, `test_ontology_declaration_projection.py`, 집중 선언 상세 회귀 검사 통과 | 선언 메타데이터만 바로잡았습니다. 권한 부여, 승인, 적용, 검증 및 철회 권한은 변경하지 않았습니다. |
 | 2026-08-13 | implemented | 이전 출처 이력을 재구성하지 않고 구현 원장을 도입했습니다. | 구현 범위 표의 현재 소스 경계와 집중 검사입니다. | 이 문서의 범위가 제한된 업스트림 구현에는 남은 작업이 없습니다. |
 | 2026-08-16 | implemented | 문서가 밝히지 않았던, 제공되는 강제 기본값을 기록했습니다. 컨트롤 루프 통합은 실재하지만 `execution_authorization_evaluator` 의 기본값은 `None`, `execution_authorization_required` 의 기본값은 `False` 이고 이를 설정하는 것은 `bind_execution_authorization` 뿐이므로, 기본 배포는 이 게이트가 작동하지 않는 상태로 동작합니다. 구현 범위 행은 바뀌지 않습니다. 배포 소유 연결은 이미 이 문서의 범위 밖으로 선언되어 있고, 누락된 것은 기본값 자체였기 때문입니다. | `current change`; 두 필드를 정의하는 `composition/_helpers.py`; `execution_authorization_evaluator=` 및 `execution_authorization_required=`를 각각 검색하면 `wire_execution_authorization.py`와 `control_loop.py`의 두 읽기만 일치합니다. | 배포 경로에서 이 경계를 연결하거나, 연결을 배포 소유로 유지한다는 결정을 기록합니다. |

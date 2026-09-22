@@ -100,6 +100,11 @@ class T0Engine:
         self._index = index
         self._evaluator: PolicyEvaluator = evaluator or AbstainEvaluator()
 
+    def with_rules(self, rules: tuple[Rule, ...]) -> T0Engine:
+        """Return a new engine preserving evaluator and SignalType semantics."""
+
+        return T0Engine(index=self._index.with_rules(rules), evaluator=self._evaluator)
+
     def evaluate(
         self,
         *,

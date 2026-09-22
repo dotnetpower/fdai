@@ -80,6 +80,8 @@ class RuntimeTaskConfiguration:
     stewardship_merge_effects_worker: Any = None
     handover_knowledge_lifecycle_worker: Any = None
     assignment_intake_consumer: Any = None
+    rule_activation_consumer: Any = None
+    rule_activation_reconciliation: Any = None
     assignment_outcome_consumer: Any = None
     human_access_reconciliation: Any = None
     t1_mini_probe: T1MiniProbe | None = None
@@ -601,6 +603,28 @@ async def run_runtime_tasks(
         if config.assignment_intake_consumer is not None
         else None
     )
+    rule_activation_task = (
+        asyncio.create_task(
+            config.readiness.run_when_ready(
+                config.stop,
+                lambda: config.rule_activation_consumer.run(bus=config.bus, stop=config.stop),
+            ),
+            name="rule-activation-intake",
+        )
+        if config.rule_activation_consumer is not None
+        else None
+    )
+    rule_activation_reconciliation_task = (
+        asyncio.create_task(
+            config.readiness.run_when_ready(
+                config.stop,
+                lambda: config.rule_activation_reconciliation.run(config.stop),
+            ),
+            name="rule-activation-reconciliation",
+        )
+        if config.rule_activation_reconciliation is not None
+        else None
+    )
     ontology_index_task = schedule_ontology_index_reconciliation(
         binding=config.ontology_index_runtime,
         runtime=config.pantheon_runtime,
@@ -654,6 +678,8 @@ async def run_runtime_tasks(
             discovery_activation_task,
             continuous_operating_model_task,
             assignment_intake_task,
+            rule_activation_task,
+            rule_activation_reconciliation_task,
         ),
         background=(
             ontology_index_task,

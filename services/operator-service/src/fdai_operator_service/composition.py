@@ -122,6 +122,9 @@ from fdai_operator_service.postgres_read_investigation_completion import (
     PostgresReadInvestigationCompletionConfig,
     PostgresReadInvestigationCompletionRepository,
 )
+from fdai_operator_service.postgres_rule_activation_outbox import (
+    build_rule_activation_notice_bridge,
+)
 from fdai_operator_service.projections import (
     ProjectionUnavailableError,
     UnavailableOperatorReadModel,
@@ -130,6 +133,7 @@ from fdai_operator_service.read_investigation_completion_runtime import (
     ReadInvestigationCompletionBridge,
 )
 from fdai_operator_service.read_investigation_runtime import ReadInvestigationBridge
+from fdai_operator_service.rule_activation_outbox import RuleActivationNoticeBridge
 from fdai_operator_service.runtime import OperatorRuntime
 from fdai_operator_service.streaming import LiveStreamEvent, LiveStreamHub
 
@@ -328,6 +332,10 @@ class ProductionOperatorComposition:
             else None
         )
         assignment_notice_bridge = build_assignment_notice_bridge(environment, semantic_bus)
+        rule_activation_notice_bridge = build_rule_activation_notice_bridge(
+            environment,
+            semantic_bus,
+        )
         azure_monitor_webhook_bridge = (
             AzureMonitorWebhookBridge(
                 store=family_store,
@@ -447,6 +455,7 @@ class ProductionOperatorComposition:
                 hil_decision_outbox_bridge,
                 alert_quality_bridge=alert_quality_bridge,
                 assignment_notice_bridge=assignment_notice_bridge,
+                rule_activation_notice_bridge=rule_activation_notice_bridge,
                 test_context_bridge=test_context_bridge,
                 observer_proposal_bridge=observer_proposal_bridge,
             ),
@@ -476,6 +485,7 @@ class ProductionOperatorComposition:
                 teams_http_client,
                 alert_quality_bridge=alert_quality_bridge,
                 assignment_notice_bridge=assignment_notice_bridge,
+                rule_activation_notice_bridge=rule_activation_notice_bridge,
                 test_context_bridge=test_context_bridge,
                 observer_proposal_bridge=observer_proposal_bridge,
             ),
@@ -682,6 +692,7 @@ def _readiness_probe(
     live_stage_relay: LiveStageKafkaRelay | None,
     hil_decision_outbox_bridge: HilDecisionOutboxBridge | None = None,
     assignment_notice_bridge: AssignmentNoticeBridge | None = None,
+    rule_activation_notice_bridge: RuleActivationNoticeBridge | None = None,
     alert_quality_bridge: AlertQualityBridge | None = None,
     test_context_bridge: TestContextBridge | None = None,
     observer_proposal_bridge: ObserverProposalBridge | None = None,
@@ -725,6 +736,10 @@ def _readiness_probe(
             and (alert_quality_bridge is None or alert_quality_bridge.workers_ready())
             and (test_context_bridge is None or test_context_bridge.workers_ready())
             and (assignment_notice_bridge is None or assignment_notice_bridge.workers_ready())
+            and (
+                rule_activation_notice_bridge is None
+                or rule_activation_notice_bridge.workers_ready()
+            )
             and (observer_proposal_bridge is None or observer_proposal_bridge.workers_ready())
         )
 

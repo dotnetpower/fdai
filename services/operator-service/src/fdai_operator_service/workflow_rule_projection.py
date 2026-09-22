@@ -5,6 +5,11 @@ from __future__ import annotations
 from collections import Counter
 from collections.abc import Mapping
 
+from fdai_service_contracts.rule_activation import (
+    RuleActivationGeneration,
+    RuleActivationProposal,
+    RuleActivationResult,
+)
 from starlette.exceptions import HTTPException
 
 from fdai_operator_service.families.workflow.contracts import (
@@ -146,6 +151,137 @@ def _rule_findings_summary_payload(
 def _rule_counts(rules: list[dict[str, object]], field: str) -> dict[str, int]:
     counts = Counter(str(item[field]) for item in rules if isinstance(item.get(field), str))
     return dict(sorted(counts.items(), key=lambda item: (-item[1], item[0])))
+
+
+def rule_activation_status_payload(
+    pointer: Mapping[str, object],
+    generation_record: Mapping[str, object],
+    request_records: tuple[Mapping[str, object], ...] = (),
+    result_records: tuple[Mapping[str, object], ...] = (),
+    *,
+    pending_truncated: bool = False,
+) -> dict[str, object]:
+    """Project the exact current membership generation without inferring enforcement."""
+
+    try:
+        if pointer.get("kind") != "rule_activation.current":
+            raise ValueError
+        generation = RuleActivationGeneration.model_validate(generation_record.get("generation"))
+        if (
+            pointer.get("generation_id") != generation.generation_id
+            or pointer.get("generation_digest") != generation.generation_digest
+        ):
+            raise ValueError
+        revision = pointer.get("revision")
+        activated_at = pointer.get("activated_at")
+        if (
+            isinstance(revision, bool)
+            or not isinstance(revision, int)
+            or revision < 1
+            or not isinstance(activated_at, str)
+        ):
+            raise ValueError
+    except (TypeError, ValueError) as exc:
+        raise HTTPException(
+            status_code=503,
+            detail="authoritative Rule activation projection is malformed",
+        ) from exc
+    completed_request_ids: set[str] = set()
+    for record in result_records:
+        try:
+            completed_request_ids.add(
+                RuleActivationResult.model_validate(record.get("result")).request_id
+            )
+        except (TypeError, ValueError) as exc:
+            raise HTTPException(
+                status_code=503,
+                detail="authoritative Rule activation result projection is malformed",
+            ) from exc
+    pending: list[dict[str, object]] = []
+    for record in request_records:
+        try:
+            if record.get("kind") != "rule_activation.request":
+                raise ValueError
+            proposal = RuleActivationProposal.model_validate(record.get("proposal"))
+            operator_proposal_id = record.get("operator_proposal_id")
+            if not isinstance(operator_proposal_id, str):
+                raise ValueError
+        except (TypeError, ValueError) as exc:
+            raise HTTPException(
+                status_code=503,
+                detail="authoritative Rule activation request projection is malformed",
+            ) from exc
+        if proposal.request_id in completed_request_ids:
+            continue
+        pending.append(
+            {
+                "request_id": operator_proposal_id,
+                "proposal_digest": proposal.proposal_digest,
+                "expected_generation_digest": proposal.expected_generation_digest,
+                "requested_by": proposal.requested_by,
+                "requested_at": proposal.requested_at.isoformat(),
+                "reason": proposal.reason,
+                "changes": [change.model_dump(mode="json") for change in proposal.changes],
+            }
+        )
+    pending.sort(key=lambda item: (str(item["requested_at"]), str(item["request_id"])))
+    return {
+        "revision": revision,
+        "generation_id": generation.generation_id,
+        "generation_digest": generation.generation_digest,
+        "profile_id": generation.profile_id,
+        "profile_version": generation.profile_version,
+        "active_rule_count": len(generation.members),
+        "active_rule_ids": [member.rule_id for member in generation.members],
+        "source": pointer.get("source"),
+        "source_ref": pointer.get("source_ref"),
+        "requested_by": pointer.get("requested_by"),
+        "approver_ids": pointer.get("approver_ids"),
+        "activated_at": activated_at,
+        "pending_requests": pending,
+        "pending_truncated": pending_truncated,
+        "execution_authority": False,
+    }
+
+
+def rule_activation_history_payload(
+    records: tuple[Mapping[str, object], ...],
+    *,
+    rule_id: str,
+    truncated: bool,
+) -> dict[str, object]:
+    """Project terminal changes for one Rule with exact actor and source evidence."""
+
+    history: list[dict[str, object]] = []
+    for record in records:
+        try:
+            result = RuleActivationResult.model_validate(record.get("result"))
+        except (TypeError, ValueError) as exc:
+            raise HTTPException(
+                status_code=503,
+                detail="authoritative Rule activation history is malformed",
+            ) from exc
+        change = next((item for item in result.changes if item.rule_id == rule_id), None)
+        if change is None:
+            continue
+        history.append(
+            {
+                "request_id": result.request_id,
+                "status": result.status.value,
+                "enabled": change.enabled,
+                "source": result.source.value,
+                "source_ref": result.source_ref,
+                "requested_by": result.requested_by,
+                "approver_ids": list(result.approver_ids),
+                "reason": result.reason,
+                "previous_generation_digest": result.previous_generation_digest,
+                "resulting_generation_digest": result.resulting_generation_digest,
+                "completed_at": result.completed_at.isoformat(),
+                "readback_verified": result.readback_verified,
+                "failure_reason": result.failure_reason,
+            }
+        )
+    return {"rule_id": rule_id, "history": history, "truncated": truncated}
 
 
 def _best_practice_catalog_payload(

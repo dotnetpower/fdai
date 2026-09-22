@@ -116,6 +116,17 @@ async def test_default_publisher_emits_nothing(tmp_path: Path) -> None:
     assert len(recorder.events) == 0
 
 
+@pytest.mark.asyncio
+async def test_rule_generation_replacement_rejects_empty_membership(tmp_path: Path) -> None:
+    loop = _make_loop(stage_publisher=None, tmp_path=tmp_path)
+
+    with pytest.raises(ValueError, match="unique non-empty membership"):
+        await loop.replace_rule_generation(
+            rules=(),
+            generation_digest="a" * 64,
+        )
+
+
 # ---------------------------------------------------------------------------
 # T1-unavailable fallback path: ingest.done -> route.done -> audit.done.
 # ---------------------------------------------------------------------------

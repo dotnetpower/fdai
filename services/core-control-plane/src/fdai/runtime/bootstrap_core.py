@@ -6,7 +6,10 @@ import asyncio
 import logging
 from collections.abc import Mapping
 from dataclasses import dataclass, replace
+from datetime import UTC, datetime
 from typing import Any
+
+from fdai_service_contracts.rule_activation import RuleActivationSource
 
 from fdai.composition import (
     Container,
@@ -104,6 +107,18 @@ from fdai.runtime.providers import (
 )
 from fdai.runtime.rca_bindings import bind_t1_rca_from_environment
 from fdai.runtime.readiness import StartupReadinessRuntime, build_startup_readiness_runtime
+from fdai.runtime.rule_activation import (
+    BOOTSTRAP_APPROVER_ENV,
+    BOOTSTRAP_REQUESTER_ENV,
+    PACKAGE_DIGEST_ENV,
+    SOURCE_ENV,
+    SOURCE_RECORDED_AT_ENV,
+    SOURCE_REF_ENV,
+    RuleActivationRuntimeReconciler,
+    build_rule_activation_generation,
+    reconcile_rule_activation,
+)
+from fdai.runtime.rule_activation_transport import build_rule_activation_consumer
 from fdai.runtime.stewardship_governance import (
     StewardshipGovernanceWorker,
     build_stewardship_governance_worker,
@@ -152,6 +167,8 @@ class CoreRuntime:
     stewardship_merge_effects_worker: StewardshipMergeEffectsWorker | None = None
     handover_knowledge_lifecycle_worker: HandoverKnowledgeLifecycleWorker | None = None
     assignment_intake_consumer: Any = None
+    rule_activation_consumer: Any = None
+    rule_activation_reconciliation: RuleActivationRuntimeReconciler | None = None
     assignment_outcome_consumer: Any = None
     human_access_reconciliation: Any = None
     task_workers: TaskWorkerRuntimeBinding | None = None
@@ -200,6 +217,8 @@ class CoreRuntime:
             stewardship_merge_effects_worker=self.stewardship_merge_effects_worker,
             handover_knowledge_lifecycle_worker=self.handover_knowledge_lifecycle_worker,
             assignment_intake_consumer=self.assignment_intake_consumer,
+            rule_activation_consumer=self.rule_activation_consumer,
+            rule_activation_reconciliation=self.rule_activation_reconciliation,
             assignment_outcome_consumer=self.assignment_outcome_consumer,
             human_access_reconciliation=self.human_access_reconciliation,
         )
@@ -543,6 +562,78 @@ async def build_core_runtime(
         mutation_dependency_readiness=mutation_readiness,
         workflow_event_bus=messaging.bus,
     )
+    from fdai.core.rule_activation import StateStoreRuleActivationLedger
+
+    profile_id = environment.get("FDAI_PROFILE_ID", "").strip() or "default"
+    desired_activation_rules = control_loop.rules
+    activation_package_digest = environment.get(PACKAGE_DIGEST_ENV, "").strip()
+    activation_source_value = environment.get(SOURCE_ENV, "").strip()
+    activation_source = (
+        RuleActivationSource(activation_source_value)
+        if activation_source_value
+        else RuleActivationSource.OFFLINE_PACKAGE
+        if activation_package_digest
+        else RuleActivationSource.INSTALLATION
+    )
+    if activation_source is RuleActivationSource.DIRECT:
+        raise RuntimeError("Rule activation startup source MUST NOT be direct")
+    activation_source_ref = environment.get(SOURCE_REF_ENV, "").strip()
+    activation_source_recorded_at = environment.get(SOURCE_RECORDED_AT_ENV, "").strip()
+    if activation_source in {
+        RuleActivationSource.PULL_REQUEST,
+        RuleActivationSource.OFFLINE_PACKAGE,
+    } and (
+        not activation_package_digest
+        or not activation_source_ref
+        or not activation_source_recorded_at
+    ):
+        raise RuntimeError("Reviewed Rule activation source requires ref, digest, and time")
+    source_time = datetime.now(UTC)
+    if activation_source_recorded_at:
+        try:
+            source_time = datetime.fromisoformat(activation_source_recorded_at)
+        except ValueError as exc:
+            raise RuntimeError("Rule activation source time is invalid") from exc
+        if source_time.tzinfo is None or source_time.utcoffset() is None:
+            raise RuntimeError("Rule activation source time MUST be timezone-aware")
+    activation_ledger = StateStoreRuleActivationLedger(store=state_store)
+    activation_preview = build_rule_activation_generation(
+        control_loop.available_rules,
+        profile_id=profile_id,
+        profile_version="1.0.0",
+        created_at=datetime.now(UTC),
+    )
+    activated_rules, activation_generation = await reconcile_rule_activation(
+        ledger=activation_ledger,
+        available_rules=control_loop.available_rules,
+        profile_id=profile_id,
+        profile_version="1.0.0",
+        source_ref=activation_source_ref or f"runtime-artifact:{profile_id}",
+        source_digest=(activation_package_digest or activation_preview.catalog_digest),
+        requested_by=(
+            environment.get(BOOTSTRAP_REQUESTER_ENV, "").strip() or "fdai.release-profile"
+        ),
+        approved_by=(environment.get(BOOTSTRAP_APPROVER_ENV, "").strip() or "fdai.deployment-plan"),
+        source=activation_source,
+        desired_rules=desired_activation_rules,
+        clock=lambda: source_time,
+    )
+    await control_loop.replace_rule_generation(
+        rules=activated_rules,
+        generation_digest=activation_generation.generation_digest,
+    )
+    rule_activation_consumer = build_rule_activation_consumer(
+        store=state_store,
+        ledger=activation_ledger,
+        runtime=control_loop,
+        available_rules=control_loop.available_rules,
+        environment=environment,
+    )
+    rule_activation_reconciliation = (
+        RuleActivationRuntimeReconciler(rule_activation_consumer.coordinator)
+        if rule_activation_consumer is not None
+        else None
+    )
     if resources.isolated_executor_client is not None:
         await resources.isolated_executor_client.start()
     if control_loop.ontology_instance_store is not None:
@@ -775,6 +866,8 @@ async def build_core_runtime(
             if assignment_transport is not None
             else None
         ),
+        rule_activation_consumer=rule_activation_consumer,
+        rule_activation_reconciliation=rule_activation_reconciliation,
         assignment_outcome_consumer=assignment_outcome_consumer,
         human_access_reconciliation=human_access_reconciliation,
         task_workers=resources.task_workers,

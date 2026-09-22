@@ -65,14 +65,20 @@ def _canonical_time(moment: datetime) -> str:
     return moment.astimezone(UTC).isoformat().replace("+00:00", "Z")
 
 
-def _kit(root: Path) -> tuple[Ed25519PrivateKey, bytes, bytes]:
-    paths = (
+def _kit(
+    root: Path,
+    *,
+    rule_activation_profile: bool = False,
+) -> tuple[Ed25519PrivateKey, bytes, bytes]:
+    paths = [
         "python/fdai_deployment_cli-0.1.0-py3-none-any.whl",
         "deployment/bundle.tar.gz",
         "terraform/terraform",
         "terraform/providers/registry.terraform.io/hashicorp/azurerm/provider.zip",
         "bin/opa",
-    )
+    ]
+    if rule_activation_profile:
+        paths.append("rule-activation/profile.yaml")
     for value in paths:
         path = root / value
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -117,6 +123,13 @@ def _kit(root: Path) -> tuple[Ed25519PrivateKey, bytes, bytes]:
         provider_mirror_prefix="terraform/providers",
         opa_binary=paths[4],
         sbom_path="sbom/offline-kit.cdx.json",
+        rule_activation_profile=(
+            "rule-activation/profile.yaml" if rule_activation_profile else None
+        ),
+        rule_activation_profile_id=("baseline" if rule_activation_profile else None),
+        rule_activation_profile_created_at=(
+            "2026-09-22T00:00:00+00:00" if rule_activation_profile else None
+        ),
     )
     private, public = _keys()
     (root / MANIFEST_NAME).write_bytes(manifest)
@@ -167,6 +180,62 @@ def test_offline_kit_verifies_signature_exact_files_and_compatibility(tmp_path: 
             cli_version="0.1.0",
             platform_tag="linux-x86_64",
             python_tag="cpython-999",
+        )
+
+
+def test_offline_kit_binds_a_rule_activation_profile(tmp_path: Path) -> None:
+    _private, public, _manifest = _kit(tmp_path, rule_activation_profile=True)
+
+    result = verify_offline_kit(
+        tmp_path,
+        release_root_pem=public,
+        cli_version="0.1.0",
+        platform_tag="linux-x86_64",
+    )
+
+    assert result.rule_activation_profile == "rule-activation/profile.yaml"
+    assert result.rule_activation_profile_id == "baseline"
+    assert result.rule_activation_profile_created_at == "2026-09-22T00:00:00+00:00"
+    assert (
+        dict(result.file_digests)[result.rule_activation_profile]
+        == hashlib.sha256((tmp_path / result.rule_activation_profile).read_bytes()).hexdigest()
+    )
+
+
+@pytest.mark.parametrize(
+    ("profile_id", "created_at", "message"),
+    [
+        (None, None, "path, id, and time"),
+        ("baseline", "2026-09-22T00:00:00", "timezone-aware"),
+    ],
+)
+def test_offline_kit_rejects_incomplete_activation_profile_metadata(
+    tmp_path: Path,
+    profile_id: str | None,
+    created_at: str | None,
+    message: str,
+) -> None:
+    _kit(tmp_path)
+    profile = tmp_path / "rule-activation/profile.yaml"
+    profile.parent.mkdir(parents=True)
+    profile.write_text("profile", encoding="utf-8")
+
+    with pytest.raises(OfflineKitVerificationError, match=message):
+        build_offline_kit_manifest(
+            tmp_path,
+            kit_version="0.1.0",
+            cli_version="0.1.0",
+            bundle_version="0.1.0",
+            platform_tag="linux-x86_64",
+            python_wheel="python/fdai_deployment_cli-0.1.0-py3-none-any.whl",
+            deployment_bundle="deployment/bundle.tar.gz",
+            terraform_binary="terraform/terraform",
+            provider_mirror_prefix="terraform/providers",
+            opa_binary="bin/opa",
+            sbom_path="sbom/offline-kit.cdx.json",
+            rule_activation_profile="rule-activation/profile.yaml",
+            rule_activation_profile_id=profile_id,
+            rule_activation_profile_created_at=created_at,
         )
 
 
