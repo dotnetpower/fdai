@@ -27,6 +27,7 @@ from fdai.rule_catalog.schema.inventory_query_language import InventoryQueryLang
 
 from .conversation_preflight import (
     ConversationPreflightResult,
+    OperationalPreflightFamily,
     preflight_operational_judgment,
 )
 from .conversation_preflight_targets import (
@@ -35,6 +36,7 @@ from .conversation_preflight_targets import (
 )
 from .intent_graph import build_intent_graph
 from .semantic_judgment import SemanticJudgmentBoundary, SemanticJudgmentObservation
+from .semantic_operational_summary_planning import build_function_backed_summary_frame
 from .semantic_planning_alignment import verify_frame_plan_alignment
 from .semantic_planning_cascade import (
     BOUNDED_T2_ESCALATION_POLICY,
@@ -216,6 +218,7 @@ class SemanticPlanningService:
                 preflight_operational_judgment(
                     preflight_router.effective_result,
                     utterance=utterance,
+                    allow_resource_collection=True,
                 )
                 if self._semantic_judgment is not None
                 and preflight_router.effective_result is not None
@@ -229,6 +232,12 @@ class SemanticPlanningService:
                     descriptors=descriptors,
                     inventory_query_language=self._inventory_query_language,
                 )
+                resource_collection_preflight = (
+                    preflight_router.effective_result is not None
+                    and preflight_router.effective_result.proposal is not None
+                    and preflight_router.effective_result.proposal.operational_family
+                    is OperationalPreflightFamily.RESOURCE_COLLECTION
+                )
                 if stated_filter is not None:
                     stated_proposal, stated_frame = stated_filter
                     if stated_frame.unresolved_terms:
@@ -241,6 +250,26 @@ class SemanticPlanningService:
                                 clarification=stated_proposal.clarification,
                             )
                         )
+                if resource_collection_preflight:
+                    has_state_filter = any(
+                        target.kind in {"resource_state_exclusion_filter", "resource_state_filter"}
+                        for target in promoted_preflight.targets
+                    )
+                    state_frame = (
+                        build_function_backed_summary_frame(
+                            promoted_preflight,
+                            utterance=utterance,
+                            context=context,
+                            descriptors=descriptors,
+                            inventory_query_language=self._inventory_query_language,
+                        )
+                        if has_state_filter
+                        else None
+                    )
+                    if (has_state_filter and state_frame is None) or (
+                        not has_state_filter and stated_filter is None
+                    ):
+                        promoted_preflight = None
             if preflight_intent is not None:
                 descriptors = _descriptors_for_operational_intent(descriptors, preflight_intent)
                 _LOGGER.info(

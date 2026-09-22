@@ -1861,7 +1861,7 @@ def test_verified_recent_state_change_preflight_skips_full_semantic_judgment() -
     assert model.frame_calls == model.plan_calls == 0
 
 
-def test_verified_resource_collection_requires_full_semantic_judgment() -> None:
+def test_verified_resource_collection_skips_full_semantic_judgment_after_grounding() -> None:
     manifest, _definition = _typed_fixture(
         groups=(_SQL_SERVER_GROUP,),
         include_resource_state=True,
@@ -1902,11 +1902,15 @@ def test_verified_resource_collection_requires_full_semantic_judgment() -> None:
         prompt_digest=DIGEST,
     )
 
+    class _NoFullJudgment:
+        def judge(self, **_kwargs: Any) -> Any:
+            raise AssertionError("grounded Resource collection must skip full semantic judgment")
+
     outcome = _service(
         model,
         manifest,
         inventory_query_language=_inventory_query_language(),
-        semantic_judgment=_resource_collection_judgment(proposal),
+        semantic_judgment=_NoFullJudgment(),
     ).plan(
         utterance=utterance,
         prior_turns=(),
@@ -1931,6 +1935,66 @@ def test_verified_resource_collection_requires_full_semantic_judgment() -> None:
     ]
     assert outcome.plan.nodes[-1].arguments["arguments"] == {
         "state_concepts": ["resource_state.running"]
+    }
+    assert model.frame_calls == model.plan_calls == 0
+
+
+def test_verified_state_only_collection_skips_full_semantic_judgment() -> None:
+    manifest, _definition = _typed_fixture(
+        groups=(_VM_GROUP,),
+        include_resource_state=True,
+    )
+    model = _Model(frame=None, plan=None)
+    utterance = "Show resources that are currently not running."
+    state_value = "not running"
+
+    proposal = ConversationPreflightProposal(
+        social_act=SocialAct.NONE,
+        operational_signal=OperationalSignal.EXPLICIT,
+        context_dependency=ContextDependency.NONE,
+        operational_family=OperationalPreflightFamily.RESOURCE_COLLECTION,
+        operational_targets=(
+            SemanticTarget(
+                kind="resource_state_filter",
+                value=state_value,
+                source_start=utterance.index(state_value),
+                source_end=utterance.index(state_value) + len(state_value),
+            ),
+        ),
+        operational_facets=("resource_collection", "list", "current_state"),
+        confidence=0.99,
+    )
+    preflight = ConversationPreflightResult(
+        proposal=proposal,
+        attempted=True,
+        input_digest=content_digest({"utterance": utterance}),
+        proposal_digest=content_digest(proposal.model_dump(mode="json")),
+        model_config_digest=DIGEST,
+        prompt_digest=DIGEST,
+    )
+
+    class _NoFullJudgment:
+        def judge(self, **_kwargs: Any) -> Any:
+            raise AssertionError("grounded state collection must skip full semantic judgment")
+
+    outcome = _service(
+        model,
+        manifest,
+        inventory_query_language=_inventory_query_language(),
+        semantic_judgment=_NoFullJudgment(),
+    ).plan(
+        utterance=utterance,
+        prior_turns=(),
+        principal=Principal(id="operator", role=Role.READER),
+        purpose="operations-review",
+        preflight_result=preflight,
+    )
+
+    assert outcome.disposition is SemanticPlanningDisposition.PLANNED
+    assert outcome.frame is not None and outcome.frame.output_shape == "resource_state_list"
+    assert outcome.plan is not None
+    assert outcome.plan.nodes[-1].arguments["arguments"] == {
+        "state_concepts": ["resource_state.deallocated", "resource_state.stopped"]
     }
     assert model.frame_calls == model.plan_calls == 0
 

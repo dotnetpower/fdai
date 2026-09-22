@@ -32,6 +32,7 @@ def preflight_operational_judgment(
     result: ConversationPreflightResult,
     *,
     utterance: str,
+    allow_resource_collection: bool = False,
 ) -> SemanticJudgmentProposal | None:
     """Promote a bounded preflight family to candidate judgment after source checks."""
     proposal = result.proposal
@@ -45,7 +46,8 @@ def preflight_operational_judgment(
             "family_absent",
         ),
         (
-            proposal.operational_family is not OperationalPreflightFamily.RESOURCE_COLLECTION,
+            proposal.operational_family is not OperationalPreflightFamily.RESOURCE_COLLECTION
+            or allow_resource_collection,
             "capability_aware_judgment_required",
         ),
         (

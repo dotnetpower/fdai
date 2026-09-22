@@ -1,7 +1,7 @@
 ---
 translation_of: ontology-query-coverage-implementation-plan.md
-translation_source_sha: 2b1b816f03cdd493697d89e85525d5d0343063cf
-translation_revised: 2026-09-21
+translation_source_sha: 84c41cfb9660f7581711ed4e8cb705d968357c2d
+translation_revised: 2026-09-22
 ---
 # 온톨로지 조회 커버리지 구현 계획
 
@@ -68,7 +68,9 @@ v1.2 검색어/발화 결속, 사용 불가 결과 및 이전 버전 호환성�
 > 상태 필터 하나를 전달할 수 있습니다. Core는 현재 온톨로지 값 도메인과 인벤토리 상태 카탈로그를
 > 통해 해당 구문을 결속합니다. 결속할 수 없거나 모호하면 전체 의미 판단을 유지하거나 타입이 있는
 > 명확화 요청을 반환합니다. 요청을 필터 없는 Resource 모음으로 넓히지 않으며 preflight 모델은 조회
-> 피연산자를 만들 수 없습니다. 정확한 Azure Resource Manager 신원은 마지막 이름 부분으로 축약되지
+> 피연산자를 만들 수 없습니다. `Show resources that are currently not running.`처럼 상태만 지정한 모음도
+> 하위 유형 필터를 요구하지 않고 같은 인벤토리 상태 근거와 결정론적 현재 상태 프레임을 사용합니다.
+> 정확한 Azure Resource Manager 신원은 마지막 이름 부분으로 축약되지
 > 않고 `Resource.id equals` 조건식으로 유지됩니다. 수락된 모음 판단은 결정론적 프레임을 사용하며,
 > 모델 계획이 여전히 필요하면 해당 운영 유형에 필요한 서술자만 전달합니다. 구독 신원 및 Service
 > Health 조회는 전체 principal 매니페스트를 프레임 모델에 전달하지 않고 정확한 입력 없는
