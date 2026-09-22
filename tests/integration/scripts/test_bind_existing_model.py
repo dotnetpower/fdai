@@ -90,6 +90,59 @@ def _evidence():
     }
 
 
+@pytest.mark.parametrize("defect", [None, "family", "deployment", "held", "already_bound"])
+def test_embedding_binding_preserves_other_models_and_requires_exact_selection(defect):
+    original = _original()
+    original["capabilities"].append(
+        {
+            **original["capabilities"][0],
+            "name": "t1.embedding",
+            "family": "embedding-example",
+        }
+    )
+    original["reasoner_primary_candidates"] = [copy.deepcopy(original["narrator"])]
+    evidence = _evidence()
+    deployment = evidence["deployments"][0]
+    deployment.update(name="t1.embedding", id=_ID + "/deployments/t1.embedding")
+    deployment["properties"]["model"]["name"] = "embedding-example"
+    if defect == "family":
+        original["capabilities"][-1]["family"] = "other"
+    elif defect == "deployment":
+        deployment.update(name="other", id=_ID + "/deployments/other")
+    elif defect == "held":
+        original["capabilities"][-1]["status"] = "hil-only"
+    elif defect == "already_bound":
+        original["endpoint_bindings"] = [{"capability": "t1.embedding"}]
+    before = copy.deepcopy(original)
+    if defect is not None:
+        with pytest.raises(ValueError):
+            _MODULE.bind_existing_model(
+                original,
+                evidence,
+                family="embedding-example",
+                now=_NOW,
+                capability="t1.embedding",
+            )
+        assert original == before
+        return
+    result = _MODULE.bind_existing_model(
+        original,
+        evidence,
+        family="embedding-example",
+        now=_NOW,
+        capability="t1.embedding",
+    )
+    assert original == before
+    expected = copy.deepcopy(before)
+    expected["capabilities"][-1]["version"] = "1"
+    binding = result.pop("endpoint_bindings")[0]
+    expected.pop("endpoint_bindings")
+    assert result == expected
+    assert binding["capability"] == "t1.embedding"
+    assert binding["model"]["version"] == "1"
+    assert binding["features"]["embeddings"] is True
+
+
 def test_binds_existing_t2_without_changing_t1_or_claiming_reviewer_readiness():
     import json
 

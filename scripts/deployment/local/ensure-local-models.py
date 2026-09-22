@@ -146,7 +146,7 @@ def resolve_existing(
                     selection_mode="pinned",
                     reasons=("existing_deployment_observed",),
                 )
-                if selected["name"] != name:
+                if selected["name"] != name or name == "t1.embedding":
                     bindings.append(
                         ModelEndpointBinding.from_dict(
                             {
@@ -170,7 +170,7 @@ def resolve_existing(
                                 "capacity": {"unit": "tpm", "value": capability.capacity_tpm},
                                 "features": {
                                     "streaming": False,
-                                    "embeddings": False,
+                                    "embeddings": name == "t1.embedding",
                                     "structured_output": False,
                                     "tool_calling": False,
                                 },

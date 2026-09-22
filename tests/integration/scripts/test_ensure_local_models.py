@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import copy
+import hashlib
 import importlib.util
 import json
 import stat
@@ -91,6 +92,23 @@ def resolve(accounts):
     )
 
 
+def test_same_name_embedding_preserves_observed_identity():
+    observed = account()
+    result = resolve([observed])
+    bindings = [item for item in result.endpoint_bindings if item.capability == "t1.embedding"]
+    assert len(bindings) == 1
+    binding = bindings[0]
+    assert binding.deployment == "t1.embedding"
+    assert binding.family == "embedding"
+    assert binding.version == "1"
+    assert binding.features.embeddings is True
+    assert (
+        binding.discovery.resource_ref_digest
+        == hashlib.sha256(f"{ACCOUNT_ID}/deployments/t1.embedding".encode()).hexdigest()
+    )
+    assert ResolvedModels.from_json(result.to_json()) == result
+
+
 def test_generates_from_observed_endpoints_names_and_capacities():
     original = account()
     before = copy.deepcopy(original)
@@ -98,8 +116,8 @@ def test_generates_from_observed_endpoints_names_and_capacities():
     assert original == before
     assert result.narrator.endpoint == "https://models.example.com"
     assert result.narrator.deployment == "narrator-small"
-    assert result.endpoint_bindings[0].capability == "t1.judge"
-    assert result.endpoint_bindings[0].deployment == "narrator-small"
+    judge_binding = next(item for item in result.endpoint_bindings if item.capability == "t1.judge")
+    assert judge_binding.deployment == "narrator-small"
     assert result.capabilities[0].capacity_tpm == 10000
     assert result.mixed_model_mode == "hil-only"
     assert ResolvedModels.from_json(result.to_json()) == result
