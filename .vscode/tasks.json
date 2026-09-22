@@ -381,7 +381,7 @@
         "clear": true,
         "showReuseMessage": false
       },
-      "runOptions": { "instanceLimit": 1 }
+      "runOptions": { "instanceLimit": 2, "instancePolicy": "silent" }
     },
     {
       "label": "console: start full stack (Azure CLI debug, Contributor)",

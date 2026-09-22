@@ -297,7 +297,7 @@ def test_workspace_exposes_explicit_complete_console_topology() -> None:
         'bash "$repo_root/scripts/deployment/local/stop-console-services.sh"'
     )
     assert restart_stack["isBackground"] is True
-    assert restart_stack["runOptions"] == {"instanceLimit": 1}
+    assert restart_stack["runOptions"] == {"instanceLimit": 2, "instancePolicy": "silent"}
     assert (
         restart_stack["problemMatcher"]["background"]
         == local_services["problemMatcher"]["background"]
