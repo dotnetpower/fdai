@@ -156,7 +156,11 @@ from .control_loop_auxiliary import (
 )
 from .control_loop_auxiliary import rca_catalog_revision as _rca_catalog_revision
 
-__all__ = ["_build_irp_event_handler"]
+__all__ = [
+    "_build_irp_event_handler",
+    "_load_parameter_relaxation_policies",
+    "_load_resource_types",
+]
 
 _LOGGER = logging.getLogger("fdai.startup")
 _TEMPORAL_CAUSAL_METHOD_VERSION = "temporal-causality-v1"
