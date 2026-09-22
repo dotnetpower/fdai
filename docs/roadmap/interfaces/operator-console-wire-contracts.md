@@ -8,6 +8,7 @@ title: Operator Console - Data and Wire Contracts
 
 ## 13. Data + wire contracts
 Core's supervised instance-index reconciliation is separate from Incident creation and transport. Enrollment comes only from authenticated Function invocation context, not model arguments or index records. Candidate preparation and exact-ID reads cannot create an Incident, approve a change, or alter the semantic wire's no-execution-authority contract. The dedicated terminal projection verifies principal, release, query, result digest, invocation evidence, and candidate accounting. It displays only identity/type/revision rows with bilingual non-exhaustive and no-authority notices; zero candidates never establish absence and raw properties stay excluded.
+Core bootstrap keeps the assembled runtime data model and human-approval registry binding in focused modules. Incident consumers, supervised tasks, logical topics, durable acceptance, and the Operator/Core authority split remain unchanged.
 
 Observer setup uses a separate `observer-proposal-projection` schema and
 `core.observer-deployment.projections` logical topic on the existing transport. Operator owns the

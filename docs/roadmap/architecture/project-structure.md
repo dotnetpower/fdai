@@ -9,6 +9,7 @@ Operator production composition keeps runtime wiring in its facade. Focused sibl
 lifecycle and resource cleanup, route-family assembly, and read-source declarations. Compatibility
 exports preserve existing imports, and the split changes no service, identity, data owner, wire
 contract, or authority. Bounded semantic candidate selection omits oversized descriptor axes and preserves the ranked prefix that fits the capability byte limit rather than failing the request.
+Core keeps active Rule generation replacement behind a writer-exclusive barrier while complete decisions share concurrent read leases. This preserves one generation per decision without serializing unrelated resources. Focused modules own that barrier, semantic preflight, event-bus payload codecs, the assembled runtime model, the human-approval registry binding, and catalog loaders; public facades preserve their existing imports and authority boundaries.
 The shared Operator family-adapter facade now retains workflow persistence and compatibility
 exports. Conversation persistence, operations projection and webhook handling, and pure workflow
 catalog rendering have focused owners. This split preserves principal scope, durable proposal

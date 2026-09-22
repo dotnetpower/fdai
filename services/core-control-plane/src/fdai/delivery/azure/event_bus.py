@@ -16,7 +16,6 @@ from __future__ import annotations
 
 import asyncio
 import hashlib
-import json
 import logging
 import ssl
 from collections.abc import AsyncGenerator, AsyncIterator, Mapping
@@ -35,6 +34,16 @@ from fdai.shared.providers.event_bus import (
     PublishReceipt,
 )
 from fdai.shared.providers.workload_identity import WorkloadIdentity
+
+from .event_bus_codec import (
+    decode_key as _decode_key,
+)
+from .event_bus_codec import (
+    decode_payload as _decode,
+)
+from .event_bus_codec import (
+    encode_payload as _encode,
+)
 
 _LOGGER = logging.getLogger(__name__)
 _AIOKAFKA_CONNECTION_LOGGER = logging.getLogger("aiokafka.conn")
@@ -781,47 +790,6 @@ async def _stop_after_failure(client: Any, *, operation: str) -> None:
         await client.stop()
     except BaseException:  # cleanup must preserve the original failure, including cancellation
         _LOGGER.warning("event_bus_cleanup_failed", extra={"operation": operation}, exc_info=True)
-
-
-def _encode(payload: Mapping[str, Any]) -> bytes:
-    return json.dumps(dict(payload), separators=(",", ":"), sort_keys=True).encode("utf-8")
-
-
-def _decode(value: bytes | None, *, topic: str = "", key: str = "") -> Mapping[str, Any]:
-    """Best-effort JSON decode; log-and-flag malformed payloads.
-
-    Kafka delivers raw bytes; if a producer ships an invalid or non-object
-    JSON payload we cannot drop the message silently (that hides operator
-    signal) and cannot raise from a hot-path generator (that stalls the
-    consumer group). Instead we emit a WARNING with the topic and key so
-    an operator can locate the poison message, and return a sentinel
-    envelope shape that downstream ``payload.get("resource")`` lookups
-    resolve to ``None`` - the trust router abstains and the risk gate's
-    fail-toward-safety path takes it from there.
-    """
-    if value is None:
-        return {}
-    try:
-        parsed = json.loads(value)
-    except json.JSONDecodeError:
-        _LOGGER.warning(
-            "event_bus_decode_error",
-            extra={"topic": topic, "key": key, "bytes": len(value)},
-        )
-        return {"_raw": value.decode("utf-8", errors="replace"), "_decode_error": True}
-    if not isinstance(parsed, dict):
-        _LOGGER.warning(
-            "event_bus_non_object_payload",
-            extra={"topic": topic, "key": key, "type": type(parsed).__name__},
-        )
-        return {"_wrapped": parsed, "_decode_error": True}
-    return parsed
-
-
-def _decode_key(value: bytes | None) -> str:
-    if value is None:
-        return ""
-    return value.decode("utf-8", errors="replace")
 
 
 __all__ = ["EventHubsKafkaBus", "EventHubsKafkaBusConfig"]

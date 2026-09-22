@@ -6,7 +6,6 @@ mixins implement RCA, fallback, execution-authority, and boundary stages.
 
 from __future__ import annotations
 
-import asyncio
 import logging
 import math
 from collections.abc import Awaitable, Callable, Iterable, Mapping
@@ -21,6 +20,7 @@ from fdai.core.control_loop._execution import ControlLoopExecutionMixin
 from fdai.core.control_loop._fallback import ControlLoopFallbackMixin
 from fdai.core.control_loop._process import process_event
 from fdai.core.control_loop._rca import AdaptiveTelemetryInvestigator, ControlLoopRcaMixin
+from fdai.core.control_loop._rule_generation import RuleGenerationBarrier
 from fdai.core.control_loop.change_safety_evidence import (
     ChangeSafetyPreAuthorityEvidenceProvider,
 )
@@ -218,7 +218,7 @@ class ControlLoop(
         self._event_ingest = event_ingest
         self._trust_router = trust_router
         self._t0_engine = t0_engine
-        self._rule_generation_lock = asyncio.Lock()
+        self._rule_generation_barrier = RuleGenerationBarrier()
         self._rule_generation_digest: str | None = None
         self._action_builder = action_builder
         # One clock for the action lifecycle: creation, dispatch window, and
@@ -328,12 +328,12 @@ class ControlLoop(
 
     async def process(self, raw_event: Event | Mapping[str, Any]) -> ControlLoopResult:
         """Process one raw or normalized event through the control loop."""
-        async with self._rule_generation_lock:
+        async with self._rule_generation_barrier.read():
             return await process_event(self, raw_event)
 
     async def process_canary(self, raw_event: Event | Mapping[str, Any]) -> ControlLoopResult:
         """Record one event consumed from the separately authorized canary topic."""
-        async with self._rule_generation_lock:
+        async with self._rule_generation_barrier.read():
             return await process_canary(self, raw_event)
 
     async def replace_rule_generation(
@@ -353,7 +353,7 @@ class ControlLoop(
         ):
             raise ValueError("Rule generation digest MUST be lowercase SHA-256")
         prepared_engine = self._t0_engine.with_rules(prepared)
-        async with self._rule_generation_lock:
+        async with self._rule_generation_barrier.write():
             self._t0_engine = prepared_engine
             self._rules_by_id = prepared_rules
             self._rule_generation_digest = generation_digest

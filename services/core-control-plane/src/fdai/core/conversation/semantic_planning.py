@@ -7,7 +7,6 @@ execution authority. No phrase, regex, or keyword selects a query capability.
 
 from __future__ import annotations
 
-import asyncio
 import json
 import logging
 from collections.abc import Callable, Mapping, Sequence
@@ -85,6 +84,7 @@ from .semantic_planning_preflight import (
     preflight_descriptor_intent as _preflight_descriptor_intent,
 )
 from .semantic_planning_preflight_router import PreflightDirectResponseRouter
+from .semantic_planning_preflight_service import SemanticPlanningPreflightMixin
 from .semantic_planning_specialized_plans import (
     build_anchored_incident_plan,
     build_stated_value_filter_plan,
@@ -115,7 +115,7 @@ _SAFE_UNACCEPTED_DESCRIPTOR_INTENTS = frozenset(
 )
 
 
-class SemanticPlanningService:
+class SemanticPlanningService(SemanticPlanningPreflightMixin):
     """Build a T1 proposal and apply an explicit policy to bounded T2 fallback."""
 
     def __init__(
@@ -779,32 +779,6 @@ class SemanticPlanningService:
                     "semantic_planning_failed",
                 )
             )
-
-    def preflight(
-        self,
-        *,
-        utterance: str,
-        prior_turns: Sequence[Turn],
-        locale: str,
-        conversation_profile: Mapping[str, str] | None = None,
-        cancelled: asyncio.Event | None = None,
-        conversation_model_tier: SemanticConversationModelTier | None = None,
-    ) -> ConversationPreflightResult:
-        """Classify routing before the optional adaptive explanation path."""
-        if self._semantic_judgment is None:
-            return ConversationPreflightResult(proposal=None)
-        response_profile = dict(DIRECT_RESPONSE_PROFILE)
-        if conversation_profile is not None:
-            response_profile["identity"] = conversation_profile["identity"]
-            response_profile["role"] = conversation_profile["role"]
-        return self._semantic_judgment.preflight(
-            utterance=utterance,
-            context=_bounded_context(prior_turns),
-            locale=locale,
-            direct_response_profile=response_profile,
-            cancelled=cancelled,
-            conversation_model_tier=conversation_model_tier,
-        )
 
 
 __all__ = [
