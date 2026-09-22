@@ -1,7 +1,7 @@
 ---
 translation_of: conversation-assurance.md
-translation_source_sha: e3c0fcff6db4461f7907c627cfe0b6ac74727394
-translation_revised: 2026-09-21
+translation_source_sha: faffcdd422cbf2bb83cb12364523879c3c8cb2c8
+translation_revised: 2026-09-23
 ---
 # 대화 품질 보증
 
@@ -610,6 +610,10 @@ p95 지연, 승격 및 롤백을 보고합니다.
 예상 및 actual 권한, 상태, 선택적 사유, 검사, model-call 개수, 커밋 및 timezone-aware
 시각을 저장합니다. `passed`와 `unexpected_unverified`를 derive하고 프롬프트 또는 환경
 식별자는 저장하지 않으며 symlink 출력을 거부하고 ignored 출력 파일을 모드 `0600`으로 유지합니다.
+
+## 현재 범위가 제한된 근거
+
+[2026-09-23 대화 강화 기준선](../../baselines/conversation-answer-hardening-2026-09-23.json)은 인증된 Browser Entra 시도 한 번과 콘텐츠가 없는 60개 사례 정적 표본을 기록합니다. 전체 스택은 준비됐고 선택한 온톨로지 관계 기능은 일치하는 근거 권한을 가졌지만, 모델 추적 수집이 비활성화된 상태에서 의미 계획이 실패해 턴은 보류 상태로 남았습니다. 이 결과는 `evaluation_contract_defect`이며 코드 후보나 자격 검증 결과가 아닙니다. 측정한 질문은 변경할 수 없으며 이후 명시적 캠페인은 모델 추적을 활성화한 뒤 새 사례를 사용해야 합니다.
 
 ## 관련 문서
 

@@ -634,6 +634,10 @@ expected and actual authority, status, optional reason, checks, model-call count
 timezone-aware timestamp. It derives `passed` and `unexpected_unverified`, stores no prompt or
 environment identifier, rejects symlink outputs, and keeps the ignored output file at mode `0600`.
 
+## Current bounded evidence
+
+The [2026-09-23 conversation hardening baseline](../../baselines/conversation-answer-hardening-2026-09-23.json) records one authenticated Browser Entra attempt and a content-free 60-case static sample. The full stack was ready and the selected ontology relationship capability had matching evidence authority, but the turn remained held because semantic planning failed while model trace capture was disabled. The result is an `evaluation_contract_defect`, not a code candidate or qualification result. The measured question is immutable and a later explicit campaign must use a new case after model trace is enabled.
+
 ## Related docs
 
 | To learn about | Read |
