@@ -92,13 +92,15 @@ independent real-model or authenticated cross-service evidence. Test names below
 | 36 | Authenticated real end-to-end evidence | Open | No new authenticated EN/KO Operator-to-Core-to-Console receipt was produced. A readable browser page is not query certification; no restart, authentication replacement, or live model call was performed. |
 
 The 2026-09-22 resumption authorized the required scoped permissions and remaining validation.
-The local stack was ready (12/12) and the shared Console was signed in, but the Azure identity
-preflight found that the current CLI subscription differs from the selected local model artifact.
-This is target drift, not evidence of a missing role. The attempt stopped before account/deployment
-readback or model calls. No cloud role, subscription context, local model artifact, or running
-service was changed. The target choice was not resolved, so real quality and authenticated query
-certification remain blocked. The existing failed calibration is still failed; final review rounds
-are not credited while implementation and required evidence remain incomplete.
+The local stack was ready (12/12) and the shared Console was signed in. The initial subscription
+mismatch diagnosis was incorrect: the selected artifact contains an all-zero placeholder, not a
+different subscription identity. Subsequent read-only Azure account and deployment observations
+matched the configured endpoint to exactly one account in the current CLI subscription and
+confirmed the selected embedding deployment and model version. There is no target-selection
+blocker and no subscription switch is required. No cloud role, local model artifact, or running
+service was changed. Governed local binding, real quality, and authenticated query certification
+remain incomplete. The existing failed calibration is still failed; final review rounds are not
+credited while implementation and required evidence remain incomplete.
 
 Current focused evidence: 260 query/gateway/receipt/metric/history/vector/lifecycle/policy checks
 passed, including loopback PostgreSQL snapshot, vector and lifecycle fixtures. The capability
@@ -289,6 +291,7 @@ Durable instance search must not reuse Rule `active` or `discovery` pointers. Th
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-22 | validated | Corrected the subscription-mismatch diagnosis recorded in `3cc727c307`. The configured subscription field is an all-zero placeholder. Read-only Azure observation matched the configured endpoint to exactly one account in the current subscription and confirmed the selected embedding deployment with model version `1`. | `current change`; artifact digest matched its configured pin; explicit current-subscription account read and deployment read; `verified_same_subscription`; zero context switches, model calls, or cloud mutations. | Bind observed model metadata locally and complete real quality and authenticated EN/KO evidence before the final ten rounds. The earlier target-drift statement is superseded, not evidence of an actual foreign subscription. |
 | 2026-09-22 | in-progress | Resumed the authorized live-validation preflight, then held on a mismatch between the current CLI subscription and the selected local model artifact. Preserved the target, role, authentication, and runtime boundaries. | `3b03b73ffb`; local readiness 12/12 and signed-in shared Console; identity preflight `selected_subscription_mismatch`; zero model calls and zero cloud mutations. Independent local DB readback found zero remaining temporary catalog schemas. | Obtain the intended target choice, verify its exact deployment and model identity, then run frozen quality and authenticated EN/KO checks before the final ten rounds. No overall Medium-or-higher closure is claimed. |
 | 2026-09-22 | validated | Replaced the pending Rule PostgreSQL evidence with actual isolated execution using the existing local validation database authority. No privileges were added to service roles. | `current change`; `test_postgres_integration.py`: 3 passed, covering bilingual ranking parity, exact-ID model independence, cache tampering and manifest-bound lifecycle. | Real embedding quality, authenticated bilingual certification, and the final post-implementation review gate remain open. |
 | 2026-09-22 | implemented | Reproduced missing same-name embedding endpoint metadata and repaired the local generator. Added a constrained existing-artifact embedding mode that seals current readback without changing model selection or other capability policy. | `current change`; the regression failed before repair; generator tests 20 passed, binder tests 23 passed; Ruff and strict mypy passed. | Observe the selected deployment and bind its actual model version before real qualification. Do not invent provenance or enable unqualified ranking. |
@@ -483,7 +486,8 @@ Durable instance search must not reuse Rule `active` or `discovery` pointers. Th
 
 - [x] Connect isolated durable instance generations, owned activation, principal isolation, complete source binding, cache recovery, invalidation, rollback and bounded retirement to the runtime; local implementation evidence is recorded above. This does not qualify semantic ranking or live deployment.
 - [x] Run Rule PostgreSQL parity/cache and lifecycle checks in owned isolated schemas: all three integration tests passed on 2026-09-22 using the existing validation database authority, without service-role DDL grants or shared-table cleanup.
-- [ ] Resolve the CLI-versus-model-artifact subscription mismatch with an explicit target choice, preserve or re-establish bounded live authorization, bind observed embedding-space/model-version identity, and pass frozen calibration plus disjoint English/Korean positive, negative, ambiguous and adversarial cohorts before enabling semantic ranking.
+- [x] Verify the configured model endpoint's actual subscription membership: read-only Azure observation on 2026-09-22 confirmed the current subscription. The all-zero artifact subscription field is missing metadata, not target drift.
+- [ ] Under bounded live authorization, bind observed embedding-space/model-version identity and pass frozen calibration plus disjoint English/Korean positive, negative, ambiguous and adversarial cohorts before enabling semantic ranking.
 - [ ] After all remaining implementation and required evidence are complete, perform at least ten final critique/hardening rounds and retain a supported Medium-or-higher closure assessment. The ten local index rounds above are not credited to this final gate after findings 23 and 24 were reopened.
 - [ ] After loading the committed compact-facet repair, retain EN/KO receipts that both select only `object` for readable object-type questions, with complete evidence and no execution authority.
 - [ ] Run an authorized active-versus-compact judgment, frame, and plan cohort on one exact source
