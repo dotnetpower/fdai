@@ -30,6 +30,7 @@ commands:
 The command reads existing Git-common-dir state and process metadata. It does not add a second
 audit log, infer session ownership after a commit, or convert an unavailable diagnostic into a
 successful result.
+Core bootstrap retains the existing `runtime_settings_service_from_env` test seam while production startup reuses its runtime-owned `StateStore` for one settings snapshot. This compatibility path changes no diagnostic socket, execution venue, provider identity, or deployment authority.
 
 Long-running workspace supervisors receive every required endpoint and private-file path from their
 committed VS Code task. The Conversation Assurance supervisor task passes the standard loopback

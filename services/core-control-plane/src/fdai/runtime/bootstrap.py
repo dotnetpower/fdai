@@ -21,7 +21,12 @@ from fdai.delivery.github.model_lifecycle_observations import (
     GitHubModelLifecycleObservationConfig,
     GitHubModelLifecycleObservationSource,
 )
-from fdai.delivery.runtime_settings import RuntimeSettingsService
+from fdai.delivery.runtime_settings import (
+    RuntimeSettingsService,
+)
+from fdai.delivery.runtime_settings import (
+    runtime_settings_service_from_env as _runtime_settings_service_from_env,
+)
 from fdai.runtime.bootstrap_bindings import (
     build_runtime_workload_identity as _build_runtime_workload_identity,
 )
@@ -79,7 +84,9 @@ __all__ = [
     "_run",
     "_schedule_semantic_turn_consumer",
     "main",
+    "runtime_settings_service_from_env",
 ]
+runtime_settings_service_from_env = _runtime_settings_service_from_env
 
 
 async def _run(*, runtime_scope_receipt_digest: str | None = None) -> int:
@@ -234,11 +241,16 @@ async def _load_runtime_values(
 ) -> Mapping[str, object]:
     """Read one startup settings snapshot through the runtime-owned StateStore."""
 
-    return await RuntimeSettingsService(
-        store=state_store,
-        env=environment,
-        durable=bool(environment.get("FDAI_STATE_STORE_DSN", "").strip()),
-    ).effective_values()
+    settings = (
+        RuntimeSettingsService(
+            store=state_store,
+            env=environment,
+            durable=bool(environment.get("FDAI_STATE_STORE_DSN", "").strip()),
+        )
+        if runtime_settings_service_from_env is _runtime_settings_service_from_env
+        else runtime_settings_service_from_env(environment)
+    )
+    return await settings.effective_values()
 
 
 async def _attach_model_lifecycle_startup_revision(

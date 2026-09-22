@@ -1,6 +1,6 @@
 ---
 translation_of: developer-workflow-assurance.md
-translation_source_sha: 4cc4653dffed5bd05830db0dd1fc004643ef334e
+translation_source_sha: 68bac0ba122b33e20e032d5a381cc81e0f10b088
 translation_revised: 2026-09-22
 ---
 
@@ -35,6 +35,7 @@ FDAI는 로컬 스크립트 전반에서 하나의 읽기 전용 개발 워크�
 이 명령은 기존 Git common dir 상태와 프로세스 메타데이터를 읽습니다. 두 번째 감사 로그를
 추가하거나, 커밋 후 세션 소유권을 추론하거나, 사용할 수 없는 진단을 성공 결과로 바꾸지
 않습니다.
+Core 초기화는 기존 `runtime_settings_service_from_env` 테스트 seam을 유지하면서 운영 시작에서는 런타임 소유 `StateStore`를 재사용해 설정 스냅샷 하나를 읽습니다. 이 호환 경로는 진단 소켓, 실행 위치, 프로바이더 신원 또는 배포 권한을 변경하지 않습니다.
 
 장기 실행 workspace supervisor는 커밋된 VS Code 작업에서 필요한 모든 endpoint와 비공개 파일
 경로를 받습니다. 대화 품질 보증 supervisor 작업은 표준 loopback Operator URL과 소유자 전용
