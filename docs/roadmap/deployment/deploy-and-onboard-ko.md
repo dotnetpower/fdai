@@ -1,8 +1,8 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: dbe1cf10a2fae8d7f820d4bb1f1a2d1d33fcf64c
-translation_revised: 2026-09-18
+translation_source_sha: 126ddabfdf95a1dc3f1c094a7a82ea3991fa15a7
+translation_revised: 2026-09-22
 ---
 # 배포와 온보딩(Deploy and Onboard)
 Azure 구독에 FDAI를 프로비저닝하고 첫 온보딩을 완료해 시스템이 관측 준비되도록 하는 방법. 이 문서는 **구체적 배포 인벤토리, 부트스트랩 순서, 분포/배포 책임 분리**의 정본(source of truth)입니다; 배포 라이프사이클(CI/CD, progressive 전달, 롤백, DR)은 [deployment-ko.md](deployment-ko.md)에 남습니다.
@@ -519,7 +519,7 @@ Console은 Settings > 런타임 policies에서 안전한 subset을 변환 결과
 | `FDAI_CONSOLE_BASE_URL` | env | 배포 | 인시던트 이메일의 읽기 전용 근거 링크를 만드는 공개 HTTPS 출처입니다. Console을 활성화하면 Terraform이 Static Web App hostname에서 파생합니다. 값이 없으면 이메일 전달은 계속되며 렌더러는 인시던트 CTA를 생략합니다. |
 | `FDAI_MEASUREMENT_MODE` | env | 업스트림 | `infra/modules/measurement-runners/`의 선택적 Container Apps 작업 진입점을 선택합니다. `baseline`은 고정된 시나리오 회귀 측정을 실행하고, `growth`는 검토된 결과를 패턴 성장 수집으로 전달하며, `operational-promotion`은 승격 없이 변경할 수 없는 작업별 근거를 평가합니다. 모든 작업은 기본적으로 비활성화되며 전용 비실행기 측정 신원을 사용합니다. 액션 권한은 승격 및 안전성 검토가 독립적으로 관리합니다. |
 | `FDAI_REVISION` / `FDAI_OPERATIONAL_PROMOTION_EVIDENCE_ROOT` / `FDAI_OPERATIONAL_PROMOTION_MANIFEST` | env | 배포 | Opt-in operational-promotion 작업에 필요합니다. Revision은 전체 불변 소스 개정 번호이고 root는 고정 이미지 또는 보호된 읽기 전용 mount가 제공하는 컨테이너 절대 경로이며 manifest는 해당 root 기준 상대 경로입니다. 근거 파일은 raw provider payload가 아니라 범위가 제한된 정본 사실과 digest를 담습니다. |
-| `FDAI_DIRECT_API_FAKE` | env | test-only / dev-local | `1`이면 실행기 direct-API 경로를 in-memory shadow 가짜로 바꿉니다. Automated 테스트는 명시적으로 설정하고, `prepare-local-runtime-env.sh`는 operations 게이트웨이를 찾지 못할 때만 - Terraform 상태에도 없고 리소스 그룹의 실제 운영 Azure CLI 탐색(`func-*-devgw-*`와 해당 App Service Authentication 대상)로도 복구되지 않을 때 - interactive 로컬 dev에서 이를 자동 주입하여 실제 운영 백엔드 없이도 `execution_path: direct_api` 전달을 유지합니다. `FDAI_DEV_OPERATIONS_GATEWAY_URL`과 상호 배타적입니다. |
+| `FDAI_DIRECT_API_FAKE` | env | test-only | `1`이면 자동화 테스트에서 실행기 direct-API 경로를 in-memory shadow 가짜로 바꿉니다. Interactive 로컬 준비 과정에서는 이 값을 설정하지 않습니다. 범위 안에서 개발 운영 게이트웨이를 정확히 하나 찾지 못하면 관리 리소스 실행을 사용할 수 없습니다. `FDAI_DEV_OPERATIONS_GATEWAY_URL`과 상호 배타적입니다. |
 | `FDAI_TOOL_CALL_FAKE` | env | test-only | Automated 테스트에서 실행기 tool-call 경로를 `RecordingToolExecutor`로 바꿉니다. Interactive 로컬 시작은 실행기를 연결하지 않습니다. |
 | `FDAI_WORKFLOW_SHADOW` | env | 업스트림 | Event-triggered 카탈로그 작업 흐름은 기본적으로 non-mutating shadow 모드로 실행됩니다. 명시적 maintenance 비활성화에만 `0`, `false`, `no`, `off`를 설정합니다. |
 | `FDAI_WORKFLOW_ENFORCE_ALLOWLIST` | env | 배포 / 로컬 | Owner가 `mode=enforce`로 시작할 수 있는 작업 흐름 이름의 comma-separated 목록입니다. Event Hubs 명령 전송 계층이 필요하며 액션 단계는 일반 승격/risk/HIL/실행기 경로로 재진입합니다. |

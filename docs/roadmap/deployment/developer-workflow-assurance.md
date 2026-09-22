@@ -42,6 +42,8 @@ lock to release, runs managed preparation, and then starts the standard Browser 
 Stopping first lets database and broker generation maintenance reject active consumers and
 connections without preparing against stale processes. The task has its own terminal and readiness
 matcher; stale output from a completed start task is not evidence of a new process or readiness.
+Managed preparation uses local PostgreSQL and Redpanda plus an explicit Azure CLI read scope. It
+never initializes or reads Terraform state, and gateway discovery grants no local executor identity.
 Managed local preparation also keeps inactive consumer-group offsets within the same 24-hour
 horizon as ordinary topic data and checks expiry every minute; active groups are unaffected.
 

@@ -135,39 +135,39 @@ az login --use-device-code
 env -u AZURE_CONFIG_DIR az account show \
   --query '{subscription:name,subscriptionId:id,tenant:tenantId,user:user.name}' \
   --output table
-terraform -chdir=infra output -raw resource_group_name
 ```
 
-The Terraform command should return the resource group for that same subscription. A missing
-output, unreadable backend, or subscription mismatch blocks complete-stack preparation. The
-Docker-only path does not need this check. If the selected deployment exposes only private
-endpoints, configure the optional [development VPN](../../tools/dev-access/README.md) before using
-those Azure-backed readers.
+Local Console preparation never initializes or reads Terraform state. If the selected deployment
+exposes only private endpoints, configure the optional
+[development VPN](../../tools/dev-access/README.md) before using those Azure-backed readers.
 
-#### No applied Azure deployment yet
+#### Select the Azure read scope
 
-A contributor or customer subscription with no applied FDAI Terraform state can prepare the local
-Console stack with `FDAI_LOCAL_NO_AZURE_DEPLOYMENT=1` and
-`FDAI_LOCAL_RESOURCE_GROUP=<existing-read-scope>` on the preparation task or script. The script
-verifies that group in the active subscription and reads its region. Missing or invalid scope
-stops preparation; it never invents a resource group or silently selects the entire subscription.
+Set `FDAI_LOCAL_RESOURCE_GROUP=<existing-read-scope>` for every local Console stack. The preparation
+script verifies that group in the active Azure CLI subscription and reads its region. A missing or
+invalid scope stops preparation; it never invents a resource group or silently selects the entire
+subscription.
 
-To reuse the same explicit scope from VS Code tasks, add both settings to the gitignored
+To reuse the same explicit scope from VS Code tasks, add the setting to the gitignored
 `console/.env.local` file described below:
 
 ```dotenv
-FDAI_LOCAL_NO_AZURE_DEPLOYMENT=1
 FDAI_LOCAL_RESOURCE_GROUP=<existing-read-scope>
 ```
 
 An explicitly exported process environment takes precedence over values in the file. Keep the
-selected resource group local to the workstation and never commit it.
+selected resource group local to the workstation and never commit it. After one successful run,
+preparation may reuse the same scope from the owner-only generated local runtime environment.
 
-PostgreSQL, Redpanda, and ClamAV remain local. This option skips Terraform deployment discovery,
-not authentication or authoritative-source checks, and creates no Azure resources. Existing
-readers use the selected scope; unconfigured sources remain unavailable. Without an execution
-gateway, managed-resource execution stays unavailable and no fake executor is selected by this
-option. Sign-in still uses an existing Entra registration or the explicit Azure CLI principal mode.
+PostgreSQL, Redpanda, and ClamAV remain local. Preparation uses Azure CLI only for bounded reads in
+the selected scope. It binds a development operations gateway only when exactly one matching
+Function App resolves and the private `VITE_MSAL_API_SCOPE` supplies the validated Operator API
+audience. Zero candidates leave managed-resource execution unavailable, and multiple candidates
+stop preparation. The local Console receives no executor identity. Azure changes require a
+separately deployed Executor, durable per-ActionType
+promotion evidence, applicable human approval, dry-run, rollback, audit, and independent effect
+verification. Sign-in still uses an existing Entra registration or the explicit Azure CLI
+principal mode.
 
 ### Create the Console environment
 

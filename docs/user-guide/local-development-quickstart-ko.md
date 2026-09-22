@@ -2,8 +2,8 @@
 title: 로컬 개발 빠른 시작
 description: Linux 또는 WSL 워크스테이션에서 Docker, 로컬 상태, 인증 및 전체 FDAI Console 스택을 구성합니다.
 translation_of: local-development-quickstart.md
-translation_source_sha: 7ecea1256c5cf40ce8d12351ad3fc0c5bc231e21
-translation_revised: 2026-09-16
+translation_source_sha: c386f2e95a378517ae3836af19830e083b188bf6
+translation_revised: 2026-09-22
 ---
 
 # 로컬 개발 빠른 시작
@@ -138,38 +138,37 @@ az login --use-device-code
 env -u AZURE_CONFIG_DIR az account show \
   --query '{subscription:name,subscriptionId:id,tenant:tenantId,user:user.name}' \
   --output table
-terraform -chdir=infra output -raw resource_group_name
 ```
 
-Terraform 명령은 같은 구독의 리소스 그룹을 반환해야 합니다. 출력이 없거나 백엔드를 읽을 수
-없거나 구독이 일치하지 않으면 전체 스택 준비가 차단됩니다. Docker 전용 경로에는 이 확인이
-필요하지 않습니다. 선택한 배포에서 비공개 엔드포인트만 제공한다면 해당 Azure 기반 읽기를
+로컬 Console 준비 과정은 Terraform 상태를 초기화하거나 읽지 않습니다. 선택한 배포에서 비공개
+엔드포인트만 제공한다면 해당 Azure 기반 읽기를
 사용하기 전에 선택 사항인 [개발 VPN](../../tools/dev-access/README.md)을 구성하세요.
 
-#### 아직 적용된 Azure 배포가 없는 경우
+#### Azure 읽기 범위 선택
 
-FDAI Terraform 상태가 적용되지 않은 기여자나 고객 구독에서는 준비 작업 또는 스크립트에
-`FDAI_LOCAL_NO_AZURE_DEPLOYMENT=1`과 `FDAI_LOCAL_RESOURCE_GROUP=<existing-read-scope>`를
-설정해 로컬 Console 스택을 준비할 수 있습니다. 스크립트는 활성 구독에서 해당 그룹의 존재를
-확인하고 리전을 읽습니다. 범위가 없거나 잘못되면 준비를 중단하며, 리소스 그룹을 만들어 내거나
-구독 전체를 암묵적으로 선택하지 않습니다.
+모든 로컬 Console 스택에 `FDAI_LOCAL_RESOURCE_GROUP=<existing-read-scope>`를 설정하세요.
+준비 스크립트는 활성 Azure CLI 구독에서 해당 그룹을 검증하고 리전을 읽습니다. 범위가 없거나
+잘못되면 준비를 중단하며, 리소스 그룹을 만들어 내거나 구독 전체를 암묵적으로 선택하지 않습니다.
 
 VS Code 작업에서 같은 명시적 범위를 재사용하려면 아래에서 설명하는 Git에서 무시되는
-`console/.env.local` 파일에 두 설정을 추가합니다.
+`console/.env.local` 파일에 이 설정을 추가합니다.
 
 ```dotenv
-FDAI_LOCAL_NO_AZURE_DEPLOYMENT=1
 FDAI_LOCAL_RESOURCE_GROUP=<existing-read-scope>
 ```
 
 프로세스 환경에 명시적으로 내보낸 값은 파일의 값보다 우선합니다. 선택한 리소스 그룹은 로컬
-워크스테이션에만 보관하고 커밋하지 마세요.
+워크스테이션에만 보관하고 커밋하지 마세요. 한 번 성공적으로 실행한 뒤에는 소유자 전용으로 생성된
+로컬 런타임 환경에서 같은 범위를 재사용할 수 있습니다.
 
-PostgreSQL, Redpanda 및 ClamAV는 계속 로컬에서 실행됩니다. 이 옵션은 Terraform 배포 검색만
-생략하며 인증이나 권위 있는 소스 검사는 유지하고 Azure 리소스를 생성하지 않습니다. 기존 읽기
-기능은 선택한 범위를 사용하며, 구성되지 않은 소스는 사용 불가로 남습니다. 실행 게이트웨이가
-없으면 관리 리소스 실행은 사용 불가 상태를 유지하고 이 옵션이 가짜 실행기를 선택하지 않습니다.
-로그인은 기존 Entra 앱 등록 또는 명시적으로 선택한 Azure CLI principal 모드를 사용합니다.
+PostgreSQL, Redpanda 및 ClamAV는 계속 로컬에서 실행됩니다. 준비 과정은 선택한 범위의 제한된
+읽기에만 Azure CLI를 사용합니다. 일치하는 Function App이 정확히 하나이고 비공개
+`VITE_MSAL_API_SCOPE`에서 검증된 Operator API audience를 제공할 때만 개발 운영 게이트웨이를
+연결합니다. 후보가 없으면 관리 리소스 실행을 사용할 수 없고 여러 후보가 있으면
+준비를 중단합니다. 로컬 Console에는 실행기 신원을 제공하지 않습니다. Azure 변경에는 별도로
+배포된 실행기, ActionType별 영속 승격 근거, 필요한 사람 승인, 예행 실행, 롤백, 감사 및 독립 효과
+검증이 필요합니다. 로그인은 기존 Entra 앱 등록 또는 명시적으로 선택한 Azure CLI principal 모드를
+사용합니다.
 
 ### Console 환경 생성
 

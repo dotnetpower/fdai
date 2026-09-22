@@ -4,7 +4,6 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SCRIPT_REPO_ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd)"
 REPO_ROOT="${FDAI_REPO_ROOT:-$SCRIPT_REPO_ROOT}"
-TERRAFORM_BIN="${FDAI_TERRAFORM_BIN:-terraform}"
 AZ_BIN="${FDAI_AZ_BIN:-az}"
 SOURCE_ENV="$REPO_ROOT/console/.env.local"
 OUTPUT_ENV="${1:-$REPO_ROOT/.fdai/local-runtime.env}"
@@ -16,7 +15,6 @@ local_kubernetes_lifecycle="${FDAI_LOCAL_KUBERNETES_LIFECYCLE:-0}"
 local_kubernetes_bindings_override="${FDAI_LOCAL_KUBERNETES_BINDINGS_PATH:-}"
 local_kubernetes_bindings_path="${local_kubernetes_bindings_override:-$REPO_ROOT/.fdai/local-kubernetes-bindings.json}"
 local_teams_notification_activation="${FDAI_LOCAL_TEAMS_NOTIFICATION_ACTIVATION:-0}"
-no_azure_deployment="${FDAI_LOCAL_NO_AZURE_DEPLOYMENT:-0}"
 local_resource_group="${FDAI_LOCAL_RESOURCE_GROUP:-}"
 kubernetes_lifecycle_keys=(
   FDAI_KUBERNETES_API_SERVER
@@ -40,7 +38,7 @@ detect_monitor_workspace_customer_id() {
   workspace_count="$(printf '%s\n' "$workspace_customer_ids" | awk 'NF {count += 1} END {print count + 0}')"
   if [[ "$workspace_count" == "1" ]]; then
     printf '%s\n' "$workspace_customer_ids" | awk 'NF {print; exit}'
-    echo "Log Analytics workspace detected via Azure CLI; Terraform state does not surface its customer id" >&2
+    echo "Log Analytics workspace detected via the selected Azure CLI read scope" >&2
   elif [[ "$workspace_count" -gt 1 ]]; then
     echo "multiple Log Analytics workspaces exist in the selected resource group" >&2
     return 1
@@ -70,14 +68,6 @@ if [[ -n "$local_kubernetes_bindings_override" ]] && {
 fi
 if [[ "$local_teams_notification_activation" != "0" && "$local_teams_notification_activation" != "1" ]]; then
   echo "FDAI_LOCAL_TEAMS_NOTIFICATION_ACTIVATION MUST be 0 or 1" >&2
-  exit 1
-fi
-if [[ "$no_azure_deployment" != "0" && "$no_azure_deployment" != "1" ]]; then
-  echo "FDAI_LOCAL_NO_AZURE_DEPLOYMENT MUST be 0 or 1" >&2
-  exit 1
-fi
-if [[ "$no_azure_deployment" == "1" && ! "$local_resource_group" =~ ^[A-Za-z0-9._()-]+$ ]]; then
-  echo "FDAI_LOCAL_RESOURCE_GROUP MUST name an existing, explicitly selected read scope" >&2
   exit 1
 fi
 if [[ "$local_kubernetes_lifecycle" == "1" ]]; then
@@ -304,166 +294,71 @@ PY
 )"
 fi
 
+if [[ ! "$local_resource_group" =~ ^[A-Za-z0-9._()-]+$ ]]; then
+  echo "FDAI_LOCAL_RESOURCE_GROUP MUST name an existing, explicitly selected read scope" >&2
+  exit 1
+fi
 subscription_id="$(env -u AZURE_CONFIG_DIR "$AZ_BIN" account show --query id -o tsv)"
 tenant_id="$(env -u AZURE_CONFIG_DIR "$AZ_BIN" account show --query tenantId -o tsv)"
-if [[ "$no_azure_deployment" == "1" ]]; then
-  echo "preparing local Docker state with an explicitly selected Azure read scope; no Terraform deployment required" >&2
-  bootstrap=""
-  operational_bootstrap=""
-  semantic_topics_json="[]"
-  semantic_physical_topic=""
-  operational_topics_json="[]"
-  resource_group="$local_resource_group"
-  monitor_workspace_customer_id="$(
-    detect_monitor_workspace_customer_id "$subscription_id" "$resource_group"
-  )"
-  dev_operations_gateway_url=""
-  dev_operations_gateway_audience=""
-  semantic_fallback_required=0
-  semantic_physical_candidate=""
-  semantic_physical_verified=0
-  region="$(env -u AZURE_CONFIG_DIR "$AZ_BIN" group show --subscription "$subscription_id" --name "$resource_group" --query location -o tsv)"
-  inventory_topic=""
-else
-  bootstrap="$($TERRAFORM_BIN -chdir="$REPO_ROOT/infra" output -raw event_bus_kafka_bootstrap)"
-  operational_bootstrap="$($TERRAFORM_BIN -chdir="$REPO_ROOT/infra" output -raw event_bus_operational_kafka_bootstrap 2>/dev/null || true)"
-  semantic_topics_json="$($TERRAFORM_BIN -chdir="$REPO_ROOT/infra" output -json event_bus_semantic_topics 2>/dev/null || printf '[]')"
-  semantic_physical_topic="$($TERRAFORM_BIN -chdir="$REPO_ROOT/infra" output -raw event_bus_semantic_physical_topic 2>/dev/null || true)"
-  operational_topics_json="$($TERRAFORM_BIN -chdir="$REPO_ROOT/infra" output -json event_bus_operational_topics 2>/dev/null || printf '[]')"
-  resource_group="$($TERRAFORM_BIN -chdir="$REPO_ROOT/infra" output -raw resource_group_name)"
-  monitor_workspace_customer_id="$($TERRAFORM_BIN -chdir="$REPO_ROOT/infra" output -raw log_workspace_customer_id 2>/dev/null || true)"
-  dev_operations_gateway_url="$($TERRAFORM_BIN -chdir="$REPO_ROOT/infra" output -raw dev_operations_gateway_url 2>/dev/null || true)"
-  dev_operations_gateway_audience="$($TERRAFORM_BIN -chdir="$REPO_ROOT/infra" output -raw dev_operations_gateway_audience 2>/dev/null || true)"
-  executor_identity_resource_id="$($TERRAFORM_BIN -chdir="$REPO_ROOT/infra" output -raw executor_identity_resource_id)"
-  if [[ ! "$executor_identity_resource_id" =~ ^/subscriptions/([^/]+)/resourceGroups/ ]]; then
-    echo "executor_identity_resource_id is not a valid Azure resource ID" >&2
-    exit 1
-  fi
-  deployment_subscription_id="${BASH_REMATCH[1]}"
-  if [[ "${subscription_id,,}" != "${deployment_subscription_id,,}" ]]; then
-    echo "active Azure CLI subscription does not match the applied Terraform deployment" >&2
-    exit 1
-  fi
-  semantic_fallback_required=0
-  semantic_physical_candidate="$semantic_physical_topic"
-  if [[ "$semantic_topics_json" == "[]" && -z "$semantic_physical_topic" ]]; then
-    semantic_fallback_required=1
-    semantic_contract="$("$REPO_ROOT/.venv/bin/python" - \
-    "$SCRIPT_REPO_ROOT/packages/service-contracts/src/fdai_service_contracts/semantic_turn.py" <<'PY'
-import ast
-import json
-import sys
-from pathlib import Path
-
-required = {
-  "SEMANTIC_PHYSICAL_TOPIC",
-  "SEMANTIC_PROJECTION_TOPIC",
-  "SEMANTIC_REQUEST_TOPIC",
-}
-tree = ast.parse(Path(sys.argv[1]).read_text(encoding="utf-8"))
-values = {}
-for node in tree.body:
-  if not isinstance(node, ast.Assign) or len(node.targets) != 1:
-    continue
-  target = node.targets[0]
-  if isinstance(target, ast.Name) and target.id in required:
-    value = ast.literal_eval(node.value)
-    if isinstance(value, str):
-      values[target.id] = value
-if values.keys() != required:
-  raise SystemExit("semantic turn contract topic constants are incomplete")
-
-print(
-    json.dumps(
-        {
-      "logical": [
-        values["SEMANTIC_REQUEST_TOPIC"],
-        values["SEMANTIC_PROJECTION_TOPIC"],
-      ],
-      "physical": values["SEMANTIC_PHYSICAL_TOPIC"],
-        },
-        separators=(",", ":"),
-    )
-)
-PY
+echo "preparing local Docker state with an explicitly selected Azure read scope" >&2
+resource_group="$local_resource_group"
+region="$(env -u AZURE_CONFIG_DIR "$AZ_BIN" group show --subscription "$subscription_id" --name "$resource_group" --query location -o tsv)"
+monitor_workspace_customer_id="$(
+  detect_monitor_workspace_customer_id "$subscription_id" "$resource_group"
 )"
-    semantic_physical_candidate="$(printf '%s' "$semantic_contract" | "$REPO_ROOT/.venv/bin/python" -c 'import json, sys; print(json.load(sys.stdin)["physical"])')"
-  fi
-  semantic_physical_verified=0
-  if [[ -n "$semantic_physical_candidate" && "$bootstrap" =~ ^([a-z0-9-]+)\.servicebus\.windows\.net:9093$ ]]; then
-    semantic_namespace="${BASH_REMATCH[1]}"
-    semantic_physical_live="$(env -u AZURE_CONFIG_DIR "$AZ_BIN" eventhubs eventhub show \
-      --resource-group "$resource_group" --namespace-name "$semantic_namespace" \
-      --name "$semantic_physical_candidate" --query name -o tsv 2>/dev/null || true)"
-    if [[ "$semantic_physical_live" == "$semantic_physical_candidate" ]]; then
-      semantic_physical_verified=1
-    fi
-    if [[ "$semantic_fallback_required" == "1" && "$semantic_physical_verified" == "1" ]]; then
-      semantic_topics_json="$(printf '%s' "$semantic_contract" | "$REPO_ROOT/.venv/bin/python" -c 'import json, sys; print(json.dumps(json.load(sys.stdin)["logical"], separators=(",", ":")))')"
-      semantic_physical_topic="$semantic_physical_candidate"
-    fi
-  fi
-  region="$(env -u AZURE_CONFIG_DIR "$AZ_BIN" group show --name "$resource_group" --query location -o tsv)"
-
-  if [[ -z "$monitor_workspace_customer_id" ]]; then
-    monitor_workspace_customer_id="$(
-      detect_monitor_workspace_customer_id "$subscription_id" "$resource_group"
-    )"
-  fi
-  if [[ -n "$monitor_workspace_customer_id" &&
-    ! "$monitor_workspace_customer_id" =~ ^[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12}$ ]]; then
-    echo "Log Analytics workspace customer id is invalid" >&2
-    exit 1
-  fi
-
-  # When Terraform state does not surface the operations gateway (for example a
-  # targeted apply provisioned it out of band, or this working tree reads a
-  # different state), live-detect a deployed gateway Function App the active
-  # Azure CLI session can already see in the resource group. The gateway app is
-  # named ``func-<workload>...-devgw-<suffix>`` and its Microsoft Entra audience
-  # is the App Service Authentication allowed audience. Every probe fails soft:
-  # any lookup miss leaves the URL empty so the shadow-fake fallback still wins.
-  if [[ -z "$dev_operations_gateway_url" ]]; then
-    gateway_app_id="$(env -u AZURE_CONFIG_DIR "$AZ_BIN" functionapp list \
-      --resource-group "$resource_group" \
-      --query "[?contains(name, '-devgw-')] | [0].id" -o tsv 2>/dev/null || true)"
-    if [[ -n "$gateway_app_id" ]]; then
-      gateway_host="$(env -u AZURE_CONFIG_DIR "$AZ_BIN" functionapp show \
-        --ids "$gateway_app_id" --query defaultHostName -o tsv 2>/dev/null || true)"
-      gateway_audience_live="$(env -u AZURE_CONFIG_DIR "$AZ_BIN" rest --method post \
-        --uri "https://management.azure.com${gateway_app_id}/config/authsettingsV2/list?api-version=2023-12-01" \
-        --query "properties.identityProviders.azureActiveDirectory.validation.allowedAudiences[0]" \
-        -o tsv 2>/dev/null || true)"
-      if [[ "$gateway_host" =~ ^[A-Za-z0-9.-]+$ &&
-        "$gateway_audience_live" =~ ^[A-Za-z0-9:._/-]+$ &&
-        "${#gateway_audience_live}" -le 256 ]]; then
-        dev_operations_gateway_url="https://${gateway_host}"
-        dev_operations_gateway_audience="$gateway_audience_live"
-        echo "development operations gateway detected via Azure CLI; Terraform state does not surface it" >&2
-      fi
-    fi
-  fi
-  inventory_topic="$(printf '%s' "$operational_topics_json" | "$REPO_ROOT/.venv/bin/python" -c '
+dev_operations_gateway_url=""
+dev_operations_gateway_audience=""
+inventory_topic=""
+if [[ -n "$monitor_workspace_customer_id" &&
+  ! "$monitor_workspace_customer_id" =~ ^[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12}$ ]]; then
+  echo "Log Analytics workspace customer id is invalid" >&2
+  exit 1
+fi
+gateway_candidates_json="$(env -u AZURE_CONFIG_DIR "$AZ_BIN" functionapp list \
+  --subscription "$subscription_id" \
+  --resource-group "$resource_group" \
+  --query "[?contains(name, '-devgw-')].{id:id,host:defaultHostName}" \
+  -o json 2>/dev/null || printf '[]')"
+gateway_candidates_text="$(printf '%s' "$gateway_candidates_json" | \
+  "$REPO_ROOT/.venv/bin/python" -c '
 import json, sys
-topics = json.load(sys.stdin)
-required = "fdai.inventory.raw"
-print(required if isinstance(topics, list) and required in topics else "")
-')"
-
-  if [[ ! "$bootstrap" =~ ^[a-z0-9.-]+\.servicebus\.windows\.net:9093$ ]]; then
-    echo "event_bus_kafka_bootstrap is not an Event Hubs Kafka endpoint" >&2
+rows = json.load(sys.stdin)
+if not isinstance(rows, list):
+    raise SystemExit("gateway discovery response MUST be a list")
+for row in rows:
+    if not isinstance(row, dict):
+        raise SystemExit("gateway discovery item MUST be an object")
+    resource_id = row.get("id")
+    host = row.get("host")
+    if not isinstance(resource_id, str) or not isinstance(host, str):
+        raise SystemExit("gateway discovery item is incomplete")
+    print(f"{resource_id}\t{host}")
+  ')"
+  mapfile -t gateway_candidates < <(printf '%s' "$gateway_candidates_text")
+if (( ${#gateway_candidates[@]} > 1 )); then
+  echo "multiple development operations gateways exist in the selected resource group" >&2
+  exit 1
+fi
+if (( ${#gateway_candidates[@]} == 1 )); then
+  gateway_app_id="${gateway_candidates[0]%%$'\t'*}"
+  gateway_host="${gateway_candidates[0]#*$'\t'}"
+  mapfile -t browser_api_scopes < <(grep -E '^VITE_MSAL_API_SCOPE=' "$SOURCE_ENV" || true)
+  if (( ${#browser_api_scopes[@]} != 1 )); then
+    echo "one VITE_MSAL_API_SCOPE is required for the development operations gateway" >&2
     exit 1
   fi
-  if [[ -n "$inventory_topic" && ! "$operational_bootstrap" =~ ^[a-z0-9.-]+\.servicebus\.windows\.net:9093$ ]]; then
-    echo "event_bus_operational_kafka_bootstrap is required for raw inventory" >&2
+  browser_api_scope="${browser_api_scopes[0]#*=}"
+  if [[ ! "$browser_api_scope" =~ ^api://([^/]+)/[^/]+$ ]]; then
+    echo "VITE_MSAL_API_SCOPE MUST use api://<audience>/<scope>" >&2
     exit 1
   fi
-  if [[ -n "$semantic_physical_topic" ]] && {
-    [[ ! "$semantic_physical_topic" =~ ^[a-z0-9._-]+$ ]] ||
-    [[ "$semantic_physical_verified" != "1" ]]
-  }; then
-    echo "event_bus_semantic_physical_topic is not provisioned" >&2
-    exit 1
+  gateway_audience_live="${BASH_REMATCH[1]}"
+  if [[ "$gateway_host" =~ ^[A-Za-z0-9.-]+$ &&
+    "$gateway_audience_live" =~ ^[A-Za-z0-9:._/-]+$ &&
+    "${#gateway_audience_live}" -le 256 ]]; then
+    dev_operations_gateway_url="https://${gateway_host}"
+    dev_operations_gateway_audience="$gateway_audience_live"
+    echo "development operations gateway detected via Azure CLI" >&2
   fi
 fi
 if [[ -z "$subscription_id" || -z "$tenant_id" || ! "$resource_group" =~ ^[A-Za-z0-9._()/-]+$ || ! "$region" =~ ^[a-z0-9-]+$ ]]; then
@@ -526,11 +421,6 @@ fi
   printf 'FDAI_START_PANTHEON=1\n'
   printf 'FDAI_TEAMS_NOTIFICATION_ACTIVATION=%s\n' "$local_teams_notification_activation"
   printf 'FDAI_STARTUP_KAFKA_PROBE_TOPIC=fdai.startup.probes\n'
-  if [[ "$no_azure_deployment" != "1" ]]; then
-    printf 'FDAI_STARTUP_KAFKA_SETTLE_SECONDS=20\n'
-    printf 'FDAI_STARTUP_PROBE_TIMEOUT_SECONDS=90\n'
-    printf 'FDAI_STARTUP_PHASE_TIMEOUT_SECONDS=180\n'
-  fi
   printf 'FDAI_RUNTIME_LOCAL_AZURE_CLI=1\n'
   printf 'FDAI_CORE_CONSUMER_GROUP_ID=fdai-local-%s-core\n' "$local_consumer_instance"
   printf 'FDAI_PANTHEON_CONSUMER_GROUP_PREFIX=fdai-local-%s-pantheon\n' "$local_consumer_instance"
@@ -543,14 +433,6 @@ fi
   if [[ -n "$dev_operations_gateway_url" ]]; then
     printf 'FDAI_DEV_OPERATIONS_GATEWAY_URL=%s\n' "$dev_operations_gateway_url"
     printf 'FDAI_DEV_OPERATIONS_GATEWAY_AUDIENCE=%s\n' "$dev_operations_gateway_audience"
-  elif [[ "$no_azure_deployment" != "1" ]]; then
-    # No operations gateway is provisioned in this deployment, so the
-    # governed direct-API executor has no live backend. Auto-wire the
-    # in-memory shadow fake (RecordingDirectApiExecutor) so the local dev
-    # runtime still exercises the ``execution_path: direct_api`` dispatch
-    # end-to-end. The fake performs no real mutation, and the runtime
-    # forbids it alongside a gateway URL - the two are mutually exclusive.
-    printf 'FDAI_DIRECT_API_FAKE=1\n'
   fi
 } >> "$temp_env"
 
@@ -563,11 +445,7 @@ if [[ -z "$inventory_topic" ]]; then
   echo "inventory raw topic is not provisioned; local cache invalidation uses TTL refresh" >&2
 fi
 if [[ -z "$dev_operations_gateway_url" ]]; then
-  if [[ "$no_azure_deployment" == "1" ]]; then
-    echo "development operations gateway is not configured; managed-resource execution remains unavailable" >&2
-  else
-    echo "development operations gateway is not provisioned; direct-API executor uses the in-memory shadow fake (FDAI_DIRECT_API_FAKE=1)" >&2
-  fi
+  echo "development operations gateway is not configured; managed-resource execution remains unavailable" >&2
 fi
 if [[ -z "$resolved_models_path" ]]; then
   echo "resolved-models.json is absent; local LLM calls and metering remain unavailable" >&2
@@ -575,8 +453,4 @@ fi
 if [[ "$local_kubernetes_lifecycle" == "0" ]]; then
   echo "local Kubernetes lifecycle collection is disabled; set FDAI_LOCAL_KUBERNETES_LIFECYCLE=1 with complete bindings to enable it" >&2
 fi
-if [[ "$no_azure_deployment" == "1" ]]; then
-  echo "prepared local runtime environment from explicit Azure read scope"
-else
-  echo "prepared local runtime environment from applied Terraform outputs"
-fi
+echo "prepared local runtime environment from explicit Azure read scope"

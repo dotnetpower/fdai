@@ -729,7 +729,10 @@ def test_preparation_reuses_an_unchanged_healthy_stack(
         encoding="utf-8",
     )
     (repo / "console").mkdir()
-    (repo / "console/.env.local").write_text("prepared\n", encoding="utf-8")
+    (repo / "console/.env.local").write_text(
+        "FDAI_LOCAL_RESOURCE_GROUP=rg-example\n",
+        encoding="utf-8",
+    )
     (repo / "console/package.json").write_text("{}\n", encoding="utf-8")
     (repo / "console/package-lock.json").write_text("{}\n", encoding="utf-8")
     _write_executable(repo / "console/node_modules/.bin/vite", "#!/usr/bin/env bash\nexit 0\n")
@@ -791,7 +794,9 @@ def _staged_preparation_repo(
     _write_ready_dependency_script(repo)
     (repo / "console").mkdir()
     (repo / "console/.env.local").write_text(
-        "VITE_MSAL_TENANT_ID=tenant\nVITE_MSAL_CLIENT_ID=client\n",
+        "VITE_MSAL_TENANT_ID=tenant\n"
+        "VITE_MSAL_CLIENT_ID=client\n"
+        "FDAI_LOCAL_RESOURCE_GROUP=rg-example\n",
         encoding="utf-8",
     )
     (repo / "console/package.json").write_text("{}\n", encoding="utf-8")
@@ -869,8 +874,8 @@ fi
                     (
                         f"{digest}\nkubernetes=0\n"
                         f"kubernetes-bindings-path={kubernetes_bindings_path}\n"
-                        "teams-notifications=0\nno-azure-deployment=0\n"
-                        "local-resource-group=\nresolved-models-override=\n"
+                        "teams-notifications=0\n"
+                        "local-resource-group=rg-example\nresolved-models-override=\n"
                     ).encode()
                 ).hexdigest()
             if stage == "service-environments":
@@ -1099,7 +1104,6 @@ def test_preparation_loads_existing_read_scope_from_private_console_environment(
     (repo / "console/.env.local").write_text(
         "VITE_MSAL_TENANT_ID=tenant\n"
         "VITE_MSAL_CLIENT_ID=client\n"
-        "FDAI_LOCAL_NO_AZURE_DEPLOYMENT=1\n"
         "FDAI_LOCAL_RESOURCE_GROUP=rg-from-file\n",
         encoding="utf-8",
     )
@@ -1107,8 +1111,7 @@ def test_preparation_loads_existing_read_scope_from_private_console_environment(
         repo / "scripts/deployment/azure/prepare-local-runtime-env.sh",
         """#!/usr/bin/env bash
 set -euo pipefail
-printf '%s:%s\n' "$FDAI_LOCAL_NO_AZURE_DEPLOYMENT" "$FDAI_LOCAL_RESOURCE_GROUP" \
-  > .fdai/captured-read-scope
+printf '%s\n' "$FDAI_LOCAL_RESOURCE_GROUP" > .fdai/captured-read-scope
 printf 'prepared\n' > .fdai/local-runtime.env
 """,
     )
@@ -1124,7 +1127,7 @@ printf 'prepared\n' > .fdai/local-runtime.env
     )
 
     assert result.returncode == 0
-    assert (repo / ".fdai/captured-read-scope").read_text(encoding="utf-8") == ("1:rg-from-file\n")
+    assert (repo / ".fdai/captured-read-scope").read_text(encoding="utf-8") == ("rg-from-file\n")
 
 
 def test_preparation_prefers_explicit_read_scope_environment(tmp_path: Path) -> None:
@@ -1132,7 +1135,6 @@ def test_preparation_prefers_explicit_read_scope_environment(tmp_path: Path) -> 
     (repo / "console/.env.local").write_text(
         "VITE_MSAL_TENANT_ID=tenant\n"
         "VITE_MSAL_CLIENT_ID=client\n"
-        "FDAI_LOCAL_NO_AZURE_DEPLOYMENT=1\n"
         "FDAI_LOCAL_RESOURCE_GROUP=rg-from-file\n",
         encoding="utf-8",
     )
@@ -1140,8 +1142,7 @@ def test_preparation_prefers_explicit_read_scope_environment(tmp_path: Path) -> 
         repo / "scripts/deployment/azure/prepare-local-runtime-env.sh",
         """#!/usr/bin/env bash
 set -euo pipefail
-printf '%s:%s\n' "$FDAI_LOCAL_NO_AZURE_DEPLOYMENT" "$FDAI_LOCAL_RESOURCE_GROUP" \
-  > .fdai/captured-read-scope
+printf '%s\n' "$FDAI_LOCAL_RESOURCE_GROUP" > .fdai/captured-read-scope
 printf 'prepared\n' > .fdai/local-runtime.env
 """,
     )
@@ -1151,7 +1152,6 @@ printf 'prepared\n' > .fdai/local-runtime.env
         cwd=repo,
         env={
             **environment,
-            "FDAI_LOCAL_NO_AZURE_DEPLOYMENT": "1",
             "FDAI_LOCAL_RESOURCE_GROUP": "rg-from-process",
         },
         capture_output=True,
@@ -1161,8 +1161,41 @@ printf 'prepared\n' > .fdai/local-runtime.env
     )
 
     assert result.returncode == 0
+    assert (repo / ".fdai/captured-read-scope").read_text(encoding="utf-8") == ("rg-from-process\n")
+
+
+def test_preparation_reuses_prior_generated_read_scope(tmp_path: Path) -> None:
+    repo, environment = _staged_preparation_repo(tmp_path, stale_stage="runtime-environment")
+    (repo / "console/.env.local").write_text(
+        "VITE_MSAL_TENANT_ID=tenant\nVITE_MSAL_CLIENT_ID=client\n",
+        encoding="utf-8",
+    )
+    (repo / ".fdai/local-runtime.env").write_text(
+        "AZURE_RESOURCE_GROUP=rg-from-prior-runtime\n",
+        encoding="utf-8",
+    )
+    _write_executable(
+        repo / "scripts/deployment/azure/prepare-local-runtime-env.sh",
+        """#!/usr/bin/env bash
+set -euo pipefail
+printf '%s\n' "$FDAI_LOCAL_RESOURCE_GROUP" > .fdai/captured-read-scope
+printf 'prepared\n' > .fdai/local-runtime.env
+""",
+    )
+
+    result = subprocess.run(  # noqa: S603 - fixed test script and executable.
+        [_BASH, str(repo / "scripts/deployment/local/prepare-console-full-stack.sh")],
+        cwd=repo,
+        env=environment,
+        capture_output=True,
+        text=True,
+        check=False,
+        timeout=3,
+    )
+
+    assert result.returncode == 0
     assert (repo / ".fdai/captured-read-scope").read_text(encoding="utf-8") == (
-        "1:rg-from-process\n"
+        "rg-from-prior-runtime\n"
     )
 
 

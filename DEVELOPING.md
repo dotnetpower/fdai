@@ -194,19 +194,22 @@ Core Control Plane, Operator API (`8010`), Document Ingestion API (`8011`), Docu
 Worker (`8012` health), and isolated Executor (`8013` health).
 
 The complete stack combines local Docker state with Azure-backed readers. Before starting it,
-`terraform -chdir=infra output -raw resource_group_name` must resolve the intended applied
-platform state, and the default `az` profile must select that deployment's subscription and the
-tenant recorded in `console/.env.local`. The Docker-only path below has no Azure dependency. See
+select the intended Azure read scope with `FDAI_LOCAL_RESOURCE_GROUP=<existing-read-scope>` and
+make sure the default `az` profile uses that group's subscription and the tenant recorded in
+`console/.env.local`. Local Console preparation never initializes or reads Terraform state. The
+Docker-only path below has no Azure dependency. See
 [Choose a local path](docs/user-guide/local-development-quickstart.md#choose-a-local-path) for the
 boundary, including the isolated state retained by the public contributor deployment.
 
-Without an applied Terraform deployment (a fresh contributor or customer subscription), set
-`FDAI_LOCAL_NO_AZURE_DEPLOYMENT=1` and `FDAI_LOCAL_RESOURCE_GROUP=<existing-read-scope>` for
-the preparation task or script instead. The selected group is verified in the active subscription;
-no placeholder scope or default region is invented. Local stateful services run on Docker
-PostgreSQL and Redpanda. This does not provision FDAI resources or enable managed-resource
-execution. Unconfigured authoritative sources remain unavailable. See
-[Local Development Quickstart § No applied Azure deployment yet](docs/user-guide/local-development-quickstart.md#no-applied-azure-deployment-yet).
+The preparation task reads that setting from the process environment or the gitignored
+`console/.env.local`; after one successful run it may reuse the prior private local-runtime scope.
+The selected group is verified in the active subscription, and no placeholder scope or default
+region is invented. PostgreSQL and Redpanda remain local. A unique development operations gateway
+may be discovered through Azure CLI, and its audience is derived from the validated private
+`VITE_MSAL_API_SCOPE`. The local Console receives no executor identity and
+cannot promote an ActionType. Actual Azure changes still require the deployed Executor, durable
+promotion evidence, applicable human approval, dry-run, rollback, audit, and independent effect
+verification. See [Select the Azure read scope](docs/user-guide/local-development-quickstart.md#select-the-azure-read-scope).
 
 - VS Code (recommended): trust the workspace, then run the `console: start full stack` task for
   managed service reuse or the `Console Web: Full Stack` compound when you need debugger-owned

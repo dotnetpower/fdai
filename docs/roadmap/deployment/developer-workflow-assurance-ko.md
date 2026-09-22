@@ -1,7 +1,7 @@
 ---
 translation_of: developer-workflow-assurance.md
-translation_source_sha: 082d29574ec969d09df49cfe572555bb6e6e3f6c
-translation_revised: 2026-09-21
+translation_source_sha: 87358c2330572181547a133b46952e7b1d672d94
+translation_revised: 2026-09-22
 ---
 
 # 개발 워크플로 보증
@@ -46,6 +46,8 @@ bearer-token 파일 경로를 전달하지만 bearer 값 자체는 전달하지 
 데이터베이스와 브로커 세대 유지 관리가 오래된 프로세스에 대해 준비를 실행하지 않고 활성 consumer와
 연결을 거부할 수 있습니다. 전용 터미널과 준비 상태 검사기를 사용하며, 완료된 시작 작업의 오래된
 출력은 새 프로세스나 준비 완료의 근거가 아닙니다.
+관리되는 준비 과정은 로컬 PostgreSQL 및 Redpanda와 명시적 Azure CLI 읽기 범위를 사용합니다.
+Terraform 상태를 초기화하거나 읽지 않으며 게이트웨이 검색은 로컬 실행기 신원을 부여하지 않습니다.
 관리되는 로컬 준비 과정은 비활성 consumer group offset도 일반 topic 데이터와 같은 24시간 구간으로
 제한하고 1분마다 만료를 확인하며, 활성 group에는 영향을 주지 않습니다.
 

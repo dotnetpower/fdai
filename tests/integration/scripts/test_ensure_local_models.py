@@ -232,6 +232,22 @@ def test_missing_explicit_settings_never_trigger_discovery(tmp_path, monkeypatch
     assert not target.exists()
 
 
+def test_missing_default_settings_require_explicit_scope_before_provider_access(
+    tmp_path, monkeypatch
+):
+    monkeypatch.delenv("FDAI_LOCAL_RESOLVED_MODELS_PATH", raising=False)
+    monkeypatch.setattr(sys, "argv", ["ensure-local-models", "--repo-root", str(tmp_path)])
+
+    def observed_command(arguments, **kwargs):
+        if arguments[0] == "git":
+            return MODULE.subprocess.CompletedProcess(arguments, 0, "", "")
+        pytest.fail("missing scope must not trigger provider discovery")
+
+    monkeypatch.setattr(MODULE.subprocess, "run", observed_command)
+    with pytest.raises(ValueError, match="explicitly selected resource group"):
+        MODULE.main()
+
+
 @pytest.mark.parametrize("discovery_fails", [False, True])
 def test_missing_default_settings_use_only_scoped_reads(tmp_path, monkeypatch, discovery_fails):
     monkeypatch.delenv("FDAI_LOCAL_RESOLVED_MODELS_PATH", raising=False)

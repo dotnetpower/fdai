@@ -318,16 +318,6 @@ def main() -> int:
     def azure(*arguments: str) -> Any:
         return command([os.environ.get("FDAI_AZ_BIN", "az"), *arguments, "--output", "json"])
 
-    if not args.resource_group:
-        args.resource_group = command(
-            [
-                os.environ.get("FDAI_TERRAFORM_BIN", "terraform"),
-                f"-chdir={args.repo_root / 'infra'}",
-                "output",
-                "-json",
-                "resource_group_name",
-            ]
-        )
     if not re.fullmatch(r"[A-Za-z0-9._()-]{1,90}", args.resource_group):
         raise ValueError("model discovery requires an explicitly selected resource group")
     identity = azure("account", "show")
