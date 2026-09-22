@@ -393,6 +393,8 @@ async def _iter_consumer(
                 async with aclosing(
                     _consume_messages(
                         consumer,
+                        topic=topic,
+                        group_id=group_id,
                         commit_max_records=config.commit_max_records,
                         commit_interval_seconds=config.commit_interval_seconds,
                     )
@@ -616,10 +618,13 @@ def _log_consumer_progress(
 async def _consume_messages(
     consumer: AIOKafkaConsumer,
     *,
+    topic: str,
+    group_id: str,
     commit_max_records: int,
     commit_interval_seconds: float,
 ) -> AsyncGenerator[EventEnvelope, None]:
     uncommitted = 0
+    partition_offsets: dict[int, int] = {}
     last_commit_at = asyncio.get_running_loop().time()
     while True:
         if uncommitted:
@@ -627,15 +632,27 @@ async def _consume_messages(
                 asyncio.get_running_loop().time() - last_commit_at
             )
             if remaining <= 0:
-                await consumer.commit()
+                await _commit_plaintext_consumer(
+                    consumer,
+                    topic=topic,
+                    group_id=group_id,
+                    partition_offsets=partition_offsets,
+                )
                 uncommitted = 0
+                partition_offsets.clear()
                 last_commit_at = asyncio.get_running_loop().time()
                 continue
             try:
                 message = await asyncio.wait_for(consumer.getone(), timeout=remaining)
             except TimeoutError:
-                await consumer.commit()
+                await _commit_plaintext_consumer(
+                    consumer,
+                    topic=topic,
+                    group_id=group_id,
+                    partition_offsets=partition_offsets,
+                )
                 uncommitted = 0
+                partition_offsets.clear()
                 last_commit_at = asyncio.get_running_loop().time()
                 continue
         else:
@@ -647,11 +664,42 @@ async def _consume_messages(
             payload=_decode(message.value, topic=message.topic, key=key),
             offset=message.offset,
         )
+        partition = getattr(message, "partition", None)
+        if isinstance(partition, int) and partition >= 0:
+            partition_offsets[partition] = message.offset
         uncommitted += 1
         if uncommitted >= commit_max_records:
-            await consumer.commit()
+            await _commit_plaintext_consumer(
+                consumer,
+                topic=topic,
+                group_id=group_id,
+                partition_offsets=partition_offsets,
+            )
             uncommitted = 0
+            partition_offsets.clear()
             last_commit_at = asyncio.get_running_loop().time()
+
+
+async def _commit_plaintext_consumer(
+    consumer: AIOKafkaConsumer,
+    *,
+    topic: str,
+    group_id: str,
+    partition_offsets: Mapping[int, int],
+) -> None:
+    if (
+        topic == "fdai.change.events"
+        and group_id.startswith("fdai-local-")
+        and group_id.endswith("-core")
+    ):
+        await _commit_consumer_progress(
+            consumer,
+            topic=topic,
+            group_id=group_id,
+            partition_offsets=partition_offsets,
+        )
+        return
+    await consumer.commit()
 
 
 def _transport_options(
