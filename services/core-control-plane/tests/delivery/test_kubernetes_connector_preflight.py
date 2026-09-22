@@ -550,11 +550,14 @@ async def test_read_collector_composition_signs_only_its_observed_fact(
     from cryptography.hazmat.primitives.serialization import Encoding, NoEncryption, PrivateFormat
     from fdai.delivery import kubernetes_connector_preflight_runtime as runtime
     from fdai.delivery import kubernetes_connector_read_preflight as collector
+    from fdai.delivery import kubernetes_connector_resource_preflight as resource_collector
     from fdai_service_contracts.schema import (
         JsonSchemaContractValidator,
         PackageResourceSchemaRegistry,
     )
 
+    # Freeze the real subclass before replacing its imported base for this probe.
+    assert resource_collector.KubernetesObserverResourcePreflight
     grant, original, private = material()
     key_path = tmp_path / "signing.pem"
     key_path.write_bytes(private.private_bytes(Encoding.PEM, PrivateFormat.PKCS8, NoEncryption()))

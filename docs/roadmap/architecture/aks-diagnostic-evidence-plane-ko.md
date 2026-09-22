@@ -1,8 +1,8 @@
 ---
 title: AKS 진단 근거 플레인
 translation_of: aks-diagnostic-evidence-plane.md
-translation_source_sha: c54d29c9056e89732ab600dac2cf4776abfdbcfc
-translation_revised: 2026-09-20
+translation_source_sha: 1115a3ff8f128e23d525f9f2563725012f377719
+translation_revised: 2026-09-22
 ---
 # AKS 진단 근거 플레인
 
@@ -49,6 +49,7 @@ Azure 관측은 정확한 대상을 검증한 뒤에만 결합됩니다. 결정�
 [커넥터 사전 점검 경계](aks-outbound-connector-ko.md#용량-및-저장소-사전-점검)에 정의합니다.
 이 순수 함수들은 완전한 Pod 레코드를 입력받으며 기존 정규화된 진단 수량 문자열은 바꾸지
 않습니다. 산술 계산만으로 출처의 완전성이나 스케줄링 가능성을 입증하지는 않습니다. 명시적으로 호출하는 서명된 사전 점검은 완전한 Node·Pod 목록과 정확한 PVC·PV 연결을 별도로 수집합니다. 진단 정규화 범위를 넓히거나 배치, 마운트·쓰기 효과 또는 출처 승격을 입증하지는 않습니다.
+집중 테스트 하네스는 임시 읽기 probe 대체 전에 실제 리소스 사전 점검 클래스를 고정합니다. 따라서 테스트 묶음 순서가 정확한 네임스페이스 UID 경계나 진단 근거를 바꿀 수 없습니다.
 
 [역방향 커넥터](aks-outbound-connector-ko.md)는 관측 권한을 바꾸지 않고 명시적인 인증서
 인증 기반 스냅샷 전송을 제공합니다. 저장본을 읽는 어댑터는 기존 Inventory Job과 관계 검증기를
