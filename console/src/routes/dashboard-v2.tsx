@@ -290,8 +290,9 @@ function DashboardBody({ snapshot }: { readonly snapshot: DashboardSnapshot }) {
   return <>
     <section class="dv2-snapshot-card" aria-label={t("scope")}>
       <div class="dv2-scope">
-        <div><strong>{t("scope")}</strong><p>{snapshot.recordedStates ? t("inventoryScope") : snapshot.scope ?? t("missing")}</p><p>{t("boundary")}</p></div>
-        <div><strong>{t("snapshotAt")}</strong><p>{date(snapshot.at)}</p>{!snapshot.recordedStates && <StateBadge value={snapshot.freshness} />}</div>
+        <div class="dv2-scope-heading"><strong>{t("scope")}</strong><span>{snapshot.recordedStates ? t("inventoryScope") : snapshot.scope ?? t("missing")}</span></div>
+        <div class="dv2-snapshot-meta"><strong>{t("snapshotAt")}</strong><p>{date(snapshot.at)}</p>{!snapshot.recordedStates && <StateBadge value={snapshot.freshness} />}</div>
+        <p class="dv2-scope-boundary">{t("boundary")}</p>
       </div>
       {(snapshot.truncated || snapshot.limitations.length > 0) && <p class="dv2-notice" role="status">{t("partial")}</p>}
       {!snapshot.recordedStates && (snapshot.observationKind !== "OBSERVED" || !snapshot.id || !snapshot.source) && <p class="dv2-notice">{t("unverified")}</p>}

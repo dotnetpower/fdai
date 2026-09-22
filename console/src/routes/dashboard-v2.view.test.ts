@@ -24,4 +24,12 @@ describe("Dashboard v2 refresh presentation", () => {
     expect(styles).toMatch(/\.dv2-legend button \{[^}]*max-width: 100%/s);
     expect(styles).toMatch(/\.dv2-legend \.dv2-state \{[^}]*white-space: normal/s);
   });
+
+  test("presents scope provenance and summary counts as a compact desktop strip", () => {
+    expect(source).toContain('class="dv2-scope-heading"');
+    expect(source).toContain('class="dv2-snapshot-meta"');
+    expect(source).toContain('class="dv2-scope-boundary"');
+    expect(styles).toMatch(/\.dv2-summary \{[^}]*grid-template-columns: repeat\(7,/s);
+    expect(styles).toMatch(/\.dv2-summary a \{[^}]*min-height: 58px/s);
+  });
 });

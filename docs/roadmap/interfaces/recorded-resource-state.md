@@ -319,7 +319,9 @@ the exact ResourceTypes whose ARM type is supported:
 - Dashboard v2 presents returned scope and snapshot counts in one quiet summary surface, keeps the
   Resource landscape as the primary workspace, aligns evidence coverage beneath it, and reserves
   the secondary rail for Check first highlights or the selected Resource Inspector. This hierarchy
-  changes presentation only; every count retains its filtered recorded-state destination.
+  changes presentation only; every count retains its filtered recorded-state destination. The
+  returned-scope provenance and snapshot time share a compact header, and the counts use one
+  low-height desktop strip when width permits before reflowing without clipping at narrow widths.
 - The Overview header exposes Resource dashboard as an icon-led 44 px control, while the Resource
   dashboard header provides a matching Overview dashboard return control. The stable
   `/resource-dashboard` route does not appear as a duplicate Explorer entry. The former
