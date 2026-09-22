@@ -37,6 +37,64 @@ def _write_ready_dependency_script(repo: Path) -> None:
     )
 
 
+@pytest.mark.parametrize("checkout", ["primary", "linked", "git-failure"])
+def test_restart_checks_primary_checkout_before_any_service_effect(
+    tmp_path: Path,
+    checkout: str,
+) -> None:
+    repo = tmp_path / "repo"
+    local = repo / "scripts/deployment/local"
+    local.mkdir(parents=True)
+    script = local / "restart-console-services.sh"
+    shutil.copy2(_REPO_ROOT / "scripts/deployment/local/restart-console-services.sh", script)
+    binaries = tmp_path / "bin"
+    git_body = (
+        "exit 99\n"
+        if checkout == "git-failure"
+        else (
+            'case "$*" in\n'
+            f'  *--git-common-dir) printf "%s\\n" "{repo}/.git" ;;\n'
+            f'  *) printf "%s\\n" "{repo}/.git'
+            f'{"/worktrees/linked" if checkout == "linked" else ""}" ;;\n'
+            "esac\n"
+        )
+    )
+    _write_executable(binaries / "git", "#!/bin/bash\n" + git_body)
+    for name in (
+        "stop-console-services.sh",
+        "prepare-console-full-stack.sh",
+        "start-console-services.sh",
+    ):
+        _write_executable(
+            local / name, f'#!/bin/bash\nprintf "%s\\n" "{name} $*" >> "$FDAI_TEST_ORDER_FILE"\n'
+        )
+    order = tmp_path / "order"
+    result = subprocess.run(  # noqa: S603 - isolated committed wrapper and local stubs
+        [_BASH, str(script), "--auth-mode", "browser-entra"],
+        cwd=repo,
+        env={
+            **os.environ,
+            "PATH": f"{binaries}:{os.environ['PATH']}",
+            "FDAI_TEST_ORDER_FILE": str(order),
+        },
+        capture_output=True,
+        text=True,
+        check=False,
+        timeout=5,
+    )
+    if checkout == "primary":
+        assert result.returncode == 0, result.stderr
+        assert order.read_text().splitlines() == [
+            "stop-console-services.sh ",
+            "prepare-console-full-stack.sh --defer-authoritative-inventory "
+            "--auth-mode browser-entra",
+            "start-console-services.sh --auth-mode browser-entra",
+        ]
+    else:
+        assert result.returncode == (75 if checkout == "linked" else 99)
+        assert not order.exists()
+
+
 def test_local_redpanda_reserves_capacity_for_parallel_semantic_partitions() -> None:
     compose = yaml.safe_load(_LOCAL_COMPOSE.read_text(encoding="utf-8"))
     nofile = compose["services"]["redpanda"]["ulimits"]["nofile"]

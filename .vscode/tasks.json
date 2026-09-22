@@ -364,7 +364,6 @@
       "label": "console: restart full stack",
       "type": "shell",
       "command": "bash scripts/deployment/local/restart-console-services.sh --auth-mode browser-entra",
-      "dependsOn": ["console: require primary worktree"],
       "isBackground": true,
       "problemMatcher": {
         "owner": "console-stack-restart",
