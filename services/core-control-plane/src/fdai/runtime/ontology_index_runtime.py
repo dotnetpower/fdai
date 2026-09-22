@@ -348,6 +348,7 @@ class OntologyIndexRuntime:
         identity = content_digest(
             {
                 "scope": scope.digest,
+                "enrollment_issued_at": self._enrollments[scope.digest].issued_at.isoformat(),
                 "revision": pointer.revision,
                 "source": source_generation,
                 "generation": build.metadata.generation_digest,

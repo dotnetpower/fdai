@@ -20,6 +20,68 @@ from fdai.delivery.catalog_search.ontology_index_workers import (
 from fdai.runtime.ontology_index_runtime import OntologyIndexRuntime
 from fdai.shared.contracts.models import CeilingRole
 from fdai.shared.providers.testing.state_store import InMemoryStateStore
+from tests.delivery.catalog_search.test_ontology_generation import _manifest
+
+
+async def test_fresh_authenticated_query_recovers_expired_unprocessed_ingress(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    now = datetime(2026, 9, 22, tzinfo=UTC)
+    principal = Principal(id="example-reader", role=Role.READER)
+    digest = semantic_principal_scope_digest(principal=principal, purpose="operations-review")
+    manifest = _manifest(scope_digest=digest)
+    state = InMemoryStateStore()
+    gateway = Mock(
+        scan_snapshot=AsyncMock(
+            return_value=Mock(
+                graph=Mock(objects=(), source_generation="source-1"),
+                ontology_release_digest=manifest.release_digest,
+            )
+        )
+    )
+    coordinator = OntologyIndexRuntime(
+        store=state,
+        gateway=gateway,
+        manifest_for=Mock(return_value=manifest),
+        clock=lambda: now,
+        embedding_space_id="example-space",
+        embedding_model_version="example-model",
+        embedding_dimension=1,
+    )
+    coordinator.workers = Mock(
+        query_function=AsyncMock(return_value={}),
+        lifecycle=Mock(read=AsyncMock(return_value=Mock(active=None, revision=0))),
+        transition_completed=AsyncMock(return_value=True),
+        journal=Mock(replay=AsyncMock(return_value=None)),
+    )
+    publication = AsyncMock()
+    monkeypatch.setattr("fdai.runtime.ontology_index_runtime.request_context_index", publication)
+    context = FunctionInvocationContext(
+        caller_agent="Bragi",
+        principal_ref=principal.id,
+        principal_scope_digest=digest,
+        purposes=("operations-review",),
+    )
+    await coordinator.query("example-resource", 1, context)
+    scope = next(iter(coordinator._enrollments.values())).scope
+    runtime = Mock()
+    await coordinator._reconcile_scope(runtime, scope)
+    original = publication.await_args.args[1]
+    now += timedelta(seconds=121)
+    with pytest.raises(ValueError, match="expired"):
+        await coordinator._reconcile_scope(runtime, scope)
+    assert publication.await_count == 1
+    await coordinator.query("example-resource", 1, context)
+    await coordinator._reconcile_scope(runtime, scope)
+    assert publication.await_count == 2
+    renewed = publication.await_args.args[1]
+    assert renewed.correlation_id != original.correlation_id
+    assert IndexPreparationRequest.model_validate(renewed.body).requested_at == now
+    assert state._state[
+        f"ontology-index-request:v1:{original.correlation_id}"
+    ] == original.model_dump(mode="json")
+    await coordinator._reconcile_scope(runtime, scope)
+    assert publication.await_args.args[1] == renewed
 
 
 @pytest.mark.parametrize("drift", ["none", "groups", "role", "expired", "lifetime", "future"])
