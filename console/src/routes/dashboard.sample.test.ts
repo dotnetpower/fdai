@@ -6,6 +6,7 @@ describe("Dashboard sample mode", () => {
   test("returns the deterministic fixture without calling a live source", async () => {
     const client = {
       dashboardMetrics: vi.fn(),
+      costGovernanceAvailability: vi.fn(),
       costGovernance: vi.fn(),
       panel: vi.fn(),
       autonomy: vi.fn(),
@@ -17,6 +18,7 @@ describe("Dashboard sample mode", () => {
     expect(result).toBe(DASHBOARD_SAMPLE_DATA);
     expect(publishBackbone).toHaveBeenCalledWith(DASHBOARD_SAMPLE_DATA);
     expect(client.dashboardMetrics).not.toHaveBeenCalled();
+    expect(client.costGovernanceAvailability).not.toHaveBeenCalled();
     expect(client.costGovernance).not.toHaveBeenCalled();
     expect(client.panel).not.toHaveBeenCalled();
     expect(client.autonomy).not.toHaveBeenCalled();

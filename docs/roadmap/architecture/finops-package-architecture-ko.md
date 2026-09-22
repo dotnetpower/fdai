@@ -1,8 +1,8 @@
 ---
 title: 온톨로지 기반 FinOps 패키지 아키텍처
 translation_of: finops-package-architecture.md
-translation_source_sha: 74646222209d9f93fa7b70981c33db1c2b915d23
-translation_revised: 2026-09-21
+translation_source_sha: 3b6aef706aedf10c37c7f301c7e0852bf7078792
+translation_revised: 2026-09-22
 ---
 
 # 온톨로지 기반 FinOps 패키지 아키텍처
@@ -383,6 +383,10 @@ Core Pantheon 시작 과정은 패키지 중립 저장소를 통해 보존된 �
 수명 주기 영수증을 하나의 트랜잭션으로 추가합니다. 설치되지 않은 패키지를 설치하거나, 사용할 수
 없는 패키지를 사용할 수 있게 만들거나, 비용 데이터 접근 권한을 부여하거나, 작업을 승격할 수는
 없습니다.
+인증과 비용 데이터 접근에 성공하면 패키지를 사용할 수 없는 경우에도
+`GET /cost-governance/availability`는 타입이 지정된 가용성 및 활성화 상태와 함께 HTTP 200을
+반환합니다. 데이터를 제공하는 Cost Governance 화면은 패키지 활성화가 유효해질 때까지 HTTP 404를
+유지합니다.
 공유 Console 전송 계층은 명시적으로 분류된 source-gate 실패만 사용할 수 없는 변환 결과로
 처리합니다. 일반 `503`은 운영 오류로 유지하며 비용 거버넌스가 단순히 구성되지 않은 것처럼
 표시하는 데 사용할 수 없습니다.

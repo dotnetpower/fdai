@@ -86,6 +86,7 @@ export function NavigationShell({
   const [activityBarMenu, setActivityBarMenu] = useState<ActivityBarMenuPosition | null>(null);
   const [generalDeckOpen, setGeneralDeckOpen] = useState(isGeneralDeckOpen);
   const shellRef = useRef<HTMLDivElement | null>(null);
+  const explorerRef = useRef<HTMLElement | null>(null);
   const activityBarMenuRef = useRef<HTMLDivElement | null>(null);
   const activityBarMenuButtonRef = useRef<HTMLButtonElement | null>(null);
   const activityBarMenuItemRefs = useRef<(HTMLButtonElement | null)[]>([]);
@@ -110,7 +111,7 @@ export function NavigationShell({
   useEffect(() => {
     const stored = readNavigationPreferences(panelIds, principalId);
     setPreferences(stored);
-    onExplorerOpenChange(stored.explorerPinned && !isMobile());
+    setExplorerOpen(stored.explorerPinned && !isMobile());
     setEditing(false);
     setMenuOpen(false);
     setActivityBarMenu(null);
@@ -121,7 +122,7 @@ export function NavigationShell({
     const onChange = (event: MediaQueryListEvent) => {
       setMobile(event.matches);
       if (event.matches) {
-        onExplorerOpenChange(false);
+        setExplorerOpen(false);
         setEditing(false);
         setMenuOpen(false);
         setActivityBarMenu(null);
@@ -165,7 +166,7 @@ export function NavigationShell({
       setMenuOpen(false);
       setActivityBarMenu(null);
       if (!explorerPinned && explorerOpen && !shellRef.current?.contains(target)) {
-        onExplorerOpenChange(false);
+        setExplorerOpen(false);
         setEditing(false);
       }
     };
@@ -177,8 +178,7 @@ export function NavigationShell({
         } else if (menuOpen) {
           window.requestAnimationFrame(() => menuButtonRef.current?.focus());
         } else if (!explorerPinned && explorerOpen) {
-          window.requestAnimationFrame(() => groupRefs.current.get(selectedGroup)?.focus());
-          onExplorerOpenChange(false);
+          setExplorerOpen(false);
         }
         setMenuOpen(false);
         setEditing(false);
@@ -228,6 +228,9 @@ export function NavigationShell({
   }
 
   function setExplorerOpen(open: boolean): void {
+    if (!open && explorerRef.current?.contains(document.activeElement)) {
+      groupRefs.current.get(selectedGroup)?.focus();
+    }
     onExplorerOpenChange(open);
     if (!open) {
       setEditing(false);
@@ -565,6 +568,7 @@ export function NavigationShell({
       ) : null}
 
       <aside
+        ref={explorerRef}
         id="navigation-explorer"
         class={`navigation-explorer ${editing ? "editing" : ""}`}
         aria-label={t("nav.explorerLabel")}

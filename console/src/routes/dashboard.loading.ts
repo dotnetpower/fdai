@@ -9,6 +9,10 @@ import type { CostGovernanceProjection } from "../api-cost-governance";
 import type { GatesSummary } from "./dashboard.model";
 import type { ConsoleDataMode } from "../console-data-mode";
 import { DASHBOARD_SAMPLE_DATA } from "./dashboard.sample";
+import {
+  isCostGovernanceProjection,
+  loadCostGovernance,
+} from "./cost-governance.model";
 
 export interface DashboardOverviewData {
   readonly kpi: DashboardKpi;
@@ -20,7 +24,7 @@ export interface DashboardOverviewData {
 
 type DashboardOverviewClient = Pick<
   OperatorApiClient,
-  "dashboardMetrics" | "costGovernance" | "panel" | "autonomy"
+  "dashboardMetrics" | "costGovernanceAvailability" | "costGovernance" | "panel" | "autonomy"
 >;
 
 export async function loadDashboardOverview(
@@ -31,7 +35,10 @@ export async function loadDashboardOverview(
   publishBackbone({ kpi, cost: null, gates: null, autonomy: null, optionalPending: true });
 
   const [cost, gates, autonomy] = await Promise.all([
-    optionalOverview(() => client.costGovernance("overview"), [403, 404, 503]),
+    optionalOverview(async () => {
+      const result = await loadCostGovernance(client, "overview");
+      return isCostGovernanceProjection(result) ? result : null;
+    }, [403, 404, 503]),
     optionalOverview(
       () => client.panel<GatesSummary>("/kpi/promotion-gates"),
       [404, 501, 503],
