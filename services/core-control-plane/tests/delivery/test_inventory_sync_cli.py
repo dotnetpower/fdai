@@ -1893,6 +1893,7 @@ async def test_ontology_observer_reuses_unchanged_history_and_configuration_deli
     await observer(observation)
 
     history_store.append.assert_not_awaited()
+    history_store.read.assert_awaited_once()
     projector.apply.assert_awaited_once()
     activity_publisher.configuration_event_publisher.assert_not_awaited()
     store = projector.construction_kwargs["status_store"]

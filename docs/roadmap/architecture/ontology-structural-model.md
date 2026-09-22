@@ -66,6 +66,8 @@ The existing inventory owner verifies replay through its atomic manifest and jou
 A complete reconciliation always retains its fresh generation-specific snapshot receipt. If a
 content-only graph digest matches a prior generation whose projection and Resource Event handoff
 completed, replay may reference that prior journal generation instead of appending unchanged facts.
+That optimization still advances operational-state transition coverage to the fresh snapshot
+cutoff; it skips only duplicate topology and journal facts.
 Generation and observation-only clocks do not enter this equivalence digest; resource values,
 relationship semantics, verification posture, completeness, and conflicts do. Source-state receipts
 remain on each fresh snapshot and do not duplicate Resource or Link journal facts. The current

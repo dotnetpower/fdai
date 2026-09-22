@@ -821,6 +821,68 @@ async def test_inventory_state_change_appends_transition_without_claiming_interv
     assert len(retry_writer.calls) == 1
 
 
+async def test_unchanged_snapshot_advances_coverage_without_topology_baseline() -> None:
+    previous_at = RECORDED_AT - timedelta(minutes=10)
+    previous = TopologyRevisionBatch(
+        revision_id="previous-unchanged",
+        provider_generation_ref="snapshot-0",
+        effective_at=previous_at,
+        recorded_at=previous_at,
+        complete_snapshot=True,
+        object_revisions=(
+            TopologyObjectRevision(
+                object_id="vm-1",
+                object_type="Resource",
+                properties_json=_state_properties_json(
+                    "running",
+                    at=previous_at,
+                    generation="snapshot-0",
+                ),
+                effective_at=previous_at,
+                recorded_at=previous_at,
+                deleted=False,
+                evidence_ref="inventory-generation:snapshot-0",
+            ),
+        ),
+    )
+    writer = _Writer()
+    transition_writer = _TransitionWriter()
+    publisher = InventoryTopologyHistoryPublisher(
+        writer=writer,
+        ontology_release_digest=RELEASE_DIGEST,
+        history_reader=_HistoryReader((previous,)),
+        transition_writer=transition_writer,
+    )
+
+    result = await publisher.publish(
+        PromotedInventoryObservation(
+            generation="snapshot-1",
+            resources=(
+                ResourceRecord(
+                    resource_id="vm-1",
+                    type="compute.vm",
+                    props={"powerState": "PowerState/running"},
+                    last_seen=RECORDED_AT.isoformat(),
+                ),
+            ),
+            links=(),
+            complete=True,
+            recorded_at=RECORDED_AT,
+        ),
+        retain_topology=False,
+    )
+
+    assert result is None
+    assert writer.calls == []
+    assert len(transition_writer.batches) == 1
+    batch = transition_writer.batches[0]
+    assert batch.transitions == ()
+    assert len(batch.coverage) == 1
+    assert batch.coverage[0].coverage_start_at == previous_at
+    assert batch.coverage[0].coverage_end_at == RECORDED_AT
+    assert batch.coverage[0].limitation == "snapshot_interval_only"
+
+
 async def test_transition_failure_prevents_topology_history_from_advancing() -> None:
     previous_at = RECORDED_AT - timedelta(minutes=10)
     previous = TopologyRevisionBatch(
