@@ -2,6 +2,7 @@ import type { ComponentChildren } from "preact";
 import { useState } from "preact/hooks";
 
 import { t } from "../i18n";
+import { consoleDateTimeLocale } from "../time-format";
 import type {
   EvidenceBranch,
   IntentGraphEvidence,
@@ -654,7 +655,7 @@ function formatDuration(durationMs: number): string {
 
 function formatTimestamp(value: string | undefined, fallback: string = t("deck.trajectory.notRecorded")): string {
   if (!validTimestamp(value)) return fallback;
-  return new Date(value).toLocaleTimeString([], {
+  return new Date(value).toLocaleTimeString(consoleDateTimeLocale(), {
     hour: "2-digit", minute: "2-digit", second: "2-digit", fractionalSecondDigits: 3,
   });
 }

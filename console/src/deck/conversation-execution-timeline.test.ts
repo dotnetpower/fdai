@@ -1,6 +1,11 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 
+import { setLocale } from "../i18n";
 import type { Turn } from "./command-deck-presenters";
+import {
+  formatExecutionTimelineAxisClock,
+  formatExecutionTimelineClock,
+} from "./conversation-execution-timeline-view";
 import type { ConversationTrajectory } from "./conversation-trajectory";
 import {
   buildExecutionTimeline,
@@ -14,6 +19,30 @@ const question: Turn = {
   at: "10:00:00",
   recordedAt: "2026-07-31T07:00:00Z",
 };
+
+afterEach(() => setLocale("en"));
+
+describe("execution timeline clock", () => {
+  const afternoon = "2026-07-31T13:56:56";
+
+  it("uses the active Console language instead of the browser locale", () => {
+    const date = new Date(afternoon);
+    setLocale("en");
+    expect(formatExecutionTimelineAxisClock(afternoon)).toBe(date.toLocaleTimeString("en-US", {
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+    }));
+    expect(formatExecutionTimelineClock(afternoon)).not.toMatch(/오전|오후/);
+
+    setLocale("ko");
+    expect(formatExecutionTimelineAxisClock(afternoon)).toBe(date.toLocaleTimeString("ko-KR", {
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+    }));
+  });
+});
 
 function trajectory(
   answer: Partial<Turn> = {},

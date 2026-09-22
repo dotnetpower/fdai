@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, test, vi } from "vitest";
 import { setLocale } from "./i18n";
 import {
+  consoleDateTimeLocale,
   formatConsoleCompactTimestamp,
   formatConsoleTime,
   formatConsoleTimestamp,
@@ -10,6 +11,13 @@ import {
 afterEach(() => setLocale("en"));
 
 describe("console evidence timestamps", () => {
+  test("maps date and time formatting to the active product language", () => {
+    setLocale("en");
+    expect(consoleDateTimeLocale()).toBe("en-US");
+    setLocale("ko");
+    expect(consoleDateTimeLocale()).toBe("ko-KR");
+  });
+
   test("accepts only complete RFC 3339 instants", () => {
     expect(isRfc3339Timestamp("2026-07-17T08:00:00Z")).toBe(true);
     expect(isRfc3339Timestamp("2026-07-17T17:00:00.123+09:00")).toBe(true);
