@@ -41,7 +41,7 @@
     "services/core-control-plane/src/fdai/agents/_framework/bragi_publication.py": "608fff71fc47b4e0651b932613bceeaea57160f27586e488395f75aebdad8f08",
     "services/core-control-plane/src/fdai/agents/_framework/bragi_routing.py": "45ed4ee2f7530716e501d5969de9948c0a3629f90544ecc852fb46a3def0e405",
     "services/core-control-plane/src/fdai/agents/_framework/bus.py": "6b62471c8f2c6e324ff971e92677eb509b3ed4ca21d8e0bc8f6014d24130d12a",
-    "services/core-control-plane/src/fdai/agents/_framework/bus_bridge.py": "0ed86c3f0e7acc824b9cfb5268bb934a32b098b2a512b5d44300bd37b94dc533",
+    "services/core-control-plane/src/fdai/agents/_framework/bus_bridge.py": "2213ffa536fcc070b1b5dafb3b77f432a38e4d9c77dade8a892e510fd79c0fe5",
     "services/core-control-plane/src/fdai/agents/_framework/bus_metrics.py": "7f1cc31a939da501608ba0804113a3a53c087f59ea4a54a4c6f8277446cd32ac",
     "services/core-control-plane/src/fdai/agents/_framework/candidate_guard.py": "e00843e9a25e0ecfb289c37068d5f73b862f288a94d10f2961d89a18b4e2df68",
     "services/core-control-plane/src/fdai/agents/_framework/catalog_review_wiring.py": "85a3eabf5e8782c4dbf2f0b7d92cdd72f964470f6b0d3d2c0c9fc86d6581ea64",

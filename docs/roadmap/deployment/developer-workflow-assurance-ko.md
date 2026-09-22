@@ -1,6 +1,6 @@
 ---
 translation_of: developer-workflow-assurance.md
-translation_source_sha: 1934710c7b72bbacb23bc5ba54701955f513e636
+translation_source_sha: 4cc4653dffed5bd05830db0dd1fc004643ef334e
 translation_revised: 2026-09-22
 ---
 
@@ -146,12 +146,18 @@ Azure OpenAI 배포를 선택하거나 호출하지 않습니다.
 프로파일링된 Core 런타임은 공유 StateStore에 대해 범위가 제한된 비동기 connection pool 하나를
 소유하고, 의존하는 worker와 transport가 중지된 뒤 해당 pool을 닫습니다. 개발 진단은 그 결과인
 프로세스 및 연결 수를 측정할 수 있지만, 측정값을 권한으로 바꾸지는 않습니다.
+시작 설정 snapshot은 해당 런타임 소유 pool을 재사용하며, worker가 event loop보다 오래 남는 임시
+pool을 만들지 않습니다. Pantheon subscriber 종료에서 broker 정리가 첫 drain 기한에 도달하면 두
+번째 범위 제한 마무리 단계를 사용하며, 완료된 작업의 참조를 제거하기 전에 해당 작업을 수집합니다.
 로컬 analyzer는 다음 loop interval 전에 tick 범위의 decision-evidence 및 run-receipt StateStore
 pool을 닫습니다. 정상 tick은 garbage collection 대상으로 비동기 pool worker를 남길 수 없으며,
 영속화 실패도 준비 상태를 사용할 수 없음으로 유지하기 전에 store를 닫습니다.
 관리 launcher는 서비스 소유 StateStore DSN을 해당 analyzer 프로세스에 명시적으로 전달하므로 대상
 선택 전에 결정 근거 admission provider가 연결됩니다. 이 binding은 읽기 전용이며 ActionType을
 승격하거나 자율성을 높이거나 실행 권한을 부여할 수 없습니다.
+데이터베이스 재생성으로 로컬 broker 세대를 파괴적으로 초기화해야 할 때 준비 단계는 group과 topic을
+삭제하는 동안 stack lock과 모든 관리형 서비스 lock을 유지합니다. 따라서 연결이 끊겼지만 계속 실행
+중인 consumer를 유휴 상태로 오인해 삭제된 topic에 다시 연결하게 할 수 없습니다.
 
 ## 검증 단계와 결과 재사용
 

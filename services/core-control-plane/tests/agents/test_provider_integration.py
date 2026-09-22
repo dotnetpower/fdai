@@ -981,6 +981,55 @@ def test_stop_is_bounded_and_clears_tasks() -> None:
     asyncio.run(_drive())
 
 
+def test_stop_drains_stream_cleanup_that_crosses_first_timeout() -> None:
+    class _SlowClosingStream:
+        def __init__(self) -> None:
+            self.closed = False
+
+        def __aiter__(self):  # noqa: ANN204 - minimal async iterator test double
+            return self
+
+        async def __anext__(self):  # noqa: ANN204 - minimal async iterator test double
+            await asyncio.Future()
+
+        async def aclose(self) -> None:
+            await asyncio.sleep(0.075)
+            self.closed = True
+
+    class _SlowClosingBus(InMemoryEventBus):
+        def __init__(self) -> None:
+            super().__init__()
+            self.stream = _SlowClosingStream()
+
+        def subscribe(self, topic: str, group_id: str):  # type: ignore[override]
+            del topic, group_id
+            return self.stream
+
+    provider = _SlowClosingBus()
+    bridge = EventBusBridge(
+        provider=provider,
+        registry=load_pantheon(),
+        shutdown_timeout=0.05,
+    )
+
+    async def handler(_topic: str, _payload: dict) -> None:
+        return None
+
+    bridge.subscribe("object.event", "Heimdall", handler)
+
+    async def _drive() -> None:
+        run_task = asyncio.create_task(bridge.run())
+        for _ in range(5):
+            await asyncio.sleep(0)
+        await bridge.stop()
+        await run_task
+
+    asyncio.run(_drive())
+
+    assert provider.stream.closed is True
+    assert bridge._tasks == []
+
+
 # ---------------------------------------------------------------------------
 # StateStoreAuditChainAdapter
 # ---------------------------------------------------------------------------

@@ -143,12 +143,19 @@ unready but retries target resolution within five seconds instead of waiting its
 The profiled Core runtime also owns one bounded asynchronous pool for its shared StateStore and
 closes that pool after dependent workers and transports stop. Development diagnostics can measure
 the resulting process and connection counts but never turn those measurements into authority.
+The startup settings snapshot reuses that runtime-owned pool instead of creating a temporary pool
+whose workers outlive their event loop. Pantheon subscriber shutdown uses a second bounded
+finalization phase when broker cleanup reaches the first drain deadline; completed tasks are
+gathered before their references are removed.
 The local analyzer closes its tick-scoped decision-evidence and run-receipt StateStore pools before
 the next loop interval. A clean tick cannot leave asynchronous pool workers for garbage collection,
 and a persistence failure still closes its store before readiness remains unavailable.
 The managed launcher explicitly forwards the service-owned StateStore DSN to that analyzer process,
 so the decision-evidence admission provider is bound before target selection. The binding is
 read-only and cannot promote an ActionType, raise autonomy, or grant execution authority.
+When database recreation requires a destructive local broker generation reset, preparation holds
+the stack lock and every managed service lock through group and topic deletion. A disconnected but
+still-running consumer therefore cannot appear idle and reconnect to a deleted topic.
 
 ## Validation stages and reuse
 

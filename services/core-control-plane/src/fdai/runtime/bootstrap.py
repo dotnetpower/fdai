@@ -21,7 +21,7 @@ from fdai.delivery.github.model_lifecycle_observations import (
     GitHubModelLifecycleObservationConfig,
     GitHubModelLifecycleObservationSource,
 )
-from fdai.delivery.runtime_settings import runtime_settings_service_from_env
+from fdai.delivery.runtime_settings import RuntimeSettingsService
 from fdai.runtime.bootstrap_bindings import (
     build_runtime_workload_identity as _build_runtime_workload_identity,
 )
@@ -104,8 +104,6 @@ async def _run(*, runtime_scope_receipt_digest: str | None = None) -> int:
         if resources.development_diagnostics is not None:
             await resources.development_diagnostics.start()
         resources.health_server = await open_health_port()
-        if container.config.llm.mode == LlmMode.AZURE or plan.start_consumer:
-            runtime_values = await runtime_settings_service_from_env(os.environ).effective_values()
         identity_requests = plan.identity_requests
         if identity_requests.case_history:
             _case_history_identity_client_id(os.environ)
@@ -113,13 +111,29 @@ async def _run(*, runtime_scope_receipt_digest: str | None = None) -> int:
             resources.http_client = _new_http_client()
             identity = _build_runtime_workload_identity(resources.http_client)
 
+        if (
+            container.config.llm.mode == LlmMode.AZURE
+            or plan.start_consumer
+            or identity_requests.configuration_drift
+        ):
+            state_store = _build_audit_store()
+            resources.state_store = state_store
+
+        if container.config.llm.mode == LlmMode.AZURE or plan.start_consumer:
+            if state_store is None:  # pragma: no cover - startup branch invariant
+                raise RuntimeError("runtime settings require a StateStore binding")
+            runtime_values = await _load_runtime_values(
+                environment=os.environ,
+                state_store=state_store,
+            )
+
         if container.config.llm.mode == LlmMode.AZURE:
             if resources.http_client is None or identity is None:
                 raise RuntimeError("Azure LLM mode requires HTTP and workload identity bindings")
             if runtime_values is None:  # pragma: no cover - startup branch invariant
                 raise RuntimeError("Azure LLM mode requires a runtime settings snapshot")
-            state_store = _build_audit_store()
-            resources.state_store = state_store
+            if state_store is None:  # pragma: no cover - startup branch invariant
+                raise RuntimeError("Azure LLM mode requires a StateStore binding")
             container = await _attach_model_lifecycle_startup_revision(
                 container,
                 http_client=resources.http_client,
@@ -154,9 +168,8 @@ async def _run(*, runtime_scope_receipt_digest: str | None = None) -> int:
                 raise RuntimeError(
                     "Azure configuration drift requires HTTP and workload identity bindings"
                 )
-            if state_store is None:
-                state_store = _build_audit_store()
-                resources.state_store = state_store
+            if state_store is None:  # pragma: no cover - startup branch invariant
+                raise RuntimeError("configuration drift requires a StateStore binding")
             container = _attach_runtime_configuration_drift(
                 container,
                 http_client=resources.http_client,
@@ -169,9 +182,8 @@ async def _run(*, runtime_scope_receipt_digest: str | None = None) -> int:
         if plan.start_consumer:
             if runtime_values is None:  # pragma: no cover - startup branch invariant
                 raise RuntimeError("Core runtime requires a runtime settings snapshot")
-            if state_store is None:
-                state_store = _build_audit_store()
-                resources.state_store = state_store
+            if state_store is None:  # pragma: no cover - startup branch invariant
+                raise RuntimeError("Core runtime requires a StateStore binding")
             if identity is None and plan.consumer_requires_workload_identity:
                 if resources.http_client is None:
                     resources.http_client = _new_http_client()
@@ -213,6 +225,20 @@ async def _run(*, runtime_scope_receipt_digest: str | None = None) -> int:
         return 0
     finally:
         await resources.close()
+
+
+async def _load_runtime_values(
+    *,
+    environment: Mapping[str, str],
+    state_store: StateStore,
+) -> Mapping[str, object]:
+    """Read one startup settings snapshot through the runtime-owned StateStore."""
+
+    return await RuntimeSettingsService(
+        store=state_store,
+        env=environment,
+        durable=bool(environment.get("FDAI_STATE_STORE_DSN", "").strip()),
+    ).effective_values()
 
 
 async def _attach_model_lifecycle_startup_revision(

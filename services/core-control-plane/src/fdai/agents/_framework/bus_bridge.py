@@ -333,16 +333,30 @@ class EventBusBridge:
             await self.stop()
 
     async def stop(self) -> None:
-        for task in self._tasks:
+        tracked = tuple(self._tasks)
+        for task in tracked:
             if not task.done():
                 task.cancel()
-        if self._tasks:
-            # Bounded drain: a wedged consumer (e.g. a handler stuck in a
-            # non-cancellable blocking call) MUST NOT hang process
-            # shutdown. Cancelled tasks that do not settle within the
-            # timeout are abandoned; they are already cancel-requested.
-            await asyncio.wait(self._tasks, timeout=self.shutdown_timeout)
-        self._tasks.clear()
+        pending: set[asyncio.Task[None]] = set(tracked)
+        completed: set[asyncio.Task[None]] = set()
+        if pending:
+            done, pending = await asyncio.wait(pending, timeout=self.shutdown_timeout)
+            completed.update(done)
+        if pending:
+            _LOG.warning(
+                "pantheon_bridge_shutdown_finalizing",
+                extra={"pending_consumers": len(pending)},
+            )
+            done, pending = await asyncio.wait(pending, timeout=self.shutdown_timeout)
+            completed.update(done)
+        if completed:
+            await asyncio.gather(*completed, return_exceptions=True)
+        self._tasks = [task for task in tracked if task in pending]
+        if pending:
+            _LOG.error(
+                "pantheon_bridge_shutdown_incomplete",
+                extra={"pending_consumers": len(pending)},
+            )
 
     async def _consume(
         self,

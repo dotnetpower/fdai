@@ -4,17 +4,34 @@
 from __future__ import annotations
 
 import argparse
+import fcntl
 import json
 import os
 import shutil
 import subprocess
 import time
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
+from contextlib import contextmanager
+from pathlib import Path
 
 _MAX_RESOURCES = 256
 _STARTUP_TOPIC = "fdai.startup.probes"
 _GROUP_SETTLE_SECONDS = 30
 _RESET_DEADLINE_SECONDS = 45
+_MANAGED_SERVICE_LOCKS = (
+    "console-stack.log.lock",
+    "core-runtime.log.lock",
+    "operator-api.log.lock",
+    "document-ingestion-api.log.lock",
+    "document-processing-worker.log.lock",
+    "isolated-executor.log.lock",
+    "local-analyzer.log.lock",
+    "cost-governance-analytics.log.lock",
+    "inventory-reconciliation.log.lock",
+    "observation-campaign.log.lock",
+    "console-frontend.log.lock",
+    "manual-studio.log.lock",
+)
 
 
 def topics(output: str) -> tuple[str, ...]:
@@ -41,6 +58,30 @@ def groups(output: str) -> tuple[str, ...]:
     if len(selected) > _MAX_RESOURCES:
         raise ValueError("local broker group count exceeds reset bound")
     return selected
+
+
+@contextmanager
+def managed_service_locks(log_dir: Path) -> Iterator[None]:
+    """Fence broker reset against managed services starting or remaining alive."""
+
+    log_dir.mkdir(parents=True, exist_ok=True, mode=0o700)
+    streams = []
+    try:
+        for name in _MANAGED_SERVICE_LOCKS:
+            path = log_dir / name
+            descriptor = os.open(path, os.O_RDWR | os.O_CREAT, 0o600)
+            stream = os.fdopen(descriptor, "a+", encoding="utf-8")
+            streams.append(stream)
+            try:
+                fcntl.flock(stream.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+            except BlockingIOError as exc:
+                raise RuntimeError(
+                    "local broker reset requires every managed Console service to be stopped"
+                ) from exc
+        yield
+    finally:
+        for stream in reversed(streams):
+            stream.close()
 
 
 def reset(*, run: Callable[..., str]) -> dict[str, int]:
@@ -115,7 +156,9 @@ def main() -> int:
     contexts = json.loads(run("context", "inspect"))
     if len(contexts) != 1 or not contexts[0]["Endpoints"]["docker"]["Host"].startswith("unix://"):
         raise ValueError("Docker must use a local Unix socket")
-    result = reset_when_idle(run=run)
+    repo_root = Path(__file__).resolve().parents[3]
+    with managed_service_locks(repo_root / ".fdai/logs"):
+        result = reset_when_idle(run=run)
     print(f"local-broker-reset: {json.dumps(result, sort_keys=True)}")
     return 0
 

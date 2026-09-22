@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import fcntl
 import importlib.util
 import sys
 from pathlib import Path
@@ -68,3 +69,26 @@ def test_reset_waits_for_group_coordinator_to_become_empty() -> None:
 
     assert result == {"groups_removed": 1, "topics_removed": 0}
     assert sleeps == [0.25]
+
+
+def test_managed_service_locks_reject_running_service(tmp_path: Path) -> None:
+    log_dir = tmp_path / "logs"
+    log_dir.mkdir()
+    lock_path = log_dir / "document-processing-worker.log.lock"
+
+    with lock_path.open("a+", encoding="utf-8") as active_lock:
+        fcntl.flock(active_lock.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+
+        with pytest.raises(RuntimeError, match="every managed Console service to be stopped"):
+            with _MODULE.managed_service_locks(log_dir):
+                pytest.fail("broker reset lock fence admitted an active service")
+
+
+def test_managed_service_locks_hold_complete_reset_fence(tmp_path: Path) -> None:
+    log_dir = tmp_path / "logs"
+
+    with _MODULE.managed_service_locks(log_dir):
+        for name in _MODULE._MANAGED_SERVICE_LOCKS:
+            with (log_dir / name).open("a+", encoding="utf-8") as contender:
+                with pytest.raises(BlockingIOError):
+                    fcntl.flock(contender.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)

@@ -1,8 +1,8 @@
 ---
 title: 에이전트 판테온 구현 계획
 translation_of: agent-pantheon-implementation.md
-translation_source_sha: d983b4100d22f716a6238b80803ee4f658e9e358
-translation_revised: 2026-09-21
+translation_source_sha: 6910c943ebb75bf4f627c1fb34afb35ba5d642d6
+translation_revised: 2026-09-22
 ---
 
 # 에이전트 판테온 구현 계획
@@ -43,6 +43,7 @@ translation_revised: 2026-09-21
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-22 | validated | 로컬 Core 시작 및 종료의 리소스 소유권을 수정했습니다. 이제 런타임 설정은 런타임이 소유하는 단일 StateStore pool을 재사용하고, Pantheon consumer 종료는 첫 drain 기한 뒤 범위가 제한된 마무리 시간을 부여하며, 로컬 broker를 파괴적으로 초기화할 때 모든 관리형 서비스 lock을 유지하므로 연결이 끊긴 실행 중 consumer를 유휴 상태로 오인할 수 없습니다. 에이전트 역할, topic, 모델 정책, 승격 상태 및 권한은 바뀌지 않았습니다. | `현재 변경`; 공유 store, 순서가 지정된 종료, 지연된 stream 닫기, consumer 재시도, broker reset fence, framework layout, Ruff 및 strict typing 집중 검사. 관리형 재시작은 12/12 준비 상태에 도달했고 각 서비스는 lock이 소유하는 프로세스 쌍 하나만 유지했으며 새 세대 marker 뒤에 수정 대상 오류가 나타나지 않았습니다. | 이 범위가 제한된 수명주기 수정에는 남은 작업이 없습니다. 배포된 런타임 검증과 승격 근거는 별개입니다. |
 | 2026-09-21 | implemented | 닫힌 온톨로지 ContextIndex 메시지 묶음과 소유자별 런타임 구독 래퍼를 추가했습니다. Heimdall과 Saga의 ContextIndex 구독 및 타입이 지정된 Huginn 유입을 연결하고 실제 버스 검사에서 드러난 도메인 스키마와 전송 버전 구분을 수정했습니다. | `current change`; 집중 ContextIndex 라우팅, 프레임워크 구조, 인접 Rule 생성 경로, 정확한 감사 후 봉인 검사. | 실제 원본 및 벡터 검증, 감사된 포인터 허용, 최종 결과 재생, 런타임 소비자를 연결합니다. 고정 에이전트 역할, 주요 경로의 모델 정책, 패키지 활성화, 실행 권한은 바뀌지 않았습니다. |
 | 2026-09-21 | implemented | Forseti의 소유자 인증 cross-vertical 유입, Odin 중재, 결정 사례 마무리, HIL 대체 경로, kinetic proposal 검증 및 prospective-lineage 게시를 하나의 목적별 비공개 framework mixin으로 분리했습니다. Forseti는 Judge이자 자신이 소유한 네 객체 topic의 유일한 게시자로 유지되며 승인 또는 실행 권한을 얻지 않습니다. | `현재 변경`, `agents/{forseti.py,_framework/forseti_arbitration.py}`, 12개 관점 비평, 역할·중재·정족수 집중 테스트 145개와 layout, 동등성, import, Ruff 및 strict mypy 게이트 통과. | timeout HIL 종결, Odin 사용 불가, 중복 전달 및 prospective-lineage 구체화에 대한 통제된 runtime 근거를 보존합니다. |
 | 2026-09-21 | implemented | Thor의 영속 ActionRun codec, verdict 검증, 감사로 통제된 실행 단계, 재생 및 게시 lifecycle, 효과 종결 지원, 읽기 전용 대화 변환을 용도별 비공개 framework 모듈로 분리했습니다. 이제 영속 재생은 짝을 이루는 kinetic proposal이 없는 prospective lineage를 거부합니다. Thor는 유일한 privileged 실행기이자 ActionRun 게시자로 유지됩니다. AgentSpec, topic, 정족수, 승인, 감사, rollback, 효과 검증 및 모델 정책은 바뀌지 않았습니다. | `현재 변경`; `agents/{thor.py,_framework/thor_*.py}`; Thor durability, conversation 및 framework layout 검사 203개 통과, 집중 strict mypy 통과. | 성능 저하 shadow, 실행 전 감사, 재시작 replay, 독립 효과 종결 및 기존 live 승격 전제 조건에 대한 통제된 runtime 근거를 보존합니다. |
