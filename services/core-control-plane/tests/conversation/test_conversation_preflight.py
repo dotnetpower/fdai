@@ -2236,6 +2236,56 @@ def test_malformed_response_retries_once_then_falls_through() -> None:
     assert model.calls == 2
 
 
+def test_inconsistent_operational_family_falls_through_without_retry() -> None:
+    observation = ConversationModelObservation(
+        model="preflight-mini",
+        usage={"prompt_tokens": 250, "completion_tokens": 40, "total_tokens": 290},
+        trace_call={"kind": "conversation-preflight"},
+    )
+    model = _Model(
+        ConversationModelResponse(
+            proposal={
+                "schema_version": "1.0.0",
+                "social_act": "none",
+                "operational_signal": "mixed",
+                "context_dependency": "active_thread",
+                "knowledge_signal": "none",
+                "general_answer": None,
+                "operational_family": "resource_collection",
+                "operational_window": "none",
+                "operational_targets": [
+                    {
+                        "kind": "resource_type_filter",
+                        "value": "resource group",
+                        "canonical_value": None,
+                        "source_start": 0,
+                        "source_end": 14,
+                    }
+                ],
+                "operational_facets": ["list"],
+                "operational_result_limit": None,
+                "confidence": 0.98,
+                "authority": "candidate_only",
+                "execution_authority": False,
+            },
+            observation=observation,
+        )
+    )
+
+    result = _boundary(model).classify(
+        utterance="List resource group as a table",
+        context=("List five resources with recently changed statuses.",),
+        locale="en",
+        direct_response_profile={"identity": "Bragi"},
+    )
+
+    assert result.proposal is None
+    assert result.observations == (observation,)
+    assert result.attempted is True
+    assert result.failure_kind == "malformed"
+    assert model.calls == 1
+
+
 def test_model_exception_falls_through_after_one_attempt() -> None:
     model = _RaisingModel(None)
 

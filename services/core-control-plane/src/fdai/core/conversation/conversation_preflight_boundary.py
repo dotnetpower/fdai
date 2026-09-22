@@ -137,8 +137,9 @@ class ConversationPreflightBoundary:
             try:
                 proposal = ConversationPreflightProposal.model_validate(raw)
             except (TypeError, ValueError, ValidationError) as exc:
-                if attempt + 1 < _MAX_SCHEMA_ATTEMPTS:
-                    schema_repair = (_repair_instruction(exc),)
+                repair = _repair_instruction(exc)
+                if repair is not None and attempt + 1 < _MAX_SCHEMA_ATTEMPTS:
+                    schema_repair = (repair,)
                     continue
                 return ConversationPreflightResult(
                     proposal=None,

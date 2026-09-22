@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 6195dbe9c616557bc03e84084df763bf7974fd9c
+translation_source_sha: b289f134ed914ca05c245c7f8c90ed61e5bc9284
 translation_revised: 2026-09-22
 ---
 # 프로젝트 구조
@@ -158,7 +158,7 @@ Cost Governance 가명 자료는 Operator 조립이 소유하는 비밀입니다
   제한된 명확화 하나를 만듭니다. shadow 스키마는 제공된 의도와 정규 신원을 요구하고 유일한 exact
   범위만 보정하며 후보 전용 `forbidden_actions`를 보존합니다. 활성 v8은 `1.0.0`, shadow v14는
   `1.1.0`으로 고정하며 둘 다 프로바이더 입출력, 의사 결정, 승인, 변경 또는 실행 권한을 추가하지
-  않습니다. 축약 입력 범위, 일반 컬렉션 필터 정리 및 스키마 복구 안내는 `core/conversation/conversation_preflight_validation.py`에 둡니다. `conversation_preflight.py` facade는 호환 import를 유지하고 계약, 모델 호출, 타입 기반 대상 승격, 가족별 형태 검증은 책임이 분리된 인접 모듈이 담당합니다. 조립 루트는 정확한 프롬프트 프로필로 순서, 수명 주기, 예산 및 재실행 다이제스트를 고정하며 더 높은 아티팩트 버전은 스스로 활성화되지 않습니다. 과대 요청은 프로바이더 I/O 전에 보류됩니다.
+  않습니다. 축약 입력 범위, 일반 컬렉션 필터 정리 및 스키마 복구 안내는 `core/conversation/conversation_preflight_validation.py`에 둡니다. 같은 도우미는 알려진 운영 유형을 혼합 또는 맥락 의존 신호와 함께 제안한 경우를 복구할 수 없는 상태로 분류합니다. 따라서 Core는 실패한 preflight 시도 하나를 기록하고 다른 preflight 모델 호출 없이 전체 판단으로 넘어갑니다. `conversation_preflight.py` facade는 호환 import를 유지하고 계약, 모델 호출, 타입 기반 대상 승격, 가족별 형태 검증은 책임이 분리된 인접 모듈이 담당합니다. 조립 루트는 정확한 프롬프트 프로필로 순서, 수명 주기, 예산 및 재실행 다이제스트를 고정하며 더 높은 아티팩트 버전은 스스로 활성화되지 않습니다. 과대 요청은 프로바이더 I/O 전에 보류됩니다.
 - **모델 카탈로그 신원은 가능한 경우 발행기로 한정**: Core는 계열 전용 adapter 계약을
   보존하면서 선택적 `(publisher, family)` 카탈로그 경계를 받습니다. Azure delivery는 허용
   목록의 OpenAI 및 AIServices format만 매핑하고 partner 배포 및 endpoint 소유권은 resolver
