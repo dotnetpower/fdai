@@ -33,6 +33,8 @@ profile. Route interception supplies a declared synthetic read-source manifest, 
 frames, and chat SSE response. These fixtures exist only inside the test runner and never activate
 for `Console Web: Full Stack`. Backend integration tests separately exercise the same request and
 bounded terminal turn-timing contract through the real Starlette route and evidence resolver.
+Command Deck Run records prefer that server-authored turn timing for their processing span and use
+browser transcript timestamps only when a terminal response has no valid turn-timing envelope.
 Both isolated Playwright configurations discover only `*.spec.ts` files so colocated unit tests
 cannot load an incompatible test runtime. The fixture runner starts Vite immediately and waits for
 its `ready in` stdout marker instead of probing an unused loopback URL or dual-stack port. Each

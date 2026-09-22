@@ -12,6 +12,7 @@ export interface ConversationTrajectory {
   readonly startedAt?: string;
   readonly completedAt?: string;
   readonly durationMs?: number;
+  readonly timingSource?: "turn_timing" | "transcript";
 }
 
 export function conversationTrajectoriesByAnswer(
@@ -96,12 +97,41 @@ function buildTrajectory(
     ],
     (milestone) => milestone.messageId,
   );
-  const startedAt = validTimestamp(question.recordedAt) ? question.recordedAt : undefined;
-  const completedAt = validTimestamp(answer.recordedAt) ? answer.recordedAt : undefined;
-  const elapsedMs = startedAt && completedAt
-    ? Date.parse(completedAt) - Date.parse(startedAt)
+  const turnStartedAt = validTimestamp(answer.turnTiming?.started_at)
+    ? answer.turnTiming.started_at
     : undefined;
-  const durationMs = elapsedMs !== undefined && elapsedMs >= 0 ? elapsedMs : undefined;
+  const turnCompletedAt = validTimestamp(answer.turnTiming?.completed_at)
+    ? answer.turnTiming.completed_at
+    : undefined;
+  const turnDurationMs = answer.turnTiming?.duration_ms;
+  const hasTurnTiming = turnStartedAt !== undefined &&
+    turnCompletedAt !== undefined &&
+    Number.isFinite(turnDurationMs) &&
+    turnDurationMs !== undefined &&
+    turnDurationMs >= 0 &&
+    Date.parse(turnCompletedAt) >= Date.parse(turnStartedAt);
+  const transcriptStartedAt = validTimestamp(question.recordedAt)
+    ? question.recordedAt
+    : undefined;
+  const transcriptCompletedAt = validTimestamp(answer.recordedAt)
+    ? answer.recordedAt
+    : undefined;
+  const transcriptElapsedMs = transcriptStartedAt && transcriptCompletedAt
+    ? Date.parse(transcriptCompletedAt) - Date.parse(transcriptStartedAt)
+    : undefined;
+  const hasTranscriptTiming = transcriptElapsedMs !== undefined && transcriptElapsedMs >= 0;
+  const startedAt = hasTurnTiming ? turnStartedAt : transcriptStartedAt;
+  const completedAt = hasTurnTiming ? turnCompletedAt : transcriptCompletedAt;
+  const durationMs = hasTurnTiming
+    ? turnDurationMs
+    : hasTranscriptTiming
+      ? transcriptElapsedMs
+      : undefined;
+  const timingSource = hasTurnTiming
+    ? "turn_timing" as const
+    : hasTranscriptTiming
+      ? "transcript" as const
+      : undefined;
   return {
     question,
     answer,
@@ -112,6 +142,7 @@ function buildTrajectory(
     ...(startedAt ? { startedAt } : {}),
     ...(completedAt ? { completedAt } : {}),
     ...(durationMs !== undefined ? { durationMs } : {}),
+    ...(timingSource ? { timingSource } : {}),
   };
 }
 

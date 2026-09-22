@@ -94,7 +94,9 @@ export function ConversationTrajectoryView({
         <span class="deck-trajectory-duration cs-run-record-duration">
           {trajectory.durationMs === undefined
             ? t("deck.trajectory.sequenceOnly")
-            : t("deck.trajectory.endToEndDuration", {
+            : t(trajectory.timingSource === "turn_timing"
+              ? "deck.trajectory.serverProcessingDuration"
+              : "deck.trajectory.endToEndDuration", {
                 duration: formatDuration(trajectory.durationMs),
               })}
         </span>

@@ -210,6 +210,37 @@ describe("conversationTrajectoriesByAnswer", () => {
       .toBeUndefined();
   });
 
+  it("uses server turn timing instead of pre-request browser elapsed time", () => {
+    const question = turn({
+      id: "question-1",
+      role: "operator",
+      text: "Show resources that are currently not running",
+      recordedAt: "2026-09-22T05:30:17Z",
+    });
+    const answer = turn({
+      id: "answer-1",
+      role: "deck",
+      text: "One resource is not running.",
+      terminal: true,
+      recordedAt: "2026-09-22T05:30:35.382Z",
+      turnTiming: {
+        schema_version: 1,
+        started_at: "2026-09-22T05:30:29.915Z",
+        completed_at: "2026-09-22T05:30:35.382Z",
+        duration_ms: 5467,
+        phases: [],
+      },
+    });
+
+    expect(conversationTrajectoriesByAnswer([question, answer]).get(answer.id))
+      .toMatchObject({
+        startedAt: "2026-09-22T05:30:29.915Z",
+        completedAt: "2026-09-22T05:30:35.382Z",
+        durationMs: 5467,
+        timingSource: "turn_timing",
+      });
+  });
+
   it("reconstructs durable detail without intermediate live turns", () => {
     const question = turn({
       id: "question-1",

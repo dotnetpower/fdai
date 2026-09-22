@@ -1,7 +1,7 @@
 ---
 title: Runtime Parity - Authoritative Local Development 및 Test Fixture
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: 364815e53b24cc09019ba413f28a070ccc2d5ce1
+translation_source_sha: 6fcee376740888437f95893816743fea60dd562a
 translation_revised: 2026-09-22
 ---
 # 런타임 동등성 - 권위 있는 로컬 개발 및 테스트 고정본
@@ -36,6 +36,8 @@ Operator 브라우저 E2E 테스트는 명시적인 dev-test 프로파일에서 
 채팅 SSE 응답을 제공합니다. 이 고정본은 테스트 실행기 안에서만 존재하며 `Console Web: Full
 Stack`에서는 활성화되지 않습니다. 백엔드 통합 테스트는 같은 요청과 범위가 제한된 최종
 turn-timing 계약을 실제 Starlette 경로와 근거 해석기로 별도 검증합니다.
+Command Deck 실행 기록은 처리 구간에 서버가 작성한 turn timing을 우선 사용하며, 최종 응답에
+유효한 turn-timing envelope가 없을 때만 브라우저 대화 기록 시각을 사용합니다.
 두 격리 Playwright 구성은 `*.spec.ts` 파일만 찾아 같은 위치의 단위 테스트가 호환되지 않는
 테스트 런타임을 불러오지 않게 합니다. 고정본 실행기는 Vite를 즉시 시작하고 사용하지 않는
 loopback URL 또는 dual-stack port를 probe하는 대신 stdout의 `ready in` 표시를 기다립니다. 각
