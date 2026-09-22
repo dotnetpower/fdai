@@ -29,9 +29,10 @@ def docs_repo(tmp_path: Path) -> Path:
     assert _git(repo, "config", "user.email", "test@example.com").returncode == 0
     assert _git(repo, "config", "user.name", "Test User").returncode == 0
     source = repo / "docs/roadmap/architecture/source.md"
-    catalog_source = repo / "docs/roadmap/architecture/catalog-source.md"
+    catalog_source = repo / "services/example/catalog-source.txt"
     guide = repo / "docs/user-guide/guide.md"
     source.parent.mkdir(parents=True)
+    catalog_source.parent.mkdir(parents=True)
     guide.parent.mkdir(parents=True)
     source.write_text("# Source\n", encoding="utf-8")
     catalog_source.write_text("# Catalog source\n", encoding="utf-8")
@@ -59,7 +60,7 @@ def docs_repo(tmp_path: Path) -> Path:
                     {
                         "sources": [
                             {
-                                "path": "docs/roadmap/architecture/catalog-source.md",
+                                "path": "services/example/catalog-source.txt",
                                 "blob_sha": catalog_source_sha,
                             }
                         ]
@@ -118,7 +119,7 @@ def test_cached_mode_ignores_unstaged_source_changes(docs_repo: Path) -> None:
 
 
 def test_cached_mode_checks_staged_system_catalog_source(docs_repo: Path) -> None:
-    source = docs_repo / "docs/roadmap/architecture/catalog-source.md"
+    source = docs_repo / "services/example/catalog-source.txt"
     source.write_text("# Changed catalog source\n", encoding="utf-8")
     assert _git(docs_repo, "add", str(source)).returncode == 0
 
@@ -132,17 +133,17 @@ def test_cached_mode_checks_staged_system_catalog_source(docs_repo: Path) -> Non
 
     assert result.returncode == 1
     assert "stale System Knowledge catalog source" in result.stderr
-    assert "catalog-source.md" in result.stderr
+    assert "catalog-source.txt" in result.stderr
 
 
 def test_cached_mode_accepts_staged_system_catalog_refresh(docs_repo: Path) -> None:
-    source = docs_repo / "docs/roadmap/architecture/catalog-source.md"
+    source = docs_repo / "services/example/catalog-source.txt"
     source.write_text("# Changed catalog source\n", encoding="utf-8")
     assert _git(docs_repo, "add", str(source)).returncode == 0
     staged_sha = _git(
         docs_repo,
         "rev-parse",
-        ":docs/roadmap/architecture/catalog-source.md",
+        ":services/example/catalog-source.txt",
     ).stdout.strip()
     catalog = (
         docs_repo / "services/system-knowledge-service/src/"
@@ -193,10 +194,46 @@ def test_cached_mode_rejects_side_branch_catalog_revision(docs_repo: Path) -> No
     assert "is not an ancestor of protected main" in result.stderr
 
 
+def test_changed_only_skips_unrelated_staged_path(docs_repo: Path) -> None:
+    unrelated = docs_repo / "console/src/app.tsx"
+    unrelated.parent.mkdir(parents=True)
+    unrelated.write_text("export {};\n", encoding="utf-8")
+    assert _git(docs_repo, "add", str(unrelated)).returncode == 0
+
+    result = subprocess.run(  # noqa: S603 - fixed repository script.
+        [sys.executable, str(SCRIPT), "--cached", "--changed-only"],
+        cwd=docs_repo,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert result.stdout == "check-derived-sources: SKIP (no staged owning inputs).\n"
+
+
+def test_changed_only_checks_catalog_source_from_current_catalog(docs_repo: Path) -> None:
+    source = docs_repo / "services/example/catalog-source.txt"
+    source.write_text("# Changed catalog source\n", encoding="utf-8")
+    assert _git(docs_repo, "add", str(source)).returncode == 0
+
+    result = subprocess.run(  # noqa: S603 - fixed repository script.
+        [sys.executable, str(SCRIPT), "--cached", "--changed-only"],
+        cwd=docs_repo,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert result.returncode == 1
+    assert "stale System Knowledge catalog source" in result.stderr
+
+
 def test_pre_commit_runs_cached_derived_source_check() -> None:
     config = (REPO_ROOT / ".pre-commit-config.yaml").read_text(encoding="utf-8")
     hook = config.split("- id: check-derived-sources", 1)[1].split("- id:", 1)[0]
 
-    assert "check-derived-sources.py --cached" in hook
+    assert "check-derived-sources.py --cached --changed-only" in hook
     assert "pass_filenames: false" in hook
     assert "always_run: true" in hook
+    assert "files:" not in hook

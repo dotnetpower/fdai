@@ -1,6 +1,6 @@
 ---
 translation_of: developer-workflow-assurance.md
-translation_source_sha: 87358c2330572181547a133b46952e7b1d672d94
+translation_source_sha: 1934710c7b72bbacb23bc5ba54701955f513e636
 translation_revised: 2026-09-22
 ---
 
@@ -162,6 +162,10 @@ pool을 닫습니다. 정상 tick은 garbage collection 대상으로 비동기 p
 범위에 따라 명시적으로 선택하며, 경로 계획에 범위 없는 저장소 검사를 일괄 추가하지 않습니다.
 워크플로 지침은 헌법과 추적 근거 문맥을 유지합니다. 상세 런타임 권한 문서는 모든 CI 도구
 편집이 아니라 해당 런타임 계약을 변경할 때 불러옵니다.
+Pre-commit 파생 출처 검사는 경량 staged-input selector에 항상 진입합니다. 고정된 문서, System
+Knowledge 출처, 카탈로그, 검사기 또는 hook 설정이 바뀔 때만 전체 검사를 실행합니다. selector는
+staged 카탈로그에서 출처 집합을 파생하므로 새 출처를 등록할 때 hook 경로 필터를 수동으로 맞출
+필요가 없습니다.
 Core 수량·리소스 계산 검사는 클러스터에 접속하지 않고 루트 개발 의존성의 잠긴 Kubernetes 도구를 사용합니다. 타입 선언 부재에 대한 예외는 `kubernetes.utils.quantity`에만 적용하며 어댑터는 반환된 Decimal 값을 검증합니다. 의존성 변경은 소유 범위와 Core wheel 검사를 유지하며 진단 채널이나 실제 수집을 활성화하지 않습니다.
 루트 CI가 서비스 소스를 수집할 때는 해당 소스가 가져오는 모든 서드파티 패키지를 `dev`
 extra에 반영합니다. 런타임 이미지와 패키지 소유권은 서비스 매니페스트가 계속 담당합니다.

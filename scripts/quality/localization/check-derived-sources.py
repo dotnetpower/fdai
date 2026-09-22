@@ -55,6 +55,14 @@ SYSTEM_KNOWLEDGE_CATALOG = Path(
     "services/system-knowledge-service/src/fdai_system_knowledge_service/data/catalog.json"
 )
 PROTECTED_MAIN_REFS = ("refs/remotes/origin/main", "refs/heads/main")
+DERIVED_SOURCE_TOOL_PATHS = frozenset(
+    {
+        ".pre-commit-config.yaml",
+        "scripts/quality/localization/check-derived-sources.py",
+        "scripts/quality/localization/refresh-derived-sha.py",
+        SYSTEM_KNOWLEDGE_CATALOG.as_posix(),
+    }
+)
 
 
 def repo_root() -> Path:
@@ -173,6 +181,56 @@ def enumerate_docs(root: Path, *, cached: bool) -> list[Path]:
     if docs_dir.is_dir():
         candidates.extend(docs_dir.rglob("*.md"))
     return [p for p in candidates if not p.name.endswith("-ko.md")]
+
+
+def staged_paths(root: Path) -> frozenset[str]:
+    """Return paths whose staged snapshot may affect a derived-source result."""
+    result = subprocess.run(
+        ["git", "diff", "--cached", "--name-only", "--diff-filter=ACMRTD"],
+        cwd=root,
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    return frozenset(result.stdout.splitlines())
+
+
+def system_knowledge_source_paths(root: Path, *, cached: bool) -> frozenset[str] | None:
+    """Read the catalog source set, or force a full check when it is malformed."""
+    text = read_repo_text(root, root / SYSTEM_KNOWLEDGE_CATALOG, cached=cached)
+    if text is None:
+        return frozenset()
+    try:
+        payload = json.loads(text)
+    except json.JSONDecodeError:
+        return None
+    records = payload.get("records") if isinstance(payload, dict) else None
+    if not isinstance(records, list):
+        return None
+    paths: set[str] = set()
+    for record in records:
+        sources = record.get("sources") if isinstance(record, dict) else None
+        if not isinstance(sources, list):
+            return None
+        for source in sources:
+            path = source.get("path") if isinstance(source, dict) else None
+            if not isinstance(path, str):
+                return None
+            paths.add(path)
+    return frozenset(paths)
+
+
+def staged_inputs_require_check(root: Path) -> bool:
+    """Select the full cached check from staged owning inputs only."""
+    changed = staged_paths(root)
+    if not changed:
+        return False
+    if changed & DERIVED_SOURCE_TOOL_PATHS:
+        return True
+    if any(path == "README.md" or path.startswith("docs/") for path in changed):
+        return True
+    catalog_sources = system_knowledge_source_paths(root, cached=True)
+    return catalog_sources is None or bool(changed & catalog_sources)
 
 
 def check_doc(root: Path, doc: Path, *, cached: bool) -> list[str]:
@@ -318,8 +376,18 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="Read documents and source hashes from the Git index.",
     )
+    parser.add_argument(
+        "--changed-only",
+        action="store_true",
+        help="Skip the cached check when no staged owning input changed.",
+    )
     args = parser.parse_args(argv)
     root = repo_root()
+    if args.changed_only and not args.cached:
+        parser.error("--changed-only requires --cached")
+    if args.changed_only and not staged_inputs_require_check(root):
+        print("check-derived-sources: SKIP (no staged owning inputs).")
+        return 0
     docs = enumerate_docs(root, cached=args.cached)
     all_errors: list[str] = []
     checked = 0
