@@ -172,6 +172,7 @@ controlled evidence exists.
 ### Implementation history
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-23 | in-progress | Recorded a deterministic 60-case sample from the canonical 400-question inventory and retained aggregate readiness gaps without upgrading any case. | `current change`; [`conversation-answer-hardening-2026-09-23.json`](../../baselines/conversation-answer-hardening-2026-09-23.json); sample id digest `sha256:7c2c5f31de2bc23c98dcccdfe5e411b7c030b54e7c72a63a0678c4abb93a4a0a`. | Add reviewed semantic contracts, runtime bindings, evidence sources, validation, and presentation oracles per case before claiming answerability. |
 | 2026-09-22 | implemented | Removed an ineffective second preflight call when a model pairs a known operational family with a mixed or contextual signal. The malformed proposal remains authority-free and continues through full semantic judgment. | `current change`; read-only local trace diagnosis; reproduced payload regression; 147 focused preflight tests; strict mypy, Ruff, and format checks. | Retain a separately authorized authenticated replay with one preflight call for this shape; no live-model validation is claimed here. |
 | 2026-09-18 | implemented | Regenerated the federated question bank and dependent CQAS provenance after the complete runtime-settings catalogs changed the joined English and Korean source digests. All 400 question identities, 93 metric definitions, denominators, coverage counts, and authority fields remain unchanged. | `current change`; official question-bank and semantic-intent generators; 8 question-bank and 4 semantic-coverage tests passed. | No semantic, runtime-binding, evidence, or authority behavior changed. |
 | 2026-09-17 | implemented | Regenerated the federated question bank and dependent CQAS provenance after base integration changed the Console catalog source digests. All 400 question identities, 93 metric definitions, denominators, and authority fields remain unchanged. | `current change`; official question-bank and semantic-intent generators; 12 focused artifact checks passed. | No semantic, runtime-binding, evidence, or authority behavior changed. |
@@ -312,6 +313,10 @@ controlled evidence exists.
 
 ### Remaining work
 
+- [ ] Close every readiness axis for the 60-case sample identified by
+  `sha256:7c2c5f31de2bc23c98dcccdfe5e411b7c030b54e7c72a63a0678c4abb93a4a0a`.
+  Each case needs reviewed wording, a semantic contract, a reachable runtime binding, an
+  authoritative evidence source, contract validation, and a question-level presentation oracle.
 - [ ] Add reviewed presentation oracles to all 400 question-bank cases, including expected
   renderer-neutral block or explicit text fallback, visualization kind, exact-value fallback,
   evidence references, units, truncation behavior, accessibility fallback, and required viewports.

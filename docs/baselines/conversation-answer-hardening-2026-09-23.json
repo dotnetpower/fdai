@@ -1,0 +1,104 @@
+{
+  "schema_version": "1.0.0",
+  "evidence_kind": "conversation_answer_hardening_baseline",
+  "recorded_date": "2026-09-23",
+  "source_revision": "f8d2ce64c40856f14b128f7cababf73f9a14e963",
+  "venue": "local",
+  "evidence_class": "authenticated_development",
+  "preflight": {
+    "browser_authentication": "verified",
+    "console_data_mode": "live",
+    "full_stack_ready_count": 12,
+    "full_stack_service_count": 12
+  },
+  "static_inventory": {
+    "question_bank_source_digest": "sha256:80e96bdf188c96f0f1981cc5e29d3ec7c7b8fac1d1cc0bf12fc233dca2f33ac6",
+    "semantic_inventory_digest": "sha256:89522fc0f26a76c3f2182fdb6a8e48fcfbe98464e6c4c87ca813dfe0cc5f42df",
+    "question_count": 400,
+    "sample_case_count": 60,
+    "sample_case_id_digest": "sha256:7c2c5f31de2bc23c98dcccdfe5e411b7c030b54e7c72a63a0678c4abb93a4a0a",
+    "sample_selection": "first_60_question_ids_in_canonical_order",
+    "readiness_counts": {
+      "content_review": {
+        "candidate": 300,
+        "reviewed": 40,
+        "source_controlled": 60
+      },
+      "semantic_contract": {
+        "covered": 40,
+        "partial": 60,
+        "unassessed": 300
+      },
+      "runtime_binding": {
+        "bound": 24,
+        "clarify": 16,
+        "mixed": 60,
+        "unassessed": 300
+      },
+      "evidence_source": {
+        "contract_only": 35,
+        "retained": 5,
+        "unassessed": 360
+      },
+      "validation": {
+        "contract_passed": 40,
+        "not_run": 360
+      }
+    },
+    "coverage_gaps": {
+      "ontology_query_function_contracts": {
+        "covered": 12,
+        "total": 38
+      },
+      "paired_model_cases": {
+        "covered": 0,
+        "total": 400
+      },
+      "pantheon_domain_semantic_contracts": {
+        "covered": 0,
+        "total": 47
+      },
+      "question_presentation_oracles": {
+        "covered": 0,
+        "total": 400
+      }
+    }
+  },
+  "measurement": {
+    "run_id": "conversation-answer-hardening-20260923-01",
+    "case_id": "conversation-answer-hardening-20260923-01",
+    "capability_id": "ontology-relationships",
+    "required_functions": [
+      "query.ontology_relationships"
+    ],
+    "expected_authority": "server_ontology_manifest",
+    "provided_authority": "server_ontology_manifest",
+    "measurement_attempts": 1,
+    "retry_allowed": false,
+    "terminal_state": "held",
+    "answer_generation_state": "completed",
+    "assessment_state": "unavailable",
+    "assessment_reasons": [
+      "semantic_planning_failed",
+      "model_trace_disabled"
+    ],
+    "run_record_gate": "failed",
+    "prompt_assembly_gate": "held",
+    "preparing_answer_gate": "held",
+    "qualification": false,
+    "failure_class": "evaluation_contract_defect"
+  },
+  "authority": {
+    "code_candidate": false,
+    "execution_authority": false,
+    "merge_authority": false,
+    "promotion_authority": false
+  },
+  "limitations": [
+    "The sample identifies readiness gaps, not 60 confirmed product defects.",
+    "No question or answer content is retained.",
+    "Model trace was disabled, so prompt assembly and provider-call evidence are unavailable.",
+    "The measured question is immutable and must not be retried.",
+    "A later explicit trigger must use a new case after model trace is enabled."
+  ]
+}
