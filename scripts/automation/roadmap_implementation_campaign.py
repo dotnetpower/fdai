@@ -268,6 +268,20 @@ def _newest_validated_commit(repo_root: Path) -> str | None:
     return None
 
 
+def _remote_main_contains(repo_root: Path, revision: str) -> bool:
+    """Return whether the fetched remote main already contains ``revision``."""
+
+    result = subprocess.run(  # noqa: S603 - fixed read-only git query
+        ["git", "merge-base", "--is-ancestor", revision, "refs/remotes/origin/main"],
+        cwd=repo_root,
+        check=False,
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+    return result.returncode == 0
+
+
 def _land_validated_batch(repo_root: Path) -> str | None:
     """Merge the newest validated commit into main when the merge disturbs no live edit.
 
@@ -296,6 +310,8 @@ def _land_validated_batch(repo_root: Path) -> str | None:
     head = _newest_validated_commit(repo_root)
     if head is None:
         return None
+    if _remote_main_contains(repo_root, head):
+        return f"already landed {head[:12]} on origin/main"
     checkout = _main_checkout(repo_root)
     if checkout is None:
         return None
@@ -341,17 +357,18 @@ def _land_validated_batch(repo_root: Path) -> str | None:
 
 def _sync_campaign_base(repo_root: Path) -> str:
     """Absorb main into the campaign branch or report why work must hold."""
-    ahead = int(_git("rev-list", "--count", "main..HEAD", cwd=repo_root))
-    behind = int(_git("rev-list", "--count", "HEAD..main", cwd=repo_root))
+    base_ref = "refs/remotes/origin/main" if _remote_main_contains(repo_root, "HEAD") else "main"
+    ahead = int(_git("rev-list", "--count", f"{base_ref}..HEAD", cwd=repo_root))
+    behind = int(_git("rev-list", "--count", f"HEAD..{base_ref}", cwd=repo_root))
     relation = _campaign_relation(ahead=ahead, behind=behind)
     if relation in {"current", "ahead"}:
         return relation
     # Nothing lands campaign batches on main (#137), so the branch is routinely ahead when
     # main moves. Fast-forward while that is still possible, otherwise take a real merge;
     # refusing would hold every later run forever.
-    merge_arguments = ["git", "merge", "--ff-only", "main"]
+    merge_arguments = ["git", "merge", "--ff-only", base_ref]
     if relation == "diverged":
-        merge_arguments = ["git", "merge", "--no-edit", "main"]
+        merge_arguments = ["git", "merge", "--no-edit", base_ref]
     before = _git("rev-parse", "HEAD", cwd=repo_root)
     result = subprocess.run(  # noqa: S603 - fixed git merge operation
         merge_arguments,
