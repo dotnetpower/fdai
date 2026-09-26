@@ -47,6 +47,7 @@ import type {
   ConversationModelAvailability,
   ConversationModelTier,
 } from "./conversation-model-selection";
+import { BusyInputControls } from "./busy-input-controls";
 
 interface CommandDeckViewProps {
   readonly open: boolean;
@@ -67,6 +68,7 @@ interface CommandDeckViewProps {
   readonly conversationHydration: ConversationHydrationState;
   readonly conversationPageLoading: boolean;
   readonly sessionKey: string;
+  readonly busySessionId: string;
   readonly currentPath: string;
   readonly turns: readonly Turn[];
   readonly snapshot: ReturnType<typeof useViewContext>;
@@ -111,6 +113,7 @@ interface CommandDeckViewProps {
   readonly onRunSlashCommand: (input: string) => boolean;
   readonly onSlashActiveIndex: (index: number) => void;
   readonly onDraftInput: (value: string) => void;
+  readonly onBusySubmitted: (text: string) => void;
   readonly onInputKeyDown: (event: KeyboardEvent) => void;
   readonly onStopStream: () => void;
 }
@@ -134,6 +137,7 @@ export function CommandDeckView({
   conversationHydration,
   conversationPageLoading,
   sessionKey,
+  busySessionId,
   currentPath,
   turns,
   snapshot,
@@ -178,6 +182,7 @@ export function CommandDeckView({
   onRunSlashCommand,
   onSlashActiveIndex,
   onDraftInput,
+  onBusySubmitted,
   onInputKeyDown,
   onStopStream,
 }: CommandDeckViewProps) {
@@ -288,6 +293,8 @@ export function CommandDeckView({
       onAttachScreen={onAttachScreen}
       onRemoveScreen={onRemoveScreen}
       sessionKey={sessionKey}
+      busySessionId={busySessionId}
+      onBusySubmitted={onBusySubmitted}
       {...(handoverGoalId ? { handoverGoalId } : {})}
       {...(activeConversation?.agent ? { handoverAgent: activeConversation.agent } : {})}
       handoverStatus={handoverStatus}
@@ -543,6 +550,8 @@ type DeckComposerProps = Pick<CommandDeckViewProps,
   | "onInputKeyDown"
   | "onStopStream"
   | "sessionKey"
+  | "busySessionId"
+  | "onBusySubmitted"
   | "contextMode"
   | "snapshot"
   | "canAttachScreen"
@@ -568,6 +577,8 @@ function DeckComposer({
   onAttachScreen,
   onRemoveScreen,
   sessionKey,
+  busySessionId,
+  onBusySubmitted,
   handoverGoalId,
   handoverAgent,
   handoverStatus,
@@ -595,6 +606,8 @@ function DeckComposer({
         onSubmit(draft);
       }}
     >
+      <BusyInputControls key={sessionKey} sessionId={busySessionId}
+        draft={draft} onConfirmedSubmit={onBusySubmitted} />
       {snapshot || canAttachScreen ? (
         <div class="deck-composer-context">
           <Tooltip content={snapshot ? t("deck.removeScreenHint") : t("deck.attachScreenHint")} placement="top">

@@ -12455,6 +12455,50 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
   border-top: 0;
   background: transparent;
 }
+.deck-busy {
+  width: min(100%, 900px);
+  min-width: 0;
+  box-sizing: border-box;
+  margin: 0 auto 8px;
+  color: var(--fg-muted);
+  font-size: var(--cs-type-compact-size);
+  line-height: var(--cs-type-compact-line-height);
+}
+.deck-busy-heading,
+.deck-busy-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+}
+.deck-busy-heading { justify-content: space-between; }
+.deck-busy-heading > span { font-weight: 600; color: var(--fg); }
+.deck-busy-status,
+.deck-busy-hint {
+  margin: 4px 0;
+  overflow-wrap: anywhere;
+}
+.deck-busy-actions { margin-top: 6px; }
+.deck-busy-mode { display: inline-flex; align-items: center; flex-wrap: wrap; gap: 6px; }
+.deck-busy-mode select,
+.deck-busy-link {
+  font: inherit;
+  color: var(--fg);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  min-height: 32px;
+  padding: 4px 8px;
+  cursor: pointer;
+}
+.deck-busy-link:focus-visible,
+.deck-busy-mode select:focus-visible,
+.deck-busy-list summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.deck-busy-link:disabled,
+.deck-busy-mode select:disabled { cursor: not-allowed; opacity: 0.55; }
+.deck-busy-list { margin: 6px 0; overflow-wrap: anywhere; }
+.deck-busy-list summary { width: fit-content; cursor: pointer; }
+.deck-busy-list ol { margin: 6px 0; padding-inline-start: 24px; }
 .deck-composer-inner {
   position: relative;
   width: min(100%, 900px);

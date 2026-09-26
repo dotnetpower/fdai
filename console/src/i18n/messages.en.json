@@ -2799,6 +2799,34 @@
     "inputPlaceholderContext": "Ask anything about {route}, or type / for commands",
     "stop": "Stop",
     "send": "Send",
+    "busy": {
+      "title": "Conversation follow-ups",
+      "inspect": "Refresh conversation state",
+      "checking": "Checking conversation state...",
+      "unavailable": "Conversation controls unavailable. Draft kept.",
+      "conflict": "Conversation changed. Refresh before trying again. Draft kept.",
+      "pending": "Request pending confirmation. Refresh to inspect; draft kept.",
+      "state": "{active} - {mode} mode - {count} pending",
+      "active": "Active turn",
+      "idle": "No active turn",
+      "pendingList": "Inspect {count} pending follow-up(s)",
+      "pendingItem": "Sequence {sequence}: {disposition}; expires {expires}",
+      "mode": "Follow-up mode",
+      "modes": {
+        "queue": "Queue",
+        "interrupt": "Interrupt conversation",
+        "steer": "Steer prose"
+      },
+      "dispositions": {
+        "queued": "queued",
+        "interrupting": "interrupt requested",
+        "steered": "steer pending"
+      },
+      "submit": "Submit follow-up",
+      "cancel": "Request conversational cancel",
+      "confirmed": "Server shows follow-up {disposition}.",
+      "boundary": "Only conversation work is affected. Local Stop is separate; actions and approvals are not cancelled."
+    },
     "table": {
       "rowsShown": "Showing {shown} of {total} rows",
       "showRemaining": "Show {count} more rows",
