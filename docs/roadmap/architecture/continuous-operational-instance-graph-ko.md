@@ -1,7 +1,7 @@
 ---
 translation_of: continuous-operational-instance-graph.md
-translation_source_sha: 898d23e03be2b35bcafa3751c7397b2ff7fc8d64
-translation_revised: 2026-09-26
+translation_source_sha: 63de936c3b520302778639bc71706e756efae7ef
+translation_revised: 2026-09-27
 ---
 # 지속형 운영 인스턴스 그래프
 
@@ -102,7 +102,7 @@ Azure CLI로 대체하지 않습니다. 로컬 자격 증명 정책은 그대로
 
 Activity Log 복구 레코드는 일부 속성만 담은 관측입니다. 선언한 속성 마스크만 현재 스냅샷에
 병합하고 관계 변경은 전달하지 않습니다. 완전한 reconciliation만 전체 속성 집합을 교체하거나
-관계 완전성을 확정할 수 있습니다. 완전한 reconciliation 직후 영속 Activity Log cursor가 없으면 첫 번째 범위가 제한된 drain은 해당 reconciliation의 수집 시작 시각 이전 관측을 다시 게시하지 않고 cursor를 진행합니다. 경계 시각 및 이후 관측은 계속 게시하며 다음 drain부터는 영속 cursor에서 재개합니다.
+관계 완전성을 확정할 수 있습니다. 완전한 reconciliation 직후 영속 Activity Log cursor가 없으면 첫 번째 범위가 제한된 drain은 해당 reconciliation의 수집 시작 시각 이전 관측을 다시 게시하지 않고 cursor를 진행합니다. 경계 시각 및 이후 관측은 계속 게시하며 다음 drain부터는 영속 cursor에서 재개합니다. 복구 작업은 변경분의 완료 경계가 확인된 뒤 커서를 저장하기 전에 해당 범위의 읽기 전용 배포 프리플라이트 프로파일을 무효화합니다. 무효화가 실패하면 커서를 진행하지 않으며, 멱등 재전송을 통해 캐시가 그래프 완전성이나 배포 권한의 근거가 될 수 없습니다.
 Activity Log의 컨트롤 플레인 결과는 `operationStatus`와 정규화된 `operation_status` 근거로
 유지합니다. 예약된 리소스 `status` 속성에는 기록하지 않으므로 운영 상태 사실을 대체할 수
 없습니다.

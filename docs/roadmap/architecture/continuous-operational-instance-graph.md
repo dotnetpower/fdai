@@ -95,6 +95,7 @@ can replace the full property set or establish relationship completeness. When n
 Log cursor exists immediately after a complete reconciliation, the first bounded drain advances the
 cursor without republishing observations before that reconciliation's collection start; boundary and later
 observations still publish, and every subsequent drain resumes from the durable cursor.
+The recovery drain also invalidates a scope's read-only deployment-preflight profile after a complete changed delta and before committing its cursor. A failed invalidation leaves the cursor unadvanced; an idempotent replay cannot turn the cache into graph completeness or deployment authority.
 The Activity Log control-plane outcome is retained as `operationStatus` and normalized
 `operation_status` evidence. It is never written to the reserved Resource `status` property and
 therefore cannot replace an operational-state fact.
