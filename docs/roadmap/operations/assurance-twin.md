@@ -41,14 +41,15 @@ is composition of existing parts.
 
 ## Implementation status
 
-The deterministic Twin core and its scalar and graph simulation primitives are implemented and
-covered by focused tests. The posture/review surface is a **partial implementation**: a durable
-`state_kv` ledger, a read-only Operator API, and a read-only Console panel exist and are covered by
-focused tests, but nothing writes them. No trusted producer computes twin findings, so the recorder
-is deliberately left unbound rather than fed from an untrusted ambient ingress payload. The
-production inventory, natural-language, and review-delivery bindings remain incomplete, and no
-governed live runtime receipt has been captured, so no area is claimed as operationally validated
-against live Azure evidence.
+The deterministic Twin core and its scalar and graph simulation primitives have focused tests.
+The posture/review surface is a **partial implementation**. Heimdall's report and Forseti's
+independent review writers can accept only complete, fresh, revision-pinned retained evidence
+from an injected trusted source. They atomically stage their own read-only activity with the
+durable `state_kv` row and Saga-attributed append-only audit lineage. Two supervised outbox relays
+publish schema-validated, exact-revision advisory events. The authenticated Operator API and
+Console continue to read the durable rows, not event tips. No production retained-evidence source
+is bound by default, so no ambient payload generates findings or a review verdict. Production
+inventory, external review delivery, and governed runtime evidence remain open.
 
 ### Implementation scope
 
@@ -61,12 +62,23 @@ against live Azure evidence.
 | Production inventory projection and ambient change-review delivery | not-started | [`projection.py`](../../../services/core-control-plane/src/fdai/shared/providers/projection.py) and [`iac_review.py`](../../../services/core-control-plane/src/fdai/shared/providers/iac_review.py) define provider seams | No production inventory adapter, change-event coordinator, or Checks API publisher is bound upstream. |
 | Strict semantic compilation and abstention feedback | implemented | [`query.py`](../../../services/core-control-plane/src/fdai/core/assurance_twin/query.py), [`semantic_query.py`](../../../services/core-control-plane/src/fdai/core/assurance_twin/semantic_query.py), [`runtime/assurance_twin_query.py`](../../../services/core-control-plane/src/fdai/runtime/assurance_twin_query.py), and focused query/runtime tests (`50 passed`) | Injected compilers must bind the exact input digest, compiler revision, bounded limit, and evidence refs before a read-only plan survives verification. Abstentions emit content-free, no-authority gaps through an injected discovery sink. The runtime default remains explicit model unavailable. |
 | T1 reuse, ChatOps intake, and governed runtime evidence | in-progress | [`chat.py`](../../../services/core-control-plane/src/fdai/core/assurance_twin/chat.py) and the shared semantic judgment contract | Message routing, T1 reuse, a concrete model provider, and an authenticated end-to-end receipt remain unvalidated. |
-| Twin-specific operator panel and governed remediation proposal bridge | in-progress | [`posture_activity.py`](../../../services/core-control-plane/src/fdai/core/assurance_twin/posture_activity.py), [`assurance_twin_posture.py` (delivery)](../../../services/core-control-plane/src/fdai/delivery/assurance_twin_posture.py), [`state_store_assurance_twin_posture.py`](../../../services/core-control-plane/src/fdai/delivery/persistence/state_store_assurance_twin_posture.py), [`assurance_twin_posture_projection.py`](../../../services/operator-service/src/fdai_operator_service/assurance_twin_posture_projection.py), the `/assurance-twin/posture`, `/assurance-twin/reviews`, and `/assurance-twin/review?review_key=` Operator API routes, the [`assurance-twin` Console route](../../../console/src/routes/assurance-twin.tsx), and their focused tests | Partial. The recorder writes a durable `state_kv` body with bounded activity, correlation, and evidence-digest provenance for both a posture report and a change review, and enforces the same write-side bounds the Operator API's projection reads against (`review_key` <= 256 chars, <= 200 findings, <= 200 bounded, unique, non-blank <= 512-char `reason_codes`/`evidence_refs` entries, and a non-blank <= 512-char `evidence_source_revision`) so no accepted write can ever be unrenderable. A posture scope advances through revision-fenced compare-and-set only when `generated_at` is newer; delayed reports remain superseded, identical same-time reports are idempotent, and different same-time evidence durably tombstones the scope as conflicted. The posture activity identity binds a SHA-256 digest of its canonical report evidence rather than relying on a caller correlation value. Neither posture nor change-review activity values are published: a durable CAS and a separate async publish cannot be ordered safely against a newer posture advance or a review conflict tombstone without a transactional outbox. The recorder returns the schema-valid value for local audit use, while the durable ledger remains authoritative. A matching review redelivery is a read-only no-op; it appends no audit entry and cannot change recency. A conflicting redelivery under one `review_key` never replaces the durable body and durably tombstones the row. Bounded recent-review reads sort by canonical `generated_at` and fail explicitly when the projection exceeds its 1,000-row read capacity. Review-list reads verify the `state_kv` key suffix against the body's exact opaque `review_key`. The Operator API and Console render stored evidence verbatim and withhold stale, unavailable, unknown, malformed, digest-mismatched, key-mismatched, and conflict-tombstoned rows as explicit gaps. The Console renders every usable posture scope and distinguishes withheld evidence from a genuinely empty ledger. **No trusted producer is bound**: no shipped component computes twin findings or writes these rows, and an attacker-influenced ambient ingress payload is not accepted as Twin evidence, so the recorder has no runtime call site. The production `Inventory` binding, the trusted producer, the remediation-proposal bridge, a transactional activity-publication design, and a governed live receipt all remain open. |
+| Heimdall/Forseti local event publication | implemented | [`assurance_twin_writers.py`](../../../services/core-control-plane/src/fdai/delivery/assurance_twin_writers.py), [`assurance_twin_publication.py`](../../../services/core-control-plane/src/fdai/delivery/assurance_twin_publication.py), [`test_assurance_twin_publication.py`](../../../services/core-control-plane/tests/delivery/test_assurance_twin_publication.py) | Requests contain no findings. An injected source must return complete, fresh, conflict-free evidence at the requested revision before either writer persists it. Saga-attributed audit and the embedded outbox commit atomically with the exact row; a restart relay validates the retained revision before emitting an advisory, schema-validated bus envelope. Real retained-evidence and governed runtime bindings are not established. |
+| Twin-specific operator panel and governed remediation proposal bridge | in-progress | [`posture_activity.py`](../../../services/core-control-plane/src/fdai/core/assurance_twin/posture_activity.py), [`assurance_twin_posture.py`](../../../services/core-control-plane/src/fdai/delivery/assurance_twin_posture.py), [`state_store_assurance_twin_posture.py`](../../../services/core-control-plane/src/fdai/delivery/persistence/state_store_assurance_twin_posture.py), [`assurance_twin_posture_projection.py`](../../../services/operator-service/src/fdai_operator_service/assurance_twin_posture_projection.py), and the [`assurance-twin` Console route](../../../console/src/routes/assurance-twin.tsx) | The recorder stores bounded, revision-fenced report and review bodies with provenance and an embedded pending outbox in the same audited transaction. Heimdall and Forseti have separate owner-checked activities; the shared observer-only operational activity schema is not misused to assign Forseti an observer role. A relay validates and acknowledges the exact retained revision; delayed and conflicting evidence cannot replace or publish a current row. Operator and Console render durable findings and gaps without recomputing authority. A trusted source, external Checks publisher, remediation bridge, and governed live receipt remain unbound. |
 
 ### Implementation history
 
+The retained-row outbox and its Saga-attributed lineage live in
+[`assurance_twin_outbox.py`](../../../services/core-control-plane/src/fdai/delivery/persistence/assurance_twin_outbox.py).
+They use the existing atomic `StateStore` state-and-audit operations; no package schema or
+migration is required. The writers require positive coverage and a bounded 30-minute
+generation-to-expiry window. Forseti checks a retained review's verdict against its complete
+finding set; it does not infer a verdict from a missing, stale, or conflicting source. Bus tips
+carry `current: false` and `publication_complete: false`: a newer row can win after the relay's
+last read, so the durable projection remains the only source of currentness.
+
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-27 | implemented | Added independent Heimdall report and Forseti review writers with exact-revision atomic state/outbox/audit and supervised replay relays. An unavailable or conflicting source cannot synthesize a review verdict. | `current change`; `assurance_twin_writers.py`, `assurance_twin_publication.py`, focused Core, Operator, and Console checks. | Bind trusted production evidence and retain a governed runtime receipt. |
 | 2026-09-09 | in-progress | Linearized matching review replay against a concurrent conflict tombstone with a second revision and digest read. The confirmation remains read-only and appends no audit entry, while a conflict that lands between the two reads is returned as unavailable. | `current change`; focused persistence and delivery checks passed 45 tests, including a forced read-versus-tombstone interleaving, and Ruff passed. | Preserve the same read-only linearization when a trusted producer or transactional publisher is bound. |
 | 2026-09-09 | in-progress | Made matching change-review redelivery a true read-only no-op and ordered the bounded recent-review projection by canonical evidence generation time instead of write recency. The read fails explicitly above its 1,000-row capacity rather than returning a misleading partial order. | `current change`; focused persistence and delivery checks passed 44 tests, and Ruff passed. | Bind a trusted producer and retain governed replay evidence; the recorder remains unbound. |
 | 2026-09-08 | in-progress | Closed the final Medium-or-higher review findings across persistence, activity identity, schema ownership, Operator projection identity, and Console state presentation. Posture writes now converge on the newest generated evidence, activity keys bind privacy-safe report evidence, the schema prevents the `assurance-twin` producer from impersonating another activity kind, review lists bind durable keys to exact body identities, every posture scope is visible, and withheld rows no longer read as an empty ledger. | `current change`; focused Core, contract, Operator, and Console regressions cover delayed and concurrent posture writes, suppressed stale publication, cross-scope activity identity, producer impersonation, durable-key mismatch, multi-scope summaries, and withheld-state labels. | Bind the trusted producer and retain governed live evidence; these hardening changes don't make the unbound surface operationally validated. |
@@ -94,16 +106,14 @@ against live Azure evidence.
   runtime receipt.
 - [ ] Wire ambient change events to a production `IacReviewPublisher` and record a governed shadow
   receipt that links the change, finding, rule evidence, and published review.
-- [ ] Design a transactional posture/review activity-publication path that survives the
-  CAS/async-publish ordering hazard. A durable posture advance or review conflict tombstone and a bus
-  publish are separate, unordered steps. Until an outbox binds the exact durable revision to
-  publication, both records remain readable through the Operator API/Console and publish no tip.
+- [x] Stage report and review publications with the exact durable revision and append-only audit
+  in one transaction, then relay only validated pending revisions; focused restart, reorder, and
+  conflict tests cover the repository-local path.
 - [ ] Route abstained questions and remediation proposals through the discovery and normal risk-gated
   action paths, with tests proving the Twin never executes or raises authority.
-- [ ] Bind a trusted producer that computes twin findings and invokes the posture/review recorder.
-  The read-only recorder, durable ledger, Operator API, and Console panel exist and are covered by
-  focused tests, but the surface stays partial until a trusted producer exists: an
-  attacker-influenced ambient ingress payload MUST NOT become authoritative Twin evidence.
+- [ ] Bind a trusted retained-evidence source and production inventory/change ingress to the
+  independently supervised Heimdall/Forseti writers. Content-free requests are not evidence;
+  an attacker-influenced ambient ingress payload must not become authoritative Twin evidence.
 - [ ] Capture a governed runtime receipt for one complete inventory-to-report rendering. This
   requires the production `Inventory` binding and a trusted producer, so neither implementation nor
   validation is complete: no live receipt exists and none may be fabricated.
@@ -401,7 +411,7 @@ cloud SDK and no privileged identity.
 | `graph_effect` / `graph_runtime` | Propagate bounded graph effects, evaluate required active-trajectory invariants, and return review-only simulation evidence. |
 | `trajectory_ledger` | Persist predicted trajectory episodes and atomically close only complete comparable outcomes through StateStore. |
 | `graph_closure` | Drain independent observations off-path, update challenger slices, and audit that active mutation and promotion did not occur. |
-| `posture_activity` | Build the bounded, schema-validated `agent.operational-activity` tip (Heimdall-owned, `assurance-twin.posture` kind) for a computed `PostureAssessmentReport` or `IacReview`; carries no findings, only a bounded evidence count and freshness. It has no runtime call site: the recorder in [`delivery/assurance_twin_posture.py`](../../../services/core-control-plane/src/fdai/delivery/assurance_twin_posture.py) stays unbound until a trusted producer computes twin findings, and an ambient ingress payload is not accepted as a substitute. |
+| `posture_activity` | Build Heimdall's existing bounded posture activity and Forseti's separate private, authority-free review activity. The delivery recorder stages each with its retained record and Saga-attributed append-only audit; two supervised relays publish revision-bound envelopes. An injected trusted source is still required to compute findings. |
 
 Target delivery adds one intent to the existing `chatops` adapter (question in, grounded answer
 out) and reuses the `gitops-pr` adapter for proposals and Checks API reviews. The current

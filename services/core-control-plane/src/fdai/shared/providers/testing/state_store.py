@@ -176,8 +176,15 @@ class InMemoryStateStore(StateStore):
             current_revision = existing.get("revision", 0) if existing is not None else 0
             if current_revision != expected_revision:
                 return False
-            self._write_locked(key, value)
-            self._append_audit_locked(audit_entry)
+            state_before = deepcopy(self._state)
+            audit_length_before = len(self._audit)
+            try:
+                self._write_locked(key, value)
+                self._append_audit_locked(audit_entry)
+            except Exception:
+                self._state = state_before
+                del self._audit[audit_length_before:]
+                raise
             return True
 
     async def compare_and_set_state_with_approval_guard(

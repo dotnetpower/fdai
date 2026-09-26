@@ -16,12 +16,20 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any
 
+from fdai_service_contracts import AgentOperationalActivity
+
+from fdai.core.assurance_twin.posture_activity import AssuranceTwinReviewActivity
 from fdai.core.assurance_twin.report import PostureAssessmentReport
+from fdai.delivery.persistence.assurance_twin_outbox import (
+    CHANGE_REVIEW_STATE_PREFIX,
+    POSTURE_REPORT_STATE_PREFIX,
+    AssuranceTwinOutboxMixin,
+    _advance_publication,
+    _audit_lineage,
+    _pending_publication,
+)
 from fdai.shared.providers.iac_review import IacReview
 from fdai.shared.providers.state_store import StateStore
-
-POSTURE_REPORT_STATE_PREFIX = "runtime:assurance-twin-posture:"
-CHANGE_REVIEW_STATE_PREFIX = "runtime:assurance-twin-review:"
 
 REVIEW_CONFLICT_REASON_CODE = "assurance_twin_review_key_conflict"
 """Reason code carried by the durable conflict marker and the unavailable tip."""
@@ -33,6 +41,7 @@ CONFLICT_MARKER_FIELD = "conflict"
 """Row field that makes a same-key different-digest conflict durable."""
 
 _REVISION_FIELD = "revision"
+_PUBLICATION_FIELD = "publication_outbox"
 """Optimistic-concurrency counter excluded from evidence identity."""
 
 _MAX_CONFLICT_CAS_ATTEMPTS = 8
@@ -68,6 +77,7 @@ _PROVENANCE_FIELDS = frozenset(
         "evidence_source_revision",
         CONFLICT_MARKER_FIELD,
         _REVISION_FIELD,
+        _PUBLICATION_FIELD,
     }
 )
 
@@ -166,7 +176,7 @@ class AssuranceTwinLedgerWrite:
     ``evidence_digest``."""
 
 
-class StateStoreAssuranceTwinPostureLedger:
+class StateStoreAssuranceTwinPostureLedger(AssuranceTwinOutboxMixin):
     """Durable posture-report and change-review projection over ``StateStore``."""
 
     def __init__(self, *, store: StateStore) -> None:
@@ -181,6 +191,7 @@ class StateStoreAssuranceTwinPostureLedger:
         activity_id: str,
         correlation_id: str,
         evidence_source_revision: str,
+        activity: AgentOperationalActivity | AssuranceTwinReviewActivity | None = None,
     ) -> AssuranceTwinLedgerWrite:
         """Persist ``report`` as the latest snapshot for its scope.
 
@@ -207,6 +218,11 @@ class StateStoreAssuranceTwinPostureLedger:
             "reason_codes": list(reason_codes),
         }
         digest = evidence_body_digest(body)
+        publication = _pending_publication(activity, owner="Heimdall", digest=digest, revision=1)
+        if activity is not None and (
+            activity.activity_id != activity_id or activity.freshness.value != freshness
+        ):
+            raise ValueError("posture publication must match the persisted activity and freshness")
         value = {
             **_with_provenance(
                 body,
@@ -216,8 +232,20 @@ class StateStoreAssuranceTwinPostureLedger:
                 evidence_source_revision=evidence_source_revision,
             ),
             _REVISION_FIELD: 1,
+            **publication,
         }
-        if await self._store.write_state_if_absent(key, value):
+        if await self._store.write_state_with_audit_if_absent(
+            key,
+            value,
+            _audit_lineage(
+                kind="posture_recorded",
+                correlation_id=correlation_identity,
+                digest=digest,
+                revision=1,
+                owner="Heimdall",
+                key=key,
+            ),
+        ):
             return AssuranceTwinLedgerWrite(key=key, created=True, evidence_digest=digest)
         existing = await self._store.read_state(key)
         if existing is None:
@@ -285,17 +313,20 @@ class StateStoreAssuranceTwinPostureLedger:
         current_revision = _stored_revision(existing)
         advanced = await self._store.compare_and_set_state_with_audit(
             key,
-            {**value, _REVISION_FIELD: current_revision + 1},
-            expected_revision=current_revision,
-            audit_entry={
-                "action_kind": "assurance_twin.posture_advanced",
-                "actor": "fdai.system",
-                "mode": "shadow",
-                "correlation_id": correlation_id,
-                "idempotency_key": (
-                    f"assurance-twin-posture-advance:{_privacy_safe_identity(key)}:{digest}"
-                ),
+            {
+                **value,
+                _REVISION_FIELD: current_revision + 1,
+                **_advance_publication(value, revision=current_revision + 1),
             },
+            expected_revision=current_revision,
+            audit_entry=_audit_lineage(
+                kind="posture_advanced",
+                correlation_id=correlation_id,
+                digest=digest,
+                revision=current_revision + 1,
+                owner="Heimdall",
+                key=key,
+            ),
         )
         if advanced:
             return AssuranceTwinLedgerWrite(key=key, created=True, evidence_digest=digest)
@@ -341,6 +372,7 @@ class StateStoreAssuranceTwinPostureLedger:
                     rejected_evidence_digest=digest,
                 ),
                 _REVISION_FIELD: current_revision + 1,
+                _PUBLICATION_FIELD: None,
             },
             expected_revision=current_revision,
             audit_entry={
@@ -382,6 +414,7 @@ class StateStoreAssuranceTwinPostureLedger:
         activity_id: str,
         correlation_id: str,
         evidence_source_revision: str,
+        activity: AgentOperationalActivity | AssuranceTwinReviewActivity | None = None,
     ) -> AssuranceTwinLedgerWrite:
         """Persist one bounded review and durably tombstone key conflicts.
 
@@ -398,7 +431,12 @@ class StateStoreAssuranceTwinPostureLedger:
         key = change_review_state_key(review.review_key)
         body = _change_review_body(review, freshness=freshness, reason_codes=reason_codes)
         digest = evidence_body_digest(body)
-        created = await self._store.write_state_if_absent(
+        publication = _pending_publication(activity, owner="Forseti", digest=digest, revision=1)
+        if activity is not None and (
+            activity.activity_id != activity_id or activity.freshness.value != freshness
+        ):
+            raise ValueError("review publication must match the persisted activity and freshness")
+        created = await self._store.write_state_with_audit_if_absent(
             key,
             {
                 **_with_provenance(
@@ -409,7 +447,16 @@ class StateStoreAssuranceTwinPostureLedger:
                     evidence_source_revision=evidence_source_revision,
                 ),
                 _REVISION_FIELD: 1,
+                **publication,
             },
+            _audit_lineage(
+                kind="review_recorded",
+                correlation_id=correlation_identity,
+                digest=digest,
+                revision=1,
+                owner="Forseti",
+                key=key,
+            ),
         )
         if created:
             return AssuranceTwinLedgerWrite(key=key, created=True, evidence_digest=digest)
@@ -473,6 +520,7 @@ class StateStoreAssuranceTwinPostureLedger:
                 rejected_evidence_digest=digest,
             ),
             _REVISION_FIELD: current_revision + 1,
+            _PUBLICATION_FIELD: None,
         }
         advanced = await self._store.compare_and_set_state_with_audit(
             key,

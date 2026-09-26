@@ -64,6 +64,7 @@ _PROVENANCE_FIELDS = frozenset(
         "evidence_source_revision",
         "conflict",
         "revision",
+        "publication_outbox",
     }
 )
 

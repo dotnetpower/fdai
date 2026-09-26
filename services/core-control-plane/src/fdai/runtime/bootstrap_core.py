@@ -41,7 +41,7 @@ from fdai.runtime.bootstrap_bindings import (
 from fdai.runtime.bootstrap_bindings import (
     build_vertical_execution_identities as _build_vertical_execution_identities,
 )
-from fdai.runtime.bootstrap_core_model import CoreRuntime
+from fdai.runtime.bootstrap_core_model import CoreRuntime, build_assurance_twin_runtime_binding
 from fdai.runtime.bootstrap_hil import (
     build_hil_workflow_registry as _build_hil_workflow_registry,
 )
@@ -741,6 +741,14 @@ async def build_core_runtime(
                 "pantheon_conversation_assurance_unavailable",
                 extra={"reason": "runtime_or_durable_source_identity_unavailable"},
             )
+    pantheon_runtime = resources.pantheon.runtime
+    assurance_twin_publishers, assurance_twin_writers = build_assurance_twin_runtime_binding(
+        state_store=state_store,
+        agents=pantheon_runtime.agents if pantheon_runtime is not None else None,
+        event_bus=messaging.bus,
+        retained_source=container.assurance_twin_retained_evidence_source,
+    )
+
     return CoreRuntime(
         container=container,
         messaging=messaging,
@@ -777,6 +785,8 @@ async def build_core_runtime(
         assignment_outcome_consumer=assignment_outcome_consumer,
         human_access_reconciliation=human_access_reconciliation,
         task_workers=resources.task_workers,
+        assurance_twin_publishers=assurance_twin_publishers,
+        assurance_twin_writers=assurance_twin_writers,
     )
 
 
