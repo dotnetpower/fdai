@@ -299,6 +299,10 @@ approval evidence, routing, or authority. The Core wheel inventory may include t
 inventory-manifest helper without making it a report-line dependency.
 The Operator incident-attention and observer-deployment projection regressions each belong to the
 Operator service suite exactly once; this test ownership does not add a report-line runtime path.
+A control-plane Deployment Preflight toggle signal reaches Forseti without an ActionType, because
+ingress honors a payload-supplied ActionType only for an explicit operator request. Forseti binds
+`remediate.apply-preflight-toggle` from its own event-type table and keeps the default human-review
+verdict, so the proposal is routed to an approver rather than granted any autonomous authority.
 
 ## Privacy and retention
 

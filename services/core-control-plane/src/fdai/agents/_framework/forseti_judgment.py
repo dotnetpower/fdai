@@ -34,6 +34,11 @@ RULE_MATCH: dict[str, str] = {
     "restart_needed": "ops.restart-service",
     "chaos_experiment_request": "ops.restart-service",
     "control_plane.t2_proposer_failure": "ops.switch-t2-proposer-route",
+    # Deployment Preflight active reassembly (INGRESS_EVENT_TYPE in
+    # fdai.core.deploy_preflight.reassembly_proposals). Ingress never carries
+    # an ActionType for a non-operator signal, so the binding is made here and
+    # keeps the default hil verdict - the toggle PR stays human-reviewed.
+    "preflight_toggle_blocker": "remediate.apply-preflight-toggle",
 }
 
 RISK_VERDICT: dict[str, str] = {
