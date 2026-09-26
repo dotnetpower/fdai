@@ -1,6 +1,6 @@
 ---
 translation_of: conversation-assurance.md
-translation_source_sha: c33f92351ebd888dca5ee76dd2e193010654d5f2
+translation_source_sha: 0881256e83578743efb3740443ef8a33c468f9ef
 translation_revised: 2026-09-26
 ---
 # 대화 품질 보증
@@ -412,6 +412,9 @@ SRE adapter는 `RcaResult`를 사전 선언된 처리 결과, 원인 다이제�
    증적에는 범위가 제한된 준비 상태 필드만 기록합니다.
    타입이 지정된 조회 보류는 범위가 제한된 사유 코드를 해당 증적에 보존합니다. 공급자, 권한 부여,
    예기치 않은 런타임 실패는 일반 사용 불가 사유 하나를 유지하며 원시 예외 텍스트를 노출하지 않습니다.
+   Resource 상태 및 Resource Health 프로브는 관측된 상태 값과 상태 사실 메타데이터를 모두 가진
+   Resource만 선택합니다. 관련 없는 인벤토리 객체가 범위가 제한된 ObjectSet을 소진하거나 적용
+   가능한 상태 근거를 불완전하게 보이게 할 수 없습니다.
 4. 준비 상태 축약기는 질문의 예상 권한과 성공한 probe가 실제로 제공한 권한을 비교합니다.
 5. watchdog은 요청한 포커스에서 근거가 준비된 질문만 선택합니다.
 

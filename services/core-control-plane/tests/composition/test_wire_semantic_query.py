@@ -344,6 +344,18 @@ async def _runtime(*, available: bool = True):  # type: ignore[no-untyped-def]
             },
         )
     )
+    await store.upsert_object(
+        OntologyObjectRecord(
+            id="resource-without-state",
+            object_type="Resource",
+            properties={
+                "id": "resource-without-state",
+                "name": "resource-without-state",
+                "type": "virtual-network",
+                "properties": {},
+            },
+        )
+    )
     return build_semantic_query_runtime(
         model=_Model(_definition(), available=available),
         ontology_release=build_ontology_release(

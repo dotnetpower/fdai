@@ -19,6 +19,8 @@ from fdai.core.conversation.semantic_runtime import SemanticConversationRuntime
 from fdai.core.conversation.session import Principal
 from fdai.core.ontology_platform import (
     FunctionInvocationContext,
+    ObjectPredicate,
+    ObjectPredicateOperator,
     ObjectSelector,
     ObjectSelectorKind,
     ObjectSetDefinition,
@@ -57,6 +59,7 @@ from fdai.shared.contracts.models import (
     OntologyRelease,
 )
 from fdai.shared.ontology.acl import ProjectionRequest
+from fdai.shared.providers.state_evidence import STATE_FACT_METADATA_PROPERTY
 
 from .semantic_query_health_values import resource_health_state_values
 
@@ -267,6 +270,18 @@ class _SemanticCurrentEvidenceProbe:
             selector=ObjectSelector(
                 kind=ObjectSelectorKind.OBJECT_TYPE,
                 name="Resource",
+            ),
+            predicates=(
+                ObjectPredicate(
+                    property="properties",
+                    operator=ObjectPredicateOperator.CONTAINS,
+                    equals="state",
+                ),
+                ObjectPredicate(
+                    property="properties",
+                    operator=ObjectPredicateOperator.CONTAINS,
+                    equals=STATE_FACT_METADATA_PROPERTY,
+                ),
             ),
             as_of=self._now(),
             purpose=self._purpose,

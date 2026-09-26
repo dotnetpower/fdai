@@ -424,6 +424,9 @@ answered. Selection follows the same ephemeral runtime instance that will measur
    A typed query hold preserves its bounded reason code in that receipt. Provider, authorization,
    and unexpected runtime failures retain one generic unavailable reason and never expose raw
    exception text.
+   Resource state and Resource Health probes select only Resources that carry both an observed
+   state value and its state-fact metadata. Unrelated inventory objects cannot exhaust the bounded
+   ObjectSet or make applicable state evidence look incomplete.
 4. The readiness reducer compares the challenge's expected authority with the authority actually
    provided by the successful probe.
 5. The watchdog selects only an evidence-ready challenge for the requested focus.

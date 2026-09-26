@@ -166,6 +166,9 @@ Cloud update comparison validates raw and processing identities; Core rechecks p
   If an exact-resource live refresh declines a broader secured Resource set, Core preserves the
   initial graph freshness, completeness, conflict, and synthetic-evidence reasons instead of
   reducing the result to an opaque refresh failure.
+  Conversation-assurance readiness scopes Resource state and Resource Health probes to Resources
+  that carry both an observed state value and state-fact metadata, matching the function's
+  applicability boundary before freshness evaluation.
 - **model catalog identity is publisher-qualified when available**: Core accepts an optional
   `(publisher, family)` catalog seam while preserving the family-only adapter contract. Azure
   delivery maps only allowlisted OpenAI and AIServices formats and keeps partner deployment and
