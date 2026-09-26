@@ -20,8 +20,9 @@ implements every MSCP level or satisfies full MSCP conformance.
 
 The profile supplies deterministic, I/O-free policy primitives under
 `services/core-control-plane/src/fdai/core/mscp_profile/`. Callers provide already collected observations, limits, and
-component digests. The profile returns typed verification or hold decisions and never calls a
-provider, changes a resource, writes an audit entry, promotes a capability, or edits a rule.
+component digests. Pure policy returns typed verification or hold decisions without calling a
+provider, changing a resource, promoting a capability, or editing a rule. Separate state-store
+recorders persist shadow evidence and audit it without receiving execution authority.
 
 The runtime identifier deliberately omits an MSCP level. FDAI combines selected concepts from more
 than one level, while each module docstring and the mapping below retain the level-specific design
@@ -39,7 +40,8 @@ provenance.
 | Never-raising authority ceiling | implemented | `core/mscp_profile/authority_ceiling.py`; `test_authority_ceiling.py` | Exhaustive finite-domain tests prove that the profile can only preserve or lower the existing FDAI decision. The ceiling is not connected to the enforce path. |
 | Conflict-aware authority lowering | implemented | `core/ontology_platform/evidence_conflict.py`; control-loop and HIL resume checks | Canonical Property semantic intersections reuse the never-raising ceiling to hold only related ActionTypes. Missing conflict state fails closed before executor I/O. |
 | Rule-governance coexistence | implemented | `runtime/control_loop.py`; `core/control_loop/_process.py`; focused governance safety-path tests | Assignment observation and exemption holds occur before dispatch. They do not activate MSCP effect observation, synthesize a `ResponseOutcome`, or alter the profile lifecycle. |
-| Decision-context projection and governed gating | not-started | [Adopted mechanisms](#adopted-mechanisms); [Activation and runtime behavior](#activation-and-runtime-behavior) | The current runtime has no profile lifecycle, measured readiness window, or authority-gating integration. |
+| Immutable decision-context projection and replay | implemented | `core/mscp_profile/decision_context.py`; `decision_context_store.py`; `tests/core/mscp_profile/test_decision_context.py` (`20 passed`); owning MSCP tests (`140 passed`) | Four owner-injected read-only observations join only for one candidate, decision, subject, and cutoff. Missing, conflicting, incomplete, stale, future, unverified, and unavailable sources hold. A content digest and first-write atomic audit fence survive restart without creating a new authority; actual runtime owner bindings remain open. |
+| Governed profile gating | not-started | [Activation and runtime behavior](#activation-and-runtime-behavior); `core/mscp_profile/readiness.py`; `profile_lifecycle.py` | Readiness and default-shadow lifecycle primitives exist, but no measured window or ControlLoop gating binding exists. |
 
 ### Implementation history
 
@@ -51,10 +53,12 @@ provenance.
 | 2026-08-31 | implemented | Made the `ResponseOutcome` projection fail closed on an observation the contract cannot represent. An observation outside the effect window, or one not yet recorded, previously raised a contract validation error inside dispatch, so deficient effect evidence became a dispatch-time error instead of shadow `hold` evidence. The projection now drops such an observation and records `unscorable`, while the shadow effect audit entry keeps the raw value and the contract invariant itself is unchanged. | `current change`; `core/mscp_profile/response_outcome.py`; `tests/core/mscp_profile/test_response_outcome.py`; the stale case of `tests/scenarios/test_v2026_07_replay.py::test_sre_full_loop_fails_closed_on_deficient_effect_evidence`, which fails with the contract validation error when the projection fix is reverted; `uv run pytest -q --no-cov services/core-control-plane/tests/scenarios services/core-control-plane/tests/core/mscp_profile services/core-control-plane/tests/contracts/test_response_outcome.py` passed. | Evidence comes from frozen in-process replays in shadow, so a pinned deployed shadow evidence window is still open. |
 | 2026-08-14 | in-progress | Adopted the implementation ledger without reconstructing earlier provenance and separated implemented shadow observation from unimplemented gating. | `current change`; profile source and focused tests listed in the scope table. | Retain a measured readiness window and implement the bounded decision-context and gating work below. |
 | 2026-08-23 | implemented | Recorded the ordering boundary between immutable rule governance and optional post-dispatch MSCP effect observation. | `current change`; focused governance and MSCP composition checks. | The existing measured-readiness and governed-gating work remains unchanged. |
+| 2026-09-27 | implemented | Added a bounded, content-addressed four-owner decision context and audit-atomic first-write/restart replay, with explicit holds for missing, conflicting, stale, unverified, and unavailable evidence. Corrected the prior combined status row: default-shadow lifecycle primitives already exist, but the profile is not activated. | `current change`; `core/mscp_profile/{decision_context,decision_context_store}.py`; `tests/core/mscp_profile/test_decision_context.py` (`20 passed`); `uv run pytest -q --no-cov services/core-control-plane/tests/core/mscp_profile` (`140 passed`); focused Ruff and mypy. | Bind real authoritative readers in the runtime, retain a measured shadow window, and separately govern any gating integration. |
 
 ### Remaining work
 
-- [ ] Project authoritative ontology, incident, workflow, and audit state into one immutable decision context, then prove missing or conflicting inputs produce a hold.
+- [x] Project owner-supplied ontology, incident, workflow, and audit observations into one immutable, audit-atomic decision context; focused tests prove missing and conflicting inputs hold and a retry cannot rewrite the durable record (`20 passed`).
+- [ ] Bind the four actual authoritative owner readers in a governed runtime and retain a pinned decision receipt before claiming operational context availability.
 - [ ] Retain a pinned shadow evidence window that measures profile matches, mismatches, holds, audit failures, and unchanged executor outcomes.
 - [ ] Add a governed profile lifecycle and connect the never-raising ceiling only after focused tests prove rollback, replay, and unchanged risk, approval, execution, and audit ownership.
 
@@ -79,11 +83,23 @@ domain vocabulary rather than MSCP terminology.
 | Effect verification | Level 3 prediction gating | Compare one expected metric range with an independently observed, correlated, time-bounded value | Optional shadow runtime wiring and `ResponseOutcome` projection implemented |
 | Cycle guard | Level 3 meta-escalation, oscillation, and cognitive budget | Hold when caller-owned cycle, elapsed-time, cost, rollback, or sign-change limits are reached | Pure policy implemented; runtime wiring deferred |
 | Runtime integrity | Level 3 identity continuity | Compare canonical manifests of pre-hashed runtime components; no persona or mutable identity model | Pure policy implemented; runtime wiring deferred |
-| Decision context | Level 2 persistent world model | Project authoritative ontology, incident, workflow, and audit state without creating a new system of record | Planned |
+| Decision context | Level 2 persistent world model | Project owner-supplied ontology, incident, workflow, and audit observations without creating a new system of record | Immutable projection and restart-safe recorder implemented; operational owner binding open |
 
 MSCP's published numerical thresholds are not copied into the profile. FDAI callers supply limits
 through their governed configuration or ActionType contract and validate them on the same frozen
 scenario set used for promotion evidence.
+
+The decision-context projector consumes four owner-supplied, read-only state observations for
+one candidate, decision, subject digest, and cutoff: ontology, incident, workflow, and audit. It
+retains bounded state labels, owner revisions, source digests, and observation/recording times,
+never source bodies or a new authoritative state. Distinct owners cannot reuse one source digest.
+A missing, incomplete, expired, future, mismatched,
+or conflicting observation, an unverified audit chain, or an unavailable owner yields a typed hold.
+The resulting context is content-addressed; the optional state-store recorder atomically appends
+one sanitized audit entry with its immutable first write. Replays must match the original digest,
+including after restart, rather than replacing an earlier decision. This is a shadow-only evidence
+projection; neither a complete context nor a durable record activates the profile or authorizes
+execution. A runtime owner must still bind actual authoritative readers before operational claims.
 
 ## Authority boundaries
 
@@ -239,6 +255,8 @@ Focused tests under `services/core-control-plane/tests/core/mscp_profile/` cover
   transitions, hash-chain audit verification, and immediate demotion without runtime activation.
 - exhaustive failure-reason routing with one-request ceilings, post-dispatch hold or recovery, and
   mandatory gating demotion.
+- owner-injected four-source decision joins, fail-closed holds, audit-atomic first-write, concurrent
+  conflict rejection, and digest-checked restart replay without runtime activation.
 
 The v1 profile is connected only as optional shadow observation. It is not connected to the enforce
 decision path. A future gating change should demonstrate that no profile outcome raises the existing

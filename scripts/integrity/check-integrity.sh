@@ -63,15 +63,14 @@ elif [ "$(git config --bool fdai.fork 2>/dev/null || echo false)" = "true" ]; th
 fi
 
 # ---- 1. signature (always authoritative) -----------------------------------
-# The committed signature is base64-armored (ASCII text). Decode it to raw
-# bytes for openssl, in a temp file that is always cleaned up.
-raw_sig="$(mktemp)"
-trap 'rm -f "$raw_sig"' EXIT
-if ! base64 -d "$SIG" > "$raw_sig" 2>/dev/null; then
+# The committed signature is base64-armored (ASCII text). Check decoding
+# before streaming the raw signature into OpenSSL without an on-disk copy.
+if ! base64 -d "$SIG" >/dev/null 2>&1; then
   echo "check-integrity: ERROR - $SIG is not valid base64 (corrupt signature file)." >&2
   exit 1
 fi
-if openssl pkeyutl -verify -pubin -inkey "$PUBKEY" -rawin -sigfile "$raw_sig" -in "$MANIFEST" >/dev/null 2>&1; then
+if base64 -d "$SIG" | openssl pkeyutl -verify -pubin -inkey "$PUBKEY" \
+  -rawin -sigfile /dev/stdin -in "$MANIFEST" >/dev/null 2>&1; then
   echo "check-integrity: signature OK (verified offline against $PUBKEY)."
 else
   {
