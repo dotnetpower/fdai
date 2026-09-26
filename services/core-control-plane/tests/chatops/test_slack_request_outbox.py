@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import hashlib
+import json
 from collections.abc import Mapping
 from dataclasses import replace
 from datetime import UTC, datetime, timedelta
@@ -226,12 +227,13 @@ async def test_stale_claim_becomes_unknown_and_reminders_are_distinct() -> None:
     store = InMemoryStateStore()
     await _park(store)
     clock = [_AT]
-    posts = 0
+    posts: list[bytes] = []
 
-    def handler(_: httpx.Request) -> httpx.Response:
-        nonlocal posts
-        posts += 1
-        return httpx.Response(200, json={"ok": True, "channel": _CHANNEL, "ts": f"123.{posts}"})
+    def handler(request: httpx.Request) -> httpx.Response:
+        posts.append(request.content)
+        return httpx.Response(
+            200, json={"ok": True, "channel": _CHANNEL, "ts": f"123.{len(posts)}"}
+        )
 
     async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
         channel = _channel(client, store, clock)
@@ -247,11 +249,20 @@ async def test_stale_claim_becomes_unknown_and_reminders_are_distinct() -> None:
         )
         assert await channel.reconcile_once() is True
         assert (await _record(store))["status"] == "unknown"
-        assert posts == 0
+        assert not posts
         first = await channel.send(_request("approval-1:1"))
         second = await channel.send(_request("approval-1:2"))
         assert first.channel_ref != second.channel_ref
-        assert posts == 2
+        assert len(posts) == 2
+        assert posts[0] != posts[1]
+        for dispatch_id, payload in zip(("approval-1:1", "approval-1:2"), posts, strict=True):
+            record = await store.read_state(channel._key("approval-1", dispatch_id))
+            assert record is not None
+            assert record["dispatch_id"] == dispatch_id
+            assert record["payload_digest"] == hashlib.sha256(payload).hexdigest()
+            rendered = json.loads(payload)
+            assert rendered["blocks"][-1]["elements"][0]["value"] == "approval-1"
+            assert f"approval_dispatch_id: {dispatch_id}" in payload.decode()
 
 
 async def test_post_acceptance_persistence_failure_never_returns_receipt() -> None:
