@@ -14,7 +14,7 @@ from fdai.core.hil_resume.load_control import (
     ApprovalReminderDispatcher,
     approval_request_from_park,
 )
-from fdai.shared.providers.hil_channel import HilChannelError
+from fdai.shared.providers.hil_channel import HilApprovalRequest, HilChannelError
 from fdai.shared.providers.testing.hil_channel import InMemoryHilChannel
 from fdai.shared.providers.testing.state_store import InMemoryStateStore
 
@@ -197,6 +197,41 @@ async def test_due_reminders_are_attempted_once_across_repeated_drains() -> None
     assert {item.metadata["approval_reminder_index"] for item in channel.sent} == {"0", "1"}
 
 
+async def test_slack_reservation_precedes_reminder_attempt_and_survives_failure() -> None:
+    store = InMemoryStateStore()
+    parked = _park("reserved-reminder", at=_BASE)
+    await _store_park(store, parked)
+    policy = _policy()
+    await ApprovalLoadController(state_store=store, policy=policy, clock=lambda: _BASE).plan(
+        parked, severity="high"
+    )
+    sent = InMemoryHilChannel()
+    reservations: list[str] = []
+
+    async def reserve(request: HilApprovalRequest) -> None:
+        assert await store.read_state(f"hil_load_reminder_attempt:{request.approval_id}:0") is None
+        reservations.append(request.metadata["approval_dispatch_id"])
+        if len(reservations) == 1:
+            raise HilChannelError("outbox unavailable", approval_id=request.approval_id)
+
+    dispatcher = ApprovalReminderDispatcher(
+        state_store=store,
+        channel=sent,
+        policy=policy,
+        reserve_delivery=reserve,
+        clock=lambda: _BASE + timedelta(seconds=650),
+    )
+    assert await dispatcher.drain_due() == 0
+    assert sent.sent == []
+    assert any(
+        entry["entry"].get("action_kind") == "hil.load.outbox_unavailable"
+        for entry in store.audit_entries
+    )
+    assert await dispatcher.drain_due() == 1
+    assert reservations == ["reserved-reminder:0", "reserved-reminder:0"]
+    assert len(sent.sent) == 1
+
+
 async def test_deferred_initial_dispatch_waits_until_quiet_end() -> None:
     now = datetime(2026, 7, 25, 23, 0, tzinfo=UTC)
     current = now
@@ -239,11 +274,24 @@ async def test_grouped_approvals_emit_one_anchor_digest_after_window() -> None:
         parked = _park(f"grouped-{index}", at=current)
         await _store_park(store, parked)
         plans.append(await controller.plan(parked, severity="medium"))
+    reserved: list[str] = []
+
+    async def reserve(request: HilApprovalRequest) -> None:
+        if not reserved:
+            assert (
+                await store.read_state(
+                    f"hil_load_initial_dispatch:{request.metadata['approval_dispatch_id']}"
+                )
+                is None
+            )
+        reserved.append(request.metadata["approval_dispatch_id"])
+
     dispatcher = ApprovalReminderDispatcher(
         state_store=store,
         channel=channel,
         policy=policy,
         clock=lambda: current,
+        reserve_delivery=reserve,
     )
 
     assert [plan.mode for plan in plans] == [
@@ -261,6 +309,7 @@ async def test_grouped_approvals_emit_one_anchor_digest_after_window() -> None:
     assert channel.sent[0].approval_id == "grouped-0"
     assert channel.sent[0].metadata["approval_load_mode"] == "grouped_digest"
     assert channel.sent[0].metadata["approval_group_size"] == "3"
+    assert set(reserved) == {f"group:{plans[1].group_id}:initial"}
     assert len(await store.read_states("hil_park:", limit=10)) == 3
 
 

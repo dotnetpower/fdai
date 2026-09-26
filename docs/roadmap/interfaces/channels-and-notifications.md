@@ -335,11 +335,15 @@ A2/A4 routes remain separate channel-as-audience bindings.
   client. It sends bounded Block Kit with only opaque action-bound identifiers, no decision button,
   browser link, resource detail, or actor claim. Acceptance requires Slack `ok=true`, a bounded
   message timestamp, and the configured channel in the acknowledgement. `poll` always returns
-  `PENDING`. In-process replay suppresses duplicate posts for one approval id; an interrupted or
-  malformed acknowledgement stays unknown and is never blindly reposted by that instance. This
-  is not a durable outbox: restart-safe reconciliation and authenticated browser actor binding
-  remain open under [issue #943](https://github.com/dotnetpower/fdai/issues/943). Configuration
-  alone never raises approval or execution authority.
+  `PENDING`. The Core-owned request outbox persists an immutable dispatch identity and exact
+  rendered-payload digest with audit before HTTP. Atomic claims cover initial, grouped, and
+  distinctly identified reminder posts. Only a matching provider acceptance receipt closes
+  delivery; a lost acknowledgement or an expired in-flight claim is durably `unknown` and held
+  across restart without a blind repost. A queued, never-attempted request may be dispatched
+  after restart only after rechecking the original pending park and expiry. No authoritative
+  Slack readback or authenticated browser actor binding exists under
+  [issue #943](https://github.com/dotnetpower/fdai/issues/943). Configuration or dispatch alone
+  never raises approval or execution authority.
 - **A2/A4 capability-state, pre-render presentation, shadow delivery, and provider-native rich
   card payloads** are owned in detail by [Multi-channel notification delivery § 8](multi-channel-notification-delivery.md#8-capability-state-presentation-and-shadow-delivery-contracts).
 

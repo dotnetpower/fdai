@@ -2,10 +2,20 @@
 
 from __future__ import annotations
 
+import asyncio
+from unittest.mock import AsyncMock
+
 import httpx
 import pytest
-from fdai.delivery.chatops.slack_adapter import SLACK_POST_URL, SlackHilAdapter
+from fdai.delivery.chatops.slack_adapter import (
+    SLACK_POST_URL,
+    SlackHilAdapter,
+    SlackHilAdapterConfig,
+)
+from fdai.delivery.chatops.slack_request_outbox import DurableSlackApprovalChannel
+from fdai.runtime.bootstrap_tasks import schedule_slack_request_outbox
 from fdai.runtime.delivery import _build_hil_channel
+from fdai.shared.providers.testing.state_store import InMemoryStateStore
 from fdai.shared.providers.testing.workload_identity import StaticWorkloadIdentity
 
 _KEYS = (
@@ -73,3 +83,38 @@ def test_existing_teams_and_webhook_guards_remain(
     )
     with pytest.raises(RuntimeError, match="HTTP client"):
         _build_hil_channel(None, identity)
+
+
+async def test_only_slack_outbox_is_supervised_without_a_network_request() -> None:
+    class Ready:
+        async def run_when_ready(self, stop: asyncio.Event, runner: object) -> None:
+            await runner()  # type: ignore[operator]
+
+    stop = asyncio.Event()
+    assert (
+        schedule_slack_request_outbox(
+            channel=object(),
+            readiness=Ready(),
+            stop=stop,  # type: ignore[arg-type]
+        )
+        is None
+    )
+    async with httpx.AsyncClient(
+        transport=httpx.MockTransport(lambda _: pytest.fail("no request allowed"))
+    ) as client:
+        adapter = SlackHilAdapter(
+            config=SlackHilAdapterConfig(
+                api_url=SLACK_POST_URL, channel_id="CEXAMPLE1", bot_token="fixture"
+            ),
+            http_client=client,
+        )
+        outbox = DurableSlackApprovalChannel(adapter=adapter, store=InMemoryStateStore())
+        outbox.run = AsyncMock()  # type: ignore[method-assign]
+        task = schedule_slack_request_outbox(
+            channel=outbox,
+            readiness=Ready(),
+            stop=stop,  # type: ignore[arg-type]
+        )
+        assert task is not None and task.get_name() == "hil-slack-outbound-request-outbox"
+        await task
+        outbox.run.assert_awaited_once_with(stop)  # type: ignore[attr-defined]

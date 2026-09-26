@@ -796,6 +796,7 @@
       "docs_update_routes": [
         "conversation-attachments",
         "human-report-lines",
+        "slack-a1-request-outbox",
         "aks-commerce-business-scenario",
         "development-diagnostic-channel",
         "reporting-subsystem"
@@ -1164,7 +1165,8 @@
         "docs/roadmap/rules-and-detection/rule-governance.md"
       ],
       "docs_update_routes": [
-        "human-report-lines"
+        "human-report-lines",
+        "slack-a1-request-outbox"
       ],
       "docs_update": [
         "docs/roadmap/decisioning/execution-authorization-ontology.md",
@@ -1291,7 +1293,8 @@
         "docs/roadmap/architecture/mscp-operational-profile.md"
       ],
       "docs_update_routes": [
-        "human-report-lines"
+        "human-report-lines",
+        "slack-a1-request-outbox"
       ],
       "docs_update": [
         "docs/roadmap/architecture/mscp-operational-profile.md",
@@ -1535,6 +1538,32 @@
       ],
       "validate": [
         "uv run pytest -q --no-cov services/operator-service/tests/test_channel_edge*.py tests/integration/services/test_service_migration_inventory.py"
+      ]
+    },
+    {
+      "id": "slack-a1-request-outbox",
+      "paths": [
+        "services/core-control-plane/src/fdai/delivery/chatops/slack_adapter.py",
+        "services/core-control-plane/src/fdai/delivery/chatops/slack_request_outbox.py",
+        "services/core-control-plane/src/fdai/core/hil_resume/load_control.py",
+        "services/core-control-plane/src/fdai/runtime/control_loop.py",
+        "services/core-control-plane/src/fdai/runtime/hil_escalation.py",
+        "services/core-control-plane/src/fdai/runtime/bootstrap_tasks.py",
+        "services/core-control-plane/tests/chatops/test_slack_request_outbox.py",
+        "services/core-control-plane/tests/core/hil_resume/test_load_control.py",
+        "services/core-control-plane/tests/core/hil_resume/test_coordinator.py",
+        "services/core-control-plane/tests/runtime/test_slack_hil_binding.py"
+      ],
+      "must_read": [
+        ".github/instructions/architecture.instructions.md",
+        ".github/instructions/app-shape.instructions.md",
+        "docs/roadmap/interfaces/channels-and-notifications.md"
+      ],
+      "docs_update": [
+        "docs/roadmap/interfaces/channels-and-notifications.md"
+      ],
+      "validate": [
+        "uv run pytest -q --no-cov services/core-control-plane/tests/chatops/test_slack_request_outbox.py services/core-control-plane/tests/core/hil_resume/test_load_control.py services/core-control-plane/tests/runtime/test_slack_hil_binding.py"
       ]
     },
     {
@@ -2047,7 +2076,8 @@
       ],
       "docs_update_routes": [
         "aks-commerce-business-scenario",
-        "ontology-query-coverage"
+        "ontology-query-coverage",
+        "slack-a1-request-outbox"
       ],
       "docs_update": [
         "docs/roadmap/interfaces/human-report-lines-and-approval-routing.md",
@@ -2786,7 +2816,8 @@
         "human-report-lines",
         "aks-commerce-business-scenario",
         "development-diagnostic-channel",
-        "reporting-subsystem"
+        "reporting-subsystem",
+        "slack-a1-request-outbox"
       ],
       "docs_update": [
         "docs/roadmap/operations/operator-initiated-sre-and-arb.md",
