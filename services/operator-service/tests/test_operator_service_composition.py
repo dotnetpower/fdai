@@ -66,8 +66,7 @@ from fdai_operator_service.model_lifecycle_startup import (
 from fdai_operator_service.parity import BLOCKED_ROUTE_PATHS, PARITY_COMPLETE, ROUTE_PARITY
 from fdai_operator_service.postgres import PostgresOperatorReadModel
 from fdai_operator_service.production import serve
-from fdai_operator_service.projections import ProjectionUnavailableError
-from fdai_operator_service.routes import _http_exception_error
+from fdai_operator_service.projections import ProjectionUnavailableError, http_exception_error
 from fdai_service_contracts import (
     AgentActivityQuery,
     AuditPageProjection,
@@ -1166,7 +1165,7 @@ async def test_http_exception_handler_normalizes_only_projection_absence(
     detail: str,
     expected: str,
 ) -> None:
-    response = await _http_exception_error(
+    response = await http_exception_error(
         cast(Any, None),
         HTTPException(status_code=503, detail=detail),
     )
@@ -1180,7 +1179,7 @@ def test_operator_app_registers_structured_http_exception_handler() -> None:
     app = _client(read_model=EmptyReadModel()).app
 
     assert isinstance(app, Starlette)
-    assert app.exception_handlers[HTTPException] is _http_exception_error
+    assert app.exception_handlers[HTTPException] is http_exception_error
 
 
 def test_database_url_binds_service_owned_postgres_projection() -> None:

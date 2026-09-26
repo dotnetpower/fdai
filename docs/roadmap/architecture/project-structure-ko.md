@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: f7f42f75222baaf9d8c087452e6e29ef8bfd753a
+translation_source_sha: 28cfbd5eaabdaee77f4f77beba36aea488b0b67c
 translation_revised: 2026-09-26
 ---
 # 프로젝트 구조
@@ -16,6 +16,8 @@ Core는 활성 Rule 세대 교체를 쓰기 전용 장벽 뒤에 두고, 완결�
 대화 영속 처리, 운영 변환 결과와 webhook 처리 및 순수 workflow 카탈로그 렌더링은 각각 목적별
 소유자를 가집니다. 이 분리는 principal 범위, 영속 제안 멱등성, 사용 불가 동작 및 실행기 없음
 경계를 보존합니다.
+공유 인증 및 변환 결과 응답 모듈이 구조화된 예외 매핑을 소유하므로, 집계 경로 파사드는 경계
+정규화를 다시 구현하지 않고 처리기를 조립합니다.
 
 의미 조회 조립은 principal 범위의 선언 후보 선택과 원본 인가 연결을 소유합니다. Core는 조건식,
 release, 최신성, 증적 및 조회 연산 검증을 유지하고, 전달 계층은 이중 언어 순위 계산과 PostgreSQL

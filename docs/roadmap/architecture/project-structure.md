@@ -14,6 +14,8 @@ The shared Operator family-adapter facade now retains workflow persistence and c
 exports. Conversation persistence, operations projection and webhook handling, and pure workflow
 catalog rendering have focused owners. This split preserves principal scope, durable proposal
 idempotency, unavailable behavior, and the no-executor boundary.
+Shared authentication and projection response modules own structured exception mapping, so the
+aggregate route facade assembles handlers without reimplementing boundary normalization.
 
 Semantic query composition owns principal-scoped declaration candidate selection and source
 authorization bindings. Core retains predicate, release, freshness, receipt, and query-algebra

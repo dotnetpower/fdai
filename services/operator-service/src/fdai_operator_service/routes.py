@@ -50,6 +50,8 @@ from fdai_operator_service.auth import (
     AuthenticationError,
     AuthorizationError,
     OperatorAuthenticator,
+    authentication_error_response,
+    authorization_error_response,
 )
 from fdai_operator_service.browser_evidence_filters import (
     parse_browser_evidence_workspace_query,
@@ -102,7 +104,11 @@ from fdai_operator_service.notification_template_preview import (
     incident_opened_template_preview,
 )
 from fdai_operator_service.ownership_projection import OwnershipProjectionReader
-from fdai_operator_service.projections import ProjectionUnavailableError
+from fdai_operator_service.projections import (
+    ProjectionUnavailableError,
+    http_exception_error,
+    projection_unavailable_error,
+)
 from fdai_operator_service.redaction import redact_projection
 from fdai_operator_service.streaming import LiveStreamHub, make_live_stream_route
 from fdai_operator_service.streaming.shutdown import STREAM_SHUTDOWN_STATE, shutting_down
@@ -606,10 +612,10 @@ def build_operator_app(
         middleware=middleware,
         lifespan=lifespan,
         exception_handlers={
-            HTTPException: _http_exception_error,
-            AuthenticationError: _authentication_error,
-            AuthorizationError: _authorization_error,
-            ProjectionUnavailableError: _projection_unavailable,
+            HTTPException: http_exception_error,
+            AuthenticationError: authentication_error_response,
+            AuthorizationError: authorization_error_response,
+            ProjectionUnavailableError: projection_unavailable_error,
             _BadQueryError: _bad_query_error,
         },
     )
@@ -681,35 +687,6 @@ async def _accept_incident_intervention(
     if not receipt.durably_queued:
         return _error(503, "incident intervention was not durably queued")
     return JSONResponse(receipt.to_dict(), status_code=202)
-
-
-async def _authentication_error(_: Request, exc: Exception) -> Response:
-    return _error(401, str(exc))
-
-
-async def _authorization_error(_: Request, exc: Exception) -> Response:
-    return _error(403, str(exc))
-
-
-async def _projection_unavailable(_: Request, __: Exception) -> Response:
-    return _error(503, "authoritative Operator projection is unavailable")
-
-
-async def _http_exception_error(_: Request, exc: Exception) -> Response:
-    if not isinstance(exc, HTTPException):
-        return _error(500, "Operator API request failed")
-    detail = exc.detail if isinstance(exc.detail, str) else "Operator API request failed"
-    if exc.status_code == 503 and re.fullmatch(
-        r"authoritative [A-Za-z][A-Za-z -]{0,63} projection is unavailable"
-        r" for [a-z0-9.-]{1,128}",
-        detail,
-    ):
-        detail = "authoritative Operator projection is unavailable"
-    return JSONResponse(
-        {"error": {"status": exc.status_code, "message": detail}},
-        status_code=exc.status_code,
-        headers=exc.headers,
-    )
 
 
 async def _bad_query_error(_: Request, exc: Exception) -> Response:
