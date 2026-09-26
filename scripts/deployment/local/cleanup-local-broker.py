@@ -28,6 +28,8 @@ def process_exists(process_id: int) -> bool:
 
 def candidates(output: str, *, alive: Callable[[int], bool] = process_exists) -> list[str]:
     lines = output.splitlines()
+    if len(lines) == 1 and lines[0].split() == ["BROKER", "GROUP"]:
+        return []
     if not lines or lines[0].split() != ["BROKER", "GROUP", "STATE"]:
         raise ValueError("unexpected local broker group listing")
     selected: set[str] = set()

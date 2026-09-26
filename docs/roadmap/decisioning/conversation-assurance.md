@@ -420,7 +420,7 @@ answered. Selection follows the same ephemeral runtime instance that will measur
 3. A runtime-owned probe uses the same authenticated local human principal, role, purpose, and
    principal-scope digest as the measured turn. It materializes the secured current Resource set
    through the graph-first refresh policy and invokes the exact registered FunctionType. Its
-   private mode-`0600` receipt records only bounded readiness fields.
+   private mode-`0600` receipt records only bounded readiness fields. A typed query hold preserves its bounded reason code in that receipt; provider, authorization, and unexpected runtime failures retain one generic unavailable reason and never expose raw exception text. Resource state and Resource Health probes select resource types registered for the requested evidence source and evaluate only that function's state-fact metadata keys, so unrelated inventory objects or state-axis conflicts cannot exhaust the bounded ObjectSet or make applicable evidence look incomplete.
 4. The readiness reducer compares the challenge's expected authority with the authority actually
    provided by the successful probe.
 5. The watchdog selects only an evidence-ready challenge for the requested focus.

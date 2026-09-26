@@ -1,8 +1,8 @@
 ---
 title: Operator Console - Data and Wire Contracts
 translation_of: operator-console-wire-contracts.md
-translation_source_sha: 479b8fe0129c4e24a8806a2609d3fd8514c78c7a
-translation_revised: 2026-09-22
+translation_source_sha: 9360a9856b6e8d4a0669c73bf558291c5956afa8
+translation_revised: 2026-09-26
 ---
 
 # Operator Console - 데이터 and Wire Contracts
@@ -110,7 +110,9 @@ Core는 park의 `decision_route`에 따라 `fdai.hil.decisions`를 라우팅합�
 구성된 mini 서술기는 서버가 제공한 기능 매니페스트에서 답변, 읽기
 도구, 에이전트 소유자, 공개 웹 조회, 명확화 또는 쓰기 초안을 선택한
 strict JSON-schema `TurnPlan`을 반환합니다. 브라우저는 액션 의도를
-분류하지 않으며 자연어를 쓰기 엔드포인트에 직접 보내지 않습니다.
+분류하지 않으며 자연어를 쓰기 엔드포인트에 직접 보내지 않습니다. 타입이 지정된 subject 또는
+리소스 신원 요구 사항과 함께 `resource_identity` 미확정 항목 하나만 있으면 정확한 리소스 이름 또는 ID를 요청하는 locale별
+문구로 표시하며, 내부 토큰은 machine 계약에만 유지하고 인터페이스 문구로 노출하지 않습니다.
 동시 의미 기반 요청은 하나의 영속 처리 claim을 공유합니다. 대기자는 lease가 만료되면 claim을
 다시 시도하므로 실패한 소유자가 요청을 외부 기한까지 멈추게 할 수 없습니다. 대기 중 결과
 저장소가 실패하면 명시적인 보류 변환 결과를 반환합니다.

@@ -802,6 +802,9 @@ def test_service_health_answer_reports_direct_conclusion_and_scope(
         assert "`source_unavailable`" not in answer
     else:
         assert "`source_unavailable`" in answer
+    if event_count and locale == "en":
+        assert "Service issue / Active / Warning: Regional connectivity issue" in answer
+        assert "service_issue / active / warning" not in answer
     assert "`execution_authority=false`" in answer
 
 
@@ -865,6 +868,10 @@ def test_service_health_answer_does_not_treat_advisories_or_maintenance_as_outag
     assert "- 활성 장애: 0건" in answer
     assert "- 활성 상태 권고: 1건" in answer
     assert "- 활성 예정 유지 관리: 1건" in answer
+    assert "- 원본 완전성: 완전" in answer
+    assert "상태 권고 / 활성 / 정보: health_advisory" in answer
+    assert "예정된 유지 관리 / 활성 / 정보: planned_maintenance" in answer
+    assert "health_advisory / active / informational" not in answer
 
 
 def test_service_health_answer_rejects_an_invalid_observation_timestamp() -> None:

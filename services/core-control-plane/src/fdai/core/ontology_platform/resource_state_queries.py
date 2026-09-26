@@ -223,7 +223,7 @@ def _state_concept(value: str | None) -> str | None:
         return None
     matched = _STATE_NAMES.intersection(re.findall(r"[a-z0-9]+", value.casefold()))
     if len(matched) != 1:
-        return None
+        return RESOURCE_STATE_OBSERVED_CONCEPT
     return f"resource_state.{next(iter(matched))}"
 
 

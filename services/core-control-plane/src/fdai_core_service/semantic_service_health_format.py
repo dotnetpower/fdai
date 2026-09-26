@@ -5,6 +5,20 @@ from __future__ import annotations
 from collections.abc import Mapping
 
 EVENT_TYPES = ("service_issue", "health_advisory", "planned_maintenance")
+_EVENT_TYPE_LABELS = {
+    "service_issue": ("Service issue", "서비스 장애"),
+    "health_advisory": ("Health advisory", "상태 권고"),
+    "planned_maintenance": ("Planned maintenance", "예정된 유지 관리"),
+}
+_STATUS_LABELS = {
+    "active": ("Active", "활성"),
+}
+_LEVEL_LABELS = {
+    "critical": ("Critical", "심각"),
+    "error": ("Error", "오류"),
+    "informational": ("Informational", "정보"),
+    "warning": ("Warning", "경고"),
+}
 
 
 def invalid_answer(korean: bool) -> str:
@@ -125,23 +139,50 @@ def category_lines(
 
 
 def event_line(event: Mapping[str, object], *, korean: bool) -> str:
+    event_type = _display_value(
+        event.get("event_type"),
+        labels=_EVENT_TYPE_LABELS,
+        unavailable="유형 미확인" if korean else "type unavailable",
+        korean=korean,
+    )
+    status = _display_value(
+        event.get("status"),
+        labels=_STATUS_LABELS,
+        unavailable="상태 미확인" if korean else "status unavailable",
+        korean=korean,
+    )
+    level = _display_value(
+        event.get("level"),
+        labels=_LEVEL_LABELS,
+        unavailable="수준 미확인" if korean else "level unavailable",
+        korean=korean,
+    )
     if korean:
         return (
             "- "
             f"{event.get('impact_start_at') or '시작 시각 미확인'} - "
-            f"{event.get('event_type') or '유형 미확인'} / "
-            f"{event.get('status') or '상태 미확인'} / "
-            f"{event.get('level') or '수준 미확인'}: "
+            f"{event_type} / {status} / {level}: "
             f"{event.get('title') or '제목 미확인'}"
         )
     return (
         "- "
         f"{event.get('impact_start_at') or 'start time unavailable'} - "
-        f"{event.get('event_type') or 'type unavailable'} / "
-        f"{event.get('status') or 'status unavailable'} / "
-        f"{event.get('level') or 'level unavailable'}: "
+        f"{event_type} / {status} / {level}: "
         f"{event.get('title') or 'title unavailable'}"
     )
+
+
+def _display_value(
+    value: object,
+    *,
+    labels: Mapping[str, tuple[str, str]],
+    unavailable: str,
+    korean: bool,
+) -> str:
+    if not isinstance(value, str) or not value:
+        return unavailable
+    localized = labels.get(value)
+    return localized[1 if korean else 0] if localized is not None else value
 
 
 def event_label(measure_concepts: tuple[str, ...], *, korean: bool) -> str:

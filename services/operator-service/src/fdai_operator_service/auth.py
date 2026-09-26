@@ -16,6 +16,8 @@ from fdai_service_contracts import (
     OperatorTokenVerifier,
 )
 from jwt import PyJWKClient
+from starlette.requests import Request
+from starlette.responses import JSONResponse, Response
 
 from fdai_operator_service.environment import OperatorEnvironment
 from fdai_operator_service.local_auth import LocalAzureCliIdentity, resolve_azure_cli_identity
@@ -29,6 +31,18 @@ class AuthenticationError(Exception):
 
 class AuthorizationError(Exception):
     """A verified human principal lacks every required role."""
+
+
+async def authentication_error_response(_: Request, exc: Exception) -> Response:
+    return _error(401, str(exc))
+
+
+async def authorization_error_response(_: Request, exc: Exception) -> Response:
+    return _error(403, str(exc))
+
+
+def _error(status: int, message: str) -> JSONResponse:
+    return JSONResponse({"error": {"status": status, "message": message}}, status_code=status)
 
 
 @dataclass(frozen=True, slots=True)

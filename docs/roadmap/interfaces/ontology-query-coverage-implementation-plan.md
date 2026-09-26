@@ -57,9 +57,16 @@ Capability preparation preserves all selected canonical property tokens, includi
 > segment. Accepted collection judgments use a deterministic frame, and any remaining model planner
 > receives only the descriptors required by that operational family. Subscription identity and
 > Service Health reads build deterministic frames and server plans from their exact no-input
-> FunctionTypes instead of invoking a frame model with the full principal manifest.
+> FunctionTypes instead of invoking a frame model with the full principal manifest. Localized
+> Service Health answers map reviewed event category, active status, severity, and completeness
+> values to display labels while preserving the provider advisory title verbatim.
 > Generic product labels such as APIM, Application Gateway, backend, or GPT are not exact identities.
-> They produce `resource_identity` clarification before frame-model or provider I/O.
+> They produce a localized request for the exact resource name or ID before frame-model or provider
+> I/O. A sole `resource_identity` unresolved term with a typed subject or resource-identity
+> requirement remains internal and is not shown as interface copy.
+> When an exact-resource live-refresh provider declines a broader Resource set, the typed hold
+> preserves the original graph freshness, completeness, conflict, or synthetic-evidence reasons.
+> The decline never becomes a successful refresh or a generic provider-success claim.
 >
 > **Operational Resource visibility:** Every Resource collection applies one server-owned visibility
 > rule after deterministic or model planning. It excludes `authorization.role-assignment` from

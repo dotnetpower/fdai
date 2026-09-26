@@ -56,13 +56,13 @@ substitutes the node identity or local Azure CLI; local credential policy stays 
   subgraph. Snapshot and journal record conversion call one support-owned relationship-evidence
   encoder, so the two persistence paths cannot diverge in retained evidence.
 - **Graph first:** Ordinary questions read the current operational graph before any provider API. A live provider read is allowed only when required evidence is missing, stale, incomplete, conflicting, or explicitly requested under a bounded read policy.
-  The generated question bank binds every source blob digest; any source-catalog change requires full deterministic regeneration, while unchanged question records grant no graph freshness, completeness, or action authority.
+  The generated question bank binds every source blob digest; any source-catalog change requires full deterministic regeneration, while unchanged question records grant no graph freshness, completeness, or action authority. Localized Service Health presentation maps reviewed event metadata and source completeness to display labels without changing the retained machine values or provider advisory title.
   Private AKS assurance wording may start from an explicitly requested Azure CLI list, but target admission still requires an exact active-inventory provider reference and reviewed `workload_runs_on` plus `implemented_by` path. CLI names never create graph facts or prove freshness.
 - **Safe enrichment:** A live read can support the current answer and publishes a typed observation
   through the same ingress. A partial read cannot replace a complete generation or delete an
   unobserved object or relationship. Runtime environment bindings can participate in an in-memory,
   exact-identity relationship join, but their names and values are redacted before inventory
-  snapshot or ontology persistence, including both ordinary and initialization containers.
+  snapshot or ontology persistence, including both ordinary and initialization containers. When the exact-resource live provider declines a broader secured set, the query hold retains the initial freshness, completeness, conflict, and synthetic-evidence reasons instead of reporting only a generic refresh failure.
 - **Time and provenance:** Every fact retains effective, provider-event, observation, FDAI-ingestion,
   recorded, and evidence-cutoff time plus source, revision, completeness, conflicts, and freshness.
   The normalized journal keeps these distinct; ingestion latency never rewrites provider event time. ARG snapshots use a conservative read-start clock rather than parsing time. Missing state clocks and future evidence stay incomplete at the recorded-generation cutoff. Topology facts retain their observation effective time separately from baseline visibility, and replay preserves each fact's original freshness budget.
