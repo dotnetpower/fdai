@@ -354,6 +354,7 @@ from .scheduled_continuation import (
     ScheduledConversationAnchorStore,
     ScheduledResultOrigin,
     anchor_id_for_run,
+    projected_turn_id_for_anchor,
     scheduled_result_fact_text,
 )
 from .secret_provider import SecretNotFoundError, SecretProvider
@@ -697,6 +698,7 @@ __all__ = [
     "anchor_id_for_run",
     "hil_pending_item_from_action",
     "mutation_target_from_execution_path",
+    "projected_turn_id_for_anchor",
     "resolve_cost_impact_monthly",
     "scheduled_result_fact_text",
 ]

@@ -1,7 +1,7 @@
 {
-  "catalog_digest": "sha256:ac9183793644c92497db710d5d495033f0f4c0522cfc1813f0385c718b189f70",
+  "catalog_digest": "sha256:48535d07ac3fefcc5a56763f99afa08cf9edd1b917ace7e538a7885d6b4cb2b3",
   "execution_authority": false,
-  "generated_at": "2026-09-26T03:27:51.759318Z",
+  "generated_at": "2026-09-26T05:58:59.256718Z",
   "records": [
     {
       "designed_behavior": [
@@ -192,11 +192,11 @@
         "How does FDAI prevent duplicate chat replies?",
         "FDAI는 중복 채팅 응답을 어떻게 방지하나요?"
       ],
-      "record_digest": "sha256:ba6475ce752c37cdf4e330844dd1aae38548633de25cb966e4fcb77c0678245c",
+      "record_digest": "sha256:1eca8b7132cb049b65e6e79e65eaea4b30cb44e9b1fb8abf2e8b27b4224b6808",
       "sources": [
         {
           "authority_role": "design",
-          "blob_sha": "8bc9e5887c09a3279464bc297b050c8b3b9a5274",
+          "blob_sha": "4768aafeb7330259d484e1fde49642d06615d9b9",
           "line_end": 18,
           "line_start": 18,
           "path": "docs/roadmap/interfaces/durable-conversation-delivery.md",
@@ -205,7 +205,7 @@
         },
         {
           "authority_role": "verification",
-          "blob_sha": "8bc9e5887c09a3279464bc297b050c8b3b9a5274",
+          "blob_sha": "4768aafeb7330259d484e1fde49642d06615d9b9",
           "line_end": 66,
           "line_start": 66,
           "path": "docs/roadmap/interfaces/durable-conversation-delivery.md",
@@ -553,5 +553,5 @@
     }
   ],
   "schema_version": "1.0.0",
-  "source_revision": "79e474ba2d397ef2dd42e893b9e9ef3e722fc2ab"
+  "source_revision": "7a5bd84fcb24926c8efcfe96b9c9351d174d6f9a"
 }

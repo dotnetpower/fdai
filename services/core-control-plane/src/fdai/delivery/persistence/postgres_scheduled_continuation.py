@@ -107,7 +107,7 @@ class PostgresScheduledConversationAnchorStore:
 
     async def _connect(self) -> psycopg.AsyncConnection[dict[str, Any]]:
         return await psycopg.AsyncConnection.connect(
-            _psycopg_dsn(self._config.dsn),
+            psycopg_dsn(self._config.dsn),
             row_factory=dict_row,
             connect_timeout=self._config.connect_timeout_s,
         )
@@ -117,7 +117,8 @@ class PostgresScheduledConversationAnchorStore:
         await connection.execute(f"SET LOCAL statement_timeout = {timeout}")
 
 
-def _psycopg_dsn(value: str) -> str:
+def psycopg_dsn(value: str) -> str:
+    """Normalize the SQLAlchemy psycopg driver scheme to a psycopg-native DSN."""
     return value.replace("postgresql+psycopg://", "postgresql://", 1)
 
 
@@ -195,4 +196,5 @@ def _row_to_anchor(row: dict[str, Any]) -> ScheduledConversationAnchor:
 __all__ = [
     "PostgresScheduledContinuationStoreConfig",
     "PostgresScheduledConversationAnchorStore",
+    "psycopg_dsn",
 ]
