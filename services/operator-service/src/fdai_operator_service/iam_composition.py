@@ -29,6 +29,7 @@ from fdai_operator_service.environment import (
     OperatorServiceConfigurationError,
 )
 from fdai_operator_service.families.conversation.channel_edge.environment import (
+    SLACK_SIGNING_SECRET_ENV,
     TEAMS_JWKS_URL_ENV,
 )
 from fdai_operator_service.families.conversation.channel_edge.provider_adapters import (
@@ -69,6 +70,7 @@ from fdai_operator_service.families.iam.report_line_contact_outbox import (
     DurableReportLineContactPublisher,
     ReportLineContactOutboxDrainer,
 )
+from fdai_operator_service.families.iam.slack_handoff import PostgresSlackHandoffStore
 from fdai_operator_service.families.operations.contracts import ProjectionReader
 from fdai_operator_service.family_adapters import PostgresOperationsAdapters
 from fdai_operator_service.family_authorization import OperatorFamilyAuthorizer
@@ -305,13 +307,13 @@ def build_postgres_iam_bindings(
     report_line_contacts = PostgresReportLineContacts(store)
     directory = build_iam_directory(environment, teams_http_client) or iam
     hil_secret = environment.values.get(HIL_SIGNING_SECRET_ENV, "").strip() or None
+    callback_config = HilCallbackAuthorityConfig.from_environment(
+        environment.values, group_ids=environment.group_ids
+    )
     hil_authority = (
         EntraHilCallbackAuthority(
             authenticator=authenticator,
-            config=HilCallbackAuthorityConfig.from_environment(
-                environment.values,
-                group_ids=environment.group_ids,
-            ),
+            config=callback_config,
         )
         if hil_secret is not None
         else None
@@ -390,6 +392,21 @@ def build_postgres_iam_bindings(
         hil_audit=iam,
         hil_context=iam,
         hil_teams_normalizer=hil_teams_normalizer,
+        slack_handoff_store=PostgresSlackHandoffStore(
+            PostgresFamilyStoreConfig(
+                dsn=environment.database_url,
+                connect_timeout_s=environment.database_connect_timeout_s,
+                statement_timeout_ms=environment.database_statement_timeout_ms,
+            )
+        ),
+        slack_signing_secret=environment.values.get(SLACK_SIGNING_SECRET_ENV, "").strip() or None,
+        slack_authority_config=callback_config,
+        slack_authenticator=authenticator,
+        # A single reviewed Console origin is required; never build a handoff
+        # URL from the Host or untrusted Forwarded request headers.
+        slack_console_origin=(
+            environment.cors_allow_origins[0] if len(environment.cors_allow_origins) == 1 else None
+        ),
         notification_receipt_ingress=build_notification_receipt_ingress(
             environment=environment,
             store=store,

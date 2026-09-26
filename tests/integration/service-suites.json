@@ -154,6 +154,7 @@
           "services/operator-service/tests/test_operator_break_glass_activation.py",
           "services/operator-service/tests/test_operator_conversation_family.py",
           "services/operator-service/tests/test_operator_iam_family.py",
+          "services/operator-service/tests/test_hil_slack_handoff.py",
           "services/operator-service/tests/test_operator_operations_family.py",
           "services/operator-service/tests/test_report_lines.py",
           "services/operator-service/tests/test_rule_activation_http_boundary.py",

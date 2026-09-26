@@ -96,6 +96,9 @@ IAM_FAMILY_MANIFEST = (
         "/hil/{approval_id}/operator-decision",
         "post_hil_operator_decision",
     ),
+    IamRouteManifestEntry("POST", "/hil/slack/interaction", "slack_interaction"),
+    IamRouteManifestEntry("GET", "/hil/slack/handoff/{nonce}", "slack_handoff_preview"),
+    IamRouteManifestEntry("POST", "/hil/slack/handoff/{nonce}", "slack_handoff_decide"),
     IamRouteManifestEntry(
         "GET",
         "/hil/report-line-contact-requests",
