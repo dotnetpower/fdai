@@ -21,7 +21,13 @@ from fdai.core.scheduler.continuation import (
     anchor_id_for_run,
     scheduled_result_to_typed_fact,
 )
+from fdai.core.scheduler.continuation_retention import (
+    ContinuationDeletionFencedError,
+    InMemoryContinuationDeletionFence,
+    RetentionFenceUnavailableError,
+)
 from fdai.core.working_context.types import EntryKind
+from fdai.shared.providers.scheduled_continuation import projected_turn_id_for_anchor
 from fdai.shared.providers.testing.state_store import InMemoryStateStore
 
 NOW = datetime(2026, 7, 20, 9, 0, tzinfo=UTC)
@@ -57,6 +63,7 @@ def _service() -> tuple[ScheduledContinuationService, InMemoryContinuationAuditS
         ScheduledContinuationService(
             store=InMemoryScheduledConversationAnchorStore(),
             audit=audit,
+            fence=InMemoryContinuationDeletionFence(),
         ),
         audit,
     )
@@ -144,7 +151,9 @@ async def test_expired_anchor_denies_and_records_expiry() -> None:
 async def test_concurrent_auto_expiry_records_one_state_transition() -> None:
     store = _ConcurrentReadStore()
     audit = InMemoryContinuationAuditSink()
-    service = ScheduledContinuationService(store=store, audit=audit)
+    service = ScheduledContinuationService(
+        store=store, audit=audit, fence=InMemoryContinuationDeletionFence()
+    )
     anchor = await service.create(_anchor())
 
     results = await asyncio.gather(
@@ -171,7 +180,9 @@ async def test_concurrent_auto_expiry_records_one_state_transition() -> None:
 async def test_concurrent_explicit_expiry_records_one_state_transition() -> None:
     store = _ConcurrentReadStore()
     audit = InMemoryContinuationAuditSink()
-    service = ScheduledContinuationService(store=store, audit=audit)
+    service = ScheduledContinuationService(
+        store=store, audit=audit, fence=InMemoryContinuationDeletionFence()
+    )
     anchor = await service.create(_anchor())
 
     results = await asyncio.gather(
@@ -228,6 +239,7 @@ async def test_state_store_audit_sink_collapses_create_retry() -> None:
     service = ScheduledContinuationService(
         store=InMemoryScheduledConversationAnchorStore(),
         audit=StateStoreContinuationAuditSink(store=state_store),
+        fence=InMemoryContinuationDeletionFence(),
     )
     anchor = _anchor()
 
@@ -265,3 +277,67 @@ def test_projection_is_provenance_labeled_data_without_instruction_authority() -
     assert "run=run-1" in entry.text
     assert "window=" in entry.text
     assert "evidence=audit:1" in entry.text
+
+
+async def test_fenced_anchor_id_is_never_recreated_after_deletion() -> None:
+    anchor = _anchor()
+    fence = InMemoryContinuationDeletionFence()
+    audit = InMemoryContinuationAuditSink()
+    store = InMemoryScheduledConversationAnchorStore()
+    service = ScheduledContinuationService(store=store, audit=audit, fence=fence)
+
+    await fence.record(anchor_id=anchor.anchor_id, at=NOW)
+
+    with pytest.raises(ContinuationDeletionFencedError):
+        await service.create(anchor)
+
+    assert await store.get(anchor.anchor_id) is None
+    assert audit.events == []
+
+
+async def test_unreadable_fence_blocks_anchor_creation() -> None:
+    class _BrokenFence:
+        async def record(self, *, anchor_id: str, at: datetime) -> None:
+            del anchor_id, at
+            raise ConnectionError("fence store unreachable")
+
+        async def is_fenced(self, *, anchor_id: str) -> bool:
+            del anchor_id
+            raise ConnectionError("fence store unreachable")
+
+    store = InMemoryScheduledConversationAnchorStore()
+    service = ScheduledContinuationService(
+        store=store,
+        audit=InMemoryContinuationAuditSink(),
+        fence=_BrokenFence(),
+    )
+
+    with pytest.raises(RetentionFenceUnavailableError):
+        await service.create(_anchor())
+
+    assert await store.get(_anchor().anchor_id) is None
+
+
+async def test_unfenced_anchor_id_is_created_normally() -> None:
+    anchor = _anchor()
+    fence = InMemoryContinuationDeletionFence()
+    store = InMemoryScheduledConversationAnchorStore()
+    service = ScheduledContinuationService(
+        store=store,
+        audit=InMemoryContinuationAuditSink(),
+        fence=fence,
+    )
+
+    await fence.record(anchor_id="scheduled-anchor-other", at=NOW)
+    created = await service.create(anchor)
+
+    assert created == anchor
+    assert await store.get(anchor.anchor_id) == anchor
+
+
+def test_projected_turn_id_matches_the_typed_fact_entry_id() -> None:
+    anchor = _anchor()
+
+    entry = scheduled_result_to_typed_fact(anchor, token_estimator=len)
+
+    assert entry.entry_id == projected_turn_id_for_anchor(anchor.anchor_id)

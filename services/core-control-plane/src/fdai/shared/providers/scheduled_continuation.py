@@ -128,6 +128,12 @@ def anchor_id_for_run(*, task_id: str, run_id: str) -> str:
     return f"scheduled-anchor-{digest}"
 
 
+def projected_turn_id_for_anchor(anchor_id: str) -> str:
+    """Return the stable id of the conversation turn projected from one anchor."""
+    _identifier("anchor_id", anchor_id)
+    return f"scheduled-result-{anchor_id}"
+
+
 def scheduled_result_fact_text(anchor: ScheduledConversationAnchor) -> str:
     """Render bounded provenance plus result data without instruction authority."""
     evidence = ",".join(anchor.evidence_refs) or "none"
@@ -158,5 +164,6 @@ __all__ = [
     "ScheduledContinuationDelivery",
     "ScheduledResultOrigin",
     "anchor_id_for_run",
+    "projected_turn_id_for_anchor",
     "scheduled_result_fact_text",
 ]

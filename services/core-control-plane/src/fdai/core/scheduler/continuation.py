@@ -8,6 +8,11 @@ from datetime import datetime
 from enum import StrEnum
 from typing import Never, Protocol
 
+from fdai.core.scheduler.continuation_retention import (
+    ContinuationDeletionFence,
+    ContinuationDeletionFencedError,
+    assert_not_fenced,
+)
 from fdai.core.working_context.types import EntryKind, EntryRole, TranscriptEntry
 from fdai.shared.providers.scheduled_continuation import (
     ContinuationAnchorState,
@@ -17,6 +22,7 @@ from fdai.shared.providers.scheduled_continuation import (
     ScheduledConversationAnchorStore,
     ScheduledResultOrigin,
     anchor_id_for_run,
+    projected_turn_id_for_anchor,
     scheduled_result_fact_text,
 )
 from fdai.shared.providers.state_store import StateStore
@@ -148,11 +154,21 @@ class ScheduledContinuationService:
         *,
         store: ScheduledConversationAnchorStore,
         audit: ContinuationAuditSink,
+        fence: ContinuationDeletionFence,
     ) -> None:
         self._store = store
         self._audit = audit
+        self._fence = fence
 
     async def create(self, anchor: ScheduledConversationAnchor) -> ScheduledConversationAnchor:
+        """Create one anchor unless its id was physically deleted under retention.
+
+        A replayed scheduled run, a redelivered queue record, and a retried creation all
+        derive the same anchor id, so the deletion fence refuses to restore a deleted
+        body. An unreadable fence fails closed instead of recreating the result. The fence is
+        a required collaborator, so the guarantee never depends on composition.
+        """
+        await assert_not_fenced(self._fence, anchor_id=anchor.anchor_id)
         stored = await self._store.create(anchor)
         await self._record(
             ContinuationAuditKind.CREATED,
@@ -257,7 +273,7 @@ def scheduled_result_to_typed_fact(
     """Project one scheduled result as provenance-labeled data, never an instruction."""
     text = scheduled_result_fact_text(anchor)
     return TranscriptEntry(
-        entry_id=f"scheduled-result-{anchor.anchor_id}",
+        entry_id=projected_turn_id_for_anchor(anchor.anchor_id),
         role=EntryRole.SYSTEM,
         kind=EntryKind.TYPED_FACT,
         text=text,
@@ -299,6 +315,8 @@ __all__ = [
     "ContinuationAuditEvent",
     "ContinuationAuditKind",
     "ContinuationAuditSink",
+    "ContinuationDeletionFence",
+    "ContinuationDeletionFencedError",
     "ContinuationMode",
     "InMemoryContinuationAuditSink",
     "InMemoryScheduledConversationAnchorStore",

@@ -181,6 +181,10 @@ from fdai.delivery.persistence.postgres_scheduled_continuation import (
     PostgresScheduledContinuationStoreConfig,
     PostgresScheduledConversationAnchorStore,
 )
+from fdai.delivery.persistence.postgres_scheduled_continuation_retention import (
+    PostgresScheduledContinuationDeleter,
+    RetentionReadbackError,
+)
 from fdai.delivery.persistence.postgres_scheduler_store import (
     PostgresScheduleStore,
     PostgresScheduleStoreConfig,
@@ -364,6 +368,7 @@ __all__ = [
     "PostgresScheduleStoreConfig",
     "PostgresScheduleRunLedger",
     "PostgresScheduleRunLedgerConfig",
+    "PostgresScheduledContinuationDeleter",
     "PostgresScheduledContinuationStoreConfig",
     "PostgresScheduledConversationAnchorStore",
     "PostgresSkillProposalStore",
@@ -397,6 +402,7 @@ __all__ = [
     "PostgresWorkflowDefinitionStore",
     "PostgresWorkflowDefinitionStoreConfig",
     "ReservationCompareAndSetError",
+    "RetentionReadbackError",
     "PostReleaseClosureCompareAndSetError",
     "TargetDispatchFenceCompareAndSetError",
     "RpcClaimConflictError",

@@ -1,7 +1,7 @@
 ---
 translation_of: scheduled-result-continuations.md
-translation_source_sha: ea68d32d5281c2705b07ad771114ea35c609ff28
-translation_revised: 2026-08-20
+translation_source_sha: c470bd94bb108b559df9db022ed143918e8fd376
+translation_revised: 2026-09-26
 ---
 # 예약 결과 이어가기
 
@@ -163,8 +163,24 @@ legal-hold-aware 보존 워커는 보존 유예 기간이 지난 뒤 projected �
 결과, anchor를 이 고정된 순서로 물리 삭제합니다. 이 워커는 active anchor를 거부하고, hold
 registry를 읽을 수 없으면 닫힘 실패하며, hold가 걸린 anchor는 삭제하지 않고 건너뛰고, 앞선
 대상이 실패하면 재시도가 이어질 수 있도록 anchor를 그대로 둡니다. 재시도는 결과별 감사 기록
-하나로 합쳐지고 어떤 감사 기록도 결과 본문을 담지 않습니다. 저장된 결과, projected 턴,
-anchor 행에 운영 deleter가 연결되기 전에는 만료를 physical deletion 완료로 표현하면 안 됩니다.
+하나로 합쳐지고 어떤 감사 기록도 결과 본문을 담지 않습니다.
+
+워커는 첫 번째 복사본을 삭제하기 전에 anchor id에 대한 지속적인 삭제 fence를 기록합니다. 이
+fence가 권위 있는 tombstone입니다. Anchor 생성, 재생된 예약 실행, 재전달된 큐 기록, 외부 전달이
+모두 이 fence를 확인하고 fence가 걸린 id를 거부하므로, 늦은 writer가 보존이 삭제하기 시작한
+본문을 복원할 수 없습니다. Fence는 이어가기 서비스의 필수 협력자이므로 이 보장이 조립에
+의존하지 않습니다. Fence를 쓰거나 읽을 수 없으면 닫힘 실패하고 삭제를 시도하지 않으며, 자기 readback을 통과하지
+못한 fence 쓰기도 모든 삭제를 막으므로 조용히 버려진 쓰기가 늦은 writer를 풀어 주지 않습니다. Hold가 걸린 anchor와 유예 기간 안의 anchor에는 fence를 기록하지 않습니다. Fence 기록은
+anchor id, 기록 principal, 시각만 담으므로 삭제된 payload 없이도 민감하지 않은 계보가 남습니다.
+Fence는 영구적입니다. 잘린 fence는 재생된 실행이 삭제된 본문을 다시 만들게 하므로, 해당 키
+접두사에는 접두사 기반 상태 보존 정리를 적용하면 안 됩니다.
+
+운영 deleter는 PostgreSQL에 남는 세 복사본, 즉 projected 대화 턴, 출처 briefing 실행, anchor 행에
+연결되어 있습니다. 각 구문은 해당 anchor의 principal, 대화, 실행, anchor id로 범위가 제한되므로
+관련 없는 범위와 같은 대화의 관련 없는 턴은 보존됩니다. Anchor 삭제는 추가로 `expired` 상태를
+요구합니다. 모든 삭제는 별도 연결의 독립 readback으로 확인하며, 살아남은 복사본이 있으면 삭제
+완료로 보고하지 않고 purge를 pending으로 유지합니다. 이 deleter에 대한 통제된 삭제 증적 하나가
+확보되기 전에는 만료를 physical deletion 완료로 표현하면 안 됩니다.
 
 ## 검증
 
@@ -180,6 +196,10 @@ anchor 행에 운영 deleter가 연결되기 전에는 만료를 physical deleti
     registry 읽기 실패 시 닫힘 실패, 재개 가능한 부분 실패, 제한된 batch, 합쳐진 보존 감사입니다.
 - 구성 review evidence-run 멱등성, proposer self-review 차단, acceptance 전 작업 없음,
  strict weekly 구체화 및 중복 작업 suppression입니다.
+- 첫 삭제 전 fence 기록, 부분 실패 후에도 유지되는 fence, hold 및 유예 기간 anchor에 fence 없음,
+    쓰거나 읽을 수 없는 fence에서 닫힘 실패, 재시작 후 읽기 가능한 fence입니다.
+- 생성 시 fence가 걸린 anchor id 거부, 범위가 제한된 삭제 구문, 살아남은 복사본을 pending으로
+    유지하는 독립 readback입니다.
 
 ## 구현 상태
 
@@ -192,7 +212,7 @@ anchor 행에 운영 deleter가 연결되기 전에는 만료를 physical deleti
 | Configuration review campaign | implemented | `services/core-control-plane/src/fdai/core/detection/configuration_review.py`; focused configuration-review 테스트 | 범위가 제한된 세 실행 집약기, 감사 및 상태 전이, 재개, 청사진 제안 및 구체화 guard가 있으며 schedule 권한을 부여하지 않습니다. |
 | Operator 경로 및 Console 변환 결과 | in-progress | `services/operator-service/src/fdai_operator_service/families/conversation/manifest.py`; `console/src/routes/scheduled-continuations.tsx`; focused 경로 및 Console 테스트 | 읽기 및 명령 화면은 있지만 관리되는 인증된 종단 간 이어가기 증적은 보존되지 않았습니다. |
 | Slack 및 Teams 전달 동등성 | in-progress | [채널 동작](#채널-동작) | 계약과 어댑터가 설명돼 있으며 외부 채널 및 영속 원장 연결에는 배포 근거가 필요합니다. |
-| Legal-hold-aware 물리 보존 | in-progress | `services/core-control-plane/src/fdai/core/scheduler/continuation_retention.py`; `services/core-control-plane/tests/core/scheduler/test_continuation_retention.py` | 조정된 worker가 유예 기간 이후 projected 턴, 출처 결과, anchor를 이 순서로 삭제하고, active anchor를 거부하며, legal hold나 읽을 수 없는 hold registry에서 닫힘 실패하고, 부분 실패를 재개 가능하게 유지하며, 재시도 감사를 합칩니다. PostgreSQL 및 대화 저장소에 대한 운영 deleter는 아직 연결되지 않았습니다. |
+| Legal-hold-aware 물리 보존 | in-progress | `services/core-control-plane/src/fdai/core/scheduler/continuation_retention.py`; `services/core-control-plane/src/fdai/delivery/persistence/postgres_scheduled_continuation_retention.py`; `services/core-control-plane/tests/core/scheduler/test_continuation_retention.py`; `services/core-control-plane/tests/persistence/test_scheduled_continuation_retention.py` | 조정된 worker가 유예 기간 이후 projected 턴, 출처 결과, anchor를 이 순서로 삭제하고, active anchor를 거부하며, legal hold나 읽을 수 없는 hold registry에서 닫힘 실패하고, 부분 실패를 재개 가능하게 유지하며, 재시도 감사를 합칩니다. 첫 삭제 전에 지속적인 삭제 fence를 기록하고 생성과 전달에서 fence가 걸린 anchor id를 거부합니다. 운영 PostgreSQL deleter는 범위가 제한된 구문과 독립 삭제 readback을 갖추었으며, 라이브 사례는 환경 조건부로 남고 통제된 삭제 증적은 아직 없습니다. |
 
 ### 구현 이력
 
@@ -202,6 +222,8 @@ anchor 행에 운영 deleter가 연결되기 전에는 만료를 physical deleti
 | 2026-08-14 | implemented | 실제 앵커 테스트를 강화하고 재시작 및 동시 만료 동작을 증명한 뒤 PostgreSQL 영속성을 승격했습니다. | `current change`; `test_scheduled_continuation.py`가 이행된 지원되는 일회용 데이터베이스에서 두 건을 건너뛰기 없이 통과했습니다. | 인증된 전달, 외부 채널 및 물리 보존 근거를 완료해야 합니다. |
 | 2026-08-14 | implemented | 어댑터 경계에서 표준 psycopg DSN을 정규화하고 앵커 영속성을 skip 없이 실행했습니다. | `current change`; `test_scheduled_continuation.py`의 3개 사례와 focused Ruff 및 mypy 검사가 통과했습니다. | 인증된 전달, 외부 채널 및 물리 보존 근거를 보존해야 합니다. |
 | 2026-08-16 | in-progress | 삭제 순서, 유예 기간, legal hold, 부분 실패 및 감사 동작을 조정하는 legal-hold-aware 보존 worker를 추가했습니다. | `current change`; `pytest services/core-control-plane/tests/core/scheduler/`가 집중 보존 사례 13개를 포함해 74개 테스트를 통과했고 focused Ruff도 통과했습니다. | 운영 결과, projected 턴, anchor deleter를 연결하고 인증된 전달과 외부 채널 근거를 보존해야 합니다. |
+| 2026-09-26 | in-progress | Projected 턴, 출처 briefing 실행, anchor 행에 대한 운영 PostgreSQL deleter를 범위가 제한된 구문과 독립 삭제 readback으로 연결하고, 생성과 외부 전달에서 fence가 걸린 anchor id를 거부하는 지속적인 삭제 fence를 추가했습니다. | `current change`; [Issue #1025](https://github.com/dotnetpower/fdai/issues/1025); `pytest services/core-control-plane/tests/core/scheduler services/core-control-plane/tests/persistence/test_scheduled_continuation.py services/core-control-plane/tests/persistence/test_scheduled_continuation_retention.py`가 환경 조건부 skip 3건과 함께 104개 사례를 통과했고 focused Ruff와 strict mypy도 통과했습니다. | 환경 조건부 라이브 deleter 사례를 실행하고 통제된 삭제 증적 하나와 인증된 전달 및 외부 채널 근거를 보존해야 합니다. |
+| 2026-09-27 | in-progress | `PostgresScheduledContinuationDeleter`와 `RetentionReadbackError`를 delivery persistence 패키지로 노출하고, 지원하지 않는 보존 대상에 대해 구문을 계획하지 않는 대신 거부하며, 지속 fence 재시도가 부분 정리를 이어서 완료하고 fence는 정확히 한 번만 기록됨을 증명했습니다. | `current change`; [Issue #1025](https://github.com/dotnetpower/fdai/issues/1025); `pytest services/core-control-plane/tests/core/scheduler services/core-control-plane/tests/persistence/test_scheduled_continuation.py services/core-control-plane/tests/persistence/test_scheduled_continuation_retention.py` 110개 사례 통과 및 환경 게이트 건너뜀 3개이며 2026-09-26에 기록한 개수를 정정합니다. Focused Ruff 및 엄격 mypy 통과입니다. | 환경 게이트가 적용된 라이브 삭제기 사례를 실행하고 통제된 정리 증적 하나를 보존하며, 인증된 전달과 외부 채널 증적을 확보합니다. |
 
 ### 남은 작업
 
@@ -209,7 +231,10 @@ anchor 행에 운영 deleter가 연결되기 전에는 만료를 physical deleti
 - [ ] 예약 결과에서 앵커 열기, 타입이 지정된 fact, 후속 답변, 만료 및 사용 불가 재생까지 이어지는 인증된 web 이어가기 증적 하나를 보존합니다.
 - [ ] 대상을 넓히지 않으면서 Slack 및 Teams 출처 스레드, dedicated 스레드, 성능 저하, 모호한 확인 응답 및 영속 재시도 증적을 보존합니다.
 - [x] 만료를 물리 삭제로 표시하기 전에 출처 결과, 앵커, 변환된 턴, 감사, 재시도 및 부분 실패 동작을 조정하는 legal-hold-aware 보존 worker를 구현합니다.
-- [ ] 저장된 결과, projected 대화 턴, PostgreSQL anchor 행에 대한 운영 deleter를 연결하고, 만료를 물리 삭제 완료로 표현하기 전에 통제된 삭제 증적 하나를 보존합니다.
+- [x] 저장된 결과, projected 대화 턴, PostgreSQL anchor 행에 대한 운영 deleter를 범위가 제한된 구문, 지속적인 삭제 fence, 살아남은 복사본을 pending으로 유지하는 독립 readback과 함께 연결합니다.
+- [ ] 환경으로 제한된 라이브 deleter 사례를 지원되는 로컬 데이터베이스에서 실행하고, 만료를 물리 삭제 완료로 표현하기 전에 통제된 삭제 증적 하나를 보존합니다.
+- [ ] Fence를 현재 anchor id 파생 방식에 맞춰 유지합니다. 파생 방식이 바뀌면 fence 키도 바뀌므로,
+    다시 만들어진 id를 받아들이기 전에 기존 tombstone을 이어 가는 migration이 필요합니다.
 
 ## 관련 문서
 
