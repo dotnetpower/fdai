@@ -64,6 +64,9 @@ Capability preparation preserves all selected canonical property tokens, includi
 > They produce a localized request for the exact resource name or ID before frame-model or provider
 > I/O. A sole `resource_identity` unresolved term with a typed subject or resource-identity
 > requirement remains internal and is not shown as interface copy.
+> When an exact-resource live-refresh provider declines a broader Resource set, the typed hold
+> preserves the original graph freshness, completeness, conflict, or synthetic-evidence reasons.
+> The decline never becomes a successful refresh or a generic provider-success claim.
 >
 > **Operational Resource visibility:** Every Resource collection applies one server-owned visibility
 > rule after deterministic or model planning. It excludes `authorization.role-assignment` from

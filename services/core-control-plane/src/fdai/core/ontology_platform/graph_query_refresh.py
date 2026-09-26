@@ -87,7 +87,12 @@ class SecuredGraphEvidenceQueryRefresher:
             if self._live_provider is None:  # pragma: no cover - reducer invariant
                 raise RuntimeError("graph refresh selected an unavailable live provider")
             if not await self._live_provider.refresh(definition=definition, secured=secured):
-                raise QueryNodeHeldError("graph_refresh_unavailable")
+                hold_reasons = tuple(
+                    reason
+                    for reason in decision.reason_codes
+                    if reason != "bounded_refresh_available"
+                )
+                raise QueryNodeHeldError("graph_refresh_unavailable:" + ",".join(hold_reasons))
             refreshed = await self._gateway.materialize(
                 definition,
                 projection_request=projection_request,

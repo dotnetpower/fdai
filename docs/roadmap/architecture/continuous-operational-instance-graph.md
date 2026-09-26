@@ -64,6 +64,9 @@ substitutes the node identity or local Azure CLI; local credential policy stays 
   unobserved object or relationship. Runtime environment bindings can participate in an in-memory,
   exact-identity relationship join, but their names and values are redacted before inventory
   snapshot or ontology persistence, including both ordinary and initialization containers.
+  When the exact-resource live provider declines a broader secured set, the query hold retains the
+  initial freshness, completeness, conflict, and synthetic-evidence reasons instead of reporting
+  only a generic refresh failure.
 - **Time and provenance:** Every fact retains effective, provider-event, observation, FDAI-ingestion,
   recorded, and evidence-cutoff time plus source, revision, completeness, conflicts, and freshness.
   The normalized journal keeps these distinct; ingestion latency never rewrites provider event time. ARG snapshots use a conservative read-start clock rather than parsing time. Missing state clocks and future evidence stay incomplete at the recorded-generation cutoff. Topology facts retain their observation effective time separately from baseline visibility, and replay preserves each fact's original freshness budget.

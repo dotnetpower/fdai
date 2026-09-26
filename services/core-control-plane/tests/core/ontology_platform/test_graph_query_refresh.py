@@ -254,6 +254,25 @@ async def test_stale_graph_refreshes_once_and_requeries_current_graph() -> None:
     assert gateway.calls == 1
 
 
+async def test_declined_live_refresh_preserves_the_initial_hold_reasons() -> None:
+    stale = _secured(age_seconds=61)
+    live = _LiveProvider(result=False)
+    gateway = _Gateway(stale)
+    refresher = SecuredGraphEvidenceQueryRefresher(gateway=gateway, live_provider=live)
+
+    with pytest.raises(
+        QueryNodeHeldError,
+        match=r"graph_refresh_unavailable:graph_stale",
+    ):
+        await refresher.refresh(
+            definition=stale.materialization.definition,
+            projection_request=_request(),
+            secured=stale,
+        )
+    assert live.calls == 1
+    assert gateway.calls == 0
+
+
 async def test_conflicting_graph_stays_held_after_one_refresh() -> None:
     conflicting = _secured(age_seconds=0, conflicts=("status",))
     live = _LiveProvider()
