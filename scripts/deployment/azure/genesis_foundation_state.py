@@ -19,7 +19,11 @@ from pathlib import Path
 import genesis_foundation_apply as foundation_apply
 import genesis_foundation_state_contract as state_contract
 from fdai_deployment_cli.contracts import canonical_digest
-from fdai_deployment_cli.private_output import read_private_bytes, write_private_output
+from fdai_deployment_cli.private_output import (
+    read_private_bytes,
+    write_private_bytes,
+    write_private_output,
+)
 from fdai_deployment_cli.profile import load_profile
 from fdai_deployment_cli.state_handoff import compare_foundation_state
 from genesis_bastion import BastionTunnel, validate_known_hosts, validate_ssh_private_key
@@ -207,6 +211,9 @@ def _execute_selected(args: argparse.Namespace) -> dict[str, object]:
             work_id=work_id,
             archive_digest=_required_text(receipt, "archive_digest"),
             expected_state_digest=_required_text(authority, "state_digest"),
+            expected_remote_state_digest=_authority_remote_state_digest(
+                directory, authority=authority, work_id=work_id
+            ),
             timeout=args.timeout_seconds,
         )
         return receipt
@@ -550,6 +557,7 @@ def _reobserve_remote_authority(
     work_id: str,
     archive_digest: str,
     expected_state_digest: str,
+    expected_remote_state_digest: str,
     timeout: int,
 ) -> None:
     remote_archive = f"/home/{connection['username']}/.fdai-transfer-{work_id[:24]}.tar.gz"
@@ -579,17 +587,106 @@ def _reobserve_remote_authority(
         timeout=timeout,
         trust_new_host_key=False,
     ) as tunnel:
-        result = tunnel.ssh(
-            (
-                "/usr/local/sbin/fdai-migrate-foundation-state",
-                "observe",
-                *remote_arguments,
-            ),
-            timeout=timeout,
+        observer = _observer_source()
+        observer_digest = hashlib.sha256(observer).hexdigest()
+        local_observer = directory / f".state-observer-{work_id[:12]}.py"
+        remote_observer = (
+            f"/home/{connection['username']}/.fdai-transfer-{work_id[:24]}-observer.py"
         )
+        _unlink_private_if_present(local_observer, max_bytes=1024 * 1024)
+        write_private_bytes(local_observer, observer)
+        remote_touched = False
+        try:
+            absent = tunnel.ssh(("/usr/bin/test", "!", "-e", remote_observer), timeout=60)
+            if absent.returncode == 0:
+                remote_touched = True
+                tunnel.copy_to(local_observer, remote_observer, timeout=300)
+            observed_digest = tunnel.ssh(
+                ("/usr/bin/sha256sum", remote_observer),
+                timeout=60,
+            )
+            digest_token = observed_digest.stdout.strip().split(maxsplit=1)
+            if (
+                observed_digest.returncode != 0
+                or len(digest_token) != 2
+                or digest_token[0] != observer_digest
+            ):
+                raise ValueError("Foundation remote observer transfer digest differs")
+            remote_touched = True
+            result = tunnel.ssh(
+                (
+                    "/usr/bin/python3",
+                    remote_observer,
+                    "observe",
+                    *remote_arguments,
+                    "--expected-remote-state-digest",
+                    expected_remote_state_digest,
+                ),
+                timeout=timeout,
+            )
+        finally:
+            _unlink_private_if_present(local_observer, max_bytes=1024 * 1024)
+            if remote_touched:
+                removed = tunnel.ssh(
+                    ("/usr/bin/rm", "-f", "--", remote_observer),
+                    timeout=60,
+                )
+                if removed.returncode != 0:
+                    raise ValueError("Foundation remote observer cleanup failed")
         marker = f"state_handoff_observation_complete work_ref={work_id[:24]}"
         if result.returncode != 0 or marker not in result.stdout.splitlines():
             raise ValueError("Foundation remote state authority re-observation failed")
+
+
+def _authority_remote_state_digest(
+    directory: Path, *, authority: Mapping[str, object], work_id: str
+) -> str:
+    retained = authority.get("remote_state_digest")
+    if retained is not None:
+        digest = _required_text(authority, "remote_state_digest")
+        if _DIGEST.fullmatch(digest) is None:
+            raise ValueError("Foundation remote state authority digest is invalid")
+        return digest
+    observation = _private_json(
+        directory / f"remote-observation-{work_id[:12]}.json",
+        label="retained remote state observation",
+    )
+    if (
+        canonical_digest(dict(observation)) != authority.get("observation_digest")
+        or observation.get("schema_version")
+        != "fdai.genesis-foundation-remote-state-observation.v1"
+        or observation.get("state") != "verified"
+        or observation.get("work_id") != work_id
+    ):
+        raise ValueError("Foundation retained remote state observation differs")
+    digest = _required_text(observation, "remote_state_digest")
+    if _DIGEST.fullmatch(digest) is None:
+        raise ValueError("Foundation retained remote state digest is invalid")
+    return digest
+
+
+def _observer_source() -> bytes:
+    path = _repository_root() / "infra/genesis-runner-image/migrate-foundation-state.py"
+    descriptor = os.open(path, os.O_RDONLY | os.O_NONBLOCK | os.O_NOFOLLOW)
+    with os.fdopen(descriptor, "rb") as stream:
+        details = os.fstat(stream.fileno())
+        if (
+            not stat.S_ISREG(details.st_mode)
+            or details.st_uid != os.geteuid()
+            or details.st_nlink != 1
+            or not 0 < details.st_size <= 1024 * 1024
+        ):
+            raise PermissionError("Foundation remote observer source is unsafe")
+        content = stream.read(1024 * 1024 + 1)
+        after = os.fstat(stream.fileno())
+    if (
+        len(content) != details.st_size
+        or after.st_size != details.st_size
+        or after.st_mtime_ns != details.st_mtime_ns
+        or after.st_ctime_ns != details.st_ctime_ns
+    ):
+        raise ValueError("Foundation remote observer source changed while being read")
+    return content
 
 
 def _validate_arguments(args: argparse.Namespace) -> None:

@@ -141,6 +141,12 @@ def repair_claimed_support(
     claim_path = directory / SUPPORT_REPAIR_CLAIM_NAME
     manifest_path = directory / SUPPORT_REPAIR_MANIFEST_NAME
     receipt_path = directory / SUPPORT_REPAIR_RECEIPT_NAME
+    repair_claim = _load_optional_private_json(claim_path)
+    repair_source_commit = (
+        source_commit
+        if repair_claim is None
+        else _required_commit(repair_claim.get("repair_source_commit"), "retained repair source")
+    )
     expected_context: dict[str, object] = {
         "work_id": work_id,
         "archive_digest": archive_digest,
@@ -148,11 +154,10 @@ def repair_claimed_support(
         "prior_migration_source_commit": _required_commit(
             state_claim.get("migration_source_commit"), "prior migration source"
         ),
-        "repair_source_commit": source_commit,
+        "repair_source_commit": repair_source_commit,
         "support_files": expected_files,
         "verifier": expected_verifier,
     }
-    repair_claim = _load_optional_private_json(claim_path)
     if repair_claim is None:
         if status.repair_manifest is not None:
             raise ValueError("Foundation remote support repair lacks its local immutable claim")
@@ -420,12 +425,12 @@ def _remote_file(
     tunnel: BastionTunnel, path: str, username: str, timeout: int
 ) -> RemoteFile | None:
     details = tunnel.ssh(
-        ("/usr/bin/stat", "--format=%F|%h|%a|%U", path),
+        ("/usr/bin/stat", "--format=%F,%h,%a,%U", path),
         timeout=min(timeout, 60),
     )
     if details.returncode != 0:
         return None
-    parts = details.stdout.strip().split("|")
+    parts = details.stdout.strip().split(",")
     if len(parts) != 4 or parts[0] != "regular file" or parts[1] != "1" or parts[3] != username:
         raise ValueError("Foundation remote support path is not a safe owned regular file")
     if parts[2] not in {"600", "700"}:
@@ -439,7 +444,7 @@ def _remote_file(
 
 def _ensure_remote_directory(tunnel: BastionTunnel, path: str, username: str, timeout: int) -> None:
     details = tunnel.ssh(
-        ("/usr/bin/stat", "--format=%F|%a|%U", path),
+        ("/usr/bin/stat", "--format=%F,%a,%U", path),
         timeout=min(timeout, 60),
     )
     if details.returncode != 0:
@@ -447,10 +452,10 @@ def _ensure_remote_directory(tunnel: BastionTunnel, path: str, username: str, ti
         if created.returncode != 0:
             raise ValueError("Foundation remote support directory creation failed")
         details = tunnel.ssh(
-            ("/usr/bin/stat", "--format=%F|%a|%U", path),
+            ("/usr/bin/stat", "--format=%F,%a,%U", path),
             timeout=min(timeout, 60),
         )
-    if details.returncode != 0 or details.stdout.strip() != f"directory|700|{username}":
+    if details.returncode != 0 or details.stdout.strip() != f"directory,700,{username}":
         raise ValueError("Foundation remote support directory is unsafe")
 
 
@@ -586,6 +591,24 @@ def _load_optional_private_json(path: Path) -> dict[str, object] | None:
     if not isinstance(value, dict):
         raise ValueError("Foundation support repair record must be an object")
     return value
+
+
+def retained_repair_source_commit(directory: Path) -> str | None:
+    """Return the immutable source of an existing repair claim after self-verification."""
+
+    claim = _load_optional_private_json(directory / SUPPORT_REPAIR_CLAIM_NAME)
+    if claim is None:
+        return None
+    digest = claim.get("claim_digest")
+    unsigned = {key: value for key, value in claim.items() if key != "claim_digest"}
+    if (
+        claim.get("schema_version") != "fdai.genesis-foundation-support-repair-claim.v1"
+        or claim.get("mutation_performed") is not False
+        or claim.get("subscription_ready") is not False
+        or digest != canonical_digest(unsigned)
+    ):
+        raise ValueError("Foundation retained support repair claim is invalid")
+    return _required_commit(claim.get("repair_source_commit"), "retained repair source")
 
 
 def _source_commit(recovery: RecoveryContext) -> str:

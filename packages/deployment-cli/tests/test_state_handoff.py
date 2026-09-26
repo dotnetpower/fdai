@@ -7,6 +7,7 @@ from pathlib import Path
 import pytest
 
 from fdai_deployment_cli.cli import main
+from fdai_deployment_cli.contracts import canonical_digest
 from fdai_deployment_cli.state_handoff import compare_foundation_state
 
 
@@ -93,6 +94,111 @@ def test_state_comparison_never_grants_backend_or_deletion_authority() -> None:
     assert local == remote
 
 
+def test_state_comparison_accepts_only_backend_migration_normalization() -> None:
+    local, remote, plan = inputs()
+    local["check_results"] = [
+        {
+            "object_kind": "var",
+            "config_addr": "var.example",
+            "status": "pass",
+            "objects": [{"object_addr": "var.example", "status": "pass"}],
+        },
+        {
+            "object_kind": "resource",
+            "config_addr": "module.foundation.terraform_data.ownership",
+            "status": "unknown",
+            "objects": [
+                {
+                    "object_addr": "module.foundation.terraform_data.ownership",
+                    "status": "unknown",
+                }
+            ],
+        },
+    ]
+    remote = deepcopy(local)
+    remote["serial"] += 1
+    remote["check_results"].reverse()
+
+    result = compare_foundation_state(local, remote, plan)
+
+    assert result["state_digest"] == canonical_digest(local)
+    assert result["comparison_verified"] is True
+
+
+def test_state_comparison_rejects_changed_check_result_content() -> None:
+    local, remote, plan = inputs()
+    local["check_results"] = [
+        {
+            "object_kind": "var",
+            "config_addr": "var.example",
+            "status": "pass",
+            "objects": [{"object_addr": "var.example", "status": "pass"}],
+        }
+    ]
+    remote = deepcopy(local)
+    remote["serial"] += 1
+    remote["check_results"][0]["status"] = "fail"
+
+    with pytest.raises(ValueError, match="content differs"):
+        compare_foundation_state(local, remote, plan)
+
+
+def test_state_comparison_accepts_refresh_only_drift_closed_by_noop() -> None:
+    local, remote, plan = inputs()
+    desired = deepcopy(plan["resource_changes"][0]["change"]["after"])
+    prior = deepcopy(desired)
+    prior["input"] = "stale-observed-value"
+    plan["resource_drift"] = [
+        {
+            "address": plan["resource_changes"][0]["address"],
+            "change": {
+                "actions": ["update"],
+                "before": prior,
+                "after": desired,
+            },
+        }
+    ]
+
+    result = compare_foundation_state(local, remote, plan)
+
+    assert result["comparison_verified"] is True
+
+
+@pytest.mark.parametrize(
+    "defect",
+    ["create", "id", "after", "same", "missing", "move"],
+)
+def test_state_comparison_rejects_unclosed_refresh_drift(defect: str) -> None:
+    local, remote, plan = inputs()
+    desired = deepcopy(plan["resource_changes"][0]["change"]["after"])
+    prior = deepcopy(desired)
+    prior["input"] = "stale-observed-value"
+    drift = {
+        "address": plan["resource_changes"][0]["address"],
+        "change": {
+            "actions": ["update"],
+            "before": prior,
+            "after": desired,
+        },
+    }
+    if defect == "create":
+        drift["change"]["actions"] = ["create"]
+    elif defect == "id":
+        drift["change"]["before"]["id"] = "other"
+    elif defect == "after":
+        drift["change"]["after"]["input"] = "different"
+    elif defect == "same":
+        drift["change"]["before"] = deepcopy(drift["change"]["after"])
+    elif defect == "missing":
+        drift["address"] = "terraform_data.unrelated"
+    else:
+        drift["previous_address"] = "terraform_data.old"
+    plan["resource_drift"] = [drift]
+
+    with pytest.raises(ValueError):
+        compare_foundation_state(local, remote, plan)
+
+
 @pytest.mark.parametrize(
     "field,value",
     [
@@ -135,7 +241,7 @@ def test_changed_or_unsafe_remote_state_is_rejected(change: str) -> None:
     resource = remote["resources"][0]
     instance = resource["instances"][0]
     if change == "serial":
-        remote["serial"] += 1
+        remote["serial"] += 2
     elif change == "lineage":
         remote["lineage"] = "other"
     elif change == "id":
@@ -237,7 +343,7 @@ def test_file_only_command_writes_private_sanitized_comparison(
     tmp_path.chmod(0o700)
     local, remote, plan = inputs()
     if invalid:
-        remote["serial"] += 1
+        remote["serial"] += 2
     paths = [tmp_path / name for name in ("local.json", "remote.json", "plan.json")]
     for path, value in zip(paths, (local, remote, plan), strict=True):
         path.write_text(json.dumps(value), encoding="utf-8")

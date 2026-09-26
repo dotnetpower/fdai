@@ -97,8 +97,37 @@ async def test_send_returns_exact_receipt_and_local_replay_without_second_post()
     body = json.loads(post.content)
     assert body["channel"] == _CHANNEL
     assert body["blocks"][0]["type"] == "section"
-    for name in ("approval_id", "correlation_id", "action_id", HIL_BINDING_FIELD, "action_hash"):
+    assert body["blocks"][-1] == {
+        "type": "actions",
+        "elements": [
+            {
+                "type": "button",
+                "text": {"type": "plain_text", "text": "Approve"},
+                "action_id": "fdai_hil_approve",
+                "value": request.approval_id,
+            },
+            {
+                "type": "button",
+                "text": {"type": "plain_text", "text": "Reject"},
+                "action_id": "fdai_hil_reject",
+                "value": request.approval_id,
+            },
+        ],
+    }
+    assert "a click is not an approval" in body["text"]
+    for name in (
+        "approval_id",
+        "correlation_id",
+        "action_id",
+        HIL_BINDING_FIELD,
+        "approval_dispatch_id",
+    ):
         assert name in post.content.decode()
+    assert "approval_dispatch_id: initial" in post.content.decode()
+    assert "action_hash" not in post.content.decode()
+    assert request.action_hash not in post.content.decode()
+    for button in body["blocks"][-1]["elements"]:
+        assert set(button) == {"type", "text", "action_id", "value"}
     for forbidden in (
         "sensitive-resource",
         "sensitive-radius",
@@ -106,6 +135,8 @@ async def test_send_returns_exact_receipt_and_local_replay_without_second_post()
         "omit this display note",
         "action.example",
         _TOKEN,
+        "approver_oid",
+        "executor_identity",
     ):
         assert forbidden not in post.content.decode()
 
@@ -166,6 +197,7 @@ async def test_ambiguous_timeout_does_not_retry() -> None:
         _request(metadata={HIL_BINDING_FIELD: "xoxb-leak"}),
         _request(correlation_id="https://example.com"),
         _request(approval_id="a" * 201),
+        _request(approval_id="a" * 129),
     ],
 )
 async def test_invalid_context_is_rejected_before_transport(

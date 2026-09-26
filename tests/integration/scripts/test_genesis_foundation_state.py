@@ -142,6 +142,9 @@ class SupportRepairTunnel:
     ) -> subprocess.CompletedProcess[str]:
         del timeout
         assert input_text is None
+        assert not any(
+            character in argument for argument in remote_arguments for character in "|;&><`$"
+        )
         command = remote_arguments[0]
         if command == "/usr/bin/stat":
             path = self._path(remote_arguments[-1])
@@ -158,9 +161,9 @@ class SupportRepairTunnel:
             )
             mode = f"{stat.S_IMODE(details.st_mode):o}"
             if "%h" in remote_arguments[1]:
-                output = f"{kind}|{details.st_nlink}|{mode}|{self.username}\n"
+                output = f"{kind},{details.st_nlink},{mode},{self.username}\n"
             else:
-                output = f"{kind}|{mode}|{self.username}\n"
+                output = f"{kind},{mode},{self.username}\n"
             return subprocess.CompletedProcess(remote_arguments, 0, output, "")
         if command == "/usr/bin/sha256sum":
             path = self._path(remote_arguments[1])
@@ -323,6 +326,8 @@ def test_claimed_incomplete_archive_repairs_support_before_verification(tmp_path
         )
 
     copied = list(tunnel.copied)
+    assert support_repair.retained_repair_source_commit(directory) == "7" * 40
+    recovery.source = SimpleNamespace(commit="9" * 40, root=current_source)
     assert support_repair.repair_claimed_support(
         tunnel,
         recovery=recovery,
@@ -383,6 +388,24 @@ def test_support_repair_refuses_to_replace_a_different_existing_file(
         )
     assert recovery.approvals == 0
     assert not (directory / support_repair.SUPPORT_REPAIR_CLAIM_NAME).exists()
+
+
+def test_legacy_authority_reuses_its_bound_remote_observation(tmp_path: Path) -> None:
+    tmp_path.chmod(0o700)
+    work_id = "c" * 64
+    observation = {
+        "schema_version": "fdai.genesis-foundation-remote-state-observation.v1",
+        "state": "verified",
+        "work_id": work_id,
+        "remote_state_digest": "d" * 64,
+    }
+    _private_json(tmp_path / f"remote-observation-{work_id[:12]}.json", observation)
+    authority = {"observation_digest": canonical_digest(observation)}
+
+    assert (
+        state_command._authority_remote_state_digest(tmp_path, authority=authority, work_id=work_id)
+        == "d" * 64
+    )
 
 
 @pytest.mark.parametrize("local_first", [False, True])
@@ -808,6 +831,7 @@ class FakeTunnel:
     fail_migration = False
     calls: list[tuple[str, ...]] = []
     copied: list[str] = []
+    observer_digest = ""
     evidence: dict[str, object]
     directory: Path
 
@@ -829,15 +853,29 @@ class FakeTunnel:
         self, remote_arguments: tuple[str, ...], *, timeout: int, input_text: str | None = None
     ) -> subprocess.CompletedProcess[str]:
         del timeout
-        assert input_text is None
         self.calls.append(remote_arguments)
+        if remote_arguments[0] == "/usr/bin/python3":
+            assert input_text is None
+            assert "--expected-remote-state-digest" in remote_arguments
+            mode = remote_arguments[2]
+        else:
+            assert input_text is None
+            mode = remote_arguments[1] if len(remote_arguments) > 1 else ""
         if remote_arguments[0] == "/usr/local/sbin/fdai-attest-runner":
             return subprocess.CompletedProcess(
                 remote_arguments, 0, "attestation_complete transport=manual slots=2\n", ""
             )
         if remote_arguments[0] == "/usr/bin/test":
             return subprocess.CompletedProcess(remote_arguments, 0, "", "")
-        mode = remote_arguments[1]
+        if remote_arguments[0] == "/usr/bin/sha256sum":
+            return subprocess.CompletedProcess(
+                remote_arguments,
+                0,
+                f"{self.observer_digest}  {remote_arguments[1]}\n",
+                "",
+            )
+        if remote_arguments[0] == "/usr/bin/rm":
+            return subprocess.CompletedProcess(remote_arguments, 0, "", "")
         work_id = remote_arguments[remote_arguments.index("--work-id") + 1]
         if mode == "migrate" and self.fail_migration:
             return subprocess.CompletedProcess(remote_arguments, 3, "", "")
@@ -860,8 +898,10 @@ class FakeTunnel:
         )
 
     def copy_to(self, source: Path, destination: str, *, timeout: int) -> None:
-        del source, timeout
+        del timeout
         assert (self.directory / state_command.CLAIM_NAME).is_file()
+        if destination.endswith("-observer.py"):
+            self.observer_digest = hashlib.sha256(source.read_bytes()).hexdigest()
         self.copied.append(destination)
 
     def copy_from(self, source: str, destination: Path, *, timeout: int) -> None:
@@ -1173,10 +1213,13 @@ def test_recovered_state_uses_original_owner_and_exact_approval(tmp_path, monkey
     assert (
         json.loads((original / state_command.foundation_apply.RECEIPT_NAME).read_bytes()) == prior
     )
+    migration_source[0] = "e" * 40
     FakeTunnel.calls = []
     assert state_command.main(arguments + ["--resume-verification"]) == 0
-    assert len(FakeTunnel.copied) == 1
-    assert [command[1] for command in FakeTunnel.calls] == ["observe"]
+    assert len(FakeTunnel.copied) == 2
+    assert [command[:3] for command in FakeTunnel.calls if command[0] == "/usr/bin/python3"] == [
+        ("/usr/bin/python3", FakeTunnel.copied[-1], "observe")
+    ]
     authority_path = directory / state_command.AUTHORITY_NAME
     authority = json.loads(authority_path.read_bytes())
     authority["zero_change_verified"] = False
@@ -1268,9 +1311,10 @@ def test_completed_handoff_reobserves_remote_authority_without_repeating_effect(
 
     assert state_command.main(_arguments(directory, profile, foundation, "--approve")) == 0
 
-    modes = [call[1] for call in FakeTunnel.calls if "fdai-migrate" in call[0]]
-    assert modes == ["observe"]
-    assert not FakeTunnel.copied
+    assert [call[:3] for call in FakeTunnel.calls if call[0] == "/usr/bin/python3"] == [
+        ("/usr/bin/python3", FakeTunnel.copied[-1], "observe")
+    ]
+    assert len(FakeTunnel.copied) == 1
 
 
 def test_completed_handoff_requires_its_immutable_actor_claim(

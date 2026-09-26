@@ -72,12 +72,18 @@ class SlackHilAdapter(HilChannel):
 
     def render_payload(self, request: HilApprovalRequest) -> bytes:
         """Return exactly the sanitized bytes sent to the fixed Slack endpoint."""
+        if not isinstance(request.approval_id, str) or len(request.approval_id) > 128:
+            raise HilChannelError(
+                "Slack approval binding is incomplete or unsafe: id exceeds interaction limit",
+                approval_id="",
+            )
         context = {
             "approval_id": request.approval_id,
             "correlation_id": request.correlation_id,
             "action_id": request.action_id,
             HIL_BINDING_FIELD: request.metadata.get(HIL_BINDING_FIELD),
             "action_hash": request.action_hash,
+            "approval_dispatch_id": request.metadata.get("approval_dispatch_id", "initial"),
         }
         if any(
             not isinstance(value, str) or not _OPAQUE.fullmatch(value) or _SECRET.search(value)
@@ -87,13 +93,20 @@ class SlackHilAdapter(HilChannel):
         payload = json.dumps(
             {
                 "channel": self._config.channel_id,
-                "text": "FDAI human approval pending. Review through an authenticated channel.",
+                "text": (
+                    "FDAI human approval pending. Slack buttons start an authenticated "
+                    "browser review; a click is not an approval."
+                ),
                 "blocks": [
                     {
                         "type": "section",
                         "text": {
                             "type": "mrkdwn",
-                            "text": "*Human approval pending*\nA Slack message is not an approval.",
+                            "text": (
+                                "*Human approval pending*\n"
+                                "Choose a decision to continue in an authenticated browser. "
+                                "Clicking here does not approve or reject the action."
+                            ),
                         },
                     },
                     {
@@ -101,6 +114,22 @@ class SlackHilAdapter(HilChannel):
                         "elements": [
                             {"type": "plain_text", "text": f"{key}: {value}"}
                             for key, value in context.items()
+                            if key != "action_hash"
+                        ],
+                    },
+                    {
+                        "type": "actions",
+                        "elements": [
+                            {
+                                "type": "button",
+                                "text": {"type": "plain_text", "text": label},
+                                "action_id": action_id,
+                                "value": request.approval_id,
+                            }
+                            for action_id, label in (
+                                ("fdai_hil_approve", "Approve"),
+                                ("fdai_hil_reject", "Reject"),
+                            )
                         ],
                     },
                 ],
@@ -114,7 +143,7 @@ class SlackHilAdapter(HilChannel):
 
     async def send(self, request: HilApprovalRequest) -> HilApprovalReceipt:
         payload = self.render_payload(request)
-        fingerprint = hashlib.sha256(payload).hexdigest()
+        fingerprint = hashlib.sha256(payload + b"\0" + request.action_hash.encode()).hexdigest()
         dispatch_id = request.metadata.get("approval_dispatch_id", "initial")
         if not isinstance(dispatch_id, str) or not _OPAQUE.fullmatch(dispatch_id):
             raise HilChannelError("Slack approval dispatch identity is invalid", approval_id="")

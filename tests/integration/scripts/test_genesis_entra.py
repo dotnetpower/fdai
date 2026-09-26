@@ -23,7 +23,7 @@ def test_entra_plan_lists_only_missing_generic_objects(monkeypatch) -> None:
 
     plan = genesis_entra.plan_entra()
 
-    assert plan.create_apps == ("fdai-api", "fdai-console-spa")
+    assert plan.create_apps == ("fdai-api", "fdai-approval-bot", "fdai-console-spa")
     assert plan.create_groups == (
         "aw-approvers",
         "aw-break-glass",
@@ -36,7 +36,7 @@ def test_entra_plan_lists_only_missing_generic_objects(monkeypatch) -> None:
 
 
 def test_entra_plan_reads_independent_directory_objects_concurrently(monkeypatch) -> None:
-    barrier = threading.Barrier(7)
+    barrier = threading.Barrier(8)
 
     def read_app(_name: str):
         barrier.wait(timeout=1)
@@ -51,8 +51,33 @@ def test_entra_plan_reads_independent_directory_objects_concurrently(monkeypatch
 
     plan = genesis_entra.plan_entra()
 
-    assert len(plan.create_apps) == 2
+    assert len(plan.create_apps) == 3
     assert len(plan.create_groups) == 5
+
+
+def test_apply_entra_does_not_grant_provider_consent(monkeypatch) -> None:
+    plan = genesis_entra.EntraPlan((), (), True, True, "a" * 64)
+    app = {"appId": GUID}
+
+    monkeypatch.setattr(genesis_entra, "plan_entra", lambda: plan)
+    monkeypatch.setattr(genesis_entra, "_ensure_group", lambda _name: GUID)
+    monkeypatch.setattr(genesis_entra, "_ensure_api_app", lambda: app)
+    monkeypatch.setattr(genesis_entra, "_ensure_spa_app", lambda _api: app)
+    monkeypatch.setattr(genesis_entra, "_ensure_approval_bot_app", lambda _api: app)
+    monkeypatch.setattr(genesis_entra, "_ensure_service_principal", lambda _app_id: {"id": GUID})
+    monkeypatch.setattr(genesis_entra, "_assign_group_roles", lambda **_kwargs: None)
+    monkeypatch.setattr(genesis_entra, "_ensure_current_owner_membership", lambda _group_id: None)
+    monkeypatch.setattr(genesis_entra, "_grant_runner_spa_ownership", lambda *_args: None)
+    monkeypatch.setattr(genesis_entra, "_grant_runner_graph_permission", lambda _runner_id: None)
+    monkeypatch.setattr(genesis_entra, "_verify_complete", lambda **_kwargs: None)
+    monkeypatch.setattr(genesis_entra, "read_entra_bindings", lambda: {})
+    monkeypatch.setattr(
+        genesis_entra,
+        "_az",
+        lambda *_args: pytest.fail("provider consent must remain a separate approved operation"),
+    )
+
+    assert genesis_entra.apply_entra(plan, runner_principal_id=GUID) == {}
 
 
 def test_read_entra_bindings_returns_only_validated_repository_values(monkeypatch) -> None:
@@ -74,11 +99,30 @@ def test_read_entra_bindings_returns_only_validated_repository_values(monkeypatc
         "displayName": "fdai-console-spa",
         "signInAudience": "AzureADMyOrg",
         "appId": GUID,
+        "requiredResourceAccess": [
+            {
+                "resourceAppId": GUID,
+                "resourceAccess": [{"id": GUID, "type": "Scope"}],
+            }
+        ],
+    }
+    approval_bot = {
+        "displayName": "fdai-approval-bot",
+        "signInAudience": "AzureADMyOrg",
+        "appId": GUID,
+        "requiredResourceAccess": [
+            {
+                "resourceAppId": GUID,
+                "resourceAccess": [{"id": GUID, "type": "Scope"}],
+            }
+        ],
     }
     monkeypatch.setattr(
         genesis_entra,
         "_single_app",
-        lambda name: api if name == "fdai-api" else spa,
+        lambda name: (
+            api if name == "fdai-api" else approval_bot if name == "fdai-approval-bot" else spa
+        ),
     )
     monkeypatch.setattr(
         genesis_entra,
@@ -93,6 +137,7 @@ def test_read_entra_bindings_returns_only_validated_repository_values(monkeypatc
     assert set(result) == {
         "ENTRA_CONSOLE_API_SCOPE",
         "ENTRA_CONSOLE_SPA_CLIENT_ID",
+        "FDAI_TEAMS_APPLICATION_ID",
         "OPERATOR_API_AUDIENCE",
         "RBAC_APPROVERS_GROUP_ID",
         "RBAC_BREAK_GLASS_GROUP_ID",
@@ -137,11 +182,30 @@ def test_read_entra_bindings_rejects_missing_attachment_role(monkeypatch) -> Non
         "displayName": "fdai-console-spa",
         "signInAudience": "AzureADMyOrg",
         "appId": GUID,
+        "requiredResourceAccess": [
+            {
+                "resourceAppId": GUID,
+                "resourceAccess": [{"id": GUID, "type": "Scope"}],
+            }
+        ],
+    }
+    approval_bot = {
+        "displayName": "fdai-approval-bot",
+        "signInAudience": "AzureADMyOrg",
+        "appId": GUID,
+        "requiredResourceAccess": [
+            {
+                "resourceAppId": GUID,
+                "resourceAccess": [{"id": GUID, "type": "Scope"}],
+            }
+        ],
     }
     monkeypatch.setattr(
         genesis_entra,
         "_single_app",
-        lambda name: api if name == "fdai-api" else spa,
+        lambda name: (
+            api if name == "fdai-api" else approval_bot if name == "fdai-approval-bot" else spa
+        ),
     )
     monkeypatch.setattr(
         genesis_entra,

@@ -26,13 +26,26 @@ def compare_foundation_state(
 
     local_identities = _state_identities(local)
     remote_identities = _state_identities(remote)
-    if local["lineage"] != remote["lineage"] or local["serial"] != remote["serial"]:
+    local_serial = _state_serial(local)
+    remote_serial = _state_serial(remote)
+    if local["lineage"] != remote["lineage"] or remote_serial not in {
+        local_serial,
+        local_serial + 1,
+    }:
         raise ValueError("foundation state lineage or serial differs after handoff")
     if local_identities != remote_identities:
         raise ValueError("foundation state resource identities differ after handoff")
-    local_digest = canonical_digest(local)
-    if local_digest != canonical_digest(remote):
+    local_content = {
+        key: value for key, value in local.items() if key not in {"serial", "check_results"}
+    }
+    remote_content = {
+        key: value for key, value in remote.items() if key not in {"serial", "check_results"}
+    }
+    if local_content != remote_content or _check_result_digests(local) != _check_result_digests(
+        remote
+    ):
         raise ValueError("foundation state content differs after handoff")
+    local_digest = canonical_digest(local)
     version = plan.get("format_version")
     if (
         not isinstance(version, str)
@@ -42,15 +55,23 @@ def compare_foundation_state(
         or plan.get("applyable") is not False
     ):
         raise ValueError("foundation handoff requires a complete non-errored no-change plan")
+    no_change_after: dict[str, dict[str, object]] = {}
     for item in _array(plan.get("resource_changes", [])):
         resource_change = _object(item)
         if "previous_address" in resource_change:
             raise ValueError("foundation handoff plan contains an address move")
-        _no_change(resource_change.get("change"))
-    if _array(plan.get("resource_drift", [])) or _array(plan.get("deferred_changes", [])):
-        raise ValueError("foundation handoff plan contains drift or deferred changes")
-    for change in _object(plan.get("output_changes", {})).values():
-        _no_change(change)
+        address = _text(resource_change.get("address"))
+        if address in no_change_after:
+            raise ValueError("foundation handoff plan contains duplicate resource changes")
+        resource_delta = _object(resource_change.get("change"))
+        _no_change(resource_delta)
+        no_change_after[address] = _object(resource_delta["after"])
+    for item in _array(plan.get("resource_drift", [])):
+        _refresh_only_drift(_object(item), no_change_after)
+    if _array(plan.get("deferred_changes", [])):
+        raise ValueError("foundation handoff plan contains deferred changes")
+    for output_change in _object(plan.get("output_changes", {})).values():
+        _no_change(output_change)
     for check in _array(plan.get("checks", [])):
         if _object(check).get("status") != "pass":
             raise ValueError("foundation handoff plan checks must pass")
@@ -71,6 +92,12 @@ def compare_foundation_state(
         "mutation_performed": False,
         "subscription_ready": False,
     }
+
+
+def _check_result_digests(state: dict[str, object]) -> tuple[str, ...]:
+    return tuple(
+        sorted(canonical_digest(_object(item)) for item in _array(state.get("check_results", [])))
+    )
 
 
 def _object(value: object) -> dict[str, object]:
@@ -103,6 +130,25 @@ def _no_change(value: object) -> None:
         raise ValueError("foundation handoff plan contains a change")
 
 
+def _refresh_only_drift(
+    drift: dict[str, object], no_change_after: dict[str, dict[str, object]]
+) -> None:
+    if "previous_address" in drift:
+        raise ValueError("foundation handoff drift contains an address move")
+    address = _text(drift.get("address"))
+    change = _object(drift.get("change"))
+    before = _object(change.get("before"))
+    after = _object(change.get("after"))
+    if (
+        change.get("actions") != ["update"]
+        or change.get("importing") is not None
+        or before == after
+        or before.get("id") != after.get("id")
+        or no_change_after.get(address) != after
+    ):
+        raise ValueError("foundation handoff plan contains unclosed resource drift")
+
+
 def _add_identity(identities: dict[str, str], address: str, resource_id: object) -> None:
     if address in identities:
         raise ValueError("foundation handoff contains duplicate managed identities")
@@ -110,16 +156,14 @@ def _add_identity(identities: dict[str, str], address: str, resource_id: object)
 
 
 def _state_identities(state: dict[str, object]) -> dict[str, str]:
-    serial = state.get("serial")
     if (
         type(state.get("version")) is not int
         or state["version"] != 4
-        or type(serial) is not int
-        or serial < 0
         or not isinstance(state.get("lineage"), str)
         or not state["lineage"]
     ):
         raise ValueError("foundation handoff requires version-4 state with lineage and serial")
+    _state_serial(state)
     identities: dict[str, str] = {}
     for entry in _array(state.get("resources")):
         resource = _object(entry)
@@ -147,6 +191,13 @@ def _state_identities(state: dict[str, object]) -> dict[str, str]:
     if not identities:
         raise ValueError("foundation handoff cannot verify empty managed state")
     return identities
+
+
+def _state_serial(state: dict[str, object]) -> int:
+    serial = state.get("serial")
+    if type(serial) is not int or serial < 0:
+        raise ValueError("foundation handoff requires version-4 state with lineage and serial")
+    return serial
 
 
 def _plan_identities(module: dict[str, object], identities: dict[str, str], *, depth: int) -> None:
