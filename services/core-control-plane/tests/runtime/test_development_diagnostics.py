@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 from pathlib import Path
 
 import pytest
@@ -15,11 +16,11 @@ def _environment(tmp_path: Path, *, venue: str = "local") -> dict[str, str]:
         "FDAI_EXECUTION_VENUE": venue,
         "FDAI_DEVELOPMENT_DIAGNOSTICS_SOURCE_REVISION": "a" * 40,
         "FDAI_DEVELOPMENT_DIAGNOSTICS_INPUT_DIGEST": "b" * 64,
-        "FDAI_DEVELOPMENT_DIAGNOSTICS_WORKTREE_DIGEST": "c" * 64,
+        "FDAI_DEVELOPMENT_DIAGNOSTICS_WORKTREE_DIGEST": hashlib.sha256(
+            tmp_path.name.encode("utf-8")
+        ).hexdigest(),
         "FDAI_DEVELOPMENT_DIAGNOSTICS_SOURCE_ROOT": str(ROOT),
-        "FDAI_DEVELOPMENT_DIAGNOSTICS_SOCKET_DIR": str(
-            ROOT / ".fdai" / "core-rdt" / tmp_path.name[-8:]
-        ),
+        "FDAI_DEVELOPMENT_DIAGNOSTICS_SOCKET_DIR": str(ROOT / ".fdai" / "r"),
     }
 
 
