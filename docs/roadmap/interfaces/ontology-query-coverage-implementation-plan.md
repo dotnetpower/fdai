@@ -174,7 +174,7 @@ Capability preparation preserves all selected canonical property tokens, includi
 > and principal-manifest digests; stale deterministic receipts are never accepted by compatibility.
 > The `resource_classified_as` and `Forecast`/`Pattern` catalog revisions each refreshed those
 > deterministic fixture digests in the same release change.
-> Every structural release refresh, including the current validation repair, pins the four answered
+> Every structural release refresh, including the current 277-declaration validation repair, pins the four answered
 > deterministic fixtures to the exact release and Reader principal-manifest digests in the same change.
 > The route reuses the App Shape contract and retains `production_ready=false`.
 > The first epistemic-closure implementation slice now ships immutable finite

@@ -1,7 +1,7 @@
 ---
 title: 에이전트 워크플로우
 translation_of: agent-workflows.md
-translation_source_sha: d00886340e69cecfa1c95e82a00b5e03a2e14042
+translation_source_sha: 1b87d3c24ca28005017775f017ac4b74661bc0c3
 translation_revised: 2026-09-26
 ---
 
