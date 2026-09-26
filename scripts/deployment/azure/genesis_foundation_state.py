@@ -19,7 +19,11 @@ from pathlib import Path
 import genesis_foundation_apply as foundation_apply
 import genesis_foundation_state_contract as state_contract
 from fdai_deployment_cli.contracts import canonical_digest
-from fdai_deployment_cli.private_output import read_private_bytes, write_private_output
+from fdai_deployment_cli.private_output import (
+    read_private_bytes,
+    write_private_bytes,
+    write_private_output,
+)
 from fdai_deployment_cli.profile import load_profile
 from fdai_deployment_cli.state_handoff import compare_foundation_state
 from genesis_bastion import BastionTunnel, validate_known_hosts, validate_ssh_private_key
@@ -584,18 +588,51 @@ def _reobserve_remote_authority(
         trust_new_host_key=False,
     ) as tunnel:
         observer = _observer_source()
-        result = tunnel.ssh(
-            (
-                "/usr/bin/python3",
-                "-",
-                "observe",
-                *remote_arguments,
-                "--expected-remote-state-digest",
-                expected_remote_state_digest,
-            ),
-            timeout=timeout,
-            input_text=observer,
+        observer_digest = hashlib.sha256(observer).hexdigest()
+        local_observer = directory / f".state-observer-{work_id[:12]}.py"
+        remote_observer = (
+            f"/home/{connection['username']}/.fdai-transfer-{work_id[:24]}-observer.py"
         )
+        _unlink_private_if_present(local_observer, max_bytes=1024 * 1024)
+        write_private_bytes(local_observer, observer)
+        remote_touched = False
+        try:
+            absent = tunnel.ssh(("/usr/bin/test", "!", "-e", remote_observer), timeout=60)
+            if absent.returncode == 0:
+                remote_touched = True
+                tunnel.copy_to(local_observer, remote_observer, timeout=300)
+            observed_digest = tunnel.ssh(
+                ("/usr/bin/sha256sum", remote_observer),
+                timeout=60,
+            )
+            digest_token = observed_digest.stdout.strip().split(maxsplit=1)
+            if (
+                observed_digest.returncode != 0
+                or len(digest_token) != 2
+                or digest_token[0] != observer_digest
+            ):
+                raise ValueError("Foundation remote observer transfer digest differs")
+            remote_touched = True
+            result = tunnel.ssh(
+                (
+                    "/usr/bin/python3",
+                    remote_observer,
+                    "observe",
+                    *remote_arguments,
+                    "--expected-remote-state-digest",
+                    expected_remote_state_digest,
+                ),
+                timeout=timeout,
+            )
+        finally:
+            _unlink_private_if_present(local_observer, max_bytes=1024 * 1024)
+            if remote_touched:
+                removed = tunnel.ssh(
+                    ("/usr/bin/rm", "-f", "--", remote_observer),
+                    timeout=60,
+                )
+                if removed.returncode != 0:
+                    raise ValueError("Foundation remote observer cleanup failed")
         marker = f"state_handoff_observation_complete work_ref={work_id[:24]}"
         if result.returncode != 0 or marker not in result.stdout.splitlines():
             raise ValueError("Foundation remote state authority re-observation failed")
@@ -628,7 +665,7 @@ def _authority_remote_state_digest(
     return digest
 
 
-def _observer_source() -> str:
+def _observer_source() -> bytes:
     path = _repository_root() / "infra/genesis-runner-image/migrate-foundation-state.py"
     descriptor = os.open(path, os.O_RDONLY | os.O_NONBLOCK | os.O_NOFOLLOW)
     with os.fdopen(descriptor, "rb") as stream:
@@ -649,7 +686,7 @@ def _observer_source() -> str:
         or after.st_ctime_ns != details.st_ctime_ns
     ):
         raise ValueError("Foundation remote observer source changed while being read")
-    return content.decode("utf-8")
+    return content
 
 
 def _validate_arguments(args: argparse.Namespace) -> None:
