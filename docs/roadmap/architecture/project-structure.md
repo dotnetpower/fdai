@@ -245,6 +245,9 @@ Cloud update comparison validates raw and processing identities; Core rechecks p
   describe intent and remediation; policies are the executable OPA/Rego the verifier re-checks.
   How sources are collected and normalized into that YAML is in
   [rule-catalog-collection.md](../rules-and-detection/rule-catalog-collection.md).
+  The startup catalog projector validates exact objective, Rule, policy-signature, and evidence
+  pins before exposing a read-only binding relation. It does not alter T0 evaluation, promote
+  a candidate, or give the graph any approval or execution role.
 - **governance changes stay bounded and auditable**: scoped overrides and time-boxed exemptions
   load as validated catalog data. Core resolves only the exact covered rule and resource scope,
   preserves separate requester and approver identities, records parameter-relaxation and expiry
