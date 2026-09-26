@@ -119,7 +119,7 @@ The source prerequisites are now explicit. Terminal `ops.start-vm` ActionRuns ro
 Heimdall executed-action observation handler, and the A3-E effect-evidence bridge maps every
 unknown observation outcome to a shadow-reverting disposition. `pr_manual` remains an intentional
 structural-denial class rather than a missing runtime trigger. Protected service configuration can
-set `workflow_tools_enforce` only when stewardship GitOps is enabled; the default remains disabled.
+set `workflow_tools_enforce` only when ownership GitOps is enabled; the default remains disabled.
 None of these source facts is operational evidence, selects a campaign revision, or authorizes a
 deployment, provider effect, promotion, reversion, or cleanup.
 

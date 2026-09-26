@@ -33,7 +33,7 @@ URLs, ARM paths, commands, or query text.
   bounded provider ETag, and sends it as `If-Match`. An external revision change returns a conflict
   instead of applying a stale absolute capacity. The Core gateway client applies one cumulative
   45-second default deadline to long-running-operation polling.
-- Tag remediation accepts one bounded logical resource id inside an allowlisted development
+- Tag fixes accept one bounded logical resource id inside an allowlisted development
   resource group. The executor identity can merge one validated tag but cannot change resource
   configuration. The gateway captures the prior tag map, verifies the result through the separate
   reader identity, and restores that snapshot if readback does not confirm the requested value.

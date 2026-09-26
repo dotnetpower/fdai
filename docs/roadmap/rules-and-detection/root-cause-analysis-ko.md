@@ -1,8 +1,8 @@
 ---
 title: 근본원인 분석
 translation_of: root-cause-analysis.md
-translation_source_sha: 5c0e696bdd44e534d84aec9a7b00adb4a0dc3902
-translation_revised: 2026-09-20
+translation_source_sha: d958e12ac31a28fc215265089d4c298a15bddb1a
+translation_revised: 2026-09-26
 ---
 # 근본원인 분석
 
