@@ -1,7 +1,7 @@
 ---
 title: Deploy Quickstart
 description: Deploy FDAI to Azure from one local command or a digest-pinned disconnected deployment appliance.
-derives_from: [{ source: docs/roadmap/deployment/deploy-and-onboard.md, sha: 126ddabfdf95a1dc3f1c094a7a82ea3991fa15a7 }]
+derives_from: [{ source: docs/roadmap/deployment/deploy-and-onboard.md, sha: 1ab376c943c5587b50d69e63536503eb9a80f3f4 }]
 ---
 
 # Deploy Quickstart
@@ -194,6 +194,11 @@ Checkout changes do not update an older kit, and editing extracted signed kit fi
 
 Foundation plans first use a private local backend. Only the exact migration archive activates the
 signed remote-backend example for the attested host; migration approval and readback remain mandatory.
+If a retained migration claim predates the complete archive and lacks all sibling support files,
+resume from the corrected exact source with a fresh `foundation-state` approval. The coordinator
+preserves the original claim and backend effect, restores only exact files from the reviewed
+recovery configuration, and verifies a current-source overlay outside Terraform's input tree before
+running verification only. A partial file set or a different existing file stops recovery.
 
 ### Recover a verified public development deployment
 
