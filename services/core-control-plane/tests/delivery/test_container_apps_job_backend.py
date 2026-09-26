@@ -42,18 +42,25 @@ _JOB = (
 _REF = f"https://management.azure.com{_JOB}/executions/fdai-example-abc"
 _DIGEST = "a" * 64
 _CEILINGS = ResourceCeilings(1000, 256_000_000, 64_000_000, 1)
+_IDENTITY_VALUE = "test-only-token"
 
 
 class _Identity:
-    def __init__(self, *, audience: str = "https://management.azure.com/.default") -> None:
+    def __init__(
+        self,
+        *,
+        audience: str = "https://management.azure.com/.default",
+        token: str | None = None,
+        expires_at: datetime | None = None,
+    ) -> None:
         self.audience = audience
+        self.token = _IDENTITY_VALUE if token is None else token
+        self.expires_at = expires_at or datetime.now(UTC) + timedelta(minutes=5)
         self.calls: list[str] = []
 
     async def get_token(self, audience: str) -> IdentityToken:
         self.calls.append(audience)
-        return IdentityToken(
-            "test-only-token", datetime.now(UTC) + timedelta(minutes=5), self.audience
-        )
+        return IdentityToken(self.token, self.expires_at, self.audience)
 
 
 class _Arm:
@@ -69,6 +76,7 @@ class _Arm:
         self.failures: list[int] = []
         self.requests: list[httpx.Request] = []
         self.cancel_state: str | None = "Stopped"
+        self.init_images: list[str] = []
 
     def handle(self, request: httpx.Request) -> httpx.Response:
         self.requests.append(request)
@@ -85,7 +93,10 @@ class _Arm:
                 json={
                     "id": _JOB,
                     "properties": {
-                        "template": {"containers": [{"image": self.image}], "initContainers": []},
+                        "template": {
+                            "containers": [{"image": self.image}],
+                            "initContainers": [{"image": image} for image in self.init_images],
+                        },
                     },
                 },
             )
@@ -103,7 +114,10 @@ class _Arm:
                     "id": path,
                     "properties": {
                         "status": self.state,
-                        "template": {"containers": [{"image": self.image}]},
+                        "template": {
+                            "containers": [{"image": self.image}],
+                            "initContainers": [{"image": image} for image in self.init_images],
+                        },
                     },
                 },
             )
@@ -254,6 +268,13 @@ async def test_changed_image_between_plan_and_submit_stops_before_post() -> None
     assert not any(request.method == "POST" for request in arm.requests)
 
 
+async def test_every_main_and_init_container_must_match_the_profile_digest() -> None:
+    arm = _Arm()
+    arm.init_images = [f"example.invalid/init@sha256:{'b' * 64}"]
+    with pytest.raises(ExecutionBackendError, match="does not match"):
+        await _backend(arm, _Identity()).plan(_request(), profile=_profile())
+
+
 @pytest.mark.parametrize(
     "body",
     [
@@ -358,6 +379,21 @@ async def test_bounded_retry_circuit_and_redacted_failure() -> None:
 
 async def test_identity_audience_mismatch_does_not_issue_http_request() -> None:
     arm = _Arm()
-    with pytest.raises(ExecutionBackendError, match="audience"):
+    with pytest.raises(ExecutionBackendError, match="token is invalid"):
         await _backend(arm, _Identity(audience="wrong")).status(_REF)
+    assert not arm.requests
+
+
+@pytest.mark.parametrize(
+    "identity",
+    [
+        _Identity(token=""),
+        _Identity(expires_at=datetime.now(UTC) - timedelta(seconds=1)),
+        _Identity(expires_at=datetime.now()),
+    ],
+)
+async def test_invalid_identity_token_does_not_issue_http_request(identity: _Identity) -> None:
+    arm = _Arm()
+    with pytest.raises(ExecutionBackendError, match="token is invalid"):
+        await _backend(arm, identity).status(_REF)
     assert not arm.requests

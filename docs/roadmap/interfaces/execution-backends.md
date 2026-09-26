@@ -140,6 +140,8 @@ resource from a server-owned template map.
 Health discovery reads the Job and verifies that its configured image uses the expected pinned
 digest. Requests use bounded timeout, retry count, `Retry-After`, and the shared circuit breaker.
 Status, stop, and receipt calls validate the ARM host and Job execution path.
+Every primary and init container must use the profile's exact image digest. Before provider I/O,
+the workload token must be non-empty, unexpired, timezone-aware, and issued for the ARM audience.
 
 Container Apps retains execution metadata according to provider policy. Cleanup therefore confirms
 terminal or stop behavior and records `provider_retention`; it does not claim that Azure deleted an

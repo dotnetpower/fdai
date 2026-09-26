@@ -1,7 +1,7 @@
 ---
 title: 거버넌스 적용 실행 백엔드
 translation_of: execution-backends.md
-translation_source_sha: 972604db41868034701de0f27b833afab9fe03e7
+translation_source_sha: 4bf55e686804057a09b5a306e36d0a60fd0f492e
 translation_revised: 2026-09-27
 ---
 
@@ -139,6 +139,9 @@ HTTPS로 pre-provisioned 작업을 시작합니다. 요청은 이미지, 명령,
 Health 발견은 작업을 읽고 구성된 이미지가 예상 pinned 다이제스트를 사용하는지 확인합니다.
 요청은 범위가 제한된 시간 초과, 재시도 개수, `Retry-After`, shared circuit 차단기를 사용합니다. 상태, stop,
 증적 호출은 ARM 호스트와 작업 실행 경로를 검증합니다.
+모든 주 컨테이너와 초기화 컨테이너는 프로파일의 정확한 이미지 다이제스트를 사용해야 합니다.
+프로바이더 입출력 전에 워크로드 토큰이 비어 있지 않고 만료되지 않았으며 시간대 정보와 ARM
+대상 범위를 포함하는지 확인합니다.
 
 Container Apps는 프로바이더 정책에 따라 실행 메타데이터를 유지합니다. 따라서 정리는 최종
 또는 stop 동작을 확인하고 `provider_retention`을 기록합니다. Azure가 실행 기록을 삭제했다고

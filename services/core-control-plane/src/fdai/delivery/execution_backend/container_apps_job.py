@@ -328,9 +328,17 @@ class AzureContainerAppsJobExecutionBackend:
         raise ExecutionBackendError("Job ARM read retry budget exhausted")
 
     async def _send(self, method: str, url: str, body: dict[str, object] | None) -> httpx.Response:
-        token = await self._identity.get_token(_AUDIENCE)
-        if token.audience != _AUDIENCE:
-            raise ExecutionBackendError("Job ARM workload identity audience does not match")
+        try:
+            token = await self._identity.get_token(_AUDIENCE)
+        except Exception as exc:  # noqa: BLE001 - identity boundary fails closed
+            raise ExecutionBackendError("Job ARM workload identity is unavailable") from exc
+        if (
+            token.audience != _AUDIENCE
+            or not token.token
+            or token.expires_at.tzinfo is None
+            or token.expires_at <= datetime.now(UTC)
+        ):
+            raise ExecutionBackendError("Job ARM workload identity token is invalid")
         response = await self._http.request(
             method,
             url,
@@ -356,7 +364,7 @@ def _check_images(definition: object, digest: str) -> None:
         if match is None:
             raise ExecutionBackendError("Job definition contains an unpinned container image")
         images.append(match.group(1))
-    if digest not in images:
+    if any(image_digest != digest for image_digest in images):
         raise ExecutionBackendError("Job definition image does not match profile digest")
 
 
