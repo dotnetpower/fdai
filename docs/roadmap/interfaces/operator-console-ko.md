@@ -1,7 +1,7 @@
 ---
 title: FDAI Console 대화
 translation_of: operator-console.md
-translation_source_sha: 3b7e3ac90a6b417e9cb0ca9820113f9f4292cc1e
+translation_source_sha: f6b149b57c3a6e37ce1d5c6e249a871faf066a8c
 translation_revised: 2026-09-26
 ---
 # FDAI Console 대화
@@ -96,6 +96,7 @@ FDAI Console 대화 표면은 **판단 권한을 가지지 않습니다**. FDAI�
 Core는 의미 요청 결속, 범위가 제한된 인시던트 근거 변환, 현지화된 인시던트 답변 렌더링을 전용 모듈로 분리합니다. 의미 턴 프로세서는 이 모듈들을 조정합니다. 이 내부 분리는 wire 필드, 근거 한도, 인용, 로케일 또는 권한을 바꾸지 않습니다.
 Operator도 변경 불가능한 PostgreSQL 제품군 레코드, 범위가 제한된 행 변환 및 엄격한 인벤토리 근거 디코딩을 조회와 발신함 조정에서 분리합니다. Facade는 기존 import, principal 범위, 제안 멱등성, wire 값, 재생 순서 및 권한 없음 동작을 보존합니다.
 Operator IAM도 액세스 및 할당 제안 디코딩, 런타임 및 모델 구성 지속성, 구성 변환, 사람 승인 지속성을 공유 PostgreSQL 어댑터 facade에서 분리합니다. 잘못된 중첩 할당 duty와 goal 참조는 생략하지 않고 닫힌 상태로 실패하며, 공개 port, 리비전 fencing, 제안 멱등성, 승인 ID 및 `execution_authority: false`는 그대로 유지합니다.
+기존 Slack 인계 경로 세 개의 메서드와 경로 조합은 각각 IAM 경로군에 한 번씩만 속합니다. 전체 경로 검사는 소유권과 등록 개수를 고정하며 새 승인 권한이나 실행 권한을 부여하지 않습니다.
 Operator 의미 표현도 Pantheon 품질 보증 terminal, 현지화된 Incident 블록 및 내용이 제거된 기술 trajectory를 terminal 이벤트 조정에서 분리합니다. 이 renderer는 읽기 전용이며 wire 필드, 근거 상한, 로케일 선택, 조회 redaction 및 `execution_authority: false`를 보존합니다.
 Operator 의미 전송도 검증된 조회 활동 변환과 문서 답변 구체화를 이벤트 iterator에서 분리합니다. 이 분리는 이벤트 순서, 재생 cursor, 진행 단조성, 기한 보류, principal 범위, 내용 redaction 및 실행 권한 없음을 보존합니다.
 명시적 고정 census 진단 요청은 범위가 제한된 `conversation-assurance:<case-id>` 목적을 사용합니다. Core는 Bragi가 답변하기 전에 사례, 질문 및 로케일을 서버 소유 census와 대조해 검증합니다. 생성된 `done` 이벤트는 답변, 콘텐츠가 없는 진단, 추적 지연 시간 및 schema-v2 큐/품질 보증 timing을 전달하며, 일반 `operations-review` 요청은 기존 의미 결과 계약을 유지합니다.
