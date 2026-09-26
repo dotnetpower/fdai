@@ -1,7 +1,7 @@
 ---
 title: 배포 프리플라이트 (배포 가능성 및 blocker 수집)
 translation_of: deployment-preflight.md
-translation_source_sha: 6aebf712ca7e5496d0e39df373d326ee1aaa8842
+translation_source_sha: 1f534bdd50c3b06cba412658cff8e68ce5bdfc49
 translation_revised: 2026-09-26
 ---
 # 배포 프리플라이트 (배포 가능성 및 차단 요인 수집)
@@ -45,6 +45,7 @@ translation_revised: 2026-09-26
 | 2026-08-24 | implemented | 구체적인 리소스 렌더링을 포크 소유로 유지하고 상류 디스크 토글 계약에 재사용 가능한 mock provider 계획 fixture를 추가하여 루트 소비자 소유권 충돌을 해소했습니다. | `current change`, `infra/modules/preflight-toggles/reference-disk-consumer/tests/alternate_rendering.tftest.hcl`, 집중 Terraform 테스트 2개 통과 | 각 포크는 검증된 패턴을 자신이 소유한 컴퓨팅 모듈에 연결합니다. 영속 프로파일 새로 고침, GitHub 발행기 및 컨트롤 루프 게이트는 남아 있습니다. |
 | 2026-09-26 | in-progress | 결정론적 게시 전 게이트를 추가했습니다. 교정 제안을 제출하기 전에 누적된 오버라이드로 분석기를 다시 실행하며, 차단·오래된 증거·범위 변경·에스컬레이션된 패스는 아무것도 제출하지 않고 사람 검토로 낮춥니다. | `current change`, `services/core-control-plane/src/fdai/core/deploy_preflight/pre_publication_gate.py`, `uv run pytest tests/core/deploy_preflight -q` 98개 통과 | 게이트를 실제 컨트롤 루프 경로에 조립하고, 영속 프로파일 새로 고침과 GitHub Checks 발행기를 추가해야 합니다. |
 | 2026-09-26 | in-progress | 검토 후 게이트를 강화했습니다. 공백이 포함된 기대 범위를 정규화하고, 유한하지 않은 신선도 창과 시간대 없는 시계를 제출 이전에 거부하며, 보류 기록이 유지하는 발견 사항 ID 수를 제한합니다. | `current change`, `services/core-control-plane/tests/core/deploy_preflight/test_pre_publication_gate.py`, 집중 `uv run pytest tests/core/deploy_preflight -q` 통과 | 변경 없음: 게이트를 실제 컨트롤 루프 경로에 조립하고, 영속 프로파일 새로 고침과 GitHub Checks 발행기를 추가해야 합니다. |
+| 2026-09-26 | in-progress | 검토에서 발견한 판정 커버리지 공백을 메웠습니다. 경고만 있는 보고서와 깨끗한 섀도 보고서 모두 섀도 우선 제안을 게시하며, 두 경로를 모두 단언합니다. | `current change`, `services/core-control-plane/tests/core/deploy_preflight/test_pre_publication_gate.py`, 집중 `uv run pytest tests/core/deploy_preflight -q` 105개 통과 | 변동 없음: 게이트를 실제 컨트롤 루프 경로에 조립하고, 지속 프로파일 갱신과 GitHub Checks 발행기를 추가해야 합니다. |
 
 ### 남은 작업
 
@@ -134,6 +135,7 @@ translation_revised: 2026-09-26
 
 | 보류 | 원인 |
 |------|------|
+| `no_applied_toggle` | 루프가 토글을 적용하지 않음, 거부가 아니라 무동작 패스임 |
 | `reassembly_escalated` | 루프가 에스컬레이션함, 부분 재조립은 결코 제출하지 않음 |
 | `blocking_finding` | 재검증된 리포트에 여전히 차단 발견 사항이 있음 |
 | `stale_evidence` | 리포트가 신선도 창을 벗어났거나 타임스탬프를 쓸 수 없음 |

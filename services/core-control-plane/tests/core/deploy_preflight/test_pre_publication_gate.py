@@ -77,6 +77,8 @@ def _report(
     verdict = (
         ReadinessVerdict.BLOCKED
         if any(f.severity is FindingSeverity.BLOCKING for f in findings)
+        else ReadinessVerdict.NEEDS_REVIEW
+        if findings
         else ReadinessVerdict.CLEAR
     )
     return DeploymentReadinessReport(
@@ -424,3 +426,30 @@ async def test_hold_record_bounds_the_retained_finding_ids() -> None:
     assert len(outcome.held_findings) == 20
     assert outcome.held_findings[0] == "denied-000"
     assert sink.envelopes == []
+
+
+def _warning_finding(fid: str) -> ProbeFinding:
+    return ProbeFinding(
+        id=fid,
+        category=ProbeCategory.POLICY_GUARDRAIL,
+        severity=FindingSeverity.WARNING,
+        title=fid,
+        evidence=ProbeEvidence(source="policy:x", detail="d"),
+        resolution=ProbeResolution(kind=ResolutionKind.MANUAL, guidance="review the warning"),
+    )
+
+
+async def test_warning_only_report_still_publishes() -> None:
+    report = _report(_warning_finding("advisory"))
+    assert report.verdict is ReadinessVerdict.NEEDS_REVIEW
+    sink = _RecordingSink()
+    outcome = await _gate(_cleared(_toggle("f0")), _ScriptedVerify(report), sink)
+    assert outcome.decision is PublicationDecision.SUBMIT
+    assert len(sink.envelopes) == 1
+
+
+async def test_clean_shadow_report_publishes_a_shadow_first_proposal() -> None:
+    sink = _RecordingSink()
+    outcome = await _gate(_cleared(_toggle("f0")), _ScriptedVerify(_report(mode=Mode.SHADOW)), sink)
+    assert outcome.decision is PublicationDecision.SUBMIT
+    assert sink.envelopes[0]["operator_initiated"] is False

@@ -1,7 +1,7 @@
 ---
 title: 프리플라이트 능동 플랜 재조립 (policy blocker에서 재렌더된 terraform으로)
 translation_of: preflight-active-reassembly.md
-translation_source_sha: b727ca7a46f9032d5cb09687ac61560474c97a7d
+translation_source_sha: ec35552f16fda5bd7a85aadcc0005ad863ef6026
 translation_revised: 2026-09-26
 ---
 # 프리플라이트 능동 플랜 재조립 (정책 차단 요인에서 재렌더된 terraform으로)
@@ -44,6 +44,7 @@ shipped pure 루프는 **terraform 플랜을 능동적으로 재렌더**할 재�
 | 2026-08-14 | in-progress | 구현 원장을 도입했으며 이전 출처 이력은 재구성하지 않았습니다. 순수 재조립 동작과 아직 조립되지 않은 전달 경로를 분리했습니다. | 현재 변경과 구현 범위 표에 기재한 재조립, 제안 및 Norns 집중 테스트 | 실제 shadow 경로를 조립하고 PR과 감사 근거를 보존해야 합니다. |
 | 2026-09-26 | in-progress | 제안 경계에 게이트를 걸었습니다. 분석기가 누적된 오버라이드를 다시 검증한 뒤에만 제안이 Huginn에 도달하며, 인그레스 이벤트 타입 `preflight_toggle_blocker` 덕분에 Forseti가 페이로드가 제공한 ActionType을 신뢰하지 않고 토글 ActionType을 바인딩합니다. | `current change`, `services/core-control-plane/src/fdai/core/deploy_preflight/pre_publication_gate.py`, `uv run pytest tests/core/deploy_preflight -q` 98개 통과 | 게이트가 걸린 경계를 런타임 조립 루트에서 실제 정책 발견 사항 트리거, PR 발행 및 감사 근거와 함께 조립해야 합니다. |
 | 2026-09-26 | in-progress | 남은 인수 전달 경계를 기록했습니다. 인그레스가 이 오퍼레이터 아닌 신호의 `params`를 버리므로, 조립된 실제 경로는 토글별 인수를 통제된 방식으로 실행기에 전달하는 과제를 남겨 둡니다. | `current change`, `services/core-control-plane/src/fdai/core/deploy_preflight/reassembly_proposals.py` | 게이트가 걸린 경계를 실제 트리거와 함께 조립하고 토글별 인수를 통제된 경로로 전달해야 합니다. |
+| 2026-09-26 | in-progress | 이 경계에서 예전 `rule_violation` 인그레스 봉투를 읽는 소비자가 더 이상 없으며 문서 앵커가 모두 해석됨을 검토에서 확인했습니다. | `current change`, `bash scripts/quality/repository/check-doc-links.sh` 결과 깨진 링크 0개 | 변동 없음: 게이트가 걸린 경계를 실제 트리거와 함께 조립하고 토글별 인수를 통제된 경로로 전달해야 합니다. |
 
 ### 남은 작업
 

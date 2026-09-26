@@ -43,6 +43,7 @@ reports them all at once, up front.
 | 2026-08-24 | implemented | Resolved the root-consumer ownership conflict by keeping concrete resource rendering fork-owned and adding a reusable mock-provider plan fixture for the upstream disk toggle contract. | `current change`; `infra/modules/preflight-toggles/reference-disk-consumer/tests/alternate_rendering.tftest.hcl`; focused Terraform test passed 2 cases. | Each fork binds the validated pattern in its owned compute module. The durable profile refresh, GitHub publisher, and control-loop gate remain open. |
 | 2026-09-26 | in-progress | Added the deterministic pre-publication gate: the analyzer is re-run on the accumulated overrides before any remediation proposal is submitted, and a blocking, stale, scope-changed, or escalated pass is lowered to human review with nothing submitted. | `current change`; `services/core-control-plane/src/fdai/core/deploy_preflight/pre_publication_gate.py`; `uv run pytest tests/core/deploy_preflight -q` passed 98 tests. | Compose the gate on the live control-loop path, add the durable profile refresh, and add the GitHub Checks publisher. |
 | 2026-09-26 | in-progress | Hardened the gate after review: a padded expected scope is normalized, a non-finite freshness window and a naive clock are rejected before any submission, and a hold record retains a bounded set of finding ids. | `current change`; `services/core-control-plane/tests/core/deploy_preflight/test_pre_publication_gate.py`; focused `uv run pytest tests/core/deploy_preflight -q` passed. | Unchanged: compose the gate on the live control-loop path, add the durable profile refresh, and add the GitHub Checks publisher. |
+| 2026-09-26 | in-progress | Closed the verdict coverage gap found in review: a warning-only report and a clean shadow report both publish a shadow-first proposal, and both paths are now asserted. | `current change`; `services/core-control-plane/tests/core/deploy_preflight/test_pre_publication_gate.py`; focused `uv run pytest tests/core/deploy_preflight -q` passed 105 tests. | Unchanged: compose the gate on the live control-loop path, add the durable profile refresh, and add the GitHub Checks publisher. |
 
 ### Remaining work
 
@@ -142,6 +143,7 @@ justify it:
 
 | Hold | Cause |
 |------|-------|
+| `no_applied_toggle` | the loop applied no toggle; the pass is a no-op rather than a rejection |
 | `reassembly_escalated` | the loop escalated; a partial reassembly is never submitted |
 | `blocking_finding` | the re-verified report still carries a blocking finding |
 | `stale_evidence` | the report is outside the freshness window or its timestamp is unusable |
