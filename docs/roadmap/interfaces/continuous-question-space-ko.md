@@ -1,7 +1,7 @@
 ---
 translation_of: continuous-question-space.md
-translation_source_sha: 6addf34f1316fe7c01f64011bad86f9b3cd92230
-translation_revised: 2026-09-23
+translation_source_sha: 99c5228c2a3650a5a4d6509ab1521e7a6028d333
+translation_revised: 2026-09-26
 ---
 # 지속형 질문 공간
 
@@ -97,7 +97,7 @@ Golden 질문, Console 표시 질문 또는 답변 가능한 질문으로 승격
 - **질문은행:** 도메인 7개, 범주 13개, 질문 400개입니다.
 - **에이전트 책임:** 고정 에이전트 15개와 Pantheon 질문 도메인 47개 전체입니다.
 - **온톨로지 계획:** 선언된 `query.*` FunctionType 36개 전체입니다.
-- **검토된 보증:** Golden 범주 12개 전체와 Azure 및 인시던트 의도 계약 사례 24개입니다.
+- **검토된 보증:** Golden 범주 12개 전체와 Azure 및 인시던트 의도 계약 사례 25개입니다.
 
 CQAS는 서로 보완할 수 없는 4개 영역에 지표 93개를 정의합니다. 모델을 바꿀 때는 각 필수
 영역과 가장 낮은 세부 구간이 모두 통과해야 하며, 한 영역의 높은 점수로 다른 영역의 실패를
@@ -143,7 +143,7 @@ query 함수 12/36입니다. 검토된 대응표가 없으므로 Pantheon-to-sem
 0/47입니다. 생성기는 이름을 근거로 추측하지 않고 0으로 보고합니다. 이 값은 범위
 측정이며 모델 정확도 또는 운영 답변 근거가 아닙니다. Golden 답변 기대값은 35/35를 다루고
 표현 블록 13개 전체가 Console에 등록되어 있습니다. 질문별 표현 기대값과 저장소가 소유한
-모델 쌍 비교 사례는 모두 0/400입니다. 따라서 의도 사례 24개의 측정값은 질문 이해에만
+모델 쌍 비교 사례는 모두 0/400입니다. 따라서 의도 사례 25개의 측정값은 질문 이해에만
 적용됩니다. 답변 충실도, 표현 품질, 모델 불변성은 통제된 근거를 확보할 때까지
 `not_scored`로 유지됩니다.
 
@@ -153,7 +153,7 @@ query 함수 12/36입니다. 검토된 대응표가 없으므로 Pantheon-to-sem
 
 | 영역 | 상태 | 근거 | 참고 |
 |------|------|------|------|
-| 대화 품질 보증 스코어카드 | implemented | `scripts/automation/build_semantic_intent_coverage.py`, `scripts/automation/{semantic_intent,conversation_quality}_metrics.py`, 생성된 `eval/golden-dataset/semantic-intent-coverage.json`, 이중 언어 Azure/인시던트 재생 및 집중 불변식 검사 | CQAS는 지표 93개를 정의하며 대상 없는 완화 요구사항 집단을 포함한 Azure/인시던트 의도 사례 24개를 다룹니다. 지원되지 않는 구간은 채점하지 않으며 어떤 결과도 권한을 부여하지 않습니다. |
+| 대화 품질 보증 스코어카드 | implemented | `scripts/automation/build_semantic_intent_coverage.py`, `scripts/automation/{semantic_intent,conversation_quality}_metrics.py`, 생성된 `eval/golden-dataset/semantic-intent-coverage.json`, 이중 언어 Azure/인시던트 재생 및 집중 불변식 검사 | CQAS는 지표 93개를 정의하며 한국어와 영어 Resource Health 이력 원문 쌍과 대상 없는 완화 요구사항 집단을 포함한 Azure/인시던트 의도 사례 25개를 다룹니다. 지원되지 않는 구간은 채점하지 않으며 어떤 결과도 권한을 부여하지 않습니다. |
 | 통합 질문은행 인벤토리 | implemented | `eval/golden-dataset/question-bank/`, 공식 질문은행 생성기, 질문은행 및 Golden 데이터 세트 집중 검사 19개 통과 | 생성된 인벤토리는 원본 파일 11개에서 논리 질문 400개를 구성합니다. 현재 리소스 SRE 후보 50개는 일반 Azure 리소스 유형 19개를 다루고 서버 소유 범위를 요구하며 읽기 전용 및 `execution_authority=false`를 유지합니다. 후보 등록은 런타임 연결이나 실제 운영 근거를 인증하지 않습니다. |
 | 의미 기능 연결 | implemented | `core/ontology_platform/{declaration,release_diff,evidence_health,inventory_impact}_queries.py`; 집중 기능 및 구성 검사 | `query.ontology_declaration`은 운영 구성에 연결됩니다. 릴리스 차이, 근거 상태, 인벤토리 영향은 정확한 공급자 또는 서버 소유 앵커가 연결될 때까지 `runtime_binding_unavailable`로 유지됩니다. |
 | 7개 관점 질문 집합 | implemented | `core/conversation/question_perspectives.py`, `question_universe.py`, `question_selection.py`; 집중 질문 집합 및 선택 검사 | 적용 규칙은 카테시안 곱이 아닙니다. 사례 식별자는 로캘, 사례 종류, 관점, 기능, 근거 상태, 앵커, 종료 처리, 작업 자세, Rule 상태, 깊이, 결과 제한을 포함합니다. 활성 Rule과 수집된 Rule 사례는 분리됩니다. |
@@ -178,6 +178,7 @@ query 함수 12/36입니다. 검토된 대응표가 없으므로 Pantheon-to-sem
 ### 구현 이력
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-26 | implemented | 검토된 영어 Q026 Resource Health 이력 원문을 Azure 및 인시던트 의도 계약에 추가하고 CQAS를 다시 생성하여 `query.resource_event_history` 의도 계약 사례를 1개에서 2개로 늘렸습니다. 지표 정의 93개와 모든 hard-zero 권한 목표는 그대로 유지됩니다. | `current change`; 공식 의미 의도 생성기; 이중 언어 타입 기반 판단, 24시간 계획, 요청 예산, 안전한 실패, 생성 산출물 검사. | 실제 품질이나 운영 준비 완료를 주장하기 전에 인증된 영어 exact-source 런타임 근거를 별도로 보존합니다. |
 | 2026-09-23 | in-progress | 정본 400개 질문 인벤토리에서 결정론적 60개 사례 표본을 기록하고 어떤 사례도 승격하지 않은 채 집계된 준비도 공백을 보존했습니다. | `current change`; [`conversation-answer-hardening-2026-09-23.json`](../../baselines/conversation-answer-hardening-2026-09-23.json); 표본 ID 다이제스트 `sha256:7c2c5f31de2bc23c98dcccdfe5e411b7c030b54e7c72a63a0678c4abb93a4a0a`. | 답변 가능 상태를 주장하기 전에 사례별로 검토된 의미 계약, 런타임 연결, 근거 출처, 검증 및 표현 oracle을 추가합니다. |
 | 2026-09-22 | implemented | 모델이 알려진 운영 유형을 혼합 또는 맥락 의존 신호와 함께 제안할 때 발생하던 효과 없는 두 번째 preflight 호출을 제거했습니다. 잘못된 제안은 권한 없이 유지되며 전체 의미 판단으로 계속 진행됩니다. | `current change`, 읽기 전용 로컬 trace 진단, 재현 payload 회귀, 집중 preflight 테스트 147개, strict mypy, Ruff 및 형식 검사 | 이 형식에서 preflight 호출이 한 번인 인증된 재생은 별도 승인을 받아 보존해야 합니다. 이 변경에서는 실제 모델 검증을 주장하지 않습니다. |
 | 2026-09-18 | implemented | 전체 런타임 설정 카탈로그가 통합 영어 및 한국어 원본 다이제스트를 바꾼 뒤 통합 질문은행과 이에 의존하는 CQAS 출처 이력을 다시 생성했습니다. 질문 400개의 신원, 지표 정의 93개, 분모, 범위 개수 및 권한 필드는 모두 그대로입니다. | `current change`, 공식 질문은행 및 의미 의도 생성기, 질문은행 테스트 8개와 의미 범위 테스트 4개 통과 | 의미, 런타임 연결, 근거 또는 권한 동작은 바뀌지 않았습니다. |

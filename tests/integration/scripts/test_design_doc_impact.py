@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import importlib.util
+import json
 from pathlib import Path
 from types import ModuleType
 
@@ -72,6 +73,23 @@ def test_one_owning_doc_satisfies_route() -> None:
             "docs/parity.md",
         },
         _manifest(),
+    )
+
+    assert failures == []
+
+
+def test_shared_semantic_coverage_accepts_ontology_owner_doc() -> None:
+    module = _load_module()
+    manifest = json.loads(
+        (REPO_ROOT / "scripts/lib/design-routes.json").read_text(encoding="utf-8")
+    )
+
+    failures = module.missing_doc_updates(
+        {
+            "eval/golden-dataset/semantic-intent-coverage.json",
+            "docs/roadmap/interfaces/continuous-question-space.md",
+        },
+        manifest,
     )
 
     assert failures == []

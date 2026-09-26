@@ -4281,6 +4281,55 @@ def test_resource_health_history_uses_exact_event_function() -> None:
     assert outcome.execution_authority is False
 
 
+@pytest.mark.parametrize(
+    "utterance",
+    (
+        "지난 24시간의 리소스 상태 이벤트를 시간순으로 보여줘.",
+        "What Resource Health events occurred during the last day?",
+    ),
+)
+def test_exact_source_resource_health_history_preserves_24_hour_scope(
+    utterance: str,
+) -> None:
+    manifest, _definition = _typed_fixture(
+        groups=(_VM_GROUP,),
+        include_resource_event=True,
+    )
+    model = _Model(
+        frame=_frame(
+            subject_constraints=["Resource"],
+            measure_concepts=["resource_event.resource_health"],
+            temporal_scope={"lookback_seconds": 86_400},
+            output_shape="resource_event_history",
+        ),
+        plan=None,
+    )
+
+    outcome = _service(model, manifest).plan(
+        utterance=utterance,
+        prior_turns=(),
+        principal=Principal(id="operator", role=Role.READER),
+        purpose="operations-review",
+    )
+
+    assert outcome.disposition is SemanticPlanningDisposition.PLANNED
+    assert outcome.frame is not None
+    assert outcome.frame.temporal_scope == {"lookback_seconds": 86_400}
+    assert outcome.plan is not None
+    assert tuple(node.kind for node in outcome.plan.nodes) == (
+        QueryNodeKind.OBJECT_SET,
+        QueryNodeKind.FUNCTION,
+    )
+    assert outcome.plan.nodes[1].arguments["function_name"] == RESOURCE_EVENT_FUNCTION_NAME
+    assert outcome.plan.nodes[1].arguments["arguments"] == {
+        "event_families": ["resource_event.resource_health"],
+        "lookback_seconds": 86_400,
+    }
+    assert model.frame_calls == 1
+    assert model.plan_calls == 0
+    assert outcome.execution_authority is False
+
+
 def test_kubernetes_history_uses_exact_event_function() -> None:
     manifest, _definition = _typed_fixture(
         groups=(_VM_GROUP,),
