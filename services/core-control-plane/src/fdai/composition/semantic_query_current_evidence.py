@@ -6,6 +6,10 @@ from collections.abc import Callable, Mapping
 from datetime import datetime
 
 from fdai_service_contracts.ontology_query import EvidenceAuthority
+from fdai_service_contracts.recorded_resource_state import (
+    AVAILABILITY_STATE_SOURCE_PATHS_BY_RESOURCE_TYPE,
+    OPERATIONAL_STATE_SOURCE_PATHS_BY_RESOURCE_TYPE,
+)
 from fdai_service_contracts.semantic_turn import SemanticDocumentContext
 
 from fdai.core.conversation.adaptive_service import AdaptiveConversationService
@@ -59,7 +63,6 @@ from fdai.shared.contracts.models import (
     OntologyRelease,
 )
 from fdai.shared.ontology.acl import ProjectionRequest
-from fdai.shared.providers.state_evidence import STATE_FACT_METADATA_PROPERTY
 
 from .semantic_query_health_values import resource_health_state_values
 
@@ -217,11 +220,15 @@ class _SemanticCurrentEvidenceProbe:
         complete = result.get("complete")
         if type(complete) is not bool:
             raise TypeError("semantic current-evidence result lacks completeness")
+        incomplete_reason = result.get("truncation_reason")
+        if incomplete_reason is not None and not isinstance(incomplete_reason, str):
+            raise TypeError("semantic current-evidence result has an invalid incomplete reason")
         return SemanticCurrentEvidenceObservation(
             function_name=function_name,
             complete=complete,
             authority=receipt.authority,
             principal_scope_digest=receipt.principal_scope_digest or "",
+            incomplete_reason=incomplete_reason,
         )
 
     async def _arguments(
@@ -234,6 +241,7 @@ class _SemanticCurrentEvidenceProbe:
         if function_name == SERVICE_HEALTH_FUNCTION_NAME:
             return {"event_types": sorted(SERVICE_HEALTH_EVENT_TYPES)}
         secured = await self._secured_resource_scope(
+            function_name=function_name,
             role=role,
             principal_scope_digest=principal_scope_digest,
         )
@@ -258,6 +266,7 @@ class _SemanticCurrentEvidenceProbe:
     async def _secured_resource_scope(
         self,
         *,
+        function_name: str,
         role: CeilingRole,
         principal_scope_digest: str,
     ) -> SecuredObjectSetQueryResult:
@@ -273,14 +282,15 @@ class _SemanticCurrentEvidenceProbe:
             ),
             predicates=(
                 ObjectPredicate(
-                    property="properties",
-                    operator=ObjectPredicateOperator.CONTAINS,
-                    equals="state",
-                ),
-                ObjectPredicate(
-                    property="properties",
-                    operator=ObjectPredicateOperator.CONTAINS,
-                    equals=STATE_FACT_METADATA_PROPERTY,
+                    property="type",
+                    operator=ObjectPredicateOperator.IN,
+                    values=tuple(
+                        sorted(
+                            AVAILABILITY_STATE_SOURCE_PATHS_BY_RESOURCE_TYPE
+                            if function_name == RESOURCE_HEALTH_FUNCTION_NAME
+                            else OPERATIONAL_STATE_SOURCE_PATHS_BY_RESOURCE_TYPE
+                        )
+                    ),
                 ),
             ),
             as_of=self._now(),
@@ -297,6 +307,11 @@ class _SemanticCurrentEvidenceProbe:
             definition=definition,
             projection_request=request,
             secured=secured,
+            freshness_state_keys=(
+                ("availabilityState", "state")
+                if function_name == RESOURCE_HEALTH_FUNCTION_NAME
+                else ("state",)
+            ),
         )
 
 

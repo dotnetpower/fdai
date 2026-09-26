@@ -286,7 +286,11 @@ async def observe_runtime_readiness(
             reachable=True,
             evidence_ready=observation.complete,
             provided_authority=provided_authority,
-            unavailable_reason=None if observation.complete else "current_evidence_incomplete",
+            unavailable_reason=(
+                None
+                if observation.complete
+                else observation.incomplete_reason or "current_evidence_incomplete"
+            ),
         )
     return RuntimeReadinessInventory(
         capabilities=tuple(capabilities[name] for name in sorted(capabilities)),

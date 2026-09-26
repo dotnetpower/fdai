@@ -227,12 +227,14 @@ def _observation(
     *,
     complete: bool = True,
     principal_scope_digest: str = _PRINCIPAL_SCOPE_DIGEST,
+    incomplete_reason: str | None = None,
 ) -> SemanticCurrentEvidenceObservation:
     return SemanticCurrentEvidenceObservation(
         function_name=function_name,
         complete=complete,
         authority=authority,
         principal_scope_digest=principal_scope_digest,
+        incomplete_reason=incomplete_reason,
     )
 
 
@@ -321,6 +323,33 @@ async def test_runtime_observation_classifies_provider_authority_failure_as_unav
     assert not service_health.reachable
     assert not service_health.evidence_ready
     assert service_health.unavailable_reason == "authority_or_source_unavailable"
+
+
+@pytest.mark.asyncio
+async def test_runtime_observation_preserves_function_incomplete_reason() -> None:
+    probe = _Probe(
+        {
+            "query.resource_state_inventory": _observation(
+                "query.resource_state_inventory",
+                EvidenceAuthority.SERVER_INVENTORY_GRAPH,
+                complete=False,
+                incomplete_reason="resource_state_evidence_incomplete",
+            )
+        }
+    )
+
+    inventory = await observe_runtime_readiness(
+        declared_function_names=("query.resource_state_inventory",),
+        function_bindings={"query.resource_state_inventory": "server_inventory_graph"},
+        current_evidence_probe=probe,
+        principal=_PRINCIPAL,
+    )
+
+    resource_state = inventory.capability("query.resource_state_inventory")
+    assert resource_state is not None
+    assert resource_state.reachable
+    assert not resource_state.evidence_ready
+    assert resource_state.unavailable_reason == "resource_state_evidence_incomplete"
 
 
 @pytest.mark.asyncio

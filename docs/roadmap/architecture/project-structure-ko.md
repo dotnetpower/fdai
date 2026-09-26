@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: aab57fc13aaeb8ce0b73d3a6f14a210c91cb0ab4
+translation_source_sha: cbe8ea19808b9e1f074c1d24d35cb0c28f18f0b6
 translation_revised: 2026-09-26
 ---
 # 프로젝트 구조
@@ -165,8 +165,11 @@ Cost Governance 가명 자료는 Operator 조립이 소유하는 비밀입니다
   정확한 리소스용 실시간 새로 고침이 더 넓은 보호 Resource 집합을 처리하지 않으면 Core는 결과를
   불투명한 새로 고침 실패로 축약하지 않고 최초 그래프 최신성, 완전성, 충돌 및 합성 근거 사유를
   보존합니다.
-  대화 보증 준비 상태는 Resource 상태 및 Resource Health 프로브를 관측된 상태 값과 상태 사실
-  메타데이터를 모두 가진 Resource로 제한하여 최신성 평가 전에 함수 적용 범위와 일치시킵니다.
+  대화 보증 준비 상태는 먼저 Resource 상태 및 Resource Health 프로브를 요청한 근거 원본에 등록된
+  리소스 유형으로 제한한 뒤 해당 함수의 상태 사실 메타데이터 키만으로 최신성을 평가합니다. 관련
+  없는 상태 축의 메타데이터가 없거나 충돌해도 선택한 기능을 무효화하지 않습니다. 분류되지 않은
+  관측값은 일반 `observed` 개념으로 유지하고 타입이 지정된 불완전 사유는 준비 상태에 그대로
+  표시합니다.
 - **모델 카탈로그 신원은 가능한 경우 발행기로 한정**: Core는 계열 전용 adapter 계약을
   보존하면서 선택적 `(publisher, family)` 카탈로그 경계를 받습니다. Azure delivery는 허용
   목록의 OpenAI 및 AIServices format만 매핑하고 partner 배포 및 endpoint 소유권은 resolver

@@ -64,9 +64,16 @@ class SecuredGraphEvidenceQueryRefresher:
         definition: ObjectSetDefinition,
         projection_request: ProjectionRequest,
         secured: SecuredObjectSetQueryResult,
+        freshness_state_keys: tuple[str, ...] | None = None,
     ) -> SecuredObjectSetQueryResult:
         """Return current graph evidence, refresh once, or hold with stable reasons."""
 
+        if freshness_state_keys is not None and (
+            not freshness_state_keys
+            or len(freshness_state_keys) != len(set(freshness_state_keys))
+            or any(not key.strip() for key in freshness_state_keys)
+        ):
+            raise ValueError("graph freshness state keys MUST be unique and non-empty")
         if definition.freshness_seconds is None:
             return secured
         if not _selects_resources(definition) and not any(
@@ -80,6 +87,7 @@ class SecuredGraphEvidenceQueryRefresher:
             deadline_ms=self._deadline_ms,
             live_read_budget_ms=self._live_read_budget_ms,
             projection_budget_ms=self._projection_budget_ms,
+            freshness_state_keys=freshness_state_keys,
         )
         if decision.outcome is GraphEvidenceRefreshOutcome.USE_GRAPH:
             return secured
@@ -104,6 +112,7 @@ class SecuredGraphEvidenceQueryRefresher:
                 deadline_ms=0,
                 live_read_budget_ms=0,
                 projection_budget_ms=0,
+                freshness_state_keys=freshness_state_keys,
             )
             if refreshed_decision.outcome is GraphEvidenceRefreshOutcome.USE_GRAPH:
                 return refreshed
@@ -121,8 +130,12 @@ def _decision(
     deadline_ms: int,
     live_read_budget_ms: int,
     projection_budget_ms: int,
+    freshness_state_keys: tuple[str, ...] | None,
 ) -> GraphEvidenceRefreshDecision:
-    metadata, covered_resource_count = _resource_state_metadata(secured)
+    metadata, covered_resource_count = _resource_state_metadata(
+        secured,
+        freshness_state_keys=freshness_state_keys,
+    )
     resource_count = sum(
         record.object_type == "Resource" for record in secured.materialization.graph.objects
     )
@@ -166,6 +179,8 @@ def _selects_resources(definition: ObjectSetDefinition) -> bool:
 
 def _resource_state_metadata(
     secured: SecuredObjectSetQueryResult,
+    *,
+    freshness_state_keys: tuple[str, ...] | None,
 ) -> tuple[tuple[StateFactMetadata, ...], int]:
     metadata: list[StateFactMetadata] = []
     covered_resource_count = 0
@@ -180,9 +195,44 @@ def _resource_state_metadata(
             continue
         if not isinstance(raw, Mapping):
             raise ValueError("Resource state fact metadata MUST be an object")
-        metadata.extend(state_fact_metadata_values(raw))
+        if freshness_state_keys is None:
+            metadata.extend(state_fact_metadata_values(raw))
+            covered_resource_count += 1
+            continue
+        candidates = _state_fact_candidates(raw, freshness_state_keys=freshness_state_keys)
+        if not candidates:
+            continue
+        metadata.append(
+            max(
+                candidates,
+                key=lambda item: (
+                    item.completeness == 1.0 and not item.synthetic and not item.conflicts,
+                    item.evidence_cutoff,
+                    item.recorded_at,
+                    item.source_identity,
+                ),
+            )
+        )
         covered_resource_count += 1
     return tuple(metadata), covered_resource_count
+
+
+def _state_fact_candidates(
+    raw: Mapping[str, object],
+    *,
+    freshness_state_keys: tuple[str, ...],
+) -> tuple[StateFactMetadata, ...]:
+    if "lane" in raw:
+        return (StateFactMetadata.from_mapping(raw),) if "state" in freshness_state_keys else ()
+    candidates: list[StateFactMetadata] = []
+    for key in freshness_state_keys:
+        value = raw.get(key)
+        if value is None:
+            continue
+        if not isinstance(value, Mapping):
+            raise ValueError("Resource state fact metadata entry MUST be an object")
+        candidates.append(StateFactMetadata.from_mapping(value))
+    return tuple(candidates)
 
 
 def _freshness(
