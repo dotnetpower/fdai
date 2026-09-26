@@ -1,8 +1,8 @@
 ---
 title: 구독 초기 프로비저닝
 translation_of: subscription-genesis-provisioning.md
-translation_source_sha: 8a39979e84c83e5b49fed9f8a7d885a312544ea7
-translation_revised: 2026-09-22
+translation_source_sha: b710ada20c0096ec808c01dde524a10c39333b51
+translation_revised: 2026-09-26
 ---
 # 구독 초기 프로비저닝
 
@@ -48,7 +48,7 @@ inspect -> reconcile current state -> foundation plan/apply -> attest runner
 
 | 영역 | 현재 근거 | 이 설계가 해소하는 미비점 |
 |------|-----------|---------------------------|
-| 운영자 진입점 | `fdai-up.sh`는 한 프로세스에서 비공개 기반 계층, 테넌트 로컬 Entra 구성, Managed Host 애플리케이션 계획과 적용, 명시적 최초 인벤토리, 두 번째 계획을 감독합니다. 개수 전용 인벤토리 레코드는 PostgreSQL에서 Operator API를 통해 재생됩니다. | 완전한 준비 증적에 대한 정확한 리비전의 실제 Azure 근거가 남아 있습니다. |
+| 운영자 진입점 | `fdai-up.sh`는 한 프로세스에서 비공개 기반 계층, 테넌트 로컬 Entra 구성, Managed Host 애플리케이션 계획과 적용, 명시적 최초 인벤토리, 두 번째 계획을 감독합니다. Entra 부트스트랩은 공급자 동의를 부여하지 않고 API, SPA, 승인 봇 등록과 정확한 범위 및 역할 그룹 바인딩을 수렴합니다. 개수 전용 인벤토리 레코드는 PostgreSQL에서 Operator API를 통해 재생됩니다. | 공급자 동의와 Teams 설치는 별도로 승인하는 테넌트 단계로 남습니다. 완전한 준비 증적에 대한 정확한 리비전의 실제 Azure 근거가 남아 있습니다. |
 | 초기 구성 진행률 | `genesis-up.sh`는 하위 수준 15단계 경로를 유지합니다. `fdai-up.sh`는 현재 정확한 TTY 승인만 만들고 이미 점유한 효과는 검증으로 재개하며 독립적인 인벤토리 종결까지 계속합니다. | 소스는 인벤토리 종결 뒤 `inventory_ready=true`를 내보내지만, 나머지 비인벤토리 근거 모음과 실제 테넌트 증적이 종결될 때까지 `subscription_ready=false`를 유지합니다. |
 | 데이터베이스 초기 구성 | 통합 및 서비스 소유 이행과 안전하게 차단하는 데이터베이스 및 의미 체계 재확인 계약이 있습니다. | 런타임 시작 전 표식 생성과 런타임 주체 근거가 완전한 준비 완료 증적으로 통합되지 않았습니다. |
 | 온톨로지와 규칙 | 카탈로그가 저장소에서 버전 관리되고 변경 불가능한 Operator 변환 결과로 구체화될 수 있습니다. | 카탈로그 변환 결과 생성이 Operator API 경로에 조건부로 연결되며 구독 준비도 필수 게이트가 아닙니다. |
