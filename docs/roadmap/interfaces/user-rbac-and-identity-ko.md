@@ -1,7 +1,7 @@
 ---
 title: 사용자 RBAC와 Entra 아이덴티티
 translation_of: user-rbac-and-identity.md
-translation_source_sha: 0401be806f260cfc0fc9bfd39dc904e2100e6435
+translation_source_sha: 92525215711e990eb40940fb99f6c25a31069d69
 translation_revised: 2026-09-26
 ---
 
@@ -33,8 +33,8 @@ Managed Identity, GitHub App, Teams bot)는 여전히 [security-and-identity-ko.
 | 검증된 대화 담당 관계 맥락 | implemented | `adaptive_relationship.py`, `dialogue_relationship.py`, 집중 SDK, Operator, Core 및 프롬프트 검사 | 로컬과 배포 환경의 기본 조립은 서버에서만 주체, 대상 및 만료 시각을 검증하는 같은 경로를 사용합니다. 관계는 고정 역할의 답변에 참고할 뿐 권한을 부여하지 않습니다. |
 | 활동 관찰의 사람 및 workload identity 분리 | 구현됨 | `fdai_operator_service/activity_projection.py`, `test_activity_projection.py`, 이 문서의 인증된 관찰 계약 | 영속 현재 상태 활동은 hash된 correlation 참조만 전달하며 Reader bearer 게이트와 relay workload credential은 계속 분리되고 어떤 활동 행도 executor 권한을 얻지 않습니다. |
 | Break-Glass 활성화 요청 경계 | 구현됨 | `services/operator-service/src/fdai_operator_service/families/iam/break_glass.py`; `capabilities.py`; `services/operator-service/tests/test_operator_break_glass_activation.py` | `POST /system/break-glass/activation`은 BreakGlass 전용 `activate-break-glass` 기능과 비어 있지 않은 인시던트 id 및 사유, 한도 안의 미래 오프셋 인식 만료 시각을 요구합니다. 감사 전용 projection만 기록하며 HIL 승인이나 executor identity를 부여하지 않습니다. 영속 활성화 저장소, TTL 적용, 사인인 알림은 배포 작업으로 남습니다. |
-| 사람 승인 콜백 신원 | 구현됨 | `families/iam/hil_callback.py`, `hil_callback_authority.py`, `hil_decision_outbox.py`, `postgres_iam.py`, 집중 콜백, 영속성, Kafka, 워크플로 및 카나리 테스트 | Teams는 구성된 봇에 발급된 API 대상 OBO 토큰, 정확한 공급자-Entra 매핑, 별도로 구성된 그룹 연결 팀과 채널을 요구합니다. 별도의 Slack 브라우저 인계는 아래와 같이 진행 중입니다. 콜백 결정은 제안 우선 영속화를 복구하고 영속 Operator 보낼 편지함을 통해 게시됩니다. BreakGlass는 사람 승인 권한을 부여하지 않습니다. |
-| Slack 서명 행위자 인계 | 진행 중 | `families/iam/slack_handoff.py`, `console/src/routes/hil-queue.tsx`, 집중 Operator/Console 검사 및 합성 데스크톱 검사 | 서명된 클릭으로 5분 동안 유효한 일회용 인계를 만듭니다. 결정에는 클릭 이후의 서명된 Entra API 토큰 `auth_time`, 현재 매핑과 승인 보류 문맥, 현재 역할 및 자기 승인 차단 검사가 필요합니다. 해당 클레임이 없으면 차단합니다. 공급자의 선택적 클레임 구성, 인증된 브라우저 근거 및 실제 Slack 단추 전달은 확인하지 않았습니다. |
+| 사람 승인 콜백 신원 | 구현됨 | `families/iam/hil_callback.py`, `hil_callback_authority.py`, `hil_decision_outbox.py`, `postgres_iam.py`, 집중 콜백, 영속성, Kafka, 워크플로 및 카나리 테스트 | Teams는 구성된 봇에 발급된 API 대상 OBO 토큰, 정확한 공급자-Entra 매핑, 별도로 구성된 그룹 연결 팀과 채널을 요구합니다. Slack은 별도의 브라우저 인계를 사용합니다. 콜백 결정은 제안 우선 영속화를 복구하고 영속 Operator 보낼 편지함을 통해 게시됩니다. BreakGlass는 사람 승인 권한을 부여하지 않습니다. |
+| Slack 서명 행위자 인계 | 구현됨 | `families/iam/slack_handoff.py`, `slack_adapter.py`, `test_slack_hil_interactivity.py`, 집중 Operator/Console 검사 및 합성 데스크톱 검사 | 작업에 결합된 Slack 단추에는 승인 ID만 담습니다. 서명된 클릭으로 5분 동안 유효한 일회용 인계를 만듭니다. 결정에는 클릭 이후의 서명된 Entra API 토큰 `auth_time`, 현재 매핑과 승인 보류 문맥, 현재 역할 및 자기 승인 차단 검사가 필요합니다. 클레임이 없으면 차단합니다. 실제 Slack/Entra 및 PostgreSQL nonce 동시성 근거는 아직 없습니다. |
 | 테넌트 로컬 Entra 부트스트랩 선언 | 구현됨 | `packages/deployment-cli/src/fdai_deployment_cli/entra_bootstrap.py`; `scripts/deployment/azure/genesis_entra.py`; 집중 부트스트랩 및 저장소 구성 테스트(`50 passed`) | 보호된 부트스트랩은 테넌트 값을 소스에 보존하지 않고 API, SPA, 승인 봇 등록과 서비스 principal, 5개 역할 그룹, 정확한 API 역할 및 클라이언트 범위 바인딩을 만들고 다시 읽어 검증합니다. Conditional Access, Access Reviews, 공급자 동의, Teams 설치 및 실제 토큰/차단 근거는 배포가 소유합니다. |
 | 로컬 Browser Entra 세션 복원력 | 구현됨 | `console/src/auth-session.ts`; `console/src/auth.ts`; `console/src/console-data-mode.ts`; 집중 Console 인증 및 데이터 모드 테스트와 typecheck | MSAL Browser v4는 loopback origin에서만 암호화된 `localStorage`를 사용하고 배포 origin에서는 `sessionStorage`를 유지합니다. 시작 시, 30분마다, 포커스, 표시 상태 또는 네트워크 복구 뒤에 하나로 병합된 새로 고침을 실행합니다. 경로와 데이터 모드를 복원할 때는 `handleRedirectPromise`가 처리할 때까지 MSAL 콜백 해시를 보존합니다. Entra는 여전히 대화형 인증을 요구할 수 있습니다. |
 | 알림 통합 구성 및 진단 | 구현됨 | `teams_workflow_binding.py`; `teams_workflow_diagnostics.py`; `families/iam/{capabilities,settings,manifest}.py`; 집중 바인딩, 진단 및 IAM 기능군 테스트 | Owner는 Teams 엔드포인트를 저장하고 테스트할 수 있습니다. Contributor, Approver 및 Owner는 `no-store` 응답으로 시크릿이 없는 바인딩 버전과 시각 메타데이터만 받으며 엔드포인트 값은 브라우저로 반환되지 않습니다. Reader와 BreakGlass에는 `visible: false`만 반환합니다. Slack은 일회성 테스트로 유지합니다. 모든 Teams 저장, 테스트 및 메타데이터 조회 감사 기록에는 URL을 넣지 않습니다. |
@@ -51,6 +51,7 @@ Managed Identity, GitHub App, Teams bot)는 여전히 [security-and-identity-ko.
 새 이력은 [영문 구현 이력](user-rbac-and-identity.md#implementation-history)에만 추가하며 아래 기존 번역 이력은 그대로 보존합니다.
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-26 | 구현됨 | 브라우저에 행위자, 역할, 해시 또는 권한을 주지 않고 Slack A1 아웃바운드 단추를 서명된 서버 출처 브라우저 인계에 연결했습니다. | `current change`, `slack_adapter.py`, `test_slack_hil_interactivity.py` 및 집중 Operator/Console 검사. | #943을 위해 실제 Slack 클릭, 현재 매핑, 클릭 이후의 서명된 `auth_time`, PostgreSQL nonce 동시성 검사 및 작성자 확인을 보존합니다. |
 | 2026-09-26 | 진행 중 | 서명된 Slack 상호작용과 일회용 행위자/작업 인계를 기존 결정 서비스에 추가했습니다. 브라우저 데이터는 행위자나 권한을 선택할 수 없습니다. | `current change`, `slack_handoff.py`, `hil-queue.tsx`, 집중 IAM 및 Console 검사. | API 토큰의 서명된 Entra `auth_time`을 구성하고 확인하며, 인증된 브라우저와 Slack 클릭 증적 및 채널 전달을 검증한 뒤 #943 기준 3을 완료합니다. |
 | 2026-09-14 | implemented | 현재 역할 그룹에 근거한 Reader 검토, 엄격한 문서 허용, 정확한 Operator SQL 역할 검사, 최초/이전 검토의 재검증을 추가했습니다. 대상 잠금, 독립 실행기 연결, IAM 결과 수신은 미완료 소스 작업으로 분류를 바로잡았습니다. | `current change`; `test_handover_reviewer_groups.py`, `test_entra_directory.py` 및 수락 검사 35개 통과; 실제 SQL 수명 주기/검토자 검사 48개 통과 | 실제 그룹/ACL 근거는 별도로 보존합니다. H10, 대체 Core 연결, 의미 컴파일, 긴급도, 실행 소스 연결은 미완료이며 IAM 결과나 승격을 활성화하지 않았습니다. |
 | 2026-09-06 | implemented | 선택적 대화 관계를 현재 담당 체계와 디렉터리 근거에 결속했습니다. 시스템 프롬프트에 주체 식별자를 노출하거나 사람과 실행기의 권한을 바꾸지 않습니다. | `current change`; 집중 Python 검사 653개에 포함된 담당 관계 및 프롬프트 검사 통과 | 별도로 승인된 실제 디렉터리 및 모델 근거를 보존합니다. |
@@ -66,7 +67,6 @@ Managed Identity, GitHub App, Teams bot)는 여전히 [security-and-identity-ko.
 | 2026-09-14 | implemented | IAM 실행을 활성화하지 않고 제한된 회수 의도, Operator 목표 수락/세션, 제한된 원본 읽기, Owner 전용 준비도 경계를 강화했습니다. | `current change`; 위 소스; 주 구현 세션에서 실제 SQL을 포함한 집중 작업 테스트 451개, Console 단위 테스트 41개, 너비 4개와 키보드 펼침, 200% 텍스트, 강제 색 모드를 다룬 격리 문서 화면 시나리오 통과를 보고했습니다. | 대체 Core의 현재 원본 허용/검토자 연결, Reader 백업 그룹 ACL 등 명시된 소스 공백은 열려 있습니다. 외부 공급자, 신원, GitHub App, IAM 결과, 잠금, 훈련, Teams, 문서, 배포, 코호트 근거는 별도 요건입니다. |
 
 ### 남은 작업
-
 - [x] 운영 Break-Glass 활성화 endpoint가 존재하며 인시던트 id, 사유, 한도 안의 미래 만료 시각을 요구하고 활성화 감사 근거를 기록하면서 런타임 HIL 승인이나 executor identity를 부여하지 않습니다. `services/operator-service/tests/test_operator_break_glass_activation.py`가 이를 증명합니다.
 - [ ] 배포에서 영속 활성화 저장소, TTL 적용, 사인인 알림을 연결하고 관리되는 활성화 영수증 하나를 보존합니다.
 - [ ] cache된 인증 artifact를 노출하지 않고 webview 재생성 또는 야간 중단을 통과한 loopback Browser 증적 하나를 보존합니다. Conditional Access 또는 MFA challenge는 대화형 인증 경계로 유지됩니다.
@@ -335,9 +335,9 @@ Entra OID를 no-self-approval과 감사 상관관계 검사까지 전달합니�
 > **현재 경계**: Teams 대화 유입은 Bot Framework JWT와 동일 테넌트 주체 연결을
 > 검증합니다. 그 다음 HMAC으로 묶인 콜백은 형식화된 결정을 기록하기 전에 API 대상 Teams
 > SSO OBO 토큰, 구성된 봇 클라이언트, 매핑된 Entra 행위자, 구성된 팀-채널 대상 및 현재 App Roles를
-> 검증합니다. Slack 상호작용은 서명된 수신기와 일회용 브라우저 인계로 들어갑니다.
-> 결정하려면 현재 사용자 매핑과 클릭 이후의 서명된 Entra API 토큰 `auth_time`이
-> 필요합니다. 클레임이 없으면 기존 토큰의 조용한 갱신을 재인증으로 보지 않고 차단합니다.
+> 검증합니다. Slack 단추는 승인 ID만 전하고 서명된 클릭은 일회용 브라우저
+> 인계로 이어집니다. 현재 매핑과 클릭 이후의 서명된 Entra API 토큰 `auth_time`이
+> 없으면 결정하지 않으며 기존 토큰의 조용한 갱신을 재인증으로 보지 않습니다.
 
 ![7. ChatOps 사람 승인 흐름. 주요 단계는 HIL request (action_hash, idempotency_key, ttl), Adaptive Card (Teams SSO), approve / reject + justification, POST /approvals (SSO on-behalf-of), Verify approver OID ∈ aw-approvers, / action_hash matches pending, / approver OID ≠ action originator OID, decision + audit entry (correlation_id), (approved) execute입니다.](../../diagrams/generated/fdai-roadmap-interfaces-user-rbac-and-identity-02.ko.svg)
 
