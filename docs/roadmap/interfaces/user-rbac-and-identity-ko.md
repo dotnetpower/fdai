@@ -1,7 +1,7 @@
 ---
 title: 사용자 RBAC와 Entra 아이덴티티
 translation_of: user-rbac-and-identity.md
-translation_source_sha: 63160c5af16f3093855c9dc6c185bf5021f4dd3d
+translation_source_sha: 8f084a8ea59aa1e35d499263d5280bead3cf3226
 translation_revised: 2026-09-26
 ---
 
@@ -70,9 +70,6 @@ Managed Identity, GitHub App, Teams bot)는 여전히 [security-and-identity-ko.
 - [ ] 배포에서 영속 활성화 저장소, TTL 적용, 사인인 알림을 연결하고 관리되는 활성화 영수증 하나를 보존합니다.
 - [ ] cache된 인증 artifact를 노출하지 않고 webview 재생성 또는 야간 중단을 통과한 loopback Browser 증적 하나를 보존합니다. Conditional Access 또는 MFA challenge는 대화형 인증 경계로 유지됩니다.
 - [x] 현재 Core 목표, 검토자 적격성, 원본 허용, 독립 검색을 연결했습니다. [Core 체크포인트](../../internals/handover-lifecycle-hardening-20260914.md#core-source-and-retrieval-critique-checkpoint)에 소스와 실제 SQL 근거가 기록되어 있습니다.
-- [ ] [이슈 #335](https://github.com/dotnetpower/fdai/issues/335)에 따라 승인된
-  Conditional Access 및 Access Review 프로필, 정확한 공급자 동의, 최소 권한 허용 및
-  차단 검사, 토큰 클레임, 다음 재인증 날짜를 보존합니다.
 - [ ] [#458](https://github.com/dotnetpower/fdai/issues/458) 및 의존 항목의 통제된 Reader 백업 그룹 ACL, 현재 배포 신원, Graph/GitHub/Teams, 역방향 훈련, 문서 수명 주기, 독립 승격/코호트 근거를 보존합니다.
 - [x] #946의 영문/한국어 검토, 정본 생성, 정상 훅과 [PR #1014](https://github.com/dotnetpower/fdai/pull/1014) 전달을 완료했습니다. 정확한 헤드의 CI `34925881557`과 병합 후 CI `34926168342`가 통과했습니다.
 - [x] [#1017 UI 기록](../../internals/handover-ui-evidence-20260915.md)에 평가 기준 50개와 로컬 키보드, 긴 내용/펼침 상태, 오류/요청 대기, 개별 작업, 클라이언트/목표 격리 근거를 보존했습니다. 소스 전달은 #1014와 별도로 #1017에서 추적합니다.
@@ -179,10 +176,7 @@ BreakGlass 역할은 OCR 정책을 저장하거나 계획을 요청할 수 없�
 세 registration, 각각 자체 오디언스와 권한 표면. 분할이 SPA-발행 토큰이 백엔드 관리 스코프를
 운반하는 것을 방지.
 
-> 보호된 테넌트 부트스트랩은 세 개의 일반 등록과 해당 서비스 principal, 5개 역할
-> 그룹 및 API 역할 할당을 만듭니다. 테넌트 값은 비공개 배포 입력으로 유지합니다.
-> Conditional Access, Access Reviews, 공급자 동의, Teams 설치 및 실제 토큰 근거는
-> 공급자가 호스팅하는 배포 단계로 남습니다.
+> 보호된 테넌트 부트스트랩은 세 개의 일반 등록, 서비스 principal, 5개 역할 그룹 및 API 역할 할당을 만들며 테넌트 값, Conditional Access, Access Reviews, 공급자 동의, Teams 설치 및 실제 토큰 근거는 비공개 공급자 호스팅 배포 입력과 단계로 남습니다.
 
 | App Registration | 타입 | 오디언스 | 노트 |
 |------------------|------|---------|------|

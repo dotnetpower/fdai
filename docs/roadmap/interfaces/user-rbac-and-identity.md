@@ -71,9 +71,6 @@ An exact HIL decision replay must preserve both the decision and the normalized 
 - [ ] Retain one governed loopback Browser receipt across a webview recreation or overnight suspension without exposing cached authentication artifacts. A Conditional Access or MFA challenge remains an interactive authentication boundary.
 - [x] Bind current Core goals, reviewer eligibility, admission, and standalone retrieval; the [Core checkpoint](../../internals/handover-lifecycle-hardening-20260914.md#core-source-and-retrieval-critique-checkpoint) records source and actual SQL evidence.
 - [ ] Retain governed Reader-backup group ACL, current deployment identity, Graph/GitHub/Teams, inverse drills, document lifecycle, and independent promotion/cohort evidence under [#458](https://github.com/dotnetpower/fdai/issues/458) and its dependencies.
-- [ ] Retain the approved Conditional Access and Access Review profile, exact provider consent,
-  least-privilege allowed and denied probes, token claims, and next recertification date under
-  [issue #335](https://github.com/dotnetpower/fdai/issues/335).
 - [x] Complete #946 EN/KO review, generation, normal hooks and [PR #1014](https://github.com/dotnetpower/fdai/pull/1014) delivery; exact-head CI `34925881557` and post-merge CI `34926168342` passed.
 - [x] Record all 50 rubric IDs and local keyboard, long/expanded, error/pending, operation and client/goal-isolation evidence in the [#1017 UI record](../../internals/handover-ui-evidence-20260915.md); source delivery is tracked by #1017 separately from #1014.
 - [ ] Retain real EN/KO assistive-technology announcements with a declared browser/screen-reader pair before a full WCAG/UI-score claim; the rubric is `needs-human` and the [operational criteria](human-agent-assignment-implementation-plan.md#definition-of-complete) remain open.
@@ -173,10 +170,7 @@ its plan. BreakGlass is not an Owner superset and does not inherit this capabili
 Three registrations, each with its own audience and permission surface. Splitting them
 prevents an SPA-issued token from carrying backend management scopes.
 
-> The protected tenant bootstrap creates the three generic registrations, their service
-> principals, five role groups, and API role assignments. Tenant values remain private deployment
-> inputs. Conditional Access, Access Reviews, provider consent, Teams installation, and live
-> token evidence remain provider-hosted deployment steps.
+> The protected tenant bootstrap creates the three generic registrations, service principals, five role groups, and API role assignments while tenant values, Conditional Access, Access Reviews, provider consent, Teams installation, and live token evidence remain private provider-hosted deployment inputs and steps.
 
 | App Registration | Type | Audience | Notes |
 |------------------|------|----------|-------|
