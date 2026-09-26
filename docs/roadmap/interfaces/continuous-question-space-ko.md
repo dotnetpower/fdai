@@ -1,6 +1,6 @@
 ---
 translation_of: continuous-question-space.md
-translation_source_sha: f747df632f3d65486db9f5bd9b977de75cb544c0
+translation_source_sha: b65be1cb525f526cca30dc4da4dafd719e508db6
 translation_revised: 2026-09-27
 ---
 # 지속형 질문 공간
@@ -95,6 +95,8 @@ Golden 질문, Console 표시 질문 또는 답변 가능한 질문으로 승격
 `uv run python scripts/automation/build_semantic_intent_coverage.py`를 실행하면
 `eval/golden-dataset/semantic-intent-coverage.json`이 생성되며 계약 테스트는 오래된 원본 다이제스트를 거부합니다. 따라서 권위 있는 원본이 바뀌면 다이제스트를 수동으로 편집하지 않고 결정론적으로 다시 생성해야 합니다. 연결된 Console 카탈로그가 바뀌면 질문 400개 전체를 먼저 다시 생성하고 CQAS를 다음에 생성하되 신원, 준비 상태, 지표 정의, 분모 또는 권한은 바꾸지 않습니다. 생성된 FDAI 대화 품질
 보증 스코어카드(CQAS)는 다음과 같은 소스 기반 주제 계층을 분리하여 보존합니다.
+온톨로지 플랫폼 구현 변경도 기록된 와일드카드 원본 다이제스트를 바꿉니다. 파생 집계와
+계약이 같다면 이 재생성은 새로운 의미 또는 런타임 근거가 아니라 출처 이력 유지입니다.
 
 - **운영 모델:** SRE 운영, 복원력 엔지니어링, 변경 및 아키텍처 거버넌스, FinOps입니다.
 - **질문은행:** 도메인 7개, 범주 13개, 질문 400개입니다.

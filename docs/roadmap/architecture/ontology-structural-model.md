@@ -54,6 +54,9 @@ Operator ontology projection and role selection now live with the focused operat
 adapter, while Rule, best-practice, CAF, MCSB, and WARA catalog rendering have separate pure
 projection owners. The ownership split changes no declaration identity, relationship direction,
 projection revision, evidence admission, or authority.
+The catalog-owned objective binding projection uses the same exact-release object and directed
+link validation as other catalog instances. A candidate binding names one validated objective
+and one exact Rule version; its graph links cannot become an assessment or permission.
 The per-rule findings read validates the requested identity against the same revisioned Rule catalog. Without a connected findings provider it returns `evaluated: false` and no findings for a known rule; it never derives Resource identities or finding details from summary counts.
 Committed inventory invalidation markers coordinate browser rereads without becoming graph state.
 Bulk state pages carry the marker watermark bound to their committed generation, and SSE resumes
