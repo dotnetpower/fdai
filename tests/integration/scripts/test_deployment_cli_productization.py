@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import shutil
 import subprocess
 import tomllib
@@ -118,9 +119,12 @@ def test_release_scripts_use_the_installable_distribution() -> None:
     assert "write_work_file(" in bundle_builder
 
 
-def test_source_entrypoint_reports_stable_version_json() -> None:
+def test_source_entrypoint_reports_stable_version_json(tmp_path: Path) -> None:
     uv = shutil.which("uv")
     assert uv is not None
+    environment = dict(os.environ)
+    environment.pop("UV_NO_SYNC", None)
+    environment["UV_PROJECT_ENVIRONMENT"] = str(tmp_path / "deployment-cli-venv")
     completed = subprocess.run(  # noqa: S603 - fixed local uv executable and arguments
         [
             uv,
@@ -133,6 +137,7 @@ def test_source_entrypoint_reports_stable_version_json() -> None:
             "json",
         ],
         cwd=ROOT,
+        env=environment,
         check=True,
         capture_output=True,
         text=True,
