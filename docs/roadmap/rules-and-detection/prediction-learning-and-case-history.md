@@ -181,6 +181,18 @@ CAS and must name the exact previous context digest; prior evidence is retained,
 An exact old delivery is acknowledged without restoring it as current. This permits late coverage
 and renewed evidence without revising a closed forecast outcome or manufacturing source completeness.
 
+The read-only external-change witness now reads bounded, exact-scope and exact-subject pages of
+append-only inventory journal observations from the reviewed ARG and Activity Log change sources.
+It retains every admitted observation reference, source identity and revision, event and recorded
+time, and correction lineage instead of collapsing to the newest resource row or inventing an
+earlier state. A known-at fence, journal watermark, and keyset cursor bound each page; at most 256
+rows and 31 days are read per request. Pending or conflicting events are withheld, duplicate
+deliveries are identified, and a page limit is explicit. A resumed cursor is not a positive
+source-coverage checkpoint: an in-flight transaction or earlier missing ingestion can still leave
+a gap. Even an empty, fully scanned journal window remains incomplete without an independently
+established start-of-window checkpoint. These rows are evidence only, not scoring inputs or
+execution authority. The state-transition collector continues to refuse incomplete coverage.
+
 The episode closure carries its observation even when no `ForecastOutcome` is published. The Core
 `core_forecast_closure_observation_20260914` migration adds nullable `closure_observation` metadata.
 New writes retain the observation atomically with closure and the publication outbox; conflicting
