@@ -21,6 +21,7 @@ from fdai_deployment_cli.private_output import read_private_bytes, write_private
 _REPOSITORY = re.compile(r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+")
 _COMMIT = re.compile(r"[0-9a-f]{40}")
 _DIGEST = re.compile(r"[0-9a-f]{64}")
+_GUID = re.compile(r"[0-9a-fA-F]{8}(?:-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12}")
 _SECRET_NAMES = ("POSTGRES_ADMIN_LOGIN", "POSTGRES_ADMIN_PASSWORD")
 
 
@@ -76,6 +77,7 @@ def create_repository_config_plan(
     required_entra = {
         "ENTRA_CONSOLE_API_SCOPE",
         "ENTRA_CONSOLE_SPA_CLIENT_ID",
+        "FDAI_TEAMS_APPLICATION_ID",
         "OPERATOR_API_AUDIENCE",
         "RBAC_APPROVERS_GROUP_ID",
         "RBAC_BREAK_GLASS_GROUP_ID",
@@ -172,6 +174,7 @@ def apply_repository_config(
             (
                 "ENTRA_CONSOLE_API_SCOPE",
                 "ENTRA_CONSOLE_SPA_CLIENT_ID",
+                "FDAI_TEAMS_APPLICATION_ID",
                 "RBAC_APPROVERS_GROUP_ID",
                 "RBAC_BREAK_GLASS_GROUP_ID",
                 "RBAC_CONTRIBUTORS_GROUP_ID",
@@ -216,14 +219,41 @@ def _verify_entra_bindings(variables: dict[str, str], required_names: tuple[str,
     if any(name not in variables for name in required_names):
         raise ValueError("repository Entra binding inventory is incomplete")
     api_scope = variables["ENTRA_CONSOLE_API_SCOPE"]
-    match = re.fullmatch(r"api://([^/]+)/[^/]+", api_scope)
-    if match is None:
+    match = re.fullmatch(r"api://([^/]+)/access", api_scope)
+    if match is None or variables.get("OPERATOR_API_AUDIENCE") != f"api://{match.group(1)}":
         raise ValueError("repository Console API scope is invalid")
-    app_ids = (variables["ENTRA_CONSOLE_SPA_CLIENT_ID"], match.group(1))
-    for app_id in app_ids:
-        result = _az(("ad", "app", "show", "--id", app_id, "--query", "appId", "-o", "tsv"))
-        if result.casefold() != app_id.casefold():
-            raise ValueError("repository Entra application does not belong to the active tenant")
+    applications = (
+        ("fdai-api", match.group(1)),
+        ("fdai-console-spa", variables["ENTRA_CONSOLE_SPA_CLIENT_ID"]),
+        ("fdai-approval-bot", variables["FDAI_TEAMS_APPLICATION_ID"]),
+    )
+    app_ids = tuple(app_id.casefold() for _name, app_id in applications)
+    if any(_GUID.fullmatch(app_id) is None for app_id in app_ids) or len(set(app_ids)) != 3:
+        raise ValueError("repository Entra application bindings are invalid")
+    for expected_name, app_id in applications:
+        raw = _az(
+            (
+                "ad",
+                "app",
+                "show",
+                "--id",
+                app_id,
+                "--query",
+                "{appId:appId,displayName:displayName}",
+                "-o",
+                "json",
+            )
+        )
+        try:
+            result = json.loads(raw)
+        except json.JSONDecodeError as exc:
+            raise ValueError("repository Entra application readback is invalid") from exc
+        if (
+            not isinstance(result, dict)
+            or str(result.get("appId", "")).casefold() != app_id.casefold()
+            or result.get("displayName") != expected_name
+        ):
+            raise ValueError("repository Entra application does not match the approved binding")
     for name in required_names:
         if not name.startswith("RBAC_"):
             continue

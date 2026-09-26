@@ -13,7 +13,7 @@ from typing import Any
 
 from fdai_deployment_cli.contracts import canonical_digest
 
-_APP_NAMES = ("fdai-api", "fdai-console-spa")
+_APP_NAMES = ("fdai-api", "fdai-console-spa", "fdai-approval-bot")
 _GROUPS = {
     "RBAC_READERS_GROUP_ID": ("aw-readers", "Reader"),
     "RBAC_CONTRIBUTORS_GROUP_ID": ("aw-contributors", "Contributor"),
@@ -94,14 +94,20 @@ def apply_entra(plan: EntraPlan, *, runner_principal_id: str) -> dict[str, str]:
     }
     api_app = _ensure_api_app()
     spa_app = _ensure_spa_app(api_app)
+    approval_bot_app = _ensure_approval_bot_app(api_app)
     api_sp = _ensure_service_principal(str(api_app["appId"]))
     _ensure_service_principal(str(spa_app["appId"]))
-    _az(("ad", "app", "permission", "admin-consent", "--id", str(spa_app["appId"])))
+    _ensure_service_principal(str(approval_bot_app["appId"]))
     _assign_group_roles(api_app=api_app, api_sp=api_sp, groups=groups)
     _ensure_current_owner_membership(groups["RBAC_OWNERS_GROUP_ID"])
     _grant_runner_spa_ownership(str(spa_app["appId"]), runner_principal_id)
     _grant_runner_graph_permission(runner_principal_id)
-    _verify_complete(api_app=api_app, spa_app=spa_app, groups=groups)
+    _verify_complete(
+        api_app=api_app,
+        spa_app=spa_app,
+        approval_bot_app=approval_bot_app,
+        groups=groups,
+    )
     return read_entra_bindings()
 
 
@@ -111,20 +117,32 @@ def read_entra_bindings() -> dict[str, str]:
     apps, groups_by_name = _directory_inventory()
     api_app = apps["fdai-api"]
     spa_app = apps["fdai-console-spa"]
+    approval_bot_app = apps["fdai-approval-bot"]
     groups = {
         variable: groups_by_name[display_name]
         for variable, (display_name, _role) in _GROUPS.items()
     }
-    if api_app is None or spa_app is None or any(value is None for value in groups.values()):
+    if (
+        api_app is None
+        or spa_app is None
+        or approval_bot_app is None
+        or any(value is None for value in groups.values())
+    ):
         raise ValueError("Entra binding readback is incomplete")
     _validate_app("fdai-api", api_app)
     _validate_app("fdai-console-spa", spa_app)
+    _validate_app("fdai-approval-bot", approval_bot_app)
     if not _roles_valid(api_app.get("appRoles")):
         raise ValueError("FDAI API App Role readback is incomplete")
     scope = _scope(api_app)
+    if not _has_required_scope(spa_app, api_app=api_app, scope=scope):
+        raise ValueError("Console SPA delegated scope readback is incomplete")
+    if not _has_required_scope(approval_bot_app, api_app=api_app, scope=scope):
+        raise ValueError("approval bot delegated scope readback is incomplete")
     return {
         "ENTRA_CONSOLE_API_SCOPE": f"api://{api_app['appId']}/{scope['value']}",
         "ENTRA_CONSOLE_SPA_CLIENT_ID": str(spa_app["appId"]),
+        "FDAI_TEAMS_APPLICATION_ID": str(approval_bot_app["appId"]),
         "OPERATOR_API_AUDIENCE": f"api://{api_app['appId']}",
         **{variable: str(value["id"]) for variable, value in groups.items() if value is not None},
     }
@@ -281,33 +299,107 @@ def _ensure_spa_app(api_app: dict[str, Any]) -> dict[str, Any]:
         )
         app = _app(app_id)
     scope = _scope(api_app)
-    required = app.get("requiredResourceAccess")
-    configured = any(
-        isinstance(item, dict)
-        and str(item.get("resourceAppId", "")).casefold() == str(api_app["appId"]).casefold()
-        for item in required or []
+    required = _with_required_scope(app.get("requiredResourceAccess"), api_app=api_app, scope=scope)
+    spa = app.get("spa")
+    redirects = spa.get("redirectUris") if isinstance(spa, dict) else None
+    if redirects is None:
+        redirects = []
+    if not isinstance(redirects, list) or any(not isinstance(item, str) for item in redirects):
+        raise ValueError("Console SPA redirect inventory is invalid")
+    expected_redirects = list(
+        dict.fromkeys([*redirects, "http://localhost:5273", "http://127.0.0.1:5273"])
     )
-    if not configured:
+    if required != app.get("requiredResourceAccess") or expected_redirects != redirects:
         _graph(
             "PATCH",
             f"applications/{app['id']}",
             {
-                "spa": {
-                    "redirectUris": [
-                        "http://localhost:5273",
-                        "http://127.0.0.1:5273",
-                    ]
-                },
-                "requiredResourceAccess": [
-                    {
-                        "resourceAppId": api_app["appId"],
-                        "resourceAccess": [{"id": scope["id"], "type": "Scope"}],
-                    }
-                ],
+                "spa": {"redirectUris": expected_redirects},
+                "requiredResourceAccess": required,
             },
         )
         app = _app(str(app["appId"]))
     return app
+
+
+def _ensure_approval_bot_app(api_app: dict[str, Any]) -> dict[str, Any]:
+    app = _single_app("fdai-approval-bot")
+    if app is None:
+        app_id = _az(
+            (
+                "ad",
+                "app",
+                "create",
+                "--display-name",
+                "fdai-approval-bot",
+                "--sign-in-audience",
+                "AzureADMyOrg",
+                "--query",
+                "appId",
+                "--output",
+                "tsv",
+            )
+        )
+        app = _app(app_id)
+    scope = _scope(api_app)
+    required = _with_required_scope(app.get("requiredResourceAccess"), api_app=api_app, scope=scope)
+    if required != app.get("requiredResourceAccess"):
+        _graph(
+            "PATCH",
+            f"applications/{app['id']}",
+            {"requiredResourceAccess": required},
+        )
+        app = _app(str(app["appId"]))
+    return app
+
+
+def _with_required_scope(
+    value: object,
+    *,
+    api_app: dict[str, Any],
+    scope: dict[str, Any],
+) -> list[dict[str, Any]]:
+    if value is None:
+        rows: list[dict[str, Any]] = []
+    elif isinstance(value, list) and all(isinstance(item, dict) for item in value):
+        rows = [dict(item) for item in value]
+    else:
+        raise ValueError("Entra delegated permission inventory is invalid")
+    api_id = str(api_app["appId"])
+    matching = [
+        item for item in rows if str(item.get("resourceAppId", "")).casefold() == api_id.casefold()
+    ]
+    if len(matching) > 1:
+        raise ValueError("Entra delegated permission inventory is ambiguous")
+    if not matching:
+        matching = [{"resourceAppId": api_id, "resourceAccess": []}]
+        rows.append(matching[0])
+    access = matching[0].get("resourceAccess")
+    if not isinstance(access, list) or any(not isinstance(item, dict) for item in access):
+        raise ValueError("Entra delegated scope inventory is invalid")
+    wanted = {"id": scope["id"], "type": "Scope"}
+    conflicts = [item for item in access if item.get("id") == scope["id"] and item != wanted]
+    if conflicts:
+        raise ValueError("Entra delegated scope inventory conflicts with the FDAI contract")
+    if wanted not in access:
+        matching[0]["resourceAccess"] = [*access, wanted]
+    return rows
+
+
+def _has_required_scope(
+    app: dict[str, Any],
+    *,
+    api_app: dict[str, Any],
+    scope: dict[str, Any],
+) -> bool:
+    try:
+        return _with_required_scope(
+            app.get("requiredResourceAccess"),
+            api_app=api_app,
+            scope=scope,
+        ) == app.get("requiredResourceAccess")
+    except ValueError:
+        return False
 
 
 def _ensure_group(display_name: str) -> str:
@@ -444,13 +536,25 @@ def _grant_runner_graph_permission(runner_principal_id: str) -> None:
 
 
 def _verify_complete(
-    *, api_app: dict[str, Any], spa_app: dict[str, Any], groups: dict[str, str]
+    *,
+    api_app: dict[str, Any],
+    spa_app: dict[str, Any],
+    approval_bot_app: dict[str, Any],
+    groups: dict[str, str],
 ) -> None:
     verified_api = _app(str(api_app["appId"]))
     _validate_app("fdai-api", verified_api)
     if not _roles_valid(verified_api.get("appRoles")):
         raise ValueError("FDAI API App Role readback is incomplete")
-    _validate_app("fdai-console-spa", _app(str(spa_app["appId"])))
+    scope = _scope(verified_api)
+    verified_spa = _app(str(spa_app["appId"]))
+    _validate_app("fdai-console-spa", verified_spa)
+    if not _has_required_scope(verified_spa, api_app=verified_api, scope=scope):
+        raise ValueError("Console SPA delegated scope readback is incomplete")
+    verified_bot = _app(str(approval_bot_app["appId"]))
+    _validate_app("fdai-approval-bot", verified_bot)
+    if not _has_required_scope(verified_bot, api_app=verified_api, scope=scope):
+        raise ValueError("approval bot delegated scope readback is incomplete")
     if any(_single_group(name) is None for name, _role in _GROUPS.values()) or any(
         not _GUID.fullmatch(value) for value in groups.values()
     ):

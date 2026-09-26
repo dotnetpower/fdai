@@ -121,8 +121,11 @@ class EntraReferences:
     api_client_id: str
     spa_object_id: str
     spa_client_id: str
+    approval_bot_object_id: str
+    approval_bot_client_id: str
     api_service_principal_id: str
     spa_service_principal_id: str
+    approval_bot_service_principal_id: str
     groups: tuple[tuple[str, str], ...]
 
     @property
@@ -207,24 +210,21 @@ def _app_payload(plan: EntraPlan, label: str, existing: Json | None, api_id: str
     if existing and old.get("signInAudience") != "AzureADMyOrg":
         raise EntraBootstrapError("application-contract-conflict")
     if existing:
-        required = (
-            ("appRoles", "api", "identifierUris")
-            if label == "api"
-            else (
-                "spa",
-                "requiredResourceAccess",
-            )
-        )
+        required = {
+            "api": ("appRoles", "api", "identifierUris"),
+            "console-spa": ("spa", "requiredResourceAccess"),
+            "approval-bot": ("requiredResourceAccess",),
+        }[label]
         nested = old.get("api" if label == "api" else "spa")
-        nested_required = (
-            ("oauth2PermissionScopes", "requestedAccessTokenVersion")
-            if label == "api"
-            else ("redirectUris",)
-        )
-        if (
-            any(key not in old for key in required)
-            or not isinstance(nested, dict)
-            or any(key not in nested for key in nested_required)
+        nested_required = {
+            "api": ("oauth2PermissionScopes", "requestedAccessTokenVersion"),
+            "console-spa": ("redirectUris",),
+            "approval-bot": (),
+        }[label]
+        if any(key not in old for key in required):
+            raise EntraBootstrapError("incomplete-application")
+        if nested_required and (
+            not isinstance(nested, dict) or any(key not in nested for key in nested_required)
         ):
             raise EntraBootstrapError("incomplete-application")
     payload: Json = {
@@ -251,19 +251,20 @@ def _app_payload(plan: EntraPlan, label: str, existing: Json | None, api_id: str
                 raise EntraBootstrapError("application-uri-conflict")
             payload["identifierUris"] = list(dict.fromkeys([*uris, f"api://{api_id}"]))
     else:
-        spa = old.get("spa", {})
-        if not isinstance(spa, dict):
-            raise EntraBootstrapError("application-contract-conflict")
-        payload["spa"] = {
-            "redirectUris": list(
-                dict.fromkeys(
-                    [
-                        *strings(spa.get("redirectUris", [])),
-                        plan.desired.console_origin,
-                    ]
+        if label == "console-spa":
+            spa = old.get("spa", {})
+            if not isinstance(spa, dict):
+                raise EntraBootstrapError("application-contract-conflict")
+            payload["spa"] = {
+                "redirectUris": list(
+                    dict.fromkeys(
+                        [
+                            *strings(spa.get("redirectUris", [])),
+                            plan.desired.console_origin,
+                        ]
+                    )
                 )
-            )
-        }
+            }
         permissions = [dict(row) for row in objects(old.get("requiredResourceAccess", []))]
         matching = [row for row in permissions if row.get("resourceAppId") == api_id]
         if len(matching) > 1:
@@ -285,11 +286,11 @@ def _run(plan: EntraPlan, graph: Graph, *, mutate: bool) -> EntraBootstrapResult
     owner = graph.call("GET", f"users/{desired.initial_owner_user_id}?$select=id,accountEnabled")
     if owner.get("id") != desired.initial_owner_user_id or owner.get("accountEnabled") is not True:
         raise EntraBootstrapError("initial-owner-unavailable")
-    labels = ("api", "console-spa", *_SLOTS)
+    labels = ("api", "console-spa", "approval-bot", *_SLOTS)
     records: dict[str, Json | None] = {}
     for label in labels:
         records[label] = graph.owned(
-            "applications" if label in labels[:2] else "groups",
+            "applications" if label in labels[:3] else "groups",
             f"{plan.marker}:{label}",
             f"{desired.name_prefix}-{label}",
             f"fdai-{plan.marker.split(':')[-1][:32]}-{label}",
@@ -299,6 +300,7 @@ def _run(plan: EntraPlan, graph: Graph, *, mutate: bool) -> EntraBootstrapResult
     _app_payload(plan, "api", api_old, api_id)
     if api_id:
         _app_payload(plan, "console-spa", records["console-spa"], api_id)
+        _app_payload(plan, "approval-bot", records["approval-bot"], api_id)
     group_payloads: dict[str, Json] = {}
     for slot in _SLOTS:
         payload = {
@@ -333,8 +335,17 @@ def _run(plan: EntraPlan, graph: Graph, *, mutate: bool) -> EntraBootstrapResult
         records["console-spa"],
         _app_payload(plan, "console-spa", records["console-spa"], api_id),
     )
+    approval_bot = ensure(
+        "applications",
+        records["approval-bot"],
+        _app_payload(plan, "approval-bot", records["approval-bot"], api_id),
+    )
     principals: list[Json] = []
-    for label, app in (("api", api), ("console-spa", spa)):
+    for label, app in (
+        ("api", api),
+        ("console-spa", spa),
+        ("approval-bot", approval_bot),
+    ):
         app_id = uuid(app.get("appId"))
         rows = graph.list("servicePrincipals", {"$filter": f"appId eq '{app_id}'"})
         if len(rows) > 1:
@@ -372,7 +383,7 @@ def _run(plan: EntraPlan, graph: Graph, *, mutate: bool) -> EntraBootstrapResult
         ):
             raise EntraBootstrapError("readback-mismatch")
         principals.append(principal)
-    api_sp, spa_sp = (uuid(row.get("id")) for row in principals)
+    api_sp, spa_sp, approval_bot_sp = (uuid(row.get("id")) for row in principals)
     if not matches(
         principals[0],
         {
@@ -480,8 +491,11 @@ def _run(plan: EntraPlan, graph: Graph, *, mutate: bool) -> EntraBootstrapResult
         api_id,
         uuid(spa["id"]),
         uuid(spa["appId"]),
+        uuid(approval_bot["id"]),
+        uuid(approval_bot["appId"]),
         api_sp,
         spa_sp,
+        approval_bot_sp,
         tuple((slot, uuid(groups[slot]["id"])) for slot in _SLOTS),
     )
     evidence = {
@@ -490,6 +504,7 @@ def _run(plan: EntraPlan, graph: Graph, *, mutate: bool) -> EntraBootstrapResult
         "stages": stages,
         "api": _app_payload(plan, "api", api, api_id),
         "spa": _app_payload(plan, "console-spa", spa, api_id),
+        "approval_bot": _app_payload(plan, "approval-bot", approval_bot, api_id),
     }
     return EntraBootstrapResult(
         refs,
