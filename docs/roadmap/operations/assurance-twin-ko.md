@@ -1,7 +1,7 @@
 ---
 title: 어슈어런스 트윈 (질의가능하고 선제적이며 검증가능한 리뷰)
 translation_of: assurance-twin.md
-translation_source_sha: db07f2f1a533f61c0cda81b7d10b5a4952f28120
+translation_source_sha: daf70e42ab362631635e05f14164783a9a7deadc
 translation_revised: 2026-09-27
 ---
 # 어슈어런스 트윈 (질의가능하고 선제적이며 검증가능한 리뷰)
@@ -47,8 +47,13 @@ event-driven, risk-gated 설계를 저하시키지 않으면서 커버하는 리
 감독되는 두 아웃박스 중계기가 스키마 검증을 거친 정확한 개정의 참고용 이벤트를
 게시합니다. 인증된 Operator API와 콘솔은 이벤트 알림이 아닌 영속 행을 계속
 읽습니다. 기본 구성에는 운영 보관 근거 출처가 연결되지 않아 선제적 수집
-페이로드만으로 발견 사항이나 검토 판정을 만들 수 없습니다. 운영 인벤토리,
-외부 검토 전달, 통제된 런타임 증적은 아직 남아 있습니다.
+페이로드만으로 발견 사항이나 검토 판정을 만들 수 없습니다. 보관된 인벤토리 출처는
+범위가 제한된 `Resource` 변환 결과만 제공하며, 완전한 규칙 점검 결과나 제안된
+IaC 변경 근거는 제공하지 않습니다. 실시간 관계 변경이 남아 있으면 사용할 수
+없습니다. 스냅샷 ID만으로는 변하는 `Resource` 변경분을 보고서나 검토의 정확한
+개정에 연결할 수 없습니다. 두 작성기에 필요한 신뢰된 출처, 범위, 개정을
+선택하는 운영 요청 생산자도 없습니다. 외부 검토 전달과 통제된 런타임 증적은
+아직 남아 있습니다.
 
 ### 구현 범위
 
@@ -58,7 +63,7 @@ event-driven, risk-gated 설계를 저하시키지 않으면서 커버하는 리
 | 스칼라 Dynamic 효과 모델, 충실도 측정, 범위가 제한된 런타임 조정 | implemented | [`effect_model.py`](../../../services/core-control-plane/src/fdai/core/assurance_twin/effect_model.py), [`fidelity.py`](../../../services/core-control-plane/src/fdai/core/assurance_twin/fidelity.py), [`runtime.py`](../../../services/core-control-plane/src/fdai/core/assurance_twin/runtime.py) 및 해당 집중 테스트 | 활성 모델은 변경하지 않고, challenger는 적격 결과에서만 학습하며, 불일치는 사람 검토로 낮춥니다. |
 | 그래프 전역 Dynamic 궤적, 전파, 불변식, 에피소드 종결, 모델 레지스트리 | implemented | [`graph_effect.py`](../../../services/core-control-plane/src/fdai/core/assurance_twin/graph_effect.py), [`graph_runtime.py`](../../../services/core-control-plane/src/fdai/core/assurance_twin/graph_runtime.py), [`graph_closure.py`](../../../services/core-control-plane/src/fdai/core/assurance_twin/graph_closure.py) 및 그래프 집중 테스트 | 런타임은 근거를 반환하기 전에 예측 에피소드를 저장하고 완전한 독립 관측에서만 challenger 구획을 갱신합니다. |
 | 심층 Security Assessment 피드, 결정론적 분석기, 카탈로그 보고서 | implemented | [`core/security/`](../../../services/core-control-plane/src/fdai/core/security), [`security_assessment.py`](../../../services/core-control-plane/src/fdai/core/reporting/datasources/security_assessment.py), [`test_assessment.py`](../../../services/core-control-plane/tests/core/security/test_assessment.py), [`test_security_assessment_datasource.py`](../../../services/core-control-plane/tests/core/reporting/test_security_assessment_datasource.py) | 아래에서 설명하는 Twin 전용 자세 패널과는 별도의 보고 하위 시스템입니다. |
-| 운영 인벤토리 변환 결과와 선제적 변경 검토 전달 | not-started | [`projection.py`](../../../services/core-control-plane/src/fdai/shared/providers/projection.py)와 [`iac_review.py`](../../../services/core-control-plane/src/fdai/shared/providers/iac_review.py)가 프로바이더 시임을 정의합니다. | 업스트림에는 운영 인벤토리 어댑터, 변경 이벤트 조정기, Checks API 발행기가 연결되지 않았습니다. |
+| 운영 Twin 연결과 선제적 변경 검토 전달 | not-started | [`assurance_twin_inventory.py`](../../../services/core-control-plane/src/fdai/delivery/assurance_twin_inventory.py)는 `Resource`만 포함한 변환 결과를 제공하며, [`iac_review.py`](../../../services/core-control-plane/src/fdai/shared/providers/iac_review.py)는 검토 발행기 연결 지점을 정의합니다. | 이 변환 결과만으로는 완전한 발견 사항이나 제안된 IaC 변경 근거를 제공할 수 없습니다. 신뢰할 수 있는 정확한 개정의 보고서 및 검토 출처, 내용 없는 버스 요청 생산자, Checks API 발행기는 아직 연결되지 않았습니다. |
 | 엄격한 의미 컴파일과 판단 보류 피드백 | implemented | [`query.py`](../../../services/core-control-plane/src/fdai/core/assurance_twin/query.py), [`semantic_query.py`](../../../services/core-control-plane/src/fdai/core/assurance_twin/semantic_query.py), [`runtime/assurance_twin_query.py`](../../../services/core-control-plane/src/fdai/runtime/assurance_twin_query.py), 집중 질의 및 런타임 테스트 50개 | 주입된 컴파일러는 읽기 전용 계획이 검증을 통과하기 전에 정확한 입력 다이제스트, 컴파일러 개정, 제한된 결과 수, 근거 참조를 연결해야 합니다. 판단 보류는 주입된 발견 sink를 통해 내용 없는 무권한 공백만 발행합니다. 런타임 기본값은 명시적인 모델 사용 불가입니다. |
 | T1 재사용, ChatOps 입력, 통제된 런타임 근거 | in-progress | [`chat.py`](../../../services/core-control-plane/src/fdai/core/assurance_twin/chat.py), 공유 의미 판단 계약 | 메시지 라우팅, T1 재사용, 구체적인 모델 프로바이더, 인증된 종단 증적은 아직 검증되지 않았습니다. |
 | Heimdall/Forseti 로컬 이벤트 게시 | implemented | [`assurance_twin_writers.py`](../../../services/core-control-plane/src/fdai/delivery/assurance_twin_writers.py), [`assurance_twin_publication.py`](../../../services/core-control-plane/src/fdai/delivery/assurance_twin_publication.py), [`test_assurance_twin_publication.py`](../../../services/core-control-plane/tests/delivery/test_assurance_twin_publication.py) | 요청에는 발견 사항이 없습니다. 주입된 출처가 요청한 개정의 완전하고 최신이며 상충하지 않는 근거를 반환한 경우에만 해당 작성기가 저장합니다. Saga에 귀속된 감사 이력과 내장 아웃박스는 정확한 행과 함께 원자적으로 저장됩니다. 재시작한 중계기는 영속 개정을 검증한 후에만 스키마 검증을 거친 참고용 이벤트를 발행합니다. 실제 보관 근거와 통제된 런타임 연결은 아직 없습니다. |
@@ -401,6 +406,11 @@ Supplemental 프로바이더는 서버 매개변수, diagnostic-setting 상태, 
 반영할 수 없는 관계 변경도 거부합니다. 활성 세대를 다시 읽어 획득 도중의 승격을 차단합니다.
 출처 정보가 담긴 변경 불가능한 변환 결과를 매번 새로 만들며, 아직 운영 트윈 조회나 자세
 작성기에 주입하지 않았습니다.
+운영 연결에는 신뢰할 수 있는 완전성 검증을 거친 규칙 및 변경 근거 생산자,
+스냅샷과 실시간 변경분을 함께 포함하는 정확한 개정, 내용 없는 보고서 및
+검토 요청을 내보낼 통제된 이벤트 출처가 필요합니다. 인벤토리 스냅샷 ID만으로는
+그 개정을 나타낼 수 없습니다. 이러한 입력이 정의되기 전에는 빈 규칙 평가기를
+연결해서 점검되지 않은 리소스를 잘못된 `clear` 판정으로 표시하지 않는 것이 좋습니다.
 
 목표 전달은 기존 `chatops` 어댑터에 인텐트 하나를 추가하고(질문 입력, 근거 있는 답 출력)
 제안과 Checks API 리뷰에 `gitops-pr` 어댑터를 재사용합니다. 현재 저장소에는
