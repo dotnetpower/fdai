@@ -97,6 +97,38 @@ def remaining_work_by_folder(repo_root: Path) -> dict[str, list[str]]:
     return {folder: sorted(documents) for folder, documents in sorted(grouped.items())}
 
 
+def issue_linked_work_by_folder(
+    repo_root: Path,
+    grouped: Mapping[str, Sequence[str]],
+    issue_number: int,
+) -> dict[str, list[str]]:
+    """Keep remaining-work owners whose design or ledger cites the selected issue."""
+
+    issue_reference = re.compile(rf"(?<!\d)#{issue_number}(?!\d)")
+    issue_url_reference = re.compile(rf"/issues/{issue_number}(?!\d)")
+    linked: dict[str, list[str]] = {}
+    roadmap_root = PurePosixPath("docs/roadmap")
+    for folder, documents in grouped.items():
+        for relative in documents:
+            owner = PurePosixPath(relative)
+            sources = [repo_root / owner]
+            try:
+                ledger_relative = owner.relative_to(roadmap_root)
+            except ValueError:
+                continue
+            sources.append(repo_root / "docs/roadmap-implementation" / ledger_relative)
+            if any(
+                path.is_file()
+                and (
+                    issue_url_reference.search(text := path.read_text(encoding="utf-8")) is not None
+                    or issue_reference.search(text) is not None
+                )
+                for path in sources
+            ):
+                linked.setdefault(folder, []).append(relative)
+    return {folder: sorted(documents) for folder, documents in sorted(linked.items())}
+
+
 def refused_folders(
     state_root: Path, issue_number: int, *, now: float, ttl: int = REFUSAL_TTL_SECONDS
 ) -> frozenset[str]:
@@ -675,13 +707,20 @@ def run_cycle(
             return "held: registered issue discovery is unavailable"
         if issue is None:
             return "idle: no eligible registered issue"
-        grouped = remaining_work_by_folder(repo_root)
+        grouped = issue_linked_work_by_folder(
+            repo_root,
+            remaining_work_by_folder(repo_root),
+            issue.number,
+        )
         refused = refused_folders(state_root, issue.number, now=time.time())
         # Fail open: if every folder was refused, re-offer them all rather than idling forever.
         narrowed = {name: docs for name, docs in grouped.items() if name not in refused}
         selected = choose_folder(narrowed or grouped)
         if selected is None:
-            return f"idle: no roadmap folder has {BATCH_SIZE} remaining-work documents"
+            return (
+                f"idle: issue #{issue.number} has no linked roadmap folder with "
+                f"{BATCH_SIZE} remaining-work documents"
+            )
         folder, candidates = selected
         issue_claimed = _claim_issue(repo_root, issue)
         cli = agent.copilot_path()
