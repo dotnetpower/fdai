@@ -1,8 +1,8 @@
 ---
 title: MSCP Operational Profile
 translation_of: mscp-operational-profile.md
-translation_source_sha: 84cd26e5fa3cd47523a75313d746b3f7d62929e3
-translation_revised: 2026-09-22
+translation_source_sha: 28ad957e1ee3399f6daf4ff15e9fd34f2dbd05fe
+translation_revised: 2026-09-27
 ---
 # MSCP Operational 프로파일
 
@@ -22,9 +22,10 @@ MSCP 레벨을 구현하거나 전체 MSCP conformance를 충족한다고 주장
 ## 한눈에 보는 설계
 
 이 프로파일은 `services/core-control-plane/src/fdai/core/mscp_profile/` 아래에 결정론적이고 I/O가 없는 정책 기본 요소를
-제공합니다. 호출자는 이미 수집한 관측, 한도 및 컴포넌트 다이제스트를 제공합니다. 프로파일은
-타입이 지정된 검증 또는 보류 결정을 반환하며 프로바이더 호출, 리소스 변경, 감사 항목 쓰기,
-기능 승격 또는 룰 편집을 수행하지 않습니다.
+제공합니다. 호출자는 이미 수집한 관측, 한도 및 컴포넌트 다이제스트를 제공합니다. 순수 정책은
+타입이 지정된 검증 또는 보류 결정을 반환하며 프로바이더 호출, 리소스 변경, 기능 승격 또는 룰
+편집을 수행하지 않습니다. 별도의 상태 저장소 기록기가 실행 권한 없이 shadow 근거와 감사
+항목을 영속화합니다.
 
 런타임 식별자에는 의도적으로 MSCP 레벨을 넣지 않습니다. FDAI는 여러 레벨에서 선택한 개념을
 결합하며, 각 모듈 docstring과 아래 대응에서 수준별 설계 출처 이력을 유지합니다.
@@ -41,7 +42,8 @@ MSCP 레벨을 구현하거나 전체 MSCP conformance를 충족한다고 주장
 | 권한을 높이지 않는 상한 | implemented | `core/mscp_profile/authority_ceiling.py`; `test_authority_ceiling.py` | 유한 도메인 전체를 검사하는 테스트는 프로파일이 기존 FDAI 결정을 유지하거나 낮출 수만 있음을 입증합니다. 이 상한은 강제 적용 경로에 연결되지 않았습니다. |
 | 충돌 인식 권한 낮추기 | implemented | `core/ontology_platform/evidence_conflict.py`, 컨트롤 루프 및 HIL 재개 검사 | 정본 Property 의미 규칙 교집합은 권한을 높이지 않는 상한을 재사용해 관련 ActionType만 보류합니다. 충돌 상태를 읽을 수 없으면 실행기 I/O 전에 안전하게 차단합니다. |
 | 룰 거버넌스 공존 | implemented | `runtime/control_loop.py`; `core/control_loop/_process.py`; 집중 거버넌스 안전 경로 테스트 | 배정 관찰과 exemption 보류는 전달 전에 발생합니다. MSCP 효과 관측을 활성화하거나 `ResponseOutcome`을 만들거나 프로파일 수명 주기를 변경하지 않습니다. |
-| 결정 맥락 변환 결과와 통제된 게이팅 | not-started | [차용한 메커니즘](#차용한-메커니즘); [활성화 및 런타임 동작](#활성화-및-런타임-동작) | 현재 런타임에는 프로파일 수명 주기, 측정된 준비 상태 구간 또는 권한 게이팅 통합이 없습니다. |
+| 불변 결정 맥락 변환 및 재현 | implemented | `core/mscp_profile/decision_context.py`; `decision_context_store.py`; `tests/core/mscp_profile/test_decision_context.py` (`20 passed`); MSCP 소유 테스트 (`140 passed`) | 소유자가 주입한 읽기 전용 관측 네 가지를 하나의 후보, 결정, 대상, 기준 시점에 한해서 결합합니다. 누락, 충돌, 불완전, 기한 경과, 미래 시각, 검증 실패 및 접근 불가 상태에서는 보류합니다. 내용 다이제스트와 최초 기록 시 원자적 감사 경계가 재시작 후에도 유지되며 새 권한을 만들지 않습니다. 실제 런타임 소유자 연결은 남아 있습니다. |
+| 통제된 프로파일 게이팅 | not-started | [활성화 및 런타임 동작](#활성화-및-런타임-동작); `core/mscp_profile/readiness.py`; `profile_lifecycle.py` | 준비 상태 및 기본 shadow 수명 주기 기본 요소는 있지만 측정된 구간이나 ControlLoop 게이팅 연결은 없습니다. |
 
 ### 구현 이력
 
@@ -53,10 +55,12 @@ MSCP 레벨을 구현하거나 전체 MSCP conformance를 충족한다고 주장
 | 2026-08-31 | implemented | 계약이 표현할 수 없는 관측에 대해 `ResponseOutcome` 변환 결과가 실패 시 차단하도록 만들었습니다. 효과 창을 벗어났거나 아직 기록되지 않은 관측은 이전에는 발송 내부에서 계약 검증 오류를 일으켜, 부족한 효과 근거가 shadow `hold` 근거가 아니라 발송 시점 오류가 되었습니다. 이제 변환 결과는 그런 관측을 버리고 `unscorable`로 기록하며, shadow 효과 감사 항목이 원본 값을 보존하고 계약 불변 조건 자체는 그대로입니다. | `current change`; `core/mscp_profile/response_outcome.py`; `tests/core/mscp_profile/test_response_outcome.py`; `tests/scenarios/test_v2026_07_replay.py::test_sre_full_loop_fails_closed_on_deficient_effect_evidence`의 기한 초과 사례는 변환 결과 수정을 되돌리면 계약 검증 오류로 실패합니다; `uv run pytest -q --no-cov services/core-control-plane/tests/scenarios services/core-control-plane/tests/core/mscp_profile services/core-control-plane/tests/contracts/test_response_outcome.py`가 통과했습니다. | 근거는 shadow에서 실행한 프로세스 내 고정 재생에서 나오므로, 배포 환경에 고정된 shadow 근거 관측 구간은 여전히 열려 있습니다. |
 | 2026-08-14 | in-progress | 이전 이력을 재구성하지 않고 구현 원장을 도입했으며 구현된 shadow 관측과 구현되지 않은 게이팅을 분리했습니다. | `current change`; 구현 범위 표의 프로파일 소스와 집중 테스트입니다. | 측정된 준비 상태 구간을 보존하고 아래의 범위가 제한된 결정 맥락 및 게이팅 작업을 구현합니다. |
 | 2026-08-23 | implemented | 불변 룰 거버넌스와 전달 후 선택적 MSCP 효과 관측 사이의 순서 경계를 기록했습니다. | `current change`; 집중 거버넌스 및 MSCP 조립 검사입니다. | 기존 측정 준비 상태 및 통제된 게이팅 작업은 변경되지 않습니다. |
+| 2026-09-27 | implemented | 범위가 제한되고 내용으로 주소를 정하는 네 소유자의 결정 맥락과 감사 항목을 함께 기록하는 최초 쓰기 및 재시작 후 재현을 추가했습니다. 누락, 충돌, 기한 경과, 검증 실패, 접근 불가 근거는 보류합니다. 이전에 결합된 상태 행을 바로잡았습니다. 기본 shadow 수명 주기 기본 요소는 이미 있지만 프로파일이 활성화된 것은 아닙니다. | `current change`; `core/mscp_profile/{decision_context,decision_context_store}.py`; `tests/core/mscp_profile/test_decision_context.py` (`20 passed`); `uv run pytest -q --no-cov services/core-control-plane/tests/core/mscp_profile` (`140 passed`); 집중 Ruff 및 mypy 검사입니다. | 실제 정본 읽기 경로를 런타임에 연결하고, 측정된 shadow 구간을 보존하고, 게이팅 통합은 별도로 통제해야 합니다. |
 
 ### 남은 작업
 
-- [ ] 권위 있는 온톨로지, 인시던트, 작업 흐름 및 감사 상태를 하나의 변경 불가능한 결정 맥락으로 변환한 다음 누락되거나 충돌하는 입력이 보류를 생성함을 입증합니다.
+- [x] 소유자가 제공한 온톨로지, 인시던트, 작업 흐름 및 감사 관측을 불변의 원자적 감사 기록을 가진 결정 맥락으로 변환합니다. 집중 테스트는 누락되거나 충돌하는 입력이 보류되고 재시도가 영속 기록을 바꾸지 못함을 입증합니다(`20 passed`).
+- [ ] 운영 단계에서 맥락을 사용할 수 있다고 주장하기 전에 실제 정본 소유자 읽기 경로 네 가지를 통제된 런타임에 연결하고 고정된 결정 증적을 보존합니다.
 - [ ] 프로파일 일치, 불일치, 보류, 감사 실패 및 변경되지 않은 실행기 결과를 측정하는 고정된 shadow 근거 구간을 보존합니다.
 - [ ] 통제된 프로파일 수명 주기를 추가하고 집중 테스트가 롤백, 재현 및 변경되지 않은 risk, 승인, 실행, 감사 소유권을 입증한 뒤에만 권한을 높이지 않는 상한을 연결합니다.
 
@@ -81,11 +85,24 @@ vocabulary를 계속 사용합니다.
 | 효과 검증 | 수준 3 prediction gating | 예상 메트릭 범위를 독립적으로 관찰한 상관관계 및 시간 제한 값과 비교 | 선택적 shadow 런타임 배선 및 `ResponseOutcome` 변환 결과 구현됨 |
 | Cycle 가드 | 수준 3 meta-escalation, oscillation 및 cognitive 예산 | 호출자가 소유한 cycle, 경과 시간, 비용, 롤백 또는 sign-change 한도에 도달하면 보류 | Pure 정책 구현, 런타임 배선 연기 |
 | 런타임 무결성 | 수준 3 신원 continuity | 사전 해시된 런타임 컴포넌트의 정본 매니페스트 비교, persona 또는 변경 가능한 신원 모델 없음 | Pure 정책 구현, 런타임 배선 연기 |
-| 결정 맥락 | 수준 2 persistent 세계 모델 | 새로운 system of 기록을 만들지 않고 권위 있는 온톨로지, 인시던트, 작업 흐름 및 감사 상태를 변환 결과 | 계획됨 |
+| 결정 맥락 | 수준 2 영속 세계 모델 | 새 정본 기록을 만들지 않고 소유자가 제공한 온톨로지, 인시던트, 작업 흐름 및 감사 관측을 변환 | 불변 변환 결과 및 재시작 가능한 기록기 구현; 운영 소유자 연결은 미완료 |
 
 MSCP에 게시된 수치 임계값은 프로파일에 복사하지 않습니다. FDAI 호출자는 통제된 구성
 또는 ActionType 계약으로 한도를 제공하고 승격 근거에 사용하는 동일한 고정된 시나리오
 집합에서 검증합니다.
+
+결정 맥락 변환기는 하나의 후보, 결정, 대상 다이제스트 및 기준 시점에 대해 온톨로지,
+인시던트, 작업 흐름, 감사 소유자가 제공하는 읽기 전용 상태 관측 네 가지를 사용합니다.
+상태 이름, 소유자 개정 번호, 출처 다이제스트, 관측 및 기록 시각만 범위를 제한해 보존하며
+원본 내용이나 새로운 정본 상태를 만들지 않습니다. 서로 다른 소유자는 같은 출처
+다이제스트를 재사용할 수 없습니다. 관측이 누락되거나 불완전하거나 기한이
+지났거나 미래 시각에 있거나 서로 일치하지 않거나 충돌할 때, 감사 연쇄를 검증하지 못했을 때,
+또는 소유자에 접근할 수 없을 때는 보류 결과를 반환합니다. 결과 맥락은 내용으로 주소를
+정하며, 선택적 상태 저장소 기록기는 최초 불변 기록과 함께 민감 정보를 제외한 감사 항목
+하나를 원자적으로 추가합니다. 재시작 후에도 재현 결과는 이전 결정의 다이제스트와 일치해야
+하며 이전 기록을 대체할 수 없습니다. 이는 shadow 전용 근거 변환 결과입니다. 완전한 맥락이나
+영속 기록도 프로파일을 활성화하거나 실행을 허가하지 않습니다. 운영 단계의 주장을 하려면
+런타임 소유자가 실제 정본 읽기 경로를 연결해야 합니다.
 
 ## 권한 경계
 
@@ -238,6 +255,8 @@ mismatch는 dispatch 후 복구를 요청합니다. `gating`의 모든 실패는
 - 재시작 안전 기본 shadow 수명 주기, 정확한 준비 상태/검토 결속, 단일 성공 compare-and-set
   전이, hash-chain 감사 검증 및 런타임 활성화 없는 즉시 demotion
 - 전체 실패 사유 라우팅, 1회 요청 상한, dispatch 후 hold 또는 복구 및 필수 gating demotion
+- 소유자가 주입한 네 출처의 결정 결합, 실패 시 보류, 감사 항목과 함께 기록되는 최초 원자적
+  쓰기, 동시 충돌 거부 및 런타임 활성화 없는 다이제스트 검증 재시작 후 재현
 
 v1 프로파일은 선택적 shadow 관측으로만 연결됩니다. 강제 적용 결정 경로에는 연결되지
 않았습니다. 향후 gating 변경은 어떤 프로파일 결과도 기존 risk 결정을 높이지 않음을

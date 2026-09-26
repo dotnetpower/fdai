@@ -392,6 +392,10 @@ The PostgreSQL evidence provider follows these boundaries:
   purgeable before the window elapses.
 - Audit data is customer-agnostic in this repo; real environment records live only in a fork's
   runtime store, never committed here.
+- A [shadow-only MSCP decision context](mscp-operational-profile.md#adopted-mechanisms) records
+  its content digest with the first immutable state write and one sanitized audit entry. Missing or
+  conflicting owner observations hold; a replay cannot replace that record. This projection does
+  not establish approval, execution, or operational evidence without authoritative runtime readers.
 
 ## Threat Model (STRIDE)
 
