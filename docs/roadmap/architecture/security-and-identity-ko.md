@@ -1,8 +1,8 @@
 ---
 title: 보안과 아이덴티티
 translation_of: security-and-identity.md
-translation_source_sha: 464805e18a4627c64fafe8e3704f273601a15f60
-translation_revised: 2026-09-22
+translation_source_sha: 9d73d3d1d593dde12ee3ca4d7051282dd0cfdd72
+translation_revised: 2026-09-27
 ---
 
 # 보안과 아이덴티티
@@ -358,6 +358,8 @@ PostgreSQL 근거 공급자는 다음 경계를 따릅니다.
   정확한 버전, 근거 구간, 롤백 대상이 필요합니다. 불변식 위반 시 정책별 kill
   전환이 engage됩니다. [컨텍스트 선택 정책](../decisioning/context-selection-policy-ko.md)을
   참고하세요.
+  Core 종료 시 진행 중인 비교 평가에 5초를 허용한 뒤 남은 작업을 취소하고 상태 저장소를
+  닫습니다. 중단된 비교는 승격 근거가 될 수 없습니다.
 
 ## 사람 승인 무결성
 

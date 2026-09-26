@@ -31,7 +31,7 @@ The command reads existing Git-common-dir state and process metadata. It does no
 audit log, infer session ownership after a commit, or convert an unavailable diagnostic into a
 successful result.
 Core bootstrap retains the existing `runtime_settings_service_from_env` test seam while production startup reuses its runtime-owned `StateStore` for one settings snapshot. This compatibility path changes no diagnostic socket, execution venue, provider identity, or deployment authority.
-Consumer startup also binds the [context-selection shadow runner](../decisioning/context-selection-policy.md#shadow-evaluation-and-evidence) to that existing store and drains pending comparisons before closing it. This changes neither the developer diagnostic surface nor the active prompt selection.
+Consumer startup also binds the [context-selection shadow runner](../decisioning/context-selection-policy.md#shadow-evaluation-and-evidence) to that existing store and gives pending comparisons five seconds to finish before cancelling them and closing the store. This changes neither the developer diagnostic surface nor the active prompt selection.
 
 Long-running workspace supervisors receive every required endpoint and private-file path from their
 committed VS Code task. The Conversation Assurance supervisor task passes the standard loopback

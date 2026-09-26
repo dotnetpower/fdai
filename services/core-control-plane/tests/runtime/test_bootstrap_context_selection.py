@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from types import SimpleNamespace
 from typing import Any
 
@@ -11,11 +12,11 @@ from fdai.runtime import bootstrap
 from fdai.shared.providers.testing.state_store import InMemoryStateStore
 
 
-@pytest.mark.parametrize("drain_fails", [False, True])
+@pytest.mark.parametrize("drain_outcome", ["complete", "fail", "timeout"])
 async def test_consumer_bootstrap_binds_and_drains_context_shadow(
     container: Container,
     monkeypatch: pytest.MonkeyPatch,
-    drain_fails: bool,
+    drain_outcome: str,
 ) -> None:
     store = InMemoryStateStore()
     observed: list[str] = []
@@ -46,8 +47,10 @@ async def test_consumer_bootstrap_binds_and_drains_context_shadow(
 
         async def _drain() -> None:
             observed.append("drain")
-            if drain_fails:
+            if drain_outcome == "fail":
                 raise RuntimeError("drain failed")
+            if drain_outcome == "timeout":
+                await asyncio.Event().wait()
 
         monkeypatch.setattr(runner, "drain", _drain)
         raise RuntimeError("stop after production composition")
@@ -70,10 +73,12 @@ async def test_consumer_bootstrap_binds_and_drains_context_shadow(
     monkeypatch.setattr(bootstrap, "_attach_runtime_knowledge_source", lambda bound: bound)
     monkeypatch.setattr(bootstrap, "build_runtime_license_authority", lambda **_: object())
     monkeypatch.setattr(bootstrap, "build_core_runtime", _build_core_runtime)
+    if drain_outcome == "timeout":
+        monkeypatch.setattr(bootstrap, "_CONTEXT_SHADOW_SHUTDOWN_TIMEOUT_SECONDS", 0.01)
 
     with pytest.raises(
         RuntimeError,
-        match="drain failed" if drain_fails else "stop after production composition",
+        match="drain failed" if drain_outcome == "fail" else "stop after production composition",
     ):
         await bootstrap._run()
 

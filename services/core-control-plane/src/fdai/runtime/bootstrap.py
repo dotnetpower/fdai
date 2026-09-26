@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import os
 from collections.abc import Mapping
@@ -80,6 +81,7 @@ from fdai.shared.config.runtime_flags import pantheon_start_enabled
 from fdai.shared.providers.state_store import StateStore
 
 _LOGGER = logging.getLogger("fdai.startup")
+_CONTEXT_SHADOW_SHUTDOWN_TIMEOUT_SECONDS = 5.0
 __all__ = [
     "_RUNTIME_LOGICAL_TOPICS",
     "_run",
@@ -235,7 +237,13 @@ async def _run(*, runtime_scope_receipt_digest: str | None = None) -> int:
     finally:
         try:
             if container.context_selection_shadow_runner is not None:
-                await container.context_selection_shadow_runner.drain()
+                try:
+                    await asyncio.wait_for(
+                        container.context_selection_shadow_runner.drain(),
+                        timeout=_CONTEXT_SHADOW_SHUTDOWN_TIMEOUT_SECONDS,
+                    )
+                except TimeoutError:
+                    _LOGGER.warning("context_selection_shadow_shutdown_timeout")
         finally:
             await resources.close()
 
