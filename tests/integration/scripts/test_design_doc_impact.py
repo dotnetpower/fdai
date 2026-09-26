@@ -2,8 +2,10 @@ from __future__ import annotations
 
 import importlib.util
 import json
+from copy import deepcopy
 from pathlib import Path
 from types import ModuleType
+from typing import Any
 
 import pytest
 
@@ -305,3 +307,90 @@ def test_package_dependency_change_still_requires_design_doc(
     )
 
     assert not module.is_version_only_package_metadata("console/package.json", "base..head")
+
+
+def _service_suite_manifest() -> dict[str, Any]:
+    return {
+        "schema_version": 1,
+        "coverage": {"test_patterns": ["services/*/tests/**/*.py"]},
+        "services": [
+            {
+                "id": "operator-service",
+                "source_roots": ["services/operator-service"],
+                "test_groups": {
+                    "unit": [],
+                    "contract": [
+                        "services/operator-service/tests/test_operator_workflow_family.py"
+                    ],
+                    "integration": [],
+                    "smoke": [],
+                },
+            }
+        ],
+    }
+
+
+def test_additive_service_test_registration_needs_no_unrelated_design_docs(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    module = _load_module()
+    before = _service_suite_manifest()
+    after = deepcopy(before)
+    after["services"][0]["test_groups"]["contract"].append(
+        "services/operator-service/tests/test_rule_findings_summary_admission.py"
+    )
+    monkeypatch.setattr(
+        module,
+        "_git_json",
+        lambda revision, _path: before if revision == "HEAD" else after,
+    )
+    monkeypatch.setattr(
+        module,
+        "changed_paths",
+        lambda diff_range=None, *, cached=False: {"tests/integration/service-suites.json"},
+    )
+
+    assert module.is_test_registration_only("tests/integration/service-suites.json", cached=True)
+    assert module.is_test_registration_only(
+        "tests/integration/service-suites.json", diff_range="HEAD..commit"
+    )
+    assert module.main(["check-design-doc-impact.py", "--cached"]) == 0
+
+
+@pytest.mark.parametrize(
+    "change",
+    ["removed", "moved", "foreign", "duplicate", "coverage", "source-root", "no-addition"],
+)
+def test_service_suite_design_exemption_refuses_non_additive_changes(
+    monkeypatch: pytest.MonkeyPatch, change: str
+) -> None:
+    module = _load_module()
+    before = _service_suite_manifest()
+    after = deepcopy(before)
+    groups = after["services"][0]["test_groups"]
+    if change != "no-addition":
+        groups["contract"].append(
+            "services/operator-service/tests/test_rule_findings_summary_admission.py"
+        )
+    if change == "removed":
+        groups["contract"].clear()
+    elif change == "moved":
+        groups["unit"] = groups["contract"]
+        groups["contract"] = []
+    elif change == "foreign":
+        groups["contract"].append("services/core-control-plane/tests/test_new.py")
+    elif change == "duplicate":
+        groups["contract"].append(groups["contract"][-1])
+    elif change == "coverage":
+        after["coverage"]["test_patterns"].append("tests/**")
+    elif change == "source-root":
+        after["services"][0]["source_roots"] = ["services/other-service"]
+    monkeypatch.setattr(
+        module,
+        "_git_json",
+        lambda revision, _path: before if revision == "base" else after,
+    )
+
+    assert not module.is_test_registration_only(
+        "tests/integration/service-suites.json", diff_range="base..head"
+    )

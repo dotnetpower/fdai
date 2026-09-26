@@ -28,6 +28,8 @@ DERIVED_OUTPUT_PATHS = frozenset(
         "services/system-knowledge-service/src/fdai_system_knowledge_service/data/catalog.json",
     }
 )
+SERVICE_SUITES_PATH = "tests/integration/service-suites.json"
+SERVICE_TEST_GROUPS = frozenset({"unit", "contract", "integration", "smoke"})
 
 
 def _git_paths(args: list[str]) -> set[str]:
@@ -107,6 +109,71 @@ def is_version_only_package_metadata(path: str, diff_range: str) -> bool:
         and before_version != after_version
         and before_without_version == after_without_version
     )
+
+
+def is_test_registration_only(
+    path: str, *, diff_range: str | None = None, cached: bool = False
+) -> bool:
+    """Exclude only additive service-local test selections from design impact."""
+    if path != SERVICE_SUITES_PATH:
+        return False
+    before_ref = diff_range.split("..", 1)[0] if diff_range else "HEAD"
+    after_ref = diff_range.rsplit("..", 1)[-1] if diff_range else ""
+    before = _git_json(before_ref, path)
+    if cached or diff_range:
+        after = _git_json(after_ref, path)
+    else:
+        try:
+            value = json.loads((REPO_ROOT / path).read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            return False
+        after = value if isinstance(value, dict) else None
+    if before is None or after is None:
+        return False
+    before_services = before.get("services")
+    after_services = after.get("services")
+    if not isinstance(before_services, list) or not isinstance(after_services, list):
+        return False
+    before_other = {key: value for key, value in before.items() if key != "services"}
+    after_other = {key: value for key, value in after.items() if key != "services"}
+    if before_other != after_other or len(before_services) != len(after_services):
+        return False
+
+    added = False
+    for previous, current in zip(before_services, after_services, strict=True):
+        if not isinstance(previous, dict) or not isinstance(current, dict):
+            return False
+        old_groups = previous.get("test_groups")
+        new_groups = current.get("test_groups")
+        if not isinstance(old_groups, dict) or not isinstance(new_groups, dict):
+            return False
+        if set(old_groups) != SERVICE_TEST_GROUPS or set(new_groups) != SERVICE_TEST_GROUPS:
+            return False
+        if {key: value for key, value in previous.items() if key != "test_groups"} != {
+            key: value for key, value in current.items() if key != "test_groups"
+        }:
+            return False
+        roots = previous.get("source_roots")
+        if not isinstance(roots, list) or len(roots) != 1 or not isinstance(roots[0], str):
+            return False
+        test_prefix = f"{roots[0]}/tests/"
+        for group in SERVICE_TEST_GROUPS:
+            old_paths, new_paths = old_groups[group], new_groups[group]
+            if not isinstance(old_paths, list) or not isinstance(new_paths, list):
+                return False
+            if (
+                not all(isinstance(item, str) for item in old_paths + new_paths)
+                or len(new_paths) != len(set(new_paths))
+                or [item for item in new_paths if item in old_paths] != old_paths
+            ):
+                return False
+            additions = [item for item in new_paths if item not in old_paths]
+            if any(
+                not item.startswith(test_prefix) or not item.endswith(".py") for item in additions
+            ):
+                return False
+            added = added or bool(additions)
+    return added
 
 
 def _matches(path: str, pattern: str) -> bool:
@@ -221,8 +288,20 @@ def main(argv: list[str]) -> int:
         argument if argument != "--cached" else None,
         cached=argument == "--cached",
     )
-    if argument is not None and argument != "--cached":
-        paths = {path for path in paths if not is_version_only_package_metadata(path, argument)}
+    paths = {
+        path
+        for path in paths
+        if not is_test_registration_only(
+            path,
+            diff_range=argument if argument != "--cached" else None,
+            cached=argument == "--cached",
+        )
+        and not (
+            argument is not None
+            and argument != "--cached"
+            and is_version_only_package_metadata(path, argument)
+        )
+    }
     manifest = json.loads(MANIFEST_PATH.read_text(encoding="utf-8"))
     failures = missing_doc_updates(paths, manifest)
     if failures:
