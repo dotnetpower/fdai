@@ -57,12 +57,14 @@ Category-backed language groups are a separate query aid, not ResourceClass memb
 
 The canonical release also declares `ControlObjective`, `RuleObjectiveBinding`, and
 `EquivalenceValidationReceipt`, with `objective_bound_by`, `binding_targets_rule`, and
-`binding_validated_by` relationships. Catalog loaders verify exact objective, Rule, policy
-implementation, and required-evidence signatures before accepting a binding. These declarations
-and candidate records are release vocabulary only: the current startup projector does not
-materialize them into the runtime subgraph, and no semantic query, binding, or receipt grants
-policy, promotion, approval, or execution authority. Deterministic equivalence execution and
-reviewed receipt issuance remain separate delivery work.
+`binding_validated_by` relationships. Startup projects the catalog's objective and exact Rule
+binding records as read-only instances. Catalog loaders check the objective, Rule, policy
+implementation, and required-evidence signatures before accepting a binding. An optional
+equivalence receipt is projected only when its exact Rule pins pass validation; a binding may
+reference it only after independent review. The store pins each projected declaration to its
+active release. The shipped binding remains a candidate, and the shipped catalog contains no
+reviewed equivalence receipt. None of these records grants policy, promotion, approval, or
+execution authority. Reviewed receipt issuance remains separate delivery work.
 
 This projection makes catalog relationships queryable but doesn't change their authority. Git
 catalog-as-code remains authoritative, and the instance graph remains a read model. If OPA or the

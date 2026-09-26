@@ -1,8 +1,8 @@
 ---
 title: 온톨로지 구조 모델
 translation_of: ontology-structural-model.md
-translation_source_sha: 831607c769027bd7c1777cfe117137625825c6f3
-translation_revised: 2026-09-22
+translation_source_sha: 9f3500f9a0bdcd2587846b7221a98c92af75de41
+translation_revised: 2026-09-27
 ---
 # 온톨로지 구조 모델
 
@@ -60,6 +60,9 @@ LinkType을 만들지 않으며 내용 신원은 Resource UID나 관계 신원�
 Operator 온톨로지 변환 결과와 역할 선택은 이제 목적별 운영 계열 어댑터가 소유하고, Rule,
 모범 사례, CAF, MCSB 및 WARA 카탈로그 렌더링은 각각 별도의 순수 변환 소유자가 담당합니다.
 이 소유권 분리는 선언 신원, 관계 방향, 변환 리비전, 근거 승인 또는 권한을 바꾸지 않습니다.
+카탈로그 소유 목표 바인딩 변환에는 다른 카탈로그 인스턴스와 같은 정확한 release 객체와 방향이
+있는 링크 검증을 적용합니다. 후보 바인딩은 검증된 목표 하나와 정확한 Rule 버전 하나를
+지정하며, 그래프 링크가 평가 결과나 권한으로 바뀌지 않습니다.
 규칙별 결과 조회는 같은 리비전의 규칙 카탈로그에서 요청한 식별자를 검증합니다. 결과 프로바이더가
 연결되지 않았으면 카탈로그에 있는 규칙에 대해 `evaluated: false`와 빈 결과 목록을 반환합니다.
 요약 개수에서 Resource 식별자나 결과 세부 정보를 도출하지 않습니다.

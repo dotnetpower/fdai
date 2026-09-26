@@ -25,11 +25,20 @@ from fdai.core.ontology_platform.diagnostic_projection import (
 from fdai.core.ontology_platform.framework_projection import (
     build_framework_catalog_projection,
 )
+from fdai.core.ontology_platform.objective_binding_projection import (
+    build_objective_binding_projection,
+)
 from fdai.rule_catalog.schema.control_objective import load_control_objective_catalog
+from fdai.rule_catalog.schema.equivalence_validation import (
+    EquivalenceReceiptState,
+    load_equivalence_validation_catalog,
+)
 from fdai.rule_catalog.schema.framework_catalog import load_framework_catalog
 from fdai.rule_catalog.schema.rego_semantics import load_rego_semantics
 from fdai.rule_catalog.schema.resource_class import load_resource_class_registry_from_mapping
 from fdai.rule_catalog.schema.resource_type import load_resource_type_registry_from_mapping
+from fdai.rule_catalog.schema.rule import rule_content_hash
+from fdai.rule_catalog.schema.rule_objective_binding import load_rule_objective_binding_catalog
 from fdai.rule_catalog.schema.signal_type import load_signal_type_registry_from_mapping
 from fdai.rule_catalog.schema.wara_assessment import load_wara_assessment_catalog
 from fdai.runtime.configuration import _resolve_catalog_root
@@ -142,6 +151,29 @@ async def project_catalog_ontology(
         resource_type_ids=frozenset(item.id for item in resource_types),
         property_refs=property_refs,
     )
+    rule_digests = {
+        f"{rule.id}@{rule.version}": rule_content_hash(rule) for rule in control_loop.rules
+    }
+    receipts = load_equivalence_validation_catalog(
+        catalog_root / "equivalence-validation-receipts",
+        rule_digests=rule_digests,
+    )
+    bindings = load_rule_objective_binding_catalog(
+        catalog_root / "rule-objective-bindings",
+        objective_digests={objective.ref: objective.content_digest for objective in objectives},
+        rule_digests=rule_digests,
+        rule_implementation_digests={
+            f"{rule.id}@{rule.version}": (
+                semantics[rule.check_logic.reference].normalized_semantic_digest
+            )
+            for rule in control_loop.rules
+        },
+        evidence_refs=property_refs,
+        equivalence_receipt_digests={receipt.ref: receipt.content_digest for receipt in receipts},
+        reviewed_equivalence_receipt_refs=frozenset(
+            receipt.ref for receipt in receipts if receipt.state is EquivalenceReceiptState.REVIEWED
+        ),
+    )
     best_practices, _ = load_runtime_best_practice_bindings(catalog_root)
     frameworks = load_framework_catalog(
         catalog_root / "frameworks",
@@ -162,15 +194,29 @@ async def project_catalog_ontology(
         base_projection,
         load_diagnostic_catalog_projection(repo_root),
     )
-    await CatalogOntologyProjector(store).replace(projection)
-    framework_projection = build_framework_catalog_projection(
-        frameworks=frameworks,
-        objectives=objectives,
-        wara_assessment=wara_assessment,
+    framework_projection = merge_catalog_ontology_projections(
+        build_framework_catalog_projection(
+            frameworks=frameworks,
+            objectives=objectives,
+            wara_assessment=wara_assessment,
+        ),
+        build_objective_binding_projection(
+            objectives=objectives,
+            rules=control_loop.rules,
+            bindings=bindings,
+            receipts=receipts,
+        ),
     )
+    await CatalogOntologyProjector(store).replace(projection)
     await CatalogOntologyProjector(
         store,
-        owned_object_types=("ControlObjective", "Framework", "FrameworkControl"),
+        owned_object_types=(
+            "ControlObjective",
+            "Framework",
+            "FrameworkControl",
+            "RuleObjectiveBinding",
+            "EquivalenceValidationReceipt",
+        ),
     ).replace(framework_projection)
     return CatalogOntologyProjectionResult(
         object_count=len(projection.objects) + len(framework_projection.objects),
