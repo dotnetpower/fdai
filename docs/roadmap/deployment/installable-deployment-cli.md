@@ -401,7 +401,7 @@ or registered GitHub runner.
 Running `fdaictl` without arguments displays the same overview as `fdaictl --help` and exits with
 code `0`. A command group by itself, such as `fdaictl provision`, displays that group's help.
 Help and the top-level `--version` alias do not sign in, inspect Azure, download artifacts, or
-create deployment state. The existing `version --output json` contract stays unchanged.
+create deployment state. The existing `version --output json` contract stays unchanged; its source-entrypoint regression uses a test-owned `UV_PROJECT_ENVIRONMENT` instead of the central validator's no-sync environment, which isolates parallel validation without changing the packaged entrypoint.
 
 The overview describes each command and gives a short sign-in, doctor, and deployment example.
 Leaf help explains the required artifact-source choice, defaults, units, output modes, and
