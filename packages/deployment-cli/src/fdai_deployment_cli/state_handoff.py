@@ -55,15 +55,23 @@ def compare_foundation_state(
         or plan.get("applyable") is not False
     ):
         raise ValueError("foundation handoff requires a complete non-errored no-change plan")
+    no_change_after: dict[str, dict[str, object]] = {}
     for item in _array(plan.get("resource_changes", [])):
         resource_change = _object(item)
         if "previous_address" in resource_change:
             raise ValueError("foundation handoff plan contains an address move")
-        _no_change(resource_change.get("change"))
-    if _array(plan.get("resource_drift", [])) or _array(plan.get("deferred_changes", [])):
-        raise ValueError("foundation handoff plan contains drift or deferred changes")
-    for change in _object(plan.get("output_changes", {})).values():
-        _no_change(change)
+        address = _text(resource_change.get("address"))
+        if address in no_change_after:
+            raise ValueError("foundation handoff plan contains duplicate resource changes")
+        resource_delta = _object(resource_change.get("change"))
+        _no_change(resource_delta)
+        no_change_after[address] = _object(resource_delta["after"])
+    for item in _array(plan.get("resource_drift", [])):
+        _refresh_only_drift(_object(item), no_change_after)
+    if _array(plan.get("deferred_changes", [])):
+        raise ValueError("foundation handoff plan contains deferred changes")
+    for output_change in _object(plan.get("output_changes", {})).values():
+        _no_change(output_change)
     for check in _array(plan.get("checks", [])):
         if _object(check).get("status") != "pass":
             raise ValueError("foundation handoff plan checks must pass")
@@ -120,6 +128,25 @@ def _no_change(value: object) -> None:
         or change.get("before") != change.get("after")
     ):
         raise ValueError("foundation handoff plan contains a change")
+
+
+def _refresh_only_drift(
+    drift: dict[str, object], no_change_after: dict[str, dict[str, object]]
+) -> None:
+    if "previous_address" in drift:
+        raise ValueError("foundation handoff drift contains an address move")
+    address = _text(drift.get("address"))
+    change = _object(drift.get("change"))
+    before = _object(change.get("before"))
+    after = _object(change.get("after"))
+    if (
+        change.get("actions") != ["update"]
+        or change.get("importing") is not None
+        or before == after
+        or before.get("id") != after.get("id")
+        or no_change_after.get(address) != after
+    ):
+        raise ValueError("foundation handoff plan contains unclosed resource drift")
 
 
 def _add_identity(identities: dict[str, str], address: str, resource_id: object) -> None:
