@@ -66,7 +66,12 @@ class SlackHilAdapter(HilChannel):
         self._lock = asyncio.Lock()
         self._attempts: dict[str, tuple[str, HilApprovalReceipt | None]] = {}
 
-    async def send(self, request: HilApprovalRequest) -> HilApprovalReceipt:
+    @property
+    def channel_id(self) -> str:
+        return self._config.channel_id
+
+    def render_payload(self, request: HilApprovalRequest) -> bytes:
+        """Return exactly the sanitized bytes sent to the fixed Slack endpoint."""
         context = {
             "approval_id": request.approval_id,
             "correlation_id": request.correlation_id,
@@ -105,9 +110,17 @@ class SlackHilAdapter(HilChannel):
         ).encode("utf-8")
         if len(payload) > _MAX_REQUEST_BYTES:
             raise HilChannelError("Slack approval message exceeds the size limit", approval_id="")
+        return payload
+
+    async def send(self, request: HilApprovalRequest) -> HilApprovalReceipt:
+        payload = self.render_payload(request)
         fingerprint = hashlib.sha256(payload).hexdigest()
+        dispatch_id = request.metadata.get("approval_dispatch_id", "initial")
+        if not isinstance(dispatch_id, str) or not _OPAQUE.fullmatch(dispatch_id):
+            raise HilChannelError("Slack approval dispatch identity is invalid", approval_id="")
+        attempt_id = f"{request.approval_id}:{dispatch_id}"
         async with self._lock:
-            prior = self._attempts.get(request.approval_id)
+            prior = self._attempts.get(attempt_id)
             if prior is not None:
                 if prior[0] != fingerprint:
                     raise HilChannelError(
@@ -125,7 +138,7 @@ class SlackHilAdapter(HilChannel):
                     "Slack approval replay capacity reached; reconcile before retry",
                     approval_id=request.approval_id,
                 )
-            self._attempts[request.approval_id] = (fingerprint, None)
+            self._attempts[attempt_id] = (fingerprint, None)
 
         try:
             async with self._http.stream(
@@ -188,7 +201,7 @@ class SlackHilAdapter(HilChannel):
             sent_at=datetime.now(tz=UTC),
         )
         async with self._lock:
-            self._attempts[request.approval_id] = (fingerprint, receipt)
+            self._attempts[attempt_id] = (fingerprint, receipt)
         return receipt
 
     async def poll(self, receipt: HilApprovalReceipt) -> HilResponse:
