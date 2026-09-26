@@ -1,0 +1,93 @@
+{
+  "schema_version": "1.0.0",
+  "artifact_kind": "semantic_assurance_corpus_manifest",
+  "evidence_kind": "repository_source_only",
+  "operational_validation": false,
+  "source_digests": {
+    "eval/golden-dataset/coverage.json": "sha256:daaf037ba6f489612e3488030a9764d576f43d4c67e178640ba5e3a10c8fcd77",
+    "eval/golden-dataset/expectations.json": "sha256:5617de665fab4aec0bd038a8a1809d9a662f6cb51c8a0221036997807eb6c97c",
+    "eval/golden-dataset/questions.source.yaml": "sha256:9ba72aaf5858c29f6bb29deada732f1bd613791c18fb2280ff66b0b311e2ee2e",
+    "eval/golden-dataset/questions.en.json": "sha256:efbc1d9718d9541be530fb258933d6fc05ffe3b805e9c0454ce9ddb2f5dfb44b",
+    "eval/golden-dataset/questions.ko.json": "sha256:4ebf27ff6593c2ac9752a72ebaead5762952ef40d63a2dd97e175f440285d110",
+    "eval/golden-dataset/semantic-judgment-assurance.json": "sha256:29f0e8f7f76cdf5b8be1145d342c06a4c22ad179bc6d25fd664c8a2cfb4fb8ce",
+    "eval/golden-dataset/azure-incident-intent-golden.yaml": "sha256:8ffa63d40649926dfd04d5d253e7f019163c69bf14f1fabd7d1b7f6281a5202e"
+  },
+  "partitions": [
+    {
+      "kind": "golden",
+      "case_count": 560,
+      "case_ids_digest": "sha256:ce24bf3591e96890e4cde81abac4ef493cb2fc05ed25651b20ba8a40dc80a9ef",
+      "locales": {
+        "en": 280,
+        "ko": 280
+      },
+      "evidence_postures": {
+        "conflicting": 48,
+        "fresh": 336,
+        "incomplete": 48,
+        "stale": 64,
+        "unavailable": 64
+      },
+      "wording_styles": {
+        "audit_oriented": 70,
+        "concise": 70,
+        "contrastive": 70,
+        "direct": 70,
+        "evidence_first": 70,
+        "investigative": 70,
+        "operator_colloquial": 70,
+        "uncertainty_aware": 70
+      },
+      "source_digest": "sha256:9ba72aaf5858c29f6bb29deada732f1bd613791c18fb2280ff66b0b311e2ee2e"
+    },
+    {
+      "kind": "declarations",
+      "case_count": 15320,
+      "case_ids_digest": "sha256:4e38f0eb080f96e8ae1aa2e4e64075753a8467eceaba4a06932d5968ed39fe2d",
+      "locales": {
+        "en": 7660,
+        "ko": 7660
+      },
+      "evidence_postures": {
+        "conflicting": 3064,
+        "fresh": 3064,
+        "incomplete": 3064,
+        "stale": 3064,
+        "unavailable": 3064
+      },
+      "exclusion_count": 0,
+      "excluded_case_ids_digest": "sha256:4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "grammar_digests": {
+        "conflicting": "sha256:6e0d9acf63be1b84de2806f219891a57f7ef15f62b95d7d9bcbbe9c8324a9744",
+        "fresh": "sha256:f2bfda426efeb56bd3309677da5c41419bfb57e576e3b3c1207bb710d478ef85",
+        "incomplete": "sha256:18ccf244833fbfd1cfe8961371159784f5c461f468b51a99cc44a3e3814aa9f3",
+        "stale": "sha256:3e1aeb1af4ed4a4837969550d1c3618e3e47670e1cbf704280578671612ad0c1",
+        "unavailable": "sha256:e44c2aacfd4bee7848ff54dc6fa405928cd15c8536948786f05db17dbe7a74c7"
+      },
+      "ontology_release_digest": "sha256:3368e5739076772a5ce6a119187d4009f1de74e2276ae7648aa2da1f9fd3438e",
+      "principal_manifest_digest": "sha256:c8b91d8bb14f9f0a017d70cc04079b181d8dd2a84c3bed92a4eabd4236952be2",
+      "readable_declaration_count": 315
+    },
+    {
+      "kind": "semantic_judgment",
+      "case_count": 19,
+      "case_ids_digest": "sha256:e398cbc0f7727c5ede3e488313820b1e2ec17b02b04f63ed28bdb314d19baa2e",
+      "locales": {
+        "en": 10,
+        "ko": 5,
+        "mixed": 4
+      }
+    },
+    {
+      "kind": "incident_intent",
+      "case_count": 25,
+      "case_ids_digest": "sha256:39e87cae484d93b2249d3a7506d3094f43f6ca0d4859e7da27a8ebec7c7b6b4b",
+      "locales": {
+        "unclassified": 25
+      }
+    }
+  ],
+  "total_case_count": 15924,
+  "total_exclusion_count": 0,
+  "manifest_digest": "sha256:b0907a9611e460d8a2b7132d91da27bc96c863a9fc43fa7877aac470d67e896f"
+}

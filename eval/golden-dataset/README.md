@@ -21,6 +21,7 @@ facts.
 | `expectations.schema.json` | Strict JSON Schema for the locale-neutral oracle. |
 | `coverage.schema.json` | Strict JSON Schema for perspective and assurance coverage. |
 | `questions.schema.json` | Strict JSON Schema for one localized question file. |
+| `corpus-manifest.json` | Generated content-free case denominator and source identities for repository-only semantic assurance. |
 | `semantic-judgment-assurance.json` | Frozen #252 edge overlay, lexical baseline, structured-boundary replay, and acceptance thresholds. |
 | `semantic-judgment-assurance.schema.json` | Strict schema for the #252 edge overlay and metric inputs. |
 | [`question-bank/`](./question-bank/) | Federated bilingual inventory and generated human review catalog spanning Golden, manual, Console, and candidate questions. |
@@ -30,6 +31,19 @@ Do not hand-edit `questions.en.json` or `questions.ko.json`. Generate both from 
 ```bash
 uv run python scripts/automation/build_golden_dataset.py
 ```
+
+Regenerate the source-bound corpus manifest after Golden, ontology declaration, or reviewed
+regression-overlay changes:
+
+```bash
+uv run python scripts/automation/build_semantic_assurance_corpus.py
+uv run python scripts/automation/build_semantic_assurance_corpus.py --check
+```
+
+The generator partitions the Reader-scoped operational declaration universe by evidence posture
+to respect its per-generation safety bound without sampling. The manifest counts excluded
+declarations separately and stores no question text. It is a source inventory, not a model run,
+runtime result, or certification receipt.
 
 ## Dataset shape
 
