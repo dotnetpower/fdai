@@ -7,6 +7,7 @@ import json
 import os
 import shutil
 import signal
+import stat
 import subprocess
 import sys
 import threading
@@ -225,6 +226,28 @@ def _registered_worktrees(paths: QueuePaths) -> set[Path]:
     }
 
 
+def _normalize_tracked_file_modes(worktree: Path) -> None:
+    """Remove group/world write bits introduced by the validator service umask.
+
+    Git tracks only the executable bit. A service running with umask ``0002`` can therefore
+    materialize ordinary source files as ``0664`` and make source-authenticated policy readers
+    reject an otherwise exact checkout. Normalize only tracked regular files inside the owned
+    scratch worktree; preserve executable bits and skip symlinks.
+    """
+
+    tracked = git("ls-files", "-z", cwd=worktree).stdout.split("\0")
+    for relative in tracked:
+        if not relative:
+            continue
+        target = worktree / relative
+        details = target.lstat()
+        if not stat.S_ISREG(details.st_mode):
+            continue
+        safe_mode = stat.S_IMODE(details.st_mode) & ~0o022
+        if safe_mode != stat.S_IMODE(details.st_mode):
+            target.chmod(safe_mode)
+
+
 def _prepare_validation_worktree(paths: QueuePaths, head: str) -> Path:
     if paths.state_root.is_symlink() or paths.worktree.is_symlink():
         raise RuntimeError("validation state or scratch worktree path MUST NOT be a symbolic link")
@@ -251,6 +274,7 @@ def _prepare_validation_worktree(paths: QueuePaths, head: str) -> Path:
     else:
         git("reset", "--hard", head, cwd=paths.worktree)
     git("clean", "-ffdx", cwd=paths.worktree)
+    _normalize_tracked_file_modes(paths.worktree)
     return paths.worktree
 
 

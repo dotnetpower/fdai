@@ -8,6 +8,7 @@ import os
 import ssl
 import stat
 import subprocess
+import tempfile
 import threading
 from dataclasses import dataclass
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -326,8 +327,8 @@ def _certificate(host: str) -> tuple[int, int, bytes]:
     address = ipaddress.ip_address(host)
     if address.version != 4:
         raise ValueError("private relay host must be IPv4")
-    certificate_fd = os.memfd_create("fdai-relay-certificate", flags=os.MFD_CLOEXEC)
-    key_fd = os.memfd_create("fdai-relay-key", flags=os.MFD_CLOEXEC)
+    certificate_fd = _anonymous_file("fdai-relay-certificate")
+    key_fd = _anonymous_file("fdai-relay-key")
     os.fchmod(certificate_fd, 0o600)
     os.fchmod(key_fd, 0o600)
     try:
@@ -372,4 +373,25 @@ def _certificate(host: str) -> tuple[int, int, bytes]:
     except BaseException:
         os.close(certificate_fd)
         os.close(key_fd)
+        raise
+
+
+def _anonymous_file(name: str) -> int:
+    """Create one non-inheritable anonymous file descriptor.
+
+    Some portable CPython builds omit ``memfd_create`` even on Linux. The fallback creates
+    one mode-0600 file with ``O_EXCL`` semantics and unlinks it before returning, so
+    certificate and key bytes never remain addressable by a filesystem path.
+    """
+
+    memfd_create = getattr(os, "memfd_create", None)
+    if memfd_create is not None:
+        return int(memfd_create(name, flags=getattr(os, "MFD_CLOEXEC", 0)))
+    descriptor, path = tempfile.mkstemp(prefix=f"{name}-")
+    try:
+        os.unlink(path)
+        os.set_inheritable(descriptor, False)
+        return descriptor
+    except BaseException:
+        os.close(descriptor)
         raise
