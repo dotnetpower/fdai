@@ -2304,6 +2304,33 @@
       ]
     },
     {
+      "id": "slack-hil-actor-handoff",
+      "paths": [
+        "services/operator-service/src/fdai_operator_service/families/iam/slack_handoff.py",
+        "services/operator-service/tests/test_hil_slack_handoff.py",
+        "console/src/auth.ts",
+        "console/src/auth.test.ts",
+        "console/src/routes/hil-queue.tsx",
+        "console/src/routes/slack-approval-handoff.tsx",
+        "console/src/routes/slack-handoff-client.ts",
+        "console/src/routes/slack-handoff-client.test.ts",
+        "console/tests/e2e/approvals-sample.spec.ts"
+      ],
+      "must_read": [
+        ".github/instructions/app-shape.instructions.md",
+        "docs/roadmap/interfaces/user-rbac-and-identity.md",
+        "docs/roadmap/interfaces/operator-console-wire-contracts.md"
+      ],
+      "docs_update": [
+        "docs/roadmap/interfaces/user-rbac-and-identity.md",
+        "docs/roadmap/interfaces/operator-console-wire-contracts.md"
+      ],
+      "validate": [
+        "uv run pytest -q --no-cov services/operator-service/tests/test_hil_slack_handoff.py services/operator-service/tests/test_operator_iam_family.py",
+        "npm --prefix console test -- src/auth.test.ts src/routes/hil-queue.test.ts"
+      ]
+    },
+    {
       "id": "operator-surfaces",
       "paths": [
         "console/**",
@@ -2326,6 +2353,7 @@
         "docs/roadmap/interfaces/console-evidence-and-resilience.md"
       ],
       "docs_update_routes": [
+        "slack-hil-actor-handoff",
         "conversation-attachments",
         "human-report-lines",
         "aks-commerce-business-scenario"

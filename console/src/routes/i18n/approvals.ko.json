@@ -26,5 +26,14 @@
   "declineContact": "요청 취소",
   "contactRecording": "기록 중...",
   "contactQueued": "선택이 기록되었습니다. 메시지를 보내기 전에 승인 경로를 다시 확인합니다.",
-  "contactEmpty": "연락 동의를 기다리는 승인 요청이 없습니다."
+  "contactEmpty": "연락 동의를 기다리는 승인 요청이 없습니다.",
+  "slackTitle": "Slack 승인 계속하기",
+  "slackLoading": "Slack 인계 확인 중",
+  "slackUnavailable": "Slack 인계를 사용할 수 없습니다. Slack에서 새 승인 요청을 여세요.",
+  "slackRecorded": "결정이 기록되었습니다. 전달과 실제 효과는 별도로 확인합니다.",
+  "slackContext": "승인 {approval}: {decision}.",
+  "slackFreshness": "Slack에서 누른 뒤 Entra에 다시 로그인하세요. 기존 로그인으로는 이 결정을 승인할 수 없습니다.",
+  "slackReauthenticate": "Entra에 다시 로그인",
+  "slackRecord": "이 결정 기록",
+  "slackDismiss": "인계 닫기"
 }

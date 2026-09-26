@@ -26,5 +26,14 @@
   "declineContact": "Cancel request",
   "contactRecording": "Recording...",
   "contactQueued": "Your choice was recorded. The approval route will be rechecked before any message is sent.",
-  "contactEmpty": "No approval request is waiting for your contact consent."
+  "contactEmpty": "No approval request is waiting for your contact consent.",
+  "slackTitle": "Continue Slack approval",
+  "slackLoading": "Checking the Slack handoff",
+  "slackUnavailable": "The Slack handoff cannot be used. Open a new approval request in Slack.",
+  "slackRecorded": "Your decision was recorded. Delivery and effect are verified separately.",
+  "slackContext": "Approval {approval}: {decision}.",
+  "slackFreshness": "Sign in again with Entra after the Slack click. A cached session cannot authorize this decision.",
+  "slackReauthenticate": "Sign in again with Entra",
+  "slackRecord": "Record this decision",
+  "slackDismiss": "Dismiss handoff"
 }

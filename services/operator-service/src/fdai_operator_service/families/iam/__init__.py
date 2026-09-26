@@ -23,6 +23,7 @@ from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from typing import cast
 
+from fdai_operator_service.auth import OperatorAuthenticator
 from fdai_operator_service.families.conversation.handover_binding import (
     HandoverConversationBinder,
 )
@@ -58,7 +59,10 @@ from fdai_operator_service.families.iam.hil_callback import (
     make_hil_callback_route,
 )
 from fdai_operator_service.families.iam.hil_callback_audit import HilCallbackAuditWriter
-from fdai_operator_service.families.iam.hil_callback_authority import HilCallbackAuthority
+from fdai_operator_service.families.iam.hil_callback_authority import (
+    HilCallbackAuthority,
+    HilCallbackAuthorityConfig,
+)
 from fdai_operator_service.families.iam.hil_callback_context import HilCallbackContextReader
 from fdai_operator_service.families.iam.hil_operator_decision import (
     make_hil_operator_decision_route,
@@ -81,6 +85,10 @@ from fdai_operator_service.families.iam.scoped_duty_contracts import ScopedDutyO
 from fdai_operator_service.families.iam.settings import (
     make_model_settings_routes,
     make_runtime_settings_routes,
+)
+from fdai_operator_service.families.iam.slack_handoff import (
+    PostgresSlackHandoffStore,
+    make_slack_handoff_routes,
 )
 from fdai_operator_service.notification_receipt_ingress import NotificationReceiptIngress
 from fdai_operator_service.redaction import redact_projection
@@ -118,6 +126,11 @@ class IamFamilyBindings:
     hil_audit: HilCallbackAuditWriter | None = None
     hil_context: HilCallbackContextReader | None = None
     hil_teams_normalizer: TeamsHilCallbackNormalizer | None = None
+    slack_handoff_store: PostgresSlackHandoffStore | None = None
+    slack_signing_secret: str | None = None
+    slack_authority_config: HilCallbackAuthorityConfig | None = None
+    slack_authenticator: OperatorAuthenticator | None = None
+    slack_console_origin: str | None = None
     notification_receipt_ingress: NotificationReceiptIngress | None = None
     identity_provider: str = "entra"
     role_group_ids: dict[str, str] | None = None
@@ -181,6 +194,17 @@ def make_iam_family_routes(bindings: IamFamilyBindings) -> tuple[Route, ...]:
             outbox=bindings.hil_outbox,
             audit=bindings.hil_audit,
             context_reader=bindings.hil_context,
+        ),
+        *make_slack_handoff_routes(
+            store=bindings.slack_handoff_store,
+            signing_secret=bindings.slack_signing_secret,
+            config=bindings.slack_authority_config,
+            authenticator=bindings.slack_authenticator,
+            registry=bindings.hil_registry,
+            outbox=bindings.hil_outbox,
+            audit=bindings.hil_audit,
+            context_reader=bindings.hil_context,
+            console_origin=bindings.slack_console_origin,
         ),
         *make_report_line_contact_route(
             authorize=bindings.authorize,

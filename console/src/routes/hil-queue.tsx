@@ -1,5 +1,6 @@
 import { useEffect, useState } from "preact/hooks";
 import { isOptionalOperatorApiUnavailable, type OperatorApiClient } from "../api";
+import type { AuthContext } from "../auth";
 import {
   decideHilApproval,
   type HilDecisionReceipt,
@@ -20,6 +21,7 @@ import { currentRoute, replaceRouteState, routeHref } from "../router";
 import { formatConsoleTimestamp } from "../time-format";
 import { t } from "./i18n/approvals";
 import type { ConsoleDataMode } from "../console-data-mode";
+import { SlackApprovalHandoff } from "./slack-approval-handoff";
 import {
   identityForMutationIntent,
   type MutationIntentIdentity,
@@ -27,6 +29,7 @@ import {
 
 interface Props {
   readonly client: OperatorApiClient;
+  readonly auth: AuthContext;
   readonly dataMode: ConsoleDataMode;
 }
 
@@ -50,7 +53,7 @@ export async function loadHilQueueState(
   }
 }
 
-export function HilQueueRoute({ client, dataMode }: Props) {
+export function HilQueueRoute({ client, auth, dataMode }: Props) {
   const [query, setQuery] = useState(() => currentRoute().search.get("q") ?? "");
   const [serverQuery, setServerQuery] = useState(query.trim());
   const [state, setState] = useState<AsyncState<HilQueueData>>({
@@ -125,6 +128,7 @@ export function HilQueueRoute({ client, dataMode }: Props) {
           <StatusPill kind="neutral" label={t("approvals.requestOnly")} />
         }
       />
+      <SlackApprovalHandoff client={client} auth={auth} dataMode={dataMode} />
       {contactMessage !== null ? (
         <div class="state-block state-success" role="status">{contactMessage}</div>
       ) : null}
