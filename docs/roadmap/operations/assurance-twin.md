@@ -403,7 +403,7 @@ cloud SDK and no privileged identity.
 
 | Component | Responsibility |
 |-----------|----------------|
-| `projection` | Build immutable in-memory baselines and apply scratch diffs. Production `Inventory.full_snapshot()` + `delta()` maintenance is a target binding. |
+| `projection` | Build immutable in-memory baselines and apply scratch diffs. A read-only retained Inventory snapshot and bounded realtime Resource overlay can supply one fresh projection; runtime composition and relationship-aware maintenance remain target bindings. |
 | `query` | Verify and execute well-typed read-only queries with a deterministic pattern compiler. A model-backed compiler is a Protocol target. |
 | `review` | Publish precomputed findings through `IacReviewPublisher`. Change-signal evaluation and a production publisher are target bindings. |
 | `report` | assemble the `PostureAssessmentReport` from Findings |
@@ -412,6 +412,13 @@ cloud SDK and no privileged identity.
 | `trajectory_ledger` | Persist predicted trajectory episodes and atomically close only complete comparable outcomes through StateStore. |
 | `graph_closure` | Drain independent observations off-path, update challenger slices, and audit that active mutation and promotion did not occur. |
 | `posture_activity` | Build Heimdall's existing bounded posture activity and Forseti's separate private, authority-free review activity. The delivery recorder stages each with its retained record and Saga-attributed append-only audit; two supervised relays publish revision-bound envelopes. An injected trusted source is still required to compute findings. |
+
+`PostgresTwinInventorySource` loads the active observed, full-scope snapshot from the retained
+Inventory database in a repeatable-read transaction. It rejects stale, incomplete, or superseded
+coverage, limits baseline Resources and realtime deltas, and refuses pending relationship changes
+that the Resource-only scratch projection cannot represent. A second active-generation read fences
+promotion during acquisition. The source returns provenance with each immutable projection and
+reloads on every call; it is not yet injected into the production Twin query or posture writers.
 
 Target delivery adds one intent to the existing `chatops` adapter (question in, grounded answer
 out) and reuses the `gitops-pr` adapter for proposals and Checks API reviews. The current
