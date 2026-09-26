@@ -31,9 +31,10 @@ reports them all at once, up front.
 | Probe contracts, deterministic probes, analyzer, and report | implemented | `services/core-control-plane/src/fdai/core/deploy_preflight/`, `services/core-control-plane/src/fdai/shared/providers/feasibility_probe.py`, and focused deploy-preflight tests | Stable findings, fail-closed probe execution, verdicts, and shadow-versus-enforce behavior are tested. |
 | Read-only Azure probes and protected-plan evidence | implemented | `scripts/deployment/azure/run_live_preflight.py`, `.github/workflows/deploy-dev.yml`, and `tests/integration/scripts/test_run_live_preflight.py` | The protected runner invokes the standalone script, requires all four live categories, sanitizes evidence, and binds its digest to the plan. |
 | Terraform toggle, alternate-rendering fixture, and environment-profile primitives | implemented | `infra/modules/preflight-toggles/`; focused `terraform test -filter=tests/alternate_rendering.tftest.hcl`, `test_environment_profile.py`, and `test_reassembly_proposals.py` checks | The generic upstream root intentionally does not instantiate the fork-owned resource consumer. The durable profile refresh task is not composed. |
-| Check publishing primitive | implemented | `services/core-control-plane/src/fdai/core/deploy_preflight/check_publish.py` and `test_check_publish.py` | The pure report publisher and in-memory adapter are tested; there is no GitHub Checks adapter. |
+| Check publishing and sanitized GitHub adapter | implemented | `services/core-control-plane/src/fdai/core/deploy_preflight/check_publish.py`, `services/core-control-plane/src/fdai/delivery/github/preflight_checks.py`, and focused tests | The adapter posts a bounded status on an existing PR head without exposing scope, findings, evidence, or metadata. It is not yet bound to a live PR flow. |
 | Pre-publication verification gate | implemented | `services/core-control-plane/src/fdai/core/deploy_preflight/pre_publication_gate.py` and `test_pre_publication_gate.py` | The analyzer runs again before any remediation proposal is submitted; a blocking, stale, or scope-changed report withholds publication and submits nothing. |
-| Control-loop pre-PR gate and GitHub delivery | in-progress | The deterministic gate above plus the planned boundaries in this document | The gate exists as a pure primitive with focused tests. No live path invokes it before a remediation PR, and no GitHub Checks adapter publishes the result. |
+| PR delivery refresh wrapper | implemented | `services/core-control-plane/src/fdai/delivery/deploy_preflight/pr_publication.py` and `services/core-control-plane/tests/delivery/test_preflight_pr_publication.py` | An injected read-only refresh must bind the exact patch digest, trusted scope, complete probe categories, and current non-blocking report before the existing PR publisher is called. |
+| Control-loop pre-PR gate and GitHub delivery composition | in-progress | The deterministic gate and delivery adapters above | No live trigger or runtime binding supplies the exact-plan refresh, and no live path invokes the wrapper or posts a GitHub Check. |
 
 ### Implementation history
 
@@ -44,6 +45,7 @@ reports them all at once, up front.
 | 2026-09-26 | in-progress | Added the deterministic pre-publication gate: the analyzer is re-run on the accumulated overrides before any remediation proposal is submitted, and a blocking, stale, scope-changed, or escalated pass is lowered to human review with nothing submitted. | `current change`; `services/core-control-plane/src/fdai/core/deploy_preflight/pre_publication_gate.py`; `uv run pytest tests/core/deploy_preflight -q` passed 98 tests. | Compose the gate on the live control-loop path, add the durable profile refresh, and add the GitHub Checks publisher. |
 | 2026-09-26 | in-progress | Hardened the gate after review: a padded expected scope is normalized, a non-finite freshness window and a naive clock are rejected before any submission, and a hold record retains a bounded set of finding ids. | `current change`; `services/core-control-plane/tests/core/deploy_preflight/test_pre_publication_gate.py`; focused `uv run pytest tests/core/deploy_preflight -q` passed. | Unchanged: compose the gate on the live control-loop path, add the durable profile refresh, and add the GitHub Checks publisher. |
 | 2026-09-26 | in-progress | Closed the verdict coverage gap found in review: a warning-only report and a clean shadow report both publish a shadow-first proposal, and both paths are now asserted. | `current change`; `services/core-control-plane/tests/core/deploy_preflight/test_pre_publication_gate.py`; focused `uv run pytest tests/core/deploy_preflight -q` passed 105 tests. | Unchanged: compose the gate on the live control-loop path, add the durable profile refresh, and add the GitHub Checks publisher. |
+| 2026-09-26 | in-progress | Added a delivery-side pre-PR refresh wrapper and sanitized GitHub Checks adapter using existing provider seams, without granting either execution or approval authority. | `current change`; `services/core-control-plane/src/fdai/delivery/deploy_preflight/pr_publication.py`, `services/core-control-plane/src/fdai/delivery/github/preflight_checks.py`, and focused delivery tests (`uv run pytest -q --no-cov services/core-control-plane/tests/delivery/test_preflight_pr_publication.py services/core-control-plane/tests/delivery/test_github_preflight_checks.py`, 30 passed). | Compose a trusted live refresh and fence source-base drift, bind Checks after PR creation, carry governed toggle arguments, and add durable profile invalidation and operational evidence. |
 
 ### Remaining work
 
@@ -56,7 +58,14 @@ reports them all at once, up front.
   `tests/core/deploy_preflight/test_pre_publication_gate.py` prove that a withheld pass submits no
   proposal, so no PR opens on a blocked report.
 - [ ] Compose that gate on the live control-loop path so the executor's remediation PR is published only behind it, and retain the composed run evidence.
-- [ ] Publish the sanitized report through a GitHub Checks adapter and retain a focused contract test for redaction and failed delivery.
+- [x] Add a PR-publisher wrapper that withholds delivery on unavailable refresh, patch or scope drift,
+  stale or incomplete evidence, or blocking findings, and prove no GitOps HTTP call occurs on a hold.
+- [x] Add a sanitized GitHub Checks adapter for an existing PR head with focused redaction,
+  advisory shadow, idempotency, and unavailable-delivery tests.
+- [ ] Bind the PR refresh and Checks adapter to the live runtime using a trusted scope and
+  re-render/re-plan callback; fence source-base drift between refresh and provider commit, carry
+  per-toggle arguments through governed ingress, and record a composed run with fresh report
+  and exact head revision.
 
 ## Where It Sits in the Loop
 
@@ -67,7 +76,8 @@ shipped through a standalone runner script; the control-plane path currently sto
   remediation PR, the analyzer checks that the change would actually land in the
   target scope. A blocking finding degrades the action to `hil` rather than
   opening a PR that would fail policy. The deterministic gate that enforces this
-  ordering exists and is tested; no live path invokes it yet.
+  ordering and a delivery wrapper for exact-patch refresh exist and are tested;
+  no live path binds the required refresh yet.
 - **Human deploy (shipped)**: the private-runner workflow creates the report before plan
   and binds its evidence digest into exact-plan metadata. PR comment/GitHub Check delivery
   remains a follow-up.
@@ -155,6 +165,27 @@ publication even in shadow mode where `blocks_deploy` stays false. A verifier
 that raises propagates before any submission; the caller routes the pass to
 `hil`.
 
+For the PR delivery seam, a separate wrapper re-runs a caller-provided read-only
+plan refresh on every publish attempt, including redelivery. It requires the
+verified patch SHA-256 to equal the immutable proposed patch, the report scope
+to equal the caller's trusted scope, and all required probe categories to be
+checked. Missing refresh, changed patch, incomplete coverage, stale evidence,
+or a blocker withholds the PR even in shadow mode. The wrapper cannot prove a
+provider re-probed by checking a timestamp alone: the caller still owes an
+authoritative re-render and read-only reanalysis after source or Inventory
+changes. The current PR publisher does not yet bind the refresh to its
+subsequent base-branch resolution, so a source change between those operations
+remains a live-composition blocker. An unbound wrapper is not a production gate.
+
+The GitHub Checks adapter can annotate an **existing** PR's exact head revision.
+It exposes only mode, decision, capped finding count, and checked-category
+count; raw scope, evidence, finding text, and caller metadata stay private.
+Shadow reports are advisory. A missing adapter or failed Check does not certify
+preflight and cannot undo an already opened PR. GitHub does not offer an
+atomic create-if-absent Check call across processes; live composition needs
+single-writer delivery or a durable lock before claiming distributed
+idempotency.
+
 ## Blocker to Terraform Toggle Mapping
 
 A report is not just a list of problems; each `terraform_toggle` finding names
@@ -186,7 +217,9 @@ judgment; otherwise it emits guidance and routes to review.
 | Generic probes | [shared/providers/local/feasibility.py](../../../services/core-control-plane/src/fdai/shared/providers/local/feasibility.py) | deterministic, config-driven upstream defaults (no network) |
 | Orchestrator | [core/deploy_preflight/analyzer.py](../../../services/core-control-plane/src/fdai/core/deploy_preflight/analyzer.py) | fan out over probes, assemble the report (fail-closed) |
 | Report | [core/deploy_preflight/report.py](../../../services/core-control-plane/src/fdai/core/deploy_preflight/report.py) | the assembled artifact + verdict + `blocks_deploy` |
-| Pre-publication gate | [core/deploy_preflight/pre_publication_gate.py](../../../services/core-control-plane/src/fdai/core/deploy_preflight/pre_publication_gate.py) | re-verify before publication; withhold and route to human review |
+| Pre-publication gate | [core/deploy_preflight/pre_publication_gate.py](../../../services/core-control-plane/src/fdai/core/deploy_preflight/pre_publication_gate.py) | re-verify before proposal submission; withhold and route to human review |
+| PR delivery wrapper | [delivery/deploy_preflight/pr_publication.py](../../../services/core-control-plane/src/fdai/delivery/deploy_preflight/pr_publication.py) | require an exact-patch refresh before the injected PR publisher |
+| GitHub Checks adapter | [delivery/github/preflight_checks.py](../../../services/core-control-plane/src/fdai/delivery/github/preflight_checks.py) | post a bounded status to an existing PR head, without approval authority |
 
 `core/` sees only the `FeasibilityProbe` Protocol; the probes are injected at the
 [composition root](../../../services/core-control-plane/src/fdai/composition/__init__.py) via the
@@ -237,16 +270,18 @@ preflight script, protected-plan evidence binding in the deploy workflow, and te
   2. **Capability-mode toggle scaffold (shipped)**: `infra/modules/preflight-toggles/` and the
     disk reference consumer validate both renderings. The generic upstream root does not
     instantiate the concrete consumer because resource ownership and integration stay fork-owned.
-  3. **Check-publishing primitive (shipped)**: the core function, provider Protocol, and
-    in-memory publisher exist. The GitHub Check adapter and infrastructure-PR wiring are planned.
+  3. **Check-publishing seam (partly shipped)**: the core function, provider Protocol,
+    in-memory publisher, and sanitized GitHub Checks adapter exist. Runtime binding
+    after infrastructure-PR creation remains planned.
   4. **Deployment Environment Profile primitive (shipped)**: bounded in-memory cache, TTL,
     and Inventory-delta invalidation helper exist. The composition refresh task and durable
     cache wiring are planned.
   5. **Control-loop pre-PR gate (partly shipped)**: `pre_publication_gate.py` re-runs the same
     analyzer on the accumulated overrides immediately before publication and withholds every
     unproven case - a blocking finding, stale evidence, a scope change, or an escalated
-    reassembly - so the pass routes to `hil` and submits nothing. Binding it to a live executor
-    path remains planned.
+    reassembly - so the pass routes to `hil` and submits nothing. The PR delivery wrapper
+    also holds on invalidated exact-patch evidence, but neither is bound to a live executor
+    path yet.
 
 ## References
 
