@@ -80,6 +80,14 @@ describe("local Azure CLI auth", () => {
         prompt: "select_account",
       });
     });
+
+    test("requires a fresh provider login for Slack approval handoff", () => {
+      expect(interactiveLoginRequest(
+        "api://fdai/access",
+        { username: "operator@example.com" },
+        { reauthenticate: true },
+      )).toEqual({ scopes: ["api://fdai/access"], prompt: "login" });
+    });
   });
 
   test("rejects ambiguous anonymous and CLI modes", async () => {

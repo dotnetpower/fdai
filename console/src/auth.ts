@@ -55,6 +55,7 @@ export interface AuthContext {
 
 export interface SignInOptions {
   readonly selectAccount?: boolean;
+  readonly reauthenticate?: boolean;
 }
 
 class DevModeAuth implements AuthContext {
@@ -211,6 +212,9 @@ export function interactiveLoginRequest(
   account: Pick<AuthAccount, "username"> | null,
   options: SignInOptions = {},
 ): RedirectRequest {
+  if (options.reauthenticate) {
+    return { scopes: [scope], prompt: "login" };
+  }
   if (options.selectAccount) {
     return {
       scopes: [scope],
