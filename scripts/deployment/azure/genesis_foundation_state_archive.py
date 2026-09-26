@@ -17,6 +17,13 @@ from fdai_deployment_cli.private_output import read_private_bytes
 _MAX_FILES = 4096
 _MAX_BYTES = 1024 * 1024 * 1024
 _REMOTE_BACKEND = b'terraform {\n  backend "azurerm" {}\n}\n'
+RUNNER_SUPPORT_FILES = (
+    "attest-runner.sh",
+    "customize-runner-image.sh.tftpl",
+    "enroll-runner.sh",
+    "migrate-foundation-state.py",
+    "toolchain.json",
+)
 
 
 def create_foundation_state_archive(
@@ -62,6 +69,11 @@ def create_foundation_state_archive(
             module_root = terraform_root.parent / module_name
             if module_root.exists() or module_root.is_symlink():
                 _copy_tree(module_root, stage / module_name, exclude_state_backup=False)
+        _copy_required_files(
+            terraform_root.parent / "genesis-runner-image",
+            stage / "genesis-runner-image",
+            RUNNER_SUPPORT_FILES,
+        )
         backend_example = stage / "root/backend.azurerm.tf.example"
         if backend_example.exists():
             if backend_example.read_bytes() != _REMOTE_BACKEND:
@@ -127,6 +139,27 @@ def _copy_tree(source: Path, destination: Path, *, exclude_state_backup: bool) -
         target.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
         executable = bool(details.st_mode & 0o111)
         _write_bytes(target, entry.read_bytes(), executable=executable)
+
+
+def _copy_required_files(
+    source: Path,
+    destination: Path,
+    names: tuple[str, ...],
+) -> None:
+    details = source.lstat()
+    if not stat.S_ISDIR(details.st_mode):
+        raise ValueError("Foundation runner support source must be a directory")
+    destination.mkdir(mode=0o700)
+    for name in names:
+        path = source / name
+        details = path.lstat()
+        if not stat.S_ISREG(details.st_mode) or details.st_nlink != 1:
+            raise ValueError("Foundation runner support file is unsafe")
+        _write_bytes(
+            destination / name,
+            path.read_bytes(),
+            executable=bool(details.st_mode & 0o111),
+        )
 
 
 def _file_manifest(stage: Path) -> dict[str, object]:

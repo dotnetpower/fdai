@@ -25,6 +25,13 @@ _MAX_FILES = 4096
 _MAX_BYTES = 1024 * 1024 * 1024
 _AZURE_CLI = "/usr/bin/az"
 _TERRAFORM = "/usr/local/bin/terraform"
+_SUPPORT_REPAIR_FILES = {
+    "attest-runner.sh",
+    "customize-runner-image.sh.tftpl",
+    "enroll-runner.sh",
+    "migrate-foundation-state.py",
+    "toolchain.json",
+}
 
 
 def _parser() -> argparse.ArgumentParser:
@@ -43,6 +50,7 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--container-name", required=True)
     parser.add_argument("--backend-key", required=True)
     parser.add_argument("--expected-state-digest", required=True)
+    parser.add_argument("--support-repair-digest")
     return parser
 
 
@@ -100,7 +108,8 @@ def main() -> int:
                 or claim.get("expected_state_digest") != args.expected_state_digest
             ):
                 raise ValueError("Foundation remote state claim context differs")
-            _verify_tree(work, migrated=True)
+            repair_files = _support_repair_files(work, args)
+            _verify_tree(work, migrated=True, repair_files=repair_files)
 
         environment = _terraform_environment(work, args)
         _managed_identity_login(work, args)
@@ -329,6 +338,10 @@ def _validate(args: argparse.Namespace) -> None:
     ):
         if _DIGEST.fullmatch(value) is None:
             raise ValueError("Foundation state handoff digest is invalid")
+    if args.support_repair_digest is not None and (
+        args.mode != "verify" or _DIGEST.fullmatch(args.support_repair_digest) is None
+    ):
+        raise ValueError("Foundation support repair digest is invalid")
     for value in (
         args.subscription_id,
         args.tenant_id,
@@ -406,7 +419,12 @@ def _extract_archive(archive: Path, destination: Path) -> str:
     return digest
 
 
-def _verify_tree(work: Path, *, migrated: bool) -> None:
+def _verify_tree(
+    work: Path,
+    *,
+    migrated: bool,
+    repair_files: dict[str, dict[str, object]] | None = None,
+) -> None:
     manifest = _read_json(work / "manifest.json")
     manifest_digest = manifest.pop("manifest_digest", None)
     files = manifest.get("files")
@@ -431,11 +449,15 @@ def _verify_tree(work: Path, *, migrated: bool) -> None:
         if type(executable) is not bool:
             raise ValueError("Foundation state archive executable marker is invalid")
         expected[key] = {"sha256": digest, "executable": executable}
+    repaired = repair_files or {}
+    if set(expected).intersection(repaired):
+        raise ValueError("Foundation support repair overlaps the base archive")
     if migrated:
         expected.pop("root/terraform.tfstate", None)
         if _digest_file(work / "local-state.json") != manifest.get("state_digest"):
             raise ValueError("Foundation retained local state digest differs")
     actual: dict[str, dict[str, object]] = {}
+    repaired_actual: dict[str, dict[str, object]] = {}
     for path in sorted(work.rglob("*")):
         relative = path.relative_to(work).as_posix()
         if migrated and (
@@ -450,6 +472,10 @@ def _verify_tree(work: Path, *, migrated: bool) -> None:
             raise ValueError("Foundation state archive tree contains an unsafe file")
         if relative == "manifest.json":
             continue
+        if relative == "support-repair.json" and repaired:
+            if stat.S_IMODE(details.st_mode) != 0o600:
+                raise ValueError("Foundation support repair manifest mode differs")
+            continue
         if relative in {"remote-claim.json", "migration-complete.json"}:
             continue
         if relative in {
@@ -463,6 +489,15 @@ def _verify_tree(work: Path, *, migrated: bool) -> None:
             continue
         if migrated and relative == "root/terraform.tfstate":
             continue
+        if relative in repaired:
+            expected_mode = 0o700 if repaired[relative]["executable"] else 0o600
+            if stat.S_IMODE(details.st_mode) != expected_mode:
+                raise ValueError("Foundation repaired support file mode differs")
+            repaired_actual[relative] = {
+                "sha256": _digest_file(path),
+                "executable": repaired[relative]["executable"],
+            }
+            continue
         executable = bool(expected.get(relative, {}).get("executable", False))
         path.chmod(0o700 if executable else 0o600)
         actual[relative] = {
@@ -471,6 +506,69 @@ def _verify_tree(work: Path, *, migrated: bool) -> None:
         }
     if expected != actual:
         raise ValueError("Foundation state archive file digests differ")
+    if repaired != repaired_actual:
+        raise ValueError("Foundation repaired support file digests differ")
+
+
+def _support_repair_files(work: Path, args: argparse.Namespace) -> dict[str, dict[str, object]]:
+    path = work / "support-repair.json"
+    if not path.exists() and not path.is_symlink():
+        if getattr(args, "support_repair_digest", None) is not None:
+            raise ValueError("Foundation support repair manifest is unavailable")
+        return {}
+    details = path.lstat()
+    if (
+        not stat.S_ISREG(details.st_mode)
+        or details.st_uid != os.geteuid()
+        or details.st_nlink != 1
+        or stat.S_IMODE(details.st_mode) != 0o600
+    ):
+        raise ValueError("Foundation support repair manifest is unsafe")
+    repair = _read_json(path)
+    manifest_digest = repair.pop("manifest_digest", None)
+    files = repair.get("support_files")
+    verifier = repair.get("verifier")
+    if (
+        repair.get("schema_version") != "fdai.genesis-foundation-remote-support-repair.v1"
+        or repair.get("work_id") != args.work_id
+        or repair.get("archive_digest") != args.archive_digest
+        or _DIGEST.fullmatch(str(repair.get("state_claim_digest", ""))) is None
+        or not re.fullmatch(r"[0-9a-f]{40}", str(repair.get("prior_migration_source_commit", "")))
+        or not re.fullmatch(r"[0-9a-f]{40}", str(repair.get("repair_source_commit", "")))
+        or _DIGEST.fullmatch(str(repair.get("repair_claim_digest", ""))) is None
+        or repair.get("mutation_performed") is not False
+        or repair.get("subscription_ready") is not False
+        or manifest_digest != _canonical_digest(repair)
+        or manifest_digest != getattr(args, "support_repair_digest", None)
+        or not isinstance(files, dict)
+        or set(files) != _SUPPORT_REPAIR_FILES
+        or not isinstance(verifier, dict)
+        or set(verifier) != {"sha256", "executable"}
+        or _DIGEST.fullmatch(str(verifier.get("sha256", ""))) is None
+        or type(verifier.get("executable")) is not bool
+    ):
+        raise ValueError("Foundation support repair manifest is invalid")
+    validated: dict[str, dict[str, object]] = {}
+    for name, value in files.items():
+        if not isinstance(value, dict) or set(value) != {"sha256", "executable"}:
+            raise ValueError("Foundation support repair file manifest is invalid")
+        digest = value.get("sha256")
+        executable = value.get("executable")
+        if (
+            not isinstance(digest, str)
+            or _DIGEST.fullmatch(digest) is None
+            or type(executable) is not bool
+        ):
+            raise ValueError("Foundation support repair file manifest is invalid")
+        validated[f"genesis-runner-image/{name}"] = {
+            "sha256": digest,
+            "executable": executable,
+        }
+    validated["support-repair/migrate-foundation-state.py"] = {
+        "sha256": verifier["sha256"],
+        "executable": verifier["executable"],
+    }
+    return validated
 
 
 def _canonical_digest(value: dict[str, object]) -> str:
