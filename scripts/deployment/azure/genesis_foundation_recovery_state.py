@@ -109,13 +109,17 @@ class RecoveryMigration:
         self.verify_configuration()
         return result
 
-    def validate_record(self, record: dict[str, object]) -> None:
-        """Never resume a migration claim or receipt under different execution source."""
+    def validate_record(self, record: dict[str, object]) -> str:
+        """Return the immutable execution source of a valid recovery record."""
+        source_commit = record.get("migration_source_commit")
         if (
-            record.get("migration_source_commit") != self.source.commit
+            not isinstance(source_commit, str)
+            or len(source_commit) != 40
+            or any(character not in "0123456789abcdef" for character in source_commit)
             or record.get("foundation_evidence_schema") != "fdai.foundation-recovery-receipt.v1"
         ):
             raise ValueError("recovered Foundation state migration provenance differs")
+        return source_commit
 
     def validate_claim_record(self, record: dict[str, object]) -> str:
         """Preserve a prior claim while returning its independently verified source."""
@@ -214,6 +218,14 @@ def prepare_recovery_migration(
     }
     if migration_claim_source is not None:
         source_commits.add(migration_claim_source)
+    state_receipt_path = directory / "foundation-state-handoff-receipt.json"
+    if state_receipt_path.exists() or state_receipt_path.is_symlink():
+        state_receipt = state_contract.load_receipt(
+            state_receipt_path,
+            schema="fdai.genesis-foundation-state-handoff-receipt.v1",
+            expected_digest=None,
+        )
+        source_commits.add(context.validate_record(state_receipt))
     repair_claim_source = retained_repair_source_commit(directory)
     if repair_claim_source is not None:
         source_commits.add(repair_claim_source)
