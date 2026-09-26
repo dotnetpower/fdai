@@ -76,14 +76,14 @@ human approver. A missing trusted executable or a service-principal account cann
 The existing human-only terminal confirmation remains mandatory; selecting a checkpoint does not
 grant approval or apply any resources.
 
-Source and kit Foundation inputs use distinct types and saved-plan schemas. A retained source
-plan must match the current snapshot and source-input digests. Source execution copies the
-verified infrastructure into a private state-preserving directory, verifies the pinned Terraform
-binary, and acquires only lockfile-selected providers for a local mirror. The immutable snapshot
-does not receive Terraform state or generated data. Existing exact-plan approval, pre-effect claim,
-verification-only recovery, and independent readback remain authoritative. Private state transfer
-includes the Foundation root, its sibling bootstrap module and shared modules, so relative module
-references remain valid on the managed host. These adapters do not prove a completed deployment.
+Source and kit Foundation inputs use distinct types and saved-plan schemas. A retained source plan must match the current snapshot and source-input digests.
+Source execution copies verified infrastructure into a private state-preserving directory, verifies the pinned Terraform binary, and acquires only lockfile-selected providers for a local mirror.
+The immutable snapshot does not receive Terraform state or generated data. Existing exact-plan approval, pre-effect claim, verification-only recovery, and independent readback remain authoritative.
+Private state transfer includes the Foundation root, sibling bootstrap/shared modules, and the exact five `genesis-runner-image` support files referenced by Terraform.
+For a retained claim created before that archive closure, recovery preserves the original claim and backend migration while restoring the exact support bytes from the reviewed recovery configuration.
+It requires a fresh exact `foundation-state` approval before writing a current-source repair claim, installs only missing files without replacement, and places the current verifier outside Terraform's sibling input tree under a separate remote repair manifest.
+That verifier then runs in `verify` mode. A partial base set, a different existing file, or changed readback blocks recovery.
+These adapters do not prove a completed deployment.
 
 The source coordinator uses the private managed-host route explicitly. It reads Foundation
 provider registrations and inherited policy assignments without registering providers or creating

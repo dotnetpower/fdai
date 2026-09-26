@@ -5,6 +5,10 @@ from __future__ import annotations
 import hashlib
 import importlib.util
 import json
+import os
+import re
+import shutil
+import stat
 import subprocess
 import sys
 from copy import deepcopy
@@ -19,6 +23,8 @@ SCRIPT_DIR = ROOT / "scripts/deployment/azure"
 sys.path.insert(0, str(SCRIPT_DIR))
 
 import genesis_foundation_state as state_command  # noqa: E402
+import genesis_foundation_state_archive as state_archive  # noqa: E402
+import genesis_foundation_state_support_repair as support_repair  # noqa: E402
 from fdai_deployment_cli.contracts import ProvisionProfile, canonical_digest  # noqa: E402
 from fdai_deployment_cli.private_output import write_private_output  # noqa: E402
 from fdai_deployment_cli.profile import write_profile  # noqa: E402
@@ -43,6 +49,20 @@ def _remote_module() -> ModuleType:
 
 def _private_json(path: Path, value: dict[str, object]) -> None:
     write_private_output(path, json.dumps(value, sort_keys=True, separators=(",", ":")) + "\n")
+
+
+def _write_runner_support(root: Path) -> Path:
+    support = root / "genesis-runner-image"
+    support.mkdir(mode=0o700)
+    for name in (
+        "attest-runner.sh",
+        "customize-runner-image.sh.tftpl",
+        "enroll-runner.sh",
+        "migrate-foundation-state.py",
+        "toolchain.json",
+    ):
+        (support / name).write_text(f"{name}\n", encoding="utf-8")
+    return support
 
 
 def _state_inputs() -> tuple[dict[str, object], dict[str, object]]:
@@ -97,6 +117,274 @@ def _state_inputs() -> tuple[dict[str, object], dict[str, object]]:
     return state, plan
 
 
+def test_runner_support_contract_covers_every_foundation_reference() -> None:
+    source = (ROOT / "infra/genesis-foundation/main.tf").read_text(encoding="utf-8")
+    referenced = set(re.findall(r"\.\./genesis-runner-image/([A-Za-z0-9._-]+)", source))
+    remote = _remote_module()
+
+    assert referenced == set(state_archive.RUNNER_SUPPORT_FILES)
+    assert referenced == remote._SUPPORT_REPAIR_FILES
+
+
+class SupportRepairTunnel:
+    def __init__(self, home: Path, username: str) -> None:
+        self.home = home
+        self.username = username
+        self.copied: list[str] = []
+
+    def _path(self, remote: str) -> Path:
+        prefix = f"/home/{self.username}/"
+        assert remote.startswith(prefix)
+        return self.home / remote.removeprefix(prefix)
+
+    def ssh(
+        self, remote_arguments: tuple[str, ...], *, timeout: int, input_text: str | None = None
+    ) -> subprocess.CompletedProcess[str]:
+        del timeout
+        assert input_text is None
+        command = remote_arguments[0]
+        if command == "/usr/bin/stat":
+            path = self._path(remote_arguments[-1])
+            try:
+                details = path.lstat()
+            except FileNotFoundError:
+                return subprocess.CompletedProcess(remote_arguments, 1, "", "")
+            kind = (
+                "regular file"
+                if stat.S_ISREG(details.st_mode)
+                else "directory"
+                if stat.S_ISDIR(details.st_mode)
+                else "symbolic link"
+            )
+            mode = f"{stat.S_IMODE(details.st_mode):o}"
+            if "%h" in remote_arguments[1]:
+                output = f"{kind}|{details.st_nlink}|{mode}|{self.username}\n"
+            else:
+                output = f"{kind}|{mode}|{self.username}\n"
+            return subprocess.CompletedProcess(remote_arguments, 0, output, "")
+        if command == "/usr/bin/sha256sum":
+            path = self._path(remote_arguments[1])
+            digest = hashlib.sha256(path.read_bytes()).hexdigest()
+            return subprocess.CompletedProcess(
+                remote_arguments, 0, f"{digest}  {remote_arguments[1]}\n", ""
+            )
+        if command == "/usr/bin/mkdir":
+            self._path(remote_arguments[-1]).mkdir(mode=0o700)
+            return subprocess.CompletedProcess(remote_arguments, 0, "", "")
+        if command == "/usr/bin/ln":
+            source = self._path(remote_arguments[1])
+            destination = self._path(remote_arguments[2])
+            try:
+                os.link(source, destination)
+            except FileExistsError:
+                return subprocess.CompletedProcess(remote_arguments, 1, "", "")
+            return subprocess.CompletedProcess(remote_arguments, 0, "", "")
+        if command == "/usr/bin/chmod":
+            self._path(remote_arguments[2]).chmod(int(remote_arguments[1], 8))
+            return subprocess.CompletedProcess(remote_arguments, 0, "", "")
+        if command == "/usr/bin/rm":
+            self._path(remote_arguments[-1]).unlink(missing_ok=True)
+            return subprocess.CompletedProcess(remote_arguments, 0, "", "")
+        raise AssertionError(f"unexpected remote command: {remote_arguments}")
+
+    def copy_to(self, source: Path, destination: str, *, timeout: int) -> None:
+        del timeout
+        target = self._path(destination)
+        target.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+        shutil.copyfile(source, target)
+        target.chmod(0o600)
+        self.copied.append(destination)
+
+    def copy_from(self, source: str, destination: Path, *, timeout: int) -> None:
+        del timeout
+        shutil.copyfile(self._path(source), destination)
+        destination.chmod(0o600)
+
+
+def test_claimed_incomplete_archive_repairs_support_before_verification(tmp_path: Path) -> None:
+    tmp_path.chmod(0o700)
+    username = "runner"
+    home = tmp_path / "remote"
+    home.mkdir(mode=0o700)
+    work_id = "c" * 64
+    archive_digest = "b" * 64
+    remote_work = f"/home/{username}/.fdai-state-handoff/{work_id[:24]}"
+    work = home / ".fdai-state-handoff" / work_id[:24]
+    root = work / "root"
+    root.mkdir(mode=0o700, parents=True)
+    work.chmod(0o700)
+    root_file = root / "main.tf"
+    root_file.write_text("terraform {}\n", encoding="utf-8")
+    root_file.chmod(0o600)
+    state = b'{"lineage":"synthetic","version":4}\n'
+    local_state = work / "local-state.json"
+    local_state.write_bytes(state)
+    local_state.chmod(0o600)
+    files = {
+        "root/main.tf": {
+            "sha256": hashlib.sha256(root_file.read_bytes()).hexdigest(),
+            "executable": False,
+        },
+        "root/terraform.tfstate": {
+            "sha256": hashlib.sha256(state).hexdigest(),
+            "executable": False,
+        },
+    }
+    manifest = {
+        "schema_version": "fdai.genesis-foundation-state-archive.v1",
+        "source_commit": SOURCE,
+        "state_digest": hashlib.sha256(state).hexdigest(),
+        "files": files,
+    }
+    manifest["manifest_digest"] = canonical_digest(manifest)
+    _private_json(work / "manifest.json", manifest)
+
+    directory = tmp_path / "recovery"
+    directory.mkdir(mode=0o700)
+    (directory / "source/infra").mkdir(mode=0o700, parents=True)
+    _write_runner_support(directory / "source/infra")
+    current_source = tmp_path / "current-source"
+    current_support = current_source / "infra/genesis-runner-image"
+    current_support.mkdir(mode=0o700, parents=True)
+    shutil.copyfile(
+        ROOT / "infra/genesis-runner-image/migrate-foundation-state.py",
+        current_support / "migrate-foundation-state.py",
+    )
+
+    class Recovery:
+        def __init__(self) -> None:
+            self.directory = directory
+            self.source = SimpleNamespace(commit="7" * 40, root=current_source)
+            self.approvals = 0
+            self.verifications = 0
+
+        def verify_configuration(self) -> None:
+            self.verifications += 1
+
+        def require_approval(self) -> str:
+            self.approvals += 1
+            return "8" * 64
+
+    recovery = Recovery()
+    tunnel = SupportRepairTunnel(home, username)
+    state_claim = {
+        "schema_version": "fdai.genesis-foundation-state-handoff-claim.v1",
+        "migration_source_commit": "6" * 40,
+    }
+
+    program, repair_digest = support_repair.repair_claimed_support(
+        tunnel,
+        recovery=recovery,
+        state_claim=state_claim,
+        directory=directory,
+        remote_work=remote_work,
+        username=username,
+        work_id=work_id,
+        archive_digest=archive_digest,
+        timeout=900,
+    )
+
+    assert program == (
+        "/usr/bin/python3",
+        f"{remote_work}/{support_repair.REMOTE_VERIFIER_RELATIVE}",
+    )
+    assert (
+        repair_digest
+        == json.loads((directory / support_repair.SUPPORT_REPAIR_MANIFEST_NAME).read_bytes())[
+            "manifest_digest"
+        ]
+    )
+    assert recovery.approvals == 1
+    assert len(tunnel.copied) == len(state_archive.RUNNER_SUPPORT_FILES) + 2
+    assert (work / "genesis-runner-image/migrate-foundation-state.py").read_text(
+        encoding="utf-8"
+    ) == "migrate-foundation-state.py\n"
+    assert (work / support_repair.REMOTE_VERIFIER_RELATIVE).read_bytes() == (
+        ROOT / "infra/genesis-runner-image/migrate-foundation-state.py"
+    ).read_bytes()
+    assert (directory / support_repair.SUPPORT_REPAIR_CLAIM_NAME).is_file()
+    assert (directory / support_repair.SUPPORT_REPAIR_RECEIPT_NAME).is_file()
+    remote = _remote_module()
+    arguments = SimpleNamespace(
+        work_id=work_id,
+        archive_digest=archive_digest,
+        support_repair_digest=repair_digest,
+    )
+    repair_files = remote._support_repair_files(work, arguments)
+    remote._verify_tree(work, migrated=True, repair_files=repair_files)
+    with pytest.raises(ValueError, match="support repair manifest is invalid"):
+        remote._support_repair_files(
+            work,
+            SimpleNamespace(
+                work_id=work_id,
+                archive_digest=archive_digest,
+                support_repair_digest="0" * 64,
+            ),
+        )
+
+    copied = list(tunnel.copied)
+    assert support_repair.repair_claimed_support(
+        tunnel,
+        recovery=recovery,
+        state_claim=state_claim,
+        directory=directory,
+        remote_work=remote_work,
+        username=username,
+        work_id=work_id,
+        archive_digest=archive_digest,
+        timeout=900,
+    ) == (program, repair_digest)
+    assert tunnel.copied == copied
+    assert recovery.approvals == 1
+
+
+def test_support_repair_refuses_to_replace_a_different_existing_file(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    tmp_path.chmod(0o700)
+    directory = tmp_path / "recovery"
+    (directory / "source/infra").mkdir(mode=0o700, parents=True)
+    directory.chmod(0o700)
+    _write_runner_support(directory / "source/infra")
+    actual = {name: None for name in state_archive.RUNNER_SUPPORT_FILES}
+    actual[state_archive.RUNNER_SUPPORT_FILES[0]] = support_repair.RemoteFile("0" * 64, False)
+    monkeypatch.setattr(
+        support_repair,
+        "_inspect_remote_support",
+        lambda *args, **kwargs: support_repair.RemoteSupportStatus({}, actual, None, None),
+    )
+
+    class Recovery:
+        def __init__(self) -> None:
+            self.directory = directory
+            self.source = SimpleNamespace(commit="7" * 40, root=directory / "source")
+            self.approvals = 0
+
+        def verify_configuration(self) -> None:
+            pass
+
+        def require_approval(self) -> str:
+            self.approvals += 1
+            return "8" * 64
+
+    recovery = Recovery()
+    tunnel = SupportRepairTunnel(tmp_path / "remote", "runner")
+    with pytest.raises(ValueError, match="existing remote support file differs"):
+        support_repair.repair_claimed_support(
+            tunnel,
+            recovery=recovery,
+            state_claim={"migration_source_commit": "6" * 40},
+            directory=directory,
+            remote_work="/home/runner/.fdai-state-handoff/" + "c" * 24,
+            username="runner",
+            work_id="c" * 64,
+            archive_digest="b" * 64,
+            timeout=900,
+        )
+    assert recovery.approvals == 0
+    assert not (directory / support_repair.SUPPORT_REPAIR_CLAIM_NAME).exists()
+
+
 @pytest.mark.parametrize("local_first", [False, True])
 @pytest.mark.parametrize("separate_state", [False, True])
 def test_private_archive_preserves_exact_state_and_executable_provider(
@@ -114,6 +402,7 @@ def test_private_archive_preserves_exact_state_and_executable_provider(
     modules = tmp_path / "modules/identity"
     modules.mkdir(mode=0o700, parents=True)
     (modules / "main.tf").write_text("terraform {}\n")
+    runner_support = _write_runner_support(tmp_path)
     provider_dir = mirror / "registry.terraform.io/hashicorp/azurerm/4.81.0/linux_amd64"
     provider_dir.mkdir(mode=0o700, parents=True)
     state, _ = _state_inputs()
@@ -169,7 +458,43 @@ def test_private_archive_preserves_exact_state_and_executable_provider(
     assert (extracted / "modules/identity/main.tf").read_bytes() == (
         modules / "main.tf"
     ).read_bytes()
+    for name in (
+        "attest-runner.sh",
+        "customize-runner-image.sh.tftpl",
+        "enroll-runner.sh",
+        "migrate-foundation-state.py",
+        "toolchain.json",
+    ):
+        assert (extracted / "genesis-runner-image" / name).read_bytes() == (
+            runner_support / name
+        ).read_bytes()
     assert (extracted / provider.relative_to(tmp_path)).stat().st_mode & 0o777 == 0o700
+
+
+def test_private_archive_requires_complete_runner_support(tmp_path: Path) -> None:
+    tmp_path.chmod(0o700)
+    root = tmp_path / "root"
+    root.mkdir(mode=0o700)
+    state, _ = _state_inputs()
+    state_path = root / "terraform.tfstate"
+    _private_json(state_path, state)
+    (root / "main.tf").write_text("terraform {}\n", encoding="utf-8")
+    mirror = tmp_path / "mirror"
+    mirror.mkdir(mode=0o700)
+    variables = tmp_path / "variables.json"
+    _private_json(variables, {"env": "dev"})
+    runner_support = tmp_path / "genesis-runner-image"
+    runner_support.mkdir(mode=0o700)
+
+    with pytest.raises(FileNotFoundError):
+        create_foundation_state_archive(
+            terraform_root=root,
+            provider_mirror=mirror,
+            variables_file=variables,
+            destination=tmp_path / "handoff.tar.gz",
+            source_commit=SOURCE,
+            expected_state_digest=hashlib.sha256(state_path.read_bytes()).hexdigest(),
+        )
 
 
 @pytest.mark.parametrize("defect", ["digest", "second-state", "state-change"])
@@ -188,6 +513,7 @@ def test_separate_original_state_archive_rejects_ambiguous_ownership(tmp_path, m
     expected_digest = hashlib.sha256(original_state.read_bytes()).hexdigest()
     variables = tmp_path / "variables.json"
     _private_json(variables, {"env": "dev"})
+    _write_runner_support(tmp_path)
     if defect == "digest":
         expected_digest = "0" * 64
     elif defect == "second-state":
@@ -400,6 +726,7 @@ def _prepare(tmp_path: Path) -> tuple[Path, Path, dict[str, object], dict[str, o
     state, plan = _state_inputs()
     state_dir = directory / "foundation-apply-bundle/bundle/infra/genesis-foundation"
     state_dir.mkdir(mode=0o700, parents=True)
+    _write_runner_support(state_dir.parent)
     state_path = state_dir / "terraform.tfstate"
     _private_json(state_path, state)
     state_digest = hashlib.sha256(state_path.read_bytes()).hexdigest()
@@ -627,6 +954,11 @@ def _mock_boundaries(
         "capture",
         lambda *a, **kw: '{"type":"user","name":"operator@example.com"}',
     )
+    monkeypatch.setattr(
+        state_command,
+        "repair_claimed_support",
+        lambda *args, **kwargs: (support_repair.INSTALLED_MIGRATION_PROGRAM, None),
+    )
 
     def archive(**kwargs: object) -> dict[str, object]:
         destination = Path(str(kwargs["archive"]))
@@ -667,6 +999,7 @@ def test_recovered_state_uses_original_owner_and_exact_approval(tmp_path, monkey
     directory.mkdir(mode=0o700)
     configuration = directory / "source/infra/genesis-foundation"
     configuration.mkdir(mode=0o700, parents=True)
+    _write_runner_support(configuration.parent)
     (configuration / "main.tf").write_text("terraform {}\n")
     (directory / "terraform-data/providers").mkdir(mode=0o700, parents=True)
     provider = directory / "terraform-data/providers/provider"
@@ -695,10 +1028,11 @@ def test_recovered_state_uses_original_owner_and_exact_approval(tmp_path, monkey
     }
     recovered = RecoveryHandoff(recovered_receipt, handoff, BINDING)
     monkeypatch.setattr(recovery_state, "load_recovery_evidence", lambda **_kwargs: recovered)
+    migration_source = ["7" * 40]
     monkeypatch.setattr(
         recovery_state,
         "inspect_source",
-        lambda *_args: SimpleNamespace(commit="7" * 40, reverify=lambda: None),
+        lambda *_args: SimpleNamespace(commit=migration_source[0], reverify=lambda: None),
     )
     monkeypatch.setattr(recovery_state, "current_actor_digest", lambda _binding: "8" * 64)
     known_hosts = directory / state_command.KNOWN_HOSTS_NAME
@@ -822,6 +1156,7 @@ def test_recovered_state_uses_original_owner_and_exact_approval(tmp_path, monkey
         assert source_state.exists()
         FakeTunnel.fail_migration = False
         assert state_command.main(approved) == 3
+        migration_source[0] = "d" * 40
         assert state_command.main(arguments + ["--resume-verification"]) == 0
     else:
         assert first == 0
@@ -829,7 +1164,7 @@ def test_recovered_state_uses_original_owner_and_exact_approval(tmp_path, monkey
     assert not source_state.exists()
     assert not (configuration / "terraform.tfstate").exists()
     result = json.loads((directory / state_command.RECEIPT_NAME).read_bytes())
-    assert result["migration_source_commit"] == "7" * 40
+    assert result["migration_source_commit"] == migration_source[0]
     assert result["foundation_receipt_digest"] == recovered_receipt["receipt_digest"]
     assert result["actor_digest"] == approval["actor_digest"]
     assert result["zero_change_verified"] is True
@@ -956,6 +1291,7 @@ def test_new_state_handoff_entrypoints_remain_python_310_compatible() -> None:
         SCRIPT_DIR / "genesis_foundation_state.py",
         SCRIPT_DIR / "genesis_foundation_state_contract.py",
         SCRIPT_DIR / "genesis_foundation_state_archive.py",
+        SCRIPT_DIR / "genesis_foundation_state_support_repair.py",
         ROOT / "infra/genesis-runner-image/migrate-foundation-state.py",
     )
     for path in paths:
