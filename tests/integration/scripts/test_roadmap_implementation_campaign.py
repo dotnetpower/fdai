@@ -79,6 +79,52 @@ def test_campaign_relation_fails_closed_on_divergence(
     assert module._campaign_relation(ahead=ahead, behind=behind) == expected
 
 
+def test_remote_landed_batch_never_touches_dirty_local_main(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    module = _load()
+    monkeypatch.setattr(module, "_newest_validated_commit", lambda _root: "a" * 40)
+    monkeypatch.setattr(module, "_remote_main_contains", lambda _root, _revision: True)
+    monkeypatch.setattr(
+        module,
+        "_git",
+        lambda *arguments, **_kwargs: (
+            "1"
+            if arguments == ("rev-list", "--count", "main..HEAD")
+            else pytest.fail(f"unexpected git call: {arguments}")
+        ),
+    )
+    monkeypatch.setattr(
+        module,
+        "_main_checkout",
+        lambda _root: pytest.fail("local main MUST NOT be inspected"),
+    )
+
+    assert module._land_validated_batch(tmp_path) == ("already landed aaaaaaaaaaaa on origin/main")
+
+
+def test_campaign_sync_uses_remote_main_after_delivery(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    module = _load()
+    monkeypatch.setattr(module, "_remote_main_contains", lambda _root, revision: revision == "HEAD")
+    calls: list[tuple[str, ...]] = []
+
+    def fake_git(*arguments: str, **_kwargs: object) -> str:
+        calls.append(arguments)
+        return "0"
+
+    monkeypatch.setattr(module, "_git", fake_git)
+
+    assert module._sync_campaign_base(tmp_path) == "current"
+    assert calls == [
+        ("rev-list", "--count", "refs/remotes/origin/main..HEAD"),
+        ("rev-list", "--count", "HEAD..refs/remotes/origin/main"),
+    ]
+
+
 def test_campaign_prompt_requires_exact_batch_and_hardening_floor() -> None:
     module = _load()
     candidates = [
@@ -716,6 +762,7 @@ def test_landing_requires_a_receipt_and_leaves_live_edits_alone(
 
     monkeypatch.setattr(module, "_git", fake_git)
     monkeypatch.setattr(module, "_main_checkout", lambda _root: tmp_path)
+    monkeypatch.setattr(module, "_remote_main_contains", lambda *_args: False)
     monkeypatch.setattr(module, "_register_committed_work", lambda *_a: None)
     monkeypatch.setattr(
         module, "_validation_receipt_exists", lambda _root, revision: revision in receipted
