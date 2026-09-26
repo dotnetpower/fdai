@@ -1,7 +1,7 @@
 ---
 title: 채널과 알림(Channels and Notifications)
 translation_of: channels-and-notifications.md
-translation_source_sha: cd0f4f611ee0b490e09a62bb787ecd27ef7522d4
+translation_source_sha: d41fbe7cb32c1ea0080358e55bd7f77446254652
 translation_revised: 2026-09-26
 ---
 
@@ -110,7 +110,7 @@ Teams Workflows 웹훅 바인딩은
 |------|--------------|-----------|--------------|
 | **Teams (same 테넌트)** | ✓ | Teams SSO → OBO 교환 → `fdai-api` 토큰 | **A1, A2, A3, A4** |
 | **Teams (게스트 테넌트)** | 게스트 | 게스트 OID로 OBO | **A2, A3, A4** (A1 거부 - [user-rbac-and-identity-ko.md §10.5](user-rbac-and-identity-ko.md#105-게스트-entra-b2b-사용자)와 동일한 게스트 규칙) |
-| **Slack** | ✗ | Slack OAuth, **포크 필수** Slack userId ↔ Entra OID 매핑, A1 승인에는 별도로 인증된 콜백 처리가 필요 | 비어 있지 않은 매핑이 있을 때만 **A1 콜백**, **A2, A3, A4**, A1 아웃바운드 게시의 로컬 구현은 있지만 운영 검증이나 브라우저 승인 경로는 없음 |
+| **Slack** | ✗ | Slack OAuth, **포크 필수** Slack userId ↔ Entra OID 매핑, A1에는 서명된 상호작용과 브라우저 Entra 재인증 필요 | 비어 있지 않은 매핑과 새 서명된 API 토큰의 `auth_time`이 있을 때만 **A1**, **A2, A3, A4**. 아웃바운드와 인계는 로컬에서 구현했지만 실제 운영 환경에서는 검증하지 않았습니다. |
 | **이메일 (SMTP / Graph)** | ✗ | 발신 전용, return 채널 없음 | **A2, A4 only** - 절대 A1 아님 (magic-link 승인 금지) |
 | **범용 웹훅** | ✗ | HMAC-signed, timestamped, replay-guarded | **A2 only** |
 | **PagerDuty / Opsgenie** | ✗ | API 키, 모바일 앱에서 ack | **A2 only** (운영 라인 paging) |
@@ -123,8 +123,9 @@ Teams Workflows 웹훅 바인딩은
 - **A1 대체 경로는 A1 승인 가능한 채널로 제한합니다.** 실패한 Teams A1 시도는 이메일로
   전달하지 않습니다. 다른 승인 가능한 채널(대기 중인 Teams 또는 매핑, 브라우저 행위자
   결합, 영속 발송 조정이 모두 갖춰진 Slack)을 사용하거나 HIL 큐에 남깁니다.
-- **Slack A1 결정에는 userId↔OID 매핑이 필요합니다.** 정보만 전달하는 아웃바운드 게시에는
-  행위자나 결정이 담기지 않습니다. 별도의 콜백은 응답한 Slack 사용자에 대한 비어 있지
+- **Slack A1 결정에는 userId↔OID 매핑이 필요합니다.** 아웃바운드 단추에는 대기 중인
+  승인 ID만 담고 행위자, 역할, 작업 해시 또는 승인 결정은 담지 않습니다. 별도의 서명된
+  콜백은 응답한 Slack 사용자에 대한 비어 있지
   않은 매핑이 없으면 결정을 승인하지 않습니다. 매핑이 없으면 "승인자 없음"으로 처리하고
   HIL 큐에서 차단 상태를 유지합니다.
 
@@ -333,17 +334,22 @@ channel-as-audience 바인딩으로 유지합니다.
   재발행된 전송은 중복 포스트를 생성해선 안 됨.
 - **Slack A1 아웃바운드 전송은 승인이 아닙니다.** 전용 `HilChannel`은 고정된 HTTPS
   `chat.postMessage` 엔드포인트, 보호된 봇 토큰, 설정된 채널 ID와 공유 HTTP 클라이언트를
-  사용합니다. 크기가 제한된 Block Kit에는 불투명한 작업 결합 식별자만 담고, 결정 버튼,
-  브라우저 링크, 자원 상세 정보나 행위자 주장은 담지 않습니다. 수락하려면 Slack 응답의
+  사용합니다. 크기가 제한된 Block Kit에는 `fdai_hil_approve`와 `fdai_hil_reject`
+  단추를 넣으며 값은 대기 중인 승인 ID뿐입니다. 카드에는 불투명한 전송 ID를 넣지만
+  브라우저 링크, 자원 상세 정보, 작업 해시, 역할 또는 행위자 주장은 넣지 않습니다.
+  클릭은 결정이 아니라 서명된 상호작용을 시작합니다. Operator 수신기는 검증된 Slack
+  묶음에서 행위자를 도출하고 새 Entra 재인증을 위한 서버 소유 Console 인계 URL을
+  돌려줍니다. 브라우저는 승인 권한을 제공할 수 없습니다. 수락하려면 Slack 응답의
   `ok=true`, 크기가 제한된 메시지 시각, 설정된 채널이 모두 필요합니다. `poll`은 항상
   `PENDING`을 반환합니다. Core가 소유한 요청 발신함은 HTTP 호출 전에 변경되지 않는
   전송 식별자와 실제 렌더링된 본문의 다이제스트를 감사 기록과 함께 영속화합니다.
-  최초 게시, 그룹 게시, 각각의 알림 재전송은 원자적으로 선점합니다. 설정된 채널에
+  다이제스트는 단추 대상과 알림 재전송 ID까지 포함합니다. 최초 게시, 그룹 게시, 각각의
+  알림 재전송은 원자적으로 선점합니다. 설정된 채널에
   대한 공급자의 수락 증적이 일치해야만 전달을 완료합니다. 확인 응답이 사라지거나
   진행 중인 선점이 만료되면 재시작 후에도 영속 `unknown` 상태로 보류하고 무작정
   재게시하지 않습니다. 아직 시도하지 않은 대기 요청은 원래 승인 대기 기록과 만료
   시각을 다시 확인한 뒤에만 재시작 후 게시할 수 있습니다. Slack의 권위 있는 조회
-  증거나 인증된 브라우저 행위자 결합은 아직 없으며
+  증거나 실제 Slack에서 Entra 브라우저로 이어지는 인증 증적은 아직 없으며
   [이슈 #943](https://github.com/dotnetpower/fdai/issues/943)에 남아 있습니다. 설정이나
   게시만으로 승인 또는 실행 권한이 높아지지 않습니다.
 - **A2/A4 기능 상태, 사전 렌더링 표현, shadow 전달 및 공급자 고유 rich 카드 payload**는
@@ -493,7 +499,7 @@ matrix:
 | 채널 | 노트 |
 |------|------|
 | **Teams** | A1에 Adaptive Cards를 사용하고 OAuth 범위를 최소로 유지합니다(`ChannelMessage.Send.Group` + 봇 신호). SSO + OBO는 [user-rbac-and-identity-ko.md §10.4](user-rbac-and-identity-ko.md#104-chatops-teams-사인인)를 따릅니다. **`aw-*` Entra 보안 그룹이 뒷받침하는 그룹 연결 팀**에 `FDAI_TEAMS_APPROVAL_TEAM_ID`, `FDAI_TEAMS_APPROVAL_CHANNEL_ID`, HTTPS `FDAI_TEAMS_APPROVAL_ACTIVITY_URL`, 전용 `FDAI_TEAMS_BOT_MI_CLIENT_ID`를 함께 구성합니다. Core는 실행 신원이 아닌 이 Bot 신원으로 전송하고 `teams:<team-id>:<channel-id>` 대상을 카드에 넣으며 Operator는 같은 값을 검증합니다. Incoming Webhook은 `Action.Execute` 콜백을 전달할 수 없으므로 A1에서 지원되지 않습니다. 수신기에는 `FDAI_TEAMS_APPLICATION_ID`, `FDAI_TEAMS_TENANT_ID`, `FDAI_TEAMS_ALLOWED_SERVICE_URLS_JSON`, `FDAI_TEAMS_JWKS_URL`, `FDAI_TEAMS_PRINCIPAL_MAP_JSON`, 공유 콜백 시크릿, 구성된 HIL 결정 토픽과 영속 outbox도 필요하며 모든 입력이 갖춰질 때까지 Teams A1은 닫혀 있습니다. |
-| **Slack** | A2/A3 및 크기가 제한된 A1 아웃바운드 게시에 Block Kit을 사용합니다. `chat:write` 게시에는 `FDAI_SLACK_APPROVAL_API_URL`(정확한 `https://slack.com/api/chat.postMessage` URL), `FDAI_SLACK_APPROVAL_CHANNEL_ID`, 보호된 `FDAI_SLACK_APPROVAL_BOT_TOKEN`이 필요합니다. 완전한 Slack 전용 아웃바운드 구성에는 Teams 봇 신원이 필요하지 않습니다. 게시만으로 승인이 증명되지는 않습니다. 별도로 서명된 내부 Slack 콜백에는 설정된 작업 영역과 userId-OID 매핑이 필요하지만, 아웃바운드 카드에서 인증된 브라우저 행위자로 이어지는 결합은 구현되지 않았습니다. 해당 결합과 영속 조정이 마련될 때까지 결정 권한은 사용할 수 없습니다. |
+| **Slack** | A2/A3와 범위가 제한된 A1 단추에 Block Kit을 사용합니다. `chat:write` 게시에는 `FDAI_SLACK_APPROVAL_API_URL`(정확한 `https://slack.com/api/chat.postMessage` URL), `FDAI_SLACK_APPROVAL_CHANNEL_ID`, 보호된 `FDAI_SLACK_APPROVAL_BOT_TOKEN`이 필요합니다. Slack 전용 아웃바운드 구성에는 Teams 봇 신원이 필요하지 않습니다. 게시하거나 단추를 누르는 것만으로는 승인되지 않습니다. 서명된 상호작용 수신기에는 구성된 작업 영역, 사용자 ID와 OID의 매핑, 승인된 Console 출처 한 곳이 필요합니다. 브라우저 결정에는 새로 로그인한 시각을 담은 서명된 Entra API 토큰 `auth_time`이 필요합니다. 연결 정보가 없으면 결정을 보류하며 실제 환경의 클릭부터 결정까지의 증적은 여전히 필요합니다. |
 | **이메일** | Azure Communication Services 이메일을 통한 send-only 채널입니다. 승인 링크는 포함하지 않고 다이제스트와 알림만 전달합니다. 어댑터는 모든 메시지에 `plainText`를 보내고 `notice_kind=opened`일 때 범위가 제한된 HTML을 추가합니다. 인시던트 템플릿은 인시던트 id, 상태, 심각도, opened 시간, 집계 구성원 개수, 배정 상태, `audit_id` 및 HTTPS Console 링크만 사용합니다. 상관관계 키, 리소스 페이로드, 행위자 신원 또는 free-form 사유는 렌더링하지 않습니다. Terraform은 Azure-managed 발신자 도메인과 Communication Services 리소스에 범위가 제한된 전용 알림 managed 신원을 프로비저닝합니다. `FDAI_CONSOLE_BASE_URL`이 Console 출처를 제공하며, 값이 없거나 완성된 링크가 absolute HTTPS가 아니면 렌더러는 CTA를 생략합니다. 어댑터는 단기 `https://communication.azure.com/.default` 토큰을 요청하고 프로바이더 연산이 `Succeeded`가 될 때까지 기다린 후 프로바이더 메시지 id를 기록합니다. Settings > Integrations는 합성 자리 표시자만 사용하는 인증된 GET으로 동일한 렌더러를 가져옵니다. 권장 수신자는 `aw-approvers` / `aw-owners`를 미러링하는 **Entra 동적 분배 그룹**입니다. |
 | **범용 웹훅** | HMAC-SHA256 서명, 단조 타임스탬프, 단발 nonce. Receiver 실패는 절대 블록 안 함; 코어가 어댑터 정책대로 재시도 후 이동. |
 | **PagerDuty / Opsgenie** | Dedup 키 = observability 상관 id 이므로 버스트가 접힘. 런북 URL은 모든 알림에 필수. |
@@ -536,7 +542,7 @@ Teams에는 소유자가 다른 네 가지 계약이 있습니다. A1 계약은 
 |------|--------------|------|
 | 세 프로바이더 계약과 메시지/증적 타입 | ✓ | - |
 | Teams 어댑터 | A1과 A2/A4 구현됨; A3 계획됨 | 테넌트 / group-connected 팀 바인딩 |
-| **Slack A1 콜백** | 구현됨, 매핑이 비어 있으면 기본 비활성화, 전용 아웃바운드 `HilChannel`은 계획 상태 | workspace 자격 증명 + userId↔OID 매핑(필수) |
+| **Slack A1 콜백 및 아웃바운드** | 서명된 브라우저 인계와 영속 단추 전달까지 로컬 구현, 연결 정보가 불완전하면 기본 비활성화 | 작업 영역 자격 증명, 승인된 Console 출처 한 곳, API 토큰 `auth_time`, userId↔OID 매핑(필수) |
 | ACS 이메일 어댑터 | ✓ (A2/A4, managed 신원, 최종 상태 polling) | 수신자 바인딩 + 활성화 |
 | 웹훅 / PagerDuty / SMS 어댑터 | ✓ (구체적인 전달 어댑터) | 자격증명 + 활성화 |
 | 라우팅-config 스키마 + 시작 검증 | ✓ | 배포별 연결/오버레이 |
