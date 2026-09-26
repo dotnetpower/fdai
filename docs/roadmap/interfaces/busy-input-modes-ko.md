@@ -2,8 +2,8 @@
 title: 처리 중인 Conversation 입력 모드
 translation_of: busy-input-modes.md
 translation_source: docs/roadmap/interfaces/busy-input-modes.md
-translation_source_sha: 0b0131f72348b3ae3a5582783d80afa5151c487b
-translation_revised: 2026-08-20
+translation_source_sha: cc3f79ca65033fefac65ebfdc59f2d39fa1eab58
+translation_revised: 2026-09-26
 ---
 
 # 처리 중인 대화 입력 모드
@@ -278,7 +278,7 @@ turn-end와 steer race, 재시작 영속성, one-shot 및 스트림 정리, 부�
 | Slack 및 Teams 채널 게이트웨이 | implemented | `services/core-control-plane/src/fdai/core/conversation/channel_gateway.py`; `services/core-control-plane/tests/conversation/test_channel_gateway.py` | 두 채널 어댑터가 범위가 제한된 확인 응답과 함께 조정기 제출 및 시작/종료 의미를 공유합니다. |
 | JSON 및 SSE 활성 턴 통합 | not-started | `services/core-control-plane/src/fdai/core/conversation/busy_input_coordinator.py` | 조정기의 프로덕션 사용은 현재 채널 게이트웨이로 제한되며 one-shot 및 스트림 턴 실행기는 취소 또는 steer 신호를 소비하지 않습니다. |
 | Operator API 경로 및 구체화 | in-progress | `services/operator-service/src/fdai_operator_service/families/conversation/manifest.py`; `services/operator-service/src/fdai_operator_service/families/conversation/factory.py`; `services/operator-service/tests/test_operator_conversation_family.py` | 일반 읽기 및 제안 경로는 있지만 프로덕션 busy-input 제안 소비자 또는 권위 있는 변환 결과 구체화 로직은 확인되지 않았습니다. |
-| FDAI Console 및 클라이언트 컨트롤 | not-started | `console/src` | 현재 source 클라이언트는 busy-input 경로를 통해 제출, 점검, 모드 변경 또는 취소를 수행하지 않습니다. |
+| FDAI Console 및 클라이언트 컨트롤 | implemented | `console/src/deck/busy-input-client.ts`; `console/src/deck/busy-input-controls.tsx`; `console/src/deck/busy-input-client.test.ts`; `console/tests/e2e/busy-input-controls.spec.ts`; 클라이언트 집중 검사, 타입 검사 및 모의 응답을 사용한 Console 브라우저 검사 | Deck은 네 경로 모두에 현재 대화의 정확한 세션 ID와 기존 인증 헤더를 사용합니다. 일치하는 세션의 권위 있는 GET 응답을 확인한 후에만 조작 기능을 켜거나 대기 상태를 표시합니다. 응답을 사용할 수 없거나 확인되지 않으면 초안을 유지합니다. 브라우저 검사는 가상 응답을 사용했으며 프로덕션 Operator 소비자나 실제 대화 취소를 검증하지 않았습니다. |
 | 메트릭 및 운영 근거 | in-progress | `services/core-control-plane/src/fdai/core/conversation/busy_input_coordinator.py` | 카운터 이름과 증가 호출은 있지만 프로덕션 원격 분석 연결 또는 관리되는 런타임 근거가 방출, 재시작 복구 또는 race 동작을 증명하지 않습니다. |
 
 ### 구현 이력
@@ -287,13 +287,14 @@ turn-end와 steer race, 재시작 영속성, one-shot 및 스트림 정리, 부�
 |------|------|------|------|-----------|
 | 2026-08-13 | in-progress | 구현 ledger를 도입했으며 이전 출처 이력은 재구성하지 않았습니다. | 현재 owner 문서 쌍 변경과 구현 범위 표에 나열된 focused core, channel, persistence 및 Operator API 검사입니다. | Web 턴 실행기를 연결하고 API 경계를 구체화하며 클라이언트 컨트롤을 추가하고 live 영속성 검사를 실행한 후 관리되는 운영 근거를 기록해야 합니다. |
 | 2026-08-14 | implemented | 격리된 지원 로컬 PostgreSQL database에서 모든 focused busy-input 영속성 case를 실행하고 실행 후 database를 삭제했습니다. | `current change`; `services/core-control-plane/tests/persistence/test_busy_input.py`; `7 passed`, skip 없음. | JSON 및 SSE turn을 연결하고 Operator operation을 materialize하며 Console control과 governed telemetry 및 runtime 근거를 추가합니다. |
+| 2026-09-26 | implemented | 로컬 중지, 작업 권한 및 백엔드 소비자를 바꾸지 않고 범위가 제한된 인증된 Console 후속 입력, 점검, 모드 변경 및 대화 취소 조작 기능을 추가했습니다. | `current change`; `console/src/deck/busy-input-client.ts`, `busy-input-controls.tsx`, `busy-input-client.test.ts`, `console/tests/e2e/busy-input-controls.spec.ts`; 클라이언트 집중 검사 17건, Console 타입 검사 및 가상 응답을 사용한 데스크톱 브라우저 시나리오 3건 통과. | Core JSON/SSE 턴을 연결하고 Operator busy 작업을 구체화하며 관리되는 원격 측정 및 런타임 근거를 기록합니다. |
 
 ### 남은 작업
 
 - [x] 지원되는 로컬 PostgreSQL 서비스에서 `services/core-control-plane/tests/persistence/test_busy_input.py`의 모든 live 사례를 실행하고 건너뛴 사례 없이 통과한 영속성 및 동시성 증적을 기록합니다.
 - [ ] JSON 및 SSE 활성 턴 실행기를 `BusyInputCoordinator`에 연결한 후 interrupt 정리, 범위가 제한된 steer 재실행, queue 대체 동작 및 부분 assistant 이력 방지를 증명하는 focused 테스트를 추가합니다.
 - [ ] 네 가지 Operator API 작업을 위한 프로덕션 소비자 및 권위 있는 변환 결과 구체화 로직을 추가한 후 principal 범위, 멱등성, 개정 번호 충돌 및 동등한 not-found 응답을 focused 경로 테스트로 증명합니다.
-- [ ] 제출, 점검, 모드 변경 및 conversational 취소를 위한 FDAI Console 클라이언트 컨트롤과 focused 상호 작용 및 접근성 검사를 추가합니다.
+- [x] 제출, 점검, 모드 변경 및 대화 취소를 위한 FDAI Console 클라이언트 조작 기능과 집중 상호 작용 및 접근성 검사를 추가합니다(`busy-input-client.test.ts`; `busy-input-controls.spec.ts` 데스크톱 가상 경로).
 - [ ] 조정기 카운터를 프로덕션 원격 분석에 연결하고 어느 영역이든 `validated`로 승격하기 전에 관리되는 재시작, 만료, race-recovery 및 채널 동등성 근거를 기록합니다.
 
 ## 관련 문서

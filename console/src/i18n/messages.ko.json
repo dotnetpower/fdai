@@ -2799,6 +2799,34 @@
     "inputPlaceholderContext": "{route}에 대해 무엇이든 질문하거나 /를 입력해 명령을 사용하세요",
     "stop": "중지",
     "send": "보내기",
+    "busy": {
+      "title": "대화 후속 입력",
+      "inspect": "대화 상태 새로고침",
+      "checking": "대화 상태 확인 중...",
+      "unavailable": "대화 조작 기능을 사용할 수 없습니다. 초안은 유지됩니다.",
+      "conflict": "대화 상태가 변경되었습니다. 새로고침한 뒤 다시 시도하세요. 초안은 유지됩니다.",
+      "pending": "요청 확인을 기다리는 중입니다. 상태를 새로고침하세요. 초안은 유지됩니다.",
+      "state": "{active} - {mode} 모드 - 대기 중 {count}개",
+      "active": "진행 중인 턴",
+      "idle": "진행 중인 턴 없음",
+      "pendingList": "대기 중인 후속 입력 {count}건 보기",
+      "pendingItem": "순서 {sequence}: {disposition}; 만료 {expires}",
+      "mode": "후속 입력 모드",
+      "modes": {
+        "queue": "대기열",
+        "interrupt": "대화 중단",
+        "steer": "문장으로 방향 조정"
+      },
+      "dispositions": {
+        "queued": "대기열에 있음",
+        "interrupting": "중단 요청 중",
+        "steered": "방향 조정 대기 중"
+      },
+      "submit": "후속 입력 제출",
+      "cancel": "대화 취소 요청",
+      "confirmed": "서버에서 후속 입력 상태를 확인했습니다: {disposition}.",
+      "boundary": "대화 작업에만 적용됩니다. 로컬 중지와 별개이며 작업과 승인은 취소하지 않습니다."
+    },
     "table": {
       "rowsShown": "전체 {total}행 중 {shown}행 표시",
       "showRemaining": "나머지 {count}행 보기",
