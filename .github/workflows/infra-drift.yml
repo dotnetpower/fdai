@@ -72,6 +72,7 @@ jobs:
       TF_VAR_core_image: ${{ vars.CORE_IMAGE || vars.OPERATOR_API_IMAGE }}
       TF_VAR_postgres_admin_login: ${{ secrets.POSTGRES_ADMIN_LOGIN }}
       TF_VAR_postgres_admin_password: ${{ secrets.POSTGRES_ADMIN_PASSWORD }}
+      TARGET_COMMIT_SHA: ${{ github.event_name == 'workflow_dispatch' && inputs.commit_sha || github.sha }}
     steps:
       - name: Checkout protected workflow verifier
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -172,8 +173,10 @@ jobs:
           while IFS=$'\t' read -r root_id terraform_root backend_key; do
             service="${root_id#service:}"
             resolved_model_args=()
+            source_revision_binding=""
             if [[ "$service" == "core-control-plane" ]]; then
               resolved_model_args+=(--model-binding-transition)
+              source_revision_binding="$TARGET_COMMIT_SHA"
             fi
             terraform -chdir="$terraform_root" init -input=false -lockfile=readonly \
               -backend-config="resource_group_name=$STATE_RESOURCE_GROUP" \
@@ -200,6 +203,7 @@ jobs:
                     --pantheon-object-topic "$pantheon_object_topic" \
               | MODEL_ENDPOINTS_JSON="$model_endpoints_json" \
                 RESOLVED_MODELS_DIGEST="$resolved_models_digest" \
+                SOURCE_REVISION="$source_revision_binding" \
                 python3 scripts/deployment/service/materialize_tfvars.py \
                   --service "$service" \
                   --environment "$ENVIRONMENT" \

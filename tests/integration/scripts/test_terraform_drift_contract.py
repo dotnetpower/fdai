@@ -143,11 +143,17 @@ def test_workflow_plans_every_production_root() -> None:
     assert '[[ "$service_count" -eq 5 ]]' in workflow
     assert 'terraform -chdir="$terraform_root" init' in workflow
     assert "TF_VAR_core_image: ${{ vars.CORE_IMAGE || vars.OPERATOR_API_IMAGE }}" in workflow
+    assert (
+        "TARGET_COMMIT_SHA: ${{ github.event_name == 'workflow_dispatch' "
+        "&& inputs.commit_sha || github.sha }}" in workflow
+    )
     assert "scripts/deployment/service/hydrate_database_host.py" in workflow
     assert "scripts/deployment/service/hydrate_event_topic.py" in workflow
     assert "RESOLVED_MODELS_JSON: ${{ vars.RESOLVED_MODELS_JSON }}" in workflow
     assert "resolved_models_digest=" in workflow
+    assert 'source_revision_binding="$TARGET_COMMIT_SHA"' in workflow
     assert 'MODEL_ENDPOINTS_JSON="$model_endpoints_json"' in workflow
+    assert 'SOURCE_REVISION="$source_revision_binding"' in workflow
     assert "resolved_model_args+=(--model-binding-transition)" in workflow
     assert '"${resolved_model_args[@]}"' in workflow
     assert "terraform -chdir=infra show -json" in workflow
