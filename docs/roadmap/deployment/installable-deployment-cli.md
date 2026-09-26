@@ -81,7 +81,7 @@ Source execution copies verified infrastructure into a private state-preserving 
 The immutable snapshot does not receive Terraform state or generated data. Existing exact-plan approval, pre-effect claim, verification-only recovery, and independent readback remain authoritative.
 Private state transfer includes the Foundation root, sibling bootstrap/shared modules, and the exact five `genesis-runner-image` support files referenced by Terraform.
 For a retained claim created before that archive closure, recovery preserves the original claim and backend migration while restoring the exact support bytes from the reviewed recovery configuration.
-It requires a fresh exact `foundation-state` approval before writing a current-source repair claim, installs only missing files without replacement, and places the current verifier outside Terraform's sibling input tree under a separate remote repair manifest.
+It requires a fresh exact `foundation-state` approval before writing a current-source repair claim, installs only missing files without replacement, and places the current verifier outside Terraform's sibling input tree under a separate remote repair manifest; fixed remote inspection arguments use shell-neutral field separators.
 That verifier then runs in `verify` mode. A partial base set, a different existing file, or changed readback blocks recovery.
 These adapters do not prove a completed deployment.
 
