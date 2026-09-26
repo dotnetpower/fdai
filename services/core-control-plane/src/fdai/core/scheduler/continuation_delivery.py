@@ -15,6 +15,8 @@ from datetime import datetime, timedelta
 
 from fdai.core.scheduler.continuation_retention import (
     ContinuationDeletionFence,
+    ContinuationDeletionFencedError,
+    RetentionFenceUnavailableError,
     assert_not_fenced,
 )
 from fdai.shared.providers.conversation_channel import (
@@ -25,6 +27,7 @@ from fdai.shared.providers.conversation_channel import (
 )
 from fdai.shared.providers.conversation_delivery import (
     ConversationDeliveryStore,
+    OriginDeletionResult,
     OutboundDeliveryRecord,
     new_delivery_record,
 )
@@ -60,6 +63,10 @@ class ContinuationRenderingError(ScheduledContinuationDeliveryError):
 
 class ContinuationDeliveryConflictError(ScheduledContinuationDeliveryError):
     """The same anchor origin was submitted with different persisted content."""
+
+
+class ContinuationPurgeIntentError(ScheduledContinuationDeliveryError):
+    """A live scheduled result is never purged from the ledger without deletion intent."""
 
 
 class ScheduledContinuationDeliveryCoordinator:
@@ -124,6 +131,29 @@ class ScheduledContinuationDeliveryCoordinator:
             raise ContinuationDeliveryConflictError(
                 "scheduled continuation origin already carries different content"
             ) from error
+
+    async def purge_origin(self, *, anchor_id: str, now: datetime) -> OriginDeletionResult:
+        """Delete the ledger's copies of one scheduled result under deletion intent.
+
+        A submitted scheduled result is another retained copy of the answer body, so the
+        source retention fence is the authoritative deletion intent. This call refuses an
+        unfenced anchor id, so a live result is never purged out from under delivery, and
+        it fails closed when the fence is unreadable. The ledger's own origin tombstone is
+        recorded before the first deletion, which keeps a late redelivery refused even if
+        the source fence is later unavailable. A surviving copy keeps the purge pending
+        through `OutboundDeliveryReadbackError`.
+        """
+        if now.tzinfo is None:
+            raise ValueError("now MUST be timezone-aware")
+        try:
+            await assert_not_fenced(self._fence, anchor_id=anchor_id)
+        except ContinuationDeletionFencedError:
+            return await self._deliveries.delete_by_origin(origin_ref=anchor_id, at=now)
+        except RetentionFenceUnavailableError:
+            raise
+        raise ContinuationPurgeIntentError(
+            "scheduled continuation ledger purge requires a recorded deletion fence"
+        )
 
 
 def continuation_outbound_response(anchor: ScheduledConversationAnchor) -> OutboundResponse:
@@ -191,6 +221,7 @@ __all__ = [
     "TRUNCATION_MARKER",
     "ContinuationDeliveryConflictError",
     "ContinuationDeliveryUnavailableError",
+    "ContinuationPurgeIntentError",
     "ContinuationRenderingError",
     "ScheduledContinuationDeliveryCoordinator",
     "ScheduledContinuationDeliveryError",
