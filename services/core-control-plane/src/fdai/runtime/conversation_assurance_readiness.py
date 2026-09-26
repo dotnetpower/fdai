@@ -13,6 +13,7 @@ from typing import Any
 from fdai.core.conversation.semantic_current_evidence import SemanticCurrentEvidenceProbe
 from fdai.core.conversation.semantic_manifest import semantic_principal_scope_digest
 from fdai.core.conversation.session import Principal, Role
+from fdai.core.ontology_platform.query_execution import QueryNodeHeldError
 
 CONVERSATION_ASSURANCE_PRINCIPAL_ID = "watchdog-local"
 _MANIFEST_FUNCTION = "query.manifest"
@@ -232,6 +233,17 @@ async def observe_runtime_readiness(
                 function_name=function_name,
                 principal=principal,
             )
+        except QueryNodeHeldError as error:
+            capabilities[function_name] = RuntimeCapabilityReadiness(
+                function_name=function_name,
+                declared=True,
+                bound=True,
+                reachable=True,
+                evidence_ready=False,
+                provided_authority=function_bindings[function_name],
+                unavailable_reason=error.reason,
+            )
+            continue
         except (OSError, RuntimeError):
             capabilities[function_name] = RuntimeCapabilityReadiness(
                 function_name=function_name,

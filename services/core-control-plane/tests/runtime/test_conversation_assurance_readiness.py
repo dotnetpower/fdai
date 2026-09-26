@@ -8,6 +8,7 @@ from fdai.core.conversation.semantic_current_evidence import (
 )
 from fdai.core.conversation.semantic_manifest import semantic_principal_scope_digest
 from fdai.core.conversation.session import Principal, Role
+from fdai.core.ontology_platform.query_execution import QueryNodeHeldError
 from fdai.runtime.conversation_assurance_readiness import (
     ReadinessStage,
     RuntimeCapabilityReadiness,
@@ -320,6 +321,34 @@ async def test_runtime_observation_classifies_provider_authority_failure_as_unav
     assert not service_health.reachable
     assert not service_health.evidence_ready
     assert service_health.unavailable_reason == "authority_or_source_unavailable"
+
+
+@pytest.mark.asyncio
+async def test_runtime_observation_preserves_bounded_query_hold_reason() -> None:
+    class HeldProbe:
+        async def observe(
+            self,
+            *,
+            function_name: str,
+            principal: Principal,
+        ) -> SemanticCurrentEvidenceObservation:
+            del function_name, principal
+            raise QueryNodeHeldError("graph_refresh_hold:graph_stale,source_incomplete")
+
+    inventory = await observe_runtime_readiness(
+        declared_function_names=("query.resource_state_inventory",),
+        function_bindings={"query.resource_state_inventory": "server_inventory_graph"},
+        current_evidence_probe=HeldProbe(),
+        principal=_PRINCIPAL,
+    )
+
+    resource_state = inventory.capability("query.resource_state_inventory")
+    assert resource_state is not None
+    assert resource_state.bound
+    assert resource_state.reachable
+    assert not resource_state.evidence_ready
+    assert resource_state.provided_authority == "server_inventory_graph"
+    assert resource_state.unavailable_reason == ("graph_refresh_hold:graph_stale,source_incomplete")
 
 
 @pytest.mark.asyncio

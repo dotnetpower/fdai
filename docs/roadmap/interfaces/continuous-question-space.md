@@ -77,6 +77,9 @@ or answerable until its own reviewed semantic expectation, principal-scoped capa
 evidence limitations, forbidden-claim oracle, and required validation exist. Questions about
 recommendations, rollback, scaling, or automation remain advisory or draft-only and always retain
 `execution_authority=false`.
+The owner-only runtime readiness receipt preserves bounded typed query-hold reason codes such as
+graph freshness or completeness holds. Provider, authorization, and unexpected runtime failures
+remain a generic unavailable reason, so diagnostics gain no secret or tenant-bearing exception text.
 
 The developing [structured cloud-document evaluation](cloud-resource-knowledge-structured-rag.md)
 uses a separately frozen English/Korean question set. Collection, qualification, approval, indexing,

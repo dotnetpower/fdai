@@ -1,7 +1,7 @@
 ---
 translation_of: continuous-question-space.md
-translation_source_sha: 6addf34f1316fe7c01f64011bad86f9b3cd92230
-translation_revised: 2026-09-23
+translation_source_sha: b632edef1239a03d61c9997c9767edd6445e774e
+translation_revised: 2026-09-26
 ---
 # 지속형 질문 공간
 
@@ -81,6 +81,9 @@ logical-topic 표시를 받습니다. 스키마로 검증되는 request payload�
 Golden 질문, Console 표시 질문 또는 답변 가능한 질문으로 승격되지 않습니다. 권장 사항,
 롤백, 스케일링 또는 자동화에 관한 질문은 자문이나 초안 전용으로 유지되며 항상
 `execution_authority=false`를 보존합니다.
+소유자 전용 런타임 준비 상태 증적은 그래프 최신성 또는 완전성 보류와 같은 범위가 제한된 타입 지정
+조회 보류 사유 코드를 보존합니다. 공급자, 권한 부여 및 예기치 않은 런타임 오류는 일반 사용 불가
+사유로 유지하므로 진단에 시크릿이나 테넌트 정보가 포함된 예외 텍스트를 추가하지 않습니다.
 
 개발 중인 [구조화된 클라우드 문서 평가](cloud-resource-knowledge-structured-rag-ko.md)는 별도로
 고정한 영어/한국어 질문 집합을 사용합니다. 수집, 품질 검토, 승인, 색인 및 답변 근거는 각각
