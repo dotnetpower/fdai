@@ -1,7 +1,7 @@
 ---
 translation_of: conversation-attachments.md
-translation_source_sha: 1563fb486771ae0c05077b77d7c8091535c0a4f8
-translation_revised: 2026-09-19
+translation_source_sha: 5cb3c9f4a3915aab75cb820626bae52d46eeff93
+translation_revised: 2026-09-26
 title: 대화 첨부파일
 ---
 # 대화 첨부파일
@@ -46,6 +46,7 @@ title: 대화 첨부파일
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-26 | 구현됨 | 기존 application-only 첨부 App Role과 정확한 API 범위를 보존하면서 보호된 테넌트 부트스트랩에 세 번째 승인 봇 등록을 완성했습니다. 부트스트랩은 공급자 동의, Teams 설치, edge 할당 또는 실행 권한을 만들지 않습니다. | `current change`; 배포 CLI 및 Genesis Entra 부트스트랩 소스; 집중 부트스트랩 및 저장소 구성 테스트(`50 passed`). | 보호된 테넌트에서 공급자 동의와 전용 edge 서비스 principal 역할 할당을 완료한 다음, 아래의 인증된 첨부 준비 상태 및 인용 증적을 보존합니다. |
 | 2026-09-19 | implemented | 공유 Core-to-Operator 의미 최종 묶음에서 유효한 held assurance 상태와 정확한 답변 출처를 보존하고 런타임 실패와 결과 저장소 실패를 구분했습니다. | `current change`, 집중 의미 처리기 및 Operator presentation 테스트가 468개 테스트 묶음에서 통과했고 Ruff와 strict mypy가 통과했습니다. | 첨부 데이터, 인용, 인제스트 또는 권한 동작은 바뀌지 않았으며 inline 이미지와 보호된 배포 근거는 계속 열려 있습니다. |
 | 2026-09-18 | implemented | 전체 런타임 설정 카탈로그가 통합 질문은행의 원본 다이제스트를 바꾼 뒤 공유 CQAS 출처 이력을 갱신했습니다. 첨부 원본, 계약, 개수, 데이터 접근 및 권한은 바뀌지 않았습니다. | `current change`, 공식 질문은행 및 의미 의도 생성기, 질문은행 테스트 8개와 의미 범위 테스트 4개 통과 | 이 결정론적 다이제스트 갱신과 관련해 남은 대화 첨부 작업은 없습니다. |
 | 2026-09-17 | implemented | 통합으로 판테온 원본 다이제스트가 바뀐 뒤 공유 의미 의도 출처 이력을 다시 생성했습니다. 첨부 원본, 계약, 개수, 데이터 접근 및 권한은 바뀌지 않았습니다. | `current change`; 공식 의미 의도 생성기; 집중 산출물 동등성 검사. | 이 결정론적 다이제스트 갱신과 관련해 남은 대화 첨부 작업은 없습니다. |
