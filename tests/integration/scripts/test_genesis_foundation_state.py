@@ -390,6 +390,24 @@ def test_support_repair_refuses_to_replace_a_different_existing_file(
     assert not (directory / support_repair.SUPPORT_REPAIR_CLAIM_NAME).exists()
 
 
+def test_legacy_authority_reuses_its_bound_remote_observation(tmp_path: Path) -> None:
+    tmp_path.chmod(0o700)
+    work_id = "c" * 64
+    observation = {
+        "schema_version": "fdai.genesis-foundation-remote-state-observation.v1",
+        "state": "verified",
+        "work_id": work_id,
+        "remote_state_digest": "d" * 64,
+    }
+    _private_json(tmp_path / f"remote-observation-{work_id[:12]}.json", observation)
+    authority = {"observation_digest": canonical_digest(observation)}
+
+    assert (
+        state_command._authority_remote_state_digest(tmp_path, authority=authority, work_id=work_id)
+        == "d" * 64
+    )
+
+
 @pytest.mark.parametrize("local_first", [False, True])
 @pytest.mark.parametrize("separate_state", [False, True])
 def test_private_archive_preserves_exact_state_and_executable_provider(
@@ -834,15 +852,21 @@ class FakeTunnel:
         self, remote_arguments: tuple[str, ...], *, timeout: int, input_text: str | None = None
     ) -> subprocess.CompletedProcess[str]:
         del timeout
-        assert input_text is None
         self.calls.append(remote_arguments)
+        if remote_arguments[:2] == ("/usr/bin/python3", "-"):
+            assert input_text is not None
+            assert "--expected-remote-state-digest" in remote_arguments
+            assert "expected-remote-state-digest" in input_text
+            mode = remote_arguments[2]
+        else:
+            assert input_text is None
+            mode = remote_arguments[1] if len(remote_arguments) > 1 else ""
         if remote_arguments[0] == "/usr/local/sbin/fdai-attest-runner":
             return subprocess.CompletedProcess(
                 remote_arguments, 0, "attestation_complete transport=manual slots=2\n", ""
             )
         if remote_arguments[0] == "/usr/bin/test":
             return subprocess.CompletedProcess(remote_arguments, 0, "", "")
-        mode = remote_arguments[1]
         work_id = remote_arguments[remote_arguments.index("--work-id") + 1]
         if mode == "migrate" and self.fail_migration:
             return subprocess.CompletedProcess(remote_arguments, 3, "", "")
@@ -1178,10 +1202,11 @@ def test_recovered_state_uses_original_owner_and_exact_approval(tmp_path, monkey
     assert (
         json.loads((original / state_command.foundation_apply.RECEIPT_NAME).read_bytes()) == prior
     )
+    migration_source[0] = "e" * 40
     FakeTunnel.calls = []
     assert state_command.main(arguments + ["--resume-verification"]) == 0
     assert len(FakeTunnel.copied) == 1
-    assert [command[1] for command in FakeTunnel.calls] == ["observe"]
+    assert [command[:3] for command in FakeTunnel.calls] == [("/usr/bin/python3", "-", "observe")]
     authority_path = directory / state_command.AUTHORITY_NAME
     authority = json.loads(authority_path.read_bytes())
     authority["zero_change_verified"] = False
@@ -1273,8 +1298,7 @@ def test_completed_handoff_reobserves_remote_authority_without_repeating_effect(
 
     assert state_command.main(_arguments(directory, profile, foundation, "--approve")) == 0
 
-    modes = [call[1] for call in FakeTunnel.calls if "fdai-migrate" in call[0]]
-    assert modes == ["observe"]
+    assert [call[:3] for call in FakeTunnel.calls] == [("/usr/bin/python3", "-", "observe")]
     assert not FakeTunnel.copied
 
 
