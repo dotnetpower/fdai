@@ -23,6 +23,7 @@ from pathlib import Path
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock
 
+import httpx
 import pytest
 from fdai.core.executor import (
     ExecutorOutcome,
@@ -59,6 +60,12 @@ from fdai.core.ontology_platform.reconciliation_producer import (
     ReconciliationRequestProduction,
     ReconciliationRequestProductionStatus,
 )
+from fdai.delivery.chatops.slack_adapter import (
+    SLACK_POST_URL,
+    SlackHilAdapter,
+    SlackHilAdapterConfig,
+)
+from fdai.delivery.chatops.slack_request_outbox import DurableSlackApprovalChannel
 from fdai.shared.contracts.models import (
     Action,
     ActionStopCondition,
@@ -331,6 +338,36 @@ def _coordinator(
         ),
     )
     return coordinator, publisher, store, channel
+
+
+async def test_slack_request_is_durable_before_coordinator_reports_dispatch() -> None:
+    posts = 0
+
+    def handler(_: httpx.Request) -> httpx.Response:
+        nonlocal posts
+        posts += 1
+        return httpx.Response(200, json={"ok": True, "channel": "CEXAMPLE1", "ts": "1.2"})
+
+    coordinator, publisher, store, _ = _coordinator()
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        coordinator._hil_channel = DurableSlackApprovalChannel(
+            adapter=SlackHilAdapter(
+                config=SlackHilAdapterConfig(
+                    api_url=SLACK_POST_URL, channel_id="CEXAMPLE1", bot_token="fixture"
+                ),
+                http_client=client,
+            ),
+            store=store,
+        )
+        result = await coordinator.request_approval(
+            action=_action(), rule=_rule(), submitter_oid=_SUBMITTER, correlation_id="example"
+        )
+    records, total = await store.read_state_page("hil-slack-request:", limit=10)
+    assert total == 1 and records[0]["status"] == "accepted"
+    assert result.receipt is not None
+    assert result.receipt.channel_ref == "slack:CEXAMPLE1/1.2"
+    assert posts == 1
+    assert publisher.records == ()
 
 
 class _ReportLineGraphs:

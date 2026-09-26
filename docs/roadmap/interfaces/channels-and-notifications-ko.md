@@ -1,7 +1,7 @@
 ---
 title: 채널과 알림(Channels and Notifications)
 translation_of: channels-and-notifications.md
-translation_source_sha: de302edf127eea884af719814b5c89f842a87e56
+translation_source_sha: cd0f4f611ee0b490e09a62bb787ecd27ef7522d4
 translation_revised: 2026-09-26
 ---
 
@@ -336,11 +336,16 @@ channel-as-audience 바인딩으로 유지합니다.
   사용합니다. 크기가 제한된 Block Kit에는 불투명한 작업 결합 식별자만 담고, 결정 버튼,
   브라우저 링크, 자원 상세 정보나 행위자 주장은 담지 않습니다. 수락하려면 Slack 응답의
   `ok=true`, 크기가 제한된 메시지 시각, 설정된 채널이 모두 필요합니다. `poll`은 항상
-  `PENDING`을 반환합니다. 프로세스 안에서 한 승인 ID의 중복 게시는 차단하지만, 중단되거나
-  잘못된 확인 응답은 알 수 없는 상태로 남기고 해당 인스턴스가 무작정 재게시하지 않습니다.
-  영속 발송 원장은 아직 없습니다. 재시작 후 조정과 인증된 브라우저 행위자 결합은
-  [이슈 #943](https://github.com/dotnetpower/fdai/issues/943)의 남은 작업입니다. 설정만으로
-  승인 또는 실행 권한이 높아지지 않습니다.
+  `PENDING`을 반환합니다. Core가 소유한 요청 발신함은 HTTP 호출 전에 변경되지 않는
+  전송 식별자와 실제 렌더링된 본문의 다이제스트를 감사 기록과 함께 영속화합니다.
+  최초 게시, 그룹 게시, 각각의 알림 재전송은 원자적으로 선점합니다. 설정된 채널에
+  대한 공급자의 수락 증적이 일치해야만 전달을 완료합니다. 확인 응답이 사라지거나
+  진행 중인 선점이 만료되면 재시작 후에도 영속 `unknown` 상태로 보류하고 무작정
+  재게시하지 않습니다. 아직 시도하지 않은 대기 요청은 원래 승인 대기 기록과 만료
+  시각을 다시 확인한 뒤에만 재시작 후 게시할 수 있습니다. Slack의 권위 있는 조회
+  증거나 인증된 브라우저 행위자 결합은 아직 없으며
+  [이슈 #943](https://github.com/dotnetpower/fdai/issues/943)에 남아 있습니다. 설정이나
+  게시만으로 승인 또는 실행 권한이 높아지지 않습니다.
 - **A2/A4 기능 상태, 사전 렌더링 표현, shadow 전달 및 공급자 고유 rich 카드 payload**는
   [다중 채널 알림 전달 § 8](multi-channel-notification-delivery-ko.md#8-capability-state-presentation-shadow-delivery-계약)이
   상세히 소유합니다.

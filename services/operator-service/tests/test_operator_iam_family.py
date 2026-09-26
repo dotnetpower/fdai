@@ -1190,7 +1190,7 @@ def test_family_owns_exact_route_manifest_without_fdai_implementation_imports() 
         for route in routes
     )
     assert snapshot == tuple((item.method, item.path, item.name) for item in IAM_FAMILY_MANIFEST)
-    assert len(snapshot) == 56
+    assert len(snapshot) == 59
     assert ("GET", "/handover/readiness", "readiness") in snapshot
 
     for path in FAMILY_SOURCE.rglob("*.py"):
