@@ -1,8 +1,8 @@
 ---
 title: 거버넌스 적용 실행 백엔드
 translation_of: execution-backends.md
-translation_source_sha: 64e895ea8a83d02e02009f9828842c0ef896c2b0
-translation_revised: 2026-08-20
+translation_source_sha: 972604db41868034701de0f27b833afab9fe03e7
+translation_revised: 2026-09-27
 ---
 
 # 거버넌스 적용 실행 백엔드
@@ -112,7 +112,8 @@ Alembic `0049`는 `execution_submission`과 `execution_submission_attempt`를 �
 > `ExecutionBackend` 프로토콜로 구현되어 있습니다. 두 어댑터 모두 기존 sandbox 카탈로그를 감싸고
 > 좁히기만 합니다. plan과 증적 맵은 프로세스 로컬이며 coordinator cleanup으로 해제되고
 > `durable_provider_state`로 보고됩니다. 통제된 shadow 증적과 조립 연결은 아직 남아 있습니다.
-> `AzureContainerAppsJobExecutionBackend`는 구현되지 않았습니다. 기존 `delivery/azure/vm_task.py`
+> `AzureContainerAppsJobExecutionBackend`는 구현했지만 시작 단계에서 연결되지 않았으며
+> 승격할 수 없습니다. 기존 `delivery/azure/vm_task.py`
 > 프로바이더는 여전히 하위 수준 VM 기능이며 여기서 설명하는 통제된 수명 주기 어댑터가 아닙니다.
 
 ### Bubblewrap 로컬 읽기
@@ -142,6 +143,11 @@ Health 발견은 작업을 읽고 구성된 이미지가 예상 pinned 다이제
 Container Apps는 프로바이더 정책에 따라 실행 메타데이터를 유지합니다. 따라서 정리는 최종
 또는 stop 동작을 확인하고 `provider_retention`을 기록합니다. Azure가 실행 기록을 삭제했다고
 주장하지 않습니다.
+어댑터는 단 한 번의 시작 요청 직전에 미리 준비된 Job의 이미지 다이제스트를 다시 확인하고,
+재시작 이후를 포함한 모든 상태 조회에서 실행 자체의 이미지를 검증합니다. 시작 응답에 정확한
+실행 신원이 없으면 결과를 모호한 상태로 두고 재시도하지 않습니다. 중지 수락은 최종 상태의
+근거가 아니므로 실행을 다시 읽고 경합 중에 성공했거나 아직 실행 중인 상태를 보존합니다.
+아래 시작 단계 연결과 통제된 shadow 증적을 확보하기 전에는 연결하거나 활성화하지 않습니다.
 
 ## 비용 및 실패 자세
 
@@ -171,7 +177,7 @@ Azure Container Apps 작업 프로파일이 비활성화된 shadow 관측을 벗
 | 프로토콜 및 원장 기록 | `services/core-control-plane/src/fdai/shared/providers/execution_backend.py` | 프로바이더 및 focused 수명 주기 테스트 |
 | 프로파일, 레지스트리, 조정기 | `services/core-control-plane/src/fdai/core/execution_backend/` | `services/core-control-plane/tests/core/execution_backend/` |
 | Bubblewrap 및 VM 어댑터 | `services/core-control-plane/src/fdai/delivery/execution_backend/adapters.py` | `services/core-control-plane/tests/delivery/test_execution_backend_adapters.py` |
-| Azure Container Apps 작업 | 구현되지 않음 | Focused 어댑터 테스트 없음 |
+| Azure Container Apps 작업 | `services/core-control-plane/src/fdai/delivery/execution_backend/container_apps_job.py` | `services/core-control-plane/tests/delivery/test_container_apps_job_backend.py` |
 | PostgreSQL 원장 | `services/core-control-plane/src/fdai/delivery/persistence/postgres_execution_backend.py` | `services/core-control-plane/tests/persistence/test_execution_backend_ledger.py` |
 | 시작 연결 | `services/core-control-plane/src/fdai/composition/wire_execution_backends.py` | `services/core-control-plane/tests/composition/test_execution_backends.py` |
 | 런타임 레지스트리 문서 로더 | `services/core-control-plane/src/fdai/runtime/execution_backends.py` | `services/core-control-plane/tests/runtime/test_execution_backends.py` |
@@ -187,7 +193,7 @@ Azure Container Apps 작업 프로파일이 비활성화된 shadow 관측을 벗
 | 시작 연결 | in-progress | `services/core-control-plane/src/fdai/composition/wire_execution_backends.py`; `services/core-control-plane/tests/composition/test_execution_backends.py` | 이음매는 존재하고 `bind_execution_backends` 에는 focused 테스트가 있지만, 이를 호출하는 런타임 경로가 없습니다: `grep -rn bind_execution_backends` 는 정의, `composition` 파사드 재수출, 그리고 그 테스트만 일치시킵니다. 테스트 역시 실제 어댑터와 PostgreSQL 원장이 아니라 `object()` 와 인메모리 원장을 바인딩합니다. |
 | 런타임 레지스트리 문서 로더 | implemented | `services/core-control-plane/src/fdai/runtime/execution_backends.py`; `services/core-control-plane/tests/runtime/test_execution_backends.py` | `load_execution_backend_registry_from_env` 가 `load_execution_backend_registry_file` 의 호출자입니다. `FDAI_EXECUTION_BACKEND_REGISTRY_PATH` 가 없으면 런타임에 프로파일이 없고, 설정되었지만 없거나 크기를 초과하거나 형식이 잘못되었거나 객체가 아니거나 스스로 활성화하는 문서는 시작을 실패시킵니다. Focused 10건이 이 경로들을 다룹니다. 프로파일 내용은 배포가 소유하므로 저장소에는 레지스트리 문서를 두지 않습니다. |
 | Bubblewrap 및 통제된 VM 어댑터 | implemented | `services/core-control-plane/src/fdai/delivery/execution_backend/adapters.py`; `services/core-control-plane/tests/delivery/test_execution_backend_adapters.py` | 두 어댑터는 기존 sandbox `constrain`을 먼저 호출한 뒤 `intersect_execution_profile`을 적용하므로, 넓히는 프로파일은 프로바이더 I/O 전에 실패합니다. Bubblewrap은 취소를 선언하지 않고 흉내 내지도 않으며, VM 어댑터는 상태, 취소, 프로바이더 보존을 대응시킵니다. 조립 연결과 통제된 shadow 증적은 남아 있습니다. |
-| Azure Container Apps Job 어댑터 | not-started | [Azure Container Apps 작업](#azure-container-apps-작업) | 통제된 Job backend 구현이나 focused 어댑터 테스트가 없습니다. |
+| Azure Container Apps Job 어댑터 | implemented | `services/core-control-plane/src/fdai/delivery/execution_backend/container_apps_job.py`; `services/core-control-plane/tests/delivery/test_container_apps_job_backend.py`; 실행 백엔드 집중 검사 | 정확한 ARM 호스트와 경로, 이미지 다이제스트, 권한 비확장, 단 한 번의 시작 요청, 제한된 읽기 재시도, 차단기 상태, 재시작 후 조회, 중지 경합 및 프로바이더 보존을 로컬에서 검증했습니다. 시작 단계 연결과 실제 프로바이더 근거는 남아 있습니다. |
 | 실제 shadow 및 승격 근거 | not-started | [Shadow 탐색 및 승격 잔여](#shadow-탐색-및-승격-잔여) | Mock 수명 주기 검사는 신원, ARM 도달 가능성, race, 증적 완전성, 보존 또는 측정 비용을 입증하지 않습니다. |
 
 ### 구현 이력
@@ -200,6 +206,7 @@ Azure Container Apps 작업 프로파일이 비활성화된 shadow 관측을 벗
 | 2026-08-16 | in-progress | 위 2026-08-14 승격 행을 바로잡았습니다. 그 행은 "PostgreSQL 원장과 시작 연결"을 함께 승격했지만, 인용한 근거(`test_execution_backend_ledger.py`)는 원장만 검증합니다. 시작 연결은 애초에 승격 가능한 상태가 아니었습니다: `bind_execution_backends` 를 호출하는 런타임 경로가 없고 `load_execution_backend_registry_file` 은 테스트를 포함해 호출자가 0입니다. 구현 범위 표는 이제 `PostgreSQL 원장` 과 `시작 연결` 을 상태가 다른 별도 행으로 가지며, 이는 이 문서가 스스로 적어 둔 "조립 연결과 통제된 shadow 증적은 열려 있다" 및 미체크 연결 항목과의 모순도 제거합니다. | `current change`; `grep -rn bind_execution_backends --include=*.py services/` 는 정의, `composition` 파사드, `tests/composition/test_execution_backends.py` 만 일치시키고, `grep -rn load_execution_backend_registry_file` 은 정의와 파사드만 일치시킵니다. | 두 어댑터를 배포 조립으로 연결하고, 레지스트리 로더에 호출자와 focused 테스트를 부여합니다. |
 | 2026-08-16 | implemented | 런타임 레지스트리 문서 로더를 추가해 `load_execution_backend_registry_file` 에 실제 호출자를 부여했습니다. 경로가 없으면 프로파일이 없고, 설정된 문서가 없거나 크기를 초과하거나 형식이 잘못되었거나 객체가 아니거나 스스로 활성화하면 조용히 저하되지 않고 시작을 실패시킵니다. | `current change`; `services/core-control-plane/src/fdai/runtime/execution_backends.py`; `pytest services/core-control-plane/tests/runtime/test_execution_backends.py` (10 passed). | 두 어댑터를 배포 조립으로 연결하고 통제된 shadow 증적을 보존해야 합니다. |
 | 2026-08-16 | implemented | 구현 이력은 append-only이므로 위 행을 기록 당시 문구로 되돌리고 이후 변경을 여기에 별도로 남깁니다. 로더는 일반 파일이 아닌 레지스트리 경로도 거부하므로 디렉터리나 장치 노드는 문서로 읽히지 않고 시작을 실패시킵니다. | `current change`; `services/core-control-plane/src/fdai/runtime/execution_backends.py`; `pytest services/core-control-plane/tests/runtime/test_execution_backends.py` (11 passed). | 두 어댑터를 배포 조립으로 연결하고 통제된 shadow 증적을 보존해야 합니다. |
+| 2026-09-27 | implemented | 배포가 소유한 Job 대상 하나와 독립적으로 제한된 프로파일에 대해 선택형 Container Apps Job 수명 주기 어댑터를 추가했습니다. 시작 응답이 없거나 불완전하면 모호한 상태로 남기며 POST를 반복하지 않습니다. | `current change`; `services/core-control-plane/src/fdai/delivery/execution_backend/container_apps_job.py`, `services/core-control-plane/tests/delivery/test_container_apps_job_backend.py`; 실행 백엔드 집중 테스트 85건 통과, Ruff 및 엄격한 mypy. | 독립적으로 제한된 권한을 제공한 뒤 시작 단계에서 연결하고, 통제된 Azure shadow 및 승격 근거를 보존해야 합니다. |
 
 ### 남은 작업
 
@@ -207,7 +214,7 @@ Azure Container Apps 작업 프로파일이 비활성화된 shadow 관측을 벗
 - [x] 기존 sandbox 권한을 넓히지 않는 `BubblewrapExecutionBackend` 및 `VmTaskExecutionBackend`를 구현하고 focused 테스트를 추가했으며, `services/core-control-plane/tests/delivery/test_execution_backend_adapters.py`가 이를 증명합니다.
 - [ ] 두 어댑터를 배포 조립으로 연결하고 focused 시작 및 재시작 검사를 보존합니다.
 - [x] `load_execution_backend_registry_file` 에 호출자 하나와 focused 테스트가 있습니다. `services/core-control-plane/src/fdai/runtime/execution_backends.py` 가 `FDAI_EXECUTION_BACKEND_REGISTRY_PATH` 의 배포 소유 문서를 바이트 한도 아래에서 로드하고, `services/core-control-plane/tests/runtime/test_execution_backends.py` 가 미설정, 부재, 형식 오류, 비객체, 크기 초과, 잘못된 한도, 자체 활성화 동작을 증명합니다(`10 passed`).
-- [ ] Pinned 이미지, 멱등성, 호스트와 경로 검증, 재시도, circuit breaker, 취소 race, 증적 및 프로바이더 보존 동작이 있는 `AzureContainerAppsJobExecutionBackend`를 구현하고 focused 테스트를 추가합니다.
+- [x] 고정된 이미지 다이제스트, 멱등성, 호스트와 경로 검증, 제한된 읽기 재시도, 회로 차단기, 취소 경합, 증적 및 프로바이더 보존 동작이 있는 `AzureContainerAppsJobExecutionBackend`를 구현하고 `test_container_apps_job_backend.py`로 검증했습니다.
 - [ ] 승격 검토 전에 신원 범위, ARM 도달 가능성, 중복 시작, 시간 초과 및 stop race, 증적 완전성, 프로바이더 보존 및 측정 비용에 대한 관리되는 shadow 증적을 보존합니다.
 
 ## 관련 문서
