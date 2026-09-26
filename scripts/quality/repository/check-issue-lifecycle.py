@@ -83,11 +83,16 @@ def validate() -> list[str]:
         "completionMarker",
         "hasUnchecked",
         'state: "open"',
+        'core.notice("Residual work remains; the issue was reopened.")',
         'labels: ["completed"]',
     )
     for token in workflow_tokens:
         if token not in workflow:
             errors.append(f"issue-lifecycle.yml missing contract token: {token}")
+    if 'core.setFailed("Residual work remains; the issue was reopened.")' in workflow:
+        errors.append(
+            "issue-lifecycle.yml MUST NOT fail after successfully reopening residual work"
+        )
 
     instructions = INSTRUCTIONS_PATH.read_text(encoding="utf-8")
     for token in (
