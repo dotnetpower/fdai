@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 75a19a3701ca50f4dc30647fcec613832e4eed4d
+translation_source_sha: fcc1250c8803c2825f68c63d8b70d556ee100932
 translation_revised: 2026-09-26
 ---
 # 프로젝트 구조
@@ -453,6 +453,9 @@ Cost Governance 가명 자료는 Operator 조립이 소유하는 비밀입니다
 Var는 순수 승인 대기 데이터를 비공개 결정 레코드 도우미에 두고 기존 공개 타입 이름을
 다시 내보냅니다. 필드/기본값과 승인 동작은 그대로이며 파생 저장소 지식은 승인이나 실행
 권한을 얻지 않고 원본 약속값만 갱신합니다.
+Muninn은 게시와 원본 소유 legacy 정리에 하나의 Core 소유 cohort 키 함수를 사용합니다.
+삭제는 본문 없이 범위가 제한된 사례 차단 표식만 남기며 에이전트 소유권과 토픽은 변경하지
+않습니다.
 
 모든 종단 경로는 감사 항목을 기록하고 T2 출력은 품질 게이트를 통과한 뒤에만 안전성 검토에 도달합니다. 각 액션은
 실제 시작 T0, T1 또는 T2 권한 tier를 유지하며 라우팅, 근거 재사용, 근거 확인, 승인, 롤백 및 재시작의 모호성은 실패 시 차단됩니다.

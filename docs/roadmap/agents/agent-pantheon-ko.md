@@ -1,8 +1,8 @@
 ---
 title: 에이전트 판테온
 translation_of: agent-pantheon.md
-translation_source_sha: b9994b514684ebf0e672dad4bade179fffd682ab
-translation_revised: 2026-09-21
+translation_source_sha: dfdaaf79b8bbfc48a8a922ae0e491781ceda2676
+translation_revised: 2026-09-26
 ---
 # 에이전트 판테온
 FDAI의 고정된 15개 명명 에이전트 조직이 cloud-operations 런타임을 소유합니다. 에이전트는 schema-checked 이벤트로 관측, 판단, 계획, 승인, 실행, 검증, 복구, 감사, 학습합니다. 운영 온톨로지는 타입이 지정된 meaning과 범위가 제한된 맥락을 제공하며 행위자, 권한 또는 실행기가 아닙니다. 판테온은 업스트림에서 정의되고 포크는 에이전트를 추가하거나 이름을 바꾸지 않습니다.
@@ -121,6 +121,9 @@ Norns는 inert `RuleCandidate` 제안의 sole 쓰기 담당으로 유지됩니�
 [검토 계약](../rules-and-detection/operational-learning-ontology-ko.md)을 따르며 Mimir가 독립적으로 다시 확인합니다.
 Muninn은 접근 범위, 용도, 메커니즘, `ActionType`, release, 시나리오, 출처로 집단을 분리하고
 삭제와 쓰기를 함께 보호하는 원자적 비교 후 갱신으로 스냅샷을 고정하며 사례 본문의 프로세스 로컬 캐시는 두지 않습니다.
+같은 원본 삭제 작업은 가능한 두 legacy cohort 파티션을 파생하고 일치하는 사례 본문을 제거하며
+범위가 제한된 본문 없는 차단 표식을 남깁니다. readback을 검증하고 재시작 후 재생을 차단하며
+법적 보존이 항상 우선합니다. 과거 suffix 행과 브로커 redrive는 별도 근거 작업으로 남습니다.
 Norns는 합의와 발행 한도를 거쳐 비활성 `Pattern`을 발행하며 대기 중인 범위별 입력은 브로커 재시도나 보존된 재전달이 필요합니다.
 Muninn은 본문과 묶음 버전을 검증하고 현재 범위별 사례와 산출물로 다시 계산해 Saga 스냅샷을 남깁니다. 조회는 변조와 삭제를 차단합니다.
 승격이나 실행 권한은 늘어나지 않습니다. 승격에는 승인된 재현이 필요하며 런타임에 연결된 테스트 맥락 조회기는 Forseti의 상한을 낮출 수만 있습니다.
