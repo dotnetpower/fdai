@@ -183,6 +183,27 @@ describe("Operator API authentication boundary", () => {
     expect(isOptionalOperatorApiUnavailable(serviceError)).toBe(false);
   });
 
+  test("recognizes bounded plain-text family projection absence without hiding other 503s", async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(new Response(
+        "authoritative workflow projection is unavailable for promotion-gate.list",
+        { status: 503, headers: { "content-type": "text/plain; charset=utf-8" } },
+      ))
+      .mockResolvedValueOnce(new Response(
+        "upstream service unavailable",
+        { status: 503, headers: { "content-type": "text/plain; charset=utf-8" } },
+      ));
+    vi.stubGlobal("fetch", fetchMock);
+    const transport = new OperatorApiTransport(config, auth());
+
+    const projectionError = await transport.getJson("/optional").catch((error: unknown) => error);
+    const serviceError = await transport.getJson("/optional").catch((error: unknown) => error);
+
+    expect(isOptionalOperatorApiUnavailable(projectionError)).toBe(true);
+    expect(isOptionalOperatorApiUnavailable(serviceError)).toBe(false);
+    expect(serviceError).toMatchObject({ message: "HTTP 503" });
+  });
+
   test("reports an HTTP 401 once through the shared fetch boundary", async () => {
     const onUnauthorized = vi.fn();
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(Response.json(

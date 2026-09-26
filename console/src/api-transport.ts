@@ -35,11 +35,17 @@ const PROJECTION_UNAVAILABLE_MESSAGES = new Set([
   "authoritative projection is unavailable",
 ]);
 
+function isProjectionUnavailableMessage(message: string): boolean {
+  return PROJECTION_UNAVAILABLE_MESSAGES.has(message)
+    || /^authoritative [A-Za-z][A-Za-z -]{0,63} projection is unavailable for [a-z0-9.-]{1,128}$/
+      .test(message);
+}
+
 function responseError(status: number, message: string, reason?: unknown): OperatorApiError {
   return new OperatorApiError(
     status,
     message,
-    status === 503 && PROJECTION_UNAVAILABLE_MESSAGES.has(message)
+    status === 503 && isProjectionUnavailableMessage(message)
       ? "projection-unavailable"
       : "http",
     reason === undefined ? undefined
@@ -228,12 +234,16 @@ export class OperatorApiTransport {
     if (!response.ok) {
       let message = `HTTP ${response.status}`;
       let reason: unknown;
+      const fallback = response.clone();
       try {
         const body = (await response.json()) as ApiError;
         message = body.error?.message ?? message;
         reason = body.error?.reason;
       } catch {
-        /* body was not JSON - fall through */
+        const plainText = response.status === 503 ? (await fallback.text()).trim() : "";
+        if (isProjectionUnavailableMessage(plainText)) {
+          message = plainText;
+        }
       }
       const error = responseError(response.status, message, reason);
       throw error;
