@@ -207,6 +207,9 @@ def _execute_selected(args: argparse.Namespace) -> dict[str, object]:
             work_id=work_id,
             archive_digest=_required_text(receipt, "archive_digest"),
             expected_state_digest=_required_text(authority, "state_digest"),
+            expected_remote_state_digest=_authority_remote_state_digest(
+                directory, authority=authority, work_id=work_id
+            ),
             timeout=args.timeout_seconds,
         )
         return receipt
@@ -550,6 +553,7 @@ def _reobserve_remote_authority(
     work_id: str,
     archive_digest: str,
     expected_state_digest: str,
+    expected_remote_state_digest: str,
     timeout: int,
 ) -> None:
     remote_archive = f"/home/{connection['username']}/.fdai-transfer-{work_id[:24]}.tar.gz"
@@ -579,17 +583,73 @@ def _reobserve_remote_authority(
         timeout=timeout,
         trust_new_host_key=False,
     ) as tunnel:
+        observer = _observer_source()
         result = tunnel.ssh(
             (
-                "/usr/local/sbin/fdai-migrate-foundation-state",
+                "/usr/bin/python3",
+                "-",
                 "observe",
                 *remote_arguments,
+                "--expected-remote-state-digest",
+                expected_remote_state_digest,
             ),
             timeout=timeout,
+            input_text=observer,
         )
         marker = f"state_handoff_observation_complete work_ref={work_id[:24]}"
         if result.returncode != 0 or marker not in result.stdout.splitlines():
             raise ValueError("Foundation remote state authority re-observation failed")
+
+
+def _authority_remote_state_digest(
+    directory: Path, *, authority: Mapping[str, object], work_id: str
+) -> str:
+    retained = authority.get("remote_state_digest")
+    if retained is not None:
+        digest = _required_text(authority, "remote_state_digest")
+        if _DIGEST.fullmatch(digest) is None:
+            raise ValueError("Foundation remote state authority digest is invalid")
+        return digest
+    observation = _private_json(
+        directory / f"remote-observation-{work_id[:12]}.json",
+        label="retained remote state observation",
+    )
+    if (
+        canonical_digest(dict(observation)) != authority.get("observation_digest")
+        or observation.get("schema_version")
+        != "fdai.genesis-foundation-remote-state-observation.v1"
+        or observation.get("state") != "verified"
+        or observation.get("work_id") != work_id
+    ):
+        raise ValueError("Foundation retained remote state observation differs")
+    digest = _required_text(observation, "remote_state_digest")
+    if _DIGEST.fullmatch(digest) is None:
+        raise ValueError("Foundation retained remote state digest is invalid")
+    return digest
+
+
+def _observer_source() -> str:
+    path = _repository_root() / "infra/genesis-runner-image/migrate-foundation-state.py"
+    descriptor = os.open(path, os.O_RDONLY | os.O_NONBLOCK | os.O_NOFOLLOW)
+    with os.fdopen(descriptor, "rb") as stream:
+        details = os.fstat(stream.fileno())
+        if (
+            not stat.S_ISREG(details.st_mode)
+            or details.st_uid != os.geteuid()
+            or details.st_nlink != 1
+            or not 0 < details.st_size <= 1024 * 1024
+        ):
+            raise PermissionError("Foundation remote observer source is unsafe")
+        content = stream.read(1024 * 1024 + 1)
+        after = os.fstat(stream.fileno())
+    if (
+        len(content) != details.st_size
+        or after.st_size != details.st_size
+        or after.st_mtime_ns != details.st_mtime_ns
+        or after.st_ctime_ns != details.st_ctime_ns
+    ):
+        raise ValueError("Foundation remote observer source changed while being read")
+    return content.decode("utf-8")
 
 
 def _validate_arguments(args: argparse.Namespace) -> None:
