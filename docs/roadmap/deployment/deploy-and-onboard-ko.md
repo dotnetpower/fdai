@@ -1,7 +1,7 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: 9e4c3b9a1ca747719328c1fd01af1c9469d417f8
+translation_source_sha: b1c8c5c2763a72dbaf5968447ba1a8f9f1963511
 translation_revised: 2026-09-26
 ---
 # 배포와 온보딩(Deploy and Onboard)
@@ -50,7 +50,7 @@ Azure 초점: 이 문서는 Azure 구독을 대상으로 함. 비-Azure 프로�
 `fdaictl provision plan --stage foundation`은 로컬 backend를 사용하는 비공개 모의 실행입니다. 정확한 상태 이전 아카이브에서만 서명된 AzureRM backend 예제를 활성화해 검증된 호스트에 전달합니다. Genesis는 Terraform 아카이브와 실행 파일 다이제스트를 각각 인증하고, 호환되는 호스트 VM
 SKU와 정확한 Marketplace Ubuntu 버전을 선택하며, 체크섬으로 고정된 도구 체인을 직접
 설치합니다. 아티팩트 오프라인 배포는 별도로 검증된 사전 준비 이미지를 대신 사용할 수 있습니다.
-같은 상위 지원 파일이 없는 이전의 보존된 이행 `claim`은 새로운 `foundation-state` 승인 후 검토된 구성의 정확한 파일만 복원할 수 있습니다. 별도 현재 소스 검증기는 Terraform 입력 트리 밖에 남아 복구 오버레이를 검증하고 백엔드 이행을 반복하지 않은 채 `verify`를 재개합니다. 정리 후에는 현재 검증된 관찰기 코드를 유지 중인 SSH 표준 입력으로 실행하고, 삭제된 작업 트리를 다시 만들지 않은 채 권한 증거에 결속된 원격 상태 다이제스트를 다시 확인합니다.
+같은 상위 지원 파일이 없는 이전의 보존된 이행 `claim`은 새로운 `foundation-state` 승인 후 검토된 구성의 정확한 파일만 복원할 수 있습니다. 별도 현재 소스 검증기는 Terraform 입력 트리 밖에 남아 복구 오버레이를 검증하고 백엔드 이행을 반복하지 않은 채 `verify`를 재개합니다. 정리 후에는 현재 검증된 관찰기 코드를 소유자 전용 Bastion 전송 및 다이제스트 재확인 경로로 실행하고 제거하며, 삭제된 작업 트리를 다시 만들지 않은 채 권한 증거에 결속된 원격 상태 다이제스트를 다시 확인합니다.
 기반 계층 적용, Bastion 등록, 검증된 상태 이전에는 정확한 승인이 필요하며, 애플리케이션 배포와 준비 상태는 [Genesis 원장](../../roadmap-implementation/deployment/subscription-genesis-provisioning.md)에 미완료로 남아 있습니다.
 
 Azure Policy가 인벤토리 일부를 거부하는 테난트는 계획이 수렴하기 전에 예외 또는 대응하는

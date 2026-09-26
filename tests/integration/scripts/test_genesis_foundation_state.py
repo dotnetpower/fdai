@@ -831,6 +831,7 @@ class FakeTunnel:
     fail_migration = False
     calls: list[tuple[str, ...]] = []
     copied: list[str] = []
+    observer_digest = ""
     evidence: dict[str, object]
     directory: Path
 
@@ -853,10 +854,9 @@ class FakeTunnel:
     ) -> subprocess.CompletedProcess[str]:
         del timeout
         self.calls.append(remote_arguments)
-        if remote_arguments[:2] == ("/usr/bin/python3", "-"):
-            assert input_text is not None
+        if remote_arguments[0] == "/usr/bin/python3":
+            assert input_text is None
             assert "--expected-remote-state-digest" in remote_arguments
-            assert "expected-remote-state-digest" in input_text
             mode = remote_arguments[2]
         else:
             assert input_text is None
@@ -866,6 +866,15 @@ class FakeTunnel:
                 remote_arguments, 0, "attestation_complete transport=manual slots=2\n", ""
             )
         if remote_arguments[0] == "/usr/bin/test":
+            return subprocess.CompletedProcess(remote_arguments, 0, "", "")
+        if remote_arguments[0] == "/usr/bin/sha256sum":
+            return subprocess.CompletedProcess(
+                remote_arguments,
+                0,
+                f"{self.observer_digest}  {remote_arguments[1]}\n",
+                "",
+            )
+        if remote_arguments[0] == "/usr/bin/rm":
             return subprocess.CompletedProcess(remote_arguments, 0, "", "")
         work_id = remote_arguments[remote_arguments.index("--work-id") + 1]
         if mode == "migrate" and self.fail_migration:
@@ -889,8 +898,10 @@ class FakeTunnel:
         )
 
     def copy_to(self, source: Path, destination: str, *, timeout: int) -> None:
-        del source, timeout
+        del timeout
         assert (self.directory / state_command.CLAIM_NAME).is_file()
+        if destination.endswith("-observer.py"):
+            self.observer_digest = hashlib.sha256(source.read_bytes()).hexdigest()
         self.copied.append(destination)
 
     def copy_from(self, source: str, destination: Path, *, timeout: int) -> None:
@@ -1205,8 +1216,10 @@ def test_recovered_state_uses_original_owner_and_exact_approval(tmp_path, monkey
     migration_source[0] = "e" * 40
     FakeTunnel.calls = []
     assert state_command.main(arguments + ["--resume-verification"]) == 0
-    assert len(FakeTunnel.copied) == 1
-    assert [command[:3] for command in FakeTunnel.calls] == [("/usr/bin/python3", "-", "observe")]
+    assert len(FakeTunnel.copied) == 2
+    assert [command[:3] for command in FakeTunnel.calls if command[0] == "/usr/bin/python3"] == [
+        ("/usr/bin/python3", FakeTunnel.copied[-1], "observe")
+    ]
     authority_path = directory / state_command.AUTHORITY_NAME
     authority = json.loads(authority_path.read_bytes())
     authority["zero_change_verified"] = False
@@ -1298,8 +1311,10 @@ def test_completed_handoff_reobserves_remote_authority_without_repeating_effect(
 
     assert state_command.main(_arguments(directory, profile, foundation, "--approve")) == 0
 
-    assert [call[:3] for call in FakeTunnel.calls] == [("/usr/bin/python3", "-", "observe")]
-    assert not FakeTunnel.copied
+    assert [call[:3] for call in FakeTunnel.calls if call[0] == "/usr/bin/python3"] == [
+        ("/usr/bin/python3", FakeTunnel.copied[-1], "observe")
+    ]
+    assert len(FakeTunnel.copied) == 1
 
 
 def test_completed_handoff_requires_its_immutable_actor_claim(
