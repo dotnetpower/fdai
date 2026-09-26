@@ -1,7 +1,7 @@
 ---
 title: 설치형 배포 CLI
 translation_of: installable-deployment-cli.md
-translation_source_sha: f75375d50d79c3949e764db6baa7eda1d9270219
+translation_source_sha: 25600fb376abde64e2379323872d73b068db9474
 translation_revised: 2026-09-26
 ---
 
@@ -84,7 +84,7 @@ Managed Host가 초기 구성 산출물을 내려받을 수 없는 아티팩트 
 불변 스냅샷에는 Terraform 상태나 생성 데이터를 쓰지 않습니다. 기존의 정확한 계획 승인, 실행 전 기록, 검증 전용 복구, 독립적 결과 확인은 계속 적용됩니다.
 비공개 상태 이전에는 Foundation 루트, 같은 상위 디렉터리의 `bootstrap` 및 공유 모듈과 Terraform이 참조하는 정확한 5개 `genesis-runner-image` 지원 파일을 포함합니다.
 이 아카이브 완결 전에 만든 보존 `claim`은 원래 `claim`과 백엔드 이행을 유지하면서 검토된 복구 구성의 정확한 지원 파일을 복원합니다.
-현재 소스의 복구 `claim`을 기록하기 전에 새로운 정확한 `foundation-state` 승인을 요구하고, 기존 파일을 교체하지 않은 채 누락 파일만 설치하며, 현재 검증기는 Terraform의 같은 상위 입력 트리 밖에서 별도 원격 복구 매니페스트로 검증합니다.
+현재 소스의 복구 `claim`을 기록하기 전에 새로운 정확한 `foundation-state` 승인을 요구하고, 기존 파일을 교체하지 않은 채 누락 파일만 설치하며, 현재 검증기는 Terraform의 같은 상위 입력 트리 밖에서 별도 원격 복구 매니페스트로 검증합니다. 고정된 원격 검사 인자는 셸에서 특별한 의미가 없는 필드 구분자를 사용합니다.
 이후 해당 검증기를 `verify` 모드로 실행합니다. 기본 아카이브에 일부 파일만 있거나, 기존 파일이 다르거나, 다시 읽은 결과가 바뀌면 복구가 차단됩니다.
 이 어댑터의 구현만으로 배포 완료가 입증되지는 않습니다.
 
