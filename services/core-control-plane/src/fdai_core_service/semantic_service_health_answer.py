@@ -187,7 +187,7 @@ def render_service_health_answer(
         impacted_line(impacted_count, posture=count_posture, korean=korean),
         f"- 관측 시각: {observed_at}" if korean else f"- Observed at: {observed_at}",
         (
-            f"- 원본 완전성: {'complete' if complete else 'incomplete'}"
+            f"- 원본 완전성: {'완전' if complete else '불완전'}"
             if korean
             else f"- Source completeness: {'complete' if complete else 'incomplete'}"
         ),

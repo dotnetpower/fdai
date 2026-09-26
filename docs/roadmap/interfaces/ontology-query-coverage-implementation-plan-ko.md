@@ -1,7 +1,7 @@
 ---
 translation_of: ontology-query-coverage-implementation-plan.md
-translation_source_sha: 84c41cfb9660f7581711ed4e8cb705d968357c2d
-translation_revised: 2026-09-22
+translation_source_sha: 1cd229066152dabff677c07a5f2fcea0f7aeeb79
+translation_revised: 2026-09-26
 ---
 # 온톨로지 조회 커버리지 구현 계획
 
@@ -74,7 +74,9 @@ v1.2 검색어/발화 결속, 사용 불가 결과 및 이전 버전 호환성�
 > 않고 `Resource.id equals` 조건식으로 유지됩니다. 수락된 모음 판단은 결정론적 프레임을 사용하며,
 > 모델 계획이 여전히 필요하면 해당 운영 유형에 필요한 서술자만 전달합니다. 구독 신원 및 Service
 > Health 조회는 전체 principal 매니페스트를 프레임 모델에 전달하지 않고 정확한 입력 없는
-> FunctionType에서 결정론적 프레임과 서버 계획을 구성합니다.
+> FunctionType에서 결정론적 프레임과 서버 계획을 구성합니다. 현지화된 Service Health 답변은
+> 검토된 이벤트 범주, 활성 상태, 심각도, 완전성 값을 표시 언어에 맞게 변환하고 공급자 권고 제목은
+> 원문 그대로 유지합니다.
 > APIM, Application Gateway, backend 또는 GPT 같은 일반 제품 표기는 정확한 신원이 아닙니다.
 > 이 경우 frame 모델 또는 provider I/O 전에 `resource_identity` 명확화를 반환합니다.
 >

@@ -57,7 +57,9 @@ Capability preparation preserves all selected canonical property tokens, includi
 > segment. Accepted collection judgments use a deterministic frame, and any remaining model planner
 > receives only the descriptors required by that operational family. Subscription identity and
 > Service Health reads build deterministic frames and server plans from their exact no-input
-> FunctionTypes instead of invoking a frame model with the full principal manifest.
+> FunctionTypes instead of invoking a frame model with the full principal manifest. Localized
+> Service Health answers map reviewed event category, active status, severity, and completeness
+> values to display labels while preserving the provider advisory title verbatim.
 > Generic product labels such as APIM, Application Gateway, backend, or GPT are not exact identities.
 > They produce `resource_identity` clarification before frame-model or provider I/O.
 >
