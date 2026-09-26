@@ -29,7 +29,6 @@ from fdai.delivery.runtime_settings import RuntimeSettingsService
 from fdai.delivery.startup_probe import OpaCompileStartupProbe
 from fdai.runtime import bootstrap_incidents
 from fdai.runtime.blast_probe import bind_live_blast_probe_failure_streak
-from fdai.runtime.bootstrap_assurance_twin import build_assurance_twin_runtime_binding
 from fdai.runtime.bootstrap_bindings import (
     build_effect_reconciliation_request_binding as _build_effect_reconciliation_request_binding,
 )
@@ -42,7 +41,7 @@ from fdai.runtime.bootstrap_bindings import (
 from fdai.runtime.bootstrap_bindings import (
     build_vertical_execution_identities as _build_vertical_execution_identities,
 )
-from fdai.runtime.bootstrap_core_model import CoreRuntime
+from fdai.runtime.bootstrap_core_model import CoreRuntime, build_assurance_twin_runtime_binding
 from fdai.runtime.bootstrap_hil import (
     build_hil_workflow_registry as _build_hil_workflow_registry,
 )

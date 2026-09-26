@@ -46,8 +46,8 @@ a focused coordinator test seam. Core supervises Incident creation and approval 
 independent runtime tasks. An Incident transport outage cannot stop expired approval parks from
 converging to audited no-op outcomes, and expiry reconciliation cannot create an Incident.
 
-Core assembles the optional Assurance Twin report/review writers and outbox relays in a focused
-bootstrap helper after Incident wiring, then supervises each independently. Relay recovery
+Core assembles the optional Assurance Twin report/review writers and outbox relays in the existing
+runtime model after Incident wiring, then supervises each independently. Relay recovery
 requires StateStore and Heimdall, Forseti, and Saga; writers additionally require an injected
 retained-evidence source. Their authority-free requests never enter Incident creation or action
 confirmation. This shared lifecycle placement changes no Incident owner, transition, or approval.

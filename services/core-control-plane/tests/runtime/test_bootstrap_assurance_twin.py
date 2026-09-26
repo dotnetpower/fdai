@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 from fdai.delivery.assurance_twin_writers import RetainedTwinEvidence
-from fdai.runtime.bootstrap_assurance_twin import build_assurance_twin_runtime_binding
+from fdai.runtime.bootstrap_core_model import build_assurance_twin_runtime_binding
 from fdai.shared.providers.testing.event_bus import InMemoryEventBus
 from fdai.shared.providers.testing.state_store import InMemoryStateStore
 

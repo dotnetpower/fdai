@@ -1,7 +1,7 @@
 ---
 title: 오퍼레이터 시작 SRE 및 아키텍처 리뷰
 translation_of: operator-initiated-sre-and-arb.md
-translation_source_sha: e2c4aca0562eb0464356ed479ffa459b51e34e82
+translation_source_sha: 4aedd30a2ee71385a3f93486e3c38fd66a8cb410
 translation_revised: 2026-09-27
 ---
 
@@ -49,7 +49,7 @@ ActionType 승격 모드에 의존하지 않습니다. 프로세스 내부
 대기가 감사되는 무작업 결과로 수렴하는 것을 막을 수 없으며, 만료 수렴 작업은 인시던트를
 생성할 수 없습니다.
 
-Core는 인시던트 배선 뒤에 목적별 초기화 도우미로 선택적인 Assurance Twin 보고서 및
+Core는 인시던트 배선 뒤에 기존 런타임 모델에서 선택적인 Assurance Twin 보고서 및
 검토 작성기와 아웃박스 중계기를 조립하고 각각 독립적으로 감독합니다. 중계기를
 복구하려면 StateStore와 Heimdall, Forseti, Saga가 필요하며 작성기를 시작하려면
 보관 근거 출처도 주입해야 합니다. 권한이 없는 근거 요청은 인시던트 생성이나 작업
