@@ -171,9 +171,6 @@ Verify a checkout offline at any time:
 scripts/integrity/check-integrity.sh        # signature + content, fully offline
 ```
 
-The verifier validates the base64 signature before streaming its decoded bytes into OpenSSL. It
-does not write a raw signature scratch file; a signature failure still blocks both modes.
-
 The `framework-integrity` gate in `scripts/verify.sh` runs it
 automatically once the signed manifest exists.
 

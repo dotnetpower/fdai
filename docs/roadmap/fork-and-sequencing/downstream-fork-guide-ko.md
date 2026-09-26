@@ -1,8 +1,8 @@
 ---
 title: Downstream Fork 가이드
 translation_of: downstream-fork-guide.md
-translation_source_sha: a63ebd21ab7bb3ba085b9db7435c0f1099b024ae
-translation_revised: 2026-09-27
+translation_source_sha: a449c850ec96e6d0de1479d44c647b4c7f9d7ad9
+translation_revised: 2026-09-26
 ---
 
 # 다운스트림 포크 가이드
@@ -171,9 +171,6 @@ manifest는 오프라인 framework-surface drift를 탐지합니다.
 ```bash
 scripts/integrity/check-integrity.sh        # 서명 + 콘텐츠, 완전 오프라인
 ```
-
-검증기는 base64 서명을 먼저 확인하고 디코딩한 바이트를 OpenSSL에 바로 전달합니다. 원본
-서명을 임시 파일에 기록하지 않으며 서명 검증에 실패하면 두 모드 모두 차단합니다.
 
 `scripts/verify.sh`의 `framework-integrity` 게이트가 서명된 매니페스토가
 존재하면 이를 자동으로 실행합니다.
