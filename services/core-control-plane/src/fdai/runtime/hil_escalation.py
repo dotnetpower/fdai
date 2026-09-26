@@ -27,6 +27,7 @@ from fdai.core.hil_resume.load_control import (
 from fdai.core.hil_resume.rung_eligibility import DirectoryRungEligibility
 from fdai.core.rbac.resolver import GroupMapping
 from fdai.core.rbac.roles import Role
+from fdai.delivery.chatops.slack_request_outbox import DurableSlackApprovalChannel
 from fdai.delivery.identity.entra_directory import EntraHumanIdentityDirectory
 from fdai.delivery.persistence.postgres import PostgresStateStoreConfig
 from fdai.delivery.persistence.postgres_forecast_urgency import PostgresForecastUrgencyReader
@@ -116,6 +117,9 @@ def build_hil_runtime_support(
             channel=channel,
             policy=load_policy,
             delivery_observer=observe_delivery if escalation is not None else None,
+            reserve_delivery=(
+                channel.reserve if isinstance(channel, DurableSlackApprovalChannel) else None
+            ),
         )
         if channel is not None and load_policy is not None
         else None

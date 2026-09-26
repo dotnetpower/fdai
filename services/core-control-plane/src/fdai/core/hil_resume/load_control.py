@@ -395,12 +395,14 @@ class ApprovalReminderDispatcher:
         policy: ApprovalLoadPolicy,
         clock: Callable[[], datetime] | None = None,
         delivery_observer: Callable[[str, datetime], Awaitable[object]] | None = None,
+        reserve_delivery: Callable[[HilApprovalRequest], Awaitable[None]] | None = None,
     ) -> None:
         self._state_store = state_store
         self._channel = channel
         self._policy = policy
         self._clock = clock or (lambda: datetime.now(tz=UTC))
         self._delivery_observer = delivery_observer
+        self._reserve_delivery = reserve_delivery
         self._expiry = ApprovalExpiryReconciler(
             state_store=state_store,
             policy=policy,
@@ -470,23 +472,6 @@ class ApprovalReminderDispatcher:
                     attempt_key = f"{_REMINDER_ATTEMPT_PREFIX}{dispatch_id}"
                     attempt_kind = "hil.load.reminder_attempted"
                 dispatch_approval_id = _required_str(dispatch_park, "approval_id")
-                claimed = await self._state_store.write_state_with_audit_if_absent(
-                    attempt_key,
-                    {
-                        "approval_id": dispatch_approval_id,
-                        "index": index,
-                        "attempted_at": now.isoformat(),
-                    },
-                    _audit(
-                        kind=attempt_kind,
-                        key=f"hil-load-dispatch:{dispatch_id}",
-                        approval_id=dispatch_approval_id,
-                        at=now,
-                    ),
-                )
-                if not claimed:
-                    continue
-                attempts += 1
                 dispatch_mode = (
                     "grouped_digest"
                     if is_initial and group_size > 1
@@ -505,6 +490,36 @@ class ApprovalReminderDispatcher:
                         "approval_dispatch_id": dispatch_id,
                     },
                 )
+                if self._reserve_delivery is not None:
+                    try:
+                        await self._reserve_delivery(request)
+                    except HilChannelError:
+                        await self._state_store.append_audit_entry(
+                            _audit(
+                                kind="hil.load.outbox_unavailable",
+                                key=f"hil-load-outbox-unavailable:{dispatch_id}",
+                                approval_id=dispatch_approval_id,
+                                at=now,
+                            )
+                        )
+                        continue
+                claimed = await self._state_store.write_state_with_audit_if_absent(
+                    attempt_key,
+                    {
+                        "approval_id": dispatch_approval_id,
+                        "index": index,
+                        "attempted_at": now.isoformat(),
+                    },
+                    _audit(
+                        kind=attempt_kind,
+                        key=f"hil-load-dispatch:{dispatch_id}",
+                        approval_id=dispatch_approval_id,
+                        at=now,
+                    ),
+                )
+                if not claimed:
+                    continue
+                attempts += 1
                 try:
                     await self._channel.send(request)
                 except HilChannelError:
