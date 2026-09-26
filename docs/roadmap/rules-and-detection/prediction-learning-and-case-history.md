@@ -127,7 +127,13 @@ Accepted `create.test_context` semantic judgments produce a typed `TestContextDr
 ordinary chat projection. Exact source spans bind the target, signal, range, and explicit aware
 times; unresolved fields require clarification. Drafts grant no scope or review authority.
 The shared SDK exposes the existing draft, command, and application models and their version `1.0.0` schemas. JSON Schema checks structure; `JsonSchemaContractValidator` also runs typed range, interval, role, and proposal/review constraints. Neither check authenticates a principal or grants admission. Generate the standalone schemas with `scripts/quality/contracts/generate_test_context_schemas.py`; broker compatibility, consumer rollout, and operational proof remain separate qualification requirements.
-Console decoding and replay retain valid drafts; scope/policy selection and submission UI remain open.
+Console decoding and replay retain valid drafts. The Deck now displays their exact source-bound
+fields and offers an explicit read-only lookup of the requesting principal's existing command
+receipt. It distinguishes broker delivery, historical Saga-audited application, and unevaluated
+current authorization; the looked-up command is not proven to belong to the displayed draft.
+No reviewed principal-to-case-scope and policy choice mapping or independent proof issuer is
+available. The Console therefore exposes no proposal, review, or revocation control, and status
+metadata cannot authorize an exception. Those selection and submission workflows remain open.
 Authenticated `POST /test-context/proposals`, `/test-context/reviews`, and `/test-context/revocations`
 persist commands in the Operator outbox. Huginn normalizes ingress, Var publishes independent
 reviews, Mimir records policy revisions, and Saga audits them. Thor ignores these non-action reviews.

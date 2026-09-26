@@ -1,8 +1,8 @@
 ---
 title: 오퍼레이터 콘솔 점진적 대화
 translation_of: operator-console-progressive-conversations.md
-translation_source_sha: 4c42d49a8e78f9d23f309056f5b9cf81c8d54eba
-translation_revised: 2026-09-19
+translation_source_sha: f177aa05862f968dece62c931366f70bf52b80dc
+translation_revised: 2026-09-27
 ---
 # 오퍼레이터 콘솔 점진적 대화
 
@@ -31,8 +31,11 @@ delivery를 전달하므로 동시 publisher가 cursor 순서를 뒤집을 수 �
 
 타입이 지정된 테스트 맥락 초안은 정확한 대상, 예상 상하한, 시간대가 있는 기간, 출처 증적을
 HTTP, 스트리밍, 재생 과정에서 보존합니다. 엄격한 해석으로 추가 권한 필드와 잘못된 날짜를
-거부하며 `action_draft` 결과에서만 후보를 전달합니다. 범위와 정책 선택 및 제출 화면은 아직
-구현되지 않았습니다. [사례 이력 전달](../rules-and-detection/prediction-learning-and-case-history-ko.md)을 참고하세요.
+거부하며 `action_draft` 결과에서만 후보를 전달합니다. Command Deck은 후보를 표시하고,
+요청한 principal 본인의 기존 명령 상태를 별도의 읽기 전용 조회로 제공합니다. 해당 증적은
+표시한 초안에 결합되지 않으며 과거 적용은 현재 승인이 아닙니다. 검토된 매핑과 독립적인
+검증 증적 발급기가 마련되기 전까지 범위 및 정책 선택과 인증된 제출 조작은 사용할 수
+없습니다. [사례 이력 전달](../rules-and-detection/prediction-learning-and-case-history-ko.md)을 참고하세요.
 Operator 구성은 기존 영속 발신함 facade에서 같은 테스트 맥락 작업을 가져옵니다.
 import를 모아도 작업의 정체성, 준비 상태, 발행 방식, 권한은 바뀌지 않습니다.
 재생 회귀 검사는 실행 중 합성 UUIDv4 식별자를 생성합니다. 운영 증적 파서는 잘못된 식별자

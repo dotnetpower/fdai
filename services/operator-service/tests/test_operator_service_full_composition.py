@@ -360,6 +360,55 @@ def test_context_status_returns_only_own_delivery_and_never_claims_policy_applic
         assert response.json()["execution_authority"] is False
 
 
+def test_context_status_keeps_historical_revocation_separate_from_current_authorization(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from unittest.mock import AsyncMock
+
+    application = {
+        "schema_version": "1.0.0",
+        "command_digest": "sha256:" + "a" * 64,
+        "actor_id": "contributor-operator",
+        "request_key": "request-example",
+        "context_id": "context-example",
+        "access_scope_digest": "b" * 64,
+        "target_ref": "resource-example",
+        "policy_revision": "policy:example",
+        "revision": 3,
+        "state": "revoked",
+        "context_digest": "sha256:" + "c" * 64,
+        "execution_authority": False,
+    }
+    read = AsyncMock(
+        return_value={
+            "proposal_id": "operator-example",
+            "operation": "test-context.revoke",
+            "dispatch_status": "published",
+            "accepted_at": "2026-09-15T00:00:00+00:00",
+            "context_application": application,
+        }
+    )
+    monkeypatch.setattr(PostgresTestContextOutbox, "read_test_context_command", read)
+    client = _client(
+        {DATABASE_URL_ENV: "postgresql://example.invalid/fdai", DATABASE_ROLE_ENV: "fdai_operator"}
+    )
+    response = client.get(
+        "/test-context/commands/operator-example",
+        headers={"Authorization": "Bearer " + "contributor"},
+    )
+    assert response.status_code == 200
+    body = response.json()
+    assert body["dispatch_status"] == "published"
+    assert body["policy_application"] == "recorded"
+    assert body["context_application"]["state"] == "revoked"
+    assert body["context_application"]["revision"] == 3
+    assert body["current_authorization"] == "not_evaluated"
+    assert body["execution_authority"] is False
+    assert not {"actor_id", "target_ref", "access_scope_digest", "request_key"} & set(
+        body["context_application"]
+    )
+
+
 def test_context_http_rejects_actor_injection_before_outbox(monkeypatch):
     from unittest.mock import AsyncMock
 

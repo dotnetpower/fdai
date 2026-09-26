@@ -1,7 +1,7 @@
 ---
 translation_of: prediction-learning-and-case-history.md
-translation_source_sha: 1cb90398d3c55fcb3bc4a384aadbbf319e53274b
-translation_revised: 2026-09-26
+translation_source_sha: dcb83581681e81fe5a0b8175f88609f4672baee1
+translation_revised: 2026-09-27
 ---
 # 예측 학습 및 케이스 히스토리
 
@@ -128,7 +128,12 @@ Forseti는 진술과 관측을 각각 다시 검증합니다. 저장 서비스 �
 전달합니다. 대상, 신호, 상하한, 시간대가 명시된 시각은 정확한 원문 구간에 결합하며 누락된
 필드는 확인 질문으로 처리합니다. 초안 자체에는 접근 범위나 검토 권한이 없습니다.
 공유 SDK는 기존 초안, 명령, 적용 결과 모델과 버전 `1.0.0` 스키마를 제공합니다. JSON Schema는 구조를 검사하고 `JsonSchemaContractValidator`는 타입 모델의 범위, 시간 구간, 역할, 제안 및 검토 조건도 검사합니다. 어느 검사도 principal을 인증하거나 근거 허용 권한을 부여하지 않습니다. 개별 스키마는 `scripts/quality/contracts/generate_test_context_schemas.py`로 생성합니다. 브로커 호환성, 소비자 배포 순서, 운영 근거는 별도 검증 요건으로 남습니다.
-Console은 유효한 초안을 해석하고 재생하지만, 범위 및 정책 선택과 제출 화면은 아직 구현되지 않았습니다.
+Console은 유효한 초안을 해석하고 재생합니다. 이제 Command Deck은 출처에 결합된 필드를 정확히
+표시하고, 요청한 principal 본인의 기존 명령 증적을 읽기 전용으로 조회할 수 있습니다.
+브로커 전달, 과거 Saga 감사 적용, 평가되지 않은 현재 승인 상태를 구분합니다. 조회한 명령이
+표시된 초안에 속한다는 근거는 없습니다. 검토된 principal-사례 범위 및 정책 선택 매핑과
+독립적인 검증 증적 발급기가 없으므로 Console은 제안, 검토, 철회 조작을 제공하지 않습니다.
+상태 정보만으로 예외를 승인할 수 없으며, 선택 및 제출 절차는 계속 미완료 상태입니다.
 인증된 `POST /test-context/proposals`, `/test-context/reviews`, `/test-context/revocations`는
 Operator 발신함에 명령을 보존합니다. Huginn이 입력을 정규화하고 Var가 독립 검토를 발행하며
 Mimir가 정책 개정을 기록하고 Saga가 감사합니다. Thor는 이 검토를 실행 승인으로 처리하지 않습니다.

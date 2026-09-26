@@ -46,6 +46,7 @@ import { ConversationTrajectoryView } from "./conversation-trajectory-view";
 import { ConversationTurnAttachments } from "./conversation-turn-attachments";
 import type { DeckContextMode } from "./open-deck";
 import { GroundedReply } from "./grounded-reply";
+import { TestContextReview } from "./test-context-review";
 import { InvestigationTimeline } from "./investigation-timeline";
 import { introSuggestions } from "./intro-suggestions";
 import { isSemanticDirectResponseSource } from "./backend-normalizers";
@@ -625,27 +626,32 @@ export function TurnBubble({
           </div>
         </div>
       ) : isDeck ? (
-        <GroundedReply
-          turnId={turn.assessmentId ?? turn.id}
-          text={turn.text}
-          citations={turn.citations}
-          source={turn.source}
-          streaming={turn.streaming === true}
-          verification={turn.verification}
-          semanticReceipt={turn.semanticReceipt}
-          {...(turn.adaptiveAnswer ? { adaptiveAnswer: turn.adaptiveAnswer } : {})}
-          confirmed={turn.confirmed}
-          verificationProgress={turn.verificationProgress}
-          answerPlanning={turn.answerPlanning}
-          delegation={turn.delegation}
-          codeArtifacts={turn.codeArtifacts}
-          incidentCandidates={turn.incidentCandidates}
-          actionDraft={turn.actionDraft}
-          presentationArtifact={turn.presentationArtifact}
-          documentArtifact={turn.documentArtifact}
-          trajectory={trajectory}
-          {...(onRegenerate ? { onRegenerate } : {})}
-        />
+        <>
+          <GroundedReply
+            turnId={turn.assessmentId ?? turn.id}
+            text={turn.text}
+            citations={turn.citations}
+            source={turn.source}
+            streaming={turn.streaming === true}
+            verification={turn.verification}
+            semanticReceipt={turn.semanticReceipt}
+            {...(turn.adaptiveAnswer ? { adaptiveAnswer: turn.adaptiveAnswer } : {})}
+            confirmed={turn.confirmed}
+            verificationProgress={turn.verificationProgress}
+            answerPlanning={turn.answerPlanning}
+            delegation={turn.delegation}
+            codeArtifacts={turn.codeArtifacts}
+            incidentCandidates={turn.incidentCandidates}
+            actionDraft={turn.actionDraft}
+            presentationArtifact={turn.presentationArtifact}
+            documentArtifact={turn.documentArtifact}
+            trajectory={trajectory}
+            {...(onRegenerate ? { onRegenerate } : {})}
+          />
+          {!turn.streaming && turn.testContextDraft
+            ? <TestContextReview draft={turn.testContextDraft} />
+            : null}
+        </>
       ) : (
         <>
           {turn.attachments && turn.attachments.length > 0 ? (
