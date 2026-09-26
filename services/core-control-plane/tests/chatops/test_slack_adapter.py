@@ -42,7 +42,10 @@ def _request(**overrides: object) -> HilApprovalRequest:
             "blast_radius_summary": "sensitive-radius",
             "reasons": ("sensitive-reason",),
             "action_hash": "hash-1",
-            "metadata": {"idempotency_key": "idempotency-1", "secret": "sensitive-metadata"},
+            "metadata": {
+                "idempotency_key": "idempotency-1",
+                "other_context": "fixture-only-omitted",
+            },
             **overrides,
         }
     )
@@ -99,7 +102,7 @@ async def test_send_returns_exact_receipt_and_local_replay_without_second_post()
         "sensitive-resource",
         "sensitive-radius",
         "sensitive-reason",
-        "sensitive-metadata",
+        "fixture-only-omitted",
         "action.example",
         _TOKEN,
     ):

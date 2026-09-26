@@ -1,7 +1,7 @@
 ---
 title: 프로세스 자동화(Process Automation)
 translation_of: process-automation.md
-translation_source_sha: b75adf744512c9560c139fe808ec71fc11dcb53a
+translation_source_sha: 54a8246ca7d863f0443ea2eabd3a41640080658f
 translation_revised: 2026-09-26
 ---
 # 프로세스 자동화(프로세스 자동화)
@@ -366,7 +366,8 @@ HIL 로 라우팅되는 워크플로 스텝은 "누가 승인하고, 어떻게 �
   [`HilChannel`](../../../services/core-control-plane/src/fdai/shared/providers/hil_channel.py)
   경계를 통해 전송할 수 있습니다. Teams 봇 전송과 별도로 인증된 콜백은
   [Slack의 발신 전용 Block Kit 게시](../../../services/core-control-plane/src/fdai/delivery/chatops/slack_adapter.py)와
-  다릅니다. Slack의 `poll`은 보류 상태로 남으며 로컬 게시나 증적만으로 작업 흐름 승인이
+  다릅니다. [실패 시 차단하는 연결](../../../services/core-control-plane/src/fdai/delivery/chatops/slack_binding.py)이
+  Slack 어댑터를 선택합니다. Slack의 `poll`은 보류 상태로 남으며 로컬 게시나 증적만으로 작업 흐름 승인이
   완료되지 않습니다. 영속 재게시 조정과 브라우저 행위자 결합은
   [채널과 알림](../interfaces/channels-and-notifications-ko.md)의 남은 작업입니다.
   이메일은 발신 전용 경보 경로이며 A1 승인 응답 경로가 아닙니다.

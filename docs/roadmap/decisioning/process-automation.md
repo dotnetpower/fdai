@@ -368,7 +368,8 @@ Given a `Workflow`, the planner produces a deterministic, read-only
 - **How are they reached?** The A1 `hil_approval` route may dispatch through the
   [`HilChannel`](../../../services/core-control-plane/src/fdai/shared/providers/hil_channel.py)
   seam. Teams Bot delivery and the separate authenticated callback are distinct from
-  [Slack's outbound-only Block Kit post](../../../services/core-control-plane/src/fdai/delivery/chatops/slack_adapter.py).
+  [Slack's outbound-only Block Kit post](../../../services/core-control-plane/src/fdai/delivery/chatops/slack_adapter.py),
+  selected by a [fail-closed binding](../../../services/core-control-plane/src/fdai/delivery/chatops/slack_binding.py).
   Slack `poll` remains pending; a local post or receipt cannot complete a workflow approval.
   Durable repost reconciliation and browser actor binding remain open under
   [Channels and Notifications](../interfaces/channels-and-notifications.md).

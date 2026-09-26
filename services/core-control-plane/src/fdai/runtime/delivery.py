@@ -18,6 +18,7 @@ from fdai.core.executor.safeguard_lifecycle_coordinator import (
 from fdai.core.executor.tool_call import ToolCallShadowExecutor, ToolReceiptObserver
 from fdai.core.notifications.matrix import NotificationMatrix, load_matrix_from_yaml
 from fdai.core.notifications.router import ChannelRegistry
+from fdai.delivery.chatops.slack_binding import build_slack_hil_channel
 from fdai.delivery.direct_api_router import RoutedDirectApiExecutor
 from fdai.runtime.configuration import _resolve_catalog_root
 from fdai.runtime.github_auth import build_github_token_provider
@@ -163,33 +164,14 @@ def _build_hil_channel(
     """
     webhook_url = os.environ.get("FDAI_CHATOPS_WEBHOOK_URL", "").strip()
     activity_url = os.environ.get("FDAI_TEAMS_APPROVAL_ACTIVITY_URL", "").strip()
-    slack_keys = (
-        "FDAI_SLACK_APPROVAL_API_URL",
-        "FDAI_SLACK_APPROVAL_CHANNEL_ID",
-        "FDAI_SLACK_APPROVAL_BOT_TOKEN",
+    slack_channel = build_slack_hil_channel(
+        os.environ,
+        http_client=http_client,
+        teams_configured=bool(webhook_url or activity_url),
     )
-    slack_values = tuple(os.environ.get(key, "").strip() for key in slack_keys)
-    if any(slack_values):
-        if not all(slack_values):
-            raise RuntimeError(
-                "Slack approval API URL, channel ID, and bot token MUST be set together"
-            )
-        if webhook_url or activity_url:
-            raise RuntimeError("Slack and Teams HIL transports cannot be selected together")
-        if http_client is None:
-            raise RuntimeError("Slack approval delivery requires a composition-owned HTTP client")
-        from fdai.delivery.chatops.slack_adapter import SlackHilAdapter, SlackHilAdapterConfig
-
-        try:
-            config = SlackHilAdapterConfig(
-                api_url=slack_values[0],
-                channel_id=slack_values[1],
-                bot_token=slack_values[2],
-            )
-        except ValueError as exc:
-            raise RuntimeError("Slack approval configuration is invalid") from exc
+    if slack_channel is not None:
         _LOGGER.info("hil_channel_backend", extra={"backend": "slack-outbound"})
-        return SlackHilAdapter(config=config, http_client=http_client)
+        return slack_channel
     if not webhook_url and not activity_url:
         _LOGGER.info("hil_channel_backend", extra={"backend": "none"})
         return None
