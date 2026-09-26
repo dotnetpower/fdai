@@ -19,6 +19,9 @@ from fdai.core.scheduler.continuation import (
     ScheduledContinuationService,
     ScheduledResultOrigin,
 )
+from fdai.core.scheduler.continuation_retention import (
+    InMemoryContinuationDeletionFence,
+)
 from fdai.shared.contracts.models import Severity
 from fdai.shared.providers.briefing import (
     BriefingDeliveryMode,
@@ -147,6 +150,7 @@ async def test_scheduler_persists_continuation_anchor_before_advancing() -> None
         continuations=ScheduledContinuationService(
             store=anchors,
             audit=InMemoryContinuationAuditSink(),
+            fence=InMemoryContinuationDeletionFence(),
         ),
         clock=lambda: NOW,
     )
@@ -199,6 +203,7 @@ async def test_anchor_failure_keeps_persisted_run_and_schedule_unadvanced() -> N
         continuations=ScheduledContinuationService(
             store=FailingAnchorStore(),
             audit=InMemoryContinuationAuditSink(),
+            fence=InMemoryContinuationDeletionFence(),
         ),
         clock=lambda: NOW,
     )

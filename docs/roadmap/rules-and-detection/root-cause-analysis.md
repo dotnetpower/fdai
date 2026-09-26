@@ -79,7 +79,7 @@ Make RCA a first-class output of the tiers instead of an implicit side effect.
 - The [correlated incident](observability-and-detection.md#1-event-correlation) is the RCA input, so
   analysis reasons over one incident rather than a storm of duplicates.
 
-## Azure Monitor telemetry grounding
+## Azure Monitor telemetry evidence check
 
 The initial design would let T2 query one configured Log Analytics workspace and pass matching raw
 rows to the model. That approach is not accepted. A resource can send diagnostics to another

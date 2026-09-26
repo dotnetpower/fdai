@@ -117,6 +117,7 @@ class AdapterBreakerMode(StrEnum):
 class OutboundDeliveryRecord:
     delivery_id: str
     idempotency_key: str
+    origin_ref: str
     principal_id: str
     scope_ref: str
     conversation_id: str
@@ -139,6 +140,7 @@ class OutboundDeliveryRecord:
         for name, value in (
             ("delivery_id", self.delivery_id),
             ("idempotency_key", self.idempotency_key),
+            ("origin_ref", self.origin_ref),
             ("principal_id", self.principal_id),
             ("scope_ref", self.scope_ref),
             ("conversation_id", self.conversation_id),
@@ -205,6 +207,29 @@ class AdapterBreakerRecord:
     reason: str
 
 
+class OutboundDeliveryOriginDeletedError(RuntimeError):
+    """A purged delivery origin MUST NOT be repopulated by a late writer."""
+
+
+class OutboundDeliveryReadbackError(RuntimeError):
+    """A response body survived its deletion, so the origin purge stays pending."""
+
+
+@dataclass(frozen=True, slots=True)
+class OriginDeletionResult:
+    """Outcome of one origin-scoped purge of retained response bodies.
+
+    `deleted_delivery_ids` lists the bodies this call removed. `retained_attempts` and
+    `retained_acknowledgements` count the non-sensitive lineage rows that survive the
+    purge; they carry attempt, timing, and provider-receipt identity, never answer text.
+    """
+
+    origin_ref: str
+    deleted_delivery_ids: tuple[str, ...]
+    retained_attempts: int
+    retained_acknowledgements: int
+
+
 @dataclass(frozen=True, slots=True)
 class ConversationDeliverySnapshot:
     deliveries: tuple[OutboundDeliveryRecord, ...]
@@ -251,6 +276,8 @@ class ConversationDeliveryStore(Protocol):
 
     async def reconcile_sending(self, *, now: datetime) -> int: ...
 
+    async def delete_by_origin(self, *, origin_ref: str, at: datetime) -> OriginDeletionResult: ...
+
     async def snapshot(self, *, limit: int = 200) -> ConversationDeliverySnapshot: ...
 
     async def get_breaker(self, adapter_id: str) -> AdapterBreakerRecord | None: ...
@@ -272,8 +299,13 @@ class InMemoryConversationDeliveryStore:
         self._attempts: list[OutboundDeliveryAttempt] = []
         self._acknowledgements: list[OutboundDeliveryAcknowledgement] = []
         self._breakers: dict[str, AdapterBreakerRecord] = {}
+        self._purged_origins: set[str] = set()
 
     async def put(self, record: OutboundDeliveryRecord) -> OutboundDeliveryRecord:
+        if record.origin_ref in self._purged_origins:
+            raise OutboundDeliveryOriginDeletedError(
+                "delivery origin was purged and MUST NOT be restored"
+            )
         existing_id = self._idempotency.get(record.idempotency_key)
         if existing_id is not None:
             existing = self._records[existing_id]
@@ -419,6 +451,49 @@ class InMemoryConversationDeliveryStore:
                 reconciled += 1
         return reconciled
 
+    async def delete_by_origin(self, *, origin_ref: str, at: datetime) -> OriginDeletionResult:
+        """Delete every retained response body for one origin and prove its absence.
+
+        The origin tombstone is recorded before the first deletion, so a replayed run, a
+        redelivered queue record, or a differently signed idempotency key derived from the
+        same origin is refused instead of restoring the body. Attempt and acknowledgement
+        rows are retained: they carry non-sensitive lineage, never answer text. Deleting an
+        already purged origin is a successful no-op.
+        """
+        _identifier("origin_ref", origin_ref)
+        _aware("at", at)
+        self._purged_origins.add(origin_ref)
+        doomed = tuple(
+            sorted(
+                delivery_id
+                for delivery_id, record in self._records.items()
+                if record.origin_ref == origin_ref
+            )
+        )
+        for delivery_id in doomed:
+            record = self._records.pop(delivery_id)
+            self._idempotency.pop(record.idempotency_key, None)
+        survivors = tuple(
+            delivery_id
+            for delivery_id, record in self._records.items()
+            if record.origin_ref == origin_ref
+        )
+        if survivors:
+            raise OutboundDeliveryReadbackError("outbound delivery body survived the origin purge")
+        doomed_set = set(doomed)
+        return OriginDeletionResult(
+            origin_ref=origin_ref,
+            deleted_delivery_ids=doomed,
+            retained_attempts=sum(
+                1 for attempt in self._attempts if attempt.delivery_id in doomed_set
+            ),
+            retained_acknowledgements=sum(
+                1
+                for acknowledgement in self._acknowledgements
+                if acknowledgement.delivery_id in doomed_set
+            ),
+        )
+
     async def snapshot(self, *, limit: int = 200) -> ConversationDeliverySnapshot:
         if not 1 <= limit <= 500:
             raise ValueError("delivery snapshot limit is invalid")
@@ -525,6 +600,7 @@ def new_delivery_record(
     return OutboundDeliveryRecord(
         delivery_id=f"delivery:{key[:40]}",
         idempotency_key=key,
+        origin_ref=origin_ref,
         principal_id=principal_id,
         scope_ref=scope_ref,
         conversation_id=conversation_id,
@@ -543,6 +619,7 @@ def delivery_record_to_json(record: OutboundDeliveryRecord) -> dict[str, Any]:
     return {
         "delivery_id": record.delivery_id,
         "idempotency_key": record.idempotency_key,
+        "origin_ref": record.origin_ref,
         "principal_id": record.principal_id,
         "scope_ref": record.scope_ref,
         "conversation_id": record.conversation_id,
@@ -569,6 +646,7 @@ def delivery_record_from_json(value: dict[str, Any]) -> OutboundDeliveryRecord:
     return OutboundDeliveryRecord(
         delivery_id=str(value["delivery_id"]),
         idempotency_key=str(value["idempotency_key"]),
+        origin_ref=str(value["origin_ref"]),
         principal_id=str(value["principal_id"]),
         scope_ref=str(value["scope_ref"]),
         conversation_id=str(value["conversation_id"]),
@@ -626,8 +704,11 @@ __all__ = [
     "ConversationDeliveryStore",
     "InMemoryConversationDeliveryStore",
     "MAX_DELIVERY_ATTEMPTS",
+    "OriginDeletionResult",
     "OutboundDeliveryAcknowledgement",
     "OutboundDeliveryAttempt",
+    "OutboundDeliveryOriginDeletedError",
+    "OutboundDeliveryReadbackError",
     "OutboundDeliveryRecord",
     "OutboundDeliveryState",
     "PrincipalConversationBinding",

@@ -1,8 +1,8 @@
 ---
 title: 에이전트 워크플로우
 translation_of: agent-workflows.md
-translation_source_sha: d00886340e69cecfa1c95e82a00b5e03a2e14042
-translation_revised: 2026-09-18
+translation_source_sha: 1b87d3c24ca28005017775f017ac4b74661bc0c3
+translation_revised: 2026-09-26
 ---
 
 # 에이전트 워크플로우
@@ -74,7 +74,7 @@ translation_revised: 2026-09-18
 `rule-catalog/vocabulary/object-types/`의 객체 타입을 소비한다. 새
 타입이 필요한 워크플로우는 업스트림 doc PR을 먼저 열라는 신호이다.
 
-## 1. Cost-aware 교정
+## 1. 비용을 고려한 수정
 
 **용도.** 모든 SRE 교정은 비용 영향을 첨부하여 판정이
 reliability와 finance를 모두 반영하도록 한다. 자동화가 1달러의 on-call 시간을 아끼려고

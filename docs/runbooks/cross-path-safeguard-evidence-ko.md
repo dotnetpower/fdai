@@ -1,8 +1,8 @@
 ---
 title: 경로 교차 안전장치 근거 Runbook
 translation_of: cross-path-safeguard-evidence.md
-translation_source_sha: 72fa6404fe9252455734b46be2af8aaac7657ee8
-translation_revised: 2026-09-16
+translation_source_sha: 52f21e9ad8a0c7b42be193f69ecf05fd116a50a9
+translation_revised: 2026-09-26
 ---
 # 경로 교차 안전장치 근거 Runbook
 
@@ -118,7 +118,7 @@ uv run python scripts/quality/repository/validate-cross-path-safeguard-evidence.
 소스 선행 조건은 이제 명시되어 있습니다. 종료된 `ops.start-vm` ActionRun은 Heimdall 실행 작업 관측
 처리기로 라우팅되며, A3-E 효과 근거 다리는 모든 미상 관측 결과를 섀도 복귀 처분으로 옮깁니다.
 `pr_manual`은 누락된 런타임 트리거가 아니라 의도적인 구조적 거부 분류로 유지됩니다. 보호된 서비스
-구성은 stewardship GitOps가 활성화된 경우에만 `workflow_tools_enforce`를 설정할 수 있으며 기본값은
+구성은 담당 체계 GitOps가 활성화된 경우에만 `workflow_tools_enforce`를 설정할 수 있으며 기본값은
 비활성입니다. 이러한 소스 사실은 운영 근거가 아니며, 캠페인 리비전을 선택하거나 배포, 공급자 효과,
 승격, 복귀 또는 정리를 승인하지 않습니다.
 

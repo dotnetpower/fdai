@@ -79,7 +79,7 @@ grants Core an Operator database writer.
 | Operator A3 semantic delivery and recovery worker | implemented | `channel_edge/{pipeline,pipeline_contracts,worker}.py`; focused edge checks; live PostgreSQL join (`1 passed`, no skips) | Deterministic provider-message identity converges text-delivery retries on one semantic proposal, binding, and delivery. Attachment-bearing records fail before message claim or semantic publication, so metadata cannot disappear into a text-only response. |
 | Operator A3 production composition | implemented | `channel_edge/{composition,runtime,application,entry}.py`; private local launch; Operator-service Terraform root; focused edge checks | The standalone lifespan probes the Operator role and every owned table, starts semantic transport and replay before consumers, and reconciles expired sends before readiness. Attachment support defaults off and unsupported enablement fails before dependency allocation. |
 | Adapter health policy | implemented | [`adapter_health.py`](../../../services/core-control-plane/src/fdai/core/conversation/adapter_health.py), [`test_adapter_health.py`](../../../services/core-control-plane/tests/conversation/test_adapter_health.py) | Bounded failure windows, fail-closed breaker modes, authorized pause and resume, and authorized A2 fallback behavior pass focused in-memory tests. The separately authenticated command app is not implemented. |
-| Scheduled delivery and adapter command surfaces | in-progress | [`scheduled_continuation.py`](../../../services/core-control-plane/src/fdai/shared/providers/scheduled_continuation.py), [`continuation.py`](../../../services/core-control-plane/src/fdai/core/scheduler/continuation.py), [`conversation_delivery.py`](../../../services/core-control-plane/src/fdai/shared/providers/conversation_delivery.py) | Scheduled anchors and delivery/snapshot contracts exist. `ScheduledContinuationDeliveryCoordinator`, adapter command routes, and production startup composition are absent from the current tree. |
+| Scheduled delivery and adapter command surfaces | in-progress | [`continuation_delivery.py`](../../../services/core-control-plane/src/fdai/core/scheduler/continuation_delivery.py), [`scheduled_continuation.py`](../../../services/core-control-plane/src/fdai/shared/providers/scheduled_continuation.py), [`conversation_delivery.py`](../../../services/core-control-plane/src/fdai/shared/providers/conversation_delivery.py), [`test_continuation_delivery.py`](../../../services/core-control-plane/tests/core/scheduler/test_continuation_delivery.py) | `ScheduledContinuationDeliveryCoordinator` replays one persisted scheduled result into the durable outbound ledger with the anchor id as origin, refuses a fenced, missing, expired, non-external, or rewritten origin, and collapses a repeated submit. `purge_origin` deletes the in-memory ledger's copies of that result only when the source retention fence records deletion intent. Adapter command routes and production startup composition are still absent from the current tree. |
 | Read-only delivery operations panel | implemented | [`delivery_panel.py`](../../../services/core-control-plane/src/fdai/core/conversation/delivery_panel.py), [`test_delivery_panel.py`](../../../services/core-control-plane/tests/conversation/test_delivery_panel.py) | `ConversationDeliveryPanel` projects latency count/average/p95, state counts, duplicate risk, retries, abandonment, attempt and acknowledgement counts, breaker mode counts, and optional progressive counters. The payload declares `read_only=true` and `mutations_available=false`, exposes no identifier or answer text, and only the snapshot read capability is reachable. No console route or production store binds this projection yet. |
 
 | Area | State | Evidence | Notes |
@@ -111,6 +111,9 @@ grants Core an Operator database writer.
 | 2026-08-29 | implemented | Added bounded completion inbox retention to the supervised Operator lifecycle. The repository deletes only expired rows in deadline order with `SKIP LOCKED`; a follow-on migration grants delete only on the Operator-owned inbox, and repeated cleanup failure keeps readiness closed. | `current change`; Operator completion repository and runtime; `operator_completion_retention_20260829`; focused completion, composition, privilege, and service-migration checks. | Add verified Slack and Teams binding resolution plus outbound enqueue, then retain governed restart and process-loss receipts. |
 | 2026-09-08 | implemented | Kept exact semantic ObjectSet input and row-count output together across the terminal Operator projection and replayed Command Deck Run record. Only a completed receipt-backed activity exposes the bounded definition; progress remains capability-only and every rendered record fixes `execution_authority=false`. | `current change`; [Issue #241](https://github.com/dotnetpower/fdai/issues/241); focused Operator replay tests, Console typecheck, and the authenticated desktop, constrained-desktop, and mobile scenario passed. | None for Web Run record delivery; governed Slack and Teams delivery evidence remains unchanged. |
 | 2026-09-12 | implemented | Reconciled the versioned Core-to-Operator read-investigation completion ingress, idempotent Web writeback, and bounded inbox retention while preserving channel and governed restart gaps. | `current change`; completion transport, Operator runtime/store, and writer-grant tests (`24 passed`, zero skips). | Add verified channel outbound enqueue and retain governed restart evidence. |
+| 2026-09-26 | implemented | Implemented `ScheduledContinuationDeliveryCoordinator` over the durable outbound ledger. It replays only the persisted anchor, uses the stable anchor id as origin, and fails closed on a retention deletion fence, a missing or expired anchor, a non-external channel, or rewritten persisted content. | `current change`; [Issue #1025](https://github.com/dotnetpower/fdai/issues/1025); `pytest services/core-control-plane/tests/core/scheduler services/core-control-plane/tests/providers/test_conversation_delivery.py` passed 111 cases; focused Ruff and strict mypy passed. | Bind the coordinator to production channel adapters and startup composition, then retain governed Slack and Teams delivery receipts. |
+| 2026-09-27 | implemented | Hardened the coordinator's channel rendering. An oversized stored summary is truncated deterministically and flagged in the record data, and an identifier beyond the channel envelope raises `ContinuationRenderingError` instead of escaping as an untyped error, because the anchor id carries delivery identity. | `current change`; [Issue #1025](https://github.com/dotnetpower/fdai/issues/1025); `pytest services/core-control-plane/tests/core/scheduler services/core-control-plane/tests/providers/test_conversation_delivery.py` passed 106 cases, which corrects the count recorded on 2026-09-26; focused Ruff and strict mypy passed. | Bind `ScheduledContinuationDeliveryCoordinator` to production channel adapters and startup composition, then retain governed Slack and Teams delivery receipts. |
+| 2026-09-26 | in-progress | Added origin-scoped deletion to the Core in-memory delivery store. The record retains a separate origin reference, a process-local origin tombstone blocks late writes during that store lifetime, and matching bodies are removed with an absence check. `ScheduledContinuationDeliveryCoordinator.purge_origin` requires the recorded source deletion fence. | `current change`; [Issue #1025](https://github.com/dotnetpower/fdai/issues/1025); `services/core-control-plane/src/fdai/shared/providers/conversation_delivery.py`, `services/core-control-plane/src/fdai/core/scheduler/continuation_delivery.py`, ; `uv run pytest -q --no-cov services/core-control-plane/tests/core/scheduler services/core-control-plane/tests/providers/test_conversation_delivery.py services/core-control-plane/tests/conversation/test_outbound_delivery.py services/core-control-plane/tests/persistence/test_scheduled_continuation.py services/core-control-plane/tests/persistence/test_scheduled_continuation_retention.py services/operator-service/tests/test_channel_delivery_postgres.py` (149 passed, 7 environment-gated skips); changed-file Ruff check/format and strict mypy passed. | Implement durable origin deletion, atomic late-writer fence, and independent readback in the Operator PostgreSQL ledger, then bind the retention worker; no restart-safe physical deletion is claimed. |
 
 ### Remaining work
 
@@ -125,8 +128,16 @@ grants Core an Operator database writer.
     reject attachments before queue admission and keep their durable-delivery path unavailable.
 - [ ] Add the separately authenticated `/commands/adapters/*` application with authorization,
     audit, and focused pause, resume, and status tests.
-- [ ] Implement `ScheduledContinuationDeliveryCoordinator` for Slack and Teams with stable anchor
-    origins and persisted-result replay tests.
+- [x] Implement `ScheduledContinuationDeliveryCoordinator` for Slack and Teams with stable anchor
+    origins, persisted-result replay, and deletion-fence refusal tests.
+- [ ] Bind `ScheduledContinuationDeliveryCoordinator` to production channel adapters and startup
+    composition, then retain governed Slack and Teams scheduled-delivery receipts.
+- [x] Add origin-scoped deletion to the Core in-memory delivery store under a source deletion
+    fence. It preserves unrelated origins and attempt and acknowledgement lineage and checks for
+    surviving bodies, but does not prove restart-safe physical deletion.
+- [ ] Implement the same origin-scoped deletion, origin tombstone, and readback in the
+    Operator-owned PostgreSQL delivery ledger, and bind the purge into the scheduled-result
+    retention worker's deletion order so one coordinated pass covers every retained copy.
 - [x] Implement the GET-only `ConversationDeliveryPanel` projection without mutation controls.
 - [ ] Bind `ConversationDeliveryPanel` to an authenticated console read route and a production
     delivery store, and share the bounded progressive-conversation collector with it.
@@ -182,6 +193,15 @@ The complete `OutboundResponse`, response digest, destination, operation, princi
 conversation, binding, origin reference, freshness deadline, and retention deadline are stored
 before send. The stable origin plus destination and operation derive one deterministic idempotency
 key. Reusing that key with different response content is rejected.
+
+The Core in-memory delivery store keeps the origin reference as its own field, not only inside
+that derived key. Its origin-scoped purge records an in-memory tombstone before deleting the
+matching bodies, then checks for surviving bodies; a survivor keeps the purge pending. The
+tombstone rejects late writes with a changed idempotency key while that store lives. Attempt and
+acknowledgement rows survive because they carry attempt, timing, and provider-receipt lineage,
+never answer text. Unrelated origins, scopes, and conversations are untouched. This is not
+restart-safe physical deletion: the Operator-owned PostgreSQL ledger still needs an origin
+column, durable tombstone, atomic deletion and independent readback before that claim is made.
 Typed channel progress snapshots are part of that one immutable response. Durable replay validates
 contiguous revisions, monotonic activity counts, and a final confirmed snapshot equal to the
 canonical answer before a provider call. It never regenerates snapshots or reruns the coordinator.
@@ -273,10 +293,19 @@ A direct provider send, delivery-context lookup, or durable submit failure is al
 originating turn and emits a sanitized `delivery.submit` transition. It does not terminate the
 channel receive loop or expose provider response text.
 
-The planned `ScheduledContinuationDeliveryCoordinator` must submit external Slack and Teams results
-with the stable anchor id as the origin. It must use the already persisted result summary, digest,
-evidence, conversation reference, and thread mode. The coordinator is not implemented. Web
-continuations remain idempotent conversation turns.
+`ScheduledContinuationDeliveryCoordinator` submits external Slack and Teams results with the
+stable anchor id as the origin. It replays the already persisted result summary, digest, evidence,
+conversation reference, and thread mode; it never regenerates a briefing and never re-runs
+scheduled work. The coordinator re-reads the anchor instead of trusting a caller-held copy, so a
+deletion that landed between scheduling and delivery is observed. It refuses a fenced anchor id, a
+missing or expired anchor, a non-external channel, and a stale origin that now carries different
+persisted content, and it fails closed when the deletion fence is unreadable. The stored summary
+cap exceeds the channel text cap, so an oversized summary is truncated deterministically and
+flagged in the record data, while an identifier that exceeds the channel envelope is refused
+instead of being rewritten, because the anchor id carries delivery identity. A repeated submit
+collapses onto the one durable outbound record. Binding the coordinator to production channel
+adapters and startup composition remains open, and Web continuations remain idempotent
+conversation turns. See [scheduled-result-continuations.md](scheduled-result-continuations.md).
 
 ## Read-only operations view
 
@@ -300,7 +329,8 @@ store binds that Core panel class yet. The independent Operator `RuntimeProjecti
 Focused coverage includes crash before send, during send, after provider receipt, before local
 acknowledgement, duplicate input and completion, concurrent claim, stale lease, cross-principal and
 cross-scope denial, revoked authorization, breaker threshold, manual resume, fallback failure,
-retry storm, and Slack/Teams post, edit, stream, reaction degradation.
+retry storm, Slack/Teams post, edit, stream, reaction degradation, and scheduled-result replay with
+deletion-fence refusal and repeated-submit collapse.
 
 ## Related docs
 

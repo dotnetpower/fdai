@@ -12,12 +12,15 @@ from fdai.core.scheduler.continuation import (
     InMemoryContinuationAuditSink,
     ScheduledContinuationService,
 )
+from fdai.core.scheduler.continuation_retention import (
+    InMemoryContinuationDeletionFence,
+)
 from fdai.delivery.persistence.postgres_scheduled_continuation import (
     PostgresScheduledContinuationStoreConfig,
     PostgresScheduledConversationAnchorStore,
-    _psycopg_dsn,
     _row_to_anchor,
     _values,
+    psycopg_dsn,
 )
 from fdai.shared.providers.scheduled_continuation import (
     ContinuationAnchorState,
@@ -31,8 +34,8 @@ NOW = datetime(2026, 7, 20, 21, 0, tzinfo=UTC)
 
 
 def test_psycopg_dsn_accepts_sqlalchemy_driver_scheme() -> None:
-    assert _psycopg_dsn("postgresql+psycopg://example") == "postgresql://example"
-    assert _psycopg_dsn("postgresql://example") == "postgresql://example"
+    assert psycopg_dsn("postgresql+psycopg://example") == "postgresql://example"
+    assert psycopg_dsn("postgresql://example") == "postgresql://example"
 
 
 def _anchor(*, suffix: str = "") -> ScheduledConversationAnchor:
@@ -106,7 +109,9 @@ async def test_postgres_anchor_store_is_idempotent_and_expires_with_cas() -> Non
     store = PostgresScheduledConversationAnchorStore(config=config)
     anchor = _anchor(suffix=uuid4().hex[:8])
     audit = InMemoryContinuationAuditSink()
-    service = ScheduledContinuationService(store=store, audit=audit)
+    service = ScheduledContinuationService(
+        store=store, audit=audit, fence=InMemoryContinuationDeletionFence()
+    )
 
     assert await service.create(anchor) == anchor
     assert await service.create(anchor) == anchor
@@ -117,6 +122,7 @@ async def test_postgres_anchor_store_is_idempotent_and_expires_with_cas() -> Non
     concurrent = ScheduledContinuationService(
         store=_BarrierAnchorStore(restarted),
         audit=audit,
+        fence=InMemoryContinuationDeletionFence(),
     )
     access = ContinuationAccess(principal_id=anchor.owner_principal_id)
     first, second = await asyncio.gather(

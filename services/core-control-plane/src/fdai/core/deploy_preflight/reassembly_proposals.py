@@ -18,6 +18,11 @@ pipeline seam an operator command re-enters through
 executes shadow-first, and all seven safeguards come from the executor path,
 not from here. An escalated outcome yields **no** proposals (the caller routes
 it to ``hil``); a partial reassembly is never submitted.
+
+The supported submission entry point is
+:func:`fdai.core.deploy_preflight.pre_publication_gate.gate_toggle_publication`,
+which re-verifies the overrides first. :func:`submit_toggle_proposals` remains
+available for a caller that has already performed that verification.
 """
 
 from __future__ import annotations
@@ -33,6 +38,13 @@ from fdai.core.deploy_preflight.reassemble import (
 )
 
 ACTION_TYPE = "remediate.apply-preflight-toggle"
+
+#: Ingress event type for a control-plane-initiated toggle proposal. Huginn
+#: honors ``action_type`` only for an explicit ``operator_request``, so this
+#: signal names its own event type and Forseti binds the ActionType from its
+#: ``RULE_MATCH`` table instead. The binding keeps the default ``hil`` verdict:
+#: the tfvars-override PR stays human-reviewed, shadow-first.
+INGRESS_EVENT_TYPE = "preflight_toggle_blocker"
 
 #: Same seam an operator command re-enters through (see ``bragi.ProposalSink``):
 #: an async callable that accepts one proposal envelope and returns a status
@@ -77,7 +89,7 @@ class ToggleActionProposal:
             "operator_initiated": False,
             "action_type": ACTION_TYPE,
             "resource_id": self.scope,
-            "event_type": "rule_violation",
+            "event_type": INGRESS_EVENT_TYPE,
             "params": {
                 "scope": self.scope,
                 "finding_id": self.finding_id,
@@ -152,6 +164,7 @@ async def submit_toggle_proposals(
 
 __all__ = [
     "ACTION_TYPE",
+    "INGRESS_EVENT_TYPE",
     "ProposalSink",
     "ToggleActionProposal",
     "build_toggle_proposals",

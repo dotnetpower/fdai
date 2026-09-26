@@ -45,7 +45,7 @@ projection and repaired them. Therefore these ten rounds are retained as genuine
 history, not credited as the requested final ten rounds after all remaining implementation.
 That final acceptance gate remains open, alongside live quality and authenticated evidence.
 
-### Original finding reconciliation
+### Original detected-issue reconciliation
 
 This is the current campaign status, not a production-readiness or Low-only verdict. `Local verified`
 means a focused test executed successfully on current local inputs. It does not substitute for

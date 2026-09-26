@@ -81,8 +81,10 @@ commit already present on protected `main`:
   the exact Terraform-owned AKS target only when it was stopped, prepares the authenticated context,
   runs the selected scenarios sequentially, and restores `Stopped` before cleanup when this run
   started the cluster.
-4. Run `action=destroy` with `confirm_destroy=destroy-sre-demo-lab` after evidence review. Destroy
-   applies an exact destroy plan from the same job.
+4. Run `action=destroy-plan` in the `plan-only` environment and review the exact delete count,
+   Terraform addresses, and replacement paths without granting deployment authority.
+5. Run `action=destroy` with `confirm_destroy=destroy-sre-demo-lab` only after that review. Destroy
+   creates and applies its exact destroy plan in the protected `scenario-lab` environment.
 
 ## AKS Store Demo workload
 

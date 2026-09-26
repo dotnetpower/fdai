@@ -365,6 +365,8 @@ The Day-1 console can answer:
 - "Why did event `<id>` route to HIL?" → `explain_verdict`.
 - "Show me every audit entry for `object-storage.public-access.deny` in
   the last 24h." → `query_audit`.
+- "What did I explicitly ask FDAI to remember for this resource?" →
+  `query_operator_memory`.
 - "If I create a storage account with public access enabled, what would
   the loop do?" → `describe_event`.
 

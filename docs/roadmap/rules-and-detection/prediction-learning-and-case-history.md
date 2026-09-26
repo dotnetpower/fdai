@@ -364,6 +364,33 @@ case-metadata DSN. Legacy unscoped references are removed by the globally unique
 conflicting explicit scope or a legal hold blocks deletion. The review rejects standalone DELETE
 because it permits resurrection, and read denial because it leaves copied bodies. This fence covers
 the T1 library only; broker and other downstream copies remain separate work.
+
+### Retained-copy inventory
+
+The inventory below distinguishes content-bearing copies from immutable references. A durable
+reference can remain as non-sensitive audit lineage after its source body is deleted. A
+content-bearing copy must follow the source deletion claim and legal hold before the source can be
+tombstoned.
+
+| Surface | Retained material and writer | Deletion and legal-hold state | Delivery status |
+|---------|------------------------------|-------------------------------|-----------------|
+| Azure Blob case revisions | Complete revision JSON at `case-history/<case>/<revision>/<digest>.json`, written by Muninn through `CaseHistoryMaterializer` | The source record supplies the legal hold and complete revision chain. `CaseHistoryRetentionService` deletes every recorded Blob reference before the metadata tombstone. | Covered. |
+| Authoritative StateStore metadata | Latest case metadata, storage references, deletion intent, hold authority, and tombstone at `case-history:latest:<case>` | Audited CAS blocks new revisions after deletion starts. A legal hold blocks the claim, and failed artifact deletion leaves the intent retryable. | Covered. |
+| PostgreSQL metadata shadow | `case_history` and `case_history_revision` mirror metadata and immutable artifact references through `DualWriteCaseHistoryMetadataStore` | The authority-side hold and deletion transition must match the shadow transition. Divergence fails closed; deletion clears the latest artifact reference and marks any existing chunks deleted. | Covered for metadata and references. |
+| PostgreSQL chunk schema | `case_history_chunk` can hold bounded text and a 384-dimensional embedding | No runtime writer or reader currently populates this table. It is not an actual retained copy in the current composition. Any future binding must join the source claim and hold before activation. | Declared but unbound. |
+| Current derived StateStore projection | Cohorts, frozen snapshots, Pattern case bodies, and emission markers inside `case-history-derived:v1:<scope>`; Muninn is the writer | One scope CAS revalidates current source revisions. Purge removes every entry that cites the claimed case before source tombstoning; holds and missing deletion intent fail closed. | Covered. |
+| Legacy top-level StateStore projection | Historical `operational-case-fingerprint-cohort:v2:*` cohort, snapshot, Pattern, and emission rows | Current code uses that prefix only as a logical identity inside the new projection and no longer writes top-level rows. Existing rows have no source-linked hold or purge path. | Open migration and purge work. |
+| T1 pgvector library | `t1_pattern_library` retains the embedding, action fields, and bounded `OperationalCaseContext`; `PgVectorPatternLibrary` is the writer | A transaction-scoped lock writes durable case/signature fences and deletes at most 1,000 rows per pass. Holds, scope conflicts, and database failures keep source deletion pending. | Covered. |
+| Cohort broker record | `object.context-index` carries the bounded `PatternCase` array and snapshot reference from Muninn to Norns | Event-bus retention and `.dlq` preserve transport payloads independently of the case lifecycle. Generic redrive exists, but no source deletion or hold fence currently prevents old payload replay. | Open broker retention and redrive work. |
+| Pattern and candidate broker records | `object.pattern` and `object.rule-candidate` carry case references, digests, candidate evidence, and review identity | These records contain no source artifact body, but replay can rematerialize downstream copies unless consumers recheck the deletion fence. Generic DLQ policy is not case-aware. | Open replay qualification. |
+| Norns process memory | `pending_candidates` and `_pattern_publications` retain candidate mappings and Pattern envelopes while throttled | The buffers are bounded and authority-free, but they are not durable. Rate limiting keeps work in memory and process restart loses it; no hold-aware recovery store exists. | Open durable retry work. |
+| Mimir process memory | `_pending_candidates`, `_catalog_review_packages`, and idempotency indexes retain compiled packages and immutable case references until publication completes | Current-case checks run before compile, retry, and publish. Publication failure remains retryable only in the live process; restart reconstruction and source-deletion scrub are absent. | Open durable package recovery work. |
+| GitOps review package | `rule-catalog/review-packages/operational-<digest>.json` in a draft pull request retains candidate evidence, review results, and immutable case references, but not the source revision body | Git history intentionally retains this non-sensitive lineage. The package cannot activate a Rule. Source deletion must invalidate reuse without rewriting historical review evidence. | Retain as audit lineage; verify no raw body is added. |
+
+No additional case-body cache or active embedding writer was found in the current Core composition.
+The unbound chunk schema, process-local buffers, broker payloads, and Git review references are
+listed explicitly so later work does not mistake absence of a read route for physical deletion.
+
 ## Verification
 
 The implementation must prove:

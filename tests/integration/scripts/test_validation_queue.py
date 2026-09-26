@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import os
 import shutil
+import stat
 import subprocess
 import sys
 from concurrent.futures import ThreadPoolExecutor
@@ -19,6 +20,7 @@ from scripts.automation.validation_queue_runner import (
     STAGE_DEFERRED_STATUS,
     STAGE_ENVIRONMENT_STATUS,
     STAGE_KILLED_STATUS,
+    _normalize_tracked_file_modes,
     _prepare_validation_worktree,
     _run_stage,
 )
@@ -330,6 +332,20 @@ def test_validation_reset_clean_rejects_symlinked_state_root(
         _prepare_validation_worktree(paths, head)
 
     assert sentinel.read_text(encoding="utf-8") == "preserve\n"
+
+
+def test_validation_worktree_removes_only_group_and_world_write_bits(
+    git_repo: Path,
+) -> None:
+    regular = git_repo / "source.txt"
+    executable = git_repo / "scripts" / "verify.sh"
+    regular.chmod(0o664)
+    executable.chmod(0o775)
+
+    _normalize_tracked_file_modes(git_repo)
+
+    assert stat.S_IMODE(regular.stat().st_mode) == 0o644
+    assert stat.S_IMODE(executable.stat().st_mode) == 0o755
 
 
 def test_prune_stale_removes_only_old_unreferenced_pending_records(git_repo: Path) -> None:

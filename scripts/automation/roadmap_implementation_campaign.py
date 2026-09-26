@@ -50,7 +50,15 @@ BATCH_OWNED_GATES: tuple[tuple[str, ...], ...] = (
     ("python3", "scripts/quality/localization/check-derived-sources.py"),
     ("python3", "scripts/quality/architecture/check-design-routes.py"),
     ("python3", "scripts/quality/architecture/check-constitution.py"),
-    ("python3", "-m", "pytest", "tests/integration/scripts/test_service_test_suites.py", "-q"),
+    (
+        "uv",
+        "run",
+        "python",
+        "-m",
+        "pytest",
+        "tests/integration/scripts/test_service_test_suites.py",
+        "-q",
+    ),
 )
 
 
@@ -87,6 +95,38 @@ def remaining_work_by_folder(repo_root: Path) -> dict[str, list[str]]:
             continue
         grouped.setdefault(candidate.parts[2], []).append(relative)
     return {folder: sorted(documents) for folder, documents in sorted(grouped.items())}
+
+
+def issue_linked_work_by_folder(
+    repo_root: Path,
+    grouped: Mapping[str, Sequence[str]],
+    issue_number: int,
+) -> dict[str, list[str]]:
+    """Keep remaining-work owners whose design or ledger cites the selected issue."""
+
+    issue_reference = re.compile(rf"(?<!\d)#{issue_number}(?!\d)")
+    issue_url_reference = re.compile(rf"/issues/{issue_number}(?!\d)")
+    linked: dict[str, list[str]] = {}
+    roadmap_root = PurePosixPath("docs/roadmap")
+    for folder, documents in grouped.items():
+        for relative in documents:
+            owner = PurePosixPath(relative)
+            sources = [repo_root / owner]
+            try:
+                ledger_relative = owner.relative_to(roadmap_root)
+            except ValueError:
+                continue
+            sources.append(repo_root / "docs/roadmap-implementation" / ledger_relative)
+            if any(
+                path.is_file()
+                and (
+                    issue_url_reference.search(text := path.read_text(encoding="utf-8")) is not None
+                    or issue_reference.search(text) is not None
+                )
+                for path in sources
+            ):
+                linked.setdefault(folder, []).append(relative)
+    return {folder: sorted(documents) for folder, documents in sorted(linked.items())}
 
 
 def refused_folders(
@@ -268,6 +308,20 @@ def _newest_validated_commit(repo_root: Path) -> str | None:
     return None
 
 
+def _remote_main_contains(repo_root: Path, revision: str) -> bool:
+    """Return whether the fetched remote main already contains ``revision``."""
+
+    result = subprocess.run(  # noqa: S603 - fixed read-only git query
+        ["git", "merge-base", "--is-ancestor", revision, "refs/remotes/origin/main"],
+        cwd=repo_root,
+        check=False,
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+    return result.returncode == 0
+
+
 def _land_validated_batch(repo_root: Path) -> str | None:
     """Merge the newest validated commit into main when the merge disturbs no live edit.
 
@@ -296,6 +350,8 @@ def _land_validated_batch(repo_root: Path) -> str | None:
     head = _newest_validated_commit(repo_root)
     if head is None:
         return None
+    if _remote_main_contains(repo_root, head):
+        return f"already landed {head[:12]} on origin/main"
     checkout = _main_checkout(repo_root)
     if checkout is None:
         return None
@@ -341,17 +397,18 @@ def _land_validated_batch(repo_root: Path) -> str | None:
 
 def _sync_campaign_base(repo_root: Path) -> str:
     """Absorb main into the campaign branch or report why work must hold."""
-    ahead = int(_git("rev-list", "--count", "main..HEAD", cwd=repo_root))
-    behind = int(_git("rev-list", "--count", "HEAD..main", cwd=repo_root))
+    base_ref = "refs/remotes/origin/main" if _remote_main_contains(repo_root, "HEAD") else "main"
+    ahead = int(_git("rev-list", "--count", f"{base_ref}..HEAD", cwd=repo_root))
+    behind = int(_git("rev-list", "--count", f"HEAD..{base_ref}", cwd=repo_root))
     relation = _campaign_relation(ahead=ahead, behind=behind)
     if relation in {"current", "ahead"}:
         return relation
     # Nothing lands campaign batches on main (#137), so the branch is routinely ahead when
     # main moves. Fast-forward while that is still possible, otherwise take a real merge;
     # refusing would hold every later run forever.
-    merge_arguments = ["git", "merge", "--ff-only", "main"]
+    merge_arguments = ["git", "merge", "--ff-only", base_ref]
     if relation == "diverged":
-        merge_arguments = ["git", "merge", "--no-edit", "main"]
+        merge_arguments = ["git", "merge", "--no-edit", base_ref]
     before = _git("rev-parse", "HEAD", cwd=repo_root)
     result = subprocess.run(  # noqa: S603 - fixed git merge operation
         merge_arguments,
@@ -650,13 +707,20 @@ def run_cycle(
             return "held: registered issue discovery is unavailable"
         if issue is None:
             return "idle: no eligible registered issue"
-        grouped = remaining_work_by_folder(repo_root)
+        grouped = issue_linked_work_by_folder(
+            repo_root,
+            remaining_work_by_folder(repo_root),
+            issue.number,
+        )
         refused = refused_folders(state_root, issue.number, now=time.time())
         # Fail open: if every folder was refused, re-offer them all rather than idling forever.
         narrowed = {name: docs for name, docs in grouped.items() if name not in refused}
         selected = choose_folder(narrowed or grouped)
         if selected is None:
-            return f"idle: no roadmap folder has {BATCH_SIZE} remaining-work documents"
+            return (
+                f"idle: issue #{issue.number} has no linked roadmap folder with "
+                f"{BATCH_SIZE} remaining-work documents"
+            )
         folder, candidates = selected
         issue_claimed = _claim_issue(repo_root, issue)
         cli = agent.copilot_path()

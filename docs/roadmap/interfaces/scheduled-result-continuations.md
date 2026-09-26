@@ -162,8 +162,51 @@ conversation entry, the source result, and the anchor in that fixed order once a
 window has elapsed. It refuses an active anchor, fails closed when the hold registry is unreadable,
 skips a held anchor without deletion, and leaves the anchor in place when any earlier target fails
 so a retry can resume. Retries collapse onto one audit record per outcome and no audit record
-carries result text. Until production deleters are bound to the stored result, the projected turn,
-and the anchor row, expiry MUST NOT be presented as completed physical deletion.
+carries result text.
+
+The worker records a durable deletion fence for the anchor id before it deletes the first copy.
+The fence is the authoritative tombstone: anchor creation, replayed scheduled runs, redelivered
+queue records, and external delivery all consult it and refuse a fenced id, so a late writer
+cannot restore a body that retention started to delete. The fence is a required collaborator of
+the continuation service, so the guarantee never depends on composition. A fence that cannot be
+written or read fails closed and no deletion is attempted, and a fence write that does not
+survive its own readback also blocks every deletion, so a silently dropped write never leaves a
+late writer free. A held anchor and an anchor still inside its grace
+window are never fenced. The fence record carries the anchor id, the recording principal, and the
+time, so non-sensitive lineage survives the deleted payload. The fence is permanent: its key
+prefix MUST NOT be subject to prefix-based state retention, because a pruned fence would let a
+replayed run recreate a deleted body.
+
+The fence key is derived from the current anchor id derivation. A change to that derivation
+would move the key and leave a recreated run accepted under a new id while its tombstone stayed at
+the old one, so two opt-in controls prepare for that migration. A legacy-alias fence resolves a bounded set of
+superseded ids for the current id and refuses the recreated id before any migration runs, and it
+still writes new tombstones only under the current derivation. An alias cannot belong to two
+current ids or itself be a current id. A bounded, idempotent, resumable
+carry-forward migration then copies each superseded tombstone to the current key. It never removes
+the legacy tombstone, reports an already carried key as present instead of rewriting it, keeps a
+write that does not survive its own readback pending for a later pass, and fails closed on any
+unreadable or unwritable fence. Its readback checks the direct key even when supplied an
+alias-aware fence, rather than mistaking an alias lookup for a successful copy. The alias mapping
+and migration pairs are supplied by the caller today; no production derivation change is
+authorized until every affected key is enumerated and protected.
+
+A submitted scheduled result is another retained copy of the answer body in the
+[durable outbound reply ledger](durable-conversation-delivery.md). The Core in-memory ledger accepts an
+origin-scoped purge keyed on the anchor id, and the recorded deletion fence is the authoritative
+deletion intent for it: an unfenced anchor id is refused, so a live result is never purged out from
+under delivery. Its origin tombstone rejects late redelivery within the life of that store even
+when the source fence later becomes unreadable. The Operator-owned durable ledger does not yet
+implement this purge or tombstone, and this purge is not part of the retention worker's ordered
+target list.
+
+Production deleters are bound to the three PostgreSQL-resident copies: the projected conversation
+turn, the source briefing run, and the anchor row. Each statement is scoped to this anchor's
+principal, conversation, run, or anchor id, so unrelated scopes and unrelated turns in the same
+conversation are preserved. The anchor delete additionally requires the `expired` state. Every
+deletion is confirmed by an independent readback on a separate connection; a surviving copy keeps
+the purge pending instead of reporting completed deletion. Until one governed purge receipt exists
+over these deleters, expiry MUST NOT be presented as completed physical deletion.
 
 ## Verification
 
@@ -180,6 +223,15 @@ Coverage includes:
 - Retention ordering, grace-window deferral, active-anchor refusal, legal-hold skip and release,
     unreadable hold registry fail-closed, resumable partial failure, bounded batches, and collapsed
     retention audit.
+- Fence recorded before the first deletion, kept through a partial failure, absent for held and
+    not-due anchors, fail-closed on an unwritable or unreadable fence, and readable after restart.
+- Fenced anchor ids refused at creation, scoped deletion statements, and an independent readback
+    that keeps a surviving copy pending.
+- Legacy-alias fence reads, current-derivation writes, bounded and self-referential alias refusal,
+    and idempotent, resumable tombstone carry-forward that stays pending on a dropped write and
+    fails closed on an unavailable fence.
+- Ledger purge under a recorded deletion fence, refusal without deletion intent, preserved
+    unrelated origins, retained non-sensitive lineage, and a refused post-purge redelivery.
 
 ## Implementation status
 
@@ -192,7 +244,7 @@ Coverage includes:
 | Configuration review campaign | implemented | `services/core-control-plane/src/fdai/core/detection/configuration_review.py`; focused configuration-review tests | The bounded three-run reducer, audit/state transitions, resume, blueprint proposal, and materialization guards exist without granting schedule authority. |
 | Operator routes and Console projection | in-progress | `services/operator-service/src/fdai_operator_service/families/conversation/manifest.py`; `console/src/routes/scheduled-continuations.tsx`; focused route and Console tests | Read and command surfaces exist, but no governed authenticated end-to-end continuation receipt is retained. |
 | Slack and Teams delivery parity | in-progress | [Channel behavior](#channel-behavior) | Contracts and adapters are described; external channel and durable-ledger wiring requires deployment evidence. |
-| Legal-hold-aware physical retention | in-progress | `services/core-control-plane/src/fdai/core/scheduler/continuation_retention.py`; `services/core-control-plane/tests/core/scheduler/test_continuation_retention.py` | The coordinated worker deletes the projected turn, source result, and anchor in that order after a grace window, refuses an active anchor, fails closed on a legal hold or an unreadable hold registry, keeps a partial failure resumable, and collapses retry audit. Production deleters over PostgreSQL and conversation storage are not bound yet. |
+| Legal-hold-aware physical retention | in-progress | `services/core-control-plane/src/fdai/core/scheduler/continuation_retention.py`; `services/core-control-plane/src/fdai/delivery/persistence/postgres_scheduled_continuation_retention.py`; `services/core-control-plane/tests/core/scheduler/test_continuation_retention.py`; `services/core-control-plane/tests/persistence/test_scheduled_continuation_retention.py` | The coordinated worker deletes the projected turn, source result, and anchor in that order after a grace window, refuses an active anchor, fails closed on a legal hold or an unreadable hold registry, keeps a partial failure resumable, and collapses retry audit. A durable deletion fence is recorded before the first deletion and refuses a fenced anchor id at creation and delivery. The production PostgreSQL deleters carry scoped statements and an independent deletion readback; their live cases stay environment-gated and no governed purge receipt is retained. Opt-in legacy-alias and bounded carry-forward helpers exist, but production derivation migration and its readback evidence remain open. |
 
 ### Implementation history
 
@@ -202,6 +254,9 @@ Coverage includes:
 | 2026-08-14 | implemented | Strengthened the live anchor test and promoted PostgreSQL persistence after proving restart and concurrent expiry behavior. | `current change`; `test_scheduled_continuation.py` passed two cases with zero skips against a migrated disposable supported database. | Close authenticated delivery, external channel, and physical retention evidence. |
 | 2026-08-14 | implemented | Normalized the standard psycopg DSN at the adapter boundary and exercised anchor persistence without skips. | `current change`; `test_scheduled_continuation.py` passed 3 cases; focused Ruff and mypy passed. | Retain authenticated delivery, external channel, and physical retention evidence. |
 | 2026-08-16 | in-progress | Added the legal-hold-aware retention worker that coordinates ordered deletion, grace, hold, partial-failure, and audit behavior. | `current change`; `pytest services/core-control-plane/tests/core/scheduler/` passed 74 tests including 13 focused retention cases; focused Ruff passed. | Bind production result, projected-turn, and anchor deleters and retain authenticated delivery plus external channel evidence. |
+| 2026-09-26 | in-progress | Bound the production PostgreSQL deleters for the projected turn, source briefing run, and anchor row with scoped statements and an independent deletion readback, and added the durable deletion fence that refuses a fenced anchor id at creation and external delivery. | `current change`; [Issue #1025](https://github.com/dotnetpower/fdai/issues/1025); `pytest services/core-control-plane/tests/core/scheduler services/core-control-plane/tests/persistence/test_scheduled_continuation.py services/core-control-plane/tests/persistence/test_scheduled_continuation_retention.py` passed 104 cases with 3 environment-gated skips; focused Ruff and strict mypy passed. | Run the environment-gated live deleter cases and retain one governed purge receipt, plus authenticated delivery and external channel evidence. |
+| 2026-09-27 | in-progress | Exposed `PostgresScheduledContinuationDeleter` and `RetentionReadbackError` through the delivery persistence package, refused an unsupported retention target instead of planning no statement, and proved that a durable-fence retry resumes a partial purge while the fence stays recorded exactly once. | `current change`; [Issue #1025](https://github.com/dotnetpower/fdai/issues/1025); `pytest services/core-control-plane/tests/core/scheduler services/core-control-plane/tests/persistence/test_scheduled_continuation.py services/core-control-plane/tests/persistence/test_scheduled_continuation_retention.py` passed 110 cases with 3 environment-gated skips, which corrects the count recorded on 2026-09-26; focused Ruff and strict mypy passed. | Run the environment-gated live deleter cases and retain one governed purge receipt, plus authenticated delivery and external channel evidence. |
+| 2026-09-26 | in-progress | Added an opt-in alias-aware deletion fence and bounded carry-forward of superseded tombstones, with a direct-key migration readback that cannot confuse alias lookup for a completed copy. The in-memory outbound ledger can now purge an origin under the source deletion fence. | `current change`; [Issue #1025](https://github.com/dotnetpower/fdai/issues/1025); `services/core-control-plane/src/fdai/core/scheduler/continuation_retention.py`, `services/core-control-plane/src/fdai/core/scheduler/continuation_delivery.py`, ; `uv run pytest -q --no-cov services/core-control-plane/tests/core/scheduler services/core-control-plane/tests/providers/test_conversation_delivery.py services/core-control-plane/tests/conversation/test_outbound_delivery.py services/core-control-plane/tests/persistence/test_scheduled_continuation.py services/core-control-plane/tests/persistence/test_scheduled_continuation_retention.py services/operator-service/tests/test_channel_delivery_postgres.py` (149 passed, 7 environment-gated skips); changed-file Ruff check/format and strict mypy passed. | Enumerate and bind old anchor id derivations before changing them; implement durable Operator-ledger deletion and join it to legal-hold-aware retention, then retain governed readback evidence. |
 
 ### Remaining work
 
@@ -209,7 +264,19 @@ Coverage includes:
 - [ ] Retain one authenticated web continuation receipt from scheduled result through anchor open, typed fact, follow-up answer, expiry, and unavailable replay.
 - [ ] Retain Slack and Teams origin-thread, dedicated-thread, degradation, ambiguous acknowledgement, and durable retry receipts without widening the audience.
 - [x] Implement a legal-hold-aware retention worker that coordinates source result, anchor, projected turn, audit, retry, and partial-failure behavior before presenting expiry as physical deletion.
-- [ ] Bind production deleters for the stored result, the projected conversation turn, and the PostgreSQL anchor row, then retain one governed purge receipt before presenting expiry as completed physical deletion.
+- [x] Bind production deleters for the stored result, the projected conversation turn, and the
+    PostgreSQL anchor row with scoped statements, a durable deletion fence, and an independent
+    deletion readback that keeps a surviving copy pending.
+- [ ] Run the environment-gated live deleter cases against the supported local database and retain
+    one governed purge receipt before presenting expiry as completed physical deletion.
+- [x] Implement a bounded legacy-alias fence and resumable carry-forward helper that checks
+    the direct current key and refuses alias ownership collisions.
+- [ ] Before changing the anchor id derivation, enumerate every superseded id and its
+    carry-forward pair from the durable fence store, wire the alias fence to creation and delivery,
+    and retain a governed migration receipt proving old replay cannot restore deleted bodies.
+- [ ] Implement the Operator-owned ledger's durable origin-scoped purge and bind it into the retention worker's ordered
+    targets so one coordinated pass deletes the projected turn, the source result, the anchor, and
+    the submitted delivery copy.
 
 ## Related docs
 

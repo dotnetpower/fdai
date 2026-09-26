@@ -81,7 +81,7 @@ def _boundary(expected: Mapping[str, Any]) -> SemanticJudgmentBoundary:
 def test_required_bilingual_cases_pass_the_existing_typed_judgment_boundary() -> None:
     artifact = _load()
     cases = artifact["cases"]
-    assert len(cases) == 24
+    assert len(cases) == 25
     assert artifact["evidence_kind"] == "expected_contract_cases"
     assert artifact["operational_validation"] is False
 
@@ -121,6 +121,39 @@ def test_required_bilingual_cases_pass_the_existing_typed_judgment_boundary() ->
         assert proposal.execution_authority is False
         for target in (*proposal.targets, *proposal.forbidden_actions):
             assert case["utterance"][target.source_start : target.source_end] == target.value
+
+
+def test_resource_health_history_exact_sources_remain_read_only() -> None:
+    artifact = _load()
+    cases = {
+        case["id"]: case
+        for case in artifact["cases"]
+        if case["id"] in {"resource-health-history", "resource-health-history-en"}
+    }
+
+    assert set(cases) == {"resource-health-history", "resource-health-history-en"}
+    for case in cases.values():
+        result = _boundary(case["expected"]).judge(
+            utterance=case["utterance"],
+            context=(),
+            capabilities=artifact["capabilities"],
+            allow_escalation=False,
+            locale="ko" if case["id"] == "resource-health-history" else "en",
+        )
+
+        assert result.receipt.disposition is SemanticJudgmentDisposition.ACCEPTED
+        assert result.proposal is not None
+        assert result.proposal.primary_intent == "query.resource_event_history"
+        assert result.proposal.secondary_intents == ()
+        assert result.proposal.forbidden_actions == ()
+        assert result.proposal.action_posture == "advise_only"
+        assert result.proposal.action_subject == "none"
+        assert result.proposal.authority == "candidate_only"
+        assert result.proposal.execution_authority is False
+        assert len(result.proposal.targets) == 1
+        target = result.proposal.targets[0]
+        assert target.kind == "time_range"
+        assert case["utterance"][target.source_start : target.source_end] == target.value
 
 
 def test_shadow_prompts_encode_the_measured_failure_boundaries() -> None:

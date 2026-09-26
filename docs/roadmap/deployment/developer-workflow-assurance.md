@@ -113,6 +113,9 @@ the canonical service input digest. Git revision and worktree digest remain prov
 or edit outside that service's inputs does not invalidate a running service. A GitHub Copilot review
 uses an owner-only export and import boundary and retains the full workspace identity. Review is
 rejected when the workspace identity or packet digest changes.
+The launcher keeps the socket under the checkout-private `.fdai` directory and derives its short
+name from the service and complete runtime identity. This keeps the Unix socket within the
+100-byte portable path limit in long worktrees without weakening process separation.
 Copilot may inspect the matching workspace and propose a diagnosis, but the runtime
 does not call Copilot, read repository files, edit code, open a pull request, or grant merge or
 execution authority. System Knowledge can explain the release contract, while live measurements

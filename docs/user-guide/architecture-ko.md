@@ -4,8 +4,8 @@ description: FDAI의 15개 에이전트 조직이 이벤트 기반 컨트롤 플
 sidebar:
   order: 2
 translation_of: architecture.md
-translation_source_sha: 35785ccba706841498412bcee04d35a2d3e905fe
-translation_revised: 2026-09-16
+translation_source_sha: deab2881a10baf78d344f082c4437cb90da531e0
+translation_revised: 2026-09-26
 ---
 
 # FDAI 아키텍처
@@ -50,7 +50,7 @@ Azure 배포 기반은 이 내부 경계 밖에 유지됩니다.
 </fdai-architecture-diagram>
 
 Pantheon 통합 표시는 고정된 15개 에이전트 조직을 나타내며 16번째 에이전트가 아닙니다. T2만
-quality 게이트를 사용하고 모든 계층이 공통 risk 및 권한 게이트를 사용합니다. 사람 승인은
+quality 게이트를 사용하고 모든 계층이 공통 안전성 및 권한 검토를 사용합니다. 사람 승인은
 실행기를 직접 호출하지 않고 타입이 지정된 이벤트로 돌아옵니다. OPA와 Rego는 결정론적 정책을
 평가하고 IQL은 범위가 제한된 인벤토리 조회를 수행합니다. 단일 이벤트 흐름은 전체 구조를,
 배포 및 리소스 수준 연결은 Azure 보기를 사용하여 확인하세요.

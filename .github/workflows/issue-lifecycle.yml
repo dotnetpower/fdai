@@ -126,7 +126,7 @@ jobs:
                     body: `${residualMarker}\nThis issue was reopened because unchecked exit criteria still record residual work. Complete or revise the criteria before closing.`,
                   });
                 }
-                core.setFailed("Residual work remains; the issue was reopened.");
+                core.notice("Residual work remains; the issue was reopened.");
                 return;
               }
               await github.rest.issues.addLabels({

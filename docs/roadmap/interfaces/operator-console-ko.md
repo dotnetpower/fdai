@@ -1,7 +1,7 @@
 ---
 title: FDAI Console 대화
 translation_of: operator-console.md
-translation_source_sha: 41bdefc47355ce4d4855d537994bb75e5b238814
+translation_source_sha: de11e3252cf6e6e138c81daafef029ee5fd2c3cd
 translation_revised: 2026-09-26
 ---
 # FDAI Console 대화
@@ -367,6 +367,8 @@ Day-1 콘솔은 답변 가능:
 - "왜 이벤트 `<id>`가 HIL로 경로 됐어?" → `explain_verdict`.
 - "지난 24시간 `object-storage.public-access.deny`의 모든 감사 항목을
   보여줘." → `query_audit`.
+- "이 리소스에 대해 FDAI가 기억하도록 내가 명시적으로 요청한 내용은 뭐야?" →
+  `query_operator_memory`.
 - "공개 접근 활성화된으로 저장소 계정을 생성 하면 루프가 뭘
   할까?" → `describe_event`.
 

@@ -1,8 +1,8 @@
 ---
 title: 설치형 배포 CLI
 translation_of: installable-deployment-cli.md
-translation_source_sha: 8228bedd5bef7baaa0ee937ad2fb1715ef93f95c
-translation_revised: 2026-09-22
+translation_source_sha: e205a13339c1b4eb18ead597170262ea20eb87dc
+translation_revised: 2026-09-26
 ---
 
 # 설치형 배포 CLI
@@ -399,7 +399,7 @@ remote, 저장소 변수, 저장소 비밀, workflow dispatch 또는 등록된 G
 인자 없이 `fdaictl`을 실행하면 `fdaictl --help`와 같은 개요를 표시하고 종료 코드 `0`으로
 끝납니다. `fdaictl provision`처럼 명령 그룹만 입력하면 해당 그룹의 도움말을 표시합니다.
 도움말과 최상위 `--version` 별칭은 로그인, Azure 조회, 산출물 다운로드, 배포 상태 생성을
-수행하지 않습니다. 기존 `version --output json` 계약도 유지합니다.
+수행하지 않습니다. 기존 `version --output json` 계약도 유지합니다. 소스 진입점 회귀는 테스트가 소유하는 `UV_PROJECT_ENVIRONMENT`를 중앙 검증기의 동기화 금지 환경 대신 사용하여 패키징된 진입점을 바꾸지 않고 병렬 검증과 격리합니다.
 
 개요는 각 명령의 역할과 로그인, 도구 점검, 배포의 짧은 예제를 제공합니다. 개별 명령 도움말은
 필수 산출물 원본 선택, 기본값, 단위, 출력 모드, 고급 선택 입력을 설명합니다.

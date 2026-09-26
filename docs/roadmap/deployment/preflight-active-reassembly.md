@@ -32,18 +32,25 @@ the toggle modules themselves live in
 | One proposal per applied toggle | implemented | `services/core-control-plane/src/fdai/core/deploy_preflight/reassembly_proposals.py` and `test_reassembly_proposals.py` | Cleared outcomes produce deterministic, idempotent proposal envelopes; escalated outcomes submit none. |
 | ActionType, data-only toggle modules, and reference consumer | implemented | `rule-catalog/action-types/remediate.apply-preflight-toggle.yaml` and `infra/modules/preflight-toggles/` | These artifacts define the governed action and one reference Terraform consumption pattern. |
 | Recurring manual-blocker learning primitive | implemented | `services/core-control-plane/src/fdai/agents/_framework/norns_deployment_learning.py` and `services/core-control-plane/tests/agents/test_norns_preflight.py` | Norns emits an inert candidate from caller-supplied observations; it does not create or promote a toggle. |
-| Live trigger, plan renderer, pipeline binding, PR, and audit | not-started | The composition boundary in this document | No production composition invokes the loop and binds its `ProposalSink` to Huginn and the PR/audit path. |
+| Live trigger, plan renderer, pipeline binding, PR, and audit | in-progress | `services/core-control-plane/src/fdai/core/deploy_preflight/pre_publication_gate.py` and `services/core-control-plane/tests/core/deploy_preflight/test_pre_publication_gate.py` | The gated seam binds Huginn ingest and Forseti judgment in a focused integration test. No production composition binds a live trigger, plan renderer, PR, or audit path. |
 
 ### Implementation history
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
 | 2026-08-14 | in-progress | Adopted the implementation ledger; earlier provenance was not reconstructed. Kept pure reassembly mechanics separate from the uncomposed delivery path. | current change; focused reassembly, proposal, and Norns tests listed in the scope table | Compose a live shadow path and retain PR plus audit evidence. |
+| 2026-09-26 | in-progress | Gated the proposal seam: proposals reach Huginn only after the analyzer re-verifies the accumulated overrides, and the ingress event type `preflight_toggle_blocker` lets Forseti bind the toggle ActionType without trusting a payload-supplied ActionType. | `current change`; `services/core-control-plane/src/fdai/core/deploy_preflight/pre_publication_gate.py`; `uv run pytest tests/core/deploy_preflight -q` passed 98 tests. | Compose the gated seam at the runtime composition root with a live policy-finding trigger, PR publication, and audit evidence. |
+| 2026-09-26 | in-progress | Recorded the remaining argument-carrying boundary: ingress drops `params` for this non-operator signal, so the composed live path still owes a governed way to hand the per-toggle arguments to the executor. | `current change`; `services/core-control-plane/src/fdai/core/deploy_preflight/reassembly_proposals.py` | Compose the gated seam with a live trigger and carry the per-toggle arguments through a governed path. |
+| 2026-09-26 | in-progress | Confirmed in review that no consumer still reads the former `rule_violation` ingress envelope for this seam and that the documented anchors resolve. | `current change`; `bash scripts/quality/repository/check-doc-links.sh` reported 0 broken links. | Unchanged: compose the gated seam with a live trigger and carry the per-toggle arguments through a governed path. |
 
 ### Remaining work
 
 - [ ] Bind live policy findings to a caller-owned plan renderer and prove the same analyzer re-verifies every generated override.
-- [ ] Bind `ProposalSink` through Huginn to the governed pipeline and pass an integration test proving blocked or escalated outcomes open no PR.
+- [x] Bind the `ProposalSink` seam to Huginn ingest behind the pre-publication gate. The focused
+  integration test in `tests/core/deploy_preflight/test_pre_publication_gate.py` proves that a
+  blocked, escalated, stale, or scope-changed pass publishes no pipeline event and opens no PR,
+  and that a cleared pass is judged as `remediate.apply-preflight-toggle` and held for a human.
+- [ ] Compose that gated seam at the runtime composition root with a live policy-finding trigger, and retain the composed run evidence. Ingress drops `params` for a non-operator signal, so that work MUST also carry the per-toggle arguments to the executor through a governed path.
 - [ ] Publish one shadow tfvars-override PR per toggle and retain its append-only audit intent, terminal outcome, and tested `pr_revert` rollback evidence.
 
 ## Why This Is Possible (and Not Magic)
@@ -63,7 +70,8 @@ The rails already exist; active reassembly connects them end to end:
 The two pieces this design added now have these states:
 
 - **Toggle proposal builder (shipped)**: renders every `autofix` toggle in a cleared outcome as
-  one typed proposal. The live sink/publisher binding is still absent, so it does not open a PR
+  one typed proposal and submits it only behind the pre-publication gate. The live publisher
+  binding is still absent, so it does not open a PR
   ([check_publish.py](../../../services/core-control-plane/src/fdai/core/deploy_preflight/check_publish.py)).
 - **Convergence loop (shipped)**: uses caller-provided plan-render and reanalysis callbacks to
   ensure a fix for one blocker cannot silently introduce another.
@@ -155,6 +163,26 @@ otherwise the finding degrades to guidance + `hil`:
 `autofix: false` toggles submit no proposal or diff. They remain manual guidance in the report,
 the whole pass escalates, and the operator reviews the variable change.
 
+### Publication Is Granted by Re-Verification
+
+A cleared loop is a decision, not an authorization. The pre-publication gate
+([pre_publication_gate.py](../../../services/core-control-plane/src/fdai/core/deploy_preflight/pre_publication_gate.py))
+re-runs the same analyzer on the accumulated overrides immediately before the
+proposals are submitted, and withholds the whole pass when the fresh report is
+blocked, stale, bound to another scope, or when the loop escalated. Every hold is
+decided before the first submission, so a withheld pass submits nothing - never a
+partial proposal set - and the caller routes it to `hil`
+([publication holds](deployment-preflight.md#publication-holds)).
+
+Submission crosses the ingress boundary as `preflight_toggle_blocker`, a
+control-plane signal rather than an operator request. Huginn honors a
+payload-supplied `action_type` only for an explicit operator request, so this
+signal carries none: Forseti binds `remediate.apply-preflight-toggle` from its own
+event-type table and issues the default `hil` verdict. A blocker therefore cannot
+reach a provider commit without a distinct human approval, and no ingress producer
+can spoof the ActionType. The same trust gate drops `params` for this signal, so the composed
+live path still owes a governed way to carry the per-toggle arguments to the executor.
+
 ### Action Granularity: One Action per Toggle
 
 A reassembly can apply several toggles (across findings and iterations). Each
@@ -220,6 +248,7 @@ category is explicitly promoted to enforce.
 | Convergence loop + stop-conditions | [core/deploy_preflight/reassemble.py](../../../services/core-control-plane/src/fdai/core/deploy_preflight/reassemble.py) | shipped |
 | `remediate.apply-preflight-toggle` ActionType | [rule-catalog/action-types/](../../../rule-catalog/action-types/remediate.apply-preflight-toggle.yaml) | shipped |
 | Overrides -> Action proposals (one per toggle) | [core/deploy_preflight/reassembly_proposals.py](../../../services/core-control-plane/src/fdai/core/deploy_preflight/reassembly_proposals.py) | shipped |
+| Re-verification before publication | [core/deploy_preflight/pre_publication_gate.py](../../../services/core-control-plane/src/fdai/core/deploy_preflight/pre_publication_gate.py) | shipped |
 | Recurring manual blocker -> inert candidate | [agents/norns.py](../../../services/core-control-plane/src/fdai/agents/norns.py) | shipped (caller-supplied observation) |
 | Reference consumer wiring (one toggle) | [infra/modules/preflight-toggles/reference-disk-consumer/](../../../infra/modules/preflight-toggles/reference-disk-consumer/README.md) | shipped (fork copies it) |
 | **Composition wiring: `ProposalSink` + live trigger** | composition root + `delivery/azure/preflight/` | **remaining** |
@@ -243,10 +272,12 @@ Each is separately reviewable:
 5. The overrides-to-executor step: render each applied toggle into a
    `remediate.apply-preflight-toggle` proposal (one Action per toggle,
    granularity A) and submit through the typed pipeline seam. *(shipped)*
-6. Composition wiring (bind the `ProposalSink` to Huginn ingest) plus live
-   Azure adapters that feed real policy findings into the loop and open the
-   tfvars-override PR (after the preflight live adapters land, shadow-first).
-   *(remaining)*
+6. Composition wiring (bind the gated `ProposalSink` to Huginn ingest at the
+   runtime composition root) plus live Azure adapters that feed real policy
+   findings into the loop and open the tfvars-override PR (after the preflight
+   live adapters land, shadow-first). The gated seam and its Huginn/Forseti
+   integration test exist; the composition root and live trigger are
+   *(remaining)*.
 
 ## References
 

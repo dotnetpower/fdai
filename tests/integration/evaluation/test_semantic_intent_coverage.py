@@ -59,6 +59,7 @@ def test_semantic_intent_inventory_exposes_complete_topic_denominators() -> None
     functions = {item["topic_id"]: item for item in topics["ontology_query_functions"]}
     assert functions["query.resource_health_inventory"]["intent_contract_case_count"] == 0
     assert functions["query.resource_current_state"]["intent_contract_case_count"] > 0
+    assert functions["query.resource_event_history"]["intent_contract_case_count"] == 2
     assert payload["coverage_metrics"]["ontology_query_function_any_contract_coverage"] == {
         "covered": 12,
         "total": 38,

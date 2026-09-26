@@ -1,7 +1,7 @@
 ---
 translation_of: developer-workflow-assurance.md
-translation_source_sha: 68bac0ba122b33e20e032d5a381cc81e0f10b088
-translation_revised: 2026-09-22
+translation_source_sha: 826671d7866149e0f641607bdb80a6cce9412b30
+translation_revised: 2026-09-26
 ---
 
 # 개발 워크플로 보증
@@ -116,6 +116,9 @@ runtime-scope receipt digest, 시간 구간 및 패킷 digest를 연결합니다
 서비스 입력 밖의 commit이나 편집은 실행 중인 서비스를 무효화하지 않습니다. GitHub Copilot
 검토는 소유자 전용 export 및 import 경계를 사용하며 전체 workspace 신원을 유지합니다.
 Workspace 신원이나 패킷 digest가 바뀌면 검토를 수락하지 않습니다.
+실행기는 checkout 전용 `.fdai` 디렉터리 아래에 소켓을 유지하고 서비스와 전체 런타임 신원에서
+짧은 이름을 파생합니다. 따라서 프로세스 분리를 약화하지 않으면서 긴 worktree에서도 Unix 소켓
+경로가 이식 가능한 100바이트 제한 안에 유지됩니다.
 Copilot은 일치하는 workspace를 검사하고 진단을 제안할 수 있지만, 런타임은
 Copilot을 호출하거나 저장소 파일을 읽거나 코드를 편집하거나 pull request를 열거나 병합 또는
 실행 권한을 부여하지 않습니다. System Knowledge는 release 계약을 설명할 수 있지만 실제 측정은

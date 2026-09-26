@@ -1,7 +1,7 @@
 {
-  "catalog_digest": "sha256:78f29535e7f23daa662dc3bfbcf7dd956d9e55d7bcf980de4da5337547e3ed2b",
+  "catalog_digest": "sha256:0a259a8b532edd42458b911792f0daa670ca530ca9a8502aee38609b8cdb4f09",
   "execution_authority": false,
-  "generated_at": "2026-09-21T07:00:58.407571Z",
+  "generated_at": "2026-09-26T09:45:35.193725Z",
   "records": [
     {
       "designed_behavior": [
@@ -192,11 +192,11 @@
         "How does FDAI prevent duplicate chat replies?",
         "FDAI는 중복 채팅 응답을 어떻게 방지하나요?"
       ],
-      "record_digest": "sha256:ba6475ce752c37cdf4e330844dd1aae38548633de25cb966e4fcb77c0678245c",
+      "record_digest": "sha256:7c44aea4759b07c4bbfde5483fd1ef5b3ee8a53d14b2f6d61a961a49a00bd5ea",
       "sources": [
         {
           "authority_role": "design",
-          "blob_sha": "8bc9e5887c09a3279464bc297b050c8b3b9a5274",
+          "blob_sha": "aa9dd8cd85472e3e8c0e8e9fb5a736e40d9630f8",
           "line_end": 18,
           "line_start": 18,
           "path": "docs/roadmap/interfaces/durable-conversation-delivery.md",
@@ -205,7 +205,7 @@
         },
         {
           "authority_role": "verification",
-          "blob_sha": "8bc9e5887c09a3279464bc297b050c8b3b9a5274",
+          "blob_sha": "aa9dd8cd85472e3e8c0e8e9fb5a736e40d9630f8",
           "line_end": 66,
           "line_start": 66,
           "path": "docs/roadmap/interfaces/durable-conversation-delivery.md",
@@ -379,11 +379,11 @@
         "How does FDAI perform root cause analysis?",
         "FDAI는 근본 원인 분석을 어떻게 수행하나요?"
       ],
-      "record_digest": "sha256:3eddb2f98487b957085d0ee52ce55df1419c9bc13b343a6b61f16bd1692c47d5",
+      "record_digest": "sha256:78432add543c3dd21624530848c7a9f0b1204ef5693ccf35abd6f3a2d0b3ac1d",
       "sources": [
         {
           "authority_role": "verification",
-          "blob_sha": "5c0e696bdd44e534d84aec9a7b00adb4a0dc3902",
+          "blob_sha": "d958e12ac31a28fc215265089d4c298a15bddb1a",
           "line_end": 12,
           "line_start": 12,
           "path": "docs/roadmap/rules-and-detection/root-cause-analysis.md",
@@ -553,5 +553,5 @@
     }
   ],
   "schema_version": "1.0.0",
-  "source_revision": "8fa8389d5a89feb667f6db0dc206d53b28ca376a"
+  "source_revision": "a565a66d65cbb29a15c67a40f6661209ab0cb9f5"
 }

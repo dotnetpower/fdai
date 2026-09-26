@@ -95,7 +95,7 @@ Run `uv run python scripts/automation/build_semantic_intent_coverage.py` to gene
 - **Question bank:** 7 domains, 13 categories, and 400 questions.
 - **Agent accountability:** 15 fixed agents and all 47 Pantheon question domains.
 - **Ontology planning:** all 36 declared `query.*` FunctionTypes.
-- **Reviewed assurance:** all 12 Golden categories and the 24-case Azure and incident intent
+- **Reviewed assurance:** all 12 Golden categories and the 25-case Azure and incident intent
   contract.
 
 CQAS defines 93 metrics in four conjunctive pillars. A model change passes only when every required
@@ -142,7 +142,7 @@ functions covered by any reviewed intent contract. Pantheon-to-semantic-case cov
 because no reviewed crosswalk exists. The generator reports zero rather than guessing from labels.
 Golden answer oracles cover 35/35 cases, and all 13 presentation block kinds have a Console
 registration. Question-level presentation oracles and repository-owned paired model cases are both
-0/400. Therefore the 24-case intent measurements apply only to question understanding;
+0/400. Therefore the 25-case intent measurements apply only to question understanding;
 answer fidelity, presentation quality, and model invariance remain `not_scored` until their
 controlled evidence exists.
 
@@ -151,7 +151,7 @@ controlled evidence exists.
 
 | Area | State | Evidence | Notes |
 |------|-------|----------|-------|
-| Conversation quality assurance scorecard | implemented | `scripts/automation/build_semantic_intent_coverage.py`; `scripts/automation/{semantic_intent,conversation_quality}_metrics.py`; generated `eval/golden-dataset/semantic-intent-coverage.json`; bilingual Azure/Incident replay and focused invariant tests | CQAS defines 93 metrics and now covers 24 Azure/Incident intent cases, including the targetless mitigation-requirements cohorts. Unsupported slices remain unscored, and no result grants authority. |
+| Conversation quality assurance scorecard | implemented | `scripts/automation/build_semantic_intent_coverage.py`; `scripts/automation/{semantic_intent,conversation_quality}_metrics.py`; generated `eval/golden-dataset/semantic-intent-coverage.json`; bilingual Azure/Incident replay and focused invariant tests | CQAS defines 93 metrics and now covers 25 Azure/Incident intent cases, including paired Korean and English Resource Health history sources and the targetless mitigation-requirements cohorts. Unsupported slices remain unscored, and no result grants authority. |
 | Federated question-bank inventory | implemented | `eval/golden-dataset/question-bank/`; official question-bank generator; focused question-bank and Golden dataset checks (`19 passed`) | The generated inventory contains 400 logical questions from 11 source files. The 50 current-resource SRE candidates cover 19 generic Azure resource types, require server-owned scope, remain read-only, and retain `execution_authority=false`. Candidate membership does not certify runtime binding or live evidence. |
 | Semantic capability bridge | implemented | `core/ontology_platform/{declaration,release_diff,evidence_health,inventory_impact}_queries.py`; focused capability and composition checks | `query.ontology_declaration` is bound in production composition. Release diff, evidence health, and inventory impact remain visible as `runtime_binding_unavailable` until their exact providers or server-owned anchor are bound. |
 | Seven-perspective universe | implemented | `core/conversation/question_perspectives.py`, `question_universe.py`, `question_selection.py`; focused universe and selection checks | Applicability is non-Cartesian. Case identity includes locale, case class, perspective, capability, evidence posture, anchor, terminal posture, action posture, Rule state, depth, and result bound. Active and collected Rule cases are distinct. |
@@ -175,6 +175,7 @@ controlled evidence exists.
 ### Implementation history
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-26 | implemented | Added the reviewed English Q026 Resource Health history source to the Azure and incident intent contract, regenerated CQAS, and raised `query.resource_event_history` from one to two intent-contract cases. The 93 metric definitions and every hard-zero authority target remain unchanged. | `current change`; official semantic-intent generator; bilingual typed-judgment, 24-hour planning, request-budget, fail-closed, and generated-artifact checks. | Retain authenticated exact-source English runtime evidence separately before claiming live quality or production readiness. |
 | 2026-09-23 | in-progress | Recorded a deterministic 60-case sample from the canonical 400-question inventory and retained aggregate readiness gaps without upgrading any case. | `current change`; [`conversation-answer-hardening-2026-09-23.json`](../../baselines/conversation-answer-hardening-2026-09-23.json); sample id digest `sha256:7c2c5f31de2bc23c98dcccdfe5e411b7c030b54e7c72a63a0678c4abb93a4a0a`. | Add reviewed semantic contracts, runtime bindings, evidence sources, validation, and presentation oracles per case before claiming answerability. |
 | 2026-09-22 | implemented | Removed an ineffective second preflight call when a model pairs a known operational family with a mixed or contextual signal. The malformed proposal remains authority-free and continues through full semantic judgment. | `current change`; read-only local trace diagnosis; reproduced payload regression; 147 focused preflight tests; strict mypy, Ruff, and format checks. | Retain a separately authorized authenticated replay with one preflight call for this shape; no live-model validation is claimed here. |
 | 2026-09-18 | implemented | Regenerated the federated question bank and dependent CQAS provenance after the complete runtime-settings catalogs changed the joined English and Korean source digests. All 400 question identities, 93 metric definitions, denominators, coverage counts, and authority fields remain unchanged. | `current change`; official question-bank and semantic-intent generators; 8 question-bank and 4 semantic-coverage tests passed. | No semantic, runtime-binding, evidence, or authority behavior changed. |

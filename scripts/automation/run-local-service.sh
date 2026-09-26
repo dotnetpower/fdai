@@ -89,7 +89,7 @@ log_dir="$(dirname "$log_file")"
 mkdir -p "$log_dir"
 chmod 700 "$log_dir"
 if [[ "$diagnostics_enabled" == "1" ]]; then
-  diagnostics_socket_dir="$(readlink -m "$log_dir/../runtime-diagnostics")" || exit $?
+  diagnostics_socket_dir="$(readlink -m "$diagnostics_source_root/.fdai/r")" || exit $?
   export FDAI_DEVELOPMENT_DIAGNOSTICS_SOCKET_DIR="$diagnostics_socket_dir"
 fi
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

@@ -53,6 +53,54 @@ def test_choose_folder_requires_a_complete_batch() -> None:
     assert module.choose_folder({"operations": grouped["operations"]}) is None
 
 
+def test_issue_linked_work_accepts_only_explicit_owner_or_ledger_references(
+    tmp_path: Path,
+) -> None:
+    module = _load()
+    owner_a = "docs/roadmap/interfaces/a.md"
+    owner_b = "docs/roadmap/interfaces/b.md"
+    unrelated = "docs/roadmap/interfaces/c.md"
+    for relative in (owner_a, owner_b, unrelated):
+        path = tmp_path / relative
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text("- [ ] remaining work\n", encoding="utf-8")
+    (tmp_path / owner_a).write_text(
+        "- [ ] remaining work for [issue](https://github.com/example/fdai/issues/1025)\n",
+        encoding="utf-8",
+    )
+    ledger = tmp_path / "docs/roadmap-implementation/interfaces/b.md"
+    ledger.parent.mkdir(parents=True)
+    ledger.write_text("- [ ] remaining work for #1025\n", encoding="utf-8")
+
+    linked = module.issue_linked_work_by_folder(
+        tmp_path,
+        {"interfaces": [owner_a, owner_b, unrelated]},
+        1025,
+    )
+
+    assert linked == {"interfaces": [owner_a, owner_b]}
+
+
+def test_issue_linked_work_does_not_match_a_longer_issue_number(tmp_path: Path) -> None:
+    module = _load()
+    owner = "docs/roadmap/interfaces/a.md"
+    path = tmp_path / owner
+    path.parent.mkdir(parents=True)
+    path.write_text(
+        "- [ ] remaining work for #10250 and https://github.com/example/fdai/issues/10250\n",
+        encoding="utf-8",
+    )
+
+    assert (
+        module.issue_linked_work_by_folder(
+            tmp_path,
+            {"interfaces": [owner]},
+            1025,
+        )
+        == {}
+    )
+
+
 def test_campaign_allows_two_active_sessions_and_holds_three() -> None:
     module = _load()
 
@@ -77,6 +125,52 @@ def test_campaign_relation_fails_closed_on_divergence(
     module = _load()
 
     assert module._campaign_relation(ahead=ahead, behind=behind) == expected
+
+
+def test_remote_landed_batch_never_touches_dirty_local_main(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    module = _load()
+    monkeypatch.setattr(module, "_newest_validated_commit", lambda _root: "a" * 40)
+    monkeypatch.setattr(module, "_remote_main_contains", lambda _root, _revision: True)
+    monkeypatch.setattr(
+        module,
+        "_git",
+        lambda *arguments, **_kwargs: (
+            "1"
+            if arguments == ("rev-list", "--count", "main..HEAD")
+            else pytest.fail(f"unexpected git call: {arguments}")
+        ),
+    )
+    monkeypatch.setattr(
+        module,
+        "_main_checkout",
+        lambda _root: pytest.fail("local main MUST NOT be inspected"),
+    )
+
+    assert module._land_validated_batch(tmp_path) == ("already landed aaaaaaaaaaaa on origin/main")
+
+
+def test_campaign_sync_uses_remote_main_after_delivery(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    module = _load()
+    monkeypatch.setattr(module, "_remote_main_contains", lambda _root, revision: revision == "HEAD")
+    calls: list[tuple[str, ...]] = []
+
+    def fake_git(*arguments: str, **_kwargs: object) -> str:
+        calls.append(arguments)
+        return "0"
+
+    monkeypatch.setattr(module, "_git", fake_git)
+
+    assert module._sync_campaign_base(tmp_path) == "current"
+    assert calls == [
+        ("rev-list", "--count", "refs/remotes/origin/main..HEAD"),
+        ("rev-list", "--count", "HEAD..refs/remotes/origin/main"),
+    ]
 
 
 def test_campaign_prompt_requires_exact_batch_and_hardening_floor() -> None:
@@ -106,6 +200,21 @@ def test_campaign_prompt_requires_exact_batch_and_hardening_floor() -> None:
     # here is how a batch came to believe it had passed a gate nobody ran.
     for gate in module.BATCH_OWNED_GATES:
         assert f"`{' '.join(gate)}`" in prompt
+
+
+def test_batch_owned_pytest_gate_uses_the_locked_uv_environment() -> None:
+    module = _load()
+
+    assert (
+        "uv",
+        "run",
+        "python",
+        "-m",
+        "pytest",
+        "tests/integration/scripts/test_service_test_suites.py",
+        "-q",
+    ) in module.BATCH_OWNED_GATES
+    assert not any(gate[:3] == ("python3", "-m", "pytest") for gate in module.BATCH_OWNED_GATES)
 
 
 def test_choose_issue_requires_registered_executable_unfinished_work() -> None:
@@ -716,6 +825,7 @@ def test_landing_requires_a_receipt_and_leaves_live_edits_alone(
 
     monkeypatch.setattr(module, "_git", fake_git)
     monkeypatch.setattr(module, "_main_checkout", lambda _root: tmp_path)
+    monkeypatch.setattr(module, "_remote_main_contains", lambda *_args: False)
     monkeypatch.setattr(module, "_register_committed_work", lambda *_a: None)
     monkeypatch.setattr(
         module, "_validation_receipt_exists", lambda _root, revision: revision in receipted

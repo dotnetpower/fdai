@@ -12,6 +12,11 @@ import pytest
 _ROOT = Path(__file__).resolve().parents[3]
 _VERIFY = _ROOT / "scripts" / "verify.sh"
 _PYTHON_TESTS = _ROOT / "scripts" / "quality" / "ci" / "run-python-tests.sh"
+_VALIDATION_CONTROL_ENV = (
+    "FDAI_VALIDATION_ACTIVE",
+    "FDAI_VERIFY_CONTEXT_DIGEST",
+    "FDAI_VERIFY_DEFER_STRUCTURAL_GATES",
+)
 
 
 def _run(*arguments: str) -> subprocess.CompletedProcess[str]:
@@ -34,6 +39,14 @@ def _git(repo: Path, *arguments: str) -> subprocess.CompletedProcess[str]:
         text=True,
         check=False,
     )
+
+
+def _isolated_verification_environment(**overrides: str) -> dict[str, str]:
+    environment = os.environ.copy()
+    for name in _VALIDATION_CONTROL_ENV:
+        environment.pop(name, None)
+    environment.update(overrides)
+    return environment
 
 
 def test_full_requires_a_focused_pytest_path() -> None:
@@ -138,12 +151,11 @@ def test_diff_scoping_and_gate_cache_use_verified_context(tmp_path: Path) -> Non
     fake.chmod(0o755)
     for name in ("bash", "python3", "uv"):
         (bin_dir / name).symlink_to(fake)
-    environment = {
-        **os.environ,
-        "PATH": f"{bin_dir}:{os.environ['PATH']}",
-        "FDAI_VERIFY_CACHE_DIR": str(tmp_path / "cache"),
-        "FDAI_VERIFY_TEST_LOG": str(command_log),
-    }
+    environment = _isolated_verification_environment(
+        PATH=f"{bin_dir}:{os.environ['PATH']}",
+        FDAI_VERIFY_CACHE_DIR=str(tmp_path / "cache"),
+        FDAI_VERIFY_TEST_LOG=str(command_log),
+    )
     real_bash = shutil.which("bash", path=os.environ["PATH"])
     assert real_bash is not None
     command = [real_bash, str(_VERIFY), "--fast", "--diff", "HEAD^..HEAD"]
@@ -227,13 +239,12 @@ def test_fast_validation_can_defer_structural_duplicates(tmp_path: Path) -> None
     result = subprocess.run(  # noqa: S603 - fixed script and test-controlled environment
         [real_bash, str(_VERIFY), "--fast", "--diff", "HEAD^..HEAD"],
         cwd=tmp_path,
-        env={
-            **os.environ,
-            "PATH": f"{bin_dir}:{os.environ['PATH']}",
-            "FDAI_VALIDATION_ACTIVE": "1",
-            "FDAI_VERIFY_DEFER_STRUCTURAL_GATES": "1",
-            "FDAI_VERIFY_TEST_LOG": str(command_log),
-        },
+        env=_isolated_verification_environment(
+            PATH=f"{bin_dir}:{os.environ['PATH']}",
+            FDAI_VALIDATION_ACTIVE="1",
+            FDAI_VERIFY_DEFER_STRUCTURAL_GATES="1",
+            FDAI_VERIFY_TEST_LOG=str(command_log),
+        ),
         capture_output=True,
         text=True,
         check=False,
@@ -252,10 +263,9 @@ def test_direct_fast_verification_rejects_structural_deferral() -> None:
     result = subprocess.run(  # noqa: S603 - fixed repository script and arguments
         [real_bash, str(_VERIFY), "--fast", "--diff", "HEAD..HEAD"],
         cwd=_ROOT,
-        env={
-            **os.environ,
-            "FDAI_VERIFY_DEFER_STRUCTURAL_GATES": "1",
-        },
+        env=_isolated_verification_environment(
+            FDAI_VERIFY_DEFER_STRUCTURAL_GATES="1",
+        ),
         capture_output=True,
         text=True,
         check=False,

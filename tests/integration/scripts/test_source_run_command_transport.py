@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import ssl
 import stat
 import sys
@@ -22,7 +23,7 @@ import source_run_command_transport as transport  # noqa: E402
 from fdai_deployment_cli.contracts import canonical_bytes, canonical_digest  # noqa: E402
 from fdai_deployment_cli.private_output import write_private_bytes  # noqa: E402
 from fdai_deployment_cli.target import compute_target_binding  # noqa: E402
-from run_command_private_relay import PrivateRelay  # noqa: E402
+from run_command_private_relay import PrivateRelay, _anonymous_file  # noqa: E402
 
 
 @pytest.fixture(autouse=True)
@@ -597,6 +598,22 @@ def test_private_relay_verify_mode_requires_no_bundle_download(tmp_path: Path) -
         assert relay.result() == result
     finally:
         relay.close()
+
+
+def test_private_relay_anonymous_file_falls_back_without_memfd(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delattr(os, "memfd_create", raising=False)
+
+    descriptor = _anonymous_file("fdai-relay-test")
+    try:
+        details = os.fstat(descriptor)
+        assert stat.S_ISREG(details.st_mode)
+        assert stat.S_IMODE(details.st_mode) == 0o600
+        assert details.st_nlink == 0
+        assert os.get_inheritable(descriptor) is False
+    finally:
+        os.close(descriptor)
 
 
 def test_host_result_binds_exact_bundle_and_operation() -> None:

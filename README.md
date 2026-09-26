@@ -101,9 +101,9 @@ pull request, an approval card, or an audit entry.
 
 Traced across a single event, the same three steps look like this. The
 deterministic tiers carry the repeatable majority, the quality gate applies to
-T2 output only, and the risk gate is the one place where autonomy is decided.
+T2 output only, and the safety check is the one place where autonomy is decided.
 
-![FDAI workflow. An event is normalized and correlated, then routed to T0 rules, T1 reuse, or T2 reasoning. Only T2 output passes the quality gate, while T0 and T1 reach the risk gate directly. The risk gate selects automatic execution, human approval, or hold and deny. Eligible work is executed as a fix pull request or bounded action, its effect is confirmed by independent observation, and every path ends in an append-only audit entry.](docs/assets/fdai-workflow-overview.svg)
+![FDAI workflow. An event is normalized and correlated, then routed to T0 rules, T1 reuse, or T2 reasoning. Only T2 output passes the quality gate, while T0 and T1 reach the safety check directly. The safety check selects automatic execution, human approval, or hold and deny. Eligible work is executed as a fix pull request or bounded action, its effect is confirmed by independent observation, and every path ends in an append-only audit entry.](docs/assets/fdai-workflow-overview.svg)
 
 ```text
 event -> event-ingest -> trust-router -> T0 | T1 | (T2 -> quality-gate)
