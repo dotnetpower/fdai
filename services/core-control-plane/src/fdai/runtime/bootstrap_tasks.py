@@ -18,6 +18,7 @@ from fdai.composition.readiness import OperationalReadinessEventHandler
 from fdai.core.control_loop import ControlLoop
 from fdai.delivery.agent_activity import AgentRuntimeStatePublisher
 from fdai.delivery.azure.llm.t1_probe import T1MiniProbe
+from fdai.delivery.chatops.slack_request_outbox import DurableSlackApprovalChannel
 from fdai.delivery.notifications import NotificationDeliveryReceiptApplier
 from fdai.delivery.runtime_settings import RuntimeSettingsService
 from fdai.runtime.bootstrap_bindings import (
@@ -109,6 +110,21 @@ class RuntimeTaskHooks:
     log_rule_generation_outbox_exit: Any
     publish_rule_generation_reconciliation: Any
     supervise_runtime_tasks: Any
+
+
+def schedule_slack_request_outbox(
+    *,
+    channel: object,
+    readiness: StartupReadinessRuntime,
+    stop: asyncio.Event,
+) -> asyncio.Task[None] | None:
+    """Supervise only the configured Slack request outbox, not Teams or the queue."""
+    if not isinstance(channel, DurableSlackApprovalChannel):
+        return None
+    return asyncio.create_task(
+        readiness.run_when_ready(stop, lambda: channel.run(stop)),
+        name="hil-slack-outbound-request-outbox",
+    )
 
 
 def schedule_ontology_index_reconciliation(
@@ -257,6 +273,7 @@ async def run_runtime_tasks(
     hil_expiry_task: asyncio.Task[None] | None = None
     hil_reminder_task: asyncio.Task[None] | None = None
     hil_escalation_task: asyncio.Task[None] | None = None
+    hil_slack_outbox_task: asyncio.Task[None] | None = None
     semantic_turn_task = hooks.schedule_semantic_turn_consumer(
         binding=config.semantic_turn_binding,
         readiness=config.readiness,
@@ -343,6 +360,11 @@ async def run_runtime_tasks(
         from fdai.delivery.chatops.hil_decision import DEFAULT_HIL_DECISION_TOPIC
 
         hil_coordinator = config.control_loop._hil_resume_coordinator
+        hil_slack_outbox_task = schedule_slack_request_outbox(
+            channel=hil_coordinator._hil_channel,
+            readiness=config.readiness,
+            stop=config.stop,
+        )
         expiry_reconciler = hil_coordinator.expiry_reconciler
         if expiry_reconciler is not None:
             hil_expiry_task = asyncio.create_task(
@@ -665,6 +687,7 @@ async def run_runtime_tasks(
             hil_expiry_task,
             hil_reminder_task,
             hil_escalation_task,
+            hil_slack_outbox_task,
             case_history_retention_task,
             semantic_turn_task,
             incident_creation_task,
