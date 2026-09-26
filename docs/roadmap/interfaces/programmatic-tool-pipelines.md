@@ -78,7 +78,9 @@ is a receipted failure rather than a partial result.
   bubblewrap posture as typed local-read shell commands. Timeout and cancellation kill the process
   group. The caller supplies a private workspace root; the child sees only the read-only source
   and socket mounts, a private scratch filesystem, and a scrubbed environment. Child output and
-  broker frames are bounded. Per-run directories and sockets close on every terminal path.
+  broker frames are bounded. Per-run directories and sockets close on every terminal path. Focused
+  integration checks require `/usr/bin/bwrap`; a test host without that sandbox executable skips
+  those integration cases instead of substituting an unsandboxed execution path.
 - **Azure-compatible runner:** validates source, generated-client, and submission digests and byte
   limits, then delegates to an injected managed submission client. The adapter provisions no Azure
   resource and carries no cloud credential. A deployment can bind it to a pre-provisioned isolated

@@ -31,6 +31,11 @@ from fdai.shared.providers.programmatic_pipeline import (
     PipelineToolResponse,
 )
 
+requires_bubblewrap = pytest.mark.skipif(
+    not Path("/usr/bin/bwrap").is_file(),
+    reason="bubblewrap is unavailable on this test host",
+)
+
 
 @pytest.fixture
 def workspace() -> Path:
@@ -77,6 +82,7 @@ def _spec(source: str, *, timeout: float = 2, run_id: str = "run-1") -> Pipeline
     )
 
 
+@requires_bubblewrap
 async def test_local_runner_uses_unix_broker_and_isolated_source(workspace: Path) -> None:
     runner = LocalProgrammaticPipelineRunner(LocalPipelineConfig(workspace))
     broker = _Broker()
@@ -106,6 +112,7 @@ async def test_local_runner_rejects_tampering_before_child_creation(workspace: P
         )
 
 
+@requires_bubblewrap
 async def test_local_runner_isolates_host_and_bounds_output(workspace: Path) -> None:
     runner = LocalProgrammaticPipelineRunner(LocalPipelineConfig(workspace))
     source = (
@@ -122,6 +129,7 @@ async def test_local_runner_isolates_host_and_bounds_output(workspace: Path) -> 
     assert len(output.stdout.encode()) <= 32
 
 
+@requires_bubblewrap
 async def test_local_runner_cannot_read_host_home_or_inherited_environment(
     workspace: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -138,6 +146,7 @@ async def test_local_runner_cannot_read_host_home_or_inherited_environment(
     assert json.loads(output.final_json or "null") == {"home": False, "environment": None}
 
 
+@requires_bubblewrap
 async def test_local_runner_bounds_raw_child_output_and_cleans_up(workspace: Path) -> None:
     runner = LocalProgrammaticPipelineRunner(LocalPipelineConfig(workspace))
     source = "import os\ndef main(client, inputs):\n    os.write(1, b'x' * 20000)\n    return {}\n"
@@ -146,6 +155,7 @@ async def test_local_runner_bounds_raw_child_output_and_cleans_up(workspace: Pat
     assert output.final_json is None
 
 
+@requires_bubblewrap
 async def test_local_runner_failed_source_and_spawn_failure_cleanup(workspace: Path) -> None:
     runner = LocalProgrammaticPipelineRunner(LocalPipelineConfig(workspace))
     source = "def main(client, inputs):\n    raise RuntimeError('private marker')\n"
@@ -160,6 +170,7 @@ async def test_local_runner_failed_source_and_spawn_failure_cleanup(workspace: P
         await unavailable.run(_spec(source), broker=_Broker())
 
 
+@requires_bubblewrap
 async def test_local_runner_timeout_kills_child_and_removes_workspace(workspace: Path) -> None:
     runner = LocalProgrammaticPipelineRunner(LocalPipelineConfig(workspace))
     source = "import time\ndef main(client, inputs):\n    time.sleep(10)\n    return {}\n"
@@ -167,6 +178,7 @@ async def test_local_runner_timeout_kills_child_and_removes_workspace(workspace:
     assert output.status is PipelineRunnerStatus.TIMED_OUT
 
 
+@requires_bubblewrap
 async def test_local_runner_cancellation_kills_child_and_clears_run(workspace: Path) -> None:
     runner = LocalProgrammaticPipelineRunner(LocalPipelineConfig(workspace))
     source = "import time\ndef main(client, inputs):\n    time.sleep(10)\n    return {}\n"
@@ -184,6 +196,7 @@ async def test_local_runner_cancellation_kills_child_and_clears_run(workspace: P
     assert not runner._active
 
 
+@requires_bubblewrap
 async def test_local_runner_parent_task_cancellation_cleans_up(workspace: Path) -> None:
     runner = LocalProgrammaticPipelineRunner(LocalPipelineConfig(workspace))
     source = "import time\ndef main(client, inputs):\n    time.sleep(10)\n    return {}\n"
@@ -201,6 +214,7 @@ async def test_local_runner_parent_task_cancellation_cleans_up(workspace: Path) 
     assert not runner._active
 
 
+@requires_bubblewrap
 async def test_service_dispatches_registered_tool_and_reuses_result(workspace: Path) -> None:
     executor = _Executor()
     runner = LocalProgrammaticPipelineRunner(LocalPipelineConfig(workspace))

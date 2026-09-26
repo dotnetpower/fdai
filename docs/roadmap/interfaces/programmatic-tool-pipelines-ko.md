@@ -1,7 +1,7 @@
 ---
 title: 프로그래밍 방식 도구 파이프라인
 translation_of: programmatic-tool-pipelines.md
-translation_source_sha: 98a532c91ab60435ef0d1e0d2681c63c51ae26f3
+translation_source_sha: 4e323f4473fe1e7fe453d22ca5d5970ccd3a5ee7
 translation_revised: 2026-09-27
 ---
 # 프로그래밍 방식 도구 파이프라인
@@ -77,7 +77,9 @@ Linux 기능 없음, scrubbed 환경만 받습니다.
   같은 bubblewrap 자세를 사용합니다. 시간 초과와 취소는 프로세스 그룹을 종료합니다. 모든
   실행에서 호출자가 전용 작업 공간 루트를 제공하며, 하위에는 읽기 전용 출처와 소켓 마운트,
   격리된 임시 파일 시스템 및 필수 환경 변수만 보입니다. 하위 출력과 브로커 메시지 크기를
-  제한합니다. 모든 최종 경로에서 실행별 디렉터리와 소켓을 정리합니다.
+  제한합니다. 모든 최종 경로에서 실행별 디렉터리와 소켓을 정리합니다. 집중 통합 검사는
+  `/usr/bin/bwrap`을 요구합니다. 이 샌드박스 실행 파일이 없는 검사 호스트에서는 샌드박스가
+  없는 실행 경로로 대체하지 않고 해당 통합 검사 사례를 건너뜁니다.
 - **Azure-compatible 실행기:** 출처, 생성된 클라이언트, submission 다이제스트와 바이트 한도를 검증한 뒤
   주입된 managed submission 클라이언트에 위임합니다. 어댑터는 Azure 리소스를 provision하지 않고 cloud
   자격 증명도 전달하지 않습니다. 배포는 pre-provisioned isolated 작업과 managed 신원
