@@ -1,7 +1,7 @@
 ---
 title: 설치형 배포 CLI
 translation_of: installable-deployment-cli.md
-translation_source_sha: e205a13339c1b4eb18ead597170262ea20eb87dc
+translation_source_sha: 04b05789be2bc9bcf5f36099238daf8edf742179
 translation_revised: 2026-09-26
 ---
 
@@ -23,11 +23,11 @@ Host에서 실행됩니다.
 |------|------|
 | 운영자 명령 | `fdaictl provision azure` |
 | 소스 checkout 명령 | `scripts/deployment/azure/fdai-up.sh` |
-| 인프라 엔진 | 서명된 완전한 키트의 Terraform |
+| 인프라 엔진 | 선택한 서명 프로필 폐쇄 집합의 Terraform |
 | 대상 선택 | 활성 대화형 Azure CLI 사용자 |
 | 적용 위치 | 대상 VNet 내부의 Managed Host |
-| 연결된 산출물 원본 | 검증에는 로컬 완전한 서명 키트 사용, 버전이 지정된 제한된 HTTPS 배포는 선택 사항 |
-| 폐쇄망 산출물 원본 | digest로 고정된 배포 어플라이언스에 포함된 완전한 서명 키트 |
+| 연결된 산출물 원본 | 승인된 정확한 리비전 이미지 매니페스트와 깨끗한 소스. 선택적 `--online` 키트 획득은 완전한 오프라인 호환 폐쇄 집합 사용 |
+| 폐쇄망 산출물 원본 | digest 고정 배포 어플라이언스에 포함된 완전한 오프라인 프로필 |
 | 승인 | 각 정확한 계획 digest에 연결된 현재 사람 승인 |
 | 실행 신원 | Managed Host의 사용자 할당 Managed Identity |
 | GitHub 의존성 | 대상 환경 배포에는 없음 |
@@ -547,12 +547,12 @@ Git 상태가 깨끗하다는 사실만으로 소스 신원을 입증하지 않�
 조정기는 다음 단계를 순서대로 수행합니다.
 
 1. 활성 Azure 사용자 대상을 읽고 검증합니다.
-2. 온라인 또는 로컬의 완전한 서명 키트 하나를 획득하고 모든 실행 입력을 검증합니다.
+2. 선택한 산출물 원본을 획득하고 모든 실행 입력을 검증합니다.
 3. 정책, provider, 할당량, 리전 및 Foundation 상태를 검사합니다.
 4. 정확한 Foundation 계획을 만들고 현재 터미널 승인을 받습니다.
 5. 비공개 상태 계정, 허브 네트워크, Bastion, 배포 신원 및 Managed Host를 만듭니다.
 6. 상태 인계와 Managed Host 이미지를 검증합니다.
-7. 동일한 검증 키트를 Bastion을 통해 전달합니다.
+7. 선택한 호스트에서 동일한 검증 산출물 폐쇄 집합을 사용할 수 있게 하며 원격 호스트에만 전달합니다.
 8. Managed Identity로 substrate 및 애플리케이션 계획을 실행하고 적용합니다.
 9. Terraform이 선택한 Core 애플리케이션 이름을 읽고 Python에서 Azure 리소스 이름을 다시
   계산하지 않은 채 배포에 결속된 기능 신원을 도출합니다.

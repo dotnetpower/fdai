@@ -95,6 +95,12 @@ Package graph materialization and event publication are separate. A package can 
 reviewed graph lifecycle object without registering a bus topic. Only upstream can change
 `AgentSpec.owns`, which lists publishable single-writer object types.
 
+A downstream extension package can expose one documented authority-neutral facade for its
+factories, resource loaders, readiness types, and reviewed adapters. The fork composition root can
+import that facade instead of reaching into private modules. Core still cannot import the optional
+package, and a public export changes discoverability only. It cannot select availability,
+enablement, user access, action mode, approval, promotion, or execution authority.
+
 ## 2. Day-1 checklist
 
 Do these before your first `git commit` on the fork.

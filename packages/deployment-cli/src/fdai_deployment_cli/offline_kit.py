@@ -23,12 +23,17 @@ from fdai_deployment_cli.contracts import canonical_bytes, load_json_object
 
 MANIFEST_NAME: Final = "offline-kit.json"
 SIGNATURE_NAME: Final = "offline-kit.json.sig"
+ROOT_MANIFEST_NAME: Final = "deployment-root.json"
+ROOT_SIGNATURE_NAME: Final = "deployment-root.json.sig"
+ROOT_SCHEMA_VERSION: Final = "fdai.deployment-root.v1"
 _MAX_MANIFEST_BYTES = 4 * 1024 * 1024
 _MAX_FILES = 20_000
 _MAX_FILE_BYTES = 512 * 1024 * 1024
 _MAX_TOTAL_BYTES = 8 * 1024 * 1024 * 1024
 _DIGEST = re.compile(r"^[0-9a-f]{64}$")
 _PROFILE_ID = re.compile(r"^[a-z][a-z0-9._-]{0,127}$")
+_PROFILE_NAME = re.compile(r"^[a-z][a-z0-9._-]{0,127}$")
+_PROFILE_CLOSURES: Final = frozenset({"connected", "offline", "appliance"})
 
 
 class OfflineKitVerificationError(ValueError):
@@ -48,6 +53,7 @@ class OfflineKitVerification:
     file_count: int
     total_bytes: int
     manifest_digest: str
+    deployment_root_required: bool
     terraform_binary: str
     provider_mirror_prefix: str
     deployment_bundle: str
@@ -72,6 +78,28 @@ class OfflineKitVerification:
                 "file_count": self.file_count,
                 "total_bytes": self.total_bytes,
                 "manifest_digest": self.manifest_digest,
+                "deployment_root_required": self.deployment_root_required,
+            },
+            sort_keys=True,
+            separators=(",", ":"),
+        )
+
+
+@dataclass(frozen=True, slots=True)
+class RootManifestVerification:
+    """Sanitized result of a successful deployment-root verification."""
+
+    schema_version: str
+    profiles: tuple[str, ...]
+    kit_manifest_digest: str
+
+    def to_json(self) -> str:
+        return json.dumps(
+            {
+                "schema_version": "fdai.deployment-root-verification.v1",
+                "manifest_schema_version": self.schema_version,
+                "profiles": list(self.profiles),
+                "kit_manifest_digest": self.kit_manifest_digest,
             },
             sort_keys=True,
             separators=(",", ":"),
@@ -96,6 +124,7 @@ def build_offline_kit_manifest(
     rule_activation_profile_created_at: str | None = None,
     python_tag: str | None = None,
     libc_tag: str | None = None,
+    deployment_root_required: bool = False,
 ) -> bytes:
     """Build canonical manifest bytes from the exact staged tree."""
 
@@ -167,7 +196,94 @@ def build_offline_kit_manifest(
         payload["rule_activation_profile"] = activation_profile
         payload["rule_activation_profile_id"] = rule_activation_profile_id
         payload["rule_activation_profile_created_at"] = rule_activation_profile_created_at
+    if deployment_root_required:
+        payload["deployment_root_required"] = True
     return canonical_bytes(payload)
+
+
+def build_root_manifest(
+    *,
+    kit_manifest_digest: str,
+    profiles: set[str] | list[str] | tuple[str, ...],
+) -> bytes:
+    """Build a canonical signed-root payload for supported artifact profiles."""
+
+    if _DIGEST.fullmatch(kit_manifest_digest) is None:
+        raise OfflineKitVerificationError("deployment root offline-kit digest is invalid")
+    profile_items = tuple(sorted(dict.fromkeys(profiles)))
+    if not profile_items:
+        raise OfflineKitVerificationError("deployment root profiles MUST be non-empty")
+    if any(item not in _PROFILE_CLOSURES for item in profile_items):
+        raise OfflineKitVerificationError("deployment root profiles contain an unsupported value")
+    return canonical_bytes(
+        {
+            "schema_version": ROOT_SCHEMA_VERSION,
+            "kit_manifest_digest": kit_manifest_digest,
+            "profiles": list(profile_items),
+        }
+    )
+
+
+def verify_root_manifest(
+    root: Path,
+    *,
+    release_root_pem: bytes,
+    expected_profile: str | None = None,
+) -> RootManifestVerification:
+    """Verify the deployment root and its exact legacy kit-manifest binding."""
+
+    manifest_path = root / ROOT_MANIFEST_NAME
+    signature_path = root / ROOT_SIGNATURE_NAME
+    manifest = _read_regular(manifest_path, _MAX_MANIFEST_BYTES)
+    signature = _read_regular(signature_path, 64)
+    if len(signature) != 64:
+        raise OfflineKitVerificationError("deployment root signature MUST be 64 bytes")
+    _verify_signature(release_root_pem, manifest, signature)
+    payload = load_json_object(
+        manifest,
+        label="deployment root manifest",
+        max_bytes=_MAX_MANIFEST_BYTES,
+    )
+    if set(payload) != {"schema_version", "kit_manifest_digest", "profiles"}:
+        raise OfflineKitVerificationError("deployment root manifest schema does not match")
+    if payload["schema_version"] != ROOT_SCHEMA_VERSION:
+        raise OfflineKitVerificationError("deployment root manifest schema does not match")
+    if canonical_bytes(payload) != manifest:
+        raise OfflineKitVerificationError("deployment root manifest is not canonical")
+
+    kit_manifest_digest = payload["kit_manifest_digest"]
+    if not isinstance(kit_manifest_digest, str) or _DIGEST.fullmatch(kit_manifest_digest) is None:
+        raise OfflineKitVerificationError("deployment root offline-kit digest is invalid")
+    observed_kit_digest = hashlib.sha256(
+        _read_regular(root / MANIFEST_NAME, _MAX_MANIFEST_BYTES)
+    ).hexdigest()
+    if kit_manifest_digest != observed_kit_digest:
+        raise OfflineKitVerificationError("deployment root offline-kit digest does not match")
+
+    raw_profiles = payload["profiles"]
+    if not isinstance(raw_profiles, list) or not raw_profiles:
+        raise OfflineKitVerificationError("deployment root profiles MUST be a non-empty list")
+    profiles: list[str] = []
+    for item in raw_profiles:
+        if not isinstance(item, str) or item not in _PROFILE_CLOSURES:
+            raise OfflineKitVerificationError(
+                "deployment root profiles contain an unsupported value"
+            )
+        if item in profiles:
+            raise OfflineKitVerificationError("deployment root profiles MUST be unique")
+        profiles.append(item)
+    if profiles != sorted(profiles):
+        raise OfflineKitVerificationError("deployment root profiles MUST be sorted")
+    if expected_profile is not None:
+        if _PROFILE_NAME.fullmatch(expected_profile) is None:
+            raise OfflineKitVerificationError("deployment root expected profile is invalid")
+        if expected_profile not in profiles:
+            raise OfflineKitVerificationError("deployment root expected profile is not in profiles")
+    return RootManifestVerification(
+        schema_version=ROOT_SCHEMA_VERSION,
+        profiles=tuple(profiles),
+        kit_manifest_digest=kit_manifest_digest,
+    )
 
 
 def verify_offline_kit(
@@ -210,16 +326,23 @@ def verify_offline_kit(
             "sbom_path",
             "files",
         }
-        allowed = expected | {
+        activation_fields = {
             "rule_activation_profile",
             "rule_activation_profile_id",
             "rule_activation_profile_created_at",
         }
+        allowed = expected | activation_fields | {"deployment_root_required"}
         keys = set(payload)
-        if (keys != expected and keys != allowed) or payload[
-            "schema_version"
-        ] != "fdai.offline-kit.v1":
+        if (
+            not expected.issubset(keys)
+            or not keys.issubset(allowed)
+            or (keys & activation_fields and not activation_fields.issubset(keys))
+            or payload["schema_version"] != "fdai.offline-kit.v1"
+        ):
             raise OfflineKitVerificationError("offline kit manifest schema does not match")
+        deployment_root_required = payload.get("deployment_root_required", False)
+        if not isinstance(deployment_root_required, bool):
+            raise OfflineKitVerificationError("offline kit deployment root requirement is invalid")
         if payload["cli_version"] != cli_version:
             raise OfflineKitVerificationError("offline kit CLI version does not match")
         if payload["platform_tag"] != platform_tag:
@@ -304,6 +427,15 @@ def verify_offline_kit(
         _verify_sbom(root, payload, declared)
         if canonical_bytes(payload) != manifest:
             raise OfflineKitVerificationError("offline kit manifest is not canonical")
+        if (
+            deployment_root_required
+            or os.path.lexists(root / ROOT_MANIFEST_NAME)
+            or os.path.lexists(root / ROOT_SIGNATURE_NAME)
+        ):
+            verify_root_manifest(
+                root,
+                release_root_pem=release_root_pem,
+            )
         return OfflineKitVerification(
             kit_version=_payload_text(payload, "kit_version"),
             cli_version=_payload_text(payload, "cli_version"),
@@ -314,6 +446,7 @@ def verify_offline_kit(
             file_count=len(observed),
             total_bytes=total,
             manifest_digest=hashlib.sha256(manifest).hexdigest(),
+            deployment_root_required=deployment_root_required,
             terraform_binary=_payload_text(payload, "terraform_binary"),
             provider_mirror_prefix=_payload_text(payload, "provider_mirror_prefix"),
             deployment_bundle=_payload_text(payload, "deployment_bundle"),
@@ -344,7 +477,12 @@ def _scan_tree(root: Path) -> tuple[dict[str, str], dict[str, int], int]:
         for name in names:
             candidate = base / name
             relative = candidate.relative_to(root).as_posix()
-            if relative in {MANIFEST_NAME, SIGNATURE_NAME}:
+            if relative in {
+                MANIFEST_NAME,
+                SIGNATURE_NAME,
+                ROOT_MANIFEST_NAME,
+                ROOT_SIGNATURE_NAME,
+            }:
                 continue
             if candidate.is_symlink():
                 raise OfflineKitVerificationError("offline kit MUST NOT contain symlinks")

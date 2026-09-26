@@ -1,0 +1,341 @@
+{
+  "schema_version": 1,
+  "assurance_levels": {
+    "workspace-internal": {
+      "independent_manifest": false,
+      "n_minus_one_compatibility": false,
+      "published_schema_immutable": false,
+      "signed_release": false,
+      "linked_lifecycle_evidence": false,
+      "per_capability_promotion": false,
+      "independent_effect_verification": false
+    },
+    "lockstep-shared": {
+      "independent_manifest": true,
+      "n_minus_one_compatibility": false,
+      "published_schema_immutable": false,
+      "signed_release": false,
+      "linked_lifecycle_evidence": false,
+      "per_capability_promotion": false,
+      "independent_effect_verification": false
+    },
+    "independent-contract": {
+      "independent_manifest": true,
+      "n_minus_one_compatibility": true,
+      "published_schema_immutable": true,
+      "signed_release": false,
+      "linked_lifecycle_evidence": false,
+      "per_capability_promotion": false,
+      "independent_effect_verification": false
+    },
+    "effect-bearing": {
+      "independent_manifest": true,
+      "n_minus_one_compatibility": false,
+      "published_schema_immutable": false,
+      "signed_release": true,
+      "linked_lifecycle_evidence": true,
+      "per_capability_promotion": true,
+      "independent_effect_verification": true
+    },
+    "knowledge-evidence": {
+      "independent_manifest": true,
+      "n_minus_one_compatibility": false,
+      "published_schema_immutable": true,
+      "signed_release": true,
+      "linked_lifecycle_evidence": true,
+      "per_capability_promotion": false,
+      "independent_effect_verification": true
+    }
+  },
+  "packages": [
+    {
+      "id": "fdai-github-app-auth",
+      "path": "packages/github-app-auth",
+      "manifest": "packages/github-app-auth/pyproject.toml",
+      "assurance_level": "lockstep-shared",
+      "compatibility_scope": "lockstep"
+    },
+    {
+      "id": "fdai-runtime-diagnostics",
+      "path": "packages/runtime-diagnostics",
+      "manifest": "packages/runtime-diagnostics/pyproject.toml",
+      "assurance_level": "lockstep-shared",
+      "compatibility_scope": "lockstep"
+    },
+    {
+      "id": "fdai-service-contracts",
+      "path": "packages/service-contracts",
+      "manifest": "packages/service-contracts/pyproject.toml",
+      "public_facade": "packages/service-contracts/src/fdai_service_contracts/__init__.py",
+      "assurance_level": "independent-contract",
+      "compatibility_scope": "published-n-minus-one",
+      "compatibility_manifest": "packages/service-contracts/src/fdai_service_contracts/compatibility-manifest.json"
+    },
+    {
+      "id": "fdai-deployment-cli",
+      "path": "packages/deployment-cli",
+      "manifest": "packages/deployment-cli/pyproject.toml",
+      "public_facade": "packages/deployment-cli/src/fdai_deployment_cli/__init__.py",
+      "assurance_level": "effect-bearing",
+      "compatibility_scope": "backward-compatible-artifact"
+    },
+    {
+      "id": "fdai-code-assurance",
+      "path": "extensions/code-assurance",
+      "manifest": "extensions/code-assurance/pyproject.toml",
+      "public_facade": "extensions/code-assurance/src/fdai_code_assurance/__init__.py",
+      "import_name": "fdai_code_assurance",
+      "assurance_level": "lockstep-shared",
+      "compatibility_scope": "lockstep"
+    },
+    {
+      "id": "fdai-cost-governance",
+      "path": "extensions/cost-governance",
+      "manifest": "extensions/cost-governance/pyproject.toml",
+      "public_facade": "extensions/cost-governance/src/fdai_cost_governance/__init__.py",
+      "import_name": "fdai_cost_governance",
+      "assurance_level": "effect-bearing",
+      "compatibility_scope": "artifact-n-minus-one",
+      "compatibility_contract": "config/cost-governance-package-inventory.json"
+    },
+    {
+      "id": "fdai-aks-commerce",
+      "path": "extensions/aks-commerce",
+      "manifest": "extensions/aks-commerce/pyproject.toml",
+      "import_name": "fdai_aks_commerce",
+      "assurance_level": "effect-bearing",
+      "compatibility_scope": "lockstep"
+    },
+    {
+      "id": "cloud-reference-knowledge",
+      "path": "docs/roadmap/interfaces/cloud-resource-knowledge-lifecycle.md",
+      "assurance_level": "knowledge-evidence",
+      "compatibility_scope": "versioned-evidence"
+    }
+  ],
+  "workspace_dependencies": [
+    {
+      "dependency": "fdai-github-app-auth",
+      "owner_manifest": "packages/github-app-auth/pyproject.toml"
+    },
+    {
+      "dependency": "fdai-runtime-diagnostics",
+      "owner_manifest": "packages/runtime-diagnostics/pyproject.toml"
+    },
+    {
+      "dependency": "fdai-service-contracts",
+      "owner_manifest": "packages/service-contracts/pyproject.toml"
+    }
+  ],
+  "root_test_mirrors": [
+    {
+      "dependency": "aiohttp",
+      "owner_manifest": "services/core-control-plane/pyproject.toml",
+      "reason": "root Core and service test collection"
+    },
+    {
+      "dependency": "aiokafka",
+      "owner_manifest": "services/core-control-plane/pyproject.toml",
+      "reason": "root event transport test collection"
+    },
+    {
+      "dependency": "alembic",
+      "owner_manifest": "services/core-control-plane/pyproject.toml",
+      "reason": "root migration test collection"
+    },
+    {
+      "dependency": "rich",
+      "owner_manifest": "packages/deployment-cli/pyproject.toml",
+      "reason": "root deployment CLI test collection"
+    },
+    {
+      "dependency": "pyte",
+      "owner_manifest": "packages/deployment-cli/pyproject.toml",
+      "reason": "root terminal rendering test collection"
+    },
+    {
+      "dependency": "azure-monitor-opentelemetry",
+      "owner_manifest": "services/core-control-plane/pyproject.toml",
+      "reason": "root Core telemetry test collection"
+    },
+    {
+      "dependency": "azure-storage-file-datalake",
+      "owner_manifest": "services/document-ingestion-api/pyproject.toml",
+      "reason": "root document service test collection",
+      "allow_stricter_test_range": true
+    },
+    {
+      "dependency": "croniter",
+      "owner_manifest": "services/core-control-plane/pyproject.toml",
+      "reason": "root Core scheduler test collection"
+    },
+    {
+      "dependency": "httpx",
+      "owner_manifest": "services/core-control-plane/pyproject.toml",
+      "reason": "root service HTTP test collection"
+    },
+    {
+      "dependency": "jsonschema",
+      "owner_manifest": "packages/service-contracts/pyproject.toml",
+      "reason": "root service contract test collection"
+    },
+    {
+      "dependency": "kubernetes",
+      "owner_manifest": "services/core-control-plane/pyproject.toml",
+      "reason": "root Kubernetes adapter test collection"
+    },
+    {
+      "dependency": "markdown-it-py",
+      "owner_manifest": "services/core-control-plane/pyproject.toml",
+      "reason": "root Core document rendering test collection"
+    },
+    {
+      "dependency": "opentelemetry-api",
+      "owner_manifest": "services/core-control-plane/pyproject.toml",
+      "reason": "root Core telemetry test collection"
+    },
+    {
+      "dependency": "opentelemetry-exporter-otlp-proto-grpc",
+      "owner_manifest": "services/core-control-plane/pyproject.toml",
+      "reason": "root Core telemetry test collection"
+    },
+    {
+      "dependency": "opentelemetry-sdk",
+      "owner_manifest": "services/core-control-plane/pyproject.toml",
+      "reason": "root Core telemetry test collection"
+    },
+    {
+      "dependency": "pillow",
+      "owner_manifest": "services/document-processing-worker/pyproject.toml",
+      "reason": "root document processing test collection"
+    },
+    {
+      "dependency": "psycopg",
+      "owner_manifest": "services/core-control-plane/pyproject.toml",
+      "reason": "root persistence test collection"
+    },
+    {
+      "dependency": "psycopg-pool",
+      "owner_manifest": "services/core-control-plane/pyproject.toml",
+      "reason": "root Core-backed extension test collection"
+    },
+    {
+      "dependency": "pydantic",
+      "owner_manifest": "services/core-control-plane/pyproject.toml",
+      "reason": "root service model test collection"
+    },
+    {
+      "dependency": "pyjwt",
+      "owner_manifest": "services/operator-service/pyproject.toml",
+      "reason": "root service authentication test collection"
+    },
+    {
+      "dependency": "pypdf",
+      "owner_manifest": "services/document-processing-worker/pyproject.toml",
+      "reason": "root document processing test collection"
+    },
+    {
+      "dependency": "pypdfium2",
+      "owner_manifest": "services/document-processing-worker/pyproject.toml",
+      "reason": "root document processing test collection"
+    },
+    {
+      "dependency": "pytesseract",
+      "owner_manifest": "services/document-processing-worker/pyproject.toml",
+      "reason": "root document processing test collection"
+    },
+    {
+      "dependency": "pyyaml",
+      "owner_manifest": "services/core-control-plane/pyproject.toml",
+      "reason": "root catalog and configuration test collection"
+    },
+    {
+      "dependency": "sqlalchemy",
+      "owner_manifest": "services/core-control-plane/pyproject.toml",
+      "reason": "root persistence test collection"
+    },
+    {
+      "dependency": "starlette",
+      "owner_manifest": "services/operator-service/pyproject.toml",
+      "reason": "root service API test collection"
+    },
+    {
+      "dependency": "uvicorn",
+      "owner_manifest": "services/operator-service/pyproject.toml",
+      "reason": "root service process test collection"
+    }
+  ],
+  "artifact_profiles": {
+    "connected": {
+      "complete_offline_kit_required": false,
+      "signed_root_required": false,
+      "required_controls": [
+        "exact-digest",
+        "compatibility",
+        "sbom",
+        "provenance"
+      ]
+    },
+    "offline": {
+      "complete_offline_kit_required": true,
+      "signed_root_required": true,
+      "required_controls": [
+        "exact-digest",
+        "compatibility",
+        "sbom",
+        "provenance",
+        "no-public-fallback"
+      ]
+    },
+    "appliance": {
+      "complete_offline_kit_required": true,
+      "signed_root_required": true,
+      "required_controls": [
+        "exact-digest",
+        "compatibility",
+        "sbom",
+        "provenance",
+        "no-public-fallback",
+        "digest-pinned-container"
+      ]
+    }
+  },
+  "lifecycle_evidence": {
+    "composition": "linked-exact-artifact",
+    "single_run_required": false,
+    "required_transitions": [
+      "install",
+      "enable",
+      "disable",
+      "revoke",
+      "reload",
+      "restart"
+    ],
+    "link_fields": [
+      "artifact_digest",
+      "release_revision",
+      "environment_id",
+      "audit_correlation_id"
+    ]
+  },
+  "review_envelope": {
+    "multi_target": true,
+    "target_decisions_independent": true,
+    "promotion_transactions_separate": true,
+    "approval_authority": false,
+    "execution_authority": false,
+    "promotion_authority": false
+  },
+  "optional_readiness": {
+    "disabled_unavailable_package_does_not_block_base": true,
+    "enabled_missing_requirement_fails_closed": true,
+    "unrelated_complete_paths_may_continue": true,
+    "availability_does_not_enable": true,
+    "enablement_does_not_raise_authority": true
+  },
+  "extension_facades": {
+    "stable_authority_neutral_exports_allowed": true,
+    "core_optional_package_imports_allowed": false,
+    "composition_root_only_binding": true
+  }
+}

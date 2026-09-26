@@ -22,6 +22,10 @@ Upstream defines generic interfaces and working defaults. Forks customize throug
   adapter classes (e.g. `PackageResourceSchemaRegistry`, `JsonSchemaContractValidator`) are
   **not** re-exported from public sub-packages; they must be imported directly from their
   submodule, and only by a composition root, so `core/` cannot depend on a concrete by accident.
+  An optional extension distribution can expose a reviewed authority-neutral facade for its own
+  factories, resource loaders, readiness types, and adapters. That facade is imported by
+  composition, never by Core, and public discoverability grants no availability, enablement,
+  access, approval, promotion, or execution authority.
 - **Config-driven binding**: configuration selects each implementation. `bind_configuration_drift` accepts an optional `ConfigurationDriftReportSink`; runtime injects the Core-owned `StateStoreConfigurationBaselineSink` to record completed evidence before returning it, without adding provider reads, review authority, or a service.
   `composition/wire_distiller.py` atomically binds the review-only `Distiller` from three exact-version endpoints and one replay-identical prompt. Zero council records preserve abstention without validating unused endpoint values. Partial records fail startup without changing execution T2.
   The generic drop-directory `ManualSource` retains oversize paths as metadata-only held candidates, so its read bound cannot create a false deletion signal. The migration-owned `operator_forecast_retention` security-barrier view exposes only aggregate Core case-history deletion counters to Operator; raw case and document content, channel authority, and runtime DDL permissions remain unchanged. Operator delivery diagnostics read recorded breaker modes through their existing service-owned table, and System Knowledge regenerates the changed design source commitment without changing runtime or escalation authority.

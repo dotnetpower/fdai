@@ -77,6 +77,7 @@ cap, narrow its owner set or split a multi-responsibility owner instead of addin
 | 7f | [service-decomposition-execution-plan.md](architecture/service-decomposition-execution-plan.md) | five-service target, dependency-ordered work packages, parallel lanes, progress, blockers, and evidence receipts |
 | 7g | [subscription-genesis-provisioning.md](deployment/subscription-genesis-provisioning.md) | resumable zero-to-ready Azure subscription provisioning, database and semantic bootstrap, model capacity, and initial inventory progress |
 | 7h | [subscription-genesis-assurance.md](deployment/subscription-genesis-assurance.md) | adversarial safety, completeness, recovery, cost, and operator-progress gates for subscription genesis |
+| 7i | [package-assurance.md](architecture/package-assurance.md) | tiered package boundaries, source-owned dependencies, profile-complete signed artifacts, linked lifecycle evidence, and bounded review envelopes |
 
 ### Rules, detection, and operations
 

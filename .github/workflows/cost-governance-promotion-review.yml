@@ -1,5 +1,5 @@
 name: cost-governance-promotion-review
-run-name: "cost-review-${{ inputs.target_kind }}-${{ inputs.target_id }}-${{ inputs.request_id }}"
+run-name: "cost-review-${{ inputs.request_id }}"
 
 on:
   workflow_dispatch:
@@ -26,26 +26,28 @@ on:
         description: "Exact successful observation workflow run attempt."
         type: string
         required: true
+      review_batch_json:
+        description: "Optional JSON array of independent per-target review decisions."
+        type: string
+        required: false
       target_kind:
-        description: "One independently reviewed target kind."
-        type: choice
-        options: [package-activation, action-type, workflow]
-        required: true
+        description: "One target kind for single-target mode."
+        type: string
+        required: false
       target_id:
         description: "One exact package, ActionType, or Workflow id."
         type: string
-        required: true
+        required: false
       decision:
-        description: "Review-only decision with no approval or promotion authority."
-        type: choice
-        options: [recommend, hold, deny]
-        required: true
+        description: "Single-target decision: recommend, hold, or deny."
+        type: string
+        required: false
       rationale:
         description: "Bounded English rationale retained with the review."
         type: string
-        required: true
+        required: false
       request_id:
-        description: "Stable idempotency key for this one-target review."
+        description: "Stable idempotency key for this review envelope."
         type: string
         required: true
 
@@ -56,7 +58,7 @@ permissions:
   id-token: write
 
 concurrency:
-  group: cost-governance-review-${{ inputs.environment }}-${{ inputs.target_kind }}-${{ inputs.target_id }}
+  group: cost-governance-review-${{ inputs.environment }}-${{ inputs.request_id }}
   cancel-in-progress: false
 
 jobs:
@@ -70,6 +72,7 @@ jobs:
       CAMPAIGN_ID: ${{ inputs.campaign_id }}
       SOURCE_RUN_ID: ${{ inputs.source_run_id }}
       SOURCE_RUN_ATTEMPT: ${{ inputs.source_run_attempt }}
+      REVIEW_BATCH_JSON: ${{ inputs.review_batch_json }}
       REVIEW_TARGET_KIND: ${{ inputs.target_kind }}
       REVIEW_TARGET_ID: ${{ inputs.target_id }}
       REVIEW_DECISION: ${{ inputs.decision }}
@@ -117,9 +120,18 @@ jobs:
           [[ "$CAMPAIGN_ID" =~ ^[a-z0-9][a-z0-9-]{0,62}$ ]]
           [[ "$SOURCE_RUN_ID" =~ ^[1-9][0-9]*$ ]]
           [[ "$SOURCE_RUN_ATTEMPT" =~ ^[1-9][0-9]*$ ]]
-          [[ "$REVIEW_TARGET_ID" =~ ^[a-z0-9]+([._-][a-z0-9]+)*$ ]]
           [[ "$REVIEW_REQUEST_ID" =~ ^[a-zA-Z0-9][a-zA-Z0-9._:-]{7,127}$ ]]
-          [[ -n "$REVIEW_RATIONALE" && "${#REVIEW_RATIONALE}" -le 2000 ]]
+          if [[ -n "${REVIEW_BATCH_JSON:-}" ]]; then
+            [[ -z "${REVIEW_TARGET_KIND:-}" ]]
+            [[ -z "${REVIEW_TARGET_ID:-}" ]]
+            [[ -z "${REVIEW_DECISION:-}" ]]
+            [[ -z "${REVIEW_RATIONALE:-}" ]]
+          else
+            [[ "$REVIEW_TARGET_KIND" =~ ^(package-activation|action-type|workflow)$ ]]
+            [[ "$REVIEW_TARGET_ID" =~ ^[a-z0-9]+([._-][a-z0-9]+)*$ ]]
+            [[ "$REVIEW_DECISION" =~ ^(recommend|hold|deny)$ ]]
+            [[ -n "$REVIEW_RATIONALE" && "${#REVIEW_RATIONALE}" -le 2000 ]]
+          fi
           [[ "$(git rev-parse HEAD)" == "$TARGET_COMMIT_SHA" ]]
           git fetch --no-tags origin main
           git merge-base --is-ancestor "$TARGET_COMMIT_SHA" origin/main
@@ -294,27 +306,69 @@ jobs:
           verification_digest="sha256:$(sha256sum \
             "${{ steps.source.outputs.verification }}" | cut -d' ' -f1)"
           receipt="$RUNNER_TEMP/cost-governance-promotion-review.json"
-          uv run --frozen --package fdai-core-control-plane \
-            python scripts/deployment/azure/record_cost_governance_review.py \
-              --readiness "${{ steps.readiness.outputs.recomputed }}" \
-              --policy .fdai-release-source/config/cost-governance-w7-policy.json \
-              --target-kind "$REVIEW_TARGET_KIND" \
-              --target-id "$REVIEW_TARGET_ID" \
-              --decision "$REVIEW_DECISION" \
-              --rationale "$REVIEW_RATIONALE" \
-              --request-id "$REVIEW_REQUEST_ID" \
-              --evidence-ref "workflow:${SOURCE_RUN_ID}:${SOURCE_RUN_ATTEMPT}" \
-              --evidence-ref "artifact:${{ steps.source.outputs.artifact_name }}" \
-              --evidence-ref "attestation:${verification_digest}" > "$receipt"
-          jq -e --arg kind "$REVIEW_TARGET_KIND" --arg target "$REVIEW_TARGET_ID" '
-            .review.target_kind == $kind and
-            .review.target_id == $target and
-            .review.approval_authority == false and
-            .review.execution_authority == false and
-            .review.promotion_authority == false and
-            (.review.campaign_evidence_digest | test("^sha256:[0-9a-f]{64}$")) and
-            (.review.review_id | test("^sha256:[0-9a-f]{64}$"))
-          ' "$receipt" >/dev/null
+          if [[ -n "${REVIEW_BATCH_JSON:-}" ]]; then
+            [[ -z "${REVIEW_TARGET_KIND:-}" ]]
+            [[ -z "${REVIEW_TARGET_ID:-}" ]]
+            [[ -z "${REVIEW_DECISION:-}" ]]
+            [[ -z "${REVIEW_RATIONALE:-}" ]]
+            umask 077
+            batch_file="$RUNNER_TEMP/cost-governance-review-batch.json"
+            printf '%s' "$REVIEW_BATCH_JSON" > "$batch_file"
+            jq -e '
+              type == "array" and
+              length >= 1 and length <= 6 and
+              all(.[];
+                type == "object" and
+                (keys | sort) == ["decision", "rationale", "target_id", "target_kind"]
+              )
+            ' "$batch_file" >/dev/null
+            uv run --frozen --package fdai-core-control-plane \
+              python scripts/deployment/azure/record_cost_governance_review_batch.py \
+                --readiness "${{ steps.readiness.outputs.recomputed }}" \
+                --policy .fdai-release-source/config/cost-governance-w7-policy.json \
+                --review-batch-json "$batch_file" \
+                --request-id "$REVIEW_REQUEST_ID" \
+                --evidence-ref "workflow:${SOURCE_RUN_ID}:${SOURCE_RUN_ATTEMPT}" \
+                --evidence-ref "artifact:${{ steps.source.outputs.artifact_name }}" \
+                --evidence-ref "attestation:${verification_digest}" > "$receipt"
+            jq -e '
+              .schema_version == "fdai.cost-governance-review-batch.v1" and
+              (.reviews | length >= 1 and length <= 6) and
+              all(.reviews[];
+                .approval_authority == false and
+                .execution_authority == false and
+                .promotion_authority == false and
+                (.campaign_evidence_digest | test("^sha256:[0-9a-f]{64}$")) and
+                (.review_id | test("^sha256:[0-9a-f]{64}$"))
+              )
+            ' "$receipt" >/dev/null
+          else
+            [[ -n "${REVIEW_TARGET_KIND:-}" ]]
+            [[ -n "${REVIEW_TARGET_ID:-}" ]]
+            [[ -n "${REVIEW_DECISION:-}" ]]
+            [[ -n "${REVIEW_RATIONALE:-}" ]]
+            uv run --frozen --package fdai-core-control-plane \
+              python scripts/deployment/azure/record_cost_governance_review.py \
+                --readiness "${{ steps.readiness.outputs.recomputed }}" \
+                --policy .fdai-release-source/config/cost-governance-w7-policy.json \
+                --target-kind "$REVIEW_TARGET_KIND" \
+                --target-id "$REVIEW_TARGET_ID" \
+                --decision "$REVIEW_DECISION" \
+                --rationale "$REVIEW_RATIONALE" \
+                --request-id "$REVIEW_REQUEST_ID" \
+                --evidence-ref "workflow:${SOURCE_RUN_ID}:${SOURCE_RUN_ATTEMPT}" \
+                --evidence-ref "artifact:${{ steps.source.outputs.artifact_name }}" \
+                --evidence-ref "attestation:${verification_digest}" > "$receipt"
+            jq -e --arg kind "$REVIEW_TARGET_KIND" --arg target "$REVIEW_TARGET_ID" '
+              .review.target_kind == $kind and
+              .review.target_id == $target and
+              .review.approval_authority == false and
+              .review.execution_authority == false and
+              .review.promotion_authority == false and
+              (.review.campaign_evidence_digest | test("^sha256:[0-9a-f]{64}$")) and
+              (.review.review_id | test("^sha256:[0-9a-f]{64}$"))
+            ' "$receipt" >/dev/null
+          fi
           echo "receipt=$receipt" >> "$GITHUB_OUTPUT"
           unset FDAI_STATE_STORE_DSN migration_dsn
 

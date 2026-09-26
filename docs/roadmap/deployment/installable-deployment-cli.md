@@ -20,11 +20,11 @@ inside the target virtual network.
 |---------|----------|
 | Operator command | `fdaictl provision azure` |
 | Source-checkout command | `scripts/deployment/azure/fdai-up.sh` |
-| Infrastructure engine | Terraform from the signed complete kit |
+| Infrastructure engine | Terraform from the selected signed profile closure |
 | Target selection | Active interactive Azure CLI user |
 | Apply location | Managed deployment host inside the target VNet |
-| Connected artifact source | Local complete signed kit for validation; versioned bounded HTTPS distribution is optional |
-| Disconnected artifact source | Complete signed kit embedded in a digest-pinned deployment appliance |
+| Connected artifact source | Clean source plus an approved exact-revision image manifest; optional `--online` kit acquisition uses the complete offline-compatible closure |
+| Disconnected artifact source | Complete offline profile embedded in a digest-pinned deployment appliance |
 | Approval | Current human approval bound to each exact plan digest |
 | Execution identity | Managed host user-assigned Managed Identity |
 | GitHub dependency | None for tenant deployment |
@@ -547,12 +547,12 @@ See [Disconnected Deployment](disconnected-deployment.md) for the complete artif
 The coordinator performs these stages in order:
 
 1. Read and validate the active Azure human target.
-2. Acquire one online or local complete signed kit and verify every executable input.
+2. Acquire the selected artifact source and verify every executable input.
 3. Inspect policy, provider, quota, region, and Foundation state.
 4. Create an exact Foundation plan and obtain current terminal approval.
 5. Create the private state account, hub network, Bastion, deployment identity, and managed host.
 6. Verify state handoff and the managed-host image.
-7. Transfer the same verified kit through Bastion.
+7. Make the same verified artifact closure available on the selected host; transfer it only for a remote host.
 8. Run the substrate and application plans under the managed identity.
 9. Read the Terraform-selected Core application name and derive the deployment-bound capability
   identity without recomputing an Azure resource name in Python.

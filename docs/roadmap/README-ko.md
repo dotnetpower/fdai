@@ -1,8 +1,8 @@
 ---
 title: FDAI 로드맵
 translation_of: README.md
-translation_source_sha: 44aa140d6451048ed4dd89ee134f1da031e4886c
-translation_revised: 2026-09-19
+translation_source_sha: 8f396445e4588ded96f39891e81d502dda9d8c16
+translation_revised: 2026-09-26
 ---
 # FDAI 로드맵
 
@@ -74,6 +74,7 @@ canonical 영문 roadmap context를 실제 4,500줄로 제한합니다. Route가
 | 7f | [service-decomposition-execution-plan-ko.md](architecture/service-decomposition-execution-plan-ko.md) | 5개 서비스 목표, 의존성 순서 작업 패키지, 병렬 레인, 진행 상태, 차단 요인, 근거 증적 |
 | 7g | [subscription-genesis-provisioning-ko.md](deployment/subscription-genesis-provisioning-ko.md) | 재개 가능한 Azure 구독 전체 프로비저닝, 데이터베이스 및 의미 초기 구성, 모델 용량, 최초 인벤토리 진행률 |
 | 7h | [subscription-genesis-assurance-ko.md](deployment/subscription-genesis-assurance-ko.md) | 구독 초기 구성을 위한 적대적 안전, 완전성, 복구, 비용, 운영자 진행률 게이트 |
+| 7i | [package-assurance-ko.md](architecture/package-assurance-ko.md) | 계층형 패키지 경계, 소스 소유 의존성, 프로필 완결 서명 산출물, 연결된 수명 주기 근거, 범위가 제한된 검토 묶음 |
 
 ### 규칙, 탐지, 운영
 

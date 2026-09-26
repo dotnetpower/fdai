@@ -293,6 +293,7 @@ jobs:
           fi
           python3 scripts/quality/architecture/check-design-routes.py
           python3 scripts/quality/architecture/check-constitution.py
+          python3 scripts/quality/architecture/check-package-assurance.py
           python3 scripts/quality/architecture/check-fork-runtime-independence.py
           python3 scripts/quality/architecture/check-venue-capability-contract.py
           python3 scripts/quality/architecture/check-design-doc-impact.py "$range"
