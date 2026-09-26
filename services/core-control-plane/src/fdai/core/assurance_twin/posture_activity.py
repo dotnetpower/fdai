@@ -7,9 +7,8 @@ bounded, authority-free evidence channel Heimdall already uses for other
 observation domains (``resource-health``, ``metrics``, ``cost``, ...).
 
 The activity is a bounded **tip value**, not the authoritative report body.
-The delivery recorder doesn't publish either posture or review tips until a
-transactional outbox can order them with the durable ledger (see that module's
-docstring). The value is returned to the caller for audit/logging use, and the
+The delivery recorder stages tips in the durable ledger's transactional outbox.
+The value is returned to the caller for audit/logging use, and the
 durable finding-level content is always written separately by
 ``fdai.delivery.assurance_twin_posture`` so this module stays pure and CSP
 neutral, matching every other ``core/assurance_twin/`` component
@@ -44,14 +43,37 @@ from fdai_service_contracts import (
     OperationalActivityStatus,
     OperationalFreshness,
 )
+from pydantic import BaseModel, ConfigDict, Field
 
 from fdai.core.assurance_twin.report import PostureAssessmentReport
 from fdai.shared.providers.iac_review import IacReview
 
-_OWNER_AGENT: Literal["Heimdall"] = "Heimdall"
+_POSTURE_OWNER: Literal["Heimdall"] = "Heimdall"
+_REVIEW_OWNER: Literal["Forseti"] = "Forseti"
 _PRODUCER: Literal["assurance-twin"] = "assurance-twin"
 _POSTURE_SOURCE = "assurance-twin:posture"
-_REVIEW_SOURCE = "assurance-twin:review"
+_REVIEW_SOURCE: Literal["assurance-twin:review"] = "assurance-twin:review"
+
+
+class AssuranceTwinReviewActivity(BaseModel):
+    """Private, authority-free Forseti event; the shared stage kind is observer-only."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    schema_version: Literal["1.0.0"] = "1.0.0"
+    activity_id: str = Field(min_length=1, max_length=256)
+    idempotency_key: str = Field(min_length=1, max_length=256)
+    kind: Literal["assurance_twin_review"] = "assurance_twin_review"
+    status: OperationalActivityStatus
+    owner_agent: Literal["Forseti"] = "Forseti"
+    producer: Literal["assurance-twin"] = "assurance-twin"
+    observed_at: datetime
+    source: Literal["assurance-twin:review"] = "assurance-twin:review"
+    freshness: OperationalFreshness
+    evidence_count: int = Field(ge=0, le=200)
+    correlation_id: str = Field(min_length=1, max_length=256)
+    reason_codes: tuple[str, ...] = ()
+    execution_authority: Literal[False] = False
 
 
 def build_posture_report_activity(
@@ -82,7 +104,7 @@ def build_posture_report_activity(
         idempotency_key=f"assurance-twin.posture-report:{report_identity}:{status.value}",
         kind=OperationalActivityKind.ASSURANCE_TWIN_POSTURE,
         status=status,
-        owner_agent=_OWNER_AGENT,
+        owner_agent=_POSTURE_OWNER,
         producer=_PRODUCER,
         observed_at=_parse_timestamp(report.generated_at),
         source=_POSTURE_SOURCE,
@@ -99,7 +121,7 @@ def build_change_review_activity(
     correlation_id: str,
     freshness: OperationalFreshness,
     reason_codes: tuple[str, ...] = (),
-) -> AgentOperationalActivity:
+) -> AssuranceTwinReviewActivity:
     """Build one bounded activity tip for an ambient per-change review.
 
     Raises:
@@ -112,13 +134,11 @@ def build_change_review_activity(
     status = _status_for(freshness, reason_codes)
     review_identity = _privacy_safe_identity(review.review_key)
     correlation_identity = _privacy_safe_identity(correlation_id)
-    return AgentOperationalActivity(
-        schema_version="1.2.0",
+    return AssuranceTwinReviewActivity(
         activity_id=f"assurance-twin.change-review:{review_identity}:{status.value}",
         idempotency_key=f"assurance-twin.change-review:{review_identity}:{status.value}",
-        kind=OperationalActivityKind.ASSURANCE_TWIN_POSTURE,
         status=status,
-        owner_agent=_OWNER_AGENT,
+        owner_agent=_REVIEW_OWNER,
         producer=_PRODUCER,
         observed_at=_parse_timestamp(review.generated_at),
         source=_REVIEW_SOURCE,
@@ -148,6 +168,8 @@ def _status_for(
         if not reason_codes:
             raise ValueError("stale assurance-twin activity MUST include a reason code")
         return OperationalActivityStatus.DEGRADED
+    if freshness is OperationalFreshness.UNKNOWN:
+        raise ValueError("unknown assurance-twin evidence cannot claim completion")
     return OperationalActivityStatus.COMPLETED
 
 
@@ -178,6 +200,7 @@ def _privacy_safe_identity(value: str) -> str:
 
 
 __all__ = [
+    "AssuranceTwinReviewActivity",
     "build_change_review_activity",
     "build_posture_report_activity",
 ]

@@ -1,28 +1,17 @@
-"""Assurance Twin - compose the durable ledger and bounded activity values.
+"""Assurance Twin - stage bounded activity with exact durable evidence.
 
-The one call site a future trusted producer binding uses to persist a
-computed report/review, and - for a posture report - announce it on the
-schema-validated event bus. Wires two existing seams:
+Trusted agent producers stage their own report/review activity in the same
+transaction as the retained row and Saga-owned audit lineage:
 
 - ``fdai.delivery.persistence.state_store_assurance_twin_posture`` owns the
   durable read model (authoritative content Operator API reads).
 - ``fdai.core.assurance_twin.posture_activity`` builds the tip payload from
   the report/review, pure and CSP-neutral.
 
-**Activity publication is disabled.** A durable compare-and-set and an event
-bus publish are separate async effects. A posture report can win its durable
-advance, pause, and publish after a newer report has advanced the same scope;
-a change review has the same ordering hazard against a conflict tombstone.
-Re-reading before publish only moves the race window. Until a transactional
-outbox can bind publication to the exact durable revision, both record methods
-return the schema-valid activity for local audit use but never publish it. The
-durable ledger, Operator API, and Console remain the source of truth. See
-[assurance-twin.md](../../../../../docs/roadmap/operations/assurance-twin.md#implementation-status).
-
-**No shipped call site.** This recorder is deliberately unbound: no trusted
-component computes twin findings yet, and an ambient ingress payload is not
-trustworthy evidence, so nothing in the runtime invokes it. It stays a
-read-only, authority-free surface for a future trusted producer.
+The outbox relay rechecks the durable revision before publication. Tips are
+advisory and never replace the authoritative read model. No live evidence
+source is bound by default, so an ambient ingress payload cannot manufacture
+a report or a review verdict.
 """
 
 from __future__ import annotations
@@ -34,6 +23,7 @@ from typing import Any
 from fdai_service_contracts import AgentOperationalActivity, OperationalFreshness
 
 from fdai.core.assurance_twin.posture_activity import (
+    AssuranceTwinReviewActivity,
     build_change_review_activity,
     build_posture_report_activity,
 )
@@ -43,18 +33,19 @@ from fdai.delivery.persistence.state_store_assurance_twin_posture import (
     REVIEW_CONFLICT_REASON_CODE,
     StateStoreAssuranceTwinPostureLedger,
 )
+from fdai.shared.contracts.models import Mode
 from fdai.shared.providers.iac_review import IacReview
 
 
 @dataclass(frozen=True, slots=True)
 class AssuranceTwinPostureRecord:
-    """Combined durable-write and unpublished activity outcome for one call."""
+    """Combined durable-write and staged activity outcome for one call."""
 
-    activity: AgentOperationalActivity
+    activity: AgentOperationalActivity | AssuranceTwinReviewActivity
     durable_write_created: bool
     """Mirrors :class:`AssuranceTwinLedgerWrite.created` for the caller's audit trail."""
     published: bool
-    """Always ``False`` until a transactional outbox orders tips with the ledger."""
+    """False at write time; a supervised relay publishes the durable outbox."""
     evidence_digest: str
     """SHA-256 digest of the evidence body this call carried."""
     conflict: bool = False
@@ -67,7 +58,7 @@ class AssuranceTwinPostureRecord:
 
 
 class AssuranceTwinPostureRecorder:
-    """Record a posture report or change review without publishing a tip."""
+    """Stage Heimdall posture or Forseti review without publishing inline."""
 
     def __init__(
         self,
@@ -87,6 +78,8 @@ class AssuranceTwinPostureRecorder:
     ) -> AssuranceTwinPostureRecord:
         """Persist ``report`` and return its bounded unpublished activity."""
 
+        if report.mode is not Mode.SHADOW:
+            raise ValueError("assurance twin posture publication requires shadow mode")
         activity = build_posture_report_activity(
             report,
             correlation_id=correlation_id,
@@ -100,6 +93,7 @@ class AssuranceTwinPostureRecorder:
             activity_id=activity.activity_id,
             correlation_id=correlation_id,
             evidence_source_revision=evidence_source_revision,
+            activity=activity,
         )
         if write.conflict:
             conflicted = build_posture_report_activity(
@@ -117,6 +111,14 @@ class AssuranceTwinPostureRecorder:
                 stored_evidence_digest=write.stored_evidence_digest,
             )
         if not write.created:
+            if write.stored_evidence_digest == write.evidence_digest:
+                return AssuranceTwinPostureRecord(
+                    activity=activity,
+                    durable_write_created=False,
+                    published=False,
+                    evidence_digest=write.evidence_digest,
+                    stored_evidence_digest=write.stored_evidence_digest,
+                )
             superseded = build_posture_report_activity(
                 report,
                 correlation_id=correlation_id,
@@ -157,6 +159,8 @@ class AssuranceTwinPostureRecorder:
         change-review publication is disabled entirely.
         """
 
+        if review.mode is not Mode.SHADOW:
+            raise ValueError("assurance twin review publication requires shadow mode")
         activity = build_change_review_activity(
             review,
             correlation_id=correlation_id,
@@ -170,6 +174,7 @@ class AssuranceTwinPostureRecorder:
             activity_id=activity.activity_id,
             correlation_id=correlation_id,
             evidence_source_revision=evidence_source_revision,
+            activity=activity,
         )
         if write.conflict:
             activity = build_change_review_activity(

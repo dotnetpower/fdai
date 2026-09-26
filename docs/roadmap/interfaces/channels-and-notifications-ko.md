@@ -1,7 +1,7 @@
 ---
 title: 채널과 알림(Channels and Notifications)
 translation_of: channels-and-notifications.md
-translation_source_sha: d41fbe7cb32c1ea0080358e55bd7f77446254652
+translation_source_sha: bb9103b9ef989f1964f60459344823ba7986eecd
 translation_revised: 2026-09-26
 ---
 
@@ -22,6 +22,10 @@ FDAI가 Teams, Slack, 이메일, 웹훅, paging 서비스, SMS 및 명시적 선
 
 운영 A3 유입, 발행, 수명 주기, 영속성 조립, 배포 및 롤백은
 [운영 A3 채널 런타임](production-a3-channel-runtime-ko.md)이 소유합니다.
+
+Core는 Assurance Twin의 읽기 전용 보고서 및 검토 아웃박스를 A1 요청 아웃박스와
+별도로 감독합니다. Twin의 근거 공백은 승인 결정이나 알림 채널의 대체 경로가
+아닙니다. 어느 작업자도 다른 쪽의 레코드를 처리하거나 승인할 수 없습니다.
 
 활성화되고 설정된 모든 채널로의 A2/A4 fan-out 전달, 이름이 있는 채널 바인딩, 채널별 영속 전달,
 Teams Workflows 웹훅 바인딩은

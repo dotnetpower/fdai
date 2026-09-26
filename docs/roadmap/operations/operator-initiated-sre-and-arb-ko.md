@@ -1,8 +1,8 @@
 ---
 title: 오퍼레이터 시작 SRE 및 아키텍처 리뷰
 translation_of: operator-initiated-sre-and-arb.md
-translation_source_sha: 445fcb3f4e81da7bbcfaaf96a7dc38cccce98003
-translation_revised: 2026-09-22
+translation_source_sha: 84476db8a789b5c0af6ee0bd4d04ec76b1fa7882
+translation_revised: 2026-09-26
 ---
 
 # 오퍼레이터 시작 SRE 및 아키텍처 리뷰
@@ -48,6 +48,11 @@ ActionType 승격 모드에 의존하지 않습니다. 프로세스 내부
 생성과 승인 만료를 서로 독립된 런타임 작업으로 감독합니다. 인시던트 전송 장애는 만료된 승인
 대기가 감사되는 무작업 결과로 수렴하는 것을 막을 수 없으며, 만료 수렴 작업은 인시던트를
 생성할 수 없습니다.
+
+Core는 선택적인 Assurance Twin 보고서 및 검토 작성기와 아웃박스 중계기도 별도로
+감독합니다. 권한이 없는 근거 요청은 인시던트 생성이나 작업 확인 경로로 들어가지
+않습니다. 함께 배치된 런타임 수명 주기는 인시던트의 소유자, 상태 전환 또는 승인을
+변경하지 않습니다.
 
 ![설계 요약. 주요 단계는 오퍼레이터 요청, 문제 대응인가?, Correlation ID 및 선택적 Process ID, Incident registry, Typed ActionProposal, Trust 및 risk gate, 판단, journal, audit, 승격된 executor adapter, 승인 후 재개, Stage stream입니다.](../../diagrams/generated/fdai-roadmap-operations-operator-initiated-sre-and-arb-01.ko.svg)
 

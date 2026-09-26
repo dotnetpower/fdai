@@ -116,3 +116,18 @@ test("contains withheld Assurance Twin identities inside the mobile viewport", a
     expect(gap.scrollWidth).toBeLessThanOrEqual(gap.clientWidth);
   }
 });
+
+test("exposes withheld evidence as named status regions without action controls", async ({ page }) => {
+  await page.goto("/assurance-twin");
+
+  const gaps = page.locator("main .assurance-twin-gaps");
+  await expect(gaps).toHaveCount(2);
+  for (const [index, gap] of (await gaps.all()).entries()) {
+    await expect(gap).toHaveAttribute("role", "status");
+    await expect(gap).toContainText(
+      index === 0 ? "Withheld posture evidence" : "Withheld change-review evidence"
+    );
+    await expect(gap).toContainText(withheldIdentity);
+  }
+  await expect(gaps.locator("button")).toHaveCount(0);
+});

@@ -1,8 +1,8 @@
 ---
 title: 어슈어런스 트윈 (질의가능하고 선제적이며 검증가능한 리뷰)
 translation_of: assurance-twin.md
-translation_source_sha: aa4c696e38485801b8e678e91c8b90bdb6895c4d
-translation_revised: 2026-09-09
+translation_source_sha: f9322b97e1f3e30d3d06ef3c3d66f41d63f7a332
+translation_revised: 2026-09-27
 ---
 # 어슈어런스 트윈 (질의가능하고 선제적이며 검증가능한 리뷰)
 
@@ -39,13 +39,16 @@ event-driven, risk-gated 설계를 저하시키지 않으면서 커버하는 리
 
 ## 구현 상태
 
-결정론적 Twin 코어와 스칼라 및 그래프 시뮬레이션 기본 기능은 구현되어 집중 테스트로
-검증됩니다. 자세/검토 표면은 **부분 구현**입니다. 운영 `state_kv` 원장, 읽기 전용
-Operator API, 읽기 전용 콘솔 패널은 존재하고 집중 테스트로 검증되지만 이 행을 쓰는
-구성 요소가 없습니다. Twin 발견 사항을 계산하는 신뢰된 생산자가 없으므로, 신뢰할 수 없는
-선제적 수집 페이로드를 근거로 삼는 대신 레코더를 의도적으로 연결하지 않은 상태로 둡니다.
-운영 인벤토리, 자연어, 검토 전달 연결은 아직 미완성이고 통제된 실제 런타임 증적도
-수집하지 않았으므로 실제 Azure 근거로 검증 완료된 영역으로 표시하지 않습니다.
+결정론적 Twin 코어와 스칼라 및 그래프 시뮬레이션 기본 기능은 집중 테스트로
+검증됩니다. 자세 및 검토 표면은 **부분 구현**입니다. Heimdall 보고서 작성기와
+독립적인 Forseti 검토 작성기는 주입된 신뢰할 수 있는 출처에서 완전하고 최신이며
+정확한 개정에 연결된 보관 근거만 받습니다. 각 작성기는 읽기 전용 활동을 영속
+`state_kv` 행 및 Saga에 귀속된 추가 전용 감사 이력과 원자적으로 준비합니다.
+감독되는 두 아웃박스 중계기가 스키마 검증을 거친 정확한 개정의 참고용 이벤트를
+게시합니다. 인증된 Operator API와 콘솔은 이벤트 알림이 아닌 영속 행을 계속
+읽습니다. 기본 구성에는 운영 보관 근거 출처가 연결되지 않아 선제적 수집
+페이로드만으로 발견 사항이나 검토 판정을 만들 수 없습니다. 운영 인벤토리,
+외부 검토 전달, 통제된 런타임 증적은 아직 남아 있습니다.
 
 ### 구현 범위
 
@@ -58,7 +61,8 @@ Operator API, 읽기 전용 콘솔 패널은 존재하고 집중 테스트로 �
 | 운영 인벤토리 변환 결과와 선제적 변경 검토 전달 | not-started | [`projection.py`](../../../services/core-control-plane/src/fdai/shared/providers/projection.py)와 [`iac_review.py`](../../../services/core-control-plane/src/fdai/shared/providers/iac_review.py)가 프로바이더 시임을 정의합니다. | 업스트림에는 운영 인벤토리 어댑터, 변경 이벤트 조정기, Checks API 발행기가 연결되지 않았습니다. |
 | 엄격한 의미 컴파일과 판단 보류 피드백 | implemented | [`query.py`](../../../services/core-control-plane/src/fdai/core/assurance_twin/query.py), [`semantic_query.py`](../../../services/core-control-plane/src/fdai/core/assurance_twin/semantic_query.py), [`runtime/assurance_twin_query.py`](../../../services/core-control-plane/src/fdai/runtime/assurance_twin_query.py), 집중 질의 및 런타임 테스트 50개 | 주입된 컴파일러는 읽기 전용 계획이 검증을 통과하기 전에 정확한 입력 다이제스트, 컴파일러 개정, 제한된 결과 수, 근거 참조를 연결해야 합니다. 판단 보류는 주입된 발견 sink를 통해 내용 없는 무권한 공백만 발행합니다. 런타임 기본값은 명시적인 모델 사용 불가입니다. |
 | T1 재사용, ChatOps 입력, 통제된 런타임 근거 | in-progress | [`chat.py`](../../../services/core-control-plane/src/fdai/core/assurance_twin/chat.py), 공유 의미 판단 계약 | 메시지 라우팅, T1 재사용, 구체적인 모델 프로바이더, 인증된 종단 증적은 아직 검증되지 않았습니다. |
-| Twin 전용 운영자 패널과 거버넌스가 적용된 수정 제안 연결 | in-progress | [`posture_activity.py`](../../../services/core-control-plane/src/fdai/core/assurance_twin/posture_activity.py), [`assurance_twin_posture.py`(전달)](../../../services/core-control-plane/src/fdai/delivery/assurance_twin_posture.py), [`state_store_assurance_twin_posture.py`](../../../services/core-control-plane/src/fdai/delivery/persistence/state_store_assurance_twin_posture.py), [`assurance_twin_posture_projection.py`](../../../services/operator-service/src/fdai_operator_service/assurance_twin_posture_projection.py), `/assurance-twin/posture`, `/assurance-twin/reviews`, `/assurance-twin/review?review_key=` Operator API 경로, [`assurance-twin` 콘솔 경로](../../../console/src/routes/assurance-twin.tsx), 그리고 집중 테스트 | 부분 구현입니다. 레코더는 자세 보고서와 변경 검토 양쪽 모두에 대해 범위가 제한된 활동, 상관관계, 증거 다이제스트 출처와 함께 영속 `state_kv` 본문을 쓰고, Operator API 변환 결과가 읽을 때 적용하는 것과 동일한 쓰기 측 경계(`review_key` <= 256자, 발견 사항 <= 200개, 범위가 제한되고 중복 없는 비어 있지 않은 <= 512자 `reason_codes`/`evidence_refs` 항목, 비어 있지 않은 <= 512자 `evidence_source_revision`)를 강제하므로 수락된 쓰기는 항상 표시할 수 있습니다. 자세 범위는 `generated_at`이 더 새로운 경우에만 개정 번호로 보호된 비교 후 설정을 통해 진행합니다. 늦게 도착한 보고서는 대체됨으로 남고, 같은 시각의 동일 보고서는 멱등 재현으로 처리하며, 같은 시각의 다른 근거는 해당 범위를 영속 충돌 상태로 표식합니다. 자세 활동 신원은 호출자 상관관계 값 대신 정규화된 보고서 근거의 SHA-256 다이제스트에 결속됩니다. 자세와 변경 검토 활동 값은 모두 게시하지 않습니다. 영속 비교 후 설정과 별도 비동기 게시는 트랜잭션 아웃박스 없이는 더 새로운 자세 진행 또는 검토 충돌 표식과 안전하게 순서를 맞출 수 없습니다. 레코더는 로컬 감사용으로 스키마가 유효한 값을 반환하고 영속 원장은 권위 있는 상태를 유지합니다. 하나의 `review_key`에 대해 상충하는 재전달은 영속 본문을 대체하지 않고 해당 행을 영속적으로 표식합니다. 검토 목록 읽기는 `state_kv` 키 접미사를 본문의 정확하고 불투명한 `review_key`와 대조합니다. Operator API와 콘솔은 저장된 근거를 그대로 표시하고 오래되었거나 사용 불가, 알 수 없음, 형식 오류, 다이제스트 불일치, 키 불일치, 충돌 표식이 있는 행은 명시적인 공백으로 보류합니다. 콘솔은 사용할 수 있는 자세 범위를 모두 표시하고 보류된 근거를 실제 빈 원장과 구분합니다. **신뢰된 생산자는 연결되어 있지 않습니다.** Twin 발견 사항을 계산하거나 이 행을 쓰는 구성 요소가 없고, 공격자가 영향을 줄 수 있는 선제적 수집 페이로드는 Twin 근거로 받아들이지 않으므로 레코더에는 런타임 호출 지점이 없습니다. 운영 `Inventory` 연결, 신뢰된 생산자, 수정 제안 연결, 트랜잭션 활동 게시 설계, 통제된 실제 증적은 모두 남은 작업입니다. |
+| Heimdall/Forseti 로컬 이벤트 게시 | implemented | [`assurance_twin_writers.py`](../../../services/core-control-plane/src/fdai/delivery/assurance_twin_writers.py), [`assurance_twin_publication.py`](../../../services/core-control-plane/src/fdai/delivery/assurance_twin_publication.py), [`test_assurance_twin_publication.py`](../../../services/core-control-plane/tests/delivery/test_assurance_twin_publication.py) | 요청에는 발견 사항이 없습니다. 주입된 출처가 요청한 개정의 완전하고 최신이며 상충하지 않는 근거를 반환한 경우에만 해당 작성기가 저장합니다. Saga에 귀속된 감사 이력과 내장 아웃박스는 정확한 행과 함께 원자적으로 저장됩니다. 재시작한 중계기는 영속 개정을 검증한 후에만 스키마 검증을 거친 참고용 이벤트를 발행합니다. 실제 보관 근거와 통제된 런타임 연결은 아직 없습니다. |
+| Twin 전용 운영자 패널과 거버넌스가 적용된 수정 제안 연결 | in-progress | [`posture_activity.py`](../../../services/core-control-plane/src/fdai/core/assurance_twin/posture_activity.py), [`assurance_twin_posture.py`](../../../services/core-control-plane/src/fdai/delivery/assurance_twin_posture.py), [`state_store_assurance_twin_posture.py`](../../../services/core-control-plane/src/fdai/delivery/persistence/state_store_assurance_twin_posture.py), [`assurance_twin_posture_projection.py`](../../../services/operator-service/src/fdai_operator_service/assurance_twin_posture_projection.py), [`assurance-twin` 콘솔 경로](../../../console/src/routes/assurance-twin.tsx) | 레코더는 출처와 내장된 게시 대기를 포함하는 제한된 보고서 및 검토 본문을 감사 기록과 같은 트랜잭션에서 개정 번호로 보호하여 저장합니다. Heimdall과 Forseti는 각자 소유하는 별도의 활동을 사용합니다. 관찰자에게만 허용되는 공유 운영 활동 스키마를 Forseti 소유로 위장하지 않습니다. 중계기는 정확한 영속 개정을 확인하고 게시 사실을 기록합니다. 늦거나 상충하는 근거는 현재 행을 바꾸거나 게시하지 못합니다. Operator와 콘솔은 영속 발견 사항과 근거 공백을 읽고 권한을 재계산하지 않습니다. 신뢰할 수 있는 출처, 외부 Checks 발행기, 수정 제안 연결, 통제된 실제 증적은 여전히 연결되지 않았습니다. |
 
 일치하는 검토 재전달은 읽기 전용 no-op이므로 감사 항목을 추가하지 않고 최신 순서를 바꾸지
 않습니다. 범위가 제한된 최근 검토 읽기는 정규 `generated_at` 순서로 정렬하며 변환 결과가
@@ -66,8 +70,19 @@ Operator API, 읽기 전용 콘솔 패널은 존재하고 집중 테스트로 �
 
 ### 구현 이력
 
+보관 행의 아웃박스와 Saga에 귀속된 감사 이력은
+[`assurance_twin_outbox.py`](../../../services/core-control-plane/src/fdai/delivery/persistence/assurance_twin_outbox.py)에
+있습니다. 기존 `StateStore`의 원자적 상태 및 감사 작업을 사용하며 패키지 스키마나
+마이그레이션은 필요하지 않습니다. 작성기는 명시적인 관측 범위와 생성 시각부터
+만료 시각까지 최대 30분인 근거를 요구합니다. Forseti는 보관된 검토 판정이 완전한
+발견 사항 집합에 부합하는지 확인하며, 근거가 없거나 오래되거나 상충할 때 판정을
+추론하지 않습니다. 버스 알림에는 `current: false`와
+`publication_complete: false`를 넣습니다. 중계기가 마지막으로 읽은 뒤 더 새로운
+행이 저장될 수 있으므로 현재 상태는 영속 변환 결과만 판단합니다.
+
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-27 | implemented | Heimdall 보고서와 Forseti 검토 작성기를 분리하고, 정확한 개정의 상태, 아웃박스, 감사를 원자적으로 저장하며 재시작 중계기를 감독하도록 했습니다. 출처를 사용할 수 없거나 근거가 충돌할 때 검토 판정을 만들어 내지 않습니다. | `current change`; `assurance_twin_writers.py`, `assurance_twin_publication.py`, Core, Operator 및 콘솔 집중 검사. | 신뢰할 수 있는 운영 근거를 연결하고 통제된 런타임 증적을 보관합니다. |
 | 2026-09-09 | in-progress | 일치하는 검토 재전달이 동시에 기록되는 충돌 표식과 올바른 순서로 수렴하도록 두 번째 개정 번호 및 다이제스트 읽기를 추가했습니다. 확인 과정은 읽기 전용이며 감사 항목을 추가하지 않습니다. 두 읽기 사이에 충돌이 기록되면 사용 불가 결과를 반환합니다. | `current change`; 읽기와 충돌 표식의 교차 순서를 강제한 사례를 포함해 집중 영속성 및 전달 검사 45개와 Ruff 통과. | 신뢰된 생산자 또는 트랜잭션 발행기를 연결할 때도 같은 읽기 전용 순서 보장을 유지합니다. |
 | 2026-09-09 | in-progress | 일치하는 변경 검토 재전달을 실제 읽기 전용 no-op으로 만들고, 범위가 제한된 최근 검토 변환 결과를 쓰기 최신성이 아니라 정규 근거 생성 시각 순서로 정렬했습니다. 읽기 용량인 1,000행을 넘으면 오해를 일으키는 부분 순서를 반환하지 않고 명시적으로 실패합니다. | `current change`; 집중 영속성 및 전달 검사 44개와 Ruff 통과. | 신뢰된 생산자를 연결하고 통제된 재현 근거를 보존합니다. 레코더는 계속 연결되지 않은 상태입니다. |
 | 2026-09-08 | in-progress | 영속성, 활동 신원, 스키마 소유권, Operator 변환 결과 신원, 콘솔 상태 표현에서 마지막 Medium 이상 검토 결과를 해결했습니다. 자세 쓰기는 가장 최근에 생성된 근거로 수렴하고, 활동 키는 개인정보를 노출하지 않는 보고서 근거에 결속됩니다. 스키마는 `assurance-twin` 생산자가 다른 활동 종류를 가장하는 것을 차단합니다. 검토 목록은 영속 키를 정확한 본문 신원에 결속하고, 모든 자세 범위를 표시하며, 보류된 행을 빈 원장으로 표현하지 않습니다. | `current change`; 집중 Core, 계약, Operator, 콘솔 회귀 검사는 지연되거나 동시 발생한 자세 쓰기, 오래된 게시 억제, 범위 간 활동 신원, 생산자 가장, 영속 키 불일치, 다중 범위 요약, 보류 상태 레이블을 검증합니다. | 신뢰된 생산자를 연결하고 통제된 실제 근거를 보존합니다. 이 강화만으로 연결되지 않은 화면이 운영 검증 완료 상태가 되지는 않습니다. |
@@ -94,16 +109,15 @@ Operator API, 읽기 전용 콘솔 패널은 존재하고 집중 테스트로 �
 - [ ] 구체적인 통제 모델 컴파일러와 ChatOps 입력을 연결하고 인증된 런타임 증적을 보존합니다.
 - [ ] 선제적 변경 이벤트를 운영 `IacReviewPublisher`에 연결하고 변경, 발견 사항, 규칙 근거,
   게시된 검토를 연결하는 거버넌스 적용 shadow 증적을 기록합니다.
-- [ ] CAS/비동기 게시 순서 위험을 견디는 트랜잭션 자세/검토 활동 게시 경로를 설계합니다. 영속
-  자세 진행 또는 검토 충돌 표식과 버스 게시는 서로 분리되고 순서가 보장되지 않는 단계입니다.
-  아웃박스가 정확한 영속 개정 번호를 게시와 결속할 때까지 두 레코드는 Operator API/콘솔로 읽을
-  수 있지만 활동 신호를 게시하지 않습니다.
+- [x] 보고서와 검토 게시 대기를 정확한 영속 개정 및 추가 전용 감사와 같은
+  트랜잭션에서 준비하고, 검증된 대기 개정만 중계합니다. 집중 재시작, 순서 역전,
+  충돌 테스트로 저장소 내 경로를 확인했습니다.
 - [ ] 판단 보류된 질문과 수정 제안을 발견 및 정상 risk-gate 액션 경로로 보내고 Twin이 실행하거나
   권한을 높이지 않는지 테스트합니다.
-- [ ] Twin 발견 사항을 계산하고 자세/검토 레코더를 호출하는 신뢰된 생산자를 연결합니다.
-  읽기 전용 레코더, 영속 원장, Operator API, 콘솔 패널은 존재하고 집중 테스트로 검증되지만,
-  신뢰된 생산자가 생기기 전까지 이 표면은 부분 구현으로 남습니다. 공격자가 영향을 줄 수 있는
-  선제적 수집 페이로드는 권위 있는 Twin 근거가 될 수 없습니다.
+- [ ] 신뢰할 수 있는 보관 근거 출처와 운영 인벤토리 및 변경 수신 경로를
+  독립적으로 감독되는 Heimdall/Forseti 작성기에 연결합니다. 내용 없는 요청은
+  근거가 아니며 공격자가 영향을 줄 수 있는 선제적 수집 페이로드는 권위 있는
+  Twin 근거가 될 수 없습니다.
 - [ ] 하나의 전체 인벤토리-보고서 렌더링에 대한 통제된 런타임 증적을 수집합니다. 이 항목은
   운영 `Inventory` 연결과 신뢰된 생산자를 필요로 하므로 구현도 검증도 완료되지 않았습니다.
   실제 증적은 아직 없으며 대체 증적을 만들어 넣어서도 안 됩니다.
@@ -379,7 +393,7 @@ Supplemental 프로바이더는 서버 매개변수, diagnostic-setting 상태, 
 | `graph_effect` / `graph_runtime` | 범위가 제한된 그래프 효과를 전파하고 필수 active-trajectory 불변식을 평가하며 review-only 시뮬레이션 근거를 반환합니다. |
 | `trajectory_ledger` | Predicted trajectory 에피소드를 저장하고 완전한 comparable 결과만 StateStore를 통해 atomically close합니다. |
 | `graph_closure` | 독립적인 관측을 off-path로 배출하고 challenger 구획을 갱신하며 활성 변경과 승격이 없었음을 감사합니다. |
-| `posture_activity` | 계산된 `PostureAssessmentReport` 또는 `IacReview` 에 대해 범위가 제한되고 스키마 검증된 `agent.operational-activity` 신호(Heimdall 소유, `assurance-twin.posture` 종류)를 만듭니다. 발견 사항은 담지 않고 범위가 제한된 근거 개수와 신선도만 담습니다. 런타임 호출 지점은 없습니다. [`delivery/assurance_twin_posture.py`](../../../services/core-control-plane/src/fdai/delivery/assurance_twin_posture.py)의 레코더는 Twin 발견 사항을 계산하는 신뢰된 생산자가 생길 때까지 연결되지 않은 상태로 남으며, 선제적 수집 페이로드를 그 대체물로 받아들이지 않습니다. |
+| `posture_activity` | Heimdall의 기존 제한된 자세 활동과 Forseti의 별도 읽기 전용 검토 활동을 만듭니다. 전달 레코더는 각 활동을 보관 기록 및 Saga에 귀속된 추가 전용 감사와 함께 준비합니다. 독립적으로 감독되는 두 중계기가 개정에 결속된 이벤트를 게시합니다. 발견 사항을 계산하려면 주입된 신뢰할 수 있는 출처가 여전히 필요합니다. |
 
 목표 전달은 기존 `chatops` 어댑터에 인텐트 하나를 추가하고(질문 입력, 근거 있는 답 출력)
 제안과 Checks API 리뷰에 `gitops-pr` 어댑터를 재사용합니다. 현재 저장소에는

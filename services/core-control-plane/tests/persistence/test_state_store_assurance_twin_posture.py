@@ -284,7 +284,7 @@ async def test_change_review_write_is_idempotent_by_review_key() -> None:
     assert duplicate.created is False
     assert duplicate.conflict is False
     assert duplicate.evidence_digest == first.evidence_digest
-    assert store.audit_entries == ()
+    assert len(store.audit_entries) == 1
 
     reviews = await ledger.read_recent_change_reviews(limit=10)
     assert len(reviews) == 1
@@ -510,7 +510,7 @@ async def test_read_recent_change_reviews_returns_newest_first() -> None:
     assert replay.created is False
     assert replay.conflict is False
     assert [row["review_key"] for row in reviews] == ["k-new", "k-old"]
-    assert store.audit_entries == ()
+    assert len(store.audit_entries) == 2
 
 
 async def test_read_latest_posture_report_is_none_when_unrecorded() -> None:
@@ -1038,7 +1038,7 @@ async def test_matching_replay_is_read_only_before_a_later_conflict() -> None:
     assert matching_result.conflict is False
     assert matching_result.created is False
     assert matching_result.evidence_digest == baseline.evidence_digest
-    assert inner.audit_entries == ()
+    assert len(inner.audit_entries) == 1
 
     conflicting_result = await ledger.record_change_review(
         _review("k-1", _finding(rule="r-conflict"), verdict="blocked"),

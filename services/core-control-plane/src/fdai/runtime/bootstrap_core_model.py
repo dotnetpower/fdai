@@ -72,6 +72,8 @@ class CoreRuntime:
     assignment_outcome_consumer: Any = None
     human_access_reconciliation: Any = None
     task_workers: TaskWorkerRuntimeBinding | None = None
+    assurance_twin_publishers: tuple[Any, ...] = ()
+    assurance_twin_writers: tuple[Any, ...] = ()
 
     def task_configuration(self, stop: asyncio.Event) -> RuntimeTaskConfiguration:
         """Project assembled bindings into the task-supervision contract."""
@@ -121,6 +123,8 @@ class CoreRuntime:
             rule_activation_reconciliation=self.rule_activation_reconciliation,
             assignment_outcome_consumer=self.assignment_outcome_consumer,
             human_access_reconciliation=self.human_access_reconciliation,
+            assurance_twin_publishers=self.assurance_twin_publishers,
+            assurance_twin_writers=self.assurance_twin_writers,
         )
 
 

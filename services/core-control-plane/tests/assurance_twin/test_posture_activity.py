@@ -7,6 +7,7 @@ import json
 import pytest
 from fdai.core.assurance_twin import build_posture_assessment_report
 from fdai.core.assurance_twin.posture_activity import (
+    AssuranceTwinReviewActivity,
     build_change_review_activity,
     build_posture_report_activity,
 )
@@ -101,17 +102,14 @@ def test_change_review_activity_is_authority_free_and_schema_valid() -> None:
     payload = activity.model_dump(mode="json")
 
     assert payload["execution_authority"] is False
+    assert payload["owner_agent"] == "Forseti"
     assert payload["evidence_count"] == 2
     assert payload["source"] == "assurance-twin:review"
     serialized = json.dumps(payload)
     assert pr_ref not in serialized
     assert review_key not in serialized
     assert correlation_id not in serialized
-    JsonSchemaContractValidator(PackageResourceSchemaRegistry()).validate(
-        "agent-operational-activity",
-        payload,
-        version="1.2.0",
-    )
+    assert AssuranceTwinReviewActivity.model_validate(payload) == activity
 
 
 def test_posture_activity_identity_binds_privacy_safe_report_evidence() -> None:
