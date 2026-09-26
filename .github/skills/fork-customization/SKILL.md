@@ -91,6 +91,12 @@ your-fork/
   <upstream tree - byte-identical except pyproject.toml>
 ```
 
+A fork-owned optional extension package may expose a reviewed authority-neutral facade for its
+factories, resource loaders, readiness types, and adapters. Import that facade only from the fork
+composition root. Public discoverability does not select availability, enablement, user access,
+action mode, approval, promotion, or execution authority, and Core must not import the optional
+package.
+
 Seam recipes are numbered 5.1-5.16 in
 [downstream-fork-seam-recipes.md](../../../docs/roadmap/fork-and-sequencing/downstream-fork-seam-recipes.md):
 `LlmBindings` (5.1), `OperatorMemoryStore` (5.2), `HilRejectMaterializer` (5.3),

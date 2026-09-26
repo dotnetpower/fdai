@@ -1,8 +1,8 @@
 ---
 title: FinOps 패키지 전달 계획
 translation_of: finops-package-delivery-plan.md
-translation_source_sha: bc122ba67ccafa6d9bebfc7f19b22d7eee517a26
-translation_revised: 2026-09-20
+translation_source_sha: f8bab6bca50c69fb34bea61e887fc94f4b6e4f71
+translation_revised: 2026-09-26
 ---
 
 # FinOps 패키지 전달 계획
@@ -231,17 +231,19 @@ release wheel, 서명된 이미지, 배포된 작업, 런타임 구성 및 완�
 Exact-release 검증은 의미 프로필 검증기와 동등성 테스트 모두에 root lockfile-frozen dev extra를
 요청합니다. 검증 도구가 없으면 export, import 또는 검토 근거를 만들기 전에 실패합니다.
 
-campaign이 `ready=true`를 반환하면 별도의 보호된 검토 경계가 요청마다 정확히 하나의 대상을
-기록합니다. 이 경계는 활성 revision pin을 다시 읽고 해당 대상의 campaign report를 다시 계산한
-다음, campaign과 report digest, 대상 종류와 ID, 인증된 검토자 신원, 결정, 근거 설명, 근거 참조,
-검토 시각을 포함하는 내용 주소 기반 증적을 추가합니다. 결정은 `recommend`, `hold`, `deny` 중
-하나이며, 모든 증적은 승인, 실행, promotion 권한을 `false`로 고정합니다. 일괄 결정은 다른 대상의
-결정을 대신할 수 없으며, recommendation 이후에도 package activation 또는 대상 promotion을
-수행하려면 별도로 승인된 변경이 필요합니다.
+campaign이 `ready=true`를 반환하면 별도의 보호된 검토 경계가 대상 하나 또는 최대 6개 대상
+지시문을 담은 범위가 제한된 묶음 하나를 수락합니다. 묶음에는 대상 종류, 대상 ID, 결정, 근거만
+포함하며 campaign ID와 digest는 독립적으로 다시 계산한 준비 상태 산출물에서 가져옵니다. 기록기는
+묶음을 안정적인 하위 요청 ID가 있는 기존 내용 주소 기반 단일 대상 증적으로 분해합니다. 각 증적은
+campaign과 report digest, 인증된 검토자 ID, 결정, 근거, 근거 참조, 검토 시각을 유지합니다.
+결정은 `recommend`, `hold`, `deny` 중 하나이며 모든 증적은 승인, 실행, promotion 권한을
+`false`로 고정합니다. 한 대상의 결정은 다른 대상의 결정을 대신할 수 없으며 recommendation
+이후에도 패키지 활성화 또는 대상 promotion에는 별도로 승인된 변경이 필요합니다.
 검토자는 대소문자를 구분하지 않고 attested campaign workflow의 최초 행위자 및 재실행 행위자
-모두와 달라야 합니다. 요청 ID 재생은 영속 payload와 모든 정규화 열이 제안된 검토와 계속 일치할
-때만 허용됩니다. 생성된 검토 및 보존 시각은 요청 신원을 바꾸지 않습니다. 보존 기간은 일치해야
-하며 재시도는 원래 증적을 반환합니다.
+모두와 달라야 합니다. 하위 요청 ID 재생은 영속 payload와 모든 정규화 열이 제안된 검토와 계속
+일치할 때만 허용됩니다. 생성된 검토 및 보존 시각은 요청 신원을 바꾸지 않습니다. 보존 기간은
+일치해야 하며 재시도는 원래 증적을 반환합니다. 부분 일괄 처리는 명시적으로 남습니다. 같은 묶음을
+재시도하면 완료된 하위 항목을 재생하고 남은 독립 결정을 계속 처리합니다.
 
 ## 검증 매트릭스
 

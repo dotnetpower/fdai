@@ -14,9 +14,11 @@ scope: repository
 
 FDAI supports one tenant-deployment engine with two artifact sources:
 
-- Connected: clone the repository, run `az login`, then run `fdai-up.sh`.
-- Artifact-offline: load a digest-pinned deployment appliance or provide the same complete signed kit
-  through `--offline-kit`.
+- Connected: clone the repository, run `az login`, then run `fdai-up.sh` with an approved
+  exact-revision image manifest. Optional `--online` kit acquisition still uses the complete
+  offline-compatible closure.
+- Artifact-offline: load a digest-pinned deployment appliance or provide a complete signed offline
+  profile through `--offline-kit`.
 
 Both paths use `fdaictl provision azure` and the same exact-plan, approval, Managed Identity,
 recovery, and verification contracts. GitHub Actions may test source and publish release artifacts.
@@ -113,8 +115,10 @@ kit or the environment has no public artifact access.
 The command:
 
 1. Reads the active Azure tenant and subscription from the signed-in human.
-2. Resolves one complete signed kit from the selected `--online` source or local `--offline-kit`
-  and applies the same signature, manifest, provenance, and digest verification.
+2. Resolves the selected artifact source. Connected source delivery verifies the protected source
+  revision and approved image manifest without offline-only wheels or provider mirrors. `--online`
+  and local `--offline-kit` acquisition verify the complete offline closure. Every path preserves
+  signature, manifest, provenance, SBOM, compatibility, and digest verification.
 3. Runs bounded read-only target, policy, provider, quota, and region checks.
 4. Shows each exact Terraform plan and waits for explicit terminal approval.
 5. Reuses an eligible existing host and verified Foundation resources, or plans only the missing
@@ -185,11 +189,13 @@ rollback, or effect verification.
 ## Artifact Boundary
 
 Release construction is a separate upstream supply-chain responsibility. Tenant provisioning only
-accepts a complete prebuilt, signed and digest-pinned artifact set with manifests, SBOMs,
-provenance and signatures. It never invokes Docker, Buildx, ACR Tasks, a remote builder or a VM
-image capture operation. The local coordinator reads an approved local kit for operational
-validation; explicitly selected online mode downloads the same verified set. The appliance reads
-the embedded local kit. None of these paths changes artifact bytes.
+accepts a profile-complete, prebuilt, signed, and digest-pinned artifact set with manifests, SBOMs,
+provenance, and signatures. Connected, offline, and appliance profiles can carry different closed
+sets, but no selected profile can omit one of its declared dependencies. Provisioning never invokes
+Docker, Buildx, ACR Tasks, a remote builder, or a VM image capture operation. The local coordinator
+reads an approved local kit for operational validation; explicitly selected online mode downloads
+its selected verified profile. The appliance reads the embedded complete offline kit. None of
+these paths changes artifact bytes.
 
 Never place signing keys, tenant identifiers, credentials, endpoints or customer values in an
 image, repository, documentation or logs.

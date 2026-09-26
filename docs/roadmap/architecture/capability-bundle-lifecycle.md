@@ -27,11 +27,12 @@ not enable, materialize, or promote the skill.
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-26 | implemented | Allowed a complete lifecycle to use bounded linked receipts with one exact artifact lineage instead of requiring one monolithic live run. | `current change`; package assurance policy, checker, owner documentation, and focused policy tests. | Retain the governed operational linked receipt set under Issue #355. |
 | 2026-08-21 | implemented | Moved the existing capability bundle and trusted-artifact lifecycle into a focused owner document without changing runtime behavior or authority. | `current change`; document-size, translation, route, and link checks. | Retain governed operational evidence for a complete install, enable, disable, revoke, and disclosure reload sequence on one exact revision. |
 
 ### Remaining work
 
-- [ ] Retain one exact-revision governed lifecycle receipt covering install, enable, disable,
+- [ ] Retain a complete linked exact-artifact receipt set covering install, enable, disable,
   revoke, and disclosure reload while proving no bundle request bypasses the typed action path.
 
 ## Bundle registration
@@ -72,6 +73,17 @@ This lifecycle is intentionally not a dynamic code loader or public package down
 composition root supplies already-reviewed provider implementations and the trust verifier.
 Extension activation registers typed metadata and references only; every mutation still uses the
 normal pipeline and starts in shadow mode according to its ActionType or Workflow contract.
+
+### Lifecycle evidence composition
+
+Operational evidence can be one bounded run or several linked runs. Separate receipts compose only
+when they bind the same artifact digest, release revision, environment identity, and audit
+correlation identity. The complete set still covers install, enable, disable, revoke, reload, and
+restart readback in order. Missing or conflicting links keep the lifecycle incomplete.
+
+This relaxation changes evidence packaging, not runtime authority. Each transition preserves its
+own actor, idempotency, audit, and effect evidence, and no receipt can promote an `ActionType` or
+`Workflow`.
 
 ## Trusted artifact persistence
 

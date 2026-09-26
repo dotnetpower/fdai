@@ -25,6 +25,7 @@ properties:
 from __future__ import annotations
 
 import argparse
+import hashlib
 import sys
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -33,10 +34,14 @@ from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from cryptography.hazmat.primitives.serialization import load_pem_private_key
 from fdai_deployment_cli.offline_kit import (
     MANIFEST_NAME,
+    ROOT_MANIFEST_NAME,
+    ROOT_SIGNATURE_NAME,
     SIGNATURE_NAME,
     OfflineKitVerificationError,
     build_offline_kit_manifest,
+    build_root_manifest,
     verify_offline_kit,
+    verify_root_manifest,
 )
 
 if TYPE_CHECKING:
@@ -87,12 +92,23 @@ def sign_offline_kit(
         rule_activation_profile=rule_activation_profile,
         rule_activation_profile_id=rule_activation_profile_id,
         rule_activation_profile_created_at=rule_activation_profile_created_at,
+        deployment_root_required=True,
     )
     signature = private_key.sign(manifest_bytes)
+    root_bytes = build_root_manifest(
+        kit_manifest_digest=hashlib.sha256(manifest_bytes).hexdigest(),
+        profiles=["offline"],
+    )
+    root_signature = private_key.sign(root_bytes)
     manifest_path = root / MANIFEST_NAME
     signature_path = root / SIGNATURE_NAME
+    root_manifest_path = root / ROOT_MANIFEST_NAME
+    root_signature_path = root / ROOT_SIGNATURE_NAME
     remove_work_file(signature_path, missing_ok=True)
+    remove_work_file(root_signature_path, missing_ok=True)
     write_work_file(manifest_path, manifest_bytes, mode=0o644, replace=True)
+    write_work_file(root_manifest_path, root_bytes, mode=0o644, replace=True)
+    write_work_file(root_signature_path, root_signature, mode=0o644, replace=False)
     write_work_file(signature_path, signature, mode=0o644, replace=False)
     try:
         verification = verify_offline_kit(
@@ -101,6 +117,11 @@ def sign_offline_kit(
             cli_version=cli_version,
             platform_tag=platform_tag,
         )
+        verify_root_manifest(
+            root,
+            release_root_pem=release_root_pem,
+            expected_profile="offline",
+        )
     except OfflineKitVerificationError as exc:
         # A kit whose own signer cannot verify it MUST NOT look shippable. The
         # reachable cause is a release root that does not match the signing key
@@ -108,6 +129,8 @@ def sign_offline_kit(
         # rather than with a signature nobody downstream can check.
         remove_work_file(manifest_path, missing_ok=True)
         remove_work_file(signature_path, missing_ok=True)
+        remove_work_file(root_manifest_path, missing_ok=True)
+        remove_work_file(root_signature_path, missing_ok=True)
         raise OfflineKitBuildError(
             f"offline kit failed its own verification and was left unsigned: {exc}"
         ) from exc

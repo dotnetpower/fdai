@@ -16,6 +16,12 @@ Use this package for contracts that cross an independently released process boun
 - Provider-neutral protocols that service-owned adapters implement.
 - Stable service identity, execution venue, readiness, and audit serialization records.
 
+These compatibility obligations follow the
+[independent-contract assurance level](../../docs/roadmap/architecture/package-assurance.md).
+They do not apply merely because code has a Python package boundary. Internal lockstep records stay
+with their owning distribution until they become published, cross-process, or durably consumed by
+another release.
+
 Contract data can describe an action or an executor boundary, but importing this package never
 grants approval, mutation, provider access, or executor identity. Keep provider clients, database
 access, composition, and workflow decisions in the service that owns them.
@@ -58,7 +64,8 @@ assert wire_version >= SemVer.parse("1.0.0")
 
 Keep contract changes reviewable across independently deployable consumers:
 
-1. Add a new schema version instead of changing a published schema in place.
+1. Add a new schema version instead of changing a published cross-process or durable schema in
+   place.
 2. Preserve additive compatibility within a major version and update explicit translators when an
    older peer needs a smaller envelope.
 3. Update the compatibility manifest and producer or consumer codecs for every affected edge.
