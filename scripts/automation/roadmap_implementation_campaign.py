@@ -50,7 +50,15 @@ BATCH_OWNED_GATES: tuple[tuple[str, ...], ...] = (
     ("python3", "scripts/quality/localization/check-derived-sources.py"),
     ("python3", "scripts/quality/architecture/check-design-routes.py"),
     ("python3", "scripts/quality/architecture/check-constitution.py"),
-    ("python3", "-m", "pytest", "tests/integration/scripts/test_service_test_suites.py", "-q"),
+    (
+        "uv",
+        "run",
+        "python",
+        "-m",
+        "pytest",
+        "tests/integration/scripts/test_service_test_suites.py",
+        "-q",
+    ),
 )
 
 
