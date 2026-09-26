@@ -98,18 +98,20 @@ Command Deck chooses the safer result when evidence is uncertain:
 
 ## Behavior coverage
 
-The reference seed set is designed to contain 13 contracts. Ten architecture contracts extend the
-initial three:
+The read-only reference catalog contains 13 contracts: three object/agent behaviors and ten
+architecture behaviors. Eleven cite current implementation and test symbols; the Console identity
+and local evidence records cite design instructions only and remain `designed`. These repository
+citations are not tenant observations, runtime validation, or execution authority.
 
-| Behavior | Owner | Implemented evidence |
+| Behavior | Owner | Reference source |
 |----------|-------|----------------------|
-| Deterministic Incident ID, member merge, monotonic severity, and lifecycle notice | `IncidentRegistry` | Incident registry code and lifecycle tests |
+| Deterministic Incident ID and member merge | `IncidentRegistry` | Incident registry code and lifecycle tests |
 | Odin cross-domain arbitration and non-intervention | `Odin` with `Forseti` trigger ownership | Forseti and Odin code, arbitration code, and arbitration tests |
 | Issue fingerprint deduplication | `Saga` | Saga code, governance tests, and the Issue lifecycle schema |
 | Trust routing and T2 quality gate | `TrustRouter`, `QualityGate` | Core implementation and focused tests |
 | Human approval and shadow promotion | `RiskGate`, `Var`, `ActionPromotionRegistry` | Agent/core implementation and regression tests |
 | Executor safety, event deduplication, and rollback | `ShadowExecutor`, `EventIngest`, `Vidar` | Core/agent implementation and idempotency tests |
-| Console identity boundary and local evidence parity | Operator API composition and `Thor` | Configuration contract plus local Operator API tests |
+| Console identity boundary and local evidence parity | Operator API composition and `Thor` | App Shape design instructions; no current operational receipt |
 | Narrator translator-only path | `Bragi` | Agent implementation, typed-pipeline re-entry, and primary/contributor normalization tests |
 
 The Odin contract explicitly excludes single-domain and unanimous recommendations. It also marks
@@ -136,68 +138,28 @@ Operator API performs these steps:
 The answer always uses this shape: trigger, preconditions, processing steps, outcomes, exclusions,
 safety and fallback behavior, owner, implementation status, and citations or provenance.
 
-## Implementation status
-
-The service extraction retained the provider contracts but removed the concrete retrieval,
-Operator API, PostgreSQL, seed, and test implementations. In-memory retrieval and tracked-source
-freshness validation are restored; the Operator answer path, persistence, and seeds are not. The
-design remains authoritative; the ledger below separates that target from the current executable
-surface.
-
-### Implementation scope
-
-| Area | State | Evidence | Notes |
-|------|-------|----------|-------|
-| Structured behavior contracts | implemented | [`behavior_knowledge.py`](../../../services/core-control-plane/src/fdai/shared/providers/behavior_knowledge.py); [`test_behavior_knowledge.py`](../../../services/core-control-plane/tests/providers/test_behavior_knowledge.py) (`16 passed`) | Focused contract tests cover repository-relative source coordinates, ordered line ranges, citation minimization, stable identity fields, required aliases and sources, embedding dimensions, test backing, and localized search text. |
-| In-memory retrieval and tracked-source freshness validation | implemented | [`behavior_index.py`](../../../services/core-control-plane/src/fdai/core/knowledge/behavior_index.py); [`test_behavior_index.py`](../../../services/core-control-plane/tests/knowledge/test_behavior_index.py) (`14 passed`) | `InMemoryBehaviorKnowledgeIndex` provides idempotent upsert, exact-alias/exact-identifier/hybrid ordering, authority ordering, reciprocal-rank fusion, retrieval floors, comparison withholding, Korean token retrieval, and stale or untracked citation handling. The 13 reference seeds remain separate work. |
-| 13 reference seeds | not-started | Service extraction commit `0988b1552` and current tracked-tree audit | No seed set, seed precision test, or holdout corpus exists under the current service topology. |
-| Server-owned resolver, renderer, and verifier | not-started | Service extraction commit `0988b1552` and current tracked-tree audit | No current Operator API behavior-evidence capability imports or binds the retained contracts. |
-| PostgreSQL/pgvector persistence and production binding | not-started | Service extraction commit `0988b1552` and current tracked-tree audit | The prior adapter was removed; no behavior-specific migration, composition binding, or sync command exists in the current tree. |
-| Focused verification and runtime evidence | not-started | Current tracked-tree audit | The former unit, chat, pgvector parity, and holdout checks are absent. No current runtime receipt validates this design. |
-
-### Implementation history
-
-| Date | State | Change | Evidence | Remaining |
-|------|-------|--------|----------|-----------|
-| 2026-08-13 | in-progress | Adopted the implementation ledger and corrected the stale post-extraction status; earlier implementation provenance was not reconstructed. | `current change`; this bilingual document pair; current provider-contract audit; `git diff-tree --no-commit-id --name-status -r 0988b1552`; roadmap, translation, punctuation, Hangul, size, and link checks. | Restore the concrete retrieval and answer path, persistence, focused tests, and governed runtime evidence below. |
-| 2026-08-16 | in-progress | Restored the in-memory behavior index and the tracked-source freshness validator under the current service topology. | `pytest services/core-control-plane/tests/knowledge/test_behavior_index.py` passed 14 focused tests covering idempotent upsert, match-class and authority ordering, stale and untracked citations, Korean paraphrase retrieval, comparison withholding, all-stale comparison abstention, the retrieval floor, and citation-only exposure. | Restore the 13 reference seeds, bind the server-owned Operator answer path, add persistence, and record governed runtime evidence. |
-| 2026-09-12 | implemented | Added direct provider-contract coverage and reconciled the already-tested in-memory retrieval and freshness implementation without restoring removed seeds or production bindings. | `current change`; provider contract and in-memory index tests (`30 passed`). | Restore tracked reference seeds, the server-owned answer path, PostgreSQL parity, and governed runtime evidence. |
-
-### Remaining work
-
-- [x] Restore the in-memory index and tracked-source freshness validator under the current service
-  topology, with focused tests proving ordering, stale-source handling, localization, comparison,
-  and source-body exclusion.
-- [ ] Restore the 13 reference seeds against tracked repository sources, with a whole-seed precision
-  test that fails on a stale path, blob, or symbol line range.
-- [ ] Bind a server-owned resolver, deterministic renderer, and verifier in the Operator API, with
-  focused tests proving client evidence replacement, authority-path fallback, and localized answer
-  structure.
-- [ ] Add a behavior-specific PostgreSQL migration, pgvector adapter, production composition
-  binding, and incremental sync command, then record passing in-memory/database parity evidence.
-- [ ] Re-run the 20-question holdout and latency benchmark against the restored current topology,
-  and record the governed runtime receipt without treating the pre-extraction baseline as current
-  validation.
-
 ## Verification
 
-Before service extraction, focused tests covered exact alias priority, normalized subject ranking, idempotent reindexing, stale
-hashes, implemented and test-backed authority, source citation shape and symbol precision, source
-body exclusion, client evidence replacement, prompt-injection isolation, comparisons, localization,
-and PostgreSQL/in-memory top-hit and exact-class parity. Source-precision validation checks every
-built-in seed, so insertions that move agent, lifecycle, or local-composition test symbols refresh
-all affected ranges in the same change. A frozen set of 20 holdout architecture paraphrases scores
+The current whole-seed precision test checks all 13 tracked source paths, Git blobs, symbols, exact
+ranges, unique identities, bilingual fields, and deterministic regeneration. Changes to cited code,
+tests, schemas, or design instructions must regenerate the artifact in the same change. This is
+repository validation, not a check of a live Operator answer.
+
+Before service extraction, focused tests also covered client evidence replacement, prompt-injection
+isolation, and PostgreSQL/in-memory top-hit and exact-class parity. A frozen set of 20 holdout
+architecture paraphrases scored
 routing, status, current citations, precise symbols, authority, structure, facts, exclusions and
 safety, localization, and directness. The measured 2026-07-20 result is `10.0/10`: 20 of 20 route
 correctly, cold initialization is 46.6 ms, and 200 warm samples measure 8.4 ms p50 and 20.5 ms p95.
 These are historical local in-memory checkout measurements, not current validation or a deployed
 pgvector latency claim. The tests that produced them were removed in service extraction commit
-`0988b1552`; the remaining-work ledger requires replacement evidence from the current topology.
+`0988b1552`; the remaining-work ledger still requires answer-path, parity, and runtime evidence.
 
 ## Related docs
 
 | To learn about | Read |
 |----------------|------|
+| Delivery status and remaining work | [Implementation ledger](../../roadmap-implementation/interfaces/behavior-knowledge.md) |
 | Conversational safety and tools | [Operator Console](operator-console.md) |
 | Provider and delivery boundaries | [Project Structure](../architecture/project-structure.md) |
 | Odin and Forseti responsibilities | [Agent Pantheon](../agents/agent-pantheon.md) |

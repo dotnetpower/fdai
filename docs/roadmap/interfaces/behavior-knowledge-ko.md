@@ -1,8 +1,8 @@
 ---
 title: Command Deck 행동 지식
 translation_of: behavior-knowledge.md
-translation_source_sha: b15f90bb40acf9cd0500e88d52d622c054c73aa1
-translation_revised: 2026-09-12
+translation_source_sha: 26ebb1a2f789bece0f3c9f6cb50c79f49169de53
+translation_revised: 2026-09-27
 ---
 
 # Command Deck 행동 지식
@@ -101,18 +101,20 @@ reciprocal-rank fusion을 사용합니다. In-memory lexical scorer는 정규화
 
 ## 행동 범위
 
-참조 시드 집합은 13개 계약을 포함하도록 설계되었습니다. 초기 3개에 아키텍처 계약 10개를
-추가하는 설계입니다.
+읽기 전용 참조 카탈로그에는 객체/에이전트 행동 3개와 아키텍처 행동 10개를 합쳐 계약
+13개가 있습니다. 이 중 11개는 현재 구현 및 테스트 심볼을 인용합니다. Console 신원 경계와
+로컬 근거 기록은 설계 지침만 인용하므로 `designed` 상태입니다. 저장소 인용은 테넌트 관측,
+런타임 검증 또는 실행 권한이 아닙니다.
 
-| 행동 | Owner | Implemented 근거 |
+| 행동 | 소유자 | 참조 출처 |
 |----------|-------|----------------------|
-| 결정적 인시던트 ID, 구성원 병합, 단조 증가 심각도 및 수명 주기 notice | `IncidentRegistry` | 인시던트 레지스트리 코드와 수명 주기 테스트 |
+| 결정적 인시던트 ID와 구성원 병합 | `IncidentRegistry` | 인시던트 레지스트리 코드와 수명 주기 테스트 |
 | Odin cross-domain 중재 및 non-intervention | `Odin`, 트리거 소유자는 `Forseti` | Forseti/Odin 코드, 중재 코드, 중재 테스트 |
 | Issue 지문 deduplication | `Saga` | Saga 코드, 거버넌스 테스트, Issue 수명 주기 스키마 |
 | Trust 라우팅 및 T2 quality 게이트 | `TrustRouter`, `QualityGate` | Core 구현과 focused 테스트 |
 | 사람 승인 및 shadow 승격 | `RiskGate`, `Var`, `ActionPromotionRegistry` | 에이전트/코어 구현과 회귀 테스트 |
 | 실행기 안전성, 이벤트 deduplication, 롤백 | `ShadowExecutor`, `EventIngest`, `Vidar` | Core/에이전트 구현과 멱등성 테스트 |
-| Console 신원 경계 및 로컬 근거 동등성 | Operator API 조립과 `Thor` | 구성 계약과 로컬 Operator API 테스트 |
+| Console 신원 경계 및 로컬 근거 동등성 | Operator API 조립과 `Thor` | App Shape 설계 지침. 현재 운영 증적 없음 |
 | Narrator translator-only 경로 | `Bragi` | 에이전트 구현, typed-pipeline re-entry 및 기본/기여자 정규화 테스트 |
 
 Odin 계약은 single-domain 및 unanimous 권고를 명시적으로 제외합니다. Portfolio 검토는
@@ -139,65 +141,28 @@ designed-only로, temporal fairness는 선택적 dependency-injected 행동으�
 답변은 항상 트리거, preconditions, 처리 단계, outcomes, exclusions, 안전성 and 대체 경로
 행동, 소유자, 구현 상태, citations 또는 출처 이력 구조를 사용합니다.
 
-## 구현 상태
-
-서비스 분해 과정에서 프로바이더 계약은 유지되었지만 구체적인 검색, Operator API,
-PostgreSQL, 시드, 테스트 구현은 제거되었습니다. 인메모리 검색과 추적 출처 최신성 검증은
-복원되었고 Operator 답변 경로, 영속성, 시드는 아직 복원되지 않았습니다. 설계는 계속 기준으로
-유지되며, 아래 원장은 목표 설계와 현재 실행 가능한 범위를 구분합니다.
-
-### 구현 범위
-
-| 영역 | 상태 | 근거 | 참고 |
-|------|------|------|------|
-| 구조화된 행동 계약 | implemented | [`behavior_knowledge.py`](../../../services/core-control-plane/src/fdai/shared/providers/behavior_knowledge.py), [`test_behavior_knowledge.py`](../../../services/core-control-plane/tests/providers/test_behavior_knowledge.py)(`16 passed`) | 집중 계약 테스트는 저장소 상대 source 좌표, 순서가 올바른 line 범위, citation 최소화, 안정적인 identity 필드, 필수 alias와 source, embedding 차원, test backing 및 지역화된 검색 text를 검증합니다. |
-| 인메모리 검색과 추적 출처 최신성 검증 | implemented | [`behavior_index.py`](../../../services/core-control-plane/src/fdai/core/knowledge/behavior_index.py), [`test_behavior_index.py`](../../../services/core-control-plane/tests/knowledge/test_behavior_index.py)(`14 passed`) | `InMemoryBehaviorKnowledgeIndex`는 멱등 upsert, 정확 alias/identifier/hybrid 정렬, 권위 정렬, 상호 순위 융합, 검색 하한, 비교 보류, 한국어 token 검색 및 stale/untracked citation 처리를 제공합니다. 참조 seed 13개는 별도 작업으로 남습니다. |
-| 참조 시드 13개 | not-started | 서비스 분해 커밋 `0988b1552`와 현재 추적 트리 점검 | 현재 서비스 토폴로지에 시드 집합, 시드 정밀도 테스트, holdout 말뭉치가 없습니다. |
-| 서버 소유 해석기, 렌더러, 검증기 | not-started | 서비스 분해 커밋 `0988b1552`와 현재 추적 트리 점검 | 현재 Operator API의 행동 근거 기능에서 유지된 계약을 가져오거나 연결하는 경로가 없습니다. |
-| PostgreSQL/pgvector 영속성과 운영 연결 | not-started | 서비스 분해 커밋 `0988b1552`와 현재 추적 트리 점검 | 이전 어댑터가 제거되었으며 현재 트리에는 행동 전용 이행, 조립 연결, 동기화 명령이 없습니다. |
-| 집중 검증과 런타임 근거 | not-started | 현재 추적 트리 점검 | 이전 단위, 채팅, pgvector 동등성, holdout 검사가 없습니다. 이 설계를 검증하는 현재 런타임 증적도 없습니다. |
-
-### 구현 이력
-
-| 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
-|------|------|------|------|-----------|
-| 2026-08-13 | in-progress | 구현 원장을 도입하고 서비스 분해 이후 오래된 상태를 바로잡았습니다. 이전 구현 출처 이력은 재구성하지 않았습니다. | `current change`; 이 영문/한국어 문서 쌍; 현재 프로바이더 계약 점검; `git diff-tree --no-commit-id --name-status -r 0988b1552`; 로드맵, 번역, 문장 부호, 한글, 문서 크기, 링크 검사. | 아래의 구체 검색 및 답변 경로, 영속성, 집중 테스트, 관리되는 런타임 근거를 복원합니다. |
-| 2026-08-16 | in-progress | 현재 서비스 토폴로지에 인메모리 행동 인덱스와 추적 출처 최신성 검증기를 복원했습니다. | `pytest services/core-control-plane/tests/knowledge/test_behavior_index.py`가 멱등 upsert, 일치 등급 및 권위 정렬, 오래되거나 추적되지 않은 인용, 한국어 의역 검색, 비교 보류, 전부 오래된 경우의 비교 기권, 검색 하한, 인용 전용 노출을 다루는 집중 테스트 14개를 통과했습니다. | 참조 시드 13개를 복원하고 서버 소유 Operator 답변 경로를 연결하며 영속성을 추가하고 관리되는 런타임 근거를 기록해야 합니다. |
-| 2026-09-12 | implemented | 제거된 seed나 production binding을 복원하지 않고 direct provider 계약 coverage를 추가하고 이미 검증된 in-memory 검색 및 freshness 구현을 정합화했습니다. | `current change`; provider 계약 및 in-memory index test(`30 passed`). | 추적 reference seed, server-owned 답변 경로, PostgreSQL parity 및 관리되는 runtime 근거를 복원합니다. |
-
-### 남은 작업
-
-- [x] 현재 서비스 토폴로지에 인메모리 인덱스와 추적 출처 최신성 검증기를
-  복원하고 정렬, 오래된 출처 처리, 지역화, 비교, 출처 본문 제외를 입증하는 집중 테스트를
-  통과시킵니다.
-- [ ] 추적되는 저장소 출처를 기준으로 참조 시드 13개를 복원하고, 오래된 경로, blob, 심볼
-  줄 범위에서 실패하는 전체 시드 정밀도 테스트를 추가합니다.
-- [ ] Operator API에 서버 소유 해석기, 결정적 렌더러, 검증기를 연결하고 클라이언트 근거
-  교체, 권위 경로 대체 동작, 지역화된 답변 구조를 입증하는 집중 테스트를 통과시킵니다.
-- [ ] 행동 전용 PostgreSQL 이행, pgvector 어댑터, 운영 조립 연결, 증분 동기화 명령을
-  추가한 뒤 인메모리/데이터베이스 동등성 검사의 통과 근거를 기록합니다.
-- [ ] 복원된 현재 토폴로지에서 20개 질문 holdout과 지연 시간 벤치마크를 다시 실행하고,
-  서비스 분해 전 기준선을 현재 검증으로 취급하지 않는 관리된 런타임 증적을 기록합니다.
-
 ## 검증
 
-서비스 분해 전 집중 테스트는 정확한 별칭 우선순위, 정규화된 대상 순위, 멱등적 재색인, 오래된 해시,
-implemented 및 test-backed 권한, 출처 인용 형태와 symbol 정밀도, 출처 본문
-exclusion, 클라이언트 근거 replacement, prompt-injection 격리, 비교, localization,
-PostgreSQL/in-memory top-hit 및 exact-class 동등성을 검사합니다. Source-precision 검증은 모든
-built-in 시드를 검사하므로 에이전트, 수명 주기 또는 local-composition 테스트 symbol을 이동시키는 코드는
-영향받은 모든 범위를 같은 변경에서 갱신합니다. 고정된 아키텍처 holdout paraphrase 20개는 라우팅,
+현재 전체 시드 정밀도 테스트는 추적 출처 경로, Git 블롭, 심볼과 정확한 줄 범위, 고유한
+식별자, 영어/한국어 필드 및 결정적 재생성을 13개 모두에 대해 검사합니다. 인용된 코드,
+테스트, 스키마 또는 설계 지침이 바뀌면 같은 변경에서 산출물을 다시 생성해야 합니다.
+이는 저장소 검증이지 실제 Operator 답변 검증은 아닙니다.
+
+서비스 분해 전 집중 테스트는 클라이언트 근거 교체, 프롬프트 주입 격리,
+PostgreSQL/인메모리 최상위 결과 및 정확 일치 등급의 동등성도 검사했습니다. 고정된 아키텍처
+의역 질문 20개는 라우팅,
 상태, 현재 인용, precise symbol, 권한, structure, 사실, exclusion 및 안전성,
 localization, directness를 평가합니다. 2026-07-20 측정 결과는 `10.0/10`입니다. 20개 질문이 모두
 정확히 경로되었고 cold initialization은 46.6 ms, warm 200 샘플은 p50 8.4 ms와 p95 20.5 ms로
 측정되었습니다. 이 수치는 과거 로컬 인메모리 체크아웃 측정이며 현재 검증이나 배포된 pgvector
 지연 시간 주장이 아닙니다. 이 결과를 만든 테스트는 서비스 분해 커밋 `0988b1552`에서
-제거되었습니다. 남은 작업 원장은 현재 토폴로지에서 얻은 대체 근거를 요구합니다.
+제거되었습니다. 남은 작업 원장은 답변 경로, 동등성 및 런타임 근거를 여전히 요구합니다.
 
 ## 관련 문서
 
 | 알아볼 내용 | 읽을 문서 |
 |-------------|-----------|
+| 구현 상태 및 남은 작업 | [구현 원장](../../roadmap-implementation/interfaces/behavior-knowledge.md) |
 | 대화 안전성 및 도구 | [Operator Console](operator-console-ko.md) |
 | 프로바이더 및 전달 경계 | [Project Structure](../architecture/project-structure-ko.md) |
 | Odin 및 Forseti 책임 | [에이전트 Pantheon](../agents/agent-pantheon-ko.md) |
