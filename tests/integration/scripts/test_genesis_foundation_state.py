@@ -142,6 +142,9 @@ class SupportRepairTunnel:
     ) -> subprocess.CompletedProcess[str]:
         del timeout
         assert input_text is None
+        assert not any(
+            character in argument for argument in remote_arguments for character in "|;&><`$"
+        )
         command = remote_arguments[0]
         if command == "/usr/bin/stat":
             path = self._path(remote_arguments[-1])
@@ -158,9 +161,9 @@ class SupportRepairTunnel:
             )
             mode = f"{stat.S_IMODE(details.st_mode):o}"
             if "%h" in remote_arguments[1]:
-                output = f"{kind}|{details.st_nlink}|{mode}|{self.username}\n"
+                output = f"{kind},{details.st_nlink},{mode},{self.username}\n"
             else:
-                output = f"{kind}|{mode}|{self.username}\n"
+                output = f"{kind},{mode},{self.username}\n"
             return subprocess.CompletedProcess(remote_arguments, 0, output, "")
         if command == "/usr/bin/sha256sum":
             path = self._path(remote_arguments[1])
