@@ -66,7 +66,7 @@ from fdai_operator_service.model_lifecycle_startup import (
 from fdai_operator_service.parity import BLOCKED_ROUTE_PATHS, PARITY_COMPLETE, ROUTE_PARITY
 from fdai_operator_service.postgres import PostgresOperatorReadModel
 from fdai_operator_service.production import serve
-from fdai_operator_service.projections import ProjectionUnavailableError
+from fdai_operator_service.projections import ProjectionUnavailableError, http_exception_error
 from fdai_service_contracts import (
     AgentActivityQuery,
     AuditPageProjection,
@@ -88,6 +88,7 @@ from fdai_service_contracts import (
     PageProjection,
 )
 from starlette.applications import Starlette
+from starlette.exceptions import HTTPException
 from starlette.testclient import TestClient
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
@@ -1148,6 +1149,37 @@ def test_unbound_projection_fails_closed_instead_of_returning_empty_live_state()
             }
         },
     )
+
+
+@pytest.mark.parametrize(
+    ("detail", "expected"),
+    [
+        (
+            "authoritative workflow projection is unavailable for promotion-gate.list",
+            "authoritative Operator projection is unavailable",
+        ),
+        ("upstream service unavailable", "upstream service unavailable"),
+    ],
+)
+async def test_http_exception_handler_normalizes_only_projection_absence(
+    detail: str,
+    expected: str,
+) -> None:
+    response = await http_exception_error(
+        cast(Any, None),
+        HTTPException(status_code=503, detail=detail),
+    )
+
+    assert response.status_code == 503
+    assert response.media_type == "application/json"
+    assert response.body == (f'{{"error":{{"status":503,"message":"{expected}"}}}}'.encode())
+
+
+def test_operator_app_registers_structured_http_exception_handler() -> None:
+    app = _client(read_model=EmptyReadModel()).app
+
+    assert isinstance(app, Starlette)
+    assert app.exception_handlers[HTTPException] is http_exception_error
 
 
 def test_database_url_binds_service_owned_postgres_projection() -> None:

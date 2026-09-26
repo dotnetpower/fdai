@@ -66,6 +66,7 @@ def _secured(
     conflicts: tuple[str, ...] = (),
     include_resource_without_metadata: bool = False,
     keyed_metadata: bool = False,
+    secondary_conflicts: tuple[str, ...] = (),
 ) -> SecuredObjectSetQueryResult:
     definition = ObjectSetDefinition(
         selector=ObjectSelector(kind=ObjectSelectorKind.OBJECT_TYPE, name="Resource"),
@@ -87,6 +88,20 @@ def _secured(
         conflicts=conflicts,
         evidence_refs=("inventory-generation:generation-1",),
     )
+    secondary_state = StateFactMetadata(
+        lane=StateFactLane.OBSERVED,
+        authority=StateFactAuthority.PROVIDER,
+        source_identity="inventory-provider",
+        source_revision="generation-1",
+        effective_at=NOW - timedelta(seconds=age_seconds),
+        recorded_at=NOW - timedelta(seconds=age_seconds),
+        evidence_cutoff=NOW - timedelta(seconds=age_seconds),
+        freshness_ceiling_seconds=300,
+        completeness=0.0 if secondary_conflicts else 1.0,
+        synthetic=False,
+        conflicts=secondary_conflicts,
+        evidence_refs=("inventory-generation:generation-1",),
+    )
     objects = [
         OntologyObjectRecord(
             id="resource-1",
@@ -96,7 +111,7 @@ def _secured(
                     STATE_FACT_METADATA_PROPERTY: (
                         {
                             "availabilityState": state.to_mapping(),
-                            "operationalState": state.to_mapping(),
+                            "state": secondary_state.to_mapping(),
                         }
                         if keyed_metadata
                         else state.to_mapping()
@@ -211,6 +226,46 @@ async def test_current_graph_accepts_property_keyed_state_metadata() -> None:
     assert live.calls == 0
 
 
+async def test_axis_specific_freshness_ignores_an_unrelated_state_conflict() -> None:
+    secured = _secured(
+        age_seconds=30,
+        keyed_metadata=True,
+        secondary_conflicts=("observed_property_conflict:status",),
+    )
+    live = _LiveProvider()
+    gateway = _Gateway(secured)
+    refresher = SecuredGraphEvidenceQueryRefresher(gateway=gateway, live_provider=live)
+
+    assert (
+        await refresher.refresh(
+            definition=secured.materialization.definition,
+            projection_request=_request(),
+            secured=secured,
+            freshness_state_keys=("availabilityState", "state"),
+        )
+        == secured
+    )
+    assert live.calls == 0
+    assert gateway.calls == 0
+
+
+async def test_axis_specific_freshness_preserves_a_selected_state_conflict() -> None:
+    secured = _secured(
+        age_seconds=30,
+        keyed_metadata=True,
+        secondary_conflicts=("observed_property_conflict:status",),
+    )
+    refresher = SecuredGraphEvidenceQueryRefresher(gateway=_Gateway(secured))
+
+    with pytest.raises(QueryNodeHeldError, match="graph_conflicting"):
+        await refresher.refresh(
+            definition=secured.materialization.definition,
+            projection_request=_request(),
+            secured=secured,
+            freshness_state_keys=("state",),
+        )
+
+
 async def test_stale_graph_without_provider_holds() -> None:
     secured = _secured(age_seconds=61)
     refresher = SecuredGraphEvidenceQueryRefresher(gateway=_Gateway(secured))
@@ -252,6 +307,25 @@ async def test_stale_graph_refreshes_once_and_requeries_current_graph() -> None:
     )
     assert live.calls == 1
     assert gateway.calls == 1
+
+
+async def test_declined_live_refresh_preserves_the_initial_hold_reasons() -> None:
+    stale = _secured(age_seconds=61)
+    live = _LiveProvider(result=False)
+    gateway = _Gateway(stale)
+    refresher = SecuredGraphEvidenceQueryRefresher(gateway=gateway, live_provider=live)
+
+    with pytest.raises(
+        QueryNodeHeldError,
+        match=r"graph_refresh_unavailable:graph_stale",
+    ):
+        await refresher.refresh(
+            definition=stale.materialization.definition,
+            projection_request=_request(),
+            secured=stale,
+        )
+    assert live.calls == 1
+    assert gateway.calls == 0
 
 
 async def test_conflicting_graph_stays_held_after_one_refresh() -> None:

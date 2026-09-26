@@ -1492,7 +1492,7 @@ async def test_runtime_current_evidence_probe_uses_exact_principal_scope_and_aut
     )
     store = InMemoryOntologyInstanceStore(object_types=(object_type,), link_types=())
     observed_at = NOW - timedelta(minutes=1)
-    metadata = StateFactMetadata(
+    state_metadata = StateFactMetadata(
         lane=StateFactLane.OBSERVED,
         authority=StateFactAuthority.PROVIDER,
         source_identity="inventory-provider",
@@ -1507,16 +1507,59 @@ async def test_runtime_current_evidence_probe_uses_exact_principal_scope_and_aut
     )
     await store.upsert_object(
         OntologyObjectRecord(
-            id="resource-a",
+            id="state-resource",
             object_type="Resource",
             properties={
-                "id": "resource-a",
-                "name": "resource-a",
-                "type": "virtual-machine",
+                "id": "state-resource",
+                "name": "state-resource",
+                "type": "compute.container-app",
                 "properties": {
-                    "state": "PowerState/running",
-                    STATE_FACT_METADATA_PROPERTY: {"state": metadata.to_mapping()},
+                    "state": "Running",
+                    STATE_FACT_METADATA_PROPERTY: {"state": state_metadata.to_mapping()},
                 },
+            },
+        )
+    )
+    health_metadata = StateFactMetadata(
+        lane=StateFactLane.OBSERVED,
+        authority=StateFactAuthority.PROVIDER,
+        source_identity="azure-resource-health",
+        source_revision="azure-resource-health:sha256:" + ("1" * 64),
+        effective_at=observed_at,
+        evidence_cutoff=observed_at,
+        recorded_at=observed_at,
+        freshness_ceiling_seconds=3600,
+        completeness=1.0,
+        synthetic=False,
+        evidence_refs=("azure-resource-health:sha256:" + ("1" * 64),),
+    )
+    await store.upsert_object(
+        OntologyObjectRecord(
+            id="health-resource",
+            object_type="Resource",
+            properties={
+                "id": "health-resource",
+                "name": "health-resource",
+                "type": "log-workspace",
+                "properties": {
+                    "availabilityState": "Unavailable",
+                    "availabilityReasonKind": "status_only",
+                    STATE_FACT_METADATA_PROPERTY: {
+                        "availabilityState": health_metadata.to_mapping()
+                    },
+                },
+            },
+        )
+    )
+    await store.upsert_object(
+        OntologyObjectRecord(
+            id="unrelated-resource",
+            object_type="Resource",
+            properties={
+                "id": "unrelated-resource",
+                "name": "unrelated-resource",
+                "type": "network.vnet",
+                "properties": {},
             },
         )
     )
@@ -1551,7 +1594,7 @@ async def test_runtime_current_evidence_probe_uses_exact_principal_scope_and_aut
         )
     }
 
-    assert health_reader.calls == [("resource-a",)]
+    assert health_reader.calls == []
     assert all(item.complete for item in observations.values())
     assert observations[RESOURCE_HEALTH_FUNCTION_NAME].authority is (
         EvidenceAuthority.SERVER_RESOURCE_HEALTH

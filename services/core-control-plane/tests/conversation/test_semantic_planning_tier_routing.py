@@ -1799,7 +1799,7 @@ def test_aggressive_policy_retries_typed_resource_clarification_once() -> None:
     ]
 
 
-def test_aggressive_policy_preserves_t1_clarification_when_t2_cannot_resolve_it() -> None:
+def test_aggressive_policy_uses_canonical_clarification_when_t2_cannot_resolve_it() -> None:
     manifest, definition = _fixture()
     t1 = _Model(
         frame=_frame(
@@ -1832,7 +1832,7 @@ def test_aggressive_policy_preserves_t1_clarification_when_t2_cannot_resolve_it(
     )
 
     assert outcome.disposition is SemanticPlanningDisposition.CLARIFICATION
-    assert outcome.clarification == "Which exact Resource should I inspect?"
+    assert outcome.clarification == "Which exact resource name or ID should I use?"
     assert t2.frame_calls == 1
 
 
@@ -1938,7 +1938,7 @@ def test_impact_without_exact_target_uses_typed_clarification() -> None:
     )
 
     assert outcome.disposition is SemanticPlanningDisposition.CLARIFICATION
-    assert outcome.clarification == "Which exact resource should I assess for impact?"
+    assert outcome.clarification == "조회할 정확한 리소스 이름 또는 ID를 알려주세요?"
     assert (t1.frame_calls, t1.plan_calls) == (1, 0)
     assert (t2.frame_calls, t2.plan_calls) == (0, 0)
 
@@ -2995,9 +2995,7 @@ def test_ambiguous_target_health_assessment_clarifies_without_broad_read() -> No
     )
 
     assert outcome.disposition is SemanticPlanningDisposition.CLARIFICATION
-    assert outcome.clarification == (
-        "Which exact resource name should I assess for health evidence?"
-    )
+    assert outcome.clarification == "Which exact resource name or ID should I use?"
     assert outcome.plan is None
     assert (t1.frame_calls, t1.plan_calls) == (1, 0)
     assert (t2.frame_calls, t2.plan_calls) == (0, 0)
@@ -3073,7 +3071,7 @@ def test_current_state_does_not_complete_multiple_runtime_targets() -> None:
 
     assert outcome.disposition is SemanticPlanningDisposition.CLARIFICATION
     assert outcome.plan is None
-    assert outcome.clarification == "Which exact resource name should I query?"
+    assert outcome.clarification == "Which exact resource name or ID should I use?"
     assert t1.frame_calls == 1
 
 
@@ -3098,7 +3096,7 @@ def test_current_state_without_exact_target_requests_korean_clarification() -> N
     )
 
     assert outcome.disposition is SemanticPlanningDisposition.CLARIFICATION
-    assert outcome.clarification == "어떤 리소스의 정확한 이름을 조회할까요?"
+    assert outcome.clarification == "조회할 정확한 리소스 이름 또는 ID를 알려주세요?"
     assert outcome.plan is None
     assert outcome.execution_authority is False
     assert (t1.frame_calls, t1.plan_calls) == (1, 0)

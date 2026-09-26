@@ -311,7 +311,7 @@ async def test_state_function_prefers_concrete_filter_over_observed_sentinel() -
     assert [row["values"]["name"] for row in rows] == ["database-a"]
 
 
-async def test_state_function_holds_unrecognized_observed_state_incomplete() -> None:
+async def test_state_function_preserves_unclassified_observed_state() -> None:
     result = await _invoke(
         _query_result(
             (_resource("database-a", "Updating", observed_at=NOW - timedelta(minutes=5)),)
@@ -319,10 +319,26 @@ async def test_state_function_holds_unrecognized_observed_state_incomplete() -> 
         concepts=(RESOURCE_STATE_OBSERVED_CONCEPT,),
     )
 
+    assert result["complete"] is True
+    assert result["truncation_reason"] is None
+    rows = result["rows"]
+    assert isinstance(rows, list)
+    assert rows[0]["values"]["observed_state"] == "Updating"
+    assert rows[0]["values"]["state_concept"] == RESOURCE_STATE_OBSERVED_CONCEPT
+
+
+async def test_state_function_does_not_infer_specific_state_from_unclassified_value() -> None:
+    result = await _invoke(
+        _query_result(
+            (_resource("database-a", "Updating", observed_at=NOW - timedelta(minutes=5)),)
+        ),
+        concepts=("resource_state.running",),
+    )
+
     assert result == {
-        "complete": False,
+        "complete": True,
         "rows": [],
-        "truncation_reason": "resource_state_evidence_incomplete",
+        "truncation_reason": None,
     }
 
 

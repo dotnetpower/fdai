@@ -14,6 +14,8 @@ The shared Operator family-adapter facade now retains workflow persistence and c
 exports. Conversation persistence, operations projection and webhook handling, and pure workflow
 catalog rendering have focused owners. This split preserves principal scope, durable proposal
 idempotency, unavailable behavior, and the no-executor boundary.
+Shared authentication and projection response modules own structured exception mapping, so the
+aggregate route facade assembles handlers without reimplementing boundary normalization.
 
 Semantic query composition owns principal-scoped declaration candidate selection and source
 authorization bindings. Core retains predicate, release, freshness, receipt, and query-algebra
@@ -159,9 +161,19 @@ Cloud update comparison validates raw and processing identities; Core rechecks p
   enforcement design needs a reviewed lease that remains held through the side-effect commit.
 - **semantic target resolution is deterministic**: Core removes resource-identity clarification only
   for one exact identifier or a complete read-only Resource and time correlation, and creates one
-  bounded clarification for subtype-only exact-target operations. The shadow schema requires supplied
+  bounded clarification for subtype-only exact-target operations. A sole `resource_identity` gap
+  with a typed subject or resource-identity requirement renders as a locale-specific request for the exact resource name or ID;
+  model-authored internal requirement tokens never become operator-facing copy. The shadow schema requires supplied
   intent and canonical identity, corrects only a unique span, and preserves `forbidden_actions`.
   Active v8 pins `1.0.0`; shadow v14 pins `1.1.0`. Neither adds provider I/O, decision, approval, mutation, or execution authority. Compact input bounds, generic collection-filter cleanup, and schema-repair guidance live in `core/conversation/conversation_preflight_validation.py`. The same helper classifies a known operational family paired with a mixed or contextual signal as non-repairable, so Core records one failed preflight attempt and falls through without another preflight model call. The public promotion helper continues to reject Resource collections by default; only capability-aware semantic planning opts in, and it reuses the candidate only after ontology type or inventory-state catalog grounding succeeds. Failed grounding retains full semantic judgment or a typed clarification without broadening the Resource scope. The `conversation_preflight.py` facade preserves compatibility imports while contracts, model invocation, typed target promotion, and family-shape validation live in focused sibling modules. The composition root resolves one exact prompt profile that pins ordered artifacts, lifecycle, request budget, output reserve, and replay digest; a higher artifact version cannot activate itself, and an oversized complete request holds before provider I/O.
+  If an exact-resource live refresh declines a broader secured Resource set, Core preserves the
+  initial graph freshness, completeness, conflict, and synthetic-evidence reasons instead of
+  reducing the result to an opaque refresh failure.
+  Conversation-assurance readiness first scopes Resource state and Resource Health probes to
+  resource types registered for the requested evidence source, then evaluates freshness from only
+  that function's state-fact metadata keys. Missing or conflicting metadata on an unrelated state
+  axis cannot invalidate the selected capability. Unclassified observed values remain the generic
+  observed concept, and typed incompleteness reasons remain visible to readiness.
 - **model catalog identity is publisher-qualified when available**: Core accepts an optional
   `(publisher, family)` catalog seam while preserving the family-only adapter contract. Azure
   delivery maps only allowlisted OpenAI and AIServices formats and keeps partner deployment and

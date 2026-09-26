@@ -82,6 +82,13 @@ window is complete or already proves the smaller result limit. Only a completene
 escalates to one relationship-free candidate snapshot, from one store connection, up to the
 50,000-candidate ceiling. Candidate truncation keeps the receipt incomplete. Relationship-bearing
 ObjectSets retain their bounded relationship query and never use the larger candidate scan.
+An exact-resource live-refresh adapter can decline a broader secured ObjectSet. The resulting typed
+hold preserves the original freshness, completeness, conflict, and synthetic-evidence reasons; it
+does not report the declined refresh as successful provider evidence.
+When a query declares state-fact metadata keys for one operational axis, graph freshness selects
+the best complete, current, non-synthetic, conflict-free candidate from only those keys. Missing or
+conflicting metadata on another axis cannot invalidate the selected query, and a legacy unkeyed
+state fact participates only when the query requests the generic `state` key.
 
 Ontology semantic staging consumes the secured gateway, not a raw-store bypass. The single-type writer retains the ordinary 1,000-object ceiling. The off-path manifest writer scans every readable type in one relationship-free store snapshot, applies the same role/purpose ACL, and caps the combined declarations and objects at 20,000. Truncated, incomplete, unversioned, identity-redacted, or release-mismatched results are rejected before staging. Ordered per-object hashes bind large projections without enlarging the receipt JSON limit. Redacted fields never enter candidate documents. This is inactive preparation, not admission, activation, or complete query coverage; [query coverage](../interfaces/ontology-query-coverage-implementation-plan.md) owns remaining lifecycle and retrieval work.
 

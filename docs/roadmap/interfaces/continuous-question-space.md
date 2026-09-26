@@ -61,7 +61,7 @@ The repository can join reviewed Golden wording, manual browser prompts, Console
 The inventory preserves stable ids, bilingual wording, source digests, explicit duplicate relationships, and independent content-review, semantic-contract, runtime-binding, evidence-source,
 and validation states.
 Any change to a joined source, including a non-question Console label in a starter catalog, regenerates both the machine inventory and human review catalog; the generated-artifact test rejects any stale source digest. Moving Browser evidence copy from the global catalogs into a route-local catalog is such a digest-only source change; regeneration preserves all 400 question identities and wording. When only source digests change, regeneration preserves every logical question identity, review state, and denominator. Regeneration runs after upstream integration, including a merge commit that changes joined source digests, so derived commitments bind the final merged source set without treating that digest refresh as new semantic coverage.
-The current generator refresh follows that rule for accumulated Console catalog changes: only source and inventory digests change, while the 400-question cohort, ontology coverage counts, evidence limits, and authority remain unchanged.
+The current generator refresh follows that rule for accumulated Console catalog and canonical clarification changes: only source and inventory digests change, while the 400-question cohort, ontology coverage counts, evidence limits, and authority remain unchanged.
 Run `uv run python scripts/automation/build_question_bank.py`, then regenerate the dependent CQAS
 inventory with `uv run python scripts/automation/build_semantic_intent_coverage.py`, even for
 display-only source edits. Hand-editing generated artifacts isn't supported.
@@ -77,6 +77,9 @@ or answerable until its own reviewed semantic expectation, principal-scoped capa
 evidence limitations, forbidden-claim oracle, and required validation exist. Questions about
 recommendations, rollback, scaling, or automation remain advisory or draft-only and always retain
 `execution_authority=false`.
+The owner-only runtime readiness receipt preserves bounded typed query-hold reason codes such as
+graph freshness or completeness holds. Provider, authorization, and unexpected runtime failures
+remain a generic unavailable reason, so diagnostics gain no secret or tenant-bearing exception text.
 
 The developing [structured cloud-document evaluation](cloud-resource-knowledge-structured-rag.md)
 uses a separately frozen English/Korean question set. Collection, qualification, approval, indexing,

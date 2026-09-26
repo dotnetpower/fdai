@@ -1,7 +1,7 @@
 ---
 translation_of: conversation-assurance.md
-translation_source_sha: faffcdd422cbf2bb83cb12364523879c3c8cb2c8
-translation_revised: 2026-09-23
+translation_source_sha: 6afd049ee4a6c65f35040caf2d4b101b5165e777
+translation_revised: 2026-09-26
 ---
 # 대화 품질 보증
 
@@ -409,7 +409,7 @@ SRE adapter는 `RcaResult`를 사전 선언된 처리 결과, 원인 다이제�
 3. 런타임 소유 프로브는 측정되는 턴과 동일하게 인증된 로컬 사람 principal, 역할, 목적 및
    principal 범위 다이제스트를 사용합니다. Graph-first 새로 고침 정책을 통해 보호된 현재
    Resource 집합을 구체화하고 정확히 등록된 FunctionType을 호출합니다. 모드가 `0600`인 비공개
-   증적에는 범위가 제한된 준비 상태 필드만 기록합니다.
+   증적에는 범위가 제한된 준비 상태 필드만 기록합니다. 타입이 지정된 조회 보류는 범위가 제한된 사유 코드를 해당 증적에 보존합니다. 공급자, 권한 부여 및 예기치 않은 런타임 실패는 일반 사용 불가 사유 하나를 유지하며 원시 예외 텍스트를 노출하지 않습니다. Resource 상태 및 Resource Health 프로브는 요청한 근거 원본에 등록된 리소스 유형을 선택하고 해당 함수의 상태 사실 메타데이터 키만 평가하므로, 관련 없는 인벤토리 객체나 상태 축 충돌이 범위가 제한된 ObjectSet을 소진하거나 적용 가능한 근거를 불완전하게 보이게 할 수 없습니다.
 4. 준비 상태 축약기는 질문의 예상 권한과 성공한 probe가 실제로 제공한 권한을 비교합니다.
 5. watchdog은 요청한 포커스에서 근거가 준비된 질문만 선택합니다.
 
