@@ -31,6 +31,7 @@ The command reads existing Git-common-dir state and process metadata. It does no
 audit log, infer session ownership after a commit, or convert an unavailable diagnostic into a
 successful result.
 Core bootstrap retains the existing `runtime_settings_service_from_env` test seam while production startup reuses its runtime-owned `StateStore` for one settings snapshot. This compatibility path changes no diagnostic socket, execution venue, provider identity, or deployment authority.
+Consumer startup also binds the [context-selection shadow runner](../decisioning/context-selection-policy.md#shadow-evaluation-and-evidence) to that existing store and gives pending comparisons five seconds to finish before cancelling them and closing the store. This changes neither the developer diagnostic surface nor the active prompt selection.
 
 Long-running workspace supervisors receive every required endpoint and private-file path from their
 committed VS Code task. The Conversation Assurance supervisor task passes the standard loopback
@@ -154,6 +155,10 @@ gathered before their references are removed.
 The local analyzer closes its tick-scoped decision-evidence and run-receipt StateStore pools before
 the next loop interval. A clean tick cannot leave asynchronous pool workers for garbage collection,
 and a persistence failure still closes its store before readiness remains unavailable.
+The analyzer's local broker connection also performs a bounded read-only lookup of an uncertain
+analyzer publication after restart. A missing match never authorizes republication or readiness.
+The analyzer dependency-composition module owns the lookup construction; the CLI passes only the
+validated broker endpoint, execution venue, and workload identity.
 The managed launcher explicitly forwards the service-owned StateStore DSN to that analyzer process,
 so the decision-evidence admission provider is bound before target selection. The binding is
 read-only and cannot promote an ActionType, raise autonomy, or grant execution authority.

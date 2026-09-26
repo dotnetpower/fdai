@@ -8,10 +8,18 @@ from collections.abc import Mapping
 from dataclasses import asdict
 from datetime import UTC, datetime
 from typing import Any, cast
+from uuid import uuid4
 
 from fdai_service_contracts import DocumentOcrPolicy, ModelBindingPolicy
 from pydantic import ValidationError
 
+from fdai_operator_service.adapters.narrator_preferences import (
+    AUTO_DEPLOYMENT,
+    NarratorPreference,
+    NarratorPreferenceError,
+    project_narrator_settings,
+    validate_narrator_choice,
+)
 from fdai_operator_service.families.iam.contracts import (
     ConfigurationReviewCommand,
     DocumentOcrPlanCommand,
@@ -31,6 +39,7 @@ from fdai_operator_service.families.iam.errors import (
     IamNotFoundError,
     IamUnavailableError,
 )
+from fdai_operator_service.model_lifecycle_startup import OperatorResolvedModelsRevisionOwner
 from fdai_operator_service.postgres_family_store import (
     PostgresFamilyStore,
     PostgresFamilyStoreUnavailable,
@@ -55,6 +64,7 @@ _DOCUMENT_OCR_POLICY_KEY = "operator-document-ocr-policy:current"
 _DOCUMENT_OCR_PLAN_KEY = "operator-document-ocr-plan:current"
 _RUNTIME_SETTINGS_POLICY_KEY = "runtime-settings:policy"
 _TEAMS_A1_ONBOARDING_PLAN_KEY = "operator-teams-a1-onboarding-plan:current"
+_NARRATOR_PREFERENCE_PREFIX = "operator-narrator-preference:"
 
 
 class PostgresIamConfigurationMixin:
@@ -62,6 +72,7 @@ class PostgresIamConfigurationMixin:
 
     store: PostgresFamilyStore
     model_catalog: ModelCatalogReader | None
+    narrator_revision_owner: OperatorResolvedModelsRevisionOwner | None
 
     async def _projection(self, operation: str) -> dict[str, object]:
         raise NotImplementedError
@@ -101,6 +112,50 @@ class PostgresIamConfigurationMixin:
             binding_policy = await self._state(_MODEL_BINDING_POLICY_KEY)
             document_ocr_policy = await self._state(_DOCUMENT_OCR_POLICY_KEY)
             document_ocr_plan = await self._state(_DOCUMENT_OCR_PLAN_KEY)
+            narrator = payload.get("narrator")
+            if isinstance(narrator, Mapping):
+                preference = await self._narrator_preference(principal_id)
+                allowed = self._narrator_allowlist()
+                selected = project_narrator_settings(
+                    principal_id=principal_id, preference=preference, allowlist=allowed
+                )
+                candidates = narrator.get("candidates")
+                safe_candidates = (
+                    [
+                        {
+                            key: candidate.get(key)
+                            for key in (
+                                "deployment",
+                                "family",
+                                "status",
+                                "total_p50_ms",
+                                "total_p95_ms",
+                                "total_samples",
+                                "ttft_p50_ms",
+                                "ttft_p95_ms",
+                                "ttft_samples",
+                            )
+                        }
+                        for candidate in candidates
+                        if isinstance(candidate, Mapping) and candidate.get("deployment") in allowed
+                    ]
+                    if isinstance(candidates, list)
+                    else []
+                )
+                auto_pick = narrator.get("current_auto_pick")
+                payload = {
+                    **payload,
+                    "narrator": {
+                        "selection_scope": "per-user",
+                        "personalizes_t2_bindings": False,
+                        "revision": selected["revision"],
+                        "requested": selected["stored_deployment"],
+                        "effective": selected["selected_deployment"] or AUTO_DEPLOYMENT,
+                        "fallback_reason": selected["fallback_reason"],
+                        "current_auto_pick": auto_pick if auto_pick in allowed else None,
+                        "candidates": safe_candidates,
+                    },
+                }
             environment = str(payload.get("environment") or "unspecified")
             if binding_policy is not None and binding_policy.get("environment") != environment:
                 raise IamUnavailableError(
@@ -146,7 +201,84 @@ class PostgresIamConfigurationMixin:
         }
 
     async def set_preference(self, command: ModelPreferenceCommand) -> None:
-        await self._proposal("model-settings.preference", command, _idempotency_key(command))
+        allowed = self._narrator_allowlist()
+        try:
+            principal, deployment = validate_narrator_choice(
+                command.principal_id,
+                deployment=command.preferred_narrator_model,
+                expected_revision=command.expected_revision,
+                allowlist=allowed,
+            )
+        except NarratorPreferenceError as exc:
+            raise IamFamilyError(str(exc)) from exc
+        current = await self._narrator_preference(principal)
+        if current.revision != command.expected_revision:
+            raise IamConflictError("narrator preference revision conflict")
+        owner = self.narrator_revision_owner
+        source_revision = owner.revision.digest if owner is not None and owner.revision else None
+        state = {
+            "principal_id": principal,
+            "deployment": deployment,
+            "revision": current.revision + 1,
+            "source_revision": source_revision,
+        }
+        try:
+            await self.store.append_revisioned_proposal(
+                family="iam",
+                operation="model-settings.preference",
+                principal_id=principal,
+                idempotency_key=uuid4().hex,
+                payload={**_command_payload(command), "source_revision": source_revision},
+                state_key=_narrator_preference_key(principal),
+                state_value=state,
+                expected_revision=command.expected_revision,
+            )
+        except PostgresProposalConflict as exc:
+            raise IamConflictError("narrator preference revision conflict") from exc
+        except PostgresFamilyStoreUnavailable as exc:
+            raise IamUnavailableError(
+                "authoritative narrator preference store is unavailable"
+            ) from exc
+
+    def _narrator_allowlist(self) -> tuple[str, ...]:
+        owner = self.narrator_revision_owner
+        if owner is None:
+            return ()
+        try:
+            return owner.narrator_allowlist()
+        except ValueError as exc:
+            raise IamUnavailableError("startup-owned narrator allowlist is unavailable") from exc
+
+    async def _narrator_preference(self, principal: str) -> NarratorPreference:
+        try:
+            principal, _ = validate_narrator_choice(
+                principal, deployment=AUTO_DEPLOYMENT, expected_revision=0, allowlist=()
+            )
+        except NarratorPreferenceError as exc:
+            raise IamUnavailableError("authenticated narrator principal is invalid") from exc
+        state = await self._state(_narrator_preference_key(principal))
+        if state is None:
+            return NarratorPreference(principal, AUTO_DEPLOYMENT, 0)
+        deployment = state.get("deployment")
+        revision = state.get("revision")
+        if (
+            state.get("principal_id") != principal
+            or not isinstance(deployment, str)
+            or not isinstance(revision, int)
+            or isinstance(revision, bool)
+            or revision < 1
+        ):
+            raise IamUnavailableError("stored narrator preference is malformed")
+        try:
+            validate_narrator_choice(
+                principal,
+                deployment=deployment,
+                expected_revision=revision,
+                allowlist=() if deployment == AUTO_DEPLOYMENT else (deployment,),
+            )
+        except NarratorPreferenceError as exc:
+            raise IamUnavailableError("stored narrator preference is malformed") from exc
+        return NarratorPreference(principal, deployment, revision)
 
     async def set_web_search_settings(self, command: WebSearchSettingsCommand) -> None:
         await self._proposal("model-settings.web-search", command, _idempotency_key(command))
@@ -388,6 +520,10 @@ class PostgresIamConfigurationMixin:
             f"resume:{principal_id}",
         )
         return {"campaign_id": stored.proposal_id, "state": "pending"}
+
+
+def _narrator_preference_key(principal: str) -> str:
+    return _NARRATOR_PREFERENCE_PREFIX + hashlib.sha256(principal.encode()).hexdigest()
 
 
 def _idempotency_key(command: object) -> str:

@@ -1,12 +1,18 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: fcc1250c8803c2825f68c63d8b70d556ee100932
-translation_revised: 2026-09-26
+translation_source_sha: e28e5bf0f69d781d2497d65c583c1acdba96e1c1
+translation_revised: 2026-09-27
 ---
 # 프로젝트 구조
 이 시스템은 하나의 웹 앱이 아니라 **headless 컨트롤 플레인 + 얇은 콘솔 + ChatOps**입니다. 이 문서는 검증된 5개 서비스 기준선과 독립 패키지 시스템 지식 서비스 후보의 모듈 경계, 의존성 방향, 조립 및 저장소 규칙을 정의합니다. 공유 서비스 계약 SDK는 권한을 부여하지 않는 `RuntimeScopeReceipt`를 소유하며, 서비스가 소유하는 모든 진입점은 시작 전에 이 증적을 하나 내보내 제품 목적, 실행 위치 및 허용된 완전한 기능 행을 결속하되 프로바이더 상태나 성공을 주장하지 않습니다. 공유 온톨로지 코드는 프로덕션 라우팅 및 탐지 제어의 고정된 절대 범위 레지스트리를 소유하고, 런타임과 전달 계층은 활성 값을 버전이 지정된 구성에 유지하며 새 권한 경로를 가져오지 않습니다. Post-turn 런타임 스킬 초안은 스킬을 활성화하지 않고 정규화된 검증 근거 참조를 제안 식별자, 영속 저장소 및 감사 메타데이터에 보존합니다. Bootstrap은 후보를 평가하거나 게시하기 전에 Norns 룰 힌트를 현재 discovery-activation 결정 뒤에 결속합니다. 패키지 release 카탈로그는 도달 가능한 소스 개정 번호에만 고정하며 파생 소스 게이트는 커밋 전과 CI에서 기록된 모든 소스 blob을 비교합니다. 소유 설계 원본만 바뀌면 upstream 통합 뒤에 다시 생성하여 카탈로그 레코드는 유지하고 원본 약속값과 집계 다이제스트만 최종 병합 blob 및 도달 가능한 보호 main 개정 번호에 맞춥니다. 질문은행과 CQAS 산출물도 정확한 원본 카탈로그에서 의존성 순서에 따라 전체를 다시 생성하며 다이제스트만 수동으로 수정하지 않습니다. 확인된 인시던트 생성은 전용 논리 토픽의 버전이 지정된 권한 없는 요청으로 Operator/Core 경계를 통과합니다. Operator는 인증, 원본 초안 재검증 및 영속 수락을 소유하고 Core만 인시던트 수명 주기와 감사 레코드를 기록합니다. 물리 패키지 소유권은 [다중 서비스 저장소 레이아웃](multi-service-repository-layout-ko.md), 로컬 및 배포 topology는 [App 형태](../../../.github/instructions/app-shape.instructions.md)를 참조하세요.
 ## 설계 개요
+
+Assurance Twin의 선택적 보관 근거 출처는 Core 조립 시 주입합니다. 고정된 Pantheon 역할과
+상태 저장소가 있을 때 런타임은 독립적인 Heimdall 및 Forseti 작성기와 영속 아웃박스
+중계기를 감독합니다. 신뢰할 수 있는 출처가 없으면 중계기는 기존 게시 대기를 복구할
+수 있지만 내용 없는 버스 요청만으로 발견 사항을 만들 수 없습니다. 이 추가 사항은
+서비스 간 스키마, 프로바이더 연결, 승인 또는 실행 경로를 변경하지 않습니다.
 
 Operator 운영 조립 파사드는 런타임 배선을 유지합니다. 목적별 인접 모듈은 수명 주기와 리소스
 정리, 경로 계열 조립 및 읽기 출처 선언을 소유합니다. 호환 내보내기는 기존 가져오기를 보존하며,
@@ -121,6 +127,7 @@ Cost Governance 가명 자료는 Operator 조립이 소유하는 비밀입니다
   Core는 `HumanAccessPlanner`만 만들며 변경 신원을 생성하지 않습니다. Core의 공유 `human_access` 파사드는 격리 Executor가 사용하는 SDK의 `parse_human_access_role_groups`와 정확히 같은 파서 객체를 다시 내보내며 래퍼나 중복 파서는 만들지 않습니다. `HumanAccessWorkflowRuntime`은 원래 HIL 검토 전에 전체 원래 Action/사례/역할 맵/승격 자료를 결속하고, 승인된 인자를 바꾸지 않는 준비 CAS `r -> r+1` 및 고정 담당 pub/sub를 Thor의 격리된 전용 Managed Identity에 연결합니다. 정확한 현재 원본/허용 목록, 비상 정지/상태, principal별 ActionType 정책, 7개 안전장치, 연산과 무관한 멤버십 잠금은 계속 필요합니다. 전달 전에 영속 의도를 하나 기록하며 확인 응답은 효과 근거가 아니고 결과를 모르는 시도는 자동 반복하지 않습니다. 독립 Heimdall 관측과 공유 잠금 해제 종결이 Core의 효과 기록보다 먼저입니다. Vidar는 원래 직접 수행한 변경, 현재 수요, 같은 대상 세대에 결속된 새 독립 승인 역방향 작업을 제안하고 마무리합니다. 사례는 이전 승인이나 역할 권한을 복사하지 않고 degraded/대체 가능 상태로 남습니다. 새 ActionType은 shadow가 기본이며 로컬 권한 전환은 허용하지 않습니다.
   완료된 인수인계 소스 작업에는 실행 경로 강화 20회와 [최종 통합 소스 검토 12회](../../internals/handover-lifecycle-hardening-20260914.md#final-integrated-critique-after-remaining-source-implementation)가 포함되며 해당 체크포인트에서 미해결로 확인된 Medium/High 소스 문제는 없었습니다. 두 번째 로컬 main 병합은 성공했고 [PR #1014](https://github.com/dotnetpower/fdai/pull/1014)에 `c8edd2769`로 게시되었지만 [CI 실행 34921323157의 1차 시도](https://github.com/dotnetpower/fdai/actions/runs/34921323157/attempts/1)는 실패했습니다. 집중 소스 수정은 로컬에서 구현되었으며 최신 게시 헤드는 여전히 `c8edd2769`입니다. [구현 원장](../../roadmap-implementation/architecture/project-structure.md)은 검토 후 번역 갱신, 정본 생성, 수정본 훅/PR 갱신, 정확한 헤드의 보호된 CI 통과/병합을 [#946](https://github.com/dotnetpower/fdai/issues/946)의 미완료 요건으로 유지하고 전체 UI/보조 기술/실제 운영/배포/승격 근거와 구분하며 운영 준비 상태는 false로 유지합니다.
 - **관찰 모드 ARB 구성**: `core/architecture_review/observation_loop.py`는 공급자 중립적인 Change -> 인증된 맥락 -> 근거 묶음 -> 시나리오 -> DecisionCase 및 ImpactEnvelope 구성을 소유합니다. Forseti만 기존 타입 지정 버스에 관찰 판정을 게시하고 Saga가 감사하며 `ArchitectureReviewProjector.project_observation`이 읽기 전용 ReviewCase 및 ReviewCheck 객체를 파생합니다.
+- **ARB 정의 범위**: `core/architecture_review/pillar_coverage.py`는 고정된 WAF 프레임워크, BestPractice 및 생성된 평가 카탈로그를 읽고 컨트롤과 근거 정의를 대조합니다. 워크로드를 평가하거나 준비 상태, 승인 또는 실행 권한을 부여할 수 없습니다.
   이 경로에는 승인, 변경, 승격 또는 실행 권한이 없습니다. 주입된 상태 저장소로 중복 및 재시작에 안전한 재생을 지원하며 저장소에 변환 상태 표식 계약이 없을 때만 범위가 제한된 프로세스 로컬 선입선출 캐시가 해당 상태를 보존합니다.
   루프는 계획된 의도만 수락하고 정확한 온톨로지 및 카탈로그 릴리스를 결속하며 기존 점검을 삭제하지 않고 일시적 보류를 표시합니다. 관찰 판정은 감사 전용이므로 Odin은 작업 포트폴리오에서 제외하고 Thor는 전달하지 않습니다.
   프로세스 계보는 기존 타입 지정 Change의 `process_ref`에서 `change_instantiates_process`로만 변환합니다. 검증 충돌은 지름길 간선을 만들지 않으며 정규화된 Change 출처는 정본 `process_ref`를 보존합니다.
@@ -237,6 +244,9 @@ Cost Governance 가명 자료는 Operator 조립이 소유하는 비밀입니다
   기술하고, 정책은 검증기가 재검사하는 실행 가능한 OPA/Rego입니다. 소스가 이 YAML로 수집·
   정규화되는 방법은
   [rule-catalog-collection-ko.md](../rules-and-detection/rule-catalog-collection-ko.md) 에 있습니다.
+  시작 시 카탈로그 변환기는 정확한 목표, Rule, 정책 서명 및 근거 참조를 검증한 뒤 읽기 전용
+  바인딩 관계를 노출합니다. T0 평가를 바꾸거나 후보를 승격하지 않으며, 그래프에 승인 또는
+  실행 권한을 주지 않습니다.
 - **거버넌스 변경은 범위와 감사 가능성을 유지**: 범위가 지정된 재정의와 기한이 있는 예외는
   검증된 카탈로그 데이터로 로드합니다. Core는 정확히 포함된 규칙과 리소스 범위만 해석하고,
   요청자와 승인자 신원을 분리하며, 매개 변수 완화와 만료 근거를 기록합니다. 재정의를 실행

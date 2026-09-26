@@ -48,7 +48,7 @@ For a new platform state, `foundation_resource_group_context_digest` selects ref
 `fdaictl provision plan --stage foundation` is a private dry run with a local backend; the exact state-migration archive activates the signed AzureRM backend example only for the attested host. Genesis authenticates separate Terraform archive/executable digests, selects a compatible host VM
 SKU and exact Marketplace Ubuntu version, and installs the checksum-pinned toolchain directly.
 Artifact-offline deployment can instead use a separately verified prebuilt image.
-An older retained migration claim with no sibling support files can restore only the exact reviewed-configuration bytes after a fresh `foundation-state` approval. A separate current-source verifier stays outside Terraform's input tree, verifies its repair overlay, and resumes `verify` without repeating backend migration.
+An older retained migration claim with no sibling support files can restore only the exact reviewed-configuration bytes after a fresh `foundation-state` approval. A separate current-source verifier stays outside Terraform's input tree, verifies its repair overlay, and resumes `verify` without repeating backend migration. After cleanup, current verified observer code uses the owner-only Bastion transfer and digest-readback path, then is removed after rechecking the authority-bound remote state digest without reconstructing the deleted work tree.
 Foundation apply, Bastion enrollment, and verified state migration require exact approval; application deployment and readiness remain open in the [Genesis ledger](../../roadmap-implementation/deployment/subscription-genesis-provisioning.md).
 
 A tenant whose Azure Policy denies part of the inventory also needs either an exemption or the

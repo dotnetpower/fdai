@@ -6,5 +6,16 @@ from fdai.delivery.execution_backend.adapters import (
     BubblewrapExecutionBackend,
     VmTaskExecutionBackend,
 )
+from fdai.delivery.execution_backend.container_apps_job import (
+    AzureContainerAppsJobExecutionBackend,
+    ContainerAppsJobConfig,
+    ContainerAppsJobTemplate,
+)
 
-__all__ = ["BubblewrapExecutionBackend", "VmTaskExecutionBackend"]
+__all__ = [
+    "AzureContainerAppsJobExecutionBackend",
+    "BubblewrapExecutionBackend",
+    "ContainerAppsJobConfig",
+    "ContainerAppsJobTemplate",
+    "VmTaskExecutionBackend",
+]

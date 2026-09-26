@@ -57,6 +57,12 @@ approved value, measurement method, result, timestamp, approver, and immutable e
 The required-evidence profile covers all five Azure Well-Architected pillars through 59 pinned
 control definitions. Catalog presence proves definition coverage only. A workload remains
 `unknown` until scope-matching typed evidence and separate approvals are supplied.
+The read-only `core/architecture_review/pillar_coverage.py` validator compares the generated WAF
+assessment catalog with its pinned framework and BestPractice definitions. It accounts for each
+unique control and evidence definition across all five pillars (59 controls, 186 evidence
+requirements), including Security, Cost Optimization, and Performance Efficiency. Missing or
+ambiguous definitions and mismatched source identity fail the definition check. This is not a
+workload assessment, compliance result, production-readiness finding, or approval.
 
 ## Ownership bindings
 

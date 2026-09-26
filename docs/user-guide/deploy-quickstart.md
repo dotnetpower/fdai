@@ -1,7 +1,7 @@
 ---
 title: Deploy Quickstart
 description: Deploy FDAI to Azure from one local command or a digest-pinned disconnected deployment appliance.
-derives_from: [{ source: docs/roadmap/deployment/deploy-and-onboard.md, sha: 1ab376c943c5587b50d69e63536503eb9a80f3f4 }]
+derives_from: [{ source: docs/roadmap/deployment/deploy-and-onboard.md, sha: b1c8c5c2763a72dbaf5968447ba1a8f9f1963511 }]
 ---
 
 # Deploy Quickstart
@@ -199,6 +199,9 @@ resume from the corrected exact source with a fresh `foundation-state` approval.
 preserves the original claim and backend effect, restores only exact files from the reviewed
 recovery configuration, and verifies a current-source overlay outside Terraform's input tree before
 running verification only. A partial file set or a different existing file stops recovery.
+After cleanup, a later exact-source run transfers its verified observer through the private Bastion
+path, reads its digest back, runs and removes it, and matches the remote state to the retained
+authority digest without rebuilding the deleted work tree.
 
 ### Recover a verified public development deployment
 

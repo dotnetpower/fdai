@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import time
 from datetime import UTC, datetime
 from typing import cast
@@ -240,6 +241,36 @@ async def test_async_composition_schedules_shadow_without_candidate_output() -> 
     comparisons = await store.list(limit=10)
     assert len(comparisons) == 1
     assert comparisons[0].candidate_policy_ref == "passing-policy-v1@1.0.0"
+
+
+async def test_shutdown_timeout_cancels_pending_shadow_without_callback_error() -> None:
+    class _BlockedStore(InMemoryContextSelectionEvaluationStore):
+        async def append(self, record: ContextSelectionEvaluation) -> None:
+            started.set()
+            await asyncio.Event().wait()
+
+    started = asyncio.Event()
+    authority = _authority(cast(ContextSelectionPolicy, _PassingPolicy()))
+    runner = ContextSelectionShadowRunner(authority=authority, store=_BlockedStore())
+    selection_input = _selection_input()
+    baseline = execute_context_selection_policy(
+        policy=authority.active_policy(), selection_input=selection_input
+    )
+    assert runner.schedule(selection_input=selection_input, baseline=baseline)
+    await asyncio.wait_for(started.wait(), timeout=1)
+
+    loop = asyncio.get_running_loop()
+    errors: list[dict[str, object]] = []
+    previous_handler = loop.get_exception_handler()
+    loop.set_exception_handler(lambda _loop, context: errors.append(context))
+    try:
+        with pytest.raises(TimeoutError):
+            await asyncio.wait_for(runner.drain(), timeout=0.01)
+        await asyncio.sleep(0)
+    finally:
+        loop.set_exception_handler(previous_handler)
+    assert errors == []
+    await runner.drain()
 
 
 def _evaluation(evaluation_id: str) -> ContextSelectionEvaluation:

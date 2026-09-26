@@ -238,6 +238,7 @@ def _build_route_families(
             semantic_bus=semantic_bus,
             teams_http_client=teams_http_client,
             role_group_ids=role_group_ids,
+            model_revision_owner=model_revision_owner,
         ),
         workflow_authorize=authorizer.workflow,
         workflow_read_store=postgres_workflow,

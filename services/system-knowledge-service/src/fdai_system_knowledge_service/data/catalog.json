@@ -1,7 +1,7 @@
 {
-  "catalog_digest": "sha256:a0af736d2dd59b226892984fe9a95e51e7f9e8803653832695d3d9dc3688e6bd",
+  "catalog_digest": "sha256:5a9534ab83712b2389f81c8e33c0c1827b549b020faac6a80480744df5c2c6a1",
   "execution_authority": false,
-  "generated_at": "2026-09-26T14:19:06.220436Z",
+  "generated_at": "2026-09-26T23:52:33.121232Z",
   "records": [
     {
       "designed_behavior": [
@@ -64,11 +64,11 @@
         "How does FDAI explain its own behavior?",
         "FDAI는 자신의 동작을 어떻게 설명하나요?"
       ],
-      "record_digest": "sha256:b261bc4bf93495d0e842b4ab7ab117817248b69690bf3b97739ff96d379412b0",
+      "record_digest": "sha256:c6974a78985f18c57fe133663d90594c7a186468d2fc02d94ee3f3963ffe895e",
       "sources": [
         {
           "authority_role": "design",
-          "blob_sha": "b15f90bb40acf9cd0500e88d52d622c054c73aa1",
+          "blob_sha": "26ebb1a2f789bece0f3c9f6cb50c79f49169de53",
           "line_end": 23,
           "line_start": 23,
           "path": "docs/roadmap/interfaces/behavior-knowledge.md",
@@ -553,5 +553,5 @@
     }
   ],
   "schema_version": "1.0.0",
-  "source_revision": "aeb8ad0e65fc07bb9ae737e179dfc99858b339cb"
+  "source_revision": "19eb7122dd580fad44be99c73c6308a59265681c"
 }

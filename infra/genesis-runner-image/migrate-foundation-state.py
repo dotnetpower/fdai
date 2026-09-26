@@ -51,6 +51,7 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--backend-key", required=True)
     parser.add_argument("--expected-state-digest", required=True)
     parser.add_argument("--support-repair-digest")
+    parser.add_argument("--expected-remote-state-digest")
     return parser
 
 
@@ -259,10 +260,16 @@ def _observe_remote_authority(args: argparse.Namespace, cleanup_marker: Path) ->
             max_bytes=64 * 1024 * 1024,
         )
         remote_value = json.loads(remote_state)
-        if (
-            not isinstance(remote_value, dict)
-            or _canonical_digest(remote_value) != args.expected_state_digest
-        ):
+        if not isinstance(remote_value, dict):
+            raise ValueError("Foundation remote state observation is invalid")
+        expected_remote_digest = getattr(args, "expected_remote_state_digest", None)
+        remote_digest = (
+            hashlib.sha256(remote_state).hexdigest()
+            if expected_remote_digest is not None
+            else _canonical_digest(remote_value)
+        )
+        expected_digest = expected_remote_digest or args.expected_state_digest
+        if remote_digest != expected_digest:
             raise ValueError("Foundation remote state observation digest differs")
         _verify_backend(args, environment)
     finally:
@@ -342,6 +349,11 @@ def _validate(args: argparse.Namespace) -> None:
         args.mode != "verify" or _DIGEST.fullmatch(args.support_repair_digest) is None
     ):
         raise ValueError("Foundation support repair digest is invalid")
+    expected_remote_digest = getattr(args, "expected_remote_state_digest", None)
+    if expected_remote_digest is not None and (
+        args.mode != "observe" or _DIGEST.fullmatch(expected_remote_digest) is None
+    ):
+        raise ValueError("Foundation remote state observation digest is invalid")
     for value in (
         args.subscription_id,
         args.tenant_id,

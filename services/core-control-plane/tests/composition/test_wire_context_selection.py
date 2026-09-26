@@ -175,6 +175,39 @@ async def test_assembled_turn_persists_bounded_shadow_comparison(container: Cont
     assert len(durable) == 1
 
 
+async def test_reassembled_container_reads_comparisons_from_shared_store(
+    container: Container,
+) -> None:
+    state_store = InMemoryStateStore()
+    first = bind_context_selection_shadow(
+        _enable_shadow_candidate(container),
+        state_store=state_store,
+    )
+    first_runner = first.context_selection_shadow_runner
+    assert first_runner is not None
+    await assemble_turn_context(
+        session=_session(),
+        utterance="status",
+        budget=_budget(),
+        policy_authority=first.context_selection_policy_authority,
+        shadow_runner=first_runner,
+        token_estimator=lambda _: 1,
+    )
+    await first_runner.drain()
+
+    reassembled = bind_context_selection_shadow(container, state_store=state_store)
+    next_runner = reassembled.context_selection_shadow_runner
+    assert next_runner is not None
+    assert next_runner is not first_runner
+    assert [item.candidate_policy_ref for item in await next_runner.store.list(limit=10)] == [
+        POLICY_REF
+    ]
+    assert (
+        reassembled.context_selection_policy_authority
+        is not first.context_selection_policy_authority
+    )
+
+
 async def test_bundle_install_rebinds_runner_to_refreshed_authority(container: Container) -> None:
     bound = bind_context_selection_shadow(container, state_store=InMemoryStateStore())
     reinstalled = _enable_shadow_candidate(bound)

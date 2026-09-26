@@ -181,6 +181,7 @@ def create_authority(
         "backend_key_digest": hashlib.sha256(backend_key.encode()).hexdigest(),
         "comparison_digest": canonical_digest(dict(comparison)),
         "observation_digest": canonical_digest(dict(observation)),
+        "remote_state_digest": observation["remote_state_digest"],
         "state_digest": comparison["state_digest"],
         "plan_digest": comparison["plan_digest"],
         "managed_resource_count": comparison["managed_resource_count"],
@@ -226,6 +227,13 @@ def validate_authority(
         or authority.get("work_id") != work_id
         or authority.get("claim_digest") != canonical_digest(dict(claim))
         or authority.get("actor_digest") != claim.get("actor_digest")
+        or (
+            authority.get("remote_state_digest") is not None
+            and (
+                not isinstance(authority.get("remote_state_digest"), str)
+                or _DIGEST.fullmatch(str(authority["remote_state_digest"])) is None
+            )
+        )
         or authority.get("remote_backend_authority_verified") is not True
         or authority.get("local_state_deletion_authorized") is not True
     ):

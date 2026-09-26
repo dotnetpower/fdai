@@ -2,7 +2,7 @@
 title: 배포 빠른 시작
 description: 단일 로컬 명령 또는 digest로 고정된 폐쇄망 배포 어플라이언스로 FDAI를 Azure에 배포합니다.
 translation_of: deploy-quickstart.md
-translation_source_sha: e8b4fa9d728f6b8f7f722216acd3ce15356f0af5
+translation_source_sha: 28926b98fcaee696eae949b6b6d0b36021113c73
 translation_revised: 2026-09-26
 ---
 
@@ -195,6 +195,9 @@ Foundation 계획은 먼저 비공개 로컬 백엔드를 사용합니다. 정�
 백엔드 효과를 유지하고, 검토된 복구 구성의 정확한 파일만 복원하며, Terraform 입력 트리 밖의
 현재 소스 오버레이를 검증한 뒤 검증만 실행합니다. 일부 파일만 있거나 기존 파일이 다르면
 복구가 중단됩니다.
+정리 후에는 이후의 정확한 소스 실행이 검증된 관찰기를 비공개 Bastion 경로로 전송하고,
+다이제스트를 다시 읽어 확인한 뒤 실행 및 제거하며, 삭제된 작업 트리를 다시 만들지 않은 채
+원격 상태를 보존된 권한 다이제스트와 비교합니다.
 
 ### 검증된 공개 개발 배포 복구
 

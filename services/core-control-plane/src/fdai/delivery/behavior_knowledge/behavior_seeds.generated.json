@@ -1,0 +1,1013 @@
+{
+  "extractor_version": "behavior-seed-v2",
+  "seeds": [
+    {
+      "behavior_id": "incident.deterministic-id",
+      "english": {
+        "exclusions": [
+          "The Incident ID is neither an external ticket number nor an event correlation ID."
+        ],
+        "outcomes": [
+          "Key permutations resolve to the same Incident and accumulate member events."
+        ],
+        "preconditions": [
+          "At least one key must be nonempty."
+        ],
+        "safety": [
+          "Empty key sets are rejected; persisted duplicate opens do not create a second Incident."
+        ],
+        "steps": [
+          "Canonicalize the key set and derive a UUID5; merge members on repeated opens."
+        ],
+        "trigger": [
+          "An Incident opens from correlation keys."
+        ]
+      },
+      "ko": {
+        "exclusions": [
+          "인시던트 ID는 외부 티켓 번호나 이벤트 상관관계 ID가 아닙니다."
+        ],
+        "outcomes": [
+          "키 순서와 중복에 관계없이 같은 인시던트에 구성원 이벤트가 모입니다."
+        ],
+        "preconditions": [
+          "비어 있지 않은 키가 하나 이상 필요합니다."
+        ],
+        "safety": [
+          "빈 키 집합을 거부하고 중복 요청으로 두 번째 인시던트를 만들지 않습니다."
+        ],
+        "steps": [
+          "키 집합을 정규화해 UUID5를 만들고 다시 열면 구성원 이벤트를 병합합니다."
+        ],
+        "trigger": [
+          "상관관계 키로 인시던트를 열 때 시작합니다."
+        ]
+      },
+      "owner": "IncidentRegistry",
+      "question_aliases": [
+        "How is an Incident ID created?",
+        "인시던트 ID는 어떻게 생성하나요?"
+      ],
+      "source_manifest_hash": "57f26852437be492fdde83130a82b8e44eb42798f5c7fb641c370246bad9e562",
+      "sources": [
+        {
+          "authority_role": "implementation",
+          "blob_sha": "90b93caebd5713ed0cd0fd665c73857187feddb6",
+          "line_end": 103,
+          "line_start": 91,
+          "path": "services/core-control-plane/src/fdai/core/incident/registry.py",
+          "source_kind": "code",
+          "symbol": "incident_id_for"
+        },
+        {
+          "authority_role": "implementation",
+          "blob_sha": "90b93caebd5713ed0cd0fd665c73857187feddb6",
+          "line_end": 290,
+          "line_start": 184,
+          "path": "services/core-control-plane/src/fdai/core/incident/registry.py",
+          "source_kind": "code",
+          "symbol": "IncidentRegistry.open_with_status"
+        },
+        {
+          "authority_role": "verification",
+          "blob_sha": "519d9c645eaea3e2d214f1106285bdc923fddc9b",
+          "line_end": 42,
+          "line_start": 38,
+          "path": "services/core-control-plane/tests/core/incident/test_incident_lifecycle.py",
+          "source_kind": "test",
+          "symbol": "test_incident_id_is_deterministic_over_key_set_permutations"
+        },
+        {
+          "authority_role": "verification",
+          "blob_sha": "519d9c645eaea3e2d214f1106285bdc923fddc9b",
+          "line_end": 244,
+          "line_start": 216,
+          "path": "services/core-control-plane/tests/core/incident/test_incident_lifecycle.py",
+          "source_kind": "test",
+          "symbol": "test_open_is_idempotent_and_merges_member_events"
+        }
+      ],
+      "status": "implemented",
+      "subject_id": "Incident.incident_id",
+      "subject_kind": "object_behavior"
+    },
+    {
+      "behavior_id": "odin.cross-domain-arbitration",
+      "english": {
+        "exclusions": [
+          "Single-domain and unanimous advice do not trigger arbitration; portfolio review is not established here."
+        ],
+        "outcomes": [
+          "A clear eligible recommendation is selected; ambiguous or unknown domains go to human review."
+        ],
+        "preconditions": [
+          "Conflicting grounded objective effects, or conflicting advice without that evidence, are required."
+        ],
+        "safety": [
+          "Arbitration evidence never approves or executes an action."
+        ],
+        "steps": [
+          "Forseti publishes a request; Odin weighs eligible options and checks for close calls."
+        ],
+        "trigger": [
+          "Forseti requests arbitration for a cross-domain conflict."
+        ]
+      },
+      "ko": {
+        "exclusions": [
+          "단일 영역이나 만장일치 권고는 중재하지 않으며 이 항목은 포트폴리오 검토를 입증하지 않습니다."
+        ],
+        "outcomes": [
+          "명확한 적격 권고를 선택하고 모호하거나 알 수 없는 영역은 사람에게 검토를 맡깁니다."
+        ],
+        "preconditions": [
+          "근거가 있는 목표 효과가 충돌하거나, 그 근거가 없을 때 권고가 충돌해야 합니다."
+        ],
+        "safety": [
+          "중재 근거는 액션의 승인이나 실행 권한을 부여하지 않습니다."
+        ],
+        "steps": [
+          "Forseti가 요청을 발행하고 Odin이 적격 선택지와 박빙 여부를 검토합니다."
+        ],
+        "trigger": [
+          "영역 간 충돌이 있으면 Forseti가 중재를 요청합니다."
+        ]
+      },
+      "owner": "Odin",
+      "question_aliases": [
+        "When does Odin intervene?",
+        "Odin이 개입하지 않는 경우는 언제인가요?"
+      ],
+      "source_manifest_hash": "3a6e8f158bb8b35b9c173732cde5679457c69e1897818d49c2f3b321ba85c1fb",
+      "sources": [
+        {
+          "authority_role": "implementation",
+          "blob_sha": "ff4a36f10218a7a681d54c8e3f15f117e6ccd90b",
+          "line_end": 234,
+          "line_start": 182,
+          "path": "services/core-control-plane/src/fdai/agents/_framework/forseti_arbitration.py",
+          "source_kind": "code",
+          "symbol": "ForsetiArbitrationMixin.maybe_request_arbitration"
+        },
+        {
+          "authority_role": "implementation",
+          "blob_sha": "ae00b7ae3267b01367d39afd2cad5af8c1cfb81d",
+          "line_end": 249,
+          "line_start": 181,
+          "path": "services/core-control-plane/src/fdai/agents/odin.py",
+          "source_kind": "code",
+          "symbol": "Odin.arbitrate"
+        },
+        {
+          "authority_role": "implementation",
+          "blob_sha": "50f72958410d84231787ffa5d37b058f44c7469f",
+          "line_end": 281,
+          "line_start": 187,
+          "path": "services/core-control-plane/src/fdai/agents/_framework/arbitration.py",
+          "source_kind": "code",
+          "symbol": "MultiObjectiveArbiter.resolve"
+        },
+        {
+          "authority_role": "verification",
+          "blob_sha": "1183cd1842f78c1addcea4fd1e4b81f191478b00",
+          "line_end": 76,
+          "line_start": 61,
+          "path": "services/core-control-plane/tests/agents/test_arbitration.py",
+          "source_kind": "test",
+          "symbol": "test_forseti_requests_arbitration_on_conflicting_advice"
+        },
+        {
+          "authority_role": "verification",
+          "blob_sha": "1183cd1842f78c1addcea4fd1e4b81f191478b00",
+          "line_end": 122,
+          "line_start": 114,
+          "path": "services/core-control-plane/tests/agents/test_arbitration.py",
+          "source_kind": "test",
+          "symbol": "test_forseti_no_arbitration_on_single_domain"
+        },
+        {
+          "authority_role": "verification",
+          "blob_sha": "1183cd1842f78c1addcea4fd1e4b81f191478b00",
+          "line_end": 398,
+          "line_start": 382,
+          "path": "services/core-control-plane/tests/agents/test_arbitration.py",
+          "source_kind": "test",
+          "symbol": "test_close_call_escalates_to_hil"
+        }
+      ],
+      "status": "implemented",
+      "subject_id": "Odin.arbitration",
+      "subject_kind": "agent_behavior"
+    },
+    {
+      "behavior_id": "issue.fingerprint-deduplication",
+      "english": {
+        "exclusions": [
+          "An Issue fingerprint is not an Incident ID or a license to close an Issue."
+        ],
+        "outcomes": [
+          "Repeated handoffs share the Issue while retaining separate occurrence references."
+        ],
+        "preconditions": [
+          "A normalized handoff fingerprint is available."
+        ],
+        "safety": [
+          "Closure requires a separate resolving promotion and regression window."
+        ],
+        "steps": [
+          "Find an open matching Issue; create once or append a correlation-scoped occurrence."
+        ],
+        "trigger": [
+          "An unresolved agent handoff reaches Saga."
+        ]
+      },
+      "ko": {
+        "exclusions": [
+          "Issue 지문은 인시던트 ID가 아니며 Issue를 닫는 권한도 아닙니다."
+        ],
+        "outcomes": [
+          "반복 인계는 Issue를 공유하지만 각 발생의 참조는 따로 보존합니다."
+        ],
+        "preconditions": [
+          "정규화된 인계 지문이 필요합니다."
+        ],
+        "safety": [
+          "종료에는 별도 해결 기능 승격과 회귀 검증 구간이 필요합니다."
+        ],
+        "steps": [
+          "열린 Issue의 지문을 비교하고 처음에만 만들며 재발 시 상관관계별 기록을 추가합니다."
+        ],
+        "trigger": [
+          "해결되지 않은 에이전트 인계가 Saga에 도착하면 시작합니다."
+        ]
+      },
+      "owner": "Saga",
+      "question_aliases": [
+        "How are repeated Issues handled?",
+        "Issue 중복은 어떻게 처리하나요?"
+      ],
+      "source_manifest_hash": "dbc5780fbde1183e2d1e5181c40ba7c863d97a0b8ff5cc6f0d284d43baca2dce",
+      "sources": [
+        {
+          "authority_role": "implementation",
+          "blob_sha": "e28df6583acf0d70eae2c3bf24034d8bede256f9",
+          "line_end": 545,
+          "line_start": 506,
+          "path": "services/core-control-plane/src/fdai/agents/saga.py",
+          "source_kind": "code",
+          "symbol": "Saga.escalate_to_github_issue"
+        },
+        {
+          "authority_role": "verification",
+          "blob_sha": "3e27e1e3d95c6b979fb9a3661d2e4dfc24db6196",
+          "line_end": 201,
+          "line_start": 167,
+          "path": "services/core-control-plane/tests/agents/test_wave2_governance.py",
+          "source_kind": "test",
+          "symbol": "test_saga_issue_dedup_creates_once_and_appends_comment_on_repeat"
+        },
+        {
+          "authority_role": "design",
+          "blob_sha": "3f0af925785f7f18cd5447ab5d89387238c7b69e",
+          "line_end": 35,
+          "line_start": 27,
+          "path": "rule-catalog/vocabulary/object-types/Issue.yaml",
+          "source_kind": "schema",
+          "symbol": "lifecycle.deduplication"
+        }
+      ],
+      "status": "implemented",
+      "subject_id": "Issue.deduplication",
+      "subject_kind": "object_behavior"
+    },
+    {
+      "behavior_id": "architecture.trust-tier-routing",
+      "english": {
+        "exclusions": [
+          "This router does not invoke a tier or directly return T2."
+        ],
+        "outcomes": [
+          "Return a tier or abstention with the reason and candidate rule IDs."
+        ],
+        "preconditions": [
+          "The deterministic RuleIndex is loaded."
+        ],
+        "safety": [
+          "A missing resource type leads to abstention rather than inference."
+        ],
+        "steps": [
+          "Derive the resource type; select T0 for a rule match, T1 for no match, or abstain."
+        ],
+        "trigger": [
+          "A validated Event reaches the trust router."
+        ]
+      },
+      "ko": {
+        "exclusions": [
+          "이 라우터는 계층을 실행하거나 T2를 직접 반환하지 않습니다."
+        ],
+        "outcomes": [
+          "이유와 후보 규칙 ID를 포함한 계층 또는 기권 결과를 반환합니다."
+        ],
+        "preconditions": [
+          "결정적 RuleIndex가 로드되어야 합니다."
+        ],
+        "safety": [
+          "리소스 유형이 없으면 추측하지 않고 기권합니다."
+        ],
+        "steps": [
+          "리소스 유형을 구해 규칙이 맞으면 T0, 없으면 T1, 유형이 없으면 기권합니다."
+        ],
+        "trigger": [
+          "검증된 Event가 신뢰 라우터에 도착하면 시작합니다."
+        ]
+      },
+      "owner": "TrustRouter",
+      "question_aliases": [
+        "How does the trust router choose a tier?",
+        "신뢰 라우터는 계층을 어떻게 선택하나요?"
+      ],
+      "source_manifest_hash": "77ac9808b721695ae24fb6765d2d9ced8ba2178299e9a060eb1da24e55b19315",
+      "sources": [
+        {
+          "authority_role": "implementation",
+          "blob_sha": "952677b10fd8151a7d3e62463b8a20dcc6ddbafa",
+          "line_end": 96,
+          "line_start": 59,
+          "path": "services/core-control-plane/src/fdai/core/trust_router/__init__.py",
+          "source_kind": "code",
+          "symbol": "TrustRouter.route"
+        },
+        {
+          "authority_role": "verification",
+          "blob_sha": "d9820d4ab126470d3cd70e5894e696da0158f6eb",
+          "line_end": 80,
+          "line_start": 74,
+          "path": "services/core-control-plane/tests/core/trust_router/test_trust_router.py",
+          "source_kind": "test",
+          "symbol": "test_routes_to_t0_when_resource_type_matches_a_rule"
+        }
+      ],
+      "status": "implemented",
+      "subject_id": "TrustRouter.route",
+      "subject_kind": "architecture_behavior"
+    },
+    {
+      "behavior_id": "architecture.t2-quality-gate",
+      "english": {
+        "exclusions": [
+          "One model response cannot authorize execution."
+        ],
+        "outcomes": [
+          "Only an eligible result may proceed to the risk gate."
+        ],
+        "preconditions": [
+          "Verifier and grounding are required."
+        ],
+        "safety": [
+          "Missing grounding abstains and disagreement fails closed."
+        ],
+        "steps": [
+          "Verify deterministically, check cited grounding, then cross-check model agreement."
+        ],
+        "trigger": [
+          "A T2 proposal reaches the quality gate."
+        ]
+      },
+      "ko": {
+        "exclusions": [
+          "모델 응답 하나로 실행을 승인할 수 없습니다."
+        ],
+        "outcomes": [
+          "적격 결과만 위험 관문으로 진행할 수 있습니다."
+        ],
+        "preconditions": [
+          "검증기와 인용할 근거가 필요합니다."
+        ],
+        "safety": [
+          "근거가 없으면 기권하고 의견이 다르면 안전하게 중단합니다."
+        ],
+        "steps": [
+          "결정적으로 검증하고 인용 근거를 확인한 다음 모델 간 합의를 교차 검사합니다."
+        ],
+        "trigger": [
+          "T2 제안이 품질 검증기에 도착하면 시작합니다."
+        ]
+      },
+      "owner": "QualityGate",
+      "question_aliases": [
+        "What checks does a T2 proposal pass?",
+        "T2 제안은 어떤 검증을 통과해야 하나요?"
+      ],
+      "source_manifest_hash": "ba9c51a4c02004336ffba8fa2faa499b626185eb2997e955d02e3d1f9f367bb4",
+      "sources": [
+        {
+          "authority_role": "implementation",
+          "blob_sha": "30758f0766e71a6ad7de5ec73f6b17645ca3dafe",
+          "line_end": 690,
+          "line_start": 420,
+          "path": "services/core-control-plane/src/fdai/core/quality_gate/gate.py",
+          "source_kind": "code",
+          "symbol": "QualityGate.evaluate"
+        },
+        {
+          "authority_role": "verification",
+          "blob_sha": "3ff657ec3aa4b88910acd0b4e93cef592f3e83ba",
+          "line_end": 312,
+          "line_start": 304,
+          "path": "services/core-control-plane/tests/core/quality_gate/test_gate.py",
+          "source_kind": "test",
+          "symbol": "test_no_grounded_citation_when_require_grounding_true"
+        },
+        {
+          "authority_role": "verification",
+          "blob_sha": "3ff657ec3aa4b88910acd0b4e93cef592f3e83ba",
+          "line_end": 345,
+          "line_start": 333,
+          "path": "services/core-control-plane/tests/core/quality_gate/test_gate.py",
+          "source_kind": "test",
+          "symbol": "test_cross_check_disagreement_below_quorum_becomes_disagree"
+        }
+      ],
+      "status": "implemented",
+      "subject_id": "T2.QualityGate.grounding.cross_check",
+      "subject_kind": "architecture_behavior"
+    },
+    {
+      "behavior_id": "architecture.human-approval-separation",
+      "english": {
+        "exclusions": [
+          "An approver cannot execute with Thor's identity or self-approve."
+        ],
+        "outcomes": [
+          "Valid human approval permits the separately gated action path to continue."
+        ],
+        "preconditions": [
+          "Var has a pending approval ticket."
+        ],
+        "safety": [
+          "Rejection, duplicate approval, or missing quorum grants no execution authority."
+        ],
+        "steps": [
+          "Verify distinct approver identity and quorum before emitting an approval event."
+        ],
+        "trigger": [
+          "A risk decision calls for human approval."
+        ]
+      },
+      "ko": {
+        "exclusions": [
+          "승인자는 Thor 신원으로 실행하거나 자기 액션을 승인할 수 없습니다."
+        ],
+        "outcomes": [
+          "유효한 사람 승인 후에도 별도의 관문을 통과해야 액션이 진행됩니다."
+        ],
+        "preconditions": [
+          "Var에 보류 중인 승인 티켓이 있어야 합니다."
+        ],
+        "safety": [
+          "거부, 중복 승인 또는 정족수 부족은 실행 권한을 부여하지 않습니다."
+        ],
+        "steps": [
+          "승인자 신원과 정족수를 확인한 뒤 승인 이벤트를 발행합니다."
+        ],
+        "trigger": [
+          "위험 판단에 사람 승인이 필요하면 시작합니다."
+        ]
+      },
+      "owner": "RiskGate / Var",
+      "question_aliases": [
+        "Can an approver approve their own action?",
+        "자기 액션을 스스로 승인할 수 있나요?"
+      ],
+      "source_manifest_hash": "19b3cfd2751c25d1c6190540c3464f6a7b82e27fd24cc96fd47144f3043e4338",
+      "sources": [
+        {
+          "authority_role": "implementation",
+          "blob_sha": "a8ffe4938b1fb0a12839a4c388c10e376cc5a41d",
+          "line_end": 303,
+          "line_start": 291,
+          "path": "services/core-control-plane/src/fdai/agents/var.py",
+          "source_kind": "code",
+          "symbol": "Var.decide"
+        },
+        {
+          "authority_role": "verification",
+          "blob_sha": "799fd1cf10ebfcedebb1a5eb754eb6b0b912eea6",
+          "line_end": 431,
+          "line_start": 411,
+          "path": "services/core-control-plane/tests/agents/test_chat_to_pipeline_e2e.py",
+          "source_kind": "test",
+          "symbol": "test_var_rejects_blank_approver_and_trims_self_approval"
+        }
+      ],
+      "status": "implemented",
+      "subject_id": "HIL.Var.approval.no_self_approval",
+      "subject_kind": "architecture_behavior"
+    },
+    {
+      "behavior_id": "architecture.shadow-promotion",
+      "english": {
+        "exclusions": [
+          "Promotion does not edit its ActionType definition."
+        ],
+        "outcomes": [
+          "Only the eligible ActionType may enter enforce mode."
+        ],
+        "preconditions": [
+          "The promotion registry has the action and its governing checks."
+        ],
+        "safety": [
+          "Unknown or regressing actions remain in, or return to, shadow mode."
+        ],
+        "steps": [
+          "Evaluate the promotion conditions; demote when measured conditions regress."
+        ],
+        "trigger": [
+          "Measured shadow evidence is submitted for an ActionType."
+        ]
+      },
+      "ko": {
+        "exclusions": [
+          "승격은 ActionType 정의를 수정하지 않습니다."
+        ],
+        "outcomes": [
+          "적격 ActionType만 enforce 모드로 전환할 수 있습니다."
+        ],
+        "preconditions": [
+          "승격 레지스트리에 액션과 적용할 검사 조건이 있어야 합니다."
+        ],
+        "safety": [
+          "알 수 없거나 조건이 악화된 액션은 shadow 모드에 머물거나 되돌아갑니다."
+        ],
+        "steps": [
+          "승격 조건을 평가하고 측정 조건이 악화되면 강등합니다."
+        ],
+        "trigger": [
+          "ActionType의 shadow 측정 근거가 제출되면 시작합니다."
+        ]
+      },
+      "owner": "ActionPromotionRegistry",
+      "question_aliases": [
+        "When can an ActionType leave shadow mode?",
+        "ActionType은 언제 shadow-mode를 벗어나나요?"
+      ],
+      "source_manifest_hash": "077831734cc40a187b3f9b29fd708b2800e43a1057b2ae253bbaf920cec2c238",
+      "sources": [
+        {
+          "authority_role": "implementation",
+          "blob_sha": "9d067713383df0a4e90d1d1eaca75260a50398e3",
+          "line_end": 264,
+          "line_start": 182,
+          "path": "services/core-control-plane/src/fdai/core/risk_gate/gate.py",
+          "source_kind": "code",
+          "symbol": "ActionPromotionRegistry.consider_promotion"
+        },
+        {
+          "authority_role": "verification",
+          "blob_sha": "0f628f988d28c9fd9bb6f94ead2788c574fb3ad9",
+          "line_end": 470,
+          "line_start": 456,
+          "path": "services/core-control-plane/tests/core/risk_gate/test_gate.py",
+          "source_kind": "test",
+          "symbol": "test_promotion_registry_promotes_when_metrics_pass_gate"
+        },
+        {
+          "authority_role": "verification",
+          "blob_sha": "0f628f988d28c9fd9bb6f94ead2788c574fb3ad9",
+          "line_end": 496,
+          "line_start": 473,
+          "path": "services/core-control-plane/tests/core/risk_gate/test_gate.py",
+          "source_kind": "test",
+          "symbol": "test_promotion_registry_demotes_when_metrics_regress"
+        }
+      ],
+      "status": "implemented",
+      "subject_id": "ActionPromotionRegistry.consider_promotion",
+      "subject_kind": "architecture_behavior"
+    },
+    {
+      "behavior_id": "architecture.executor-safety",
+      "english": {
+        "exclusions": [
+          "The shadow executor does not apply an enforce-mode substrate mutation."
+        ],
+        "outcomes": [
+          "An eligible shadow delivery publishes a bounded proposal and audit result."
+        ],
+        "preconditions": [
+          "The request must satisfy its declared scope and safeguards."
+        ],
+        "safety": [
+          "Duplicate keys and failed invariants do not create a second mutation."
+        ],
+        "steps": [
+          "Check idempotency, lock, blast radius, and renderability before publication."
+        ],
+        "trigger": [
+          "A gated Action and Rule reach the shadow executor."
+        ]
+      },
+      "ko": {
+        "exclusions": [
+          "shadow 실행기는 enforce 모드의 기반 리소스를 변경하지 않습니다."
+        ],
+        "outcomes": [
+          "적격 shadow 전달은 범위가 제한된 제안과 감사 결과를 발행합니다."
+        ],
+        "preconditions": [
+          "요청은 선언된 범위와 안전장치를 충족해야 합니다."
+        ],
+        "safety": [
+          "중복 키와 안전장치 실패는 두 번째 변경을 만들지 않습니다."
+        ],
+        "steps": [
+          "발행 전에 멱등성, 잠금, 영향 범위 및 렌더링 가능 여부를 검사합니다."
+        ],
+        "trigger": [
+          "관문을 통과한 액션과 규칙이 shadow 실행기에 도착하면 시작합니다."
+        ]
+      },
+      "owner": "ShadowExecutor / Thor",
+      "question_aliases": [
+        "How does the shadow executor avoid duplicate actions?",
+        "shadow 실행기는 중복 액션을 어떻게 막나요?"
+      ],
+      "source_manifest_hash": "ad2eda35f98846d84ca1194899f226f3872696c04f68622f60320d9cb0170e4b",
+      "sources": [
+        {
+          "authority_role": "implementation",
+          "blob_sha": "3d037843d046f6b0d7a77393fdd621fc7d77a1c7",
+          "line_end": 434,
+          "line_start": 240,
+          "path": "services/core-control-plane/src/fdai/core/executor/executor.py",
+          "source_kind": "code",
+          "symbol": "ShadowExecutor.execute"
+        },
+        {
+          "authority_role": "verification",
+          "blob_sha": "1a11992cc58cd66778b0dc9e913b896aa89d7a90",
+          "line_end": 544,
+          "line_start": 534,
+          "path": "services/core-control-plane/tests/core/executor/test_executor.py",
+          "source_kind": "test",
+          "symbol": "test_second_delivery_of_same_key_is_deduped"
+        }
+      ],
+      "status": "implemented",
+      "subject_id": "ShadowExecutor.execute",
+      "subject_kind": "architecture_behavior"
+    },
+    {
+      "behavior_id": "architecture.console-identity-boundary",
+      "english": {
+        "exclusions": [
+          "A browser button is not a substrate execution path."
+        ],
+        "outcomes": [
+          "The design keeps a console compromise from automatically obtaining executor credentials."
+        ],
+        "preconditions": [
+          "Human and workload identities are distinct by design."
+        ],
+        "safety": [
+          "The instruction describes the boundary, not a current runtime attestation."
+        ],
+        "steps": [
+          "Operator API checks its own principal; execution belongs to the isolated executor."
+        ],
+        "trigger": [
+          "An operator reads or proposes work through Console."
+        ]
+      },
+      "ko": {
+        "exclusions": [
+          "브라우저 버튼은 기반 리소스의 실행 경로가 아닙니다."
+        ],
+        "outcomes": [
+          "설계는 Console 침해로 실행기 자격 증명이 자동 노출되지 않도록 구분합니다."
+        ],
+        "preconditions": [
+          "설계상 사람 신원과 워크로드 신원을 분리해야 합니다."
+        ],
+        "safety": [
+          "이 지침은 경계를 설명할 뿐 현재 런타임 검증을 입증하지 않습니다."
+        ],
+        "steps": [
+          "Operator API는 자체 주체를 확인하고 실행은 격리된 실행기가 맡습니다."
+        ],
+        "trigger": [
+          "운영자가 Console에서 조회하거나 작업을 제안하면 시작합니다."
+        ]
+      },
+      "owner": "Operator API / Thor",
+      "question_aliases": [
+        "Does the browser hold the executor identity?",
+        "브라우저가 실행기 신원을 갖나요?"
+      ],
+      "source_manifest_hash": "79d1fb61e049cca0b50d235537f8d99ba29ef4bfdfc917f65a07f541079b0157",
+      "sources": [
+        {
+          "authority_role": "design",
+          "blob_sha": "30027850ec414ab2867eb1dbc554af2dbd4a989c",
+          "line_end": 60,
+          "line_start": 28,
+          "path": ".github/instructions/app-shape.instructions.md",
+          "source_kind": "doc",
+          "symbol": "Layer Boundaries (security)"
+        }
+      ],
+      "status": "designed",
+      "subject_id": "Console.Browser.Principal.Executor.Identity.Thor.Azure.Approval.Button.Substrate.Mutation",
+      "subject_kind": "architecture_behavior"
+    },
+    {
+      "behavior_id": "architecture.event-ingest-dedup",
+      "english": {
+        "exclusions": [
+          "This bounded cache is not an all-history durable ledger."
+        ],
+        "outcomes": [
+          "Recent redelivery stops before routing."
+        ],
+        "preconditions": [
+          "An idempotency key is present in the bounded deduplication window."
+        ],
+        "safety": [
+          "Downstream executor idempotency remains a distinct safety boundary."
+        ],
+        "steps": [
+          "Normalize and validate; suppress keys already in the in-process window."
+        ],
+        "trigger": [
+          "A raw or validated event reaches EventIngest."
+        ]
+      },
+      "ko": {
+        "exclusions": [
+          "이 메모리 캐시는 모든 이력을 보관하는 영속 원장이 아닙니다."
+        ],
+        "outcomes": [
+          "최근에 다시 전달된 이벤트는 라우팅 전에 멈춥니다."
+        ],
+        "preconditions": [
+          "멱등성 키와 범위가 제한된 중복 제거 구간이 필요합니다."
+        ],
+        "safety": [
+          "후속 실행기의 멱등성은 별개의 안전 경계로 유지됩니다."
+        ],
+        "steps": [
+          "정규화하고 검증한 뒤 메모리 구간에 이미 있는 키를 억제합니다."
+        ],
+        "trigger": [
+          "원시 또는 검증된 이벤트가 EventIngest에 도착하면 시작합니다."
+        ]
+      },
+      "owner": "EventIngest / Huginn",
+      "question_aliases": [
+        "What happens to duplicate events?",
+        "중복 이벤트는 어떻게 처리하나요?"
+      ],
+      "source_manifest_hash": "b3bb0a5b55d21dbd0f486d803037286b3fca7fb5081eba1735db89e3e0fc77a7",
+      "sources": [
+        {
+          "authority_role": "implementation",
+          "blob_sha": "c703e874e8eb06304ca86a7f9a4f9dfea177ed74",
+          "line_end": 93,
+          "line_start": 78,
+          "path": "services/core-control-plane/src/fdai/core/event_ingest/__init__.py",
+          "source_kind": "code",
+          "symbol": "EventIngest.ingest"
+        },
+        {
+          "authority_role": "verification",
+          "blob_sha": "b109b0080e2426a9397011854630fceb912bc928",
+          "line_end": 44,
+          "line_start": 40,
+          "path": "services/core-control-plane/tests/core/event_ingest/test_event_ingest.py",
+          "source_kind": "test",
+          "symbol": "test_duplicate_idempotency_key_returns_none"
+        }
+      ],
+      "status": "implemented",
+      "subject_id": "EventIngest.ingest",
+      "subject_kind": "architecture_behavior"
+    },
+    {
+      "behavior_id": "architecture.vidar-rollback",
+      "english": {
+        "exclusions": [
+          "Vidar does not perform the forward action."
+        ],
+        "outcomes": [
+          "Success records rolled_back; unavailable recovery produces explicit failure evidence."
+        ],
+        "preconditions": [
+          "A corresponding recovery path is available."
+        ],
+        "safety": [
+          "A duplicate correlation does not roll back twice."
+        ],
+        "steps": [
+          "Attempt a bounded rollback and report the result to the action lifecycle."
+        ],
+        "trigger": [
+          "Vidar receives a failed ActionRun."
+        ]
+      },
+      "ko": {
+        "exclusions": [
+          "Vidar는 정방향 액션을 실행하지 않습니다."
+        ],
+        "outcomes": [
+          "성공 시 rolled_back을 기록하고 복구할 수 없으면 실패 근거를 명시합니다."
+        ],
+        "preconditions": [
+          "대응하는 복구 경로가 있어야 합니다."
+        ],
+        "safety": [
+          "같은 상관관계에 대해 롤백을 두 번 실행하지 않습니다."
+        ],
+        "steps": [
+          "범위가 제한된 롤백을 시도하고 결과를 액션 수명 주기에 보고합니다."
+        ],
+        "trigger": [
+          "실패한 ActionRun을 Vidar가 받으면 시작합니다."
+        ]
+      },
+      "owner": "Vidar",
+      "question_aliases": [
+        "How does Vidar handle rollback?",
+        "Vidar는 롤백을 어떻게 처리하나요?"
+      ],
+      "source_manifest_hash": "3a5651be1746129ee6e71793b46e8424edd891d4f33a6af6b7190d35b08972d5",
+      "sources": [
+        {
+          "authority_role": "implementation",
+          "blob_sha": "743da0d78cd0b433f29ae70fa6b05aac4ef77a7c",
+          "line_end": 152,
+          "line_start": 150,
+          "path": "services/core-control-plane/src/fdai/agents/vidar.py",
+          "source_kind": "code",
+          "symbol": "Vidar.rollback"
+        },
+        {
+          "authority_role": "verification",
+          "blob_sha": "2dd711b7dd41759f959e0681be59f8c3b38f0612",
+          "line_end": 1590,
+          "line_start": 1559,
+          "path": "services/core-control-plane/tests/agents/test_wave3_pipeline.py",
+          "source_kind": "test",
+          "symbol": "test_thor_triggers_vidar_rollback_on_failure"
+        },
+        {
+          "authority_role": "verification",
+          "blob_sha": "2dd711b7dd41759f959e0681be59f8c3b38f0612",
+          "line_end": 1713,
+          "line_start": 1696,
+          "path": "services/core-control-plane/tests/agents/test_wave3_pipeline.py",
+          "source_kind": "test",
+          "symbol": "test_vidar_rollback_is_idempotent_per_correlation"
+        }
+      ],
+      "status": "implemented",
+      "subject_id": "Vidar.rollback",
+      "subject_kind": "architecture_behavior"
+    },
+    {
+      "behavior_id": "architecture.bragi-translator",
+      "english": {
+        "exclusions": [
+          "Bragi does not directly call an executor."
+        ],
+        "outcomes": [
+          "A read answer or a separately governed action proposal results."
+        ],
+        "preconditions": [
+          "The request must pass the typed conversation boundary."
+        ],
+        "safety": [
+          "Unknown ownership abstains instead of manufacturing authority."
+        ],
+        "steps": [
+          "Render read evidence or return proposal metadata to the typed action pipeline."
+        ],
+        "trigger": [
+          "An operator asks a question or gives an action-shaped request."
+        ]
+      },
+      "ko": {
+        "exclusions": [
+          "Bragi는 실행기를 직접 호출하지 않습니다."
+        ],
+        "outcomes": [
+          "읽기 답변이나 별도 관리되는 액션 제안을 반환합니다."
+        ],
+        "preconditions": [
+          "요청은 타입이 정해진 대화 경계를 통과해야 합니다."
+        ],
+        "safety": [
+          "소유자가 불분명하면 권한을 만들지 않고 기권합니다."
+        ],
+        "steps": [
+          "읽기 근거를 표현하거나 제안 메타데이터를 타입이 정해진 액션 경로로 전달합니다."
+        ],
+        "trigger": [
+          "운영자가 질문하거나 액션 형태의 요청을 하면 시작합니다."
+        ]
+      },
+      "owner": "Bragi",
+      "question_aliases": [
+        "Can Bragi execute a command?",
+        "Bragi는 명령을 직접 실행하나요?"
+      ],
+      "source_manifest_hash": "d18866e24bd24a846696a44c89ca7bcd9a923e1c113fde78dd62e179ab57951e",
+      "sources": [
+        {
+          "authority_role": "implementation",
+          "blob_sha": "9e0d2f4815a07f29e63c8fed818e0b1dd6641cb0",
+          "line_end": 709,
+          "line_start": 442,
+          "path": "services/core-control-plane/src/fdai/agents/bragi.py",
+          "source_kind": "code",
+          "symbol": "Bragi.ask"
+        },
+        {
+          "authority_role": "verification",
+          "blob_sha": "97fd3e476e8c0ad4235852583aef6e11f3587aa4",
+          "line_end": 1412,
+          "line_start": 1398,
+          "path": "services/core-control-plane/tests/agents/test_conversational_port.py",
+          "source_kind": "test",
+          "symbol": "test_ask_refuses_action_intent_and_routes_to_typed_pipeline"
+        }
+      ],
+      "status": "implemented",
+      "subject_id": "Bragi.ask",
+      "subject_kind": "architecture_behavior"
+    },
+    {
+      "behavior_id": "architecture.local-evidence-parity",
+      "english": {
+        "exclusions": [
+          "Pytest examples and catalog definitions are not observed tenant state."
+        ],
+        "outcomes": [
+          "The design preserves attribution without claiming live readiness from a fixture."
+        ],
+        "preconditions": [
+          "The corresponding authoritative source must be available."
+        ],
+        "safety": [
+          "This documented contract is not a current operational receipt."
+        ],
+        "steps": [
+          "Read the real source or explicitly mark its absence as unavailable."
+        ],
+        "trigger": [
+          "An interactive local session requests operational evidence."
+        ]
+      },
+      "ko": {
+        "exclusions": [
+          "pytest 예제와 카탈로그 정의는 관측된 테넌트 상태가 아닙니다."
+        ],
+        "outcomes": [
+          "설계는 시험 자료로 실제 준비 상태를 주장하지 않고 출처를 보존합니다."
+        ],
+        "preconditions": [
+          "해당하는 권위 있는 출처를 사용할 수 있어야 합니다."
+        ],
+        "safety": [
+          "이 문서화된 계약은 현재 운영 증적이 아닙니다."
+        ],
+        "steps": [
+          "실제 출처를 조회하고 없으면 사용할 수 없다고 명시합니다."
+        ],
+        "trigger": [
+          "대화형 로컬 세션이 운영 근거를 요청하면 시작합니다."
+        ]
+      },
+      "owner": "Operator API composition",
+      "question_aliases": [
+        "Can local Console use synthetic operational evidence?",
+        "로컬 Console이 합성 운영 근거를 써도 되나요?"
+      ],
+      "source_manifest_hash": "662ea39c60b72342360273496b79bdfbd1749cef8285eb12a62d51282c5721e0",
+      "sources": [
+        {
+          "authority_role": "design",
+          "blob_sha": "30027850ec414ab2867eb1dbc554af2dbd4a989c",
+          "line_end": 118,
+          "line_start": 82,
+          "path": ".github/instructions/app-shape.instructions.md",
+          "source_kind": "doc",
+          "symbol": "Local Azure Truth Contract (MUST)"
+        }
+      ],
+      "status": "designed",
+      "subject_id": "LocalAzureTruthContract",
+      "subject_kind": "architecture_behavior"
+    }
+  ]
+}

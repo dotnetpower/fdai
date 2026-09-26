@@ -31,6 +31,8 @@ from fdai_service_contracts.semantic_turn import (
 from fdai.agents import OWNED_OBJECT_TOPICS
 from fdai.core.readiness.coordinator import _TRANSITION_TOPIC
 from fdai.delivery.agent_introspection_bus import AGENT_INTROSPECTION_TOPICS
+from fdai.delivery.assurance_twin_publication import PUBLICATION_TOPIC
+from fdai.delivery.assurance_twin_writers import REQUEST_TOPIC
 from fdai.runtime.bootstrap_bindings import RECONCILIATION_TOPICS, RULE_GENERATION_TOPICS
 from fdai.shared.providers.operating_model import OPERATING_MODEL_TOPIC
 
@@ -54,6 +56,8 @@ RUNTIME_LOGICAL_TOPICS = (
             READ_INVESTIGATION_REQUEST_TOPIC,
             READ_INVESTIGATION_COMPLETION_TOPIC,
             RULE_ACTIVATION_REQUEST_TOPIC,
+            REQUEST_TOPIC,
+            PUBLICATION_TOPIC,
         }
     )
     | RECONCILIATION_TOPICS

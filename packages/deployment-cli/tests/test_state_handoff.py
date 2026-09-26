@@ -143,6 +143,62 @@ def test_state_comparison_rejects_changed_check_result_content() -> None:
         compare_foundation_state(local, remote, plan)
 
 
+def test_state_comparison_accepts_refresh_only_drift_closed_by_noop() -> None:
+    local, remote, plan = inputs()
+    desired = deepcopy(plan["resource_changes"][0]["change"]["after"])
+    prior = deepcopy(desired)
+    prior["input"] = "stale-observed-value"
+    plan["resource_drift"] = [
+        {
+            "address": plan["resource_changes"][0]["address"],
+            "change": {
+                "actions": ["update"],
+                "before": prior,
+                "after": desired,
+            },
+        }
+    ]
+
+    result = compare_foundation_state(local, remote, plan)
+
+    assert result["comparison_verified"] is True
+
+
+@pytest.mark.parametrize(
+    "defect",
+    ["create", "id", "after", "same", "missing", "move"],
+)
+def test_state_comparison_rejects_unclosed_refresh_drift(defect: str) -> None:
+    local, remote, plan = inputs()
+    desired = deepcopy(plan["resource_changes"][0]["change"]["after"])
+    prior = deepcopy(desired)
+    prior["input"] = "stale-observed-value"
+    drift = {
+        "address": plan["resource_changes"][0]["address"],
+        "change": {
+            "actions": ["update"],
+            "before": prior,
+            "after": desired,
+        },
+    }
+    if defect == "create":
+        drift["change"]["actions"] = ["create"]
+    elif defect == "id":
+        drift["change"]["before"]["id"] = "other"
+    elif defect == "after":
+        drift["change"]["after"]["input"] = "different"
+    elif defect == "same":
+        drift["change"]["before"] = deepcopy(drift["change"]["after"])
+    elif defect == "missing":
+        drift["address"] = "terraform_data.unrelated"
+    else:
+        drift["previous_address"] = "terraform_data.old"
+    plan["resource_drift"] = [drift]
+
+    with pytest.raises(ValueError):
+        compare_foundation_state(local, remote, plan)
+
+
 @pytest.mark.parametrize(
     "field,value",
     [

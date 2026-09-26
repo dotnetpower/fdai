@@ -286,7 +286,8 @@
         "conversation-attachments",
         "aks-commerce-business-scenario",
         "development-diagnostic-channel",
-        "reporting-subsystem"
+        "reporting-subsystem",
+        "narrator-preference-persistence"
       ],
       "docs_update": [
         "docs/roadmap/architecture/continuous-operational-instance-graph.md",
@@ -392,7 +393,8 @@
         "conversation-attachments",
         "aks-commerce-business-scenario",
         "development-diagnostic-channel",
-        "reporting-subsystem"
+        "reporting-subsystem",
+        "narrator-preference-persistence"
       ],
       "docs_update": [
         "docs/roadmap/architecture/aks-diagnostic-evidence-plane.md",
@@ -469,7 +471,8 @@
       "docs_update_routes": [
         "development-diagnostic-channel",
         "operator-surfaces",
-        "reporting-subsystem"
+        "reporting-subsystem",
+        "narrator-preference-persistence"
       ],
       "docs_update": [
         "docs/roadmap/operations/aks-commerce-business-scenario.md",
@@ -1953,7 +1956,8 @@
         "aks-commerce-business-scenario",
         "development-diagnostic-channel",
         "ontology-query-coverage",
-        "reporting-subsystem"
+        "reporting-subsystem",
+        "narrator-preference-persistence"
       ],
       "docs_update": [
         "docs/roadmap/interfaces/conversation-attachments.md",
@@ -2077,7 +2081,8 @@
       "docs_update_routes": [
         "aks-commerce-business-scenario",
         "ontology-query-coverage",
-        "slack-a1-request-outbox"
+        "slack-a1-request-outbox",
+        "narrator-preference-persistence"
       ],
       "docs_update": [
         "docs/roadmap/interfaces/human-report-lines-and-approval-routing.md",
@@ -2243,7 +2248,8 @@
         "docs/roadmap/interfaces/system-knowledge-service.md"
       ],
       "docs_update_routes": [
-        "reporting-subsystem"
+        "reporting-subsystem",
+        "narrator-preference-persistence"
       ],
       "docs_update": [
         "docs/roadmap/deployment/developer-workflow-assurance.md",
@@ -2277,6 +2283,9 @@
         ".github/instructions/architecture.instructions.md",
         ".github/instructions/coding-conventions.instructions.md",
         "docs/roadmap/interfaces/reporting-subsystem.md"
+      ],
+      "docs_update_routes": [
+        "narrator-preference-persistence"
       ],
       "docs_update": [
         "docs/roadmap/interfaces/reporting-subsystem.md"
@@ -2405,16 +2414,42 @@
       ]
     },
     {
+      "id": "semantic-assurance-corpus",
+      "paths": [
+        "docs/roadmap/interfaces/continuous-semantic-assurance*.md",
+        "docs/roadmap-implementation/interfaces/continuous-semantic-assurance.md",
+        "eval/golden-dataset/corpus-manifest.json",
+        "scripts/automation/build_semantic_assurance_corpus.py",
+        "tests/integration/evaluation/test_semantic_assurance_corpus.py"
+      ],
+      "must_read": [
+        ".github/instructions/architecture.instructions.md",
+        "docs/roadmap/interfaces/continuous-semantic-assurance.md",
+        "docs/roadmap/interfaces/continuous-question-space.md",
+        "docs/roadmap/architecture/operating-ontology-platform.md"
+      ],
+      "docs_update": [
+        "docs/roadmap/interfaces/continuous-semantic-assurance.md"
+      ],
+      "validate": [
+        "uv run python scripts/automation/build_semantic_assurance_corpus.py --check",
+        "uv run pytest -q --no-cov tests/integration/evaluation/test_semantic_assurance_corpus.py tests/integration/evaluation/test_golden_dataset.py -o addopts=''"
+      ]
+    },
+    {
       "id": "ontology-query-coverage",
       "paths": [
         "docs/roadmap/interfaces/hierarchical-conversation-planning*.md",
         "docs/roadmap/interfaces/ontology-query-coverage-implementation-plan*.md",
         "docs/roadmap/interfaces/continuous-question-space*.md",
+        "docs/roadmap/interfaces/continuous-semantic-assurance*.md",
         "config/ontology-query-competency.json",
         "eval/golden-dataset/**",
         "scripts/automation/build_golden_dataset.py",
+        "scripts/automation/build_semantic_assurance_corpus.py",
         "scripts/quality/architecture/check-ontology-query-coverage.py",
         "tests/integration/evaluation/test_golden_dataset.py",
+        "tests/integration/evaluation/test_semantic_assurance_corpus.py",
         "rule-catalog/vocabulary/**"
       ],
       "must_read": [
@@ -2436,6 +2471,7 @@
         "docs/roadmap/interfaces/hierarchical-conversation-planning.md",
         "docs/roadmap/interfaces/ontology-query-coverage-implementation-plan.md",
         "docs/roadmap/interfaces/continuous-question-space.md",
+        "docs/roadmap/interfaces/continuous-semantic-assurance.md",
         "docs/roadmap/architecture/operating-ontology-platform.md",
         "docs/roadmap/architecture/continuous-operational-instance-graph.md",
         "docs/roadmap/interfaces/operator-console-module-map.md"
@@ -2817,7 +2853,8 @@
         "aks-commerce-business-scenario",
         "development-diagnostic-channel",
         "reporting-subsystem",
-        "slack-a1-request-outbox"
+        "slack-a1-request-outbox",
+        "narrator-preference-persistence"
       ],
       "docs_update": [
         "docs/roadmap/operations/operator-initiated-sre-and-arb.md",
@@ -2867,6 +2904,34 @@
         "docs/roadmap/interfaces/user-rbac-and-identity.md"
       ],
       "validate": [
+        "uv run python scripts/quality/architecture/check-independent-services.py"
+      ]
+    },
+    {
+      "id": "narrator-preference-persistence",
+      "paths": [
+        "services/operator-service/src/fdai_operator_service/adapters/narrator_preferences.py",
+        "services/operator-service/src/fdai_operator_service/composition_routes.py",
+        "services/operator-service/src/fdai_operator_service/families/iam/settings.py",
+        "services/operator-service/src/fdai_operator_service/iam_composition.py",
+        "services/operator-service/src/fdai_operator_service/model_lifecycle_startup.py",
+        "services/operator-service/src/fdai_operator_service/postgres_iam.py",
+        "services/operator-service/src/fdai_operator_service/postgres_iam_configuration.py",
+        "services/operator-service/tests/test_narrator_preference_persistence.py",
+        "tests/integration/services/test_narrator_preference_postgres.py"
+      ],
+      "must_read": [
+        ".github/instructions/app-shape.instructions.md",
+        ".github/instructions/coding-conventions.instructions.md",
+        ".github/instructions/generic-scope.instructions.md",
+        "docs/roadmap/interfaces/narrator-routing-and-latency.md",
+        "docs/roadmap/interfaces/user-rbac-and-identity.md"
+      ],
+      "docs_update": [
+        "docs/roadmap/interfaces/narrator-routing-and-latency.md"
+      ],
+      "validate": [
+        "uv run pytest -q --no-cov services/operator-service/tests/test_operator_service_composition.py services/operator-service/tests/test_narrator_preference_persistence.py services/operator-service/tests/test_narrator_preferences.py services/operator-service/tests/test_operator_service_postgres.py services/operator-service/tests/test_operator_iam_family.py tests/integration/services/test_narrator_preference_postgres.py",
         "uv run python scripts/quality/architecture/check-independent-services.py"
       ]
     },
@@ -3010,7 +3075,8 @@
         "aks-commerce-business-scenario",
         "development-diagnostic-channel",
         "operator-surfaces",
-        "reporting-subsystem"
+        "reporting-subsystem",
+        "narrator-preference-persistence"
       ],
       "docs_update": [
         "docs/roadmap/architecture/finops-package-architecture.md",
@@ -3499,7 +3565,8 @@
         "operator-incident-creation",
         "aks-commerce-business-scenario",
         "development-diagnostic-channel",
-        "reporting-subsystem"
+        "reporting-subsystem",
+        "narrator-preference-persistence"
       ],
       "docs_update": [
         "docs/roadmap/rules-and-detection/framework-assessment.md",
@@ -3561,7 +3628,8 @@
         "operator-incident-creation",
         "aks-commerce-business-scenario",
         "development-diagnostic-channel",
-        "reporting-subsystem"
+        "reporting-subsystem",
+        "narrator-preference-persistence"
       ],
       "docs_update": [
         "docs/roadmap/rules-and-detection/wara-assessment.md",

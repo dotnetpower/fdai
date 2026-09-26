@@ -1,8 +1,8 @@
 ---
 title: FDAI 온톨로지 안전 인프라
 translation_of: operating-ontology-platform.md
-translation_source_sha: b7b31268c7cba75a65f32fa3ab8fd764f72cbacb
-translation_revised: 2026-09-26
+translation_source_sha: 1f273206d7d5cc8a36749275ced39ecca8199c0e
+translation_revised: 2026-09-27
 ---
 # FDAI 온톨로지 안전 인프라
 
@@ -66,11 +66,13 @@ Azure Firewall 정책을 `network.firewall-policy` 네트워크 리소스로 분
 
 정본 release는 `ControlObjective`, `RuleObjectiveBinding`,
 `EquivalenceValidationReceipt`와 `objective_bound_by`, `binding_targets_rule`,
-`binding_validated_by` 관계도 선언합니다. 카탈로그 로더는 binding을 수락하기 전에 exact
-objective, Rule, 정책 구현 및 필수 근거 signature를 검증합니다. 이러한 선언과 candidate
-기록은 release vocabulary일 뿐입니다. 현재 시작 projector는 이를 런타임 subgraph에
-구체화하지 않으며, 의미 조회, binding 또는 receipt는 정책, 승격, 승인 또는 실행 권한을
-부여하지 않습니다. 결정론적 동등성 실행과 검토된 receipt 발급은 별도 전달 작업으로 남습니다.
+`binding_validated_by` 관계도 선언합니다. 시작 시 카탈로그의 목표와 정확한 Rule 바인딩
+기록을 읽기 전용 인스턴스로 변환합니다. 카탈로그 로더는 바인딩을 수락하기 전에 목표, Rule,
+정책 구현 및 필수 근거 서명을 검증합니다. 선택적 동등성 증적은 정확한 Rule 참조가 검증된
+경우에만 변환하며, 바인딩은 독립 검토를 마친 뒤에만 그 증적을 참조할 수 있습니다. 저장소는
+변환된 각 선언을 활성 release에 고정합니다. 제공되는 바인딩은 아직 후보 상태이고, 제공되는
+카탈로그에는 검토된 동등성 증적이 없습니다. 이 기록은 정책, 승격, 승인 또는 실행 권한을
+부여하지 않습니다. 검토된 증적 발급은 별도 전달 작업으로 남습니다.
 
 이 변환 결과는 카탈로그 관계를 조회 가능하게 만들지만 권위를 변경하지 않습니다. Git
 catalog-as-code가 계속 권위 원천이고 인스턴스 그래프는 읽기 모델로 유지됩니다. 선택적 로컬

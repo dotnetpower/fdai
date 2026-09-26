@@ -1,7 +1,7 @@
 ---
 translation_of: continuous-operational-instance-graph.md
-translation_source_sha: 898d23e03be2b35bcafa3751c7397b2ff7fc8d64
-translation_revised: 2026-09-26
+translation_source_sha: 2183404d7d07f189d2ae4c0ded0e0f407a418409
+translation_revised: 2026-09-27
 ---
 # 지속형 운영 인스턴스 그래프
 
@@ -102,7 +102,7 @@ Azure CLI로 대체하지 않습니다. 로컬 자격 증명 정책은 그대로
 
 Activity Log 복구 레코드는 일부 속성만 담은 관측입니다. 선언한 속성 마스크만 현재 스냅샷에
 병합하고 관계 변경은 전달하지 않습니다. 완전한 reconciliation만 전체 속성 집합을 교체하거나
-관계 완전성을 확정할 수 있습니다. 완전한 reconciliation 직후 영속 Activity Log cursor가 없으면 첫 번째 범위가 제한된 drain은 해당 reconciliation의 수집 시작 시각 이전 관측을 다시 게시하지 않고 cursor를 진행합니다. 경계 시각 및 이후 관측은 계속 게시하며 다음 drain부터는 영속 cursor에서 재개합니다.
+관계 완전성을 확정할 수 있습니다. 완전한 reconciliation 직후 영속 Activity Log cursor가 없으면 첫 번째 범위가 제한된 drain은 해당 reconciliation의 수집 시작 시각 이전 관측을 다시 게시하지 않고 cursor를 진행합니다. 경계 시각 및 이후 관측은 계속 게시하며 다음 drain부터는 영속 cursor에서 재개합니다. 복구 작업은 변경분의 완료 경계가 확인된 뒤 커서를 저장하기 전에 해당 범위의 읽기 전용 배포 프리플라이트 프로파일을 무효화합니다. 무효화가 실패하면 커서를 진행하지 않으며, 멱등 재전송을 통해 캐시가 그래프 완전성이나 배포 권한의 근거가 될 수 없습니다.
 Activity Log의 컨트롤 플레인 결과는 `operationStatus`와 정규화된 `operation_status` 근거로
 유지합니다. 예약된 리소스 `status` 속성에는 기록하지 않으므로 운영 상태 사실을 대체할 수
 없습니다.
@@ -235,7 +235,7 @@ UUID, 리소스 그룹 세그먼트, 프로바이더 경로 및 마지막 앱 �
 않습니다. 별도의 읽기 전용 종결기가 모든 다이제스트 연결과 정확한 활성 세대를 검증한 뒤에만
 100% 최종 레코드를 추가할 수 있습니다. 진행률 게시자 조립과 주체 안전 값 해시는 delivery의
 단일 책임 인접 모듈에 유지하므로 권한을 옮기지 않고 오케스트레이션 진입점을 구조 크기 한도 아래로 유지합니다.
-병합된 질문 원본 변경은 런타임 또는 실행 권한을 바꾸지 않고 결정적인 질문 은행 전체와 검토 카탈로그를 다시 생성합니다.
+병합된 질문 원본 변경은 런타임 또는 실행 권한을 바꾸지 않고 결정적인 질문 은행 전체와 검토 카탈로그를 다시 생성합니다. 분석기 이벤트 발행 결과가 불확실하면 재시작 후에도 영속적인 소유 기록을 유지합니다. 범위가 제한된 읽기 전용 브로커 조회에서 안정적 이벤트 ID, 멱등성 키, 분석기 출처가 정확히 일치할 때만 소유 기록을 완료합니다. 조회가 불완전하거나 일치하는 기록이 없으면 부재를 입증하거나 재발행할 수 없습니다.
 완전한 승격 세대가 온톨로지 변환 결과에 도달하면 Inventory Job은 각 Resource에 대해 내용 주소가
 지정된 `inventory.resource_observed` Event 하나를 정식 컨트롤 루프 토픽에 게시합니다. 이 인계로
 범위가 제한된 delivery 모듈 `inventory_ontology_observer.py`가 변환 결과, 토폴로지 이력 게시,
