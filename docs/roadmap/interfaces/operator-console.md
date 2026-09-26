@@ -60,6 +60,15 @@ an inert membership request, and a distinct Approver or Owner can approve the ex
 digest. The browser never writes PostgreSQL directly, supplies actor identity, or grants
 enforcement or execution authority.
 
+The read-only `rule.findings-summary` admits no stored summary as evaluated merely because it
+reports counts. A missing row remains `evaluated: false` after an authoritative Rule catalog
+read. Any present row returns a classified projection-unavailable `503` until an independently
+verifiable producer binds the exact current promoted inventory generation and observation digest,
+active Rule catalog revision, complete eligible-resource denominator, terminal outcome coverage,
+and attributable Saga result references. Even an empty eligible inventory requires positive
+completion evidence before zero findings can be reported. A failed read never becomes a missing
+row; this boundary does not write or replace prior stored state.
+
 > Customer-agnostic: every channel id, LLM deployment name, resource id, and group name below is a placeholder. A fork supplies concrete values via config ([generic-scope.instructions.md](../../../.github/instructions/generic-scope.instructions.md)).
 ## 1. Framing - what this is (and what it is not)
 Instance-candidate enrollment uses the authenticated principal, role, and group scope without changing human-report-line, assignment, approval, or action authority. The default Core index lifecycle remains agent-owned and read-only; exact-ID results do not qualify semantic ranking or imply a complete collection. The bilingual identity-only terminal explicitly reports partial, non-exhaustive candidates and no execution authority. It neither projects arbitrary properties nor substitutes for attachment authorization, exact document citations, or document evidence completeness.

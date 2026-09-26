@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections import Counter
 from collections.abc import Mapping
+from typing import NoReturn
 
 from fdai_service_contracts.rule_activation import (
     RuleActivationGeneration,
@@ -123,7 +124,8 @@ def _rule_catalog_payload(
 
 def _rule_findings_summary_payload(
     stored: Mapping[str, object],
-) -> dict[str, object]:
+) -> NoReturn:
+    """Withhold stored summaries until a separate authority can prove their coverage."""
     evaluated = stored.get("evaluated")
     counts = stored.get("counts")
     if not isinstance(evaluated, bool) or not isinstance(counts, Mapping):
@@ -131,7 +133,6 @@ def _rule_findings_summary_payload(
             status_code=503,
             detail="authoritative Rule findings summary is malformed",
         )
-    normalized: dict[str, int] = {}
     for key, value in counts.items():
         if (
             not isinstance(key, str)
@@ -144,8 +145,10 @@ def _rule_findings_summary_payload(
                 status_code=503,
                 detail="authoritative Rule findings summary is malformed",
             )
-        normalized[key] = value
-    return {"evaluated": evaluated, "counts": normalized}
+    raise HTTPException(
+        status_code=503,
+        detail="authoritative projection is unavailable",
+    )
 
 
 def _rule_counts(rules: list[dict[str, object]], field: str) -> dict[str, int]:

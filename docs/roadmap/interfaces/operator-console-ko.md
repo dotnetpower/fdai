@@ -1,7 +1,7 @@
 ---
 title: FDAI Console 대화
 translation_of: operator-console.md
-translation_source_sha: 1264597fb66326c668cc000f5582f01c488b8049
+translation_source_sha: 3d53088142f562e27e3610616545aacbccaa0c5b
 translation_revised: 2026-09-26
 ---
 # FDAI Console 대화
@@ -62,6 +62,14 @@ Rules workspace는 카탈로그 출처와 배포 로컬 활성화 멤버십을 �
 제출할 수 있고, 별도의 Approver 또는 Owner가 정확한 proposal digest를 승인할 수 있습니다.
 브라우저는 PostgreSQL에 직접 쓰거나 actor identity를 제공하지 않으며 enforce 또는 실행
 권한을 부여하지 않습니다.
+읽기 전용 `rule.findings-summary`는 저장된 요약이 개수를 보고한다는 이유만으로 평가 완료로
+인정하지 않습니다. 행이 없으면 권위 있는 Rule 카탈로그를 읽은 뒤 `evaluated: false`로
+유지합니다. 행이 있으면 독립적으로 검증할 수 있는 생산자가 현재 승격된 인벤토리 세대와
+관측 다이제스트, 활성 Rule 카탈로그 리비전, 평가 대상 리소스의 완전한 분모, 최종 결과의
+포괄 범위, 출처를 확인할 수 있는 Saga 결과 참조를 결속할 때까지 변환 결과 사용 불가로
+분류된 `503`을 반환합니다. 평가 대상 인벤토리가 비어 있어도 발견 사항 0건을 보고하려면
+완료를 입증하는 근거가 필요합니다. 읽기 실패는 행 부재로 바꾸지 않으며, 이 경계는 이전에
+저장된 상태를 쓰거나 교체하지 않습니다.
 > 고객-무관: 아래의 모든 채널 id, LLM 배포 이름, 리소스 id, 그룹 이름은 자리 표시자. 포크는 구성으로 실제 값을 공급합니다 ([generic-scope.instructions.md](../../../.github/instructions/generic-scope.instructions.md)).
 ## 1. Framing - 무엇인가 (그리고 무엇이 아닌가)
 인스턴스 후보 접수는 인증된 principal, 역할 및 그룹 범위를 사용하며 사람 보고 관계, 할당, 승인 또는 액션 권한을 바꾸지 않습니다. 기본 Core 인덱스 수명 주기는 계속 에이전트가 소유하는 읽기 전용 경로입니다. 정확한 ID 결과는 의미 순위 검색의 자격이나 전체 목록을 뜻하지 않습니다. 식별자 중심의 이중 언어 최종 응답은 전체 목록이 아닌 부분 후보이며 실행 권한이 없음을 명시합니다. 임의 속성을 표시하지 않으며 첨부 파일 인가, 정확한 문서 인용 또는 문서 근거의 완전성을 대신하지 않습니다.
