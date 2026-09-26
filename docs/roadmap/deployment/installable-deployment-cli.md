@@ -82,7 +82,7 @@ The immutable snapshot does not receive Terraform state or generated data. Exist
 Private state transfer includes the Foundation root, sibling bootstrap/shared modules, and the exact five `genesis-runner-image` support files referenced by Terraform.
 For a retained claim created before that archive closure, recovery preserves the original claim and backend migration while restoring the exact support bytes from the reviewed recovery configuration.
 It requires a fresh exact `foundation-state` approval before writing a current-source repair claim, installs only missing files without replacement, and places the current verifier outside Terraform's sibling input tree under a separate remote repair manifest; fixed remote inspection arguments use shell-neutral field separators.
-That verifier then runs in `verify` mode. State comparison preserves exact lineage, resource identities, and non-transient content while allowing only one backend-migration serial increment and order-only `check_results` normalization. A partial base set, a different existing file, or changed readback blocks recovery.
+That verifier then runs in `verify` mode. A later verified controller can reuse the completed repair only after revalidating the repair source and proving the verifier digest is unchanged. State comparison preserves exact lineage, resource identities, and non-transient content while allowing only one backend-migration serial increment and order-only `check_results` normalization. A partial base set, a different existing file, or changed readback blocks recovery.
 These adapters do not prove a completed deployment.
 
 The source coordinator uses the private managed-host route explicitly. It reads Foundation

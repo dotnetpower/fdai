@@ -326,6 +326,8 @@ def test_claimed_incomplete_archive_repairs_support_before_verification(tmp_path
         )
 
     copied = list(tunnel.copied)
+    assert support_repair.retained_repair_source_commit(directory) == "7" * 40
+    recovery.source = SimpleNamespace(commit="9" * 40, root=current_source)
     assert support_repair.repair_claimed_support(
         tunnel,
         recovery=recovery,
