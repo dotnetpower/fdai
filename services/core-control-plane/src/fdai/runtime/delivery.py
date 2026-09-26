@@ -18,6 +18,7 @@ from fdai.core.executor.safeguard_lifecycle_coordinator import (
 from fdai.core.executor.tool_call import ToolCallShadowExecutor, ToolReceiptObserver
 from fdai.core.notifications.matrix import NotificationMatrix, load_matrix_from_yaml
 from fdai.core.notifications.router import ChannelRegistry
+from fdai.delivery.chatops.slack_binding import build_slack_hil_channel
 from fdai.delivery.direct_api_router import RoutedDirectApiExecutor
 from fdai.runtime.configuration import _resolve_catalog_root
 from fdai.runtime.github_auth import build_github_token_provider
@@ -141,8 +142,10 @@ def _build_hil_channel(
 ) -> Any:
     """Select the :class:`HilChannel` backend for this process.
 
-    Presence of ``FDAI_TEAMS_APPROVAL_ACTIVITY_URL`` opts into the real
-    :class:`TeamsHilAdapter`; missing channel configuration returns ``None`` so the caller
+    A complete Slack approval configuration selects the outbound-only Slack
+    adapter without allocating a Teams Bot identity. Otherwise the Teams
+    activity endpoint selects :class:`TeamsHilAdapter`. Missing channel configuration
+    returns ``None`` so the caller
     falls back to its persisted HIL queue (existing P1 behavior - see
     ``docs/roadmap/interfaces/channels-and-notifications.md § 6``). The
     ``HilChannel`` Protocol is the contract, so ``core/`` neither knows
@@ -161,6 +164,14 @@ def _build_hil_channel(
     """
     webhook_url = os.environ.get("FDAI_CHATOPS_WEBHOOK_URL", "").strip()
     activity_url = os.environ.get("FDAI_TEAMS_APPROVAL_ACTIVITY_URL", "").strip()
+    slack_channel = build_slack_hil_channel(
+        os.environ,
+        http_client=http_client,
+        teams_configured=bool(webhook_url or activity_url),
+    )
+    if slack_channel is not None:
+        _LOGGER.info("hil_channel_backend", extra={"backend": "slack-outbound"})
+        return slack_channel
     if not webhook_url and not activity_url:
         _LOGGER.info("hil_channel_backend", extra={"backend": "none"})
         return None
