@@ -25,6 +25,10 @@ from fdai_deployment_cli.state_handoff import compare_foundation_state
 from genesis_bastion import BastionTunnel, validate_known_hosts, validate_ssh_private_key
 from genesis_checks import CheckError, GenesisChecks
 from genesis_foundation_state_archive import create_foundation_state_archive
+from genesis_foundation_state_support_repair import (
+    INSTALLED_MIGRATION_PROGRAM,
+    repair_claimed_support,
+)
 
 ENROLLMENT_RECEIPT_NAME = "runner-enrollment-receipt.json"
 KNOWN_HOSTS_NAME = "runner-known-hosts"
@@ -270,6 +274,8 @@ def _execute_selected(args: argparse.Namespace) -> dict[str, object]:
         timeout=args.timeout_seconds,
         trust_new_host_key=False,
     ) as tunnel:
+        migration_program: tuple[str, ...] = INSTALLED_MIGRATION_PROGRAM
+        support_repair_digest: str | None = None
         if authority is None:
             if recovery is not None:
                 from genesis_runner_enrollment import _attest_runner
@@ -329,12 +335,30 @@ def _execute_selected(args: argparse.Namespace) -> dict[str, object]:
                 tunnel.copy_to(archive, remote_archive, timeout=min(600, args.timeout_seconds))
                 mode = "migrate"
             else:
+                if recovery is not None:
+                    migration_program, support_repair_digest = repair_claimed_support(
+                        tunnel,
+                        recovery=recovery,
+                        state_claim=claim,
+                        directory=directory,
+                        remote_work=remote_work,
+                        username=connection["username"],
+                        work_id=work_id,
+                        archive_digest=archive_digest,
+                        timeout=args.timeout_seconds,
+                    )
                 mode = "verify"
+            repair_arguments = (
+                ("--support-repair-digest", support_repair_digest)
+                if support_repair_digest is not None
+                else ()
+            )
             result = tunnel.ssh(
                 (
-                    "/usr/local/sbin/fdai-migrate-foundation-state",
+                    *migration_program,
                     mode,
                     *remote_arguments,
+                    *repair_arguments,
                 ),
                 timeout=args.timeout_seconds,
             )
@@ -381,7 +405,7 @@ def _execute_selected(args: argparse.Namespace) -> dict[str, object]:
         )
         cleanup = tunnel.ssh(
             (
-                "/usr/local/sbin/fdai-migrate-foundation-state",
+                *migration_program,
                 "cleanup",
                 *remote_arguments,
             ),

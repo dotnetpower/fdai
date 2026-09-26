@@ -116,6 +116,18 @@ class RecoveryMigration:
         ):
             raise ValueError("recovered Foundation state migration provenance differs")
 
+    def validate_claim_record(self, record: dict[str, object]) -> str:
+        """Preserve a prior claim while returning its independently verified source."""
+        source_commit = record.get("migration_source_commit")
+        if (
+            not isinstance(source_commit, str)
+            or len(source_commit) != 40
+            or any(character not in "0123456789abcdef" for character in source_commit)
+            or record.get("foundation_evidence_schema") != "fdai.foundation-recovery-receipt.v1"
+        ):
+            raise ValueError("recovered Foundation state migration claim provenance differs")
+        return source_commit
+
 
 def prepare_recovery_migration(
     args: argparse.Namespace,
@@ -187,20 +199,24 @@ def prepare_recovery_migration(
         raise ValueError("recovered state migration enrollment source differs")
     source = inspect_source(root)
     checks = GenesisChecks(root)
-    for commit in {
-        source.commit,
-        str(recovered.receipt["execution_source_commit"]),
-        str(enrolled.get("enrollment_source_commit")),
-    }:
-        checks.verify_source(source_commit=commit, repository=args.repository, apply=True)
     context = RecoveryMigration(
         original_directory, directory, recovered, source, enrolled, args.recovery_approval_file
     )
-    context.verify_configuration()
     state_claim = state_contract.load_claim(directory / "foundation-state-handoff-claim.json")
+    migration_claim_source = (
+        context.validate_claim_record(state_claim) if state_claim is not None else None
+    )
+    source_commits = {
+        source.commit,
+        str(recovered.receipt["execution_source_commit"]),
+        str(enrolled.get("enrollment_source_commit")),
+    }
+    if migration_claim_source is not None:
+        source_commits.add(migration_claim_source)
+    for commit in source_commits:
+        checks.verify_source(source_commit=commit, repository=args.repository, apply=True)
+    context.verify_configuration()
     authority = state_contract.load_authority(directory / "foundation-state-authority.json")
-    if state_claim is not None:
-        context.validate_record(state_claim)
     if authority is None:
         verify_original_state(original_directory, directory, recovered)
     else:

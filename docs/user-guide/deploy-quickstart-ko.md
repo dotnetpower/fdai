@@ -2,8 +2,8 @@
 title: 배포 빠른 시작
 description: 단일 로컬 명령 또는 digest로 고정된 폐쇄망 배포 어플라이언스로 FDAI를 Azure에 배포합니다.
 translation_of: deploy-quickstart.md
-translation_source_sha: 0599b455ed5b0be40a1dc771b2c1d42a0667c3f3
-translation_revised: 2026-09-22
+translation_source_sha: e8b4fa9d728f6b8f7f722216acd3ce15356f0af5
+translation_revised: 2026-09-26
 ---
 
 # 배포 빠른 시작
@@ -190,6 +190,11 @@ bash scripts/deployment/azure/fdai-up.sh --region koreacentral
 
 Foundation 계획은 먼저 비공개 로컬 백엔드를 사용합니다. 정확한 마이그레이션 아카이브만
 증명된 호스트에서 서명된 원격 백엔드 예제를 활성화하며, 마이그레이션 승인과 재확인은 필수입니다.
+보존된 이행 `claim`이 완전한 아카이브보다 먼저 만들어져 같은 상위 지원 파일이 모두 없다면,
+수정된 정확한 소스와 새로운 `foundation-state` 승인으로 재개하세요. 조정기는 원래 `claim`과
+백엔드 효과를 유지하고, 검토된 복구 구성의 정확한 파일만 복원하며, Terraform 입력 트리 밖의
+현재 소스 오버레이를 검증한 뒤 검증만 실행합니다. 일부 파일만 있거나 기존 파일이 다르면
+복구가 중단됩니다.
 
 ### 검증된 공개 개발 배포 복구
 
