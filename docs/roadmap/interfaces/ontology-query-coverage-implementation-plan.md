@@ -62,7 +62,8 @@ Capability preparation preserves all selected canonical property tokens, includi
 > values to display labels while preserving the provider advisory title verbatim.
 > Generic product labels such as APIM, Application Gateway, backend, or GPT are not exact identities.
 > They produce a localized request for the exact resource name or ID before frame-model or provider
-> I/O. The typed `resource_identity` requirement remains internal and is not shown as interface copy.
+> I/O. A sole `resource_identity` unresolved term with a typed subject or resource-identity
+> requirement remains internal and is not shown as interface copy.
 >
 > **Operational Resource visibility:** Every Resource collection applies one server-owned visibility
 > rule after deterministic or model planning. It excludes `authorization.role-assignment` from

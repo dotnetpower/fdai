@@ -1,6 +1,6 @@
 ---
 translation_of: ontology-query-coverage-implementation-plan.md
-translation_source_sha: f8674b7537c65e90164f897f2ab32e98746c84b0
+translation_source_sha: e42f4efa1f8ca3441412535d7c52ecbf35891ef2
 translation_revised: 2026-09-26
 ---
 # 온톨로지 조회 커버리지 구현 계획
@@ -79,7 +79,8 @@ v1.2 검색어/발화 결속, 사용 불가 결과 및 이전 버전 호환성�
 > 원문 그대로 유지합니다.
 > APIM, Application Gateway, backend 또는 GPT 같은 일반 제품 표기는 정확한 신원이 아닙니다.
 > 이 경우 frame 모델 또는 provider I/O 전에 정확한 리소스 이름 또는 ID를 요청합니다. 타입이 지정된
-> `resource_identity` 요구 사항은 내부에 유지하며 인터페이스 문구로 표시하지 않습니다.
+> subject 또는 리소스 신원 요구 사항과 함께 나타나는 단일 `resource_identity` 미확정 항목은 내부에
+> 유지하며 인터페이스 문구로 표시하지 않습니다.
 >
 > **운영 Resource 표시 범위:** 모든 Resource 모음은 결정론적 계획 또는 모델 계획 뒤에 서버 소유
 > 표시 규칙 하나를 적용합니다. 운영자가 선택할 수 있는 Resource 결과에서

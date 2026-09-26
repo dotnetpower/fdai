@@ -113,8 +113,8 @@ All natural-language turns use `POST /chat` or `POST /chat/stream`. The configur
 mini narrator returns a strict JSON-schema `TurnPlan` that selects an answer,
 read tool, agent owner, public-web query, clarification, or write draft from the
 server-provided capability manifest. The browser does not classify action intent
-and does not send natural language directly to a write endpoint. A sole typed
-`resource_identity` requirement is rendered as a locale-specific request for the exact resource
+and does not send natural language directly to a write endpoint. A sole `resource_identity`
+unresolved term with a typed subject or resource-identity requirement is rendered as a locale-specific request for the exact resource
 name or ID; the internal token remains on the machine contract and is not shown as interface copy.
 Concurrent semantic requests share one durable processing claim. A waiter retries the claim after
 its lease expires, so a failed owner cannot strand the request until its outer deadline. A result

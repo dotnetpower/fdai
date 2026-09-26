@@ -483,20 +483,39 @@ def test_resource_list_clears_a_contradictory_resource_identity_clarification() 
 
 
 @pytest.mark.parametrize(
-    ("utterance", "expected"),
+    ("utterance", "requirement", "expected"),
     (
-        ("Trace the path for the resource.", "Which exact resource name or ID should I use?"),
-        ("리소스의 경로를 추적해줘.", "조회할 정확한 리소스 이름 또는 ID를 알려주세요?"),
+        (
+            "Trace the path for the resource.",
+            "resource_identity",
+            "Which exact resource name or ID should I use?",
+        ),
+        (
+            "Check configuration drift for the resource.",
+            "subject",
+            "Which exact resource name or ID should I use?",
+        ),
+        (
+            "리소스의 경로를 추적해줘.",
+            "resource_identity",
+            "조회할 정확한 리소스 이름 또는 ID를 알려주세요?",
+        ),
+        (
+            "리소스의 구성 드리프트를 확인해줘.",
+            "subject",
+            "조회할 정확한 리소스 이름 또는 ID를 알려주세요?",
+        ),
     ),
 )
 def test_resource_identity_clarification_hides_internal_requirement_token(
     utterance: str,
+    requirement: str,
     expected: str,
 ) -> None:
     proposal = SemanticFrameProposal.model_validate(
         _frame(
             unresolved_terms=["resource_identity"],
-            clarification_requirements=["resource_identity"],
+            clarification_requirements=[requirement],
             clarification="Please clarify these unresolved concepts: resource_identity?",
         )
     )

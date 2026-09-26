@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: bb98263b1388bc3e7a1a64b4850e30e49ada6100
+translation_source_sha: d31d6323e7c9086a9cd4f0b76740487cdc1993ab
 translation_revised: 2026-09-26
 ---
 # 프로젝트 구조
@@ -156,8 +156,8 @@ Cost Governance 가명 자료는 Operator 조립이 소유하는 비밀입니다
   커밋 동안 유지되는 검토된 lease가 필요합니다.
 - **의미 대상 해석은 결정론적으로 유지**: Core는 정확한 식별자 하나 또는 완전한 읽기 전용 Resource
   및 시간 상관관계가 있을 때 신원 명확화를 제거하고, 하위 유형만 있는 exact-target 작업에는 범위가
-  제한된 명확화 하나를 만듭니다. 타입이 지정된 `resource_identity` 미비점 하나만 있으면 정확한
-  리소스 이름 또는 ID를 요청하는 locale별 문구를 표시하며, 모델이 작성한 내부 요구 사항 토큰은
+  제한된 명확화 하나를 만듭니다. 타입이 지정된 subject 또는 리소스 신원 요구 사항과 함께
+  `resource_identity` 미비점 하나만 있으면 정확한 리소스 이름 또는 ID를 요청하는 locale별 문구를 표시하며, 모델이 작성한 내부 요구 사항 토큰은
   오퍼레이터 문구로 노출하지 않습니다. shadow 스키마는 제공된 의도와 정규 신원을 요구하고 유일한 exact
   범위만 보정하며 후보 전용 `forbidden_actions`를 보존합니다. 활성 v8은 `1.0.0`, shadow v14는
   `1.1.0`으로 고정하며 둘 다 프로바이더 입출력, 의사 결정, 승인, 변경 또는 실행 권한을 추가하지

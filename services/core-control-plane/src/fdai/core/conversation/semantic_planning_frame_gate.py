@@ -505,7 +505,13 @@ def normalize_and_gate_frame(
 
 
 def _clarification_for_frame(proposal: SemanticFrameProposal, *, utterance: str) -> str:
-    if proposal.clarification_requirements == (ClarificationRequirement.RESOURCE_IDENTITY,):
+    normalized_terms = tuple(
+        term.casefold().replace(" ", "_") for term in proposal.unresolved_terms
+    )
+    if normalized_terms == ("resource_identity",) and proposal.clarification_requirements in {
+        (ClarificationRequirement.RESOURCE_IDENTITY,),
+        (ClarificationRequirement.SUBJECT,),
+    }:
         return (
             "조회할 정확한 리소스 이름 또는 ID를 알려주세요?"
             if any("가" <= character <= "힣" for character in utterance)
