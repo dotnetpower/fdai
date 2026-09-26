@@ -1,8 +1,8 @@
 ---
 title: 프로세스 자동화(Process Automation)
 translation_of: process-automation.md
-translation_source_sha: c40d084a2b6739d829ee8993d593e1162017b7a7
-translation_revised: 2026-09-17
+translation_source_sha: b75adf744512c9560c139fe808ec71fc11dcb53a
+translation_revised: 2026-09-26
 ---
 # 프로세스 자동화(프로세스 자동화)
 
@@ -362,13 +362,14 @@ HIL 로 라우팅되는 워크플로 스텝은 "누가 승인하고, 어떻게 �
   RBAC [`GroupMapping`](../../../services/core-control-plane/src/fdai/core/rbac/resolver.py) 을 통해 Entra
   security-group objectId (`aw-approvers` 또는 `aw-owners` 그룹)로 해석 된다.
   no-self-approval 은 모든 게이트 스텝에 이어진다.
-- **어떻게 도달하나?** [notifications 매트릭스](../../../config/notifications-matrix.yaml)
-  의 A1 `hil_approval` 라우트 - Teams 기본, Slack / 이메일 대체 경로. 구체
-  어댑터는 [`HilChannel`](../../../services/core-control-plane/src/fdai/shared/providers/hil_channel.py) 경계 을
-  구현한다: [`TeamsHilAdapter`](../../../services/core-control-plane/src/fdai/delivery/chatops/teams_adapter.py)
-  와 [`SlackHilAdapter`](../../../services/core-control-plane/src/fdai/delivery/chatops/)
-  (Adaptive 카드 / 블록 키트, HMAC 서명, 실패 시 차단). 이메일 은 send-only 경보
-  레인이지 A1 승인 back-channel 이 아니다.
+- **어떻게 도달하나?** A1 `hil_approval` 경로는
+  [`HilChannel`](../../../services/core-control-plane/src/fdai/shared/providers/hil_channel.py)
+  경계를 통해 전송할 수 있습니다. Teams 봇 전송과 별도로 인증된 콜백은
+  [Slack의 발신 전용 Block Kit 게시](../../../services/core-control-plane/src/fdai/delivery/chatops/slack_adapter.py)와
+  다릅니다. Slack의 `poll`은 보류 상태로 남으며 로컬 게시나 증적만으로 작업 흐름 승인이
+  완료되지 않습니다. 영속 재게시 조정과 브라우저 행위자 결합은
+  [채널과 알림](../interfaces/channels-and-notifications-ko.md)의 남은 작업입니다.
+  이메일은 발신 전용 경보 경로이며 A1 승인 응답 경로가 아닙니다.
 
 알림 경로를 사용할 수 없으면 해당 경로가 필요한 작업 흐름과 인시던트 경로만
 권한이 낮아집니다. 런타임은 공백을 보고하고 unrelated 읽기, 거부, 큐 및 shadow 경로를

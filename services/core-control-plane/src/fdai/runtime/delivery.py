@@ -141,8 +141,10 @@ def _build_hil_channel(
 ) -> Any:
     """Select the :class:`HilChannel` backend for this process.
 
-    Presence of ``FDAI_TEAMS_APPROVAL_ACTIVITY_URL`` opts into the real
-    :class:`TeamsHilAdapter`; missing channel configuration returns ``None`` so the caller
+    A complete Slack approval configuration selects the outbound-only Slack
+    adapter without allocating a Teams Bot identity. Otherwise the Teams
+    activity endpoint selects :class:`TeamsHilAdapter`. Missing channel configuration
+    returns ``None`` so the caller
     falls back to its persisted HIL queue (existing P1 behavior - see
     ``docs/roadmap/interfaces/channels-and-notifications.md § 6``). The
     ``HilChannel`` Protocol is the contract, so ``core/`` neither knows
@@ -161,6 +163,33 @@ def _build_hil_channel(
     """
     webhook_url = os.environ.get("FDAI_CHATOPS_WEBHOOK_URL", "").strip()
     activity_url = os.environ.get("FDAI_TEAMS_APPROVAL_ACTIVITY_URL", "").strip()
+    slack_keys = (
+        "FDAI_SLACK_APPROVAL_API_URL",
+        "FDAI_SLACK_APPROVAL_CHANNEL_ID",
+        "FDAI_SLACK_APPROVAL_BOT_TOKEN",
+    )
+    slack_values = tuple(os.environ.get(key, "").strip() for key in slack_keys)
+    if any(slack_values):
+        if not all(slack_values):
+            raise RuntimeError(
+                "Slack approval API URL, channel ID, and bot token MUST be set together"
+            )
+        if webhook_url or activity_url:
+            raise RuntimeError("Slack and Teams HIL transports cannot be selected together")
+        if http_client is None:
+            raise RuntimeError("Slack approval delivery requires a composition-owned HTTP client")
+        from fdai.delivery.chatops.slack_adapter import SlackHilAdapter, SlackHilAdapterConfig
+
+        try:
+            config = SlackHilAdapterConfig(
+                api_url=slack_values[0],
+                channel_id=slack_values[1],
+                bot_token=slack_values[2],
+            )
+        except ValueError as exc:
+            raise RuntimeError("Slack approval configuration is invalid") from exc
+        _LOGGER.info("hil_channel_backend", extra={"backend": "slack-outbound"})
+        return SlackHilAdapter(config=config, http_client=http_client)
     if not webhook_url and not activity_url:
         _LOGGER.info("hil_channel_backend", extra={"backend": "none"})
         return None
