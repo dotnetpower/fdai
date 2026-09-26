@@ -28,6 +28,7 @@ from fdai_service_contracts import (
 from fdai_service_contracts.incident_intervention import IncidentInterventionProposalBody
 from pydantic import ValidationError
 from starlette.applications import Starlette
+from starlette.exceptions import HTTPException
 from starlette.middleware import Middleware
 from starlette.middleware.cors import CORSMiddleware
 from starlette.requests import Request
@@ -605,6 +606,7 @@ def build_operator_app(
         middleware=middleware,
         lifespan=lifespan,
         exception_handlers={
+            HTTPException: _http_exception_error,
             AuthenticationError: _authentication_error,
             AuthorizationError: _authorization_error,
             ProjectionUnavailableError: _projection_unavailable,
@@ -691,6 +693,23 @@ async def _authorization_error(_: Request, exc: Exception) -> Response:
 
 async def _projection_unavailable(_: Request, __: Exception) -> Response:
     return _error(503, "authoritative Operator projection is unavailable")
+
+
+async def _http_exception_error(_: Request, exc: Exception) -> Response:
+    if not isinstance(exc, HTTPException):
+        return _error(500, "Operator API request failed")
+    detail = exc.detail if isinstance(exc.detail, str) else "Operator API request failed"
+    if exc.status_code == 503 and re.fullmatch(
+        r"authoritative [A-Za-z][A-Za-z -]{0,63} projection is unavailable"
+        r" for [a-z0-9.-]{1,128}",
+        detail,
+    ):
+        detail = "authoritative Operator projection is unavailable"
+    return JSONResponse(
+        {"error": {"status": exc.status_code, "message": detail}},
+        status_code=exc.status_code,
+        headers=exc.headers,
+    )
 
 
 async def _bad_query_error(_: Request, exc: Exception) -> Response:
