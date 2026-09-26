@@ -420,12 +420,12 @@ def _remote_file(
     tunnel: BastionTunnel, path: str, username: str, timeout: int
 ) -> RemoteFile | None:
     details = tunnel.ssh(
-        ("/usr/bin/stat", "--format=%F|%h|%a|%U", path),
+        ("/usr/bin/stat", "--format=%F,%h,%a,%U", path),
         timeout=min(timeout, 60),
     )
     if details.returncode != 0:
         return None
-    parts = details.stdout.strip().split("|")
+    parts = details.stdout.strip().split(",")
     if len(parts) != 4 or parts[0] != "regular file" or parts[1] != "1" or parts[3] != username:
         raise ValueError("Foundation remote support path is not a safe owned regular file")
     if parts[2] not in {"600", "700"}:
@@ -439,7 +439,7 @@ def _remote_file(
 
 def _ensure_remote_directory(tunnel: BastionTunnel, path: str, username: str, timeout: int) -> None:
     details = tunnel.ssh(
-        ("/usr/bin/stat", "--format=%F|%a|%U", path),
+        ("/usr/bin/stat", "--format=%F,%a,%U", path),
         timeout=min(timeout, 60),
     )
     if details.returncode != 0:
@@ -447,10 +447,10 @@ def _ensure_remote_directory(tunnel: BastionTunnel, path: str, username: str, ti
         if created.returncode != 0:
             raise ValueError("Foundation remote support directory creation failed")
         details = tunnel.ssh(
-            ("/usr/bin/stat", "--format=%F|%a|%U", path),
+            ("/usr/bin/stat", "--format=%F,%a,%U", path),
             timeout=min(timeout, 60),
         )
-    if details.returncode != 0 or details.stdout.strip() != f"directory|700|{username}":
+    if details.returncode != 0 or details.stdout.strip() != f"directory,700,{username}":
         raise ValueError("Foundation remote support directory is unsafe")
 
 
