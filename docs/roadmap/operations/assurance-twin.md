@@ -48,8 +48,12 @@ from an injected trusted source. They atomically stage their own read-only activ
 durable `state_kv` row and Saga-attributed append-only audit lineage. Two supervised outbox relays
 publish schema-validated, exact-revision advisory events. The authenticated Operator API and
 Console continue to read the durable rows, not event tips. No production retained-evidence source
-is bound by default, so no ambient payload generates findings or a review verdict. Production
-inventory, external review delivery, and governed runtime evidence remain open.
+is bound by default, so no ambient payload generates findings or a review verdict. The retained
+Inventory source supplies a bounded Resource projection, not complete rule findings or proposed
+IaC evidence. It refuses pending realtime link changes; its snapshot id alone cannot pin a
+changing Resource overlay to an exact report or review revision. No production request producer
+selects a trusted source, scope, and revision for either writer. External review delivery and
+governed runtime evidence remain open.
 
 ### Implementation scope
 
@@ -59,7 +63,7 @@ inventory, external review delivery, and governed runtime evidence remain open.
 | Scalar Dynamic effect models, fidelity measurement, and bounded runtime coordination | implemented | [`effect_model.py`](../../../services/core-control-plane/src/fdai/core/assurance_twin/effect_model.py), [`fidelity.py`](../../../services/core-control-plane/src/fdai/core/assurance_twin/fidelity.py), [`runtime.py`](../../../services/core-control-plane/src/fdai/core/assurance_twin/runtime.py), and their focused tests | Active models stay immutable, challengers learn only from eligible outcomes, and divergence lowers the result to review. |
 | Graph-wide Dynamic trajectories, propagation, invariants, episode closure, and model registry | implemented | [`graph_effect.py`](../../../services/core-control-plane/src/fdai/core/assurance_twin/graph_effect.py), [`graph_runtime.py`](../../../services/core-control-plane/src/fdai/core/assurance_twin/graph_runtime.py), [`graph_closure.py`](../../../services/core-control-plane/src/fdai/core/assurance_twin/graph_closure.py), and focused graph tests | The runtime persists prediction episodes before returning evidence and updates challenger slices only from complete independent observations. |
 | Deep Security Assessment feed, deterministic analyzer, and catalog report | implemented | [`core/security/`](../../../services/core-control-plane/src/fdai/core/security), [`security_assessment.py`](../../../services/core-control-plane/src/fdai/core/reporting/datasources/security_assessment.py), [`test_assessment.py`](../../../services/core-control-plane/tests/core/security/test_assessment.py), and [`test_security_assessment_datasource.py`](../../../services/core-control-plane/tests/core/reporting/test_security_assessment_datasource.py) | This is a separate reporting subsystem, not the Twin-specific posture panel described below. |
-| Production inventory projection and ambient change-review delivery | not-started | [`projection.py`](../../../services/core-control-plane/src/fdai/shared/providers/projection.py) and [`iac_review.py`](../../../services/core-control-plane/src/fdai/shared/providers/iac_review.py) define provider seams | No production inventory adapter, change-event coordinator, or Checks API publisher is bound upstream. |
+| Production Twin binding and ambient change-review delivery | not-started | [`assurance_twin_inventory.py`](../../../services/core-control-plane/src/fdai/delivery/assurance_twin_inventory.py) supplies a Resource-only projection; [`iac_review.py`](../../../services/core-control-plane/src/fdai/shared/providers/iac_review.py) defines the review publisher seam | The projection cannot supply complete findings or proposed IaC evidence. No trusted exact-revision report/review source, content-free bus request producer, or Checks API publisher is bound. |
 | Strict semantic compilation and abstention feedback | implemented | [`query.py`](../../../services/core-control-plane/src/fdai/core/assurance_twin/query.py), [`semantic_query.py`](../../../services/core-control-plane/src/fdai/core/assurance_twin/semantic_query.py), [`runtime/assurance_twin_query.py`](../../../services/core-control-plane/src/fdai/runtime/assurance_twin_query.py), and focused query/runtime tests (`50 passed`) | Injected compilers must bind the exact input digest, compiler revision, bounded limit, and evidence refs before a read-only plan survives verification. Abstentions emit content-free, no-authority gaps through an injected discovery sink. The runtime default remains explicit model unavailable. |
 | T1 reuse, ChatOps intake, and governed runtime evidence | in-progress | [`chat.py`](../../../services/core-control-plane/src/fdai/core/assurance_twin/chat.py) and the shared semantic judgment contract | Message routing, T1 reuse, a concrete model provider, and an authenticated end-to-end receipt remain unvalidated. |
 | Heimdall/Forseti local event publication | implemented | [`assurance_twin_writers.py`](../../../services/core-control-plane/src/fdai/delivery/assurance_twin_writers.py), [`assurance_twin_publication.py`](../../../services/core-control-plane/src/fdai/delivery/assurance_twin_publication.py), [`test_assurance_twin_publication.py`](../../../services/core-control-plane/tests/delivery/test_assurance_twin_publication.py) | Requests contain no findings. An injected source must return complete, fresh, conflict-free evidence at the requested revision before either writer persists it. Saga-attributed audit and the embedded outbox commit atomically with the exact row; a restart relay validates the retained revision before emitting an advisory, schema-validated bus envelope. Real retained-evidence and governed runtime bindings are not established. |
@@ -419,6 +423,11 @@ coverage, limits baseline Resources and realtime deltas, and refuses pending rel
 that the Resource-only scratch projection cannot represent. A second active-generation read fences
 promotion during acquisition. The source returns provenance with each immutable projection and
 reloads on every call; it is not yet injected into the production Twin query or posture writers.
+A production binding needs a trusted, completeness-checked rule and change evidence producer,
+an exact revision covering both the snapshot and its realtime overlay, and a governed event
+source for content-free report/review requests. An Inventory snapshot id by itself is not
+that revision. Until these inputs are defined, binding an empty evaluator would turn
+unassessed resources into a misleading `clear` verdict.
 
 Target delivery adds one intent to the existing `chatops` adapter (question in, grounded answer
 out) and reuses the `gitops-pr` adapter for proposals and Checks API reviews. The current
