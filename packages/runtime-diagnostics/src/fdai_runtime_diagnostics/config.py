@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import os
 import re
 from collections.abc import Mapping
@@ -75,12 +76,18 @@ class DevelopmentDiagnosticsConfig:
         socket_root = Path(
             values.get(
                 "FDAI_DEVELOPMENT_DIAGNOSTICS_SOCKET_DIR",
-                str(source_root / ".fdai" / "runtime-diagnostics"),
+                str(source_root / ".fdai" / "r"),
             )
         ).resolve()
         if socket_root == source_root or not socket_root.is_relative_to(source_root / ".fdai"):
             raise ValueError("development diagnostics socket directory escaped private local state")
-        socket_path = socket_root / f"{service_id}.sock"
+        socket_identity = hashlib.sha256(
+            (
+                f"{service_id}:{source_revision}:{input_digest}:{worktree_digest}:"
+                f"{runtime_scope_receipt_digest}"
+            ).encode("utf-8")
+        ).hexdigest()[:12]
+        socket_path = socket_root / f"{socket_identity}.sock"
         if len(os.fsencode(socket_path)) > 100:
             raise ValueError("development diagnostics socket path exceeds the portable limit")
         return cls(

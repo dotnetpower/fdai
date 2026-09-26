@@ -102,7 +102,7 @@ def test_runner_injects_content_bound_development_diagnostic_identity(
     assert values[1] == "a" * 64
     assert re.fullmatch(r"[0-9a-f]{64}", values[2])
     assert values[3] == str(Path(__file__).parents[3])
-    assert values[4] == str(log_file.parent.parent / "runtime-diagnostics")
+    assert values[4] == str(Path(__file__).parents[3] / ".fdai" / "r")
 
 
 def test_runner_removes_only_stale_output_fifos(tmp_path: Path) -> None:

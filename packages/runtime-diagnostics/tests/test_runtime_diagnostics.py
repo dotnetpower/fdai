@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import json
 import os
+import re
 import tracemalloc
 from dataclasses import replace
 from pathlib import Path
@@ -22,7 +24,6 @@ from fdai_runtime_diagnostics import (
 ROOT = Path(__file__).resolve().parents[3]
 REVISION = "a" * 40
 DIGEST = "b" * 64
-WORKTREE_DIGEST = "c" * 64
 RECEIPT = "sha256:" + ("d" * 64)
 _ALLOCATIONS: list[bytearray] = []
 
@@ -33,9 +34,11 @@ def _environment(tmp_path: Path, **overrides: str) -> dict[str, str]:
         "FDAI_EXECUTION_VENUE": "local",
         "FDAI_DEVELOPMENT_DIAGNOSTICS_SOURCE_REVISION": REVISION,
         "FDAI_DEVELOPMENT_DIAGNOSTICS_INPUT_DIGEST": DIGEST,
-        "FDAI_DEVELOPMENT_DIAGNOSTICS_WORKTREE_DIGEST": WORKTREE_DIGEST,
+        "FDAI_DEVELOPMENT_DIAGNOSTICS_WORKTREE_DIGEST": hashlib.sha256(
+            tmp_path.name.encode("utf-8")
+        ).hexdigest(),
         "FDAI_DEVELOPMENT_DIAGNOSTICS_SOURCE_ROOT": str(ROOT),
-        "FDAI_DEVELOPMENT_DIAGNOSTICS_SOCKET_DIR": str(ROOT / ".fdai" / "rdt" / tmp_path.name[-8:]),
+        "FDAI_DEVELOPMENT_DIAGNOSTICS_SOCKET_DIR": str(ROOT / ".fdai" / "r"),
     }
     values.update(overrides)
     return values
@@ -51,6 +54,14 @@ def _config(tmp_path: Path) -> DevelopmentDiagnosticsConfig:
     return config
 
 
+def _cleanup_socket(config: DevelopmentDiagnosticsConfig) -> None:
+    config.socket_path.with_suffix(".lock").unlink(missing_ok=True)
+    try:
+        config.socket_path.parent.rmdir()
+    except OSError:
+        pass
+
+
 def test_configuration_is_disabled_by_default_and_rejects_deployed(tmp_path: Path) -> None:
     assert DevelopmentDiagnosticsConfig.from_environment("core-control-plane", RECEIPT, {}) is None
     with pytest.raises(ValueError, match="local execution venue"):
@@ -59,6 +70,43 @@ def test_configuration_is_disabled_by_default_and_rejects_deployed(tmp_path: Pat
             RECEIPT,
             _environment(tmp_path, FDAI_EXECUTION_VENUE="deployed"),
         )
+
+
+def test_socket_name_is_short_and_bound_to_service_receipt(tmp_path: Path) -> None:
+    first = _config(tmp_path)
+    second = DevelopmentDiagnosticsConfig.from_environment(
+        "operator-service",
+        RECEIPT,
+        _environment(tmp_path),
+    )
+    changed_receipt = DevelopmentDiagnosticsConfig.from_environment(
+        "core-control-plane",
+        "sha256:" + ("e" * 64),
+        _environment(tmp_path),
+    )
+    changed_worktree = DevelopmentDiagnosticsConfig.from_environment(
+        "core-control-plane",
+        RECEIPT,
+        _environment(
+            tmp_path,
+            FDAI_DEVELOPMENT_DIAGNOSTICS_WORKTREE_DIGEST="f" * 64,
+        ),
+    )
+
+    assert second is not None and changed_receipt is not None and changed_worktree is not None
+    assert re.fullmatch(r"[0-9a-f]{12}\.sock", first.socket_path.name)
+    assert len(os.fsencode(first.socket_path)) <= 100
+    assert (
+        len(
+            {
+                first.socket_path,
+                second.socket_path,
+                changed_receipt.socket_path,
+                changed_worktree.socket_path,
+            }
+        )
+        == 4
+    )
 
 
 def test_direct_configuration_cannot_bypass_local_venue(tmp_path: Path) -> None:
@@ -143,8 +191,7 @@ async def test_owner_only_socket_round_trip_and_cleanup(tmp_path: Path) -> None:
         assert packet.service_id == "core-control-plane"
     finally:
         await server.aclose()
-        config.socket_path.with_suffix(".lock").unlink()
-        config.socket_path.parent.rmdir()
+        _cleanup_socket(config)
     assert not config.socket_path.exists()
 
 
@@ -160,12 +207,7 @@ async def test_socket_lock_prevents_a_second_owner(tmp_path: Path) -> None:
         assert packet.service_id == "core-control-plane"
     finally:
         await first.aclose()
-        config.socket_path.with_suffix(".lock").unlink()
-        for candidate in (config.socket_path.parent, config.socket_path.parent.parent):
-            try:
-                candidate.rmdir()
-            except OSError:
-                pass
+        _cleanup_socket(config)
 
 
 async def test_socket_rejects_malformed_request(tmp_path: Path) -> None:
@@ -185,11 +227,7 @@ async def test_socket_rejects_malformed_request(tmp_path: Path) -> None:
         }
     finally:
         await server.aclose()
-        for candidate in (config.socket_path.parent, config.socket_path.parent.parent):
-            try:
-                candidate.rmdir()
-            except OSError:
-                pass
+        _cleanup_socket(config)
 
 
 def test_socket_root_must_stay_under_private_state(tmp_path: Path) -> None:
