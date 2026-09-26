@@ -143,6 +143,9 @@ def test_bootstrap_plan_rejects_diagnostic_stream_without_consumer() -> None:
         "FDAI_GITOPS_TOKEN",
         "FDAI_CHATOPS_WEBHOOK_URL",
         "FDAI_TEAMS_APPROVAL_ACTIVITY_URL",
+        "FDAI_SLACK_APPROVAL_API_URL",
+        "FDAI_SLACK_APPROVAL_CHANNEL_ID",
+        "FDAI_SLACK_APPROVAL_BOT_TOKEN",
         "FDAI_EMAIL_ENDPOINT",
     ],
 )

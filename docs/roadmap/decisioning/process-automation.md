@@ -365,14 +365,15 @@ Given a `Workflow`, the planner produces a deterministic, read-only
   HIL tiers, resolved to its Entra security-group objectId via the RBAC
   [`GroupMapping`](../../../services/core-control-plane/src/fdai/core/rbac/resolver.py) (the `aw-approvers` or
   `aw-owners` group). No-self-approval is carried forward on every gated step.
-- **How are they reached?** The A1 `hil_approval` route from the
-  [notifications matrix](../../../config/notifications-matrix.yaml) - Teams primary,
-  Slack / email fallback. The concrete adapters implement the
-  [`HilChannel`](../../../services/core-control-plane/src/fdai/shared/providers/hil_channel.py) seam:
-  [`TeamsHilAdapter`](../../../services/core-control-plane/src/fdai/delivery/chatops/teams_adapter.py) and
-  [`SlackHilAdapter`](../../../services/core-control-plane/src/fdai/delivery/chatops/) (Adaptive
-  Card / Block Kit, HMAC-signed, fail-closed). Email is a send-only alert lane,
-  not an A1 approval back-channel.
+- **How are they reached?** The A1 `hil_approval` route may dispatch through the
+  [`HilChannel`](../../../services/core-control-plane/src/fdai/shared/providers/hil_channel.py)
+  seam. Teams Bot delivery and the separate authenticated callback are distinct from
+  [Slack's outbound-only Block Kit post](../../../services/core-control-plane/src/fdai/delivery/chatops/slack_adapter.py),
+  selected by a [fail-closed binding](../../../services/core-control-plane/src/fdai/delivery/chatops/slack_binding.py).
+  Slack `poll` remains pending; a local post or receipt cannot complete a workflow approval.
+  Durable repost reconciliation and browser actor binding remain open under
+  [Channels and Notifications](../interfaces/channels-and-notifications.md).
+  Email is a send-only alert lane, never an A1 approval back-channel.
 
 An unavailable notification route lowers only workflows and incident paths that require that
 route. The runtime reports the gap and keeps unrelated read, deny, queue, and shadow paths
