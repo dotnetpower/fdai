@@ -1,7 +1,7 @@
 ---
 title: 어슈어런스 트윈 (질의가능하고 선제적이며 검증가능한 리뷰)
 translation_of: assurance-twin.md
-translation_source_sha: f9322b97e1f3e30d3d06ef3c3d66f41d63f7a332
+translation_source_sha: db07f2f1a533f61c0cda81b7d10b5a4952f28120
 translation_revised: 2026-09-27
 ---
 # 어슈어런스 트윈 (질의가능하고 선제적이며 검증가능한 리뷰)
@@ -385,7 +385,7 @@ Supplemental 프로바이더는 서버 매개변수, diagnostic-setting 상태, 
 
 | 컴포넌트 | 책임 |
 |-----------|----------------|
-| `projection` | 변경할 수 없는 in-memory 기준선을 만들고 scratch 차이를 적용합니다. 운영 `Inventory.full_snapshot()` + `delta()` 유지는 목표 연결입니다. |
+| `projection` | 변경할 수 없는 메모리 내 기준선을 만들고 임시 변경을 적용합니다. 보관된 Inventory 스냅샷과 범위가 제한된 실시간 Resource 변경으로 새로운 변환 결과를 만들 수 있습니다. 운영 조립 및 관계를 고려한 유지 관리는 여전히 목표 연결입니다. |
 | `query` | 결정론적 pattern 컴파일러로 well-typed 읽기 전용 조회를 검증하고 실행합니다. Model-backed 컴파일러는 프로토콜 목표입니다. |
 | `review` | Precomputed 발견 사항을 `IacReviewPublisher`로 게시합니다. Change-signal 평가와 운영 발행기는 목표 연결입니다. |
 | `report` | 발견 사항으로부터 `PostureAssessmentReport` 를 조립 |
@@ -394,6 +394,13 @@ Supplemental 프로바이더는 서버 매개변수, diagnostic-setting 상태, 
 | `trajectory_ledger` | Predicted trajectory 에피소드를 저장하고 완전한 comparable 결과만 StateStore를 통해 atomically close합니다. |
 | `graph_closure` | 독립적인 관측을 off-path로 배출하고 challenger 구획을 갱신하며 활성 변경과 승격이 없었음을 감사합니다. |
 | `posture_activity` | Heimdall의 기존 제한된 자세 활동과 Forseti의 별도 읽기 전용 검토 활동을 만듭니다. 전달 레코더는 각 활동을 보관 기록 및 Saga에 귀속된 추가 전용 감사와 함께 준비합니다. 독립적으로 감독되는 두 중계기가 개정에 결속된 이벤트를 게시합니다. 발견 사항을 계산하려면 주입된 신뢰할 수 있는 출처가 여전히 필요합니다. |
+
+`PostgresTwinInventorySource`는 반복 읽기 트랜잭션에서 보관된 Inventory 데이터베이스의
+활성 관측 스냅샷을 전체 범위로 읽습니다. 오래되었거나 불완전하거나 대체된 범위를 거부하고,
+기준 Resource와 실시간 변경의 개수를 제한합니다. Resource만 표현하는 임시 변환 결과에
+반영할 수 없는 관계 변경도 거부합니다. 활성 세대를 다시 읽어 획득 도중의 승격을 차단합니다.
+출처 정보가 담긴 변경 불가능한 변환 결과를 매번 새로 만들며, 아직 운영 트윈 조회나 자세
+작성기에 주입하지 않았습니다.
 
 목표 전달은 기존 `chatops` 어댑터에 인텐트 하나를 추가하고(질문 입력, 근거 있는 답 출력)
 제안과 Checks API 리뷰에 `gitops-pr` 어댑터를 재사용합니다. 현재 저장소에는
