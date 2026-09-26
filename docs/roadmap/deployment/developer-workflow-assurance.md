@@ -154,6 +154,10 @@ gathered before their references are removed.
 The local analyzer closes its tick-scoped decision-evidence and run-receipt StateStore pools before
 the next loop interval. A clean tick cannot leave asynchronous pool workers for garbage collection,
 and a persistence failure still closes its store before readiness remains unavailable.
+The analyzer's local broker connection also performs a bounded read-only lookup of an uncertain
+analyzer publication after restart. A missing match never authorizes republication or readiness.
+The analyzer dependency-composition module owns the lookup construction; the CLI passes only the
+validated broker endpoint, execution venue, and workload identity.
 The managed launcher explicitly forwards the service-owned StateStore DSN to that analyzer process,
 so the decision-evidence admission provider is bound before target selection. The binding is
 read-only and cannot promote an ActionType, raise autonomy, or grant execution authority.

@@ -926,6 +926,15 @@ resource "azurerm_role_assignment" "inventory_eventhubs_sender" {
   scope                = module.event_bus.topic_ids[local.event_topics[0]]
   role_definition_name = "Azure Event Hubs Data Sender"
   principal_id         = module.inventory_identity.principal_id
+  # The substrate plan targets this address; include its bounded readback
+  # prerequisite without widening the standalone coordinator's target list.
+  depends_on = [azurerm_role_assignment.inventory_analyzer_eventhubs_receiver]
+}
+
+resource "azurerm_role_assignment" "inventory_analyzer_eventhubs_receiver" {
+  scope                = module.event_bus.topic_ids[local.event_topics[0]]
+  role_definition_name = "Azure Event Hubs Data Receiver"
+  principal_id         = module.inventory_identity.principal_id
 }
 
 resource "azurerm_role_assignment" "inventory_wara_sender" {
@@ -2725,6 +2734,7 @@ module "compute" {
     azurerm_role_assignment.inventory_kv_secrets_user,
     azurerm_role_assignment.inventory_acr_pull,
     azurerm_role_assignment.inventory_eventhubs_sender,
+    azurerm_role_assignment.inventory_analyzer_eventhubs_receiver,
     azurerm_role_assignment.inventory_wara_sender,
     azurerm_role_assignment.inventory_stage_sender,
     azurerm_role_assignment.scheduler_acr_pull,
