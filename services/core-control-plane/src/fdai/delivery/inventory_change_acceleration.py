@@ -17,6 +17,9 @@ from fdai.delivery.azure.dev_workload_identity import AsyncAzureCliWorkloadIdent
 from fdai.delivery.azure.event_bus import EventHubsKafkaBus, EventHubsKafkaBusConfig
 from fdai.delivery.azure.inventory import AzureInventoryConfig, AzureResourceGraphInventory
 from fdai.delivery.azure.workload_identity import ManagedIdentityWorkloadIdentity
+from fdai.delivery.deploy_preflight.environment_profile_refresh import (
+    EnvironmentProfileRefreshTask,
+)
 from fdai.delivery.inventory_delta import forward_inventory_delta
 from fdai.delivery.inventory_job_config import InventoryJobConfig
 from fdai.delivery.persistence import PostgresStateStore, PostgresStateStoreConfig
@@ -115,6 +118,7 @@ async def forward_recovery_deltas(
 
     state_store = PostgresStateStore(config=PostgresStateStoreConfig(dsn=config.dsn))
     try:
+        profile_task = EnvironmentProfileRefreshTask(state_store=state_store)
         published = 0
         for scope in config.scopes:
             async with scope_lock.acquire(f"inventory-recovery-delta:{scope}"):
@@ -147,6 +151,7 @@ async def forward_recovery_deltas(
                     scope=scope,
                     properties_complete=False,
                     initial_replay_after=initial_replay_after,
+                    profile_invalidator=profile_task.invalidate,
                 )
         return published
     finally:
