@@ -1,7 +1,7 @@
 ---
 title: Operator Console - Data and Wire Contracts
 translation_of: operator-console-wire-contracts.md
-translation_source_sha: 9360a9856b6e8d4a0669c73bf558291c5956afa8
+translation_source_sha: 2357609540a1e7f6ab36523265c1b85cf7b9b751
 translation_revised: 2026-09-26
 ---
 
@@ -71,13 +71,14 @@ Operator는 digest, 배포 기본값 또는 현재 구성에서 모델을 추측
 
 ### 13.3 Operator API 승인 콜백 (주 1)
 
-Operator 소유 수신기 두 개는 하나의 결정 서비스에서 처리됩니다. 어느 수신기도 메시지의 신원
+Operator 소유 수신기는 하나의 결정 서비스에서 처리됩니다. 어떤 수신기도 메시지의 신원
 또는 권한을 신뢰하지 않습니다.
 
 | 전송 | 경로 | 인증 및 행위자 |
 |------|------|----------------|
 | Teams Bot 액티비티 | `POST /hil/teams-activity` | Bot Framework RS256 서비스 토큰, 발급자, 대상, `serviceurl`, 테넌트, 구성된 그룹 연결 팀과 채널, `invoke` 및 `adaptiveCard/action`을 검증합니다. 정확한 카드 계약에서 `approval_id`를, `from.aadObjectId`에서 행위자를 도출한 뒤 Operator API 대상과 인가된 봇 클라이언트에 대한 위임 OBO 토큰을 검증합니다. |
 | 내부 Slack 중계 | `POST /hil/{approval_id}/decision` | 재생 구간 안에서 타임스탬프, URL 승인 ID 및 정확한 바이트에 대한 HMAC을 검증합니다. 위임된 Operator bearer로 매핑된 Slack 사용자를 확인합니다. 이 경로는 `channel=teams`를 거부합니다. |
+| Slack 브라우저 인계 | `POST /hil/slack/interaction`, `GET/POST /hil/slack/handoff/{nonce}` | 원본 양식 바이트에 대한 Slack v0 서명과 5분 시간 구간을 확인한 뒤 `team.id`와 `user.id`를 추출합니다. 클릭 하나는 원래 승인, 작업, 워크스페이스, 사용자 매핑 리비전 및 만료 시각에 결합된 일회용 nonce 해시를 받습니다. 인증된 브라우저 미리보기는 권한을 부여하지 않습니다. POST는 사유만 받고 클릭 이후의 `auth_time`이 담긴 검증된 API 토큰과 현재의 정확한 매핑을 요구합니다. nonce를 원자적으로 소모하고 같은 결정 서비스를 호출합니다. 클레임, 권한, 문맥 또는 매핑이 없으면 결정을 보류합니다. 실제 Slack 전달이나 Entra 선택적 클레임 구성을 주장하지 않습니다. |
 
 Teams 카드는 `approval_id`, `correlation_id`, `idempotency_key`, `action_hash`, 채널 대상,
 결정 및 필수 근거만 전달합니다. 수신기는 추가 카드 키를 거부하므로 카드 데이터가
@@ -384,6 +385,7 @@ ActionType은 정확한 의미 ObjectType 또는 InterfaceType target이 있을 
 | 대화 assurance 최종 묶음 | implemented | Core 의미 턴 처리기, Operator 의미 턴 런타임 및 presentation, 집중 assurance 전달 테스트 | 유효한 평가는 범위가 제한된 사유와 정확한 답변 생성 모드를 보존합니다. `completed`만 `answered`를 내보내고 `deferred`, `held`, 과거 `unavailable`은 `held`를 내보냅니다. 명시적으로 선택한 모델 호출은 raw 프롬프트 텍스트나 권한 없이 범위가 제한된 프롬프트 프로필, SYSTEM digest, 순서가 지정된 레이어 및 예산 manifest를 추가할 수 있습니다. Pantheon assurance terminal은 펼친 Run Record를 위해 범위가 제한된 content-free 참여자 및 평가자 프롬프트 프로필도 전달합니다. Assurance 변환 결과 실패는 `semantic_runtime_failed`를 사용하고 `result_store_*` 단계 실패만 `semantic_result_store_unavailable`을 사용합니다. |
 | 증적 기반 런타임 Context snapshot | in-progress | 온톨로지 플랫폼의 보안 ObjectSet 및 Context 계약, 기존 Console 사용 불가 상태 | 워크벤치는 카탈로그 선언과 런타임 인스턴스를 병합하지 않습니다. principal 범위 Context 증적은 별도 전달 작업으로 남아 있습니다. |
 | HIL callback 계약 | implemented | Operator IAM family 경로; `services/operator-service/tests/test_operator_iam_family.py`; full-composition 테스트 | 서명, 재생 구간, 역할, 자기 승인 금지, 정확한 pending id 및 멱등적 결정 동작이 구현됐습니다. |
+| Slack 브라우저 인계 | in-progress | `families/iam/slack_handoff.py`, `test_hil_slack_handoff.py`, `console/tests/e2e/approvals-sample.spec.ts` | 서명된 상호작용과 영속 일회용 행위자/작업 문맥을 합성 집중 검사로 확인했습니다. 서명된 최신 `auth_time`이 없으면 결정은 차단됩니다. 인증된 Entra, 실제 Slack 게시 및 PostgreSQL 동시성 증적은 확인하지 않았습니다. |
 | Python task workbench 및 근거 기반 code | implemented | `services/core-control-plane/src/fdai/core/python_task/`; `services/core-control-plane/tests/core/python_task/`; Operator workflow family; Console Python task 테스트 | 정적 검증, inert 산출물, 기능 및 chat 실행 부재 경계에 focused 검사가 있습니다. |
 | 인시던트 생성 초안 및 타입이 지정된 확인 | implemented | `fdai_service_contracts.incident_creation`, Core 의미 기반 변환 결과 및 인시던트 생성 소비자, Operator 확인 경로 및 보낼 편지함 브리지, Console 확인 클라이언트, 서비스 테스트 묶음 소유권, 집중 교차 서비스 및 CI 계약 테스트 | 브라우저는 공개 초안 필드 네 개만 보냅니다. Operator는 정확한 원본을 다시 읽고 버전이 지정된 권한 없는 요청을 대기열에 넣으며, Core는 감사되는 인시던트 하나를 생성하거나 재사용합니다. HTTP `202`는 `/incidents`에서 레코드를 확인할 때까지 대기 상태입니다. |
 | 관리 리소스 의미 기반 작업 확인 | in-progress | 기존 `OntologyActionIntent` 검증, 확인 경로 및 작업 확인 작업자 | Core는 아직 확인 가능한 비인시던트 작업 의도를 변환하지 않습니다. 이 원본을 완료하려면 독립적으로 검토된 ActionType 초안과 요청부터 감사까지의 증적이 필요합니다. |
@@ -394,6 +396,7 @@ ActionType은 정확한 의미 ObjectType 또는 InterfaceType target이 있을 
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-26 | in-progress | 패키지 wire 스키마를 바꾸지 않고 서비스 내부의 서명된 Slack 상호작용, 만료되는 일회용 브라우저 인계 및 정확한 보류 승인/매핑 재검증을 추가했습니다. | `current change`, Operator IAM/경로 검사, Console 인증/typecheck/build 및 합성 1440x900 경로 검사. | #943 기준 3을 완료하기 전에 서명된 `auth_time` 제공 여부, 실제 PostgreSQL 원자성 검사, 인증된 Console 로그인 재진입 및 Slack 단추 전달을 확인합니다. |
 | 2026-09-22 | implemented | 전용 논리 topic에 content-free Rule 활성화 notice를 추가했습니다. Operator는 인증된 inert 요청과 별도 승인을 저장하고 Core는 정확한 불변 receipt를 다시 읽어 세대 적용을 소유합니다. 이 경로는 Incident를 만들거나 실행 권한을 부여할 수 없습니다. | `current change`; 공유 transport 계약, Operator outbox, Core consumer, 서비스 간 roundtrip 및 실제 PostgreSQL role 테스트. | 운영 검증을 주장하기 전에 배포된 request-to-generation receipt를 보존합니다. |
 | 2026-09-19 | implemented | Assurance terminal과 펼친 Run Record에 필수 content-free Pantheon 참여자 및 평가자 프롬프트 프로필 근거를 추가했습니다. | `current change`, 집중 Core projection, Operator validation, Console parser, persistence, presentation, browser worker, Ruff, strict mypy 및 typecheck 검사. | 이후 clean committed revision에서 새로운 인증 Run Record 하나를 보존합니다. Raw prompt, live score 또는 qualification 근거를 주장하지 않습니다. |
 | 2026-09-19 | implemented | 캡처된 각 semantic 모델 호출에 optional content-free prompt replay manifest를 추가해 Console이 raw hidden 프롬프트 텍스트 없이 동적 SYSTEM 프로필, 순서가 지정된 레이어, digest 및 예산 근거를 확인할 수 있게 했습니다. | `current change`, 집중 Core semantic projection 및 Console model-trace parser와 presentation 테스트, Ruff, strict mypy 및 typecheck. | 이후 정리된 커밋 리비전에서 새로운 인증 browser Run Record를 보존합니다. 이 변경은 live 프롬프트 품질이나 qualification을 주장하지 않습니다. |
@@ -415,6 +418,8 @@ ActionType은 정확한 의미 ObjectType 또는 InterfaceType target이 있을 
 | 2026-09-16 | implemented | 공용 PostgreSQL 읽기 컨텍스트에 세대에 결속된 인벤토리 무효화 커서를 추가했습니다. 인시던트 초안, 원본 재검증, 제안 저장, 게시, 수명 주기 소유권 및 실행 권한은 바뀌지 않았습니다. | `current change`, 집중 Operator 인벤토리 상태 및 재생 테스트 153개, strict mypy 및 Ruff | Operator가 시작하는 인시던트 wire 동작은 바뀌지 않았습니다. |
 
 ### 남은 작업
+
+- [ ] 표준 Console 출처가 구성된 환경에서 실제 Slack 서명 클릭부터 새 Entra API 토큰의 `auth_time`, 일회용 PostgreSQL 결정 증적까지 확인하고 전달, 매핑 리비전 및 자기 승인 차단을 독립적으로 검증한 뒤 #943 기준 3을 완료합니다.
 
 - [ ] 스키마 한도, 정확한 source 개정, 자기 승인 금지, stale 및 멱등성 conflict, 타입이 지정된 확인, 감사 상관관계 및 직접 실행 부재를 입증하는 인증된 semantic action-draft 증적을 보존합니다.
 - [x] 하나의 exact-release 온톨로지 레지스트리와 선언 워크벤치를 구체화하고 같은 생산자에서 선언과 토폴로지 동등성을 입증하며 네 개의 의미 영역과 서로 독립적인 다섯 가지 보기를 렌더링했습니다. [이슈 #223](https://github.com/dotnetpower/fdai/issues/223)의 focused 검사와 인증 로컬 Browser 관측은 변경 권한 없이 통과했습니다.

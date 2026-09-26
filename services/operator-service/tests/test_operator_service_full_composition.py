@@ -189,13 +189,13 @@ def test_aggregate_manifest_and_registered_routes_have_exact_unique_ownership() 
     identities = {(item.method, item.path) for item in manifest}
     owner_counts = Counter(item.owner for item in manifest)
 
-    assert len(manifest) == len(identities) == 231
+    assert len(manifest) == len(identities) == 234
     assert ("GET", "/observer-deployment-proposals") in identities
     assert ("GET", "/handover/readiness") in identities
     assert owner_counts == {
         "minimal": 17,
         "conversation": 44,
-        "iam": 56,
+        "iam": 59,
         "workflow": 47,
         "operations": 43,
         "operations-panel": 8,
@@ -204,9 +204,18 @@ def test_aggregate_manifest_and_registered_routes_have_exact_unique_ownership() 
         "alert-quality": 7,
     }
     assert tuple(manifest[:17]) == MINIMAL_ROUTE_MANIFEST
+    assert {
+        (item.method, item.path, item.owner)
+        for item in manifest
+        if item.path.startswith("/hil/slack/")
+    } == {
+        ("POST", "/hil/slack/interaction", "iam"),
+        ("GET", "/hil/slack/handoff/{nonce}", "iam"),
+        ("POST", "/hil/slack/handoff/{nonce}", "iam"),
+    }
     app = cast(Starlette, _client().app)
     assert _registered_identities(app) == identities
-    assert len(app.router.routes) == 231
+    assert len(app.router.routes) == 234
     assert {
         ("POST", "/test-context/proposals"),
         ("POST", "/test-context/reviews"),
