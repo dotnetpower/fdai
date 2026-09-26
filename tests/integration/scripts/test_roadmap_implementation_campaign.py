@@ -53,6 +53,54 @@ def test_choose_folder_requires_a_complete_batch() -> None:
     assert module.choose_folder({"operations": grouped["operations"]}) is None
 
 
+def test_issue_linked_work_accepts_only_explicit_owner_or_ledger_references(
+    tmp_path: Path,
+) -> None:
+    module = _load()
+    owner_a = "docs/roadmap/interfaces/a.md"
+    owner_b = "docs/roadmap/interfaces/b.md"
+    unrelated = "docs/roadmap/interfaces/c.md"
+    for relative in (owner_a, owner_b, unrelated):
+        path = tmp_path / relative
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text("- [ ] remaining work\n", encoding="utf-8")
+    (tmp_path / owner_a).write_text(
+        "- [ ] remaining work for [issue](https://github.com/example/fdai/issues/1025)\n",
+        encoding="utf-8",
+    )
+    ledger = tmp_path / "docs/roadmap-implementation/interfaces/b.md"
+    ledger.parent.mkdir(parents=True)
+    ledger.write_text("- [ ] remaining work for #1025\n", encoding="utf-8")
+
+    linked = module.issue_linked_work_by_folder(
+        tmp_path,
+        {"interfaces": [owner_a, owner_b, unrelated]},
+        1025,
+    )
+
+    assert linked == {"interfaces": [owner_a, owner_b]}
+
+
+def test_issue_linked_work_does_not_match_a_longer_issue_number(tmp_path: Path) -> None:
+    module = _load()
+    owner = "docs/roadmap/interfaces/a.md"
+    path = tmp_path / owner
+    path.parent.mkdir(parents=True)
+    path.write_text(
+        "- [ ] remaining work for #10250 and https://github.com/example/fdai/issues/10250\n",
+        encoding="utf-8",
+    )
+
+    assert (
+        module.issue_linked_work_by_folder(
+            tmp_path,
+            {"interfaces": [owner]},
+            1025,
+        )
+        == {}
+    )
+
+
 def test_campaign_allows_two_active_sessions_and_holds_three() -> None:
     module = _load()
 
