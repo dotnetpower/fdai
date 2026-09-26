@@ -46,6 +46,8 @@ def topics(output: str) -> tuple[str, ...]:
 
 def groups(output: str) -> tuple[str, ...]:
     lines = [line.split() for line in output.splitlines() if line.strip()]
+    if lines == [["BROKER", "GROUP"]]:
+        return ()
     if not lines or lines[0] != ["BROKER", "GROUP", "STATE"]:
         raise ValueError("unexpected local broker group listing")
     rows = lines[1:]

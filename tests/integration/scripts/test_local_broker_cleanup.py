@@ -35,6 +35,10 @@ def test_selects_only_empty_groups_for_dead_local_processes() -> None:
     assert cleanup.candidates(output, alive=lambda process_id: process_id == 54321) == [GROUP]
 
 
+def test_current_rpk_empty_listing_has_no_candidates() -> None:
+    assert cleanup.candidates("BROKER  GROUP\n", alive=lambda _pid: False) == []
+
+
 @pytest.mark.parametrize("output", ["", "GROUP STATE\n", HEADER + "invalid\n"])
 def test_unknown_output_fails_closed(output: str) -> None:
     with pytest.raises(ValueError):

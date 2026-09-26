@@ -23,6 +23,10 @@ def test_groups_require_every_consumer_to_be_empty() -> None:
         _MODULE.groups("BROKER GROUP STATE\n0 fdai-core Stable\n")
 
 
+def test_groups_accept_current_rpk_empty_listing() -> None:
+    assert _MODULE.groups("BROKER  GROUP\n") == ()
+
+
 def test_reset_removes_all_dedicated_resources_before_recreating_probe() -> None:
     calls: list[tuple[str, ...]] = []
 
