@@ -6,7 +6,7 @@ import logging
 from collections.abc import Mapping
 from dataclasses import replace
 from datetime import UTC, datetime
-from typing import Any, Literal
+from typing import Any
 
 from fdai_service_contracts.rule_activation import RuleActivationSource
 
@@ -29,6 +29,7 @@ from fdai.delivery.runtime_settings import RuntimeSettingsService
 from fdai.delivery.startup_probe import OpaCompileStartupProbe
 from fdai.runtime import bootstrap_incidents
 from fdai.runtime.blast_probe import bind_live_blast_probe_failure_streak
+from fdai.runtime.bootstrap_assurance_twin import build_assurance_twin_runtime_binding
 from fdai.runtime.bootstrap_bindings import (
     build_effect_reconciliation_request_binding as _build_effect_reconciliation_request_binding,
 )
@@ -741,34 +742,13 @@ async def build_core_runtime(
                 "pantheon_conversation_assurance_unavailable",
                 extra={"reason": "runtime_or_durable_source_identity_unavailable"},
             )
-    from fdai.delivery.assurance_twin_posture import AssuranceTwinPostureRecorder
-    from fdai.delivery.assurance_twin_publication import AssuranceTwinOutboxPublisher
-    from fdai.delivery.assurance_twin_writers import AssuranceTwinAgentWriter
-    from fdai.delivery.persistence.state_store_assurance_twin_posture import (
-        StateStoreAssuranceTwinPostureLedger,
-    )
-
-    assurance_twin_publishers: tuple[AssuranceTwinOutboxPublisher, ...] = ()
-    assurance_twin_writers: tuple[AssuranceTwinAgentWriter, ...] = ()
     pantheon_runtime = resources.pantheon.runtime
-    if (
-        state_store is not None
-        and pantheon_runtime is not None
-        and {"Heimdall", "Forseti", "Saga"}.issubset(pantheon_runtime.agents)
-    ):
-        twin_ledger = StateStoreAssuranceTwinPostureLedger(store=state_store)
-        assurance_twin_publishers = tuple(
-            AssuranceTwinOutboxPublisher(owner=owner, ledger=twin_ledger, bus=messaging.bus)
-            for owner in ("Heimdall", "Forseti")
-        )
-        retained_source = container.assurance_twin_retained_evidence_source
-        if retained_source is not None:
-            recorder = AssuranceTwinPostureRecorder(ledger=twin_ledger)
-            owners: tuple[Literal["Heimdall", "Forseti"], ...] = ("Heimdall", "Forseti")
-            assurance_twin_writers = tuple(
-                AssuranceTwinAgentWriter(owner=owner, source=retained_source, recorder=recorder)
-                for owner in owners
-            )
+    assurance_twin_publishers, assurance_twin_writers = build_assurance_twin_runtime_binding(
+        state_store=state_store,
+        agents=pantheon_runtime.agents if pantheon_runtime is not None else None,
+        event_bus=messaging.bus,
+        retained_source=container.assurance_twin_retained_evidence_source,
+    )
 
     return CoreRuntime(
         container=container,
