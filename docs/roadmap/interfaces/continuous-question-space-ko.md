@@ -1,6 +1,6 @@
 ---
 translation_of: continuous-question-space.md
-translation_source_sha: 2d44000b2bb7719acd3de67c6319b3df57cf072c
+translation_source_sha: b7bc3408e3427f5c187098d577555534fd1fcb31
 translation_revised: 2026-09-26
 ---
 # 지속형 질문 공간
@@ -181,6 +181,7 @@ query 함수 12/36입니다. 검토된 대응표가 없으므로 Pantheon-to-sem
 ### 구현 이력
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-26 | implemented | busy-input Console 카탈로그가 결합된 원본 다이제스트를 바꾼 뒤 400개 질문 은행과 이에 의존하는 의미 의도 범위 인벤토리를 다시 생성했습니다. 질문 신원, 준비 상태, 지표 정의, 분모 및 권한은 바뀌지 않습니다. | `current change`; 공식 질문 은행 및 의미 의도 생성기, 집중 생성 산출물 계약 테스트. | 사례별 의미 검토와 런타임 검증을 계속합니다. 이 다이제스트 갱신은 답변 가능 상태나 운영 준비 근거를 추가하지 않습니다. |
 | 2026-09-26 | implemented | 검토된 영어 Q026 Resource Health 이력 원문을 Azure 및 인시던트 의도 계약에 추가하고 CQAS를 다시 생성하여 `query.resource_event_history` 의도 계약 사례를 1개에서 2개로 늘렸습니다. 지표 정의 93개와 모든 hard-zero 권한 목표는 그대로 유지됩니다. | `current change`; 공식 의미 의도 생성기; 이중 언어 타입 기반 판단, 24시간 계획, 요청 예산, 안전한 실패, 생성 산출물 검사. | 실제 품질이나 운영 준비 완료를 주장하기 전에 인증된 영어 exact-source 런타임 근거를 별도로 보존합니다. |
 | 2026-09-23 | in-progress | 정본 400개 질문 인벤토리에서 결정론적 60개 사례 표본을 기록하고 어떤 사례도 승격하지 않은 채 집계된 준비도 공백을 보존했습니다. | `current change`; [`conversation-answer-hardening-2026-09-23.json`](../../baselines/conversation-answer-hardening-2026-09-23.json); 표본 ID 다이제스트 `sha256:7c2c5f31de2bc23c98dcccdfe5e411b7c030b54e7c72a63a0678c4abb93a4a0a`. | 답변 가능 상태를 주장하기 전에 사례별로 검토된 의미 계약, 런타임 연결, 근거 출처, 검증 및 표현 oracle을 추가합니다. |
 | 2026-09-22 | implemented | 모델이 알려진 운영 유형을 혼합 또는 맥락 의존 신호와 함께 제안할 때 발생하던 효과 없는 두 번째 preflight 호출을 제거했습니다. 잘못된 제안은 권한 없이 유지되며 전체 의미 판단으로 계속 진행됩니다. | `current change`, 읽기 전용 로컬 trace 진단, 재현 payload 회귀, 집중 preflight 테스트 147개, strict mypy, Ruff 및 형식 검사 | 이 형식에서 preflight 호출이 한 번인 인증된 재생은 별도 승인을 받아 보존해야 합니다. 이 변경에서는 실제 모델 검증을 주장하지 않습니다. |
