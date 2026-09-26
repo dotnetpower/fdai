@@ -19,16 +19,7 @@ Existing agents retain judgment, approval, execution, recovery, and audit owners
 Executor uses existing execution contracts; optional segmentation uses the installed policy engine.
 Focused connector tests load the real resource-preflight subclass before temporarily replacing the read probe. Test order therefore cannot substitute a fake cluster-identity check or change runtime behavior.
 
-```mermaid
-flowchart LR
-  Observer[Cluster Observer] -->|Outbound HTTPS evidence| Gateway[Connector Gateway]
-  Worker[Cluster Executor] -->|Outbound HTTPS task exchange| Gateway
-  Gateway <--> Bus[Existing event bus]
-  Bus <--> Owners[Existing accountable agents]
-  Observer --> API[Kubernetes API]
-  Worker --> API
-  API --> Engine[Existing network policy engine]
-```
+![Design at a glance. The main stages are Cluster Observer, Connector Gateway, Cluster Executor, Existing event bus, Existing accountable agents, Kubernetes API, Existing network policy engine.](../../diagrams/generated/fdai-roadmap-architecture-aks-outbound-connector-01.en.svg)
 
 The diagram shows connection initiation, not execution authority. The gateway cannot mint work,
 approve it, impersonate an executor, or access the central database on behalf of a cluster.

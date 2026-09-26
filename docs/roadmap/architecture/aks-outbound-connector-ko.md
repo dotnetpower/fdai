@@ -1,8 +1,8 @@
 ---
 title: AKS 역방향 커넥터
 translation_of: aks-outbound-connector.md
-translation_source_sha: edec5c459d903527426d14b520654b86fb9eda1d
-translation_revised: 2026-09-22
+translation_source_sha: df8854f595bab1d7f887edb7b1fb06396b8ffcd6
+translation_revised: 2026-09-26
 ---
 # AKS 역방향 커넥터
 
@@ -21,16 +21,7 @@ HTTPS 통신으로 제한된 근거와 형식이 지정된 작업을 비권한 �
 사용하며, 선택적 네트워크 분리는 설치된 정책 엔진을 사용합니다.
 집중 커넥터 테스트는 읽기 probe를 임시로 바꾸기 전에 실제 리소스 사전 점검 하위 클래스를 불러옵니다. 따라서 테스트 순서가 가짜 클러스터 신원 검사를 대체하거나 런타임 동작을 바꿀 수 없습니다.
 
-```mermaid
-flowchart LR
-  Observer[Cluster Observer] -->|Outbound HTTPS evidence| Gateway[Connector Gateway]
-  Worker[Cluster Executor] -->|Outbound HTTPS task exchange| Gateway
-  Gateway <--> Bus[Existing event bus]
-  Bus <--> Owners[Existing accountable agents]
-  Observer --> API[Kubernetes API]
-  Worker --> API
-  API --> Engine[Existing network policy engine]
-```
+![설계 개요. 주요 단계는 Cluster Observer, Connector Gateway, Cluster Executor, Existing event bus, Existing accountable agents, Kubernetes API, Existing network policy engine입니다.](../../diagrams/generated/fdai-roadmap-architecture-aks-outbound-connector-01.ko.svg)
 
 그림은 실행 권한이 아니라 연결 시작 방향을 나타냅니다. 게이트웨이는 작업 생성, 승인,
 실행기 사칭, 클러스터를 대신한 중앙 데이터베이스 접근을 수행하지 않습니다.

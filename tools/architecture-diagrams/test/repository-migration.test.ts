@@ -9,8 +9,8 @@ const repositoryRoot = path.resolve(import.meta.dirname, "../../..");
 test("repository migration inventory validates every task-owned Mermaid block", async () => {
   const plan = await checkRepositoryMigration(repositoryRoot);
 
-  assert.equal(plan.totalBlocks, 82);
+  assert.equal(plan.totalBlocks, 83);
   assert.equal(plan.deferredBlocks, 0);
-  assert.equal(plan.specs.length, 82);
-  assert.equal(new Set(plan.specs.map((spec) => spec.id)).size, 82);
+  assert.equal(plan.specs.length, 83);
+  assert.equal(new Set(plan.specs.map((spec) => spec.id)).size, 83);
 });

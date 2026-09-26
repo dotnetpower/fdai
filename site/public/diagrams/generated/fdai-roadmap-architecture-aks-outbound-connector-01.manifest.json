@@ -1,0 +1,184 @@
+{
+  "id": "fdai-roadmap-architecture-aks-outbound-connector-01",
+  "kind": "flowchart",
+  "version": 1,
+  "updated": "2026-08-20",
+  "locales": {
+    "en": {
+      "title": "Design at a glance",
+      "description": "FDAI flow for Design at a glance.",
+      "alt": "Design at a glance. The main stages are Cluster Observer, Connector Gateway, Cluster Executor, Existing event bus, Existing accountable agents, Kubernetes API, Existing network policy engine."
+    },
+    "ko": {
+      "title": "설계 개요",
+      "description": "설계 개요에 대한 FDAI 흐름입니다.",
+      "alt": "설계 개요. 주요 단계는 Cluster Observer, Connector Gateway, Cluster Executor, Existing event bus, Existing accountable agents, Kubernetes API, Existing network policy engine입니다."
+    }
+  },
+  "assets": {
+    "en": {
+      "svg": "fdai-roadmap-architecture-aks-outbound-connector-01.en.svg"
+    },
+    "ko": {
+      "svg": "fdai-roadmap-architecture-aks-outbound-connector-01.ko.svg"
+    }
+  },
+  "nodes": [
+    {
+      "id": "observer",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Cluster Observer",
+        "ko": "Cluster Observer"
+      },
+      "description": {
+        "en": "Cluster Observer",
+        "ko": "Cluster Observer"
+      }
+    },
+    {
+      "id": "gateway",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Connector Gateway",
+        "ko": "Connector Gateway"
+      },
+      "description": {
+        "en": "When: Outbound HTTPS evidence / When: Outbound HTTPS task exchange",
+        "ko": "조건: Outbound HTTPS evidence / 조건: Outbound HTTPS task exchange"
+      }
+    },
+    {
+      "id": "worker",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Cluster Executor",
+        "ko": "Cluster Executor"
+      },
+      "description": {
+        "en": "Cluster Executor",
+        "ko": "Cluster Executor"
+      }
+    },
+    {
+      "id": "bus",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Existing event bus",
+        "ko": "Existing event bus"
+      },
+      "description": {
+        "en": "Existing event bus",
+        "ko": "Existing event bus"
+      }
+    },
+    {
+      "id": "owners",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Existing accountable agents",
+        "ko": "Existing accountable agents"
+      },
+      "description": {
+        "en": "Existing accountable agents",
+        "ko": "Existing accountable agents"
+      }
+    },
+    {
+      "id": "api",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Kubernetes API",
+        "ko": "Kubernetes API"
+      },
+      "description": {
+        "en": "Kubernetes API",
+        "ko": "Kubernetes API"
+      }
+    },
+    {
+      "id": "engine",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Existing network policy engine",
+        "ko": "Existing network policy engine"
+      },
+      "description": {
+        "en": "Existing network policy engine",
+        "ko": "Existing network policy engine"
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "flow-01",
+      "from": "observer",
+      "to": "gateway",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-02",
+      "from": "worker",
+      "to": "gateway",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-03",
+      "from": "gateway",
+      "to": "bus",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-04",
+      "from": "bus",
+      "to": "gateway",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-05",
+      "from": "bus",
+      "to": "owners",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-06",
+      "from": "owners",
+      "to": "bus",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-07",
+      "from": "observer",
+      "to": "api",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-08",
+      "from": "worker",
+      "to": "api",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-09",
+      "from": "api",
+      "to": "engine",
+      "kind": "request",
+      "label": null
+    }
+  ]
+}
