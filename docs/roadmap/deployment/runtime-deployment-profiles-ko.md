@@ -1,7 +1,7 @@
 ---
 translation_of: runtime-deployment-profiles.md
-translation_source_sha: 31fb51c1daa5fafefed7d6f65e23512f93cb5a0a
-translation_revised: 2026-09-26
+translation_source_sha: f20dc3d6be2f4e920d7c7c28ab0c437fc0735371
+translation_revised: 2026-09-27
 ---
 # 런타임 배포 프로파일
 
@@ -295,6 +295,9 @@ AKS 기본 구성은 analyzer, canary, inventory, observation campaign, operatio
 CronJob을 렌더링합니다. 이력 작업은 읽기 전용 inventory 신원, 서비스 소유 상태 DSN, 비공개
 archive URL을 고정 `shadow` 모드로 사용합니다. Non-shadow lifecycle은 별도의 보호된 전환과
 정확히 저장된 인증 증적을 요구하며 런타임 선택은 어느 권한도 부여하지 않습니다.
+분석기 작업은 결과가 불확실한 발행을 대조할 때 기존 인벤토리 신원으로 정확한 수집 Event Hub만
+읽습니다. 새 토픽 범위 수신자 역할에는 쓰기, 배포 또는 실행 권한이 없으며, 역할 선언만으로
+실제 배포 접근 권한을 입증할 수 없습니다.
 애플리케이션 준비는 인벤토리 CronJob을 클러스터 내부 ServiceAccount 엔드포인트, CA 및 token
 경로를 통해 정확한 자체 AKS 클러스터에도 연결합니다. 전용 ClusterRole은 범위가 제한된 인벤토리
 및 Event 수집기가 사용하는 읽기 동작과 리소스 종류만 허용하며, ClusterRoleBinding은
