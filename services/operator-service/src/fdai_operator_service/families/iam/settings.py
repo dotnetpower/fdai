@@ -78,7 +78,7 @@ def make_model_settings_routes(
             )
         except IamFamilyError as exc:
             return family_error(exc)
-        return JSONResponse(dict(projection))
+        return JSONResponse(dict(projection), headers=_NO_STORE_HEADERS)
 
     async def put_binding_policy(request: Request) -> Response:
         principal = await authorize(request)
@@ -151,7 +151,7 @@ def make_model_settings_routes(
             projection = await outbox.projection(principal.oid)
         except IamFamilyError as exc:
             return family_error(exc)
-        return JSONResponse(dict(projection))
+        return JSONResponse(dict(projection), headers=_NO_STORE_HEADERS)
 
     async def put_web_search(request: Request) -> Response:
         principal = await authorize(request)

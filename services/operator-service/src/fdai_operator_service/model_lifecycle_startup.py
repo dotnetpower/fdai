@@ -11,6 +11,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Protocol
 
+from fdai_operator_service.adapters.narrator_payloads import narrator_targets
+
 
 class ResolvedModelsArtifact(Protocol):
     """Expose immutable resolved-model content and its source digest."""
@@ -96,6 +98,18 @@ class OperatorResolvedModelsRevisionOwner:
 
         if self.close is not None:
             await self.close()
+
+    def narrator_allowlist(self) -> tuple[str, ...]:
+        """Select candidates only from the startup-verified, immutable revision."""
+        if self.revision is None:
+            raise ValueError("Operator resolved-model revision has not started")
+        payload = json.loads(self.revision.content)
+        if not payload.get("narrator_candidates") and payload.get("narrator") is None:
+            return ()
+        deployments = [target.deployment for target in narrator_targets(payload)]
+        if len(deployments) != len(set(deployments)):
+            raise ValueError("Operator resolved-model narrator deployments are ambiguous")
+        return tuple(sorted(deployments))
 
 
 __all__ = [

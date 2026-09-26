@@ -38,6 +38,7 @@ from fdai_operator_service.families.iam.errors import (
     IamPermissionError,
     IamUnavailableError,
 )
+from fdai_operator_service.model_lifecycle_startup import OperatorResolvedModelsRevisionOwner
 from fdai_operator_service.postgres_family_store import (
     PostgresFamilyStore,
     PostgresFamilyStoreUnavailable,
@@ -90,6 +91,7 @@ class PostgresIamAdapters(PostgresIamConfigurationMixin, PostgresIamHilMixin):
     store: PostgresFamilyStore
     model_catalog: ModelCatalogReader | None = None
     hil_decisions: HilDecisionStore | None = None
+    narrator_revision_owner: OperatorResolvedModelsRevisionOwner | None = None
 
     async def read_state(self, key: str) -> dict[str, object] | None:
         """Expose read-only shared state needed by additive IAM projections."""
