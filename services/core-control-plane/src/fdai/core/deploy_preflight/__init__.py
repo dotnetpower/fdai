@@ -24,6 +24,14 @@ from fdai.core.deploy_preflight.environment_profile import (
     apply_inventory_delta,
     build_profile,
 )
+from fdai.core.deploy_preflight.pre_publication_gate import (
+    DEFAULT_MAX_EVIDENCE_AGE_SECONDS,
+    PublicationDecision,
+    PublicationGateOutcome,
+    PublicationHold,
+    VerifyFn,
+    gate_toggle_publication,
+)
 from fdai.core.deploy_preflight.reassemble import (
     AppliedToggle,
     ReanalyzeFn,
@@ -34,6 +42,7 @@ from fdai.core.deploy_preflight.reassemble import (
 )
 from fdai.core.deploy_preflight.reassembly_proposals import (
     ACTION_TYPE,
+    INGRESS_EVENT_TYPE,
     ProposalSink,
     ToggleActionProposal,
     build_toggle_proposals,
@@ -46,6 +55,8 @@ from fdai.core.deploy_preflight.report import (
 
 __all__ = [
     "ACTION_TYPE",
+    "INGRESS_EVENT_TYPE",
+    "DEFAULT_MAX_EVIDENCE_AGE_SECONDS",
     "AppliedToggle",
     "DeploymentEnvironmentProfile",
     "DeploymentEnvironmentProfileCache",
@@ -54,15 +65,20 @@ __all__ = [
     "PreflightCheckOutcome",
     "PreflightCheckResult",
     "ProposalSink",
+    "PublicationDecision",
+    "PublicationGateOutcome",
+    "PublicationHold",
     "ReadinessVerdict",
     "ReanalyzeFn",
     "ReassemblyOutcome",
     "ReassemblyReason",
     "ReassemblyStatus",
     "ToggleActionProposal",
+    "VerifyFn",
     "apply_inventory_delta",
     "build_profile",
     "build_toggle_proposals",
+    "gate_toggle_publication",
     "publish_preflight_check",
     "reassemble",
     "submit_toggle_proposals",

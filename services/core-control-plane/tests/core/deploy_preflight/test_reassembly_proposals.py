@@ -5,6 +5,7 @@ from __future__ import annotations
 import pytest
 from fdai.core.deploy_preflight import (
     ACTION_TYPE,
+    INGRESS_EVENT_TYPE,
     AppliedToggle,
     ReassemblyOutcome,
     ReassemblyReason,
@@ -51,7 +52,7 @@ def test_proposal_dict_shape_matches_argument_schema() -> None:
     assert envelope["action_type"] == ACTION_TYPE
     assert envelope["operator_initiated"] is False
     assert envelope["resource_id"] == "rg:example"
-    assert envelope["event_type"] == "rule_violation"
+    assert envelope["event_type"] == INGRESS_EVENT_TYPE
     assert set(envelope["params"]) == {
         "scope",
         "finding_id",

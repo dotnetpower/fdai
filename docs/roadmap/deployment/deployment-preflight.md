@@ -32,7 +32,8 @@ reports them all at once, up front.
 | Read-only Azure probes and protected-plan evidence | implemented | `scripts/deployment/azure/run_live_preflight.py`, `.github/workflows/deploy-dev.yml`, and `tests/integration/scripts/test_run_live_preflight.py` | The protected runner invokes the standalone script, requires all four live categories, sanitizes evidence, and binds its digest to the plan. |
 | Terraform toggle, alternate-rendering fixture, and environment-profile primitives | implemented | `infra/modules/preflight-toggles/`; focused `terraform test -filter=tests/alternate_rendering.tftest.hcl`, `test_environment_profile.py`, and `test_reassembly_proposals.py` checks | The generic upstream root intentionally does not instantiate the fork-owned resource consumer. The durable profile refresh task is not composed. |
 | Check publishing primitive | implemented | `services/core-control-plane/src/fdai/core/deploy_preflight/check_publish.py` and `test_check_publish.py` | The pure report publisher and in-memory adapter are tested; there is no GitHub Checks adapter. |
-| Control-loop pre-PR gate and GitHub delivery | not-started | The planned boundaries in this document | No live path invokes the analyzer before a remediation PR or publishes the result to GitHub Checks. |
+| Pre-publication verification gate | implemented | `services/core-control-plane/src/fdai/core/deploy_preflight/pre_publication_gate.py` and `test_pre_publication_gate.py` | The analyzer runs again before any remediation proposal is submitted; a blocking, stale, or scope-changed report withholds publication and submits nothing. |
+| Control-loop pre-PR gate and GitHub delivery | in-progress | The deterministic gate above plus the planned boundaries in this document | The gate exists as a pure primitive with focused tests. No live path invokes it before a remediation PR, and no GitHub Checks adapter publishes the result. |
 
 ### Implementation history
 
@@ -40,6 +41,7 @@ reports them all at once, up front.
 |------|-------|--------|----------|-----------|
 | 2026-08-14 | in-progress | Adopted the implementation ledger; earlier provenance was not reconstructed. Corrected the protected-runner path to the current standalone preflight entrypoint. | current change; focused core preflight and live-script checks listed in the scope table | Compose the root toggle consumer, durable profile refresh, GitHub publisher, and control-loop gate. |
 | 2026-08-24 | implemented | Resolved the root-consumer ownership conflict by keeping concrete resource rendering fork-owned and adding a reusable mock-provider plan fixture for the upstream disk toggle contract. | `current change`; `infra/modules/preflight-toggles/reference-disk-consumer/tests/alternate_rendering.tftest.hcl`; focused Terraform test passed 2 cases. | Each fork binds the validated pattern in its owned compute module. The durable profile refresh, GitHub publisher, and control-loop gate remain open. |
+| 2026-09-26 | in-progress | Added the deterministic pre-publication gate: the analyzer is re-run on the accumulated overrides before any remediation proposal is submitted, and a blocking, stale, scope-changed, or escalated pass is lowered to human review with nothing submitted. | `current change`; `services/core-control-plane/src/fdai/core/deploy_preflight/pre_publication_gate.py`; `uv run pytest tests/core/deploy_preflight -q` passed 98 tests. | Compose the gate on the live control-loop path, add the durable profile refresh, and add the GitHub Checks publisher. |
 
 ### Remaining work
 
@@ -47,7 +49,11 @@ reports them all at once, up front.
   Terraform fixture proving that `attach_existing` removes the policy-denied managed-disk shape
   from the alternate plan. The focused fixture passes both renderings.
 - [ ] Add a durable environment-profile refresh task with Inventory-delta invalidation and pass restart and expiry tests.
-- [ ] Invoke the analyzer before remediation-PR publication, lower blocking findings to human review, and prove with an integration test that no PR opens on a blocked report.
+- [x] Invoke the analyzer again before remediation-PR publication and lower a blocking, stale, or
+  scope-changed report to human review. `core/deploy_preflight/pre_publication_gate.py` and
+  `tests/core/deploy_preflight/test_pre_publication_gate.py` prove that a withheld pass submits no
+  proposal, so no PR opens on a blocked report.
+- [ ] Compose that gate on the live control-loop path so the executor's remediation PR is published only behind it, and retain the composed run evidence.
 - [ ] Publish the sanitized report through a GitHub Checks adapter and retain a focused contract test for redaction and failed delivery.
 
 ## Where It Sits in the Loop
@@ -55,10 +61,11 @@ reports them all at once, up front.
 The design defines two entry points that share one analyzer. The protected human deploy path is
 shipped through a standalone runner script; the control-plane path currently stops at the seam:
 
-- **Control plane (planned)**: before the [executor](../architecture/project-structure.md) emits a
+- **Control plane (partly shipped)**: before the [executor](../architecture/project-structure.md) emits a
   remediation PR, the analyzer checks that the change would actually land in the
   target scope. A blocking finding degrades the action to `hil` rather than
-  opening a PR that would fail policy.
+  opening a PR that would fail policy. The deterministic gate that enforces this
+  ordering exists and is tested; no live path invokes it yet.
 - **Human deploy (shipped)**: the private-runner workflow creates the report before plan
   and binds its evidence digest into exact-plan metadata. PR comment/GitHub Check delivery
   remains a follow-up.
@@ -125,6 +132,26 @@ only after its false-positive rate is measured on the frozen scenario set - the
 same promotion discipline the [ActionType contract](../architecture/llm-strategy.md) applies to
 autonomous actions.
 
+### Publication Holds
+
+A cleared reassembly is a decision taken at some earlier moment. Before any
+remediation proposal is submitted, the gate re-runs the same analyzer on the
+accumulated overrides and withholds publication whenever the fresh report cannot
+justify it:
+
+| Hold | Cause |
+|------|-------|
+| `reassembly_escalated` | the loop escalated; a partial reassembly is never submitted |
+| `blocking_finding` | the re-verified report still carries a blocking finding |
+| `stale_evidence` | the report is outside the freshness window or its timestamp is unusable |
+| `scope_drift` | the report or an applied toggle does not bind the expected scope |
+
+Every hold is decided before the first submission, so a withheld pass submits
+nothing rather than a partial proposal set, and the truthful verdict gates
+publication even in shadow mode where `blocks_deploy` stays false. A verifier
+that raises propagates before any submission; the caller routes the pass to
+`hil`.
+
 ## Blocker to Terraform Toggle Mapping
 
 A report is not just a list of problems; each `terraform_toggle` finding names
@@ -156,6 +183,7 @@ judgment; otherwise it emits guidance and routes to review.
 | Generic probes | [shared/providers/local/feasibility.py](../../../services/core-control-plane/src/fdai/shared/providers/local/feasibility.py) | deterministic, config-driven upstream defaults (no network) |
 | Orchestrator | [core/deploy_preflight/analyzer.py](../../../services/core-control-plane/src/fdai/core/deploy_preflight/analyzer.py) | fan out over probes, assemble the report (fail-closed) |
 | Report | [core/deploy_preflight/report.py](../../../services/core-control-plane/src/fdai/core/deploy_preflight/report.py) | the assembled artifact + verdict + `blocks_deploy` |
+| Pre-publication gate | [core/deploy_preflight/pre_publication_gate.py](../../../services/core-control-plane/src/fdai/core/deploy_preflight/pre_publication_gate.py) | re-verify before publication; withhold and route to human review |
 
 `core/` sees only the `FeasibilityProbe` Protocol; the probes are injected at the
 [composition root](../../../services/core-control-plane/src/fdai/composition/__init__.py) via the
@@ -211,8 +239,11 @@ preflight script, protected-plan evidence binding in the deploy workflow, and te
   4. **Deployment Environment Profile primitive (shipped)**: bounded in-memory cache, TTL,
     and Inventory-delta invalidation helper exist. The composition refresh task and durable
     cache wiring are planned.
-  5. **Control-loop pre-PR gate (planned)**: invoke the same analyzer before the executor creates
-    a remediation PR and lower blocking findings to `hil` on the live path.
+  5. **Control-loop pre-PR gate (partly shipped)**: `pre_publication_gate.py` re-runs the same
+    analyzer on the accumulated overrides immediately before publication and withholds every
+    unproven case - a blocking finding, stale evidence, a scope change, or an escalated
+    reassembly - so the pass routes to `hil` and submits nothing. Binding it to a live executor
+    path remains planned.
 
 ## References
 

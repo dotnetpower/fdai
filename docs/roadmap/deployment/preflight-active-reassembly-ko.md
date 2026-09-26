@@ -1,8 +1,8 @@
 ---
 title: 프리플라이트 능동 플랜 재조립 (policy blocker에서 재렌더된 terraform으로)
 translation_of: preflight-active-reassembly.md
-translation_source_sha: f945115b6ec658f85779c02fb0d0e50d07d87a8b
-translation_revised: 2026-08-14
+translation_source_sha: 04be15466c06b4d655296858682423fea67bc1cf
+translation_revised: 2026-09-26
 ---
 # 프리플라이트 능동 플랜 재조립 (정책 차단 요인에서 재렌더된 terraform으로)
 
@@ -35,18 +35,23 @@ shipped pure 루프는 **terraform 플랜을 능동적으로 재렌더**할 재�
 | 적용된 토글당 제안 하나 | implemented | `services/core-control-plane/src/fdai/core/deploy_preflight/reassembly_proposals.py` 및 `test_reassembly_proposals.py` | 차단이 해소된 결과는 결정론적이고 멱등적인 제안 묶음을 생성하며, 상위 검토로 보낸 결과는 아무것도 제출하지 않습니다. |
 | ActionType, 데이터 전용 토글 모듈 및 참조 소비자 | implemented | `rule-catalog/action-types/remediate.apply-preflight-toggle.yaml` 및 `infra/modules/preflight-toggles/` | 이 산출물은 통제되는 작업과 하나의 참조 Terraform 소비 패턴을 정의합니다. |
 | 반복 수동 차단 요인 학습 기본 요소 | implemented | `services/core-control-plane/src/fdai/agents/_framework/norns_deployment_learning.py` 및 `services/core-control-plane/tests/agents/test_norns_preflight.py` | Norns는 호출자가 제공한 관측에서 비활성 후보를 생성하며 토글을 만들거나 승격하지 않습니다. |
-| 실제 트리거, 계획 렌더러, 파이프라인 연결, PR 및 감사 | not-started | 이 문서의 조립 경계 | 루프를 호출하고 `ProposalSink`를 Huginn 및 PR/감사 경로에 연결하는 운영 조립이 없습니다. |
+| 실제 트리거, 계획 렌더러, 파이프라인 연결, PR 및 감사 | in-progress | `services/core-control-plane/src/fdai/core/deploy_preflight/pre_publication_gate.py` 및 `services/core-control-plane/tests/core/deploy_preflight/test_pre_publication_gate.py` | 게이트가 걸린 경계가 집중 통합 테스트에서 Huginn ingest와 Forseti 판정을 연결합니다. 실제 트리거, 계획 렌더러, PR 및 감사 경로를 연결하는 운영 조립은 없습니다. |
 
 ### 구현 이력
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
 | 2026-08-14 | in-progress | 구현 원장을 도입했으며 이전 출처 이력은 재구성하지 않았습니다. 순수 재조립 동작과 아직 조립되지 않은 전달 경로를 분리했습니다. | 현재 변경과 구현 범위 표에 기재한 재조립, 제안 및 Norns 집중 테스트 | 실제 shadow 경로를 조립하고 PR과 감사 근거를 보존해야 합니다. |
+| 2026-09-26 | in-progress | 제안 경계에 게이트를 걸었습니다. 분석기가 누적된 오버라이드를 다시 검증한 뒤에만 제안이 Huginn에 도달하며, 인그레스 이벤트 타입 `preflight_toggle_blocker` 덕분에 Forseti가 페이로드가 제공한 ActionType을 신뢰하지 않고 토글 ActionType을 바인딩합니다. | `current change`, `services/core-control-plane/src/fdai/core/deploy_preflight/pre_publication_gate.py`, `uv run pytest tests/core/deploy_preflight -q` 98개 통과 | 게이트가 걸린 경계를 런타임 조립 루트에서 실제 정책 발견 사항 트리거, PR 발행 및 감사 근거와 함께 조립해야 합니다. |
 
 ### 남은 작업
 
 - [ ] 실제 정책 발견 사항을 호출자 소유 계획 렌더러에 연결하고 생성된 모든 재정의를 같은 분석기가 다시 검증함을 입증합니다.
-- [ ] `ProposalSink`를 Huginn을 거쳐 통제된 파이프라인에 연결하고, 차단되거나 상위 검토로 보낸 결과는 PR을 열지 않음을 통합 테스트로 입증합니다.
+- [x] `ProposalSink` 경계를 게시 전 게이트 뒤에서 Huginn ingest에 연결했습니다.
+  `tests/core/deploy_preflight/test_pre_publication_gate.py`의 집중 통합 테스트가 차단·에스컬레이션·
+  오래된 증거·범위 변경 패스는 파이프라인 이벤트를 발행하지 않고 PR도 열지 않으며, 해소된
+  패스는 `remediate.apply-preflight-toggle`로 판정되어 사람 검토로 보류됨을 입증합니다.
+- [ ] 그 게이트가 걸린 경계를 런타임 조립 루트에서 실제 정책 발견 사항 트리거와 함께 조립하고, 조립된 실행 근거를 남깁니다.
 - [ ] 토글마다 shadow tfvars 재정의 PR 하나를 발행하고 추가 전용 감사 의도, 최종 결과 및 테스트된 `pr_revert` 롤백 근거를 보존합니다.
 
 ## 왜 가능한가 (그리고 마법이 아닌가)
@@ -66,7 +71,7 @@ shipped pure 루프는 **terraform 플랜을 능동적으로 재렌더**할 재�
 설계가 추가한 두 조각의 현재 상태는 다음과 같습니다:
 
 - **토글 제안 빌더(완료)**: cleared 결과의 `autofix` 토글을 토글별 타입이 지정된 제안으로
-  렌더합니다. 실제 운영 싱크/발행기 배선은 아직 없어 교정 PR을 열지는 않습니다
+  렌더하고 게시 전 게이트 뒤에서만 제출합니다. 실제 운영 발행기 배선은 아직 없어 교정 PR을 열지는 않습니다
   ([check_publish.py](../../../services/core-control-plane/src/fdai/core/deploy_preflight/check_publish.py)).
 - **수렴 루프(완료)**: 호출자가 제공한 계획 렌더러와 reanalyzer를 통해 재조립된 플랜을
   다시 검사하여 한 차단 요인의 수정이 다른 차단 요인을 조용히 도입하지 못하게 합니다.
@@ -154,6 +159,23 @@ terraform plan (JSON)
 `autofix: false` 토글은 제안이나 차이를 제출하지 않습니다. 보고의 수동 지침으로
 남고 전체 통과는 에스컬레이션되며, 오퍼레이터가 변수를 검토해 적용합니다.
 
+### 게시 권한은 재검증이 부여한다
+
+해소된 루프는 결정이지 인가가 아닙니다. 게시 전 게이트
+([pre_publication_gate.py](../../../services/core-control-plane/src/fdai/core/deploy_preflight/pre_publication_gate.py))
+는 제안을 제출하기 직전에 누적된 오버라이드로 같은 분석기를 다시 실행하고, 새 리포트가
+차단·오래된 증거·다른 범위이거나 루프가 에스컬레이션한 경우 패스 전체를 보류합니다. 모든
+보류는 첫 제출 이전에 결정되므로 보류된 패스는 부분 제안 집합이 아니라 아무것도 제출하지
+않고, 호출자는 이를 `hil`로 라우팅합니다
+([게시 보류](deployment-preflight-ko.md#게시-보류)).
+
+제출은 오퍼레이터 요청이 아니라 컨트롤 플레인 신호인 `preflight_toggle_blocker`로 인그레스를
+통과합니다. Huginn은 명시적 오퍼레이터 요청에 대해서만 페이로드의 `action_type`을 존중하므로
+이 신호는 ActionType을 싣지 않습니다. Forseti가 자체 이벤트 타입 테이블에서
+`remediate.apply-preflight-toggle`을 바인딩하고 기본 `hil` 판정을 발행합니다. 따라서 차단
+요인은 별개의 사람 승인 없이 provider commit에 도달할 수 없고, 어떤 인그레스 생산자도
+ActionType을 위조할 수 없습니다.
+
 ### 액션 입도: 토글당 액션 1개
 
 하나의 재조립은 여러 토글을 적용할 수 있습니다(여러 발견 사항·여러 반복). 적용된 각
@@ -216,6 +238,7 @@ Preflight 조립은 범위가 제한된 발견 사항 id, category, 근거 출�
 | 수렴 루프 + stop-condition | [core/deploy_preflight/reassemble.py](../../../services/core-control-plane/src/fdai/core/deploy_preflight/reassemble.py) | 완료 |
 | `remediate.apply-preflight-toggle` ActionType | [rule-catalog/action-types/](../../../rule-catalog/action-types/remediate.apply-preflight-toggle.yaml) | 완료 |
 | overrides -> 액션 제안 (토글당 하나) | [core/deploy_preflight/reassembly_proposals.py](../../../services/core-control-plane/src/fdai/core/deploy_preflight/reassembly_proposals.py) | 완료 |
+| 게시 전 재검증 | [core/deploy_preflight/pre_publication_gate.py](../../../services/core-control-plane/src/fdai/core/deploy_preflight/pre_publication_gate.py) | 완료 |
 | 반복 수동 차단 요인 -> inert 후보 | [agents/norns.py](../../../services/core-control-plane/src/fdai/agents/norns.py) | 완료 (caller-supplied 관측) |
 | 참조 소비자 배선 (토글 하나) | [infra/modules/preflight-toggles/reference-disk-consumer/](../../../infra/modules/preflight-toggles/reference-disk-consumer/README.md) | 완료 (포크가 복사) |
 | **조립 배선: `ProposalSink` + 라이브 트리거** | 조립 루트 + `delivery/azure/preflight/` | **남음** |
@@ -238,9 +261,10 @@ Preflight 조립은 범위가 제한된 발견 사항 id, category, 근거 출�
 5. overrides-to-executor 단계: 적용된 각 토글을 `remediate.apply-preflight-toggle`
    제안으로 렌더하고(토글당 액션 1개, granularity A) 타입드 파이프라인 경계를 통해
    제출합니다. *(완료)*
-6. 조립 배선(`ProposalSink`을 Huginn ingest에 연결) + 실제 정책 발견 사항을
-   루프에 공급하고 tfvars-override PR을 여는 라이브 Azure 어댑터 (preflight 라이브
-   어댑터 착지 후, shadow-first). *(남음)*
+6. 조립 배선(게이트가 걸린 `ProposalSink`을 런타임 조립 루트에서 Huginn ingest에 연결) +
+   실제 정책 발견 사항을 루프에 공급하고 tfvars-override PR을 여는 라이브 Azure 어댑터
+   (preflight 라이브 어댑터 착지 후, shadow-first). 게이트가 걸린 경계와 Huginn/Forseti
+   통합 테스트는 존재하며, 조립 루트와 라이브 트리거는 *(남음)*.
 
 ## 참조
 
