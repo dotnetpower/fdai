@@ -14,6 +14,7 @@ import httpx
 from fdai.composition import (
     Container,
     LlmBindings,
+    bind_context_selection_shadow,
     bind_resolved_models_revision,
     default_container_from_env,
 )
@@ -195,6 +196,7 @@ async def _run(*, runtime_scope_receipt_digest: str | None = None) -> int:
                 if resources.http_client is None:
                     resources.http_client = _new_http_client()
                 identity = _build_runtime_workload_identity(resources.http_client)
+            container = bind_context_selection_shadow(container, state_store=state_store)
             core_runtime = await build_core_runtime(
                 container=container,
                 plan=plan,
@@ -231,7 +233,11 @@ async def _run(*, runtime_scope_receipt_digest: str | None = None) -> int:
         _LOGGER.info("shutdown_complete")
         return 0
     finally:
-        await resources.close()
+        try:
+            if container.context_selection_shadow_runner is not None:
+                await container.context_selection_shadow_runner.drain()
+        finally:
+            await resources.close()
 
 
 async def _load_runtime_values(
