@@ -1,7 +1,7 @@
 ---
 translation_of: project-structure-dependency-injection.md
-translation_source_sha: 1a3fc9d42cce657d6124d5d5348f9ae225d33acb
-translation_revised: 2026-09-21
+translation_source_sha: a595aed1faf57fc9046e19b0164830dcc5736d4b
+translation_revised: 2026-09-26
 ---
 
 # 프로젝트 구조 의존성 주입
@@ -30,6 +30,10 @@ translation_revised: 2026-09-21
   구체 어댑터 클래스(예: `PackageResourceSchemaRegistry`, `JsonSchemaContractValidator`)
   는 공개 서브-패키지에서 re-export **되지 않습니다**; 해당 서브모듈에서 직접, 그리고
   조립 루트에서만 가져오기 되어야 하므로 `core/` 가 실수로 구체에 의존할 수 없습니다.
+  선택적 확장 배포판은 자체 팩터리, 리소스 로더, 준비 상태 형식, 어댑터를 위한 검토된
+  권한 중립 facade를 노출할 수 있습니다. 구성에서만 이 facade를 가져오며 Core에서는 가져오지
+  않습니다. 공개 검색 가능성은 가용성, 활성화, 접근, 승인, promotion 또는 실행 권한을
+  부여하지 않습니다.
 - **구성 기반 연결**: 설정이 각 구현을 선택합니다. `bind_configuration_drift`는 선택적 `ConfigurationDriftReportSink`를 받습니다. 런타임은 Core가 소유한 `StateStoreConfigurationBaselineSink`를 주입하여 완료된 근거를 반환 전에 기록하며, 프로바이더 조회나 검토 권한 또는 서비스를 추가하지 않습니다.
   `composition/wire_distiller.py`는 exact-version 엔드포인트 세 개와 replay-identical 프롬프트 하나로 review-only `Distiller`를 atomic하게 연결합니다. 협의체 기록이 없으면 사용하지 않는 엔드포인트 값을 검증하지 않고 abstention을 유지합니다. 부분 기록은 실행 T2 변경 없이 시작을 실패시킵니다.
   범용 드롭 디렉터리 `ManualSource`는 크기 상한을 넘은 경로를 메타데이터 전용 검토 대기 후보로 유지하므로 읽기 한도가 잘못된 삭제 신호를 만들 수 없습니다. 마이그레이션이 소유한 `operator_forecast_retention` 보안 장벽 뷰는 Core 사례 이력의 삭제 집계만 Operator에 제공합니다. 원시 사례와 문서 내용, 채널 권한, 런타임 DDL 권한은 바뀌지 않습니다. Operator 전달 진단은 기존 서비스 소유 테이블에서 기록된 차단기 모드를 읽으며, System Knowledge는 런타임이나 에스컬레이션 권한을 바꾸지 않고 변경된 설계 원본의 검증값을 다시 생성합니다.

@@ -24,11 +24,14 @@ distribution, and no service imports another service's implementation.
 Root test collection also imports the standalone CLI's Rich renderer and pyte terminal tests.
 The root development extra declares both with the CLI's supported version ranges and pins them
 in the root lock; the CLI keeps its own lock and neither dependency becomes a service runtime input.
+The [package assurance policy](package-assurance.md) binds these mirrors to the CLI manifest and
+rejects a version range that drifts from the owner.
 
 Root regression collection also imports Core telemetry tests. The root `dev` extra therefore
 mirrors `azure-monitor-opentelemetry` at the Core manifest's supported range while Core remains the
-runtime owner and the root remains non-installable. The exact-module mypy override covers only the
-package's missing type information.
+runtime owner and the root remains non-installable. Other package-owned dependencies needed for
+root collection follow the same owner-and-reason rule; an unlisted mirror fails the package
+assurance gate. The exact-module mypy override covers only the package's missing type information.
 
 ## Multi-Service Repository Layout
 

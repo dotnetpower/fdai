@@ -1,8 +1,8 @@
 ---
 title: 온톨로지 기반 FinOps 패키지 아키텍처
 translation_of: finops-package-architecture.md
-translation_source_sha: 3b6aef706aedf10c37c7f301c7e0852bf7078792
-translation_revised: 2026-09-22
+translation_source_sha: 1e1de27a98712566cca6903175f9aa68c714ed3b
+translation_revised: 2026-09-26
 ---
 
 # 온톨로지 기반 FinOps 패키지 아키텍처
@@ -91,7 +91,8 @@ Governance 배포판에 포함되거나 설치, 활성화, 승격 상태를 바�
 계속 서비스 소유 의존성을 사용합니다.
 루트 `dev` extra는 CI가 Core 기반 확장 테스트를 수집할 때 가져오는 서드파티 패키지도
 반영하며 Core 영속 계층 가져오기에 필요한 `psycopg-pool`도 포함합니다. 이 테스트 환경 반영은
-패키지 소유권을 이전하지 않습니다.
+패키지 소유권을 이전하지 않습니다. [패키지 보증 정책](package-assurance-ko.md)은 이러한
+각 미러를 소유 매니페스트에 바인딩하고 목록에 없는 의존성이나 버전 범위 불일치를 차단합니다.
 
 > **조립 격리:** 공유 Operator 경로 조립은 검증된 인수인계 바인딩으로 웹 대화 제안을 데코레이션할
 > 수 있습니다. 이 데코레이터는 Cost Governance 경로를 래핑하거나 패키지 활성화를 변경하거나 비용

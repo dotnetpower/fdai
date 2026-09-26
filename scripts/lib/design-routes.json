@@ -42,6 +42,48 @@
       "validate": []
     },
     {
+      "id": "package-assurance",
+      "paths": [
+        "config/package-assurance.json",
+        "packages/deployment-cli/src/fdai_deployment_cli/deployment_kit.py",
+        "packages/deployment-cli/src/fdai_deployment_cli/offline_kit.py",
+        "packages/deployment-cli/tests/test_deployment_root_manifest.py",
+        "scripts/deployment/release/build-offline-kit.py",
+        "scripts/deployment/azure/record_cost_governance_review_batch.py",
+        "scripts/quality/architecture/check-package-assurance.py",
+        "tests/integration/scripts/test_deployment_root_downgrade.py",
+        "tests/integration/scripts/test_package_assurance.py",
+        "tests/integration/scripts/test_record_cost_governance_review_batch.py",
+        ".github/workflows/cost-governance-promotion-review.yml",
+        "docs/roadmap/architecture/package-assurance*.md",
+        "docs/roadmap-implementation/architecture/package-assurance.md"
+      ],
+      "must_read": [
+        ".github/copilot-instructions.md",
+        ".github/instructions/architecture.instructions.md",
+        ".github/instructions/app-shape.instructions.md",
+        ".github/instructions/coding-conventions.instructions.md",
+        ".github/instructions/generic-scope.instructions.md",
+        "docs/roadmap/architecture/fdai-constitution.md",
+        "docs/roadmap/architecture/project-structure.md",
+        "docs/roadmap/architecture/multi-service-repository-layout.md",
+        "docs/roadmap/architecture/service-graduation-and-ownership.md",
+        "docs/roadmap/architecture/capability-bundle-lifecycle.md",
+        "docs/roadmap/deployment/installable-deployment-cli.md",
+        "docs/roadmap/fork-and-sequencing/finops-package-delivery-plan.md",
+        "docs/roadmap/architecture/decisions/0002-independent-runtime-axes.md"
+      ],
+      "docs_update": [
+        "docs/roadmap/architecture/package-assurance.md",
+        "docs/roadmap-implementation/architecture/package-assurance.md"
+      ],
+      "validate": [
+        "uv run python scripts/quality/architecture/check-package-assurance.py",
+        "uv run pytest -q --no-cov tests/integration/scripts/test_deployment_root_downgrade.py tests/integration/scripts/test_package_assurance.py tests/integration/scripts/test_record_cost_governance_review_batch.py tests/integration/scripts/test_cost_governance_review_workflow.py",
+        "uv run --project packages/deployment-cli python -m pytest -c packages/deployment-cli/pyproject.toml -q packages/deployment-cli/tests/test_deployment_root_manifest.py"
+      ]
+    },
+    {
       "id": "developer-guidance",
       "paths": [
         ".github/copilot-instructions.md",

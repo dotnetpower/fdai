@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 1b615804cf7c97dacdd691e8343064e99a2e0a58
+translation_source_sha: e81e86eaa34f6afd33dd70137baeb3d3fc943fce
 translation_revised: 2026-09-26
 ---
 # 프로젝트 구조
@@ -453,7 +453,9 @@ Var는 순수 승인 대기 데이터를 비공개 결정 레코드 도우미에
 - 환경 특이 정보는 모두 **설정** 이며 런타임에 주입됩니다(환경 변수, 시크릿 저장소 참조,
   설정 파일). 소스에는 어떤 고객·테넌트·환경 값도 없습니다.
 - 설정은 시작 시 `shared/config/` 스키마로 검증되며, 잘못되거나 누락된 필수 설정에 대해 **fail
-  fast** - degraded 상태로 시작하지 않습니다.
+  fast** - degraded 상태로 시작하지 않습니다. 비활성화된 선택 패키지는 필수 설정이 아닙니다.
+  관련 없는 완전한 경로는 정상적으로 시작하고 해당 기능만 사용할 수 없음으로 보고할 수 있습니다.
+  패키지를 활성화하면 선언된 바인딩이 필수가 되며 안전하게 차단됩니다.
 - 기본 환경 공급자와 선택적이고 범위가 제한된 `YamlFileConfigProvider`는 동일한 JSON Schema 및
   Pydantic 경계로 진입합니다. YAML 공급자는 UTF-8 매핑 하나를 읽고 중복 키와 1MiB를 넘는 파일을
   차단합니다. 또한 symlink, regular file이 아닌 대상 및 지원하지 않거나 지나치게 중첩된 YAML을
@@ -484,12 +486,22 @@ Var는 순수 승인 대기 데이터를 비공개 결정 레코드 도우미에
   (Rego), [infra/](../../../infra) (Terraform HCL).
 - 리포 루트에 **하나의 lockfile** (`uv.lock` 또는 동등물)을 두고 루트 `pyproject.toml`은
   `package = false`인 virtual workspace입니다. 각 런타임 서비스와 공유 패키지는 자체 배포 매니페스트를 소유합니다.
-  서비스 소스 트리를 직접 가져오는 루트 CI는 런타임 의존성 소유권이 서비스 매니페스트에
-  남아 있더라도 가져오는 모든 서드파티 패키지를 루트 `dev` extra에 반영합니다. 소스 체크아웃 호환성 검사는 서비스 코덱을 가져오기 전에 `packages/runtime-diagnostics/src/`를 포함하여 선언된 모든 공유 패키지 소스 루트를 추가합니다. 서비스 테스트 모음 매니페스트는 서비스 소유 회귀 검사마다 담당자를 정확히 하나 지정하고, 의존성 및 가져오기 매니페스트는 서비스가 직접 사용하는 공유 배포판을 모두 명시합니다. 보안 lockfile 갱신은 이전 이미지 근거를 무효화하며 선택된 이미지를 다시 빌드하고 검사해야 합니다.
+  루트 CI는 직접 테스트 수집에 필요한 경우에만 패키지 소유 의존성을 미러링할 수 있습니다.
+  [`config/package-assurance.json`](../../../config/package-assurance.json)은 각 미러를 소유
+  매니페스트와 이유에 바인딩하며 패키지 보증 게이트는 목록에 없는 미러나 버전 불일치를
+  차단합니다. 소스 체크아웃 호환성 검사는 서비스 코덱을 가져오기 전에
+  `packages/runtime-diagnostics/src/`를 포함하여 선언된 모든 공유 패키지 소스 루트를 추가합니다.
+  서비스 테스트 모음 매니페스트는 서비스 소유 회귀 검사마다 담당자를 정확히 하나 지정하고,
+  의존성 및 가져오기 매니페스트는 서비스가 직접 사용하는 공유 배포판을 모두 명시합니다. 보안
+  lockfile 갱신은 이전 이미지 근거를 무효화하며 선택된 이미지를 다시 빌드하고 검사해야 합니다.
 - `fdai-cost-governance` 같은 선택적 버티컬 배포판은 `extensions/` 아래에 둡니다. Core는
   불변 매니페스트, 수명 주기, 프로바이더 및 권한 없는 계약을 소유하고, 검토된 이미지
   composition이 패키지 코드와 리소스를 제공합니다. Core는 선택적 패키지를 import하지 않으며
-  패키지 활성화는 사용자 접근 및 액션 승격과 독립적으로 유지됩니다. 보호된 W7 워크플로는 판단, 승인, 실행 또는 승격 권한을 패키지나 Operator 조립으로 옮기지 않고 정확한 release, Process, 공개 및 보존 근거를 유지합니다.
+  패키지 활성화는 사용자 접근 및 액션 승격과 독립적으로 유지됩니다. 사용할 수 없는 비활성
+  패키지는 관련 없는 완전한 경로의 준비 상태를 막지 않으며, 활성화된 패키지에 필수 바인딩이
+  없으면 해당 기능이 안전하게 차단됩니다. 보호된 W7 워크플로는 판단, 승인, 실행 또는 승격
+  권한을 패키지나 Operator 조립으로 옮기지 않고 정확한 release, Process, 공개 및 보존 근거를
+  유지합니다. 등급별 계약은 [패키지 보증](package-assurance-ko.md)에서 정의합니다.
 - 서비스 wire 계약은 `packages/service-contracts/src/fdai_service_contracts/`에 있으며, `execution_safeguards.py`는 Core, 작업 흐름, Isolated 실행기의 생성기와 검증기가 공유하는 공급자 중립 무권한 7개 증명 묶음을 소유합니다. `recorded_resource_state.py`는 Core 변환 결과와 Operator 조회가 공유하는 공급자 중립 상태 경로 적용성 집합, 선택적인 정확한 대상 `serving` 경로 및 범위가 제한된 사용 불가 사유 토큰을 소유합니다. Azure delivery는 기존 `MetricProvider` 경계를 통해 수동적인 서비스 응답 근거를 제공하고 해당 메타데이터는 온톨로지 변환 허용 목록을 통과해 유지됩니다. 공급자 어댑터는 검토된 토큰만 선택할 수 있으며, 공급자 응답 원문과 프로비저닝 기반 추론은 계약 밖에 둡니다.
   `operational_activity.py`는 버전이 지정되고 권한을 부여하지 않는 Agent Activity 수명 주기 근거를 소유합니다. 버전 `1.3.0`은 안정적인 활동 신원을 전환 멱등성과 분리하고 기계 처리에 안전한 사유 코드를 요구합니다. `runtime_call.py`는 인증된 런타임 호출 변환 결과에서 사용하는 정확한 호출자 및 대상 Resource 참조와 권한을 부여하지 않는 근거 메타데이터를 소유합니다. Core 조립은 정확한 release, 세대, 범위, 최신성 및 독립 검증기 검사를 통과한 뒤에만 인벤토리를 보강할 수 있습니다. `operator.py`는 `AuditPageProjection`을 추가 기능으로, `AuditQuery.include_summary`를 명시적인 활성화 설정으로 유지합니다. 페이지 전용 읽기가 기본이며 감사 작업 영역만 보존 범위 수치와 무결성 관측을 요청하고, 어느 변환 결과도 승인, 변경 또는 실행 권한을 부여하지 않습니다.
   [커넥터와 관측 계약](aks-outbound-connector-ko.md)은 권한 없이 범위, 시각, 역할을 검증합니다. Core는 인벤토리 반영 권한을 바꾸지 않고 스냅샷, 서명된 사전 점검, 감사된 추천과 근거에 따른 설정 제안 억제를 소유합니다. Operator는 유효기간이 제한된 이벤트를 소비해 Console용 순서 보장 읽기 데이터를 자체 저장합니다. `schemas/<contract-id>/<version>.json` 아래의 버전별 JSON 스키마는 불변이므로 새 필드는

@@ -36,9 +36,12 @@ from fdai_deployment_cli.deployment_kit_cache import (
 )
 from fdai_deployment_cli.deployment_progress import downloaded_bytes, progress_detail
 from fdai_deployment_cli.offline_kit import (
+    ROOT_MANIFEST_NAME,
+    ROOT_SIGNATURE_NAME,
     OfflineKitVerification,
     materialize_verified_artifacts,
     verify_offline_kit,
+    verify_root_manifest,
 )
 from fdai_deployment_cli.private_output import read_private_bytes, write_private_output
 from fdai_deployment_cli.runtime_release import RuntimeRelease, load_runtime_release
@@ -161,6 +164,16 @@ def _acquire_deployment_kit(
         cli_version=__version__,
         platform_tag=runtime_platform_tag(),
     )
+    if (
+        verification.deployment_root_required
+        or path_present(kit_root / ROOT_MANIFEST_NAME)
+        or path_present(kit_root / ROOT_SIGNATURE_NAME)
+    ):
+        verify_root_manifest(
+            kit_root,
+            release_root_pem=deployment_release_root_pem(),
+            expected_profile="offline",
+        )
     if legacy_cache and (
         verification.kit_version != __version__ or verification.bundle_version != __version__
     ):

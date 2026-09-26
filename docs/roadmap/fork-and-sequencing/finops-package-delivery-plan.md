@@ -230,18 +230,22 @@ Exact-release qualification requests the root lockfile-frozen dev extra for both
 profile checker and parity test. Missing qualification tooling fails before export, import, or
 review evidence is created.
 
-After the campaign returns `ready=true`, a separate protected review boundary records exactly one
-target per request. It re-reads the active revision pin, recomputes that target's campaign report,
-and appends a content-addressed receipt with the campaign and report digests, target kind and id,
-authenticated reviewer identity, decision, rationale, evidence references, and review time.
-Decisions are `recommend`, `hold`, or `deny`; all receipts fix approval, execution, and promotion
-authority to `false`. A batch decision cannot stand in for another target, and a recommendation
-still requires a separately approved change before package activation or target promotion.
+After the campaign returns `ready=true`, a separate protected review boundary accepts one target or
+one bounded envelope of up to six target directives. The envelope contains only target kind, target
+id, decision, and rationale; campaign identity and digests come from the independently recomputed
+readiness artifact. The recorder decomposes the envelope into the existing content-addressed
+single-target receipts with stable child request ids. Each receipt retains campaign and report
+digests, authenticated reviewer identity, decision, rationale, evidence references, and review
+time. Decisions are `recommend`, `hold`, or `deny`; all receipts fix approval, execution, and
+promotion authority to `false`. One target's decision cannot stand in for another target, and a
+recommendation still requires a separately approved change before package activation or target
+promotion.
 The reviewer must differ, case-insensitively, from both the original and rerun actors of the
-attested campaign workflow. Replaying a request id is allowed only when the persisted payload and
-all normalized columns still match the proposed review. Generated review and retention timestamps
-do not change request identity; the retention duration must match, and the retry returns the
-original receipt.
+attested campaign workflow. Replaying a child request id is allowed only when the persisted payload and all normalized columns
+still match the proposed review. Generated review and retention timestamps do not change request
+identity; the retention duration must match, and the retry returns the original receipt. A partial
+batch is explicit: retrying the same envelope replays completed children and resumes the remaining
+independent decisions.
 
 ## Validation matrix
 

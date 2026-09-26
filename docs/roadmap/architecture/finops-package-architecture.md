@@ -87,7 +87,9 @@ They do not enter the Cost Governance distribution or change its installation, a
 promotion state; runtime images continue to resolve their service-owned dependencies.
 The root `dev` extra also mirrors third-party packages imported while CI collects Core-backed
 extension tests, including `psycopg-pool` for Core persistence imports. This test-environment mirror
-does not transfer package ownership.
+does not transfer package ownership. The
+[package assurance policy](package-assurance.md) binds every such mirror to its owning manifest and
+rejects an unlisted dependency or version-range drift.
 
 > **Composition isolation:** The shared Operator route assembly may decorate web conversation
 > proposals with a verified handover binding. That decorator does not wrap Cost Governance routes,

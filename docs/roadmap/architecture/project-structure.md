@@ -459,7 +459,10 @@ Deployment Preflight keeps its publication decision in `core/deploy_preflight/pr
 - Everything environment-specific is **configuration**, injected at runtime (env vars,
   secret store references, config files). No customer, tenant, or environment values in source.
 - Config is validated against the `shared/config/` schema at startup; the process **fails fast**
-  on invalid or missing required config rather than starting in a degraded state.
+  on invalid or missing required config rather than starting in a degraded state. A disabled
+  optional package is not required configuration: it can report capability-scoped unavailability
+  while unrelated complete paths start normally. Enabling that package makes its declared
+  bindings required and fail-closed.
 - The default environment provider and the optional bounded `YamlFileConfigProvider` both enter the
   same JSON Schema and Pydantic boundary. The YAML provider reads one UTF-8 mapping, rejects
   symlinks, non-regular files, duplicate keys, unsupported or excessively nested YAML, and files
@@ -491,16 +494,26 @@ Deployment Preflight keeps its publication decision in `core/deploy_preflight/pr
   (Rego), and [infra/](../../../infra) (Terraform HCL).
 - **One lockfile** at the repo root (`uv.lock` or equivalent); the root `pyproject.toml` is a
   virtual workspace with `package = false`. Each runtime service and shared package has its own
-  distribution manifest. Root CI that imports service source trees mirrors every imported
-  third-party package in the root `dev` extra, even when a service manifest remains the runtime
-  dependency owner. Source-checkout compatibility validation adds every declared shared package source root, including `packages/runtime-diagnostics/src/`, before importing service codecs. The service-suite manifest assigns every service-owned regression exactly one owner, and dependency/import manifests name each shared distribution used directly by a service. A security lock update invalidates prior image evidence and requires the selected images to rebuild and scan.
+  distribution manifest. Root CI can mirror a package-owned dependency only for direct test
+  collection. [`config/package-assurance.json`](../../../config/package-assurance.json) binds each
+  mirror to its owning manifest and reason, and the package-assurance gate rejects unlisted mirrors
+  or version drift. Source-checkout compatibility validation adds every declared shared package
+  source root, including `packages/runtime-diagnostics/src/`, before importing service codecs. The
+  service-suite manifest assigns every service-owned regression exactly one owner, and
+  dependency/import manifests name each shared distribution used directly by a service. A security
+  lock update invalidates prior image evidence and requires the selected images to rebuild and scan.
 - Optional vertical distributions such as `fdai-cost-governance` live under `extensions/`. Core
   owns their immutable manifest, lifecycle, provider, and authority-neutral contracts, while the
   reviewed image composition supplies package code and resources. Core never imports an optional
-  package, and package activation remains independent from user access and action promotion. Protected W7 workflows preserve exact release, Process, disclosure, and retention evidence without moving judgment, approval, execution, or promotion authority into package or Operator composition.
+  package, and package activation remains independent from user access and action promotion. A
+  disabled unavailable package can leave unrelated complete paths ready; an enabled package with
+  a missing required binding fails closed for that capability. Protected W7 workflows preserve
+  exact release, Process, disclosure, and retention evidence without moving judgment, approval,
+  execution, or promotion authority into package or Operator composition. The level-specific
+  contract is defined in [Package Assurance](package-assurance.md).
 - Service wire contracts live in `packages/service-contracts/src/fdai_service_contracts/`; `execution_safeguards.py` owns the provider-neutral, authority-free seven-proof bundle shared by Core, workflow, and isolated-Executor producers and validators. `recorded_resource_state.py` owns the provider-neutral state-path applicability sets, the optional exact-target `serving` path, and bounded unavailable-reason tokens shared by Core projection and Operator reads. Azure delivery supplies passive serving evidence through the existing `MetricProvider` seam, and its metadata survives the ontology projection allowlist. Provider adapters may select only a reviewed token; provider response text and provisioning inference stay outside the contract.
   `operational_activity.py` owns versioned, authority-free Agent Activity lifecycle evidence. Version `1.3.0` separates stable activity identity from transition idempotency and requires machine-safe reason codes. `runtime_call.py` owns exact caller and target Resource references plus the no-authority evidence metadata used by authenticated runtime-call projection. Core composition may enrich inventory only after exact release, generation, scope, freshness, and independent-verifier checks. `operator.py` keeps `AuditPageProjection` additive and `AuditQuery.include_summary` explicit: page-only reads remain the default, only Audit requests retained-scope counts and integrity observations, and neither projection grants approval, mutation, or execution authority.
-  [Connector and observer contracts](aks-outbound-connector.md) validate scope/time/role without authority; Core owns snapshots, signed preflight, audited recommendations and evidence-bound setup suppression without changing inventory promotion, while Operator consumes leased events into its own ordered read projection for Console. Each versioned JSON Schema under `schemas/<contract-id>/<version>.json` is immutable, so a new
+  [Connector and observer contracts](aks-outbound-connector.md) validate scope/time/role without authority; Core owns snapshots, signed preflight, audited recommendations and evidence-bound setup suppression without changing inventory promotion, while Operator consumes leased events into its own ordered read projection for Console. Each published cross-process or durable JSON Schema under `schemas/<contract-id>/<version>.json` is immutable, so a new
   field ships as a new additive version that older consumers keep ignoring. A repository-owned,
   checksum-pinned generator projects every compatibility-manifest N/N-1 schema into Python types
   for the five backend services and TypeScript types for Console. The current generated views are refreshed from the safeguard-bound command and observation schemas. These files are read-only

@@ -1,8 +1,8 @@
 ---
 title: Downstream Fork 가이드
 translation_of: downstream-fork-guide.md
-translation_source_sha: 068f59a7affb75a3def0b7fa3270c86b553244de
-translation_revised: 2026-09-20
+translation_source_sha: a449c850ec96e6d0de1479d44c647b4c7f9d7ad9
+translation_revised: 2026-09-26
 ---
 
 # 다운스트림 포크 가이드
@@ -98,6 +98,12 @@ repository-integrity 검사만 활성화하며 런타임 코드는 이 값을 �
 패키지의 그래프 구체화와 이벤트 게시는 별개입니다. 패키지는 버스 토픽을 등록하지 않고 검토된
 그래프 수명 주기 객체를 구체화할 수 있습니다. `AgentSpec.owns`는 업스트림만 변경할 수 있으며
 게시 가능한 단일 작성자 객체 타입만 나열합니다.
+
+downstream 확장 패키지는 자체 팩터리, 리소스 로더, 준비 상태 형식, 검토된 어댑터를 위한
+문서화된 권한 중립 facade 하나를 노출할 수 있습니다. 포크 구성 루트는 비공개 모듈에 직접
+접근하지 않고 이 facade를 가져올 수 있습니다. Core는 계속 선택 패키지를 가져올 수 없으며
+공개 export는 검색 가능성만 바꿉니다. 가용성, 활성화, 사용자 접근, 작업 모드, 승인,
+promotion 또는 실행 권한을 선택할 수 없습니다.
 
 ## 2. Day-1 체크리스트
 
