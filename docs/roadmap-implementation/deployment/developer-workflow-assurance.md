@@ -28,6 +28,7 @@ and resumable work while the roadmap owner remains focused on normative design.
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-26 | validated | Verified the shortened, runtime-identity-bound development diagnostic socket path in the long central validation checkout. Required CI and the merged whole-repository batch both passed, including the owner-only socket lifecycle and Core and Operator adapters. | PR #1418; merge `99fa316277`; central `validation-all` at `b546f94b5c6a` passed all gates and drained the queue to 0 reachable pending commits; issue #1417. | No remaining work for the portable development diagnostic socket path. |
 | 2026-09-26 | implemented | Shortened the checkout-private development diagnostic socket directory and bound each socket basename to the service, source revision, service input digest, worktree digest, and runtime-scope receipt. Long validation and worktree paths now remain within the 100-byte portable Unix socket limit without sharing socket identity across runtime inputs. | `current change`; `packages/runtime-diagnostics/src/fdai_runtime_diagnostics/config.py`; `scripts/automation/run-local-service.sh`; runtime diagnostics, Core, Operator, and local-launcher focused tests passed 51 cases; Ruff and shell syntax checks passed. | Merge issue #1417 through required CI and record a passing central whole-suite baseline. |
 | 2026-09-22 | implemented | Added supervised Rule activation intake and per-replica generation reconciliation to the existing Core task lifecycle. The workers use the production StateStore and EventBus bindings and add no diagnostic socket, capture authority, or restart policy. | `current change`; focused activation runtime and bootstrap supervision tests passed 16 cases. | Retain scaled deployment convergence evidence separately; development diagnostic behavior is unchanged. |
 | 2026-09-22 | validated | Verified both task-dispatch repairs through the actual existing VS Code restart task. The managed supervisor was replaced, preparation selected the new observed embedding binding, the complete stack reached 12/12 readiness, and the actual Core process model hash matched its file. Two post-restart authenticated EN/KO object-only manifest queries returned verified evidence with no execution authority. | `fe49eceab6`, `37b886de56`; eight focused checks; sanitized local receipt `sha256:9217d9ce0fa5dc5125b1cdc02181f996bc26cc4ba3dbbe57225695d053845b11`; model version `1`; exact durable Operator projections matched browser receipts. | No remaining blocker for this bounded restart recovery. Concurrent source edits changed the service digest after launch, so this does not certify an immutable current checkout or qualify semantic ranking. The broader ontology quality and final review campaign remains open. |
@@ -124,8 +125,8 @@ and resumable work while the roadmap owner remains focused on normative design.
   digest-bound GitHub Copilot review, 13 hardening rounds with no residual above Low, and 20
   owner-only UDS evaluation rounds that all passed the five evidence-quality criteria, as recorded
   in `config/development-diagnostics-evaluation.json`.
-- [ ] Merge issue #1417 through required CI and record a passing central whole-suite baseline for
-  the portable long-worktree socket path.
+- [x] Merged issue #1417 through required CI and recorded a passing central whole-suite baseline
+  at `b546f94b5c6a` for the portable long-worktree socket path.
 - [x] Recorded digest-matched Core packet
   `sha256:b405268353edffecceba4071a1b2969a1fe98e14fef2cef3b967b6239c7aa1a0` after the
   StateStore pool repair and complete clean Resource Event fan-out.
