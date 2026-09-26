@@ -66,6 +66,7 @@ import {
   type ConversationModelTier,
 } from "./conversation-model-selection";
 import { conversationModelText } from "./conversation-model-i18n";
+import { sessionIdFor } from "./command-deck-session";
 
 export function CommandDeck({ client }: { readonly client: OperatorApiClient }) {
   const snapshot = useViewContext();
@@ -424,6 +425,7 @@ export function CommandDeck({ client }: { readonly client: OperatorApiClient }) 
       conversationHydration={conversationHydration}
       conversationPageLoading={conversationPageLoading}
       sessionKey={sessionKey}
+      busySessionId={sessionIdFor(sessionIdsRef.current, sessionKey)}
       currentPath={currentPathname()}
       turns={turns}
       snapshot={context.snapshot}
@@ -495,6 +497,7 @@ export function CommandDeck({ client }: { readonly client: OperatorApiClient }) 
       onRunSlashCommand={runSlashCommand}
       onSlashActiveIndex={setSlashActiveIndex}
       onDraftInput={setDraft}
+      onBusySubmitted={(text) => setDraft((current) => current === text ? "" : current)}
       onInputKeyDown={onInputKeyDown}
       onStopStream={stopStream}
     />
