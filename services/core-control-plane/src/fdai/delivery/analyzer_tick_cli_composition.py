@@ -14,6 +14,10 @@ from fdai.delivery.analyzer_metric_provider import AnalyzerMetricProvider
 from fdai.delivery.analyzer_receipt_store import StateStoreAnalyzerReceiptStore
 from fdai.delivery.analyzer_tick import AnalyzerTarget
 from fdai.delivery.analyzer_tick_cli_config import INVENTORY_DSN_ENV, STATE_STORE_DSN_ENV
+from fdai.delivery.azure.analyzer_publication_reconciler import (
+    KafkaAnalyzerPublicationReconciler,
+)
+from fdai.delivery.azure.event_bus import EventHubsKafkaBusConfig
 from fdai.delivery.detection_lifecycle_state import DetectionLifecycleRecorder
 from fdai.delivery.persistence import (
     PostgresStateStore,
@@ -25,7 +29,9 @@ from fdai.delivery.persistence.postgres_analyzer_publication import (
 )
 from fdai.delivery.persistence.postgres_idempotency import PostgresIdempotencyStoreConfig
 from fdai.delivery.pod_evidence_binding import build_pod_lifecycle_evidence_source
+from fdai.runtime.venue import ExecutionVenue, bus_security_protocol, uses_workload_identity
 from fdai.shared.providers.metric import MetricProvider
+from fdai.shared.providers.workload_identity import WorkloadIdentity
 
 _LOGGER = logging.getLogger("fdai.analyzer_tick")
 _ANALYZER_MAX_CONCURRENCY = 4
@@ -75,6 +81,22 @@ def build_receipt_store() -> StateStoreAnalyzerReceiptStore:
                 dsn=dsn.replace("postgresql+psycopg://", "postgresql://", 1)
             )
         )
+    )
+
+
+def build_publication_reconciler(
+    bootstrap_servers: str,
+    venue: ExecutionVenue,
+    identity: WorkloadIdentity,
+) -> KafkaAnalyzerPublicationReconciler:
+    """Bind bounded positive readback to the finding bus endpoint."""
+
+    return KafkaAnalyzerPublicationReconciler(
+        config=EventHubsKafkaBusConfig(
+            bootstrap_servers=bootstrap_servers,
+            security_protocol=bus_security_protocol(venue),
+        ),
+        identity=identity if uses_workload_identity(venue) else None,
     )
 
 
@@ -141,5 +163,6 @@ __all__ = [
     "build_inventory_sources",
     "build_lifecycle_recorder",
     "build_publication_ledger",
+    "build_publication_reconciler",
     "build_receipt_store",
 ]

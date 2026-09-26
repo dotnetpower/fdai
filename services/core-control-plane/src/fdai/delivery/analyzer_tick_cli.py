@@ -58,6 +58,7 @@ from fdai.delivery.analyzer_tick_cli_composition import (
     build_inventory_sources,
     build_lifecycle_recorder,
     build_publication_ledger,
+    build_publication_reconciler,
     build_receipt_store,
 )
 from fdai.delivery.analyzer_tick_cli_config import (
@@ -91,9 +92,6 @@ from fdai.delivery.analyzer_tick_cli_config import (
 )
 from fdai.delivery.analyzer_tick_cli_config import (
     SCHEDULING_MODES as _SCHEDULING_MODES,
-)
-from fdai.delivery.azure.analyzer_publication_reconciler import (
-    KafkaAnalyzerPublicationReconciler,
 )
 from fdai.delivery.azure.demo_queries import default_metric_queries
 from fdai.delivery.azure.dev_workload_identity import AsyncAzureCliWorkloadIdentity
@@ -518,11 +516,8 @@ async def run_once() -> AnalyzerJobReport:
                     ),
                     event_bus=bus,
                     publication_ledger=build_publication_ledger(),
-                    publication_reconciler=KafkaAnalyzerPublicationReconciler(
-                        config=_finding_bus_config(
-                            bootstrap_servers=bootstrap_servers, venue=venue
-                        ),
-                        identity=identity if uses_workload_identity(venue) else None,
+                    publication_reconciler=build_publication_reconciler(
+                        bootstrap_servers, venue, identity
                     ),
                     receipt_store=build_receipt_store(),
                     window_seconds=window_seconds,
@@ -615,16 +610,10 @@ def _build_finding_bus(
 ) -> EventHubsKafkaBus:
     return EventHubsKafkaBus(
         identity=identity if uses_workload_identity(venue) else None,
-        config=_finding_bus_config(bootstrap_servers=bootstrap_servers, venue=venue),
-    )
-
-
-def _finding_bus_config(
-    *, bootstrap_servers: str, venue: ExecutionVenue
-) -> EventHubsKafkaBusConfig:
-    return EventHubsKafkaBusConfig(
-        bootstrap_servers=bootstrap_servers,
-        security_protocol=bus_security_protocol(venue),
+        config=EventHubsKafkaBusConfig(
+            bootstrap_servers=bootstrap_servers,
+            security_protocol=bus_security_protocol(venue),
+        ),
     )
 
 
