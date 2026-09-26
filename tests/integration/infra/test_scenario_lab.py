@@ -237,13 +237,12 @@ def test_scenario_lab_workflow_is_plan_first_and_approval_gated() -> None:
     workflow = WORKFLOW.read_text(encoding="utf-8")
     ci_workflow = (REPO_ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
 
-    assert "options: [plan, apply, recreate-aks, destroy]" in workflow
+    assert "options: [plan, destroy-plan, apply, recreate-aks, destroy]" in workflow
     assert "default: plan" in workflow
     assert "Checkout protected workflow verifier" in workflow
     assert "workflow-path: .github/workflows/sre-demo-lab.yml" in workflow
-    assert (
-        "environment: ${{ inputs.action == 'plan' && 'plan-only' || 'scenario-lab' }}" in workflow
-    )
+    assert "inputs.action == 'plan' || inputs.action == 'destroy-plan'" in workflow
+    assert "'plan-only' || 'scenario-lab'" in workflow
     assert "approval_ref is required for a live sweep" in workflow
     assert "scenario_id:" in workflow
     assert "SCENARIO_LAB_SCENARIO_ID: ${{ inputs.scenario_id }}" in workflow
@@ -389,11 +388,16 @@ def test_scenario_lab_workflow_is_plan_first_and_approval_gated() -> None:
     assert 'environment_file="$output_dir/enforce.env"' in workflow
     assert 'environment_file="$(bash' not in workflow
     assert 'CONFIRM_DESTROY" != "destroy-sre-demo-lab"' in workflow
+    assert workflow.count("inputs.action != 'destroy-plan'") == 7
     assert "terraform apply -input=false -auto-approve" not in workflow
     assert workflow.count("terraform apply -json -input=false -auto-approve") == 3
     assert workflow.count("terraform apply -json -input=false -auto-approve -parallelism=2") == 1
     assert workflow.count('"$RUNNER_TEMP/sre-demo-lab.tfplan"') >= 3
     assert "terraform destroy" not in workflow
+    assert (
+        '[[ "$REQUESTED_ACTION" == "destroy" || "$REQUESTED_ACTION" == "destroy-plan" ]]'
+        in workflow
+    )
     assert "plan_args=(-destroy -refresh=false)" in workflow
     assert "Quiesce private DNS links before destroy" in workflow
     assert 'select(.type? == "azurerm_private_dns_zone_virtual_network_link")' in workflow
