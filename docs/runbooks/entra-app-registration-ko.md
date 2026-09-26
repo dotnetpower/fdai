@@ -1,15 +1,16 @@
 ---
 title: Entra 앱 등록
 translation_of: entra-app-registration.md
-translation_source_sha: f7c8f55ca6abba3ffa1264ea444564ea2eb34572
-translation_revised: 2026-09-14
+translation_source_sha: 2a301394728683886d72a4260489b8afaf436702
+translation_revised: 2026-09-26
 ---
 
 # Entra 앱 등록
 
-FDAI 콘솔에 필요한 두 개의 Entra ID 앱 등록 - `fdai-api` (Operator API 오디언스)
-와 `fdai-console-spa` (SPA 사인인 클라이언트) - 을 만들고, 사인인이 동작하게
-하는 App Roles, 서비스 principal, 롤 할당을 생성하는 방법입니다. 이 런북은
+FDAI에 필요한 세 개의 Entra ID 앱 등록인 `fdai-api`(Operator API 대상),
+`fdai-console-spa`(SPA 로그인 클라이언트), `fdai-approval-bot`(Teams 승인
+클라이언트)을 만들고, 로그인과 Teams OBO(on-behalf-of) 인증에 필요한 App Role,
+서비스 principal 및 역할 할당을 생성하는 방법입니다. 이 런북은
 **로컬 사인인 테스트**
 ([console/README.md § 로컬 sign-in 테스트](../../console/README.md))와
 [deploy-and-onboard.md](../roadmap/deployment/deploy-and-onboard.md) 및
@@ -26,9 +27,11 @@ FDAI 콘솔에 필요한 두 개의 Entra ID 앱 등록 - `fdai-api` (Operator A
 |------|------|-----------|
 | `fdai-api` | 콘솔, ChatOps 백엔드 및 내부 첨부 intake의 Web API 오디언스. | 애플리케이션 ID URI `api://<api-app-id>`; delegated 범위 `access` 하나; 사람용 App Role 다섯 개와 application-only 첨부 역할 하나; v2 접근 토큰. |
 | `fdai-console-spa` | SPA 사인인 클라이언트 (MSAL, PKCE). | SPA redirect URI; `fdai-api` 의 `access` 범위 에 대한 delegated 권한. |
+| `fdai-approval-bot` | Teams 승인 클라이언트. | OBO 토큰용 `fdai-api`의 `access` 범위에 대한 delegated 권한. 이 런북은 클라이언트 시크릿을 만들지 않습니다. |
 
-둘 다 실행기 아이덴티티를 갖지 않습니다 - 그것은 별도의 user-assigned Managed
-신원 입니다 ([security-and-identity.md](../roadmap/architecture/security-and-identity.md)).
+어느 등록도 실행기 아이덴티티를 갖지 않습니다. 실행기에는 별도의 user-assigned
+Managed Identity를 사용합니다
+([security-and-identity-ko.md](../roadmap/architecture/security-and-identity-ko.md)).
 
 ## 사전 요구
 
@@ -135,6 +138,35 @@ az rest --method PATCH \
   --body @/tmp/fdai_spa.json
 ```
 
+## 3. `fdai-approval-bot` 생성
+
+```sh
+APPROVAL_BOT_APPID=$(az ad app create \
+  --display-name "fdai-approval-bot" \
+  --sign-in-audience AzureADMyOrg \
+  --query appId -o tsv)
+APPROVAL_BOT_OBJID=$(az ad app show --id "$APPROVAL_BOT_APPID" --query id -o tsv)
+
+python3 - "$API_APPID" "$SCOPE_GUID" <<'PY' > /tmp/fdai_approval_bot.json
+import json, sys
+print(json.dumps({
+  "requiredResourceAccess": [{
+    "resourceAppId": sys.argv[1],
+    "resourceAccess": [{"id": sys.argv[2], "type": "Scope"}],
+  }],
+}))
+PY
+az rest --method PATCH \
+  --uri "https://graph.microsoft.com/v1.0/applications/$APPROVAL_BOT_OBJID" \
+  --headers "Content-Type=application/json" \
+  --body @/tmp/fdai_approval_bot.json
+```
+
+보호된 부트스트랩은 관련 없는 delegated 권한을 보존하고 서비스 principal을
+만든 다음 정확한 `fdai-api` 범위를 검증합니다. 테넌트 동의, Teams 설치, Bot
+리소스와 Managed Identity, 그룹 연결 승인 대상은 별도의 공급자 호스팅 단계로
+남습니다.
+
 ### 로컬 redirect URI 동기화 유지
 
 `console: prepare full stack` 작업은 `console/.env.local`에서 로컬 테넌트와 SPA 클라이언트 값을
@@ -168,12 +200,13 @@ tenant-local 앱 등록을 사용합니다. 다른 테넌트에 배포하려면 
 일치하지 않거나 Graph 권한이 부족하면, 사인인이 부분 설정된 채 남지 않도록 배포가
 중단됩니다.
 
-## 3. 서비스 principal + 롤 할당
+## 4. 서비스 principal + 역할 할당
 
 ```sh
 # Enterprise apps (needed for App Role assignment + admin consent).
 az ad sp create --id "$API_APPID"
 az ad sp create --id "$SPA_APPID"
+az ad sp create --id "$APPROVAL_BOT_APPID"
 
 # Assign a user the Reader App Role on fdai-api (repeat per user/role).
 USER_OBJID=$(az ad signed-in-user show --query id -o tsv)   # or another user's id
@@ -191,6 +224,7 @@ az rest --method POST \
 
 # One-time admin consent so a signed-in user gets no consent prompt.
 az ad app permission admin-consent --id "$SPA_APPID"
+az ad app permission admin-consent --id "$APPROVAL_BOT_APPID"
 ```
 
 실제 배포에서는 App Roles를 개별 사용자가 아니라 다섯 개의 `aw-*` Entra 보안
@@ -220,7 +254,7 @@ Edge에서 첨부를 활성화하기 전에 내부 channel intake를 활성화�
 API audience를 요청하고 인증된 intake probe를 호출합니다. 역할 정의, 할당 또는 audience가
 없으면 edge는 준비 상태가 되지 않습니다.
 
-## 4. id를 구성에 매핑
+## 5. id를 구성에 매핑
 
 위 단계의 값들은 런타임 구성으로 들어갑니다. 추적 파일 밖에 보관하세요.
 
@@ -230,12 +264,13 @@ API audience를 요청하고 인증된 intake probe를 호출합니다. 역할 �
 | `api://$API_APPID` | `FDAI_API_AUDIENCE` | - |
 | `api://$API_APPID/access` | - | `VITE_MSAL_API_SCOPE` |
 | `$SPA_APPID` | - | `VITE_MSAL_CLIENT_ID` |
+| `$APPROVAL_BOT_APPID` | `FDAI_TEAMS_APPLICATION_ID` | - |
 
 Operator API 검증기 env: [deploy-and-onboard.md](../roadmap/deployment/deploy-and-onboard.md)
 (`FDAI_ENTRA_TENANT_ID`, `FDAI_API_AUDIENCE`, 선택 `FDAI_ENTRA_ISSUER` /
 `FDAI_ENTRA_JWKS_URI`). SPA env: [console/README.md § 포크 구성](../../console/README.md).
 
-## 5. 검증
+## 6. 검증
 
 ```sh
 az ad app show --id "$API_APPID" \
@@ -243,6 +278,8 @@ az ad app show --id "$API_APPID" \
             scopes:api.oauth2PermissionScopes[].value, roles:appRoles[].value}" -o json
 az ad app show --id "$SPA_APPID" \
   --query "{spa:spa.redirectUris, perms:requiredResourceAccess[].resourceAppId}" -o json
+az ad app show --id "$APPROVAL_BOT_APPID" \
+  --query "{perms:requiredResourceAccess[].resourceAppId}" -o json
 ```
 
 그런 다음 [console/README.md](../../console/README.md) 의 로컬 사인인 테스트를
@@ -253,9 +290,11 @@ az ad app show --id "$SPA_APPID" \
 
 ```sh
 az ad app delete --id "$SPA_APPID"
+az ad app delete --id "$APPROVAL_BOT_APPID"
 az ad app delete --id "$API_APPID"
 ```
 
-앱 등록을 삭제하면 그 서비스 principal과 롤 할당도 함께 제거됩니다. 클라이언트
-시크릿을 추가했다면 먼저 로테이션하세요 (위 플로우는 추가하지 않습니다 - SPA는
-공개 클라이언트이고 API는 토큰을 검증하므로 둘 다 시크릿을 갖지 않습니다).
+앱 등록을 삭제하면 해당 서비스 principal과 역할 할당도 함께 제거됩니다. 클라이언트
+시크릿을 추가했다면 먼저 순환시키세요. 위 흐름은 시크릿을 추가하지 않습니다. SPA는
+공용 클라이언트이고 API는 토큰을 검증하며, 승인 봇 인증은 배포가 소유하는 Managed
+Identity 바인딩으로 남습니다.

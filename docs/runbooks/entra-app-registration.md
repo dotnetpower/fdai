@@ -4,10 +4,11 @@ title: Entra App Registration
 
 # Entra App Registration
 
-How to create the two Entra ID app registrations the FDAI console needs -
-`fdai-api` (the Operator API audience) and `fdai-console-spa` (the SPA sign-in
-client) - plus the App Roles, service principals, and role assignment that make
-sign-in work. This runbook covers both the **local sign-in test**
+How to create the three Entra ID app registrations FDAI needs - `fdai-api`
+(the Operator API audience), `fdai-console-spa` (the SPA sign-in client), and
+`fdai-approval-bot` (the Teams approval client) - plus the App Roles, service
+principals, and role assignments that make sign-in and Teams on-behalf-of (OBO)
+authorization work. This runbook covers both the **local sign-in test**
 ([console/README.md § Local sign-in test](../../console/README.md)) and the
 **deploy-time** setup referenced by
 [deploy-and-onboard.md](../roadmap/deployment/deploy-and-onboard.md) and
@@ -23,8 +24,9 @@ sign-in work. This runbook covers both the **local sign-in test**
 |--------------|---------|--------------|
 | `fdai-api` | Web API audience for the console, ChatOps backend, and internal attachment intake. | Application ID URI `api://<api-app-id>`; one delegated scope `access`; five human App Roles and one application-only attachment role; v2 access tokens. |
 | `fdai-console-spa` | SPA sign-in client (MSAL, PKCE). | SPA redirect URIs; delegated permission to `fdai-api`'s `access` scope. |
+| `fdai-approval-bot` | Teams approval client. | Delegated permission to `fdai-api`'s `access` scope for OBO tokens; no client secret is created by this runbook. |
 
-Neither holds the executor identity - that is a separate user-assigned Managed
+None holds the executor identity - that is a separate user-assigned Managed
 Identity ([security-and-identity.md](../roadmap/architecture/security-and-identity.md)).
 
 ## Prerequisites
@@ -132,6 +134,35 @@ az rest --method PATCH \
   --body @/tmp/fdai_spa.json
 ```
 
+## 3. Create `fdai-approval-bot`
+
+```sh
+APPROVAL_BOT_APPID=$(az ad app create \
+  --display-name "fdai-approval-bot" \
+  --sign-in-audience AzureADMyOrg \
+  --query appId -o tsv)
+APPROVAL_BOT_OBJID=$(az ad app show --id "$APPROVAL_BOT_APPID" --query id -o tsv)
+
+python3 - "$API_APPID" "$SCOPE_GUID" <<'PY' > /tmp/fdai_approval_bot.json
+import json, sys
+print(json.dumps({
+  "requiredResourceAccess": [{
+    "resourceAppId": sys.argv[1],
+    "resourceAccess": [{"id": sys.argv[2], "type": "Scope"}],
+  }],
+}))
+PY
+az rest --method PATCH \
+  --uri "https://graph.microsoft.com/v1.0/applications/$APPROVAL_BOT_OBJID" \
+  --headers "Content-Type=application/json" \
+  --body @/tmp/fdai_approval_bot.json
+```
+
+The protected bootstrap preserves unrelated delegated permissions, creates the
+service principal, and verifies the exact `fdai-api` scope. Tenant consent,
+Teams installation, the Bot resource, its managed identity, and the
+group-connected approval destination remain separate provider-hosted steps.
+
 ### Keep local redirect URIs synchronized
 
 The `console: prepare full stack` task reads the local tenant and SPA client values from
@@ -166,12 +197,13 @@ different tenant needs that tenant's SPA client id and a runner identity owned
 by that tenant. Missing variables, a tenant mismatch, or insufficient Graph
 permission stops the deployment instead of leaving sign-in partially configured.
 
-## 3. Service principals + role assignment
+## 4. Service principals + role assignment
 
 ```sh
 # Enterprise apps (needed for App Role assignment + admin consent).
 az ad sp create --id "$API_APPID"
 az ad sp create --id "$SPA_APPID"
+az ad sp create --id "$APPROVAL_BOT_APPID"
 
 # Assign a user the Reader App Role on fdai-api (repeat per user/role).
 USER_OBJID=$(az ad signed-in-user show --query id -o tsv)   # or another user's id
@@ -189,6 +221,7 @@ az rest --method POST \
 
 # One-time admin consent so a signed-in user gets no consent prompt.
 az ad app permission admin-consent --id "$SPA_APPID"
+az ad app permission admin-consent --id "$APPROVAL_BOT_APPID"
 ```
 
 For a real deployment, assign the App Roles to the five `aw-*` Entra security
@@ -219,7 +252,7 @@ Enable the internal channel intake before enabling attachments at the edge. Edge
 the exact API audience and calls the authenticated intake probe. A missing role definition,
 assignment, or audience keeps the edge unready.
 
-## 4. Map ids to configuration
+## 5. Map ids to configuration
 
 The values from the steps above feed the runtime config. Keep them out of
 tracked files.
@@ -230,12 +263,13 @@ tracked files.
 | `api://$API_APPID` | `FDAI_API_AUDIENCE` | - |
 | `api://$API_APPID/access` | - | `VITE_MSAL_API_SCOPE` |
 | `$SPA_APPID` | - | `VITE_MSAL_CLIENT_ID` |
+| `$APPROVAL_BOT_APPID` | `FDAI_TEAMS_APPLICATION_ID` | - |
 
 Operator API verifier env: [deploy-and-onboard.md](../roadmap/deployment/deploy-and-onboard.md)
 (`FDAI_ENTRA_TENANT_ID`, `FDAI_API_AUDIENCE`, optional `FDAI_ENTRA_ISSUER` /
 `FDAI_ENTRA_JWKS_URI`). SPA env: [console/README.md § Fork configuration](../../console/README.md).
 
-## 5. Verify
+## 6. Verify
 
 ```sh
 az ad app show --id "$API_APPID" \
@@ -243,6 +277,8 @@ az ad app show --id "$API_APPID" \
             scopes:api.oauth2PermissionScopes[].value, roles:appRoles[].value}" -o json
 az ad app show --id "$SPA_APPID" \
   --query "{spa:spa.redirectUris, perms:requiredResourceAccess[].resourceAppId}" -o json
+az ad app show --id "$APPROVAL_BOT_APPID" \
+  --query "{perms:requiredResourceAccess[].resourceAppId}" -o json
 ```
 
 Then run the local sign-in test in
@@ -254,10 +290,11 @@ loads the console.
 
 ```sh
 az ad app delete --id "$SPA_APPID"
+az ad app delete --id "$APPROVAL_BOT_APPID"
 az ad app delete --id "$API_APPID"
 ```
 
 Deleting the app registrations also removes their service principals and role
-assignments. Rotate any client secret first if one was added (the flows above
-add none - the SPA is a public client and the API validates tokens, neither
-holds a secret).
+assignments. Rotate any client secret first if one was added. The flows above
+add none: the SPA is a public client, the API validates tokens, and approval-bot
+authentication remains a deployment-owned managed-identity binding.

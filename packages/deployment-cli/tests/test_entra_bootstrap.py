@@ -179,7 +179,7 @@ def test_fresh_exact_requests_and_private_result() -> None:
     result = apply(fake)
     plan = plan_entra_bootstrap(desired())
     posts = [(target, body) for method, target, body in fake.writes() if method == "POST"]
-    assert len(posts) == 15  # two apps, two SPs, five groups, five assignments, one member
+    assert len(posts) == 17  # three apps, three SPs, five groups, five assignments, one member
     api = fake.rows["applications"][0]
     assert api["appRoles"] == [
         *[
@@ -212,6 +212,10 @@ def test_fresh_exact_requests_and_private_result() -> None:
     assert spa["requiredResourceAccess"] == [
         {"resourceAppId": api["appId"], "resourceAccess": [{"id": plan.scope_id, "type": "Scope"}]}
     ]
+    approval_bot = fake.rows["applications"][2]
+    assert approval_bot["requiredResourceAccess"] == [
+        {"resourceAppId": api["appId"], "resourceAccess": [{"id": plan.scope_id, "type": "Scope"}]}
+    ]
     assert not fake.rows["oauth2PermissionGrants"]
     assert set(fake.members) == {dict(result.references.groups)["owners"]}
     for index, group in enumerate(fake.rows["groups"]):
@@ -226,6 +230,7 @@ def test_fresh_exact_requests_and_private_result() -> None:
         OWNER,
         TOKEN,
         result.references.api_client_id,
+        result.references.approval_bot_client_id,
         desired().console_origin,
     ):
         assert private not in repr(result) + repr(plan) + repr(token(TENANT))
@@ -258,12 +263,13 @@ def test_owned_repeat_and_independent_readback_are_get_only() -> None:
 def test_preserves_unrelated_redirects_roles_scopes_permissions_and_assignments() -> None:
     fake = FakeGraph()
     result = apply(fake)
-    api, spa = fake.rows["applications"]
+    api, spa, approval_bot = fake.rows["applications"]
     unrelated = {"id": str(UUID(int=8000)), "value": "Unrelated", "isEnabled": True}
     api["appRoles"].append(unrelated)
     api["api"]["oauth2PermissionScopes"].append(unrelated)
     permission = {"resourceAppId": str(UUID(int=8001)), "resourceAccess": []}
     spa["requiredResourceAccess"].append(permission)
+    approval_bot["requiredResourceAccess"].append(permission)
     fake.rows["assignments"].append(
         {
             "principalId": str(UUID(int=8002)),
@@ -280,6 +286,7 @@ def test_preserves_unrelated_redirects_roles_scopes_permissions_and_assignments(
     ]
     assert unrelated in api["appRoles"] and unrelated in api["api"]["oauth2PermissionScopes"]
     assert permission in spa["requiredResourceAccess"]
+    assert permission in approval_bot["requiredResourceAccess"]
     assert len(fake.rows["assignments"]) == 6
     assert len(fake.members[dict(result.references.groups)["owners"]]) == 1
 

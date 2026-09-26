@@ -7,6 +7,8 @@ import sys
 from pathlib import Path
 from typing import Any
 
+import pytest
+
 ROOT = Path(__file__).resolve().parents[3]
 SCRIPT_DIR = ROOT / "scripts/deployment/azure"
 sys.path.insert(0, str(SCRIPT_DIR))
@@ -14,6 +16,9 @@ sys.path.insert(0, str(SCRIPT_DIR))
 import genesis_repository_config as repository_config  # noqa: E402
 
 SOURCE = "a" * 40
+API_APP_ID = "00000000-0000-0000-0000-000000000005"
+SPA_APP_ID = "00000000-0000-0000-0000-000000000006"
+APPROVAL_BOT_APP_ID = "00000000-0000-0000-0000-000000000007"
 
 
 def _handoff() -> dict[str, Any]:
@@ -91,9 +96,10 @@ def _plan() -> repository_config.RepositoryConfigPlan:
         )
     }
     entra_bindings = {
-        "ENTRA_CONSOLE_API_SCOPE": "api://example/access",
-        "ENTRA_CONSOLE_SPA_CLIENT_ID": "spa-example",
-        "OPERATOR_API_AUDIENCE": "api://example",
+        "ENTRA_CONSOLE_API_SCOPE": f"api://{API_APP_ID}/access",
+        "ENTRA_CONSOLE_SPA_CLIENT_ID": SPA_APP_ID,
+        "FDAI_TEAMS_APPLICATION_ID": APPROVAL_BOT_APP_ID,
+        "OPERATOR_API_AUDIENCE": f"api://{API_APP_ID}",
         "RBAC_APPROVERS_GROUP_ID": "approvers",
         "RBAC_BREAK_GLASS_GROUP_ID": "break-glass",
         "RBAC_CONTRIBUTORS_GROUP_ID": "contributors",
@@ -165,3 +171,84 @@ def test_repository_plan_never_embeds_secret_values() -> None:
     assert "POSTGRES_ADMIN_PASSWORD" not in serialized
     assert "POSTGRES_ADMIN_LOGIN" not in serialized
     assert "private_key" not in serialized.casefold()
+
+
+def test_entra_binding_verifier_accepts_exact_applications_and_groups(monkeypatch) -> None:
+    variables = _plan().variables
+    names = {
+        API_APP_ID: "fdai-api",
+        SPA_APP_ID: "fdai-console-spa",
+        APPROVAL_BOT_APP_ID: "fdai-approval-bot",
+    }
+    calls: list[tuple[str, ...]] = []
+
+    def fake_az(arguments: tuple[str, ...]) -> str:
+        calls.append(arguments)
+        if arguments[:3] == ("ad", "app", "show"):
+            app_id = arguments[arguments.index("--id") + 1]
+            return json.dumps({"appId": app_id, "displayName": names[app_id]})
+        group_id = arguments[arguments.index("--group") + 1]
+        return group_id
+
+    monkeypatch.setattr(repository_config, "_az", fake_az)
+
+    repository_config._verify_entra_bindings(
+        variables,
+        (
+            "ENTRA_CONSOLE_API_SCOPE",
+            "ENTRA_CONSOLE_SPA_CLIENT_ID",
+            "FDAI_TEAMS_APPLICATION_ID",
+            "OPERATOR_API_AUDIENCE",
+            "RBAC_APPROVERS_GROUP_ID",
+            "RBAC_BREAK_GLASS_GROUP_ID",
+            "RBAC_CONTRIBUTORS_GROUP_ID",
+            "RBAC_OWNERS_GROUP_ID",
+            "RBAC_READERS_GROUP_ID",
+        ),
+    )
+
+    assert len(calls) == 8
+
+
+def test_entra_binding_verifier_rejects_duplicate_applications(monkeypatch) -> None:
+    variables = _plan().variables | {"FDAI_TEAMS_APPLICATION_ID": SPA_APP_ID}
+    monkeypatch.setattr(
+        repository_config,
+        "_az",
+        lambda *_args: (_ for _ in ()).throw(AssertionError("duplicate apps must fail first")),
+    )
+
+    with pytest.raises(ValueError, match="application bindings are invalid"):
+        repository_config._verify_entra_bindings(
+            variables,
+            (
+                "ENTRA_CONSOLE_API_SCOPE",
+                "ENTRA_CONSOLE_SPA_CLIENT_ID",
+                "FDAI_TEAMS_APPLICATION_ID",
+            ),
+        )
+
+
+def test_entra_binding_verifier_rejects_wrong_application_name(monkeypatch) -> None:
+    variables = _plan().variables
+    names = {
+        API_APP_ID: "fdai-api",
+        SPA_APP_ID: "fdai-console-spa",
+        APPROVAL_BOT_APP_ID: "unrelated-application",
+    }
+
+    def fake_az(arguments: tuple[str, ...]) -> str:
+        app_id = arguments[arguments.index("--id") + 1]
+        return json.dumps({"appId": app_id, "displayName": names[app_id]})
+
+    monkeypatch.setattr(repository_config, "_az", fake_az)
+
+    with pytest.raises(ValueError, match="does not match the approved binding"):
+        repository_config._verify_entra_bindings(
+            variables,
+            (
+                "ENTRA_CONSOLE_API_SCOPE",
+                "ENTRA_CONSOLE_SPA_CLIENT_ID",
+                "FDAI_TEAMS_APPLICATION_ID",
+            ),
+        )
