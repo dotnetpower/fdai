@@ -18,7 +18,6 @@ It resolves the P0 blocker "final identity mapping (external IdP ↔ Entra ↔ M
 > ([generic-scope.instructions.md](../../../.github/instructions/generic-scope.instructions.md)).
 
 ## Implementation status
-
 ### Implementation scope
 
 | Area | State | Evidence | Notes |

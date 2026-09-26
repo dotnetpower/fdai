@@ -1,7 +1,7 @@
 ---
 title: 사용자 RBAC와 Entra 아이덴티티
 translation_of: user-rbac-and-identity.md
-translation_source_sha: 8f084a8ea59aa1e35d499263d5280bead3cf3226
+translation_source_sha: 3a96c2309e7619bda24562b0fd1b98a763c039a8
 translation_revised: 2026-09-26
 ---
 
@@ -26,7 +26,6 @@ Managed Identity, GitHub App, Teams bot)는 여전히 [security-and-identity-ko.
 > ([generic-scope.instructions.md](../../../.github/instructions/generic-scope.instructions.md)).
 
 ## 구현 상태
-
 ### 구현 범위
 
 | 영역 | 상태 | 근거 | 참고 |
