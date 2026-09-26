@@ -459,6 +459,9 @@ The complete seam catalog and composition rules are in [Project Structure Depend
 Var keeps pure pending-ticket data in its private decision-record helper and re-exports the
 original public type names. Field/default and approval behavior stay unchanged; derived repository
 knowledge updates its source commitment without gaining approval or execution authority.
+Muninn uses one Core-owned cohort-key function for publication and source-owned legacy cleanup.
+Deletion retains only a bounded case fence and no body, while agent ownership and topics remain
+unchanged.
 
 Every terminal path writes an audit entry, and T2 output reaches the safety check only after the quality gate. Each action retains its
 originating T0, T1, or T2 authority tier; routing, evidence reuse, grounding, approval, rollback, and restart ambiguity fail closed.
