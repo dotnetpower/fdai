@@ -144,6 +144,8 @@ class ContextSelectionShadowRunner:
         self._pending.discard(task)
         try:
             task.result()
+        except asyncio.CancelledError:
+            pass
         except Exception:
             _LOGGER.exception("context_selection_shadow_run_failed")
 

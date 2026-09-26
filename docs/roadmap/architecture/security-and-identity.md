@@ -363,6 +363,8 @@ The PostgreSQL evidence provider follows these boundaries:
   capability. They install disabled, run bounded off-path comparisons, require an exact version,
   evidence window, and rollback target for promotion, and engage a per-policy kill switch on an
   invariant violation. See [Context Selection Policy](../decisioning/context-selection-policy.md).
+  Core shutdown gives pending comparisons five seconds to finish before cancelling them and
+  closing the state store. An interrupted comparison cannot become promotion evidence.
 
 ## Human Approval Integrity
 
