@@ -24,6 +24,7 @@ from genesis_foundation_recovery_handoff import (
 )
 from genesis_foundation_recovery_plan import _json
 from genesis_foundation_state_archive import create_foundation_state_archive
+from genesis_foundation_state_support_repair import retained_repair_source_commit
 
 
 @dataclass(frozen=True)
@@ -213,6 +214,9 @@ def prepare_recovery_migration(
     }
     if migration_claim_source is not None:
         source_commits.add(migration_claim_source)
+    repair_claim_source = retained_repair_source_commit(directory)
+    if repair_claim_source is not None:
+        source_commits.add(repair_claim_source)
     for commit in source_commits:
         checks.verify_source(source_commit=commit, repository=args.repository, apply=True)
     context.verify_configuration()
