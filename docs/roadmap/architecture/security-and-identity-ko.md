@@ -1,8 +1,8 @@
 ---
 title: 보안과 아이덴티티
 translation_of: security-and-identity.md
-translation_source_sha: 464805e18a4627c64fafe8e3704f273601a15f60
-translation_revised: 2026-09-22
+translation_source_sha: cf2db24389b85a6e9e2e5b64986fcdbbe1594642
+translation_revised: 2026-09-27
 ---
 
 # 보안과 아이덴티티
@@ -382,6 +382,10 @@ PostgreSQL 근거 공급자는 다음 경계를 따릅니다.
 - **보존**: legal-hold 지원과 함께 정의된 불변 보존 윈도우; 기록은 윈도우 경과 전에 정리 불가.
 - 이 저장소의 감사 데이터는 고객-비종속; 실제 환경 기록은 포크의 런타임 저장소에만 있고 여기
   커밋되지 않음.
+- [shadow 전용 MSCP 결정 맥락](mscp-operational-profile-ko.md#차용한-메커니즘)은 최초 불변 상태
+  기록과 함께 내용 다이제스트 및 민감 정보를 제외한 감사 항목 하나를 기록합니다. 소유자 관측이
+  누락되거나 충돌하면 보류하고, 재현 과정에서 기존 기록을 대체할 수 없습니다. 이 변환 결과는
+  정본 런타임 읽기 경로 없이 승인, 실행 또는 운영 근거를 만들지 않습니다.
 
 ## 위협 모델 (STRIDE)
 
