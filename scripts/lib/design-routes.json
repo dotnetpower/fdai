@@ -1881,6 +1881,7 @@
         "human-report-lines",
         "aks-commerce-business-scenario",
         "development-diagnostic-channel",
+        "ontology-query-coverage",
         "reporting-subsystem"
       ],
       "docs_update": [
@@ -2003,7 +2004,8 @@
         "docs/roadmap/interfaces/document-ingestion-agent-ownership.md"
       ],
       "docs_update_routes": [
-        "aks-commerce-business-scenario"
+        "aks-commerce-business-scenario",
+        "ontology-query-coverage"
       ],
       "docs_update": [
         "docs/roadmap/interfaces/human-report-lines-and-approval-routing.md",

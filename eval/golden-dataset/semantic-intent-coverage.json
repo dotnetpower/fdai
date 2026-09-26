@@ -304,7 +304,7 @@
     "unverified_operational_success_claim_rate",
     "worst_slice_regression_count"
   ],
-  "inventory_digest": "sha256:89522fc0f26a76c3f2182fdb6a8e48fcfbe98464e6c4c87ca813dfe0cc5f42df",
+  "inventory_digest": "sha256:3c04ab3ea5a470b540eaa2fc3532bc2d946abdb203e30a459e7097f02e6f8cd7",
   "metric_contract": {
     "ambiguity": [
       {
@@ -942,7 +942,7 @@
     "console/src/deck/presentation-modules/charts.tsx": "sha256:9b93cf0c49ca9151f41e4e5037e8a1b3c0ade3b0cf949c89b15d02f29a57d890",
     "console/src/deck/presentation-modules/registry.tsx": "sha256:980c49bf7a12162ca3690966bcafefc57f379c81c6febb4844e94d6691f0d029",
     "console/src/deck/presentation-modules/types.ts": "sha256:b58265852af941105f1b65fc24394f7b7b204c78f8ea95aa952edc23fb8212a2",
-    "eval/golden-dataset/azure-incident-intent-golden.yaml": "sha256:38d78bbc193d0c4b3609b8ad345845cd711434ef447b09f843e50a017ef0ca73",
+    "eval/golden-dataset/azure-incident-intent-golden.yaml": "sha256:8ffa63d40649926dfd04d5d253e7f019163c69bf14f1fabd7d1b7f6281a5202e",
     "eval/golden-dataset/expectations.json": "sha256:5617de665fab4aec0bd038a8a1809d9a662f6cb51c8a0221036997807eb6c97c",
     "eval/golden-dataset/question-bank/question-bank.json": "sha256:03b1240b9e7233abfd61e24a10fa1492ff5f34a0c8005dabac2ba10fb8d17209",
     "eval/golden-dataset/question-bank/question-bank.source.yaml": "sha256:de3d78de7327eec563742fe7402f3827438152ed27f5c519a2ac3ae66fced495",
@@ -1175,7 +1175,7 @@
       {
         "coverage_state": "intent_contract_only",
         "golden_expectation_count": 0,
-        "intent_contract_case_count": 1,
+        "intent_contract_case_count": 2,
         "topic_id": "query.resource_event_history"
       },
       {

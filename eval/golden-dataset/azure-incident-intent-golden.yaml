@@ -1,5 +1,5 @@
 schema_version: 1.0.0
-dataset_version: 2.0.0
+dataset_version: 2.1.0
 evidence_kind: expected_contract_cases
 operational_validation: false
 active_prompt: active.semantic-judgment@2
@@ -65,6 +65,16 @@ cases:
       requested_facets: [resource_health_events, chronological_order, time_range]
       targets:
         - {kind: time_range, value: "지난 24시간", source_start: 0, source_end: 7}
+      discourse_mode: direct
+      action_posture: advise_only
+      action_subject: none
+  - id: resource-health-history-en
+    utterance: "What Resource Health events occurred during the last day?"
+    expected:
+      primary_intent: query.resource_event_history
+      requested_facets: [resource_health_events, chronological_order, time_range]
+      targets:
+        - {kind: time_range, value: "last day", source_start: 48, source_end: 56}
       discourse_mode: direct
       action_posture: advise_only
       action_subject: none
