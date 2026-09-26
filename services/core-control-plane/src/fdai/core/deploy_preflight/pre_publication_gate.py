@@ -31,6 +31,7 @@ before any submission (fail-closed); the caller degrades to ``hil``.
 
 from __future__ import annotations
 
+import math
 from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
@@ -49,6 +50,10 @@ from fdai.core.deploy_preflight.report import DeploymentReadinessReport
 #: policy: a fork tunes it at the composition root. Kept short so a report that
 #: predates the publication attempt cannot authorize a provider commit.
 DEFAULT_MAX_EVIDENCE_AGE_SECONDS = 900.0
+
+#: Cap on the finding ids retained in a hold record, so one very large blocked
+#: report cannot produce an unbounded audit or human-review entry.
+_MAX_HELD_FINDING_IDS = 20
 
 #: Tolerated clock skew for a report stamped slightly in the future. Anything
 #: beyond it is treated as unusable evidence rather than fresh evidence.
@@ -185,12 +190,16 @@ async def gate_toggle_publication(
     Submission itself is delegated to the same envelope builder an operator
     command re-enters through, so the executor keeps the seven safeguards.
 
-    Propagates any exception raised by ``verify`` or ``sink`` (fail-closed).
+    Propagates any exception raised by ``verify`` or ``sink`` (fail-closed). A
+    sink that raises part-way through leaves the already-accepted proposals in
+    the pipeline; each carries a stable idempotency key, so the caller may
+    re-run the gate without double-submitting.
     """
 
-    if max_evidence_age_seconds <= 0:
-        raise ValueError("max_evidence_age_seconds MUST be > 0")
-    if not expected_scope.strip():
+    if not math.isfinite(max_evidence_age_seconds) or max_evidence_age_seconds <= 0:
+        raise ValueError("max_evidence_age_seconds MUST be a finite value > 0")
+    expected_scope = expected_scope.strip()
+    if not expected_scope:
         raise ValueError("expected_scope MUST be a non-empty string")
 
     if outcome.status is not ReassemblyStatus.CLEARED:
@@ -222,7 +231,11 @@ async def gate_toggle_publication(
             expected_scope=expected_scope,
         )
 
-    age = _evidence_age_seconds(report, now())
+    current_time = now()
+    if current_time.tzinfo is None or current_time.utcoffset() is None:
+        raise ValueError("now MUST return a timezone-aware datetime")
+
+    age = _evidence_age_seconds(report, current_time)
     if age is None or age > max_evidence_age_seconds or age < -_MAX_CLOCK_SKEW_SECONDS:
         return _hold(
             PublicationHold.STALE_EVIDENCE,
@@ -242,7 +255,7 @@ async def gate_toggle_publication(
             report=report,
             evidence_age_seconds=age,
             expected_scope=expected_scope,
-            held_findings=tuple(sorted(finding.id for finding in blocking)),
+            held_findings=tuple(sorted(finding.id for finding in blocking))[:_MAX_HELD_FINDING_IDS],
         )
 
     submitted: list[Mapping[str, Any] | None] = []

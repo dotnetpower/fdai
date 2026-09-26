@@ -297,6 +297,8 @@ async def test_decision_record_is_content_free_and_auditable() -> None:
     ("kwargs", "message"),
     [
         ({"max_evidence_age_seconds": 0.0}, "max_evidence_age_seconds"),
+        ({"max_evidence_age_seconds": float("nan")}, "max_evidence_age_seconds"),
+        ({"max_evidence_age_seconds": float("inf")}, "max_evidence_age_seconds"),
         ({"expected_scope": "  "}, "expected_scope"),
     ],
 )
@@ -383,3 +385,42 @@ async def test_redelivered_pass_is_deduplicated_by_huginn() -> None:
     for _ in range(2):
         await _gate(_cleared(_toggle("f0")), _ScriptedVerify(_report()), pipeline.sink)
     assert len(pipeline.ingested) == 1
+
+
+async def test_padded_expected_scope_is_normalized_before_comparison() -> None:
+    verify = _ScriptedVerify(_report())
+    sink = _RecordingSink()
+    outcome = await gate_toggle_publication(
+        _cleared(_toggle("f0")),
+        verify=verify,
+        sink=sink,
+        initiator_principal=_PRINCIPAL,
+        expected_scope=f"  {_SCOPE}  ",
+        now=_now,
+    )
+    assert outcome.decision is PublicationDecision.SUBMIT
+    assert len(sink.envelopes) == 1
+
+
+async def test_naive_clock_is_rejected_before_any_submission() -> None:
+    sink = _RecordingSink()
+    with pytest.raises(ValueError, match="timezone-aware"):
+        await gate_toggle_publication(
+            _cleared(_toggle("f0")),
+            verify=_ScriptedVerify(_report()),
+            sink=sink,
+            initiator_principal=_PRINCIPAL,
+            expected_scope=_SCOPE,
+            now=lambda: datetime(2026, 7, 10, 0, 5, 0),
+        )
+    assert sink.envelopes == []
+
+
+async def test_hold_record_bounds_the_retained_finding_ids() -> None:
+    findings = tuple(_blocking_finding(f"denied-{index:03d}") for index in range(25))
+    sink = _RecordingSink()
+    outcome = await _gate(_cleared(_toggle("f0")), _ScriptedVerify(_report(*findings)), sink)
+    assert outcome.hold is PublicationHold.BLOCKING_FINDING
+    assert len(outcome.held_findings) == 20
+    assert outcome.held_findings[0] == "denied-000"
+    assert sink.envelopes == []

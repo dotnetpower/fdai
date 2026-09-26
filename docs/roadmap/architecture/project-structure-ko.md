@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: e8c90686c61396ebe835f7a6de3c29e72d655333
+translation_source_sha: d6c69ec530ba7d19c5a40ef10eb8783c60a18d88
 translation_revised: 2026-09-26
 ---
 # 프로젝트 구조
@@ -444,7 +444,7 @@ Var는 순수 승인 대기 데이터를 비공개 결정 레코드 도우미에
 실제 시작 T0, T1 또는 T2 권한 tier를 유지하며 라우팅, 근거 재사용, 근거 확인, 승인, 롤백 및 재시작의 모호성은 실패 시 차단됩니다.
 [에이전트 판테온 구현 계획](../agents/agent-pantheon-implementation-ko.md#영속-권한과-재생)이 세부 CAS, 점유 유효 기간, 멱등성, 게시 및 시작 복구 계약을 소유하며 프로바이더 중립 결과 조건식은 `_execution_outcomes.py`에 둡니다.
 대기 중인 승인과 복구 증적은 현재 ActionRun 신원이 정확히 일치해야 합니다. 프로덕션은 shadow 및 enforce 모드에서 일치하는 Thor 상태를 영속화하며, 효과가 발생했을 수 있는 실행기 결과는 컨트롤 루프가 종료를 주장하기 전에 독립 조정을 거칩니다.
-배포 프리플라이트는 게시 결정을 `core/deploy_preflight/pre_publication_gate.py`에 둡니다. 교정 제안을 제출하기 전에 분석기가 누적된 오버라이드를 다시 검증하며, 차단 발견 사항, 오래된 증거, 범위 변경, 또는 에스컬레이션된 재조립이 있으면 일부가 아니라 패스 전체를 보류합니다. 제출은 ActionType을 담지 않는 컨트롤 플레인 신호로 인그레스를 통과하므로, Forseti가 자체 이벤트 타입 테이블에서 `remediate.apply-preflight-toggle`을 바인딩하고 기본 휴먼 리뷰 판정이 유지됩니다.
+배포 프리플라이트는 게시 결정을 `core/deploy_preflight/pre_publication_gate.py`에 둡니다. 교정 제안을 제출하기 전에 분석기가 누적된 오버라이드를 다시 검증하며, 차단 발견 사항, 오래된 증거, 범위 변경, 또는 에스컬레이션된 재조립이 있으면 일부가 아니라 패스 전체를 보류합니다. 제출은 ActionType을 담지 않는 컨트롤 플레인 신호로 인그레스를 통과하므로, Forseti가 자체 이벤트 타입 테이블에서 `remediate.apply-preflight-toggle`을 바인딩하고 기본 휴먼 리뷰 판정이 유지됩니다. 게이트는 유한하지 않은 신선도 창이나 시간대가 없는 시계를 제출 이전에 거부하며, 보류 기록은 제한된 수의 발견 사항 ID만 유지합니다.
 ![컨트롤 루프 배선. 주요 단계는 events, event-ingest / normalize + dedup, trust-router, t0-deterministic, t1-lightweight, t2-reasoning, quality-gate, risk-gate, executor, HIL approval / via chatops, no-op, delivery: gitops-pr / chatops입니다.](../../diagrams/generated/fdai-roadmap-architecture-project-structure-01.ko.svg)
 
 ## 구성 모델

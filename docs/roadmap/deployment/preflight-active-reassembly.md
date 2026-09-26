@@ -40,6 +40,7 @@ the toggle modules themselves live in
 |------|-------|--------|----------|-----------|
 | 2026-08-14 | in-progress | Adopted the implementation ledger; earlier provenance was not reconstructed. Kept pure reassembly mechanics separate from the uncomposed delivery path. | current change; focused reassembly, proposal, and Norns tests listed in the scope table | Compose a live shadow path and retain PR plus audit evidence. |
 | 2026-09-26 | in-progress | Gated the proposal seam: proposals reach Huginn only after the analyzer re-verifies the accumulated overrides, and the ingress event type `preflight_toggle_blocker` lets Forseti bind the toggle ActionType without trusting a payload-supplied ActionType. | `current change`; `services/core-control-plane/src/fdai/core/deploy_preflight/pre_publication_gate.py`; `uv run pytest tests/core/deploy_preflight -q` passed 98 tests. | Compose the gated seam at the runtime composition root with a live policy-finding trigger, PR publication, and audit evidence. |
+| 2026-09-26 | in-progress | Recorded the remaining argument-carrying boundary: ingress drops `params` for this non-operator signal, so the composed live path still owes a governed way to hand the per-toggle arguments to the executor. | `current change`; `services/core-control-plane/src/fdai/core/deploy_preflight/reassembly_proposals.py` | Compose the gated seam with a live trigger and carry the per-toggle arguments through a governed path. |
 
 ### Remaining work
 
@@ -48,7 +49,7 @@ the toggle modules themselves live in
   integration test in `tests/core/deploy_preflight/test_pre_publication_gate.py` proves that a
   blocked, escalated, stale, or scope-changed pass publishes no pipeline event and opens no PR,
   and that a cleared pass is judged as `remediate.apply-preflight-toggle` and held for a human.
-- [ ] Compose that gated seam at the runtime composition root with a live policy-finding trigger, and retain the composed run evidence.
+- [ ] Compose that gated seam at the runtime composition root with a live policy-finding trigger, and retain the composed run evidence. Ingress drops `params` for a non-operator signal, so that work MUST also carry the per-toggle arguments to the executor through a governed path.
 - [ ] Publish one shadow tfvars-override PR per toggle and retain its append-only audit intent, terminal outcome, and tested `pr_revert` rollback evidence.
 
 ## Why This Is Possible (and Not Magic)
@@ -178,7 +179,8 @@ payload-supplied `action_type` only for an explicit operator request, so this
 signal carries none: Forseti binds `remediate.apply-preflight-toggle` from its own
 event-type table and issues the default `hil` verdict. A blocker therefore cannot
 reach a provider commit without a distinct human approval, and no ingress producer
-can spoof the ActionType.
+can spoof the ActionType. The same trust gate drops `params` for this signal, so the composed
+live path still owes a governed way to carry the per-toggle arguments to the executor.
 
 ### Action Granularity: One Action per Toggle
 

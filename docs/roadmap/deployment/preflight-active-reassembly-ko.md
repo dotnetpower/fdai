@@ -1,7 +1,7 @@
 ---
 title: 프리플라이트 능동 플랜 재조립 (policy blocker에서 재렌더된 terraform으로)
 translation_of: preflight-active-reassembly.md
-translation_source_sha: 04be15466c06b4d655296858682423fea67bc1cf
+translation_source_sha: b727ca7a46f9032d5cb09687ac61560474c97a7d
 translation_revised: 2026-09-26
 ---
 # 프리플라이트 능동 플랜 재조립 (정책 차단 요인에서 재렌더된 terraform으로)
@@ -43,6 +43,7 @@ shipped pure 루프는 **terraform 플랜을 능동적으로 재렌더**할 재�
 |------|------|------|------|-----------|
 | 2026-08-14 | in-progress | 구현 원장을 도입했으며 이전 출처 이력은 재구성하지 않았습니다. 순수 재조립 동작과 아직 조립되지 않은 전달 경로를 분리했습니다. | 현재 변경과 구현 범위 표에 기재한 재조립, 제안 및 Norns 집중 테스트 | 실제 shadow 경로를 조립하고 PR과 감사 근거를 보존해야 합니다. |
 | 2026-09-26 | in-progress | 제안 경계에 게이트를 걸었습니다. 분석기가 누적된 오버라이드를 다시 검증한 뒤에만 제안이 Huginn에 도달하며, 인그레스 이벤트 타입 `preflight_toggle_blocker` 덕분에 Forseti가 페이로드가 제공한 ActionType을 신뢰하지 않고 토글 ActionType을 바인딩합니다. | `current change`, `services/core-control-plane/src/fdai/core/deploy_preflight/pre_publication_gate.py`, `uv run pytest tests/core/deploy_preflight -q` 98개 통과 | 게이트가 걸린 경계를 런타임 조립 루트에서 실제 정책 발견 사항 트리거, PR 발행 및 감사 근거와 함께 조립해야 합니다. |
+| 2026-09-26 | in-progress | 남은 인수 전달 경계를 기록했습니다. 인그레스가 이 오퍼레이터 아닌 신호의 `params`를 버리므로, 조립된 실제 경로는 토글별 인수를 통제된 방식으로 실행기에 전달하는 과제를 남겨 둡니다. | `current change`, `services/core-control-plane/src/fdai/core/deploy_preflight/reassembly_proposals.py` | 게이트가 걸린 경계를 실제 트리거와 함께 조립하고 토글별 인수를 통제된 경로로 전달해야 합니다. |
 
 ### 남은 작업
 
@@ -51,7 +52,7 @@ shipped pure 루프는 **terraform 플랜을 능동적으로 재렌더**할 재�
   `tests/core/deploy_preflight/test_pre_publication_gate.py`의 집중 통합 테스트가 차단·에스컬레이션·
   오래된 증거·범위 변경 패스는 파이프라인 이벤트를 발행하지 않고 PR도 열지 않으며, 해소된
   패스는 `remediate.apply-preflight-toggle`로 판정되어 사람 검토로 보류됨을 입증합니다.
-- [ ] 그 게이트가 걸린 경계를 런타임 조립 루트에서 실제 정책 발견 사항 트리거와 함께 조립하고, 조립된 실행 근거를 남깁니다.
+- [ ] 그 게이트가 걸린 경계를 런타임 조립 루트에서 실제 정책 발견 사항 트리거와 함께 조립하고, 조립된 실행 근거를 남깁니다. 인그레스는 오퍼레이터가 아닌 신호의 `params`를 버리므로, 이 작업은 토글별 인수를 통제된 경로로 실행기에 전달하는 방법도 포함해야 합니다.
 - [ ] 토글마다 shadow tfvars 재정의 PR 하나를 발행하고 추가 전용 감사 의도, 최종 결과 및 테스트된 `pr_revert` 롤백 근거를 보존합니다.
 
 ## 왜 가능한가 (그리고 마법이 아닌가)
@@ -174,7 +175,7 @@ terraform plan (JSON)
 이 신호는 ActionType을 싣지 않습니다. Forseti가 자체 이벤트 타입 테이블에서
 `remediate.apply-preflight-toggle`을 바인딩하고 기본 `hil` 판정을 발행합니다. 따라서 차단
 요인은 별개의 사람 승인 없이 provider commit에 도달할 수 없고, 어떤 인그레스 생산자도
-ActionType을 위조할 수 없습니다.
+ActionType을 위조할 수 없습니다. 같은 신뢰 게이트가 이 신호의 `params`도 버리므로, 조립된 실제 경로는 토글별 인수를 통제된 방식으로 실행기에 전달하는 과제를 여전히 남겨 둡니다.
 
 ### 액션 입도: 토글당 액션 1개
 

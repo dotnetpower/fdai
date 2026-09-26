@@ -18,6 +18,11 @@ pipeline seam an operator command re-enters through
 executes shadow-first, and all seven safeguards come from the executor path,
 not from here. An escalated outcome yields **no** proposals (the caller routes
 it to ``hil``); a partial reassembly is never submitted.
+
+The supported submission entry point is
+:func:`fdai.core.deploy_preflight.pre_publication_gate.gate_toggle_publication`,
+which re-verifies the overrides first. :func:`submit_toggle_proposals` remains
+available for a caller that has already performed that verification.
 """
 
 from __future__ import annotations
