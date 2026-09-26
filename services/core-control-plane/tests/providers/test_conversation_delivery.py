@@ -11,6 +11,7 @@ from fdai.shared.providers.conversation_channel import (
 from fdai.shared.providers.conversation_delivery import (
     InMemoryConversationDeliveryStore,
     OutboundDeliveryAcknowledgement,
+    OutboundDeliveryOriginDeletedError,
     OutboundDeliveryRecord,
     OutboundDeliveryState,
     delivery_record_from_json,
@@ -128,3 +129,95 @@ async def test_same_idempotency_key_cannot_change_stored_response() -> None:
     )
     with pytest.raises(ValueError, match="different response"):
         await store.put(changed)
+
+
+def test_delivery_record_carries_its_origin_reference() -> None:
+    record = _record()
+
+    assert record.origin_ref == "turn:example"
+    assert delivery_record_to_json(record)["origin_ref"] == "turn:example"
+
+
+async def test_origin_deletion_removes_bodies_and_retains_lineage() -> None:
+    store = InMemoryConversationDeliveryStore()
+    record = await store.put(_record())
+    claimed = await store.claim(
+        delivery_id=record.delivery_id, now=NOW, worker_id="worker-a", lease_seconds=30
+    )
+    assert claimed is not None
+    await store.finish(
+        delivery_id=record.delivery_id,
+        worker_id="worker-a",
+        expected_attempt_count=1,
+        state=OutboundDeliveryState.DELIVERED,
+        at=NOW,
+        acknowledgement=OutboundDeliveryAcknowledgement(
+            delivery_id=record.delivery_id,
+            attempt_id=f"{record.delivery_id}:attempt:1",
+            provider_message_id="provider-message-example",
+            acknowledged_at=NOW,
+        ),
+    )
+
+    result = await store.delete_by_origin(origin_ref="turn:example", at=NOW)
+
+    assert result.deleted_delivery_ids == (record.delivery_id,)
+    assert result.retained_attempts == 1
+    assert result.retained_acknowledgements == 1
+    assert await store.get(record.delivery_id) is None
+    snapshot = await store.snapshot()
+    assert snapshot.deliveries == ()
+    assert snapshot.acknowledgements[0].provider_message_id == "provider-message-example"
+
+
+async def test_origin_deletion_preserves_unrelated_origins() -> None:
+    store = InMemoryConversationDeliveryStore()
+    kept = await store.put(replace_origin(_record(), "turn:other"))
+    await store.put(_record())
+
+    result = await store.delete_by_origin(origin_ref="turn:example", at=NOW)
+
+    assert result.deleted_delivery_ids != ()
+    assert await store.get(kept.delivery_id) == kept
+
+
+async def test_purged_origin_refuses_a_resigned_replay() -> None:
+    store = InMemoryConversationDeliveryStore()
+    record = _record()
+    await store.put(record)
+    await store.delete_by_origin(origin_ref="turn:example", at=NOW)
+
+    resigned = replace(
+        record,
+        delivery_id="delivery:resigned",
+        idempotency_key="resigned-key",
+        response=replace(record.response, text="Durable response"),
+    )
+    with pytest.raises(OutboundDeliveryOriginDeletedError):
+        await store.put(record)
+    with pytest.raises(OutboundDeliveryOriginDeletedError):
+        await store.put(resigned)
+
+
+async def test_origin_deletion_rejects_unbounded_or_naive_input() -> None:
+    store = InMemoryConversationDeliveryStore()
+
+    with pytest.raises(ValueError, match="origin_ref"):
+        await store.delete_by_origin(origin_ref="  ", at=NOW)
+    with pytest.raises(ValueError, match="timezone-aware"):
+        await store.delete_by_origin(origin_ref="turn:example", at=NOW.replace(tzinfo=None))
+
+
+def replace_origin(record: OutboundDeliveryRecord, origin_ref: str) -> OutboundDeliveryRecord:
+    """Rebuild one record under another origin without touching its response body."""
+    return new_delivery_record(
+        origin_ref=origin_ref,
+        principal_id=record.principal_id,
+        scope_ref=record.scope_ref,
+        conversation_id=record.conversation_id,
+        binding_id=record.binding_id,
+        response=record.response,
+        created_at=record.created_at,
+        freshness=record.expires_at - record.created_at,
+        retention=record.retention_until - record.created_at,
+    )

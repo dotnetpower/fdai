@@ -10,6 +10,7 @@ from fdai.core.scheduler.continuation_delivery import (
     TRUNCATION_MARKER,
     ContinuationDeliveryConflictError,
     ContinuationDeliveryUnavailableError,
+    ContinuationPurgeIntentError,
     ContinuationRenderingError,
     ScheduledContinuationDeliveryCoordinator,
     UnsupportedContinuationChannelError,
@@ -27,7 +28,11 @@ from fdai.shared.providers.conversation_channel import (
 )
 from fdai.shared.providers.conversation_delivery import (
     InMemoryConversationDeliveryStore,
+    OriginDeletionResult,
+    OutboundDeliveryOriginDeletedError,
+    OutboundDeliveryReadbackError,
     OutboundDeliveryState,
+    new_delivery_record,
 )
 from fdai.shared.providers.scheduled_continuation import (
     ContinuationAnchorState,
@@ -87,6 +92,26 @@ class _RewritingAnchorStore(InMemoryScheduledConversationAnchorStore):
         del anchor_id
         self._reads += 1
         return self._first if self._reads == 1 else self._second
+
+
+class _UnreadableFence:
+    """Fence whose reads and writes fail, so every caller MUST fail closed."""
+
+    async def record(self, *, anchor_id: str, at: datetime) -> None:
+        del anchor_id, at
+        raise ConnectionError("fence store unreachable")
+
+    async def is_fenced(self, *, anchor_id: str) -> bool:
+        del anchor_id
+        raise ConnectionError("fence store unreachable")
+
+
+class _SurvivingDeliveryStore(InMemoryConversationDeliveryStore):
+    """Model a committed delete whose independent readback still finds the body."""
+
+    async def delete_by_origin(self, *, origin_ref: str, at: datetime) -> OriginDeletionResult:
+        del origin_ref, at
+        raise OutboundDeliveryReadbackError("outbound delivery body survived the origin purge")
 
 
 async def _coordinator(
@@ -291,3 +316,122 @@ async def test_oversized_identifier_is_refused_without_rewriting() -> None:
     with pytest.raises(ContinuationRenderingError):
         await coordinator.submit(anchor_id=oversized.anchor_id, now=NOW)
     assert await anchors.get(oversized.anchor_id) is not None
+
+
+async def test_fenced_origin_purge_deletes_the_body_and_keeps_lineage() -> None:
+    anchor = _anchor()
+    fence = InMemoryContinuationDeletionFence()
+    coordinator, _, deliveries = await _coordinator(anchor=anchor, fence=fence)
+    record = await coordinator.submit(anchor_id=anchor.anchor_id, now=NOW)
+    claimed = await deliveries.claim(
+        delivery_id=record.delivery_id, now=NOW, worker_id="worker-1", lease_seconds=60
+    )
+    assert claimed is not None
+    await fence.record(anchor_id=anchor.anchor_id, at=NOW)
+
+    result = await coordinator.purge_origin(anchor_id=anchor.anchor_id, now=NOW)
+
+    assert result.deleted_delivery_ids == (record.delivery_id,)
+    assert result.retained_attempts == 1
+    assert await deliveries.get(record.delivery_id) is None
+    snapshot = await deliveries.snapshot()
+    assert snapshot.deliveries == ()
+    assert snapshot.attempts[0].delivery_id == record.delivery_id
+
+
+async def test_purge_refuses_a_live_origin_without_deletion_intent() -> None:
+    anchor = _anchor()
+    coordinator, _, deliveries = await _coordinator(anchor=anchor)
+    record = await coordinator.submit(anchor_id=anchor.anchor_id, now=NOW)
+
+    with pytest.raises(ContinuationPurgeIntentError):
+        await coordinator.purge_origin(anchor_id=anchor.anchor_id, now=NOW)
+    assert await deliveries.get(record.delivery_id) == record
+
+
+async def test_purge_fails_closed_when_the_fence_is_unreadable() -> None:
+    anchor = _anchor()
+    coordinator, _, deliveries = await _coordinator(anchor=anchor, fence=_UnreadableFence())
+
+    with pytest.raises(RetentionFenceUnavailableError):
+        await coordinator.purge_origin(anchor_id=anchor.anchor_id, now=NOW)
+    assert (await deliveries.snapshot()).deliveries == ()
+
+
+async def test_purged_origin_refuses_a_redelivered_submit() -> None:
+    anchor = _anchor()
+    fence = InMemoryContinuationDeletionFence()
+    coordinator, _, deliveries = await _coordinator(anchor=anchor, fence=fence)
+    await coordinator.submit(anchor_id=anchor.anchor_id, now=NOW)
+    await fence.record(anchor_id=anchor.anchor_id, at=NOW)
+    await coordinator.purge_origin(anchor_id=anchor.anchor_id, now=NOW)
+
+    with pytest.raises(ContinuationDeletionFencedError):
+        await coordinator.submit(anchor_id=anchor.anchor_id, now=NOW)
+    with pytest.raises(OutboundDeliveryOriginDeletedError):
+        await deliveries.put(
+            new_delivery_record(
+                origin_ref=anchor.anchor_id,
+                principal_id=anchor.owner_principal_id,
+                scope_ref=anchor.scope_ref,
+                conversation_id=anchor.origin.conversation_ref,
+                binding_id=None,
+                response=continuation_outbound_response(anchor),
+                created_at=NOW,
+                freshness=timedelta(hours=6),
+                retention=timedelta(days=7),
+            )
+        )
+
+
+async def test_purge_preserves_unrelated_origins() -> None:
+    anchor = _anchor()
+    other = _anchor(run_id="run-2")
+    fence = InMemoryContinuationDeletionFence()
+    coordinator, anchors, deliveries = await _coordinator(anchor=anchor, fence=fence)
+    await anchors.create(other)
+    await coordinator.submit(anchor_id=anchor.anchor_id, now=NOW)
+    kept = await coordinator.submit(anchor_id=other.anchor_id, now=NOW)
+    await fence.record(anchor_id=anchor.anchor_id, at=NOW)
+
+    await coordinator.purge_origin(anchor_id=anchor.anchor_id, now=NOW)
+
+    assert await deliveries.get(kept.delivery_id) == kept
+
+
+async def test_repeated_origin_purge_is_an_idempotent_no_op() -> None:
+    anchor = _anchor()
+    fence = InMemoryContinuationDeletionFence()
+    coordinator, _, _ = await _coordinator(anchor=anchor, fence=fence)
+    await coordinator.submit(anchor_id=anchor.anchor_id, now=NOW)
+    await fence.record(anchor_id=anchor.anchor_id, at=NOW)
+
+    first = await coordinator.purge_origin(anchor_id=anchor.anchor_id, now=NOW)
+    second = await coordinator.purge_origin(anchor_id=anchor.anchor_id, now=NOW)
+
+    assert len(first.deleted_delivery_ids) == 1
+    assert second.deleted_delivery_ids == ()
+
+
+async def test_surviving_copy_keeps_the_origin_purge_pending() -> None:
+    anchor = _anchor()
+    fence = InMemoryContinuationDeletionFence()
+    anchors = InMemoryScheduledConversationAnchorStore()
+    await anchors.create(anchor)
+    deliveries = _SurvivingDeliveryStore()
+    coordinator = ScheduledContinuationDeliveryCoordinator(
+        anchors=anchors, deliveries=deliveries, fence=fence
+    )
+    await coordinator.submit(anchor_id=anchor.anchor_id, now=NOW)
+    await fence.record(anchor_id=anchor.anchor_id, at=NOW)
+
+    with pytest.raises(OutboundDeliveryReadbackError):
+        await coordinator.purge_origin(anchor_id=anchor.anchor_id, now=NOW)
+
+
+async def test_purge_rejects_a_naive_now() -> None:
+    anchor = _anchor()
+    coordinator, _, _ = await _coordinator(anchor=anchor)
+
+    with pytest.raises(ValueError, match="timezone-aware"):
+        await coordinator.purge_origin(anchor_id=anchor.anchor_id, now=NOW.replace(tzinfo=None))

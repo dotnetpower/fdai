@@ -1,6 +1,6 @@
 ---
 translation_of: scheduled-result-continuations.md
-translation_source_sha: c470bd94bb108b559df9db022ed143918e8fd376
+translation_source_sha: 4167968818e761a13099a51454a5f842543f64ed
 translation_revised: 2026-09-26
 ---
 # 예약 결과 이어가기
@@ -175,6 +175,25 @@ anchor id, 기록 principal, 시각만 담으므로 삭제된 payload 없이도 
 Fence는 영구적입니다. 잘린 fence는 재생된 실행이 삭제된 본문을 다시 만들게 하므로, 해당 키
 접두사에는 접두사 기반 상태 보존 정리를 적용하면 안 됩니다.
 
+Fence 키는 현재 anchor id 파생 방식에서 만들어집니다. 파생 방식이 바뀌면 키가 옮겨져 tombstone은
+옛 키에 남은 채 다시 만들어진 실행이 새 id로 받아들여질 수 있으므로, 두 가지 선택적 통제로
+이행을 준비합니다. 이전 id를 참조하는 fence는 현재 id에 대해 범위가 제한된 이전 id 집합을
+확인해 이행 전에 다시 만들어진 id를 거부하며, 새 tombstone은 현재 파생 방식으로만 기록합니다.
+이전 id 하나를 여러 현재 id에 연결하거나 이전 id를 다른 현재 id로 사용할 수 없습니다. 이어서 범위가 제한되고
+멱등적이며 재개 가능한 이어가기 migration이 각 이전 tombstone을 현재 키로 복사합니다. 이 migration은
+이전 tombstone을 삭제하지 않고, 이미 옮겨진 키는 다시 쓰지 않고 존재로 보고하며, 자기 readback을
+통과하지 못한 쓰기는 다음 수행을 위해 미완료로 남기고, 읽거나 쓸 수 없는 fence에서는 닫힘 실패합니다.
+이전 id를 참조하는 fence를 전달받더라도 직접 저장된 새 키를 확인하므로 이전 키의 조회 결과를
+복사 완료로 오인하지 않습니다. 현재는 호출자가 이전 id와 이행 쌍을 제공해야 합니다. 영향을 받는
+모든 키를 열거해 보호하기 전까지 운영에서 파생 방식을 변경하면 안 됩니다.
+
+제출된 예약 결과는 [영구 outbound 회신 ledger](durable-conversation-delivery-ko.md)에 남는 답변 본문의
+또 다른 보존 복사본입니다. Core의 메모리 내 원장은 anchor id를 키로 하는 출처 범위 삭제를 받아들이며, 기록된
+삭제 fence가 그 권위 있는 삭제 의도입니다. Fence가 없는 anchor id는 거부되므로 살아 있는 결과가 전달
+중에 삭제되지 않습니다. 메모리 내 원장이 살아 있는 동안에는 자체 출처 tombstone이 늦은
+재전달을 거부하며, 이후 출처 fence를 읽을 수 없게 되어도 마찬가지입니다. Operator 소유 영속
+원장에는 이 삭제나 tombstone이 아직 없으며, 이 삭제는 보존 작업자의 대상 순서에도 포함되지 않습니다.
+
 운영 deleter는 PostgreSQL에 남는 세 복사본, 즉 projected 대화 턴, 출처 briefing 실행, anchor 행에
 연결되어 있습니다. 각 구문은 해당 anchor의 principal, 대화, 실행, anchor id로 범위가 제한되므로
 관련 없는 범위와 같은 대화의 관련 없는 턴은 보존됩니다. Anchor 삭제는 추가로 `expired` 상태를
@@ -200,6 +219,11 @@ Fence는 영구적입니다. 잘린 fence는 재생된 실행이 삭제된 본�
     쓰거나 읽을 수 없는 fence에서 닫힘 실패, 재시작 후 읽기 가능한 fence입니다.
 - 생성 시 fence가 걸린 anchor id 거부, 범위가 제한된 삭제 구문, 살아남은 복사본을 pending으로
     유지하는 독립 readback입니다.
+- Legacy-alias fence 읽기, 현재 파생 방식 쓰기, 범위를 넘거나 자기 자신을 가리키는 alias 거부,
+    버려진 쓰기에서 미완료로 남고 사용할 수 없는 fence에서 닫힘 실패하는 멱등적이고 재개 가능한
+    tombstone 이어가기입니다.
+- 기록된 삭제 fence 아래 ledger 삭제, 삭제 의도 없는 삭제 거부, 관련 없는 출처 보존, 민감하지 않은
+    계보 유지, 삭제 후 재전달 거부입니다.
 
 ## 구현 상태
 
@@ -212,7 +236,7 @@ Fence는 영구적입니다. 잘린 fence는 재생된 실행이 삭제된 본�
 | Configuration review campaign | implemented | `services/core-control-plane/src/fdai/core/detection/configuration_review.py`; focused configuration-review 테스트 | 범위가 제한된 세 실행 집약기, 감사 및 상태 전이, 재개, 청사진 제안 및 구체화 guard가 있으며 schedule 권한을 부여하지 않습니다. |
 | Operator 경로 및 Console 변환 결과 | in-progress | `services/operator-service/src/fdai_operator_service/families/conversation/manifest.py`; `console/src/routes/scheduled-continuations.tsx`; focused 경로 및 Console 테스트 | 읽기 및 명령 화면은 있지만 관리되는 인증된 종단 간 이어가기 증적은 보존되지 않았습니다. |
 | Slack 및 Teams 전달 동등성 | in-progress | [채널 동작](#채널-동작) | 계약과 어댑터가 설명돼 있으며 외부 채널 및 영속 원장 연결에는 배포 근거가 필요합니다. |
-| Legal-hold-aware 물리 보존 | in-progress | `services/core-control-plane/src/fdai/core/scheduler/continuation_retention.py`; `services/core-control-plane/src/fdai/delivery/persistence/postgres_scheduled_continuation_retention.py`; `services/core-control-plane/tests/core/scheduler/test_continuation_retention.py`; `services/core-control-plane/tests/persistence/test_scheduled_continuation_retention.py` | 조정된 worker가 유예 기간 이후 projected 턴, 출처 결과, anchor를 이 순서로 삭제하고, active anchor를 거부하며, legal hold나 읽을 수 없는 hold registry에서 닫힘 실패하고, 부분 실패를 재개 가능하게 유지하며, 재시도 감사를 합칩니다. 첫 삭제 전에 지속적인 삭제 fence를 기록하고 생성과 전달에서 fence가 걸린 anchor id를 거부합니다. 운영 PostgreSQL deleter는 범위가 제한된 구문과 독립 삭제 readback을 갖추었으며, 라이브 사례는 환경 조건부로 남고 통제된 삭제 증적은 아직 없습니다. |
+| Legal-hold-aware 물리 보존 | in-progress | `services/core-control-plane/src/fdai/core/scheduler/continuation_retention.py`; `services/core-control-plane/src/fdai/delivery/persistence/postgres_scheduled_continuation_retention.py`; `services/core-control-plane/tests/core/scheduler/test_continuation_retention.py`; `services/core-control-plane/tests/persistence/test_scheduled_continuation_retention.py` | 조정된 worker가 유예 기간 이후 projected 턴, 출처 결과, anchor를 이 순서로 삭제하고, active anchor를 거부하며, legal hold나 읽을 수 없는 hold registry에서 닫힘 실패하고, 부분 실패를 재개 가능하게 유지하며, 재시도 감사를 합칩니다. 첫 삭제 전에 지속적인 삭제 fence를 기록하고 생성과 전달에서 fence가 걸린 anchor id를 거부합니다. 운영 PostgreSQL deleter는 범위가 제한된 구문과 독립 삭제 readback을 갖추었으며, 라이브 사례는 환경 조건부로 남고 통제된 삭제 증적은 아직 없습니다. Legacy-alias fence와 범위가 제한된 재개 가능한 이어가기 migration이 anchor id 파생 방식이 바뀌어도 tombstone을 유효하게 유지합니다. |
 
 ### 구현 이력
 
@@ -224,6 +248,7 @@ Fence는 영구적입니다. 잘린 fence는 재생된 실행이 삭제된 본�
 | 2026-08-16 | in-progress | 삭제 순서, 유예 기간, legal hold, 부분 실패 및 감사 동작을 조정하는 legal-hold-aware 보존 worker를 추가했습니다. | `current change`; `pytest services/core-control-plane/tests/core/scheduler/`가 집중 보존 사례 13개를 포함해 74개 테스트를 통과했고 focused Ruff도 통과했습니다. | 운영 결과, projected 턴, anchor deleter를 연결하고 인증된 전달과 외부 채널 근거를 보존해야 합니다. |
 | 2026-09-26 | in-progress | Projected 턴, 출처 briefing 실행, anchor 행에 대한 운영 PostgreSQL deleter를 범위가 제한된 구문과 독립 삭제 readback으로 연결하고, 생성과 외부 전달에서 fence가 걸린 anchor id를 거부하는 지속적인 삭제 fence를 추가했습니다. | `current change`; [Issue #1025](https://github.com/dotnetpower/fdai/issues/1025); `pytest services/core-control-plane/tests/core/scheduler services/core-control-plane/tests/persistence/test_scheduled_continuation.py services/core-control-plane/tests/persistence/test_scheduled_continuation_retention.py`가 환경 조건부 skip 3건과 함께 104개 사례를 통과했고 focused Ruff와 strict mypy도 통과했습니다. | 환경 조건부 라이브 deleter 사례를 실행하고 통제된 삭제 증적 하나와 인증된 전달 및 외부 채널 근거를 보존해야 합니다. |
 | 2026-09-27 | in-progress | `PostgresScheduledContinuationDeleter`와 `RetentionReadbackError`를 delivery persistence 패키지로 노출하고, 지원하지 않는 보존 대상에 대해 구문을 계획하지 않는 대신 거부하며, 지속 fence 재시도가 부분 정리를 이어서 완료하고 fence는 정확히 한 번만 기록됨을 증명했습니다. | `current change`; [Issue #1025](https://github.com/dotnetpower/fdai/issues/1025); `pytest services/core-control-plane/tests/core/scheduler services/core-control-plane/tests/persistence/test_scheduled_continuation.py services/core-control-plane/tests/persistence/test_scheduled_continuation_retention.py` 110개 사례 통과 및 환경 게이트 건너뜀 3개이며 2026-09-26에 기록한 개수를 정정합니다. Focused Ruff 및 엄격 mypy 통과입니다. | 환경 게이트가 적용된 라이브 삭제기 사례를 실행하고 통제된 정리 증적 하나를 보존하며, 인증된 전달과 외부 채널 증적을 확보합니다. |
+| 2026-09-26 | in-progress | 선택적으로 사용하는 이전 id 참조 삭제 fence와 범위가 제한된 tombstone 이어가기 기능을 추가했습니다. 이행 중에는 이전 id 조회 결과를 새 키의 복사 완료로 오인하지 않고 직접 저장된 키를 확인합니다. 메모리 내 outbound 원장은 출처 삭제 fence 아래에서 출처 범위 삭제를 수행할 수 있습니다. | `current change`; [Issue #1025](https://github.com/dotnetpower/fdai/issues/1025); `services/core-control-plane/src/fdai/core/scheduler/continuation_retention.py`, `services/core-control-plane/src/fdai/core/scheduler/continuation_delivery.py` 및 `uv run pytest -q --no-cov services/core-control-plane/tests/core/scheduler services/core-control-plane/tests/providers/test_conversation_delivery.py services/core-control-plane/tests/conversation/test_outbound_delivery.py services/core-control-plane/tests/persistence/test_scheduled_continuation.py services/core-control-plane/tests/persistence/test_scheduled_continuation_retention.py services/operator-service/tests/test_channel_delivery_postgres.py` (149건 통과, 환경 조건부 7건 건너뜀), 변경 파일 Ruff 검사와 형식 검사 및 엄격한 mypy 통과. | 파생 방식을 변경하기 전에 모든 이전 id를 열거하고 연결해야 합니다. Operator 원장에 영속 삭제를 구현해 legal hold를 확인하는 보존 작업자에 연결하고 통제된 재확인 증적을 보존해야 합니다. |
 
 ### 남은 작업
 
@@ -233,8 +258,13 @@ Fence는 영구적입니다. 잘린 fence는 재생된 실행이 삭제된 본�
 - [x] 만료를 물리 삭제로 표시하기 전에 출처 결과, 앵커, 변환된 턴, 감사, 재시도 및 부분 실패 동작을 조정하는 legal-hold-aware 보존 worker를 구현합니다.
 - [x] 저장된 결과, projected 대화 턴, PostgreSQL anchor 행에 대한 운영 deleter를 범위가 제한된 구문, 지속적인 삭제 fence, 살아남은 복사본을 pending으로 유지하는 독립 readback과 함께 연결합니다.
 - [ ] 환경으로 제한된 라이브 deleter 사례를 지원되는 로컬 데이터베이스에서 실행하고, 만료를 물리 삭제 완료로 표현하기 전에 통제된 삭제 증적 하나를 보존합니다.
-- [ ] Fence를 현재 anchor id 파생 방식에 맞춰 유지합니다. 파생 방식이 바뀌면 fence 키도 바뀌므로,
-    다시 만들어진 id를 받아들이기 전에 기존 tombstone을 이어 가는 migration이 필요합니다.
+- [x] 직접 저장된 현재 키를 확인하고 이전 id의 소유권 충돌을 차단하는, 범위가 제한된
+    이전 id 참조 fence와 재개 가능한 이어가기 기능을 구현합니다.
+- [ ] Anchor id 파생 방식을 변경하기 전에 영속 fence 저장소에서 모든 이전 id와
+    이어가기 쌍을 열거하고, 생성과 전달에 이전 id 참조 fence를 연결하며, 오래된 재생으로
+    삭제된 본문이 복구되지 않음을 증명하는 통제된 이행 증적을 보존합니다.
+- [ ] Operator 소유 원장에 영속 출처 범위 삭제를 구현하고 보존 작업자의 대상 순서에 연결해, 한 번의 조정된
+    수행이 projected 턴, 출처 결과, anchor, 제출된 전달 복사본을 삭제하도록 합니다.
 
 ## 관련 문서
 

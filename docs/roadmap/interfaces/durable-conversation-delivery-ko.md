@@ -1,6 +1,6 @@
 ---
 translation_of: durable-conversation-delivery.md
-translation_source_sha: 4768aafeb7330259d484e1fde49642d06615d9b9
+translation_source_sha: aa9dd8cd85472e3e8c0e8e9fb5a736e40d9630f8
 translation_revised: 2026-09-26
 ---
 # 영구 대화 전송
@@ -78,7 +78,7 @@ writer를 부여하지 않습니다.
 | Operator A3 의미 전달 및 복구 worker | 구현됨 | `channel_edge/{pipeline,pipeline_contracts,worker}.py`, 집중 edge 검사, live PostgreSQL 연결 검사 1개 건너뛰기 없이 통과 | 결정적 프로바이더 메시지 identity는 텍스트 전달 재시도를 하나의 의미 제안, binding 및 delivery로 수렴시킵니다. 첨부가 있는 레코드는 메시지 점유 또는 의미 게시 전에 실패하므로 메타데이터가 텍스트 전용 응답에서 사라질 수 없습니다. |
 | Operator A3 운영 조립 | 구현됨 | `channel_edge/{composition,runtime,application,entry}.py`, private 로컬 실행, Operator-service Terraform root, 집중 edge 검사 | 독립 lifespan은 Operator role과 모든 소유 table을 probe하고, consumer보다 먼저 의미 전송과 replay를 시작하며, 준비 상태 전에 만료된 전송을 조정합니다. 첨부 지원은 기본적으로 꺼져 있고 지원되지 않는 활성화는 의존성을 할당하기 전에 실패합니다. |
 | 어댑터 상태 정책 | 구현됨 | [`adapter_health.py`](../../../services/core-control-plane/src/fdai/core/conversation/adapter_health.py), [`test_adapter_health.py`](../../../services/core-control-plane/tests/conversation/test_adapter_health.py) | 제한된 실패 구간, 실패 시 닫히는 차단기 모드, 권한이 확인된 일시 중지 및 재개, 권한이 확인된 A2 대체 경로 동작이 메모리 내 집중 테스트를 통과합니다. 별도로 인증된 명령 앱은 구현되지 않았습니다. |
-| 예약 전달 및 어댑터 명령 표면 | 진행 중 | [`continuation_delivery.py`](../../../services/core-control-plane/src/fdai/core/scheduler/continuation_delivery.py), [`scheduled_continuation.py`](../../../services/core-control-plane/src/fdai/shared/providers/scheduled_continuation.py), [`conversation_delivery.py`](../../../services/core-control-plane/src/fdai/shared/providers/conversation_delivery.py), [`test_continuation_delivery.py`](../../../services/core-control-plane/tests/core/scheduler/test_continuation_delivery.py) | `ScheduledContinuationDeliveryCoordinator`가 저장된 예약 결과 하나를 앵커 id를 출처로 사용해 영속 outbound ledger로 재생하고, fence가 걸렸거나 없거나 만료되었거나 외부가 아니거나 다시 쓰인 출처를 거부하며, 반복 제출을 합칩니다. 어댑터 명령 경로와 운영 시작 조립은 여전히 현재 트리에 없습니다. |
+| 예약 전달 및 어댑터 명령 표면 | 진행 중 | [`continuation_delivery.py`](../../../services/core-control-plane/src/fdai/core/scheduler/continuation_delivery.py), [`scheduled_continuation.py`](../../../services/core-control-plane/src/fdai/shared/providers/scheduled_continuation.py), [`conversation_delivery.py`](../../../services/core-control-plane/src/fdai/shared/providers/conversation_delivery.py), [`test_continuation_delivery.py`](../../../services/core-control-plane/tests/core/scheduler/test_continuation_delivery.py) | `ScheduledContinuationDeliveryCoordinator`가 저장된 예약 결과 하나를 앵커 id를 출처로 사용해 영속 outbound ledger로 재생하고, fence가 걸렸거나 없거나 만료되었거나 외부가 아니거나 다시 쓰인 출처를 거부하며, 반복 제출을 합칩니다. `purge_origin`은 출처 보존 fence가 삭제 의도를 기록한 경우에만 해당 결과의 메모리 내 원장 복사본을 삭제합니다. 어댑터 명령 경로와 운영 시작 조립은 여전히 현재 트리에 없습니다. |
 | 읽기 전용 전달 운영 패널 | 구현됨 | [`delivery_panel.py`](../../../services/core-control-plane/src/fdai/core/conversation/delivery_panel.py), [`test_delivery_panel.py`](../../../services/core-control-plane/tests/conversation/test_delivery_panel.py) | `ConversationDeliveryPanel`은 지연 시간 개수/평균/p95, 상태 개수, 중복 위험, 재시도, 포기, 시도 및 확인 응답 개수, 차단기 상태 개수, 선택적 progressive 계수기를 투영합니다. 페이로드는 `read_only=true` 및 `mutations_available=false`를 선언하고 식별자나 답변 본문을 노출하지 않으며 스냅샷 읽기 능력만 도달합니다. 아직 Console 경로나 운영 저장소가 이 투영을 연결하지 않았습니다. |
 
 | 영역 | 상태 | 근거 | 참고 |
@@ -111,6 +111,7 @@ writer를 부여하지 않습니다.
 | 2026-09-12 | implemented | Versioned Core-to-Operator 읽기 조사 완료 수신, 멱등적 Web writeback 및 범위가 제한된 inbox 보존을 정합화하면서 채널 및 통제된 재시작 gap을 유지했습니다. | `current change`; 완료 transport, Operator runtime/store 및 writer-grant test(`24 passed`, skip 없음). | 검증된 채널 outbound enqueue를 추가하고 통제된 재시작 근거를 보존합니다. |
 | 2026-09-26 | implemented | 영속 outbound ledger 위에 `ScheduledContinuationDeliveryCoordinator`를 구현했습니다. 저장된 앵커만 재생하고 고정된 앵커 id를 출처로 사용하며, 보존 삭제 fence, 없거나 만료된 앵커, 외부가 아닌 채널, 다시 쓰인 저장 내용에서 닫힘 실패합니다. | `current change`; [Issue #1025](https://github.com/dotnetpower/fdai/issues/1025); `pytest services/core-control-plane/tests/core/scheduler services/core-control-plane/tests/providers/test_conversation_delivery.py`가 111개 사례를 통과했고 focused Ruff와 strict mypy도 통과했습니다. | 조정기를 운영 채널 어댑터와 시작 조립에 연결하고 통제된 Slack 및 Teams 전달 증적을 보존해야 합니다. |
 | 2026-09-27 | implemented | 조정기의 채널 렌더링을 강화했습니다. 상한을 넘는 저장 요약은 결정적으로 잘라 내고 기록 데이터에 표시하며, 채널 봉투 한도를 넘는 식별자는 앵커 id가 전달 신원을 담기 때문에 타입 없는 오류로 빠져나가지 않고 `ContinuationRenderingError`를 발생시킵니다. | `current change`; [Issue #1025](https://github.com/dotnetpower/fdai/issues/1025); `pytest services/core-control-plane/tests/core/scheduler services/core-control-plane/tests/providers/test_conversation_delivery.py` 106개 사례 통과이며 2026-09-26에 기록한 개수를 정정합니다. Focused Ruff 및 엄격 mypy 통과입니다. | `ScheduledContinuationDeliveryCoordinator`를 운영 채널 어댑터와 시작 조립에 연결한 다음 통제된 Slack 및 Teams 전달 증적을 보존합니다. |
+| 2026-09-26 | 진행 중 | Core의 메모리 내 전달 저장소에 출처 범위 삭제를 추가했습니다. 전달 기록은 출처 참조를 별도 필드로 저장하며, 프로세스 범위 tombstone이 저장소의 수명 동안 늦은 쓰기를 차단합니다. `ScheduledContinuationDeliveryCoordinator.purge_origin`은 출처 삭제 fence가 기록된 경우에만 호출할 수 있습니다. | `current change`; [Issue #1025](https://github.com/dotnetpower/fdai/issues/1025); `services/core-control-plane/src/fdai/shared/providers/conversation_delivery.py`, `services/core-control-plane/src/fdai/core/scheduler/continuation_delivery.py` 및 `uv run pytest -q --no-cov services/core-control-plane/tests/core/scheduler services/core-control-plane/tests/providers/test_conversation_delivery.py services/core-control-plane/tests/conversation/test_outbound_delivery.py services/core-control-plane/tests/persistence/test_scheduled_continuation.py services/core-control-plane/tests/persistence/test_scheduled_continuation_retention.py services/operator-service/tests/test_channel_delivery_postgres.py` (149건 통과, 환경 조건부 7건 건너뜀), 변경 파일 Ruff 검사와 형식 검사 및 엄격한 mypy 통과. | Operator PostgreSQL 원장에 영속 출처 삭제, 원자적인 늦은 쓰기 차단과 독립 재확인을 구현하고 보존 작업자에 연결해야 합니다. 재시작 후에도 안전한 물리 삭제는 아직 증명하지 못했습니다. |
 
 ### 남은 작업
 
@@ -129,9 +130,12 @@ writer를 부여하지 않습니다.
      `ScheduledContinuationDeliveryCoordinator`를 구현합니다.
 - [ ] `ScheduledContinuationDeliveryCoordinator`를 운영 채널 어댑터와 시작 조립에 연결하고
      통제된 Slack 및 Teams 예약 전달 증적을 보존합니다.
-- [ ] Outbound 전달 ledger에 출처 범위 삭제를 추가합니다. 제출된 예약 결과는 답변 본문의 또 다른
-     보존 복사본이며 현재는 자체 보존 기간만 이를 제한하므로, 예약 결과 보존이 권위 있는 출처 삭제
-     의도에 따라 이를 삭제하지 못합니다.
+- [x] 출처 삭제 fence 아래에서 Core 메모리 내 전달 저장소의 출처 범위 삭제를 구현합니다.
+     관련 없는 출처와 시도 및 확인 응답 계보를 보존하고 남은 본문을 확인하지만, 재시작 후에도
+     안전한 물리 삭제는 증명하지 못했습니다.
+- [ ] 동일한 출처 범위 삭제, 출처 tombstone, 재확인을 Operator 소유 PostgreSQL 전달 ledger에
+     구현하고, 이 삭제를 예약 결과 보존 worker의 삭제 순서에 연결해 한 번의 조정된 수행이 모든
+     보존 복사본을 처리하도록 합니다.
 - [x] 변경 제어가 없는 GET 전용 `ConversationDeliveryPanel` 투영을 구현합니다.
 - [ ] `ConversationDeliveryPanel`을 인증된 Console 읽기 경로와 운영 전달 저장소에 연결하고
      범위가 제한된 progressive-conversation 수집기를 함께 공유합니다.
@@ -187,6 +191,14 @@ pending -> sending -> delivered
 대화, 연결, 출처 참조, 최신성 기한, 보존 기한을 전송 전에
 저장합니다. 고정된 출처와 destination 및 연산으로 결정론적 멱등성 키를
 만듭니다. 동일 키를 다른 응답 내용에 재사용하면 차단됩니다.
+
+Core의 메모리 내 전달 저장소는 출처 참조를 파생된 키 안뿐 아니라 별도 필드에도 보관합니다.
+출처 범위 삭제는 일치하는 본문을 삭제하기 전에 메모리 내 tombstone을 기록하고 남은 본문을
+확인합니다. 본문이 남으면 삭제가 미완료 상태로 유지됩니다. 이 tombstone은 저장소가 살아 있는
+동안 멱등성 키를 바꾼 늦은 쓰기를 거부합니다. 시도 및 확인 응답 행은 답변 텍스트가 아니라
+시도, 시각, 프로바이더 접수 계보만 담으므로 삭제 후에도 남습니다. 관련 없는 출처, 범위와
+대화는 그대로 유지됩니다. 이는 재시작 후에도 안전한 물리 삭제가 아닙니다. Operator 소유
+PostgreSQL 원장에 출처 열, 영속 tombstone, 원자적 삭제와 독립 재확인을 구현해야 합니다.
 타입이 지정된 채널 진행 상황 스냅샷은 이 변경할 수 없는 응답 하나에 포함됩니다. 영속 재생은
 프로바이더 호출 전에 contiguous 개정 번호, 단조 증가 활동 개수 및 정본 답변과 동일한 최종
 confirmed 스냅샷을 검증합니다. 스냅샷을 다시 생성하거나 조정기를 다시 실행하지 않습니다.
