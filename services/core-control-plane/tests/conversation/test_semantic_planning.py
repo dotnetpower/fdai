@@ -43,6 +43,7 @@ from fdai.core.conversation.semantic_planning_frame_checks import (
     deterministic_pre_frame_outcome,
 )
 from fdai.core.conversation.semantic_planning_frame_core import build_semantic_frame
+from fdai.core.conversation.semantic_planning_frame_gate import _clarification_for_frame
 from fdai.core.conversation.semantic_planning_models import (
     BoundResourceContext,
     SemanticFrameProposal,
@@ -479,6 +480,31 @@ def test_resource_list_clears_a_contradictory_resource_identity_clarification() 
     assert outcome.frame.output_shape == SemanticOutputShape.RESOURCE_LIST
     assert outcome.frame.unresolved_terms == ()
     assert outcome.plan is not None
+
+
+@pytest.mark.parametrize(
+    ("utterance", "expected"),
+    (
+        ("Trace the path for the resource.", "Which exact resource name or ID should I use?"),
+        ("리소스의 경로를 추적해줘.", "조회할 정확한 리소스 이름 또는 ID를 알려주세요?"),
+    ),
+)
+def test_resource_identity_clarification_hides_internal_requirement_token(
+    utterance: str,
+    expected: str,
+) -> None:
+    proposal = SemanticFrameProposal.model_validate(
+        _frame(
+            unresolved_terms=["resource_identity"],
+            clarification_requirements=["resource_identity"],
+            clarification="Please clarify these unresolved concepts: resource_identity?",
+        )
+    )
+
+    clarification = _clarification_for_frame(proposal, utterance=utterance)
+
+    assert clarification == expected
+    assert "resource_identity" not in clarification
 
 
 @pytest.mark.parametrize(

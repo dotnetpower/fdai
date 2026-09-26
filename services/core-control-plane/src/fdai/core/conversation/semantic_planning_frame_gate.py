@@ -76,6 +76,7 @@ from .semantic_planning_frame import (
 )
 from .semantic_planning_frame_core import build_semantic_frame
 from .semantic_planning_models import (
+    ClarificationRequirement,
     SemanticFrameProposal,
     SemanticOutputShape,
     SemanticPlanningDisposition,
@@ -435,7 +436,7 @@ def normalize_and_gate_frame(
             clarification=resource_clarification,
         )
     if frame.unresolved_terms:
-        clarification = proposal.clarification or _clarification(frame.unresolved_terms)
+        clarification = _clarification_for_frame(proposal, utterance=utterance)
         return _outcome(
             SemanticPlanningDisposition.CLARIFICATION,
             "semantic_clarification_required",
@@ -501,3 +502,13 @@ def normalize_and_gate_frame(
             frame=frame,
         )
     return proposal, frame, investigation_intent
+
+
+def _clarification_for_frame(proposal: SemanticFrameProposal, *, utterance: str) -> str:
+    if proposal.clarification_requirements == (ClarificationRequirement.RESOURCE_IDENTITY,):
+        return (
+            "조회할 정확한 리소스 이름 또는 ID를 알려주세요?"
+            if any("가" <= character <= "힣" for character in utterance)
+            else "Which exact resource name or ID should I use?"
+        )
+    return proposal.clarification or _clarification(proposal.unresolved_terms)
