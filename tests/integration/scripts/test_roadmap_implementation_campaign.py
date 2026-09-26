@@ -154,6 +154,21 @@ def test_campaign_prompt_requires_exact_batch_and_hardening_floor() -> None:
         assert f"`{' '.join(gate)}`" in prompt
 
 
+def test_batch_owned_pytest_gate_uses_the_locked_uv_environment() -> None:
+    module = _load()
+
+    assert (
+        "uv",
+        "run",
+        "python",
+        "-m",
+        "pytest",
+        "tests/integration/scripts/test_service_test_suites.py",
+        "-q",
+    ) in module.BATCH_OWNED_GATES
+    assert not any(gate[:3] == ("python3", "-m", "pytest") for gate in module.BATCH_OWNED_GATES)
+
+
 def test_choose_issue_requires_registered_executable_unfinished_work() -> None:
     module = _load()
     issue_type = module.project_board.IssueRecord
