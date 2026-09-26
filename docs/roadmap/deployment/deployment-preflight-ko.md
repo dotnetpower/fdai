@@ -1,8 +1,8 @@
 ---
 title: 배포 프리플라이트 (배포 가능성 및 blocker 수집)
 translation_of: deployment-preflight.md
-translation_source_sha: 4315727b46e948975d58db374c9a114ce9ff24eb
-translation_revised: 2026-09-26
+translation_source_sha: b2eab8c3a697d2f54ab6c94050fa04f05c238b9a
+translation_revised: 2026-09-27
 ---
 # 배포 프리플라이트 (배포 가능성 및 차단 요인 수집)
 
@@ -32,7 +32,8 @@ translation_revised: 2026-09-26
 |------|------|------|------|
 | 프로브 계약, 결정론적 프로브, 분석기 및 리포트 | implemented | `services/core-control-plane/src/fdai/core/deploy_preflight/`, `services/core-control-plane/src/fdai/shared/providers/feasibility_probe.py` 및 배포 프리플라이트 집중 테스트 | 안정적인 발견 사항, 실패 시 차단되는 프로브 실행, 판정 및 shadow와 enforce 동작이 테스트되어 있습니다. |
 | 읽기 전용 Azure 프로브 및 보호된 계획 근거 | implemented | `scripts/deployment/azure/run_live_preflight.py`, `.github/workflows/deploy-dev.yml` 및 `tests/integration/scripts/test_run_live_preflight.py` | 보호된 실행기는 독립 실행형 스크립트를 호출하고 실제 검사 범주 네 개를 모두 요구하며, 근거를 정제하고 그 다이제스트를 계획에 연결합니다. |
-| Terraform 토글, 대체 렌더링 fixture 및 환경 프로파일 기본 요소 | implemented | `infra/modules/preflight-toggles/`, 집중 `terraform test -filter=tests/alternate_rendering.tftest.hcl`, `test_environment_profile.py` 및 `test_reassembly_proposals.py` 검사 | 제네릭 상류 루트는 포크 소유 리소스 소비자를 의도적으로 인스턴스화하지 않습니다. 영속 프로파일 새로 고침 작업은 조립되지 않았습니다. |
+| Terraform 토글, 대체 렌더링 fixture 및 환경 프로파일 기본 요소 | implemented | `infra/modules/preflight-toggles/`, 집중 `terraform test -filter=tests/alternate_rendering.tftest.hcl`, `test_environment_profile.py` 및 `test_reassembly_proposals.py` 검사 | 제네릭 상류 루트는 포크 소유 리소스 소비자를 의도적으로 인스턴스화하지 않습니다. |
+| 영속 환경 프로파일 새로 고침 및 Inventory 변경 무효화 | implemented | `services/core-control-plane/src/fdai/delivery/deploy_preflight/environment_profile_refresh.py`, `delivery/inventory_delta.py`, `delivery/inventory_change_acceleration.py`, 집중 `test_environment_profile_refresh.py` 및 `test_inventory_delta.py` | 복구 Inventory 변경 작업은 커서를 진행하기 전에 범위별 영속 캐시를 무효화합니다. 주입된 읽기 전용 생성기는 범위가 제한된 임대 아래 새로 고치며, 테스트는 재시작, 만료, 멱등성, 오래된 결과의 쓰기 차단을 확인합니다. 실제 환경의 생성기는 아직 연결되지 않았고 캐시된 프로파일은 배포 권한을 부여하지 않습니다. |
 | 검사 발행 및 정제된 GitHub 어댑터 | implemented | `services/core-control-plane/src/fdai/core/deploy_preflight/check_publish.py`, `services/core-control-plane/src/fdai/delivery/github/preflight_checks.py` 및 집중 테스트 | 어댑터는 범위, 발견 사항, 근거, 메타데이터를 노출하지 않고 기존 PR의 최신 커밋에 제한된 상태를 게시합니다. 실제 PR 경로에는 아직 연결되지 않았습니다. |
 | 게시 전 재검증 게이트 | implemented | `services/core-control-plane/src/fdai/core/deploy_preflight/pre_publication_gate.py` 및 `test_pre_publication_gate.py` | 교정 제안을 제출하기 전에 분석기가 다시 실행되며, 차단·오래된 증거·범위 변경 리포트는 게시를 보류하고 아무것도 제출하지 않습니다. |
 | PR 전달 전 갱신 래퍼 | implemented | `services/core-control-plane/src/fdai/delivery/deploy_preflight/pr_publication.py` 및 `services/core-control-plane/tests/delivery/test_preflight_pr_publication.py` | 주입된 읽기 전용 갱신이 정확한 수정안 다이제스트, 신뢰할 수 있는 범위, 필수 검사 범주, 차단 사항이 없는 최신 보고서를 확인한 뒤에만 기존 PR 발행기를 호출합니다. |
@@ -48,13 +49,14 @@ translation_revised: 2026-09-26
 | 2026-09-26 | in-progress | 검토 후 게이트를 강화했습니다. 공백이 포함된 기대 범위를 정규화하고, 유한하지 않은 신선도 창과 시간대 없는 시계를 제출 이전에 거부하며, 보류 기록이 유지하는 발견 사항 ID 수를 제한합니다. | `current change`, `services/core-control-plane/tests/core/deploy_preflight/test_pre_publication_gate.py`, 집중 `uv run pytest tests/core/deploy_preflight -q` 통과 | 변경 없음: 게이트를 실제 컨트롤 루프 경로에 조립하고, 영속 프로파일 새로 고침과 GitHub Checks 발행기를 추가해야 합니다. |
 | 2026-09-26 | in-progress | 검토에서 발견한 판정 커버리지 공백을 메웠습니다. 경고만 있는 보고서와 깨끗한 섀도 보고서 모두 섀도 우선 제안을 게시하며, 두 경로를 모두 단언합니다. | `current change`, `services/core-control-plane/tests/core/deploy_preflight/test_pre_publication_gate.py`, 집중 `uv run pytest tests/core/deploy_preflight -q` 105개 통과 | 변동 없음: 게이트를 실제 컨트롤 루프 경로에 조립하고, 지속 프로파일 갱신과 GitHub Checks 발행기를 추가해야 합니다. |
 | 2026-09-26 | in-progress | 기존 프로바이더 경계를 사용해 PR 전달 전 갱신 래퍼와 정제된 GitHub Checks 어댑터를 추가했습니다. 어느 쪽에도 실행 또는 승인 권한을 부여하지 않습니다. | `current change`, `services/core-control-plane/src/fdai/delivery/deploy_preflight/pr_publication.py`, `services/core-control-plane/src/fdai/delivery/github/preflight_checks.py`, 집중 전달 테스트(`uv run pytest -q --no-cov services/core-control-plane/tests/delivery/test_preflight_pr_publication.py services/core-control-plane/tests/delivery/test_github_preflight_checks.py`, 30개 통과) | 실제 갱신을 연결하고 원본 기준 브랜치 변경을 차단하며, PR 생성 후 Checks를 연결하고, 관리되는 토글 인자 전달, 영속 프로파일 무효화, 운영 근거를 추가해야 합니다. |
+| 2026-09-27 | implemented | 비교 후 설정 방식의 재시작 가능한 환경 프로파일 새로 고침 작업을 추가하고, 복구 Inventory 변경의 커서 확정 전에 영속 기록을 무효화하도록 연결했습니다. 프로세스별 캐시를 신뢰하지 않고 공유 저장소에서 최신 기록을 다시 읽으며, 변경 작업이 겹치거나 임대가 만료되면 오래된 프로브 결과를 게시하지 않습니다. | `current change`, `services/core-control-plane/src/fdai/delivery/deploy_preflight/environment_profile_refresh.py`, `delivery/inventory_delta.py`, `delivery/inventory_change_acceleration.py`, `tests/delivery/test_environment_profile_refresh.py`, `uv run pytest -q --no-cov services/core-control-plane/tests/delivery/test_environment_profile_refresh.py services/core-control-plane/tests/delivery/test_inventory_delta.py`(45개 통과) | 신뢰할 수 있는 읽기 전용 프로파일 생성기와 예약된 새로 고침을 런타임에 연결해야 합니다. 컨트롤 루프의 PR 게이트, Checks 전달, 관리되는 운영 근거는 별도 작업으로 남습니다. |
 
 ### 남은 작업
 
 - [x] 제네릭 상류 루트에서 포크 소유 리소스 소비자를 제외하고, `attach_existing`이
   대체 계획에서 정책에 의해 거부된 managed disk 형태를 제거함을 입증하는 재사용 가능한
   Terraform fixture를 제공합니다. 집중 fixture에서 두 렌더링이 모두 통과했습니다.
-- [ ] Inventory 변경에 따른 무효화를 포함하는 영속 환경 프로파일 새로 고침 작업을 추가하고 재시작 및 만료 테스트를 통과합니다.
+- [x] Inventory 변경에 따른 무효화를 포함하는 영속 환경 프로파일 새로 고침 작업을 추가하고 재시작 및 만료 테스트를 통과합니다. 집중 프로파일 및 Inventory 변경 검사는 커서 확정 순서와 만료된 임대의 복구를 확인합니다.
 - [x] 교정 PR 발행 전에 분석기를 다시 호출하고 차단·오래된 증거·범위 변경 리포트를 사람
   검토로 낮춥니다. `core/deploy_preflight/pre_publication_gate.py`와
   `tests/core/deploy_preflight/test_pre_publication_gate.py`가 보류된 패스는 제안을 제출하지
@@ -255,9 +257,12 @@ GitHub Checks 어댑터는 **기존** PR의 정확한 최신 커밋에만 검사
   3. **검사 발행 경계(일부 제공됨)**: 코어 함수, 프로바이더 프로토콜, 메모리 내
     발행기, 정제된 GitHub Checks 어댑터가 있습니다. 인프라 PR 생성 후 런타임
     연결은 아직 계획 단계입니다.
-  4. **배포 환경 프로파일 기본 요소(배포됨)**: 범위가 제한된 in-memory 캐시, TTL,
-    Inventory-delta invalidation 보조 로직이 있습니다. 조립 새로 고침 작업과 영속 캐시
-    배선은 계획됨.
+  4. **배포 환경 프로파일 새로 고침(범위가 제한된 작업으로 제공됨)**: 기존 메모리 내
+    기본 요소에 더해 공유 상태 저장소를 사용하는 전달 계층의 영속 작업이 있습니다. 복구
+    Inventory 변경 작업은 커서를 진행하기 전에 프로파일을 무효화합니다. 호출자는 읽기 전용
+    생성기를 주입하고 만료 및 재시작 복구를 포함한 새로 고침을 실행할 수 있습니다. 운영 환경의
+    프로파일 생성기와 스케줄러는 아직 연결되지 않았으며, 프로파일은 게시 전 최신 상태를
+    확인하는 게이트를 대체하지 않습니다.
   5. **Control-loop pre-PR 게이트(일부 제공됨)**: `pre_publication_gate.py`가 게시 직전에
     누적된 오버라이드로 같은 analyzer를 다시 실행하고, 차단 발견 사항·오래된 증거·범위
     변경·에스컬레이션된 재조립 등 검증되지 않은 모든 경우를 보류하여 패스를 `hil`로

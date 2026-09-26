@@ -7,7 +7,7 @@ import hashlib
 import json
 import math
 from collections import defaultdict
-from collections.abc import Sequence
+from collections.abc import Awaitable, Callable, Sequence
 from datetime import UTC, datetime
 from uuid import NAMESPACE_URL, uuid5
 
@@ -36,6 +36,7 @@ async def forward_inventory_delta(
     properties_complete: bool,
     deadline_seconds: float = DEFAULT_DELTA_DEADLINE_SECONDS,
     initial_replay_after: datetime | None = None,
+    profile_invalidator: Callable[[str, str], Awaitable[object]] | None = None,
 ) -> int:
     """Publish one delta stream and advance its cursor only at the final fence.
 
@@ -57,6 +58,7 @@ async def forward_inventory_delta(
                 scope=scope,
                 properties_complete=properties_complete,
                 initial_replay_after=initial_replay_after,
+                profile_invalidator=profile_invalidator,
             )
     except TimeoutError as exc:
         raise RuntimeError("inventory delta stream exceeded its deadline") from exc
@@ -71,6 +73,7 @@ async def _forward_inventory_delta(
     scope: str,
     properties_complete: bool,
     initial_replay_after: datetime | None,
+    profile_invalidator: Callable[[str, str], Awaitable[object]] | None,
 ) -> int:
     """Persist a final cursor only after the bounded stream has been fully published."""
 
@@ -95,6 +98,8 @@ async def _forward_inventory_delta(
         reconciliation_high_watermark = previous_observed_at
     latest_cursor = cursor
     published = 0
+    changed = False
+    delta_identity = hashlib.sha256()
     final_cursor: str | None = None
     saw_final = False
     relationship_reconciliation_after: datetime | None = None
@@ -103,6 +108,22 @@ async def _forward_inventory_delta(
             raise RuntimeError("inventory delta stream emitted data after final fence")
         if batch.cursor is not None:
             latest_cursor = batch.cursor
+        changed |= bool(batch.resources or batch.links)
+        for link in batch.links:
+            delta_identity.update(
+                json.dumps(
+                    {
+                        "from": link.from_id,
+                        "relation": link.link_type,
+                        "to": link.to_id,
+                        "properties": dict(link.link_props),
+                    },
+                    sort_keys=True,
+                    separators=(",", ":"),
+                    ensure_ascii=False,
+                    allow_nan=False,
+                ).encode("utf-8")
+            )
         if batch.final:
             saw_final = True
             final_cursor = latest_cursor
@@ -129,12 +150,16 @@ async def _forward_inventory_delta(
             for resource in batch.resources
         )
         for resource, event in events:
+            delta_identity.update(str(event.event_id).encode("ascii"))
             if replay_cutoff is not None and event.detected_at < replay_cutoff:
                 continue
             await event_bus.publish(topic, resource.resource_id, event.model_dump(mode="json"))
             published += 1
     if final_cursor is None:
         raise RuntimeError("inventory delta stream ended without a final fence")
+    if changed and profile_invalidator is not None:
+        delta_identity.update(final_cursor.encode("utf-8"))
+        await profile_invalidator(scope, delta_identity.hexdigest())
     if relationship_reconciliation_after is not None and (
         reconciliation_high_watermark is None
         or relationship_reconciliation_after > reconciliation_high_watermark
