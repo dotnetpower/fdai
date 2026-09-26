@@ -1,8 +1,8 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: 126ddabfdf95a1dc3f1c094a7a82ea3991fa15a7
-translation_revised: 2026-09-22
+translation_source_sha: 1ab376c943c5587b50d69e63536503eb9a80f3f4
+translation_revised: 2026-09-26
 ---
 # 배포와 온보딩(Deploy and Onboard)
 Azure 구독에 FDAI를 프로비저닝하고 첫 온보딩을 완료해 시스템이 관측 준비되도록 하는 방법. 이 문서는 **구체적 배포 인벤토리, 부트스트랩 순서, 분포/배포 책임 분리**의 정본(source of truth)입니다; 배포 라이프사이클(CI/CD, progressive 전달, 롤백, DR)은 [deployment-ko.md](deployment-ko.md)에 남습니다.
@@ -50,6 +50,7 @@ Azure 초점: 이 문서는 Azure 구독을 대상으로 함. 비-Azure 프로�
 `fdaictl provision plan --stage foundation`은 로컬 backend를 사용하는 비공개 모의 실행입니다. 정확한 상태 이전 아카이브에서만 서명된 AzureRM backend 예제를 활성화해 검증된 호스트에 전달합니다. Genesis는 Terraform 아카이브와 실행 파일 다이제스트를 각각 인증하고, 호환되는 호스트 VM
 SKU와 정확한 Marketplace Ubuntu 버전을 선택하며, 체크섬으로 고정된 도구 체인을 직접
 설치합니다. 아티팩트 오프라인 배포는 별도로 검증된 사전 준비 이미지를 대신 사용할 수 있습니다.
+같은 상위 지원 파일이 없는 이전의 보존된 이행 `claim`은 새로운 `foundation-state` 승인 후 검토된 구성의 정확한 파일만 복원할 수 있습니다. 별도 현재 소스 검증기는 Terraform 입력 트리 밖에 남아 복구 오버레이를 검증하고 백엔드 이행을 반복하지 않은 채 `verify`를 재개합니다.
 기반 계층 적용, Bastion 등록, 검증된 상태 이전에는 정확한 승인이 필요하며, 애플리케이션 배포와 준비 상태는 [Genesis 원장](../../roadmap-implementation/deployment/subscription-genesis-provisioning.md)에 미완료로 남아 있습니다.
 
 Azure Policy가 인벤토리 일부를 거부하는 테난트는 계획이 수렴하기 전에 예외 또는 대응하는
