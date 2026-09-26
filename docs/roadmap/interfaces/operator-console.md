@@ -369,6 +369,9 @@ not merge configuration ownership.
 
 The console gets better over time via three deterministic mechanisms; model-side learning is **not** one of them. Operator Memory review applies the selected scope kind and reference to both entries and compaction candidates before the bounded read limit. Candidate rows expose their exact scope, and leaving either filter unset preserves the corresponding all-scope read without granting approval or memory-write authority.
 After a joined Console catalog source changes, including Agent Activity, Trace presentation text, or canonical clarification copy, regenerate the complete question bank and then semantic intent coverage in the same delivery change; artifact equality rejects stale source digests, and a provenance-only refresh cannot change question identity, readiness, or authority. Run both artifact-equality checks after the second generator so the semantic inventory is verified against the newly materialized question bank. Recheck the final merged tree after a base update: a pass on the earlier topic head does not validate newly merged catalog bytes. Conversation Delivery likewise displays only recorded breaker-mode counts; regenerating its System Knowledge source commitment does not give the browser pause, resume, retry, approval, or escalation authority.
+An ontology-platform implementation change can rotate the semantic inventory's source digest without
+changing any Console question or metric. That provenance-only regeneration still passes the exact
+artifact check and grants no new browser capability.
 
 ### 9.1 Day 1
 
