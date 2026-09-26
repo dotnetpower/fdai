@@ -2414,16 +2414,42 @@
       ]
     },
     {
+      "id": "semantic-assurance-corpus",
+      "paths": [
+        "docs/roadmap/interfaces/continuous-semantic-assurance*.md",
+        "docs/roadmap-implementation/interfaces/continuous-semantic-assurance.md",
+        "eval/golden-dataset/corpus-manifest.json",
+        "scripts/automation/build_semantic_assurance_corpus.py",
+        "tests/integration/evaluation/test_semantic_assurance_corpus.py"
+      ],
+      "must_read": [
+        ".github/instructions/architecture.instructions.md",
+        "docs/roadmap/interfaces/continuous-semantic-assurance.md",
+        "docs/roadmap/interfaces/continuous-question-space.md",
+        "docs/roadmap/architecture/operating-ontology-platform.md"
+      ],
+      "docs_update": [
+        "docs/roadmap/interfaces/continuous-semantic-assurance.md"
+      ],
+      "validate": [
+        "uv run python scripts/automation/build_semantic_assurance_corpus.py --check",
+        "uv run pytest -q --no-cov tests/integration/evaluation/test_semantic_assurance_corpus.py tests/integration/evaluation/test_golden_dataset.py -o addopts=''"
+      ]
+    },
+    {
       "id": "ontology-query-coverage",
       "paths": [
         "docs/roadmap/interfaces/hierarchical-conversation-planning*.md",
         "docs/roadmap/interfaces/ontology-query-coverage-implementation-plan*.md",
         "docs/roadmap/interfaces/continuous-question-space*.md",
+        "docs/roadmap/interfaces/continuous-semantic-assurance*.md",
         "config/ontology-query-competency.json",
         "eval/golden-dataset/**",
         "scripts/automation/build_golden_dataset.py",
+        "scripts/automation/build_semantic_assurance_corpus.py",
         "scripts/quality/architecture/check-ontology-query-coverage.py",
         "tests/integration/evaluation/test_golden_dataset.py",
+        "tests/integration/evaluation/test_semantic_assurance_corpus.py",
         "rule-catalog/vocabulary/**"
       ],
       "must_read": [
@@ -2445,6 +2471,7 @@
         "docs/roadmap/interfaces/hierarchical-conversation-planning.md",
         "docs/roadmap/interfaces/ontology-query-coverage-implementation-plan.md",
         "docs/roadmap/interfaces/continuous-question-space.md",
+        "docs/roadmap/interfaces/continuous-semantic-assurance.md",
         "docs/roadmap/architecture/operating-ontology-platform.md",
         "docs/roadmap/architecture/continuous-operational-instance-graph.md",
         "docs/roadmap/interfaces/operator-console-module-map.md"
