@@ -110,7 +110,7 @@ and what its authentication can prove.
 |---------|--------------|-----------|--------------------|
 | **Teams (same tenant)** | ✓ | Teams SSO → OBO exchange → `fdai-api` token | **A1, A2, A3, A4** |
 | **Teams (guest tenant)** | guest | OBO with guest OID | **A2, A3, A4** (A1 denied - same guest rule as [user-rbac-and-identity.md §10.5](user-rbac-and-identity.md#105-guest-entra-b2b-users)) |
-| **Slack** | ✗ | Slack OAuth; **fork-mandatory** Slack userId ↔ Entra OID mapping; A1 approvals bounce through `fdai-api` for Entra re-auth in the browser | **A1 callback** only with a non-empty mapping; **A2, A3, A4**; outbound A1 delivery remains planned |
+| **Slack** | ✗ | Slack OAuth; **fork-mandatory** Slack userId ↔ Entra OID mapping; A1 approvals require separate authenticated callback handling | **A1 callback** only with a non-empty mapping; **A2, A3, A4**; outbound A1 posting is locally implemented, but not live-validated or a browser approval route |
 | **Email (SMTP / Graph)** | ✗ | send-only, no return channel | **A2, A4 only** - never A1 (magic-link approvals aren't supported) |
 | **Generic webhook** | ✗ | HMAC-signed, timestamped, replay-guarded | **A2 only** |
 | **PagerDuty / Opsgenie** | ✗ | API key, ack from mobile app | **A2 only** (operational lane paging) |
@@ -121,11 +121,12 @@ and what its authentication can prove.
 - **Magic-link approvals aren't supported across every channel.** Approval always requires
   a re-authenticated round-trip through `fdai-api`.
 - **A1 fallback stays inside A1-capable channels.** A failed Teams A1 attempt never falls
-  through to email; it falls to another A1-capable channel (Teams standby, or Slack when
-  mapping is present) or to the HIL queue.
-- **Slack A1 requires the userId↔OID mapping.** The adapter refuses to serve A1 traffic
-  until the mapping provider returns a non-empty entry for the responding Slack user; a
-  missing mapping is treated as "no approver" (fail-closed to HIL queue).
+  through to email; it falls to another A1-capable channel (Teams standby, or Slack only
+  after mapping, browser actor binding, and durable send reconciliation) or to the HIL queue.
+- **Slack A1 decisions require the userId↔OID mapping.** An informational outbound post
+  carries no actor or decision. The separate callback refuses to authorize a response
+  without a non-empty mapping for the responding Slack user; a missing mapping is
+  "no approver" (fail-closed to the HIL queue).
 
 ### 4.1 Sender pairing trust bootstrap
 
@@ -329,6 +330,16 @@ A2/A4 routes remain separate channel-as-audience bindings.
   used by the CI secret scanner) before dispatching, as a last-line defense.
 - **Adapters MUST implement idempotent `send`**: a re-issued send with the same
   `correlation_id + audit_id + category` MUST NOT create a duplicate post.
+- **Slack A1 outbound is not an approval.** The dedicated `HilChannel` uses a fixed HTTPS
+  `chat.postMessage` endpoint, a protected bot token, a configured channel id, and a shared HTTP
+  client. It sends bounded Block Kit with only opaque action-bound identifiers, no decision button,
+  browser link, resource detail, or actor claim. Acceptance requires Slack `ok=true`, a bounded
+  message timestamp, and the configured channel in the acknowledgement. `poll` always returns
+  `PENDING`. In-process replay suppresses duplicate posts for one approval id; an interrupted or
+  malformed acknowledgement stays unknown and is never blindly reposted by that instance. This
+  is not a durable outbox: restart-safe reconciliation and authenticated browser actor binding
+  remain open under [issue #943](https://github.com/dotnetpower/fdai/issues/943). Configuration
+  alone never raises approval or execution authority.
 - **A2/A4 capability-state, pre-render presentation, shadow delivery, and provider-native rich
   card payloads** are owned in detail by [Multi-channel notification delivery § 8](multi-channel-notification-delivery.md#8-capability-state-presentation-and-shadow-delivery-contracts).
 
@@ -482,7 +493,7 @@ matrix:
 | Channel | Notes |
 |---------|-------|
 | **Teams** | Adaptive Cards for A1; keep the OAuth scope set minimal (`ChannelMessage.Send.Group` + bot signaling). SSO + OBO already covered in [user-rbac-and-identity.md §10.4](user-rbac-and-identity.md#104-chatops-teams-sign-in). Configure `FDAI_TEAMS_APPROVAL_TEAM_ID`, `FDAI_TEAMS_APPROVAL_CHANNEL_ID`, the HTTPS `FDAI_TEAMS_APPROVAL_ACTIVITY_URL`, and the dedicated `FDAI_TEAMS_BOT_MI_CLIENT_ID` for the **group-connected team backed by an `aw-*` Entra security group**. Core sends through this Bot identity, never the executor identity, and places the resulting `teams:<team-id>:<channel-id>` audience on the card; Operator validates the same value. An outbound-only notification webhook, including a Teams Workflows trigger, is not an A1 transport because it cannot deliver an `Action.Execute` callback or return an authenticated approver; binding parsing refuses an `a1_hil_approval` claim on any notification binding. The receiver additionally needs `FDAI_TEAMS_APPLICATION_ID`, `FDAI_TEAMS_TENANT_ID`, `FDAI_TEAMS_ALLOWED_SERVICE_URLS_JSON`, `FDAI_TEAMS_JWKS_URL`, `FDAI_TEAMS_PRINCIPAL_MAP_JSON`, the shared callback secret, and a configured HIL decision topic plus durable outbox; Teams A1 stays closed until all inputs are present. |
-| **Slack** | Block Kit for A2/A3; the approval callback URL redirects through `fdai-api` so Entra re-auth happens in the browser, not inside Slack. `chat:write` scope only. A deployment supplies `FDAI_SLACK_TEAM_ID` and the userId-to-OID mapping together; the adapter refuses A1 traffic when either is missing. Complete Slack-only configuration doesn't require Teams settings. The signed HMAC callback serves only this internal relay path and refuses a `teams` channel claim, so a leaked shared secret can never assert a Teams actor. |
+| **Slack** | Block Kit for A2/A3 and bounded outbound-only A1; `chat:write` posts require `FDAI_SLACK_APPROVAL_API_URL` (the exact `https://slack.com/api/chat.postMessage` URL), `FDAI_SLACK_APPROVAL_CHANNEL_ID`, and protected `FDAI_SLACK_APPROVAL_BOT_TOKEN`. Complete Slack-only outbound configuration needs no Teams Bot identity. Posting does not prove approval. The separate signed internal Slack callback requires a configured workspace and userId-to-OID mapping, but no authenticated browser actor binding from the outbound card is implemented. Keep decision authority unavailable until that binding and durable reconciliation exist. |
 | **Email** | Send-only through Azure Communication Services Email. Never include an approval link; digest and alert only. The adapter sends `plainText` for every message and adds bounded HTML when `notice_kind=opened`. That incident template uses only incident id, state, severity, opened time, aggregate member count, assignment state, `audit_id`, and an HTTPS Console link. It never renders correlation keys, resource payload, actor identity, or the free-form reason. Terraform provisions an Azure-managed sender domain and a dedicated notification managed identity scoped to the Communication Services resource. `FDAI_CONSOLE_BASE_URL` supplies the Console origin; when it is absent or the resulting link is not absolute HTTPS, the renderer omits the CTA. The adapter requests a short-lived `https://communication.azure.com/.default` token, waits for the provider operation to reach `Succeeded`, and records the provider message id. Settings > Integrations fetches the same renderer through an authenticated GET using synthetic placeholders only. Recommended recipient: an **Entra dynamic distribution group** mirroring `aw-approvers` / `aw-owners`. |
 | **Generic webhook** | HMAC-SHA256 signature, monotonic timestamp, single-use nonce. Receiver failures never block; core retries per adapter policy and moves on. |
 | **PagerDuty / Opsgenie** | Deduplication key = the observability correlation id so a burst collapses. Runbook URL is required in every alert. |

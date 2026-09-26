@@ -136,6 +136,14 @@ def build_bootstrap_plan(
         chatops_enabled=bool(
             environment.get("FDAI_CHATOPS_WEBHOOK_URL")
             or environment.get("FDAI_TEAMS_APPROVAL_ACTIVITY_URL")
+            or any(
+                environment.get(key)
+                for key in (
+                    "FDAI_SLACK_APPROVAL_API_URL",
+                    "FDAI_SLACK_APPROVAL_CHANNEL_ID",
+                    "FDAI_SLACK_APPROVAL_BOT_TOKEN",
+                )
+            )
         ),
         email_enabled=bool(environment.get("FDAI_EMAIL_ENDPOINT")),
         auxiliary_kafka_bootstrap_servers=auxiliary_bootstrap or None,
