@@ -42,7 +42,10 @@ from .semantic_planning_value_filters import (
     stated_subject_fragment,
     stated_value_filters,
 )
-from .semantic_resource_state_planning import resource_collection_definition
+from .semantic_resource_state_planning import (
+    resource_collection_definition,
+    resource_condition_stated,
+)
 from .semantic_target_candidate_constants import (
     CANDIDATE_RESOLVABLE_REQUIREMENTS,
     DECISION_OUTCOME_LINEAGE_TYPES,
@@ -83,6 +86,18 @@ def build_stated_resource_filter_frame(
         else ()
     )
     if any(target.get("kind") in {"resource", "resource_id"} for target in typed_targets):
+        return None
+    # A plain name/type list cannot answer a secondary intent or a stated state requirement,
+    # even when the proposal omitted that requirement.
+    if primary_intent == "query.contextual_resources" and (
+        semantic_judgment.get("secondary_intents")
+        or "current_state" in raw_facets
+        or any(
+            target.get("kind") in {"resource_state_filter", "resource_state_exclusion_filter"}
+            for target in typed_targets
+        )
+        or resource_condition_stated(utterance, registry=inventory_query_language)
+    ):
         return None
     resource_type_filters = tuple(
         str(target["value"])
@@ -179,6 +194,8 @@ def build_stated_resource_filter_frame(
         if len(unique_target_values) == 1
         else stated_subject_fragment(utterance, raw_facets, descriptors)
     )
+    if fragment is None and "name_filter" in raw_facets:
+        return None
     subject_constraints = ("Resource",) if fragment is None else ("Resource", fragment)
     proposal = SemanticFrameProposal(
         operation=SemanticOperation.SELECT,

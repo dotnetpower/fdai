@@ -1,7 +1,7 @@
 ---
 translation_of: ontology-query-coverage-implementation-plan.md
-translation_source_sha: 01d3da0fdbd40394235c179428e528f54f7889bb
-translation_revised: 2026-09-26
+translation_source_sha: 8229e5563b93ee46ce3880240ed0c61433f6db36
+translation_revised: 2026-09-27
 ---
 # 온톨로지 조회 커버리지 구현 계획
 
@@ -70,6 +70,12 @@ v1.2 검색어/발화 결속, 사용 불가 결과 및 이전 버전 호환성�
 > 명확화 요청을 반환합니다. 요청을 필터 없는 Resource 모음으로 넓히지 않으며 preflight 모델은 조회
 > 피연산자를 만들 수 없습니다. `Show resources that are currently not running.`처럼 상태만 지정한 모음도
 > 하위 유형 필터를 요구하지 않고 같은 인벤토리 상태 근거와 결정론적 현재 상태 프레임을 사용합니다.
+> preflight가 하위 유형 목록을 분류하지 못하면 전체 판단이 같은 모음을 원문 구간이 있는
+> `resource_type_filter` 하나와 함께 `query.contextual_resources`로 제안할 수 있습니다. Core는 발화에 나온
+> 카탈로그 `Resource.type` 구간을 후보 `stated_values`로만 전달하고 같은 값 도메인 근거로 모음을
+> 컴파일하며, 보조 의도, 발화에 나온 상태 조건 또는 이름 조각을 누락하게 되면 결정론적 목록을
+> 거부합니다. 발화에 나온 하위 유형을 설명하지 못하는 대상 없는 스키마 제안은 선언 목록이나 개수
+> 대신 타입이 지정된 주제 명확화를 반환합니다.
 > 정확한 Azure Resource Manager 신원은 마지막 이름 부분으로 축약되지
 > 않고 `Resource.id equals` 조건식으로 유지됩니다. 수락된 모음 판단은 결정론적 프레임을 사용하며,
 > 모델 계획이 여전히 필요하면 해당 운영 유형에 필요한 서술자만 전달합니다. 구독 신원 및 Service

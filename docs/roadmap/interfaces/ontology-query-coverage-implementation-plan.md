@@ -52,7 +52,13 @@ Capability preparation preserves all selected canonical property tokens, includi
 > collection, and the preflight model cannot invent a query operand. A state-only collection such
 > as `Show resources that are currently not running.` uses
 > the same inventory-state grounding and deterministic current-state frame without requiring a
-> subtype filter. Exact Azure Resource Manager
+> subtype filter. When preflight does not classify a subtype list, full judgment can propose the
+> same collection as `query.contextual_resources` with one source-spanned `resource_type_filter`.
+> Core gives that judgment stated catalog `Resource.type` spans only as candidate `stated_values`,
+> compiles the collection through the same value-domain grounding, and refuses the deterministic
+> list when it would drop a secondary intent, a stated state condition, or a name fragment. A
+> targetless schema proposal that leaves a stated subtype unexplained returns a typed subject
+> clarification instead of a declaration list or count. Exact Azure Resource Manager
 > identities remain `Resource.id equals` predicates instead of being reduced to the final name
 > segment. Accepted collection judgments use a deterministic frame, and any remaining model planner
 > receives only the descriptors required by that operational family. Subscription identity and

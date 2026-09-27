@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: afcc8420283cb4728ea93a89525becd39e36a345
+translation_source_sha: 101feb8c81dd3cada61f6806f2f55adc8ffdb376
 translation_revised: 2026-09-27
 ---
 # 프로젝트 구조
@@ -192,6 +192,11 @@ Cost Governance 가명 자료는 Operator 조립이 소유하는 비밀입니다
   범위만 보정하며 후보 전용 `forbidden_actions`를 보존합니다. 활성 v8은 `1.0.0`, shadow v14는
   `1.1.0`으로 고정하며 둘 다 프로바이더 입출력, 의사 결정, 승인, 변경 또는 실행 권한을 추가하지
   않습니다. 축약 입력 범위, 일반 컬렉션 필터 정리 및 스키마 복구 안내는 `core/conversation/conversation_preflight_validation.py`에 둡니다. 같은 도우미는 알려진 운영 유형을 혼합 또는 맥락 의존 신호와 함께 제안한 경우를 복구할 수 없는 상태로 분류합니다. 따라서 Core는 실패한 preflight 시도 하나를 기록하고 다른 preflight 모델 호출 없이 전체 판단으로 넘어갑니다. 공개 승격 도우미는 기본적으로 Resource 모음을 계속 거부합니다. 기능을 인식하는 의미 계획만 이 동작을 선택하고, 온톨로지 유형 또는 인벤토리 상태 카탈로그에 근거를 둔 뒤에만 후보를 재사용합니다. 근거를 확인하지 못하면 Resource 범위를 넓히지 않고 전체 의미 판단 또는 타입이 있는 명확화 요청을 유지합니다. `conversation_preflight.py` facade는 호환 import를 유지하고 계약, 모델 호출, 타입 기반 대상 승격, 가족별 형태 검증은 책임이 분리된 인접 모듈이 담당합니다. 조립 루트는 정확한 프롬프트 프로필로 순서, 수명 주기, 예산 및 재실행 다이제스트를 고정하며 더 높은 아티팩트 버전은 스스로 활성화되지 않습니다. 과대 요청은 프로바이더 I/O 전에 보류됩니다.
+  `core/conversation/semantic_catalog_value_mentions.py`는 카탈로그 어휘로 모호하지 않은
+  `Resource.type` 발화 구간을 도출합니다. 의미 판단은 이를 후보 `stated_values`로만 받고, 매니페스트
+  계획기는 대상 없는 스키마 제안과 비교해 타입이 지정된 명확화를 반환하며 의도를 선택하지 않습니다.
+  `fdai_core_service/semantic_ontology_answers.py`는 매니페스트 선언 목록과 개수를 렌더링하고
+  일관되지 않은 행에서는 안전하게 실패합니다.
   정확한 리소스용 실시간 새로 고침이 더 넓은 보호 Resource 집합을 처리하지 않으면 Core는 결과를
   불투명한 새로 고침 실패로 축약하지 않고 최초 그래프 최신성, 완전성, 충돌 및 합성 근거 사유를
   보존합니다.

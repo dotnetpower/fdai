@@ -71,7 +71,7 @@ profiles:
     promotion_evidence: []
     provenance: {source: docs/roadmap/interfaces/cloud-resource-knowledge-structured-rag.md}
   - id: active.semantic-judgment
-    version: 4
+    version: 5
     capability_id: semantic.judgment
     mode: active
     root: {id: semantic-judgment, version: 8, layer: base}
@@ -80,11 +80,14 @@ profiles:
       - {id: semantic-resource-name-filter, version: 1, layer: pack}
       - {id: semantic-sre-diagnostic, version: 1, layer: pack}
       - {id: semantic-recent-resource-changes, version: 1, layer: pack}
-      - {id: semantic-ontology-manifest-list, version: 1, layer: pack}
+      - {id: semantic-ontology-manifest-list, version: 2, layer: pack}
+      - {id: semantic-resource-collection, version: 1, layer: pack}
     system_token_budget: 32768
     request_token_budget: 65536
     reserved_output_tokens: 2048
-    promotion_evidence: [docs/roadmap/interfaces/ontology-query-coverage-implementation-plan.md]
+    promotion_evidence:
+      - docs/roadmap/interfaces/ontology-query-coverage-implementation-plan.md
+      - docs/roadmap/interfaces/hierarchical-conversation-planning.md
     provenance: {source: docs/roadmap/interfaces/hierarchical-conversation-planning.md}
   - id: shadow.semantic-manifest-list
     version: 1
@@ -97,6 +100,23 @@ profiles:
       - {id: semantic-sre-diagnostic, version: 1, layer: pack}
       - {id: semantic-recent-resource-changes, version: 1, layer: pack}
       - {id: semantic-ontology-manifest-list, version: 1, layer: pack}
+    system_token_budget: 32768
+    request_token_budget: 65536
+    reserved_output_tokens: 2048
+    promotion_evidence: []
+    provenance: {source: docs/roadmap/interfaces/hierarchical-conversation-planning.md}
+  - id: shadow.semantic-resource-collection
+    version: 1
+    capability_id: semantic.judgment
+    mode: shadow
+    root: {id: semantic-judgment, version: 8, layer: base}
+    packs:
+      - {id: semantic-incident-action-guidance, version: 1, layer: pack}
+      - {id: semantic-resource-name-filter, version: 1, layer: pack}
+      - {id: semantic-sre-diagnostic, version: 1, layer: pack}
+      - {id: semantic-recent-resource-changes, version: 1, layer: pack}
+      - {id: semantic-ontology-manifest-list, version: 2, layer: pack}
+      - {id: semantic-resource-collection, version: 1, layer: pack}
     system_token_budget: 32768
     request_token_budget: 65536
     reserved_output_tokens: 2048
@@ -218,13 +238,13 @@ profiles:
     promotion_evidence: []
     provenance: {source: docs/roadmap/interfaces/hierarchical-conversation-planning.md}
   - id: active.conversation-preflight
-    version: 4
+    version: 5
     capability_id: conversation.preflight
     mode: active
     root: {id: conversation-preflight, version: 9, layer: base}
     packs:
       - {id: conversation-preflight-resource-changes, version: 1, layer: pack}
-      - {id: conversation-preflight-schema-scope, version: 1, layer: pack}
+      - {id: conversation-preflight-schema-scope, version: 2, layer: pack}
     system_token_budget: 8192
     request_token_budget: 16384
     reserved_output_tokens: 768
@@ -238,6 +258,19 @@ profiles:
     packs:
       - {id: conversation-preflight-resource-changes, version: 1, layer: pack}
       - {id: conversation-preflight-schema-scope, version: 1, layer: pack}
+    system_token_budget: 8192
+    request_token_budget: 16384
+    reserved_output_tokens: 768
+    promotion_evidence: []
+    provenance: {source: docs/roadmap/interfaces/hierarchical-conversation-planning.md}
+  - id: shadow.conversation-preflight-resource-collection
+    version: 1
+    capability_id: conversation.preflight
+    mode: shadow
+    root: {id: conversation-preflight, version: 9, layer: base}
+    packs:
+      - {id: conversation-preflight-resource-changes, version: 1, layer: pack}
+      - {id: conversation-preflight-schema-scope, version: 2, layer: pack}
     system_token_budget: 8192
     request_token_budget: 16384
     reserved_output_tokens: 768

@@ -403,7 +403,9 @@ async def test_semantic_judgment_uses_model_authored_direct_response_prompt() ->
         "semantic-sre-diagnostic",
         "semantic-recent-resource-changes",
         "semantic-ontology-manifest-list",
+        "semantic-resource-collection",
     ]
+    assert out.layer_manifest[-2].version == 2
     assert "author a fresh, concise direct_response.answer" in out.system_text
     assert "Do not reuse canned wording" in out.system_text
 
@@ -424,6 +426,7 @@ async def test_conversation_preflight_prompt_stays_compact_and_authority_free() 
         "conversation-preflight-resource-changes",
         "conversation-preflight-schema-scope",
     ]
+    assert out.layer_manifest[-1].version == 2
     assert out.system_token_budget is not None
     assert out.token_estimate <= out.system_token_budget
     assert "candidate data only except for bounded general_answer" in out.system_text
@@ -461,8 +464,7 @@ async def test_preflight_schema_scope_treatment_preserves_general_knowledge_boun
     assert registry.get_base("conversation.preflight").version == 9
     assert out.layer_manifest[0].version == 9
     assert out.layer_manifest[-1].id == "conversation-preflight-schema-scope"
-    active = await composer.compose(capability_id="conversation.preflight")
-    assert active.system_text == out.system_text
+    assert out.layer_manifest[-1].version == 1
     assert "Server-scoped metadata requires operational evidence" in out.system_text
     assert "principal-visible declarations" in out.system_text
     assert "operational_family=none" in out.system_text
@@ -483,8 +485,10 @@ async def test_manifest_list_treatment_preserves_other_schema_operations() -> No
         capability_id="semantic.judgment", profile_id="shadow.semantic-manifest-list"
     )
 
-    assert active.system_text == treatment.system_text
+    assert active.layer_manifest[-2].id == "semantic-ontology-manifest-list"
+    assert active.layer_manifest[-2].version == 2
     assert treatment.layer_manifest[-1].id == "semantic-ontology-manifest-list"
+    assert treatment.layer_manifest[-1].version == 1
     assert (
         "query.manifest with no targets and exactly two requested_facets" in treatment.system_text
     )
@@ -493,6 +497,65 @@ async def test_manifest_list_treatment_preserves_other_schema_operations() -> No
         "Requests for observed resources or graph instances are not declaration lists"
         in treatment.system_text
     )
+    assert treatment.system_token_budget is not None
+    assert treatment.token_estimate <= treatment.system_token_budget
+
+
+@pytest.mark.asyncio
+async def test_preflight_resource_collection_treatment_keeps_subtypes_out_of_schema() -> None:
+    repo_root = Path(__file__).resolve().parents[5]
+    composer = DefaultPromptComposer(registry=FileSystemPromptRegistry(repo_root / "rule-catalog"))
+
+    treatment = await composer.compose(
+        capability_id="conversation.preflight",
+        profile_id="shadow.conversation-preflight-resource-collection",
+    )
+
+    assert [(layer.id, layer.version) for layer in treatment.layer_manifest] == [
+        ("conversation-preflight", 9),
+        ("conversation-preflight-resource-changes", 1),
+        ("conversation-preflight-schema-scope", 2),
+    ]
+    assert "Deployed or observed Resources are not declarations" in treatment.system_text
+    assert "is resource_collection with that subtype copied as one resource_type_filter" in (
+        treatment.system_text
+    )
+    assert "remains a schema request even when it also names a Resource subtype" in (
+        treatment.system_text
+    )
+    assert "Server-scoped metadata requires operational evidence" in treatment.system_text
+    assert "Concept definitions remain general knowledge" in treatment.system_text
+    active = await composer.compose(capability_id="conversation.preflight")
+    assert active.profile_id == "active.conversation-preflight"
+    assert active.system_text == treatment.system_text
+    assert treatment.system_token_budget is not None
+    assert treatment.token_estimate <= treatment.system_token_budget
+
+
+@pytest.mark.asyncio
+async def test_resource_collection_judgment_treatment_uses_candidate_stated_values() -> None:
+    repo_root = Path(__file__).resolve().parents[5]
+    composer = DefaultPromptComposer(registry=FileSystemPromptRegistry(repo_root / "rule-catalog"))
+
+    treatment = await composer.compose(
+        capability_id="semantic.judgment",
+        profile_id="shadow.semantic-resource-collection",
+    )
+
+    assert [(layer.id, layer.version) for layer in treatment.layer_manifest][-2:] == [
+        ("semantic-ontology-manifest-list", 2),
+        ("semantic-resource-collection", 1),
+    ]
+    assert "exactly one resource_type_filter target" in treatment.system_text
+    assert "requested_facets resource_collection and list" in treatment.system_text
+    assert "server-grounded candidate evidence" in treatment.system_text
+    assert "never the catalog value" in treatment.system_text
+    assert "never replaces an explicitly requested declaration kind" in treatment.system_text
+    assert "Preserve explicit counts" in treatment.system_text
+    assert "First check for a stated current state or health condition" in treatment.system_text
+    active = await composer.compose(capability_id="semantic.judgment")
+    assert active.profile_id == "active.semantic-judgment"
+    assert active.system_text == treatment.system_text
     assert treatment.system_token_budget is not None
     assert treatment.token_estimate <= treatment.system_token_budget
 

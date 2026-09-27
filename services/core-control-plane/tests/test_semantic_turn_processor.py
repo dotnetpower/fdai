@@ -1491,6 +1491,97 @@ def test_generic_mixed_outputs_do_not_claim_zero_row_verification() -> None:
     assert "Verified 0 of 0 rows." not in answer
 
 
+def _manifest_row(name: str, *, kind: str = "object") -> dict[str, object]:
+    return {
+        "row_id": f"{kind}:{name}",
+        "values": {
+            "kind": kind,
+            "name": name,
+            "version": "1.0.0",
+            "declaration_digest": "sha256:" + "d" * 64,
+            "available": True,
+            "execution_authority": False,
+        },
+    }
+
+
+@pytest.mark.parametrize(
+    ("locale", "heading", "truncation", "source"),
+    (
+        ("en", "## 89 readable ObjectTypes", "Displayed 2 of 89 declarations", "Read-only source"),
+        ("ko", "## 읽을 수 있는 ObjectTypes 89개", "2개만 표시했습니다", "읽기 전용 출처"),
+    ),
+)
+def test_manifest_list_answer_names_the_readable_declarations(
+    locale: str,
+    heading: str,
+    truncation: str,
+    source: str,
+) -> None:
+    request = _request(locale=locale)
+    semantic_request = cast(dict[str, object], request["semantic_turn"])
+
+    answer = _render_general_query_answer(
+        SemanticTurnRequest.model_validate(semantic_request),
+        [
+            {
+                "node_id": "manifest",
+                "rows": [_manifest_row("Resource"), _manifest_row("Incident")],
+                "returned_rows": 2,
+                "total_rows": 89,
+                "source_complete": True,
+                "source_truncation_reason": None,
+                "display_truncated": True,
+            }
+        ],
+        output_shape="ontology_manifest",
+        subject_constraints=("object",),
+    )
+
+    assert answer.startswith(heading)
+    assert "- `Resource` (v1.0.0)" in answer
+    assert "- `Incident` (v1.0.0)" in answer
+    assert truncation in answer
+    assert source in answer and "`query.manifest`" in answer
+    assert "2 of 89 rows" not in answer and "89개 행 중" not in answer
+
+
+@pytest.mark.parametrize(
+    "rows",
+    (
+        [_manifest_row("Resource", kind="link")],
+        [{"row_id": "object:Resource", "values": {"kind": "object", "name": "Resource"}}],
+        [],
+    ),
+)
+def test_manifest_list_answer_fails_closed_instead_of_counting_rows(
+    rows: list[dict[str, object]],
+) -> None:
+    request = _request(locale="en")
+    semantic_request = cast(dict[str, object], request["semantic_turn"])
+
+    answer = _render_general_query_answer(
+        SemanticTurnRequest.model_validate(semantic_request),
+        [
+            {
+                "node_id": "manifest",
+                "rows": rows,
+                "returned_rows": len(rows),
+                "total_rows": 89,
+                "source_complete": True,
+                "source_truncation_reason": None,
+                "display_truncated": bool(rows),
+            }
+        ],
+        output_shape="ontology_manifest",
+        subject_constraints=("object",),
+    )
+
+    assert answer.startswith("## Ontology declaration list unavailable")
+    assert "Verified" not in answer
+    assert "grants no execution authority" in answer
+
+
 @pytest.mark.parametrize(
     ("locale", "heading", "source"),
     (

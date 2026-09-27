@@ -194,6 +194,17 @@ def _catalog_state_measures(
     return frozenset(state_measures), frozenset(health_measures)
 
 
+def resource_condition_stated(
+    utterance: str,
+    *,
+    registry: InventoryQueryLanguageRegistry | None,
+) -> bool:
+    """Return whether catalog vocabulary grounds any state or health condition in the turn."""
+
+    state_measures, health_measures = _catalog_state_measures(utterance, registry=registry)
+    return bool(state_measures or health_measures)
+
+
 def resource_condition_intents_grounded(
     utterance: str,
     *,
@@ -525,4 +536,5 @@ __all__ = [
     "resolve_state_exclusion_concepts",
     "resource_collection_definition",
     "resource_condition_intents_grounded",
+    "resource_condition_stated",
 ]

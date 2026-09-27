@@ -2355,3 +2355,23 @@ def test_classifier_contract_rejects_user_facing_response_prose() -> None:
                 "profile_digest": DIGEST,
             },
         )
+
+
+def test_promotion_rejection_logs_one_allowlisted_reason_code(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    caplog.set_level("INFO", logger="fdai.core.conversation.conversation_preflight")
+
+    judgment = preflight_operational_judgment(
+        ConversationPreflightResult(proposal=None),
+        utterance="aks 목록을 보여줘",
+    )
+
+    assert judgment is None
+    record = next(
+        item
+        for item in caplog.records
+        if item.getMessage() == "conversation_preflight_operational_promotion_rejected"
+    )
+    assert record.__dict__["promotion_rejection_reason"] == "proposal_absent"
+    assert "reason" not in record.__dict__

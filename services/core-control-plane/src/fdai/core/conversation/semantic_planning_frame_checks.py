@@ -23,7 +23,10 @@ from .semantic_action_guidance import (
 )
 from .semantic_gateway_diagnostic_planning import build_gateway_diagnostic_frame
 from .semantic_investigation import VerifiedInvestigationIntent
-from .semantic_manifest_planning import build_ontology_schema_frame
+from .semantic_manifest_planning import (
+    build_ontology_schema_frame,
+    manifest_catalog_value_conflict,
+)
 from .semantic_operational_summary_planning import build_function_backed_summary_frame
 from .semantic_planning_frame import (
     build_bound_incident_metric_comparison_frame as _build_bound_incident_metric_comparison_frame,
@@ -164,6 +167,23 @@ def deterministic_pre_frame_outcome(
             SemanticPlanningDisposition.UNSUPPORTED,
             "semantic_non_direct_discourse",
             manifest_digest=manifest_digest,
+        )
+    manifest_conflict = manifest_catalog_value_conflict(
+        judgment,
+        judgment_accepted=judgment_accepted,
+        utterance=utterance,
+        context=context,
+        descriptors=descriptors,
+        locale=locale,
+    )
+    if manifest_conflict is not None:
+        conflict_proposal, conflict_frame = manifest_conflict
+        return _outcome(
+            SemanticPlanningDisposition.CLARIFICATION,
+            "semantic_clarification_required",
+            manifest_digest=manifest_digest,
+            frame=conflict_frame,
+            clarification=conflict_proposal.clarification,
         )
     if (
         judgment_accepted

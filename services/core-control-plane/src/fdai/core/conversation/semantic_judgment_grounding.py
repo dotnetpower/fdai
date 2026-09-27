@@ -426,7 +426,7 @@ def normalize_target_shape(proposal: SemanticJudgmentProposal) -> SemanticJudgme
     elif proposal.primary_intent == "query.incident_evidence":
         allowed = {"incident_id"}
     elif proposal.primary_intent == "query.contextual_resources":
-        allowed = {"resource_group", "resource_type"}
+        allowed = {"resource_group", "resource_type", "resource_type_filter"}
     elif proposal.primary_intent == "action_requirements":
         allowed = {"action_type", "object_type", "resource_type"}
     elif proposal.primary_intent == "action_request" and proposal.action_subject == "ActionType":
