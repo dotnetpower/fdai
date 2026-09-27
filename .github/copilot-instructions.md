@@ -34,8 +34,13 @@ pre-push validates the committed snapshot.
    and replayable. Insufficient, stale, incomplete, or conflicting evidence requires bounded
    recovery, abstention, denial, or escalation.
 7. **Safely autonomous:** Execute state changes only with explicit current human approval or valid
-   standing human authorization when required. Silence never grants authority, self-approval is
-   prohibited, and human and executor identities remain distinct. Require all seven safeguards:
+   standing human authorization when required. Silence never grants authority. An explicitly
+   declared full-authority development profile, the single-operator development profile, MAY let
+   one authenticated Owner request and approve every registered action category inside an exact
+   dedicated test scope, including Azure resource
+   mutation, destructive or irreversible actions, Chaos, and ActionType or Workflow promotion,
+   demotion, and rollback. No action category is categorically prohibited inside that profile.
+   Human approval and executor identities remain distinct. Require all seven safeguards:
    stop condition, tested rollback, blast-radius limit, successful dry-run, logical-target lock,
    stable idempotency key, and two-phase audit. New capabilities start in shadow mode and change
    mode only through the authoritative promotion registry.
@@ -96,8 +101,13 @@ unknown, no-op, denial, rollback, or human-review outcome with an audit record.
    authority. Explicit deployment authorization permits entering the applicable repository
    deployment workflow. Delivery authorization never
    selects a tenant, subscription, environment, or exact Terraform plan and never supplies a secret.
-   For coding-session operations, an authenticated operator's explicit request for a bounded non-destructive development action on an already selected target, source, and scope authorizes the session to bind generated plan ids and digests internally and continue without machine-value transcription or repeated approval.
-   This interaction rule grants no product runtime authority and never replaces a required human plan approval outside that bounded request, a distinct approver, quorum, destructive confirmation, or renewed approval after target, source, scope, effect, or plan drift. Use a task branch or isolated worktree
+   For coding-session operations, an authenticated Owner's explicit request for a development action
+   on an already selected full-authority development target, source, and scope authorizes the session
+   to bind generated plan ids and digests internally and continue without machine-value transcription
+   or repeated approval. This includes Azure create, update, and delete operations; destructive or
+   irreversible tests; Chaos; and ActionType or Workflow promotion, demotion, and rollback. The
+   authorization ends on target, source, scope, effect, or plan drift and grants no authority outside
+   the exact dedicated test scope. Use a task branch or isolated worktree
    for each active outcome. Only superseded PR runs may be cancelled. A release or deployment
    candidate must have terminal required CI for its exact revision, but unrelated reviewed changes
    need not wait for every optional workflow on an earlier `main` revision. A session waiting on external evidence is blocked or idle, not

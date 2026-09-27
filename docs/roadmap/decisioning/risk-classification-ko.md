@@ -1,8 +1,8 @@
 ---
 title: 위험 분류 (자동 실행 vs 사람 승인 vs 차단)
 translation_of: risk-classification.md
-translation_source_sha: 9a874452bfad11066a260c37ccce727182b1f5b8
-translation_revised: 2026-08-20
+translation_source_sha: 15c5d7c1a0342a95206b6e79e812590bd0531621
+translation_revised: 2026-09-27
 ---
 
 # 위험 분류 (자동 실행 vs 사람 승인 vs 차단)
@@ -31,6 +31,7 @@ translation_revised: 2026-08-20
 | 기존 control-loop 감사 변환 결과 | implemented | [`_helpers.py`](../../../services/core-control-plane/src/fdai/core/control_loop/_helpers.py), [`test_control_loop_authority.py`](../../../services/core-control-plane/tests/core/test_control_loop_authority.py) | 감사 데이터에는 매칭된 규칙, 최종 판정, 정족수 및 해석된 상한이 포함됩니다. |
 | 승인 및 변경 거버넌스 적용 | in-progress | [`check-risk-table-change.py`](../../../scripts/quality/architecture/check-risk-table-change.py), [`test_check_risk_table_change.py`](../../../tests/integration/scripts/test_check_risk_table_change.py), [변경 프로세스](#변경-프로세스), [CODEOWNERS](../../../.github/CODEOWNERS) | 커밋 게이트가 계약의 메타데이터 절반을 적용합니다. 엄격히 증가하는 버전, 변하지 않는 Owner 계층 소유권, 모든 규칙의 서면 정당화, 마지막에 남는 fail-close 기본값입니다. 또한 변경 방향을 분류하므로 완화 편집은 patch bump 뒤에 숨을 수 없습니다. 2인 정족수와 Owner 계층 검토 절반은 배포 포크의 branch protection이므로 로컬 체크아웃에서는 증명되지 않은 상태로 남습니다. |
 | 재현에 충분한 특성 및 카탈로그 메타데이터 | implemented | [`authority.py`](../../../services/core-control-plane/src/fdai/core/risk_gate/authority.py), [`test_authority.py`](../../../services/core-control-plane/tests/core/risk_gate/test_authority.py) | 권한 감사 페이로드가 정확한 특성 벡터와 위험 테이블 카탈로그 버전을 직렬화하며, 테이블이 바뀐 뒤에도 기록된 페이로드를 자신의 카탈로그 버전으로 재현하는 집중 검사가 있습니다. |
+| 전권 개발 프로필 | not-started | [FDAI 헌법](../architecture/fdai-constitution-ko.md#제8조-자율성과-사전승인-권한) | 목표 계약은 정확한 전용 테스트 범위 안에서 등록된 모든 작업 범주를 허용합니다. 하나의 공유 프로필 계약과 범위 울타리를 구현하기 전까지 런타임 위험, 승인, 승격 및 실행기 경로는 더 엄격하게 유지됩니다. |
 
 ### 구현 이력
 
@@ -40,6 +41,7 @@ translation_revised: 2026-08-20
 | 2026-08-14 | implemented | 정확한 특성 벡터와 위험 테이블 카탈로그 버전을 권한 감사 페이로드에 직렬화하여, 과거 판정이 자신을 분류한 리비전으로 재현되도록 했습니다. | `current change`; [`authority.py`](../../../services/core-control-plane/src/fdai/core/risk_gate/authority.py), [`test_authority.py`](../../../services/core-control-plane/tests/core/risk_gate/test_authority.py); 권한, 평가기 및 control-loop 권한 집중 검사 43건이 통과했습니다. | 거버넌스 적용을 증명하고 관리되는 런타임 증적을 보존해야 합니다. |
 | 2026-08-14 | implemented | 나머지 상한 입력인 역할, 그래프 영향 개수, live probe 관측값, 두 개의 안전 플래그를 같은 감사 페이로드에 추가해, 재현이 probe를 다시 조회하거나 제어 평면 상태를 다시 읽지 않고도 6축 상한을 재구성하도록 했습니다. | `current change`; [`authority.py`](../../../services/core-control-plane/src/fdai/core/risk_gate/authority.py), [`test_authority.py`](../../../services/core-control-plane/tests/core/risk_gate/test_authority.py); risk-gate, runbook, workflow, skills 및 control-loop 권한 집중 검사 438건이 통과했습니다. | 거버넌스 적용을 증명하고 관리되는 런타임 증적을 보존해야 합니다. |
 | 2026-08-14 | in-progress | 변경 계약의 메타데이터 절반을 커밋 게이트로 적용하고, 완화 편집을 버전 문자열에서 드러나게 했습니다. | `current change`; [`check-risk-table-change.py`](../../../scripts/quality/architecture/check-risk-table-change.py), [`test_check_risk_table_change.py`](../../../tests/integration/scripts/test_check_risk_table_change.py); 집중 게이트 검사 26건이 통과했고, 배포된 테이블에 대해 변경 없음, bump 없는 완화, patch bump 완화, minor bump 완화 경우를 실행해 확인했습니다. | 승인 정족수와 Owner 계층 검토는 배포 포크의 branch protection으로 남으며, 관리되는 런타임 증적을 보존해야 합니다. |
+| 2026-09-27 | not-started | 런타임 지원을 주장하지 않고 단독 Owner와 전용 Azure 테스트 범위를 위한 전권 개발 프로필 목표를 채택했습니다. | `current change`; 헌법, 압축 지침 및 집중 헌법 검사. | 프로필을 사용할 수 있다고 보고하기 전에 위험, 승인, 승격, 롤백 및 실행기 승인 전반에 하나의 범위 결속 프로필 계약을 구현합니다. |
 
 ### 남은 작업
 
@@ -50,6 +52,7 @@ translation_revised: 2026-08-20
   저장소가 아니라 배포의 branch protection에 있습니다.
 - [x] 권한 감사 페이로드가 정확한 특성 벡터와 카탈로그 버전을 직렬화하며, 테이블을 강화하는 변경 뒤에도 기록된 페이로드를 자신의 버전으로 재현하는 집중 검사가 있습니다.
 - [ ] 범위 행을 `validated`로 높이기 전에 하나의 고정된 리비전에서 위험 판정의 관리되는 런타임 증적을 보존합니다.
+- [ ] 정확히 구성된 테스트 범위 안에서만 등록된 모든 작업 범주를 허용하고 범위 이탈 부정 검사를 포함하도록 전권 개발 프로필을 구현하고 검사합니다.
 
 ## 테이블이 사는 곳
 
@@ -80,6 +83,16 @@ A3-E 경계가 계속 유효하고 에스컬레이션 기한이 지난 후 사�
 제공합니다. Thor는 승인된 HIL 작업을 실행할 수 있으며 감사에는 원래 위험 규칙, 승인 ID,
 상시 권한 ID 및 권한 등급이 유지됩니다. 해당 Approval 없이 침묵만 발생하면 no-op으로
 종료됩니다. [에스컬레이션 및 상시 권한](escalation-and-standing-authority-ko.md)을 참조하세요.
+
+### 전권 개발 프로필
+
+이 프로필은 다른 위험 테이블 규칙이 아니라 별도의 개발 권한 축입니다. 테이블은 계속 기준
+판정을 계산하고 기록하지만, 만료되지 않은 정확한 프로필 결속과 유일한 Owner의 현재 승인이
+있으면 전용 테스트 범위 안에서 등록된 모든 작업 범주를 허용할 수 있습니다. 결속된 테스트
+구독 안의 구독 전체 Azure 변경, 파괴적 또는 비가역적 작업, Chaos, ActionType 또는 Workflow
+승격, 강등 및 롤백을 포함합니다. 알 수 없는 작업, 범위 이탈, 신원 불일치 또는 감사, 잠금 및
+멱등성 근거 누락은 계속 실행할 수 없습니다. 현재 런타임은 이 프로필을 구현하지 않았으며
+구현했다고 주장하면 안 됩니다.
 
 ## 분류 차원
 

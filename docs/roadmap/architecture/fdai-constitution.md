@@ -100,7 +100,10 @@ cannot publish state, decide, approve, execute, or grant authority.
 Single-writer ownership and separation of duties are absolute:
 
 - Forseti judges, Var carries human approval, Thor alone executes, Saga audits, and Vidar recovers.
-- No principal judges and executes, approves and executes, or grants authority to itself.
+- No system principal judges and executes, approves and executes, or grants authority to its own
+  executor identity. One human may hold requester and approver roles only under the
+  single-operator development rule in Article 8; Var and Thor remain distinct authenticated
+  principals.
 - Bragi translates between natural language and typed tools; it never judges, approves, or executes.
 - Saga and Vidar are hard dependencies for mutation. Their loss lowers capability to shadow or
   no-op and never fails open.
@@ -227,6 +230,11 @@ in shadow mode. Promotion is explicit, per capability, evidence-gated, and indep
 environment, enabled state, and fork status. A regression or unavailable hard dependency lowers
 authority automatically.
 
+Inside the full-authority development profile in Article 8, disposable-resource recreation or
+teardown is a bounded recovery path. When a provider offers no what-if API, a typed no-preview
+receipt bound to the exact target revision and current Owner confirmation fills the dry-run slot.
+All other safeguards remain required.
+
 ## Article 8: Autonomy and standing authority
 
 **FDAI-CONST-008 - Risk-bounded autonomy.** FDAI classifies authority by action risk:
@@ -241,12 +249,42 @@ join, or translate the two enum families by their numeric suffix.
 | A0 | `autonomy.a0` | observe, explain, and simulate without mutation |
 | A1 | `autonomy.a1` | execute a reversible, resource-scoped, low-risk action inside current policy |
 | A2 | `autonomy.a2` | execute a promoted workflow inside a measured and pre-approved envelope |
-| A3-H | `autonomy.a3_h` | hold a high-impact action for independent per-execution human approval |
+| A3-H | `autonomy.a3_h` | hold a high-impact action for policy-required per-execution human approval |
 | A3-E | `autonomy.a3_e` | execute a non-destructive, reversible emergency mitigation under valid standing human authorization |
-| A4 | `autonomy.a4` | deny prohibited, self-approved, unbounded, cross-tenant, or unverifiable action |
+| A4 | `autonomy.a4` | deny prohibited, unapproved, unbounded, cross-tenant, or unverifiable action |
 
-A3-E is approval given in advance, not approval inferred from silence. It is valid only when all of
-these conditions hold:
+Approval policy declares either a multi-operator profile or a single-operator development profile.
+The multi-operator profile keeps requester and approver identities distinct and counts only
+distinct humans toward quorum. The single-operator profile becomes a **full-authority development
+profile** only when all of these conditions hold:
+
+- reviewed deployment configuration binds one exact test tenant, subscription, and optional
+  resource-group set, classifies every bound resource as disposable development infrastructure,
+  and sets an expiry for the profile;
+- approval follows fresh authentication and explicit confirmation of the exact action, target,
+  revision, scope, and dry-run digest; silence, a prior session, or a broad role assignment grants
+  nothing;
+- one authenticated Owner may satisfy every human approval, reviewer, and quorum requirement. The
+  audit records the original requirement and effective development quorum without inventing
+  additional identities;
+- every registered ActionType and coding-session operation is eligible regardless of risk class,
+  including Azure create, update, and delete; subscription-wide changes inside the dedicated test
+  subscription; destructive or irreversible actions; Chaos; and ActionType or Workflow promotion,
+  demotion, and rollback;
+- the requester and approver may be the same human, but approval and execution remain distinct
+  authenticated principals and the human never receives or shares the executor credential;
+- the seven safeguards, append-only approval and execution audit, and independent effect
+  verification remain unchanged.
+
+No registered action category is categorically prohibited inside the bound test scope. Risk classes
+remain recorded for replay but cannot deny solely by category. Unknown or malformed actions, scope
+escape, identity mismatch, expired approval, or missing audit, lock, and idempotency evidence remain
+ineligible because they do not describe an authorized test action. Development promotion changes
+only the profile-scoped registry and never proves production readiness. A deployment that does not
+explicitly select the profile uses the multi-operator rule.
+
+Outside the full-authority development profile, A3-E is approval given in advance, not approval
+inferred from silence. It is valid only when all of these conditions hold:
 
 - at least two normalized, distinct humans approved it, including the accountable service owner and
   an Owner-level authority; the requester and executor are ineligible approvers;
@@ -270,9 +308,10 @@ these conditions hold:
 - the supervisor re-enters the typed risk pipeline and never calls the executor directly;
 - immediate notification and time-bounded post-action review follow execution.
 
-Standing authorization never applies to A4. Irreversible or wider-scope recovery requires fresh
-human approval with the configured quorum. A3-E never authorizes Chaos fault injection; an already
-approved experiment may pre-authorize only its bounded stop and recovery sequence.
+In the default profile, standing authorization never applies to A4. Irreversible or wider-scope
+recovery requires fresh human approval with the configured quorum.
+A3-E never authorizes Chaos fault injection; an already approved experiment may pre-authorize only
+its bounded stop and recovery sequence.
 
 ## Article 9: Workflow governance
 
@@ -337,8 +376,11 @@ names, versions, and observed values only inside their declared constitutional b
 
 An amendment updates the English source and Korean translation together, identifies affected
 requirement ids, updates every impacted instruction and contract in the same change, and supplies
-focused validation evidence. A change that widens autonomy requires independent owner-level review
-under the governance policy. Implementation status and target metrics never amend the constitution.
+focused validation evidence. A change that widens autonomy requires Owner-level review under the
+governance policy. A multi-operator repository requires an independent Owner reviewer. A repository
+explicitly declared as single-maintainer development may use its sole Owner's approval only when the
+review record binds the exact diff, focused validation, and single-operator scope. Implementation
+status and target metrics never amend the constitution.
 
 ## Related documents
 

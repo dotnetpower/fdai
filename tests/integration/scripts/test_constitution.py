@@ -210,6 +210,45 @@ def test_missing_core_principle_is_rejected() -> None:
     )
 
 
+def test_single_operator_development_exception_is_required_in_both_mirrors() -> None:
+    module = _load_module()
+    texts = _valid_texts(module)
+    phrase = "single-operator development profile"
+    paths = (".github/copilot-instructions.md", module.ENGLISH_CONSTITUTION)
+    for path in paths:
+        texts[path] = texts[path].replace(phrase, "")
+
+    errors = module.validate_texts(texts)
+
+    assert all(
+        any(path in error and "missing required constitutional phrase" in error for error in errors)
+        for path in paths
+    )
+
+
+def test_full_authority_development_profile_is_required_in_all_contract_mirrors() -> None:
+    module = _load_module()
+    texts = _valid_texts(module)
+    phrase = "full-authority development profile"
+    paths = (
+        ".github/copilot-instructions.md",
+        ".github/instructions/architecture.instructions.md",
+        ".github/instructions/coding-conventions.instructions.md",
+        ".github/instructions/agent-pantheon.instructions.md",
+        ".github/instructions/app-shape.instructions.md",
+        module.ENGLISH_CONSTITUTION,
+    )
+    for path in paths:
+        texts[path] = texts[path].replace(phrase, "")
+
+    errors = module.validate_texts(texts)
+
+    assert all(
+        any(path in error and "missing required constitutional phrase" in error for error in errors)
+        for path in paths
+    )
+
+
 def test_obsolete_safeguard_count_is_rejected_across_roadmap() -> None:
     module = _load_module()
     texts = _valid_texts(module)
