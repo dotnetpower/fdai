@@ -1457,7 +1457,7 @@ def test_substrate_readback_uses_the_authoritative_registry_output(
         "_terraform_output",
         lambda _infra, output: (
             "state-selected-registry"
-            if output == "registry_name"
+            if output == "container_registry_name"
             else pytest.fail(f"unexpected output: {output}")
         ),
     )
