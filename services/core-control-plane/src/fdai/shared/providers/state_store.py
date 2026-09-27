@@ -242,6 +242,17 @@ class StateStore(Protocol):
         ...
 
 
+@runtime_checkable
+class StateStoreKeysetReader(Protocol):
+    """Optional retention-only reader; existing StateStore implementations remain valid."""
+
+    async def read_state_keys(
+        self, prefix: str, *, after: str = "", limit: int = 128
+    ) -> tuple[str, ...]:
+        """Return stable ascending keys; CAS updates must not reorder pages."""
+        ...
+
+
 def classify_incident_append(
     history: tuple[Mapping[str, Any], ...],
     entry: Mapping[str, Any],
@@ -383,6 +394,7 @@ __all__ = [
     "IncidentOpenAppendResult",
     "IncidentWriteConflictError",
     "StateStore",
+    "StateStoreKeysetReader",
     "classify_incident_append",
     "incident_number_for",
     "workflow_approval_decisions_from_state",

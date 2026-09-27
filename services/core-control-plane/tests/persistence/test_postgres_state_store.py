@@ -15,6 +15,8 @@ The tests here:
 
 from __future__ import annotations
 
+import hashlib
+import json
 import os
 import subprocess
 import sys
@@ -23,11 +25,88 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 import pytest
+from fdai.core.case_history import OperationalOutcomeClass
+from fdai.core.operational_learning.cohort_retention import (
+    LegacyCaseCohortRetention,
+    retain_cohort_case,
+)
+from fdai.core.operational_learning.legacy_suffix_retention import LegacyCaseSuffixRetention
 from fdai.delivery.persistence import PostgresStateStore, PostgresStateStoreConfig
+
+from tests.core.operational_learning.test_patterns import (
+    _cohort_key,
+    _deletion_record,
+    _pattern_case,
+)
 
 pytestmark = pytest.mark.integration
 
 REPO_ROOT = Path(__file__).resolve().parents[4]
+
+
+@pytest.mark.asyncio
+async def test_keyset_state_keys_stay_stable_after_audited_cas() -> None:
+    url = _requires_live_db()
+    _upgrade_head()
+    store = PostgresStateStore(config=PostgresStateStoreConfig(dsn=_plain_dsn(url)))
+    prefix = f"case-history-keyset-{uuid.uuid4().hex}:"
+    keys = (f"{prefix}a", f"{prefix}b", f"{prefix}c")
+    for key in keys:
+        assert await store.write_state_with_audit_if_absent(
+            key, {"revision": 1}, {"action_kind": "case_history.keyset_test"}
+        )
+    assert await store.read_state_keys(prefix, limit=2) == keys[:2]
+    assert await store.compare_and_set_state_with_audit(
+        keys[0],
+        {"revision": 2},
+        expected_revision=1,
+        audit_entry={"action_kind": "case_history.keyset_test"},
+    )
+    assert await store.read_state_keys(prefix, after=keys[1], limit=2) == keys[2:]
+    assert await store.read_state_keys(prefix, after=keys[2]) == ()
+
+
+@pytest.mark.asyncio
+async def test_legacy_suffix_cleanup_on_real_postgres_preserves_peer_and_audit() -> None:
+    url = _requires_live_db()
+    _upgrade_head()
+    store = PostgresStateStore(config=PostgresStateStoreConfig(dsn=_plain_dsn(url)))
+    deleted = _pattern_case("a", OperationalOutcomeClass.SUCCESS)
+    peer = _pattern_case("b", OperationalOutcomeClass.ROLLBACK)
+    assert deleted is not None and peer is not None
+    key = _cohort_key(deleted)
+    for case in (deleted, peer):
+        await retain_cohort_case(
+            store,
+            key=key,
+            case=case,
+            access_scope_digest="a" * 64,
+            purpose="operational-learning",
+            recorded_at=case.event_time_cutoff,
+        )
+    cohort = await store.read_state(key)
+    assert cohort is not None
+    digest = hashlib.sha256(
+        json.dumps(cohort["cases"], sort_keys=True, separators=(",", ":")).encode()
+    ).hexdigest()
+    snapshot_key = f"{key}:snapshot:{digest}"
+    assert await store.write_state_with_audit_if_absent(
+        snapshot_key, cohort, {"action_kind": "case_history.snapshot_test"}
+    )
+    await LegacyCaseCohortRetention(store=store).purge(_deletion_record(deleted))
+    for _ in range(12):
+        try:
+            await LegacyCaseSuffixRetention(store=store).purge(_deletion_record(deleted))
+            break
+        except RuntimeError as exc:
+            assert "pending" in str(exc)
+    else:
+        pytest.fail("PostgreSQL suffix cleanup did not finish its audited keyset scan")
+    observed = await store.read_state(snapshot_key)
+    assert observed is not None and observed["retired"] is True
+    assert [row["case"]["case_id"] for row in observed["cases"]] == [peer.case_id]
+    assert await store.write_state_if_absent(snapshot_key, cohort) is False
+    assert await store.verify_chain() is True
 
 
 def _requires_live_db() -> str:

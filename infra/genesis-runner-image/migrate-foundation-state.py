@@ -233,7 +233,7 @@ def _observe_remote_authority(args: argparse.Namespace, cleanup_marker: Path) ->
         environment = _terraform_environment(work, args)
         _managed_identity_login(work, args)
         (work / "root").mkdir(mode=0o700)
-        _write_bytes(work / "root/main.tf", b'terraform { backend "azurerm" {} }\n')
+        _write_bytes(work / "root/main.tf", b'terraform {\n  backend "azurerm" {}\n}\n')
         _run(
             (
                 _TERRAFORM,

@@ -54,6 +54,27 @@ def cohort_state_key(
     return f"{_COHORT_PREFIX}{digest}"
 
 
+def legacy_cohort_keys(record: CaseHistoryRevisionRecord) -> tuple[str, str]:
+    """Resolve both historical synthetic partitions from authoritative source metadata."""
+    metadata = dict(record.metadata)
+    if any(not metadata.get(field) for field in _LEGACY_METADATA):
+        raise ValueError("legacy cohort purge requires complete operational metadata")
+    keys = tuple(
+        cohort_state_key(
+            access_scope_digest=record.access_scope_digest,
+            purpose=record.purpose,
+            failure_fingerprint=metadata["failure_fingerprint"],
+            action_type=metadata["action_type"],
+            fdai_revision=metadata["fdai_revision"],
+            scenario_set_version=metadata["scenario_set_version"],
+            source_kind=metadata["source_kind"],
+            source_synthetic=source_synthetic,
+        )
+        for source_synthetic in (False, True)
+    )
+    return keys[0], keys[1]
+
+
 async def retain_cohort_case(
     store: StateStore | CaseHistoryProjectionStore,
     *,
@@ -71,6 +92,8 @@ async def retain_cohort_case(
             access_scope_digest=access_scope_digest,
             purpose=purpose,
         )
+        if state is not None and state.get("retired") is True:
+            raise PermissionError("operational cohort retired snapshot blocks recreation")
         if case.case_id in deleted_case_ids:
             raise PermissionError("operational cohort deletion fence blocks case recreation")
         records: list[dict[str, Any]] = []
@@ -135,23 +158,8 @@ class LegacyCaseCohortRetention:
             return
         if record.legal_hold or record.deletion_started_at is None:
             raise PermissionError("legacy cohort purge requires an unheld source deletion claim")
-        metadata = dict(record.metadata)
-        if any(not metadata.get(field) for field in _LEGACY_METADATA):
-            raise ValueError("legacy cohort purge requires complete operational metadata")
-        for source_synthetic in (False, True):
-            await self._purge_key(
-                cohort_state_key(
-                    access_scope_digest=record.access_scope_digest,
-                    purpose=record.purpose,
-                    failure_fingerprint=metadata["failure_fingerprint"],
-                    action_type=metadata["action_type"],
-                    fdai_revision=metadata["fdai_revision"],
-                    scenario_set_version=metadata["scenario_set_version"],
-                    source_kind=metadata["source_kind"],
-                    source_synthetic=source_synthetic,
-                ),
-                record=record,
-            )
+        for key in legacy_cohort_keys(record):
+            await self._purge_key(key, record=record)
 
     async def _purge_key(self, key: str, *, record: CaseHistoryRevisionRecord) -> None:
         if record.deletion_started_at is None:
@@ -271,7 +279,8 @@ def _cohort_state(
     failure_fingerprint = state.get("failure_fingerprint")
     if (
         not required.issubset(state)
-        or not set(state).issubset(required | {"deleted_case_ids"})
+        or not set(state).issubset(required | {"deleted_case_ids", "retired"})
+        or ("retired" in state and state["retired"] is not True)
         or state.get("schema_version") != "2.0.0"
         or not isinstance(failure_fingerprint, str)
         or len(failure_fingerprint) != 64
