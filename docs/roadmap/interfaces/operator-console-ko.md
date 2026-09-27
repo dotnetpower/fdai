@@ -1,7 +1,7 @@
 ---
 title: FDAI Console 대화
 translation_of: operator-console.md
-translation_source_sha: 0eeb6b6cfcbc06ce21d4fa3594b1f2408e7549c1
+translation_source_sha: 9b539f90d5ac5e3aaa8ace8b48af6b05e34acfce
 translation_revised: 2026-09-28
 ---
 # FDAI Console 대화
@@ -102,7 +102,7 @@ Operator IAM도 액세스 및 할당 제안 디코딩, 런타임 및 모델 구�
 Operator 의미 표현도 Pantheon 품질 보증 terminal, 현지화된 Incident 블록 및 내용이 제거된 기술 trajectory를 terminal 이벤트 조정에서 분리합니다. 이 renderer는 읽기 전용이며 wire 필드, 근거 상한, 로케일 선택, 조회 redaction 및 `execution_authority: false`를 보존합니다.
 Operator 의미 전송도 검증된 조회 활동 변환과 문서 답변 구체화를 이벤트 iterator에서 분리합니다. 이 분리는 이벤트 순서, 재생 cursor, 진행 단조성, 기한 보류, principal 범위, 내용 redaction 및 실행 권한 없음을 보존합니다.
 명시적 고정 census 진단 요청은 범위가 제한된 `conversation-assurance:<case-id>` 목적을 사용합니다. Core는 Bragi가 답변하기 전에 사례, 질문 및 로케일을 서버 소유 census와 대조해 검증합니다. 생성된 `done` 이벤트는 답변, 콘텐츠가 없는 진단, 추적 지연 시간 및 schema-v2 큐/품질 보증 timing을 전달하며, 일반 `operations-review` 요청은 기존 의미 결과 계약을 유지합니다.
-버전 1.2 semantic projection은 서비스 분리 전반에서 이 경계를 보존합니다. `answered`는 exact release, principal manifest, 계획, 실행 receipt, 근거 참조를 요구하며 의존성을 사용할 수 없으면 typed limitation을 반환합니다. 기록 상태 조회도 Operator와 인벤토리 온톨로지 release가 다르면 HTTP 409로 닫힌 상태를 유지하며 현재 release에서 완전한 원자적 재변환을 마친 뒤에만 복구합니다.
+버전 1.2 semantic projection은 서비스 분리 전반에서 이 경계를 보존합니다. `answered`는 exact release, principal manifest, 계획, 실행 receipt, 근거 참조를 요구하며 의존성을 사용할 수 없으면 typed limitation을 반환합니다. 최종 근거 매니페스트는 잘리지 않으며, 중복 제거된 receipt 참조가 12개를 넘거나 256자를 넘는 참조가 하나라도 있으면 턴을 `semantic_evidence_incomplete`로 보류합니다. 기록 상태 조회도 Operator와 인벤토리 온톨로지 release가 다르면 HTTP 409로 닫힌 상태를 유지하며 현재 release에서 완전한 원자적 재변환을 마친 뒤에만 복구합니다.
 버전 1.6은 범위가 제한된 인증 그룹 claim과 관리 문서 근거도 전달할 수 있습니다.
 Console은 Core가 제공한 버전 2 의도 근거만 수락하며 정확한 개정 인용과 불완전한 범위의 한계를 표시합니다. 문서 텍스트를 지시나 현재 운영 상태로 취급하지 않습니다. 커밋된 의미 의도 범위 산출물은 권위 있는 원본에서 다시 생성하고 정확한 통합 질문 은행 다이제스트에 결속하며 런타임 권한을 부여하지 않습니다. 소유 문서의 서식만 재배치하면 Console 동작을 바꾸지 않고 카탈로그 인용 고정값만 갱신할 수 있습니다. 같은 원본 전용 갱신은 사람 보고선을 만들거나 변경하지 않습니다. busy-input 카탈로그 레이블을 갱신해도 400개 질문 인벤토리와 이에 의존하는 의미 의도 범위 다이제스트만 다시 생성되며 질문 신원, 준비 상태, 근거 권한, 첨부 파일 동작 또는 보고선 동작은 바뀌지 않습니다. 격리된 AKS 실행 경로를 등록해도 Console의 승인 권한이나 독립적인 실제 효과 근거 요건은 바뀌지 않습니다. 해당 테스트를 격리된 실행기 서비스 모음에 할당해도 테스트 수집 메타데이터만 바뀝니다.
 테스트 맥락 후보 레이블도 연결된 영어와 한국어 질문은행 원본 및 이에 의존하는 의미 의도 범위 산출물의 다이제스트만 갱신해야 합니다. 질문 400개의 신원, 준비 상태, 범위 분모, 근거 권한, 작업 권한은 바뀌지 않습니다. 생성 산출물의 일치 여부는 의미 또는 운영 준비 근거가 아닙니다.
