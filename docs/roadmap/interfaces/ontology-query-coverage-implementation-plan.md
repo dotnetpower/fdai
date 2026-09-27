@@ -52,9 +52,28 @@ Capability preparation preserves all selected canonical property tokens, includi
 > collection, and the preflight model cannot invent a query operand. A state-only collection such
 > as `Show resources that are currently not running.` uses
 > the same inventory-state grounding and deterministic current-state frame without requiring a
-> subtype filter. Exact Azure Resource Manager
+> subtype filter. When preflight does not classify a subtype list, full judgment can propose the
+> same collection as `query.contextual_resources` with one source-spanned `resource_type_filter`.
+> Core gives that judgment stated catalog `Resource.type` spans only as candidate `stated_values`,
+> compiles the collection through the same value-domain grounding, and refuses the deterministic
+> list when it would drop a secondary intent, a stated state condition, or a name fragment. The
+> resource-state planner owns the secondary-intent and state-condition part of that check. A
+> targetless schema proposal that leaves a stated subtype unexplained returns a typed subject
+> clarification instead of a declaration list or count. Exact Azure Resource Manager
 > identities remain `Resource.id equals` predicates instead of being reduced to the final name
-> segment. Accepted collection judgments use a deterministic frame, and any remaining model planner
+> segment. Stated-type grounding accepts a regular English plural, lets the longest stated catalog
+> term own its span (`virtual machine scale sets` states the scale-set type, not `virtual
+> machine`), and ignores a term inside a larger identifier such as `aks` in `aks-prod-01`. Every
+> reviewed Resource subtype except `subscription` and `unclassified-resource` declares bilingual
+> request terms. A plain Resource list is refused for a catalog-signalled mutation or relationship
+> request, a declared state concept requested as a facet selects the resource-state list, and a
+> reviewed count request counts as a collection request. A verbatim name fragment alone compiles a
+> model-free, object-only name-filtered list; request facet words such as `list` never become name
+> fragments. A region-qualified fragment returns a typed clarification because ObjectSet
+> predicates cannot filter by provider location yet. An explicit recent-change window such as
+> `last 24 hours` bounds the change read up to seven days; otherwise the one-hour server default
+> applies. Server-authored clarification questions follow the operator's language.
+> Accepted collection judgments use a deterministic frame, and any remaining model planner
 > receives only the descriptors required by that operational family. Subscription identity and
 > Service Health reads build deterministic frames and server plans from their exact no-input
 > FunctionTypes instead of invoking a frame model with the full principal manifest. Localized

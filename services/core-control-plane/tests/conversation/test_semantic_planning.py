@@ -1509,6 +1509,49 @@ def test_resource_group_name_fragment_filters_group_objects_not_members() -> Non
     assert model.plan_calls == 0
 
 
+def test_name_fragment_without_a_type_compiles_a_model_free_object_only_list() -> None:
+    utterance = "이름에 bori가 들어간 리소스 찾아줘"
+    manifest, _definition = _typed_fixture(
+        groups=(_RESOURCE_GROUP_GROUP, _AKS_GROUP),
+        include_parent_id=True,
+    )
+    judgment = SemanticJudgmentProposal(
+        primary_intent="query.contextual_resources",
+        targets=(
+            SemanticTarget(
+                kind="resource_name_filter",
+                value="bori",
+                source_start=utterance.index("bori"),
+                source_end=utterance.index("bori") + len("bori"),
+            ),
+        ),
+        requested_facets=("resource_collection", "list", "name_filter"),
+        confidence=0.98,
+        ambiguous=False,
+        action_posture="advise_only",
+        action_subject="none",
+        authority="candidate_only",
+        execution_authority=False,
+    )
+    model = _Model(frame=None, plan=None)
+
+    predicates = _grounded_predicates(
+        model,
+        manifest,
+        utterance,
+        semantic_judgment=_JudgmentBoundary(judgment),
+        require_object_only=True,
+    )
+
+    assert {"property": "name", "operator": "contains", "equals": "bori"} in predicates
+    assert not any(
+        predicate.get("property") == "type" and predicate.get("operator") == "equals"
+        for predicate in predicates
+    )
+    assert model.frame_calls == 0
+    assert model.plan_calls == 0
+
+
 def test_resource_group_target_with_collection_facets_filters_group_objects() -> None:
     utterance = "fdai 관련 리소스 그룹은?"
     manifest, _definition = _typed_fixture(
@@ -2100,6 +2143,128 @@ def test_verified_type_collection_requires_full_semantic_judgment() -> None:
         }
     ]
     assert model.frame_calls == model.plan_calls == 0
+
+
+def _full_judgment_subtype_collection(**updates: object) -> SemanticJudgmentProposal:
+    return SemanticJudgmentProposal(
+        primary_intent="query.contextual_resources",
+        targets=(
+            SemanticTarget(kind="resource_type_filter", value="aks", source_start=0, source_end=3),
+        ),
+        requested_facets=("resource_collection", "list"),
+        confidence=0.97,
+        ambiguous=False,
+        action_posture="advise_only",
+        action_subject="none",
+        authority="candidate_only",
+        execution_authority=False,
+    ).model_copy(update=updates)
+
+
+def test_full_judgment_subtype_collection_compiles_without_preflight() -> None:
+    manifest, _definition = _typed_fixture(groups=(_AKS_GROUP,))
+    model = _Model(frame=None, plan=None)
+
+    predicates = _grounded_predicates(
+        model,
+        manifest,
+        "aks 목록을 보여줘",
+        semantic_judgment=_JudgmentBoundary(_full_judgment_subtype_collection()),
+    )
+
+    assert predicates == [
+        {"property": "type", "operator": "equals", "equals": "kubernetes-cluster"}
+    ]
+    assert model.frame_calls == model.plan_calls == 0
+
+
+@pytest.mark.parametrize(
+    "updates",
+    (
+        {"secondary_intents": ("query.subscription_service_health",)},
+        {"requested_facets": ("resource_collection", "list", "current_state")},
+        {
+            "targets": (
+                SemanticTarget(
+                    kind="resource_type_filter", value="aks", source_start=0, source_end=3
+                ),
+                SemanticTarget(
+                    kind="resource_state_filter", value="실행 중", source_start=4, source_end=8
+                ),
+            )
+        },
+    ),
+)
+def test_subtype_collection_frame_never_drops_other_requirements(
+    updates: dict[str, object],
+) -> None:
+    manifest, _definition = _typed_fixture(groups=(_AKS_GROUP,))
+    model = _Model(frame=None, plan=None)
+
+    outcome = _service(
+        model,
+        manifest,
+        semantic_judgment=_JudgmentBoundary(_full_judgment_subtype_collection(**updates)),
+    ).plan(
+        utterance="aks 실행 중 목록",
+        prior_turns=(),
+        principal=Principal(id="operator", role=Role.READER),
+        purpose="operations-review",
+    )
+
+    assert outcome.frame is None or outcome.frame.output_shape != "property_filtered_resources"
+    assert model.frame_calls == 1
+
+
+def test_name_filtered_collection_without_a_fragment_is_not_widened() -> None:
+    utterance = "지금 fdai 가 포함된 리소스 그룹은?"
+    type_value = "리소스 그룹"
+    manifest, _definition = _typed_fixture(
+        groups=(_RESOURCE_GROUP_GROUP,),
+        include_parent_id=True,
+    )
+    model = _Model(frame=None, plan=None)
+    judgment = _full_judgment_subtype_collection(
+        targets=(
+            SemanticTarget(
+                kind="resource_type_filter",
+                value=type_value,
+                source_start=utterance.index(type_value),
+                source_end=utterance.index(type_value) + len(type_value),
+            ),
+        ),
+        requested_facets=("resource_collection", "list", "name_filter"),
+    )
+
+    outcome = _service(model, manifest, semantic_judgment=_JudgmentBoundary(judgment)).plan(
+        utterance=utterance,
+        prior_turns=(),
+        principal=Principal(id="operator", role=Role.READER),
+        purpose="operations-review",
+    )
+
+    assert outcome.frame is None or outcome.frame.output_shape != "property_filtered_resources"
+    assert model.frame_calls == 1
+
+
+def test_subtype_collection_frame_refuses_a_stated_condition_the_proposal_omitted() -> None:
+    manifest, _definition = _typed_fixture(groups=(_AKS_GROUP,))
+    model = _Model(frame=None, plan=None)
+
+    outcome = _service(
+        model,
+        manifest,
+        inventory_query_language=_inventory_query_language(),
+        semantic_judgment=_JudgmentBoundary(_full_judgment_subtype_collection()),
+    ).plan(
+        utterance="aks 실행 중 목록",
+        prior_turns=(),
+        principal=Principal(id="operator", role=Role.READER),
+        purpose="operations-review",
+    )
+
+    assert outcome.frame is None or outcome.frame.output_shape != "property_filtered_resources"
+    assert model.frame_calls == 1
 
 
 def test_unbound_collection_filter_clarifies_without_broad_resource_query() -> None:
@@ -4111,6 +4276,56 @@ def test_state_inventory_recovers_subtype_from_production_resource_vocabulary() 
         "operator": "equals",
         "equals": "postgresql-server",
     }
+    assert model.frame_calls == 0
+    assert model.plan_calls == 0
+
+
+def test_state_inventory_accepts_a_declared_state_concept_requested_as_a_facet() -> None:
+    utterance = "실행 중인 AKS 클러스터만 보여줘"
+    vocabulary = REPO_ROOT / "rule-catalog" / "vocabulary" / "resource-types.yaml"
+    registry = load_resource_type_registry_from_mapping(
+        yaml.safe_load(vocabulary.read_text(encoding="utf-8"))
+    )
+    manifest, _definition = _typed_fixture(
+        groups=(),
+        property_values=resource_type_value_domains(registry),
+        include_resource_state=True,
+    )
+    judgment = SemanticJudgmentProposal(
+        primary_intent="query.resource_state_inventory",
+        targets=(
+            SemanticTarget(
+                kind="resource_type_filter",
+                value="AKS",
+                canonical_value="kubernetes-cluster",
+                source_start=utterance.index("AKS"),
+                source_end=utterance.index("AKS") + len("AKS"),
+            ),
+        ),
+        requested_facets=("resource_collection", "list", "resource_state.running"),
+        confidence=0.99,
+        ambiguous=False,
+        action_posture="advise_only",
+        action_subject="none",
+        authority="candidate_only",
+        execution_authority=False,
+    )
+    model = _Model(frame=None, plan=None)
+
+    outcome = _service(
+        model,
+        manifest,
+        semantic_judgment=_JudgmentBoundary(judgment),
+    ).plan(
+        utterance=utterance,
+        prior_turns=(),
+        principal=Principal(id="operator", role=Role.READER),
+        purpose="operations-review",
+    )
+
+    assert outcome.disposition is SemanticPlanningDisposition.PLANNED
+    assert outcome.plan is not None
+    assert [node.kind.value for node in outcome.plan.nodes] == ["object_set", "function"]
     assert model.frame_calls == 0
     assert model.plan_calls == 0
 

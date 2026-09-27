@@ -108,6 +108,8 @@ _RECONCILIATION_ONLY_RESOURCE_GROUP_DELETE_TYPES: Final = frozenset(
         "microsoft.storage/storageaccounts",
     }
 )
+# Azure Policy effects whose Activity Log records never change the evaluated resource.
+_NON_MUTATING_POLICY_EFFECTS: Final = frozenset({"audit", "auditifnotexists", "deny", "denyaction"})
 
 
 class ActivityLogError(RuntimeError):
@@ -397,6 +399,10 @@ class AzureActivityLogFactory:
         relationship_incomplete = succeeded and operation_kind in {"write", "delete"}
         if operation_kind == "delete":
             return at, None, relationship_incomplete
+        if _reports_no_state_change(operation):
+            # Reads and policy evaluations are audit evidence, not state observations;
+            # journaling them would hold graph completeness open until full reconciliation.
+            return None
 
         props = _truncate_props(
             {
@@ -427,6 +433,32 @@ class AzureActivityLogFactory:
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
+
+def _reports_no_state_change(operation: str | None) -> bool:
+    """Return whether an ARM operation name reports access or evaluation, not a state change.
+
+    ``*/read`` operations read by definition. ARM reserves ``list*`` POST actions, such as
+    credential or key listings, for returning data without changing the resource. Azure Policy
+    audit and deny records report an evaluation: audit effects only log, and a denied request
+    never changes the resource. Every other action, including policy ``modify`` and
+    ``deployIfNotExists`` records, may change state and stays a change hint.
+    """
+
+    if not operation:
+        return False
+    segments = operation.casefold().split("/")
+    if segments[-1] == "read":
+        return True
+    if len(segments) < 3 or segments[-1] != "action":
+        return False
+    if segments[-2].startswith("list"):
+        return True
+    return (
+        len(segments) == 4
+        and segments[:2] == ["microsoft.authorization", "policies"]
+        and segments[2] in _NON_MUTATING_POLICY_EFFECTS
+    )
 
 
 def _activity_log_timestamp(value: datetime) -> str:

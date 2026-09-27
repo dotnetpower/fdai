@@ -12,6 +12,9 @@ stream consumes:
   ``provider_ref``.
 - Non-``Succeeded`` events and events whose ARM type is not in the
   vocabulary are dropped.
+- Read operations, ``list*`` actions, and Azure Policy audit or deny records
+  are audit events, not state observations, so they are dropped while the
+  cursor still advances.
 - Known child operations reported against only a parent ARM id are omitted
   and request authoritative relationship reconciliation.
 - Non-2xx / non-JSON / missing ``value`` responses raise ``ActivityLogError``
@@ -227,7 +230,9 @@ async def test_known_parent_only_child_change_requests_reconciliation_without_fa
                     {
                         "resourceId": base + "Microsoft.Compute/virtualMachines/vm-one",
                         "resourceType": {"value": "Microsoft.Compute/virtualMachines"},
-                        "operationName": {"value": "Microsoft.Compute/virtualMachines/read"},
+                        "operationName": {
+                            "value": "Microsoft.Compute/virtualMachines/start/action"
+                        },
                         "status": {"value": "Succeeded"},
                         "eventTimestamp": at,
                     },
@@ -335,7 +340,7 @@ async def test_known_delete_envelope_requests_reconciliation_without_upsert(
                     "resourceGroups/rg-a/providers/Microsoft.Compute/virtualMachines/vm-one"
                 ),
                 "resourceType": {"value": "Microsoft.Compute/virtualMachines"},
-                "operationName": {"value": "Microsoft.Compute/virtualMachines/read"},
+                "operationName": {"value": "Microsoft.Compute/virtualMachines/start/action"},
                 "status": {"value": "Succeeded"},
                 "eventTimestamp": "2026-07-10T06:30:00Z",
             }
@@ -591,6 +596,87 @@ async def test_delete_event_is_not_upserted_and_still_advances_cursor(
     assert page.links == ()
     assert page.cursor == "2026-07-10T06:30:00+00:00"
     assert page.relationship_reconciliation_after == "2026-07-10T06:30:00+00:00"
+
+
+def _single_operation_page(arm_id: str, arm_type: str, operation: str):
+    async def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json={
+                "value": [
+                    {
+                        "resourceId": arm_id,
+                        "resourceType": {"value": arm_type},
+                        "operationName": {"value": operation},
+                        "status": {"value": "Succeeded"},
+                        "eventTimestamp": "2026-07-10T06:40:00Z",
+                        "caller": "reader@example.com",
+                    }
+                ]
+            },
+        )
+
+    return handler
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "operation_template",
+    [
+        "{arm_type}/read",
+        "{arm_type}/listKeys/action",
+        "{arm_type}/listClusterUserCredential/action",
+        "{arm_type}/LISTCLUSTERADMINCREDENTIAL/ACTION",
+        "Microsoft.Authorization/policies/audit/action",
+        "Microsoft.Authorization/policies/auditIfNotExists/action",
+        "Microsoft.Authorization/policies/deny/action",
+    ],
+)
+async def test_read_only_operation_is_not_a_state_observation(operation_template: str) -> None:
+    _, arm_type = _arm_type_for(_vocab())
+    arm_id = (
+        "/subscriptions/00000000-0000-0000-0000-000000000001"
+        f"/resourceGroups/rg-a/providers/{arm_type}/thing-read"
+    )
+    operation = operation_template.format(arm_type=arm_type)
+    factory, client, _ = _factory(_single_operation_page(arm_id, arm_type, operation))
+    try:
+        page = await factory.build_fetch_fn()("2026-07-10T05:00:00+00:00")
+    finally:
+        await client.aclose()
+
+    assert page.resources == ()
+    assert page.links == ()
+    assert page.cursor == "2026-07-10T06:40:00+00:00"
+    assert page.relationship_reconciliation_after is None
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "operation_template",
+    [
+        "{arm_type}/restart/action",
+        "{arm_type}/listing/write",
+        "Microsoft.Authorization/policies/modify/action",
+        "Microsoft.Authorization/policies/deployIfNotExists/action",
+    ],
+)
+async def test_state_changing_operation_remains_a_change_hint(operation_template: str) -> None:
+    _, arm_type = _arm_type_for(_vocab())
+    arm_id = (
+        "/subscriptions/00000000-0000-0000-0000-000000000001"
+        f"/resourceGroups/rg-a/providers/{arm_type}/thing-changed"
+    )
+    operation = operation_template.format(arm_type=arm_type)
+    factory, client, _ = _factory(_single_operation_page(arm_id, arm_type, operation))
+    try:
+        page = await factory.build_fetch_fn()("2026-07-10T05:00:00+00:00")
+    finally:
+        await client.aclose()
+
+    assert len(page.resources) == 1
+    assert page.resources[0].props["operation"] == operation
+    assert page.cursor == "2026-07-10T06:40:00+00:00"
 
 
 @pytest.mark.asyncio

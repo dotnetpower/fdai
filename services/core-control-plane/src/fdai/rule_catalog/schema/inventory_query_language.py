@@ -224,6 +224,34 @@ def query_signal_span(
     return spans[0] if len(spans) == 1 else None
 
 
+def query_term_spans(
+    utterance: str,
+    registry: InventoryQueryLanguageRegistry | None,
+    *,
+    signal: str | None = None,
+    query_kind: str | None = None,
+) -> tuple[tuple[int, int], ...]:
+    """Return every maximal source span of one reviewed signal or query kind."""
+
+    if registry is None or (signal is None) == (query_kind is None):
+        return ()
+    terms = (
+        registry.signals.get(signal)
+        if signal is not None
+        else registry.query_kinds.get(query_kind or "")
+    )
+    if terms is None:
+        return ()
+    return tuple(
+        (start, end)
+        for start, end, _text in _matching_term_spans(
+            utterance,
+            terms.terms,
+            suffixes=registry.suffixes,
+        )
+    )
+
+
 def _matches_any_term(
     utterance: str,
     terms: tuple[str, ...],
@@ -309,4 +337,5 @@ __all__ = [
     "query_signal_matches",
     "query_signal_span",
     "query_target_cardinality",
+    "query_term_spans",
 ]

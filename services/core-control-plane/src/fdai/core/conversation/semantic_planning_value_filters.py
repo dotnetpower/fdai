@@ -20,6 +20,9 @@ from fdai_service_contracts.ontology_query import (
 
 MAX_GROUNDED_FILTER_VALUES = 16
 _FREE_TEXT_FRAGMENT_PROPERTIES = ("name", "label", "id", "parent_id")
+# Characters that join an ASCII term into a larger identifier, such as a Resource name,
+# when an ASCII letter or digit continues on their other side.
+_IDENTIFIER_JOINERS = frozenset("-_./:")
 
 
 def stated_value_filters(
@@ -55,6 +58,7 @@ def stated_value_filters(
             if not isinstance(groups, list):
                 continue
             selected: list[tuple[tuple[str, ...], tuple[str, ...]]] = []
+            spans: dict[tuple[tuple[str, ...], tuple[str, ...]], set[tuple[int, int]]] = {}
             for group in groups:
                 if not isinstance(group, Mapping):
                     continue
@@ -66,15 +70,23 @@ def stated_value_filters(
                 bounded_values = tuple(str(value) for value in values)
                 if set(bounded_values) <= excluded_values:
                     continue
-                if any(_term_stated(term, lowered) for term in bounded_terms):
-                    selected.append((bounded_values, bounded_terms))
+                group_spans = {
+                    span for term in bounded_terms for span in _term_spans(term, lowered)
+                }
+                if group_spans:
+                    candidate = (bounded_values, bounded_terms)
+                    selected.append(candidate)
+                    spans.setdefault(candidate, set()).update(group_spans)
             selected = list(dict.fromkeys(selected))
+            selected = _without_contained_mentions(selected, spans)
+            folded_preferences = tuple(term.casefold() for term in preferred_terms)
             preferred = [
                 candidate
                 for candidate in selected
-                if any(
-                    _term_stated(term, preferred_term.casefold())
-                    for preferred_term in preferred_terms
+                if any(value.casefold() in folded_preferences for value in candidate[0])
+                or any(
+                    _term_stated(term, preferred_term)
+                    for preferred_term in folded_preferences
                     for term in candidate[1]
                 )
             ]
@@ -95,6 +107,33 @@ def stated_value_filters(
                 continue
             matched[(object_type, property_name)] = tuple(sorted(set(selected[0][0])))
     return matched
+
+
+def stated_value_term_spans(
+    utterance: str,
+    descriptors: Sequence[Mapping[str, Any]],
+    *,
+    object_type: str = "Resource",
+    property_name: str = "type",
+) -> tuple[tuple[int, int], ...]:
+    """Return every source span where a declared value term of one property is stated."""
+
+    lowered = utterance.casefold()
+    if len(lowered) != len(utterance):
+        return ()
+    spans: set[tuple[int, int]] = set()
+    for descriptor in descriptors:
+        if descriptor.get("kind") != "object" or descriptor.get("name") != object_type:
+            continue
+        properties = descriptor.get("properties")
+        declaration = properties.get(property_name) if isinstance(properties, Mapping) else None
+        groups = declaration.get("value_groups") if isinstance(declaration, Mapping) else None
+        for group in groups if isinstance(groups, list) else ():
+            terms = group.get("terms") if isinstance(group, Mapping) else None
+            for term in terms if isinstance(terms, list) else ():
+                if isinstance(term, str):
+                    spans.update(_term_spans(term, lowered))
+    return tuple(sorted(spans))
 
 
 def resource_type_filters_are_bound(
@@ -123,22 +162,88 @@ def _term_stated(term: str, lowered_utterance: str) -> bool:
     substring test is correct there. An ASCII term needs a boundary or a short
     word such as `vm` would match inside an unrelated identifier.
     """
+    return bool(_term_spans(term, lowered_utterance))
+
+
+def _term_spans(term: str, lowered_utterance: str) -> tuple[tuple[int, int], ...]:
+    """Return every bounded occurrence of ``term``, including its regular English plural.
+
+    An ASCII edge must not continue a larger identifier: a letter or digit, or a joiner
+    such as ``-`` followed by one, makes `aks` inside `aks-prod-01` part of a name rather
+    than a stated type.
+    """
     needle = term.casefold().strip()
     if not needle:
+        return ()
+    variants = [needle]
+    if needle.isascii() and needle[-1].isalpha():
+        if needle.endswith("y") and len(needle) > 1 and needle[-2] not in "aeiou":
+            variants.append(f"{needle[:-1]}ies")
+        elif needle.endswith(("s", "x", "z", "ch", "sh")):
+            variants.append(f"{needle}es")
+        else:
+            variants.append(f"{needle}s")
+    spans: set[tuple[int, int]] = set()
+    for variant in variants:
+        start = lowered_utterance.find(variant)
+        while start != -1:
+            end = start + len(variant)
+            if (
+                not _ascii_alphanumeric(variant[0])
+                or not _continues_identifier(lowered_utterance, start - 1, step=-1)
+            ) and (
+                not _ascii_alphanumeric(variant[-1])
+                or not _continues_identifier(lowered_utterance, end, step=1)
+            ):
+                spans.add((start, end))
+            start = lowered_utterance.find(variant, start + 1)
+    return tuple(sorted(spans))
+
+
+def _continues_identifier(lowered_utterance: str, index: int, *, step: int) -> bool:
+    if not 0 <= index < len(lowered_utterance):
         return False
-    start = lowered_utterance.find(needle)
-    while start != -1:
-        before = lowered_utterance[start - 1] if start else " "
-        after_index = start + len(needle)
-        after = lowered_utterance[after_index] if after_index < len(lowered_utterance) else " "
-        needs_left_boundary = _ascii_alphanumeric(needle[0])
-        needs_right_boundary = _ascii_alphanumeric(needle[-1])
-        if (not needs_left_boundary or not _ascii_alphanumeric(before)) and (
-            not needs_right_boundary or not _ascii_alphanumeric(after)
-        ):
-            return True
-        start = lowered_utterance.find(needle, start + 1)
-    return False
+    character = lowered_utterance[index]
+    if _ascii_alphanumeric(character):
+        return True
+    neighbor = index + step
+    return (
+        character in _IDENTIFIER_JOINERS
+        and 0 <= neighbor < len(lowered_utterance)
+        and _ascii_alphanumeric(lowered_utterance[neighbor])
+    )
+
+
+def _without_contained_mentions(
+    candidates: list[tuple[tuple[str, ...], tuple[str, ...]]],
+    spans: Mapping[tuple[tuple[str, ...], tuple[str, ...]], set[tuple[int, int]]],
+) -> list[tuple[tuple[str, ...], tuple[str, ...]]]:
+    """Drop a group stated only inside a longer term of another group.
+
+    `virtual machine` inside `virtual machine scale sets` states the scale-set group,
+    not a second, competing virtual-machine group.
+    """
+
+    def contained(inner: tuple[int, int], outer: tuple[int, int]) -> bool:
+        return (
+            outer[0] <= inner[0]
+            and inner[1] <= outer[1]
+            and outer[1] - outer[0] > inner[1] - inner[0]
+        )
+
+    return [
+        candidate
+        for candidate in candidates
+        if not all(
+            any(
+                contained(span, other_span)
+                for other in candidates
+                if other != candidate
+                for other_span in spans.get(other, ())
+            )
+            for span in spans.get(candidate, ())
+        )
+    ]
 
 
 def _ascii_alphanumeric(value: str) -> bool:

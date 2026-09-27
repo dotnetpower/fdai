@@ -14,7 +14,7 @@ from fdai.delivery.persistence.postgres_ontology_records import (
     _object_from_row,
 )
 from fdai.delivery.persistence.postgres_ontology_source_coverage import (
-    resource_graph_source_coverage,
+    resource_graph_source_coverage_detail,
 )
 from fdai.shared.contracts.models import OntologyLinkType, OntologyRelease
 from fdai.shared.providers.ontology_instance import (
@@ -101,7 +101,7 @@ async def _query_objects(
             ),
         )
     )
-    source_complete, source_generation = await resource_graph_source_coverage(
+    coverage = await resource_graph_source_coverage_detail(
         connection,
         objects,
         requires_resource_coverage="Resource" in object_types,
@@ -111,8 +111,9 @@ async def _query_objects(
         objects=objects,
         links=links,
         truncated=truncated or len(raw_links) > MAX_ONTOLOGY_QUERY_LINKS,
-        source_complete=source_complete,
-        source_generation=source_generation,
+        source_complete=coverage.complete,
+        source_generation=coverage.generation,
+        source_incomplete_reason=coverage.reason,
     )
 
 
@@ -187,7 +188,7 @@ async def _traverse(
         identifiers=tuple(sorted(visited)),
         releases=releases,
     )
-    source_complete, source_generation = await resource_graph_source_coverage(
+    coverage = await resource_graph_source_coverage_detail(
         connection,
         tuple(objects_by_id.values()),
         requires_resource_coverage="Resource" in root_object_types,
@@ -210,8 +211,9 @@ async def _traverse(
         objects=tuple(objects_by_id[key] for key in sorted(objects_by_id)),
         links=links,
         truncated=truncated,
-        source_complete=source_complete,
-        source_generation=source_generation,
+        source_complete=coverage.complete,
+        source_generation=coverage.generation,
+        source_incomplete_reason=coverage.reason,
     )
 
 

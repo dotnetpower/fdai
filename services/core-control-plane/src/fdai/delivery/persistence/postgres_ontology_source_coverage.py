@@ -4,12 +4,33 @@ from __future__ import annotations
 
 import json
 from collections.abc import Mapping, Sequence
+from dataclasses import dataclass
 from typing import Any
 
 import psycopg
 
 from fdai.delivery.inventory_sync import INVENTORY_ACTIVE_SCOPE_CHECKPOINT_KEY
 from fdai.shared.providers.ontology_instance import OntologyObjectRecord
+
+# Typed reasons, in reporting order, for a graph read that cannot claim source completeness.
+PROJECTION_UNAVAILABLE = "inventory_projection_unavailable"
+GENERATION_TRANSITION = "inventory_generation_transition"
+PROJECTION_INCOMPLETE = "inventory_projection_incomplete"
+PROJECTION_INCONSISTENT = "inventory_projection_inconsistent"
+STORAGE_PRESSURE = "inventory_storage_pressure"
+CORRECTION_PENDING = "inventory_correction_pending"
+OBSERVATION_PENDING = "inventory_observation_pending"
+RELATIONSHIP_RECONCILIATION_PENDING = "inventory_relationship_reconciliation_pending"
+RELATIONSHIP_INCOMPLETE = "inventory_relationship_incomplete"
+
+
+@dataclass(frozen=True, slots=True)
+class InventoryGraphSourceCoverage:
+    """Graph source completeness, its exact generation, and why it is incomplete."""
+
+    complete: bool
+    generation: str | None
+    reason: str | None = None
 
 
 async def resource_graph_source_coverage(
@@ -21,10 +42,28 @@ async def resource_graph_source_coverage(
 ) -> tuple[bool, str | None]:
     """Read exact inventory projection coverage for snapshots containing Resources."""
 
+    coverage = await resource_graph_source_coverage_detail(
+        connection,
+        objects,
+        requires_resource_coverage=requires_resource_coverage,
+        expresses_relationships=expresses_relationships,
+    )
+    return coverage.complete, coverage.generation
+
+
+async def resource_graph_source_coverage_detail(
+    connection: psycopg.AsyncConnection[Any],
+    objects: Sequence[OntologyObjectRecord],
+    *,
+    requires_resource_coverage: bool = False,
+    expresses_relationships: bool = True,
+) -> InventoryGraphSourceCoverage:
+    """Read inventory projection coverage and keep the typed incompleteness reason."""
+
     if not requires_resource_coverage and not any(
         record.object_type == "Resource" for record in objects
     ):
-        return True, None
+        return InventoryGraphSourceCoverage(complete=True, generation=None)
     cursor = await connection.execute(
         "SELECT active.snapshot_id, status.value AS status_value, "
         "manifest.value AS manifest_value, "
@@ -67,13 +106,17 @@ async def resource_graph_source_coverage(
     )
     row = await cursor.fetchone()
     if row is None:
-        return False, None
+        return InventoryGraphSourceCoverage(
+            complete=False,
+            generation=None,
+            reason=PROJECTION_UNAVAILABLE,
+        )
     status = _json_mapping(row.get("status_value"))
     manifest = _json_mapping(row.get("manifest_value"))
     observation_watermarks_value = row.get("observation_watermarks_value")
     observation_watermarks = _json_mapping(observation_watermarks_value)
     storage_pressure = _json_mapping(row.get("storage_pressure_value"))
-    return resolve_inventory_graph_source_coverage(
+    return inventory_graph_source_coverage_detail(
         active_generation=row.get("snapshot_id"),
         status=status,
         manifest=manifest,
@@ -106,6 +149,40 @@ def resolve_inventory_graph_source_coverage(
 ) -> tuple[bool, str | None]:
     """Reduce inventory projection state to exact graph generation and completeness."""
 
+    coverage = inventory_graph_source_coverage_detail(
+        active_generation=active_generation,
+        status=status,
+        manifest=manifest,
+        expresses_relationships=expresses_relationships,
+        pending_reconciliation=pending_reconciliation,
+        pending_observation=pending_observation,
+        journal_high_watermark=journal_high_watermark,
+        ontology_projection_watermark=ontology_projection_watermark,
+        pending_tombstones=pending_tombstones,
+        observation_watermark_state_present=observation_watermark_state_present,
+        pending_correction=pending_correction,
+        storage_pressure_hard=storage_pressure_hard,
+    )
+    return coverage.complete, coverage.generation
+
+
+def inventory_graph_source_coverage_detail(
+    *,
+    active_generation: object,
+    status: Mapping[str, Any],
+    manifest: Mapping[str, Any],
+    expresses_relationships: bool = True,
+    pending_reconciliation: bool = False,
+    pending_observation: bool | None = None,
+    journal_high_watermark: object = None,
+    ontology_projection_watermark: object = None,
+    pending_tombstones: object = None,
+    observation_watermark_state_present: bool = False,
+    pending_correction: bool = False,
+    storage_pressure_hard: bool = False,
+) -> InventoryGraphSourceCoverage:
+    """Reduce inventory projection state to completeness plus every typed gap reason."""
+
     manifest_generation = manifest.get("generation")
     source_generation = manifest_generation if isinstance(manifest_generation, str) else None
     watermark_incomplete = (
@@ -118,43 +195,65 @@ def resolve_inventory_graph_source_coverage(
             state_present=observation_watermark_state_present,
         )
     )
+    reasons: list[str] = []
     if (
-        watermark_incomplete
-        or pending_correction
-        or storage_pressure_hard
-        or (pending_reconciliation and expresses_relationships)
-        or (
-            not isinstance(active_generation, str)
-            or source_generation is None
-            or status.get("status") != "available"
-            or status.get("generation") != active_generation
-            or ("complete" in status and status.get("complete") is not True)
-            or source_generation != active_generation
-            or manifest.get("complete") is not True
-            or (
-                "manifest_digest" in manifest
-                and (
-                    not isinstance(manifest.get("manifest_digest"), str)
-                    or manifest.get("manifest_digest") != status.get("manifest_digest")
-                )
-            )
-            or (
-                "ontology_release_digest" in manifest
-                and manifest.get("ontology_release_digest") != status.get("ontology_release_digest")
-            )
-        )
+        not isinstance(active_generation, str)
+        or source_generation is None
+        or status.get("status") != "available"
     ):
-        return False, source_generation
+        reasons.append(PROJECTION_UNAVAILABLE)
+    if isinstance(active_generation, str) and (
+        status.get("generation") != active_generation
+        or (source_generation is not None and source_generation != active_generation)
+    ):
+        reasons.append(GENERATION_TRANSITION)
+    if ("complete" in status and status.get("complete") is not True) or manifest.get(
+        "complete"
+    ) is not True:
+        reasons.append(PROJECTION_INCOMPLETE)
+    if (
+        "manifest_digest" in manifest
+        and (
+            not isinstance(manifest.get("manifest_digest"), str)
+            or manifest.get("manifest_digest") != status.get("manifest_digest")
+        )
+    ) or (
+        "ontology_release_digest" in manifest
+        and manifest.get("ontology_release_digest") != status.get("ontology_release_digest")
+    ):
+        reasons.append(PROJECTION_INCONSISTENT)
+    if storage_pressure_hard:
+        reasons.append(STORAGE_PRESSURE)
+    if pending_correction:
+        reasons.append(CORRECTION_PENDING)
+    if watermark_incomplete:
+        reasons.append(OBSERVATION_PENDING)
+    if pending_reconciliation and expresses_relationships:
+        reasons.append(RELATIONSHIP_RECONCILIATION_PENDING)
+    if reasons:
+        return _incomplete(source_generation, reasons)
     # Relationship coverage bounds relationship claims. A snapshot whose object set admits
     # no intra-set edge states nothing about relationships, so classified non-edges
     # elsewhere in the generation cannot make its object evidence incomplete.
     if not expresses_relationships:
-        return True, source_generation
+        return InventoryGraphSourceCoverage(complete=True, generation=source_generation)
     relationship_complete = manifest.get("relationship_complete")
     if relationship_complete is None:
         dropped = manifest.get("dropped_reasons")
-        return isinstance(dropped, list) and not dropped, source_generation
-    return relationship_complete is True, source_generation
+        relationships_verified = isinstance(dropped, list) and not dropped
+    else:
+        relationships_verified = relationship_complete is True
+    if not relationships_verified:
+        return _incomplete(source_generation, [RELATIONSHIP_INCOMPLETE])
+    return InventoryGraphSourceCoverage(complete=True, generation=source_generation)
+
+
+def _incomplete(generation: str | None, reasons: Sequence[str]) -> InventoryGraphSourceCoverage:
+    return InventoryGraphSourceCoverage(
+        complete=False,
+        generation=generation,
+        reason="+".join(dict.fromkeys(reasons)),
+    )
 
 
 def _json_mapping(value: object) -> Mapping[str, Any]:

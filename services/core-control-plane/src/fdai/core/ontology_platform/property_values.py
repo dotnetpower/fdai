@@ -13,7 +13,7 @@ from dataclasses import dataclass
 from typing import Any
 
 _MAX_VALUES = 512
-_MAX_GROUPS = 64
+_MAX_GROUPS = 192
 _MAX_TERMS = 64
 _MAX_TEXT = 128
 

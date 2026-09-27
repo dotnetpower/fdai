@@ -177,9 +177,26 @@ describe("grounded reply presentation", () => {
       expect(primaryAnswerText("검증된 근거를 사용할 수 없습니다.", unavailable)).toBe(
         "대신 어떤 근거 원본이나 범위를 확인할까요? 리소스, 기간 또는 근거 원본을 지정해 주세요.",
       );
+      expect(primaryAnswerText("Verified evidence is unavailable.", unavailable)).toBe(
+        "Which source or scope should I check instead? Name a resource, time range, or evidence source.",
+      );
     } finally {
       setLocale("en");
     }
+  });
+
+  it("asks the bounded clarification in the language of the server reply", () => {
+    const unavailable = {
+      ...verification("server_read_model"),
+      status: "unverified" as const,
+      reason_code: "provider_unavailable",
+    };
+
+    expect(
+      primaryAnswerText("검증된 근거를 사용할 수 없어 요청을 보류했습니다. (provider_unavailable)", unavailable),
+    ).toBe(
+      "대신 어떤 근거 원본이나 범위를 확인할까요? 리소스, 기간 또는 근거 원본을 지정해 주세요.",
+    );
   });
 
   it("renders an actionable planner-unavailable recovery step", () => {

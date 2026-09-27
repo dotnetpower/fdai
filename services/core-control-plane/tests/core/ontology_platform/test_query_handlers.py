@@ -610,8 +610,17 @@ async def test_secured_object_set_handler_applies_property_acl() -> None:
     assert result.evidence_refs[0].startswith("ontology-object-set:sha256:")
 
 
+@pytest.mark.parametrize(
+    ("source_reason", "table_reason"),
+    [
+        (None, "source_incomplete"),
+        ("inventory_observation_pending", "inventory_observation_pending"),
+    ],
+)
 async def test_secured_object_set_handler_preserves_source_incompleteness(
     monkeypatch: pytest.MonkeyPatch,
+    source_reason: str | None,
+    table_reason: str,
 ) -> None:
     resource = OntologyObjectType(
         schema_version="1.0.0",
@@ -630,6 +639,7 @@ async def test_secured_object_set_handler_preserves_source_incompleteness(
                 objects=(),
                 links=(),
                 source_complete=False,
+                source_incomplete_reason=source_reason,
             )
         ),
     )
@@ -674,6 +684,6 @@ async def test_secured_object_set_handler_preserves_source_incompleteness(
     assert result.value == QueryTable(
         rows=(),
         complete=False,
-        truncation_reason="source_incomplete",
+        truncation_reason=table_reason,
     )
     assert result.evidence_refs[0].startswith("ontology-object-set:sha256:")

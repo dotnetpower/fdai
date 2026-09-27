@@ -9,6 +9,7 @@ export type VerificationIssueKind =
   | "invalidQuery"
   | "visionUnverified"
   | "unsupportedClaim"
+  | "requestUnsupported"
   | "staleEvidence"
   | "partialEvidence"
   | "conflictingEvidence"
@@ -60,6 +61,9 @@ export function verificationIssueKind(reasonCode: string | null): VerificationIs
   }
   if (reason === "vision_interpretation_unverified") {
     return "visionUnverified";
+  }
+  if (reason === "semantic_request_unsupported") {
+    return "requestUnsupported";
   }
   if (
     CONTEXT_REQUIRED_REASONS.has(reason) ||

@@ -508,13 +508,14 @@ def _clarification_for_frame(proposal: SemanticFrameProposal, *, utterance: str)
     normalized_terms = tuple(
         term.casefold().replace(" ", "_") for term in proposal.unresolved_terms
     )
+    korean = any("가" <= character <= "힣" for character in utterance)
     if normalized_terms == ("resource_identity",) and proposal.clarification_requirements in {
         (ClarificationRequirement.RESOURCE_IDENTITY,),
         (ClarificationRequirement.SUBJECT,),
     }:
         return (
             "조회할 정확한 리소스 이름 또는 ID를 알려주세요?"
-            if any("가" <= character <= "힣" for character in utterance)
+            if korean
             else "Which exact resource name or ID should I use?"
         )
-    return proposal.clarification or _clarification(proposal.unresolved_terms)
+    return proposal.clarification or _clarification(proposal.unresolved_terms, korean=korean)

@@ -2286,3 +2286,57 @@ def test_bound_unavailable_models_are_distinct_from_unbound_composition() -> Non
 
     assert result.receipt.disposition is SemanticJudgmentDisposition.UNAVAILABLE
     assert result.receipt.reason_code == "model_attempts_unavailable"
+
+
+@pytest.mark.parametrize("strict_intent_grounding", (False, True))
+def test_subtype_collection_filter_survives_both_grounding_modes(
+    strict_intent_grounding: bool,
+) -> None:
+    utterance = "aks 목록을 보여줘"
+    result = _boundary(
+        _Model(
+            _proposal(
+                primary_intent="query.contextual_resources",
+                targets=[
+                    {
+                        "kind": "resource_type_filter",
+                        "value": "aks",
+                        "canonical_value": None,
+                        "source_start": 0,
+                        "source_end": 3,
+                    }
+                ],
+                requested_facets=["resource_collection", "list"],
+                confidence=0.96,
+            )
+        ),
+        strict_intent_grounding=strict_intent_grounding,
+    ).judge(
+        utterance=utterance,
+        context=(),
+        capabilities=(
+            {"kind": "function_type", "name": "query.contextual_resources"},
+            {
+                "kind": "object_type",
+                "name": "Resource",
+                "canonical_values": ["Resource", "Resource.id", "Resource.type"],
+                "stated_values": [
+                    {
+                        "property": "Resource.type",
+                        "text": "aks",
+                        "source_start": 0,
+                        "source_end": 3,
+                        "values": ["kubernetes-cluster"],
+                    }
+                ],
+            },
+        ),
+        allow_escalation=False,
+    )
+
+    assert result.accepted is True
+    assert result.proposal is not None
+    assert [(target.kind, target.value) for target in result.proposal.targets] == [
+        ("resource_type_filter", "aks")
+    ]
+    assert result.proposal.execution_authority is False
