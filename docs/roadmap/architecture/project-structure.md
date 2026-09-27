@@ -206,6 +206,8 @@ Cloud update comparison validates raw and processing identities; Core rechecks p
   keys and re-judges once with the complete prompt on a coverage gap;
   `semantic_judgment_bounds.py` holds judgment input bounds, and `semantic_planning_assembly.py`
   derives frame intent keys, plan shape keys, and frame result keys for the planning adapter.
+  `conversation_preflight_family_validation.py` drops model-proposed canonical values on collection
+  filters because Core grounds them from source text.
   `fdai_core_service/semantic_answer_presentation.py` renders provider
   lifecycle states, ISO instants, completeness, and the no-authority marker in operator language
   while the technical details keep the exact values.

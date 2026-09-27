@@ -334,7 +334,7 @@
     "services/core-control-plane/src/fdai/core/conversation/conversation_preflight_answer_safety.py": "271761ade17c9bf5237f3394d12a33a433a4a8d8c853cc3063710605c086cd71",
     "services/core-control-plane/src/fdai/core/conversation/conversation_preflight_boundary.py": "0d4071c8de2e99efba99c35cf4602a2df631256094ba47578513e3275bc72b00",
     "services/core-control-plane/src/fdai/core/conversation/conversation_preflight_contracts.py": "0579e45f1f1cd422e152169b64d270f6aeffb3656d33fd92bbd9b730809b8478",
-    "services/core-control-plane/src/fdai/core/conversation/conversation_preflight_family_validation.py": "b37503e5a9ca5cd290330e6d9bb264a08fe89d30d1cceab80231d8daacf5ef5b",
+    "services/core-control-plane/src/fdai/core/conversation/conversation_preflight_family_validation.py": "f1c9eaf439c289da49fbdb8bf0c3c4b2acdc7e28ee2942cb92dcbdcd28ecf11c",
     "services/core-control-plane/src/fdai/core/conversation/conversation_preflight_operational_shapes.py": "8a81916fcfff2be49c43a80265563fde2c1d2ff7cef1b4efca3fa54a35a7d54e",
     "services/core-control-plane/src/fdai/core/conversation/conversation_preflight_targets.py": "50aaffc64e3750033b8f3509ca215564a4f0e7e52e3895a7d843f4a8911101c8",
     "services/core-control-plane/src/fdai/core/conversation/conversation_preflight_validation.py": "60d8a370571bc56db6ef98dfbc3e310f2c3b4e6a454ee3a2d1bd3f4aa568edee",

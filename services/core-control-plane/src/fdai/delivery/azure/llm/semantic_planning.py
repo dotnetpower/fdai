@@ -257,7 +257,7 @@ class AzureOpenAISemanticPlanningModel:
 
         payload = {
             "frame": frame.model_dump(mode="json"),
-            "descriptors": descriptors,
+            "descriptors": _plan_descriptors(descriptors, frame),
             "metric_concepts": metric_concepts,
             "principal_role": principal_role,
             "purpose": purpose,
@@ -683,6 +683,17 @@ def _recovery_prompt(base_prompt: str) -> str | None:
         )
         return None
     return prompt
+
+
+def _plan_descriptors(
+    descriptors: tuple[dict[str, Any], ...],
+    frame: SemanticProblemFrame,
+) -> tuple[dict[str, Any], ...]:
+    """Omit ActionType descriptors from a read-only plan unless the frame is an action draft."""
+
+    if str(getattr(frame.output_shape, "value", frame.output_shape)) == "action_draft":
+        return descriptors
+    return tuple(descriptor for descriptor in descriptors if descriptor.get("kind") != "action")
 
 
 def _frame_descriptor_candidates(

@@ -1018,3 +1018,21 @@ async def test_frame_with_covered_shape_keeps_the_selected_prompt() -> None:
     assert len(systems) == 1
     assert "ontology frame guidance." not in systems[0]
     assert len(response.observations) == 1
+
+
+def test_read_only_plan_payload_omits_action_descriptors() -> None:
+    from types import SimpleNamespace
+
+    from fdai.delivery.azure.llm.semantic_planning import _plan_descriptors
+
+    descriptors = (
+        {"kind": "function", "name": "query.manifest"},
+        {"kind": "action", "name": "restart-vm"},
+        {"kind": "object", "name": "Resource"},
+    )
+
+    read = _plan_descriptors(descriptors, SimpleNamespace(output_shape="ontology_manifest"))  # type: ignore[arg-type]
+    draft = _plan_descriptors(descriptors, SimpleNamespace(output_shape="action_draft"))  # type: ignore[arg-type]
+
+    assert [item["name"] for item in read] == ["query.manifest", "Resource"]
+    assert draft == descriptors
