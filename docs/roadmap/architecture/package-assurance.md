@@ -4,182 +4,144 @@ title: Package Assurance
 
 # Package Assurance
 
-This document assigns FDAI packages and distributable artifacts the smallest assurance contract
-that matches their actual boundary. It keeps constitutional safety controls on effect-bearing and
-independently released surfaces without imposing release ceremonies on internal lockstep code.
+This document defines the minimum controls for code or artifacts that cross an FDAI package
+boundary. Internal workspace code has no package ceremony by default; explicit policy begins only
+when a contract, artifact, or evidence set is consumed outside its lockstep build.
 
-> **Authority boundary:** Package availability, installation, enablement, user access, action mode,
-> approval, execution identity, and effect verification remain independent. A package operation
-> never grants runtime authority.
+> **Authority boundary:** Package discovery, installation, availability, and enablement never grant
+> approval, action promotion, executor identity, or execution authority.
 >
 > **Implementation ledger:** Delivery state and remaining evidence are tracked in the
 > [Package Assurance implementation ledger](../../roadmap-implementation/architecture/package-assurance.md).
 
 ## Design at a glance
 
-FDAI classifies each package or artifact by what crosses its boundary. The machine-readable policy
-in [`config/package-assurance.json`](../../../config/package-assurance.json) records the
-classification, while
+[`config/package-assurance.json`](../../../config/package-assurance.json) lists only explicit
+external boundaries and artifact profiles. Unlisted packages remain ordinary workspace code.
 [`check-package-assurance.py`](../../../scripts/quality/architecture/check-package-assurance.py)
-prevents a lower-assurance class from weakening an effect-bearing, published-contract, or
-knowledge-evidence boundary.
+checks the small constitutional minimum without duplicating package-manager, service-boundary,
+capability-lifecycle, review, or promotion policy.
 
-The level is a minimum assurance bundle, not a replacement for independent runtime axes. A package
-can add a stronger compatibility scope, such as the Cost Governance N-1 artifact rollback
-contract, without changing its effect-bearing classification.
+Stronger owner-specific controls remain supported. For example, the shared contract SDK may retain
+N-1 tests and an offline release may require an SBOM. Those choices stay with the owner that
+actually consumes the evidence; they are not hidden global package requirements.
 
 ## Revised design decision
 
-**Initial design:** Apply independent release, N/N-1 compatibility, one complete signed kit, one
-live lifecycle run, and one review request per target to every package-shaped surface.
+**Initial design:** Encode five fixed assurance levels, an exhaustive package inventory, exact root
+dependency mirrors, fixed lifecycle transitions, optional readiness behavior, extension facade
+rules, and Cost Governance review-envelope semantics in one package gate.
 
-**Critique:** That design confuses repository organization with process, trust, evidence, and
-authority boundaries. It duplicates dependency declarations, makes connected delivery carry
-offline-only content, and turns independent review decisions into repeated ceremony. The extra
-work does not add safety for an internal library or authority-neutral metadata package.
+**Critique:** That policy duplicates the lockfile, package manifests, independent-service checks,
+runtime promotion registry, capability lifecycle, and protected review workflows. A package could
+not be removed or reclassified without editing both policy and checker code. Recommended controls
+such as SBOM and N-1 compatibility became hard requirements even when no released consumer or
+offline boundary needed them.
 
-**Revised design:** Classify the boundary first, then apply only the controls required by that
-class. Customer-agnostic scope, artifact integrity, authority separation, exact-plan approval,
-rollback, and independent effect verification remain unchanged where they apply.
+**Revised design:** Workspace code is unconstrained by package ceremony. An explicit boundary keeps
+only integrity, provenance, versioning, freshness, dependency closure, authority separation, and
+effect-verification requirements that are needed for that boundary.
 
-## Assurance levels
+## Minimum hard constraints
 
-| Level | Use it for | Required assurance |
-|-------|------------|--------------------|
-| `workspace-internal` | Code that stays inside one distribution and process | Owning tests and dependency checks. No independent release or N/N-1 obligation. |
-| `lockstep-shared` | A separately packaged library released with its consumers | Own manifest, stable import surface, and lockstep tests. No rolling compatibility claim unless it crosses a deployed boundary. |
-| `independent-contract` | Published SDKs and cross-process or durable wire contracts | Immutable published schemas, N/N-1 compatibility, translators, and producer-consumer evidence. |
-| `effect-bearing` | Deployment tools or optional packages that can lead to durable state or managed-resource effects | Signed release, linked lifecycle evidence, per-capability promotion, rollback, approval separation, and independent effect verification. |
-| `knowledge-evidence` | Reviewed knowledge or evidence packages | Signed content, provenance, freshness, review, retention, revocation, and independently observed activation. It does not inherit executor authority. |
+| Constraint | Why it remains |
+|------------|----------------|
+| Package operations grant no authority | Availability and enablement are independent from access, promotion, approval, and execution. |
+| Distributed bytes have an exact digest and provenance | A consumer must know which bytes it received and who produced them. |
+| Published contracts are versioned | A cross-release consumer must be able to identify the contract it is decoding. |
+| Distributed evidence records freshness | Old evidence cannot silently become current operational truth. |
+| Every selected artifact profile declares dependency closure | Missing artifacts stay explicit rather than failing during installation. |
+| Offline profiles use a signed root and no public fallback | A disconnected target needs an independent trust anchor and a closed artifact set. |
+| State-change success requires independent effect verification | Packaging never weakens the constitutional execution boundary. |
 
-A filesystem package boundary does not imply a new service. The
-[service graduation gates](service-graduation-and-ownership.md) still decide whether a package
-needs an independent process, identity, data owner, transport, and rollback plan.
+The package policy requires a signed offline trust root, not a specific number of private signing
+keys. Release tooling may use separate release and bundle keys as a stronger owner-selected
+control. Consolidating or rotating those keys remains an explicit trust-root decision, never an
+implicit package-assurance requirement.
+
+## Explicit package boundaries
+
+Most `services/`, `packages/`, and `extensions/` entries are lockstep workspace code and therefore
+need no entry. The policy lists only boundaries with an external consumer:
+
+| Boundary | Minimum controls | Typical use |
+|----------|------------------|-------------|
+| `published-contract` | `versioned-contract` | Shared SDK or wire schema consumed by another release or process. |
+| `distributed-artifact` | `exact-digest`, `provenance` | CLI, extension, image, or other artifact distributed outside the lockstep workspace. |
+| `distributed-evidence` | `exact-digest`, `provenance`, `freshness` | Reviewed knowledge or evidence whose age affects operational claims. |
+
+The checker validates ids, paths, optional manifests and facades, declared controls, and any
+owner-supplied compatibility file. It does not hard-code package ids or require an exhaustive
+inventory. Removing an entry means the surface returns to the workspace default; the owning build,
+import, service, and architecture checks still apply.
 
 ## Dependency ownership
 
-Each runtime dependency has one owning distribution manifest. The non-installable repository root
-can mirror a dependency only when root test collection imports the owning package directly.
+Each installable distribution owns its runtime dependencies in its own manifest. The repository
+root and `uv.lock` coordinate the default development environment and may include dependencies
+needed for cross-package test collection.
 
-The policy records each permitted mirror with:
+The package assurance gate no longer maintains a second mirror registry or requires root and owner
+version ranges to be textually equal. The package manager, frozen lock, cold-import tests, image
+builds, and service-owned dependency checks prove the selected environment. An independently
+released package may keep its own lock or constraints when its release process needs one; a single
+repository lock is a workspace default, not a constitutional rule.
 
-- the dependency name;
-- the owning manifest;
-- the root-test reason.
+## Compatibility ownership
 
-The checker compares the root and owner requirement ranges. An unlisted mirror or unsupported
-version drift fails validation. A policy entry can permit a stricter root-test lower bound while
-the owner keeps a wider supported runtime range; the root cannot widen beyond the owner. Workspace
-members are checked separately against their own project name and version. This keeps the root
-environment usable without turning duplicate text into a second source of truth.
+Only a published contract is globally required to carry a stable version. N-1 compatibility,
+translators, schema immutability, host ranges, and rollback windows are owner-selected contracts
+when a deployed peer, retained data, or public consumer needs them.
 
-## Compatibility scope
+The `fdai-service-contracts` package continues to use its compatibility manifest and rolling tests.
+Cost Governance may continue to qualify an N-1 artifact rollback. The minimum package gate no
+longer makes either policy mandatory for unrelated packages.
 
-N/N-1 and immutable-schema requirements apply when a contract is:
+## Artifact profiles
 
-- published for an independently released consumer;
-- exchanged across a deployed process boundary; or
-- retained durably and read by another release.
+| Profile | Required controls | Recommended or owner-selected controls |
+|---------|-------------------|----------------------------------------|
+| `connected` | Declared dependency closure, exact digests, provenance | Compatibility checks and SBOM |
+| `offline` | Connected minimum plus signed root and no public fallback | Compatibility checks and SBOM |
+| `appliance` | Offline minimum plus digest-pinned container | Compatibility checks and SBOM |
 
-Internal lockstep records can change with their only consumer when no released peer or retained
-data depends on the old shape. Moving an internal record into a cross-process, durable, or public
-surface first changes its assurance level and establishes a versioned compatibility contract.
+Recommended controls remain first-class release evidence, but omitting one does not fail the
+minimum package gate. A release owner can promote a recommendation into that artifact's own
+contract. The profile then declares and tests it explicitly.
 
-The `fdai-service-contracts` package remains `independent-contract`. Its published schemas,
-compatibility manifest, generated views, and rolling-transition evidence remain unchanged.
+## Controls returned to their owners
 
-## Signed artifact profiles
+| Removed global package constraint | Authoritative owner |
+|-----------------------------------|---------------------|
+| Fixed install/enable/disable/revoke/reload/restart list | Capability Bundle Lifecycle and its operational claim |
+| Per-capability promotion requirement | Promotion registry for each `ActionType` and `Workflow` |
+| Cost Governance multi-target review semantics | Cost Governance review workflow and campaign |
+| Optional readiness behavior | Independent runtime axes and capability composition |
+| Core-to-extension import rules and facade shape | Independent-service and protected-path checks |
+| Root dependency mirror list and range equality | Package manifests, package manager, lock, and owning tests |
 
-Each profile has its own complete trust closure. Connected source delivery is bound by protected
-source identity and an approved exact-revision image manifest; it does not need an offline-kit
-root. Offline delivery uses a signed deployment root that binds the exact legacy kit manifest.
-An appliance wraps that verified offline closure in a separately attested container.
+This ownership split removes duplicated ceremony without weakening the underlying control.
 
-| Profile | Trust root | Complete closure |
-|---------|------------|------------------|
-| `connected` | Protected source revision and signed image manifest | Exact image and support manifests, compatibility, software bill of materials (SBOM), provenance, and immutable digests. A complete offline wheelhouse or provider mirror is not required. |
-| `offline` | `deployment-root.json` and release signing root | The connected artifact controls plus every required wheel, binary, Terraform provider, runtime image, Console artifact, migration input, and no-public-fallback proof. |
-| `appliance` | Verified offline root plus container attestation | The offline closure plus a digest-pinned container, embedded-kit binding, provenance, SBOM, and no-public-fallback entry point. |
+## Validation
 
-New offline kits carry `deployment-root.json` and its detached signature. The root lists sorted,
-unique kit profile names and binds the exact `offline-kit.json` bytes. Kit acquisition verifies the
-root when present. New legacy-format manifests also mark the root as required, so removing both
-root files cannot downgrade a new release into the fallback path. Older manifests without that
-marker remain valid through the existing manifest and signature. This additive migration preserves
-old releases while connected source delivery remains independent from offline-only artifact
-construction.
+Run the focused policy check after changing the boundary configuration:
 
-## Linked lifecycle evidence
+```bash
+uv run python scripts/quality/architecture/check-package-assurance.py
+uv run pytest -q --no-cov tests/integration/scripts/test_package_assurance.py
+```
 
-Install, enable, disable, revoke, reload, and restart evidence can come from separate bounded runs
-when every receipt carries the same:
-
-- artifact digest;
-- release revision;
-- environment identity; and
-- audit correlation identity.
-
-The evidence set must contain every required transition and preserve ordering, actor identity,
-idempotency, and audit lineage. A missing or conflicting link keeps the lifecycle incomplete. A
-single monolithic live run is accepted, but it is no longer the only valid proof shape.
-
-## Multi-target review envelopes
-
-One bounded review envelope can carry up to six Cost Governance target decisions. Each entry names
-one package activation, `ActionType`, or `Workflow`, plus its own decision and rationale.
-
-The batch recorder decomposes the envelope into existing single-target records. Stable child
-request ids use the batch id, target kind, and target id, so a retry replays each target
-independently. Every child retains its own campaign digest, reviewer, decision, rationale, evidence
-references, and review time. Partial completion is explicit and safe to retry.
-
-A review envelope has no approval, execution, or promotion authority. Later activation and
-promotion remain separate target-specific transactions.
-
-## Optional package readiness
-
-Optional package state remains capability-scoped:
-
-- an unavailable disabled package can leave the unrelated base runtime ready;
-- an enabled package with a missing required binding fails closed for that capability;
-- independently complete read, deny, and observation paths may continue;
-- availability never enables a package; and
-- enablement never raises action authority.
-
-Readiness reports the unavailable reason instead of converting missing optional configuration into
-a startup-wide failure. A dependency required by an enabled or effect-bearing path remains a hard
-failure for that path.
-
-## Extension package facades
-
-An optional package can expose a documented authority-neutral facade for factories, resource
-loaders, readiness types, and reviewed adapters. Public export changes discoverability only.
-
-Core still cannot import an optional package. The composition root selects and binds the package,
-and the existing dependency-direction checks enforce that boundary. Provider clients, judgment,
-approval, execution identity, and promotion authority do not move into the facade.
-
-## Controls that do not relax
-
-Package assurance never relaxes these requirements:
-
-- upstream artifacts stay customer-agnostic and free of credentials and tenant values;
-- signed artifacts preserve exact digests, provenance, SBOMs, compatibility, and dependency
-  closure;
-- package activation stays separate from user access, `ActionType` and `Workflow` mode, approval,
-  execution, rollback, and effect verification;
-- every managed-resource or external state change keeps the seven autonomous-action safeguards;
-- published cross-process and durable contracts remain versioned and compatible; and
-- agent ownership, event-bus communication, single-writer state, and human-executor separation
-  remain unchanged.
+Artifact builders, contract compatibility suites, protected review workflows, deployment checks,
+and runtime effect verification remain separate owning gates. Passing package assurance does not
+claim a release, deployment, promotion, or operational outcome.
 
 ## Related docs
 
 | To learn about | Read |
 |----------------|------|
-| Repository package and dependency ownership | [Project Structure](project-structure.md) |
-| Service extraction gates | [Service Graduation and Data Ownership](service-graduation-and-ownership.md) |
-| Capability installation and activation | [Capability bundle lifecycle](capability-bundle-lifecycle.md) |
-| Signed deployment artifacts | [Installable Deployment CLI](../deployment/installable-deployment-cli.md) |
-| Optional Cost Governance package | [Ontology-Grounded FinOps Package Architecture](finops-package-architecture.md) |
-| Downstream extension seams | [Downstream Fork Guide](../fork-and-sequencing/downstream-fork-guide.md) |
+| Constitutional safety and authority | [FDAI Constitution](fdai-constitution.md) |
+| Physical package and service ownership | [Multi-Service Repository Layout](multi-service-repository-layout.md) |
+| Service graduation gates | [Service Graduation and Data Ownership](service-graduation-and-ownership.md) |
+| Capability installation and revocation | [Capability Bundle Lifecycle](capability-bundle-lifecycle.md) |
+| Runtime and package preference axes | [ADR-0002](decisions/0002-independent-runtime-axes.md) |
+| Deployment artifact profiles | [Installable Deployment CLI](../deployment/installable-deployment-cli.md) |

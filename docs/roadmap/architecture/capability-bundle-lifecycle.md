@@ -27,6 +27,7 @@ not enable, materialize, or promote the skill.
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-27 | implemented | Returned lifecycle transition selection and completeness to this capability owner instead of the global package gate. | `current change`; minimum package assurance policy and this owning design. | Retain the governed operational linked receipt set under Issue #355. |
 | 2026-09-26 | implemented | Allowed a complete lifecycle to use bounded linked receipts with one exact artifact lineage instead of requiring one monolithic live run. | `current change`; package assurance policy, checker, owner documentation, and focused policy tests. | Retain the governed operational linked receipt set under Issue #355. |
 | 2026-08-21 | implemented | Moved the existing capability bundle and trusted-artifact lifecycle into a focused owner document without changing runtime behavior or authority. | `current change`; document-size, translation, route, and link checks. | Retain governed operational evidence for a complete install, enable, disable, revoke, and disclosure reload sequence on one exact revision. |
 
@@ -80,6 +81,8 @@ Operational evidence can be one bounded run or several linked runs. Separate rec
 when they bind the same artifact digest, release revision, environment identity, and audit
 correlation identity. The complete set still covers install, enable, disable, revoke, reload, and
 restart readback in order. Missing or conflicting links keep the lifecycle incomplete.
+This transition set belongs to the capability lifecycle claim; package assurance no longer imposes
+it on unrelated artifacts.
 
 This relaxation changes evidence packaging, not runtime authority. Each transition preserves its
 own actor, idempotency, audit, and effect evidence, and no receipt can promote an `ActionType` or
