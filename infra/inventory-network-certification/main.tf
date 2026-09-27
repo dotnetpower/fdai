@@ -13,11 +13,10 @@ locals {
     "fdai:authority"    = "observation-only"
     "fdai:cleanup-mode" = "exact-plan"
   }
-  resource_group_name = "rg-fdai-invnet-${local.suffix}"
-  storage_name        = "stfdaiinv${local.suffix}"
-  postgres_name       = "psql-fdai-invnet-${local.suffix}"
-  receipt_name        = "${var.request_id}.json"
-  receipt_url         = "https://${local.storage_name}.blob.core.windows.net/receipts/${local.receipt_name}"
+  storage_name  = "stfdaiinv${local.suffix}"
+  postgres_name = "psql-fdai-invnet-${local.suffix}"
+  receipt_name  = "${var.request_id}.json"
+  receipt_url   = "https://${local.storage_name}.blob.core.windows.net/receipts/${local.receipt_name}"
   dsn = join("", [
     "postgresql://fdaiadmin:",
     urlencode(random_password.postgres.result),
@@ -31,6 +30,8 @@ resource "terraform_data" "target_fence" {
   input = {
     subscription_id = var.subscription_id
     tenant_id       = var.tenant_id
+    resource_group  = var.resource_group_name
+    location        = var.location
     source_revision = var.source_revision
     request_id      = var.request_id
   }
@@ -39,37 +40,36 @@ resource "terraform_data" "target_fence" {
     precondition {
       condition = (
         lower(data.azurerm_client_config.current.subscription_id) == lower(var.subscription_id) &&
-        lower(data.azurerm_client_config.current.tenant_id) == lower(var.tenant_id)
+        lower(data.azurerm_client_config.current.tenant_id) == lower(var.tenant_id) &&
+        lower(data.azurerm_resource_group.certification.location) == lower(var.location)
       )
-      error_message = "Authenticated Terraform target does not match the certification inputs."
+      error_message = "Authenticated Terraform target or existing resource group does not match the certification inputs."
     }
   }
 }
 
-resource "azurerm_resource_group" "certification" {
-  name     = local.resource_group_name
-  location = var.location
-  tags     = local.tags
+data "azurerm_resource_group" "certification" {
+  name = var.resource_group_name
 }
 
 resource "azurerm_virtual_network" "certification" {
   name                = "vnet-fdai-invnet-${local.suffix}"
   address_space       = ["10.246.0.0/16"]
-  location            = azurerm_resource_group.certification.location
-  resource_group_name = azurerm_resource_group.certification.name
+  location            = data.azurerm_resource_group.certification.location
+  resource_group_name = data.azurerm_resource_group.certification.name
   tags                = local.tags
 }
 
 resource "azurerm_network_security_group" "certification" {
   name                = "nsg-fdai-invnet-${local.suffix}"
-  location            = azurerm_resource_group.certification.location
-  resource_group_name = azurerm_resource_group.certification.name
+  location            = data.azurerm_resource_group.certification.location
+  resource_group_name = data.azurerm_resource_group.certification.name
   tags                = local.tags
 }
 
 resource "azurerm_subnet" "container_apps" {
   name                 = "snet-container-apps"
-  resource_group_name  = azurerm_resource_group.certification.name
+  resource_group_name  = data.azurerm_resource_group.certification.name
   virtual_network_name = azurerm_virtual_network.certification.name
   address_prefixes     = ["10.246.0.0/23"]
 
@@ -88,7 +88,7 @@ resource "azurerm_subnet_network_security_group_association" "container_apps" {
 
 resource "azurerm_subnet" "postgres" {
   name                 = "snet-postgres"
-  resource_group_name  = azurerm_resource_group.certification.name
+  resource_group_name  = data.azurerm_resource_group.certification.name
   virtual_network_name = azurerm_virtual_network.certification.name
   address_prefixes     = ["10.246.4.0/24"]
 
@@ -107,7 +107,7 @@ resource "azurerm_subnet_network_security_group_association" "postgres" {
 
 resource "azurerm_subnet" "private_endpoints" {
   name                              = "snet-private-endpoints"
-  resource_group_name               = azurerm_resource_group.certification.name
+  resource_group_name               = data.azurerm_resource_group.certification.name
   virtual_network_name              = azurerm_virtual_network.certification.name
   address_prefixes                  = ["10.246.5.0/24"]
   private_endpoint_network_policies = "Disabled"
@@ -120,13 +120,13 @@ resource "azurerm_subnet_network_security_group_association" "private_endpoints"
 
 resource "azurerm_private_dns_zone" "postgres" {
   name                = "privatelink.postgres.database.azure.com"
-  resource_group_name = azurerm_resource_group.certification.name
+  resource_group_name = data.azurerm_resource_group.certification.name
   tags                = local.tags
 }
 
 resource "azurerm_private_dns_zone_virtual_network_link" "postgres" {
   name                  = "link-postgres"
-  resource_group_name   = azurerm_resource_group.certification.name
+  resource_group_name   = data.azurerm_resource_group.certification.name
   private_dns_zone_name = azurerm_private_dns_zone.postgres.name
   virtual_network_id    = azurerm_virtual_network.certification.id
   registration_enabled  = false
@@ -135,13 +135,13 @@ resource "azurerm_private_dns_zone_virtual_network_link" "postgres" {
 
 resource "azurerm_private_dns_zone" "blob" {
   name                = "privatelink.blob.core.windows.net"
-  resource_group_name = azurerm_resource_group.certification.name
+  resource_group_name = data.azurerm_resource_group.certification.name
   tags                = local.tags
 }
 
 resource "azurerm_private_dns_zone_virtual_network_link" "blob" {
   name                  = "link-blob"
-  resource_group_name   = azurerm_resource_group.certification.name
+  resource_group_name   = data.azurerm_resource_group.certification.name
   private_dns_zone_name = azurerm_private_dns_zone.blob.name
   virtual_network_id    = azurerm_virtual_network.certification.id
   registration_enabled  = false
@@ -162,8 +162,8 @@ resource "random_password" "postgres" {
 resource "azurerm_postgresql_flexible_server" "certification" {
   # checkov:skip=CKV_AZURE_136:The disposable single-region campaign is independently verified and immediately destroyed; geo-redundant backup would outlive its bounded evidence window.
   name                          = local.postgres_name
-  resource_group_name           = azurerm_resource_group.certification.name
-  location                      = azurerm_resource_group.certification.location
+  resource_group_name           = data.azurerm_resource_group.certification.name
+  location                      = data.azurerm_resource_group.certification.location
   version                       = "16"
   delegated_subnet_id           = azurerm_subnet.postgres.id
   private_dns_zone_id           = azurerm_private_dns_zone.postgres.id
@@ -230,8 +230,8 @@ resource "azurerm_storage_account" "receipts" {
   # checkov:skip=CKV_AZURE_206:The task-owned receipt is independently read back before immediate exact cleanup.
   # checkov:skip=CKV2_AZURE_1:Infrastructure encryption and platform-managed keys avoid a second disposable key lifecycle.
   name                              = local.storage_name
-  resource_group_name               = azurerm_resource_group.certification.name
-  location                          = azurerm_resource_group.certification.location
+  resource_group_name               = data.azurerm_resource_group.certification.name
+  location                          = data.azurerm_resource_group.certification.location
   account_kind                      = "StorageV2"
   account_tier                      = "Standard"
   account_replication_type          = "LRS"
@@ -289,8 +289,8 @@ resource "azurerm_monitor_diagnostic_setting" "receipt_blob" {
 
 resource "azurerm_private_endpoint" "blob" {
   name                = "pe-invnet-blob-${local.suffix}"
-  location            = azurerm_resource_group.certification.location
-  resource_group_name = azurerm_resource_group.certification.name
+  location            = data.azurerm_resource_group.certification.location
+  resource_group_name = data.azurerm_resource_group.certification.name
   subnet_id           = azurerm_subnet.private_endpoints.id
   tags                = local.tags
 
@@ -309,8 +309,8 @@ resource "azurerm_private_endpoint" "blob" {
 
 resource "azurerm_log_analytics_workspace" "certification" {
   name                = "log-fdai-invnet-${local.suffix}"
-  location            = azurerm_resource_group.certification.location
-  resource_group_name = azurerm_resource_group.certification.name
+  location            = data.azurerm_resource_group.certification.location
+  resource_group_name = data.azurerm_resource_group.certification.name
   sku                 = "PerGB2018"
   retention_in_days   = 30
   tags                = local.tags
@@ -318,8 +318,8 @@ resource "azurerm_log_analytics_workspace" "certification" {
 
 resource "azurerm_container_app_environment" "certification" {
   name                           = "cae-fdai-invnet-${local.suffix}"
-  location                       = azurerm_resource_group.certification.location
-  resource_group_name            = azurerm_resource_group.certification.name
+  location                       = data.azurerm_resource_group.certification.location
+  resource_group_name            = data.azurerm_resource_group.certification.name
   log_analytics_workspace_id     = azurerm_log_analytics_workspace.certification.id
   infrastructure_subnet_id       = azurerm_subnet.container_apps.id
   internal_load_balancer_enabled = true
@@ -328,15 +328,15 @@ resource "azurerm_container_app_environment" "certification" {
 
 resource "azurerm_user_assigned_identity" "campaign" {
   name                = "id-fdai-invnet-campaign-${local.suffix}"
-  location            = azurerm_resource_group.certification.location
-  resource_group_name = azurerm_resource_group.certification.name
+  location            = data.azurerm_resource_group.certification.location
+  resource_group_name = data.azurerm_resource_group.certification.name
   tags                = local.tags
 }
 
 resource "azurerm_user_assigned_identity" "verifier" {
   name                = "id-fdai-invnet-verifier-${local.suffix}"
-  location            = azurerm_resource_group.certification.location
-  resource_group_name = azurerm_resource_group.certification.name
+  location            = data.azurerm_resource_group.certification.location
+  resource_group_name = data.azurerm_resource_group.certification.name
   tags                = local.tags
 }
 
@@ -371,15 +371,15 @@ resource "azurerm_role_assignment" "verifier_receipt_reader" {
 }
 
 resource "azurerm_role_assignment" "verifier_sandbox_reader" {
-  scope                = azurerm_resource_group.certification.id
+  scope                = data.azurerm_resource_group.certification.id
   role_definition_name = "Reader"
   principal_id         = azurerm_user_assigned_identity.verifier.principal_id
 }
 
 resource "azurerm_container_app_job" "migrate" {
   name                         = "job-invnet-migrate-${local.suffix}"
-  location                     = azurerm_resource_group.certification.location
-  resource_group_name          = azurerm_resource_group.certification.name
+  location                     = data.azurerm_resource_group.certification.location
+  resource_group_name          = data.azurerm_resource_group.certification.name
   container_app_environment_id = azurerm_container_app_environment.certification.id
   workload_profile_name        = "Consumption"
   replica_timeout_in_seconds   = 900
@@ -434,8 +434,8 @@ resource "azurerm_container_app_job" "migrate" {
 
 resource "azurerm_container_app_job" "campaign" {
   name                         = "job-invnet-campaign-${local.suffix}"
-  location                     = azurerm_resource_group.certification.location
-  resource_group_name          = azurerm_resource_group.certification.name
+  location                     = data.azurerm_resource_group.certification.location
+  resource_group_name          = data.azurerm_resource_group.certification.name
   container_app_environment_id = azurerm_container_app_environment.certification.id
   workload_profile_name        = "Consumption"
   replica_timeout_in_seconds   = 1800
@@ -539,8 +539,8 @@ resource "azurerm_container_app_job" "campaign" {
 
 resource "azurerm_container_app_job" "verifier" {
   name                         = "job-invnet-verify-${local.suffix}"
-  location                     = azurerm_resource_group.certification.location
-  resource_group_name          = azurerm_resource_group.certification.name
+  location                     = data.azurerm_resource_group.certification.location
+  resource_group_name          = data.azurerm_resource_group.certification.name
   container_app_environment_id = azurerm_container_app_environment.certification.id
   workload_profile_name        = "Consumption"
   replica_timeout_in_seconds   = 600

@@ -1,6 +1,6 @@
 output "resource_group_name" {
-  description = "Task-owned sandbox resource group."
-  value       = azurerm_resource_group.certification.name
+  description = "Existing development resource group containing the task-owned sandbox resources."
+  value       = data.azurerm_resource_group.certification.name
 }
 
 output "migration_job_name" {

@@ -35,6 +35,7 @@ unavailable" and retains the last complete snapshot.
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-27 | implemented | Bound sandbox creation to the existing development application resource group because its managed-host UAMI already has exact Contributor and role-assignment authority there. The plan no longer creates, tags, or deletes a resource group. | `current change`; Terraform target fence and exact create/delete address gate. | Run the governed campaign and verify only task-tagged sandbox resources are removed. |
 | 2026-09-27 | implemented | Hardened the isolated certification sandbox with infrastructure-encrypted private receipt storage, default-deny network rules, Blob diagnostics, PostgreSQL audit settings, and an NSG on every task-owned subnet. | `current change`; Trivy 0 findings above Low; Checkov 0 failed checks; Terraform validation and exact plan-gate tests passed. | Run the governed exact-revision campaign and verify task-only cleanup. |
 | 2026-09-17 | implemented | Extended the disposable scenario's resource-local public-access exceptions to Checkov without broadening the API, identity, or authorization boundary. | `current change`; `infra/scenario-lab/aks.tf`; focused Trivy and Checkov scans and scenario-lab tests. | Retain protected recreation and FDAI Pod-inventory readback. |
 | 2026-09-17 | implemented | Added the disposable scenario's authenticated public AKS API path and scoped both public-access scanner suppressions to that one resource. | `current change`; `infra/scenario-lab/aks.tf`; focused Trivy scan and scenario-lab tests. | Retain protected recreation and FDAI Pod-inventory readback. |
@@ -52,9 +53,10 @@ unavailable" and retains the last complete snapshot.
 
 ## Isolated certification sandbox
 
-Restricted-network fault evidence uses one task-owned development resource group with its own
-Virtual Network, delegated Container Apps and PostgreSQL subnets, private DNS zones, private
-PostgreSQL server, and private Blob receipt store. It does not peer with, route through, or change
+Restricted-network fault evidence uses one task-owned resource set inside the existing development
+application resource group. It creates its own Virtual Network, delegated Container Apps and
+PostgreSQL subnets, private DNS zones, private PostgreSQL server, and private Blob receipt store. It
+does not tag or delete the existing resource group, and does not peer with, route through, or change
 the existing development Virtual Network, DNS, NSG, Private Endpoint, identity, provider
 registration, or active inventory generation.
 
