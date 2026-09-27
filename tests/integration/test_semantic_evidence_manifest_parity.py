@@ -15,9 +15,11 @@ from collections import Counter
 from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime
+from functools import cache
 from typing import Any, cast
 from uuid import UUID, uuid5
 
+import pytest
 from fdai.core.conversation.conversation_preflight_contracts import ConversationPreflightResult
 from fdai.core.conversation.intent_graph import build_intent_graph
 from fdai.core.conversation.semantic_planning_frame_core import build_semantic_frame
@@ -59,6 +61,7 @@ from fdai_service_contracts.ontology_query import (
 
 SEED = 0x0FDA1
 TURNS = 1_000
+PARTITIONS = 10
 NOW = datetime(2026, 9, 1, 12, 0, tzinfo=UTC)
 RELEASE = "sha256:" + "a" * 64
 CATALOG = "sha256:" + "b" * 64
@@ -377,24 +380,34 @@ def violations(turn: Turn, projection: Mapping[str, Any], done: Mapping[str, Any
     return [name for name, failed in checks.items() if failed]
 
 
-async def test_generated_turns_keep_evidence_references_and_manifest_in_parity() -> None:
+@cache
+def generated_turns() -> tuple[Turn, ...]:
+    """Return the complete seeded stream; generation is independent of processing order."""
     rng = seeded(SEED)
+    return tuple(generate(rng, index) for index in range(TURNS))
+
+
+def test_generated_turn_stream_covers_every_kind_locale_and_failure_mode() -> None:
+    turns = generated_turns()
+    kinds = Counter(turn.kind for turn in turns)
+    held_modes = {turn.nodes[-1].outcome for turn in turns if turn.kind == "held_overflow"}
+
+    assert len(turns) == TURNS
+    partitions = [turns[partition::PARTITIONS] for partition in range(PARTITIONS)]
+    assert sorted(turn.index for part in partitions for turn in part) == list(range(TURNS))
+    assert set(kinds) == set(EXPECTED) and min(kinds.values()) >= 40
+    assert Counter(turn.locale for turn in turns) == Counter({"en": TURNS // 2, "ko": TURNS // 2})
+    assert held_modes == {"held", "failed"}
+
+
+@pytest.mark.parametrize("partition", range(PARTITIONS))
+async def test_generated_turns_keep_evidence_references_and_manifest_in_parity(
+    partition: int,
+) -> None:
     pipeline = Pipeline()
-    kinds: Counter[str] = Counter()
-    locales: Counter[str] = Counter()
     failures: Counter[tuple[str, str]] = Counter()
-    held_modes: Counter[str] = Counter()
-    for index in range(TURNS):
-        turn = generate(rng, index)
+    for turn in generated_turns()[partition::PARTITIONS]:
         projection, done = await pipeline.run(turn)
-        kinds[turn.kind] += 1
-        if turn.kind == "held_overflow":
-            held_modes[turn.nodes[-1].outcome] += 1
-        locales[turn.locale] += 1
         failures.update((turn.kind, name) for name in violations(turn, projection, done))
 
     assert not failures
-    assert sum(kinds.values()) == TURNS
-    assert set(kinds) == set(EXPECTED) and min(kinds.values()) >= 40
-    assert locales == Counter({"en": TURNS // 2, "ko": TURNS // 2})
-    assert set(held_modes) == {"held", "failed"}
