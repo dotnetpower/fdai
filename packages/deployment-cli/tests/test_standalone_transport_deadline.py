@@ -22,8 +22,8 @@ def test_application_does_not_reset_budget_after_transfer(
     closed = []
 
     class Tunnel:
-        def __init__(self, **_kwargs):
-            pass
+        def __init__(self, **kwargs):
+            assert kwargs["host_key_alias"] == "fdai-genesis-example"
 
         def __enter__(self):
             return self
@@ -42,6 +42,7 @@ def test_application_does_not_reset_budget_after_transfer(
 
     module = SimpleNamespace(
         BastionTunnel=Tunnel,
+        stable_host_key_alias=lambda _vm_id: "fdai-genesis-example",
         validate_known_hosts=lambda _path: None,
         validate_ssh_private_key=lambda _path: "key-digest",
     )

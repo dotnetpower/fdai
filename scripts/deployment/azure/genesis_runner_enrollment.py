@@ -21,6 +21,7 @@ from fdai_deployment_cli.target import compute_target_binding
 from genesis_bastion import (
     BastionTunnel,
     create_known_hosts,
+    stable_host_key_alias,
     validate_known_hosts,
     validate_ssh_private_key,
 )
@@ -173,8 +174,7 @@ def _execute_selected(args: argparse.Namespace) -> dict[str, object]:
         and claim.get("enrollment_source_commit") != enrollment_source.commit
     ):
         raise ValueError("recovered host claim has a different enrollment source")
-    vm_digest = hashlib.sha256(connection["vm_id"].casefold().encode()).hexdigest()
-    host_alias = "fdai-genesis-" + vm_digest[:16]
+    host_alias = stable_host_key_alias(connection["vm_id"])
     if receipt_path.exists():
         if claim is None:
             raise ValueError("runner enrollment receipt is missing its immutable claim")

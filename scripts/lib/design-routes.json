@@ -3247,8 +3247,10 @@
         "packages/deployment-cli/src/fdai_deployment_cli/standalone_host_values.py",
         "packages/deployment-cli/tests/test_aks_*.py",
         "packages/deployment-cli/tests/test_catalog_review_profile.py",
+        "packages/deployment-cli/tests/test_application_progress.py",
         "packages/deployment-cli/tests/test_standalone_aks_*.py",
         "packages/deployment-cli/tests/test_standalone_remote_prepare.py",
+        "packages/deployment-cli/tests/test_standalone_transport_deadline.py",
         "packages/deployment-cli/tests/test_runtime_profile.py",
         "packages/deployment-cli/tests/test_standalone_application.py",
         "packages/deployment-cli/tests/test_standalone_host.py"
@@ -3267,7 +3269,7 @@
       ],
       "validate": [
         "uv run pytest -q --no-cov services/core-control-plane/tests/delivery/dev_operations_gateway/test_gateway.py",
-        "uv run --project packages/deployment-cli python -m pytest -c packages/deployment-cli/pyproject.toml -q packages/deployment-cli/tests/test_runtime_profile.py packages/deployment-cli/tests/test_aks_catalog_review.py packages/deployment-cli/tests/test_aks_job_execution.py packages/deployment-cli/tests/test_catalog_review_profile.py packages/deployment-cli/tests/test_standalone_aks_inventory.py packages/deployment-cli/tests/test_standalone_aks_job_execution.py packages/deployment-cli/tests/test_standalone_remote_prepare.py packages/deployment-cli/tests/test_standalone_application.py packages/deployment-cli/tests/test_standalone_host.py",
+        "uv run --project packages/deployment-cli python -m pytest -c packages/deployment-cli/pyproject.toml -q packages/deployment-cli/tests/test_runtime_profile.py packages/deployment-cli/tests/test_aks_catalog_review.py packages/deployment-cli/tests/test_aks_job_execution.py packages/deployment-cli/tests/test_catalog_review_profile.py packages/deployment-cli/tests/test_application_progress.py packages/deployment-cli/tests/test_standalone_aks_inventory.py packages/deployment-cli/tests/test_standalone_aks_job_execution.py packages/deployment-cli/tests/test_standalone_remote_prepare.py packages/deployment-cli/tests/test_standalone_transport_deadline.py packages/deployment-cli/tests/test_standalone_application.py packages/deployment-cli/tests/test_standalone_host.py",
         "terraform -chdir=infra/runtimes/aks/cluster validate",
         "terraform -chdir=infra/runtimes/aks/database validate",
         "terraform -chdir=infra/runtimes/aks/workloads validate",
