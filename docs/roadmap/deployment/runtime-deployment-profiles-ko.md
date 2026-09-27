@@ -1,6 +1,6 @@
 ---
 translation_of: runtime-deployment-profiles.md
-translation_source_sha: e4dae3b79d35a93ebf7606177f7b849cdd587715
+translation_source_sha: 66472737744e9493e1801eda3b325cf47e9ff074
 translation_revised: 2026-09-27
 ---
 # 런타임 배포 프로파일
@@ -603,34 +603,35 @@ Console이 추가적인 `summary=true`를 보내더라도 이전 Operator는 기
 Operator는 이 활성화 설정이 있을 때만 원장 전체 요약을 계산하므로 Incident, Agent Activity, Trace 및
 선택적 비용 패키지 경로가 이 조회 비용을 이어받지 않습니다.
 
-## 서명된 키트 요구 사항
+## 배포 페이로드
 
-완전한 서명 키트에는 두 프로파일 중 어느 것을 선택해도 필요한 미리 빌드된 입력이 모두 포함됩니다.
+설치된 Python 패키지는 런타임 페이로드를 포함하지 않습니다. 선택한 배포에서 해당 런타임
+프로파일에 필요한 입력을 제공합니다.
 
 - **Terraform:** 모든 Terraform root와 lock 파일을 포함합니다.
 - **공급자:** AzureRM, Kubernetes, Random, TLS 공급자 mirror를 포함합니다.
 - **도구:** Terraform, OPA, `kubectl`, `kubelogin`, 범위가 제한된 배포 helper를 포함합니다.
-- **이미지:** 테넌트 프로비저닝에서 다시 빌드하지 않는 서명되고 digest로 고정된 FDAI 및 의존성 OCI archive를 포함합니다.
+- **이미지:** 테넌트 프로비저닝에서 다시 빌드하지 않는 FDAI 및 의존성 OCI archive를 포함합니다.
 - **클러스터 통합:** managed AKS CSI 통합과 federated identity 입력을 포함합니다.
-- **지원 자료:** 마이그레이션 지원, Console 자산, 매니페스트, 서명, provenance, software bill of materials를 포함합니다.
+- **지원 자료:** 마이그레이션 지원과 Console 자산을 포함합니다.
 
-online 모드와 산출물 offline 모드는 검증된 동일 byte를 실행합니다. managed 호스트는 ambient Terraform
-공급자, Helm repository, 변경 가능한 이미지 tag 또는 운영자 kubeconfig를 사용하지 않습니다.
+배포 소유자는 이러한 페이로드를 검증하고 전달하는 방법을 선택합니다. Python 패키지 내용이나
+패키지 완료 근거가 아닙니다. Managed Host는 주변 Terraform 공급자, Helm 저장소, 변경 가능한
+이미지 태그 또는 운영자 kubeconfig를 사용하지 않습니다.
 
 ## 완료 근거
 
-구현 완료를 판단하려면 focused local check와 두 운영 경로에서 검토 가능한 근거가 필요합니다.
+런타임 구현 완료를 판단하려면 집중 로컬 검사와 선택한 배포 경로의 검토 가능한 근거가 필요합니다.
 
 1. 기존 Container Apps 설치 테스트가 변경 없이 통과합니다.
-2. AKS와 `postgres-flex` 조합이 하나의 서명된 online 키트에서 준비 상태에 도달합니다.
-3. AKS와 `postgres-aks` 조합이 하나의 서명된 online 키트에서 비프로덕션 준비 상태에 도달합니다.
-4. 같은 두 AKS 프로파일이 산출물 offline 키트 검증과 배포를 통과합니다.
-5. 선택된 모든 root의 두 번째 플랜에서 변경이 없습니다.
-6. 같은 프로파일 재사용은 안전하게 재시도되며 다른 리소스를 만들지 않습니다.
-7. 런타임 또는 데이터베이스 배치를 바꾸면 마이그레이션 필요 결과와 함께 중지됩니다.
-8. 서비스 롤아웃 실패 시 이전 정상 워크로드를 복구하고 배포 실패를 계속 보고합니다.
-9. 선택된 각 데이터베이스 배치에서 백업 및 특정 시점 복구가 성공합니다.
-10. 별도로 승인된 Console 발신 네트워크 계획이 클러스터를 교체하거나 마지막으로 검증된 관리
+2. AKS와 `postgres-flex` 조합이 준비 상태에 도달합니다.
+3. AKS와 `postgres-aks` 조합이 비프로덕션 준비 상태에 도달합니다.
+4. 선택된 모든 root의 두 번째 플랜에서 변경이 없습니다.
+5. 같은 프로파일 재사용은 안전하게 재시도되며 다른 리소스를 만들지 않습니다.
+6. 런타임 또는 데이터베이스 배치를 바꾸면 마이그레이션 필요 결과와 함께 중지됩니다.
+7. 서비스 롤아웃 실패 시 이전 정상 워크로드를 복구하고 배포 실패를 계속 보고합니다.
+8. 선택된 각 데이터베이스 배치에서 백업 및 특정 시점 복구가 성공합니다.
+9. 별도로 승인된 Console 발신 네트워크 계획이 클러스터를 교체하거나 마지막으로 검증된 관리
   경로를 잃거나 브라우저가 Azure를 직접 변경하지 않고 비공개 접근을 활성화합니다.
 
 source와 공급자 테스트는 구현을 증명합니다. AKS 경로를 검증 완료로 분류하거나 프로덕션 준비 상태로

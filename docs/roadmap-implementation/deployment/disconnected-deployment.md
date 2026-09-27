@@ -11,18 +11,15 @@ and resumable work while the roadmap owner remains focused on normative design.
 |------|-------|----------|-------|
 | Private Azure networking and VNet deploy host | implemented | `infra/`, `infra/bootstrap/`, `.github/workflows/deploy-dev.yml`, and focused infrastructure workflow tests | Private endpoints, DNS, the durable deploy host, protected plans, and exact apply are implemented independently of the offline CLI path. |
 | Internal mirror and pinned-input controls | implemented | `infra/modules/preflight-toggles/` and `scripts/quality/ci/check-ci-contracts.py` | The repository exposes mirror inputs and rejects mutable or registry-bound base-image references. |
-| Offline kit staging and drill harness | in-progress | `scripts/deployment/release/stage-offline-kit.sh`, `build-offline-kit.py`, `airgap-drill.sh`, and focused productization tests | The signed toolchain drill has historical validation. The explicit complete mode now requires runtime v2 and runs installed-wheel preparation without a route or DNS, but eligible current-release evidence is still open. |
-| Signed Rule activation profile | implemented | `fdai_deployment_cli.offline_kit`; `offline_prepare.py`; `stage-offline-kit.sh`; focused offline-kit tests | The kit signature binds the exact profile file, profile id, source time, and manifest digest. Preparation emits deterministic Core environment bindings but performs no activation or deployment. |
-| Disconnected inspection, bundle verification, and planning commands | implemented | `packages/deployment-cli`; focused artifact, profile, plan, and productization tests | The independent wheel registers `fdaictl`, verifies signed local inputs, prepares a private snapshot, and blocks public-artifact workflow dispatch for offline profiles. |
-| Complete runtime release assembly | implemented | `fdai_deployment_cli.runtime_build`; `build-runtime-release.py`; focused runtime assembly tests | A digest-bound private descriptor produces runtime v2 with five FDAI services, ClamAV, Console, and deployment support. OCI layouts retain exact OCI or protected-publisher Docker schema 2 manifest bytes. Assembly makes no production-eligibility or Azure-readiness claim. |
-| OCI deployment appliance | implemented | `build-deployment-appliance.sh`; `run-deployment-appliance.sh`; focused script tests | The no-network builder embeds an exact-byte private copy of one verified complete archive in a digest-pinned OCI image, reverifies the copy, and starts manual artifact-offline deployment. Production image and Azure receipts remain open. |
-| Pinned offline trust root and release integration | not-started | `docs/runbooks/offline-trust-ceremony.md` | No pinned root ships in a CLI wheel and kit staging is not a passing release workflow. |
+| Signed offline Python package | validated | `build-signed-python-package.sh`; package policy v3; focused tests; real build and pip cold install | One detached Ed25519 signature covers the 6.9 MB wheelhouse checksum list. No artifact profile, trust ceremony, nested signature, SBOM, provenance, or runtime receipt is required. |
+| Optional deployment payload tools | implemented | Existing runtime, bundle, offline payload, and appliance helpers | These tools remain available to deployment owners but do not define Python package installation or completion. |
 | Full-air-gap cloud operation | not-applicable | The full-air-gap boundary in this document | The deterministic core can run from static inputs, but live Azure evidence and cloud mutation are intentionally outside this profile. |
 
 ### Implementation history
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-27 | validated | Replaced the complete offline kit as the installation package with a pip-style signed wheelhouse and made runtime payloads and appliances optional deployment-owner concerns. | `current change`; package policy v3, builder tests, 6.9 MB artifact, OpenSSL/checksum verification, and pip cold install. | No disconnected Python package work remains. |
 | 2026-09-27 | implemented | Replaced appliance re-archiving with a bounded no-follow private copy of the exact verified input archive and retained independent verification of the copied bytes. | `current change`; appliance builder contract regression and live original-versus-embedded archive SHA comparison. | Deliver through protected CI, rebuild the appliance, and retain an image-entry-point Azure receipt from the exact local-coordinator kit bytes. |
 | 2026-09-22 | implemented | Added an optional signed Rule activation profile to the exact-file-set offline kit and bound its id, source time, file digest, and kit digest into the private preparation receipt. | `current change`; focused offline-kit tests passed 5 cases; strict mypy, Ruff, and shell syntax passed. | Retain a complete signed-kit drill and approved artifact-offline deployment receipt before claiming operational validation. |
 | 2026-08-14 | in-progress | Adopted the implementation ledger; earlier provenance was not reconstructed. Corrected the prior end-to-end support claim after the deployment CLI package was removed. | current change; infrastructure, release-script, package-metadata, and focused workflow evidence listed in the scope table | Restore the dedicated offline verifier and CLI, establish the trust root, and pass the air-gap drill. |
@@ -33,8 +30,6 @@ and resumable work while the roadmap owner remains focused on normative design.
 
 ### Remaining work
 
-- [x] Offline-kit and deployment-bundle verification are packaged behind the independent CLI boundary with tamper, symlink, file-set, digest, size, and compatibility tests.
-- [ ] Establish and package the offline trust root through the governed ceremony, then prove inspection distinguishes verified, review, and rejected kits without a network call.
-- [ ] Stage eligible runtime v2 inputs from a clean exact revision and pass `airgap-drill.sh --runtime-release <directory> --require-runtime` inside a namespace with no route or DNS.
-- [ ] Prove the manual exact-plan approval and apply path from a private deploy host, including rollback, teardown, and post-provision verification receipts.
-- [ ] Build the deployment appliance from an approved digest-pinned base and retain one image-entry-point Azure receipt with no public artifact access.
+- [x] The signed Python wheelhouse verifies and installs without network access.
+- [ ] Prove the Azure deployment path separately, including exact plans, rollback, health, and
+  cleanup. It is not a package completion criterion.

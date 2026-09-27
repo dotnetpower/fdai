@@ -374,24 +374,21 @@ Console authentication, cleanup, and second zero-change plans have been independ
 
 ## Operator experience
 
-Use one exact local signed kit for both required operational-validation entry points:
+Install the signed offline Python package with standard tools:
 
 ```bash
-az login
-scripts/deployment/azure/fdai-up.sh \
-  --offline-kit /private/fdai-deployment-kit.tar.gz \
-  --region <azure-region>
+cd package
+openssl pkeyutl -verify -pubin \
+  -inkey /private/trusted-package-signer.pub \
+  -rawin -in SHA256SUMS -sigfile SHA256SUMS.sig
+sha256sum -c SHA256SUMS
+python -m pip install --no-index --find-links wheels -r requirements.txt
 ```
 
-The wrapper creates the locked environment and invokes `fdaictl provision azure --offline-kit`.
-Embed those same verified bytes in the deployment appliance for its separate receipt.
-
-**Design revision:** The initial online-plus-appliance evidence rule coupled tenant validation to
-external release publication. Local signature, exact-file, source, image, SBOM, and provenance
-checks already bind the archive. Therefore the local coordinator and appliance receipts use the
-same locally built kit; public publication and `--online` Azure convergence are optional
-distribution evidence. Exact-plan approval, managed identity, verification-only recovery, and
-second-plan zero change remain mandatory.
+The 6.9 MB wheelhouse installs `fdaictl` without a source checkout or network call. Runtime images,
+Terraform inputs, and other deployment payloads are selected later by the deployment command and
+are not Python package-installation requirements. An appliance is an optional transport wrapper,
+not a second package-certification path.
 
 The command derives tenant and subscription only from the active Azure CLI user. It does not
 require a GitHub account, Git remote, repository variable, repository secret, workflow dispatch,
@@ -475,18 +472,18 @@ only after installing the reviewed CLI while idle; it does not change an already
 | `fdaictl provision inspect` | Inspect a manual execution profile and local prerequisites | No |
 | `fdaictl provision init` | Create a private manual execution profile | No |
 | `fdaictl provision bootstrap-reconcile` | Read target and Foundation state into an expiring plan | No |
-| `fdaictl provision plan` | Plan a verified offline-kit Terraform root | No |
+| `fdaictl provision plan` | Plan the selected Terraform root | No |
 | `fdaictl provision entra --target-profile <private-json> --control-profile <private-json>` | Inspect profile-bound tenant controls, or apply the exact app/role-binding plan over five existing groups. One process-wide serialized boundary captures human identity and `aw-approvers` membership in the original CLI context, then target-profile v2 selects a private mode-0700 executor Azure context and validates its exact active tenant/subscription before every control and app/group plan read | Read-only unless `--apply` is supplied, an `aw-approvers` human grants current approval, and a distinct exact managed-identity token matches the active `dev` target |
 | `fdaictl provision console-update build` | Build one source-bound Console artifact from protected Git source | No |
 | `fdaictl provision console-update plan` | Seal an existing-development target plus candidate and rollback artifacts | No |
 | `fdaictl provision console-update apply` | Publish one exact Console plan and verify remote content and access | Yes, after exact terminal approval |
-| `fdaictl provision azure --online` | Acquire a signed kit and run the standalone Azure deployment; optional mode-0600 `--catalog-review-profile` selects an AKS-only private GitHub App draft checkpoint with durable Pantheon audit and no activation, merge, promotion, or managed-resource authority | Yes, after exact approvals |
-| `fdaictl provision azure --offline-kit <path>` | Run the same deployment without public artifact acquisition | Yes, after exact approvals |
+| `fdaictl provision azure --online` | Run standalone Azure deployment with the selected connected payload | Yes, after exact approvals |
+| `fdaictl provision azure --offline-kit <path>` | Run the same deployment with a local deployment payload | Yes, after exact approvals |
 | `fdaictl onboard guided --simulate` | Rehearse the finite stage graph | No |
 | `fdaictl onboard status` | Read a local hash-chained rehearsal journal | No |
-| `fdaictl bundle verify` | Verify bundle signature, compatibility, files, SBOM, and digests | No |
-| `fdaictl offline prepare` | Materialize a verified private offline snapshot | No |
-| `fdaictl offline install-support` | Install migration support only from signed wheels | No |
+| `fdaictl bundle verify` | Inspect an optional deployment bundle | No |
+| `fdaictl offline prepare` | Prepare a local deployment payload; not required for Python package installation | No |
+| `fdaictl offline install-support` | Install optional migration support from local wheels | No |
 | `fdaictl license inspect` | Verify a capability token without a network call | No |
 
 The public CLI does not register `deploy plan`, `deploy apply`, or `deploy status`. Those commands
@@ -608,11 +605,10 @@ human approval, executor identity, and effect verification remain separate contr
 
 ## Deployment appliance
 
-A disconnected release may publish the same complete signed kit inside a prebuilt OCI deployment
-appliance. Appliance construction is an upstream release responsibility and is not a tenant
-provisioning command. The tenant accepts only a digest-pinned appliance with verified provenance,
-SBOM and embedded-kit signatures; otherwise it uses the kit directly. Tenant deployment never
-constructs or modifies the appliance image.
+A disconnected release may publish an optional OCI deployment appliance. Appliance construction is
+an upstream release responsibility and is not a Python package installation or tenant provisioning
+requirement. Package completion does not depend on an appliance, SBOM, provenance document, or
+separate appliance deployment receipt.
 
 The image entry point accepts either interactive Azure authentication or a specifically selected
 user-assigned managed identity. It invokes
@@ -620,8 +616,8 @@ user-assigned managed identity. It invokes
 fallback. `FDAI_DEPLOYMENT_APPLIANCE_KIT` can select another private regular archive, and
 `FDAI_DEPLOYMENT_APPLIANCE_WORK_DIR` can select another absolute private work directory. Managed
 Identity mode requires both `FDAI_DEPLOYMENT_APPLIANCE_USE_MANAGED_IDENTITY=1` and the exact
-`FDAI_DEPLOYMENT_APPLIANCE_MI_CLIENT_ID`. The embedded kit carries Terraform, OPA, provider
-mirrors, runtime images, Console, migration support, signatures, and software bills of materials.
+`FDAI_DEPLOYMENT_APPLIANCE_MI_CLIENT_ID`. Any embedded runtime or infrastructure payload remains a
+deployment-owner concern and does not add package-assurance requirements.
 
 ## Result contract
 

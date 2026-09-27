@@ -33,17 +33,16 @@ remain unchanged.
 | Scoped Run Command Terraform | validated | `scripts/deployment/azure/scoped_terraform.py`; `scoped_terraform_receiver.py`; 36 focused tests; one live dev `aks-container-insights` apply receipt | An ordinary PC runs one registered Terraform scope on the managed host through Action Run Command without a private network path. The first dev apply passed targeted zero-change and independent ARM readback. Staging and production remain blocked. |
 | Fresh-subscription local coordinator | implemented | `fdaictl provision azure`; `fdai-up.sh`; signed-kit, Foundation, Bastion, managed-host, approval, license, migration, and convergence modules; routed lifecycle tests | One `dev` process derives the target from the active Azure CLI user and keeps stateful transitions serial. Tenant deployment has no GitHub transport. A governed Azure receipt and complete subscription-assurance evidence remain open. |
 | Prebuilt OCI deployment appliance consumption | in-progress | `run-deployment-appliance.sh`; focused script and CLI tests | Tenant provisioning can start the manual standalone coordinator from a release-published, digest-pinned appliance with no public artifact fallback. A governed artifact-offline Azure receipt remains open; tenant deployment does not construct the image. |
-| Offline-kit construction and verification | validated | `fdai_deployment_cli.offline_kit`; locked release scripts; successful network-isolated air-gap drill | Signature-first verification, exact files, SBOM coverage, ABI/libc binding, private snapshots, and shipped-wheel installation pass. Runtime wheelhouse closure includes the shared contracts, GitHub App auth, and runtime diagnostics packages actually required by the six service distributions. Managed-host installation consumes the signed aggregate requirements lock with hashes and retains a package-readback receipt; duplicate wheel copies are only local discovery locations. A managed-host transport archive preserves the required signed profile root instead of reducing verification to the legacy manifest. |
-| Development artifact trust profile | implemented | Deployment CLI `0.1.1`; package-pinned development roots; release-channel, Python ABI, libc, and trust-domain tests | One dedicated operator-held Ed25519 key can sign both complete-kit and bundle roles without a runtime root override. Verification accepts only the development channel, exact CPython 3.12 ABI, and a same-family glibc runtime at or above the kit floor. This is non-production convergence trust, not the TUF root ceremony. |
+| Signed offline Python package | validated | `build-signed-python-package.sh`; package policy v3; real OpenSSL/checksum verification and pip cold install | A 6.9 MB wheelhouse contains the CLI and dependencies. One detached Ed25519 signature is the only package-specific assurance control. |
 | Stable Network API Foundation discovery | validated | PR #926; `deployment-v0.1.0-r4`; [issue #803 evidence](https://github.com/dotnetpower/fdai/issues/803#issuecomment-5653340906) | The published signed bundle passed all Foundation input reads in West US 2; no plan, apply, recovery, or deployment-readiness claim was produced. |
 | Temporary public-access cleanup | not-started | The access preference contract in this document | No composed command proves bounded creation, automatic cleanup, incomplete-on-cleanup-failure behavior, and audit closure. |
-| Pinned TUF root and rotation | not-started | `docs/runbooks/offline-trust-ceremony.md` | The first root ceremony, package resource, client bootstrap, and rotation evidence remain open. |
-| Post-provision verification | in-progress | Managed-host exact-plan apply receipts, ACR digest readback, migrations, health readback, and second zero-change plan; routed lifecycle tests | The implementation exists, but local-coordinator and appliance-entry-point receipts from one exact local signed kit remain open. Public release publication is not required. |
+| Post-provision verification | in-progress | Managed-host exact-plan apply receipts, ACR digest readback, migrations, health readback, and second zero-change plan; routed lifecycle tests | Deployment evidence remains open independently from the completed Python package installation. |
 
 ### Implementation history
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-27 | validated | Replaced complete-kit package installation with a 6.9 MB signed Python wheelhouse and removed trust-root, TUF, dual-signature, SBOM, provenance, same-byte appliance, and dual-entry Azure receipt requirements from package completion. | `current change`; policy v3, focused tests, real signed build, OpenSSL/checksum verification, and pip cold install. | Azure deployment validation remains separate from package installation. |
 | 2026-09-27 | validated | Ran the first live scoped apply from an ordinary PC against the dev AKS cluster. The merged coordinator planned exactly one Container Insights association create, applied it after digest-bound approval, and verified targeted zero change plus the workspace binding, default stream, `ContainerLogV2`, and association through Azure Resource Manager. | [#1543](https://github.com/dotnetpower/fdai/pull/1543) at `098384cf5f84c92d98ae1f1146ea10dc959bac93`; [#1538](https://github.com/dotnetpower/fdai/issues/1538) receipt | Mirror plan, claim, and receipt records into the protected plan store. |
 | 2026-09-27 | implemented | Added scoped Run Command Terraform: the ordinary PC packages one registered scope from protected source, and a fixed receiver plans it on the managed host under its user-assigned identity. Apply requires an exact human approval bound to the plan digest, writes a pre-effect claim, never repeats a claimed apply, and ends with targeted zero-change and independent ARM readback. | `current change`; `scripts/deployment/azure/scoped_terraform.py`; `scoped_terraform_receiver.py`; `tests/integration/scripts/test_scoped_terraform.py` (36 passed); one live read-only `aks-container-insights` plan with exactly one association create | Merge through protected CI, then retain the first live scoped apply receipt for #1171 through issue #1538. |
 | 2026-09-27 | implemented | Reused the Foundation-owned operations Blob private DNS zone for focused document recovery instead of attempting a second same-namespace link to the runner VNet. The access target now writes the document endpoint A record into that existing zone. | `current change`; focused Terraform/target regressions and a live verification-only residual plan narrowed to the conflicting duplicate link. | Deliver through protected CI, rebuild the exact kit, and retain access readback plus zero-change evidence from a new source-bound context. |
@@ -100,15 +99,10 @@ remain unchanged.
 ### Remaining work
 
 - [x] Implement `provision inspect` and `provision init` in the dedicated CLI package and pass no-mutation, mode-`0600`/`0700`, overwrite, symlink, and stable-JSON tests.
-- [x] Restore offline-kit verification behind an injected release root and pass signature-before-parse, exact-file-set, no-follow digest, compatibility, and bounds tests.
-- [x] Pin the `0.1.1` development artifact root, keep it separate from framework and license trust,
-  accept one key for complete-kit and bundle roles, and reject a non-development bundle channel.
+- [x] Build, verify, and cold-install the signed Python wheelhouse with one detached Ed25519
+  signature and standard OpenSSL, checksum, and pip commands.
 - [ ] Implement temporary public-access creation and cleanup so cleanup failure leaves an incomplete audited operation, then pass CIDR, duration, authentication, rollback, and idempotency tests.
-- [ ] Complete the TUF root ceremony and package bootstrap, with signed root and rotation evidence accepted by the offline trust ceremony.
-- [x] Build and reverify one complete signed kit from a clean snapshot, then cold-install its CLI and acquire the same kit through both online and local artifact paths. Evidence: `deployment-v0.1.0-r2` and the 2026-09-13 artifact checkpoint above.
-- [x] Publish a replacement complete kit containing the subsequent CLI hardening and repeat exact installed-artifact acceptance. Evidence: `deployment-v0.1.0-r3` includes H01-H14, all 59 default-installed payload files match its signed wheel, and the prior installation was backed up.
-- [x] Publish and verify a replacement signed kit containing the stable Network API correction, then confirm Foundation discovery from that exact artifact without treating discovery as deployment readiness. Evidence: `deployment-v0.1.0-r4` and the linked issue #803 read-only checkpoint; the existing installed CLI already matches all 59 signed wheel files and was not replaced.
-- [ ] Retain target-bound Foundation and application convergence receipts from the local coordinator and appliance entry point using the same exact locally supplied signed kit, without requiring public release publication or claiming whole-subscription readiness.
+- [ ] Retain target-bound Foundation and application convergence evidence independently from Python package installation.
 - [ ] Demonstrate current-VM `existing-host` execution without creating a redundant host or relocating an already correct protected backend, retaining identity, exact-plan, no-repeat and readback checks.
 - [ ] Retain one exact live private-relay Run Command staging receipt over the reviewed peered route,
   then connect the explicit adapter to `fdaictl` access-profile selection without broadening VM,
@@ -122,7 +116,6 @@ remain unchanged.
 - [ ] Create the AKS basic profile with API Server VNet Integration and dedicated workload and API-server subnets, then prove authenticated restricted public management access from the initiating coordinator.
 - [ ] Implement `/provisioning` network intent, assessment, exact-plan request, approval, apply, rollback and independent readback for peering, private endpoints, DNS and private-cluster mode.
 - [ ] Remove tenant-run Docker, Buildx, ACR Tasks and VM image-capture paths; require a prebuilt signed image manifest and deployed-digest readback instead.
-- [ ] Build one deployment appliance from an approved digest-pinned base, verify its SBOM and provenance, and retain an artifact-offline Azure deployment receipt from the image entry point.
 
 ## Design at a glance
 
@@ -507,70 +500,18 @@ the exact publication commit as `v0.1.0`. An installation with an active pre-PyP
 above `0.1.0` uses a fresh public release state or an explicit migration; it is not treated as a
 semantic-version upgrade to `0.1.0`.
 
-Disconnected delivery uses the same `fdai` wheel and command contracts in a platform-specific
-offline kit. The kit contains:
+Disconnected Python installation uses the signed wheelhouse described in
+[Package Assurance](../architecture/package-assurance.md). It contains the deployment CLI wheel,
+its local dependency wheels, `requirements.txt`, `SHA256SUMS`, and one detached Ed25519 signature.
+Standard OpenSSL, `sha256sum`, and pip commands verify and install it without a network call.
 
-- the FDAI wheel and all transitive Python wheels;
-- the signed deployment bundle;
-- a pinned Terraform binary and provider mirror;
-- OPA and required helper binaries;
-- an SBOM, SHA-256 manifest, signatures, and the release trust metadata.
+The private signing key stays outside the repository and package. The trusted public key is
+provided independently. Pip owns interpreter, ABI, platform, dependency, and installation checks.
 
-Complete staging builds the signed deployment bundle first, then assembles runtime v2 from a
-private digest-bound descriptor against those exact bundle bytes before signing the outer kit.
-An independently prebuilt runtime remains supported only when it already binds that exact bundle.
-
-Offline mode blocks fallback to PyPI, GitHub, and the public Terraform registry. The artifact
-source may be an approved internal mirror or removable media. The installer and `fdaictl` verify
-the same pinned release root in both cases.
-
-The target `verify_offline_kit` implementation checks an Ed25519 signature before parsing the manifest, binds exact CLI and
-platform versions, rejects symlinks and extra files, streams every file digest, and requires the
-wheel, signed deployment bundle, Terraform binary and provider mirror, OPA, and SBOM. The release
-root is injectable for tests, release construction, and pinned inspection composition only.
-Artifact hashing uses a no-follow descriptor open so a path swap cannot redirect it. `fdaictl`
-does not expose a
-`--release-root` override; inspection remains `review` until a public root is pinned in the wheel.
-
-Executing kit content demands stronger evidence than reporting on it. `provision plan` runs the
-kit's Terraform binary, so it verifies the kit against a release root the operator supplies and
-refuses to plan when that verification fails. Both paths resolve every artifact from the signed
-manifest rather than from a directory convention. When the pinned root ships, `--release-root`
-becomes a planning override that inspection still does not accept.
-
-`build_offline_kit_manifest` is the intended release-side inverse of that verifier. It reads the staged kit
-with the same scan, so it refuses to describe a symlink, a non-regular entry, or an out-of-bound
-tree, and it derives the file list from the stage rather than from an operator-supplied list. A
-declared artifact role that is absent from the stage fails before anything is signed, and two
-builds of identical content produce one identical signable byte string.
-`scripts/deployment/release/build-offline-kit.py` is intended to add signing after the verifier
-module is restored: it loads an operator-held Ed25519
-private key, removes any stale signature before writing the new manifest so an interrupted run
-leaves an unverifiable kit rather than a plausible one, and re-verifies the written kit against
-the public release root before reporting. The private key never enters the kit, the repository,
-or any log line.
-
-### Trust root and rotation
-
-The `0.1.1` development profile is a bounded pre-production bootstrap, not the final root. Its
-dedicated Ed25519 public key is package-pinned for both exact-content signatures because the outer
-kit already binds the complete inner bundle bytes. The verifier still checks both signatures and
-rejects any bundle whose release channel is not `development`. The private key remains outside the
-repository and distinct from framework-integrity and capability-license keys.
-
-The final offline authority uses The Update Framework (TUF) 1.0 through Python-TUF 7. The wheel
-ships the initial signed `root.json` through an out-of-band trust bootstrap. Root private keys stay
-offline. CI may use delegated online keys for targets, snapshot, and timestamp metadata, but it
-never receives a root private key.
-
-Clients update root metadata one version at a time and require each new root to satisfy both the
-old and new root thresholds. TUF metadata expiry and monotonic versions provide freeze, rollback,
-and mix-and-match protection. The metadata threshold and key ceremony are release-security policy;
-they are independent from the one-person approval required for a provisioning apply.
-
-The current exact-content verifier remains defense in depth after TUF authenticates the target.
-Python-TUF integration and the first root ceremony remain blocked until the offline root is created
-and backed up outside CI. No generated private key is committed or transferred through `fdaictl`.
+Terraform binaries, providers, runtime images, Console files, and migration assets are deployment
+payloads rather than Python package contents. Deployment owners may validate those inputs when a
+deployment selects them, but package completion does not require a complete kit, signed root, TUF
+ceremony, nested bundle signature, SBOM, provenance document, appliance, or Azure receipt.
 
 ## Approval and apply
 

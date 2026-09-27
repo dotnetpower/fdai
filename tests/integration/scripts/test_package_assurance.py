@@ -1,4 +1,4 @@
-"""Focused tests for the minimum package assurance policy."""
+"""Focused tests for the minimal signed-package inventory."""
 
 from __future__ import annotations
 
@@ -30,150 +30,61 @@ def _policy() -> dict[str, object]:
     return value
 
 
-def _package(policy: dict[str, object], package_id: str) -> dict[str, object]:
-    packages = policy["packages"]
-    assert isinstance(packages, list)
-    package = next(
-        item for item in packages if isinstance(item, dict) and item.get("id") == package_id
-    )
-    return package
-
-
 def test_repository_package_assurance_policy_is_valid() -> None:
     checker = _checker()
+
     assert checker.validate_policy(REPO_ROOT, _policy()) == []
 
 
-def test_internal_packages_need_no_global_assurance_entry() -> None:
-    checker = _checker()
+def test_only_explicitly_distributed_packages_are_listed() -> None:
     policy = _policy()
-    packages = policy["packages"]
-    assert isinstance(packages, list)
-    package_ids = {item["id"] for item in packages if isinstance(item, dict)}
 
-    assert checker.validate_policy(REPO_ROOT, policy) == []
-    assert package_ids.isdisjoint(
+    assert policy["packages"] == [
         {
-            "fdai-github-app-auth",
-            "fdai-runtime-diagnostics",
-            "fdai-code-assurance",
-            "fdai-aks-commerce",
+            "id": "fdai-deployment-cli",
+            "path": "packages/deployment-cli",
+            "manifest": "packages/deployment-cli/pyproject.toml",
         }
-    )
-
-
-def test_distributed_artifact_cannot_drop_integrity_or_provenance() -> None:
-    checker = _checker()
-    policy = copy.deepcopy(_policy())
-    package = _package(policy, "fdai-deployment-cli")
-    package["required_controls"] = ["exact-digest"]
-
-    errors = checker.validate_policy(REPO_ROOT, policy)
-
-    assert any("boundary minimums" in error and "provenance" in error for error in errors)
-
-
-def test_published_contract_requires_versioning_not_global_n_minus_one() -> None:
-    checker = _checker()
-    policy = copy.deepcopy(_policy())
-    package = _package(policy, "fdai-service-contracts")
-    package["required_controls"] = []
-
-    errors = checker.validate_policy(REPO_ROOT, policy)
-
-    assert any("versioned-contract" in error for error in errors)
-    assert all("n-minus-one" not in error for error in errors)
-
-
-def test_connected_profile_requires_only_declared_closure_digest_and_provenance() -> None:
-    checker = _checker()
-    policy = copy.deepcopy(_policy())
-    profiles = policy["artifact_profiles"]
-    assert isinstance(profiles, dict)
-    connected = profiles["connected"]
-    assert isinstance(connected, dict)
-    connected["recommended_controls"] = []
-
-    assert checker.validate_policy(REPO_ROOT, policy) == []
-
-
-def test_offline_profile_cannot_drop_signed_root_or_no_public_fallback() -> None:
-    checker = _checker()
-    policy = copy.deepcopy(_policy())
-    profiles = policy["artifact_profiles"]
-    assert isinstance(profiles, dict)
-    offline = profiles["offline"]
-    assert isinstance(offline, dict)
-    offline["required_controls"] = [
-        "declared-dependency-closure",
-        "exact-digest",
-        "provenance",
     ]
 
-    errors = checker.validate_policy(REPO_ROOT, policy)
 
-    assert any("no-public-fallback" in error and "signed-root" in error for error in errors)
-
-
-def test_recommended_controls_never_become_hidden_hard_gates() -> None:
+def test_signature_contract_has_one_supported_shape() -> None:
     checker = _checker()
     policy = copy.deepcopy(_policy())
-    profiles = policy["artifact_profiles"]
-    assert isinstance(profiles, dict)
-    for profile in profiles.values():
-        assert isinstance(profile, dict)
-        profile["recommended_controls"] = []
-
-    assert checker.validate_policy(REPO_ROOT, policy) == []
-
-
-def test_owner_can_add_a_known_stronger_control() -> None:
-    checker = _checker()
-    policy = copy.deepcopy(_policy())
-    package = _package(policy, "fdai-deployment-cli")
-    controls = package["required_controls"]
-    assert isinstance(controls, list)
-    controls.append("sbom")
-
-    assert checker.validate_policy(REPO_ROOT, policy) == []
-
-
-def test_package_operations_and_enablement_cannot_grant_authority() -> None:
-    checker = _checker()
-    policy = copy.deepcopy(_policy())
-    invariants = policy["runtime_invariants"]
-    assert isinstance(invariants, dict)
-    invariants["package_operation_grants_authority"] = True
+    policy["signature"] = {
+        "algorithm": "rsa",
+        "format": "nested-trust-ceremony",
+    }
 
     errors = checker.validate_policy(REPO_ROOT, policy)
 
-    assert any("package_operation_grants_authority" in error for error in errors)
+    assert errors == ["signature must select ed25519 with the detached-sha256sums format"]
 
 
-def test_state_change_success_keeps_independent_verification() -> None:
+def test_package_manifest_name_must_match_the_distribution() -> None:
     checker = _checker()
     policy = copy.deepcopy(_policy())
-    invariants = policy["runtime_invariants"]
-    assert isinstance(invariants, dict)
-    invariants["state_change_success_requires_independent_verification"] = False
+    packages = policy["packages"]
+    assert isinstance(packages, list)
+    package = packages[0]
+    assert isinstance(package, dict)
+    package["id"] = "renamed-package"
 
     errors = checker.validate_policy(REPO_ROOT, policy)
 
-    assert any(
-        "state_change_success_requires_independent_verification" in error for error in errors
-    )
+    assert any("project.name must equal renamed-package" in error for error in errors)
 
 
-def test_unknown_controls_and_typo_fields_fail_closed() -> None:
+def test_duplicate_packages_and_unknown_policy_fields_fail() -> None:
     checker = _checker()
     policy = copy.deepcopy(_policy())
-    package = _package(policy, "fdai-deployment-cli")
-    controls = package["required_controls"]
-    assert isinstance(controls, list)
-    controls.append("ceremony-for-everything")
-    package["assurance_level"] = "effect-bearing"
+    packages = policy["packages"]
+    assert isinstance(packages, list)
+    packages.append(copy.deepcopy(packages[0]))
+    policy["artifact_profiles"] = {"offline": {}}
 
     errors = checker.validate_policy(REPO_ROOT, policy)
 
-    assert any("unsupported controls" in error for error in errors)
-    assert any("unsupported fields" in error for error in errors)
+    assert any("unsupported fields: artifact_profiles" in error for error in errors)
+    assert any(".id is duplicated" in error for error in errors)
+    assert any(".path is duplicated" in error for error in errors)

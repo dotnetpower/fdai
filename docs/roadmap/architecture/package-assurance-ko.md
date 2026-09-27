@@ -1,159 +1,110 @@
 ---
 translation_of: package-assurance.md
-translation_source_sha: a31de3ccdcee0fa08e10ee4ab37257ce70ba46e3
+translation_source_sha: 1123ed1e60addb35d0168a68fae632485fbf479a
 translation_revised: 2026-09-27
 ---
 
 # 패키지 보증
 
-이 문서는 FDAI 패키지 경계를 넘어가는 코드 또는 산출물의 최소 통제를 정의합니다.
-내부 작업 영역 코드는 기본적으로 패키지 절차를 요구하지 않습니다. 계약, 산출물 또는 근거
-집합을 lockstep 빌드 밖에서 소비할 때만 명시적인 정책을 적용합니다.
+이 문서는 FDAI Python 패키지의 최소 배포 계약을 정의합니다. 오프라인 패키지는 일반 로컬 pip
+wheelhouse처럼 설치할 수 있으며, 설치 전에 private key로 만든 detached signature 하나만
+추가로 검증합니다.
 
-> **권한 경계:** 패키지 검색, 설치, 가용성 및 사용 설정은 승인, 작업 승격, 실행기 ID 또는
-> 실행 권한을 부여하지 않습니다.
+> **범위:** 이 계약은 Python 패키지 배포만 다룹니다. Azure 신원, Terraform 승인, 런타임 이미지,
+> 데이터베이스 이행, 서비스 상태 및 배포 복구는 해당 배포 소유자가 관리합니다.
 >
-> **구현 원장:** 제공 상태와 남은 근거는
+> **구현 원장:** 현재 제공 근거는
 > [패키지 보증 구현 원장](../../roadmap-implementation/architecture/package-assurance.md)에서
 > 추적합니다.
 
 ## 설계 개요
 
-[`config/package-assurance.json`](../../../config/package-assurance.json)은 명시적인 외부
-경계와 산출물 프로파일만 나열합니다. 목록에 없는 패키지는 일반 작업 영역 코드로
-유지됩니다.
-[`check-package-assurance.py`](../../../scripts/quality/architecture/check-package-assurance.py)는
-패키지 관리자, 서비스 경계, 기능 수명 주기, 검토 또는 승격 정책을 중복하지 않고 작은 헌법상
-최소 조건만 검사합니다.
+오프라인 패키지는 다음 파일만 포함합니다.
 
-소유자가 선택한 더 강한 통제는 계속 사용할 수 있습니다. 예를 들어 공유 계약 SDK는 N-1
-테스트를 유지할 수 있고 오프라인 release는 SBOM을 요구할 수 있습니다. 이러한 선택은 실제로
-근거를 소비하는 소유자가 관리하며 숨겨진 전역 패키지 요구 사항이 되지 않습니다.
-
-## 수정된 설계 결정
-
-**초기 설계:** 5개의 고정 보증 등급, 완전한 패키지 목록, 정확한 루트 의존성 미러,
-고정된 수명 주기 전이, 선택 기능 준비 상태, 확장 facade 규칙 및 Cost Governance 검토 묶음
-의미를 하나의 패키지 검사기에 인코딩합니다.
-
-**비평:** 이 정책은 lockfile, 패키지 매니페스트, 독립 서비스 검사, 런타임 승격 레지스트리,
-기능 수명 주기 및 보호된 검토 workflow를 중복합니다. 정책과 검사기 코드를 함께 수정하지
-않으면 패키지를 제거하거나 재분류할 수 없습니다. SBOM 및 N-1 호환성 같은 권장 통제도
-독립 소비자나 오프라인 경계가 필요하지 않은 경우까지 필수 조건이 됩니다.
-
-**수정된 설계:** 작업 영역 코드는 패키지 절차의 제약을 받지 않습니다. 명시적인 경계에는
-해당 경계에 필요한 무결성, 출처, 버전 관리, 최신성, 의존성 완결성, 권한 분리 및 효과 검증
-요구 사항만 유지합니다.
-
-## 최소 필수 제약
-
-| 제약 | 유지하는 이유 |
-|------|----------------|
-| 패키지 작업은 권한을 부여하지 않음 | 가용성과 사용 설정은 접근, 승격, 승인 및 실행과 독립적입니다. |
-| 배포된 바이트는 정확한 digest와 출처를 가짐 | 소비자는 받은 바이트와 생성 주체를 식별할 수 있어야 합니다. |
-| 게시된 계약은 버전이 지정됨 | release 간 소비자는 디코딩하는 계약을 식별할 수 있어야 합니다. |
-| 배포된 근거는 최신성을 기록함 | 오래된 근거가 현재 운영 사실로 바뀌면 안 됩니다. |
-| 선택한 산출물 프로파일은 의존성 완결성을 선언함 | 누락된 산출물은 설치 중 실패하지 않고 명시적으로 드러납니다. |
-| 오프라인 프로파일은 서명 루트를 사용하고 공개 대체 경로가 없음 | 연결이 끊긴 대상에는 독립된 신뢰 기준과 닫힌 산출물 집합이 필요합니다. |
-| 상태 변경 성공은 독립 효과 검증을 요구함 | 패키징이 헌법상 실행 경계를 약화하지 않습니다. |
-
-패키지 정책은 서명된 오프라인 신뢰 루트를 요구하지만 private signing key 개수를 지정하지
-않습니다. release 도구는 소유자가 선택한 더 강한 통제로 release 키와 bundle 키를 분리할 수
-있습니다. 키 통합 또는 교체는 명시적인 신뢰 루트 결정이며 묵시적인 패키지 보증 요구 사항이
-아닙니다.
-Deployment CLI `0.1.1`은 해당 소유자 결정을 개발 프로필에만 명시적으로 적용합니다. 전용
-산출물 키 하나가 키트와 묶음 역할을 담당하고 패키지는 개발 channel만 허용하며, 프레임워크와
-라이선스 신뢰는 분리되고 운영 TUF는 별도의 소유자 게이트로 유지됩니다.
-해당 소유자 계약은 wheel에 필요한 정확한 Python ABI를 고정하고 키트의 glibc 버전은 최소
-호환성 기준으로 취급합니다. 더 새로운 glibc 런타임은 허용하지만 더 오래된 런타임, 다른 libc
-계열 또는 잘못된 식별자는 계속 차단합니다.
-오프라인 매니페스트가 서명된 프로필 루트를 요구하면 모든 파생 전송 아카이브가 루트
-메타데이터와 서명을 함께 전달합니다. 기존 매니페스트/서명 쌍이 소유자가 요구한 신뢰 계층을
-묵시적으로 제거할 수 없습니다.
-
-## 명시적인 패키지 경계
-
-대부분의 `services/`, `packages/`, `extensions/` 항목은 lockstep 작업 영역 코드이므로 정책
-항목이 필요하지 않습니다. 정책은 외부 소비자가 있는 경계만 나열합니다.
-
-| 경계 | 최소 통제 | 일반적인 용도 |
-|------|-----------|---------------|
-| `published-contract` | `versioned-contract` | 다른 release 또는 프로세스가 소비하는 공유 SDK나 wire 스키마 |
-| `distributed-artifact` | `exact-digest`, `provenance` | lockstep 작업 영역 밖에 배포되는 CLI, 확장, 이미지 또는 기타 산출물 |
-| `distributed-evidence` | `exact-digest`, `provenance`, `freshness` | 근거의 나이가 운영 주장에 영향을 주는 검토된 지식 또는 근거 |
-
-검사기는 ID, 경로, 선택적 매니페스트와 facade, 선언된 통제 및 소유자가 제공한 호환성 파일을
-검증합니다. 패키지 ID를 코드에 고정하거나 완전한 목록을 요구하지 않습니다. 항목을 제거하면
-해당 표면은 작업 영역 기본값으로 돌아갑니다. 소유 빌드, import, 서비스 및 아키텍처 검사는
-계속 적용됩니다.
-
-## 의존성 소유권
-
-설치 가능한 각 배포판은 자체 매니페스트에서 런타임 의존성을 소유합니다. 저장소 루트와
-`uv.lock`은 기본 개발 환경을 조정하며 교차 패키지 테스트 수집에 필요한 의존성을 포함할 수
-있습니다.
-
-패키지 보증 검사기는 더 이상 두 번째 미러 목록을 유지하거나 루트와 소유자 버전 범위의 텍스트
-일치를 요구하지 않습니다. 패키지 관리자, 고정된 lock, cold-import 테스트, 이미지 빌드 및
-서비스 소유 의존성 검사가 선택한 환경을 증명합니다. 독립 release 프로세스에 필요한 경우
-독립적으로 릴리스되는 패키지는 자체 lock 또는 제약 조건을 유지할 수 있습니다. 하나의 저장소
-lock은 작업 영역 기본값이며 헌법상 규칙이 아닙니다.
-
-## 호환성 소유권
-
-게시된 계약에는 안정적인 버전만 전역으로 요구합니다. N-1 호환성, 변환기, 스키마 불변성,
-호스트 범위 및 롤백 구간은 배포된 피어, 보존 데이터 또는 공개 소비자가 필요로 할 때 소유자가
-선택하는 계약입니다.
-
-`fdai-service-contracts` 패키지는 기존 호환성 매니페스트와 롤링 테스트를 계속 사용합니다.
-Cost Governance는 N-1 산출물 롤백을 계속 검증할 수 있습니다. 최소 패키지 검사는 관련 없는
-패키지에 이러한 정책을 요구하지 않습니다.
-
-## 산출물 프로파일
-
-| 프로파일 | 필수 통제 | 권장 또는 소유자가 선택한 통제 |
-|----------|-----------|-------------------------------|
-| `connected` | 선언된 의존성 완결성, 정확한 digest, 출처 | 호환성 검사와 SBOM |
-| `offline` | connected 최소 조건, 서명 루트, 공개 대체 경로 없음 | 호환성 검사와 SBOM |
-| `appliance` | offline 최소 조건과 digest 고정 컨테이너 | 호환성 검사와 SBOM |
-
-권장 통제는 계속 중요한 release 근거이지만 하나가 없다고 최소 패키지 검사가 실패하지는
-않습니다. release 소유자는 권장 통제를 해당 산출물의 자체 계약으로 승격할 수 있습니다.
-해당 프로파일은 그 통제를 명시적으로 선언하고 테스트합니다.
-
-## 소유자에게 돌려보낸 통제
-
-| 제거한 전역 패키지 제약 | 권위 있는 소유자 |
-|--------------------------|-------------------|
-| 고정된 install/enable/disable/revoke/reload/restart 목록 | 기능 bundle 수명 주기와 운영 주장 |
-| 기능별 승격 요구 사항 | 각 `ActionType` 및 `Workflow`의 승격 레지스트리 |
-| Cost Governance 다중 대상 검토 의미 | Cost Governance 검토 workflow와 캠페인 |
-| 선택 기능 준비 상태 | 독립 런타임 축과 기능 조립 |
-| Core-to-extension import 규칙과 facade 형태 | 독립 서비스 및 보호 경로 검사 |
-| 루트 의존성 미러 목록과 범위 일치 | 패키지 매니페스트, 패키지 관리자, lock 및 소유 테스트 |
-
-이 소유권 분리는 기반 통제를 약화하지 않으면서 중복 절차를 제거합니다.
-
-## 검증
-
-경계 구성을 변경한 뒤 다음 집중 정책 검사를 실행합니다.
-
-```bash
-uv run python scripts/quality/architecture/check-package-assurance.py
-uv run pytest -q --no-cov tests/integration/scripts/test_package_assurance.py
+```text
+package/
+  INSTALL.txt
+  requirements.txt
+  SHA256SUMS
+  SHA256SUMS.sig
+  wheels/
+    fdai_deployment_cli-<version>-py3-none-any.whl
+    <dependency wheels>
 ```
 
-산출물 빌더, 계약 호환성 테스트, 보호된 검토 workflow, 배포 검사 및 런타임 효과 검증은 각
-소유자의 별도 gate로 유지됩니다. 패키지 보증 통과는 release, 배포, 승격 또는 운영 결과를
-의미하지 않습니다.
+서명자는 운영자가 보관하는 Ed25519 private key로 `SHA256SUMS`에 한 번 서명합니다. 신뢰하는
+public key는 별도로 제공합니다. 패키지는 신뢰 의식, 산출물 프로필, 중첩 서명, SBOM 요구 사항,
+출처 문서, 호환성 행렬, 런타임 권한 또는 배포 증적을 포함하지 않습니다.
+
+## 빌드
+
+다음 전용 빌더를 사용합니다.
+
+```bash
+scripts/deployment/release/build-signed-python-package.sh \
+  --out /private/fdai-python-package \
+  --signing-key /private/deployment-signing-key.pem
+```
+
+빌더는 Deployment CLI wheel을 만들고 잠긴 런타임 의존성을 `wheels/`에 다운로드한 다음 정렬된
+checksum 목록 하나를 작성하고 서명해 tar 아카이브를 만듭니다. 서비스 이미지를 빌드하거나 Azure
+배포 payload를 조립하지 않습니다.
+
+## 검증 및 설치
+
+pip를 실행하기 전에 서명과 checksum을 검증합니다.
+
+```bash
+cd package
+openssl pkeyutl -verify -pubin \
+  -inkey /private/trusted-package-signer.pub \
+  -rawin -in SHA256SUMS -sigfile SHA256SUMS.sig
+sha256sum -c SHA256SUMS
+python -m pip install --no-index --find-links wheels -r requirements.txt
+```
+
+Python 버전, ABI, 플랫폼 wheel, 의존성 및 설치 검사는 pip가 담당합니다. 대상 인터프리터와 맞지
+않는 패키지는 일반 pip 동작에 따라 설치되지 않습니다.
+
+## 단일 패키지 제약
+
+FDAI 패키지 보증이 요구하는 항목은 checksum 목록에 대한 유효한 detached Ed25519 signature
+하나뿐입니다. 파일 해시는 서명 대상 콘텐츠 목록이며 별도 승인 체계가 아닙니다.
+
+Private key는 저장소와 패키지 외부에 보관합니다. 패키지 설치는 Azure 접근, 실행 권한, 기능 사용
+설정 또는 승인을 부여하지 않습니다.
+
+## 제거한 제약
+
+패키지 계층은 다음 항목을 더 이상 정의하거나 요구하지 않습니다.
+
+- 보증 등급 또는 경계 분류
+- connected, offline, appliance 산출물 프로필
+- signed root 또는 TUF 의식
+- 별도 release 및 bundle 서명
+- SBOM 또는 출처 문서
+- 호환성 매니페스트 또는 N-1 정책
+- 전송 아카이브의 정확한 바이트 일치
+- 패키지 최신성 또는 운영 근거
+- wheelhouse 이외의 의존성 미러
+- 런타임 승격, 승인, 신원 또는 효과 검증
+
+소유자는 배포 또는 release 용도로 이러한 산출물을 계속 만들 수 있습니다. 그러나 패키지 설치의
+선행 조건이 아니며 전역 패키지 검사에서 확인하지 않습니다.
+
+## 패키지 목록
+
+[`config/package-assurance.json`](../../../config/package-assurance.json)은 현재 이 signed
+wheelhouse를 게시하는 Python 배포판만 나열합니다. 전체 작업 영역 목록이 아니며 내부 패키지는
+항목이 필요하지 않습니다.
+
+검사기는 Ed25519 서명 형식 선택과 각 배포판 경로의 `pyproject.toml` 이름 일치만 확인합니다.
+그 밖의 항목은 pip와 패키지 관리자가 담당합니다.
 
 ## 관련 문서
 
 | 알아볼 내용 | 문서 |
 |-------------|------|
-| 헌법상 안전과 권한 | [FDAI 헌법](fdai-constitution-ko.md) |
-| 물리적 패키지 및 서비스 소유권 | [다중 서비스 저장소 레이아웃](multi-service-repository-layout-ko.md) |
-| 서비스 분리 gate | [서비스 분리 및 데이터 소유권](service-graduation-and-ownership-ko.md) |
-| 기능 설치 및 폐기 | [기능 bundle 수명 주기](capability-bundle-lifecycle-ko.md) |
-| 런타임 및 패키지 선호 축 | [ADR-0002](decisions/0002-independent-runtime-axes-ko.md) |
-| 배포 산출물 프로파일 | [설치형 배포 CLI](../deployment/installable-deployment-cli-ko.md) |
+| 설치 후 배포 동작 | [설치형 Deployment CLI](../deployment/installable-deployment-cli-ko.md) |
+| 런타임 및 Azure 산출물 제공 | [연결이 끊긴 배포](../deployment/disconnected-deployment-ko.md) |
+| 패키지 구현 근거 | [패키지 보증 구현 원장](../../roadmap-implementation/architecture/package-assurance.md) |

@@ -21,26 +21,24 @@ fully disconnected install.
 |------|-------|----------|-------|
 | Private Azure networking and VNet deploy host | implemented | `infra/`, `infra/bootstrap/`, `.github/workflows/deploy-dev.yml`, and focused infrastructure workflow tests | Private endpoints, DNS, the durable deploy host, protected plans, and exact apply are implemented independently of the offline CLI path. |
 | Internal mirror and pinned-input controls | implemented | `infra/modules/preflight-toggles/` and `scripts/quality/ci/check-ci-contracts.py` | The repository exposes mirror inputs and rejects mutable or registry-bound base-image references. |
-| Offline toolchain kit staging and drill harness | in-progress | [Deployment CLI implementation ledger](../../roadmap-implementation/deployment/installable-deployment-cli.md); current multi-root mirror tests | The retained r4 development-kit acceptance below proves its exact artifact preparation. Current production eligibility and a newer prescribed complete-mode run remain open; no artifact-only receipt proves runtime deployment. |
-| Retained r4 development-kit publication and cold preparation | validated | [Published r4 release](https://github.com/dotnetpower/fdai/releases/tag/deployment-v0.1.0-r4); [exact-source acceptance receipt](https://github.com/dotnetpower/fdai/issues/803#issuecomment-5653340906) | Source `c137aa104682a59b979f5f3554a06bf87c555b8e`, six OCI images, Console, seven support packages, and 11 no-egress/no-DNS acceptance checks. This older development prerelease is not current-main content, production trust, an appliance deployment, or subscription readiness. |
+| Signed offline Python package | validated | `build-signed-python-package.sh`; package policy v3; focused tests; real 6.9 MB build and pip cold install | One detached Ed25519 signature covers the checksum list for the deployment CLI wheel and local dependency wheels. No complete-kit, SBOM, provenance, TUF, or appliance evidence is required for package installation. |
 | Disconnected bundle verification and planning commands | implemented | `packages/deployment-cli`; artifact and productization tests | The package registers `fdaictl` and verifies signed local inputs. Planning does not complete a new subscription. |
 | Runtime release staging and local preparation | implemented | `runtime_release.py`, `runtime_stage.py`, `offline_prepare.py`; 251 focused tests; issue #461 | Local archives, source and bundle binding, private snapshots, and a non-ready preparation record pass focused checks. Azure installation remains open. |
-| Complete runtime image validation | implemented | Runtime inventory v2 and bounded OCI validators; 355 focused tests; cold-installed CPython 3.12 review wheel | Staging and preparation validate five service images plus ClamAV. Legacy v1 remains inspectable but cannot qualify for complete preparation. Synthetic signed images prove packaging and content checks, not provenance or Azure readiness. |
-| Complete runtime release assembly | implemented | `runtime_build.py`, `build-runtime-release.py`, and focused assembly tests | A private digest-bound descriptor assembles all six OCI images, Console, and deployment support into runtime v2 without network access or artifact execution. It consumes prebuilt evidence and deliberately reports production eligibility as unverified. |
-| Prebuilt OCI deployment appliance consumption | in-progress | `run-deployment-appliance.sh`; focused script tests | A release-published, digest-pinned appliance can start manual artifact-offline deployment from its verified embedded kit. A governed Azure receipt remains open; tenant deployment does not construct the image. |
+| Runtime payload validation | implemented | Runtime inventory and OCI validators | Runtime image validation remains a deployment-owner check. It is not part of Python package installation or package completion. |
+| Optional OCI deployment appliance | implemented | `run-deployment-appliance.sh`; focused script tests | An appliance can transport deployment payloads, but package completion does not require building, publishing, or executing one. |
 | Dependency image publication adapter | implemented | `publish_dependency_oci_archive`; 80 focused ACR tests | Shares service publication's validation-before-credentials, deadlines, no-retry transport, and manifest GET readback. Dependency receipts make no FDAI revision claim. Protected caller wiring remains open; tests use a recording transport, not Azure. |
 | Offline VM bootstrap | implemented | `infra/bootstrap/`; 16 mocked Terraform plans | Explicit offline mode selects a prebuilt image without network cloud-init. Image production, attestation, access, and state handoff remain external prerequisites. |
 | Installation-time Console bindings | implemented | `console/src/runtime-config.ts`; `console_config.py`; focused configuration tests and generic build | A generic build accepts public API/Entra bindings without rebuilding and disables authentication bypasses. Publication and authenticated access remain separate checks. |
 | Runtime support wheel installation | implemented | `stage-runtime-wheelhouse.py`; `support_install.py`; `runtime_support_installation.py`; focused tests and network-isolated real-wheel installation | Eight current distributions, including the shared GitHub auth and runtime diagnostics libraries, install from the signed aggregate requirements lock with hashes, dependency checks, and package readback. Duplicate wheel copies are discovery locations, not separate direct requirements. No runtime service is started. |
 | Locked provider collection across deployment roots | implemented | `mirror-locked-providers.sh`; offline fake-Terraform tests, Ruff and shell syntax | Ten bundled roots retain their own locks, including the System Knowledge Service, differing AzureRM versions, and genesis AzAPI. Calls have 300/600-second caps within 3600 seconds. Real downloads, mirror indexes and complete signed staging remain unverified. |
 | Initial database credential generation | implemented | `infra/initial_postgres_credential.tf`; eight mocked Terraform cases and one root-wiring regression | Explicit fresh-install generation retains a sensitive credential in private state. Supplied-password defaults remain unchanged; enabling it later is a reviewed rotation. |
-| Pinned offline trust root and release integration | not-started | `docs/runbooks/offline-trust-ceremony.md` | No pinned root ships in a CLI wheel and kit staging is not a passing release workflow. |
 | Full-air-gap cloud operation | not-applicable | The full-air-gap boundary in this document | The deterministic core can run from static inputs, but live Azure evidence and cloud mutation are intentionally outside this profile. |
 
 ### Implementation history
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-27 | validated | Replaced the complete offline kit as the Python installation package with a 6.9 MB signed wheelhouse. Complete runtime payload, trust-root, SBOM, provenance, appliance, and Azure receipt requirements no longer gate package completion. | `current change`; policy v3, focused builder/checker tests, OpenSSL/checksum verification, and pip cold install. | Validate deployment behavior separately when a deployment is selected. |
 | 2026-09-16 | in-progress | Removed private-host runtime image build and tenant appliance construction from the current disconnected deployment contract. The tenant now verifies and mirrors or imports release-built digests without changing bytes. | `current change`; documentation and deployment-skill contracts only; implementation remains unchanged. | Remove builder entry points from tenant orchestration and retain one no-public-egress deployment receipt using only prebuilt artifacts. |
 | 2026-09-14 | validated | Reconciled the existing r4 artifact and cold-install acceptance into Issue #461 instead of rebuilding unchanged bytes or repeating the historical drill. Re-read the public asset and exact CI, and rehashed the retained archive. | [Release and 11-check receipt](https://github.com/dotnetpower/fdai/issues/803#issuecomment-5653340906); source CI `34755232779` and protected merge CI `34755464071` succeeded; archive SHA-256 `c7e8b3e99fd77534ad7e2b2321d2e677fb3fe316a946e4c58ef797d5682bbab5`, size 866720653 bytes. | Current production trust, an eligible selected release, exact Foundation/application approval, private-host convergence, authenticated Console/inventory verification, and appliance-entry-point evidence remain open. No new build, installation, provider call, or deployment was performed. |
 | 2026-09-12 | implemented | Replaced the two-artifact operator handoff with one OCI deployment appliance that embeds a verified complete kit and starts manual standalone deployment. | `current change`; appliance builder, entry point, CLI contracts, and focused tests | Build the production appliance and retain one no-public-egress Azure deployment receipt. |
@@ -59,14 +57,10 @@ fully disconnected install.
 
 ### Remaining work
 
-- [x] Restore the dedicated CLI verifier and toolchain drill, as recorded in the [deployment CLI ledger](../../roadmap-implementation/deployment/installable-deployment-cli.md).
-- [x] Retain r4's complete development artifact and cold no-network preparation evidence; [Issue #461](https://github.com/dotnetpower/fdai/issues/461) reuses the exact-source receipt above without treating it as a current deployment certificate.
-- [ ] Establish and package the offline trust root through the governed ceremony, then prove inspection distinguishes verified, review, and rejected kits without a network call.
-- [ ] Stage actual runtime archives from a clean eligible release revision and pass `airgap-drill.sh --runtime-release <directory> --require-runtime` with no package cache, route, or DNS.
-- [ ] Prove the manual exact-plan approval and apply path from a private deploy host, including rollback, teardown, and post-provision verification receipts.
-- [ ] Accept a release-published digest-pinned deployment appliance, verify its provenance, SBOM
-  and embedded kit, and retain one image-entry-point Azure deployment receipt with no public
-  artifact access or tenant-side image construction.
+- [x] Build, verify, and cold-install the signed Python wheelhouse with standard OpenSSL,
+  `sha256sum`, and pip commands.
+- [ ] Validate Azure deployment behavior separately from package installation. Deployment runtime
+  payloads, exact plans, rollback, health, and cleanup remain deployment-owner work.
 
 ## Design at a glance
 
@@ -336,26 +330,21 @@ fails closed:
 
 A service runtime image does not provision Azure infrastructure: it excludes `infra/` and
 Terraform and starts one service. A **deployment appliance** is a different image. It embeds the
-complete signed offline kit, installs `fdaictl` only from the kit wheelhouse, and starts the real
-standalone deployment from inside the approved network.
-The embedded `/opt/fdai/kit.tar.gz` is a mode-`0600`, no-follow copy of the exact verified input
-archive, not a re-archive. The copied bytes are independently reverified for source, manifest, and
-runtime identity before image assembly.
+installed CLI and optional deployment payloads, then starts standalone deployment from inside the
+approved network. It is not a Python package format or a package-assurance requirement.
 
-The closed-network handover is one digest-pinned OCI appliance archive containing a complete
-signed kit. Internally it contains the deployment bundle, pinned Terraform and OPA binaries, provider mirror, all service and dependency
-OCI archives, Console, migration support, SBOMs, provenance, and trust metadata. Keeping those
-components distinct inside the image preserves independent verification without exposing multiple
-operator handoff steps.
+The simplest closed-network handover is the signed Python wheelhouse plus deployment payloads
+selected by the deployment owner. An OCI appliance may combine those inputs for convenience, but
+its construction and execution are optional.
 
 | # | Step | Tool | State |
 |---|------|------|-------|
-| 1 | Verify and load the appliance | OCI-compatible container tooling | implemented builder contract; production image evidence remains open |
+| 1 | Optionally load an appliance | OCI-compatible container tooling | optional convenience |
 | 2 | Authenticate to Azure | Interactive Azure CLI user or appliance Managed Identity | implemented entry-point selection |
-| 3 | Start the standalone deployment | Appliance entry point | implemented with embedded `--offline-kit` and no public fallback |
+| 3 | Start standalone deployment | Installed CLI or optional appliance entry point | implemented |
 | 4 | Create or verify the Foundation | Local coordinator plus `infra/genesis-foundation` | implemented exact-plan and Bastion path |
 | 5 | Import runtime images and plan the application | Managed host inside the VNet | implemented with digest readback |
-| 6 | Apply, migrate, and start services | Managed-host Terraform and migration support | implemented; governed appliance receipt remains open |
+| 6 | Apply, migrate, and start services | Managed-host Terraform and migration support | implemented |
 | 7 | Verify deployment readiness | Service health and second zero-change plan | implemented; broader subscription assurance remains separate |
 
 The appliance resolves the Terraform binary and provider mirror from the *signed manifest*, so a
