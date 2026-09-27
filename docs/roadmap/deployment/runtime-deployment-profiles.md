@@ -280,6 +280,9 @@ AKS consumes the shared root's Key Vault output; overlength candidates use the d
 Selecting AKS creates the application VNet plus node and API-server subnets even when detailed
 private networking is off. The separate private-networking input controls service private
 endpoints, hub peering and private DNS rather than the AKS subnet prerequisite.
+Focused document recovery keeps the Foundation-owned operations Blob-zone link singular and writes
+the document endpoint A record into that zone. The application VNet retains its application-zone
+link, while the DFS zone links independently to both required VNets.
 The default-disabled dev alert-noise pilot remains a shared-platform prerequisite for either
 runtime choice. Its exact target contains only one dedicated Action Group and one metric alert;
 runtime selection grants no pilot approval, notification authority, or promotion.

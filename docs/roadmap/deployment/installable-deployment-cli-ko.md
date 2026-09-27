@@ -1,7 +1,7 @@
 ---
 title: 설치형 배포 CLI
 translation_of: installable-deployment-cli.md
-translation_source_sha: 852a0ffba5dfa46455a9753d0454ff5f450213b0
+translation_source_sha: ef14ae6bf67647247c1c0aca7bed76720110a4ae
 translation_revised: 2026-09-27
 ---
 
@@ -519,8 +519,8 @@ dispatch하지 않습니다.
 
 ## 서명 산출물과 실행 안전성
 
-설치된 CLI는 자체 Python 인터프리터를 고정된 패키지 Genesis 진입점, 계획 생성 및 재검증에
-전달합니다. 바깥 Foundation 시간 제한은 프로세스 그룹 정리 시간을 확보하며, 중첩된 Genesis의
+소스 체크아웃 래퍼는 격리된 `uv` 환경에 검증된 저장소 루트 `.venv`의 Python을 선택하고, 설치된 CLI는 해당 인터프리터를
+고정된 패키지 Genesis 진입점, 계획 생성 및 재검증에 전달합니다. 바깥 Foundation 시간 제한은 프로세스 그룹 정리 시간을 확보하며, 중첩된 Genesis의
 종료 유예 시간은 최대 8개 계층마다 짧아집니다. 호출자가 소유한 선택적 stdout과 stderr 파일
 서술자는 stdin이나 취소 처리를 바꾸지 않고 진행 표시와 기계 출력을 분리합니다. 상태, 승인,
 안전한 환경 변수 필터링은 각각 독립적인 검사로 유지됩니다.

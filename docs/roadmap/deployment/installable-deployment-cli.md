@@ -518,8 +518,8 @@ The resulting Console receipt does not set whole-application or subscription rea
 
 ## Signed artifact and execution safety
 
-The installed CLI passes its own Python interpreter to fixed packaged Genesis launchers, plan
-generation, and reverification. The outer Foundation timeout reserves process-group cleanup;
+The source-checkout wrapper selects Python from the verified repository-root `.venv` for an isolated `uv` environment, and the installed CLI passes that interpreter to fixed packaged Genesis launchers,
+plan generation, and reverification. The outer Foundation timeout reserves process-group cleanup;
 nested Genesis termination grace decreases at each of at most eight levels. Optional caller-owned
 stdout and stderr descriptors preserve progress and machine-output separation without changing
 stdin or cancellation. Status, approval, and safe environment filtering remain independent gates.

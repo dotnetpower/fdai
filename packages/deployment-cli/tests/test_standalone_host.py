@@ -1417,6 +1417,7 @@ def test_focused_access_targets_only_selected_data_planes() -> None:
         "module.document_blob_private_endpoint",
         "module.document_dfs_private_endpoint",
         "module.document_storage[0].azurerm_role_assignment.deployer_data_owner",
+        "azurerm_private_dns_a_record.document_blob_ops",
         "azurerm_virtual_network_peering.spoke_to_hub",
         "azurerm_virtual_network_peering.hub_to_spoke",
     }

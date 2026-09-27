@@ -53,6 +53,14 @@ def test_aks_policy_forced_data_plane_recovery_is_focused() -> None:
         )
         >= 3
     )
+    blob_start = root.index('module "document_blob_private_endpoint"')
+    blob_end = root.index('module "case_history_blob_private_endpoint"', blob_start)
+    assert "extra_vnet_links" not in root[blob_start:blob_end]
+    assert 'resource "azurerm_private_dns_a_record" "document_blob_ops"' in root
+    assert (
+        "var.enable_document_ingestion && local.document_storage_private_access "
+        '&& var.runner_vnet_id != "" && var.ops_resource_group_name != ""'
+    ) in root
     assert "local.key_vault_private_access || local.document_storage_private_access" in root
     assert 'check "aks_focused_private_access_runner_path"' in root
     assert "public_network_access_enabled = !var.enable_private_networking" in root

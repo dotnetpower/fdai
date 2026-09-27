@@ -1537,7 +1537,6 @@ module "document_blob_private_endpoint" {
   target_resource_id    = module.document_storage[0].id
   subresource_name      = "blob"
   private_dns_zone_name = "privatelink.blob.core.windows.net"
-  extra_vnet_links      = var.runner_vnet_id != "" ? { ops = var.runner_vnet_id } : {}
   tags                  = local.tags
 }
 
@@ -1960,7 +1959,7 @@ resource "azurerm_function_app_flex_consumption" "dev_gateway" {
 }
 
 resource "azurerm_private_dns_a_record" "document_blob_ops" {
-  count               = var.enable_document_ingestion && var.enable_private_networking && var.runner_vnet_id != "" ? 1 : 0
+  count               = var.enable_document_ingestion && local.document_storage_private_access && var.runner_vnet_id != "" && var.ops_resource_group_name != "" ? 1 : 0
   name                = module.document_storage[0].name
   zone_name           = "privatelink.blob.core.windows.net"
   resource_group_name = var.ops_resource_group_name

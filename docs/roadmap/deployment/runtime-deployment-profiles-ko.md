@@ -1,6 +1,6 @@
 ---
 translation_of: runtime-deployment-profiles.md
-translation_source_sha: edb1971ae0f69d799dacd80f83af857d899e84be
+translation_source_sha: 85363c86ab56af9ddcf75162fabac9a19ca4399e
 translation_revised: 2026-09-27
 ---
 # 런타임 배포 프로파일
@@ -242,6 +242,9 @@ AKS는 공유 루트의 Key Vault 출력을 사용합니다. 이름이 너무 �
 AKS를 선택하면 상세 비공개 네트워킹이 꺼져 있어도 애플리케이션 VNet, 노드 서브넷 및 API 서버
 서브넷을 만듭니다. 별도의 비공개 네트워킹 입력은 AKS 서브넷 선행 조건이 아니라 서비스 비공개
 엔드포인트, 허브 피어링 및 비공개 DNS를 제어합니다.
+집중 문서 복구는 Foundation 소유 운영 Blob 영역 링크를 하나로 유지하고 문서 엔드포인트 A
+레코드를 해당 영역에 씁니다. 애플리케이션 VNet은 애플리케이션 영역 링크를 유지하며 DFS 영역은
+필요한 두 VNet에 독립적으로 연결됩니다.
 기본적으로 비활성화되는 개발 환경 알림 과다 수신 파일럿은 어느 런타임을 선택하더라도 공유
 플랫폼 선행 조건으로 유지됩니다. 정확한 대상에는 전용 Action Group 하나와 메트릭 경보 하나만
 포함됩니다. 런타임 선택은 파일럿 승인, 알림 발송 권한 또는 승격을 부여하지 않습니다.
