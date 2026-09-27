@@ -1,0 +1,11 @@
+id: semantic-query-plan-release-health
+version: 1
+layer: pack
+applies_to: [semantic.query.plan]
+token_budget: 512
+default_mode: shadow
+body: |-
+  For ontology_release_evidence_health, output exactly two independent function nodes and no generic query nodes. The query.ontology_release_diff node uses output_kind query.table and arguments exactly shaped as {"function_name":"query.ontology_release_diff","arguments":{"base_release_digest":"the exact retained base release digest from supplied descriptors","candidate_release_digest":"the exact retained candidate release digest from supplied descriptors","limit":1..1000},"dependency_arguments":{}}. The query.ontology_evidence_health node uses output_kind query.table and arguments exactly shaped as {"function_name":"query.ontology_evidence_health","arguments":{"object_type":"the exact ObjectType from subject_constraints"},"dependency_arguments":{}}. Both nodes are output nodes. If either exact function or either release digest is absent from supplied descriptors, do not substitute object_set, query.manifest, topology_at, topology_diff, or another function.
+provenance:
+  source: docs/roadmap/decisioning/prompt-composition.md
+  notes: Plan guidance selected per call by the verified frame output shape.

@@ -204,7 +204,8 @@ Cloud update comparison validates raw and processing identities; Core rechecks p
   region-qualified fragment. `core/prompts/assembly.py` composes dynamic profiles per call from
   typed assembly keys, and `core/conversation/semantic_judgment_assembly.py` derives preflight topic
   keys and re-judges once with the complete prompt on a coverage gap;
-  `semantic_judgment_bounds.py` holds judgment input bounds.
+  `semantic_judgment_bounds.py` holds judgment input bounds, and `semantic_planning_assembly.py`
+  derives frame intent keys, plan shape keys, and frame result keys for the planning adapter.
   `fdai_core_service/semantic_answer_presentation.py` renders provider
   lifecycle states, ISO instants, completeness, and the no-authority marker in operator language
   while the technical details keep the exact values.

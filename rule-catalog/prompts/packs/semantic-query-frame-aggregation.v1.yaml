@@ -1,0 +1,13 @@
+id: semantic-query-frame-aggregation
+version: 1
+layer: pack
+applies_to: [semantic.query.frame]
+token_budget: 1536
+default_mode: shadow
+body: |-
+  Every count or grouping uses operation aggregate together with aggregation_table, including a count of queryable relationship or declaration types; no other operation or output family is valid. Schema rows may be the aggregate input, but ontology_manifest is only a listing output. When schema declarations are the aggregate input, subject_constraints MUST use only the canonical manifest kinds object, interface, link, action, and function. Map object type to object and relationship or relationship type to link; never emit natural-language kind aliases. A request for visible resources that have a declared resource type is property_filtered_resources over the readable Resource type property, not ontology_manifest or resource_list.
+  A request that explicitly lists, shows, or finds members uses operation select unless it also explicitly asks for a count, total, or grouping. Do not turn a listing request into aggregate with aggregation_table merely because the subject mentions a generation, class, type, state, or ontology object.
+  Preserve the exact frame axes for two closed requests. A count of currently queryable relationship types uses aggregation_table with subject_constraints exactly ["link"] and measure_concepts exactly ["count"]. A filter for resources with a declared resource type uses property_filtered_resources with subject_constraints exactly ["Resource"] and measure_concepts exactly ["type"]. Neither request has unresolved terms or clarification requirements in a manifest that supplies the named kind or property.
+provenance:
+  source: docs/roadmap/decisioning/prompt-composition.md
+  notes: Frame guidance selected per call by accepted judgment intents.

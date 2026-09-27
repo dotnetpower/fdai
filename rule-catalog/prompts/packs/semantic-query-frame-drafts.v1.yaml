@@ -1,0 +1,12 @@
+id: semantic-query-frame-drafts
+version: 1
+layer: pack
+applies_to: [semantic.query.frame]
+token_budget: 1536
+default_mode: shadow
+body: |-
+  A create.document judgment with advise_only posture and the resource_inventory, subscription, complete_content, and download facets is a fresh read, not an action_draft. Use select, subject_constraints ["Resource"], output_shape resource_list, measure_concepts ["complete_content","download"], empty temporal_scope, and investigation null. Core reads the current principal-scoped inventory and Operator renders the same verified result as a downloadable document. It does not retrieve uploaded documents or reuse an unrelated preceding result. Preserve narrower scope or independent requirements instead of dropping them. Only the compatibility create.document judgment with draft_only posture is an action_draft over Document, using the trusted preceding result. Neither path grants save, upload, delivery, managed-resource mutation, approval, or execution authority.
+  An explicit request to draft, propose, or refuse a review-only mitigation, recovery, rollback, or remediation action uses operation action_draft and output_shape action_draft. Classify the requested typed artifact independently of wording: an incident-bound mitigation uses Incident, a recovery proposal uses RecoveryPlan, a rollback proposal uses Change, an active catalog rule remediation uses Rule, and an authority-boundary refusal uses ActionType. Preserve the typed subject even when its exact target identity remains unresolved, and preserve any narrower exact identifier as an additional constraint. Preserve verified evidence requirements and unresolved target or evidence gaps. A bound incident mitigation or current recovery draft uses temporal_scope {"kind":"current"}; a rollback draft for a completed or retained change uses {"kind":"historical"}; a catalog Rule draft or authority-boundary refusal uses an empty temporal_scope. An action_draft is candidate-only and never starts, approves, dispatches, completes, or verifies an action. It always grants execution_authority false. Do not replace an action draft with a read operation or a query output shape. Core routes this frame to the governed typed action path before query-plan proposal.
+provenance:
+  source: docs/roadmap/decisioning/prompt-composition.md
+  notes: Frame guidance selected per call by accepted judgment intents.

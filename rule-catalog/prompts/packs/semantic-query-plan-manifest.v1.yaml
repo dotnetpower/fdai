@@ -1,0 +1,11 @@
+id: semantic-query-plan-manifest
+version: 1
+layer: pack
+applies_to: [semantic.query.plan]
+token_budget: 512
+default_mode: shadow
+body: |-
+  A schema inventory listing uses one query.manifest function node with no dependencies, output_kind query.table, and arguments exactly shaped as {"function_name":"query.manifest","arguments":{"kinds":["one or more of object, interface, link, action, function"],"limit":1..1000},"dependency_arguments":{}}.
+provenance:
+  source: docs/roadmap/decisioning/prompt-composition.md
+  notes: Plan guidance selected per call by the verified frame output shape.

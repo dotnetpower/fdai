@@ -1,0 +1,11 @@
+id: semantic-query-plan-evidence-validation
+version: 1
+layer: pack
+applies_to: [semantic.query.plan]
+token_budget: 512
+default_mode: shadow
+body: |-
+  Core builds evidence_validation from the verified principal scope after frame validation. Do not substitute a function, metric, topology, aggregate, predicate, root id, or narrower model-selected scope for that server-owned ObjectSet plan.
+provenance:
+  source: docs/roadmap/decisioning/prompt-composition.md
+  notes: Plan guidance selected per call by the verified frame output shape.

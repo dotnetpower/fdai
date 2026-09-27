@@ -408,16 +408,16 @@ profiles:
     reserved_output_tokens: 512
     promotion_evidence: [docs/roadmap/interfaces/hierarchical-conversation-planning.md]
     provenance: {source: docs/roadmap/interfaces/hierarchical-conversation-planning.md}
-  - id: active.semantic-query-frame
+  - id: shadow.semantic-query-frame-static
     version: 1
     capability_id: semantic.query.frame
-    mode: active
+    mode: shadow
     root: {id: semantic-query-frame, version: 40, layer: base}
     packs: []
     system_token_budget: 65536
     request_token_budget: 196608
     reserved_output_tokens: 2048
-    promotion_evidence: [docs/roadmap/interfaces/ontology-query-coverage-implementation-plan.md]
+    promotion_evidence: []
     provenance: {source: docs/roadmap/interfaces/ontology-query-coverage-implementation-plan.md}
   - id: shadow.semantic-query-frame-v41
     version: 1
@@ -431,6 +431,59 @@ profiles:
     reserved_output_tokens: 2048
     promotion_evidence: []
     provenance: {source: docs/roadmap/interfaces/ontology-query-coverage-implementation-plan.md}
+  - id: active.semantic-query-frame
+    version: 2
+    capability_id: semantic.query.frame
+    mode: active
+    root: {id: semantic-query-frame-core, version: 1, layer: base}
+    packs:
+      - id: semantic-query-frame-gateway-config
+        version: 1
+        layer: pack
+        when_any: [intent:query.gateway_diagnostic_evidence, intent:query.resource_configuration_changes, intent:query.resource_configuration_snapshot]
+        covers: [shape:gateway_diagnostic_evidence, shape:resource_configuration_changes]
+      - id: semantic-query-frame-inventory
+        version: 1
+        layer: pack
+        when_any: [intent:inventory.select_resources, intent:query.contextual_resources, intent:query.resource_health_inventory, intent:query.resource_metric_inventory, intent:query.resource_state_inventory, intent:query.subscription_service_health]
+        covers: [shape:contextual_resource_list, shape:property_filtered_resources, shape:resource_health_list, shape:resource_list, shape:resource_metric_list, shape:resource_state_list, shape:subscription_service_health]
+      - id: semantic-query-frame-aggregation
+        version: 1
+        layer: pack
+        when_any: [intent:inventory.select_resources, intent:query.contextual_resources, intent:query.inventory_impact, intent:query.manifest, intent:query.ontology_declaration, intent:query.ontology_evidence_health, intent:query.ontology_instance_candidates, intent:query.ontology_relationships, intent:query.ontology_release_diff, intent:query.resource_class_closure, intent:query.resource_health_inventory, intent:query.resource_metric_inventory, intent:query.resource_state_inventory, intent:query.subscription_service_health]
+        covers: [shape:aggregation_table]
+      - id: semantic-query-frame-target
+        version: 1
+        layer: pack
+        when_any: [intent:query.kubernetes_pod_diagnosis, intent:query.kubernetes_pod_recovery_evidence, intent:query.kubernetes_rollout_evidence, intent:query.resource_current_state, intent:query.resource_error_activity_correlation, intent:query.resource_event_history, intent:query.resource_ingress_configuration, intent:query.resource_metric_series, intent:query.target_health_assessment, intent:query.vm_process_cpu_evidence]
+        covers: [shape:target_activity, shape:target_current_state, shape:target_error_activity_correlation, shape:target_health_assessment, shape:target_ingress_configuration, shape:target_resource_metric, shape:target_resource_metric_series]
+      - id: semantic-query-frame-ontology
+        version: 1
+        layer: pack
+        when_any: [intent:query.inventory_impact, intent:query.manifest, intent:query.ontology_declaration, intent:query.ontology_evidence_health, intent:query.ontology_instance_candidates, intent:query.ontology_relationships, intent:query.ontology_release_diff, intent:query.resource_class_closure]
+        covers: [shape:inventory_impact, shape:ontology_declaration, shape:ontology_manifest, shape:ontology_relationships, shape:ontology_release_evidence_health]
+      - id: semantic-query-frame-causal
+        version: 1
+        layer: pack
+        when_any: [intent:query.kubernetes_pod_diagnosis, intent:query.latency_recovery_evidence, intent:query.mysql_demand_metric_bundle, intent:query.mysql_pressure_evidence, intent:query.mysql_saturation_metric_bundle, intent:query.operating_patterns, intent:query.recent_resource_changes, intent:query.resource_change_activity, intent:query.resource_error_activity_correlation, intent:query.resource_state_transitions, intent:query.vm_process_cpu_evidence]
+        covers: [shape:causal_evidence, shape:temporal_comparison, shape:topology_graph]
+      - id: semantic-query-frame-evidence
+        version: 1
+        layer: pack
+        when_any: [intent:query.incident_evidence, intent:query.ontology_evidence_health]
+        covers: [shape:evidence_validation, shape:incident_evidence]
+      - id: semantic-query-frame-drafts
+        version: 1
+        layer: pack
+        when_any: [intent:action_request, intent:action_requirements, intent:create.document]
+        covers: [shape:action_draft]
+    system_token_budget: 65536
+    request_token_budget: 196608
+    reserved_output_tokens: 2048
+    promotion_evidence:
+      - docs/roadmap-implementation/decisioning/prompt-composition.md
+      - docs/roadmap/decisioning/prompt-composition.md
+    provenance: {source: docs/roadmap/decisioning/prompt-composition.md}
   - id: shadow.semantic-query-frame-compact
     version: 1
     capability_id: semantic.query.frame
@@ -465,17 +518,82 @@ profiles:
     reserved_output_tokens: 2048
     promotion_evidence: [docs/roadmap/interfaces/hierarchical-conversation-planning.md]
     provenance: {source: docs/roadmap/interfaces/hierarchical-conversation-planning.md}
-  - id: active.semantic-query-plan
+  - id: shadow.semantic-query-plan-static
     version: 1
     capability_id: semantic.query.plan
-    mode: active
+    mode: shadow
     root: {id: semantic-query-plan, version: 18, layer: base}
     packs: []
     system_token_budget: 16384
     request_token_budget: 65536
     reserved_output_tokens: 2048
-    promotion_evidence: [docs/roadmap/interfaces/ontology-query-coverage-implementation-plan.md]
+    promotion_evidence: []
     provenance: {source: docs/roadmap/interfaces/ontology-query-coverage-implementation-plan.md}
+  - id: active.semantic-query-plan
+    version: 2
+    capability_id: semantic.query.plan
+    mode: active
+    root: {id: semantic-query-plan-core, version: 1, layer: base}
+    packs:
+      - id: semantic-query-plan-target
+        version: 1
+        layer: pack
+        when_any: [shape:target_activity, shape:target_current_state, shape:target_error_activity_correlation, shape:target_health_assessment, shape:target_ingress_configuration, shape:target_resource_metric, shape:target_resource_metric_series]
+      - id: semantic-query-plan-release-health
+        version: 1
+        layer: pack
+        when_any: [shape:ontology_release_evidence_health]
+      - id: semantic-query-plan-inventory-impact
+        version: 1
+        layer: pack
+        when_any: [shape:inventory_impact]
+      - id: semantic-query-plan-declaration
+        version: 1
+        layer: pack
+        when_any: [shape:ontology_declaration]
+      - id: semantic-query-plan-aggregation
+        version: 1
+        layer: pack
+        when_any: [shape:aggregation_table]
+      - id: semantic-query-plan-filtered-resources
+        version: 1
+        layer: pack
+        when_any: [shape:property_filtered_resources]
+      - id: semantic-query-plan-evidence-validation
+        version: 1
+        layer: pack
+        when_any: [shape:evidence_validation]
+      - id: semantic-query-plan-temporal
+        version: 1
+        layer: pack
+        when_any: [shape:temporal_comparison, shape:topology_graph]
+      - id: semantic-query-plan-causal
+        version: 1
+        layer: pack
+        when_any: [shape:causal_evidence]
+      - id: semantic-query-plan-manifest
+        version: 1
+        layer: pack
+        when_any: [shape:ontology_manifest]
+      - id: semantic-query-plan-topology
+        version: 1
+        layer: pack
+        when_any: [shape:topology_graph]
+      - id: semantic-query-plan-relationships
+        version: 1
+        layer: pack
+        when_any: [shape:ontology_relationships]
+      - id: semantic-query-plan-incident
+        version: 1
+        layer: pack
+        when_any: [shape:incident_evidence]
+    system_token_budget: 16384
+    request_token_budget: 196608
+    reserved_output_tokens: 2048
+    promotion_evidence:
+      - docs/roadmap-implementation/decisioning/prompt-composition.md
+      - docs/roadmap/decisioning/prompt-composition.md
+    provenance: {source: docs/roadmap/decisioning/prompt-composition.md}
   - id: shadow.semantic-query-plan-compact
     version: 1
     capability_id: semantic.query.plan

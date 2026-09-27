@@ -70,7 +70,8 @@ fields inside the expanded Run Record and never receives raw SYSTEM text through
 A captured model call's `prompt_manifest` may also carry `assembly` when its profile is dynamic:
 `mode` (`selected` or `complete`), sorted assembly `keys`, the ids of `unselected_layers`, and the
 assembly `digest`. The object is content-free, parsers that do not display it ignore it, and it
-never carries prompt text or authority.
+never carries prompt text or authority. A selected-mode frame attempt discarded for a guidance
+coverage gap remains in the trace before its complete-prompt retry.
 
 The local campaign CLI may place this attribution with bounded question and answer content in an
 owner-only transcript. That transcript is diagnostic data, not a cross-service contract,

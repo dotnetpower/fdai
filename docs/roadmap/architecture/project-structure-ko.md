@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: ca20c3b0a57ab7d30696ad862793fd0563a82421
+translation_source_sha: 4abf292f05624428bc8b0101397a185fa95f608c
 translation_revised: 2026-09-28
 ---
 # 프로젝트 구조
@@ -205,7 +205,9 @@ Cost Governance 가명 자료는 Operator 조립이 소유하는 비밀입니다
   그대로의 이름 조각으로 목록을 만들며, 지역으로 한정된 조각은 명확화합니다.
   `core/prompts/assembly.py`는 형식이 정해진 조립 키로 동적 프로필을 호출마다 조립하고,
   `core/conversation/semantic_judgment_assembly.py`는 preflight 주제 키를 만들며 포함 누락이 있으면
-  전체 프롬프트로 한 번 다시 판단합니다. `semantic_judgment_bounds.py`는 판단 입력 한도를 담습니다.
+  전체 프롬프트로 한 번 다시 판단합니다. `semantic_judgment_bounds.py`는 판단 입력 한도를 담고,
+  `semantic_planning_assembly.py`는 planning 어댑터가 쓰는 frame 의도 키, plan 형태 키, frame 결과
+  키를 만듭니다.
   `fdai_core_service/semantic_answer_presentation.py`는 공급자 lifecycle 상태, ISO 시각, 완전성,
   실행 권한 없음 표시를 운영자 언어로 렌더링하고 기술 상세에는 정확한 값을 유지합니다.
   `fdai_core_service/semantic_source_limitations.py`는 타입이 지정된 원본 제한 코드를 운영자의

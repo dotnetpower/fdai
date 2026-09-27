@@ -771,7 +771,7 @@ def _record_model_response(
 ) -> Mapping[str, Any] | None:
     if isinstance(response, SemanticPlanningModelResponse):
         if observations is not None:
-            observations.append(response.observation)
+            observations.extend(response.observations)
         return response.proposal
     return response
 

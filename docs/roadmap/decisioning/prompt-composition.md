@@ -187,6 +187,10 @@ an excluded pack, judgment runs once more with the complete prompt, the first re
 and both observations remain in the trace. A routing miss therefore costs one bounded judgment
 rather than silently removing the guidance for the meaning that was produced.
 
+Frame packs are selected by accepted judgment intents and cover their output shapes; a frame whose
+shape an excluded pack governs is re-proposed once with the complete prompt. Plan packs use the
+verified frame shape, and the compact operational frame route keeps precedence for its intents.
+
 Critique and revision: capability-keyed selection was rejected because nearly every turn receives
 the complete capability manifest. A model-visible route capability was rejected because it could
 bias judgment and widen intent grounding. Partial-match fallback was replaced by result-key

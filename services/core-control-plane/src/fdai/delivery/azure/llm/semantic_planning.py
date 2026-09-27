@@ -22,13 +22,23 @@ from fdai.core.conversation.adaptive_call_scope import (
     stop_scoped_provider_retry,
 )
 from fdai.core.conversation.semantic_judgment import SemanticJudgmentObservation
+from fdai.core.conversation.semantic_planning_assembly import (
+    frame_assembly_keys,
+    frame_result_keys,
+    plan_assembly_keys,
+)
 from fdai.core.conversation.semantic_planning_models import (
     QueryPlanProposal,
     SemanticFrameProposal,
     SemanticPlanningModelResponse,
 )
-from fdai.core.prompts import estimate_chat_request_tokens, estimate_prompt_tokens
-from fdai.core.prompts.types import LayerRef, PromptLayer, PromptReplayManifest
+from fdai.core.prompts import PromptAssembler, estimate_chat_request_tokens, estimate_prompt_tokens
+from fdai.core.prompts.types import (
+    LayerRef,
+    PromptAssemblyReceipt,
+    PromptLayer,
+    PromptReplayManifest,
+)
 from fdai.delivery.azure.llm.completion_body import completion_body_params
 from fdai.delivery.azure.llm.model_trace import (
     bounded_usage,
@@ -37,6 +47,18 @@ from fdai.delivery.azure.llm.model_trace import (
     start_model_trace,
 )
 from fdai.delivery.azure.llm.request_target import ModelRequestTarget
+from fdai.delivery.azure.llm.semantic_planning_manifest import (
+    sha256_hex as _sha256,
+)
+from fdai.delivery.azure.llm.semantic_planning_manifest import (
+    transmitted_prompt_manifest as _transmitted_prompt_manifest,
+)
+from fdai.delivery.azure.llm.semantic_planning_manifest import (
+    validate_output_reserve as _validate_output_reserve,
+)
+from fdai.delivery.azure.llm.semantic_planning_manifest import (
+    validate_prompt_manifest as _validate_prompt_manifest,
+)
 from fdai.shared.providers.workload_identity import WorkloadIdentity
 
 _LOGGER = logging.getLogger(__name__)
@@ -86,10 +108,21 @@ class AzureOpenAISemanticPlanningModelConfig:
     recovery_frame_prompt_manifest: PromptReplayManifest | None = None
     timeout_seconds: float = 90.0
     max_tokens: int = 2_048
+    frame_prompt_assembler: PromptAssembler | None = None
+    plan_prompt_assembler: PromptAssembler | None = None
 
     def __post_init__(self) -> None:
         if not 1 <= len(self.candidates) <= _MAX_CANDIDATES:
             raise ValueError(f"semantic planning candidates MUST contain 1 to {_MAX_CANDIDATES}")
+        for assembler, prompt, manifest in (
+            (self.frame_prompt_assembler, self.frame_system_prompt, self.frame_prompt_manifest),
+            (self.plan_prompt_assembler, self.plan_system_prompt, self.plan_prompt_manifest),
+        ):
+            if assembler is not None and (
+                assembler.complete.system_text != prompt
+                or assembler.complete.replay_manifest() != manifest
+            ):
+                raise ValueError("semantic planning assembler MUST match its complete prompt")
         identities = tuple(
             (candidate.endpoint, candidate.deployment, candidate.api_version)
             for candidate in self.candidates
@@ -181,11 +214,33 @@ class AzureOpenAISemanticPlanningModel:
         }
         if not _bounded_input(payload, context=context, descriptors=descriptors):
             return None
-        return self._complete(
+        prompt, manifest, receipt = self._frame_selection(semantic_judgment)
+        response = self._complete(
             payload=payload,
-            prompt=self._frame_prompt(semantic_judgment),
+            prompt=prompt,
             proposal_type=SemanticFrameProposal,
             operation="frame",
+            manifest=manifest,
+        )
+        if (
+            receipt is None
+            or not isinstance(response, SemanticPlanningModelResponse)
+            or not receipt.uncovered(frame_result_keys(response.proposal))
+        ):
+            return response
+        _LOGGER.info("semantic_planning_frame_assembly_fallback")
+        complete = self._config.frame_system_prompt
+        retry = self._complete(
+            payload=payload,
+            prompt=complete,
+            proposal_type=SemanticFrameProposal,
+            operation="frame",
+            manifest=self._config.frame_prompt_manifest,
+        )
+        if not isinstance(retry, SemanticPlanningModelResponse):
+            return retry
+        return replace(
+            retry, prior_observations=(*response.observations, *retry.prior_observations)
         )
 
     def propose_plan(
@@ -210,11 +265,14 @@ class AzureOpenAISemanticPlanningModel:
         }
         if not _bounded_input(payload, context=(), descriptors=descriptors):
             return None
+        assembler = self._config.plan_prompt_assembler
+        assembled = assembler.assemble(plan_assembly_keys(frame)) if assembler else None
         return self._complete(
             payload=payload,
-            prompt=self._config.plan_system_prompt,
+            prompt=assembled.system_text if assembled else self._config.plan_system_prompt,
             proposal_type=QueryPlanProposal,
             operation="plan",
+            manifest=assembled.replay_manifest() if assembled else None,
         )
 
     def propose_escalated_frame(
@@ -298,6 +356,16 @@ class AzureOpenAISemanticPlanningModel:
             return self._config.operational_frame_system_prompt
         return self._config.frame_system_prompt
 
+    def _frame_selection(
+        self, semantic_judgment: Mapping[str, Any] | None
+    ) -> tuple[str, PromptReplayManifest | None, PromptAssemblyReceipt | None]:
+        prompt = self._frame_prompt(semantic_judgment)
+        assembler = self._config.frame_prompt_assembler
+        if prompt != self._config.frame_system_prompt or assembler is None:
+            return prompt, None, None
+        assembled = assembler.assemble(frame_assembly_keys(semantic_judgment))
+        return assembled.system_text, assembled.replay_manifest(), assembled.assembly
+
     def _complete(
         self,
         *,
@@ -305,6 +373,7 @@ class AzureOpenAISemanticPlanningModel:
         prompt: str,
         proposal_type: type[BaseModel],
         operation: str,
+        manifest: PromptReplayManifest | None = None,
     ) -> Mapping[str, Any] | None:
         future = asyncio.run_coroutine_threadsafe(
             self._complete_async(
@@ -312,6 +381,7 @@ class AzureOpenAISemanticPlanningModel:
                 prompt=prompt,
                 proposal_type=proposal_type,
                 operation=operation,
+                manifest=manifest,
             ),
             self._owner_loop,
         )
@@ -332,6 +402,7 @@ class AzureOpenAISemanticPlanningModel:
         prompt: str,
         proposal_type: type[BaseModel],
         operation: str,
+        manifest: PromptReplayManifest | None = None,
     ) -> Mapping[str, Any] | None:
         return await run_scoped_model(
             lambda: self._complete_attempts(
@@ -339,6 +410,7 @@ class AzureOpenAISemanticPlanningModel:
                 prompt=prompt,
                 proposal_type=proposal_type,
                 operation=operation,
+                manifest=manifest,
             )
         )
 
@@ -349,6 +421,7 @@ class AzureOpenAISemanticPlanningModel:
         prompt: str,
         proposal_type: type[BaseModel],
         operation: str,
+        manifest: PromptReplayManifest | None = None,
     ) -> Mapping[str, Any] | None:
         user_content = json.dumps(
             {"untrusted_input": payload},
@@ -395,7 +468,7 @@ class AzureOpenAISemanticPlanningModel:
             )
             return None
         prompt_manifest = _transmitted_prompt_manifest(
-            self._prompt_manifest(prompt),
+            manifest if manifest is not None else self._prompt_manifest(prompt),
             system_content=transmitted_system,
             schema=schema,
         )
@@ -599,59 +672,6 @@ def _bounded_recovery_context(context: Mapping[str, str]) -> dict[str, str]:
     if len(encoded) > _MAX_RECOVERY_CONTEXT_CHARS:
         raise ValueError("semantic planning recovery context is too large")
     return normalized
-
-
-def _transmitted_prompt_manifest(
-    manifest: PromptReplayManifest | None,
-    *,
-    system_content: str,
-    schema: str,
-) -> PromptReplayManifest | None:
-    if manifest is None:
-        return None
-    return replace(
-        manifest,
-        system_text_sha256=_sha256(system_content),
-        layer_manifest=(
-            *manifest.layer_manifest,
-            LayerRef(
-                id="semantic-response-schema",
-                version=1,
-                layer=PromptLayer.ADAPTER_SCHEMA,
-                token_estimate=estimate_prompt_tokens(schema),
-            ),
-        ),
-        token_estimate=estimate_prompt_tokens(system_content),
-    )
-
-
-def _validate_prompt_manifest(
-    prompt: str | None,
-    manifest: PromptReplayManifest | None,
-) -> None:
-    if manifest is None:
-        return
-    if prompt is None or manifest.system_text_sha256 != _sha256(prompt):
-        raise ValueError("semantic planning prompt manifest does not match its system prompt")
-
-
-def _validate_output_reserve(
-    name: str,
-    manifest: PromptReplayManifest | None,
-    required_tokens: int,
-) -> None:
-    if (
-        manifest is not None
-        and manifest.reserved_output_tokens is not None
-        and manifest.reserved_output_tokens < required_tokens
-    ):
-        raise ValueError(f"{name} prompt output reserve is below configured max_tokens")
-
-
-def _sha256(value: str) -> str:
-    import hashlib
-
-    return hashlib.sha256(value.encode()).hexdigest()
 
 
 def _recovery_prompt(base_prompt: str) -> str | None:

@@ -85,7 +85,9 @@ def _selection(*, budget: int = 4096) -> PromptSelection:
 
 
 def test_static_profile_assembler_matches_static_composition() -> None:
-    selection = FileSystemPromptRegistry(_CATALOG).resolve("semantic.query.plan")
+    selection = FileSystemPromptRegistry(_CATALOG).resolve(
+        "semantic.query.plan", profile_id="shadow.semantic-query-plan-static"
+    )
     assembler = PromptAssembler(selection)
 
     assert not assembler.dynamic

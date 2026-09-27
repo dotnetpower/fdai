@@ -883,3 +883,138 @@ async def test_adapter_uses_candidate_order_and_returns_none_after_malformed_out
     assert validation_errors
     assert all(set(error) == {"location", "type"} for error in validation_errors)
     assert "private provider detail" not in caplog.text
+
+
+def _dynamic_frame_config() -> AzureOpenAISemanticPlanningModelConfig:
+    from fdai.core.prompts import (
+        PromptArtifactRef,
+        PromptAssembler,
+        PromptLayer,
+        PromptProfile,
+        PromptProfileMode,
+        PromptSelection,
+    )
+    from fdai.core.prompts.types import PromptArtifact, PromptMode
+
+    def artifact(artifact_id: str, layer: PromptLayer = PromptLayer.PACK) -> PromptArtifact:
+        return PromptArtifact(
+            id=artifact_id,
+            version=1,
+            layer=layer,
+            body=f"{artifact_id} frame guidance.",
+            applies_to=("semantic.query.frame",),
+            token_budget=None,
+            default_mode=PromptMode.SHADOW,
+            provenance_source="test",
+        )
+
+    profile = PromptProfile(
+        id="shadow.test-frame",
+        version=1,
+        capability_id="semantic.query.frame",
+        mode=PromptProfileMode.SHADOW,
+        root=PromptArtifactRef("core", 1, PromptLayer.BASE),
+        packs=(
+            PromptArtifactRef(
+                "ontology",
+                1,
+                PromptLayer.PACK,
+                when_any=("intent:query.manifest",),
+                covers=("shape:ontology_manifest",),
+            ),
+            PromptArtifactRef(
+                "inventory",
+                1,
+                PromptLayer.PACK,
+                when_any=("intent:query.contextual_resources",),
+                covers=("shape:resource_list",),
+            ),
+        ),
+        system_token_budget=65_536,
+        request_token_budget=196_608,
+        reserved_output_tokens=2048,
+        promotion_evidence=(),
+        provenance_source="test",
+    )
+    assembler = PromptAssembler(
+        PromptSelection(
+            root=artifact("core", PromptLayer.BASE),
+            packs=(artifact("ontology"), artifact("inventory")),
+            profile=profile,
+        )
+    )
+    base = _config()
+    return AzureOpenAISemanticPlanningModelConfig(
+        candidates=base.candidates,
+        frame_system_prompt=assembler.complete.system_text,
+        plan_system_prompt=base.plan_system_prompt,
+        frame_prompt_manifest=assembler.complete.replay_manifest(),
+        frame_prompt_assembler=assembler,
+        timeout_seconds=2,
+    )
+
+
+async def test_frame_with_uncovered_shape_is_reproposed_with_the_complete_prompt() -> None:
+    systems: list[str] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        systems.append(json.loads(request.content)["messages"][0]["content"])
+        return _response(_frame_payload())
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        model = AzureOpenAISemanticPlanningModel(
+            identity=_Identity(),  # type: ignore[arg-type]
+            http_client=client,
+            config=_dynamic_frame_config(),
+            owner_loop=asyncio.get_running_loop(),
+        )
+        response = await asyncio.to_thread(
+            model.propose_frame,
+            utterance="List readable object types",
+            context=(),
+            descriptors=({"kind": "object", "name": "Resource"},),
+            principal_role="reader",
+            purpose="operations-review",
+            semantic_judgment={"primary_intent": "query.manifest"},
+        )
+
+    assert isinstance(response, SemanticPlanningModelResponse)
+    assert len(systems) == 2
+    assert systems[0].startswith("core frame guidance.\n\nontology frame guidance.\nRequired")
+    assert "inventory frame guidance." in systems[1]
+    assert len(response.observations) == 2
+    first, second = (item.prompt_replay_manifest for item in response.observations)
+    assert first is not None and first.assembly is not None
+    assert first.assembly.mode.value == "selected"
+    assert second is not None and second.assembly is not None
+    assert second.assembly.mode.value == "complete"
+
+
+async def test_frame_with_covered_shape_keeps_the_selected_prompt() -> None:
+    systems: list[str] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        systems.append(json.loads(request.content)["messages"][0]["content"])
+        return _response(_frame_payload())
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        model = AzureOpenAISemanticPlanningModel(
+            identity=_Identity(),  # type: ignore[arg-type]
+            http_client=client,
+            config=_dynamic_frame_config(),
+            owner_loop=asyncio.get_running_loop(),
+        )
+        response = await asyncio.to_thread(
+            model.propose_frame,
+            utterance="List resources",
+            context=(),
+            descriptors=({"kind": "object", "name": "Resource"},),
+            principal_role="reader",
+            purpose="operations-review",
+            semantic_judgment={"primary_intent": "query.contextual_resources"},
+        )
+
+    assert isinstance(response, SemanticPlanningModelResponse)
+    assert len(systems) == 1
+    assert "ontology frame guidance." not in systems[0]
+    assert len(response.observations) == 1
