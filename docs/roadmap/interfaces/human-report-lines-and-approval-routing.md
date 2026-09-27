@@ -231,7 +231,8 @@ whole-graph revision observed for that decision.
 If the route cannot satisfy quorum, FDAI does not silently widen to an arbitrary Owner or group.
 Only an explicit ActionType route policy can select a separate fallback. Existing channel fallback
 continues to handle delivery failures, while the non-response supervisor advances only through
-the approved eligible route.
+the approved eligible route. Channel fallback never selects a governed Direct Line custom channel:
+startup refuses one on any failover route, and Direct Line carries only A2 and A4 notifications.
 
 Eligibility, graph revision, consent expiry, action integrity, and no-self-approval are rechecked
 when a decision arrives and immediately before dispatch.

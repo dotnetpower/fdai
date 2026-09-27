@@ -1,7 +1,7 @@
 ---
 translation_of: human-report-lines-and-approval-routing.md
-translation_source_sha: b7e10b9fdee5ce9fdc1e73235e83d3d6987a6255
-translation_revised: 2026-09-26
+translation_source_sha: 50d4a6c3e6e9f73f8fc4b39d900e8cf7aee1e41e
+translation_revised: 2026-09-28
 title: 사람 보고선 및 승인 라우팅
 ---
 # 사람 보고선 및 승인 라우팅
@@ -223,7 +223,9 @@ approval_required
 
 경로가 quorum을 충족하지 못하면 FDAI는 임의의 Owner나 그룹으로 자동 확장하지 않습니다.
 명시적인 ActionType 경로 정책만 별도 fallback을 선택할 수 있습니다. 기존 채널 fallback은
-전달 실패를 계속 처리하고, 무응답 감독기는 승인된 적격 경로 안에서만 진행합니다.
+전달 실패를 계속 처리하고, 무응답 감독기는 승인된 적격 경로 안에서만 진행합니다. 채널 fallback은
+governed Direct Line 사용자 지정 채널을 선택하지 않습니다. 시작 단계에서 failover 경로에 있는 해당
+채널을 거부하며, Direct Line은 A2 및 A4 알림만 전달합니다.
 
 결정이 도착할 때와 실행 직전에 적격성, 그래프 리비전, 동의 만료, Action 무결성 및 자기 승인
 금지를 다시 검사합니다.
