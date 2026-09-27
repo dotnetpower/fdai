@@ -189,21 +189,43 @@ def test_required_workspace_support_is_not_silently_omitted(module, repository, 
         lock.read_text().replace(
             'source = { editable = "services/core-control-plane" }',
             'source = { editable = "services/core-control-plane" }\n'
-            'dependencies = [{ name = "fdai-github-app-auth" }]',
+            "dependencies = [\n"
+            '  { name = "fdai-github-app-auth" },\n'
+            '  { name = "fdai-runtime-diagnostics" },\n'
+            "]",
         )
         + '\n[[package]]\nname = "fdai-github-app-auth"\nversion = "1.0"\n'
         'source = { editable = "packages/github-app-auth" }\n'
+        '\n[[package]]\nname = "fdai-runtime-diagnostics"\nversion = "1.0"\n'
+        'source = { editable = "packages/runtime-diagnostics" }\n'
     )
-    support = repository / "packages/github-app-auth"
-    support.mkdir()
-    (support / "pyproject.toml").write_text(
-        '[project]\nname = "fdai-github-app-auth"\nversion = "1.0"\n'
-    )
+    for name, relative in module.SUPPORT_PACKAGES.items():
+        support = repository / relative
+        support.mkdir()
+        (support / "pyproject.toml").write_text(f'[project]\nname = "{name}"\nversion = "1.0"\n')
     inventory = module.stage_runtime_wheelhouse(
         tmp_path / "out", repository, runner=RecordingRunner(repository)
     )
     assert set(inventory["packages"]) == EXPECTED
-    assert set(inventory["support_packages"]) == {"fdai-github-app-auth"}
+    assert set(inventory["support_packages"]) == set(module.SUPPORT_PACKAGES)
+
+
+def test_unknown_workspace_support_is_rejected_by_name(module, repository, tmp_path):
+    lock = repository / "uv.lock"
+    lock.write_text(
+        lock.read_text().replace(
+            'source = { editable = "services/core-control-plane" }',
+            'source = { editable = "services/core-control-plane" }\n'
+            'dependencies = [{ name = "fdai-code-assurance" }]',
+        )
+    )
+
+    with pytest.raises(module.StagingError, match="fdai-code-assurance"):
+        module.stage_runtime_wheelhouse(
+            tmp_path / "out",
+            repository,
+            runner=RecordingRunner(repository),
+        )
 
 
 @pytest.mark.parametrize("failure", ["export", "build", "run", "missing-wheel", "missing-download"])
