@@ -169,8 +169,13 @@ def test_source_entrypoint_reports_stable_version_json(tmp_path: Path) -> None:
 
 def test_release_tooling_is_exactly_pinned() -> None:
     package = tomllib.loads((PACKAGE / "pyproject.toml").read_text(encoding="utf-8"))
+    builder = (ROOT / "scripts/deployment/release/build-standalone-deployment-kit.sh").read_text(
+        encoding="utf-8"
+    )
     assert package["build-system"]["requires"] == ["hatchling==1.31.0"]
     assert package["dependency-groups"]["release"] == ["pip==26.2.1"]
+    assert "sys.version_info[:2] != (3, 12)" in builder
+    assert "release Python must be CPython 3.12" in builder
 
 
 def test_runtime_release_is_staged_before_sbom_and_signing() -> None:

@@ -1,6 +1,6 @@
 ---
 translation_of: runtime-deployment-profiles.md
-translation_source_sha: 308d17f79fb1ea1b9993adefc2515e6ff53262b5
+translation_source_sha: 9bf0fa5d8f3935b8c5cb73fd9b0db9c34b61dc0a
 translation_revised: 2026-09-27
 ---
 # 런타임 배포 프로파일
@@ -156,6 +156,9 @@ ARM 페이지 수집은 정책의 레코드 및 누적 응답 바이트 제한�
 두 런타임 프로파일의 연결된 배포는 정확한 Azure Marketplace Ubuntu 버전으로 Managed Host를
 부팅하고 Foundation 단계에서 체크섬으로 고정된 도구 체인을 설치합니다. 전용 Managed Host
 이미지를 만들거나 요구하지 않습니다. 초기 구성 산출물을 내려받을 수 없는 아티팩트 오프라인 배포는 별도로 검증된 사전 준비 호스트 이미지를 선택할 수 있습니다.
+완전 키트 생성은 Managed Host 인터프리터와 일치하는 CPython 3.12를 대상으로 합니다.
+wheel ABI 일치는 계속 정확해야 하며 glibc 호환성은 키트에 기록된 최소값부터 같은 glibc
+계열의 새 버전 방향으로만 허용합니다.
 등록과 모든 후속 애플리케이션 전송은 VM에 연결된 같은 `fdai-genesis-*` SSH host-key
 alias와 검증된 known-hosts 파일을 재사용합니다. 런타임 선택은 두 번째 alias나 최초 접촉
 신뢰를 허용하지 않습니다.
