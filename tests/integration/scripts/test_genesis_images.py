@@ -33,6 +33,7 @@ def test_resolve_exact_images_binds_digest_and_verifies_every_attestation(monkey
         requests.append(request)
         if request.full_url.startswith("https://ghcr.io/token?"):
             return _Response(b'{"token":"registry-token"}')
+        assert request.get_header("Authorization") == "Bearer registry-token"
         return _Response(digest=DIGEST)
 
     monkeypatch.setattr(genesis_images, "_github_token", lambda: "github-token")
@@ -48,10 +49,12 @@ def test_resolve_exact_images_binds_digest_and_verifies_every_attestation(monkey
         "fdai-core-control-plane",
         "fdai-operator-service",
         "fdai-document-ingestion-api",
+        "fdai-document-processing-worker",
+        "fdai-isolated-executor",
     }
     assert all(reference.endswith("@" + DIGEST) for reference in result.values())
     assert [item[2] for item in verified] == list(result.values())
-    assert sum(request.get_method() == "HEAD" for request in requests) == 3
+    assert sum(request.get_method() == "HEAD" for request in requests) == 5
 
 
 def test_resolve_exact_images_rejects_unbound_manifest_digest(monkeypatch) -> None:
