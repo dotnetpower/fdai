@@ -59,6 +59,7 @@ from fdai.agents._framework.introspection import (
     capability_facts,
     capped_list,
 )
+from fdai.agents._framework.norns_case_history import operational_case_cohort_is_current
 from fdai.agents._framework.norns_consensus import NornsConsensus
 from fdai.agents._framework.norns_deployment_learning import NornsDeploymentLearning
 from fdai.agents._framework.norns_issue_dedup import NornsIssueDeduplicator
@@ -87,7 +88,6 @@ from fdai.core.operational_learning import (
     InvestigationStrategyComparisonEvidence,
     InvestigationStrategyCompilationDisposition,
     OperatingPatternCompiler,
-    PatternCase,
     ShadowDwellEvidence,
     ShadowDwellLedger,
 )
@@ -271,7 +271,7 @@ class Norns(Agent, HandoverKnowledgeMixin):
             self._observe_approval(payload)
         elif topic == "object.context-index":
             if payload.get("kind") == "operational_case_fingerprint_cohort":
-                if await self._operational_case_cohort_is_current(payload):
+                if await operational_case_cohort_is_current(self, payload):
                     operational_pattern_id = self._observe_operational_case_cohort(payload)
             elif payload.get("kind") == "investigation_strategy_comparison_cohort":
                 self._observe_investigation_strategy_cohort(payload)
@@ -302,42 +302,6 @@ class Norns(Agent, HandoverKnowledgeMixin):
 
     def _observe_operational_case_cohort(self, payload: dict[str, Any]) -> str | None:
         return observe_operational_case_cohort(self, payload)
-
-    async def _operational_case_cohort_is_current(self, payload: dict[str, Any]) -> bool:
-        materializer = self._case_history_materializer
-        if materializer is None:
-            return True
-        scope = payload.get("access_scope_digest")
-        purpose = payload.get("purpose")
-        raw_cases = payload.get("cases")
-        if (
-            not isinstance(scope, str)
-            or len(scope) != 64
-            or any(character not in "0123456789abcdef" for character in scope)
-            or not isinstance(purpose, str)
-            or not purpose.strip()
-            or not isinstance(raw_cases, list)
-            or not 2 <= len(raw_cases) <= 100
-        ):
-            self.record_behavior("operational_case_cohort_invalid_payload")
-            return False
-        try:
-            cases = tuple(PatternCase.from_mapping(item) for item in raw_cases)
-        except (TypeError, ValueError):
-            self.record_behavior("operational_case_cohort_invalid_payload")
-            return False
-        now = self._clock()
-        for case in cases:
-            case_ref = f"case-history:{case.case_id}:{case.revision}:{case.manifest_digest}"
-            if not await materializer.current_revision_available(
-                case_ref=case_ref,
-                access_scope_digest=scope,
-                purpose=purpose,
-                now=now,
-            ):
-                self.record_behavior("operational_case_cohort_source_unavailable")
-                return False
-        return True
 
     def _observe_investigation_strategy_cohort(self, payload: dict[str, Any]) -> None:
         if payload.get("producer_principal") != "Muninn":

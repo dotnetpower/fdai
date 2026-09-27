@@ -1,7 +1,7 @@
 ---
 title: 에이전트 판테온
 translation_of: agent-pantheon.md
-translation_source_sha: 06d60a342eac72eee3a86b18787b5374c743fec2
+translation_source_sha: 093efd71b0ad7ee604d894a91e83df53c0737ade
 translation_revised: 2026-09-27
 ---
 # 에이전트 판테온
@@ -127,6 +127,8 @@ Muninn은 접근 범위, 용도, 메커니즘, `ActionType`, release, 시나리�
 Norns는 컴파일 전에 모든 집단 사례를 현재 사례 이력과 다시 확인하므로 일반 브로커 재전달과
 명시적 DLQ redrive가 삭제된 Pattern이나 후보를 다시 만들 수 없습니다. 물리적 브로커 보존과
 고정 런타임 복구 근거는 별도 작업으로 남습니다.
+현재 사례 허용 로직은 비공개 `_framework/norns_case_history.py` 보조 모듈에 유지합니다.
+`Norns`는 평면 Pantheon 구성원으로 남으며 `AgentSpec`, 소유권, 토픽은 바뀌지 않습니다.
 Norns는 합의와 발행 한도를 거쳐 비활성 `Pattern`을 발행하며 대기 중인 범위별 입력은 브로커 재시도나 보존된 재전달이 필요합니다.
 Muninn은 본문과 묶음 버전을 검증하고 현재 범위별 사례와 산출물로 다시 계산해 Saga 스냅샷을 남깁니다. 조회는 변조와 삭제를 차단합니다.
 승격이나 실행 권한은 늘어나지 않습니다. 승격에는 승인된 재현이 필요하며 런타임에 연결된 테스트 맥락 조회기는 Forseti의 상한을 낮출 수만 있습니다.
