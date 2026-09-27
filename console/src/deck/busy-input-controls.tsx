@@ -14,6 +14,7 @@ import {
 interface BusyInputControlsProps {
   readonly sessionId: string;
   readonly draft: string;
+  readonly turnActive: boolean;
   readonly onConfirmedSubmit: (text: string) => void;
 }
 
@@ -22,12 +23,16 @@ type Feedback = "checking" | "unavailable" | "conflict" | "pending" | "ready";
 export function BusyInputControls({
   sessionId,
   draft,
+  turnActive,
   onConfirmedSubmit,
 }: BusyInputControlsProps) {
   const [state, setState] = useState<BusyState | null>(null);
   const [feedback, setFeedback] = useState<Feedback>("checking");
   const [confirmedInput, setConfirmedInput] = useState<BusyPending | null>(null);
   const [working, setWorking] = useState(false);
+  const [projectionConfirmed, setProjectionConfirmed] = useState(false);
+  const projectionConfirmedRef = useRef(false);
+  const observedTurnActive = useRef(turnActive);
   const generation = useRef(0);
   const mounted = useRef(true);
   const outstanding = useRef<{ id: string; text: string } | null>(null);
@@ -46,6 +51,8 @@ export function BusyInputControls({
     try {
       const observed = await inspectBusy(sessionId);
       if (mounted.current && current === generation.current) {
+        projectionConfirmedRef.current = true;
+        setProjectionConfirmed(true);
         setState(observed);
         const awaiting = outstanding.current;
         const entry = observed.pending.find((item) => item.inputId === awaiting?.id);
@@ -68,8 +75,18 @@ export function BusyInputControls({
   };
 
   useEffect(() => {
+    projectionConfirmedRef.current = false;
+    setProjectionConfirmed(false);
     void refresh();
   }, [sessionId]);
+
+  useEffect(() => {
+    if (observedTurnActive.current === turnActive) return;
+    observedTurnActive.current = turnActive;
+    // Re-read only a confirmed route at local turn boundaries; an unmaterialized
+    // route is retried when the conversation mounts again, not on every turn.
+    if (projectionConfirmedRef.current) void refresh();
+  }, [turnActive]);
 
   const mutate = async (
     write: () => Promise<void>,
@@ -137,6 +154,12 @@ export function BusyInputControls({
       () => false,
     );
   };
+
+  // Follow-up controls exist only for busy-turn work on a confirmed projection. A null
+  // state after confirmation means a later read or write failed and needs its feedback.
+  const followUpRelevant = turnActive || state === null || state.active ||
+    state.pending.length > 0 || feedback === "pending";
+  if (!projectionConfirmed || !followUpRelevant) return null;
 
   return (
     <section class="deck-busy" aria-label={t("deck.busy.title")}>
