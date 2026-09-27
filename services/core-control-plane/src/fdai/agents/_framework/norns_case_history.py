@@ -8,6 +8,7 @@ from typing import Protocol
 
 from fdai.core.case_history import CaseHistoryMaterializer
 from fdai.core.operational_learning import PatternCase
+from fdai.core.operational_learning.case_review import require_current_candidate_cases
 
 
 class NornsCaseHistoryState(Protocol):
@@ -61,4 +62,30 @@ async def operational_case_cohort_is_current(
     return True
 
 
-__all__ = ["operational_case_cohort_is_current"]
+async def operational_candidate_cases_are_current(
+    state: NornsCaseHistoryState,
+    candidate: Mapping[str, object],
+) -> bool:
+    """Drop a queued operational candidate when source deletion starts before flush."""
+
+    if (
+        candidate.get("source_signal") != "operational_case_fingerprint_cohort"
+        or state._case_history_materializer is None
+    ):
+        return True
+    try:
+        await require_current_candidate_cases(
+            candidate,
+            materializer=state._case_history_materializer,
+            clock=state._clock,
+        )
+    except (PermissionError, RuntimeError, TypeError, ValueError):
+        state.record_behavior("operational_case_candidate_source_unavailable")
+        return False
+    return True
+
+
+__all__ = [
+    "operational_candidate_cases_are_current",
+    "operational_case_cohort_is_current",
+]

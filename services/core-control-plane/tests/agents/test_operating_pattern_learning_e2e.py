@@ -176,6 +176,45 @@ async def test_unpublished_cohort_is_not_acknowledged_and_replays_after_restart(
     assert restarted.pending_candidates == []
 
 
+async def test_queued_operational_candidate_is_dropped_after_source_deletion() -> None:
+    bus, huginn, muninn, norns, _mimir, _durable = _learning_chain()
+    publication_enabled = False
+    norns.bind_candidate_publication_gate(lambda: publication_enabled)
+    await huginn.ingest(
+        _operational_raw("first", _operational_input("a", OperationalOutcomeClass.SUCCESS))
+    )
+    await huginn.ingest(
+        _operational_raw("second", _operational_input("b", OperationalOutcomeClass.SUCCESS))
+    )
+    with pytest.raises(NornsCapacityError, match="retain for replay"):
+        await huginn.ingest(
+            _operational_raw("control", _operational_input("c", OperationalOutcomeClass.ROLLBACK))
+        )
+    payload = dict(bus.messages_on("object.context-index")[-1].payload)
+    source = cast(dict[str, object], cast(list[object], payload["cases"])[0])
+    metadata = cast(InMemoryCaseHistoryMetadataStore, muninn._case_history._metadata)
+    record = await metadata.latest(
+        str(source["case_id"]),
+        access_scope_digest=str(payload["access_scope_digest"]),
+    )
+    assert record is not None and record.storage_ref is not None
+    await metadata.mark_deletion_started(
+        record.case_id,
+        access_scope_digest=record.access_scope_digest,
+        revision=record.revision,
+        storage_refs=(record.storage_ref,),
+        started_at=record.deletion_due_at,
+    )
+
+    publication_enabled = True
+    assert await norns.flush_candidates() == 0
+
+    assert norns.pending_candidates == []
+    assert not bus.messages_on("object.pattern")
+    assert not bus.messages_on("object.rule-candidate")
+    assert norns.behavior_snapshot()["operational_case_candidate_source_unavailable"] == 1
+
+
 async def test_deleted_case_body_cannot_return_through_broker_redelivery() -> None:
     bus, huginn, muninn, _norns, _mimir, _durable = _learning_chain()
     await huginn.ingest(

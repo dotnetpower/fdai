@@ -59,7 +59,10 @@ from fdai.agents._framework.introspection import (
     capability_facts,
     capped_list,
 )
-from fdai.agents._framework.norns_case_history import operational_case_cohort_is_current
+from fdai.agents._framework.norns_case_history import (
+    operational_candidate_cases_are_current,
+    operational_case_cohort_is_current,
+)
 from fdai.agents._framework.norns_consensus import NornsConsensus
 from fdai.agents._framework.norns_deployment_learning import NornsDeploymentLearning
 from fdai.agents._framework.norns_issue_dedup import NornsIssueDeduplicator
@@ -272,7 +275,7 @@ class Norns(Agent, HandoverKnowledgeMixin):
         elif topic == "object.context-index":
             if payload.get("kind") == "operational_case_fingerprint_cohort":
                 if await operational_case_cohort_is_current(self, payload):
-                    operational_pattern_id = self._observe_operational_case_cohort(payload)
+                    operational_pattern_id = observe_operational_case_cohort(self, payload)
             elif payload.get("kind") == "investigation_strategy_comparison_cohort":
                 self._observe_investigation_strategy_cohort(payload)
             elif payload.get("kind") == "semantic_retrieval_failure":
@@ -299,9 +302,6 @@ class Norns(Agent, HandoverKnowledgeMixin):
             )
         ):
             raise NornsCapacityError("operational cohort publication pending; retain for replay")
-
-    def _observe_operational_case_cohort(self, payload: dict[str, Any]) -> str | None:
-        return observe_operational_case_cohort(self, payload)
 
     def _observe_investigation_strategy_cohort(self, payload: dict[str, Any]) -> None:
         if payload.get("producer_principal") != "Muninn":
@@ -506,6 +506,10 @@ class Norns(Agent, HandoverKnowledgeMixin):
         published = 0
         while self._flush_cursor < len(self.pending_candidates):
             candidate = self.pending_candidates[self._flush_cursor]
+            if not await operational_candidate_cases_are_current(self, candidate):
+                self._pattern_publications.pop(str(candidate.get("suggested_pattern", "")), None)
+                self._flush_cursor += 1
+                continue
             consensus = self._consensus.evaluate(candidate)
             if not consensus.unanimous:
                 self._pattern_publications.pop(str(candidate.get("suggested_pattern", "")), None)

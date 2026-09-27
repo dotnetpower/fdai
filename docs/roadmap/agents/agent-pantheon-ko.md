@@ -1,7 +1,7 @@
 ---
 title: 에이전트 판테온
 translation_of: agent-pantheon.md
-translation_source_sha: 093efd71b0ad7ee604d894a91e83df53c0737ade
+translation_source_sha: 073cd976aa26121f3a2d8298ed53c760f898d248
 translation_revised: 2026-09-27
 ---
 # 에이전트 판테온
@@ -125,8 +125,9 @@ Muninn은 접근 범위, 용도, 메커니즘, `ActionType`, release, 시나리�
 범위가 제한된 본문 없는 차단 표식을 남깁니다. readback을 검증하고 재시작 후 재생을 차단하며
 법적 보존이 항상 우선합니다. 과거 suffix 행도 원본 차단 표식에 결속됩니다. 결속된 프로덕션
 Norns는 컴파일 전에 모든 집단 사례를 현재 사례 이력과 다시 확인하므로 일반 브로커 재전달과
-명시적 DLQ redrive가 삭제된 Pattern이나 후보를 다시 만들 수 없습니다. 물리적 브로커 보존과
-고정 런타임 복구 근거는 별도 작업으로 남습니다.
+명시적 DLQ redrive가 삭제된 Pattern이나 후보를 다시 만들 수 없습니다. 대기 중인 운영 후보를
+발행하기 전에도 같은 허용 검사를 반복하고 원본 삭제가 시작되면 연결된 Pattern 묶음을 함께
+폐기합니다. 물리적 브로커 보존과 고정 런타임 복구 근거는 별도 작업으로 남습니다.
 현재 사례 허용 로직은 비공개 `_framework/norns_case_history.py` 보조 모듈에 유지합니다.
 `Norns`는 평면 Pantheon 구성원으로 남으며 `AgentSpec`, 소유권, 토픽은 바뀌지 않습니다.
 Norns는 합의와 발행 한도를 거쳐 비활성 `Pattern`을 발행하며 대기 중인 범위별 입력은 브로커 재시도나 보존된 재전달이 필요합니다.
