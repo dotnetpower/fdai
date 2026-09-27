@@ -30,6 +30,8 @@ def test_appliance_scripts_are_valid_and_github_independent() -> None:
     assert 'docker image inspect "$base_image"' in builder
     assert "org.opencontainers.image.revision" in builder
     assert "io.fdai.deployment-kit-manifest" in builder
+    assert "copy_private_file(" in builder
+    assert "archive_verified_kit" not in builder
 
 
 def test_appliance_builder_requires_digest_pinned_base_image(tmp_path: Path) -> None:

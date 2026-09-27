@@ -1,8 +1,8 @@
 ---
 title: 폐쇄망 배포
 translation_of: disconnected-deployment.md
-translation_source_sha: 8c7499cdcc60bd4534bebb4bb6b02673846857bf
-translation_revised: 2026-09-22
+translation_source_sha: 25ec1467cfbe8a734b0b71ff9bca9f0fdaf89e09
+translation_revised: 2026-09-27
 ---
 # 폐쇄망 배포
 
@@ -339,6 +339,9 @@ CLI 및 platform 버전을 연결하며, symlink와 추가 파일을 거부하�
 않고 서비스 하나를 시작합니다. **배포 어플라이언스**는 다른 이미지입니다. 완전한 서명 offline
 키트를 포함하고, 키트 wheelhouse에서만 `fdaictl`을 설치하고, 승인된 네트워크 내부에서 실제
 standalone 배포를 시작합니다.
+내장된 `/opt/fdai/kit.tar.gz`는 검증된 입력 아카이브를 mode-`0600`과 no-follow 방식으로 그대로
+복사한 바이트이며 다시 압축하지 않습니다. 이미지 조립 전에 복사본의 소스, 매니페스트 및 런타임
+신원을 독립적으로 다시 검증합니다.
 
 폐쇄망 인계는 완전한 서명 키트를 포함하고 digest로 고정된 OCI 어플라이언스 아카이브
 하나입니다. 내부에는 배포 번들, 고정된 Terraform 및 OPA 바이너리, provider 미러, 모든 서비스 및 의존성 OCI 아카이브, Console,
