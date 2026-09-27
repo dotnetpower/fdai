@@ -1,7 +1,7 @@
 ---
 title: Provisioning 실행 Profile
 translation_of: provisioning-execution-profiles.md
-translation_source_sha: db54425e48dae1b501164e48e61c8a6fa9a02500
+translation_source_sha: 225c623c04b982dd2db446fb0ae36fb71fe62761
 translation_revised: 2026-09-27
 ---
 # 프로비저닝 실행 프로파일
@@ -32,7 +32,7 @@ Parser handler, 출력 계약, 정확한 승인 요건 및 변경 권한은 바�
 | 읽기 전용 점검 및 프로파일 초기화 명령 | implemented | `packages/deployment-cli`, 집중 프로필, 대상, 도구, 제품화 검사 | 전용 배포판이 `fdaictl`을 등록하고 비공개 대상 연결 프로필을 쓰며 실행 호스트 근거가 있을 때까지 검토 상태를 반환합니다. |
 | 관리 VM, 비공개 백엔드 및 수동 배포 호스트 | implemented | `infra/bootstrap/`, standalone 배포 모듈 및 집중 bootstrap 테스트 | 영속 VNet 호스트, workload identity, 비공개 상태, 정확한 계획 및 애플리케이션 적용이 GitHub Actions 없이 실행됩니다. 등록과 후속 애플리케이션 전송은 VM에 연결된 `fdai-genesis-*` host-key alias 하나를 파생하므로 엄격한 재연결이 검증된 known-hosts 근거를 재사용합니다. |
 | 감사되는 Run Command 비공개 중계 | implemented | `execution_bundle.py`, `run_command_receiver.py`, `run_command_private_relay.py`, 고정 초기 구성 및 조정 모듈, 집중 테스트 25개 통과 | 적격 Linux 배포 호스트 하나가 클라우드 산출물 저장소 없이 피어링된 WSL 호스트 하나로 digest가 고정된 묶음을 staging할 수 있습니다. 실제 Azure 전송 근거와 자동 접근 프로파일 라우팅은 남아 있습니다. |
-| 범위 지정 Run Command Terraform | implemented | `scripts/deployment/azure/scoped_terraform.py`, `scoped_terraform_receiver.py`, 집중 테스트 36개, 실제 읽기 전용 범위 계획 1회 | 일반 PC가 비공개 네트워크 경로 없이 Action Run Command로 관리형 호스트에서 등록된 Terraform 범위 하나를 실행합니다. 실제 적용과 무변경 확인, 독립 재조회 증적은 남아 있습니다. |
+| 범위 지정 Run Command Terraform | validated | `scripts/deployment/azure/scoped_terraform.py`, `scoped_terraform_receiver.py`, 집중 테스트 36개, 실제 dev `aks-container-insights` 적용 증적 1건 | 일반 PC가 비공개 네트워크 경로 없이 Action Run Command로 관리형 호스트에서 등록된 Terraform 범위 하나를 실행합니다. 첫 dev 적용은 대상 범위 무변경 확인과 독립 ARM 재조회를 통과했습니다. staging과 production은 계속 차단합니다. |
 | 신규 구독 로컬 조정기 | implemented | `fdaictl provision azure`, `fdai-up.sh`, 서명 키트, 기반 계층, Bastion, 관리 호스트, 승인, 라이선스, 마이그레이션 및 수렴 모듈과 라우팅된 수명 주기 테스트 | 하나의 `dev` 프로세스가 활성 Azure CLI 사용자에서 대상을 결정하고 상태 변경 전이를 직렬로 유지합니다. 대상 환경 배포에는 GitHub 전송 계층이 없습니다. 통제된 Azure 증적과 완전한 구독 보증 근거는 남아 있습니다. |
 | 사전 빌드 OCI 배포 어플라이언스 사용 | in-progress | `run-deployment-appliance.sh`, 집중 스크립트 및 CLI 테스트 | 테넌트 프로비저닝은 release에서 게시하고 digest로 고정한 어플라이언스에서 공개 산출물 대체 경로 없이 수동 standalone 조정기를 시작할 수 있습니다. 통제된 아티팩트 오프라인 Azure 증적은 남아 있으며 테넌트 배포는 이미지를 만들지 않습니다. |
 | Offline-kit 생성 및 검증 | validated | `fdai_deployment_cli.offline_kit`, 잠긴 릴리스 스크립트, 성공한 네트워크 격리 air-gap 훈련 | 서명 우선 검증, 정확한 파일, SBOM 커버리지, ABI/libc 연결, 비공개 스냅샷, 제공 wheel 설치가 통과합니다. 런타임 wheelhouse 폐쇄 집합은 서비스 배포판 6개가 실제로 요구하는 공유 계약, GitHub App 인증 및 런타임 진단 패키지를 포함합니다. Managed Host 설치는 서명된 통합 requirements lock을 해시와 함께 사용하고 패키지 재조회 영수증을 보존하며, 중복 wheel 복사본은 로컬 검색 위치로만 취급합니다. Managed Host 전송 아카이브는 검증을 기존 매니페스트 수준으로 낮추지 않고 필수 서명 프로필 루트를 보존합니다. |
@@ -46,6 +46,7 @@ Parser handler, 출력 계약, 정확한 승인 요건 및 변경 권한은 바�
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-27 | validated | 일반 PC에서 dev AKS 클러스터를 대상으로 첫 실제 범위 지정 적용을 실행했습니다. 병합된 조정기는 Container Insights 연결 생성 1건만 계획했고, digest에 연결된 승인 뒤 적용했으며, 대상 범위 무변경과 작업 영역 연결, 기본 스트림, `ContainerLogV2`, 연결 상태를 Azure Resource Manager로 확인했습니다. | `098384cf5f84c92d98ae1f1146ea10dc959bac93` 기준 [#1543](https://github.com/dotnetpower/fdai/pull/1543), [#1538](https://github.com/dotnetpower/fdai/issues/1538) 증적 | 계획, 시작 기록, 완료 기록을 보호된 계획 저장소에 복제합니다. |
 | 2026-09-27 | implemented | 범위 지정 Run Command Terraform을 추가했습니다. 일반 PC는 보호된 소스에서 등록된 범위 하나를 묶고, 고정 수신기는 관리형 호스트에서 사용자 할당 ID로 계획을 만듭니다. 적용에는 계획 digest에 연결된 정확한 사람 승인이 필요하고, 효과 전 시작 기록을 남기며, 시작 기록이 있는 적용은 반복하지 않고, 대상 범위 무변경 확인과 독립 ARM 재조회로 끝납니다. | `current change`, `scripts/deployment/azure/scoped_terraform.py`, `scoped_terraform_receiver.py`, `tests/integration/scripts/test_scoped_terraform.py`(36개 통과), 연결 생성 1건만 포함한 실제 읽기 전용 `aks-container-insights` 계획 | 보호된 CI로 병합한 뒤 이슈 #1538로 #1171의 첫 실제 범위 지정 적용 증적을 보존합니다. |
 | 2026-09-27 | implemented | 집중 문서 복구가 실행기 VNet에 같은 이름 공간의 두 번째 링크를 만들지 않고 Foundation 소유 운영 Blob 비공개 DNS 영역을 재사용하도록 했습니다. `access` 대상은 이제 문서 엔드포인트 A 레코드를 해당 기존 영역에 씁니다. | `current change`, 중점을 둔 Terraform/대상 회귀 및 충돌하는 중복 링크 하나로 범위를 좁힌 실제 `verification-only` residual 계획 | 보호 CI로 전달하고 정확한 키트를 다시 빌드한 뒤 새 소스 결속 컨텍스트에서 `access` 재조회와 zero-change 근거를 보존합니다. |
 | 2026-09-27 | implemented | Focused private 복구를 위한 별도의 정확한 `access` plan/apply/readback stage를 추가해 endpoint, DNS, peering 및 deployer data role이 Key Vault secret이나 ADLS filesystem/path보다 먼저 수렴하도록 했습니다. | `current change`, 집중 stage target/readback/승인/조정 테스트 및 실제 endpoint 수렴 후 data-plane 경합 근거 | 보호 CI로 전달하고 정확한 키트를 다시 빌드한 뒤 access-stage와 substrate zero-change 증적을 보존합니다. |
@@ -114,8 +115,9 @@ Parser handler, 출력 계약, 정확한 승인 요건 및 변경 권한은 바�
 - [ ] 검토된 피어링 경로에서 정확한 실제 비공개 중계 Run Command staging 증적 하나를
   보존한 뒤 VM, 네트워크, 계획 또는 애플리케이션 권한을 넓히지 않고 명시적 adapter를
   `fdaictl` 접근 프로파일 선택에 연결합니다.
-- [ ] 일반 PC에서 `aks-container-insights`의 실제 범위 지정 Run Command 적용 증적 하나를 보존하고,
-  정확한 계획 승인, 대상 범위 무변경 결과, 독립 ARM 재조회를 포함합니다([#1538](https://github.com/dotnetpower/fdai/issues/1538)).
+- [x] 일반 PC에서 `aks-container-insights`의 실제 범위 지정 Run Command 적용 증적 하나를 보존하고,
+  정확한 계획 승인, 대상 범위 무변경 결과, 독립 ARM 재조회를 포함합니다. 근거:
+  [#1538](https://github.com/dotnetpower/fdai/issues/1538)의 2026-09-27 증적입니다.
 - [ ] 범위 지정 Terraform의 계획, 시작 기록, 완료 기록을 보호된 계획 저장소에 복제하여 호스트를 교체해도
   복구 근거를 잃지 않게 합니다.
 - [ ] 사설 접근을 미리 설정하지 않은 일반 PC에서 기본 배포를 검증하고, 설치 식별자·기존 상태·Trial 시작 시점을 보존한 채 상세 프로비저닝을 진행하며, 선택 기능의 미설정 상태와 기본 서비스 상태를 구분합니다.
