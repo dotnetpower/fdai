@@ -42,7 +42,6 @@ from __future__ import annotations
 
 import asyncio
 import hashlib
-import json
 from collections import Counter, deque
 from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
@@ -59,8 +58,8 @@ from fdai.agents._framework.introspection import (
     capability_facts,
     capped_list,
 )
+from fdai.agents._framework.norns_candidate_delivery import NornsCandidateDeliveryMixin
 from fdai.agents._framework.norns_case_history import (
-    operational_candidate_cases_are_current,
     operational_case_cohort_is_current,
 )
 from fdai.agents._framework.norns_consensus import NornsConsensus
@@ -108,7 +107,7 @@ class NornsCapacityError(RuntimeError):
     """Pending proposals are saturated; the caller must retry or dead-letter."""
 
 
-class Norns(Agent, HandoverKnowledgeMixin):
+class Norns(Agent, HandoverKnowledgeMixin, NornsCandidateDeliveryMixin):
     """Wave-2 Norns: fingerprint aggregator + outcome / override / approval learner."""
 
     def __init__(
@@ -130,6 +129,7 @@ class Norns(Agent, HandoverKnowledgeMixin):
         semantic_feedback_store: SemanticFeedbackCandidateSink | None = None,
         shadow_dwell_ledger: ShadowDwellLedger | None = None,
         issue_state_store: StateStore | None = None,
+        operational_state_store: StateStore | None = None,
         max_pending_candidates: int = _MAX_PENDING_CANDIDATES,
         operational_case_max_age: timedelta = timedelta(days=90),
         clock: Callable[[], datetime] | None = None,
@@ -161,19 +161,16 @@ class Norns(Agent, HandoverKnowledgeMixin):
         # many distinct incidents would otherwise leak one entry per proposal).
         self._proposed: BoundedLruSet[str] = BoundedLruSet(_MAX_TRACKED)
         self._promotion_threshold = promotion_threshold
-        self.pending_candidates: list[dict[str, Any]] = []
         self._max_pending_candidates = max_pending_candidates
+        self._init_candidate_delivery(
+            store=operational_state_store,
+            max_pending_candidates=max_pending_candidates,
+        )
         self._investigation_strategy_compiler = (
             investigation_strategy_compiler or InvestigationStrategyCandidateCompiler()
         )
         self._investigation_strategy_candidate_ids: BoundedLruSet[str] = BoundedLruSet(_MAX_TRACKED)
-        self._candidate_publication_gate: Callable[[], bool] | None = None
         self._learning_lock = asyncio.Lock()
-        # Cursor into ``pending_candidates`` marking how many have already been
-        # published onto ``object.rule-candidate``. Publishing is idempotent:
-        # a re-flush only sends candidates past the cursor, so a candidate is
-        # never republished (which would trip Mimir's flood guard).
-        self._flush_cursor = 0
         self._consensus = NornsConsensus()
         self._consensus_holds: deque[dict[str, object]] = deque(maxlen=1_000)
         # Outcome-threshold learner state.
@@ -276,6 +273,8 @@ class Norns(Agent, HandoverKnowledgeMixin):
             if payload.get("kind") == "operational_case_fingerprint_cohort":
                 if await operational_case_cohort_is_current(self, payload):
                     operational_pattern_id = observe_operational_case_cohort(self, payload)
+                    if operational_pattern_id is not None:
+                        await self.retain_operational_candidate(operational_pattern_id)
             elif payload.get("kind") == "investigation_strategy_comparison_cohort":
                 self._observe_investigation_strategy_cohort(payload)
             elif payload.get("kind") == "semantic_retrieval_failure":
@@ -465,102 +464,9 @@ class Norns(Agent, HandoverKnowledgeMixin):
         await self._post_turn_review.review(review_input_from_mapping(raw))
         self.record_behavior("post_turn_review_completed")
 
-    async def flush_candidates(self) -> int:
-        async with self._learning_lock:
-            return await self._flush_candidates_unlocked()
-
     async def recover_issue_learning(self) -> int:
         """Restore durable handoff-learning work before consumers start."""
         return await self._issue_deduplicator.recover(self)
-
-    def bind_candidate_publication_gate(self, gate: Callable[[], bool]) -> None:
-        """Bind the runtime policy ceiling for inert candidate publication once."""
-        if self._candidate_publication_gate is not None:
-            raise RuntimeError("Norns candidate publication gate is already bound")
-        self._candidate_publication_gate = gate
-
-    async def _flush_candidates_unlocked(self) -> int:
-        published = 0
-        for index in range(self._max_pending_candidates + 1):
-            if index == self._max_pending_candidates:
-                raise RuntimeError("Norns candidate recovery capacity exceeded")
-            published += await self._flush_candidate_batch_unlocked()
-            if not await self._issue_deduplicator.recover(self):
-                return published
-        raise RuntimeError("Norns candidate recovery loop ended unexpectedly")
-
-    async def _flush_candidate_batch_unlocked(self) -> int:
-        """Publish one queued batch and complete its durable delivery state.
-
-        Norns alone publishes ``object.rule-candidate`` for Mimir's guard and quality gate.
-        Publication is inert, never promotion. Typed learner passes or an off-path batch tick
-        drain the same pending override and coverage proposals.
-
-        Consensus holds and successful publication consume candidates. A
-        disabled gate, missing bus, or rate limit leaves the current candidate
-        queued so the outer recovery loop stops until a later flush.
-        """
-        if self._candidate_publication_gate is not None and not self._candidate_publication_gate():
-            self.record_behavior("rule_candidate_publication_disabled")
-            return 0
-        published = 0
-        while self._flush_cursor < len(self.pending_candidates):
-            candidate = self.pending_candidates[self._flush_cursor]
-            if not await operational_candidate_cases_are_current(self, candidate):
-                self._pattern_publications.pop(str(candidate.get("suggested_pattern", "")), None)
-                self._flush_cursor += 1
-                continue
-            consensus = self._consensus.evaluate(candidate)
-            if not consensus.unanimous:
-                self._pattern_publications.pop(str(candidate.get("suggested_pattern", "")), None)
-                self._consensus_holds.append(
-                    {
-                        "decision": "hold",
-                        "source_signal": str(candidate.get("source_signal", "")),
-                        "proposal_kind": str(candidate.get("proposal_kind", "")),
-                        "holding_perspectives": consensus.holding_perspectives(),
-                        "reason_codes": consensus.reason_codes(),
-                    }
-                )
-                self._flush_cursor += 1
-                self.record_behavior("rule_candidate_consensus_held")
-                continue
-            payload = {
-                "producer_principal": "Norns",
-                "correlation_id": _candidate_correlation_id(candidate),
-                "idempotency_key": _candidate_idempotency_key(candidate),
-                **candidate,
-                "norns_consensus": consensus.summary(),
-            }
-            # Transport-level evidence: the dwell record travels with the proposal
-            # so Mimir re-derives the gate decision from data on the wire instead
-            # of reaching into another agent's state. Absent evidence is simply
-            # absent - Mimir treats that as ineligible, never as no objection.
-            dwell = self._shadow_dwell.evidence_for(str(candidate.get("target_rule_id") or ""))
-            if dwell is not None:
-                payload["shadow_dwell"] = dwell.to_mapping()
-            pattern_id = str(candidate.get("suggested_pattern", ""))
-            pattern = self._pattern_publications.get(pattern_id)
-            if pattern is not None:
-                if not await self._publish_proposal("object.pattern", pattern):
-                    break
-                self._pattern_publications.pop(pattern_id, None)
-            if not await self._publish_proposal("object.rule-candidate", payload):
-                # Bus-less (unit) or rate-limited: stop and leave the queued
-                # candidates for a later pass. No learning signal is dropped -
-                # only throttled.
-                break
-            self._flush_cursor += 1
-            self.record_behavior("rule_candidate_published")
-            published += 1
-        # Drop the consumed (published or held) prefix so pending_candidates
-        # stays a bounded buffer of only unresolved proposals. The cursor
-        # counts consumed entries; slicing them off resets it to 0.
-        if self._flush_cursor:
-            del self.pending_candidates[: self._flush_cursor]
-            self._flush_cursor = 0
-        await self._issue_deduplicator.after_flush(self)
-        return published
 
     # ---- 1. fingerprint aggregator ------------------------------------
 
@@ -772,27 +678,6 @@ class Norns(Agent, HandoverKnowledgeMixin):
         facts["evidence_refs"] = [evidence_ref]
         answer = norns_role_answer(str(context.get("locale")), facts, evidence_ref)
         return IntrospectionResult(answer=answer, facts=facts)
-
-
-def _candidate_identity(candidate: dict[str, Any]) -> str:
-    provenance = candidate.get("provenance")
-    if isinstance(provenance, dict):
-        pattern_id = provenance.get("pattern_id")
-        if isinstance(pattern_id, str) and pattern_id:
-            return pattern_id
-    suggested = candidate.get("suggested_pattern")
-    if isinstance(suggested, str) and suggested:
-        return suggested
-    material = json.dumps(candidate, separators=(",", ":"), sort_keys=True, default=str)
-    return hashlib.sha256(material.encode()).hexdigest()
-
-
-def _candidate_correlation_id(candidate: dict[str, Any]) -> str:
-    return f"norns:{_candidate_identity(candidate)[:64]}"
-
-
-def _candidate_idempotency_key(candidate: dict[str, Any]) -> str:
-    return f"rule-candidate:{_candidate_identity(candidate)}"
 
 
 __all__ = ["Norns", "NornsCapacityError"]

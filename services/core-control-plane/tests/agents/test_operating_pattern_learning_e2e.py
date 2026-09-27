@@ -9,7 +9,9 @@ from uuid import UUID
 import pytest
 from fdai.agents._framework.bus import InMemoryBus
 from fdai.agents._framework.bus_bridge import EventBusBridge
+from fdai.agents._framework.norns_candidate_delivery import NornsOperationalCandidateJournal
 from fdai.agents._framework.registry import load_pantheon
+from fdai.agents._framework.runtime_operational_agents import rehydrate_operational_agents
 from fdai.agents.huginn import Huginn
 from fdai.agents.mimir import Mimir
 from fdai.agents.muninn import Muninn, _operating_pattern_state_key
@@ -136,7 +138,10 @@ def _learning_chain() -> tuple[InMemoryBus, Huginn, Muninn, Norns, Mimir, InMemo
         case_history=materializer,
         durable_state_store=durable,
     )
-    norns = Norns(case_history_materializer=materializer)
+    norns = Norns(
+        case_history_materializer=materializer,
+        operational_state_store=durable,
+    )
     mimir = Mimir()
     mimir.bind_case_history(muninn._case_history)
     saga = Saga()
@@ -176,8 +181,296 @@ async def test_unpublished_cohort_is_not_acknowledged_and_replays_after_restart(
     assert restarted.pending_candidates == []
 
 
+async def test_throttled_candidate_recovers_from_durable_state_after_restart() -> None:
+    bus, huginn, muninn, norns, _mimir, durable = _learning_chain()
+    norns.bind_candidate_publication_gate(lambda: False)
+    await huginn.ingest(
+        _operational_raw("first", _operational_input("a", OperationalOutcomeClass.SUCCESS))
+    )
+    await huginn.ingest(
+        _operational_raw("second", _operational_input("b", OperationalOutcomeClass.SUCCESS))
+    )
+    with pytest.raises(NornsCapacityError, match="retain for replay"):
+        await huginn.ingest(
+            _operational_raw("control", _operational_input("c", OperationalOutcomeClass.ROLLBACK))
+        )
+
+    pending, total = await durable.read_state_page(
+        "pantheon/norns/operational-candidates/",
+        limit=2,
+        field="status",
+        value="pending",
+    )
+    assert len(pending) == total == 1
+
+    restarted_bus = InMemoryBus(registry=load_pantheon(), isolate_handlers=False)
+    restarted = Norns(
+        case_history_materializer=muninn._case_history,
+        operational_state_store=durable,
+    )
+    restarted.bind_bus(restarted_bus)
+
+    assert await restarted.recover_operational_candidates() == 1
+    assert await restarted.flush_candidates() == 1
+    assert len(restarted_bus.messages_on("object.pattern")) == 1
+    assert len(restarted_bus.messages_on("object.rule-candidate")) == 1
+    terminal = (await durable.read_states("pantheon/norns/operational-candidates/", limit=2))[0]
+    assert terminal["status"] == "published"
+    assert "candidate" not in terminal
+    assert "pattern" not in terminal
+
+
+async def test_restart_scrubs_durable_candidate_after_source_deletion() -> None:
+    bus, huginn, muninn, norns, _mimir, durable = _learning_chain()
+    norns.bind_candidate_publication_gate(lambda: False)
+    await huginn.ingest(
+        _operational_raw("first", _operational_input("a", OperationalOutcomeClass.SUCCESS))
+    )
+    await huginn.ingest(
+        _operational_raw("second", _operational_input("b", OperationalOutcomeClass.SUCCESS))
+    )
+    with pytest.raises(NornsCapacityError, match="retain for replay"):
+        await huginn.ingest(
+            _operational_raw("control", _operational_input("c", OperationalOutcomeClass.ROLLBACK))
+        )
+    payload = dict(bus.messages_on("object.context-index")[-1].payload)
+    source = cast(dict[str, object], cast(list[object], payload["cases"])[0])
+    metadata = cast(InMemoryCaseHistoryMetadataStore, muninn._case_history._metadata)
+    record = await metadata.latest(
+        str(source["case_id"]),
+        access_scope_digest=str(payload["access_scope_digest"]),
+    )
+    assert record is not None and record.storage_ref is not None
+    await metadata.mark_deletion_started(
+        record.case_id,
+        access_scope_digest=record.access_scope_digest,
+        revision=record.revision,
+        storage_refs=(record.storage_ref,),
+        started_at=record.deletion_due_at,
+    )
+
+    restarted_bus = InMemoryBus(registry=load_pantheon(), isolate_handlers=False)
+    restarted = Norns(
+        case_history_materializer=muninn._case_history,
+        operational_state_store=durable,
+    )
+    restarted.bind_bus(restarted_bus)
+
+    assert await restarted.recover_operational_candidates() == 0
+    assert restarted.pending_candidates == []
+    assert not restarted_bus.messages_on("object.pattern")
+    assert not restarted_bus.messages_on("object.rule-candidate")
+    terminal = (await durable.read_states("pantheon/norns/operational-candidates/", limit=2))[0]
+    assert terminal["status"] == "invalidated"
+    assert "candidate" not in terminal
+    assert "pattern" not in terminal
+
+
+async def test_shared_pending_overflow_returns_one_bounded_recovery_batch() -> None:
+    durable = InMemoryStateStore()
+    for marker in ("a", "b"):
+        pattern_id = marker * 64
+        journal = NornsOperationalCandidateJournal(durable, capacity=1)
+        await journal.retain(
+            candidate={"suggested_pattern": pattern_id},
+            pattern={"pattern_id": pattern_id},
+        )
+
+    recovered, total = await NornsOperationalCandidateJournal(durable, capacity=1).pending()
+
+    assert len(recovered) == 1
+    assert total == 2
+
+
+async def test_shared_pending_overflow_drains_after_each_terminal_batch() -> None:
+    durable = InMemoryStateStore()
+    for marker in ("a", "b"):
+        pattern_id = marker * 64
+        await NornsOperationalCandidateJournal(durable, capacity=1).retain(
+            candidate={"suggested_pattern": pattern_id},
+            pattern={"pattern_id": pattern_id},
+        )
+    norns = Norns(
+        operational_state_store=durable,
+        max_pending_candidates=1,
+    )
+    norns.bind_bus(InMemoryBus(registry=load_pantheon(), isolate_handlers=False))
+
+    assert await norns.recover_operational_candidates() == 1
+    assert await norns.flush_candidates() == 0
+    pending, total = await durable.read_state_page(
+        "pantheon/norns/operational-candidates/",
+        limit=3,
+        field="status",
+        value="pending",
+    )
+    assert pending == ()
+    assert total == 0
+    assert norns.pending_candidates == []
+
+
+async def test_startup_skips_invalid_first_page_and_drains_next_candidate() -> None:
+    class _CurrentCases:
+        async def current_revision_available(self, **values: object) -> bool:
+            return values["case_ref"] == "case-current"
+
+    durable = InMemoryStateStore()
+    journal = NornsOperationalCandidateJournal(durable, capacity=1)
+    for marker, case_ref in (("b", "case-current"), ("a", "case-deleted")):
+        pattern_id = marker * 64
+        await journal.retain(
+            candidate={
+                "source_signal": "operational_case_fingerprint_cohort",
+                "suggested_pattern": pattern_id,
+                "case_scope": {
+                    "access_scope_digest": "c" * 64,
+                    "purpose": "operational-learning",
+                },
+                "evidence": {"immutable_case_refs": [case_ref]},
+            },
+            pattern={"pattern_id": pattern_id},
+        )
+    norns = Norns(
+        case_history_materializer=_CurrentCases(),  # type: ignore[arg-type]
+        operational_state_store=durable,
+        max_pending_candidates=1,
+    )
+    norns.bind_bus(InMemoryBus(registry=load_pantheon(), isolate_handlers=False))
+
+    await rehydrate_operational_agents({"Norns": norns})
+
+    pending, total = await durable.read_state_page(
+        "pantheon/norns/operational-candidates/",
+        limit=3,
+        field="status",
+        value="pending",
+    )
+    assert pending == ()
+    assert total == 0
+    assert norns.pending_candidates == []
+
+
+async def test_disabled_gate_scrubs_invalid_candidate_behind_valid_batch() -> None:
+    class _CurrentCases:
+        async def current_revision_available(self, **values: object) -> bool:
+            return values["case_ref"] == "case-current"
+
+    durable = InMemoryStateStore()
+    journal = NornsOperationalCandidateJournal(durable, capacity=1)
+    for marker, case_ref in (("a", "case-deleted"), ("b", "case-current")):
+        pattern_id = marker * 64
+        await journal.retain(
+            candidate={
+                "source_signal": "operational_case_fingerprint_cohort",
+                "suggested_pattern": pattern_id,
+                "case_scope": {
+                    "access_scope_digest": "c" * 64,
+                    "purpose": "operational-learning",
+                },
+                "evidence": {"immutable_case_refs": [case_ref]},
+            },
+            pattern={"pattern_id": pattern_id},
+        )
+    norns = Norns(
+        case_history_materializer=_CurrentCases(),  # type: ignore[arg-type]
+        operational_state_store=durable,
+        max_pending_candidates=1,
+    )
+    norns.bind_bus(InMemoryBus(registry=load_pantheon(), isolate_handlers=False))
+    norns.bind_candidate_publication_gate(lambda: False)
+
+    await rehydrate_operational_agents({"Norns": norns})
+
+    invalid = await durable.read_state("pantheon/norns/operational-candidates/" + "a" * 64)
+    valid = await durable.read_state("pantheon/norns/operational-candidates/" + "b" * 64)
+    assert invalid is not None and invalid["status"] == "invalidated"
+    assert valid is not None and valid["status"] == "pending"
+    assert len(norns.pending_candidates) == 1
+
+
+async def test_recovery_rejects_candidate_payload_tampering_before_publication() -> None:
+    durable = InMemoryStateStore()
+    pattern_id = "a" * 64
+    candidate = {"suggested_pattern": pattern_id, "source_signal": "original"}
+    pattern = {"pattern_id": pattern_id}
+    await NornsOperationalCandidateJournal(durable, capacity=1).retain(
+        candidate=candidate,
+        pattern=pattern,
+    )
+    key = f"pantheon/norns/operational-candidates/{pattern_id}"
+    retained = await durable.read_state(key)
+    assert retained is not None
+    await durable.write_state(
+        key,
+        {
+            **retained,
+            "candidate": {**candidate, "source_signal": "changed"},
+        },
+    )
+
+    with pytest.raises(ValueError, match="durable identity conflict"):
+        await NornsOperationalCandidateJournal(durable, capacity=1).pending()
+
+
+async def test_terminal_candidate_redelivery_after_restart_is_a_noop() -> None:
+    bus, huginn, muninn, _norns, _mimir, durable = _learning_chain()
+    await huginn.ingest(
+        _operational_raw("first", _operational_input("a", OperationalOutcomeClass.SUCCESS))
+    )
+    await huginn.ingest(
+        _operational_raw("second", _operational_input("b", OperationalOutcomeClass.SUCCESS))
+    )
+    await huginn.ingest(
+        _operational_raw("control", _operational_input("c", OperationalOutcomeClass.ROLLBACK))
+    )
+    payload = dict(bus.messages_on("object.context-index")[-1].payload)
+    restarted_bus = InMemoryBus(registry=load_pantheon(), isolate_handlers=False)
+    restarted = Norns(
+        case_history_materializer=muninn._case_history,
+        operational_state_store=durable,
+    )
+    restarted.bind_bus(restarted_bus)
+
+    await restarted.on_typed_message("object.context-index", payload)
+
+    assert restarted.pending_candidates == []
+    assert not restarted_bus.messages_on("object.pattern")
+    assert not restarted_bus.messages_on("object.rule-candidate")
+    assert restarted.behavior_snapshot()["operational_case_candidate_terminal_duplicate"] == 1
+
+
+async def test_partial_publication_retries_only_unfinished_candidate_leg() -> None:
+    class _SequenceLimiter:
+        def __init__(self) -> None:
+            self.results = iter((True, False, True))
+
+        def allow(self) -> bool:
+            return next(self.results)
+
+    bus, huginn, _muninn, norns, _mimir, durable = _learning_chain()
+    norns._proposal_limiter = _SequenceLimiter()  # type: ignore[assignment]
+    await huginn.ingest(
+        _operational_raw("first", _operational_input("a", OperationalOutcomeClass.SUCCESS))
+    )
+    await huginn.ingest(
+        _operational_raw("second", _operational_input("b", OperationalOutcomeClass.SUCCESS))
+    )
+    with pytest.raises(NornsCapacityError, match="retain for replay"):
+        await huginn.ingest(
+            _operational_raw("control", _operational_input("c", OperationalOutcomeClass.ROLLBACK))
+        )
+    assert len(bus.messages_on("object.pattern")) == 1
+    assert not bus.messages_on("object.rule-candidate")
+
+    assert await norns.flush_candidates() == 1
+    assert len(bus.messages_on("object.pattern")) == 1
+    assert len(bus.messages_on("object.rule-candidate")) == 1
+    terminal = (await durable.read_states("pantheon/norns/operational-candidates/", limit=2))[0]
+    assert terminal["status"] == "published"
+
+
 async def test_queued_operational_candidate_is_dropped_after_source_deletion() -> None:
-    bus, huginn, muninn, norns, _mimir, _durable = _learning_chain()
+    bus, huginn, muninn, norns, _mimir, durable = _learning_chain()
     publication_enabled = False
     norns.bind_candidate_publication_gate(lambda: publication_enabled)
     await huginn.ingest(
@@ -206,13 +499,16 @@ async def test_queued_operational_candidate_is_dropped_after_source_deletion() -
         started_at=record.deletion_due_at,
     )
 
-    publication_enabled = True
     assert await norns.flush_candidates() == 0
 
     assert norns.pending_candidates == []
     assert not bus.messages_on("object.pattern")
     assert not bus.messages_on("object.rule-candidate")
     assert norns.behavior_snapshot()["operational_case_candidate_source_unavailable"] == 1
+    terminal = (await durable.read_states("pantheon/norns/operational-candidates/", limit=2))[0]
+    assert terminal["status"] == "invalidated"
+    assert "candidate" not in terminal
+    assert "pattern" not in terminal
 
 
 async def test_deleted_case_body_cannot_return_through_broker_redelivery() -> None:
