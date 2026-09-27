@@ -63,7 +63,7 @@ Command Deck, then requires verified or grounded terminal evidence. A governed o
 |-----------|---------------|--------------|
 | Runtime state store and service integration | `pgvector/pgvector:pg16` on `:5432` | Azure PostgreSQL Flexible + pgvector |
 | Destructive migration validation | Separate `pgvector/pgvector:pg16` cluster on `:5433` | Isolated CI validation database |
-| Event bus (integration tests) | Redpanda on `:19092` with at least two partitions (Kafka wire) | Event Hubs Kafka on `:9093` with at least two partitions |
+| Event bus (integration tests) | Redpanda v26.2.2 pinned by manifest digest on `:19092` with at least two partitions (Kafka wire) | Event Hubs Kafka on `:9093` with at least two partitions |
 ### Fixed workspace ports
 Committed VS Code settings keep each local web surface on one predictable port. Manual Studio runs
 on `5474` and starts with the authenticated Console full stack so the in-product help library is

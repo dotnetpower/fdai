@@ -1394,7 +1394,8 @@
         "services/core-control-plane/tests/persistence/test_state_store_case_history.py",
         "services/core-control-plane/tests/delivery/azure/test_case_history_artifacts.py",
         "services/core-control-plane/tests/runtime/test_case_history.py",
-        "services/core-control-plane/tests/agents/test_forecast_learning_chain.py"
+        "services/core-control-plane/tests/agents/test_forecast_learning_chain.py",
+        "services/core-control-plane/tests/providers/test_case_history_broker_recovery.py"
       ],
       "must_read": [
         ".github/instructions/architecture.instructions.md",
@@ -1410,7 +1411,7 @@
         "docs/roadmap/architecture/project-structure.md"
       ],
       "validate": [
-        "uv run pytest -q --no-cov services/core-control-plane/tests/contracts/test_forecast_outcome.py services/core-control-plane/tests/core/detection/test_forecast_outcome.py services/core-control-plane/tests/core/case_history services/core-control-plane/tests/persistence/test_state_store_case_history.py services/core-control-plane/tests/delivery/azure/test_case_history_artifacts.py services/core-control-plane/tests/runtime/test_case_history.py services/core-control-plane/tests/agents/test_forecast_learning_chain.py"
+        "uv run pytest -q --no-cov services/core-control-plane/tests/contracts/test_forecast_outcome.py services/core-control-plane/tests/core/detection/test_forecast_outcome.py services/core-control-plane/tests/core/case_history services/core-control-plane/tests/persistence/test_state_store_case_history.py services/core-control-plane/tests/delivery/azure/test_case_history_artifacts.py services/core-control-plane/tests/runtime/test_case_history.py services/core-control-plane/tests/agents/test_forecast_learning_chain.py services/core-control-plane/tests/providers/test_case_history_broker_recovery.py"
       ]
     },
     {
