@@ -40,7 +40,9 @@ if not _url.startswith(("postgresql://", "postgresql+psycopg://")):
 if _url.startswith("postgresql://"):
     _url = "postgresql+psycopg://" + _url[len("postgresql://") :]
 
-config.set_main_option("sqlalchemy.url", _url)
+# ConfigParser treats percent signs in URL-encoded credentials as interpolation
+# tokens. Doubling them preserves the exact URL returned by get_main_option.
+config.set_main_option("sqlalchemy.url", _url.replace("%", "%%"))
 
 # Migrations are raw SQL - no ORM metadata to introspect.
 target_metadata = None
