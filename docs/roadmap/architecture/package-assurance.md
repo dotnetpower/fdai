@@ -61,6 +61,9 @@ implicit package-assurance requirement.
 Deployment CLI `0.1.1` makes that explicit owner decision only for its development profile: one
 dedicated artifact key covers kit and bundle roles, the package admits only the development
 channel, framework and license trust stay separate, and production TUF remains a separate owner gate.
+That owner contract pins the exact Python ABI required by its wheels while treating the kit's glibc
+version as a minimum compatibility floor. A newer glibc runtime is accepted; an older runtime,
+another libc family, or a malformed identity remains blocked.
 
 ## Explicit package boundaries
 

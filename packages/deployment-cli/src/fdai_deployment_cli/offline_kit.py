@@ -33,6 +33,10 @@ _MAX_TOTAL_BYTES = 8 * 1024 * 1024 * 1024
 _DIGEST = re.compile(r"^[0-9a-f]{64}$")
 _PROFILE_ID = re.compile(r"^[a-z][a-z0-9._-]{0,127}$")
 _PROFILE_NAME = re.compile(r"^[a-z][a-z0-9._-]{0,127}$")
+_LIBC_TAG = re.compile(
+    r"^(?P<name>[a-z0-9._-]+)-(?P<major>[0-9]+)\.(?P<minor>[0-9]+)"
+    r"(?:\.(?P<patch>[0-9]+))?$"
+)
 _PROFILE_CLOSURES: Final = frozenset({"connected", "offline", "appliance"})
 
 
@@ -349,8 +353,10 @@ def verify_offline_kit(
             raise OfflineKitVerificationError("offline kit platform does not match")
         if payload["python_tag"] != (python_tag or _runtime_python_tag()):
             raise OfflineKitVerificationError("offline kit Python ABI does not match")
-        if payload["libc_tag"] != (libc_tag or _runtime_libc_tag()):
-            raise OfflineKitVerificationError("offline kit libc does not match")
+        _require_compatible_libc(
+            _payload_text(payload, "libc_tag"),
+            libc_tag or _runtime_libc_tag(),
+        )
         files_value = payload["files"]
         if not isinstance(files_value, dict) or not files_value:
             raise OfflineKitVerificationError("offline kit files MUST be a non-empty object")
@@ -760,3 +766,28 @@ def _runtime_libc_tag() -> str:
     ):
         raise OfflineKitVerificationError("runtime libc identity is unavailable")
     return f"{normalized_name}-{normalized_version}"
+
+
+def _require_compatible_libc(required: str, observed: str) -> None:
+    """Require exact non-glibc identity or a glibc runtime at least as new as the kit."""
+
+    if required == observed:
+        return
+    required_match = _LIBC_TAG.fullmatch(required)
+    observed_match = _LIBC_TAG.fullmatch(observed)
+    if (
+        required_match is None
+        or observed_match is None
+        or required_match.group("name") != "glibc"
+        or observed_match.group("name") != "glibc"
+        or _libc_version(observed_match) < _libc_version(required_match)
+    ):
+        raise OfflineKitVerificationError("offline kit libc is incompatible")
+
+
+def _libc_version(match: re.Match[str]) -> tuple[int, int, int]:
+    return (
+        int(match.group("major")),
+        int(match.group("minor")),
+        int(match.group("patch") or 0),
+    )

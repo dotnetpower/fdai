@@ -1,6 +1,6 @@
 ---
 translation_of: package-assurance.md
-translation_source_sha: 4a5c1343145ae28da4d992da34ebe98eb8e6a885
+translation_source_sha: f5067e086b3acc9fd326d479bda81cc1d7d54a61
 translation_revised: 2026-09-27
 ---
 
@@ -64,6 +64,9 @@ translation_revised: 2026-09-27
 Deployment CLI `0.1.1`은 해당 소유자 결정을 개발 프로필에만 명시적으로 적용합니다. 전용
 산출물 키 하나가 키트와 묶음 역할을 담당하고 패키지는 개발 channel만 허용하며, 프레임워크와
 라이선스 신뢰는 분리되고 운영 TUF는 별도의 소유자 게이트로 유지됩니다.
+해당 소유자 계약은 wheel에 필요한 정확한 Python ABI를 고정하고 키트의 glibc 버전은 최소
+호환성 기준으로 취급합니다. 더 새로운 glibc 런타임은 허용하지만 더 오래된 런타임, 다른 libc
+계열 또는 잘못된 식별자는 계속 차단합니다.
 
 ## 명시적인 패키지 경계
 

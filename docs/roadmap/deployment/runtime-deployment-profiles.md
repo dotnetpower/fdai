@@ -145,6 +145,9 @@ Both profiles retain a content-bound delivery marker before graph commit and rec
 Connected deployments for both runtime profiles boot the managed host from an exact Azure
 Marketplace Ubuntu version and install the checksum-pinned toolchain during Foundation. They do
 not build or require a dedicated managed-host image. Artifact-offline deployments can still select a separately verified prebuilt host image when bootstrap downloads are unavailable.
+Complete kit construction targets CPython 3.12, matching the managed host interpreter. Wheel ABI
+matching remains exact; glibc compatibility is forward-only within the glibc family from the kit's
+recorded minimum.
 Enrollment and every later application transfer reuse the same VM-bound `fdai-genesis-*` SSH
 host-key alias and attested known-hosts file; runtime selection never permits a second alias or
 first-contact trust.

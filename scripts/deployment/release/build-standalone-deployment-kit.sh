@@ -76,6 +76,7 @@ from __future__ import annotations
 
 import os
 import stat
+import sys
 from pathlib import Path
 
 from cryptography.hazmat.primitives.asymmetric.ed25519 import (
@@ -88,6 +89,8 @@ from cryptography.hazmat.primitives.serialization import (
 )
 
 root = Path(os.environ["REPO_ROOT"])
+if sys.implementation.name != "cpython" or sys.version_info[:2] != (3, 12):
+  raise SystemExit("build-standalone-kit: release Python must be CPython 3.12")
 for environment, public_name in (
   ("RELEASE_KEY", "deployment-release-root.pub"),
   ("BUNDLE_KEY", "deployment-bundle-root.pub"),
