@@ -7,6 +7,7 @@ import concurrent.futures
 import re
 import subprocess
 from collections.abc import Callable
+from dataclasses import dataclass
 from typing import Any
 
 from fdai_deployment_cli.entra_profiles import EntraControlProfile, EntraTargetProfile
@@ -15,7 +16,13 @@ from fdai_deployment_cli.identity_profile import (
     IdentityProfileObservation,
 )
 from genesis_entra import _az_json, _graph, _single_group
-from genesis_identity_executor import executor_identity as _executor_identity
+from genesis_identity_executor import (
+    executor_execution_context,
+    identity_operation_context,
+)
+from genesis_identity_executor import (
+    executor_identity as _executor_identity,
+)
 
 _GUID = re.compile(r"[0-9a-fA-F]{8}(?:-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12}")
 _GROUP_NAMES = {
@@ -33,33 +40,28 @@ def observe_identity_profile(
 ) -> tuple[IdentityProfileObservation, str | None]:
     """Collect bounded reads and compare only exact profile-declared controls."""
 
-    with concurrent.futures.ThreadPoolExecutor(max_workers=8) as executor:
-        premium_future = executor.submit(
-            _optional, lambda: _premium_license_eligible(controls.premium_service_plan)
-        )
-        groups_future = executor.submit(_optional, lambda: _role_groups(controls))
-        conditional_access_future = executor.submit(
-            _optional, lambda: _conditional_access_matches(controls)
-        )
-        access_review_future = executor.submit(_optional, lambda: _access_reviews_match(controls))
-        authentication_future = executor.submit(
-            _optional, lambda: _authentication_methods_match(controls)
-        )
-        azure_policy_future = executor.submit(_optional, lambda: _azure_policy_matches(controls))
-        human_future = executor.submit(_optional, _human_identity)
-        human_approver_future = executor.submit(
-            _optional, lambda: _human_approver_authorized(controls)
-        )
-        executor_future = executor.submit(_optional, lambda: _executor_identity(target))
-        premium = premium_future.result()
-        groups = groups_future.result()
-        conditional_access = conditional_access_future.result()
-        access_review = access_review_future.result()
-        authentication = authentication_future.result()
-        azure_policy = azure_policy_future.result()
-        human = human_future.result()
-        human_approver = human_approver_future.result()
-        executor_identity = executor_future.result()
+    with identity_operation_context():
+        return _observe_identity_profile_serialized(target, controls)
+
+
+def _observe_identity_profile_serialized(
+    target: EntraTargetProfile,
+    controls: EntraControlProfile,
+) -> tuple[IdentityProfileObservation, str | None]:
+    human = _optional(_human_identity)
+    human_approver = _optional(lambda: _human_approver_authorized(controls))
+    executor_evidence = _optional(lambda: _executor_profile_evidence(target, controls))
+    premium = executor_evidence.premium if executor_evidence is not None else None
+    groups = executor_evidence.groups if executor_evidence is not None else None
+    conditional_access = (
+        executor_evidence.conditional_access if executor_evidence is not None else None
+    )
+    access_review = executor_evidence.access_review if executor_evidence is not None else None
+    authentication = executor_evidence.authentication if executor_evidence is not None else None
+    azure_policy = executor_evidence.azure_policy if executor_evidence is not None else None
+    executor_identity = (
+        executor_evidence.executor_identity if executor_evidence is not None else None
+    )
     executor_present = (
         None
         if executor_identity is None
@@ -95,6 +97,58 @@ def observe_identity_profile(
         )
     )
     return observation, human
+
+
+@dataclass(frozen=True, slots=True)
+class _ExecutorProfileEvidence:
+    premium: bool | None
+    groups: tuple[bool, bool] | None
+    conditional_access: bool | None
+    access_review: bool | None
+    authentication: tuple[bool, bool] | None
+    azure_policy: bool | None
+    executor_identity: tuple[str, bool, bool] | None
+
+
+def _executor_profile_evidence(
+    target: EntraTargetProfile,
+    controls: EntraControlProfile,
+) -> _ExecutorProfileEvidence:
+    """Read every executor-owned fact under one restored Azure CLI context."""
+
+    with executor_execution_context(target):
+        return _read_executor_profile_concurrently(target, controls)
+
+
+def _read_executor_profile_concurrently(
+    target: EntraTargetProfile,
+    controls: EntraControlProfile,
+) -> _ExecutorProfileEvidence:
+    """Group only executor-context reads after human evidence is complete."""
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=8) as executor:
+        premium_future = executor.submit(
+            _optional, lambda: _premium_license_eligible(controls.premium_service_plan)
+        )
+        groups_future = executor.submit(_optional, lambda: _role_groups(controls))
+        conditional_access_future = executor.submit(
+            _optional, lambda: _conditional_access_matches(controls)
+        )
+        access_review_future = executor.submit(_optional, lambda: _access_reviews_match(controls))
+        authentication_future = executor.submit(
+            _optional, lambda: _authentication_methods_match(controls)
+        )
+        azure_policy_future = executor.submit(_optional, lambda: _azure_policy_matches(controls))
+        executor_future = executor.submit(_optional, lambda: _executor_identity(target))
+        return _ExecutorProfileEvidence(
+            premium=premium_future.result(),
+            groups=groups_future.result(),
+            conditional_access=conditional_access_future.result(),
+            access_review=access_review_future.result(),
+            authentication=authentication_future.result(),
+            azure_policy=azure_policy_future.result(),
+            executor_identity=executor_future.result(),
+        )
 
 
 def _optional[T](reader: Callable[[], T]) -> T | None:
@@ -153,7 +207,8 @@ def _project_ca(value: dict[str, Any]) -> dict[str, object]:
     grants = value.get("grantControls")
     strength = grants.get("authenticationStrength") if isinstance(grants, dict) else None
     if (
-        not isinstance(users, dict)
+        not isinstance(conditions, dict)
+        or not isinstance(users, dict)
         or not isinstance(applications, dict)
         or not isinstance(grants, dict)
     ):
