@@ -4243,13 +4243,14 @@ def _readback_stage(stage: str, context: dict[str, object]) -> bool:
             )
         return True
     if stage == "substrate":
+        infra = Path(str(context["infra"]))
         value = _capture(
             (
                 "az",
                 "acr",
                 "show",
                 "--name",
-                str(context["registry_name"]),
+                _terraform_output(infra, "registry_name"),
                 "--subscription",
                 str(context["subscription_id"]),
                 "--query",
@@ -4258,7 +4259,7 @@ def _readback_stage(stage: str, context: dict[str, object]) -> bool:
                 "tsv",
                 "--only-show-errors",
             ),
-            cwd=Path(str(context["infra"])),
+            cwd=infra,
             timeout=60,
             reason="standalone substrate ACR readback failed",
         )

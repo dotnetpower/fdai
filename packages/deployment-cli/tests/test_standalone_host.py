@@ -1448,6 +1448,37 @@ def test_focused_access_readback_probes_selected_data_planes(
     assert any(command[:4] == ("az", "storage", "fs", "list") for command in commands)
 
 
+def test_substrate_readback_uses_the_authoritative_registry_output(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    commands: list[tuple[str, ...]] = []
+    monkeypatch.setattr(
+        standalone_host,
+        "_terraform_output",
+        lambda _infra, output: (
+            "state-selected-registry"
+            if output == "registry_name"
+            else pytest.fail(f"unexpected output: {output}")
+        ),
+    )
+    monkeypatch.setattr(
+        standalone_host,
+        "_capture",
+        lambda command, **_kwargs: commands.append(command) or "Succeeded\n",
+    )
+
+    assert standalone_host._readback_stage(
+        "substrate",
+        {
+            "infra": str(tmp_path),
+            "registry_name": "predicted-but-wrong",
+            "subscription_id": "00000000-0000-0000-0000-000000000001",
+        },
+    )
+
+    assert commands[0][commands[0].index("--name") + 1] == "state-selected-registry"
+
+
 @pytest.mark.parametrize("existing", [False, True])
 def test_aks_kubeconfig_uses_explicit_host_identity(tmp_path, monkeypatch, existing):
     tmp_path.chmod(0o700)
