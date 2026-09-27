@@ -26,13 +26,45 @@ A request explicitly limited to `commit only`, `push only`, `open a PR`, or `do 
 that boundary. Delivery authorization never implies deployment, release, live Azure access, secret
 access, an admin bypass, or a force-push.
 
+## Local-first CI budget
+
+GitHub Actions is final exact-SHA integration evidence, not an edit-loop test runner. One coherent
+delivery should normally consume one workflow attempt.
+
+- Before the first push, fetch the intended base and integrate any base movement locally. Do not
+  knowingly publish a behind branch and spend a workflow attempt discovering an avoidable merge
+  conflict.
+- Build the local validation plan from the final committed diff and its design routes. Run the
+  owning focused tests, every required official generator and artifact-equality check, and
+  `make test-changed DIFF=<base>...HEAD` only when the already-passing focused tests do not cover
+  the complete diff.
+- Run the local fast and CI-enforced structural parity checks before publication:
+
+  ```bash
+  bash scripts/verify.sh --fast --diff <base>...HEAD
+  FILE_LOC_MODE=enforce bash scripts/quality/architecture/check-file-loc.sh
+  SUBSYSTEM_FANOUT_MODE=enforce bash scripts/quality/architecture/check-subsystem-fanout.sh
+  bash scripts/quality/repository/check-doc-links.sh
+  ```
+
+  Use a clean immutable candidate. If an applicable check is genuinely CI-only, record that
+  limitation instead of manufacturing a local pass.
+- Freeze the candidate after this preflight. Related, already-authorized increments that share one
+  owner, risk boundary, and validation plan MAY use one bounded PR rather than separate pushes;
+  unrelated, authority-changing, deployment, or release changes remain separate.
+- A second workflow attempt is exceptional. Use it only after an exact failed-attempt diagnosis,
+  an actionable review change, or unavoidable post-push base drift. Fix deterministic failures
+  locally, add or extend the local regression/gate that would have caught them, collect the complete
+  bounded repair, and push once. Never rerun or push speculative changes to see what CI says.
+
 ## Procedure
 
 1. **Freeze the delivery scope.** Record the task-owned paths, current commit, topic branch, base
    branch, linked issue, and unrelated worktree changes. Preserve unrelated staged and unstaged
    edits. If no issue exists, create one with observable exit criteria before the first push or PR.
 2. **Validate and commit locally.** Reuse unchanged focused evidence, review the task-owned diff,
-   and commit with an explicit pathspec. Never bypass hooks or substitute a remote-created commit.
+   and commit with an explicit pathspec. Apply the local-first CI budget to the final candidate
+   after synchronizing its intended base. Never bypass hooks or substitute a remote-created commit.
 3. **Publish exactly.** Push the checked-out topic branch without force, set its upstream when
    needed, and verify that the remote ref resolves to the expected local commit.
 4. **Create or update the PR.** Reuse an open PR for the same head branch; otherwise create one
