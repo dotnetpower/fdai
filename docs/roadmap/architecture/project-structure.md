@@ -27,6 +27,9 @@ aggregate route facade assembles handlers without reimplementing boundary normal
 Semantic query composition owns principal-scoped declaration candidate selection and source
 authorization bindings. Core retains predicate, release, freshness, receipt, and query-algebra
 verification; delivery owns bilingual ranking and PostgreSQL generation-cache validation.
+The focused current-evidence composition owner also binds graph-refresh decisions to the shared
+StateStore audit. Complete, incomplete, stale, conflicting, and unavailable reads remain distinct,
+principal-scoped, generation-bound, and authority-free without adding another service or writer.
 Model-facing capability projection preserves every selected canonical property token and rejects a byte-budget overflow before judgment rather than passing a silent descriptor prefix. This bound changes no manifest or query authority.
 Delivery's ontology generation validator independently binds the explicit principal scope and exact declaration bytes, not only declaration IDs; runtime instance storage and activation must remain separate from Rule corpus pointers.
 Core's secured gateway also owns the off-path, complete multi-type index-source scan. It applies the existing ACL to one bounded source snapshot and binds ordered object hashes; ordinary ObjectSet limits are unchanged. Delivery may stage this projection under an isolated immutable identity but cannot infer validation, activation, observed state, or execution authority from successful storage.
