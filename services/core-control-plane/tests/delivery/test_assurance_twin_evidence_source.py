@@ -29,6 +29,17 @@ _RULE_GENERATION_REVISION = "sha256:" + "c" * 64
 _NOW = datetime.now(UTC)
 
 
+@pytest.fixture(autouse=True)
+def _evidence_clock() -> None:
+    """Anchor evidence times at each test's start, not at module import.
+
+    The writers compare freshness against the wall clock, so a module-level instant made every
+    test fail once a long shard ran them more than five minutes after collection.
+    """
+    global _NOW
+    _NOW = datetime.now(UTC)
+
+
 def _finding() -> Finding:
     return Finding(
         rule_id="rule.example",
