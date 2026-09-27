@@ -1,8 +1,8 @@
 ---
 title: MSCP Operational Profile
 translation_of: mscp-operational-profile.md
-translation_source_sha: 28ad957e1ee3399f6daf4ff15e9fd34f2dbd05fe
-translation_revised: 2026-09-27
+translation_source_sha: ccd161f012e7f818ac4f3c0a1991a586f7acca90
+translation_revised: 2026-09-28
 ---
 # MSCP Operational 프로파일
 
@@ -61,8 +61,10 @@ MSCP 레벨을 구현하거나 전체 MSCP conformance를 충족한다고 주장
 
 - [x] 소유자가 제공한 온톨로지, 인시던트, 작업 흐름 및 감사 관측을 불변의 원자적 감사 기록을 가진 결정 맥락으로 변환합니다. 집중 테스트는 누락되거나 충돌하는 입력이 보류되고 재시도가 영속 기록을 바꾸지 못함을 입증합니다(`20 passed`).
 - [ ] 운영 단계에서 맥락을 사용할 수 있다고 주장하기 전에 실제 정본 소유자 읽기 경로 네 가지를 통제된 런타임에 연결하고 고정된 결정 증적을 보존합니다.
-- [ ] 프로파일 일치, 불일치, 보류, 감사 실패 및 변경되지 않은 실행기 결과를 측정하는 고정된 shadow 근거 구간을 보존합니다.
-- [ ] 통제된 프로파일 수명 주기를 추가하고 집중 테스트가 롤백, 재현 및 변경되지 않은 risk, 승인, 실행, 감사 소유권을 입증한 뒤에만 권한을 높이지 않는 상한을 연결합니다.
+- [ ] [#53](https://github.com/dotnetpower/fdai/issues/53): 선택된 비운영 후보 `ops.start-vm@1.0.0`에 대해 프로파일 일치, 불일치, 보류, 감사 실패 및 변경되지 않은 실행기 결과를 측정하고 초기 준비도 기준을 통과하는 고정된 shadow 근거 구간을 보존합니다.
+- [ ] [#53](https://github.com/dotnetpower/fdai/issues/53): 집중 테스트가 롤백, 재현 및 변경되지 않은 risk, 승인, 실행, 감사 소유권을 입증한 뒤에만 기존 프로파일 수명 주기와 권한을 높이지 않는 상한을 ControlLoop gating에 연결합니다.
+- [ ] [#53](https://github.com/dotnetpower/fdai/issues/53): 해당 후보에 대해 통과하는 롤백 및 gating에서 shadow로의 강등 훈련을 실행하고 감사 근거를 보존합니다.
+- [ ] [#53](https://github.com/dotnetpower/fdai/issues/53): gating을 연결한 뒤 활성화, 운영, 강등 및 인시던트 대응을 설명하는 영어와 한국어 운영자 안내를 게시합니다.
 
 ## 프로파일 계약
 

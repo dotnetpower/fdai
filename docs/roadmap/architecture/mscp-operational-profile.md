@@ -59,8 +59,10 @@ provenance.
 
 - [x] Project owner-supplied ontology, incident, workflow, and audit observations into one immutable, audit-atomic decision context; focused tests prove missing and conflicting inputs hold and a retry cannot rewrite the durable record (`20 passed`).
 - [ ] Bind the four actual authoritative owner readers in a governed runtime and retain a pinned decision receipt before claiming operational context availability.
-- [ ] Retain a pinned shadow evidence window that measures profile matches, mismatches, holds, audit failures, and unchanged executor outcomes.
-- [ ] Add a governed profile lifecycle and connect the never-raising ceiling only after focused tests prove rollback, replay, and unchanged risk, approval, execution, and audit ownership.
+- [ ] [#53](https://github.com/dotnetpower/fdai/issues/53): Retain a pinned shadow evidence window for the selected `ops.start-vm@1.0.0` non-production candidate that measures profile matches, mismatches, holds, audit failures, and unchanged executor outcomes and passes the initial readiness floor.
+- [ ] [#53](https://github.com/dotnetpower/fdai/issues/53): Bind the existing profile lifecycle and never-raising ceiling into ControlLoop gating only after focused tests prove rollback, replay, and unchanged risk, approval, execution, and audit ownership.
+- [ ] [#53](https://github.com/dotnetpower/fdai/issues/53): Run a rollback and gating-to-shadow demotion drill for that candidate, confirm the drill passes, and retain its audit evidence.
+- [ ] [#53](https://github.com/dotnetpower/fdai/issues/53): Publish English and Korean operator guidance for activation, operation, demotion, and incident response after gating is bound.
 
 ## Profile contract
 
