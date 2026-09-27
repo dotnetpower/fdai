@@ -185,6 +185,13 @@ from the same family cannot review that answer.
    escapes and no locale regression before reporting a promoted policy.
 - [ ] Exercise one governed automatic rollback after a measured regression and retain the policy
    transition, restored immutable version, and audit receipts.
+- [ ] [#298](https://github.com/dotnetpower/fdai/issues/298): After #301 qualifies, run the
+   official 30-day production-like soak on the same pinned `dev` commit and declared model, runtime,
+   channel, corpus, evaluator, trace, and policy configuration. Retain daily repository-safe
+   availability, latency, trace, safety, fallback, truncation, channel, attachment, and approval
+   evidence; any qualifying-path change or P0/P1 correction restarts day one, a missing day never
+   counts as success, and the window must end with no unresolved P0 or P1 defect in the measured
+   paths.
 - [ ] Run the 230-case Pantheon census against the real authenticated Operator API on a pinned
    revision and retain explicit-route accuracy, owner-routing F1, missed and unnecessary T2 rates,
    per-locale score floors, and zero hard-safety escapes.
