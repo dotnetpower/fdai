@@ -23,5 +23,6 @@ if [[ "$source_mode" -eq 1 ]]; then
   set -- --online "$@"
 fi
 
-exec uv run --frozen --project "$repo_root/packages/deployment-cli" \
+UV_PROJECT_ENVIRONMENT="$repo_root/.venv" exec uv run --frozen \
+  --project "$repo_root/packages/deployment-cli" \
   fdaictl provision azure "$@"

@@ -23,6 +23,58 @@ def test_workspace_registers_installable_fdaictl_distribution() -> None:
     assert package["project"]["version"] == "0.1.1"
 
 
+def test_fdai_up_binds_uv_to_the_verified_root_environment(tmp_path: Path) -> None:
+    bash = shutil.which("bash")
+    assert bash is not None
+    fake_bin = tmp_path / "bin"
+    fake_bin.mkdir()
+    observed_environment = tmp_path / "environment"
+    observed_arguments = tmp_path / "arguments"
+    uv = fake_bin / "uv"
+    uv.write_text(
+        "#!/usr/bin/env bash\n"
+        'printf \'%s\' "$UV_PROJECT_ENVIRONMENT" > "$OBSERVED_ENVIRONMENT"\n'
+        'printf \'%s\\n\' "$@" > "$OBSERVED_ARGUMENTS"\n',
+        encoding="ascii",
+    )
+    uv.chmod(0o755)
+    environment = {
+        **os.environ,
+        "PATH": f"{fake_bin}:{os.environ['PATH']}",
+        "UV_PROJECT_ENVIRONMENT": str(tmp_path / "unrelated-environment"),
+        "OBSERVED_ENVIRONMENT": str(observed_environment),
+        "OBSERVED_ARGUMENTS": str(observed_arguments),
+    }
+
+    completed = subprocess.run(  # noqa: S603 - fixed repository wrapper under test.
+        [
+            bash,
+            "scripts/deployment/azure/fdai-up.sh",
+            "--offline-kit",
+            str(tmp_path / "kit.tar.gz"),
+        ],
+        cwd=ROOT,
+        env=environment,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert completed.returncode == 0
+    assert observed_environment.read_text(encoding="utf-8") == str(ROOT / ".venv")
+    assert observed_arguments.read_text(encoding="utf-8").splitlines() == [
+        "run",
+        "--frozen",
+        "--project",
+        str(PACKAGE),
+        "fdaictl",
+        "provision",
+        "azure",
+        "--offline-kit",
+        str(tmp_path / "kit.tar.gz"),
+    ]
+
+
 def _public_key_bytes(path: Path) -> bytes:
     key = load_pem_public_key(path.read_bytes())
     assert isinstance(key, Ed25519PublicKey)
