@@ -23,6 +23,16 @@ from fdai.core.rbac.enforcer import (
 from fdai.core.rbac.resolver import Principal
 from fdai.core.rbac.roles import Role
 
+from tests.contracts.test_development_authority import (
+    NOW,
+    _binding,
+    _binding_request,
+    _BindingSource,
+    _confirmation,
+    _profile,
+    _verification,
+)
+
 
 def _approver(oid: str, *, upn: str | None = None) -> Principal:
     return Principal(oid=oid, roles=frozenset({Role.APPROVER}), upn=upn)
@@ -82,6 +92,59 @@ class TestNoSelfApproval:
         # Different case should NOT match - this preserves the "compare
         # what the token gave us" property.
         enforcer.no_self_approval(approver, submitter_oid="abcdef-1234")
+
+    def test_exact_authenticated_owner_profile_allows_same_human(self) -> None:
+        profile = _profile()
+        binding = _binding(profile)
+        source = _BindingSource(_verification(binding))
+        owner = Principal(oid=profile.owner_principal, roles=frozenset({Role.OWNER}))
+
+        RoleEnforcer(clock=lambda: NOW).no_self_approval(
+            owner,
+            submitter_oid=profile.owner_principal,
+            development_profile=profile,
+            development_confirmation=_confirmation(profile, binding),
+            development_binding_source=source,
+            development_binding_request=_binding_request(),
+            original_quorum=2,
+        )
+
+    def test_non_owner_cannot_use_development_exception(self) -> None:
+        profile = _profile()
+        binding = _binding(profile)
+        source = _BindingSource(_verification(binding))
+        approver = Principal(
+            oid=profile.owner_principal,
+            roles=frozenset({Role.APPROVER}),
+        )
+
+        with pytest.raises(SelfApprovalError):
+            RoleEnforcer(clock=lambda: NOW).no_self_approval(
+                approver,
+                submitter_oid=profile.owner_principal,
+                development_profile=profile,
+                development_confirmation=_confirmation(profile, binding),
+                development_binding_source=source,
+                development_binding_request=_binding_request(),
+                original_quorum=2,
+            )
+
+    def test_changed_pending_operation_cannot_use_development_exception(self) -> None:
+        profile = _profile()
+        binding = _binding(profile)
+        owner = Principal(oid=profile.owner_principal, roles=frozenset({Role.OWNER}))
+        source = _BindingSource(_verification(binding))
+
+        with pytest.raises(SelfApprovalError):
+            RoleEnforcer(clock=lambda: NOW).no_self_approval(
+                owner,
+                submitter_oid=profile.owner_principal,
+                development_profile=profile,
+                development_confirmation=_confirmation(profile, binding),
+                development_binding_source=source,
+                development_binding_request=_binding_request(target="resource:changed"),
+                original_quorum=2,
+            )
 
 
 class TestNoSelfApprovalAuditIntegration:

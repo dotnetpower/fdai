@@ -1,7 +1,7 @@
 ---
 title: 에이전트 판테온
 translation_of: agent-pantheon.md
-translation_source_sha: 8c2bdb3f133886c47c52d44eb8d64b11cab9f5e4
+translation_source_sha: fe5035eb62ba1c3cb4bd01961d15d38b1b8084c9
 translation_revised: 2026-09-27
 ---
 # 에이전트 판테온
@@ -543,7 +543,7 @@ proposed  (initiator agent)
 | `remediate.rotate-secret` | `snapshot_restore` | false |
 | `tool.run-chaos-experiment` | `scripted` | false |
 
-`irreversible: true` 작업은 HIL, 서로 다른 승인자 2명 이상, 자기 승인 금지를 요구합니다. Forseti가 `quorum_required: 2`를 첨부하고 Var가 강제합니다.
+`irreversible: true` 작업에는 일반적으로 HIL, 서로 다른 승인자 2명 이상, 자기 승인 금지가 필요하며 Forseti가 `quorum_required: 2`를 첨부하고 Var가 적용합니다. 명시적으로 주입한 전권 개발 프로필만 예외이며, 현재 인증된 Owner 한 명이 정확한 작업과 보호 장치를 확인한 뒤 개발 환경의 유효 정족수를 충족할 수 있습니다. Var는 다른 사람을 만들어 내지 않고 원래 정족수와 유효 정족수를 모두 기록하며, Thor와 Vidar는 실행 또는 롤백 전에 같은 프로필, 확인, 작업 신원, 별도 실행기, 만료, 영속 감사, 잠금, 멱등성 및 관찰자 결속을 다시 검증합니다. 에이전트 역할과 토픽은 바뀌지 않으며 프로필 범위 승격은 프로덕션 준비 상태를 입증하지 않습니다.
 
 ### 7.6 타입이 지정된 전달로서의 인계
 
@@ -586,7 +586,7 @@ LLM 호출은 기본값이 아닌 기능입니다. 모든 에이전트가 자체
 | Huginn | no | no | yes (현지화되고 다이제스트로 검증해 인용한 유입 상태와 결정론적 LLM 금지 경계) |
 | Heimdall | no | no | yes (현지화되고 다이제스트로 검증해 인용한 observer 상태와 결정론적 LLM 금지 경계) |
 | Vidar | no | no | yes (현지화되고 다이제스트로 검증해 인용한 복구 상태와 hard-dependency fail-closed 경계) |
-| Var | no | no | yes (현지화되고 다이제스트로 검증해 인용한 HIL 상태와 현재 사람·no-self-approval 경계) |
+| Var | no | no | yes (현지화되고 다이제스트로 검증해 인용한 HIL 상태와 현재 사람, 기본 no-self-approval, 정확한 개발 프로필, 공개 계약 모델 경계) |
 | Bragi | yes (번역 및 진단 표시 전용) | no | yes (현지화되고 다이제스트로 검증해 인용한 translator-only 라우팅 상태) |
 | Saga | no | no | yes (현지화되고 다이제스트로 검증해 인용한 감사 상태와 추가 전용 hard-dependency 경계) |
 | Mimir | no | no | yes (현지화되고 다이제스트로 검증해 인용한 rule 상태와 품질·shadow·검토 PR 경계) |

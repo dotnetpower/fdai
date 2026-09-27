@@ -1,7 +1,7 @@
 ---
 title: Runtime Parity - Authoritative Local Development 및 Test Fixture
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: bf84016168f5b236f2e5834c8befb95153ed2c1c
+translation_source_sha: 7e9f11b57de959cd6b5b8a5074c6b4a176d5e4eb
 translation_revised: 2026-09-27
 ---
 # 런타임 동등성 - 권위 있는 로컬 개발 및 테스트 고정본
@@ -548,6 +548,11 @@ Cognitive deployment를 변경할 수 있는 보호된 전체 계획은 해석�
   권위 있는 프로파일이 선택한 Azure 어댑터를 사용합니다.
 - 동일한 입력, App 역할, 승격 상태, risk 구성은 로컬 및 deployed에서 같은 판정과
   프로세스 전이를 만듭니다.
+- full-authority 개발 프로필 선택은 로컬 또는 배포 실행 장소와 독립적입니다. 두 장소 모두
+  동일한 변경 불가능 프로필, 최신 권위 있는 바인딩 소스, Owner 검사, 구분된 실행기, 정확한
+  작업 확인을 요구합니다. 바인딩되지 않은 로컬 도우미는 합성 범위나 안전장치 증적을 대신
+  만들지 않습니다. 바인딩되지 않은 배포는 기존 다중 운영자 경로를 유지하며, 프로필을
+  명시적으로 선택한 상태라면 안전하게 차단합니다.
 - Interactive 로컬은 15개 에이전트를 기본 시작합니다. Event Hubs가 있으면 Azure 전송 계층을,
   없으면 범위가 제한된 프로세스 내 EventBus/SSE를 사용하며 recording/in-memory 실행기는 연결하지 않습니다.
 - `Reader` 롤만 있는 fresh 구독에서 `enable_llm=false` 로 Terraform 계획 성공 →

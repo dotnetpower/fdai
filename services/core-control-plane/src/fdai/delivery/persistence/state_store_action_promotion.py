@@ -145,6 +145,7 @@ def _serialize(record: ActionModeRecord) -> dict[str, Any]:
         "scenario_set_version": record.scenario_set_version,
         "action_type_version": record.action_type_version,
         "action_type_digest": record.action_type_digest,
+        "production_ready": record.production_ready,
         "metrics": (
             {
                 "action_type": metrics.action_type,
@@ -183,6 +184,7 @@ def _deserialize(raw: Any) -> ActionModeRecord:
         scenario_set_version=_optional_text(raw.get("scenario_set_version")),
         action_type_version=_optional_text(raw.get("action_type_version")),
         action_type_digest=_optional_text(raw.get("action_type_digest")),
+        production_ready=bool(raw.get("production_ready", raw.get("mode") == Mode.ENFORCE.value)),
     )
 
 
