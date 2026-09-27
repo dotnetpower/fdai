@@ -288,6 +288,28 @@ def test_key_vault_private_access_uses_authoritative_existing_readback(
     )
 
 
+def test_key_vault_private_access_reads_nested_management_property(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    commands: list[tuple[str, ...]] = []
+    values = iter(("true", "Disabled"))
+
+    def capture(command: tuple[str, ...], **_kwargs: object) -> str:
+        commands.append(command)
+        return next(values)
+
+    monkeypatch.setattr(standalone_terraform_environment, "_capture", capture)
+
+    assert standalone_terraform_environment.requires_aks_key_vault_private_access(
+        subscription_id="00000000-0000-0000-0000-000000000001",
+        resource_group_name="rg-fdaiaks-dev-wus2",
+        vault_name="kv-fdai-dev-wus2",
+        work_dir=tmp_path,
+    )
+    query = commands[1][commands[1].index("--query") + 1]
+    assert ".properties.publicNetworkAccess" in query
+
+
 def test_foundation_application_workload_matches_resource_group_name() -> None:
     assert (
         standalone_host._foundation_application_workload(

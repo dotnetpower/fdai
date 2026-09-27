@@ -219,7 +219,9 @@ application Key Vault already forced to public-disabled with no usable managed-h
 selects only the focused `enable_aks_key_vault_private_access` recovery axis. That axis requires the
 verified runner VNet coordinates and creates the application-to-runner peering plus Key Vault private
 endpoint and DNS links. It does not select private AKS, private PostgreSQL, or any other service
-private endpoint, and its residual Terraform plan still requires exact approval.
+private endpoint, and its residual Terraform plan still requires exact approval. The selector reads
+the management-list payload's nested `properties.publicNetworkAccess`; an absent vault stays on the
+default path, while an unknown shape fails closed.
 One bounded exception lets an eligible host run `fdaictl provision source-service-update` for one service on an
 existing healthy `dev` AKS installation. The source-built image remains operator-selected evidence rather than release trust. Current human approval gates its
 Managed Identity import and the Deployment-only exact plan; digest and health readback, unchanged peers, and targeted zero change remain required.

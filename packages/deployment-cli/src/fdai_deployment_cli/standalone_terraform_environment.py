@@ -111,7 +111,7 @@ def requires_aks_key_vault_private_access(
             "--resource-group",
             resource_group_name,
             "--query",
-            f"[?name=='{vault_name}'].publicNetworkAccess | [0]",
+            f"[?name=='{vault_name}'].properties.publicNetworkAccess | [0]",
             "--output",
             "tsv",
             "--only-show-errors",
