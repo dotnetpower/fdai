@@ -59,6 +59,14 @@ async def rehydrate_operational_agents(agents: dict[str, Agent]) -> None:
         restored = await loki.rehydrate()
         if restored:
             _LOG.info("pantheon_loki_rehydrated", extra={"reserved_targets": restored})
+    mimir = agents.get("Mimir")
+    if isinstance(mimir, Mimir):
+        restored = await mimir.recover_catalog_reviews()
+        if restored:
+            _LOG.info(
+                "pantheon_mimir_catalog_reviews_rehydrated",
+                extra={"pending_reviews": restored},
+            )
     norns = agents.get("Norns")
     if isinstance(norns, Norns):
         recovered_total = 0
@@ -124,6 +132,8 @@ def bind_operational_agents(
 ) -> None:
     """Replace baseline instances only when runtime bindings are available."""
 
+    if muninn_state_store is not None:
+        cast(Mimir, agents["Mimir"]).bind_catalog_review_state_store(muninn_state_store)
     if case_history_materializer is not None:
         cast(Mimir, agents["Mimir"]).bind_case_history(case_history_materializer)
 

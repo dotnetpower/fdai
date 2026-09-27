@@ -1,6 +1,6 @@
 ---
 translation_of: prediction-learning-and-case-history.md
-translation_source_sha: 05ee788c2a6355292721452566b1d15b4a23fa27
+translation_source_sha: 64351677792a2f8f0ae2ffd7117f394654e0e16c
 translation_revised: 2026-09-27
 ---
 # 예측 학습 및 케이스 히스토리
@@ -411,7 +411,7 @@ T1 벡터 정리는 새 보존 정책이 아니라 기존 원본 삭제 의도�
 | Cohort 브로커 레코드 | `object.context-index`가 Muninn에서 Norns로 범위가 제한된 `PatternCase` 배열과 스냅샷 참조를 전달합니다. | Event bus 보존과 `.dlq`는 사례 수명 주기와 별개로 전송 페이로드를 보존합니다. 결속된 프로덕션 Norns는 컴파일 전에 `CaseHistoryMaterializer`로 모든 정확한 사례 개정 번호를 다시 확인하므로 일반 재전달과 명시적 DLQ redrive가 삭제 또는 삭제 대기 본문을 다시 만들 수 없습니다. | 재전달 차단은 로컬에서 검증됨. 물리적 브로커 만료와 고정 런타임 redrive는 미완료. |
 | Pattern 및 후보 브로커 레코드 | `object.pattern`과 `object.rule-candidate`가 사례 참조, 다이제스트, 후보 근거, 검토 신원을 전달합니다. | 원본 아티팩트 본문은 없습니다. Muninn은 Pattern 구체화 전에 보존 스냅샷을 다시 열고 현재 원본 사례를 확인하며, Mimir는 컴파일, 재시도, 게시 전에 후보 사례 참조를 다시 확인합니다. 일반 DLQ redrive는 같은 처리기로 다시 들어갑니다. | 재생 차단은 로컬에서 검증됨. 브로커 및 DLQ 운영 검증은 미완료. |
 | Norns 프로세스 메모리 | `pending_candidates`와 `_pattern_publications`가 제한 중 후보 매핑과 Pattern 묶음을 보존합니다. | 버퍼는 범위가 제한되고 권한이 없지만 영속하지 않습니다. 발행 전에 운영 후보가 모든 현재 사례 개정 번호를 다시 확인하고 삭제가 시작된 후보와 Pattern 묶음을 함께 폐기합니다. 속도 제한 시 현재 작업을 메모리에만 유지하며 프로세스를 재시작하면 손실됩니다. | 원본 삭제 정리는 로컬에서 검증됨. 영속 재시도는 미완료. |
-| Mimir 프로세스 메모리 | `_pending_candidates`, `_catalog_review_packages`, 멱등성 인덱스가 게시 완료 전까지 컴파일된 패키지와 변경 불가능한 사례 참조를 보존합니다. | 컴파일, 재시도, 게시 전에 현재 사례를 확인합니다. 게시 실패는 실행 중인 프로세스에서만 재시도할 수 있고 재시작 재구성 및 원본 삭제 정리는 없습니다. | 영속 패키지 복구 작업 미완료. |
+| Mimir 대기 검토 저널 | `_pending_candidates`, `_catalog_review_packages`, 멱등성 인덱스가 게시 완료 전까지 정확한 후보와 패키지 다이제스트를 담은 범위가 제한된 `StateStore` 대기 레코드 하나를 반영합니다. | Mimir는 게시 전에 영속 레코드 재조회를 검증하고, 재시작 뒤 모든 현재 사례를 다시 컴파일하고 확인한 다음 멱등 검토 게시자를 재시도합니다. 게시되거나 원본이 무효화되면 대기 페이로드를 다이제스트 전용 감사 계보로 바꾸므로 삭제된 사례가 검토 패키지를 복원할 수 없고 종료 레코드에는 사례 참조가 남지 않습니다. | 영속 패키지 복구와 원본 삭제 정리는 로컬에서 검증됨. 관리되는 런타임과 브로커 및 DLQ 검증은 미완료. |
 | GitOps 검토 패키지 | 초안 pull request의 `rule-catalog/review-packages/operational-<digest>.json`이 후보 근거, 검토 결과, 변경 불가능한 사례 참조를 보존하지만 원본 개정 본문은 보존하지 않습니다. | Git 이력은 이 비민감 계보를 의도적으로 보존합니다. 패키지는 Rule을 활성화할 수 없습니다. 원본 삭제는 과거 검토 근거를 다시 쓰지 않고 재사용을 무효화해야 합니다. | 감사 계보로 유지하며 원시 본문이 추가되지 않는지 검증. |
 
 현재 Core 구성에서 추가 사례 본문 캐시 또는 활성 임베딩 작성 경로는 발견되지 않았습니다.
