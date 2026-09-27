@@ -581,9 +581,9 @@ cannot publish with managed identity, use the bounded Activity Log recovery read
 transport is available. The adaptive Inventory Job reads validated policy before each coordinator run,
 builds runtime-call, Resource Health, Static Web App, and Kubernetes enrichment through one shared ordered support boundary, and advances overdue reconciliation. The module split adds no service, identity, or state writer.
 Restricted-network inventory certification uses a task-owned resource set in the existing development
-application resource group with exact create and cleanup plans. It does not mutate or delete the group.
-Its private Container Apps, PostgreSQL, DNS, and Blob path never peers with or changes the selected
-environment; distinct campaign and verifier identities retain only sanitized authority-free receipts.
+application resource group with exact create and cleanup plans, without mutating or deleting the group.
+Its private Container Apps, PostgreSQL, DNS, and Blob path never peers with or changes the selected environment;
+private Blob I/O pins the endpoint address with hostname verification while distinct identities retain sanitized authority-free receipts.
 
 ## Verification After Provisioning
 

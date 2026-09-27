@@ -1,7 +1,7 @@
 ---
 title: 제한된 네트워크의 Azure 인벤토리
 translation_of: azure-inventory-network-paths.md
-translation_source_sha: 93b31ae4fa95adfcb0a9ca9a84a0a44f66c6ad33
+translation_source_sha: 7a9df524520770cebed0b2504c44a2a011c31bcd
 translation_revised: 2026-09-27
 ---
 # 제한된 네트워크의 Azure 인벤토리
@@ -38,6 +38,8 @@ FDAI는 네트워크 도달성, 아이덴티티, 수집, 프로젝션을 별도 
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-27 | implemented | 공유 DNS를 건드리지 않도록 샌드박스 설계를 복구했습니다. PostgreSQL은 요청마다 고유한 비공개 영역을 사용하고, Blob은 원래 hostname을 TLS SNI와 HTTP Host로 검증하면서 정확한 비공개 엔드포인트 IP에 연결하며, 캠페인 Reader는 애플리케이션 리소스 그룹으로 제한합니다. | `current change`, 집중 전송 검사, Terraform 검증, Trivy 및 Checkov 실패 발견 사항 0건. | 새 exact 요청을 병합하고 실행하며 실패한 계획은 재사용하지 않습니다. |
+| 2026-09-27 | in-progress | 첫 관리 create 계획은 공유 비공개 DNS 영역 이름 충돌과 구독 범위 Reader 할당 거부로 부분 효과 뒤에 중단됐습니다. 변경할 수 없는 claim, 계획, 로그, Terraform state 주소 24개, 태그가 있는 Azure 리소스 7개를 보존했습니다. | 비공개 apply claim과 계획 다이제스트 `90e269aac3fb606fef0e7a9d9b6fa2d43f6eabdbfbf0a858cc3cc620956f79d8`, 권위 있는 리소스 및 state 재확인. | 복구 검토를 위해 실패한 샌드박스를 보존하고 새 요청으로 인증합니다. |
 | 2026-09-27 | implemented | 관리 호스트 UAMI가 기존 개발 애플리케이션 리소스 그룹에서 정확한 Contributor 및 역할 할당 권한을 이미 보유하므로 샌드박스 생성을 해당 그룹에 결속했습니다. 계획은 더 이상 리소스 그룹을 생성하거나 태그를 바꾸거나 삭제하지 않습니다. | `current change`, Terraform 대상 경계와 정확한 생성/삭제 주소 게이트. | 관리되는 캠페인을 실행하고 작업 태그가 있는 샌드박스 리소스만 제거됐는지 검증합니다. |
 | 2026-09-27 | implemented | 인프라 이중 암호화를 적용한 비공개 증적 저장소, 기본 거부 네트워크 규칙, Blob 진단, PostgreSQL 감사 설정, 모든 작업 전용 서브넷의 NSG로 격리된 인증 샌드박스를 강화했습니다. | `current change`, Low 초과 Trivy 발견 사항 0건, Checkov 실패 검사 0건, Terraform 검증 및 정확한 계획 게이트 검사 통과. | 관리되는 정확한 revision 캠페인을 실행하고 작업 전용 정리를 검증합니다. |
 | 2026-09-17 | implemented | API, 신원 또는 권한 부여 경계를 넓히지 않고 폐기 가능한 시나리오의 리소스 한정 공개 접근 예외를 Checkov까지 확장했습니다. | `current change`, `infra/scenario-lab/aks.tf`, 집중 Trivy 및 Checkov 스캔과 시나리오 랩 검사. | 보호된 재생성과 FDAI Pod 인벤토리 조회 결과를 보존합니다. |
@@ -61,6 +63,10 @@ FDAI는 네트워크 도달성, 아이덴티티, 수집, 프로젝션을 별도 
 영역, 비공개 PostgreSQL 서버, 비공개 Blob 증적 저장소를 생성합니다. 기존 리소스 그룹을
 태그하거나 삭제하지 않으며 기존 개발 Virtual Network, DNS, NSG, Private Endpoint, 신원,
 공급자 등록 또는 활성 인벤토리 세대와 피어링하거나 이를 경유하거나 변경하지 않습니다.
+
+PostgreSQL 비공개 DNS 영역은 요청마다 고유합니다. Blob 증적 I/O는 TLS SNI와 HTTP Host
+헤더를 계정 hostname에 결속한 채 정확한 비공개 엔드포인트 주소에 연결하므로, 캠페인은 공유
+Blob 영역을 연결하거나 그 안에 레코드를 쓰지 않습니다.
 
 정확한 생성 계획은 검토된 샌드박스 주소만 허용합니다. 한 워크로드 신원은 범위가 제한된
 `resource-group` 타입에 대해 `arg,arm` 캠페인을 실행하고, 별도의 읽기 전용 신원은 비공개
