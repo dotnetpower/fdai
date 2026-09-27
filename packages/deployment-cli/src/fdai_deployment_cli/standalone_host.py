@@ -4250,7 +4250,7 @@ def _readback_stage(stage: str, context: dict[str, object]) -> bool:
                 "acr",
                 "show",
                 "--name",
-                _terraform_output(infra, "registry_name"),
+                _terraform_output(infra, "container_registry_name"),
                 "--subscription",
                 str(context["subscription_id"]),
                 "--query",
