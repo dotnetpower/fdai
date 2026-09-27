@@ -49,11 +49,12 @@ durable `state_kv` row and Saga-attributed append-only audit lineage. Two superv
 publish schema-validated, exact-revision advisory events. The authenticated Operator API and
 Console continue to read the durable rows, not event tips. No production retained-evidence source
 is bound by default, so no ambient payload generates findings or a review verdict. The retained
-Inventory source supplies a bounded Resource projection, not complete rule findings or proposed
-IaC evidence. It refuses pending realtime link changes; its snapshot id alone cannot pin a
-changing Resource overlay to an exact report or review revision. No production request producer
-selects a trusted source, scope, and revision for either writer. External review delivery and
-governed runtime evidence remain open.
+Inventory source supplies a bounded Resource projection and a content-addressed revision over
+the active snapshot and realtime Resource overlay. It does not supply complete rule findings or
+proposed IaC evidence and refuses pending realtime link changes. A trusted source must separately
+attest to complete rule evaluation at that exact revision and, for a review, complete proposed-IaC
+evidence. No production source or accountable request producer is bound. External review delivery
+and governed runtime evidence remain open.
 
 ### Implementation scope
 
@@ -63,7 +64,8 @@ governed runtime evidence remain open.
 | Scalar Dynamic effect models, fidelity measurement, and bounded runtime coordination | implemented | [`effect_model.py`](../../../services/core-control-plane/src/fdai/core/assurance_twin/effect_model.py), [`fidelity.py`](../../../services/core-control-plane/src/fdai/core/assurance_twin/fidelity.py), [`runtime.py`](../../../services/core-control-plane/src/fdai/core/assurance_twin/runtime.py), and their focused tests | Active models stay immutable, challengers learn only from eligible outcomes, and divergence lowers the result to review. |
 | Graph-wide Dynamic trajectories, propagation, invariants, episode closure, and model registry | implemented | [`graph_effect.py`](../../../services/core-control-plane/src/fdai/core/assurance_twin/graph_effect.py), [`graph_runtime.py`](../../../services/core-control-plane/src/fdai/core/assurance_twin/graph_runtime.py), [`graph_closure.py`](../../../services/core-control-plane/src/fdai/core/assurance_twin/graph_closure.py), and focused graph tests | The runtime persists prediction episodes before returning evidence and updates challenger slices only from complete independent observations. |
 | Deep Security Assessment feed, deterministic analyzer, and catalog report | implemented | [`core/security/`](../../../services/core-control-plane/src/fdai/core/security), [`security_assessment.py`](../../../services/core-control-plane/src/fdai/core/reporting/datasources/security_assessment.py), [`test_assessment.py`](../../../services/core-control-plane/tests/core/security/test_assessment.py), and [`test_security_assessment_datasource.py`](../../../services/core-control-plane/tests/core/reporting/test_security_assessment_datasource.py) | This is a separate reporting subsystem, not the Twin-specific posture panel described below. |
-| Production Twin binding and ambient change-review delivery | not-started | [`assurance_twin_inventory.py`](../../../services/core-control-plane/src/fdai/delivery/assurance_twin_inventory.py) supplies a Resource-only projection; [`iac_review.py`](../../../services/core-control-plane/src/fdai/shared/providers/iac_review.py) defines the review publisher seam | The projection cannot supply complete findings or proposed IaC evidence. No trusted exact-revision report/review source, content-free bus request producer, or Checks API publisher is bound. |
+| Retained Resource revision and writer admission contract | implemented | [`assurance_twin_inventory.py`](../../../services/core-control-plane/src/fdai/delivery/assurance_twin_inventory.py), [`assurance_twin_writers.py`](../../../services/core-control-plane/src/fdai/delivery/assurance_twin_writers.py), and focused source/publication tests | The snapshot and bounded Resource delta content share one canonical digest. A trusted source must supply complete, revision-matched rule evaluation (including a digest of an empty result); reviews also require complete proposed-IaC evidence. This does not bind a real evaluator or relationship overlay. |
+| Production Twin binding and ambient change-review delivery | not-started | [`assurance_twin_inventory.py`](../../../services/core-control-plane/src/fdai/delivery/assurance_twin_inventory.py) supplies a Resource-only projection; [`iac_review.py`](../../../services/core-control-plane/src/fdai/shared/providers/iac_review.py) defines the review publisher seam | The projection cannot supply complete findings or proposed IaC evidence. No trusted exact-revision report/review source, accountable content-free bus request producer, or Checks API publisher is bound. |
 | Strict semantic compilation and abstention feedback | implemented | [`query.py`](../../../services/core-control-plane/src/fdai/core/assurance_twin/query.py), [`semantic_query.py`](../../../services/core-control-plane/src/fdai/core/assurance_twin/semantic_query.py), [`runtime/assurance_twin_query.py`](../../../services/core-control-plane/src/fdai/runtime/assurance_twin_query.py), and focused query/runtime tests (`50 passed`) | Injected compilers must bind the exact input digest, compiler revision, bounded limit, and evidence refs before a read-only plan survives verification. Abstentions emit content-free, no-authority gaps through an injected discovery sink. The runtime default remains explicit model unavailable. |
 | T1 reuse, ChatOps intake, and governed runtime evidence | in-progress | [`chat.py`](../../../services/core-control-plane/src/fdai/core/assurance_twin/chat.py) and the shared semantic judgment contract | Message routing, T1 reuse, a concrete model provider, and an authenticated end-to-end receipt remain unvalidated. |
 | Heimdall/Forseti local event publication | implemented | [`assurance_twin_writers.py`](../../../services/core-control-plane/src/fdai/delivery/assurance_twin_writers.py), [`assurance_twin_publication.py`](../../../services/core-control-plane/src/fdai/delivery/assurance_twin_publication.py), [`test_assurance_twin_publication.py`](../../../services/core-control-plane/tests/delivery/test_assurance_twin_publication.py) | Requests contain no findings. An injected source must return complete, fresh, conflict-free evidence at the requested revision before either writer persists it. Saga-attributed audit and the embedded outbox commit atomically with the exact row; a restart relay validates the retained revision before emitting an advisory, schema-validated bus envelope. Real retained-evidence and governed runtime bindings are not established. |
@@ -82,6 +84,7 @@ last read, so the durable projection remains the only source of currentness.
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-27 | implemented | Content-addressed the retained Resource generation and bounded overlay; writer admission now requires explicit complete rule findings and, for reviews, proposed-IaC evidence at the same revision. Kept production source and request producer unbound. | `current change`; `assurance_twin_inventory.py`, `assurance_twin_writers.py`, focused Inventory and publication tests. | Bind an accountable complete evaluator and proposed-change source, resolve pending relationships, publish content-free bus requests, and retain a governed runtime receipt. |
 | 2026-09-27 | implemented | Added independent Heimdall report and Forseti review writers with exact-revision atomic state/outbox/audit and supervised replay relays. An unavailable or conflicting source cannot synthesize a review verdict. | `current change`; `assurance_twin_writers.py`, `assurance_twin_publication.py`, focused Core, Operator, and Console checks. | Bind trusted production evidence and retain a governed runtime receipt. |
 | 2026-09-09 | in-progress | Linearized matching review replay against a concurrent conflict tombstone with a second revision and digest read. The confirmation remains read-only and appends no audit entry, while a conflict that lands between the two reads is returned as unavailable. | `current change`; focused persistence and delivery checks passed 45 tests, including a forced read-versus-tombstone interleaving, and Ruff passed. | Preserve the same read-only linearization when a trusted producer or transactional publisher is bound. |
 | 2026-09-09 | in-progress | Made matching change-review redelivery a true read-only no-op and ordered the bounded recent-review projection by canonical evidence generation time instead of write recency. The read fails explicitly above its 1,000-row capacity rather than returning a misleading partial order. | `current change`; focused persistence and delivery checks passed 44 tests, and Ruff passed. | Bind a trusted producer and retain governed replay evidence; the recorder remains unbound. |
@@ -138,6 +141,18 @@ defects. The twin inverts each one.
 ## The five shifts
 
 ### 1. Ambient (reactive to proactive)
+
+The current implementation stops before this production flow. A stable `sha256:` Resource
+revision covers the active snapshot identity and content and the bounded realtime Resource
+overlay (including observation times). `load_at_revision` re-reads and rejects later content.
+A trusted, injected source must re-read that revision
+and provide positive rule coverage, evaluated rule ids, a rule-set digest, and a digest of the
+complete finding set. An empty finding set is clear only after that independent complete rule
+assessment. Review admission additionally requires complete proposed-IaC evidence tied to the
+same revision and PR. Pending relationship overlays, absent evidence, revision drift, stale or
+conflicting sources remain unavailable. No existing producer can truthfully select and publish
+the schema-validated content-free request, so production writers remain unbound by default.
+None of these read-only records grants approval, mutation, or execution authority.
 
 The twin reviews changes on the event, not on request. When a change signal
 arrives (an IaC pull request opened, an Activity Log resource write, a drift
