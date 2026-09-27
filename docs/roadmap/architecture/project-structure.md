@@ -37,7 +37,12 @@ Core defines the bounded `query.ontology_instance_candidates` contract with expl
 The physical service workspace is owned by [Multi-Service Repository Layout](multi-service-repository-layout.md). The Core-owned `kubernetes` dependency backs reusable quantity accounting in delivery; root development tooling mirrors it, while shared contracts and independently packaged services do not acquire it. This document owns dependency direction, structural gates, extension seams, control-loop wiring, configuration, and repository conventions. The private
 composition type module stays below its enforced size ceiling so new bindings remain reviewable and move to focused wire modules before the
 shared container becomes a second root. Case-history review requires both failure and matched control evidence before it can propose an
-inert learning candidate. A Workflow approval step cannot lower the no-self-approval invariant; the contract rejects a disabled value at
+inert learning candidate. The optional Core `StateStoreKeysetReader` lists bounded ascending keys so
+historical case-copy cleanup can checkpoint exact rows without offset drift; only Muninn's source
+deletion claim authorizes audited CAS removal, and the previous keys retain replay fences. This
+adds no requirement to existing `StateStore` implementations, cross-service contract, case-read
+authority, or new agent writer. A backend without keyset support keeps deletion pending.
+A Workflow approval step cannot lower the no-self-approval invariant; the contract rejects a disabled value at
 catalog load. Agent behavior hardening enters System Knowledge only through regenerated source commitments; catalog projection never gains
 judgment, recovery, publication, or execution authority. Regenerating a source commitment changes neither record payloads nor operational evidence timestamps. Saga claims each handoff in the runtime `StateStore` before mutation and requires
 an operation-aware issue adapter. The shipped `StateStoreIssueTrackerAdapter` persists issue and operation results across restart, so
