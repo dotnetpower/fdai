@@ -348,7 +348,12 @@ class MimirCatalogReviewMixin:
         """Bind durable pending-review recovery without changing Mimir authority."""
         self._catalog_review_journal.bind(store)
 
-    async def _handle_rule_candidate(self, payload: dict[str, Any]) -> None:
+    async def _handle_rule_candidate(
+        self,
+        payload: dict[str, Any],
+        *,
+        recovering: bool = False,
+    ) -> None:
         investigation_identity: tuple[str, str] | None = None
         if payload.get("source_signal") == "investigation_strategy_comparison_cohort":
             if payload.get("producer_principal") != "Norns":
@@ -377,7 +382,7 @@ class MimirCatalogReviewMixin:
                 return
         verdict = self._guard.inspect(payload)
         if verdict.accepted:
-            await self._accept_candidate(payload)
+            await self._accept_candidate(payload, recovering=recovering)
             if investigation_identity is not None:
                 self._investigation_candidates.set(*investigation_identity)
         else:
@@ -391,7 +396,7 @@ class MimirCatalogReviewMixin:
         candidates, total = await self._catalog_review_journal.pending_candidates()
         for candidate in candidates:
             try:
-                await self._handle_rule_candidate(candidate)
+                await self._handle_rule_candidate(candidate, recovering=True)
             except PermissionError:
                 await self._catalog_review_journal.invalidate(
                     candidate, reason="source_no_longer_current"
@@ -411,7 +416,12 @@ class MimirCatalogReviewMixin:
             )
         return len(candidates)
 
-    async def _accept_candidate(self, payload: dict[str, Any]) -> None:
+    async def _accept_candidate(
+        self,
+        payload: dict[str, Any],
+        *,
+        recovering: bool,
+    ) -> None:
         candidate = dict(payload)
         if candidate.get("source_signal") != "operational_case_fingerprint_cohort":
             self._ensure_pending_capacity()
@@ -424,7 +434,8 @@ class MimirCatalogReviewMixin:
             self._pending_candidates.append(candidate)
             self.record_behavior("operational_catalog_compiler_unavailable")
             return
-        await self._require_current_candidate_cases(candidate)
+        if recovering:
+            await self._require_current_candidate_cases(candidate)
         try:
             package = compiler.compile(candidate)
         except CatalogCompilationError as exc:
@@ -455,6 +466,8 @@ class MimirCatalogReviewMixin:
                 reason=f"catalog_compile:{exc.code}",
             )
             return
+        if not recovering:
+            await self._require_current_candidate_cases(candidate)
         published = await self._catalog_review_journal.publication_receipt(
             candidate,
             candidate_digest=package.candidate.digest,

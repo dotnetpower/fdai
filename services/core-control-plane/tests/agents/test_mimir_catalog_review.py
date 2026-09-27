@@ -637,6 +637,24 @@ async def test_source_deletion_scrubs_pending_review_before_recompile_failure() 
     assert "candidate" not in terminal
 
 
+async def test_fresh_invalid_candidate_is_compiled_before_source_admission() -> None:
+    mimir, _, _ = _mimir(catalog_candidate_compiler=_compiler(fail_schema=True))
+    mimir.bind_case_history(_CaseHistory(available=False))  # type: ignore[arg-type]
+    candidate = {
+        **_candidate(),
+        "case_scope": {
+            "access_scope_digest": "a" * 64,
+            "purpose": "operational-learning",
+        },
+    }
+
+    await mimir.on_typed_message("object.rule-candidate", candidate)
+
+    assert mimir.quarantined_candidates()[0]["quarantine_reason"] == (
+        "catalog_compile:schema_check_failed"
+    )
+
+
 async def test_review_capacity_fails_without_evicting_unresolved_package() -> None:
     mimir, _, _ = _mimir(
         catalog_candidate_compiler=_compiler(),
