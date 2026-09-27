@@ -11,7 +11,12 @@ from fdai_deployment_cli.contracts import (
     canonical_digest,
     load_json_object,
 )
-from fdai_deployment_cli.foundation_adoption import stage_recovered_foundation
+from fdai_deployment_cli.foundation_adoption import (
+    stage_recovered_foundation,
+)
+from fdai_deployment_cli.foundation_adoption_evidence import (
+    validate_foundation_adoption_receipt,
+)
 from fdai_deployment_cli.profile import write_profile
 from fdai_deployment_cli.target import compute_target_binding
 
@@ -262,4 +267,26 @@ def test_recovered_foundation_adoption_rejects_receipt_tampering(tmp_path: Path)
             subscription_id=SUBSCRIPTION,
             region=REGION,
             monthly_cost_ceiling=2000,
+        )
+
+
+def test_foundation_adoption_receipt_rejects_another_kit(tmp_path: Path) -> None:
+    adoption = _stage(tmp_path)
+    handoff = load_json_object(
+        (tmp_path / "recovery/recovery-private-handoff.json").read_bytes(),
+        label="Foundation handoff",
+    )
+    changed = dict(adoption.receipt)
+    changed.pop("receipt_digest")
+    changed["kit_manifest_digest"] = "0" * 64
+    changed["receipt_digest"] = canonical_digest(changed)
+
+    with pytest.raises(ValueError, match="exact context"):
+        validate_foundation_adoption_receipt(
+            changed,
+            handoff=handoff,
+            target_binding=TARGET,
+            application_source_commit=APPLICATION_SOURCE,
+            kit_manifest_digest="e" * 64,
+            runtime_release_digest="f" * 64,
         )
