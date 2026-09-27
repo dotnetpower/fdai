@@ -62,8 +62,11 @@ The exact create plan permits only the reviewed sandbox addresses. One workload 
 `arg,arm` campaign over the bounded `resource-group` type, while a distinct read-only identity
 verifies the private receipt. The campaign records workload token, DNS, TCP/TLS, bounded ARG,
 private projection write, ARG unavailability, one ARM fallback, retained active generation, and
-higher-priority ARG recovery. Cleanup uses a separate exact delete-only plan after successful
-effect verification; an ambiguous campaign or cleanup preserves the sandbox for recovery review.
+higher-priority ARG recovery. The same exact image audits complete, incomplete, stale, conflicting,
+and unavailable semantic refresh states, permits one canonical partial-overlay write-through, and
+re-queries the exact active generation with no authority. Cleanup uses a separate exact delete-only
+plan after successful effect verification; an ambiguous campaign or cleanup preserves the sandbox
+for recovery review.
 
 ## Required network paths
 
