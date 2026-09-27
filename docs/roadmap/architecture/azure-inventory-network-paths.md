@@ -35,6 +35,8 @@ unavailable" and retains the last complete snapshot.
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-27 | implemented | Recovered the sandbox design without touching shared DNS: PostgreSQL uses a request-unique private zone, Blob connects to the exact private endpoint IP while validating the original hostname through TLS SNI and HTTP Host, and campaign Reader is limited to the application resource group. | `current change`; focused transport tests; Terraform validation; Trivy and Checkov reported 0 failed findings. | Merge and run a new exact request; do not reuse the failed plan. |
+| 2026-09-27 | in-progress | The first governed create plan stopped after partial effects when shared private DNS zone names collided and the subscription-scoped Reader assignment was denied. The immutable claim, plan, logs, 24 Terraform state addresses, and 7 tagged Azure resources were preserved. | Private apply claim and plan digest `90e269aac3fb606fef0e7a9d9b6fa2d43f6eabdbfbf0a858cc3cc620956f79d8`; authoritative resource and state readback. | Preserve this failed sandbox for recovery review and use a new request for certification. |
 | 2026-09-27 | implemented | Bound sandbox creation to the existing development application resource group because its managed-host UAMI already has exact Contributor and role-assignment authority there. The plan no longer creates, tags, or deletes a resource group. | `current change`; Terraform target fence and exact create/delete address gate. | Run the governed campaign and verify only task-tagged sandbox resources are removed. |
 | 2026-09-27 | implemented | Hardened the isolated certification sandbox with infrastructure-encrypted private receipt storage, default-deny network rules, Blob diagnostics, PostgreSQL audit settings, and an NSG on every task-owned subnet. | `current change`; Trivy 0 findings above Low; Checkov 0 failed checks; Terraform validation and exact plan-gate tests passed. | Run the governed exact-revision campaign and verify task-only cleanup. |
 | 2026-09-17 | implemented | Extended the disposable scenario's resource-local public-access exceptions to Checkov without broadening the API, identity, or authorization boundary. | `current change`; `infra/scenario-lab/aks.tf`; focused Trivy and Checkov scans and scenario-lab tests. | Retain protected recreation and FDAI Pod-inventory readback. |
@@ -59,6 +61,10 @@ PostgreSQL subnets, private DNS zones, private PostgreSQL server, and private Bl
 does not tag or delete the existing resource group, and does not peer with, route through, or change
 the existing development Virtual Network, DNS, NSG, Private Endpoint, identity, provider
 registration, or active inventory generation.
+
+The PostgreSQL private DNS zone is request-unique. Blob receipt I/O connects to the exact private
+endpoint address while TLS SNI and the HTTP Host header remain bound to the account hostname, so
+the campaign neither links nor writes records into a shared Blob zone.
 
 The exact create plan permits only the reviewed sandbox addresses. One workload identity runs the
 `arg,arm` campaign over the bounded `resource-group` type, while a distinct read-only identity

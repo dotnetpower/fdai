@@ -13,10 +13,11 @@ locals {
     "fdai:authority"    = "observation-only"
     "fdai:cleanup-mode" = "exact-plan"
   }
-  storage_name  = "stfdaiinv${local.suffix}"
-  postgres_name = "psql-fdai-invnet-${local.suffix}"
-  receipt_name  = "${var.request_id}.json"
-  receipt_url   = "https://${local.storage_name}.blob.core.windows.net/receipts/${local.receipt_name}"
+  storage_name      = "stfdaiinv${local.suffix}"
+  postgres_name     = "psql-fdai-invnet-${local.suffix}"
+  postgres_dns_name = "invnet-${local.suffix}.postgres.database.azure.com"
+  receipt_name      = "${var.request_id}.json"
+  receipt_url       = "https://${local.storage_name}.blob.core.windows.net/receipts/${local.receipt_name}"
   dsn = join("", [
     "postgresql://fdaiadmin:",
     urlencode(random_password.postgres.result),
@@ -119,7 +120,7 @@ resource "azurerm_subnet_network_security_group_association" "private_endpoints"
 }
 
 resource "azurerm_private_dns_zone" "postgres" {
-  name                = "privatelink.postgres.database.azure.com"
+  name                = local.postgres_dns_name
   resource_group_name = data.azurerm_resource_group.certification.name
   tags                = local.tags
 }
@@ -128,21 +129,6 @@ resource "azurerm_private_dns_zone_virtual_network_link" "postgres" {
   name                  = "link-postgres"
   resource_group_name   = data.azurerm_resource_group.certification.name
   private_dns_zone_name = azurerm_private_dns_zone.postgres.name
-  virtual_network_id    = azurerm_virtual_network.certification.id
-  registration_enabled  = false
-  tags                  = local.tags
-}
-
-resource "azurerm_private_dns_zone" "blob" {
-  name                = "privatelink.blob.core.windows.net"
-  resource_group_name = data.azurerm_resource_group.certification.name
-  tags                = local.tags
-}
-
-resource "azurerm_private_dns_zone_virtual_network_link" "blob" {
-  name                  = "link-blob"
-  resource_group_name   = data.azurerm_resource_group.certification.name
-  private_dns_zone_name = azurerm_private_dns_zone.blob.name
   virtual_network_id    = azurerm_virtual_network.certification.id
   registration_enabled  = false
   tags                  = local.tags
@@ -301,10 +287,6 @@ resource "azurerm_private_endpoint" "blob" {
     subresource_names              = ["blob"]
   }
 
-  private_dns_zone_group {
-    name                 = "blob"
-    private_dns_zone_ids = [azurerm_private_dns_zone.blob.id]
-  }
 }
 
 resource "azurerm_log_analytics_workspace" "certification" {
@@ -340,8 +322,8 @@ resource "azurerm_user_assigned_identity" "verifier" {
   tags                = local.tags
 }
 
-resource "azurerm_role_assignment" "campaign_subscription_reader" {
-  scope                = "/subscriptions/${var.subscription_id}"
+resource "azurerm_role_assignment" "campaign_resource_group_reader" {
+  scope                = data.azurerm_resource_group.certification.id
   role_definition_name = "Reader"
   principal_id         = azurerm_user_assigned_identity.campaign.principal_id
 }
@@ -527,12 +509,16 @@ resource "azurerm_container_app_job" "campaign" {
         name  = "FDAI_NETWORK_CERT_RECEIPT_URL"
         value = local.receipt_url
       }
+      env {
+        name  = "FDAI_NETWORK_CERT_RECEIPT_PRIVATE_IP"
+        value = azurerm_private_endpoint.blob.private_service_connection[0].private_ip_address
+      }
     }
   }
 
   depends_on = [
     azurerm_private_endpoint.blob,
-    azurerm_role_assignment.campaign_subscription_reader,
+    azurerm_role_assignment.campaign_resource_group_reader,
     azurerm_role_assignment.campaign_receipt_writer,
   ]
 }
@@ -598,6 +584,10 @@ resource "azurerm_container_app_job" "verifier" {
       env {
         name  = "FDAI_NETWORK_CERT_RECEIPT_URL"
         value = local.receipt_url
+      }
+      env {
+        name  = "FDAI_NETWORK_CERT_RECEIPT_PRIVATE_IP"
+        value = azurerm_private_endpoint.blob.private_service_connection[0].private_ip_address
       }
     }
   }
