@@ -26,6 +26,6 @@ def test_analyzer_readback_role_uses_the_job_identity_and_exact_ingest_topic() -
     )
     assert "identity_ids = [var.inventory_identity_id]" in job
     targets = (
-        _ROOT / "packages/deployment-cli/src/fdai_deployment_cli/standalone_host.py"
+        _ROOT / "packages/deployment-cli/src/fdai_deployment_cli/standalone_stage_targets.py"
     ).read_text(encoding="utf-8")
     assert '"azurerm_role_assignment.inventory_eventhubs_sender"' in targets
