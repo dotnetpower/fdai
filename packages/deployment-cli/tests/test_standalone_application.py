@@ -31,6 +31,27 @@ def test_recovered_state_rejects_destructive_plan_before_approval(
         standalone_application._require_nondestructive_adoption_plan({})
 
 
+def test_residual_recovery_review_skips_ordinary_replanning(monkeypatch) -> None:
+    review = {"residual_recovery": {"operation": "substrate-residual"}}
+    monkeypatch.setattr(
+        standalone_application,
+        "_remote_json",
+        lambda *_args, **_kwargs: pytest.fail("residual review must not request another plan"),
+    )
+
+    selected, command = standalone_application._plan_after_recovery(
+        object(),
+        "/remote",
+        "/application",
+        review,
+        stage="substrate",
+        timeout=60,
+    )
+
+    assert selected is review
+    assert command == "apply-residual"
+
+
 def test_missing_license_material_keeps_deployment_observation_only(monkeypatch) -> None:
     monkeypatch.setattr(standalone_application, "discover_license_signing_key", lambda _key: None)
 

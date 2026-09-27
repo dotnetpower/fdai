@@ -35,6 +35,14 @@ The operator chooses one runtime platform and one database placement. `fdaictl` 
 combination, estimates its capacity and cost, compiles a platform-specific provisioning graph,
 and asks for approval of each exact plan. A retry can verify an uncertain effect, but it cannot
 change either choice or repeat an ambiguous apply.
+Verification-only recovery remains the first and only implicit response to an apply claim. A fresh
+zero-change plan and authoritative readback close the original claim. If the refreshed exact plan
+instead proves bounded residual changes, the coordinator preserves the original claim and emits a
+distinct residual review bound to the original claim, current state, target, source, runtime
+profile, and residual binary plan. It requires a new exact `<stage>-residual-apply` approval and a
+new residual claim before one effect. Destructive residuals retain the second confirmation.
+Residual apply ambiguity is verification-only; it cannot create another residual apply. Completion
+still requires authoritative effect readback and a zero-change plan.
 
 | Axis | Supported values | Default | Meaning |
 |------|------------------|---------|---------|

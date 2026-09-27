@@ -1,6 +1,6 @@
 ---
 translation_of: runtime-deployment-profiles.md
-translation_source_sha: 782773c7c32ee0341d3e1c7f868e99ea69cfb0c3
+translation_source_sha: 4d640c9d7fc8bb070996a880ad3a0b014cb2a3f3
 translation_revised: 2026-09-27
 ---
 # 런타임 배포 프로파일
@@ -34,8 +34,7 @@ facade로 import를 모아도 AKS 관측, Cost Governance 활성화, 배포 권�
 
 운영자는 런타임 플랫폼과 데이터베이스 배치를 하나씩 선택합니다. `fdaictl`은 조합을 검증하고,
 용량과 비용을 추정하며, 플랫폼별 프로비저닝 그래프를 컴파일하고, 각 정확한 플랜에 대한 승인을
-요청합니다. 재시도는 불확실한 효과를 검증할 수 있지만 선택을 바꾸거나 불명확한 적용을 반복할
-수는 없습니다.
+요청합니다. 재시도는 불확실한 효과를 검증할 수 있지만 선택을 바꾸거나 불명확한 적용을 반복할 수는 없습니다. 검증 전용 복구는 apply claim에 대한 첫 번째이자 유일한 암묵적 대응입니다. 새 zero-change plan과 권위 있는 재조회가 원 claim을 종결합니다. 갱신된 exact plan이 제한된 잔여 변경을 입증하면 조정기는 원 claim을 보존하고 원 claim·현재 state·target·source·runtime profile·잔여 이진 plan에 연결된 별도 residual review를 만듭니다. 한 번의 효과 전에 새 exact `<stage>-residual-apply` 승인과 새 residual claim이 필요하며 파괴적 잔여 변경에는 두 번째 확인을 유지합니다. Residual apply가 모호하면 검증만 허용하고 다른 residual apply를 만들 수 없습니다. 완료에는 계속 권위 있는 효과 재조회와 zero-change plan이 필요합니다.
 
 | 축 | 지원 값 | 기본값 | 의미 |
 |----|---------|--------|------|
