@@ -1,8 +1,8 @@
 ---
 title: 제한된 네트워크의 Azure 인벤토리
 translation_of: azure-inventory-network-paths.md
-translation_source_sha: e436fbb965ed340767f8abe422c087ad30b85204
-translation_revised: 2026-09-17
+translation_source_sha: ff5ce7946794f3d6257512afa583f0898ee01bf2
+translation_revised: 2026-09-27
 ---
 # 제한된 네트워크의 Azure 인벤토리
 
@@ -29,6 +29,7 @@ FDAI는 네트워크 도달성, 아이덴티티, 수집, 프로젝션을 별도 
 | 영역 | 상태 | 근거 | 참고 |
 |------|------|------|------|
 | 제한된 네트워크 발견 및 순서가 지정된 출처 대체 경로 | in-progress | `delivery/azure/` 아래 Azure 인벤토리 어댑터, 배포 preflight 및 연결 계약 | 범위가 제한된 어댑터와 실패 분류가 있습니다. 이 문서는 모든 대체 단계를 입증하는 exact-revision 보호 배포를 하나로 보존하지 않습니다. |
+| 격리된 대체 경로 인증 | implemented | `inventory_network_certification.py`, `infra/inventory-network-certification/`, 정확한 생성 및 정리 계획 검증기, 집중 검사 | 작업 전용 샌드박스는 기존 개발 네트워크를 변경하지 않고 토큰, DNS, TLS, 범위가 제한된 ARG, 비공개 변환 결과, ARG에서 ARM으로 한 번 전환, 활성 세대 유지, 복구, 독립적인 비공개 증적 조회, 정확한 정리를 입증할 수 있습니다. 관리되는 실행은 아직 남아 있습니다. |
 | 스냅샷 권위 및 stale 상태 처리 | implemented | [CSP-중립성 계약](csp-neutrality-ko.md#구현-상태)이 인용하는 인벤토리 동기화, 프로젝션 및 재조정 테스트 | 부분 수집은 마지막 완전 승격 세대를 교체하거나 부재 주장을 승인할 수 없습니다. |
 | 서브넷별 네트워크 제어 | implemented | `infra/modules/network/main.tf`, `infra/bootstrap/main.tf`, 집중 네트워크 강화 테스트 | VM이 있는 서브넷은 명시적인 NSG로 Internet inbound를 거부합니다. Azure 관리형 delegated 및 private-endpoint 서브넷은 서비스 소유 네트워크 정책 계약을 유지합니다. |
 | AKS fleet 관측 연결 | implemented | `infra/main.tf`, `infra/scenario-lab/aks.tf`, Container Apps Inventory Job, 집중 AKS 신원 및 시나리오 검사 | 정확한 workload-identity 연결은 읽기 전용으로 유지됩니다. 폐기 가능한 시나리오는 Microsoft Entra와 Azure RBAC로 보호되고 로컬 계정이 비활성화된 공개 API 하나를 사용할 수 있으며, Trivy 및 Checkov 공개 접근 예외는 해당 리소스에만 적용됩니다. |
@@ -37,6 +38,7 @@ FDAI는 네트워크 도달성, 아이덴티티, 수집, 프로젝션을 별도 
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-27 | implemented | 인프라 이중 암호화를 적용한 비공개 증적 저장소, 기본 거부 네트워크 규칙, Blob 진단, PostgreSQL 감사 설정, 모든 작업 전용 서브넷의 NSG로 격리된 인증 샌드박스를 강화했습니다. | `current change`, Low 초과 Trivy 발견 사항 0건, Checkov 실패 검사 0건, Terraform 검증 및 정확한 계획 게이트 검사 통과. | 관리되는 정확한 revision 캠페인을 실행하고 작업 전용 정리를 검증합니다. |
 | 2026-09-17 | implemented | API, 신원 또는 권한 부여 경계를 넓히지 않고 폐기 가능한 시나리오의 리소스 한정 공개 접근 예외를 Checkov까지 확장했습니다. | `current change`, `infra/scenario-lab/aks.tf`, 집중 Trivy 및 Checkov 스캔과 시나리오 랩 검사. | 보호된 재생성과 FDAI Pod 인벤토리 조회 결과를 보존합니다. |
 | 2026-09-17 | implemented | 폐기 가능한 시나리오에 인증된 공개 AKS API 경로를 추가하고 두 공개 접근 스캐너 예외를 해당 리소스 하나로 제한했습니다. | `current change`, `infra/scenario-lab/aks.tf`, 집중 Trivy 스캔 및 시나리오 랩 검사. | 보호된 재생성과 FDAI Pod 인벤토리 조회 결과를 보존합니다. |
 | 2026-09-10 | implemented | 기존 및 fleet AKS 관측 연결을 상호 배타적으로 추가하고 정확한 클러스터별 Reader를 부여했습니다. | `current change`, Terraform 형식 검사 및 집중 신원 검사 | 보호된 배포 근거는 별도로 보존합니다. |
@@ -50,6 +52,21 @@ FDAI는 네트워크 도달성, 아이덴티티, 수집, 프로젝션을 별도 
 - [ ] 토큰, DNS, TCP/TLS, 제한된 ARG 조회, 비공개 프로젝션 쓰기, 사용할 수 없는 출처의
   대체 경로 하나, stale 유지 및 발견 또는 실행기 신원을 넓히지 않는 성공적 복구를 입증하는
   exact-revision 보호 배포 증적을 보존합니다.
+
+## 격리된 인증 샌드박스
+
+제한된 네트워크 장애 근거는 자체 Virtual Network, 위임된 Container Apps 및 PostgreSQL
+서브넷, 비공개 DNS 영역, 비공개 PostgreSQL 서버, 비공개 Blob 증적 저장소를 포함한 작업
+전용 개발 리소스 그룹을 사용합니다. 기존 개발 Virtual Network, DNS, NSG, Private
+Endpoint, 신원, 공급자 등록 또는 활성 인벤토리 세대와 피어링하거나 이를 경유하거나
+변경하지 않습니다.
+
+정확한 생성 계획은 검토된 샌드박스 주소만 허용합니다. 한 워크로드 신원은 범위가 제한된
+`resource-group` 타입에 대해 `arg,arm` 캠페인을 실행하고, 별도의 읽기 전용 신원은 비공개
+증적을 검증합니다. 캠페인은 워크로드 토큰, DNS, TCP/TLS, 범위가 제한된 ARG, 비공개 변환
+결과 쓰기, ARG 사용 불가, 한 번의 ARM 대체, 활성 세대 유지, 우선순위가 높은 ARG 복구를
+기록합니다. 효과 검증이 성공한 뒤 별도의 정확한 삭제 전용 계획으로 정리합니다. 캠페인이나
+정리 결과가 모호하면 복구 검토를 위해 샌드박스를 보존합니다.
 
 ## 필수 네트워크 경로
 

@@ -51,6 +51,7 @@ from fdai.shared.contracts.models import OntologyRelease
 from fdai.shared.providers.catalog_search import CatalogSemanticIndex
 from fdai.shared.providers.ontology_instance import OntologyInstanceStore
 from fdai.shared.providers.read_investigation import ReadInvestigationProvider
+from fdai.shared.providers.state_store import StateStore
 from fdai.shared.providers.workload_identity import WorkloadIdentity
 
 from ._helpers import Container
@@ -105,6 +106,7 @@ def compose_azure_semantic_query_runtime(
     resource_freshness_seconds: int | None = None,
     adaptive_model_factory: Callable[[], AdaptiveModel | None] | None = None,
     instance_candidate_query: InstanceCandidateQuery | None = None,
+    state_store: StateStore | None = None,
 ) -> SemanticQueryRuntimeComposition:
     """Compose Azure semantic querying over optional exact Rule retrieval."""
 
@@ -245,6 +247,7 @@ def compose_azure_semantic_query_runtime(
             inventory_query_language=_inventory_query_language(catalog_root),
             purpose=purpose,
             decision_evidence_admission_provider=(container.decision_evidence_admission_provider),
+            state_store=state_store,
         )
     except (OSError, LookupError, TypeError, ValueError) as exc:
         _LOGGER.warning(
