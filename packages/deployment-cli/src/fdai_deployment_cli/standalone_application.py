@@ -127,7 +127,7 @@ def deploy_standalone_application(
         trust_new_host_key=False,
     ) as underlying_tunnel:
         tunnel = DeadlineTransport(underlying_tunnel, deadline)
-        _prepare_remote(
+        host_preparation = _prepare_remote(
             tunnel,
             remote_root=remote_root,
             remote_archive=remote_archive,
@@ -148,6 +148,49 @@ def deploy_standalone_application(
                 catalog_review_profile or CatalogReviewDeploymentProfile.unselected()
             ),
         )
+        if (
+            isinstance(host_preparation, dict)
+            and host_preparation.get("focused_private_access") is True
+        ):
+            progress_detail("Converging the focused private data-plane access path")
+            access_recovery = _remote_json(
+                tunnel,
+                remote_root,
+                app_work,
+                ("recover-apply", "--stage", "access"),
+                timeout=3600,
+            )
+            if access_recovery.get("state") == "applied":
+                access_receipt = access_recovery
+            else:
+                access_plan, access_apply_command = _plan_after_recovery(
+                    tunnel,
+                    remote_root,
+                    app_work,
+                    access_recovery,
+                    stage="access",
+                    timeout=3600,
+                )
+                deadline.remaining()
+                access_approval = _approve_plan(prepared.root, access_plan, deadline=deadline)
+                tunnel.ssh(("rm", "-f", "--", remote_approval), timeout=60)
+                tunnel.copy_to(access_approval, remote_approval, timeout=120)
+                access_receipt = _remote_json(
+                    tunnel,
+                    remote_root,
+                    app_work,
+                    (
+                        access_apply_command,
+                        "--stage",
+                        "access",
+                        "--approval",
+                        remote_approval,
+                    ),
+                    timeout=7200,
+                )
+                access_approval.unlink(missing_ok=True)
+                tunnel.ssh(("rm", "-f", "--", remote_approval), timeout=60)
+            _require_receipt(access_receipt, "access")
         begin_stage("substrate")
         progress_detail("Recovering by verification, or planning private infrastructure")
         substrate_recovery = _remote_json(

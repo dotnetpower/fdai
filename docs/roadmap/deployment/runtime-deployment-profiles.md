@@ -225,7 +225,11 @@ Terraform plan still requires exact approval. The selectors validate bounded man
 accept either provider-flattened or nested `properties.publicNetworkAccess`, keep absent resources
 on the default path, and fail closed on duplicates or unknown shapes. The Blob and DFS endpoint
 modules are explicit substrate targets because they are dependents of document storage rather than
-implicit dependencies of the storage module.
+implicit dependencies of the storage module. When either focused axis is selected, a separately
+approved `access` plan first converges only the selected endpoints, DNS links, peering and deployer
+data roles. Read-only Key Vault and ADLS probes must then succeed before the ordinary substrate plan
+can create secrets, filesystems, or paths. An ambiguous access apply follows the same
+verification-first and bounded residual rules as every other stage.
 One bounded exception lets an eligible host run `fdaictl provision source-service-update` for one service on an
 existing healthy `dev` AKS installation. The source-built image remains operator-selected evidence rather than release trust. Current human approval gates its
 Managed Identity import and the Deployment-only exact plan; digest and health readback, unchanged peers, and targeted zero change remain required.

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import subprocess
 from pathlib import Path
 from typing import Any
@@ -34,7 +35,7 @@ def prepare_remote(
     remote_adoption_descriptor: str = "",
     timeout_seconds: int,
     catalog_review_profile: CatalogReviewDeploymentProfile | None = None,
-) -> None:
+) -> dict[str, object]:
     """Transfer exact inputs and invoke the value-free host preparation command."""
 
     selected_runtime = runtime_profile or RuntimeDeploymentProfile.create(
@@ -137,6 +138,7 @@ def prepare_remote(
             (("install", "-d", "-m", "0700", app_work), 60),
             (prepare_arguments, 1800),
         )
+        setup = None
         for command, limit in commands:
             setup = tunnel.ssh(command, timeout=min(limit, timeout_seconds))
             if setup.returncode != 0:
@@ -148,6 +150,19 @@ def prepare_remote(
             raise cleanup_failure from setup_failure
         raise
     _cleanup_catalog_review_staging(tunnel, remote_root=remote_root)
+    if setup is None:
+        raise ValueError("standalone managed-host preparation returned no result")
+    try:
+        result = json.loads(setup.stdout)
+    except json.JSONDecodeError as exc:
+        raise ValueError("standalone managed-host preparation returned invalid output") from exc
+    if (
+        not isinstance(result, dict)
+        or result.get("state") != "prepared"
+        or type(result.get("focused_private_access")) is not bool
+    ):
+        raise ValueError("standalone managed-host preparation result is invalid")
+    return {str(key): value for key, value in result.items()}
 
 
 def _cleanup_catalog_review_staging(tunnel: Any, *, remote_root: str) -> None:

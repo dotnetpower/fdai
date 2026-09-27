@@ -20,6 +20,15 @@ def test_standalone_application_reuses_foundation_host_key_alias() -> None:
     assert "fdai-standalone-" not in source
 
 
+def test_focused_access_converges_before_substrate() -> None:
+    source = inspect.getsource(standalone_application.deploy_standalone_application)
+
+    assert source.index('host_preparation.get("focused_private_access")') < source.index(
+        'begin_stage("substrate")'
+    )
+    assert 'stage="access"' in source
+
+
 def test_recovered_state_rejects_destructive_plan_before_approval(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

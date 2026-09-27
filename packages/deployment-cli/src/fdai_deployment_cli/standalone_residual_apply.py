@@ -22,7 +22,7 @@ from fdai_deployment_cli.standalone_host_state import (
 from fdai_deployment_cli.standalone_host_values import plan_summary
 from fdai_deployment_cli.standalone_review import validate_plan_review
 
-_STAGES = frozenset({"substrate", "runtime", "database", "application"})
+_STAGES = frozenset({"access", "substrate", "runtime", "database", "application"})
 _DIGEST = re.compile(r"[0-9a-f]{64}")
 _SOURCE_COMMIT = re.compile(r"[0-9a-f]{40}")
 
