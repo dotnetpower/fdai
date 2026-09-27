@@ -182,6 +182,7 @@ def create_authority(
         "comparison_digest": canonical_digest(dict(comparison)),
         "observation_digest": canonical_digest(dict(observation)),
         "remote_state_digest": observation["remote_state_digest"],
+        "backend_blob_digest": observation["backend_blob_digest"],
         "state_digest": comparison["state_digest"],
         "plan_digest": comparison["plan_digest"],
         "managed_resource_count": comparison["managed_resource_count"],
@@ -232,6 +233,13 @@ def validate_authority(
             and (
                 not isinstance(authority.get("remote_state_digest"), str)
                 or _DIGEST.fullmatch(str(authority["remote_state_digest"])) is None
+            )
+        )
+        or (
+            authority.get("backend_blob_digest") is not None
+            and (
+                not isinstance(authority.get("backend_blob_digest"), str)
+                or _DIGEST.fullmatch(str(authority["backend_blob_digest"])) is None
             )
         )
         or authority.get("remote_backend_authority_verified") is not True

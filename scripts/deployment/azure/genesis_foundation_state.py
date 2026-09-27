@@ -199,23 +199,23 @@ def _execute_selected(args: argparse.Namespace) -> dict[str, object]:
             claim,
             work_id,
         )
-        _reobserve_remote_authority(
-            directory=directory,
-            handoff=handoff,
-            runner=runner,
-            state=state,
-            ops=ops,
-            connection=connection,
-            private_key=private_key,
-            known_hosts=known_hosts,
-            work_id=work_id,
-            archive_digest=_required_text(receipt, "archive_digest"),
-            expected_state_digest=_required_text(authority, "state_digest"),
-            expected_remote_state_digest=_authority_remote_state_digest(
-                directory, authority=authority, work_id=work_id
-            ),
-            timeout=args.timeout_seconds,
-        )
+        backend_blob_digest = _authority_backend_blob_digest(authority)
+        if backend_blob_digest is not None:
+            _reobserve_remote_authority(
+                directory=directory,
+                handoff=handoff,
+                runner=runner,
+                state=state,
+                ops=ops,
+                connection=connection,
+                private_key=private_key,
+                known_hosts=known_hosts,
+                work_id=work_id,
+                archive_digest=_required_text(receipt, "archive_digest"),
+                expected_state_digest=_required_text(authority, "state_digest"),
+                expected_backend_blob_digest=backend_blob_digest,
+                timeout=args.timeout_seconds,
+            )
         return receipt
 
     authority = state_contract.load_authority(authority_path)
@@ -557,7 +557,7 @@ def _reobserve_remote_authority(
     work_id: str,
     archive_digest: str,
     expected_state_digest: str,
-    expected_remote_state_digest: str,
+    expected_backend_blob_digest: str,
     timeout: int,
 ) -> None:
     remote_archive = f"/home/{connection['username']}/.fdai-transfer-{work_id[:24]}.tar.gz"
@@ -619,8 +619,8 @@ def _reobserve_remote_authority(
                     remote_observer,
                     "observe",
                     *remote_arguments,
-                    "--expected-remote-state-digest",
-                    expected_remote_state_digest,
+                    "--expected-backend-blob-digest",
+                    expected_backend_blob_digest,
                 ),
                 timeout=timeout,
             )
@@ -638,30 +638,12 @@ def _reobserve_remote_authority(
             raise ValueError("Foundation remote state authority re-observation failed")
 
 
-def _authority_remote_state_digest(
-    directory: Path, *, authority: Mapping[str, object], work_id: str
-) -> str:
-    retained = authority.get("remote_state_digest")
-    if retained is not None:
-        digest = _required_text(authority, "remote_state_digest")
-        if _DIGEST.fullmatch(digest) is None:
-            raise ValueError("Foundation remote state authority digest is invalid")
-        return digest
-    observation = _private_json(
-        directory / f"remote-observation-{work_id[:12]}.json",
-        label="retained remote state observation",
-    )
-    if (
-        canonical_digest(dict(observation)) != authority.get("observation_digest")
-        or observation.get("schema_version")
-        != "fdai.genesis-foundation-remote-state-observation.v1"
-        or observation.get("state") != "verified"
-        or observation.get("work_id") != work_id
-    ):
-        raise ValueError("Foundation retained remote state observation differs")
-    digest = _required_text(observation, "remote_state_digest")
+def _authority_backend_blob_digest(authority: Mapping[str, object]) -> str | None:
+    if authority.get("backend_blob_digest") is None:
+        return None
+    digest = _required_text(authority, "backend_blob_digest")
     if _DIGEST.fullmatch(digest) is None:
-        raise ValueError("Foundation retained remote state digest is invalid")
+        raise ValueError("Foundation backend blob authority digest is invalid")
     return digest
 
 
@@ -761,6 +743,8 @@ def _validate_remote_observation(
         or observation.get("archive_digest") != archive_digest
         or observation.get("remote_state_digest") != hashlib.sha256(remote_state).hexdigest()
         or observation.get("remote_plan_digest") != hashlib.sha256(remote_plan).hexdigest()
+        or not isinstance(observation.get("backend_blob_digest"), str)
+        or _DIGEST.fullmatch(str(observation["backend_blob_digest"])) is None
         or observation.get("managed_identity_verified") is not True
         or observation.get("backend_protection_verified") is not True
         or observation.get("backend_blob_verified") is not True

@@ -53,6 +53,7 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--expected-state-digest", required=True)
     parser.add_argument("--support-repair-digest")
     parser.add_argument("--expected-remote-state-digest")
+    parser.add_argument("--expected-backend-blob-digest")
     return parser
 
 
@@ -187,6 +188,7 @@ def main() -> int:
         )
         _write_bytes(work / "remote-plan.json", plan_json)
         _verify_backend(args, environment)
+        backend_state = _download_backend_state(work, args, environment)
         result = {
             "schema_version": "fdai.genesis-foundation-remote-state-observation.v1",
             "state": "verified",
@@ -194,6 +196,7 @@ def main() -> int:
             "archive_digest": args.archive_digest,
             "remote_state_digest": hashlib.sha256(remote_state).hexdigest(),
             "remote_plan_digest": hashlib.sha256(plan_json).hexdigest(),
+            "backend_blob_digest": hashlib.sha256(backend_state).hexdigest(),
             "managed_identity_verified": True,
             "backend_protection_verified": True,
             "backend_blob_verified": True,
@@ -232,54 +235,17 @@ def _observe_remote_authority(args: argparse.Namespace, cleanup_marker: Path) ->
     try:
         environment = _terraform_environment(work, args)
         _managed_identity_login(work, args)
-        remote_state_path = work / "remote-state.json"
-        _write_bytes(remote_state_path, b"")
-        _run(
-            (
-                _AZURE_CLI,
-                "storage",
-                "blob",
-                "download",
-                "--auth-mode",
-                "login",
-                "--account-name",
-                args.account_name,
-                "--container-name",
-                args.container_name,
-                "--name",
-                args.backend_key,
-                "--file",
-                str(remote_state_path),
-                "--overwrite",
-                "true",
-                "--output",
-                "none",
-                "--only-show-errors",
-            ),
-            cwd=work,
-            env=environment,
-            timeout=300,
-            reason="Foundation remote state observation download failed",
-        )
-        details = remote_state_path.lstat()
-        if (
-            not stat.S_ISREG(details.st_mode)
-            or details.st_uid != os.geteuid()
-            or details.st_nlink != 1
-        ):
-            raise ValueError("Foundation remote state observation download is unsafe")
-        remote_state_path.chmod(0o600)
-        remote_state = _read_bytes(remote_state_path, 64 * 1024 * 1024)
+        remote_state = _download_backend_state(work, args, environment)
         remote_value = json.loads(remote_state)
         if not isinstance(remote_value, dict):
             raise ValueError("Foundation remote state observation is invalid")
-        expected_remote_digest = getattr(args, "expected_remote_state_digest", None)
+        expected_backend_digest = getattr(args, "expected_backend_blob_digest", None)
         remote_digest = (
             hashlib.sha256(remote_state).hexdigest()
-            if expected_remote_digest is not None
+            if expected_backend_digest is not None
             else _canonical_digest(remote_value)
         )
-        expected_digest = expected_remote_digest or args.expected_state_digest
+        expected_digest = expected_backend_digest or args.expected_state_digest
         if remote_digest != expected_digest:
             raise ValueError("Foundation remote state observation digest differs")
         _verify_backend(args, environment)
@@ -348,6 +314,47 @@ def _require_cleanup_absence(work: Path, archive: Path) -> None:
         raise ValueError("Foundation state cleanup residue remains")
 
 
+def _download_backend_state(
+    work: Path,
+    args: argparse.Namespace,
+    environment: dict[str, str],
+) -> bytes:
+    destination = work / "backend-state.json"
+    _write_bytes(destination, b"")
+    _run(
+        (
+            _AZURE_CLI,
+            "storage",
+            "blob",
+            "download",
+            "--auth-mode",
+            "login",
+            "--account-name",
+            args.account_name,
+            "--container-name",
+            args.container_name,
+            "--name",
+            args.backend_key,
+            "--file",
+            str(destination),
+            "--overwrite",
+            "true",
+            "--output",
+            "none",
+            "--only-show-errors",
+        ),
+        cwd=work,
+        env=environment,
+        timeout=300,
+        reason="Foundation remote state observation download failed",
+    )
+    details = destination.lstat()
+    if not stat.S_ISREG(details.st_mode) or details.st_uid != os.geteuid() or details.st_nlink != 1:
+        raise ValueError("Foundation remote state observation download is unsafe")
+    destination.chmod(0o600)
+    return _read_bytes(destination, 64 * 1024 * 1024)
+
+
 def _validate(args: argparse.Namespace) -> None:
     for value in (
         args.archive_digest,
@@ -365,6 +372,11 @@ def _validate(args: argparse.Namespace) -> None:
         args.mode != "observe" or _DIGEST.fullmatch(expected_remote_digest) is None
     ):
         raise ValueError("Foundation remote state observation digest is invalid")
+    expected_backend_digest = getattr(args, "expected_backend_blob_digest", None)
+    if expected_backend_digest is not None and (
+        args.mode != "observe" or _DIGEST.fullmatch(expected_backend_digest) is None
+    ):
+        raise ValueError("Foundation backend blob observation digest is invalid")
     for value in (
         args.subscription_id,
         args.tenant_id,
