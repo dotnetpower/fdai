@@ -69,6 +69,15 @@ async def rehydrate_operational_agents(agents: dict[str, Agent]) -> None:
             )
     norns = agents.get("Norns")
     if isinstance(norns, Norns):
+        published = await norns.flush_candidates()
+        if published or norns.pending_candidates:
+            _LOG.info(
+                "pantheon_norns_operational_candidates_rehydrated",
+                extra={
+                    "pending_candidates": len(norns.pending_candidates),
+                    "published": published,
+                },
+            )
         recovered_total = 0
         published_total = 0
         for index in range(_MAX_NORNS_STARTUP_RECOVERY + 1):
@@ -157,6 +166,7 @@ def bind_operational_agents(
             operating_pattern_compiler=operating_pattern_compiler,
             semantic_feedback_store=semantic_feedback_store,
             issue_state_store=muninn_state_store,
+            operational_state_store=muninn_state_store,
         )
     if any(
         value is not None
