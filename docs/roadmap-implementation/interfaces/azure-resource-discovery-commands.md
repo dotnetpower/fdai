@@ -82,8 +82,13 @@ and live-qualification gaps remain open; they are not downgraded to make the cam
 
 ### Remaining work
 
-- [ ] Verify the production discovery binding from an authenticated typed intent through exact-plan execution and evidence projection; component tests alone do not close this item.
-- [ ] Retain exact-revision workload-identity, pagination, normalization, promotion, and restricted-network failover/recovery receipts before claiming collector qualification.
+- [ ] [#1393](https://github.com/dotnetpower/fdai/issues/1393): Integrate the unmerged 36-finding
+  hardening campaign with current main through a revised integration design that preserves both
+  implementations' page-wise processing, immutable chunk, checkpoint, retention, and graph-freshness
+  guarantees, then update this register from combined focused regressions. Keep finding 04 and full
+  generation replacement unavailable until a qualified production interval witness exists.
+- [ ] [#1393](https://github.com/dotnetpower/fdai/issues/1393): Verify the production discovery binding from an authenticated typed intent through exact-plan execution and evidence projection; component tests alone do not close this item.
+- [ ] [#1393](https://github.com/dotnetpower/fdai/issues/1393), [#361](https://github.com/dotnetpower/fdai/issues/361): Retain exact-revision workload-identity, pagination, normalization, promotion, and restricted-network failover/recovery receipts before claiming collector qualification.
 
 - [x] Add bounded `DiscoveryIntent` and immutable `DiscoveryQueryPlan` contracts plus profile-schema tests that reject executable text and unresolved modifiers.
 - [x] Preserve unknown Azure provider types as bounded `mapping_status=unmapped` observations, with focused tests proving they are not dropped or promoted into the neutral ontology.
