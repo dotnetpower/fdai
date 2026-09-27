@@ -21,6 +21,7 @@ from fdai_deployment_cli import (
     standalone_catalog_review,
     standalone_host,
     standalone_host_state,
+    standalone_host_values,
     standalone_terraform_environment,
 )
 from fdai_deployment_cli.aks_job_execution import AksOneShotJob
@@ -228,6 +229,63 @@ def test_prepare_persists_foundation_adoption_binding() -> None:
     source = inspect.getsource(standalone_host._prepare)
 
     assert '"foundation_adoption_digest": foundation.adoption.digest' in source
+    assert '"enable_aks_key_vault_private_access": key_vault_private_access' in source
+    assert '"key_vault_private_access": key_vault_private_access' in source
+
+
+def test_planned_key_vault_name_matches_terraform_contract() -> None:
+    assert (
+        standalone_host_values.planned_key_vault_name(
+            workload="fdai",
+            environment="dev",
+            region_short="wus2",
+            resource_suffix="abcdef",
+        )
+        == "kv-fdai-dev-wus2-abcdef"
+    )
+    full_name = "kv-fdaiaks-dev-wus2-abcdef"
+    assert (
+        standalone_host_values.planned_key_vault_name(
+            workload="fdaiaks",
+            environment="dev",
+            region_short="wus2",
+            resource_suffix="abcdef",
+        )
+        == f"kv-aip-{hashlib.sha256(full_name.encode()).hexdigest()[:8]}"
+    )
+
+
+@pytest.mark.parametrize(
+    ("readbacks", "expected"),
+    [
+        (["false"], False),
+        (["true", ""], False),
+        (["true", "Enabled"], False),
+        (["true", "Disabled"], True),
+    ],
+)
+def test_key_vault_private_access_uses_authoritative_existing_readback(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    readbacks: list[str],
+    expected: bool,
+) -> None:
+    values = iter(readbacks)
+    monkeypatch.setattr(
+        standalone_terraform_environment,
+        "_capture",
+        lambda *_args, **_kwargs: next(values),
+    )
+
+    assert (
+        standalone_terraform_environment.requires_aks_key_vault_private_access(
+            subscription_id="00000000-0000-0000-0000-000000000001",
+            resource_group_name="rg-fdaiaks-dev-wus2",
+            vault_name="kv-fdai-dev-wus2",
+            work_dir=tmp_path,
+        )
+        is expected
+    )
 
 
 def test_foundation_application_workload_matches_resource_group_name() -> None:

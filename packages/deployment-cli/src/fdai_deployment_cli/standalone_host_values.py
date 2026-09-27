@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import re
 
 from fdai_deployment_cli.contracts import canonical_digest
@@ -98,6 +99,26 @@ def vault_name(uri: str) -> str:
     if match is None:
         raise ValueError("Terraform Key Vault URI is invalid")
     return match.group(1)
+
+
+def planned_key_vault_name(
+    *, workload: str, environment: str, region_short: str, resource_suffix: str
+) -> str:
+    """Return the exact Key Vault name rendered by the verified Terraform root."""
+
+    if (
+        re.fullmatch(r"[a-z][a-z0-9]{1,11}", workload) is None
+        or re.fullmatch(r"[a-z][a-z0-9-]{1,15}", environment) is None
+        or re.fullmatch(r"[a-z][a-z0-9]{1,7}", region_short) is None
+        or re.fullmatch(r"[0-9a-f]{6}", resource_suffix) is None
+    ):
+        raise ValueError("planned Key Vault name inputs are invalid")
+    full_name = f"kv-{workload}-{environment}-{region_short}-{resource_suffix}"
+    return (
+        full_name
+        if len(full_name) <= 24
+        else f"kv-aip-{hashlib.sha256(full_name.encode()).hexdigest()[:8]}"
+    )
 
 
 def console_origin(hostname: str) -> str:

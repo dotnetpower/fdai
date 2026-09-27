@@ -213,7 +213,14 @@ the local coordinator retains its complete evidence chain and the managed host i
 the historical handoff digest to the distinct current kit and runtime digests. This binding does not
 select, skip, or authorize the optional catalog review checkpoint. The initial host context persists
 the exact Foundation adoption receipt digest and revalidates it on every retained-context retry; a
-context cannot omit the binding that its own retry requires. One bounded exception lets an eligible host run `fdaictl provision source-service-update` for one service on an
+context cannot omit the binding that its own retry requires.
+The AKS public baseline remains the default. If authoritative readback finds the exact existing
+application Key Vault already forced to public-disabled with no usable managed-host path, preparation
+selects only the focused `enable_aks_key_vault_private_access` recovery axis. That axis requires the
+verified runner VNet coordinates and creates the application-to-runner peering plus Key Vault private
+endpoint and DNS links. It does not select private AKS, private PostgreSQL, or any other service
+private endpoint, and its residual Terraform plan still requires exact approval.
+One bounded exception lets an eligible host run `fdaictl provision source-service-update` for one service on an
 existing healthy `dev` AKS installation. The source-built image remains operator-selected evidence rather than release trust. Current human approval gates its
 Managed Identity import and the Deployment-only exact plan; digest and health readback, unchanged peers, and targeted zero change remain required.
 

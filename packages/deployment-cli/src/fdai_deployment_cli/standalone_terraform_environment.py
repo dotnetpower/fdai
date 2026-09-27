@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import os
+import re
+import subprocess
 from pathlib import Path
 
 from fdai_deployment_cli.private_output import read_private_bytes
@@ -19,6 +21,7 @@ _CONFLICTING_AUTH = (
     "ARM_USE_AKS_WORKLOAD_IDENTITY",
     "ARM_MSI_ENDPOINT",
 )
+_GUID = re.compile(r"[0-9a-fA-F]{8}(?:-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12}")
 
 
 def configure_terraform(context: dict[str, object]) -> None:
@@ -63,4 +66,85 @@ def terraform_configuration(provider_mirror: Path) -> str:
     )
 
 
-__all__ = ["configure_terraform", "terraform_configuration"]
+def requires_aks_key_vault_private_access(
+    *,
+    subscription_id: str,
+    resource_group_name: str,
+    vault_name: str,
+    work_dir: Path,
+) -> bool:
+    """Select only the focused private path required by an existing policy-locked vault."""
+
+    if (
+        _GUID.fullmatch(subscription_id) is None
+        or re.fullmatch(r"rg-[a-z0-9-]{3,80}", resource_group_name) is None
+        or re.fullmatch(r"[a-z0-9-]{3,24}", vault_name) is None
+    ):
+        raise ValueError("Key Vault private-access readback target is invalid")
+    group_exists = _capture(
+        (
+            "az",
+            "group",
+            "exists",
+            "--subscription",
+            subscription_id,
+            "--name",
+            resource_group_name,
+            "--output",
+            "tsv",
+            "--only-show-errors",
+        ),
+        cwd=work_dir,
+        reason="application resource-group readback failed",
+    )
+    if group_exists == "false":
+        return False
+    if group_exists != "true":
+        raise ValueError("application resource-group readback is invalid")
+    public_access = _capture(
+        (
+            "az",
+            "keyvault",
+            "list",
+            "--subscription",
+            subscription_id,
+            "--resource-group",
+            resource_group_name,
+            "--query",
+            f"[?name=='{vault_name}'].publicNetworkAccess | [0]",
+            "--output",
+            "tsv",
+            "--only-show-errors",
+        ),
+        cwd=work_dir,
+        reason="Key Vault public-access readback failed",
+    )
+    if public_access == "":
+        return False
+    if public_access == "Disabled":
+        return True
+    if public_access == "Enabled":
+        return False
+    raise ValueError("Key Vault public-access readback is invalid")
+
+
+def _capture(command: tuple[str, ...], *, cwd: Path, reason: str) -> str:
+    result = subprocess.run(
+        command,
+        cwd=cwd,
+        check=False,
+        capture_output=True,
+        text=True,
+        timeout=60,
+        umask=0o077,
+    )
+    if result.returncode != 0:
+        raise ValueError(reason)
+    return result.stdout.strip()
+
+
+__all__ = [
+    "configure_terraform",
+    "requires_aks_key_vault_private_access",
+    "terraform_configuration",
+]

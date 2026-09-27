@@ -82,6 +82,7 @@ locals {
     ? local.key_vault_full_name
     : "kv-aip-${substr(sha256(local.key_vault_full_name), 0, 8)}"
   )
+  key_vault_private_access = var.enable_private_networking || var.enable_aks_key_vault_private_access
 
   static_web_app_region_shorts = {
     westus2    = "wus2"
@@ -1237,8 +1238,8 @@ module "key_vault" {
   # Private-networking tenants lock the vault: no public plane access, and
   # network ACLs default-deny (the private endpoint below is the only path in).
   # The public path keeps the day-zero Enabled + Allow posture.
-  public_network_access_enabled = !var.enable_private_networking
-  network_acls_default_action   = var.enable_private_networking ? "Deny" : "Allow"
+  public_network_access_enabled = !local.key_vault_private_access
+  network_acls_default_action   = local.key_vault_private_access ? "Deny" : "Allow"
 
   # Private networking always closes the public plane. Production can use a
   # delegated subnet; dev keeps its existing private endpoint and private DNS.
@@ -1487,11 +1488,11 @@ resource "azurerm_role_assignment" "decision_evidence_inventory_reader" {
 }
 
 # Key Vault private endpoint + private DNS (privatelink.vaultcore.azure.net).
-# Only when private networking is on; this is what lets a VNet-resident deploy
-# host (CI runner / jumpbox) and the VNet-integrated Container App reach the
-# locked vault.
+# Enabled by the full private profile or the focused AKS policy-recovery axis;
+# this lets the VNet-resident deploy host and the application VNet reach a
+# public-disabled vault without enabling other private service endpoints.
 module "kv_private_endpoint" {
-  count                 = var.enable_private_networking ? 1 : 0
+  count                 = local.key_vault_private_access ? 1 : 0
   source                = "./modules/private-endpoint"
   name                  = "pe-kv-${var.workload}${local.full_suffix}"
   location              = var.region
@@ -1990,11 +1991,11 @@ module "document_dfs_private_endpoint" {
 # Spoke <-> hub VNet peering. Lets the deploy runner in the ops/hub VNet
 # route to the app's private endpoints (Key Vault). Both directions are
 # created here (the app owns the spoke side; the hub side is a child of the
-# ops VNet, referenced by name + RG from the bootstrap outputs). Gated on a
-# private-networking deploy that supplied the ops VNet coordinates.
+# ops VNet, referenced by name + RG from the bootstrap outputs). Gated on
+# full private networking or focused Key Vault recovery with exact ops inputs.
 # -----------------------------------------------------------------------
 locals {
-  peer_hub              = var.enable_private_networking && var.runner_vnet_id != "" && var.runner_vnet_name != "" && var.ops_resource_group_name != ""
+  peer_hub              = local.key_vault_private_access && var.runner_vnet_id != "" && var.runner_vnet_name != "" && var.ops_resource_group_name != ""
   operator_access_vnets = var.enable_private_networking ? var.operator_access_vnets : {}
   operator_private_dns_links = merge({}, [
     for vnet_key, vnet in local.operator_access_vnets : {
@@ -2004,6 +2005,18 @@ locals {
       }
     }
   ]...)
+}
+
+check "aks_key_vault_private_access_runner_path" {
+  assert {
+    condition = !var.enable_aks_key_vault_private_access || (
+      var.compute_kind == "aks"
+      && var.runner_vnet_id != ""
+      && var.runner_vnet_name != ""
+      && var.ops_resource_group_name != ""
+    )
+    error_message = "Focused AKS Key Vault private access requires exact runner VNet id, name, and operations resource group inputs."
+  }
 }
 
 resource "azurerm_virtual_network_peering" "spoke_to_hub" {
