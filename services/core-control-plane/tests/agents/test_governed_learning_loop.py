@@ -229,14 +229,16 @@ def _wire(
     bus = InMemoryBus(load_pantheon(), isolate_handlers=False)
     durable = InMemoryStateStore()
     publisher = _Publisher()
+    reviewed_at = _timestamp(scenario["reviewed_at"])
     muninn = Muninn(
         case_history=CaseHistoryMaterializer(
             metadata=InMemoryCaseHistoryMetadataStore(),
             artifacts=InMemoryCaseHistoryArtifactStore(),
         ),
         durable_state_store=durable,
+        case_history_clock=lambda: reviewed_at,
     )
-    norns = Norns(clock=lambda: _timestamp(scenario["reviewed_at"]))
+    norns = Norns(clock=lambda: reviewed_at)
     mimir = Mimir(
         catalog_candidate_compiler=CatalogCandidateCompiler(
             validator=_Validator(scenario["scenario_set_version"]),
@@ -244,9 +246,10 @@ def _wire(
             schema_version="2.0.0",
             expected_fdai_revision=scenario["fdai_revision"],
             expected_scenario_set_version=scenario["scenario_set_version"],
-            clock=lambda: _timestamp(scenario["reviewed_at"]),
+            clock=lambda: reviewed_at,
         ),
         catalog_review_publisher=publisher,
+        clock=lambda: reviewed_at,
     )
     mimir.bind_case_history(muninn._case_history)
     saga = Saga(audit_chain=InMemoryAuditChain())
