@@ -1,6 +1,6 @@
 ---
 translation_of: runtime-deployment-profiles.md
-translation_source_sha: 926cfe5cff61c82e4e4329bdc79765d5b8910195
+translation_source_sha: 515b97277e3eefb8a283d78f9a394e8f4a36c389
 translation_revised: 2026-09-27
 ---
 # 런타임 배포 프로파일
@@ -34,8 +34,7 @@ facade로 import를 모아도 AKS 관측, Cost Governance 활성화, 배포 권�
 
 운영자는 런타임 플랫폼과 데이터베이스 배치를 하나씩 선택합니다. `fdaictl`은 조합을 검증하고,
 용량과 비용을 추정하며, 플랫폼별 프로비저닝 그래프를 컴파일하고, 각 정확한 플랜에 대한 승인을
-요청합니다. 재시도는 불확실한 효과를 검증할 수 있지만 선택을 바꾸거나 불명확한 적용을 반복할
-수는 없습니다.
+요청합니다. 재시도는 불확실한 효과를 검증할 수 있지만 선택을 바꾸거나 불명확한 적용을 반복할 수는 없습니다. 검증 전용 복구는 apply claim에 대한 첫 번째이자 유일한 암묵적 대응입니다. 새 zero-change plan과 권위 있는 재조회가 원 claim을 종결합니다. 갱신된 exact plan이 제한된 잔여 변경을 입증하면 조정기는 원 claim을 보존하고 원 claim·현재 state·target·source·runtime profile·잔여 이진 plan에 연결된 별도 residual review를 만듭니다. 한 번의 효과 전에 새 exact `<stage>-residual-apply` 승인과 새 residual claim이 필요하며 파괴적 잔여 변경에는 두 번째 확인을 유지합니다. Residual apply가 모호하면 검증만 허용하고 다른 residual apply를 만들 수 없습니다. 완료에는 계속 권위 있는 효과 재조회와 zero-change plan이 필요합니다. 존재하거나 symbolic link인 claim 경로는 검증된 복구 전까지 일반 재계획을 차단하며, 잘못된 보존 claim은 닫힌 상태로 실패합니다.
 
 | 축 | 지원 값 | 기본값 | 의미 |
 |----|---------|--------|------|
@@ -160,12 +159,11 @@ ARM 페이지 수집은 정책의 레코드 및 누적 응답 바이트 제한�
 Managed Host는 인덱스 접근을 비활성화하고 정확한 해시를 요구한 상태에서 키트의 서명된 통합 requirements lock으로 마이그레이션 및 인벤토리 지원 패키지를 설치하며, 검증된 로컬 wheel 디렉터리만 검색 위치로 노출하고 중복 wheel 복사본을 별도의 직접 요구 사항으로 전달하지 않습니다.
 완료하려면 의존성 검사, 소유 패키지 버전 재조회, 키트 매니페스트·인벤토리·requirements·전체 패키지 재조회에 연결된 영수증이 필요하며, 해당 영수증이 없는 부분 환경은 재개 가능한 성공이 아닙니다.
 전용 `runtime_support_installation.py` 소유자가 이 계약을 적용하며, standalone host 조정은 이미 허용된 산출물 루트와 서명된 키트 매니페스트 바인딩만 전달합니다.
-등록과 모든 후속 애플리케이션 전송은 VM에 연결된 같은 `fdai-genesis-*` SSH host-key alias와 검증된 known-hosts 파일을 재사용합니다. 런타임 선택은 두 번째 alias나 최초 접촉
-신뢰를 허용하지 않습니다.
+Managed Host는 Azure CLI 작업을 위해 선택된 user-assigned Managed Identity를 Azure CLI로 검증하지만, Terraform backend와 provider 인증은 `ARM_USE_MSI=true`와 정확한 client ID를 사용해 해당 identity를 직접 사용합니다. Host는 이 바인딩을 설정하기 전에 상속된 CLI, OIDC, client secret, 인증서, 사용자 이름/암호, workload identity 및 사용자 지정 MSI endpoint 선택자를 제거합니다. 주변 환경의 인증 방식은 handoff에 연결된 실행 identity를 대체할 수 없습니다. 각 Terraform 이진 plan은 link를 따라가지 않고 열어 실행자 소유의 비어 있지 않은 단일 link 파일인지 검증하고, projection·digest binding·승인·apply 전에 mode `0600`으로 봉인합니다.
+등록과 모든 후속 애플리케이션 전송은 VM에 연결된 같은 `fdai-genesis-*` SSH host-key alias와 검증된 known-hosts 파일을 재사용합니다. 런타임 선택은 두 번째 alias나 최초 접촉 신뢰를 허용하지 않습니다.
 런타임 프로필 검증은 애플리케이션 단계 결과 11개보다 먼저 이 공유 alias를 실행하므로
 전송 협력자 변경이 단계별 실패 계약을 우회할 수 없습니다.
-또한 전송 기한 결과 4개를 실행해 성공, 예산 만료 및 모호한 전송 경로에서 같은 alias 계약을
-유지합니다.
+또한 전송 기한 결과 4개를 실행해 성공, 예산 만료 및 모호한 전송 경로에서 같은 alias 계약을 유지합니다. Managed Identity 환경 회귀는 뒤이은 패키징 검사 전에 프로세스 `PATH`와 인증 선택자를 복원하므로 테스트 순서가 신뢰된 `uv` 도구를 제거하거나 한 사례의 identity 모드를 다른 사례로 유출할 수 없습니다.
 애플리케이션 수렴 후 Managed Host는 명시적인 `--initial` 모드로 Core 인벤토리 진입점을 호출해
 반복 실행의 예정 시각 게이트만 우회합니다. 이미 인증된 배포 신원으로 전체 구독 ARG/ARM 읽기와
 변경 불가 진행률 기록을 수행한 뒤 별도의 읽기 전용 종결 프로세스를 시작합니다. 반복 런타임
@@ -194,8 +192,7 @@ catalog 활성화, merge, 승격 또는 관리 리소스 변경 권한을 부여
 프로비저닝 도구는 Docker, Buildx, ACR Tasks, 원격 빌더 또는 VM 이미지 캡처 없이 서명, 출처,
 소스 버전, 플랫폼 및 digest를 검증합니다. 복구된 Foundation이 release보다 이전 버전이면 로컬
 조정기는 완전한 근거 연결을 보존하고, 관리 호스트는 기존 인계 다이제스트를 서로 다른 현재 키트
-및 런타임 다이제스트에 독립적으로 결속합니다. 이 결속은 선택적 카탈로그 검토 체크포인트를
-선택하거나 건너뛰거나 승인하지 않습니다. 범위가 제한된 예외 하나는 적격 호스트가 기존의 정상
+및 런타임 다이제스트에 독립적으로 결속합니다. 이 결속은 선택적 카탈로그 검토 체크포인트를 선택하거나 건너뛰거나 승인하지 않습니다. 최초 Host context는 정확한 Foundation adoption receipt digest를 영속화하고 retained-context retry마다 이를 재검증하므로, context가 자체 retry에 필요한 binding을 누락할 수 없습니다. 범위가 제한된 예외 하나는 적격 호스트가 기존의 정상
 `dev` AKS 설치에서 서비스 하나에 `fdaictl provision source-service-update`를 실행하도록
 허용합니다. 소스에서 빌드한 이미지는 release 신뢰가 아니라 운영자가 선택한 근거로 유지됩니다.
 현재 사람 승인이 Managed Identity 반입과 Deployment 전용 exact 계획을 통제하며, digest와 상태

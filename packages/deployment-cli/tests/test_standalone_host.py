@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 import hashlib
+import inspect
 import json
 import os
 import shutil
+import stat
 import subprocess
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -19,6 +21,7 @@ from fdai_deployment_cli import (
     standalone_catalog_review,
     standalone_host,
     standalone_host_state,
+    standalone_terraform_environment,
 )
 from fdai_deployment_cli.aks_job_execution import AksOneShotJob
 from fdai_deployment_cli.contracts import canonical_digest
@@ -167,6 +170,64 @@ def test_runtime_support_rejects_partial_environment(
             artifact_root=artifact_root,
             kit_manifest_digest="a" * 64,
         )
+
+
+def test_terraform_uses_exact_managed_identity_and_clears_conflicting_auth(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    terraform = tmp_path / "terraform"
+    terraform.write_bytes(b"binary")
+    provider_mirror = tmp_path / "providers"
+    provider_mirror.mkdir()
+    kit_bin = tmp_path / "bin"
+    kit_bin.mkdir()
+    terraform_config = tmp_path / "terraform.rc"
+    terraform_config.write_text(
+        standalone_host._terraform_configuration(provider_mirror),
+        encoding="utf-8",
+    )
+    terraform_config.chmod(0o600)
+    context = {
+        "terraform": str(terraform),
+        "provider_mirror": str(provider_mirror),
+        "terraform_config": str(terraform_config),
+        "terraform_data": str(tmp_path / "terraform-data"),
+        "kit_bin": str(kit_bin),
+        "subscription_id": "00000000-0000-0000-0000-000000000001",
+        "tenant_id": "00000000-0000-0000-0000-000000000002",
+        "client_id": "00000000-0000-0000-0000-000000000003",
+    }
+    for variable in (
+        "PATH",
+        "TF_CLI_CONFIG_FILE",
+        "TF_DATA_DIR",
+        "TF_IN_AUTOMATION",
+        "ARM_SUBSCRIPTION_ID",
+        "ARM_TENANT_ID",
+        "ARM_USE_MSI",
+        "ARM_CLIENT_ID",
+        "ARM_RESOURCE_PROVIDER_REGISTRATIONS",
+    ):
+        monkeypatch.setenv(variable, os.environ.get(variable, "ambient"))
+    for variable in standalone_terraform_environment._CONFLICTING_AUTH:
+        monkeypatch.setenv(variable, "ambient")
+
+    standalone_host._configure_terraform(context)
+
+    assert os.environ["ARM_USE_MSI"] == "true"
+    assert os.environ["ARM_CLIENT_ID"] == context["client_id"]
+    assert os.environ["ARM_SUBSCRIPTION_ID"] == context["subscription_id"]
+    assert os.environ["ARM_TENANT_ID"] == context["tenant_id"]
+    assert all(
+        variable not in os.environ
+        for variable in standalone_terraform_environment._CONFLICTING_AUTH
+    )
+
+
+def test_prepare_persists_foundation_adoption_binding() -> None:
+    source = inspect.getsource(standalone_host._prepare)
+
+    assert '"foundation_adoption_digest": foundation.adoption.digest' in source
 
 
 def test_foundation_application_workload_matches_resource_group_name() -> None:
@@ -896,6 +957,7 @@ def test_ambiguous_apply_recovers_by_verification_without_reapply(
         "schema_version": "fdai.standalone-application-claim.v1",
         "stage": "substrate",
         "plan_digest": review["plan_digest"],
+        "mutation_performed": False,
         "idempotency_key": canonical_digest(
             {
                 "target_binding": context["target_binding"],
@@ -935,6 +997,80 @@ def test_ambiguous_apply_recovers_by_verification_without_reapply(
     assert commands and commands[0][1] == "plan"
     assert all("apply" not in command for command in commands)
     assert written["state"] == "applied"
+
+
+def test_partial_apply_recovery_returns_separate_residual_review(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    tmp_path.chmod(0o700)
+    context = {
+        "target_binding": "b" * 64,
+        "runtime_profile_digest": "c" * 64,
+        "infra": str(tmp_path),
+    }
+    review = {"plan_digest": "a" * 64}
+    claim = {
+        "schema_version": "fdai.standalone-application-claim.v1",
+        "stage": "substrate",
+        "plan_digest": review["plan_digest"],
+        "idempotency_key": canonical_digest(
+            {
+                "target_binding": context["target_binding"],
+                "plan_digest": review["plan_digest"],
+            }
+        ),
+    }
+    for name, value in (
+        ("context.json", context),
+        ("substrate-review.json", review),
+        ("substrate-claim.json", claim),
+    ):
+        path = tmp_path / name
+        path.write_text(json.dumps(value), encoding="utf-8")
+        path.chmod(0o600)
+    residual = {"residual_recovery": {"operation": "substrate-residual"}}
+
+    monkeypatch.setattr(standalone_host, "_managed_identity_login_from_context", lambda *_: None)
+    monkeypatch.setattr(
+        standalone_host,
+        "_stage_paths",
+        lambda *_: (tmp_path, tmp_path / "application.auto.tfvars.json"),
+    )
+    monkeypatch.setattr(standalone_host, "_activate_terraform_stage", lambda *_: None)
+    monkeypatch.setattr(standalone_host, "_residual_claim_exists", lambda *_: False)
+    monkeypatch.setattr(
+        standalone_host,
+        "_prepare_residual_review",
+        lambda **_kwargs: residual,
+    )
+
+    result = standalone_host._recover_apply(SimpleNamespace(stage="substrate"), tmp_path)
+
+    assert result is residual
+
+
+def test_claimed_apply_blocks_ordinary_replanning(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    (tmp_path / "substrate-claim.json").write_text("claimed", encoding="utf-8")
+    monkeypatch.setattr(
+        standalone_host,
+        "_private_json",
+        lambda *_: {
+            "runtime_profile": {
+                "runtime_platform": "aks",
+                "database_placement": "postgres-flex",
+            }
+        },
+    )
+    monkeypatch.setattr(
+        standalone_host,
+        "_managed_identity_login_from_context",
+        lambda *_: pytest.fail("claimed apply reached ordinary planning"),
+    )
+
+    with pytest.raises(ValueError, match="verification-only recovery"):
+        standalone_host._plan(SimpleNamespace(stage="substrate", service=None), tmp_path)
 
 
 def test_aks_stages_use_independent_roots_and_variables(tmp_path: Path) -> None:
@@ -1730,14 +1866,16 @@ def test_aks_service_update_prepares_and_targets_only_selected_deployment(
         if name != "core-control-plane"
     )
     plan_commands: list[tuple[str, ...]] = []
+    plan_paths: list[Path] = []
 
     def run(command: tuple[str, ...] | list[str], **_kwargs: object) -> None:
         normalized = tuple(command)
         plan_commands.append(normalized)
         output = next(value for value in normalized if value.startswith("-out="))
         plan_path = Path(output.removeprefix("-out="))
+        plan_paths.append(plan_path)
         plan_path.write_bytes(b"plan")
-        plan_path.chmod(0o600)
+        plan_path.chmod(0o644)
 
     monkeypatch.setattr(standalone_host, "_run", run)
     monkeypatch.setattr(standalone_host, "_activate_terraform_stage", lambda *_: None)
@@ -1768,6 +1906,7 @@ def test_aks_service_update_prepares_and_targets_only_selected_deployment(
         "update_digest": prepared["update_digest"],
     }
     assert '-target=kubernetes_deployment_v1.workload["core-control-plane"]' in plan_commands[0]
+    assert stat.S_IMODE(plan_paths[0].stat().st_mode) == 0o600
 
 
 def test_aks_deployment_capture_uses_typed_apps_collection(

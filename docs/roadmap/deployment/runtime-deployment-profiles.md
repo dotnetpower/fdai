@@ -35,6 +35,16 @@ The operator chooses one runtime platform and one database placement. `fdaictl` 
 combination, estimates its capacity and cost, compiles a platform-specific provisioning graph,
 and asks for approval of each exact plan. A retry can verify an uncertain effect, but it cannot
 change either choice or repeat an ambiguous apply.
+Verification-only recovery remains the first and only implicit response to an apply claim. A fresh
+zero-change plan and authoritative readback close the original claim. If the refreshed exact plan
+instead proves bounded residual changes, the coordinator preserves the original claim and emits a
+distinct residual review bound to the original claim, current state, target, source, runtime
+profile, and residual binary plan. It requires a new exact `<stage>-residual-apply` approval and a
+new residual claim before one effect. Destructive residuals retain the second confirmation.
+Residual apply ambiguity is verification-only; it cannot create another residual apply. Completion
+still requires authoritative effect readback and a zero-change plan. Any present or symbolic-link
+claim path blocks ordinary replanning until validated recovery; malformed retained claims fail
+closed.
 
 | Axis | Supported values | Default | Meaning |
 |------|------------------|---------|---------|
@@ -156,13 +166,23 @@ a receipt bound to the kit manifest, inventory, requirements, and full package r
 environment without that receipt is not resumable success. The focused
 `runtime_support_installation.py` owner enforces this contract; standalone host orchestration only
 supplies the already-admitted artifact root and signed kit-manifest binding.
+The managed host validates the selected user-assigned Managed Identity through Azure CLI for
+Azure CLI operations, but Terraform backend and provider authentication use that identity natively
+through `ARM_USE_MSI=true` and its exact client ID. The host clears inherited CLI, OIDC,
+client-secret, certificate, username/password, workload-identity, and custom MSI-endpoint selectors
+before setting this binding. An ambient authentication mechanism cannot replace the handoff-bound
+executor identity. Each Terraform binary plan is then opened without following links, validated as
+a nonempty single-link file owned by the executor, and sealed to mode `0600` before projection,
+digest binding, approval, or apply.
 Enrollment and every later application transfer reuse the same VM-bound `fdai-genesis-*` SSH
 host-key alias and attested known-hosts file; runtime selection never permits a second alias or
 first-contact trust.
 Runtime-profile validation exercises that shared alias before all eleven application phase
 outcomes so a transport collaborator change cannot bypass the phase-specific failure contract.
 It also runs the four transfer deadline outcomes, preserving the same alias contract across
-successful, expired-budget, and ambiguous-transfer paths.
+successful, expired-budget, and ambiguous-transfer paths. Managed-identity environment regressions
+restore process `PATH` and authentication selectors before later packaging checks, so test order
+cannot remove the trusted `uv` tool or leak one case's identity mode into another.
 After application convergence, the managed host invokes the Core inventory entry point in explicit `--initial` mode, bypassing only the recurring due-time gate. It uses the already authenticated deploy identity for full-subscription ARG/ARM reads and immutable progress writes, then starts a separate read-only closure process. The recurring runtime schedule and its workload identity remain unchanged; the bootstrap path grants no ongoing deployment authority to the inventory workload. Presentation and integration contracts account for this as the sixteenth phase and for `provisioning-events` as the third private Foundation container; older additive receipt doubles may omit `inventory_ready` without being interpreted as ready. After an initial or recurring scan projects a complete promoted generation, the focused `inventory_ontology_observer.py` delivery module publishes one retry-stable Resource observation Event per Resource to the existing control-loop topic while the CLI remains composition-only. Forseti remains the rule judge, Saga remains the audit owner, and an incomplete projection or publication failure cannot satisfy inventory closure or create execution authority.
 
 On AKS, the managed host derives one content-addressed Job from the exact deployed inventory
@@ -191,7 +211,9 @@ A complete release includes ClamAV and pgvector, and the provisioner verifies si
 ACR Tasks, a remote builder, or VM image capture. When a recovered Foundation predates the release,
 the local coordinator retains its complete evidence chain and the managed host independently binds
 the historical handoff digest to the distinct current kit and runtime digests. This binding does not
-select, skip, or authorize the optional catalog review checkpoint. One bounded exception lets an eligible host run `fdaictl provision source-service-update` for one service on an
+select, skip, or authorize the optional catalog review checkpoint. The initial host context persists
+the exact Foundation adoption receipt digest and revalidates it on every retained-context retry; a
+context cannot omit the binding that its own retry requires. One bounded exception lets an eligible host run `fdaictl provision source-service-update` for one service on an
 existing healthy `dev` AKS installation. The source-built image remains operator-selected evidence rather than release trust. Current human approval gates its
 Managed Identity import and the Deployment-only exact plan; digest and health readback, unchanged peers, and targeted zero change remain required.
 

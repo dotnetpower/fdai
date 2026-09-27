@@ -242,6 +242,40 @@ def test_historical_reconciliation_uses_distinct_exact_approval(
     standalone_host._validate_approval(review, approval, context=review)
 
 
+def test_residual_recovery_uses_distinct_exact_approval(
+    tmp_path, monkeypatch, ready_terminal
+) -> None:
+    review = _review(
+        stage="substrate",
+        runtime_profile_digest="e" * 64,
+        runtime_platform="aks",
+        summary={"action_counts": {"delete": 1}},
+        residual_recovery={
+            "operation": "substrate-residual",
+            "original_plan_digest": "f" * 64,
+            "original_claim_digest": "1" * 64,
+        },
+    )
+    supplied = iter(("substrate-residual-apply", "substrate-residual-apply-destructive"))
+    answers: list[str] = []
+
+    def approve(_prompt: str) -> str:
+        answers.append(next(supplied))
+        return answers[-1]
+
+    monkeypatch.setattr("builtins.input", approve)
+    monkeypatch.setattr(
+        standalone_application, "_azure_actor_digest", lambda _binding, **_kwargs: "d" * 64
+    )
+
+    approval_path = standalone_application._approve_plan(tmp_path, review)
+    approval = json.loads(approval_path.read_text())
+
+    assert approval_path.name == "substrate-residual-approval.json"
+    assert answers == ["substrate-residual-apply", "substrate-residual-apply-destructive"]
+    standalone_host._validate_approval(review, approval, context=review)
+
+
 def test_approval_input_wait_is_bounded_before_reading(monkeypatch):
     monkeypatch.setattr(standalone_application.sys, "stdin", SimpleNamespace(isatty=lambda: True))
     monkeypatch.setattr(

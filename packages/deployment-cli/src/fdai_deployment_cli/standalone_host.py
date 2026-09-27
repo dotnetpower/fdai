@@ -105,6 +105,27 @@ from fdai_deployment_cli.standalone_host_values import (
 from fdai_deployment_cli.standalone_host_values import (
     vault_name as _vault_name,
 )
+from fdai_deployment_cli.standalone_residual_apply import (
+    apply_residual_plan as _apply_residual_plan,
+)
+from fdai_deployment_cli.standalone_residual_apply import (
+    prepare_residual_review as _prepare_residual_review,
+)
+from fdai_deployment_cli.standalone_residual_apply import (
+    recover_residual_apply as _recover_residual_apply,
+)
+from fdai_deployment_cli.standalone_residual_apply import (
+    residual_claim_exists as _residual_claim_exists,
+)
+from fdai_deployment_cli.standalone_residual_apply import (
+    seal_terraform_plan as _seal_terraform_plan,
+)
+from fdai_deployment_cli.standalone_terraform_environment import (
+    configure_terraform as _configure_terraform,
+)
+from fdai_deployment_cli.standalone_terraform_environment import (
+    terraform_configuration as _terraform_configuration,
+)
 from fdai_deployment_cli.target import compute_target_binding
 from fdai_deployment_cli.trust_roots import license_public_key_pem
 
@@ -250,6 +271,11 @@ def main(argv: list[str] | None = None) -> int:
     apply.add_argument("--service", choices=sorted(AKS_SERVICES))
     apply.add_argument("--approval", type=Path, required=True)
     apply.set_defaults(handler=_apply)
+
+    apply_residual = subcommands.add_parser("apply-residual")
+    apply_residual.add_argument("--stage", choices=_STAGES, required=True)
+    apply_residual.add_argument("--approval", type=Path, required=True)
+    apply_residual.set_defaults(handler=_apply_residual)
 
     recover = subcommands.add_parser("recover-apply")
     recover.add_argument("--stage", choices=_STAGES, required=True)
@@ -533,6 +559,7 @@ def _prepare(args: argparse.Namespace, work_dir: Path) -> dict[str, object]:
     context: dict[str, object] = {
         "source_commit": kit.source_commit,
         "target_binding": foundation.target_binding,
+        "foundation_adoption_digest": foundation.adoption.digest,
         "subscription_id": foundation.subscription_id,
         "tenant_id": foundation.tenant_id,
         "client_id": foundation.client_id,
@@ -2171,6 +2198,12 @@ def _plan(args: argparse.Namespace, work_dir: Path) -> dict[str, object]:
     )
     if reconciliation is not None:
         raise ValueError("historical AKS reconciliation requires its retained exact review")
+    claim_path = work_dir / f"{operation}-claim.json"
+    receipt_path = work_dir / f"{operation}-receipt.json"
+    if (claim_path.exists() or claim_path.is_symlink()) and not (
+        receipt_path.exists() or receipt_path.is_symlink()
+    ):
+        raise ValueError("claimed standalone apply requires verification-only recovery")
     _managed_identity_login_from_context(context, work_dir)
     infra, variables = _stage_paths(stage, context, work_dir)
     _activate_terraform_stage(stage, context, work_dir)
@@ -2189,6 +2222,7 @@ def _plan(args: argparse.Namespace, work_dir: Path) -> dict[str, object]:
     if update is not None:
         command.append(f"-target={_service_update_target(str(update['service']))}")
     _run(command, cwd=infra, timeout=3600, reason=f"{stage} Terraform plan failed")
+    _seal_terraform_plan(plan_path)
     show = _capture(
         ("terraform", "show", "-json", str(plan_path)),
         cwd=infra,
@@ -2329,6 +2363,42 @@ def _apply(args: argparse.Namespace, work_dir: Path) -> dict[str, object]:
     return receipt
 
 
+def _apply_residual(args: argparse.Namespace, work_dir: Path) -> dict[str, object]:
+    stage = str(args.stage)
+    context = _private_json(work_dir / "context.json", "standalone host context")
+    receipt_path = work_dir / f"{stage}-receipt.json"
+    if receipt_path.exists():
+        return _private_json(receipt_path, "standalone residual apply receipt")
+    original_review = _private_json(
+        work_dir / f"{stage}-review.json", "standalone original plan review"
+    )
+    original_claim = _private_json(
+        work_dir / f"{stage}-claim.json", "standalone original apply claim"
+    )
+    residual_review = _private_json(
+        work_dir / f"{stage}-residual-review.json", "standalone residual plan review"
+    )
+    approval = _private_json(_absolute(args.approval), "standalone residual plan approval")
+    _validate_approval(residual_review, approval, context=context)
+    _managed_identity_login_from_context(context, work_dir)
+    infra, variables = _stage_paths(stage, context, work_dir)
+    _activate_terraform_stage(stage, context, work_dir)
+    targets = _substrate_targets(context) if stage == "substrate" else ()
+    return _apply_residual_plan(
+        work_dir=work_dir,
+        stage=stage,
+        context=context,
+        infra=infra,
+        variables=variables,
+        targets=targets,
+        original_review=original_review,
+        original_claim=original_claim,
+        residual_review=residual_review,
+        approval=approval,
+        effect_readback=lambda: _readback_stage(stage, context),
+    )
+
+
 def _apply_historical_aks_reconciliation(
     args: argparse.Namespace, work_dir: Path
 ) -> dict[str, object]:
@@ -2387,6 +2457,7 @@ def _recover_apply(args: argparse.Namespace, work_dir: Path) -> dict[str, object
     _managed_identity_login_from_context(context, work_dir)
     infra, variables = _stage_paths(stage, context, work_dir)
     _activate_terraform_stage(stage, context, work_dir)
+    targets = _substrate_targets(context) if stage == "substrate" else ()
     if reconciliation is not None:
         plan_path = work_dir / f"{operation}.tfplan"
         if _file_digest(plan_path) != review.get("plan_digest"):
@@ -2397,6 +2468,31 @@ def _recover_apply(args: argparse.Namespace, work_dir: Path) -> dict[str, object
             reconciliation,
             plan_path,
         )
+    elif update is None:
+        if _residual_claim_exists(work_dir, stage):
+            return _recover_residual_apply(
+                work_dir=work_dir,
+                stage=stage,
+                context=context,
+                infra=infra,
+                variables=variables,
+                targets=targets,
+                original_review=review,
+                original_claim=claim,
+                effect_readback=lambda: _readback_stage(stage, context),
+            )
+        residual_review = _prepare_residual_review(
+            work_dir=work_dir,
+            stage=stage,
+            context=context,
+            infra=infra,
+            variables=variables,
+            targets=targets,
+            original_review=review,
+            original_claim=claim,
+        )
+        if residual_review is not None:
+            return residual_review
     else:
         command = [
             "terraform",
@@ -2406,8 +2502,6 @@ def _recover_apply(args: argparse.Namespace, work_dir: Path) -> dict[str, object
             "-no-color",
             f"-var-file={variables}",
         ]
-        if stage == "substrate":
-            command.extend(f"-target={target}" for target in _substrate_targets(context))
         if update is not None:
             command.append(f"-target={_service_update_target(str(update['service']))}")
         completed = subprocess.run(
@@ -4000,45 +4094,6 @@ def _managed_identity_login_from_context(context: dict[str, object], work_dir: P
         str(context["client_id"]),
         str(context["principal_id"]),
         work_dir,
-    )
-
-
-def _configure_terraform(context: dict[str, object]) -> None:
-    terraform = Path(str(context["terraform"]))
-    provider_mirror = Path(str(context["provider_mirror"]))
-    config = Path(str(context["terraform_config"]))
-    data = Path(str(context["terraform_data"]))
-    if not terraform.is_file() or not config.is_file():
-        raise ValueError("verified Terraform execution context is unavailable")
-    if read_private_bytes(config, max_bytes=16_384).decode("utf-8") != _terraform_configuration(
-        provider_mirror
-    ):
-        raise ValueError("Terraform provider configuration differs from the verified kit")
-    data.mkdir(mode=0o700, exist_ok=True)
-    kit_bin = Path(str(context.get("kit_bin", terraform.parent)))
-    os.environ["PATH"] = os.pathsep.join(
-        (str(terraform.parent), str(kit_bin), "/usr/local/bin", "/usr/bin", "/bin")
-    )
-    os.environ["TF_CLI_CONFIG_FILE"] = str(config)
-    os.environ["TF_DATA_DIR"] = str(data)
-    os.environ["TF_IN_AUTOMATION"] = "1"
-    os.environ["ARM_SUBSCRIPTION_ID"] = str(context["subscription_id"])
-    os.environ["ARM_TENANT_ID"] = str(context["tenant_id"])
-    os.environ["ARM_USE_CLI"] = "true"
-    os.environ["ARM_RESOURCE_PROVIDER_REGISTRATIONS"] = "none"
-
-
-def _terraform_configuration(provider_mirror: Path) -> str:
-    return (
-        "provider_installation {\n"
-        "  filesystem_mirror {\n"
-        f'    path = "{provider_mirror}"\n'
-        '    include = ["*/*"]\n'
-        "  }\n"
-        "  direct {\n"
-        '    exclude = ["*/*"]\n'
-        "  }\n"
-        "}\n"
     )
 
 

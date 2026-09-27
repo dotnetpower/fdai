@@ -1,7 +1,7 @@
 ---
 title: Provisioning 실행 Profile
 translation_of: provisioning-execution-profiles.md
-translation_source_sha: 17be2fabf2bccc8032671c48d6c83c6460a44f60
+translation_source_sha: a408c1cf95789acb964c795a7a4f3f0a834621c0
 translation_revised: 2026-09-27
 ---
 # 프로비저닝 실행 프로파일
@@ -45,6 +45,8 @@ Parser handler, 출력 계약, 정확한 승인 요건 및 변경 권한은 바�
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-27 | implemented | 권위 있는 갱신 결과 일부만 수렴한 Terraform 효과 claim을 위해 제한된 residual apply 경로 하나를 추가했습니다. 원 claim을 보존하고 일반 재계획을 차단하며 별도의 정확한 residual 승인과 claim을 요구하고 residual 결과가 모호하면 검증만 허용합니다. | `current change`, 집중 review, 효과 전 claim, 만료 후 안전한 복구, 재귀 apply 금지, 명령 라우팅 및 일반 재계획 거부 회귀, 실제 부분 state와 residual plan 분류 | 보호 CI로 전달하고 정확한 키트를 다시 빌드한 뒤 현재 부분 substrate의 residual apply, 재조회 및 zero-change 증적을 보존합니다. |
+| 2026-09-27 | implemented | 실제 초기화에서 Azure CLI 인증이 UAMI의 service-principal 세션 유형을 거부함을 확인한 뒤 Managed Host Terraform backend와 provider 인증을 선택된 UAMI에 직접 연결했습니다. 정확한 MSI 바인딩을 설정하기 전에 충돌하는 주변 인증 선택자를 제거합니다. | `current change`, 집중 환경 회귀 및 분류된 실제 backend 초기화 실패 | 보호 CI로 전달하고 정확한 키트를 다시 빌드한 뒤 새 source-bound application context에서 backend 초기화를 검증합니다. |
 | 2026-09-27 | implemented | 중복된 모든 런타임 wheel 경로를 직접 설치하던 방식을 서명된 통합 requirements lock, 정확한 해시, 의존성 검사, 패키지 재조회 및 source-bound 완료 영수증으로 교체했습니다. 해당 영수증이 없는 중단된 환경은 이제 설치 완료로 취급하지 않고 닫힌 상태로 실패합니다. | `current change`, 중복 wheel 회귀, 부분 환경 회귀, 로컬 wheel 위치 16개에서 패키지 107개를 설치한 네트워크 격리 CPython 3.12 검증 | 보호 CI로 전달하고 정확한 서명 키트를 다시 빌드한 뒤 새로운 source-bound context에서 Managed Host 준비를 재개합니다. |
 | 2026-09-27 | implemented | Managed Host 검증이 기존 매니페스트만 포함한 파생 아카이브를 올바르게 거부한 뒤 필수 deployment-root 매니페스트와 서명을 검증된 standalone 전송 아카이브에 추가했습니다. | `current change`, 아카이브 생성, 루트 연결 테스트 고정본, tar 구성원 및 전체 획득 왕복 회귀 | 보호 CI로 전달하고 정확한 키트를 다시 빌드한 뒤 새 source-bound context에서 Managed Host 준비 경로를 검증합니다. |
 | 2026-09-27 | implemented | 실제 준비가 3.13 wheel과 더 새로운 호스트 libc 불일치에 도달한 뒤 완전 release 생성을 Managed Host의 CPython 3.12 ABI에 연결하고 glibc 정확 일치를 같은 계열 최소 기준으로 바꿨습니다. | `current change`, release builder 선행 조건, offline-kit 호환성 검증기, 집중 ABI/libc 테스트, Managed Host Python/libc 재조회 | 보호 CI로 전달하고 CPython 3.12에서 완전 키트를 다시 빌드한 뒤 계획 전에 조정기와 Managed Host에서 독립적으로 검증합니다. |
@@ -194,6 +196,7 @@ AKS 기반을 만들며, 기본 서비스 다섯 개를 배포합니다. 또한 
 Apply 결과가 모호하면 다음 호출은 변경 없음 plan과 권위 있는 재확인만 실행합니다. 보존된
 claim으로 apply를 반복하지 않습니다. Foundation run, network/state handoff, Entra binding,
 provider 구성 또는 서명 키트가 바뀌면 별도의 준비 context가 필요합니다.
+검증 plan이 zero change가 아니라 잔여 변경을 입증하면 원 claim은 불변으로 남습니다. 조정기는 원 claim과 갱신된 state에 연결한 별도 이름의 residual plan 하나만 제시할 수 있습니다. 새 exact residual 승인과 효과 전 residual claim이 필요하며 잔여 효과는 자동으로 실행되지 않습니다. Residual 효과가 모호하면 다른 apply가 아니라 검증만 허용합니다. 단계 완료에는 독립 재조회와 residual zero change가 필요합니다.
 호출 시간 예산은 준비 전에 시작합니다. 승인 대기와 애플리케이션 인계에는 현재 남은 시간을
 사용하며 예산이 만료되면 다음 단계를 시작하거나 준비 완료 결과를 만들지 않습니다.
 애플리케이션 확인에는 실제 터미널이 필요하며 두 확인 입력과 사용자 조회가 최대 10분의
@@ -323,6 +326,10 @@ PC라고 부르거나 로컬 터미널을 사용한다고 외부 장비인 것�
 수동 실행은 운영자가 이 호스트에서 `fdaictl`을 시작한다는 의미입니다. Terraform이
 운영자의 interactive Azure 신원을 사용한다는 의미가 아닙니다. 필수 워크로드 신원이 없는 실행
 호스트는 준비 미완료이지만, 조정기 역할만 하는 일반 PC까지 거부하지는 않습니다.
+실행 Host에서 Azure CLI는 CLI 작업에 사용할 정확한 user-assigned identity를 검증합니다.
+Terraform backend 및 provider 프로세스는 Azure CLI service-principal 세션이 아니라 해당하는
+정확한 client ID의 네이티브 Managed Identity 인증을 사용하며, 실행 전에 상속된 다른 인증
+선택자를 제거합니다.
 허용되는 경우 적절한 범위의 기존 배포 신원을 재사용하며,
 현재 Foundation 실행이 만든 호스트나 신원만 요구하지 않습니다. 신원 연결, 역할 변경과 네트워크
 변경에는 여전히 검토된 범위와 정확한 승인이 필요합니다.
