@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 81d58d9d15fcee6f9ef502076793344641179eef
+translation_source_sha: d4d579bab6eda8eb6117f8c7f80c760c2b07c715
 translation_revised: 2026-09-27
 ---
 # 프로젝트 구조
@@ -14,7 +14,8 @@ Assurance Twin의 프로덕션 조립은 고정된 Pantheon 역할과 상태 저
 `Resource`에 선언된 입력이 있는지 확인하며, 원본과 대상 확인이 끝날 때까지 인벤토리 승격
 및 그래프 잠금을 유지합니다. 근거가 없거나 오래되거나 변경 중이거나 불완전하면 계속 사용할
 수 없습니다. Forseti의 제안 IaC 생산자는 아직 연결되지 않았습니다. 이 추가 사항은 서비스 간
-스키마, 승인 또는 실행 경로를 변경하지 않습니다.
+스키마, 승인 또는 실행 경로를 변경하지 않습니다. Rule 세대 시각은 전용 UTC 시계를 사용하며,
+재생, Action 생성, 전달 또는 효과 근거에 사용하는 주입된 컨트롤 루프 시계를 소비하지 않습니다.
 
 Operator 운영 조립 파사드는 런타임 배선을 유지합니다. 목적별 인접 모듈은 수명 주기와 리소스
 정리, 경로 계열 조립 및 읽기 출처 선언을 소유합니다. 호환 내보내기는 기존 가져오기를 보존하며,

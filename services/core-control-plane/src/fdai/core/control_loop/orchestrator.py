@@ -234,7 +234,8 @@ class ControlLoop(
         # effect recording. A frozen replay binds it so an observation can be
         # ordered against the dispatch it belongs to instead of wall clock.
         self._clock: Callable[[], datetime] = clock or (lambda: datetime.now(tz=UTC))
-        self._rule_generation_time = self._clock()
+        self._rule_generation_clock: Callable[[], datetime] = lambda: datetime.now(tz=UTC)
+        self._rule_generation_time = self._rule_generation_clock()
         self._thor_execution_port = thor_execution_port
         self._mutation_dependency_readiness = mutation_dependency_readiness
         self._evidence_conflict_reader = evidence_conflict_reader
@@ -367,7 +368,7 @@ class ControlLoop(
             self._t0_engine = prepared_engine
             self._rules_by_id = prepared_rules
             self._rule_generation_digest = generation_digest
-            generation_time = self._clock()
+            generation_time = self._rule_generation_clock()
             self._rule_generation_time = max(
                 generation_time,
                 self._rule_generation_time + timedelta(microseconds=1),

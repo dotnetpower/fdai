@@ -11,7 +11,8 @@ store are present. The producer reuses the control loop's immutable T0/OPA gener
 loop, requires declared inputs for every Resource, and holds Inventory promotion and graph locks
 through source/target confirmation. Missing, stale, changing, or incomplete evidence remains
 unavailable. Forseti's proposed-IaC producer remains unbound. This addition changes no cross-service
-schema, approval, or execution path.
+schema, approval, or execution path. Rule-generation timestamps use a dedicated UTC clock and never
+consume the injected control-loop clock used for replay, action creation, dispatch, or effect evidence.
 
 Operator production composition keeps runtime wiring in its facade. Focused sibling modules own
 lifecycle and resource cleanup, route-family assembly, and read-source declarations. Compatibility
