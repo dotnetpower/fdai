@@ -1,7 +1,7 @@
 ---
 title: 다중 서비스 저장소 레이아웃
 translation_of: multi-service-repository-layout.md
-translation_source_sha: a7834d51570cae600e1ade42c2fd48054c2a45c0
+translation_source_sha: 52582eadbb47a4ee618cf3b24f29b977936c8bc8
 translation_revised: 2026-09-27
 ---
 # 다중 서비스 저장소 레이아웃
@@ -29,6 +29,7 @@ FDAI는 하나의 개발 저장소에 독립적으로 패키징하고 검증한 
 CLI는 자체 잠금 파일을 유지하며, 두 의존성 모두 서비스 런타임 입력이 되지 않습니다.
 [패키지 보증 정책](package-assurance-ko.md)은 이러한 미러를 CLI 매니페스트에 바인딩하고
 소유자와 다른 버전 범위를 차단합니다.
+패키지 구현 원장은 append-only 이력을 보존합니다. 잘못 기록된 근거 날짜는 원래 근거 행을 다시 쓰지 않고 이후 correction 행으로 명확히 합니다.
 
 루트 회귀 수집은 Core 원격 분석 테스트도 가져옵니다. 따라서 루트 `dev` 추가 의존성은 Core
 매니페스트가 지원하는 범위의 `azure-monitor-opentelemetry`를 미러링합니다. 런타임 소유자는 계속

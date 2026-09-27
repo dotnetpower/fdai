@@ -1,6 +1,6 @@
 ---
 translation_of: conversation-attachments.md
-translation_source_sha: edaf83c4faa6add52178fe6ea7e222d39b0e77af
+translation_source_sha: 0fd56017f7ecce2fcacfd2960b049610f1568ab7
 translation_revised: 2026-09-27
 title: 대화 첨부파일
 ---
