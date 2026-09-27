@@ -360,6 +360,28 @@ class PostgresStateStore(StateStore):
                 rows = await cursor.fetchall()
         return tuple(_json_object(row["value"]) for row in rows)
 
+    async def read_state_keys(
+        self, prefix: str, *, after: str = "", limit: int = 128
+    ) -> tuple[str, ...]:
+        if not prefix or limit < 1 or (after and not after.startswith(prefix)):
+            raise ValueError("state key page requires a prefix, valid cursor, and positive limit")
+        escaped_prefix = prefix.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+        async with self._connection() as conn:
+            async with conn.transaction():
+                await self._set_statement_timeout(conn)
+                cursor = await conn.execute(
+                    """
+                    SELECT key FROM state_kv
+                     WHERE key LIKE %s ESCAPE '\\'
+                       AND key COLLATE "C" > %s
+                     ORDER BY key COLLATE "C"
+                     LIMIT %s
+                    """,
+                    (f"{escaped_prefix}%", after, limit),
+                )
+                rows = await cursor.fetchall()
+        return tuple(str(row["key"]) for row in rows)
+
     async def delete_states_beyond(self, prefix: str, *, retain_newest: int) -> int:
         if not prefix:
             raise ValueError("prefix MUST be non-empty")
