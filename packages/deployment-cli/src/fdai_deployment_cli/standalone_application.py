@@ -112,10 +112,7 @@ def deploy_standalone_application(
     remote_adoption_models = f"{remote_root}/resolved-models.json"
     remote_adoption_descriptor = f"{remote_root}/application-state-adoption.json"
     app_work = f"{remote_root}/application"
-    host_alias = (
-        "fdai-standalone-"
-        + hashlib.sha256(str(runner["vm_id"]).casefold().encode()).hexdigest()[:16]
-    )
+    host_alias = module.stable_host_key_alias(str(runner["vm_id"]))
     with module.BastionTunnel(
         subscription_id=str(handoff["subscription_id"]),
         resource_group=str(ops["resource_group_name"]),

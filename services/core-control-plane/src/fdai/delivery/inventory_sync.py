@@ -135,6 +135,7 @@ class InventorySyncCoordinator:
         relationship_mapping_catalog: ProviderRelationshipMappingCatalog | None = None,
         progress_deadline_seconds: float = DEFAULT_PROGRESS_DEADLINE_SECONDS,
         attempt_deadline_seconds: float = DEFAULT_ATTEMPT_DEADLINE_SECONDS,
+        _isolated_requested_resource_types: bool = False,
     ) -> None:
         if not math.isfinite(progress_deadline_seconds) or progress_deadline_seconds <= 0:
             raise ValueError("inventory progress_deadline_seconds MUST be > 0")
@@ -160,6 +161,17 @@ class InventorySyncCoordinator:
         self._relationship_mapping_catalog = relationship_mapping_catalog
         self._progress_deadline_seconds = progress_deadline_seconds
         self._attempt_deadline_seconds = attempt_deadline_seconds
+        self._isolated_requested_resource_types = _isolated_requested_resource_types
+
+    @classmethod
+    def for_isolated_resource_type_certification(
+        cls,
+        *,
+        store: InventorySnapshotStore,
+    ) -> InventorySyncCoordinator:
+        """Build a coordinator for a task-owned store that cannot replace global inventory."""
+
+        return cls(store=store, _isolated_requested_resource_types=True)
 
     async def run(self, sources: Sequence[InventorySource]) -> InventorySyncResult:
         if not sources:
@@ -228,7 +240,10 @@ class InventorySyncCoordinator:
                     raise InventoryStreamError(
                         "inventory observation exceeded its projection bounds"
                     )
-                if source.manifest.metadata.get("coverage_scope") == "requested_resource_types":
+                if (
+                    source.manifest.metadata.get("coverage_scope") == "requested_resource_types"
+                    and not self._isolated_requested_resource_types
+                ):
                     raise InventoryStreamError(
                         "resource-type subset cannot promote the global inventory snapshot"
                     )

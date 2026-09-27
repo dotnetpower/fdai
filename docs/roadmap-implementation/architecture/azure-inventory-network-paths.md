@@ -17,6 +17,10 @@ and resumable work while the roadmap owner remains focused on normative design.
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-27 | implemented | Replaced direct TLS on PostgreSQL port 5432 with negotiated psycopg TLS and `pg_stat_ssl` verification. | `current change`; focused async regression and strict mypy. | Publish the fixed image and start a new combined execution. |
+| 2026-09-27 | in-progress | The second combined execution stopped on the PostgreSQL protocol boundary before provider or semantic work. | Exact execution and sanitized connection-reset evidence. | Do not retry that execution; use negotiated PostgreSQL TLS. |
+| 2026-09-27 | implemented | Limited TLS shutdown recovery to a post-handshake close timeout; every reachability and identity failure remains fatal. | `current change`; focused async close and campaign transport tests. | Publish the fixed image and start a new execution. |
+| 2026-09-27 | in-progress | The first combined execution stopped at TLS stream shutdown after handshake success, before provider or semantic work. | Exact execution and sanitized traceback. | Do not retry that execution; use the fixed image for a new run. |
 | 2026-09-27 | implemented | Excluded only the policy-managed Storage private-link access child from drift while keeping the enclosing deny boundary declarative. | `current change`; one-field plan readback and Terraform checks. | Verify the retained sandbox now produces zero change. |
 | 2026-09-27 | implemented | Added `VECTOR,PG_TRGM` to the task PostgreSQL allowlist and a one-address recovery plan mode. | `current change`; Terraform and focused plan-gate checks. | Apply only that configuration, verify convergence, and rerun migration. |
 | 2026-09-27 | in-progress | Migration reached private PostgreSQL but failed before schema creation because `vector` was not allowlisted. No certification Job ran. | Second migration execution and sanitized error evidence. | Complete extension recovery without repeating the create plan. |

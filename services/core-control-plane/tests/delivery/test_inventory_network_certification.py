@@ -4,11 +4,14 @@ from __future__ import annotations
 
 from dataclasses import replace
 from datetime import UTC, datetime
+from unittest.mock import AsyncMock
 
 import pytest
 from fdai.delivery.inventory_network_certification import (
     InventoryNetworkCampaignObservation,
     InventoryNetworkStage,
+    _close_tls_writer,
+    _postgres_tls_probe,
     _receipt_private_ip,
     reduce_inventory_network_campaign,
 )
@@ -143,3 +146,58 @@ def test_receipt_private_ip_accepts_one_private_address() -> None:
     assert _receipt_private_ip({"FDAI_NETWORK_CERT_RECEIPT_PRIVATE_IP": "10.246.5.4"}) == (
         "10.246.5.4"
     )
+
+
+async def test_tls_close_timeout_does_not_invalidate_a_completed_probe() -> None:
+    class _Writer:
+        closed = False
+
+        def close(self) -> None:
+            self.closed = True
+
+        async def wait_closed(self) -> None:
+            raise TimeoutError
+
+    writer = _Writer()
+
+    await _close_tls_writer(writer)  # type: ignore[arg-type]
+
+    assert writer.closed is True
+
+
+async def test_postgres_probe_uses_database_negotiated_tls(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class _Cursor:
+        async def fetchone(self):
+            return True, "TLSv1.3", "TLS_AES_256_GCM_SHA384"
+
+    class _Connection:
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *_args):
+            return None
+
+        async def execute(self, statement):
+            assert "pg_stat_ssl" in statement
+            return _Cursor()
+
+    async def _connect(_dsn):
+        return _Connection()
+
+    monkeypatch.setattr(
+        "fdai.delivery.inventory_network_certification._resolve_addresses",
+        AsyncMock(return_value=("10.246.4.4",)),
+    )
+    monkeypatch.setattr(
+        "fdai.delivery.inventory_network_certification.psycopg.AsyncConnection.connect",
+        _connect,
+    )
+
+    addresses, digest = await _postgres_tls_probe(
+        "postgresql://user:password@example.postgres.database.azure.com:5432/fdai"
+    )
+
+    assert addresses == ("10.246.4.4",)
+    assert digest.startswith("sha256:")

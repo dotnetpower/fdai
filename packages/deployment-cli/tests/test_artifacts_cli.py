@@ -69,6 +69,8 @@ def _kit(
     root: Path,
     *,
     rule_activation_profile: bool = False,
+    python_tag: str | None = None,
+    libc_tag: str | None = None,
 ) -> tuple[Ed25519PrivateKey, bytes, bytes]:
     paths = [
         "python/fdai_deployment_cli-0.1.0-py3-none-any.whl",
@@ -130,6 +132,8 @@ def _kit(
         rule_activation_profile_created_at=(
             "2026-09-22T00:00:00+00:00" if rule_activation_profile else None
         ),
+        python_tag=python_tag,
+        libc_tag=libc_tag,
     )
     private, public = _keys()
     (root / MANIFEST_NAME).write_bytes(manifest)
@@ -200,6 +204,44 @@ def test_offline_kit_binds_a_rule_activation_profile(tmp_path: Path) -> None:
         dict(result.file_digests)[result.rule_activation_profile]
         == hashlib.sha256((tmp_path / result.rule_activation_profile).read_bytes()).hexdigest()
     )
+
+
+def test_offline_kit_accepts_newer_glibc_in_the_same_family(tmp_path: Path) -> None:
+    _private, public, _manifest = _kit(
+        tmp_path,
+        python_tag="cpython-312-cpython-312-x86_64-linux-gnu",
+        libc_tag="glibc-2.35",
+    )
+
+    result = verify_offline_kit(
+        tmp_path,
+        release_root_pem=public,
+        cli_version="0.1.0",
+        platform_tag="linux-x86_64",
+        python_tag="cpython-312-cpython-312-x86_64-linux-gnu",
+        libc_tag="glibc-2.39",
+    )
+
+    assert result.libc_tag == "glibc-2.35"
+
+
+@pytest.mark.parametrize("observed", ["glibc-2.34", "musl-2.39", "glibc-unknown"])
+def test_offline_kit_rejects_incompatible_libc(tmp_path: Path, observed: str) -> None:
+    _private, public, _manifest = _kit(
+        tmp_path,
+        python_tag="cpython-312-cpython-312-x86_64-linux-gnu",
+        libc_tag="glibc-2.35",
+    )
+
+    with pytest.raises(OfflineKitVerificationError, match="libc is incompatible"):
+        verify_offline_kit(
+            tmp_path,
+            release_root_pem=public,
+            cli_version="0.1.0",
+            platform_tag="linux-x86_64",
+            python_tag="cpython-312-cpython-312-x86_64-linux-gnu",
+            libc_tag=observed,
+        )
 
 
 @pytest.mark.parametrize(

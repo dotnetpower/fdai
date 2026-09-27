@@ -10,12 +10,14 @@ import json
 import socket
 import ssl
 from collections.abc import Mapping, Sequence
+from contextlib import suppress
 from dataclasses import asdict, dataclass, replace
 from datetime import UTC, datetime
 from email.utils import format_datetime
 from urllib.parse import urlparse
 
 import httpx
+import psycopg
 from psycopg.conninfo import conninfo_to_dict
 
 from fdai.delivery.inventory_change_acceleration import (
@@ -222,8 +224,7 @@ async def run_inventory_network_campaign(
             raise RuntimeError("workload token is invalid or expired")
         management_host = _https_host(config.management_endpoint)
         management_dns, management_tls = await _network_probe(management_host, 443)
-        postgres_host = _postgres_host(config.dsn)
-        postgres_dns, postgres_tls = await _network_probe(postgres_host, 5432)
+        postgres_dns, postgres_tls = await _postgres_tls_probe(config.dsn)
         if not _all_private(postgres_dns):
             raise RuntimeError("inventory projection database did not resolve privately")
         receipt_host = _https_host(receipt_url)
@@ -383,7 +384,9 @@ async def _run_stage(
     vocabulary = load_resource_type_registry()
     resource_types = resolve_resource_types(config, vocabulary)
     observing = _FailureObservingStore(store)
-    result = await InventorySyncCoordinator(store=observing).run(
+    result = await InventorySyncCoordinator.for_isolated_resource_type_certification(
+        store=observing
+    ).run(
         build_sources(
             config=config,
             vocabulary=vocabulary,
@@ -415,15 +418,7 @@ async def _network_probe(
     connect_address: str | None = None,
 ) -> tuple[tuple[str, ...], str]:
     if connect_address is None:
-        loop = asyncio.get_running_loop()
-        try:
-            values = await asyncio.wait_for(
-                loop.getaddrinfo(host, port, type=socket.SOCK_STREAM),
-                timeout=10,
-            )
-        except (OSError, TimeoutError) as exc:
-            raise RuntimeError("network certification DNS probe failed") from exc
-        addresses = tuple(sorted({str(item[4][0]) for item in values}))
+        addresses = await _resolve_addresses(host, port)
     else:
         addresses = (connect_address,)
     if not addresses or len(addresses) > 16:
@@ -443,11 +438,55 @@ async def _network_probe(
         raise RuntimeError("network certification TCP/TLS probe failed") from exc
     ssl_object = writer.get_extra_info("ssl_object")
     cipher = ssl_object.cipher() if ssl_object is not None else None
-    writer.close()
-    await writer.wait_closed()
+    await _close_tls_writer(writer)
     if not cipher:
         raise RuntimeError("network certification TLS negotiation is unavailable")
     return addresses, _canonical_digest({"host": _opaque_digest(host), "cipher": cipher[0]})
+
+
+async def _resolve_addresses(host: str, port: int) -> tuple[str, ...]:
+    loop = asyncio.get_running_loop()
+    try:
+        values = await asyncio.wait_for(
+            loop.getaddrinfo(host, port, type=socket.SOCK_STREAM),
+            timeout=10,
+        )
+    except (OSError, TimeoutError) as exc:
+        raise RuntimeError("network certification DNS probe failed") from exc
+    addresses = tuple(sorted({str(item[4][0]) for item in values}))
+    if not addresses or len(addresses) > 16:
+        raise RuntimeError("network certification DNS result is outside the reviewed bound")
+    return addresses
+
+
+async def _postgres_tls_probe(dsn: str) -> tuple[tuple[str, ...], str]:
+    host = _postgres_host(dsn)
+    addresses = await _resolve_addresses(host, 5432)
+    try:
+        async with await psycopg.AsyncConnection.connect(dsn) as connection:
+            cursor = await connection.execute(
+                "SELECT ssl, version, cipher FROM pg_stat_ssl WHERE pid=pg_backend_pid()"
+            )
+            row = await cursor.fetchone()
+    except (psycopg.Error, OSError, TimeoutError) as exc:
+        raise RuntimeError("network certification PostgreSQL TLS probe failed") from exc
+    if row is None or row[0] is not True or not row[1] or not row[2]:
+        raise RuntimeError("network certification PostgreSQL TLS evidence is unavailable")
+    return addresses, _canonical_digest(
+        {
+            "host": _opaque_digest(host),
+            "version": str(row[1]),
+            "cipher": str(row[2]),
+        }
+    )
+
+
+async def _close_tls_writer(writer: asyncio.StreamWriter) -> None:
+    """Close a proven TLS stream without converting shutdown latency into probe failure."""
+
+    writer.close()
+    with suppress(TimeoutError, ConnectionError, ssl.SSLError):
+        await writer.wait_closed()
 
 
 async def _write_blob(

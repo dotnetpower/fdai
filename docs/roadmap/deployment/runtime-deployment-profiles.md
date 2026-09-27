@@ -145,6 +145,24 @@ Both profiles retain a content-bound delivery marker before graph commit and rec
 Connected deployments for both runtime profiles boot the managed host from an exact Azure
 Marketplace Ubuntu version and install the checksum-pinned toolchain during Foundation. They do
 not build or require a dedicated managed-host image. Artifact-offline deployments can still select a separately verified prebuilt host image when bootstrap downloads are unavailable.
+Complete kit construction targets CPython 3.12, matching the managed host interpreter. Wheel ABI
+matching remains exact; glibc compatibility is forward-only within the glibc family from the kit's
+recorded minimum.
+The managed host installs migration and inventory support from the kit's signed aggregate
+requirements lock with index access disabled, exact hashes required, and only verified local wheel
+directories exposed as discovery locations. Duplicate wheel copies are never passed as separate
+direct requirements. Completion requires dependency checking, owned-package version readback, and
+a receipt bound to the kit manifest, inventory, requirements, and full package readback. A partial
+environment without that receipt is not resumable success. The focused
+`runtime_support_installation.py` owner enforces this contract; standalone host orchestration only
+supplies the already-admitted artifact root and signed kit-manifest binding.
+Enrollment and every later application transfer reuse the same VM-bound `fdai-genesis-*` SSH
+host-key alias and attested known-hosts file; runtime selection never permits a second alias or
+first-contact trust.
+Runtime-profile validation exercises that shared alias before all eleven application phase
+outcomes so a transport collaborator change cannot bypass the phase-specific failure contract.
+It also runs the four transfer deadline outcomes, preserving the same alias contract across
+successful, expired-budget, and ambiguous-transfer paths.
 After application convergence, the managed host invokes the Core inventory entry point in explicit `--initial` mode, bypassing only the recurring due-time gate. It uses the already authenticated deploy identity for full-subscription ARG/ARM reads and immutable progress writes, then starts a separate read-only closure process. The recurring runtime schedule and its workload identity remain unchanged; the bootstrap path grants no ongoing deployment authority to the inventory workload. Presentation and integration contracts account for this as the sixteenth phase and for `provisioning-events` as the third private Foundation container; older additive receipt doubles may omit `inventory_ready` without being interpreted as ready. After an initial or recurring scan projects a complete promoted generation, the focused `inventory_ontology_observer.py` delivery module publishes one retry-stable Resource observation Event per Resource to the existing control-loop topic while the CLI remains composition-only. Forseti remains the rule judge, Saga remains the audit owner, and an incomplete projection or publication failure cannot satisfy inventory closure or create execution authority.
 
 On AKS, the managed host derives one content-addressed Job from the exact deployed inventory
@@ -152,6 +170,12 @@ CronJob, preserves the `inventory-job` ServiceAccount and digest-pinned Core ima
 the initial-run progress identity. Success additionally requires a separate PostgreSQL closure
 read proving complete provider coverage, final fence, closed overlay, complete child sources, and
 the exact active generation. A retained claim with no Job or closure never starts another Job.
+
+The isolated exact-revision inventory-network certification is not a deployment inventory run. It
+may promote a requested-resource-type snapshot only into its task-owned sandbox store so that the
+campaign can verify private projection, fallback retention, and recovery. Initial and recurring
+runtime inventory still require complete provider scope, and the sandbox receipt grants no
+observation, deployment, or execution authority.
 
 An optional reviewed catalog-review profile adds one suspended AKS CronJob and a post-inventory
 checkpoint. The coordinator transfers only a private GitHub App profile and PEM, verifies the App's

@@ -5,9 +5,10 @@ from __future__ import annotations
 import hashlib
 import io
 import json
+import os
 import stat
 import sys
-from contextlib import nullcontext
+from contextlib import contextmanager, nullcontext
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -267,6 +268,169 @@ def test_failed_profile_preflight_has_no_approval_claim_or_mutation(tmp_path, mo
     assert result["state"] == "blocked"
     assert result["mutation_performed"] is False
     assert not (work_dir / "entra-only-claim.json").exists()
+
+
+@pytest.mark.parametrize("apply", [False, True])
+def test_unavailable_executor_plan_read_blocks_before_approval_or_mutation(
+    tmp_path,
+    monkeypatch,
+    apply,
+) -> None:
+    target, controls, work_dir, snapshot = _ready_runtime(tmp_path, monkeypatch)
+    human_config = "/home/test/.azure-human"
+    executor_config = "/home/test/.azure-executor"
+    monkeypatch.setenv("AZURE_CONFIG_DIR", human_config)
+
+    @contextmanager
+    def executor_context(_target: EntraTargetProfile):
+        previous = os.environ.get("AZURE_CONFIG_DIR")
+        os.environ["AZURE_CONFIG_DIR"] = executor_config
+        try:
+            yield hashlib.sha256(EXECUTOR.casefold().encode()).hexdigest()
+        finally:
+            if previous is None:
+                os.environ.pop("AZURE_CONFIG_DIR", None)
+            else:
+                os.environ["AZURE_CONFIG_DIR"] = previous
+
+    def unavailable_plan(**_kwargs):
+        assert os.environ["AZURE_CONFIG_DIR"] == executor_config
+        raise PermissionError("executor application permission missing")
+
+    monkeypatch.setattr(
+        genesis_entra_operation,
+        "executor_execution_context",
+        executor_context,
+    )
+    monkeypatch.setattr(genesis_entra_operation, "plan_entra", unavailable_plan)
+    monkeypatch.setattr(
+        genesis_entra_operation,
+        "create_approval",
+        lambda **_kwargs: pytest.fail("unavailable plan reached approval"),
+    )
+    monkeypatch.setattr(
+        genesis_entra_operation,
+        "apply_entra_bounded",
+        lambda *_args, **_kwargs: pytest.fail("unavailable plan reached mutation"),
+    )
+
+    result = genesis_entra_operation.run_entra_operation(
+        work_dir=work_dir,
+        target=target,
+        controls=controls,
+        snapshot_directory=snapshot,
+        snapshot_digest=SNAPSHOT_DIGEST,
+        apply=apply,
+    )
+
+    assert result["state"] == "blocked"
+    assert result["blockers"] == ["entra_app_group_plan_readback_unavailable"]
+    assert result["mutation_performed"] is False
+    assert os.environ["AZURE_CONFIG_DIR"] == human_config
+    assert "executor application permission missing" not in json.dumps(result)
+
+
+def test_every_plan_and_recovery_read_uses_executor_context(tmp_path, monkeypatch) -> None:
+    target, controls, work_dir, snapshot = _ready_runtime(tmp_path, monkeypatch)
+    plan = _plan()
+    human_config = "/home/test/.azure-human"
+    executor_config = "/home/test/.azure-executor"
+    monkeypatch.setenv("AZURE_CONFIG_DIR", human_config)
+    execution_digest = hashlib.sha256(EXECUTOR.casefold().encode()).hexdigest()
+    plan_contexts: list[str | None] = []
+    target_contexts: list[str | None] = []
+    observe_contexts: list[str | None] = []
+    actor_contexts: list[str | None] = []
+
+    @contextmanager
+    def executor_context(_target: EntraTargetProfile):
+        previous = os.environ.get("AZURE_CONFIG_DIR")
+        os.environ["AZURE_CONFIG_DIR"] = executor_config
+        try:
+            yield execution_digest
+        finally:
+            if previous is None:
+                os.environ.pop("AZURE_CONFIG_DIR", None)
+            else:
+                os.environ["AZURE_CONFIG_DIR"] = previous
+
+    def active_target() -> str:
+        target_contexts.append(os.environ.get("AZURE_CONFIG_DIR"))
+        return target.target_binding
+
+    def observe(*_args):
+        observe_contexts.append(os.environ.get("AZURE_CONFIG_DIR"))
+        return _observation(), HUMAN
+
+    def actor(_binding: str) -> str:
+        actor_contexts.append(os.environ.get("AZURE_CONFIG_DIR"))
+        return "e" * 64
+
+    def planned(**_kwargs):
+        plan_contexts.append(os.environ.get("AZURE_CONFIG_DIR"))
+        return plan
+
+    monkeypatch.setattr(
+        genesis_entra_operation,
+        "executor_execution_context",
+        executor_context,
+    )
+    monkeypatch.setattr(genesis_entra_operation, "azure_active_target_binding", active_target)
+    monkeypatch.setattr(genesis_entra_operation, "observe_identity_profile", observe)
+    monkeypatch.setattr(genesis_entra_operation, "current_actor_digest", actor)
+    monkeypatch.setattr(genesis_entra_operation, "plan_entra", planned)
+    _approve(monkeypatch)
+    monkeypatch.setattr(
+        genesis_entra_operation,
+        "apply_entra_bounded",
+        lambda _plan: (_ for _ in ()).throw(RuntimeError("ambiguous-after-effects")),
+    )
+
+    with pytest.raises(RuntimeError, match="ambiguous"):
+        genesis_entra_operation.run_entra_operation(
+            work_dir=work_dir,
+            target=target,
+            controls=controls,
+            snapshot_directory=snapshot,
+            snapshot_digest=SNAPSHOT_DIGEST,
+            apply=True,
+        )
+
+    assert os.environ["AZURE_CONFIG_DIR"] == human_config
+    monkeypatch.setattr(
+        genesis_entra_operation,
+        "apply_entra_bounded",
+        lambda *_args, **_kwargs: pytest.fail("claim recovery repeated apply"),
+    )
+    monkeypatch.setattr(
+        genesis_entra_operation,
+        "read_entra_effects",
+        lambda **_kwargs: _readback(),
+    )
+
+    result = genesis_entra_operation.run_entra_operation(
+        work_dir=work_dir,
+        target=target,
+        controls=controls,
+        snapshot_directory=snapshot,
+        snapshot_digest=SNAPSHOT_DIGEST,
+        apply=True,
+    )
+
+    assert result["state"] == "applied"
+    receipt = json.loads((work_dir / "entra-only-receipt.json").read_text())
+    assert receipt["recovered_from_claim"] is True
+    assert plan_contexts == [executor_config] * 6
+    assert target_contexts == [
+        human_config,
+        human_config,
+        executor_config,
+        human_config,
+        executor_config,
+    ]
+    assert observe_contexts == [human_config] * 3
+    assert actor_contexts == [human_config] * 2
+    assert os.environ["AZURE_CONFIG_DIR"] == human_config
 
 
 def test_full_success_binds_snapshot_claim_and_complete_effect_receipt(
