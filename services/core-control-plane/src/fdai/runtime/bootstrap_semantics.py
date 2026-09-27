@@ -386,6 +386,7 @@ async def build_semantic_runtime(
             read_provider=read_investigation_provider,
         ),
         resource_freshness_seconds=_semantic_resource_freshness_seconds(environment),
+        state_store=state_store,
     )
     model_identity_readiness = (
         SemanticModelIdentityReadiness(

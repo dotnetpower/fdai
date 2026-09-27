@@ -1084,6 +1084,41 @@ def test_job_config_rejects_unapproved_management_origin(
         )
 
 
+def test_job_config_allows_only_the_bounded_arg_fault_endpoint() -> None:
+    config = InventoryJobConfig.from_env(
+        {
+            "FDAI_INVENTORY_DSN": "postgresql://example",
+            "AZURE_SUBSCRIPTION_ID": "sub-1",
+            "FDAI_INVENTORY_ARG_ENDPOINT": "https://arg-primary-unavailable.invalid",
+            "FDAI_INVENTORY_NETWORK_CERTIFICATION": "1",
+        }
+    )
+
+    assert config.arg_endpoint == "https://arg-primary-unavailable.invalid"
+    assert config.management_endpoint == "https://management.azure.com"
+
+
+@pytest.mark.parametrize(
+    "environment",
+    [
+        {"FDAI_INVENTORY_ARG_ENDPOINT": "https://arg-primary-unavailable.invalid"},
+        {
+            "FDAI_INVENTORY_ARG_ENDPOINT": "https://untrusted.example",
+            "FDAI_INVENTORY_NETWORK_CERTIFICATION": "1",
+        },
+    ],
+)
+def test_job_config_rejects_unbounded_arg_endpoint(environment: dict[str, str]) -> None:
+    with pytest.raises(ValueError, match="ARG_ENDPOINT"):
+        InventoryJobConfig.from_env(
+            {
+                "FDAI_INVENTORY_DSN": "postgresql://example",
+                "AZURE_SUBSCRIPTION_ID": "sub-1",
+                **environment,
+            }
+        )
+
+
 @pytest.mark.parametrize("value", ["59", "invalid"])
 def test_job_config_rejects_invalid_reconciliation_interval(value: str) -> None:
     with pytest.raises(ValueError, match="RECONCILIATION_INTERVAL_SECONDS"):

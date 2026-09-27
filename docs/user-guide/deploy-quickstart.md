@@ -1,7 +1,7 @@
 ---
 title: Deploy Quickstart
 description: Deploy FDAI to Azure from one local command or a digest-pinned disconnected deployment appliance.
-derives_from: [{ source: docs/roadmap/deployment/deploy-and-onboard.md, sha: d2fab649323f67702904af1802fdd1796fe1f35e }]
+derives_from: [{ source: docs/roadmap/deployment/deploy-and-onboard.md, sha: af49ae6832fbcc5817d85f6f8743c19059ededa0 }]
 ---
 
 # Deploy Quickstart

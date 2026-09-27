@@ -8,6 +8,7 @@ import pytest
 from fdai.core.ontology_platform.graph_query_refresh import (
     SecuredGraphEvidenceQueryRefresher,
 )
+from fdai.core.ontology_platform.graph_refresh_audit import GraphEvidenceStatus
 from fdai.core.ontology_platform.models import (
     ObjectSelector,
     ObjectSelectorKind,
@@ -60,11 +61,20 @@ class _LiveProvider:
         return self.result
 
 
+class _Auditor:
+    def __init__(self) -> None:
+        self.records = []
+
+    async def record(self, record):
+        self.records.append(record)
+
+
 def _secured(
     *,
     age_seconds: int,
     conflicts: tuple[str, ...] = (),
     include_resource_without_metadata: bool = False,
+    include_primary_metadata: bool = True,
     keyed_metadata: bool = False,
     secondary_conflicts: tuple[str, ...] = (),
 ) -> SecuredObjectSetQueryResult:
@@ -107,16 +117,20 @@ def _secured(
             id="resource-1",
             object_type="Resource",
             properties={
-                "properties": {
-                    STATE_FACT_METADATA_PROPERTY: (
-                        {
-                            "availabilityState": state.to_mapping(),
-                            "state": secondary_state.to_mapping(),
-                        }
-                        if keyed_metadata
-                        else state.to_mapping()
-                    )
-                }
+                "properties": (
+                    {
+                        STATE_FACT_METADATA_PROPERTY: (
+                            {
+                                "availabilityState": state.to_mapping(),
+                                "state": secondary_state.to_mapping(),
+                            }
+                            if keyed_metadata
+                            else state.to_mapping()
+                        )
+                    }
+                    if include_primary_metadata
+                    else {}
+                )
             },
         )
     ]
@@ -169,6 +183,73 @@ def _request() -> ProjectionRequest:
         caller_role="reader",
         declared_purposes=frozenset({"operations-review"}),
     )
+
+
+@pytest.mark.parametrize(
+    ("secured", "expected"),
+    [
+        (_secured(age_seconds=30), GraphEvidenceStatus.COMPLETE),
+        (
+            _secured(age_seconds=30, include_resource_without_metadata=True),
+            GraphEvidenceStatus.INCOMPLETE,
+        ),
+        (_secured(age_seconds=120), GraphEvidenceStatus.STALE),
+        (
+            _secured(age_seconds=30, conflicts=("observed_property_conflict:state",)),
+            GraphEvidenceStatus.CONFLICTING,
+        ),
+        (
+            _secured(age_seconds=30, include_primary_metadata=False),
+            GraphEvidenceStatus.UNAVAILABLE,
+        ),
+    ],
+)
+async def test_refresh_audits_five_distinct_no_authority_states(
+    secured: SecuredObjectSetQueryResult,
+    expected: GraphEvidenceStatus,
+) -> None:
+    auditor = _Auditor()
+    refresher = SecuredGraphEvidenceQueryRefresher(
+        gateway=_Gateway(secured),
+        auditor=auditor,
+    )
+
+    try:
+        await refresher.refresh(
+            definition=secured.materialization.definition,
+            projection_request=_request(),
+            secured=secured,
+        )
+    except QueryNodeHeldError:
+        pass
+
+    assert [record.evidence_status for record in auditor.records] == [expected]
+    assert all(record.decision.observation_authority is False for record in auditor.records)
+    assert all(record.decision.mutation_authority is False for record in auditor.records)
+    assert all(record.decision.execution_authority is False for record in auditor.records)
+
+
+async def test_failed_live_refresh_audits_terminal_unavailable_state() -> None:
+    secured = _secured(age_seconds=120)
+    auditor = _Auditor()
+    refresher = SecuredGraphEvidenceQueryRefresher(
+        gateway=_Gateway(secured),
+        live_provider=_LiveProvider(result=False),
+        auditor=auditor,
+    )
+
+    with pytest.raises(QueryNodeHeldError, match="graph_refresh_unavailable"):
+        await refresher.refresh(
+            definition=secured.materialization.definition,
+            projection_request=_request(),
+            secured=secured,
+        )
+
+    assert [record.evidence_status for record in auditor.records] == [
+        GraphEvidenceStatus.STALE,
+        GraphEvidenceStatus.UNAVAILABLE,
+    ]
+    assert auditor.records[-1].phase.value == "terminal"
 
 
 async def test_interface_selection_cannot_skip_resource_freshness() -> None:

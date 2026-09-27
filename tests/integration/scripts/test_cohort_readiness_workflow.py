@@ -50,7 +50,12 @@ def test_workflow_reads_private_state_and_emits_aggregate_receipt() -> None:
     assert "::add-mask::$migration_dsn" in WORKFLOW
     assert "PostgresCohortEvidenceInventorySource" in WORKFLOW
     assert 'expected_revision=os.environ["TARGET_COMMIT_SHA"]' in WORKFLOW
-    assert "fdai.cohort-readiness-receipt.v1" in WORKFLOW
+    assert "fdai.cohort-readiness-receipt.v2" in WORKFLOW
+    assert "except psycopg.OperationalError as error:" in WORKFLOW
+    assert "if error.sqlstate is not None:" in WORKFLOW
+    assert '"availability": "unavailable"' in WORKFLOW
+    assert '"reason_code": "state_store_connection_failed"' in WORKFLOW
+    assert '"missing": ["state_store_unavailable"]' in WORKFLOW
     assert '"claim_eligibility_authority": False' in WORKFLOW
     assert '"execution_authority": False' in WORKFLOW
     assert '"mutation_performed": False' in WORKFLOW

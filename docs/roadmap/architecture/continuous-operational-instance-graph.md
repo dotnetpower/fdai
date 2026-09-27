@@ -4,7 +4,7 @@ title: Continuous Operational Instance Graph
 # Continuous Operational Instance Graph
 
 This document owns the runtime contract that keeps cloud resource instances, relationships, and observed state current in the FDAI ontology.
-Collection is continuous and load-aware, while raw history moves through typed rollups and verified archives so the active data plane remains bounded. Principal-scoped semantic candidates omit oversized axes, preserve the ranked prefix within the byte bound, and keep generated coverage on the exact catalog function denominator.
+Collection is continuous and load-aware, while raw history moves through typed rollups and verified archives so the active data plane remains bounded. Principal-scoped semantic candidates omit oversized axes, preserve the ranked prefix within the byte bound, and keep generated coverage on the exact catalog function denominator with every reviewed ontology-platform source digest bound into the artifact.
 
 [Alert noise governance](../operations/alert-noise-governance.md) retains separate private alert,
 audience, and delivery evidence. Those records and their scope bindings do not promote an inventory
@@ -55,7 +55,7 @@ substitutes the node identity or local Azure CLI; local credential policy stays 
   directly. One projection owner adjudicates observations and atomically advances its current
   subgraph. Snapshot and journal record conversion call one support-owned relationship-evidence
   encoder, so the two persistence paths cannot diverge in retained evidence.
-- **Graph first:** Ordinary questions read the current operational graph before any provider API. A live provider read is allowed only when required evidence is missing, stale, incomplete, conflicting, or explicitly requested under a bounded read policy.
+- **Graph first:** Ordinary questions read the current operational graph before any provider API. A live provider read is allowed only when required evidence is missing, stale, incomplete, conflicting, or explicitly requested under a bounded read policy. Every ordinary semantic refresh evaluation appends its complete, incomplete, stale, conflicting, or unavailable state and deterministic no-authority decision to the canonical audit chain.
   The generated question bank binds every source blob digest; any source-catalog change requires full deterministic regeneration, while unchanged question records grant no graph freshness, completeness, or action authority. Localized Service Health presentation maps reviewed event metadata and source completeness to display labels without changing the retained machine values or provider advisory title.
   Private AKS assurance wording may start from an explicitly requested Azure CLI list, but target admission still requires an exact active-inventory provider reference and reviewed `workload_runs_on` plus `implemented_by` path. CLI names never create graph facts or prove freshness.
 - **Safe enrichment:** A live read can support the current answer and publishes a typed observation

@@ -34,6 +34,7 @@ from fdai.core.ontology_platform import (
 from fdai.core.ontology_platform.graph_query_refresh import (
     SecuredGraphEvidenceQueryRefresher,
 )
+from fdai.core.ontology_platform.graph_refresh_audit import GraphEvidenceRefreshAuditRecord
 from fdai.core.ontology_platform.query_gateway import (
     SecuredObjectSetQueryGateway,
     SecuredObjectSetQueryResult,
@@ -63,6 +64,7 @@ from fdai.shared.contracts.models import (
     OntologyRelease,
 )
 from fdai.shared.ontology.acl import ProjectionRequest
+from fdai.shared.providers.state_store import StateStore
 
 from .semantic_query_health_values import resource_health_state_values
 
@@ -73,6 +75,57 @@ _CURRENT_EVIDENCE_FUNCTIONS = frozenset(
         SERVICE_HEALTH_FUNCTION_NAME,
     }
 )
+
+
+class StateStoreGraphEvidenceRefreshAuditor:
+    """Persist every refresh state and decision in the append-only audit chain."""
+
+    def __init__(
+        self,
+        *,
+        state_store: StateStore,
+        now: Callable[[], datetime],
+    ) -> None:
+        self._state_store = state_store
+        self._now = now
+
+    async def record(self, record: GraphEvidenceRefreshAuditRecord) -> None:
+        recorded_at = self._now().isoformat()
+        await self._state_store.append_audit_entry(
+            {
+                "kind": "semantic.graph_evidence_refresh",
+                "tier": "t0",
+                "actor": "Bragi",
+                "accountable_agent": "Bragi",
+                "recorded_at": recorded_at,
+                "audit_id": f"{record.digest}:{recorded_at}",
+                "record_digest": record.digest,
+                "phase": record.phase.value,
+                "evidence_status": record.evidence_status.value,
+                "decision": record.decision.outcome.value,
+                "reason_codes": list(record.decision.reason_codes),
+                "decision_digest": record.decision.digest,
+                "ontology_release_digest": record.ontology_release_digest,
+                "principal_scope_digest": record.principal_scope_digest,
+                "source_revisions": list(record.source_revisions),
+                "observation_authority": False,
+                "mutation_authority": False,
+                "execution_authority": False,
+            }
+        )
+
+
+def graph_refresh_auditor(
+    state_store: StateStore | None,
+    now: Callable[[], datetime],
+) -> StateStoreGraphEvidenceRefreshAuditor | None:
+    """Bind the production audit sink when a durable StateStore is available."""
+
+    return (
+        StateStoreGraphEvidenceRefreshAuditor(state_store=state_store, now=now)
+        if state_store is not None
+        else None
+    )
 
 
 class SemanticQueryConversationRuntime(SemanticConversationRuntime):
@@ -317,5 +370,7 @@ class _SemanticCurrentEvidenceProbe:
 
 __all__ = [
     "SemanticQueryConversationRuntime",
+    "StateStoreGraphEvidenceRefreshAuditor",
     "bind_semantic_current_evidence",
+    "graph_refresh_auditor",
 ]

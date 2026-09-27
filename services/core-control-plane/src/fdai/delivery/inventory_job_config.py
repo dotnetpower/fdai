@@ -29,6 +29,7 @@ from fdai.delivery.repo_assets import repo_asset_root
 
 _DEFAULT_LOOP_SECONDS = 60
 _DEFAULT_CHANGE_MIN_INTERVAL_SECONDS = 120
+_CERTIFICATION_ARG_ENDPOINT = "https://arg-primary-unavailable.invalid"
 _MANAGEMENT_AUDIENCE_BY_ORIGIN = {
     "https://management.azure.com": "https://management.azure.com/.default",
     "https://management.chinacloudapi.cn": "https://management.chinacloudapi.cn/.default",
@@ -75,6 +76,7 @@ class InventoryJobConfig:
     monitor_workspace_id: str | None = None
     runtime_call_evidence_enabled: bool = False
     collection_policy: InventoryCollectionPolicy | None = None
+    arg_endpoint: str | None = None
 
     def snapshot_policy(self, source_name: str) -> SourceCollectionPolicy:
         """Return the validated snapshot policy for one configured fallback source."""
@@ -104,6 +106,15 @@ class InventoryJobConfig:
             "FDAI_INVENTORY_MANAGEMENT_AUDIENCE",
             "https://management.azure.com/.default",
         ).strip()
+        arg_endpoint = source.get(
+            "FDAI_INVENTORY_ARG_ENDPOINT",
+            management_endpoint,
+        ).strip()
+        network_certification = read_bool_env(
+            source,
+            "FDAI_INVENTORY_NETWORK_CERTIFICATION",
+            False,
+        )
         freshness = _freshness_seconds(source=source, runtime_values=runtime_values)
         reconciliation_interval = _integer_env(
             source,
@@ -192,6 +203,11 @@ class InventoryJobConfig:
         if not source_order or set(source_order) - {"arg", "arm", "declarative"}:
             raise ValueError("FDAI_INVENTORY_SOURCES supports arg, arm, declarative")
         _validate_management_origin(management_endpoint, management_audience)
+        _validate_arg_endpoint(
+            arg_endpoint,
+            management_endpoint=management_endpoint,
+            network_certification=network_certification,
+        )
         if freshness < 1:
             raise ValueError("FDAI_INVENTORY_FRESHNESS_SECONDS MUST be >= 1")
         if reconciliation_interval < 60:
@@ -340,6 +356,11 @@ class InventoryJobConfig:
             resource_types=resource_types,
             management_endpoint=management_endpoint,
             management_audience=management_audience,
+            arg_endpoint=(
+                None
+                if arg_endpoint.rstrip("/") == management_endpoint.rstrip("/")
+                else arg_endpoint
+            ),
             freshness_budget_seconds=freshness,
             reconciliation_interval_seconds=reconciliation_interval,
             loop_seconds=loop_seconds,
@@ -387,6 +408,21 @@ def _validate_management_origin(endpoint: str, audience: str) -> None:
         raise ValueError("FDAI_INVENTORY_MANAGEMENT_ENDPOINT MUST be an approved HTTPS ARM origin")
     if audience != _MANAGEMENT_AUDIENCE_BY_ORIGIN[normalized]:
         raise ValueError("FDAI_INVENTORY_MANAGEMENT_AUDIENCE MUST match the ARM origin")
+
+
+def _validate_arg_endpoint(
+    endpoint: str,
+    *,
+    management_endpoint: str,
+    network_certification: bool,
+) -> None:
+    normalized = endpoint.rstrip("/")
+    if normalized == management_endpoint.rstrip("/"):
+        return
+    if not network_certification or normalized != _CERTIFICATION_ARG_ENDPOINT:
+        raise ValueError(
+            "FDAI_INVENTORY_ARG_ENDPOINT may differ only for the bounded network certification"
+        )
 
 
 def _validate_collection_policy_bindings(

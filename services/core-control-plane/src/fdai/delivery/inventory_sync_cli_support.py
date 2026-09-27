@@ -213,12 +213,15 @@ def build_sources(
     producer_digest = collection_producer_digest()
     for source_priority, source_name in enumerate(config.source_order):
         source_policy = config.snapshot_policy(source_name)
+        arg_endpoint = config.arg_endpoint or config.management_endpoint
         collection_configuration = {
             "schema_version": "1.0.0",
             "source": source_name,
             "producer_digest": producer_digest,
             "policy": asdict(source_policy),
-            "management_endpoint": config.management_endpoint,
+            "management_endpoint": (
+                arg_endpoint if source_name == "arg" else config.management_endpoint
+            ),
             "management_audience": config.management_audience,
             "arg_requests_per_second": config.arg_requests_per_second,
             "resource_type_mappings": dict(resource_type_mapping_digests(vocabulary)),
@@ -251,7 +254,7 @@ def build_sources(
                 http_client=http_client,
                 config=AzureArgQueryFactoryConfig(
                     subscription_scopes=config.scopes,
-                    arg_endpoint=config.management_endpoint,
+                    arg_endpoint=arg_endpoint,
                     audience=config.management_audience,
                     requests_per_second=config.arg_requests_per_second,
                     max_pages=source_policy.max_cursor_pages,
@@ -269,7 +272,7 @@ def build_sources(
                 http_client=http_client,
                 config=AzureArmInventoryFactoryConfig(
                     subscription_scopes=config.scopes,
-                    arm_endpoint=config.management_endpoint,
+                    arm_endpoint=arg_endpoint,
                     audience=config.management_audience,
                     max_pages=source_policy.max_cursor_pages,
                     max_records=source_policy.max_objects,
