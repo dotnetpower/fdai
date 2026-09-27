@@ -9,6 +9,8 @@ from typing import Protocol
 from .catalog import CatalogReviewPackage
 
 _SHA256 = re.compile(r"^[0-9a-f]{64}$")
+_GIT_SHA = re.compile(r"^(?:[0-9a-f]{40}|[0-9a-f]{64})$")
+_LABEL = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$")
 _MAX_REVIEW_REF_LENGTH = 512
 
 
@@ -19,6 +21,13 @@ class CatalogReviewPublicationReceipt:
     package_digest: str
     review_ref: str
     already_existed: bool
+    candidate_digest: str | None = None
+    binding_digest: str | None = None
+    observation_digest: str | None = None
+    required_labels: tuple[str, ...] = ()
+    observed_labels: tuple[str, ...] = ()
+    head_sha: str | None = None
+    review_document_digest: str | None = None
 
     def __post_init__(self) -> None:
         if (
@@ -36,6 +45,24 @@ class CatalogReviewPublicationReceipt:
             raise ValueError("review_ref MUST be bounded printable ASCII without whitespace")
         if not isinstance(self.already_existed, bool):
             raise ValueError("already_existed MUST be boolean")
+        for value in (
+            self.candidate_digest,
+            self.binding_digest,
+            self.observation_digest,
+            self.review_document_digest,
+        ):
+            if value is not None and _SHA256.fullmatch(value) is None:
+                raise ValueError("catalog review verification digests MUST be SHA-256")
+        if self.head_sha is not None and _GIT_SHA.fullmatch(self.head_sha) is None:
+            raise ValueError("catalog review head_sha MUST be a full Git commit SHA")
+        for labels in (self.required_labels, self.observed_labels):
+            if (
+                not isinstance(labels, tuple)
+                or labels != tuple(sorted(labels))
+                or len(labels) != len(set(labels))
+                or any(_LABEL.fullmatch(label) is None for label in labels)
+            ):
+                raise ValueError("catalog review labels MUST be unique canonical labels")
 
 
 class CatalogReviewPublisher(Protocol):

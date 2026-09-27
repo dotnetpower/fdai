@@ -139,6 +139,21 @@ Marketplace Ubuntu version and install the checksum-pinned toolchain during Foun
 not build or require a dedicated managed-host image. Artifact-offline deployments can still select a separately verified prebuilt host image when bootstrap downloads are unavailable.
 After application convergence, the managed host invokes the Core inventory entry point in explicit `--initial` mode, bypassing only the recurring due-time gate. It uses the already authenticated deploy identity for full-subscription ARG/ARM reads and immutable progress writes, then starts a separate read-only closure process. The recurring runtime schedule and its workload identity remain unchanged; the bootstrap path grants no ongoing deployment authority to the inventory workload. Presentation and integration contracts account for this as the sixteenth phase and for `provisioning-events` as the third private Foundation container; older additive receipt doubles may omit `inventory_ready` without being interpreted as ready. After an initial or recurring scan projects a complete promoted generation, the focused `inventory_ontology_observer.py` delivery module publishes one retry-stable Resource observation Event per Resource to the existing control-loop topic while the CLI remains composition-only. Forseti remains the rule judge, Saga remains the audit owner, and an incomplete projection or publication failure cannot satisfy inventory closure or create execution authority.
 
+On AKS, the managed host derives one content-addressed Job from the exact deployed inventory
+CronJob, preserves the `inventory-job` ServiceAccount and digest-pinned Core image, and passes only
+the initial-run progress identity. Success additionally requires a separate PostgreSQL closure
+read proving complete provider coverage, final fence, closed overlay, complete child sources, and
+the exact active generation. A retained claim with no Job or closure never starts another Job.
+
+An optional reviewed catalog-review profile adds one suspended AKS CronJob and a post-inventory
+checkpoint. The coordinator transfers only a private GitHub App profile and PEM, verifies the App's
+single private repository and downscoped permissions, and runs the real Huginn, Muninn, Norns,
+Mimir, and Saga event path on durable Kafka and PostgreSQL. Success requires an independently read
+open draft with the exact head commit, review document, base, labels, and no merge or auto-merge. The receipt grants no
+catalog activation, merge, promotion, or managed-resource mutation authority.
+Presentation records this selected-or-skipped checkpoint as the seventeenth phase, and every application receipt carries its catalog-review digest and state.
+Repository tests assemble their non-secret PEM boundary marker at runtime; secret scanning ignores only the removed marker's exact historical fingerprint and does not allow future key-shaped source.
+
 Tenant provisioning consumes prebuilt service and dependency images for new installations, whole-profile convergence, staging, production, dependencies, and releases. Core, Operator, and the Cost Governance profile install the typed shared runtime diagnostics wheel because their distributions import it; the venue guard keeps its socket unavailable outside explicit local development.
 A complete release includes ClamAV and pgvector, and the provisioner verifies signatures, provenance, source revision, platform, and digest without Docker, Buildx,
 ACR Tasks, a remote builder, or VM image capture. One bounded exception lets an eligible host run `fdaictl provision source-service-update` for one service on an
@@ -269,6 +284,7 @@ a retry limit, and bounded history. Manual jobs require a separate approval and 
 The AKS baseline renders analyzer, canary, inventory, observation campaign, and operational-history lifecycle
 CronJobs. The history job uses the read-only inventory identity, service-owned state DSN, and private archive URL
 in fixed `shadow` mode. A non-shadow lifecycle requires a separate protected transition and exact persisted certification receipt.
+The focused `aks_workload_jobs.py` module owns pure scheduled-job assembly; the managed host remains orchestration-only, and this ownership split changes no rendered Job, identity, schedule, or authority.
 The analyzer Job reuses the inventory identity to read only the exact ingest Event Hub for
 uncertain-publication reconciliation. Its new topic-scoped receiver assignment adds no write,
 deployment, or execution authority; a declared role is not proof of effective deployed access.

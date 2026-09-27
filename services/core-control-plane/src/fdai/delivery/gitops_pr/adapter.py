@@ -37,6 +37,7 @@ from __future__ import annotations
 
 import asyncio
 import base64
+import binascii
 import hashlib
 import json
 from dataclasses import dataclass
@@ -46,6 +47,7 @@ from urllib.parse import quote, urlencode
 import httpx
 from fdai_github_app_auth import TokenProvider, static_token_provider
 
+from fdai.delivery.gitops_pr.catalog_review import CatalogReviewPrObservation
 from fdai.shared.contracts.models import Mode
 from fdai.shared.providers.remediation_pr import (
     PublishReceipt,
@@ -147,16 +149,22 @@ class GitOpsPrAdapter(RemediationPrPublisher):
             # both pass the remote idempotency probe.
             existing = await self._find_open_pr(branch)
             if existing is not None:
+                head_sha = await self._ensure_existing_review(
+                    existing,
+                    branch=branch,
+                    pr=pr,
+                )
                 return PublishReceipt(
                     pr_ref=existing["ref"],
                     url=existing.get("url"),
                     already_existed=True,
                     state=existing["state"],
+                    head_sha=head_sha,
                 )
 
             base_sha = await self._resolve_base_sha()
             await self._create_branch(branch=branch, base_sha=base_sha)
-            await self._put_contents(
+            head_sha = await self._put_contents(
                 branch=branch, path=pr.patch_path, content=pr.patch, title=pr.title
             )
             try:
@@ -168,18 +176,25 @@ class GitOpsPrAdapter(RemediationPrPublisher):
                 existing = await self._find_open_pr(branch)
                 if existing is None:
                     raise
+                head_sha = await self._ensure_existing_review(
+                    existing,
+                    branch=branch,
+                    pr=pr,
+                )
                 return PublishReceipt(
                     pr_ref=existing["ref"],
                     url=existing.get("url"),
                     already_existed=True,
                     state=existing["state"],
+                    head_sha=head_sha,
                 )
-            await self._apply_labels(pr_ref=pr_ref, labels=pr.labels)
+            await self._set_labels(pr_ref=pr_ref, labels=pr.labels)
             return PublishReceipt(
                 pr_ref=pr_ref,
                 url=url,
                 already_existed=False,
                 state="open",
+                head_sha=head_sha,
             )
 
     async def publish_governance(
@@ -242,6 +257,75 @@ class GitOpsPrAdapter(RemediationPrPublisher):
             path=path,
             headers=self._headers,
             timeout_seconds=self._config.timeout_seconds,
+        )
+
+    async def observe_catalog_review(
+        self,
+        *,
+        pr_ref: str,
+        idempotency_key: str,
+        required_labels: tuple[str, ...],
+        expected_head_sha: str,
+        expected_path: str,
+        expected_document_digest: str,
+    ) -> CatalogReviewPrObservation:
+        """GET and bind one exact open draft without merge or auto-merge."""
+
+        marker = f"{self._config.owner}/{self._config.repo}#"
+        if not pr_ref.startswith(marker) or not pr_ref[len(marker) :].isdigit():
+            raise GitOpsPrError("catalog review PR reference does not match this adapter")
+        number = pr_ref[len(marker) :]
+        payload = await self._get_json(self._repo_url(f"pulls/{quote(number, safe='')}"))
+        if not isinstance(payload, dict):
+            raise GitOpsPrError("catalog review PR readback returned no pull request")
+        head = payload.get("head")
+        base = payload.get("base")
+        labels = payload.get("labels")
+        if (
+            not isinstance(head, dict)
+            or not isinstance(base, dict)
+            or not isinstance(labels, list)
+            or any(
+                not isinstance(item, dict) or not isinstance(item.get("name"), str)
+                for item in labels
+            )
+        ):
+            raise GitOpsPrError("catalog review PR readback is incomplete")
+        observed_labels = tuple(sorted(str(item["name"]) for item in labels))
+        await self._require_exact_pr_file(pr_ref=pr_ref, path=expected_path)
+        material = {
+            "pr_ref": pr_ref,
+            "state": payload.get("state"),
+            "draft": payload.get("draft"),
+            "head": head.get("ref"),
+            "head_sha": head.get("sha"),
+            "base": base.get("ref"),
+            "labels": observed_labels,
+            "merged": payload.get("merged"),
+            "merged_at": payload.get("merged_at"),
+            "auto_merge": payload.get("auto_merge"),
+            "review_document_digest": await self._read_content_digest(
+                path=expected_path,
+                ref=expected_head_sha,
+            ),
+            "changed_paths": [expected_path],
+        }
+        observation_digest = hashlib.sha256(
+            json.dumps(material, separators=(",", ":"), sort_keys=True).encode()
+        ).hexdigest()
+        return CatalogReviewPrObservation(
+            observation_digest=observation_digest,
+            open=payload.get("state") == "open",
+            draft=payload.get("draft") is True,
+            head_matches=head.get("ref") == self._branch_for(idempotency_key),
+            head_commit_matches=head.get("sha") == expected_head_sha,
+            base_matches=base.get("ref") == self._config.default_branch,
+            labels_match=observed_labels == tuple(sorted(required_labels)),
+            content_matches=material["review_document_digest"] == expected_document_digest,
+            files_match=True,
+            observed_labels=observed_labels,
+            merged=payload.get("merged") is True or payload.get("merged_at") is not None,
+            auto_merge_enabled=payload.get("auto_merge") is not None,
         )
 
     # ------------------------------------------------------------------
@@ -358,7 +442,136 @@ class GitOpsPrAdapter(RemediationPrPublisher):
             "ref": f"{self._config.owner}/{self._config.repo}#{pr_number}",
             "url": first.get("html_url"),
             "state": state,
+            "draft": first.get("draft"),
+            "labels": tuple(
+                item["name"]
+                for item in first.get("labels", ())
+                if isinstance(item, dict) and isinstance(item.get("name"), str)
+            ),
         }
+
+    async def _ensure_existing_review(
+        self,
+        existing: dict[str, Any],
+        *,
+        branch: str,
+        pr: RemediationPr,
+    ) -> str | None:
+        if existing.get("state") != "open":
+            return None
+        payload = await self._read_pr_payload(str(existing["ref"]))
+        head_sha, current_labels = await self._validate_existing_review(
+            payload,
+            pr_ref=str(existing["ref"]),
+            branch=branch,
+            path=pr.patch_path,
+            expected_content_digest=hashlib.sha256(pr.patch.encode("utf-8")).hexdigest(),
+        )
+        expected_labels = tuple(sorted(pr.labels))
+        if current_labels != expected_labels:
+            await self._set_labels(pr_ref=str(existing["ref"]), labels=pr.labels)
+            payload = await self._read_pr_payload(str(existing["ref"]))
+            observed_head_sha, current_labels = await self._validate_existing_review(
+                payload,
+                pr_ref=str(existing["ref"]),
+                branch=branch,
+                path=pr.patch_path,
+                expected_content_digest=hashlib.sha256(pr.patch.encode("utf-8")).hexdigest(),
+            )
+            if observed_head_sha != head_sha:
+                raise GitOpsPrError("existing draft review head changed during label recovery")
+            if current_labels != expected_labels:
+                raise GitOpsPrError("existing draft review labels do not match exact intent")
+        return head_sha
+
+    async def _read_pr_payload(self, pr_ref: str) -> dict[str, Any]:
+        number = pr_ref.rsplit("#", 1)[-1]
+        if not number.isdigit():
+            raise GitOpsPrError("pull request reference number is invalid")
+        payload = await self._get_json(self._repo_url(f"pulls/{quote(number, safe='')}"))
+        if not isinstance(payload, dict):
+            raise GitOpsPrError("pull request readback returned no pull request")
+        return payload
+
+    async def _validate_existing_review(
+        self,
+        payload: dict[str, Any],
+        *,
+        pr_ref: str,
+        branch: str,
+        path: str,
+        expected_content_digest: str,
+    ) -> tuple[str, tuple[str, ...]]:
+        head = payload.get("head")
+        base = payload.get("base")
+        labels = payload.get("labels")
+        if (
+            payload.get("state") != "open"
+            or payload.get("draft") is not True
+            or payload.get("merged") is True
+            or payload.get("merged_at") is not None
+            or payload.get("auto_merge") is not None
+            or not isinstance(head, dict)
+            or not isinstance(base, dict)
+            or not isinstance(labels, list)
+        ):
+            raise GitOpsPrError("existing pull request is not an inert open draft review")
+        head_sha = head.get("sha")
+        if (
+            head.get("ref") != branch
+            or base.get("ref") != self._config.default_branch
+            or not isinstance(head_sha, str)
+            or not head_sha
+        ):
+            raise GitOpsPrError("existing draft review branch binding does not match")
+        observed_labels = tuple(
+            sorted(
+                item["name"]
+                for item in labels
+                if isinstance(item, dict) and isinstance(item.get("name"), str)
+            )
+        )
+        if len(observed_labels) != len(labels):
+            raise GitOpsPrError("existing draft review labels are unavailable")
+        await self._require_exact_pr_file(pr_ref=pr_ref, path=path)
+        observed_content_digest = await self._read_content_digest(path=path, ref=head_sha)
+        if observed_content_digest != expected_content_digest:
+            raise GitOpsPrError("existing draft review document does not match exact intent")
+        return head_sha, observed_labels
+
+    async def _read_content_digest(self, *, path: str, ref: str) -> str:
+        url = self._repo_url(f"contents/{self._content_path(path)}")
+        payload = await self._get_json(f"{url}?{urlencode({'ref': ref})}")
+        if (
+            not isinstance(payload, dict)
+            or payload.get("encoding") != "base64"
+            or not isinstance(payload.get("content"), str)
+        ):
+            raise GitOpsPrError("review document readback is incomplete")
+        encoded = "".join(str(payload["content"]).split())
+        try:
+            content = base64.b64decode(encoded, validate=True)
+        except (ValueError, binascii.Error) as exc:
+            raise GitOpsPrError("review document readback is not valid base64") from exc
+        return hashlib.sha256(content).hexdigest()
+
+    async def _require_exact_pr_file(self, *, pr_ref: str, path: str) -> None:
+        number = pr_ref.rsplit("#", 1)[-1]
+        if not number.isdigit():
+            raise GitOpsPrError("pull request reference number is invalid")
+        url = self._repo_url(f"pulls/{quote(number, safe='')}/files")
+        payload = await self._get_json(f"{url}?{urlencode({'per_page': 2})}")
+        if (
+            not isinstance(payload, list)
+            or len(payload) != 1
+            or not isinstance(payload[0], dict)
+            or payload[0].get("filename") != path
+            or payload[0].get("status") != "added"
+            or "previous_filename" in payload[0]
+        ):
+            raise GitOpsPrError(
+                "catalog review pull request changed paths do not match exact intent"
+            )
 
     async def _resolve_base_sha(self) -> str:
         url = self._repo_url(f"git/refs/heads/{quote(self._config.default_branch, safe='')}")
@@ -424,15 +637,15 @@ class GitOpsPrAdapter(RemediationPrPublisher):
             },
         )
         pr_number = payload.get("number")
-        if pr_number is None:
-            raise GitOpsPrError("pulls POST returned no PR number")
+        if pr_number is None or payload.get("draft") is not True or payload.get("state") != "open":
+            raise GitOpsPrError("pulls POST did not return one open draft review")
         pr_ref = f"{self._config.owner}/{self._config.repo}#{pr_number}"
         return pr_ref, payload.get("html_url")
 
-    async def _apply_labels(self, *, pr_ref: str, labels: tuple[str, ...]) -> None:
+    async def _set_labels(self, *, pr_ref: str, labels: tuple[str, ...]) -> None:
         pr_number = pr_ref.rsplit("#", 1)[-1]
         url = self._repo_url(f"issues/{quote(pr_number, safe='')}/labels")
-        await self._post_json(url, {"labels": list(labels)})
+        await self._put_json(url, {"labels": list(labels)})
 
 
 __all__ = [

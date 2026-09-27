@@ -7,8 +7,7 @@ How **human users** authenticate, are authorized, and are audited across the con
 
 It resolves the P0 blocker "final identity mapping (external IdP ↔ Entra ↔ Managed Identity)" from [security-and-identity.md#open-decisions](../architecture/security-and-identity.md#open-decisions) for the *human* side; the executor-side mapping stays as declared there.
 
-> RBAC (this file) answers *what a human may operate*. A separate, independently
-> resolved axis, [agent-stewardship-and-handover.md](agent-stewardship-and-handover.md),
+> RBAC (this file) answers *what a human may operate*. A separate, independently resolved axis, [agent-stewardship-and-handover.md](agent-stewardship-and-handover.md),
 > answers *who owns each of the 15 agents* now that FDAI runs the work (accountability
 > + escalation + handover). A person is typically in both; being a steward grants no
 > RBAC capability by itself. A separately reviewed [human report line](human-report-lines-and-approval-routing.md) can nominate the nearest manager, but that person must still satisfy current RBAC and ActionType policy. Authenticated Settings catalog reads use a separate bounded model-configuration reader; discovering a deployed model grants no model-selection, provisioning, assignment, or execution authority.
@@ -39,6 +38,7 @@ It resolves the P0 blocker "final identity mapping (external IdP ↔ Entra ↔ M
 ### Implementation history
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-11-03 | implemented | Bound the standalone app/role mutation to an `aw-approvers` human and a separately authenticated exact managed-identity executor. Target-profile v2 selects a private mode-0700 Azure context, and claim plus receipt records preserve both principal digests without tenant identifiers. | `current change`; deployment CLI and Genesis identity-profile and operation tests; Ruff and strict package mypy. | Retain the approved controls, profile-bound executor context, provider consent, least-privilege denial probe, and secret-free live receipt under issue #335. |
 | 2026-09-26 | implemented | Added the missing approval-bot registration and exact delegated API-scope binding to both protected Entra bootstrap paths, preserving unrelated permissions and private tenant references. | `current change`; deployment CLI and Genesis Entra bootstrap sources; focused bootstrap and repository-configuration tests (`50 passed`). | Retain the approved Conditional Access and Access Review profile, provider consent, least-privilege denial probe, and secret-free live receipt under issue #335. |
 | 2026-09-26 | implemented | Connected outbound Slack A1 buttons to the signed, server-origin browser handoff without giving the browser actor, role, hash, or authority. | `current change`; `slack_adapter.py`, `test_slack_hil_interactivity.py`, and focused Operator/Console checks. | Retain a real Slack click, current mapping, signed post-click `auth_time`, PostgreSQL nonce race, and author confirmation for #943. |
 | 2026-09-26 | in-progress | Added a signed Slack interaction and one-use actor/action handoff to the existing decision service; browser claims cannot select actor or authority. | `current change`; `slack_handoff.py`, `hil-queue.tsx`, focused IAM and Console checks. | Configure and prove signed Entra `auth_time` in the API token, retain authenticated browser and Slack click receipts, and confirm channel delivery before closing #943 criterion 3. |

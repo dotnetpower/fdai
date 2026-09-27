@@ -4,15 +4,17 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import stat
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from pathlib import Path
+from typing import Protocol
 
 import httpx
 import yaml
+from fdai_github_app_auth import GitHubAppTokenProvider, TokenProvider
 
 from fdai.agents import CatalogReviewBindings
-from fdai.core.control_loop import ControlLoop
 from fdai.core.operational_learning import CatalogCandidateCompiler
 from fdai.core.tiers.t0_deterministic import OpaRegoEvaluator
 from fdai.delivery.gitops_pr import (
@@ -23,20 +25,37 @@ from fdai.delivery.gitops_pr import (
 )
 from fdai.rule_catalog.schema.catalog_search import rule_reference_catalog_digest
 from fdai.rule_catalog.schema.resource_type import load_resource_type_registry_from_mapping
+from fdai.runtime.catalog_review_github import verify_catalog_review_github_app
+from fdai.runtime.github_auth import build_github_token_provider
+from fdai.shared.contracts.models import OntologyActionType, Rule
 from fdai.shared.contracts.registry import PackageResourceSchemaRegistry
 
 _MAX_SCENARIOS = 5_000
 _MAX_SCENARIO_BYTES = 1024 * 1024
 _PREFIX = "FDAI_CATALOG_REVIEW_"
+_REVISION = re.compile(r"^(?:[0-9a-f]{40}|[0-9a-f]{64})$")
+_IDENTIFIER = re.compile(r"^[a-z0-9]+(?:[._-][a-z0-9]+)*$")
+
+
+class CatalogReviewCatalog(Protocol):
+    """Catalog projection required by the review-only compiler."""
+
+    @property
+    def action_types(self) -> Sequence[OntologyActionType]: ...
+
+    @property
+    def rules(self) -> Sequence[Rule]: ...
 
 
 def build_operational_catalog_review_bindings(
     *,
-    control_loop: ControlLoop,
+    control_loop: CatalogReviewCatalog,
     http_client: httpx.AsyncClient | None,
     environment: Mapping[str, str],
     catalog_root: Path,
     policies_root: Path,
+    token_provider: TokenProvider | None = None,
+    verified_binding_digest: str | None = None,
 ) -> CatalogReviewBindings | None:
     """Build O3 bindings only from one complete deployment configuration."""
     enabled = environment.get("FDAI_CATALOG_REVIEW_ENABLED", "").strip().casefold()
@@ -59,7 +78,6 @@ def build_operational_catalog_review_bindings(
             "FDAI_CATALOG_REVIEW_SCENARIO_DIR",
             "FDAI_CATALOG_REVIEW_SCENARIO_SET_ID",
             "FDAI_CATALOG_REVIEW_POLICY_VERSION",
-            "FDAI_GITOPS_TOKEN",
             "FDAI_GITOPS_OWNER",
             "FDAI_GITOPS_REPO",
         )
@@ -67,6 +85,27 @@ def build_operational_catalog_review_bindings(
     missing = sorted(name for name, value in required.items() if not value)
     if missing:
         raise RuntimeError("catalog review configuration is incomplete: " + ", ".join(missing))
+    source_revision = environment.get("FDAI_CATALOG_REVIEW_SOURCE_REVISION", "").strip()
+    if source_revision and _REVISION.fullmatch(source_revision) is None:
+        raise RuntimeError("catalog review source revision is invalid")
+    expected_scenario_set = environment.get(
+        "FDAI_CATALOG_REVIEW_EXPECTED_SCENARIO_SET_VERSION", ""
+    ).strip()
+    if expected_scenario_set and _IDENTIFIER.fullmatch(expected_scenario_set) is None:
+        raise RuntimeError("catalog review expected scenario set is invalid")
+    selected_token_provider = token_provider or build_github_token_provider(
+        environment,
+        http_client=http_client,
+        repository=required["FDAI_GITOPS_REPO"],
+        permissions=(
+            ("contents", "write"),
+            ("issues", "write"),
+            ("metadata", "read"),
+            ("pull_requests", "write"),
+        ),
+    )
+    if selected_token_provider is None:
+        raise RuntimeError("catalog review private GitOps credential binding is unavailable")
     scenario_dir = Path(required["FDAI_CATALOG_REVIEW_SCENARIO_DIR"])
     if not scenario_dir.is_absolute():
         scenario_dir = catalog_root.parent / scenario_dir
@@ -81,7 +120,7 @@ def build_operational_catalog_review_bindings(
         schema_registry=registry,
         action_type_names=frozenset(item.name for item in control_loop.action_types),
         resource_type_ids=frozenset(item.id for item in resource_types),
-        baseline_rules=control_loop.rules,
+        baseline_rules=tuple(control_loop.rules),
         scenarios=scenarios,
         scenario_set_id=required["FDAI_CATALOG_REVIEW_SCENARIO_SET_ID"],
         replay_version="operational-catalog-replay-v1",
@@ -105,16 +144,73 @@ def build_operational_catalog_review_bindings(
             ),
         ),
         http_client=http_client,
-        token=required["FDAI_GITOPS_TOKEN"],
+        token_provider=selected_token_provider,
     )
     return CatalogReviewBindings(
         compiler=CatalogCandidateCompiler(
             validator=validator,
-            catalog_version=rule_reference_catalog_digest(control_loop.rules),
+            catalog_version=rule_reference_catalog_digest(tuple(control_loop.rules)),
             schema_version="2.0.0",
+            expected_fdai_revision=source_revision or None,
+            expected_scenario_set_version=expected_scenario_set or None,
         ),
-        publisher=GitOpsCatalogReviewPublisher(publisher=gitops),
+        publisher=GitOpsCatalogReviewPublisher(
+            publisher=gitops,
+            binding_digest=verified_binding_digest,
+        ),
     )
+
+
+async def build_protected_operational_catalog_review_bindings(
+    *,
+    control_loop: CatalogReviewCatalog,
+    http_client: httpx.AsyncClient,
+    environment: Mapping[str, str],
+    catalog_root: Path,
+    policies_root: Path,
+) -> CatalogReviewBindings:
+    """Build the one-shot path only after exact GitHub App scope readback."""
+
+    if environment.get("FDAI_GITOPS_TOKEN", "").strip():
+        raise RuntimeError("protected catalog review rejects static-token compatibility")
+    owner = environment.get("FDAI_GITOPS_OWNER", "").strip()
+    repo = environment.get("FDAI_GITOPS_REPO", "").strip()
+    api_base = (
+        environment.get("FDAI_GITOPS_API_BASE", "https://api.github.com").strip()
+        or "https://api.github.com"
+    )
+    provider = build_github_token_provider(
+        environment,
+        http_client=http_client,
+        repository=repo,
+        permissions=(
+            ("contents", "write"),
+            ("issues", "write"),
+            ("metadata", "read"),
+            ("pull_requests", "write"),
+        ),
+    )
+    if not owner or not repo or not isinstance(provider, GitHubAppTokenProvider):
+        raise RuntimeError("protected catalog review requires GitHub App credentials")
+    binding_digest = await verify_catalog_review_github_app(
+        provider=provider,
+        http_client=http_client,
+        owner=owner,
+        repo=repo,
+        api_base=api_base,
+    )
+    bindings = build_operational_catalog_review_bindings(
+        control_loop=control_loop,
+        http_client=http_client,
+        environment=environment,
+        catalog_root=catalog_root,
+        policies_root=policies_root,
+        token_provider=provider,
+        verified_binding_digest=binding_digest,
+    )
+    if bindings is None:
+        raise RuntimeError("protected catalog review binding is disabled")
+    return bindings
 
 
 def _load_scenarios(directory: Path) -> tuple[dict[str, object], ...]:
@@ -155,4 +251,7 @@ def _read_bounded_scenario(path: Path) -> str:
     return value
 
 
-__all__ = ["build_operational_catalog_review_bindings"]
+__all__ = [
+    "build_operational_catalog_review_bindings",
+    "build_protected_operational_catalog_review_bindings",
+]

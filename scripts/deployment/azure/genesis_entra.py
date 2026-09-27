@@ -8,6 +8,7 @@ import json
 import re
 import subprocess
 import uuid
+from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Any
 
@@ -20,6 +21,13 @@ _GROUPS = {
     "RBAC_APPROVERS_GROUP_ID": ("aw-approvers", "Approver"),
     "RBAC_OWNERS_GROUP_ID": ("aw-owners", "Owner"),
     "RBAC_BREAK_GLASS_GROUP_ID": ("aw-break-glass", "BreakGlass"),
+}
+_GROUP_SLOTS = {
+    "readers": ("RBAC_READERS_GROUP_ID", "aw-readers", "Reader"),
+    "contributors": ("RBAC_CONTRIBUTORS_GROUP_ID", "aw-contributors", "Contributor"),
+    "approvers": ("RBAC_APPROVERS_GROUP_ID", "aw-approvers", "Approver"),
+    "owners": ("RBAC_OWNERS_GROUP_ID", "aw-owners", "Owner"),
+    "break_glass": ("RBAC_BREAK_GLASS_GROUP_ID", "aw-break-glass", "BreakGlass"),
 }
 _CHANNEL_ATTACHMENT_ROLE = "Document.ChannelAttachment.Submit"
 _ROLE_MEMBER_TYPES = {
@@ -41,6 +49,7 @@ class EntraPlan:
     configure_roles: bool
     configure_runner_graph: bool
     digest: str
+    role_groups: tuple[tuple[str, str], ...] = ()
 
     def projection(self) -> dict[str, object]:
         """Return value-free operations suitable for exact human review."""
@@ -49,37 +58,83 @@ class EntraPlan:
             "schema_version": "fdai.genesis-entra-plan.v1",
             "create_apps": list(self.create_apps),
             "create_groups": list(self.create_groups),
+            "require_existing_role_groups": not self.configure_runner_graph,
+            "role_group_binding_digest": _role_group_binding_digest(self.role_groups),
             "configure_api_roles_and_scope": self.configure_roles,
             "configure_runner_owned_spa_graph_permission": self.configure_runner_graph,
+            "provider_admin_consent": False,
             "plan_digest": self.digest,
             "mutation_performed": False,
             "subscription_ready": False,
         }
 
 
-def plan_entra() -> EntraPlan:
+def plan_entra(
+    *,
+    bounded: bool = False,
+    approved_role_groups: Mapping[str, str] | None = None,
+) -> EntraPlan:
     """Inspect independent exact names concurrently and block ambiguous adoption."""
 
     apps, groups = _directory_inventory()
     for name, app in apps.items():
         if app is not None:
             _validate_app(name, app)
+    role_groups = _normalize_role_groups(approved_role_groups) if bounded else ()
+    if bounded:
+        _verify_role_group_inventory(groups, role_groups)
     create_apps = tuple(sorted(name for name, value in apps.items() if value is None))
-    create_groups = tuple(sorted(name for name, value in groups.items() if value is None))
+    create_groups = (
+        () if bounded else tuple(sorted(name for name, value in groups.items() if value is None))
+    )
     body: dict[str, object] = {
         "schema_version": "fdai.genesis-entra-plan.v1",
         "create_apps": list(create_apps),
         "create_groups": list(create_groups),
+        "require_existing_role_groups": bounded,
+        "role_group_binding_digest": _role_group_binding_digest(role_groups),
         "configure_api_roles_and_scope": True,
-        "configure_runner_owned_spa_graph_permission": True,
+        "configure_runner_owned_spa_graph_permission": not bounded,
+        "provider_admin_consent": False,
     }
     return EntraPlan(
         create_apps=create_apps,
         create_groups=create_groups,
         configure_roles=True,
-        configure_runner_graph=True,
+        configure_runner_graph=not bounded,
         digest=canonical_digest(body),
+        role_groups=role_groups,
     )
+
+
+def _normalize_role_groups(
+    value: Mapping[str, str] | None,
+) -> tuple[tuple[str, str], ...]:
+    if value is None or set(value) != set(_GROUP_SLOTS):
+        raise ValueError("bounded Entra plan requires all five approved role-group slots")
+    normalized = tuple(sorted((slot, str(object_id)) for slot, object_id in value.items()))
+    if any(_GUID.fullmatch(object_id) is None for _slot, object_id in normalized) or len(
+        {object_id for _slot, object_id in normalized}
+    ) != len(_GROUP_SLOTS):
+        raise ValueError("bounded Entra role-group binding is invalid")
+    return normalized
+
+
+def _role_group_binding_digest(value: tuple[tuple[str, str], ...]) -> str | None:
+    return canonical_digest({"role_groups": dict(value)}) if value else None
+
+
+def _verify_role_group_inventory(
+    groups_by_name: dict[str, dict[str, Any] | None],
+    role_groups: tuple[tuple[str, str], ...],
+) -> None:
+    approved = dict(role_groups)
+    for slot, (_variable, display_name, _role) in _GROUP_SLOTS.items():
+        group = groups_by_name.get(display_name)
+        if group is None:
+            raise ValueError("bounded Entra plan requires every reviewed role group to exist")
+        if group.get("displayName") != display_name or group.get("id") != approved[slot]:
+            raise ValueError("bounded Entra role-group name and object binding changed")
 
 
 def apply_entra(plan: EntraPlan, *, runner_principal_id: str) -> dict[str, str]:
@@ -89,9 +144,41 @@ def apply_entra(plan: EntraPlan, *, runner_principal_id: str) -> dict[str, str]:
         raise ValueError("runner principal identity is invalid")
     if plan_entra().digest != plan.digest:
         raise ValueError("Entra plan changed before apply")
-    groups = {
-        variable: _ensure_group(display_name) for variable, (display_name, _role) in _GROUPS.items()
-    }
+    result = _converge_entra(plan)
+    _grant_runner_spa_ownership(str(result["spa_app"]["appId"]), runner_principal_id)
+    _grant_runner_graph_permission(runner_principal_id)
+    return read_entra_bindings()
+
+
+def apply_entra_bounded(plan: EntraPlan) -> None:
+    """Converge only FDAI apps/groups and never grant executor directory authority."""
+
+    if plan != plan_entra(
+        bounded=True,
+        approved_role_groups=dict(plan.role_groups),
+    ):
+        raise ValueError("bounded Entra plan changed before apply")
+    _converge_entra(plan, bounded=True)
+
+
+def _converge_entra(
+    plan: EntraPlan,
+    *,
+    bounded: bool = False,
+) -> dict[str, dict[str, Any]]:
+    if bounded:
+        groups = {
+            variable: _require_existing_group(
+                display_name,
+                dict(plan.role_groups)[slot],
+            )
+            for slot, (variable, display_name, _role) in _GROUP_SLOTS.items()
+        }
+    else:
+        groups = {
+            variable: _ensure_group(display_name)
+            for variable, (display_name, _role) in _GROUPS.items()
+        }
     api_app = _ensure_api_app()
     spa_app = _ensure_spa_app(api_app)
     approval_bot_app = _ensure_approval_bot_app(api_app)
@@ -99,16 +186,19 @@ def apply_entra(plan: EntraPlan, *, runner_principal_id: str) -> dict[str, str]:
     _ensure_service_principal(str(spa_app["appId"]))
     _ensure_service_principal(str(approval_bot_app["appId"]))
     _assign_group_roles(api_app=api_app, api_sp=api_sp, groups=groups)
-    _ensure_current_owner_membership(groups["RBAC_OWNERS_GROUP_ID"])
-    _grant_runner_spa_ownership(str(spa_app["appId"]), runner_principal_id)
-    _grant_runner_graph_permission(runner_principal_id)
+    if not bounded:
+        _ensure_current_owner_membership(groups["RBAC_OWNERS_GROUP_ID"])
     _verify_complete(
         api_app=api_app,
         spa_app=spa_app,
         approval_bot_app=approval_bot_app,
         groups=groups,
     )
-    return read_entra_bindings()
+    return {
+        "api_app": api_app,
+        "spa_app": spa_app,
+        "approval_bot_app": approval_bot_app,
+    }
 
 
 def read_entra_bindings() -> dict[str, str]:
@@ -426,6 +516,20 @@ def _ensure_group(display_name: str) -> str:
     return str(group["id"])
 
 
+def _require_existing_group(display_name: str, expected_object_id: str) -> str:
+    group = _single_group(display_name)
+    object_id = group.get("id") if isinstance(group, dict) else None
+    if group is None:
+        raise ValueError("bounded Entra apply requires every reviewed role group to exist")
+    if (
+        group.get("displayName") != display_name
+        or object_id != expected_object_id
+        or _GUID.fullmatch(expected_object_id) is None
+    ):
+        raise ValueError("bounded Entra role-group name and object binding changed")
+    return expected_object_id
+
+
 def _ensure_service_principal(app_id: str) -> dict[str, Any]:
     values = _az_json(("ad", "sp", "list", "--filter", f"appId eq '{app_id}'"))
     if not isinstance(values, list) or len(values) > 1:
@@ -466,7 +570,17 @@ def _assign_group_roles(
 
 
 def _ensure_current_owner_membership(group_id: str) -> None:
+    _ensure_owner_membership(group_id, current_human_user_id())
+
+
+def current_human_user_id() -> str:
     user_id = _az(("ad", "signed-in-user", "show", "--query", "id", "--output", "tsv"))
+    if _GUID.fullmatch(user_id) is None:
+        raise ValueError("current Entra human identity is invalid")
+    return user_id
+
+
+def _ensure_owner_membership(group_id: str, user_id: str) -> None:
     members = _az_json(("ad", "group", "member", "list", "--group", group_id))
     if not isinstance(members, list):
         raise ValueError("Entra group membership inventory is invalid")

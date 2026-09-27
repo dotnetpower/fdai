@@ -196,6 +196,7 @@ variable "scheduled_jobs" {
     command              = list(string)
     args                 = optional(list(string), [])
     schedule             = string
+    suspend              = optional(bool, false)
     deadline_seconds     = number
     retry_limit          = number
     cpu                  = string

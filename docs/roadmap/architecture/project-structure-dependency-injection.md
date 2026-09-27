@@ -51,6 +51,10 @@ Upstream defines generic interfaces and working defaults. Forks customize throug
 - **Operational catalog review and measurement**: `DeterministicCatalogValidator` reuses the
   shipped Rule loader, shadow evaluator, and regression gate over a frozen scenario directory.
   `GitOpsCatalogReviewPublisher` publishes only a content-addressed inert review package. The
+  protected AKS binding accepts only a private GitHub App profile, verifies its exact repository
+  and downscoped permissions, runs the existing Huginn-to-Saga Pantheon path on durable providers,
+  and independently reads back the open draft, labels, head commit and review document, base, merge, and auto-merge state. The
+  one-shot grants no activation, merge, promotion, or managed-resource mutation authority. The
   `operational-promotion` job stores exact-digest evidence without changing promotion state; `cohort_observation_import` accepts no artifact-declared arm, revision, protocol, admission, or authority.
   Its protected workflow caps a batch at 1,000 observations, rejects duplicate JSON keys, binds every observation digest to its batch and exporter workflow, and verifies idempotent replay. The trusted product-neutral source registry assigns every required measure in an arm to exactly one regular in-repository exporter workflow and stable source id. The importer injects that identity, and the inventory recounts only matching provenance. Product adapters remain behind their assigned workflows; missing, partial, duplicate, or cross-arm bindings keep the path unavailable.
   `CostPromotionReviewStore` is the authority-neutral seam for one exact Cost Governance target review. The upstream PostgreSQL adapter and Core service migration own append-only storage, while the protected workflow verifies one attested campaign and active pin before each write. The store cannot update package activation, ActionType or Workflow mode, or the promotion registry.
