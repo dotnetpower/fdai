@@ -982,6 +982,12 @@ variable "enable_aks_key_vault_private_access" {
   default     = false
 }
 
+variable "enable_aks_document_storage_private_access" {
+  description = "Recover an AKS baseline when authoritative readback finds the existing document storage account forced public-disabled. Creates only its Blob/DFS private endpoints, private DNS links, and required runner/app VNet peering."
+  type        = bool
+  default     = false
+}
+
 variable "enable_private_postgres" {
   description = "When true, place PostgreSQL Flexible Server on the delegated VNet subnet, use private DNS, disable public access, and remove the AllowAllAzureServices firewall rule. Requires enable_private_networking. Existing environments opt in explicitly because changing this setting replaces the server."
   type        = bool

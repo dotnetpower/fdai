@@ -231,6 +231,8 @@ def test_prepare_persists_foundation_adoption_binding() -> None:
     assert '"foundation_adoption_digest": foundation.adoption.digest' in source
     assert '"enable_aks_key_vault_private_access": key_vault_private_access' in source
     assert '"key_vault_private_access": key_vault_private_access' in source
+    assert '"enable_aks_document_storage_private_access": document_storage_private_access' in source
+    assert '"document_storage_private_access": document_storage_private_access' in source
 
 
 def test_planned_key_vault_name_matches_terraform_contract() -> None:
@@ -255,13 +257,34 @@ def test_planned_key_vault_name_matches_terraform_contract() -> None:
     )
 
 
+def test_planned_document_storage_name_matches_terraform_contract() -> None:
+    assert (
+        standalone_host_values.planned_document_storage_name(
+            subscription_id="00000000-0000-0000-0000-000000000001",
+            workload="fdaiaks",
+            environment="dev",
+            region_short="wus2",
+        )
+        == "stfdaiaksdocdevwus21e208"
+    )
+
+
 @pytest.mark.parametrize(
     ("readbacks", "expected"),
     [
         (["false"], False),
-        (["true", ""], False),
-        (["true", "Enabled"], False),
-        (["true", "Disabled"], True),
+        (["true", "[]"], False),
+        (
+            ["true", '[{"name":"kv-fdai-dev-wus2","publicNetworkAccess":"Enabled"}]'],
+            False,
+        ),
+        (
+            [
+                "true",
+                '[{"name":"kv-fdai-dev-wus2","properties":{"publicNetworkAccess":"Disabled"}}]',
+            ],
+            True,
+        ),
     ],
 )
 def test_key_vault_private_access_uses_authoritative_existing_readback(
@@ -292,7 +315,12 @@ def test_key_vault_private_access_reads_nested_management_property(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     commands: list[tuple[str, ...]] = []
-    values = iter(("true", "Disabled"))
+    values = iter(
+        (
+            "true",
+            '[{"name":"kv-fdai-dev-wus2","properties":{"publicNetworkAccess":"Disabled"}}]',
+        )
+    )
 
     def capture(command: tuple[str, ...], **_kwargs: object) -> str:
         commands.append(command)
@@ -306,8 +334,31 @@ def test_key_vault_private_access_reads_nested_management_property(
         vault_name="kv-fdai-dev-wus2",
         work_dir=tmp_path,
     )
-    query = commands[1][commands[1].index("--query") + 1]
-    assert ".properties.publicNetworkAccess" in query
+    assert "--query" not in commands[1]
+    assert commands[1][commands[1].index("--output") + 1] == "json"
+
+
+def test_document_storage_private_access_reads_existing_disabled_account(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    values = iter(
+        (
+            "true",
+            '[{"name":"stfdaiaksdocdevwus21e208","publicNetworkAccess":"Disabled"}]',
+        )
+    )
+    monkeypatch.setattr(
+        standalone_terraform_environment,
+        "_capture",
+        lambda *_args, **_kwargs: next(values),
+    )
+
+    assert standalone_terraform_environment.requires_aks_document_storage_private_access(
+        subscription_id="00000000-0000-0000-0000-000000000001",
+        resource_group_name="rg-fdaiaks-dev-wus2",
+        account_name="stfdaiaksdocdevwus21e208",
+        work_dir=tmp_path,
+    )
 
 
 def test_foundation_application_workload_matches_resource_group_name() -> None:

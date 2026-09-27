@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 _ROOT = Path(__file__).resolve().parents[3]
@@ -19,22 +20,41 @@ def test_private_networking_closes_event_hubs_and_wires_shared_dns() -> None:
     assert "module.event_bus_private_endpoint[0].private_dns_zone_id" in root
 
 
-def test_aks_key_vault_policy_recovery_is_focused() -> None:
+def test_aks_policy_forced_data_plane_recovery_is_focused() -> None:
     root = (_ROOT / "infra" / "main.tf").read_text(encoding="utf-8")
     variables = (_ROOT / "infra" / "variables.tf").read_text(encoding="utf-8")
 
     assert 'variable "enable_aks_key_vault_private_access"' in variables
-    assert (
-        "key_vault_private_access = "
-        "var.enable_private_networking || var.enable_aks_key_vault_private_access"
-    ) in root
+    assert 'variable "enable_aks_document_storage_private_access"' in variables
+    assert re.search(
+        r"key_vault_private_access\s*=\s*"
+        r"var\.enable_private_networking \|\| var\.enable_aks_key_vault_private_access",
+        root,
+    )
     assert "public_network_access_enabled = !local.key_vault_private_access" in root
     assert (
         'network_acls_default_action   = local.key_vault_private_access ? "Deny" : "Allow"' in root
     )
     assert "count                 = local.key_vault_private_access ? 1 : 0" in root
-    assert "peer_hub              = local.key_vault_private_access" in root
-    assert 'check "aks_key_vault_private_access_runner_path"' in root
+    assert re.search(
+        r"document_storage_private_access\s*=\s*"
+        r"var\.enable_private_networking \|\| "
+        r"var\.enable_aks_document_storage_private_access",
+        root,
+    )
+    assert "public_network_access_enabled   = !local.document_storage_private_access" in root
+    assert (
+        root.count("var.enable_document_ingestion && local.document_storage_private_access ? 1 : 0")
+        == 2
+    )
+    assert (
+        root.count(
+            'extra_vnet_links      = var.runner_vnet_id != "" ? { ops = var.runner_vnet_id } : {}'
+        )
+        >= 3
+    )
+    assert "local.key_vault_private_access || local.document_storage_private_access" in root
+    assert 'check "aks_focused_private_access_runner_path"' in root
     assert "public_network_access_enabled = !var.enable_private_networking" in root
 
 

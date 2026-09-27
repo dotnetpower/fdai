@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import os
 import re
 import subprocess
@@ -81,6 +82,73 @@ def requires_aks_key_vault_private_access(
         or re.fullmatch(r"[a-z0-9-]{3,24}", vault_name) is None
     ):
         raise ValueError("Key Vault private-access readback target is invalid")
+    return _requires_private_access(
+        subscription_id=subscription_id,
+        resource_group_name=resource_group_name,
+        resource_name=vault_name,
+        list_command=(
+            "az",
+            "keyvault",
+            "list",
+            "--subscription",
+            subscription_id,
+            "--resource-group",
+            resource_group_name,
+            "--output",
+            "json",
+            "--only-show-errors",
+        ),
+        label="Key Vault",
+        work_dir=work_dir,
+    )
+
+
+def requires_aks_document_storage_private_access(
+    *,
+    subscription_id: str,
+    resource_group_name: str,
+    account_name: str,
+    work_dir: Path,
+) -> bool:
+    """Select focused Blob/DFS access for one existing policy-locked document account."""
+
+    if (
+        _GUID.fullmatch(subscription_id) is None
+        or re.fullmatch(r"rg-[a-z0-9-]{3,80}", resource_group_name) is None
+        or re.fullmatch(r"[a-z0-9]{3,24}", account_name) is None
+    ):
+        raise ValueError("document storage private-access readback target is invalid")
+    return _requires_private_access(
+        subscription_id=subscription_id,
+        resource_group_name=resource_group_name,
+        resource_name=account_name,
+        list_command=(
+            "az",
+            "storage",
+            "account",
+            "list",
+            "--subscription",
+            subscription_id,
+            "--resource-group",
+            resource_group_name,
+            "--output",
+            "json",
+            "--only-show-errors",
+        ),
+        label="document storage",
+        work_dir=work_dir,
+    )
+
+
+def _requires_private_access(
+    *,
+    subscription_id: str,
+    resource_group_name: str,
+    resource_name: str,
+    list_command: tuple[str, ...],
+    label: str,
+    work_dir: Path,
+) -> bool:
     group_exists = _capture(
         (
             "az",
@@ -101,31 +169,31 @@ def requires_aks_key_vault_private_access(
         return False
     if group_exists != "true":
         raise ValueError("application resource-group readback is invalid")
-    public_access = _capture(
-        (
-            "az",
-            "keyvault",
-            "list",
-            "--subscription",
-            subscription_id,
-            "--resource-group",
-            resource_group_name,
-            "--query",
-            f"[?name=='{vault_name}'].properties.publicNetworkAccess | [0]",
-            "--output",
-            "tsv",
-            "--only-show-errors",
-        ),
-        cwd=work_dir,
-        reason="Key Vault public-access readback failed",
-    )
-    if public_access == "":
+    raw = _capture(list_command, cwd=work_dir, reason=f"{label} public-access readback failed")
+    if len(raw.encode()) > 4 * 1024 * 1024:
+        raise ValueError(f"{label} public-access readback exceeds its size limit")
+    try:
+        rows = json.loads(raw)
+    except json.JSONDecodeError as exc:
+        raise ValueError(f"{label} public-access readback is invalid") from exc
+    if not isinstance(rows, list):
+        raise ValueError(f"{label} public-access readback is invalid")
+    matches = [row for row in rows if isinstance(row, dict) and row.get("name") == resource_name]
+    if not matches:
         return False
+    if len(matches) != 1:
+        raise ValueError(f"{label} public-access readback is ambiguous")
+    public_access = matches[0].get("publicNetworkAccess")
+    if not isinstance(public_access, str):
+        properties = matches[0].get("properties")
+        public_access = (
+            properties.get("publicNetworkAccess") if isinstance(properties, dict) else None
+        )
     if public_access == "Disabled":
         return True
     if public_access == "Enabled":
         return False
-    raise ValueError("Key Vault public-access readback is invalid")
+    raise ValueError(f"{label} public-access readback is invalid")
 
 
 def _capture(command: tuple[str, ...], *, cwd: Path, reason: str) -> str:
@@ -145,6 +213,7 @@ def _capture(command: tuple[str, ...], *, cwd: Path, reason: str) -> str:
 
 __all__ = [
     "configure_terraform",
+    "requires_aks_document_storage_private_access",
     "requires_aks_key_vault_private_access",
     "terraform_configuration",
 ]
