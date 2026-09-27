@@ -31,6 +31,7 @@ class NotificationBindingKind(StrEnum):
     TEAMS_WORKFLOW = "teams_workflow"
     SLACK_WEBHOOK = "slack_webhook"
     ACS_EMAIL = "acs_email"
+    DIRECT_LINE = "direct_line"
 
 
 @dataclass(frozen=True, slots=True)
@@ -45,6 +46,8 @@ class NotificationBindingSpec:
     sender_address_env: str | None = None
     recipient_addresses_env: str | None = None
     identity_client_id_env: str = "FDAI_NOTIFICATION_MI_CLIENT_ID"
+    conversation_id_env: str | None = None
+    secret_env: str | None = None
 
 
 def default_notification_bindings_from_env(environment: Mapping[str, str]) -> str:
@@ -118,6 +121,8 @@ def _parse_binding(channel_id: object, raw: object) -> NotificationBindingSpec:
         "sender_address_env",
         "recipient_addresses_env",
         "identity_client_id_env",
+        "conversation_id_env",
+        "secret_env",
     }
     unknown = sorted(set(raw) - allowed)
     if unknown:
@@ -126,10 +131,16 @@ def _parse_binding(channel_id: object, raw: object) -> NotificationBindingSpec:
     enabled = raw.get("enabled")
     if not isinstance(enabled, bool):
         raise ValueError(f"notification binding {channel_id!r} 'enabled' MUST be boolean")
-    mode = (
-        _enum_value(raw, "mode", ChannelMode, channel_id) if "mode" in raw else ChannelMode.ENFORCE
+    # Direct Line is a new capability, so an omitted mode stays in shadow; the
+    # older kinds keep their backward-compatible enforce default.
+    default_mode = (
+        ChannelMode.SHADOW if kind is NotificationBindingKind.DIRECT_LINE else ChannelMode.ENFORCE
     )
+    mode = _enum_value(raw, "mode", ChannelMode, channel_id) if "mode" in raw else default_mode
     trust_tiers = _trust_tiers(channel_id, raw.get("trust_tiers"))
+    if kind is NotificationBindingKind.DIRECT_LINE:
+        return _direct_line_binding(channel_id, raw, enabled, mode, trust_tiers)
+    _reject_fields(channel_id, raw, {"conversation_id_env", "secret_env"})
     identity_env = _env_name(
         raw.get("identity_client_id_env", "FDAI_NOTIFICATION_MI_CLIENT_ID"),
         channel_id,
@@ -215,6 +226,51 @@ def _parse_binding(channel_id: object, raw: object) -> NotificationBindingSpec:
         sender_address_env=sender_env,
         recipient_addresses_env=recipients_env,
         identity_client_id_env=identity_env,
+    )
+
+
+def _direct_line_binding(
+    channel_id: str,
+    raw: Mapping[str, Any],
+    enabled: bool,
+    mode: ChannelMode,
+    trust_tiers: frozenset[TrustTier],
+) -> NotificationBindingSpec:
+    """Parse one Direct Line custom-channel binding without resolving its values.
+
+    Rehearsal (shadow) needs no reference. An enabled enforce binding names
+    three distinct environment variables for the endpoint, conversation id, and
+    secret so one protected value can never be reused as another.
+    """
+    _reject_fields(
+        channel_id,
+        raw,
+        {"auth_mode", "sender_address_env", "recipient_addresses_env", "identity_client_id_env"},
+    )
+    endpoint_env = _optional_env_name(raw.get("endpoint_env"), channel_id, "endpoint_env")
+    conversation_env = _optional_env_name(
+        raw.get("conversation_id_env"), channel_id, "conversation_id_env"
+    )
+    secret_env = _optional_env_name(raw.get("secret_env"), channel_id, "secret_env")
+    references = [name for name in (endpoint_env, conversation_env, secret_env) if name]
+    if len(references) != len(set(references)):
+        raise ValueError(
+            f"notification binding {channel_id!r} MUST use distinct environment references"
+        )
+    if enabled and mode is ChannelMode.ENFORCE and len(references) != 3:
+        raise ValueError(
+            f"enabled enforce notification binding {channel_id!r} requires endpoint, "
+            "conversation, and secret environment references"
+        )
+    return NotificationBindingSpec(
+        channel_id=channel_id,
+        kind=NotificationBindingKind.DIRECT_LINE,
+        enabled=enabled,
+        trust_tiers=trust_tiers,
+        mode=mode,
+        endpoint_env=endpoint_env,
+        conversation_id_env=conversation_env,
+        secret_env=secret_env,
     )
 
 

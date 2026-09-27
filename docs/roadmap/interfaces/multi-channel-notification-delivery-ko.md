@@ -1,14 +1,15 @@
 ---
 title: 다중 채널 알림 전달
 translation_of: multi-channel-notification-delivery.md
-translation_source_sha: ad262e29a2fbf5bdada701cb47b09bf803abc793
-translation_revised: 2026-09-17
+translation_source_sha: 37230ddf8c5836fd74c36d9043c50b2bd0847cc3
+translation_revised: 2026-09-28
 ---
 # 다중 채널 알림 전달
 
 이 문서는 하나의 운영 알림 또는 요약(digest)이 처음 수락한 채널에서 멈추지 않고 운영자가
 활성화하고 설정한 **모든** 알림 채널에 도달하는 방식을 소유합니다. 또한 사용 중지된 Office 365
-connector 전송을 대체하는 Microsoft Teams Workflows 웹훅 바인딩을 규정합니다.
+connector 전송을 대체하는 Microsoft Teams Workflows 웹훅 바인딩과 A2/A4 전달용 Bot Framework
+Direct Line 사용자 지정 채널 바인딩을 규정합니다.
 
 > **범위:** `NotificationChannel`이 전달하는 A2 운영 알림과 A4 요약을 포함합니다. A1 승인
 > (`HilChannel`)과 A3 대화(`ConversationChannelAdapter`)는 기존 계약을 유지하며 명시적으로
@@ -102,10 +103,11 @@ route에 없는 채널은 대상이 아니므로, 어댑터를 추가했다는 �
   시점에 건너뛸 채널이 아니라 배포 결함입니다.
 - **`enabled: false`는 명시적 제외입니다.** 모든 대상 집합에서 제거되며 dispatch 기록에
   드러납니다.
-- **`mode: "shadow"`는 전송 없이 렌더링하고 기록합니다.** Teams와 Slack shadow 바인딩에는
-  엔드포인트나 HTTP 클라이언트가 필요하지 않습니다. `mode: "enforce"`는 공급자 엔드포인트가
-  필요하며 기존 런타임 동작을 유지합니다. 이전 버전과의 호환성을 위해 `mode`를 생략하면
-  `enforce`가 기본값입니다.
+- **`mode: "shadow"`는 전송 없이 렌더링하고 기록합니다.** Teams, Slack, Direct Line shadow
+  바인딩에는 엔드포인트나 HTTP 클라이언트가 필요하지 않습니다. `mode: "enforce"`는 공급자
+  엔드포인트가 필요하며 기존 런타임 동작을 유지합니다. 이전 버전과의 호환성을 위해 `mode`를
+  생략하면 `enforce`가 기본값입니다. 단, 새로 추가된 `direct_line` 종류는 `shadow`가
+  기본값입니다([§ 9](#9-direct-line-사용자-지정-채널)).
 - **Trust tier는 바인딩 단위로 유지합니다.** 요약 전용 채널은 A2 호출 트래픽을 받지 않습니다.
 
 ### URL만 사용하는 초기 설정
@@ -307,6 +309,7 @@ URL을 제출하여 바인딩을 교체합니다. 영속 저장 및 테스트 �
 | 7 | 전달 콜백과 `delivered` 승격 | 독립 관찰이 감사에 기록됨 |
 | 8 | 인증된 Operator ingress와 스키마 검증 Core consumer | 서명된 콜백이 브로커를 거쳐 `accepted` 하위 항목을 `delivered`로 수렴 |
 | 9 | 명시적 배포 및 로컬 활성화 | 활성화된 바인딩은 전달하고 저장만 되었거나 placeholder인 바인딩은 전달하지 않음 |
+| 10 | 리허설을 기본값으로 하는 Direct Line 사용자 지정 채널 어댑터 | 외부 전송 없는 리허설, 전송 전 의도 기록, 수락만 기록하는 증적, 실패 시 차단 테스트 |
 
 ## 8. capability-state, presentation, shadow-delivery 계약
 
@@ -413,6 +416,87 @@ Slack 기능은 shadow에 머뭅니다.
 
 Teams와 Slack 차단 오류에는 공급자 이름과 HTTP 상태만 남깁니다. 공급자 응답 본문은 신뢰할 수
 없고 메시지 내용을 반사할 수 있으므로 폐기하며, 라우터 감사 텍스트에 포함하지 않습니다.
+
+## 9. Direct Line 사용자 지정 채널
+
+배포는 Microsoft Bot Framework Direct Line으로 구축한 사용자 지정 채널에 A2 운영 알림과 A4
+요약을 전달할 수 있습니다. FDAI는 Direct Line 클라이언트로 동작합니다. 배포가 소유한 대화에 읽기
+전용 `message` activity 하나를 게시하고, 배포의 중계 봇이 자체 클라이언트에서 그 activity를
+사람에게 보여 줍니다. A1 승인과 A3 대화는 인증된 기존 계약을 유지하며
+[이슈 #941](https://github.com/dotnetpower/fdai/issues/941)에서 추적합니다.
+
+### 9.1 채널 경계
+
+| 항목 | 동작 |
+|------|------|
+| 카테고리 | `a2_operational_alert`와 `a4_digest`만 허용합니다. 바인딩 파싱과 어댑터가 모두 A1과 A3를 차단합니다. |
+| 권한 | activity에는 승인, 명령, 답장 컨트롤이 없으며 어댑터는 실행기 신원을 보유하지 않습니다. |
+| 보호된 값 | 엔드포인트, 대화 id, 시크릿은 배포 시크릿 프로바이더가 채우는 이름 있는 환경 변수 참조에서 읽습니다. |
+| 렌더링 | [`render_direct_line_payload`](../../../services/core-control-plane/src/fdai/delivery/notifications/direct_line_rendering.py)는 리허설과 governed 모드에서 같은 바이트를 만듭니다. 범위가 제한된 Markdown `text`와 함께 표준 id, `read_only: true`, 안정적인 `idempotency_key`를 담은 `channelData.fdai` 기록을 포함합니다. |
+| Core 계약 | `ChannelKind.DIRECT_LINE`과 `DirectLineChannel` Protocol입니다. 라우터와 결정 로직에는 Direct Line 분기가 없습니다. |
+
+### 9.2 바인딩
+
+```json
+{
+  "direct-line-ops": {
+    "kind": "direct_line",
+    "enabled": true,
+    "mode": "enforce",
+    "trust_tiers": ["a2_operational_alert", "a4_digest"],
+    "endpoint_env": "FDAI_DIRECT_LINE_OPS_ENDPOINT",
+    "conversation_id_env": "FDAI_DIRECT_LINE_OPS_CONVERSATION_ID",
+    "secret_env": "FDAI_DIRECT_LINE_OPS_SECRET"
+  }
+}
+```
+
+- **기본값은 리허설입니다.** `mode`를 생략한 Direct Line 바인딩은 `shadow`에 머뭅니다.
+- **서로 다른 참조 세 개가 필요합니다.** 활성화된 enforce 바인딩은 엔드포인트, 대화, 시크릿 변수를
+  각각 지정합니다. 값이 없거나, 미리 채워진 `unconfigured` 또는 `placeholder` 값이거나, HTTPS가
+  아닌 엔드포인트이거나, 대화 id나 시크릿 형식이 잘못되면 시작에 실패합니다.
+- **fan-out에서만 사용합니다.** 채널별 기록을 전송 전에 남기는 경로는 fan-out뿐이므로, 구성
+  루트는 `failover` 경로에 놓인 governed Direct Line 채널을 차단합니다.
+- **URL만 사용하는 초기 설정은 없습니다.** Direct Line 채널은 명시적 바인딩으로만 만들어집니다.
+
+### 9.3 리허설에서 governed 전달까지
+
+1. **리허설합니다.** `shadow` 바인딩은 정확한 activity를 렌더링하고 안정적인 기록 ID로
+   `StateStoreShadowDeliveryRecorder`에 저장합니다. 보호된 값을 확인하지 않으며 외부 요청도
+   보내지 않습니다.
+2. **활성화합니다.** 별도로 검토한 배포 변경이 `mode: "enforce"`를 설정하고 보호된 참조를
+   지정합니다. 값을 저장하는 것만으로는 아무것도 활성화되지 않습니다.
+3. **의도를 기록합니다.** fan-out 라우터는 어댑터가 무엇이든 보내기 전에 고정된 계획을 저장하고
+   채널별 기록에 lease를 겁니다.
+4. **수락을 확인합니다.** 어댑터는 Direct Line bearer 자격 증명으로 activity를 보냅니다. 유효한
+   activity id가 담긴 `2xx` 응답은 시도를 `delivered`가 아니라 `accepted`로 닫습니다. Direct Line
+   activity id에는 대화 id가 포함되므로 증적에는 `activity-sha256:<digest>`만 남깁니다.
+5. **게시를 확인합니다.** 중계 봇은 § 5의 인증된 증적 경로로 게시 결과를 보고합니다. 이 독립적인
+   관찰만 기록을 `delivered`로 승격합니다.
+
+중계 봇은 반드시 `channelData.fdai.idempotency_key`로 중복을 제거해야 합니다(MUST). 하나의 논리적
+전달에 대한 모든 시도는 같은 키를 사용하므로, lease가 만료된 뒤의 재처리나 중계 봇이 새 전송과
+구분할 수 없는 재시도도 두 번째로 보이는 게시물이 되지 않습니다.
+
+### 9.4 실패 처리
+
+| 조건 | 결과 |
+|------|------|
+| 바인딩이 없거나 경로 대상을 확인할 수 없음 | 제외됩니다. 대상 집합이 비면 `no_eligible_channels`로 에스컬레이션합니다. |
+| `enabled: false` | `disabled`로 제외되며 아무것도 보내지 않습니다. |
+| 만료되었거나 형식이 잘못되었거나 사용할 수 없는 자격 증명 | 재시도 가능하며 요청 전에 실패합니다. 만료까지 60초 여유 구간 안에 있는 토큰도 만료로 봅니다. |
+| `401` 또는 `403` | 상태 코드만 남기는 재시도 가능한 자격 증명 거부입니다. |
+| `400` 또는 `404` | 중계 봇이 activity를 받기 전에 Direct Line이 돌려주는 재시도 가능한 요청 거부입니다. |
+| `429` | 재시도 가능한 조절(throttling)입니다. 어댑터는 내부에서 재시도하지 않으며 `Retry-After`도 따르지 않습니다. |
+| 연결 실패 | 재시도 가능하며 요청이 Direct Line에 도달하지 않았습니다. |
+| 응답 유실 또는 유효한 activity id가 없는 `2xx` | `ambiguous`가 되며 자동으로 다시 보내지 않습니다. |
+| `500`, `502`, `504`를 포함한 그 밖의 모든 상태 | Direct Line은 중계 봇 자체의 결과를 반영하므로 봇이 activity를 받지 않았다고 증명할 수 없습니다. 따라서 `ambiguous`가 되며 자동으로 다시 보내지 않습니다. |
+
+어댑터는 전송 한 번에 최대 한 번만 요청하며 내부에서 재시도하지 않습니다. 재시도 계층은 fan-out
+라우터 하나뿐이므로, 하나의 논리적 전달에 대한 대상별 전체 요청 수의 상한은 `max_attempts`이며
+기본값은 세 번입니다. 영속 시도 횟수는 다시 dispatch하거나 재시작해도 이 상한을 유지합니다.
+재시도 가능한 경우가 상한에 도달하면 `abandoned`가 되고, `ambiguous`는 첫 요청 뒤에 멈추며,
+성공한 대상이 없는 dispatch는 사람 검토로 에스컬레이션합니다. 응답 본문은 항상 폐기합니다.
 
 ## 관련 문서
 

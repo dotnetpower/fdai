@@ -6,7 +6,8 @@ title: Multi-Channel Notification Delivery
 This document owns how one outbound operational alert or digest reaches **every** notification
 channel an operator enabled and configured, instead of stopping at the first channel that accepts
 it. It also specifies the Microsoft Teams Workflows webhook binding that replaces the retired
-Office 365 connector transport.
+Office 365 connector transport, and the Bot Framework Direct Line custom-channel binding for A2/A4
+delivery.
 
 > **Scope:** A2 operational alerts and A4 digests carried by `NotificationChannel` are in scope.
 > A1 approvals (`HilChannel`) and A3 conversations (`ConversationChannelAdapter`) keep their
@@ -101,9 +102,11 @@ Rules:
   deployment defect, not a channel to skip at send time.
 - **`enabled: false` is an explicit exclusion.** It removes the channel from every target set and is
   visible in the dispatch record.
-- **`mode: "shadow"` renders and records without transport.** Teams and Slack shadow bindings don't
-  require an endpoint or HTTP client. `mode: "enforce"` requires the provider endpoint and keeps the
-  existing runtime behavior. Omitting `mode` defaults to `enforce` for backward compatibility.
+- **`mode: "shadow"` renders and records without transport.** Teams, Slack, and Direct Line shadow
+  bindings don't require an endpoint or HTTP client. `mode: "enforce"` requires the provider
+  endpoint and keeps the existing runtime behavior. Omitting `mode` defaults to `enforce` for
+  backward compatibility, except for the newer `direct_line` kind, which defaults to `shadow`
+  ([§ 9](#9-direct-line-custom-channel)).
 - **Trust tiers stay per binding.** A digest-only room never receives A2 paging traffic.
 
 ### URL-only bootstrap
@@ -308,6 +311,7 @@ prepared/completed metadata.
 | 7 | Delivery callback and `delivered` promotion | Independent observation recorded in audit |
 | 8 | Authenticated Operator ingress plus schema-validated Core consumer | Signed callback converges an `accepted` child to `delivered` through the broker |
 | 9 | Explicit deployed and local activation | An activated binding delivers; a saved-only or placeholder binding does not |
+| 10 | Direct Line custom-channel adapter with a rehearsal default | Zero-send rehearsal, intent before transport, acceptance-only receipt, and fail-closed tests |
 
 ## 8. Capability-state, presentation, and shadow-delivery contracts
 
@@ -418,6 +422,89 @@ until that observation path and its promotion evidence are reviewed.
 Teams and Slack rejection errors retain only the provider name and HTTP status. Provider response
 bodies are discarded because they are untrusted and may reflect message content; they never enter
 router audit text.
+
+## 9. Direct Line custom channel
+
+A deployment can deliver A2 operational alerts and A4 digests to a custom channel that it builds on
+Microsoft Bot Framework Direct Line. FDAI acts as a Direct Line client. It posts one read-only
+`message` activity into a deployment-owned conversation, and the deployment's relay bot presents
+the activity in its own client. A1 approvals and A3 conversations stay on their authenticated
+contracts, which [issue #941](https://github.com/dotnetpower/fdai/issues/941) tracks.
+
+### 9.1 Channel boundary
+
+| Aspect | Behavior |
+|--------|----------|
+| Categories | `a2_operational_alert` and `a4_digest` only. Binding parsing and the adapter both refuse A1 and A3. |
+| Authority | The activity carries no approval, command, or reply control, and the adapter holds no executor identity. |
+| Protected values | The endpoint, conversation id, and secret resolve from named environment references that the deployment secret provider populates. |
+| Rendering | [`render_direct_line_payload`](../../../services/core-control-plane/src/fdai/delivery/notifications/direct_line_rendering.py) produces identical bytes in rehearsal and governed modes: bounded Markdown `text` plus a `channelData.fdai` record with canonical ids, `read_only: true`, and a stable `idempotency_key`. |
+| Core contract | `ChannelKind.DIRECT_LINE` and the `DirectLineChannel` Protocol. Router and decision logic contain no Direct Line branch. |
+
+### 9.2 Binding
+
+```json
+{
+  "direct-line-ops": {
+    "kind": "direct_line",
+    "enabled": true,
+    "mode": "enforce",
+    "trust_tiers": ["a2_operational_alert", "a4_digest"],
+    "endpoint_env": "FDAI_DIRECT_LINE_OPS_ENDPOINT",
+    "conversation_id_env": "FDAI_DIRECT_LINE_OPS_CONVERSATION_ID",
+    "secret_env": "FDAI_DIRECT_LINE_OPS_SECRET"
+  }
+}
+```
+
+- **Rehearsal by default.** Omitting `mode` keeps a Direct Line binding in `shadow`.
+- **Three distinct references.** An enabled enforce binding names separate endpoint, conversation,
+  and secret variables. A missing value, a seeded `unconfigured` or `placeholder` value, a
+  non-HTTPS endpoint, or a malformed conversation id or secret fails startup.
+- **Fan-out only.** Composition refuses a governed Direct Line channel on a `failover` route,
+  because only fan-out writes the per-channel record before transport.
+- **No URL-only bootstrap.** A Direct Line channel exists only through an explicit binding.
+
+### 9.3 Rehearsal to governed delivery
+
+1. **Rehearse.** A `shadow` binding renders the exact activity and stores it through
+   `StateStoreShadowDeliveryRecorder` under a stable record id. It resolves no protected value and
+   makes no external request.
+2. **Activate.** A separately reviewed deployment change sets `mode: "enforce"` and names the
+   protected references. Saving a value alone activates nothing.
+3. **Record intent.** The fan-out router persists the frozen plan and leases the per-channel record
+   before the adapter sends anything.
+4. **Accept.** The adapter sends the activity with the Direct Line bearer credential. A `2xx`
+   response with a valid activity id closes the attempt as `accepted`, never `delivered`. The
+   receipt keeps `activity-sha256:<digest>` because Direct Line activity ids embed the conversation
+   id.
+5. **Confirm.** The relay bot reports publication through the authenticated receipt path in § 5.
+   Only that independent observation promotes the record to `delivered`.
+
+The relay bot MUST deduplicate on `channelData.fdai.idempotency_key`. Every attempt for one logical
+delivery carries the same key, so a replay after an expired lease, or a retry the relay couldn't
+distinguish from a new send, never becomes a second visible post.
+
+### 9.4 Failure handling
+
+| Condition | Outcome |
+|-----------|---------|
+| No binding, or an unresolved route target | Excluded; an empty target set escalates as `no_eligible_channels` |
+| `enabled: false` | Excluded as `disabled`; nothing is sent |
+| Expired, malformed, or unavailable credential | Retryable; fails before any request. A token inside its 60-second expiry margin counts as expired. |
+| `401` or `403` | Retryable credential rejection that keeps only the status |
+| `400` or `404` | Retryable request rejection that Direct Line returns before the relay bot receives the activity |
+| `429` | Retryable throttling. The adapter doesn't retry internally or honor `Retry-After`. |
+| Connection failure | Retryable; no request reached Direct Line |
+| Lost response, or `2xx` without a valid activity id | `ambiguous`; never resent automatically |
+| Any other status, including `500`, `502`, and `504` | `ambiguous`, because Direct Line reflects the relay bot's own outcome and can't prove the bot didn't receive the activity; never resent automatically |
+
+The adapter makes at most one request per send and never retries internally. The fan-out router is
+the only retry layer, so the total bound is `max_attempts` requests per target for one logical
+delivery, three by default. The durable attempt counter keeps that bound across re-dispatch and
+restart. A retryable row that reaches the ceiling becomes `abandoned`, an `ambiguous` row stops
+after its first request, and a dispatch with no successful target escalates to human review.
+Response bodies are always discarded.
 
 ## Related docs
 

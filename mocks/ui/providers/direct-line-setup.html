@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Direct Line custom channel setup boundary - FDAI Console mock</title>
+  <style>
+    :root { color: #1f2a37; background: #f6f7f9; font: 15px/1.55 "Segoe UI", "Noto Sans KR", sans-serif; }
+    * { box-sizing: border-box; }
+    body { margin: 0; }
+    main { max-width: 820px; margin: 8vh auto; padding: 0 24px; }
+    article { border: 1px solid #d5dbe3; border-radius: 6px; background: #fff; padding: 28px; }
+    h1 { margin: 0 0 8px; font-size: 24px; font-weight: 600; }
+    h2 { margin: 26px 0 8px; font-size: 16px; font-weight: 600; }
+    .status { margin: 0 0 12px; color: #5b6675; font-size: 13px; font-weight: 700; }
+    p { margin: 14px 0; color: #394556; }
+    ol, ul { margin: 12px 0; padding-left: 22px; color: #394556; }
+    li { margin: 8px 0; }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    th, td { padding: 9px 10px; border-bottom: 1px solid #e5e7eb; text-align: left; vertical-align: top; }
+    th { color: #5b6675; font-weight: 600; }
+    code { font: 12px Consolas, "Courier New", monospace; }
+    td:first-child { white-space: nowrap; }
+    .mock-label { margin-top: 20px; color: #5b6675; font-size: 12px; }
+    a { display: inline-block; margin-top: 8px; color: #0067b8; font-weight: 600; text-decoration: none; }
+    a:hover, a:focus-visible { text-decoration: underline; }
+    @media (max-width: 620px) { main { margin: 24px auto; padding: 0 14px; } article { padding: 20px; } th, td { padding: 8px 6px; } td:first-child { white-space: normal; } code { overflow-wrap: anywhere; } }
+  </style>
+</head>
+<body>
+  <main>
+    <article>
+      <p class="status">Rehearsal first · governed delivery through deployment configuration</p>
+      <h1>Direct Line custom channel setup boundary</h1>
+      <p>FDAI posts A2 operational alerts and A4 digests into a Microsoft Bot Framework Direct Line conversation that a deployment-owned relay bot presents in a custom channel. This static mock shows the configuration boundary only. It does not collect, store, or test any credential.</p>
+      <h2>Lifecycle</h2>
+      <ol>
+        <li>Rehearsal is the default mode. FDAI renders and durably records the exact activity with zero external sends.</li>
+        <li>A separately reviewed deployment change activates governed delivery by setting enforce mode and naming protected references.</li>
+        <li>Before transport, FDAI writes the per-channel delivery record. A Direct Line activity id closes the attempt as accepted, never as delivered.</li>
+        <li>An authenticated publication receipt from the relay confirms delivery. A lost acknowledgement or a relay-reflected failure such as HTTP 502 stays ambiguous and is never resent automatically.</li>
+      </ol>
+      <h2>Protected references</h2>
+      <table>
+        <thead><tr><th>Binding field</th><th>Holds</th></tr></thead>
+        <tbody>
+          <tr><td><code>endpoint_env</code></td><td>Name of the environment variable that carries the Direct Line base URI for the bot region or hosting model</td></tr>
+          <tr><td><code>conversation_id_env</code></td><td>Name of the environment variable that carries the relay conversation identifier</td></tr>
+          <tr><td><code>secret_env</code></td><td>Name of the environment variable populated from the deployment secret store</td></tr>
+        </tbody>
+      </table>
+      <ul>
+        <li>Values never appear in the repository, the Console, readiness rows, audit entries, or rehearsal records.</li>
+        <li>The relay bot must deduplicate on the activity idempotency key, and the router is the only retry layer.</li>
+        <li>Unconfigured, disabled, expired, unauthorized, and unavailable bindings fail closed with bounded retries and human-review escalation.</li>
+        <li>This channel carries no approvals (A1), conversations, or commands (A3) and exposes no executor identity.</li>
+      </ul>
+      <p class="mock-label">Expected state mock · synthetic content · no backend actions</p>
+      <a href="../conversation-direct-line.html">View the custom-channel preview</a>
+    </article>
+  </main>
+</body>
+</html>

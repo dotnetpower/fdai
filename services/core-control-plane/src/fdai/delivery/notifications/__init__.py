@@ -1,6 +1,6 @@
 """Real notification-channel adapters (httpx-based).
 
-Each adapter implements exactly one of the six Protocols in
+Each adapter implements exactly one of the seven Protocols in
 :mod:`fdai.shared.providers.notifications`. They live under
 ``delivery/`` so ``core/`` cannot import them (enforced by
 ``scripts/quality/architecture/check-core-imports.sh``).
@@ -11,6 +11,7 @@ Each adapter implements exactly one of the six Protocols in
 - :mod:`.webhook` - generic HMAC-signed HTTP POST.
 - :mod:`.pagerduty` - PagerDuty Events API v2.
 - :mod:`.sms` - Azure Communication Services SMS REST API.
+- :mod:`.direct_line` - Bot Framework Direct Line custom channel (A2/A4 activity).
 
 Every adapter accepts a live :class:`httpx.AsyncClient` at construction so
 the composition root controls pooling + timeouts. The adapter itself
@@ -26,6 +27,15 @@ from .bindings import (
     default_notification_bindings_from_env,
     parse_notification_bindings,
 )
+from .direct_line import (
+    DIRECT_LINE_TRUST_TIERS,
+    DirectLineConfig,
+    DirectLineCredential,
+    DirectLineCredentialProvider,
+    DirectLineNotificationChannel,
+    static_direct_line_credential,
+)
+from .direct_line_rendering import direct_line_idempotency_key, render_direct_line_payload
 from .email import AzureCommunicationEmailChannel, AzureCommunicationEmailConfig
 from .hil_sink import StateStoreHilEscalationSink
 from .pagerduty import PagerDutyEventsV2Channel, PagerDutyEventsV2Config
@@ -48,11 +58,16 @@ from .teams import (
 from .webhook import GenericWebhookChannel, GenericWebhookConfig
 
 __all__ = [
+    "DIRECT_LINE_TRUST_TIERS",
     "NOTIFICATION_TRUST_TIERS",
     "AzureCommunicationEmailChannel",
     "AzureCommunicationEmailConfig",
     "AzureCommunicationSmsChannel",
     "AzureCommunicationSmsConfig",
+    "DirectLineConfig",
+    "DirectLineCredential",
+    "DirectLineCredentialProvider",
+    "DirectLineNotificationChannel",
     "GenericWebhookChannel",
     "GenericWebhookConfig",
     "NotificationBindingKind",
@@ -70,7 +85,10 @@ __all__ = [
     "TeamsWebhookConfig",
     "TeamsWorkflowAuthMode",
     "default_notification_bindings_from_env",
+    "direct_line_idempotency_key",
     "parse_notification_bindings",
+    "render_direct_line_payload",
     "render_slack_payload",
     "render_teams_payload",
+    "static_direct_line_credential",
 ]

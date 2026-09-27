@@ -13,6 +13,7 @@ import json
 import logging
 import os
 from collections.abc import Mapping
+from functools import partial
 from typing import Any, cast
 
 import httpx
@@ -165,6 +166,7 @@ def _build_named_notification_registry(
         render_slack_payload,
         render_teams_payload,
     )
+    from fdai.runtime.notification_direct_line import build_direct_line_channel
     from fdai.shared.providers.notifications import ChannelKind, ChannelMode
 
     try:
@@ -197,6 +199,24 @@ def _build_named_notification_registry(
             trust_tiers=spec.trust_tiers,
         )
         if not spec.enabled:
+            continue
+        if spec.kind is NotificationBindingKind.DIRECT_LINE:
+            channels[spec.channel_id] = build_direct_line_channel(
+                spec,
+                http_client=http_client,
+                shadow_recorder=selected_shadow_recorder,
+                resolve=partial(
+                    _required_notification_env,
+                    spec.channel_id,
+                    endpoint_overrides=endpoint_overrides,
+                ),
+            )
+            bindings[spec.channel_id] = ChannelBinding(
+                channel_id=spec.channel_id,
+                enabled=True,
+                configured=True,
+                trust_tiers=spec.trust_tiers,
+            )
             continue
         if spec.mode is ChannelMode.SHADOW:
             if spec.kind is NotificationBindingKind.TEAMS_WORKFLOW:

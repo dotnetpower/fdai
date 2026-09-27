@@ -1,4 +1,4 @@
-"""Notification-channel Protocols (Teams / Slack / Email / Webhook / PagerDuty / SMS).
+"""Notification-channel Protocols (Teams / Slack / Email / Webhook / PagerDuty / SMS / Direct Line).
 
 Realizes the ``Channel`` contract in
 [`docs/roadmap/interfaces/channels-and-notifications.md`](../../../../../docs/roadmap/interfaces/channels-and-notifications.md).
@@ -9,8 +9,8 @@ behind the concrete adapters under :mod:`fdai.delivery.notifications`.
 Design points
 -------------
 
-- **One shape per channel, six typed Protocols.** Every adapter answers
-  a single ``send(NotificationMessage) -> DeliveryReceipt`` call. Six
+- **One shape per channel, seven typed Protocols.** Every adapter answers
+  a single ``send(NotificationMessage) -> DeliveryReceipt`` call. Seven
   Protocols keep the DI matrix statically typed - the router registers a
   ``TeamsChannel`` under the ``teams-*`` channel-ids and refuses to bind
   an :class:`EmailChannel` there.
@@ -47,6 +47,7 @@ from .base import (
 )
 from .capability import ChannelCapabilityState, ChannelMode
 from .channels import (
+    DirectLineChannel,
     EmailChannel,
     PagerDutyChannel,
     SlackChannel,
@@ -73,6 +74,7 @@ __all__ = [
     "ChannelMode",
     "ChannelUnavailableError",
     "DeliveryReceipt",
+    "DirectLineChannel",
     "EmailChannel",
     "HilEscalationSink",
     "Link",

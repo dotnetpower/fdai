@@ -1,4 +1,4 @@
-"""Six typed Protocols - one per channel vendor.
+"""Seven typed Protocols - one per channel vendor.
 
 They share the same shape (``send(NotificationMessage) → DeliveryReceipt``)
 but stay distinct types so the router's channel registry can enforce
@@ -73,7 +73,23 @@ class SmsChannel(Protocol):
     async def send(self, message: NotificationMessage) -> DeliveryReceipt: ...
 
 
+@runtime_checkable
+class DirectLineChannel(Protocol):
+    """Custom channel reached through Microsoft Bot Framework Direct Line.
+
+    Send-only A2/A4 delivery: an adapter MUST NOT declare A1 approval or A3
+    conversation trust tiers, because a posted activity neither verifies an
+    approver nor carries an authenticated conversational turn.
+    """
+
+    channel_id: str
+    trust_tiers: frozenset[TrustTier]
+
+    async def send(self, message: NotificationMessage) -> DeliveryReceipt: ...
+
+
 __all__ = [
+    "DirectLineChannel",
     "EmailChannel",
     "PagerDutyChannel",
     "SlackChannel",
