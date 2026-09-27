@@ -199,6 +199,41 @@ a gap. Even an empty, fully scanned journal window remains incomplete without an
 established start-of-window checkpoint. These rows are evidence only, not scoring inputs or
 execution authority. The state-transition collector continues to refuse incomplete coverage.
 
+When `FDAI_FORECAST_HISTORY_PRODUCERS_JSON` binds a reviewed producer to an existing collector
+mapping, Heimdall runs that producer immediately before collection. The producer reads one exact
+subject and window as known at the collection instant and maps raw source states only through its
+reviewed mapping. It restates records that their owners already retained and never writes an
+action, change, lifecycle, or change-window fact. It appends `derived` transitions only from a
+clean read whose source attests a positive checkpoint for the exact identity, revision, window,
+pagination, and knowledge time, and a stateful source must also name its initial state. Before
+that complete coverage is appended, every stored transition in the window must be re-asserted by
+the current read. A withdrawn or revised record, changed retained content, or a contradicting
+restatement holds coverage instead. Empty, truncated, pending, conflicting, unmapped, stale, or
+unavailable reads append one incomplete coverage row with bounded limitation tokens, the source
+watermark, and an evidence reference, but no transitions. Each instant may carry only one mapped
+state regardless of record order. A stateful producer restates the proven state once per
+lookback-aligned grid instant as a reserved `checkpoint` anchor, so overlapping episodes share one
+restatement. The collector accepts an anchor only when it repeats the current chain state.
+Idempotency keys derive from the exact binding and source event, so restart and replay add
+coverage without duplicate transitions. Each source read has a one-second deadline, and producers
+run concurrently with two-second per-kind budgets. A hanging source therefore records
+`source_unavailable` without starving other kinds.
+
+Two raw sources are bound. External changes restate the journal witness and keep its limitation.
+Resource lifecycle reads confirmed-tombstone incarnation boundaries with their journal record
+times: deletion comes only from a confirmed closure, recreation only from a later incarnation, and
+a pending tombstone stays explicit. Neither source can yet attest a positive start-of-window or
+post-window reconciliation checkpoint, so both remain incomplete and store no transitions. Action
+and excluded-window producers remain unavailable. Audit record time is the transaction start and
+executor entries are built before the global append lock, so a sequence fence cannot prove
+event-time completeness. Current `ChangeWindow` objects are not an attested history. The Settings
+`forecast-history` row validates configuration with the same parser as runtime composition. It
+always reports `ready=false` and `available=false`, reports `enabled` only as the deployment
+opt-in, and lists prerequisites, including forecast targets, and per-source binding. The Console
+renders the row's status, mode, source, and reason; there is no Settings preference control yet.
+Configuration never grants scoring or execution authority, and independent proof issuance remains
+required before collected history can authorize scoring.
+
 The episode closure carries its observation even when no `ForecastOutcome` is published. The Core
 `core_forecast_closure_observation_20260914` migration adds nullable `closure_observation` metadata.
 New writes retain the observation atomically with closure and the publication outbox; conflicting
