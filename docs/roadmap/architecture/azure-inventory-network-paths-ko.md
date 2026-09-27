@@ -1,7 +1,7 @@
 ---
 title: 제한된 네트워크의 Azure 인벤토리
 translation_of: azure-inventory-network-paths.md
-translation_source_sha: 0dd2041b3f3b4fa26cbcae776c799b54c65cc593
+translation_source_sha: ff5ce7946794f3d6257512afa583f0898ee01bf2
 translation_revised: 2026-09-27
 ---
 # 제한된 네트워크의 Azure 인벤토리
@@ -38,6 +38,7 @@ FDAI는 네트워크 도달성, 아이덴티티, 수집, 프로젝션을 별도 
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-27 | implemented | 인프라 이중 암호화를 적용한 비공개 증적 저장소, 기본 거부 네트워크 규칙, Blob 진단, PostgreSQL 감사 설정, 모든 작업 전용 서브넷의 NSG로 격리된 인증 샌드박스를 강화했습니다. | `current change`, Low 초과 Trivy 발견 사항 0건, Checkov 실패 검사 0건, Terraform 검증 및 정확한 계획 게이트 검사 통과. | 관리되는 정확한 revision 캠페인을 실행하고 작업 전용 정리를 검증합니다. |
 | 2026-09-17 | implemented | API, 신원 또는 권한 부여 경계를 넓히지 않고 폐기 가능한 시나리오의 리소스 한정 공개 접근 예외를 Checkov까지 확장했습니다. | `current change`, `infra/scenario-lab/aks.tf`, 집중 Trivy 및 Checkov 스캔과 시나리오 랩 검사. | 보호된 재생성과 FDAI Pod 인벤토리 조회 결과를 보존합니다. |
 | 2026-09-17 | implemented | 폐기 가능한 시나리오에 인증된 공개 AKS API 경로를 추가하고 두 공개 접근 스캐너 예외를 해당 리소스 하나로 제한했습니다. | `current change`, `infra/scenario-lab/aks.tf`, 집중 Trivy 스캔 및 시나리오 랩 검사. | 보호된 재생성과 FDAI Pod 인벤토리 조회 결과를 보존합니다. |
 | 2026-09-10 | implemented | 기존 및 fleet AKS 관측 연결을 상호 배타적으로 추가하고 정확한 클러스터별 Reader를 부여했습니다. | `current change`, Terraform 형식 검사 및 집중 신원 검사 | 보호된 배포 근거는 별도로 보존합니다. |

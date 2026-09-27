@@ -60,6 +60,13 @@ resource "azurerm_virtual_network" "certification" {
   tags                = local.tags
 }
 
+resource "azurerm_network_security_group" "certification" {
+  name                = "nsg-fdai-invnet-${local.suffix}"
+  location            = azurerm_resource_group.certification.location
+  resource_group_name = azurerm_resource_group.certification.name
+  tags                = local.tags
+}
+
 resource "azurerm_subnet" "container_apps" {
   name                 = "snet-container-apps"
   resource_group_name  = azurerm_resource_group.certification.name
@@ -72,6 +79,11 @@ resource "azurerm_subnet" "container_apps" {
       name = "Microsoft.App/environments"
     }
   }
+}
+
+resource "azurerm_subnet_network_security_group_association" "container_apps" {
+  subnet_id                 = azurerm_subnet.container_apps.id
+  network_security_group_id = azurerm_network_security_group.certification.id
 }
 
 resource "azurerm_subnet" "postgres" {
@@ -88,12 +100,22 @@ resource "azurerm_subnet" "postgres" {
   }
 }
 
+resource "azurerm_subnet_network_security_group_association" "postgres" {
+  subnet_id                 = azurerm_subnet.postgres.id
+  network_security_group_id = azurerm_network_security_group.certification.id
+}
+
 resource "azurerm_subnet" "private_endpoints" {
   name                              = "snet-private-endpoints"
   resource_group_name               = azurerm_resource_group.certification.name
   virtual_network_name              = azurerm_virtual_network.certification.name
   address_prefixes                  = ["10.246.5.0/24"]
   private_endpoint_network_policies = "Disabled"
+}
+
+resource "azurerm_subnet_network_security_group_association" "private_endpoints" {
+  subnet_id                 = azurerm_subnet.private_endpoints.id
+  network_security_group_id = azurerm_network_security_group.certification.id
 }
 
 resource "azurerm_private_dns_zone" "postgres" {
@@ -132,7 +154,13 @@ resource "random_password" "postgres" {
   override_special = "_%@-"
 }
 
+# Trivy AZU-0021 and AZU-0026 inspect retired PostgreSQL server fields that
+# AzureRM does not expose on Flexible Server. The focused configuration
+# resources below enable connection throttling and require TLS 1.2.
+#trivy:ignore:AZU-0021
+#trivy:ignore:AZU-0026
 resource "azurerm_postgresql_flexible_server" "certification" {
+  # checkov:skip=CKV_AZURE_136:The disposable single-region campaign is independently verified and immediately destroyed; geo-redundant backup would outlive its bounded evidence window.
   name                          = local.postgres_name
   resource_group_name           = azurerm_resource_group.certification.name
   location                      = azurerm_resource_group.certification.location
@@ -163,18 +191,59 @@ resource "azurerm_postgresql_flexible_server_database" "certification" {
   collation = "en_US.utf8"
 }
 
+# The temporary server still emits the connection and checkpoint evidence used
+# to diagnose this bounded network campaign.
+resource "azurerm_postgresql_flexible_server_configuration" "log_connections" {
+  name      = "log_connections"
+  server_id = azurerm_postgresql_flexible_server.certification.id
+  value     = "on"
+}
+
+resource "azurerm_postgresql_flexible_server_configuration" "log_checkpoints" {
+  name      = "log_checkpoints"
+  server_id = azurerm_postgresql_flexible_server.certification.id
+  value     = "on"
+}
+
+resource "azurerm_postgresql_flexible_server_configuration" "connection_throttle" {
+  name      = "connection_throttle.enable"
+  server_id = azurerm_postgresql_flexible_server.certification.id
+  value     = "on"
+}
+
+resource "azurerm_postgresql_flexible_server_configuration" "tls_floor" {
+  name      = "ssl_min_protocol_version"
+  server_id = azurerm_postgresql_flexible_server.certification.id
+  value     = "TLSv1.2"
+}
+
+# Blob diagnostics are emitted by the dedicated setting below; Trivy does not
+# correlate that child resource. Platform-managed keys plus infrastructure
+# encryption protect this short-lived, content-free receipt without a second
+# task-owned key lifecycle.
+#trivy:ignore:AZU-0010
+#trivy:ignore:AZU-0057
+#trivy:ignore:AZU-0060
 resource "azurerm_storage_account" "receipts" {
-  name                            = local.storage_name
-  resource_group_name             = azurerm_resource_group.certification.name
-  location                        = azurerm_resource_group.certification.location
-  account_tier                    = "Standard"
-  account_replication_type        = "LRS"
-  min_tls_version                 = "TLS1_2"
-  public_network_access_enabled   = false
-  shared_access_key_enabled       = false
-  default_to_oauth_authentication = true
-  allow_nested_items_to_be_public = false
-  tags                            = local.tags
+  # checkov:skip=CKV_AZURE_33:The account exposes only Blob receipts; no Queue service is consumed.
+  # checkov:skip=CKV_AZURE_36:Trusted-service bypass is intentionally None; both callers use explicit managed-identity RBAC through the private endpoint.
+  # checkov:skip=CKV_AZURE_206:The task-owned receipt is independently read back before immediate exact cleanup.
+  # checkov:skip=CKV2_AZURE_1:Infrastructure encryption and platform-managed keys avoid a second disposable key lifecycle.
+  name                              = local.storage_name
+  resource_group_name               = azurerm_resource_group.certification.name
+  location                          = azurerm_resource_group.certification.location
+  account_kind                      = "StorageV2"
+  account_tier                      = "Standard"
+  account_replication_type          = "LRS"
+  min_tls_version                   = "TLS1_2"
+  public_network_access_enabled     = false
+  shared_access_key_enabled         = false
+  local_user_enabled                = false
+  default_to_oauth_authentication   = true
+  allow_nested_items_to_be_public   = false
+  infrastructure_encryption_enabled = true
+  cross_tenant_replication_enabled  = false
+  tags                              = local.tags
 
   blob_properties {
     versioning_enabled = true
@@ -184,13 +253,38 @@ resource "azurerm_storage_account" "receipts" {
     container_delete_retention_policy {
       days = 7
     }
+
+  }
+
+  network_rules {
+    default_action = "Deny"
+    bypass         = ["None"]
   }
 }
 
 resource "azurerm_storage_container" "receipts" {
+  # checkov:skip=CKV2_AZURE_21:The receipt_blob diagnostic setting emits read, write, and delete logs.
   name                  = "receipts"
   storage_account_id    = azurerm_storage_account.receipts.id
   container_access_type = "private"
+}
+
+resource "azurerm_monitor_diagnostic_setting" "receipt_blob" {
+  name                       = "diag-${local.storage_name}-blob"
+  target_resource_id         = "${azurerm_storage_account.receipts.id}/blobServices/default"
+  log_analytics_workspace_id = azurerm_log_analytics_workspace.certification.id
+
+  enabled_log {
+    category = "StorageRead"
+  }
+
+  enabled_log {
+    category = "StorageWrite"
+  }
+
+  enabled_log {
+    category = "StorageDelete"
+  }
 }
 
 resource "azurerm_private_endpoint" "blob" {
@@ -330,6 +424,10 @@ resource "azurerm_container_app_job" "migrate" {
 
   depends_on = [
     azurerm_postgresql_flexible_server_database.certification,
+    azurerm_postgresql_flexible_server_configuration.connection_throttle,
+    azurerm_postgresql_flexible_server_configuration.log_checkpoints,
+    azurerm_postgresql_flexible_server_configuration.log_connections,
+    azurerm_postgresql_flexible_server_configuration.tls_floor,
     azurerm_role_assignment.campaign_acr_pull,
   ]
 }
