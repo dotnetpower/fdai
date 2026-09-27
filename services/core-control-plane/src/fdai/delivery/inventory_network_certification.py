@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import hashlib
+import http.client
 import ipaddress
 import json
 import socket
@@ -203,6 +204,7 @@ async def run_inventory_network_campaign(
     source_revision = _source_revision(environment)
     request_id = _request_id(environment)
     receipt_url = _receipt_url(environment)
+    receipt_private_ip = _receipt_private_ip(environment)
     config = InventoryJobConfig.from_env(environment)
     if (
         config.source_order != ("arg", "arm")
@@ -225,7 +227,11 @@ async def run_inventory_network_campaign(
         if not _all_private(postgres_dns):
             raise RuntimeError("inventory projection database did not resolve privately")
         receipt_host = _https_host(receipt_url)
-        blob_dns, blob_tls = await _network_probe(receipt_host, 443)
+        blob_dns, blob_tls = await _network_probe(
+            receipt_host,
+            443,
+            connect_address=receipt_private_ip,
+        )
         if not _all_private(blob_dns):
             raise RuntimeError("inventory receipt storage did not resolve privately")
 
@@ -272,8 +278,17 @@ async def run_inventory_network_campaign(
         receipt = reduce_inventory_network_campaign(observation)
         encoded = _canonical_json(receipt) + b"\n"
         storage_token = await active_identity.get_token(_STORAGE_AUDIENCE)
-        await _write_blob(client, receipt_url, encoded, token=storage_token.token)
-        observed = await _read_blob(client, receipt_url, token=storage_token.token)
+        await _write_blob(
+            receipt_url,
+            encoded,
+            token=storage_token.token,
+            private_ip=receipt_private_ip,
+        )
+        observed = await _read_blob(
+            receipt_url,
+            token=storage_token.token,
+            private_ip=receipt_private_ip,
+        )
         if observed != encoded:
             raise RuntimeError("private inventory receipt readback did not match")
         return receipt
@@ -289,14 +304,23 @@ async def verify_inventory_network_campaign(
     source_revision = _source_revision(environment)
     request_id = _request_id(environment)
     receipt_url = _receipt_url(environment)
+    receipt_private_ip = _receipt_private_ip(environment)
     receipt_host = _https_host(receipt_url)
-    addresses, tls_digest = await _network_probe(receipt_host, 443)
+    addresses, tls_digest = await _network_probe(
+        receipt_host,
+        443,
+        connect_address=receipt_private_ip,
+    )
     if not _all_private(addresses):
         raise RuntimeError("inventory receipt verifier did not use a private address")
     async with httpx.AsyncClient(follow_redirects=False) as client:
         active_identity = identity or workload_identity(http_client=client)
         token = await active_identity.get_token(_STORAGE_AUDIENCE)
-        encoded = await _read_blob(client, receipt_url, token=token.token)
+        encoded = await _read_blob(
+            receipt_url,
+            token=token.token,
+            private_ip=receipt_private_ip,
+        )
     try:
         receipt = json.loads(encoded)
     except json.JSONDecodeError as exc:
@@ -384,22 +408,35 @@ async def _run_stage(
     )
 
 
-async def _network_probe(host: str, port: int) -> tuple[tuple[str, ...], str]:
-    loop = asyncio.get_running_loop()
-    try:
-        values = await asyncio.wait_for(
-            loop.getaddrinfo(host, port, type=socket.SOCK_STREAM),
-            timeout=10,
-        )
-    except (OSError, TimeoutError) as exc:
-        raise RuntimeError("network certification DNS probe failed") from exc
-    addresses = tuple(sorted({str(item[4][0]) for item in values}))
+async def _network_probe(
+    host: str,
+    port: int,
+    *,
+    connect_address: str | None = None,
+) -> tuple[tuple[str, ...], str]:
+    if connect_address is None:
+        loop = asyncio.get_running_loop()
+        try:
+            values = await asyncio.wait_for(
+                loop.getaddrinfo(host, port, type=socket.SOCK_STREAM),
+                timeout=10,
+            )
+        except (OSError, TimeoutError) as exc:
+            raise RuntimeError("network certification DNS probe failed") from exc
+        addresses = tuple(sorted({str(item[4][0]) for item in values}))
+    else:
+        addresses = (connect_address,)
     if not addresses or len(addresses) > 16:
         raise RuntimeError("network certification DNS result is outside the reviewed bound")
     context = ssl.create_default_context()
     try:
         _, writer = await asyncio.wait_for(
-            asyncio.open_connection(host, port, ssl=context, server_hostname=host),
+            asyncio.open_connection(
+                connect_address or host,
+                port,
+                ssl=context,
+                server_hostname=host,
+            ),
             timeout=15,
         )
     except (OSError, TimeoutError, ssl.SSLError) as exc:
@@ -414,31 +451,77 @@ async def _network_probe(host: str, port: int) -> tuple[tuple[str, ...], str]:
 
 
 async def _write_blob(
-    client: httpx.AsyncClient,
     url: str,
     content: bytes,
     *,
     token: str,
+    private_ip: str,
 ) -> None:
-    response = await client.put(
+    status, _ = await asyncio.to_thread(
+        _storage_request,
+        "PUT",
         url,
+        token=token,
+        private_ip=private_ip,
         content=content,
-        headers={
-            **_storage_headers(token),
-            "x-ms-blob-type": "BlockBlob",
-            "Content-Type": "application/json",
-        },
-        timeout=30,
     )
-    if response.status_code != 201:
-        raise RuntimeError(f"private receipt write failed with HTTP {response.status_code}")
+    if status != 201:
+        raise RuntimeError(f"private receipt write failed with HTTP {status}")
 
 
-async def _read_blob(client: httpx.AsyncClient, url: str, *, token: str) -> bytes:
-    response = await client.get(url, headers=_storage_headers(token), timeout=30)
-    if response.status_code != 200 or len(response.content) > 256 * 1024:
-        raise RuntimeError(f"private receipt read failed with HTTP {response.status_code}")
-    return response.content
+async def _read_blob(url: str, *, token: str, private_ip: str) -> bytes:
+    status, body = await asyncio.to_thread(
+        _storage_request,
+        "GET",
+        url,
+        token=token,
+        private_ip=private_ip,
+        content=b"",
+    )
+    if status != 200 or len(body) > 256 * 1024:
+        raise RuntimeError(f"private receipt read failed with HTTP {status}")
+    return body
+
+
+def _storage_request(
+    method: str,
+    url: str,
+    *,
+    token: str,
+    private_ip: str,
+    content: bytes,
+) -> tuple[int, bytes]:
+    parsed = urlparse(url)
+    host = parsed.hostname
+    if (
+        host is None
+        or parsed.scheme != "https"
+        or method not in {"GET", "PUT"}
+        or not ipaddress.ip_address(private_ip).is_private
+    ):
+        raise ValueError("private storage request binding is invalid")
+    path = parsed.path or "/"
+    context = ssl.create_default_context()
+    connection = http.client.HTTPSConnection(host, timeout=30, context=context)
+    stream = socket.create_connection((private_ip, 443), timeout=15)
+    connection.sock = context.wrap_socket(stream, server_hostname=host)
+    headers = _storage_headers(token)
+    headers["Host"] = host
+    if method == "PUT":
+        headers.update(
+            {
+                "Content-Length": str(len(content)),
+                "Content-Type": "application/json",
+                "x-ms-blob-type": "BlockBlob",
+            }
+        )
+    try:
+        connection.request(method, path, body=content if method == "PUT" else None, headers=headers)
+        response = connection.getresponse()
+        body = response.read(256 * 1024 + 1)
+        return response.status, body
+    finally:
+        connection.close()
 
 
 def _storage_headers(token: str) -> dict[str, str]:
@@ -509,6 +592,17 @@ def _receipt_url(environment: Mapping[str, str]) -> str:
         or segments[1] != f"{_request_id(environment)}.json"
     ):
         raise ValueError(f"{_RECEIPT_URL} MUST be one credential-free Azure Blob URL")
+    return value
+
+
+def _receipt_private_ip(environment: Mapping[str, str]) -> str:
+    value = environment.get("FDAI_NETWORK_CERT_RECEIPT_PRIVATE_IP", "").strip()
+    try:
+        address = ipaddress.ip_address(value)
+    except ValueError as exc:
+        raise ValueError("FDAI_NETWORK_CERT_RECEIPT_PRIVATE_IP MUST be one IP address") from exc
+    if not address.is_private:
+        raise ValueError("FDAI_NETWORK_CERT_RECEIPT_PRIVATE_IP MUST be private")
     return value
 
 

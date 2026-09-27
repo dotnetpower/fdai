@@ -9,6 +9,7 @@ import pytest
 from fdai.delivery.inventory_network_certification import (
     InventoryNetworkCampaignObservation,
     InventoryNetworkStage,
+    _receipt_private_ip,
     reduce_inventory_network_campaign,
 )
 from fdai.shared.providers.inventory_snapshot import (
@@ -130,3 +131,15 @@ def test_campaign_reducer_rejects_unproven_fallback_or_recovery(
 ) -> None:
     with pytest.raises(ValueError, match="fallback and recovery"):
         reduce_inventory_network_campaign(observation)
+
+
+@pytest.mark.parametrize("value", ["", "8.8.8.8", "not-an-ip"])
+def test_receipt_private_ip_rejects_missing_public_or_invalid_values(value: str) -> None:
+    with pytest.raises(ValueError, match="RECEIPT_PRIVATE_IP"):
+        _receipt_private_ip({"FDAI_NETWORK_CERT_RECEIPT_PRIVATE_IP": value})
+
+
+def test_receipt_private_ip_accepts_one_private_address() -> None:
+    assert _receipt_private_ip({"FDAI_NETWORK_CERT_RECEIPT_PRIVATE_IP": "10.246.5.4"}) == (
+        "10.246.5.4"
+    )
