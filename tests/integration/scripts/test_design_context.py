@@ -757,7 +757,8 @@ def test_agent_workflow_requires_explicit_delivery_and_keeps_live_validation_gat
     assert "Complete validated repository changes with a task-owned local commit" in normalized
     assert "Push, pull request, merge, and remote cleanup require explicit delivery" in normalized
     assert "never selects a tenant, subscription" in normalized
-    assert "required human plan approval" in normalized
+    assert "already selected full-authority development target" in normalized
+    assert "authorization ends on target, source, scope, effect, or plan drift" in normalized
     assert "MUST NOT interrupt unfinished implementation" in normalized
     assert "do not authorize a coding session to invoke a" in normalized
     assert "unexpected `T2` fallback" in normalized

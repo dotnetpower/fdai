@@ -20,6 +20,8 @@ def test_ci_prefilter_routes_retirement_changes_to_authority_check() -> None:
 
     assert "rule-sets|assignments|exemptions|overrides|retirements" in workflow
     assert "config/notifications-matrix\\.yaml" in workflow
+    assert "rule-catalog/risk-classification\\.yaml$" in workflow
+    assert ".*risk-classification" not in workflow
     assert "git diff --no-renames --name-only" in workflow
 
 
