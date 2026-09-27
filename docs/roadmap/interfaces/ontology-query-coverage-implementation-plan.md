@@ -56,7 +56,8 @@ Capability preparation preserves all selected canonical property tokens, includi
 > same collection as `query.contextual_resources` with one source-spanned `resource_type_filter`.
 > Core gives that judgment stated catalog `Resource.type` spans only as candidate `stated_values`,
 > compiles the collection through the same value-domain grounding, and refuses the deterministic
-> list when it would drop a secondary intent, a stated state condition, or a name fragment. A
+> list when it would drop a secondary intent, a stated state condition, or a name fragment. The
+> resource-state planner owns the secondary-intent and state-condition part of that check. A
 > targetless schema proposal that leaves a stated subtype unexplained returns a typed subject
 > clarification instead of a declaration list or count. Exact Azure Resource Manager
 > identities remain `Resource.id equals` predicates instead of being reduced to the final name

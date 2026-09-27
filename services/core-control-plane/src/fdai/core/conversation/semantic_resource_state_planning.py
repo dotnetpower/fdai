@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping, Sequence
 from datetime import UTC, datetime
 from typing import Any
 
@@ -55,6 +56,7 @@ _GENERIC_COLLECTION_OUTPUTS = frozenset(
 _STATE_MEASURES = frozenset(RESOURCE_STATE_MEASURE_CONCEPTS)
 _STATE_QUERY_MEASURES = frozenset(RESOURCE_STATE_QUERY_CONCEPTS)
 _HEALTH_SIGNALS = ("diagnosis", "health_history", "platform_health")
+_STATE_FILTER_KINDS = frozenset({"resource_state_exclusion_filter", "resource_state_filter"})
 
 
 def normalize_resource_state_proposal(
@@ -203,6 +205,28 @@ def resource_condition_stated(
 
     state_measures, health_measures = _catalog_state_measures(utterance, registry=registry)
     return bool(state_measures or health_measures)
+
+
+def contextual_list_omits_requirement(
+    semantic_judgment: Mapping[str, Any],
+    raw_facets: Sequence[str],
+    typed_targets: Sequence[Mapping[str, Any]],
+    utterance: str,
+    *,
+    registry: InventoryQueryLanguageRegistry | None,
+) -> bool:
+    """Return whether a plain name/type list would drop a stated requirement.
+
+    A secondary intent or a stated state requirement cannot be answered by a name/type list,
+    even when the proposal omitted that requirement.
+    """
+
+    return bool(
+        semantic_judgment.get("secondary_intents")
+        or "current_state" in raw_facets
+        or any(target.get("kind") in _STATE_FILTER_KINDS for target in typed_targets)
+        or resource_condition_stated(utterance, registry=registry)
+    )
 
 
 def resource_condition_intents_grounded(
@@ -532,6 +556,7 @@ def _has_state_function(descriptors: tuple[dict[str, Any], ...]) -> bool:
 
 __all__ = [
     "compile_resource_state_plan",
+    "contextual_list_omits_requirement",
     "normalize_resource_state_proposal",
     "resolve_state_exclusion_concepts",
     "resource_collection_definition",

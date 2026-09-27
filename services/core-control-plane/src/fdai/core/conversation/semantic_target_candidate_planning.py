@@ -43,11 +43,12 @@ from .semantic_planning_value_filters import (
     stated_value_filters,
 )
 from .semantic_resource_state_planning import (
+    contextual_list_omits_requirement,
     resource_collection_definition,
-    resource_condition_stated,
 )
 from .semantic_target_candidate_constants import (
     CANDIDATE_RESOLVABLE_REQUIREMENTS,
+    COLLECTION_FILTER_KINDS,
     DECISION_OUTCOME_LINEAGE_TYPES,
     TARGET_BOUND_OPERATING_INTENT_TYPES,
     TARGET_SCOPED_OUTPUTS,
@@ -87,16 +88,8 @@ def build_stated_resource_filter_frame(
     )
     if any(target.get("kind") in {"resource", "resource_id"} for target in typed_targets):
         return None
-    # A plain name/type list cannot answer a secondary intent or a stated state requirement,
-    # even when the proposal omitted that requirement.
-    if primary_intent == "query.contextual_resources" and (
-        semantic_judgment.get("secondary_intents")
-        or "current_state" in raw_facets
-        or any(
-            target.get("kind") in {"resource_state_filter", "resource_state_exclusion_filter"}
-            for target in typed_targets
-        )
-        or resource_condition_stated(utterance, registry=inventory_query_language)
+    if primary_intent == "query.contextual_resources" and contextual_list_omits_requirement(
+        semantic_judgment, raw_facets, typed_targets, utterance, registry=inventory_query_language
     ):
         return None
     resource_type_filters = tuple(
@@ -114,15 +107,7 @@ def build_stated_resource_filter_frame(
     } and (
         (
             {"resource_collection", "list"} <= set(raw_facets)
-            and any(
-                target.get("kind")
-                in {
-                    "resource_type_filter",
-                    "resource_state_exclusion_filter",
-                    "resource_state_filter",
-                }
-                for target in typed_targets
-            )
+            and any(target.get("kind") in COLLECTION_FILTER_KINDS for target in typed_targets)
         )
         or (
             bool(filters.get(("Resource", "type")))
@@ -172,13 +157,7 @@ def build_stated_resource_filter_frame(
                 and {"resource_collection", "list", "name_filter"} <= set(raw_facets)
             )
             or (
-                target["kind"].endswith("_filter")
-                and target["kind"]
-                not in {
-                    "resource_type_filter",
-                    "resource_state_exclusion_filter",
-                    "resource_state_filter",
-                }
+                target["kind"].endswith("_filter") and target["kind"] not in COLLECTION_FILTER_KINDS
             )
         )
         and isinstance(target.get("value"), str)

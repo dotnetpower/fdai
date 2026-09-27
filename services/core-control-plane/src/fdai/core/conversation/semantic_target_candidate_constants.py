@@ -11,6 +11,13 @@ CANDIDATE_RESOLVABLE_REQUIREMENTS = frozenset(
         ClarificationRequirement.SUBJECT,
     }
 )
+COLLECTION_FILTER_KINDS = frozenset(
+    {
+        "resource_state_exclusion_filter",
+        "resource_state_filter",
+        "resource_type_filter",
+    }
+)
 DECISION_OUTCOME_LINEAGE_TYPES = (
     "DecisionCase",
     "ActionOption",
@@ -45,6 +52,7 @@ TARGET_SCOPED_OUTPUTS = frozenset(
 
 __all__ = [
     "CANDIDATE_RESOLVABLE_REQUIREMENTS",
+    "COLLECTION_FILTER_KINDS",
     "DECISION_OUTCOME_LINEAGE_TYPES",
     "TARGET_BOUND_OPERATING_INTENT_TYPES",
     "TARGET_SCOPED_OUTPUTS",

@@ -1,6 +1,6 @@
 ---
 translation_of: ontology-query-coverage-implementation-plan.md
-translation_source_sha: 8229e5563b93ee46ce3880240ed0c61433f6db36
+translation_source_sha: 5fdfbf52cd9a4999b16520eafda203c759b56cb3
 translation_revised: 2026-09-27
 ---
 # 온톨로지 조회 커버리지 구현 계획
@@ -74,7 +74,8 @@ v1.2 검색어/발화 결속, 사용 불가 결과 및 이전 버전 호환성�
 > `resource_type_filter` 하나와 함께 `query.contextual_resources`로 제안할 수 있습니다. Core는 발화에 나온
 > 카탈로그 `Resource.type` 구간을 후보 `stated_values`로만 전달하고 같은 값 도메인 근거로 모음을
 > 컴파일하며, 보조 의도, 발화에 나온 상태 조건 또는 이름 조각을 누락하게 되면 결정론적 목록을
-> 거부합니다. 발화에 나온 하위 유형을 설명하지 못하는 대상 없는 스키마 제안은 선언 목록이나 개수
+> 거부합니다. 이 검사 중 보조 의도와 상태 조건 부분은 리소스 상태 계획기가 소유합니다. 발화에 나온
+> 하위 유형을 설명하지 못하는 대상 없는 스키마 제안은 선언 목록이나 개수
 > 대신 타입이 지정된 주제 명확화를 반환합니다.
 > 정확한 Azure Resource Manager 신원은 마지막 이름 부분으로 축약되지
 > 않고 `Resource.id equals` 조건식으로 유지됩니다. 수락된 모음 판단은 결정론적 프레임을 사용하며,
