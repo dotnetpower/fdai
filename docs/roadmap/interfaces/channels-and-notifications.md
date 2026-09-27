@@ -19,6 +19,10 @@ only its outbound browser-notification boundary. Console identity lives in
 Production A3 ingress, publishing, lifecycle, persistence composition, deployment, and rollback are
 owned by [Production A3 channel runtime](production-a3-channel-runtime.md).
 
+Core supervises Assurance Twin's read-only report/review outbox separately from the A1 request
+outbox. A Twin evidence gap is not an approval decision or a notification-channel fallback;
+neither worker can drain or authorize the other's records.
+
 A2/A4 fan-out delivery to every enabled and configured channel, named channel bindings, per-channel
 durable delivery, and the Teams Workflows webhook binding are owned by
 [Multi-channel notification delivery](multi-channel-notification-delivery.md).

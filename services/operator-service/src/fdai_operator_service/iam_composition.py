@@ -75,6 +75,7 @@ from fdai_operator_service.families.operations.contracts import ProjectionReader
 from fdai_operator_service.family_adapters import PostgresOperationsAdapters
 from fdai_operator_service.family_authorization import OperatorFamilyAuthorizer
 from fdai_operator_service.model_catalog_composition import build_model_catalog_reader
+from fdai_operator_service.model_lifecycle_startup import OperatorResolvedModelsRevisionOwner
 from fdai_operator_service.notification_receipt_ingress import (
     NotificationReceiptIngress,
     NotificationReceiptIngressConfig,
@@ -286,6 +287,7 @@ def build_postgres_iam_bindings(
     semantic_bus: OperatorSemanticKafkaBus | None,
     teams_http_client: httpx.AsyncClient | None,
     role_group_ids: Mapping[str, str],
+    model_revision_owner: OperatorResolvedModelsRevisionOwner | None = None,
 ) -> IamFamilyBindings:
     """Compose the durable IAM family without granting execution authority."""
     if environment.database_url is None:
@@ -295,6 +297,7 @@ def build_postgres_iam_bindings(
     iam = PostgresIamAdapters(
         store,
         model_catalog=build_model_catalog_reader(environment),
+        narrator_revision_owner=model_revision_owner,
         hil_decisions=PostgresHilDecisionStore(
             PostgresFamilyStoreConfig(
                 dsn=environment.database_url,

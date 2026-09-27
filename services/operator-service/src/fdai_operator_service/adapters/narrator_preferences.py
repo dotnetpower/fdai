@@ -83,13 +83,12 @@ class InMemoryNarratorPreferenceStore:
         expected_revision: int,
         allowlist: Iterable[str],
     ) -> NarratorPreference:
-        principal = _principal(principal_id)
-        selected = _deployment(deployment)
-        allowed = _allowlist(allowlist)
-        if selected != AUTO_DEPLOYMENT and selected not in allowed:
-            raise NarratorPreferenceError("narrator preference MUST name an allowlisted deployment")
-        if not isinstance(expected_revision, int) or isinstance(expected_revision, bool):
-            raise NarratorPreferenceError("narrator preference revision MUST be an integer")
+        principal, selected = validate_narrator_choice(
+            principal_id,
+            deployment=deployment,
+            expected_revision=expected_revision,
+            allowlist=allowlist,
+        )
         current = self.read(principal)
         if expected_revision != current.revision:
             raise NarratorPreferenceConflictError("narrator preference revision conflict")
@@ -100,6 +99,24 @@ class InMemoryNarratorPreferenceStore:
         )
         self._preferences[principal] = updated
         return updated
+
+
+def validate_narrator_choice(
+    principal_id: str,
+    *,
+    deployment: str,
+    expected_revision: int,
+    allowlist: Iterable[str],
+) -> tuple[str, str]:
+    """Apply the same boundary validation for process-local and durable writes."""
+    principal = _principal(principal_id)
+    selected = _deployment(deployment)
+    allowed = _allowlist(allowlist)
+    if selected != AUTO_DEPLOYMENT and selected not in allowed:
+        raise NarratorPreferenceError("narrator preference MUST name an allowlisted deployment")
+    if not isinstance(expected_revision, int) or isinstance(expected_revision, bool):
+        raise NarratorPreferenceError("narrator preference revision MUST be an integer")
+    return principal, selected
 
 
 def project_narrator_settings(
@@ -184,4 +201,5 @@ __all__ = [
     "NarratorPreferenceConflictError",
     "NarratorPreferenceError",
     "project_narrator_settings",
+    "validate_narrator_choice",
 ]

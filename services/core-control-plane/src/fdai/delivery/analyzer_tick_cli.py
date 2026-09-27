@@ -58,6 +58,7 @@ from fdai.delivery.analyzer_tick_cli_composition import (
     build_inventory_sources,
     build_lifecycle_recorder,
     build_publication_ledger,
+    build_publication_reconciler,
     build_receipt_store,
 )
 from fdai.delivery.analyzer_tick_cli_config import (
@@ -515,6 +516,9 @@ async def run_once() -> AnalyzerJobReport:
                     ),
                     event_bus=bus,
                     publication_ledger=build_publication_ledger(),
+                    publication_reconciler=build_publication_reconciler(
+                        bootstrap_servers, venue, identity
+                    ),
                     receipt_store=build_receipt_store(),
                     window_seconds=window_seconds,
                     publication_window_seconds=DEFAULT_PUBLICATION_WINDOW_SECONDS,

@@ -363,6 +363,8 @@ The PostgreSQL evidence provider follows these boundaries:
   capability. They install disabled, run bounded off-path comparisons, require an exact version,
   evidence window, and rollback target for promotion, and engage a per-policy kill switch on an
   invariant violation. See [Context Selection Policy](../decisioning/context-selection-policy.md).
+  Core shutdown gives pending comparisons five seconds to finish before cancelling them and
+  closing the state store. An interrupted comparison cannot become promotion evidence.
 
 ## Human Approval Integrity
 
@@ -390,6 +392,10 @@ The PostgreSQL evidence provider follows these boundaries:
   purgeable before the window elapses.
 - Audit data is customer-agnostic in this repo; real environment records live only in a fork's
   runtime store, never committed here.
+- A [shadow-only MSCP decision context](mscp-operational-profile.md#adopted-mechanisms) records
+  its content digest with the first immutable state write and one sanitized audit entry. Missing or
+  conflicting owner observations hold; a replay cannot replace that record. This projection does
+  not establish approval, execution, or operational evidence without authoritative runtime readers.
 
 ## Threat Model (STRIDE)
 

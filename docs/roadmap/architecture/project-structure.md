@@ -5,6 +5,12 @@ title: Project Structure
 The system is a **headless control plane + thin console + ChatOps**, not one web app. This document defines module boundaries, dependency direction, composition, and repository conventions for the validated five-service baseline and the independently packaged System Knowledge Service candidate. The shared service-contract SDK owns an authority-free `RuntimeScopeReceipt`; every service-owned entry point emits one before startup to bind product purpose, execution venue, and the complete permitted capability row without claiming provider state or success. Shared ontology code owns the pinned hard-bound registry for production routing and detection controls; runtime and delivery keep the active values in versioned configuration and import no new authority path. Post-turn runtime skill drafts retain canonical verified evidence references in proposal identity, durable storage, and audit metadata without activating the skill. Bootstrap binds Norns rule hints behind the current discovery-activation decision before evaluating or publishing candidates. Packaged release catalogs bind only to reachable source revisions, and the derived-source gate compares every recorded source blob before commit and in CI. When an owning design source changes without changing catalog records, post-integration regeneration updates only the source commitment and aggregate digest so they identify the final merged blobs and reachable protected-main revision. Question-bank and CQAS artifacts likewise regenerate as a whole from exact source catalogs in dependency order; digest-only hand edits are not supported. Confirmed Incident creation crosses the Operator/Core boundary as a versioned, no-authority request on its own logical topic: Operator owns authentication, source-draft revalidation, and durable acceptance, while Core alone writes the Incident lifecycle and audit record. See [Multi-Service Repository Layout](multi-service-repository-layout.md) for physical package ownership and [App Shape](../../../.github/instructions/app-shape.instructions.md) for local and deployed topology.
 ## Design at a glance
 
+The Assurance Twin's optional retained-evidence source is injected at Core composition. Runtime
+supervises independent Heimdall and Forseti writers and their durable outbox relays only when the
+fixed Pantheon roles and state store are present. Without a trusted source, the relays can recover
+pending rows but no content-free bus request can generate a finding. This addition changes no
+cross-service schema, provider binding, approval, or execution path.
+
 Operator production composition keeps runtime wiring in its facade. Focused sibling modules own
 lifecycle and resource cleanup, route-family assembly, and read-source declarations. Compatibility
 exports preserve existing imports, and the split changes no service, identity, data owner, wire
@@ -239,6 +245,9 @@ Cloud update comparison validates raw and processing identities; Core rechecks p
   describe intent and remediation; policies are the executable OPA/Rego the verifier re-checks.
   How sources are collected and normalized into that YAML is in
   [rule-catalog-collection.md](../rules-and-detection/rule-catalog-collection.md).
+  The startup catalog projector validates exact objective, Rule, policy-signature, and evidence
+  pins before exposing a read-only binding relation. It does not alter T0 evaluation, promote
+  a candidate, or give the graph any approval or execution role.
 - **governance changes stay bounded and auditable**: scoped overrides and time-boxed exemptions
   load as validated catalog data. Core resolves only the exact covered rule and resource scope,
   preserves separate requester and approver identities, records parameter-relaxation and expiry
@@ -460,6 +469,9 @@ The complete seam catalog and composition rules are in [Project Structure Depend
 Var keeps pure pending-ticket data in its private decision-record helper and re-exports the
 original public type names. Field/default and approval behavior stay unchanged; derived repository
 knowledge updates its source commitment without gaining approval or execution authority.
+Muninn uses one Core-owned cohort-key function for publication and source-owned legacy cleanup.
+Deletion retains only a bounded case fence and no body, while agent ownership and topics remain
+unchanged.
 
 Every terminal path writes an audit entry, and T2 output reaches the safety check only after the quality gate. Each action retains its
 originating T0, T1, or T2 authority tier; routing, evidence reuse, grounding, approval, rollback, and restart ambiguity fail closed.

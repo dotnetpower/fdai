@@ -88,6 +88,8 @@ class RuntimeTaskConfiguration:
     t1_mini_probe: T1MiniProbe | None = None
     alert_noise_handler: Any = None
     ontology_index_runtime: OntologyIndexRuntime | None = None
+    assurance_twin_publishers: tuple[Any, ...] = ()
+    assurance_twin_writers: tuple[Any, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -653,6 +655,22 @@ async def run_runtime_tasks(
         readiness=config.readiness,
         stop=config.stop,
     )
+    assurance_twin_tasks = tuple(
+        asyncio.create_task(
+            config.readiness.run_when_ready(config.stop, partial(publisher.run, config.stop)),
+            name=f"assurance-twin-{publisher.owner.casefold()}-outbox",
+        )
+        for publisher in config.assurance_twin_publishers
+    )
+    assurance_twin_writer_tasks = tuple(
+        asyncio.create_task(
+            config.readiness.run_when_ready(
+                config.stop, partial(writer.run, config.bus, config.stop)
+            ),
+            name=f"assurance-twin-{writer.owner.casefold()}-writer",
+        )
+        for writer in config.assurance_twin_writers
+    )
     await hooks.supervise_runtime_tasks(
         required=(
             (
@@ -703,6 +721,8 @@ async def run_runtime_tasks(
             assignment_intake_task,
             rule_activation_task,
             rule_activation_reconciliation_task,
+            *assurance_twin_writer_tasks,
+            *assurance_twin_tasks,
         ),
         background=(
             ontology_index_task,

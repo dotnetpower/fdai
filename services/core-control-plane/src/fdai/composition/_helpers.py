@@ -67,6 +67,7 @@ from ..core.working_context import (
     ContextSelectionPolicyAuthority,
     ContextSelectionShadowRunner,
 )
+from ..delivery.assurance_twin_writers import RetainedTwinEvidenceSource
 from ..rule_catalog.schema.llm_resolver import ResolvedModels
 from ..shared.config.models import AppConfig
 from ..shared.contracts.models import (
@@ -215,12 +216,7 @@ class LlmBindings:
 
 @dataclass(frozen=True, slots=True)
 class Container:
-    """Immutable bag of already-bound seams handed to the rest of the app.
-
-    A caller cannot silently rewire a seam mid-flight. A fork MAY produce a new
-    :class:`Container` via :func:`dataclasses.replace` to substitute seams without
-    editing ``core/``.
-    """
+    """Immutable bindings; forks may use ``dataclasses.replace`` without editing ``core/``."""
 
     config: AppConfig
     schema_registry: SchemaRegistry
@@ -253,6 +249,7 @@ class Container:
     change_safety_evidence_provider: ChangeSafetyPreAuthorityEvidenceProvider | None = None
     assurance_twin_query_compiler: NlQueryCompiler | None = None
     assurance_twin_discovery_sink: AssuranceTwinDiscoverySink | None = None
+    assurance_twin_retained_evidence_source: RetainedTwinEvidenceSource | None = None
     operational_readiness_posture: PostureAssessmentProvider | None = None
     operational_readiness_report_publisher: ReadinessReportPublisher | None = None
     architecture_review_evidence_provider: ProductionEvidenceProvider | None = None

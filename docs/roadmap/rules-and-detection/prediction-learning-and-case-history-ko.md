@@ -1,7 +1,7 @@
 ---
 translation_of: prediction-learning-and-case-history.md
-translation_source_sha: 1cb90398d3c55fcb3bc4a384aadbbf319e53274b
-translation_revised: 2026-09-26
+translation_source_sha: f721267182b989c2da0cc399c278ae9f7b9fd2fc
+translation_revised: 2026-09-27
 ---
 # 예측 학습 및 케이스 히스토리
 
@@ -128,7 +128,12 @@ Forseti는 진술과 관측을 각각 다시 검증합니다. 저장 서비스 �
 전달합니다. 대상, 신호, 상하한, 시간대가 명시된 시각은 정확한 원문 구간에 결합하며 누락된
 필드는 확인 질문으로 처리합니다. 초안 자체에는 접근 범위나 검토 권한이 없습니다.
 공유 SDK는 기존 초안, 명령, 적용 결과 모델과 버전 `1.0.0` 스키마를 제공합니다. JSON Schema는 구조를 검사하고 `JsonSchemaContractValidator`는 타입 모델의 범위, 시간 구간, 역할, 제안 및 검토 조건도 검사합니다. 어느 검사도 principal을 인증하거나 근거 허용 권한을 부여하지 않습니다. 개별 스키마는 `scripts/quality/contracts/generate_test_context_schemas.py`로 생성합니다. 브로커 호환성, 소비자 배포 순서, 운영 근거는 별도 검증 요건으로 남습니다.
-Console은 유효한 초안을 해석하고 재생하지만, 범위 및 정책 선택과 제출 화면은 아직 구현되지 않았습니다.
+Console은 유효한 초안을 해석하고 재생합니다. 이제 Command Deck은 출처에 결합된 필드를 정확히
+표시하고, 요청한 principal 본인의 기존 명령 증적을 읽기 전용으로 조회할 수 있습니다.
+브로커 전달, 과거 Saga 감사 적용, 평가되지 않은 현재 승인 상태를 구분합니다. 조회한 명령이
+표시된 초안에 속한다는 근거는 없습니다. 검토된 principal-사례 범위 및 정책 선택 매핑과
+독립적인 검증 증적 발급기가 없으므로 Console은 제안, 검토, 철회 조작을 제공하지 않습니다.
+상태 정보만으로 예외를 승인할 수 없으며, 선택 및 제출 절차는 계속 미완료 상태입니다.
 인증된 `POST /test-context/proposals`, `/test-context/reviews`, `/test-context/revocations`는
 Operator 발신함에 명령을 보존합니다. Huginn이 입력을 정규화하고 Var가 독립 검토를 발행하며
 Mimir가 정책 개정을 기록하고 Saga가 감사합니다. Thor는 이 검토를 실행 승인으로 처리하지 않습니다.
@@ -363,8 +368,11 @@ retryable 상태로 남고 완료로 표시되지 않습니다. 기계 스케줄
 Muninn에는 사례 본문을 복사한 캐시를 두지 않습니다. 범위마다 항목 512개, 4 MiB, CAS 시도
 3회로 제한하며 포화 시 근거를 버리지 않고 처리를 지연합니다. 런타임은 기존 Muninn 보존
 틱에 이 저장소를 연결합니다. 아직 배포하지 않은 새 저장 형식이며 이전 실험용
-`operational-case-fingerprint-cohort:v2:*` 상태 키를 자동 이행하지는 않습니다. 이전 기록 정리,
-브로커 보존, 후속 후보·임베딩 삭제는 각각 검증된 절차가 필요합니다.
+`operational-case-fingerprint-cohort:v2:*` 상태 키를 자동 이행하지는 않습니다. 런타임은 이제
+원본 레코드에서 가능한 두 legacy cohort 키를 파생하고 감사되는 CAS로 삭제된 사례 본문을
+제거합니다. 범위가 제한된 사례 ID 차단 표식을 남기고 독립 readback을 검증하며 재시작 후
+재생을 거부합니다. 법적 보존 또는 삭제 의도 누락은 안전하게 차단됩니다. 과거 suffix 스냅샷,
+Pattern, 발행 행, 브로커 보존, 다른 후속 후보 삭제에는 각각 별도 검증 절차가 필요합니다.
 T1 벡터 정리는 새 보존 정책이 아니라 기존 원본 삭제 의도를 따릅니다. 쓰기와 삭제는 총 15초
 제한 안에서 PostgreSQL 트랜잭션 잠금을 공유합니다. 배치마다 본문 없는 사례 및 signature 차단
 표식과 최대 1,000개 행 삭제를 원자적으로 커밋합니다. 행이 남으면 원본은 삭제 대기로 유지하며
@@ -388,7 +396,7 @@ T1 벡터 정리는 새 보존 정책이 아니라 기존 원본 삭제 의도�
 | PostgreSQL 메타데이터 shadow | `DualWriteCaseHistoryMetadataStore`가 `case_history`와 `case_history_revision`에 미러링한 메타데이터 및 변경 불가능한 아티팩트 참조 | 권위 저장소의 보존 및 삭제 전이가 shadow 전이와 일치해야 합니다. 불일치는 안전하게 실패하며 삭제 시 최신 아티팩트 참조를 비우고 기존 청크를 삭제됨으로 표시합니다. | 메타데이터 및 참조 완료. |
 | PostgreSQL 청크 스키마 | `case_history_chunk`에 범위가 제한된 텍스트와 384차원 임베딩을 보존할 수 있습니다. | 현재 이 테이블을 채우는 런타임 작성 경로나 읽기 경로가 없습니다. 현재 구성에서 실제 보존 복사본이 아닙니다. 향후 연결할 때는 활성화 전에 원본 삭제 선점과 보존을 결합해야 합니다. | 선언됐으나 연결되지 않음. |
 | 현재 파생 StateStore 변환 결과 | Muninn이 작성하는 `case-history-derived:v1:<scope>` 내부의 cohort, 고정 스냅샷, Pattern 사례 본문, 발행 표식 | 하나의 범위 CAS가 현재 원본 개정 번호를 다시 검증합니다. 삭제 작업은 원본 삭제 표식 전에 선점된 사례를 인용하는 모든 항목을 제거하며 법적 보존 또는 삭제 의도 누락 시 안전하게 실패합니다. | 완료. |
-| 이전 최상위 StateStore 변환 결과 | 과거 `operational-case-fingerprint-cohort:v2:*` cohort, 스냅샷, Pattern, 발행 행 | 현재 코드는 이 접두사를 새 변환 결과 내부의 논리 신원으로만 사용하며 최상위 행을 더 이상 작성하지 않습니다. 기존 행에는 원본에 연결된 법적 보존 또는 삭제 경로가 없습니다. | 마이그레이션 및 삭제 작업 미완료. |
+| 이전 최상위 StateStore 변환 결과 | 과거 `operational-case-fingerprint-cohort:v2:*` cohort, 스냅샷, Pattern, 발행 행 | 원본 보존 작업이 가능한 두 synthetic-source cohort 키를 파생하고 감사되는 CAS로 일치하는 사례 본문을 제거합니다. 범위가 제한된 본문 없는 차단 표식을 남기고 readback을 검증하며 재시작 후 재생을 막습니다. 법적 보존 또는 삭제 의도 누락은 안전하게 차단합니다. 과거 suffix 스냅샷, Pattern, 발행 행은 별도 범위입니다. | 기본 cohort 본문 정리 완료. suffix 행은 미완료. |
 | T1 pgvector 라이브러리 | `t1_pattern_library`가 임베딩, 작업 필드, 범위가 제한된 `OperationalCaseContext`를 보존하며 `PgVectorPatternLibrary`가 작성합니다. | 트랜잭션 범위 잠금이 영속 사례/서명 차단 표식을 기록하고 한 번에 최대 1,000개 행을 삭제합니다. 법적 보존, 범위 충돌, 데이터베이스 실패는 원본 삭제를 대기 상태로 유지합니다. | 완료. |
 | Cohort 브로커 레코드 | `object.context-index`가 Muninn에서 Norns로 범위가 제한된 `PatternCase` 배열과 스냅샷 참조를 전달합니다. | Event bus 보존과 `.dlq`는 사례 수명 주기와 별개로 전송 페이로드를 보존합니다. 일반 redrive는 있지만 이전 페이로드 재생을 막는 원본 삭제 또는 법적 보존 차단 표식은 없습니다. | 브로커 보존 및 redrive 작업 미완료. |
 | Pattern 및 후보 브로커 레코드 | `object.pattern`과 `object.rule-candidate`가 사례 참조, 다이제스트, 후보 근거, 검토 신원을 전달합니다. | 원본 아티팩트 본문은 없지만 소비자가 삭제 차단 표식을 다시 확인하지 않으면 재생으로 후속 복사본을 다시 만들 수 있습니다. 일반 DLQ 정책은 사례를 인식하지 않습니다. | 재생 검증 미완료. |

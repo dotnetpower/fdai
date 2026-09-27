@@ -47,7 +47,10 @@ from fdai.core.operational_learning import (
     PatternCase,
     pattern_case_from_operational_case,
 )
-from fdai.core.operational_learning.cohort_retention import retain_cohort_case
+from fdai.core.operational_learning.cohort_retention import (
+    cohort_state_key,
+    retain_cohort_case,
+)
 from fdai.core.operational_learning.patterns import valid_pattern_publication_envelope
 from fdai.core.operational_planning.prospective_lineage import (
     ProspectiveLineage,
@@ -739,20 +742,16 @@ def _utc_now() -> datetime:
 
 
 def _operating_pattern_state_key(case_input: OperationalCaseInput) -> str:
-    material = {
-        "access_scope_digest": case_input.access_scope_digest,
-        "purpose": case_input.purpose,
-        "failure_fingerprint": case_input.failure_fingerprint.digest,
-        "action_type": case_input.action_type,
-        "fdai_revision": case_input.fdai_revision,
-        "scenario_set_version": case_input.scenario_set_version,
-        "source_kind": case_input.source_kind.value,
-        "source_synthetic": case_input.source_synthetic,
-    }
-    digest = hashlib.sha256(
-        json.dumps(material, sort_keys=True, separators=(",", ":")).encode()
-    ).hexdigest()
-    return f"operational-case-fingerprint-cohort:v2:{digest}"
+    return cohort_state_key(
+        access_scope_digest=case_input.access_scope_digest,
+        purpose=case_input.purpose,
+        failure_fingerprint=case_input.failure_fingerprint.digest,
+        action_type=case_input.action_type,
+        fdai_revision=case_input.fdai_revision,
+        scenario_set_version=case_input.scenario_set_version,
+        source_kind=case_input.source_kind.value,
+        source_synthetic=case_input.source_synthetic,
+    )
 
 
 def _cohort_digest(cases: list[dict[str, Any]]) -> str:

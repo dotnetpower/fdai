@@ -33,7 +33,7 @@ _OBJECT_TYPES = (
 )
 _MAX_CATALOG_OBJECTS = 1000
 _MAX_CATALOG_HISTORY_OBJECTS = 1000
-_APPEND_ONLY_OBJECT_TYPES = frozenset({"BenchmarkValidation"})
+_APPEND_ONLY_OBJECT_TYPES = frozenset({"BenchmarkValidation", "EquivalenceValidationReceipt"})
 _APPEND_ONLY_LINK_TYPES = frozenset({"mechanism_validated_by"})
 
 
