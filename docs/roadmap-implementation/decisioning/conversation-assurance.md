@@ -193,9 +193,10 @@ from the same family cannot review that answer.
    evidence; any qualifying-path change or P0/P1 correction restarts day one, a missing day never
    counts as success, and the window must end with no unresolved P0 or P1 defect in the measured
    paths.
-- [ ] Run the 230-case Pantheon census against the real authenticated Operator API on a pinned
-   revision and retain explicit-route accuracy, owner-routing F1, missed and unnecessary T2 rates,
-   per-locale score floors, and zero hard-safety escapes.
+- [ ] [#399](https://github.com/dotnetpower/fdai/issues/399): Run the 230-case Pantheon census
+   against the real authenticated Operator API on a pinned revision and retain explicit-route
+   accuracy, owner-routing F1, missed and unnecessary T2 rates, per-locale score floors, and zero
+   hard-safety escapes.
 - [x] Wire the authenticated Operator conversation path through Bragi for explicit, implicit, and
    T2 census cases, assemble the authoritative terminal receipt, run the existing distinct-family
    assurance reviewers, and persist the diagnostic with the correlated assessment.
