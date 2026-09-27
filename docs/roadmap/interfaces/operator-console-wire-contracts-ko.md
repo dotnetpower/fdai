@@ -1,8 +1,8 @@
 ---
 title: Operator Console - Data and Wire Contracts
 translation_of: operator-console-wire-contracts.md
-translation_source_sha: 8034a2cbacf494d3e1b904645dc467f84bfb4edd
-translation_revised: 2026-09-26
+translation_source_sha: ff2fb915100a025e32c982bde6306676987fffc8
+translation_revised: 2026-09-27
 ---
 
 # Operator Console - 데이터 and Wire Contracts
@@ -123,6 +123,17 @@ strict JSON-schema `TurnPlan`을 반환합니다. 브라우저는 액션 의도�
 Core는 의미 요청 결속, 인시던트 근거 변환, 현지화된 인시던트 답변 렌더링을 전용 모듈에
 유지하며 의미 턴 프로세서는 조정을 계속 담당합니다. 이 분리는 모든 wire 필드, 행 한도,
 로케일, 근거 참조 및 권한 없음 값을 보존합니다.
+온톨로지 매니페스트 선언 목록과 개수도 전용 모듈에서 렌더링합니다. 선언 목록은 읽을 수 있는 각
+선언의 이름과 버전을 표시하고 표시 한도와 원본 완전성 한계를 밝힙니다. 요청한 종류의 사용 가능하고
+권한 없는 선언이 아닌 행이 있으면 일반 행 개수 대신 범위가 제한된 사용 불가 답변을 표시합니다.
+Resource 목록이나 선언 목록이 불완전하면 제한 문장은 알려진 각 타입 지정 원본 제한 코드를 답변
+로케일로 설명하고 정확한 코드를 인라인 코드로 유지합니다. 알 수 없는 코드는 코드만 표시합니다.
+`source_truncation_reason` wire 필드는 machine 코드만 전달하며 현지화된 문장이 이를 대체하지
+않습니다.
+답변 문장은 공급자 lifecycle 상태, 시간대가 있는 시각(UTC), 원본 완전성을 답변 언어로 표시하고
+`execution_authority=false` 표시와 함께 읽기 전용 경계를 설명하는 문장을 제공합니다. Resource
+이름이 없는 최근 변경 행은 참조의 마지막 구간을 표시합니다. wire 행과 기술 상세에는 정확한 공급자
+값이 그대로 남습니다.
 Operator의 PostgreSQL 제품군 facade도 변경 불가능한 레코드, 행 변환 및 근거 디코딩을 위임하며
 조회 매개 변수, 제안 claim, 재생 순서 또는 wire 필드를 바꾸지 않습니다.
 Operator terminal 표현은 Pantheon 품질 보증, 현지화된 Incident 블록 및 내용이 제거된 읽기
@@ -396,6 +407,9 @@ ActionType은 정확한 의미 ObjectType 또는 InterfaceType target이 있을 
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-27 | implemented | 답변이 공급자 lifecycle 상태, UTC 시각, 완전성을 답변 언어로 표시하고, `execution_authority=false`와 함께 읽기 전용 문장을 제공하며, 이름이 없는 최근 변경에는 참조의 마지막 구간을 표시합니다. | `current change`; `semantic_answer_presentation.py`, `semantic_turn_processor.py`, Service Health 렌더러; 집중 표시 및 프로세서 테스트 통과. | 이 답변 값에 대해 남은 작업은 없습니다. |
+| 2026-09-27 | implemented | Resource 목록과 선언 목록의 제한 문장이 알려진 각 타입 지정 원본 제한 코드를 답변 로케일로 설명하면서 정확한 코드도 표시하고, 알 수 없는 코드는 코드로만 남기도록 했습니다. | `current change`; `semantic_source_limitations.py`, `semantic_turn_processor.py`, `semantic_ontology_answers.py`; `test_semantic_turn_processor.py`의 집중 제한 문장 사례와 한국어 및 영어 Resource 목록 사례 통과. | 타입 지정 제한 문장의 인증된 Console 근거는 지속형 운영 인스턴스 그래프 원장에서 계속 추적합니다. |
+| 2026-09-27 | implemented | 온톨로지 선언 개수 렌더링을 전용 모듈로 옮기고, 일반 행 개수 대신 읽을 수 있는 선언 이름을 표시하며 안전하게 실패하는 선언 목록 답변을 추가했습니다. | `current change`; `semantic_ontology_answers.py`; `test_semantic_turn_processor.py`의 선언 목록, 안전한 실패 목록, 선언 개수 사례 통과. | 매니페스트 목록 답변의 인증된 Console 증적은 계층형 대화 계획 ledger에서 추적합니다. |
 | 2026-09-26 | implemented | Core의 본문 다이제스트에 결합된 Slack 단추를 Operator의 기존 서명 상호작용과 인증된 Console 인계에 연결했습니다. 카드에는 행위자, 역할, 작업 해시 또는 승인 권한을 담지 않습니다. | `current change`, `slack_adapter.py`, `slack_request_outbox.py`, `test_slack_hil_interactivity.py`, 집중 Core/Operator/Console 및 합성 브라우저 검사. | 실제 Slack 전달과 서명된 클릭, 새 Entra API 토큰 `auth_time`, PostgreSQL nonce 동시성 검사 및 #943 작성자 확인을 보존합니다. |
 | 2026-09-26 | in-progress | 패키지 wire 스키마를 바꾸지 않고 서비스 내부의 서명된 Slack 상호작용, 만료되는 일회용 브라우저 인계 및 정확한 보류 승인/매핑 재검증을 추가했습니다. | `current change`, Operator IAM/경로 검사, Console 인증/typecheck/build 및 합성 1440x900 경로 검사. | #943 기준 3을 완료하기 전에 서명된 `auth_time` 제공 여부, 실제 PostgreSQL 원자성 검사, 인증된 Console 로그인 재진입 및 Slack 단추 전달을 확인합니다. |
 | 2026-09-22 | implemented | 전용 논리 topic에 content-free Rule 활성화 notice를 추가했습니다. Operator는 인증된 inert 요청과 별도 승인을 저장하고 Core는 정확한 불변 receipt를 다시 읽어 세대 적용을 소유합니다. 이 경로는 Incident를 만들거나 실행 권한을 부여할 수 없습니다. | `current change`; 공유 transport 계약, Operator outbox, Core consumer, 서비스 간 roundtrip 및 실제 PostgreSQL role 테스트. | 운영 검증을 주장하기 전에 배포된 request-to-generation receipt를 보존합니다. |

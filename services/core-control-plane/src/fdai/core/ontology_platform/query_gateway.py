@@ -9,7 +9,7 @@ submits actions, calls providers, or grants execution authority.
 from __future__ import annotations
 
 from collections.abc import Awaitable, Callable, Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import UTC, datetime, timedelta
 from types import MappingProxyType
 from typing import Annotated, Any, Literal, cast
@@ -401,16 +401,17 @@ class SecuredObjectSetQueryGateway:
         )
         secured_graph = _freeze_graph(_close_links(projected_graph))
         source_complete = secured_graph.source_complete
+        source_incomplete_reason = secured_graph.source_incomplete_reason
         if self._graph_completeness is not None and any(
             record.object_type == "Resource" for record in secured_graph.objects
         ):
-            source_complete = source_complete and await self._graph_completeness()
-        secured_graph = OntologyGraphSnapshot(
-            objects=secured_graph.objects,
-            links=secured_graph.links,
-            truncated=secured_graph.truncated,
+            source_complete, source_incomplete_reason = await self._checked_completeness(
+                source_complete, source_incomplete_reason
+            )
+        secured_graph = replace(
+            secured_graph,
             source_complete=source_complete,
-            source_generation=secured_graph.source_generation,
+            source_incomplete_reason=source_incomplete_reason,
         )
         redactions = _summarize_redactions(
             secured_graph,
@@ -429,6 +430,17 @@ class SecuredObjectSetQueryGateway:
             projected_graph_digest=_instance_path_graph_digest(definition, secured_graph),
             redactions=redactions,
         )
+
+    async def _checked_completeness(
+        self,
+        source_complete: bool,
+        source_incomplete_reason: str | None,
+    ) -> tuple[bool, str | None]:
+        if not source_complete or self._graph_completeness is None:
+            return source_complete, source_incomplete_reason
+        if await self._graph_completeness():
+            return True, None
+        return False, "graph_completeness_unverified"
 
     def _prepare_current_request(
         self,
@@ -486,18 +498,19 @@ class SecuredObjectSetQueryGateway:
             removed_link_count=len(materialization.graph.links) - len(secured_graph.links),
         )
         source_complete = secured_graph.source_complete
+        source_incomplete_reason = secured_graph.source_incomplete_reason
         if (
             definition.include_relationships
             and self._graph_completeness is not None
             and any(record.object_type == "Resource" for record in secured_graph.objects)
         ):
-            source_complete = source_complete and await self._graph_completeness()
-        secured_graph = OntologyGraphSnapshot(
-            objects=secured_graph.objects,
-            links=secured_graph.links,
-            truncated=secured_graph.truncated,
+            source_complete, source_incomplete_reason = await self._checked_completeness(
+                source_complete, source_incomplete_reason
+            )
+        secured_graph = replace(
+            secured_graph,
             source_complete=source_complete,
-            source_generation=secured_graph.source_generation,
+            source_incomplete_reason=source_incomplete_reason,
         )
         secured_materialization = ObjectSetMaterialization(
             definition=secured_materialization.definition,
@@ -534,21 +547,19 @@ def _close_links(graph: OntologyGraphSnapshot) -> OntologyGraphSnapshot:
     visible_ids = set(object_ids)
     if len(visible_ids) != len(object_ids):
         raise ValueError("secured ObjectSet object ids MUST be unique")
-    return OntologyGraphSnapshot(
-        objects=graph.objects,
+    return replace(
+        graph,
         links=tuple(
             link
             for link in graph.links
             if link.from_id in visible_ids and link.to_id in visible_ids
         ),
-        truncated=graph.truncated,
-        source_complete=graph.source_complete,
-        source_generation=graph.source_generation,
     )
 
 
 def _freeze_graph(graph: OntologyGraphSnapshot) -> OntologyGraphSnapshot:
-    return OntologyGraphSnapshot(
+    return replace(
+        graph,
         objects=tuple(
             OntologyObjectRecord(
                 id=record.id,
@@ -585,9 +596,6 @@ def _freeze_graph(graph: OntologyGraphSnapshot) -> OntologyGraphSnapshot:
             )
             for link in graph.links
         ),
-        truncated=graph.truncated,
-        source_complete=graph.source_complete,
-        source_generation=graph.source_generation,
     )
 
 
@@ -668,6 +676,8 @@ def _projected_result_digest(materialization: ObjectSetMaterialization) -> str:
     if not graph.source_complete or graph.source_generation is not None:
         payload["source_complete"] = graph.source_complete
         payload["source_generation"] = graph.source_generation
+    if graph.source_incomplete_reason is not None:
+        payload["source_incomplete_reason"] = graph.source_incomplete_reason
     return ontology_function_digest(payload)
 
 

@@ -208,7 +208,9 @@ def build_stated_value_filter_plan(
         )
         if fragment_property is None:
             return None
-    if not filters and allowed_properties != frozenset({"parent_id"}):
+    # A name-filtered list frame may narrow by its verbatim fragment alone.
+    fragment_only = fragment_property is not None and "name" in frame.measure_concepts
+    if not filters and not fragment_only and allowed_properties != frozenset({"parent_id"}):
         return None
     predicates = []
     if fragment_property is not None:

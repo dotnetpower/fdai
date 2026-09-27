@@ -282,7 +282,9 @@ class SemanticPlanningService(SemanticPlanningPreflightMixin):
             semantic_judgment = None
             judgment_decision: _JudgmentDecision | None = None
             if self._semantic_judgment is not None:
-                judgment_capabilities = _semantic_judgment_capabilities(descriptors)
+                judgment_capabilities = _semantic_judgment_capabilities(
+                    descriptors, utterance=utterance
+                )
                 judgment_capabilities = (*judgment_capabilities, test_context_capability())
                 bound_subject_types = (
                     ("Incident",)

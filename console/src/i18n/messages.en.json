@@ -3030,7 +3030,8 @@
         "sourceUnavailable": "Which source or scope should I check instead? Name a resource, time range, or evidence source.",
         "invalidQuery": "How should I narrow this read? Specify the target and the condition to check.",
         "visionUnverified": "What part of the image should I verify first? Point to the object or value that matters.",
-        "unsupportedClaim": "Which claim or target should I verify first? Name the resource, time range, or evidence you want checked."
+        "unsupportedClaim": "Which claim or target should I verify first? Name the resource, time range, or evidence you want checked.",
+        "requestUnsupported": "FDAI can't answer this with its verified read-only capabilities yet. Ask about resource inventory, current state, recent changes, or Azure service health."
       },
       "handoffReason": {
         "portUnavailable": "The agent conversational port is unavailable.",
@@ -3054,6 +3055,7 @@
         "invalidQuery": "Invalid query",
         "visionUnverified": "Image interpretation",
         "unsupportedClaim": "Unsupported claim",
+        "requestUnsupported": "Unsupported request",
         "staleEvidence": "Stale evidence",
         "partialEvidence": "Partial evidence",
         "conflictingEvidence": "Conflicting evidence",
@@ -3077,6 +3079,7 @@
         "invalidQuery": "The read query failed strict validation{claims}",
         "visionUnverified": "Image interpretation is grounded in the current attachment but is not independently verified",
         "unsupportedClaim": "One or more claims are not supported by evidence{claims}",
+        "requestUnsupported": "No verified FDAI capability answers this request{claims}",
         "staleEvidence": "Grounding evidence is stale; refresh the read before trusting this answer{claims}",
         "partialEvidence": "Grounding evidence is incomplete; widen the read or wait for the missing sources{claims}",
         "conflictingEvidence": "Grounding evidence conflicts; resolve the disagreement before acting on this answer{claims}",

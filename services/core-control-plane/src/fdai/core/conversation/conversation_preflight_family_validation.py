@@ -213,6 +213,6 @@ def preflight_operational_judgment(
 def _reject_operational_promotion(reason: str) -> SemanticJudgmentProposal | None:
     _LOGGER.info(
         "conversation_preflight_operational_promotion_rejected",
-        extra={"reason": reason},
+        extra={"promotion_rejection_reason": reason},
     )
     return None

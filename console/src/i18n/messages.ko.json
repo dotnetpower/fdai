@@ -3030,7 +3030,8 @@
         "sourceUnavailable": "대신 어떤 근거 원본이나 범위를 확인할까요? 리소스, 기간 또는 근거 원본을 지정해 주세요.",
         "invalidQuery": "어떤 조건으로 다시 조회할까요? 확인할 대상과 조건을 지정해 주세요.",
         "visionUnverified": "이미지에서 어느 부분을 먼저 확인할까요? 중요한 객체나 값을 지정해 주세요.",
-        "unsupportedClaim": "어떤 주장이나 대상을 먼저 확인할까요? 확인할 리소스, 기간 또는 근거를 지정해 주세요."
+        "unsupportedClaim": "어떤 주장이나 대상을 먼저 확인할까요? 확인할 리소스, 기간 또는 근거를 지정해 주세요.",
+        "requestUnsupported": "이 질문은 아직 FDAI의 검증된 읽기 전용 기능으로 답할 수 없습니다. 리소스 목록, 현재 상태, 최근 변경 또는 Azure 서비스 상태를 물어봐 주세요."
       },
       "handoffReason": {
         "portUnavailable": "에이전트 대화 포트를 사용할 수 없습니다.",
@@ -3054,6 +3055,7 @@
         "invalidQuery": "Query 검증 실패",
         "visionUnverified": "이미지 해석",
         "unsupportedClaim": "근거 없는 claim",
+        "requestUnsupported": "지원하지 않는 요청",
         "staleEvidence": "오래된 근거",
         "partialEvidence": "불완전한 근거",
         "conflictingEvidence": "충돌하는 근거",
@@ -3077,6 +3079,7 @@
         "invalidQuery": "Read query가 strict validation을 통과하지 못했습니다{claims}",
         "visionUnverified": "현재 attachment에 근거한 이미지 해석이며 독립적으로 검증되지는 않았습니다",
         "unsupportedClaim": "하나 이상의 claim을 근거로 뒷받침할 수 없습니다{claims}",
+        "requestUnsupported": "이 요청에 답할 검증된 FDAI 기능이 없습니다{claims}",
         "staleEvidence": "근거가 오래되었습니다. 이 답변을 신뢰하기 전에 다시 조회해 주세요{claims}",
         "partialEvidence": "근거가 불완전합니다. 조회 범위를 넓히거나 누락된 출처를 기다려 주세요{claims}",
         "conflictingEvidence": "근거가 서로 충돌합니다. 이 답변으로 조치하기 전에 불일치를 해소해 주세요{claims}",

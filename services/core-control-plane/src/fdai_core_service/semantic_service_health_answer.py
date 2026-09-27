@@ -6,6 +6,7 @@ from collections.abc import Mapping
 from datetime import datetime
 from typing import cast
 
+from .semantic_answer_presentation import readable_timestamp
 from .semantic_service_health_format import (
     EVENT_TYPES,
     category_lines,
@@ -185,7 +186,9 @@ def render_service_health_answer(
             korean=korean,
         ),
         impacted_line(impacted_count, posture=count_posture, korean=korean),
-        f"- 관측 시각: {observed_at}" if korean else f"- Observed at: {observed_at}",
+        f"- 관측 시각: {readable_timestamp(str(observed_at))}"
+        if korean
+        else f"- Observed at: {readable_timestamp(str(observed_at))}",
         (
             f"- 원본 완전성: {'완전' if complete else '불완전'}"
             if korean

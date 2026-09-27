@@ -248,10 +248,20 @@ observation preserves the verified node kind, dependency position, status, and e
 without provider commands or execution authority. Missing, delayed, or failed observation delivery
 does not change the query result; the terminal execution receipt remains authoritative.
 
+Resource subtype operands come from the reviewed `Resource.type` value domain. Its request-term
+groups may hold up to 192 groups so that each reviewed subtype can bind its own bilingual terms;
+the terms ground stated operands only and never add an ObjectType or capability.
+
 Resource-state queries accept only catalog-declared state concepts and exact bounded resource
 collections. A concrete state concept takes precedence over the generic observed-state sentinel.
 Empty or incomplete results preserve row-count and source limitations and never prove that matching
-resources do not exist outside the verified query scope.
+resources do not exist outside the verified query scope. A secured ObjectSet read reports every
+typed gap that lowers graph source completeness, joined with `+`: an unavailable, transitioning,
+incomplete, or inconsistent projection; storage pressure; a pending correction, observation, or
+relationship reconciliation; or incomplete relationships. For example, an unprojected observation
+reports `inventory_observation_pending`. The generic `source_incomplete` code remains only the
+fallback when the source supplies no typed reason. A code explains a gap and never grants
+freshness, completeness, or authority.
 
 The additive `telemetry_recipe` query node accepts one content-addressed `TelemetryEvidenceNeed`.
 Its verifier schema permits only a reviewed recipe id and version, exact resource and evidence

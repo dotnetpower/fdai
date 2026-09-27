@@ -641,7 +641,11 @@ def dispatch_semantic_plan(
                 manifest_digest=manifest.manifest_digest,
                 frame=frame,
                 clarification=(
-                    "Select the screen or resource group to query."
+                    (
+                        "조회할 화면이나 리소스 그룹을 선택해 주세요?"
+                        if any("가" <= character <= "힣" for character in utterance)
+                        else "Select the screen or resource group to query?"
+                    )
                     if bound_resource_context is None
                     else None
                 ),

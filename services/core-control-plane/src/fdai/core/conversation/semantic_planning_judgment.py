@@ -17,7 +17,10 @@ from fdai_service_contracts.semantic_judgment import (
 )
 from pydantic import ValidationError
 
+from fdai.core.ontology_platform.resource_state_queries import RESOURCE_STATE_QUERY_CONCEPTS
+
 from .conversation_preflight_targets import named_subscription_requested
+from .semantic_catalog_value_mentions import stated_catalog_values
 from .semantic_judgment import SemanticJudgmentObservation
 from .semantic_planning_models import (
     SemanticDirectResponseIntent,
@@ -214,8 +217,14 @@ def _is_temporal_comparison(frame: SemanticProblemFrame | None) -> bool:
 
 def _semantic_judgment_capabilities(
     descriptors: Sequence[Mapping[str, Any]],
+    *,
+    utterance: str | None = None,
 ) -> tuple[dict[str, Any], ...]:
-    """Project principal-scoped identity and reviewed intent semantics without authority."""
+    """Project principal-scoped identity and reviewed intent semantics without authority.
+
+    With an utterance, the ``Resource`` capability may carry candidate-only
+    ``stated_values`` when that never changes which capabilities fit the byte bound.
+    """
 
     kind_map = {
         "action": "action_type",
@@ -275,7 +284,39 @@ def _semantic_judgment_capabilities(
             break
         capabilities.append(capability)
         encoded_bytes = candidate_bytes
-    return tuple(capabilities)
+    if utterance is None:
+        return tuple(capabilities)
+    return _with_stated_values(tuple(capabilities), utterance=utterance, descriptors=descriptors)
+
+
+def _with_stated_values(
+    capabilities: tuple[dict[str, Any], ...],
+    *,
+    utterance: str,
+    descriptors: Sequence[Mapping[str, Any]],
+) -> tuple[dict[str, Any], ...]:
+    """Attach stated catalog values without displacing a capability from the bound."""
+
+    stated = stated_catalog_values(utterance, descriptors)
+    index = next(
+        (
+            position
+            for position, capability in enumerate(capabilities)
+            if capability.get("kind") == "object_type" and capability.get("name") == "Resource"
+        ),
+        None,
+    )
+    if not stated or index is None:
+        return capabilities
+    enriched = (
+        *capabilities[:index],
+        {**capabilities[index], "stated_values": [value.capability_hint() for value in stated]},
+        *capabilities[index + 1 :],
+    )
+    encoded = json.dumps(enriched, ensure_ascii=False, separators=(",", ":"), sort_keys=True)
+    if len(encoded.encode("utf-8")) > _MAX_JUDGMENT_CAPABILITY_BYTES:
+        return capabilities
+    return enriched
 
 
 def _operational_frame_matches_accepted_judgment(
@@ -330,8 +371,9 @@ def _operational_frame_matches_accepted_judgment(
         )
     if not judgment_accepted or judgment is None:
         return False
+    # A declared state concept requested as a facet names the state to list, not another output.
     if output_shape == "resource_state_list" and not set(judgment.requested_facets).issubset(
-        _RESOURCE_STATE_LIST_FACETS
+        _RESOURCE_STATE_LIST_FACETS | frozenset(RESOURCE_STATE_QUERY_CONCEPTS)
     ):
         return False
     if required_primary_intent is not None:

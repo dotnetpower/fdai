@@ -64,6 +64,7 @@ describe("verification presentation", () => {
     ["capability_invalid_arguments", "invalidQuery", "Invalid query"],
     ["provider_unavailable", "sourceUnavailable", "Source unavailable"],
     ["screen_claim_mismatch", "unsupportedClaim", "Unsupported claim"],
+    ["semantic_request_unsupported", "requestUnsupported", "Unsupported request"],
     [
       "vision_interpretation_unverified",
       "visionUnverified",

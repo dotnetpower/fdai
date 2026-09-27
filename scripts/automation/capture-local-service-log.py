@@ -37,6 +37,7 @@ _PLAIN_CONTEXT_FIELDS = (
     "target_count",
     "target_kinds",
     "canonical_target_types",
+    "promotion_rejection_reason",
 )
 _TERMINAL_BUFFER_LINES = 1_024
 _TERMINAL_BUFFER_BYTES = 4 * 1_024 * 1_024

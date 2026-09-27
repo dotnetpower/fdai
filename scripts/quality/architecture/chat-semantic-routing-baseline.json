@@ -296,6 +296,13 @@
       "issue": 252
     },
     {
+      "path": "services/core-control-plane/src/fdai/core/conversation/semantic_catalog_value_mentions.py",
+      "disposition": "retain",
+      "owner": "semantic-conversation",
+      "reason": "Retains catalog-declared Resource.type term spans that semantic judgment receives only as candidate evidence; it never selects an intent, route, or capability.",
+      "issue": 252
+    },
+    {
       "path": "services/core-control-plane/src/fdai/core/conversation/semantic_error_activity_planning.py",
       "disposition": "retain",
       "owner": "semantic-conversation",
@@ -426,6 +433,13 @@
       "disposition": "retain",
       "owner": "semantic-conversation",
       "reason": "Retains exact runtime resource identifier validation after structured state intent selection.",
+      "issue": 252
+    },
+    {
+      "path": "services/core-control-plane/src/fdai/core/conversation/semantic_stated_list_scope.py",
+      "disposition": "retain",
+      "owner": "semantic-conversation",
+      "reason": "Retains deterministic refusal of plain Resource lists for catalog-signalled mutation, relationship, and region requests, plus verbatim name-fragment narrowing after structured judgment.",
       "issue": 252
     },
     {

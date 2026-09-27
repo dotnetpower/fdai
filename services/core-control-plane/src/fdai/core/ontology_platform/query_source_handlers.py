@@ -758,7 +758,7 @@ def _secured_query_table(secured: SecuredObjectSetQueryResult) -> QueryTable:
         if secured.receipt.truncation_reason is not None
         else None
         if secured.receipt.complete
-        else "source_incomplete"
+        else secured.materialization.graph.source_incomplete_reason or "source_incomplete"
     )
     return QueryTable(
         rows=tuple(

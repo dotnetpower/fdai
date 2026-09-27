@@ -1,5 +1,5 @@
 schema_version: "1.1.0"
-version: "1.1.49"
+version: "1.1.50"
 default_scope: subscription
 default_activity_lookback_seconds: 604800
 current_requires_fresh: true
@@ -7,6 +7,8 @@ suffixes: [은, 는, 이, 가, 의, 에, 에서, 엔, 을, 를, 도, 만, 와, �
 signals:
   resource_subject:
     terms: [resource, resources, asset, assets, inventory, azure resource, azure resources, 리소스, 인벤토리, Azure 리소스]
+  location_reference:
+    terms: [region, regions, azure region, location, locations, 리전, 지역, 위치]
   resource_name_relation:
     terms: [related to, associated with, relating to, connected with, 관련, 관련된, 연관, 연관된]
   target_singular:
