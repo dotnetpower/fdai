@@ -20,6 +20,8 @@ REQUIRED_IMAGES = (
     "fdai-core-control-plane",
     "fdai-operator-service",
     "fdai-document-ingestion-api",
+    "fdai-document-processing-worker",
+    "fdai-isolated-executor",
 )
 _ACCEPT = ", ".join(
     (
