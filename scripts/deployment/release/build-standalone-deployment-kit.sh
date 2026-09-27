@@ -12,6 +12,7 @@ appliance_base_image=""
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --out) out="$2"; shift 2 ;;
+    --signing-key) release_key="$2"; bundle_key="$2"; shift 2 ;;
     --release-key) release_key="$2"; shift 2 ;;
     --bundle-key) bundle_key="$2"; shift 2 ;;
     --appliance-base-image) appliance_base_image="$2"; shift 2 ;;

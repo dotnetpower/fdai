@@ -33,6 +33,7 @@ remain unchanged.
 | Fresh-subscription local coordinator | implemented | `fdaictl provision azure`; `fdai-up.sh`; signed-kit, Foundation, Bastion, managed-host, approval, license, migration, and convergence modules; routed lifecycle tests | One `dev` process derives the target from the active Azure CLI user and keeps stateful transitions serial. Tenant deployment has no GitHub transport. A governed Azure receipt and complete subscription-assurance evidence remain open. |
 | Prebuilt OCI deployment appliance consumption | in-progress | `run-deployment-appliance.sh`; focused script and CLI tests | Tenant provisioning can start the manual standalone coordinator from a release-published, digest-pinned appliance with no public artifact fallback. A governed artifact-offline Azure receipt remains open; tenant deployment does not construct the image. |
 | Offline-kit construction and verification | validated | `fdai_deployment_cli.offline_kit`; locked release scripts; successful network-isolated air-gap drill | Signature-first verification, exact files, SBOM coverage, ABI/libc binding, private snapshots, and shipped-wheel installation pass. |
+| Development artifact trust profile | implemented | Deployment CLI `0.1.1`; package-pinned development roots; release-channel and trust-domain tests | One dedicated operator-held Ed25519 key can sign both complete-kit and bundle roles without a runtime root override. Verification accepts only the development channel. This is non-production convergence trust, not the TUF root ceremony. |
 | Stable Network API Foundation discovery | validated | PR #926; `deployment-v0.1.0-r4`; [issue #803 evidence](https://github.com/dotnetpower/fdai/issues/803#issuecomment-5653340906) | The published signed bundle passed all Foundation input reads in West US 2; no plan, apply, recovery, or deployment-readiness claim was produced. |
 | Temporary public-access cleanup | not-started | The access preference contract in this document | No composed command proves bounded creation, automatic cleanup, incomplete-on-cleanup-failure behavior, and audit closure. |
 | Pinned TUF root and rotation | not-started | `docs/runbooks/offline-trust-ceremony.md` | The first root ceremony, package resource, client bootstrap, and rotation evidence remain open. |
@@ -42,6 +43,7 @@ remain unchanged.
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-27 | implemented | Added a development-only `0.1.1` artifact trust profile with one dedicated signer for outer-kit and inner-bundle roles, package-pinned roots, and fail-closed release-channel admission. | `current change`; package roots, trust loader, acquisition guard, release wrapper, focused signature/channel/version tests. | Build and independently verify a current complete kit, then retain same-byte local-coordinator and appliance-entry-point Azure receipts. Production TUF remains open. |
 | 2026-09-21 | implemented | Separated source and offline-kit Foundation planning plus private Terraform/filesystem helpers from the deployment CLI command facade. | `current change`; 12-lens critique; 184 focused plan and help-hardening tests; Ruff and strict mypy passed. | No parser handler, output contract, target binding, approval, or mutation authority changed. |
 | 2026-09-21 | implemented | Split the retained internal GitHub protected-workflow client into immutable values, bounded subprocess transport, dispatch, private artifact I/O, plan metadata, apply receipts, and provider-schema evidence modules while preserving the public facade. | `current change`; 12-lens critique; 42 focused GitHub Actions tests; Ruff, strict mypy, LOC, design-route, and documentation gates. | Public tenant provisioning remains manual and GitHub-free. No command, credential, Azure role, or apply authority changed. |
 | 2026-09-19 | implemented | Added a claim-first, source-address-bound, certificate-pinned private TLS relay for the explicit audited Action Run Command access path. It creates no cloud staging artifact, allows one verification-only recovery, and grants no apply authority. | `current change`; execution bundle and receiver modules, fixed relay/bootstrap/orchestration modules, 25 focused tests, Ruff. | Retain one exact live peered-host transfer receipt, then connect the explicit adapter to reviewed `fdaictl` access-profile routing without changing VM lifecycle or application approval. |
@@ -85,6 +87,8 @@ remain unchanged.
 
 - [x] Implement `provision inspect` and `provision init` in the dedicated CLI package and pass no-mutation, mode-`0600`/`0700`, overwrite, symlink, and stable-JSON tests.
 - [x] Restore offline-kit verification behind an injected release root and pass signature-before-parse, exact-file-set, no-follow digest, compatibility, and bounds tests.
+- [x] Pin the `0.1.1` development artifact root, keep it separate from framework and license trust,
+  accept one key for complete-kit and bundle roles, and reject a non-development bundle channel.
 - [ ] Implement temporary public-access creation and cleanup so cleanup failure leaves an incomplete audited operation, then pass CIDR, duration, authentication, rollback, and idempotency tests.
 - [ ] Complete the TUF root ceremony and package bootstrap, with signed root and rotation evidence accepted by the offline trust ceremony.
 - [x] Build and reverify one complete signed kit from a clean snapshot, then cold-install its CLI and acquire the same kit through both online and local artifact paths. Evidence: `deployment-v0.1.0-r2` and the 2026-09-13 artifact checkpoint above.
@@ -452,6 +456,12 @@ the public release root before reporting. The private key never enters the kit, 
 or any log line.
 
 ### Trust root and rotation
+
+The `0.1.1` development profile is a bounded pre-production bootstrap, not the final root. Its
+dedicated Ed25519 public key is package-pinned for both exact-content signatures because the outer
+kit already binds the complete inner bundle bytes. The verifier still checks both signatures and
+rejects any bundle whose release channel is not `development`. The private key remains outside the
+repository and distinct from framework-integrity and capability-license keys.
 
 The final offline authority uses The Update Framework (TUF) 1.0 through Python-TUF 7. The wheel
 ships the initial signed `root.json` through an out-of-band trust bootstrap. Root private keys stay
