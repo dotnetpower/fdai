@@ -24,6 +24,7 @@ from fdai_deployment_cli.deadline_transport import DeadlineTransport
 from fdai_deployment_cli.deployment_deadline import DeploymentDeadline
 from fdai_deployment_cli.deployment_kit import DeploymentKit, archive_verified_kit
 from fdai_deployment_cli.deployment_progress import begin_stage, progress_detail, terminal_output
+from fdai_deployment_cli.foundation_adoption_transport import stage_foundation_context
 from fdai_deployment_cli.license import inspect_license
 from fdai_deployment_cli.license_issue import (
     discover_license_signing_key,
@@ -99,13 +100,6 @@ def deploy_standalone_application(
         raise ValueError("Foundation runner SSH username is invalid")
     remote_root = f"/home/{username}/.fdai-transfer-{work_ref}"
     remote_archive = f"{remote_root}/kit.tar.gz"
-    remote_handoff = f"{remote_root}/foundation-handoff.json"
-    remote_entra = f"{remote_root}/entra-bindings.json"
-    foundation_adoption_candidate = prepared.root / "foundation-adoption-receipt.json"
-    foundation_adoption_path: Path | None = (
-        foundation_adoption_candidate if foundation_adoption_candidate.exists() else None
-    )
-    remote_foundation_adoption = f"{remote_root}/foundation-adoption.json"
     remote_approval = f"{remote_root}/approval.json"
     remote_adoption_state = f"{remote_root}/application-state.json"
     remote_adoption_models = f"{remote_root}/resolved-models.json"
@@ -136,11 +130,7 @@ def deploy_standalone_application(
             archive=transport_archive,
             archive_digest=archive_digest,
             handoff_path=handoff_path,
-            remote_handoff=remote_handoff,
             entra_path=entra_path,
-            remote_entra=remote_entra,
-            foundation_adoption_path=foundation_adoption_path,
-            remote_foundation_adoption=remote_foundation_adoption,
             app_work=app_work,
             runtime_profile=selected_runtime,
             application_state_adoption=application_state_adoption,
@@ -473,16 +463,6 @@ def deploy_standalone_application(
         "remote_transient_cleanup_verified": True,
         "application_state_adopted": application_state_adoption is not None,
         "application_state_adoption_descriptor_digest": adoption_descriptor_digest,
-        "foundation_adoption_receipt_digest": (
-            str(
-                _private_json(
-                    foundation_adoption_path,
-                    "Foundation adoption receipt",
-                )["receipt_digest"]
-            )
-            if foundation_adoption_path is not None
-            else ""
-        ),
         "application_converged": True,
         "browser_access_verified": console_receipt is not None,
         "deployment_ready": True,
@@ -505,11 +485,7 @@ def _prepare_remote(
     archive: Path,
     archive_digest: str,
     handoff_path: Path,
-    remote_handoff: str,
     entra_path: Path,
-    remote_entra: str,
-    foundation_adoption_path: Path | None = None,
-    remote_foundation_adoption: str = "",
     app_work: str,
     runtime_profile: RuntimeDeploymentProfile | None = None,
     application_state_adoption: ApplicationStateAdoption | None = None,
@@ -529,16 +505,7 @@ def _prepare_remote(
     if removed.returncode != 0:
         raise ValueError("standalone remote archive reset failed")
     tunnel.copy_to(archive, remote_archive, timeout=min(1800, timeout_seconds))
-    tunnel.copy_to(handoff_path, remote_handoff, timeout=120)
-    tunnel.copy_to(entra_path, remote_entra, timeout=120)
-    if foundation_adoption_path is not None:
-        if not remote_foundation_adoption:
-            raise ValueError("standalone Foundation adoption destination is unavailable")
-        tunnel.copy_to(
-            foundation_adoption_path,
-            remote_foundation_adoption,
-            timeout=120,
-        )
+    foundation = stage_foundation_context(tunnel, remote_root, handoff_path, entra_path)
     if application_state_adoption is not None:
         if not all((remote_adoption_state, remote_adoption_models, remote_adoption_descriptor)):
             raise ValueError("standalone application adoption destinations are incomplete")
@@ -562,14 +529,10 @@ def _prepare_remote(
         "--kit",
         f"{remote_root}/kit",
         "--handoff",
-        remote_handoff,
+        foundation.handoff,
         "--entra",
-        remote_entra,
-        *(
-            ("--foundation-adoption", remote_foundation_adoption)
-            if foundation_adoption_path is not None
-            else ()
-        ),
+        foundation.entra,
+        *foundation.adoption_arguments,
         "--runtime-platform",
         selected_runtime.runtime_platform.value,
         "--database-placement",

@@ -32,9 +32,7 @@ from fdai_deployment_cli.aks_service_update import (
 )
 from fdai_deployment_cli.contracts import canonical_digest, load_json_object
 from fdai_deployment_cli.deployment_kit import acquire_deployment_kit
-from fdai_deployment_cli.foundation_adoption_evidence import (
-    validate_foundation_adoption_receipt,
-)
+from fdai_deployment_cli import foundation_adoption_host as foundation_host
 from fdai_deployment_cli.license import inspect_license
 from fdai_deployment_cli.oci_archive import validate_oci_archive
 from fdai_deployment_cli.private_output import read_private_bytes, write_private_output
@@ -285,19 +283,11 @@ def _prepare(args: argparse.Namespace, work_dir: Path) -> dict[str, object]:
     state = _mapping(handoff.get("state"), "Foundation state")
     ops = _mapping(handoff.get("ops"), "Foundation operations")
     app = _mapping(handoff.get("app_resource_group"), "Foundation application group")
-    subscription = _required_guid(handoff, "subscription_id")
-    tenant = _required_guid(handoff, "tenant_id")
-    target_binding = compute_target_binding(
-        tenant_id=tenant,
-        subscription_id=subscription,
+    foundation = foundation_host.load_foundation_host_context(
+        _absolute(args.foundation_adoption) if args.foundation_adoption is not None else None,
+        handoff=handoff,
+        runner=runner,
     )
-    client_id = _required_guid(runner, "client_id")
-    principal_id = _required_guid(runner, "principal_id")
-    (
-        expected_source_commit,
-        foundation_adoption_digest,
-        foundation_adoption,
-    ) = _foundation_application_source(args, handoff, target_binding=target_binding)
     runtime_profile = RuntimeDeploymentProfile.create(
         runtime_platform=str(args.runtime_platform),
         database_placement=str(args.database_placement),
@@ -317,7 +307,7 @@ def _prepare(args: argparse.Namespace, work_dir: Path) -> dict[str, object]:
     entra_binding_digest = canonical_digest(entra)
     adoption = _application_state_adoption(args)
     adoption_digest = canonical_digest(adoption[0]) if adoption is not None else ""
-    _managed_identity_login(subscription, tenant, client_id, principal_id, work_dir)
+    foundation.login(_managed_identity_login, work_dir)
     retained_context = work_dir / "context.json"
     retained_variables = work_dir / "application.auto.tfvars.json"
     if retained_context.exists() or retained_variables.exists():
@@ -325,24 +315,17 @@ def _prepare(args: argparse.Namespace, work_dir: Path) -> dict[str, object]:
             raise ValueError("standalone host preparation is incomplete")
         retained = _private_json(retained_context, "standalone host context")
         if (
-            retained.get("source_commit") != expected_source_commit
-            or retained.get("subscription_id") != subscription
-            or retained.get("tenant_id") != tenant
-            or retained.get("client_id") != client_id
-            or retained.get("principal_id") != principal_id
+            retained.get("subscription_id") != foundation.subscription_id
+            or retained.get("tenant_id") != foundation.tenant_id
+            or retained.get("client_id") != foundation.client_id
+            or retained.get("principal_id") != foundation.principal_id
             or retained.get("foundation_binding_digest") != foundation_binding_digest
             or retained.get("entra_binding_digest") != entra_binding_digest
             or retained.get("application_state_adoption_digest", "") != adoption_digest
-            or retained.get("foundation_adoption_digest", "") != foundation_adoption_digest
             or _runtime_profile_digest(retained) != runtime_profile.digest
         ):
             raise ValueError("standalone host retained context differs")
-        _require_foundation_adoption_artifacts(
-            foundation_adoption,
-            source_commit=str(retained["source_commit"]),
-            kit_manifest_digest=str(retained["kit_manifest_digest"]),
-            runtime_release_digest=str(retained["runtime_release_digest"]),
-        )
+        foundation.adoption.require_context(retained)
         _terraform_init(work_dir, retained)
         if adoption is not None:
             _adopt_application_state(work_dir, retained, *adoption)
@@ -363,14 +346,7 @@ def _prepare(args: argparse.Namespace, work_dir: Path) -> dict[str, object]:
         online=False,
         offline_kit=_absolute(args.kit),
     )
-    if expected_source_commit != kit.source_commit:
-        raise ValueError("Foundation and deployment kit source revisions differ")
-    _require_foundation_adoption_artifacts(
-        foundation_adoption,
-        source_commit=kit.source_commit,
-        kit_manifest_digest=kit.verification.manifest_digest,
-        runtime_release_digest=kit.runtime.digest,
-    )
+    foundation.adoption.require_kit(kit)
     _install_runtime_support(work_dir, artifact_root=kit.materialized_root)
     infra = kit.bundle_root / "infra"
     terraform = kit.materialized_root / kit.verification.terraform_binary
@@ -441,8 +417,8 @@ def _prepare(args: argparse.Namespace, work_dir: Path) -> dict[str, object]:
         "env": "dev",
         "region": region,
         "region_short": region_short,
-        "tenant_id": tenant,
-        "deploy_runner_principal_id": principal_id,
+        "tenant_id": foundation.tenant_id,
+        "deploy_runner_principal_id": foundation.principal_id,
         "postgres_admin_login": "fdaiadmin",
         "generate_initial_postgres_password": True,
         "resource_name_suffix": suffix,
@@ -493,15 +469,15 @@ def _prepare(args: argparse.Namespace, work_dir: Path) -> dict[str, object]:
         )
     context: dict[str, object] = {
         "source_commit": kit.source_commit,
-        "target_binding": target_binding,
-        "subscription_id": subscription,
-        "tenant_id": tenant,
-        "client_id": client_id,
-        "principal_id": principal_id,
+        "target_binding": foundation.target_binding,
+        "subscription_id": foundation.subscription_id,
+        "tenant_id": foundation.tenant_id,
+        "client_id": foundation.client_id,
+        "principal_id": foundation.principal_id,
         "foundation_binding_digest": foundation_binding_digest,
         "entra_binding_digest": entra_binding_digest,
         "application_state_adoption_digest": adoption_digest,
-        "foundation_adoption_digest": foundation_adoption_digest,
+        "foundation_adoption_digest": foundation.adoption.digest,
         "state_resource_group": str(ops["resource_group_name"]),
         "state_account": str(state["account_name"]),
         "state_container": str(state["container_name"]),
@@ -534,54 +510,9 @@ def _prepare(args: argparse.Namespace, work_dir: Path) -> dict[str, object]:
         "runtime_release_digest": kit.runtime.digest,
         "runtime_profile_digest": runtime_profile.digest,
         "application_state_adopted": adoption is not None,
-        "foundation_adopted": foundation_adoption is not None,
         "mutation_performed": False,
         "subscription_ready": False,
     }
-
-
-def _require_foundation_adoption_artifacts(
-    adoption: dict[str, Any] | None,
-    *,
-    source_commit: str,
-    kit_manifest_digest: str,
-    runtime_release_digest: str,
-) -> None:
-    if adoption is None:
-        return
-    if (
-        adoption.get("application_source_commit") != source_commit
-        or adoption.get("kit_manifest_digest") != kit_manifest_digest
-        or adoption.get("runtime_release_digest") != runtime_release_digest
-    ):
-        raise ValueError("Foundation adoption differs from the verified deployment kit")
-
-
-def _foundation_application_source(
-    args: argparse.Namespace,
-    handoff: dict[str, Any],
-    *,
-    target_binding: str,
-) -> tuple[str, str, dict[str, Any] | None]:
-    handoff_source_commit = handoff.get("source_commit")
-    if (
-        not isinstance(handoff_source_commit, str)
-        or _SOURCE_COMMIT.fullmatch(handoff_source_commit) is None
-    ):
-        raise ValueError("Foundation handoff source revision is invalid")
-    if args.foundation_adoption is None:
-        return handoff_source_commit, "", None
-    adoption = _private_json(_absolute(args.foundation_adoption), "Foundation adoption")
-    application_source_commit = str(adoption.get("application_source_commit", ""))
-    digest = validate_foundation_adoption_receipt(
-        adoption,
-        handoff=handoff,
-        target_binding=target_binding,
-        application_source_commit=application_source_commit,
-        kit_manifest_digest=str(adoption.get("kit_manifest_digest", "")),
-        runtime_release_digest=str(adoption.get("runtime_release_digest", "")),
-    )
-    return application_source_commit, digest, adoption
 
 
 def _prepare_runtime(_args: argparse.Namespace, work_dir: Path) -> dict[str, object]:

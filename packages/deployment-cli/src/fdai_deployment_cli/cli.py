@@ -231,10 +231,7 @@ def _provision_azure(args: argparse.Namespace) -> int:
         path is not None for path in adoption_paths
     ):
         raise ValueError("recovered public deployment requires all three adoption inputs")
-    foundation_adoption_paths = (
-        args.adopt_foundation_directory,
-        args.adopt_foundation_recovery,
-    )
+    foundation_adoption_paths = (args.adopt_foundation_directory, args.adopt_foundation_recovery)
     if any(path is not None for path in foundation_adoption_paths) and not all(
         path is not None for path in foundation_adoption_paths
     ):
@@ -308,9 +305,7 @@ def _provision_azure(args: argparse.Namespace) -> int:
         return 0
 
     def adoption_path(value: Path | None) -> Path | None:
-        if value is None or value.is_absolute():
-            return value
-        return Path.cwd() / value
+        return value if value is None or value.is_absolute() else Path.cwd() / value
 
     mode = args.progress if args.output == "text" else "off"
     with DeploymentProgress(mode=mode) as progress:

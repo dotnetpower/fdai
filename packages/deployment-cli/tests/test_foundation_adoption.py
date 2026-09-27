@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
@@ -16,6 +17,9 @@ from fdai_deployment_cli.foundation_adoption import (
 )
 from fdai_deployment_cli.foundation_adoption_evidence import (
     validate_foundation_adoption_receipt,
+)
+from fdai_deployment_cli.foundation_adoption_host import (
+    load_foundation_host_adoption,
 )
 from fdai_deployment_cli.profile import write_profile
 from fdai_deployment_cli.target import compute_target_binding
@@ -168,6 +172,37 @@ def test_recovered_foundation_adoption_stages_no_effect_context(tmp_path: Path) 
     }
     assert (tmp_path / "destination/foundation-adoption/foundation-private-handoff.json").is_file()
     assert (tmp_path / "destination/foundation-adoption/runner-known-hosts").is_file()
+
+
+def test_recovered_foundation_adoption_selects_current_kit_source(tmp_path: Path) -> None:
+    adoption = _stage(tmp_path)
+    handoff = load_json_object(
+        (tmp_path / "destination/foundation-adoption/foundation-private-handoff.json").read_bytes(),
+        label="Foundation handoff",
+    )
+    selected = load_foundation_host_adoption(
+        tmp_path / "destination/foundation-adoption-receipt.json",
+        handoff=handoff,
+        target_binding=TARGET,
+    )
+    kit = SimpleNamespace(
+        source_commit=APPLICATION_SOURCE,
+        verification=SimpleNamespace(manifest_digest="e" * 64),
+        runtime=SimpleNamespace(digest="f" * 64),
+    )
+
+    selected.require_kit(kit)
+    selected.require_context(
+        {
+            "source_commit": APPLICATION_SOURCE,
+            "foundation_adoption_digest": adoption.receipt["receipt_digest"],
+            "kit_manifest_digest": "e" * 64,
+            "runtime_release_digest": "f" * 64,
+        }
+    )
+
+    assert selected.source_commit == APPLICATION_SOURCE
+    assert selected.digest == adoption.receipt["receipt_digest"]
 
 
 def test_recovered_foundation_adoption_is_idempotent(tmp_path: Path) -> None:

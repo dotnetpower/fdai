@@ -93,7 +93,7 @@ retained run, and published exact-source CI must match before effects. A source 
 verified Foundation handoff and does not transfer application source or invoke Docker or Buildx
 for a new installation; the bounded single-service `dev` update remains separate.
 **Initial design:** build every runtime image during source provisioning. **Critique:** that makes the tenant an unsigned release builder. **Revised contract:** a complete signed kit uses `--adopt-foundation-directory` plus `--adopt-foundation-recovery` only after recovery, enrollment, state-authority, target, profile, host-key, cleanup, and zero-change verification.
-Adoption stages exact handoff and access evidence and emits a no-effect receipt. The managed host independently verifies the historical handoff digest and the distinct current kit and runtime digests before preparation; it never repeats Foundation apply, enrollment, migration, or state ownership. Application plans and approvals remain separate.
+Adoption stages exact handoff and access evidence and emits a no-effect receipt. The local coordinator retains the complete chain, and the managed host independently verifies the historical handoff digest plus the distinct current kit and runtime digests before preparation; neither repeats Foundation apply, enrollment, migration, or state ownership. Application plans and approvals remain separate.
 
 ### Application group collision recovery
 

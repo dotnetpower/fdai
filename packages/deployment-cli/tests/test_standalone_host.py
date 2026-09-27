@@ -520,9 +520,7 @@ def test_remote_preparation_uses_only_fixed_argument_commands(tmp_path: Path) ->
         archive=inputs[0],
         archive_digest="a" * 64,
         handoff_path=inputs[1],
-        remote_handoff="/home/fdai/.fdai-transfer-abc/handoff.json",
         entra_path=inputs[2],
-        remote_entra="/home/fdai/.fdai-transfer-abc/entra.json",
         app_work="/home/fdai/.fdai-transfer-abc/application",
         timeout_seconds=1800,
     )
@@ -548,17 +546,17 @@ def test_remote_preparation_transfers_exact_adoption_inputs(tmp_path: Path) -> N
             del timeout
             self.copies.append((source, destination))
 
+    root = tmp_path / "run"
+    plan = root / "foundation-adoption"
+    plan.mkdir(parents=True)
     paths = [
-        tmp_path / name
-        for name in (
-            "archive",
-            "handoff",
-            "entra",
-            "foundation-adoption",
-            "state",
-            "models",
-            "adoption",
-        )
+        tmp_path / "archive",
+        plan / "foundation-private-handoff.json",
+        tmp_path / "entra",
+        root / "foundation-adoption-receipt.json",
+        tmp_path / "state",
+        tmp_path / "models",
+        tmp_path / "adoption",
     ]
     for path in paths:
         path.write_text(path.name, encoding="utf-8")
@@ -578,11 +576,7 @@ def test_remote_preparation_transfers_exact_adoption_inputs(tmp_path: Path) -> N
         archive=paths[0],
         archive_digest="a" * 64,
         handoff_path=paths[1],
-        remote_handoff="/home/fdai/.fdai-transfer-abc/handoff.json",
         entra_path=paths[2],
-        remote_entra="/home/fdai/.fdai-transfer-abc/entra.json",
-        foundation_adoption_path=paths[3],
-        remote_foundation_adoption="/home/fdai/.fdai-transfer-abc/foundation-adoption.json",
         app_work="/home/fdai/.fdai-transfer-abc/application",
         application_state_adoption=adoption,
         remote_adoption_state="/home/fdai/.fdai-transfer-abc/application-state.json",
@@ -602,60 +596,6 @@ def test_remote_preparation_transfers_exact_adoption_inputs(tmp_path: Path) -> N
     assert prepare[prepare.index("--adoption-state") + 1].endswith("application-state.json")
     assert prepare[prepare.index("--adoption-models") + 1].endswith("resolved-models.json")
     assert prepare[prepare.index("--adoption-descriptor") + 1].endswith("adoption.json")
-
-
-def test_foundation_adoption_selects_current_kit_source(tmp_path: Path, monkeypatch) -> None:
-    adoption_path = tmp_path / "foundation-adoption.json"
-    adoption_path.write_text("{}", encoding="utf-8")
-    adoption = {
-        "application_source_commit": "b" * 40,
-        "kit_manifest_digest": "c" * 64,
-        "runtime_release_digest": "d" * 64,
-    }
-    handoff = {"source_commit": "a" * 40, "run_digest": "e" * 64}
-
-    monkeypatch.setattr(
-        standalone_host,
-        "_private_json",
-        lambda path, label: (
-            adoption
-            if path == adoption_path and label == "Foundation adoption"
-            else pytest.fail("unexpected private input")
-        ),
-    )
-    validated = []
-
-    def validate(receipt, **kwargs):
-        validated.append((receipt, kwargs))
-        return "f" * 64
-
-    monkeypatch.setattr(
-        standalone_host,
-        "validate_foundation_adoption_receipt",
-        validate,
-    )
-
-    source, digest, retained = standalone_host._foundation_application_source(
-        SimpleNamespace(foundation_adoption=adoption_path),
-        handoff,
-        target_binding="9" * 64,
-    )
-
-    assert source == "b" * 40
-    assert digest == "f" * 64
-    assert retained is adoption
-    assert validated == [
-        (
-            adoption,
-            {
-                "handoff": handoff,
-                "target_binding": "9" * 64,
-                "application_source_commit": "b" * 40,
-                "kit_manifest_digest": "c" * 64,
-                "runtime_release_digest": "d" * 64,
-            },
-        )
-    ]
 
 
 def _adoption_inputs(tmp_path: Path) -> tuple[dict[str, object], Path, Path, Path]:
