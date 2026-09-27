@@ -46,6 +46,35 @@ Identity ([security-and-identity.md](../roadmap/architecture/security-and-identi
   `Application.ReadWrite.OwnedBy` application permission with admin consent.
   This lets the workflow update only applications owned by that identity.
 
+### Configure protected Entra control readback
+
+`fdaictl provision entra` keeps human approval evidence separate from control
+readback. It reads the signed-in human identity and current `aw-approvers`
+membership first, using the original Azure CLI context. A process-wide
+serialized boundary keeps this human phase and the nested executor phase from
+interleaving with another identity operation. The command then validates the
+target-profile v2 executor token and exact active tenant/subscription before
+reading the Premium plan, five exact role groups, Conditional Access, Access
+Reviews, authentication methods, Azure Policy assignments, executor identity,
+and every app/group plan refresh. Initial observation, approval revalidation,
+claim recovery, and receipt readback use the same executor boundary. A missing
+or mismatched executor context, target, permission, or readback blocks the
+operation; the command never falls back to the human context for these reads.
+
+The deployment owner must grant the executor service principal the
+least-privilege Microsoft Graph **application** permissions required by those
+read endpoints and complete tenant admin consent before running the command.
+This includes `AccessReview.Read.All` for Access Review definitions and
+`Policy.Read.AuthenticationMethod` for the authentication-method policy. The
+executor also needs Azure RBAC permission to read policy assignments at the
+profile-bound scope.
+
+Don't retry these application permissions with an interactive Azure CLI scope.
+The Azure CLI human sign-in uses a Microsoft first-party client that cannot
+dynamically request them and returns `AADSTS65002`. Provisioning only verifies
+the preconfigured permissions and controls; it never grants Graph permissions,
+performs admin consent, or mutates an identity control.
+
 ## 1. Create `fdai-api`
 
 ```sh

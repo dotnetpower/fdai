@@ -12,12 +12,15 @@ import stat
 import subprocess
 from collections.abc import Iterator
 from contextlib import contextmanager
+from threading import RLock
 from typing import Any
 
+from fdai_deployment_cli.doctor import azure_active_target_binding
 from fdai_deployment_cli.entra_profiles import EntraTargetProfile
 from genesis_checks import trusted_tool
 
 _GUID = re.compile(r"[0-9a-fA-F]{8}(?:-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12}")
+_AZURE_CONFIG_CONTEXT_LOCK = RLock()
 
 
 def executor_identity(target: EntraTargetProfile) -> tuple[str, bool, bool]:
@@ -43,31 +46,45 @@ def executor_identity(target: EntraTargetProfile) -> tuple[str, bool, bool]:
 def executor_execution_context(target: EntraTargetProfile) -> Iterator[str]:
     """Select and prove the separately authenticated profile executor."""
 
-    path = target.executor_azure_config_dir
-    if path.is_symlink():
-        raise PermissionError("executor Azure CLI context MUST NOT be a symbolic link")
-    details = path.stat()
-    if (
-        not stat.S_ISDIR(details.st_mode)
-        or details.st_uid != os.geteuid()
-        or stat.S_IMODE(details.st_mode) != 0o700
-    ):
-        raise PermissionError("executor Azure CLI context MUST be current-UID mode 0700")
-    previous = os.environ.get("AZURE_CONFIG_DIR")
-    os.environ["AZURE_CONFIG_DIR"] = str(path)
-    try:
-        object_id, client_id = _current_graph_token_identity()
+    with _AZURE_CONFIG_CONTEXT_LOCK:
+        path = target.executor_azure_config_dir
+        if path.is_symlink():
+            raise PermissionError("executor Azure CLI context MUST NOT be a symbolic link")
+        details = path.stat()
         if (
-            object_id.casefold() != target.executor_object_id.casefold()
-            or client_id.casefold() != target.executor_client_id.casefold()
+            not stat.S_ISDIR(details.st_mode)
+            or details.st_uid != os.geteuid()
+            or stat.S_IMODE(details.st_mode) != 0o700
         ):
-            raise ValueError("authenticated Entra executor does not match the target profile")
-        yield hashlib.sha256(object_id.casefold().encode()).hexdigest()
-    finally:
-        if previous is None:
-            os.environ.pop("AZURE_CONFIG_DIR", None)
-        else:
-            os.environ["AZURE_CONFIG_DIR"] = previous
+            raise PermissionError("executor Azure CLI context MUST be current-UID mode 0700")
+        previous = os.environ.get("AZURE_CONFIG_DIR")
+        os.environ["AZURE_CONFIG_DIR"] = str(path)
+        try:
+            object_id, client_id = _current_graph_token_identity()
+            if (
+                object_id.casefold() != target.executor_object_id.casefold()
+                or client_id.casefold() != target.executor_client_id.casefold()
+            ):
+                raise ValueError("authenticated Entra executor does not match the target profile")
+            active_binding = azure_active_target_binding()
+            if active_binding is None:
+                raise ValueError("executor Azure target is unavailable")
+            if active_binding != target.target_binding:
+                raise ValueError("executor Azure target does not match the target profile")
+            yield hashlib.sha256(object_id.casefold().encode()).hexdigest()
+        finally:
+            if previous is None:
+                os.environ.pop("AZURE_CONFIG_DIR", None)
+            else:
+                os.environ["AZURE_CONFIG_DIR"] = previous
+
+
+@contextmanager
+def identity_operation_context() -> Iterator[None]:
+    """Serialize human identity reads with executor context selection."""
+
+    with _AZURE_CONFIG_CONTEXT_LOCK:
+        yield
 
 
 def _current_graph_token_identity() -> tuple[str, str]:
