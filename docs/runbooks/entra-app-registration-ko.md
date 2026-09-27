@@ -1,8 +1,8 @@
 ---
 title: Entra 앱 등록
 translation_of: entra-app-registration.md
-translation_source_sha: 2a301394728683886d72a4260489b8afaf436702
-translation_revised: 2026-09-26
+translation_source_sha: 47807bec7d7e0737c10399c3bd13ec9431792e91
+translation_revised: 2026-09-27
 ---
 
 # Entra 앱 등록
@@ -49,6 +49,32 @@ Managed Identity를 사용합니다
   `fdai-console-spa`의 소유자로 지정하고, Microsoft Graph
   `Application.ReadWrite.OwnedBy` 애플리케이션 권한에 admin consent를
   부여합니다. 그러면 작업 흐름은 해당 신원이 소유한 앱만 업데이트할 수 있습니다.
+
+### 보호된 Entra 제어 읽기 구성
+
+`fdaictl provision entra`는 사람 승인 증거와 제어 읽기를 분리합니다. 먼저 원래
+Azure CLI 컨텍스트에서 로그인한 사람의 신원과 현재 `aw-approvers` 멤버십을
+읽습니다. 프로세스 전체에 적용되는 직렬화 경계는 이 사람 단계와 그 안에 중첩된
+실행기 단계가 다른 신원 작업과 섞이지 않도록 합니다. 그런 다음 target-profile
+v2 실행기 토큰과 현재 활성 테넌트 및 구독이 정확히 일치하는지 검증하고, Premium
+플랜, 정확한 역할 그룹 5개, Conditional Access, Access Review, 인증 방법,
+Azure Policy 할당, 실행기 신원 및 모든 앱/그룹 계획 갱신을 읽습니다. 최초 관찰,
+승인 재검증, 실행 전 기록 복구 및 증적 재조회에도 같은 실행기 경계를 사용합니다.
+실행기 컨텍스트, 대상, 권한 또는 읽기 결과가 없거나 일치하지 않으면 작업을
+차단합니다. 이러한 읽기를 사람 컨텍스트에서 대신 수행하지 않습니다.
+
+배포 소유자는 명령을 실행하기 전에 해당 읽기 엔드포인트에 필요한 최소 권한의
+Microsoft Graph **애플리케이션** 권한을 실행기 서비스 principal에 부여하고
+테넌트 admin consent를 완료해야 합니다. 여기에는 Access Review 정의를 위한
+`AccessReview.Read.All`과 인증 방법 정책을 위한
+`Policy.Read.AuthenticationMethod`가 포함됩니다. 또한 실행기에는 프로필에
+바인딩된 범위의 정책 할당을 읽을 수 있는 Azure RBAC 권한이 필요합니다.
+
+이러한 애플리케이션 권한을 대화형 Azure CLI 범위로 다시 요청하지 마세요. 사람
+로그인에 사용하는 Azure CLI는 Microsoft 자사 클라이언트이므로 이 권한을
+동적으로 요청할 수 없으며 `AADSTS65002`를 반환합니다. 프로비저닝 명령은 미리
+구성한 권한과 제어를 검증할 뿐입니다. Graph 권한 부여, admin consent 또는 신원
+제어 변경은 수행하지 않습니다.
 
 ## 1. `fdai-api` 생성
 

@@ -61,7 +61,10 @@ from genesis_entra_records import (
     load_receipt,
     write_receipt,
 )
-from genesis_identity_executor import executor_execution_context
+from genesis_identity_executor import (
+    executor_execution_context,
+    identity_operation_context,
+)
 from genesis_identity_profile import observe_identity_profile
 
 _COMMIT = re.compile(r"[0-9a-f]{40}")
@@ -87,9 +90,10 @@ def run_entra_operation(
     source_commit = source.get("source_commit")
     if not isinstance(source_commit, str) or _COMMIT.fullmatch(source_commit) is None:
         raise ValueError("Entra source snapshot commit is invalid")
-    active_binding = azure_active_target_binding()
-    if active_binding is None or active_binding != target.target_binding:
-        raise ValueError("active Azure target does not match the private Entra target profile")
+    with identity_operation_context():
+        active_binding = azure_active_target_binding()
+        if active_binding is None or active_binding != target.target_binding:
+            raise ValueError("active Azure target does not match the private Entra target profile")
     _require_private_directory(work_dir)
     context = _operation_context(
         source_commit=source_commit,
@@ -101,10 +105,7 @@ def run_entra_operation(
     plan: EntraPlan | None
     plan_blockers: tuple[str, ...] = ()
     try:
-        plan = plan_entra(
-            bounded=True,
-            approved_role_groups=controls.role_groups,
-        )
+        plan = _plan_entra_under_executor(target=target, controls=controls)
     except (OSError, RuntimeError, TypeError, ValueError, subprocess.SubprocessError, TimeoutError):
         plan = None
         plan_blockers = ("entra_app_group_plan_readback_unavailable",)
@@ -182,10 +183,7 @@ def run_entra_operation(
             )
             return _result_from_receipt(observation, receipt)
 
-        current_plan = plan_entra(
-            bounded=True,
-            approved_role_groups=controls.role_groups,
-        )
+        current_plan = _plan_entra_under_executor(target=target, controls=controls)
         if current_plan != plan:
             raise ValueError("bounded Entra app/group plan changed before approval")
         review = {
@@ -198,7 +196,8 @@ def run_entra_operation(
             "plan": plan.projection(),
         }
         print(json.dumps(review, indent=2, sort_keys=True), file=sys.stderr)
-        actor_digest = current_actor_digest(context.run_binding)
+        with identity_operation_context():
+            actor_digest = current_actor_digest(context.run_binding)
         approval_path = work_dir / "entra-only-approval.json"
         _remove_stale_approval(approval_path)
         create_approval(
@@ -279,25 +278,32 @@ def _revalidate_before_claim(
     actor_digest: str,
 ) -> None:
     verify_source_snapshot(snapshot_directory, expected_digest=context.snapshot_digest)
-    if azure_active_target_binding() != context.target_binding:
-        raise ValueError("active Azure target changed after approval")
-    if current_actor_digest(context.run_binding) != actor_digest:
-        raise ValueError("Entra-only authenticated human changed after approval")
-    fresh_observation, fresh_human_id = observe_identity_profile(target, controls)
+    with identity_operation_context():
+        if azure_active_target_binding() != context.target_binding:
+            raise ValueError("active Azure target changed after approval")
+        if current_actor_digest(context.run_binding) != actor_digest:
+            raise ValueError("Entra-only authenticated human changed after approval")
+        fresh_observation, fresh_human_id = observe_identity_profile(target, controls)
     if (
         not fresh_observation.ready
         or fresh_observation.digest != observation.digest
         or fresh_human_id != human_id
     ):
         raise ValueError("Entra identity control profile changed after approval")
-    if (
-        plan_entra(
+    if _plan_entra_under_executor(target=target, controls=controls) != plan:
+        raise ValueError("bounded Entra app/group plan changed after approval")
+
+
+def _plan_entra_under_executor(
+    *,
+    target: EntraTargetProfile,
+    controls: EntraControlProfile,
+) -> EntraPlan:
+    with executor_execution_context(target):
+        return plan_entra(
             bounded=True,
             approved_role_groups=controls.role_groups,
         )
-        != plan
-    ):
-        raise ValueError("bounded Entra app/group plan changed after approval")
 
 
 def _verify_readback(
@@ -447,8 +453,10 @@ def main(argv: list[str] | None = None) -> int:
         print(json.dumps(result, sort_keys=True, separators=(",", ":")))
     else:
         print(f"state={result['state']}")
-        for blocker in result.get("blockers", []):
-            print(f"blocker={blocker}")
+        blockers = result.get("blockers")
+        if isinstance(blockers, list):
+            for blocker in blockers:
+                print(f"blocker={blocker}")
     return 0 if result["state"] in {"observed", "applied"} else 3
 
 

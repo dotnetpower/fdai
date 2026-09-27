@@ -7,10 +7,12 @@ import hashlib
 import json
 import os
 import sys
+from contextlib import contextmanager, nullcontext
 from dataclasses import replace
 from pathlib import Path
 from types import SimpleNamespace
 
+import pytest
 from fdai_deployment_cli.contracts import canonical_digest
 from fdai_deployment_cli.entra_profiles import EntraControlProfile, EntraTargetProfile
 
@@ -37,6 +39,15 @@ REVIEW_ID = "00000000-0000-0000-0000-000000000031"
 ASSIGNMENT = "/subscriptions/example/providers/policyAssignments/fdai"
 DEFINITION = "/providers/policyDefinitions/fdai-deny"
 SCOPE = "/subscriptions/example"
+
+
+@pytest.fixture(autouse=True)
+def _executor_context(monkeypatch) -> None:
+    monkeypatch.setattr(
+        genesis_identity_profile,
+        "executor_execution_context",
+        lambda _target: nullcontext("executor-digest"),
+    )
 
 
 def _profiles() -> tuple[EntraTargetProfile, EntraControlProfile]:
@@ -249,6 +260,219 @@ def test_full_exact_control_profile_succeeds_and_output_is_sanitized(monkeypatch
         "management.azure.com",
     ):
         assert private_value not in rendered
+
+
+def test_human_evidence_finishes_before_executor_owned_reads(monkeypatch) -> None:
+    target, controls = _profiles()
+    phase = "human"
+    human_reads: list[str] = []
+    executor_reads: set[str] = set()
+
+    def human_identity() -> str:
+        assert phase == "human"
+        human_reads.append("identity")
+        return HUMAN
+
+    def human_approver(_controls: EntraControlProfile) -> bool:
+        assert phase == "human"
+        assert human_reads == ["identity"]
+        human_reads.append("approver")
+        return True
+
+    @contextmanager
+    def executor_context(_target: EntraTargetProfile):
+        nonlocal phase
+        assert human_reads == ["identity", "approver"]
+        phase = "executor"
+        try:
+            yield "executor-digest"
+        finally:
+            phase = "restored"
+
+    def executor_reader(name: str, result):
+        def read(*_args):
+            assert phase == "executor"
+            executor_reads.add(name)
+            return result
+
+        return read
+
+    monkeypatch.setattr(genesis_identity_profile, "_human_identity", human_identity)
+    monkeypatch.setattr(
+        genesis_identity_profile,
+        "_human_approver_authorized",
+        human_approver,
+    )
+    monkeypatch.setattr(
+        genesis_identity_profile,
+        "executor_execution_context",
+        executor_context,
+    )
+    monkeypatch.setattr(
+        genesis_identity_profile,
+        "_premium_license_eligible",
+        executor_reader("premium", True),
+    )
+    monkeypatch.setattr(
+        genesis_identity_profile,
+        "_role_groups",
+        executor_reader("groups", (True, True)),
+    )
+    monkeypatch.setattr(
+        genesis_identity_profile,
+        "_conditional_access_matches",
+        executor_reader("conditional-access", True),
+    )
+    monkeypatch.setattr(
+        genesis_identity_profile,
+        "_access_reviews_match",
+        executor_reader("access-reviews", True),
+    )
+    monkeypatch.setattr(
+        genesis_identity_profile,
+        "_authentication_methods_match",
+        executor_reader("authentication-methods", (True, True)),
+    )
+    monkeypatch.setattr(
+        genesis_identity_profile,
+        "_azure_policy_matches",
+        executor_reader("azure-policy", True),
+    )
+    monkeypatch.setattr(
+        genesis_identity_profile,
+        "_executor_identity",
+        executor_reader("executor-identity", (EXECUTOR, True, True)),
+    )
+
+    observation, human_id = genesis_identity_profile.observe_identity_profile(target, controls)
+
+    assert observation.ready is True
+    assert human_id == HUMAN
+    assert phase == "restored"
+    assert executor_reads == {
+        "premium",
+        "groups",
+        "conditional-access",
+        "access-reviews",
+        "authentication-methods",
+        "azure-policy",
+        "executor-identity",
+    }
+
+
+def test_executor_context_failure_preserves_human_evidence(monkeypatch) -> None:
+    target, controls = _profiles()
+
+    @contextmanager
+    def unavailable_context(_target: EntraTargetProfile):
+        raise RuntimeError("executor login unavailable")
+        yield
+
+    monkeypatch.setattr(genesis_identity_profile, "_graph", _graph)
+    monkeypatch.setattr(genesis_identity_profile, "_az_json", _az)
+    monkeypatch.setattr(
+        genesis_identity_profile,
+        "executor_execution_context",
+        unavailable_context,
+    )
+    monkeypatch.setattr(
+        genesis_identity_profile,
+        "_premium_license_eligible",
+        lambda *_args: (_ for _ in ()).throw(AssertionError("executor read attempted")),
+    )
+
+    observation, human_id = genesis_identity_profile.observe_identity_profile(target, controls)
+
+    assert human_id == HUMAN
+    assert "human_identity_readback_unavailable" not in observation.blockers
+    assert "human_approver_membership_readback_unavailable" not in observation.blockers
+    assert "premium_license_readback_unavailable" in observation.blockers
+    assert "role_group_readback_unavailable" in observation.blockers
+    assert "executor_identity_readback_unavailable" in observation.blockers
+
+
+def test_executor_read_failure_restores_context_and_keeps_human_facts(
+    monkeypatch,
+) -> None:
+    target, controls = _profiles()
+    human_config = "/home/test/.azure-human"
+    executor_config = "/home/test/.azure-executor"
+    monkeypatch.setenv("AZURE_CONFIG_DIR", human_config)
+
+    @contextmanager
+    def executor_context(_target: EntraTargetProfile):
+        previous = os.environ.get("AZURE_CONFIG_DIR")
+        os.environ["AZURE_CONFIG_DIR"] = executor_config
+        try:
+            yield "executor-digest"
+        finally:
+            if previous is None:
+                os.environ.pop("AZURE_CONFIG_DIR", None)
+            else:
+                os.environ["AZURE_CONFIG_DIR"] = previous
+
+    monkeypatch.setattr(genesis_identity_profile, "_graph", _graph)
+    monkeypatch.setattr(genesis_identity_profile, "_az_json", _az)
+    monkeypatch.setattr(
+        genesis_identity_profile,
+        "executor_execution_context",
+        executor_context,
+    )
+    monkeypatch.setattr(
+        genesis_identity_profile,
+        "_read_executor_profile_concurrently",
+        lambda *_args: (_ for _ in ()).throw(RuntimeError("executor provider failure")),
+    )
+
+    observation, human_id = genesis_identity_profile.observe_identity_profile(target, controls)
+
+    assert human_id == HUMAN
+    assert os.environ["AZURE_CONFIG_DIR"] == human_config
+    assert "human_identity_readback_unavailable" not in observation.blockers
+    assert "executor_identity_readback_unavailable" in observation.blockers
+
+
+def test_missing_executor_application_permissions_do_not_fall_back_to_human(
+    monkeypatch,
+) -> None:
+    target, controls = _profiles()
+    names = {value: slot for slot, value in genesis_identity_profile._GROUP_NAMES.items()}
+    denied_paths: list[str] = []
+
+    def graph(method: str, path: str):
+        if path.startswith(
+            (
+                "identityGovernance/accessReviews/definitions",
+                "policies/authenticationMethodsPolicy",
+            )
+        ):
+            denied_paths.append(path)
+            raise PermissionError("executor application permission missing")
+        return _graph(method, path)
+
+    monkeypatch.setattr(genesis_identity_profile, "_graph", graph)
+    monkeypatch.setattr(genesis_identity_profile, "_az_json", _az)
+    monkeypatch.setattr(
+        genesis_identity_profile,
+        "_single_group",
+        lambda name: {"id": GROUPS[names[name]], "displayName": name},
+    )
+    monkeypatch.setattr(
+        genesis_identity_profile,
+        "_executor_identity",
+        lambda _target: (EXECUTOR, True, True),
+    )
+
+    observation, human_id = genesis_identity_profile.observe_identity_profile(target, controls)
+    rendered = json.dumps(observation.to_mapping(), sort_keys=True)
+
+    assert human_id == HUMAN
+    assert "human_identity_readback_unavailable" not in observation.blockers
+    assert "human_approver_membership_readback_unavailable" not in observation.blockers
+    assert "access_review_readback_unavailable" in observation.blockers
+    assert "authentication_method_policy_readback_unavailable" in observation.blockers
+    assert "executor application permission missing" not in rendered
+    assert len(denied_paths) == 2
 
 
 def test_unrelated_controls_never_satisfy_reviewed_profile(monkeypatch) -> None:
@@ -468,6 +692,11 @@ def test_executor_context_binds_exact_graph_token_identity(
         "run",
         lambda *_args, **_kwargs: SimpleNamespace(returncode=0, stdout=token),
     )
+    monkeypatch.setattr(
+        genesis_identity_executor,
+        "azure_active_target_binding",
+        lambda: target.target_binding,
+    )
     human_config = tmp_path / "human-azure"
     human_config.mkdir(mode=0o700)
     monkeypatch.setenv("AZURE_CONFIG_DIR", str(human_config))
@@ -475,5 +704,13 @@ def test_executor_context_binds_exact_graph_token_identity(
     with genesis_identity_executor.executor_execution_context(target) as digest:
         assert os.environ["AZURE_CONFIG_DIR"] == str(executor_config)
         assert digest == hashlib.sha256(EXECUTOR.casefold().encode()).hexdigest()
+        assert token not in digest
+
+    assert os.environ["AZURE_CONFIG_DIR"] == str(human_config)
+
+    with pytest.raises(RuntimeError, match="executor read failed"):
+        with genesis_identity_executor.executor_execution_context(target):
+            assert os.environ["AZURE_CONFIG_DIR"] == str(executor_config)
+            raise RuntimeError("executor read failed")
 
     assert os.environ["AZURE_CONFIG_DIR"] == str(human_config)
