@@ -339,6 +339,12 @@ categories, trust tiers, per-vendor rules, and fallback policy - lives in
 - No-self-approval compares the server-authenticated Entra OID with the pending item's submitter
   OID. Ordinary authentication keeps existing BreakGlass behavior, while the Human approval
   capability check excludes BreakGlass.
+- The full-authority development profile is the only same-human exception. The server can count one
+  authenticated Owner as requester and approver only when the selected disposable-development
+  profile, fresh exact-action confirmation, and server-derived current binding all match. Audit
+  preserves the original role, quorum, and no-self-approval rule and records an effective
+  development quorum of one without inventing identities. A missing profile, binding source,
+  current Owner check, or distinct executor keeps the ordinary no-self-approval rule.
 
 ## 8. Audit Correlation
 

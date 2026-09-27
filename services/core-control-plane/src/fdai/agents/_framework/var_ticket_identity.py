@@ -166,6 +166,9 @@ def ticket_from_identity(identity: Mapping[str, Any]) -> PendingHilTicket:
     correlation_id = identity.get("correlation_id")
     action_type = identity.get("action_type")
     quorum_required = identity.get("quorum_required")
+    original_quorum_required = identity.get("original_quorum_required", quorum_required)
+    effective_quorum_required = identity.get("effective_quorum_required", quorum_required)
+    development_authority = identity.get("development_authority")
     params = identity.get("params")
     decision_case = identity.get("decision_case")
     if (
@@ -176,6 +179,12 @@ def ticket_from_identity(identity: Mapping[str, Any]) -> PendingHilTicket:
         or not isinstance(quorum_required, int)
         or isinstance(quorum_required, bool)
         or quorum_required < 1
+        or not isinstance(original_quorum_required, int)
+        or isinstance(original_quorum_required, bool)
+        or original_quorum_required < 1
+        or effective_quorum_required != quorum_required
+        or development_authority is not None
+        and not isinstance(development_authority, Mapping)
         or not isinstance(params, Mapping)
         or decision_case is not None
         and not isinstance(decision_case, Mapping)
@@ -213,6 +222,11 @@ def ticket_from_identity(identity: Mapping[str, Any]) -> PendingHilTicket:
         action_type=action_type,
         resource_id=optional_strings["resource_id"],
         quorum_required=quorum_required,
+        original_quorum_required=original_quorum_required,
+        effective_quorum_required=effective_quorum_required,
+        development_authority=(
+            dict(development_authority) if isinstance(development_authority, Mapping) else None
+        ),
         action_run_identity=(str(action_run_identity) if action_run_identity is not None else None),
         initiator_principal=optional_strings["initiator_principal"],
         params=dict(params),
@@ -236,6 +250,9 @@ def ticket_identity(ticket: PendingHilTicket) -> dict[str, Any]:
         "action_run_identity": ticket.action_run_identity,
         "resource_id": ticket.resource_id,
         "quorum_required": ticket.quorum_required,
+        "original_quorum_required": ticket.original_quorum_required,
+        "effective_quorum_required": ticket.effective_quorum_required,
+        "development_authority": ticket.development_authority,
         "initiator_principal": ticket.initiator_principal,
         "kind": ticket.kind,
         "document_id": ticket.document_id,

@@ -40,6 +40,9 @@ class ActionRun:
     shadow_mode: bool = False
     resolved_autonomy_ceiling: Autonomy = Autonomy.SHADOW_ONLY
     quorum_required: int = 1
+    original_quorum_required: int | None = None
+    effective_quorum_required: int | None = None
+    development_authority: dict[str, Any] | None = None
     outcome: str | None = None
     initiator_principal: str | None = None
     rollback_contract: str = "state_forward_only"
@@ -63,6 +66,18 @@ class ActionRun:
         action_run_lineage.validate_action_run_lineage(self.action_id, self.workflow_action)
         if not self.idempotency_key:
             self.idempotency_key = self.correlation_id
+        if self.original_quorum_required is None:
+            self.original_quorum_required = self.quorum_required
+        if self.effective_quorum_required is None:
+            self.effective_quorum_required = self.quorum_required
+        if (
+            isinstance(self.original_quorum_required, bool)
+            or isinstance(self.effective_quorum_required, bool)
+            or self.original_quorum_required < 1
+            or self.effective_quorum_required < 1
+            or self.quorum_required != self.effective_quorum_required
+        ):
+            raise ValueError("ActionRun original and effective quorum are malformed")
         validate_effect_verification(
             self.effect_verification_ref,
             self.execution_closure_ref,
@@ -87,6 +102,9 @@ class ActionRun:
             "shadow_mode": self.shadow_mode,
             "resolved_autonomy_ceiling": self.resolved_autonomy_ceiling.value,
             "quorum_required": self.quorum_required,
+            "original_quorum_required": self.original_quorum_required,
+            "effective_quorum_required": self.effective_quorum_required,
+            "development_authority": deepcopy(self.development_authority),
             "outcome": self.outcome,
             "initiator_principal": self.initiator_principal,
             "rollback_contract": self.rollback_contract,
@@ -138,6 +156,17 @@ class ActionRun:
             shadow_mode=bool(data.get("shadow_mode", False)),
             resolved_autonomy_ceiling=resolved_autonomy_ceiling,
             quorum_required=int(data.get("quorum_required", 1)),
+            original_quorum_required=int(
+                data.get("original_quorum_required", data.get("quorum_required", 1))
+            ),
+            effective_quorum_required=int(
+                data.get("effective_quorum_required", data.get("quorum_required", 1))
+            ),
+            development_authority=(
+                deepcopy(dict(data["development_authority"]))
+                if isinstance(data.get("development_authority"), Mapping)
+                else None
+            ),
             outcome=data.get("outcome"),
             initiator_principal=data.get("initiator_principal"),
             rollback_contract=str(data.get("rollback_contract", "state_forward_only")),

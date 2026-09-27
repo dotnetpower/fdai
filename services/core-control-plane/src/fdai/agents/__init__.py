@@ -64,6 +64,9 @@ from fdai.agents._framework.deliberation import (
     SynthesisOutcome,
     T2ConversationSynthesizer,
 )
+from fdai.agents._framework.development_authority_runtime import (
+    DevelopmentRuntimeBindings,
+)
 from fdai.agents._framework.divergence import ShadowDivergenceLedger
 from fdai.agents._framework.factory import (
     DEFAULT_COST_RUNTIME_BINDINGS,
@@ -187,6 +190,7 @@ __all__ = [
     "ConversationTool",
     "CostRuntimeBindings",
     "DEFAULT_COST_RUNTIME_BINDINGS",
+    "DevelopmentRuntimeBindings",
     "DeliberationClaim",
     "DeliberationRequest",
     "EventBusBridge",

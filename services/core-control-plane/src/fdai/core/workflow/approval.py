@@ -26,12 +26,19 @@ machinery.
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
+from datetime import UTC, datetime
+from typing import Any
 
+from fdai.core.measurement.operational_promotion import action_type_digest
 from fdai.core.notifications.matrix import NotificationMatrix
 from fdai.core.rbac.resolver import GroupMapping
 from fdai.core.rbac.roles import Role
+from fdai.shared.contracts.development_authority import (
+    DevelopmentAuthorityDecision,
+    evaluate_development_authority,
+)
 from fdai.shared.contracts.models import (
     Autonomy,
     CeilingRole,
@@ -40,6 +47,18 @@ from fdai.shared.contracts.models import (
     Workflow,
     WorkflowStep,
     WorkflowStepKind,
+)
+from fdai.shared.contracts.models.development_authority import (
+    DevelopmentActionConfirmation,
+    DevelopmentBindingVerification,
+    FullAuthorityDevelopmentProfile,
+    authority_text_digest,
+    canonical_authority_digest,
+)
+from fdai.shared.providers.development_authority import (
+    DevelopmentAuthorityBindingRequest,
+    DevelopmentAuthorityBindingSource,
+    resolve_development_binding,
 )
 
 _HIL_CATEGORY = "hil_approval"
@@ -72,8 +91,9 @@ class StepApproval:
 
     ``requires_approval`` is derived from the step's ActionType ceiling; when
     True, ``required_role`` / ``entra_group_ref`` / ``notify_channels`` name the
-    approver and how they are reached. ``self_approval_excluded`` is always True
-    - it carries the no-self-approval invariant forward to the orchestrator.
+    approver and how they are reached. ``self_approval_excluded`` preserves the
+    original rule unless an exact trusted-source development confirmation makes
+    one current Owner the effective quorum.
     """
 
     step_id: str
@@ -84,6 +104,11 @@ class StepApproval:
     entra_group_ref: str | None
     notify_channels: tuple[str, ...]
     self_approval_excluded: bool = True
+    original_required_role: Role | None = None
+    original_quorum: int = 1
+    effective_quorum: int = 1
+    original_self_approval_excluded: bool = True
+    development_profile_digest: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -113,6 +138,19 @@ class ApprovalPlan:
                     "entra_group_ref": s.entra_group_ref,
                     "notify_channels": list(s.notify_channels),
                     "self_approval_excluded": s.self_approval_excluded,
+                    "original_required_role": (
+                        s.original_required_role.value
+                        if s.original_required_role is not None
+                        else None
+                    ),
+                    "effective_required_role": (
+                        s.required_role.value if s.required_role is not None else None
+                    ),
+                    "original_quorum": s.original_quorum,
+                    "effective_quorum": s.effective_quorum,
+                    "original_self_approval_excluded": s.original_self_approval_excluded,
+                    "effective_self_approval_excluded": s.self_approval_excluded,
+                    "development_profile_digest": s.development_profile_digest,
                 }
                 for s in self.steps
             ],
@@ -123,7 +161,14 @@ class WorkflowApprovalPlanner:
     """Resolve a :class:`ApprovalPlan` for a Workflow from the ActionType
     ceilings, the Entra group mapping, and the notification matrix."""
 
-    __slots__ = ("_action_types", "_role_to_group", "_hil_channels")
+    __slots__ = (
+        "_action_types",
+        "_role_to_group",
+        "_hil_channels",
+        "_development_profile",
+        "_development_binding_source",
+        "_clock",
+    )
 
     def __init__(
         self,
@@ -131,6 +176,9 @@ class WorkflowApprovalPlanner:
         action_types: Mapping[str, OntologyActionType],
         group_mapping: GroupMapping,
         matrix: NotificationMatrix,
+        development_profile: FullAuthorityDevelopmentProfile | None = None,
+        development_binding_source: DevelopmentAuthorityBindingSource | None = None,
+        clock: Callable[[], datetime] | None = None,
     ) -> None:
         self._action_types = action_types
         self._role_to_group: Mapping[Role, str] = {
@@ -142,21 +190,92 @@ class WorkflowApprovalPlanner:
         # The A1 approval route is fixed at construction so a plan is a pure
         # function of the workflow; the matrix cannot be swapped mid-plan.
         self._hil_channels: tuple[str, ...] = matrix.resolve(_HIL_CATEGORY).channel_ids
+        self._development_profile = development_profile
+        self._development_binding_source = development_binding_source
+        self._clock = clock or (lambda: datetime.now(tz=UTC))
 
-    def plan(self, workflow: Workflow) -> ApprovalPlan:
+    def plan(
+        self,
+        workflow: Workflow,
+        *,
+        development_confirmations: Mapping[
+            str,
+            DevelopmentActionConfirmation | Mapping[str, Any],
+        ]
+        | None = None,
+        development_binding_requests: Mapping[
+            str,
+            DevelopmentAuthorityBindingRequest,
+        ]
+        | None = None,
+    ) -> ApprovalPlan:
         """Return the per-step :class:`ApprovalPlan` for ``workflow``."""
-        steps = tuple(self._plan_workflow_step(step) for step in workflow.steps)
+        confirmations = development_confirmations or {}
+        requests = development_binding_requests or {}
+        steps = tuple(
+            self._plan_workflow_step(
+                workflow,
+                step,
+                confirmation=confirmations.get(step.id),
+                binding_request=requests.get(step.id),
+            )
+            for step in workflow.steps
+        )
         return ApprovalPlan(workflow_name=workflow.name, steps=steps)
 
-    def _plan_workflow_step(self, step: WorkflowStep) -> StepApproval:
+    def _plan_workflow_step(
+        self,
+        workflow: Workflow,
+        step: WorkflowStep,
+        *,
+        confirmation: DevelopmentActionConfirmation | Mapping[str, Any] | None,
+        binding_request: DevelopmentAuthorityBindingRequest | None,
+    ) -> StepApproval:
         if step.kind is WorkflowStepKind.ACTION:
             if step.action_type_ref is None:  # pragma: no cover - model invariant
                 raise ApprovalPlanError(f"action step {step.id!r} has no ActionType")
-            return self._plan_step(step_id=step.id, action_ref=step.action_type_ref)
+            return self._plan_step(
+                step_id=step.id,
+                action_ref=step.action_type_ref,
+                confirmation=confirmation,
+                binding_request=binding_request,
+            )
         if step.kind is WorkflowStepKind.APPROVAL:
             if step.approval_role is None:  # pragma: no cover - model invariant
                 raise ApprovalPlanError(f"approval step {step.id!r} has no role")
             role = _CEILING_TO_ROLE[step.approval_role]
+            development = self._development_decision(
+                confirmation=confirmation,
+                binding_request=binding_request,
+                original_quorum=step.quorum,
+                expected_action_type="workflow.approval",
+                expected_version=None,
+                expected_digest=None,
+            )
+            if development is not None and development.grant is not None:
+                if development.binding_verification is None:
+                    raise ApprovalPlanError("trusted workflow approval binding is unavailable")
+                self._validate_explicit_approval_binding(
+                    workflow,
+                    step,
+                    role=role,
+                    verification=development.binding_verification,
+                )
+                return StepApproval(
+                    step_id=step.id,
+                    action_type="workflow.approval",
+                    requires_approval=True,
+                    reason="full-authority development confirmation; original explicit approval",
+                    required_role=Role.OWNER,
+                    entra_group_ref=self._role_to_group[Role.OWNER],
+                    notify_channels=self._hil_channels,
+                    self_approval_excluded=False,
+                    original_required_role=role,
+                    original_quorum=step.quorum,
+                    effective_quorum=1,
+                    original_self_approval_excluded=step.no_self_approval,
+                    development_profile_digest=development.grant.profile_digest,
+                )
             return StepApproval(
                 step_id=step.id,
                 action_type="workflow.approval",
@@ -166,6 +285,10 @@ class WorkflowApprovalPlanner:
                 entra_group_ref=self._role_to_group[role],
                 notify_channels=self._hil_channels,
                 self_approval_excluded=step.no_self_approval,
+                original_required_role=role,
+                original_quorum=step.quorum,
+                effective_quorum=step.quorum,
+                original_self_approval_excluded=step.no_self_approval,
             )
         return StepApproval(
             step_id=step.id,
@@ -175,9 +298,17 @@ class WorkflowApprovalPlanner:
             required_role=None,
             entra_group_ref=None,
             notify_channels=(),
+            original_self_approval_excluded=False,
         )
 
-    def _plan_step(self, *, step_id: str, action_ref: str) -> StepApproval:
+    def _plan_step(
+        self,
+        *,
+        step_id: str,
+        action_ref: str,
+        confirmation: DevelopmentActionConfirmation | Mapping[str, Any] | None,
+        binding_request: DevelopmentAuthorityBindingRequest | None,
+    ) -> StepApproval:
         action = self._action_types.get(action_ref)
         if action is None:
             raise ApprovalPlanError(
@@ -186,6 +317,31 @@ class WorkflowApprovalPlanner:
             )
 
         requires, reason, role = _approval_for(action)
+        original_quorum = 2 if action.irreversible else 1
+        development = self._development_decision(
+            confirmation=confirmation,
+            binding_request=binding_request,
+            original_quorum=original_quorum,
+            expected_action_type=action.name,
+            expected_version=action.version,
+            expected_digest="sha256:" + action_type_digest(action),
+        )
+        if development is not None and development.eligible and development.grant is not None:
+            return StepApproval(
+                step_id=step_id,
+                action_type=action_ref,
+                requires_approval=True,
+                reason=f"full-authority development confirmation; original={reason}",
+                required_role=Role.OWNER,
+                entra_group_ref=self._role_to_group[Role.OWNER],
+                notify_channels=self._hil_channels,
+                self_approval_excluded=False,
+                original_required_role=role,
+                original_quorum=original_quorum,
+                effective_quorum=1,
+                original_self_approval_excluded=True,
+                development_profile_digest=development.grant.profile_digest,
+            )
         if not requires:
             return StepApproval(
                 step_id=step_id,
@@ -195,6 +351,10 @@ class WorkflowApprovalPlanner:
                 required_role=None,
                 entra_group_ref=None,
                 notify_channels=(),
+                original_required_role=None,
+                original_quorum=original_quorum,
+                effective_quorum=original_quorum,
+                original_self_approval_excluded=True,
             )
         return StepApproval(
             step_id=step_id,
@@ -204,7 +364,88 @@ class WorkflowApprovalPlanner:
             required_role=role,
             entra_group_ref=self._role_to_group.get(role) if role else None,
             notify_channels=self._hil_channels,
+            original_required_role=role,
+            original_quorum=original_quorum,
+            effective_quorum=original_quorum,
+            original_self_approval_excluded=True,
         )
+
+    def _development_decision(
+        self,
+        *,
+        confirmation: DevelopmentActionConfirmation | Mapping[str, Any] | None,
+        binding_request: DevelopmentAuthorityBindingRequest | None,
+        original_quorum: int,
+        expected_action_type: str,
+        expected_version: str | None,
+        expected_digest: str | None,
+    ) -> DevelopmentAuthorityDecision | None:
+        if self._development_profile is None:
+            return None
+        now = self._clock()
+        try:
+            verification = (
+                resolve_development_binding(
+                    self._development_binding_source,
+                    binding_request,
+                    now=now,
+                )
+                if binding_request is not None
+                else None
+            )
+        except ValueError as exc:
+            raise ApprovalPlanError("trusted development binding is unavailable") from exc
+        if verification is None:
+            raise ApprovalPlanError("selected development profile requires current binding")
+        binding = verification.binding
+        if (
+            binding.action_type != expected_action_type
+            or expected_version is not None
+            and binding.action_type_version != expected_version
+            or expected_digest is not None
+            and binding.action_type_digest != expected_digest
+        ):
+            raise ApprovalPlanError("trusted development binding ActionType is stale")
+        decision = evaluate_development_authority(
+            self._development_profile,
+            confirmation,
+            verification,
+            now=now,
+            original_quorum=original_quorum,
+        )
+        if not decision.eligible:
+            raise ApprovalPlanError(
+                "selected development profile lacks exact current confirmation: "
+                + decision.reason_code
+            )
+        return decision
+
+    @staticmethod
+    def _validate_explicit_approval_binding(
+        workflow: Workflow,
+        step: WorkflowStep,
+        *,
+        role: Role,
+        verification: DevelopmentBindingVerification,
+    ) -> None:
+        binding = verification.binding
+        target_ref = f"workflow:{workflow.name}@{workflow.version}:approval:{step.id}"
+        params = {
+            "workflow_name": workflow.name,
+            "workflow_version": workflow.version,
+            "step_id": step.id,
+            "required_role": role.value,
+            "original_quorum": step.quorum,
+            "no_self_approval": step.no_self_approval,
+        }
+        if (
+            binding.target_digest != authority_text_digest(target_ref)
+            or binding.target_revision != f"workflow:{workflow.name}@{workflow.version}"
+            or binding.params_digest != canonical_authority_digest(params)
+        ):
+            raise ApprovalPlanError(
+                "trusted workflow approval binding does not match current workflow step"
+            )
 
 
 def _tiers(action: OntologyActionType) -> list[tuple[str, TierCeiling]]:

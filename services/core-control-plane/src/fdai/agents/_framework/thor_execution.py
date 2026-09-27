@@ -30,6 +30,8 @@ class ThorExecutionHost(Protocol):
 
     def _must_shadow(self) -> bool: ...
 
+    def _revalidate_development_authority(self, run: ActionRun) -> None: ...
+
     async def _emit_action_run(self, run: ActionRun) -> None: ...
 
     async def _release_resource_claim(self, run: ActionRun) -> None: ...
@@ -79,6 +81,16 @@ async def execute(host: ThorExecutionHost, run: ActionRun) -> None:
             run.execution_audit_receipt = receipt
             host.record_behavior("execution_audit:recorded")
         if not run.shadow_mode and not run.resource_claimed:
+            try:
+                host._revalidate_development_authority(run)
+            except ValueError:
+                run.transition(ActionRunState.DENY_DROPPED)
+                run.outcome = "development_authority_revalidation_failed"
+                await host._emit_action_run(run)
+                await host._release_resource_claim(run)
+                host.record_behavior("development_authority:revalidation_failed")
+                release_run_lock = True
+                return
             if not await claim_execution_resource(host, run):
                 run.transition(ActionRunState.DENY_DROPPED)
                 run.outcome = "duplicate_execution_already_completed"
@@ -150,6 +162,7 @@ async def execute(host: ThorExecutionHost, run: ActionRun) -> None:
 
 async def invoke_executor(host: ThorExecutionHost, run: ActionRun) -> bool:
     """Invoke the bound executor under the optional cross-replica resource lock."""
+    host._revalidate_development_authority(run)
     resource_id = str(run.resource_id or "")
     if not resource_id:
         raise ValueError("execution resource_id MUST be non-empty")

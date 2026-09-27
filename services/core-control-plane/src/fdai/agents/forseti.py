@@ -34,6 +34,9 @@ from fdai.agents._framework.forseti_arbitration import (
 from fdai.agents._framework.forseti_decision_helpers import (
     ChangeAssessor,
 )
+from fdai.agents._framework.forseti_development_authority import (
+    ForsetiDevelopmentAuthorityMixin,
+)
 from fdai.agents._framework.forseti_judgment import RISK_VERDICT as _RISK_VERDICT
 from fdai.agents._framework.forseti_judgment import RULE_MATCH as _RULE_MATCH
 from fdai.agents._framework.forseti_judgment import ForsetiJudgmentMixin
@@ -74,7 +77,12 @@ from fdai.core.operational_planning import (
 from fdai.core.operational_planning.prospective_lineage import (
     ProspectiveLineageFinalizer,
 )
+from fdai.shared.contracts.models.development_authority import (
+    FullAuthorityDevelopmentProfile,
+    RegisteredDevelopmentAction,
+)
 from fdai.shared.providers.decision_evidence_verifier import DecisionEvidenceAdmissionProvider
+from fdai.shared.providers.development_authority import DevelopmentAuthorityBindingSource
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -103,6 +111,7 @@ _DEFAULT_RBAC: dict[str, frozenset[str]] = {}
 
 class Forseti(
     Agent,
+    ForsetiDevelopmentAuthorityMixin,
     ForsetiJudgmentMixin,
     ForsetiArbitrationMixin,
     HandoverKnowledgeMixin,
@@ -130,6 +139,10 @@ class Forseti(
         agent_availability: Callable[[], Iterable[str]] | None = None,
         cross_vertical_timeout_seconds: float = 30.0,
         anomaly_action_sources: Mapping[str, AnomalyActionSource] | None = None,
+        development_profile: FullAuthorityDevelopmentProfile | None = None,
+        development_binding_source: DevelopmentAuthorityBindingSource | None = None,
+        development_executor_principal: str | None = None,
+        development_action_types: Mapping[str, RegisteredDevelopmentAction] | None = None,
     ) -> None:
         if cross_vertical_timeout_seconds <= 0.0 or cross_vertical_timeout_seconds > 300.0:
             raise ValueError("cross_vertical_timeout_seconds MUST be in (0, 300]")
@@ -148,6 +161,13 @@ class Forseti(
         self._prospective_lineage_finalizer = prospective_lineage_finalizer
         self._change_assessor = change_assessor
         self._anomaly_action_sources = dict(anomaly_action_sources or {})
+        self.initialize_development_authority(
+            profile=development_profile,
+            binding_source=development_binding_source,
+            executor_principal=development_executor_principal,
+            action_types=development_action_types,
+            clock=self._test_context_clock,
+        )
         if len(self._anomaly_action_sources) > 32 or any(
             not key or key != key.strip() or len(key) > 128 for key in self._anomaly_action_sources
         ):

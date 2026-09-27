@@ -38,6 +38,10 @@ from fdai.core.operational_planning import (
     SpecialistPlanningCoordinator,
 )
 from fdai.core.operational_planning.prospective_lineage import ProspectiveLineageFinalizer
+from fdai.shared.contracts.models.development_authority import (
+    FullAuthorityDevelopmentProfile,
+    RegisteredDevelopmentAction,
+)
 from fdai.shared.providers.cost_governance import (
     CostAdvisoryProvider,
     CostAnalysisSample,
@@ -46,6 +50,7 @@ from fdai.shared.providers.cost_governance import (
 from fdai.shared.providers.decision_evidence_verifier import (
     DecisionEvidenceAdmissionProvider as DecisionEvidenceAdmissionProvider,
 )
+from fdai.shared.providers.development_authority import DevelopmentAuthorityBindingSource
 from fdai.shared.providers.state_store import StateStore
 
 PlanningCoordinator = SpecialistPlanningCoordinator
@@ -112,6 +117,10 @@ def configured_forseti(
     test_context_source: TestContextSource | None = None,
     test_context_admission: DecisionEvidenceAdmissionProvider | None = None,
     anomaly_action_sources: dict[str, AnomalyActionSource] | None = None,
+    development_profile: FullAuthorityDevelopmentProfile | None = None,
+    development_binding_source: DevelopmentAuthorityBindingSource | None = None,
+    development_executor_principal: str | None = None,
+    development_action_types: dict[str, RegisteredDevelopmentAction] | None = None,
 ) -> Forseti | None:
     """Build Forseti only when composition supplies an optional binding."""
     if all(
@@ -128,6 +137,10 @@ def configured_forseti(
             test_context_source,
             test_context_admission,
             anomaly_action_sources,
+            development_profile,
+            development_binding_source,
+            development_executor_principal,
+            development_action_types,
         )
     ):
         return None
@@ -143,6 +156,10 @@ def configured_forseti(
         test_context_source=test_context_source,
         test_context_admission=test_context_admission,
         anomaly_action_sources=anomaly_action_sources,
+        development_profile=development_profile,
+        development_binding_source=development_binding_source,
+        development_executor_principal=development_executor_principal,
+        development_action_types=development_action_types,
     )
 
 

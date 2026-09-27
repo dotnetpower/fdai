@@ -77,6 +77,7 @@ def test_registry_names_covers_expected_set(
         "document-worker-index",
         "executor-command",
         "executor-receipt",
+        "authority/full-authority-development",
         "ontology/object-type",
         "ontology/link-type",
         "ontology/interface-type",

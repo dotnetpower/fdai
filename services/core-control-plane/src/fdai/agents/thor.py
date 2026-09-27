@@ -57,6 +57,7 @@ from fdai.agents._framework.thor_action_run import (
     prospective_lineage as _prospective_lineage,
 )
 from fdai.agents._framework.thor_correlation import resolve_correlation_claim
+from fdai.agents._framework.thor_development_authority import ThorDevelopmentAuthorityMixin
 from fdai.agents._framework.thor_effect_verification import ThorEffectVerificationMixin
 from fdai.agents._framework.thor_execution import (
     ExecutionResourceUnavailableError as _ExecutionResourceUnavailableError,
@@ -66,6 +67,10 @@ from fdai.core.operational_context.test_context_dispatch import (
     TestContextDispatchGuard,
 )
 from fdai.shared.contracts.models import Autonomy
+from fdai.shared.contracts.models.development_authority import (
+    FullAuthorityDevelopmentProfile,
+)
+from fdai.shared.providers.development_authority import DevelopmentAuthorityBindingSource
 from fdai.shared.providers.resource_lock import ResourceLock
 
 _resolved_autonomy_ceiling = thor_dispatch_validation.resolved_autonomy_ceiling
@@ -104,7 +109,7 @@ class _ReentrantAsyncLock:
             self._lock.release()
 
 
-class Thor(ThorEffectVerificationMixin, Agent):
+class Thor(ThorDevelopmentAuthorityMixin, ThorEffectVerificationMixin, Agent):
     """Wave-3 Thor: dispatcher + per-resource mutex + lifecycle owner."""
 
     def __init__(
@@ -124,6 +129,9 @@ class Thor(ThorEffectVerificationMixin, Agent):
         clock: Callable[[], datetime] | None = None,
         execution_resource_lock: ResourceLock | None = None,
         require_execution_resource_lock: bool = False,
+        development_profile: FullAuthorityDevelopmentProfile | None = None,
+        development_executor_principal: str | None = None,
+        development_binding_source: DevelopmentAuthorityBindingSource | None = None,
     ) -> None:
         if isinstance(hil_timeout_seconds, bool) or hil_timeout_seconds < 1:
             raise ValueError("hil_timeout_seconds MUST be a positive integer")
@@ -138,12 +146,19 @@ class Thor(ThorEffectVerificationMixin, Agent):
         self._vidar_available = vidar_available
         self._state_store = state_store
         self._execution_audit_recorder = execution_audit_recorder
-        self._require_execution_audit = require_execution_audit
+        self._require_execution_audit = require_execution_audit or development_profile is not None
         self._hil_timeout_seconds = hil_timeout_seconds
         self._executor_timeout_seconds = executor_timeout_seconds
         self._clock = clock or (lambda: datetime.now(tz=UTC))
         self._execution_resource_lock = execution_resource_lock
-        self._require_execution_resource_lock = require_execution_resource_lock
+        self._require_execution_resource_lock = (
+            require_execution_resource_lock or development_profile is not None
+        )
+        self._initialize_development_authority(
+            development_profile,
+            development_executor_principal,
+            development_binding_source,
+        )
         self._test_context_dispatch_guard: TestContextDispatchGuard | None = None
         self.action_runs: dict[str, ActionRun] = {}
         self._idempotency_runs: dict[str, ActionRun] = {}
@@ -183,7 +198,7 @@ class Thor(ThorEffectVerificationMixin, Agent):
         """Bind the durable Saga-owned intent recorder used before executor I/O."""
 
         self._execution_audit_recorder = recorder
-        self._require_execution_audit = required
+        self._require_execution_audit = required or self._development_profile is not None
 
     def set_execution_resource_lock(
         self,
@@ -194,7 +209,7 @@ class Thor(ThorEffectVerificationMixin, Agent):
         """Bind the cross-replica mutation lock required by enforce mode."""
 
         self._execution_resource_lock = resource_lock
-        self._require_execution_resource_lock = required
+        self._require_execution_resource_lock = required or self._development_profile is not None
 
     async def rehydrate(self) -> int:
         return await thor_persistence.rehydrate(self)
@@ -276,8 +291,6 @@ class Thor(ThorEffectVerificationMixin, Agent):
             await self._handle_rollback(payload)
         elif topic == "object.recovery-effect-observation":
             await self._handle_effect_observation(payload)
-
-    # ---- lifecycle -----------------------------------------------------
 
     async def dispatch_verdict(self, verdict: dict[str, Any]) -> ActionRun:
         """Serialize duplicate delivery for one correlation before dispatch."""
@@ -423,24 +436,58 @@ class Thor(ThorEffectVerificationMixin, Agent):
         # verdict can never yield a zero-or-negative quorum that would let an
         # action execute with no approver; Thor MUST NOT hard-code 1 and drop
         # the judge's two-approver requirement.
-        quorum_required = max(1, int(verdict.get("quorum_required", 1)))
+        original_quorum = max(
+            1,
+            int(
+                verdict.get(
+                    "original_quorum_required",
+                    verdict.get("quorum_required", 1),
+                )
+            ),
+        )
+        effective_quorum = max(
+            1,
+            int(verdict.get("effective_quorum_required", original_quorum)),
+        )
+        action_id = action_run_lineage.optional_bounded_text(
+            verdict.get("action_id"),
+            field_name="action_id",
+        )
+        rollback_contract = str(verdict.get("rollback_contract", "state_forward_only"))
+        authority = self._admit_development_verdict(
+            evidence=verdict.get("development_authority"),
+            action={
+                "action_type": action_type,
+                "action_id": action_id,
+                "resource_id": resource_id,
+                "params": params,
+                "idempotency_key": idempotency_key,
+                "rollback_contract": rollback_contract,
+                "initiator_principal": verdict.get("initiator_principal"),
+            },
+            risk_verdict=risk_verdict,
+            original_quorum=original_quorum,
+            effective_quorum=effective_quorum,
+        )
+        risk_verdict = authority.risk_verdict
+        effective_quorum = authority.effective_quorum
         run = ActionRun(
             correlation_id=correlation,
             action_type=action_type,
             resource_id=resource_id,
             state=ActionRunState.VERDICTED,
             verdict=risk_verdict,
-            action_id=action_run_lineage.optional_bounded_text(
-                verdict.get("action_id"),
-                field_name="action_id",
-            ),
+            action_id=action_id,
             idempotency_key=str(verdict.get("idempotency_key") or correlation),
             params=params,
             shadow_mode=shadow_mode,
             resolved_autonomy_ceiling=resolved_autonomy_ceiling,
-            quorum_required=quorum_required,
+            quorum_required=effective_quorum,
+            original_quorum_required=original_quorum,
+            effective_quorum_required=effective_quorum,
+            development_authority=authority.evidence,
             initiator_principal=verdict.get("initiator_principal"),
-            rollback_contract=str(verdict.get("rollback_contract", "state_forward_only")),
+            rollback_contract=rollback_contract,
             decision_case=decision_case,
             operational_context=operational_context,
             test_context_guard=(
@@ -460,7 +507,12 @@ class Thor(ThorEffectVerificationMixin, Agent):
                 else None
             ),
             approval_expires_at=(
-                self._now() + timedelta(seconds=self._hil_timeout_seconds)
+                min(
+                    self._now() + timedelta(seconds=self._hil_timeout_seconds),
+                    authority.grant.valid_until,
+                )
+                if risk_verdict == "hil" and authority.grant is not None
+                else self._now() + timedelta(seconds=self._hil_timeout_seconds)
                 if risk_verdict == "hil"
                 else None
             ),
@@ -541,9 +593,6 @@ class Thor(ThorEffectVerificationMixin, Agent):
                 self._release_lock(resource_id)
             raise
 
-    async def _execute(self, run: ActionRun) -> None:
-        await thor_execution.execute(self, run)
-
     async def _invoke_executor(self, run: ActionRun) -> bool:
         return await thor_execution.invoke_executor(self, run)
 
@@ -568,6 +617,7 @@ class Thor(ThorEffectVerificationMixin, Agent):
         if not approval_matches_action_run(approval, run.to_dict()):
             self.record_behavior("approval:identity_mismatch")
             raise ValueError("approval identity does not match the current ActionRun")
+        self._validate_development_approval(run, approval)
         # Idempotency: only a run still awaiting its HIL decision may act on an
         # approval. At-least-once delivery can redeliver the same object.approval
         # (or a duplicate can arrive), and without this guard an approval for a

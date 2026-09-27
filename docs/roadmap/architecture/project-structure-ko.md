@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 401a2c7f2ad742151d1abafd970c17894a610607
+translation_source_sha: 59fd79c668f2aa24dfbd4454ce7f60d4f33cc0cc
 translation_revised: 2026-09-27
 ---
 # 프로젝트 구조
@@ -496,6 +496,14 @@ Muninn은 게시와 원본 소유 legacy 정리에 하나의 Core 소유 cohort 
   fast** - degraded 상태로 시작하지 않습니다. 비활성화된 선택 패키지는 필수 설정이 아닙니다.
   관련 없는 완전한 경로는 정상적으로 시작하고 해당 기능만 사용할 수 없음으로 보고할 수 있습니다.
   패키지를 활성화하면 선언된 바인딩이 필수가 되며 안전하게 차단됩니다.
+- 선택적 full-authority 개발 프로필은 환경 레이블, 포크 표시 또는 런타임 플랫폼 선택이 아닌
+  별도의 권한 입력입니다. 조립 계층은 정확한 프로필, 최신
+  `DevelopmentAuthorityBindingSource`, Owner 권한 검증기, 실행기와 구분되는 신원이 모두
+  있을 때만 이 프로필을 받습니다. 바인딩 소스는 각 승인 전에 현재 대상 범위, ActionType 및
+  정책 개정, 예행 실행과 안전장치 증적, 잠금, 감사, 관찰자 근거를 다시 도출합니다. 프로필이
+  없으면 기존 다중 운영자 경로를 유지하고, 프로필을 선택한 상태에서 바인딩이 하나라도
+  누락되면 안전하게 차단합니다. 현재 업스트림은 이 주입 경계를 정의하지만 권위 있는 바인딩
+  소스 구현은 제공하지 않습니다.
 - 기본 환경 공급자와 선택적이고 범위가 제한된 `YamlFileConfigProvider`는 동일한 JSON Schema 및
   Pydantic 경계로 진입합니다. YAML 공급자는 UTF-8 매핑 하나를 읽고 중복 키와 1MiB를 넘는 파일을
   차단합니다. 또한 symlink, regular file이 아닌 대상 및 지원하지 않거나 지나치게 중첩된 YAML을

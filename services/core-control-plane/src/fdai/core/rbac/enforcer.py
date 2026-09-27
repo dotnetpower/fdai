@@ -23,14 +23,26 @@ surfaces are:
 
 from __future__ import annotations
 
-from collections.abc import Callable, Iterable
+from collections.abc import Callable, Iterable, Mapping
 from datetime import UTC, datetime
+from typing import Any
 
 from fdai.core.rbac.resolver import Principal
 from fdai.core.rbac.roles import (
     Capability,
     Role,
     has_capability,
+)
+from fdai.shared.contracts.development_authority import evaluate_development_authority
+from fdai.shared.contracts.models.development_authority import (
+    DevelopmentActionConfirmation,
+    FullAuthorityDevelopmentProfile,
+    normalized_principal,
+)
+from fdai.shared.providers.development_authority import (
+    DevelopmentAuthorityBindingRequest,
+    DevelopmentAuthorityBindingSource,
+    resolve_development_binding,
 )
 
 
@@ -111,7 +123,17 @@ class RoleEnforcer:
                 f"(has roles {_role_set_str(effective)})"
             )
 
-    def no_self_approval(self, approver: Principal, *, submitter_oid: str) -> None:
+    def no_self_approval(
+        self,
+        approver: Principal,
+        *,
+        submitter_oid: str,
+        development_profile: FullAuthorityDevelopmentProfile | Mapping[str, Any] | None = None,
+        development_confirmation: DevelopmentActionConfirmation | Mapping[str, Any] | None = None,
+        development_binding_source: DevelopmentAuthorityBindingSource | None = None,
+        development_binding_request: DevelopmentAuthorityBindingRequest | None = None,
+        original_quorum: int = 1,
+    ) -> None:
         """Raise :class:`SelfApprovalError` when the approver authored the change.
 
         Comparison uses Entra ``oid`` - never ``upn`` or ``email`` - because
@@ -128,7 +150,35 @@ class RoleEnforcer:
                 "no_self_approval() requires a non-empty submitter_oid - "
                 "the pending item must record its author's Entra oid"
             )
-        if approver.oid == submitter_oid:
+        if approver.oid != submitter_oid:
+            return
+        now = self._clock()
+        try:
+            verification = (
+                resolve_development_binding(
+                    development_binding_source,
+                    development_binding_request,
+                    now=now,
+                )
+                if development_binding_request is not None
+                else None
+            )
+        except ValueError:
+            verification = None
+        decision = evaluate_development_authority(
+            development_profile,
+            development_confirmation,
+            verification,
+            now=now,
+            original_quorum=original_quorum,
+        )
+        grant = decision.grant
+        if (
+            not decision.eligible
+            or grant is None
+            or Role.OWNER not in self._effective_roles(approver)
+            or normalized_principal(grant.owner_principal) != normalized_principal(approver.oid)
+        ):
             raise SelfApprovalError(
                 "approver.oid == submitter_oid; no-self-approval invariant would be violated"
             )

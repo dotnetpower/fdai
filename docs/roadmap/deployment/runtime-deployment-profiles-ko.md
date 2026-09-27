@@ -1,6 +1,6 @@
 ---
 translation_of: runtime-deployment-profiles.md
-translation_source_sha: 5ceba88c4f04dfe7fa7ef74af314e233b0c74971
+translation_source_sha: 74a0eac3708f288239dd2aebf29d58b556819ff8
 translation_revised: 2026-09-27
 ---
 # 런타임 배포 프로파일
@@ -45,6 +45,13 @@ facade로 import를 모아도 AKS 관측, Cost Governance 활성화, 배포 권�
 `postgres-aks`는 `runtime_platform=aks`일 때만 사용할 수 있습니다. 클러스터 내부 프로파일이
 영역 손실, 백업, 특정 시점 복구, 업그레이드에 대한 독립 근거를 확보할 때까지 프로덕션에서는
 `postgres-flex`를 사용합니다.
+
+런타임과 데이터베이스 축은 full-authority 개발 프로필을 선택하지 않습니다. 이 권한 프로필은
+하나의 정확한 폐기 가능 테스트 범위에 사용하는 별도의 선택적 배포 입력입니다. 이 프로필을
+선택하려면 공유 기계 계약, 최신 권위 있는 바인딩 소스, 인증된 Owner 한 명, 실행기와 구분되는
+신원이 필요합니다. 누락된 권한 바인딩은 `aks`, `container-apps`, `postgres-flex`,
+`postgres-aks`에서 상속되지 않습니다. 권한 프로필을 명시적으로 선택했지만 구성이 불완전하면
+안전하게 차단합니다.
 
 ## 운영자 계약
 

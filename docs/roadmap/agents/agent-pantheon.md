@@ -544,7 +544,7 @@ Every ActionType, including irreversible actions, declares a live `rollback_cont
 | `remediate.rotate-secret` | `snapshot_restore` | false |
 | `tool.run-chaos-experiment` | `scripted` | false |
 
-An `irreversible: true` action requires HIL, at least two distinct approvers, and no self-approval. Forseti attaches `quorum_required: 2`; Var enforces it.
+An `irreversible: true` action normally requires HIL, at least two distinct approvers, and no self-approval. Forseti attaches `quorum_required: 2`; Var enforces it. The only exception is an explicitly injected full-authority development profile with one currently authenticated Owner and exact action safeguards. Var records original and effective quorum without inventing another person; Thor and Vidar revalidate the same profile, confirmation, action identity, distinct executor, expiry, durable audit, lock, idempotency, and observer before execution or rollback. Roles and topics stay fixed, and profile-scoped promotion never establishes production readiness.
 
 ### 7.6 Handoff as typed delivery
 

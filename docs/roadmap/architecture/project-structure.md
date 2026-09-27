@@ -500,6 +500,14 @@ Deployment Preflight keeps its publication decision in `core/deploy_preflight/pr
   optional package is not required configuration: it can report capability-scoped unavailability
   while unrelated complete paths start normally. Enabling that package makes its declared
   bindings required and fail-closed.
+- The optional full-authority development profile is a separate authority input, not an
+  environment label, fork marker, or runtime-platform choice. Composition accepts it only with an
+  exact profile, a current `DevelopmentAuthorityBindingSource`, an Owner authorizer, and a distinct
+  executor identity. The binding source re-derives the current target scope, ActionType and policy
+  revisions, dry-run and safeguard receipts, lock, audit, and observer evidence before each
+  admission. An absent profile preserves the ordinary multi-operator path; a selected profile with
+  any missing binding fails closed. Upstream currently defines this injection seam but ships no
+  authoritative binding-source implementation.
 - The default environment provider and the optional bounded `YamlFileConfigProvider` both enter the
   same JSON Schema and Pydantic boundary. The YAML provider reads one UTF-8 mapping, rejects
   symlinks, non-regular files, duplicate keys, unsupported or excessively nested YAML, and files

@@ -45,6 +45,13 @@ change either choice or repeat an ambiguous apply.
 `postgres-flex` until the in-cluster profile has independent zone-loss, backup, point-in-time
 recovery, and upgrade evidence.
 
+The runtime and database axes do not select the full-authority development profile. That authority
+profile is a separate, optional deployment input for one exact disposable test scope. Selecting it
+requires the shared machine contract, a current authoritative binding source, one authenticated
+Owner, and a distinct executor identity. Missing authority bindings do not inherit from `aks`,
+`container-apps`, `postgres-flex`, or `postgres-aks`; an explicitly selected but incomplete
+authority profile fails closed.
+
 ## Operator contract
 
 The public command accepts explicit choices for both online and artifact-offline installation. An

@@ -1,8 +1,8 @@
 ---
 title: 프로세스 자동화(Process Automation)
 translation_of: process-automation.md
-translation_source_sha: 54a8246ca7d863f0443ea2eabd3a41640080658f
-translation_revised: 2026-09-26
+translation_source_sha: 0d163e902b4e784bf77b2b9e585056a6ebc8b3fb
+translation_revised: 2026-09-27
 ---
 # 프로세스 자동화(프로세스 자동화)
 
@@ -362,6 +362,12 @@ HIL 로 라우팅되는 워크플로 스텝은 "누가 승인하고, 어떻게 �
   RBAC [`GroupMapping`](../../../services/core-control-plane/src/fdai/core/rbac/resolver.py) 을 통해 Entra
   security-group objectId (`aw-approvers` 또는 `aw-owners` 그룹)로 해석 된다.
   no-self-approval 은 모든 게이트 스텝에 이어진다.
+- **개발 프로필은 계획을 어떻게 바꾸나요?** 명시적으로 선택한 full-authority 개발 프로필은
+  ActionType 게이트와 명시적 승인 단계 모두에서 유효 역할을 Owner로, 유효 정족수를 1로,
+  자기 승인 제외를 false로 설정할 수 있습니다. 플래너는 먼저 신뢰할 수 있는 최신 바인딩을
+  해석하고 정확한 작업 흐름 이름과 버전, 단계 ID, 원래 역할, 정족수, 자기 승인 차단 값을
+  대조합니다. 감사 변환 결과에는 이러한 원래 요구 사항을 보존합니다. 바인딩이 없거나 일치하지
+  않으면 기존 계획을 약화하지 않고 프로필 사용을 차단합니다.
 - **어떻게 도달하나?** A1 `hil_approval` 경로는
   [`HilChannel`](../../../services/core-control-plane/src/fdai/shared/providers/hil_channel.py)
   경계를 통해 전송할 수 있습니다. Teams 봇 전송과 별도로 인증된 콜백은

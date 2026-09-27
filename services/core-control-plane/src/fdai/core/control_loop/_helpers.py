@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import logging
 from collections.abc import Mapping, Sequence
+from datetime import datetime
 from typing import Any
 
 from fdai.core.executor import ExecutionResult, ExecutorOutcome
@@ -33,6 +34,15 @@ from fdai.shared.contracts.models import (
     OntologyActionType,
     Rule,
     Tier,
+)
+from fdai.shared.contracts.models.development_authority import (
+    DevelopmentActionConfirmation,
+    DevelopmentAuthorityEnvelope,
+    FullAuthorityDevelopmentProfile,
+)
+from fdai.shared.providers.development_authority import (
+    DevelopmentAuthorityBindingRequest,
+    DevelopmentAuthorityBindingSource,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -74,6 +84,11 @@ def _compute_authority(
     kill_switch_engaged: bool = False,
     inventory_age_seconds: int | None = None,
     live_probe_observation: LiveProbeObservation | None = None,
+    development_profile: FullAuthorityDevelopmentProfile | None = None,
+    development_confirmation: DevelopmentActionConfirmation | None = None,
+    development_binding_source: DevelopmentAuthorityBindingSource | None = None,
+    development_binding_request: DevelopmentAuthorityBindingRequest | None = None,
+    development_evaluated_at: datetime | None = None,
 ) -> ExecutionAuthorityDecision:
     """Run the execution-authority pipeline for one action + event context.
 
@@ -103,6 +118,11 @@ def _compute_authority(
         system_degraded=system_degraded,
         kill_switch_engaged=kill_switch_engaged,
         live_probe_observation=live_probe_observation,
+        development_profile=development_profile,
+        development_confirmation=development_confirmation,
+        development_binding_source=development_binding_source,
+        development_binding_request=development_binding_request,
+        evaluated_at=development_evaluated_at,
     )
 
 
@@ -173,6 +193,11 @@ def evaluate_unified(
     automation_hold_engaged: bool = False,
     automation_hold_recovery: bool = False,
     live_probe_observation: LiveProbeObservation | None = None,
+    development_profile: FullAuthorityDevelopmentProfile | None = None,
+    development_confirmation: DevelopmentActionConfirmation | None = None,
+    development_binding_source: DevelopmentAuthorityBindingSource | None = None,
+    development_binding_request: DevelopmentAuthorityBindingRequest | None = None,
+    development_evaluated_at: datetime | None = None,
 ) -> UnifiedRiskDecision:
     """Run the runtime-Action gate and the policy-ceiling authority and
     combine them into a single :class:`UnifiedRiskDecision` (canonical-level
@@ -184,15 +209,6 @@ def evaluate_unified(
     reads the static ``rule.remediation.cost_impact_monthly_usd`` as
     before.
     """
-    gate_decision = risk_gate.evaluate(
-        action=action,
-        rule=rule,
-        action_type=action_type,
-        inventory_age_seconds=inventory_age_seconds,
-        precondition_evaluations=precondition_evaluations,
-        automation_hold_engaged=automation_hold_engaged,
-        automation_hold_recovery=automation_hold_recovery,
-    )
     authority = _compute_authority(
         event=event,
         rule=rule,
@@ -203,6 +219,35 @@ def evaluate_unified(
         system_degraded=system_degraded,
         kill_switch_engaged=kill_switch_engaged,
         live_probe_observation=live_probe_observation,
+        development_profile=development_profile,
+        development_confirmation=development_confirmation,
+        development_binding_source=development_binding_source,
+        development_binding_request=development_binding_request,
+        development_evaluated_at=development_evaluated_at,
+    )
+    development = authority.development_authority
+    grant = development.grant if development is not None and development.eligible else None
+    envelope = (
+        DevelopmentAuthorityEnvelope(
+            confirmation=development_confirmation,
+            binding_verification=development.binding_verification,
+            grant=grant,
+        )
+        if grant is not None
+        and development is not None
+        and development.binding_verification is not None
+        and development_confirmation is not None
+        else None
+    )
+    gate_decision = risk_gate.evaluate(
+        action=action,
+        rule=rule,
+        action_type=action_type,
+        inventory_age_seconds=inventory_age_seconds,
+        precondition_evaluations=precondition_evaluations,
+        automation_hold_engaged=automation_hold_engaged,
+        automation_hold_recovery=automation_hold_recovery,
+        development_authority=envelope,
     )
     return combine(gate_decision, authority)
 
