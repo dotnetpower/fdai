@@ -16,8 +16,6 @@ from datetime import UTC, datetime
 from typing import Any
 
 from fdai.agents._framework.base import Agent
-from fdai.agents._framework.bounded import BoundedLruDict, BoundedLruSet
-from fdai.agents._framework.candidate_guard import CandidateGuard
 from fdai.agents._framework.handover_knowledge import HandoverKnowledgeMixin
 from fdai.agents._framework.introspection import (
     IntrospectionResult,
@@ -27,14 +25,14 @@ from fdai.agents._framework.introspection import (
     mentioned,
     semantic_intents,
 )
+from fdai.agents._framework.mimir_catalog_recovery import (
+    CatalogReviewCapacityError,
+    MimirCatalogReviewMixin,
+)
 from fdai.agents._framework.mimir_context import MimirContextMixin
 from fdai.agents._framework.pantheon import _MIMIR
 from fdai.core.operational_learning import (
     CatalogCandidateCompiler,
-    CatalogCompilationError,
-    CatalogReviewOutcome,
-    CatalogReviewPackage,
-    CatalogReviewPublicationReceipt,
     CatalogReviewPublisher,
     ShadowDwellDecision,
     ShadowDwellEvidence,
@@ -80,11 +78,7 @@ class RulePromotion:
     updated_at: str | None
 
 
-class CatalogReviewCapacityError(RuntimeError):
-    """Review work is saturated; transport must retry or dead-letter."""
-
-
-class Mimir(MimirContextMixin, Agent, HandoverKnowledgeMixin):
+class Mimir(MimirContextMixin, Agent, HandoverKnowledgeMixin, MimirCatalogReviewMixin):
     """Wave-2 Mimir: promotion state + candidate intake."""
 
     def __init__(
@@ -92,6 +86,7 @@ class Mimir(MimirContextMixin, Agent, HandoverKnowledgeMixin):
         *,
         catalog_candidate_compiler: CatalogCandidateCompiler | None = None,
         catalog_review_publisher: CatalogReviewPublisher | None = None,
+        catalog_review_state_store: StateStore | None = None,
         shadow_dwell_thresholds: ShadowDwellThresholds | None = None,
         max_pending_candidates: int = _MAX_PENDING_CANDIDATES,
         max_review_packages: int = _MAX_CATALOG_REVIEW_PACKAGES,
@@ -101,25 +96,16 @@ class Mimir(MimirContextMixin, Agent, HandoverKnowledgeMixin):
         if min(max_pending_candidates, max_review_packages) < 1:
             raise ValueError("Mimir review capacities MUST be positive")
         self._promotions: dict[str, RulePromotion] = {}
-        self._pending_candidates: deque[dict[str, Any]] = deque()
-        self._quarantined_candidates: deque[dict[str, Any]] = deque(maxlen=_MAX_QUARANTINE)
-        self._guard = CandidateGuard()
         self._shadow_dwell_thresholds = shadow_dwell_thresholds or ShadowDwellThresholds()
-        self._catalog_candidate_compiler = catalog_candidate_compiler
-        self._catalog_review_publisher = catalog_review_publisher
-        self._max_pending_candidates = max_pending_candidates
-        self._max_review_packages = max_review_packages
-        self._review_lock = asyncio.Lock()
-        self._catalog_review_packages: dict[str, CatalogReviewPackage] = {}
-        self._package_by_idempotency: dict[str, str] = {}
-        self._published_reviews: BoundedLruDict[
-            str,
-            tuple[str, str, CatalogReviewPublicationReceipt],
-        ] = BoundedLruDict(max_review_packages)
-        self._published_operational_targets: BoundedLruSet[str] = BoundedLruSet(max_review_packages)
-        self._investigation_candidates: BoundedLruDict[str, str] = BoundedLruDict(
-            max_pending_candidates
+        self._init_catalog_review(
+            compiler=catalog_candidate_compiler,
+            publisher=catalog_review_publisher,
+            state_store=catalog_review_state_store,
+            max_pending_candidates=max_pending_candidates,
+            max_review_packages=max_review_packages,
+            max_quarantine=_MAX_QUARANTINE,
         )
+        self._review_lock = asyncio.Lock()
         self._rule_generation_build_handler: RuleGenerationBuildHandler | None = None
         self._rule_generation_activation_binder: RuleGenerationActivationBinder | None = None
         self._rule_generation_state_store: StateStore | None = None
@@ -342,272 +328,6 @@ class Mimir(MimirContextMixin, Agent, HandoverKnowledgeMixin):
         if existing is None or existing.get("result_digest") != result.result_digest:
             raise ValueError("Rule generation activation result idempotency conflict")
         self.record_behavior("rule_generation_activation_result_duplicate")
-
-    async def _handle_rule_candidate(self, payload: dict[str, Any]) -> None:
-        investigation_identity: tuple[str, str] | None = None
-        if payload.get("source_signal") == "investigation_strategy_comparison_cohort":
-            if payload.get("producer_principal") != "Norns":
-                raise ValueError("investigation strategy candidate MUST be published by Norns")
-            idempotency_key = str(payload.get("idempotency_key") or "")
-            evidence = payload.get("evidence")
-            candidate_digest = (
-                str(evidence.get("candidate_digest") or "") if isinstance(evidence, dict) else ""
-            )
-            if not idempotency_key or not candidate_digest:
-                raise ValueError("investigation strategy candidate identity is missing")
-            existing = self._investigation_candidates.get(idempotency_key)
-            if existing is not None:
-                if existing != candidate_digest:
-                    raise ValueError("investigation strategy candidate idempotency conflict")
-                self.record_behavior("investigation_strategy_candidate_duplicate")
-                return
-            investigation_identity = (idempotency_key, candidate_digest)
-        if payload.get("source_signal") == "operational_case_fingerprint_cohort":
-            idempotency_key = self._idempotency_key(payload)
-            if (
-                idempotency_key in self._package_by_idempotency
-                or idempotency_key in self._published_reviews
-            ):
-                await self._retry_operational_candidate(payload)
-                return
-        verdict = self._guard.inspect(payload)
-        if verdict.accepted:
-            await self._accept_candidate(payload)
-            if investigation_identity is not None:
-                self._investigation_candidates.set(*investigation_identity)
-        else:
-            self._quarantined_candidates.append(
-                {**dict(payload), "quarantine_reason": verdict.reason}
-            )
-            await self._audit_outcome(
-                payload,
-                outcome="quarantined",
-                reason=verdict.reason,
-            )
-
-    async def _accept_candidate(self, payload: dict[str, Any]) -> None:
-        candidate = dict(payload)
-        if candidate.get("source_signal") != "operational_case_fingerprint_cohort":
-            self._ensure_pending_capacity()
-            self._pending_candidates.append(candidate)
-            return
-        compiler = self._catalog_candidate_compiler
-        if compiler is None:
-            await self._require_current_candidate_cases(candidate)
-            self._ensure_pending_capacity()
-            self._pending_candidates.append(candidate)
-            self.record_behavior("operational_catalog_compiler_unavailable")
-            return
-        try:
-            package = compiler.compile(candidate)
-        except CatalogCompilationError as exc:
-            self._quarantined_candidates.append(
-                {**candidate, "quarantine_reason": f"catalog_compile:{exc.code}"}
-            )
-            self.record_behavior("operational_catalog_compile_failed")
-            await self._audit_outcome(
-                candidate,
-                outcome="quarantined",
-                reason=f"catalog_compile:{exc.code}",
-            )
-            return
-        await self._require_current_candidate_cases(candidate)
-        if (
-            package.content_digest not in self._catalog_review_packages
-            and len(self._catalog_review_packages) >= self._max_review_packages
-        ):
-            raise CatalogReviewCapacityError("Mimir catalog review package capacity exhausted")
-        self._ensure_pending_capacity()
-        self._pending_candidates.append(candidate)
-        self._catalog_review_packages[package.content_digest] = package
-        self._package_by_idempotency[self._idempotency_key(candidate)] = package.content_digest
-        await self._publish_package(candidate, package)
-        self.record_behavior("operational_catalog_review_ready")
-
-    async def _retry_operational_candidate(self, payload: dict[str, Any]) -> None:
-        compiler = self._catalog_candidate_compiler
-        if compiler is None:
-            raise RuntimeError("retained operational package has no compiler")
-        candidate = dict(payload)
-        package = compiler.compile(candidate)
-        await self._require_current_candidate_cases(candidate)
-        idempotency_key = self._idempotency_key(candidate)
-        published = self._published_reviews.get(idempotency_key)
-        if published is not None:
-            candidate_digest, package_digest, receipt = published
-            if package.content_digest != package_digest:
-                await self._audit_outcome(
-                    candidate,
-                    outcome="conflict",
-                    reason="idempotency_payload_conflict",
-                    candidate_digest=package.candidate.digest,
-                    package_digest=package.content_digest,
-                )
-                raise ValueError("catalog review idempotency payload conflict")
-            await self._audit_outcome(
-                candidate,
-                outcome="duplicate",
-                reason="publication_already_recorded",
-                candidate_digest=candidate_digest,
-                package_digest=package_digest,
-                review_ref=receipt.review_ref,
-            )
-            return
-        retained_digest = self._package_by_idempotency[idempotency_key]
-        if package.content_digest != retained_digest:
-            await self._audit_outcome(
-                candidate,
-                outcome="conflict",
-                reason="idempotency_payload_conflict",
-                candidate_digest=package.candidate.digest,
-                package_digest=package.content_digest,
-            )
-            raise ValueError("catalog review idempotency payload conflict")
-        retained = self._catalog_review_packages[retained_digest]
-        await self._publish_package(candidate, retained)
-
-    async def _publish_package(
-        self,
-        candidate: dict[str, Any],
-        package: CatalogReviewPackage,
-    ) -> None:
-        await self._require_current_candidate_cases(candidate)
-        publisher = self._catalog_review_publisher
-        if publisher is None:
-            await self._audit_outcome(
-                candidate,
-                outcome="retained",
-                reason="publisher_unavailable",
-                candidate_digest=package.candidate.digest,
-                package_digest=package.content_digest,
-            )
-            return
-        try:
-            receipt = await publisher.publish(package)
-        except Exception as exc:
-            await self._audit_outcome(
-                candidate,
-                outcome="publication_failed",
-                reason=f"publisher_error:{type(exc).__name__}",
-                candidate_digest=package.candidate.digest,
-                package_digest=package.content_digest,
-            )
-            raise
-        if (
-            not isinstance(receipt, CatalogReviewPublicationReceipt)
-            or receipt.package_digest != package.content_digest
-        ):
-            await self._audit_outcome(
-                candidate,
-                outcome="publication_failed",
-                reason="receipt_digest_conflict",
-                candidate_digest=package.candidate.digest,
-                package_digest=package.content_digest,
-            )
-            raise ValueError("catalog review publication receipt digest conflict")
-        await self._audit_outcome(
-            candidate,
-            outcome="published",
-            reason=("existing_review" if receipt.already_existed else "new_review"),
-            candidate_digest=package.candidate.digest,
-            package_digest=package.content_digest,
-            review_ref=receipt.review_ref,
-        )
-        self._complete_publication(candidate, package, receipt)
-
-    def _complete_publication(
-        self,
-        candidate: dict[str, Any],
-        package: CatalogReviewPackage,
-        receipt: CatalogReviewPublicationReceipt,
-    ) -> None:
-        completed_keys = {
-            idempotency_key
-            for idempotency_key, package_digest in self._package_by_idempotency.items()
-            if package_digest == package.content_digest
-        }
-        completed_keys.add(self._idempotency_key(candidate))
-        for idempotency_key in completed_keys:
-            self._published_reviews.set(
-                idempotency_key,
-                (package.candidate.digest, package.content_digest, receipt),
-            )
-        target_rule_id = str(candidate.get("target_rule_id") or "")
-        if target_rule_id:
-            self._published_operational_targets.add(target_rule_id)
-        for idempotency_key in completed_keys:
-            self._package_by_idempotency.pop(idempotency_key, None)
-        self._catalog_review_packages.pop(package.content_digest, None)
-        self._pending_candidates = deque(
-            item
-            for item in self._pending_candidates
-            if item.get("idempotency_key") not in completed_keys
-        )
-
-    def _ensure_pending_capacity(self) -> None:
-        if len(self._pending_candidates) >= self._max_pending_candidates:
-            raise CatalogReviewCapacityError("Mimir pending candidate capacity exhausted")
-
-    @staticmethod
-    def _idempotency_key(payload: dict[str, Any]) -> str:
-        value = payload.get("idempotency_key")
-        if not isinstance(value, str) or not value:
-            raise ValueError("catalog review candidate requires an idempotency_key")
-        return value
-
-    async def _audit_outcome(
-        self,
-        payload: dict[str, Any],
-        *,
-        outcome: str,
-        reason: str,
-        candidate_digest: str | None = None,
-        package_digest: str | None = None,
-        review_ref: str | None = None,
-    ) -> None:
-        correlation = payload.get("correlation_id")
-        record = CatalogReviewOutcome(
-            idempotency_key=self._idempotency_key(payload),
-            correlation_id=(
-                correlation if isinstance(correlation, str) and correlation else "unavailable"
-            ),
-            candidate_digest=candidate_digest,
-            package_digest=package_digest,
-            outcome=outcome,
-            reason=reason,
-            review_ref=review_ref,
-        )
-        if self.bus is None:
-            raise RuntimeError("Mimir catalog review audit transport is unavailable")
-        await self.bus.publish(
-            "Mimir",
-            "object.rule",
-            {
-                "kind": "catalog_review_outcome",
-                "correlation_id": record.correlation_id,
-                "idempotency_key": record.idempotency_key,
-                "candidate_digest": record.candidate_digest,
-                "package_digest": record.package_digest,
-                "outcome": record.outcome,
-                "reason": record.reason,
-                "review_ref": record.review_ref,
-                "mode": "shadow",
-            },
-        )
-
-    def pending_candidates(self) -> tuple[dict[str, Any], ...]:
-        return tuple(self._pending_candidates)
-
-    def quarantined_candidates(self) -> tuple[dict[str, Any], ...]:
-        return tuple(self._quarantined_candidates)
-
-    def catalog_review_packages(self) -> tuple[CatalogReviewPackage, ...]:
-        return tuple(self._catalog_review_packages.values())
-
-    def catalog_review_publication_receipts(
-        self,
-    ) -> tuple[CatalogReviewPublicationReceipt, ...]:
-        return tuple(item[2] for _, item in self._published_reviews.items())
 
     def shadow_dwell_decision(self, candidate: dict[str, Any]) -> ShadowDwellDecision:
         """Re-derive the dwell verdict for one candidate from its own wire evidence.
