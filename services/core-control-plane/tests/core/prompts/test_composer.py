@@ -1794,3 +1794,21 @@ async def test_same_skill_request_and_catalog_produce_identical_replay_manifest(
     second = await composer.compose(capability_id="t2.reasoner.primary", skill_disclosure=request)
 
     assert first.replay_manifest() == second.replay_manifest()
+
+
+@pytest.mark.asyncio
+async def test_active_topic_packs_carry_count_detail_and_procedure_contracts() -> None:
+    repo_root = Path(__file__).resolve().parents[5]
+    composer = DefaultPromptComposer(registry=FileSystemPromptRegistry(repo_root / "rule-catalog"))
+    assembler = composer.assembler(capability_id="semantic.judgment")
+
+    ontology = assembler.assemble(("topic:ontology_schema",)).system_text
+    action = assembler.assemble(("topic:action_request",)).system_text
+    preflight = await composer.compose(capability_id="conversation.preflight")
+
+    assert "a count is not a list request" in ontology
+    assert "listing the readable declarations of that kind stays query.manifest" in ontology
+    assert "remains advise_only and uses action_requirements" in action
+    assert "only a direct imperative requesting the change itself is draft_only" in action
+    assert "a count is not a list request" not in action
+    assert "full judgment keeps that Resource target" in preflight.system_text
