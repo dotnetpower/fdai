@@ -507,7 +507,9 @@ Deployment Preflight keeps its publication decision in `core/deploy_preflight/pr
   revisions, dry-run and safeguard receipts, lock, audit, and observer evidence before each
   admission. An absent profile preserves the ordinary multi-operator path; a selected profile with
   any missing binding fails closed. Upstream currently defines this injection seam but ships no
-  authoritative binding-source implementation.
+  authoritative binding-source implementation. The focused
+  `core/risk_gate/development_profile.py` module owns profile-scoped promotion and current-authority
+  verification while `gate.py` preserves the public registry and risk-gate API.
 - The default environment provider and the optional bounded `YamlFileConfigProvider` both enter the
   same JSON Schema and Pydantic boundary. The YAML provider reads one UTF-8 mapping, rejects
   symlinks, non-regular files, duplicate keys, unsupported or excessively nested YAML, and files

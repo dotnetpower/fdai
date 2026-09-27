@@ -48,12 +48,11 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from enum import StrEnum
 from math import isfinite
-from typing import Literal, Protocol
+from typing import Literal, Protocol, cast
 
 from fdai.core.measurement import OperationalPromotionReceipt
 from fdai.core.measurement.operational_promotion import action_type_digest
 from fdai.core.risk_gate.preconditions import PreconditionEvaluation
-from fdai.shared.contracts.development_authority import revalidate_development_authority
 from fdai.shared.contracts.models import (
     Action,
     BlastRadiusScope,
@@ -69,19 +68,17 @@ from fdai.shared.contracts.models.development_authority import (
     DevelopmentBindingVerification,
     DevelopmentPromotionApproval,
     FullAuthorityDevelopmentProfile,
-    authority_text_digest,
-    canonical_authority_digest,
-    development_promotion_target_digest,
 )
 from fdai.shared.providers.development_authority import (
     DevelopmentAuthorityBindingRequest,
     DevelopmentAuthorityBindingSource,
-    resolve_development_binding,
 )
 from fdai.shared.providers.exemption import (
     ExemptionRegistry,
     empty_exemption_registry,
 )
+
+from . import development_profile as _development_profile
 
 
 class RiskDecisionOutcome(StrEnum):
@@ -148,14 +145,7 @@ class OperationalPromotionReceiptVerifier(Protocol):
     ) -> bool: ...
 
 
-class DevelopmentPromotionReceiptVerifier(Protocol):
-    def verify_development(
-        self,
-        *,
-        profile_digest: str,
-        action_type: OntologyActionType,
-        receipt: OperationalPromotionReceipt,
-    ) -> bool: ...
+DevelopmentPromotionReceiptVerifier = _development_profile.DevelopmentPromotionReceiptVerifier
 
 
 class PersistedPromotionAuthorityVerifier(Protocol):
@@ -203,21 +193,26 @@ class ActionPromotionRegistry:
     def development_mode_of(self, profile_digest: str, action_type: str) -> Mode:
         """Read mode only from the exact development profile namespace."""
 
-        record = self._development_records.get((profile_digest, action_type))
-        if (
-            record is not None
-            and record.development_valid_until is not None
-            and self._clock() >= record.development_valid_until
-        ):
-            return Mode.SHADOW
-        return record.mode if record is not None else Mode.SHADOW
+        return _development_profile.mode_of(
+            self._development_records,
+            profile_digest=profile_digest,
+            action_type=action_type,
+            clock=self._clock,
+        )
 
     def development_record(
         self,
         profile_digest: str,
         action_type: str,
     ) -> ActionModeRecord | None:
-        return self._development_records.get((profile_digest, action_type))
+        return cast(
+            ActionModeRecord | None,
+            _development_profile.record_of(
+                self._development_records,
+                profile_digest=profile_digest,
+                action_type=action_type,
+            ),
+        )
 
     def restore(self, action_type: str, record: ActionModeRecord | None) -> None:
         """Reset the in-memory record after a failed durable persist.
@@ -339,93 +334,23 @@ class ActionPromotionRegistry:
         current Owner approval can promote development immediately; production
         shadow metrics never grant or constrain this separate authority axis.
         """
-
-        now = self._clock()
-        current_verification = resolve_development_binding(
-            binding_source,
-            binding_request,
-            now=now,
+        return cast(
+            ActionModeRecord,
+            _development_profile.consider_promotion(
+                self._development_records,
+                record_factory=ActionModeRecord,
+                clock=self._clock,
+                profile=profile,
+                confirmation=confirmation,
+                binding_source=binding_source,
+                binding_request=binding_request,
+                binding_verification=binding_verification,
+                grant=grant,
+                action_type=action_type,
+                approval=approval,
+                metrics=metrics,
+            ),
         )
-        if current_verification != binding_verification:
-            raise ValueError("development promotion binding changed")
-        decision = revalidate_development_authority(
-            profile,
-            confirmation,
-            current_verification,
-            grant,
-            now=now,
-            original_quorum=grant.original_quorum,
-        )
-        if not decision.eligible:
-            raise ValueError(
-                f"development promotion authority is ineligible: {decision.reason_code}"
-            )
-        binding = current_verification.binding
-        current_target_digest = "sha256:" + action_type_digest(action_type)
-        current_target = (
-            action_type.name,
-            action_type.version,
-            current_target_digest,
-        )
-        registered_targets = {
-            (item.action_type, item.version, item.action_type_digest)
-            for item in profile.registered_actions
-        }
-        expected_promotion_target = development_promotion_target_digest(
-            action_type=action_type.name,
-            action_type_version=action_type.version,
-            action_type_digest=current_target_digest,
-            reviewed_replay_digest=approval.reviewed_replay_digest,
-            source_revision=approval.fdai_revision,
-            scenario_set_version=approval.scenario_set_version,
-            promotion_evidence_digest=approval.promotion_evidence_digest,
-        )
-        if (
-            current_target not in registered_targets
-            or approval.profile_digest != grant.profile_digest
-            or approval.confirmation_digest != grant.confirmation_digest
-            or approval.binding_verification_digest != current_verification.digest
-            or approval.promotion_action_type != binding.action_type
-            or approval.target_action_type != action_type.name
-            or approval.target_action_type_version != action_type.version
-            or approval.target_action_type_digest != current_target_digest
-            or approval.promotion_target_digest != expected_promotion_target
-            or binding.params_digest != expected_promotion_target
-            or approval.reviewer_principal != grant.owner_principal
-            or approval.valid_until != grant.valid_until
-            or now >= approval.valid_until
-            or approval.development_only is not True
-            or approval.production_ready is not False
-        ):
-            raise ValueError("development promotion approval does not match current authority")
-        if metrics is not None and metrics.action_type != action_type.name:
-            raise ValueError("development promotion metrics action type does not match")
-        key = (grant.profile_digest, action_type.name)
-        prior = self._development_records.get(key)
-        same_authority = (
-            prior is not None
-            and prior.mode is Mode.ENFORCE
-            and prior.promotion_evidence_digest == approval.reviewed_replay_digest
-        )
-        record = ActionModeRecord(
-            action_type=action_type.name,
-            mode=Mode.ENFORCE,
-            promoted_at=prior.promoted_at if same_authority and prior else now,
-            metrics=metrics,
-            promotion_evidence_digest=approval.reviewed_replay_digest,
-            fdai_revision=approval.fdai_revision,
-            scenario_set_version=approval.scenario_set_version,
-            action_type_version=action_type.version,
-            action_type_digest=action_type_digest(action_type),
-            development_profile_digest=grant.profile_digest,
-            development_only=True,
-            production_ready=False,
-            development_valid_until=grant.valid_until,
-            original_quorum=grant.original_quorum,
-            effective_quorum=grant.effective_quorum,
-        )
-        self._development_records[key] = record
-        return record
 
     def demote_development(
         self,
@@ -434,26 +359,16 @@ class ActionPromotionRegistry:
     ) -> ActionModeRecord:
         """Lower one development namespace without touching production mode."""
 
-        if not profile_digest or not action_type_name:
-            raise ValueError("development demotion identity MUST be complete")
-        key = (profile_digest, action_type_name)
-        prior = self._development_records.get(key)
-        now = self._clock()
-        record = ActionModeRecord(
-            action_type=action_type_name,
-            mode=Mode.SHADOW,
-            promoted_at=prior.promoted_at if prior else None,
-            demoted_at=(now if prior is not None and prior.mode is Mode.ENFORCE else None),
-            metrics=prior.metrics if prior else None,
-            development_profile_digest=profile_digest,
-            development_only=True,
-            production_ready=False,
-            development_valid_until=prior.development_valid_until if prior else None,
-            original_quorum=prior.original_quorum if prior else None,
-            effective_quorum=prior.effective_quorum if prior else None,
+        return cast(
+            ActionModeRecord,
+            _development_profile.demote(
+                self._development_records,
+                record_factory=ActionModeRecord,
+                clock=self._clock,
+                profile_digest=profile_digest,
+                action_type_name=action_type_name,
+            ),
         )
-        self._development_records[key] = record
-        return record
 
     def demote(
         self,
@@ -753,82 +668,15 @@ class RiskGate:
         action: Action,
         action_type: OntologyActionType,
     ) -> str | None:
-        try:
-            envelope = DevelopmentAuthorityEnvelope.model_validate(
-                authority.model_dump(mode="python")
-            )
-        except (TypeError, ValueError):
-            return None
-        profile = self._development_profile
-        source = self._development_binding_source
-        executor_principal = self._development_executor_principal
-        if profile is None or source is None or not executor_principal:
-            return None
-        confirmation = envelope.confirmation
-        grant = envelope.grant
-        now = self._clock()
-        if now.tzinfo is None or now.utcoffset() is None:
-            return None
-        request = DevelopmentAuthorityBindingRequest.from_action(
-            action_type=action_type.name,
-            action_id=str(action.action_id),
-            target_ref=action.target_resource_ref,
-            params=action.params,
-            requester_principal=profile.owner_principal,
-            executor_principal=executor_principal,
-            idempotency_key=action.idempotency_key,
-            rollback_contract=action.rollback_ref.kind.value,
+        return _development_profile.current_profile_digest(
+            authority,
+            action=action,
+            action_type=action_type,
+            profile=self._development_profile,
+            binding_source=self._development_binding_source,
+            executor_principal=self._development_executor_principal,
+            clock=self._clock,
         )
-        try:
-            verification = resolve_development_binding(source, request, now=now)
-        except ValueError:
-            return None
-        if verification != envelope.binding_verification:
-            return None
-        decision = revalidate_development_authority(
-            profile,
-            confirmation,
-            verification,
-            grant,
-            now=now,
-            original_quorum=grant.original_quorum,
-        )
-        if not decision.eligible or decision.grant != grant:
-            return None
-        binding = verification.binding
-        registered = {
-            (item.action_type, item.version, item.action_type_digest)
-            for item in profile.registered_actions
-        }
-        current_action_type = (
-            action_type.name,
-            action_type.version,
-            "sha256:" + action_type_digest(action_type),
-        )
-        if (
-            grant.development_only is not True
-            or grant.profile_digest != profile.digest
-            or confirmation.profile_digest != grant.profile_digest
-            or confirmation.digest != grant.confirmation_digest
-            or confirmation.binding != binding
-            or binding.digest != grant.action_binding_digest
-            or verification.digest != grant.binding_verification_digest
-            or not now < confirmation.expires_at
-            or not now < verification.expires_at
-            or not now < grant.valid_until
-            or binding.action_type != action_type.name
-            or binding.action_type_version != action_type.version
-            or binding.action_type_digest != "sha256:" + action_type_digest(action_type)
-            or binding.action_id != str(action.action_id)
-            or binding.target_digest != authority_text_digest(action.target_resource_ref)
-            or binding.params_digest != canonical_authority_digest(action.params)
-            or binding.safeguards.idempotency_key != action.idempotency_key
-            or binding.safeguards.rollback_contract_digest
-            != authority_text_digest(action.rollback_ref.kind.value)
-            or current_action_type not in registered
-        ):
-            return None
-        return grant.profile_digest
 
 
 def _declared_graph_fresh_seconds(action_type: OntologyActionType) -> int:
