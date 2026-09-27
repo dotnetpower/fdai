@@ -126,3 +126,9 @@ and resumable work while the roadmap owner remains focused on normative design.
 - [ ] Before inventory-wide Dashboard claims, review a versioned server-scoped read projection with same-snapshot counts, stable cursors, exact filter semantics, and explicit freshness/completeness; test unauthorized scopes and expired snapshots.
 - [x] Port the bounded resource Dashboard presentation without synthetic fixtures and add English/Korean catalog strings; native-route isolated browser checks passed nine scenarios.
 - [ ] Retain authenticated desktop/mobile and server latency evidence for Dashboard v2 at agreed representative inventory sizes.
+- [ ] [#1283](https://github.com/dotnetpower/fdai/issues/1283): Retain authenticated Browser Entra,
+  revision-pinned runtime readback for every panel in the then-current registry (61 panels after
+  #1256) against its actual producer, storage, API, and UI path, recording measured, empty,
+  unavailable, error, stale, and recovery states separately. The 47 registry, routing, and
+  availability source-contract checks do not satisfy this item, and unmeasured producers stay
+  unavailable rather than ready or zero.
