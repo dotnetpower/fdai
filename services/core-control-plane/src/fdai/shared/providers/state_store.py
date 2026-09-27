@@ -243,6 +243,40 @@ class StateStore(Protocol):
 
 
 @runtime_checkable
+class AssuranceTwinConfirmationStore(Protocol):
+    """Atomically confirm one retained source and its provisional writer row."""
+
+    async def confirm_assurance_twin_source(
+        self,
+        *,
+        source_key: str,
+        source_value: Mapping[str, Any],
+        expected_source_revision: int,
+        target_key: str,
+        target_value: Mapping[str, Any],
+        expected_target_revision: int,
+        require_fresh: bool,
+        audit_entry: Mapping[str, Any],
+    ) -> bool:
+        """Update both rows and append one audit entry in one transaction."""
+        ...
+
+    async def conflict_assurance_twin_source(
+        self,
+        *,
+        source_key: str,
+        source_value: Mapping[str, Any],
+        expected_source_revision: int,
+        target_key: str,
+        target_value: Mapping[str, Any] | None,
+        expected_target_revision: int | None,
+        audit_entry: Mapping[str, Any],
+    ) -> bool:
+        """Tombstone the source and its affected target in one transaction."""
+        ...
+
+
+@runtime_checkable
 class StateStoreKeysetReader(Protocol):
     """Optional retention-only reader; existing StateStore implementations remain valid."""
 
@@ -390,6 +424,7 @@ def _required(entry: Mapping[str, Any], key: str) -> str:
 
 
 __all__ = [
+    "AssuranceTwinConfirmationStore",
     "IncidentAppendStatus",
     "IncidentOpenAppendResult",
     "IncidentWriteConflictError",

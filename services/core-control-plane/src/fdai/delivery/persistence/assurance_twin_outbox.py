@@ -9,7 +9,7 @@ from typing import Any
 from fdai_service_contracts import AgentOperationalActivity
 
 from fdai.core.assurance_twin.posture_activity import AssuranceTwinReviewActivity
-from fdai.shared.providers.state_store import StateStore
+from fdai.shared.providers.state_store import StateStore, StateStoreKeysetReader
 
 POSTURE_REPORT_STATE_PREFIX = "runtime:assurance-twin-posture:"
 CHANGE_REVIEW_STATE_PREFIX = "runtime:assurance-twin-review:"
@@ -98,7 +98,13 @@ class AssuranceTwinOutboxMixin:
             raise ValueError("assurance twin outbox limit MUST be in [1, 100]")
         candidates: list[tuple[str, Mapping[str, Any]]] = []
         for offset in range(0, 1000, 100):
-            rows, total = await self._store.read_state_page(prefix, limit=100, offset=offset)
+            rows, total = await self._store.read_state_page(
+                prefix,
+                limit=100,
+                offset=offset,
+                field="source_confirmed",
+                value="true",
+            )
             if total > 1000:
                 raise RuntimeError("assurance twin outbox scan exceeds bounded capacity")
             for row in rows:
@@ -109,10 +115,49 @@ class AssuranceTwinOutboxMixin:
                         raise RuntimeError("assurance twin outbox record identity is malformed")
                     candidates.append((f"{prefix}{identity}", row))
                     if len(candidates) >= limit:
-                        return tuple(candidates)
+                        break
             if offset + 100 >= total:
                 break
-        return tuple(candidates)
+        legacy: list[tuple[str, Mapping[str, Any]]] = []
+        legacy_limit = max(1, limit // 10)
+        if legacy_limit:
+            cursors = getattr(self, "_legacy_outbox_cursors", {})
+            cursor = str(cursors.get(owner, ""))
+            if isinstance(self._store, StateStoreKeysetReader):
+                keys = await self._store.read_state_keys(prefix, after=cursor, limit=100)
+                retained_rows: list[Mapping[str, Any]] = []
+                for key in keys:
+                    retained = await self._store.read_state(key)
+                    if retained is not None:
+                        retained_rows.append(retained)
+                rows = tuple(retained_rows)
+                cursors[owner] = keys[-1] if keys else ""
+            else:
+                offsets = getattr(self, "_legacy_outbox_offsets", {})
+                offset = int(offsets.get(owner, 0))
+                rows, total = await self._store.read_state_page(
+                    prefix,
+                    limit=100,
+                    offset=offset,
+                )
+                next_offset = offset + len(rows)
+                offsets[owner] = 0 if not rows or next_offset >= total else next_offset
+                self._legacy_outbox_offsets = offsets
+            for row in rows:
+                if "source_confirmed" in row:
+                    continue
+                outbox = row.get(_PUBLICATION_FIELD)
+                if isinstance(outbox, Mapping) and outbox.get("published") is False:
+                    identity = row.get("scope" if owner == "Heimdall" else "review_key")
+                    if not isinstance(identity, str):
+                        raise RuntimeError("assurance twin outbox record identity is malformed")
+                    legacy.append((f"{prefix}{identity}", row))
+                    if len(legacy) >= legacy_limit:
+                        break
+            self._legacy_outbox_cursors = cursors
+        if legacy:
+            return tuple((*candidates[: limit - len(legacy)], *legacy))
+        return tuple(candidates[:limit])
 
     async def read_publication(self, key: str, *, owner: str) -> Mapping[str, Any] | None:
         if not key.startswith(_owner_prefix(owner)):

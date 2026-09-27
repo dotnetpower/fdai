@@ -21,7 +21,7 @@ import os
 import subprocess
 import sys
 import uuid
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import pytest
@@ -42,6 +42,55 @@ from tests.core.operational_learning.test_patterns import (
 pytestmark = pytest.mark.integration
 
 REPO_ROOT = Path(__file__).resolve().parents[4]
+
+
+@pytest.mark.asyncio
+async def test_assurance_twin_source_and_target_transition_atomically() -> None:
+    url = _requires_live_db()
+    _upgrade_head()
+    store = PostgresStateStore(config=PostgresStateStoreConfig(dsn=_plain_dsn(url)))
+    identity = uuid.uuid4().hex
+    source_key = f"assurance-twin-source-{identity}"
+    target_key = f"assurance-twin-target-{identity}"
+    source = {
+        "revision": 1,
+        "fresh_until": (datetime.now(UTC) + timedelta(minutes=5)).isoformat(),
+        "writer_status": "pending",
+    }
+    target = {"revision": 1, "source_confirmed": False}
+    assert await store.write_state_with_audit_if_absent(
+        source_key, source, {"action_kind": "assurance_twin.source_test"}
+    )
+    assert await store.write_state_with_audit_if_absent(
+        target_key, target, {"action_kind": "assurance_twin.target_test"}
+    )
+    confirmed_source = {**source, "revision": 2, "writer_status": "confirmed"}
+    confirmed_target = {**target, "revision": 2, "source_confirmed": True}
+    assert await store.confirm_assurance_twin_source(
+        source_key=source_key,
+        source_value=confirmed_source,
+        expected_source_revision=1,
+        target_key=target_key,
+        target_value=confirmed_target,
+        expected_target_revision=1,
+        require_fresh=True,
+        audit_entry={"action_kind": "assurance_twin.confirmed_test"},
+    )
+    assert await store.read_state(source_key) == confirmed_source
+    assert await store.read_state(target_key) == confirmed_target
+    conflicted_source = {**confirmed_source, "revision": 3, "conflict": True}
+    conflicted_target = {**confirmed_target, "revision": 3, "conflict": True}
+    assert await store.conflict_assurance_twin_source(
+        source_key=source_key,
+        source_value=conflicted_source,
+        expected_source_revision=2,
+        target_key=target_key,
+        target_value=conflicted_target,
+        expected_target_revision=2,
+        audit_entry={"action_kind": "assurance_twin.conflict_test"},
+    )
+    assert await store.read_state(source_key) == conflicted_source
+    assert await store.read_state(target_key) == conflicted_target
 
 
 @pytest.mark.asyncio

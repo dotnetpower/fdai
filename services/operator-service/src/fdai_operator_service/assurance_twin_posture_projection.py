@@ -62,6 +62,7 @@ _PROVENANCE_FIELDS = frozenset(
         "correlation_id",
         "evidence_digest",
         "evidence_source_revision",
+        "source_confirmed",
         "conflict",
         "revision",
         "publication_outbox",
@@ -279,6 +280,8 @@ def _digest_reason(value: Mapping[str, Any]) -> str | None:
         return GAP_MALFORMED
     if not _bounded_identity(value.get("evidence_source_revision")):
         return GAP_MALFORMED
+    if value.get("source_confirmed", True) is not True:
+        return GAP_NOT_FRESH
     if _evidence_body_digest(value) != recorded:
         return GAP_DIGEST_MISMATCH
     return None

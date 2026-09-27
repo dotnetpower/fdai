@@ -29,6 +29,7 @@ _PROVENANCE_FIELDS = (
     "correlation_id",
     "evidence_digest",
     "evidence_source_revision",
+    "source_confirmed",
     "conflict",
 )
 _REVISION = "sha256:0000000000000000000000000000000000000000000000000000000000000001"
@@ -213,6 +214,14 @@ def test_posture_projection_rejects_a_row_whose_digest_does_not_verify() -> None
     gaps = projection["gaps"]
     assert isinstance(gaps, list)
     assert gaps[0]["reason_code"] == GAP_DIGEST_MISMATCH
+
+
+def test_posture_projection_keeps_unconfirmed_source_unavailable() -> None:
+    projection = assurance_twin_posture_projection((_row(_POSTURE_BODY, source_confirmed=False),))
+    assert projection["available"] is False
+    gaps = projection["gaps"]
+    assert isinstance(gaps, list)
+    assert gaps[0]["reason_code"] == GAP_NOT_FRESH
 
 
 def test_posture_projection_rejects_a_row_without_provenance() -> None:

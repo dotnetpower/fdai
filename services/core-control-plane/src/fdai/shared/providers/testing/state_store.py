@@ -27,6 +27,12 @@ _GENESIS_HASH = GENESIS_HASH
 _next_hash = next_hash
 
 
+def _field_matches(actual: object, expected: str) -> bool:
+    if isinstance(actual, bool):
+        return str(actual).lower() == expected
+    return actual == expected
+
+
 def _approval_guard_matches(
     record: Mapping[str, Any] | None,
     *,
@@ -187,6 +193,82 @@ class InMemoryStateStore(StateStore):
                 raise
             return True
 
+    async def confirm_assurance_twin_source(
+        self,
+        *,
+        source_key: str,
+        source_value: Mapping[str, Any],
+        expected_source_revision: int,
+        target_key: str,
+        target_value: Mapping[str, Any],
+        expected_target_revision: int,
+        require_fresh: bool,
+        audit_entry: Mapping[str, Any],
+    ) -> bool:
+        with self._lock:
+            source = self._state.get(source_key)
+            target = self._state.get(target_key)
+            if (
+                source is None
+                or target is None
+                or source.get("revision", 0) != expected_source_revision
+                or target.get("revision", 0) != expected_target_revision
+            ):
+                return False
+            if require_fresh:
+                try:
+                    fresh_until = datetime.fromisoformat(str(source.get("fresh_until") or ""))
+                except ValueError:
+                    return False
+                if fresh_until.tzinfo is None or fresh_until <= datetime.now(UTC):
+                    return False
+            state_before = deepcopy(self._state)
+            audit_length_before = len(self._audit)
+            try:
+                self._write_locked(source_key, source_value)
+                self._write_locked(target_key, target_value)
+                self._append_audit_locked(audit_entry)
+            except Exception:
+                self._state = state_before
+                del self._audit[audit_length_before:]
+                raise
+            return True
+
+    async def conflict_assurance_twin_source(
+        self,
+        *,
+        source_key: str,
+        source_value: Mapping[str, Any],
+        expected_source_revision: int,
+        target_key: str,
+        target_value: Mapping[str, Any] | None,
+        expected_target_revision: int | None,
+        audit_entry: Mapping[str, Any],
+    ) -> bool:
+        with self._lock:
+            source = self._state.get(source_key)
+            target = self._state.get(target_key)
+            if source is None or source.get("revision", 0) != expected_source_revision:
+                return False
+            if target_value is not None and (
+                target is None
+                or expected_target_revision is None
+                or target.get("revision", 0) != expected_target_revision
+            ):
+                return False
+            state_before = deepcopy(self._state)
+            audit_length_before = len(self._audit)
+            try:
+                self._write_locked(source_key, source_value)
+                if target_value is not None:
+                    self._write_locked(target_key, target_value)
+                self._append_audit_locked(audit_entry)
+            except Exception:
+                self._state = state_before
+                del self._audit[audit_length_before:]
+                raise
+            return True
+
     async def compare_and_set_state_with_approval_guard(
         self,
         key: str,
@@ -265,7 +347,7 @@ class InMemoryStateStore(StateStore):
                 (
                     deepcopy(item)
                     for key, item in self._state.items()
-                    if key.startswith(prefix) and item.get(field) == value
+                    if key.startswith(prefix) and _field_matches(item.get(field), value)
                 ),
                 None,
             )
@@ -318,7 +400,8 @@ class InMemoryStateStore(StateStore):
             matching = [
                 deepcopy(item)
                 for key, item in reversed(tuple(self._state.items()))
-                if key.startswith(prefix) and (field is None or item.get(field) == value)
+                if key.startswith(prefix)
+                and (field is None or _field_matches(item.get(field), str(value)))
             ]
         return tuple(matching[offset : offset + limit]), len(matching)
 

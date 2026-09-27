@@ -75,6 +75,7 @@ class AssuranceTwinPostureRecorder:
         freshness: OperationalFreshness,
         reason_codes: tuple[str, ...] = (),
         evidence_source_revision: str,
+        source_confirmed: bool = True,
     ) -> AssuranceTwinPostureRecord:
         """Persist ``report`` and return its bounded unpublished activity."""
 
@@ -93,6 +94,7 @@ class AssuranceTwinPostureRecorder:
             activity_id=activity.activity_id,
             correlation_id=correlation_id,
             evidence_source_revision=evidence_source_revision,
+            source_confirmed=source_confirmed,
             activity=activity,
         )
         if write.conflict:
@@ -148,6 +150,7 @@ class AssuranceTwinPostureRecorder:
         freshness: OperationalFreshness,
         reason_codes: tuple[str, ...] = (),
         evidence_source_revision: str,
+        source_confirmed: bool = True,
     ) -> AssuranceTwinPostureRecord:
         """Persist ``review`` durably (idempotent by ``review_key``).
 
@@ -174,6 +177,7 @@ class AssuranceTwinPostureRecorder:
             activity_id=activity.activity_id,
             correlation_id=correlation_id,
             evidence_source_revision=evidence_source_revision,
+            source_confirmed=source_confirmed,
             activity=activity,
         )
         if write.conflict:
@@ -190,6 +194,26 @@ class AssuranceTwinPostureRecorder:
             evidence_digest=write.evidence_digest,
             conflict=write.conflict,
             stored_evidence_digest=write.stored_evidence_digest,
+        )
+
+    async def mark_source_conflict(
+        self,
+        *,
+        owner: str,
+        source_key: str,
+        generated_at: str,
+        source_revision: str,
+        rejected_evidence_digest: str,
+        correlation_id: str,
+    ) -> bool:
+        """Let the accountable writer tombstone a conflicting retained source."""
+        return await self._ledger.mark_source_conflict(
+            owner=owner,
+            source_key=source_key,
+            generated_at=generated_at,
+            source_revision=source_revision,
+            rejected_evidence_digest=rejected_evidence_digest,
+            correlation_id=correlation_id,
         )
 
     async def read_latest_posture_report(self, scope: str) -> Mapping[str, Any] | None:
