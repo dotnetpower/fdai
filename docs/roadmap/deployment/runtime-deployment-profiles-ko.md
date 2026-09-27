@@ -1,6 +1,6 @@
 ---
 translation_of: runtime-deployment-profiles.md
-translation_source_sha: c755f42134eda6f965875c1aaea8d27313b51b04
+translation_source_sha: 308d17f79fb1ea1b9993adefc2515e6ff53262b5
 translation_revised: 2026-09-27
 ---
 # 런타임 배포 프로파일
@@ -161,6 +161,8 @@ alias와 검증된 known-hosts 파일을 재사용합니다. 런타임 선택은
 신뢰를 허용하지 않습니다.
 런타임 프로필 검증은 애플리케이션 단계 결과 11개보다 먼저 이 공유 alias를 실행하므로
 전송 협력자 변경이 단계별 실패 계약을 우회할 수 없습니다.
+또한 전송 기한 결과 4개를 실행해 성공, 예산 만료 및 모호한 전송 경로에서 같은 alias 계약을
+유지합니다.
 애플리케이션 수렴 후 Managed Host는 명시적인 `--initial` 모드로 Core 인벤토리 진입점을 호출해
 반복 실행의 예정 시각 게이트만 우회합니다. 이미 인증된 배포 신원으로 전체 구독 ARG/ARM 읽기와
 변경 불가 진행률 기록을 수행한 뒤 별도의 읽기 전용 종결 프로세스를 시작합니다. 반복 런타임
