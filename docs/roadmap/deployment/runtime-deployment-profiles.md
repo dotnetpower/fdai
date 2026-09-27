@@ -161,7 +161,9 @@ Azure CLI operations, but Terraform backend and provider authentication use that
 through `ARM_USE_MSI=true` and its exact client ID. The host clears inherited CLI, OIDC,
 client-secret, certificate, username/password, workload-identity, and custom MSI-endpoint selectors
 before setting this binding. An ambient authentication mechanism cannot replace the handoff-bound
-executor identity.
+executor identity. Each Terraform binary plan is then opened without following links, validated as
+a nonempty single-link file owned by the executor, and sealed to mode `0600` before projection,
+digest binding, approval, or apply.
 Enrollment and every later application transfer reuse the same VM-bound `fdai-genesis-*` SSH
 host-key alias and attested known-hosts file; runtime selection never permits a second alias or
 first-contact trust.
