@@ -15,6 +15,18 @@ async function openDeck(page: Page, locale: "en" | "ko" = "en") {
   return page.locator(".deck-busy");
 }
 
+function busyInspection(page: Page) {
+  return page.waitForResponse((response) =>
+    new URL(response.url()).pathname.endsWith("/chat/busy-input") &&
+    response.request().method() === "GET");
+}
+
+async function settleRender(page: Page) {
+  await page.evaluate(() => new Promise<void>((resolve) => {
+    requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
+  }));
+}
+
 test("desktop follow-up uses exact observed session and keeps local Stop separate", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.emulateMedia({ reducedMotion: "reduce" });
@@ -79,10 +91,10 @@ test("desktop follow-up uses exact observed session and keeps local Stop separat
   expect(overflow).toEqual({ page: false, deck: false });
 });
 
-test("unavailable, malformed, mismatched, conflict and unconfirmed responses retain draft", async ({ page }) => {
+test("unconfirmed projections stay hidden and later failures retain draft", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
-  let getStatus = 404;
-  let body: object = projection();
+  type Inspection = (session: string) => { status: number; json: object };
+  let inspection: Inspection = () => ({ status: 404, json: projection() });
   let writeStatus = 202;
   let exactSession = "";
   let submittedId = "";
@@ -90,7 +102,8 @@ test("unavailable, malformed, mismatched, conflict and unconfirmed responses ret
     const request = route.request();
     if (new URL(request.url()).pathname.endsWith("/chat/busy-input") && request.method() === "GET") {
       exactSession = new URL(request.url()).searchParams.get("session_id") ?? "";
-      return route.fulfill({ status: getStatus, json: body });
+      const { status, json } = inspection(exactSession);
+      return route.fulfill({ status, json });
     }
     if (new URL(request.url()).pathname.endsWith("/chat/busy-input") && request.method() === "POST") {
       submittedId = (request.postDataJSON() as { input_id: string }).input_id;
@@ -98,24 +111,38 @@ test("unavailable, malformed, mismatched, conflict and unconfirmed responses ret
     }
     return route.fulfill({ status: 404, json: {} });
   });
-  const busy = await openDeck(page);
-  await page.locator(".deck-input").fill("Keep this draft");
-  await expect(busy.getByText(/controls unavailable/)).toBeVisible();
-  await expect(busy.getByRole("button", { name: "Submit follow-up" })).toHaveCount(0);
-  for (const [status, payload] of [
-    [503, projection()],
-    [200, { ...projection(), session_id: "wrong" }],
-    [200, { ...projection(), pending: [{ sequence: 0 }] }],
-    [202, projection()],
-  ] as const) {
-    getStatus = status;
-    body = payload;
-    await busy.getByRole("button", { name: "Refresh conversation state" }).click();
-    await expect(busy.getByText(/controls unavailable/)).toBeVisible();
+  const failures: readonly Inspection[] = [
+    () => ({ status: 503, json: projection() }),
+    () => ({ status: 200, json: { ...projection(), session_id: "wrong" } }),
+    (session) => ({ status: 200, json: { ...projection(), session_id: session, pending: [{ sequence: 0 }] } }),
+    (session) => ({ status: 202, json: { ...projection(), session_id: session } }),
+  ];
+  // A never-confirmed projection leaves the composer without follow-up controls.
+  for (const unconfirmed of [inspection, ...failures]) {
+    inspection = unconfirmed;
+    const inspected = busyInspection(page);
+    const busy = await openDeck(page);
+    await inspected;
+    await page.locator(".deck-input").fill("Keep this draft");
+    await settleRender(page);
+    await expect(busy).toHaveCount(0);
     await expect(page.locator(".deck-input")).toHaveValue("Keep this draft");
   }
-  getStatus = 200;
-  body = { ...projection(), session_id: exactSession };
+  inspection = (session) => ({ status: 200, json: { ...projection(), session_id: session } });
+  const busy = await openDeck(page);
+  await expect(busy.getByText("Active turn - Queue mode - 0 pending")).toBeVisible();
+  await page.locator(".deck-input").fill("Keep this draft");
+  // After confirmation, the same failures stay visible as unavailable feedback.
+  for (const failure of failures) {
+    inspection = failure;
+    const inspected = busyInspection(page);
+    await busy.getByRole("button", { name: "Refresh conversation state" }).click();
+    await inspected;
+    await expect(busy.getByText(/controls unavailable/)).toBeVisible();
+    await expect(busy.getByRole("button", { name: "Submit follow-up" })).toHaveCount(0);
+    await expect(page.locator(".deck-input")).toHaveValue("Keep this draft");
+  }
+  inspection = (session) => ({ status: 200, json: { ...projection(), session_id: session } });
   await busy.getByRole("button", { name: "Refresh conversation state" }).click();
   await expect(busy.getByText("Active turn - Queue mode - 0 pending")).toBeVisible();
   writeStatus = 409;
@@ -131,16 +158,54 @@ test("unavailable, malformed, mismatched, conflict and unconfirmed responses ret
   await busy.getByRole("button", { name: "Refresh conversation state" }).click();
   await expect(busy.getByText(/Request pending confirmation/)).toBeVisible();
   await expect(busy.getByRole("button", { name: "Submit follow-up" })).toHaveCount(0);
-  body = {
-    ...projection("queue", [{
-      input: { input_id: submittedId, expires_at: "2026-09-26T12:00:00Z" },
-      sequence: 0, disposition: "queued", status: "pending",
-    }], true, 2),
-    session_id: exactSession,
-  };
+  inspection = (session) => ({
+    status: 200,
+    json: {
+      ...projection("queue", [{
+        input: { input_id: submittedId, expires_at: "2026-09-26T12:00:00Z" },
+        sequence: 0, disposition: "queued", status: "pending",
+      }], true, 2),
+      session_id: session,
+    },
+  });
   await busy.getByRole("button", { name: "Refresh conversation state" }).click();
   await expect(busy.getByText("Server shows follow-up queued.")).toBeVisible();
   await expect(page.locator(".deck-input")).toHaveValue("");
+  expect(exactSession).not.toBe("");
+});
+
+test("confirmed idle projection appears only for a local busy turn", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  let serverActive = false;
+  await page.route("**/api/**", async (route) => {
+    const request = route.request();
+    const url = new URL(request.url());
+    if (url.pathname.endsWith("/chat/busy-input") && request.method() === "GET") {
+      return route.fulfill({ json: {
+        ...projection("queue", [], serverActive),
+        session_id: url.searchParams.get("session_id") ?? "",
+      } });
+    }
+    if (url.pathname.endsWith("/chat/health")) {
+      return route.fulfill({ json: { available: true, mode: "test", model: "test" } });
+    }
+    // Leaving the stream unanswered keeps the local turn in flight.
+    if (url.pathname.endsWith("/chat/stream")) return;
+    return route.fulfill({ status: 404, json: {} });
+  });
+  const inspected = busyInspection(page);
+  const busy = await openDeck(page);
+  await inspected;
+  await settleRender(page);
+  await expect(busy).toHaveCount(0);
+  serverActive = true;
+  const turnInspection = busyInspection(page);
+  await page.locator(".deck-input").fill("Show the current state");
+  await page.locator(".deck-input-actions").getByRole("button", { name: "Send" }).click();
+  await expect(page.getByRole("button", { name: "Stop", exact: true })).toBeVisible();
+  await turnInspection;
+  await expect(busy.getByText("Active turn - Queue mode - 0 pending")).toBeVisible();
 });
 
 test("Korean copy and keyboard controls fit a constrained deck", async ({ page }) => {

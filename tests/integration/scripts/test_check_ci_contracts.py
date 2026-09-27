@@ -1813,6 +1813,9 @@ def test_ci_partitions_database_and_provider_checks_across_two_shards() -> None:
     assert integration_job["env"]["FDAI_PYTEST_MODE"] == "integration"
     assert integration_job["env"]["FDAI_PYTEST_SHARD_COUNT"] == "2"
     assert integration_job["env"]["FDAI_PYTEST_SHARD_INDEX"] == "${{ matrix.shard }}"
+    assert integration_job["env"]["FDAI_SERVICE_DATABASE_URL"].endswith(
+        "@localhost:5432/fdai_services"
+    )
     integration_steps = [step["name"] for step in integration_job["steps"]]
     assert integration_steps.index("Run alembic upgrade head") < integration_steps.index(
         "Run integration test shard"
@@ -1826,7 +1829,13 @@ def test_ci_partitions_database_and_provider_checks_across_two_shards() -> None:
         if step["name"] == "Run service-owned database tests"
     )
     assert service_step["if"] == "matrix.shard == 1"
-    assert service_step["env"]["FDAI_DATABASE_URL"] == "${{ env.FDAI_SERVICE_DATABASE_URL }}"
+    assert "FDAI_DATABASE_URL" not in service_step.get("env", {})
+    prepare_service_database = next(
+        step
+        for step in integration_job["steps"]
+        if step["name"] == "Prepare service migration database"
+    )
+    assert 'stream.write(f"FDAI_DATABASE_URL={service_url}\\n")' in prepare_service_database["run"]
     provider_stack_step = next(
         step for step in integration_job["steps"] if step["name"] == "Start loopback provider stack"
     )
@@ -1839,6 +1848,18 @@ def test_ci_partitions_database_and_provider_checks_across_two_shards() -> None:
     )
     assert provider_step["if"] == "matrix.shard == 2"
     assert provider_step["env"]["FDAI_PROVIDER_CONTRACT_BACKENDS"] == "real"
+
+
+def test_ci_resolves_optional_governance_variable_without_static_context_access() -> None:
+    workflow = (_REPO_ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
+    governance_step = workflow.split("- name: Enforce governance review authority", 1)[1].split(
+        "\n      - name:", 1
+    )[0]
+
+    assert "REPOSITORY_VARIABLES_JSON: ${{ toJSON(vars) }}" in governance_step
+    assert 'variables.get("FDAI_GOVERNANCE_IDENTITY_APP_ID", "")' in governance_step
+    assert "${{ vars.FDAI_GOVERNANCE_IDENTITY_APP_ID }}" not in workflow
+    assert "${{ env.FDAI_SERVICE_DATABASE_URL }}" not in workflow
 
 
 def test_ci_runs_regression_without_coverage_and_merges_focused_coverage() -> None:
