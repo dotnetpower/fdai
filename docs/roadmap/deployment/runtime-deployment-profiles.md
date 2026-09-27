@@ -151,6 +151,7 @@ single private repository and downscoped permissions, and runs the real Huginn, 
 Mimir, and Saga event path on durable Kafka and PostgreSQL. Success requires an independently read
 open draft with the exact head commit, review document, base, labels, and no merge or auto-merge. The receipt grants no
 catalog activation, merge, promotion, or managed-resource mutation authority.
+Presentation records this selected-or-skipped checkpoint as the seventeenth phase, and every application receipt carries its catalog-review digest and state.
 Repository tests assemble their non-secret PEM boundary marker at runtime; secret scanning ignores only the removed marker's exact historical fingerprint and does not allow future key-shaped source.
 
 Tenant provisioning consumes prebuilt service and dependency images for new installations, whole-profile convergence, staging, production, dependencies, and releases. Core, Operator, and the Cost Governance profile install the typed shared runtime diagnostics wheel because their distributions import it; the venue guard keeps its socket unavailable outside explicit local development.
