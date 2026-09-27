@@ -178,8 +178,9 @@ from the same family cannot review that answer.
    answer attempt per question, the completed child receipt, and mode-`0600` question, evaluation,
    and regression ledgers. Campaign `campaign-20260910t002818z-1210810-a8153612` completed 10
    distinct questions with 0 cycle holds and 0 hardenings.
-- [ ] Run the complete 50-item bilingual qualification scorecard on one pinned revision, retain
-   per-item results that prove every hard-check and semantic-rubric threshold, and bind the batch
+- [ ] [#301](https://github.com/dotnetpower/fdai/issues/301): Run the complete 50-item bilingual
+   qualification scorecard three times on one pinned revision and configuration, retain per-item
+   worst-run results that prove every hard-check and semantic-rubric threshold, and bind the batch
    to a current independently verified `DecisionCriticalEvidenceReceipt` bundle.
 - [ ] Retain a blind holdout replay showing a statistically supported improvement with zero hard
    escapes and no locale regression before reporting a promoted policy.
@@ -231,6 +232,3 @@ from the same family cannot review that answer.
    turn envelope. Owner-backed dimensions are measured; non-owned dimensions remain explicitly
    unavailable instead of receiving synthetic success values. Focused qualification checks passed
    108 cases.
-
-- [ ] Run the complete 50-item bilingual qualification scorecard on one pinned revision and retain
-   per-item results that prove every hard-check and semantic-rubric threshold.
