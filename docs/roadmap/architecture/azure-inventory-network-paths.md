@@ -26,6 +26,7 @@ unavailable" and retains the last complete snapshot.
 | Area | State | Evidence | Notes |
 |------|-------|----------|-------|
 | Restricted-network discovery and ordered source fallback | in-progress | Azure inventory adapters under `delivery/azure/`; deployment preflight and connectivity contracts | The bounded adapters and failure classes exist. This document does not retain one exact-revision protected deployment proving every fallback rung. |
+| Isolated fallback certification | implemented | `inventory_network_certification.py`; `infra/inventory-network-certification/`; exact create and cleanup plan gate; focused tests | The task-owned sandbox can prove token, DNS, TLS, bounded ARG, private projection, one ARG-to-ARM fallback, active-generation retention, recovery, independent private receipt readback, and exact cleanup without changing the existing development network. A governed run remains open. |
 | Snapshot authority and stale-state handling | implemented | Inventory sync, projection, and reconciliation tests cited by [CSP-Neutrality Contracts](csp-neutrality.md#implementation-status) | Partial collection cannot replace the last complete promoted generation or authorize an absence claim. |
 | Subnet-specific network controls | implemented | `infra/modules/network/main.tf`; `infra/bootstrap/main.tf`; focused network hardening tests | VM-bearing subnets deny Internet inbound through explicit NSGs. Azure-managed delegated and private-endpoint subnets retain their service-owned network-policy contracts. |
 | AKS fleet observation binding | implemented | `infra/main.tf`; `infra/scenario-lab/aks.tf`; Container Apps Inventory Job; focused AKS identity and scenario tests | Exact workload-identity bindings remain read-only. The disposable scenario may expose one Entra and Azure RBAC protected public API with local accounts disabled; its Trivy and Checkov public-access suppressions remain resource-local. |
@@ -47,6 +48,21 @@ unavailable" and retains the last complete snapshot.
 - [ ] Retain an exact-revision protected deployment receipt that proves token, DNS, TCP/TLS,
   bounded ARG query, private projection write, one unavailable-source fallback, stale retention,
   and successful recovery without widening discovery or executor identity.
+
+## Isolated certification sandbox
+
+Restricted-network fault evidence uses one task-owned development resource group with its own
+Virtual Network, delegated Container Apps and PostgreSQL subnets, private DNS zones, private
+PostgreSQL server, and private Blob receipt store. It does not peer with, route through, or change
+the existing development Virtual Network, DNS, NSG, Private Endpoint, identity, provider
+registration, or active inventory generation.
+
+The exact create plan permits only the reviewed sandbox addresses. One workload identity runs the
+`arg,arm` campaign over the bounded `resource-group` type, while a distinct read-only identity
+verifies the private receipt. The campaign records workload token, DNS, TCP/TLS, bounded ARG,
+private projection write, ARG unavailability, one ARM fallback, retained active generation, and
+higher-priority ARG recovery. Cleanup uses a separate exact delete-only plan after successful
+effect verification; an ambiguous campaign or cleanup preserves the sandbox for recovery review.
 
 ## Required network paths
 

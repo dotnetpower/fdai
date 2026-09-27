@@ -123,6 +123,7 @@ from fdai.shared.providers.state_evidence import (
     StateFactMetadata,
 )
 from fdai.shared.providers.testing import InMemoryOntologyInstanceStore
+from fdai.shared.providers.testing.state_store import InMemoryStateStore
 from fdai_service_contracts.ontology_query import EvidenceAuthority, TaskStatus, content_digest
 from tests.decision_evidence import StubDecisionEvidenceAdmissionProvider
 
@@ -1564,6 +1565,7 @@ async def test_runtime_current_evidence_probe_uses_exact_principal_scope_and_aut
         )
     )
     health_reader = _CompleteResourceHealthReader()
+    audit_store = InMemoryStateStore()
     runtime = build_semantic_query_runtime(
         model=_ManifestCaptureModel(_definition()),
         ontology_release=build_ontology_release(
@@ -1577,6 +1579,7 @@ async def test_runtime_current_evidence_probe_uses_exact_principal_scope_and_aut
         inventory_query_language=_health_language(),
         resource_freshness_seconds=300,
         now=lambda: NOW,
+        state_store=audit_store,
     )
     principal = Principal(id="watchdog-local", role=Role.CONTRIBUTOR)
     probe = runtime.current_evidence_probe
@@ -1610,6 +1613,14 @@ async def test_runtime_current_evidence_probe_uses_exact_principal_scope_and_aut
         purpose="operations-review",
     )
     assert {item.principal_scope_digest for item in observations.values()} == {expected_scope}
+    refresh_entries = [
+        item["entry"]
+        for item in audit_store.audit_entries
+        if item["entry"].get("kind") == "semantic.graph_evidence_refresh"
+    ]
+    assert {item["evidence_status"] for item in refresh_entries} == {"complete"}
+    assert {item["principal_scope_digest"] for item in refresh_entries} == {expected_scope}
+    assert all(item["execution_authority"] is False for item in refresh_entries)
 
 
 async def test_runtime_exposes_vm_process_cpu_only_when_reader_is_bound() -> None:

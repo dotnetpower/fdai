@@ -216,20 +216,15 @@ from fdai.shared.providers.catalog_search import CatalogSemanticIndex
 from fdai.shared.providers.decision_evidence_verifier import DecisionEvidenceAdmissionProvider
 from fdai.shared.providers.ontology_instance import OntologyInstanceStore
 from fdai.shared.providers.read_investigation import ReadInvestigationProvider
+from fdai.shared.providers.state_store import StateStore
 
+from . import semantic_query_current_evidence as current_evidence
 from .semantic_query_azure_composition import compose_azure_semantic_query_runtime
-from .semantic_query_current_evidence import (
-    SemanticQueryConversationRuntime,
-    bind_semantic_current_evidence,
-)
 from .semantic_query_descriptor_selector import ManifestDescriptorIndex
 from .semantic_query_instance_candidates import bind_instance_candidate_query
 from .semantic_query_invocation_context import semantic_query_invocation_context
 from .semantic_query_runtime_composition import SemanticQueryRuntimeComposition
 from .semantic_query_scoped_sources import scoped_source_handlers, secured_resource_selector
-
-_FRAME_CAPABILITY = "semantic.query.frame"
-_PLAN_CAPABILITY = "semantic.query.plan"
 
 
 def build_semantic_query_runtime(
@@ -266,7 +261,8 @@ def build_semantic_query_runtime(
     adaptive_service: AdaptiveConversationService | None = None,
     governed_document_reader: GovernedDocumentReader | None = None,
     instance_candidate_query: InstanceCandidateQuery | None = None,
-) -> SemanticQueryConversationRuntime:
+    state_store: StateStore | None = None,
+) -> current_evidence.SemanticQueryConversationRuntime:
     """Build a read-only runtime over one exact catalog release and instance store."""
 
     if not purpose:
@@ -309,10 +305,10 @@ def build_semantic_query_runtime(
     graph_refresher = SecuredGraphEvidenceQueryRefresher(
         gateway=gateway,
         live_provider=graph_live_refresh_provider,
+        auditor=current_evidence.graph_refresh_auditor(state_store, evaluation_cutoff),
     )
     function_registry = OntologyFunctionRegistry(release=ontology_release)
     declarations = {item.name: item for item in function_types}
-
     bind_instance_candidate_query(function_registry, ontology_catalog, instance_candidate_query)
     inventory_function = declarations.get("inventory.select_resources")
     if inventory_function is not None:
@@ -375,7 +371,7 @@ def build_semantic_query_runtime(
         semantic_resource_ingress_function(ontology_release),
         authority=EvidenceAuthority.SERVER_INVENTORY_GRAPH,
     )
-    current_evidence_probe = bind_semantic_current_evidence(
+    current_evidence_probe = current_evidence.bind_semantic_current_evidence(
         registry=function_registry,
         declarations=declarations,
         ontology_release=ontology_release,
@@ -783,7 +779,7 @@ def build_semantic_query_runtime(
             }
         )
 
-    return SemanticQueryConversationRuntime(
+    return current_evidence.SemanticQueryConversationRuntime(
         planner=planner,
         contextual_executor_factory=executor_for,
         purpose=purpose,

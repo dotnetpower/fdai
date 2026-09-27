@@ -56,6 +56,8 @@ substitutes the node identity or local Azure CLI; local credential policy stays 
   subgraph. Snapshot and journal record conversion call one support-owned relationship-evidence
   encoder, so the two persistence paths cannot diverge in retained evidence.
 - **Graph first:** Ordinary questions read the current operational graph before any provider API. A live provider read is allowed only when required evidence is missing, stale, incomplete, conflicting, or explicitly requested under a bounded read policy.
+  Every ordinary semantic refresh evaluation appends its complete, incomplete, stale, conflicting,
+  or unavailable state and deterministic no-authority decision to the canonical audit chain.
   The generated question bank binds every source blob digest; any source-catalog change requires full deterministic regeneration, while unchanged question records grant no graph freshness, completeness, or action authority. Localized Service Health presentation maps reviewed event metadata and source completeness to display labels without changing the retained machine values or provider advisory title.
   Private AKS assurance wording may start from an explicitly requested Azure CLI list, but target admission still requires an exact active-inventory provider reference and reviewed `workload_runs_on` plus `implemented_by` path. CLI names never create graph facts or prove freshness.
 - **Safe enrichment:** A live read can support the current answer and publishes a typed observation
