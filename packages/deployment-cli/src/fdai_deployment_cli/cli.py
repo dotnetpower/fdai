@@ -248,15 +248,22 @@ def _provision_azure(args: argparse.Namespace) -> int:
         path is not None for path in adoption_paths
     ):
         raise ValueError("recovered public deployment requires all three adoption inputs")
+    foundation_adoption_paths = (args.adopt_foundation_directory, args.adopt_foundation_recovery)
+    if any(path is not None for path in foundation_adoption_paths) and not all(
+        path is not None for path in foundation_adoption_paths
+    ):
+        raise ValueError("Foundation adoption requires both retained directories")
     if args.source is not None:
         if catalog_review_profile.selected:
             raise ValueError(
                 "selected catalog review profile requires signed-kit standalone deployment"
             )
-        if args.online_url is not None or any(path is not None for path in adoption_paths):
-            raise ValueError(
-                "source deployment cannot reuse kit URLs or application-state adoption"
-            )
+        if (
+            args.online_url is not None
+            or any(path is not None for path in adoption_paths)
+            or any(path is not None for path in foundation_adoption_paths)
+        ):
+            raise ValueError("source deployment cannot reuse kit URLs or adoption inputs")
         if not args.prepare_only and not args.preflight_only:
             result = plan_source_installation(
                 source_root=args.source,
@@ -319,9 +326,7 @@ def _provision_azure(args: argparse.Namespace) -> int:
         return 0
 
     def adoption_path(value: Path | None) -> Path | None:
-        if value is None or value.is_absolute():
-            return value
-        return Path.cwd() / value
+        return value if value is None or value.is_absolute() else Path.cwd() / value
 
     mode = args.progress if args.output == "text" else "off"
     with DeploymentProgress(mode=mode) as progress:
@@ -340,6 +345,8 @@ def _provision_azure(args: argparse.Namespace) -> int:
             adopt_application_state=adoption_path(args.adopt_application_state),
             adopt_application_recovery=adoption_path(args.adopt_application_recovery),
             adopt_resolved_models=adoption_path(args.adopt_resolved_models),
+            adopt_foundation_directory=adoption_path(args.adopt_foundation_directory),
+            adopt_foundation_recovery_directory=adoption_path(args.adopt_foundation_recovery),
             catalog_review_profile=catalog_review_profile,
         )
         if result.get("deployment_ready") is not True:

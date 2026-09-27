@@ -131,9 +131,8 @@ def source_recovery_run(tmp_path, monkeypatch):
 @pytest.mark.parametrize(
     "stage", ["needs-apply", "needs-enrollment", "enroll", "needs-state", "migrate", "completed"]
 )
-@pytest.mark.parametrize("image_defect", [None, "source", "incomplete", "ready"])
 def test_source_recovery_retains_application_source_and_never_repeats_effects(
-    source_recovery_run, monkeypatch, stage, image_defect
+    source_recovery_run, monkeypatch, stage
 ):
     from datetime import UTC, datetime, timedelta
 
@@ -187,48 +186,6 @@ def test_source_recovery_retains_application_source_and_never_repeats_effects(
 
     monkeypatch.setattr(recovery_runner.enrollment_command, "_execute", enroll)
     monkeypatch.setattr(recovery_runner.state_command, "_execute", migrate)
-    monkeypatch.setattr(
-        recovery_runner, "prepare_recovery_migration", lambda *_args, **_kwargs: Mock()
-    )
-    transfers = []
-    monkeypatch.setattr(
-        recovery_runner,
-        "transfer_application_source",
-        lambda **kwargs: transfers.append(kwargs) or {"remote_transfer_verified": True},
-    )
-    image_calls = []
-
-    def prepare_images(snapshot, destination, **kwargs):
-        assert transfers
-        assert snapshot == args.work_dir / "source-snapshot"
-        assert destination == args.work_dir / "source-images"
-        assert kwargs["snapshot_digest"] == "c" * 64
-        assert 0 < kwargs["timeout_seconds"] <= args.timeout_seconds
-        image_calls.append(snapshot)
-        inventory = {
-            "schema_version": "fdai.source-images.v1",
-            "state": "built",
-            "source_commit": source.commit if image_defect == "source" else "a" * 40,
-            "snapshot_digest": "c" * 64,
-            "provenance": "operator-selected-source",
-            "services": {}
-            if image_defect == "incomplete"
-            else dict.fromkeys(recovery_runner.RUNTIME_SERVICES, {}),
-            "registry_published": False,
-            "dependency_images_verified": False,
-            "apply_authorized": False,
-            "deployment_ready": image_defect == "ready",
-            "mutation_performed": False,
-        }
-        inventory["receipt_digest"] = canonical_digest(inventory)
-        return inventory
-
-    monkeypatch.setattr(recovery_runner, "build_source_images", prepare_images)
-    if image_defect is not None and stage in {"migrate", "completed"}:
-        with pytest.raises(ValueError, match="original application snapshot"):
-            recovery_runner.resume(args)
-        assert not list(recovery.glob("source-recovery-progress-*.json"))
-        return
     result = recovery_runner.resume(args)
     assert result["source_commit"] == "a" * 40
     assert result["execution_source_commit"] == source.commit
@@ -244,15 +201,9 @@ def test_source_recovery_retains_application_source_and_never_repeats_effects(
         "completed": [("migrate", True)],
     }
     assert calls == expected_calls[stage]
-    assert len(transfers) == (1 if stage in {"migrate", "completed"} else 0)
-    if transfers:
-        assert transfers[0]["source_commit"] == "a" * 40
-        assert transfers[0]["snapshot"] == args.work_dir / "source-snapshot"
-        assert image_calls == [args.work_dir / "source-snapshot"]
-        assert result["source_images"]["source_commit"] == "a" * 40
-        assert result["source_images"]["registry_published"] is False
-    else:
-        assert not image_calls
+    if stage in {"migrate", "completed"}:
+        assert result["reason_code"] == "prebuilt_runtime_artifacts_required"
+        assert result["next_action"] == "resume_with_signed_kit_and_foundation_adoption"
     assert result["stage"] == (
         "application-plan"
         if stage in {"migrate", "completed"}
@@ -574,10 +525,8 @@ def test_interrupted_source_copy_is_never_repeated(source_transfer):
     assert not any(isinstance(command, tuple) and command[0] == "mkdir" for command in calls)
 
 
-@pytest.mark.parametrize("stage", ["runner-image-apply", "application-plan", "application-failure"])
-def test_source_coordinator_transfers_only_at_application_boundary(
-    source_transfer, monkeypatch, stage
-):
+@pytest.mark.parametrize("stage", ["runner-image-apply", "application-plan"])
+def test_source_coordinator_never_transfers_application_source(source_transfer, monkeypatch, stage):
     arguments, _, _, directory = source_transfer
     handoff = json.loads((directory / "foundation-private-handoff.json").read_bytes())
     args = SimpleNamespace(
@@ -617,11 +566,9 @@ def test_source_coordinator_transfers_only_at_application_boundary(
     )
     coordinator = Mock()
     coordinator.run.side_effect = source_genesis.PrivateExecutionWaitError(
-        "application-plan" if stage.startswith("application") else stage, "review", "review"
+        stage, "review", "review"
     )
     receiver = Mock(return_value={"remote_transfer_verified": True})
-    if stage == "application-failure":
-        receiver.side_effect = ValueError("source transfer failed")
     monkeypatch.setattr(
         source_genesis,
         "active_azure_target",
@@ -656,17 +603,13 @@ def test_source_coordinator_transfers_only_at_application_boundary(
         source_genesis, "PrivateExecutionCoordinator", lambda **_kwargs: coordinator
     )
     monkeypatch.setattr(transport, "transfer_application_source", receiver)
-    if stage == "application-failure":
-        with pytest.raises(ValueError, match="source transfer failed"):
-            source_genesis._advance_locked(args, source, arguments["foundation_root"], "f" * 64)
-        assert store.payload["reason_code"] == "source_application_transfer_failed"
-    else:
-        result = source_genesis._advance_locked(
-            args, source, arguments["foundation_root"], "f" * 64
-        )
-        assert result["deployment_ready"] is False
-        assert ("source_host_transfer" in result) == (stage == "application-plan")
-    assert receiver.call_count == int(stage.startswith("application"))
+    result = source_genesis._advance_locked(args, source, arguments["foundation_root"], "f" * 64)
+    assert result["deployment_ready"] is False
+    assert "source_host_transfer" not in result
+    assert receiver.call_count == 0
+    if stage == "application-plan":
+        assert store.payload["reason_code"] == "prebuilt_runtime_artifacts_required"
+        assert store.payload["next_action"] == "resume_with_signed_kit_and_foundation_adoption"
     checks.verify_source.assert_called_once()
 
 

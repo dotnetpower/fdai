@@ -11,6 +11,7 @@ from fdai_deployment_cli.catalog_review_profile import (
     CatalogReviewDeploymentProfile,
     stage_catalog_review_profile,
 )
+from fdai_deployment_cli.foundation_adoption_transport import stage_foundation_context
 from fdai_deployment_cli.runtime_profile import RuntimeDeploymentProfile
 
 
@@ -47,8 +48,14 @@ def prepare_remote(
     if removed.returncode != 0:
         raise ValueError("standalone remote archive reset failed")
     tunnel.copy_to(archive, remote_archive, timeout=min(1800, timeout_seconds))
-    tunnel.copy_to(handoff_path, remote_handoff, timeout=120)
-    tunnel.copy_to(entra_path, remote_entra, timeout=120)
+    foundation = stage_foundation_context(
+        tunnel,
+        handoff_path,
+        remote_handoff,
+        entra_path,
+        remote_entra,
+        remote_root,
+    )
     if application_state_adoption is not None:
         if not all((remote_adoption_state, remote_adoption_models, remote_adoption_descriptor)):
             raise ValueError("standalone application adoption destinations are incomplete")
@@ -79,9 +86,10 @@ def prepare_remote(
             "--kit",
             f"{remote_root}/kit",
             "--handoff",
-            remote_handoff,
+            foundation.handoff,
             "--entra",
-            remote_entra,
+            foundation.entra,
+            *foundation.adoption_arguments,
             "--runtime-platform",
             selected_runtime.runtime_platform.value,
             "--database-placement",

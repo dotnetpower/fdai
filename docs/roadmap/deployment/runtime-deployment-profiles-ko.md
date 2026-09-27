@@ -1,6 +1,6 @@
 ---
 translation_of: runtime-deployment-profiles.md
-translation_source_sha: 61b90f62bd9bd0db3d69c9ebd97ceb3ac1bf7a54
+translation_source_sha: 5ceba88c4f04dfe7fa7ef74af314e233b0c74971
 translation_revised: 2026-09-27
 ---
 # 런타임 배포 프로파일
@@ -174,7 +174,10 @@ catalog 활성화, merge, 승격 또는 관리 리소스 변경 권한을 부여
 테넌트 프로비저닝은 새 설치, 전체 프로파일 수렴, staging, production, 의존성 및 release에서 미리
 빌드된 서비스와 의존성 이미지를 사용합니다. Core, Operator 및 Cost Governance 프로파일은 배포판에서 가져오는 타입 정보가 있는 공유 런타임 진단 wheel을 설치하며, 실행 위치 가드는 명시적인 로컬 개발 환경 밖에서 해당 소켓을 사용할 수 없게 유지합니다. 완전한 release에는 ClamAV와 pgvector가 포함되며
 프로비저닝 도구는 Docker, Buildx, ACR Tasks, 원격 빌더 또는 VM 이미지 캡처 없이 서명, 출처,
-소스 버전, 플랫폼 및 digest를 검증합니다. 범위가 제한된 예외 하나는 적격 호스트가 기존의 정상
+소스 버전, 플랫폼 및 digest를 검증합니다. 복구된 Foundation이 release보다 이전 버전이면 로컬
+조정기는 완전한 근거 연결을 보존하고, 관리 호스트는 기존 인계 다이제스트를 서로 다른 현재 키트
+및 런타임 다이제스트에 독립적으로 결속합니다. 이 결속은 선택적 카탈로그 검토 체크포인트를
+선택하거나 건너뛰거나 승인하지 않습니다. 범위가 제한된 예외 하나는 적격 호스트가 기존의 정상
 `dev` AKS 설치에서 서비스 하나에 `fdaictl provision source-service-update`를 실행하도록
 허용합니다. 소스에서 빌드한 이미지는 release 신뢰가 아니라 운영자가 선택한 근거로 유지됩니다.
 현재 사람 승인이 Managed Identity 반입과 Deployment 전용 exact 계획을 통제하며, digest와 상태
