@@ -1,6 +1,6 @@
 ---
 translation_of: runtime-deployment-profiles.md
-translation_source_sha: 9bf0fa5d8f3935b8c5cb73fd9b0db9c34b61dc0a
+translation_source_sha: 57612d0e094a0990a2cdc1080b83fff60c3ca16c
 translation_revised: 2026-09-27
 ---
 # 런타임 배포 프로파일
@@ -179,6 +179,12 @@ AKS에서 Managed Host는 정확히 배포된 inventory CronJob에서 내용 주
 진행률 identity만 전달합니다. 성공하려면 별도의 PostgreSQL 종결 읽기가 완전한 공급자
 커버리지, 최종 fence, 닫힌 overlay, 완전한 자식 출처 및 정확한 active generation을
 증명해야 합니다. Job 또는 종결이 없는 보존된 실행 전 기록은 다른 Job을 시작하지 않습니다.
+
+격리된 정확한 revision 인벤토리 네트워크 인증은 배포 인벤토리 실행이 아닙니다. 이 인증은
+비공개 변환 결과, 대체 원본 전환 중 기존 세대 유지, 원본 복구를 검증하기 위해 요청한 리소스
+유형의 스냅샷을 작업 소유 샌드박스 저장소에만 승격할 수 있습니다. 초기 및 반복 런타임
+인벤토리는 계속 완전한 공급자 범위를 요구하며 샌드박스 증적은 관측, 배포 또는 실행 권한을
+부여하지 않습니다.
 
 선택적인 검토된 catalog-review 프로필은 중지된 AKS CronJob 하나와 inventory 이후
 checkpoint를 추가합니다. 조정기는 비공개 GitHub App 프로필과 PEM만 전달하고 App의 단일

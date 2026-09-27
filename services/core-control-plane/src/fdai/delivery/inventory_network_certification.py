@@ -384,7 +384,9 @@ async def _run_stage(
     vocabulary = load_resource_type_registry()
     resource_types = resolve_resource_types(config, vocabulary)
     observing = _FailureObservingStore(store)
-    result = await InventorySyncCoordinator(store=observing).run(
+    result = await InventorySyncCoordinator.for_isolated_resource_type_certification(
+        store=observing
+    ).run(
         build_sources(
             config=config,
             vocabulary=vocabulary,
