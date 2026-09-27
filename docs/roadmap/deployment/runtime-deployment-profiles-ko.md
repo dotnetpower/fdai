@@ -1,6 +1,6 @@
 ---
 translation_of: runtime-deployment-profiles.md
-translation_source_sha: 54d3f7d124623848f7edfcc0bbf10d177b2bfe29
+translation_source_sha: cc936f731abacf147bf917bac2377417b22efd36
 translation_revised: 2026-09-27
 ---
 # 런타임 배포 프로파일
@@ -168,6 +168,7 @@ checkpoint를 추가합니다. 조정기는 비공개 GitHub App 프로필과 PE
 Muninn, Norns, Mimir 및 Saga 이벤트 경로를 실행합니다. 성공하려면 정확한 head commit,
 review document, base, label과 merge 또는 auto-merge가 없음을 독립적으로 읽은 열린 draft가 필요합니다. 증적은
 catalog 활성화, merge, 승격 또는 관리 리소스 변경 권한을 부여하지 않습니다.
+저장소 테스트는 비밀이 아닌 PEM 경계 marker를 런타임에 조립합니다. 비밀 검사는 제거된 marker의 정확한 과거 fingerprint 하나만 무시하며 앞으로 key 형태의 source를 허용하지 않습니다.
 
 테넌트 프로비저닝은 새 설치, 전체 프로파일 수렴, staging, production, 의존성 및 release에서 미리
 빌드된 서비스와 의존성 이미지를 사용합니다. Core, Operator 및 Cost Governance 프로파일은 배포판에서 가져오는 타입 정보가 있는 공유 런타임 진단 wheel을 설치하며, 실행 위치 가드는 명시적인 로컬 개발 환경 밖에서 해당 소켓을 사용할 수 없게 유지합니다. 완전한 release에는 ClamAV와 pgvector가 포함되며

@@ -20,9 +20,14 @@ def _private_file(path, content: str) -> None:
     path.chmod(0o600)
 
 
+def _example_private_key() -> str:
+    marker = "PRIVATE" + " KEY"
+    return f"-----BEGIN {marker}-----\nexample\n-----END {marker}-----\n"
+
+
 def test_selected_profile_uses_private_key_file_reference(tmp_path) -> None:
     key = tmp_path / "github-app.pem"
-    _private_file(key, "-----BEGIN PRIVATE KEY-----\nexample\n-----END PRIVATE KEY-----\n")
+    _private_file(key, _example_private_key())
     profile_path = tmp_path / "catalog-review.json"
     _private_file(
         profile_path,
@@ -53,7 +58,7 @@ def test_selected_profile_uses_private_key_file_reference(tmp_path) -> None:
 
 def test_staged_selected_profile_requires_matching_private_key(tmp_path) -> None:
     key = tmp_path / "github-app.pem"
-    _private_file(key, "-----BEGIN PRIVATE KEY-----\nexample\n-----END PRIVATE KEY-----\n")
+    _private_file(key, _example_private_key())
     source = tmp_path / "source.json"
     _private_file(
         source,
@@ -104,7 +109,7 @@ def test_unselected_profile_is_explicit_and_has_no_binding(tmp_path) -> None:
 
 def test_selected_profile_stages_only_private_file_references(tmp_path) -> None:
     key = tmp_path / "github-app.pem"
-    _private_file(key, "-----BEGIN PRIVATE KEY-----\nexample\n-----END PRIVATE KEY-----\n")
+    _private_file(key, _example_private_key())
     source = tmp_path / "source.json"
     _private_file(
         source,

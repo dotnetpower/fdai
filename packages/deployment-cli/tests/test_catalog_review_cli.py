@@ -14,13 +14,18 @@ def _private_file(path, content: str) -> None:
     path.chmod(0o600)
 
 
+def _example_private_key() -> str:
+    marker = "PRIVATE" + " KEY"
+    return f"-----BEGIN {marker}-----\nexample\n-----END {marker}-----\n"
+
+
 def test_public_coordinator_passes_selected_private_profile(
     tmp_path,
     monkeypatch,
     capsys,
 ) -> None:
     key = tmp_path / "github-app.pem"
-    _private_file(key, "-----BEGIN PRIVATE KEY-----\nexample\n-----END PRIVATE KEY-----\n")
+    _private_file(key, _example_private_key())
     profile = tmp_path / "catalog-review.json"
     _private_file(
         profile,
