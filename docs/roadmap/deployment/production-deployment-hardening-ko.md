@@ -1,8 +1,8 @@
 ---
 title: 운영 배포 강화
 translation_of: production-deployment-hardening.md
-translation_source_sha: 8825bc7d0f274990e065010e9ea7a15035b62524
-translation_revised: 2026-09-17
+translation_source_sha: 83923fd459805eec8e36978fa84fb256517d5680
+translation_revised: 2026-09-28
 ---
 # 운영 배포 강화
 
@@ -109,10 +109,15 @@ translation_revised: 2026-09-17
   exact apply, platform 출력 및 split Core 소비 증적을 보존합니다.
 - [ ] Reader 역할 배정과 두 패키지 Job만 변경하는 삭제 없는 Cost Governance 계획과 exact apply를
   보존한 뒤 배포된 image digest를 독립적으로 검증합니다.
-- [ ] 장애 시나리오 모음을 실행하기 전에 모든 AKS Store Demo 워크로드가 Ready이고, 실행
-  image가 검토된 digest에 결속되며, 공개 Store Front 도메인이 관찰된 Load Balancer로
-  해석되고 Store Admin은 비공개로 유지됨을 보여 주는 exact protected scenario-lab apply를
-  보존합니다.
+- [ ] [#1203](https://github.com/dotnetpower/fdai/issues/1203): 먼저 현재 plan의 AKS 및 MySQL
+  생성 항목을 중지된 기존 lab의 상태 소유권과 조정하되 인프라를 다시 만들거나 덮어쓰지 않고,
+  관리자 우회가 비활성화된 필수 검토자 보호 또는 별도로 검토된 동등한 보호를 복원한 뒤,
+  합의된 효과로 제한된 현재 exact plan만 승인합니다([AKS commerce
+  원장](../../roadmap-implementation/operations/aks-commerce-business-scenario.md) 및 #1207
+  참조). 그런 다음 장애 시나리오 모음을 실행하기 전에 모든 AKS Store Demo 워크로드가 Ready이고,
+  실행 image가 검토된 digest에 결속되며, 공개 Store Front 도메인이 관찰된 Load Balancer로
+  해석되고 HTTP 상태 검사를 통과하며, Store Admin은 비공개로 유지됨을 보여 주는 protected
+  scenario-lab apply를 보존합니다.
 
 ## 범위가 제한된 split-service 선행 조건 bootstrap
 

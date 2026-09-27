@@ -106,9 +106,16 @@ networking, trusted images, notification destinations, monitoring, and cost ceil
     consumption receipt without allowing any unrelated delete or replacement.
 - [ ] Retain a zero-destroy Cost Governance plan and exact apply that change only the reader
     assignment and two package Jobs, then independently verify their deployed image digests.
-- [ ] Retain an exact protected scenario-lab apply that shows all AKS Store Demo workloads ready,
-    all running images bound to the reviewed digests, the public Store Front domain resolving to
-    the observed Load Balancer, and Store Admin remaining private before any fault sweep.
+- [ ] [#1203](https://github.com/dotnetpower/fdai/issues/1203): First reconcile the current
+    plan's AKS and MySQL creates with the existing stopped lab's state ownership without
+    recreating or overwriting infrastructure, restore required-reviewer protection with
+    administrator bypass disabled or a separately reviewed equivalent, and approve only a current
+    exact plan limited to the agreed effects (see the
+    [AKS commerce ledger](../../roadmap-implementation/operations/aks-commerce-business-scenario.md)
+    and #1207). Then retain a protected scenario-lab apply that shows all AKS Store Demo workloads
+    ready, all running images bound to the reviewed digests, the public Store Front domain
+    resolving to the observed Load Balancer with passing HTTP health, and Store Admin remaining
+    private before any fault sweep.
 
 ## Bounded split-service prerequisite bootstrap
 
