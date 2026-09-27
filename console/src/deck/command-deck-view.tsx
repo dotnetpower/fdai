@@ -607,7 +607,7 @@ function DeckComposer({
       }}
     >
       <BusyInputControls key={sessionKey} sessionId={busySessionId}
-        draft={draft} onConfirmedSubmit={onBusySubmitted} />
+        draft={draft} turnActive={inFlight} onConfirmedSubmit={onBusySubmitted} />
       {snapshot || canAttachScreen ? (
         <div class="deck-composer-context">
           <Tooltip content={snapshot ? t("deck.removeScreenHint") : t("deck.attachScreenHint")} placement="top">
