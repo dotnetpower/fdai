@@ -376,6 +376,11 @@ personal memory as a shared test exception, and retrieval denial as deletion. It
 second promotion registry and direct agent calls. Existing broker retry, CAS, review identity,
 case-history deletion claims, and independent admission remain authoritative.
 
+[Independent operational evidence issuance](independent-operational-evidence.md) specifies who issues
+each admission used here: a separate verifier identity, a pinned trust registry, explicit
+principal-to-case-scope grants, and typed rejection records that each boundary reports as an explicit
+class. It is design only, so every boundary above keeps failing closed until that issuer is implemented.
+
 Implement and validate one boundary at a time, but report completion only for the connected chain.
 Tests should inject missing coverage, stale source revisions, overlapping claims, self-review,
 concurrent update, source deletion during materialization, failed deletion and restart, cross-scope
@@ -513,6 +518,7 @@ Keep the result blocked with the exact missing stage; no live qualification is i
 | To learn about | Read |
 |----------------|------|
 | Delivery status and remaining work | [Implementation ledger](../../roadmap-implementation/rules-and-detection/prediction-learning-and-case-history.md) |
+| Independent evidence issuance for these boundaries | [Independent operational evidence issuance](independent-operational-evidence.md) |
 | Detection and forecast scoring | [Observability and detection](observability-and-detection.md) |
 | Agent ownership and topics | [Agent pantheon](../agents/agent-pantheon.md) |
 | Governed offline records | [Governed trajectory datasets](../interfaces/governed-trajectory-datasets.md) |
