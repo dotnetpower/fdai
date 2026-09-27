@@ -891,7 +891,7 @@ def test_cli_version_and_private_profile(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
     assert main(["version", "--output", "json"]) == 0
-    assert json.loads(capsys.readouterr().out)["version"] == "0.1.0"
+    assert json.loads(capsys.readouterr().out)["version"] == "0.1.1"
     profile = tmp_path / "private" / "profile.json"
     assert (
         main(

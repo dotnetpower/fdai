@@ -1,6 +1,6 @@
 ---
 translation_of: package-assurance.md
-translation_source_sha: e2256ee6c1d6440bdab58d16b012428e3cc128c6
+translation_source_sha: 4a5c1343145ae28da4d992da34ebe98eb8e6a885
 translation_revised: 2026-09-27
 ---
 
@@ -61,6 +61,9 @@ translation_revised: 2026-09-27
 않습니다. release 도구는 소유자가 선택한 더 강한 통제로 release 키와 bundle 키를 분리할 수
 있습니다. 키 통합 또는 교체는 명시적인 신뢰 루트 결정이며 묵시적인 패키지 보증 요구 사항이
 아닙니다.
+Deployment CLI `0.1.1`은 해당 소유자 결정을 개발 프로필에만 명시적으로 적용합니다. 전용
+산출물 키 하나가 키트와 묶음 역할을 담당하고 패키지는 개발 channel만 허용하며, 프레임워크와
+라이선스 신뢰는 분리되고 운영 TUF는 별도의 소유자 게이트로 유지됩니다.
 
 ## 명시적인 패키지 경계
 

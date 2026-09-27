@@ -12,6 +12,10 @@ must never use a test key, repository secret, or operator-supplied root.
 > **Current state:** No production root is packaged. Until this ceremony and the client integration
 > are complete, `fdaictl provision inspect` correctly reports an offline kit as `candidate` or
 > `fail`, never `verified` from file presence alone.
+>
+> Deployment CLI `0.1.1` separately pins one dedicated development artifact key for local
+> non-production convergence. That single-key profile accepts only `release_channel=development`,
+> is separate from framework-integrity and license keys, and is not production root evidence.
 
 ## Roles and prerequisites
 
