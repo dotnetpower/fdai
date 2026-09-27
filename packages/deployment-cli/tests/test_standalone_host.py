@@ -196,6 +196,18 @@ def test_terraform_uses_exact_managed_identity_and_clears_conflicting_auth(
         "tenant_id": "00000000-0000-0000-0000-000000000002",
         "client_id": "00000000-0000-0000-0000-000000000003",
     }
+    for variable in (
+        "PATH",
+        "TF_CLI_CONFIG_FILE",
+        "TF_DATA_DIR",
+        "TF_IN_AUTOMATION",
+        "ARM_SUBSCRIPTION_ID",
+        "ARM_TENANT_ID",
+        "ARM_USE_MSI",
+        "ARM_CLIENT_ID",
+        "ARM_RESOURCE_PROVIDER_REGISTRATIONS",
+    ):
+        monkeypatch.setenv(variable, os.environ.get(variable, "ambient"))
     for variable in standalone_terraform_environment._CONFLICTING_AUTH:
         monkeypatch.setenv(variable, "ambient")
 
@@ -938,6 +950,7 @@ def test_ambiguous_apply_recovers_by_verification_without_reapply(
         "schema_version": "fdai.standalone-application-claim.v1",
         "stage": "substrate",
         "plan_digest": review["plan_digest"],
+        "mutation_performed": False,
         "idempotency_key": canonical_digest(
             {
                 "target_binding": context["target_binding"],
