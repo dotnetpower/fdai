@@ -30,6 +30,8 @@ verification; delivery owns bilingual ranking and PostgreSQL generation-cache va
 The focused current-evidence composition owner also binds graph-refresh decisions to the shared
 StateStore audit. Complete, incomplete, stale, conflicting, and unavailable reads remain distinct,
 principal-scoped, generation-bound, and authority-free without adding another service or writer.
+Its re-query dependency is a narrow materialization Protocol so an exact-revision certification
+job can exercise the same refresher without acquiring composition or provider authority.
 Model-facing capability projection preserves every selected canonical property token and rejects a byte-budget overflow before judgment rather than passing a silent descriptor prefix. This bound changes no manifest or query authority.
 Delivery's ontology generation validator independently binds the explicit principal scope and exact declaration bytes, not only declaration IDs; runtime instance storage and activation must remain separate from Rule corpus pointers.
 Core's secured gateway also owns the off-path, complete multi-type index-source scan. It applies the existing ACL to one bounded source snapshot and binds ordered object hashes; ordinary ObjectSet limits are unchanged. Delivery may stage this projection under an isolated immutable identity but cannot infer validation, activation, observed state, or execution authority from successful storage.
