@@ -9,6 +9,12 @@ from datetime import UTC, datetime
 from typing import Any, Literal
 
 from fdai.core.assurance_twin.report import build_posture_assessment_report
+from fdai.delivery.assurance_twin_evidence_clock import (
+    AssuranceTwinEvidenceClockCapacityError,
+    AssuranceTwinEvidenceClockContentionError,
+    AssuranceTwinEvidenceExpiredError,
+    StateStoreTwinEvidenceClock,
+)
 from fdai.delivery.assurance_twin_evidence_codec import (
     advance_target_outbox as _advance_target_outbox,
 )
@@ -19,9 +25,6 @@ from fdai.delivery.assurance_twin_evidence_codec import (
     evidence_identity as _evidence_identity,
 )
 from fdai.delivery.assurance_twin_evidence_codec import (
-    source_conflict_audit as _source_conflict_audit,
-)
-from fdai.delivery.assurance_twin_evidence_codec import (
     valid_digest as _digest,
 )
 from fdai.delivery.assurance_twin_evidence_codec import (
@@ -29,6 +32,9 @@ from fdai.delivery.assurance_twin_evidence_codec import (
 )
 from fdai.delivery.assurance_twin_evidence_codec import (
     validate_findings as _validate_findings,
+)
+from fdai.delivery.assurance_twin_evidence_conflict import (
+    AssuranceTwinEvidenceConflictMixin,
 )
 from fdai.delivery.assurance_twin_writers import (
     REQUEST_TOPIC,
@@ -53,11 +59,12 @@ _MAX_PENDING = 1_000
 _LOG = logging.getLogger(__name__)
 
 
-class StateStoreTwinEvidenceRepository:
+class StateStoreTwinEvidenceRepository(AssuranceTwinEvidenceConflictMixin):
     """Persist complete producer evidence and serve exact read-only writer snapshots."""
 
     def __init__(self, *, store: StateStore) -> None:
         self._store = store
+        self._clock = StateStoreTwinEvidenceClock(store=store)
 
     async def record_posture(
         self,
@@ -70,6 +77,9 @@ class StateStoreTwinEvidenceRepository:
         generated_at: datetime,
         fresh_until: datetime,
         correlation_id: str,
+        rule_set_revision: str | None = None,
+        rule_generation_revision: str | None = None,
+        inventory_revision: str | None = None,
     ) -> AssuranceTwinPublishRequest:
         """Record one complete exact-revision Rule assessment without inferring clear."""
         _validate_common(
@@ -82,17 +92,37 @@ class StateStoreTwinEvidenceRepository:
             correlation_id=correlation_id,
         )
         _validate_findings(findings, evaluated_rule_ids)
-        report = build_posture_assessment_report(
-            scope=scope,
-            generated_at=generated_at.astimezone(UTC).isoformat(),
-            mode=Mode.SHADOW,
-            findings=findings,
-        )
+        if rule_set_revision is not None and not _digest(rule_set_revision):
+            raise ValueError("Assurance Twin Rule set revision is invalid")
+        if rule_generation_revision is not None and not _digest(rule_generation_revision):
+            raise ValueError("Assurance Twin Rule generation revision is invalid")
+        if inventory_revision is not None and not _digest(inventory_revision):
+            raise ValueError("Assurance Twin Inventory revision is invalid")
         request = _request(
             kind="posture",
             source_key=scope,
             source_revision=source_revision,
             correlation_id=correlation_id,
+        )
+        generated_at = await self._clock.stable_generated_at(
+            request,
+            proposed=generated_at,
+            fresh_until=fresh_until,
+        )
+        _validate_common(
+            source_key=scope,
+            source_revision=source_revision,
+            evaluated_rule_ids=evaluated_rule_ids,
+            coverage_refs=coverage_refs,
+            generated_at=generated_at,
+            fresh_until=fresh_until,
+            correlation_id=correlation_id,
+        )
+        report = build_posture_assessment_report(
+            scope=scope,
+            generated_at=generated_at.astimezone(UTC).isoformat(),
+            mode=Mode.SHADOW,
+            findings=findings,
         )
         body = {
             **report.to_dict(),
@@ -116,11 +146,22 @@ class StateStoreTwinEvidenceRepository:
                 findings=findings,
                 evaluated_rule_ids=evaluated_rule_ids,
                 coverage_refs=coverage_refs,
+                rule_set_revision=rule_set_revision,
+                rule_generation_revision=rule_generation_revision,
+                inventory_revision=inventory_revision,
             ),
             "record": body,
             "evidence_digest": evidence_body_digest(body),
         }
-        return await self._write_exact(request, value)
+        written = await self._write_exact(request, value)
+        try:
+            await self._clock.release(request)
+        except AssuranceTwinEvidenceClockContentionError:
+            _LOG.warning(
+                "assurance_twin_evidence_clock_release_deferred",
+                extra={"kind": request.kind},
+            )
+        return written
 
     async def record_review(
         self,
@@ -131,6 +172,8 @@ class StateStoreTwinEvidenceRepository:
         findings: tuple[Finding, ...],
         evaluated_rule_ids: tuple[str, ...],
         rule_coverage_refs: tuple[str, ...],
+        rule_set_revision: str,
+        rule_generation_revision: str,
         proposal_digest: str,
         proposal_evidence_refs: tuple[str, ...],
         generated_at: datetime,
@@ -155,6 +198,30 @@ class StateStoreTwinEvidenceRepository:
         ):
             raise ValueError("Assurance Twin proposed IaC evidence is incomplete")
         _validate_findings(findings, evaluated_rule_ids)
+        if not _digest(rule_set_revision):
+            raise ValueError("Assurance Twin Rule set revision is invalid")
+        if not _digest(rule_generation_revision):
+            raise ValueError("Assurance Twin Rule generation revision is invalid")
+        request = _request(
+            kind="review",
+            source_key=review_key,
+            source_revision=source_revision,
+            correlation_id=correlation_id,
+        )
+        generated_at = await self._clock.stable_generated_at(
+            request,
+            proposed=generated_at,
+            fresh_until=fresh_until,
+        )
+        _validate_common(
+            source_key=review_key,
+            source_revision=source_revision,
+            evaluated_rule_ids=evaluated_rule_ids,
+            coverage_refs=rule_coverage_refs,
+            generated_at=generated_at,
+            fresh_until=fresh_until,
+            correlation_id=correlation_id,
+        )
         judged = build_posture_assessment_report(
             scope=pr_ref,
             generated_at=generated_at.astimezone(UTC).isoformat(),
@@ -169,12 +236,6 @@ class StateStoreTwinEvidenceRepository:
             mode=Mode.SHADOW,
             generated_at=generated_at.astimezone(UTC).isoformat(),
             metadata={"source_revision": source_revision},
-        )
-        request = _request(
-            kind="review",
-            source_key=review_key,
-            source_revision=source_revision,
-            correlation_id=correlation_id,
         )
         body = _change_review_body(review, freshness="fresh", reason_codes=())
         value = {
@@ -193,6 +254,9 @@ class StateStoreTwinEvidenceRepository:
                 findings=findings,
                 evaluated_rule_ids=evaluated_rule_ids,
                 coverage_refs=rule_coverage_refs,
+                rule_set_revision=rule_set_revision,
+                rule_generation_revision=rule_generation_revision,
+                inventory_revision=None,
             ),
             "proposed_iac": {
                 "source_revision": source_revision,
@@ -204,7 +268,15 @@ class StateStoreTwinEvidenceRepository:
             "record": body,
             "evidence_digest": evidence_body_digest(body),
         }
-        return await self._write_exact(request, value)
+        written = await self._write_exact(request, value)
+        try:
+            await self._clock.release(request)
+        except AssuranceTwinEvidenceClockContentionError:
+            _LOG.warning(
+                "assurance_twin_evidence_clock_release_deferred",
+                extra={"kind": request.kind},
+            )
+        return written
 
     async def read_posture(self, scope: str, revision: str) -> RetainedTwinEvidence | None:
         return await self._read("posture", scope, revision)
@@ -270,6 +342,13 @@ class StateStoreTwinEvidenceRepository:
             and source.get("writer_status") == "confirmed"
         ):
             return "published"
+        rule_assessment = source.get("rule_assessment")
+        if (
+            not isinstance(rule_assessment, Mapping)
+            or not _digest(str(rule_assessment.get("rule_membership_digest") or ""))
+            or not _digest(str(rule_assessment.get("rule_generation_digest") or ""))
+        ):
+            return "conflict"
         try:
             fresh_until = datetime.fromisoformat(str(source.get("fresh_until") or ""))
         except ValueError:
@@ -298,7 +377,11 @@ class StateStoreTwinEvidenceRepository:
         key = _state_key(request)
         for _attempt in range(3):
             source = await self._store.read_state(key)
-            if source is None or source.get("conflict") is True:
+            if (
+                source is None
+                or source.get("conflict") is True
+                or source.get("request_status") != "pending"
+            ):
                 return False
             if source.get("evidence_digest") != evidence_digest:
                 return False
@@ -431,6 +514,20 @@ class StateStoreTwinEvidenceRepository:
             status=status,
         )
 
+    async def mark_inventory_superseded(
+        self,
+        request: AssuranceTwinPublishRequest,
+    ) -> bool:
+        current = await self._store.read_state(_state_key(request))
+        revision = current.get("revision") if current is not None else None
+        if not isinstance(revision, int) or isinstance(revision, bool):
+            return False
+        return await self._mark_request_terminal(
+            request,
+            expected_revision=revision,
+            status="superseded",
+        )
+
     async def _mark_request_terminal(
         self,
         request: AssuranceTwinPublishRequest,
@@ -472,7 +569,7 @@ class StateStoreTwinEvidenceRepository:
             value,
             {
                 "kind": "assurance_twin_evidence_recorded",
-                "producer_principal": "assurance-twin-evidence-source",
+                "producer_principal": ("Heimdall" if request.kind == "posture" else "Forseti"),
                 "request_kind": request.kind,
                 "idempotency_key": request.idempotency_key,
                 "source_revision": request.source_revision,
@@ -489,91 +586,6 @@ class StateStoreTwinEvidenceRepository:
                 incoming=value,
             )
         return AssuranceTwinPublishRequest.model_validate(retained.get("request"))
-
-    async def _resolve_source_conflict(
-        self,
-        *,
-        request: AssuranceTwinPublishRequest,
-        retained: Mapping[str, Any],
-        incoming: Mapping[str, Any],
-    ) -> AssuranceTwinPublishRequest:
-        if not isinstance(self._store, AssuranceTwinConfirmationStore):
-            raise RuntimeError("Assurance Twin source conflict store is unavailable")
-        key = _state_key(request)
-        current = retained
-        for _attempt in range(3):
-            if current.get("conflict") is True:
-                raise ValueError("Assurance Twin retained evidence identity conflict")
-            revision = current.get("revision")
-            if not isinstance(revision, int) or isinstance(revision, bool):
-                raise ValueError("Assurance Twin retained evidence revision is invalid")
-            conflicted = {
-                **dict(current),
-                "revision": revision + 1,
-                "request_status": "pending",
-                "writer_status": "conflict",
-                "conflict": True,
-                "conflicting_evidence_digest": incoming.get("evidence_digest"),
-            }
-            target_key = (
-                f"runtime:assurance-twin-posture:{request.source_key}"
-                if request.kind == "posture"
-                else f"runtime:assurance-twin-review:{request.source_key}"
-            )
-            target = await self._store.read_state(target_key)
-            target_value: Mapping[str, Any] | None = None
-            target_revision: int | None = None
-            if target is not None and target.get("conflict") is None:
-                source_record = current.get("record")
-                source_generated = (
-                    source_record.get("generated_at")
-                    if isinstance(source_record, Mapping)
-                    else None
-                )
-                target_generated = target.get("generated_at")
-                if (
-                    isinstance(source_generated, str)
-                    and isinstance(target_generated, str)
-                    and datetime.fromisoformat(target_generated)
-                    <= datetime.fromisoformat(source_generated)
-                ):
-                    raw_target_revision = target.get("revision")
-                    if not isinstance(raw_target_revision, int) or isinstance(
-                        raw_target_revision, bool
-                    ):
-                        raise ValueError("Assurance Twin target revision is invalid")
-                    target_revision = raw_target_revision
-                    target_value = {
-                        **dict(target),
-                        "revision": target_revision + 1,
-                        "source_confirmed": False,
-                        "publication_outbox": None,
-                        "conflict": {
-                            "reason_code": (
-                                "assurance_twin_posture_timestamp_conflict"
-                                if request.kind == "posture"
-                                else "assurance_twin_review_key_conflict"
-                            ),
-                            "stored_evidence_digest": target.get("evidence_digest"),
-                            "rejected_evidence_digest": incoming.get("evidence_digest"),
-                        },
-                    }
-            applied = await self._store.conflict_assurance_twin_source(
-                source_key=key,
-                source_value=conflicted,
-                expected_source_revision=revision,
-                target_key=target_key,
-                target_value=target_value,
-                expected_target_revision=target_revision,
-                audit_entry=_source_conflict_audit(request, incoming),
-            )
-            if applied and await self._store.read_state(key) == conflicted:
-                raise ValueError("Assurance Twin retained evidence identity conflict")
-            reread = await self._store.read_state(key)
-            if reread is None:
-                raise RuntimeError("Assurance Twin source conflict record disappeared")
-            current = reread
-        raise RuntimeError("Assurance Twin source conflict exceeded its retry bound")
 
     async def _read(
         self,
@@ -697,18 +709,32 @@ def _rule_assessment(
     findings: tuple[Finding, ...],
     evaluated_rule_ids: tuple[str, ...],
     coverage_refs: tuple[str, ...],
+    rule_set_revision: str | None,
+    rule_generation_revision: str | None,
+    inventory_revision: str | None,
 ) -> dict[str, Any]:
+    resolved_rule_set = rule_set_revision or rule_set_digest(evaluated_rule_ids)
     return {
         "source_revision": source_revision,
-        "rule_set_digest": rule_set_digest(evaluated_rule_ids),
+        "rule_set_digest": resolved_rule_set,
+        "rule_membership_digest": rule_set_digest(evaluated_rule_ids),
+        "rule_generation_digest": rule_generation_revision or resolved_rule_set,
+        "inventory_revision": inventory_revision or source_revision,
         "evaluated_rule_ids": list(evaluated_rule_ids),
         "findings_digest": findings_digest(findings),
-        "coverage_refs": list(coverage_refs),
+        "coverage_refs": list(
+            coverage_refs
+            if resolved_rule_set in coverage_refs
+            else (resolved_rule_set, *coverage_refs)
+        ),
         "complete": True,
     }
 
 
 __all__ = [
+    "AssuranceTwinEvidenceClockCapacityError",
+    "AssuranceTwinEvidenceClockContentionError",
+    "AssuranceTwinEvidenceExpiredError",
     "AssuranceTwinEvidenceRequestRelay",
     "StateStoreTwinEvidenceRepository",
 ]

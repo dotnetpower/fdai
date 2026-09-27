@@ -92,6 +92,7 @@ def _evidence(record: object) -> RetainedTwinEvidence:
             "reason_codes": [],
         }
     evaluated_rule_ids = tuple(sorted({finding.rule_id for finding in record.findings}))  # type: ignore[attr-defined]
+    membership_digest = rule_set_digest(evaluated_rule_ids)
     return RetainedTwinEvidence(
         record=record,  # type: ignore[arg-type]
         source_revision=_REVISION,
@@ -101,10 +102,13 @@ def _evidence(record: object) -> RetainedTwinEvidence:
         complete=True,
         rule_assessment=RuleFindingAssessment(
             source_revision=_REVISION,
-            rule_set_digest=rule_set_digest(evaluated_rule_ids),
+            rule_set_digest=membership_digest,
+            rule_membership_digest=membership_digest,
+            rule_generation_digest=membership_digest,
+            inventory_revision=_REVISION,
             evaluated_rule_ids=evaluated_rule_ids,
             findings_digest=findings_digest(record.findings),  # type: ignore[attr-defined]
-            coverage_refs=("rule-coverage:1",),
+            coverage_refs=(membership_digest, "rule-coverage:1"),
             complete=True,
         ),
         proposed_iac=(
@@ -465,7 +469,10 @@ async def test_newer_posture_supersedes_older_pending_revision() -> None:
             source.posture.rule_assessment,
             evaluated_rule_ids=("new-rule",),
             rule_set_digest=rule_set_digest(("new-rule",)),
+            rule_membership_digest=rule_set_digest(("new-rule",)),
+            rule_generation_digest=rule_set_digest(("new-rule",)),
             findings_digest=findings_digest(newer.findings),
+            coverage_refs=(rule_set_digest(("new-rule",)), "rule-coverage:1"),
         ),
     )
     assert await heimdall.process(_request("posture"))
@@ -577,7 +584,10 @@ async def test_audit_failure_rolls_back_revision_advance_atomically() -> None:
             source.posture.rule_assessment,
             evaluated_rule_ids=("new-rule",),
             rule_set_digest=rule_set_digest(("new-rule",)),
+            rule_membership_digest=rule_set_digest(("new-rule",)),
+            rule_generation_digest=rule_set_digest(("new-rule",)),
             findings_digest=findings_digest(newer.findings),
+            coverage_refs=(rule_set_digest(("new-rule",)), "rule-coverage:1"),
         ),
         evidence_digest=evidence_body_digest(
             {

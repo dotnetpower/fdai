@@ -27,7 +27,7 @@ from fdai.delivery.notifications.local_binding import resolve_local_notification
 from fdai.delivery.repo_assets import repo_asset_root
 from fdai.delivery.runtime_settings import RuntimeSettingsService
 from fdai.delivery.startup_probe import OpaCompileStartupProbe
-from fdai.runtime import bootstrap_incidents
+from fdai.runtime import bootstrap_core_model, bootstrap_incidents
 from fdai.runtime.blast_probe import bind_live_blast_probe_failure_streak
 from fdai.runtime.bootstrap_bindings import (
     build_effect_reconciliation_request_binding as _build_effect_reconciliation_request_binding,
@@ -41,7 +41,6 @@ from fdai.runtime.bootstrap_bindings import (
 from fdai.runtime.bootstrap_bindings import (
     build_vertical_execution_identities as _build_vertical_execution_identities,
 )
-from fdai.runtime.bootstrap_core_model import CoreRuntime, build_assurance_twin_runtime_binding
 from fdai.runtime.bootstrap_hil import (
     build_hil_workflow_registry as _build_hil_workflow_registry,
 )
@@ -128,6 +127,7 @@ from fdai.shared.contracts.models import ResponseOutcome
 from fdai.shared.providers.state_store import StateStore
 
 _LOGGER = logging.getLogger("fdai.startup")
+CoreRuntime = bootstrap_core_model.CoreRuntime
 
 
 async def build_core_runtime(
@@ -742,11 +742,18 @@ async def build_core_runtime(
                 extra={"reason": "runtime_or_durable_source_identity_unavailable"},
             )
     pantheon_runtime = resources.pantheon.runtime
-    assurance_twin_publishers, assurance_twin_writers = build_assurance_twin_runtime_binding(
-        state_store=state_store,
-        agents=pantheon_runtime.agents if pantheon_runtime is not None else None,
-        event_bus=messaging.bus,
-        retained_source=container.assurance_twin_retained_evidence_source,
+    subscription_scope = str(container.config.azure.subscription_id)
+    assurance_twin_publishers, assurance_twin_writers = (
+        bootstrap_core_model.build_assurance_twin_runtime_binding(
+            state_store=state_store,
+            agents=pantheon_runtime.agents if pantheon_runtime is not None else None,
+            event_bus=messaging.bus,
+            retained_source=container.assurance_twin_retained_evidence_source,
+            posture_evaluator=control_loop,
+            inventory_dsn=bootstrap_core_model.assurance_twin_inventory_dsn(environment),
+            posture_scope=f"subscription:{subscription_scope}",
+            required_inventory_scopes=(subscription_scope,),
+        )
     )
 
     return CoreRuntime(
@@ -790,7 +797,4 @@ async def build_core_runtime(
     )
 
 
-__all__ = [
-    "CoreRuntime",
-    "build_core_runtime",
-]
+__all__ = ["CoreRuntime", "build_core_runtime"]

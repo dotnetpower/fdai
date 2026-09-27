@@ -143,6 +143,7 @@ def test_default_evaluator_abstains_and_records_candidate_ids() -> None:
     assert hint is not None
     assert hint.pipeline_stage is PipelineStage.ABSTAIN
     assert hint.citing_rule_ids == ("a.x", "b.x")
+    assert hint.abstained_rule_ids == ("a.x", "b.x")
     assert hint.reason == "evaluator_abstained_on_all_candidates"
 
 
@@ -166,6 +167,7 @@ def test_deny_evaluator_emits_findings_in_severity_order() -> None:
     assert hint.pipeline_stage is PipelineStage.L1_EVALUATE
     assert hint.mode is Mode.SHADOW
     assert hint.reason is None
+    assert hint.abstained_rule_ids == ()
     # Every candidate is cited, regardless of match order.
     assert set(hint.citing_rule_ids) == {"c.critical", "b.high", "a.low"}
 
@@ -184,6 +186,7 @@ def test_allow_evaluator_emits_abstain_with_no_rule_denied_reason() -> None:
     hint = verdict.audit_hint
     assert hint is not None
     assert hint.pipeline_stage is PipelineStage.ABSTAIN
+    assert hint.abstained_rule_ids == ()
     assert hint.reason == "no_rule_denied"
 
 
@@ -205,6 +208,7 @@ def test_evaluator_exception_is_fail_closed() -> None:
     hint = verdict.audit_hint
     assert hint is not None
     assert hint.pipeline_stage is PipelineStage.ABSTAIN
+    assert hint.abstained_rule_ids == ("a.x", "b.x")
     assert hint.reason == "evaluator_abstained_on_all_candidates"
     # Both rules still cited so an operator can see what SHOULD have run.
     assert set(hint.citing_rule_ids) == {"a.x", "b.x"}
@@ -225,6 +229,7 @@ def test_partial_evaluator_abstain_is_attributed_accurately() -> None:
 
     assert verdict.findings == ()
     assert verdict.audit_hint is not None
+    assert verdict.audit_hint.abstained_rule_ids == ("a.x",)
     assert verdict.audit_hint.reason == "evaluator_abstained_on_some_candidates"
 
 

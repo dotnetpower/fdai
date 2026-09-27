@@ -6,13 +6,21 @@ mixins implement RCA, fallback, execution-authority, and boundary stages.
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import math
 from collections.abc import Awaitable, Callable, Iterable, Mapping
 from datetime import UTC, datetime, timedelta
-from typing import Any, cast
+from typing import Any, TypeVar, cast
 
-from fdai.core.assurance_twin import DynamicRuntimeCoordinator, GraphDynamicRuntimeCoordinator
+from fdai.core.assurance_twin import (
+    CompletePostureEvaluation,
+    DynamicRuntimeCoordinator,
+    GraphDynamicRuntimeCoordinator,
+    InMemoryProjection,
+    evaluate_complete_posture,
+    rule_generation_digest,
+)
 from fdai.core.case_history import CaseHistoryMaterializer
 from fdai.core.control_loop._boundary import ControlLoopBoundaryMixin
 from fdai.core.control_loop._canary import process_canary
@@ -94,6 +102,7 @@ from fdai.shared.providers.state_store import StateStore
 from fdai.shared.resilience import DegradationController, KillSwitch
 
 _LOGGER = logging.getLogger(__name__)
+_FenceResult = TypeVar("_FenceResult")
 
 
 class ControlLoop(
@@ -225,6 +234,8 @@ class ControlLoop(
         # effect recording. A frozen replay binds it so an observation can be
         # ordered against the dispatch it belongs to instead of wall clock.
         self._clock: Callable[[], datetime] = clock or (lambda: datetime.now(tz=UTC))
+        self._rule_generation_clock: Callable[[], datetime] = lambda: datetime.now(tz=UTC)
+        self._rule_generation_time = self._rule_generation_clock()
         self._thor_execution_port = thor_execution_port
         self._mutation_dependency_readiness = mutation_dependency_readiness
         self._evidence_conflict_reader = evidence_conflict_reader
@@ -357,6 +368,11 @@ class ControlLoop(
             self._t0_engine = prepared_engine
             self._rules_by_id = prepared_rules
             self._rule_generation_digest = generation_digest
+            generation_time = self._rule_generation_clock()
+            self._rule_generation_time = max(
+                generation_time,
+                self._rule_generation_time + timedelta(microseconds=1),
+            )
 
     @property
     def action_types(self) -> tuple[OntologyActionType, ...]:
@@ -367,6 +383,48 @@ class ControlLoop(
     def rules(self) -> tuple[Rule, ...]:
         """Return the current active Rule membership."""
         return tuple(self._rules_by_id.values())
+
+    async def evaluate_assurance_twin_posture(
+        self,
+        *,
+        projection: InMemoryProjection,
+        inventory_revision: str,
+    ) -> CompletePostureEvaluation:
+        """Evaluate one retained projection under the current Rule-generation lock."""
+
+        async with self._rule_generation_barrier.read():
+            engine = self._t0_engine
+            rules = tuple(self._rules_by_id.values())
+            generation_time = self._rule_generation_time
+        return await asyncio.to_thread(
+            evaluate_complete_posture,
+            engine=engine,
+            rules=rules,
+            projection=projection,
+            inventory_revision=inventory_revision,
+            rule_generation_time=generation_time,
+        )
+
+    async def run_assurance_twin_if_current(
+        self,
+        *,
+        rule_generation_revision: str,
+        operation: Callable[[], Awaitable[_FenceResult]],
+    ) -> _FenceResult | None:
+        """Run one posture publication only while its Rule generation is current."""
+
+        async with self._rule_generation_barrier.read():
+            evaluator_generation = self._t0_engine.current_evaluator_generation_digest
+            if (
+                evaluator_generation is None
+                or rule_generation_digest(
+                    tuple(self._rules_by_id.values()),
+                    evaluator_generation_digest=evaluator_generation,
+                )
+                != rule_generation_revision
+            ):
+                return None
+            return await operation()
 
     @property
     def available_rules(self) -> tuple[Rule, ...]:

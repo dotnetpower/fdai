@@ -6,9 +6,10 @@ import asyncio
 import hashlib
 import json
 import logging
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
-from typing import Literal, Protocol
+from typing import Literal, Protocol, TypeVar
 
 from fdai_service_contracts import OperationalFreshness
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
@@ -17,6 +18,7 @@ from fdai.core.assurance_twin.report import (
     PostureAssessmentReport,
     build_posture_assessment_report,
 )
+from fdai.delivery.assurance_twin_inventory import AssuranceTwinInventoryChangedError
 from fdai.delivery.assurance_twin_posture import AssuranceTwinPostureRecorder
 from fdai.delivery.persistence.state_store_assurance_twin_posture import (
     _change_review_body,
@@ -30,6 +32,7 @@ from fdai.shared.providers.projection import Finding
 REQUEST_TOPIC = "fdai.assurance-twin.requests"
 _LOG = logging.getLogger(__name__)
 _DIGEST_PREFIX = "sha256:"
+_FenceResult = TypeVar("_FenceResult")
 
 
 class AssuranceTwinPublishRequest(BaseModel):
@@ -54,6 +57,9 @@ class RuleFindingAssessment:
 
     source_revision: str
     rule_set_digest: str
+    rule_membership_digest: str
+    rule_generation_digest: str
+    inventory_revision: str
     evaluated_rule_ids: tuple[str, ...]
     findings_digest: str
     coverage_refs: tuple[str, ...]
@@ -92,6 +98,30 @@ class RetainedTwinEvidenceSource(Protocol):
     async def read_review(self, review_key: str, revision: str) -> RetainedTwinEvidence | None: ...
 
 
+class AssuranceTwinRuleGenerationFence(Protocol):
+    async def run_assurance_twin_if_current(
+        self,
+        *,
+        rule_generation_revision: str,
+        operation: Callable[[], Awaitable[_FenceResult]],
+    ) -> _FenceResult | None: ...
+
+
+class AssuranceTwinInventoryFence(Protocol):
+    async def run_assurance_twin_inventory_if_current(
+        self,
+        *,
+        inventory_revision: str,
+        operation: Callable[[], Awaitable[_FenceResult]],
+    ) -> _FenceResult | None: ...
+
+
+@dataclass(frozen=True, slots=True)
+class _InventoryWriterResult:
+    request: AssuranceTwinPublishRequest
+    succeeded: bool
+
+
 class AssuranceTwinAgentWriter:
     """Run a single owner's subscription; never judge from the trigger payload."""
 
@@ -101,10 +131,14 @@ class AssuranceTwinAgentWriter:
         owner: Literal["Heimdall", "Forseti"],
         source: RetainedTwinEvidenceSource,
         recorder: AssuranceTwinPostureRecorder,
+        posture_generation_fence: AssuranceTwinRuleGenerationFence | None = None,
+        posture_inventory_fence: AssuranceTwinInventoryFence | None = None,
     ) -> None:
         self.owner = owner
         self._source = source
         self._recorder = recorder
+        self._posture_generation_fence = posture_generation_fence
+        self._posture_inventory_fence = posture_inventory_fence
 
     async def process(self, request: AssuranceTwinPublishRequest) -> bool:
         """Persist only a complete, fresh, conflict-free exact source revision."""
@@ -131,6 +165,66 @@ class AssuranceTwinAgentWriter:
             return False
         if not _admissible(snapshot, request):
             return False
+        if self.owner == "Heimdall" and self._posture_generation_fence is not None:
+            posture_assessment = snapshot.rule_assessment
+            if posture_assessment is None:
+                return False
+            fenced = await self._posture_generation_fence.run_assurance_twin_if_current(
+                rule_generation_revision=posture_assessment.rule_generation_digest,
+                operation=lambda: self._persist_with_inventory_fence(
+                    request,
+                    snapshot,
+                    posture_assessment.inventory_revision,
+                ),
+            )
+            return fenced is True
+        assessment = snapshot.rule_assessment
+        return await self._persist_with_inventory_fence(
+            request,
+            snapshot,
+            assessment.inventory_revision if assessment is not None else "",
+        )
+
+    async def _persist_with_inventory_fence(
+        self,
+        request: AssuranceTwinPublishRequest,
+        snapshot: RetainedTwinEvidence,
+        inventory_revision: str,
+    ) -> bool:
+        if self.owner == "Heimdall" and self._posture_inventory_fence is not None:
+            try:
+                fenced = (
+                    await self._posture_inventory_fence.run_assurance_twin_inventory_if_current(
+                        inventory_revision=inventory_revision,
+                        operation=lambda: self._persist_inventory_snapshot(
+                            request,
+                            snapshot,
+                        ),
+                    )
+                )
+            except AssuranceTwinInventoryChangedError:
+                await self._mark_source_conflict(request, snapshot)
+                return False
+            if not isinstance(fenced, _InventoryWriterResult) or not fenced.succeeded:
+                return False
+            return True
+        return await self._persist_snapshot(request, snapshot)
+
+    async def _persist_inventory_snapshot(
+        self,
+        request: AssuranceTwinPublishRequest,
+        snapshot: RetainedTwinEvidence,
+    ) -> _InventoryWriterResult:
+        return _InventoryWriterResult(
+            request=request,
+            succeeded=await self._persist_snapshot(request, snapshot),
+        )
+
+    async def _persist_snapshot(
+        self,
+        request: AssuranceTwinPublishRequest,
+        snapshot: RetainedTwinEvidence,
+    ) -> bool:
         confirm_writer = getattr(self._source, "confirm_writer", None)
         requires_confirmation = callable(confirm_writer)
         if self.owner == "Heimdall":
@@ -164,6 +258,9 @@ class AssuranceTwinAgentWriter:
                 if self.owner == "Heimdall"
                 else await self._source.read_review(request.source_key, request.source_revision)
             )
+        except ValueError:
+            await self._mark_source_conflict(request, snapshot)
+            return False
         except Exception:  # noqa: BLE001 - a later relay pass independently retries readback
             return False
         if confirmed != snapshot:
@@ -254,6 +351,9 @@ def _admissible(snapshot: RetainedTwinEvidence, request: AssuranceTwinPublishReq
         or assessment.complete is not True
         or assessment.source_revision != snapshot.source_revision
         or not _digest(assessment.rule_set_digest)
+        or not _digest(assessment.rule_membership_digest)
+        or not _digest(assessment.rule_generation_digest)
+        or not _digest(assessment.inventory_revision)
         or not _digest(assessment.findings_digest)
         or not assessment.coverage_refs
         or any(not isinstance(ref, str) or not ref.strip() for ref in assessment.coverage_refs)
@@ -262,7 +362,8 @@ def _admissible(snapshot: RetainedTwinEvidence, request: AssuranceTwinPublishReq
             not isinstance(rule, str) or not rule.strip() for rule in assessment.evaluated_rule_ids
         )
         or assessment.evaluated_rule_ids != tuple(sorted(set(assessment.evaluated_rule_ids)))
-        or assessment.rule_set_digest != rule_set_digest(assessment.evaluated_rule_ids)
+        or assessment.rule_membership_digest != rule_set_digest(assessment.evaluated_rule_ids)
+        or assessment.rule_set_digest not in assessment.coverage_refs
         or assessment.findings_digest != findings_digest(record.findings)
         or any(
             finding.rule_id not in assessment.evaluated_rule_ids or not finding.evidence_refs
@@ -363,7 +464,9 @@ def request_key(kind: str, source_key: str, source_revision: str) -> str:
 __all__ = [
     "REQUEST_TOPIC",
     "AssuranceTwinAgentWriter",
+    "AssuranceTwinInventoryFence",
     "AssuranceTwinPublishRequest",
+    "AssuranceTwinRuleGenerationFence",
     "ProposedIacAssessment",
     "RetainedTwinEvidence",
     "RetainedTwinEvidenceSource",

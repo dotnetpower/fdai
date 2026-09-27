@@ -1,7 +1,7 @@
 ---
 title: 어슈어런스 트윈 (질의가능하고 선제적이며 검증가능한 리뷰)
 translation_of: assurance-twin.md
-translation_source_sha: cd35f56ebd3603dbef53baaa16c0cd261f7b9522
+translation_source_sha: b1fc09193ed032180dc937dd60892b154ce8c111
 translation_revised: 2026-09-27
 ---
 # 어슈어런스 트윈 (질의가능하고 선제적이며 검증가능한 리뷰)
@@ -45,17 +45,14 @@ event-driven, risk-gated 설계를 저하시키지 않으면서 커버하는 리
 정확한 개정에 연결된 보관 근거만 받습니다. 각 작성기는 읽기 전용 활동을 영속
 `state_kv` 행 및 Saga에 귀속된 추가 전용 감사 이력과 원자적으로 준비합니다.
 감독되는 두 아웃박스 중계기가 스키마 검증을 거친 정확한 개정의 참고용 이벤트를
-게시합니다. 인증된 Operator API와 콘솔은 이벤트 알림이 아닌 영속 행을 계속
-읽습니다. 기본 구성에는 운영 보관 근거 출처가 연결되지 않아 선제적 수집
-페이로드만으로 발견 사항이나 검토 판정을 만들 수 없습니다. 보관된 인벤토리 출처는
-범위가 제한된 `Resource` 변환 결과와 활성 스냅샷 및 실시간 `Resource` 변경분의
-내용을 함께 식별하는 개정을 제공합니다. 그러나 완전한 규칙 점검 결과나 제안된
-IaC 변경 근거는 제공하지 않으며, 실시간 관계 변경이 남아 있으면 사용할 수 없습니다.
-신뢰할 수 있는 출처가 해당 개정에서 완전한 규칙 평가를 별도로 입증해야 합니다.
-검토에는 완전한 IaC 변경 제안 근거도 필요합니다. 프로덕션 런타임은 이제 영속 보관
-근거 저장소와 내용 없는 요청 아웃박스를 연결합니다. 책임 있는 생산자가 완전한 규칙
-평가와 필요한 IaC 변경 제안 근거를 기록하지 않으면 작성기는 계속 사용할 수 없습니다.
-외부 검토 전달과 통제된 런타임 증적도 남아 있습니다.
+게시합니다. 인증된 Operator API와 콘솔은 이벤트 알림이 아닌 영속 행을 계속 읽습니다.
+프로덕션은 이제 Heimdall의 자세 생산자를 보관 인벤토리 변환 결과 및 컨트롤 루프와 같은
+결정론적 T0/OPA 세대에 연결합니다. 모든 `Resource`에 선언된 입력이 있는 완전한 Rule
+범위가 필요합니다. 판단 보류, 누락된 속성, 보류 중인 관계 변경, 오래된 기준선, 정책 drift
+또는 인벤토리 개정 변경이 있으면 자세를 사용할 수 없습니다. 인벤토리 승격 및 실시간
+그래프 잠금은 원본 저장과 Heimdall 확인이 끝날 때까지 유지됩니다. 영속 최초 관측 순서,
+원본/대상 충돌 보호 경계 및 기준선에 제한된 최신성은 지연된 근거가 현재 상태가 되는 것을
+막습니다. Forseti의 제안 IaC 생산자, 외부 검토 전달 및 통제된 런타임 증적은 남아 있습니다.
 
 ### 구현 범위
 
@@ -66,10 +63,10 @@ IaC 변경 근거는 제공하지 않으며, 실시간 관계 변경이 남아 �
 | 그래프 전역 Dynamic 궤적, 전파, 불변식, 에피소드 종결, 모델 레지스트리 | implemented | [`graph_effect.py`](../../../services/core-control-plane/src/fdai/core/assurance_twin/graph_effect.py), [`graph_runtime.py`](../../../services/core-control-plane/src/fdai/core/assurance_twin/graph_runtime.py), [`graph_closure.py`](../../../services/core-control-plane/src/fdai/core/assurance_twin/graph_closure.py) 및 그래프 집중 테스트 | 런타임은 근거를 반환하기 전에 예측 에피소드를 저장하고 완전한 독립 관측에서만 challenger 구획을 갱신합니다. |
 | 심층 Security Assessment 피드, 결정론적 분석기, 카탈로그 보고서 | implemented | [`core/security/`](../../../services/core-control-plane/src/fdai/core/security), [`security_assessment.py`](../../../services/core-control-plane/src/fdai/core/reporting/datasources/security_assessment.py), [`test_assessment.py`](../../../services/core-control-plane/tests/core/security/test_assessment.py), [`test_security_assessment_datasource.py`](../../../services/core-control-plane/tests/core/reporting/test_security_assessment_datasource.py) | 아래에서 설명하는 Twin 전용 자세 패널과는 별도의 보고 하위 시스템입니다. |
 | 보관된 `Resource` 개정과 작성기 수용 계약 | implemented | [`assurance_twin_inventory.py`](../../../services/core-control-plane/src/fdai/delivery/assurance_twin_inventory.py), [`assurance_twin_writers.py`](../../../services/core-control-plane/src/fdai/delivery/assurance_twin_writers.py), 출처 및 게시 집중 테스트 | 스냅샷과 범위가 제한된 `Resource` 변경분은 하나의 정규 다이제스트로 식별됩니다. 신뢰된 출처는 빈 결과의 다이제스트까지 포함해 개정이 일치하는 완전한 규칙 평가를 제공해야 합니다. 검토에는 완전한 제안된 IaC 근거도 필요합니다. 실제 평가기나 관계 변경분은 연결하지 않았습니다. |
-| 운영 Twin 연결과 선제적 변경 검토 전달 | in-progress | [`assurance_twin_evidence_source.py`](../../../services/core-control-plane/src/fdai/delivery/assurance_twin_evidence_source.py) 및 [`bootstrap_core_model.py`](../../../services/core-control-plane/src/fdai/runtime/bootstrap_core_model.py) | 프로덕션 런타임은 정확한 개정의 영속 근거 저장소와 재시작 안전한 내용 없는 요청 아웃박스를 연결합니다. 빈 finding은 완전한 Rule 범위가 명시적으로 입증되어야 하며, 검토 레코드는 정확한 제안 IaC 다이제스트와 재조회 참조가 필요합니다. 실제 결정론적 Rule 평가기, 제안 IaC 생산자, 통제된 런타임 증적은 아직 연결되지 않았습니다. |
+| 운영 Twin 연결과 선제적 변경 검토 전달 | in-progress | [`evaluation.py`](../../../services/core-control-plane/src/fdai/core/assurance_twin/evaluation.py), [`assurance_twin_posture_producer.py`](../../../services/core-control-plane/src/fdai/delivery/assurance_twin_posture_producer.py), [`assurance_twin_evidence_source.py`](../../../services/core-control-plane/src/fdai/delivery/assurance_twin_evidence_source.py), 런타임 조립 | Heimdall의 프로덕션 생산자는 변경할 수 없는 T0/OPA 정책 세대로 정확한 보관 인벤토리 개정을 평가하고 `Resource`별 입력이 완전한 결과만 기록합니다. 요청 아웃박스에는 내용이 없으며 인벤토리, Rule, 정책, 원본, 대상 및 최신성 보호 경계는 불확실할 때 사용할 수 없는 상태를 선택합니다. Forseti의 제안 IaC 생산자와 통제된 런타임 증적은 아직 연결되지 않았습니다. |
 | 엄격한 의미 컴파일과 판단 보류 피드백 | implemented | [`query.py`](../../../services/core-control-plane/src/fdai/core/assurance_twin/query.py), [`semantic_query.py`](../../../services/core-control-plane/src/fdai/core/assurance_twin/semantic_query.py), [`runtime/assurance_twin_query.py`](../../../services/core-control-plane/src/fdai/runtime/assurance_twin_query.py), 집중 질의 및 런타임 테스트 50개 | 주입된 컴파일러는 읽기 전용 계획이 검증을 통과하기 전에 정확한 입력 다이제스트, 컴파일러 개정, 제한된 결과 수, 근거 참조를 연결해야 합니다. 판단 보류는 주입된 발견 sink를 통해 내용 없는 무권한 공백만 발행합니다. 런타임 기본값은 명시적인 모델 사용 불가입니다. |
 | T1 재사용, ChatOps 입력, 통제된 런타임 근거 | in-progress | [`chat.py`](../../../services/core-control-plane/src/fdai/core/assurance_twin/chat.py), 공유 의미 판단 계약 | 메시지 라우팅, T1 재사용, 구체적인 모델 프로바이더, 인증된 종단 증적은 아직 검증되지 않았습니다. |
-| Heimdall/Forseti 로컬 이벤트 게시 | implemented | [`assurance_twin_writers.py`](../../../services/core-control-plane/src/fdai/delivery/assurance_twin_writers.py), [`assurance_twin_publication.py`](../../../services/core-control-plane/src/fdai/delivery/assurance_twin_publication.py), [`test_assurance_twin_publication.py`](../../../services/core-control-plane/tests/delivery/test_assurance_twin_publication.py) | 요청에는 발견 사항이 없습니다. 주입된 출처가 요청한 개정의 완전하고 최신이며 상충하지 않는 근거를 반환한 경우에만 해당 작성기가 저장합니다. Saga에 귀속된 감사 이력과 내장 아웃박스는 정확한 행과 함께 원자적으로 저장됩니다. 재시작한 중계기는 영속 개정을 검증한 후에만 스키마 검증을 거친 참고용 이벤트를 발행합니다. 실제 보관 근거와 통제된 런타임 연결은 아직 없습니다. |
+| Heimdall/Forseti 로컬 이벤트 게시 | implemented | [`assurance_twin_writers.py`](../../../services/core-control-plane/src/fdai/delivery/assurance_twin_writers.py), [`assurance_twin_publication.py`](../../../services/core-control-plane/src/fdai/delivery/assurance_twin_publication.py), [`test_assurance_twin_publication.py`](../../../services/core-control-plane/tests/delivery/test_assurance_twin_publication.py) | 요청에는 발견 사항이 없습니다. 출처가 요청한 개정의 완전하고 최신이며 상충하지 않는 근거를 반환한 경우에만 작성기가 저장합니다. Saga에 귀속된 감사 이력과 내장 아웃박스는 정확한 행과 함께 원자적으로 저장됩니다. Heimdall은 원본/대상 확인이 끝날 때까지 권위 있는 인벤토리 잠금도 유지합니다. 일시적인 실패는 임시 상태를 유지하고 확인된 개정 변경은 게시를 철회합니다. Forseti는 여전히 프로덕션 제안 IaC 출처가 필요합니다. |
 | Twin 전용 운영자 패널과 거버넌스가 적용된 수정 제안 연결 | in-progress | [`posture_activity.py`](../../../services/core-control-plane/src/fdai/core/assurance_twin/posture_activity.py), [`assurance_twin_posture.py`](../../../services/core-control-plane/src/fdai/delivery/assurance_twin_posture.py), [`state_store_assurance_twin_posture.py`](../../../services/core-control-plane/src/fdai/delivery/persistence/state_store_assurance_twin_posture.py), [`assurance_twin_posture_projection.py`](../../../services/operator-service/src/fdai_operator_service/assurance_twin_posture_projection.py), [`assurance-twin` 콘솔 경로](../../../console/src/routes/assurance-twin.tsx) | 레코더는 출처와 내장된 게시 대기를 포함하는 제한된 보고서 및 검토 본문을 감사 기록과 같은 트랜잭션에서 개정 번호로 보호하여 저장합니다. Heimdall과 Forseti는 각자 소유하는 별도의 활동을 사용합니다. 관찰자에게만 허용되는 공유 운영 활동 스키마를 Forseti 소유로 위장하지 않습니다. 중계기는 정확한 영속 개정을 확인하고 게시 사실을 기록합니다. 늦거나 상충하는 근거는 현재 행을 바꾸거나 게시하지 못합니다. Operator와 콘솔은 영속 발견 사항과 근거 공백을 읽고 권한을 재계산하지 않습니다. 신뢰할 수 있는 출처, 외부 Checks 발행기, 수정 제안 연결, 통제된 실제 증적은 여전히 연결되지 않았습니다. |
 
 일치하는 검토 재전달은 읽기 전용 no-op이므로 감사 항목을 추가하지 않고 최신 순서를 바꾸지
@@ -90,6 +87,7 @@ IaC 변경 근거는 제공하지 않으며, 실시간 관계 변경이 남아 �
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-27 | in-progress | Heimdall의 프로덕션 자세 생산자를 정확한 보관 인벤토리 및 변경할 수 없는 T0/OPA 세대에 연결했습니다. `Resource`별 입력 완전성, 영속 단조 증가 원본 순서, 현재 정책 및 인벤토리 보호 경계, 잠금이 적용된 2단계 원본/대상 확인, 재시작에 안전한 종단 상태 복구를 추가했습니다. | `current change`; 평가기, 인벤토리, OPA 정책 변경, 원본, 작성기, 시작 조립, 경합 및 재시도 집중 검사, Ruff, strict mypy. | Forseti의 완전한 제안 IaC 생산자와 외부 Checks 발행기를 연결한 뒤 원본부터 렌더링까지 통제된 증적 하나를 보존합니다. |
 | 2026-09-27 | implemented | 보관된 `Resource` 세대와 범위가 제한된 변경분을 내용으로 식별하고, 작성기가 같은 개정의 완전한 규칙 점검 결과와 검토에 필요한 제안된 IaC 근거를 요구하도록 했습니다. 운영 출처와 요청 생산자는 연결하지 않았습니다. | `current change`; `assurance_twin_inventory.py`, `assurance_twin_writers.py`, 인벤토리 및 게시 집중 테스트. | 책임 있는 완전한 평가기와 변경 제안 출처를 연결하고, 보류 중인 관계 변경을 처리하고, 내용 없는 버스 요청을 발행한 뒤 통제된 런타임 증적을 보관합니다. |
 | 2026-09-27 | implemented | Heimdall 보고서와 Forseti 검토 작성기를 분리하고, 정확한 개정의 상태, 아웃박스, 감사를 원자적으로 저장하며 재시작 중계기를 감독하도록 했습니다. 출처를 사용할 수 없거나 근거가 충돌할 때 검토 판정을 만들어 내지 않습니다. | `current change`; `assurance_twin_writers.py`, `assurance_twin_publication.py`, Core, Operator 및 콘솔 집중 검사. | 신뢰할 수 있는 운영 근거를 연결하고 통제된 런타임 증적을 보관합니다. |
 | 2026-09-09 | in-progress | 일치하는 검토 재전달이 동시에 기록되는 충돌 표식과 올바른 순서로 수렴하도록 두 번째 개정 번호 및 다이제스트 읽기를 추가했습니다. 확인 과정은 읽기 전용이며 감사 항목을 추가하지 않습니다. 두 읽기 사이에 충돌이 기록되면 사용 불가 결과를 반환합니다. | `current change`; 읽기와 충돌 표식의 교차 순서를 강제한 사례를 포함해 집중 영속성 및 전달 검사 45개와 Ruff 통과. | 신뢰된 생산자 또는 트랜잭션 발행기를 연결할 때도 같은 읽기 전용 순서 보장을 유지합니다. |
@@ -418,15 +416,12 @@ Supplemental 프로바이더는 서버 매개변수, diagnostic-setting 상태, 
 
 `PostgresTwinInventorySource`는 반복 읽기 트랜잭션에서 보관된 Inventory 데이터베이스의
 활성 관측 스냅샷을 전체 범위로 읽습니다. 오래되었거나 불완전하거나 대체된 범위를 거부하고,
-기준 Resource와 실시간 변경의 개수를 제한합니다. Resource만 표현하는 임시 변환 결과에
-반영할 수 없는 관계 변경도 거부합니다. 활성 세대를 다시 읽어 획득 도중의 승격을 차단합니다.
-출처 정보가 담긴 변경 불가능한 변환 결과를 매번 새로 만들며, 아직 운영 트윈 조회나 자세
-작성기에 주입하지 않았습니다.
-운영 연결에는 신뢰할 수 있는 완전성 검증을 거친 규칙 및 변경 근거 생산자,
-스냅샷과 실시간 변경분을 함께 포함하는 정확한 개정, 내용 없는 보고서 및
-검토 요청을 내보낼 통제된 이벤트 출처가 필요합니다. 인벤토리 스냅샷 ID만으로는
-그 개정을 나타낼 수 없습니다. 이러한 입력이 정의되기 전에는 빈 규칙 평가기를
-연결해서 점검되지 않은 리소스를 잘못된 `clear` 판정으로 표시하지 않는 것이 좋습니다.
+기준 `Resource`와 실시간 변경의 개수를 제한합니다. `Resource`만 표현하는 임시 변환 결과에
+반영할 수 없는 관계 변경도 거부합니다. Heimdall의 프로덕션 자세 생산자는 이벤트 루프 밖에서
+컨트롤 루프의 변경할 수 없는 T0/OPA 세대를 재사용하고, 모든 `Resource`의 선언된 Rule 입력과
+증적을 요구하며, 원본 저장과 작성기 확인이 끝날 때까지 인벤토리 승격 및 실시간 그래프 잠금을
+유지합니다. 운영 검토 연결에는 신뢰할 수 있고 완전성 검증을 거친 제안 변경 근거 생산자가
+여전히 필요합니다.
 
 목표 전달은 기존 `chatops` 어댑터에 인텐트 하나를 추가하고(질문 입력, 근거 있는 답 출력)
 제안과 Checks API 리뷰에 `gitops-pr` 어댑터를 재사용합니다. 현재 저장소에는

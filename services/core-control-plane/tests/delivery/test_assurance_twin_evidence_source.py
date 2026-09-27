@@ -3,8 +3,10 @@ from __future__ import annotations
 import asyncio
 from datetime import UTC, datetime, timedelta
 
+import psycopg
 import pytest
 from fdai.delivery.assurance_twin_evidence_source import (
+    AssuranceTwinEvidenceExpiredError,
     AssuranceTwinEvidenceRequestRelay,
     StateStoreTwinEvidenceRepository,
 )
@@ -22,6 +24,8 @@ from fdai.shared.providers.testing.event_bus import InMemoryEventBus
 from fdai.shared.providers.testing.state_store import InMemoryStateStore
 
 _REVISION = "sha256:" + "a" * 64
+_RULE_SET_REVISION = "sha256:" + "b" * 64
+_RULE_GENERATION_REVISION = "sha256:" + "c" * 64
 _NOW = datetime.now(UTC)
 
 
@@ -119,6 +123,133 @@ async def test_empty_findings_require_positive_complete_rule_coverage() -> None:
         )
 
 
+async def test_legacy_pending_rule_provenance_is_terminal_not_retried() -> None:
+    store = InMemoryStateStore()
+    bus = InMemoryEventBus()
+    source = StateStoreTwinEvidenceRepository(store=store)
+    request = await source.record_posture(
+        scope="scope-1",
+        source_revision=_REVISION,
+        findings=(),
+        evaluated_rule_ids=("rule.example",),
+        coverage_refs=("rule-coverage:1",),
+        generated_at=_NOW,
+        fresh_until=_NOW + timedelta(minutes=5),
+        correlation_id="correlation-1",
+    )
+    key = "runtime:assurance-twin-evidence:" + request.idempotency_key.removeprefix("sha256:")
+    retained = await store.read_state(key)
+    assert retained is not None
+    assessment = dict(retained["rule_assessment"])
+    assessment.pop("rule_membership_digest")
+    assessment.pop("rule_generation_digest")
+    await store.write_state(key, {**dict(retained), "rule_assessment": assessment})
+
+    relay = AssuranceTwinEvidenceRequestRelay(repository=source, bus=bus)
+    assert await relay.publish_pending() == 0
+    terminal = await store.read_state(key)
+    assert terminal is not None and terminal["request_status"] == "conflict"
+    assert [item async for item in bus.subscribe(REQUEST_TOPIC, "writer")] == []
+
+
+async def test_expired_monotonic_candidate_does_not_advance_clock() -> None:
+    store = InMemoryStateStore()
+    source = StateStoreTwinEvidenceRepository(store=store)
+    fresh_until = _NOW + timedelta(microseconds=1)
+    await source.record_posture(
+        scope="scope-1",
+        source_revision="sha256:" + "1" * 64,
+        findings=(),
+        evaluated_rule_ids=("rule.example",),
+        coverage_refs=("rule-coverage:1",),
+        generated_at=_NOW,
+        fresh_until=fresh_until,
+        correlation_id="first",
+    )
+    clocks = await store.read_states(
+        "runtime:assurance-twin-evidence:clock:",
+        limit=10,
+    )
+    assert len(clocks) == 1 and clocks[0]["revision"] == 2
+
+    with pytest.raises(AssuranceTwinEvidenceExpiredError, match="exceeds freshness"):
+        await source.record_posture(
+            scope="scope-1",
+            source_revision="sha256:" + "2" * 64,
+            findings=(),
+            evaluated_rule_ids=("rule.example",),
+            coverage_refs=("rule-coverage:2",),
+            generated_at=_NOW,
+            fresh_until=fresh_until,
+            correlation_id="second",
+        )
+
+    retained_clocks = await store.read_states(
+        "runtime:assurance-twin-evidence:clock:",
+        limit=10,
+    )
+    assert retained_clocks == clocks
+
+
+async def test_failed_source_reservations_spill_without_losing_first_seen_time() -> None:
+    class _FailingSourceStore(InMemoryStateStore):
+        fail_source_writes = True
+
+        async def write_state_with_audit_if_absent(
+            self,
+            key,
+            value,
+            audit_entry,
+        ):  # type: ignore[no-untyped-def]
+            if (
+                self.fail_source_writes
+                and key.startswith("runtime:assurance-twin-evidence:")
+                and ":clock" not in key
+            ):
+                raise psycopg.OperationalError("source write unavailable")
+            return await super().write_state_with_audit_if_absent(
+                key,
+                value,
+                audit_entry,
+            )
+
+    store = _FailingSourceStore()
+    source = StateStoreTwinEvidenceRepository(store=store)
+    revisions = tuple(f"sha256:{index:064x}" for index in range(1, 131))
+    for revision in revisions:
+        with pytest.raises(psycopg.OperationalError):
+            await source.record_posture(
+                scope="scope-1",
+                source_revision=revision,
+                findings=(),
+                evaluated_rule_ids=("rule.example",),
+                coverage_refs=("rule-coverage:1",),
+                generated_at=_NOW,
+                fresh_until=_NOW + timedelta(minutes=5),
+                correlation_id=revision,
+            )
+
+    archived = await store.read_states(
+        "runtime:assurance-twin-evidence:clock-reservation:",
+        limit=10,
+    )
+    assert archived
+    store.fail_source_writes = False
+    request = await source.record_posture(
+        scope="scope-1",
+        source_revision=revisions[0],
+        findings=(),
+        evaluated_rule_ids=("rule.example",),
+        coverage_refs=("rule-coverage:1",),
+        generated_at=_NOW + timedelta(seconds=1),
+        fresh_until=_NOW + timedelta(minutes=5),
+        correlation_id="retry",
+    )
+    retained = await source.read_posture(request.source_key, request.source_revision)
+    assert retained is not None
+    assert retained.record.generated_at == _NOW.isoformat()
+
+
 async def test_review_requires_exact_proposed_iac_evidence() -> None:
     store = InMemoryStateStore()
     source = StateStoreTwinEvidenceRepository(store=store)
@@ -130,6 +261,8 @@ async def test_review_requires_exact_proposed_iac_evidence() -> None:
             findings=(_finding(),),
             evaluated_rule_ids=("rule.example",),
             rule_coverage_refs=("rule-coverage:1",),
+            rule_set_revision=_RULE_SET_REVISION,
+            rule_generation_revision=_RULE_GENERATION_REVISION,
             proposal_digest="",
             proposal_evidence_refs=(),
             generated_at=_NOW,
@@ -144,6 +277,8 @@ async def test_review_requires_exact_proposed_iac_evidence() -> None:
         findings=(_finding(),),
         evaluated_rule_ids=("rule.example",),
         rule_coverage_refs=("rule-coverage:1",),
+        rule_set_revision=_RULE_SET_REVISION,
+        rule_generation_revision=_RULE_GENERATION_REVISION,
         proposal_digest="sha256:" + "b" * 64,
         proposal_evidence_refs=("proposal-readback:1",),
         generated_at=_NOW,
@@ -190,11 +325,12 @@ async def test_conflicting_evidence_is_tombstoned_by_accountable_writer() -> Non
                 "findings": (),
             }
         )
-    records = await store.read_states("runtime:assurance-twin-evidence:", limit=2)
-    assert records[0]["request_status"] == "pending"
-    assert records[0]["conflict"] is True
+    records = await store.read_states("runtime:assurance-twin-evidence:", limit=10)
+    evidence = next(record for record in records if "request_status" in record)
+    assert evidence["request_status"] == "conflict"
+    assert evidence["conflict"] is True
     relay = AssuranceTwinEvidenceRequestRelay(repository=source, bus=bus)
-    assert await relay.publish_pending() == 1
+    assert await relay.publish_pending() == 0
     writer = AssuranceTwinAgentWriter(
         owner="Heimdall",
         source=source,
@@ -204,10 +340,11 @@ async def test_conflicting_evidence_is_tombstoned_by_accountable_writer() -> Non
     )
     assert not await writer.process(request)
     target = await store.read_state("runtime:assurance-twin-posture:scope-1")
-    assert target is not None and target["conflict"] is not None
+    assert target is None
     assert await relay.publish_pending() == 0
-    records = await store.read_states("runtime:assurance-twin-evidence:", limit=2)
-    assert records[0]["request_status"] == "conflict"
+    records = await store.read_states("runtime:assurance-twin-evidence:", limit=10)
+    evidence = next(record for record in records if "request_status" in record)
+    assert evidence["request_status"] == "conflict"
 
 
 async def test_tampered_durable_findings_fail_at_writer_admission() -> None:
@@ -285,8 +422,9 @@ async def test_request_transport_failure_remains_pending_for_retry() -> None:
 
     assert await relay.publish_pending() == 0
     assert await relay.publish_pending() == 1
-    records = await store.read_states("runtime:assurance-twin-evidence:", limit=2)
-    assert records[0]["request_status"] == "pending"
+    records = await store.read_states("runtime:assurance-twin-evidence:", limit=10)
+    evidence = next(record for record in records if "request_status" in record)
+    assert evidence["request_status"] == "pending"
 
 
 async def test_large_backlog_returns_one_bounded_drain_batch() -> None:
@@ -480,7 +618,7 @@ async def test_conflicting_source_marks_existing_writer_row_unavailable() -> Non
     assert first_source["request_status"] == "conflict"
 
 
-async def test_equal_time_different_revision_is_not_silently_superseded() -> None:
+async def test_equal_time_different_revision_gets_monotonic_generation_time() -> None:
     store = InMemoryStateStore()
     source = StateStoreTwinEvidenceRepository(store=store)
     first = await source.record_posture(
@@ -512,10 +650,11 @@ async def test_equal_time_different_revision_is_not_silently_superseded() -> Non
         correlation_id="second",
     )
 
-    assert not await writer.process(second)
+    assert await writer.process(second)
     retained = await store.read_state("runtime:assurance-twin-posture:scope-1")
     assert retained is not None
-    assert retained["conflict"]["reason_code"] == "assurance_twin_posture_timestamp_conflict"
+    assert retained["evidence_source_revision"] == second.source_revision
+    assert retained.get("conflict") is None
     assert (
         await AssuranceTwinEvidenceRequestRelay(
             repository=source,
@@ -527,7 +666,7 @@ async def test_equal_time_different_revision_is_not_silently_superseded() -> Non
         "runtime:assurance-twin-evidence:" + first.idempotency_key.removeprefix("sha256:")
     )
     assert first_source is not None
-    assert first_source["request_status"] == "conflict"
+    assert first_source["request_status"] == "superseded"
 
 
 async def test_expired_evidence_is_terminal_without_publication() -> None:
@@ -558,6 +697,100 @@ async def test_expired_evidence_is_terminal_without_publication() -> None:
     assert retained is not None
     assert retained["request_status"] == "expired"
     assert [item async for item in bus.subscribe(REQUEST_TOPIC, "writer")] == []
+
+
+async def test_superseded_source_cannot_be_written_or_confirmed() -> None:
+    store = InMemoryStateStore()
+    source = StateStoreTwinEvidenceRepository(store=store)
+    request = await source.record_posture(
+        scope="scope-1",
+        source_revision=_REVISION,
+        findings=(),
+        evaluated_rule_ids=("rule.example",),
+        coverage_refs=("rule-coverage:1",),
+        generated_at=_NOW,
+        fresh_until=_NOW + timedelta(minutes=5),
+        correlation_id="correlation-1",
+    )
+    assert await source.mark_inventory_superseded(request)
+    writer = AssuranceTwinAgentWriter(
+        owner="Heimdall",
+        source=source,
+        recorder=AssuranceTwinPostureRecorder(
+            ledger=StateStoreAssuranceTwinPostureLedger(store=store)
+        ),
+    )
+
+    assert not await writer.process(request)
+    assert not await source.confirm_writer(
+        request,
+        evidence_digest="sha256:" + "f" * 64,
+    )
+    assert await store.read_state("runtime:assurance-twin-posture:scope-1") is None
+
+
+async def test_inventory_conflict_retries_after_target_revision_race() -> None:
+    class _TargetRaceStore(InMemoryStateStore):
+        race = False
+
+        async def conflict_assurance_twin_source(
+            self,
+            *,
+            target_key,
+            expected_target_revision,
+            **kwargs,
+        ):  # type: ignore[no-untyped-def]
+            if self.race:
+                self.race = False
+                target = await self.read_state(target_key)
+                assert target is not None and expected_target_revision is not None
+                await self.compare_and_set_state_with_audit(
+                    target_key,
+                    {
+                        **dict(target),
+                        "revision": expected_target_revision + 1,
+                    },
+                    expected_revision=expected_target_revision,
+                    audit_entry={"kind": "synthetic_target_revision_race"},
+                )
+                return False
+            return await super().conflict_assurance_twin_source(
+                target_key=target_key,
+                expected_target_revision=expected_target_revision,
+                **kwargs,
+            )
+
+    store = _TargetRaceStore()
+    source = StateStoreTwinEvidenceRepository(store=store)
+    request = await source.record_posture(
+        scope="scope-1",
+        source_revision=_REVISION,
+        findings=(),
+        evaluated_rule_ids=("rule.example",),
+        coverage_refs=("rule-coverage:1",),
+        generated_at=_NOW,
+        fresh_until=_NOW + timedelta(minutes=5),
+        correlation_id="correlation-1",
+    )
+    writer = AssuranceTwinAgentWriter(
+        owner="Heimdall",
+        source=source,
+        recorder=AssuranceTwinPostureRecorder(
+            ledger=StateStoreAssuranceTwinPostureLedger(store=store)
+        ),
+    )
+    assert await writer.process(request)
+    store.race = True
+
+    assert await source.mark_inventory_changed(request)
+    retained_source = await store.read_state(
+        "runtime:assurance-twin-evidence:" + request.idempotency_key.removeprefix("sha256:")
+    )
+    target = await store.read_state("runtime:assurance-twin-posture:scope-1")
+    assert retained_source is not None and retained_source["conflict"] is True
+    assert target is not None
+    assert target["publication_outbox"] is None
+    assert target["conflict"]["reason_code"] == "assurance_twin_inventory_revision_changed"
 
 
 async def test_expired_newer_source_does_not_replay_against_older_tombstone() -> None:
@@ -937,9 +1170,10 @@ async def test_source_conflict_retries_after_request_status_race() -> None:
 
     with pytest.raises(ValueError, match="identity conflict"):
         await source.record_posture(findings=(_finding(),), **values)
-    retained = (await store.read_states("runtime:assurance-twin-evidence:", limit=2))[0]
+    records = await store.read_states("runtime:assurance-twin-evidence:", limit=10)
+    retained = next(record for record in records if "request_status" in record)
     assert retained["conflict"] is True
-    assert retained["request_status"] == "pending"
+    assert retained["request_status"] == "conflict"
 
 
 async def test_evidence_expiring_during_writer_work_stays_provisional() -> None:
@@ -1208,7 +1442,7 @@ async def test_older_conflicted_request_is_superseded_by_newer_clean_target() ->
         "runtime:assurance-twin-evidence:" + older.idempotency_key.removeprefix("sha256:")
     )
     assert retained is not None
-    assert retained["request_status"] == "superseded"
+    assert retained["request_status"] == "conflict"
 
 
 async def test_confirmed_writer_result_stays_published_after_source_expiry() -> None:

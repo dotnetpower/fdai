@@ -4,7 +4,10 @@ from __future__ import annotations
 
 import pytest
 from fdai.delivery.assurance_twin_writers import RetainedTwinEvidence
-from fdai.runtime.bootstrap_core_model import build_assurance_twin_runtime_binding
+from fdai.runtime.bootstrap_core_model import (
+    assurance_twin_inventory_dsn,
+    build_assurance_twin_runtime_binding,
+)
 from fdai.shared.providers.testing.event_bus import InMemoryEventBus
 from fdai.shared.providers.testing.state_store import InMemoryStateStore
 
@@ -17,6 +20,14 @@ class _UnavailableSource:
 
     async def read_review(self, review_key: str, revision: str) -> RetainedTwinEvidence | None:
         return None
+
+
+class _PostureEvaluator:
+    async def evaluate_assurance_twin_posture(self, **_kwargs: object) -> object:
+        raise AssertionError("bootstrap must not evaluate posture")
+
+    async def run_assurance_twin_if_current(self, **_kwargs: object) -> bool:
+        raise AssertionError("bootstrap must not publish posture")
 
 
 @pytest.mark.parametrize(
@@ -73,3 +84,40 @@ def test_state_store_source_is_bound_by_default_for_writers() -> None:
     assert bound_publishers[0]._ledger is bound_publishers[1]._ledger
     assert all(writer._recorder._ledger is bound_publishers[0]._ledger for writer in bound_writers)
     assert all(publisher._bus is bus for publisher in bound_publishers)
+
+
+def test_complete_posture_producer_binds_only_with_production_inputs() -> None:
+    publishers, writers = build_assurance_twin_runtime_binding(
+        state_store=InMemoryStateStore(),
+        agents=_ROSTER,
+        event_bus=InMemoryEventBus(),
+        retained_source=None,
+        posture_evaluator=_PostureEvaluator(),  # type: ignore[arg-type]
+        inventory_dsn="postgresql://example.invalid/fdai",
+        posture_scope="subscription:scope-a",
+        required_inventory_scopes=("scope-a",),
+    )
+
+    assert tuple(publisher.owner for publisher in publishers) == (
+        "Heimdall",
+        "EvidenceSource",
+        "Heimdall",
+        "Forseti",
+    )
+    assert tuple(writer.owner for writer in writers) == ("Heimdall", "Forseti")
+
+
+def test_inventory_dsn_precedes_shared_state_dsn() -> None:
+    assert (
+        assurance_twin_inventory_dsn(
+            {
+                "FDAI_INVENTORY_DSN": "postgresql://inventory.example/fdai",
+                "FDAI_STATE_STORE_DSN": "postgresql://state.example/fdai",
+            }
+        )
+        == "postgresql://inventory.example/fdai"
+    )
+    assert (
+        assurance_twin_inventory_dsn({"FDAI_STATE_STORE_DSN": "postgresql://state.example/fdai"})
+        == "postgresql://state.example/fdai"
+    )
