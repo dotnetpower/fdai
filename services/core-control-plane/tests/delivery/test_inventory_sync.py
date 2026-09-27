@@ -804,6 +804,38 @@ async def test_subset_snapshot_cannot_replace_complete_derived_projection() -> N
     assert store.promoted_manifests == []
 
 
+async def test_isolated_certification_can_promote_requested_resource_type_snapshot() -> None:
+    store = _Store()
+    source = InventorySource(
+        name="arg",
+        inventory=_Inventory(
+            [
+                InventoryBatch(
+                    resources=(ResourceRecord(resource_id="r-1", type="compute.vm"),),
+                    final=True,
+                )
+            ]
+        ),
+        manifest=InventoryCoverageManifest(
+            source="arg",
+            scopes=("scope-1",),
+            resource_types=("compute.vm",),
+            metadata={"coverage_scope": "requested_resource_types"},
+        ),
+    )
+
+    result = await InventorySyncCoordinator.for_isolated_resource_type_certification(
+        store=store
+    ).run((source,))
+
+    assert result.source == "arg"
+    assert len(store.promoted_manifests) == 1
+    promoted = store.promoted_manifests[0]
+    assert promoted.resource_types == ("compute.vm",)
+    assert promoted.metadata["coverage_scope"] == "requested_resource_types"
+    assert promoted.metadata["projection_complete"] is True
+
+
 async def test_promotion_enrichment_stages_verified_links_before_single_writer_observation() -> (
     None
 ):

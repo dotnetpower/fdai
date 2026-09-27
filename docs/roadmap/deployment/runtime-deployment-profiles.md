@@ -163,6 +163,12 @@ the initial-run progress identity. Success additionally requires a separate Post
 read proving complete provider coverage, final fence, closed overlay, complete child sources, and
 the exact active generation. A retained claim with no Job or closure never starts another Job.
 
+The isolated exact-revision inventory-network certification is not a deployment inventory run. It
+may promote a requested-resource-type snapshot only into its task-owned sandbox store so that the
+campaign can verify private projection, fallback retention, and recovery. Initial and recurring
+runtime inventory still require complete provider scope, and the sandbox receipt grants no
+observation, deployment, or execution authority.
+
 An optional reviewed catalog-review profile adds one suspended AKS CronJob and a post-inventory
 checkpoint. The coordinator transfers only a private GitHub App profile and PEM, verifies the App's
 single private repository and downscoped permissions, and runs the real Huginn, Muninn, Norns,
