@@ -518,7 +518,7 @@ The resulting Console receipt does not set whole-application or subscription rea
 
 ## Signed artifact and execution safety
 
-The source-checkout wrapper binds `uv` to the verified repository-root `.venv`, and the installed CLI passes that Python interpreter to fixed packaged Genesis launchers,
+The source-checkout wrapper selects Python from the verified repository-root `.venv` for an isolated `uv` environment, and the installed CLI passes that interpreter to fixed packaged Genesis launchers,
 plan generation, and reverification. The outer Foundation timeout reserves process-group cleanup;
 nested Genesis termination grace decreases at each of at most eight levels. Optional caller-owned
 stdout and stderr descriptors preserve progress and machine-output separation without changing
