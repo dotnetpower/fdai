@@ -390,21 +390,10 @@ def test_support_repair_refuses_to_replace_a_different_existing_file(
     assert not (directory / support_repair.SUPPORT_REPAIR_CLAIM_NAME).exists()
 
 
-def test_legacy_authority_reuses_its_bound_remote_observation(tmp_path: Path) -> None:
-    tmp_path.chmod(0o700)
-    work_id = "c" * 64
-    observation = {
-        "schema_version": "fdai.genesis-foundation-remote-state-observation.v1",
-        "state": "verified",
-        "work_id": work_id,
-        "remote_state_digest": "d" * 64,
-    }
-    _private_json(tmp_path / f"remote-observation-{work_id[:12]}.json", observation)
-    authority = {"observation_digest": canonical_digest(observation)}
-
+def test_legacy_authority_does_not_invent_a_backend_blob_digest() -> None:
+    assert state_command._authority_backend_blob_digest({}) is None
     assert (
-        state_command._authority_remote_state_digest(tmp_path, authority=authority, work_id=work_id)
-        == "d" * 64
+        state_command._authority_backend_blob_digest({"backend_blob_digest": "d" * 64}) == "d" * 64
     )
 
 
@@ -863,7 +852,7 @@ class FakeTunnel:
         self.calls.append(remote_arguments)
         if remote_arguments[0] == "/usr/bin/python3":
             assert input_text is None
-            assert "--expected-remote-state-digest" in remote_arguments
+            assert "--expected-backend-blob-digest" in remote_arguments
             mode = remote_arguments[2]
         else:
             assert input_text is None
@@ -934,6 +923,7 @@ class FakeTunnel:
                         "archive_digest": claim["archive_digest"],
                         "remote_state_digest": hashlib.sha256(state_bytes).hexdigest(),
                         "remote_plan_digest": hashlib.sha256(plan_bytes).hexdigest(),
+                        "backend_blob_digest": "d" * 64,
                         "managed_identity_verified": True,
                         "backend_protection_verified": True,
                         "backend_blob_verified": True,
