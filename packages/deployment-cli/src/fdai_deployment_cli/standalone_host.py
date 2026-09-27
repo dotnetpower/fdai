@@ -559,6 +559,7 @@ def _prepare(args: argparse.Namespace, work_dir: Path) -> dict[str, object]:
     context: dict[str, object] = {
         "source_commit": kit.source_commit,
         "target_binding": foundation.target_binding,
+        "foundation_adoption_digest": foundation.adoption.digest,
         "subscription_id": foundation.subscription_id,
         "tenant_id": foundation.tenant_id,
         "client_id": foundation.client_id,

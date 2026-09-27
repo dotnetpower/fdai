@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import inspect
 import json
 import os
 import shutil
@@ -221,6 +222,12 @@ def test_terraform_uses_exact_managed_identity_and_clears_conflicting_auth(
         variable not in os.environ
         for variable in standalone_terraform_environment._CONFLICTING_AUTH
     )
+
+
+def test_prepare_persists_foundation_adoption_binding() -> None:
+    source = inspect.getsource(standalone_host._prepare)
+
+    assert '"foundation_adoption_digest": foundation.adoption.digest' in source
 
 
 def test_foundation_application_workload_matches_resource_group_name() -> None:
