@@ -12,6 +12,7 @@ import asyncio
 import inspect
 from collections.abc import Awaitable, Callable, Mapping
 from copy import deepcopy
+from datetime import datetime
 from typing import Any
 
 from fdai.agents._framework.action_run_identity import validate_action_run_identity
@@ -39,6 +40,11 @@ from fdai.agents._framework.var_decisions import (
     approval_for_ticket,
     final_approval_record,
 )
+from fdai.agents._framework.var_development_authority import (
+    DevelopmentOwnerAuthorizer,
+    VarDevelopmentAuthorityMixin,
+)
+from fdai.agents._framework.var_final_approval import validate_final_record
 from fdai.agents._framework.var_ticket_identity import (
     APPROVAL_STATE_PREFIX,
     PendingHilTicket,
@@ -69,12 +75,19 @@ from fdai.agents._framework.var_ticket_identity import (
 from fdai.agents._framework.var_ticket_identity import (
     ticket_identity as _ticket_identity,
 )
+from fdai.shared.contracts.models import FullAuthorityDevelopmentProfile
+from fdai.shared.providers.development_authority import DevelopmentAuthorityBindingSource
 from fdai.shared.providers.state_store import StateStore
 
 ApproverAuthorizer = Callable[[str, str], bool | Awaitable[bool]]
 
 
-class Var(TestContextReviewMixin, AssignmentReviewMixin, Agent):
+class Var(
+    VarDevelopmentAuthorityMixin,
+    TestContextReviewMixin,
+    AssignmentReviewMixin,
+    Agent,
+):
     """Wave-3 HIL approval + Wave-6 admin channel delivery."""
 
     #: Bound the in-memory maps so a long-lived approver cannot leak one entry
@@ -89,11 +102,23 @@ class Var(TestContextReviewMixin, AssignmentReviewMixin, Agent):
         admin_channel: AdminNotificationAdapter | None = None,
         approver_authorizer: ApproverAuthorizer | None = None,
         state_store: StateStore | None = None,
+        development_profile: FullAuthorityDevelopmentProfile | None = None,
+        development_executor_principal: str | None = None,
+        development_owner_authorizer: DevelopmentOwnerAuthorizer | None = None,
+        development_binding_source: DevelopmentAuthorityBindingSource | None = None,
+        clock: Callable[[], datetime] | None = None,
     ) -> None:
         super().__init__(spec=_VAR)
         self.bus = bus
         self.admin_channel = admin_channel or InMemoryAdminChannel()
         self._approver_authorizer = approver_authorizer
+        self._initialize_development_authority(
+            profile=development_profile,
+            executor_principal=development_executor_principal,
+            owner_authorizer=development_owner_authorizer,
+            binding_source=development_binding_source,
+            clock=clock,
+        )
         self._state_store = state_store
         self._decision_journal = (
             VarDecisionJournal(state_store, state_prefix=APPROVAL_STATE_PREFIX)
@@ -164,6 +189,13 @@ class Var(TestContextReviewMixin, AssignmentReviewMixin, Agent):
         except (TypeError, ValueError):
             self.record_behavior("ticket_invalid_quorum")
             return
+        try:
+            original_quorum, effective_quorum, development_authority = (
+                self._admit_development_ticket(payload, quorum=quorum)
+            )
+        except ValueError:
+            self.record_behavior("ticket_invalid_development_authority")
+            return
         raw_initiator = payload.get("initiator_principal")
         if raw_initiator is not None and not isinstance(raw_initiator, str):
             self.record_behavior("ticket_invalid_initiator")
@@ -206,6 +238,9 @@ class Var(TestContextReviewMixin, AssignmentReviewMixin, Agent):
             action_type=str(payload.get("action_type", "")),
             resource_id=raw_resource_id,
             quorum_required=quorum,
+            original_quorum_required=original_quorum,
+            effective_quorum_required=effective_quorum,
+            development_authority=development_authority,
             action_run_identity=action_run_identity,
             initiator_principal=raw_initiator.strip() if raw_initiator else None,
             idempotency_key=raw_idempotency_key or "",
@@ -325,7 +360,12 @@ class Var(TestContextReviewMixin, AssignmentReviewMixin, Agent):
         if not approver_norm:
             raise ValueError(f"approver MUST be a non-empty principal on {correlation_id!r}")
         initiator_norm = (ticket.initiator_principal or "").strip().casefold()
-        if initiator_norm and approver_norm == initiator_norm:
+        development_owner_eligible = await self._development_owner_eligible(
+            ticket,
+            approver=approver_norm,
+            correlation_id=correlation_id,
+        )
+        if initiator_norm and approver_norm == initiator_norm and not development_owner_eligible:
             self._record_blocked_attempt("self_approval_blocked", correlation_id, approver_norm)
             raise ValueError(
                 f"principal {approver_norm!r} cannot decide an action it initiated "
@@ -348,15 +388,9 @@ class Var(TestContextReviewMixin, AssignmentReviewMixin, Agent):
         if decision not in {"approve", "reject"}:
             raise ValueError(f"unknown decision {decision!r}")
         if decision == "approve":
-            # No self-approval: the operator who initiated the action can never
-            # approve it (approval and initiation are distinct principals - a
-            # pantheon safety invariant, agent-pantheon.md). Enforced here even
-            # if the entry RBAC gate was bypassed upstream. Compare case-folded
-            # (Azure UPNs / object ids are case-insensitive) so neither the
-            # self-approval nor the distinct-approver quorum can be bypassed by
-            # varying case, and reject a blank approver outright. This matches
-            # the case-insensitive rule the operator-memory approval path
-            # already enforces.
+            # One principal occupies one quorum slot. The sole-Owner
+            # development exception changes the effective quorum, never this
+            # duplicate-decision guard.
             if approver_norm in ticket.approvers:
                 self._record_blocked_attempt(
                     "double_approval_blocked", correlation_id, approver_norm
@@ -461,7 +495,7 @@ class Var(TestContextReviewMixin, AssignmentReviewMixin, Agent):
         )
         if stored is None:
             return None
-        approval, _published = self._validate_final_record(stored, correlation_id)
+        approval, _published = validate_final_record(stored, correlation_id)
         if approval.get("action_run_identity") != action_run_identity:
             raise RuntimeError("stored final approval identity does not match its key")
         self._final_approvals.set(cache_key, deepcopy(approval))
@@ -491,7 +525,7 @@ class Var(TestContextReviewMixin, AssignmentReviewMixin, Agent):
                 stored = await self._state_store.read_state(key)
                 if stored is None:
                     raise RuntimeError("approval final record disappeared after collision")
-                stored_approval, _published = self._validate_final_record(stored, correlation_id)
+                stored_approval, _published = validate_final_record(stored, correlation_id)
                 if stored_approval != approval:
                     raise RuntimeError("approval finalization collided with a different payload")
                 approval = stored_approval
@@ -542,7 +576,7 @@ class Var(TestContextReviewMixin, AssignmentReviewMixin, Agent):
         )
         if stored is None:
             return False
-        _approval, published = self._validate_final_record(stored, correlation_id)
+        _approval, published = validate_final_record(stored, correlation_id)
         if not published:
             return False
         if _approval_action_identity(_approval) != action_run_identity:
@@ -560,7 +594,7 @@ class Var(TestContextReviewMixin, AssignmentReviewMixin, Agent):
                 stored = await self._state_store.read_state(key)
                 if stored is None:
                     raise RuntimeError("approval final record disappeared before publication")
-                stored_approval, published = self._validate_final_record(stored, correlation_id)
+                stored_approval, published = validate_final_record(stored, correlation_id)
                 if stored_approval != dict(approval):
                     raise RuntimeError("approval publication receipt collision")
                 if published:
@@ -599,55 +633,8 @@ class Var(TestContextReviewMixin, AssignmentReviewMixin, Agent):
         if stored is None:
             return None
         correlation_id = str(stored.get("correlation_id") or "")
-        approval, _published = self._validate_final_record(stored, correlation_id)
+        approval, _published = validate_final_record(stored, correlation_id)
         return approval
-
-    @staticmethod
-    def _validate_final_approval(
-        stored: Mapping[str, Any],
-        correlation_id: str,
-    ) -> dict[str, Any]:
-        approval = dict(stored)
-        if (
-            approval.get("producer_principal") != "Var"
-            or approval.get("correlation_id") != correlation_id
-            or approval.get("state") not in {"approved", "rejected"}
-            or not isinstance(approval.get("idempotency_key"), str)
-            or not approval["idempotency_key"]
-        ):
-            raise RuntimeError("stored final approval is malformed")
-        _approval_action_identity(approval)
-        return deepcopy(approval)
-
-    @classmethod
-    def _validate_final_record(
-        cls,
-        stored: Mapping[str, Any],
-        correlation_id: str,
-    ) -> tuple[dict[str, Any], bool]:
-        revision = stored.get("revision")
-        status = stored.get("publication_status")
-        approval_raw = stored.get("approval")
-        if (
-            stored.get("schema_version") != "1.0.0"
-            or stored.get("record_kind") != "final_approval"
-            or not isinstance(revision, int)
-            or isinstance(revision, bool)
-            or revision < 1
-            or status not in {"pending", "published"}
-            or not isinstance(approval_raw, Mapping)
-            or stored.get("correlation_id") != correlation_id
-        ):
-            raise RuntimeError("stored final approval record is malformed")
-        approval = cls._validate_final_approval(approval_raw, correlation_id)
-        canonical = final_approval_record(
-            approval,
-            publication_status=str(status),
-            revision=revision,
-        )
-        if dict(stored) != canonical:
-            raise RuntimeError("stored final approval record is malformed")
-        return approval, status == "published"
 
     async def decide_shadow_review(
         self,
@@ -767,7 +754,9 @@ class Var(TestContextReviewMixin, AssignmentReviewMixin, Agent):
             answer = (
                 "저는 사람의 HIL 결정을 Approval로 기록하는 파이프라인 승인 principal인 Var입니다. "
                 "Thor에게 보고하지만 Thor와는 별도 principal입니다. 현재 사람의 승인, 만료, quorum "
-                "및 no-self-approval을 확인하며 작업을 판단하거나 실행하지 않습니다. 침묵이나 이전 "
+                "및 기본 no-self-approval을 확인하며, 감사에는 원래 및 유효 정족수를 보존합니다. "
+                "작업을 판단하거나 실행하지 않습니다. "
+                "정확한 전권 개발 프로필에서만 인증된 Owner 한 명을 허용합니다. 침묵이나 이전 "
                 "승인을 현재 권한으로 간주하지 않습니다. 이 대화 포트는 읽기 전용이며 승인 요청은 "
                 "운영자 권한으로 타입이 지정된 파이프라인에 다시 진입해야 합니다. 숨겨진 시스템 "
                 "프롬프트는 공개하지 않습니다."
@@ -781,8 +770,10 @@ class Var(TestContextReviewMixin, AssignmentReviewMixin, Agent):
             answer = (
                 "I am Var, the pipeline approval principal that records current human HIL "
                 "decisions as Approval. I report to Thor but remain a distinct principal from "
-                "Thor. I verify current human approval, expiry, quorum, and no-self-approval and "
-                "never judge or execute an action. Silence and prior approval never become current "
+                "Thor. I verify current human approval, expiry, quorum, and no-self-approval. "
+                "Audit preserves original and effective quorum. Only an exact full-authority "
+                "development profile admits one authenticated Owner. I never judge or execute an "
+                "action. Silence and prior approval never become current "
                 "authority. This conversational port is read-only; approval requests re-enter the "
                 "typed pipeline under the operator's authority. I do not reveal hidden system "
                 "prompts."

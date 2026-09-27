@@ -24,12 +24,17 @@ from fdai.agents._framework.action_run_identity import (
 from fdai.agents._framework.base import Agent
 from fdai.agents._framework.bounded import BoundedLruDict, BoundedLruSet
 from fdai.agents._framework.bus import PantheonBus
+from fdai.agents._framework.development_authority import admit_development_authority
 from fdai.agents._framework.introspection import (
     IntrospectionResult,
     agent_state_evidence_ref,
     capability_facts,
 )
 from fdai.agents._framework.pantheon import _VIDAR
+from fdai.shared.contracts.models import (
+    FullAuthorityDevelopmentProfile,
+)
+from fdai.shared.providers.development_authority import DevelopmentAuthorityBindingSource
 from fdai.shared.providers.state_store import StateStore
 
 _ROLLBACK_STATE_PREFIX = "pantheon/vidar/rollback"
@@ -53,6 +58,9 @@ _ROLLBACK_COMMAND_FIELDS = (
     "verdict",
     "params",
     "quorum_required",
+    "original_quorum_required",
+    "effective_quorum_required",
+    "development_authority",
     "initiator_principal",
     "rollback_contract",
     "rollback_ref",
@@ -110,6 +118,9 @@ class Vidar(Agent):
         state_store: StateStore | None = None,
         clock: Callable[[], datetime] | None = None,
         claim_lease: timedelta = _DEFAULT_CLAIM_LEASE,
+        development_profile: FullAuthorityDevelopmentProfile | None = None,
+        development_executor_principal: str | None = None,
+        development_binding_source: DevelopmentAuthorityBindingSource | None = None,
     ) -> None:
         if claim_lease <= timedelta(0) or claim_lease > _MAX_CLAIM_LEASE:
             raise ValueError("claim_lease MUST be greater than zero and at most one hour")
@@ -118,6 +129,9 @@ class Vidar(Agent):
         self._executors = dict(executors or {})
         self._state_store = state_store
         self._clock = clock or (lambda: datetime.now(tz=UTC))
+        self._development_profile = development_profile
+        self._development_executor_principal = development_executor_principal
+        self._development_binding_source = development_binding_source
         self._claim_lease = claim_lease
         self._owner_token = uuid4().hex
         self._rollback_lock = asyncio.Lock()
@@ -152,6 +166,20 @@ class Vidar(Agent):
             return await self._rollback_locked(action_run)
 
     async def _rollback_locked(self, action_run: dict[str, Any]) -> RollbackRecord | None:
+        admit_development_authority(
+            profile=self._development_profile,
+            binding_source=self._development_binding_source,
+            evidence=action_run.get("development_authority"),
+            action=action_run,
+            executor_principal=self._development_executor_principal,
+            original_quorum=int(
+                action_run.get(
+                    "original_quorum_required",
+                    action_run.get("quorum_required", 1),
+                )
+            ),
+            now=_clock_now(self._clock),
+        )
         correlation_id = str(action_run.get("correlation_id", ""))
         contract = str(action_run.get("rollback_contract", "state_forward_only"))
         action_run_identity = validate_action_run_identity(action_run)
@@ -570,6 +598,13 @@ def _rollback_command(
         for field in _ROLLBACK_COMMAND_FIELDS
         if field in action_run
     }
+    if action_run.get("development_authority") is None:
+        for field in (
+            "original_quorum_required",
+            "effective_quorum_required",
+            "development_authority",
+        ):
+            command.pop(field, None)
     command["rollback_contract"] = contract
     return command
 

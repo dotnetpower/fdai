@@ -29,6 +29,11 @@ _IDENTITY_FIELDS = (
     "verdict",
     "workflow_action",
 )
+_DEVELOPMENT_IDENTITY_FIELDS = (
+    "original_quorum_required",
+    "effective_quorum_required",
+    "development_authority",
+)
 
 
 class _StateStore(Protocol):
@@ -58,6 +63,20 @@ def action_run_identity_projection(value: Mapping[str, Any]) -> dict[str, Any]:
         "verdict": value.get("verdict", ""),
         "workflow_action": value.get("workflow_action"),
     }
+    if value.get("development_authority") is not None:
+        projected.update(
+            {
+                "original_quorum_required": value.get(
+                    "original_quorum_required",
+                    value.get("quorum_required", 1),
+                ),
+                "effective_quorum_required": value.get(
+                    "effective_quorum_required",
+                    value.get("quorum_required", 1),
+                ),
+                "development_authority": value.get("development_authority"),
+            }
+        )
     try:
         encoded = json.dumps(
             projected,
@@ -69,8 +88,13 @@ def action_run_identity_projection(value: Mapping[str, Any]) -> dict[str, Any]:
         canonical = json.loads(encoded)
     except (TypeError, ValueError) as exc:
         raise ValueError("ActionRun identity MUST be canonical JSON") from exc
+    expected_fields = (
+        (*_IDENTITY_FIELDS, *_DEVELOPMENT_IDENTITY_FIELDS)
+        if value.get("development_authority") is not None
+        else _IDENTITY_FIELDS
+    )
     if not isinstance(canonical, dict) or tuple(sorted(canonical)) != tuple(
-        sorted(_IDENTITY_FIELDS)
+        sorted(expected_fields)
     ):
         raise ValueError("ActionRun identity projection is malformed")
     return canonical
@@ -152,6 +176,23 @@ def approval_matches_action_run(
         and approval.get("rollback_contract")
         == action_run.get("rollback_contract", "state_forward_only")
         and approval.get("action_id") == action_run.get("action_id")
+        and approval.get(
+            "original_quorum_required",
+            action_run.get("quorum_required", 1),
+        )
+        == action_run.get(
+            "original_quorum_required",
+            action_run.get("quorum_required", 1),
+        )
+        and approval.get(
+            "effective_quorum_required",
+            action_run.get("quorum_required", 1),
+        )
+        == action_run.get(
+            "effective_quorum_required",
+            action_run.get("quorum_required", 1),
+        )
+        and approval.get("development_authority") == action_run.get("development_authority")
     )
 
 

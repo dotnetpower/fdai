@@ -78,6 +78,9 @@ class PendingHilTicket:
     action_type: str
     resource_id: str | None
     quorum_required: int
+    original_quorum_required: int | None = None
+    effective_quorum_required: int | None = None
+    development_authority: dict[str, Any] | None = None
     action_id: str | None = None
     action_run_identity: str | None = None
     initiator_principal: str | None = None
@@ -93,6 +96,18 @@ class PendingHilTicket:
     rejected: bool = False
 
     def __post_init__(self) -> None:
+        if self.original_quorum_required is None:
+            self.original_quorum_required = self.quorum_required
+        if self.effective_quorum_required is None:
+            self.effective_quorum_required = self.quorum_required
+        if (
+            isinstance(self.original_quorum_required, bool)
+            or isinstance(self.effective_quorum_required, bool)
+            or self.original_quorum_required < 1
+            or self.effective_quorum_required < 1
+            or self.quorum_required != self.effective_quorum_required
+        ):
+            raise ValueError("pending HIL ticket original and effective quorum are malformed")
         if self.kind != "action":
             return
         if not self.idempotency_key:
@@ -107,6 +122,9 @@ class PendingHilTicket:
                     "action_idempotency_key": self.idempotency_key,
                     "params": self.params,
                     "quorum_required": self.quorum_required,
+                    "original_quorum_required": self.original_quorum_required,
+                    "effective_quorum_required": self.effective_quorum_required,
+                    "development_authority": self.development_authority,
                     "initiator_principal": self.initiator_principal,
                     "rollback_contract": self.rollback_contract,
                     "verdict": "hil",
@@ -153,6 +171,9 @@ class ApprovalTicket(Protocol):
     action_run_identity: str | None
     resource_id: str | None
     quorum_required: int
+    original_quorum_required: int | None
+    effective_quorum_required: int | None
+    development_authority: dict[str, Any] | None
     approvers: list[str]
     kind: str
     stage: str | None
@@ -219,6 +240,18 @@ class VarDecisionJournal:
                         claim_id=claim_id,
                         decision=decision,
                         revision=1,
+                        original_quorum_required=int(
+                            ticket_identity.get(
+                                "original_quorum_required",
+                                quorum_required,
+                            )
+                        ),
+                        effective_quorum_required=int(
+                            ticket_identity.get(
+                                "effective_quorum_required",
+                                quorum_required,
+                            )
+                        ),
                     ),
                 )
                 if created:
@@ -270,6 +303,18 @@ class VarDecisionJournal:
                     claim_id=claim_id,
                     decision=decision,
                     revision=next_revision,
+                    original_quorum_required=int(
+                        ticket_identity.get(
+                            "original_quorum_required",
+                            quorum_required,
+                        )
+                    ),
+                    effective_quorum_required=int(
+                        ticket_identity.get(
+                            "effective_quorum_required",
+                            quorum_required,
+                        )
+                    ),
                 ),
             )
             if advanced:
@@ -347,6 +392,14 @@ class VarDecisionJournal:
                     "correlation_id": str(ticket_identity["correlation_id"]),
                     "ticket_digest": ticket_digest,
                     "revision": next_revision,
+                    "original_quorum_required": ticket_identity.get(
+                        "original_quorum_required",
+                        ticket_identity["quorum_required"],
+                    ),
+                    "effective_quorum_required": ticket_identity.get(
+                        "effective_quorum_required",
+                        ticket_identity["quorum_required"],
+                    ),
                     "recorded_at": datetime.now(tz=UTC).isoformat(),
                 },
             )
@@ -366,6 +419,26 @@ def _decision_state(
     claims: Mapping[str, Mapping[str, str]],
     finalization_status: str | None = None,
 ) -> dict[str, Any]:
+    quorum_audit: dict[str, int] = {}
+    if (
+        "original_quorum_required" in ticket_identity
+        or "effective_quorum_required" in ticket_identity
+    ):
+        original_quorum = ticket_identity.get("original_quorum_required", quorum_required)
+        effective_quorum = ticket_identity.get("effective_quorum_required", quorum_required)
+        if (
+            isinstance(original_quorum, bool)
+            or not isinstance(original_quorum, int)
+            or original_quorum < 1
+            or isinstance(effective_quorum, bool)
+            or not isinstance(effective_quorum, int)
+            or effective_quorum != quorum_required
+        ):
+            raise ValueError("approval original and effective quorum are malformed")
+        quorum_audit = {
+            "original_quorum_required": original_quorum,
+            "effective_quorum_required": effective_quorum,
+        }
     approved = sum(claim["decision"] == "approved" for claim in claims.values())
     rejected = any(claim["decision"] == "rejected" for claim in claims.values())
     disposition = (
@@ -386,6 +459,7 @@ def _decision_state(
         "correlation_id": correlation_id,
         "action_type": action_type,
         "quorum_required": quorum_required,
+        **quorum_audit,
         "ticket_digest": ticket_digest,
         "ticket_identity": _canonical_ticket_identity(ticket_identity),
         "decision_claims": {claim_id: dict(claim) for claim_id, claim in sorted(claims.items())},
@@ -526,6 +600,8 @@ def _decision_audit_entry(
     claim_id: str,
     decision: str,
     revision: int,
+    original_quorum_required: int,
+    effective_quorum_required: int,
 ) -> dict[str, Any]:
     return {
         "actor": "Var",
@@ -535,6 +611,8 @@ def _decision_audit_entry(
         "ticket_digest": ticket_digest,
         "approver_digest": f"sha256:{claim_id}",
         "decision": decision,
+        "original_quorum_required": original_quorum_required,
+        "effective_quorum_required": effective_quorum_required,
         "revision": revision,
         "recorded_at": datetime.now(tz=UTC).isoformat(),
     }
@@ -560,6 +638,9 @@ def approval_for_ticket(
         "rollback_contract": ticket.rollback_contract,
         "state": state,
         "approvers": list(approvers if approvers is not None else ticket.approvers),
+        "original_quorum_required": ticket.original_quorum_required,
+        "effective_quorum_required": ticket.effective_quorum_required,
+        "development_authority": deepcopy(ticket.development_authority),
         "decision_case": ticket.decision_case,
         "params": dict(ticket.params),
     }
