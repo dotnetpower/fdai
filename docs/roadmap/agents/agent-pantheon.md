@@ -130,6 +130,9 @@ The current-case admission logic stays in the private `_framework/norns_case_his
 `Norns` remains the flat Pantheon member and its `AgentSpec`, ownership, and topics are unchanged.
 Norns publishes inert `Pattern` through consensus/rate limits; queued scoped input requires broker retry or retained replay.
 Muninn validates body/envelope versions, recompiles current scoped cases and artifacts, and retains Saga snapshots; reads reject tampering/deletion.
+Mimir journals each exact pending operational review in the existing durable `StateStore` before
+publication. Startup recompiles and rechecks current cases before an idempotent retry; successful
+publication or source invalidation replaces the pending payload with digest-only lineage.
 Neither agent gains promotion/execution authority. Reviewed replay alone promotes; the runtime-bound test-context reader can only lower Forseti's ceiling.
 
 Shadow dwell is the loop's last inert bar. Norns retains shadow-mode audit outcomes as per-target dwell observations - shadow results still never dilute its real rollback-rate learner - and attaches the resulting self-verifying evidence to the candidate it publishes. Mimir re-derives the verdict from that wire evidence and refuses promotion for a candidate with missing, inconsistent, target-mismatched, or under-threshold dwell; the zero policy-escape allowance is not configurable. This grants no authority to either agent: the catalog still changes only through a merged catalog-as-code pull request. See [Autonomous Rule Discovery](../rules-and-detection/rule-catalog-autonomous-discovery.md#shadow-dwell-evidence-upstream-implementation).

@@ -1,7 +1,7 @@
 ---
 title: 에이전트 판테온
 translation_of: agent-pantheon.md
-translation_source_sha: 073cd976aa26121f3a2d8298ed53c760f898d248
+translation_source_sha: 017fa1e56263fe11e6771a00046c15e46b89131c
 translation_revised: 2026-09-27
 ---
 # 에이전트 판테온
@@ -132,6 +132,9 @@ Norns는 컴파일 전에 모든 집단 사례를 현재 사례 이력과 다시
 `Norns`는 평면 Pantheon 구성원으로 남으며 `AgentSpec`, 소유권, 토픽은 바뀌지 않습니다.
 Norns는 합의와 발행 한도를 거쳐 비활성 `Pattern`을 발행하며 대기 중인 범위별 입력은 브로커 재시도나 보존된 재전달이 필요합니다.
 Muninn은 본문과 묶음 버전을 검증하고 현재 범위별 사례와 산출물로 다시 계산해 Saga 스냅샷을 남깁니다. 조회는 변조와 삭제를 차단합니다.
+Mimir는 게시 전에 정확한 운영 검토 대기 항목을 기존 영속 `StateStore`에 기록합니다.
+시작 시점에는 현재 사례를 다시 컴파일하고 확인한 뒤 멱등 재시도를 수행하며, 게시 성공 또는
+원본 무효화 뒤에는 대기 페이로드를 다이제스트 전용 계보로 바꿉니다.
 승격이나 실행 권한은 늘어나지 않습니다. 승격에는 승인된 재현이 필요하며 런타임에 연결된 테스트 맥락 조회기는 Forseti의 상한을 낮출 수만 있습니다.
 
 Shadow dwell은 루프의 마지막 비활성 장벽입니다. Norns는 shadow 모드 감사 결과를 대상별 dwell 관측으로 보존하며(shadow 결과는 여전히 실제 rollback 비율 학습기에 섞이지 않습니다) 산출된 자기 검증 근거를 게시하는 후보에 첨부합니다. Mimir는 그 이벤트 근거에서 판정을 다시 유도하고, 근거가 없거나 일관되지 않거나 대상이 다르거나 임계 미달인 후보의 승격을 거부합니다. 정책 위반 탈출 0건 기준은 설정 항목이 아닙니다. 이는 두 에이전트 어느 쪽에도 권한을 부여하지 않으며, 카탈로그는 여전히 머지된 catalog-as-code PR로만 바뀐니다. [자율 규칙 발견](../rules-and-detection/rule-catalog-autonomous-discovery-ko.md#shadow-dwell-근거상류-구현)을 참고하세요.

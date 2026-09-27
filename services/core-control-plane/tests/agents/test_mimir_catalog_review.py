@@ -26,6 +26,7 @@ from fdai.core.operational_learning import (
     ShadowCheckReceipt,
 )
 from fdai.shared.providers.testing.event_bus import InMemoryEventBus
+from fdai.shared.providers.testing.state_store import InMemoryStateStore
 
 
 class _Publisher:
@@ -62,6 +63,14 @@ class _FailingPublisher(_Publisher):
             review_ref="catalog-review:recovered",
             already_existed=False,
         )
+
+
+class _CaseHistory:
+    def __init__(self, *, available: bool) -> None:
+        self.available = available
+
+    async def current_revision_available(self, **_values: object) -> bool:
+        return self.available
 
 
 @pytest.mark.parametrize("review_ref", ["", " review:1", "review:\n1"])
@@ -123,10 +132,14 @@ class _Validator:
         )
 
 
-def _compiler(*, fail_schema: bool = False) -> CatalogCandidateCompiler:
+def _compiler(
+    *,
+    fail_schema: bool = False,
+    catalog_version: str = "catalog-v1",
+) -> CatalogCandidateCompiler:
     return CatalogCandidateCompiler(
         validator=_Validator(fail_schema=fail_schema),
-        catalog_version="catalog-v1",
+        catalog_version=catalog_version,
         schema_version="2.0.0",
     )
 
@@ -266,9 +279,11 @@ async def test_publication_receipt_digest_conflict_fails_closed() -> None:
 
 async def test_runtime_injects_catalog_review_bindings() -> None:
     publisher = _Publisher()
+    store = InMemoryStateStore()
     runtime = PantheonRuntime.build(
         provider=InMemoryEventBus(),
         raw_event_topic="fdai.events",
+        muninn_state_store=store,
         catalog_review=CatalogReviewBindings(
             compiler=_compiler(),
             publisher=publisher,
@@ -280,6 +295,8 @@ async def test_runtime_injects_catalog_review_bindings() -> None:
     await mimir.on_typed_message("object.rule-candidate", _candidate())
 
     assert len(mimir.catalog_review_publication_receipts()) == 1
+    records = await store.read_states("pantheon/mimir/catalog-review/", limit=2)
+    assert records[0]["status"] == "published"
 
 
 def test_runtime_injects_operating_pattern_compiler() -> None:
@@ -357,6 +374,269 @@ async def test_publisher_redrive_reuses_retained_package_without_flood_quarantin
     ]
 
 
+async def test_failed_review_publication_recovers_from_durable_pending_state() -> None:
+    store = InMemoryStateStore()
+    failing = _FailingPublisher(failures=1)
+    first, _, _ = _mimir(
+        catalog_candidate_compiler=_compiler(),
+        catalog_review_publisher=failing,
+        catalog_review_state_store=store,
+    )
+    candidate = _candidate()
+
+    with pytest.raises(RuntimeError, match="publisher unavailable"):
+        await first.on_typed_message("object.rule-candidate", candidate)
+
+    pending = await store.read_states("pantheon/mimir/catalog-review/", limit=2)
+    assert len(pending) == 1
+    assert pending[0]["status"] == "pending"
+    assert pending[0]["candidate"] == candidate
+
+    publisher = _Publisher()
+    recovered, _, _ = _mimir(
+        catalog_candidate_compiler=_compiler(),
+        catalog_review_publisher=publisher,
+        catalog_review_state_store=store,
+    )
+
+    assert await recovered.recover_catalog_reviews() == 1
+    assert len(publisher.packages) == 1
+    assert recovered.pending_candidates() == ()
+    terminal = (await store.read_states("pantheon/mimir/catalog-review/", limit=2))[0]
+    assert terminal["status"] == "published"
+    assert "candidate" not in terminal
+
+
+async def test_recovery_keeps_publisher_outage_pending_without_blocking_startup() -> None:
+    store = InMemoryStateStore()
+    first, _, _ = _mimir(
+        catalog_candidate_compiler=_compiler(),
+        catalog_review_publisher=_FailingPublisher(failures=1),
+        catalog_review_state_store=store,
+    )
+    candidate = _candidate()
+    with pytest.raises(RuntimeError, match="publisher unavailable"):
+        await first.on_typed_message("object.rule-candidate", candidate)
+
+    recovered, _, _ = _mimir(
+        catalog_candidate_compiler=_compiler(),
+        catalog_review_publisher=_FailingPublisher(failures=1),
+        catalog_review_state_store=store,
+    )
+
+    assert await recovered.recover_catalog_reviews() == 1
+    assert len(recovered.pending_candidates()) == 1
+    record = (await store.read_states("pantheon/mimir/catalog-review/", limit=2))[0]
+    assert record["status"] == "pending"
+    assert recovered.behavior_snapshot()["operational_catalog_publication_retry_pending"] == 1
+
+
+async def test_terminal_review_history_does_not_consume_pending_recovery_capacity() -> None:
+    store = InMemoryStateStore()
+    publisher = _Publisher()
+    first, _, _ = _mimir(
+        catalog_candidate_compiler=_compiler(),
+        catalog_review_publisher=publisher,
+        catalog_review_state_store=store,
+        max_review_packages=1,
+        max_pending_candidates=1,
+    )
+    await first.on_typed_message("object.rule-candidate", _candidate(0))
+    await first.on_typed_message("object.rule-candidate", _candidate(1))
+
+    recovered, _, _ = _mimir(
+        catalog_candidate_compiler=_compiler(),
+        catalog_review_publisher=_Publisher(),
+        catalog_review_state_store=store,
+        max_review_packages=1,
+        max_pending_candidates=1,
+    )
+
+    assert await recovered.recover_catalog_reviews() == 0
+
+
+async def test_shared_pending_overflow_defers_without_blocking_replica_startup() -> None:
+    store = InMemoryStateStore()
+    for marker in (0, 1):
+        instance, _, _ = _mimir(
+            catalog_candidate_compiler=_compiler(),
+            catalog_review_publisher=_FailingPublisher(failures=1),
+            catalog_review_state_store=store,
+            max_review_packages=1,
+            max_pending_candidates=1,
+        )
+        with pytest.raises(RuntimeError, match="publisher unavailable"):
+            await instance.on_typed_message("object.rule-candidate", _candidate(marker))
+
+    recovered, _, _ = _mimir(
+        catalog_candidate_compiler=_compiler(),
+        catalog_review_state_store=store,
+        max_review_packages=1,
+        max_pending_candidates=1,
+    )
+
+    assert await recovered.recover_catalog_reviews() == 1
+    assert len(recovered.pending_candidates()) == 1
+    assert recovered.behavior_snapshot()["operational_catalog_recovery_deferred"] == 1
+    rows, total = await store.read_state_page(
+        "pantheon/mimir/catalog-review/",
+        limit=3,
+        field="status",
+        value="pending",
+    )
+    assert len(rows) == total == 2
+
+
+async def test_published_review_redelivery_after_restart_is_a_durable_duplicate() -> None:
+    store = InMemoryStateStore()
+    candidate = _candidate()
+    first, _, _ = _mimir(
+        catalog_candidate_compiler=_compiler(),
+        catalog_review_publisher=_Publisher(),
+        catalog_review_state_store=store,
+    )
+    await first.on_typed_message("object.rule-candidate", candidate)
+
+    publisher = _Publisher()
+    restarted, bus, _ = _mimir(
+        catalog_candidate_compiler=_compiler(),
+        catalog_review_publisher=publisher,
+        catalog_review_state_store=store,
+    )
+    await restarted.on_typed_message("object.rule-candidate", candidate)
+
+    assert publisher.packages == []
+    assert restarted.pending_candidates() == ()
+    assert bus.messages_on("object.rule")[-1].payload["outcome"] == "duplicate"
+
+
+async def test_published_redelivery_bypasses_unrelated_pending_capacity() -> None:
+    store = InMemoryStateStore()
+    published_candidate = _candidate(0)
+    published, _, _ = _mimir(
+        catalog_candidate_compiler=_compiler(),
+        catalog_review_publisher=_Publisher(),
+        catalog_review_state_store=store,
+        max_review_packages=1,
+    )
+    await published.on_typed_message("object.rule-candidate", published_candidate)
+
+    pending, _, _ = _mimir(
+        catalog_candidate_compiler=_compiler(),
+        catalog_review_publisher=_FailingPublisher(failures=1),
+        catalog_review_state_store=store,
+        max_review_packages=1,
+    )
+    with pytest.raises(RuntimeError, match="publisher unavailable"):
+        await pending.on_typed_message("object.rule-candidate", _candidate(1))
+
+    restarted, bus, _ = _mimir(
+        catalog_candidate_compiler=_compiler(),
+        catalog_review_state_store=store,
+        max_review_packages=1,
+    )
+    assert await restarted.recover_catalog_reviews() == 1
+
+    await restarted.on_typed_message("object.rule-candidate", published_candidate)
+
+    assert len(restarted.pending_candidates()) == 1
+    assert bus.messages_on("object.rule")[-1].payload["outcome"] == "duplicate"
+
+
+async def test_catalog_change_invalidates_pending_review_without_blocking_startup() -> None:
+    store = InMemoryStateStore()
+    first, _, _ = _mimir(
+        catalog_candidate_compiler=_compiler(catalog_version="catalog-v1"),
+        catalog_review_publisher=_FailingPublisher(failures=1),
+        catalog_review_state_store=store,
+    )
+    with pytest.raises(RuntimeError, match="publisher unavailable"):
+        await first.on_typed_message("object.rule-candidate", _candidate())
+
+    publisher = _Publisher()
+    recovered, bus, _ = _mimir(
+        catalog_candidate_compiler=_compiler(catalog_version="catalog-v2"),
+        catalog_review_publisher=publisher,
+        catalog_review_state_store=store,
+    )
+
+    assert await recovered.recover_catalog_reviews() == 1
+    assert publisher.packages == []
+    terminal = (await store.read_states("pantheon/mimir/catalog-review/", limit=2))[0]
+    assert terminal["status"] == "invalidated"
+    assert terminal["reason"] == "compilation_identity_changed"
+    assert "candidate" not in terminal
+    assert bus.messages_on("object.rule")[-1].payload["outcome"] == "invalidated"
+
+
+async def test_restart_invalidates_pending_review_after_source_deletion() -> None:
+    store = InMemoryStateStore()
+    first, _, _ = _mimir(
+        catalog_candidate_compiler=_compiler(),
+        catalog_review_publisher=_FailingPublisher(failures=1),
+        catalog_review_state_store=store,
+    )
+    first.bind_case_history(_CaseHistory(available=True))  # type: ignore[arg-type]
+    candidate = {
+        **_candidate(),
+        "case_scope": {
+            "access_scope_digest": "a" * 64,
+            "purpose": "operational-learning",
+        },
+    }
+
+    with pytest.raises(RuntimeError, match="publisher unavailable"):
+        await first.on_typed_message("object.rule-candidate", candidate)
+
+    publisher = _Publisher()
+    recovered, bus, _ = _mimir(
+        catalog_candidate_compiler=_compiler(),
+        catalog_review_publisher=publisher,
+        catalog_review_state_store=store,
+    )
+    recovered.bind_case_history(_CaseHistory(available=False))  # type: ignore[arg-type]
+
+    assert await recovered.recover_catalog_reviews() == 1
+    assert publisher.packages == []
+    assert recovered.pending_candidates() == ()
+    terminal = (await store.read_states("pantheon/mimir/catalog-review/", limit=2))[0]
+    assert terminal["status"] == "invalidated"
+    assert terminal["reason"] == "source_no_longer_current"
+    assert "candidate" not in terminal
+    assert bus.messages_on("object.rule")[-1].payload["outcome"] == "invalidated"
+
+
+async def test_source_deletion_scrubs_pending_review_before_recompile_failure() -> None:
+    store = InMemoryStateStore()
+    first, _, _ = _mimir(
+        catalog_candidate_compiler=_compiler(),
+        catalog_review_publisher=_FailingPublisher(failures=1),
+        catalog_review_state_store=store,
+    )
+    first.bind_case_history(_CaseHistory(available=True))  # type: ignore[arg-type]
+    candidate = {
+        **_candidate(),
+        "case_scope": {
+            "access_scope_digest": "a" * 64,
+            "purpose": "operational-learning",
+        },
+    }
+    with pytest.raises(RuntimeError, match="publisher unavailable"):
+        await first.on_typed_message("object.rule-candidate", candidate)
+
+    recovered, _, _ = _mimir(
+        catalog_candidate_compiler=_compiler(fail_schema=True),
+        catalog_review_state_store=store,
+    )
+    recovered.bind_case_history(_CaseHistory(available=False))  # type: ignore[arg-type]
+
+    assert await recovered.recover_catalog_reviews() == 1
+    terminal = (await store.read_states("pantheon/mimir/catalog-review/", limit=2))[0]
+    assert terminal["status"] == "invalidated"
+    assert terminal["reason"] == "source_no_longer_current"
+    assert "candidate" not in terminal
+
+
 async def test_review_capacity_fails_without_evicting_unresolved_package() -> None:
     mimir, _, _ = _mimir(
         catalog_candidate_compiler=_compiler(),
@@ -376,9 +656,11 @@ async def test_review_capacity_fails_without_evicting_unresolved_package() -> No
 
 async def test_semantic_package_aliases_recover_without_stale_mapping() -> None:
     publisher = _FailingPublisher(failures=1)
+    store = InMemoryStateStore()
     mimir, bus, _ = _mimir(
         catalog_candidate_compiler=_compiler(),
         catalog_review_publisher=publisher,
+        catalog_review_state_store=store,
     )
     first = _candidate()
     alias = {**first, "idempotency_key": "candidate-alias"}
@@ -395,6 +677,9 @@ async def test_semantic_package_aliases_recover_without_stale_mapping() -> None:
         "published",
         "duplicate",
     ]
+    rows = await store.read_states("pantheon/mimir/catalog-review/", limit=3)
+    assert {row["status"] for row in rows} == {"published"}
+    assert all("candidate" not in row for row in rows)
 
 
 async def test_concurrent_redelivery_publishes_one_review() -> None:
