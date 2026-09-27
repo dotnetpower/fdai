@@ -1,8 +1,8 @@
 ---
 title: Operator Console - Data and Wire Contracts
 translation_of: operator-console-wire-contracts.md
-translation_source_sha: ff2fb915100a025e32c982bde6306676987fffc8
-translation_revised: 2026-09-27
+translation_source_sha: 72e2fdd2edf72b83e23f255d69df3435d64d3a6f
+translation_revised: 2026-09-28
 ---
 
 # Operator Console - 데이터 and Wire Contracts
@@ -120,6 +120,13 @@ strict JSON-schema `TurnPlan`을 반환합니다. 브라우저는 액션 의도�
 스키마가 유효하지만 정책에서 거부한 요청은 권한 없는 보류 최종 결과를 즉시 반환합니다. 선택적
 관찰 실패는 전달을 막지 않으며 발신함 종료 실패는 재시도할 수 있습니다. 잘못된 묶음만 배달 못 한
 편지 경로로 들어가며 보류 또는 재시도 상태는 인시던트를 만들거나 작업 초안을 확인할 수 없습니다.
+Core는 최종 근거 매니페스트를 자르지 않습니다. 답변되었거나 실행 단계에서 보류된 턴의 중복 제거된
+receipt 참조가 12개를 넘거나 참조 하나가 매니페스트 한도인 256자를 넘으면, 해당 턴은 보존된 목표
+receipt 없이 `semantic_evidence_incomplete`로 보류됩니다. 따라서 최종 이벤트는 매니페스트 밖의 근거
+참조를 인용하지 않습니다. 256자 한도는 Core `SemanticTurnResult` 계약에서 정합니다. 이 한도는 게시된
+`core-operator-projection` JSON 스키마 1.2.0부터 1.7.0까지의 `semantic_result.evidence_refs` 항목
+한도인 512자보다 엄격합니다. 따라서 해당 스키마가 허용하는 257자에서 512자 사이의 참조도 Core는
+`semantic_evidence_incomplete`로 보류합니다.
 Core는 의미 요청 결속, 인시던트 근거 변환, 현지화된 인시던트 답변 렌더링을 전용 모듈에
 유지하며 의미 턴 프로세서는 조정을 계속 담당합니다. 이 분리는 모든 wire 필드, 행 한도,
 로케일, 근거 참조 및 권한 없음 값을 보존합니다.
