@@ -218,7 +218,7 @@ and two-partition local topic default.
 |-----------|-------|---------------|-------------------|
 | Runtime PostgreSQL | `pgvector/pgvector:pg16` | `5432` | `fdai-pgdata` |
 | Validation PostgreSQL | `pgvector/pgvector:pg16` | `5433` | `fdai-validation-pgdata` |
-| Redpanda | `redpandadata/redpanda:latest` | Kafka `19092`, admin `9644` | `fdai-redpandadata` |
+| Redpanda | `redpandadata/redpanda:v26.2.2` (digest pinned) | Kafka `19092`, admin `9644` | `fdai-redpandadata` |
 | ClamAV | `clamav/clamav:stable` | `3310` | `fdai-clamavdata` |
 
 All published container ports bind to `127.0.0.1`. The Compose project also creates the named

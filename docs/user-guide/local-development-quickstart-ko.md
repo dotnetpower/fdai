@@ -2,8 +2,8 @@
 title: 로컬 개발 빠른 시작
 description: Linux 또는 WSL 워크스테이션에서 Docker, 로컬 상태, 인증 및 전체 FDAI Console 스택을 구성합니다.
 translation_of: local-development-quickstart.md
-translation_source_sha: c386f2e95a378517ae3836af19830e083b188bf6
-translation_revised: 2026-09-22
+translation_source_sha: d83564fa8cb55f04178094868e588077b3163070
+translation_revised: 2026-09-27
 ---
 
 # 로컬 개발 빠른 시작
@@ -218,7 +218,7 @@ docker compose -f infra/local/docker-compose.yml ps
 |----------|--------|-------------|-----------|
 | 런타임 PostgreSQL | `pgvector/pgvector:pg16` | `5432` | `fdai-pgdata` |
 | 검증 PostgreSQL | `pgvector/pgvector:pg16` | `5433` | `fdai-validation-pgdata` |
-| Redpanda | `redpandadata/redpanda:latest` | Kafka `19092`, 관리 `9644` | `fdai-redpandadata` |
+| Redpanda | `redpandadata/redpanda:v26.2.2` (digest 고정) | Kafka `19092`, 관리 `9644` | `fdai-redpandadata` |
 | ClamAV | `clamav/clamav:stable` | `3310` | `fdai-clamavdata` |
 
 게시된 모든 컨테이너 포트는 `127.0.0.1`에 바인딩됩니다. Compose 프로젝트는 이름이 지정된
