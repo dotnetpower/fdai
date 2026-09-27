@@ -1384,6 +1384,8 @@ def test_aks_substrate_includes_document_dependencies_without_container_apps() -
         "module.ingestion_identity",
         "module.ingestion_worker_identity",
         "module.document_storage",
+        "module.document_blob_private_endpoint",
+        "module.document_dfs_private_endpoint",
         "azurerm_key_vault_secret.ingestion_api_dsn",
         "azurerm_key_vault_secret.ingestion_worker_dsn",
         "azurerm_role_assignment.ingestion_aks_eventhubs_sender",

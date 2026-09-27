@@ -183,6 +183,8 @@ _SUBSTRATE_TARGETS: Final = (
     "azurerm_role_assignment.operator_api_kv_secrets_user",
     "azurerm_role_assignment.isolated_executor_kv_secrets_user",
     "module.document_storage",
+    "module.document_blob_private_endpoint",
+    "module.document_dfs_private_endpoint",
     "azurerm_role_assignment.ingestion_document_data",
     "azurerm_role_assignment.ingestion_worker_document_data",
     "azurerm_key_vault_secret.ingestion_api_dsn",

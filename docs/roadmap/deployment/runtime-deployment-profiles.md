@@ -223,7 +223,9 @@ peering plus only the selected Key Vault or document Blob/DFS endpoints and DNS 
 select private AKS, private PostgreSQL, or any other service private endpoint, and the residual
 Terraform plan still requires exact approval. The selectors validate bounded management-list JSON,
 accept either provider-flattened or nested `properties.publicNetworkAccess`, keep absent resources
-on the default path, and fail closed on duplicates or unknown shapes.
+on the default path, and fail closed on duplicates or unknown shapes. The Blob and DFS endpoint
+modules are explicit substrate targets because they are dependents of document storage rather than
+implicit dependencies of the storage module.
 One bounded exception lets an eligible host run `fdaictl provision source-service-update` for one service on an
 existing healthy `dev` AKS installation. The source-built image remains operator-selected evidence rather than release trust. Current human approval gates its
 Managed Identity import and the Deployment-only exact plan; digest and health readback, unchanged peers, and targeted zero change remain required.
