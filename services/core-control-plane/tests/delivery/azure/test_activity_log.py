@@ -12,8 +12,9 @@ stream consumes:
   ``provider_ref``.
 - Non-``Succeeded`` events and events whose ARM type is not in the
   vocabulary are dropped.
-- Read operations and ``list*`` actions are audit events, not state
-  observations, so they are dropped while the cursor still advances.
+- Read operations, ``list*`` actions, and Azure Policy audit or deny records
+  are audit events, not state observations, so they are dropped while the
+  cursor still advances.
 - Known child operations reported against only a parent ARM id are omitted
   and request authoritative relationship reconciliation.
 - Non-2xx / non-JSON / missing ``value`` responses raise ``ActivityLogError``
@@ -620,23 +621,25 @@ def _single_operation_page(arm_id: str, arm_type: str, operation: str):
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
-    "operation_suffix",
+    "operation_template",
     [
-        "read",
-        "listKeys/action",
-        "listClusterUserCredential/action",
-        "LISTCLUSTERADMINCREDENTIAL/ACTION",
+        "{arm_type}/read",
+        "{arm_type}/listKeys/action",
+        "{arm_type}/listClusterUserCredential/action",
+        "{arm_type}/LISTCLUSTERADMINCREDENTIAL/ACTION",
+        "Microsoft.Authorization/policies/audit/action",
+        "Microsoft.Authorization/policies/auditIfNotExists/action",
+        "Microsoft.Authorization/policies/deny/action",
     ],
 )
-async def test_read_only_operation_is_not_a_state_observation(operation_suffix: str) -> None:
+async def test_read_only_operation_is_not_a_state_observation(operation_template: str) -> None:
     _, arm_type = _arm_type_for(_vocab())
     arm_id = (
         "/subscriptions/00000000-0000-0000-0000-000000000001"
         f"/resourceGroups/rg-a/providers/{arm_type}/thing-read"
     )
-    factory, client, _ = _factory(
-        _single_operation_page(arm_id, arm_type, f"{arm_type}/{operation_suffix}")
-    )
+    operation = operation_template.format(arm_type=arm_type)
+    factory, client, _ = _factory(_single_operation_page(arm_id, arm_type, operation))
     try:
         page = await factory.build_fetch_fn()("2026-07-10T05:00:00+00:00")
     finally:
@@ -649,14 +652,22 @@ async def test_read_only_operation_is_not_a_state_observation(operation_suffix: 
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("operation_suffix", ["restart/action", "listing/write"])
-async def test_state_changing_operation_remains_a_change_hint(operation_suffix: str) -> None:
+@pytest.mark.parametrize(
+    "operation_template",
+    [
+        "{arm_type}/restart/action",
+        "{arm_type}/listing/write",
+        "Microsoft.Authorization/policies/modify/action",
+        "Microsoft.Authorization/policies/deployIfNotExists/action",
+    ],
+)
+async def test_state_changing_operation_remains_a_change_hint(operation_template: str) -> None:
     _, arm_type = _arm_type_for(_vocab())
     arm_id = (
         "/subscriptions/00000000-0000-0000-0000-000000000001"
         f"/resourceGroups/rg-a/providers/{arm_type}/thing-changed"
     )
-    operation = f"{arm_type}/{operation_suffix}"
+    operation = operation_template.format(arm_type=arm_type)
     factory, client, _ = _factory(_single_operation_page(arm_id, arm_type, operation))
     try:
         page = await factory.build_fetch_fn()("2026-07-10T05:00:00+00:00")

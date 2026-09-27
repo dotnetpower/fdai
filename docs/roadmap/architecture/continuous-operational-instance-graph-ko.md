@@ -1,6 +1,6 @@
 ---
 translation_of: continuous-operational-instance-graph.md
-translation_source_sha: bd1a4af7a459bb9f4bc0482c89d37e6b8e2ffe37
+translation_source_sha: 43e3c3a52fbc91b8503e862e46597f09f6842c92
 translation_revised: 2026-09-27
 ---
 # 지속형 운영 인스턴스 그래프
@@ -102,7 +102,7 @@ Azure CLI로 대체하지 않습니다. 로컬 자격 증명 정책은 그대로
 
 Activity Log 복구 레코드는 일부 속성만 담은 관측입니다. 선언한 속성 마스크만 현재 스냅샷에
 병합하고 관계 변경은 전달하지 않습니다. 완전한 reconciliation만 전체 속성 집합을 교체하거나
-관계 완전성을 확정할 수 있습니다. 완전한 reconciliation 직후 영속 Activity Log cursor가 없으면 첫 번째 범위가 제한된 drain은 해당 reconciliation의 수집 시작 시각 이전 관측을 다시 게시하지 않고 cursor를 진행합니다. 경계 시각 및 이후 관측은 계속 게시하며 다음 drain부터는 영속 cursor에서 재개합니다. 성공한 작업은 상태를 바꿀 수 있을 때만 변경 힌트가 됩니다. Activity Log `*/read` 작업과 키 또는 자격 증명 목록 조회 같은 ARM `list*` POST 작업은 상태 관측이 아니라 감사 근거입니다. 이런 작업은 Resource를 게시하지 않고 관측 journal에도 들어가지 않으므로 다음 reconciliation까지 그래프 원본 완전성을 미완료 상태로 붙잡아 두지 않으며, 이벤트 시각은 계속 영속 cursor를 진행합니다. 그 밖의 성공한 작업은 모두 일부 속성만 담은 변경 힌트로 남고, 읽기로 분류된 작업이 가릴 수 있는 상태 변경은 완전한 reconciliation이 계속 권위 있게 판정합니다. 복구 작업은 변경분의 완료 경계가 확인된 뒤 커서를 저장하기 전에 해당 범위의 읽기 전용 배포 프리플라이트 프로파일을 무효화합니다. 무효화가 실패하면 커서를 진행하지 않으며, 멱등 재전송을 통해 캐시가 그래프 완전성이나 배포 권한의 근거가 될 수 없습니다.
+관계 완전성을 확정할 수 있습니다. 완전한 reconciliation 직후 영속 Activity Log cursor가 없으면 첫 번째 범위가 제한된 drain은 해당 reconciliation의 수집 시작 시각 이전 관측을 다시 게시하지 않고 cursor를 진행합니다. 경계 시각 및 이후 관측은 계속 게시하며 다음 drain부터는 영속 cursor에서 재개합니다. 성공한 작업은 상태를 바꿀 수 있을 때만 변경 힌트가 됩니다. Activity Log `*/read` 작업, 키 또는 자격 증명 목록 조회 같은 ARM `list*` POST 작업, Azure Policy `audit`, `auditIfNotExists`, `deny`, `denyAction` 기록은 상태 관측이 아니라 감사 근거입니다. 이런 작업은 Resource를 게시하지 않고 관측 journal에도 들어가지 않으므로 다음 reconciliation까지 그래프 원본 완전성을 미완료 상태로 붙잡아 두지 않으며, 이벤트 시각은 계속 영속 cursor를 진행합니다. policy `modify` 및 `deployIfNotExists` 기록을 포함한 그 밖의 성공한 작업은 모두 일부 속성만 담은 변경 힌트로 남고, 감사 근거로 분류된 작업이 가릴 수 있는 상태 변경은 완전한 reconciliation이 계속 권위 있게 판정합니다. 복구 작업은 변경분의 완료 경계가 확인된 뒤 커서를 저장하기 전에 해당 범위의 읽기 전용 배포 프리플라이트 프로파일을 무효화합니다. 무효화가 실패하면 커서를 진행하지 않으며, 멱등 재전송을 통해 캐시가 그래프 완전성이나 배포 권한의 근거가 될 수 없습니다.
 Activity Log의 컨트롤 플레인 결과는 `operationStatus`와 정규화된 `operation_status` 근거로
 유지합니다. 예약된 리소스 `status` 속성에는 기록하지 않으므로 운영 상태 사실을 대체할 수
 없습니다.
