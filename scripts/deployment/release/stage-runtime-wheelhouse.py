@@ -41,7 +41,10 @@ RUNTIME_PACKAGES = {
     "fdai-document-processing-worker": "services/document-processing-worker",
     "fdai-isolated-executor-service": "services/isolated-executor",
 }
-SUPPORT_PACKAGES = {"fdai-github-app-auth": "packages/github-app-auth"}
+SUPPORT_PACKAGES = {
+    "fdai-github-app-auth": "packages/github-app-auth",
+    "fdai-runtime-diagnostics": "packages/runtime-diagnostics",
+}
 STAGE_TIMEOUT = 600
 TOTAL_TIMEOUT = 3600
 _GUARD = runpy.run_path(str(Path(__file__).with_name("workdir-guard.py")))
@@ -100,7 +103,9 @@ def _packages(repo: Path, lock: bytes) -> dict[str, dict[str, str]]:
             ]
             if local and target not in selected:
                 if target not in SUPPORT_PACKAGES:
-                    raise StagingError("runtime closure contains an unsupported workspace package")
+                    raise StagingError(
+                        f"runtime closure contains unsupported workspace package {target!r}"
+                    )
                 selected[target] = SUPPORT_PACKAGES[target]
                 pending.append(target)
     return packages
