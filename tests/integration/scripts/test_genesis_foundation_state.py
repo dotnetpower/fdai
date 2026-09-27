@@ -628,17 +628,16 @@ def test_remote_completed_authority_observation_is_read_only_and_canonical(
         },
     )
     calls: list[tuple[str, ...]] = []
-    configurations: list[bytes] = []
     verified: list[str] = []
     monkeypatch.setattr(remote, "_terraform_environment", lambda *a, **kw: {})
     monkeypatch.setattr(remote, "_managed_identity_login", lambda *a, **kw: None)
 
     def run(command: tuple[str, ...], **kwargs: object) -> None:
         calls.append(command)
-        configurations.append((Path(str(kwargs["cwd"])) / "root/main.tf").read_bytes())
+        destination = Path(command[command.index("--file") + 1])
+        destination.write_bytes(state_bytes)
 
     monkeypatch.setattr(remote, "_run", run)
-    monkeypatch.setattr(remote, "_capture", lambda *a, **kw: state_bytes)
     monkeypatch.setattr(remote, "_verify_backend", lambda *a, **kw: verified.append("backend"))
     args = SimpleNamespace(
         work_id=work_id,
@@ -656,9 +655,10 @@ def test_remote_completed_authority_observation_is_read_only_and_canonical(
 
     remote._observe_remote_authority(args, cleanup)
 
-    assert any("init" in command for command in calls)
-    assert all("migrate-state" not in command for command in calls)
-    assert configurations == [b'terraform {\n  backend "azurerm" {}\n}\n']
+    assert [command[1:4] for command in calls] == [("storage", "blob", "download")]
+    assert "--auth-mode" in calls[0]
+    assert "login" in calls[0]
+    assert all("terraform" not in command[0] for command in calls)
     assert verified == ["backend"]
     assert not (tmp_path / ".fdai-state-observe" / work_id[:24]).exists()
 

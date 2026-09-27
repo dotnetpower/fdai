@@ -12,6 +12,7 @@ import re
 import shutil
 import stat
 import subprocess
+import sys
 import tarfile
 from pathlib import Path, PurePosixPath
 
@@ -210,7 +211,7 @@ def main() -> int:
         subprocess.SubprocessError,
         tarfile.TarError,
     ) as exc:
-        print(f"fdai-migrate-foundation-state: {exc}", file=os.sys.stderr)
+        print(f"fdai-migrate-foundation-state: {exc}", file=sys.stderr)
         return 3
 
 
@@ -229,36 +230,46 @@ def _observe_remote_authority(args: argparse.Namespace, cleanup_marker: Path) ->
         shutil.rmtree(work)
     work.mkdir(mode=0o700, parents=True)
     try:
-        (work / "mirror").mkdir(mode=0o700)
         environment = _terraform_environment(work, args)
         _managed_identity_login(work, args)
-        (work / "root").mkdir(mode=0o700)
-        _write_bytes(work / "root/main.tf", b'terraform {\n  backend "azurerm" {}\n}\n')
+        remote_state_path = work / "remote-state.json"
+        _write_bytes(remote_state_path, b"")
         _run(
             (
-                _TERRAFORM,
-                "-chdir=root",
-                "init",
-                "-input=false",
-                f"-backend-config=resource_group_name={args.resource_group}",
-                f"-backend-config=storage_account_name={args.account_name}",
-                f"-backend-config=container_name={args.container_name}",
-                f"-backend-config=key={args.backend_key}",
-                "-backend-config=use_azuread_auth=true",
+                _AZURE_CLI,
+                "storage",
+                "blob",
+                "download",
+                "--auth-mode",
+                "login",
+                "--account-name",
+                args.account_name,
+                "--container-name",
+                args.container_name,
+                "--name",
+                args.backend_key,
+                "--file",
+                str(remote_state_path),
+                "--overwrite",
+                "true",
+                "--output",
+                "none",
+                "--only-show-errors",
             ),
             cwd=work,
             env=environment,
             timeout=300,
-            reason="Foundation remote state observation initialization failed",
+            reason="Foundation remote state observation download failed",
         )
-        remote_state = _capture(
-            (_TERRAFORM, "-chdir=root", "state", "pull"),
-            cwd=work,
-            env=environment,
-            timeout=180,
-            reason="Foundation remote state observation pull failed",
-            max_bytes=64 * 1024 * 1024,
-        )
+        details = remote_state_path.lstat()
+        if (
+            not stat.S_ISREG(details.st_mode)
+            or details.st_uid != os.geteuid()
+            or details.st_nlink != 1
+        ):
+            raise ValueError("Foundation remote state observation download is unsafe")
+        remote_state_path.chmod(0o600)
+        remote_state = _read_bytes(remote_state_path, 64 * 1024 * 1024)
         remote_value = json.loads(remote_state)
         if not isinstance(remote_value, dict):
             raise ValueError("Foundation remote state observation is invalid")
