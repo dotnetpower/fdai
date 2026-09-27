@@ -100,6 +100,7 @@ from .semantic_relationship_projection import (
 from .semantic_service_health_answer import (
     render_service_health_answer as _render_service_health_answer,
 )
+from .semantic_source_limitations import source_limitation_text
 from .semantic_subscription_scope_answer import (
     render_subscription_scope_answer as _render_subscription_scope_answer,
 )
@@ -3481,11 +3482,11 @@ def _render_resource_list_answer(
                 "",
                 (
                     "원본 범위가 완전하지 않아 전체 개수로 해석할 수 없습니다. "
-                    f"제한: `{limitation}`"
+                    f"제한: {source_limitation_text(limitation, korean=True)}"
                     if korean
                     else (
                         "The source scope is incomplete, so this is not an exhaustive count. "
-                        f"Limitation: `{limitation}`"
+                        f"Limitation: {source_limitation_text(limitation, korean=False)}"
                     )
                 ),
             ]

@@ -195,6 +195,10 @@ Cloud update comparison validates raw and processing identities; Core rechecks p
   `stated_values`, and the manifest planner compares it with a targetless schema proposal to return a
   typed clarification; it never selects an intent. `fdai_core_service/semantic_ontology_answers.py`
   renders manifest declaration lists and counts and fails closed on inconsistent rows.
+  `fdai_core_service/semantic_source_limitations.py` explains typed source-limitation codes in the
+  operator's locale and keeps each exact code visible; an unknown code stays a code without invented
+  meaning. The provider-neutral `OntologyGraphSnapshot.source_incomplete_reason` carries those
+  bounded codes only on an incomplete snapshot.
   If an exact-resource live refresh declines a broader secured Resource set, Core preserves the
   initial graph freshness, completeness, conflict, and synthetic-evidence reasons instead of
   reducing the result to an opaque refresh failure.

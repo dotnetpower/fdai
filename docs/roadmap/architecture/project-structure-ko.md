@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 101feb8c81dd3cada61f6806f2f55adc8ffdb376
+translation_source_sha: b35ad31f3fab57ecbf14da5ef88b1e3360706b90
 translation_revised: 2026-09-27
 ---
 # 프로젝트 구조
@@ -197,6 +197,10 @@ Cost Governance 가명 자료는 Operator 조립이 소유하는 비밀입니다
   계획기는 대상 없는 스키마 제안과 비교해 타입이 지정된 명확화를 반환하며 의도를 선택하지 않습니다.
   `fdai_core_service/semantic_ontology_answers.py`는 매니페스트 선언 목록과 개수를 렌더링하고
   일관되지 않은 행에서는 안전하게 실패합니다.
+  `fdai_core_service/semantic_source_limitations.py`는 타입이 지정된 원본 제한 코드를 운영자의
+  로케일로 설명하고 정확한 코드도 함께 표시하며, 알 수 없는 코드는 의미를 지어내지 않고 코드로만
+  둡니다. 공급자 중립 `OntologyGraphSnapshot.source_incomplete_reason`은 불완전한 스냅샷에서만 이
+  범위가 제한된 코드를 전달합니다.
   정확한 리소스용 실시간 새로 고침이 더 넓은 보호 Resource 집합을 처리하지 않으면 Core는 결과를
   불투명한 새로 고침 실패로 축약하지 않고 최초 그래프 최신성, 완전성, 충돌 및 합성 근거 사유를
   보존합니다.

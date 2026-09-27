@@ -258,12 +258,24 @@ async def _query_exact_ids(
     }
     if len(generations) > 1:
         raise ValueError("exact id reads returned mixed source generations")
+    source_complete = all(graph.source_complete for graph in results)
+    reasons = tuple(
+        dict.fromkeys(
+            part
+            for graph in results
+            if graph.source_incomplete_reason is not None
+            for part in graph.source_incomplete_reason.split("+")
+        )
+    )
     return OntologyGraphSnapshot(
         objects=objects,
         links=(),
         truncated=stopped_early or matching_count > limit,
-        source_complete=all(graph.source_complete for graph in results),
+        source_complete=source_complete,
         source_generation=next(iter(generations), None),
+        source_incomplete_reason=(
+            "+".join(reasons[:8]) if reasons and not source_complete else None
+        ),
     )
 
 
@@ -303,6 +315,7 @@ def _filter_graph(
             truncated=truncated,
             source_complete=graph.source_complete,
             source_generation=graph.source_generation,
+            source_incomplete_reason=graph.source_incomplete_reason,
         ),
         result_limited,
     )

@@ -10,6 +10,8 @@ from collections.abc import Mapping
 
 from fdai.shared.contracts.models import OntologyDeclarationKind
 
+from .semantic_source_limitations import source_limitation_text
+
 _SOURCE_KO = (
     "- 읽기 전용 출처: 활성 온톨로지 release에 대해 역할과 목적으로 범위가 제한된 `query.manifest`."
 )
@@ -118,11 +120,11 @@ def _render_declaration_list(
                 "",
                 (
                     "일부 선언을 확인할 수 없어 전체 목록으로 해석할 수 없습니다. "
-                    f"제한: `{_inline(reason)}`"
+                    f"제한: {source_limitation_text(reason, korean=True)}"
                     if korean
                     else (
                         "Some declarations could not be verified, so this is not the complete "
-                        f"list. Limitation: `{_inline(reason)}`"
+                        f"list. Limitation: {source_limitation_text(reason, korean=False)}"
                     )
                 ),
             ]

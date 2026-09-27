@@ -2310,6 +2310,57 @@ def test_resource_list_answer_discloses_incomplete_source_scope() -> None:
     assert "`resource_scope_incomplete`" in answer
 
 
+@pytest.mark.parametrize(
+    ("locale", "explanation"),
+    [
+        ("ko", "최근 관측된 리소스 변경이 아직 그래프에 반영되지 않았습니다"),
+        ("en", "recently observed resource changes are not yet applied to the graph"),
+    ],
+)
+def test_resource_list_answer_explains_typed_inventory_limitation(
+    locale: str,
+    explanation: str,
+) -> None:
+    request = _request(locale=locale)
+    semantic_request = cast(dict[str, object], request["semantic_turn"])
+    execution = QueryPlanExecution(
+        plan_digest=PLAN_DIGEST,
+        status="completed",
+        results=MappingProxyType(
+            {
+                "resources": QueryNodeResult(
+                    value=QueryTable(
+                        rows=(
+                            QueryRow.from_values(
+                                "resource-1",
+                                {"name": "cluster-example", "type": "kubernetes-cluster"},
+                            ),
+                        ),
+                        complete=False,
+                        truncation_reason="inventory_observation_pending",
+                    ),
+                    evidence_refs=("inventory:partial",),
+                )
+            }
+        ),
+        receipts=(),
+        output_node_ids=("resources",),
+    )
+
+    answer, _details = _render_query_answer(
+        SemanticTurnRequest.model_validate(semantic_request),
+        execution,
+        operation="select",
+        output_shape="property_filtered_resources",
+        subject_constraints=("Resource",),
+        measure_concepts=("name", "type"),
+    )
+
+    assert answer is not None
+    assert explanation in answer
+    assert "`inventory_observation_pending`" in answer
+
+
 def test_resource_list_answer_does_not_promise_hidden_complete_rows() -> None:
     request = _request(locale="en")
     semantic_request = cast(dict[str, object], request["semantic_turn"])

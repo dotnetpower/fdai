@@ -678,6 +678,7 @@ async def test_resource_receipt_preserves_incomplete_source_without_query_trunca
     assert result.receipt.source_complete is False
     assert result.receipt.schema_version == "1.2.0"
     assert result.receipt.complete is False
+    assert result.materialization.graph.source_incomplete_reason == "graph_completeness_unverified"
 
     legacy_payload = result.receipt.model_dump(mode="json")
     legacy_payload["schema_version"] = "1.1.0"

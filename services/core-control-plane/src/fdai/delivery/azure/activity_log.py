@@ -397,6 +397,10 @@ class AzureActivityLogFactory:
         relationship_incomplete = succeeded and operation_kind in {"write", "delete"}
         if operation_kind == "delete":
             return at, None, relationship_incomplete
+        if _reads_without_state_change(operation):
+            # A read is audit evidence, not a state observation; journaling it would hold
+            # graph completeness open until the next full reconciliation.
+            return None
 
         props = _truncate_props(
             {
@@ -427,6 +431,22 @@ class AzureActivityLogFactory:
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
+
+def _reads_without_state_change(operation: str | None) -> bool:
+    """Return whether an ARM operation name reports a read instead of a state change.
+
+    ``*/read`` operations read by definition. ARM reserves ``list*`` POST actions, such as
+    credential or key listings, for returning data without changing the resource. Every
+    other action may change state and stays a change hint.
+    """
+
+    if not operation:
+        return False
+    segments = operation.casefold().split("/")
+    if segments[-1] == "read":
+        return True
+    return len(segments) >= 3 and segments[-1] == "action" and segments[-2].startswith("list")
 
 
 def _activity_log_timestamp(value: datetime) -> str:
