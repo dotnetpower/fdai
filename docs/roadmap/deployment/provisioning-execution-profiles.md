@@ -30,6 +30,7 @@ remain unchanged.
 | Read-only inspection and profile initialization commands | implemented | `packages/deployment-cli`; focused profile, target, tool, and productization tests | The dedicated distribution registers `fdaictl`, writes private target-bound profiles, and returns review until execution-host evidence exists. |
 | Managed VM, private backend, and manual deployment host | implemented | `infra/bootstrap/`, standalone deployment modules, and focused bootstrap tests | The durable VNet host, workload identity, private state, exact plans, and application apply run without GitHub Actions. Enrollment and later application transfer derive one VM-bound `fdai-genesis-*` host-key alias so strict reconnects reuse the attested known-hosts evidence. |
 | Audited Run Command private relay | implemented | `execution_bundle.py`, `run_command_receiver.py`, `run_command_private_relay.py`, fixed bootstrap/orchestration modules, and 25 focused passing tests | One eligible Linux deployment host can stage a digest-bound bundle to one peered WSL host without cloud artifact storage. Live Azure transfer evidence and automatic access-profile routing remain open. |
+| Scoped Run Command Terraform | implemented | `scripts/deployment/azure/scoped_terraform.py`; `scoped_terraform_receiver.py`; 36 focused tests; one live read-only scoped plan | An ordinary PC runs one registered Terraform scope on the managed host through Action Run Command without a private network path. A live apply with zero-change and independent readback evidence remains open. |
 | Fresh-subscription local coordinator | implemented | `fdaictl provision azure`; `fdai-up.sh`; signed-kit, Foundation, Bastion, managed-host, approval, license, migration, and convergence modules; routed lifecycle tests | One `dev` process derives the target from the active Azure CLI user and keeps stateful transitions serial. Tenant deployment has no GitHub transport. A governed Azure receipt and complete subscription-assurance evidence remain open. |
 | Prebuilt OCI deployment appliance consumption | in-progress | `run-deployment-appliance.sh`; focused script and CLI tests | Tenant provisioning can start the manual standalone coordinator from a release-published, digest-pinned appliance with no public artifact fallback. A governed artifact-offline Azure receipt remains open; tenant deployment does not construct the image. |
 | Offline-kit construction and verification | validated | `fdai_deployment_cli.offline_kit`; locked release scripts; successful network-isolated air-gap drill | Signature-first verification, exact files, SBOM coverage, ABI/libc binding, private snapshots, and shipped-wheel installation pass. Runtime wheelhouse closure includes the shared contracts, GitHub App auth, and runtime diagnostics packages actually required by the six service distributions. Managed-host installation consumes the signed aggregate requirements lock with hashes and retains a package-readback receipt; duplicate wheel copies are only local discovery locations. A managed-host transport archive preserves the required signed profile root instead of reducing verification to the legacy manifest. |
@@ -43,6 +44,7 @@ remain unchanged.
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-27 | implemented | Added scoped Run Command Terraform: the ordinary PC packages one registered scope from protected source, and a fixed receiver plans it on the managed host under its user-assigned identity. Apply requires an exact human approval bound to the plan digest, writes a pre-effect claim, never repeats a claimed apply, and ends with targeted zero-change and independent ARM readback. | `current change`; `scripts/deployment/azure/scoped_terraform.py`; `scoped_terraform_receiver.py`; `tests/integration/scripts/test_scoped_terraform.py` (36 passed); one live read-only `aks-container-insights` plan with exactly one association create | Merge through protected CI, then retain the first live scoped apply receipt for #1171 through issue #1538. |
 | 2026-09-27 | implemented | Reused the Foundation-owned operations Blob private DNS zone for focused document recovery instead of attempting a second same-namespace link to the runner VNet. The access target now writes the document endpoint A record into that existing zone. | `current change`; focused Terraform/target regressions and a live verification-only residual plan narrowed to the conflicting duplicate link. | Deliver through protected CI, rebuild the exact kit, and retain access readback plus zero-change evidence from a new source-bound context. |
 | 2026-09-27 | implemented | Added a distinct exact `access` plan/apply/readback stage for focused private recovery so endpoint, DNS, peering and deployer data roles converge before Key Vault secrets or ADLS filesystems and paths. | `current change`; focused stage targets/readback/approval/orchestration tests and live endpoint-converged/data-plane-race evidence. | Deliver through protected CI, rebuild the exact kit, and retain access-stage plus substrate zero-change receipts. |
 | 2026-09-27 | implemented | Extended focused AKS policy recovery to an existing public-disabled document storage account, creating only Blob/DFS endpoints, DNS links and the already shared runner/application peering. Selectors now validate bounded management JSON instead of relying on provider-specific query flattening. | `current change`; focused name/readback/Terraform contracts, native Terraform validation, and live public-disabled/no-endpoint plus failed ADLS probe. | Deliver through protected CI, rebuild the exact kit, and retain document endpoint, DNS, filesystem/path, and residual zero-change evidence. |
@@ -110,6 +112,10 @@ remain unchanged.
 - [ ] Retain one exact live private-relay Run Command staging receipt over the reviewed peered route,
   then connect the explicit adapter to `fdaictl` access-profile selection without broadening VM,
   network, plan, or application authority.
+- [ ] Retain one live scoped Run Command apply receipt for `aks-container-insights` from an ordinary PC, with the
+  exact plan approval, targeted zero-change result, and independent ARM readback ([#1538](https://github.com/dotnetpower/fdai/issues/1538)).
+- [ ] Mirror scoped Terraform plan, claim, and receipt records into the protected plan store so replacing the host
+  cannot lose recovery evidence.
 - [ ] Demonstrate ordinary-PC basic deployment without preconfigured private access, with later detailed provisioning that preserves installation identity, existing state and Trial start time; keep optional missing capabilities separate from baseline health.
 - [ ] Create the AKS basic profile with API Server VNet Integration and dedicated workload and API-server subnets, then prove authenticated restricted public management access from the initiating coordinator.
 - [ ] Implement `/provisioning` network intent, assessment, exact-plan request, approval, apply, rollback and independent readback for peering, private endpoints, DNS and private-cluster mode.
@@ -393,7 +399,8 @@ The managed-host access order is fixed:
 1. Approved internal SSH.
 2. Temporary public-IP SSH when Azure Policy and the deployment profile allow it.
 3. Azure Bastion.
-4. Azure Run Command as an audited emergency path.
+4. Azure Run Command as an audited emergency path, or the registered
+   [scoped Terraform operation](#scoped-run-command-terraform).
 
 Fresh-subscription Genesis doesn't fall through this list. A profile with `access_method=bastion`
 selects the exact Standard Bastion native tunnel created by Foundation. Enrollment material then
@@ -418,6 +425,59 @@ the 90-minute service ceiling. The Linux host must bind the reviewed private add
 provide Python and OpenSSL. These limits do not weaken the coordinator's shorter deadline.
 The explicit adapter is `dev`-only with approval quorum one. Staging and production remain blocked
 until this transport supports and verifies their protected approval quorum.
+
+### Scoped Run Command Terraform
+
+**Design and critique:** The Terraform backend is private, and subscription policy can deny any public
+exception, so a workstation can't initialize a root that uses it. Copying state to the PC or opening
+the account would create a second state owner or weaken policy. An interactive VPN, Bastion, or SSH
+session for every small change turns private networking into a development bottleneck. A hand-written
+Run Command script avoids the network path but loses exact source, plan binding, and recovery
+evidence.
+
+`scripts/deployment/azure/scoped_terraform.py` lets an ordinary PC that reaches only Azure Resource
+Manager run one registered Terraform scope on the existing managed deployment host:
+
+- A private operator profile names the exact tenant, subscription, VM, executor client ID, and backend
+  account, container, state key, and resource group. It accepts only the `dev-single-operator`
+  approval profile. Staging and production stay blocked until this path supports a protected quorum.
+- Source comes from `git archive` of the scope root at a commit that `origin/main` contains after a
+  fresh fetch. The fixed receiver, `scoped_terraform_receiver.py`, comes from the same commit. The
+  source, receiver, and variable digests, the backend, the executor, and the VM bind a
+  content-addressed operation ID that the receiver recomputes.
+- The variable file must be private, name only declared root variables, and contain no secret-like
+  material. Backend input accepts only the account, container, key, and resource group. No SAS,
+  account key, bearer token, or client secret crosses the transport.
+- Action Run Command carries one fixed bootstrap that verifies the embedded receiver and payload
+  digests. The coordinator passes the script as a private file rather than a command-line argument
+  and bounds it to 192 KiB. The receiver returns one result line within 3 KiB, and Terraform output
+  stays in root-only host files.
+- The receiver requests an IMDS token for the exact executor client ID and tenant, clears inherited
+  credentials, and selects Managed Identity for both the backend and the provider. It generates a
+  `backend "azurerm" {}` block, rejects a backend block in source, and verifies the initialized
+  backend binding.
+- `plan` targets only the registered addresses and rejects any other address, delete, or
+  replacement. Destroy mode accepts only deletes of the registered addresses. The PC shows the
+  review, and the signed-in human types `<mode> <first 12 plan-digest characters>`. The approval
+  records the human object ID, operation ID, plan digest, and a one-hour expiry.
+- `apply` verifies the approved digest, writes a create-only pre-effect claim, applies the saved plan
+  once, writes a receipt, and runs a targeted zero-change plan. A claim without a receipt blocks new
+  plans and applies for the same state target from any source revision, and `verify` never applies.
+  `apply` and `verify` reuse the source commit retained at plan time, so a later `main` merge can't
+  split one operation. The PC then reads the resulting resources through Azure Resource
+  Manager and compares their scope-specific authoritative properties.
+
+The first scope, `aks-container-insights`, targets the AKS Container Insights data collection rule and
+its cluster association. Adding a scope is a reviewed source change with focused tests. The Run
+Command permission already grants root on the VM, so this path adds no VM authority; it replaces
+unrecorded manual commands with bound, recoverable operations.
+
+This path has the following limitations:
+
+- The host needs Terraform, Python 3, and provider download egress that the committed lock file
+  verifies.
+- Action Run Command allows one command per VM, a 4 KiB response, and a 90-minute ceiling.
+- Plan, claim, and receipt records currently live only on the host.
 
 Temporary public access is never a silent fallback. Its plan requires an allowlisted source CIDR,
 key- or certificate-only SSH, a bounded access window, and automatic removal of the public IP and
