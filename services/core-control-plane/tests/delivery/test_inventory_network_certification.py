@@ -9,6 +9,7 @@ import pytest
 from fdai.delivery.inventory_network_certification import (
     InventoryNetworkCampaignObservation,
     InventoryNetworkStage,
+    _close_tls_writer,
     _receipt_private_ip,
     reduce_inventory_network_campaign,
 )
@@ -143,3 +144,20 @@ def test_receipt_private_ip_accepts_one_private_address() -> None:
     assert _receipt_private_ip({"FDAI_NETWORK_CERT_RECEIPT_PRIVATE_IP": "10.246.5.4"}) == (
         "10.246.5.4"
     )
+
+
+async def test_tls_close_timeout_does_not_invalidate_a_completed_probe() -> None:
+    class _Writer:
+        closed = False
+
+        def close(self) -> None:
+            self.closed = True
+
+        async def wait_closed(self) -> None:
+            raise TimeoutError
+
+    writer = _Writer()
+
+    await _close_tls_writer(writer)  # type: ignore[arg-type]
+
+    assert writer.closed is True
