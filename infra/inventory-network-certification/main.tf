@@ -77,7 +77,8 @@ resource "azurerm_subnet" "container_apps" {
   delegation {
     name = "container-apps"
     service_delegation {
-      name = "Microsoft.App/environments"
+      name    = "Microsoft.App/environments"
+      actions = ["Microsoft.Network/virtualNetworks/subnets/join/action"]
     }
   }
 }
@@ -96,8 +97,13 @@ resource "azurerm_subnet" "postgres" {
   delegation {
     name = "postgres"
     service_delegation {
-      name = "Microsoft.DBforPostgreSQL/flexibleServers"
+      name    = "Microsoft.DBforPostgreSQL/flexibleServers"
+      actions = ["Microsoft.Network/virtualNetworks/subnets/join/action"]
     }
+  }
+
+  lifecycle {
+    ignore_changes = [service_endpoints]
   }
 }
 
@@ -123,6 +129,10 @@ resource "azurerm_private_dns_zone" "postgres" {
   name                = local.postgres_dns_name
   resource_group_name = data.azurerm_resource_group.certification.name
   tags                = local.tags
+
+  lifecycle {
+    ignore_changes = [tags]
+  }
 }
 
 resource "azurerm_private_dns_zone_virtual_network_link" "postgres" {
@@ -132,6 +142,10 @@ resource "azurerm_private_dns_zone_virtual_network_link" "postgres" {
   virtual_network_id    = azurerm_virtual_network.certification.id
   registration_enabled  = false
   tags                  = local.tags
+
+  lifecycle {
+    ignore_changes = [tags]
+  }
 }
 
 resource "random_password" "postgres" {
@@ -168,6 +182,10 @@ resource "azurerm_postgresql_flexible_server" "certification" {
   }
 
   depends_on = [azurerm_private_dns_zone_virtual_network_link.postgres]
+
+  lifecycle {
+    ignore_changes = [zone]
+  }
 }
 
 resource "azurerm_postgresql_flexible_server_database" "certification" {
@@ -306,6 +324,11 @@ resource "azurerm_container_app_environment" "certification" {
   infrastructure_subnet_id       = azurerm_subnet.container_apps.id
   internal_load_balancer_enabled = true
   tags                           = local.tags
+
+  workload_profile {
+    name                  = "Consumption"
+    workload_profile_type = "Consumption"
+  }
 }
 
 resource "azurerm_user_assigned_identity" "campaign" {
