@@ -70,10 +70,10 @@ profiles:
     reserved_output_tokens: 2048
     promotion_evidence: []
     provenance: {source: docs/roadmap/interfaces/cloud-resource-knowledge-structured-rag.md}
-  - id: active.semantic-judgment
-    version: 5
+  - id: shadow.semantic-judgment-static
+    version: 1
     capability_id: semantic.judgment
-    mode: active
+    mode: shadow
     root: {id: semantic-judgment, version: 8, layer: base}
     packs:
       - {id: semantic-incident-action-guidance, version: 1, layer: pack}
@@ -85,9 +85,7 @@ profiles:
     system_token_budget: 32768
     request_token_budget: 65536
     reserved_output_tokens: 2048
-    promotion_evidence:
-      - docs/roadmap/interfaces/ontology-query-coverage-implementation-plan.md
-      - docs/roadmap/interfaces/hierarchical-conversation-planning.md
+    promotion_evidence: []
     provenance: {source: docs/roadmap/interfaces/hierarchical-conversation-planning.md}
   - id: shadow.semantic-manifest-list
     version: 1
@@ -237,10 +235,10 @@ profiles:
     reserved_output_tokens: 2048
     promotion_evidence: []
     provenance: {source: docs/roadmap/interfaces/hierarchical-conversation-planning.md}
-  - id: active.conversation-preflight
-    version: 5
+  - id: shadow.conversation-preflight-static
+    version: 1
     capability_id: conversation.preflight
-    mode: active
+    mode: shadow
     root: {id: conversation-preflight, version: 9, layer: base}
     packs:
       - {id: conversation-preflight-resource-changes, version: 1, layer: pack}
@@ -248,12 +246,12 @@ profiles:
     system_token_budget: 8192
     request_token_budget: 16384
     reserved_output_tokens: 768
-    promotion_evidence: [docs/roadmap/interfaces/hierarchical-conversation-planning.md]
+    promotion_evidence: []
     provenance: {source: docs/roadmap/interfaces/hierarchical-conversation-planning.md}
-  - id: shadow.conversation-preflight-topics
-    version: 1
+  - id: active.conversation-preflight
+    version: 6
     capability_id: conversation.preflight
-    mode: shadow
+    mode: active
     root: {id: conversation-preflight, version: 9, layer: base}
     packs:
       - {id: conversation-preflight-resource-changes, version: 1, layer: pack}
@@ -262,12 +260,14 @@ profiles:
     system_token_budget: 12288
     request_token_budget: 20480
     reserved_output_tokens: 768
-    promotion_evidence: []
+    promotion_evidence:
+      - docs/roadmap-implementation/decisioning/prompt-composition.md
+      - docs/roadmap/decisioning/prompt-composition.md
     provenance: {source: docs/roadmap/decisioning/prompt-composition.md}
-  - id: shadow.semantic-judgment-dynamic
-    version: 1
+  - id: active.semantic-judgment
+    version: 6
     capability_id: semantic.judgment
-    mode: shadow
+    mode: active
     root: {id: semantic-judgment-core, version: 1, layer: base}
     packs:
       - id: semantic-topic-resource-inventory
@@ -319,7 +319,9 @@ profiles:
     system_token_budget: 32768
     request_token_budget: 65536
     reserved_output_tokens: 2048
-    promotion_evidence: []
+    promotion_evidence:
+      - docs/roadmap-implementation/decisioning/prompt-composition.md
+      - docs/roadmap/decisioning/prompt-composition.md
     provenance: {source: docs/roadmap/decisioning/prompt-composition.md}
   - id: shadow.conversation-preflight-schema-scope
     version: 1
