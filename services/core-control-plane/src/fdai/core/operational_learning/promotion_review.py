@@ -11,17 +11,17 @@ from typing import Literal
 from fdai.core.measurement import OperationalPromotionReceipt
 from fdai.core.measurement.operational_promotion import action_type_digest
 from fdai.shared.contracts.development_authority import (
+    canonical_authority_digest,
+    development_promotion_target_digest,
     revalidate_development_authority,
 )
-from fdai.shared.contracts.models import OntologyActionType
-from fdai.shared.contracts.models.development_authority import (
+from fdai.shared.contracts.models import (
     DevelopmentActionConfirmation,
     DevelopmentAuthorityGrant,
     DevelopmentBindingVerification,
     DevelopmentPromotionApproval,
     FullAuthorityDevelopmentProfile,
-    canonical_authority_digest,
-    development_promotion_target_digest,
+    OntologyActionType,
 )
 from fdai.shared.providers.development_authority import (
     DevelopmentAuthorityBindingRequest,

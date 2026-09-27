@@ -12,9 +12,9 @@ from fdai.agents._framework.development_authority import (
     development_grant,
 )
 from fdai.agents._framework.var_decisions import PendingHilTicket
-from fdai.shared.contracts.models.development_authority import (
+from fdai.shared.contracts.development_authority import normalized_principal
+from fdai.shared.contracts.models import (
     FullAuthorityDevelopmentProfile,
-    normalized_principal,
 )
 from fdai.shared.providers.development_authority import DevelopmentAuthorityBindingSource
 

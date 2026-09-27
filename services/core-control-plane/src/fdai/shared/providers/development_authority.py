@@ -7,12 +7,12 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any, Protocol, runtime_checkable
 
-from fdai.shared.contracts.models.development_authority import (
-    DevelopmentBindingVerification,
+from fdai.shared.contracts.development_authority import (
     authority_text_digest,
     canonical_authority_digest,
     normalized_principal,
 )
+from fdai.shared.contracts.models import DevelopmentBindingVerification
 
 
 @dataclass(frozen=True, slots=True)

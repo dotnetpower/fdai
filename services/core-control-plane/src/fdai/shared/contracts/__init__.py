@@ -12,8 +12,12 @@ must be imported from their submodules by the composition root only, so
 
 from .development_authority import (
     DevelopmentAuthorityDecision,
+    authority_text_digest,
+    canonical_authority_digest,
     development_authority_audit,
+    development_promotion_target_digest,
     evaluate_development_authority,
+    normalized_principal,
     revalidate_development_authority,
 )
 from .models import (
@@ -112,10 +116,6 @@ from .models import (
     TelemetryCompleteness,
     Tier,
     UploadSession,
-    authority_text_digest,
-    canonical_authority_digest,
-    development_promotion_target_digest,
-    normalized_principal,
 )
 from .models.executor_transport import executor_action_payload_digest
 from .registry import SchemaNotFoundError, SchemaRegistry

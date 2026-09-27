@@ -337,7 +337,7 @@ categories, trust tiers, per-vendor rules, and fallback policy - lives in
 
 - The current callback binds its HMAC to the timestamp, URL `approval_id`, and body. The registry resolves that identifier against a pending item and checks the original `correlation_id`, `idempotency_key`, and action hash before a safe-to-retry terminal decision. The signed timestamp is the stable `decided_at`, and an exact retry preserves the first prepared/completed audit times. Operator persists the decision outbox before publication and marks delivery only after broker acceptance; a publication failure returns retryable `503`.
 - No-self-approval compares the server-authenticated Entra OID with the pending item's submitter OID, and the Human approval capability check excludes BreakGlass. The full-authority development profile is the only same-human exception: one authenticated Owner can count as requester and approver only when the selected disposable-development profile, fresh exact-action confirmation, and server-derived current binding all match.
-  Audit preserves the original role, quorum, and no-self-approval rule and records an effective development quorum of one without inventing identities.
+  Audit preserves the original role, quorum, and no-self-approval rule and records an effective development quorum of one without inventing identities; typed authority records use the public contract-model facade, and digest helpers add no authority.
   A missing profile, binding source, current Owner check, or distinct executor keeps the ordinary no-self-approval rule.
 
 ## 8. Audit Correlation

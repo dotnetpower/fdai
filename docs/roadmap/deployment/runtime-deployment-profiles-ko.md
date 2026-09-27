@@ -1,6 +1,6 @@
 ---
 translation_of: runtime-deployment-profiles.md
-translation_source_sha: 74a0eac3708f288239dd2aebf29d58b556819ff8
+translation_source_sha: 5a107c1fbbae5a9044e93f3e3a06e083cb1249f3
 translation_revised: 2026-09-27
 ---
 # 런타임 배포 프로파일
@@ -51,7 +51,8 @@ facade로 import를 모아도 AKS 관측, Cost Governance 활성화, 배포 권�
 선택하려면 공유 기계 계약, 최신 권위 있는 바인딩 소스, 인증된 Owner 한 명, 실행기와 구분되는
 신원이 필요합니다. 누락된 권한 바인딩은 `aks`, `container-apps`, `postgres-flex`,
 `postgres-aks`에서 상속되지 않습니다. 권한 프로필을 명시적으로 선택했지만 구성이 불완전하면
-안전하게 차단합니다.
+안전하게 차단합니다. 런타임 조립은 공개 계약 모델 facade를 통해 프로필 레코드를 전달하며,
+다이제스트 도우미는 프로필을 선택하거나 활성화하지 않습니다.
 
 ## 운영자 계약
 

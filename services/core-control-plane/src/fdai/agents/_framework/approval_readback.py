@@ -18,9 +18,9 @@ from fdai.agents._framework.development_authority import (
 )
 from fdai.agents._framework.pantheon import PANTHEON_NAMES
 from fdai.agents._framework.var_ticket_identity import approval_state_key
-from fdai.shared.contracts.models.development_authority import (
+from fdai.shared.contracts.development_authority import normalized_principal
+from fdai.shared.contracts.models import (
     FullAuthorityDevelopmentProfile,
-    normalized_principal,
 )
 from fdai.shared.providers.development_authority import DevelopmentAuthorityBindingSource
 from fdai.shared.providers.state_store import StateStore

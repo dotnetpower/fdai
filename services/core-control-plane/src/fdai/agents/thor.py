@@ -66,8 +66,8 @@ from fdai.core.operational_context.test_context_dispatch import (
     TestContextDispatchBinding,
     TestContextDispatchGuard,
 )
-from fdai.shared.contracts.models import Autonomy
-from fdai.shared.contracts.models.development_authority import (
+from fdai.shared.contracts.models import (
+    Autonomy,
     FullAuthorityDevelopmentProfile,
 )
 from fdai.shared.providers.development_authority import DevelopmentAuthorityBindingSource

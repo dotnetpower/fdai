@@ -11,8 +11,8 @@ from fdai.agents._framework.development_authority import (
     development_binding_verification,
     development_grant,
 )
-from fdai.shared.contracts.models import Autonomy
-from fdai.shared.contracts.models.development_authority import (
+from fdai.shared.contracts.models import (
+    Autonomy,
     FullAuthorityDevelopmentProfile,
     RegisteredDevelopmentAction,
 )

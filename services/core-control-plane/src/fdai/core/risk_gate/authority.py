@@ -45,10 +45,12 @@ from fdai.shared.contracts.development_authority import (
     development_authority_audit,
     evaluate_development_authority,
 )
-from fdai.shared.contracts.models import ActionInterface, OntologyActionType, Tier
-from fdai.shared.contracts.models.development_authority import (
+from fdai.shared.contracts.models import (
+    ActionInterface,
     DevelopmentActionConfirmation,
     FullAuthorityDevelopmentProfile,
+    OntologyActionType,
+    Tier,
 )
 from fdai.shared.providers.development_authority import (
     DevelopmentAuthorityBindingRequest,

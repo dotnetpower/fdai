@@ -50,7 +50,8 @@ profile is a separate, optional deployment input for one exact disposable test s
 requires the shared machine contract, a current authoritative binding source, one authenticated
 Owner, and a distinct executor identity. Missing authority bindings do not inherit from `aks`,
 `container-apps`, `postgres-flex`, or `postgres-aks`; an explicitly selected but incomplete
-authority profile fails closed.
+authority profile fails closed. Runtime composition passes profile records through the public
+contract-model facade; digest helpers never select or enable a profile.
 
 ## Operator contract
 

@@ -37,23 +37,21 @@ from fdai.core.rbac.resolver import GroupMapping
 from fdai.core.rbac.roles import Role
 from fdai.shared.contracts.development_authority import (
     DevelopmentAuthorityDecision,
+    authority_text_digest,
+    canonical_authority_digest,
     evaluate_development_authority,
 )
 from fdai.shared.contracts.models import (
     Autonomy,
     CeilingRole,
+    DevelopmentActionConfirmation,
+    DevelopmentBindingVerification,
+    FullAuthorityDevelopmentProfile,
     OntologyActionType,
     TierCeiling,
     Workflow,
     WorkflowStep,
     WorkflowStepKind,
-)
-from fdai.shared.contracts.models.development_authority import (
-    DevelopmentActionConfirmation,
-    DevelopmentBindingVerification,
-    FullAuthorityDevelopmentProfile,
-    authority_text_digest,
-    canonical_authority_digest,
 )
 from fdai.shared.providers.development_authority import (
     DevelopmentAuthorityBindingRequest,

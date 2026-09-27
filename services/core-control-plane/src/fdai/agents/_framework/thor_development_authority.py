@@ -14,10 +14,10 @@ from fdai.agents._framework.development_authority import (
     development_grant,
 )
 from fdai.agents._framework.thor_action_run import ActionRun
-from fdai.shared.contracts.models.development_authority import (
+from fdai.shared.contracts.development_authority import normalized_principal
+from fdai.shared.contracts.models import (
     DevelopmentAuthorityGrant,
     FullAuthorityDevelopmentProfile,
-    normalized_principal,
 )
 from fdai.shared.providers.development_authority import DevelopmentAuthorityBindingSource
 

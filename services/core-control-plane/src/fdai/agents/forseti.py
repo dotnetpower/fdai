@@ -77,7 +77,7 @@ from fdai.core.operational_planning import (
 from fdai.core.operational_planning.prospective_lineage import (
     ProspectiveLineageFinalizer,
 )
-from fdai.shared.contracts.models.development_authority import (
+from fdai.shared.contracts.models import (
     FullAuthorityDevelopmentProfile,
     RegisteredDevelopmentAction,
 )

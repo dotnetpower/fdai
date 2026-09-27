@@ -9,13 +9,17 @@ from typing import Any
 
 from pydantic import ValidationError
 
-from fdai.shared.contracts.models.development_authority import (
+from fdai.shared.contracts.development_authority_digest import (
+    authority_text_digest,
+    canonical_authority_digest,
+    development_promotion_target_digest,
+    normalized_principal,
+)
+from fdai.shared.contracts.models import (
     DevelopmentActionConfirmation,
     DevelopmentAuthorityGrant,
     DevelopmentBindingVerification,
     FullAuthorityDevelopmentProfile,
-    canonical_authority_digest,
-    normalized_principal,
 )
 
 MAX_AUTHENTICATION_AGE = timedelta(minutes=10)
@@ -228,7 +232,11 @@ __all__ = [
     "MAX_AUTHENTICATION_AGE",
     "MAX_CONFIRMATION_AGE",
     "MAX_CONFIRMATION_LIFETIME",
+    "authority_text_digest",
+    "canonical_authority_digest",
     "development_authority_audit",
+    "development_promotion_target_digest",
     "evaluate_development_authority",
+    "normalized_principal",
     "revalidate_development_authority",
 ]

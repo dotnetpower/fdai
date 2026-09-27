@@ -6,11 +6,13 @@ from datetime import UTC, datetime, timedelta
 
 import pytest
 from fdai.shared.contracts.development_authority import (
+    authority_text_digest,
+    canonical_authority_digest,
     development_authority_audit,
     evaluate_development_authority,
     revalidate_development_authority,
 )
-from fdai.shared.contracts.models.development_authority import (
+from fdai.shared.contracts.models import (
     DevelopmentActionBinding,
     DevelopmentActionConfirmation,
     DevelopmentActionSafeguards,
@@ -18,8 +20,6 @@ from fdai.shared.contracts.models.development_authority import (
     DevelopmentBindingVerification,
     FullAuthorityDevelopmentProfile,
     RegisteredDevelopmentAction,
-    authority_text_digest,
-    canonical_authority_digest,
 )
 from fdai.shared.contracts.registry import PackageResourceSchemaRegistry
 from fdai.shared.providers.development_authority import (

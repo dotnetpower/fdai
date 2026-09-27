@@ -17,12 +17,15 @@ from fdai.core.risk_gate.gate import (
 )
 from fdai.core.risk_gate.risk_table import load_risk_table
 from fdai.shared.contracts.development_authority import evaluate_development_authority
-from fdai.shared.contracts.models import Event, Mode, RollbackKind, RollbackRef
-from fdai.shared.contracts.models.development_authority import (
+from fdai.shared.contracts.models import (
     DevelopmentActionBinding,
     DevelopmentAuthorityEnvelope,
+    Event,
     FullAuthorityDevelopmentProfile,
+    Mode,
     RegisteredDevelopmentAction,
+    RollbackKind,
+    RollbackRef,
 )
 from tests.contracts.test_development_authority import (
     NOW,

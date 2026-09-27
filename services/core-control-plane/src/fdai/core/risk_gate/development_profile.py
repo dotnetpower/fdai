@@ -8,18 +8,22 @@ from typing import Any, Protocol
 
 from fdai.core.measurement import OperationalPromotionReceipt
 from fdai.core.measurement.operational_promotion import action_type_digest
-from fdai.shared.contracts.development_authority import revalidate_development_authority
-from fdai.shared.contracts.models import Action, Mode, OntologyActionType
-from fdai.shared.contracts.models.development_authority import (
+from fdai.shared.contracts.development_authority import (
+    authority_text_digest,
+    canonical_authority_digest,
+    development_promotion_target_digest,
+    revalidate_development_authority,
+)
+from fdai.shared.contracts.models import (
+    Action,
     DevelopmentActionConfirmation,
     DevelopmentAuthorityEnvelope,
     DevelopmentAuthorityGrant,
     DevelopmentBindingVerification,
     DevelopmentPromotionApproval,
     FullAuthorityDevelopmentProfile,
-    authority_text_digest,
-    canonical_authority_digest,
-    development_promotion_target_digest,
+    Mode,
+    OntologyActionType,
 )
 from fdai.shared.providers.development_authority import (
     DevelopmentAuthorityBindingRequest,

@@ -10,7 +10,7 @@ from fdai.shared.contracts.development_authority import (
     evaluate_development_authority,
     revalidate_development_authority,
 )
-from fdai.shared.contracts.models.development_authority import (
+from fdai.shared.contracts.models import (
     DevelopmentActionConfirmation,
     DevelopmentAuthorityEnvelope,
     DevelopmentAuthorityGrant,

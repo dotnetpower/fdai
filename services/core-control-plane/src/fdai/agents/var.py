@@ -75,7 +75,7 @@ from fdai.agents._framework.var_ticket_identity import (
 from fdai.agents._framework.var_ticket_identity import (
     ticket_identity as _ticket_identity,
 )
-from fdai.shared.contracts.models.development_authority import FullAuthorityDevelopmentProfile
+from fdai.shared.contracts.models import FullAuthorityDevelopmentProfile
 from fdai.shared.providers.development_authority import DevelopmentAuthorityBindingSource
 from fdai.shared.providers.state_store import StateStore
 

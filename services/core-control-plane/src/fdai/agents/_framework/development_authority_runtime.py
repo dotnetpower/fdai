@@ -12,9 +12,9 @@ from fdai.agents._framework.var_development_authority import (
 from fdai.agents.thor import Thor
 from fdai.agents.var import ApproverAuthorizer, Var
 from fdai.agents.vidar import RollbackExecutor, Vidar
-from fdai.shared.contracts.models.development_authority import (
+from fdai.shared.contracts.development_authority import normalized_principal
+from fdai.shared.contracts.models import (
     FullAuthorityDevelopmentProfile,
-    normalized_principal,
 )
 from fdai.shared.providers.development_authority import DevelopmentAuthorityBindingSource
 from fdai.shared.providers.state_store import StateStore

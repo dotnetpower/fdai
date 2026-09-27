@@ -68,10 +68,6 @@ from .development_authority import (
     DevelopmentPromotionApproval,
     FullAuthorityDevelopmentProfile,
     RegisteredDevelopmentAction,
-    authority_text_digest,
-    canonical_authority_digest,
-    development_promotion_target_digest,
-    normalized_principal,
 )
 from .document import (
     AccessDescriptor,
@@ -339,10 +335,6 @@ __all__ = [
     "WorkflowActionRef",
     "WorkflowStep",
     "WorkflowTrigger",
-    "authority_text_digest",
-    "canonical_authority_digest",
-    "development_promotion_target_digest",
-    "normalized_principal",
     "DocumentEnvelope",
     "DocumentSourceSpan",
     "DocumentVersion",

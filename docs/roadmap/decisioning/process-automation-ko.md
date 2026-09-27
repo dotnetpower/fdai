@@ -1,7 +1,7 @@
 ---
 title: 프로세스 자동화(Process Automation)
 translation_of: process-automation.md
-translation_source_sha: f23382446bd78291dd5d82b9cae719f56565cacf
+translation_source_sha: 030156c1010e0d307818059b3a8c98ef99a839a8
 translation_revised: 2026-09-27
 ---
 # 프로세스 자동화(프로세스 자동화)
@@ -361,7 +361,7 @@ HIL 로 라우팅되는 워크플로 스텝은 "누가 승인하고, 어떻게 �
 - **누가 승인하나요?** 필요한 사람 역할은 HIL 티어 전반의 최상위 `min_role`이며, RBAC
   [`GroupMapping`](../../../services/core-control-plane/src/fdai/core/rbac/resolver.py)을 통해 `aw-approvers` 또는 `aw-owners`로 해석합니다. 일반 승인 단계는 자기 승인 차단을 유지합니다.
   명시적으로 선택한 full-authority 개발 프로필은 신뢰할 수 있는 최신 바인딩이 정확한 작업 흐름 버전, 단계, 원래 역할, 정족수, 자기 승인 차단 값과 일치할 때만 ActionType 및 명시적 승인 단계에 Owner, 유효 정족수 1, 동일 인물 승인을 적용할 수 있습니다.
-  감사에는 원래 요구 사항을 보존하며 바인딩이 없거나 일치하지 않으면 프로필 사용을 차단합니다.
+  감사에는 원래 요구 사항을 보존하며 바인딩이 없거나 일치하지 않으면 프로필 사용을 차단합니다. 타입이 지정된 레코드는 공개 계약 모델 facade를 사용하며 다이제스트 도우미는 권한을 부여하지 않습니다.
 - **어떻게 도달하나?** A1 `hil_approval` 경로는
   [`HilChannel`](../../../services/core-control-plane/src/fdai/shared/providers/hil_channel.py)
   경계를 통해 전송할 수 있습니다. Teams 봇 전송과 별도로 인증된 콜백은

@@ -56,18 +56,16 @@ from fdai.core.risk_gate.preconditions import PreconditionEvaluation
 from fdai.shared.contracts.models import (
     Action,
     BlastRadiusScope,
-    Mode,
-    OntologyActionType,
-    PreconditionKind,
-    Rule,
-)
-from fdai.shared.contracts.models.development_authority import (
     DevelopmentActionConfirmation,
     DevelopmentAuthorityEnvelope,
     DevelopmentAuthorityGrant,
     DevelopmentBindingVerification,
     DevelopmentPromotionApproval,
     FullAuthorityDevelopmentProfile,
+    Mode,
+    OntologyActionType,
+    PreconditionKind,
+    Rule,
 )
 from fdai.shared.providers.development_authority import (
     DevelopmentAuthorityBindingRequest,

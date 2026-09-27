@@ -364,7 +364,7 @@ Given a `Workflow`, the planner produces a deterministic, read-only
 - **Who approves?** The required human role is the highest `min_role` across the HIL tiers, resolved through RBAC
   [`GroupMapping`](../../../services/core-control-plane/src/fdai/core/rbac/resolver.py) to `aw-approvers` or `aw-owners`; ordinary gated steps retain no-self-approval.
   An explicitly selected full-authority development profile may instead use Owner, effective quorum one, and same-human approval for ActionType and explicit approval steps only after a trusted current binding matches the exact workflow version, step, original role, quorum, and no-self-approval value.
-  Audit retains the original requirements, and a missing or mismatched binding blocks profile use.
+  Audit retains the original requirements, a missing or mismatched binding blocks profile use, typed records use the public contract-model facade, and digest helpers grant no authority.
 - **How are they reached?** The A1 `hil_approval` route may dispatch through the
   [`HilChannel`](../../../services/core-control-plane/src/fdai/shared/providers/hil_channel.py)
   seam. Teams Bot delivery and the separate authenticated callback are distinct from

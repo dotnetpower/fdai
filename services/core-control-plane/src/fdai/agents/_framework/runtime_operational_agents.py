@@ -37,8 +37,7 @@ from fdai.core.operational_planning.prospective_lineage import (
     ProspectiveLineageMaterializer,
 )
 from fdai.rule_catalog.schema.rule_semantic_feedback import SemanticFeedbackCandidateSink
-from fdai.shared.contracts.models import OntologyActionType
-from fdai.shared.contracts.models.development_authority import RegisteredDevelopmentAction
+from fdai.shared.contracts.models import OntologyActionType, RegisteredDevelopmentAction
 from fdai.shared.providers.decision_evidence_verifier import DecisionEvidenceAdmissionProvider
 from fdai.shared.providers.state_store import StateStore
 

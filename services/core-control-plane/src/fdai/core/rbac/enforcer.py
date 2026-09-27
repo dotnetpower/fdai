@@ -33,11 +33,13 @@ from fdai.core.rbac.roles import (
     Role,
     has_capability,
 )
-from fdai.shared.contracts.development_authority import evaluate_development_authority
-from fdai.shared.contracts.models.development_authority import (
+from fdai.shared.contracts.development_authority import (
+    evaluate_development_authority,
+    normalized_principal,
+)
+from fdai.shared.contracts.models import (
     DevelopmentActionConfirmation,
     FullAuthorityDevelopmentProfile,
-    normalized_principal,
 )
 from fdai.shared.providers.development_authority import (
     DevelopmentAuthorityBindingRequest,

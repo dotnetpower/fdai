@@ -31,7 +31,7 @@ from fdai.agents._framework.introspection import (
     capability_facts,
 )
 from fdai.agents._framework.pantheon import _VIDAR
-from fdai.shared.contracts.models.development_authority import (
+from fdai.shared.contracts.models import (
     FullAuthorityDevelopmentProfile,
 )
 from fdai.shared.providers.development_authority import DevelopmentAuthorityBindingSource

@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 4d8aa95e2adc478e9fc648e065732bb7a4fcc7e4
+translation_source_sha: 69736b5371eeaeb36eb421fa988683678de4310a
 translation_revised: 2026-09-27
 ---
 # 프로젝트 구조
@@ -505,7 +505,9 @@ Muninn은 게시와 원본 소유 legacy 정리에 하나의 Core 소유 cohort 
   누락되면 안전하게 차단합니다. 현재 업스트림은 이 주입 경계를 정의하지만 권위 있는 바인딩
   소스 구현은 제공하지 않습니다. 집중된 `core/risk_gate/development_profile.py` 모듈은
   프로필 범위 승격과 현재 권한 검증을 소유하며, `gate.py`는 공개 레지스트리와 risk-gate
-  API를 유지합니다.
+  API를 유지합니다. 계약 모델은 `fdai.shared.contracts.models` 공개 facade를 통해서만 하위
+  시스템 경계를 통과합니다. 다이제스트 도우미는 모델이 아닌 권한 facade에 남으며 권한을
+  부여하지 않습니다.
 - 기본 환경 공급자와 선택적이고 범위가 제한된 `YamlFileConfigProvider`는 동일한 JSON Schema 및
   Pydantic 경계로 진입합니다. YAML 공급자는 UTF-8 매핑 하나를 읽고 중복 키와 1MiB를 넘는 파일을
   차단합니다. 또한 symlink, regular file이 아닌 대상 및 지원하지 않거나 지나치게 중첩된 YAML을

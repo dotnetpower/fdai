@@ -585,7 +585,7 @@ LLM invocation is a capability, not a default: all agents can use their bindings
 | Huginn | no | no | yes (localized, digest-verified and cited ingress state plus deterministic no-LLM boundaries) |
 | Heimdall | no | no | yes (localized, digest-verified and cited observer state plus deterministic no-LLM boundaries) |
 | Vidar | no | no | yes (localized, digest-verified and cited recovery state plus hard-dependency fail-closed boundaries) |
-| Var | no | no | yes (localized, digest-verified and cited HIL state plus current-human, default no-self-approval, and exact development-profile boundaries) |
+| Var | no | no | yes (localized, digest-verified and cited HIL state plus current-human, default no-self-approval, exact development-profile, and public contract-model boundaries) |
 | Bragi | yes (translator and diagnostic presenter only) | no | yes (localized, digest-verified and cited translator-only routing state) |
 | Saga | no | no | yes (localized, digest-verified and cited audit state plus append-only hard-dependency boundaries) |
 | Mimir | no | no | yes (localized, digest-verified and cited rule state plus quality/shadow/reviewed-PR boundaries) |
