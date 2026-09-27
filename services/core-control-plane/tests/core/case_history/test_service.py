@@ -389,6 +389,87 @@ async def test_derived_deletion_failure_stays_pending_and_retries_after_restart(
     assert derived.calls == 2
 
 
+async def test_source_tombstone_waits_for_historical_suffix_readback() -> None:
+    from fdai.core.case_history.derived import CaseHistoryDerivedRetention
+    from fdai.core.operational_learning import pattern_case_from_operational_case
+    from fdai.core.operational_learning.cohort_retention import (
+        LegacyCaseCohortRetention,
+        cohort_state_key,
+        retain_cohort_case,
+    )
+    from fdai.core.operational_learning.legacy_suffix_retention import LegacyCaseSuffixRetention
+    from fdai.shared.providers.testing.state_store import InMemoryStateStore
+
+    metadata = InMemoryCaseHistoryMetadataStore()
+    artifacts = InMemoryCaseHistoryArtifactStore()
+    materializer = CaseHistoryMaterializer(metadata=metadata, artifacts=artifacts)
+    case_input = _case_input(outcome_class=OperationalOutcomeClass.ROLLBACK)
+    source = await materializer.seal_operational_case(
+        case_input,
+        retention_until=case_input.event_time_cutoff + timedelta(days=1),
+        deletion_due_at=case_input.event_time_cutoff + timedelta(days=2),
+    )
+    case = pattern_case_from_operational_case(case_input, source.projection)
+    assert case is not None
+    record = source.record
+    store = InMemoryStateStore()
+    cohort_key = cohort_state_key(
+        access_scope_digest=case_input.access_scope_digest,
+        purpose=case_input.purpose,
+        failure_fingerprint=case.failure_fingerprint,
+        action_type=case.action_type,
+        fdai_revision=case.fdai_revision,
+        scenario_set_version=case.scenario_set_version,
+        source_kind=case.source_kind.value,
+        source_synthetic=case.source_synthetic,
+    )
+    cohort = await retain_cohort_case(
+        store,
+        key=cohort_key,
+        case=case,
+        access_scope_digest=record.access_scope_digest,
+        purpose=record.purpose,
+        recorded_at=record.sealed_at,
+    )
+    import hashlib
+
+    digest = hashlib.sha256(
+        json.dumps(cohort["cases"], sort_keys=True, separators=(",", ":")).encode()
+    ).hexdigest()
+    snapshot_key = f"{cohort_key}:snapshot:{digest}"
+    await store.write_state(snapshot_key, cohort)
+    derived = CaseHistoryDerivedRetention(
+        store=store,
+        materializer=materializer,
+        downstream=(LegacyCaseCohortRetention(store=store), LegacyCaseSuffixRetention(store=store)),
+    )
+    for _ in range(12):
+        retention = CaseHistoryRetentionService(
+            metadata=metadata, artifacts=artifacts, derived_data=derived
+        )
+        try:
+            result = await retention.delete_due(now=record.deletion_due_at)
+            assert result == (record.case_id,)
+            break
+        except RuntimeError as exc:
+            assert "pending" in str(exc)
+            pending = await metadata.latest(
+                record.case_id, access_scope_digest=record.access_scope_digest
+            )
+            assert pending is not None and pending.deletion_started_at is not None
+            assert pending.deleted_at is None
+    else:
+        pytest.fail("source tombstone did not resume after historical suffix deletion")
+    observed = await store.read_state(snapshot_key)
+    assert observed is not None and observed["retired"] is True
+    assert observed["cases"] == []
+    tombstone = await metadata.latest(
+        record.case_id, access_scope_digest=record.access_scope_digest
+    )
+    assert tombstone is not None and tombstone.deleted_at is not None
+    assert record.storage_ref is not None and await artifacts.get(record.storage_ref) is None
+
+
 async def test_projection_deletion_removes_copies_and_rejects_replay() -> None:
     from fdai.core.case_history.derived import (
         CaseHistoryDerivedRetention,

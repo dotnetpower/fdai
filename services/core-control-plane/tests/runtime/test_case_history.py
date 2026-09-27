@@ -6,6 +6,8 @@ import httpx
 import pytest
 from fdai.core.case_history.dual_write import DualWriteCaseHistoryMetadataStore
 from fdai.core.learning import NoImprovement, PostTurnReviewInput
+from fdai.core.operational_learning.cohort_retention import LegacyCaseCohortRetention
+from fdai.core.operational_learning.legacy_suffix_retention import LegacyCaseSuffixRetention
 from fdai.delivery.runtime_settings import RuntimeSettingsService
 from fdai.runtime.case_history import (
     CaseHistoryRetentionTickPublisher,
@@ -72,6 +74,10 @@ async def test_case_history_runtime_builds_storage_and_mixed_family_analysis() -
     assert runtime is not None
     assert runtime.analyzer is not None
     assert runtime.retention._derived_data is not None
+    assert [type(item) for item in runtime.retention._derived_data._downstream] == [
+        LegacyCaseCohortRetention,
+        LegacyCaseSuffixRetention,
+    ]
 
 
 async def test_case_history_runtime_uses_relational_metadata_when_dsn_is_configured() -> None:
@@ -91,6 +97,10 @@ async def test_case_history_runtime_uses_relational_metadata_when_dsn_is_configu
         runtime.retention._derived_data._downstream[0]._config.dsn
         == "postgresql://example.invalid/patterns"
     )
+    assert [type(item) for item in runtime.retention._derived_data._downstream[1:]] == [
+        LegacyCaseCohortRetention,
+        LegacyCaseSuffixRetention,
+    ]
 
 
 def test_case_history_retention_defaults_and_validation() -> None:

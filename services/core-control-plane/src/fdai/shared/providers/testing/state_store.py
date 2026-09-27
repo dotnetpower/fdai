@@ -281,6 +281,16 @@ class InMemoryStateStore(StateStore):
             ]
         return tuple(matching[:limit])
 
+    async def read_state_keys(
+        self, prefix: str, *, after: str = "", limit: int = 128
+    ) -> tuple[str, ...]:
+        if not prefix or limit < 1 or (after and not after.startswith(prefix)):
+            raise ValueError("state key page requires a prefix, valid cursor, and positive limit")
+        with self._lock:
+            return tuple(
+                key for key in sorted(self._state) if key.startswith(prefix) and key > after
+            )[:limit]
+
     async def delete_states_beyond(self, prefix: str, *, retain_newest: int) -> int:
         if not prefix:
             raise ValueError("prefix MUST be non-empty")

@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
+import json
 from dataclasses import replace
 from datetime import timedelta
 from typing import Any
@@ -21,6 +23,7 @@ from fdai.core.operational_learning.cohort_retention import (
     cohort_state_key,
     retain_cohort_case,
 )
+from fdai.core.operational_learning.legacy_suffix_retention import LegacyCaseSuffixRetention
 from fdai.shared.providers.case_history import CaseHistoryRevisionRecord
 from fdai.shared.providers.testing.state_store import InMemoryStateStore
 from tests.core.case_history.test_operational_case import _case_input, _receipt
@@ -329,6 +332,181 @@ async def test_legacy_cohort_purge_ignores_prediction_records() -> None:
     await LegacyCaseCohortRetention(store=store).purge(prediction)
 
     assert await store.read_states("operational-case-fingerprint-cohort:v2:", limit=10) == ()
+
+
+async def test_legacy_suffix_cleanup_preserves_held_peer_and_blocks_replay() -> None:
+    store = InMemoryStateStore()
+    deleted = _pattern_case("a", OperationalOutcomeClass.SUCCESS)
+    held = _pattern_case("b", OperationalOutcomeClass.ROLLBACK)
+    assert deleted is not None and held is not None
+    cohort = await _retain_legacy(store, deleted)
+    cohort = await _retain_legacy(store, held)
+    key = _cohort_key(deleted)
+    digest = hashlib.sha256(
+        json.dumps(cohort["cases"], sort_keys=True, separators=(",", ":")).encode()
+    ).hexdigest()
+    snapshot_key = f"{key}:snapshot:{digest}"
+    pattern_key = f"{key}:pattern:{'e' * 64}"
+    orphan_candidate_key = f"{key}:pattern:{'d' * 64}"
+    emission_key = f"{key}:emitted:{digest}"
+    pattern = {
+        "schema_version": "1.0.0",
+        "pattern_id": "e" * 64,
+        "cohort_key": key,
+        "access_scope_digest": "a" * 64,
+        "purpose": "operational-learning",
+        "cases": [deleted.to_mapping(), held.to_mapping()],
+        "candidate": {"case_reviews": [deleted.to_mapping()]},
+    }
+    await store.write_state(snapshot_key, cohort)
+    await store.write_state(pattern_key, pattern)
+    await store.write_state(
+        orphan_candidate_key,
+        {
+            **pattern,
+            "pattern_id": "d" * 64,
+            "cases": [held.to_mapping()],
+            "candidate": {"immutable_case_refs": [deleted.immutable_case_ref]},
+        },
+    )
+    await store.write_state(emission_key, {"digest": digest, "revision": cohort["revision"]})
+    unrelated_key = f"operational-case-fingerprint-cohort:v2:{'f' * 64}:pattern:{'c' * 64}"
+    await store.write_state(unrelated_key, {"untouched_scope": "b" * 64})
+    await LegacyCaseCohortRetention(store=store).purge(_deletion_record(deleted))
+    for _ in range(12):
+        try:
+            await LegacyCaseSuffixRetention(store=store).purge(_deletion_record(deleted))
+            break
+        except RuntimeError as exc:
+            assert "pending" in str(exc)
+    else:
+        pytest.fail("historical suffix cleanup did not complete")
+
+    snapshot = await store.read_state(snapshot_key)
+    pattern_after = await store.read_state(pattern_key)
+    emitted = await store.read_state(emission_key)
+    assert snapshot is not None and snapshot["retired"] is True
+    assert [row["case"]["case_id"] for row in snapshot["cases"]] == [held.case_id]
+    assert pattern_after is not None and pattern_after["retired"] is True
+    assert [case["case_id"] for case in pattern_after["cases"]] == [held.case_id]
+    assert "candidate" not in pattern_after
+    orphan = await store.read_state(orphan_candidate_key)
+    assert orphan is not None and orphan["retired"] is True
+    assert "candidate" not in orphan and orphan["cases"][0]["case_id"] == held.case_id
+    assert emitted is not None and emitted["retired"] is True
+    assert await store.read_state(unrelated_key) == {"untouched_scope": "b" * 64}
+    assert await store.write_state_if_absent(snapshot_key, cohort) is False
+    assert await store.write_state_if_absent(pattern_key, pattern) is False
+    with pytest.raises(PermissionError, match="retired snapshot"):
+        await retain_cohort_case(
+            store,
+            key=snapshot_key,
+            case=deleted,
+            access_scope_digest="a" * 64,
+            purpose="operational-learning",
+            recorded_at=deleted.event_time_cutoff,
+        )
+    assert await store.verify_chain() is True
+
+
+async def test_legacy_suffix_hold_and_failed_readback_remain_pending() -> None:
+    deleted = _pattern_case("a", OperationalOutcomeClass.SUCCESS)
+    assert deleted is not None
+    store = InMemoryStateStore()
+    cohort = await _retain_legacy(store, deleted)
+    digest = hashlib.sha256(
+        json.dumps(cohort["cases"], sort_keys=True, separators=(",", ":")).encode()
+    ).hexdigest()
+    key = f"{_cohort_key(deleted)}:snapshot:{digest}"
+    await store.write_state(key, cohort)
+    with pytest.raises(PermissionError, match="unheld"):
+        await LegacyCaseSuffixRetention(store=store).purge(
+            _deletion_record(deleted, legal_hold=True)
+        )
+    assert await store.read_state(key) == cohort
+
+    class _MissingReadback(InMemoryStateStore):
+        async def read_state(self, key: str) -> Any:
+            value = await super().read_state(key)
+            if key.endswith(digest) and value is not None and value.get("retired"):
+                return None
+            return value
+
+    failed = _MissingReadback()
+    await failed.write_state(key, cohort)
+    with pytest.raises(RuntimeError, match="readback"):
+        await LegacyCaseSuffixRetention(store=failed).purge(_deletion_record(deleted))
+
+
+async def test_legacy_suffix_old_backend_without_optional_keyset_stays_pending(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    store = InMemoryStateStore()
+    case = _pattern_case("a", OperationalOutcomeClass.SUCCESS)
+    assert case is not None
+    cohort = await _retain_legacy(store, case)
+    monkeypatch.setattr(store, "read_state_keys", None)
+    with pytest.raises(RuntimeError, match="keyset-capable"):
+        await LegacyCaseSuffixRetention(store=store).purge(_deletion_record(case))
+    assert await store.read_state(_cohort_key(case)) == cohort
+
+
+async def test_legacy_suffix_scan_resumes_many_rows_and_verifies_earlier_insert() -> None:
+    store = InMemoryStateStore()
+    deleted = _pattern_case("a", OperationalOutcomeClass.SUCCESS)
+    held = _pattern_case("b", OperationalOutcomeClass.ROLLBACK)
+    assert deleted is not None and held is not None
+    cohort = await _retain_legacy(store, deleted)
+    cohort = await _retain_legacy(store, held)
+    prefix = f"{_cohort_key(deleted)}:snapshot:"
+    snapshots = []
+    for index in range(70):
+        variant = {**cohort, "revision": cohort["revision"] + index}
+        variant["cases"] = [
+            {**row, "recorded_at": f"2026-09-26T00:00:{index:02d}+00:00"} for row in cohort["cases"]
+        ]
+        digest = hashlib.sha256(
+            json.dumps(variant["cases"], sort_keys=True, separators=(",", ":")).encode()
+        ).hexdigest()
+        key = prefix + digest
+        snapshots.append(key)
+        await store.write_state(key, variant)
+
+    worker = LegacyCaseSuffixRetention(store=store)
+    record = _deletion_record(deleted)
+    with pytest.raises(RuntimeError, match="pending"):
+        await worker.purge(record)
+    # A late historical row ordered before the cursor is found in the second pass.
+    checkpoints = await store.read_states("case-history:legacy-suffix-scan:v1:", limit=2)
+    assert checkpoints
+    cursor = next(item for item in checkpoints if item["after"])
+    for index in range(1000):
+        late = {
+            **cohort,
+            "cases": [{**row, "recorded_at": f"late-{index}"} for row in cohort["cases"]],
+        }
+        digest = hashlib.sha256(
+            json.dumps(late["cases"], sort_keys=True, separators=(",", ":")).encode()
+        ).hexdigest()
+        if prefix + digest < cursor["after"] and prefix + digest not in snapshots:
+            late_key = prefix + digest
+            await store.write_state(late_key, late)
+            snapshots.append(late_key)
+            break
+    else:
+        pytest.fail("could not construct a snapshot before the scan cursor")
+    for _ in range(12):
+        try:
+            await LegacyCaseSuffixRetention(store=store).purge(record)
+            break
+        except RuntimeError as exc:
+            assert "pending" in str(exc)
+    else:
+        pytest.fail("historical suffix scan did not reach independent verification")
+    for key in snapshots:
+        state = await store.read_state(key)
+        assert state is not None and state["retired"] is True
+        assert [row["case"]["case_id"] for row in state["cases"]] == [held.case_id]
 
 
 def test_mismatch_is_negative_evidence() -> None:

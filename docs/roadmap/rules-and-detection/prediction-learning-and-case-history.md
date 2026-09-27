@@ -372,9 +372,12 @@ This is a new, not-yet-deployed projection layout, not an automatic migration of
 experimental `operational-case-fingerprint-cohort:v2:*` state keys. Runtime now derives both
 possible legacy cohort keys from the source record, removes a deleted case body with audited CAS,
 retains a bounded case-id fence, verifies independent readback, and refuses replay after restart.
-Legal holds and missing deletion intent fail closed. Historical suffixed snapshot, Pattern, and
-emission rows, broker retention, and other downstream candidate deletion still require their own
-verified steps.
+Historical suffixed snapshot and Pattern rows now use bounded keyset pages with audited restart
+checkpoints and a second scan before source tombstoning. Audited CAS removes the claimed case
+body and Pattern candidate evidence, keeps unrelated and held case bodies, and leaves the old keys
+as retired replay fences. Related emission markers remain content-free and retired. Independent
+readback of every changed row keeps failures pending; legal holds and missing deletion intent fail
+closed. This covers repository-owned historical rows, not broker payloads or downstream candidates.
 
 T1 vector cleanup follows the existing source deletion claim, not a new retention policy. Its writer
 and purge share a PostgreSQL transaction lock under a 15-second total deadline. Each batch atomically
@@ -401,7 +404,7 @@ tombstoned.
 | PostgreSQL metadata shadow | `case_history` and `case_history_revision` mirror metadata and immutable artifact references through `DualWriteCaseHistoryMetadataStore` | The authority-side hold and deletion transition must match the shadow transition. Divergence fails closed; deletion clears the latest artifact reference and marks any existing chunks deleted. | Covered for metadata and references. |
 | PostgreSQL chunk schema | `case_history_chunk` can hold bounded text and a 384-dimensional embedding | No runtime writer or reader currently populates this table. It is not an actual retained copy in the current composition. Any future binding must join the source claim and hold before activation. | Declared but unbound. |
 | Current derived StateStore projection | Cohorts, frozen snapshots, Pattern case bodies, and emission markers inside `case-history-derived:v1:<scope>`; Muninn is the writer | One scope CAS revalidates current source revisions. Purge removes every entry that cites the claimed case before source tombstoning; holds and missing deletion intent fail closed. | Covered. |
-| Legacy top-level StateStore projection | Historical `operational-case-fingerprint-cohort:v2:*` cohort, snapshot, Pattern, and emission rows | Source retention derives both synthetic-source cohort keys, removes matching case bodies by audited CAS, retains a bounded content-free fence, verifies readback, and blocks replay after restart. Holds and missing deletion intent fail closed. Historical suffixed snapshot, Pattern, and emission rows remain separate. | Base cohort body cleanup covered; suffixed rows remain open. |
+| Legacy top-level StateStore projection | Historical `operational-case-fingerprint-cohort:v2:*` cohort, snapshot, Pattern, and emission rows | Source retention derives both synthetic-source cohort keys. Base bodies and suffixed snapshot/Pattern bodies use audited CAS, retain unrelated and held cases, and verify independent deletion readback. Content-free replay fences remain at old keys. Keyset pages and audited cursor checkpoints bound retries; a second scan catches earlier late rows before tombstoning. Holds and missing deletion intent fail closed. | Repository-owned historical rows covered locally; broker replay and downstream copies remain open. |
 | T1 pgvector library | `t1_pattern_library` retains the embedding, action fields, and bounded `OperationalCaseContext`; `PgVectorPatternLibrary` is the writer | A transaction-scoped lock writes durable case/signature fences and deletes at most 1,000 rows per pass. Holds, scope conflicts, and database failures keep source deletion pending. | Covered. |
 | Cohort broker record | `object.context-index` carries the bounded `PatternCase` array and snapshot reference from Muninn to Norns | Event-bus retention and `.dlq` preserve transport payloads independently of the case lifecycle. Generic redrive exists, but no source deletion or hold fence currently prevents old payload replay. | Open broker retention and redrive work. |
 | Pattern and candidate broker records | `object.pattern` and `object.rule-candidate` carry case references, digests, candidate evidence, and review identity | These records contain no source artifact body, but replay can rematerialize downstream copies unless consumers recheck the deletion fence. Generic DLQ policy is not case-aware. | Open replay qualification. |
