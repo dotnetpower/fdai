@@ -121,6 +121,25 @@ def planned_key_vault_name(
     )
 
 
+def planned_document_storage_name(
+    *, subscription_id: str, workload: str, environment: str, region_short: str
+) -> str:
+    """Return the exact document-storage name rendered by the verified Terraform root."""
+
+    if (
+        re.fullmatch(r"[0-9a-fA-F]{8}(?:-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12}", subscription_id)
+        is None
+        or re.fullmatch(r"[a-z][a-z0-9]{1,11}", workload) is None
+        or re.fullmatch(r"[a-z][a-z0-9-]{1,15}", environment) is None
+        or re.fullmatch(r"[a-z][a-z0-9]{1,7}", region_short) is None
+    ):
+        raise ValueError("planned document storage name inputs are invalid")
+    unique = hashlib.md5(
+        f"{subscription_id.casefold()}:{environment}".encode(), usedforsecurity=False
+    ).hexdigest()[:6]
+    return f"st{workload}doc{environment}{region_short}{unique}"[:24]
+
+
 def console_origin(hostname: str) -> str:
     """Return the HTTPS origin for one deployed Static Web App hostname."""
     if (

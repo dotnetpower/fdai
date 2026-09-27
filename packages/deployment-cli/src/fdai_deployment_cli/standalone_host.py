@@ -21,6 +21,8 @@ from urllib.parse import urlencode
 
 from fdai_deployment_cli import catalog_review_profile
 from fdai_deployment_cli import foundation_adoption_host as foundation_host
+from fdai_deployment_cli import standalone_host_values
+from fdai_deployment_cli import standalone_terraform_environment
 from fdai_deployment_cli.aks_historical_reconciliation import (
     reconciled_variables,
     validate_reconciliation_plan,
@@ -100,9 +102,6 @@ from fdai_deployment_cli.standalone_host_values import (
     plan_summary as _plan_summary,
 )
 from fdai_deployment_cli.standalone_host_values import (
-    planned_key_vault_name as _planned_key_vault_name,
-)
-from fdai_deployment_cli.standalone_host_values import (
     required_image_digest as _required_image_digest,
 )
 from fdai_deployment_cli.standalone_host_values import (
@@ -125,9 +124,6 @@ from fdai_deployment_cli.standalone_residual_apply import (
 )
 from fdai_deployment_cli.standalone_terraform_environment import (
     configure_terraform as _configure_terraform,
-)
-from fdai_deployment_cli.standalone_terraform_environment import (
-    requires_aks_key_vault_private_access as _requires_aks_key_vault_private_access,
 )
 from fdai_deployment_cli.standalone_terraform_environment import (
     terraform_configuration as _terraform_configuration,
@@ -410,14 +406,28 @@ def _prepare(args: argparse.Namespace, work_dir: Path) -> dict[str, object]:
     )
     key_vault_private_access = (
         runtime_profile.runtime_platform.value == "aks"
-        and _requires_aks_key_vault_private_access(
+        and standalone_terraform_environment.requires_aks_key_vault_private_access(
             subscription_id=foundation.subscription_id,
             resource_group_name=str(app["name"]),
-            vault_name=_planned_key_vault_name(
+            vault_name=standalone_host_values.planned_key_vault_name(
                 workload=workload,
                 environment="dev",
                 region_short=region_short,
                 resource_suffix=suffix,
+            ),
+            work_dir=work_dir,
+        )
+    )
+    document_storage_private_access = (
+        runtime_profile.runtime_platform.value == "aks"
+        and standalone_terraform_environment.requires_aks_document_storage_private_access(
+            subscription_id=foundation.subscription_id,
+            resource_group_name=str(app["name"]),
+            account_name=standalone_host_values.planned_document_storage_name(
+                subscription_id=foundation.subscription_id,
+                workload=workload,
+                environment="dev",
+                region_short=region_short,
             ),
             work_dir=work_dir,
         )
@@ -439,6 +449,8 @@ def _prepare(args: argparse.Namespace, work_dir: Path) -> dict[str, object]:
             or retained.get("catalog_review_profile_digest") != catalog_profile.profile_digest
             or retained.get("initial_inventory_binding") != initial_inventory_binding
             or retained.get("key_vault_private_access") is not key_vault_private_access
+            or retained.get("document_storage_private_access")
+            is not document_storage_private_access
             or _runtime_profile_digest(retained) != runtime_profile.digest
         ):
             raise ValueError("standalone host retained context differs")
@@ -535,6 +547,7 @@ def _prepare(args: argparse.Namespace, work_dir: Path) -> dict[str, object]:
         "foundation_resource_group_context_digest": str(app["foundation_context_digest"]),
         "enable_private_networking": not aks_baseline,
         "enable_aks_key_vault_private_access": key_vault_private_access,
+        "enable_aks_document_storage_private_access": document_storage_private_access,
         "compute_kind": (
             "aks" if runtime_profile.runtime_platform.value == "aks" else "container_apps"
         ),
@@ -589,6 +602,7 @@ def _prepare(args: argparse.Namespace, work_dir: Path) -> dict[str, object]:
         "principal_id": foundation.principal_id,
         "foundation_binding_digest": foundation_binding_digest,
         "key_vault_private_access": key_vault_private_access,
+        "document_storage_private_access": document_storage_private_access,
         "entra_binding_digest": entra_binding_digest,
         "application_state_adoption_digest": adoption_digest,
         "catalog_review_profile_digest": catalog_profile.profile_digest,

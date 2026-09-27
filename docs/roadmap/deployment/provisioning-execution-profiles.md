@@ -43,6 +43,7 @@ remain unchanged.
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-27 | implemented | Extended focused AKS policy recovery to an existing public-disabled document storage account, creating only Blob/DFS endpoints, DNS links and the already shared runner/application peering. Selectors now validate bounded management JSON instead of relying on provider-specific query flattening. | `current change`; focused name/readback/Terraform contracts, native Terraform validation, and live public-disabled/no-endpoint plus failed ADLS probe. | Deliver through protected CI, rebuild the exact kit, and retain document endpoint, DNS, filesystem/path, and residual zero-change evidence. |
 | 2026-09-27 | implemented | Added a focused AKS Key Vault private-access recovery axis selected only when authoritative readback finds the exact existing vault public-disabled. It creates only the required Key Vault endpoint, DNS links and runner/application peering, and binds the selection into retained context. | `current change`; focused CLI/value/Terraform contract tests, native Terraform validation, and live `ForbiddenByConnection` plus public-disabled/no-endpoint readback. | Deliver through protected CI, rebuild the exact kit, and retain the separately approved focused network repair and secret-write readback. |
 | 2026-09-27 | implemented | Added one bounded residual-apply route for a claimed Terraform effect that authoritative refresh proves only partially converged. It preserves the original claim, blocks ordinary replanning, requires a distinct exact residual approval and claim, and permits only verification after residual ambiguity. | `current change`; focused review, claim-before-effect, expiry-safe recovery, no-recursive-apply, command-routing, and ordinary-replan denial regressions; live partial state and residual plan classification. | Deliver through protected CI, rebuild the exact kit, and retain residual apply, readback, and zero-change receipts for the current partial substrate. |
 | 2026-09-27 | implemented | Bound managed-host Terraform backend and provider authentication directly to the selected UAMI after live initialization proved that Azure CLI authentication rejects its service-principal session type. Conflicting ambient auth selectors are cleared before the exact MSI binding is set. | `current change`; focused environment regression and classified live backend initialization failure. | Deliver through protected CI, rebuild the exact kit, and verify backend initialization from a fresh source-bound application context. |
@@ -203,12 +204,13 @@ it to the original claim and refreshed state. A new exact residual approval and 
 claim are required; no residual effect is automatic, and an ambiguous residual effect permits
 verification only rather than another apply. Independent readback and residual zero change are
 required before the stage is complete.
-For an AKS baseline recovery, a current existing Key Vault that authoritative management-plane
-readback reports as public-disabled may select one focused private-access repair. It binds the
-verified managed-host VNet, creates only the Key Vault private endpoint, DNS links and required
-two-way application peering, and records that selection in retained context. It does not silently
-promote the whole installation to the detailed private-network profile. The repair remains part of
-the separately reviewed residual plan.
+For an AKS baseline recovery, a current existing Key Vault or document storage account that
+authoritative management-plane readback reports as public-disabled may select its focused
+private-access repair. The repair binds the verified managed-host VNet, creates shared two-way
+application peering plus only the selected Key Vault or Blob/DFS private endpoints and DNS links,
+and records each selection in retained context. It does not silently promote the whole installation
+to the detailed private-network profile. Each repair remains part of the separately reviewed
+residual plan.
 The invocation budget begins before preparation. Approval waits and application handoff use
 current remaining time; an expired budget starts no next stage and cannot produce readiness.
 Application confirmation requires a real terminal and one at-most-ten-minute window shared by

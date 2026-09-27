@@ -82,7 +82,8 @@ locals {
     ? local.key_vault_full_name
     : "kv-aip-${substr(sha256(local.key_vault_full_name), 0, 8)}"
   )
-  key_vault_private_access = var.enable_private_networking || var.enable_aks_key_vault_private_access
+  key_vault_private_access        = var.enable_private_networking || var.enable_aks_key_vault_private_access
+  document_storage_private_access = var.enable_private_networking || var.enable_aks_document_storage_private_access
 
   static_web_app_region_shorts = {
     westus2    = "wus2"
@@ -1365,7 +1366,7 @@ module "document_storage" {
   deployer_principal_id           = var.deploy_runner_principal_id
   log_analytics_workspace_id      = module.log_analytics.workspace_id
   replication_type                = var.document_storage_replication_type
-  public_network_access_enabled   = !var.enable_private_networking
+  public_network_access_enabled   = !local.document_storage_private_access
   soft_delete_retention_days      = var.document_soft_delete_retention_days
   container_delete_retention_days = var.document_soft_delete_retention_days
   quarantine_retention_days       = var.document_quarantine_retention_days
@@ -1526,7 +1527,7 @@ module "document_intelligence_private_endpoint" {
 }
 
 module "document_blob_private_endpoint" {
-  count                 = var.enable_document_ingestion && var.enable_private_networking ? 1 : 0
+  count                 = var.enable_document_ingestion && local.document_storage_private_access ? 1 : 0
   source                = "./modules/private-endpoint"
   name                  = "pe-doc-blob-${var.workload}${local.full_suffix}"
   location              = var.region
@@ -1536,7 +1537,7 @@ module "document_blob_private_endpoint" {
   target_resource_id    = module.document_storage[0].id
   subresource_name      = "blob"
   private_dns_zone_name = "privatelink.blob.core.windows.net"
-  extra_vnet_links      = {}
+  extra_vnet_links      = var.runner_vnet_id != "" ? { ops = var.runner_vnet_id } : {}
   tags                  = local.tags
 }
 
@@ -1973,7 +1974,7 @@ resource "azurerm_private_dns_a_record" "document_blob_ops" {
 }
 
 module "document_dfs_private_endpoint" {
-  count                 = var.enable_document_ingestion && var.enable_private_networking ? 1 : 0
+  count                 = var.enable_document_ingestion && local.document_storage_private_access ? 1 : 0
   source                = "./modules/private-endpoint"
   name                  = "pe-doc-dfs-${var.workload}${local.full_suffix}"
   location              = var.region
@@ -1992,10 +1993,10 @@ module "document_dfs_private_endpoint" {
 # route to the app's private endpoints (Key Vault). Both directions are
 # created here (the app owns the spoke side; the hub side is a child of the
 # ops VNet, referenced by name + RG from the bootstrap outputs). Gated on
-# full private networking or focused Key Vault recovery with exact ops inputs.
+# full private networking or focused data-plane recovery with exact ops inputs.
 # -----------------------------------------------------------------------
 locals {
-  peer_hub              = local.key_vault_private_access && var.runner_vnet_id != "" && var.runner_vnet_name != "" && var.ops_resource_group_name != ""
+  peer_hub              = (local.key_vault_private_access || local.document_storage_private_access) && var.runner_vnet_id != "" && var.runner_vnet_name != "" && var.ops_resource_group_name != ""
   operator_access_vnets = var.enable_private_networking ? var.operator_access_vnets : {}
   operator_private_dns_links = merge({}, [
     for vnet_key, vnet in local.operator_access_vnets : {
@@ -2007,15 +2008,15 @@ locals {
   ]...)
 }
 
-check "aks_key_vault_private_access_runner_path" {
+check "aks_focused_private_access_runner_path" {
   assert {
-    condition = !var.enable_aks_key_vault_private_access || (
+    condition = !(var.enable_aks_key_vault_private_access || var.enable_aks_document_storage_private_access) || (
       var.compute_kind == "aks"
       && var.runner_vnet_id != ""
       && var.runner_vnet_name != ""
       && var.ops_resource_group_name != ""
     )
-    error_message = "Focused AKS Key Vault private access requires exact runner VNet id, name, and operations resource group inputs."
+    error_message = "Focused AKS private data-plane access requires exact runner VNet id, name, and operations resource group inputs."
   }
 }
 
