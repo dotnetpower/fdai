@@ -1,6 +1,6 @@
 ---
 translation_of: runtime-deployment-profiles.md
-translation_source_sha: 74f9764ef8a62aa03ff026919b4b408854d9408b
+translation_source_sha: 61b90f62bd9bd0db3d69c9ebd97ceb3ac1bf7a54
 translation_revised: 2026-09-27
 ---
 # 런타임 배포 프로파일
@@ -156,6 +156,21 @@ ARM 페이지 수집은 정책의 레코드 및 누적 응답 바이트 제한�
 세 번째 비공개 Foundation 컨테이너로 반영합니다. 이전 추가 필드 방식의 증적 테스트 대역에
 `inventory_ready`가 없어도 준비 상태로 해석하지 않습니다. 초기 또는 반복 검사가 완전한 승격 세대를 온톨로지에 반영하면 범위가 제한된 delivery 모듈 `inventory_ontology_observer.py`가 Resource마다 재시도에 안정적인 관측 Event 하나를 기존 컨트롤 루프 토픽에 게시하고 CLI는 조립만 담당합니다. 규칙 판단은 계속 Forseti가 소유하고 감사는 Saga가 소유합니다. 불완전한 변환 결과나 게시 실패로는 인벤토리 종결 조건을 충족하거나 실행 권한을 만들 수 없습니다.
 
+AKS에서 Managed Host는 정확히 배포된 inventory CronJob에서 내용 주소 방식 Job 하나를
+파생하고 `inventory-job` ServiceAccount와 digest-pinned Core 이미지를 보존하며 초기 실행
+진행률 identity만 전달합니다. 성공하려면 별도의 PostgreSQL 종결 읽기가 완전한 공급자
+커버리지, 최종 fence, 닫힌 overlay, 완전한 자식 출처 및 정확한 active generation을
+증명해야 합니다. Job 또는 종결이 없는 보존된 실행 전 기록은 다른 Job을 시작하지 않습니다.
+
+선택적인 검토된 catalog-review 프로필은 중지된 AKS CronJob 하나와 inventory 이후
+checkpoint를 추가합니다. 조정기는 비공개 GitHub App 프로필과 PEM만 전달하고 App의 단일
+비공개 저장소와 축소된 권한을 검증하며 durable Kafka와 PostgreSQL에서 실제 Huginn,
+Muninn, Norns, Mimir 및 Saga 이벤트 경로를 실행합니다. 성공하려면 정확한 head commit,
+review document, base, label과 merge 또는 auto-merge가 없음을 독립적으로 읽은 열린 draft가 필요합니다. 증적은
+catalog 활성화, merge, 승격 또는 관리 리소스 변경 권한을 부여하지 않습니다.
+표시는 selected 또는 skipped checkpoint를 17번째 단계로 기록하며 모든 application 증적은 catalog-review digest와 state를 전달합니다.
+저장소 테스트는 비밀이 아닌 PEM 경계 marker를 런타임에 조립합니다. 비밀 검사는 제거된 marker의 정확한 과거 fingerprint 하나만 무시하며 앞으로 key 형태의 source를 허용하지 않습니다.
+
 테넌트 프로비저닝은 새 설치, 전체 프로파일 수렴, staging, production, 의존성 및 release에서 미리
 빌드된 서비스와 의존성 이미지를 사용합니다. Core, Operator 및 Cost Governance 프로파일은 배포판에서 가져오는 타입 정보가 있는 공유 런타임 진단 wheel을 설치하며, 실행 위치 가드는 명시적인 로컬 개발 환경 밖에서 해당 소켓을 사용할 수 없게 유지합니다. 완전한 release에는 ClamAV와 pgvector가 포함되며
 프로비저닝 도구는 Docker, Buildx, ACR Tasks, 원격 빌더 또는 VM 이미지 캡처 없이 서명, 출처,
@@ -297,6 +312,7 @@ AKS 기본 구성은 analyzer, canary, inventory, observation campaign, operatio
 CronJob을 렌더링합니다. 이력 작업은 읽기 전용 inventory 신원, 서비스 소유 상태 DSN, 비공개
 archive URL을 고정 `shadow` 모드로 사용합니다. Non-shadow lifecycle은 별도의 보호된 전환과
 정확히 저장된 인증 증적을 요구하며 런타임 선택은 어느 권한도 부여하지 않습니다.
+목적별 `aks_workload_jobs.py` 모듈이 순수 scheduled-job assembly를 소유합니다. Managed Host는 orchestration만 유지하며 이 소유권 분리는 렌더링된 Job, identity, schedule 또는 authority를 변경하지 않습니다.
 분석기 작업은 결과가 불확실한 발행을 대조할 때 기존 인벤토리 신원으로 정확한 수집 Event Hub만
 읽습니다. 새 토픽 범위 수신자 역할에는 쓰기, 배포 또는 실행 권한이 없으며, 역할 선언만으로
 실제 배포 접근 권한을 입증할 수 없습니다.

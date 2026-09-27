@@ -8,6 +8,7 @@ import pytest
 from rich.console import Console
 
 from fdai_deployment_cli import standalone_application as application
+from fdai_deployment_cli.contracts import canonical_digest
 from fdai_deployment_cli.deployment_progress import DeploymentProgress
 
 
@@ -21,6 +22,7 @@ from fdai_deployment_cli.deployment_progress import DeploymentProgress
         ("migration", "Database and catalogs"),
         ("application", "Application deployment"),
         ("initial-inventory", "Initial resource inventory"),
+        ("catalog-review", "Frozen catalog review"),
         ("verification", "Health and zero-change plan"),
         ("cleanup", "Cleanup and final receipt"),
         (None, None),
@@ -107,6 +109,18 @@ def test_managed_host_failure_stays_on_current_phase(tmp_path, monkeypatch, fail
                 "progress_persisted": True,
                 "receipt_digest": "a" * 64,
             }
+        if stage == "catalog-review":
+            receipt = {
+                "schema_version": "fdai.standalone-catalog-review-receipt.v3",
+                "state": "skipped",
+                "selected": False,
+                "reason": "not_selected",
+                "source_revision": "c" * 40,
+                "catalog_review_profile_digest": "d" * 64,
+                "mutation_performed": False,
+                "subscription_ready": False,
+            }
+            return {**receipt, "receipt_digest": canonical_digest(receipt)}
         assert stage == "verification"
         return {
             "terraform_zero_change_verified": True,

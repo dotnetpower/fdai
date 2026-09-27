@@ -11,7 +11,15 @@ from types import SimpleNamespace
 
 import pytest
 
-from fdai_deployment_cli import standalone_application, standalone_host, standalone_host_state
+from fdai_deployment_cli import (
+    aks_workload_jobs,
+    standalone_aks_inventory,
+    standalone_application,
+    standalone_catalog_review,
+    standalone_host,
+    standalone_host_state,
+)
+from fdai_deployment_cli.aks_job_execution import AksOneShotJob
 from fdai_deployment_cli.application_state_adoption import ApplicationStateAdoption
 from fdai_deployment_cli.contracts import canonical_digest
 
@@ -527,7 +535,9 @@ def test_remote_preparation_uses_only_fixed_argument_commands(tmp_path: Path) ->
 
     assert all(command[0] not in {"bash", "sh"} for command in tunnel.commands)
     assert any(command[:3] == ("python3", "-m", "venv") for command in tunnel.commands)
-    assert tunnel.commands[-1][1:3] == ("-m", "fdai_deployment_cli.standalone_host")
+    assert any(
+        command[1:3] == ("-m", "fdai_deployment_cli.standalone_host") for command in tunnel.commands
+    )
 
 
 def test_remote_preparation_transfers_exact_adoption_inputs(tmp_path: Path) -> None:
@@ -585,14 +595,13 @@ def test_remote_preparation_transfers_exact_adoption_inputs(tmp_path: Path) -> N
         timeout_seconds=1800,
     )
 
-    assert tunnel.copies[-4:] == [
-        (paths[3], "/home/fdai/.fdai-transfer-abc/foundation-adoption.json"),
-        (paths[4], "/home/fdai/.fdai-transfer-abc/application-state.json"),
-        (paths[5], "/home/fdai/.fdai-transfer-abc/resolved-models.json"),
-        (paths[6], "/home/fdai/.fdai-transfer-abc/adoption.json"),
-    ]
-    prepare = tunnel.commands[-1]
-    assert prepare[prepare.index("--foundation-adoption") + 1].endswith("foundation-adoption.json")
+    for expected_copy in [
+        (paths[3], "/home/fdai/.fdai-transfer-abc/application-state.json"),
+        (paths[4], "/home/fdai/.fdai-transfer-abc/resolved-models.json"),
+        (paths[5], "/home/fdai/.fdai-transfer-abc/adoption.json"),
+    ]:
+        assert expected_copy in tunnel.copies
+    prepare = next(command for command in tunnel.commands if "--adoption-state" in command)
     assert prepare[prepare.index("--adoption-state") + 1].endswith("application-state.json")
     assert prepare[prepare.index("--adoption-models") + 1].endswith("resolved-models.json")
     assert prepare[prepare.index("--adoption-descriptor") + 1].endswith("adoption.json")
@@ -963,7 +972,7 @@ def test_aks_stages_use_independent_roots_and_variables(tmp_path: Path) -> None:
 
 def test_aks_operational_history_job_is_shadow_and_uses_inventory_identity() -> None:
     identity = {"resource_id": "inventory-resource", "client_id": "inventory-client"}
-    job = standalone_host._aks_job(
+    job = aks_workload_jobs.build_aks_scheduled_job(
         {"core-control-plane": "example.azurecr.io/core@sha256:" + "a" * 64},
         identity,
         ["python", "-m", "fdai.delivery.operational_history_lifecycle_runner"],
@@ -989,7 +998,7 @@ def test_aks_operational_history_job_is_shadow_and_uses_inventory_identity() -> 
 
 def test_aks_job_rejects_missing_core_image() -> None:
     with pytest.raises(TypeError, match="image is unavailable"):
-        standalone_host._aks_job(
+        aks_workload_jobs.build_aks_scheduled_job(
             {},
             {"resource_id": "inventory-resource", "client_id": "inventory-client"},
             ["python", "-m", "fdai.delivery.operational_history_lifecycle_runner"],
@@ -1008,7 +1017,7 @@ def test_aks_inventory_binding_uses_projected_service_account_identity() -> None
         "Microsoft.ContainerService/managedClusters/aks-example"
     )
 
-    environment = standalone_host._aks_inventory_binding_environment(f" {cluster_id} ")
+    environment = aks_workload_jobs.aks_inventory_binding_environment(f" {cluster_id} ")
 
     assert environment == {
         "FDAI_KUBERNETES_API_SERVER": "https://kubernetes.default.svc",
@@ -1026,7 +1035,7 @@ def test_aks_inventory_binding_uses_projected_service_account_identity() -> None
 )
 def test_aks_inventory_binding_rejects_non_cluster_identity(cluster_id: str) -> None:
     with pytest.raises(ValueError, match="cluster id is invalid"):
-        standalone_host._aks_inventory_binding_environment(cluster_id)
+        aks_workload_jobs.aks_inventory_binding_environment(cluster_id)
 
 
 def test_aks_kubernetes_effect_binding_is_namespace_limited() -> None:
@@ -2629,6 +2638,7 @@ def test_initial_inventory_runs_full_scope_with_private_progress(
         ),
     }
     observed_environment: dict[str, str] = {}
+    observed_commands: list[tuple[str, ...]] = []
 
     monkeypatch.setattr(standalone_host, "_private_json", lambda *_: context)
     monkeypatch.setattr(standalone_host, "_managed_identity_login_from_context", lambda *_: None)
@@ -2648,10 +2658,16 @@ def test_initial_inventory_runs_full_scope_with_private_progress(
         ),
     )
 
-    def run_env(_command: tuple[str, ...], **kwargs: object) -> None:
+    def run_env(command: tuple[str, ...], **kwargs: object) -> None:
+        observed_commands.append(command)
         observed_environment.update(kwargs["env"])  # type: ignore[arg-type]
 
     monkeypatch.setattr(standalone_host, "_run_env", run_env)
+    monkeypatch.setattr(
+        standalone_aks_inventory,
+        "execute_aks_cronjob_once",
+        lambda *_args, **_kwargs: pytest.fail("Container Apps path used AKS"),
+    )
     monkeypatch.setattr(standalone_host, "_replace_private_json", lambda *_: None)
 
     result = standalone_host._initial_inventory(SimpleNamespace(), work_dir)
@@ -2659,8 +2675,372 @@ def test_initial_inventory_runs_full_scope_with_private_progress(
     assert observed_environment["FDAI_INVENTORY_SCOPES"] == context["subscription_id"]
     assert observed_environment["FDAI_INVENTORY_SOURCES"] == "arg,arm"
     assert observed_environment["FDAI_INVENTORY_PROGRESS_CONTAINER_URL"].startswith("https://")
+    assert observed_commands == [
+        (
+            str(work_dir / "runtime-venv/bin/python"),
+            "-m",
+            "fdai.delivery.inventory_sync_cli",
+            "--initial",
+        )
+    ]
+    assert result["schema_version"] == "fdai.standalone-initial-inventory-receipt.v1"
     assert result["active_generation_readback_verified"] is True
     assert result["subscription_ready"] is False
+
+
+def test_initial_aks_inventory_runs_job_and_requires_independent_complete_readback(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    bundle = tmp_path / "bundle"
+    infra = bundle / "infra"
+    infra.mkdir(parents=True)
+    work_dir = tmp_path / "work"
+    work_dir.mkdir()
+    for name in ("migration-receipt.json", "application-receipt.json"):
+        (work_dir / name).write_text("{}", encoding="utf-8")
+    source_revision = "c" * 40
+    context = {
+        "runtime_profile": {
+            "runtime_platform": "aks",
+            "database_placement": "postgres-flex",
+        },
+        "infra": str(infra),
+        "source_commit": source_revision,
+        "target_binding": "d" * 64,
+        "subscription_id": "00000000-0000-0000-0000-000000000000",
+        "client_id": "00000000-0000-0000-0000-000000000000",
+        "inventory_progress_container_url": (
+            "https://storage.blob.core.windows.net/provisioning-events"
+        ),
+        "image_refs": {"core-control-plane": "example.azurecr.io/fdai@sha256:" + "e" * 64},
+        "initial_inventory_binding": standalone_aks_inventory.initial_inventory_binding(
+            "00000000-0000-0000-0000-000000000000"
+        ),
+    }
+    execution_calls: list[dict[str, object]] = []
+    closure_environment: dict[str, str] = {}
+
+    def execute(*_args: object, **kwargs: object) -> AksOneShotJob:
+        execution_calls.append(kwargs)
+        return AksOneShotJob(
+            name="fdai-inventory-0123456789abcdef",
+            execution_digest="f" * 64,
+            manifest={},
+        )
+
+    def capture_env(
+        _command: tuple[str, ...],
+        **kwargs: object,
+    ) -> str:
+        environment = kwargs["env"]
+        assert isinstance(environment, dict)
+        closure_environment.update(environment)
+        closure: dict[str, object] = {
+            "schema_version": "1.0.0",
+            "run_id": environment["FDAI_INVENTORY_PROGRESS_RUN_ID"],
+            "attempt_id": environment["FDAI_INVENTORY_PROGRESS_ATTEMPT_ID"],
+            "subscription_root": True,
+            "scope_digest": environment["FDAI_INVENTORY_EXPECTED_SCOPE_DIGEST"],
+            "resource_type_filter": False,
+            "final_fence": True,
+            "provider_coverage_complete": True,
+            "truncated": False,
+            "active_generation_matches": True,
+            "overlay_open": False,
+            "child_sources_complete": True,
+            "fresh_generation": True,
+            "observer_distinct": True,
+            "generation_digest": "sha256:" + "b" * 64,
+            "resource_count": 3,
+            "link_count": 2,
+            "unmapped_object_count": 1,
+            "coverage_gap_count": 0,
+            "observed_at": datetime.now(tz=UTC).isoformat(),
+            "execution_authority": False,
+        }
+        closure["receipt_digest"] = standalone_aks_inventory._closure_receipt_digest(closure)
+        return json.dumps(closure)
+
+    monkeypatch.setattr(standalone_host, "_private_json", lambda *_: context)
+    monkeypatch.setattr(standalone_host, "_managed_identity_login_from_context", lambda *_: None)
+    monkeypatch.setattr(standalone_aks_inventory, "execute_aks_cronjob_once", execute)
+    monkeypatch.setattr(standalone_aks_inventory, "_terraform_output", lambda *_: "unused")
+    monkeypatch.setattr(standalone_aks_inventory, "vault_name", lambda *_: "vault")
+    monkeypatch.setattr(standalone_aks_inventory, "_capture", lambda *_args, **_kwargs: "dsn")
+    monkeypatch.setattr(standalone_aks_inventory, "_capture_env", capture_env)
+    monkeypatch.setattr(standalone_aks_inventory, "replace_private_json", lambda *_: None)
+
+    result = standalone_host._initial_inventory(SimpleNamespace(), work_dir)
+
+    assert len(execution_calls) == 1
+    request = execution_calls[0]
+    assert request["template_name"] == "inventory"
+    assert request["expected_service_account"] == "inventory-job"
+    assert request["args"] == ("--initial",)
+    assert request["timeout_seconds"] == 960
+    overrides = request["environment"]
+    assert isinstance(overrides, dict)
+    assert overrides["FDAI_INVENTORY_PROGRESS_RUN_ID"] == f"genesis.{source_revision}"
+    assert overrides["FDAI_INVENTORY_SCOPES"] == context["subscription_id"]
+    assert overrides["FDAI_INVENTORY_SOURCES"] == "arg,arm"
+    assert overrides["FDAI_INVENTORY_RESOURCE_TYPES"] == ""
+    assert closure_environment["FDAI_INVENTORY_PROGRESS_ATTEMPT_ID"] == result["attempt_id"]
+    assert result["execution_observer"] == "kubernetes-job"
+    assert result["complete_generation_readback_verified"] is True
+    assert result["active_generation_readback_verified"] is True
+    assert result["generation_digest"] == "sha256:" + "b" * 64
+    assert result["resource_count"] == 3
+    assert result["coverage_gap_count"] == 0
+    assert result["subscription_ready"] is False
+
+
+def test_catalog_review_fails_closed_without_private_binding(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    (tmp_path / "application-receipt.json").write_text("{}", encoding="utf-8")
+    context = {
+        "runtime_profile": {
+            "runtime_platform": "aks",
+            "database_placement": "postgres-flex",
+        },
+        "catalog_review_selected": True,
+        "catalog_review_profile_digest": "a" * 64,
+        "catalog_review_available": False,
+    }
+
+    def private_json(path: Path, _label: str) -> dict[str, object]:
+        if path.name == "context.json":
+            return context
+        return {"scheduled_jobs": {}}
+
+    monkeypatch.setattr(standalone_host, "_private_json", private_json)
+    monkeypatch.setattr(standalone_catalog_review, "private_json", private_json)
+
+    with pytest.raises(ValueError, match="private GitOps binding"):
+        standalone_host._catalog_review(SimpleNamespace(), tmp_path)
+
+
+def test_catalog_review_unselected_is_explicit_skip(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    context = {
+        "source_commit": "a" * 40,
+        "catalog_review_selected": False,
+        "catalog_review_profile_digest": "b" * 64,
+    }
+    monkeypatch.setattr(standalone_host, "_private_json", lambda *_: context)
+    monkeypatch.setattr(standalone_catalog_review, "replace_private_json", lambda *_: None)
+
+    receipt = standalone_host._catalog_review(SimpleNamespace(), tmp_path)
+
+    assert receipt["state"] == "skipped"
+    assert receipt["selected"] is False
+    assert receipt["reason"] == "not_selected"
+
+
+def test_catalog_review_runs_suspended_job_and_reads_sanitized_receipt(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    (tmp_path / "application-receipt.json").write_text("{}", encoding="utf-8")
+    kubeconfig = tmp_path / "aks.kubeconfig"
+    kubeconfig.write_text("config", encoding="utf-8")
+    source_revision = "a" * 40
+    image = "example.azurecr.io/fdai@sha256:" + "b" * 64
+    context = {
+        "runtime_profile": {
+            "runtime_platform": "aks",
+            "database_placement": "postgres-flex",
+        },
+        "source_commit": source_revision,
+        "kubeconfig": str(kubeconfig),
+        "catalog_review_selected": True,
+        "catalog_review_profile_digest": "f" * 64,
+        "catalog_review_available": True,
+    }
+    workloads = {
+        "scheduled_jobs": {
+            "catalog-review": {
+                "image": image,
+                "secret_environment": {"FDAI_GITOPS_TOKEN": "fdai-gitops-token"},
+            }
+        }
+    }
+    body: dict[str, object] = {
+        "schema_version": "fdai.operational-catalog-review-trigger-receipt.v3",
+        "state": "draft-review-published",
+        "source_revision": source_revision,
+        "candidate_digest": "c" * 64,
+        "package_digest": "d" * 64,
+        "review_ref_digest": "e" * 64,
+        "binding_digest": "1" * 64,
+        "publication_observation_digest": "2" * 64,
+        "publication_head_sha": "4" * 40,
+        "review_document_digest": "5" * 64,
+        "durable_audit_digest": "3" * 64,
+        "durable_intent_verified": True,
+        "durable_terminal_verified": True,
+        "already_existed": False,
+        "required_labels": [
+            "action:remediate.tag-add",
+            "catalog-review",
+            "draft",
+            "governance",
+            "rule:learned.operational.example",
+            "shadow",
+        ],
+        "observed_labels": [
+            "action:remediate.tag-add",
+            "catalog-review",
+            "draft",
+            "governance",
+            "rule:learned.operational.example",
+            "shadow",
+        ],
+        "draft": True,
+        "mode": "shadow",
+        "catalog_activation_performed": False,
+        "code_path_merge_authority": False,
+        "independent_pr_observation_required": True,
+        "independent_pr_observation_verified": True,
+        "independent_observation_scope": "gitops-pr",
+        "managed_resource_mutation_status": "unknown",
+        "managed_resource_mutation_performed": None,
+        "grants_authority": False,
+        "subscription_ready": False,
+    }
+    body["receipt_digest"] = standalone_host.canonical_digest(body)
+    execution_requests: list[dict[str, object]] = []
+    log_commands: list[tuple[str, ...]] = []
+
+    def private_json(path: Path, _label: str) -> dict[str, object]:
+        return context if path.name == "context.json" else workloads
+
+    def execute(*_args: object, **kwargs: object) -> AksOneShotJob:
+        execution_requests.append(kwargs)
+        return AksOneShotJob(
+            name="fdai-catalog-review-0123456789abcdef",
+            execution_digest="f" * 64,
+            manifest={},
+        )
+
+    def capture(command: tuple[str, ...], **_kwargs: object) -> str:
+        log_commands.append(command)
+        return json.dumps(body)
+
+    monkeypatch.setattr(standalone_host, "_private_json", private_json)
+    monkeypatch.setattr(standalone_host, "_managed_identity_login_from_context", lambda *_: None)
+    monkeypatch.setattr(standalone_catalog_review, "private_json", private_json)
+    monkeypatch.setattr(standalone_catalog_review, "execute_aks_cronjob_once", execute)
+    monkeypatch.setattr(standalone_catalog_review, "_capture", capture)
+    monkeypatch.setattr(standalone_catalog_review, "replace_private_json", lambda *_: None)
+
+    result = standalone_host._catalog_review(SimpleNamespace(), tmp_path)
+
+    assert result["schema_version"] == "fdai.standalone-catalog-review-receipt.v3"
+    assert result["selected"] is True
+    assert result["trigger_receipt_digest"] == body["receipt_digest"]
+    assert result["independent_pr_observation_verified"] is True
+    assert execution_requests == [
+        {
+            "template_name": "catalog-review",
+            "purpose": "catalog-review",
+            "expected_container_name": "catalog-review",
+            "expected_image": image,
+            "expected_command": (
+                "python",
+                "-m",
+                "fdai.runtime.operational_catalog_review_trigger",
+            ),
+            "expected_service_account": "catalog-review-job",
+            "args": (),
+            "environment": {},
+            "require_suspended": True,
+            "timeout_seconds": 360,
+        }
+    ]
+    flattened_command = " ".join(log_commands[0])
+    assert "fdai-gitops-token" not in flattened_command
+    assert "TOKEN" not in flattened_command
+
+
+def test_catalog_review_replay_uses_persisted_sanitized_receipt(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    receipt_path = tmp_path / "catalog-review-receipt.json"
+    receipt_path.write_text("{}", encoding="utf-8")
+    expected = {
+        "schema_version": "fdai.standalone-catalog-review-receipt.v3",
+        "state": "draft-review-published",
+        "selected": True,
+        "source_revision": "a" * 40,
+        "catalog_review_profile_digest": "e" * 64,
+        "candidate_digest": "b" * 64,
+        "package_digest": "c" * 64,
+        "review_ref_digest": "d" * 64,
+        "binding_digest": "1" * 64,
+        "publication_observation_digest": "2" * 64,
+        "publication_head_sha": "5" * 40,
+        "review_document_digest": "6" * 64,
+        "durable_audit_digest": "3" * 64,
+        "durable_intent_verified": True,
+        "durable_terminal_verified": True,
+        "trigger_receipt_digest": "4" * 64,
+        "already_existed": True,
+        "required_labels": [
+            "action:remediate.tag-add",
+            "catalog-review",
+            "draft",
+            "governance",
+            "rule:learned.operational.example",
+            "shadow",
+        ],
+        "observed_labels": [
+            "action:remediate.tag-add",
+            "catalog-review",
+            "draft",
+            "governance",
+            "rule:learned.operational.example",
+            "shadow",
+        ],
+        "draft": True,
+        "mode": "shadow",
+        "catalog_activation_performed": False,
+        "code_path_merge_authority": False,
+        "independent_pr_observation_required": True,
+        "independent_pr_observation_verified": True,
+        "independent_observation_scope": "gitops-pr",
+        "managed_resource_mutation_status": "unknown",
+        "managed_resource_mutation_performed": None,
+        "grants_authority": False,
+        "subscription_ready": False,
+    }
+    expected["receipt_digest"] = standalone_host.canonical_digest(expected)
+    context_calls: list[Path] = []
+    receipt_calls: list[Path] = []
+
+    def context_json(path: Path, _label: str) -> dict[str, object]:
+        context_calls.append(path)
+        return {
+            "source_commit": "a" * 40,
+            "catalog_review_selected": True,
+            "catalog_review_profile_digest": "e" * 64,
+        }
+
+    def receipt_json(path: Path, _label: str) -> dict[str, object]:
+        receipt_calls.append(path)
+        return expected
+
+    monkeypatch.setattr(standalone_host, "_private_json", context_json)
+    monkeypatch.setattr(standalone_catalog_review, "private_json", receipt_json)
+    monkeypatch.setattr(
+        standalone_catalog_review,
+        "execute_aks_cronjob_once",
+        lambda *_args, **_kwargs: pytest.fail("persisted replay started another Job"),
+    )
+
+    assert standalone_host._catalog_review(SimpleNamespace(), tmp_path) == expected
+    assert context_calls == [tmp_path / "context.json"]
+    assert receipt_calls == [receipt_path]
 
 
 def test_private_service_migration_launcher_runs_through_fixed_interpreter(

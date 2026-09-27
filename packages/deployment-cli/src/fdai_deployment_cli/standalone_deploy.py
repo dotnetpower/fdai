@@ -20,6 +20,7 @@ from fdai_deployment_cli.application_state_adoption import (
     ApplicationStateAdoption,
     stage_application_state_adoption,
 )
+from fdai_deployment_cli.catalog_review_profile import CatalogReviewDeploymentProfile
 from fdai_deployment_cli.azure_naming import azure_region_short_name
 from fdai_deployment_cli.deployment_deadline import DeploymentDeadline
 from fdai_deployment_cli.deployment_kit import DeploymentKit, acquire_deployment_kit
@@ -79,8 +80,7 @@ def deploy_azure_foundation(
     adopt_application_state: Path | None = None,
     adopt_application_recovery: Path | None = None,
     adopt_resolved_models: Path | None = None,
-    adopt_foundation_directory: Path | None = None,
-    adopt_foundation_recovery_directory: Path | None = None,
+    catalog_review_profile: CatalogReviewDeploymentProfile | None = None,
 ) -> dict[str, object]:
     """Advance one standalone deployment through verified application convergence."""
 
@@ -327,8 +327,31 @@ def deploy_azure_foundation(
                 license_signing_key=license_signing_key,
                 trial_token=trial_token,
                 application_state_adoption=adoption,
-                foundation_state_receipt_digest=str(foundation["foundation_state_receipt_digest"]),
+                catalog_review_profile=(
+                    catalog_review_profile or CatalogReviewDeploymentProfile.unselected()
+                ),
             )
+            deadline.remaining()
+            return {
+                "schema_version": "fdai.standalone-azure-deployment.v2",
+                "state": "deployment-ready",
+                "source_commit": kit.source_commit,
+                "kit_manifest_digest": kit.verification.manifest_digest,
+                "runtime_release_digest": kit.runtime.digest,
+                "foundation_state_receipt_digest": foundation["foundation_state_receipt_digest"],
+                "application_receipt_digest": application["receipt_digest"],
+                "catalog_review_receipt_digest": application["catalog_review_receipt_digest"],
+                "catalog_review_state": application["catalog_review_state"],
+                "runtime_profile_digest": selected_runtime.digest,
+                "runtime_platform": selected_runtime.runtime_platform.value,
+                "database_placement": selected_runtime.database_placement.value,
+                "application_converged": True,
+                "deployment_ready": True,
+                "inventory_ready": application.get("inventory_ready") is True,
+                "license_mode": application["license_mode"],
+                "mutation_performed": True,
+                "subscription_ready": False,
+            }
         if foundation_exit.returncode != 2:
             raise ValueError("standalone Foundation orchestration failed")
         approval.unlink(missing_ok=True)

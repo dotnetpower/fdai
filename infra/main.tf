@@ -2338,7 +2338,7 @@ resource "azurerm_role_assignment" "core_gitops_secret_reader" {
 }
 
 resource "azurerm_role_assignment" "core_github_app_private_key_reader" {
-  count                = var.enable_stewardship_governance && trimspace(nonsensitive(var.github_app_private_key)) != "" ? 1 : 0
+  count                = (var.enable_stewardship_governance || var.enable_catalog_review) && trimspace(nonsensitive(var.github_app_private_key)) != "" ? 1 : 0
   scope                = azurerm_key_vault_secret.github_app_private_key[0].resource_versionless_id
   role_definition_name = "Key Vault Secrets User"
   principal_id         = module.identity.principal_id
@@ -2443,7 +2443,7 @@ resource "azurerm_key_vault_secret" "gitops_token" {
 
 resource "azurerm_key_vault_secret" "github_app_private_key" {
   # checkov:skip=CKV_AZURE_41:GitHub App keys require overlap during coordinated rotation; an independent fixed expiry would break token minting before replacement is verified.
-  count        = var.enable_stewardship_governance && trimspace(nonsensitive(var.github_app_private_key)) != "" ? 1 : 0
+  count        = (var.enable_stewardship_governance || var.enable_catalog_review) && trimspace(nonsensitive(var.github_app_private_key)) != "" ? 1 : 0
   name         = "fdai-github-app-private-key"
   value        = var.github_app_private_key
   key_vault_id = module.key_vault.id

@@ -476,10 +476,11 @@ only after installing the reviewed CLI while idle; it does not change an already
 | `fdaictl provision init` | Create a private manual execution profile | No |
 | `fdaictl provision bootstrap-reconcile` | Read target and Foundation state into an expiring plan | No |
 | `fdaictl provision plan` | Plan a verified offline-kit Terraform root | No |
+| `fdaictl provision entra --target-profile <private-json> --control-profile <private-json>` | Inspect profile-bound tenant controls, or apply the exact app/role-binding plan over five existing groups; target-profile v2 binds a private mode-0700 executor Azure context | Read-only unless `--apply` is supplied, an `aw-approvers` human grants current approval, and a distinct exact managed-identity token matches the active `dev` target |
 | `fdaictl provision console-update build` | Build one source-bound Console artifact from protected Git source | No |
 | `fdaictl provision console-update plan` | Seal an existing-development target plus candidate and rollback artifacts | No |
 | `fdaictl provision console-update apply` | Publish one exact Console plan and verify remote content and access | Yes, after exact terminal approval |
-| `fdaictl provision azure --online` | Acquire a signed kit and run the standalone Azure deployment | Yes, after exact approvals |
+| `fdaictl provision azure --online` | Acquire a signed kit and run the standalone Azure deployment; optional mode-0600 `--catalog-review-profile` selects an AKS-only private GitHub App draft checkpoint with durable Pantheon audit and no activation, merge, promotion, or managed-resource authority | Yes, after exact approvals |
 | `fdaictl provision azure --offline-kit <path>` | Run the same deployment without public artifact acquisition | Yes, after exact approvals |
 | `fdaictl onboard guided --simulate` | Rehearse the finite stage graph | No |
 | `fdaictl onboard status` | Read a local hash-chained rehearsal journal | No |
@@ -491,7 +492,6 @@ only after installing the reviewed CLI while idle; it does not change an already
 The public CLI does not register `deploy plan`, `deploy apply`, or `deploy status`. Those commands
 previously dispatched GitHub workflows and are not part of the standalone deployment contract.
 Live onboarding uses `provision azure`; `onboard guided` is simulation-only.
-
 ### Existing development Console update
 
 Use `provision console-update` only to update the static Console on an existing `dev` Container

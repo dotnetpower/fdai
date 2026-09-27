@@ -7,6 +7,7 @@ from fdai_github_app_auth.environment import (
 from fdai_github_app_auth.provider import (
     GitHubAppTokenConfig,
     GitHubAppTokenError,
+    GitHubAppTokenProjection,
     GitHubAppTokenProvider,
     TokenProvider,
     static_token_provider,
@@ -15,6 +16,7 @@ from fdai_github_app_auth.provider import (
 __all__ = [
     "GitHubAppTokenConfig",
     "GitHubAppTokenError",
+    "GitHubAppTokenProjection",
     "GitHubAppTokenProvider",
     "TokenProvider",
     "build_github_token_provider",

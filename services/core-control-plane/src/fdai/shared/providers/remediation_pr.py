@@ -103,6 +103,9 @@ class PublishReceipt:
     state: str = "open"
     """Remote lifecycle state: ``open``, ``closed``, or ``merged``."""
 
+    head_sha: str | None = None
+    """Exact remote head commit created or re-observed for this publication."""
+
 
 @runtime_checkable
 class RemediationPrPublisher(Protocol):

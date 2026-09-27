@@ -1067,6 +1067,62 @@ def test_state_store_audit_chain_writes_hash_linked_records() -> None:
     ]
 
 
+def test_state_store_audit_chain_exposes_entry_only_after_durable_append() -> None:
+    class _BlockedStore(InMemoryStateStore):
+        def __init__(self) -> None:
+            super().__init__()
+            self.append_started = asyncio.Event()
+            self.release_append = asyncio.Event()
+
+        async def append_audit_entry(self, entry: Mapping[str, object]) -> None:
+            self.append_started.set()
+            await self.release_append.wait()
+            await super().append_audit_entry(entry)
+
+    async def _exercise() -> None:
+        store = _BlockedStore()
+        chain = StateStoreAuditChainAdapter(store=store)
+        task = asyncio.create_task(
+            chain.append(
+                principal="Mimir",
+                topic="object.rule",
+                correlation_id="catalog-review",
+                payload={"state": "terminal"},
+            )
+        )
+        await store.append_started.wait()
+        assert chain.entries == []
+        store.release_append.set()
+        await task
+        assert len(chain.entries) == 1
+        chain.verify()
+
+    asyncio.run(_exercise())
+
+
+def test_state_store_audit_chain_serializes_concurrent_appends() -> None:
+    store = InMemoryStateStore()
+    chain = StateStoreAuditChainAdapter(store=store)
+
+    async def _exercise() -> None:
+        await asyncio.gather(
+            *(
+                chain.append(
+                    principal="Saga",
+                    topic="object.audit-entry",
+                    correlation_id=f"c-{index}",
+                    payload={"index": index},
+                )
+                for index in range(20)
+            )
+        )
+
+    asyncio.run(_exercise())
+    chain.verify()
+    assert [entry.seq for entry in chain.entries] == list(range(20))
+    assert len({entry.entry_hash for entry in chain.entries}) == 20
+
+
 def test_state_store_audit_chain_replay_by_correlation() -> None:
     store = InMemoryStateStore()
     chain = StateStoreAuditChainAdapter(store=store)

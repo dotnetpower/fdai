@@ -406,6 +406,12 @@ async def test_core_production_startup_accepts_refreshable_github_app() -> None:
                 json={
                     "token": "installation-token",
                     "expires_at": (datetime.now(UTC) + timedelta(hours=1)).isoformat(),
+                    "repository_selection": "selected",
+                    "permissions": {
+                        "contents": "read",
+                        "metadata": "read",
+                        "pull_requests": "read",
+                    },
                 },
             )
         if request.url.path == "/repos/example/fdai/pulls":

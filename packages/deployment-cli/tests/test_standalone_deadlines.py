@@ -70,7 +70,12 @@ def coordinator(tmp_path, monkeypatch):
 
     def application(**kwargs):
         options["application_timeout"] = kwargs["timeout_seconds"]
-        return {"receipt_digest": "e" * 64, "license_mode": "observation-only"}
+        return {
+            "receipt_digest": "e" * 64,
+            "catalog_review_receipt_digest": "c" * 64,
+            "catalog_review_state": "skipped",
+            "license_mode": "observation-only",
+        }
 
     modules = {
         "genesis_prepare": SimpleNamespace(prepare_standalone_genesis=prepare),

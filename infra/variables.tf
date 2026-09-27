@@ -1156,6 +1156,23 @@ variable "enable_stewardship_governance" {
   default     = false
 }
 
+variable "enable_catalog_review" {
+  description = "Enable the standalone frozen-scenario draft-only catalog review checkpoint."
+  type        = bool
+  default     = false
+}
+
+variable "catalog_review_default_branch" {
+  description = "Protected base branch for standalone catalog review drafts."
+  type        = string
+  default     = "main"
+
+  validation {
+    condition     = can(regex("^[A-Za-z0-9][A-Za-z0-9._/-]{0,254}$", var.catalog_review_default_branch))
+    error_message = "catalog_review_default_branch must be one bounded Git branch name."
+  }
+}
+
 variable "gitops_owner" {
   description = "GitHub owner for stewardship governance draft PRs."
   type        = string
