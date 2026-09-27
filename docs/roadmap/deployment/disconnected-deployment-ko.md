@@ -1,7 +1,7 @@
 ---
 title: 폐쇄망 배포
 translation_of: disconnected-deployment.md
-translation_source_sha: 25ec1467cfbe8a734b0b71ff9bca9f0fdaf89e09
+translation_source_sha: f796566654030331671f3e0110b1f01e7b3d2d5f
 translation_revised: 2026-09-27
 ---
 # 폐쇄망 배포
@@ -24,26 +24,24 @@ translation_revised: 2026-09-27
 |------|------|------|------|
 | 비공개 Azure 네트워킹 및 VNet 배포 호스트 | implemented | `infra/`, `infra/bootstrap/`, `.github/workflows/deploy-dev.yml` 및 집중 인프라 작업 흐름 테스트 | 비공개 엔드포인트, DNS, 영속 배포 호스트, 보호된 계획 및 exact apply는 offline CLI 경로와 독립적으로 구현되어 있습니다. |
 | 내부 mirror 및 고정 입력 제어 | implemented | `infra/modules/preflight-toggles/` 및 `scripts/quality/ci/check-ci-contracts.py` | 저장소는 mirror 입력을 노출하고 변경 가능한 base 이미지 참조나 레지스트리에 묶인 참조를 거부합니다. |
-| 오프라인 도구 키트 구성 및 훈련 | in-progress | [배포 CLI 구현 원장](../../roadmap-implementation/deployment/installable-deployment-cli.md); 현재 여러 루트의 미러 테스트 | 아래에 보존한 r4 개발 키트 검증은 해당 산출물의 준비만 입증합니다. 현재 운영 적격성과 지정된 전체 모드의 최신 실행은 남아 있으며, 산출물만 검증한 증적으로 런타임 배포를 입증할 수 없습니다. |
-| 보존된 r4 개발 키트 게시 및 빈 환경 준비 | validated | [게시된 r4 배포판](https://github.com/dotnetpower/fdai/releases/tag/deployment-v0.1.0-r4), [정확한 소스의 검증 증적](https://github.com/dotnetpower/fdai/issues/803#issuecomment-5653340906) | 소스 `c137aa104682a59b979f5f3554a06bf87c555b8e`, OCI 이미지 6개, Console, 지원 패키지 7개 및 외부 통신과 DNS를 차단한 검증 11개입니다. 이전 개발용 사전 배포판이며, 현재 main의 내용이나 운영 신뢰, 어플라이언스 배포, 구독 준비 완료를 뜻하지 않습니다. |
+| 서명된 오프라인 Python 패키지 | validated | `build-signed-python-package.sh`, 패키지 정책 v3, 집중 테스트, 실제 6.9 MB 빌드 및 pip 빈 환경 설치 | Detached Ed25519 서명 하나가 Deployment CLI wheel과 로컬 의존성 wheel의 checksum 목록을 보호합니다. 패키지 설치에는 complete kit, SBOM, 출처, TUF 또는 어플라이언스 근거가 필요하지 않습니다. |
 | 폐쇄망 번들 검증 및 계획 명령 | implemented | `packages/deployment-cli`; 산출물 및 패키징 테스트 | 패키지가 `fdaictl`을 등록하고 서명된 로컬 입력을 검증합니다. 계획 수립만으로 새 구독 구성이 완료되지는 않습니다. |
 | 런타임 배포판 구성 및 로컬 준비 | implemented | `runtime_release.py`, `runtime_stage.py`, `offline_prepare.py`; 집중 테스트 251개; 이슈 #461 | 로컬 아카이브, 소스 및 번들 연결, 비공개 스냅샷, 미완료 준비 기록이 집중 검증을 통과했습니다. Azure 설치는 아직 완료되지 않았습니다. |
-| 전체 런타임 이미지 검증 | implemented | 런타임 목록 v2와 범위가 제한된 OCI 검증기; 집중 테스트 355개; 빈 환경에 설치한 CPython 3.12 검토용 휠 | 구성과 준비 과정에서 서비스 이미지 5개와 ClamAV를 검증합니다. 기존 v1은 점검할 수 있지만 전체 준비에는 사용할 수 없습니다. 합성 서명 이미지는 패키징과 내용 검사를 입증하며 출처나 Azure 준비 완료를 뜻하지 않습니다. |
-| 전체 런타임 release 조립 | implemented | `runtime_build.py`, `build-runtime-release.py`, 집중 조립 테스트 | 비공개 다이제스트 고정 서술자를 사용해 네트워크 접근이나 산출물 실행 없이 OCI 이미지 6개, Console, 배포 지원 자료를 런타임 v2로 조립합니다. 사전 빌드된 근거를 소비하며 운영 release 적격성은 검증되지 않은 상태로 명시합니다. |
-| 사전 빌드 OCI 배포 어플라이언스 사용 | in-progress | `run-deployment-appliance.sh`, 집중 스크립트 테스트 | release에서 게시하고 digest로 고정한 어플라이언스는 검증된 내장 키트로 수동 아티팩트 오프라인 배포를 시작할 수 있습니다. 통제된 Azure 증적은 남아 있으며 테넌트 배포는 이미지를 만들지 않습니다. |
+| 런타임 페이로드 검증 | implemented | 런타임 목록 및 OCI 검증기 | 런타임 이미지 검증은 배포 소유자 검사로 유지하며 Python 패키지 설치 또는 패키지 완료 조건이 아닙니다. |
+| 선택적 OCI 배포 어플라이언스 | implemented | `run-deployment-appliance.sh`, 집중 스크립트 테스트 | 어플라이언스로 배포 페이로드를 전달할 수 있지만 패키지 완료에는 빌드, 게시 또는 실행이 필요하지 않습니다. |
 | 의존성 이미지 게시 어댑터 | implemented | `publish_dependency_oci_archive`; 집중 ACR 테스트 80개 | 서비스 게시와 동일하게 자격 증명 획득 전 검증, 시간 제한, 재시도 없는 전송, 매니페스트 GET 재확인을 적용합니다. 의존성 증적은 FDAI 소스 버전을 주장하지 않습니다. 보호된 호출자 연결은 아직 필요하며 테스트는 Azure 대신 기록용 전송기를 사용합니다. |
 | 오프라인 VM 초기 구성 | implemented | `infra/bootstrap/`; 모의 공급자를 사용한 Terraform 계획 16개 | 명시적 오프라인 모드는 네트워크 초기화 스크립트 없이 사전 준비된 이미지를 선택합니다. 이미지 제작·검증, 접근 경로, 상태 이전은 별도 사전 조건입니다. |
 | 설치 시 Console 설정 | implemented | `console/src/runtime-config.ts`; `console_config.py`; 집중 설정 테스트 및 범용 빌드 | 범용 빌드에 재빌드 없이 공개 API·Entra 설정을 넣고 인증 우회를 차단합니다. 게시와 인증된 접근은 별도 검사입니다. |
 | 런타임 지원 휠 설치 | implemented | `stage-runtime-wheelhouse.py`; `support_install.py`; `runtime_support_installation.py`; 집중 테스트 및 네트워크 격리 실제 휠 설치 | 공통 GitHub 인증 및 런타임 진단 라이브러리를 포함한 현재 배포판 8개를 서명된 통합 requirements lock에서 해시, 의존성 검사 및 패키지 재조회와 함께 설치합니다. 중복 wheel 복사본은 검색 위치이지 별도의 직접 요구 사항이 아닙니다. 런타임 서비스는 시작하지 않습니다. |
 | 배포 루트별 고정 공급자 수집 | implemented | `mirror-locked-providers.sh`, 가짜 Terraform을 사용한 오프라인 테스트, Ruff 및 셸 구문 검사 | 시스템 지식 서비스, 서로 다른 AzureRM 버전, Genesis의 AzAPI를 포함한 번들 root 10개가 각 lock file을 유지합니다. 호출별 제한은 300/600초, 전체 제한은 3600초입니다. 실제 다운로드, mirror index 및 전체 서명 구성은 아직 검증하지 않았습니다. |
 | 최초 데이터베이스 자격 증명 생성 | implemented | `infra/initial_postgres_credential.tf`; 모의 Terraform 검증 8개와 루트 연결 회귀 테스트 1개 | 명시적 최초 설치 생성은 민감한 자격 증명을 비공개 상태에 보존합니다. 기존 암호 입력이 기본이며, 이후 활성화는 검토된 교체 작업입니다. |
-| Pinned offline trust 루트 및 release 통합 | not-started | `docs/runbooks/offline-trust-ceremony.md` | CLI 휠에 pinned 루트가 없으며 키트 staging은 통과하는 release 작업 흐름이 아닙니다. |
 | 완전 air-gap 클라우드 운영 | not-applicable | 이 문서의 완전 air-gap 경계 | 결정론적 코어는 정적 입력으로 실행할 수 있지만 실제 Azure 근거와 클라우드 변경은 의도적으로 이 프로파일의 범위 밖입니다. |
 
 ### 구현 이력
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-27 | validated | Python 설치 패키지였던 complete offline kit를 6.9 MB 서명 wheel 모음으로 교체했습니다. 완전한 런타임 페이로드, trust root, SBOM, 출처, 어플라이언스 및 Azure 증적 요구는 더 이상 패키지 완료를 차단하지 않습니다. | `current change`, 정책 v3, 집중 빌더/검사기 테스트, OpenSSL/checksum 검증 및 pip 빈 환경 설치 | 배포를 선택할 때 배포 동작을 별도로 검증합니다. |
 | 2026-09-16 | in-progress | 현재 폐쇄망 배포 계약에서 비공개 호스트의 런타임 이미지 빌드와 테넌트 어플라이언스 생성을 제거했습니다. 테넌트는 release에서 빌드한 digest를 검증하고 바이트 변경 없이 미러링하거나 반입합니다. | `current change`, 문서 및 배포 스킬 계약만 변경했으며 구현은 그대로입니다. | 테넌트 조정기에서 builder 진입점을 제거하고 사전 빌드 산출물만 사용한 공개 송신 없는 배포 증적을 보존합니다. |
 | 2026-09-14 | validated | 바뀌지 않은 바이트를 다시 빌드하거나 과거 훈련을 반복하지 않고 기존 r4 산출물과 빈 환경 설치 증적을 이슈 #461에 연결했습니다. 공개 산출물과 정확한 CI를 다시 확인하고 보존된 아카이브의 해시를 계산했습니다. | [배포판 및 11개 검사 증적](https://github.com/dotnetpower/fdai/issues/803#issuecomment-5653340906), 소스 CI `34755232779`와 보호된 병합 CI `34755464071` 성공, 아카이브 SHA-256 `c7e8b3e99fd77534ad7e2b2321d2e677fb3fe316a946e4c58ef797d5682bbab5`, 크기 866720653바이트 | 현재 운영 신뢰, 선택한 적격 배포판, 정확한 Foundation 및 애플리케이션 승인, 비공개 호스트의 상태 수렴, 인증된 Console 및 인벤토리 확인, 어플라이언스 진입점 증적은 남아 있습니다. 새 빌드, 설치, 공급자 호출 또는 배포를 수행하지 않았습니다. |
 | 2026-09-12 | implemented | 운영자의 두 산출물 인계를 검증된 완전한 키트를 포함하고 수동 standalone 배포를 시작하는 OCI 배포 어플라이언스 하나로 교체했습니다. | `current change`, 어플라이언스 빌더, 진입점, CLI 계약 및 집중 테스트 | 운영 어플라이언스를 빌드하고 공개 송신 없는 Azure 배포 증적 하나를 보존합니다. |
@@ -62,14 +60,10 @@ translation_revised: 2026-09-27
 
 ### 남은 작업
 
-- [x] [배포 CLI 원장](../../roadmap-implementation/deployment/installable-deployment-cli.md)에 기록된 전용 CLI 검증기와 도구 훈련을 복원합니다.
-- [x] r4의 완전한 개발 산출물과 빈 환경의 네트워크 차단 준비 증적을 보존합니다. [이슈 #461](https://github.com/dotnetpower/fdai/issues/461)은 위의 정확한 소스 증적을 재사용하며 현재 배포 인증으로 해석하지 않습니다.
-- [ ] 통제된 의식을 통해 offline trust 루트를 확립하고 패키지한 뒤, 네트워크 호출 없이 점검이 verified, review, rejected 키트를 구분함을 입증합니다.
-- [ ] 배포 가능한 정확한 버전의 깨끗한 체크아웃에서 실제 런타임 아카이브를 구성하고, 패키지 캐시·경로·DNS 없이 `airgap-drill.sh --runtime-release <directory> --require-runtime`을 통과합니다.
-- [ ] 비공개 배포 호스트의 수동 exact-plan 승인 및 적용 경로를 입증하고 롤백, 정리 및 배포 후 검증 증적을 보존합니다.
-- [ ] release에서 게시하고 digest로 고정한 배포 어플라이언스를 수락하고 출처, SBOM 및 내장
-  키트를 검증한 뒤 공개 산출물 접근이나 테넌트 측 이미지 생성 없이 이미지 진입점의 Azure 배포
-  증적을 보존합니다.
+- [x] 표준 OpenSSL, `sha256sum`, pip 명령으로 서명된 Python wheel 모음을 빌드하고 검증한 뒤
+  빈 환경에 설치합니다.
+- [ ] Azure 배포 동작은 패키지 설치와 별도로 검증합니다. 런타임 페이로드, 정확한 계획, 롤백,
+  상태, 정리 작업은 배포 소유자 범위로 유지합니다.
 
 ## 한눈에 보는 설계
 
@@ -336,26 +330,21 @@ CLI 및 platform 버전을 연결하며, symlink와 추가 파일을 거부하�
 ## 이미지 배포판 프로비저닝
 
 서비스 런타임 이미지는 Azure 인프라를 구성하지 않습니다. `infra/`와 Terraform을 포함하지
-않고 서비스 하나를 시작합니다. **배포 어플라이언스**는 다른 이미지입니다. 완전한 서명 offline
-키트를 포함하고, 키트 wheelhouse에서만 `fdaictl`을 설치하고, 승인된 네트워크 내부에서 실제
-standalone 배포를 시작합니다.
-내장된 `/opt/fdai/kit.tar.gz`는 검증된 입력 아카이브를 mode-`0600`과 no-follow 방식으로 그대로
-복사한 바이트이며 다시 압축하지 않습니다. 이미지 조립 전에 복사본의 소스, 매니페스트 및 런타임
-신원을 독립적으로 다시 검증합니다.
+않고 서비스 하나를 시작합니다. **배포 어플라이언스**는 설치된 CLI와 선택적 배포 페이로드를
+포함하고 승인된 네트워크 내부에서 standalone 배포를 시작하는 별도 이미지입니다. Python 패키지
+형식이나 패키지 보증 요구 사항이 아닙니다.
 
-폐쇄망 인계는 완전한 서명 키트를 포함하고 digest로 고정된 OCI 어플라이언스 아카이브
-하나입니다. 내부에는 배포 번들, 고정된 Terraform 및 OPA 바이너리, provider 미러, 모든 서비스 및 의존성 OCI 아카이브, Console,
-마이그레이션 지원, SBOM, provenance 및 신뢰 메타데이터가 들어 있습니다. 이미지 내부에서 각
-구성 요소를 분리해 독립적으로 검증하면서 운영자에게 여러 인계 단계를 노출하지 않습니다.
+가장 단순한 폐쇄망 인계는 서명된 Python wheel 모음과 배포 소유자가 선택한 배포 페이로드입니다.
+OCI 어플라이언스는 편의를 위해 이 입력을 결합할 수 있지만 생성과 실행은 선택 사항입니다.
 
 | # | 단계 | 도구 | 상태 |
 |---|------|------|------|
-| 1 | 어플라이언스 검증 및 적재 | OCI 호환 컨테이너 도구 | 빌더 계약 구현됨. 운영 이미지 근거는 남아 있음 |
+| 1 | 선택적으로 어플라이언스 적재 | OCI 호환 컨테이너 도구 | 선택적 편의 기능 |
 | 2 | Azure 인증 | 대화형 Azure CLI 사용자 또는 어플라이언스 Managed Identity | 진입점 선택 구현됨 |
-| 3 | Standalone 배포 시작 | 어플라이언스 진입점 | 포함된 `--offline-kit`과 공개 대체 경로 차단 구현됨 |
+| 3 | Standalone 배포 시작 | 설치된 CLI 또는 선택적 어플라이언스 진입점 | 구현됨 |
 | 4 | Foundation 생성 또는 검증 | 로컬 조정기와 `infra/genesis-foundation` | 정확한 계획 및 Bastion 경로 구현됨 |
 | 5 | 런타임 이미지 가져오기 및 애플리케이션 계획 | VNet 내부 Managed Host | digest 재확인 구현됨 |
-| 6 | 적용, 마이그레이션 및 서비스 시작 | Managed Host Terraform과 마이그레이션 지원 | 구현됨. 통제된 어플라이언스 증적은 남아 있음 |
+| 6 | 적용, 마이그레이션 및 서비스 시작 | Managed Host Terraform과 마이그레이션 지원 | 구현됨 |
 | 7 | 배포 준비 상태 검증 | 서비스 상태와 두 번째 변경 없음 계획 | 구현됨. 더 넓은 구독 보증은 별도임 |
 
 어플라이언스는 **서명된 매니페스트**에서 Terraform 바이너리와 provider 미러를 해석하므로

@@ -1,109 +1,14 @@
 {
-  "schema_version": 2,
-  "boundary_minimums": {
-    "published-contract": [
-      "versioned-contract"
-    ],
-    "distributed-artifact": [
-      "exact-digest",
-      "provenance"
-    ],
-    "distributed-evidence": [
-      "exact-digest",
-      "freshness",
-      "provenance"
-    ]
-  },
-  "runtime_invariants": {
-    "package_operation_grants_authority": false,
-    "availability_or_enablement_grants_authority": false,
-    "state_change_success_requires_independent_verification": true
+  "schema_version": 3,
+  "signature": {
+    "algorithm": "ed25519",
+    "format": "detached-sha256sums"
   },
   "packages": [
     {
-      "id": "fdai-service-contracts",
-      "path": "packages/service-contracts",
-      "manifest": "packages/service-contracts/pyproject.toml",
-      "public_facade": "packages/service-contracts/src/fdai_service_contracts/__init__.py",
-      "boundary": "published-contract",
-      "required_controls": [
-        "versioned-contract"
-      ],
-      "compatibility_manifest": "packages/service-contracts/src/fdai_service_contracts/compatibility-manifest.json"
-    },
-    {
       "id": "fdai-deployment-cli",
       "path": "packages/deployment-cli",
-      "manifest": "packages/deployment-cli/pyproject.toml",
-      "public_facade": "packages/deployment-cli/src/fdai_deployment_cli/__init__.py",
-      "boundary": "distributed-artifact",
-      "required_controls": [
-        "exact-digest",
-        "provenance"
-      ]
-    },
-    {
-      "id": "fdai-cost-governance",
-      "path": "extensions/cost-governance",
-      "manifest": "extensions/cost-governance/pyproject.toml",
-      "public_facade": "extensions/cost-governance/src/fdai_cost_governance/__init__.py",
-      "import_name": "fdai_cost_governance",
-      "boundary": "distributed-artifact",
-      "required_controls": [
-        "exact-digest",
-        "provenance"
-      ],
-      "compatibility_contract": "config/cost-governance-package-inventory.json"
-    },
-    {
-      "id": "cloud-reference-knowledge",
-      "path": "docs/roadmap/interfaces/cloud-resource-knowledge-lifecycle.md",
-      "boundary": "distributed-evidence",
-      "required_controls": [
-        "exact-digest",
-        "freshness",
-        "provenance"
-      ]
+      "manifest": "packages/deployment-cli/pyproject.toml"
     }
-  ],
-  "artifact_profiles": {
-    "connected": {
-      "required_controls": [
-        "declared-dependency-closure",
-        "exact-digest",
-        "provenance"
-      ],
-      "recommended_controls": [
-        "compatibility",
-        "sbom"
-      ]
-    },
-    "offline": {
-      "required_controls": [
-        "declared-dependency-closure",
-        "exact-digest",
-        "no-public-fallback",
-        "provenance",
-        "signed-root"
-      ],
-      "recommended_controls": [
-        "compatibility",
-        "sbom"
-      ]
-    },
-    "appliance": {
-      "required_controls": [
-        "declared-dependency-closure",
-        "digest-pinned-container",
-        "exact-digest",
-        "no-public-fallback",
-        "provenance",
-        "signed-root"
-      ],
-      "recommended_controls": [
-        "compatibility",
-        "sbom"
-      ]
-    }
-  }
+  ]
 }

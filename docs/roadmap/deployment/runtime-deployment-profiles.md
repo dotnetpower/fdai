@@ -595,37 +595,37 @@ Operator returns the prior page envelope, and new Operators compute the ledger-w
 for that opt-in so Incident, Agent Activity, Trace, and optional cost-package routes do not inherit
 its scan cost.
 
-## Signed kit requirements
+## Deployment payloads
 
-The complete signed kit includes every prebuilt input needed by either profile:
+The installed Python package does not contain runtime payloads. A selected deployment provides the
+inputs needed by its runtime profile:
 
 - all Terraform roots and their lock files;
 - AzureRM, Kubernetes, Random, and TLS provider mirrors;
 - Terraform, OPA, `kubectl`, `kubelogin`, and bounded deployment helpers;
-- signed, digest-pinned FDAI and dependency OCI archives that tenant provisioning never rebuilds;
+- FDAI and dependency OCI archives that tenant provisioning does not rebuild;
 - managed AKS CSI integration and federated identity inputs;
-- migration support, Console assets, manifests, signatures, provenance, and software bills of
-  materials.
+- migration support and Console assets.
 
-Online and artifact-offline modes execute the same verified bytes. The managed host does not use
-ambient Terraform providers, Helm repositories, mutable image tags, or an operator kubeconfig.
+The deployment owner chooses how to validate and transport those payloads. They are not Python
+package contents or package-completion evidence. The managed host does not use ambient Terraform
+providers, Helm repositories, mutable image tags, or an operator kubeconfig.
 
 ## Completion evidence
 
-Implementation is complete only after focused local checks and both operational paths provide
-reviewable evidence:
+Runtime implementation is complete only after focused local checks and the selected deployment
+path provides reviewable evidence:
 
 1. Existing Container Apps installation tests remain unchanged and pass.
-2. AKS plus `postgres-flex` reaches readiness from one signed online kit.
-3. AKS plus `postgres-aks` reaches non-production readiness from one signed online kit.
-4. The same two AKS profiles pass artifact-offline kit verification and deployment.
-5. Every selected root produces a zero-change second plan.
-6. Reusing the same profile is safe to retry and does not create another resource.
-7. Changing runtime or database placement stops with a migration-required result.
-8. A failed service rollout restores the prior healthy workload and still reports deployment
+2. AKS plus `postgres-flex` reaches readiness.
+3. AKS plus `postgres-aks` reaches non-production readiness.
+4. Every selected root produces a zero-change second plan.
+5. Reusing the same profile is safe to retry and does not create another resource.
+6. Changing runtime or database placement stops with a migration-required result.
+7. A failed service rollout restores the prior healthy workload and still reports deployment
    failure.
-9. Backup and point-in-time restore succeed for each selected database placement.
-10. A separately approved Console-originated network plan enables private access without replacing
+8. Backup and point-in-time restore succeed for each selected database placement.
+9. A separately approved Console-originated network plan enables private access without replacing
   the cluster, losing the last verified management path or allowing the browser to mutate Azure.
 
 Source and provider tests prove implementation. Live receipts are required before the AKS path is
