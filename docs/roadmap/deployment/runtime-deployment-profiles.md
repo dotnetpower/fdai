@@ -148,6 +148,12 @@ not build or require a dedicated managed-host image. Artifact-offline deployment
 Complete kit construction targets CPython 3.12, matching the managed host interpreter. Wheel ABI
 matching remains exact; glibc compatibility is forward-only within the glibc family from the kit's
 recorded minimum.
+The managed host installs migration and inventory support from the kit's signed aggregate
+requirements lock with index access disabled, exact hashes required, and only verified local wheel
+directories exposed as discovery locations. Duplicate wheel copies are never passed as separate
+direct requirements. Completion requires dependency checking, owned-package version readback, and
+a receipt bound to the kit manifest, inventory, requirements, and full package readback. A partial
+environment without that receipt is not resumable success.
 Enrollment and every later application transfer reuse the same VM-bound `fdai-genesis-*` SSH
 host-key alias and attested known-hosts file; runtime selection never permits a second alias or
 first-contact trust.

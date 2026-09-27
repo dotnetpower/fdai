@@ -31,6 +31,7 @@ _RUNTIME_PACKAGES = {
     "fdai-document-processing-worker",
     "fdai-isolated-executor-service",
 }
+_SUPPORT_PACKAGES = {"fdai-github-app-auth", "fdai-runtime-diagnostics"}
 
 
 class SupportInstallationError(ValueError):
@@ -44,7 +45,7 @@ def _package_versions(
     support = inventory.get("support_packages")
     if not isinstance(runtime, dict) or set(runtime) != _RUNTIME_PACKAGES:
         raise ValueError("support inventory MUST include every runtime distribution")
-    if not isinstance(support, dict) or not set(support) <= {"fdai-github-app-auth"}:
+    if not isinstance(support, dict) or not set(support) <= _SUPPORT_PACKAGES:
         raise ValueError("support inventory contains unsupported workspace dependencies")
     lines = set(requirements.decode("utf-8").splitlines())
     versions: dict[str, str] = {}

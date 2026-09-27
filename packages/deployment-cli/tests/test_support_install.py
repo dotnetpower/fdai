@@ -25,6 +25,8 @@ PACKAGES = {
     "fdai-document-processing-worker",
     "fdai-isolated-executor-service",
 }
+SUPPORT_PACKAGES = {"fdai-github-app-auth", "fdai-runtime-diagnostics"}
+ALL_PACKAGES = PACKAGES | SUPPORT_PACKAGES
 
 
 @pytest.fixture
@@ -34,13 +36,15 @@ def support_release(tmp_path):
     (root / "build").mkdir(parents=True)
     (root / "requirements").mkdir()
     records = {}
+    support_records = {}
     lines = []
-    for name in sorted(PACKAGES):
+    for name in sorted(ALL_PACKAGES):
         relative = f"build/{name.replace('-', '_')}-1.0-py3-none-any.whl"
         content = b"synthetic unit-test wheel; never executed"
         (root / relative).write_bytes(content)
         digest = hashlib.sha256(content).hexdigest()
-        records[name] = {"version": "1.0", "wheel": relative}
+        target = records if name in PACKAGES else support_records
+        target[name] = {"version": "1.0", "wheel": relative}
         lines.append(f"{name}==1.0 --hash=sha256:{digest}")
     (root / "requirements/support.txt").write_text("\n".join(lines) + "\n")
     inventory = {
@@ -49,7 +53,7 @@ def support_release(tmp_path):
         "artifact_kind": "local-runtime-wheelhouse",
         "support_requirements": "requirements/support.txt",
         "packages": records,
-        "support_packages": {},
+        "support_packages": support_records,
         "files": {
             path.relative_to(root).as_posix(): hashlib.sha256(path.read_bytes()).hexdigest()
             for path in root.rglob("*")
@@ -84,12 +88,12 @@ def test_support_installer_uses_only_authenticated_wheels_and_reads_back_package
         return subprocess.CompletedProcess(
             arguments,
             0,
-            stdout=json.dumps([{"name": name, "version": "1.0"} for name in PACKAGES]).encode(),
+            stdout=json.dumps([{"name": name, "version": "1.0"} for name in ALL_PACKAGES]).encode(),
         )
 
     monkeypatch.setattr(support_install.subprocess, "run", run)
     result = _install(tmp_path, support_release)
-    assert result["packages"] == dict.fromkeys(PACKAGES, "1.0")
+    assert result["packages"] == dict.fromkeys(ALL_PACKAGES, "1.0")
     assert result["services_started"] is False
     assert result["cloud_mutation_performed"] is False
     assert result["subscription_ready"] is False
@@ -124,7 +128,7 @@ def test_failed_installation_never_publishes_a_receipt(
         entries = (
             []
             if failure == "empty-readback"
-            else [{"name": name, "version": "2.0"} for name in PACKAGES]
+            else [{"name": name, "version": "2.0"} for name in ALL_PACKAGES]
         )
         return subprocess.CompletedProcess(arguments, 0, stdout=json.dumps(entries).encode())
 

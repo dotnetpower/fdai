@@ -3,8 +3,8 @@ from __future__ import annotations
 import hashlib
 import json
 import os
-import subprocess
 import shutil
+import subprocess
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from types import SimpleNamespace
@@ -23,15 +23,59 @@ from fdai_deployment_cli.aks_job_execution import AksOneShotJob
 from fdai_deployment_cli.contracts import canonical_digest
 
 
+def _runtime_support_artifacts(root: Path) -> tuple[Path, Path]:
+    support = root / "support/python"
+    first = support / "wheels/runtime/example-1.0-py3-none-any.whl"
+    second = support / "wheels/support/example-1.0-py3-none-any.whl"
+    first.parent.mkdir(parents=True)
+    second.parent.mkdir(parents=True)
+    first.write_bytes(b"synthetic-wheel")
+    second.write_bytes(b"synthetic-wheel")
+    digest = hashlib.sha256(first.read_bytes()).hexdigest()
+    requirements = support / "requirements/support.txt"
+    requirements.parent.mkdir()
+    requirements.write_text(f"example==1.0 --hash=sha256:{digest}\n", encoding="utf-8")
+    inventory = support / "inventory.json"
+    inventory.write_text(
+        json.dumps(
+            {
+                "schema_version": "fdai.runtime-wheelhouse.v1",
+                "artifact_kind": "local-runtime-wheelhouse",
+                "status": "complete",
+                "support_requirements": "requirements/support.txt",
+                "files": {
+                    "wheels/runtime/example-1.0-py3-none-any.whl": digest,
+                    "wheels/support/example-1.0-py3-none-any.whl": digest,
+                    "requirements/support.txt": hashlib.sha256(
+                        requirements.read_bytes()
+                    ).hexdigest(),
+                },
+                "packages": {
+                    "example": {
+                        "version": "1.0",
+                        "wheel": "wheels/runtime/example-1.0-py3-none-any.whl",
+                    }
+                },
+                "support_packages": {},
+            },
+            sort_keys=True,
+        ),
+        encoding="utf-8",
+    )
+    inventory.chmod(0o600)
+    requirements.chmod(0o600)
+    for directory in (root, root / "support", support, *support.rglob("*")):
+        if directory.is_dir():
+            directory.chmod(0o700)
+    return first, second
+
+
 @pytest.mark.parametrize("artifact_directory", ["kit-work/verified", "source-work/verified"])
 def test_runtime_support_uses_only_admitted_artifact_root(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, artifact_directory: str
 ) -> None:
     artifact_root = tmp_path / artifact_directory
-    wheels = artifact_root / "support/python"
-    wheels.mkdir(parents=True)
-    wheel = wheels / "example-1.0-py3-none-any.whl"
-    wheel.write_bytes(b"synthetic-wheel")
+    first, second = _runtime_support_artifacts(artifact_root)
     decoy = tmp_path / "other-artifacts/support/python"
     decoy.mkdir(parents=True)
     (decoy / "unexpected.whl").write_bytes(b"not-selected")
@@ -42,16 +86,46 @@ def test_runtime_support_uses_only_admitted_artifact_root(
         calls.append(command)
 
     monkeypatch.setattr(standalone_host, "_run", capture)
-    standalone_host._install_runtime_support(tmp_path, artifact_root=artifact_root)
+    monkeypatch.setattr(
+        standalone_host,
+        "_capture",
+        lambda *_args, **_kwargs: json.dumps(
+            [{"name": "example", "version": "1.0"}, {"name": "pip", "version": "26.0"}]
+        ),
+    )
+    standalone_host._install_runtime_support(
+        tmp_path,
+        artifact_root=artifact_root,
+        kit_manifest_digest="a" * 64,
+    )
 
-    assert len(calls) == 2
+    assert len(calls) == 3
     assert calls[1] == (
         str(tmp_path / "runtime-venv/bin/pip"),
         "install",
         "--no-index",
         "--no-cache-dir",
-        str(wheel),
+        "--only-binary",
+        ":all:",
+        "--require-hashes",
+        "--find-links",
+        str(first.parent),
+        "--find-links",
+        str(second.parent),
+        "--requirement",
+        str(artifact_root / "support/python/requirements/support.txt"),
     )
+    assert calls[2] == (str(tmp_path / "runtime-venv/bin/pip"), "check")
+    assert (tmp_path / "runtime-support-installation.json").is_file()
+
+    (tmp_path / "runtime-venv/bin").mkdir(parents=True)
+    calls.clear()
+    standalone_host._install_runtime_support(
+        tmp_path,
+        artifact_root=artifact_root,
+        kit_manifest_digest="a" * 64,
+    )
+    assert calls == [(str(tmp_path / "runtime-venv/bin/pip"), "check")]
 
 
 def test_runtime_support_does_not_fall_back_to_kit(tmp_path: Path, monkeypatch) -> None:
@@ -63,9 +137,34 @@ def test_runtime_support_does_not_fall_back_to_kit(tmp_path: Path, monkeypatch) 
         pytest.fail("missing admitted support must not execute an installer")
 
     monkeypatch.setattr(standalone_host, "_run", unexpected)
-    with pytest.raises(ValueError, match="wheelhouse is empty"):
+    with pytest.raises(ValueError, match="contract is unavailable"):
         standalone_host._install_runtime_support(
-            tmp_path, artifact_root=tmp_path / "source-work/verified"
+            tmp_path,
+            artifact_root=tmp_path / "source-work/verified",
+            kit_manifest_digest="a" * 64,
+        )
+
+
+def test_runtime_support_rejects_partial_environment(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    artifact_root = tmp_path / "kit-work/verified"
+    _runtime_support_artifacts(artifact_root)
+    environment = tmp_path / "runtime-venv/bin"
+    environment.mkdir(parents=True)
+    (environment / "python").write_bytes(b"partial")
+
+    monkeypatch.setattr(
+        standalone_host,
+        "_run",
+        lambda *_args, **_kwargs: pytest.fail("partial environment must not be resumed"),
+    )
+
+    with pytest.raises(ValueError, match="installation is incomplete"):
+        standalone_host._install_runtime_support(
+            tmp_path,
+            artifact_root=artifact_root,
+            kit_manifest_digest="a" * 64,
         )
 
 

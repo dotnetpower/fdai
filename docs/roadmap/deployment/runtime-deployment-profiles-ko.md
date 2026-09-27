@@ -1,6 +1,6 @@
 ---
 translation_of: runtime-deployment-profiles.md
-translation_source_sha: 9bf0fa5d8f3935b8c5cb73fd9b0db9c34b61dc0a
+translation_source_sha: 47f1fdaf696e7b6b6ed4c198a6f63ece579676a1
 translation_revised: 2026-09-27
 ---
 # 런타임 배포 프로파일
@@ -159,6 +159,12 @@ ARM 페이지 수집은 정책의 레코드 및 누적 응답 바이트 제한�
 완전 키트 생성은 Managed Host 인터프리터와 일치하는 CPython 3.12를 대상으로 합니다.
 wheel ABI 일치는 계속 정확해야 하며 glibc 호환성은 키트에 기록된 최소값부터 같은 glibc
 계열의 새 버전 방향으로만 허용합니다.
+Managed Host는 인덱스 접근을 비활성화하고 정확한 해시를 요구한 상태에서 키트의 서명된 통합
+requirements lock으로 마이그레이션 및 인벤토리 지원 패키지를 설치하며, 검증된 로컬 wheel
+디렉터리만 검색 위치로 노출합니다. 중복 wheel 복사본을 별도의 직접 요구 사항으로 전달하지
+않습니다. 완료하려면 의존성 검사, 소유 패키지 버전 재조회, 키트 매니페스트·인벤토리·
+requirements·전체 패키지 재조회에 연결된 영수증이 필요합니다. 해당 영수증이 없는 부분
+환경은 재개 가능한 성공이 아닙니다.
 등록과 모든 후속 애플리케이션 전송은 VM에 연결된 같은 `fdai-genesis-*` SSH host-key
 alias와 검증된 known-hosts 파일을 재사용합니다. 런타임 선택은 두 번째 alias나 최초 접촉
 신뢰를 허용하지 않습니다.
