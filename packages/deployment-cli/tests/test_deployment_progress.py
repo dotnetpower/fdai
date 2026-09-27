@@ -40,7 +40,7 @@ def test_plain_output_has_no_terminal_sequences_or_stdout(capsys) -> None:
         begin_stage("discovery")
 
     text = output.getvalue()
-    assert "[01/16] OK   Azure sign-in (00:02)" in text
+    assert "[01/17] OK   Azure sign-in (00:02)" in text
     assert "Signed deployment kit (01:00)" in text
     assert "1.0 MiB received; verification pending" in text
     assert "without a ready result" in text
@@ -125,7 +125,7 @@ def test_full_phase_count_is_not_automatically_a_ready_result() -> None:
             begin_stage(name)
         display.ready()
     assert "Deployment ready" in output.getvalue()
-    assert "[16/16] OK   Cleanup and final receipt" in output.getvalue()
+    assert "[17/17] OK   Cleanup and final receipt" in output.getvalue()
 
 
 @pytest.mark.parametrize("width", [36, 60, 100])
@@ -141,7 +141,7 @@ def test_current_work_view_fits_terminal_width(width, monkeypatch) -> None:
     frame.print(display.render())
     snapshot = frame.export_text()
     assert "FDAI" in snapshot
-    assert "1/16 phases" in snapshot
+    assert "1/17 phases" in snapshot
     assert "128.0 MiB received" in snapshot
     assert all(cell_len(line) <= width for line in snapshot.splitlines())
 
@@ -358,7 +358,12 @@ def test_real_coordinator_keeps_approval_and_intermediate_json_off_stdout(
             "cleanup",
         ):
             begin_stage(stage)
-        return {"receipt_digest": "b" * 64, "license_mode": "observation-only"}
+        return {
+            "receipt_digest": "b" * 64,
+            "catalog_review_receipt_digest": "c" * 64,
+            "catalog_review_state": "skipped",
+            "license_mode": "observation-only",
+        }
 
     monkeypatch.setattr(standalone_deploy, "deploy_standalone_application", application)
     result = cli.main(

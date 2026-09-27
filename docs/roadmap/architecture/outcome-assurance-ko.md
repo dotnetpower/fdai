@@ -1,8 +1,8 @@
 ---
 title: Outcome Assurance
 translation_of: outcome-assurance.md
-translation_source_sha: 02c7bd2429d2f125f1f85e661f032e43f2aec165
-translation_revised: 2026-09-13
+translation_source_sha: 1aa5bff7e6be7a8362a143b39ff04d72999d1dd6
+translation_revised: 2026-09-26
 ---
 # 결과 Assurance
 
@@ -40,6 +40,7 @@ FDAI는 서비스가 보호해야 할 목표, 검토한 액션, 실제 실행, �
 | 재사용하는 온톨로지, 준비 상태, 감사 및 측정 출처 | in-progress | `core/decision_case/`; `core/readiness/`; `core/measurement/`; `core/audit/`; 각 소유 문서의 현재 구현 원장 | 출처 기능은 서로 다른 근거 수준으로 존재하지만 하나의 결과 Assurance 변환 결과로 결합되지 않았습니다. |
 | 비용 거버넌스 효과 정산 출처 | implemented | `core/measurement/cost_effect_settlement.py`; `core/measurement/cost_retention.py`; 집중 비용 거버넌스 정산 테스트 | 비용, 용량, 서비스 및 복구 효과를 분리하고 exact expected-effect 출처 revision에 결속된 독립 관찰에서만 종결합니다. 이 출처만으로 더 넓은 `OutcomeAssuranceProjection`이 완료되지는 않습니다. |
 | 단계 4 측정 정책 출처 | implemented | `core/measurement/{pattern_growth,model_tracking,latency_budget}.py`; `delivery/measurement/{holdout,measured_policy}.py`; 집중 Core 및 전달 테스트 | 완전한 홀드아웃이 shadow 패턴 쓰기를 제한합니다. 짝지은 모델 근거는 검토 전용 권고를 만들고 계층별 지연 시간은 서버 소유 예산, 보고값, 처리량, 백분위수 및 사용 불가 상태를 보존합니다. 잘못된 형식의 근거는 한 번 거부되고 이후 묶음을 막지 않습니다. 영속 처리는 승격 또는 실행 권한을 부여하지 않습니다. |
+| 보호된 코호트 준비 상태 점검 | implemented | `.github/workflows/cohort-readiness.yml`; `delivery/measurement/cohort_inventory.py`; 집중 워크플로 및 인벤토리 테스트 | 정확한 보호된 `main` 리비전 하나가 비공개 상태 저장소의 baseline 및 treatment 가용성을 집계해서 점검하고 권한이 없는 증적을 보존할 수 있습니다. 이 워크플로는 관측값을 가져오거나 승격 상태를 바꾸거나 누락된 표본을 적격 상태로 바꾸지 않습니다. |
 | ActionType 정규 내용 다이제스트 | implemented | `core/measurement/operational_promotion.py`; `core/measurement/__init__.py`; 집중 승격 테스트 | `action_type_digest`는 provenance를 제외한 ActionType의 결정론적 SHA-256 내용 다이제스트를 계산하는 공개 함수입니다. 평가기는 이 다이제스트를 사용하여 봉인된 배치와 현재 ActionType 정의 사이의 스키마 변이를 감지합니다. |
 | `OutcomeAssuranceProjection` 타입이 지정된 읽기 모델 | implemented | [변환 결과 계약](#변환-결과-계약); `core/measurement/outcome_assurance.py`; 집중 Outcome Assurance 계약 테스트 | 타입이 지정된 범위, 기간, 준비 상태, 귀속, 결과, 가드, 근거 모델이 이제 존재하며 결정론적 JSON 재현과 최신 권위 관측 correction 축소를 제공합니다. 이 계약은 읽기 전용으로 남고 권한 객체를 추가하지 않습니다. |
 | 목표 귀속과 집계 평가 | implemented | [목표 귀속](#목표-귀속), `core/measurement/outcome_assurance.py`, 집중 Outcome Assurance 테스트 | 순수 reducer는 명시적인 finalized 이벤트 집합을 입력받고 decision, objective, workflow, action, run, outcome 및 measurement의 완전한 체인을 요구합니다. 최신 권위 observation만 사용하고 해결되지 않은 모든 이벤트를 분모에 유지합니다. 권위 있는 출처 연결은 열린 상태입니다. |
@@ -50,6 +51,7 @@ FDAI는 서비스가 보호해야 할 목표, 검토한 액션, 실제 실행, �
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-26 | implemented | 실제 관측을 가져오거나 승격하지 않으면서 비공개 집계 근거를 읽고 내용 주소 방식으로 증적을 발행하며 준비 상태가 필수일 때 안전하게 차단할 수 있는 보호된 정확한 리비전 코호트 준비 상태 점검을 추가했습니다. | `current change`; 코호트 준비 상태 워크플로, 집중 계약 테스트, CI 계약 검사 및 라우팅된 설계 맥락. | 검토된 baseline 및 treatment exporter를 추가하고 각 arm의 모든 필수 측정값에 대해 독립 관측값을 30개 이상 보존합니다. |
 | 2026-09-09 | implemented | 각 필수 코호트 지표를 검토된 95% 구간 계산법에 연결했습니다. 자동 해결률은 Wilson을 사용하고 연속값 및 횟수 평균은 결정론적 부트스트랩을 사용하므로 정책이 MTTR, 변경 리드 타임, 비용 또는 사람 접점을 베르누이 비율로 다시 해석할 수 없습니다. | `current change`; 코호트 정책 로더와 집중 정책 테스트. | 실제 운영 코호트를 보존하고 독립적으로 승인합니다. |
 | 2026-09-01 | implemented | `_action_type_digest`를 공개 `action_type_digest` 함수로 승격하고 `core/measurement/__init__.py`에서 내보냈습니다. 정규 내용 다이제스트는 provenance를 제외하고 승격 평가 시 ActionType 일관성 검증을 외부 호출자가 수행할 수 있게 합니다. | `current change`; `core/measurement/operational_promotion.py`; `core/measurement/__init__.py`; 집중 승격 테스트. | 인증된 권위 출처 증적을 더 넓은 Outcome Assurance 변환 결과에 연결하고 통제된 실제 집단을 보존합니다. |
 | 2026-08-31 | implemented | 예약 측정 조립에 영속 단계 4 홀드아웃, 모델 교체 및 지연 시간 출처 처리를 추가했습니다. 재시작, 중복, 부분, 오래됨, 미래 시점, 롤백 및 사용 불가 근거는 명시적으로 남고 긍정적 모델 비교에는 별도 승격 검토가 필요합니다. | `current change`; 측정 집약기, 전달 러너, CLI 조립 및 집중 Core, 전달, CLI 검사. | 인증된 권위 출처 증적을 더 넓은 Outcome Assurance 변환 결과에 연결하고 통제된 실제 집단을 보존합니다. |
@@ -62,7 +64,9 @@ FDAI는 서비스가 보호해야 할 목표, 검토한 액션, 실제 실행, �
 
 - [x] 새 권한 객체를 추가하지 않고 타입이 지정된 `OutcomeAssuranceProjection`, 범위가 제한된 근거 상태, correction 규칙 및 결정론적 재현을 정의하고 테스트합니다 (`core/measurement/outcome_assurance.py`; 집중 Outcome Assurance 계약 테스트 `7 passed`).
 - [x] 완전한 목표 귀속 join을 구현하고 해결되지 않은 finalized 이벤트를 명시적 커버리지와 함께 분모에 유지합니다 (`summarize_objective_attribution`, 집중 Outcome Assurance 테스트 13개 통과).
-- [ ] 인증된 권위 있는 출처를 연결하고 읽기 전용 Operator API와 Console 상세 경로를 추가하며, 누락되거나 stale한 데이터가 합성되지 않고 사용 불가로 표시됨을 입증합니다.
+- [x] claim 적격성이나 승격 권한을 부여하지 않고 누락된 측정값 집계를 노출하는 정확한
+  `main` 읽기 전용 보호 코호트 인벤토리 증적을 추가합니다.
+- [ ] 인증된 권위 있는 출처를 연결하고 읽기 전용 Operator API와 Console 상세 경로를 추가하며, 누락되거나  stale한 데이터가 합성되지 않고 사용 불가로 표시됨을 입증합니다.
 - [ ] 하나의 고정된 서비스와 시나리오 집합에서 변경 안전성 파일럿을 실행한 다음 수락 기준에 권위 있는 비합성 근거가 생긴 후에만 확장합니다.
 
 ## 범위 경계

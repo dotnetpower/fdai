@@ -1,6 +1,6 @@
 ---
 translation_of: runtime-deployment-profiles.md
-translation_source_sha: f20dc3d6be2f4e920d7c7c28ab0c437fc0735371
+translation_source_sha: 54d3f7d124623848f7edfcc0bbf10d177b2bfe29
 translation_revised: 2026-09-27
 ---
 # 런타임 배포 프로파일
@@ -155,6 +155,19 @@ ARM 페이지 수집은 정책의 레코드 및 누적 응답 바이트 제한�
 권한을 부여하지 않습니다. 표현 및 통합 계약은 이 단계를 16번째 단계로, `provisioning-events`를
 세 번째 비공개 Foundation 컨테이너로 반영합니다. 이전 추가 필드 방식의 증적 테스트 대역에
 `inventory_ready`가 없어도 준비 상태로 해석하지 않습니다. 초기 또는 반복 검사가 완전한 승격 세대를 온톨로지에 반영하면 범위가 제한된 delivery 모듈 `inventory_ontology_observer.py`가 Resource마다 재시도에 안정적인 관측 Event 하나를 기존 컨트롤 루프 토픽에 게시하고 CLI는 조립만 담당합니다. 규칙 판단은 계속 Forseti가 소유하고 감사는 Saga가 소유합니다. 불완전한 변환 결과나 게시 실패로는 인벤토리 종결 조건을 충족하거나 실행 권한을 만들 수 없습니다.
+
+AKS에서 Managed Host는 정확히 배포된 inventory CronJob에서 내용 주소 방식 Job 하나를
+파생하고 `inventory-job` ServiceAccount와 digest-pinned Core 이미지를 보존하며 초기 실행
+진행률 identity만 전달합니다. 성공하려면 별도의 PostgreSQL 종결 읽기가 완전한 공급자
+커버리지, 최종 fence, 닫힌 overlay, 완전한 자식 출처 및 정확한 active generation을
+증명해야 합니다. Job 또는 종결이 없는 보존된 실행 전 기록은 다른 Job을 시작하지 않습니다.
+
+선택적인 검토된 catalog-review 프로필은 중지된 AKS CronJob 하나와 inventory 이후
+checkpoint를 추가합니다. 조정기는 비공개 GitHub App 프로필과 PEM만 전달하고 App의 단일
+비공개 저장소와 축소된 권한을 검증하며 durable Kafka와 PostgreSQL에서 실제 Huginn,
+Muninn, Norns, Mimir 및 Saga 이벤트 경로를 실행합니다. 성공하려면 정확한 head commit,
+review document, base, label과 merge 또는 auto-merge가 없음을 독립적으로 읽은 열린 draft가 필요합니다. 증적은
+catalog 활성화, merge, 승격 또는 관리 리소스 변경 권한을 부여하지 않습니다.
 
 테넌트 프로비저닝은 새 설치, 전체 프로파일 수렴, staging, production, 의존성 및 release에서 미리
 빌드된 서비스와 의존성 이미지를 사용합니다. Core, Operator 및 Cost Governance 프로파일은 배포판에서 가져오는 타입 정보가 있는 공유 런타임 진단 wheel을 설치하며, 실행 위치 가드는 명시적인 로컬 개발 환경 밖에서 해당 소켓을 사용할 수 없게 유지합니다. 완전한 release에는 ClamAV와 pgvector가 포함되며

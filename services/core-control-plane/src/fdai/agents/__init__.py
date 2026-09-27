@@ -197,6 +197,7 @@ __all__ = [
     "IdempotentIssueTrackerAdapter",
     "IssueTrackerAdapter",
     "Layer",
+    "Mimir",
     "Norns",
     "PantheonBus",
     "InMemoryBus",

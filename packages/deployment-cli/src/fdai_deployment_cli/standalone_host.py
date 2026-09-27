@@ -13,11 +13,13 @@ import stat
 import subprocess
 import sys
 import uuid
+from collections.abc import Mapping
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any, Final
 from urllib.parse import urlencode
 
+from fdai_deployment_cli.aks_catalog_review import aks_catalog_review_configuration
 from fdai_deployment_cli.aks_historical_reconciliation import (
     reconciled_variables,
     validate_reconciliation_plan,
@@ -30,12 +32,31 @@ from fdai_deployment_cli.aks_service_update import (
     validate_plan_scope,
     validate_update_request,
 )
+from fdai_deployment_cli.aks_workload_jobs import (
+    aks_inventory_binding_environment as _aks_inventory_binding_environment,
+    aks_kubernetes_direct_api_environment as _aks_kubernetes_direct_api_environment,
+)
+from fdai_deployment_cli.aks_job_execution import (
+    protected_cronjob_template_digest as _protected_cronjob_template_digest,
+)
+from fdai_deployment_cli import catalog_review_profile
+from fdai_deployment_cli.aks_workload_jobs import (
+    build_aks_scheduled_job as _aks_job,
+)
 from fdai_deployment_cli.contracts import canonical_digest, load_json_object
 from fdai_deployment_cli.deployment_kit import acquire_deployment_kit
 from fdai_deployment_cli.license import inspect_license
 from fdai_deployment_cli.oci_archive import validate_oci_archive
 from fdai_deployment_cli.private_output import read_private_bytes, write_private_output
 from fdai_deployment_cli.runtime_profile import RuntimeDeploymentProfile
+from fdai_deployment_cli.standalone_aks_inventory import (
+    initial_inventory_binding as _initial_inventory_binding,
+    run_initial_aks_inventory as _initial_aks_inventory,
+)
+from fdai_deployment_cli.standalone_aks_job_execution import (
+    protected_service_account_binding as _protected_service_account_binding,
+)
+from fdai_deployment_cli.standalone_catalog_review import run_catalog_review
 from fdai_deployment_cli.standalone_host_state import (
     absolute as _absolute,
     acquire_checkpoint_lock as _acquire_checkpoint_lock,
@@ -62,12 +83,6 @@ from fdai_deployment_cli.trust_roots import license_public_key_pem
 _DIGEST = re.compile(r"[0-9a-f]{64}")
 _GUID = re.compile(r"[0-9a-fA-F]{8}(?:-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12}")
 _SOURCE_COMMIT = re.compile(r"[0-9a-f]{40}")
-_AKS_RESOURCE_ID = re.compile(
-    r"/subscriptions/[^/]+/resourcegroups/[^/]+/providers/"
-    r"microsoft\.containerservice/managedclusters/[^/]+",
-    re.IGNORECASE,
-)
-_KUBERNETES_SERVICE_ACCOUNT_ROOT = "/var/run/secrets/kubernetes.io/serviceaccount"
 _AKS_RUNTIME_NAMESPACE = "fdai-runtime"
 _STAGES: Final = ("substrate", "runtime", "database", "application")
 _SUBSTRATE_TARGETS: Final = (
@@ -100,6 +115,8 @@ _SUBSTRATE_TARGETS: Final = (
     "azurerm_key_vault_secret.state_store_dsn",
     "azurerm_key_vault_secret.application_insights_connection_string",
     "azurerm_role_assignment.core_application_insights_secret_reader",
+    "azurerm_key_vault_secret.github_app_private_key",
+    "azurerm_role_assignment.core_github_app_private_key_reader",
     "azurerm_role_assignment.command_api_eventhubs_sender",
     "azurerm_role_assignment.command_api_eventhubs_receiver",
     "azurerm_role_assignment.inventory_reader",
@@ -153,6 +170,8 @@ def main(argv: list[str] | None = None) -> int:
     prepare.add_argument("--adoption-state", type=Path)
     prepare.add_argument("--adoption-models", type=Path)
     prepare.add_argument("--adoption-descriptor", type=Path)
+    prepare.add_argument("--catalog-review-profile", type=Path)
+    prepare.add_argument("--catalog-review-private-key", type=Path)
     prepare.add_argument("--runtime-platform", default="aks")
     prepare.add_argument("--database-placement", default="postgres-flex")
     prepare.add_argument("--system-node-count", type=int, default=3)
@@ -233,6 +252,9 @@ def main(argv: list[str] | None = None) -> int:
     initial_inventory = subcommands.add_parser("initial-inventory")
     initial_inventory.set_defaults(handler=_initial_inventory)
 
+    catalog_review = subcommands.add_parser("catalog-review")
+    catalog_review.set_defaults(handler=_catalog_review)
+
     license_command = subcommands.add_parser("install-license")
     license_command.add_argument("--image-digest", required=True)
     license_command.add_argument("--deployment-binding", required=True)
@@ -285,6 +307,7 @@ def _prepare(args: argparse.Namespace, work_dir: Path) -> dict[str, object]:
     tenant = _required_guid(handoff, "tenant_id")
     client_id = _required_guid(runner, "client_id")
     principal_id = _required_guid(runner, "principal_id")
+    initial_inventory_binding = _initial_inventory_binding(subscription)
     runtime_profile = RuntimeDeploymentProfile.create(
         runtime_platform=str(args.runtime_platform),
         database_placement=str(args.database_placement),
@@ -304,6 +327,12 @@ def _prepare(args: argparse.Namespace, work_dir: Path) -> dict[str, object]:
     entra_binding_digest = canonical_digest(entra)
     adoption = _application_state_adoption(args)
     adoption_digest = canonical_digest(adoption[0]) if adoption is not None else ""
+    catalog_profile_path = getattr(args, "catalog_review_profile", None)
+    catalog_key_path = getattr(args, "catalog_review_private_key", None)
+    catalog_profile = catalog_review_profile.staged_catalog_review_profile_from_paths(
+        _absolute(catalog_profile_path) if catalog_profile_path else None,
+        _absolute(catalog_key_path) if catalog_key_path else None,
+    )
     _managed_identity_login(subscription, tenant, client_id, principal_id, work_dir)
     retained_context = work_dir / "context.json"
     retained_variables = work_dir / "application.auto.tfvars.json"
@@ -320,6 +349,8 @@ def _prepare(args: argparse.Namespace, work_dir: Path) -> dict[str, object]:
             or retained.get("foundation_binding_digest") != foundation_binding_digest
             or retained.get("entra_binding_digest") != entra_binding_digest
             or retained.get("application_state_adoption_digest", "") != adoption_digest
+            or retained.get("catalog_review_profile_digest") != catalog_profile.profile_digest
+            or retained.get("initial_inventory_binding") != initial_inventory_binding
             or _runtime_profile_digest(retained) != runtime_profile.digest
         ):
             raise ValueError("standalone host retained context differs")
@@ -457,6 +488,7 @@ def _prepare(args: argparse.Namespace, work_dir: Path) -> dict[str, object]:
         "stewardship_maintainers": operator_id,
         "stewardship_agent_bindings": {name: f"user:{operator_id}" for name in steward_names},
     }
+    values.update(catalog_review_profile.catalog_review_terraform_values(catalog_profile))
     if adoption is not None:
         values.update(
             resolved_capabilities=adoption[0]["resolved_capabilities"],
@@ -478,10 +510,13 @@ def _prepare(args: argparse.Namespace, work_dir: Path) -> dict[str, object]:
         "foundation_binding_digest": foundation_binding_digest,
         "entra_binding_digest": entra_binding_digest,
         "application_state_adoption_digest": adoption_digest,
+        "catalog_review_profile_digest": catalog_profile.profile_digest,
+        "catalog_review_selected": catalog_profile.selected,
         "state_resource_group": str(ops["resource_group_name"]),
         "state_account": str(state["account_name"]),
         "state_container": str(state["container_name"]),
         "inventory_progress_container_url": str(state["progress_container_url"]),
+        "initial_inventory_binding": initial_inventory_binding,
         "state_key": f"fdai-{values['env']}.tfstate",
         "kit_manifest_digest": kit.verification.manifest_digest,
         "runtime_release_digest": kit.runtime.digest,
@@ -732,6 +767,9 @@ def _prepare_aks_application(_args: argparse.Namespace, work_dir: Path) -> dict[
         ),
         "document_store": _terraform_json_output(substrate, "document_storage_binding"),
         "document_topics": _terraform_json_output(substrate, "document_event_topics"),
+        "catalog_review_gitops_binding": _terraform_json_output(
+            substrate, "catalog_review_gitops_binding"
+        ),
     }
     if _database_placement(context) == "postgres-flex":
         substrate_outputs.update(
@@ -972,6 +1010,27 @@ def _prepare_aks_application(_args: argparse.Namespace, work_dir: Path) -> dict[
             deadline_seconds=900,
         ),
     }
+    catalog_review = aks_catalog_review_configuration(
+        substrate_outputs["catalog_review_gitops_binding"],
+        selected=context.get("catalog_review_selected") is True,
+        source_revision=str(context["source_commit"]),
+    )
+    if catalog_review is not None:
+        scheduled_jobs["catalog-review"] = _aks_job(
+            refs,
+            core_identity,
+            ["python", "-m", "fdai.runtime.operational_catalog_review_trigger"],
+            "0 0 1 1 *",
+            {**core_environment, **catalog_review.environment},
+            {
+                **catalog_review.secret_environment,
+                "FDAI_STATE_STORE_DSN": "fdai-state-store-dsn",
+            },
+            component="catalog-review",
+            deadline_seconds=300,
+            retry_limit=0,
+            suspend=True,
+        )
     operational_history_container_url = str(substrate_outputs["operational_history_container_url"])
     if operational_history_container_url:
         scheduled_jobs["operational-history-lifecycle"] = _aks_job(
@@ -990,6 +1049,25 @@ def _prepare_aks_application(_args: argparse.Namespace, work_dir: Path) -> dict[
             deadline_seconds=1800,
             retry_limit=0,
         )
+    protected_job_template_digests = {
+        name: _protected_cronjob_template_digest(
+            job,
+            template_name=name,
+            namespace=_AKS_RUNTIME_NAMESPACE,
+            source_revision=str(context["source_commit"]),
+        )
+        for name, job in scheduled_jobs.items()
+    }
+    protected_job_identity_bindings = {
+        name: _protected_service_account_binding(
+            job,
+            template_name=name,
+            namespace=_AKS_RUNTIME_NAMESPACE,
+            tenant_id=str(context["tenant_id"]),
+            subscription_id=str(context["subscription_id"]),
+        )
+        for name, job in scheduled_jobs.items()
+    }
     workloads_infra = substrate / "runtimes/aks/workloads"
     values = {
         "kubeconfig_path": str(kubeconfig),
@@ -1021,6 +1099,9 @@ def _prepare_aks_application(_args: argparse.Namespace, work_dir: Path) -> dict[
             }
             for name, workload in workloads.items()
         },
+        protected_aks_job_template_digests=protected_job_template_digests,
+        protected_aks_job_identity_bindings=protected_job_identity_bindings,
+        catalog_review_available=catalog_review is not None,
     )
     _replace_or_verify_private_json(work_dir / "workloads.auto.tfvars.json", values)
     _replace_private_json(work_dir / "context.json", context)
@@ -3026,6 +3107,8 @@ def _initial_inventory(_args: argparse.Namespace, work_dir: Path) -> dict[str, o
     for prerequisite in ("migration-receipt.json", "application-receipt.json"):
         if not (work_dir / prerequisite).exists():
             raise ValueError("initial inventory prerequisites are incomplete")
+    if _runtime_platform(context) == "aks":
+        return _initial_aks_inventory(context, work_dir, receipt_path=receipt_path)
     infra = Path(str(context["infra"]))
     bundle = infra.parent
     vault_name = _vault_name(_terraform_output(infra, "key_vault_uri"))
@@ -3119,6 +3202,11 @@ def _initial_inventory(_args: argparse.Namespace, work_dir: Path) -> dict[str, o
     receipt["receipt_digest"] = canonical_digest(receipt)
     _replace_private_json(receipt_path, receipt)
     return receipt
+
+
+def _catalog_review(_args: argparse.Namespace, work_dir: Path) -> dict[str, object]:
+    context = _private_json(work_dir / "context.json", "standalone host context")
+    return run_catalog_review(context, work_dir, login=_managed_identity_login_from_context)
 
 
 def _install_license(args: argparse.Namespace, work_dir: Path) -> dict[str, object]:
@@ -3540,8 +3628,8 @@ def _aks_workload(
     component: str,
     refs: dict[str, Any],
     identity: dict[str, Any],
-    environment: dict[str, object],
-    secret_environment: dict[str, str],
+    environment: Mapping[str, object],
+    secret_environment: Mapping[str, str],
     readiness_path: str,
     liveness_path: str,
     *,
@@ -3697,80 +3785,6 @@ def _aks_document_workloads(
                 }
             },
         ),
-    }
-
-
-def _aks_job(
-    refs: dict[str, Any],
-    identity: dict[str, Any],
-    command: list[str],
-    schedule: str,
-    environment: dict[str, object],
-    secret_environment: dict[str, str],
-    *,
-    component: str,
-    deadline_seconds: int,
-    retry_limit: int = 1,
-) -> dict[str, object]:
-    image = refs.get("core-control-plane")
-    if not isinstance(image, str):
-        raise TypeError("AKS scheduled job image is unavailable")
-    return {
-        "component": component,
-        "image": image,
-        "identity_resource_id": identity["resource_id"],
-        "identity_client_id": identity["client_id"],
-        "command": command,
-        "args": [],
-        "schedule": schedule,
-        "deadline_seconds": deadline_seconds,
-        "retry_limit": retry_limit,
-        "cpu": "500m",
-        "memory": "1Gi",
-        "environment": {name: str(value) for name, value in environment.items()},
-        "secret_environment": secret_environment,
-    }
-
-
-def _aks_inventory_binding_environment(cluster_id: str) -> dict[str, str]:
-    """Bind the AKS inventory job to its own in-cluster read-only API identity."""
-
-    normalized_cluster_id = cluster_id.strip()
-    if _AKS_RESOURCE_ID.fullmatch(normalized_cluster_id) is None:
-        raise ValueError("AKS runtime cluster id is invalid")
-    return {
-        "FDAI_KUBERNETES_API_SERVER": "https://kubernetes.default.svc",
-        "FDAI_KUBERNETES_CLUSTER_REF": normalized_cluster_id,
-        "FDAI_KUBERNETES_AUTH_MODE": "service-account",
-        "FDAI_KUBERNETES_CA_PATH": f"{_KUBERNETES_SERVICE_ACCOUNT_ROOT}/ca.crt",
-        "FDAI_KUBERNETES_TOKEN_PATH": f"{_KUBERNETES_SERVICE_ACCOUNT_ROOT}/token",
-    }
-
-
-def _aks_kubernetes_direct_api_environment(
-    cluster_id: str,
-    *,
-    namespace: str,
-) -> dict[str, str]:
-    """Bind exact namespace-limited Kubernetes effects to the isolated Executor."""
-
-    normalized_cluster_id = cluster_id.strip()
-    if _AKS_RESOURCE_ID.fullmatch(normalized_cluster_id) is None:
-        raise ValueError("AKS runtime cluster id is invalid")
-    if not re.fullmatch(r"[a-z0-9](?:[-a-z0-9]{0,61}[a-z0-9])?", namespace):
-        raise ValueError("AKS runtime namespace is invalid")
-    return {
-        "FDAI_KUBERNETES_DIRECT_API_JSON": json.dumps(
-            {
-                "allowed_namespaces": [namespace],
-                "api_server": "https://kubernetes.default.svc",
-                "ca_path": f"{_KUBERNETES_SERVICE_ACCOUNT_ROOT}/ca.crt",
-                "cluster_ref": normalized_cluster_id,
-                "token_path": f"{_KUBERNETES_SERVICE_ACCOUNT_ROOT}/token",
-            },
-            separators=(",", ":"),
-            sort_keys=True,
-        )
     }
 
 

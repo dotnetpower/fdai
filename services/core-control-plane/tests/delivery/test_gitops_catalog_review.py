@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 import json
+from dataclasses import replace
 from datetime import UTC, datetime
 
+import pytest
 from fdai.core.operational_learning import (
     CatalogReviewPackage,
     DraftCatalogArtifact,
@@ -15,9 +17,22 @@ from fdai.core.operational_learning import (
     ShadowCheckReceipt,
 )
 from fdai.core.operational_learning.case_review import OperationalCaseReview
-from fdai.delivery.gitops_pr.catalog_review import GitOpsCatalogReviewPublisher
+from fdai.delivery.gitops_pr.catalog_review import (
+    CatalogReviewPrObservation,
+    GitOpsCatalogReviewPublisher,
+)
 from fdai.shared.contracts.models import Mode
 from fdai.shared.providers.remediation_pr import PublishReceipt, RemediationPr
+
+_REQUIRED_LABELS = (
+    "action:ops.scale-out",
+    "catalog-review",
+    "draft",
+    "governance",
+    "rule:learned.operational.example",
+    "shadow",
+)
+_HEAD_SHA = "f" * 40
 
 
 def _review_package() -> CatalogReviewPackage:
@@ -97,15 +112,57 @@ def _review_package() -> CatalogReviewPackage:
 
 
 class _RecordingPublisher:
-    def __init__(self, *, already_existed: bool = False) -> None:
+    def __init__(
+        self,
+        *,
+        already_existed: bool = False,
+        observation_updates: dict[str, bool] | None = None,
+    ) -> None:
         self.requests: list[RemediationPr] = []
         self._already_existed = already_existed
+        self._observation_updates = observation_updates or {}
 
     async def publish(self, request: RemediationPr) -> PublishReceipt:
         self.requests.append(request)
         return PublishReceipt(
             pr_ref="example/fdai-catalog#42",
             already_existed=self._already_existed,
+            head_sha=_HEAD_SHA,
+        )
+
+    async def observe_catalog_review(
+        self,
+        *,
+        pr_ref: str,
+        idempotency_key: str,
+        required_labels: tuple[str, ...],
+        expected_head_sha: str,
+        expected_path: str,
+        expected_document_digest: str,
+    ) -> CatalogReviewPrObservation:
+        assert pr_ref == "example/fdai-catalog#42"
+        assert idempotency_key.startswith("catalog-review-")
+        assert required_labels == _REQUIRED_LABELS
+        assert expected_head_sha == _HEAD_SHA
+        assert expected_path.startswith("rule-catalog/review-packages/operational-")
+        assert len(expected_document_digest) == 64
+        values = {
+            "open": True,
+            "draft": True,
+            "head_matches": True,
+            "head_commit_matches": True,
+            "base_matches": True,
+            "labels_match": True,
+            "content_matches": True,
+            "files_match": True,
+            "observed_labels": required_labels,
+            "merged": False,
+            "auto_merge_enabled": False,
+            **self._observation_updates,
+        }
+        return CatalogReviewPrObservation(
+            observation_digest="e" * 64,
+            **values,
         )
 
 
@@ -123,7 +180,14 @@ async def test_catalog_review_is_content_addressed_and_inert() -> None:
     assert request.mode is Mode.SHADOW
     assert request.idempotency_key == f"catalog-review-{package.content_digest}"
     assert request.patch_path.endswith(f"operational-{package.content_digest}.json")
+    assert "draft" in request.labels
     assert "shadow" in request.labels
+    assert "rule:learned.operational.example" in request.labels
+    assert "action:ops.scale-out" in request.labels
+    assert receipt.required_labels == _REQUIRED_LABELS
+    assert receipt.observed_labels == _REQUIRED_LABELS
+    assert receipt.head_sha == _HEAD_SHA
+    assert receipt.review_document_digest is not None
     document = json.loads(request.patch)
     assert document["package_digest"] == package.content_digest
     assert document["review_required"] is True
@@ -139,3 +203,45 @@ async def test_existing_review_receipt_preserves_remote_idempotency() -> None:
 
     assert receipt.already_existed is True
     assert len(downstream.requests) == 1
+
+
+async def test_catalog_review_rejects_exact_label_over_provider_limit() -> None:
+    package = _review_package()
+    oversized = replace(
+        package,
+        draft_rule=DraftCatalogArtifact.from_mapping(
+            kind="rule",
+            mapping={
+                "id": "learned.operational." + "f" * 40,
+                "remediates": "ops.scale-out",
+            },
+        ),
+    )
+
+    with pytest.raises(ValueError, match="label limit"):
+        await GitOpsCatalogReviewPublisher(publisher=_RecordingPublisher()).publish(oversized)
+
+
+@pytest.mark.parametrize(
+    "observation_updates",
+    [
+        {"draft": False},
+        {"head_matches": False},
+        {"head_commit_matches": False},
+        {"base_matches": False},
+        {"labels_match": False},
+        {"content_matches": False},
+        {"files_match": False},
+        {"merged": True},
+        {"auto_merge_enabled": True},
+    ],
+)
+async def test_catalog_review_rejects_substituted_or_mergeable_pr(
+    observation_updates: dict[str, bool],
+) -> None:
+    publisher = GitOpsCatalogReviewPublisher(
+        publisher=_RecordingPublisher(observation_updates=observation_updates)
+    )
+
+    with pytest.raises(ValueError, match="readback is unsafe"):
+        await publisher.publish(_review_package())

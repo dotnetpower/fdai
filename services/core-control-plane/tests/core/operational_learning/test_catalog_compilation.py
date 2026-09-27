@@ -210,6 +210,9 @@ def _draft_action_type() -> DraftActionTypeInput:
 def test_existing_action_type_is_the_default_draft_target() -> None:
     package = _compiler().compile(_candidate())
 
+    rule_id = str(package.draft_rule.mapping["id"])
+    assert rule_id == f"learned.operational.{package.candidate.pattern_id[:24]}"
+    assert len(f"rule:{rule_id}") <= 50
     assert package.draft_rule.mapping["remediates"] == "ops.scale-out"
     assert package.draft_action_type is None
     assert package.review_required is True

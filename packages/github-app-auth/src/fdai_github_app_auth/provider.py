@@ -32,6 +32,17 @@ class GitHubAppTokenError(RuntimeError):
 
 
 @dataclass(frozen=True, slots=True)
+class GitHubAppTokenProjection:
+    """Provider-observed scope of one minted installation token."""
+
+    installation_id: int
+    repository: str
+    repository_selection: str
+    permissions: tuple[tuple[str, str], ...]
+    expires_at: datetime
+
+
+@dataclass(frozen=True, slots=True)
 class GitHubAppTokenConfig:
     """Validated GitHub App installation and token-scope configuration."""
 
@@ -108,6 +119,7 @@ class GitHubAppTokenProvider:
         self._lock = asyncio.Lock()
         self._token: str | None = None
         self._expires_at: datetime | None = None
+        self._projection: GitHubAppTokenProjection | None = None
 
     async def __call__(self) -> str:
         now = self._now()
@@ -123,6 +135,14 @@ class GitHubAppTokenProvider:
             self._token = token
             self._expires_at = expires_at
             return token
+
+    async def projection(self) -> GitHubAppTokenProjection:
+        """Mint if needed and return the exact provider-reported scope."""
+
+        await self()
+        if self._projection is None:
+            raise GitHubAppTokenError("GitHub App token projection is unavailable")
+        return self._projection
 
     def _now(self) -> datetime:
         value = self._clock()
@@ -185,6 +205,26 @@ class GitHubAppTokenProvider:
             raise GitHubAppTokenError("GitHub App installation-token response omitted the token")
         if expires_at - now <= timedelta(seconds=self._config.refresh_skew_seconds):
             raise GitHubAppTokenError("GitHub App installation token expires inside refresh skew")
+        permissions = payload.get("permissions")
+        repository_selection = payload.get("repository_selection")
+        if (
+            not isinstance(permissions, dict)
+            or any(
+                not isinstance(key, str) or not isinstance(value, str)
+                for key, value in permissions.items()
+            )
+            or tuple(sorted((str(key), str(value)) for key, value in permissions.items()))
+            != self._config.permissions
+            or repository_selection != "selected"
+        ):
+            raise GitHubAppTokenError("GitHub App installation-token permission projection differs")
+        self._projection = GitHubAppTokenProjection(
+            installation_id=self._config.installation_id,
+            repository=self._config.repository,
+            repository_selection=repository_selection,
+            permissions=self._config.permissions,
+            expires_at=expires_at,
+        )
         return token.strip(), expires_at
 
 

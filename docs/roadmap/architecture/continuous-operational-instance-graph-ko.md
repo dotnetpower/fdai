@@ -1,6 +1,6 @@
 ---
 translation_of: continuous-operational-instance-graph.md
-translation_source_sha: 2183404d7d07f189d2ae4c0ded0e0f407a418409
+translation_source_sha: b0637be8a6633f296556533b6f33ea8179d61a15
 translation_revised: 2026-09-27
 ---
 # 지속형 운영 인스턴스 그래프
@@ -414,7 +414,7 @@ Kubernetes 보강을 동일한 순서의 파이프라인으로 구성합니다.
 
 실시간 delta는 최신성을 높이지만 전역 완전성을 증명하지 않습니다. 완전한 reconciliation
 세대는 포함된 overlay를 닫고 삭제를 확인하는 권위로 유지됩니다. promotion은 원자적이며,
-부분 또는 충돌 세대는 이전 완전 그래프를 대체할 수 없습니다.
+부분 또는 충돌 세대는 이전 완전 그래프를 대체할 수 없습니다. 독립 종결은 구독 식별자를 노출하지 않습니다. ResourceType filter가 없는 정규 lowercase `/subscriptions/<uuid>` root 하나를 요구하고 그 raw scope를 `scope_digest`로 해시하며 active promotion이 현재 시도보다 오래되지 않았을 때만 `fresh_generation=true`를 기록하고, 배포 조정기가 이 digest를 보호된 대상과 비교하게 합니다.
 
 리소스와 관계 변경은 논리 리소스별로 정렬합니다. 중복 전달은 no-op이고, 오래된 cursor 또는
 이전 이벤트는 인스턴스를 뒤로 이동시킬 수 없습니다. Tombstone은 원본, 유효 시간, 세대,
