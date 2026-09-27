@@ -17,6 +17,7 @@ from typing import Any
 from fdai_deployment_cli.contracts import canonical_digest, load_json_object
 from fdai_deployment_cli.plan_input import read_plan_input
 from fdai_deployment_cli.private_output import read_private_bytes, write_private_output
+from genesis_images import REQUIRED_IMAGES
 
 _REPOSITORY = re.compile(r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+")
 _COMMIT = re.compile(r"[0-9a-f]{40}")
@@ -64,11 +65,7 @@ def create_repository_config_plan(
     live = _object(preflight.get("azure_live"), "preflight Azure profile")
     live["resource_group"] = app["name"]
     preflight["generated_at"] = "resolved-by-protected-runner"
-    if set(image_refs) != {
-        "fdai-core-control-plane",
-        "fdai-operator-service",
-        "fdai-document-ingestion-api",
-    } or any(
+    if set(image_refs) != set(REQUIRED_IMAGES) or any(
         re.fullmatch(r"ghcr[.]io/[a-z0-9_.-]+/[a-z0-9_.-]+/[a-z0-9_.-]+@sha256:[0-9a-f]{64}", value)
         is None
         for value in image_refs.values()
@@ -109,6 +106,8 @@ def create_repository_config_plan(
         "OPERATOR_API_MIGRATION_IMAGE": image_refs["fdai-operator-service"],
         "INGESTION_IMAGE": image_refs["fdai-document-ingestion-api"],
         "INGESTION_MIGRATION_IMAGE": image_refs["fdai-document-ingestion-api"],
+        "DOCUMENT_PROCESSING_WORKER_IMAGE": image_refs["fdai-document-processing-worker"],
+        "ISOLATED_EXECUTOR_IMAGE": image_refs["fdai-isolated-executor"],
         "DEPLOY_PREFLIGHT_INPUT_JSON": json.dumps(preflight, sort_keys=True, separators=(",", ":")),
         "DEV_DEPLOY_REQUIRED_APPROVALS": "0",
         **entra_bindings,
@@ -407,6 +406,10 @@ def main() -> int:
             "fdai-core-control-plane": os.environ.get("FDAI_CORE_IMAGE", ""),
             "fdai-operator-service": os.environ.get("FDAI_OPERATOR_IMAGE", ""),
             "fdai-document-ingestion-api": os.environ.get("FDAI_INGESTION_IMAGE", ""),
+            "fdai-document-processing-worker": os.environ.get(
+                "FDAI_DOCUMENT_PROCESSING_WORKER_IMAGE", ""
+            ),
+            "fdai-isolated-executor": os.environ.get("FDAI_ISOLATED_EXECUTOR_IMAGE", ""),
         },
         entra_bindings=json.loads(os.environ.get("FDAI_ENTRA_BINDINGS_JSON", "{}")),
     )
