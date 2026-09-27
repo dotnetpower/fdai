@@ -43,6 +43,7 @@ remain unchanged.
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-27 | implemented | Reused the Foundation-owned operations Blob private DNS zone for focused document recovery instead of attempting a second same-namespace link to the runner VNet. The access target now writes the document endpoint A record into that existing zone. | `current change`; focused Terraform/target regressions and a live verification-only residual plan narrowed to the conflicting duplicate link. | Deliver through protected CI, rebuild the exact kit, and retain access readback plus zero-change evidence from a new source-bound context. |
 | 2026-09-27 | implemented | Added a distinct exact `access` plan/apply/readback stage for focused private recovery so endpoint, DNS, peering and deployer data roles converge before Key Vault secrets or ADLS filesystems and paths. | `current change`; focused stage targets/readback/approval/orchestration tests and live endpoint-converged/data-plane-race evidence. | Deliver through protected CI, rebuild the exact kit, and retain access-stage plus substrate zero-change receipts. |
 | 2026-09-27 | implemented | Extended focused AKS policy recovery to an existing public-disabled document storage account, creating only Blob/DFS endpoints, DNS links and the already shared runner/application peering. Selectors now validate bounded management JSON instead of relying on provider-specific query flattening. | `current change`; focused name/readback/Terraform contracts, native Terraform validation, and live public-disabled/no-endpoint plus failed ADLS probe. | Deliver through protected CI, rebuild the exact kit, and retain document endpoint, DNS, filesystem/path, and residual zero-change evidence. |
 | 2026-09-27 | implemented | Added a focused AKS Key Vault private-access recovery axis selected only when authoritative readback finds the exact existing vault public-disabled. It creates only the required Key Vault endpoint, DNS links and runner/application peering, and binds the selection into retained context. | `current change`; focused CLI/value/Terraform contract tests, native Terraform validation, and live `ForbiddenByConnection` plus public-disabled/no-endpoint readback. | Deliver through protected CI, rebuild the exact kit, and retain the separately approved focused network repair and secret-write readback. |
@@ -213,7 +214,10 @@ and records each selection in retained context. It does not silently promote the
 to the detailed private-network profile. Each repair remains part of the separately reviewed
 residual plan. A focused repair runs through a distinct exact `access` plan and approval before the
 ordinary substrate plan. Completion requires read-only data-plane probes from the managed host, so
-secret and filesystem creation cannot race endpoint, DNS or peering propagation.
+secret and filesystem creation cannot race endpoint, DNS or peering propagation. When Foundation
+already owns the runner VNet's Blob-zone link, focused recovery keeps that link singular and writes
+the document endpoint A record into the existing operations zone; the DFS zone retains its separate
+runner link.
 The invocation budget begins before preparation. Approval waits and application handoff use
 current remaining time; an expired budget starts no next stage and cannot produce readiness.
 Application confirmation requires a real terminal and one at-most-ten-minute window shared by

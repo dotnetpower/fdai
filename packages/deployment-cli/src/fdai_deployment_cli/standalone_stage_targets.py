@@ -53,6 +53,7 @@ _SUBSTRATE_TARGETS: Final = (
     "module.document_storage",
     "module.document_blob_private_endpoint",
     "module.document_dfs_private_endpoint",
+    "azurerm_private_dns_a_record.document_blob_ops",
     "azurerm_role_assignment.ingestion_document_data",
     "azurerm_role_assignment.ingestion_worker_document_data",
     "azurerm_key_vault_secret.ingestion_api_dsn",
@@ -112,6 +113,7 @@ def focused_access_targets(context: dict[str, object]) -> tuple[str, ...]:
                 "module.document_blob_private_endpoint",
                 "module.document_dfs_private_endpoint",
                 "module.document_storage[0].azurerm_role_assignment.deployer_data_owner",
+                "azurerm_private_dns_a_record.document_blob_ops",
             )
         )
     targets.extend(
