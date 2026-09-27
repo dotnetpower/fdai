@@ -19,6 +19,25 @@ def test_private_networking_closes_event_hubs_and_wires_shared_dns() -> None:
     assert "module.event_bus_private_endpoint[0].private_dns_zone_id" in root
 
 
+def test_aks_key_vault_policy_recovery_is_focused() -> None:
+    root = (_ROOT / "infra" / "main.tf").read_text(encoding="utf-8")
+    variables = (_ROOT / "infra" / "variables.tf").read_text(encoding="utf-8")
+
+    assert 'variable "enable_aks_key_vault_private_access"' in variables
+    assert (
+        "key_vault_private_access = "
+        "var.enable_private_networking || var.enable_aks_key_vault_private_access"
+    ) in root
+    assert "public_network_access_enabled = !local.key_vault_private_access" in root
+    assert (
+        'network_acls_default_action   = local.key_vault_private_access ? "Deny" : "Allow"' in root
+    )
+    assert "count                 = local.key_vault_private_access ? 1 : 0" in root
+    assert "peer_hub              = local.key_vault_private_access" in root
+    assert 'check "aks_key_vault_private_access_runner_path"' in root
+    assert "public_network_access_enabled = !var.enable_private_networking" in root
+
+
 def test_public_mode_postgres_gets_additive_private_endpoint() -> None:
     root = (_ROOT / "infra" / "main.tf").read_text(encoding="utf-8")
 
