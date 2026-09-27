@@ -60,11 +60,7 @@ substitutes the node identity or local Azure CLI; local credential policy stays 
   Private AKS assurance wording may start from an explicitly requested Azure CLI list, but target admission still requires an exact active-inventory provider reference and reviewed `workload_runs_on` plus `implemented_by` path. CLI names never create graph facts or prove freshness.
 - **Safe enrichment:** A live read can support the current answer and publishes a typed observation
   through the same ingress. A partial read cannot replace a complete generation or delete an
-  unobserved object or relationship. A requested-resource-type snapshot remains ineligible to
-  promote the global inventory generation. An exact-revision certification may promote that
-  bounded snapshot only inside its task-owned isolated store; the certification receipt carries
-  no observation or action authority, and exact cleanup removes the store. Runtime environment
-  bindings can participate in an in-memory,
+  unobserved object or relationship. A requested-resource-type snapshot remains ineligible to promote the global inventory generation. An exact-revision certification may promote that bounded snapshot only inside its task-owned isolated store; the certification receipt carries no observation or action authority, and exact cleanup removes the store. Runtime environment bindings can participate in an in-memory,
   exact-identity relationship join, but their names and values are redacted before inventory
   snapshot or ontology persistence, including both ordinary and initialization containers. When the exact-resource live provider declines a broader secured set, the query hold retains the initial freshness, completeness, conflict, and synthetic-evidence reasons instead of reporting only a generic refresh failure.
 - **Time and provenance:** Every fact retains effective, provider-event, observation, FDAI-ingestion,
