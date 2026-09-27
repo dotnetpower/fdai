@@ -1,11 +1,15 @@
 from __future__ import annotations
 
+import json
+import os
 import re
 import runpy
 import shutil
 import subprocess
 import sys
 from pathlib import Path
+
+import pytest
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 LAB_ROOT = REPO_ROOT / "infra" / "scenario-lab"
@@ -541,28 +545,40 @@ def test_runner_scripts_fail_before_external_commands_without_authority() -> Non
     assert "existing absolute non-root output directory is required" in cleanup.stderr
 
 
-def test_live_runner_records_current_approval_reference() -> None:
-    runner = (REPO_ROOT / "scripts" / "catalog" / "run-enforce-scenarios.py").read_text(
-        encoding="utf-8"
+@pytest.mark.parametrize(
+    ("driver", "reason"),
+    [
+        ("run-enforce-scenarios.py", "raw_harness_driver_retired"),
+        ("measure-detection-latency.py", "raw_injection_driver_retired"),
+    ],
+)
+def test_raw_reference_drivers_refuse_live_runs_until_ported(driver: str, reason: str) -> None:
+    script = REPO_ROOT / "scripts" / "catalog" / driver
+    result = subprocess.run(  # noqa: S603 - fixed repository script and interpreter.
+        [sys.executable, str(script), "aks-pod-kill"],
+        cwd=REPO_ROOT,
+        capture_output=True,
+        text=True,
+        check=False,
+        env={"PATH": os.environ.get("PATH", "")},
     )
-    latency_runner = (REPO_ROOT / "scripts" / "catalog" / "measure-detection-latency.py").read_text(
-        encoding="utf-8"
-    )
+
+    refusal = json.loads(result.stderr)
+    assert result.returncode == 3
+    assert refusal["outcome"] == "refused"
+    assert refusal["reason"] == reason
+    assert refusal["mutation_attempted"] is False
+    assert "GovernedChaosExecutionAdapter" in refusal["detail"]
+    assert result.stdout == ""
+
+
+def test_reference_sweep_passes_the_current_approval_claim() -> None:
     sweep = SWEEP_SCRIPT.read_text(encoding="utf-8")
 
-    assert 'APPROVAL_REF = _env("FDAI_ENFORCE_APPROVAL_REF")' in runner
-    assert 'd["approval_ref"] = APPROVAL_REF' in runner
-    for source in (runner, latency_runner):
-        assert 'BACKEND_CONTAINER = _env("FDAI_ENFORCE_BACKEND_CONTAINER")' in source
-        assert 'BACKEND_IMAGE = _env("FDAI_ENFORCE_BACKEND_IMAGE")' in source
-        assert "container=BACKEND_CONTAINER" in source
-        assert 'bad_image=f"{BACKEND_IMAGE}:does-not-exist-' in source
     assert 'export FDAI_ENFORCE_APPROVAL_REF="$approval_ref"' in sweep
     assert 'SCENARIO_LAB_CONFIRM_ENFORCE:-}" != "true"' in sweep
     assert "SCENARIO_LAB_SCENARIO_ID:-all" in sweep
     assert 'scenario_args+=("$scenario_id")' in sweep
-    assert 'os.environ.get("FDAI_ENFORCE_REPORT_ROOT")' in runner
-    assert "must be an absolute non-root path" in runner
     prepare = PREPARE_SCRIPT.read_text(encoding="utf-8")
     assert "helm show chart chaos-mesh/chaos-mesh" in prepare
     assert "az helm jq kubectl kubelogin python3 terraform" in prepare

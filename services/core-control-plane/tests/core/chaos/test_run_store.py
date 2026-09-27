@@ -4,7 +4,7 @@ from datetime import UTC, datetime, timedelta
 
 import pytest
 from fdai.core.chaos.run_state import ChaosRunSnapshot, ChaosRunState
-from fdai.core.chaos.run_store import ChaosRunConflictError, ChaosRunStore
+from fdai.core.chaos.run_store import ChaosRunClaimError, ChaosRunConflictError, ChaosRunStore
 from fdai.shared.providers.testing.state_store import InMemoryStateStore
 
 _NOW = datetime(2026, 7, 31, tzinfo=UTC)
@@ -69,3 +69,52 @@ async def test_transition_reconciles_duplicate_retry() -> None:
         at=_NOW,
     )
     assert retried == first
+
+
+async def test_exclusive_transition_rejects_every_caller_that_did_not_apply_it() -> None:
+    store = ChaosRunStore(state_store=InMemoryStateStore())
+    approved = await store.create(run_id="run-1", at=_NOW)
+    for state in (
+        ChaosRunState.IMPACT_CHECKED,
+        ChaosRunState.DRY_RUN_VERIFIED,
+        ChaosRunState.APPROVED,
+    ):
+        approved = await store.transition(
+            approved,
+            target=state,
+            idempotency_key=f"run-1:{state.value}",
+            at=_NOW,
+        )
+
+    winner = await store.transition(
+        approved,
+        target=ChaosRunState.INJECTING,
+        idempotency_key="run-1:injecting",
+        at=_NOW,
+        exclusive=True,
+    )
+
+    assert winner.state is ChaosRunState.INJECTING
+    with pytest.raises(ChaosRunClaimError, match="another writer"):
+        await store.transition(
+            approved,
+            target=ChaosRunState.INJECTING,
+            idempotency_key="run-1:injecting",
+            at=_NOW,
+            exclusive=True,
+        )
+    with pytest.raises(ChaosRunClaimError, match="already recorded"):
+        await store.transition(
+            winner,
+            target=ChaosRunState.INJECTING,
+            idempotency_key="run-1:injecting",
+            at=_NOW,
+            exclusive=True,
+        )
+    reconciled = await store.transition(
+        approved,
+        target=ChaosRunState.INJECTING,
+        idempotency_key="run-1:injecting",
+        at=_NOW,
+    )
+    assert reconciled == winner

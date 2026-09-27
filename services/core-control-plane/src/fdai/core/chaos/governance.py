@@ -30,6 +30,10 @@ class ChaosEligibilityContext:
     approval_principal: str
     approver_ids: tuple[str, ...]
     initiator_id: str
+    autonomy_ceiling_enforce: bool
+    """The ActionType ceiling for the request's trust tier permits enforcement."""
+    mutation_targets_approved: bool
+    """Every resource the bound injector mutates is one of the explicit targets."""
     production_or_stateful: bool = False
 
 
@@ -57,6 +61,8 @@ def evaluate_chaos_eligibility(context: ChaosEligibilityContext) -> ChaosEligibi
         "kill_switch_active": context.kill_switch_clear,
         "stop_conditions_unavailable": context.stop_conditions_ready,
         "audit_unavailable": context.audit_ready,
+        "autonomy_ceiling_not_enforce": context.autonomy_ceiling_enforce,
+        "mutation_targets_unapproved": context.mutation_targets_approved,
     }
     reasons.extend(reason for reason, passed in boolean_gates.items() if not passed)
     required_strings = {

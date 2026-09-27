@@ -1,8 +1,8 @@
 ---
 title: 리포팅 서브시스템
 translation_of: reporting-subsystem.md
-translation_source_sha: 576321003414a5085c3d412f0acf7abe30298739
-translation_revised: 2026-09-22
+translation_source_sha: ae84b09dd386c18aa8cc15b32cf251d2d03fedbf
+translation_revised: 2026-09-28
 ---
 # 리포팅 서브시스템
 
@@ -90,7 +90,9 @@ Chaos Enforce Results 리포트는 완료된 장애 주입 결과를 측정된 �
 제공합니다. 시나리오 실행기는 정확한 필드, 형식, 타임스탬프, 크기 및 중복 키
 검증을 통과한 범위가 제한된 리포트만 가져옵니다. Core는 각 결과를
 `report_signal`로 보존합니다. 이 가져오기는 Incident, 감사 항목, 추적, 승격 결정
-또는 자동 해결 주장을 만들지 않습니다.
+또는 자동 해결 주장을 만들지 않습니다. 이 리포트를 만들던 기존 참조 sweep
+드라이버는 통제된 카오스 어댑터 위로 이관될 때까지 모든 실제 실행을 거부하므로,
+그동안 새 측정 결과는 들어오지 않습니다.
 
 독립 Operator Service는 `operator_chaos_report_signal` 보안 장벽 보기를 통해 이
 레코드를 읽습니다. 서비스 역할은 Core의 `report_signal` 테이블이 아니라 보기에
@@ -598,9 +600,12 @@ shipped된 서브시스템을 OWASP + `app-shape` 관점에서 체계적으로
 | 2026-08-15 | validated | Built-in Incident dossier에 대한 인증된 inventory, registry, audit-backed render, Console, PDF 및 no-RCA 사용 불가 근거를 보존했습니다. | `current change`; `docs/baselines/incident-rca-report-assurance-2026-08-15.json`; source `014974045e70e35c26e489fa238345cf70bc3ca3`에 중앙 receipt가 있습니다. | 더 넓은 프로덕션 데이터 원본 캠페인은 아래 열린 항목으로 유지합니다. |
 | 2026-08-15 | implemented | format 모듈이 정확히 하나의 `FormatEncoder`를 제공하고, 내보내진 뒤 등록되거나 opt-in으로 문서화되며, `core/reporting`과 공유 계약 밖의 어떤 것도 import하지 않도록 `check-report-format-boundary` 게이트를 추가했습니다. | `current change`; `scripts/quality/architecture/check-report-format-boundary.py`; `pytest tests/integration/scripts/test_report_format_boundary.py` (5 passed); pre-commit, `verify.sh`, CI 연결. | 프로덕션 데이터 원본 및 인증된 표면 증적은 계속 열려 있습니다. |
 | 2026-09-21 | implemented | 엄격한 카오스 적용 리포트 가져오기, SELECT-only Operator 변환 결과 및 제한된 구간의 측정된 Console 리포트를 추가했습니다. | `current change`; 가져오기, report-feed, Operator 변환 결과 및 마이그레이션 경로; focused pytest, Ruff 및 strict mypy 검사입니다. | 아래 데이터 원본 근거 항목에 따라 관리되는 프로덕션 렌더링 증적을 보존해야 합니다. |
+| 2026-09-28 | implemented | 카오스 적용 리포트를 만들던 기존 참조 sweep 드라이버는 통제된 카오스 어댑터 위로 이관될 때까지 모든 실제 실행을 거부합니다. 가져오기, Operator 변환 결과, Console 리포트는 바뀌지 않았지만 그동안 새 측정 결과는 들어오지 않습니다. | `current change`: `scripts/catalog/run-enforce-scenarios.py`, `tests/integration/infra/test_scenario_lab.py`입니다. 집중 scenario-lab 계약 테스트를 통과했습니다. | Sweep이 `GovernedChaosExecutionAdapter` 위로 이관된 뒤에만 통제된 실행에서 측정된 카오스 결과를 다시 받습니다([#94](https://github.com/dotnetpower/fdai/issues/94)). |
 
 ### 남은 작업
 
+- [ ] 참조 sweep이 `GovernedChaosExecutionAdapter` 위로 이관되면 통제된 실행에서 측정된 카오스
+  적용 결과를 다시 받습니다([#94](https://github.com/dotnetpower/fdai/issues/94)).
 - [ ] 각 프로덕션 데이터 원본에 대해 source 신원, cutoff, 최신성, 사용 불가 및 시간 초과 동작, 부분 widget 격리 및 synthetic-to-live 대체 부재를 보여주는 관리되는 render 증적을 보존합니다.
 - [ ] Report inventory, 명시적 사용 불가 report 선택, variable 차단, 알 수 없는 format, render 오류 격리 및 읽기 전용 method 적용에 대한 인증된 Operator API 및 Console 증적을 보존합니다.
 - [x] `pdf`를 표시하기 전에 선택적 PDF delivery 모듈, registry 연결, package extra, 인증된 GET-only 컨트롤 및 focused escape, 다이제스트, 페이지 나누기, 사용 불가 섹션, 분석 부재, no-network 테스트를 구현합니다.

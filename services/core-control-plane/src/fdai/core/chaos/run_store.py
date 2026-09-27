@@ -13,6 +13,10 @@ class ChaosRunConflictError(RuntimeError):
     """A concurrent writer advanced the chaos run revision."""
 
 
+class ChaosRunClaimError(ChaosRunConflictError):
+    """This caller did not apply an exclusive transition; another writer owns it."""
+
+
 class ChaosRunStore:
     def __init__(self, *, state_store: StateStore) -> None:
         self._store = state_store
@@ -46,7 +50,17 @@ class ChaosRunStore:
         target: ChaosRunState,
         idempotency_key: str,
         at: datetime,
+        exclusive: bool = False,
     ) -> ChaosRunSnapshot:
+        """Apply one audited transition.
+
+        A retried transition whose key another writer already recorded is
+        reconciled as success. With ``exclusive=True`` only the caller whose
+        compare-and-swap applied the transition succeeds; every other caller,
+        including one replaying an already recorded key, gets
+        :class:`ChaosRunClaimError`.
+        """
+
         updated = transition_chaos_run(
             snapshot,
             target=target,
@@ -54,6 +68,8 @@ class ChaosRunStore:
             at=at,
         )
         if updated is snapshot:
+            if exclusive:
+                raise ChaosRunClaimError("exclusive chaos transition was already recorded")
             return snapshot
         applied = await self._store.compare_and_set_state_with_audit(
             _key(snapshot.run_id),
@@ -62,6 +78,8 @@ class ChaosRunStore:
             audit_entry=_audit(updated, from_state=snapshot.state),
         )
         if not applied:
+            if exclusive:
+                raise ChaosRunClaimError("another writer applied the exclusive chaos transition")
             current = await self.get(snapshot.run_id)
             if (
                 current is not None
@@ -128,4 +146,4 @@ def _audit(
     }
 
 
-__all__ = ["ChaosRunConflictError", "ChaosRunStore"]
+__all__ = ["ChaosRunClaimError", "ChaosRunConflictError", "ChaosRunStore"]

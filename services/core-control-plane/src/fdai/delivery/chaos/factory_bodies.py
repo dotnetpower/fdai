@@ -232,6 +232,10 @@ metadata:
 spec:
   action: {action}
   mode: one
+  selector:
+    namespaces: [{ctx["workload_namespace"]}]
+    labelSelectors:
+      app: {ctx["workload_label"]}
   delay:
     latency: "{delay}"
   volumeName: {volume}

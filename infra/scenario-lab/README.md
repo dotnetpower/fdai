@@ -186,8 +186,10 @@ export FDAI_DEV_ACCESS_EXTRA_DNS_DOMAINS_JSON="$(
 bash tools/dev-access/scripts/wsl-dns.sh apply
 ```
 
-The workstation can then prepare the same environment and run one approved scenario or the full
-reference sweep:
+The workstation can then prepare the same environment. The reference sweep driver,
+`scripts/catalog/run-enforce-scenarios.py`, currently refuses every live run with exit status 3
+until it is ported onto `GovernedChaosExecutionAdapter`, so the sweep below and the protected
+workflow's sweep step fail closed without injecting a fault:
 
 ```bash
 runtime_dir="$(mktemp -d)"
@@ -212,7 +214,7 @@ summary artifact with no environment identifiers or secret values.
 - Plan is the default operation. Apply, live testing, and destroy require the protected
   `scenario-lab` environment.
 - A live sweep requires both `SCENARIO_LAB_CONFIRM_ENFORCE=true` and a bounded human approval
-  reference. The approval reference is recorded in every run result.
+  reference, and it cannot inject until the sweep is ported onto the governed chaos adapter.
 - Terraform generates the MySQL password inside encrypted private state. The sensitive composite
   output is read only on the private runner and writes the value directly to a mode-0600 temporary
   file; it is never a workflow input, command-line argument, repository-safe artifact, or committed

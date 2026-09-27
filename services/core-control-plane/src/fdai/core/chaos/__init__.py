@@ -39,13 +39,14 @@ from fdai.core.chaos.injector import (
     ExperimentRecorder,
     FaultInjector,
     InMemoryExperimentRecorder,
+    MutationScopedInjector,
     NoSignalProbe,
     ShadowFaultInjector,
     SignalProbe,
 )
 from fdai.core.chaos.promotion_guard import ChaosPromotionGuard, ChaosPromotionObservation
 from fdai.core.chaos.run_state import ChaosRunSnapshot, ChaosRunState, transition_chaos_run
-from fdai.core.chaos.run_store import ChaosRunConflictError, ChaosRunStore
+from fdai.core.chaos.run_store import ChaosRunClaimError, ChaosRunConflictError, ChaosRunStore
 from fdai.core.chaos.runner import GovernedChaosRunner, GovernedChaosRunResult
 from fdai.core.chaos.scenarios import (
     AKS_BAD_DEPLOY,
@@ -79,6 +80,7 @@ __all__ = [
     "ChaosPromotionObservation",
     "ChaosRunSnapshot",
     "ChaosRunState",
+    "ChaosRunClaimError",
     "ChaosRunConflictError",
     "ChaosRunStore",
     "ChaosStopEvent",
@@ -98,6 +100,7 @@ __all__ = [
     "ImpactGuard",
     "ImpactObservation",
     "InMemoryExperimentRecorder",
+    "MutationScopedInjector",
     "NoSignalProbe",
     "ShadowFaultInjector",
     "SignalProbe",

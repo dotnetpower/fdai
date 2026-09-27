@@ -41,6 +41,20 @@ class FaultInjector(Protocol):
 
 
 @runtime_checkable
+class MutationScopedInjector(Protocol):
+    """An injector that declares every concrete resource its inject/stop mutate.
+
+    Governed enforcement binds locks, approval, recovery, and blast radius to
+    explicit targets, so an injector that cannot name what it mutates is
+    never eligible for a live run.
+    """
+
+    def mutated_resources(self, *, target: str) -> tuple[str, ...]:
+        """Return the canonical identities mutated when injecting ``target``."""
+        ...
+
+
+@runtime_checkable
 class SignalProbe(Protocol):
     """Report whether the expected detection signal fired during a run."""
 
@@ -123,6 +137,7 @@ __all__ = [
     "ExperimentRecorder",
     "FaultInjector",
     "InMemoryExperimentRecorder",
+    "MutationScopedInjector",
     "NoSignalProbe",
     "ShadowFaultInjector",
     "SignalProbe",
