@@ -32,6 +32,22 @@ TOOLCHAIN_DIGEST = "d" * 64
 TOKEN = "synthetic-short-lived-registration-material"
 
 
+def test_stable_host_key_alias_is_shared_and_vm_bound() -> None:
+    vm_id = (
+        "/subscriptions/example/resourceGroups/rg/providers/Microsoft.Compute/virtualMachines/vm"
+    )
+
+    alias = bastion_transport.stable_host_key_alias(vm_id)
+
+    assert alias == bastion_transport.stable_host_key_alias(vm_id.upper())
+    assert alias.startswith("fdai-genesis-")
+    assert len(alias) == len("fdai-genesis-") + 16
+    with pytest.raises(ValueError, match="VM resource id"):
+        bastion_transport.stable_host_key_alias("")
+    with pytest.raises(ValueError, match="VM resource id"):
+        bastion_transport.stable_host_key_alias("vm\nother")
+
+
 def _private_json(path: Path, value: dict[str, object]) -> None:
     write_private_output(path, json.dumps(value, sort_keys=True, separators=(",", ":")) + "\n")
 

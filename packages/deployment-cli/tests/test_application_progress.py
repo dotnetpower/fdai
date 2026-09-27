@@ -43,8 +43,8 @@ def test_managed_host_failure_stays_on_current_phase(tmp_path, monkeypatch, fail
     }
 
     class Tunnel:
-        def __init__(self, **_kwargs):
-            pass
+        def __init__(self, **kwargs):
+            assert kwargs["host_key_alias"] == "fdai-genesis-example"
 
         def __enter__(self):
             return self
@@ -56,6 +56,7 @@ def test_managed_host_failure_stays_on_current_phase(tmp_path, monkeypatch, fail
             return subprocess.CompletedProcess(command, int(failure == "cleanup"), stdout="")
 
     module = SimpleNamespace(
+        stable_host_key_alias=lambda _vm_id: "fdai-genesis-example",
         validate_known_hosts=lambda _path: None,
         validate_ssh_private_key=lambda _path: "d" * 64,
         BastionTunnel=Tunnel,

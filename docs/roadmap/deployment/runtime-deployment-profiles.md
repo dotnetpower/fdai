@@ -145,6 +145,13 @@ Both profiles retain a content-bound delivery marker before graph commit and rec
 Connected deployments for both runtime profiles boot the managed host from an exact Azure
 Marketplace Ubuntu version and install the checksum-pinned toolchain during Foundation. They do
 not build or require a dedicated managed-host image. Artifact-offline deployments can still select a separately verified prebuilt host image when bootstrap downloads are unavailable.
+Enrollment and every later application transfer reuse the same VM-bound `fdai-genesis-*` SSH
+host-key alias and attested known-hosts file; runtime selection never permits a second alias or
+first-contact trust.
+Runtime-profile validation exercises that shared alias before all eleven application phase
+outcomes so a transport collaborator change cannot bypass the phase-specific failure contract.
+It also runs the four transfer deadline outcomes, preserving the same alias contract across
+successful, expired-budget, and ambiguous-transfer paths.
 After application convergence, the managed host invokes the Core inventory entry point in explicit `--initial` mode, bypassing only the recurring due-time gate. It uses the already authenticated deploy identity for full-subscription ARG/ARM reads and immutable progress writes, then starts a separate read-only closure process. The recurring runtime schedule and its workload identity remain unchanged; the bootstrap path grants no ongoing deployment authority to the inventory workload. Presentation and integration contracts account for this as the sixteenth phase and for `provisioning-events` as the third private Foundation container; older additive receipt doubles may omit `inventory_ready` without being interpreted as ready. After an initial or recurring scan projects a complete promoted generation, the focused `inventory_ontology_observer.py` delivery module publishes one retry-stable Resource observation Event per Resource to the existing control-loop topic while the CLI remains composition-only. Forseti remains the rule judge, Saga remains the audit owner, and an incomplete projection or publication failure cannot satisfy inventory closure or create execution authority.
 
 On AKS, the managed host derives one content-addressed Job from the exact deployed inventory
