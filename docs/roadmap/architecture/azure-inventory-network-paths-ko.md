@@ -1,7 +1,7 @@
 ---
 title: 제한된 네트워크의 Azure 인벤토리
 translation_of: azure-inventory-network-paths.md
-translation_source_sha: 17228f98118ef05395057aa1f72ba5bca67b3858
+translation_source_sha: dfbb6978ef5744b6c675e68f1e03482235af6080
 translation_revised: 2026-09-27
 ---
 # 제한된 네트워크의 Azure 인벤토리
@@ -38,6 +38,8 @@ FDAI는 네트워크 도달성, 아이덴티티, 수집, 프로젝션을 별도 
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-27 | implemented | migration이 데이터베이스에 도달한 뒤 `vector` 생성이 거부된 결과에 따라 정확한 Azure PostgreSQL 확장 허용 목록과 단일 주소 복구 계획 게이트를 추가했습니다. | `current change`, 집중 계획 게이트 검사와 Terraform 검증. | 병합한 뒤 migration을 다시 실행하기 전에 확장 configuration만 적용합니다. |
+| 2026-09-27 | in-progress | 두 번째 migration 실행은 DSN 구문 분석과 비공개 연결을 통과했지만 `vector`가 허용 목록에 없어 스키마 생성 전에 중단됐습니다. 후보 migration 이미지는 검토를 위해 연결된 상태로 남았고 캠페인 작업은 시작하지 않았습니다. | 정확한 migration 실행과 정제된 데이터베이스 오류. | 범위가 제한된 확장 복구 계획을 적용하고 변경 0건을 검증한 뒤 migration을 다시 실행합니다. |
 | 2026-09-27 | implemented | 추가 apply 없이 인증 루트를 권위 있는 Azure 재확인과 맞췄습니다. 명시적인 Consumption 워크로드 프로필과 delegation actions, 보존된 PostgreSQL zone, 정책 관리 태그 및 service endpoint의 수명 주기 보존을 추가했습니다. | `current change`, apply 후 표류 필드 재확인과 집중 Terraform 검사. | 병합한 뒤 보존된 복구 state에서 plan-only 검증을 실행합니다. |
 | 2026-09-27 | in-progress | 복구 create 계획은 성공적으로 적용돼 Terraform state 주소 37개와 태그가 있는 Azure 리소스 13개를 만들었지만, 첫 apply 후 계획에서 프로바이더 또는 정책 정규화 update 6개를 발견했습니다. 캠페인 작업은 시작하지 않았습니다. | 관리 호스트 apply claim, state, Azure 재확인, apply 후 계획 로그. | 수정된 원본이 변경 0건인 계획을 만들 때까지 샌드박스를 그대로 유지합니다. |
 | 2026-09-27 | implemented | 공유 DNS를 건드리지 않도록 샌드박스 설계를 복구했습니다. PostgreSQL은 요청마다 고유한 비공개 영역을 사용하고, Blob은 원래 hostname을 TLS SNI와 HTTP Host로 검증하면서 정확한 비공개 엔드포인트 IP에 연결하며, 캠페인 Reader는 애플리케이션 리소스 그룹으로 제한합니다. | `current change`, 집중 전송 검사, Terraform 검증, Trivy 및 Checkov 실패 발견 사항 0건. | 새 exact 요청을 병합하고 실행하며 실패한 계획은 재사용하지 않습니다. |

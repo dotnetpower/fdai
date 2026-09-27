@@ -31,6 +31,19 @@ def test_exact_plan_is_accepted(mode: str, action: str) -> None:
     _MODULE.verify_plan(_plan(action), mode=mode)
 
 
+def test_exact_extension_recovery_is_accepted() -> None:
+    plan = {
+        "resource_changes": [
+            {
+                "address": "azurerm_postgresql_flexible_server_configuration.extensions",
+                "change": {"actions": ["create"]},
+            }
+        ]
+    }
+
+    _MODULE.verify_plan(plan, mode="extension-recovery")
+
+
 def test_unreviewed_address_is_rejected() -> None:
     plan = _plan("create")
     plan["resource_changes"].append(
