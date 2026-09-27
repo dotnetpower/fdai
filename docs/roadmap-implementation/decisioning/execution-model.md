@@ -52,3 +52,12 @@ and resumable work while the roadmap owner remains focused on normative design.
   ActionType declares it and `resolve_ceiling` has no narrowing axis producer.
 - [ ] Run the #633 campaign on one pinned, protected, deployed revision and complete an
   independent review before changing FDAI-CONST-007 from `partial`.
+- [ ] [#1206](https://github.com/dotnetpower/fdai/issues/1206): Either adopt the authoritative dev
+  deployment state with an exact plan that adds only the executor identity's Tag Contributor
+  assignment on the allowlisted development resource group and the #1211 gateway code, or approve
+  a fresh exact costed plan whose executor assignments on that resource group are exactly Network
+  Contributor, Virtual Machine Contributor, and Tag Contributor. Because the identity also holds
+  compute and network rights, retain effective-permission readback on a selected target type
+  outside compute and network proving one validated tag merge succeeds while general mutation of
+  that target is denied. Automatic enforcement stays behind the unchanged O7 observation receipt
+  and separate promotion approval.
