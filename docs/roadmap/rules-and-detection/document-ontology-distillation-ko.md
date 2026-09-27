@@ -1,7 +1,7 @@
 ---
 translation_of: document-ontology-distillation.md
-translation_source_sha: e7871e85475708386c00bcedc518556da123f057
-translation_revised: 2026-09-16
+translation_source_sha: 75a8896336c3ec3a977eb56291cb0c6c5e43daef
+translation_revised: 2026-09-28
 ---
 # 문서 온톨로지 증류
 
@@ -592,7 +592,7 @@ D4d 실제 운영 검사는 세 pinned 배포 모두에서 Entra-authenticated s
 - [ ] [#458](https://github.com/dotnetpower/fdai/issues/458) 및 [#424](https://github.com/dotnetpower/fdai/issues/424)의 배포 원본 ACL, 법적 보존 해제/삭제, 코호트 근거를 보존합니다.
 - [x] 필수 PDF, Office, OCR, 한국어 구획에 합성 주석을 추가하고 결정론적으로 연결된 프로바이더로 말뭉치 게이트를 통과했습니다(`47 passed`).
 - [x] 문서화된 격리 작업자 경계에서 신뢰할 수 없는 native PDF를 구문 분석하고 실패 시 차단되는 손상 문서 및 페이지 상한 근거를 보존했습니다.
-- [ ] 승격 검토 전에 최소 30개의 서로 다른 live-shadow 일자와 적격 검토 제안 500건을 방어 규칙 위반 없이 보존합니다.
+- [ ] [#1118](https://github.com/dotnetpower/fdai/issues/1118): 승격 검토 전에 최소 30개의 서로 다른 live-shadow 일자와 적격 검토 제안 500건을 방어 규칙 위반 없이 보존합니다.
 - [x] 현재 독립 검증된 모델 가격이 없으면 배포 가용성을 미통과로 유지합니다. 오래됐거나 날조됐거나 비용이 선택 사항이거나 맥락이 일치하지 않는 근거는 게이트를 통과할 수 없습니다.
 
 ## 관련 문서
