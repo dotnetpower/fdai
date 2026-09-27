@@ -30,7 +30,7 @@ from .graph_refresh_audit import (
 )
 from .models import ObjectSelectorKind, ObjectSetDefinition
 from .query_execution import QueryNodeHeldError
-from .query_gateway import SecuredObjectSetQueryGateway, SecuredObjectSetQueryResult
+from .query_gateway import SecuredObjectSetQueryResult
 
 
 class BoundedGraphLiveRefreshProvider(Protocol):
@@ -44,13 +44,24 @@ class BoundedGraphLiveRefreshProvider(Protocol):
     ) -> bool: ...
 
 
+class SecuredGraphQueryGateway(Protocol):
+    """Materialize one principal-scoped ObjectSet for bounded re-query."""
+
+    async def materialize(
+        self,
+        definition: ObjectSetDefinition,
+        *,
+        projection_request: ProjectionRequest,
+    ) -> SecuredObjectSetQueryResult: ...
+
+
 class SecuredGraphEvidenceQueryRefresher:
     """Apply the five-outcome policy and perform at most one bounded live refresh."""
 
     def __init__(
         self,
         *,
-        gateway: SecuredObjectSetQueryGateway,
+        gateway: SecuredGraphQueryGateway,
         live_provider: BoundedGraphLiveRefreshProvider | None = None,
         deadline_ms: int = 5_000,
         live_read_budget_ms: int = 3_000,
@@ -389,5 +400,6 @@ def _freshness(
 
 __all__ = [
     "BoundedGraphLiveRefreshProvider",
+    "SecuredGraphQueryGateway",
     "SecuredGraphEvidenceQueryRefresher",
 ]

@@ -28,6 +28,7 @@ from fdai.delivery.persistence.postgres_inventory_snapshot import (
     PostgresInventorySnapshotStore,
     PostgresInventorySnapshotStoreConfig,
 )
+from fdai.delivery.semantic_refresh_certification import certify_semantic_graph_refresh
 from fdai.shared.providers.inventory import InventoryBatch
 from fdai.shared.providers.inventory_snapshot import (
     InventoryAttemptFailure,
@@ -80,6 +81,7 @@ class InventoryNetworkCampaignObservation:
     baseline: InventoryNetworkStage
     fallback: InventoryNetworkStage
     recovery: InventoryNetworkStage
+    semantic_refresh: Mapping[str, object]
 
 
 class _FailureObservingStore(InventorySnapshotStore):
@@ -118,6 +120,7 @@ def reduce_inventory_network_campaign(
         != observation.baseline.generation_digest
         or observation.recovery.source != "arg"
         or observation.recovery.failures
+        or not _valid_semantic_refresh(observation.semantic_refresh)
         or len(
             {
                 observation.baseline.generation_digest,
@@ -182,6 +185,7 @@ def reduce_inventory_network_campaign(
             {"name": name, "status": "passed", "evidence_digest": digest} for name, digest in axes
         ],
         "source_sequence": ["arg", "arm", "arg"],
+        "semantic_refresh": dict(observation.semantic_refresh),
         "observation_authority": False,
         "mutation_authority": False,
         "execution_authority": False,
@@ -236,6 +240,13 @@ async def run_inventory_network_campaign(
         fallback = await _run_stage(fault, store=store, identity=active_identity, client=client)
         recovery = await _run_stage(config, store=store, identity=active_identity, client=client)
         binding_digest = _binding_digest(config, environment)
+        semantic_refresh = await certify_semantic_graph_refresh(
+            dsn=config.dsn,
+            scope_ref=config.scopes[0],
+            source_revision=source_revision,
+            request_id=request_id,
+            provider_evidence_digest=baseline.generation_digest,
+        )
         observation = InventoryNetworkCampaignObservation(
             source_revision=source_revision,
             request_id=request_id,
@@ -256,6 +267,7 @@ async def run_inventory_network_campaign(
             baseline=baseline,
             fallback=fallback,
             recovery=recovery,
+            semantic_refresh=semantic_refresh,
         )
         receipt = reduce_inventory_network_campaign(observation)
         encoded = _canonical_json(receipt) + b"\n"
@@ -299,6 +311,7 @@ async def verify_inventory_network_campaign(
         or receipt.get("source_revision") != source_revision
         or receipt.get("request_id") != request_id
         or receipt.get("source_sequence") != ["arg", "arm", "arg"]
+        or not _valid_semantic_refresh(receipt.get("semantic_refresh"))
         or not isinstance(axes, list)
         or {item.get("name") for item in axes if isinstance(item, dict)}
         != {
@@ -544,6 +557,24 @@ def _is_digest(value: object) -> bool:
         and len(value) == 71
         and value.startswith(_DIGEST_PREFIX)
         and all(character in "0123456789abcdef" for character in value[7:])
+    )
+
+
+def _valid_semantic_refresh(value: object) -> bool:
+    if not isinstance(value, dict):
+        return False
+    statuses = value.get("evidence_statuses")
+    return (
+        value.get("schema_version") == "fdai.semantic-graph-refresh-certification.v1"
+        and statuses == ["complete", "conflicting", "incomplete", "stale", "unavailable"]
+        and value.get("provider_read_count") == 1
+        and value.get("gateway_requery_count") == 1
+        and value.get("audit_chain_verified") is True
+        and value.get("observation_authority") is False
+        and value.get("mutation_authority") is False
+        and value.get("execution_authority") is False
+        and _is_digest(value.get("digest"))
+        and _is_digest(value.get("write_through_digest"))
     )
 
 
