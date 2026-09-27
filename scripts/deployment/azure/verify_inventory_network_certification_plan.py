@@ -21,6 +21,7 @@ EXPECTED_ADDRESSES = frozenset(
         "azurerm_network_security_group.certification",
         "azurerm_postgresql_flexible_server.certification",
         "azurerm_postgresql_flexible_server_configuration.connection_throttle",
+        "azurerm_postgresql_flexible_server_configuration.extensions",
         "azurerm_postgresql_flexible_server_configuration.log_checkpoints",
         "azurerm_postgresql_flexible_server_configuration.log_connections",
         "azurerm_postgresql_flexible_server_configuration.tls_floor",
@@ -49,6 +50,9 @@ EXPECTED_ADDRESSES = frozenset(
         "terraform_data.target_fence",
     }
 )
+EXPECTED_EXTENSION_RECOVERY = frozenset(
+    {"azurerm_postgresql_flexible_server_configuration.extensions"}
+)
 
 
 class PlanVerificationError(ValueError):
@@ -74,7 +78,10 @@ def load_plan(path: Path) -> dict[str, Any]:
 def verify_plan(plan: dict[str, Any], *, mode: str) -> None:
     """Require the complete reviewed address set and one exact action."""
 
-    expected_action = ["create"] if mode == "create" else ["delete"]
+    expected_action = ["delete"] if mode == "cleanup" else ["create"]
+    expected_addresses = (
+        EXPECTED_EXTENSION_RECOVERY if mode == "extension-recovery" else EXPECTED_ADDRESSES
+    )
     resource_changes = plan.get("resource_changes")
     if not isinstance(resource_changes, list):
         raise PlanVerificationError("plan JSON must contain resource_changes")
@@ -92,11 +99,11 @@ def verify_plan(plan: dict[str, Any], *, mode: str) -> None:
         if address in observed:
             raise PlanVerificationError("plan contains a duplicate changed address")
         observed.add(address)
-        if address not in EXPECTED_ADDRESSES:
+        if address not in expected_addresses:
             raise PlanVerificationError("plan changes an unreviewed address")
         if actions != expected_action:
             raise PlanVerificationError(f"{mode} plan contains a non-{expected_action[0]} action")
-    if observed != EXPECTED_ADDRESSES:
+    if observed != expected_addresses:
         raise PlanVerificationError("plan does not contain the complete reviewed address set")
 
 
@@ -104,7 +111,7 @@ def main(argv: list[str] | None = None) -> int:
     """Validate one plan and emit only a value-free action count."""
 
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("mode", choices=("create", "cleanup"))
+    parser.add_argument("mode", choices=("create", "cleanup", "extension-recovery"))
     parser.add_argument("plan_json", type=Path)
     args = parser.parse_args(argv)
     try:
@@ -112,7 +119,11 @@ def main(argv: list[str] | None = None) -> int:
     except PlanVerificationError as exc:
         print(f"INVENTORY_NETWORK_PLAN_BLOCKED reason={exc}", file=sys.stderr)
         return 1
-    print(f"INVENTORY_NETWORK_PLAN_OK mode={args.mode} count={len(EXPECTED_ADDRESSES)}")
+    addresses = (
+        EXPECTED_EXTENSION_RECOVERY if args.mode == "extension-recovery" else EXPECTED_ADDRESSES
+    )
+    count = len(addresses)
+    print(f"INVENTORY_NETWORK_PLAN_OK mode={args.mode} count={count}")
     return 0
 
 
