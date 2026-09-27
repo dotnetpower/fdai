@@ -1,8 +1,8 @@
 ---
 title: Operator Console - Data and Wire Contracts
 translation_of: operator-console-wire-contracts.md
-translation_source_sha: ff2fb915100a025e32c982bde6306676987fffc8
-translation_revised: 2026-09-27
+translation_source_sha: d59426b961088a9b747d1a39f7507298ec946607
+translation_revised: 2026-09-28
 ---
 
 # Operator Console - 데이터 and Wire Contracts
@@ -64,6 +64,8 @@ Pantheon 품질 보증 terminal은 `answer_generation`과 `pantheon_evaluator_mo
 Operator는 digest, 배포 기본값 또는 현재 구성에서 모델을 추측하지 않습니다.
 
 같은 terminal은 `pantheon_prompt_profiles`를 요구합니다. `answer_participants`는 최대 3개의 agent 이름, prompt version, situation key 및 SYSTEM SHA-256 값을 전달합니다. `evaluator_profiles`는 최대 3개의 profile identity, version, digest, SYSTEM SHA-256 값 및 범위가 제한된 token budget을 전달합니다. Core와 Operator는 잘못된 shape를 거부합니다. Console은 펼친 Run Record 안에 이러한 content-free field만 표시하며 이 확장을 통해 raw SYSTEM text를 받지 않습니다.
+
+캡처한 모델 호출의 `prompt_manifest`는 프로필이 동적이면 `assembly`도 담을 수 있습니다. 이 객체는 `mode`(`selected` 또는 `complete`), 정렬된 조립 `keys`, `unselected_layers`의 id, 조립 `digest`를 전달합니다. 내용이 없는 증적이며, 이를 표시하지 않는 parser는 무시하고, 프롬프트 텍스트나 권한을 전달하지 않습니다.
 
 로컬 캠페인 CLI는 이 귀속 정보와 범위가 제한된 질문 및 답변 내용을 소유자 전용 transcript에
 저장할 수 있습니다. 이 transcript는 진단 데이터이며 cross-service 계약, qualification 레코드,

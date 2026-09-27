@@ -1,5 +1,5 @@
 # yaml-language-server: $schema=./schema/prompt-profile.schema.json
-schema_version: "1.0.0"
+schema_version: "1.1.0"
 profiles:
   - id: active.t2-reasoner-primary
     version: 1
@@ -250,6 +250,77 @@ profiles:
     reserved_output_tokens: 768
     promotion_evidence: [docs/roadmap/interfaces/hierarchical-conversation-planning.md]
     provenance: {source: docs/roadmap/interfaces/hierarchical-conversation-planning.md}
+  - id: shadow.conversation-preflight-topics
+    version: 1
+    capability_id: conversation.preflight
+    mode: shadow
+    root: {id: conversation-preflight, version: 9, layer: base}
+    packs:
+      - {id: conversation-preflight-resource-changes, version: 1, layer: pack}
+      - {id: conversation-preflight-schema-scope, version: 2, layer: pack}
+      - {id: conversation-preflight-request-topics, version: 1, layer: pack}
+    system_token_budget: 12288
+    request_token_budget: 20480
+    reserved_output_tokens: 768
+    promotion_evidence: []
+    provenance: {source: docs/roadmap/decisioning/prompt-composition.md}
+  - id: shadow.semantic-judgment-dynamic
+    version: 1
+    capability_id: semantic.judgment
+    mode: shadow
+    root: {id: semantic-judgment-core, version: 1, layer: base}
+    packs:
+      - id: semantic-topic-resource-inventory
+        version: 1
+        layer: pack
+        when_any: [topic:resource_inventory]
+        covers: [intent:inventory.select_resources, intent:query.contextual_resources, intent:query.resource_health_inventory, intent:query.resource_state_inventory]
+      - {id: semantic-resource-name-filter, version: 1, layer: pack, when_any: [topic:resource_inventory]}
+      - {id: semantic-resource-collection, version: 1, layer: pack, when_any: [topic:resource_inventory]}
+      - {id: semantic-ontology-manifest-list, version: 2, layer: pack, when_any: [topic:ontology_schema, topic:resource_inventory]}
+      - id: semantic-topic-ontology-schema
+        version: 1
+        layer: pack
+        when_any: [topic:ontology_schema]
+        covers: [intent:query.manifest, intent:query.ontology_declaration, intent:query.ontology_relationships, intent:query.resource_class_closure]
+      - id: semantic-topic-resource-diagnostics
+        version: 1
+        layer: pack
+        when_any: [topic:resource_diagnostics]
+        covers: [intent:query.gateway_diagnostic_evidence, intent:query.resource_current_state]
+      - {id: semantic-sre-diagnostic, version: 1, layer: pack, when_any: [topic:change_activity, topic:resource_diagnostics]}
+      - id: semantic-topic-change-activity
+        version: 1
+        layer: pack
+        when_any: [topic:change_activity]
+        covers: [intent:query.recent_resource_changes, intent:query.resource_change_activity, intent:query.resource_configuration_changes, intent:query.resource_state_transitions]
+      - {id: semantic-recent-resource-changes, version: 1, layer: pack, when_any: [topic:change_activity]}
+      - id: semantic-topic-event-health
+        version: 1
+        layer: pack
+        when_any: [topic:event_health]
+        covers: [intent:query.resource_event_history, intent:query.subscription_service_health]
+      - {id: semantic-incident-action-guidance, version: 1, layer: pack, when_any: [topic:action_request, topic:incident]}
+      - id: semantic-topic-action-request
+        version: 1
+        layer: pack
+        when_any: [topic:action_request, topic:incident]
+        covers: [intent:action_request, posture:draft_only]
+      - id: semantic-topic-governed-documents
+        version: 1
+        layer: pack
+        when_any: [topic:governed_documents]
+        covers: [intent:create.document]
+      - id: semantic-topic-conversation
+        version: 1
+        layer: pack
+        when_any: [topic:conversation]
+        covers: [intent:greeting, intent:self_introduction]
+    system_token_budget: 32768
+    request_token_budget: 65536
+    reserved_output_tokens: 2048
+    promotion_evidence: []
+    provenance: {source: docs/roadmap/decisioning/prompt-composition.md}
   - id: shadow.conversation-preflight-schema-scope
     version: 1
     capability_id: conversation.preflight

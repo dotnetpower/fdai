@@ -1,12 +1,12 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://fdai.dev/schemas/rule-catalog/prompt-profile/1.0.0",
+  "$id": "https://fdai.dev/schemas/rule-catalog/prompt-profile/1.1.0",
   "title": "Prompt Profile Catalog",
   "type": "object",
   "required": ["schema_version", "profiles"],
   "additionalProperties": false,
   "properties": {
-    "schema_version": {"const": "1.0.0"},
+    "schema_version": {"enum": ["1.0.0", "1.1.0"]},
     "profiles": {
       "type": "array",
       "minItems": 1,
@@ -34,7 +34,7 @@
           "root": {"$ref": "#/$defs/artifact_ref"},
           "packs": {
             "type": "array",
-            "items": {"$ref": "#/$defs/artifact_ref"}
+            "items": {"$ref": "#/$defs/pack_ref"}
           },
           "system_token_budget": {"type": "integer", "minimum": 1},
           "request_token_budget": {"type": "integer", "minimum": 2},
@@ -57,6 +57,31 @@
     }
   },
   "$defs": {
+    "assembly_keys": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 64,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^(topic|intent|shape|posture|document):[a-z0-9][a-z0-9_.\\-]{0,127}$"
+      }
+    },
+    "pack_ref": {
+      "type": "object",
+      "required": ["id", "version", "layer"],
+      "additionalProperties": false,
+      "dependentRequired": {"covers": ["when_any"]},
+      "properties": {
+        "id": {"type": "string", "pattern": "^[a-z0-9][a-z0-9.\\-]*$"},
+        "version": {"type": "integer", "minimum": 1},
+        "layer": {
+          "enum": ["base", "pack", "critic", "judge", "rubric", "role-header"]
+        },
+        "when_any": {"$ref": "#/$defs/assembly_keys"},
+        "covers": {"$ref": "#/$defs/assembly_keys"}
+      }
+    },
     "artifact_ref": {
       "type": "object",
       "required": ["id", "version", "layer"],

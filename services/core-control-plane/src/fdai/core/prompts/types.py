@@ -30,6 +30,8 @@ _MAX_REFERENCE_BUDGET_BYTES = 256 * 1_024
 _PROMPT_COMPONENT_ID = re.compile(r"^[a-z0-9][a-z0-9.\-:]{0,127}$")
 _PROMPT_LAYER_ID = re.compile(r"^[a-z0-9][a-z0-9._/\-:]{0,511}$")
 _SHA256_DIGEST = re.compile(r"^sha256:[a-f0-9]{64}$")
+_ASSEMBLY_KEY = re.compile(r"^(topic|intent|shape|posture|document):[a-z0-9][a-z0-9_.\-]{0,127}$")
+_MAX_ASSEMBLY_KEYS = 128
 
 
 class PromptLayer(StrEnum):
@@ -229,6 +231,79 @@ class AblatedLayerRef:
     reason: Literal["profile_layer", "profile_artifact"]
 
 
+class PromptAssemblyMode(StrEnum):
+    """How one dynamic profile composition selected its conditional packs."""
+
+    SELECTED = "selected"
+    COMPLETE = "complete"
+
+
+def validate_assembly_keys(keys: tuple[str, ...], *, name: str) -> None:
+    """Reject unbounded, duplicate, or non-canonical assembly keys."""
+
+    if not isinstance(keys, tuple) or len(keys) > _MAX_ASSEMBLY_KEYS:
+        raise ValueError(f"prompt assembly {name} MUST be a bounded tuple")
+    if len(set(keys)) != len(keys):
+        raise ValueError(f"prompt assembly {name} MUST be unique")
+    if any(not isinstance(key, str) or _ASSEMBLY_KEY.fullmatch(key) is None for key in keys):
+        raise ValueError(f"prompt assembly {name} MUST use canonical namespaced keys")
+
+
+@dataclass(frozen=True, slots=True)
+class PromptAssemblyReceipt:
+    """Replay evidence for one per-call conditional-pack selection.
+
+    ``governed_keys`` names every result key whose guidance lives only in a
+    conditional pack of the profile; ``covered_keys`` names the subset this
+    composition supplied. A result key that is governed but not covered was
+    produced without its guidance and requires the complete composition.
+    """
+
+    mode: PromptAssemblyMode
+    keys: tuple[str, ...]
+    unselected_layers: tuple[LayerRef, ...]
+    covered_keys: tuple[str, ...]
+    governed_keys: tuple[str, ...]
+    digest: str
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.mode, PromptAssemblyMode):
+            raise ValueError("prompt assembly mode MUST be reviewed")
+        for name, values in (
+            ("keys", self.keys),
+            ("covered_keys", self.covered_keys),
+            ("governed_keys", self.governed_keys),
+        ):
+            validate_assembly_keys(values, name=name)
+            if values != tuple(sorted(values)):
+                raise ValueError(f"prompt assembly {name} MUST be sorted")
+        if not set(self.covered_keys) <= set(self.governed_keys):
+            raise ValueError("prompt assembly covered keys MUST be governed keys")
+        if len(self.unselected_layers) > 32:
+            raise ValueError("prompt assembly unselected layers MUST NOT exceed 32 entries")
+        if self.mode is PromptAssemblyMode.COMPLETE and self.unselected_layers:
+            raise ValueError("complete prompt assembly cannot exclude a conditional layer")
+        if _SHA256_DIGEST.fullmatch(self.digest) is None:
+            raise ValueError("prompt assembly digest MUST be a sha256 digest")
+
+    def uncovered(self, result_keys: tuple[str, ...]) -> tuple[str, ...]:
+        """Return governed result keys whose conditional guidance was not supplied."""
+
+        covered = frozenset(self.covered_keys)
+        governed = frozenset(self.governed_keys)
+        return tuple(sorted({key for key in result_keys if key in governed and key not in covered}))
+
+    def trace_projection(self) -> dict[str, object]:
+        """Return content-free assembly evidence for a model trace."""
+
+        return {
+            "mode": self.mode.value,
+            "keys": list(self.keys),
+            "unselected_layers": [layer.id for layer in self.unselected_layers],
+            "digest": self.digest,
+        }
+
+
 @dataclass(frozen=True, slots=True)
 class SkillDisclosureRequest:
     """Explicit, bounded request for role-safe runtime skill disclosure."""
@@ -386,6 +461,33 @@ class PromptReplayManifest:
     canary_tokens: tuple[tuple[str, str], ...] = ()
     skill_records: tuple[SkillReplayRecord, ...] = ()
     skill_bundle_records: tuple[SkillBundleReplayRecord, ...] = ()
+    assembly: PromptAssemblyReceipt | None = None
+
+    def trace_projection(self) -> dict[str, object]:
+        """Return the content-free manifest shape recorded in model traces."""
+
+        projection: dict[str, object] = {
+            "system_text_sha256": self.system_text_sha256,
+            "layers": [
+                {
+                    "id": layer.id,
+                    "version": layer.version,
+                    "layer": layer.layer.value,
+                    "token_estimate": layer.token_estimate,
+                }
+                for layer in self.layer_manifest
+            ],
+            "token_estimate": self.token_estimate,
+            "profile_id": self.profile_id,
+            "profile_version": self.profile_version,
+            "profile_digest": self.profile_digest,
+            "system_token_budget": self.system_token_budget,
+            "request_token_budget": self.request_token_budget,
+            "reserved_output_tokens": self.reserved_output_tokens,
+        }
+        if self.assembly is not None:
+            projection["assembly"] = self.assembly.trace_projection()
+        return projection
 
     def __post_init__(self) -> None:
         if re.fullmatch(r"[a-f0-9]{64}", self.system_text_sha256) is None:
@@ -514,6 +616,7 @@ class ComposedPrompt:
     canary_tokens: Mapping[str, str] = field(default_factory=dict)
     skill_records: tuple[SkillReplayRecord, ...] = ()
     skill_bundle_records: tuple[SkillBundleReplayRecord, ...] = ()
+    assembly: PromptAssemblyReceipt | None = None
 
     def __post_init__(self) -> None:
         if not isinstance(self.token_estimate, int) or self.token_estimate < 0:
@@ -545,6 +648,7 @@ class ComposedPrompt:
             canary_tokens=tuple(sorted(self.canary_tokens.items())),
             skill_records=self.skill_records,
             skill_bundle_records=self.skill_bundle_records,
+            assembly=self.assembly,
         )
 
 
@@ -599,6 +703,9 @@ __all__ = [
     "AblatedLayerRef",
     "ComposedPrompt",
     "LayerRef",
+    "PromptAssemblyMode",
+    "PromptAssemblyReceipt",
+    "validate_assembly_keys",
     "PromptProfileEvidence",
     "PromptReplayManifest",
     "PromptArtifact",

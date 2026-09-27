@@ -12,7 +12,7 @@ from fdai.core.conversation.semantic_judgment import (
     SemanticJudgmentBinding,
     SemanticJudgmentModel,
 )
-from fdai.core.prompts import PromptReplayManifest
+from fdai.core.prompts import PromptAssembler, PromptReplayManifest
 from fdai.delivery.azure.llm.request_target import ModelRequestTarget
 from fdai.delivery.azure.llm.semantic_judgment import (
     AzureOpenAISemanticJudgmentModel,
@@ -34,6 +34,7 @@ def build_semantic_judgment_model(
     social_narrator_system_prompts: Mapping[str, str] | None = None,
     social_narrator_prompt_manifests: Mapping[str, PromptReplayManifest] | None = None,
     intent_hardening_enabled: bool = False,
+    system_prompt_assembler: PromptAssembler | None = None,
 ) -> AzureOpenAISemanticJudgmentModel:
     """Return one loop-bound T1 or T2 semantic model without selecting its role."""
 
@@ -49,6 +50,7 @@ def build_semantic_judgment_model(
             social_narrator_system_prompts=dict(social_narrator_system_prompts or {}),
             social_narrator_prompt_manifests=dict(social_narrator_prompt_manifests or {}),
             intent_hardening_enabled=intent_hardening_enabled,
+            system_prompt_assembler=system_prompt_assembler,
         ),
         owner_loop=owner_loop,
     )

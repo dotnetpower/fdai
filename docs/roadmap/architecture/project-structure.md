@@ -201,7 +201,11 @@ Cloud update comparison validates raw and processing identities; Core rechecks p
   `semantic_target_candidate_constants.py`. `core/conversation/semantic_stated_list_scope.py`
   keeps the deterministic Resource list to requests a list can answer: it refuses catalog-signalled
   mutation and relationship requests, builds a verbatim name-fragment list, and clarifies a
-  region-qualified fragment. `fdai_core_service/semantic_answer_presentation.py` renders provider
+  region-qualified fragment. `core/prompts/assembly.py` composes dynamic profiles per call from
+  typed assembly keys, and `core/conversation/semantic_judgment_assembly.py` derives preflight topic
+  keys and re-judges once with the complete prompt on a coverage gap;
+  `semantic_judgment_bounds.py` holds judgment input bounds.
+  `fdai_core_service/semantic_answer_presentation.py` renders provider
   lifecycle states, ISO instants, completeness, and the no-authority marker in operator language
   while the technical details keep the exact values.
   `fdai_core_service/semantic_source_limitations.py` explains typed source-limitation codes in the

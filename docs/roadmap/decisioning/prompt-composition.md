@@ -155,13 +155,53 @@ text, and budget. Frame and plan adapters consume the same receipt instead of op
 or selecting a base directly. Promotion changes only the active profile reference, and rollback
 restores the preceding profile digest without editing an immutable artifact.
 
+### Dynamic assembly
+
+A static profile sends every domain recipe on every call, so unrelated recipes compete for the
+model's attention and each recipe edit can shift other intents. A dynamic profile (catalog schema
+`1.1.0`) keeps the capability contract in its protected root and marks domain packs conditional:
+
+- `when_any` names the closed assembly keys that select a pack: `topic:<request topic>`,
+  `intent:<canonical intent>`, `shape:<frame output shape>`, `posture:<action posture>`, or
+  `document:<document evidence mode>`.
+- `covers` names the result keys whose guidance lives only in that pack.
+
+Keys come only from typed, validated upstream state, never from raw language. Semantic judgment
+uses the one to three closed `request_topics` proposed by a confident compact preflight; the
+preflight schema requests topics only from a prompt that defines them. A topic never selects an
+intent, widens a capability, or grants authority, and judgment still receives the complete
+capability set. The adapter composes each call from the startup-resolved selection without catalog
+I/O.
+
+Selection is a pure function of the profile and its sorted keys. Missing keys, or keys that select
+no conditional pack, produce the complete composition, which equals the static composition of the
+same profile. The complete composition must fit the profile system budget at startup, so every
+subset fits too. Each replay manifest carries an assembly receipt with the mode (`selected` or
+`complete`), keys, excluded conditional layers, covered and governed keys, and a digest over the
+profile digest, keys, selected references, and transmitted system text. Reviewed ablation still
+removes eligible packs and is recorded separately.
+
+After an accepted selected-mode judgment, the planning service derives result keys from the primary
+and secondary intents, action posture, and document evidence mode. If a produced key is governed by
+an excluded pack, judgment runs once more with the complete prompt, the first result is discarded,
+and both observations remain in the trace. A routing miss therefore costs one bounded judgment
+rather than silently removing the guidance for the meaning that was produced.
+
+Critique and revision: capability-keyed selection was rejected because nearly every turn receives
+the complete capability manifest. A model-visible route capability was rejected because it could
+bias judgment and widen intent grounding. Partial-match fallback was replaced by result-key
+coverage because an OR-only selector cannot prove that the chosen meaning had its guidance. Trust,
+grounding, document-mode, posture, and ambiguity rules stay in the protected root because packs are
+ablation-eligible.
+
 ## Layer catalog
 
 Each layer has a fixed job and a fixed storage tier.
 
 - **Base** - short, immutable role skeleton (output contract, verifier-as-authority
   reminder, JSON-only output rule). The base target is <= 128 tokens and domain recipes do not
-  belong in this layer.
+  belong in this layer. A dynamic profile root also holds the protected capability contract that
+  no conditional or ablated pack may remove.
 - **Task Skill Pack** - capability-scoped instructions (e.g. RCA grounding,
   action proposal, novelty classification). Each pack cites the rule-catalog
   entries a capability may reference.
@@ -526,7 +566,7 @@ to show `verification.status=unverified`.
 
 The eight invariants in
 [coding-conventions.instructions.md](../../../.github/instructions/coding-conventions.instructions.md#safety)
-extend with ten more as this design lands:
+extend with eleven more as this design lands:
 
 1. Web-search output is NEVER a `cited_rule_id`.
 2. Tool results and web snippets are ALWAYS wrapped in `trusted="false"` XML.
@@ -543,6 +583,9 @@ extend with ten more as this design lands:
 9. An ablated optional source is not read and cannot leak into model context through another layer.
 10. Answer continuity preserves the original terminal disposition and never upgrades an unverified
     response to `answered`.
+11. Dynamic assembly never makes a root conditional, derives keys only from validated typed state,
+    falls back to the complete composition, and re-judges once when a produced result key lacks its
+    governed guidance.
 
 ## Rollout waves
 
