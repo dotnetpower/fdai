@@ -1,6 +1,6 @@
 ---
 translation_of: runtime-deployment-profiles.md
-translation_source_sha: 85363c86ab56af9ddcf75162fabac9a19ca4399e
+translation_source_sha: b5a1034746c9a8d0c4543673664f4c87b1e904c9
 translation_revised: 2026-09-27
 ---
 # 런타임 배포 프로파일
@@ -232,11 +232,11 @@ DB, 네트워크, 레지스트리, 저장소, 모니터링, 메시지, 모델, �
 | AKS 워크로드 및 예약 작업 | `fdai-<environment>-aks-workloads.tfstate` |
 | 클러스터 내부 PostgreSQL | `fdai-<environment>-aks-database.tfstate` |
 
-공유 플랫폼은 Event Hubs, Key Vault, Azure Container Registry, 모니터링, 워크로드 신원,
-case-history 저장소 및 `postgres-flex`를 계속 소유합니다. Case-history 콘텐츠의 활성, 삭제 예정,
-이전 버전 및 변경 피드 기간 기본값은 30일이며 운영 이력과 의사 결정 근거 메타데이터는 별도 일정을
-유지합니다. AKS 기반 상태는 클러스터, 노드 풀, 클러스터 신원, 네트워크 연결 및 클러스터 범위
-Azure 역할 할당만 소유합니다.
+공유 플랫폼은 Event Hubs, Key Vault, Azure Container Registry, 모니터링, 워크로드 신원, case-history 저장소 및 `postgres-flex`를 계속 소유합니다.
+Foundation은 구독 역할 할당을 Reader, Monitoring Reader, Cost Management Reader 역할과 서비스 주체로만 제한해 위임하며, 일치하는 Terraform 역할 할당은
+`principal_type = "ServicePrincipal"`을 선언해 위임한 역할 집합을 넓히지 않고 공급자 요청이 해당 조건을 충족하게 합니다. Case-history 콘텐츠의 활성, 삭제 예정,
+이전 버전 및 변경 피드 기간 기본값은 30일이며 운영 이력과 의사 결정 근거 메타데이터는 별도 일정을 유지합니다. AKS 기반 상태는 클러스터, 노드 풀, 클러스터 신원,
+네트워크 연결 및 클러스터 범위 Azure 역할 할당만 소유합니다.
 AKS는 공유 루트의 Key Vault 출력을 사용합니다. 이름이 너무 긴 후보는 별도의 런타임 명명 규칙을
 만들지 않고 결정론적 `kv-aip-<8hex>` 대체 이름을 사용합니다.
 AKS를 선택하면 상세 비공개 네트워킹이 꺼져 있어도 애플리케이션 VNet, 노드 서브넷 및 API 서버

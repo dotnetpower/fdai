@@ -64,7 +64,8 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
-from fdai_deployment_cli.deployment_kit import acquire_deployment_kit, archive_verified_kit
+from fdai_deployment_cli.deployment_kit import acquire_deployment_kit
+from fdai_deployment_cli.private_output import copy_private_file
 
 kit = acquire_deployment_kit(
     work_dir=Path(os.environ["VERIFY"]),
@@ -72,7 +73,11 @@ kit = acquire_deployment_kit(
     offline_kit=Path(os.environ["KIT"]),
 )
 archive = Path(os.environ["CONTEXT"]) / "kit.tar.gz"
-archive_verified_kit(kit, archive)
+copy_private_file(
+    Path(os.environ["KIT"]),
+    archive,
+    max_bytes=8 * 1024 * 1024 * 1024,
+)
 copied_work = Path(os.environ["VERIFY"]) / "copied"
 copied_work.mkdir(mode=0o700)
 copied = acquire_deployment_kit(

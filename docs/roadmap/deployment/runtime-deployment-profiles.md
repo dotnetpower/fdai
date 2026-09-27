@@ -270,9 +270,9 @@ installation cannot switch platforms by changing one variable.
 | In-cluster PostgreSQL | `fdai-<environment>-aks-database.tfstate` |
 
 The shared platform continues to own Event Hubs, Key Vault, Azure Container Registry, monitoring,
-workload identities, case-history storage, and `postgres-flex`. Case-history content defaults its
-active, deletion-due, superseded-version, and change-feed periods to 30 days; operational-history and
-decision-evidence metadata keep their separate schedules. The AKS substrate state owns only the
+workload identities, case-history storage, and `postgres-flex`. Foundation delegates subscription role assignment only for Reader, Monitoring Reader, and Cost Management Reader roles to service principals;
+matching Terraform resources set `principal_type = "ServicePrincipal"` so the provider request satisfies that condition without widening the delegated role set. Case-history content defaults its active, deletion-due,
+superseded-version, and change-feed periods to 30 days; operational-history and decision-evidence metadata keep their separate schedules. The AKS substrate state owns only the
 cluster, node pools, cluster identity, networking attachment, and cluster-scoped Azure role
 assignments.
 AKS consumes the shared root's Key Vault output; overlength candidates use the deterministic

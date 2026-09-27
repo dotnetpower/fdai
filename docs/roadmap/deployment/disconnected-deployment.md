@@ -338,6 +338,9 @@ A service runtime image does not provision Azure infrastructure: it excludes `in
 Terraform and starts one service. A **deployment appliance** is a different image. It embeds the
 complete signed offline kit, installs `fdaictl` only from the kit wheelhouse, and starts the real
 standalone deployment from inside the approved network.
+The embedded `/opt/fdai/kit.tar.gz` is a mode-`0600`, no-follow copy of the exact verified input
+archive, not a re-archive. The copied bytes are independently reverified for source, manifest, and
+runtime identity before image assembly.
 
 The closed-network handover is one digest-pinned OCI appliance archive containing a complete
 signed kit. Internally it contains the deployment bundle, pinned Terraform and OPA binaries, provider mirror, all service and dependency
