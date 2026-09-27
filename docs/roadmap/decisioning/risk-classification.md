@@ -51,10 +51,11 @@ policy (auto vs HIL) and initial policy approver"* from
 - [ ] Retain governed runtime receipts for risk decisions on one pinned revision before promoting any scope row to `validated`.
 - [x] The shared contract and explicit Pantheon path require a trusted source result before one
   exact fresh Owner confirmation can lower the effective development quorum.
-- [ ] Bind a deployment-owned authoritative source for current target scope, ActionType and policy
-  revisions, target revision, safeguards, dry-run, audit, lock, and observer receipts into the
-  deployed Core ControlLoop, workflow, and RBAC entry points. Until then, selecting the profile
-  without that source fails closed.
+- [ ] [#1502](https://github.com/dotnetpower/fdai/issues/1502): Bind a deployment-owned authoritative source for current target scope,
+  ActionType and policy revisions, target revision, safeguards, dry-run, audit, lock, and observer
+  receipts into the deployed Core ControlLoop, workflow, and RBAC entry points. Until then,
+  selecting the profile without that source fails closed. The #1511 contract, schema,
+  binding-source Protocol, and injected composition tests do not satisfy this item.
 
 ## Where the Table Lives
 
