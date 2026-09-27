@@ -113,6 +113,18 @@ _GUID = re.compile(r"[0-9a-fA-F]{8}(?:-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12}")
 _SOURCE_COMMIT = re.compile(r"[0-9a-f]{40}")
 _AKS_RUNTIME_NAMESPACE = "fdai-runtime"
 _STAGES: Final = ("substrate", "runtime", "database", "application")
+_CONFLICTING_TERRAFORM_AUTH = (
+    "ARM_USE_CLI",
+    "ARM_USE_OIDC",
+    "ARM_OIDC_TOKEN",
+    "ARM_CLIENT_SECRET",
+    "ARM_CLIENT_CERTIFICATE_PATH",
+    "ARM_CLIENT_CERTIFICATE_PASSWORD",
+    "ARM_USERNAME",
+    "ARM_PASSWORD",
+    "ARM_USE_AKS_WORKLOAD_IDENTITY",
+    "ARM_MSI_ENDPOINT",
+)
 _SUBSTRATE_TARGETS: Final = (
     "module.resource_group",
     "module.log_analytics",
@@ -4022,9 +4034,12 @@ def _configure_terraform(context: dict[str, object]) -> None:
     os.environ["TF_CLI_CONFIG_FILE"] = str(config)
     os.environ["TF_DATA_DIR"] = str(data)
     os.environ["TF_IN_AUTOMATION"] = "1"
+    for variable in _CONFLICTING_TERRAFORM_AUTH:
+        os.environ.pop(variable, None)
     os.environ["ARM_SUBSCRIPTION_ID"] = str(context["subscription_id"])
     os.environ["ARM_TENANT_ID"] = str(context["tenant_id"])
-    os.environ["ARM_USE_CLI"] = "true"
+    os.environ["ARM_USE_MSI"] = "true"
+    os.environ["ARM_CLIENT_ID"] = str(context["client_id"])
     os.environ["ARM_RESOURCE_PROVIDER_REGISTRATIONS"] = "none"
 
 
