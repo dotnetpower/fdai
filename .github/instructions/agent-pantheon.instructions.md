@@ -116,8 +116,10 @@ MAY publish that object type's topic.
    the *only* principal that mutates. A change that lets Forseti execute, or lets
    any non-Thor agent mutate, is a defect.
 3. **Approval != execution (MUST).** Var carries the human approval; Thor
-   executes. They MUST stay distinct principals (no self-approval, no shared
-   identity).
+   executes. They MUST stay distinct authenticated principals and MUST NOT share
+   an executor identity. An explicitly declared single-operator development
+   profile MAY let the same human request and approve, but it never merges Var
+   and Thor or gives the human Thor's credential.
 4. **Narrator is a translator, not a judge/executor (MUST).** A conversational
    request that wants an action MUST re-enter the typed pipeline as a proposal
    whose `initiator_principal` is the operator - never let Bragi (or any

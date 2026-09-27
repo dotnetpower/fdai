@@ -55,7 +55,9 @@ The layers communicate through the event bus and git, not direct in-process call
   insufficient evidence is explained. Nested interactive controls are prohibited.
 - The **executor holds the only privileged identity** (user-assigned Managed Identity, scoped
   to an action whitelist). Console and ChatOps never share it.
-- **Approval and execution are distinct principals** - no self-approval. See
+- **Approval and execution are distinct authenticated principals.** A declared single-operator
+  development profile may let the same human request and approve, but the human never receives or
+  shares the executor identity. See
   [../../docs/roadmap/architecture/security-and-identity.md](../../docs/roadmap/architecture/security-and-identity.md).
 
 ## Local Console Port Contract (MUST)

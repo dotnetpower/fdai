@@ -34,8 +34,10 @@ pre-push validates the committed snapshot.
    and replayable. Insufficient, stale, incomplete, or conflicting evidence requires bounded
    recovery, abstention, denial, or escalation.
 7. **Safely autonomous:** Execute state changes only with explicit current human approval or valid
-   standing human authorization when required. Silence never grants authority, self-approval is
-   prohibited, and human and executor identities remain distinct. Require all seven safeguards:
+   standing human authorization when required. Silence never grants authority. A requester may
+   also approve only under an explicitly declared single-operator development profile; otherwise
+   requester and approver identities remain distinct. Human approval and executor identities are
+   always distinct. Require all seven safeguards:
    stop condition, tested rollback, blast-radius limit, successful dry-run, logical-target lock,
    stable idempotency key, and two-phase audit. New capabilities start in shadow mode and change
    mode only through the authoritative promotion registry.

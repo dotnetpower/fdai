@@ -100,7 +100,10 @@ cannot publish state, decide, approve, execute, or grant authority.
 Single-writer ownership and separation of duties are absolute:
 
 - Forseti judges, Var carries human approval, Thor alone executes, Saga audits, and Vidar recovers.
-- No principal judges and executes, approves and executes, or grants authority to itself.
+- No system principal judges and executes, approves and executes, or grants authority to its own
+  executor identity. One human may hold requester and approver roles only under the
+  single-operator development rule in Article 8; Var and Thor remain distinct authenticated
+  principals.
 - Bragi translates between natural language and typed tools; it never judges, approves, or executes.
 - Saga and Vidar are hard dependencies for mutation. Their loss lowers capability to shadow or
   no-op and never fails open.
@@ -241,9 +244,30 @@ join, or translate the two enum families by their numeric suffix.
 | A0 | `autonomy.a0` | observe, explain, and simulate without mutation |
 | A1 | `autonomy.a1` | execute a reversible, resource-scoped, low-risk action inside current policy |
 | A2 | `autonomy.a2` | execute a promoted workflow inside a measured and pre-approved envelope |
-| A3-H | `autonomy.a3_h` | hold a high-impact action for independent per-execution human approval |
+| A3-H | `autonomy.a3_h` | hold a high-impact action for policy-required per-execution human approval |
 | A3-E | `autonomy.a3_e` | execute a non-destructive, reversible emergency mitigation under valid standing human authorization |
-| A4 | `autonomy.a4` | deny prohibited, self-approved, unbounded, cross-tenant, or unverifiable action |
+| A4 | `autonomy.a4` | deny prohibited, unapproved, unbounded, cross-tenant, or unverifiable action |
+
+Approval policy declares either a multi-operator profile or a single-operator development profile.
+The multi-operator profile keeps requester and approver identities distinct and counts only
+distinct humans toward quorum. The single-operator development profile may let one authenticated
+Owner request and approve an exact action only when all of these conditions hold:
+
+- the target is explicitly classified as development or non-production and the reviewed deployment
+  configuration selects the single-operator profile;
+- approval follows fresh authentication and explicit confirmation of the exact action, target,
+  revision, scope, and dry-run digest; silence, a prior session, or a broad role assignment grants
+  nothing;
+- the requester and approver may be the same human, but approval and execution remain distinct
+  authenticated principals and the human never receives or shares the executor credential;
+- one human cannot occupy multiple quorum slots, and any action whose active policy requires
+  multiple distinct humans remains blocked;
+- the seven safeguards, append-only approval and execution audit, and independent effect
+  verification remain unchanged.
+
+This exception does not authorize production, cross-tenant, subscription-wide, irreversible, or
+Chaos-injection approval. A deployment that does not explicitly select the profile uses the
+multi-operator rule.
 
 A3-E is approval given in advance, not approval inferred from silence. It is valid only when all of
 these conditions hold:
@@ -337,8 +361,11 @@ names, versions, and observed values only inside their declared constitutional b
 
 An amendment updates the English source and Korean translation together, identifies affected
 requirement ids, updates every impacted instruction and contract in the same change, and supplies
-focused validation evidence. A change that widens autonomy requires independent owner-level review
-under the governance policy. Implementation status and target metrics never amend the constitution.
+focused validation evidence. A change that widens autonomy requires Owner-level review under the
+governance policy. A multi-operator repository requires an independent Owner reviewer. A repository
+explicitly declared as single-maintainer development may use its sole Owner's approval only when the
+review record binds the exact diff, focused validation, and single-operator scope. Implementation
+status and target metrics never amend the constitution.
 
 ## Related documents
 
