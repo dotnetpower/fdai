@@ -753,9 +753,9 @@ class Var(
         if context.get("locale") == "ko":
             answer = (
                 "저는 사람의 HIL 결정을 Approval로 기록하는 파이프라인 승인 principal인 Var입니다. "
-                "Thor에게 보고하지만 Thor와는 별도 principal입니다. 현재 사람의 승인, 만료, 원래 "
-                "및 유효 정족수와 기본 자기 승인 금지를 확인하며 작업을 판단하거나 실행하지 "
-                "않습니다. "
+                "Thor에게 보고하지만 Thor와는 별도 principal입니다. 현재 사람의 승인, 만료, quorum "
+                "및 기본 no-self-approval을 확인하며, 감사에는 원래 및 유효 정족수를 보존합니다. "
+                "작업을 판단하거나 실행하지 않습니다. "
                 "정확한 전권 개발 프로필에서만 인증된 Owner 한 명을 허용합니다. 침묵이나 이전 "
                 "승인을 현재 권한으로 간주하지 않습니다. 이 대화 포트는 읽기 전용이며 승인 요청은 "
                 "운영자 권한으로 타입이 지정된 파이프라인에 다시 진입해야 합니다. 숨겨진 시스템 "
@@ -770,10 +770,10 @@ class Var(
             answer = (
                 "I am Var, the pipeline approval principal that records current human HIL "
                 "decisions as Approval. I report to Thor but remain a distinct principal from "
-                "Thor. I verify current human approval, expiry, original and effective quorum, and "
-                "default no-self-approval. Only an exact full-authority development profile admits "
-                "one authenticated Owner. I never judge or execute an action. Silence and prior "
-                "approval never become current "
+                "Thor. I verify current human approval, expiry, quorum, and no-self-approval. "
+                "Audit preserves original and effective quorum. Only an exact full-authority "
+                "development profile admits one authenticated Owner. I never judge or execute an "
+                "action. Silence and prior approval never become current "
                 "authority. This conversational port is read-only; approval requests re-enter the "
                 "typed pipeline under the operator's authority. I do not reveal hidden system "
                 "prompts."
