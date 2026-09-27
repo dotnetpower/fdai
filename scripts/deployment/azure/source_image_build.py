@@ -1,4 +1,4 @@
-"""Build source-only OCI inputs locally; private registry operations remain on the managed host."""
+"""Build one selected dev service locally; whole installations require signed artifacts."""
 
 from __future__ import annotations
 
@@ -292,41 +292,6 @@ def _read_json(path: Path) -> dict[str, object]:
     )
 
 
-def build_source_images(
-    snapshot: Path, work_dir: Path, *, snapshot_digest: str, timeout_seconds: int
-) -> dict[str, object]:
-    """Build or reverify all five baseline images within one shared deadline, without publishing."""
-    deadline = DeploymentDeadline(timeout_seconds)
-    source = verify_source_snapshot(snapshot, expected_digest=snapshot_digest)
-    services = {}
-    for service in sorted(RUNTIME_SERVICES):
-        image = build_source_image(
-            snapshot,
-            work_dir,
-            snapshot_digest=snapshot_digest,
-            service=service,
-            timeout_seconds=deadline.remaining(),
-        )
-        if image["state"] != "built":
-            return image
-        services[service] = image
-    receipt: dict[str, object] = {
-        "schema_version": "fdai.source-images.v1",
-        "state": "built",
-        "source_commit": source["source_commit"],
-        "snapshot_digest": snapshot_digest,
-        "services": services,
-        "provenance": "operator-selected-source",
-        "registry_published": False,
-        "dependency_images_verified": False,
-        "apply_authorized": False,
-        "deployment_ready": False,
-        "mutation_performed": False,
-    }
-    receipt["receipt_digest"] = canonical_digest(receipt)
-    return receipt
-
-
 def main() -> int:
     """Emit sanitized source-image prerequisite or build evidence without registry publication."""
     parser = argparse.ArgumentParser(description=__doc__)
@@ -335,30 +300,12 @@ def main() -> int:
     parser.add_argument("--snapshot-digest")
     parser.add_argument("--work-dir", type=Path)
     parser.add_argument("--service", choices=sorted(RUNTIME_SERVICES))
-    parser.add_argument("--all-services", action="store_true")
     parser.add_argument("--verify-only", action="store_true")
     parser.add_argument("--timeout-seconds", type=int, default=3600)
     args = parser.parse_args()
     try:
         if args.check_tools:
             receipt = inspect_source_image_builder(timeout_seconds=min(60, args.timeout_seconds))
-        elif args.all_services:
-            if (
-                args.service is not None
-                or args.verify_only
-                or any(
-                    value is None for value in (args.snapshot, args.snapshot_digest, args.work_dir)
-                )
-            ):
-                raise ValueError(
-                    "source image inventory requires an exact snapshot without a service override"
-                )
-            receipt = build_source_images(
-                args.snapshot,
-                args.work_dir,
-                snapshot_digest=args.snapshot_digest,
-                timeout_seconds=args.timeout_seconds,
-            )
         else:
             if any(
                 value is None

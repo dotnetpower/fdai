@@ -16,16 +16,12 @@ from fdai_deployment_cli.contracts import canonical_bytes, canonical_digest
 from fdai_deployment_cli.deployment_deadline import DeploymentDeadline
 from fdai_deployment_cli.private_output import read_private_bytes, write_private_bytes
 from fdai_deployment_cli.profile import load_profile
-from fdai_deployment_cli.runtime_release import RUNTIME_SERVICES
 from fdai_deployment_cli.source_input import inspect_source
 from fdai_deployment_cli.source_recovery import retained_source_run
 from genesis_approval import GenesisApprovalExpiredError, load_genesis_approval
 from genesis_checks import _GITHUB_REMOTE, CheckError, GenesisChecks
 from genesis_foundation_recovery_handoff import load_recovery_evidence, recovery_lock
 from genesis_foundation_recovery_plan import _json
-from genesis_foundation_recovery_state import prepare_recovery_migration
-from source_application_transport import transfer_application_source
-from source_image_build import build_source_images
 
 
 def resume(args: argparse.Namespace) -> dict[str, object]:
@@ -230,71 +226,12 @@ def resume(args: argparse.Namespace) -> dict[str, object]:
     )
     source.reverify()
     state = state_command._execute(state_args)
-    with recovery_lock(original):
-        context = prepare_recovery_migration(
-            state_args,
-            original_directory=original,
-            root=source.root,
-            profile=profile,
-        )
-        source.reverify()
-        transfer = transfer_application_source(
-            foundation_root=foundation_root,
-            snapshot=work / "source-snapshot",
-            snapshot_digest=str(prepared["source_snapshot_digest"]),
-            source_commit=str(prepared["source_commit"]),
-            target_binding=profile.target_binding,
-            report={"state_handoff": state},
-            timeout_seconds=deadline.remaining(),
-            recovery=context,
-        )
-    images = build_source_images(
-        work / "source-snapshot",
-        work / "source-images",
-        snapshot_digest=str(prepared["source_snapshot_digest"]),
-        timeout_seconds=deadline.remaining(),
-    )
-    if (
-        images.get("schema_version") == "fdai.source-image-builder.v1"
-        and images.get("state") == "blocked"
-    ):
-        return finish(
-            "source-image-tools", "local_docker_buildx_required", source_host_transfer=transfer
-        )
-    services = images.get("services")
-    if (
-        images.get("schema_version") != "fdai.source-images.v1"
-        or images.get("state") != "built"
-        or images.get("source_commit") != prepared["source_commit"]
-        or images.get("snapshot_digest") != prepared["source_snapshot_digest"]
-        or images.get("provenance") != "operator-selected-source"
-        or not isinstance(services, dict)
-        or set(services) != RUNTIME_SERVICES
-        or any(
-            images.get(key) is not False
-            for key in (
-                "registry_published",
-                "dependency_images_verified",
-                "apply_authorized",
-                "deployment_ready",
-                "mutation_performed",
-            )
-        )
-        or canonical_digest(
-            {key: value for key, value in images.items() if key != "receipt_digest"}
-        )
-        != images.get("receipt_digest")
-    ):
-        raise ValueError(
-            "source recovery image inventory differs from the original application snapshot"
-        )
     return finish(
         "application-plan",
-        "source_application_execution_not_connected",
+        "prebuilt_runtime_artifacts_required",
         enrollment_receipt_digest=enrollment_digest,
         state_handoff_digest=state["receipt_digest"],
-        source_host_transfer=transfer,
-        source_images=images,
+        next_action="resume_with_signed_kit_and_foundation_adoption",
     )
 
 

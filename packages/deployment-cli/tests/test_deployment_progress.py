@@ -11,7 +11,12 @@ import pytest
 from rich.cells import cell_len
 from rich.console import Console
 
-from fdai_deployment_cli import cli, deployment_kit, standalone_deploy
+from fdai_deployment_cli import (
+    cli,
+    deployment_kit,
+    standalone_application_completion,
+    standalone_deploy,
+)
 from fdai_deployment_cli.deployment_progress import (
     DeploymentProgress,
     begin_stage,
@@ -324,6 +329,11 @@ def test_real_coordinator_keeps_approval_and_intermediate_json_off_stdout(
         "import_module",
         lambda name: modules[name] if name in modules else original_import(name),
     )
+    monkeypatch.setattr(
+        standalone_application_completion.importlib,
+        "import_module",
+        lambda name: modules[name] if name in modules else original_import(name),
+    )
     commands = []
 
     def run(command, **kwargs):
@@ -365,7 +375,11 @@ def test_real_coordinator_keeps_approval_and_intermediate_json_off_stdout(
             "license_mode": "observation-only",
         }
 
-    monkeypatch.setattr(standalone_deploy, "deploy_standalone_application", application)
+    monkeypatch.setattr(
+        standalone_application_completion,
+        "deploy_standalone_application",
+        application,
+    )
     result = cli.main(
         ["provision", "azure", "--online", "--output", "json", "--work-dir", str(root)]
     )

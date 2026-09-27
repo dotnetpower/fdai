@@ -376,6 +376,59 @@ def test_azure_adoption_resolves_relative_inputs(monkeypatch, tmp_path, capsys):
     assert json.loads(capsys.readouterr().out) == {"deployment_ready": True}
 
 
+def test_foundation_adoption_requires_both_directories(monkeypatch, tmp_path, capsys):
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(cli, "deploy_azure_foundation", _deny)
+
+    assert (
+        _invoke(
+            [
+                "provision",
+                "azure",
+                "--online",
+                "--progress",
+                "off",
+                "--adopt-foundation-directory",
+                "foundation",
+            ]
+        )
+        == 3
+    )
+    assert "requires both retained directories" in capsys.readouterr().err
+
+
+def test_foundation_adoption_resolves_relative_directories(monkeypatch, tmp_path, capsys):
+    received = {}
+
+    def fake_deployment(**kwargs):
+        received.update(kwargs)
+        return {"deployment_ready": True}
+
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(cli, "deploy_azure_foundation", fake_deployment)
+    assert (
+        _invoke(
+            [
+                "provision",
+                "azure",
+                "--online",
+                "--progress",
+                "off",
+                "--output",
+                "json",
+                "--adopt-foundation-directory",
+                "foundation",
+                "--adopt-foundation-recovery",
+                "recovery",
+            ]
+        )
+        == 0
+    )
+    assert received["adopt_foundation_directory"] == tmp_path / "foundation"
+    assert received["adopt_foundation_recovery_directory"] == tmp_path / "recovery"
+    assert json.loads(capsys.readouterr().out) == {"deployment_ready": True}
+
+
 def test_help_distinguishes_local_outputs_and_capability_limits(capsys):
     assert _invoke(["provision", "init", "--help"]) == 0
     assert "profile file to create" in capsys.readouterr().out
