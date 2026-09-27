@@ -64,6 +64,9 @@ channel, framework and license trust stay separate, and production TUF remains a
 That owner contract pins the exact Python ABI required by its wheels while treating the kit's glibc
 version as a minimum compatibility floor. A newer glibc runtime is accepted; an older runtime,
 another libc family, or a malformed identity remains blocked.
+When an offline manifest requires the signed profile root, every derived transport archive carries
+both root metadata and signature. A legacy manifest/signature pair cannot silently strip that
+owner-required trust layer.
 
 ## Explicit package boundaries
 

@@ -20,7 +20,7 @@ import urllib.parse
 import urllib.request
 from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
-from typing import Any, BinaryIO, Final, IO, cast
+from typing import IO, Any, BinaryIO, Final, cast
 
 from fdai_deployment_cli.__about__ import __version__
 from fdai_deployment_cli.bundle import extract_bundle_archive, verify_bundle
@@ -44,8 +44,11 @@ from fdai_deployment_cli.offline_kit import (
     verify_root_manifest,
 )
 from fdai_deployment_cli.private_output import read_private_bytes, write_private_output
-from fdai_deployment_cli.runtime_release import RuntimeRelease, load_runtime_release
-from fdai_deployment_cli.runtime_release import validate_runtime_images
+from fdai_deployment_cli.runtime_release import (
+    RuntimeRelease,
+    load_runtime_release,
+    validate_runtime_images,
+)
 from fdai_deployment_cli.trust_roots import (
     deployment_bundle_root_pem,
     deployment_release_channel,
@@ -253,6 +256,17 @@ def archive_verified_kit(kit: DeploymentKit, destination: Path) -> str:
     """Write one private archive while rechecking every signed source file."""
 
     expected = dict(kit.verification.file_digests)
+    root_metadata_present = (
+        kit.verification.deployment_root_required
+        or path_present(kit.root / ROOT_MANIFEST_NAME)
+        or path_present(kit.root / ROOT_SIGNATURE_NAME)
+    )
+    if root_metadata_present:
+        verify_root_manifest(
+            kit.root,
+            release_root_pem=deployment_release_root_pem(),
+            expected_profile="offline",
+        )
     if destination.exists() or destination.is_symlink():
         digest = _sha256_private_file(destination)
         if _archive_binding(destination) != _expected_archive_binding(kit, digest):
@@ -265,33 +279,41 @@ def archive_verified_kit(kit: DeploymentKit, destination: Path) -> str:
     )
     try:
         with os.fdopen(descriptor, "wb") as raw:
-            with gzip.GzipFile(fileobj=raw, mode="wb", filename="", mtime=0) as zipped:
-                with tarfile.open(fileobj=zipped, mode="w", format=tarfile.GNU_FORMAT) as archive:
-                    for relative, digest in sorted(expected.items()):
-                        source = kit.root / relative
-                        _add_verified_member(
-                            archive,
-                            source,
-                            f"kit/{relative}",
-                            expected_digest=digest,
-                        )
-                    for name in ("offline-kit.json", "offline-kit.json.sig"):
-                        if name in expected:
-                            continue
-                        source = kit.root / name
+            with (
+                gzip.GzipFile(fileobj=raw, mode="wb", filename="", mtime=0) as zipped,
+                tarfile.open(fileobj=zipped, mode="w", format=tarfile.GNU_FORMAT) as archive,
+            ):
+                for relative, digest in sorted(expected.items()):
+                    source = kit.root / relative
+                    _add_verified_member(
+                        archive,
+                        source,
+                        f"kit/{relative}",
+                        expected_digest=digest,
+                    )
+                metadata_names = ["offline-kit.json", "offline-kit.json.sig"]
+                if root_metadata_present:
+                    metadata_names.extend((ROOT_MANIFEST_NAME, ROOT_SIGNATURE_NAME))
+                for name in metadata_names:
+                    if name in expected:
+                        continue
+                    source = kit.root / name
+                    try:
                         details = source.lstat()
-                        if not stat.S_ISREG(details.st_mode) or details.st_size > _MAX_MEMBER_BYTES:
-                            raise ValueError("deployment kit signature material is invalid")
-                        info = tarfile.TarInfo(f"kit/{name}")
-                        info.size = details.st_size
-                        info.mode = 0o600
-                        info.mtime = 0
-                        info.uid = 0
-                        info.gid = 0
-                        info.uname = ""
-                        info.gname = ""
-                        with source.open("rb") as stream:
-                            archive.addfile(info, stream)
+                    except OSError as exc:
+                        raise ValueError("deployment kit signature material is invalid") from exc
+                    if not stat.S_ISREG(details.st_mode) or details.st_size > _MAX_MEMBER_BYTES:
+                        raise ValueError("deployment kit signature material is invalid")
+                    info = tarfile.TarInfo(f"kit/{name}")
+                    info.size = details.st_size
+                    info.mode = 0o600
+                    info.mtime = 0
+                    info.uid = 0
+                    info.gid = 0
+                    info.uname = ""
+                    info.gname = ""
+                    with source.open("rb") as stream:
+                        archive.addfile(info, stream)
             raw.flush()
             os.fsync(raw.fileno())
     except BaseException:
