@@ -356,6 +356,10 @@ class PostgresInventorySnapshotStore:
             async with connection.transaction():
                 await self._set_timeout(connection)
                 await connection.execute(
+                    "SELECT pg_advisory_xact_lock(%s)",
+                    (_PROMOTION_LOCK,),
+                )
+                await connection.execute(
                     "UPDATE inventory_snapshot SET status='failed', completed_at=NOW(), "
                     "failure_code=%s, failure_message=%s WHERE id=%s AND status='collecting'",
                     (failure.code.value, failure.message, attempt_id),

@@ -90,7 +90,33 @@ class OpaRegoEvaluator:
         self._policies_root: Final[Path] = policies_root
         self._timeout: Final[float] = timeout_seconds
         self._opa_version: Final[str] = self._read_opa_version()
+        self._policy_source_digests: Final[dict[Path, str]] = {
+            path: _file_digest(path) for path in sorted(self._policies_root.rglob("*.rego"))
+        }
+        self.generation_digest: Final[str] = _canonical_digest(
+            {
+                "opa_version": self._opa_version,
+                "policies": {
+                    path.relative_to(self._policies_root).as_posix(): digest
+                    for path, digest in self._policy_source_digests.items()
+                },
+            }
+        )
         self._semantics: dict[Path, RegoSemantics] = {}
+
+    @property
+    def current_generation_digest(self) -> str:
+        """Recompute the complete policy tree identity for publication fencing."""
+
+        return _canonical_digest(
+            {
+                "opa_version": self._opa_version,
+                "policies": {
+                    path.relative_to(self._policies_root).as_posix(): _file_digest(path)
+                    for path in sorted(self._policies_root.rglob("*.rego"))
+                },
+            }
+        )
 
     # ------------------------------------------------------------------
     # PolicyEvaluator
@@ -124,6 +150,9 @@ class OpaRegoEvaluator:
         rego_path = self._policies_root / rel_path
         if not rego_path.is_file():
             raise OpaEvaluatorError(f"policy file not found: {rego_path.as_posix()!r}")
+        bound_policy_digest = self._policy_source_digests.get(rego_path)
+        if bound_policy_digest != _file_digest(rego_path):
+            raise OpaEvaluatorError("policy artifact changed after evaluator generation binding")
 
         package = self._derive_package(rel_path)
         query = f"data.{package}"
@@ -164,6 +193,8 @@ class OpaRegoEvaluator:
             raise OpaEvaluatorError(
                 f"opa eval failed (exit {proc.returncode}) for {reference!r}: {stderr}"
             )
+        if bound_policy_digest != _file_digest(rego_path):
+            raise OpaEvaluatorError("policy artifact changed during evaluator generation use")
 
         try:
             parsed = json.loads(proc.stdout)
@@ -272,6 +303,10 @@ def _canonical_digest(value: object) -> str:
         sort_keys=True,
     ).encode("utf-8")
     return "sha256:" + hashlib.sha256(encoded).hexdigest()
+
+
+def _file_digest(path: Path) -> str:
+    return "sha256:" + hashlib.sha256(path.read_bytes()).hexdigest()
 
 
 __all__ = [

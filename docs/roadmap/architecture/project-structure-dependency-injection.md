@@ -169,6 +169,11 @@ if forced to be sync. The **CPU / startup seams** - `SchemaRegistry`, `ContractV
 `StateStore` implementations. It atomically confirms or conflicts one retained evidence row with
 its provisional Heimdall/Forseti target row, so a source race cannot expose an unconfirmed posture
 or review. This capability grants no evidence-production, judgment, approval, or execution authority.
+Heimdall's injected posture producer additionally uses `PostgresTwinInventorySource.run_at_revision`
+to hold the Inventory promotion and realtime graph locks through source persistence and writer
+confirmation. The T0 evaluator generation includes exact Rule models, OPA version, and policy
+artifact digests. Durable first-seen clocks order changed revisions while exact retries reuse their
+original time. These fences grant no action authority and do not bind Forseti's proposed-IaC source.
 
 The shared `MetricProviderError` contract owns bounded failure metadata; Azure transports classify it and the Analyzer redacts identities.
 The [metric diagnostics contract](aks-diagnostic-evidence-plane.md#safe-metric-failure-diagnostics) preserves legacy providers, empty results, and fail-closed behavior.

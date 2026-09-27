@@ -105,6 +105,41 @@ class T0Engine:
 
         return T0Engine(index=self._index.with_rules(rules), evaluator=self._evaluator)
 
+    @property
+    def evaluator_generation_digest(self) -> str | None:
+        """Return the immutable evaluator artifact generation when available."""
+
+        value = getattr(self._evaluator, "generation_digest", None)
+        if (
+            not isinstance(value, str)
+            or len(value) != 71
+            or not value.startswith("sha256:")
+            or any(character not in "0123456789abcdef" for character in value[7:])
+        ):
+            return None
+        return value
+
+    @property
+    def current_evaluator_generation_digest(self) -> str | None:
+        """Return the evaluator's currently observed artifact generation."""
+
+        try:
+            value = getattr(
+                self._evaluator,
+                "current_generation_digest",
+                self.evaluator_generation_digest,
+            )
+        except OSError:
+            return None
+        if (
+            not isinstance(value, str)
+            or len(value) != 71
+            or not value.startswith("sha256:")
+            or any(character not in "0123456789abcdef" for character in value[7:])
+        ):
+            return None
+        return value
+
     def evaluate(
         self,
         *,
@@ -177,6 +212,7 @@ class T0Engine:
             tier="t0",
             mode=Mode.SHADOW,
             citing_rule_ids=tuple(citing),
+            abstained_rule_ids=tuple(abstained),
             evaluation_receipts=tuple(evaluation_receipts),
             reason=_abstain_reason(candidates, abstained, findings),
         )

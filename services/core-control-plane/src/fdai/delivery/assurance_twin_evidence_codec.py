@@ -34,6 +34,7 @@ def decode_evidence(
         or request.source_key != source_key
         or request.source_revision != revision
         or raw.get("source_revision") != revision
+        or raw.get("request_status") != "pending"
         or raw.get("complete") is not True
         or not isinstance(raw.get("conflict"), bool)
     ):
@@ -67,6 +68,9 @@ def decode_evidence(
     rule_assessment = RuleFindingAssessment(
         source_revision=str(rule_raw.get("source_revision") or ""),
         rule_set_digest=str(rule_raw.get("rule_set_digest") or ""),
+        rule_membership_digest=str(rule_raw.get("rule_membership_digest") or ""),
+        rule_generation_digest=str(rule_raw.get("rule_generation_digest") or ""),
+        inventory_revision=str(rule_raw.get("inventory_revision") or ""),
         evaluated_rule_ids=tuple(rule_raw.get("evaluated_rule_ids") or ()),
         findings_digest=str(rule_raw.get("findings_digest") or ""),
         coverage_refs=tuple(rule_raw.get("coverage_refs") or ()),
@@ -159,7 +163,7 @@ def source_conflict_audit(
 ) -> dict[str, Any]:
     return {
         "kind": "assurance_twin_evidence_source_conflict",
-        "producer_principal": "assurance-twin-evidence-source",
+        "producer_principal": "Heimdall" if request.kind == "posture" else "Forseti",
         "request_kind": request.kind,
         "idempotency_key": request.idempotency_key,
         "source_revision": request.source_revision,
