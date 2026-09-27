@@ -6,6 +6,10 @@ from collections.abc import Collection, Mapping
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Literal
 
+from fdai.delivery.assurance_twin_evidence_source import (
+    AssuranceTwinEvidenceRequestRelay,
+    StateStoreTwinEvidenceRepository,
+)
 from fdai.delivery.assurance_twin_posture import AssuranceTwinPostureRecorder
 from fdai.delivery.assurance_twin_publication import AssuranceTwinOutboxPublisher
 from fdai.delivery.assurance_twin_writers import (
@@ -145,7 +149,7 @@ def build_assurance_twin_runtime_binding(
     agents: Collection[str] | None,
     event_bus: EventBus,
     retained_source: RetainedTwinEvidenceSource | None,
-) -> tuple[tuple[AssuranceTwinOutboxPublisher, ...], tuple[AssuranceTwinAgentWriter, ...]]:
+) -> tuple[tuple[Any, ...], tuple[AssuranceTwinAgentWriter, ...]]:
     """Bind no writer without the durable store and all three accountable agents."""
 
     if (
@@ -156,12 +160,19 @@ def build_assurance_twin_runtime_binding(
         return (), ()
 
     ledger = StateStoreAssuranceTwinPostureLedger(store=state_store)
-    publishers = tuple(
+    publishers: tuple[Any, ...] = tuple(
         AssuranceTwinOutboxPublisher(owner=owner, ledger=ledger, bus=event_bus)
         for owner in ("Heimdall", "Forseti")
     )
     if retained_source is None:
-        return publishers, ()
+        retained_source = StateStoreTwinEvidenceRepository(store=state_store)
+        publishers = (
+            AssuranceTwinEvidenceRequestRelay(
+                repository=retained_source,
+                bus=event_bus,
+            ),
+            *publishers,
+        )
 
     recorder = AssuranceTwinPostureRecorder(ledger=ledger)
     owners: tuple[Literal["Heimdall", "Forseti"], ...] = ("Heimdall", "Forseti")

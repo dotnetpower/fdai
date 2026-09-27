@@ -28,6 +28,15 @@ from fdai.delivery.persistence.assurance_twin_outbox import (
     _audit_lineage,
     _pending_publication,
 )
+from fdai.delivery.persistence.state_store_assurance_twin_conflict import (
+    AssuranceTwinConflictMixin,
+)
+from fdai.delivery.persistence.state_store_assurance_twin_conflict import (
+    has_conflict_marker as _has_conflict_marker,
+)
+from fdai.delivery.persistence.state_store_assurance_twin_conflict import (
+    with_conflict_marker as _with_conflict_marker,
+)
 from fdai.shared.providers.iac_review import IacReview
 from fdai.shared.providers.state_store import StateStore
 
@@ -75,6 +84,7 @@ _PROVENANCE_FIELDS = frozenset(
         "correlation_id",
         "evidence_digest",
         "evidence_source_revision",
+        "source_confirmed",
         CONFLICT_MARKER_FIELD,
         _REVISION_FIELD,
         _PUBLICATION_FIELD,
@@ -176,7 +186,10 @@ class AssuranceTwinLedgerWrite:
     ``evidence_digest``."""
 
 
-class StateStoreAssuranceTwinPostureLedger(AssuranceTwinOutboxMixin):
+class StateStoreAssuranceTwinPostureLedger(
+    AssuranceTwinConflictMixin,
+    AssuranceTwinOutboxMixin,
+):
     """Durable posture-report and change-review projection over ``StateStore``."""
 
     def __init__(self, *, store: StateStore) -> None:
@@ -191,6 +204,7 @@ class StateStoreAssuranceTwinPostureLedger(AssuranceTwinOutboxMixin):
         activity_id: str,
         correlation_id: str,
         evidence_source_revision: str,
+        source_confirmed: bool = True,
         activity: AgentOperationalActivity | AssuranceTwinReviewActivity | None = None,
     ) -> AssuranceTwinLedgerWrite:
         """Persist ``report`` as the latest snapshot for its scope.
@@ -230,6 +244,7 @@ class StateStoreAssuranceTwinPostureLedger(AssuranceTwinOutboxMixin):
                 correlation_id=correlation_identity,
                 digest=digest,
                 evidence_source_revision=evidence_source_revision,
+                source_confirmed=source_confirmed,
             ),
             _REVISION_FIELD: 1,
             **publication,
@@ -293,7 +308,9 @@ class StateStoreAssuranceTwinPostureLedger(AssuranceTwinOutboxMixin):
                     conflict=True,
                     stored_evidence_digest=stored_digest,
                 )
-            if _stored_comparison_digest(existing) == digest:
+            if _stored_comparison_digest(existing) == digest and existing.get(
+                "evidence_source_revision"
+            ) == value.get("evidence_source_revision"):
                 return AssuranceTwinLedgerWrite(
                     key=key,
                     created=False,
@@ -414,6 +431,7 @@ class StateStoreAssuranceTwinPostureLedger(AssuranceTwinOutboxMixin):
         activity_id: str,
         correlation_id: str,
         evidence_source_revision: str,
+        source_confirmed: bool = True,
         activity: AgentOperationalActivity | AssuranceTwinReviewActivity | None = None,
     ) -> AssuranceTwinLedgerWrite:
         """Persist one bounded review and durably tombstone key conflicts.
@@ -445,6 +463,7 @@ class StateStoreAssuranceTwinPostureLedger(AssuranceTwinOutboxMixin):
                     correlation_id=correlation_identity,
                     digest=digest,
                     evidence_source_revision=evidence_source_revision,
+                    source_confirmed=source_confirmed,
                 ),
                 _REVISION_FIELD: 1,
                 **publication,
@@ -468,6 +487,7 @@ class StateStoreAssuranceTwinPostureLedger(AssuranceTwinOutboxMixin):
             digest=digest,
             existing=existing,
             correlation_id=correlation_identity,
+            evidence_source_revision=evidence_source_revision,
             attempts_remaining=_MAX_CONFLICT_CAS_ATTEMPTS,
         )
 
@@ -478,6 +498,7 @@ class StateStoreAssuranceTwinPostureLedger(AssuranceTwinOutboxMixin):
         digest: str,
         existing: Mapping[str, Any],
         correlation_id: str,
+        evidence_source_revision: str,
         attempts_remaining: int,
     ) -> AssuranceTwinLedgerWrite:
         """Reconcile a same-key redelivery against ``existing`` atomically.
@@ -499,12 +520,16 @@ class StateStoreAssuranceTwinPostureLedger(AssuranceTwinOutboxMixin):
                 conflict=True,
                 stored_evidence_digest=stored_digest,
             )
-        if stored_comparison_digest == digest:
+        if (
+            stored_comparison_digest == digest
+            and existing.get("evidence_source_revision") == evidence_source_revision
+        ):
             return await self._confirm_matching_replay(
                 key=key,
                 digest=digest,
                 existing=existing,
                 correlation_id=correlation_id,
+                evidence_source_revision=evidence_source_revision,
                 attempts_remaining=attempts_remaining,
             )
         if attempts_remaining <= 0:
@@ -552,6 +577,7 @@ class StateStoreAssuranceTwinPostureLedger(AssuranceTwinOutboxMixin):
             digest=digest,
             existing=replay,
             correlation_id=correlation_id,
+            evidence_source_revision=evidence_source_revision,
             attempts_remaining=attempts_remaining - 1,
         )
 
@@ -562,6 +588,7 @@ class StateStoreAssuranceTwinPostureLedger(AssuranceTwinOutboxMixin):
         digest: str,
         existing: Mapping[str, Any],
         correlation_id: str,
+        evidence_source_revision: str,
         attempts_remaining: int,
     ) -> AssuranceTwinLedgerWrite:
         """Confirm a matching replay without mutating state or audit history."""
@@ -583,12 +610,14 @@ class StateStoreAssuranceTwinPostureLedger(AssuranceTwinOutboxMixin):
         if (
             _stored_revision(confirmed) != _stored_revision(existing)
             or _stored_comparison_digest(confirmed) != digest
+            or confirmed.get("evidence_source_revision") != evidence_source_revision
         ):
             return await self._resolve_conflict(
                 key=key,
                 digest=digest,
                 existing=confirmed,
                 correlation_id=correlation_id,
+                evidence_source_revision=evidence_source_revision,
                 attempts_remaining=attempts_remaining - 1,
             )
         return AssuranceTwinLedgerWrite(key=key, created=False, evidence_digest=digest)
@@ -630,6 +659,7 @@ def _with_provenance(
     correlation_id: str,
     digest: str,
     evidence_source_revision: str,
+    source_confirmed: bool,
 ) -> dict[str, Any]:
     _check_provenance_identity("activity_id", activity_id)
     _check_provenance_identity("correlation_id", correlation_id)
@@ -640,6 +670,7 @@ def _with_provenance(
         "correlation_id": correlation_id,
         "evidence_digest": digest,
         "evidence_source_revision": evidence_source_revision,
+        "source_confirmed": source_confirmed,
     }
 
 
@@ -746,34 +777,6 @@ def _stored_canonical_timestamp(existing: Mapping[str, Any]) -> str | None:
         return _canonical_timestamp(generated_at)
     except ValueError:
         return None
-
-
-def _has_conflict_marker(existing: Mapping[str, Any] | None) -> bool:
-    return existing is not None and isinstance(existing.get(CONFLICT_MARKER_FIELD), Mapping)
-
-
-def _with_conflict_marker(
-    existing: Mapping[str, Any],
-    *,
-    reason_code: str,
-    stored_evidence_digest: str | None,
-    rejected_evidence_digest: str,
-) -> dict[str, Any]:
-    """Return the stored row tombstoned with a content-free conflict marker.
-
-    The preserved evidence body and its provenance are untouched; only the
-    excluded-from-digest marker is added, so a reader can still verify the
-    stored body while being forced to render the row unavailable.
-    """
-
-    return {
-        **existing,
-        CONFLICT_MARKER_FIELD: {
-            "reason_code": reason_code,
-            "stored_evidence_digest": stored_evidence_digest,
-            "rejected_evidence_digest": rejected_evidence_digest,
-        },
-    }
 
 
 __all__ = [

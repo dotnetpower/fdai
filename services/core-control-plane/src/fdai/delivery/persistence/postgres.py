@@ -34,6 +34,9 @@ from psycopg_pool import AsyncConnectionPool
 from fdai.delivery.persistence.postgres_approval_guard import (
     compare_and_set_state_with_approval_guard as _compare_and_set_state_with_approval_guard,
 )
+from fdai.delivery.persistence.postgres_assurance_twin_confirmation import (
+    PostgresAssuranceTwinConfirmationMixin,
+)
 from fdai.delivery.persistence.postgres_audit_fields import (
     audit_action_kind as _audit_action_kind,
 )
@@ -92,7 +95,7 @@ class PostgresStateStoreConfig:
     (``statement_timeout`` only starts *after* connect succeeds)."""
 
 
-class PostgresStateStore(StateStore):
+class PostgresStateStore(PostgresAssuranceTwinConfirmationMixin, StateStore):
     """Async :class:`StateStore` implementation for PostgreSQL."""
 
     def __init__(self, *, config: PostgresStateStoreConfig) -> None:

@@ -1,6 +1,6 @@
 ---
 translation_of: project-structure-dependency-injection.md
-translation_source_sha: 5a22bc0cabc841cd06e5b7c5d002d897686498ae
+translation_source_sha: fb4e8ba45b8112aefee53ec8b62d7b2881c0058c
 translation_revised: 2026-09-27
 ---
 
@@ -175,6 +175,11 @@ import를 모아도 작업 정체성, 문서 수집, 출처 소유권, 구성 �
 `ConfigProvider` - 은 **sync 유지**: 시작 시 한 번 실행되거나, I/O 없는 순수 CPU 경계
 검증이므로 비동기 래퍼는 노이즈만 추가합니다. 테스트는 `pytest-asyncio` + `asyncio_mode =
 "auto"` 로 실행되어 평범한 `비동기 def test_...` 가 per-test 마커 없이 동작합니다. `InvestigationCoordinator`는 기본적으로 직렬 실행하며 요청 순서와 대상별 오류 격리를 보존합니다. 예약 Analyzer 조립은 동시 대상 평가 상한을 4로 명시합니다.
+
+`AssuranceTwinConfirmationStore`는 프로덕션 및 메모리 내 `StateStore` 구현의 선택적
+기능입니다. 보존 근거 행과 provisional Heimdall/Forseti 대상 행을 원자적으로 확인하거나
+상충 상태로 전환하므로 원본 경합이 확인되지 않은 자세 또는 검토를 노출할 수 없습니다.
+이 기능은 근거 생산, 판단, 승인 또는 실행 권한을 부여하지 않습니다.
 
 공유 `MetricProviderError` 계약은 범위가 제한된 실패 메타데이터를 소유합니다. Azure 전송 계층이 실패를 분류하고 Analyzer가 식별자를 제거합니다.
 [메트릭 진단 계약](aks-diagnostic-evidence-plane-ko.md#안전한-메트릭-실패-진단)은 기존 공급자와 빈 결과의 동작을 유지하며, 실패 시 안전한 쪽으로 처리를 중단합니다.

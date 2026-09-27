@@ -384,7 +384,15 @@ async def test_unavailable_evidence_never_generates_a_review(issue: str) -> None
     source.review = changes[issue]
     assert not await forseti.process(_request("review"))
     assert await ledger.pending_publications(owner="Forseti") == ()
-    assert store.audit_entries == ()
+    if issue == "conflict":
+        assert store.audit_entries[-1]["entry"]["action_kind"] == (
+            "assurance_twin.source_conflict_marked"
+        )
+        retained = await store.read_state("runtime:assurance-twin-review:review-1")
+        assert retained is not None
+        assert retained["conflict"]["reason_code"] == "assurance_twin_review_key_conflict"
+    else:
+        assert store.audit_entries == ()
 
 
 async def test_old_report_cannot_be_refreshed_by_a_new_expiry_stamp() -> None:
