@@ -93,6 +93,8 @@ def _plan() -> repository_config.RepositoryConfigPlan:
             ("fdai-core-control-plane", "1"),
             ("fdai-operator-service", "2"),
             ("fdai-document-ingestion-api", "3"),
+            ("fdai-document-processing-worker", "4"),
+            ("fdai-isolated-executor", "5"),
         )
     }
     entra_bindings = {
@@ -123,6 +125,8 @@ def test_repository_plan_binds_foundation_and_exact_source_images() -> None:
     assert plan.variables["ARM_SUBSCRIPTION_ID"].endswith("0001")
     assert plan.variables["FOUNDATION_RESOURCE_GROUP_CONTEXT_DIGEST"] == "c" * 64
     assert plan.variables["CORE_IMAGE"].endswith("@sha256:" + "1" * 64)
+    assert plan.variables["DOCUMENT_PROCESSING_WORKER_IMAGE"].endswith("@sha256:" + "4" * 64)
+    assert plan.variables["ISOLATED_EXECUTOR_IMAGE"].endswith("@sha256:" + "5" * 64)
     preflight = json.loads(plan.variables["DEPLOY_PREFLIGHT_INPUT_JSON"])
     assert preflight["azure_live"]["resource_group"] == "rg-example"
     assert preflight["azure_live"]["identity_rbac"]["allow_planned_creation"] is True
