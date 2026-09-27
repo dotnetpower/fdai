@@ -42,7 +42,9 @@ distinct residual review bound to the original claim, current state, target, sou
 profile, and residual binary plan. It requires a new exact `<stage>-residual-apply` approval and a
 new residual claim before one effect. Destructive residuals retain the second confirmation.
 Residual apply ambiguity is verification-only; it cannot create another residual apply. Completion
-still requires authoritative effect readback and a zero-change plan.
+still requires authoritative effect readback and a zero-change plan. Any present or symbolic-link
+claim path blocks ordinary replanning until validated recovery; malformed retained claims fail
+closed.
 
 | Axis | Supported values | Default | Meaning |
 |------|------------------|---------|---------|

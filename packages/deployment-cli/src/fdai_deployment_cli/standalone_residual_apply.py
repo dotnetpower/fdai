@@ -273,7 +273,8 @@ def recover_residual_apply(
 
 
 def residual_claim_exists(work_dir: Path, stage: str) -> bool:
-    return (work_dir / f"{_operation(stage)}-claim.json").is_file()
+    path = work_dir / f"{_operation(stage)}-claim.json"
+    return path.exists() or path.is_symlink()
 
 
 def _write_receipt(
@@ -368,6 +369,7 @@ def _validate_original_claim(
         or not isinstance(plan_digest, str)
         or _DIGEST.fullmatch(plan_digest) is None
         or claim.get("plan_digest") != plan_digest
+        or claim.get("mutation_performed") is not False
         or claim.get("idempotency_key")
         != canonical_digest(
             {

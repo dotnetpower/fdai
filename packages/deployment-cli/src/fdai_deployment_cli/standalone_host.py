@@ -2197,9 +2197,11 @@ def _plan(args: argparse.Namespace, work_dir: Path) -> dict[str, object]:
     )
     if reconciliation is not None:
         raise ValueError("historical AKS reconciliation requires its retained exact review")
-    if (work_dir / f"{operation}-claim.json").exists() and not (
-        work_dir / f"{operation}-receipt.json"
-    ).exists():
+    claim_path = work_dir / f"{operation}-claim.json"
+    receipt_path = work_dir / f"{operation}-receipt.json"
+    if (claim_path.exists() or claim_path.is_symlink()) and not (
+        receipt_path.exists() or receipt_path.is_symlink()
+    ):
         raise ValueError("claimed standalone apply requires verification-only recovery")
     _managed_identity_login_from_context(context, work_dir)
     infra, variables = _stage_paths(stage, context, work_dir)
