@@ -132,6 +132,20 @@ check "stewardship_governance_requires_delivery" {
   }
 }
 
+check "catalog_review_requires_github_app" {
+  assert {
+    condition = !var.enable_catalog_review || (
+      trimspace(var.gitops_owner) != "" &&
+      trimspace(var.gitops_repo) != "" &&
+      trimspace(nonsensitive(var.gitops_token)) == "" &&
+      trimspace(var.github_app_client_id) != "" &&
+      trimspace(var.github_app_installation_id) != "" &&
+      trimspace(nonsensitive(var.github_app_private_key)) != ""
+    )
+    error_message = "enable_catalog_review requires one GitHub App repository binding and rejects static-token compatibility."
+  }
+}
+
 check "production_image_is_digest_pinned" {
   assert {
     condition = var.env != "prod" || (

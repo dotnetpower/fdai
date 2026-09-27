@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import re
 from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -20,6 +21,10 @@ from fdai.delivery.inventory_progress import INVENTORY_PROGRESS_GENESIS_DIGEST
 from fdai.shared.providers.inventory import UNCLASSIFIED_RESOURCE_TYPE
 
 _MAX_PROGRESS_RECORDS = 100_000
+_SUBSCRIPTION_ID = re.compile(r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$")
+_SUBSCRIPTION_SCOPE = re.compile(
+    r"^/subscriptions/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -113,6 +118,8 @@ class PostgresInventoryClosureVerifier:
         started_at = progress_record.started_at
         promoted_at = active["promoted_at"]
         coverage_gaps = len(metadata.get("relationship_drop_reasons", []))
+        subscription_scope = _canonical_subscription_scope(active["scopes"])
+        scope_digest = "sha256:" + hashlib.sha256(subscription_scope.encode("utf-8")).hexdigest()
         conditions = {
             "verified_progress": (
                 (
@@ -131,7 +138,7 @@ class PostgresInventoryClosureVerifier:
             == "sha256:" + hashlib.sha256(str(active["id"]).encode("utf-8")).hexdigest(),
             "observed": active["observation_kind"] == "observed",
             "source": active["source"] in {"arg", "arm"},
-            "single_scope": isinstance(active["scopes"], list) and len(active["scopes"]) == 1,
+            "subscription_scope": _SUBSCRIPTION_SCOPE.fullmatch(subscription_scope) is not None,
             "full_scope": metadata.get("coverage_scope") == "full_provider_scope",
             "provider_coverage": coverage.get("provider_identity_complete") is True,
             "unmapped_reconciled": (
@@ -156,6 +163,7 @@ class PostgresInventoryClosureVerifier:
             "attempt_id": attempt_id,
             "generation_digest": "sha256:"
             + hashlib.sha256(str(active["id"]).encode("utf-8")).hexdigest(),
+            "scope_digest": scope_digest,
             "subscription_root": True,
             "resource_type_filter": False,
             "final_fence": True,
@@ -165,6 +173,7 @@ class PostgresInventoryClosureVerifier:
             "overlay_open": False,
             "child_sources_complete": True,
             "observer_distinct": True,
+            "fresh_generation": True,
             "resource_count": int(active["resource_count"]),
             "link_count": int(active["link_count"]),
             "unmapped_object_count": int(active["unmapped_count"]),
@@ -175,6 +184,7 @@ class PostgresInventoryClosureVerifier:
             run_id=run_id,
             attempt_id=attempt_id,
             generation_digest=str(values["generation_digest"]),
+            scope_digest=scope_digest,
             subscription_root=True,
             resource_type_filter=False,
             final_fence=True,
@@ -184,6 +194,7 @@ class PostgresInventoryClosureVerifier:
             overlay_open=False,
             child_sources_complete=True,
             observer_distinct=True,
+            fresh_generation=True,
             resource_count=int(active["resource_count"]),
             link_count=int(active["link_count"]),
             unmapped_object_count=int(active["unmapped_count"]),
@@ -204,6 +215,17 @@ def _mapping(value: object, label: str) -> Mapping[str, Any]:
     if not isinstance(value, Mapping):
         raise ValueError(f"{label} MUST be an object")
     return value
+
+
+def _canonical_subscription_scope(value: object) -> str:
+    if not isinstance(value, list) or len(value) != 1 or not isinstance(value[0], str):
+        return ""
+    candidate = value[0].strip().casefold()
+    if _SUBSCRIPTION_ID.fullmatch(candidate) is not None:
+        return f"/subscriptions/{candidate}"
+    if _SUBSCRIPTION_SCOPE.fullmatch(candidate) is not None:
+        return candidate
+    return ""
 
 
 __all__ = ["PostgresInventoryClosureVerifier", "PostgresInventoryClosureVerifierConfig"]

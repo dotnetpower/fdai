@@ -1,6 +1,7 @@
 # Stable repository entry points and project-level configuration.
 .dockerignore
 .gitignore
+.gitleaksignore
 .gitleaks.toml
 .pre-commit-config.yaml
 .trivyignore.yaml

@@ -1,7 +1,7 @@
 {
-  "catalog_digest": "sha256:05c1b724bcb1fa0b66871d4c51e89e0e48443cc571f6df381439ed78e57a9f10",
+  "catalog_digest": "sha256:22e17f646f4e00abdc1bf5901690b2cb324be71347c6f933662067be1c624bcd",
   "execution_authority": false,
-  "generated_at": "2026-09-27T01:48:42.017431Z",
+  "generated_at": "2026-09-27T02:31:04.032263Z",
   "records": [
     {
       "designed_behavior": [
@@ -106,11 +106,11 @@
         "What is Bragi responsible for?",
         "Bragi는 무엇을 담당하나요?"
       ],
-      "record_digest": "sha256:139a311e2aa33211e721f89f8b025167964cbe96919b196a40e551b739bb2df9",
+      "record_digest": "sha256:8c97e6cdaafd8a02ff069842e21d1690d8c05b6014c47bdbafd2146af55fc6e4",
       "sources": [
         {
           "authority_role": "design",
-          "blob_sha": "073cd976aa26121f3a2d8298ed53c760f898d248",
+          "blob_sha": "0471aee06ea4333d5423aa4e49f0dd84ddb4beb2",
           "line_end": 29,
           "line_start": 29,
           "path": "docs/roadmap/agents/agent-pantheon.md",
@@ -268,13 +268,13 @@
         "How does FDAI authenticate and authorize people?",
         "FDAI는 사용자를 어떻게 인증하고 권한을 확인하나요?"
       ],
-      "record_digest": "sha256:ed3c6a393fcd2d9816431011d6c0f5f9dd7291c0e947f3f53791d36b037a241e",
+      "record_digest": "sha256:dc6071da52c2442f5c2efb8d3dede25e69e2a61b97d8da7b4d1cf7e4e426cd5e",
       "sources": [
         {
           "authority_role": "verification",
-          "blob_sha": "92525215711e990eb40940fb99f6c25a31069d69",
-          "line_end": 20,
-          "line_start": 20,
+          "blob_sha": "bda83ba19cdf89f62696e9296e4b8a6543ad574f",
+          "line_end": 19,
+          "line_start": 19,
           "path": "docs/roadmap/interfaces/user-rbac-and-identity.md",
           "source_kind": "doc",
           "symbol": "Implementation status"
@@ -336,11 +336,11 @@
         "How are FDAI agents organized?",
         "FDAI agent 조직은 어떻게 구성되나요?"
       ],
-      "record_digest": "sha256:da257d15f397f6b3076ec3f38da495b113a2ac14dba2072ea0974ca0b00390ec",
+      "record_digest": "sha256:18b32dcf582754bc4b3f9f168aae0e2b4cb39e39af2f6098bfa62d546456b17c",
       "sources": [
         {
           "authority_role": "design",
-          "blob_sha": "073cd976aa26121f3a2d8298ed53c760f898d248",
+          "blob_sha": "0471aee06ea4333d5423aa4e49f0dd84ddb4beb2",
           "line_end": 18,
           "line_start": 18,
           "path": "docs/roadmap/agents/agent-pantheon.md",
@@ -553,5 +553,5 @@
     }
   ],
   "schema_version": "1.0.0",
-  "source_revision": "5981e7e636db2b2a1ad193c21672dc6169a73c37"
+  "source_revision": "1e346bbbe105773b417a8f2470c3bac70f166f33"
 }

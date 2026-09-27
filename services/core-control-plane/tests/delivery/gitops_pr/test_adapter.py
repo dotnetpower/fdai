@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import asyncio
 import base64
+import hashlib
 import json
 from typing import Any
 from uuid import UUID
@@ -36,6 +37,7 @@ OWNER = "acme"
 REPO = "iac"
 TOKEN = "test-token"  # noqa: S105 - deterministic test literal, not a secret
 BRANCH_K1 = "fdai/shadow/k1-6ab9f1eb8f7d3388f4f9d586f66e99fd54080df2c446f0e58668b09c08a16dd0"
+HEAD_SHA = "c" * 40
 
 
 def _config(**overrides: Any) -> GitOpsPrConfig:
@@ -78,6 +80,38 @@ def _adapter(handler: httpx.MockTransport, **cfg: Any) -> GitOpsPrAdapter:
         http_client=_client(handler),
         token=TOKEN,
     )
+
+
+def _encoded_content(value: str) -> dict[str, str]:
+    return {
+        "encoding": "base64",
+        "content": base64.b64encode(value.encode("utf-8")).decode("ascii"),
+    }
+
+
+def _added_file(path: str) -> dict[str, str]:
+    return {"filename": path, "status": "added"}
+
+
+def _open_pr(
+    *,
+    number: int,
+    branch: str,
+    labels: tuple[str, ...],
+    head_sha: str = HEAD_SHA,
+) -> dict[str, Any]:
+    return {
+        "number": number,
+        "html_url": f"https://github.com/acme/iac/pull/{number}",
+        "state": "open",
+        "draft": True,
+        "head": {"ref": branch, "sha": head_sha},
+        "base": {"ref": "main"},
+        "labels": [{"name": label} for label in labels],
+        "merged": False,
+        "merged_at": None,
+        "auto_merge": None,
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -196,14 +230,18 @@ async def test_existing_open_pr_short_circuits_publish() -> None:
         if request.method == "GET" and request.url.path.endswith("/pulls"):
             return httpx.Response(
                 200,
-                json=[
-                    {
-                        "number": 7,
-                        "html_url": "https://github.com/acme/iac/pull/7",
-                        "state": "open",
-                    }
-                ],
+                json=[_open_pr(number=7, branch=BRANCH_K1, labels=_pr().labels)],
             )
+        if request.method == "GET" and request.url.path.endswith("/pulls/7"):
+            return httpx.Response(
+                200,
+                json=_open_pr(number=7, branch=BRANCH_K1, labels=_pr().labels),
+            )
+        if request.method == "GET" and request.url.path.endswith("/pulls/7/files"):
+            return httpx.Response(200, json=[_added_file(_pr().patch_path)])
+        if request.method == "GET" and "/contents/" in request.url.path:
+            assert request.url.params["ref"] == HEAD_SHA
+            return httpx.Response(200, json=_encoded_content(_pr().patch))
         raise AssertionError(f"unexpected call: {request.method} {request.url}")
 
     adapter = _adapter(httpx.MockTransport(_handler))
@@ -211,14 +249,15 @@ async def test_existing_open_pr_short_circuits_publish() -> None:
     assert receipt.already_existed is True
     assert receipt.pr_ref == "acme/iac#7"
     assert receipt.url == "https://github.com/acme/iac/pull/7"
-    # Only the probe fired.
-    assert len(calls) == 1
+    assert receipt.head_sha == HEAD_SHA
+    assert len(calls) == 4
 
 
 @pytest.mark.asyncio
 async def test_concurrent_retries_serialize_and_open_one_pr() -> None:
     counts: dict[str, int] = {}
     pr_open = False
+    labels = _pr().labels
 
     def _handler(request: httpx.Request) -> httpx.Response:
         nonlocal pr_open
@@ -228,21 +267,41 @@ async def test_concurrent_retries_serialize_and_open_one_pr() -> None:
             if pr_open:
                 return httpx.Response(
                     200,
-                    json=[{"number": 9, "html_url": "url", "state": "open"}],
+                    json=[_open_pr(number=9, branch=adapter._branch_for("same"), labels=labels)],
                 )
             return httpx.Response(200, json=[])
+        if request.method == "GET" and request.url.path.endswith("/pulls/9"):
+            return httpx.Response(
+                200,
+                json=_open_pr(number=9, branch=adapter._branch_for("same"), labels=labels),
+            )
+        if request.method == "GET" and request.url.path.endswith("/pulls/9/files"):
+            return httpx.Response(
+                200,
+                json=[_added_file(_pr(idempotency_key="same").patch_path)],
+            )
         if request.method == "GET" and "/git/refs/heads/" in request.url.path:
             return httpx.Response(200, json={"object": {"sha": "base"}})
         if request.method == "POST" and request.url.path.endswith("/git/refs"):
             return httpx.Response(201, json={})
         if request.method == "GET" and "/contents/" in request.url.path:
+            if request.url.params.get("ref") == HEAD_SHA:
+                return httpx.Response(200, json=_encoded_content(_pr(idempotency_key="same").patch))
             return httpx.Response(404, json={})
         if request.method == "PUT" and "/contents/" in request.url.path:
-            return httpx.Response(201, json={"commit": {"sha": "commit"}})
+            return httpx.Response(201, json={"commit": {"sha": HEAD_SHA}})
         if request.method == "POST" and request.url.path.endswith("/pulls"):
             pr_open = True
-            return httpx.Response(201, json={"number": 9, "html_url": "url"})
-        if request.method == "POST" and request.url.path.endswith("/labels"):
+            return httpx.Response(
+                201,
+                json={
+                    "number": 9,
+                    "html_url": "url",
+                    "draft": True,
+                    "state": "open",
+                },
+            )
+        if request.method == "PUT" and request.url.path.endswith("/labels"):
             return httpx.Response(200, json=[])
         raise AssertionError(f"unexpected {request.method} {request.url}")
 
@@ -255,6 +314,258 @@ async def test_concurrent_retries_serialize_and_open_one_pr() -> None:
     assert first.pr_ref == second.pr_ref == "acme/iac#9"
     assert counts["POST /repos/acme/iac/pulls"] == 1
     assert second.already_existed is True
+
+
+@pytest.mark.asyncio
+async def test_existing_draft_recovers_missing_labels_after_exact_validation() -> None:
+    calls: list[str] = []
+    labels: tuple[str, ...] = ("shadow",)
+    request = _pr(idempotency_key="catalog", labels=("draft", "shadow"))
+    branch = _adapter(httpx.MockTransport(lambda _: httpx.Response(500)))._branch_for("catalog")
+
+    def _handler(http_request: httpx.Request) -> httpx.Response:
+        nonlocal labels
+        calls.append(http_request.method + " " + http_request.url.path)
+        if http_request.method == "GET" and http_request.url.path.endswith("/pulls"):
+            return httpx.Response(
+                200,
+                json=[_open_pr(number=12, branch=branch, labels=labels)],
+            )
+        if http_request.method == "GET" and http_request.url.path.endswith("/pulls/12"):
+            return httpx.Response(200, json=_open_pr(number=12, branch=branch, labels=labels))
+        if http_request.method == "GET" and http_request.url.path.endswith("/pulls/12/files"):
+            return httpx.Response(200, json=[_added_file(request.patch_path)])
+        if http_request.method == "GET" and "/contents/" in http_request.url.path:
+            return httpx.Response(200, json=_encoded_content(request.patch))
+        if http_request.method == "PUT" and http_request.url.path.endswith("/labels"):
+            labels = request.labels
+            return httpx.Response(200, json=[{"name": label} for label in labels])
+        raise AssertionError(f"unexpected {http_request.method} {http_request.url}")
+
+    receipt = await _adapter(httpx.MockTransport(_handler)).publish(request)
+
+    assert receipt.already_existed is True
+    assert receipt.head_sha == HEAD_SHA
+    assert calls.count("GET /repos/acme/iac/pulls/12") == 2
+    assert "PUT /repos/acme/iac/issues/12/labels" in calls
+
+
+@pytest.mark.asyncio
+async def test_retry_recovers_after_pr_creation_and_label_failure() -> None:
+    request = _pr(idempotency_key="k1")
+    pr_open = False
+    content_written = False
+    labels: tuple[str, ...] = ()
+    label_attempts = 0
+
+    def _handler(http_request: httpx.Request) -> httpx.Response:
+        nonlocal pr_open, content_written, labels, label_attempts
+        path = http_request.url.path
+        method = http_request.method
+        if method == "GET" and path.endswith("/pulls"):
+            if not pr_open:
+                return httpx.Response(200, json=[])
+            return httpx.Response(
+                200,
+                json=[_open_pr(number=42, branch=BRANCH_K1, labels=labels)],
+            )
+        if method == "GET" and path.endswith("/pulls/42"):
+            return httpx.Response(
+                200,
+                json=_open_pr(number=42, branch=BRANCH_K1, labels=labels),
+            )
+        if method == "GET" and path.endswith("/pulls/42/files"):
+            return httpx.Response(200, json=[_added_file(request.patch_path)])
+        if method == "GET" and path.endswith("/git/refs/heads/main"):
+            return httpx.Response(200, json={"object": {"sha": "base"}})
+        if method == "POST" and path.endswith("/git/refs"):
+            return httpx.Response(201, json={})
+        if method == "GET" and "/contents/" in path:
+            if content_written:
+                return httpx.Response(200, json=_encoded_content(request.patch))
+            return httpx.Response(404, json={})
+        if method == "PUT" and "/contents/" in path:
+            content_written = True
+            return httpx.Response(201, json={"commit": {"sha": HEAD_SHA}})
+        if method == "POST" and path.endswith("/pulls"):
+            pr_open = True
+            return httpx.Response(
+                201,
+                json={
+                    "number": 42,
+                    "html_url": "url",
+                    "draft": True,
+                    "state": "open",
+                },
+            )
+        if method == "PUT" and path.endswith("/labels"):
+            label_attempts += 1
+            if label_attempts == 1:
+                return httpx.Response(500, text="temporary")
+            labels = tuple(json.loads(http_request.content)["labels"])
+            return httpx.Response(200, json=[{"name": label} for label in labels])
+        raise AssertionError(f"unexpected {method} {http_request.url}")
+
+    adapter = _adapter(httpx.MockTransport(_handler))
+    with pytest.raises(GitOpsPrError, match="HTTP 500"):
+        await adapter.publish(request)
+
+    receipt = await adapter.publish(request)
+
+    assert receipt.already_existed is True
+    assert receipt.head_sha == HEAD_SHA
+    assert labels == request.labels
+    assert label_attempts == 2
+
+
+@pytest.mark.asyncio
+async def test_existing_draft_rejects_substituted_content_before_label_recovery() -> None:
+    request = _pr(idempotency_key="catalog", labels=("draft", "shadow"))
+    adapter: GitOpsPrAdapter
+
+    def _handler(http_request: httpx.Request) -> httpx.Response:
+        branch = adapter._branch_for("catalog")
+        if http_request.method == "GET" and http_request.url.path.endswith("/pulls"):
+            return httpx.Response(
+                200,
+                json=[_open_pr(number=12, branch=branch, labels=("shadow",))],
+            )
+        if http_request.method == "GET" and http_request.url.path.endswith("/pulls/12"):
+            return httpx.Response(
+                200,
+                json=_open_pr(number=12, branch=branch, labels=("shadow",)),
+            )
+        if http_request.method == "GET" and http_request.url.path.endswith("/pulls/12/files"):
+            return httpx.Response(200, json=[_added_file(request.patch_path)])
+        if http_request.method == "GET" and "/contents/" in http_request.url.path:
+            return httpx.Response(200, json=_encoded_content("substituted\n"))
+        if http_request.url.path.endswith("/labels"):
+            raise AssertionError("labels changed before exact content validation")
+        raise AssertionError(f"unexpected {http_request.method} {http_request.url}")
+
+    adapter = _adapter(httpx.MockTransport(_handler))
+    with pytest.raises(GitOpsPrError, match="document does not match"):
+        await adapter.publish(request)
+
+
+@pytest.mark.asyncio
+async def test_catalog_review_readback_binds_exact_draft_and_branch() -> None:
+    document = '{"kind":"operational-catalog-review"}\n'
+
+    def _handler(request: httpx.Request) -> httpx.Response:
+        assert request.method == "GET"
+        if request.url.path == "/repos/acme/iac/pulls/42":
+            return httpx.Response(
+                200,
+                json=_open_pr(
+                    number=42,
+                    branch=BRANCH_K1,
+                    labels=("draft", "shadow"),
+                ),
+            )
+        if request.url.path == "/repos/acme/iac/pulls/42/files":
+            return httpx.Response(
+                200,
+                json=[_added_file("rule-catalog/review-packages/example.json")],
+            )
+        if "/contents/" in request.url.path:
+            assert request.url.params["ref"] == HEAD_SHA
+            return httpx.Response(200, json=_encoded_content(document))
+        raise AssertionError(f"unexpected {request.method} {request.url}")
+
+    observation = await _adapter(httpx.MockTransport(_handler)).observe_catalog_review(
+        pr_ref="acme/iac#42",
+        idempotency_key="k1",
+        required_labels=("draft", "shadow"),
+        expected_head_sha=HEAD_SHA,
+        expected_path="rule-catalog/review-packages/example.json",
+        expected_document_digest=hashlib.sha256(document.encode()).hexdigest(),
+    )
+
+    assert observation.open is True
+    assert observation.draft is True
+    assert observation.head_matches is True
+    assert observation.head_commit_matches is True
+    assert observation.base_matches is True
+    assert observation.labels_match is True
+    assert observation.content_matches is True
+    assert observation.observed_labels == ("draft", "shadow")
+    assert observation.merged is False
+    assert observation.auto_merge_enabled is False
+    assert len(observation.observation_digest) == 64
+
+
+@pytest.mark.asyncio
+async def test_catalog_review_readback_rejects_unrelated_changed_path() -> None:
+    expected_path = "rule-catalog/review-packages/example.json"
+
+    def _handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/repos/acme/iac/pulls/42":
+            return httpx.Response(
+                200,
+                json=_open_pr(
+                    number=42,
+                    branch=BRANCH_K1,
+                    labels=("draft", "shadow"),
+                ),
+            )
+        if request.url.path == "/repos/acme/iac/pulls/42/files":
+            return httpx.Response(
+                200,
+                json=[
+                    _added_file(expected_path),
+                    _added_file("infra/unrelated.tf"),
+                ],
+            )
+        raise AssertionError(f"unexpected {request.method} {request.url}")
+
+    with pytest.raises(GitOpsPrError, match="changed paths"):
+        await _adapter(httpx.MockTransport(_handler)).observe_catalog_review(
+            pr_ref="acme/iac#42",
+            idempotency_key="k1",
+            required_labels=("draft", "shadow"),
+            expected_head_sha=HEAD_SHA,
+            expected_path=expected_path,
+            expected_document_digest="a" * 64,
+        )
+
+
+@pytest.mark.asyncio
+async def test_catalog_review_readback_rejects_renamed_source_path() -> None:
+    expected_path = "rule-catalog/review-packages/example.json"
+
+    def _handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/repos/acme/iac/pulls/42":
+            return httpx.Response(
+                200,
+                json=_open_pr(
+                    number=42,
+                    branch=BRANCH_K1,
+                    labels=("draft", "shadow"),
+                ),
+            )
+        if request.url.path == "/repos/acme/iac/pulls/42/files":
+            return httpx.Response(
+                200,
+                json=[
+                    {
+                        "filename": expected_path,
+                        "previous_filename": "infra/unrelated.tf",
+                        "status": "renamed",
+                    }
+                ],
+            )
+        raise AssertionError(f"unexpected {request.method} {request.url}")
+
+    with pytest.raises(GitOpsPrError, match="changed paths"):
+        await _adapter(httpx.MockTransport(_handler)).observe_catalog_review(
+            pr_ref="acme/iac#42",
+            idempotency_key="k1",
+            required_labels=("draft", "shadow"),
+            expected_head_sha=HEAD_SHA,
+            expected_path=expected_path,
+            expected_document_digest="a" * 64,
+        )
 
 
 @pytest.mark.asyncio
@@ -325,10 +636,12 @@ async def test_full_publish_calls_every_wire_step_in_order() -> None:
                 json={
                     "number": 42,
                     "html_url": "https://github.com/acme/iac/pull/42",
+                    "draft": True,
+                    "state": "open",
                 },
             )
         # 6. Labels
-        if method == "POST" and "/issues/" in path and path.endswith("/labels"):
+        if method == "PUT" and "/issues/" in path and path.endswith("/labels"):
             body = json.loads(request.content.decode("utf-8"))
             assert "shadow" in body["labels"]
             return httpx.Response(200, json=[{"name": lbl} for lbl in body["labels"]])
@@ -366,8 +679,11 @@ async def test_existing_target_file_reuses_prior_blob_sha() -> None:
             assert body["sha"] == "old-blob"
             return httpx.Response(200, json={"commit": {"sha": "cafe"}})
         if method == "POST" and path.endswith("/pulls"):
-            return httpx.Response(201, json={"number": 1, "html_url": "u"})
-        if method == "POST" and "/labels" in path:
+            return httpx.Response(
+                201,
+                json={"number": 1, "html_url": "u", "draft": True, "state": "open"},
+            )
+        if method == "PUT" and "/labels" in path:
             return httpx.Response(200, json=[])
         raise AssertionError(f"unexpected {method} {path}")
 
@@ -394,8 +710,11 @@ async def test_branch_already_exists_is_idempotent() -> None:
         if method == "PUT" and "/contents/" in path:
             return httpx.Response(201, json={"commit": {"sha": "cafe"}})
         if method == "POST" and path.endswith("/pulls"):
-            return httpx.Response(201, json={"number": 2, "html_url": "u"})
-        if method == "POST" and "/labels" in path:
+            return httpx.Response(
+                201,
+                json={"number": 2, "html_url": "u", "draft": True, "state": "open"},
+            )
+        if method == "PUT" and "/labels" in path:
             return httpx.Response(200, json=[])
         raise AssertionError(f"unexpected {method} {path}")
 

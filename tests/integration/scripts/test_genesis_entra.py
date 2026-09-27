@@ -13,8 +13,16 @@ SCRIPT_DIR = ROOT / "scripts/deployment/azure"
 sys.path.insert(0, str(SCRIPT_DIR))
 
 import genesis_entra  # noqa: E402
+import genesis_entra_readback  # noqa: E402
 
 GUID = "00000000-0000-0000-0000-000000000000"
+ROLE_GROUPS = {
+    "readers": "00000000-0000-0000-0000-000000000011",
+    "contributors": "00000000-0000-0000-0000-000000000012",
+    "approvers": "00000000-0000-0000-0000-000000000013",
+    "owners": "00000000-0000-0000-0000-000000000014",
+    "break_glass": "00000000-0000-0000-0000-000000000015",
+}
 
 
 def test_entra_plan_lists_only_missing_generic_objects(monkeypatch) -> None:
@@ -32,6 +40,7 @@ def test_entra_plan_lists_only_missing_generic_objects(monkeypatch) -> None:
         "aw-readers",
     )
     assert plan.projection()["subscription_ready"] is False
+    assert plan.projection()["provider_admin_consent"] is False
     assert len(plan.digest) == 64
 
 
@@ -55,9 +64,37 @@ def test_entra_plan_reads_independent_directory_objects_concurrently(monkeypatch
     assert len(plan.create_groups) == 5
 
 
+def test_bounded_plan_requires_existing_groups_and_never_proposes_group_creation(
+    monkeypatch,
+) -> None:
+    monkeypatch.setattr(genesis_entra, "_single_app", lambda _name: None)
+    slot_by_name = {
+        display_name: slot
+        for slot, (_variable, display_name, _role) in genesis_entra._GROUP_SLOTS.items()
+    }
+    monkeypatch.setattr(
+        genesis_entra,
+        "_single_group",
+        lambda name: {"id": ROLE_GROUPS[slot_by_name[name]], "displayName": name},
+    )
+
+    plan = genesis_entra.plan_entra(
+        bounded=True,
+        approved_role_groups=ROLE_GROUPS,
+    )
+
+    assert plan.create_apps == ("fdai-api", "fdai-approval-bot", "fdai-console-spa")
+    assert plan.create_groups == ()
+    assert plan.projection()["create_groups"] == []
+    assert plan.projection()["require_existing_role_groups"] is True
+    assert isinstance(plan.projection()["role_group_binding_digest"], str)
+    assert plan.projection()["configure_runner_owned_spa_graph_permission"] is False
+
+
 def test_apply_entra_does_not_grant_provider_consent(monkeypatch) -> None:
     plan = genesis_entra.EntraPlan((), (), True, True, "a" * 64)
     app = {"appId": GUID}
+    authority_calls = []
 
     monkeypatch.setattr(genesis_entra, "plan_entra", lambda: plan)
     monkeypatch.setattr(genesis_entra, "_ensure_group", lambda _name: GUID)
@@ -66,9 +103,21 @@ def test_apply_entra_does_not_grant_provider_consent(monkeypatch) -> None:
     monkeypatch.setattr(genesis_entra, "_ensure_approval_bot_app", lambda _api: app)
     monkeypatch.setattr(genesis_entra, "_ensure_service_principal", lambda _app_id: {"id": GUID})
     monkeypatch.setattr(genesis_entra, "_assign_group_roles", lambda **_kwargs: None)
-    monkeypatch.setattr(genesis_entra, "_ensure_current_owner_membership", lambda _group_id: None)
-    monkeypatch.setattr(genesis_entra, "_grant_runner_spa_ownership", lambda *_args: None)
-    monkeypatch.setattr(genesis_entra, "_grant_runner_graph_permission", lambda _runner_id: None)
+    monkeypatch.setattr(
+        genesis_entra,
+        "_ensure_current_owner_membership",
+        lambda _group_id: authority_calls.append("owner-membership"),
+    )
+    monkeypatch.setattr(
+        genesis_entra,
+        "_grant_runner_spa_ownership",
+        lambda *_args: authority_calls.append("spa-owner"),
+    )
+    monkeypatch.setattr(
+        genesis_entra,
+        "_grant_runner_graph_permission",
+        lambda _runner_id: authority_calls.append("graph-role"),
+    )
     monkeypatch.setattr(genesis_entra, "_verify_complete", lambda **_kwargs: None)
     monkeypatch.setattr(genesis_entra, "read_entra_bindings", lambda: {})
     monkeypatch.setattr(
@@ -78,6 +127,155 @@ def test_apply_entra_does_not_grant_provider_consent(monkeypatch) -> None:
     )
 
     assert genesis_entra.apply_entra(plan, runner_principal_id=GUID) == {}
+    assert authority_calls == ["owner-membership", "spa-owner", "graph-role"]
+
+
+def test_bounded_apply_never_grants_runner_directory_authority(monkeypatch) -> None:
+    plan = genesis_entra.EntraPlan(
+        (),
+        (),
+        True,
+        False,
+        "a" * 64,
+        tuple(sorted(ROLE_GROUPS.items())),
+    )
+    app = {"appId": GUID}
+    monkeypatch.setattr(genesis_entra, "plan_entra", lambda **_kwargs: plan)
+    monkeypatch.setattr(
+        genesis_entra,
+        "_ensure_group",
+        lambda _name: pytest.fail("bounded apply attempted group creation"),
+    )
+    monkeypatch.setattr(
+        genesis_entra,
+        "_require_existing_group",
+        lambda _name, expected: expected,
+    )
+    monkeypatch.setattr(genesis_entra, "_ensure_api_app", lambda: app)
+    monkeypatch.setattr(genesis_entra, "_ensure_spa_app", lambda _api: app)
+    monkeypatch.setattr(genesis_entra, "_ensure_approval_bot_app", lambda _api: app)
+    monkeypatch.setattr(genesis_entra, "_ensure_service_principal", lambda _app_id: {"id": GUID})
+    monkeypatch.setattr(genesis_entra, "_assign_group_roles", lambda **_kwargs: None)
+    monkeypatch.setattr(
+        genesis_entra,
+        "_ensure_owner_membership",
+        lambda *_args: pytest.fail("bounded apply changed owner membership"),
+    )
+    monkeypatch.setattr(
+        genesis_entra,
+        "_ensure_current_owner_membership",
+        lambda *_args: pytest.fail("bounded apply changed current owner membership"),
+    )
+    monkeypatch.setattr(genesis_entra, "_verify_complete", lambda **_kwargs: None)
+    monkeypatch.setattr(
+        genesis_entra,
+        "_grant_runner_spa_ownership",
+        lambda *_args: pytest.fail("bounded apply granted SPA ownership"),
+    )
+    monkeypatch.setattr(
+        genesis_entra,
+        "_grant_runner_graph_permission",
+        lambda *_args: pytest.fail("bounded apply granted Graph authority"),
+    )
+
+    assert genesis_entra.apply_entra_bounded(plan) is None
+
+
+def test_bounded_apply_rejects_same_name_group_recreated_with_new_id_before_writes(
+    monkeypatch,
+) -> None:
+    plan = genesis_entra.EntraPlan(
+        (),
+        (),
+        True,
+        False,
+        "a" * 64,
+        tuple(sorted(ROLE_GROUPS.items())),
+    )
+    slot_by_name = {
+        display_name: slot
+        for slot, (_variable, display_name, _role) in genesis_entra._GROUP_SLOTS.items()
+    }
+    replacement = "00000000-0000-0000-0000-000000000099"
+    monkeypatch.setattr(genesis_entra, "plan_entra", lambda **_kwargs: plan)
+    monkeypatch.setattr(
+        genesis_entra,
+        "_single_group",
+        lambda name: {
+            "id": (replacement if name == "aw-owners" else ROLE_GROUPS[slot_by_name[name]]),
+            "displayName": name,
+        },
+    )
+    monkeypatch.setattr(
+        genesis_entra,
+        "_ensure_api_app",
+        lambda: pytest.fail("changed group binding reached first application write"),
+    )
+
+    with pytest.raises(ValueError, match="binding changed"):
+        genesis_entra.apply_entra_bounded(plan)
+
+
+@pytest.mark.parametrize(
+    ("effect", "target_name"),
+    [
+        ("role-scope-definitions", "_ensure_api_app"),
+        ("service-principals", "_ensure_service_principal"),
+        ("group-role-assignments", "_assign_group_roles"),
+    ],
+)
+def test_bounded_apply_stops_on_crash_before_each_effect(
+    monkeypatch, effect: str, target_name: str
+) -> None:
+    plan = genesis_entra.EntraPlan(
+        (),
+        (),
+        True,
+        False,
+        "a" * 64,
+        tuple(sorted(ROLE_GROUPS.items())),
+    )
+    app = {"appId": GUID}
+    monkeypatch.setattr(genesis_entra, "plan_entra", lambda **_kwargs: plan)
+    monkeypatch.setattr(
+        genesis_entra,
+        "_ensure_group",
+        lambda _name: pytest.fail("bounded apply attempted group creation"),
+    )
+    monkeypatch.setattr(
+        genesis_entra,
+        "_require_existing_group",
+        lambda _name, expected: expected,
+    )
+    monkeypatch.setattr(genesis_entra, "_ensure_api_app", lambda: app)
+    monkeypatch.setattr(genesis_entra, "_ensure_spa_app", lambda _api: app)
+    monkeypatch.setattr(genesis_entra, "_ensure_approval_bot_app", lambda _api: app)
+    monkeypatch.setattr(genesis_entra, "_ensure_service_principal", lambda _app_id: {"id": GUID})
+    monkeypatch.setattr(genesis_entra, "_assign_group_roles", lambda **_kwargs: None)
+    monkeypatch.setattr(
+        genesis_entra,
+        "_ensure_owner_membership",
+        lambda *_args: pytest.fail("bounded apply changed owner membership"),
+    )
+    monkeypatch.setattr(genesis_entra, "_verify_complete", lambda **_kwargs: None)
+    monkeypatch.setattr(
+        genesis_entra,
+        "_grant_runner_spa_ownership",
+        lambda *_args: pytest.fail("crashed bounded apply reached SPA ownership"),
+    )
+    monkeypatch.setattr(
+        genesis_entra,
+        "_grant_runner_graph_permission",
+        lambda *_args: pytest.fail("crashed bounded apply reached Graph authority"),
+    )
+
+    def crash(*_args, **_kwargs):
+        raise RuntimeError(f"crash-before-{effect}")
+
+    monkeypatch.setattr(genesis_entra, target_name, crash)
+
+    with pytest.raises(RuntimeError, match=effect):
+        genesis_entra.apply_entra_bounded(plan)
 
 
 def test_read_entra_bindings_returns_only_validated_repository_values(monkeypatch) -> None:
@@ -269,3 +467,98 @@ def test_console_spa_redirect_rejects_unbound_values(
 
     with pytest.raises(ValueError, match="redirect binding"):
         genesis_entra.ensure_console_spa_redirect(client_id, origin)
+
+
+def test_complete_bounded_readback_requires_all_five_existing_group_assignments(
+    monkeypatch,
+) -> None:
+    plan = genesis_entra.EntraPlan(
+        (),
+        (),
+        True,
+        False,
+        "a" * 64,
+        tuple(sorted(ROLE_GROUPS.items())),
+    )
+    roles = [role for _name, role in genesis_entra._GROUPS.values()]
+    role_ids = {
+        role: f"00000000-0000-0000-0000-{index:012d}" for index, role in enumerate(roles, start=101)
+    }
+    api = {
+        "appId": "00000000-0000-0000-0000-000000000201",
+        "appRoles": [
+            {"value": role, "id": role_id, "isEnabled": True} for role, role_id in role_ids.items()
+        ],
+    }
+    spa = {"appId": "00000000-0000-0000-0000-000000000202"}
+    bot = {"appId": "00000000-0000-0000-0000-000000000203"}
+    slot_by_name = {
+        display_name: slot
+        for slot, (_variable, display_name, _role) in genesis_entra._GROUP_SLOTS.items()
+    }
+    groups = {
+        name: {"id": ROLE_GROUPS[slot_by_name[name]], "displayName": name}
+        for name, _role in genesis_entra._GROUPS.values()
+    }
+    api_sp = "00000000-0000-0000-0000-000000000401"
+    assignments = [
+        {
+            "principalId": groups[name]["id"],
+            "resourceId": api_sp,
+            "appRoleId": role_ids[role],
+            "principalType": "Group",
+        }
+        for name, role in genesis_entra._GROUPS.values()
+    ]
+    monkeypatch.setattr(genesis_entra_readback, "plan_entra", lambda **_kwargs: plan)
+    monkeypatch.setattr(genesis_entra_readback, "read_entra_bindings", lambda: {})
+    monkeypatch.setattr(
+        genesis_entra_readback,
+        "_directory_inventory",
+        lambda: (
+            {
+                "fdai-api": api,
+                "fdai-console-spa": spa,
+                "fdai-approval-bot": bot,
+            },
+            groups,
+        ),
+    )
+    monkeypatch.setattr(
+        genesis_entra_readback,
+        "_read_service_principal",
+        lambda app_id: {
+            "id": {
+                api["appId"]: api_sp,
+                spa["appId"]: "00000000-0000-0000-0000-000000000402",
+                bot["appId"]: "00000000-0000-0000-0000-000000000403",
+            }[app_id],
+            "appId": app_id,
+        },
+    )
+    monkeypatch.setattr(
+        genesis_entra_readback,
+        "_graph",
+        lambda *_args: {"value": assignments},
+    )
+    result = genesis_entra_readback.read_entra_effects(
+        plan=plan,
+    )
+
+    assert result.projection()["group_role_assignments_verified"] is True
+    assert result.projection()["owner_membership_changed_by_operation"] is False
+
+    owners_id = groups["aw-owners"]["id"]
+    approvers_id = groups["aw-approvers"]["id"]
+    groups["aw-owners"]["id"] = approvers_id
+    groups["aw-approvers"]["id"] = owners_id
+    with pytest.raises(ValueError, match="binding changed"):
+        genesis_entra_readback.read_entra_effects(plan=plan)
+    groups["aw-owners"]["id"] = owners_id
+    groups["aw-approvers"]["id"] = approvers_id
+
+    assignments.pop()
+    with pytest.raises(ValueError, match="assignment readback"):
+        genesis_entra_readback.read_entra_effects(
+            plan=plan,
+        )

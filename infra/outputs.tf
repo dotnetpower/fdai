@@ -384,6 +384,26 @@ output "stewardship_gitops_binding" {
   } : null
 }
 
+output "catalog_review_gitops_binding" {
+  description = "Standalone draft-only catalog review GitHub App binding. Null when unselected."
+  value = var.enable_catalog_review ? {
+    enabled                   = true
+    owner                     = var.gitops_owner
+    repo                      = var.gitops_repo
+    default_branch            = var.catalog_review_default_branch
+    auth_mode                 = "github_app"
+    app_client_id             = var.github_app_client_id
+    app_installation_id       = var.github_app_installation_id
+    app_private_key_secret_id = azurerm_key_vault_secret.github_app_private_key[0].resource_versionless_id
+    permissions = {
+      contents      = "write"
+      issues        = "write"
+      metadata      = "read"
+      pull_requests = "write"
+    }
+  } : null
+}
+
 output "email_communication_service_id" {
   description = "ACS resource id for send-only A2/A4 notification delivery. Empty when email notifications are disabled."
   value       = length(azurerm_communication_service.notifications) > 0 ? azurerm_communication_service.notifications[0].id : ""

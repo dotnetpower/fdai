@@ -20,6 +20,7 @@ from fdai_deployment_cli.application_state_adoption import (
     ApplicationStateAdoption,
     stage_application_state_adoption,
 )
+from fdai_deployment_cli.catalog_review_profile import CatalogReviewDeploymentProfile
 from fdai_deployment_cli.azure_naming import azure_region_short_name
 from fdai_deployment_cli.deployment_deadline import DeploymentDeadline
 from fdai_deployment_cli.deployment_kit import DeploymentKit, acquire_deployment_kit
@@ -78,6 +79,7 @@ def deploy_azure_foundation(
     adopt_application_state: Path | None = None,
     adopt_application_recovery: Path | None = None,
     adopt_resolved_models: Path | None = None,
+    catalog_review_profile: CatalogReviewDeploymentProfile | None = None,
 ) -> dict[str, object]:
     """Advance one standalone deployment through verified application convergence."""
 
@@ -300,6 +302,9 @@ def deploy_azure_foundation(
                 timeout_seconds=deadline.remaining(),
                 runtime_profile=selected_runtime,
                 application_state_adoption=adoption,
+                catalog_review_profile=(
+                    catalog_review_profile or CatalogReviewDeploymentProfile.unselected()
+                ),
             )
             deadline.remaining()
             return {
@@ -310,6 +315,8 @@ def deploy_azure_foundation(
                 "runtime_release_digest": kit.runtime.digest,
                 "foundation_state_receipt_digest": foundation["foundation_state_receipt_digest"],
                 "application_receipt_digest": application["receipt_digest"],
+                "catalog_review_receipt_digest": application["catalog_review_receipt_digest"],
+                "catalog_review_state": application["catalog_review_state"],
                 "runtime_profile_digest": selected_runtime.digest,
                 "runtime_platform": selected_runtime.runtime_platform.value,
                 "database_placement": selected_runtime.database_placement.value,

@@ -3,10 +3,12 @@ from __future__ import annotations
 import hashlib
 import json
 import subprocess
+from datetime import UTC, datetime
 
 import pytest
 
-from fdai_deployment_cli import standalone_application
+from fdai_deployment_cli import standalone_aks_inventory, standalone_application
+from fdai_deployment_cli.contracts import canonical_digest
 from fdai_deployment_cli.target import compute_target_binding
 
 
@@ -33,6 +35,48 @@ def test_missing_license_material_keeps_deployment_observation_only(monkeypatch)
     )
 
     assert token is None
+
+
+def test_container_apps_initial_inventory_contract_is_unchanged() -> None:
+    standalone_aks_inventory.require_initial_inventory_receipt(
+        {
+            "state": "inventory-verified",
+            "active_generation_readback_verified": True,
+            "progress_persisted": True,
+        },
+        runtime_platform="container-apps",
+    )
+
+
+def test_aks_initial_inventory_requires_complete_generation_readback() -> None:
+    receipt = {
+        "state": "inventory-verified",
+        "active_generation_readback_verified": True,
+        "progress_persisted": True,
+    }
+    with pytest.raises(ValueError, match="initial inventory is incomplete"):
+        standalone_aks_inventory.require_initial_inventory_receipt(receipt, runtime_platform="aks")
+
+    complete: dict[str, object] = {
+        **receipt,
+        "complete_generation_readback_verified": True,
+        "fresh_generation": True,
+        "closure_receipt_verified": True,
+        "sources": ["arg", "arm"],
+        "scope_digest": "sha256:" + "a" * 64,
+        "closure_receipt_digest": "sha256:" + "b" * 64,
+        "inventory_binding_digest": "c" * 64,
+        "freshness_observed_at": datetime.now(tz=UTC).isoformat(),
+        "resource_count": 1,
+        "link_count": 1,
+        "unmapped_object_count": 0,
+        "coverage_gap_count": 0,
+    }
+    complete["receipt_digest"] = canonical_digest(complete)
+    standalone_aks_inventory.require_initial_inventory_receipt(
+        complete,
+        runtime_platform="aks",
+    )
 
 
 def test_approval_actor_is_bound_to_current_azure_target(monkeypatch) -> None:

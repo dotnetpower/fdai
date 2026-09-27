@@ -1,7 +1,7 @@
 ---
 title: 설치형 배포 CLI
 translation_of: installable-deployment-cli.md
-translation_source_sha: 169a494f3dd4c879e645983816bc4e01bfde55ac
+translation_source_sha: 6e00b0fefcb141501a51bcfab2a275dabba4e18c
 translation_revised: 2026-09-27
 ---
 
@@ -474,10 +474,11 @@ Rich를 사용하며, 잠긴 의존성은 기존 오프라인 wheel 모음 내�
 | `fdaictl provision init` | 비공개 수동 실행 프로필 생성 | 아니요 |
 | `fdaictl provision bootstrap-reconcile` | 대상과 Foundation 상태를 만료되는 계획으로 읽기 | 아니요 |
 | `fdaictl provision plan` | 검증된 offline-kit Terraform 루트 계획 | 아니요 |
+| `fdaictl provision entra --target-profile <private-json> --control-profile <private-json>` | 프로필에 결속된 테넌트 제어를 점검하거나 기존 그룹 5개에 정확한 앱/역할 바인딩 계획 적용. target-profile v2는 비공개 mode-0700 executor Azure context를 결속 | `--apply`, `aw-approvers` human의 현재 승인, 별도의 정확한 managed-identity token이 활성 `dev` 대상과 일치하지 않으면 읽기 전용 |
 | `fdaictl provision console-update build` | 보호된 Git 소스에서 소스에 결속된 Console 산출물 하나 빌드 | 아니요 |
 | `fdaictl provision console-update plan` | 기존 개발 환경 대상과 후보 및 롤백 산출물 봉인 | 아니요 |
 | `fdaictl provision console-update apply` | 정확한 Console 계획을 게시하고 원격 콘텐츠와 접속 검증 | 정확한 터미널 승인 후 예 |
-| `fdaictl provision azure --online` | 서명 키트를 획득하고 standalone Azure 배포 실행 | 정확한 승인 후 예 |
+| `fdaictl provision azure --online` | 서명 키트를 획득하고 standalone Azure 배포 실행. 선택적 mode-0600 `--catalog-review-profile`은 durable Pantheon 감사가 있고 활성화, merge, 승격 또는 관리 리소스 권한이 없는 AKS 전용 비공개 GitHub App 초안 checkpoint를 선택 | 정확한 승인 후 예 |
 | `fdaictl provision azure --offline-kit <path>` | 공개 산출물 획득 없이 동일한 배포 실행 | 정확한 승인 후 예 |
 | `fdaictl onboard guided --simulate` | 유한한 단계 그래프 예행연습 | 아니요 |
 | `fdaictl onboard status` | 로컬 해시 체인 예행연습 저널 읽기 | 아니요 |
@@ -489,7 +490,6 @@ Rich를 사용하며, 잠긴 의존성은 기존 오프라인 wheel 모음 내�
 공개 CLI는 `deploy plan`, `deploy apply` 또는 `deploy status`를 등록하지 않습니다. 이 명령들은
 이전에 GitHub workflow를 dispatch했으며 standalone 배포 계약에 포함되지 않습니다. 실제
 온보딩은 `provision azure`를 사용하고 `onboard guided`는 예행연습 전용입니다.
-
 ### 기존 개발 환경 Console 갱신
 
 `provision console-update`는 기존 `dev` Container Apps 설치의 정적 Console을 갱신할 때만

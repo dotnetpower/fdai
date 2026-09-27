@@ -9,7 +9,9 @@ from fdai.delivery.inventory_closure import (
     PostgresInventoryClosureVerifier,
     PostgresInventoryClosureVerifierConfig,
 )
+from fdai.delivery.inventory_job_config import InventoryJobConfig
 from fdai.delivery.inventory_progress import INVENTORY_PROGRESS_GENESIS_DIGEST
+from fdai.shared.providers.inventory_snapshot import InventoryCoverageManifest
 from fdai_service_contracts import (
     InventoryProgressFractionBasis,
     InventoryProgressRecord,
@@ -97,14 +99,20 @@ async def test_closure_verifier_binds_exact_active_generation(
     generation = "snapshot-one"
     digest = "sha256:" + hashlib.sha256(generation.encode()).hexdigest()
     progress = _progress(digest)
-    active: dict[str, object] = {
-        "id": generation,
-        "status": "active",
-        "source": "arg",
-        "observation_kind": "observed",
-        "scopes": ["opaque-scope"],
-        "resource_types": ["virtual-machine"],
-        "metadata": {
+    config = InventoryJobConfig.from_env(
+        {
+            "FDAI_INVENTORY_DSN": "postgresql://test",
+            "FDAI_INVENTORY_SCOPES": "00000000-0000-0000-0000-000000000000",
+            "FDAI_INVENTORY_SOURCES": "arg,arm",
+        }
+    )
+    manifest = InventoryCoverageManifest(
+        source="arg",
+        scopes=config.scopes,
+        resource_types=("resource-group", "virtual-machine"),
+        started_at=NOW,
+        completed_at=NOW + timedelta(seconds=2),
+        metadata={
             "coverage_scope": "full_provider_scope",
             "provider_scope_coverage": {
                 "provider_identity_complete": True,
@@ -113,6 +121,15 @@ async def test_closure_verifier_binds_exact_active_generation(
             "derived_source_states": [],
             "relationship_drop_reasons": [],
         },
+    )
+    active: dict[str, object] = {
+        "id": generation,
+        "status": "active",
+        "source": manifest.source,
+        "observation_kind": "observed",
+        "scopes": list(manifest.scopes),
+        "resource_types": list(manifest.resource_types),
+        "metadata": dict(manifest.metadata),
         "promoted_at": NOW + timedelta(seconds=2),
         "resource_count": 4,
         "link_count": 3,
@@ -137,9 +154,59 @@ async def test_closure_verifier_binds_exact_active_generation(
 
     assert receipt.active_generation_matches is True
     assert receipt.generation_digest == digest
+    assert receipt.scope_digest == (
+        "sha256:"
+        + hashlib.sha256(b"/subscriptions/00000000-0000-0000-0000-000000000000").hexdigest()
+    )
+    assert receipt.fresh_generation is True
 
     connection.progress = _progress("sha256:" + "f" * 64).model_dump(mode="json")
     with pytest.raises(ValueError, match="active_generation"):
+        await verifier.verify(run_id=progress.run_id, attempt_id=progress.attempt_id)
+
+
+async def test_closure_verifier_rejects_non_subscription_scope(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    generation = "snapshot-one"
+    digest = "sha256:" + hashlib.sha256(generation.encode()).hexdigest()
+    progress = _progress(digest)
+    active: dict[str, object] = {
+        "id": generation,
+        "status": "active",
+        "source": "arg",
+        "observation_kind": "observed",
+        "scopes": ["opaque-scope"],
+        "resource_types": ["virtual-machine"],
+        "metadata": {
+            "coverage_scope": "full_provider_scope",
+            "provider_scope_coverage": {
+                "provider_identity_complete": True,
+                "materialized_unmapped_provider_object_count": 0,
+            },
+            "derived_source_states": [],
+            "relationship_drop_reasons": [],
+        },
+        "promoted_at": NOW + timedelta(seconds=2),
+        "resource_count": 0,
+        "link_count": 0,
+        "unmapped_count": 0,
+        "overlay_count": 0,
+        "watermarks": {
+            "ontology_generation": generation,
+            "ontology_projection_watermark": 5,
+            "journal_high_watermark": 5,
+        },
+    }
+    verifier = PostgresInventoryClosureVerifier(
+        config=PostgresInventoryClosureVerifierConfig(dsn="postgresql://test")
+    )
+
+    async def connect() -> Any:
+        return _Connection(progress.model_dump(mode="json"), active)
+
+    monkeypatch.setattr(verifier, "_connect", connect)
+    with pytest.raises(ValueError, match="subscription_scope"):
         await verifier.verify(run_id=progress.run_id, attempt_id=progress.attempt_id)
 
 

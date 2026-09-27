@@ -105,6 +105,20 @@ async def test_replayed_operating_cohort_emits_one_candidate() -> None:
     assert norns.behavior_snapshot()["operational_case_cohort_duplicate"] == 1
 
 
+async def test_spoofed_operating_cohort_producer_is_rejected() -> None:
+    norns = Norns()
+    payload = _payload(
+        _case("a-success", outcome_class=OperationalOutcomeClass.SUCCESS),
+        _case("b-control", outcome_class=OperationalOutcomeClass.ROLLBACK),
+    )
+    payload["producer_principal"] = "catalog-review-trigger"
+
+    await norns.on_typed_message("object.context-index", payload)
+
+    assert norns.pending_candidates == []
+    assert norns.behavior_snapshot()["operational_case_cohort_invalid_producer"] == 1
+
+
 async def test_oversized_operating_cohort_is_rejected_before_materialization() -> None:
     norns = Norns()
     payload = _payload(

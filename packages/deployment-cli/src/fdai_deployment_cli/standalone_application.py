@@ -18,6 +18,9 @@ from typing import Any
 
 from fdai_deployment_cli.application_state_adoption import ApplicationStateAdoption
 from fdai_deployment_cli.bundle import extract_bundle_archive
+from fdai_deployment_cli.catalog_review_profile import (
+    CatalogReviewDeploymentProfile,
+)
 from fdai_deployment_cli.console_config import configure_console
 from fdai_deployment_cli.contracts import canonical_digest
 from fdai_deployment_cli.deadline_transport import DeadlineTransport
@@ -31,6 +34,8 @@ from fdai_deployment_cli.license_issue import (
 )
 from fdai_deployment_cli.private_output import read_private_bytes, write_private_output
 from fdai_deployment_cli.runtime_profile import RuntimeDeploymentProfile
+from fdai_deployment_cli import standalone_catalog_checkpoint
+from fdai_deployment_cli.standalone_remote_prepare import prepare_remote as _prepare_remote
 from fdai_deployment_cli.standalone_review import validate_plan_review
 from fdai_deployment_cli.target import compute_target_binding
 from fdai_deployment_cli.trust_roots import license_public_key_pem
@@ -51,6 +56,7 @@ def deploy_standalone_application(
     timeout_seconds: int,
     runtime_profile: RuntimeDeploymentProfile | None = None,
     application_state_adoption: ApplicationStateAdoption | None = None,
+    catalog_review_profile: CatalogReviewDeploymentProfile | None = None,
 ) -> dict[str, object]:
     """Deploy and independently replan the application without a workflow host."""
 
@@ -141,6 +147,9 @@ def deploy_standalone_application(
             remote_adoption_models=remote_adoption_models,
             remote_adoption_descriptor=remote_adoption_descriptor,
             timeout_seconds=deadline.remaining(),
+            catalog_review_profile=(
+                catalog_review_profile or CatalogReviewDeploymentProfile.unselected()
+            ),
         )
         begin_stage("substrate")
         progress_detail("Recovering by verification, or planning private infrastructure")
@@ -374,21 +383,15 @@ def deploy_standalone_application(
             application_approval.unlink(missing_ok=True)
             tunnel.ssh(("rm", "-f", "--", remote_approval), timeout=60)
         _require_receipt(application_receipt, "application")
-        begin_stage("initial-inventory")
-        progress_detail("Collecting and independently reading back the initial inventory")
-        initial_inventory = _remote_json(
+        post_application = standalone_catalog_checkpoint.run_post_application_checkpoints(
             tunnel,
-            remote_root,
-            app_work,
-            ("initial-inventory",),
-            timeout=4200,
+            remote_root=remote_root,
+            app_work=app_work,
+            runtime_platform=selected_runtime.runtime_platform.value,
+            remote_json=_remote_json,
         )
-        if (
-            initial_inventory.get("state") != "inventory-verified"
-            or initial_inventory.get("active_generation_readback_verified") is not True
-            or initial_inventory.get("progress_persisted") is not True
-        ):
-            raise ValueError("standalone initial inventory is incomplete")
+        initial_inventory = post_application.inventory
+        catalog_review = post_application.catalog_review
         begin_stage("verification")
         progress_detail("Checking service health and a second zero-change Terraform plan")
         verification = _remote_json(
@@ -443,6 +446,8 @@ def deploy_standalone_application(
         "target_binding": prepared.target_binding,
         "substrate_receipt_digest": substrate_receipt["receipt_digest"],
         "initial_inventory_receipt_digest": initial_inventory["receipt_digest"],
+        "catalog_review_receipt_digest": catalog_review["receipt_digest"],
+        "catalog_review_state": catalog_review["state"],
         "runtime_receipt_digest": (
             runtime_receipt["receipt_digest"]
             if selected_runtime.runtime_platform.value == "aks"
@@ -478,116 +483,6 @@ def deploy_standalone_application(
     deadline.remaining()
     _replace_private_json(prepared.root / "standalone-application-receipt.json", receipt)
     return receipt
-
-
-def _prepare_remote(
-    tunnel: Any,
-    *,
-    remote_root: str,
-    remote_archive: str,
-    archive: Path,
-    archive_digest: str,
-    handoff_path: Path,
-    remote_handoff: str,
-    entra_path: Path,
-    remote_entra: str,
-    app_work: str,
-    runtime_profile: RuntimeDeploymentProfile | None = None,
-    application_state_adoption: ApplicationStateAdoption | None = None,
-    remote_adoption_state: str = "",
-    remote_adoption_models: str = "",
-    remote_adoption_descriptor: str = "",
-    timeout_seconds: int,
-) -> None:
-    selected_runtime = runtime_profile or RuntimeDeploymentProfile.create(
-        runtime_platform="container-apps",
-        database_placement="postgres-flex",
-    )
-    created = tunnel.ssh(("install", "-d", "-m", "0700", remote_root), timeout=60)
-    if created.returncode != 0:
-        raise ValueError("standalone remote work directory is unavailable")
-    removed = tunnel.ssh(("rm", "-f", "--", remote_archive), timeout=60)
-    if removed.returncode != 0:
-        raise ValueError("standalone remote archive reset failed")
-    tunnel.copy_to(archive, remote_archive, timeout=min(1800, timeout_seconds))
-    tunnel.copy_to(handoff_path, remote_handoff, timeout=120)
-    tunnel.copy_to(entra_path, remote_entra, timeout=120)
-    if application_state_adoption is not None:
-        if not all((remote_adoption_state, remote_adoption_models, remote_adoption_descriptor)):
-            raise ValueError("standalone application adoption destinations are incomplete")
-        tunnel.copy_to(application_state_adoption.state, remote_adoption_state, timeout=300)
-        tunnel.copy_to(
-            application_state_adoption.resolved_models, remote_adoption_models, timeout=120
-        )
-        tunnel.copy_to(
-            application_state_adoption.descriptor, remote_adoption_descriptor, timeout=120
-        )
-    digest = tunnel.ssh(("sha256sum", remote_archive), timeout=300)
-    if digest.returncode != 0 or digest.stdout.split(maxsplit=1)[0] != archive_digest:
-        raise ValueError("standalone transport archive digest differs")
-    prepare_arguments = (
-        f"{remote_root}/venv/bin/python",
-        "-m",
-        "fdai_deployment_cli.standalone_host",
-        "--work-dir",
-        app_work,
-        "prepare",
-        "--kit",
-        f"{remote_root}/kit",
-        "--handoff",
-        remote_handoff,
-        "--entra",
-        remote_entra,
-        "--runtime-platform",
-        selected_runtime.runtime_platform.value,
-        "--database-placement",
-        selected_runtime.database_placement.value,
-        "--system-node-count",
-        str(selected_runtime.system_node_count),
-        "--system-node-sku",
-        selected_runtime.system_node_sku,
-        "--user-node-min-count",
-        str(selected_runtime.user_node_min_count),
-        "--user-node-max-count",
-        str(selected_runtime.user_node_max_count),
-        "--user-node-sku",
-        selected_runtime.user_node_sku,
-        *(
-            (
-                "--adoption-state",
-                remote_adoption_state,
-                "--adoption-models",
-                remote_adoption_models,
-                "--adoption-descriptor",
-                remote_adoption_descriptor,
-            )
-            if application_state_adoption is not None
-            else ()
-        ),
-    )
-    commands = (
-        (("rm", "-rf", "--", f"{remote_root}/kit"), 300),
-        (("tar", "-xzf", remote_archive, "-C", remote_root), 1800),
-        (("python3", "-m", "venv", f"{remote_root}/venv"), 300),
-        (
-            (
-                f"{remote_root}/venv/bin/pip",
-                "install",
-                "--no-index",
-                "--no-cache-dir",
-                "--find-links",
-                f"{remote_root}/kit/python",
-                "fdai-deployment-cli",
-            ),
-            900,
-        ),
-        (("install", "-d", "-m", "0700", app_work), 60),
-        (prepare_arguments, 1800),
-    )
-    for command, limit in commands:
-        setup = tunnel.ssh(command, timeout=min(limit, timeout_seconds))
-        if setup.returncode != 0:
-            raise ValueError("standalone managed-host preparation failed")
 
 
 def _remote_json(

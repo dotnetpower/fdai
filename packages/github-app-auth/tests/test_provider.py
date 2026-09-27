@@ -103,6 +103,13 @@ async def test_provider_serializes_refresh_and_scopes_token_request() -> None:
             json={
                 "token": f"installation-token-{len(requests)}",
                 "expires_at": (clock.value + timedelta(hours=1)).isoformat(),
+                "repository_selection": "selected",
+                "permissions": {
+                    "contents": "write",
+                    "issues": "write",
+                    "metadata": "read",
+                    "pull_requests": "write",
+                },
             },
         )
 
@@ -119,6 +126,9 @@ async def test_provider_serializes_refresh_and_scopes_token_request() -> None:
         clock.value += timedelta(minutes=56)
         assert await provider() == "installation-token-2"
         assert len(requests) == 2
+        projection = await provider.projection()
+        assert projection.repository == "deployment-config"
+        assert projection.repository_selection == "selected"
 
 
 @pytest.mark.parametrize(
@@ -161,3 +171,27 @@ async def test_provider_error_never_contains_response_body() -> None:
         with pytest.raises(GitHubAppTokenError) as error:
             await provider()
     assert sensitive_body not in str(error.value)
+
+
+async def test_provider_rejects_wrong_permission_projection() -> None:
+    private_key, _ = _private_key()
+
+    async def handler(_: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            201,
+            json={
+                "token": "installation-token",
+                "expires_at": "2026-09-06T01:00:00+00:00",
+                "repository_selection": "selected",
+                "permissions": {"contents": "read"},
+            },
+        )
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        provider = GitHubAppTokenProvider(
+            config=_config(private_key),
+            http_client=client,
+            clock=lambda: datetime(2026, 9, 6, tzinfo=UTC),
+        )
+        with pytest.raises(GitHubAppTokenError, match="permission projection differs"):
+            await provider()
