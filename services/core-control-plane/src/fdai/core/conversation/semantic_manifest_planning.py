@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from datetime import datetime
 from typing import Any
 
@@ -23,12 +24,14 @@ from fdai.core.ontology_platform.relationship_queries import (
 )
 from fdai.shared.contracts.models import OntologyDeclarationKind
 
+from .semantic_catalog_value_mentions import stated_catalog_values
 from .semantic_planning_alignment import (
     DECLARATION_SECTIONS_BY_MEASURE,
     verify_frame_plan_alignment,
 )
 from .semantic_planning_frame import build_semantic_frame
 from .semantic_planning_models import (
+    ClarificationRequirement,
     QueryNodeProposal,
     QueryPlanProposal,
     SemanticFrameProposal,
@@ -36,6 +39,77 @@ from .semantic_planning_models import (
 )
 from .semantic_planning_support import _build_plan
 from .session import Principal
+
+_LOGGER = logging.getLogger(__name__)
+_SCHEMA_INTENTS = frozenset(
+    {
+        ONTOLOGY_MANIFEST_FUNCTION_NAME,
+        ONTOLOGY_DECLARATION_FUNCTION_NAME,
+        ONTOLOGY_RELATIONSHIPS_FUNCTION_NAME,
+    }
+)
+
+
+def manifest_catalog_value_conflict(
+    judgment: SemanticJudgmentProposal | None,
+    *,
+    judgment_accepted: bool,
+    utterance: str,
+    context: tuple[str, ...],
+    descriptors: tuple[dict[str, Any], ...],
+    locale: str,
+) -> tuple[SemanticFrameProposal, SemanticProblemFrame] | None:
+    """Hold a targetless schema proposal that leaves a stated catalog Resource type unexplained.
+
+    The gate compares the accepted meaning with a server-grounded catalog value span and
+    asks the operator to choose. It never selects or manufactures another intent.
+    """
+
+    if (
+        not judgment_accepted
+        or judgment is None
+        or judgment.primary_intent not in _SCHEMA_INTENTS
+        or judgment.targets
+        or judgment.secondary_intents
+        or judgment.ambiguous
+        or judgment.action_posture != "advise_only"
+    ):
+        return None
+    stated = stated_catalog_values(utterance, descriptors)
+    if not stated:
+        return None
+    text = stated[0].text.replace("`", "'")
+    values = ", ".join(stated[0].values[:3]) + (", ..." if len(stated[0].values) > 3 else "")
+    question = (
+        f"카탈로그 리소스 유형 `{values}`(요청의 `{text}`)에 해당하는 리소스를 조회할까요, "
+        "아니면 읽을 수 있는 온톨로지 선언을 조회할까요?"
+        if locale.casefold().startswith("ko")
+        else (
+            f"Should I list Resources of catalog type `{values}` (from `{text}`), "
+            "or the readable ontology declarations?"
+        )
+    )
+    proposal = SemanticFrameProposal(
+        operation=SemanticOperation.SELECT,
+        subject_constraints=("Resource",),
+        measure_concepts=(),
+        temporal_scope={},
+        output_shape=SemanticOutputShape.ONTOLOGY_MANIFEST,
+        evidence_requirements=(),
+        unresolved_terms=("subject_kind",),
+        clarification_requirements=(ClarificationRequirement.SUBJECT,),
+        clarification=question,
+        investigation=None,
+        confidence=judgment.confidence,
+    )
+    _LOGGER.info(
+        "semantic_manifest_catalog_value_conflict",
+        extra={
+            "primary_intent": judgment.primary_intent,
+            "output_shape": SemanticOutputShape.ONTOLOGY_MANIFEST.value,
+        },
+    )
+    return proposal, build_semantic_frame(proposal, utterance=utterance, context=context)
 
 
 def build_ontology_schema_frame(

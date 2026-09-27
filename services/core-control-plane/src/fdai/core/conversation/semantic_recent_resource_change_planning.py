@@ -21,10 +21,12 @@ from fdai.core.ontology_platform.recent_resource_changes import (
     RECENT_RESOURCE_CHANGES_FUNCTION_NAME,
 )
 
+from .semantic_activity_planning import activity_lookback_seconds
 from .semantic_planning_frame_core import build_semantic_frame
 from .semantic_planning_models import SemanticFrameProposal, SemanticOutputShape
 
 _CHANGE_FACETS = frozenset({"changed_resources", "recent_resource_changes", "resource_changes"})
+_DEFAULT_LOOKBACK_SECONDS = 3_600
 
 
 def build_recent_resource_change_frame(
@@ -36,11 +38,13 @@ def build_recent_resource_change_frame(
     limit = recent_resource_change_limit(judgment)
     if limit is None or judgment is None:
         return None
+    # An explicit "last 24 hours" or "지난 3일" bounds the read; otherwise the default applies.
+    lookback_seconds = activity_lookback_seconds(utterance) or _DEFAULT_LOOKBACK_SECONDS
     proposal = SemanticFrameProposal(
         operation=SemanticOperation.SELECT,
         subject_constraints=("Resource",),
         measure_concepts=("resource_change.observed",),
-        temporal_scope={"lookback_seconds": 3_600},
+        temporal_scope={"lookback_seconds": lookback_seconds},
         output_shape=SemanticOutputShape.RESOURCE_CHANGES,
         evidence_requirements=("server_recent_default", f"result_limit.{limit}"),
         unresolved_terms=(),

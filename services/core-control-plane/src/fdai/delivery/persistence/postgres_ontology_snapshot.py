@@ -29,7 +29,7 @@ from fdai.delivery.persistence.postgres_ontology_prepared import (
     _encode,
 )
 from fdai.delivery.persistence.postgres_ontology_source_coverage import (
-    resource_graph_source_coverage,
+    resource_graph_source_coverage_detail,
 )
 from fdai.shared.contracts.models import OntologyDeclarationKind, OntologyTypeRef
 from fdai.shared.providers.ontology_instance import (
@@ -533,11 +533,16 @@ async def scan_current_inventory_snapshot(
             key not in updates or key not in current or updates[key] != current[key] for key in keys
         ):
             raise OntologyInstanceValidationError("committed ontology snapshot markers changed")
-        complete, generation = await resource_graph_source_coverage(
+        coverage = await resource_graph_source_coverage_detail(
             connection, (), requires_resource_coverage=True, expresses_relationships=False
         )
-        if not complete or generation != receipt.get("generation"):
-            return OntologyGraphSnapshot(source_complete=False, source_generation=generation)
+        generation = coverage.generation
+        if not coverage.complete or generation != receipt.get("generation"):
+            return OntologyGraphSnapshot(
+                source_complete=False,
+                source_generation=generation,
+                source_incomplete_reason=coverage.reason or "inventory_generation_transition",
+            )
         cursor = await connection.execute(
             "SELECT id,revision,type_version,catalog_digest FROM ontology_resource "
             "WHERE object_type='Resource' ORDER BY id LIMIT 50001"

@@ -190,6 +190,24 @@ Cloud update comparison validates raw and processing identities; Core rechecks p
   model-authored internal requirement tokens never become operator-facing copy. The shadow schema requires supplied
   intent and canonical identity, corrects only a unique span, and preserves `forbidden_actions`.
   Active v8 pins `1.0.0`; shadow v14 pins `1.1.0`. Neither adds provider I/O, decision, approval, mutation, or execution authority. Compact input bounds, generic collection-filter cleanup, and schema-repair guidance live in `core/conversation/conversation_preflight_validation.py`. The same helper classifies a known operational family paired with a mixed or contextual signal as non-repairable, so Core records one failed preflight attempt and falls through without another preflight model call. The public promotion helper continues to reject Resource collections by default; only capability-aware semantic planning opts in, and it reuses the candidate only after ontology type or inventory-state catalog grounding succeeds. Failed grounding retains full semantic judgment or a typed clarification without broadening the Resource scope. The `conversation_preflight.py` facade preserves compatibility imports while contracts, model invocation, typed target promotion, and family-shape validation live in focused sibling modules. The composition root resolves one exact prompt profile that pins ordered artifacts, lifecycle, request budget, output reserve, and replay digest; a higher artifact version cannot activate itself, and an oversized complete request holds before provider I/O.
+  `core/conversation/semantic_catalog_value_mentions.py` derives an unambiguous stated
+  `Resource.type` span from catalog vocabulary. Semantic judgment receives it only as candidate
+  `stated_values`, and the manifest planner compares it with a targetless schema proposal to return a
+  typed clarification; it never selects an intent. `fdai_core_service/semantic_ontology_answers.py`
+  renders manifest declaration lists and counts and fails closed on inconsistent rows.
+  `core/conversation/semantic_resource_state_planning.py` owns the check that refuses a contextual
+  Resource list when it would drop a secondary intent or a stated state requirement, and
+  target-candidate planning shares its collection filter kinds through
+  `semantic_target_candidate_constants.py`. `core/conversation/semantic_stated_list_scope.py`
+  keeps the deterministic Resource list to requests a list can answer: it refuses catalog-signalled
+  mutation and relationship requests, builds a verbatim name-fragment list, and clarifies a
+  region-qualified fragment. `fdai_core_service/semantic_answer_presentation.py` renders provider
+  lifecycle states, ISO instants, completeness, and the no-authority marker in operator language
+  while the technical details keep the exact values.
+  `fdai_core_service/semantic_source_limitations.py` explains typed source-limitation codes in the
+  operator's locale and keeps each exact code visible; an unknown code stays a code without invented
+  meaning. The provider-neutral `OntologyGraphSnapshot.source_incomplete_reason` carries those
+  bounded codes only on an incomplete snapshot.
   If an exact-resource live refresh declines a broader secured Resource set, Core preserves the
   initial graph freshness, completeness, conflict, and synthetic-evidence reasons instead of
   reducing the result to an opaque refresh failure.

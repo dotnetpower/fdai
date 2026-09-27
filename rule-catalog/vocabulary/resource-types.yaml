@@ -55,11 +55,13 @@ types:
     category: compute
     description: Extension installed on one virtual machine.
     azure_arm_type: Microsoft.Compute/virtualMachines/extensions
+    query_terms: [VM extension, VM extensions, virtual machine extension, virtual machine extensions, VM 확장, 가상 머신 확장]
     typical_parents: [compute.vm]
   - id: compute.vm-run-command
     category: compute
     description: Provider-managed command execution resource attached to one virtual machine.
     azure_arm_type: Microsoft.Compute/virtualMachines/runCommands
+    query_terms: [VM run command, VM run commands, run command, run commands, VM 실행 명령, 실행 명령]
     typical_parents: [compute.vm]
   - id: compute.vm-shutdown-schedule
     category: compute
@@ -71,6 +73,7 @@ types:
     category: compute
     description: Managed group of identical VMs; the unit `scale` operates on.
     azure_arm_type: Microsoft.Compute/virtualMachineScaleSets
+    query_terms: [virtual machine scale set, virtual machine scale sets, VM scale set, VM scale sets, scale set, scale sets, vmss, 가상 머신 확장 집합, 가상머신 확장 집합, VM 확장 집합, 확장 집합]
     typical_parents: [resource-group]
   - id: compute.container-app
     category: compute
@@ -82,11 +85,13 @@ types:
     category: compute
     description: Bounded serverless container job triggered on demand or by schedule.
     azure_arm_type: Microsoft.App/jobs
+    query_terms: [container app job, container app jobs, container apps job, 컨테이너 앱 작업, 컨테이너 앱 잡]
     typical_parents: [resource-group]
   - id: compute.container-app-environment
     category: compute
     description: Shared runtime and network boundary for serverless container apps and jobs.
     azure_arm_type: Microsoft.App/managedEnvironments
+    query_terms: [container app environment, container app environments, container apps environment, managed environment, managed environments, 컨테이너 앱 환경]
     typical_parents: [resource-group]
   - id: compute.function
     category: compute
@@ -106,11 +111,13 @@ types:
     category: compute
     description: Shared compute plan that hosts web and function applications.
     azure_arm_type: Microsoft.Web/serverFarms
+    query_terms: [app service plan, app service plans, 앱 서비스 계획, App Service 플랜, App Service 요금제]
     typical_parents: [resource-group]
   - id: static-web-app
     category: compute
     description: Managed static web application and edge delivery surface.
     azure_arm_type: Microsoft.Web/staticSites
+    query_terms: [static web app, static web apps, 정적 웹 앱, 정적 웹앱]
     typical_parents: [resource-group]
   - id: kubernetes-cluster
     category: compute
@@ -122,6 +129,7 @@ types:
     category: compute
     description: A pool of worker nodes attached to a kubernetes-cluster.
     azure_arm_type: Microsoft.ContainerService/managedClusters/agentPools
+    query_terms: [node pool, node pools, agent pool, agent pools, AKS node pool, AKS node pools, 노드 풀, 노드풀, 에이전트 풀, AKS 노드 풀]
     typical_parents: [kubernetes-cluster]
   - id: kubernetes.namespace
     category: compute
@@ -145,26 +153,31 @@ types:
     category: compute
     description: Kubernetes Service observed with immutable UID and selector evidence.
     azure_arm_type: null
+    query_terms: [kubernetes service, kubernetes services, 쿠버네티스 서비스]
     typical_parents: [kubernetes.namespace]
   - id: kubernetes.endpoints
     category: compute
     description: Kubernetes Endpoints observed with immutable UID and service identity.
     azure_arm_type: null
+    query_terms: [kubernetes endpoints, 쿠버네티스 엔드포인트]
     typical_parents: [kubernetes.namespace]
   - id: kubernetes.endpoint-slice
     category: network
     description: Kubernetes EndpointSlice observed with immutable UID and exact Service label evidence.
     azure_arm_type: null
+    query_terms: [endpoint slice, endpoint slices, endpointslice, endpointslices]
     typical_parents: [kubernetes.namespace]
   - id: kubernetes.ingress
     category: network
     description: Kubernetes Ingress observed with immutable UID and configured backend Service evidence.
     azure_arm_type: null
+    query_terms: [kubernetes ingress, kubernetes ingresses, k8s ingress, 쿠버네티스 인그레스]
     typical_parents: [kubernetes.namespace]
   - id: kubernetes.ingress-class
     category: network
     description: Cluster-scoped Kubernetes IngressClass observed with immutable UID.
     azure_arm_type: null
+    query_terms: [ingress class, ingress classes, 인그레스 클래스]
     typical_parents: [kubernetes-cluster]
   - id: kubernetes.job
     category: compute
@@ -176,6 +189,7 @@ types:
     category: compute
     description: Kubernetes CronJob observed with immutable UID.
     azure_arm_type: null
+    query_terms: [cron job, cron jobs, cronjob, cronjobs, 크론잡, 크론 잡]
     typical_parents: [kubernetes.namespace]
   - id: kubernetes.deployment
     category: compute
@@ -187,16 +201,19 @@ types:
     category: compute
     description: Kubernetes ReplicaSet observed with immutable UID and owner evidence.
     azure_arm_type: null
+    query_terms: [replica set, replica sets, replicaset, replicasets, 레플리카셋, 레플리카 셋]
     typical_parents: [kubernetes.namespace]
   - id: kubernetes.daemon-set
     category: compute
     description: Kubernetes DaemonSet observed with immutable UID.
     azure_arm_type: null
+    query_terms: [daemon set, daemon sets, daemonset, daemonsets, 데몬셋, 데몬 셋]
     typical_parents: [kubernetes.namespace]
   - id: kubernetes.stateful-set
     category: compute
     description: Kubernetes StatefulSet observed with immutable UID.
     azure_arm_type: null
+    query_terms: [stateful set, stateful sets, statefulset, statefulsets, 스테이트풀셋, 스테이트풀 셋]
     typical_parents: [kubernetes.namespace]
   - id: kubernetes.persistent-volume-claim
     category: storage
@@ -256,21 +273,25 @@ types:
     category: compute
     description: Managed API connection used by a workflow application.
     azure_arm_type: Microsoft.Web/connections
+    query_terms: [api connection, api connections, logic app connection, logic app connections, API 연결]
     typical_parents: [resource-group]
   - id: bot-service
     category: compute
     description: Managed conversational bot endpoint and channel configuration.
     azure_arm_type: Microsoft.BotService/botServices
+    query_terms: [bot service, bot services, azure bot, azure bots, 봇 서비스]
     typical_parents: [resource-group]
   - id: ai-project
     category: compute
     description: Managed AI project boundary beneath one AI service account.
     azure_arm_type: Microsoft.CognitiveServices/accounts/projects
+    query_terms: [ai project, ai projects, foundry project, foundry projects, AI 프로젝트, Foundry 프로젝트]
     typical_parents: [llm-endpoint]
   - id: web-search-service
     category: compute
     description: Legacy managed web search API account retained for inventory visibility.
     azure_arm_type: Microsoft.Bing/accounts
+    query_terms: [bing search, bing search account, bing search accounts, Bing 검색]
     typical_parents: [resource-group]
 
   # ── networking ────────────────────────────────────────────────────────
@@ -284,6 +305,7 @@ types:
     category: network
     description: Address range inside a vnet.
     azure_arm_type: Microsoft.Network/virtualNetworks/subnets
+    query_terms: [subnet, subnets, 서브넷]
     typical_parents: [network.vnet]
   - id: network.nsg
     category: network
@@ -307,31 +329,37 @@ types:
     category: network
     description: Virtual network interface attached to compute or private-link resources.
     azure_arm_type: Microsoft.Network/networkInterfaces
+    query_terms: [network interface, network interfaces, nic, nics, 네트워크 인터페이스]
     typical_parents: [resource-group]
   - id: network.private-endpoint
     category: network
     description: Private link into a target resource (attaches via `attached_to`).
     azure_arm_type: Microsoft.Network/privateEndpoints
+    query_terms: [private endpoint, private endpoints, 프라이빗 엔드포인트, 사설 엔드포인트]
     typical_parents: [resource-group]
   - id: network.load-balancer
     category: network
     description: L4 load balancer (public or internal).
     azure_arm_type: Microsoft.Network/loadBalancers
+    query_terms: [load balancer, load balancers, 부하 분산 장치, 로드 밸런서, 로드밸런서]
     typical_parents: [resource-group]
   - id: network.application-gateway
     category: network
     description: Layer-7 application gateway with backend pools and health probes.
     azure_arm_type: Microsoft.Network/applicationGateways
+    query_terms: [application gateway, application gateways, app gateway, app gateways, 애플리케이션 게이트웨이, 앱 게이트웨이]
     typical_parents: [resource-group]
   - id: api-gateway
     category: network
     description: Managed API gateway and policy enforcement surface.
     azure_arm_type: Microsoft.ApiManagement/service
+    query_terms: [api management, api management service, apim, api gateway, api gateways, API 관리, API 게이트웨이]
     typical_parents: [resource-group]
   - id: network.dns-zone
     category: network
     description: DNS zone (public or private).
     azure_arm_type: Microsoft.Network/dnsZones
+    query_terms: [dns zone, dns zones, public dns zone, public dns zones, DNS 영역, DNS 존]
     typical_parents: [resource-group]
   - id: network.public-ip
     category: network
@@ -343,31 +371,37 @@ types:
     category: network
     description: Managed outbound network address translation gateway.
     azure_arm_type: Microsoft.Network/natGateways
+    query_terms: [nat gateway, nat gateways, NAT 게이트웨이]
     typical_parents: [resource-group]
   - id: network.private-dns-zone
     category: network
     description: Private DNS namespace visible through linked virtual networks.
     azure_arm_type: Microsoft.Network/privateDnsZones
+    query_terms: [private dns zone, private dns zones, 프라이빗 DNS 영역, 사설 DNS 영역, 프라이빗 DNS 존]
     typical_parents: [resource-group]
   - id: network.private-dns-zone-link
     category: network
     description: Binding between a private DNS zone and a virtual network.
     azure_arm_type: Microsoft.Network/privateDnsZones/virtualNetworkLinks
+    query_terms: [private dns zone link, private dns zone links, virtual network link, virtual network links, DNS 영역 링크, 프라이빗 DNS 영역 링크, 가상 네트워크 링크]
     typical_parents: [network.private-dns-zone]
   - id: network.private-dns-zone-group
     category: network
     description: Private Endpoint binding to one or more private DNS zones.
     azure_arm_type: Microsoft.Network/privateEndpoints/privateDnsZoneGroups
+    query_terms: [private dns zone group, private dns zone groups, DNS 영역 그룹, 프라이빗 DNS 영역 그룹]
     typical_parents: [network.private-endpoint]
   - id: network.dns-resolver
     category: network
     description: Managed recursive DNS resolver attached to a virtual network.
     azure_arm_type: Microsoft.Network/dnsResolvers
+    query_terms: [dns resolver, dns resolvers, private resolver, private dns resolver, DNS 확인자, DNS 리졸버]
     typical_parents: [resource-group]
   - id: network.dns-resolver-inbound-endpoint
     category: network
     description: Inbound endpoint that exposes a managed DNS resolver to a virtual network.
     azure_arm_type: Microsoft.Network/dnsResolvers/inboundEndpoints
+    query_terms: [dns resolver inbound endpoint, dns resolver inbound endpoints, inbound endpoint, inbound endpoints, 인바운드 엔드포인트]
     typical_parents: [network.dns-resolver]
   - id: network.route-table
     category: network
@@ -379,26 +413,31 @@ types:
     category: network
     description: VPN or ExpressRoute gateway attached to a virtual network.
     azure_arm_type: Microsoft.Network/virtualNetworkGateways
+    query_terms: [virtual network gateway, virtual network gateways, vpn gateway, vpn gateways, expressroute gateway, 가상 네트워크 게이트웨이, VPN 게이트웨이]
     typical_parents: [resource-group]
   - id: network.bastion-host
     category: network
     description: Managed secure remote-access gateway for virtual machines.
     azure_arm_type: Microsoft.Network/bastionHosts
+    query_terms: [bastion, bastion host, bastion hosts, azure bastion, 베스천, 배스천]
     typical_parents: [resource-group]
   - id: network.private-access-scope
     category: network
     description: Private access scope for monitoring resources and private endpoints.
     azure_arm_type: Microsoft.Insights/privateLinkScopes
+    query_terms: [private link scope, private link scopes, azure monitor private link scope, ampls, 프라이빗 링크 범위]
     typical_parents: [resource-group]
   - id: network.registered-domain
     category: network
     description: Registered internet domain managed as a provider resource.
     azure_arm_type: Microsoft.DomainRegistration/domains
+    query_terms: [registered domain, registered domains, app service domain, 등록된 도메인]
     typical_parents: [resource-group]
   - id: diagnostic-settings
     category: observability
     description: Binding routing platform logs / metrics of a target to a log-workspace.
     azure_arm_type: Microsoft.Insights/diagnosticSettings
+    query_terms: [diagnostic setting, diagnostic settings, 진단 설정]
     typical_parents: [resource-group]
 
   # ── storage ──────────────────────────────────────────────────────────
@@ -412,11 +451,13 @@ types:
     category: storage
     description: Registry for OCI container images and related artifacts.
     azure_arm_type: Microsoft.ContainerRegistry/registries
+    query_terms: [container registry, container registries, acr, 컨테이너 레지스트리]
     typical_parents: [resource-group]
   - id: file-share
     category: storage
     description: Network file share.
     azure_arm_type: Microsoft.Storage/storageAccounts/fileServices/shares
+    query_terms: [file share, file shares, azure files share, 파일 공유]
     typical_parents: [object-storage]
   - id: disk-snapshot
     category: storage
@@ -428,6 +469,7 @@ types:
     category: storage
     description: Block-storage disk attached to a compute resource.
     azure_arm_type: Microsoft.Compute/disks
+    query_terms: [disk, disks, managed disk, managed disks, 디스크, 관리 디스크]
     typical_parents: [resource-group]
 
   # ── databases ────────────────────────────────────────────────────────
@@ -459,6 +501,7 @@ types:
     category: database
     description: Document / KV NoSQL engine (Cosmos DB SQL API, DynamoDB, Firestore).
     azure_arm_type: Microsoft.DocumentDB/databaseAccounts
+    query_terms: [cosmos db, cosmosdb, azure cosmos db, nosql database, nosql databases, 코스모스 DB, Cosmos DB 계정]
     typical_parents: [resource-group]
   - id: cache
     category: database
@@ -490,21 +533,25 @@ types:
     category: security
     description: Scoped Azure role grant binding one principal to one authorization scope.
     azure_arm_type: Microsoft.Authorization/roleAssignments
+    query_terms: [role assignment, role assignments, rbac assignment, rbac assignments, 역할 할당, RBAC 할당]
     typical_parents: [resource-group]
   - id: certificate
     category: security
     description: TLS or code-signing certificate managed by a secret-store.
     azure_arm_type: Microsoft.KeyVault/vaults/certificates
+    query_terms: [key vault certificate, key vault certificates, tls certificate, tls certificates, 인증서]
     typical_parents: [secret-store]
   - id: managed-certificate
     category: security
     description: Provider-managed certificate attached to a container app environment.
     azure_arm_type: Microsoft.App/managedEnvironments/managedCertificates
+    query_terms: [managed certificate, managed certificates, 관리형 인증서]
     typical_parents: [compute.container-app-environment]
   - id: ssh-public-key
     category: security
     description: Public SSH credential material managed as a cloud resource.
     azure_arm_type: Microsoft.Compute/sshPublicKeys
+    query_terms: [ssh key, ssh keys, ssh public key, ssh public keys, SSH 키, SSH 공개 키]
     typical_parents: [resource-group]
 
   # ── observability ────────────────────────────────────────────────────
@@ -512,16 +559,19 @@ types:
     category: observability
     description: Centralized log analytics workspace (Log Analytics, CloudWatch, Cloud Logging).
     azure_arm_type: Microsoft.OperationalInsights/workspaces
+    query_terms: [log analytics workspace, log analytics workspaces, log analytics, log workspace, log workspaces, Log Analytics 작업 영역, 로그 분석 작업 영역]
     typical_parents: [resource-group]
   - id: metrics-workspace
     category: observability
     description: Prometheus-style metrics workspace bound to a log-workspace.
     azure_arm_type: Microsoft.Monitor/accounts
+    query_terms: [azure monitor workspace, azure monitor workspaces, metrics workspace, metrics workspaces, prometheus workspace, Azure Monitor 작업 영역]
     typical_parents: [resource-group]
   - id: application-insights
     category: observability
     description: Application performance and distributed telemetry resource.
     azure_arm_type: Microsoft.Insights/components
+    query_terms: [application insights, app insights, appinsights, 애플리케이션 인사이트]
     typical_parents: [resource-group]
   - id: data-collection-rule
     category: observability
@@ -551,56 +601,67 @@ types:
     category: observability
     description: Managed Prometheus recording and alert rule group.
     azure_arm_type: Microsoft.AlertsManagement/prometheusRuleGroups
+    query_terms: [prometheus rule group, prometheus rule groups, prometheus rules, 프로메테우스 규칙 그룹]
     typical_parents: [resource-group]
   - id: anomaly-alert-rule
     category: observability
     description: Smart detector alert rule driven by anomaly detection.
     azure_arm_type: Microsoft.AlertsManagement/smartDetectorAlertRules
+    query_terms: [smart detector alert rule, smart detector alert rules, anomaly alert rule, anomaly alert rules, 스마트 감지 경고 규칙, 이상 감지 경고 규칙]
     typical_parents: [resource-group]
   - id: metric-alert-rule
     category: observability
     description: Metric condition and action definition for provider alerts.
     azure_arm_type: Microsoft.Insights/metricAlerts
+    query_terms: [metric alert, metric alerts, metric alert rule, metric alert rules, 메트릭 경고, 메트릭 경고 규칙]
     typical_parents: [resource-group]
   - id: managed-sre-agent
     category: observability
     description: Managed site-reliability agent and its operating configuration.
     azure_arm_type: Microsoft.App/agents
+    query_terms: [sre agent, sre agents, azure sre agent, SRE 에이전트]
     typical_parents: [resource-group]
   - id: observability.dashboard-service
     category: observability
     description: Managed dashboard and visualization service.
     azure_arm_type: Microsoft.Dashboard/grafana
+    query_terms: [managed grafana, azure managed grafana, grafana, grafana instance, grafana instances, 그라파나]
     typical_parents: [resource-group]
   - id: observability.network-monitor
     category: observability
     description: Provider network monitoring resource for regional diagnostics.
     azure_arm_type: Microsoft.Network/networkWatchers
+    query_terms: [network watcher, network watchers, 네트워크 감시자]
     typical_parents: [resource-group]
   - id: observability.query-pack
     category: observability
     description: Managed collection of reusable log queries.
     azure_arm_type: Microsoft.OperationalInsights/queryPacks
+    query_terms: [query pack, query packs, log query pack, 쿼리 팩]
     typical_parents: [resource-group]
   - id: observability.solution
     category: observability
     description: Legacy monitoring solution registration retained for inventory visibility.
     azure_arm_type: Microsoft.OperationsManagement/solutions
+    query_terms: [monitoring solution, monitoring solutions, log analytics solution, 모니터링 솔루션]
     typical_parents: [resource-group]
   - id: observability.dashboard
     category: observability
     description: Shared portal dashboard definition.
     azure_arm_type: Microsoft.Portal/dashboards
+    query_terms: [portal dashboard, portal dashboards, azure dashboard, azure dashboards, shared dashboard, 포털 대시보드]
     typical_parents: [resource-group]
   - id: observability.workbook
     category: observability
     description: Reusable monitoring workbook and visualization definition.
     azure_arm_type: Microsoft.Insights/workbooks
+    query_terms: [workbook, workbooks, azure workbook, monitor workbook, 통합 문서, 워크북]
     typical_parents: [resource-group]
   - id: llm-endpoint
     category: compute
     description: Managed language-model inference endpoint with quota and rate limits.
     azure_arm_type: Microsoft.CognitiveServices/accounts
+    query_terms: [azure openai, azure openai account, openai account, openai resource, cognitive services account, ai services account, AI 서비스 계정, Azure OpenAI 리소스, OpenAI 리소스]
     typical_parents: [resource-group]
   - id: llm-model-deployment
     category: compute
@@ -634,6 +695,7 @@ types:
     category: compute
     description: Managed event-streaming namespace used for durable message ingress and delivery.
     azure_arm_type: Microsoft.EventHub/namespaces
+    query_terms: [event hub, event hubs, event hub namespace, event hubs namespace, 이벤트 허브]
     typical_parents: [resource-group]
   - id: service-bus-namespace
     category: observability
@@ -645,26 +707,31 @@ types:
     category: compute
     description: Managed topic that forwards provider resource-change events.
     azure_arm_type: Microsoft.EventGrid/systemTopics
+    query_terms: [event grid topic, event grid topics, event grid system topic, system topic, system topics, 이벤트 그리드 토픽, Event Grid 시스템 토픽]
     typical_parents: [resource-group]
   - id: communication-service
     category: compute
     description: Managed communication API resource for operator notifications.
     azure_arm_type: Microsoft.Communication/CommunicationServices
+    query_terms: [communication service, communication services, azure communication services, 커뮤니케이션 서비스]
     typical_parents: [resource-group]
   - id: email-service
     category: compute
     description: Managed email delivery resource for operator notifications.
     azure_arm_type: Microsoft.Communication/EmailServices
+    query_terms: [email communication service, email communication services, email service, email services, 이메일 서비스]
     typical_parents: [resource-group]
   - id: email-domain
     category: compute
     description: Sender domain attached to a managed email service.
     azure_arm_type: Microsoft.Communication/EmailServices/Domains
+    query_terms: [email domain, email domains, sender domain, 이메일 도메인]
     typical_parents: [email-service]
   - id: search-service
     category: compute
     description: Managed search index and query service.
     azure_arm_type: Microsoft.Search/searchServices
+    query_terms: [ai search, azure ai search, cognitive search, search service, search services, 검색 서비스]
     typical_parents: [resource-group]
 
   # ── governance / scope ───────────────────────────────────────────────
@@ -672,6 +739,7 @@ types:
     category: governance
     description: Legacy development-operations account link retained for inventory visibility.
     azure_arm_type: Microsoft.VisualStudio/account
+    query_terms: [azure devops account, azure devops organization, devops account, devops accounts, Azure DevOps 계정]
     typical_parents: [resource-group]
   - id: resource-group
     category: governance

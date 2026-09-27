@@ -324,9 +324,14 @@ def _bounded_context(prior_turns: Sequence[Turn]) -> tuple[str, ...]:
     return tuple(reversed(result))
 
 
-def _clarification(unresolved_terms: tuple[str, ...]) -> str:
+def _clarification(unresolved_terms: tuple[str, ...], *, korean: bool = False) -> str:
     safe = [term.replace("\r", " ").replace("\n", " ") for term in unresolved_terms[:4]]
-    question = "Please clarify these unresolved concepts: " + ", ".join(safe) + "?"
+    lead = (
+        "다음 표현이 무엇을 뜻하는지 구체적으로 알려주세요: "
+        if korean
+        else "Please clarify these unresolved concepts: "
+    )
+    question = lead + ", ".join(safe) + "?"
     return question[:511] + "?" if len(question) > 512 else question
 
 

@@ -47,7 +47,6 @@ from fdai.core.ontology_platform.recent_resource_changes import (
     ARG_RESOURCE_CHANGE_SOURCE_IDENTITY,
 )
 from fdai.core.prompts.types import PromptReplayManifest
-from fdai.shared.contracts.models import OntologyDeclarationKind
 from fdai_service_contracts import (
     MAX_SEMANTIC_EVIDENCE_REFS,
     OperationalEvidenceProjection,
@@ -88,10 +87,17 @@ from .contract_codecs import (
     OPERATOR_PROJECTION_PRODUCER_V16,
     OPERATOR_PROJECTION_PRODUCER_V17,
 )
+from .semantic_answer_presentation import (
+    authority_line,
+    completeness_text,
+    readable_resource_status,
+    readable_timestamp,
+)
 from .semantic_assurance_projection import project_semantic_assurance
 from .semantic_incident_answer import render_incident_answer
 from .semantic_instance_candidates import project_instance_candidates, render_instance_candidates
 from .semantic_logical_service_answer import render_logical_service_current_state_answer
+from .semantic_ontology_answers import render_ontology_schema_answer
 from .semantic_presentation_semantics import project_presentation_semantics
 from .semantic_relationship_projection import (
     project_ontology_relationships,
@@ -100,6 +106,7 @@ from .semantic_relationship_projection import (
 from .semantic_service_health_answer import (
     render_service_health_answer as _render_service_health_answer,
 )
+from .semantic_source_limitations import known_source_limitation, source_limitation_text
 from .semantic_subscription_scope_answer import (
     render_subscription_scope_answer as _render_subscription_scope_answer,
 )
@@ -3211,6 +3218,14 @@ def _render_general_query_answer(
             evidence_requirements=(),
         )
         return f"{operational_answer}\n\n{unavailable}"
+    ontology_schema_answer = render_ontology_schema_answer(
+        outputs,
+        korean=korean,
+        output_shape=output_shape,
+        subject_constraints=subject_constraints,
+    )
+    if ontology_schema_answer is not None:
+        return ontology_schema_answer
     target_candidates_answer = _render_target_candidates_answer(
         outputs,
         korean=korean,
@@ -3307,14 +3322,6 @@ def _render_general_query_answer(
     )
     if ontology_declaration_answer is not None:
         return ontology_declaration_answer
-    declaration_count_answer = _render_ontology_declaration_count_answer(
-        outputs,
-        korean=korean,
-        output_shape=output_shape,
-        subject_constraints=subject_constraints,
-    )
-    if declaration_count_answer is not None:
-        return declaration_count_answer
     impact_answer = _render_impact_query_answer(
         outputs,
         korean=korean,
@@ -3447,7 +3454,9 @@ def _render_resource_list_answer(
             value
             for value in (
                 _answer_text(values.get("location"), fallback=""),
-                _answer_text(values.get("status"), fallback=""),
+                readable_resource_status(
+                    _answer_text(values.get("status"), fallback=""), korean=korean
+                ),
             )
             if value
         ]
@@ -3481,11 +3490,11 @@ def _render_resource_list_answer(
                 "",
                 (
                     "원본 범위가 완전하지 않아 전체 개수로 해석할 수 없습니다. "
-                    f"제한: `{limitation}`"
+                    f"제한: {source_limitation_text(limitation, korean=True)}"
                     if korean
                     else (
                         "The source scope is incomplete, so this is not an exhaustive count. "
-                        f"Limitation: `{limitation}`"
+                        f"Limitation: {source_limitation_text(limitation, korean=False)}"
                     )
                 ),
             ]
@@ -3801,7 +3810,7 @@ def _render_resource_change_answer(
         "",
     ]
     for row in verified_rows[:20]:
-        subject = row.get("subject_name") or row.get("subject_ref")
+        subject = row.get("subject_name") or str(row.get("subject_ref") or "").rsplit("/", 1)[-1]
         operation = row.get("operation") or row.get("mutation_kind") or "change"
         status = row.get("operation_status")
         occurred_at = row.get("occurred_at")
@@ -3810,7 +3819,7 @@ def _render_resource_change_answer(
             prefix
             + f"`{_inline_code(str(operation))}`"
             + (f" / `{_inline_code(str(status))}`" if status else "")
-            + f" ({occurred_at or 'time unavailable'})"
+            + f" ({readable_timestamp(str(occurred_at)) if occurred_at else 'time unavailable'})"
         )
     if not verified_rows:
         lines.append(
@@ -3829,17 +3838,17 @@ def _render_resource_change_answer(
             else f"- Unresolved change evidence: {unresolved}"
         )
     lines.append(
-        f"- 원본 완전성: `{'complete' if complete else 'incomplete'}`"
+        f"- 원본 완전성: {completeness_text(complete, korean=True)}"
         if korean
-        else f"- Source completeness: `{'complete' if complete else 'incomplete'}`"
+        else f"- Source completeness: {completeness_text(complete, korean=False)}"
     )
     if isinstance(limitation, str) and limitation:
-        lines.append(f"- 제한 사항: `{limitation}`" if korean else f"- Limitation: `{limitation}`")
-    lines.extend(
-        ["", "`execution_authority=false`"]
-        if korean
-        else ["", "This result is read-only and has `execution_authority=false`."]
-    )
+        lines.append(
+            f"- 제한 사항: {source_limitation_text(limitation, korean=korean)}"
+            if korean
+            else f"- Limitation: {source_limitation_text(limitation, korean=korean)}"
+        )
+    lines.extend(["", authority_line(korean=korean)])
     return "\n".join(lines)
 
 
@@ -4135,94 +4144,6 @@ def _condition_rows(output: Mapping[str, object]) -> tuple[Mapping[str, object],
     return tuple(projected)
 
 
-def _render_ontology_declaration_count_answer(
-    outputs: list[dict[str, object]],
-    *,
-    korean: bool,
-    output_shape: str | None,
-    subject_constraints: tuple[str, ...],
-) -> str | None:
-    """Render only complete declaration counts from the verified aggregate output."""
-
-    if output_shape != "aggregation_table" or len(outputs) != 1 or len(subject_constraints) != 1:
-        return None
-    declaration_kind = _answer_declaration_kind(subject_constraints[0])
-    if declaration_kind is None:
-        return None
-    output = outputs[0]
-    complete = output.get("source_complete") is True and output.get("display_truncated") is not True
-    rows = output.get("rows")
-    row = rows[0] if isinstance(rows, list) and len(rows) == 1 else None
-    values = row.get("values") if isinstance(row, Mapping) else None
-    group = values.get("group") if isinstance(values, Mapping) else None
-    group_kind = group.get("kind") if isinstance(group, Mapping) else None
-    value = values.get("value") if isinstance(values, Mapping) else None
-    valid_count = (
-        isinstance(values, Mapping)
-        and values.get("operation") == "count"
-        and group_kind in {None, declaration_kind.value}
-        and isinstance(value, int)
-        and not isinstance(value, bool)
-        and value >= 0
-    )
-    if not complete or not valid_count:
-        if korean:
-            return (
-                "## 온톨로지 선언 개수를 확인할 수 없음\n\n"
-                "- 활성 온톨로지 release의 선언 매니페스트가 완전하지 않아 정확한 개수를 "
-                "보고하지 않습니다.\n"
-                "- 읽기 전용 출처: `query.manifest`.\n\n"
-                "이 결과는 실행 권한을 부여하지 않습니다."
-            )
-        return (
-            "## Ontology declaration count unavailable\n\n"
-            "- The active ontology release manifest is incomplete, so an exact count is not "
-            "reported.\n"
-            "- Read-only source: `query.manifest`.\n\n"
-            "This result grants no execution authority."
-        )
-    label = f"{declaration_kind.value[:1].upper()}{declaration_kind.value[1:]}Types"
-    heading = "## 검증된 온톨로지 선언 개수" if korean else "## Verified ontology declaration count"
-    lines = [heading, ""]
-    lines.append(f"- {label}: {value}")
-    lines.extend(
-        [
-            (
-                "- 읽기 전용 출처: 활성 온톨로지 release에 대해 역할과 목적으로 범위가 제한된 "
-                "`query.manifest`."
-                if korean
-                else (
-                    "- Read-only source: role- and purpose-scoped `query.manifest` for the active "
-                    "ontology release."
-                )
-            ),
-            "",
-            (
-                "각 값은 매니페스트의 서로 다른 선언 개수입니다. 이 결과는 실행 권한을 부여하지 "
-                "않습니다."
-                if korean
-                else (
-                    "Each value is the distinct declaration count from the manifest. "
-                    "This result grants no execution authority."
-                )
-            ),
-        ]
-    )
-    return "\n".join(lines)
-
-
-def _answer_declaration_kind(subject: str) -> OntologyDeclarationKind | None:
-    try:
-        return OntologyDeclarationKind(subject)
-    except ValueError:
-        if not subject.endswith("Type"):
-            return None
-    try:
-        return OntologyDeclarationKind(subject.removesuffix("Type").casefold())
-    except ValueError:
-        return None
-
-
 def _render_ontology_declaration_answer(
     outputs: list[dict[str, object]],
     *,
@@ -4383,37 +4304,43 @@ def _render_resource_state_list_answer(
     for row in rows:
         name = row["name"]
         resource_type = row["type"]
-        state = row["observed_state"]
-        observed_at = row["source_observed_at"]
+        state = str(row["observed_state"])
+        label = readable_resource_status(state, korean=korean)
+        shown_state = f"`{state}`" if label == state else f"{label} (`{state}`)"
+        observed_at = readable_timestamp(str(row["source_observed_at"]))
         resource_group = row.get("resource_group") or "unavailable"
         region = row.get("region") or "unavailable"
         lines.append(
             (
-                f"- `{name}`: `{state}` (`{resource_type}`, "
+                f"- `{name}`: {shown_state} (`{resource_type}`, "
                 f"리소스 그룹 `{resource_group}`, 지역 `{region}`, 관측 {observed_at})"
             )
             if korean
             else (
-                f"- `{name}`: `{state}` (`{resource_type}`, "
+                f"- `{name}`: {shown_state} (`{resource_type}`, "
                 f"resource group `{resource_group}`, region `{region}`, observed {observed_at})"
             )
         )
     lines.append(
-        f"- 근거 완전성: `{'complete' if complete else 'incomplete'}`"
+        f"- 근거 완전성: {completeness_text(complete, korean=True)}"
         if korean
-        else f"- Evidence completeness: `{'complete' if complete else 'incomplete'}`"
+        else f"- Evidence completeness: {completeness_text(complete, korean=False)}"
     )
     if isinstance(limitation, str) and limitation:
-        lines.append(f"- 제한 사항: `{limitation}`" if korean else f"- Limitation: `{limitation}`")
+        lines.append(
+            f"- 제한 사항: {source_limitation_text(limitation, korean=True)}"
+            if korean
+            else f"- Limitation: {source_limitation_text(limitation, korean=False)}"
+        )
     lines.extend(
         [
             "",
             (
-                "표시된 행은 검증된 관측 근거에만 해당합니다. `execution_authority=false`"
+                "표시된 행은 검증된 관측 근거에만 해당합니다. " + authority_line(korean=True)
                 if korean
                 else (
                     "Displayed rows are limited to verified observed evidence. "
-                    "`execution_authority=false`"
+                    + authority_line(korean=False)
                 )
             ),
         ]
@@ -4495,7 +4422,7 @@ def _render_generic_empty_query_answer(
                     "- 원본 동기화와 변환 결과 처리가 완료된 뒤 같은 범위에서 다시 조회하세요.",
                 ]
             )
-        lines.extend(["", "`execution_authority=false`"])
+        lines.extend(["", authority_line(korean=True)])
         return "\n".join(lines)
     if output_shape == "resource_state_list":
         lines = [
@@ -4696,17 +4623,22 @@ def _render_target_candidates_answer(
                 "## 범위와 다음 단계",
                 "",
                 f"- 검증된 후보 수: {total_count}",
-                f"- 후보 범위 완전성: {'complete' if complete else 'incomplete'}",
+                f"- 후보 범위 완전성: {completeness_text(complete, korean=True)}",
             ]
         )
         if not complete:
-            lines.append(f"- 제한 사항: {str(limitation or 'inventory_scope_incomplete')}")
+            lines.append(
+                "- 제한 사항: "
+                + source_limitation_text(
+                    str(limitation or "inventory_scope_incomplete"), korean=True
+                )
+            )
         if candidates:
             lines.append(
                 "- 위 후보 중 확인할 리소스의 정확한 이름 또는 리소스 ID를 지정하면 "
                 "요청한 운영 근거를 이어서 검증할 수 있습니다."
             )
-        lines.extend(["", "`execution_authority=false`"])
+        lines.extend(["", authority_line(korean=True)])
         return "\n".join(lines)
     lines = ["## Verified target candidates", ""]
     if candidates:
@@ -4726,13 +4658,16 @@ def _render_target_candidates_answer(
         ]
     )
     if not complete:
-        lines.append(f"- Limitation: {str(limitation or 'inventory_scope_incomplete')}")
+        lines.append(
+            "- Limitation: "
+            + source_limitation_text(str(limitation or "inventory_scope_incomplete"), korean=False)
+        )
     if candidates:
         lines.append(
             "- Provide the exact resource name or resource ID from the candidates above to "
             "continue with the requested operational evidence read."
         )
-    lines.extend(["", "`execution_authority=false`"])
+    lines.extend(["", authority_line(korean=False)])
     return "\n".join(lines)
 
 
@@ -4979,7 +4914,9 @@ def _render_current_state_answer(
         )
     ]
     gap_lines = [
-        f"- {_readable_health_token(item)}."
+        f"- {source_limitation_text(item, korean=korean)}."
+        if known_source_limitation(item)
+        else f"- {_readable_health_token(item)}."
         for item in _split_truncation_reason(output.get("source_truncation_reason"))
     ]
     assessment = _readable_state_text(values.get("target_state_assessment"))
@@ -5006,7 +4943,7 @@ def _render_current_state_answer(
             + "\n- 이 결과는 지정한 대상 1개의 현재 상태만 포함하며, 그 범위 밖의 리소스가 "
             "정상인지 여부는 판정하지 않았습니다.\n"
             "- 프로바이더가 보고한 상태는 관측이며 원인이 아닙니다.\n\n"
-            "## 권한\n\n- 읽기 전용이며 `execution_authority=false`입니다."
+            f"## 권한\n\n- {authority_line(korean=True)}"
         )
     return (
         f"## Verified current state for `{name}`\n\n"
@@ -5024,12 +4961,12 @@ def _render_current_state_answer(
         + "\n- This result covers only the one named target; it does not judge whether any "
         "resource outside that scope is healthy.\n"
         "- Provider-reported status is an observation, not a cause.\n\n"
-        "## Authority\n\n- Read-only; `execution_authority=false`."
+        f"## Authority\n\n- {authority_line(korean=False)}"
     )
 
 
 def _readable_state_text(value: object) -> str | None:
-    return value.strip() if isinstance(value, str) and value.strip() else None
+    return readable_timestamp(value.strip()) if isinstance(value, str) and value.strip() else None
 
 
 def _current_state_assessment_lines(

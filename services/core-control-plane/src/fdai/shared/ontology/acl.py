@@ -259,6 +259,7 @@ def project_graph_snapshot(
         truncated=snapshot.truncated,
         source_complete=snapshot.source_complete,
         source_generation=snapshot.source_generation,
+        source_incomplete_reason=snapshot.source_incomplete_reason,
     )
     _validate_projected_snapshot(projected_snapshot)
     return projected_snapshot

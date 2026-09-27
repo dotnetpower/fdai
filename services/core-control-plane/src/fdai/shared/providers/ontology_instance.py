@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import math
+import re
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime
@@ -24,6 +25,7 @@ OntologyDirection = Literal["outgoing", "incoming", "both"]
 MAX_ONTOLOGY_OBJECT_SCAN = 50_000
 MAX_ONTOLOGY_QUERY_LINKS = 16_000
 _MAX_JSON_DEPTH = 32
+_SOURCE_INCOMPLETE_REASON = re.compile(r"[a-z][a-z0-9_]{0,63}(?:\+[a-z][a-z0-9_]{0,63}){0,7}")
 _CLASSIFICATION_EVIDENCE_PROPERTIES = frozenset(
     {"inventory_generation", "mapping_digest", "mapping_id", "verified"}
 )
@@ -87,10 +89,19 @@ class OntologyGraphSnapshot:
     truncated: bool = False
     source_complete: bool = True
     source_generation: str | None = None
+    source_incomplete_reason: str | None = None
 
     def __post_init__(self) -> None:
         if self.source_generation is not None and not self.source_generation.strip():
             raise ValueError("OntologyGraphSnapshot.source_generation MUST be non-empty")
+        if self.source_incomplete_reason is not None and (
+            self.source_complete
+            or _SOURCE_INCOMPLETE_REASON.fullmatch(self.source_incomplete_reason) is None
+        ):
+            raise ValueError(
+                "OntologyGraphSnapshot.source_incomplete_reason MUST be a bounded token "
+                "on an incomplete snapshot"
+            )
 
 
 class OntologyInstanceValidationError(ValueError):

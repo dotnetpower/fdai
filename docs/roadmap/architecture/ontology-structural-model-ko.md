@@ -1,7 +1,7 @@
 ---
 title: 온톨로지 구조 모델
 translation_of: ontology-structural-model.md
-translation_source_sha: 9f3500f9a0bdcd2587846b7221a98c92af75de41
+translation_source_sha: 36982482f0fb0dfbaf157675fdb28ac17b63c354
 translation_revised: 2026-09-27
 ---
 # 온톨로지 구조 모델
@@ -256,9 +256,19 @@ source property path 및 source schema identity와 일치해야 합니다. 카�
 관측 전달이 누락되거나 지연되거나 실패해도 조회 결과는 바뀌지 않으며 최종 실행 증적이 권위를
 유지합니다.
 
+Resource 하위 유형 피연산자는 검토된 `Resource.type` 값 도메인에서 가져옵니다. 요청 용어 그룹은
+검토된 각 하위 유형이 한국어와 영어 용어를 따로 결속할 수 있도록 최대 192개까지 둘 수 있으며,
+이 용어는 발화에 나온 피연산자의 근거만 확인하고 ObjectType이나 기능을 추가하지 않습니다.
+
 리소스 상태 조회는 카탈로그에 선언된 상태 개념과 정확하고 범위가 제한된 리소스 집합만 받습니다.
 구체적인 상태 개념은 일반 관측 상태 표시자보다 우선합니다. 비어 있거나 불완전한 결과는 행 개수와
-출처 제한을 보존하며, 검증된 조회 범위 밖에 일치하는 리소스가 없다고 증명하지 않습니다.
+출처 제한을 보존하며, 검증된 조회 범위 밖에 일치하는 리소스가 없다고 증명하지 않습니다. 보안이
+적용된 ObjectSet 읽기는 그래프 원본 완전성을 낮추는 모든 타입 지정 빈틈을 `+`로 연결해 보고합니다.
+빈틈에는 사용할 수 없거나 전환 중이거나 불완전하거나 서로 맞지 않는 projection, 저장소 압박,
+대기 중인 보정, 관측 또는 관계 조정, 불완전한 관계가 있습니다. 예를 들어 아직 projection에 반영되지
+않은 관측은 `inventory_observation_pending`으로 보고합니다. 일반 `source_incomplete` 코드는 원본이
+타입이 지정된 사유를 제공하지 않을 때만 대체 값으로 사용합니다. 코드는 빈틈을 설명할 뿐이며
+최신성, 완전성 또는 권한을 부여하지 않습니다.
 
 추가되는 `telemetry_recipe` 쿼리 노드는 내용 기반 주소가 지정된 `TelemetryEvidenceNeed` 하나를
 받습니다. 검증기 스키마는 검토된 recipe id와 버전, 정확한 리소스와 근거 기준 시점, 고정 lookback

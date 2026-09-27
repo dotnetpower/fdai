@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 
+from .semantic_answer_presentation import readable_timestamp
+
 EVENT_TYPES = ("service_issue", "health_advisory", "planned_maintenance")
 _EVENT_TYPE_LABELS = {
     "service_issue": ("Service issue", "서비스 장애"),
@@ -160,16 +162,20 @@ def event_line(event: Mapping[str, object], *, korean: bool) -> str:
     if korean:
         return (
             "- "
-            f"{event.get('impact_start_at') or '시작 시각 미확인'} - "
+            f"{_readable_time(event.get('impact_start_at')) or '시작 시각 미확인'} - "
             f"{event_type} / {status} / {level}: "
             f"{event.get('title') or '제목 미확인'}"
         )
     return (
         "- "
-        f"{event.get('impact_start_at') or 'start time unavailable'} - "
+        f"{_readable_time(event.get('impact_start_at')) or 'start time unavailable'} - "
         f"{event_type} / {status} / {level}: "
         f"{event.get('title') or 'title unavailable'}"
     )
+
+
+def _readable_time(value: object) -> str | None:
+    return readable_timestamp(value) if isinstance(value, str) and value else None
 
 
 def _display_value(

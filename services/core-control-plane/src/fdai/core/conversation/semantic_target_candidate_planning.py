@@ -42,9 +42,20 @@ from .semantic_planning_value_filters import (
     stated_subject_fragment,
     stated_value_filters,
 )
-from .semantic_resource_state_planning import resource_collection_definition
+from .semantic_resource_state_planning import (
+    contextual_list_omits_requirement,
+    resource_collection_definition,
+)
+from .semantic_stated_list_scope import (
+    collection_requested,
+    listing_answers_other_request,
+    resource_filter_meaning_clarification,
+    stated_name_fragment_frame,
+    typed_resource_list_frame,
+)
 from .semantic_target_candidate_constants import (
     CANDIDATE_RESOLVABLE_REQUIREMENTS,
+    COLLECTION_FILTER_KINDS,
     DECISION_OUTCOME_LINEAGE_TYPES,
     TARGET_BOUND_OPERATING_INTENT_TYPES,
     TARGET_SCOPED_OUTPUTS,
@@ -84,6 +95,17 @@ def build_stated_resource_filter_frame(
     )
     if any(target.get("kind") in {"resource", "resource_id"} for target in typed_targets):
         return None
+    # A plain list cannot answer a stated state requirement; only a filter clarification may.
+    list_omits_requirement = primary_intent in {
+        "query.contextual_resources",
+        "query.resource_state_inventory",
+    } and contextual_list_omits_requirement(
+        semantic_judgment, raw_facets, typed_targets, utterance, registry=inventory_query_language
+    )
+    if (
+        list_omits_requirement and primary_intent == "query.contextual_resources"
+    ) or listing_answers_other_request(utterance, descriptors, registry=inventory_query_language):
+        return None
     resource_type_filters = tuple(
         str(target["value"])
         for target in typed_targets
@@ -99,15 +121,7 @@ def build_stated_resource_filter_frame(
     } and (
         (
             {"resource_collection", "list"} <= set(raw_facets)
-            and any(
-                target.get("kind")
-                in {
-                    "resource_type_filter",
-                    "resource_state_exclusion_filter",
-                    "resource_state_filter",
-                }
-                for target in typed_targets
-            )
+            and any(target.get("kind") in COLLECTION_FILTER_KINDS for target in typed_targets)
         )
         or (
             bool(filters.get(("Resource", "type")))
@@ -118,82 +132,37 @@ def build_stated_resource_filter_frame(
             )
         )
     )
-    if (
-        not typed_collection
-        and query_target_cardinality(utterance, inventory_query_language)
-        is not QueryTargetCardinality.COLLECTION
-    ):
-        return None
-    if not filters.get(("Resource", "type")):
+    collection = collection_requested(utterance, inventory_query_language)
+    if (not typed_collection and not collection) or not filters.get(("Resource", "type")):
+        name_only = (
+            None
+            if list_omits_requirement
+            else stated_name_fragment_frame(
+                semantic_judgment,
+                typed_targets,
+                raw_facets,
+                filters,
+                utterance,
+                context,
+                descriptors,
+            )
+        )
+        if name_only is not None or not (typed_collection or collection):
+            return name_only
         if not any(target.get("kind") == "resource_type_filter" for target in typed_targets):
             return None
-        korean = any("가" <= character <= "힣" for character in utterance)
-        proposal = SemanticFrameProposal(
-            operation=SemanticOperation.SELECT,
-            subject_constraints=("Resource",),
-            measure_concepts=(),
-            temporal_scope={},
-            output_shape=SemanticOutputShape.RESOURCE_LIST,
-            evidence_requirements=(),
-            unresolved_terms=("resource_filter_meaning",),
-            clarification_requirements=(ClarificationRequirement.SUBJECT,),
-            clarification=(
-                "요청한 리소스 범위가 유형, 이름 포함, 또는 관계 기준인지 알려주세요?"
-                if korean
-                else "Should the resource scope use a type, a name fragment, or a relationship?"
-            ),
-            investigation=None,
-            confidence=float(semantic_judgment.get("confidence", 0.0)),
-        )
-        return proposal, build_semantic_frame(proposal, utterance=utterance, context=context)
-    target_values = [
-        target["value"]
-        for target in typed_targets
-        if isinstance(target.get("kind"), str)
-        and (
-            target["kind"] == "affected_target"
-            or (
-                target["kind"] == "resource_group"
-                and {"resource_collection", "list", "name_filter"} <= set(raw_facets)
-            )
-            or (
-                target["kind"].endswith("_filter")
-                and target["kind"]
-                not in {
-                    "resource_type_filter",
-                    "resource_state_exclusion_filter",
-                    "resource_state_filter",
-                }
-            )
-        )
-        and isinstance(target.get("value"), str)
-        and target.get("canonical_value") is None
-    ]
-    unique_target_values = tuple(
-        dict.fromkeys(
-            value for value in target_values if utterance.casefold().count(value.casefold()) == 1
-        )
+        return resource_filter_meaning_clarification(semantic_judgment, utterance, context)
+    if list_omits_requirement:
+        return None
+    return typed_resource_list_frame(
+        semantic_judgment,
+        typed_targets,
+        raw_facets,
+        utterance,
+        context,
+        descriptors,
+        inventory_query_language,
     )
-    fragment = (
-        unique_target_values[0]
-        if len(unique_target_values) == 1
-        else stated_subject_fragment(utterance, raw_facets, descriptors)
-    )
-    subject_constraints = ("Resource",) if fragment is None else ("Resource", fragment)
-    proposal = SemanticFrameProposal(
-        operation=SemanticOperation.SELECT,
-        subject_constraints=subject_constraints,
-        measure_concepts=("name", "type"),
-        temporal_scope={},
-        output_shape=SemanticOutputShape.PROPERTY_FILTERED_RESOURCES,
-        evidence_requirements=("authoritative_inventory",),
-        unresolved_terms=(),
-        clarification_requirements=(),
-        clarification=None,
-        investigation=None,
-        confidence=float(semantic_judgment.get("confidence", 0.0)),
-    )
-    return proposal, build_semantic_frame(proposal, utterance=utterance, context=context)
 
 
 def build_resource_target_candidates_fallback(

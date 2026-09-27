@@ -323,11 +323,12 @@ def test_resource_state_answer_lists_verified_names_and_observed_states() -> Non
 
     assert answer.startswith("## 관측된 리소스 상태")
     assert (
-        "`database-a`: `Stopped` (`mysql-server`, 리소스 그룹 `group-a`, 지역 `region-a`" in answer
+        "`database-a`: 중지됨 (`Stopped`) (`mysql-server`, 리소스 그룹 `group-a`, 지역 `region-a`"
+        in answer
     )
-    assert "`database-b`: `Paused` (`sql-database`" in answer
+    assert "`database-b`: 일시 중지됨 (`Paused`) (`sql-database`" in answer
     assert "리소스 그룹 `unavailable`, 지역 `unavailable`" in answer
-    assert "근거 완전성: `incomplete`" in answer
+    assert "근거 완전성: 불완전" in answer
     assert "`resource_state_evidence_incomplete`" in answer
     assert "`execution_authority=false`" in answer
 
@@ -796,7 +797,7 @@ def test_service_health_answer_reports_direct_conclusion_and_scope(
     )
 
     assert answer.startswith(expected_heading)
-    assert NOW.isoformat() in answer
+    assert NOW.strftime("%Y-%m-%d %H:%M:%S UTC") in answer
     assert "server-configured Azure subscription" in answer or "서버에 구성된 Azure 구독" in answer
     if complete:
         assert "`source_unavailable`" not in answer
@@ -1265,6 +1266,44 @@ def test_state_transition_answer_reports_bitemporal_edge_and_incomplete_coverage
     assert "`execution_authority=false`" in answer
 
 
+def test_recent_resource_change_answer_names_a_deleted_resource_by_its_last_segment() -> None:
+    request = _request(locale="en")
+    semantic_request = cast(dict[str, object], request["semantic_turn"])
+    answer = _render_general_query_answer(
+        SemanticTurnRequest.model_validate(semantic_request),
+        [
+            {
+                "node_id": "recent-resource-changes",
+                "rows": [
+                    {
+                        "row_id": "resource-a",
+                        "values": {
+                            "subject_ref": "scope-a/resource-group/rg-a/providers/topics/topic-a",
+                            "operation": "delete",
+                            "mutation_kind": "delete",
+                            "observation_kind": "tombstone",
+                            "occurred_at": NOW.isoformat(),
+                            "source_identity": "azure_event_grid.resource_change",
+                            "execution_authority": False,
+                        },
+                    },
+                ],
+                "returned_rows": 1,
+                "total_rows": 1,
+                "source_complete": True,
+                "source_truncation_reason": None,
+                "display_truncated": False,
+            }
+        ],
+        output_shape="resource_changes",
+        measure_concepts=("resource_change.observed",),
+    )
+
+    assert "- `topic-a`: `delete`" in answer
+    assert "scope-a/resource-group" not in answer
+    assert NOW.strftime("%Y-%m-%d %H:%M:%S UTC") in answer
+
+
 def test_recent_resource_change_answer_renders_arg_changes_without_state_transitions() -> None:
     request = _request(locale="en")
     semantic_request = cast(dict[str, object], request["semantic_turn"])
@@ -1313,7 +1352,7 @@ def test_recent_resource_change_answer_renders_arg_changes_without_state_transit
     assert "`api-prod`: `upsert`" in answer
     assert "`storage-prod`: `Microsoft.Storage/storageAccounts/write`" in answer
     assert "state transition" not in answer.casefold()
-    assert "Source completeness: `complete`" in answer
+    assert "Source completeness: complete" in answer
 
 
 def test_recent_resource_change_answer_withholds_untrusted_rows() -> None:
@@ -1489,6 +1528,97 @@ def test_generic_mixed_outputs_do_not_claim_zero_row_verification() -> None:
     assert "Verified 1 of 1 rows." in answer
     assert "One verified output returned no matching rows." in answer
     assert "Verified 0 of 0 rows." not in answer
+
+
+def _manifest_row(name: str, *, kind: str = "object") -> dict[str, object]:
+    return {
+        "row_id": f"{kind}:{name}",
+        "values": {
+            "kind": kind,
+            "name": name,
+            "version": "1.0.0",
+            "declaration_digest": "sha256:" + "d" * 64,
+            "available": True,
+            "execution_authority": False,
+        },
+    }
+
+
+@pytest.mark.parametrize(
+    ("locale", "heading", "truncation", "source"),
+    (
+        ("en", "## 89 readable ObjectTypes", "Displayed 2 of 89 declarations", "Read-only source"),
+        ("ko", "## 읽을 수 있는 ObjectTypes 89개", "2개만 표시했습니다", "읽기 전용 출처"),
+    ),
+)
+def test_manifest_list_answer_names_the_readable_declarations(
+    locale: str,
+    heading: str,
+    truncation: str,
+    source: str,
+) -> None:
+    request = _request(locale=locale)
+    semantic_request = cast(dict[str, object], request["semantic_turn"])
+
+    answer = _render_general_query_answer(
+        SemanticTurnRequest.model_validate(semantic_request),
+        [
+            {
+                "node_id": "manifest",
+                "rows": [_manifest_row("Resource"), _manifest_row("Incident")],
+                "returned_rows": 2,
+                "total_rows": 89,
+                "source_complete": True,
+                "source_truncation_reason": None,
+                "display_truncated": True,
+            }
+        ],
+        output_shape="ontology_manifest",
+        subject_constraints=("object",),
+    )
+
+    assert answer.startswith(heading)
+    assert "- `Resource` (v1.0.0)" in answer
+    assert "- `Incident` (v1.0.0)" in answer
+    assert truncation in answer
+    assert source in answer and "`query.manifest`" in answer
+    assert "2 of 89 rows" not in answer and "89개 행 중" not in answer
+
+
+@pytest.mark.parametrize(
+    "rows",
+    (
+        [_manifest_row("Resource", kind="link")],
+        [{"row_id": "object:Resource", "values": {"kind": "object", "name": "Resource"}}],
+        [],
+    ),
+)
+def test_manifest_list_answer_fails_closed_instead_of_counting_rows(
+    rows: list[dict[str, object]],
+) -> None:
+    request = _request(locale="en")
+    semantic_request = cast(dict[str, object], request["semantic_turn"])
+
+    answer = _render_general_query_answer(
+        SemanticTurnRequest.model_validate(semantic_request),
+        [
+            {
+                "node_id": "manifest",
+                "rows": rows,
+                "returned_rows": len(rows),
+                "total_rows": 89,
+                "source_complete": True,
+                "source_truncation_reason": None,
+                "display_truncated": bool(rows),
+            }
+        ],
+        output_shape="ontology_manifest",
+        subject_constraints=("object",),
+    )
+
+    assert answer.startswith("## Ontology declaration list unavailable")
+    assert "Verified" not in answer
+    assert "grants no execution authority" in answer
 
 
 @pytest.mark.parametrize(
@@ -1863,10 +1993,10 @@ def test_current_state_answer_reports_read_fields_unobserved_fields_and_gaps() -
     assert "Provisioning status: Succeeded." in answer
     assert "Running status: not observed." in answer
     assert "Ready revision: not observed." in answer
-    assert "Inventory read: 2026-08-26T08:29:23Z." in answer
+    assert "Inventory read: 2026-08-26 08:29:23 UTC." in answer
     assert "Source observation: not observed." in answer
     assert "revision name unavailable" in answer
-    assert "source observed at unavailable" in answer
+    assert "the source observation time is unavailable" in answer
     assert "no abnormal provider lifecycle state was observed" in answer
     assert "absence of abnormal resources is not proven" in answer
     assert "does not judge whether any resource outside that scope is healthy" in answer
@@ -2217,6 +2347,57 @@ def test_resource_list_answer_discloses_incomplete_source_scope() -> None:
     assert "확인 범위에서 일치하는 리소스 1개 이상" in answer
     assert "전체 개수로 해석할 수 없습니다" in answer
     assert "`resource_scope_incomplete`" in answer
+
+
+@pytest.mark.parametrize(
+    ("locale", "explanation"),
+    [
+        ("ko", "최근 관측된 리소스 변경이 아직 그래프에 반영되지 않았습니다"),
+        ("en", "recently observed resource changes are not yet applied to the graph"),
+    ],
+)
+def test_resource_list_answer_explains_typed_inventory_limitation(
+    locale: str,
+    explanation: str,
+) -> None:
+    request = _request(locale=locale)
+    semantic_request = cast(dict[str, object], request["semantic_turn"])
+    execution = QueryPlanExecution(
+        plan_digest=PLAN_DIGEST,
+        status="completed",
+        results=MappingProxyType(
+            {
+                "resources": QueryNodeResult(
+                    value=QueryTable(
+                        rows=(
+                            QueryRow.from_values(
+                                "resource-1",
+                                {"name": "cluster-example", "type": "kubernetes-cluster"},
+                            ),
+                        ),
+                        complete=False,
+                        truncation_reason="inventory_observation_pending",
+                    ),
+                    evidence_refs=("inventory:partial",),
+                )
+            }
+        ),
+        receipts=(),
+        output_node_ids=("resources",),
+    )
+
+    answer, _details = _render_query_answer(
+        SemanticTurnRequest.model_validate(semantic_request),
+        execution,
+        operation="select",
+        output_shape="property_filtered_resources",
+        subject_constraints=("Resource",),
+        measure_concepts=("name", "type"),
+    )
+
+    assert answer is not None
+    assert explanation in answer
+    assert "`inventory_observation_pending`" in answer
 
 
 def test_resource_list_answer_does_not_promise_hidden_complete_rows() -> None:

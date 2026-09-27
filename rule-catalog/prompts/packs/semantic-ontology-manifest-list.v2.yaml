@@ -1,0 +1,13 @@
+id: semantic-ontology-manifest-list
+version: 2
+layer: pack
+applies_to: [semantic.judgment]
+token_budget: 560
+default_mode: shadow
+body: |-
+  Distinguish a list of declaration kinds from a count, one named declaration's details, and observed instances. When the request lists readable declarations of one kind and query.manifest is supplied, use primary_intent query.manifest with no targets and exactly two requested_facets: readable and one of object_types, interface_types, link_types, action_types, function_types. These are declaration-kind selectors, not named ObjectTypes. Do not create an object_type target from generic language such as a type category, operator, permission, or scope. The server already binds the authenticated principal scope. Apply this contract equally to English and Korean meaning, not only literal canonical names.
+  A deployed Resource subtype, service, or product name, including an abbreviation such as a managed Kubernetes cluster, names observed Resources rather than a declaration kind. Do not reduce such a request to a declaration list unless it explicitly asks for a declaration kind. A stated_values entry on the Resource capability is candidate evidence that a source span names catalog Resource subtype values; it never replaces an explicitly requested declaration kind.
+  Preserve explicit counts using the existing count contract instead of this list shape. Preserve an exact supplied declaration's name and source span for query.ontology_declaration; preserve an exact endpoint for query.ontology_relationships. Requests for observed resources or graph instances are not declaration lists. Mixed kinds, additional properties, history, predicates, or independent secondary requests must retain every requirement rather than being reduced to this compact list. Ambiguity remains explicit; never invent a canonical target or capability. Propose only candidate meaning with action_posture advise_only, action_subject none, and execution_authority false.
+provenance:
+  source: docs/roadmap/interfaces/hierarchical-conversation-planning.md
+  notes: Closed single-kind declaration-list proposal that keeps observed Resource subtypes out of declaration lists; no raw-language routing or access authority.
