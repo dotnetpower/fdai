@@ -1,6 +1,6 @@
 ---
 translation_of: runtime-deployment-profiles.md
-translation_source_sha: 882c5af9b627fe32cdfbd971965ab06cf11068e2
+translation_source_sha: dd5f701d14d7e579e285692b7e18ef6600cc6dff
 translation_revised: 2026-09-27
 ---
 # 런타임 배포 프로파일
@@ -151,6 +151,8 @@ ARM 페이지 수집은 정책의 레코드 및 누적 응답 바이트 제한�
 등록과 모든 후속 애플리케이션 전송은 VM에 연결된 같은 `fdai-genesis-*` SSH host-key
 alias와 검증된 known-hosts 파일을 재사용합니다. 런타임 선택은 두 번째 alias나 최초 접촉
 신뢰를 허용하지 않습니다.
+런타임 프로필 검증은 애플리케이션 단계 결과 11개보다 먼저 이 공유 alias를 실행하므로
+전송 협력자 변경이 단계별 실패 계약을 우회할 수 없습니다.
 애플리케이션 수렴 후 Managed Host는 명시적인 `--initial` 모드로 Core 인벤토리 진입점을 호출해
 반복 실행의 예정 시각 게이트만 우회합니다. 이미 인증된 배포 신원으로 전체 구독 ARG/ARM 읽기와
 변경 불가 진행률 기록을 수행한 뒤 별도의 읽기 전용 종결 프로세스를 시작합니다. 반복 런타임
