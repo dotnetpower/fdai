@@ -4,6 +4,7 @@ import hashlib
 import json
 import os
 import shutil
+import stat
 import subprocess
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -1769,14 +1770,16 @@ def test_aks_service_update_prepares_and_targets_only_selected_deployment(
         if name != "core-control-plane"
     )
     plan_commands: list[tuple[str, ...]] = []
+    plan_paths: list[Path] = []
 
     def run(command: tuple[str, ...] | list[str], **_kwargs: object) -> None:
         normalized = tuple(command)
         plan_commands.append(normalized)
         output = next(value for value in normalized if value.startswith("-out="))
         plan_path = Path(output.removeprefix("-out="))
+        plan_paths.append(plan_path)
         plan_path.write_bytes(b"plan")
-        plan_path.chmod(0o600)
+        plan_path.chmod(0o644)
 
     monkeypatch.setattr(standalone_host, "_run", run)
     monkeypatch.setattr(standalone_host, "_activate_terraform_stage", lambda *_: None)
@@ -1807,6 +1810,7 @@ def test_aks_service_update_prepares_and_targets_only_selected_deployment(
         "update_digest": prepared["update_digest"],
     }
     assert '-target=kubernetes_deployment_v1.workload["core-control-plane"]' in plan_commands[0]
+    assert stat.S_IMODE(plan_paths[0].stat().st_mode) == 0o600
 
 
 def test_aks_deployment_capture_uses_typed_apps_collection(

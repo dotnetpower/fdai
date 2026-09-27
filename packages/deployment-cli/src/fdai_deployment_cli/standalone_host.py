@@ -2201,6 +2201,7 @@ def _plan(args: argparse.Namespace, work_dir: Path) -> dict[str, object]:
     if update is not None:
         command.append(f"-target={_service_update_target(str(update['service']))}")
     _run(command, cwd=infra, timeout=3600, reason=f"{stage} Terraform plan failed")
+    _seal_terraform_plan(plan_path)
     show = _capture(
         ("terraform", "show", "-json", str(plan_path)),
         cwd=infra,
@@ -2232,6 +2233,32 @@ def _plan(args: argparse.Namespace, work_dir: Path) -> dict[str, object]:
     review["review_digest"] = canonical_digest(review)
     _replace_private_json(work_dir / f"{operation}-review.json", review)
     return review
+
+
+def _seal_terraform_plan(path: Path) -> None:
+    try:
+        descriptor = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
+    except OSError as exc:
+        raise ValueError("Terraform plan output is unavailable") from exc
+    with os.fdopen(descriptor, "rb") as stream:
+        before = os.fstat(stream.fileno())
+        if (
+            not stat.S_ISREG(before.st_mode)
+            or before.st_uid != os.geteuid()
+            or before.st_nlink != 1
+            or before.st_size <= 0
+        ):
+            raise ValueError("Terraform plan output is invalid")
+        os.fchmod(stream.fileno(), 0o600)
+        after = os.fstat(stream.fileno())
+    if (
+        stat.S_IMODE(after.st_mode) != 0o600
+        or after.st_dev != before.st_dev
+        or after.st_ino != before.st_ino
+        or after.st_size != before.st_size
+        or after.st_mtime_ns != before.st_mtime_ns
+    ):
+        raise ValueError("Terraform plan output changed while being sealed")
 
 
 def _apply(args: argparse.Namespace, work_dir: Path) -> dict[str, object]:
