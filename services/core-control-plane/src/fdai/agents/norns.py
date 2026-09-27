@@ -59,6 +59,10 @@ from fdai.agents._framework.introspection import (
     capability_facts,
     capped_list,
 )
+from fdai.agents._framework.norns_case_history import (
+    operational_candidate_cases_are_current,
+    operational_case_cohort_is_current,
+)
 from fdai.agents._framework.norns_consensus import NornsConsensus
 from fdai.agents._framework.norns_deployment_learning import NornsDeploymentLearning
 from fdai.agents._framework.norns_issue_dedup import NornsIssueDeduplicator
@@ -75,7 +79,7 @@ from fdai.agents._framework.norns_learning import (
 from fdai.agents._framework.norns_semantic_feedback import NornsSemanticFeedbackLearning
 from fdai.agents._framework.pantheon import _NORNS
 from fdai.agents._framework.role_answers import norns_role_answer
-from fdai.core.case_history import CaseHistoryAnalyzer
+from fdai.core.case_history import CaseHistoryAnalyzer, CaseHistoryMaterializer
 from fdai.core.chaos.coverage import ScenarioCoverageAggregator
 from fdai.core.learning import (
     PostTurnReviewCoordinator,
@@ -120,6 +124,7 @@ class Norns(Agent, HandoverKnowledgeMixin):
         post_turn_review: PostTurnReviewCoordinator | None = None,
         forecast_error_threshold: int = 3,
         case_history_analyzer: CaseHistoryAnalyzer | None = None,
+        case_history_materializer: CaseHistoryMaterializer | None = None,
         operating_pattern_compiler: OperatingPatternCompiler | None = None,
         investigation_strategy_compiler: InvestigationStrategyCandidateCompiler | None = None,
         semantic_feedback_store: SemanticFeedbackCandidateSink | None = None,
@@ -215,6 +220,7 @@ class Norns(Agent, HandoverKnowledgeMixin):
         self._forecast_error_proposed: BoundedLruSet[str] = BoundedLruSet(_MAX_TRACKED)
         self._counted_case_revisions: BoundedLruSet[str] = BoundedLruSet(_MAX_TRACKED)
         self._case_history_analyzer = case_history_analyzer
+        self._case_history_materializer = case_history_materializer
         self._operating_pattern_compiler = operating_pattern_compiler or OperatingPatternCompiler()
         self._operational_case_max_age = operational_case_max_age
         self._clock = clock or (lambda: datetime.now(UTC))
@@ -268,7 +274,8 @@ class Norns(Agent, HandoverKnowledgeMixin):
             self._observe_approval(payload)
         elif topic == "object.context-index":
             if payload.get("kind") == "operational_case_fingerprint_cohort":
-                operational_pattern_id = self._observe_operational_case_cohort(payload)
+                if await operational_case_cohort_is_current(self, payload):
+                    operational_pattern_id = observe_operational_case_cohort(self, payload)
             elif payload.get("kind") == "investigation_strategy_comparison_cohort":
                 self._observe_investigation_strategy_cohort(payload)
             elif payload.get("kind") == "semantic_retrieval_failure":
@@ -295,9 +302,6 @@ class Norns(Agent, HandoverKnowledgeMixin):
             )
         ):
             raise NornsCapacityError("operational cohort publication pending; retain for replay")
-
-    def _observe_operational_case_cohort(self, payload: dict[str, Any]) -> str | None:
-        return observe_operational_case_cohort(self, payload)
 
     def _observe_investigation_strategy_cohort(self, payload: dict[str, Any]) -> None:
         if payload.get("producer_principal") != "Muninn":
@@ -502,6 +506,10 @@ class Norns(Agent, HandoverKnowledgeMixin):
         published = 0
         while self._flush_cursor < len(self.pending_candidates):
             candidate = self.pending_candidates[self._flush_cursor]
+            if not await operational_candidate_cases_are_current(self, candidate):
+                self._pattern_publications.pop(str(candidate.get("suggested_pattern", "")), None)
+                self._flush_cursor += 1
+                continue
             consensus = self._consensus.evaluate(candidate)
             if not consensus.unanimous:
                 self._pattern_publications.pop(str(candidate.get("suggested_pattern", "")), None)

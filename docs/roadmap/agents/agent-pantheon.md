@@ -121,7 +121,13 @@ Muninn partitions scope, purpose, mechanism, ActionType, release, scenario, and 
 CAS and frozen snapshots in a deletion-fenced projection store, with no process-local case-body cache.
 The same source deletion pass derives both possible legacy cohort partitions, removes the matching
 case body, retains a bounded content-free fence, verifies readback, and blocks replay after restart;
-legal holds still win. Historical suffixed rows and broker redrive remain separate evidence work.
+legal holds still win. Historical suffixed rows are also source-fenced. Bound production Norns
+rechecks every cohort case through current case history before compilation, so ordinary broker
+redelivery and explicit DLQ redrive cannot recreate a deleted Pattern or candidate. It repeats
+that admission before flushing a queued operational candidate and drops the paired Pattern envelope
+after source deletion starts. Physical broker retention and pinned-runtime recovery evidence remain separate.
+The current-case admission logic stays in the private `_framework/norns_case_history.py` helper;
+`Norns` remains the flat Pantheon member and its `AgentSpec`, ownership, and topics are unchanged.
 Norns publishes inert `Pattern` through consensus/rate limits; queued scoped input requires broker retry or retained replay.
 Muninn validates body/envelope versions, recompiles current scoped cases and artifacts, and retains Saga snapshots; reads reject tampering/deletion.
 Neither agent gains promotion/execution authority. Reviewed replay alone promotes; the runtime-bound test-context reader can only lower Forseti's ceiling.
