@@ -1,8 +1,8 @@
 ---
 title: 규칙 거버넌스(Rule Governance)
 translation_of: rule-governance.md
-translation_source_sha: 58aef13f05cad73a2ec5cf80e08fc72978c046bb
-translation_revised: 2026-09-22
+translation_source_sha: 02b4d1b4dbc7dfbb8cb64da3ed85796a91f60a4c
+translation_revised: 2026-09-27
 ---
 
 # 규칙 거버넌스(Rule 거버넌스)
@@ -20,6 +20,7 @@ Rule 활성화에는 검토된 pull request, 인증된 직접 요청 또는 서�
 수 있으며, 모든 경로는
 [architecture.instructions.md](../../../.github/instructions/architecture.instructions.md)의
 shadow-before-enforce 및 안전 불변식을 유지합니다.
+관찰 우선 제품 기본값은 규칙을 감사, 재생 및 자문 근거에만 사용하며 enforce 조립에는 명시적 `governed-execution` 추가 기능과 기존 권한이 모두 필요합니다.
 
 > 고객-비종속: 아래 모든 식별자, 스코프, 값은
 > [generic-scope.instructions.md](../../../.github/instructions/generic-scope.instructions.md) 에
@@ -108,6 +109,7 @@ Azure Policy는 *정의* 를 *할당* 과 *예외* 에서 분리. FDAI가 이를
   으로의 승격은 (1) 최소 shadow dwell 시간과 표본 크기, (2) 임계 위 측정 shadow 정확도, (3)
   정책 위반 escape 0 을 게이트로 하는 명시적·별도 리뷰된 변경
   ([architecture.instructions.md](../../../.github/instructions/architecture.instructions.md)).
+- 관찰 우선 프로필은 이 근거를 활성화 권한으로 사용할 수 없습니다. 자문 품질과 드리프트만 기록하며 명시적 `governed-execution` 추가 기능만 이 게이트에 진입할 수 있습니다.
 - 회귀는 할당을 `audit` 로 **자동 강등**; 강등은 승격 게이트를 절대 필요로 하지 않아 안전 저하는
   항상 빠름.
 - 할당의 **부재** 는 규칙이 그 스코프에서 미강제 (거버넌스는 default-audit, default-deny 아님);

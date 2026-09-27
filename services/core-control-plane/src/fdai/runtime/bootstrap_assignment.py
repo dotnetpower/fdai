@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Any
 
 import httpx
+from fdai_service_contracts.product_profile import ProductAddOn, ProductProfile
 
 from fdai.composition import Container
 from fdai.core.control_loop import ControlLoop
@@ -29,10 +30,16 @@ def bind_assignment_capabilities(
     identity: WorkloadIdentity | None,
     runtime_values: Mapping[str, Any],
     readiness: Any,
+    product_profile: ProductProfile,
 ) -> tuple[AssignmentTransportRuntime | None, HumanAccessWorkflowRuntime | None]:
     """Keep owners bound through existing transport; never promote mode during composition."""
     if transport is None:
         return None, None
+    if not (
+        product_profile.selects(ProductAddOn.ENTERPRISE_IDENTITY_GOVERNANCE)
+        and product_profile.selects(ProductAddOn.GOVERNED_EXECUTION)
+    ):
+        return transport, None
     transport = replace(
         transport,
         workflow=bind_handover_semantics(

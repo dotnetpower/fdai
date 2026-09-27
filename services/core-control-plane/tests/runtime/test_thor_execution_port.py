@@ -25,6 +25,21 @@ from fdai.runtime.bootstrap_lifecycle import build_mutation_dependency_readiness
 from fdai.runtime.control_loop import _build_control_loop, _legacy_executor_bindings
 from fdai.shared.config import AppConfig
 from fdai.shared.providers.testing import InMemoryStateStore
+from fdai_service_contracts.product_profile import ProductAddOn, ProductProfile
+
+
+def _governed_config(config: AppConfig) -> AppConfig:
+    return config.model_copy(
+        update={
+            "product_profile": ProductProfile(
+                add_ons=(
+                    ProductAddOn.ENTERPRISE_IDENTITY_GOVERNANCE,
+                    ProductAddOn.GOVERNED_EXECUTION,
+                    ProductAddOn.NOTIFICATIONS,
+                )
+            )
+        }
+    )
 
 
 def test_runtime_accepts_one_thor_port_and_preserves_executor_identity() -> None:
@@ -94,7 +109,7 @@ def test_core_and_hil_share_port_instances_and_readiness(app_config: AppConfig) 
     effect_reconciliation_request_sink = MagicMock()
 
     loop = _build_control_loop(
-        default_container(app_config),
+        default_container(_governed_config(app_config)),
         http_client=None,
         thor_execution_port=port,
         mutation_dependency_readiness=readiness,
@@ -130,7 +145,7 @@ def test_runtime_wires_opt_in_t1_incident_context(app_config: AppConfig) -> None
     member_source = MagicMock(spec=IncidentMemberSource)
     dependencies = {"resource:app": frozenset({"resource:database"})}
     container = replace(
-        default_container(app_config),
+        default_container(_governed_config(app_config)),
         incident_member_source=member_source,
         resource_dependency_graph=dependencies,
     )
@@ -155,7 +170,7 @@ def test_runtime_wires_opt_in_t1_incident_context(app_config: AppConfig) -> None
 
 
 def test_runtime_shares_one_license_gated_port_with_hil(app_config: AppConfig) -> None:
-    container = default_container(app_config)
+    container = default_container(_governed_config(app_config))
     port = InProcessThorExecutionPort(
         pr_native=MagicMock(spec=ShadowExecutor),
         direct_api=MagicMock(spec=DirectApiShadowExecutor),
@@ -184,3 +199,47 @@ def test_runtime_shares_one_license_gated_port_with_hil(app_config: AppConfig) -
     assert loop._executor is coordinator._executor
     assert loop._direct_api_executor is coordinator._direct_api_executor
     assert loop._tool_executor is coordinator._tool_executor
+
+
+def test_observation_first_refuses_injected_execution_and_constructs_no_authority(
+    app_config: AppConfig,
+    monkeypatch,
+) -> None:
+    monkeypatch.setenv("FDAI_GITOPS_TOKEN", "incidental")
+    monkeypatch.setenv("FDAI_GITOPS_OWNER", "owner")
+    monkeypatch.setenv("FDAI_GITOPS_REPO", "repo")
+    injected = InProcessThorExecutionPort(
+        pr_native=MagicMock(spec=ShadowExecutor),
+        direct_api=MagicMock(spec=DirectApiShadowExecutor),
+        tool_call=MagicMock(spec=ToolCallShadowExecutor),
+    )
+    readiness = MutationDependencyReadiness(
+        saga_audit_durable=False,
+        vidar_recovery_contracts=frozenset(),
+    )
+
+    with pytest.raises(RuntimeError, match="governed-execution"):
+        _build_control_loop(
+            default_container(app_config),
+            thor_execution_port=injected,
+            mutation_dependency_readiness=readiness,
+        )
+
+    loop = _build_control_loop(
+        default_container(app_config),
+        mutation_dependency_readiness=readiness,
+    )
+
+    assert loop._hil_resume_coordinator is None
+    assert loop._direct_api_executor is None
+    assert loop._tool_executor is None
+    assert loop._workflow_coordinator is None
+    assert loop._alert_workflows is None
+    assert loop._alert_action_binder is None
+    assert loop._alert_plan_artifacts is None
+    assert loop._safeguard_lifecycle_coordinator is None
+    assert loop._effect_reconciliation_request_sink is None
+    assert loop._execution_authorization_evaluator is None
+    assert loop._thor_execution_port.safeguard_lifecycle_ready is False
+    assert loop._risk_gate is not None
+    assert loop._risk_gate._registry._enforcement_enabled is False

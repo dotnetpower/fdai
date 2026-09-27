@@ -14,6 +14,7 @@ from pathlib import Path
 from fdai_deployment_cli.contracts import canonical_bytes, canonical_digest, load_json_object
 from fdai_deployment_cli.private_output import read_private_bytes, write_private_bytes
 from fdai_deployment_cli.runtime_profile import RuntimeDeploymentProfile
+from fdai_service_contracts.product_profile import ProductAddOn
 
 
 @dataclass(frozen=True, slots=True)
@@ -21,14 +22,14 @@ class InstallationOptions:
     """Requested cost, exposure and retention limits; no execution authorization."""
 
     setup_cost_ceiling: int | None = None
-    console_access: str = "public-https-entra"
+    console_access: str = "none"
     allow_dedicated_identities: bool = False
     cleanup_temporary_resources: bool = False
 
     def __post_init__(self) -> None:
         if self.setup_cost_ceiling is not None:
             _budget(self.setup_cost_ceiling)
-        if self.console_access not in {"public-https-entra", "private-https-entra"}:
+        if self.console_access not in {"none", "public-https-entra", "private-https-entra"}:
             raise ValueError("installation Console access is invalid")
         if any(
             type(value) is not bool
@@ -53,6 +54,7 @@ def confirm_installation_scope(
     later or renew consent. The record is not accepted as a Genesis approval.
     """
     _validate_binding(binding)
+    _validate_product_options(runtime_profile, options)
     if runtime_profile.digest != binding["runtime_profile_digest"]:
         raise ValueError("installation scope changed: runtime profile digest differs")
     if type(timeout_seconds) is not int or not 1 <= timeout_seconds <= 86400:
@@ -177,6 +179,17 @@ def _result(reason: str, digest: str | None = None) -> dict[str, object]:
         "mutation_performed": False,
         "deployment_ready": False,
     }
+
+
+def _validate_product_options(
+    runtime_profile: RuntimeDeploymentProfile,
+    options: InstallationOptions,
+) -> None:
+    console_selected = runtime_profile.product_profile.selects(ProductAddOn.READ_ONLY_CONSOLE)
+    if console_selected and options.console_access == "none":
+        raise ValueError("selected read-only Console requires an explicit access profile")
+    if not console_selected and options.console_access != "none":
+        raise ValueError("Console access requires the read-only-console product add-on")
 
 
 def _validate_binding(binding: dict[str, object]) -> None:

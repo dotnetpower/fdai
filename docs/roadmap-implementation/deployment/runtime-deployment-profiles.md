@@ -10,6 +10,7 @@ Container Apps and Azure Kubernetes Service (AKS). The canonical design remains 
 
 | Area | State | Evidence | Notes |
 |------|-------|----------|-------|
+| Observation-first product profile | implemented | shared `ProductProfile`; deployment CLI runtime profile and standalone composition; Core bootstrap profile; focused contract, deployment, runtime, and Terraform tests | New profiles select no add-ons or optional data sources, skip Entra and Console setup, disable executors, and retain only scoped Reader. #341 remains open only for inventory/observation live evidence in default scope; every GitOps publication or write criterion moves to optional governed execution. |
 | Focused private access stage | implemented | `standalone_host.py`; `standalone_application.py`; `standalone_remote_prepare.py`; focused targets, readback, approval, progress and transport tests | Selected endpoint/DNS/peering resources converge under a distinct exact plan before data-plane resources. Access ambiguity uses the standard residual contract. Live full-stage convergence remains open. |
 | Policy-forced document storage private recovery | implemented | `standalone_terraform_environment.py`; `standalone_host_values.py`; focused CLI and Terraform contracts; native Terraform validation | Exact existing-account readback can select only Blob/DFS endpoints, DNS and shared peering, with the boolean retained in context. The runner reuses the Foundation-owned Blob zone through an exact A record instead of a conflicting duplicate link. Full private networking remains unselected. Live convergence remains open. |
 | Policy-forced Key Vault private recovery | implemented | `standalone_terraform_environment.py`; `standalone_host_values.py`; focused CLI and Terraform contracts; native Terraform validation | AKS baseline remains public by default. Existing-vault readback can select only Key Vault endpoint/DNS and exact runner/application peering, with the boolean retained in context. Live convergence remains open. |
@@ -57,6 +58,7 @@ Container Apps and Azure Kubernetes Service (AKS). The canonical design remains 
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-27 | implemented | Added the immutable observation-first product axis and made headless read-side deployment the default while preserving every prior surface behind explicit add-ons. | `current change`; shared contract, Core and deployment composition, Terraform role gates, focused negative/default/legacy tests. | Existing deployments must record explicit legacy add-ons and data sources before upgrade; retain an exact live inventory receipt under #341. No live operation was performed. |
 | 2026-09-27 | implemented | Removed signed-kit and duplicate online/offline path requirements from runtime completion. The signed Python wheelhouse installs the CLI; selected deployment payloads and runtime evidence remain separate. | `current change`; package policy v3, real wheelhouse cold install, and revised runtime owner contract. | Validate only the selected runtime deployment path. |
 | 2026-09-27 | implemented | Applied the dev AKS Container Insights association through scoped Run Command Terraform from an ordinary PC. The exact reviewed plan contained one association create and no cluster, node pool, public-IP, or NAT change. The DCR created on 2026-09-16 was reused. | [#1543](https://github.com/dotnetpower/fdai/pull/1543) at `098384cf5f84c92d98ae1f1146ea10dc959bac93`; [#1538](https://github.com/dotnetpower/fdai/issues/1538) apply receipt: targeted zero-change and independent ARM readback of the workspace binding, default stream, `ContainerLogV2`, and association | The dev cluster has been stopped since 2026-09-20. After an approved start, retain fresh `KubePodInventory`, `ContainerLogV2`, authenticated `/live`, and metrics/log source-state evidence for [#1171](https://github.com/dotnetpower/fdai/issues/1171). |
 | 2026-09-27 | implemented | Corrected the authoritative ACR output key from nonexistent `registry_name` to the existing `container_registry_name` contract. | `current change`; focused exact-key regression and live Terraform output inventory. | Merge through protected CI, rebuild the exact kit, and verify substrate recovery. |
@@ -158,6 +160,56 @@ Container Apps and Azure Kubernetes Service (AKS). The canonical design remains 
 | 2026-09-15 | implemented | Kept assignment and HIL import grouping inside the existing Operator Service package and runtime. The IAM facade re-exports original adapter and factory objects without wrappers or changes to either renderer. | `current change`; [Operator composition](../../../services/operator-service/src/fdai_operator_service/composition.py); [identity regression](../../../services/operator-service/tests/test_operator_service_full_composition.py); the main implementation session reported 98 Operator composition/full-composition passes, 1 unchanged optional PDF-extra skip, and 39 distinct composition imports. No checks were run for this documentation edit. | Topology, workload identity, readiness, and exact-plan deployment approvals are unchanged. Existing operational criteria below remain open; composition checks do not certify either renderer or a live deployment. |
 
 ### Remaining work
+
+#### Post-merge issue disposition mapping
+
+Apply these GitHub changes only after #1541 is merged. They describe scope supersession, not
+completion of the displaced enterprise or execution criteria.
+
+| Issue | State after merge | State reason | Default-profile disposition | Optional residual |
+|-------|-------------------|--------------|-----------------------------|-------------------|
+| #335 | closed | `not_planned` | Superseded: the default has no enterprise identity or policy-assignment prerequisite. | Create a separately scoped `enterprise-identity-governance` issue if that add-on is selected. |
+| #1502 | closed | `not_planned` | Superseded: the default has no governed-execution or full-authority-development requirement. | Preserve the implementation as optional governed-execution support; track any deployment binding and live proof separately. |
+| #341 | open | n/a | Retain exact-revision inventory and observation evidence only. | Move draft PR, GitOps publication, and write/no-write verification to governed-execution add-on wording. |
+| #343 | open | n/a | Retain advisory learning, prediction calibration, replay, drift, cohort, and zero-guard evidence. | Keep promotion, executor consumption, effect verification, and rollback evidence only under governed execution. |
+
+### Exact English evidence comments
+
+**#335**
+
+> Superseded for FDAI's default profile by #1541. The observation-first default requires no Entra
+> applications, FDAI human role groups, Microsoft Graph permissions, HIL channel, privileged
+> executor, or Azure Policy assignment. Closing as `not_planned` does not assert that #335's
+> enterprise identity, Conditional Access, Access Review, recertification, or least-privilege probe
+> criteria were completed. Reopen this work only through a separately scoped
+> `enterprise-identity-governance` add-on issue.
+
+**#1502**
+
+> Superseded for FDAI's default profile by #1541. The observation-first default constructs no
+> governed-execution, promotion-to-enforce, approval, rollback, or privileged executor binding.
+> Closing as `not_planned` does not assert that #1502's full-authority development criteria or live
+> deployment binding were completed. The existing contracts remain optional governed-execution
+> support and require a separately scoped issue before deployment or live validation.
+
+**#341**
+
+> Retained in the default observation-first scope for exact-revision live inventory and observation
+> evidence only. The remaining default evidence is a complete inventory generation with scope,
+> freshness, coverage, source revision, and independent no-mutation observation. Draft remediation
+> PR creation, GitOps publication, rule/action labels on a write artifact, and PR merge verification
+> are moved to optional `governed-execution` add-on scope and are not exit criteria for the default.
+
+**#343**
+
+> Retained in the default observation-first scope for non-synthetic cohort quality, T1/advisory
+> prediction calibration, deterministic replay, drift detection, confidence intervals, and every
+> zero-threshold safety guard. The default does not require an ActionType promotion receipt, Thor
+> consumption, managed-resource effect verification, or rollback proof. Those requirements remain
+> valid only for a separately selected `governed-execution` add-on and must not block default
+> advisory-learning evidence.
+
+#### Operational remaining work
 
 - [ ] Run the exact-main AKS inventory Job and retain its complete/active generation closure receipt.
 - [ ] Run the selected private catalog-review checkpoint and retain the exact inert draft-PR and

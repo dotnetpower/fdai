@@ -30,6 +30,7 @@ FDAI treats the following axes as independent configuration:
 |------|-----------------------|-----------|
 | Execution venue | `local`, `deployed` through `FDAI_EXECUTION_VENUE` | process launcher |
 | Deployment environment | `dev`, `staging`, `production` | deployment configuration |
+| Product surface profile | `observation-first` plus explicit independent add-ons | deployment-injected typed profile |
 | Evidence profile | `authoritative`, `fixture` | composition root |
 | Action lifecycle | `shadow`, `enforce` | promotion registry per ActionType and Workflow |
 | Human identity | Entra principal plus App Roles | browser token and RBAC policy |
@@ -45,6 +46,10 @@ No value on one axis selects a value on another axis. In particular:
 
 - Local execution does not force shadow mode, test fixtures, anonymous authorization, or local-only
   business logic.
+- The default product profile is headless and observation-first. Console, notifications, governed
+  execution, and enterprise identity governance require explicit add-on selection. Selection
+  changes construction eligibility only; availability, enablement, authorization, promotion, and
+  execution authority remain separate axes.
 - A development deployment may run promoted actions in enforce mode when the same production risk,
   approval, blast-radius, rollback, and audit gates pass.
 - A production deployment may keep any action in shadow mode.
@@ -68,8 +73,8 @@ No value on one axis selects a value on another axis. In particular:
   directly.
 - Fork detection protects the upstream framework surface. It never changes runtime behavior,
   autonomy, identity, or environment.
-- A public package export changes discoverability only. It does not select runtime availability,
-  action lifecycle, identity, authorization, or execution authority.
+- A public package export changes discoverability only. It does not select a product add-on,
+  runtime availability, action lifecycle, identity, authorization, or execution authority.
 - Authorization policy and effective-access evidence are deployment inputs. Environment and fork
   status never select a grant posture or imply that an identity has access.
 - Enabling an optional package changes only its activation preference. It does not grant data
@@ -80,14 +85,16 @@ No value on one axis selects a value on another axis. In particular:
 
 ### Interactive local profile
 
-The default interactive local profile is a production-parity control-plane client and runtime:
+The default interactive local profile is the production-parity headless observation runtime:
 
-- The browser uses the same Entra JWT and App Role checks as deployment.
+- No browser, Entra app, human role group, Graph permission, approval channel, or privileged
+  executor is required. An explicitly selected read-only Console add-on uses the same Entra JWT
+  and App Role checks as deployment when the separate enterprise-identity add-on is also selected.
 - Azure CLI credentials are confined to local Azure provider adapters that read the development
   data plane. They never replace the browser principal or the executor identity.
 - The same agent pantheon, catalogs, promotion registry, risk gate, Process journal, and stage
   events run locally.
-- The five independently packaged backend services run as separate local processes. Stateful
+- Explicit full-stack add-ons run the five independently packaged backend services as separate local processes. Stateful
   services use role-scoped DSNs for Docker PostgreSQL, inter-service events use Docker Redpanda,
   and document scanning uses Docker ClamAV. Azure CLI remains limited to authoritative Azure read
   and model adapters.

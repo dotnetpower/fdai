@@ -22,6 +22,7 @@ prohibited by ``coding-conventions.instructions.md``.
 
 from __future__ import annotations
 
+import json
 import os
 import stat
 from collections.abc import Mapping
@@ -49,7 +50,7 @@ class ConfigProvider(Protocol):
 # straightforward diff review, not a bug hunt.
 _ENV_VAR_MAP: tuple[tuple[str, tuple[str, ...], bool], ...] = (
     # (env var, (dotted path split), is_required)
-    ("AZURE_TENANT_ID", ("azure", "tenant_id"), True),
+    ("AZURE_TENANT_ID", ("azure", "tenant_id"), False),
     ("AZURE_SUBSCRIPTION_ID", ("azure", "subscription_id"), True),
     ("AZURE_RESOURCE_GROUP", ("azure", "resource_group"), False),
     ("AZURE_REGION", ("azure", "region"), True),
@@ -63,6 +64,14 @@ _ENV_VAR_MAP: tuple[tuple[str, tuple[str, ...], bool], ...] = (
     ("RULE_CATALOG_REF", ("rule_catalog", "ref"), False),
     ("RUNTIME_ENV", ("runtime", "env"), True),
     ("AUTONOMY_MODE_DEFAULT", ("runtime", "autonomy_mode_default"), False),
+    ("FDAI_PRODUCT_PROFILE_JSON", ("product_profile",), False),
+    ("FDAI_PRODUCT_PROFILE", ("product_profile", "name"), False),
+    ("FDAI_PRODUCT_ADDONS_JSON", ("product_profile", "add_ons"), False),
+    (
+        "FDAI_OBSERVATION_DATA_SOURCES_JSON",
+        ("product_profile", "observation_permissions", "selected_sources"),
+        False,
+    ),
     ("LLM_MODE", ("llm", "mode"), False),
     ("LLM_RESOLVED_MODELS_PATH", ("llm", "resolved_models_path"), False),
     ("LLM_RESOLVED_MODELS_SHA256", ("llm", "resolved_models_sha256"), False),
@@ -97,6 +106,13 @@ _FLOAT_ENV_VARS = frozenset(
     }
 )
 _INT_ENV_VARS = frozenset({"QUALITY_GATE_QUORUM", "SELF_CONSISTENCY_SAMPLES"})
+_JSON_ARRAY_ENV_VARS = frozenset(
+    {
+        "FDAI_PRODUCT_ADDONS_JSON",
+        "FDAI_OBSERVATION_DATA_SOURCES_JSON",
+    }
+)
+_JSON_OBJECT_ENV_VARS = frozenset({"FDAI_PRODUCT_PROFILE_JSON"})
 _MAX_CONFIG_FILE_BYTES = 1_048_576
 
 
@@ -226,6 +242,22 @@ def _file_error(message: str) -> ConfigError:
 
 
 def _parse_env_value(env_var: str, value: str) -> object:
+    if env_var in _JSON_OBJECT_ENV_VARS:
+        try:
+            parsed = json.loads(value)
+        except json.JSONDecodeError as exc:
+            raise ValueError("must be a JSON object") from exc
+        if not isinstance(parsed, dict):
+            raise ValueError("must be a JSON object")
+        return parsed
+    if env_var in _JSON_ARRAY_ENV_VARS:
+        try:
+            parsed = json.loads(value)
+        except json.JSONDecodeError as exc:
+            raise ValueError("must be a JSON array") from exc
+        if not isinstance(parsed, list):
+            raise ValueError("must be a JSON array")
+        return parsed
     if env_var in _FLOAT_ENV_VARS:
         try:
             parsed = float(value)

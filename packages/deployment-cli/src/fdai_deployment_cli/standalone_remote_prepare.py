@@ -25,8 +25,8 @@ def prepare_remote(
     archive_digest: str,
     handoff_path: Path,
     remote_handoff: str,
-    entra_path: Path,
-    remote_entra: str,
+    entra_path: Path | None,
+    remote_entra: str | None,
     app_work: str,
     runtime_profile: RuntimeDeploymentProfile | None = None,
     application_state_adoption: ApplicationStateAdoption | None = None,
@@ -88,8 +88,7 @@ def prepare_remote(
             f"{remote_root}/kit",
             "--handoff",
             foundation.handoff,
-            "--entra",
-            foundation.entra,
+            *(("--entra", foundation.entra) if foundation.entra is not None else ()),
             *foundation.adoption_arguments,
             "--runtime-platform",
             selected_runtime.runtime_platform.value,
@@ -105,6 +104,16 @@ def prepare_remote(
             str(selected_runtime.user_node_max_count),
             "--user-node-sku",
             selected_runtime.user_node_sku,
+            *(
+                value
+                for add_on in selected_runtime.product_profile.add_ons
+                for value in ("--product-add-on", add_on.value)
+            ),
+            *(
+                value
+                for source in selected_runtime.product_profile.observation_permissions.selected_sources
+                for value in ("--observation-source", source.value)
+            ),
             *catalog_review_arguments,
             *(
                 (

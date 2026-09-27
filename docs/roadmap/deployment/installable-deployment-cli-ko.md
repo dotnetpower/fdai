@@ -1,7 +1,7 @@
 ---
 title: 설치형 배포 CLI
 translation_of: installable-deployment-cli.md
-translation_source_sha: 38f8e544da3486d5cdffca0a43757fe7f31ca212
+translation_source_sha: da00b048f17960d1db0fab7fceb640de96095adb
 translation_revised: 2026-09-27
 ---
 
@@ -29,7 +29,7 @@ Host에서 실행됩니다.
 | 연결된 산출물 원본 | 승인된 정확한 리비전 이미지 매니페스트와 깨끗한 소스. 선택적 `--online` 키트 획득은 완전한 오프라인 호환 폐쇄 집합 사용 |
 | 폐쇄망 산출물 원본 | digest 고정 배포 어플라이언스에 포함된 완전한 오프라인 프로필 |
 | 승인 | 각 정확한 계획 digest에 연결된 현재 사람 승인 |
-| 실행 신원 | Managed Host의 사용자 할당 Managed Identity |
+| 런타임 신원 | 기본값은 범위가 제한된 읽기 전용 관찰 신원이며, 권한 있는 실행기는 명시적 `governed-execution` 추가 기능에서만 사용 |
 | GitHub 의존성 | 대상 환경 배포에는 없음 |
 
 GitHub Actions는 소스를 검증하고 이미지를 빌드하며 선택적으로 서명된 release를 게시할 수 있지만, 게시는 배포 검증의 필수 조건이 아닙니다. GitHub Actions는 대상 환경을 계획, 적용, 재개 또는 제거할 수 없습니다. 읽기 전용 [관측 산출물 사전 점검](../architecture/aks-outbound-connector-ko.md#산출물-사전-점검)은 정확한 Core 이미지에 같은 고정 신뢰 루트의 오프라인 키트·OCI 검증기를 재사용하며, 제한된 프로세스 결과로 새 release 신뢰나 승인·설치 권한을 만들지 않습니다. 같은 키트는 경로, profile id, source timestamp, 파일 digest 및 전체 manifest digest에 결속된 선택적 기본 Rule 활성화 profile도 포함할 수 있습니다. 준비 단계는 결정론적 Core 환경 바인딩만 출력하며 세대를 적용하거나 대상 환경 workload를 배포하지 않습니다.
@@ -477,8 +477,8 @@ Rich를 사용하며, 잠긴 의존성은 기존 오프라인 wheel 모음 내�
 | `fdaictl provision console-update build` | 보호된 Git 소스에서 소스에 결속된 Console 산출물 하나 빌드 | 아니요 |
 | `fdaictl provision console-update plan` | 기존 개발 환경 대상과 후보 및 롤백 산출물 봉인 | 아니요 |
 | `fdaictl provision console-update apply` | 정확한 Console 계획을 게시하고 원격 콘텐츠와 접속 검증 | 정확한 터미널 승인 후 예 |
-| `fdaictl provision azure --online` | 선택한 연결형 페이로드로 standalone Azure 배포 실행 | 정확한 승인 후 예 |
-| `fdaictl provision azure --offline-kit <path>` | 로컬 배포 페이로드로 동일한 배포 실행 | 정확한 승인 후 예 |
+| `fdaictl provision azure --online` | 서명 키트를 획득하고 헤드리스 `observation-first` 프로필을 배포합니다. 반복 가능한 `--add-on`과 `--observation-source` 선택으로 독립 표면을 추가하고 출처별 최소 읽기 역할을 파생합니다. | 정확한 계획 승인 후 인프라만 변경하며 기본값에는 관리 리소스 실행 권한이 없음 |
+| `fdaictl provision azure --offline-kit <path>` | 공개 산출물 획득 없이 같은 프로필 계약 실행 | 같은 정확한 프로필과 승인 적용 |
 | `fdaictl onboard guided --simulate` | 유한한 단계 그래프 예행연습 | 아니요 |
 | `fdaictl onboard status` | 로컬 해시 체인 예행연습 저널 읽기 | 아니요 |
 | `fdaictl bundle verify` | 선택적 배포 묶음 점검 | 아니요 |

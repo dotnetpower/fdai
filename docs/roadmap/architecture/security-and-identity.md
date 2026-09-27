@@ -130,6 +130,15 @@ delegates writes to a GitHub App - lives in
 [user-rbac-and-identity.md](../interfaces/user-rbac-and-identity.md). Approval ≠ execution: humans
 never hold the executor identity described below.
 
+The default product profile has no executor identity, Entra application, FDAI human role group,
+Graph permission, HIL channel, or managed-resource write role. Its Azure observation identity is
+scope-bound to `Reader`; deployments select `Monitoring Reader`, `Log Analytics Reader`, `Cost
+Management Reader`, `AKS read-only` (Cluster User plus RBAC Reader), or `Storage Blob Data Reader` only
+by selecting the corresponding data source. Roles cannot be selected directly or bundled. The
+base requires no Azure Policy assignment; Reader-visible resource metadata supports policy
+evaluation, and a source needing more access reports unsupported. `Contributor`, `User Access
+Administrator`, Graph application permissions, and every write role remain outside the base.
+
 - The executor MUST authenticate through a **`WorkloadIdentity` interface** that exposes only
   "get a short-lived, audience-scoped OIDC token." This realizes the
   [Workload Identity contract](csp-neutrality.md#4-workload-identity-contract--oidc-token);

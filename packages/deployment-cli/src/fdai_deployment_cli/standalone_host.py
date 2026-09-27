@@ -19,6 +19,8 @@ from pathlib import Path
 from typing import Any, Final
 from urllib.parse import urlencode
 
+from fdai_service_contracts.product_profile import ObservationDataSource, ProductAddOn
+
 from fdai_deployment_cli import (
     catalog_review_profile,
     standalone_host_values,
@@ -50,7 +52,11 @@ from fdai_deployment_cli.deployment_kit import acquire_deployment_kit
 from fdai_deployment_cli.license import inspect_license
 from fdai_deployment_cli.oci_archive import validate_oci_archive
 from fdai_deployment_cli.private_output import read_private_bytes, write_private_output
-from fdai_deployment_cli.runtime_profile import RuntimeDeploymentProfile
+from fdai_deployment_cli.runtime_profile import (
+    RuntimeDeploymentProfile,
+    legacy_runtime_profile_digest,
+)
+from fdai_deployment_cli.standalone_product_profile import product_terraform_values
 from fdai_deployment_cli.runtime_support_installation import (
     install_runtime_support as _install_runtime_support,
 )
@@ -167,7 +173,7 @@ def main(argv: list[str] | None = None) -> int:
     prepare = subcommands.add_parser("prepare")
     prepare.add_argument("--kit", type=Path, required=True)
     prepare.add_argument("--handoff", type=Path, required=True)
-    prepare.add_argument("--entra", type=Path, required=True)
+    prepare.add_argument("--entra", type=Path)
     prepare.add_argument("--foundation-adoption", type=Path)
     prepare.add_argument("--adoption-state", type=Path)
     prepare.add_argument("--adoption-models", type=Path)
@@ -181,6 +187,18 @@ def main(argv: list[str] | None = None) -> int:
     prepare.add_argument("--user-node-min-count", type=int, default=3)
     prepare.add_argument("--user-node-max-count", type=int, default=5)
     prepare.add_argument("--user-node-sku", default="Standard_D4as_v5")
+    prepare.add_argument(
+        "--product-add-on",
+        action="append",
+        choices=tuple(item.value for item in ProductAddOn),
+        default=[],
+    )
+    prepare.add_argument(
+        "--observation-source",
+        action="append",
+        choices=tuple(item.value for item in ObservationDataSource),
+        default=[],
+    )
     prepare.set_defaults(handler=_prepare)
 
     prepare_runtime = subcommands.add_parser("prepare-runtime")
@@ -305,7 +323,25 @@ def _verify_source_runtime(args: argparse.Namespace, _work_dir: Path) -> dict[st
 def _prepare(args: argparse.Namespace, work_dir: Path) -> dict[str, object]:
     _private_directory(work_dir)
     handoff = _private_json(_absolute(args.handoff), "Foundation handoff")
-    entra = _private_json(_absolute(args.entra), "Entra bindings")
+    runtime_profile = RuntimeDeploymentProfile.create(
+        runtime_platform=str(args.runtime_platform),
+        database_placement=str(args.database_placement),
+        system_node_count=int(args.system_node_count),
+        system_node_sku=args.system_node_sku,
+        user_node_min_count=int(args.user_node_min_count),
+        user_node_max_count=int(args.user_node_max_count),
+        user_node_sku=str(args.user_node_sku),
+        product_add_ons=tuple(args.product_add_on),
+        observation_data_sources=tuple(args.observation_source),
+    )
+    enterprise_identity_selected = runtime_profile.product_profile.selects(
+        ProductAddOn.ENTERPRISE_IDENTITY_GOVERNANCE
+    )
+    if enterprise_identity_selected and args.entra is None:
+        raise ValueError("enterprise identity governance requires Entra bindings")
+    if not enterprise_identity_selected and args.entra is not None:
+        raise ValueError("Entra bindings require enterprise identity governance")
+    entra = _private_json(_absolute(args.entra), "Entra bindings") if args.entra is not None else {}
     runner = _mapping(handoff.get("runner"), "Foundation runner")
     state = _mapping(handoff.get("state"), "Foundation state")
     ops = _mapping(handoff.get("ops"), "Foundation operations")
@@ -316,15 +352,6 @@ def _prepare(args: argparse.Namespace, work_dir: Path) -> dict[str, object]:
         runner=runner,
     )
     initial_inventory_binding = _initial_inventory_binding(foundation.subscription_id)
-    runtime_profile = RuntimeDeploymentProfile.create(
-        runtime_platform=str(args.runtime_platform),
-        database_placement=str(args.database_placement),
-        system_node_count=int(args.system_node_count),
-        system_node_sku=args.system_node_sku,
-        user_node_min_count=int(args.user_node_min_count),
-        user_node_max_count=int(args.user_node_max_count),
-        user_node_sku=str(args.user_node_sku),
-    )
     foundation_binding_digest = _foundation_binding_digest(
         handoff,
         runner=runner,
@@ -332,7 +359,7 @@ def _prepare(args: argparse.Namespace, work_dir: Path) -> dict[str, object]:
         ops=ops,
         app=app,
     )
-    entra_binding_digest = canonical_digest(entra)
+    entra_binding_digest = canonical_digest(entra) if enterprise_identity_selected else None
     adoption = _application_state_adoption(args)
     adoption_digest = canonical_digest(adoption[0]) if adoption is not None else ""
     catalog_profile_path = getattr(args, "catalog_review_profile", None)
@@ -405,7 +432,7 @@ def _prepare(args: argparse.Namespace, work_dir: Path) -> dict[str, object]:
             or retained.get("document_storage_private_access")
             is not document_storage_private_access
             or retained.get("document_storage_account_name") != document_storage_account_name
-            or _runtime_profile_digest(retained) != runtime_profile.digest
+            or not _runtime_profile_matches(retained, runtime_profile)
         ):
             raise ValueError("standalone host retained context differs")
         foundation.adoption.require_context(retained)
@@ -472,23 +499,6 @@ def _prepare(args: argparse.Namespace, work_dir: Path) -> dict[str, object]:
     if runtime_profile.database_placement.value == "postgres-aks":
         refs["pgvector"] = f"{login_server}/pgvector@{_required_image_digest(sidecars, 'pgvector')}"
     aks_baseline = runtime_profile.runtime_platform.value == "aks"
-    operator_id = _required_guid(entra, "CURRENT_OPERATOR_OBJECT_ID")
-    steward_names = (
-        "Odin",
-        "Thor",
-        "Forseti",
-        "Huginn",
-        "Heimdall",
-        "Vidar",
-        "Var",
-        "Bragi",
-        "Saga",
-        "Mimir",
-        "Muninn",
-        "Norns",
-        "Njord",
-        "Freyr",
-    )
     values: dict[str, object] = {
         "workload": workload,
         "env": "dev",
@@ -522,22 +532,17 @@ def _prepare(args: argparse.Namespace, work_dir: Path) -> dict[str, object]:
         "ingestion_image": refs["document-ingestion-api"],
         "ingestion_migration_image": refs["document-ingestion-api"],
         "clamav_image": refs["clamav"],
-        "enable_console": True,
-        "enable_operator_api": True,
-        "enable_isolated_executor": True,
-        "enable_document_ingestion": runtime_profile.runtime_platform.value == "aks",
         "ingestion_cohost_worker": False,
         "ingestion_cors_allow_origins": "https://localhost",
         "enable_llm": adoption is not None,
-        "operator_api_audience": str(entra["OPERATOR_API_AUDIENCE"]),
-        "rbac_readers_group_id": str(entra["RBAC_READERS_GROUP_ID"]),
-        "rbac_contributors_group_id": str(entra["RBAC_CONTRIBUTORS_GROUP_ID"]),
-        "rbac_approvers_group_id": str(entra["RBAC_APPROVERS_GROUP_ID"]),
-        "rbac_owners_group_id": str(entra["RBAC_OWNERS_GROUP_ID"]),
-        "rbac_break_glass_group_id": str(entra["RBAC_BREAK_GLASS_GROUP_ID"]),
-        "stewardship_maintainers": operator_id,
-        "stewardship_agent_bindings": {name: f"user:{operator_id}" for name in steward_names},
     }
+    values.update(
+        product_terraform_values(
+            runtime_profile,
+            entra,
+            require_guid=_required_guid,
+        )
+    )
     values.update(catalog_review_profile.catalog_review_terraform_values(catalog_profile))
     if adoption is not None:
         values.update(
@@ -1335,16 +1340,8 @@ def _adopt_historical_aks_application(
     if _SOURCE_COMMIT.fullmatch(source_commit) is None:
         raise ValueError("historical AKS adoption source revision is invalid")
     profile_value = _mapping(binding.get("runtime_profile"), "historical AKS runtime profile")
-    profile = RuntimeDeploymentProfile.create(
-        runtime_platform=str(profile_value.get("runtime_platform", "")),
-        database_placement=str(profile_value.get("database_placement", "")),
-        system_node_count=profile_value.get("system_node_count", 0),
-        system_node_sku=profile_value.get("system_node_sku"),
-        user_node_min_count=profile_value.get("user_node_min_count", 0),
-        user_node_max_count=profile_value.get("user_node_max_count", 0),
-        user_node_sku=str(profile_value.get("user_node_sku", "")),
-    )
-    if profile.runtime_platform.value != "aks" or profile.to_mapping() != profile_value:
+    profile = RuntimeDeploymentProfile.from_mapping(profile_value)
+    if profile.runtime_platform.value != "aks" or not profile.matches_mapping(profile_value):
         raise ValueError("historical AKS adoption runtime profile differs")
 
     evidence_root = binding_path.parent.resolve()
@@ -4354,13 +4351,28 @@ def _runtime_profile_digest(context: dict[str, object]) -> str:
 
     value = context.get("runtime_profile_digest")
     if value is None:
-        return RuntimeDeploymentProfile.create(
-            runtime_platform="container-apps",
-            database_placement="postgres-flex",
-        ).digest
+        return legacy_runtime_profile_digest(
+            RuntimeDeploymentProfile.create(
+                runtime_platform="container-apps",
+                database_placement="postgres-flex",
+            )
+        )
     if not isinstance(value, str) or _DIGEST.fullmatch(value) is None:
         raise ValueError("standalone runtime profile digest is invalid")
     return value
+
+
+def _runtime_profile_matches(
+    context: dict[str, object],
+    profile: RuntimeDeploymentProfile,
+) -> bool:
+    retained = _runtime_profile_digest(context)
+    if retained == profile.digest:
+        return True
+    legacy_full_product = len(profile.product_profile.add_ons) == len(ProductAddOn) and len(
+        profile.product_profile.observation_permissions.selected_sources
+    ) == len(ObservationDataSource)
+    return legacy_full_product and retained == legacy_runtime_profile_digest(profile)
 
 
 def _container_app_health(context: dict[str, object], infra: Path) -> bool:

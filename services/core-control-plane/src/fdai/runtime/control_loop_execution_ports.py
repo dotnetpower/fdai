@@ -83,6 +83,7 @@ def build_thor_execution_port(
     property_semantics: Any,
     catalog_root: Path,
     process_store: ProcessRuntimeStore | None = None,
+    governed_execution_enabled: bool = True,
 ) -> ThorExecutionPort:
     """Return the Thor port, composing the in-process one when none is injected.
 
@@ -91,8 +92,20 @@ def build_thor_execution_port(
     executor cannot bypass that lifecycle either.
     """
 
+    if not governed_execution_enabled and port is not None:
+        raise RuntimeError("Thor execution binding requires the governed-execution product add-on")
     if port is not None:
         return port
+    if not governed_execution_enabled:
+        return InProcessThorExecutionPort(
+            pr_native=ShadowExecutor(
+                publisher=publisher,
+                audit_store=audit_store,
+                renderer=cast(TemplateRenderer, renderer),
+                resource_lock=resource_lock,
+            ),
+            safeguard_lifecycle_ready=False,
+        )
     graph_model_promotion_registry = None
     if os.environ.get("FDAI_STATE_STORE_DSN", "").strip():
         from fdai.delivery.persistence.state_store_graph_model_promotion import (

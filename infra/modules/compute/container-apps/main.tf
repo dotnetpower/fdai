@@ -70,7 +70,6 @@ locals {
     wara         = length("${var.core_app_name}-wara") <= 32 ? "${var.core_app_name}-wara" : "${local.core_job_name_prefix}-wara"
   }
   core_config_env = {
-    AZURE_TENANT_ID                    = var.azure_tenant_id
     AZURE_SUBSCRIPTION_ID              = var.azure_subscription_id
     AZURE_RESOURCE_GROUP               = var.azure_resource_group
     AZURE_REGION                       = var.azure_region
@@ -81,6 +80,7 @@ locals {
     POSTGRES_DATABASE                  = var.postgres_database
     RUNTIME_ENV                        = var.runtime_env
     AUTONOMY_MODE_DEFAULT              = var.autonomy_mode_default
+    FDAI_PRODUCT_PROFILE_JSON          = var.product_profile_json
     FDAI_STARTUP_KAFKA_SETTLE_SECONDS  = tostring(var.startup_kafka_settle_seconds)
     FDAI_STARTUP_PROBE_TIMEOUT_SECONDS = tostring(var.startup_probe_timeout_seconds)
     FDAI_STARTUP_PHASE_TIMEOUT_SECONDS = tostring(var.startup_phase_timeout_seconds)
@@ -91,6 +91,9 @@ locals {
   # env entry at all. Merged into the containers below via
   # ``merge(local.core_config_env, local.optional_config_env)``.
   optional_config_env = merge(
+    var.azure_tenant_id == "" ? {} : {
+      AZURE_TENANT_ID = var.azure_tenant_id
+    },
     var.monitor_workspace_customer_id == "" ? {} : {
       # Read by ``__main__._finalize_llm_bindings`` -> ``wire_azure_container``
       # to auto-bind ``AzureMonitorLogsMetricProvider`` in place of the

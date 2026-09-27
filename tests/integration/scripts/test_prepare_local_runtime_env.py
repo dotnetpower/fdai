@@ -308,6 +308,14 @@ def test_prepares_local_transport_without_copying_stale_transport(
         f"FDAI_WEB_SEARCH_ENABLED={expected_web_search_enabled}",
         "RUNTIME_ENV=dev",
         "AUTONOMY_MODE_DEFAULT=shadow",
+        (
+            'FDAI_PRODUCT_PROFILE_JSON={"add_ons":["enterprise-identity-governance",'
+            '"governed-execution","notifications","read-only-console"],'
+            '"authority_granted":false,"name":"observation-first",'
+            '"observation_permissions":{"base_role":"Reader","selected_sources":'
+            '["aks","azure-monitor","cost-management","evidence-store","log-analytics"]},'
+            '"schema_version":"fdai.product-profile.v1"}'
+        ),
         "FDAI_START_CONSUMER=1",
         "FDAI_START_PANTHEON=1",
         "FDAI_TEAMS_NOTIFICATION_ACTIVATION=1",

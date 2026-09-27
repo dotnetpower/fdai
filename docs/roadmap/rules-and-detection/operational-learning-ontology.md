@@ -7,8 +7,12 @@ This design turns benchmark treatments and real incident outcomes into reusable 
 knowledge. It uses case history for immutable evidence, the ontology for meaning, and the existing
 rule and action catalogs for governed reuse instead of creating a benchmark-only knowledge path.
 
-> **Authority boundary:** A benchmark pass is evidence, not permission. It cannot create an active
-> rule, promote an `ActionType`, or raise autonomy.
+> **Authority boundary:** A benchmark pass is evidence, not permission. In the default
+> observation-first profile, every learned pattern and prediction remains advisory and no
+> promotion registry can enter enforcement. The governed-execution add-on may review a candidate,
+> but selection alone cannot activate a rule, promote an `ActionType`, or raise autonomy.
+> #343 therefore retains advisory calibration, replay, drift, cohort, and guard evidence only;
+> promotion, managed effects, and rollback remain optional governed-execution scope.
 >
 > **Semantic authority:** [FDAI Operating Ontology](../architecture/operating-ontology.md) owns the
 > shared service, objective, decision, and effect model. This document owns evidence-to-pattern learning.
@@ -129,11 +133,12 @@ No separate benchmark rule format or learned-action executor is introduced. If a
 cannot express a required query with these links, it must first add a failing ontology query test.
 Only then may a focused `ObjectType` or `LinkType` extension be proposed.
 
-Publishing a candidate or draft review package grants no authority. An ActionType can move in the
-authoritative promotion registry only when an independent reviewer approves the exact candidate,
-package, deterministic replay digests, FDAI revision, scenario set, and O7 evidence digest.
-Restart revalidates the same attribution; a duplicate is a no-op, and rollback or demotion returns
-the registry to shadow.
+Publishing a candidate or draft review package grants no authority. Observation-first deployments
+retain review, replay, calibration, prediction-outcome, and drift evidence without constructing an
+enforcing registry. Only an explicitly selected and otherwise authorized governed-execution
+add-on can ask an independent reviewer to approve the exact candidate, package, deterministic
+replay digests, FDAI revision, scenario set, and O7 evidence digest. Restart revalidates the same
+attribution; a duplicate is a no-op, and rollback or demotion returns the registry to shadow.
 
 ### Pattern is one layer, not two
 
