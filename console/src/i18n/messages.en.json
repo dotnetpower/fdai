@@ -2328,6 +2328,10 @@
       "human-access": {
         "label": "Human access review",
         "hint": "Directory-backed access review configuration. Observation only; it never grants authority."
+      },
+      "forecast-history": {
+        "label": "Forecast intervention history",
+        "hint": "Source history producers for forecast scoring. Observation only; incomplete sources keep scoring held."
       }
     },
     "integrationEvidence": "Integration evidence",

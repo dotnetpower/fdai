@@ -10,7 +10,7 @@ from dataclasses import asdict
 from datetime import UTC, datetime
 from typing import Any
 
-from fdai.core.detection.forecast_history import StateTransitionForecastHistoryCollector
+from fdai.core.detection.forecast_history_ingress import ForecastHistoryCollector
 from fdai.shared.providers.decision_evidence_verifier import (
     DecisionEvidenceAdmission,
     DecisionEvidenceAdmissionProvider,
@@ -47,7 +47,7 @@ class StateStoreForecastContextProvider:
         *,
         admission: DecisionEvidenceAdmissionProvider | None = None,
         clock: Callable[[], datetime] | None = None,
-        collector: StateTransitionForecastHistoryCollector | None = None,
+        collector: ForecastHistoryCollector | None = None,
     ) -> None:
         self._store = store
         self._admission = admission

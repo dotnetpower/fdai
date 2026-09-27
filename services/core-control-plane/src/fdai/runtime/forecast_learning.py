@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import json
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
@@ -11,9 +11,10 @@ from pathlib import Path
 from fdai.core.detection.forecast_closure import ForecastClosureCoordinator
 from fdai.core.detection.forecast_context import ContextualForecastObservationProvider
 from fdai.core.detection.forecast_evaluation import ForecastEpisodeEvaluator, ForecastTargetSpec
-from fdai.core.detection.forecast_history import (
-    ForecastHistoryBinding,
-    StateTransitionForecastHistoryCollector,
+from fdai.core.detection.forecast_history import StateTransitionForecastHistoryCollector
+from fdai.core.detection.forecast_history_ingress import (
+    ForecastHistoryCollector,
+    ProducingForecastHistoryCollector,
 )
 from fdai.core.detection.forecast_observation import MetricForecastObservationProvider
 from fdai.core.detection.governance_policy import (
@@ -23,6 +24,7 @@ from fdai.core.detection.governance_policy import (
     load_detection_governance_policy,
 )
 from fdai.core.detection.metric_source import MetricSeriesSource
+from fdai.delivery.forecast_history_configuration import parse_forecast_history_configuration
 from fdai.delivery.persistence.postgres_forecast_episode import (
     PostgresForecastEpisodeStore,
     PostgresForecastEpisodeStoreConfig,
@@ -32,6 +34,7 @@ from fdai.delivery.persistence.postgres_state_transitions import (
     PostgresStateTransitionStoreConfig,
 )
 from fdai.delivery.repo_assets import repo_asset_root
+from fdai.runtime.forecast_history_producers import build_forecast_history_producers
 from fdai.shared.providers.decision_evidence_verifier import DecisionEvidenceAdmissionProvider
 from fdai.shared.providers.forecast_context import ForecastContextProvider
 from fdai.shared.providers.metric import MetricProvider
@@ -82,33 +85,53 @@ def build_forecast_learning_runtime(
 
 
 def build_forecast_history_collector(
-    *, dsn: str | None, bindings_json: str | None
-) -> StateTransitionForecastHistoryCollector | None:
-    """Bind reviewed exact source mappings to the existing PostgreSQL state-transition store."""
+    *,
+    dsn: str | None,
+    bindings_json: str | None,
+    producers_json: str | None = None,
+) -> ForecastHistoryCollector | None:
+    """Bind reviewed exact source mappings to the existing PostgreSQL state-transition store.
+
+    Reviewed producer mappings, when present, run bound source producers before each read.
+    Producers append derived history and honest coverage only; the collector still decides.
+    The Settings projection validates the same mappings through the same shared parser.
+    """
     if bindings_json is None or not bindings_json.strip():
+        if producers_json is not None and producers_json.strip():
+            raise ValueError("forecast history producers require reviewed collector mappings")
         return None
-    if len(bindings_json.encode()) > 262_144:
-        raise ValueError("forecast history source mappings exceed the byte limit")
-    raw = json.loads(bindings_json, object_pairs_hook=_unique_history_fields)
-    if not isinstance(raw, list) or not 1 <= len(raw) <= 256 or not dsn or not dsn.strip():
+    configuration = parse_forecast_history_configuration(
+        bindings_json=bindings_json, producers_json=producers_json
+    )
+    if not dsn or not dsn.strip():
         raise ValueError("forecast history collection requires bounded mappings and a database")
-    return StateTransitionForecastHistoryCollector(
-        store=PostgresStateTransitionStore(
-            config=PostgresStateTransitionStoreConfig(
-                dsn=dsn, statement_timeout_ms=3000, connect_timeout_s=3
-            )
+    store = PostgresStateTransitionStore(
+        config=PostgresStateTransitionStoreConfig(
+            dsn=dsn, statement_timeout_ms=3000, connect_timeout_s=3
+        )
+    )
+    collector = StateTransitionForecastHistoryCollector(
+        store=store, bindings=configuration.bindings
+    )
+    if not configuration.producers:
+        return collector
+    return ProducingForecastHistoryCollector(
+        collector=collector,
+        producers=build_forecast_history_producers(
+            dsn=dsn, configuration=configuration, store=store
         ),
-        bindings=tuple(ForecastHistoryBinding.model_validate(item) for item in raw),
     )
 
 
-def _unique_history_fields(pairs: list[tuple[str, object]]) -> dict[str, object]:
-    result: dict[str, object] = {}
-    for name, value in pairs:
-        if name in result:
-            raise ValueError("forecast history source mappings contain a duplicate field")
-        result[name] = value
-    return result
+def forecast_history_collector_from_environment(
+    *, dsn: str | None, environment: Mapping[str, str]
+) -> ForecastHistoryCollector | None:
+    """Read the reviewed collector and producer mappings from validated runtime configuration."""
+    return build_forecast_history_collector(
+        dsn=dsn,
+        bindings_json=environment.get("FDAI_FORECAST_HISTORY_SOURCES_JSON"),
+        producers_json=environment.get("FDAI_FORECAST_HISTORY_PRODUCERS_JSON"),
+    )
 
 
 def parse_forecast_targets(
@@ -171,6 +194,8 @@ def parse_forecast_targets(
 
 __all__ = [
     "ForecastLearningRuntime",
+    "build_forecast_history_collector",
     "build_forecast_learning_runtime",
+    "forecast_history_collector_from_environment",
     "parse_forecast_targets",
 ]
