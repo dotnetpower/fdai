@@ -17,6 +17,7 @@ from fdai.core.case_history.derived import CaseHistoryDerivedRetention
 from fdai.core.case_history.dual_write import DualWriteCaseHistoryMetadataStore
 from fdai.core.learning import ConsensusPostTurnReviewer, PostTurnProposalModel
 from fdai.core.operational_learning.cohort_retention import LegacyCaseCohortRetention
+from fdai.core.operational_learning.legacy_suffix_retention import LegacyCaseSuffixRetention
 from fdai.delivery.azure.case_history_artifacts import (
     AzureBlobCaseHistoryArtifactStore,
     AzureBlobCaseHistoryConfig,
@@ -155,9 +156,13 @@ def build_case_history_runtime(
                     config=PgVectorPatternLibraryConfig(dsn=pattern_library_dsn.strip())
                 ),
                 LegacyCaseCohortRetention(store=state_store),
+                LegacyCaseSuffixRetention(store=state_store),
             )
             if pattern_library_dsn and pattern_library_dsn.strip()
-            else (LegacyCaseCohortRetention(store=state_store),),
+            else (
+                LegacyCaseCohortRetention(store=state_store),
+                LegacyCaseSuffixRetention(store=state_store),
+            ),
         ),
     )
     analyzer = None
