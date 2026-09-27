@@ -44,10 +44,13 @@ def coordinator(tmp_path, monkeypatch):
         "foundation_command": None,
         "runner_receipt": None,
         "create_runner_image": None,
+        "foundation_adoption": None,
+        "preparation_calls": 0,
     }
 
     def prepare(**kwargs):
         clock[0] += options["preparation_elapsed"]
+        options["preparation_calls"] += 1
         options["create_runner_image"] = kwargs["create_runner_image"]
         prepared.root.mkdir(parents=True, mode=0o700)
         return prepared
@@ -99,6 +102,23 @@ def coordinator(tmp_path, monkeypatch):
     )
     monkeypatch.setattr(standalone_deploy, "acquire_deployment_kit", lambda **_kwargs: kit)
     monkeypatch.setattr(standalone_deploy, "run_foundation_process", foundation)
+    monkeypatch.setattr(
+        standalone_deploy,
+        "stage_recovered_foundation",
+        lambda **kwargs: (
+            options.__setitem__("foundation_adoption", kwargs)
+            or SimpleNamespace(
+                prepared=prepared,
+                status={
+                    "foundation_report": {"foundation_plan": {"plan_ref": "foundation-adoption"}}
+                },
+                receipt={
+                    "foundation_state_receipt_digest": "f" * 64,
+                    "receipt_digest": "9" * 64,
+                },
+            )
+        ),
+    )
     monkeypatch.setattr(standalone_deploy, "prior_attempt", lambda _path: 0)
     monkeypatch.setattr(
         standalone_deploy,
@@ -114,7 +134,7 @@ def coordinator(tmp_path, monkeypatch):
     monkeypatch.setattr(standalone_deploy, "deploy_standalone_application", application)
     monkeypatch.setattr(standalone_deploy, "_current_operator_object_id", lambda: "synthetic")
 
-    def invoke(*, runner_receipt=None, online=True):
+    def invoke(*, runner_receipt=None, online=True, foundation_adoption=False):
         return standalone_deploy.deploy_azure_foundation(
             work_dir=root,
             online=online,
@@ -126,6 +146,12 @@ def coordinator(tmp_path, monkeypatch):
             license_signing_key=None,
             trial_token=None,
             adopt_runner_image_receipt=runner_receipt,
+            adopt_foundation_directory=(
+                tmp_path / "retained-foundation" if foundation_adoption else None
+            ),
+            adopt_foundation_recovery_directory=(
+                tmp_path / "retained-recovery" if foundation_adoption else None
+            ),
         )
 
     return invoke, options, clock
@@ -180,6 +206,32 @@ def test_connected_deployment_uses_marketplace_bootstrap_without_image_build(coo
     assert "--runner-image-terraform" not in command
     variables = command[command.index("--foundation-variables-file") + 1]
     assert variables.endswith("vars.json")
+
+
+def test_foundation_adoption_skips_foundation_effects(coordinator):
+    invoke, options, _clock = coordinator
+
+    result = invoke(foundation_adoption=True)
+
+    assert options["preparation_calls"] == 0
+    assert options["foundation_command"] is None
+    assert options["foundation_adoption"]["application_source_commit"] == "a" * 40
+    assert result["foundation_state_receipt_digest"] == "f" * 64
+    assert result["foundation_adoption_receipt_digest"] == "9" * 64
+    assert result["deployment_ready"] is True
+
+
+def test_foundation_adoption_rejects_runner_image_reselection(coordinator, tmp_path):
+    invoke, options, _clock = coordinator
+
+    with pytest.raises(ValueError, match="cannot combine"):
+        invoke(
+            runner_receipt=tmp_path / "runner-receipt.json",
+            foundation_adoption=True,
+        )
+
+    assert options["preparation_calls"] == 0
+    assert options["foundation_command"] is None
 
 
 def test_offline_deployment_retains_image_build_context(coordinator):

@@ -24,6 +24,7 @@ from fdai_deployment_cli.azure_naming import azure_region_short_name
 from fdai_deployment_cli.deployment_deadline import DeploymentDeadline
 from fdai_deployment_cli.deployment_kit import DeploymentKit, acquire_deployment_kit
 from fdai_deployment_cli.deployment_progress import begin_stage, progress_detail, terminal_output
+from fdai_deployment_cli.foundation_adoption import stage_recovered_foundation
 from fdai_deployment_cli.foundation_failure import foundation_failure_summary
 from fdai_deployment_cli.foundation_output import foundation_output
 from fdai_deployment_cli.foundation_process import run_foundation_process
@@ -78,6 +79,8 @@ def deploy_azure_foundation(
     adopt_application_state: Path | None = None,
     adopt_application_recovery: Path | None = None,
     adopt_resolved_models: Path | None = None,
+    adopt_foundation_directory: Path | None = None,
+    adopt_foundation_recovery_directory: Path | None = None,
 ) -> dict[str, object]:
     """Advance one standalone deployment through verified application convergence."""
 
@@ -125,6 +128,51 @@ def deploy_azure_foundation(
             resource_group_name=f"rg-fdai-dev-{region_short}",
             environment="dev",
             region_short=region_short,
+        )
+    foundation_adoption_inputs = (
+        adopt_foundation_directory,
+        adopt_foundation_recovery_directory,
+    )
+    if any(value is not None for value in foundation_adoption_inputs) and not all(
+        value is not None for value in foundation_adoption_inputs
+    ):
+        raise ValueError("Foundation adoption requires both retained directories")
+    if all(value is not None for value in foundation_adoption_inputs):
+        if adopt_runner_image_receipt is not None:
+            raise ValueError("Foundation adoption cannot combine with runner-image adoption")
+        assert adopt_foundation_directory is not None
+        assert adopt_foundation_recovery_directory is not None
+        scripts = kit.bundle_root / "scripts/deployment/azure"
+        if not scripts.is_dir() or scripts.is_symlink():
+            raise ValueError("verified deployment bundle is missing Azure orchestration")
+        begin_stage("foundation")
+        progress_detail("Adopting the verified existing Foundation without repeating effects")
+        foundation_adoption = stage_recovered_foundation(
+            foundation_directory=adopt_foundation_directory,
+            recovery_directory=adopt_foundation_recovery_directory,
+            destination=work_dir / "run",
+            application_source_commit=kit.source_commit,
+            kit_manifest_digest=kit.verification.manifest_digest,
+            runtime_release_digest=kit.runtime.digest,
+            tenant_id=target.tenant_id,
+            subscription_id=target.subscription_id,
+            region=region,
+            monthly_cost_ceiling=monthly_cost_ceiling,
+        )
+        return _deploy_application(
+            kit=kit,
+            prepared=foundation_adoption.prepared,
+            status=foundation_adoption.status,
+            scripts=scripts,
+            deadline=deadline,
+            selected_runtime=selected_runtime,
+            license_signing_key=license_signing_key,
+            trial_token=trial_token,
+            application_state_adoption=adoption,
+            foundation_state_receipt_digest=str(
+                foundation_adoption.receipt["foundation_state_receipt_digest"]
+            ),
+            foundation_adoption_receipt_digest=str(foundation_adoption.receipt["receipt_digest"]),
         )
     begin_stage("discovery")
     progress_detail("Discovering image, storage name, and non-overlapping networks")
@@ -269,57 +317,18 @@ def deploy_azure_foundation(
         ):
             foundation = _foundation_result(kit, prepared, status)
             deadline.remaining()
-            begin_stage("identity")
-            sys.path.insert(0, str(scripts))
-            try:
-                supervisor = importlib.import_module("genesis_supervisor")
-                entra = importlib.import_module("genesis_entra")
-                approval_prompt = importlib.import_module("genesis_approval_prompt")
-                actor_digest = approval_prompt.current_actor_digest(prepared.run_binding)
-                with (
-                    terminal_output("Identity configuration and any required approval"),
-                    redirect_stdout(sys.stderr),
-                ):
-                    entra_bindings = supervisor._configure_entra(
-                        prepared=prepared,
-                        status=status,
-                        actor_digest=actor_digest,
-                        plan=entra.plan_entra(),
-                    )
-                entra_bindings["CURRENT_OPERATOR_OBJECT_ID"] = _current_operator_object_id()
-            finally:
-                sys.path.remove(str(scripts))
-            application = deploy_standalone_application(
+            return _deploy_application(
                 kit=kit,
                 prepared=prepared,
-                foundation_status=status,
-                entra_bindings=entra_bindings,
+                status=status,
                 scripts=scripts,
+                deadline=deadline,
+                selected_runtime=selected_runtime,
                 license_signing_key=license_signing_key,
                 trial_token=trial_token,
-                timeout_seconds=deadline.remaining(),
-                runtime_profile=selected_runtime,
                 application_state_adoption=adoption,
+                foundation_state_receipt_digest=str(foundation["foundation_state_receipt_digest"]),
             )
-            deadline.remaining()
-            return {
-                "schema_version": "fdai.standalone-azure-deployment.v2",
-                "state": "deployment-ready",
-                "source_commit": kit.source_commit,
-                "kit_manifest_digest": kit.verification.manifest_digest,
-                "runtime_release_digest": kit.runtime.digest,
-                "foundation_state_receipt_digest": foundation["foundation_state_receipt_digest"],
-                "application_receipt_digest": application["receipt_digest"],
-                "runtime_profile_digest": selected_runtime.digest,
-                "runtime_platform": selected_runtime.runtime_platform.value,
-                "database_placement": selected_runtime.database_placement.value,
-                "application_converged": True,
-                "deployment_ready": True,
-                "inventory_ready": application.get("inventory_ready") is True,
-                "license_mode": application["license_mode"],
-                "mutation_performed": True,
-                "subscription_ready": False,
-            }
         if foundation_exit.returncode != 2:
             raise ValueError("standalone Foundation orchestration failed")
         approval.unlink(missing_ok=True)
@@ -349,6 +358,78 @@ def deploy_azure_foundation(
             raise TimeoutError("standalone Foundation approval prompt timed out") from exc
         if prompt.returncode != 0:
             raise ValueError("standalone Foundation approval was not granted")
+
+
+def _deploy_application(
+    *,
+    kit: DeploymentKit,
+    prepared: Any,
+    status: dict[str, Any],
+    scripts: Path,
+    deadline: DeploymentDeadline,
+    selected_runtime: RuntimeDeploymentProfile,
+    license_signing_key: Path | None,
+    trial_token: Path | None,
+    application_state_adoption: ApplicationStateAdoption | None,
+    foundation_state_receipt_digest: str,
+    foundation_adoption_receipt_digest: str | None = None,
+) -> dict[str, object]:
+    """Configure identity and complete one exact standalone application deployment."""
+
+    begin_stage("identity")
+    sys.path.insert(0, str(scripts))
+    try:
+        supervisor = importlib.import_module("genesis_supervisor")
+        entra = importlib.import_module("genesis_entra")
+        approval_prompt = importlib.import_module("genesis_approval_prompt")
+        actor_digest = approval_prompt.current_actor_digest(prepared.run_binding)
+        with (
+            terminal_output("Identity configuration and any required approval"),
+            redirect_stdout(sys.stderr),
+        ):
+            entra_bindings = supervisor._configure_entra(
+                prepared=prepared,
+                status=status,
+                actor_digest=actor_digest,
+                plan=entra.plan_entra(),
+            )
+        entra_bindings["CURRENT_OPERATOR_OBJECT_ID"] = _current_operator_object_id()
+    finally:
+        sys.path.remove(str(scripts))
+    application = deploy_standalone_application(
+        kit=kit,
+        prepared=prepared,
+        foundation_status=status,
+        entra_bindings=entra_bindings,
+        scripts=scripts,
+        license_signing_key=license_signing_key,
+        trial_token=trial_token,
+        timeout_seconds=deadline.remaining(),
+        runtime_profile=selected_runtime,
+        application_state_adoption=application_state_adoption,
+    )
+    deadline.remaining()
+    result: dict[str, object] = {
+        "schema_version": "fdai.standalone-azure-deployment.v2",
+        "state": "deployment-ready",
+        "source_commit": kit.source_commit,
+        "kit_manifest_digest": kit.verification.manifest_digest,
+        "runtime_release_digest": kit.runtime.digest,
+        "foundation_state_receipt_digest": foundation_state_receipt_digest,
+        "application_receipt_digest": application["receipt_digest"],
+        "runtime_profile_digest": selected_runtime.digest,
+        "runtime_platform": selected_runtime.runtime_platform.value,
+        "database_placement": selected_runtime.database_placement.value,
+        "application_converged": True,
+        "deployment_ready": True,
+        "inventory_ready": application.get("inventory_ready") is True,
+        "license_mode": application["license_mode"],
+        "mutation_performed": True,
+        "subscription_ready": False,
+    }
+    if foundation_adoption_receipt_digest is not None:
+        result["foundation_adoption_receipt_digest"] = foundation_adoption_receipt_digest
+    return result
 
 
 def active_azure_target() -> ActiveAzureTarget:

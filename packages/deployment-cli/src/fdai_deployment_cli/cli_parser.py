@@ -303,6 +303,19 @@ def build_parser(handlers: Mapping[str, CommandHandler]) -> argparse.ArgumentPar
         metavar="PATH",
         help="Resolved model manifest paired with the recovered state",
     )
+    foundation_adoption = azure.add_argument_group("Foundation adoption (advanced)")
+    foundation_adoption.add_argument(
+        "--adopt-foundation-directory",
+        type=Path,
+        metavar="PATH",
+        help="Retained source Foundation directory containing its profile and SSH key",
+    )
+    foundation_adoption.add_argument(
+        "--adopt-foundation-recovery",
+        type=Path,
+        metavar="PATH",
+        help="Verified recovery, enrollment, state, authority, and host-key evidence",
+    )
     azure.set_defaults(handler=handlers["provision_azure"])
 
     source_update = command(

@@ -85,14 +85,15 @@ It requires a fresh exact `foundation-state` approval before writing a current-s
 That verifier then runs in `verify` mode. A later verified controller can reuse the completed repair only after revalidating the repair source and proving the verifier digest is unchanged. State comparison preserves exact lineage, resource identities, and non-transient content while allowing only one backend-migration serial increment and order-only `check_results` normalization. Refresh-only drift is accepted only when it keeps the same resource ID and its observed `after` value exactly matches the same address's no-op desired value; deferred or unclosed drift is blocked. After cleanup, reobservation transfers the current verified observer through the owner-only Bastion path, reads its digest back, and runs it under the managed identity. New authority records seal both normalized Terraform output and exact backend blob bytes; the observer downloads the protected blob through Azure CLI data-plane authorization, verifies its authority-bound digest and backend protection, then removes every transient file without restoring the old Terraform work tree or provider mirror. A completed legacy receipt that predates the blob digest remains valid through its original independent zero-change evidence, but no digest is invented and repeated blob reobservation begins only with the extended authority record. A partial base set, a different existing file, or changed readback blocks recovery.
 These adapters do not prove a completed deployment.
 
-The source coordinator uses the private managed-host route explicitly. It reads Foundation
-provider registrations and inherited policy assignments without registering providers or creating
-policy-probe resources. Policy visibility is not a compliance or deployment-success claim.
-An exclusive run lock covers the shared checkpoint coordinator. Exact approval is collected
-separately before unattended execution; output format and TTY presence never grant authority. The same
-source, snapshot, human target and retained run must match on every resumption. No approval from
-one checkpoint grants another checkpoint, and published exact-source CI remains mandatory before
-resource effects. A verified Foundation handoff still leaves application deployment incomplete.
+The source coordinator uses the private managed-host route and reads Foundation provider
+registrations and inherited policy without changing either. Policy visibility is not a compliance
+or deployment-success claim. An exclusive run lock covers checkpoints; exact approval remains
+separate, and output format or TTY presence grants no authority. Source, snapshot, human target,
+retained run, and published exact-source CI must match before effects. A source run stops after
+verified Foundation handoff and does not transfer application source or invoke Docker or Buildx
+for a new installation; the bounded single-service `dev` update remains separate.
+**Initial design:** build every runtime image during source provisioning. **Critique:** that makes the tenant an unsigned release builder. **Revised contract:** a complete signed kit uses `--adopt-foundation-directory` plus `--adopt-foundation-recovery` only after recovery, enrollment, state-authority, target, profile, host-key, cleanup, and zero-change verification.
+Adoption stages exact handoff and access evidence, emits a no-effect receipt, and never repeats Foundation apply, enrollment, migration, or state ownership. Application plans and approvals remain separate.
 
 ### Application group collision recovery
 
