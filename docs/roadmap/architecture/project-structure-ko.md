@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 78b9853b7d93af8761776eb75a138f7e78bd9998
+translation_source_sha: 8537e9977bdd75a403a29ed34bb5da94ec0b901e
 translation_revised: 2026-09-28
 ---
 # 프로젝트 구조
@@ -207,7 +207,7 @@ Cost Governance 가명 자료는 Operator 조립이 소유하는 비밀입니다
   `core/conversation/semantic_judgment_assembly.py`는 preflight 주제 키를 만들며 포함 누락이 있으면
   전체 프롬프트로 한 번 다시 판단합니다. `semantic_judgment_bounds.py`는 판단 입력 한도를 담고,
   `semantic_planning_assembly.py`는 planning 어댑터가 쓰는 frame 의도 키, plan 형태 키, frame 결과
-  키를 만듭니다. `conversation_preflight_family_validation.py`는 Core가 컬렉션 필터를 원문에서
+  키와 plan 기술자 선택을 만듭니다. `conversation_preflight_family_validation.py`는 Core가 컬렉션 필터를 원문에서
   근거화하므로 모델이 제안한 정규 값을 버립니다.
   `fdai_core_service/semantic_answer_presentation.py`는 공급자 lifecycle 상태, ISO 시각, 완전성,
   실행 권한 없음 표시를 운영자 언어로 렌더링하고 기술 상세에는 정확한 값을 유지합니다.

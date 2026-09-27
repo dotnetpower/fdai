@@ -27,6 +27,9 @@ from fdai.core.conversation.semantic_planning_assembly import (
     frame_result_keys,
     plan_assembly_keys,
 )
+from fdai.core.conversation.semantic_planning_assembly import (
+    plan_descriptors as _plan_descriptors,
+)
 from fdai.core.conversation.semantic_planning_models import (
     QueryPlanProposal,
     SemanticFrameProposal,
@@ -255,9 +258,18 @@ class AzureOpenAISemanticPlanningModel:
     ) -> Mapping[str, Any] | None:
         """Return one validated query-plan proposal or ``None`` on bounded failure."""
 
+        assembler = self._config.plan_prompt_assembler
+        assembled = assembler.assemble(plan_assembly_keys(frame)) if assembler else None
+        guidance = (
+            assembled.system_text
+            if assembled is not None
+            and assembled.assembly is not None
+            and assembled.assembly.mode.value == "selected"
+            else None
+        )
         payload = {
             "frame": frame.model_dump(mode="json"),
-            "descriptors": _plan_descriptors(descriptors, frame),
+            "descriptors": _plan_descriptors(descriptors, frame, guidance),
             "metric_concepts": metric_concepts,
             "principal_role": principal_role,
             "purpose": purpose,
@@ -265,8 +277,6 @@ class AzureOpenAISemanticPlanningModel:
         }
         if not _bounded_input(payload, context=(), descriptors=descriptors):
             return None
-        assembler = self._config.plan_prompt_assembler
-        assembled = assembler.assemble(plan_assembly_keys(frame)) if assembler else None
         return self._complete(
             payload=payload,
             prompt=assembled.system_text if assembled else self._config.plan_system_prompt,
@@ -683,17 +693,6 @@ def _recovery_prompt(base_prompt: str) -> str | None:
         )
         return None
     return prompt
-
-
-def _plan_descriptors(
-    descriptors: tuple[dict[str, Any], ...],
-    frame: SemanticProblemFrame,
-) -> tuple[dict[str, Any], ...]:
-    """Omit ActionType descriptors from a read-only plan unless the frame is an action draft."""
-
-    if str(getattr(frame.output_shape, "value", frame.output_shape)) == "action_draft":
-        return descriptors
-    return tuple(descriptor for descriptor in descriptors if descriptor.get("kind") != "action")
 
 
 def _frame_descriptor_candidates(

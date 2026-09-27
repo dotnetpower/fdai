@@ -1023,7 +1023,9 @@ async def test_frame_with_covered_shape_keeps_the_selected_prompt() -> None:
 def test_read_only_plan_payload_omits_action_descriptors() -> None:
     from types import SimpleNamespace
 
-    from fdai.delivery.azure.llm.semantic_planning import _plan_descriptors
+    from fdai.core.conversation.semantic_planning_assembly import (
+        plan_descriptors as _plan_descriptors,
+    )
 
     descriptors = (
         {"kind": "function", "name": "query.manifest"},
@@ -1031,8 +1033,33 @@ def test_read_only_plan_payload_omits_action_descriptors() -> None:
         {"kind": "object", "name": "Resource"},
     )
 
-    read = _plan_descriptors(descriptors, SimpleNamespace(output_shape="ontology_manifest"))  # type: ignore[arg-type]
-    draft = _plan_descriptors(descriptors, SimpleNamespace(output_shape="action_draft"))  # type: ignore[arg-type]
+    read = _plan_descriptors(
+        descriptors,
+        SimpleNamespace(
+            output_shape="ontology_manifest", subject_constraints=(), measure_concepts=()
+        ),
+    )  # type: ignore[arg-type]
+    draft = _plan_descriptors(
+        descriptors,
+        SimpleNamespace(output_shape="action_draft", subject_constraints=(), measure_concepts=()),
+    )  # type: ignore[arg-type]
+
+    guided = _plan_descriptors(
+        descriptors,
+        SimpleNamespace(
+            output_shape="ontology_manifest", subject_constraints=(), measure_concepts=()
+        ),  # type: ignore[arg-type]
+        "Use one query.manifest function node.",
+    )
+    unnamed = _plan_descriptors(
+        (*descriptors, {"kind": "function", "name": "query.incident_evidence"}),
+        SimpleNamespace(
+            output_shape="ontology_manifest", subject_constraints=(), measure_concepts=()
+        ),  # type: ignore[arg-type]
+        "Use one query.manifest function node.",
+    )
 
     assert [item["name"] for item in read] == ["query.manifest", "Resource"]
     assert draft == descriptors
+    assert [item["name"] for item in guided] == ["query.manifest", "Resource"]
+    assert "query.incident_evidence" not in [item["name"] for item in unnamed]

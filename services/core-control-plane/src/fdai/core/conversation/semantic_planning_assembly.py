@@ -50,4 +50,32 @@ def frame_result_keys(proposal: Mapping[str, Any]) -> tuple[str, ...]:
     return (f"shape:{shape}",) if isinstance(shape, str) and _KEY_VALUE.fullmatch(shape) else ()
 
 
-__all__ = ["frame_assembly_keys", "frame_result_keys", "plan_assembly_keys"]
+def plan_descriptors(
+    descriptors: tuple[dict[str, Any], ...],
+    frame: SemanticProblemFrame,
+    guidance: str | None = None,
+) -> tuple[dict[str, Any], ...]:
+    """Send a read-only plan only the descriptors its verified frame can use.
+
+    ActionType descriptors are omitted unless the frame is an action draft. With
+    shape-selected guidance, functions are limited to those that guidance or the
+    frame names; the complete prompt keeps every function.
+    """
+
+    if str(getattr(frame.output_shape, "value", frame.output_shape)) == "action_draft":
+        return descriptors
+    named = {*frame.subject_constraints, *frame.measure_concepts}
+    return tuple(
+        descriptor
+        for descriptor in descriptors
+        if descriptor.get("kind") != "action"
+        and (
+            guidance is None
+            or descriptor.get("kind") != "function"
+            or descriptor.get("name") in named
+            or str(descriptor.get("name")) in guidance
+        )
+    )
+
+
+__all__ = ["frame_assembly_keys", "frame_result_keys", "plan_assembly_keys", "plan_descriptors"]
