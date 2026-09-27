@@ -311,6 +311,7 @@ Durable instance search must not reuse Rule `active` or `discovery` pointers. Th
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-27 | implemented | Closed the deterministic collection gaps found by a 24-question bilingual live Console baseline: plural, longest-span, and identifier-bounded `Resource.type` grounding; bilingual request terms for 69 uncovered subtypes; refusal of plain lists for catalog-signalled mutation and relationship requests; model-free name-fragment lists; typed region clarification; count requests as collections; declared state concepts accepted as resource-state facets; explicit recent-change windows up to seven days; and Korean server clarification copy. | `current change`; `semantic_planning_value_filters.py`, `semantic_stated_list_scope.py`, `semantic_target_candidate_planning.py`, `semantic_planning_judgment.py`, `semantic_recent_resource_change_planning.py`, `semantic_planning_specialized_plans.py`, `resource-types.yaml`, `inventory-query-language.yaml`; focused planning, grounding, state, window, and clarification tests; local live Console rerun of the same 24 questions moved from 4 correct and 17 wrong or unhelpful answers to 13 correct, 7 explicit limitations, and 4 misroutes. | Follow-up refinement and ordinal references, exact-target relationship traversal, incident and alert routing, Resource Health inventory planning, action-request drafting, and a Resource.type vocabulary answer remain open below. |
 | 2026-09-27 | implemented | The resource-state planner now owns the secondary-intent and state-condition part of the contextual-list refusal; the refused cases and compiled collections are unchanged. | `current change`; `semantic_resource_state_planning.py` and `semantic_target_candidate_planning.py`; 2,522 focused conversation, planning, processor, and composition tests passed. | None for this ownership move; Console receipts remain tracked by the 2026-09-27 Resource subtype-list row. |
 | 2026-09-26 | implemented | Replaced a model-authored `resource_identity` token in a direct network-path clarification with deterministic English and Korean display wording derived from the typed requirement. | `current change`; direct authenticated question-bank observation; focused bilingual semantic-planning regressions. | Verify with a distinct future resource-identity clarification after Core restart; the measured question is not retried. |
 | 2026-09-26 | implemented | Extended the clarification projection across both typed subject and resource-identity requirements after a distinct Korean configuration-drift question reproduced the raw token. | `current change`; focused four-case bilingual regression. | Restart Core and verify the subject variant with a distinct question; the measured question is not retried. |
@@ -549,3 +550,21 @@ Durable instance search must not reuse Rule `active` or `discovery` pointers. Th
 - [ ] Carry one authenticated selected screen or resource-group identity through the Console, Operator, and Core contracts, then prove that a contextual collection query cannot widen to the principal-visible Resource set.
 
 - [ ] Constrain the incident answer to profile, correlated evidence, and explicit gaps, and represent the next safe step only as a candidate `SemanticOperation.ACTION_DRAFT`; retain the authenticated Console receipt.
+
+- [ ] Refine a prior verified result set and resolve ordinal references. Exit: `그 중에서 koreacentral에
+  있는 것만` narrows the previous verified ObjectSet, and `첫 번째 VM 자세히 알려줘` reads the first
+  displayed row, in live English and Korean follow-ups without re-listing or a download route.
+- [ ] Answer `<exact resource>와 연결된 리소스` with bounded relationship traversal from one exact target.
+  Exit: a live Korean and English question returns related Resources with typed completeness instead
+  of a contextual-scope clarification.
+- [ ] Route open-incident and recent-alert questions to their own capabilities or explain that the
+  source is unavailable. Exit: neither question is answered with subscription Service Health.
+- [ ] Plan Resource Health inventory deterministically. Exit: `Resource Health에 문제 있는 리소스
+  있어?` returns a verified health list or a typed unavailable source without a model-invented type.
+- [ ] Draft an exact-target action request. Exit: `aks-prod-01 시작해줘` returns a no-authority action
+  draft or an explicit unsupported-action answer, never a Resource list.
+- [ ] Answer the supported Resource subtype vocabulary for `어떤 리소스 유형을 지원해?`. Exit: the answer
+  lists `Resource.type` values rather than ontology ObjectTypes.
+- [ ] Support region filters. Exit: a reviewed ObjectSet location predicate answers
+  `koreacentral 리전에 있는 스토리지 계정` with the matching storage accounts in that region, replacing
+  the typed clarification.

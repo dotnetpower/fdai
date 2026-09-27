@@ -134,6 +134,10 @@ When a Resource list or declaration list is incomplete, its limitation line expl
 typed source-limitation code in the answer locale and keeps the exact code in inline code. An
 unknown code is shown only as its code. The `source_truncation_reason` wire field carries only the
 machine code; localized text never replaces it.
+Answer text names provider lifecycle states, timezone-aware instants in UTC, and source
+completeness in the answer language, and pairs the `execution_authority=false` marker with a
+sentence that states the read-only boundary. A recent-change row without a Resource name shows the
+last segment of its reference. Wire rows and technical details keep the exact provider values.
 Operator's PostgreSQL family facade similarly delegates immutable records, row projection, and
 evidence decoding without changing query parameters, proposal claims, replay order, or wire fields.
 Operator terminal presentation delegates Pantheon assurance, localized Incident blocks, and
@@ -418,6 +422,7 @@ meaningful active declaration and an authoritative usage source justify dedicate
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-27 | implemented | Answers now name provider lifecycle states, UTC instants, and completeness in the answer language, pair `execution_authority=false` with a read-only sentence, and show the last reference segment for unnamed recent changes. | `current change`; `semantic_answer_presentation.py`, `semantic_turn_processor.py`, Service Health renderers; focused presentation and processor tests passed. | None for these answer values. |
 | 2026-09-27 | implemented | Resource and declaration list limitation lines now explain each known typed source-limitation code in the answer locale while keeping the exact code visible, and unknown codes remain codes only. | `current change`; `semantic_source_limitations.py`, `semantic_turn_processor.py`, and `semantic_ontology_answers.py`; focused limitation and Korean and English Resource-list cases in `test_semantic_turn_processor.py` passed. | Authenticated Console evidence for a typed limitation line remains tracked by the continuous operational instance graph ledger. |
 | 2026-09-27 | implemented | Moved ontology declaration-count rendering into a dedicated module and added a fail-closed declaration-list answer that names readable declarations instead of reporting a generic row count. | `current change`; `semantic_ontology_answers.py`; declaration list, fail-closed list, and declaration count cases in `test_semantic_turn_processor.py` passed. | Authenticated Console receipts for manifest-list answers remain tracked by the hierarchical conversation planning ledger. |
 | 2026-09-26 | implemented | Connected Core's digest-bound Slack buttons to Operator's existing signed interaction and authenticated Console handoff. The card carries no actor, role, action hash, or approval authority. | `current change`; `slack_adapter.py`, `slack_request_outbox.py`, `test_slack_hil_interactivity.py`; focused Core/Operator/Console and synthetic browser checks. | Retain live Slack delivery and signed click, fresh Entra API-token `auth_time`, a real PostgreSQL nonce race, and #943 author confirmation. |

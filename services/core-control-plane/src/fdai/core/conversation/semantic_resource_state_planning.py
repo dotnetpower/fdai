@@ -224,6 +224,7 @@ def contextual_list_omits_requirement(
     return bool(
         semantic_judgment.get("secondary_intents")
         or "current_state" in raw_facets
+        or any(facet.startswith("resource_state.") for facet in raw_facets)
         or any(target.get("kind") in _STATE_FILTER_KINDS for target in typed_targets)
         or resource_condition_stated(utterance, registry=registry)
     )

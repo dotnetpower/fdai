@@ -248,6 +248,10 @@ observation preserves the verified node kind, dependency position, status, and e
 without provider commands or execution authority. Missing, delayed, or failed observation delivery
 does not change the query result; the terminal execution receipt remains authoritative.
 
+Resource subtype operands come from the reviewed `Resource.type` value domain. Its request-term
+groups may hold up to 192 groups so that each reviewed subtype can bind its own bilingual terms;
+the terms ground stated operands only and never add an ObjectType or capability.
+
 Resource-state queries accept only catalog-declared state concepts and exact bounded resource
 collections. A concrete state concept takes precedence over the generic observed-state sentinel.
 Empty or incomplete results preserve row-count and source limitations and never prove that matching

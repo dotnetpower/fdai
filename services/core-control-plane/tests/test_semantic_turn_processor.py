@@ -323,11 +323,12 @@ def test_resource_state_answer_lists_verified_names_and_observed_states() -> Non
 
     assert answer.startswith("## 관측된 리소스 상태")
     assert (
-        "`database-a`: `Stopped` (`mysql-server`, 리소스 그룹 `group-a`, 지역 `region-a`" in answer
+        "`database-a`: 중지됨 (`Stopped`) (`mysql-server`, 리소스 그룹 `group-a`, 지역 `region-a`"
+        in answer
     )
-    assert "`database-b`: `Paused` (`sql-database`" in answer
+    assert "`database-b`: 일시 중지됨 (`Paused`) (`sql-database`" in answer
     assert "리소스 그룹 `unavailable`, 지역 `unavailable`" in answer
-    assert "근거 완전성: `incomplete`" in answer
+    assert "근거 완전성: 불완전" in answer
     assert "`resource_state_evidence_incomplete`" in answer
     assert "`execution_authority=false`" in answer
 
@@ -796,7 +797,7 @@ def test_service_health_answer_reports_direct_conclusion_and_scope(
     )
 
     assert answer.startswith(expected_heading)
-    assert NOW.isoformat() in answer
+    assert NOW.strftime("%Y-%m-%d %H:%M:%S UTC") in answer
     assert "server-configured Azure subscription" in answer or "서버에 구성된 Azure 구독" in answer
     if complete:
         assert "`source_unavailable`" not in answer
@@ -1265,6 +1266,44 @@ def test_state_transition_answer_reports_bitemporal_edge_and_incomplete_coverage
     assert "`execution_authority=false`" in answer
 
 
+def test_recent_resource_change_answer_names_a_deleted_resource_by_its_last_segment() -> None:
+    request = _request(locale="en")
+    semantic_request = cast(dict[str, object], request["semantic_turn"])
+    answer = _render_general_query_answer(
+        SemanticTurnRequest.model_validate(semantic_request),
+        [
+            {
+                "node_id": "recent-resource-changes",
+                "rows": [
+                    {
+                        "row_id": "resource-a",
+                        "values": {
+                            "subject_ref": "scope-a/resource-group/rg-a/providers/topics/topic-a",
+                            "operation": "delete",
+                            "mutation_kind": "delete",
+                            "observation_kind": "tombstone",
+                            "occurred_at": NOW.isoformat(),
+                            "source_identity": "azure_event_grid.resource_change",
+                            "execution_authority": False,
+                        },
+                    },
+                ],
+                "returned_rows": 1,
+                "total_rows": 1,
+                "source_complete": True,
+                "source_truncation_reason": None,
+                "display_truncated": False,
+            }
+        ],
+        output_shape="resource_changes",
+        measure_concepts=("resource_change.observed",),
+    )
+
+    assert "- `topic-a`: `delete`" in answer
+    assert "scope-a/resource-group" not in answer
+    assert NOW.strftime("%Y-%m-%d %H:%M:%S UTC") in answer
+
+
 def test_recent_resource_change_answer_renders_arg_changes_without_state_transitions() -> None:
     request = _request(locale="en")
     semantic_request = cast(dict[str, object], request["semantic_turn"])
@@ -1313,7 +1352,7 @@ def test_recent_resource_change_answer_renders_arg_changes_without_state_transit
     assert "`api-prod`: `upsert`" in answer
     assert "`storage-prod`: `Microsoft.Storage/storageAccounts/write`" in answer
     assert "state transition" not in answer.casefold()
-    assert "Source completeness: `complete`" in answer
+    assert "Source completeness: complete" in answer
 
 
 def test_recent_resource_change_answer_withholds_untrusted_rows() -> None:
@@ -1954,10 +1993,10 @@ def test_current_state_answer_reports_read_fields_unobserved_fields_and_gaps() -
     assert "Provisioning status: Succeeded." in answer
     assert "Running status: not observed." in answer
     assert "Ready revision: not observed." in answer
-    assert "Inventory read: 2026-08-26T08:29:23Z." in answer
+    assert "Inventory read: 2026-08-26 08:29:23 UTC." in answer
     assert "Source observation: not observed." in answer
     assert "revision name unavailable" in answer
-    assert "source observed at unavailable" in answer
+    assert "the source observation time is unavailable" in answer
     assert "no abnormal provider lifecycle state was observed" in answer
     assert "absence of abnormal resources is not proven" in answer
     assert "does not judge whether any resource outside that scope is healthy" in answer

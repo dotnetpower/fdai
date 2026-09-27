@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 7a31747a6e6598a75d330c1320103abc30df737a
+translation_source_sha: b6fb7247629871829ab2e65311bb487fe2147c95
 translation_revised: 2026-09-27
 ---
 # 프로젝트 구조
@@ -200,6 +200,11 @@ Cost Governance 가명 자료는 Operator 조립이 소유하는 비밀입니다
   `core/conversation/semantic_resource_state_planning.py`는 맥락 기반 Resource 목록이 보조 의도나
   발화에 나온 상태 요구 사항을 누락하게 되면 그 목록을 거부하는 검사를 소유하며, 대상 후보 계획은
   `semantic_target_candidate_constants.py`를 통해 모음 필터 종류를 공유합니다.
+  `core/conversation/semantic_stated_list_scope.py`는 결정론적 Resource 목록을 목록으로 답할 수 있는
+  요청에만 사용합니다. 카탈로그 신호가 변경 작업이나 관계 요청을 나타내면 목록을 거부하고, 원문
+  그대로의 이름 조각으로 목록을 만들며, 지역으로 한정된 조각은 명확화합니다.
+  `fdai_core_service/semantic_answer_presentation.py`는 공급자 lifecycle 상태, ISO 시각, 완전성,
+  실행 권한 없음 표시를 운영자 언어로 렌더링하고 기술 상세에는 정확한 값을 유지합니다.
   `fdai_core_service/semantic_source_limitations.py`는 타입이 지정된 원본 제한 코드를 운영자의
   로케일로 설명하고 정확한 코드도 함께 표시하며, 알 수 없는 코드는 의미를 지어내지 않고 코드로만
   둡니다. 공급자 중립 `OntologyGraphSnapshot.source_incomplete_reason`은 불완전한 스냅샷에서만 이

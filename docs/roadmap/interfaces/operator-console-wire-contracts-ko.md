@@ -1,7 +1,7 @@
 ---
 title: Operator Console - Data and Wire Contracts
 translation_of: operator-console-wire-contracts.md
-translation_source_sha: f197a2dc5508456334f357f2e1613d5f96c667d6
+translation_source_sha: ff2fb915100a025e32c982bde6306676987fffc8
 translation_revised: 2026-09-27
 ---
 
@@ -130,6 +130,10 @@ Resource 목록이나 선언 목록이 불완전하면 제한 문장은 알려�
 로케일로 설명하고 정확한 코드를 인라인 코드로 유지합니다. 알 수 없는 코드는 코드만 표시합니다.
 `source_truncation_reason` wire 필드는 machine 코드만 전달하며 현지화된 문장이 이를 대체하지
 않습니다.
+답변 문장은 공급자 lifecycle 상태, 시간대가 있는 시각(UTC), 원본 완전성을 답변 언어로 표시하고
+`execution_authority=false` 표시와 함께 읽기 전용 경계를 설명하는 문장을 제공합니다. Resource
+이름이 없는 최근 변경 행은 참조의 마지막 구간을 표시합니다. wire 행과 기술 상세에는 정확한 공급자
+값이 그대로 남습니다.
 Operator의 PostgreSQL 제품군 facade도 변경 불가능한 레코드, 행 변환 및 근거 디코딩을 위임하며
 조회 매개 변수, 제안 claim, 재생 순서 또는 wire 필드를 바꾸지 않습니다.
 Operator terminal 표현은 Pantheon 품질 보증, 현지화된 Incident 블록 및 내용이 제거된 읽기
@@ -403,6 +407,7 @@ ActionType은 정확한 의미 ObjectType 또는 InterfaceType target이 있을 
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-27 | implemented | 답변이 공급자 lifecycle 상태, UTC 시각, 완전성을 답변 언어로 표시하고, `execution_authority=false`와 함께 읽기 전용 문장을 제공하며, 이름이 없는 최근 변경에는 참조의 마지막 구간을 표시합니다. | `current change`; `semantic_answer_presentation.py`, `semantic_turn_processor.py`, Service Health 렌더러; 집중 표시 및 프로세서 테스트 통과. | 이 답변 값에 대해 남은 작업은 없습니다. |
 | 2026-09-27 | implemented | Resource 목록과 선언 목록의 제한 문장이 알려진 각 타입 지정 원본 제한 코드를 답변 로케일로 설명하면서 정확한 코드도 표시하고, 알 수 없는 코드는 코드로만 남기도록 했습니다. | `current change`; `semantic_source_limitations.py`, `semantic_turn_processor.py`, `semantic_ontology_answers.py`; `test_semantic_turn_processor.py`의 집중 제한 문장 사례와 한국어 및 영어 Resource 목록 사례 통과. | 타입 지정 제한 문장의 인증된 Console 근거는 지속형 운영 인스턴스 그래프 원장에서 계속 추적합니다. |
 | 2026-09-27 | implemented | 온톨로지 선언 개수 렌더링을 전용 모듈로 옮기고, 일반 행 개수 대신 읽을 수 있는 선언 이름을 표시하며 안전하게 실패하는 선언 목록 답변을 추가했습니다. | `current change`; `semantic_ontology_answers.py`; `test_semantic_turn_processor.py`의 선언 목록, 안전한 실패 목록, 선언 개수 사례 통과. | 매니페스트 목록 답변의 인증된 Console 증적은 계층형 대화 계획 ledger에서 추적합니다. |
 | 2026-09-26 | implemented | Core의 본문 다이제스트에 결합된 Slack 단추를 Operator의 기존 서명 상호작용과 인증된 Console 인계에 연결했습니다. 카드에는 행위자, 역할, 작업 해시 또는 승인 권한을 담지 않습니다. | `current change`, `slack_adapter.py`, `slack_request_outbox.py`, `test_slack_hil_interactivity.py`, 집중 Core/Operator/Console 및 합성 브라우저 검사. | 실제 Slack 전달과 서명된 클릭, 새 Entra API 토큰 `auth_time`, PostgreSQL nonce 동시성 검사 및 #943 작성자 확인을 보존합니다. |

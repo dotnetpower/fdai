@@ -20,7 +20,7 @@ import { Tooltip } from "../components/tooltip";
 import type { AdaptiveAnswer } from "./adaptive-answer";
 import { AdaptiveAnswerSources } from "./adaptive-answer-sources";
 import { useTransientFlag } from "../hooks/use-transient-flag";
-import { t, tForLocale } from "../i18n";
+import { getLocale, t, tForLocale } from "../i18n";
 import { routeHref } from "../router";
 import { getDeckUser } from "./deck-user";
 import type {
@@ -533,13 +533,23 @@ export function primaryAnswerText(
     ) {
       return clarification;
     }
-    return t(
+    return tForLocale(
+      replyLocale(clarification),
       `deck.grounded.clarificationPrompt.${verificationIssueKind(verification.reason_code)}`,
     );
   }
   const reason = verification?.reason_code?.trim();
   if (!reason) return text;
   return stripReasonSuffix(text, reason);
+}
+
+/** Answer in the language the server used for this reply, not the Console chrome language. */
+function replyLocale(serverText: string): "en" | "ko" {
+  if (!serverText) return getLocale();
+  for (const character of serverText) {
+    if (character >= "가" && character <= "힣") return "ko";
+  }
+  return "en";
 }
 
 function stripReasonSuffix(text: string, reason: string | null): string {

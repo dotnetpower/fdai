@@ -17,6 +17,8 @@ from fdai_service_contracts.semantic_judgment import (
 )
 from pydantic import ValidationError
 
+from fdai.core.ontology_platform.resource_state_queries import RESOURCE_STATE_QUERY_CONCEPTS
+
 from .conversation_preflight_targets import named_subscription_requested
 from .semantic_catalog_value_mentions import stated_catalog_values
 from .semantic_judgment import SemanticJudgmentObservation
@@ -369,8 +371,9 @@ def _operational_frame_matches_accepted_judgment(
         )
     if not judgment_accepted or judgment is None:
         return False
+    # A declared state concept requested as a facet names the state to list, not another output.
     if output_shape == "resource_state_list" and not set(judgment.requested_facets).issubset(
-        _RESOURCE_STATE_LIST_FACETS
+        _RESOURCE_STATE_LIST_FACETS | frozenset(RESOURCE_STATE_QUERY_CONCEPTS)
     ):
         return False
     if required_primary_intent is not None:

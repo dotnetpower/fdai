@@ -28,6 +28,7 @@
           "services/core-control-plane/tests/quality_gate",
           "services/core-control-plane/tests/rbac",
           "services/core-control-plane/tests/test_semantic_presentation_semantics.py",
+          "services/core-control-plane/tests/test_semantic_answer_presentation.py",
           "services/core-control-plane/tests/test_semantic_source_limitations.py",
           "services/core-control-plane/tests/telemetry",
           "services/core-control-plane/tests/tools"

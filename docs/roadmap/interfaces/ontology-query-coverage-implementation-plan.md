@@ -61,7 +61,19 @@ Capability preparation preserves all selected canonical property tokens, includi
 > targetless schema proposal that leaves a stated subtype unexplained returns a typed subject
 > clarification instead of a declaration list or count. Exact Azure Resource Manager
 > identities remain `Resource.id equals` predicates instead of being reduced to the final name
-> segment. Accepted collection judgments use a deterministic frame, and any remaining model planner
+> segment. Stated-type grounding accepts a regular English plural, lets the longest stated catalog
+> term own its span (`virtual machine scale sets` states the scale-set type, not `virtual
+> machine`), and ignores a term inside a larger identifier such as `aks` in `aks-prod-01`. Every
+> reviewed Resource subtype except `subscription` and `unclassified-resource` declares bilingual
+> request terms. A plain Resource list is refused for a catalog-signalled mutation or relationship
+> request, a declared state concept requested as a facet selects the resource-state list, and a
+> reviewed count request counts as a collection request. A verbatim name fragment alone compiles a
+> model-free, object-only name-filtered list; request facet words such as `list` never become name
+> fragments. A region-qualified fragment returns a typed clarification because ObjectSet
+> predicates cannot filter by provider location yet. An explicit recent-change window such as
+> `last 24 hours` bounds the change read up to seven days; otherwise the one-hour server default
+> applies. Server-authored clarification questions follow the operator's language.
+> Accepted collection judgments use a deterministic frame, and any remaining model planner
 > receives only the descriptors required by that operational family. Subscription identity and
 > Service Health reads build deterministic frames and server plans from their exact no-input
 > FunctionTypes instead of invoking a frame model with the full principal manifest. Localized

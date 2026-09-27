@@ -46,11 +46,42 @@ _DESCRIPTIONS: dict[str, tuple[str, str]] = {
         "그래프 완전성을 확인할 수 없습니다",
         "graph completeness could not be verified",
     ),
+    "resource_change_coverage_unverified": (
+        "리소스 변경 수집 범위를 확인하지 못했습니다",
+        "resource change collection coverage is unverified",
+    ),
+    "change_activity_incomplete": (
+        "변경 활동 기록이 완전하지 않습니다",
+        "change activity records are incomplete",
+    ),
+    "resource_state_evidence_incomplete": (
+        "리소스 상태 근거가 완전하지 않습니다",
+        "resource state evidence is incomplete",
+    ),
+    "source_observed_at_unavailable": (
+        "원본 관측 시각을 확인할 수 없습니다",
+        "the source observation time is unavailable",
+    ),
+    "inventory_scope_incomplete": (
+        "인벤토리 범위가 완전하지 않습니다",
+        "the inventory scope is incomplete",
+    ),
+    "dependency_not_completed": (
+        "선행 조회 단계가 완료되지 않았습니다",
+        "a prerequisite query step did not complete",
+    ),
     "source_incomplete": (
         "원본 완전성을 확인할 수 없습니다",
         "source completeness could not be verified",
     ),
 }
+
+
+def known_source_limitation(code: str) -> bool:
+    """Return whether every part of a limitation code has a reviewed explanation."""
+
+    parts = tuple(part for part in code.split("+") if part)
+    return bool(parts) and all(part in _DESCRIPTIONS for part in parts)
 
 
 def source_limitation_text(code: str, *, korean: bool) -> str:
@@ -70,4 +101,4 @@ def source_limitation_text(code: str, *, korean: bool) -> str:
     return f"{separator.join(descriptions)} (`{safe_code}`)"
 
 
-__all__ = ["source_limitation_text"]
+__all__ = ["known_source_limitation", "source_limitation_text"]

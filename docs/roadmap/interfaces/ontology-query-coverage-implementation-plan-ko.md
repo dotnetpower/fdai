@@ -1,6 +1,6 @@
 ---
 translation_of: ontology-query-coverage-implementation-plan.md
-translation_source_sha: 5fdfbf52cd9a4999b16520eafda203c759b56cb3
+translation_source_sha: 239e5047d9420e2f1393602b0718d2ab444ec59f
 translation_revised: 2026-09-27
 ---
 # 온톨로지 조회 커버리지 구현 계획
@@ -78,7 +78,18 @@ v1.2 검색어/발화 결속, 사용 불가 결과 및 이전 버전 호환성�
 > 하위 유형을 설명하지 못하는 대상 없는 스키마 제안은 선언 목록이나 개수
 > 대신 타입이 지정된 주제 명확화를 반환합니다.
 > 정확한 Azure Resource Manager 신원은 마지막 이름 부분으로 축약되지
-> 않고 `Resource.id equals` 조건식으로 유지됩니다. 수락된 모음 판단은 결정론적 프레임을 사용하며,
+> 않고 `Resource.id equals` 조건식으로 유지됩니다. 발화에 나온 유형의 근거 확인은 영어의 규칙적인
+> 복수형을 허용하고, 가장 긴 카탈로그 용어가 해당 구간을 소유하게 하며(`virtual machine scale
+> sets`는 `virtual machine`이 아니라 확장 집합 유형을 뜻함), `aks-prod-01`의 `aks`처럼 더 큰 식별자
+> 안에 있는 용어는 무시합니다. `subscription`과 `unclassified-resource`를 제외한 검토된 모든
+> Resource 하위 유형은 한국어와 영어 요청 용어를 선언합니다. 카탈로그 신호가 변경 작업이나 관계
+> 요청을 나타내면 일반 Resource 목록을 만들지 않고, facet으로 요청한 선언된 상태 개념은 리소스 상태
+> 목록을 선택하며, 검토된 개수 요청은 모음 요청으로 취급합니다. 원문 그대로의 이름 조각만 있으면
+> 모델 없이 객체만 읽는 이름 필터 목록을 컴파일하며, `list` 같은 요청 facet 단어는 이름 조각이 되지
+> 않습니다. 지역으로 한정된 조각은 ObjectSet 조건식이 아직 공급자 위치로 필터링할 수 없으므로 타입이
+> 지정된 명확화를 반환합니다. `last 24 hours` 같은 명시적 최근 변경 기간은 최대 7일까지 변경 조회
+> 범위를 정하고, 그렇지 않으면 서버 기본값인 1시간을 사용합니다. 서버가 작성하는 명확화 질문은
+> 운영자의 언어를 따릅니다. 수락된 모음 판단은 결정론적 프레임을 사용하며,
 > 모델 계획이 여전히 필요하면 해당 운영 유형에 필요한 서술자만 전달합니다. 구독 신원 및 Service
 > Health 조회는 전체 principal 매니페스트를 프레임 모델에 전달하지 않고 정확한 입력 없는
 > FunctionType에서 결정론적 프레임과 서버 계획을 구성합니다. 현지화된 Service Health 답변은
