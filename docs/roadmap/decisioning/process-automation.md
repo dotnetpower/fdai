@@ -361,17 +361,10 @@ Given a `Workflow`, the planner produces a deterministic, read-only
   `ceiling_by_tier` has any `enforce_hil` tier, or its `prod_downgrade`
   collapses to `enforce_hil`. This is the same source of truth the risk-gate
   uses; the planner never invents a second rule.
-- **Who approves?** The required human role is the highest `min_role` across the
-  HIL tiers, resolved to its Entra security-group objectId via the RBAC
-  [`GroupMapping`](../../../services/core-control-plane/src/fdai/core/rbac/resolver.py) (the `aw-approvers` or
-  `aw-owners` group). No-self-approval is carried forward on every gated step.
-- **How does the development profile change the plan?** An explicitly selected full-authority
-  development profile may set the effective role to Owner, effective quorum to one, and
-  self-approval exclusion to false for both ActionType gates and explicit approval steps. The
-  planner first resolves a trusted current binding and matches the exact workflow name and version,
-  step id, original role, quorum, and no-self-approval value. The audit projection retains those
-  original requirements. A missing or mismatched binding blocks profile use rather than weakening
-  the ordinary plan.
+- **Who approves?** The required human role is the highest `min_role` across the HIL tiers, resolved through RBAC
+  [`GroupMapping`](../../../services/core-control-plane/src/fdai/core/rbac/resolver.py) to `aw-approvers` or `aw-owners`; ordinary gated steps retain no-self-approval.
+  An explicitly selected full-authority development profile may instead use Owner, effective quorum one, and same-human approval for ActionType and explicit approval steps only after a trusted current binding matches the exact workflow version, step, original role, quorum, and no-self-approval value.
+  Audit retains the original requirements, and a missing or mismatched binding blocks profile use.
 - **How are they reached?** The A1 `hil_approval` route may dispatch through the
   [`HilChannel`](../../../services/core-control-plane/src/fdai/shared/providers/hil_channel.py)
   seam. Teams Bot delivery and the separate authenticated callback are distinct from
