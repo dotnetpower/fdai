@@ -59,6 +59,10 @@ Design documents govern published architecture and behavior, not contract-preser
 - Enabling MUST NOT raise autonomy: shadow promotion, RBAC, risk, approval, verification, rollback,
   and kill switches stay authoritative. Flag tests MUST cover defaults, Settings authorization,
   persistence / audit, unavailable degradation, and shadow / enforce independence.
+- **Full-authority development profile:** when explicitly configured for an exact dedicated test
+  tenant, subscription, and optional resource-group scope, this authority mode MAY enable, promote,
+  demote, execute, and roll back any registered ActionType under one authenticated Owner's current
+  approval. It never changes the default or production authority mode.
 - Use distinct local variable names for unrelated types in separate branches. Strict mypy fixes
   the inferred type from the first assignment, so reusing one name for different page, result, or
   record types creates avoidable type-check failures.
@@ -125,18 +129,26 @@ Design documents govern published architecture and behavior, not contract-preser
 - Every autonomous state-changing action path MUST implement all seven safeguards: stop-condition, tested rollback, blast-radius limit, successful what-if/dry-run, logical-target lock, idempotency
   with duplicate suppression, and audit intent before effect plus terminal closure. Missing one
   blocks merge; effect verification gates success. Pure read paths use their read contracts instead.
+- In the full-authority development profile, recreation or teardown is a valid bounded recovery path
+  for disposable test resources. When an Azure API exposes no what-if operation, a typed
+  no-preview receipt with the exact target revision and explicit Owner confirmation satisfies the
+  dry-run slot. The remaining safeguards are unchanged.
 - **ActionType schema is the enforcement surface for those invariants.** New ontology
   `ActionType` declarations MUST supply `rollback_contract` from the enum
   (`pr_revert` / `scripted` / `pitr` / `snapshot_restore` / `state_forward_only`) - the
   legacy `none` value is gone. A genuinely one-way mutation sets `irreversible: true` and
   is routed HIL+quorum by the risk-gate; it never uses `rollback_contract` to silence the
-  invariant. Preconditions and stop_conditions belong on the ActionType, not the executor.
+  invariant. The full-authority development profile records the original quorum but may use the
+  sole Owner's approval as the effective development quorum without inventing additional human
+  identities. Preconditions and stop_conditions belong on the ActionType, not the executor.
 - Autonomous actions MUST be idempotent: re-delivery of the same event or a retried action
   MUST NOT cause duplicate changes. Use a stable idempotency key and deduplicate on it.
 - Default new actions to **shadow mode** (judge and log only) - every upstream ActionType
   declares `default_mode: shadow` and a measurable `promotion_gate`. Promotion to enforce
   is an explicit, separately reviewed change, never bundled with the capability's first PR,
-  and MUST measure the promotion_gate on the frozen scenario set before merging.
+  and MUST measure the promotion_gate on the frozen scenario set before merging. The
+  full-authority development profile MAY promote or roll back immediately inside its dedicated
+  test scope, but the receipt is development-only and cannot satisfy production promotion.
 - The audit log is append-only and MUST record, per action: event id, tier, decision,
   idempotency key, actor identity, timestamp, shadow-vs-enforce mode, and rollback reference.
 
@@ -220,7 +232,8 @@ Design documents govern published architecture and behavior, not contract-preser
   pipeline (source watcher → shadow evaluation → regression → promote/rollback) depends on them.
 - Use property-based tests for the risk gate and idempotency: assert that high-impact execution has
   current or standing human approval, silence grants nothing, irreversible actions never use
-  standing authorization, shadow never mutates, and re-applying an action is a no-op.
+  standing authorization outside the full-authority development profile, shadow never mutates
+  outside an explicit development promotion, and re-applying an action is a no-op.
 - Every autonomous action path MUST have a shadow-mode test proving it judges and logs without
   mutating, plus a rollback test proving the rollback path restores prior state.
 - Do not weaken, mock away, or skip safety checks to make tests pass. Tests MUST be

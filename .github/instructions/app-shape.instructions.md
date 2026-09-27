@@ -59,6 +59,10 @@ The layers communicate through the event bus and git, not direct in-process call
   development profile may let the same human request and approve, but the human never receives or
   shares the executor identity. See
   [../../docs/roadmap/architecture/security-and-identity.md](../../docs/roadmap/architecture/security-and-identity.md).
+- A **full-authority development profile** may route every registered ActionType through the same
+  typed executor inside an exact dedicated test subscription, including Azure mutation,
+  destructive or irreversible tests, Chaos, and promotion, demotion, or rollback. Console and
+  Operator API remain request surfaces and never acquire the executor identity.
 
 ## Local Console Port Contract (MUST)
 

@@ -1,7 +1,7 @@
 {
-  "catalog_digest": "sha256:f7d72fc513680e630f7d86c6485a4506477d864331e0c5d01b205b02ce60c7a2",
+  "catalog_digest": "sha256:1f22d3fb7a0953d95d02a65536db077f2b45e0955914ce5a2d51e9e65f9aaff1",
   "execution_authority": false,
-  "generated_at": "2026-09-27T00:30:34.857642Z",
+  "generated_at": "2026-09-27T00:42:56.043583Z",
   "records": [
     {
       "designed_behavior": [
@@ -21,8 +21,17 @@
         "How does FDAI keep actions safe?",
         "FDAI는 작업을 어떻게 안전하게 실행하나요?"
       ],
-      "record_digest": "sha256:0e460fa0690db3a976908ae4a495f227a1f925abc454b9b0d54f143cca84ea76",
+      "record_digest": "sha256:f41f3fc50f1ca383bda600f504fdb9c66a66832e58ce521354b5627001c8b89d",
       "sources": [
+        {
+          "authority_role": "design",
+          "blob_sha": "1300e23ed1b548c4cb5e6804689c69d2b684ef84",
+          "line_end": 90,
+          "line_start": 90,
+          "path": "docs/roadmap/architecture/fdai-constitution.md",
+          "source_kind": "doc",
+          "symbol": "Article 3: Agent-driven authority"
+        },
         {
           "authority_role": "design",
           "blob_sha": "9852c3620969f45f21d7e61c59f947cc6b1f985f",
@@ -31,15 +40,6 @@
           "path": "docs/roadmap/decisioning/action-ontology.md",
           "source_kind": "doc",
           "symbol": "One ontology, two triggers"
-        },
-        {
-          "authority_role": "design",
-          "blob_sha": "d555b7e96569e6a77ff0af9490eb953b24f1a2cd",
-          "line_end": 90,
-          "line_start": 90,
-          "path": "docs/roadmap/architecture/fdai-constitution.md",
-          "source_kind": "doc",
-          "symbol": "Article 3: Agent-driven authority"
         }
       ],
       "status": "implemented",
@@ -235,11 +235,11 @@
         "What accuracy does FDAI guarantee?",
         "FDAI는 어떤 정확성을 보장하나요?"
       ],
-      "record_digest": "sha256:1970f6b4787b227c66a3c8ec990430ab513dfd65246b78b6b88a701a248c9b85",
+      "record_digest": "sha256:025354b8e7cc2a3a2852bb8b757e7f7a6b7771f7780d8e6455c5c0942af17496",
       "sources": [
         {
           "authority_role": "design",
-          "blob_sha": "d555b7e96569e6a77ff0af9490eb953b24f1a2cd",
+          "blob_sha": "1300e23ed1b548c4cb5e6804689c69d2b684ef84",
           "line_end": 63,
           "line_start": 63,
           "path": "docs/roadmap/architecture/fdai-constitution.md",
@@ -413,13 +413,13 @@
         "How does FDAI route natural-language questions?",
         "FDAI는 자연어 질문을 어떻게 라우팅하나요?"
       ],
-      "record_digest": "sha256:98e3d4a9e09315916601751f5dee54bac204f1483f85ba8e5382bc4b232f44f9",
+      "record_digest": "sha256:931f4bde061b8f138b89ef2ceb6cb0a1db6ddb073d6846879333d8ce89fe4cd5",
       "sources": [
         {
           "authority_role": "design",
-          "blob_sha": "cf32fb328c19ecb891485f9678e9022b6a1c4a41",
-          "line_end": 85,
-          "line_start": 85,
+          "blob_sha": "85c3584af45164fd966ea0d1f666194c5c7a6da7",
+          "line_end": 92,
+          "line_start": 92,
           "path": ".github/instructions/architecture.instructions.md",
           "source_kind": "doc",
           "symbol": "Natural-language intent routing (MUST)"

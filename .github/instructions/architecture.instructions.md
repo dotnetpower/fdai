@@ -44,6 +44,13 @@ baseline and treatment on the same scenario set ([metrics](../../docs/roadmap/ar
 8. **Fail toward safety** - any failure, low confidence, or budget/rate overflow degrades to
    HIL, never to an ungated auto-action.
 
+An explicitly configured **full-authority development profile** is a separate authority axis for a
+dedicated test scope. Inside its exact tenant, subscription, and optional resource-group binding, a
+sole authenticated Owner may approve every registered ActionType category, including Azure
+mutation, destructive or irreversible work, Chaos, and promotion, demotion, or rollback. The risk
+classification remains audited but does not categorically deny an action by category. Scope,
+identity, target, and audit validation still fail closed.
+
 Constitutional objective precedence filters policy, safety, security, identity, data-integrity, recovery, and service-objective violations before Odin scores eligible soft-objective tradeoffs.
 
 ## Agent-Driven Runtime (MUST)
@@ -215,6 +222,11 @@ enforce is explicit, per-action, and gated on measured accuracy plus zero policy
 escapes in shadow; regressions demote back to shadow automatically
 ([security-and-identity.md](../../docs/roadmap/architecture/security-and-identity.md)).
 
+The full-authority development profile may promote, demote, or roll back a capability immediately
+inside its dedicated test scope under the sole Owner's current approval. That transition is
+recorded as development-only and unvalidated, cannot count as production promotion evidence, and
+does not alter the default profile or any production registry.
+
 ## Human Override
 
 Overrides are separate, audited policy artifacts. They may disable, lower severity, or relax a
@@ -222,6 +234,10 @@ declared parameter only at resource-group-equivalent scope or narrower. They nev
 suppress its finding, stop shadow evaluation, or bypass grounding and approval. Organization-wide
 disablement is retirement, not override. See
 [rule-governance.md](../../docs/roadmap/rules-and-detection/rule-governance.md).
+
+The full-authority development profile is not a human override. Its scope may be an entire dedicated
+test subscription because the profile binds that subscription as the sandbox boundary; it confers
+no authority over any other subscription, tenant, or production registry.
 
 ## Observability
 

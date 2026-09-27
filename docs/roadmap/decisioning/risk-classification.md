@@ -27,6 +27,7 @@ policy (auto vs HIL) and initial policy approver"* from
 | Existing control-loop audit projection | implemented | [`_helpers.py`](../../../services/core-control-plane/src/fdai/core/control_loop/_helpers.py), [`test_control_loop_authority.py`](../../../services/core-control-plane/tests/core/test_control_loop_authority.py) | Audit data includes the matched rule, final decision, quorum, and resolved ceiling. |
 | Approval and change-governance enforcement | in-progress | [`check-risk-table-change.py`](../../../scripts/quality/architecture/check-risk-table-change.py), [`test_check_risk_table_change.py`](../../../tests/integration/scripts/test_check_risk_table_change.py), [Change Process](#change-process), [CODEOWNERS](../../../.github/CODEOWNERS) | A commit gate now enforces the metadata half of the contract - a strictly increasing version, unchanged Owner-tier ownership, a written justification on every rule, and a fail-close default that stays last - and classifies the change direction so a loosening edit cannot hide behind a patch bump. The two-person quorum and Owner-tier review half is branch protection on the deployment's fork and stays unproven from a local checkout. |
 | Replay-complete feature and catalog metadata | implemented | [`authority.py`](../../../services/core-control-plane/src/fdai/core/risk_gate/authority.py), [`test_authority.py`](../../../services/core-control-plane/tests/core/risk_gate/test_authority.py) | The authority audit payload serializes the exact feature vector and the risk-table catalog version, and focused checks replay a recorded payload against its own catalog version after the table changes. |
+| Full-authority development profile | not-started | [FDAI Constitution](../architecture/fdai-constitution.md#article-8-autonomy-and-standing-authority) | The target contract permits every registered action category inside an exact dedicated test scope. Runtime risk, approval, promotion, and executor paths remain stricter until one shared profile contract and scope fence are implemented. |
 
 ### Implementation history
 
@@ -36,6 +37,7 @@ policy (auto vs HIL) and initial policy approver"* from
 | 2026-08-14 | implemented | Serialized the exact feature vector and the risk-table catalog version into the authority audit payload so a historical decision replays against the revision that classified it. | `current change`; [`authority.py`](../../../services/core-control-plane/src/fdai/core/risk_gate/authority.py), [`test_authority.py`](../../../services/core-control-plane/tests/core/risk_gate/test_authority.py); focused authority, evaluator, and control-loop authority checks passed 43 cases. | Prove governance enforcement and retain governed runtime receipts. |
 | 2026-08-14 | implemented | Added the remaining ceiling inputs - role, graph count, live-probe reading, and the two fail-safe flags - to the same audit payload so a replay reconstructs the six-axis ceiling without re-querying a probe or re-reading control-plane health. | `current change`; [`authority.py`](../../../services/core-control-plane/src/fdai/core/risk_gate/authority.py), [`test_authority.py`](../../../services/core-control-plane/tests/core/risk_gate/test_authority.py); focused risk-gate, runbook, workflow, skills, and control-loop authority checks passed 438 cases. | Prove governance enforcement and retain governed runtime receipts. |
 | 2026-08-14 | in-progress | Enforced the metadata half of the change contract with a commit gate and made loosening edits legible in the version string. | `current change`; [`check-risk-table-change.py`](../../../scripts/quality/architecture/check-risk-table-change.py), [`test_check_risk_table_change.py`](../../../tests/integration/scripts/test_check_risk_table_change.py); focused gate checks passed 26 cases, and the gate was exercised against the shipped table for the unchanged, loosening-without-bump, loosening-patch-bump, and loosening-minor-bump cases. | Approval quorum and Owner-tier review stay branch protection on the deployment's fork; retain governed runtime receipts. |
+| 2026-09-27 | not-started | Adopted the full-authority development profile target for a sole Owner and dedicated Azure test scope without claiming runtime support. | `current change`; Constitution, compact instructions, and focused constitutional checks. | Implement one scope-bound profile contract across risk, approval, promotion, rollback, and executor admission before reporting the profile available. |
 
 ### Remaining work
 
@@ -46,6 +48,7 @@ policy (auto vs HIL) and initial policy approver"* from
   evidence lives in the deployment's branch protection, not in this repository.
 - [x] The authority audit payload serializes the exact feature vector and the catalog version, and a focused check replays a recorded payload against its own version after a tightening table change.
 - [ ] Retain governed runtime receipts for risk decisions on one pinned revision before promoting any scope row to `validated`.
+- [ ] Implement and test the full-authority development profile so every registered action category is admitted only inside the exact configured test scope, with scope-escape negative coverage.
 
 ## Where the Table Lives
 
@@ -79,6 +82,16 @@ the exact A3-E envelope remains valid. Thor may execute the approved HIL action 
 retains the original risk rule, approval identity, standing-authorization id, and authority class.
 Silence without that Approval remains a no-op. See
 [Escalation and Standing Authority](escalation-and-standing-authority.md).
+
+### Full-authority development profile
+
+The profile is a separate development authority axis, not another risk-table rule. The table still
+computes and records the baseline decision, but an exact, unexpired profile binding plus the sole
+Owner's current approval may admit any registered action category inside its dedicated test scope.
+This includes subscription-wide Azure mutation inside the bound test subscription, destructive or
+irreversible actions, Chaos, and ActionType or Workflow promotion, demotion, and rollback. Unknown
+actions, scope escape, identity mismatch, or missing audit, lock, and idempotency evidence remain
+ineligible. The current runtime does not implement this profile and must not claim that it does.
 
 ## Classification Dimensions
 

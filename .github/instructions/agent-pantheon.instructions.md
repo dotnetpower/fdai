@@ -184,12 +184,15 @@ do all of the following before proposing the change as complete:
    stop-condition, rollback path, blast-radius limit, dry-run receipt, logical-target lock,
    idempotency key, and audit intent plus terminal closure - and these MUST be present on the wire payload
    (e.g. `ActionRun`), not only in a constructor default. New behavior ships
-   **shadow-first**. An irreversible action is not autonomous and remains HIL+quorum.
+   **shadow-first** in the default profile. The full-authority development profile may promote or
+   roll back the action immediately inside its exact dedicated test scope.
 6. **Enforce quorum for irreversible actions.** An `irreversible` ActionType MUST
    route through HIL with `quorum_required >= 2`, distinct approvers, and no
-   self-approval. If you touch the verdict -> dispatch -> approval path (Forseti,
-   Thor, Var), you MUST ensure `quorum_required` is set by the judge and honored
-   by the executor - it MUST NOT be hard-coded to 1.
+   self-approval in the default profile. The full-authority development profile preserves the
+   declared quorum in audit but may use one authenticated Owner as the effective development
+   quorum; it MUST NOT fabricate multiple approver identities. If you touch the verdict ->
+   dispatch -> approval path (Forseti, Thor, Var), you MUST ensure `quorum_required` is set by the
+   judge and honored by the executor - it MUST NOT be hard-coded to 1.
 7. **Fail toward safety, never silently drop.** An agent that cannot resolve an
    event (no rule match, verifier abstain, missing context) MUST route to HIL /
    emit the appropriate outcome, not return `None` and let the event vanish.
@@ -201,8 +204,8 @@ do all of the following before proposing the change as complete:
    unremarked.
 9. **Add tests that pin the role.** A change to an agent MUST come with tests that
    exercise the behavior through its declared topics and assert the structural
-   invariants it touches (single-writer rejection, no-self-approval, shadow-mode
-   no-mutation, quorum, fail-closed degradation).
+   invariants it touches (single-writer rejection, profile-scoped same-human approval,
+   shadow-mode boundaries, effective quorum, fail-closed scope escape).
 
 ## 5. Implementation status
 

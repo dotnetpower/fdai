@@ -230,6 +230,11 @@ in shadow mode. Promotion is explicit, per capability, evidence-gated, and indep
 environment, enabled state, and fork status. A regression or unavailable hard dependency lowers
 authority automatically.
 
+Inside the full-authority development profile in Article 8, disposable-resource recreation or
+teardown is a bounded recovery path. When a provider offers no what-if API, a typed no-preview
+receipt bound to the exact target revision and current Owner confirmation fills the dry-run slot.
+All other safeguards remain required.
+
 ## Article 8: Autonomy and standing authority
 
 **FDAI-CONST-008 - Risk-bounded autonomy.** FDAI classifies authority by action risk:
@@ -250,27 +255,36 @@ join, or translate the two enum families by their numeric suffix.
 
 Approval policy declares either a multi-operator profile or a single-operator development profile.
 The multi-operator profile keeps requester and approver identities distinct and counts only
-distinct humans toward quorum. The single-operator development profile may let one authenticated
-Owner request and approve an exact action only when all of these conditions hold:
+distinct humans toward quorum. The single-operator profile becomes a **full-authority development
+profile** only when all of these conditions hold:
 
-- the target is explicitly classified as development or non-production and the reviewed deployment
-  configuration selects the single-operator profile;
+- reviewed deployment configuration binds one exact test tenant, subscription, and optional
+  resource-group set, classifies every bound resource as disposable development infrastructure,
+  and sets an expiry for the profile;
 - approval follows fresh authentication and explicit confirmation of the exact action, target,
   revision, scope, and dry-run digest; silence, a prior session, or a broad role assignment grants
   nothing;
+- one authenticated Owner may satisfy every human approval, reviewer, and quorum requirement. The
+  audit records the original requirement and effective development quorum without inventing
+  additional identities;
+- every registered ActionType and coding-session operation is eligible regardless of risk class,
+  including Azure create, update, and delete; subscription-wide changes inside the dedicated test
+  subscription; destructive or irreversible actions; Chaos; and ActionType or Workflow promotion,
+  demotion, and rollback;
 - the requester and approver may be the same human, but approval and execution remain distinct
   authenticated principals and the human never receives or shares the executor credential;
-- one human cannot occupy multiple quorum slots, and any action whose active policy requires
-  multiple distinct humans remains blocked;
 - the seven safeguards, append-only approval and execution audit, and independent effect
   verification remain unchanged.
 
-This exception does not authorize production, cross-tenant, subscription-wide, irreversible, or
-Chaos-injection approval. A deployment that does not explicitly select the profile uses the
-multi-operator rule.
+No registered action category is categorically prohibited inside the bound test scope. Risk classes
+remain recorded for replay but cannot deny solely by category. Unknown or malformed actions, scope
+escape, identity mismatch, expired approval, or missing audit, lock, and idempotency evidence remain
+ineligible because they do not describe an authorized test action. Development promotion changes
+only the profile-scoped registry and never proves production readiness. A deployment that does not
+explicitly select the profile uses the multi-operator rule.
 
-A3-E is approval given in advance, not approval inferred from silence. It is valid only when all of
-these conditions hold:
+Outside the full-authority development profile, A3-E is approval given in advance, not approval
+inferred from silence. It is valid only when all of these conditions hold:
 
 - at least two normalized, distinct humans approved it, including the accountable service owner and
   an Owner-level authority; the requester and executor are ineligible approvers;
@@ -294,9 +308,10 @@ these conditions hold:
 - the supervisor re-enters the typed risk pipeline and never calls the executor directly;
 - immediate notification and time-bounded post-action review follow execution.
 
-Standing authorization never applies to A4. Irreversible or wider-scope recovery requires fresh
-human approval with the configured quorum. A3-E never authorizes Chaos fault injection; an already
-approved experiment may pre-authorize only its bounded stop and recovery sequence.
+In the default profile, standing authorization never applies to A4. Irreversible or wider-scope
+recovery requires fresh human approval with the configured quorum.
+A3-E never authorizes Chaos fault injection; an already approved experiment may pre-authorize only
+its bounded stop and recovery sequence.
 
 ## Article 9: Workflow governance
 
