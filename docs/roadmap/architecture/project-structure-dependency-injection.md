@@ -165,6 +165,11 @@ if forced to be sync. The **CPU / startup seams** - `SchemaRegistry`, `ContractV
 **sync**: they run once at startup, or are pure CPU boundary validation with no I/O, so an async wrapper would only add noise. Tests use
 `pytest-asyncio` with `asyncio_mode = "auto"` so a plain `async def test_...` runs without a per-test marker. `InvestigationCoordinator` remains serial by default and preserves request order and per-target error isolation; scheduled Analyzer composition explicitly caps concurrent target evaluation at four.
 
+`AssuranceTwinConfirmationStore` is an optional capability of the production and in-memory
+`StateStore` implementations. It atomically confirms or conflicts one retained evidence row with
+its provisional Heimdall/Forseti target row, so a source race cannot expose an unconfirmed posture
+or review. This capability grants no evidence-production, judgment, approval, or execution authority.
+
 The shared `MetricProviderError` contract owns bounded failure metadata; Azure transports classify it and the Analyzer redacts identities.
 The [metric diagnostics contract](aks-diagnostic-evidence-plane.md#safe-metric-failure-diagnostics) preserves legacy providers, empty results, and fail-closed behavior.
 

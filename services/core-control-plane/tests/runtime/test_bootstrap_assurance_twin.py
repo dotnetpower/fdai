@@ -44,7 +44,7 @@ def test_missing_store_or_accountable_agent_binds_no_twin_tasks(
     assert writers == ()
 
 
-def test_retained_source_is_required_only_for_writers() -> None:
+def test_state_store_source_is_bound_by_default_for_writers() -> None:
     store = InMemoryStateStore()
     bus = InMemoryEventBus()
 
@@ -54,8 +54,12 @@ def test_retained_source_is_required_only_for_writers() -> None:
         event_bus=bus,
         retained_source=None,
     )
-    assert tuple(publisher.owner for publisher in publishers) == ("Heimdall", "Forseti")
-    assert writers == ()
+    assert tuple(publisher.owner for publisher in publishers) == (
+        "EvidenceSource",
+        "Heimdall",
+        "Forseti",
+    )
+    assert tuple(writer.owner for writer in writers) == ("Heimdall", "Forseti")
 
     source = _UnavailableSource()
     bound_publishers, bound_writers = build_assurance_twin_runtime_binding(

@@ -121,11 +121,18 @@ class AssuranceTwinAgentWriter:
                 if self.owner == "Heimdall"
                 else await self._source.read_review(request.source_key, request.source_revision)
             )
-            if snapshot is None or not _admissible(snapshot, request):
+            if snapshot is None:
                 return False
         except Exception:  # noqa: BLE001 - source outage never manufactures a verdict
             _LOG.warning("assurance_twin_evidence_source_unavailable", extra={"kind": request.kind})
             return False
+        if snapshot.conflict:
+            await self._mark_source_conflict(request, snapshot)
+            return False
+        if not _admissible(snapshot, request):
+            return False
+        confirm_writer = getattr(self._source, "confirm_writer", None)
+        requires_confirmation = callable(confirm_writer)
         if self.owner == "Heimdall":
             report = snapshot.record
             if (
@@ -138,6 +145,7 @@ class AssuranceTwinAgentWriter:
                 correlation_id=request.correlation_id,
                 freshness=OperationalFreshness.FRESH,
                 evidence_source_revision=snapshot.source_revision,
+                source_confirmed=not requires_confirmation,
             )
         else:
             review = snapshot.record
@@ -148,8 +156,49 @@ class AssuranceTwinAgentWriter:
                 correlation_id=request.correlation_id,
                 freshness=OperationalFreshness.FRESH,
                 evidence_source_revision=snapshot.source_revision,
+                source_confirmed=not requires_confirmation,
             )
+        try:
+            confirmed = (
+                await self._source.read_posture(request.source_key, request.source_revision)
+                if self.owner == "Heimdall"
+                else await self._source.read_review(request.source_key, request.source_revision)
+            )
+        except Exception:  # noqa: BLE001 - a later relay pass independently retries readback
+            return False
+        if confirmed != snapshot:
+            await self._mark_source_conflict(request, snapshot)
+            return False
+        if requires_confirmation and callable(confirm_writer):
+            try:
+                source_confirmed = await confirm_writer(
+                    request,
+                    evidence_digest=snapshot.evidence_digest,
+                )
+            except Exception as exc:  # noqa: BLE001 - durable request remains pending
+                _LOG.warning(
+                    "assurance_twin_source_confirmation_unavailable",
+                    extra={"kind": request.kind, "error_type": type(exc).__name__},
+                )
+                return False
+            if not source_confirmed:
+                return False
         return not result.conflict and result.activity.status.value != "superseded"
+
+    async def _mark_source_conflict(
+        self,
+        request: AssuranceTwinPublishRequest,
+        snapshot: RetainedTwinEvidence,
+    ) -> None:
+        generated_at = getattr(snapshot.record, "generated_at", "")
+        await self._recorder.mark_source_conflict(
+            owner=self.owner,
+            source_key=request.source_key,
+            generated_at=generated_at,
+            source_revision=snapshot.source_revision,
+            rejected_evidence_digest=snapshot.evidence_digest,
+            correlation_id=request.correlation_id,
+        )
 
     async def run(self, bus: EventBus, stop: asyncio.Event) -> None:
         """Subscribe independently; a poisoned trigger carries no evidence."""

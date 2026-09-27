@@ -27,6 +27,7 @@ _PROVENANCE = frozenset(
         "correlation_id",
         "evidence_digest",
         "evidence_source_revision",
+        "source_confirmed",
         "revision",
         "conflict",
         "publication_outbox",
@@ -141,6 +142,8 @@ def _validated_publication(
     """Reject incomplete, conflicted, or substituted durable evidence."""
 
     if row.get("conflict") is not None:
+        return None
+    if row.get("source_confirmed", True) is not True:
         return None
     outbox = row.get("publication_outbox")
     if not isinstance(outbox, Mapping) or outbox.get("published") is not False:
