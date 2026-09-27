@@ -57,6 +57,24 @@ def _observation() -> InventoryNetworkCampaignObservation:
             failures=(),
             active_during_failure_digest=None,
         ),
+        semantic_refresh={
+            "schema_version": "fdai.semantic-graph-refresh-certification.v1",
+            "evidence_statuses": [
+                "complete",
+                "conflicting",
+                "incomplete",
+                "stale",
+                "unavailable",
+            ],
+            "provider_read_count": 1,
+            "gateway_requery_count": 1,
+            "audit_chain_verified": True,
+            "write_through_digest": _digest("c"),
+            "digest": _digest("d"),
+            "observation_authority": False,
+            "mutation_authority": False,
+            "execution_authority": False,
+        },
     )
 
 
@@ -75,6 +93,7 @@ def test_campaign_reducer_preserves_all_axes_and_zero_authority() -> None:
     ]
     assert all(axis["status"] == "passed" for axis in receipt["axes"])
     assert receipt["source_sequence"] == ["arg", "arm", "arg"]
+    assert receipt["semantic_refresh"]["provider_read_count"] == 1
     assert receipt["observation_authority"] is False
     assert receipt["mutation_authority"] is False
     assert receipt["execution_authority"] is False
