@@ -75,7 +75,7 @@ from fdai.agents._framework.norns_learning import (
 from fdai.agents._framework.norns_semantic_feedback import NornsSemanticFeedbackLearning
 from fdai.agents._framework.pantheon import _NORNS
 from fdai.agents._framework.role_answers import norns_role_answer
-from fdai.core.case_history import CaseHistoryAnalyzer
+from fdai.core.case_history import CaseHistoryAnalyzer, CaseHistoryMaterializer
 from fdai.core.chaos.coverage import ScenarioCoverageAggregator
 from fdai.core.learning import (
     PostTurnReviewCoordinator,
@@ -87,6 +87,7 @@ from fdai.core.operational_learning import (
     InvestigationStrategyComparisonEvidence,
     InvestigationStrategyCompilationDisposition,
     OperatingPatternCompiler,
+    PatternCase,
     ShadowDwellEvidence,
     ShadowDwellLedger,
 )
@@ -120,6 +121,7 @@ class Norns(Agent, HandoverKnowledgeMixin):
         post_turn_review: PostTurnReviewCoordinator | None = None,
         forecast_error_threshold: int = 3,
         case_history_analyzer: CaseHistoryAnalyzer | None = None,
+        case_history_materializer: CaseHistoryMaterializer | None = None,
         operating_pattern_compiler: OperatingPatternCompiler | None = None,
         investigation_strategy_compiler: InvestigationStrategyCandidateCompiler | None = None,
         semantic_feedback_store: SemanticFeedbackCandidateSink | None = None,
@@ -215,6 +217,7 @@ class Norns(Agent, HandoverKnowledgeMixin):
         self._forecast_error_proposed: BoundedLruSet[str] = BoundedLruSet(_MAX_TRACKED)
         self._counted_case_revisions: BoundedLruSet[str] = BoundedLruSet(_MAX_TRACKED)
         self._case_history_analyzer = case_history_analyzer
+        self._case_history_materializer = case_history_materializer
         self._operating_pattern_compiler = operating_pattern_compiler or OperatingPatternCompiler()
         self._operational_case_max_age = operational_case_max_age
         self._clock = clock or (lambda: datetime.now(UTC))
@@ -268,7 +271,8 @@ class Norns(Agent, HandoverKnowledgeMixin):
             self._observe_approval(payload)
         elif topic == "object.context-index":
             if payload.get("kind") == "operational_case_fingerprint_cohort":
-                operational_pattern_id = self._observe_operational_case_cohort(payload)
+                if await self._operational_case_cohort_is_current(payload):
+                    operational_pattern_id = self._observe_operational_case_cohort(payload)
             elif payload.get("kind") == "investigation_strategy_comparison_cohort":
                 self._observe_investigation_strategy_cohort(payload)
             elif payload.get("kind") == "semantic_retrieval_failure":
@@ -298,6 +302,42 @@ class Norns(Agent, HandoverKnowledgeMixin):
 
     def _observe_operational_case_cohort(self, payload: dict[str, Any]) -> str | None:
         return observe_operational_case_cohort(self, payload)
+
+    async def _operational_case_cohort_is_current(self, payload: dict[str, Any]) -> bool:
+        materializer = self._case_history_materializer
+        if materializer is None:
+            return True
+        scope = payload.get("access_scope_digest")
+        purpose = payload.get("purpose")
+        raw_cases = payload.get("cases")
+        if (
+            not isinstance(scope, str)
+            or len(scope) != 64
+            or any(character not in "0123456789abcdef" for character in scope)
+            or not isinstance(purpose, str)
+            or not purpose.strip()
+            or not isinstance(raw_cases, list)
+            or not 2 <= len(raw_cases) <= 100
+        ):
+            self.record_behavior("operational_case_cohort_invalid_payload")
+            return False
+        try:
+            cases = tuple(PatternCase.from_mapping(item) for item in raw_cases)
+        except (TypeError, ValueError):
+            self.record_behavior("operational_case_cohort_invalid_payload")
+            return False
+        now = self._clock()
+        for case in cases:
+            case_ref = f"case-history:{case.case_id}:{case.revision}:{case.manifest_digest}"
+            if not await materializer.current_revision_available(
+                case_ref=case_ref,
+                access_scope_digest=scope,
+                purpose=purpose,
+                now=now,
+            ):
+                self.record_behavior("operational_case_cohort_source_unavailable")
+                return False
+        return True
 
     def _observe_investigation_strategy_cohort(self, payload: dict[str, Any]) -> None:
         if payload.get("producer_principal") != "Muninn":

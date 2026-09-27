@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 from typing import Any, cast
@@ -7,6 +8,7 @@ from uuid import UUID
 
 import pytest
 from fdai.agents._framework.bus import InMemoryBus
+from fdai.agents._framework.bus_bridge import EventBusBridge
 from fdai.agents._framework.registry import load_pantheon
 from fdai.agents.huginn import Huginn
 from fdai.agents.mimir import Mimir
@@ -24,6 +26,7 @@ from fdai.core.case_history.testing import (
     InMemoryCaseHistoryMetadataStore,
 )
 from fdai.shared.contracts.models import ResponseOutcome
+from fdai.shared.providers.testing.event_bus import InMemoryEventBus
 from fdai.shared.providers.testing.state_store import InMemoryStateStore
 
 from tests.core.case_history.test_operational_case import _case_input, _receipt
@@ -124,15 +127,16 @@ def _operational_raw(name: str, case_input: OperationalCaseInput) -> dict[str, A
 def _learning_chain() -> tuple[InMemoryBus, Huginn, Muninn, Norns, Mimir, InMemoryStateStore]:
     bus = InMemoryBus(registry=load_pantheon(), isolate_handlers=False)
     durable = InMemoryStateStore()
+    materializer = CaseHistoryMaterializer(
+        metadata=InMemoryCaseHistoryMetadataStore(),
+        artifacts=InMemoryCaseHistoryArtifactStore(),
+    )
     huginn = Huginn()
     muninn = Muninn(
-        case_history=CaseHistoryMaterializer(
-            metadata=InMemoryCaseHistoryMetadataStore(),
-            artifacts=InMemoryCaseHistoryArtifactStore(),
-        ),
+        case_history=materializer,
         durable_state_store=durable,
     )
-    norns = Norns()
+    norns = Norns(case_history_materializer=materializer)
     mimir = Mimir()
     mimir.bind_case_history(muninn._case_history)
     saga = Saga()
@@ -164,12 +168,67 @@ async def test_unpublished_cohort_is_not_acknowledged_and_replays_after_restart(
         await norns.on_typed_message("object.context-index", dict(payload))
     assert not bus.messages_on("object.pattern")
     restarted_bus = InMemoryBus(registry=load_pantheon(), isolate_handlers=False)
-    restarted = Norns()
+    restarted = Norns(case_history_materializer=_muninn._case_history)
     restarted.bind_bus(restarted_bus)
     await restarted.on_typed_message("object.context-index", dict(payload))
     assert len(restarted_bus.messages_on("object.pattern")) == 1
     assert len(restarted_bus.messages_on("object.rule-candidate")) == 1
     assert restarted.pending_candidates == []
+
+
+async def test_deleted_case_body_cannot_return_through_broker_redelivery() -> None:
+    bus, huginn, muninn, _norns, _mimir, _durable = _learning_chain()
+    await huginn.ingest(
+        _operational_raw("first", _operational_input("a", OperationalOutcomeClass.SUCCESS))
+    )
+    await huginn.ingest(
+        _operational_raw("second", _operational_input("b", OperationalOutcomeClass.SUCCESS))
+    )
+    await huginn.ingest(
+        _operational_raw("control", _operational_input("c", OperationalOutcomeClass.ROLLBACK))
+    )
+    payload = dict(bus.messages_on("object.context-index")[-1].payload)
+    source = cast(dict[str, object], cast(list[object], payload["cases"])[0])
+    metadata = cast(InMemoryCaseHistoryMetadataStore, muninn._case_history._metadata)
+    record = await metadata.latest(
+        str(source["case_id"]),
+        access_scope_digest=str(payload["access_scope_digest"]),
+    )
+    assert record is not None and record.storage_ref is not None
+    await metadata.mark_deletion_started(
+        record.case_id,
+        access_scope_digest=record.access_scope_digest,
+        revision=record.revision,
+        storage_refs=(record.storage_ref,),
+        started_at=record.deletion_due_at,
+    )
+
+    provider = InMemoryEventBus()
+    bridge = EventBusBridge(provider=provider, registry=load_pantheon())
+
+    async def fail_before_redrive(_topic: str, _payload: dict[str, object]) -> None:
+        raise RuntimeError("synthetic consumer outage")
+
+    bridge.subscribe("object.context-index", "Norns", fail_before_redrive)
+    await bridge.publish("Muninn", "object.context-index", payload)
+    run_task = asyncio.create_task(bridge.run())
+    for _ in range(50):
+        await asyncio.sleep(0)
+    await bridge.stop()
+    run_task.cancel()
+    await asyncio.gather(run_task, return_exceptions=True)
+    assert bridge.metrics.dead_lettered == 1
+
+    restarted_bus = InMemoryBus(registry=load_pantheon(), isolate_handlers=False)
+    restarted = Norns(case_history_materializer=muninn._case_history)
+    restarted.bind_bus(restarted_bus)
+    result = await bridge.redrive("object.context-index", restarted.on_typed_message)
+
+    assert result == {"redriven": 1, "failed": 0}
+    assert restarted.pending_candidates == []
+    assert not restarted_bus.messages_on("object.pattern")
+    assert not restarted_bus.messages_on("object.rule-candidate")
+    assert restarted.behavior_snapshot()["operational_case_cohort_source_unavailable"] == 1
 
 
 async def test_operational_case_does_not_cache_a_failed_durable_write() -> None:
