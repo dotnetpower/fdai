@@ -17,6 +17,7 @@ and resumable work while the roadmap owner remains focused on normative design.
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-27 | implemented | Excluded only the policy-managed Storage private-link access child from drift while keeping the enclosing deny boundary declarative. | `current change`; one-field plan readback and Terraform checks. | Verify the retained sandbox now produces zero change. |
 | 2026-09-27 | implemented | Added `VECTOR,PG_TRGM` to the task PostgreSQL allowlist and a one-address recovery plan mode. | `current change`; Terraform and focused plan-gate checks. | Apply only that configuration, verify convergence, and rerun migration. |
 | 2026-09-27 | in-progress | Migration reached private PostgreSQL but failed before schema creation because `vector` was not allowlisted. No certification Job ran. | Second migration execution and sanitized error evidence. | Complete extension recovery without repeating the create plan. |
 | 2026-09-27 | implemented | Added plan-only convergence guards for Azure/provider normalization: explicit Consumption profile and delegation actions plus lifecycle preservation for service-managed zone, tags, and service endpoints. | `current change`; authoritative post-apply drift fields and Terraform checks. | Verify zero change against the retained recovery state before starting Jobs. |
