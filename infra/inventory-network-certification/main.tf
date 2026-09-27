@@ -270,6 +270,10 @@ resource "azurerm_storage_account" "receipts" {
     default_action = "Deny"
     bypass         = ["None"]
   }
+
+  lifecycle {
+    ignore_changes = [network_rules[0].private_link_access]
+  }
 }
 
 resource "azurerm_storage_container" "receipts" {
