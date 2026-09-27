@@ -24,6 +24,16 @@ variable "location" {
   default     = "westus2"
 }
 
+variable "resource_group_name" {
+  description = "Existing development application resource group that hosts only the task-owned sandbox resources."
+  type        = string
+
+  validation {
+    condition     = can(regex("^[A-Za-z0-9._()-]{1,90}$", var.resource_group_name))
+    error_message = "resource_group_name must be one valid existing Azure resource group name."
+  }
+}
+
 variable "source_revision" {
   description = "Exact protected source revision embedded in the prebuilt Core image."
   type        = string

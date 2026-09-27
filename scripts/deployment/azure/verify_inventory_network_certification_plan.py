@@ -30,7 +30,6 @@ EXPECTED_ADDRESSES = frozenset(
         "azurerm_private_dns_zone_virtual_network_link.blob",
         "azurerm_private_dns_zone_virtual_network_link.postgres",
         "azurerm_private_endpoint.blob",
-        "azurerm_resource_group.certification",
         "azurerm_role_assignment.campaign_acr_pull",
         "azurerm_role_assignment.campaign_receipt_writer",
         "azurerm_role_assignment.campaign_subscription_reader",
