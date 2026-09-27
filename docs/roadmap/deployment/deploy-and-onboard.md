@@ -583,7 +583,7 @@ builds runtime-call, Resource Health, Static Web App, and Kubernetes enrichment 
 Restricted-network inventory certification uses a task-owned resource set in the existing development
 application resource group with exact create and cleanup plans, without mutating or deleting the group.
 Its private Container Apps, PostgreSQL, DNS, and Blob path never peers with or changes the selected environment;
-private Blob I/O pins the endpoint address with hostname verification while distinct identities retain sanitized authority-free receipts.
+private Blob I/O pins the endpoint address with hostname verification, migration safely preserves URL-encoded credentials, and distinct identities retain sanitized authority-free receipts.
 
 ## Verification After Provisioning
 
