@@ -169,6 +169,45 @@ def test_runtime_support_rejects_partial_environment(
         )
 
 
+def test_terraform_uses_exact_managed_identity_and_clears_conflicting_auth(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    terraform = tmp_path / "terraform"
+    terraform.write_bytes(b"binary")
+    provider_mirror = tmp_path / "providers"
+    provider_mirror.mkdir()
+    kit_bin = tmp_path / "bin"
+    kit_bin.mkdir()
+    terraform_config = tmp_path / "terraform.rc"
+    terraform_config.write_text(
+        standalone_host._terraform_configuration(provider_mirror),
+        encoding="utf-8",
+    )
+    terraform_config.chmod(0o600)
+    context = {
+        "terraform": str(terraform),
+        "provider_mirror": str(provider_mirror),
+        "terraform_config": str(terraform_config),
+        "terraform_data": str(tmp_path / "terraform-data"),
+        "kit_bin": str(kit_bin),
+        "subscription_id": "00000000-0000-0000-0000-000000000001",
+        "tenant_id": "00000000-0000-0000-0000-000000000002",
+        "client_id": "00000000-0000-0000-0000-000000000003",
+    }
+    for variable in standalone_host._CONFLICTING_TERRAFORM_AUTH:
+        monkeypatch.setenv(variable, "ambient")
+
+    standalone_host._configure_terraform(context)
+
+    assert os.environ["ARM_USE_MSI"] == "true"
+    assert os.environ["ARM_CLIENT_ID"] == context["client_id"]
+    assert os.environ["ARM_SUBSCRIPTION_ID"] == context["subscription_id"]
+    assert os.environ["ARM_TENANT_ID"] == context["tenant_id"]
+    assert all(
+        variable not in os.environ for variable in standalone_host._CONFLICTING_TERRAFORM_AUTH
+    )
+
+
 def test_foundation_application_workload_matches_resource_group_name() -> None:
     assert (
         standalone_host._foundation_application_workload(

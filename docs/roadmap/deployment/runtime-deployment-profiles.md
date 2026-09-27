@@ -156,6 +156,12 @@ a receipt bound to the kit manifest, inventory, requirements, and full package r
 environment without that receipt is not resumable success. The focused
 `runtime_support_installation.py` owner enforces this contract; standalone host orchestration only
 supplies the already-admitted artifact root and signed kit-manifest binding.
+The managed host validates the selected user-assigned Managed Identity through Azure CLI for
+Azure CLI operations, but Terraform backend and provider authentication use that identity natively
+through `ARM_USE_MSI=true` and its exact client ID. The host clears inherited CLI, OIDC,
+client-secret, certificate, username/password, workload-identity, and custom MSI-endpoint selectors
+before setting this binding. An ambient authentication mechanism cannot replace the handoff-bound
+executor identity.
 Enrollment and every later application transfer reuse the same VM-bound `fdai-genesis-*` SSH
 host-key alias and attested known-hosts file; runtime selection never permits a second alias or
 first-contact trust.

@@ -43,6 +43,7 @@ remain unchanged.
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-27 | implemented | Bound managed-host Terraform backend and provider authentication directly to the selected UAMI after live initialization proved that Azure CLI authentication rejects its service-principal session type. Conflicting ambient auth selectors are cleared before the exact MSI binding is set. | `current change`; focused environment regression and classified live backend initialization failure. | Deliver through protected CI, rebuild the exact kit, and verify backend initialization from a fresh source-bound application context. |
 | 2026-09-27 | implemented | Replaced direct installation of every duplicated runtime wheel path with the signed aggregate requirements lock, exact hashes, dependency checking, package readback, and a source-bound completion receipt. An interrupted environment without that receipt now fails closed instead of being treated as installed. | `current change`; duplicate-wheel regression, partial-environment regression, and a network-isolated CPython 3.12 installation of 107 packages from 16 local wheel locations. | Deliver through protected CI, rebuild the exact signed kit, and resume managed-host preparation from a fresh source-bound context. |
 | 2026-09-27 | implemented | Added the required deployment-root manifest and signature to verified standalone transport archives after managed-host verification correctly rejected the legacy-only derived archive. | `current change`; archive construction, root-bound fixture, tar membership and full acquisition round-trip regression. | Deliver through protected CI, rebuild the exact kit, and verify the managed-host prepare path from a new source-bound context. |
 | 2026-09-27 | implemented | Bound complete release construction to the managed host's CPython 3.12 ABI and replaced exact glibc equality with a same-family minimum floor after live preparation reached a 3.13 wheel and newer-host libc mismatch. | `current change`; release builder prerequisite, offline-kit compatibility verifier, focused ABI/libc tests, managed-host Python/libc readback. | Deliver through protected CI, rebuild the complete kit under CPython 3.12, and independently verify it on both coordinator and managed host before planning. |
@@ -327,6 +328,10 @@ from the desktop operating system. The selected host needs:
 Manual execution means that the operator starts `fdaictl` on this host. It does not mean that
 Terraform uses the operator's interactive Azure identity. An execution host without the required
 workload identity is incomplete; this does not reject an ordinary PC acting only as coordinator.
+On the execution host, Azure CLI validates the exact selected user-assigned identity for CLI
+operations. Terraform backend and provider processes use native Managed Identity authentication
+with that exact client ID, not the Azure CLI service-principal session, and inherited alternative
+authentication selectors are removed before execution.
 Reuse an existing appropriately scoped deployment identity where permitted;
 do not require the identity or host to have been created by the current Foundation run. Identity
 attachment, role changes and network changes still need their own reviewed scope and exact approval.
