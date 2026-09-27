@@ -393,7 +393,7 @@ jobs:
           PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
           PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
-          TRUSTED_APP_ID: ${{ vars.FDAI_GOVERNANCE_IDENTITY_APP_ID }}
+          REPOSITORY_VARIABLES_JSON: ${{ toJSON(vars) }}
         run: |
           set -euo pipefail
           changed="$RUNNER_TEMP/governance-changed-files.txt"
@@ -402,6 +402,15 @@ jobs:
             echo "No governed catalog changes require identity review."
             exit 0
           fi
+          TRUSTED_APP_ID="$(
+            python3 - <<'PY'
+          import json
+          import os
+
+          variables = json.loads(os.environ["REPOSITORY_VARIABLES_JSON"])
+          print(variables.get("FDAI_GOVERNANCE_IDENTITY_APP_ID", ""))
+          PY
+          )"
           if [[ ! "$TRUSTED_APP_ID" =~ ^[1-9][0-9]*$ ]]; then
             echo "::error::FDAI_GOVERNANCE_IDENTITY_APP_ID must name the trusted Entra verifier GitHub App"
             exit 1
@@ -701,6 +710,7 @@ jobs:
 
     env:
       FDAI_DATABASE_URL: postgresql+psycopg://fdai:ci@localhost:5432/fdai
+      FDAI_SERVICE_DATABASE_URL: postgresql+psycopg://fdai:ci@localhost:5432/fdai_services
       FDAI_PYTEST_MODE: integration
       FDAI_PYTEST_SHARD_COUNT: "2"
       FDAI_PYTEST_SHARD_INDEX: ${{ matrix.shard }}
@@ -740,26 +750,23 @@ jobs:
         run: |
           uv run python - <<'PY'
           import os
-          from urllib.parse import urlsplit, urlunsplit
 
           import psycopg
 
           source_url = os.environ["FDAI_DATABASE_URL"]
-          source = urlsplit(source_url)
-          service_url = urlunsplit(source._replace(path="/fdai_services"))
+          service_url = os.environ["FDAI_SERVICE_DATABASE_URL"]
           connection_url = source_url.replace("postgresql+psycopg://", "postgresql://", 1)
           with psycopg.connect(connection_url, autocommit=True) as connection:
               connection.execute("CREATE DATABASE fdai_services")
           print(f"::add-mask::{service_url}")
           with open(os.environ["GITHUB_ENV"], "a", encoding="utf-8") as stream:
-              stream.write(f"FDAI_SERVICE_DATABASE_URL={service_url}\n")
+              stream.write(f"FDAI_DATABASE_URL={service_url}\n")
           PY
 
       - name: Run service-owned migrations
         if: matrix.shard == 1
         run: |
           set -euo pipefail
-          export FDAI_DATABASE_URL="$FDAI_SERVICE_DATABASE_URL"
           uv run alembic upgrade head
           evidence_dir="${RUNNER_TEMP}/service-migration-adoption"
           mkdir -p "$evidence_dir"
@@ -784,7 +791,6 @@ jobs:
       - name: Run serial service migration lifecycle tests
         if: matrix.shard == 1
         env:
-          FDAI_DATABASE_URL: ${{ env.FDAI_SERVICE_DATABASE_URL }}
           FDAI_SERIAL_MIGRATION_TESTS: "1"
         run: >-
           uv run pytest -q --no-cov
@@ -794,7 +800,6 @@ jobs:
         if: matrix.shard == 1
         env:
           FDAI_SERVICE_MIGRATIONS_READY: "1"
-          FDAI_DATABASE_URL: ${{ env.FDAI_SERVICE_DATABASE_URL }}
         run: >-
           uv run pytest -q --no-cov
           services/operator-service/tests/test_read_investigation_completion_store.py::test_postgres_allocates_attempt_turns_and_reuses_duplicate_slot
