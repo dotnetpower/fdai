@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import inspect
 import json
 import subprocess
 from datetime import UTC, datetime
@@ -10,6 +11,13 @@ import pytest
 from fdai_deployment_cli import standalone_aks_inventory, standalone_application
 from fdai_deployment_cli.contracts import canonical_digest
 from fdai_deployment_cli.target import compute_target_binding
+
+
+def test_standalone_application_reuses_foundation_host_key_alias() -> None:
+    source = inspect.getsource(standalone_application.deploy_standalone_application)
+
+    assert "module.stable_host_key_alias" in source
+    assert "fdai-standalone-" not in source
 
 
 def test_recovered_state_rejects_destructive_plan_before_approval(

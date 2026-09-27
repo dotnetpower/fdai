@@ -1,6 +1,6 @@
 ---
 translation_of: runtime-deployment-profiles.md
-translation_source_sha: 5ceba88c4f04dfe7fa7ef74af314e233b0c74971
+translation_source_sha: 882c5af9b627fe32cdfbd971965ab06cf11068e2
 translation_revised: 2026-09-27
 ---
 # 런타임 배포 프로파일
@@ -148,6 +148,9 @@ ARM 페이지 수집은 정책의 레코드 및 누적 응답 바이트 제한�
 두 런타임 프로파일의 연결된 배포는 정확한 Azure Marketplace Ubuntu 버전으로 Managed Host를
 부팅하고 Foundation 단계에서 체크섬으로 고정된 도구 체인을 설치합니다. 전용 Managed Host
 이미지를 만들거나 요구하지 않습니다. 초기 구성 산출물을 내려받을 수 없는 아티팩트 오프라인 배포는 별도로 검증된 사전 준비 호스트 이미지를 선택할 수 있습니다.
+등록과 모든 후속 애플리케이션 전송은 VM에 연결된 같은 `fdai-genesis-*` SSH host-key
+alias와 검증된 known-hosts 파일을 재사용합니다. 런타임 선택은 두 번째 alias나 최초 접촉
+신뢰를 허용하지 않습니다.
 애플리케이션 수렴 후 Managed Host는 명시적인 `--initial` 모드로 Core 인벤토리 진입점을 호출해
 반복 실행의 예정 시각 게이트만 우회합니다. 이미 인증된 배포 신원으로 전체 구독 ARG/ARM 읽기와
 변경 불가 진행률 기록을 수행한 뒤 별도의 읽기 전용 종결 프로세스를 시작합니다. 반복 런타임

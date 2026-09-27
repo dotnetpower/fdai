@@ -1,7 +1,7 @@
 ---
 title: Provisioning 실행 Profile
 translation_of: provisioning-execution-profiles.md
-translation_source_sha: 8a685ff106f32048f79a934ab5ba039106a740bd
+translation_source_sha: 687a6164b088ed408c559ae5b80b5320166d86f8
 translation_revised: 2026-09-27
 ---
 # 프로비저닝 실행 프로파일
@@ -30,7 +30,7 @@ Parser handler, 출력 계약, 정확한 승인 요건 및 변경 권한은 바�
 |------|------|------|------|
 | AKS 기본 배포와 후속 상세 비공개 네트워크 프로비저닝 | not-started | 아래 두 단계 계약이며 새로운 실행 검증 근거는 없음 | 일반 PC에서 미리 구축한 내부 인프라 없이 AKS 기본 흐름을 시작할 수 있습니다. API Server VNet Integration, 명시적 단계 선택, 기본 가동 검증, Console 네트워크 요청과 재개 가능한 보호 실행은 구현 및 전체 경로 검증이 필요합니다. |
 | 읽기 전용 점검 및 프로파일 초기화 명령 | implemented | `packages/deployment-cli`, 집중 프로필, 대상, 도구, 제품화 검사 | 전용 배포판이 `fdaictl`을 등록하고 비공개 대상 연결 프로필을 쓰며 실행 호스트 근거가 있을 때까지 검토 상태를 반환합니다. |
-| 관리 VM, 비공개 백엔드 및 수동 배포 호스트 | implemented | `infra/bootstrap/`, standalone 배포 모듈 및 집중 bootstrap 테스트 | 영속 VNet 호스트, workload identity, 비공개 상태, 정확한 계획 및 애플리케이션 적용이 GitHub Actions 없이 실행됩니다. |
+| 관리 VM, 비공개 백엔드 및 수동 배포 호스트 | implemented | `infra/bootstrap/`, standalone 배포 모듈 및 집중 bootstrap 테스트 | 영속 VNet 호스트, workload identity, 비공개 상태, 정확한 계획 및 애플리케이션 적용이 GitHub Actions 없이 실행됩니다. 등록과 후속 애플리케이션 전송은 VM에 연결된 `fdai-genesis-*` host-key alias 하나를 파생하므로 엄격한 재연결이 검증된 known-hosts 근거를 재사용합니다. |
 | 감사되는 Run Command 비공개 중계 | implemented | `execution_bundle.py`, `run_command_receiver.py`, `run_command_private_relay.py`, 고정 초기 구성 및 조정 모듈, 집중 테스트 25개 통과 | 적격 Linux 배포 호스트 하나가 클라우드 산출물 저장소 없이 피어링된 WSL 호스트 하나로 digest가 고정된 묶음을 staging할 수 있습니다. 실제 Azure 전송 근거와 자동 접근 프로파일 라우팅은 남아 있습니다. |
 | 신규 구독 로컬 조정기 | implemented | `fdaictl provision azure`, `fdai-up.sh`, 서명 키트, 기반 계층, Bastion, 관리 호스트, 승인, 라이선스, 마이그레이션 및 수렴 모듈과 라우팅된 수명 주기 테스트 | 하나의 `dev` 프로세스가 활성 Azure CLI 사용자에서 대상을 결정하고 상태 변경 전이를 직렬로 유지합니다. 대상 환경 배포에는 GitHub 전송 계층이 없습니다. 통제된 Azure 증적과 완전한 구독 보증 근거는 남아 있습니다. |
 | 사전 빌드 OCI 배포 어플라이언스 사용 | in-progress | `run-deployment-appliance.sh`, 집중 스크립트 및 CLI 테스트 | 테넌트 프로비저닝은 release에서 게시하고 digest로 고정한 어플라이언스에서 공개 산출물 대체 경로 없이 수동 standalone 조정기를 시작할 수 있습니다. 통제된 아티팩트 오프라인 Azure 증적은 남아 있으며 테넌트 배포는 이미지를 만들지 않습니다. |
@@ -45,6 +45,7 @@ Parser handler, 출력 계약, 정확한 승인 요건 및 변경 권한은 바�
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-27 | implemented | 첫 채택 Foundation 애플리케이션 전송이 등록 근거를 다른 standalone alias로 조회한 뒤 VM에 연결된 Bastion host-key alias를 단일화했습니다. 이제 엄격한 재연결은 새 키를 신뢰하지 않고 기존 `fdai-genesis-*` 고정을 재사용합니다. | `current change`, Bastion alias helper, 등록 및 standalone 애플리케이션 소비자, 집중 alias/등록/애플리케이션 테스트, 재현된 host-key 분류 | 보호 CI로 전달하고 새 서명 키트를 빌드한 뒤 완료된 Entra 효과를 반복하지 않으면서 새 source-bound context에서 신청된 애플리케이션 실행을 재개합니다. |
 | 2026-09-27 | implemented | 첫 보호 `0.1.1` 키트 빌드가 오래된 지원 허용 목록에 도달한 뒤 `fdai-runtime-diagnostics`를 정확한 런타임 wheelhouse 지원 폐쇄 집합에 추가했습니다. 알 수 없는 편집 가능 작업 영역 의존성은 계속 패키지 이름과 함께 실패합니다. | `current change`, wheelhouse staging 소스, 지원 및 미지원 폐쇄 집합 집중 테스트 | 보호 CI로 전달한 뒤 불완전한 출력을 재개하거나 서명하지 않고 결과 보호 merge에서 새 완전 키트를 빌드합니다. |
 | 2026-09-27 | implemented | 바깥 키트와 내부 묶음 역할에 전용 서명자 하나를 사용하는 개발 전용 `0.1.1` 산출물 신뢰 프로필, 패키지 고정 루트 및 안전하게 차단하는 release channel 검증을 추가했습니다. | `current change`, 패키지 루트, 신뢰 로더, 획득 차단, release 래퍼, 집중 서명/channel/version 테스트 | 현재 완전 키트를 빌드하고 독립적으로 검증한 뒤 같은 바이트의 로컬 조정기 및 어플라이언스 진입점 Azure 증적을 보존합니다. 운영 TUF는 미완료입니다. |
 | 2026-09-21 | implemented | Source 및 offline-kit Foundation plan과 비공개 Terraform 및 파일 시스템 helper를 배포 CLI 명령 파사드에서 분리했습니다. | `current change`, 12개 관점 비평, plan 및 도움말 강화 집중 테스트 184개, Ruff 및 strict mypy 통과 | Parser handler, 출력 계약, 대상 결속, 승인 또는 변경 권한은 바뀌지 않았습니다. |

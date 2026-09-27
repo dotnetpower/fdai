@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import os
 import signal
 import socket
@@ -18,6 +19,15 @@ from genesis_subprocess import run_with_heartbeat
 
 _TUNNEL_START_SECONDS = 120
 _TUNNEL_STOP_SECONDS = 5
+
+
+def stable_host_key_alias(vm_id: str) -> str:
+    """Return the one VM-bound alias shared by enrollment and later reconnects."""
+
+    if not vm_id or "\n" in vm_id:
+        raise ValueError("Bastion host-key alias requires one VM resource id")
+    digest = hashlib.sha256(vm_id.casefold().encode()).hexdigest()
+    return f"fdai-genesis-{digest[:16]}"
 
 
 class BastionTunnel:
