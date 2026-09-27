@@ -24,6 +24,7 @@ approval, executor, and audit contracts.
 | Impact analysis and envelope compilation | implemented | [`impact_analysis`](../../../services/core-control-plane/src/fdai/core/impact_analysis), [`test_impact_analysis.py`](../../../services/core-control-plane/tests/core/impact_analysis/test_impact_analysis.py) | Bounded traversal, feature calculation, incomplete-evidence refusal, and impact caps have focused coverage. |
 | Recovery-plan contracts and state transitions | implemented | [`test_recovery_plan.py`](../../../services/core-control-plane/tests/core/verticals/test_recovery_plan.py), [Ontology contract](#ontology-contract) | Versioned plans and recovery transitions exist; this does not prove a live recovery outcome. |
 | Continuous guard and independent verification | implemented | [`test_impact_analysis.py`](../../../services/core-control-plane/tests/core/impact_analysis/test_impact_analysis.py), [Runtime state machine](#runtime-state-machine) | Guard and verification mechanics fail closed on stale, incomplete, or over-envelope evidence. |
+| Governed catalog execution path | in-progress | [`governed.py`](../../../services/core-control-plane/src/fdai/delivery/chaos/governed.py), [`test_governed.py`](../../../services/core-control-plane/tests/delivery/chaos/test_governed.py), [`test_governed_recovery.py`](../../../services/core-control-plane/tests/delivery/chaos/test_governed_recovery.py), [`test_mutation_scope.py`](../../../services/core-control-plane/tests/delivery/chaos/test_mutation_scope.py), [`test_run_catalog_scenario.py`](../../../tests/integration/scripts/test_run_catalog_scenario.py), [`test_chaos_raw_path_guard.py`](../../../tests/integration/scripts/test_chaos_raw_path_guard.py), [Governed execution path](#governed-execution-path) | Catalog CLI runs delegate only through the injected adapter, which enforces the distributed target lock, durable target claims that only verified outcomes or a separate audited Var closure decision release, the exclusive injection claim, the tier ceiling, exact per-target mutation scope, and separate detection verdicts. The CLI still calls the adapter directly instead of the Core proposal, risk, Var, and Thor pipeline, the raw reference drivers only refuse, and no deployment provider, promotion, or live evidence exists. |
 | S1-S14 governed chaos campaign and executor binding | in-progress | [`constitution-traceability.json`](../../../config/constitution-traceability.json), [Delivery status](#delivery-status) | Scenario taxonomy exists, but constitutional domain coverage remains incomplete and no governed live executor campaign is retained. |
 
 ### Implementation history
@@ -31,11 +32,27 @@ approval, executor, and audit contracts.
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
 | 2026-08-14 | in-progress | Adopted the implementation ledger without reconstructing earlier provenance and separated tested mechanics from operational enforcement evidence. | `current change`; current source, focused tests, and constitutional traceability listed in the scope table. | Bind the governed executor and complete the frozen recovery and chaos campaign. |
+| 2026-09-28 | implemented | Replaced the catalog runner's direct `FaultInjectionHarness` enforce path with `GovernedChaosExecutionAdapter`, which delegates each typed `tool.run-chaos-experiment` request to `GovernedChaosRunner` over a Saga-audited run store. Deployment-owned `GovernedChaosBindings` supply promotion, Var approval verification, the run plan, Thor recovery dispatch, independent recovery evidence, and target locks; an unbound checkout refuses with a structured report. No scenario, ActionType, or Workflow was promoted. | `current change` in `services/core-control-plane/src/fdai/delivery/chaos/governed*.py`, `scripts/catalog/run-catalog-scenario.py`, and the linked focused tests; `uv run pytest -q --no-cov services/core-control-plane/tests/delivery/chaos/test_governed.py services/core-control-plane/tests/delivery/chaos/test_governed_recovery.py tests/integration/scripts/test_run_catalog_scenario.py` passed 47 tests for success, denial, duplicate, forced-stop, rollback, and restart; Ruff and strict mypy passed. | Supply a deployment provider and runtime binding, collect shadow-only evidence on an approved disposable target, then complete promotion and the S1-S14 campaign. |
+| 2026-09-28 | in-progress | Hardened the governed catalog path after independent review. Bindings now require a distributed target lock; a durable per-target claim denies new runs while any non-terminal run holds the target; only the writer whose compare-and-swap applies `injecting` may run the harness; catalog targets are the canonical identities of the resources each scenario mutates, and every factory-built injector declares its mutation scope; the ActionType tier ceiling denies T1 and T2 requests; and recovery and detection are reported separately, so an undetected fault fails the run. The raw reference-sweep and detection-latency drivers now refuse every live run, so the protected scenario-lab sweep fails closed until they are ported. | `current change` in `services/core-control-plane/src/fdai/core/chaos/`, `services/core-control-plane/src/fdai/delivery/chaos/`, `scripts/catalog/`, and the linked tests; `uv run pytest -q --no-cov services/core-control-plane/tests/delivery/chaos services/core-control-plane/tests/core/chaos tests/integration/scripts/test_run_catalog_scenario.py tests/integration/scripts/test_chaos_raw_path_guard.py tests/integration/infra/test_scenario_lab.py` passed 331 tests, including 200-seed concurrent-interleaving and orphaned-run tests; Ruff and strict mypy passed. | Route catalog submissions through the Core pipeline with the adapter bound in `runtime/delivery.py`, port the raw drivers, supply a deployment provider, then collect shadow-only evidence before any promotion. |
+| 2026-09-28 | in-progress | Closed the re-review findings. A target claim now passes to another run only after the holder recovered, was denied, or failed without injecting (the outcome record retains `injected`); escalated, failed-after-injection, orphaned, and unknown holders keep it until an audited, create-only closure approved by a distinct Var approver through the injected verifier releases it, and `run-catalog-scenario.py --close` exposes that closure by target. The BlockChaos body now selects the workload pods its scope declares, and every target must be exactly the one resource its injection mutates. | `current change` in `services/core-control-plane/src/fdai/delivery/chaos/`, `scripts/catalog/run-catalog-scenario.py`, and the linked tests; `uv run pytest -q --no-cov services/core-control-plane/tests/delivery/chaos services/core-control-plane/tests/core/chaos tests/integration/scripts/test_run_catalog_scenario.py tests/integration/scripts/test_chaos_raw_path_guard.py tests/integration/infra/test_scenario_lab.py` passed 357 tests, including rollback-failed, escalated, failed-without-injection, orphan, and self-approval closure cases; Ruff and strict mypy passed. | Route catalog submissions through the Core pipeline, port the raw drivers, supply a deployment provider, then collect shadow-only evidence before any promotion. |
+| 2026-09-28 | in-progress | Closed the round-3 review findings. Closure is now a separate decision: `verify_closure` must return `closure`-intent evidence for the exact run and target digests, the CLI reads it from `FDAI_CHAOS_CLOSURE_APPROVAL_REF`, and each run binds its enforce-approval digest so that approval can never close it; enforce approvals with the `closure` intent or another run id are rejected. An injection call that raises now counts as injected, so the harness rolls it back and the run is released only after recovery and independent verification. Closing a run before `injecting` denies it through a compare-and-swap, and the exclusive `injecting` transition re-checks closure. | `current change` in `services/core-control-plane/src/fdai/core/chaos/harness.py`, `services/core-control-plane/src/fdai/delivery/chaos/`, `scripts/catalog/run-catalog-scenario.py`, and the linked tests; `uv run pytest -q --no-cov services/core-control-plane/tests/delivery/chaos services/core-control-plane/tests/core/chaos tests/integration/scripts/test_run_catalog_scenario.py tests/integration/scripts/test_chaos_raw_path_guard.py tests/integration/infra/test_scenario_lab.py` passed 368 tests, including enforce-approval reuse, applied-then-timeout, and mid-flight closure with a non-excluding lock; Ruff and strict mypy passed. | Route catalog submissions through the Core pipeline, port the raw drivers, supply a deployment provider, then collect shadow-only evidence before any promotion. |
 
 ### Remaining work
 
-- [ ] Bind an injected `GovernedChaosExecutor` through deployment composition and prove startup
-  refuses enforcement when the binding or required authority is absent.
+- [ ] Supply a deployment-owned `GovernedChaosBindings` provider, including a distributed target
+  lock, for the protected catalog runner and prove startup refuses enforcement when the binding or
+  required authority is absent.
+- [ ] Route catalog CLI submissions through the Core proposal, risk gate, Var approval, Thor, and
+  `tool.run-chaos-experiment` pipeline with `GovernedChaosExecutionAdapter` bound in
+  `runtime/delivery.py`, instead of calling the adapter directly, as required by
+  [#94](https://github.com/dotnetpower/fdai/issues/94).
+- [ ] Port the reference-sweep (`scripts/catalog/run-enforce-scenarios.py`) and detection-latency
+  (`scripts/catalog/measure-detection-latency.py`) drivers onto `GovernedChaosExecutionAdapter`.
+  Both refuse live runs until then, so the protected scenario-lab sweep fails closed
+  ([#94](https://github.com/dotnetpower/fdai/issues/94)).
+- [ ] Collect shadow-only governed chaos evidence on one registered disposable target at a time,
+  without promoting `tool.run-chaos-experiment`, a scenario, an ActionType, or a Workflow, as
+  directed in [#94](https://github.com/dotnetpower/fdai/issues/94).
 - [ ] Execute the frozen S1-S14 campaign with approved impact envelopes, continuous stop guards,
   independent recovery verification, and retained replayable receipts.
 - [ ] Close the missing constitutional scenario dimensions for recovery and Chaos Engineering before
@@ -285,6 +302,60 @@ The design supports the S1-S14 pack without hard-coding those identifiers into c
 - **Drift and alert triggers:** Non-fault scenarios use the same hypothesis and recovery contracts
   but do not require an Experiment or injector.
 
+## Governed execution path
+
+Live catalog runs from `scripts/catalog/run-catalog-scenario.py --run` or `--run-all` go only
+through `GovernedChaosExecutionAdapter`, the implementation of the chaos tool's
+`GovernedChaosExecution` seam. The command submits the same typed `tool.run-chaos-experiment`
+request that the chaos tool's enforce path delegates, but it still calls the adapter directly.
+Routing it through the Core proposal, risk gate, Var approval, and Thor pipeline remains open. The
+legacy reference-sweep and detection-latency drivers refuse every live run until they are ported
+onto the adapter, so the protected scenario-lab sweep fails closed.
+
+- **Bindings:** A deployment supplies `GovernedChaosBindings` through exactly one
+  `fdai.governed_chaos` entry point named `catalog-scenario`. The bindings name the durable state
+  store, the ActionType mode source, the scenario promotion ledger, the Var approval verifier, the
+  run planner for Vidar's recovery plan and Heimdall's guard, the Thor recovery dispatcher, the
+  independent recovery evidence collector, and a distributed logical-target lock. Upstream ships
+  no provider, so an unbound checkout refuses enforcement with exit status 3 and a structured
+  refusal report before substrate access.
+- **Targets:** Each run targets the canonical identity of the resource its `target_type` mutates:
+  the VM for `vm` and the workload pods for `pod`, `disk`, and `dns`. Other target types are
+  refused. Every factory-built injector declares the resources it mutates, and each target must be
+  exactly the one resource its injection mutates, so a run with an unapproved mutation or a surplus
+  target is denied and no resource is injected twice.
+- **Authority:** The adapter derives promotion, approval, the ActionType tier ceiling, locks,
+  idempotency, and audit readiness from their authoritative sources, and the deterministic
+  eligibility check decides. Catalog runs are T0 requests, the `shadow_only` ceilings for T1 and T2
+  deny enforcement, and a request without a recognized tier is denied. A request-supplied approval
+  reference is only a claim that the verifier must confirm.
+- **Concurrency and restart:** The run id binds the request idempotency key, scenario, and target
+  set. Only the writer whose compare-and-swap applies `injecting` may inject. A durable per-target
+  claim denies a new run until the holder verifiably left nothing live: it recovered, it was denied,
+  or it failed without attempting an injection. An injection call that raises, such as a client
+  timeout after the provider accepted the change, counts as injected: the harness rolls it back and
+  the run passes through recovery, so the target is released only after independent verification.
+  An escalated run, a run that failed after an attempted injection, and a run orphaned by a stopped
+  process keep their targets. A terminal run replays its recorded outcome,
+  an interrupted run resumes recovery without injecting again, and a catalog sweep halts after any
+  run whose rollback is not verified.
+- **Closure:** After manual recovery, `run-catalog-scenario.py --close <scenario> --confirm-closure
+  --closure-reason <text>` releases a held target only through a separate closure decision. The
+  approval comes from `FDAI_CHAOS_CLOSURE_APPROVAL_REF`, and the verifier's `verify_closure` must
+  confirm a distinct Var approver with the `closure` intent for that exact run and its targets.
+  Each run binds the digest of the enforce approval that admitted it, and that approval can never
+  close it. Closure is addressed by target, so it also works for an orphan whose request can no
+  longer be rebuilt. Closing a run before `injecting` denies it through a compare-and-swap, and the
+  exclusive `injecting` transition re-checks closure, so a closed run can never inject. The closure
+  record is create-only and audited, and a refused closure is audited.
+- **Outcome:** Only verified recovery reports success, and detection is a separate verdict. A run
+  passes only when it recovered and validated its expected signal, so an undetected fault makes the
+  command exit non-zero.
+
+Example: `--run <scenario> --confirm-enforce` without a current Var approval -> typed
+`tool.run-chaos-experiment` request -> eligibility denial with `var_approval_required` -> audited
+`denied` run transition -> no injection.
+
 ## Delivery status
 
 The implementation is split into independently testable slices:
@@ -300,7 +371,8 @@ The implementation is split into independently testable slices:
 Slices 1-6 are implemented in core and covered by focused regression tests. Slice 7 is deployment
 evidence: it requires promoted scenario and ActionType versions plus injected Thor, Vidar, Heimdall,
 telemetry, inventory, and audit bindings. Enabling an environment flag does not substitute for
-those bindings.
+those bindings. The [governed execution path](#governed-execution-path) is the only seam that binds
+them, and upstream ships no provider.
 
 ## Related docs
 

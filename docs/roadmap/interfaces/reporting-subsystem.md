@@ -86,7 +86,10 @@ The Chaos Enforce Results report exposes completed fault-injection outcomes as
 measured, read-only evidence. The scenario runner imports only a bounded report
 that passes exact field, type, timestamp, size, and duplicate-key validation.
 Core retains each result as a `report_signal`; this import does not create an
-Incident, audit entry, trace, promotion decision, or auto-resolution claim.
+Incident, audit entry, trace, promotion decision, or auto-resolution claim. The
+legacy reference-sweep driver that produced these reports now refuses every
+live run until it is ported onto the governed chaos adapter, so no new measured
+results arrive in the meantime.
 
 The independent Operator Service reads those records through the
 `operator_chaos_report_signal` security-barrier view. Its service role receives
@@ -595,9 +598,12 @@ never crash serialization or misorder a chart. Each item is covered in
 | 2026-08-15 | validated | Retained authenticated inventory, registry, audit-backed render, Console, PDF, and no-RCA unavailable evidence for the built-in Incident dossier. | `current change`; `docs/baselines/incident-rca-report-assurance-2026-08-15.json`; source `014974045e70e35c26e489fa238345cf70bc3ca3` has a central receipt. | Broader production datasource campaigns remain open below. |
 | 2026-08-15 | implemented | Added the `check-report-format-boundary` gate so a format module must contribute exactly one `FormatEncoder`, be exported and registered or documented as opt-in, and import nothing outside `core/reporting` and shared contracts. | `current change`; `scripts/quality/architecture/check-report-format-boundary.py`; `pytest tests/integration/scripts/test_report_format_boundary.py` (5 passed); pre-commit, `verify.sh`, and CI wiring. | Production datasource and authenticated surface receipts remain open. |
 | 2026-09-21 | implemented | Added strict chaos enforce-report import, SELECT-only Operator projection, and a measured Console report with bounded windows. | `current change`; importer, report-feed, Operator projection, and migration paths; focused pytest, Ruff, and strict mypy checks. | Retain a governed production render receipt under the datasource evidence item below. |
+| 2026-09-28 | implemented | The legacy reference-sweep driver that produced chaos enforce reports now refuses every live run until it is ported onto the governed chaos adapter. The importer, Operator projection, and Console report are unchanged, but no new measured results arrive meanwhile. | `current change` in `scripts/catalog/run-enforce-scenarios.py` and `tests/integration/infra/test_scenario_lab.py`; focused scenario-lab contract tests passed. | Resume measured chaos results only from a governed run after the sweep is ported onto `GovernedChaosExecutionAdapter` ([#94](https://github.com/dotnetpower/fdai/issues/94)). |
 
 ### Remaining work
 
+- [ ] Resume measured chaos enforce results from governed runs once the reference sweep is ported
+  onto `GovernedChaosExecutionAdapter` ([#94](https://github.com/dotnetpower/fdai/issues/94)).
 - [ ] Retain governed render receipts for each production datasource showing source identity, cutoff, freshness, unavailable and timeout behavior, partial-widget isolation, and no synthetic-to-live substitution.
 - [ ] Retain authenticated Operator API and Console receipts for report inventory, explicit unavailable report selection, variable rejection, unknown format, render error isolation, and read-only method enforcement.
 - [x] Implement an optional PDF delivery module, registry binding, package extra, authenticated GET-only control, and focused escaping, digest, pagination, unavailable-section, no-analysis, and no-network tests before advertising `pdf`.
