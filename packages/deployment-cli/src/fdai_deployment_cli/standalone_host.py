@@ -19,6 +19,8 @@ from pathlib import Path
 from typing import Any, Final
 from urllib.parse import urlencode
 
+from fdai_deployment_cli import catalog_review_profile
+from fdai_deployment_cli import foundation_adoption_host as foundation_host
 from fdai_deployment_cli.aks_historical_reconciliation import (
     reconciled_variables,
     validate_reconciliation_plan,
@@ -26,6 +28,8 @@ from fdai_deployment_cli.aks_historical_reconciliation import (
 from fdai_deployment_cli.aks_readiness import verify_workload_health
 from fdai_deployment_cli.aks_service_update import (
     SERVICES as AKS_SERVICES,
+)
+from fdai_deployment_cli.aks_service_update import (
     deployment_snapshot,
     peers_unchanged,
     validate_plan_scope,
@@ -33,39 +37,72 @@ from fdai_deployment_cli.aks_service_update import (
 )
 from fdai_deployment_cli.aks_workload_jobs import (
     aks_kubernetes_direct_api_environment as _aks_kubernetes_direct_api_environment,
+)
+from fdai_deployment_cli.aks_workload_jobs import (
     prepare_aks_scheduled_jobs as _prepare_aks_scheduled_jobs,
 )
-from fdai_deployment_cli import catalog_review_profile
 from fdai_deployment_cli.contracts import canonical_digest, load_json_object
 from fdai_deployment_cli.deployment_kit import acquire_deployment_kit
-from fdai_deployment_cli import foundation_adoption_host as foundation_host
 from fdai_deployment_cli.license import inspect_license
 from fdai_deployment_cli.oci_archive import validate_oci_archive
 from fdai_deployment_cli.private_output import read_private_bytes, write_private_output
 from fdai_deployment_cli.runtime_profile import RuntimeDeploymentProfile
+from fdai_deployment_cli.runtime_support_installation import (
+    install_runtime_support as _install_runtime_support,
+)
 from fdai_deployment_cli.standalone_aks_inventory import (
     initial_inventory_binding as _initial_inventory_binding,
+)
+from fdai_deployment_cli.standalone_aks_inventory import (
     run_initial_aks_inventory as _initial_aks_inventory,
 )
 from fdai_deployment_cli.standalone_catalog_review import run_catalog_review
 from fdai_deployment_cli.standalone_host_state import (
     absolute as _absolute,
+)
+from fdai_deployment_cli.standalone_host_state import (
     acquire_checkpoint_lock as _acquire_checkpoint_lock,
+)
+from fdai_deployment_cli.standalone_host_state import (
     executable_digest as _executable_digest,
+)
+from fdai_deployment_cli.standalone_host_state import (
     file_digest as _file_digest,
+)
+from fdai_deployment_cli.standalone_host_state import (
     moment as _moment,
+)
+from fdai_deployment_cli.standalone_host_state import (
     parse_moment as _parse_moment,
+)
+from fdai_deployment_cli.standalone_host_state import (
     private_directory as _private_directory,
+)
+from fdai_deployment_cli.standalone_host_state import (
     private_json as _private_json,
+)
+from fdai_deployment_cli.standalone_host_state import (
     replace_or_verify_private_json as _replace_or_verify_private_json,
+)
+from fdai_deployment_cli.standalone_host_state import (
     replace_private_json as _replace_private_json,
 )
 from fdai_deployment_cli.standalone_host_values import (
     console_origin as _console_origin,
+)
+from fdai_deployment_cli.standalone_host_values import (
     foundation_application_workload as _foundation_application_workload,
+)
+from fdai_deployment_cli.standalone_host_values import (
     foundation_binding_digest as _foundation_binding_digest,
+)
+from fdai_deployment_cli.standalone_host_values import (
     plan_summary as _plan_summary,
+)
+from fdai_deployment_cli.standalone_host_values import (
     required_image_digest as _required_image_digest,
+)
+from fdai_deployment_cli.standalone_host_values import (
     vault_name as _vault_name,
 )
 from fdai_deployment_cli.target import compute_target_binding
@@ -368,7 +405,11 @@ def _prepare(args: argparse.Namespace, work_dir: Path) -> dict[str, object]:
         offline_kit=_absolute(args.kit),
     )
     foundation.adoption.require_kit(kit)
-    _install_runtime_support(work_dir, artifact_root=kit.materialized_root)
+    _install_runtime_support(
+        work_dir,
+        artifact_root=kit.materialized_root,
+        kit_manifest_digest=kit.verification.manifest_digest,
+    )
     infra = kit.bundle_root / "infra"
     terraform = kit.materialized_root / kit.verification.terraform_binary
     provider_mirror = kit.materialized_root / kit.verification.provider_mirror_prefix
@@ -3924,34 +3965,6 @@ def _verify_remote_application_state_continuity(infra: Path, receipt: dict[str, 
 def _remove_adoption_inputs(*paths: Path) -> None:
     for path in paths:
         path.unlink(missing_ok=True)
-
-
-def _install_runtime_support(work_dir: Path, *, artifact_root: Path) -> None:
-    """Install already-admitted local support without selecting its trust mechanism."""
-    environment = work_dir / "runtime-venv"
-    if (environment / "bin/python").exists():
-        return
-    wheels = sorted((artifact_root / "support/python").rglob("*.whl"))
-    if not wheels:
-        raise ValueError("runtime migration support wheelhouse is empty")
-    _run(
-        (sys.executable, "-m", "venv", str(environment)),
-        cwd=work_dir,
-        timeout=120,
-        reason="runtime migration environment creation failed",
-    )
-    _run(
-        (
-            str(environment / "bin/pip"),
-            "install",
-            "--no-index",
-            "--no-cache-dir",
-            *(str(wheel) for wheel in wheels),
-        ),
-        cwd=work_dir,
-        timeout=900,
-        reason="runtime migration support installation failed",
-    )
 
 
 def _deployment_binding(_args: argparse.Namespace, work_dir: Path) -> dict[str, object]:
