@@ -43,6 +43,7 @@ remain unchanged.
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-27 | implemented | Added one bounded residual-apply route for a claimed Terraform effect that authoritative refresh proves only partially converged. It preserves the original claim, blocks ordinary replanning, requires a distinct exact residual approval and claim, and permits only verification after residual ambiguity. | `current change`; focused review, claim-before-effect, expiry-safe recovery, no-recursive-apply, command-routing, and ordinary-replan denial regressions; live partial state and residual plan classification. | Deliver through protected CI, rebuild the exact kit, and retain residual apply, readback, and zero-change receipts for the current partial substrate. |
 | 2026-09-27 | implemented | Bound managed-host Terraform backend and provider authentication directly to the selected UAMI after live initialization proved that Azure CLI authentication rejects its service-principal session type. Conflicting ambient auth selectors are cleared before the exact MSI binding is set. | `current change`; focused environment regression and classified live backend initialization failure. | Deliver through protected CI, rebuild the exact kit, and verify backend initialization from a fresh source-bound application context. |
 | 2026-09-27 | implemented | Replaced direct installation of every duplicated runtime wheel path with the signed aggregate requirements lock, exact hashes, dependency checking, package readback, and a source-bound completion receipt. An interrupted environment without that receipt now fails closed instead of being treated as installed. | `current change`; duplicate-wheel regression, partial-environment regression, and a network-isolated CPython 3.12 installation of 107 packages from 16 local wheel locations. | Deliver through protected CI, rebuild the exact signed kit, and resume managed-host preparation from a fresh source-bound context. |
 | 2026-09-27 | implemented | Added the required deployment-root manifest and signature to verified standalone transport archives after managed-host verification correctly rejected the legacy-only derived archive. | `current change`; archive construction, root-bound fixture, tar membership and full acquisition round-trip regression. | Deliver through protected CI, rebuild the exact kit, and verify the managed-host prepare path from a new source-bound context. |
@@ -195,6 +196,12 @@ If an apply outcome is ambiguous, the next invocation runs a zero-change plan an
 readback only. It never repeats the apply from the retained claim. A changed Foundation run,
 network/state handoff, Entra binding, provider configuration, or signed kit requires a distinct
 prepared context.
+When that verification plan proves residual changes rather than zero change, the original claim
+remains immutable. The coordinator may expose one separately named residual plan only after binding
+it to the original claim and refreshed state. A new exact residual approval and pre-effect residual
+claim are required; no residual effect is automatic, and an ambiguous residual effect permits
+verification only rather than another apply. Independent readback and residual zero change are
+required before the stage is complete.
 The invocation budget begins before preparation. Approval waits and application handoff use
 current remaining time; an expired budget starts no next stage and cannot produce readiness.
 Application confirmation requires a real terminal and one at-most-ten-minute window shared by

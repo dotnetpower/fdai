@@ -16,6 +16,7 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
+from fdai_deployment_cli import standalone_catalog_checkpoint
 from fdai_deployment_cli.application_state_adoption import ApplicationStateAdoption
 from fdai_deployment_cli.bundle import extract_bundle_archive
 from fdai_deployment_cli.catalog_review_profile import (
@@ -34,7 +35,6 @@ from fdai_deployment_cli.license_issue import (
 )
 from fdai_deployment_cli.private_output import read_private_bytes, write_private_output
 from fdai_deployment_cli.runtime_profile import RuntimeDeploymentProfile
-from fdai_deployment_cli import standalone_catalog_checkpoint
 from fdai_deployment_cli.standalone_remote_prepare import prepare_remote as _prepare_remote
 from fdai_deployment_cli.standalone_review import validate_plan_review
 from fdai_deployment_cli.target import compute_target_binding
@@ -160,24 +160,32 @@ def deploy_standalone_application(
         if substrate_recovery.get("state") == "applied":
             substrate_receipt = substrate_recovery
         else:
-            substrate_plan = _remote_json(
+            substrate_plan, substrate_apply_command = _plan_after_recovery(
                 tunnel,
                 remote_root,
                 app_work,
-                ("plan", "--stage", "substrate"),
+                substrate_recovery,
+                stage="substrate",
                 timeout=3600,
             )
             if application_state_adoption is not None:
                 _require_nondestructive_adoption_plan(substrate_plan)
             deadline.remaining()
             substrate_approval = _approve_plan(prepared.root, substrate_plan, deadline=deadline)
+            tunnel.ssh(("rm", "-f", "--", remote_approval), timeout=60)
             tunnel.copy_to(substrate_approval, remote_approval, timeout=120)
             progress_detail("Applying the approved infrastructure plan and verifying its effects")
             substrate_receipt = _remote_json(
                 tunnel,
                 remote_root,
                 app_work,
-                ("apply", "--stage", "substrate", "--approval", remote_approval),
+                (
+                    substrate_apply_command,
+                    "--stage",
+                    "substrate",
+                    "--approval",
+                    remote_approval,
+                ),
                 timeout=7200,
             )
             substrate_approval.unlink(missing_ok=True)
@@ -203,11 +211,12 @@ def deploy_standalone_application(
             if runtime_recovery.get("state") == "applied":
                 runtime_receipt = runtime_recovery
             else:
-                runtime_plan = _remote_json(
+                runtime_plan, runtime_apply_command = _plan_after_recovery(
                     tunnel,
                     remote_root,
                     app_work,
-                    ("plan", "--stage", "runtime"),
+                    runtime_recovery,
+                    stage="runtime",
                     timeout=3600,
                 )
                 deadline.remaining()
@@ -218,7 +227,13 @@ def deploy_standalone_application(
                     tunnel,
                     remote_root,
                     app_work,
-                    ("apply", "--stage", "runtime", "--approval", remote_approval),
+                    (
+                        runtime_apply_command,
+                        "--stage",
+                        "runtime",
+                        "--approval",
+                        remote_approval,
+                    ),
                     timeout=7200,
                 )
                 runtime_approval.unlink(missing_ok=True)
@@ -268,11 +283,12 @@ def deploy_standalone_application(
             if database_recovery.get("state") == "applied":
                 database_receipt = database_recovery
             else:
-                database_plan = _remote_json(
+                database_plan, database_apply_command = _plan_after_recovery(
                     tunnel,
                     remote_root,
                     app_work,
-                    ("plan", "--stage", "database"),
+                    database_recovery,
+                    stage="database",
                     timeout=3600,
                 )
                 deadline.remaining()
@@ -283,7 +299,13 @@ def deploy_standalone_application(
                     tunnel,
                     remote_root,
                     app_work,
-                    ("apply", "--stage", "database", "--approval", remote_approval),
+                    (
+                        database_apply_command,
+                        "--stage",
+                        "database",
+                        "--approval",
+                        remote_approval,
+                    ),
                     timeout=3600,
                 )
                 database_approval.unlink(missing_ok=True)
@@ -356,11 +378,12 @@ def deploy_standalone_application(
         if application_recovery.get("state") == "applied":
             application_receipt = application_recovery
         else:
-            application_plan = _remote_json(
+            application_plan, application_apply_command = _plan_after_recovery(
                 tunnel,
                 remote_root,
                 app_work,
-                ("plan", "--stage", "application"),
+                application_recovery,
+                stage="application",
                 timeout=3600,
             )
             if application_state_adoption is not None:
@@ -374,7 +397,13 @@ def deploy_standalone_application(
                 tunnel,
                 remote_root,
                 app_work,
-                ("apply", "--stage", "application", "--approval", remote_approval),
+                (
+                    application_apply_command,
+                    "--stage",
+                    "application",
+                    "--approval",
+                    remote_approval,
+                ),
                 timeout=7200,
             )
             application_approval.unlink(missing_ok=True)
@@ -482,6 +511,31 @@ def deploy_standalone_application(
     return receipt
 
 
+def _plan_after_recovery(
+    tunnel: Any,
+    remote_root: str,
+    app_work: str,
+    recovery: dict[str, Any],
+    *,
+    stage: str,
+    timeout: int,
+) -> tuple[dict[str, Any], str]:
+    """Use a separately bound residual review, or request an ordinary current plan."""
+
+    if isinstance(recovery.get("residual_recovery"), dict):
+        return recovery, "apply-residual"
+    return (
+        _remote_json(
+            tunnel,
+            remote_root,
+            app_work,
+            ("plan", "--stage", stage),
+            timeout=timeout,
+        ),
+        "apply",
+    )
+
+
 def _remote_json(
     tunnel: Any,
     remote_root: str,
@@ -540,8 +594,11 @@ def _approve_plan(
         return remaining
 
     historical_reconciliation = review.get("historical_reconciliation")
+    residual_recovery = review.get("residual_recovery")
     operation = (
-        str(historical_reconciliation["operation"])
+        str(residual_recovery["operation"])
+        if isinstance(residual_recovery, dict)
+        else str(historical_reconciliation["operation"])
         if isinstance(historical_reconciliation, dict)
         else stage
     )

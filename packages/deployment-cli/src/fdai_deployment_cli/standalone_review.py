@@ -27,11 +27,14 @@ _FIELDS = frozenset(
 _LEGACY_FIELDS = _FIELDS - {"runtime_profile_digest", "runtime_platform"}
 _SERVICE_UPDATE_FIELDS = frozenset({"service", "image", "source_commit", "update_digest"})
 _HISTORICAL_RECONCILIATION_FIELDS = frozenset({"operation", "variables_digest", "mutations"})
+_RESIDUAL_RECOVERY_FIELDS = frozenset(
+    {"operation", "original_plan_digest", "original_claim_digest"}
+)
 _ACTIONS = frozenset({"create", "update", "delete", "replace", "read", "no-op"})
 _ERROR = "standalone plan review is invalid or expired; request a current exact plan"
 
 
-def validate_plan_review(review: dict[str, Any]) -> tuple[str, int]:
+def validate_plan_review(review: dict[str, Any], *, allow_expired: bool = False) -> tuple[str, int]:
     """Return a safe stage and destructive count without granting execution authority."""
 
     stage = review.get("stage")
@@ -44,6 +47,7 @@ def validate_plan_review(review: dict[str, Any]) -> tuple[str, int]:
             _FIELDS,
             _FIELDS | {"service_update"},
             _FIELDS | {"historical_reconciliation"},
+            _FIELDS | {"residual_recovery"},
         )
         or review.get("schema_version") != "fdai.standalone-application-plan.v1"
         or not isinstance(stage, str)
@@ -98,6 +102,18 @@ def validate_plan_review(review: dict[str, Any]) -> tuple[str, int]:
             or not item.isascii()
             or not item.isprintable()
             for item in historical_reconciliation["mutations"]
+        )
+    ):
+        raise ValueError(_ERROR)
+    residual_recovery = review.get("residual_recovery")
+    if residual_recovery is not None and (
+        not isinstance(residual_recovery, dict)
+        or set(residual_recovery) != _RESIDUAL_RECOVERY_FIELDS
+        or residual_recovery.get("operation") != f"{stage}-residual"
+        or any(
+            not isinstance(residual_recovery.get(field), str)
+            or re.fullmatch(r"[0-9a-f]{64}", str(residual_recovery[field])) is None
+            for field in ("original_plan_digest", "original_claim_digest")
         )
     ):
         raise ValueError(_ERROR)
@@ -163,7 +179,7 @@ def validate_plan_review(review: dict[str, Any]) -> tuple[str, int]:
         expires = datetime.fromisoformat(expiry.replace("Z", "+00:00"))
     except ValueError as exc:
         raise ValueError(_ERROR) from exc
-    if expires.tzinfo is None or expires <= datetime.now(UTC):
+    if expires.tzinfo is None or (not allow_expired and expires <= datetime.now(UTC)):
         raise ValueError(_ERROR)
     document = {key: value for key, value in review.items() if key != "review_digest"}
     if review["review_digest"] != canonical_digest(document):
