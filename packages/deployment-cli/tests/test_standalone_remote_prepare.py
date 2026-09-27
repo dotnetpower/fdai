@@ -11,6 +11,61 @@ from fdai_deployment_cli.contracts import canonical_digest
 from fdai_deployment_cli.standalone_remote_prepare import prepare_remote
 
 
+def test_prepare_remote_transfers_foundation_adoption(tmp_path: Path) -> None:
+    tmp_path.chmod(0o700)
+    root = tmp_path / "run"
+    plan = root / "foundation-adoption"
+    root.mkdir(mode=0o700)
+    plan.mkdir(mode=0o700)
+    archive = tmp_path / "kit.tar.gz"
+    handoff = plan / "foundation-private-handoff.json"
+    entra = tmp_path / "entra.json"
+    adoption = root / "foundation-adoption-receipt.json"
+    for path in (archive, handoff, entra, adoption):
+        path.write_text(path.name, encoding="utf-8")
+    archive_digest = "a" * 64
+    remote_root = "/home/fdai/.fdai-transfer-example"
+
+    class Tunnel:
+        def __init__(self) -> None:
+            self.commands: list[tuple[str, ...]] = []
+            self.copies: list[tuple[Path, str]] = []
+
+        def copy_to(self, source: Path, destination: str, *, timeout: int) -> None:
+            del timeout
+            self.copies.append((source, destination))
+
+        def ssh(self, command: tuple[str, ...], *, timeout: int) -> SimpleNamespace:
+            del timeout
+            self.commands.append(command)
+            stdout = f"{archive_digest}  kit.tar.gz\n" if command[0] == "sha256sum" else ""
+            return SimpleNamespace(returncode=0, stdout=stdout)
+
+    tunnel = Tunnel()
+    prepare_remote(
+        tunnel,
+        remote_root=remote_root,
+        remote_archive=f"{remote_root}/kit.tar.gz",
+        archive=archive,
+        archive_digest=archive_digest,
+        handoff_path=handoff,
+        remote_handoff=f"{remote_root}/foundation-handoff.json",
+        entra_path=entra,
+        remote_entra=f"{remote_root}/entra-bindings.json",
+        app_work=f"{remote_root}/application",
+        timeout_seconds=1800,
+    )
+
+    assert (
+        adoption,
+        f"{remote_root}/foundation-adoption.json",
+    ) in tunnel.copies
+    prepare = next(command for command in tunnel.commands if "--foundation-adoption" in command)
+    assert prepare[prepare.index("--foundation-adoption") + 1] == (
+        f"{remote_root}/foundation-adoption.json"
+    )
+
+
 def _selected_profile(key_path: Path) -> CatalogReviewDeploymentProfile:
     key_digest = hashlib.sha256(key_path.read_bytes()).hexdigest()
     material = {

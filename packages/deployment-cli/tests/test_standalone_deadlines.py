@@ -7,7 +7,11 @@ from types import SimpleNamespace
 
 import pytest
 
-from fdai_deployment_cli import standalone_deploy
+from fdai_deployment_cli import (
+    standalone_application_completion,
+    standalone_deploy,
+    standalone_foundation_adoption,
+)
 
 
 @pytest.fixture
@@ -96,6 +100,11 @@ def coordinator(tmp_path, monkeypatch):
         "import_module",
         lambda name: modules[name] if name in modules else original_import(name),
     )
+    monkeypatch.setattr(
+        standalone_application_completion.importlib,
+        "import_module",
+        lambda name: modules[name] if name in modules else original_import(name),
+    )
     monkeypatch.setattr(standalone_deploy, "time", SimpleNamespace(monotonic=lambda: clock[0]))
     monkeypatch.setattr(
         standalone_deploy,
@@ -108,7 +117,7 @@ def coordinator(tmp_path, monkeypatch):
     monkeypatch.setattr(standalone_deploy, "acquire_deployment_kit", lambda **_kwargs: kit)
     monkeypatch.setattr(standalone_deploy, "run_foundation_process", foundation)
     monkeypatch.setattr(
-        standalone_deploy,
+        standalone_foundation_adoption,
         "stage_recovered_foundation",
         lambda **kwargs: (
             options.__setitem__("foundation_adoption", kwargs)
@@ -136,7 +145,11 @@ def coordinator(tmp_path, monkeypatch):
         },
     )
     monkeypatch.setattr(standalone_deploy.subprocess, "run", prompt)
-    monkeypatch.setattr(standalone_deploy, "deploy_standalone_application", application)
+    monkeypatch.setattr(
+        standalone_application_completion,
+        "deploy_standalone_application",
+        application,
+    )
     monkeypatch.setattr(standalone_deploy, "_current_operator_object_id", lambda: "synthetic")
 
     def invoke(*, runner_receipt=None, online=True, foundation_adoption=False):

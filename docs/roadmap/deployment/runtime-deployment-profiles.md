@@ -158,7 +158,8 @@ Tenant provisioning consumes prebuilt service and dependency images for new inst
 A complete release includes ClamAV and pgvector, and the provisioner verifies signatures, provenance, source revision, platform, and digest without Docker, Buildx,
 ACR Tasks, a remote builder, or VM image capture. When a recovered Foundation predates the release,
 the local coordinator retains its complete evidence chain and the managed host independently binds
-the historical handoff digest to the distinct current kit and runtime digests. One bounded exception lets an eligible host run `fdaictl provision source-service-update` for one service on an
+the historical handoff digest to the distinct current kit and runtime digests. This binding does not
+select, skip, or authorize the optional catalog review checkpoint. One bounded exception lets an eligible host run `fdaictl provision source-service-update` for one service on an
 existing healthy `dev` AKS installation. The source-built image remains operator-selected evidence rather than release trust. Current human approval gates its
 Managed Identity import and the Deployment-only exact plan; digest and health readback, unchanged peers, and targeted zero change remain required.
 

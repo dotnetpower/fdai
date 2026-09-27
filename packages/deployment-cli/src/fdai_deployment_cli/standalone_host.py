@@ -295,11 +295,12 @@ def _prepare(args: argparse.Namespace, work_dir: Path) -> dict[str, object]:
     state = _mapping(handoff.get("state"), "Foundation state")
     ops = _mapping(handoff.get("ops"), "Foundation operations")
     app = _mapping(handoff.get("app_resource_group"), "Foundation application group")
-    subscription = _required_guid(handoff, "subscription_id")
-    tenant = _required_guid(handoff, "tenant_id")
-    client_id = _required_guid(runner, "client_id")
-    principal_id = _required_guid(runner, "principal_id")
-    initial_inventory_binding = _initial_inventory_binding(subscription)
+    foundation = foundation_host.load_foundation_host_context(
+        _absolute(args.foundation_adoption) if args.foundation_adoption is not None else None,
+        handoff=handoff,
+        runner=runner,
+    )
+    initial_inventory_binding = _initial_inventory_binding(foundation.subscription_id)
     runtime_profile = RuntimeDeploymentProfile.create(
         runtime_platform=str(args.runtime_platform),
         database_placement=str(args.database_placement),
@@ -325,7 +326,7 @@ def _prepare(args: argparse.Namespace, work_dir: Path) -> dict[str, object]:
         _absolute(catalog_profile_path) if catalog_profile_path else None,
         _absolute(catalog_key_path) if catalog_key_path else None,
     )
-    _managed_identity_login(subscription, tenant, client_id, principal_id, work_dir)
+    foundation.login(_managed_identity_login, work_dir)
     retained_context = work_dir / "context.json"
     retained_variables = work_dir / "application.auto.tfvars.json"
     if retained_context.exists() or retained_variables.exists():

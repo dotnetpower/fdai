@@ -26,14 +26,14 @@ class FoundationTransport:
 
 def stage_foundation_context(
     tunnel: PrivateTransport,
-    remote_root: str,
     handoff_path: Path,
+    remote_handoff: str,
     entra_path: Path,
+    remote_entra: str,
+    remote_root: str,
 ) -> FoundationTransport:
     """Copy exact handoff inputs and return optional adoption arguments."""
 
-    remote_handoff = f"{remote_root}/foundation-handoff.json"
-    remote_entra = f"{remote_root}/entra-bindings.json"
     tunnel.copy_to(handoff_path, remote_handoff, timeout=120)
     tunnel.copy_to(entra_path, remote_entra, timeout=120)
     adoption = handoff_path.parent.parent / "foundation-adoption-receipt.json"

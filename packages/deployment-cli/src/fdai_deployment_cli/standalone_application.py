@@ -27,7 +27,6 @@ from fdai_deployment_cli.deadline_transport import DeadlineTransport
 from fdai_deployment_cli.deployment_deadline import DeploymentDeadline
 from fdai_deployment_cli.deployment_kit import DeploymentKit, archive_verified_kit
 from fdai_deployment_cli.deployment_progress import begin_stage, progress_detail, terminal_output
-from fdai_deployment_cli.foundation_adoption_transport import stage_foundation_context
 from fdai_deployment_cli.license import inspect_license
 from fdai_deployment_cli.license_issue import (
     discover_license_signing_key,
@@ -106,6 +105,8 @@ def deploy_standalone_application(
         raise ValueError("Foundation runner SSH username is invalid")
     remote_root = f"/home/{username}/.fdai-transfer-{work_ref}"
     remote_archive = f"{remote_root}/kit.tar.gz"
+    remote_handoff = f"{remote_root}/foundation-handoff.json"
+    remote_entra = f"{remote_root}/entra-bindings.json"
     remote_approval = f"{remote_root}/approval.json"
     remote_adoption_state = f"{remote_root}/application-state.json"
     remote_adoption_models = f"{remote_root}/resolved-models.json"
@@ -136,7 +137,9 @@ def deploy_standalone_application(
             archive=transport_archive,
             archive_digest=archive_digest,
             handoff_path=handoff_path,
+            remote_handoff=remote_handoff,
             entra_path=entra_path,
+            remote_entra=remote_entra,
             app_work=app_work,
             runtime_profile=selected_runtime,
             application_state_adoption=application_state_adoption,
