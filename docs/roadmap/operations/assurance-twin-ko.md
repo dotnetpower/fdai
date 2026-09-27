@@ -1,7 +1,7 @@
 ---
 title: 어슈어런스 트윈 (질의가능하고 선제적이며 검증가능한 리뷰)
 translation_of: assurance-twin.md
-translation_source_sha: daf70e42ab362631635e05f14164783a9a7deadc
+translation_source_sha: c4b3d2acb46a31d6b0bab2a8c0232a8bb0480694
 translation_revised: 2026-09-27
 ---
 # 어슈어런스 트윈 (질의가능하고 선제적이며 검증가능한 리뷰)
@@ -48,12 +48,12 @@ event-driven, risk-gated 설계를 저하시키지 않으면서 커버하는 리
 게시합니다. 인증된 Operator API와 콘솔은 이벤트 알림이 아닌 영속 행을 계속
 읽습니다. 기본 구성에는 운영 보관 근거 출처가 연결되지 않아 선제적 수집
 페이로드만으로 발견 사항이나 검토 판정을 만들 수 없습니다. 보관된 인벤토리 출처는
-범위가 제한된 `Resource` 변환 결과만 제공하며, 완전한 규칙 점검 결과나 제안된
-IaC 변경 근거는 제공하지 않습니다. 실시간 관계 변경이 남아 있으면 사용할 수
-없습니다. 스냅샷 ID만으로는 변하는 `Resource` 변경분을 보고서나 검토의 정확한
-개정에 연결할 수 없습니다. 두 작성기에 필요한 신뢰된 출처, 범위, 개정을
-선택하는 운영 요청 생산자도 없습니다. 외부 검토 전달과 통제된 런타임 증적은
-아직 남아 있습니다.
+범위가 제한된 `Resource` 변환 결과와 활성 스냅샷 및 실시간 `Resource` 변경분의
+내용을 함께 식별하는 개정을 제공합니다. 그러나 완전한 규칙 점검 결과나 제안된
+IaC 변경 근거는 제공하지 않으며, 실시간 관계 변경이 남아 있으면 사용할 수 없습니다.
+신뢰할 수 있는 출처가 해당 개정에서 완전한 규칙 평가를 별도로 입증해야 합니다.
+검토에는 완전한 IaC 변경 제안 근거도 필요합니다. 운영 출처와 책임 있는 요청
+생산자는 아직 연결되지 않았습니다. 외부 검토 전달과 통제된 런타임 증적도 남아 있습니다.
 
 ### 구현 범위
 
@@ -63,6 +63,7 @@ IaC 변경 근거는 제공하지 않습니다. 실시간 관계 변경이 남�
 | 스칼라 Dynamic 효과 모델, 충실도 측정, 범위가 제한된 런타임 조정 | implemented | [`effect_model.py`](../../../services/core-control-plane/src/fdai/core/assurance_twin/effect_model.py), [`fidelity.py`](../../../services/core-control-plane/src/fdai/core/assurance_twin/fidelity.py), [`runtime.py`](../../../services/core-control-plane/src/fdai/core/assurance_twin/runtime.py) 및 해당 집중 테스트 | 활성 모델은 변경하지 않고, challenger는 적격 결과에서만 학습하며, 불일치는 사람 검토로 낮춥니다. |
 | 그래프 전역 Dynamic 궤적, 전파, 불변식, 에피소드 종결, 모델 레지스트리 | implemented | [`graph_effect.py`](../../../services/core-control-plane/src/fdai/core/assurance_twin/graph_effect.py), [`graph_runtime.py`](../../../services/core-control-plane/src/fdai/core/assurance_twin/graph_runtime.py), [`graph_closure.py`](../../../services/core-control-plane/src/fdai/core/assurance_twin/graph_closure.py) 및 그래프 집중 테스트 | 런타임은 근거를 반환하기 전에 예측 에피소드를 저장하고 완전한 독립 관측에서만 challenger 구획을 갱신합니다. |
 | 심층 Security Assessment 피드, 결정론적 분석기, 카탈로그 보고서 | implemented | [`core/security/`](../../../services/core-control-plane/src/fdai/core/security), [`security_assessment.py`](../../../services/core-control-plane/src/fdai/core/reporting/datasources/security_assessment.py), [`test_assessment.py`](../../../services/core-control-plane/tests/core/security/test_assessment.py), [`test_security_assessment_datasource.py`](../../../services/core-control-plane/tests/core/reporting/test_security_assessment_datasource.py) | 아래에서 설명하는 Twin 전용 자세 패널과는 별도의 보고 하위 시스템입니다. |
+| 보관된 `Resource` 개정과 작성기 수용 계약 | implemented | [`assurance_twin_inventory.py`](../../../services/core-control-plane/src/fdai/delivery/assurance_twin_inventory.py), [`assurance_twin_writers.py`](../../../services/core-control-plane/src/fdai/delivery/assurance_twin_writers.py), 출처 및 게시 집중 테스트 | 스냅샷과 범위가 제한된 `Resource` 변경분은 하나의 정규 다이제스트로 식별됩니다. 신뢰된 출처는 빈 결과의 다이제스트까지 포함해 개정이 일치하는 완전한 규칙 평가를 제공해야 합니다. 검토에는 완전한 제안된 IaC 근거도 필요합니다. 실제 평가기나 관계 변경분은 연결하지 않았습니다. |
 | 운영 Twin 연결과 선제적 변경 검토 전달 | not-started | [`assurance_twin_inventory.py`](../../../services/core-control-plane/src/fdai/delivery/assurance_twin_inventory.py)는 `Resource`만 포함한 변환 결과를 제공하며, [`iac_review.py`](../../../services/core-control-plane/src/fdai/shared/providers/iac_review.py)는 검토 발행기 연결 지점을 정의합니다. | 이 변환 결과만으로는 완전한 발견 사항이나 제안된 IaC 변경 근거를 제공할 수 없습니다. 신뢰할 수 있는 정확한 개정의 보고서 및 검토 출처, 내용 없는 버스 요청 생산자, Checks API 발행기는 아직 연결되지 않았습니다. |
 | 엄격한 의미 컴파일과 판단 보류 피드백 | implemented | [`query.py`](../../../services/core-control-plane/src/fdai/core/assurance_twin/query.py), [`semantic_query.py`](../../../services/core-control-plane/src/fdai/core/assurance_twin/semantic_query.py), [`runtime/assurance_twin_query.py`](../../../services/core-control-plane/src/fdai/runtime/assurance_twin_query.py), 집중 질의 및 런타임 테스트 50개 | 주입된 컴파일러는 읽기 전용 계획이 검증을 통과하기 전에 정확한 입력 다이제스트, 컴파일러 개정, 제한된 결과 수, 근거 참조를 연결해야 합니다. 판단 보류는 주입된 발견 sink를 통해 내용 없는 무권한 공백만 발행합니다. 런타임 기본값은 명시적인 모델 사용 불가입니다. |
 | T1 재사용, ChatOps 입력, 통제된 런타임 근거 | in-progress | [`chat.py`](../../../services/core-control-plane/src/fdai/core/assurance_twin/chat.py), 공유 의미 판단 계약 | 메시지 라우팅, T1 재사용, 구체적인 모델 프로바이더, 인증된 종단 증적은 아직 검증되지 않았습니다. |
@@ -87,6 +88,7 @@ IaC 변경 근거는 제공하지 않습니다. 실시간 관계 변경이 남�
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-27 | implemented | 보관된 `Resource` 세대와 범위가 제한된 변경분을 내용으로 식별하고, 작성기가 같은 개정의 완전한 규칙 점검 결과와 검토에 필요한 제안된 IaC 근거를 요구하도록 했습니다. 운영 출처와 요청 생산자는 연결하지 않았습니다. | `current change`; `assurance_twin_inventory.py`, `assurance_twin_writers.py`, 인벤토리 및 게시 집중 테스트. | 책임 있는 완전한 평가기와 변경 제안 출처를 연결하고, 보류 중인 관계 변경을 처리하고, 내용 없는 버스 요청을 발행한 뒤 통제된 런타임 증적을 보관합니다. |
 | 2026-09-27 | implemented | Heimdall 보고서와 Forseti 검토 작성기를 분리하고, 정확한 개정의 상태, 아웃박스, 감사를 원자적으로 저장하며 재시작 중계기를 감독하도록 했습니다. 출처를 사용할 수 없거나 근거가 충돌할 때 검토 판정을 만들어 내지 않습니다. | `current change`; `assurance_twin_writers.py`, `assurance_twin_publication.py`, Core, Operator 및 콘솔 집중 검사. | 신뢰할 수 있는 운영 근거를 연결하고 통제된 런타임 증적을 보관합니다. |
 | 2026-09-09 | in-progress | 일치하는 검토 재전달이 동시에 기록되는 충돌 표식과 올바른 순서로 수렴하도록 두 번째 개정 번호 및 다이제스트 읽기를 추가했습니다. 확인 과정은 읽기 전용이며 감사 항목을 추가하지 않습니다. 두 읽기 사이에 충돌이 기록되면 사용 불가 결과를 반환합니다. | `current change`; 읽기와 충돌 표식의 교차 순서를 강제한 사례를 포함해 집중 영속성 및 전달 검사 45개와 Ruff 통과. | 신뢰된 생산자 또는 트랜잭션 발행기를 연결할 때도 같은 읽기 전용 순서 보장을 유지합니다. |
 | 2026-09-09 | in-progress | 일치하는 변경 검토 재전달을 실제 읽기 전용 no-op으로 만들고, 범위가 제한된 최근 검토 변환 결과를 쓰기 최신성이 아니라 정규 근거 생성 시각 순서로 정렬했습니다. 읽기 용량인 1,000행을 넘으면 오해를 일으키는 부분 순서를 반환하지 않고 명시적으로 실패합니다. | `current change`; 집중 영속성 및 전달 검사 44개와 Ruff 통과. | 신뢰된 생산자를 연결하고 통제된 재현 근거를 보존합니다. 레코더는 계속 연결되지 않은 상태입니다. |
@@ -143,6 +145,18 @@ retrieval-augmented 챗봇은 다섯 가지 구조적 결함을 안고 리뷰 �
 ## 다섯 가지 전환
 
 ### 1. 주변 (reactive에서 proactive로)
+
+현재 구현은 다음 운영 흐름 전에 멈춥니다. 안정적인 `sha256:` `Resource` 개정은
+활성 스냅샷의 신원과 내용, 관측 시각을 포함한 범위가 제한된 실시간 `Resource`
+변경분을 함께 식별합니다. `load_at_revision`은 내용을 다시 읽어 다른 개정이면
+거부합니다. 주입된 신뢰할 수 있는 출처는 해당 개정을 다시 읽고 명시적인 규칙
+적용 범위, 평가한 규칙 식별자, 규칙 집합 다이제스트 및 완전한 점검
+결과 집합의 다이제스트를 제공해야 합니다. 발견된 문제가 없다는 결과도 이 독립적이고
+완전한 규칙 평가가 있어야만 정상으로 표시합니다. 검토에는 같은 개정과 PR에 연결된
+완전한 제안된 IaC 근거가 추가로 필요합니다. 보류 중인 관계 변경, 근거 부재, 개정
+불일치, 오래되거나 상충하는 출처는 사용할 수 없습니다. 스키마 검증을 거친 내용
+없는 요청을 정당하게 선택하고 발행할 기존 생산자가 없으므로 운영 작성기는 기본적으로
+연결되지 않습니다. 이 읽기 전용 기록은 승인, 변경 또는 실행 권한을 부여하지 않습니다.
 
 트윈은 요청이 아니라 이벤트에서 변경을 리뷰합니다. 변경 신호가 도착하면(IaC pull 요청
 열림, Activity Log 리소스 쓰기, 표류 차이), `event-ingest` 가 정규화하고, 트윈이 scratch

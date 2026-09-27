@@ -148,6 +148,8 @@ async def test_active_generation_replays_resource_overlay_and_restarts(
 
     assert first == second
     assert first.snapshot_id == "generation-one"
+    assert first.source_revision.startswith("sha256:")
+    assert len(first.source_revision) == 71
     assert first.resource_count == 2 and first.delta_count == 3
     assert first.projection.properties(BASE) == {"replacement": True}
     assert not first.projection.contains(ResourceRef("Resource", "resource-b"))
@@ -155,6 +157,70 @@ async def test_active_generation_replays_resource_overlay_and_restarts(
     assert connection.sql[0] == "SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY"
     assert "pg_advisory_xact_lock_shared" in connection.sql[2]
     assert connection.sql.count(connection.sql[0]) == 2
+
+
+@pytest.mark.asyncio
+async def test_revision_fences_snapshot_and_realtime_content_not_just_generation(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    connection = Connection(
+        snapshot=_snapshot(),
+        resources=[_resource()],
+        deltas=[_delta("resource-a", "upsert", replacement=True)],
+    )
+    source = _source(monkeypatch, connection)
+    initial = await _load(source)
+    assert (
+        await source.load_at_revision(
+            expected_revision=initial.source_revision,
+            now=NOW,
+            freshness_ttl=timedelta(minutes=10),
+            required_scopes=("scope-a",),
+        )
+    ) == initial
+    connection.resources = [_resource(old=False)]
+    baseline_changed = await _load(source)
+    assert initial.snapshot_id == baseline_changed.snapshot_id
+    assert initial.source_revision != baseline_changed.source_revision
+    with pytest.raises(TwinInventoryUnavailableError, match="revision changed"):
+        await source.load_at_revision(
+            expected_revision=initial.source_revision,
+            now=NOW,
+            freshness_ttl=timedelta(minutes=10),
+            required_scopes=("scope-a",),
+        )
+    connection.resources = [_resource()]
+    connection.deltas = [_delta("resource-a", "upsert", replacement=False)]
+    overlay_changed = await _load(source)
+    assert initial.source_revision != overlay_changed.source_revision
+    connection.deltas = [_delta("resource-a", "upsert", replacement=True)]
+    connection.deltas[0]["observed_at"] -= timedelta(seconds=1)
+    time_changed = await _load(source)
+    assert initial.source_revision != time_changed.source_revision
+    connection.deltas[0]["observed_at"] += timedelta(seconds=1)
+    replay = await _load(_source(monkeypatch, connection))
+    assert replay.source_revision == initial.source_revision
+    connection.snapshot = _snapshot(id="generation-two")
+    assert (await _load(source)).source_revision != initial.source_revision
+
+
+@pytest.mark.asyncio
+async def test_revision_is_canonical_for_property_order_and_rejects_unhashable_values(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    connection = Connection(
+        snapshot=_snapshot(),
+        resources=[_resource(a=1, b=2)],
+        deltas=[_delta("resource-b", "upsert", x=1, y=2)],
+    )
+    source = _source(monkeypatch, connection)
+    first = await _load(source)
+    connection.resources = [_resource(b=2, a=1)]
+    connection.deltas = [_delta("resource-b", "upsert", y=2, x=1)]
+    assert (await _load(source)).source_revision == first.source_revision
+    connection.resources = [_resource(invalid=float("nan"))]
+    with pytest.raises(TwinInventoryUnavailableError, match="revision material"):
+        await _load(source)
 
 
 @pytest.mark.asyncio

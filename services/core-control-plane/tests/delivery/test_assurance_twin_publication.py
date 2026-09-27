@@ -19,8 +19,12 @@ from fdai.delivery.assurance_twin_writers import (
     REQUEST_TOPIC,
     AssuranceTwinAgentWriter,
     AssuranceTwinPublishRequest,
+    ProposedIacAssessment,
     RetainedTwinEvidence,
+    RuleFindingAssessment,
+    findings_digest,
     request_key,
+    rule_set_digest,
 )
 from fdai.delivery.event_bus_multiplex import MultiplexedEventBus
 from fdai.delivery.persistence.state_store_assurance_twin_posture import (
@@ -87,6 +91,7 @@ def _evidence(record: object) -> RetainedTwinEvidence:
             "freshness": "fresh",
             "reason_codes": [],
         }
+    evaluated_rule_ids = tuple(sorted({finding.rule_id for finding in record.findings}))  # type: ignore[attr-defined]
     return RetainedTwinEvidence(
         record=record,  # type: ignore[arg-type]
         source_revision=_REVISION,
@@ -94,6 +99,25 @@ def _evidence(record: object) -> RetainedTwinEvidence:
         fresh_until=datetime.now(UTC) + timedelta(minutes=1),
         coverage_refs=("coverage:1",),
         complete=True,
+        rule_assessment=RuleFindingAssessment(
+            source_revision=_REVISION,
+            rule_set_digest=rule_set_digest(evaluated_rule_ids),
+            evaluated_rule_ids=evaluated_rule_ids,
+            findings_digest=findings_digest(record.findings),  # type: ignore[attr-defined]
+            coverage_refs=("rule-coverage:1",),
+            complete=True,
+        ),
+        proposed_iac=(
+            ProposedIacAssessment(
+                source_revision=_REVISION,
+                pr_ref=record.pr_ref,
+                proposal_digest="sha256:" + "c" * 64,
+                evidence_refs=("proposed-change:1",),
+                complete=True,
+            )
+            if isinstance(record, IacReview)
+            else None
+        ),
     )
 
 
@@ -107,6 +131,114 @@ class _Source:
 
     async def read_review(self, review_key: str, revision: str) -> RetainedTwinEvidence | None:
         return self.review
+
+
+@pytest.mark.parametrize("kind", ["posture", "review"])
+@pytest.mark.parametrize(
+    "gap",
+    [
+        "missing",
+        "incomplete",
+        "wrong_revision",
+        "substituted",
+        "missing_rules",
+        "wrong_rules",
+        "missing_coverage",
+    ],
+)
+async def test_rule_assessment_required_for_both_writers(kind: str, gap: str) -> None:
+    store, bus, source = InMemoryStateStore(), InMemoryEventBus(), _Source()
+    ledger, heimdall, forseti = _bindings(store, bus, source)
+    evidence = source.posture if kind == "posture" else source.review
+    assert evidence is not None and evidence.rule_assessment is not None
+    rule = evidence.rule_assessment
+    changed = {
+        "missing": None,
+        "incomplete": replace(rule, complete=False),
+        "wrong_revision": replace(rule, source_revision="sha256:" + "f" * 64),
+        "substituted": replace(rule, findings_digest="sha256:" + "e" * 64),
+        "missing_rules": replace(rule, evaluated_rule_ids=()),
+        "wrong_rules": replace(rule, evaluated_rule_ids=("other-rule",)),
+        "missing_coverage": replace(rule, coverage_refs=()),
+    }[gap]
+    if kind == "posture":
+        source.posture = replace(evidence, rule_assessment=changed)
+    else:
+        source.review = replace(evidence, rule_assessment=changed)
+    assert not await (heimdall if kind == "posture" else forseti).process(_request(kind))
+    assert await ledger.pending_publications(owner="Heimdall") == ()
+    assert await ledger.pending_publications(owner="Forseti") == ()
+    assert store.audit_entries == ()
+
+
+@pytest.mark.parametrize("gap", ["missing", "incomplete", "wrong_revision", "wrong_pr", "no_refs"])
+async def test_review_requires_complete_proposed_iac_evidence(gap: str) -> None:
+    store, bus, source = InMemoryStateStore(), InMemoryEventBus(), _Source()
+    ledger, _, forseti = _bindings(store, bus, source)
+    assert source.review is not None and source.review.proposed_iac is not None
+    proposal = source.review.proposed_iac
+    changed = {
+        "missing": None,
+        "incomplete": replace(proposal, complete=False),
+        "wrong_revision": replace(proposal, source_revision="sha256:" + "f" * 64),
+        "wrong_pr": replace(proposal, pr_ref="other-pr"),
+        "no_refs": replace(proposal, evidence_refs=()),
+    }[gap]
+    source.review = replace(source.review, proposed_iac=changed)
+    assert not await forseti.process(_request("review"))
+    assert await ledger.pending_publications(owner="Forseti") == ()
+    assert store.audit_entries == ()
+
+
+async def test_malformed_source_proof_and_forged_request_fail_closed() -> None:
+    store, bus, source = InMemoryStateStore(), InMemoryEventBus(), _Source()
+    ledger, heimdall, _ = _bindings(store, bus, source)
+    assert source.posture is not None and source.posture.rule_assessment is not None
+    source.posture = replace(
+        source.posture,
+        rule_assessment=replace(
+            source.posture.rule_assessment,
+            coverage_refs=(None,),  # type: ignore[arg-type]
+        ),
+    )
+    assert not await heimdall.process(_request("posture"))
+    assert not await heimdall.process(
+        _request("posture").model_copy(update={"idempotency_key": "forged"})
+    )
+    assert await ledger.pending_publications(owner="Heimdall") == ()
+    assert store.audit_entries == ()
+
+
+async def test_zero_findings_is_clear_only_after_complete_rule_assessment() -> None:
+    store, bus, source = InMemoryStateStore(), InMemoryEventBus(), _Source()
+    ledger, heimdall, _ = _bindings(store, bus, source)
+    clear = build_posture_assessment_report(
+        scope=_SCOPE, generated_at=_NOW.isoformat(), mode=Mode.SHADOW, findings=()
+    )
+    assert source.posture is not None and source.posture.rule_assessment is not None
+    source.posture = replace(
+        source.posture,
+        record=clear,
+        evidence_digest=evidence_body_digest(
+            {
+                **clear.to_dict(),
+                "generated_at": _NOW.isoformat(),
+                "freshness": "fresh",
+                "reason_codes": [],
+            }
+        ),
+        rule_assessment=replace(
+            source.posture.rule_assessment,
+            findings_digest=findings_digest(clear.findings),
+        ),
+    )
+    assert await heimdall.process(_request("posture"))
+    row = await ledger.read_latest_posture_report(_SCOPE)
+    assert row is not None and row["verdict"] == "clear"
+    source.posture = replace(
+        source.posture, rule_assessment=replace(source.posture.rule_assessment, complete=False)
+    )
+    assert not await heimdall.process(_request("posture"))
 
 
 def _request(kind: str) -> AssuranceTwinPublishRequest:
@@ -316,8 +448,17 @@ async def test_newer_posture_supersedes_older_pending_revision() -> None:
         "freshness": "fresh",
         "reason_codes": [],
     }
+    assert source.posture.rule_assessment is not None
     source.posture = replace(
-        source.posture, record=newer, evidence_digest=evidence_body_digest(newer_body)
+        source.posture,
+        record=newer,
+        evidence_digest=evidence_body_digest(newer_body),
+        rule_assessment=replace(
+            source.posture.rule_assessment,
+            evaluated_rule_ids=("new-rule",),
+            rule_set_digest=rule_set_digest(("new-rule",)),
+            findings_digest=findings_digest(newer.findings),
+        ),
     )
     assert await heimdall.process(_request("posture"))
     row_key, row = (await ledger.pending_publications(owner="Heimdall"))[0]
@@ -420,9 +561,16 @@ async def test_audit_failure_rolls_back_revision_advance_atomically() -> None:
         findings=(_finding("new-rule"),),
     )
     assert source.posture is not None
+    assert source.posture.rule_assessment is not None
     source.posture = replace(
         source.posture,
         record=newer,
+        rule_assessment=replace(
+            source.posture.rule_assessment,
+            evaluated_rule_ids=("new-rule",),
+            rule_set_digest=rule_set_digest(("new-rule",)),
+            findings_digest=findings_digest(newer.findings),
+        ),
         evidence_digest=evidence_body_digest(
             {
                 **newer.to_dict(),
