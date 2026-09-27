@@ -9,8 +9,7 @@ from datetime import datetime
 
 from fdai.core.assurance_twin.projection import InMemoryProjection
 from fdai.core.tiers.t0_deterministic import T0Engine
-from fdai.shared.contracts.models import Rule
-from fdai.shared.contracts.models.rule import SubmissionCriterionKind
+from fdai.shared.contracts.models import Rule, SubmissionCriterionKind
 from fdai.shared.providers.projection import Finding, ResourceRef
 
 _SIGNAL_TYPE = "inventory.resource_observed"

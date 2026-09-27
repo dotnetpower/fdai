@@ -13,6 +13,8 @@ through source/target confirmation. Missing, stale, changing, or incomplete evid
 unavailable. Forseti's proposed-IaC producer remains unbound. This addition changes no cross-service
 schema, approval, or execution path. Rule-generation timestamps use a dedicated UTC clock and never
 consume the injected control-loop clock used for replay, action creation, dispatch, or effect evidence.
+Core resolves Rule and submission-criterion types through the shared contracts facade rather than a
+contracts submodule, preserving the repository's one-way public import boundary.
 
 Operator production composition keeps runtime wiring in its facade. Focused sibling modules own
 lifecycle and resource cleanup, route-family assembly, and read-source declarations. Compatibility
