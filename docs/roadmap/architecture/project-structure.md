@@ -545,10 +545,12 @@ Deployment Preflight keeps its publication decision in `core/deploy_preflight/pr
 - Secrets are read through an injected provider, never a global import-time read, and never
   written to logs, audit entries, or error messages.
 - Outbound A2/A4 notification composition resolves named bindings from
-  `FDAI_NOTIFICATION_BINDINGS_JSON`. An explicit `mode: shadow` Teams or Slack binding uses the same
-  pure provider renderer as enforce mode, writes the immutable provider payload through the injected
-  `StateStore`, and resolves no endpoint or HTTP client. Enforce bindings preserve the existing
-  endpoint and credential environment references and fail startup when incomplete.
+  `FDAI_NOTIFICATION_BINDINGS_JSON`. An explicit `mode: shadow` Teams, Slack, or Direct Line binding
+  uses the same pure provider renderer as enforce mode, writes the immutable provider payload
+  through the injected `StateStore`, and resolves no endpoint or HTTP client. A Direct Line binding
+  defaults to shadow when `mode` is omitted. Enforce bindings preserve the existing endpoint and
+  credential environment references and fail startup when incomplete; a governed Direct Line
+  channel also fails startup on a failover route.
   `core/notifications` receives only provider-neutral adapters plus durable delivery stores. Both
   in-memory and StateStore shadow recorders reject a stable record id reused with different content,
   and Core rejects a rendered shadow payload above 64 KiB before persistence. A shared validator
