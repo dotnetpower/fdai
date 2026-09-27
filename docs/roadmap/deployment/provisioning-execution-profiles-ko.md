@@ -1,8 +1,8 @@
 ---
 title: Provisioning 실행 Profile
 translation_of: provisioning-execution-profiles.md
-translation_source_sha: 5a9911aaec51c909f9ede8680aa873c624802360
-translation_revised: 2026-09-21
+translation_source_sha: a1646d3db980557e64d40ddd11c35f009428e008
+translation_revised: 2026-09-27
 ---
 # 프로비저닝 실행 프로파일
 
@@ -35,6 +35,7 @@ Parser handler, 출력 계약, 정확한 승인 요건 및 변경 권한은 바�
 | 신규 구독 로컬 조정기 | implemented | `fdaictl provision azure`, `fdai-up.sh`, 서명 키트, 기반 계층, Bastion, 관리 호스트, 승인, 라이선스, 마이그레이션 및 수렴 모듈과 라우팅된 수명 주기 테스트 | 하나의 `dev` 프로세스가 활성 Azure CLI 사용자에서 대상을 결정하고 상태 변경 전이를 직렬로 유지합니다. 대상 환경 배포에는 GitHub 전송 계층이 없습니다. 통제된 Azure 증적과 완전한 구독 보증 근거는 남아 있습니다. |
 | 사전 빌드 OCI 배포 어플라이언스 사용 | in-progress | `run-deployment-appliance.sh`, 집중 스크립트 및 CLI 테스트 | 테넌트 프로비저닝은 release에서 게시하고 digest로 고정한 어플라이언스에서 공개 산출물 대체 경로 없이 수동 standalone 조정기를 시작할 수 있습니다. 통제된 아티팩트 오프라인 Azure 증적은 남아 있으며 테넌트 배포는 이미지를 만들지 않습니다. |
 | Offline-kit 생성 및 검증 | validated | `fdai_deployment_cli.offline_kit`, 잠긴 릴리스 스크립트, 성공한 네트워크 격리 air-gap 훈련 | 서명 우선 검증, 정확한 파일, SBOM 커버리지, ABI/libc 연결, 비공개 스냅샷, 제공 wheel 설치가 통과합니다. |
+| 개발 산출물 신뢰 프로필 | implemented | Deployment CLI `0.1.1`, 패키지에 고정된 개발 루트, release channel 및 신뢰 영역 테스트 | 운영자가 보관하는 전용 Ed25519 키 하나로 런타임 루트 재정의 없이 완전 키트와 묶음 역할을 모두 서명할 수 있습니다. 검증은 개발 channel만 허용합니다. 이는 비운영 수렴 신뢰이며 TUF 루트 의식이 아닙니다. |
 | 안정 Network API 기반 Foundation 검색 | validated | PR #926, `deployment-v0.1.0-r4`, [이슈 #803 근거](https://github.com/dotnetpower/fdai/issues/803#issuecomment-5653340906) | 게시된 서명 번들로 West US 2의 모든 Foundation 입력 조회를 통과했습니다. 계획, 적용, 복구 또는 배포 준비 완료 주장은 만들지 않았습니다. |
 | Temporary 공개 접근 정리 | not-started | 이 문서의 접근 선호 설정 계약 | 범위가 제한된 생성, 자동 정리, 정리 실패 시 불완전 상태 및 감사 종결을 입증하는 조립 명령이 없습니다. |
 | Pinned TUF 루트 및 교대 | not-started | `docs/runbooks/offline-trust-ceremony.md` | 첫 루트 의식, 패키지 리소스, 클라이언트 초기화 및 교대 근거가 남아 있습니다. |
@@ -44,6 +45,7 @@ Parser handler, 출력 계약, 정확한 승인 요건 및 변경 권한은 바�
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-27 | implemented | 바깥 키트와 내부 묶음 역할에 전용 서명자 하나를 사용하는 개발 전용 `0.1.1` 산출물 신뢰 프로필, 패키지 고정 루트 및 안전하게 차단하는 release channel 검증을 추가했습니다. | `current change`, 패키지 루트, 신뢰 로더, 획득 차단, release 래퍼, 집중 서명/channel/version 테스트 | 현재 완전 키트를 빌드하고 독립적으로 검증한 뒤 같은 바이트의 로컬 조정기 및 어플라이언스 진입점 Azure 증적을 보존합니다. 운영 TUF는 미완료입니다. |
 | 2026-09-21 | implemented | Source 및 offline-kit Foundation plan과 비공개 Terraform 및 파일 시스템 helper를 배포 CLI 명령 파사드에서 분리했습니다. | `current change`, 12개 관점 비평, plan 및 도움말 강화 집중 테스트 184개, Ruff 및 strict mypy 통과 | Parser handler, 출력 계약, 대상 결속, 승인 또는 변경 권한은 바뀌지 않았습니다. |
 | 2026-09-21 | implemented | 유지 중인 내부 GitHub 보호 workflow client를 변경 불가능한 값, 범위가 제한된 하위 프로세스 전송, 전달, 비공개 산출물 I/O, plan 메타데이터, apply 증적 및 provider-schema 근거 모듈로 분리하고 공개 파사드를 보존했습니다. | `current change`, 12개 관점 비평, 집중 GitHub Actions 테스트 42개, Ruff, strict mypy, LOC, 설계 경로 및 문서 게이트 통과 | 공개 tenant 프로비저닝은 수동이며 GitHub를 사용하지 않습니다. 명령, 자격 증명, Azure 역할 또는 apply 권한은 바뀌지 않았습니다. |
 | 2026-09-19 | implemented | 명시적으로 선택하는 감사된 Action Run Command 접근 경로에 실행 전 기록을 우선하는 출발지 주소 제한 및 인증서 고정 비공개 TLS 중계를 추가했습니다. 클라우드 staging 산출물을 만들지 않고 검증 전용 복구를 한 번만 허용하며 적용 권한을 부여하지 않습니다. | `current change`, 실행 묶음 및 수신기 모듈, 고정 중계·초기 구성·조정 모듈, 집중 테스트 25개, Ruff | 정확한 실제 피어링 호스트 전송 증적을 보존한 뒤 VM 수명 주기나 애플리케이션 승인을 바꾸지 않고 명시적 adapter를 검토된 `fdaictl` 접근 프로파일 라우팅에 연결합니다. |
@@ -87,6 +89,8 @@ Parser handler, 출력 계약, 정확한 승인 요건 및 변경 권한은 바�
 
 - [x] 전용 CLI 패키지에 `provision inspect`와 `provision init`을 구현하고 무변경, mode-`0600`/`0700`, 덮어쓰기, symbolic link 및 안정적 JSON 테스트를 통과합니다.
 - [x] 주입된 release 루트 뒤에 offline-kit 검증을 복원하고 서명 우선 확인, exact 파일 집합, no-follow 다이제스트, 호환성 및 한계 테스트를 통과합니다.
+- [x] `0.1.1` 개발 산출물 루트를 고정하고 프레임워크 및 라이선스 신뢰와 분리하며,
+  완전 키트와 묶음 역할에 키 하나를 허용하고 개발 이외의 묶음 channel을 거부합니다.
 - [ ] Temporary 공개 접근 생성과 정리를 구현하여 정리 실패가 감사된 불완전 작업으로 남게 하고 CIDR, 기간, 인증, 롤백 및 멱등성 테스트를 통과합니다.
 - [ ] TUF 루트 의식과 패키지 초기화를 완료하고 offline trust ceremony가 수락한 서명 루트 및 교대 근거를 남깁니다.
 - [x] 깨끗한 스냅샷에서 완전한 서명 키트 하나를 빌드하고 다시 검증한 뒤 새 환경에 CLI를 설치하고 online 및 로컬 아티팩트 경로에서 같은 키트를 획득합니다. 근거: `deployment-v0.1.0-r2`와 위의 2026-09-13 아티팩트 기록입니다.
@@ -444,6 +448,12 @@ Pinned 루트가 배포되면 `--release-root`는 계획 수립은 수락하고 
 비공개 키는 키트, 저장소, 로그 어느 곳에도 들어가지 않습니다.
 
 ### Trust 루트 및 교대
+
+`0.1.1` 개발 프로필은 최종 루트가 아니라 범위가 제한된 운영 전 초기 구성입니다. 바깥 키트가
+내부 묶음의 전체 바이트를 이미 연결하므로 전용 Ed25519 공개키 하나를 두 exact-content 서명
+역할에 대해 패키지에 고정합니다. 검증기는 두 서명을 계속 확인하고 묶음 release channel이
+`development`가 아니면 거부합니다. 비공개 키는 저장소 밖에 유지하며 프레임워크 무결성 및
+기능 라이선스 키와 분리합니다.
 
 최종 offline 권한은 Python-TUF 7을 통해 The 갱신 Framework (TUF) 1.0을 사용합니다.
 휠은 out-of-band trust 초기화로 initial signed `root.json`을 제공합니다. 루트 비공개

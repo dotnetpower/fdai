@@ -99,13 +99,16 @@ uv run --project packages/deployment-cli python \
   scripts/deployment/release/build-runtime-release.py \
   --source-root /private/release-inputs \
   --descriptor /private/runtime-release-build.json \
-  --deployment-bundle /private/fdai-deployment-bundle-0.1.0.tar.gz \
+  --deployment-bundle /private/fdai-deployment-bundle-0.1.1.tar.gz \
   --output /private/runtime-release
 ```
 
 For a standalone review, the command above binds an existing deployment bundle. For kit staging,
 pass the descriptor and source root directly to `stage-offline-kit.sh`; it builds the signed
 deployment bundle first, then assembles runtime v2 against those exact bytes before outer signing.
+Deployment CLI `0.1.1` development release construction can pass one dedicated mode-`0600` key to
+`build-standalone-deployment-kit.sh --signing-key`; the package accepts that key only when it
+matches both package-pinned artifact roots and the verified bundle channel is `development`.
 The builder validates all five FDAI service OCI archives and the revision-neutral ClamAV archive
 before publishing `runtime/release.json`. It does not download, build, sign, attest, or publish an
 image. It reports `production_release_eligibility=unverified`; the protected supply-chain gate must

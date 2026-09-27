@@ -58,6 +58,9 @@ The package policy requires a signed offline trust root, not a specific number o
 keys. Release tooling may use separate release and bundle keys as a stronger owner-selected
 control. Consolidating or rotating those keys remains an explicit trust-root decision, never an
 implicit package-assurance requirement.
+Deployment CLI `0.1.1` makes that explicit owner decision only for its development profile: one
+dedicated artifact key covers kit and bundle roles, the package admits only the development
+channel, framework and license trust stay separate, and production TUF remains a separate owner gate.
 
 ## Explicit package boundaries
 

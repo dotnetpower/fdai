@@ -65,6 +65,30 @@ def test_signing_key_paths_survive_source_checkout_switch(tmp_path, relative):
     assert result.returncode == 0, result.stderr
 
 
+def test_single_signing_key_sets_both_artifact_roles(tmp_path):
+    caller = tmp_path / "caller"
+    key = caller / "keys/development"
+    key.parent.mkdir(parents=True)
+    key.write_text("synthetic key path sentinel")
+    source = tmp_path / "source"
+    source.mkdir()
+    prefix = BUILDER.read_text().split("while [[ $# -gt 0 ]]; do", 1)[1]
+    prefix = prefix.split('[[ -n "$out"', 1)[0]
+    result = subprocess.run(  # noqa: S603 - actual argument/path boundary, no key parsing.
+        ["/bin/bash", "-s", "--", "--signing-key", str(key.relative_to(caller))],
+        cwd=caller,
+        input="set -euo pipefail\nwhile [[ $# -gt 0 ]]; do"
+        + prefix
+        + 'cd "$TEST_SOURCE"\n[[ "$release_key" == "$bundle_key" && "$release_key" = /* ]]\n',
+        env={**os.environ, "TEST_SOURCE": str(source)},
+        capture_output=True,
+        text=True,
+        check=False,
+        timeout=10,
+    )
+    assert result.returncode == 0, result.stderr
+
+
 @pytest.mark.parametrize("output_kind", ["directory", "symlink"])
 def test_existing_release_output_cannot_be_erased(tmp_path, output_kind):
     repo = tmp_path / "repo"

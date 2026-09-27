@@ -1,7 +1,7 @@
 ---
 title: 제한된 네트워크의 Azure 인벤토리
 translation_of: azure-inventory-network-paths.md
-translation_source_sha: 7a9df524520770cebed0b2504c44a2a011c31bcd
+translation_source_sha: 17228f98118ef05395057aa1f72ba5bca67b3858
 translation_revised: 2026-09-27
 ---
 # 제한된 네트워크의 Azure 인벤토리
@@ -38,6 +38,8 @@ FDAI는 네트워크 도달성, 아이덴티티, 수집, 프로젝션을 별도 
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-27 | implemented | 추가 apply 없이 인증 루트를 권위 있는 Azure 재확인과 맞췄습니다. 명시적인 Consumption 워크로드 프로필과 delegation actions, 보존된 PostgreSQL zone, 정책 관리 태그 및 service endpoint의 수명 주기 보존을 추가했습니다. | `current change`, apply 후 표류 필드 재확인과 집중 Terraform 검사. | 병합한 뒤 보존된 복구 state에서 plan-only 검증을 실행합니다. |
+| 2026-09-27 | in-progress | 복구 create 계획은 성공적으로 적용돼 Terraform state 주소 37개와 태그가 있는 Azure 리소스 13개를 만들었지만, 첫 apply 후 계획에서 프로바이더 또는 정책 정규화 update 6개를 발견했습니다. 캠페인 작업은 시작하지 않았습니다. | 관리 호스트 apply claim, state, Azure 재확인, apply 후 계획 로그. | 수정된 원본이 변경 0건인 계획을 만들 때까지 샌드박스를 그대로 유지합니다. |
 | 2026-09-27 | implemented | 공유 DNS를 건드리지 않도록 샌드박스 설계를 복구했습니다. PostgreSQL은 요청마다 고유한 비공개 영역을 사용하고, Blob은 원래 hostname을 TLS SNI와 HTTP Host로 검증하면서 정확한 비공개 엔드포인트 IP에 연결하며, 캠페인 Reader는 애플리케이션 리소스 그룹으로 제한합니다. | `current change`, 집중 전송 검사, Terraform 검증, Trivy 및 Checkov 실패 발견 사항 0건. | 새 exact 요청을 병합하고 실행하며 실패한 계획은 재사용하지 않습니다. |
 | 2026-09-27 | in-progress | 첫 관리 create 계획은 공유 비공개 DNS 영역 이름 충돌과 구독 범위 Reader 할당 거부로 부분 효과 뒤에 중단됐습니다. 변경할 수 없는 claim, 계획, 로그, Terraform state 주소 24개, 태그가 있는 Azure 리소스 7개를 보존했습니다. | 비공개 apply claim과 계획 다이제스트 `90e269aac3fb606fef0e7a9d9b6fa2d43f6eabdbfbf0a858cc3cc620956f79d8`, 권위 있는 리소스 및 state 재확인. | 복구 검토를 위해 실패한 샌드박스를 보존하고 새 요청으로 인증합니다. |
 | 2026-09-27 | implemented | 관리 호스트 UAMI가 기존 개발 애플리케이션 리소스 그룹에서 정확한 Contributor 및 역할 할당 권한을 이미 보유하므로 샌드박스 생성을 해당 그룹에 결속했습니다. 계획은 더 이상 리소스 그룹을 생성하거나 태그를 바꾸거나 삭제하지 않습니다. | `current change`, Terraform 대상 경계와 정확한 생성/삭제 주소 게이트. | 관리되는 캠페인을 실행하고 작업 태그가 있는 샌드박스 리소스만 제거됐는지 검증합니다. |

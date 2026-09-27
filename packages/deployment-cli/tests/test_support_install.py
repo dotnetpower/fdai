@@ -68,7 +68,7 @@ def _install(tmp_path: Path, support_release):
         support_release[0],
         work_dir=work,
         release_root_pem=support_release[2],
-        cli_version="0.1.0",
+        cli_version=test_offline_prepare.CLI_VERSION,
         platform_tag="linux-x86_64",
     )
 

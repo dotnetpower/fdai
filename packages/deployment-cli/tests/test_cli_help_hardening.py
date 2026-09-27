@@ -225,7 +225,7 @@ def test_version_json_is_a_single_document_with_hostile_display_environment(monk
     monkeypatch.setenv("TERM", "dumb")
     assert _invoke(["version", "--output", "json"]) == 0
     result = capsys.readouterr()
-    assert json.loads(result.out) == {"schema_version": "fdai.version.v1", "version": "0.1.0"}
+    assert json.loads(result.out) == {"schema_version": "fdai.version.v1", "version": "0.1.1"}
     assert len(result.out.splitlines()) == 1
     assert result.err == ""
 

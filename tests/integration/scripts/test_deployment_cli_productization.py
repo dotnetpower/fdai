@@ -6,6 +6,9 @@ import subprocess
 import tomllib
 from pathlib import Path
 
+from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
+from cryptography.hazmat.primitives.serialization import load_pem_public_key
+
 ROOT = Path(__file__).resolve().parents[3]
 PACKAGE = ROOT / "packages/deployment-cli"
 
@@ -17,6 +20,23 @@ def test_workspace_registers_installable_fdaictl_distribution() -> None:
     assert "packages/deployment-cli" not in root["tool"]["uv"]["workspace"]["members"]
     assert package["project"]["scripts"]["fdaictl"] == "fdai_deployment_cli.cli:main"
     assert package["project"]["name"] == "fdai-deployment-cli"
+    assert package["project"]["version"] == "0.1.1"
+
+
+def _public_key_bytes(path: Path) -> bytes:
+    key = load_pem_public_key(path.read_bytes())
+    assert isinstance(key, Ed25519PublicKey)
+    return key.public_bytes_raw()
+
+
+def test_development_artifact_root_is_shared_but_separate_from_other_trust_domains() -> None:
+    trust = PACKAGE / "src/fdai_deployment_cli/trust"
+    release = _public_key_bytes(trust / "deployment-release-root.pub")
+    bundle = _public_key_bytes(trust / "deployment-bundle-root.pub")
+
+    assert release == bundle
+    assert release != _public_key_bytes(trust / "license-signing-key.pub")
+    assert release != _public_key_bytes(ROOT / "security/integrity/upstream-signing-key.pub")
 
 
 def test_release_scripts_use_the_installable_distribution() -> None:
@@ -144,7 +164,7 @@ def test_source_entrypoint_reports_stable_version_json(tmp_path: Path) -> None:
         timeout=60,
     )
 
-    assert completed.stdout == ('{"schema_version":"fdai.version.v1","version":"0.1.0"}\n')
+    assert completed.stdout == ('{"schema_version":"fdai.version.v1","version":"0.1.1"}\n')
 
 
 def test_release_tooling_is_exactly_pinned() -> None:
