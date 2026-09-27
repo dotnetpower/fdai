@@ -1,7 +1,7 @@
 ---
 title: 제한된 네트워크의 Azure 인벤토리
 translation_of: azure-inventory-network-paths.md
-translation_source_sha: 52b7f6ac8a816e69570eac9b51de6aecd7da5669
+translation_source_sha: 62f7a736ff8571a0b32b3742780a856397e11def
 translation_revised: 2026-09-27
 ---
 # 제한된 네트워크의 Azure 인벤토리
@@ -38,6 +38,8 @@ FDAI는 네트워크 도달성, 아이덴티티, 수집, 프로젝션을 별도 
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-27 | implemented | 최선형 SSL 종료만 close 제한 시간을 넘긴 경우 성공한 TLS 도달성 결과를 보존했습니다. DNS, 연결, handshake, hostname, cipher 실패는 계속 캠페인을 중단합니다. | `current change`, 집중 비동기 종료 회귀 검사와 전송 검사. | 수정 이미지를 게시하고 새 캠페인 실행을 사용합니다. |
+| 2026-09-27 | in-progress | 첫 통합 캠페인은 관리 평면 TLS handshake가 성공한 뒤 stream 종료 timeout 때문에 중단됐습니다. 인벤토리 원본 또는 의미 쓰기는 실행되지 않았습니다. | 정확한 캠페인 실행과 정제된 traceback. | 해당 실행은 최종 상태로 유지하고 종료 경계 수정이 병합된 뒤 새 실행만 시작합니다. |
 | 2026-09-27 | implemented | Terraform이 기본 거부 및 신뢰 서비스 규칙을 계속 소유하도록 유지하면서 Azure Policy가 관리하는 Storage `private_link_access` 하위 항목을 보존했습니다. | `current change`, 권위 있는 최종 계획 필드 재확인과 Terraform 검사. | 병합한 뒤 plan-only 수렴을 다시 실행합니다. |
 | 2026-09-27 | implemented | migration이 데이터베이스에 도달한 뒤 `vector` 생성이 거부된 결과에 따라 정확한 Azure PostgreSQL 확장 허용 목록과 단일 주소 복구 계획 게이트를 추가했습니다. | `current change`, 집중 계획 게이트 검사와 Terraform 검증. | 병합한 뒤 migration을 다시 실행하기 전에 확장 configuration만 적용합니다. |
 | 2026-09-27 | in-progress | 두 번째 migration 실행은 DSN 구문 분석과 비공개 연결을 통과했지만 `vector`가 허용 목록에 없어 스키마 생성 전에 중단됐습니다. 후보 migration 이미지는 검토를 위해 연결된 상태로 남았고 캠페인 작업은 시작하지 않았습니다. | 정확한 migration 실행과 정제된 데이터베이스 오류. | 범위가 제한된 확장 복구 계획을 적용하고 변경 0건을 검증한 뒤 migration을 다시 실행합니다. |

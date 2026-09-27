@@ -10,6 +10,7 @@ import json
 import socket
 import ssl
 from collections.abc import Mapping, Sequence
+from contextlib import suppress
 from dataclasses import asdict, dataclass, replace
 from datetime import UTC, datetime
 from email.utils import format_datetime
@@ -443,11 +444,18 @@ async def _network_probe(
         raise RuntimeError("network certification TCP/TLS probe failed") from exc
     ssl_object = writer.get_extra_info("ssl_object")
     cipher = ssl_object.cipher() if ssl_object is not None else None
-    writer.close()
-    await writer.wait_closed()
+    await _close_tls_writer(writer)
     if not cipher:
         raise RuntimeError("network certification TLS negotiation is unavailable")
     return addresses, _canonical_digest({"host": _opaque_digest(host), "cipher": cipher[0]})
+
+
+async def _close_tls_writer(writer: asyncio.StreamWriter) -> None:
+    """Close a proven TLS stream without converting shutdown latency into probe failure."""
+
+    writer.close()
+    with suppress(TimeoutError, ConnectionError, ssl.SSLError):
+        await writer.wait_closed()
 
 
 async def _write_blob(
