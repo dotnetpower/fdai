@@ -99,7 +99,7 @@ def test_adapter_config_rejects_a_system_prompt_above_the_hard_limit() -> None:
     with pytest.raises(ValueError, match="system prompts MUST be non-empty and bounded"):
         AzureOpenAISemanticPlanningModelConfig(
             candidates=(_target("primary"),),
-            frame_system_prompt="x" * 33_001,
+            frame_system_prompt="x" * 65_537,
             plan_system_prompt="bounded",
         )
 
@@ -626,7 +626,7 @@ async def test_escalated_frame_returns_unavailable_when_recovery_prompt_exceeds_
             http_client=client,
             config=AzureOpenAISemanticPlanningModelConfig(
                 candidates=(_target("primary"),),
-                frame_system_prompt="x" * 32_768,
+                frame_system_prompt="x" * 65_500,
                 plan_system_prompt="bounded",
                 timeout_seconds=2,
             ),
@@ -1063,3 +1063,22 @@ def test_read_only_plan_payload_omits_action_descriptors() -> None:
     assert draft == descriptors
     assert [item["name"] for item in guided] == ["query.manifest", "Resource"]
     assert "query.incident_evidence" not in [item["name"] for item in unnamed]
+
+
+def test_frame_prompt_bound_leaves_room_for_the_reviewed_profile_budget() -> None:
+    base = _config()
+    frame_prompt = "Propose one semantic frame. " * 1_500
+
+    config = AzureOpenAISemanticPlanningModelConfig(
+        candidates=base.candidates,
+        frame_system_prompt=frame_prompt,
+        plan_system_prompt=base.plan_system_prompt,
+    )
+
+    assert len(config.frame_system_prompt) > 33_000
+    with pytest.raises(ValueError, match="bounded"):
+        AzureOpenAISemanticPlanningModelConfig(
+            candidates=base.candidates,
+            frame_system_prompt="x" * 65_537,
+            plan_system_prompt=base.plan_system_prompt,
+        )
