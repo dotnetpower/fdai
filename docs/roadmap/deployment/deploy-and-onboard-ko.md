@@ -1,7 +1,7 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: af49ae6832fbcc5817d85f6f8743c19059ededa0
+translation_source_sha: 6edcf0e68dddcb2e9d93cd4b3b61046e5f47616c
 translation_revised: 2026-09-27
 ---
 # 배포와 온보딩(Deploy and Onboard)
@@ -580,10 +580,11 @@ Identity로 게시할 수 없다면 승인된 push 전송 계층이 준비될 �
 읽기 담당을 사용합니다. 적응형 인벤토리 Job은 각 조정기 실행 전에 검증된 정책을 읽고 런타임 호출,
 Resource Health, Static Web App 및 Kubernetes 보강을 하나의 공유 순차 지원 경계에서 구성한 뒤
 지연된 조정을 진행합니다. 모듈 분리는 서비스, 신원 또는 상태 작성자를 추가하지 않습니다.
-제한된 네트워크 인벤토리 인증은 정확한 생성 및 정리 계획이 있는 별도의 작업 전용 개발 리소스
-그룹을 사용합니다. 비공개 Container Apps, PostgreSQL, DNS 및 Blob 경로는 선택한 환경과
-피어링하거나 이를 변경하지 않습니다. 서로 다른 캠페인 신원과 검증기 신원은 권한을 부여하지
-않는 정제된 증적만 보존합니다.
+제한된 네트워크 인벤토리 인증은 기존 개발 애플리케이션 리소스 그룹 안에서 정확한 생성 및
+정리 계획이 있는 작업 전용 리소스 집합을 사용하며 그룹 자체를 변경하거나 삭제하지 않습니다.
+비공개 Container Apps, PostgreSQL, DNS 및 Blob 경로는 선택한 환경과 피어링하거나 이를
+변경하지 않습니다. 서로 다른 캠페인 신원과 검증기 신원은 권한을 부여하지 않는 정제된 증적만
+보존합니다.
 
 ## 프로비저닝 후 검증
 
