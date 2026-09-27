@@ -1,7 +1,7 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: 73005abe4a573a242aa502167b3aac2e5c7e48be
+translation_source_sha: 11b5335f6eadc098ffb040473fa4fa975c08ad5f
 translation_revised: 2026-09-27
 ---
 # 배포와 온보딩(Deploy and Onboard)
@@ -583,8 +583,9 @@ Resource Health, Static Web App 및 Kubernetes 보강을 하나의 공유 순차
 제한된 네트워크 인벤토리 인증은 기존 개발 애플리케이션 리소스 그룹 안에서 정확한 생성 및
 정리 계획이 있는 작업 전용 리소스 집합을 사용하며 그룹 자체를 변경하거나 삭제하지 않습니다.
 비공개 Container Apps, PostgreSQL, DNS 및 Blob 경로는 선택한 환경과 피어링하거나 이를
-변경하지 않습니다. 비공개 Blob I/O는 hostname 검증을 유지하면서 엔드포인트 주소를 고정합니다.
-서로 다른 캠페인 신원과 검증기 신원은 권한을 부여하지 않는 정제된 증적만 보존합니다.
+변경하지 않습니다. 비공개 Blob I/O는 hostname 검증을 유지하면서 엔드포인트 주소를 고정하고,
+migration은 URL로 인코딩된 자격 증명을 안전하게 보존합니다. 서로 다른 캠페인 신원과 검증기
+신원은 권한을 부여하지 않는 정제된 증적만 보존합니다.
 
 ## 프로비저닝 후 검증
 
