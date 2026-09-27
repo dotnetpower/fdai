@@ -7,9 +7,7 @@ from pathlib import Path
 from typing import Protocol, cast
 
 import yaml
-from fdai.agents._framework.bus import InMemoryBus
-from fdai.agents._framework.bus_bridge import EventBusBridge
-from fdai.agents._framework.registry import load_pantheon
+from fdai.agents import EventBusBridge, InMemoryBus, load_pantheon
 from fdai.agents.norns import Norns
 from fdai.core.case_history import OperationalCaseInput, OperationalOutcomeClass
 from fdai.core.case_history.testing import InMemoryCaseHistoryMetadataStore

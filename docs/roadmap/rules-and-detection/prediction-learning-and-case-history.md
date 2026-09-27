@@ -427,6 +427,10 @@ case. A legal hold preserves the authoritative case and revision in its existing
 every redelivery or redrive rechecks that authority. This keeps the broker from becoming a hidden
 case archive while preserving held evidence.
 
+The provider-matrix qualification imports the bridge, registry, and in-memory broker only through
+the public `fdai.agents` facade. Its route includes the framework-layout regression so a future
+recovery test cannot bypass the Pantheon boundary by reaching into `_framework`.
+
 ## Verification
 
 The implementation must prove:

@@ -1,6 +1,6 @@
 ---
 translation_of: prediction-learning-and-case-history.md
-translation_source_sha: c8c44189ce56ca8f73686d13369ad9de4936671a
+translation_source_sha: 61abaca57e3066f2aa52e21e9990cffc0614855e
 translation_revised: 2026-09-27
 ---
 # 예측 학습 및 케이스 히스토리
@@ -423,6 +423,10 @@ T1 벡터 정리는 새 보존 정책이 아니라 기존 원본 삭제 의도�
 기존 소유 저장소의 권위 있는 사례와 개정 번호를 유지하고, 모든 재전달 또는 redrive는 그
 권위를 다시 확인합니다. 따라서 브로커가 숨은 사례 보관소가 되지 않으면서 보존 대상 근거는
 유지됩니다.
+
+프로바이더 행렬 검증은 브리지, 레지스트리, 메모리 내 브로커를 공개 `fdai.agents` facade로만
+가져옵니다. 해당 설계 경로는 프레임워크 배치 회귀 검사를 포함하므로 향후 복구 테스트가
+`_framework`에 직접 접근해 Pantheon 경계를 우회할 수 없습니다.
 
 ## 검증
 
