@@ -25,9 +25,11 @@ from fdai.delivery.persistence.state_store_assurance_twin_posture import (
 from fdai.shared.contracts.models import Mode
 from fdai.shared.providers.event_bus import EventBus, subscription
 from fdai.shared.providers.iac_review import IacReview
+from fdai.shared.providers.projection import Finding
 
 REQUEST_TOPIC = "fdai.assurance-twin.requests"
 _LOG = logging.getLogger(__name__)
+_DIGEST_PREFIX = "sha256:"
 
 
 class AssuranceTwinPublishRequest(BaseModel):
@@ -44,6 +46,32 @@ class AssuranceTwinPublishRequest(BaseModel):
 
 
 @dataclass(frozen=True, slots=True)
+class RuleFindingAssessment:
+    """Trusted evaluator's complete rule pass at the exact Resource revision.
+
+    A Resource projection alone cannot attest to a zero-finding result.
+    """
+
+    source_revision: str
+    rule_set_digest: str
+    evaluated_rule_ids: tuple[str, ...]
+    findings_digest: str
+    coverage_refs: tuple[str, ...]
+    complete: bool
+
+
+@dataclass(frozen=True, slots=True)
+class ProposedIacAssessment:
+    """Trusted proposed-change readback, not a browser or request payload."""
+
+    source_revision: str
+    pr_ref: str
+    proposal_digest: str
+    evidence_refs: tuple[str, ...]
+    complete: bool
+
+
+@dataclass(frozen=True, slots=True)
 class RetainedTwinEvidence:
     """Read-only snapshot pinned to one revision and positive coverage."""
 
@@ -54,6 +82,8 @@ class RetainedTwinEvidence:
     coverage_refs: tuple[str, ...]
     complete: bool
     conflict: bool = False
+    rule_assessment: RuleFindingAssessment | None = None
+    proposed_iac: ProposedIacAssessment | None = None
 
 
 class RetainedTwinEvidenceSource(Protocol):
@@ -79,7 +109,11 @@ class AssuranceTwinAgentWriter:
     async def process(self, request: AssuranceTwinPublishRequest) -> bool:
         """Persist only a complete, fresh, conflict-free exact source revision."""
 
-        if (request.kind == "posture") != (self.owner == "Heimdall"):
+        if (request.kind == "posture") != (
+            self.owner == "Heimdall"
+        ) or request.idempotency_key != request_key(
+            request.kind, request.source_key, request.source_revision
+        ):
             return False
         try:
             snapshot = (
@@ -87,10 +121,10 @@ class AssuranceTwinAgentWriter:
                 if self.owner == "Heimdall"
                 else await self._source.read_review(request.source_key, request.source_revision)
             )
+            if snapshot is None or not _admissible(snapshot, request):
+                return False
         except Exception:  # noqa: BLE001 - source outage never manufactures a verdict
             _LOG.warning("assurance_twin_evidence_source_unavailable", extra={"kind": request.kind})
-            return False
-        if snapshot is None or not _admissible(snapshot, request):
             return False
         if self.owner == "Heimdall":
             report = snapshot.record
@@ -154,8 +188,10 @@ class AssuranceTwinAgentWriter:
 
 def _admissible(snapshot: RetainedTwinEvidence, request: AssuranceTwinPublishRequest) -> bool:
     record = snapshot.record
+    assessment = snapshot.rule_assessment
     if (
         not isinstance(record, (PostureAssessmentReport, IacReview))
+        or not _digest(snapshot.source_revision)
         or snapshot.source_revision != request.source_revision
         or snapshot.complete is not True
         or snapshot.conflict is not False
@@ -165,6 +201,24 @@ def _admissible(snapshot: RetainedTwinEvidence, request: AssuranceTwinPublishReq
         or snapshot.fresh_until.tzinfo is None
         or snapshot.fresh_until <= datetime.now(UTC)
         or record.mode is not Mode.SHADOW
+        or not isinstance(assessment, RuleFindingAssessment)
+        or assessment.complete is not True
+        or assessment.source_revision != snapshot.source_revision
+        or not _digest(assessment.rule_set_digest)
+        or not _digest(assessment.findings_digest)
+        or not assessment.coverage_refs
+        or any(not isinstance(ref, str) or not ref.strip() for ref in assessment.coverage_refs)
+        or not assessment.evaluated_rule_ids
+        or any(
+            not isinstance(rule, str) or not rule.strip() for rule in assessment.evaluated_rule_ids
+        )
+        or assessment.evaluated_rule_ids != tuple(sorted(set(assessment.evaluated_rule_ids)))
+        or assessment.rule_set_digest != rule_set_digest(assessment.evaluated_rule_ids)
+        or assessment.findings_digest != findings_digest(record.findings)
+        or any(
+            finding.rule_id not in assessment.evaluated_rule_ids or not finding.evidence_refs
+            for finding in record.findings
+        )
     ):
         return False
     try:
@@ -190,7 +244,18 @@ def _admissible(snapshot: RetainedTwinEvidence, request: AssuranceTwinPublishReq
         if evidence_body_digest(body) != snapshot.evidence_digest:
             return False
         if isinstance(record, IacReview):
-            if not all(finding.evidence_refs for finding in record.findings):
+            proposed = snapshot.proposed_iac
+            if (
+                not isinstance(proposed, ProposedIacAssessment)
+                or proposed.complete is not True
+                or proposed.source_revision != snapshot.source_revision
+                or proposed.pr_ref != record.pr_ref
+                or not _digest(proposed.proposal_digest)
+                or not proposed.evidence_refs
+                or any(
+                    not isinstance(ref, str) or not ref.strip() for ref in proposed.evidence_refs
+                )
+            ):
                 return False
             judged = build_posture_assessment_report(
                 scope=record.pr_ref,
@@ -205,6 +270,40 @@ def _admissible(snapshot: RetainedTwinEvidence, request: AssuranceTwinPublishReq
     return True
 
 
+def _digest(value: str) -> bool:
+    return (
+        isinstance(value, str)
+        and value.startswith(_DIGEST_PREFIX)
+        and len(value) == 71
+        and all(char in "0123456789abcdef" for char in value[7:])
+    )
+
+
+def findings_digest(findings: tuple[Finding, ...]) -> str:
+    """Content-address the full ordered rule output, including an empty result."""
+
+    body = [
+        [
+            finding.rule_id,
+            finding.resource.resource_type,
+            finding.resource.ref,
+            finding.severity,
+            finding.reason,
+            list(finding.evidence_refs),
+        ]
+        for finding in findings
+    ]
+    encoded = json.dumps(body, ensure_ascii=False, separators=(",", ":"), allow_nan=False)
+    return f"sha256:{hashlib.sha256(encoded.encode('utf-8')).hexdigest()}"
+
+
+def rule_set_digest(rule_ids: tuple[str, ...]) -> str:
+    """Bind an evaluator's declared ordered rule coverage to its content."""
+
+    encoded = json.dumps(rule_ids, ensure_ascii=False, separators=(",", ":"))
+    return f"sha256:{hashlib.sha256(encoded.encode('utf-8')).hexdigest()}"
+
+
 def request_key(kind: str, source_key: str, source_revision: str) -> str:
     """Privacy-safe stable request identity, independent of consumer retries."""
 
@@ -216,7 +315,11 @@ __all__ = [
     "REQUEST_TOPIC",
     "AssuranceTwinAgentWriter",
     "AssuranceTwinPublishRequest",
+    "ProposedIacAssessment",
     "RetainedTwinEvidence",
     "RetainedTwinEvidenceSource",
+    "RuleFindingAssessment",
+    "findings_digest",
+    "rule_set_digest",
     "request_key",
 ]

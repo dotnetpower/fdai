@@ -2,10 +2,11 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 from collections.abc import Mapping
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import psycopg
@@ -27,6 +28,7 @@ class TwinInventoryUnavailableError(ValueError):
 class TwinInventoryRevision:
     projection: InMemoryProjection
     snapshot_id: str
+    source_revision: str
     completed_at: datetime
     source: str
     resource_count: int
@@ -137,7 +139,7 @@ class PostgresTwinInventorySource:
                     ResourceRef(str(row["resource_type"]), str(row["resource_id"])),
                     _props(row["props"]),
                 )
-                for row in resources
+                for row in sorted(resources, key=lambda item: str(item["resource_id"]))
             ]
             projection = build_baseline_projection(baseline)
             by_id = {ref.ref: ref for ref in projection.resources}
@@ -186,14 +188,73 @@ class PostgresTwinInventorySource:
             raise TwinInventoryUnavailableError(
                 "Twin Inventory projected resources exceed their bound"
             )
+        try:
+            revision_body = {
+                "version": 1,
+                "snapshot": {
+                    "id": snapshot_id,
+                    "source": snapshot["source"],
+                    "started_at": _utc_time(snapshot["started_at"]),
+                    "completed_at": _utc_time(snapshot["completed_at"]),
+                    "scopes": required_scopes,
+                    "coverage_scope": "full_provider_scope",
+                },
+                "resources": [
+                    [row["resource_id"], row["resource_type"], _props(row["props"])]
+                    for row in resources
+                ],
+                "realtime_resources": [
+                    [
+                        row["resource_id"],
+                        row["resource_type"],
+                        row["change_kind"],
+                        _utc_time(row["observed_at"]),
+                        _props(row["props"]),
+                    ]
+                    for row in sorted(deltas, key=lambda item: str(item["resource_id"]))
+                ],
+            }
+            canonical = json.dumps(
+                revision_body,
+                sort_keys=True,
+                separators=(",", ":"),
+                ensure_ascii=False,
+                allow_nan=False,
+            )
+        except (KeyError, TypeError, ValueError) as exc:
+            raise TwinInventoryUnavailableError(
+                "Twin Inventory revision material is malformed"
+            ) from exc
         return TwinInventoryRevision(
             projection=projection,
             snapshot_id=snapshot_id,
+            source_revision=f"sha256:{hashlib.sha256(canonical.encode('utf-8')).hexdigest()}",
             completed_at=snapshot["completed_at"],
             source=str(snapshot["source"]),
             resource_count=len(projection.resources),
             delta_count=len(deltas),
         )
+
+    async def load_at_revision(
+        self,
+        *,
+        expected_revision: str,
+        now: datetime,
+        freshness_ttl: timedelta,
+        required_scopes: tuple[str, ...],
+    ) -> TwinInventoryRevision:
+        """Re-read retained content; never substitute a later overlay for a request."""
+
+        result = await self.load(
+            now=now, freshness_ttl=freshness_ttl, required_scopes=required_scopes
+        )
+        if result.source_revision != expected_revision:
+            raise TwinInventoryUnavailableError("Twin Inventory revision changed")
+        return result
+
+
+def _utc_time(value: datetime) -> str:
+    return value.astimezone(UTC).isoformat()
 
 
 def _props(raw: object) -> Mapping[str, Any]:
