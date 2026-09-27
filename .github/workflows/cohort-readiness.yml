@@ -139,6 +139,8 @@ jobs:
           from datetime import UTC, datetime
           from pathlib import Path
 
+          import psycopg
+
           from fdai.core.measurement.cohort_claim_policy import load_cohort_claim_policy
           from fdai.delivery.measurement.cohort_inventory import (
               PostgresCohortEvidenceInventorySource,
@@ -146,15 +148,41 @@ jobs:
 
           async def main() -> None:
               policy = load_cohort_claim_policy(Path("config/sre-cohort-claim-policy.json"))
-              inventory = await PostgresCohortEvidenceInventorySource(
-                  dsn=os.environ["FDAI_STATE_STORE_DSN"],
-                  policy=policy,
-                  expected_revision=os.environ["TARGET_COMMIT_SHA"],
-              ).inventory(evaluated_at=datetime.now(tz=UTC))
+              evaluated_at = datetime.now(tz=UTC)
+              try:
+                  inventory = await PostgresCohortEvidenceInventorySource(
+                      dsn=os.environ["FDAI_STATE_STORE_DSN"],
+                      policy=policy,
+                      expected_revision=os.environ["TARGET_COMMIT_SHA"],
+                  ).inventory(evaluated_at=evaluated_at)
+              except psycopg.OperationalError as error:
+                  if error.sqlstate is not None:
+                      raise
+                  inventory_record = {
+                      "window_start": None,
+                      "window_end": evaluated_at.isoformat(),
+                      "candidate_action_outcomes": None,
+                      "candidate_resolved_incidents": None,
+                      "candidate_changes": None,
+                      "candidate_cost_units": None,
+                      "metric_counts": {},
+                      "guard_counts": {},
+                      "minimum_sample_size": policy.minimum_sample_size,
+                      "ready": False,
+                      "missing": ["state_store_unavailable"],
+                      "availability": "unavailable",
+                      "reason_code": "state_store_connection_failed",
+                  }
+              else:
+                  inventory_record = {
+                      **inventory.to_log_record(),
+                      "availability": "available",
+                      "reason_code": None,
+                  }
               body = {
-                  "schema_version": "fdai.cohort-readiness-receipt.v1",
+                  "schema_version": "fdai.cohort-readiness-receipt.v2",
                   "fdai_revision": os.environ["TARGET_COMMIT_SHA"],
-                  **inventory.to_log_record(),
+                  **inventory_record,
                   "execution_authority": False,
                   "claim_eligibility_authority": False,
                   "mutation_performed": False,
@@ -177,9 +205,18 @@ jobs:
           asyncio.run(main())
           PY
           jq -e '
-            .schema_version == "fdai.cohort-readiness-receipt.v1" and
+            .schema_version == "fdai.cohort-readiness-receipt.v2" and
             (.ready | type == "boolean") and
             (.missing | type == "array") and
+            (
+              (.availability == "available" and .reason_code == null) or
+              (
+                .availability == "unavailable" and
+                .reason_code == "state_store_connection_failed" and
+                .ready == false and
+                .missing == ["state_store_unavailable"]
+              )
+            ) and
             .execution_authority == false and
             .claim_eligibility_authority == false and
             .mutation_performed == false and
@@ -189,6 +226,8 @@ jobs:
             echo "### Cohort readiness"
             echo
             echo "- Ready: \`$(jq -r .ready "$receipt")\`"
+            echo "- Availability: \`$(jq -r .availability "$receipt")\`"
+            echo "- Reason: \`$(jq -r '.reason_code // \"none\"' "$receipt")\`"
             echo "- Missing measure count: \`$(jq -r '.missing | length' "$receipt")\`"
             echo "- Execution authority: \`false\`"
             echo "- Claim eligibility authority: \`false\`"

@@ -26,6 +26,7 @@ The root development extra declares both with the CLI's supported version ranges
 in the root lock; the CLI keeps its own lock and neither dependency becomes a service runtime input.
 The [package assurance policy](package-assurance.md) binds these mirrors to the CLI manifest and
 rejects a version range that drifts from the owner.
+Package implementation ledgers preserve append-only history: an incorrect recorded evidence date is clarified by a later correction row rather than rewriting the original evidence row.
 
 Root regression collection also imports Core telemetry tests. The root `dev` extra therefore
 mirrors `azure-monitor-opentelemetry` at the Core manifest's supported range while Core remains the
