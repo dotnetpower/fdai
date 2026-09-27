@@ -19,7 +19,6 @@ from pathlib import Path
 from typing import Any, Final
 from urllib.parse import urlencode
 
-from fdai_deployment_cli.aks_catalog_review import aks_catalog_review_configuration
 from fdai_deployment_cli.aks_historical_reconciliation import (
     reconciled_variables,
     validate_reconciliation_plan,
@@ -33,16 +32,10 @@ from fdai_deployment_cli.aks_service_update import (
     validate_update_request,
 )
 from fdai_deployment_cli.aks_workload_jobs import (
-    aks_inventory_binding_environment as _aks_inventory_binding_environment,
     aks_kubernetes_direct_api_environment as _aks_kubernetes_direct_api_environment,
-)
-from fdai_deployment_cli.aks_job_execution import (
-    protected_cronjob_template_digest as _protected_cronjob_template_digest,
+    prepare_aks_scheduled_jobs as _prepare_aks_scheduled_jobs,
 )
 from fdai_deployment_cli import catalog_review_profile
-from fdai_deployment_cli.aks_workload_jobs import (
-    build_aks_scheduled_job as _aks_job,
-)
 from fdai_deployment_cli.contracts import canonical_digest, load_json_object
 from fdai_deployment_cli.deployment_kit import acquire_deployment_kit
 from fdai_deployment_cli.license import inspect_license
@@ -52,9 +45,6 @@ from fdai_deployment_cli.runtime_profile import RuntimeDeploymentProfile
 from fdai_deployment_cli.standalone_aks_inventory import (
     initial_inventory_binding as _initial_inventory_binding,
     run_initial_aks_inventory as _initial_aks_inventory,
-)
-from fdai_deployment_cli.standalone_aks_job_execution import (
-    protected_service_account_binding as _protected_service_account_binding,
 )
 from fdai_deployment_cli.standalone_catalog_review import run_catalog_review
 from fdai_deployment_cli.standalone_host_state import (
@@ -941,133 +931,21 @@ def _prepare_aks_application(_args: argparse.Namespace, work_dir: Path) -> dict[
     )
     for workload in workloads.values():
         workload["source_commit"] = context["source_commit"]
-    inventory_environment = {
-        **core_environment,
-        "AZURE_CLIENT_ID": inventory_identity["client_id"],
-        "FDAI_MI_CLIENT_ID": inventory_identity["client_id"],
-    }
-    scheduled_jobs = {
-        "analyzer": _aks_job(
-            refs,
-            inventory_identity,
-            ["python", "-m", "fdai.delivery.analyzer_tick_cli"],
-            "* * * * *",
-            {
-                **inventory_environment,
-                "FDAI_ANALYZER_SCHEDULING_MODE": "kubernetes_cronjob",
-                "FDAI_TRACE_CONTINUITY_LOOKBACK_SECONDS": "900",
-            },
-            {
-                "FDAI_STATE_STORE_DSN": "fdai-state-store-dsn",
-                "FDAI_INVENTORY_DSN": "fdai-state-store-dsn",
-            },
-            component="analysis",
-            deadline_seconds=240,
-        ),
-        "canary": _aks_job(
-            refs,
-            canary_identity,
-            ["python", "-m", "fdai.delivery.canary_cli"],
-            "*/5 * * * *",
-            {
-                "AZURE_CLIENT_ID": canary_identity["client_id"],
-                "KAFKA_BOOTSTRAP_SERVERS": substrate_outputs["operational_kafka"],
-                "FDAI_CANARY_TOPIC": "fdai.control.canary",
-                "FDAI_MI_CLIENT_ID": canary_identity["client_id"],
-            },
-            {},
-            component="canary",
-            deadline_seconds=120,
-            retry_limit=2,
-        ),
-        "inventory": _aks_job(
-            refs,
-            inventory_identity,
-            ["python", "-m", "fdai.delivery.inventory_sync_cli"],
-            "* * * * *",
-            {
-                **inventory_environment,
-                **_aks_inventory_binding_environment(cluster_id),
-                "FDAI_INVENTORY_SCOPES": context["subscription_id"],
-                "FDAI_INVENTORY_SOURCES": "arg,arm",
-                "FDAI_MONITOR_WORKSPACE_ID": substrate_outputs["workspace"],
-            },
-            {"FDAI_INVENTORY_DSN": "fdai-state-store-dsn"},
-            component="inventory",
-            deadline_seconds=900,
-        ),
-        "observation-campaign": _aks_job(
-            refs,
-            inventory_identity,
-            ["python", "-m", "fdai.delivery.observation_campaign_cli"],
-            "* * * * *",
-            {
-                **inventory_environment,
-                "FDAI_OBSERVATION_SCOPES": context["subscription_id"],
-            },
-            {"FDAI_OBSERVATION_DSN": "fdai-state-store-dsn"},
-            component="observation",
-            deadline_seconds=900,
-        ),
-    }
-    catalog_review = aks_catalog_review_configuration(
-        substrate_outputs["catalog_review_gitops_binding"],
-        selected=context.get("catalog_review_selected") is True,
+    job_preparation = _prepare_aks_scheduled_jobs(
+        refs=refs,
+        core_identity=core_identity,
+        inventory_identity=inventory_identity,
+        canary_identity=canary_identity,
+        core_environment=core_environment,
+        substrate_outputs=substrate_outputs,
         source_revision=str(context["source_commit"]),
+        tenant_id=str(context["tenant_id"]),
+        subscription_id=str(context["subscription_id"]),
+        catalog_review_selected=context.get("catalog_review_selected") is True,
+        cluster_id=cluster_id,
+        namespace=_AKS_RUNTIME_NAMESPACE,
     )
-    if catalog_review is not None:
-        scheduled_jobs["catalog-review"] = _aks_job(
-            refs,
-            core_identity,
-            ["python", "-m", "fdai.runtime.operational_catalog_review_trigger"],
-            "0 0 1 1 *",
-            {**core_environment, **catalog_review.environment},
-            {
-                **catalog_review.secret_environment,
-                "FDAI_STATE_STORE_DSN": "fdai-state-store-dsn",
-            },
-            component="catalog-review",
-            deadline_seconds=300,
-            retry_limit=0,
-            suspend=True,
-        )
-    operational_history_container_url = str(substrate_outputs["operational_history_container_url"])
-    if operational_history_container_url:
-        scheduled_jobs["operational-history-lifecycle"] = _aks_job(
-            refs,
-            inventory_identity,
-            ["python", "-m", "fdai.delivery.operational_history_lifecycle_runner"],
-            "0 * * * *",
-            {
-                **inventory_environment,
-                "FDAI_OPERATIONAL_HISTORY_CONTAINER_URL": operational_history_container_url,
-                "FDAI_OPERATIONAL_HISTORY_MODE": "shadow",
-                "FDAI_OPERATIONAL_HISTORY_MAX_PARTITIONS": "32",
-            },
-            {"FDAI_DATABASE_URL": "fdai-state-store-dsn"},
-            component="operational-history",
-            deadline_seconds=1800,
-            retry_limit=0,
-        )
-    protected_job_template_digests = {
-        name: _protected_cronjob_template_digest(
-            job,
-            template_name=name,
-            namespace=_AKS_RUNTIME_NAMESPACE,
-            source_revision=str(context["source_commit"]),
-        )
-        for name, job in scheduled_jobs.items()
-    }
-    protected_job_identity_bindings = {
-        name: _protected_service_account_binding(
-            job,
-            template_name=name,
-            namespace=_AKS_RUNTIME_NAMESPACE,
-            tenant_id=str(context["tenant_id"]),
-            subscription_id=str(context["subscription_id"]),
-        )
-        for name, job in scheduled_jobs.items()
-    }
+    scheduled_jobs = job_preparation.jobs
     workloads_infra = substrate / "runtimes/aks/workloads"
     values = {
         "kubeconfig_path": str(kubeconfig),
@@ -1099,9 +977,9 @@ def _prepare_aks_application(_args: argparse.Namespace, work_dir: Path) -> dict[
             }
             for name, workload in workloads.items()
         },
-        protected_aks_job_template_digests=protected_job_template_digests,
-        protected_aks_job_identity_bindings=protected_job_identity_bindings,
-        catalog_review_available=catalog_review is not None,
+        protected_aks_job_template_digests=job_preparation.protected_template_digests,
+        protected_aks_job_identity_bindings=job_preparation.protected_identity_bindings,
+        catalog_review_available=job_preparation.catalog_review_available,
     )
     _replace_or_verify_private_json(work_dir / "workloads.auto.tfvars.json", values)
     _replace_private_json(work_dir / "context.json", context)

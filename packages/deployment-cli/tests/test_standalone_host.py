@@ -12,6 +12,7 @@ from types import SimpleNamespace
 import pytest
 
 from fdai_deployment_cli import (
+    aks_workload_jobs,
     standalone_aks_inventory,
     standalone_application,
     standalone_catalog_review,
@@ -966,7 +967,7 @@ def test_aks_stages_use_independent_roots_and_variables(tmp_path: Path) -> None:
 
 def test_aks_operational_history_job_is_shadow_and_uses_inventory_identity() -> None:
     identity = {"resource_id": "inventory-resource", "client_id": "inventory-client"}
-    job = standalone_host._aks_job(
+    job = aks_workload_jobs.build_aks_scheduled_job(
         {"core-control-plane": "example.azurecr.io/core@sha256:" + "a" * 64},
         identity,
         ["python", "-m", "fdai.delivery.operational_history_lifecycle_runner"],
@@ -992,7 +993,7 @@ def test_aks_operational_history_job_is_shadow_and_uses_inventory_identity() -> 
 
 def test_aks_job_rejects_missing_core_image() -> None:
     with pytest.raises(TypeError, match="image is unavailable"):
-        standalone_host._aks_job(
+        aks_workload_jobs.build_aks_scheduled_job(
             {},
             {"resource_id": "inventory-resource", "client_id": "inventory-client"},
             ["python", "-m", "fdai.delivery.operational_history_lifecycle_runner"],
@@ -1011,7 +1012,7 @@ def test_aks_inventory_binding_uses_projected_service_account_identity() -> None
         "Microsoft.ContainerService/managedClusters/aks-example"
     )
 
-    environment = standalone_host._aks_inventory_binding_environment(f" {cluster_id} ")
+    environment = aks_workload_jobs.aks_inventory_binding_environment(f" {cluster_id} ")
 
     assert environment == {
         "FDAI_KUBERNETES_API_SERVER": "https://kubernetes.default.svc",
@@ -1029,7 +1030,7 @@ def test_aks_inventory_binding_uses_projected_service_account_identity() -> None
 )
 def test_aks_inventory_binding_rejects_non_cluster_identity(cluster_id: str) -> None:
     with pytest.raises(ValueError, match="cluster id is invalid"):
-        standalone_host._aks_inventory_binding_environment(cluster_id)
+        aks_workload_jobs.aks_inventory_binding_environment(cluster_id)
 
 
 def test_aks_kubernetes_effect_binding_is_namespace_limited() -> None:

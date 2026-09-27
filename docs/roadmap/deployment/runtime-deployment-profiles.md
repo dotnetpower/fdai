@@ -283,6 +283,7 @@ a retry limit, and bounded history. Manual jobs require a separate approval and 
 The AKS baseline renders analyzer, canary, inventory, observation campaign, and operational-history lifecycle
 CronJobs. The history job uses the read-only inventory identity, service-owned state DSN, and private archive URL
 in fixed `shadow` mode. A non-shadow lifecycle requires a separate protected transition and exact persisted certification receipt.
+The focused `aks_workload_jobs.py` module owns pure scheduled-job assembly; the managed host remains orchestration-only, and this ownership split changes no rendered Job, identity, schedule, or authority.
 The analyzer Job reuses the inventory identity to read only the exact ingest Event Hub for
 uncertain-publication reconciliation. Its new topic-scoped receiver assignment adds no write,
 deployment, or execution authority; a declared role is not proof of effective deployed access.
