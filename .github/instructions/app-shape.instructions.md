@@ -55,14 +55,8 @@ The layers communicate through the event bus and git, not direct in-process call
   insufficient evidence is explained. Nested interactive controls are prohibited.
 - The **executor holds the only privileged identity** (user-assigned Managed Identity, scoped
   to an action whitelist). Console and ChatOps never share it.
-- **Approval and execution are distinct authenticated principals.** A declared single-operator
-  development profile may let the same human request and approve, but the human never receives or
-  shares the executor identity. See
-  [../../docs/roadmap/architecture/security-and-identity.md](../../docs/roadmap/architecture/security-and-identity.md).
-- A **full-authority development profile** may route every registered ActionType through the same
-  typed executor inside an exact dedicated test subscription, including Azure mutation,
-  destructive or irreversible tests, Chaos, and promotion, demotion, or rollback. Console and
-  Operator API remain request surfaces and never acquire the executor identity.
+- **Approval and execution are distinct authenticated principals.** A **full-authority development profile** may let one human request and approve every registered ActionType in an exact test subscription, including destructive work, Chaos, promotion, demotion, and rollback.
+  The human, Console, and Operator API never acquire the executor identity. See [Security and Identity](../../docs/roadmap/architecture/security-and-identity.md).
 
 ## Local Console Port Contract (MUST)
 
