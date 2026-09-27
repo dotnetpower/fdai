@@ -164,7 +164,7 @@ def test_review_expiring_during_approval_never_writes_approval(
     assert not list(tmp_path.iterdir())
 
 
-@pytest.mark.parametrize("stage", ["substrate", "runtime", "database", "application"])
+@pytest.mark.parametrize("stage", ["access", "substrate", "runtime", "database", "application"])
 def test_exact_approval_still_passes_managed_host_validation(
     tmp_path, monkeypatch, ready_terminal, stage
 ) -> None:

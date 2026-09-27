@@ -1,7 +1,7 @@
 ---
 title: Provisioning 실행 Profile
 translation_of: provisioning-execution-profiles.md
-translation_source_sha: 74c50a7143b60b98c8708c9f6a1e94a07a31008e
+translation_source_sha: a8f1255ae631e045a0b8c64e5919892a68f6f810
 translation_revised: 2026-09-27
 ---
 # 프로비저닝 실행 프로파일
@@ -45,6 +45,7 @@ Parser handler, 출력 계약, 정확한 승인 요건 및 변경 권한은 바�
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-27 | implemented | Focused private 복구를 위한 별도의 정확한 `access` plan/apply/readback stage를 추가해 endpoint, DNS, peering 및 deployer data role이 Key Vault secret이나 ADLS filesystem/path보다 먼저 수렴하도록 했습니다. | `current change`, 집중 stage target/readback/승인/조정 테스트 및 실제 endpoint 수렴 후 data-plane 경합 근거 | 보호 CI로 전달하고 정확한 키트를 다시 빌드한 뒤 access-stage와 substrate zero-change 증적을 보존합니다. |
 | 2026-09-27 | implemented | 한정된 AKS policy 복구를 기존 public-disabled document storage account까지 확장해 Blob/DFS endpoint, DNS link 및 이미 공유하는 runner/application peering만 만들도록 했습니다. 선택기는 provider별 query 평탄화에 의존하지 않고 크기가 제한된 management JSON을 검증합니다. | `current change`, 집중 이름/readback/Terraform 계약, 네이티브 Terraform 검증, 실제 public-disabled/endpoint 없음 및 실패한 ADLS probe | 보호 CI로 전달하고 정확한 키트를 다시 빌드한 뒤 document endpoint, DNS, filesystem/path 및 residual zero-change 증적을 보존합니다. |
 | 2026-09-27 | implemented | 권위 있는 재조회에서 정확한 기존 vault가 public-disabled임을 확인할 때만 선택하는 한정된 AKS Key Vault private-access 복구 축을 추가했습니다. 필요한 Key Vault endpoint, DNS link 및 runner/application peering만 만들고 선택을 retained context에 결속합니다. | `current change`, 집중 CLI/value/Terraform 계약 테스트, 네이티브 Terraform 검증, 실제 `ForbiddenByConnection` 및 public-disabled/endpoint 없음 재조회 | 보호 CI로 전달하고 정확한 키트를 다시 빌드한 뒤 별도로 승인한 한정 네트워크 복구와 secret 쓰기 재조회 증적을 보존합니다. |
 | 2026-09-27 | implemented | 권위 있는 갱신 결과 일부만 수렴한 Terraform 효과 claim을 위해 제한된 residual apply 경로 하나를 추가했습니다. 원 claim을 보존하고 일반 재계획을 차단하며 별도의 정확한 residual 승인과 claim을 요구하고 residual 결과가 모호하면 검증만 허용합니다. | `current change`, 집중 review, 효과 전 claim, 만료 후 안전한 복구, 재귀 apply 금지, 명령 라우팅 및 일반 재계획 거부 회귀, 실제 부분 state와 residual plan 분류 | 보호 CI로 전달하고 정확한 키트를 다시 빌드한 뒤 현재 부분 substrate의 residual apply, 재조회 및 zero-change 증적을 보존합니다. |
@@ -199,7 +200,7 @@ Apply 결과가 모호하면 다음 호출은 변경 없음 plan과 권위 있�
 claim으로 apply를 반복하지 않습니다. Foundation run, network/state handoff, Entra binding,
 provider 구성 또는 서명 키트가 바뀌면 별도의 준비 context가 필요합니다.
 검증 plan이 zero change가 아니라 잔여 변경을 입증하면 원 claim은 불변으로 남습니다. 조정기는 원 claim과 갱신된 state에 연결한 별도 이름의 residual plan 하나만 제시할 수 있습니다. 새 exact residual 승인과 효과 전 residual claim이 필요하며 잔여 효과는 자동으로 실행되지 않습니다. Residual 효과가 모호하면 다른 apply가 아니라 검증만 허용합니다. 단계 완료에는 독립 재조회와 residual zero change가 필요합니다.
-AKS baseline 복구에서 권위 있는 management-plane 재조회가 현재 기존 Key Vault 또는 document storage account를 public-disabled 상태로 보고하면 해당 focused private-access 복구를 선택할 수 있습니다. 복구는 검증된 Managed Host VNet을 결속하고 공유 양방향 애플리케이션 peering과 선택된 Key Vault 또는 Blob/DFS private endpoint 및 DNS link만 만들며 각 선택을 retained context에 기록합니다. 전체 설치를 상세 private-network profile로 묵시적으로 승격하지 않으며 각각 별도로 검토하는 residual plan에 계속 포함합니다.
+AKS baseline 복구에서 권위 있는 management-plane 재조회가 현재 기존 Key Vault 또는 document storage account를 public-disabled 상태로 보고하면 해당 focused private-access 복구를 선택할 수 있습니다. 복구는 검증된 Managed Host VNet을 결속하고 공유 양방향 애플리케이션 peering과 선택된 Key Vault 또는 Blob/DFS private endpoint 및 DNS link만 만들며 각 선택을 retained context에 기록합니다. 전체 설치를 상세 private-network profile로 묵시적으로 승격하지 않으며 각각 별도로 검토하는 residual plan에 계속 포함합니다. Focused 복구는 일반 substrate plan 전에 별도의 정확한 `access` plan과 승인을 거칩니다. Managed Host의 읽기 전용 data-plane probe가 성공해야 완료되므로 secret 및 filesystem 생성이 endpoint, DNS 또는 peering 전파와 경합할 수 없습니다.
 호출 시간 예산은 준비 전에 시작합니다. 승인 대기와 애플리케이션 인계에는 현재 남은 시간을
 사용하며 예산이 만료되면 다음 단계를 시작하거나 준비 완료 결과를 만들지 않습니다.
 애플리케이션 확인에는 실제 터미널이 필요하며 두 확인 입력과 사용자 조회가 최대 10분의

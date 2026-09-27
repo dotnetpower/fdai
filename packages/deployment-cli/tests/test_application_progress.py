@@ -73,7 +73,11 @@ def test_managed_host_failure_stays_on_current_phase(tmp_path, monkeypatch, fail
         if failure == stage:
             raise ValueError("synthetic checkpoint failure")
 
-    monkeypatch.setattr(application, "_prepare_remote", lambda *_args, **_kwargs: check("transfer"))
+    def prepare_remote(*_args, **_kwargs):
+        check("transfer")
+        return {"focused_private_access": False}
+
+    monkeypatch.setattr(application, "_prepare_remote", prepare_remote)
     monkeypatch.setattr(application, "_license_token", lambda **_kwargs: check("capability"))
 
     def remote(_tunnel, _root, _work, arguments, **_kwargs):

@@ -22,6 +22,7 @@ from fdai_deployment_cli import (
     standalone_host,
     standalone_host_state,
     standalone_host_values,
+    standalone_stage_targets,
     standalone_terraform_environment,
 )
 from fdai_deployment_cli.aks_job_execution import AksOneShotJob
@@ -1342,7 +1343,7 @@ def test_postgres_aks_substrate_excludes_flexible_server() -> None:
         }
     }
 
-    targets = standalone_host._substrate_targets(context)
+    targets = standalone_stage_targets.substrate_targets(context)
 
     assert "module.state_store" not in targets
     assert "azurerm_key_vault_secret.state_store_dsn" not in targets
@@ -1353,7 +1354,7 @@ def test_postgres_aks_substrate_excludes_flexible_server() -> None:
 
 def test_aks_substrate_includes_application_insights_secret_binding() -> None:
     targets = set(
-        standalone_host._substrate_targets(
+        standalone_stage_targets.substrate_targets(
             {
                 "runtime_profile": {
                     "runtime_platform": "aks",
@@ -1370,7 +1371,7 @@ def test_aks_substrate_includes_application_insights_secret_binding() -> None:
 
 def test_aks_substrate_includes_document_dependencies_without_container_apps() -> None:
     targets = set(
-        standalone_host._substrate_targets(
+        standalone_stage_targets.substrate_targets(
             {
                 "runtime_profile": {
                     "runtime_platform": "aks",
@@ -1398,6 +1399,52 @@ def test_aks_substrate_includes_document_dependencies_without_container_apps() -
         "azurerm_role_assignment.inventory_stage_sender",
     } <= targets
     assert "module.ingestion_gateway" not in targets
+
+
+def test_focused_access_targets_only_selected_data_planes() -> None:
+    targets = set(
+        standalone_stage_targets.focused_access_targets(
+            {
+                "key_vault_private_access": True,
+                "document_storage_private_access": True,
+            }
+        )
+    )
+
+    assert targets == {
+        "module.kv_private_endpoint",
+        "azurerm_role_assignment.kv_officer_self",
+        "module.document_blob_private_endpoint",
+        "module.document_dfs_private_endpoint",
+        "module.document_storage[0].azurerm_role_assignment.deployer_data_owner",
+        "azurerm_virtual_network_peering.spoke_to_hub",
+        "azurerm_virtual_network_peering.hub_to_spoke",
+    }
+
+
+def test_focused_access_readback_probes_selected_data_planes(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    commands: list[tuple[str, ...]] = []
+    monkeypatch.setattr(
+        standalone_host,
+        "_capture",
+        lambda command, **_kwargs: commands.append(command) or "",
+    )
+
+    assert standalone_host._readback_stage(
+        "access",
+        {
+            "infra": str(tmp_path),
+            "key_vault_private_access": True,
+            "key_vault_name": "kv-example",
+            "document_storage_private_access": True,
+            "document_storage_account_name": "stexample",
+        },
+    )
+
+    assert any(command[:3] == ("az", "keyvault", "secret") for command in commands)
+    assert any(command[:4] == ("az", "storage", "fs", "list") for command in commands)
 
 
 @pytest.mark.parametrize("existing", [False, True])

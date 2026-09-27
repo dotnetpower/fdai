@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import json
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -38,11 +39,16 @@ def test_prepare_remote_transfers_foundation_adoption(tmp_path: Path) -> None:
         def ssh(self, command: tuple[str, ...], *, timeout: int) -> SimpleNamespace:
             del timeout
             self.commands.append(command)
-            stdout = f"{archive_digest}  kit.tar.gz\n" if command[0] == "sha256sum" else ""
+            if command[0] == "sha256sum":
+                stdout = f"{archive_digest}  kit.tar.gz\n"
+            elif "prepare" in command:
+                stdout = json.dumps({"state": "prepared", "focused_private_access": True})
+            else:
+                stdout = ""
             return SimpleNamespace(returncode=0, stdout=stdout)
 
     tunnel = Tunnel()
-    prepare_remote(
+    result = prepare_remote(
         tunnel,
         remote_root=remote_root,
         remote_archive=f"{remote_root}/kit.tar.gz",
@@ -64,6 +70,7 @@ def test_prepare_remote_transfers_foundation_adoption(tmp_path: Path) -> None:
     assert prepare[prepare.index("--foundation-adoption") + 1] == (
         f"{remote_root}/foundation-adoption.json"
     )
+    assert result["focused_private_access"] is True
 
 
 def _selected_profile(key_path: Path) -> CatalogReviewDeploymentProfile:

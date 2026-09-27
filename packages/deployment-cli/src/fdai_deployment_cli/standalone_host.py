@@ -19,10 +19,12 @@ from pathlib import Path
 from typing import Any, Final
 from urllib.parse import urlencode
 
-from fdai_deployment_cli import catalog_review_profile
+from fdai_deployment_cli import (
+    catalog_review_profile,
+    standalone_host_values,
+    standalone_terraform_environment,
+)
 from fdai_deployment_cli import foundation_adoption_host as foundation_host
-from fdai_deployment_cli import standalone_host_values
-from fdai_deployment_cli import standalone_terraform_environment
 from fdai_deployment_cli.aks_historical_reconciliation import (
     reconciled_variables,
     validate_reconciliation_plan,
@@ -89,6 +91,13 @@ from fdai_deployment_cli.standalone_host_state import (
 from fdai_deployment_cli.standalone_host_state import (
     replace_private_json as _replace_private_json,
 )
+from fdai_deployment_cli.standalone_stage_targets import (
+    database_placement as _database_placement,
+)
+from fdai_deployment_cli.standalone_stage_targets import (
+    focused_private_access as _focused_private_access,
+)
+from fdai_deployment_cli.standalone_stage_targets import stage_targets as _stage_targets
 from fdai_deployment_cli.standalone_host_values import (
     console_origin as _console_origin,
 )
@@ -135,68 +144,7 @@ _DIGEST = re.compile(r"[0-9a-f]{64}")
 _GUID = re.compile(r"[0-9a-fA-F]{8}(?:-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12}")
 _SOURCE_COMMIT = re.compile(r"[0-9a-f]{40}")
 _AKS_RUNTIME_NAMESPACE = "fdai-runtime"
-_STAGES: Final = ("substrate", "runtime", "database", "application")
-_SUBSTRATE_TARGETS: Final = (
-    "module.resource_group",
-    "module.log_analytics",
-    "azurerm_application_insights.core",
-    "module.network",
-    "module.container_registry",
-    "module.acr_private_endpoint",
-    "azurerm_role_assignment.deploy_runner_acr_push",
-    "module.identity",
-    "module.identity_change",
-    "module.identity_resilience",
-    "module.identity_finops",
-    "module.command_api_identity",
-    "module.inventory_identity",
-    "module.canary_identity",
-    "module.operator_api_identity",
-    "module.isolated_executor_identity",
-    "module.ingestion_identity",
-    "module.ingestion_worker_identity",
-    "module.key_vault",
-    "azurerm_role_assignment.kv_officer_self",
-    "module.kv_private_endpoint",
-    "module.state_store",
-    "module.postgres_public_mode_private_endpoint",
-    "module.event_bus",
-    "module.event_bus_auxiliary",
-    "module.event_bus_private_endpoint",
-    "azurerm_key_vault_secret.state_store_dsn",
-    "azurerm_key_vault_secret.application_insights_connection_string",
-    "azurerm_role_assignment.core_application_insights_secret_reader",
-    "azurerm_key_vault_secret.github_app_private_key",
-    "azurerm_role_assignment.core_github_app_private_key_reader",
-    "azurerm_role_assignment.command_api_eventhubs_sender",
-    "azurerm_role_assignment.command_api_eventhubs_receiver",
-    "azurerm_role_assignment.inventory_reader",
-    "azurerm_role_assignment.inventory_monitoring_reader",
-    "azurerm_role_assignment.inventory_log_analytics_reader",
-    "azurerm_role_assignment.inventory_cost_reader",
-    "azurerm_role_assignment.inventory_kubernetes_reader",
-    "azurerm_role_assignment.inventory_eventhubs_sender",
-    "azurerm_role_assignment.inventory_stage_sender",
-    "azurerm_role_assignment.inventory_eventhubs_raw_sender",
-    "azurerm_role_assignment.canary_eventhubs_sender",
-    "azurerm_role_assignment.inventory_kv_secrets_user",
-    "azurerm_role_assignment.operator_api_kv_secrets_user",
-    "azurerm_role_assignment.isolated_executor_kv_secrets_user",
-    "module.document_storage",
-    "module.document_blob_private_endpoint",
-    "module.document_dfs_private_endpoint",
-    "azurerm_role_assignment.ingestion_document_data",
-    "azurerm_role_assignment.ingestion_worker_document_data",
-    "azurerm_key_vault_secret.ingestion_api_dsn",
-    "azurerm_key_vault_secret.ingestion_worker_dsn",
-    "azurerm_role_assignment.ingestion_api_kv_secrets_user",
-    "azurerm_role_assignment.ingestion_worker_kv_secrets_user",
-    "azurerm_role_assignment.ingestion_aks_eventhubs_sender",
-    "azurerm_role_assignment.ingestion_worker_aks_eventhubs_receiver",
-    "azurerm_role_assignment.ingestion_worker_eventhubs_sender",
-    "azurerm_role_assignment.ingestion_worker_pantheon_receiver",
-    "azurerm_role_assignment.executor_eventhubs_data_owner",
-)
+_STAGES: Final = ("access", "substrate", "runtime", "database", "application")
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -406,17 +354,24 @@ def _prepare(args: argparse.Namespace, work_dir: Path) -> dict[str, object]:
         environment="dev",
         region_short=region_short,
     )
+    key_vault_name = standalone_host_values.planned_key_vault_name(
+        workload=workload,
+        environment="dev",
+        region_short=region_short,
+        resource_suffix=suffix,
+    )
+    document_storage_account_name = standalone_host_values.planned_document_storage_name(
+        subscription_id=foundation.subscription_id,
+        workload=workload,
+        environment="dev",
+        region_short=region_short,
+    )
     key_vault_private_access = (
         runtime_profile.runtime_platform.value == "aks"
         and standalone_terraform_environment.requires_aks_key_vault_private_access(
             subscription_id=foundation.subscription_id,
             resource_group_name=str(app["name"]),
-            vault_name=standalone_host_values.planned_key_vault_name(
-                workload=workload,
-                environment="dev",
-                region_short=region_short,
-                resource_suffix=suffix,
-            ),
+            vault_name=key_vault_name,
             work_dir=work_dir,
         )
     )
@@ -425,12 +380,7 @@ def _prepare(args: argparse.Namespace, work_dir: Path) -> dict[str, object]:
         and standalone_terraform_environment.requires_aks_document_storage_private_access(
             subscription_id=foundation.subscription_id,
             resource_group_name=str(app["name"]),
-            account_name=standalone_host_values.planned_document_storage_name(
-                subscription_id=foundation.subscription_id,
-                workload=workload,
-                environment="dev",
-                region_short=region_short,
-            ),
+            account_name=document_storage_account_name,
             work_dir=work_dir,
         )
     )
@@ -451,8 +401,10 @@ def _prepare(args: argparse.Namespace, work_dir: Path) -> dict[str, object]:
             or retained.get("catalog_review_profile_digest") != catalog_profile.profile_digest
             or retained.get("initial_inventory_binding") != initial_inventory_binding
             or retained.get("key_vault_private_access") is not key_vault_private_access
+            or retained.get("key_vault_name") != key_vault_name
             or retained.get("document_storage_private_access")
             is not document_storage_private_access
+            or retained.get("document_storage_account_name") != document_storage_account_name
             or _runtime_profile_digest(retained) != runtime_profile.digest
         ):
             raise ValueError("standalone host retained context differs")
@@ -467,6 +419,7 @@ def _prepare(args: argparse.Namespace, work_dir: Path) -> dict[str, object]:
             "kit_manifest_digest": retained["kit_manifest_digest"],
             "runtime_release_digest": retained["runtime_release_digest"],
             "runtime_profile_digest": runtime_profile.digest,
+            "focused_private_access": _focused_private_access(retained),
             "mutation_performed": False,
             "subscription_ready": False,
         }
@@ -604,7 +557,9 @@ def _prepare(args: argparse.Namespace, work_dir: Path) -> dict[str, object]:
         "principal_id": foundation.principal_id,
         "foundation_binding_digest": foundation_binding_digest,
         "key_vault_private_access": key_vault_private_access,
+        "key_vault_name": key_vault_name,
         "document_storage_private_access": document_storage_private_access,
+        "document_storage_account_name": document_storage_account_name,
         "entra_binding_digest": entra_binding_digest,
         "application_state_adoption_digest": adoption_digest,
         "catalog_review_profile_digest": catalog_profile.profile_digest,
@@ -642,6 +597,7 @@ def _prepare(args: argparse.Namespace, work_dir: Path) -> dict[str, object]:
         "runtime_release_digest": kit.runtime.digest,
         "runtime_profile_digest": runtime_profile.digest,
         "application_state_adopted": adoption is not None,
+        "focused_private_access": _focused_private_access(context),
         "mutation_performed": False,
         "subscription_ready": False,
     }
@@ -2257,8 +2213,7 @@ def _plan(args: argparse.Namespace, work_dir: Path) -> dict[str, object]:
         f"-var-file={variables}",
         f"-out={plan_path}",
     ]
-    if stage == "substrate":
-        command.extend(f"-target={target}" for target in _substrate_targets(context))
+    command.extend(f"-target={target}" for target in _stage_targets(stage, context))
     if update is not None:
         command.append(f"-target={_service_update_target(str(update['service']))}")
     _run(command, cwd=infra, timeout=3600, reason=f"{stage} Terraform plan failed")
@@ -2423,7 +2378,7 @@ def _apply_residual(args: argparse.Namespace, work_dir: Path) -> dict[str, objec
     _managed_identity_login_from_context(context, work_dir)
     infra, variables = _stage_paths(stage, context, work_dir)
     _activate_terraform_stage(stage, context, work_dir)
-    targets = _substrate_targets(context) if stage == "substrate" else ()
+    targets = _stage_targets(stage, context)
     return _apply_residual_plan(
         work_dir=work_dir,
         stage=stage,
@@ -2497,7 +2452,7 @@ def _recover_apply(args: argparse.Namespace, work_dir: Path) -> dict[str, object
     _managed_identity_login_from_context(context, work_dir)
     infra, variables = _stage_paths(stage, context, work_dir)
     _activate_terraform_stage(stage, context, work_dir)
-    targets = _substrate_targets(context) if stage == "substrate" else ()
+    targets = _stage_targets(stage, context)
     if reconciliation is not None:
         plan_path = work_dir / f"{operation}.tfplan"
         if _file_digest(plan_path) != review.get("plan_digest"):
@@ -3371,6 +3326,8 @@ def _verify(_args: argparse.Namespace, work_dir: Path) -> dict[str, object]:
             if _database_placement(context) == "postgres-aks"
             else ("substrate", "runtime", "application")
         )
+        if _focused_private_access(context):
+            stages = ("access", *stages)
     else:
         stages = ("application",)
     for stage in stages:
@@ -3384,8 +3341,7 @@ def _verify(_args: argparse.Namespace, work_dir: Path) -> dict[str, object]:
             "-no-color",
             f"-var-file={variables}",
         )
-        if stage == "substrate":
-            command += tuple(f"-target={target}" for target in _substrate_targets(context))
+        command += tuple(f"-target={target}" for target in _stage_targets(stage, context))
         completed = subprocess.run(
             command, cwd=infra, check=False, capture_output=True, timeout=1800
         )
@@ -3556,31 +3512,6 @@ def _runtime_platform(context: dict[str, object]) -> str:
     if platform not in {"container-apps", "aks"}:
         raise ValueError("runtime deployment platform is invalid")
     return str(platform)
-
-
-def _database_placement(context: dict[str, object]) -> str:
-    value = context.get("runtime_profile")
-    if value is None:
-        return "postgres-flex"
-    profile = _mapping(value, "runtime deployment profile")
-    placement = profile.get("database_placement")
-    if placement not in {"postgres-flex", "postgres-aks"}:
-        raise ValueError("database placement is invalid")
-    return str(placement)
-
-
-def _substrate_targets(context: dict[str, object]) -> tuple[str, ...]:
-    if _database_placement(context) == "postgres-flex":
-        return _SUBSTRATE_TARGETS
-    excluded = {
-        "module.state_store",
-        "module.postgres_public_mode_private_endpoint",
-        "azurerm_key_vault_secret.state_store_dsn",
-        "azurerm_role_assignment.inventory_kv_secrets_user",
-        "azurerm_role_assignment.operator_api_kv_secrets_user",
-        "azurerm_role_assignment.isolated_executor_kv_secrets_user",
-    }
-    return tuple(target for target in _SUBSTRATE_TARGETS if target not in excluded)
 
 
 def _prepare_aks_kubeconfig(
@@ -4270,6 +4201,47 @@ def _validate_approval(
 
 
 def _readback_stage(stage: str, context: dict[str, object]) -> bool:
+    if stage == "access":
+        if not _focused_private_access(context):
+            raise ValueError("focused private-access readback was not selected")
+        cwd = Path(str(context["infra"]))
+        if context["key_vault_private_access"] is True:
+            _capture(
+                (
+                    "az",
+                    "keyvault",
+                    "secret",
+                    "list",
+                    "--vault-name",
+                    str(context["key_vault_name"]),
+                    "--output",
+                    "none",
+                    "--only-show-errors",
+                ),
+                cwd=cwd,
+                timeout=120,
+                reason="focused Key Vault private-access readback failed",
+            )
+        if context["document_storage_private_access"] is True:
+            _capture(
+                (
+                    "az",
+                    "storage",
+                    "fs",
+                    "list",
+                    "--account-name",
+                    str(context["document_storage_account_name"]),
+                    "--auth-mode",
+                    "login",
+                    "--output",
+                    "none",
+                    "--only-show-errors",
+                ),
+                cwd=cwd,
+                timeout=120,
+                reason="focused document storage private-access readback failed",
+            )
+        return True
     if stage == "substrate":
         value = _capture(
             (
