@@ -1,7 +1,7 @@
 ---
 title: Provisioning 실행 Profile
 translation_of: provisioning-execution-profiles.md
-translation_source_sha: 0f7a710d5bcd9ed0fdf10554a2a9732e074aa2fd
+translation_source_sha: 01b949368c2b26944c67f79530f2211868b9528e
 translation_revised: 2026-09-27
 ---
 # 프로비저닝 실행 프로파일
@@ -32,19 +32,21 @@ Parser handler, 출력 계약, 정확한 승인 요건 및 변경 권한은 바�
 | 읽기 전용 점검 및 프로파일 초기화 명령 | implemented | `packages/deployment-cli`, 집중 프로필, 대상, 도구, 제품화 검사 | 전용 배포판이 `fdaictl`을 등록하고 비공개 대상 연결 프로필을 쓰며 실행 호스트 근거가 있을 때까지 검토 상태를 반환합니다. |
 | 관리 VM, 비공개 백엔드 및 수동 배포 호스트 | implemented | `infra/bootstrap/`, standalone 배포 모듈 및 집중 bootstrap 테스트 | 영속 VNet 호스트, workload identity, 비공개 상태, 정확한 계획 및 애플리케이션 적용이 GitHub Actions 없이 실행됩니다. 등록과 후속 애플리케이션 전송은 VM에 연결된 `fdai-genesis-*` host-key alias 하나를 파생하므로 엄격한 재연결이 검증된 known-hosts 근거를 재사용합니다. |
 | 감사되는 Run Command 비공개 중계 | implemented | `execution_bundle.py`, `run_command_receiver.py`, `run_command_private_relay.py`, 고정 초기 구성 및 조정 모듈, 집중 테스트 25개 통과 | 적격 Linux 배포 호스트 하나가 클라우드 산출물 저장소 없이 피어링된 WSL 호스트 하나로 digest가 고정된 묶음을 staging할 수 있습니다. 실제 Azure 전송 근거와 자동 접근 프로파일 라우팅은 남아 있습니다. |
+| 범위 지정 Run Command Terraform | validated | `scripts/deployment/azure/scoped_terraform.py`, `scoped_terraform_receiver.py`, 집중 테스트 36개, 실제 dev `aks-container-insights` 적용 증적 1건 | 일반 PC가 비공개 네트워크 경로 없이 Action Run Command로 관리형 호스트에서 등록된 Terraform 범위 하나를 실행합니다. 첫 dev 적용은 대상 범위 무변경 확인과 독립 ARM 재조회를 통과했습니다. staging과 production은 계속 차단합니다. |
 | 신규 구독 로컬 조정기 | implemented | `fdaictl provision azure`, `fdai-up.sh`, 서명 키트, 기반 계층, Bastion, 관리 호스트, 승인, 라이선스, 마이그레이션 및 수렴 모듈과 라우팅된 수명 주기 테스트 | 하나의 `dev` 프로세스가 활성 Azure CLI 사용자에서 대상을 결정하고 상태 변경 전이를 직렬로 유지합니다. 대상 환경 배포에는 GitHub 전송 계층이 없습니다. 통제된 Azure 증적과 완전한 구독 보증 근거는 남아 있습니다. |
 | 사전 빌드 OCI 배포 어플라이언스 사용 | in-progress | `run-deployment-appliance.sh`, 집중 스크립트 및 CLI 테스트 | 테넌트 프로비저닝은 release에서 게시하고 digest로 고정한 어플라이언스에서 공개 산출물 대체 경로 없이 수동 standalone 조정기를 시작할 수 있습니다. 통제된 아티팩트 오프라인 Azure 증적은 남아 있으며 테넌트 배포는 이미지를 만들지 않습니다. |
-| Offline-kit 생성 및 검증 | validated | `fdai_deployment_cli.offline_kit`, 잠긴 릴리스 스크립트, 성공한 네트워크 격리 air-gap 훈련 | 서명 우선 검증, 정확한 파일, SBOM 커버리지, ABI/libc 연결, 비공개 스냅샷, 제공 wheel 설치가 통과합니다. 런타임 wheelhouse 폐쇄 집합은 서비스 배포판 6개가 실제로 요구하는 공유 계약, GitHub App 인증 및 런타임 진단 패키지를 포함합니다. Managed Host 설치는 서명된 통합 requirements lock을 해시와 함께 사용하고 패키지 재조회 영수증을 보존하며, 중복 wheel 복사본은 로컬 검색 위치로만 취급합니다. Managed Host 전송 아카이브는 검증을 기존 매니페스트 수준으로 낮추지 않고 필수 서명 프로필 루트를 보존합니다. |
-| 개발 산출물 신뢰 프로필 | implemented | Deployment CLI `0.1.1`, 패키지에 고정된 개발 루트, release channel, Python ABI, libc 및 신뢰 영역 테스트 | 운영자가 보관하는 전용 Ed25519 키 하나로 런타임 루트 재정의 없이 완전 키트와 묶음 역할을 모두 서명할 수 있습니다. 검증은 개발 channel, 정확한 CPython 3.12 ABI, 키트 최소 기준 이상의 같은 glibc 계열만 허용합니다. 이는 비운영 수렴 신뢰이며 TUF 루트 의식이 아닙니다. |
+| 서명된 오프라인 Python 패키지 | validated | `build-signed-python-package.sh`, 패키지 정책 v3, 실제 OpenSSL/checksum 검증 및 pip 빈 환경 설치 | 6.9 MB wheel 모음에 CLI와 의존성이 들어 있습니다. Detached Ed25519 서명 하나만 패키지 전용 보증 통제로 사용합니다. |
 | 안정 Network API 기반 Foundation 검색 | validated | PR #926, `deployment-v0.1.0-r4`, [이슈 #803 근거](https://github.com/dotnetpower/fdai/issues/803#issuecomment-5653340906) | 게시된 서명 번들로 West US 2의 모든 Foundation 입력 조회를 통과했습니다. 계획, 적용, 복구 또는 배포 준비 완료 주장은 만들지 않았습니다. |
 | Temporary 공개 접근 정리 | not-started | 이 문서의 접근 선호 설정 계약 | 범위가 제한된 생성, 자동 정리, 정리 실패 시 불완전 상태 및 감사 종결을 입증하는 조립 명령이 없습니다. |
-| Pinned TUF 루트 및 교대 | not-started | `docs/runbooks/offline-trust-ceremony.md` | 첫 루트 의식, 패키지 리소스, 클라이언트 초기화 및 교대 근거가 남아 있습니다. |
-| 배포 후 검증 | in-progress | 관리 호스트 exact-plan 적용 증적, ACR 다이제스트 재확인, 마이그레이션, 상태 재확인, 두 번째 변경 없음 계획 및 라우팅된 수명 주기 테스트 | 구현은 존재하지만 정확한 로컬 서명 키트 하나에서 생성한 로컬 조정기 및 어플라이언스 진입점 증적은 아직 없습니다. 공개 release 게시는 필수가 아닙니다. |
+| 배포 후 검증 | in-progress | 관리 호스트 exact-plan 적용 증적, ACR 다이제스트 재확인, 마이그레이션, 상태 재확인, 두 번째 변경 없음 계획 및 라우팅된 수명 주기 테스트 | 배포 근거는 완료된 Python 패키지 설치와 독립적으로 남아 있습니다. |
 
 ### 구현 이력
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-27 | validated | Complete kit 패키지 설치를 6.9 MB 서명 Python wheel 모음으로 교체하고 trust root, TUF, 이중 서명, SBOM, 출처, 동일 바이트 어플라이언스 및 두 Azure 진입점 증적 요구를 패키지 완료 조건에서 제거했습니다. | `current change`, 정책 v3, 집중 테스트, 실제 서명 빌드, OpenSSL/checksum 검증 및 pip 빈 환경 설치 | Azure 배포 검증은 패키지 설치와 별도로 유지합니다. |
+| 2026-09-27 | validated | 일반 PC에서 dev AKS 클러스터를 대상으로 첫 실제 범위 지정 적용을 실행했습니다. 병합된 조정기는 Container Insights 연결 생성 1건만 계획했고, digest에 연결된 승인 뒤 적용했으며, 대상 범위 무변경과 작업 영역 연결, 기본 스트림, `ContainerLogV2`, 연결 상태를 Azure Resource Manager로 확인했습니다. | `098384cf5f84c92d98ae1f1146ea10dc959bac93` 기준 [#1543](https://github.com/dotnetpower/fdai/pull/1543), [#1538](https://github.com/dotnetpower/fdai/issues/1538) 증적 | 계획, 시작 기록, 완료 기록을 보호된 계획 저장소에 복제합니다. |
+| 2026-09-27 | implemented | 범위 지정 Run Command Terraform을 추가했습니다. 일반 PC는 보호된 소스에서 등록된 범위 하나를 묶고, 고정 수신기는 관리형 호스트에서 사용자 할당 ID로 계획을 만듭니다. 적용에는 계획 digest에 연결된 정확한 사람 승인이 필요하고, 효과 전 시작 기록을 남기며, 시작 기록이 있는 적용은 반복하지 않고, 대상 범위 무변경 확인과 독립 ARM 재조회로 끝납니다. | `current change`, `scripts/deployment/azure/scoped_terraform.py`, `scoped_terraform_receiver.py`, `tests/integration/scripts/test_scoped_terraform.py`(36개 통과), 연결 생성 1건만 포함한 실제 읽기 전용 `aks-container-insights` 계획 | 보호된 CI로 병합한 뒤 이슈 #1538로 #1171의 첫 실제 범위 지정 적용 증적을 보존합니다. |
 | 2026-09-27 | implemented | 집중 문서 복구가 실행기 VNet에 같은 이름 공간의 두 번째 링크를 만들지 않고 Foundation 소유 운영 Blob 비공개 DNS 영역을 재사용하도록 했습니다. `access` 대상은 이제 문서 엔드포인트 A 레코드를 해당 기존 영역에 씁니다. | `current change`, 중점을 둔 Terraform/대상 회귀 및 충돌하는 중복 링크 하나로 범위를 좁힌 실제 `verification-only` residual 계획 | 보호 CI로 전달하고 정확한 키트를 다시 빌드한 뒤 새 소스 결속 컨텍스트에서 `access` 재조회와 zero-change 근거를 보존합니다. |
 | 2026-09-27 | implemented | Focused private 복구를 위한 별도의 정확한 `access` plan/apply/readback stage를 추가해 endpoint, DNS, peering 및 deployer data role이 Key Vault secret이나 ADLS filesystem/path보다 먼저 수렴하도록 했습니다. | `current change`, 집중 stage target/readback/승인/조정 테스트 및 실제 endpoint 수렴 후 data-plane 경합 근거 | 보호 CI로 전달하고 정확한 키트를 다시 빌드한 뒤 access-stage와 substrate zero-change 증적을 보존합니다. |
 | 2026-09-27 | implemented | 한정된 AKS policy 복구를 기존 public-disabled document storage account까지 확장해 Blob/DFS endpoint, DNS link 및 이미 공유하는 runner/application peering만 만들도록 했습니다. 선택기는 provider별 query 평탄화에 의존하지 않고 크기가 제한된 management JSON을 검증합니다. | `current change`, 집중 이름/readback/Terraform 계약, 네이티브 Terraform 검증, 실제 public-disabled/endpoint 없음 및 실패한 ADLS probe | 보호 CI로 전달하고 정확한 키트를 다시 빌드한 뒤 document endpoint, DNS, filesystem/path 및 residual zero-change 증적을 보존합니다. |
@@ -99,19 +101,20 @@ Parser handler, 출력 계약, 정확한 승인 요건 및 변경 권한은 바�
 ### 남은 작업
 
 - [x] 전용 CLI 패키지에 `provision inspect`와 `provision init`을 구현하고 무변경, mode-`0600`/`0700`, 덮어쓰기, symbolic link 및 안정적 JSON 테스트를 통과합니다.
-- [x] 주입된 release 루트 뒤에 offline-kit 검증을 복원하고 서명 우선 확인, exact 파일 집합, no-follow 다이제스트, 호환성 및 한계 테스트를 통과합니다.
-- [x] `0.1.1` 개발 산출물 루트를 고정하고 프레임워크 및 라이선스 신뢰와 분리하며,
-  완전 키트와 묶음 역할에 키 하나를 허용하고 개발 이외의 묶음 channel을 거부합니다.
+- [x] Detached Ed25519 서명 하나와 표준 OpenSSL, checksum, pip 명령으로 서명된 Python wheel
+  모음을 빌드하고 검증한 뒤 빈 환경에 설치합니다.
 - [ ] Temporary 공개 접근 생성과 정리를 구현하여 정리 실패가 감사된 불완전 작업으로 남게 하고 CIDR, 기간, 인증, 롤백 및 멱등성 테스트를 통과합니다.
-- [ ] TUF 루트 의식과 패키지 초기화를 완료하고 offline trust ceremony가 수락한 서명 루트 및 교대 근거를 남깁니다.
-- [x] 깨끗한 스냅샷에서 완전한 서명 키트 하나를 빌드하고 다시 검증한 뒤 새 환경에 CLI를 설치하고 online 및 로컬 아티팩트 경로에서 같은 키트를 획득합니다. 근거: `deployment-v0.1.0-r2`와 위의 2026-09-13 아티팩트 기록입니다.
-- [x] 후속 CLI 하드닝을 포함한 완전한 대체 키트를 게시하고 정확한 설치 아티팩트 검증을 반복합니다. 근거: `deployment-v0.1.0-r3`에 H01-H14가 포함되고 기본 설치 파일 59개가 모두 서명된 휠과 일치하며 이전 설치는 백업했습니다.
-- [x] 안정 Network API 수정을 포함한 대체 서명 키트를 게시하고 검증한 뒤 해당 아티팩트에서 Foundation 검색을 확인합니다. 검색 성공을 배포 준비 완료로 취급하지 않습니다. 근거: `deployment-v0.1.0-r4`와 연결된 이슈 #803의 읽기 전용 검증 기록입니다. 기존 CLI 설치 파일 59개가 이미 서명된 휠과 일치하므로 교체하지 않았습니다.
-- [ ] 공개 release 게시 또는 전체 구독 준비 상태 주장을 요구하지 않고 같은 정확한 로컬 서명 키트로 실행한 로컬 조정기와 어플라이언스 진입점의 대상 연결 기반 Foundation 및 애플리케이션 수렴 증적을 보존합니다.
+- [ ] 대상에 결속된 Foundation 및 애플리케이션 수렴 근거는 Python 패키지 설치와 독립적으로
+  보존합니다.
 - [ ] 별도 호스트를 불필요하게 만들거나 올바르게 보호된 기존 백엔드를 옮기지 않고 현재 VM에서 `existing-host` 실행을 검증하며, 신원·정확한 계획·재적용 금지·독립 조회 검사를 유지합니다.
 - [ ] 검토된 피어링 경로에서 정확한 실제 비공개 중계 Run Command staging 증적 하나를
   보존한 뒤 VM, 네트워크, 계획 또는 애플리케이션 권한을 넓히지 않고 명시적 adapter를
   `fdaictl` 접근 프로파일 선택에 연결합니다.
+- [x] 일반 PC에서 `aks-container-insights`의 실제 범위 지정 Run Command 적용 증적 하나를 보존하고,
+  정확한 계획 승인, 대상 범위 무변경 결과, 독립 ARM 재조회를 포함합니다. 근거:
+  [#1538](https://github.com/dotnetpower/fdai/issues/1538)의 2026-09-27 증적입니다.
+- [ ] 범위 지정 Terraform의 계획, 시작 기록, 완료 기록을 보호된 계획 저장소에 복제하여 호스트를 교체해도
+  복구 근거를 잃지 않게 합니다.
 - [ ] 사설 접근을 미리 설정하지 않은 일반 PC에서 기본 배포를 검증하고, 설치 식별자·기존 상태·Trial 시작 시점을 보존한 채 상세 프로비저닝을 진행하며, 선택 기능의 미설정 상태와 기본 서비스 상태를 구분합니다.
 - [ ] API Server VNet Integration과 워크로드 및 API 서버 전용 서브넷을 포함한 AKS 기본 프로파일을 만들고, 배포를 시작한 조정기에서 인증되고 제한된 공개 관리 접근을 검증합니다.
 - [ ] 피어링, 비공개 엔드포인트, DNS, 비공개 클러스터 모드에 대해 `/provisioning` 네트워크 의도, 평가, 정확한 계획 요청, 승인, 적용, rollback 및 독립 재확인 상태를 구현합니다.
@@ -373,7 +376,8 @@ Managed-host 접근 순서는 다음과 같이 고정합니다.
 1. 승인된 내부 SSH.
 2. Azure Policy와 배포 프로파일이 허용하는 경우 temporary public-IP SSH.
 3. Azure Bastion.
-4. 감사되는 비상 경로인 Azure Run Command.
+4. 감사되는 비상 경로인 Azure Run Command 또는 등록된
+   [범위 지정 Terraform 작업](#범위-지정-run-command-terraform).
 
 신규 구독 Genesis는 이 목록을 차례로 대체 시도하지 않습니다. `access_method=bastion`인
 프로파일은 기반 계층이 만든 정확한 Standard Bastion 네이티브 터널을 선택합니다. 등록 자료는
@@ -397,6 +401,57 @@ digest가 고정된 실행 묶음을 staging할 수 있습니다. 정확한 프�
 조정기의 더 짧은 기한을 완화하지 않습니다.
 명시적 adapter는 승인 정족수 1인 `dev`에서만 사용할 수 있습니다. staging과 production은 이
 전송 경로가 보호된 승인 정족수를 지원하고 검증할 때까지 차단합니다.
+
+### 범위 지정 Run Command Terraform
+
+**설계와 검토:** Terraform 백엔드는 비공개이고 구독 정책이 공개 예외를 거부할 수 있으므로,
+작업용 PC에서는 이 백엔드를 쓰는 루트를 초기화할 수 없습니다. 상태를 PC로 복사하거나 계정을
+공개하면 상태 소유자가 둘이 되거나 정책이 약해집니다. 작은 변경마다 VPN, Bastion, SSH 대화형
+세션을 열면 비공개 네트워크가 개발 병목이 됩니다. 직접 작성한 Run Command 스크립트는 네트워크
+경로 문제는 피하지만 정확한 소스, 계획 연결, 복구 근거를 잃습니다.
+
+`scripts/deployment/azure/scoped_terraform.py`를 사용하면 Azure Resource Manager에만 접근할 수
+있는 일반 PC가 기존 관리형 배포 호스트에서 등록된 Terraform 범위 하나를 실행할 수 있습니다.
+
+- 비공개 운영자 프로파일에는 정확한 테넌트, 구독, VM, 실행 주체 클라이언트 ID와 백엔드 계정,
+  컨테이너, 상태 키, 리소스 그룹을 지정합니다. 승인 프로파일은 `dev-single-operator`만
+  허용합니다. staging과 production은 이 경로가 보호된 승인 정족수를 지원할 때까지 차단합니다.
+- 소스는 새로 fetch한 뒤 `origin/main`에 포함된 커밋에서 범위 루트를 `git archive`로 가져옵니다.
+  고정 수신기 `scoped_terraform_receiver.py`도 같은 커밋에서 가져옵니다. 소스, 수신기, 변수
+  digest와 백엔드, 실행 주체, VM은 내용 기반 작업 ID에 연결되며 수신기가 이 ID를 다시
+  계산합니다.
+- 변수 파일은 비공개여야 하고, 루트에 선언된 변수만 포함해야 하며, 비밀처럼 보이는 값을 담을 수
+  없습니다. 백엔드 입력은 계정, 컨테이너, 키, 리소스 그룹만 허용합니다. SAS, 계정 키, bearer
+  token, 클라이언트 비밀은 전송 경로를 지나지 않습니다.
+- Action Run Command는 포함된 수신기와 payload의 digest를 검증하는 고정 부트스트랩 하나만
+  전달합니다. 조정기는 스크립트를 명령줄 인수가 아니라 비공개 파일로 전달하고 크기를 192 KiB로
+  제한합니다. 수신기는 3 KiB 이내의 결과 한 줄만 반환하며 Terraform 출력은 root 전용 호스트
+  파일에 남습니다.
+- 수신기는 정확한 실행 주체 클라이언트 ID와 테넌트로 IMDS 토큰을 요청하고, 상속된 자격 증명을
+  지운 뒤 백엔드와 provider 모두 Managed Identity를 사용하도록 지정합니다. `backend "azurerm" {}`
+  블록을 생성하고, 소스에 백엔드 블록이 있으면 거부하며, 초기화된 백엔드 연결을 검증합니다.
+- `plan`은 등록된 주소만 대상으로 하고 다른 주소, 삭제, 교체를 모두 거부합니다. 삭제 모드는
+  등록된 주소의 삭제만 허용합니다. PC는 검토 내용을 보여 주고, 로그인한 사람이
+  `<mode> <계획 digest 앞 12자>`를 입력합니다. 승인에는 사람 개체 ID, 작업 ID, 계획 digest,
+  1시간 만료 시각을 기록합니다.
+- `apply`는 승인된 digest를 확인하고, 새로 만들기만 가능한 효과 전 시작 기록을 쓰고, 저장된
+  계획을 한 번 적용하고, 완료 기록을 쓴 뒤 대상 범위 무변경 계획을 실행합니다. 완료 기록 없이
+  시작 기록만 있으면 소스 리비전과 관계없이 같은 상태 대상의 새 계획과 적용을 막고, `verify`는
+  절대 적용하지 않습니다. `apply`와 `verify`는 계획 시점에 보존한 소스 커밋을 다시 사용하므로
+  이후 `main`에 병합이 생겨도 작업 하나가 나뉘지 않습니다. 이후 PC는 Azure
+  Resource Manager로 결과 리소스를 읽고 범위별 권위 있는 속성을 비교합니다.
+
+첫 범위인 `aks-container-insights`는 AKS Container Insights 데이터 수집 규칙과 클러스터 연결을
+대상으로 합니다. 범위를 추가하려면 집중 테스트를 포함한 검토된 소스 변경이 필요합니다. Run
+Command 권한은 이미 VM의 root 권한을 부여하므로 이 경로는 VM 권한을 늘리지 않습니다. 대신 기록되지
+않던 수동 명령을 연결되고 복구 가능한 작업으로 대체합니다.
+
+이 경로에는 다음 제한이 있습니다.
+
+- 호스트에는 Terraform, Python 3, 커밋된 잠금 파일로 검증되는 provider 다운로드용 외부 연결이
+  필요합니다.
+- Action Run Command는 VM당 명령 하나, 4 KiB 응답, 90분 상한을 허용합니다.
+- 계획, 시작 기록, 완료 기록은 현재 호스트에만 저장됩니다.
 
 Temporary 공개 접근은 silent 대체 경로로 사용하지 않습니다. 계획에는 허용 목록에 포함된
 출처 CIDR, 키 또는 certificate만 사용하는 SSH, 제한된 접근 구간, 공개 IP와 temporary
@@ -424,68 +479,18 @@ PyPI 토큰은 저장하지 않습니다.
 상태가 있는 installation은 fresh 공개 release 상태 또는 명시적 이행을 사용합니다.
 `0.1.0`으로 semantic-version 업그레이드하는 것으로 처리하지 않습니다.
 
-Disconnected 전달은 platform별 offline 키트에서 같은 `fdai` 휠과 명령 계약을
-사용합니다. 키트에는 다음 항목이 포함됩니다.
+연결이 끊긴 Python 설치는 [패키지 보증](../architecture/package-assurance-ko.md)에 설명한
+서명된 wheel 모음을 사용합니다. Deployment CLI wheel, 로컬 의존성 wheel,
+`requirements.txt`, `SHA256SUMS`, detached Ed25519 서명 하나를 포함합니다. 표준 OpenSSL,
+`sha256sum`, pip 명령으로 네트워크 호출 없이 검증하고 설치합니다.
 
-- FDAI 휠과 모든 transitive Python 휠.
-- Signed 배포 번들.
-- Pinned Terraform binary와 프로바이더 mirror.
-- OPA와 필요한 보조 로직 binary.
-- SBOM, SHA-256 매니페스트, 서명, release trust 메타데이터.
+개인 서명 키는 저장소와 패키지 외부에 보관하며 신뢰하는 공개 키는 별도로 제공합니다. Python
+인터프리터, ABI, 플랫폼, 의존성 및 설치 검사는 pip가 담당합니다.
 
-전체 구성은 서명 배포 번들을 먼저 만든 뒤, 비공개 다이제스트 고정 서술자로 해당 번들의 정확한
-바이트에 결속된 런타임 v2를 조립하고 외부 키트를 서명합니다. 독립적으로 사전 빌드한 런타임은
-이미 같은 번들에 결속된 경우에만 계속 지원합니다.
-
-Offline 모드는 PyPI, GitHub, 공개 Terraform 레지스트리 대체 경로를 차단합니다. 산출물 출처로
-승인된 내부 mirror 또는 removable media를 사용할 수 있습니다. Installer와 `fdaictl`은 두
-경우 모두 같은 pinned release 루트를 검증합니다.
-
-목표 `verify_offline_kit` 구현은 매니페스트 파싱 전에 Ed25519 서명을 검사하고 exact CLI 및 platform
-버전을 연결하며 symlink와 extra 파일을 거부합니다. 모든 파일 다이제스트를 스트리밍하고 휠,
-signed 배포 번들, Terraform binary 및 프로바이더 mirror, OPA, SBOM을 요구합니다. release
-루트 주입은 테스트, release construction, pinned 점검 조립에서만 사용합니다.
-산출물 hashing은 no-follow 서술자 열림으로 경로 swap redirect를 막습니다. `fdaictl`은 `--release-root`
-재정의를 제공하지 않습니다. 공개 루트가 휠에 pin될 때까지 점검은 `review`로
-유지됩니다.
-
-키트 내용을 **실행**하는 일은 그것을 **보고**하는 일보다 강한 증거를 요구합니다. `provision plan`은
-키트의 Terraform 바이너리를 실행하므로, 운영자가 공급한 release 루트로 키트를 검증하고 검증이 실패하면
-계획을 거부합니다. 두 경로 모두 산출물을 디렉터리 관례가 아니라 서명된 매니페스트에서 해석합니다.
-Pinned 루트가 배포되면 `--release-root`는 계획 수립은 수락하고 점검은 여전히 수락하지 않는
-재정의가 됩니다.
-
-`build_offline_kit_manifest`는 그 검증기의 목표 release-side 역방향입니다. Staged 키트를 검증기와
-동일한 검사로 읽으므로 symlink, 비정규 파일, 한계 초과 트리를 기술하는 대신 거부하며, 파일
-목록을 운영자 입력이 아니라 단계에서 도출합니다. 단계에 없는 산출물 역할은 서명 이전에
-실패하며, 동일한 내용을 두 번 빌드하면 서명 대상 바이트가 정확히 같습니다.
-`scripts/deployment/release/build-offline-kit.py`는 검증기 모듈이 복원된 뒤 서명을 담당하도록
-설계되어 있습니다. Operator가 보관한 Ed25519
-비공개 키를 로드하고, 새 매니페스트를 쓰기 전에 오래된 서명을 제거해 중단된 실행이
-그럴듯한 키트가 아니라 검증 불가 키트를 남기게 하며, 보고 전에 공개 release 루트로 재검증합니다.
-비공개 키는 키트, 저장소, 로그 어느 곳에도 들어가지 않습니다.
-
-### Trust 루트 및 교대
-
-`0.1.1` 개발 프로필은 최종 루트가 아니라 범위가 제한된 운영 전 초기 구성입니다. 바깥 키트가
-내부 묶음의 전체 바이트를 이미 연결하므로 전용 Ed25519 공개키 하나를 두 exact-content 서명
-역할에 대해 패키지에 고정합니다. 검증기는 두 서명을 계속 확인하고 묶음 release channel이
-`development`가 아니면 거부합니다. 비공개 키는 저장소 밖에 유지하며 프레임워크 무결성 및
-기능 라이선스 키와 분리합니다.
-
-최종 offline 권한은 Python-TUF 7을 통해 The 갱신 Framework (TUF) 1.0을 사용합니다.
-휠은 out-of-band trust 초기화로 initial signed `root.json`을 제공합니다. 루트 비공개
-키는 offline에 보관합니다. CI는 targets, 스냅샷, 시각 메타데이터용 delegated online 키를
-사용할 수 있지만 루트 비공개 키는 받지 않습니다.
-
-클라이언트는 루트 메타데이터를 한 버전씩 갱신하고 각 new 루트가 old 루트와 new 루트 임계값을
-모두 만족하는지 확인합니다. TUF 메타데이터 만료와 단조 증가 버전은 freeze, 롤백,
-mix-and-match 공격을 방어합니다. 메타데이터 임계값과 키 ceremony는 release-security
-정책이며 프로비저닝 적용의 one-person 승인과 독립적입니다.
-
-현재 exact-content 검증기는 TUF가 대상을 인증한 이후 defense in 깊이로 유지됩니다.
-Python-TUF 통합과 첫 루트 ceremony는 offline 루트를 만들고 CI 외부에 백업할 때까지
-차단됩니다. 생성된 비공개 키를 커밋하거나 `fdaictl`을 통해 전달하지 않습니다.
+Terraform 바이너리, 공급자, 런타임 이미지, Console 파일 및 마이그레이션 산출물은 Python
+패키지 내용이 아니라 배포 페이로드입니다. 배포 소유자는 배포가 해당 입력을 선택할 때 검증할 수
+있지만, 패키지 완료에는 complete kit, signed root, TUF 의식, 중첩된 묶음 서명, SBOM, 출처
+문서, 어플라이언스 또는 Azure 증적이 필요하지 않습니다.
 
 ## 승인 및 적용
 

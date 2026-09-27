@@ -19,6 +19,9 @@ from fdai.shared.providers.forecast_context import (
     ForecastContextUnavailableError,
 )
 
+FORECAST_HISTORY_CHECKPOINT_STATE = "checkpoint"
+"""Reserved source state of a restatement anchor, which must repeat the current chain state."""
+
 
 class ForecastHistoryBinding(BaseModel):
     """Reviewed source mapping; neither a query nor empty rows prove its completeness."""
@@ -49,6 +52,8 @@ class ForecastHistoryBinding(BaseModel):
 
     @model_validator(mode="after")
     def _unique_states(self) -> ForecastHistoryBinding:
+        if FORECAST_HISTORY_CHECKPOINT_STATE in self.to_states:
+            raise ValueError("forecast history states cannot use the reserved checkpoint state")
         if self.kind in {"resource_lifecycle", "excluded_windows"}:
             if not self.active_states or not set(self.active_states) < set(self.to_states):
                 raise ValueError(
@@ -59,30 +64,38 @@ class ForecastHistoryBinding(BaseModel):
         return self
 
 
+def group_forecast_history_bindings(
+    bindings: tuple[ForecastHistoryBinding, ...],
+) -> dict[tuple[str, str], dict[str, ForecastHistoryBinding]]:
+    """Group reviewed mappings by exact scope and target digest; all four kinds are required."""
+    if not bindings or len(bindings) > 256:
+        raise ValueError("forecast history bindings must contain between one and 64 targets")
+    groups: dict[tuple[str, str], dict[str, ForecastHistoryBinding]] = {}
+    for binding in bindings:
+        identity = (
+            binding.access_scope_digest,
+            hashlib.sha256(binding.target_ref.encode()).hexdigest(),
+        )
+        group = groups.setdefault(identity, {})
+        if binding.kind in group:
+            raise ValueError("forecast history source mapping is duplicated")
+        group[binding.kind] = binding
+    if any(
+        set(group) != {"actions", "changes", "resource_lifecycle", "excluded_windows"}
+        for group in groups.values()
+    ):
+        raise ValueError("forecast history requires all four source mappings per target")
+    return groups
+
+
 class StateTransitionForecastHistoryCollector:
     """Read four exact source slices with positive full-window coverage and bounded I/O."""
 
     def __init__(
         self, *, store: StateTransitionStore, bindings: tuple[ForecastHistoryBinding, ...]
     ) -> None:
-        if not bindings or len(bindings) > 256:
-            raise ValueError("forecast history bindings must contain between one and 64 targets")
         self._store = store
-        self._bindings: dict[tuple[str, str], dict[str, ForecastHistoryBinding]] = {}
-        for binding in bindings:
-            identity = (
-                binding.access_scope_digest,
-                hashlib.sha256(binding.target_ref.encode()).hexdigest(),
-            )
-            group = self._bindings.setdefault(identity, {})
-            if binding.kind in group:
-                raise ValueError("forecast history source mapping is duplicated")
-            group[binding.kind] = binding
-        if any(
-            set(group) != {"actions", "changes", "resource_lifecycle", "excluded_windows"}
-            for group in self._bindings.values()
-        ):
-            raise ValueError("forecast history requires all four source mappings per target")
+        self._bindings = group_forecast_history_bindings(bindings)
 
     async def collect(self, request: ForecastContextRequest) -> Mapping[str, Any]:
         """Collect retained source records; missing coverage never becomes an empty success."""
@@ -166,7 +179,11 @@ class StateTransitionForecastHistoryCollector:
                         )
                     if any(
                         first.effective_at == second.effective_at
-                        or first.to_state != second.from_state
+                        or (
+                            second.to_state != first.to_state
+                            if second.from_state == FORECAST_HISTORY_CHECKPOINT_STATE
+                            else first.to_state != second.from_state
+                        )
                         for first, second in zip(ordered, ordered[1:], strict=False)
                     ):
                         raise ForecastContextUnavailableError(

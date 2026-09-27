@@ -28,6 +28,7 @@ import json
 from collections.abc import Mapping, Sequence
 from typing import TYPE_CHECKING, Final
 
+from fdai.delivery.forecast_history_readiness import forecast_history_projection
 from fdai.shared.providers.notifications import ChannelMode
 
 if TYPE_CHECKING:
@@ -254,10 +255,17 @@ def endpoint_is_placeholder(value: str) -> bool:
     resource exists before an Owner saves a real URL. That placeholder MUST NOT
     activate delivery.
     """
+    return value_is_placeholder(value) or not value.strip().casefold().startswith("https://")
+
+
+def value_is_placeholder(value: str) -> bool:
+    """Report whether a resolved protected value is empty or a seeded placeholder.
+
+    Applies to non-URL binding values such as a Direct Line conversation id or
+    secret, which MUST NOT activate delivery while they are still unconfigured.
+    """
     normalized = value.strip().casefold()
-    if not normalized:
-        return True
-    return normalized in _UNCONFIGURED_ENDPOINT_SENTINELS or not normalized.startswith("https://")
+    return not normalized or normalized in _UNCONFIGURED_ENDPOINT_SENTINELS
 
 
 def _teams_tier_row(
@@ -306,7 +314,7 @@ def _teams_tier_row(
 def notification_channel_capability_projections(
     env: Mapping[str, str],
 ) -> tuple[dict[str, object], ...]:
-    """Project each Teams or Slack binding without exposing endpoint values."""
+    """Project each Teams, Slack, or Direct Line binding without exposing values."""
 
     from fdai.delivery.notifications import (
         NotificationBindingKind,
@@ -332,11 +340,16 @@ def notification_channel_capability_projections(
         if spec.kind not in {
             NotificationBindingKind.TEAMS_WORKFLOW,
             NotificationBindingKind.SLACK_WEBHOOK,
+            NotificationBindingKind.DIRECT_LINE,
         }:
             continue
         configured = spec.mode is ChannelMode.SHADOW or (
             spec.endpoint_env is not None
             and not endpoint_is_placeholder(env.get(spec.endpoint_env, ""))
+            and all(
+                name is not None and not value_is_placeholder(env.get(name, ""))
+                for name in _protected_value_references(spec)
+            )
         )
         state = ChannelCapabilityState(
             channel_id=spec.channel_id,
@@ -349,6 +362,15 @@ def notification_channel_capability_projections(
         row["kind"] = spec.kind.value
         rows.append(row)
     return tuple(rows)
+
+
+def _protected_value_references(spec: NotificationBindingSpec) -> tuple[str | None, ...]:
+    """Return the non-URL references an enforce binding needs beyond its endpoint."""
+    from fdai.delivery.notifications import NotificationBindingKind
+
+    if spec.kind is NotificationBindingKind.DIRECT_LINE:
+        return (spec.conversation_id_env, spec.secret_env)
+    return ()
 
 
 def notification_bindings_projection(env: Mapping[str, str]) -> dict[str, object]:
@@ -378,7 +400,7 @@ def notification_bindings_projection(env: Mapping[str, str]) -> dict[str, object
         for spec in enabled:
             if spec.mode is ChannelMode.SHADOW:
                 continue
-            required_env_names = [spec.endpoint_env]
+            required_env_names = [spec.endpoint_env, *_protected_value_references(spec)]
             if spec.kind is NotificationBindingKind.ACS_EMAIL:
                 required_env_names.extend((spec.sender_address_env, spec.recipient_addresses_env))
             if (
@@ -487,6 +509,7 @@ def integration_projection(env: Mapping[str, str]) -> list[dict[str, object]]:
         gitops,
         jira,
         human_access,
+        forecast_history_projection(env),
     ]
 
 

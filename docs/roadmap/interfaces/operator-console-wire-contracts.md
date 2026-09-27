@@ -129,6 +129,14 @@ store failure while waiting returns an explicit held projection.
 Schema-valid requests that policy rejects return an immediate no-authority held terminal. Optional
 observation failure cannot block delivery, and outbox closure failure remains retryable. Only malformed
 envelopes dead-letter; no held or retry state can create an Incident or confirm an action draft.
+Core never truncates a terminal evidence manifest. When the deduplicated receipt references of an
+answered or execution-held turn exceed 12, or one reference exceeds the 256-character manifest
+bound, the turn holds as `semantic_evidence_incomplete` without retained goal receipts. The terminal
+event therefore cites no evidence reference outside its manifest. The 256-character bound comes
+from the Core `SemanticTurnResult` contract. It is stricter than the 512-character item bound for
+`semantic_result.evidence_refs` in the published `core-operator-projection` JSON schemas 1.2.0
+through 1.7.0, so Core holds a 257- to 512-character reference as `semantic_evidence_incomplete`
+even though those schemas accept it.
 Core keeps semantic request binding, Incident evidence projection, and localized Incident answer
 rendering in dedicated modules while the semantic turn processor retains orchestration.
 The split preserves every wire field, row limit, locale, evidence reference, and no-authority value.

@@ -593,7 +593,7 @@ cost-required assessment and deployment availability remain unpassed until prici
 - [ ] Retain deployed source ACL, hold-release/deletion, and cohort evidence under [#458](https://github.com/dotnetpower/fdai/issues/458) and [#424](https://github.com/dotnetpower/fdai/issues/424).
 - [x] Add synthetic annotations for the required PDF, Office, OCR, and Korean partitions and pass the corpus gate with a deterministic bound provider (`47 passed`).
 - [x] Run untrusted native-PDF parsing in the documented isolated-worker boundary and retain fail-closed malformed and page-budget evidence.
-- [ ] Retain at least 30 distinct live-shadow days and 500 eligible reviewed proposals with zero guard violations before promotion review.
+- [ ] [#1118](https://github.com/dotnetpower/fdai/issues/1118): Retain at least 30 distinct live-shadow days and 500 eligible reviewed proposals with zero guard violations before promotion review.
 - [x] Keep deployment availability unpassed when current independently verified model pricing is absent; stale, fabricated, cost-optional, or context-mismatched evidence cannot pass the gate.
 
 ## Related docs

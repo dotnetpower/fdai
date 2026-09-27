@@ -146,6 +146,9 @@ _LOGGER = logging.getLogger(__name__)
 _PROCESSING_STARTED_AT_FIELD = "_fdai_processing_started_at"
 _PROJECTION_NAMESPACE = UUID("00000000-0000-0000-0000-000000000000")
 _MAX_REQUEST_LIFETIME_SECONDS = 90.0
+# Mirrors the per-item bound of the terminal ``SemanticTurnResult.evidence_refs`` contract,
+# which is stricter than the 512-character ``GoalTaskReceipt`` reference bound.
+_MAX_SEMANTIC_EVIDENCE_REF_CHARS = 256
 _ROUTE_BY_DISPOSITION: dict[str, SemanticRoute] = {
     "direct_response": "semantic_direct_response",
     "clarification": "semantic_clarification",
@@ -1294,10 +1297,11 @@ def _project_runtime_result(
     )
     if not evidence_refs:
         return _evidence_incomplete(request, "no_evidence_refs", result=result), model_extensions
-    if len(evidence_refs) > MAX_SEMANTIC_EVIDENCE_REFS:
+    manifest_failure = _terminal_manifest_failure(evidence_refs)
+    if manifest_failure is not None:
         return _evidence_incomplete(
             request,
-            "too_many_evidence_refs",
+            manifest_failure,
             result=result,
         ), model_extensions
     document_citations = frozenset(
@@ -1905,7 +1909,11 @@ def _project_execution_hold(
         return None
     evidence_refs = tuple(
         dict.fromkeys(ref for receipt in execution.receipts for ref in receipt.evidence_refs)
-    )[:MAX_SEMANTIC_EVIDENCE_REFS]
+    )
+    manifest_failure = _terminal_manifest_failure(evidence_refs)
+    if manifest_failure is not None:
+        # Retained goal receipts would cite references the bounded manifest cannot carry.
+        return _evidence_incomplete(request, manifest_failure, result=result)
     execution_receipt_digest = content_digest(
         {
             "plan_digest": execution.plan_digest,
@@ -2635,6 +2643,20 @@ def _evidence_incomplete(
             project_semantic_assurance(result, disposition="held") if result is not None else None
         ),
     )
+
+
+def _terminal_manifest_failure(evidence_refs: tuple[str, ...]) -> str | None:
+    """Name why deduplicated receipt references cannot form the exact terminal manifest.
+
+    The terminal manifest is never truncated: a reference it cannot carry would remain cited by
+    the retained goal receipts without appearing in the manifest the answer is verified against.
+    """
+
+    if len(evidence_refs) > MAX_SEMANTIC_EVIDENCE_REFS:
+        return "too_many_evidence_refs"
+    if any(len(ref) > _MAX_SEMANTIC_EVIDENCE_REF_CHARS for ref in evidence_refs):
+        return "evidence_ref_too_long"
+    return None
 
 
 def _projected_answer_evidence_is_complete(

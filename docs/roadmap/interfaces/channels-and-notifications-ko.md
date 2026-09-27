@@ -1,14 +1,14 @@
 ---
 title: 채널과 알림(Channels and Notifications)
 translation_of: channels-and-notifications.md
-translation_source_sha: bb9103b9ef989f1964f60459344823ba7986eecd
-translation_revised: 2026-09-26
+translation_source_sha: 98af37786836b785716949a7ec748a6addbc8d6c
+translation_revised: 2026-09-28
 ---
 
 # 채널과 알림(Channels and Notifications)
 
-FDAI가 Teams, Slack, 이메일, 웹훅, paging 서비스, SMS 및 명시적 선택 브라우저 알림을
-통해 사람과 소통하는 방법. 이 문서는 **채널 추상화, 신뢰 레벨, 카테고리 경계, 라우팅
+FDAI가 Teams, Slack, 이메일, 웹훅, paging 서비스, SMS, Direct Line 사용자 지정 채널 및
+명시적 선택 브라우저 알림을 통해 사람과 소통하는 방법. 이 문서는 **채널 추상화, 신뢰 레벨, 카테고리 경계, 라우팅
 정책, 채널 특이 규칙**의 진실 원본입니다. [tech-stack-ko.md](../architecture/tech-stack-ko.md) 에서 힌트한
 "notifier 인터페이스" 자리 표시자를 해결하고
 [경보 라우팅 계약](../operations/operating-and-verification-ko.md#경보-라우팅)의 경보
@@ -119,6 +119,7 @@ Teams Workflows 웹훅 바인딩은
 | **범용 웹훅** | ✗ | HMAC-signed, timestamped, replay-guarded | **A2 only** |
 | **PagerDuty / Opsgenie** | ✗ | API 키, 모바일 앱에서 ack | **A2 only** (운영 라인 paging) |
 | **SMS** | ✗ | - | **A2 only** (최소 페이로드; break-glass 도달성) |
+| **Direct Line 사용자 지정 채널** | ✗ | 보호된 구성의 Direct Line 시크릿, activity 게시만 수행 | **A2, A4 only** - A1이나 A3는 허용되지 않음 |
 
 **매트릭스를 안전하게 유지하는 규칙 (MUST)**
 
@@ -232,7 +233,7 @@ Adaptive 카드 렌더링과 분리합니다. 이 분리는 wire 페이로드와
 | Slack | Block Kit `section`, `fields`, `context`, `actions` | 범위가 제한된 텍스트 요약, 검토된 결정론적 렌더러가 있을 때만 sparkline | 제한, 근거 참조, 권한, 사용 불가 상태, 최상위 `text` 대체 경로 |
 | 사용자 지정 | 주입형 렌더러와 기능 프로필 | 렌더러가 선언한 범위가 제한된 대체 경로 | 기본 렌더러와 같은 필수 내용 및 상한 |
 
-대화 품질 보증은 독립 기능 프로필을 통해 이 변환 결과를 평가합니다. 정본 내용, 제한 사항, 근거 참조 및 권한 상태는 항상 적용합니다. 답변 준비 상태, 진행 상황, 활동 기록, rich 표현, 스레드 연속성 및 편집 연속성은 주입된 프로필이 지원을 선언할 때만 적용합니다. Direct Line과 사용자 지정 어댑터는 동일한 프로필 연결 지점을 사용합니다. 이 계약은 Direct Line 전송을 구현하거나 Core에 벤더 분기를 추가하지 않습니다.
+대화 품질 보증은 독립 기능 프로필을 통해 이 변환 결과를 평가합니다. 정본 내용, 제한 사항, 근거 참조 및 권한 상태는 항상 적용합니다. 답변 준비 상태, 진행 상황, 활동 기록, rich 표현, 스레드 연속성 및 편집 연속성은 주입된 프로필이 지원을 선언할 때만 적용합니다. Direct Line과 사용자 지정 어댑터는 동일한 프로필 연결 지점을 사용합니다. 이 A3 표현 계약은 Direct Line 대화 전송을 구현하거나 Core에 벤더 분기를 추가하지 않습니다. A2/A4 Direct Line 알림 전달은 [다중 채널 알림 전달 § 9](multi-channel-notification-delivery-ko.md#9-direct-line-사용자-지정-채널)가 소유합니다.
 
 렌더링은 사실을 골라 버리는 대신 손실 범위를 제한합니다. 읽기 가능한 대체 경로가 같은 정본 사실을 유지한 뒤에만 선택적인 시각 상세를 생략할 수 있습니다. 사용 불가를 0으로 바꾸거나 승인 또는 권한 경계를 삭제하거나 원시 산출물 JSON을 기본 답변으로 내보내지 않습니다.
 전송 전에 프로바이더 바이트, 블록 및 필드 상한을 적용합니다. 상한을 넘으면 먼저 선택적 시각 상세를 제거하고 그다음 완전하며 범위가 제한된 텍스트 대체 경로를 사용합니다. 필수 내용만으로도 맞지 않으면 프로바이더 호출 전에 실패합니다.
@@ -508,6 +509,7 @@ matrix:
 | **범용 웹훅** | HMAC-SHA256 서명, 단조 타임스탬프, 단발 nonce. Receiver 실패는 절대 블록 안 함; 코어가 어댑터 정책대로 재시도 후 이동. |
 | **PagerDuty / Opsgenie** | Dedup 키 = observability 상관 id 이므로 버스트가 접힘. 런북 URL은 모든 알림에 필수. |
 | **SMS** | 페이로드는 `<severity> <audit_id> <short-url-to-runbook>`로 제한. 시크릿 없음, 고객 이름 없음, 자유 텍스트 없음. 주로 break-glass 도달성. |
+| **Direct Line 사용자 지정 채널** | 배포가 소유한 중계 봇에 A2/A4 activity만 보냅니다. 기본 모드는 리허설이며, 공급자 수락은 전달 완료로 보지 않고, 승인, 명령, 답장은 사용할 수 없습니다. [다중 채널 알림 전달 § 9](multi-channel-notification-delivery-ko.md#9-direct-line-사용자-지정-채널)를 참조하세요. |
 
 ### 7.1 Teams 준비 상태는 카테고리별로 보고합니다
 
@@ -549,6 +551,7 @@ Teams에는 소유자가 다른 네 가지 계약이 있습니다. A1 계약은 
 | **Slack A1 콜백 및 아웃바운드** | 서명된 브라우저 인계와 영속 단추 전달까지 로컬 구현, 연결 정보가 불완전하면 기본 비활성화 | 작업 영역 자격 증명, 승인된 Console 출처 한 곳, API 토큰 `auth_time`, userId↔OID 매핑(필수) |
 | ACS 이메일 어댑터 | ✓ (A2/A4, managed 신원, 최종 상태 polling) | 수신자 바인딩 + 활성화 |
 | 웹훅 / PagerDuty / SMS 어댑터 | ✓ (구체적인 전달 어댑터) | 자격증명 + 활성화 |
+| Direct Line 사용자 지정 채널 어댑터 | ✓ (A2/A4, 기본값 리허설, 수락만 기록하는 증적) | 중계 봇, 대화, 시크릿, governed 활성화 |
 | 라우팅-config 스키마 + 시작 검증 | ✓ | 배포별 연결/오버레이 |
 | HIL 에스컬레이션 싱크 (`on_all_fail` fail-safe 큐) | ✓ (`StateStoreHilEscalationSink` - StateStore 기반, tenant-무관) | 자체 큐 백엔드(선택) |
 | 7개 기본 다이제스트 + 오디언스 파생 규칙 | ✓ | cron 타임존, 채널 id, 다이제스트별 on/off |

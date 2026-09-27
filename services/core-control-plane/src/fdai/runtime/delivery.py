@@ -763,6 +763,7 @@ def _build_notification_router(
         StateStoreHilEscalationSink,
         StateStoreShadowDeliveryRecorder,
     )
+    from fdai.runtime.notification_direct_line import require_fanout_for_governed_direct_line
 
     if notification_delivery_store is None:
         notification_delivery_store = build_notification_delivery_store()
@@ -775,6 +776,7 @@ def _build_notification_router(
         StateStoreShadowDeliveryRecorder(state_store=audit_store),
     )
     _validate_incident_notification_route(matrix, registry)
+    require_fanout_for_governed_direct_line(matrix, registry)
     return NotificationRouter(
         matrix=matrix,
         registry=registry,

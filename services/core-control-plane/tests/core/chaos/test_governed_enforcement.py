@@ -49,6 +49,8 @@ def _eligibility(**overrides: object) -> ChaosEligibilityContext:
         "approval_principal": "Var",
         "approver_ids": ("approver-a",),
         "initiator_id": "initiator-a",
+        "autonomy_ceiling_enforce": True,
+        "mutation_targets_approved": True,
     }
     values.update(overrides)
     return ChaosEligibilityContext(**values)  # type: ignore[arg-type]
@@ -310,3 +312,20 @@ async def test_harness_guard_cannot_extend_fault_hold_deadline() -> None:
     assert result.outcome is ExperimentOutcome.ABORTED
     assert result.error is not None and "TimeoutError" in result.error
     assert injector.stopped == ["resource-a"]
+
+
+@pytest.mark.parametrize(
+    ("override", "reason"),
+    [
+        ({"autonomy_ceiling_enforce": False}, "autonomy_ceiling_not_enforce"),
+        ({"mutation_targets_approved": False}, "mutation_targets_unapproved"),
+    ],
+)
+def test_tier_ceiling_and_mutation_scope_gate_chaos_enforcement(
+    override: dict[str, object],
+    reason: str,
+) -> None:
+    decision = evaluate_chaos_eligibility(_eligibility(**override))
+
+    assert not decision.eligible
+    assert reason in decision.reasons

@@ -100,6 +100,7 @@ class ExperimentResult:
     started_at: datetime
     ended_at: datetime
     injected: bool
+    """An injection was attempted, so a fault may be live; a raised call counts."""
     stopped: bool
     error: str | None = None
     stop_reason: str | None = None

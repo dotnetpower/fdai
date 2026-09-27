@@ -314,6 +314,7 @@ It does not permit a temporary dual acquisition.
 | Tool call | Idempotency mutex, then an internal legacy target lock | The tool-call executor owns one evidenced target lock through provider commit continuity and terminal persistence. |
 | Workflow | Orchestrates the selected executor and does not define a separate `ExecutionPath` | The selected executor owns the target lock. Workflow passes the immutable pre-bundle commitment and never reacquires the target. |
 | Isolated Executor | Shared-bundle revalidation remains open under #628 | The isolated executor must reject missing or stale evidenced ownership before dispatch and must not fall back to the legacy seam. |
+| Governed chaos catalog | The adapter holds the injected distributed lock on every canonical target identity, a durable per-target run claim, and an exclusive `injecting` compare-and-swap before the harness runs. A claim passes on only after verified recovery, denial, failure without an injection attempt, or a separate audited Var closure decision | The runtime binding in `runtime/delivery.py` must hand the adapter one evidenced target lock without re-entering the tool-call executor's own target lock (#94). |
 
 ### PostgreSQL continuity admission
 

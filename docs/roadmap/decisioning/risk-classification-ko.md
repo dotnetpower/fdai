@@ -1,8 +1,8 @@
 ---
 title: 위험 분류 (자동 실행 vs 사람 승인 vs 차단)
 translation_of: risk-classification.md
-translation_source_sha: d45af1802a714d8859c65b8796c062f53367ccd7
-translation_revised: 2026-09-27
+translation_source_sha: 7b5a4c4973e69f9b36d094caeace8ee82b5bd567
+translation_revised: 2026-09-28
 ---
 
 # 위험 분류 (자동 실행 vs 사람 승인 vs 차단)
@@ -55,10 +55,11 @@ translation_revised: 2026-09-27
 - [ ] 범위 행을 `validated`로 높이기 전에 하나의 고정된 리비전에서 위험 판정의 관리되는 런타임 증적을 보존합니다.
 - [x] 공유 계약과 명시적 Pantheon 경로는 신뢰할 수 있는 원본 결과가 있어야 정확하고 최신인
   Owner 확인 한 건으로 개발 환경의 유효 정족수를 낮출 수 있습니다.
-- [ ] 현재 대상 범위, ActionType 및 정책 리비전, 대상 리비전, 보호 장치, dry-run, 감사,
-  잠금 및 관찰자 증적을 확인하는 배포 소유의 권위 있는 원본을 배포된 Core ControlLoop,
+- [ ] [#1502](https://github.com/dotnetpower/fdai/issues/1502): 현재 대상 범위, ActionType 및 정책 리비전, 대상 리비전, 보호 장치, dry-run,
+  감사, 잠금 및 관찰자 증적을 확인하는 배포 소유의 권위 있는 원본을 배포된 Core ControlLoop,
   워크플로 및 RBAC 진입점에 연결합니다. 그 전에는 해당 원본 없이 프로필을 선택해도
-  fail-closed로 유지합니다.
+  fail-closed로 유지합니다. #1511의 계약, 스키마, 바인딩 원본 Protocol 및 주입된 조립
+  테스트만으로는 이 항목을 충족하지 않습니다.
 
 ## 테이블이 사는 곳
 

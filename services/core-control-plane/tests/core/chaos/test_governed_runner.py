@@ -1,6 +1,10 @@
 from __future__ import annotations
 
+import asyncio
+import random
+from collections.abc import Mapping
 from datetime import UTC, datetime, timedelta
+from typing import Any
 
 from fdai.core.chaos import (
     ChaosEligibilityContext,
@@ -10,7 +14,7 @@ from fdai.core.chaos import (
     GovernedChaosRunner,
     ShadowFaultInjector,
 )
-from fdai.core.chaos.run_store import ChaosRunStore
+from fdai.core.chaos.run_store import ChaosRunClaimError, ChaosRunConflictError, ChaosRunStore
 from fdai.core.recovery import (
     PreauthorizedRecoveryController,
     ProbeVerdict,
@@ -128,6 +132,8 @@ def _eligibility(**overrides: object) -> ChaosEligibilityContext:
         "approval_principal": "Var",
         "approver_ids": ("approver-a",),
         "initiator_id": "initiator-a",
+        "autonomy_ceiling_enforce": True,
+        "mutation_targets_approved": True,
     }
     values.update(overrides)
     return ChaosEligibilityContext(**values)  # type: ignore[arg-type]
@@ -392,3 +398,80 @@ async def test_governed_runner_escalates_provider_failures() -> None:
     assert evidence_result.state.state is ChaosRunState.ESCALATED
     assert evidence_result.verification is not None
     assert evidence_result.verification.outcome is RecoveryVerificationOutcome.UNSCORABLE
+
+
+class _YieldingStateStore(InMemoryStateStore):
+    """Interleave concurrent runners at every durable read and write."""
+
+    def __init__(self, seed: int) -> None:
+        super().__init__()
+        self._random = random.Random(seed)  # noqa: S311 - deterministic interleaving seed
+
+    async def _yield(self) -> None:
+        for _ in range(self._random.randint(0, 3)):
+            await asyncio.sleep(0)
+
+    async def read_state(self, key: str) -> Mapping[str, Any] | None:
+        await self._yield()
+        return await super().read_state(key)
+
+    async def write_state_with_audit_if_absent(
+        self,
+        key: str,
+        value: Mapping[str, Any],
+        audit_entry: Mapping[str, Any],
+    ) -> bool:
+        await self._yield()
+        return await super().write_state_with_audit_if_absent(key, value, audit_entry)
+
+    async def compare_and_set_state_with_audit(
+        self,
+        key: str,
+        value: Mapping[str, Any],
+        *,
+        expected_revision: int,
+        audit_entry: Mapping[str, Any],
+    ) -> bool:
+        await self._yield()
+        return await super().compare_and_set_state_with_audit(
+            key,
+            value,
+            expected_revision=expected_revision,
+            audit_entry=audit_entry,
+        )
+
+
+def _shared_runner(injector: ShadowFaultInjector, run_store: ChaosRunStore) -> GovernedChaosRunner:
+    return GovernedChaosRunner(
+        harness=FaultInjectionHarness(injectors=(injector,), probe=_Probe(), sleeper=_sleeper),
+        run_store=run_store,
+        recovery=PreauthorizedRecoveryController(dispatcher=_Dispatcher()),
+        evidence_collector=_EvidenceCollector(),
+        clock=lambda: _NOW,
+    )
+
+
+async def test_concurrent_duplicate_runs_never_inject_twice() -> None:
+    claim_losses = 0
+    for seed in range(200):
+        injector = ShadowFaultInjector(fault_type="pod_kill")
+        run_store = ChaosRunStore(state_store=_YieldingStateStore(seed))
+        outcomes = await asyncio.gather(
+            *(
+                _shared_runner(injector, run_store).run_enforce(
+                    run_id="run-1",
+                    scenario=_scenario(),
+                    eligibility_context=_eligibility(),
+                    recovery_plan=_plan(),
+                    impact_guard=_guard,
+                )
+                for _ in range(2)
+            ),
+            return_exceptions=True,
+        )
+
+        assert len(injector.injected) <= 1, f"seed {seed} injected twice"
+        errors = [item for item in outcomes if isinstance(item, BaseException)]
+        assert all(isinstance(item, ChaosRunConflictError) for item in errors), errors
+        claim_losses += sum(isinstance(item, ChaosRunClaimError) for item in errors)
+    assert claim_losses > 0

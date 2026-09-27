@@ -53,12 +53,14 @@ from the same family cannot review that answer.
 | Pantheon routed qualification | implemented | [`test_prompt_deliberation.py`](../../../services/core-control-plane/tests/agents/test_prompt_deliberation.py), [`test_pantheon_conversation_assurance.py`](../../../services/core-control-plane/tests/runtime/test_pantheon_conversation_assurance.py), [`test_assessment.py`](../../../services/core-control-plane/tests/core/conversation_assurance/test_assessment.py), [`test_conversation_assurance_lifecycle.py`](../../../services/core-control-plane/tests/runtime/test_conversation_assurance_lifecycle.py), [`test_conversation_assurance_cli.py`](../../../tests/integration/scripts/test_conversation_assurance_cli.py) | Ordinary deliberation reuses the verified semantic route with distinct peers. Only valid mixed-family outputs enter scoring; exact answer model identity and family prevent self-review in Pantheon diagnostics and blind policy trials. |
 | Local campaign authentication and T1 request admission | validated | [`conversation_assurance_cli.py`](../../../scripts/automation/conversation_assurance_cli.py), [`semantic_planning.py`](../../../services/core-control-plane/src/fdai/delivery/azure/llm/semantic_planning.py), focused CLI and semantic-planning tests, and one fresh read-only `operations-review` completion | Local Azure CLI campaigns resolve the current loopback session credential in memory, Browser Entra file fallback rejects invalid JWT time windows, and frame selection sends bounded canonical candidates while Core retains full exact-release verification. A fresh ordinary turn completed without a hold and the configured T1 provider returned HTTP 200. This does not qualify a campaign or grant operational authority. |
 | Authenticated one-question browser baseline | in-progress | [`conversation-answer-hardening-2026-09-23.json`](../../baselines/conversation-answer-hardening-2026-09-23.json); Issue #1396 | The full stack and Browser Entra authentication passed, but one immutable evidence-ready ontology relationship case was held with `semantic_planning_failed` and `model_trace_disabled`. Missing trace and Preparing answer evidence block a code-defect or qualification claim. |
+| Terminal evidence manifest round-trip parity | implemented | [`test_semantic_evidence_manifest_parity.py`](../../../tests/integration/test_semantic_evidence_manifest_parity.py), [`test_semantic_evidence_manifest_regressions.py`](../../../tests/integration/test_semantic_evidence_manifest_regressions.py), [`semantic_turn_processor.py`](../../../services/core-control-plane/src/fdai_core_service/semantic_turn_processor.py) | A seeded generator drives 1,000 English and Korean semantic turns through the real runtime, bounded executor, Core processor, projection codec, Operator ingest, and terminal compiler. Core never truncates the terminal manifest and holds references over its 256-character bound, which is stricter than the 512-character published projection schema bound. Operator ingest does not yet enforce the producer digests, and only generated deterministic semantic turns are covered. |
 | Qualification campaign evidence | in-progress | [`conversation-assurance-ledger.py`](../../../scripts/quality/conversation-assurance-ledger.py), [Issue #63](https://github.com/dotnetpower/fdai/issues/63), [Issue #299](https://github.com/dotnetpower/fdai/issues/299), [Issue #300](https://github.com/dotnetpower/fdai/issues/300) | The complete bilingual hidden cohort, three qualifying runs, live evidence, and soak records have not been retained. |
 
 ### Implementation history
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-28 | implemented | Added a seeded 1,000-turn Core-to-Operator parity generator for semantic answer evidence references and the terminal evidence manifest, and repaired the two terminal-manifest defects it found. A held execution projection no longer truncates more than 12 deduplicated receipt references while its retained goal receipts still cite them, and a receipt reference longer than the 256-character manifest bound now holds as typed `semantic_evidence_incomplete` instead of `semantic_runtime_failed`. | `current change`; `test_semantic_evidence_manifest_parity.py` generated 1,000 turns across 14 scenario kinds, 500 English and 500 Korean, with zero parity violations; every held-overflow turn is a real held or failed execution. Without the processor repair the run reported 67 truncated held manifests and 69 untyped runtime failures, and each focused regression failed for both held and failed receipts. The parity, regression, round-trip, and owning semantic processor tests passed (`362 passed`); Ruff, format, and strict mypy passed for the touched modules. | Operator ingest still does not recompute `evidence_digest` or `projection_id`. The published `core-operator-projection` JSON schemas 1.2.0 through 1.7.0 still allow 512-character references. Pantheon assurance, multi-source authority, governed-document, and channel paths are not generated. No live model, Azure, or #63 qualification evidence is claimed. |
 | 2026-09-26 | implemented | Preserved bounded typed query-hold reasons in owner-only runtime readiness instead of collapsing graph freshness and completeness holds into provider unavailability. | `current change`; focused runtime readiness tests (`17 passed`); Ruff and strict mypy. | Restart Core, inspect the current reason codes, and repair the actual evidence source condition before selecting more questions. |
 | 2026-09-26 | implemented | Aligned Resource state and Resource Health readiness with the state-bearing Resource applicability boundary, preventing unrelated inventory objects and the 1,000-result ceiling from making the probe permanently incomplete. | `current change`; focused semantic composition regression plus readiness and graph diagnostics. | Restart Core and verify current evidence readiness before selecting new state or health questions. |
 | 2026-09-23 | in-progress | Retained a content-free authenticated Browser Entra baseline for one new evidence-ready ontology relationship case and a deterministic 60-case question-bank readiness sample. The answer remained held and no code candidate was admitted. | `current change`; [`conversation-answer-hardening-2026-09-23.json`](../../baselines/conversation-answer-hardening-2026-09-23.json); Issue #1396; full-stack readiness 12/12. | Enable model trace before a later explicit trigger, use a new immutable question, and require all three browser evidence gates before classifying a code defect. |
@@ -167,6 +169,19 @@ from the same family cannot review that answer.
 
 ### Remaining work
 
+- [ ] Bind Operator semantic projection ingest to the producer commitments. Recompute
+   `evidence_digest` over `semantic_result`, or over the Pantheon assurance body, and the
+   content-bound `projection_id`, then reject a mismatch before durable projection. Exit: a focused
+   regression proves that a projection whose manifest or receipts differ from its committed digest is
+   never rendered.
+- [ ] With the service-contracts package owner, tighten the `semantic_result.evidence_refs` item
+   `maxLength` from 512 to 256 in the next `core-operator-projection` schema version so the published
+   wire schema matches the Core `SemanticTurnResult` bound. Exit: that schema version rejects a
+   257-character reference, and the Core producer and Operator consumer codecs pin it.
+- [ ] Extend the seeded manifest parity generator to Pantheon assurance traces, multi-source
+   authority, governed-document citations, and channel adapters. Exit: each path reports zero
+   parity violations across at least 1,000 generated turns before Issue #63 counts its parity
+   criterion as met for every answer path.
 - [ ] Retain a new fresh authenticated Browser Entra improvement run after model trace is enabled.
    Use a new immutable question, one `/chat/stream` request, a completed or explicitly held
    assessment, all six Run Record phases, prompt-manifest checks, Preparing answer transition
@@ -178,16 +193,25 @@ from the same family cannot review that answer.
    answer attempt per question, the completed child receipt, and mode-`0600` question, evaluation,
    and regression ledgers. Campaign `campaign-20260910t002818z-1210810-a8153612` completed 10
    distinct questions with 0 cycle holds and 0 hardenings.
-- [ ] Run the complete 50-item bilingual qualification scorecard on one pinned revision, retain
-   per-item results that prove every hard-check and semantic-rubric threshold, and bind the batch
+- [ ] [#301](https://github.com/dotnetpower/fdai/issues/301): Run the complete 50-item bilingual
+   qualification scorecard three times on one pinned revision and configuration, retain per-item
+   worst-run results that prove every hard-check and semantic-rubric threshold, and bind the batch
    to a current independently verified `DecisionCriticalEvidenceReceipt` bundle.
 - [ ] Retain a blind holdout replay showing a statistically supported improvement with zero hard
    escapes and no locale regression before reporting a promoted policy.
 - [ ] Exercise one governed automatic rollback after a measured regression and retain the policy
    transition, restored immutable version, and audit receipts.
-- [ ] Run the 230-case Pantheon census against the real authenticated Operator API on a pinned
-   revision and retain explicit-route accuracy, owner-routing F1, missed and unnecessary T2 rates,
-   per-locale score floors, and zero hard-safety escapes.
+- [ ] [#298](https://github.com/dotnetpower/fdai/issues/298): After #301 qualifies, run the
+   official 30-day production-like soak on the same pinned `dev` commit and declared model, runtime,
+   channel, corpus, evaluator, trace, and policy configuration. Retain daily repository-safe
+   availability, latency, trace, safety, fallback, truncation, channel, attachment, and approval
+   evidence; any qualifying-path change or P0/P1 correction restarts day one, a missing day never
+   counts as success, and the window must end with no unresolved P0 or P1 defect in the measured
+   paths.
+- [ ] [#399](https://github.com/dotnetpower/fdai/issues/399): Run the 230-case Pantheon census
+   against the real authenticated Operator API on a pinned revision and retain explicit-route
+   accuracy, owner-routing F1, missed and unnecessary T2 rates, per-locale score floors, and zero
+   hard-safety escapes.
 - [x] Wire the authenticated Operator conversation path through Bragi for explicit, implicit, and
    T2 census cases, assemble the authoritative terminal receipt, run the existing distinct-family
    assurance reviewers, and persist the diagnostic with the correlated assessment.
@@ -224,6 +248,3 @@ from the same family cannot review that answer.
    turn envelope. Owner-backed dimensions are measured; non-owned dimensions remain explicitly
    unavailable instead of receiving synthetic success values. Focused qualification checks passed
    108 cases.
-
-- [ ] Run the complete 50-item bilingual qualification scorecard on one pinned revision and retain
-   per-item results that prove every hard-check and semantic-rubric threshold.

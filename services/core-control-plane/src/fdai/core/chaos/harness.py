@@ -201,18 +201,21 @@ class FaultInjectionHarness:
                 error="no_approved_targets",
             )
 
-        injected_targets: list[str] = []
+        # A target counts as injected once its inject call starts: a call that
+        # raises, including a client-side timeout after the provider accepted the
+        # change, may still have applied the fault, so it is rolled back too.
+        attempted_targets: list[str] = []
         detected = False
         error: str | None = None
         stop_event: ChaosStopEvent | None = None
         cancelled = False
         try:
             for target in targets:
+                attempted_targets.append(target)
                 await asyncio.wait_for(
                     injector.inject(target=target, params=scenario.params),
                     timeout=self._op_timeout,
                 )
-                injected_targets.append(target)
             # Cap time-in-fault: an over-large authored duration cannot hold
             # the perturbation past the harness ceiling.
             hold = min(scenario.duration_seconds, self._max_hold)
@@ -243,14 +246,14 @@ class FaultInjectionHarness:
                 extra={"experiment_id": experiment_id, "scenario": scenario.scenario_id},
             )
         finally:
-            # Always roll back every target that was actually injected, even
-            # on a partial injection (target 1 ok, target 2 raised) - leaving a
-            # live fault would violate the always-rollback safety invariant.
+            # Always roll back every target whose injection was attempted, even
+            # on a partial or failed injection (target 1 ok, target 2 raised) -
+            # leaving a live fault would violate the always-rollback invariant.
             stopped = True
-            if injected_targets:
-                stopped = await self._stop_all(injector, injected_targets)
+            if attempted_targets:
+                stopped = await self._stop_all(injector, attempted_targets)
 
-        injected = bool(injected_targets)
+        injected = bool(attempted_targets)
         if injected and not stopped:
             # A possibly-live fault was left in place (rollback failed or timed
             # out). This is the operator's #1 concern, so it is the headline

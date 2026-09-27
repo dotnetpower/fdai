@@ -1,10 +1,10 @@
 """Catalog-driven chaos-scenario runner.
 
-Unlike `scripts/catalog/run-enforce-scenarios.py` (which hardcodes the 10
-upstream reference scenarios) and `scripts/catalog/measure-detection-latency.py`
-(same, but with a probing runner), this driver loads scenarios from
-`rule-catalog/chaos-scenarios/` and dispatches each through the
-:class:`~fdai.core.chaos.factory.ScenarioFactory`. It is the runtime
+Unlike the retired `scripts/catalog/run-enforce-scenarios.py` and
+`scripts/catalog/measure-detection-latency.py` raw drivers, which now refuse
+every live run until they are ported onto the governed adapter, this driver
+loads scenarios from `rule-catalog/chaos-scenarios/` and dispatches each through
+the :class:`~fdai.core.chaos.factory.ScenarioFactory`. It is the runtime
 answer to "the catalog says X; does the delivery layer know how to
 execute X?".
 
@@ -17,21 +17,42 @@ Usage:
     # (injector, probe) pair and print PASS / FAIL per entry
     python scripts/catalog/run-catalog-scenario.py --dry-run
 
-    # Enforce one scenario end-to-end against the FDAI_ENFORCE_* substrate
+    # Governed enforce of one promoted scenario against the FDAI_ENFORCE_* substrate
     python scripts/catalog/run-catalog-scenario.py --run chaos.chaos-mesh.pod-failure \
         --confirm-enforce
 
-    # Enforce every executable entry (safe: needs-injector entries
-    # are filtered out before injection)
+    # Governed enforce of every executable promoted entry, one at a time
     python scripts/catalog/run-catalog-scenario.py --run-all --confirm-enforce
 
-Substrate config comes from the same `FDAI_ENFORCE_*` env vars the
-other enforce runners read; see `scripts/catalog/run-enforce-scenarios.py` for
-the full list. Enforce modes also require `FDAI_ENFORCE_APPROVAL_REF`
-and the explicit `--confirm-enforce` flag. The approval reference is
-recorded in every result; validation against the authoritative HIL
-state belongs to the promotion evidence contract. Missing inputs fail
-fast; `--list` and `--dry-run` need no env vars.
+    # Release the targets of an escalated or orphaned run after manual recovery;
+    # FDAI_CHAOS_CLOSURE_APPROVAL_REF names a separate closure approval by a
+    # distinct Var approver, never the approval that authorized the injection
+    python scripts/catalog/run-catalog-scenario.py --close chaos.chaos-mesh.pod-failure \
+        --confirm-closure --closure-reason "fault absent and workload healthy"
+
+Enforce modes never construct a fault-injection harness here. Each selected
+scenario becomes one typed `tool.run-chaos-experiment` enforce request that the
+`GovernedChaosExecutionAdapter` runs through `GovernedChaosRunner`. The adapter's
+state store, promotion sources, Var approval verifier, run planner, recovery
+dispatcher, recovery evidence collector, and target lock come from exactly one
+installed `fdai.governed_chaos` entry point named `catalog-scenario`. Without
+that provider, enforce refuses before substrate access, writes a structured
+refusal report, and exits with status 3.
+
+`FDAI_ENFORCE_APPROVAL_REF` names the current human approval for the injected
+verifier to check; it is a claim, never approval by itself. Substrate context
+comes from the `FDAI_ENFORCE_*` env vars. Each run's targets are the canonical
+identities of the resources its `target_type` mutates (the VM for `vm`, the
+workload pods for `pod`, `disk`, and `dns`); other target types are refused.
+Requests are deterministic T0 operator submissions, so the ActionType tier
+ceiling applies. The request idempotency key binds the scenario version,
+catalog fingerprint, targets, and approval claim, so rerunning a command
+replays or resumes the durable run instead of injecting again. A run passes
+only when it recovered and detected its expected signal; the command exits
+non-zero otherwise, and a sweep halts after any run whose rollback is not
+verified. `--list` and `--dry-run` need no env vars. This command still calls
+the adapter directly rather than through the Core proposal, risk, Var, and
+Thor pipeline; that routing remains open work.
 
 Reports land under `logs/catalog-runs/<timestamp>/`. Every run writes
 one JSON per scenario plus a `report.json` + `summary.md`.
@@ -50,18 +71,13 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+import yaml
 from fdai.core.chaos.catalog_evidence import (
     CatalogEvidenceLevel,
     build_catalog_validation_summary,
     write_catalog_validation_summary,
 )
-from fdai.core.chaos.contract import ExperimentResult, FaultScenario
-from fdai.core.chaos.factory import ScenarioFactory, UnavailableInjectorError
-from fdai.core.chaos.harness import FaultInjectionHarness
-from fdai.core.chaos.promotion_evidence import (
-    ScenarioEvidenceKey,
-    load_promotion_ledger,
-)
+from fdai.core.chaos.factory import ScenarioFactory
 from fdai.core.chaos.scenario_catalog import (
     CatalogEntry,
     catalog_fingerprint,
@@ -69,7 +85,36 @@ from fdai.core.chaos.scenario_catalog import (
     load_promoted,
 )
 from fdai.delivery.chaos.factories import default_factory
-from fdai.shared.contracts.models import Mode
+from fdai.delivery.chaos.governed import GovernedChaosExecutionAdapter
+from fdai.delivery.chaos.governed_bindings import (
+    GovernedChaosBindings,
+    load_governed_chaos_bindings,
+)
+from fdai.delivery.chaos.governed_closure import GovernedChaosClosure
+from fdai.delivery.chaos.governed_records import CHAOS_ACTION_TYPE, catalog_enforce_request
+from fdai.delivery.chaos.mutation_scope import approved_catalog_targets
+from fdai.rule_catalog.schema.action_type import load_action_type_from_mapping
+from fdai.shared.contracts.models import Mode, OntologyActionType, Tier
+from fdai.shared.contracts.registry import PackageResourceSchemaRegistry
+from fdai.shared.providers.tool import ToolCallRequest, ToolError
+
+_REFUSED_EXIT = 3
+_SETTLE_SECONDS = 10.0
+_CHAOS_ACTION_TYPE_PATH = (
+    Path(__file__).resolve().parents[2]
+    / "rule-catalog"
+    / "action-types"
+    / f"{CHAOS_ACTION_TYPE}.yaml"
+)
+
+
+class _EnforceRefusalError(Exception):
+    """An enforce precondition failed before any request reached the adapter."""
+
+    def __init__(self, reason: str, detail: str) -> None:
+        super().__init__(detail)
+        self.reason = reason
+        self.detail = detail
 
 
 def _env_or_none(name: str) -> str | None:
@@ -78,7 +123,7 @@ def _env_or_none(name: str) -> str | None:
 
 
 def _substrate_context() -> dict[str, Any]:
-    """Read FDAI_ENFORCE_* env vars; fail fast when any is missing."""
+    """Read FDAI_ENFORCE_* env vars; refuse when any is missing."""
     required = {
         "FDAI_ENFORCE_SUB_ID": "sub_id",
         "FDAI_ENFORCE_RG": "resource_group",
@@ -89,11 +134,13 @@ def _substrate_context() -> dict[str, Any]:
         "FDAI_ENFORCE_BACKEND_SVC": "backend_service",
         "FDAI_ENFORCE_BACKEND_LABEL": "workload_label_raw",
         "FDAI_ENFORCE_VM": "vm_name",
-        "FDAI_ENFORCE_PROMOTION_EVIDENCE": "promotion_evidence_path",
     }
     missing = [env for env in required if not os.environ.get(env)]
     if missing:
-        raise SystemExit(f"missing required env vars for --run / --run-all: {', '.join(missing)}")
+        raise _EnforceRefusalError(
+            "substrate_context_missing",
+            f"missing required env vars for --run / --run-all: {', '.join(missing)}",
+        )
     ctx: dict[str, Any] = {name: os.environ[env] for env, name in required.items()}
     # Normalize the workload_label: BACKEND_LABEL is `app=api-backend`,
     # but the CRD body just needs the value on the right of `=`.
@@ -109,120 +156,8 @@ def _substrate_context() -> dict[str, Any]:
     return ctx
 
 
-def _with_promotion_approval(
-    entry: CatalogEntry,
-    ctx: dict[str, Any],
-    catalog_entries: list[CatalogEntry],
-) -> dict[str, Any]:
-    evidence_path = Path(str(ctx["promotion_evidence_path"]))
-    ledger = load_promotion_ledger(evidence_path)
-    key = ScenarioEvidenceKey(
-        scenario_id=entry.id,
-        scenario_version=int(entry.spec["version"]),
-        catalog_fingerprint=catalog_fingerprint(catalog_entries),
-    )
-    approval_ref = ledger.approval_ref_for(key)
-    if approval_ref is None:
-        raise SystemExit(
-            f"{entry.id!r} is not enforce-eligible for the current catalog fingerprint"
-        )
-    approved = dict(ctx)
-    approved.pop("promotion_evidence_path", None)
-    approved["approval_ref"] = approval_ref
-    return approved
-
-
-def _serialize(result: ExperimentResult) -> dict[str, Any]:
-    d = dataclasses.asdict(result)
-    d["mode"] = result.mode.value
-    d["outcome"] = result.outcome.value
-    d["started_at"] = result.started_at.isoformat()
-    d["ended_at"] = result.ended_at.isoformat()
-    d["targets"] = list(result.targets)
-    d["reverted"] = result.reverted
-    return d
-
-
-async def _run_one(
-    entry: CatalogEntry,
-    factory: ScenarioFactory,
-    ctx: dict[str, Any],
-    out_dir: Path,
-    max_hold_seconds: float,
-) -> dict[str, Any]:
-    """Build injector + probe, run the harness once, persist JSON."""
-    payload: dict[str, Any]
-    t0 = time.monotonic()
-    try:
-        injector, probe = factory.build(entry, ctx)
-    except (UnavailableInjectorError, Exception) as exc:  # noqa: BLE001 - reported as JSON
-        payload = {
-            "scenario_id": entry.id,
-            "outcome": "build_error",
-            "error": f"{type(exc).__name__}:{exc}",
-            "elapsed_seconds": round(time.monotonic() - t0, 2),
-            "approval_ref": ctx["approval_ref"],
-        }
-        (out_dir / f"{_slugify(entry.id)}.json").write_text(
-            json.dumps(payload, indent=2, sort_keys=True) + "\n"
-        )
-        print(f"[build_error] {entry.id}: {exc}", flush=True)
-        return payload
-
-    scenario = _to_fault_scenario(entry)
-    approved_targets = [
-        os.environ.get("FDAI_ENFORCE_BACKEND_LABEL", ctx.get("workload_label", "api-backend"))
-    ]
-    harness = FaultInjectionHarness(
-        injectors=[injector],
-        probe=probe,
-        operation_timeout_seconds=180.0,
-        rollback_timeout_seconds=180.0,
-        max_hold_seconds=max_hold_seconds,
-    )
-    try:
-        result = await harness.run(scenario, approved_targets=approved_targets, mode=Mode.ENFORCE)
-        payload = _serialize(result)
-        payload["elapsed_seconds"] = round(time.monotonic() - t0, 2)
-        payload["approval_ref"] = ctx["approval_ref"]
-    except Exception as exc:  # noqa: BLE001 - report driver errors
-        payload = {
-            "scenario_id": entry.id,
-            "outcome": "driver_error",
-            "error": f"{type(exc).__name__}:{exc}",
-            "elapsed_seconds": round(time.monotonic() - t0, 2),
-            "approval_ref": ctx["approval_ref"],
-        }
-    (out_dir / f"{_slugify(entry.id)}.json").write_text(
-        json.dumps(payload, indent=2, sort_keys=True) + "\n"
-    )
-    print(
-        f"[{payload.get('outcome', '?')}] {entry.id} "
-        f"detected={payload.get('detected')} "
-        f"reverted={payload.get('reverted')} "
-        f"elapsed={payload.get('elapsed_seconds')}s",
-        flush=True,
-    )
-    return payload
-
-
 def _slugify(scenario_id: str) -> str:
     return scenario_id.replace(".", "-").replace("/", "-")
-
-
-def _to_fault_scenario(entry: CatalogEntry) -> FaultScenario:
-    """Adapt a CatalogEntry to the harness's FaultScenario dataclass."""
-    return FaultScenario(
-        scenario_id=entry.id,
-        fault_type=str(entry.spec.get("fault_family", "unknown")),
-        description=str(entry.spec.get("description", entry.id)),
-        target_selector=f"catalog:{entry.id}",
-        expected_signal=str(entry.expected_signal),
-        blast_radius_cap=int(entry.spec.get("blast_radius_cap", 1)),
-        duration_seconds=float(entry.spec.get("duration_seconds", 360.0)),
-        params={str(k): str(v) for k, v in (entry.spec.get("params") or {}).items()},
-        rollback_note=str(entry.spec.get("rollback_note", "")),
-    )
 
 
 def _list_command(factory: ScenarioFactory) -> int:
@@ -309,43 +244,254 @@ async def _dry_run(factory: ScenarioFactory, summary_path: Path | None = None) -
     return 1 if fails else 0
 
 
-async def _run_one_by_id(scenario_id: str, factory: ScenarioFactory) -> int:
-    all_entries = load_all()
-    entries = [e for e in load_promoted() if e.id == scenario_id]
-    if not entries:
-        raise SystemExit(f"scenario id {scenario_id!r} not found in the promoted runtime catalog")
-    entry = entries[0]
-    if not factory.is_executable(entry):
-        raise SystemExit(
-            f"{scenario_id!r} is not executable via the default factory "
-            f"(injector={entry.spec['injector']!r}, signal={entry.expected_signal!r})"
+def _governed_bindings() -> GovernedChaosBindings:
+    """Resolve the one installed provider; an unbound checkout refuses enforce."""
+
+    try:
+        bindings = load_governed_chaos_bindings(os.environ)
+    except Exception as exc:  # noqa: BLE001 - a broken provider refuses enforce
+        raise _EnforceRefusalError("governed_execution_invalid", type(exc).__name__) from exc
+    if bindings is None:
+        raise _EnforceRefusalError(
+            "governed_execution_unbound",
+            "install exactly one fdai.governed_chaos entry point named catalog-scenario",
         )
-    ctx = _with_promotion_approval(entry, _substrate_context(), all_entries)
-    out_dir = _report_dir()
-    max_hold = float(os.environ.get("FDAI_MAX_HOLD_SECONDS", "180"))
-    payload = await _run_one(entry, factory, ctx, out_dir, max_hold)
-    (out_dir / "report.json").write_text(json.dumps({"runs": [payload]}, indent=2, sort_keys=True))
-    _write_summary(out_dir, [payload])
-    return 0 if payload.get("outcome") == "validated" else 1
+    return bindings
 
 
-async def _run_all(factory: ScenarioFactory, limit: int | None) -> int:
-    all_entries = load_all()
-    entries = factory.executable_entries(load_promoted())
-    if limit is not None:
+def _approval_claim(variable: str = "FDAI_ENFORCE_APPROVAL_REF") -> str:
+    value = os.environ.get(variable, "").strip()
+    if not value or len(value) > 256 or any(ord(char) < 32 for char in value):
+        raise _EnforceRefusalError(
+            "approval_claim_missing",
+            f"{variable} must name the current approval to verify",
+        )
+    return value
+
+
+def _chaos_action_type() -> OntologyActionType:
+    """Load the validated chaos ActionType for its stop conditions and tier ceilings."""
+
+    try:
+        raw = yaml.safe_load(_CHAOS_ACTION_TYPE_PATH.read_text(encoding="utf-8"))
+        return load_action_type_from_mapping(
+            raw,
+            schema_registry=PackageResourceSchemaRegistry(),
+            origin=_CHAOS_ACTION_TYPE_PATH.name,
+        )
+    except (OSError, TypeError, ValueError, yaml.YAMLError) as exc:
+        raise _EnforceRefusalError("action_type_unavailable", type(exc).__name__) from exc
+
+
+def _select_entries(
+    factory: ScenarioFactory,
+    promoted: list[CatalogEntry],
+    *,
+    scenario_id: str | None,
+    limit: int | None,
+) -> list[CatalogEntry]:
+    entries = factory.executable_entries(promoted)
+    if scenario_id is not None:
+        entries = [entry for entry in entries if entry.id == scenario_id]
+    elif limit is not None:
         entries = entries[:limit]
+    if not entries:
+        raise _EnforceRefusalError(
+            "no_executable_promoted_scenario",
+            f"no executable promoted scenario matches {scenario_id or '--run-all'!r}",
+        )
+    return entries
+
+
+async def _execute_one(
+    adapter: GovernedChaosExecutionAdapter,
+    request: ToolCallRequest,
+    out_dir: Path,
+) -> dict[str, Any]:
+    """Delegate one request to the governed adapter and persist its verdicts.
+
+    Recovery and detection stay separate fields; a run passes only when it
+    recovered and its expected signal was validated.
+    """
+
+    scenario_id = str(request.arguments["scenario_id"])
+    payload: dict[str, Any] = {
+        "scenario_id": scenario_id,
+        "mode": Mode.ENFORCE.value,
+        "idempotency_key": request.idempotency_key,
+        "approval_ref": request.metadata.get("approval_ref"),
+        "recovered": False,
+        "detected": None,
+        "passed": False,
+    }
+    started = time.monotonic()
+    try:
+        outcome = await adapter.run(request)
+    except ToolError as exc:
+        payload.update(outcome=f"refused_{exc.kind}", error=str(exc), rollback_succeeded=None)
+    except Exception as exc:  # noqa: BLE001 - an unknown adapter state halts the sweep
+        payload.update(outcome="adapter_error", error=type(exc).__name__, rollback_succeeded=None)
+    else:
+        receipt = outcome.receipt
+        payload.update(
+            outcome=receipt.outcome.value,
+            run_id=receipt.receipt_ref,
+            detail=receipt.detail,
+            already_existed=receipt.already_existed,
+            rollback_succeeded=receipt.rollback_succeeded,
+            run_state=outcome.run_state,
+            recovered=outcome.recovered,
+            experiment_outcome=outcome.experiment_outcome,
+            detected=outcome.detected,
+            passed=outcome.passed,
+        )
+    payload["elapsed_seconds"] = round(time.monotonic() - started, 2)
+    (out_dir / f"{_slugify(scenario_id)}.json").write_text(
+        json.dumps(payload, indent=2, sort_keys=True) + "\n"
+    )
+    print(
+        f"[{payload['outcome']}] {scenario_id} recovered={payload['recovered']} "
+        f"detected={payload['detected']} passed={payload['passed']} "
+        f"elapsed={payload['elapsed_seconds']}s",
+        flush=True,
+    )
+    return payload
+
+
+def _unsupported_target(entry: CatalogEntry, out_dir: Path) -> dict[str, Any]:
+    payload: dict[str, Any] = {
+        "scenario_id": entry.id,
+        "mode": Mode.ENFORCE.value,
+        "outcome": "refused_target_type",
+        "detail": f"target_type {entry.spec.get('target_type')!r} has no substrate identity",
+        "recovered": False,
+        "detected": None,
+        "passed": False,
+        "rollback_succeeded": None,
+        "elapsed_seconds": 0.0,
+    }
+    (out_dir / f"{_slugify(entry.id)}.json").write_text(
+        json.dumps(payload, indent=2, sort_keys=True) + "\n"
+    )
+    print(f"[refused_target_type] {entry.id}", flush=True)
+    return payload
+
+
+def _refuse(out_dir: Path, refusal: _EnforceRefusalError, *, mode: str = "enforce") -> int:
+    payload = {
+        "mode": mode,
+        "outcome": "refused",
+        "reason": refusal.reason,
+        "detail": refusal.detail,
+        "mutation_attempted": False,
+        "recorded_at": datetime.now(tz=UTC).isoformat(),
+    }
+    (out_dir / "report.json").write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n")
+    print(json.dumps(payload, sort_keys=True), file=sys.stderr, flush=True)
+    return _REFUSED_EXIT
+
+
+async def _run_enforce(
+    factory: ScenarioFactory,
+    *,
+    scenario_id: str | None,
+    limit: int | None,
+) -> int:
+    """Run selected promoted scenarios only through the injected governed adapter."""
+
     out_dir = _report_dir()
-    max_hold = float(os.environ.get("FDAI_MAX_HOLD_SECONDS", "180"))
+    try:
+        bindings = _governed_bindings()
+        approval_ref = _approval_claim()
+        context = _substrate_context()
+        action_type = _chaos_action_type()
+        all_entries = load_all()
+        promoted = load_promoted()
+        entries = _select_entries(factory, promoted, scenario_id=scenario_id, limit=limit)
+    except _EnforceRefusalError as refusal:
+        return _refuse(out_dir, refusal)
+    adapter = GovernedChaosExecutionAdapter(
+        entries=all_entries,
+        promoted_ids=frozenset(entry.id for entry in promoted),
+        factory=factory,
+        context=context,
+        bindings=bindings,
+        action_type=action_type,
+        max_hold_seconds=float(os.environ.get("FDAI_MAX_HOLD_SECONDS", "180")),
+    )
+    fingerprint = catalog_fingerprint(all_entries)
     reports: list[dict[str, Any]] = []
-    for e in entries:
-        ctx = _with_promotion_approval(e, _substrate_context(), all_entries)
-        reports.append(await _run_one(e, factory, ctx, out_dir, max_hold))
-        await asyncio.sleep(10)
+    for index, entry in enumerate(entries):
+        if index:
+            await asyncio.sleep(_SETTLE_SECONDS)
+        targets = approved_catalog_targets(entry, context)
+        if targets is None:
+            reports.append(_unsupported_target(entry, out_dir))
+            continue
+        request = catalog_enforce_request(
+            entry,
+            targets=targets,
+            approval_ref=approval_ref,
+            fingerprint=fingerprint,
+            stop_conditions=tuple(action_type.stop_conditions),
+            tier=Tier.T0,
+        )
+        payload = await _execute_one(adapter, request, out_dir)
+        reports.append(payload)
+        if payload["outcome"] in {"failed", "adapter_error"} or (
+            payload.get("rollback_succeeded") is False
+        ):
+            print("sweep halted: rollback or recovery is not verified", flush=True)
+            break
     (out_dir / "report.json").write_text(json.dumps({"runs": reports}, indent=2, sort_keys=True))
     _write_summary(out_dir, reports)
-    validated = sum(1 for r in reports if r.get("outcome") == "validated")
-    print(f"\nsummary: {validated}/{len(reports)} validated  ->  {out_dir}", flush=True)
-    return 0 if validated == len(reports) else 1
+    passed = sum(1 for report in reports if report.get("passed") is True)
+    print(f"\nsummary: {passed}/{len(entries)} recovered and detected  ->  {out_dir}", flush=True)
+    return 0 if passed == len(entries) else 1
+
+
+async def _close(*, scenario_id: str, reason: str) -> int:
+    """Release a scenario's targets only through an audited, Var-approved closure.
+
+    The closure approval comes from its own variable and is verified as a separate
+    closure decision; the adapter refuses the approval that authorized the run's
+    injection. Closure is addressed by target, so it also releases a run orphaned
+    by a stopped process whose idempotency key can no longer be rebuilt.
+    """
+
+    out_dir = _report_dir()
+    try:
+        bindings = _governed_bindings()
+        approval_ref = _approval_claim("FDAI_CHAOS_CLOSURE_APPROVAL_REF")
+        context = _substrate_context()
+        if not reason.strip() or len(reason) > 512:
+            raise _EnforceRefusalError(
+                "closure_reason_missing",
+                "--closure-reason must state how manual recovery was verified",
+            )
+        entry = next((item for item in load_all() if item.id == scenario_id), None)
+        targets = approved_catalog_targets(entry, context) if entry is not None else None
+        if targets is None:
+            raise _EnforceRefusalError(
+                "closure_target_unknown",
+                f"scenario {scenario_id!r} has no substrate target identity",
+            )
+    except _EnforceRefusalError as refusal:
+        return _refuse(out_dir, refusal, mode="closure")
+    results = await GovernedChaosClosure(bindings=bindings).close_targets(
+        targets=targets,
+        approval_ref=approval_ref,
+        reason=reason.strip(),
+    )
+    payload = {
+        "mode": "closure",
+        "scenario_id": scenario_id,
+        "results": [dataclasses.asdict(item) for item in results],
+    }
+    (out_dir / "report.json").write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n")
+    print(json.dumps(payload, sort_keys=True), flush=True)
+    settled = {"closed", "already_closed", "already_released", "no_claim"}
+    return 0 if all(item.reason in settled for item in results) else 1
 
 
 def _report_dir() -> Path:
@@ -360,13 +506,13 @@ def _write_summary(out_dir: Path, reports: list[dict[str, Any]]) -> None:
         "",
         f"Report root: `{out_dir}`",
         "",
-        "| Scenario | Outcome | Detected | Reverted | Elapsed (s) | Error |",
-        "|----------|---------|----------|----------|-------------|-------|",
+        "| Scenario | Outcome | Recovered | Detected | Passed | Detail | Elapsed (s) | Error |",
+        "|----------|---------|-----------|----------|--------|--------|-------------|-------|",
     ]
     for r in reports:
         lines.append(
-            f"| `{r.get('scenario_id')}` | {r.get('outcome')} | "
-            f"{r.get('detected')} | {r.get('reverted')} | "
+            f"| `{r.get('scenario_id')}` | {r.get('outcome')} | {r.get('recovered')} | "
+            f"{r.get('detected')} | {r.get('passed')} | {r.get('detail') or ''} | "
             f"{r.get('elapsed_seconds')} | {r.get('error') or ''} |"
         )
     (out_dir / "summary.md").write_text("\n".join(lines) + "\n")
@@ -385,11 +531,20 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="Build every executable pair with a synthetic context; no substrate needed.",
     )
-    grp.add_argument("--run", metavar="SCENARIO_ID", help="Enforce one scenario end-to-end.")
+    grp.add_argument(
+        "--run",
+        metavar="SCENARIO_ID",
+        help="Run one promoted scenario through the governed adapter.",
+    )
     grp.add_argument(
         "--run-all",
         action="store_true",
-        help="Enforce every executable scenario end-to-end.",
+        help="Run every executable promoted scenario through the governed adapter.",
+    )
+    grp.add_argument(
+        "--close",
+        metavar="SCENARIO_ID",
+        help="Close the escalated or orphaned run holding this scenario's targets.",
     )
     p.add_argument(
         "--limit",
@@ -399,7 +554,17 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument(
         "--confirm-enforce",
         action="store_true",
-        help="Confirm that the already-approved run may mutate the disposable substrate.",
+        help="Confirm the operator intends a governed run on the disposable substrate.",
+    )
+    p.add_argument(
+        "--confirm-closure",
+        action="store_true",
+        help="Confirm manual recovery was verified and a distinct Var approver approved closure.",
+    )
+    p.add_argument(
+        "--closure-reason",
+        default="",
+        help="How manual recovery was verified; recorded in the audit chain.",
     )
     p.add_argument(
         "--evidence-summary",
@@ -414,14 +579,13 @@ def main(argv: list[str] | None = None) -> int:
         return _list_command(factory)
     if args.dry_run:
         return asyncio.run(_dry_run(factory, args.evidence_summary))
+    if args.close:
+        if not args.confirm_closure:
+            raise SystemExit("--close requires explicit --confirm-closure")
+        return asyncio.run(_close(scenario_id=args.close, reason=args.closure_reason))
     if not args.confirm_enforce:
         raise SystemExit("--run / --run-all requires explicit --confirm-enforce")
-    if args.run:
-        return asyncio.run(_run_one_by_id(args.run, factory))
-    if args.run_all:
-        return asyncio.run(_run_all(factory, args.limit))
-    p.print_help()
-    return 2
+    return asyncio.run(_run_enforce(factory, scenario_id=args.run, limit=args.limit))
 
 
 if __name__ == "__main__":

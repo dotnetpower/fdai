@@ -1,5 +1,5 @@
 const assert = require("node:assert/strict");
-const { readFileSync } = require("node:fs");
+const { existsSync, readFileSync } = require("node:fs");
 const { join } = require("node:path");
 const test = require("node:test");
 
@@ -7,8 +7,8 @@ const uiRoot = join(__dirname, "..");
 const outcome = readFileSync(join(uiRoot, "assets", "teams-slack-outcome-template.html"), "utf8");
 const teams = readFileSync(join(uiRoot, "conversation-teams.html"), "utf8");
 const slack = readFileSync(join(uiRoot, "conversation-slack.html"), "utf8");
-const skype = readFileSync(join(uiRoot, "conversation-skype.html"), "utf8");
-const skypeArchive = readFileSync(join(uiRoot, "providers", "skype-install.html"), "utf8");
+const directLine = readFileSync(join(uiRoot, "conversation-direct-line.html"), "utf8");
+const directLineSetup = readFileSync(join(uiRoot, "providers", "direct-line-setup.html"), "utf8");
 const functionBody = (name, nextName) => outcome.slice(
   outcome.indexOf(`function ${name}(`),
   outcome.indexOf(`function ${nextName}(`),
@@ -16,8 +16,8 @@ const functionBody = (name, nextName) => outcome.slice(
 const teamsIncidentCard = functionBody("teamsIncidentCard", "teamsConversationApp");
 const teamsConversation = functionBody("teamsConversationApp", "slackConversationApp");
 const teamsSurface = `${teamsIncidentCard}\n${teamsConversation}`;
-const slackConversation = functionBody("slackConversationApp", "skypeConversationAppLegacy");
-const skypeConversation = functionBody("skypeConversationApp", "nativeConversationApp");
+const slackConversation = functionBody("slackConversationApp", "directLineChannelApp");
+const directLineChannel = functionBody("directLineChannelApp", "nativeConversationApp");
 const teamsApproval = functionBody("teamsApprovalApp", "slackApprovalApp");
 const slackApproval = functionBody("slackApprovalApp", "teamsCommandApp");
 const teamsCommand = functionBody("teamsCommandApp", "slackCommandApp");
@@ -39,7 +39,7 @@ test("integration hub template exposes the lifecycle", () => {
 
 test("integration hub distinguishes connected providers from configuration prerequisites", () => {
   assert.match(outcome, /Teams operations connection/);
-  ["Microsoft Teams", "Slack", "Skype", "Email", "Generic webhook"]
+  ["Microsoft Teams", "Slack", "Direct Line custom channel", "Email", "Generic webhook"]
     .forEach((provider) => assert.match(outcome, new RegExp(provider)));
   assert.match(outcome, /definition\.connectable && !connections\.some/);
   assert.match(outcome, /data-add="\$\{providerId\}"/);
@@ -49,47 +49,63 @@ test("integration hub distinguishes connected providers from configuration prere
   assert.match(outcome, /connections\.push\(.+capabilities: \{ notifications:.+approvals:.+conversation:/);
 });
 
-test("Skype is archival only and cannot enter the installation lifecycle", () => {
-  assert.match(outcome, /skype: \{ name: "Skype"/);
-  assert.match(outcome, /connectable: false/);
-  assert.match(outcome, /Retired in May 2025 · archival UX reference/);
-  assert.match(lifecycleAddIntegration, /providerId !== "skype"/);
-  assert.match(lifecycleAddIntegration, /conversation-skype\.html/);
-  assert.match(skype, /data-outcome-state="issue-7"/);
-  assert.match(skypeConversation, /Teams Free/);
-  assert.match(skypeConversation, /export/);
-  assert.match(skypeConversation, /skype-titlebar/);
-  assert.match(skypeConversation, /skype-rail/);
-  assert.match(skypeConversation, /skype-composer/);
-  assert.match(skypeConversation, /Former Skype conversation - archived/);
-  assert.match(skypeConversation, /read-only after May 5, 2025/);
-  assert.match(skypeConversation, /new messages, calls, approvals, commands, and connections unavailable/);
-  assert.match(skypeConversation, /no new message, call, approval, command, or connection can be performed/);
-  assert.match(skypeConversation, /disabled aria-label="Video call unavailable"/);
-  assert.match(skypeConversation, /disabled aria-label="Send unavailable"/);
-  assert.match(outcome, /currentState === "issue-7" \? "skype"/);
-  assert.match(outcome, /if \(provider === "skype"\) return skypeConversationApp\(\)/);
-  assert.match(skypeArchive, /Retired on May 5, 2025/);
-  assert.match(skypeArchive, /not available for installation, connection, authorization, or operational use/);
-  assert.doesNotMatch(skypeArchive, /OAuth|token|Install and connect/);
+test("legacy Skype archive surfaces are retired", () => {
+  assert.equal(existsSync(join(uiRoot, "conversation-skype.html")), false);
+  assert.equal(existsSync(join(uiRoot, "providers", "skype-install.html")), false);
+  assert.doesNotMatch(outcome, /skype/i);
 });
 
-test("Skype preserves the shared incident as a non-interactive legacy card", () => {
-  const legacyCard = skype.match(
-    /<section class="evidence-card" data-legacy-skype-card="incident-snapshot"[^>]*>[\s\S]*?<\/section>/,
-  )?.[0];
+test("Direct Line is a notification-only custom channel outside app installation", () => {
+  assert.match(outcome, /directline: \{ name: "Direct Line custom channel", mark: "DL", category: "notification-delivery"/);
+  assert.match(outcome, /directline: \{[^\n]*connectable: false[^\n]*preview: "conversation-direct-line\.html"/);
+  assert.match(outcome, /Protected deployment configuration required · rehearsal first/);
+  assert.match(lifecycleAddIntegration, /definition\.preview/);
+  assert.match(lifecycleAddIntegration, /Preview channel/);
+  assert.match(directLine, /assets\/teams-slack-outcome-page\.js" data-outcome-state="issue-7"/);
+  assert.match(outcome, /currentState === "issue-7" \? "directline"/);
+  assert.match(outcome, /if \(provider === "directline"\) return directLineChannelApp\(\)/);
+  assert.match(outcome, /conversation-direct-line\.html" class="is-active" aria-current="page"/);
+  assert.match(outcome, /providers\/direct-line-setup\.html/);
+  assert.match(directLineChannel, /A2 operational alerts and A4 digests only/);
+  assert.match(directLineChannel, /Approvals \(A1\) and conversations or commands \(A3\) are unavailable here/);
+  assert.match(directLineChannel, /stay in protected deployment configuration and never appear here/);
+  assert.match(directLineChannel, /activated by deployment configuration after a zero-send rehearsal/);
+  assert.match(directLineChannel, /Replies, approvals, and commands are not accepted in this channel/);
+  assert.match(directLineChannel, /aria-describedby="direct-line-composer-note"/);
+  assert.match(directLineChannel, /<input disabled aria-label=/);
+  assert.ok(directLineChannel.includes('<button disabled aria-label="${text(copy("보내기 사용 불가", "Send unavailable"))}"'));
+});
 
-  assert.ok(legacyCard);
-  ["INC-240715-01", "inc-01J2-API-LATENCY", "OPS-1842", "rbk-01J2-773", "aud-01J2-941"]
-    .forEach((id) => assert.match(legacyCard, new RegExp(id)));
-  assert.match(legacyCard, /AUTO · T0 · 1\.00 · VERIFYING/);
-  assert.match(legacyCard, /blast radius · revision 1개/);
-  assert.match(legacyCard, /Huginn[\s\S]+Forseti[\s\S]+Thor[\s\S]+Vidar/);
-  assert.match(legacyCard, /verification:3\/5/);
-  assert.doesNotMatch(legacyCard, /<button/i);
-  assert.doesNotMatch(legacyCard, /<input/i);
-  assert.doesNotMatch(legacyCard, /<a\s/i);
-  assert.doesNotMatch(legacyCard, /onclick=|onchange=|onsubmit=/i);
+test("Direct Line cards carry the shared incident without approval or command controls", () => {
+  ["incident.id", "incident.correlationId", "incident.auditId", "incident.ticketId", "incident.rollbackId"]
+    .forEach((field) => assert.ok(directLineChannel.includes(field), field));
+  assert.match(directLineChannel, /data-direct-line-card="a2-operational-alert"/);
+  assert.match(directLineChannel, /data-direct-line-card="a4-digest"/);
+  assert.match(directLineChannel, /Huginn[\s\S]+Forseti[\s\S]+Thor[\s\S]+Vidar/);
+  ["Rendered and bounded", "Durable intent", "Provider accepted", "Publication pending", "Publication observed"]
+    .forEach((label) => assert.match(directLineChannel, new RegExp(label)));
+  assert.match(directLineChannel, /Only the activity-sha256 digest is recorded/);
+  assert.match(directLineChannel, /Independent publication receipt required/);
+  assert.doesNotMatch(directLineChannel, /<button(?![^>]*\bdisabled\b)/);
+  assert.doesNotMatch(directLineChannel, /<a\s/);
+  assert.doesNotMatch(directLineChannel, /Action\.Submit|onclick=|onsubmit=|data-approve|Reauthenticate/i);
+  assert.doesNotMatch(directLineChannel, /\bapprove\b|\breject\b|Executing agent/i);
+});
+
+test("Direct Line setup boundary names protected references without collecting credentials", () => {
+  assert.match(directLineSetup, /Rehearsal is the default mode/);
+  assert.match(directLineSetup, /zero external sends/);
+  assert.match(directLineSetup, /accepted, never as delivered/);
+  assert.match(directLineSetup, /authenticated publication receipt/);
+  assert.match(directLineSetup, /relay-reflected failure such as HTTP 502 stays ambiguous and is never resent automatically/);
+  assert.match(directLineSetup, /must deduplicate on the activity idempotency key, and the router is the only retry layer/);
+  ["endpoint_env", "conversation_id_env", "secret_env"]
+    .forEach((field) => assert.match(directLineSetup, new RegExp(`<code>${field}</code>`)));
+  assert.match(directLineSetup, /no approvals \(A1\), conversations, or commands \(A3\)/);
+  assert.match(directLineSetup, /does not collect, store, or test any credential/);
+  assert.match(directLineSetup, /href="\.\.\/conversation-direct-line\.html"/);
+  assert.doesNotMatch(directLineSetup, /<input|<form|<button|OAuth|Install and connect/i);
+  assert.doesNotMatch(directLineSetup, /https?:\/\//);
 });
 
 test("integration hub separates connected instances, addable services, and delivery prerequisites", () => {

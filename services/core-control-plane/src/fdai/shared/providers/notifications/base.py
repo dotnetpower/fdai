@@ -46,6 +46,8 @@ class ChannelKind(StrEnum):
     WEBHOOK = "webhook"
     PAGERDUTY = "pagerduty"
     SMS = "sms"
+    DIRECT_LINE = "direct_line"
+    """Customer-agnostic custom channel reached through Bot Framework Direct Line (A2/A4 only)."""
 
 
 class TrustTier(StrEnum):
@@ -190,7 +192,7 @@ class DeliveryReceipt:
 class NotificationChannel(Protocol):
     """Base contract every channel Protocol conforms to.
 
-    Six vendor-specific Protocols
+    Seven vendor-specific Protocols
     (:class:`TeamsChannel`, :class:`SlackChannel`, ...) narrow this one
     so the router can enforce channel-kind ↔ channel-id agreement at
     binding time. Each adapter answers exactly this shape.

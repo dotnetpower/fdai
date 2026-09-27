@@ -98,7 +98,13 @@ class GovernedChaosRunner:
             pre_injection_states.index(state.state) if state.state in pre_injection_states else -1
         )
         for target_state in pre_injection_states[current_index + 1 :]:
-            state = await self._advance(state, target_state)
+            # Only the writer whose compare-and-swap applies INJECTING may run the
+            # harness; a concurrent duplicate raises ChaosRunClaimError instead.
+            state = await self._advance(
+                state,
+                target_state,
+                exclusive=target_state is ChaosRunState.INJECTING,
+            )
 
         experiment: ExperimentResult
         try:
@@ -212,12 +218,15 @@ class GovernedChaosRunner:
         self,
         state: ChaosRunSnapshot,
         target: ChaosRunState,
+        *,
+        exclusive: bool = False,
     ) -> ChaosRunSnapshot:
         return await self._run_store.transition(
             state,
             target=target,
             idempotency_key=f"{state.run_id}:{target.value}",
             at=self._now(),
+            exclusive=exclusive,
         )
 
     def _now(self) -> datetime:

@@ -159,7 +159,9 @@ async def test_injection_failure_aborts_and_rolls_back() -> None:
 
     assert result.outcome is ExperimentOutcome.ABORTED
     assert result.error is not None
-    assert result.injected is False
+    # The raised call may have applied the fault, so it is rolled back.
+    assert result.injected is True
+    assert injector.stopped == ["pod-a"]
 
 
 @pytest.mark.asyncio

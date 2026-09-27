@@ -82,8 +82,8 @@ from fdai.runtime.case_history import (
 from fdai.runtime.configuration import _model_endpoint_resolver
 from fdai.runtime.discovery_activation import DiscoveryActivationRuntime
 from fdai.runtime.forecast_learning import (
-    build_forecast_history_collector,
     build_forecast_learning_runtime,
+    forecast_history_collector_from_environment,
 )
 from fdai.runtime.operational_catalog_review import build_operational_catalog_review_bindings
 from fdai.runtime.post_turn_review import (
@@ -290,9 +290,9 @@ async def initialize_pantheon(
     forecast_context = StateStoreForecastContextProvider(
         config.incident_audit_store,
         admission=config.container.decision_evidence_admission_provider,
-        collector=build_forecast_history_collector(
+        collector=forecast_history_collector_from_environment(
             dsn=state_store_dsn,
-            bindings_json=config.environment.get("FDAI_FORECAST_HISTORY_SOURCES_JSON"),
+            environment=config.environment,
         ),
     )
     forecast_learning_runtime = build_forecast_learning_runtime(

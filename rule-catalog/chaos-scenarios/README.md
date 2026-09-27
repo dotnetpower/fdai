@@ -130,5 +130,16 @@ its replay and evidence checks:
 
 The canonical execution path remains
 [`scripts/catalog/run-catalog-scenario.py`](../../scripts/catalog/run-catalog-scenario.py).
+Its `--run` and `--run-all` modes delegate only through the injected
+`GovernedChaosExecutionAdapter` and refuse with a structured report when no
+deployment provider is installed. The command still calls the adapter directly
+rather than through the Core proposal, risk, Var, and Thor pipeline; see
+[Governed execution path](../../docs/roadmap/decisioning/recovery-and-chaos-enforcement.md#governed-execution-path).
+`--close` releases a target held by an escalated or orphaned run only through a
+separate, audited closure approval (`FDAI_CHAOS_CLOSURE_APPROVAL_REF`) by a
+distinct Var approver; the run's own enforce approval is refused.
+The legacy `scripts/catalog/run-enforce-scenarios.py` and
+`scripts/catalog/measure-detection-latency.py` drivers refuse every live run
+with exit status 3 until they are ported onto the adapter.
 One-off campaign runners under ignored or private paths are investigation
 artifacts, not a second runtime or promotion path.

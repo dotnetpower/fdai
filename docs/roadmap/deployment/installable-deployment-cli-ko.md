@@ -1,7 +1,7 @@
 ---
 title: 설치형 배포 CLI
 translation_of: installable-deployment-cli.md
-translation_source_sha: db0eb4c0b2c180b5863e8f5e9a7719433b6f1db5
+translation_source_sha: 38f8e544da3486d5cdffca0a43757fe7f31ca212
 translation_revised: 2026-09-27
 ---
 
@@ -374,23 +374,20 @@ Console 인증, 정리, 두 번째 계획의 변경 없음이 독립적으로 �
 
 ## 운영자 경험
 
-필수 운영 검증 진입점 두 곳에 정확한 로컬 서명 키트 하나를 사용합니다.
+표준 도구로 서명된 오프라인 Python 패키지를 설치합니다.
 
 ```bash
-az login
-scripts/deployment/azure/fdai-up.sh \
-  --offline-kit /private/fdai-deployment-kit.tar.gz \
-  --region <azure-region>
+cd package
+openssl pkeyutl -verify -pubin \
+  -inkey /private/trusted-package-signer.pub \
+  -rawin -in SHA256SUMS -sigfile SHA256SUMS.sig
+sha256sum -c SHA256SUMS
+python -m pip install --no-index --find-links wheels -r requirements.txt
 ```
 
-래퍼는 잠긴 환경을 만들고 `fdaictl provision azure --offline-kit`을 호출합니다. 같은 검증
-바이트를 배포 어플라이언스에 포함해 별도 증적을 만듭니다.
-
-**설계 수정:** 초기 온라인 및 어플라이언스 근거 규칙은 대상 환경 검증을 외부 release 게시와
-결합했습니다. 로컬 서명, 정확한 파일, 소스, 이미지, SBOM 및 provenance 검사가 이미 압축
-파일을 고정합니다. 따라서 로컬 조정기와 어플라이언스 증적은 로컬에서 빌드한 같은 키트를
-사용하며, 공개 게시와 `--online` Azure 수렴은 선택적인 배포판 근거로 유지합니다. 정확한 계획
-승인, Managed Identity, 검증 전용 복구 및 두 번째 계획의 변경 없음은 계속 필수입니다.
+6.9 MB wheel 모음은 소스 체크아웃이나 네트워크 호출 없이 `fdaictl`을 설치합니다. 런타임 이미지,
+Terraform 입력 및 다른 배포 페이로드는 이후 배포 명령에서 선택하며 Python 패키지 설치 요구
+사항이 아닙니다. 어플라이언스는 선택적 전송 래퍼이며 두 번째 패키지 인증 경로가 아닙니다.
 
 명령은 활성 Azure CLI 사용자에서만 tenant와 subscription을 결정합니다. GitHub 계정, Git
 remote, 저장소 변수, 저장소 비밀, workflow dispatch 또는 등록된 GitHub runner가 필요하지
@@ -475,18 +472,18 @@ Rich를 사용하며, 잠긴 의존성은 기존 오프라인 wheel 모음 내�
 | `fdaictl provision inspect` | 수동 실행 프로필과 로컬 필수 조건 검사 | 아니요 |
 | `fdaictl provision init` | 비공개 수동 실행 프로필 생성 | 아니요 |
 | `fdaictl provision bootstrap-reconcile` | 대상과 Foundation 상태를 만료되는 계획으로 읽기 | 아니요 |
-| `fdaictl provision plan` | 검증된 offline-kit Terraform 루트 계획 | 아니요 |
+| `fdaictl provision plan` | 선택한 Terraform 루트 계획 | 아니요 |
 | `fdaictl provision entra --target-profile <private-json> --control-profile <private-json>` | 프로필에 결속된 테넌트 제어를 점검하거나 기존 그룹 5개에 정확한 앱/역할 바인딩 계획을 적용합니다. 프로세스 전체의 직렬화 경계 하나가 원래 CLI 컨텍스트에서 사람 신원과 `aw-approvers` 멤버십을 수집합니다. 그런 다음 target-profile v2가 비공개 mode-0700 실행기 Azure 컨텍스트를 선택하고, 모든 제어 및 앱/그룹 계획 읽기 전에 현재 활성 테넌트와 구독이 정확히 일치하는지 검증합니다 | `--apply`, `aw-approvers` 사람의 현재 승인, 별도의 정확한 Managed Identity 토큰이 활성 `dev` 대상과 일치하지 않으면 읽기 전용 |
 | `fdaictl provision console-update build` | 보호된 Git 소스에서 소스에 결속된 Console 산출물 하나 빌드 | 아니요 |
 | `fdaictl provision console-update plan` | 기존 개발 환경 대상과 후보 및 롤백 산출물 봉인 | 아니요 |
 | `fdaictl provision console-update apply` | 정확한 Console 계획을 게시하고 원격 콘텐츠와 접속 검증 | 정확한 터미널 승인 후 예 |
-| `fdaictl provision azure --online` | 서명 키트를 획득하고 standalone Azure 배포 실행. 선택적 mode-0600 `--catalog-review-profile`은 durable Pantheon 감사가 있고 활성화, merge, 승격 또는 관리 리소스 권한이 없는 AKS 전용 비공개 GitHub App 초안 checkpoint를 선택 | 정확한 승인 후 예 |
-| `fdaictl provision azure --offline-kit <path>` | 공개 산출물 획득 없이 동일한 배포 실행 | 정확한 승인 후 예 |
+| `fdaictl provision azure --online` | 선택한 연결형 페이로드로 standalone Azure 배포 실행 | 정확한 승인 후 예 |
+| `fdaictl provision azure --offline-kit <path>` | 로컬 배포 페이로드로 동일한 배포 실행 | 정확한 승인 후 예 |
 | `fdaictl onboard guided --simulate` | 유한한 단계 그래프 예행연습 | 아니요 |
 | `fdaictl onboard status` | 로컬 해시 체인 예행연습 저널 읽기 | 아니요 |
-| `fdaictl bundle verify` | 번들 서명, 호환성, 파일, SBOM 및 digest 검증 | 아니요 |
-| `fdaictl offline prepare` | 검증된 비공개 오프라인 스냅샷 생성 | 아니요 |
-| `fdaictl offline install-support` | 서명된 wheel에서만 마이그레이션 지원 설치 | 아니요 |
+| `fdaictl bundle verify` | 선택적 배포 묶음 점검 | 아니요 |
+| `fdaictl offline prepare` | 로컬 배포 페이로드 준비. Python 패키지 설치에는 필요하지 않음 | 아니요 |
+| `fdaictl offline install-support` | 로컬 wheel에서 선택적 마이그레이션 지원 설치 | 아니요 |
 | `fdaictl license inspect` | 네트워크 호출 없이 기능 토큰 검증 | 아니요 |
 
 공개 CLI는 `deploy plan`, `deploy apply` 또는 `deploy status`를 등록하지 않습니다. 이 명령들은
@@ -609,10 +606,10 @@ HTTP 상태, 연결 실패, 로컬 경로 충돌, 권한, 저장 공간 부족�
 
 ## 배포 어플라이언스
 
-폐쇄망 release는 같은 완전한 서명 키트를 사전 빌드한 OCI 배포 어플라이언스에 포함해 게시할 수
-있습니다. 어플라이언스 생성은 업스트림 release 작업이며 테넌트 프로비저닝 명령이 아닙니다.
-테넌트는 출처, SBOM 및 내장 키트 서명을 검증한 digest 고정 어플라이언스만 수락하며, 그렇지 않으면
-키트를 직접 사용합니다. 테넌트 배포는 어플라이언스 이미지를 만들거나 변경하지 않습니다.
+폐쇄망 release는 선택적 OCI 배포 어플라이언스를 게시할 수 있습니다. 어플라이언스 생성은
+업스트림 release 작업이며 Python 패키지 설치 또는 테넌트 프로비저닝 요구 사항이 아닙니다.
+패키지 완료는 어플라이언스, SBOM, 출처 문서 또는 별도 어플라이언스 배포 증적에 의존하지
+않습니다.
 
 이미지 진입점은 대화형 Azure 인증 또는 명시적으로 선택한 사용자 할당 Managed Identity를
 사용합니다. 공개 산출물 대체 경로를 차단하고
@@ -620,8 +617,8 @@ HTTP 상태, 연결 실패, 로컬 경로 충돌, 권한, 저장 공간 부족�
 `FDAI_DEPLOYMENT_APPLIANCE_KIT`은 다른 비공개 일반 아카이브를 선택할 수 있고,
 `FDAI_DEPLOYMENT_APPLIANCE_WORK_DIR`은 다른 절대 private 작업 디렉터리를 선택할 수 있습니다.
 Managed Identity 모드에는 `FDAI_DEPLOYMENT_APPLIANCE_USE_MANAGED_IDENTITY=1`과 정확한
-`FDAI_DEPLOYMENT_APPLIANCE_MI_CLIENT_ID`가 모두 필요합니다. 포함된 키트는 Terraform, OPA,
-provider 미러, 런타임 이미지, Console, 마이그레이션 지원, 서명 및 SBOM을 포함합니다.
+`FDAI_DEPLOYMENT_APPLIANCE_MI_CLIENT_ID`가 모두 필요합니다. 포함된 런타임 또는 인프라
+페이로드는 배포 소유자가 관리하며 패키지 보증 요구 사항을 추가하지 않습니다.
 
 ## 결과 계약
 
