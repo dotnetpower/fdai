@@ -1,7 +1,7 @@
 ---
 title: 계층형 대화 계획
 translation_of: hierarchical-conversation-planning.md
-translation_source_sha: 44198630f870ebae8725e6cb15e369ca91cf062b
+translation_source_sha: 2ee8bcc9158ac9e1cb77bfa17dabd368f661f6e6
 translation_revised: 2026-09-27
 ---
 
@@ -165,8 +165,7 @@ Operator의 초기 레이블은 모든 턴에 조사 계획이 필요하다고 �
 
 | 영역 | 상태 | 근거 | 참고 |
 |------|------|------|------|
-| 스키마 범위 사전 라우팅 | implemented | `conversation-preflight-schema-scope.v2.yaml`, 활성 사전 판정 프로필 v5, `test_composer.py`, 집중 계약 및 운영 연결 검사 | 제한된 실제 T1 비교에서 기준선 5건 중 3건, 수정본 6건 모두가 올바르게 분류됐으며 일반 개념 대조 질문도 포함했습니다. 로컬 증적 기록 오류로 유실된 기준선 1회는 재시도하지 않고 제외했습니다. 버전 2는 현재 Resource의 하위 유형, 범주, 제품 약어 목록도 `resource_collection` 조회로 유지합니다. 라우팅 근거이며 전체 조회 인증은 아닙니다. |
-| Resource 하위 유형 컬렉션 라우팅 | validated | [`semantic_catalog_value_mentions.py`](../../../services/core-control-plane/src/fdai/core/conversation/semantic_catalog_value_mentions.py), [`semantic_manifest_planning.py`](../../../services/core-control-plane/src/fdai/core/conversation/semantic_manifest_planning.py), [`semantic_target_candidate_planning.py`](../../../services/core-control-plane/src/fdai/core/conversation/semantic_target_candidate_planning.py), [`semantic_ontology_answers.py`](../../../services/core-control-plane/src/fdai_core_service/semantic_ontology_answers.py), `semantic-resource-collection.v1.yaml`, `semantic-ontology-manifest-list.v2.yaml`, 활성 판단 프로필 v5, 집중 계획·판단·처리기·프롬프트·로그 수집 검사 | 발화에 나온 카탈로그 `Resource.type` 구간은 후보 `stated_values`로 판단에 전달됩니다. 이 구간을 설명하지 못하는 대상 없는 스키마 제안은 타입이 지정된 주제 명확화를 반환합니다. 명시 필터 컴파일러는 보조 의도, 발화에 나온 상태 또는 이름 조각을 누락하게 되는 맥락 목록을 거부하며, 매니페스트 목록은 읽을 수 있는 선언 이름을 표시하거나 안전하게 실패합니다. 배포 하나에 고정한 제한된 실제 T1 근거는 라우팅 근거이며 전체 조회 인증은 아닙니다. 스택을 재시작한 뒤 인증된 로컬 Browser Entra 턴에서 수정된 Console 답변을 확인했습니다. |
+| 스키마 범위 사전 라우팅 및 Resource 하위 유형 라우팅 | validated | `conversation-preflight-schema-scope.v2.yaml`, 활성 사전 판정 및 판단 프로필 v5, [`semantic_catalog_value_mentions.py`](../../../services/core-control-plane/src/fdai/core/conversation/semantic_catalog_value_mentions.py), [`semantic_manifest_planning.py`](../../../services/core-control-plane/src/fdai/core/conversation/semantic_manifest_planning.py), [`semantic_target_candidate_planning.py`](../../../services/core-control-plane/src/fdai/core/conversation/semantic_target_candidate_planning.py), [`semantic_ontology_answers.py`](../../../services/core-control-plane/src/fdai_core_service/semantic_ontology_answers.py), 집중 계약·계획·처리기·프롬프트·로그 수집·운영 연결 검사 | 제한된 실제 T1 비교는 기준선 5건 중 3건, 수정본 6건 모두를 올바르게 분류했습니다. 버전 2는 현재 Resource 하위 유형, 범주 및 제품 약어 목록을 `resource_collection` 조회로 유지합니다. 발화의 카탈로그 `Resource.type` 구간은 후보 근거로 전달되며, 설명되지 않은 대상 없는 스키마 제안은 명확화를 반환합니다. 맥락 목록은 보조 의도, 상태 또는 이름 조각을 누락할 수 없고 매니페스트 목록은 읽을 수 있는 이름을 표시하거나 안전하게 실패합니다. 재시작 후 인증된 로컬 Browser Entra 턴에서 수정된 Console 답변을 확인했지만 모든 조회 형태를 인증하지는 않습니다. |
 | 적응형 설명과 검증된 예시 | implemented | `adaptive-plan.v4.yaml`, `adaptive-answer.v2.yaml`, `adaptive-review.v2.yaml`, 집중 프롬프트 및 런타임 검사, 인증된 Browser Entra 비교 턴 | 일반 지식과 운영이 섞인 목표, 고정 역할 프롬프트, 만료되는 담당 관계 증명, 독립 검토, 제한된 보강 및 재실행 후 표현을 연결했습니다. 순수 일반 지식은 이러한 다단계 작업을 우회합니다. |
 | One-shot 일반 지식 | validated | `conversation-preflight.v6.yaml`, [`conversation_preflight.py`](../../../services/core-control-plane/src/fdai/core/conversation/conversation_preflight.py), [`semantic_runtime.py`](../../../services/core-control-plane/src/fdai/core/conversation/semantic_runtime.py), 집중 검사, 10개 관점의 독립 검토, 인증된 한국어 Browser Entra 턴 | 신뢰도가 높고 현재 입력 및 프로필에 결합된 preflight 호출 한 번이 분류와 범위가 제한된 답변 작성을 함께 수행합니다. 준비 완료 후 UI 변형 질문은 각각 3.321초, 4.210초, 4.319초, 4.691초에 완료됐고 `narrator-gpt-5-4-mini`를 한 번씩만 호출했습니다. 계획, Adaptive 답변, 검토, 보강, 검증, T2, 온톨로지 또는 프로바이더 읽기는 수행하지 않았으며 권한 없는 제한 품질을 표시했습니다. |
 | Compact conversation preflight 및 social narrator | implemented | `conversation-preflight.v9.yaml`, `conversation-social-narrator.v1.yaml`, act별 enforce pack, [`conversation_preflight.py`](../../../services/core-control-plane/src/fdai/core/conversation/conversation_preflight.py), [`semantic_judgment.py`](../../../services/core-control-plane/src/fdai/delivery/azure/llm/semantic_judgment.py), 프롬프트 계약 검사 및 인증된 영어/한국어 비교 턴 | Temperature 0인 분류기가 첫 번째 턴에도 실행되며 매니페스트 로드 전에 인사, 자기소개, 명시적 감사, 작별, 일반 지식, 일반 동의, 운영, 혼합, 운영 맥락 및 사회적 연속성 턴을 분리합니다. 맥락과 독립적인 일반 지식은 one-shot 답변 경로를 선택하고 현재 환경 질문은 검증된 경로나 Adaptive 근거 경로를 유지합니다. 대상이 없는 구독 신원, Service Health, 최근 Resource 상태 변경 조회와 명시적인 Resource 상태 포함 또는 제외 필터를 포함한 검토된 운영 형식은 출처가 결속된 후보 의미 판단 필드도 제공할 수 있습니다. 타입이 지정된 출력 필드를 catalog Resource 타입 후보에서 제외한 뒤 누락된 단일 하위 타입을 복구합니다. 검증된 Resource 상태 행은 관측 인벤토리의 클라우드 공급자 중립 `resource_group` 및 `region` 필드를 전달합니다. 값이 없으면 추론하지 않고 `null`로 유지하며 답변에는 `unavailable`로 표시합니다. 현재 상태 컬렉션이 상태 변경 이력도 요구하면 타입이 지정된 요구사항을 보존하고 검증된 join 기능이 제공될 때까지 provider I/O 전에 중단합니다. |
@@ -260,15 +259,10 @@ Operator의 초기 레이블은 모든 턴에 조사 계획이 필요하다고 �
 ### 남은 작업
 
 - [ ] 스키마 범위 묶음을 반영한 뒤 EN/KO 객체 유형 조회가 `object`만 선택하고 완전한 근거와 실행 권한 없음을 갖는 재시작 후 증적을 보존합니다.
-- [ ] 하위 유형 목록에서 `실행 중인` 같은 한국어 현재 상태 표현을 T1 판단이 유지하도록 합니다. 현재의 안전한 보류 대신 `query.resource_state_inventory`를 유지하는 제한된 실제 EN/KO 상태 목록 대조 결과로 확인합니다.
-- [ ] 선언 개수와 선언 상세 질문을 각각 개수와 상세 형태로 라우팅합니다. ObjectType 개수와 ObjectType 하나의 속성 같은 실제 대조 질문으로 확인하며, 이전과 현재 판단 프로필 모두 이 질문에 실패합니다.
-- [x] v5 프로필을 반영한 뒤 한국어와 영어 AKS 목록 질문이 실행 권한 없이 `kubernetes-cluster` Resource를 나열하는 인증된 재시작 후 Console 증적을 보존했습니다. 2026-09-27 validated 이력 행을 참고하세요.
-- [x] 적응형 대화 비평에서 Low를 초과하는 미해결 문제가 없도록 했습니다. 집중 구현 검사와
-  격리된 브라우저 근거는 현재 변경의 이력에 기록했습니다.
-- [ ] 읽을 수 있는 모든 ontology declaration과 runtime availability state에 대해 release에서
-    파생한 descriptor generation 및 독립적으로 검증된 atomic activation을 완성합니다.
-- [ ] 남은 temporal, metric-series, evidence-join, causal, relationship-side 및 provider-backed
-    read capability를 secured query gateway를 통해 연결합니다.
+- [ ] 한국어 `실행 중인` 표현을 T1 하위 유형 목록 판단에 보존하고 선언 개수·상세 질문을 올바르게 라우팅합니다. 제한된 실제 EN/KO 상태 목록, ObjectType 개수 및 ObjectType 속성 대조 질문으로 확인합니다.
+- [x] 적응형 대화 비평에서 Low를 초과하는 미해결 문제가 없도록 했습니다. 집중 구현 검사와 격리된 브라우저 근거는 현재 변경의 이력에 기록했습니다.
+- [ ] 읽을 수 있는 모든 ontology declaration과 runtime availability state에 대해 release에서 파생한 descriptor generation 및 독립적으로 검증된 atomic activation을 완성합니다.
+- [ ] 남은 temporal, metric-series, evidence-join, causal, relationship-side 및 provider-backed read capability를 secured query gateway를 통해 연결합니다.
 - [ ] Attachment ingestion 및 custody 경로가 범위가 제한된 immutable reference를 만든 뒤에만
     인증된 image와 document evidence를 semantic planning으로 전달합니다.
 - [ ] 고정된 bilingual question universe의 runtime epistemic receipt를 만들고 structural coverage
