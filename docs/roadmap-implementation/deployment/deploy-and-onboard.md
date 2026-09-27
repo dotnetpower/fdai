@@ -48,6 +48,7 @@ and resumable work while the roadmap owner remains focused on normative design.
 ### Implementation history
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-27 | implemented | Declared the exact PostgreSQL extension allowlist required by the existing Core migrations and bounded recovery to that single configuration address. | `current change`; Terraform and plan-gate tests. | Apply the extension-only plan and rerun migration. |
 | 2026-09-27 | implemented | Escaped URL-encoded percent signs only at the Alembic ConfigParser boundary so generated PostgreSQL credentials retain their exact decoded value. | `current change`; focused source and ConfigParser round-trip regressions. | Publish the exact image and rerun only the failed migration Job. |
 | 2026-09-27 | in-progress | The first migration Job failed before database access because ConfigParser interpreted a URL-encoded password percent sign as interpolation. The certification Job did not start. | Exact Job execution and sanitized traceback. | Merge the parser-boundary fix and run a new migration execution against the unchanged sandbox. |
 | 2026-09-27 | implemented | Aligned the isolated certification Terraform declaration with authoritative Azure normalization while preserving the no-repeat apply boundary. | `current change`; provider/policy drift readback and focused Terraform gates. | Produce a zero-change recovery plan before any campaign Job starts. |

@@ -221,6 +221,12 @@ resource "azurerm_postgresql_flexible_server_configuration" "tls_floor" {
   value     = "TLSv1.2"
 }
 
+resource "azurerm_postgresql_flexible_server_configuration" "extensions" {
+  name      = "azure.extensions"
+  server_id = azurerm_postgresql_flexible_server.certification.id
+  value     = "VECTOR,PG_TRGM"
+}
+
 # Blob diagnostics are emitted by the dedicated setting below; Trivy does not
 # correlate that child resource. Platform-managed keys plus infrastructure
 # encryption protect this short-lived, content-free receipt without a second
@@ -430,6 +436,7 @@ resource "azurerm_container_app_job" "migrate" {
   depends_on = [
     azurerm_postgresql_flexible_server_database.certification,
     azurerm_postgresql_flexible_server_configuration.connection_throttle,
+    azurerm_postgresql_flexible_server_configuration.extensions,
     azurerm_postgresql_flexible_server_configuration.log_checkpoints,
     azurerm_postgresql_flexible_server_configuration.log_connections,
     azurerm_postgresql_flexible_server_configuration.tls_floor,

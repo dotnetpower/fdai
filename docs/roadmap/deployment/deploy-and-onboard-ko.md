@@ -1,7 +1,7 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: 11b5335f6eadc098ffb040473fa4fa975c08ad5f
+translation_source_sha: 18740b813cc22d6491d0037b794dc5d2d5e9ec30
 translation_revised: 2026-09-27
 ---
 # 배포와 온보딩(Deploy and Onboard)
@@ -580,12 +580,12 @@ Identity로 게시할 수 없다면 승인된 push 전송 계층이 준비될 �
 읽기 담당을 사용합니다. 적응형 인벤토리 Job은 각 조정기 실행 전에 검증된 정책을 읽고 런타임 호출,
 Resource Health, Static Web App 및 Kubernetes 보강을 하나의 공유 순차 지원 경계에서 구성한 뒤
 지연된 조정을 진행합니다. 모듈 분리는 서비스, 신원 또는 상태 작성자를 추가하지 않습니다.
-제한된 네트워크 인벤토리 인증은 기존 개발 애플리케이션 리소스 그룹 안에서 정확한 생성 및
-정리 계획이 있는 작업 전용 리소스 집합을 사용하며 그룹 자체를 변경하거나 삭제하지 않습니다.
+제한된 네트워크 인벤토리 인증은 기존 개발 애플리케이션 리소스 그룹 안에서 정확한 생성 및 정리 계획이 있는 작업 전용 리소스 집합을 사용하며 그룹 자체를 변경하거나 삭제하지 않습니다.
 비공개 Container Apps, PostgreSQL, DNS 및 Blob 경로는 선택한 환경과 피어링하거나 이를
 변경하지 않습니다. 비공개 Blob I/O는 hostname 검증을 유지하면서 엔드포인트 주소를 고정하고,
-migration은 URL로 인코딩된 자격 증명을 안전하게 보존합니다. 서로 다른 캠페인 신원과 검증기
-신원은 권한을 부여하지 않는 정제된 증적만 보존합니다.
+migration은 URL로 인코딩된 자격 증명을 안전하게 보존하고 격리된 서버는 정확한
+`VECTOR,PG_TRGM` 확장 허용 목록을 선언합니다. 서로 다른 캠페인 신원과 검증기 신원은 권한을
+부여하지 않는 정제된 증적만 보존합니다.
 
 ## 프로비저닝 후 검증
 
