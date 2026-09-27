@@ -27,6 +27,7 @@ from fdai_deployment_cli.profile import write_profile
 from fdai_deployment_cli.runtime_stage import stage_runtime_release
 
 COMMIT = "a" * 40
+CLI_VERSION = "0.1.1"
 SERVICES = (
     "core-control-plane",
     "operator-service",
@@ -83,11 +84,11 @@ def _sign_kit(kit: Path, key: Ed25519PrivateKey) -> None:
     (kit / sbom).write_bytes(_sbom(kit, paths))
     manifest = build_offline_kit_manifest(
         kit,
-        kit_version="0.1.0",
-        cli_version="0.1.0",
-        bundle_version="0.1.0",
+        kit_version=CLI_VERSION,
+        cli_version=CLI_VERSION,
+        bundle_version=CLI_VERSION,
         platform_tag="linux-x86_64",
-        python_wheel="python/fdai_deployment_cli-0.1.0-py3-none-any.whl",
+        python_wheel=f"python/fdai_deployment_cli-{CLI_VERSION}-py3-none-any.whl",
         deployment_bundle="deployment/bundle.tar.gz",
         terraform_binary="terraform/terraform",
         provider_mirror_prefix="terraform/providers",
@@ -110,9 +111,9 @@ def release(tmp_path: Path) -> tuple[Path, Ed25519PrivateKey, bytes]:
     (bundle / "sbom.cdx.json").write_bytes(_sbom(bundle, ["infra/main.tf"]))
     manifest = {
         "schema_version": "fdai.deployment.bundle.v1",
-        "bundle_version": "0.1.0",
+        "bundle_version": CLI_VERSION,
         "release_channel": "development",
-        "min_cli_version": "0.1.0",
+        "min_cli_version": CLI_VERSION,
         "max_cli_version": None,
         "sbom_path": "sbom.cdx.json",
         "files": {
@@ -126,9 +127,9 @@ def release(tmp_path: Path) -> tuple[Path, Ed25519PrivateKey, bytes]:
     kit = tmp_path / "kit"
     (kit / "deployment").mkdir(parents=True)
     with tarfile.open(kit / "deployment/bundle.tar.gz", "w:gz") as archive:
-        archive.add(bundle, arcname="fdai-deployment-bundle-0.1.0")
+        archive.add(bundle, arcname=f"fdai-deployment-bundle-{CLI_VERSION}")
     for name in (
-        "python/fdai_deployment_cli-0.1.0-py3-none-any.whl",
+        f"python/fdai_deployment_cli-{CLI_VERSION}-py3-none-any.whl",
         "terraform/terraform",
         "terraform/providers/example.zip",
         "bin/opa",
@@ -195,7 +196,7 @@ def _prepare(
         source_commit=source_commit,
         release_root_pem=public,
         bundle_public_key_pem=public,
-        cli_version="0.1.0",
+        cli_version=CLI_VERSION,
         platform_tag="linux-x86_64",
     )
 
@@ -220,6 +221,32 @@ def test_standalone_offline_kit_uses_package_roots_and_complete_runtime(
     assert verified.source_commit == COMMIT
     assert verified.runtime.schema_version == "fdai.runtime-release.v2"
     assert verified.bundle_manifest_digest
+    assert deployment_kit.deployment_release_channel() == "development"
+
+
+def test_standalone_rejects_bundle_outside_package_release_channel(
+    tmp_path: Path,
+    release: tuple[Path, Ed25519PrivateKey, bytes],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    kit, _key, public = release
+    verify_bundle = deployment_kit.verify_bundle
+
+    def production_channel(*args: object, **kwargs: object):
+        return replace(verify_bundle(*args, **kwargs), release_channel="production")
+
+    monkeypatch.setattr(deployment_kit, "deployment_release_root_pem", lambda: public)
+    monkeypatch.setattr(deployment_kit, "deployment_bundle_root_pem", lambda: public)
+    monkeypatch.setattr(deployment_kit, "verify_bundle", production_channel)
+    work = tmp_path / "standalone"
+    work.mkdir(mode=0o700)
+
+    with pytest.raises(ValueError, match="release channel is not trusted"):
+        deployment_kit.acquire_deployment_kit(
+            work_dir=work,
+            online=False,
+            offline_kit=kit,
+        )
 
 
 def test_standalone_transport_archive_rechecks_signed_files(

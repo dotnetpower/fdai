@@ -1,6 +1,6 @@
 [project]
 name = "fdai-deployment-cli"
-version = "0.1.0"
+version = "0.1.1"
 description = "Installable FDAI deployment and subscription genesis CLI"
 readme = "README.md"
 requires-python = ">=3.12"

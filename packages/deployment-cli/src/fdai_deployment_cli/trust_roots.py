@@ -9,6 +9,7 @@ from cryptography.hazmat.primitives.serialization import load_pem_public_key
 
 _TRUST_PACKAGE = "fdai_deployment_cli"
 _TRUST_DIRECTORY = "trust"
+_DEPLOYMENT_RELEASE_CHANNEL = "development"
 
 
 def deployment_release_root_pem() -> bytes:
@@ -21,6 +22,12 @@ def deployment_bundle_root_pem() -> bytes:
     """Return the public key that verifies the deployment bundle inside a kit."""
 
     return _read("deployment-bundle-root.pub")
+
+
+def deployment_release_channel() -> str:
+    """Return the only release channel trusted by this package version."""
+
+    return _DEPLOYMENT_RELEASE_CHANNEL
 
 
 def license_public_key_pem() -> bytes:

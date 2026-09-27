@@ -2,8 +2,8 @@
 title: Offline release trust ceremony
 summary: Root private key를 CI 또는 operator에게 노출하지 않고 FDAI public offline-kit trust root를 만들고 rotation합니다.
 translation_of: offline-trust-ceremony.md
-translation_source_sha: e1de8711594ee123e5b366a3e5cb35e35b8b3f00
-translation_revised: 2026-08-11
+translation_source_sha: 0ca5f2de9f85f07a014dc92d50832c672ec16682
+translation_revised: 2026-09-27
 ---
 
 # Offline release trust 의식
@@ -15,6 +15,10 @@ Disconnected FDAI release의 첫 공개 trust 루트를 만들거나 기존 루�
 > **현재 상태:** 운영 루트는 아직 packaged되지 않았습니다. 의식과 클라이언트 통합이
 > 완료되기 전까지 `fdaictl provision inspect`는 offline 키트를 `candidate` 또는 `fail`로 올바르게
 > 보고하며 파일 존재만으로 `verified`를 반환하지 않습니다.
+>
+> Deployment CLI `0.1.1`은 로컬 비운영 수렴을 위해 별도의 전용 개발 산출물 키 하나를
+> 고정합니다. 이 단일 키 프로필은 `release_channel=development`만 허용하고 프레임워크
+> 무결성 및 라이선스 키와 분리되며, 운영 루트 근거가 아닙니다.
 
 ## 역할과 선행 조건
 

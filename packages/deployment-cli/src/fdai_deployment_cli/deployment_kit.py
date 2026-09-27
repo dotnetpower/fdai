@@ -48,6 +48,7 @@ from fdai_deployment_cli.runtime_release import RuntimeRelease, load_runtime_rel
 from fdai_deployment_cli.runtime_release import validate_runtime_images
 from fdai_deployment_cli.trust_roots import (
     deployment_bundle_root_pem,
+    deployment_release_channel,
     deployment_release_root_pem,
 )
 
@@ -219,6 +220,8 @@ def _acquire_deployment_kit(
         public_key_pem=deployment_bundle_root_pem(),
         cli_version=__version__,
     )
+    if bundle.release_channel != deployment_release_channel():
+        raise ValueError("deployment bundle release channel is not trusted by this package")
     if (
         bundle.bundle_version != verification.bundle_version
         or runtime.deployment_bundle_sha256 != files[verification.deployment_bundle]
