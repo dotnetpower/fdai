@@ -326,12 +326,18 @@ controlled evidence exists.
   `sha256:7c2c5f31de2bc23c98dcccdfe5e411b7c030b54e7c72a63a0678c4abb93a4a0a`.
   Each case needs reviewed wording, a semantic contract, a reachable runtime binding, an
   authoritative evidence source, contract validation, and a question-level presentation oracle.
-- [ ] Add reviewed presentation oracles to all 400 question-bank cases, including expected
-  renderer-neutral block or explicit text fallback, visualization kind, exact-value fallback,
-  evidence references, units, truncation behavior, accessibility fallback, and required viewports.
-- [ ] Run the same exact-source 400-case cohort through baseline and challenger models, score all
-  93 CQAS metrics with independent reviewer families, and retain zero hard-zero or worst-slice
-  regressions before model promotion.
+- [ ] [#513](https://github.com/dotnetpower/fdai/issues/513): Add reviewed semantic expectations and presentation oracles, or an explicit
+  typed exclusion, to all 400 question-bank cases, including expected renderer-neutral block or
+  explicit text fallback, visualization kind, exact-value fallback, evidence references, units,
+  truncation behavior, accessibility fallback, and required viewports. Freeze and independently
+  review them before any model comparison.
+- [ ] [#513](https://github.com/dotnetpower/fdai/issues/513): Run the same exact-source 400-case cohort through the pinned baseline answer model
+  and a different-family challenger with the same ontology release, principal manifest, evidence
+  snapshot, prompt catalog, locale, runtime policy, and viewport. Score all 93 CQAS metrics with a
+  third reviewer family distinct from both answer models, require every metric to meet its
+  promotion target in every required topic, locale, evidence posture, action posture, and
+  presentation viewport, and retain zero hard-zero or worst-slice regressions plus the promotion
+  decision before model promotion.
 - [ ] Add reviewed semantic expectations or an explicit source-owned crosswalk for all 47 Pantheon
   question domains, then score every required locale and safety slice without converting missing
   support into passing accuracy.
