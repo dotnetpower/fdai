@@ -10,18 +10,20 @@ from dataclasses import replace
 from pathlib import Path
 
 import pytest
-from fdai_deployment_cli import deployment_kit
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from test_oci_archive import make_archive
 
-from fdai_deployment_cli import offline_prepare, runtime_stage
+from fdai_deployment_cli import deployment_kit, offline_prepare, runtime_stage
 from fdai_deployment_cli.cli import main
 from fdai_deployment_cli.contracts import ProvisionProfile, canonical_bytes
 from fdai_deployment_cli.offline_kit import (
     MANIFEST_NAME,
+    ROOT_MANIFEST_NAME,
+    ROOT_SIGNATURE_NAME,
     SIGNATURE_NAME,
     build_offline_kit_manifest,
+    build_root_manifest,
 )
 from fdai_deployment_cli.profile import write_profile
 from fdai_deployment_cli.runtime_stage import stage_runtime_release
@@ -79,6 +81,7 @@ def _sign_kit(kit: Path, key: Ed25519PrivateKey) -> None:
         for path in kit.rglob("*")
         if path.is_file()
         and path.relative_to(kit).as_posix() not in {sbom, MANIFEST_NAME, SIGNATURE_NAME}
+        and path.relative_to(kit).as_posix() not in {ROOT_MANIFEST_NAME, ROOT_SIGNATURE_NAME}
     ]
     (kit / sbom).parent.mkdir(exist_ok=True)
     (kit / sbom).write_bytes(_sbom(kit, paths))
@@ -94,9 +97,16 @@ def _sign_kit(kit: Path, key: Ed25519PrivateKey) -> None:
         provider_mirror_prefix="terraform/providers",
         opa_binary="bin/opa",
         sbom_path=sbom,
+        deployment_root_required=True,
     )
     (kit / MANIFEST_NAME).write_bytes(manifest)
     (kit / SIGNATURE_NAME).write_bytes(key.sign(manifest))
+    root = build_root_manifest(
+        kit_manifest_digest=hashlib.sha256(manifest).hexdigest(),
+        profiles=["offline"],
+    )
+    (kit / ROOT_MANIFEST_NAME).write_bytes(root)
+    (kit / ROOT_SIGNATURE_NAME).write_bytes(key.sign(root))
 
 
 @pytest.fixture
@@ -272,6 +282,18 @@ def test_standalone_transport_archive_rechecks_signed_files(
     assert stat.S_IMODE(archive.stat().st_mode) == 0o600
     with tarfile.open(archive, "r:gz") as payload:
         assert "kit/offline-kit.json" in payload.getnames()
+        assert "kit/offline-kit.json.sig" in payload.getnames()
+        assert "kit/deployment-root.json" in payload.getnames()
+        assert "kit/deployment-root.json.sig" in payload.getnames()
+
+    roundtrip = tmp_path / "transport-roundtrip"
+    roundtrip.mkdir(mode=0o700)
+    reverified = deployment_kit.acquire_deployment_kit(
+        work_dir=roundtrip,
+        online=False,
+        offline_kit=archive,
+    )
+    assert reverified.source_commit == COMMIT
 
     changed = replace(
         verified,
@@ -279,6 +301,12 @@ def test_standalone_transport_archive_rechecks_signed_files(
     )
     with pytest.raises(ValueError, match="transport archive is invalid"):
         deployment_kit.archive_verified_kit(changed, archive)
+
+    (verified.root / ROOT_MANIFEST_NAME).unlink()
+    incomplete_archive = tmp_path / "incomplete-transport.tar.gz"
+    with pytest.raises(ValueError, match="kit metadata is unavailable"):
+        deployment_kit.archive_verified_kit(verified, incomplete_archive)
+    assert not incomplete_archive.exists()
 
 
 def test_online_kit_rejects_unapproved_release_host(tmp_path: Path) -> None:
@@ -355,7 +383,12 @@ def test_preparation_snapshots_complete_release_without_execution(
     assert stat.S_IMODE(prepared.stat().st_mode) == 0o700
     kit = release[0]
     for path in kit.rglob("*"):
-        if path.is_file() and path.name not in {MANIFEST_NAME, SIGNATURE_NAME}:
+        if path.is_file() and path.name not in {
+            MANIFEST_NAME,
+            ROOT_MANIFEST_NAME,
+            ROOT_SIGNATURE_NAME,
+            SIGNATURE_NAME,
+        }:
             assert (
                 prepared / "artifacts" / path.relative_to(kit)
             ).read_bytes() == path.read_bytes()
