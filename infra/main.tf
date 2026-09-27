@@ -871,18 +871,21 @@ resource "azurerm_role_assignment" "inventory_reader" {
   scope                = "/subscriptions/${data.azurerm_client_config.current.subscription_id}"
   role_definition_name = "Reader"
   principal_id         = module.inventory_identity.principal_id
+  principal_type       = "ServicePrincipal"
 }
 
 resource "azurerm_role_assignment" "inventory_monitoring_reader" {
   scope                = "/subscriptions/${data.azurerm_client_config.current.subscription_id}"
   role_definition_name = "Monitoring Reader"
   principal_id         = module.inventory_identity.principal_id
+  principal_type       = "ServicePrincipal"
 }
 
 resource "azurerm_role_assignment" "rca_monitoring_reader" {
   scope                = "/subscriptions/${data.azurerm_client_config.current.subscription_id}"
   role_definition_name = "Monitoring Reader"
   principal_id         = module.rca_reader_identity.principal_id
+  principal_type       = "ServicePrincipal"
 }
 
 resource "azurerm_role_assignment" "inventory_log_analytics_reader" {
@@ -895,6 +898,7 @@ resource "azurerm_role_assignment" "inventory_cost_reader" {
   scope                = "/subscriptions/${data.azurerm_client_config.current.subscription_id}"
   role_definition_name = "Cost Management Reader"
   principal_id         = module.inventory_identity.principal_id
+  principal_type       = "ServicePrincipal"
 }
 
 resource "azurerm_role_assignment" "inventory_acr_pull" {

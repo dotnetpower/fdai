@@ -5,6 +5,7 @@ from pathlib import Path
 
 _ROOT = Path(__file__).resolve().parents[3]
 _MAIN = (_ROOT / "infra" / "bootstrap" / "main.tf").read_text(encoding="utf-8")
+_APPLICATION_MAIN = (_ROOT / "infra" / "main.tf").read_text(encoding="utf-8")
 _OUTPUTS = (_ROOT / "infra" / "bootstrap" / "outputs.tf").read_text(encoding="utf-8")
 _VARIABLES = (_ROOT / "infra" / "bootstrap" / "variables.tf").read_text(encoding="utf-8")
 
@@ -84,3 +85,16 @@ def test_bootstrap_exports_both_workflow_identity_coordinates() -> None:
     assert 'output "deploy_runner_principal_id"' in _OUTPUTS
     assert "value       = module.deploy_runner_identity.principal_id" in _OUTPUTS
     assert 'output "deploy_runner_role_manifest"' in _OUTPUTS
+
+
+def test_subscription_observation_roles_declare_the_delegated_principal_type() -> None:
+    for resource_name in (
+        "inventory_reader",
+        "inventory_monitoring_reader",
+        "rca_monitoring_reader",
+        "inventory_cost_reader",
+        "operator_inventory_reader",
+    ):
+        start = f'resource "azurerm_role_assignment" "{resource_name}" {{'
+        body = _APPLICATION_MAIN.split(start, maxsplit=1)[1].split("\n}", maxsplit=1)[0]
+        assert 'principal_type       = "ServicePrincipal"' in body
