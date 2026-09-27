@@ -11,7 +11,6 @@ import subprocess
 import sys
 import time
 from collections.abc import Mapping
-from contextlib import redirect_stdout
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -30,7 +29,10 @@ from fdai_deployment_cli.foundation_output import foundation_output
 from fdai_deployment_cli.foundation_process import run_foundation_process
 from fdai_deployment_cli.private_output import read_private_bytes
 from fdai_deployment_cli.runtime_profile import RuntimeDeploymentProfile
-from fdai_deployment_cli.standalone_application import deploy_standalone_application
+from fdai_deployment_cli.standalone_application_completion import complete_application
+from fdai_deployment_cli.standalone_foundation_adoption import (
+    deploy_with_adopted_foundation,
+)
 from fdai_deployment_cli.standalone_status import current_status, prior_attempt
 
 _GUID = re.compile(r"[0-9a-fA-F]{8}(?:-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12}")
@@ -79,6 +81,8 @@ def deploy_azure_foundation(
     adopt_application_state: Path | None = None,
     adopt_application_recovery: Path | None = None,
     adopt_resolved_models: Path | None = None,
+    adopt_foundation_directory: Path | None = None,
+    adopt_foundation_recovery_directory: Path | None = None,
     catalog_review_profile: CatalogReviewDeploymentProfile | None = None,
 ) -> dict[str, object]:
     """Advance one standalone deployment through verified application convergence."""
@@ -128,6 +132,26 @@ def deploy_azure_foundation(
             environment="dev",
             region_short=region_short,
         )
+    adopted = deploy_with_adopted_foundation(
+        foundation_directory=adopt_foundation_directory,
+        recovery_directory=adopt_foundation_recovery_directory,
+        adopt_runner_image_receipt=adopt_runner_image_receipt,
+        work_dir=work_dir,
+        kit=kit,
+        tenant_id=target.tenant_id,
+        subscription_id=target.subscription_id,
+        region=region,
+        monthly_cost_ceiling=monthly_cost_ceiling,
+        deadline=deadline,
+        selected_runtime=selected_runtime,
+        license_signing_key=license_signing_key,
+        trial_token=trial_token,
+        application_state_adoption=adoption,
+        catalog_review_profile=catalog_review_profile,
+        current_operator_object_id=_current_operator_object_id,
+    )
+    if adopted is not None:
+        return adopted
     begin_stage("discovery")
     progress_detail("Discovering image, storage name, and non-overlapping networks")
     scripts = kit.bundle_root / "scripts/deployment/azure"
@@ -271,62 +295,22 @@ def deploy_azure_foundation(
         ):
             foundation = _foundation_result(kit, prepared, status)
             deadline.remaining()
-            begin_stage("identity")
-            sys.path.insert(0, str(scripts))
-            try:
-                supervisor = importlib.import_module("genesis_supervisor")
-                entra = importlib.import_module("genesis_entra")
-                approval_prompt = importlib.import_module("genesis_approval_prompt")
-                actor_digest = approval_prompt.current_actor_digest(prepared.run_binding)
-                with (
-                    terminal_output("Identity configuration and any required approval"),
-                    redirect_stdout(sys.stderr),
-                ):
-                    entra_bindings = supervisor._configure_entra(
-                        prepared=prepared,
-                        status=status,
-                        actor_digest=actor_digest,
-                        plan=entra.plan_entra(),
-                    )
-                entra_bindings["CURRENT_OPERATOR_OBJECT_ID"] = _current_operator_object_id()
-            finally:
-                sys.path.remove(str(scripts))
-            application = deploy_standalone_application(
+            return complete_application(
                 kit=kit,
                 prepared=prepared,
-                foundation_status=status,
-                entra_bindings=entra_bindings,
+                status=status,
                 scripts=scripts,
+                deadline=deadline,
+                selected_runtime=selected_runtime,
                 license_signing_key=license_signing_key,
                 trial_token=trial_token,
-                timeout_seconds=deadline.remaining(),
-                runtime_profile=selected_runtime,
                 application_state_adoption=adoption,
+                foundation_state_receipt_digest=str(foundation["foundation_state_receipt_digest"]),
                 catalog_review_profile=(
                     catalog_review_profile or CatalogReviewDeploymentProfile.unselected()
                 ),
+                current_operator_object_id=_current_operator_object_id,
             )
-            deadline.remaining()
-            return {
-                "schema_version": "fdai.standalone-azure-deployment.v2",
-                "state": "deployment-ready",
-                "source_commit": kit.source_commit,
-                "kit_manifest_digest": kit.verification.manifest_digest,
-                "runtime_release_digest": kit.runtime.digest,
-                "foundation_state_receipt_digest": foundation["foundation_state_receipt_digest"],
-                "application_receipt_digest": application["receipt_digest"],
-                "catalog_review_receipt_digest": application["catalog_review_receipt_digest"],
-                "catalog_review_state": application["catalog_review_state"],
-                "runtime_profile_digest": selected_runtime.digest,
-                "runtime_platform": selected_runtime.runtime_platform.value,
-                "database_placement": selected_runtime.database_placement.value,
-                "application_converged": True,
-                "deployment_ready": True,
-                "inventory_ready": application.get("inventory_ready") is True,
-                "license_mode": application["license_mode"],
-                "mutation_performed": True,
-                "subscription_ready": False,
-            }
         if foundation_exit.returncode != 2:
             raise ValueError("standalone Foundation orchestration failed")
         approval.unlink(missing_ok=True)

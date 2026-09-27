@@ -20,7 +20,6 @@ from fdai_deployment_cli import (
     standalone_host_state,
 )
 from fdai_deployment_cli.aks_job_execution import AksOneShotJob
-from fdai_deployment_cli.application_state_adoption import ApplicationStateAdoption
 from fdai_deployment_cli.contracts import canonical_digest
 
 
@@ -499,107 +498,6 @@ def test_standalone_apply_rejects_tampered_review_and_context() -> None:
             approval,
             context={**_context(review), "target_binding": "e" * 64},
         )
-
-
-def test_remote_preparation_uses_only_fixed_argument_commands(tmp_path: Path) -> None:
-    class Tunnel:
-        def __init__(self) -> None:
-            self.commands: list[tuple[str, ...]] = []
-
-        def ssh(self, command: tuple[str, ...], *, timeout: int):
-            del timeout
-            self.commands.append(command)
-            stdout = "a" * 64 + "  kit.tar.gz\n" if command[0] == "sha256sum" else ""
-            return SimpleNamespace(returncode=0, stdout=stdout)
-
-        def copy_to(self, source: Path, destination: str, *, timeout: int) -> None:
-            del source, destination, timeout
-
-    tunnel = Tunnel()
-    inputs = []
-    for name in ("archive", "handoff", "entra"):
-        path = tmp_path / name
-        path.write_text(name, encoding="utf-8")
-        inputs.append(path)
-    standalone_application._prepare_remote(
-        tunnel,
-        remote_root="/home/fdai/.fdai-transfer-abc",
-        remote_archive="/home/fdai/.fdai-transfer-abc/kit.tar.gz",
-        archive=inputs[0],
-        archive_digest="a" * 64,
-        handoff_path=inputs[1],
-        remote_handoff="/home/fdai/.fdai-transfer-abc/handoff.json",
-        entra_path=inputs[2],
-        remote_entra="/home/fdai/.fdai-transfer-abc/entra.json",
-        app_work="/home/fdai/.fdai-transfer-abc/application",
-        timeout_seconds=1800,
-    )
-
-    assert all(command[0] not in {"bash", "sh"} for command in tunnel.commands)
-    assert any(command[:3] == ("python3", "-m", "venv") for command in tunnel.commands)
-    assert any(
-        command[1:3] == ("-m", "fdai_deployment_cli.standalone_host") for command in tunnel.commands
-    )
-
-
-def test_remote_preparation_transfers_exact_adoption_inputs(tmp_path: Path) -> None:
-    class Tunnel:
-        def __init__(self) -> None:
-            self.commands: list[tuple[str, ...]] = []
-            self.copies: list[tuple[Path, str]] = []
-
-        def ssh(self, command: tuple[str, ...], *, timeout: int):
-            del timeout
-            self.commands.append(command)
-            stdout = "a" * 64 + "  kit.tar.gz\n" if command[0] == "sha256sum" else ""
-            return SimpleNamespace(returncode=0, stdout=stdout)
-
-        def copy_to(self, source: Path, destination: str, *, timeout: int) -> None:
-            del timeout
-            self.copies.append((source, destination))
-
-    paths = [
-        tmp_path / name for name in ("archive", "handoff", "entra", "state", "models", "adoption")
-    ]
-    for path in paths:
-        path.write_text(path.name, encoding="utf-8")
-    adoption = ApplicationStateAdoption(
-        state=paths[3],
-        resolved_models=paths[4],
-        descriptor=paths[5],
-        resource_name_suffix="abcdef",
-        managed_resource_count=3,
-    )
-    tunnel = Tunnel()
-
-    standalone_application._prepare_remote(
-        tunnel,
-        remote_root="/home/fdai/.fdai-transfer-abc",
-        remote_archive="/home/fdai/.fdai-transfer-abc/kit.tar.gz",
-        archive=paths[0],
-        archive_digest="a" * 64,
-        handoff_path=paths[1],
-        remote_handoff="/home/fdai/.fdai-transfer-abc/handoff.json",
-        entra_path=paths[2],
-        remote_entra="/home/fdai/.fdai-transfer-abc/entra.json",
-        app_work="/home/fdai/.fdai-transfer-abc/application",
-        application_state_adoption=adoption,
-        remote_adoption_state="/home/fdai/.fdai-transfer-abc/application-state.json",
-        remote_adoption_models="/home/fdai/.fdai-transfer-abc/resolved-models.json",
-        remote_adoption_descriptor="/home/fdai/.fdai-transfer-abc/adoption.json",
-        timeout_seconds=1800,
-    )
-
-    for expected_copy in [
-        (paths[3], "/home/fdai/.fdai-transfer-abc/application-state.json"),
-        (paths[4], "/home/fdai/.fdai-transfer-abc/resolved-models.json"),
-        (paths[5], "/home/fdai/.fdai-transfer-abc/adoption.json"),
-    ]:
-        assert expected_copy in tunnel.copies
-    prepare = next(command for command in tunnel.commands if "--adoption-state" in command)
-    assert prepare[prepare.index("--adoption-state") + 1].endswith("application-state.json")
-    assert prepare[prepare.index("--adoption-models") + 1].endswith("resolved-models.json")
-    assert prepare[prepare.index("--adoption-descriptor") + 1].endswith("adoption.json")
 
 
 def _adoption_inputs(tmp_path: Path) -> tuple[dict[str, object], Path, Path, Path]:

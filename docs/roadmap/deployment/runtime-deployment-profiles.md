@@ -156,7 +156,10 @@ Repository tests assemble their non-secret PEM boundary marker at runtime; secre
 
 Tenant provisioning consumes prebuilt service and dependency images for new installations, whole-profile convergence, staging, production, dependencies, and releases. Core, Operator, and the Cost Governance profile install the typed shared runtime diagnostics wheel because their distributions import it; the venue guard keeps its socket unavailable outside explicit local development.
 A complete release includes ClamAV and pgvector, and the provisioner verifies signatures, provenance, source revision, platform, and digest without Docker, Buildx,
-ACR Tasks, a remote builder, or VM image capture. One bounded exception lets an eligible host run `fdaictl provision source-service-update` for one service on an
+ACR Tasks, a remote builder, or VM image capture. When a recovered Foundation predates the release,
+the local coordinator retains its complete evidence chain and the managed host independently binds
+the historical handoff digest to the distinct current kit and runtime digests. This binding does not
+select, skip, or authorize the optional catalog review checkpoint. One bounded exception lets an eligible host run `fdaictl provision source-service-update` for one service on an
 existing healthy `dev` AKS installation. The source-built image remains operator-selected evidence rather than release trust. Current human approval gates its
 Managed Identity import and the Deployment-only exact plan; digest and health readback, unchanged peers, and targeted zero change remain required.
 

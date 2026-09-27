@@ -321,33 +321,13 @@ def _advance_locked(
             next_action=exc.next_action,
         )
         if exc.stage == "application-plan":
-            from source_application_transport import transfer_application_source
-
-            try:
-                transfer = transfer_application_source(
-                    foundation_root=root,
-                    snapshot=args.source_snapshot,
-                    snapshot_digest=args.source_snapshot_digest,
-                    source_commit=source.commit,
-                    target_binding=args.target_binding,
-                    report=store.foundation_report,
-                    timeout_seconds=store.remaining_seconds(),
-                )
-                source.reverify()
-                store.update(
-                    stage=exc.stage,
-                    state="waiting",
-                    reason_code="source_application_execution_not_connected",
-                    next_action="build_source_images_on_attested_host_and_validate_application_inputs",
-                )
-                return {**_progress_result(store, source.commit), "source_host_transfer": transfer}
-            except (OSError, ValueError, RuntimeError):
-                store.update(
-                    stage=exc.stage,
-                    state="failed",
-                    reason_code="source_application_transfer_failed",
-                )
-                raise
+            source.reverify()
+            store.update(
+                stage=exc.stage,
+                state="waiting",
+                reason_code="prebuilt_runtime_artifacts_required",
+                next_action="resume_with_signed_kit_and_foundation_adoption",
+            )
         return _progress_result(store, source.commit)
     except (CheckError, PrivateExecutionError) as exc:
         store.update(

@@ -36,16 +36,11 @@ def no_live_prices(monkeypatch):
         "approved",
         "ambient",
         "startup",
-        "transferred",
-        "builder-blocked",
-        "builder-invalid",
     ],
 )
 def test_source_plan_runs_preparation_before_review(tmp_path, monkeypatch, deployment_ready, mode):
     interactive = mode == "interactive"
-    approval_file = (
-        tmp_path / "approved-checkpoint.json" if mode in {"approved", "transferred"} else None
-    )
+    approval_file = tmp_path / "approved-checkpoint.json" if mode == "approved" else None
     if approval_file is not None:
         write_private_bytes(approval_file, b"example exact approval")
     root = tmp_path / "checkout"
@@ -81,42 +76,8 @@ def test_source_plan_runs_preparation_before_review(tmp_path, monkeypatch, deplo
     )
     monkeypatch.setattr(source_azure.shutil, "which", lambda _: str(executable))
     calls = []
-    builder_checks = []
-    transfers = []
-    monkeypatch.setattr(
-        source_azure,
-        "prepare_source_transport",
-        lambda *args, **kwargs: (
-            transfers.append((args, kwargs))
-            or {"state": "prepared", "remote_transfer_verified": False, "archive_digest": "b" * 64}
-        ),
-    )
 
     def capture(command, cwd, environment, timeout):
-        if Path(command[1]).name == "source_image_build.py":
-            if "--all-services" in command:
-                assert mode == "transferred"
-                inventory = {
-                    "schema_version": "fdai.source-images.v1",
-                    "state": "built",
-                    "source_commit": source.commit,
-                    "snapshot_digest": "e" * 64,
-                    "services": dict.fromkeys(source_azure.RUNTIME_SERVICES, {"state": "built"}),
-                    "registry_published": False,
-                    "apply_authorized": False,
-                    "deployment_ready": False,
-                }
-                inventory["receipt_digest"] = canonical_digest(inventory)
-                return inventory
-            builder_checks.append(command)
-            assert "--check-tools" in command
-            assert not calls
-            return {
-                "schema_version": "fdai.source-image-builder.v1",
-                "state": "blocked" if mode == "builder-blocked" else "available",
-                "mutation_performed": False,
-                "deployment_ready": mode == "builder-invalid",
-            }
         calls.append(command)
         assert cwd == root
         assert "FDAI_SIGNED_SOURCE_EVIDENCE" not in environment
@@ -189,19 +150,6 @@ def test_source_plan_runs_preparation_before_review(tmp_path, monkeypatch, deplo
             )
         )
         status_path.chmod(0o600)
-        host_transfer = {
-            "schema_version": "fdai.source-host-transfer-receipt.v1",
-            "state": "verified",
-            "source_commit": source.commit,
-            "target_binding": "a" * 64,
-            "snapshot_digest": "e" * 64,
-            "archive_digest": "b" * 64,
-            "state_handoff_digest": handoff["receipt_digest"],
-            "remote_transfer_verified": True,
-            "apply_authorized": False,
-            "deployment_ready": False,
-        }
-        host_transfer["receipt_digest"] = canonical_digest(host_transfer)
         return {
             "schema_version": "fdai.source-foundation-progress.v1",
             "state": "review",
@@ -214,7 +162,6 @@ def test_source_plan_runs_preparation_before_review(tmp_path, monkeypatch, deplo
             "release_signature_verified": False,
             "stage": stage,
             "attempt": len(calls) - 1,
-            **({"source_host_transfer": host_transfer} if mode == "transferred" else {}),
         }
 
     monkeypatch.setattr(source_azure, "_capture", capture)
@@ -255,17 +202,6 @@ def test_source_plan_runs_preparation_before_review(tmp_path, monkeypatch, deplo
         ),
         confirm_initial=mode == "startup",
     )
-    if mode in {"builder-blocked", "builder-invalid"}:
-        if mode == "builder-invalid":
-            with pytest.raises(ValueError, match="invalid prerequisite"):
-                source_azure.plan_source_installation(**arguments)
-        else:
-            result = source_azure.plan_source_installation(**arguments)
-            assert result["stage"] == "source-image-tools"
-            assert result["state"] == "blocked"
-        assert not calls
-        assert not transfers
-        return
     if deployment_ready:
         with pytest.raises(ValueError, match="bound review"):
             source_azure.plan_source_installation(**arguments)
@@ -277,19 +213,12 @@ def test_source_plan_runs_preparation_before_review(tmp_path, monkeypatch, deplo
         assert result["release_signature_verified"] is False
         assert result["provenance"] == "operator-selected-source"
         assert result["cost_review"]["whole_installation_cost_verified"] is False
-        if mode == "transferred":
-            assert result["source_host_transfer"]["remote_transfer_verified"] is True
-            assert (
-                result["next_action"]
-                == "transfer_verified_images_for_private_registry_import_and_validate_application_inputs"
-            )
+        if result["stage"] == "application-plan":
+            assert result["reason_code"] == "prebuilt_runtime_artifacts_required"
+            assert result["next_action"] == "resume_with_signed_kit_and_foundation_adoption"
     assert len(calls) == (3 if interactive and not deployment_ready else 2)
-    assert len(builder_checks) == 1
     assert len(prompts) == int(interactive and not deployment_ready)
     assert len(initial_confirmations) == int(mode == "startup")
-    assert len(transfers) == int(
-        not deployment_ready and mode in {"interactive", "approved", "transferred"}
-    )
     if approval_file is not None:
         assert approval_file.read_bytes() == b"example exact approval"
 
@@ -306,7 +235,7 @@ def test_source_plan_runs_preparation_before_review(tmp_path, monkeypatch, deplo
         "remote_transient_deleted",
     ],
 )
-def test_source_transfer_rejects_unverified_handoff(tmp_path, monkeypatch, field):
+def test_source_adoption_rejects_unverified_handoff(tmp_path, monkeypatch, field):
     original = source_azure.load_json_object
 
     def changed(raw, **kwargs):

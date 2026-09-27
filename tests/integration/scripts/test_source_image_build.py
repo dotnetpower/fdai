@@ -18,6 +18,13 @@ sys.path.insert(0, str(ROOT / "packages/deployment-cli/tests"))
 from test_oci_archive import COMMIT, make_archive  # noqa: E402
 
 
+def test_source_image_cli_has_no_broad_installation_build_mode(monkeypatch) -> None:
+    monkeypatch.setattr(sys, "argv", ["source_image_build.py", "--all-services"])
+
+    with pytest.raises(SystemExit, match="2"):
+        images.main()
+
+
 @pytest.mark.parametrize(
     "failure", [None, "packaged", "missing", "engine", "buildx", "output", "timeout"]
 )
@@ -176,32 +183,6 @@ def test_source_image_verification_only_recovers_without_building(tmp_path, monk
     assert receipt["state"] == "built"
     assert metadata.stat().st_mode & 0o777 == 0o600
     assert (work / "isolated-executor.receipt.json").is_file()
-
-
-@pytest.mark.parametrize("blocked", [False, True])
-def test_source_image_inventory_requires_every_baseline_service(tmp_path, monkeypatch, blocked):
-    calls = []
-    monkeypatch.setattr(
-        images, "verify_source_snapshot", lambda *_args, **_kwargs: {"source_commit": COMMIT}
-    )
-
-    def build(*_args, **kwargs):
-        calls.append(kwargs["service"])
-        assert 0 < kwargs["timeout_seconds"] <= 3600
-        return {"state": "blocked" if blocked else "built"}
-
-    monkeypatch.setattr(images, "build_source_image", build)
-    receipt = images.build_source_images(
-        tmp_path / "snapshot", tmp_path / "images", snapshot_digest="d" * 64, timeout_seconds=3600
-    )
-    if blocked:
-        assert receipt["state"] == "blocked"
-        assert len(calls) == 1
-    else:
-        assert set(receipt["services"]) == images.RUNTIME_SERVICES
-        assert set(calls) == images.RUNTIME_SERVICES
-        assert receipt["registry_published"] is False
-        assert receipt["dependency_images_verified"] is False
 
 
 @pytest.mark.parametrize("invalid", ["inside-snapshot", "output-option", "service", "relative"])
