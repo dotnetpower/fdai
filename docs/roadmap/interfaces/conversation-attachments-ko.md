@@ -1,7 +1,7 @@
 ---
 translation_of: conversation-attachments.md
-translation_source_sha: bd36a21b4e4b9902cc05bacc50d2084a02eeea1d
-translation_revised: 2026-09-26
+translation_source_sha: edaf83c4faa6add52178fe6ea7e222d39b0e77af
+translation_revised: 2026-09-27
 title: 대화 첨부파일
 ---
 # 대화 첨부파일
