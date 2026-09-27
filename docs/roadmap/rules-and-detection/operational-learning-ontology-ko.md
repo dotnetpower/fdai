@@ -1,8 +1,8 @@
 ---
 title: 운영 학습 온톨로지
 translation_of: operational-learning-ontology.md
-translation_source_sha: 3b653062071f4854e5394ae4ddbc9ccd87457f5e
-translation_revised: 2026-09-15
+translation_source_sha: e2d7e5d5f6f0c70bf6a60c7403b90f2bbf83a6e0
+translation_revised: 2026-09-27
 ---
 # 운영 학습 온톨로지
 
@@ -289,7 +289,7 @@ T1은 유사도 순위 전에 결정론적 필터로 이전 사례를 검색합�
 | O0 - 계약 고정본 | 구현됨: 정본 operational-case 및 failure-fingerprint 모델과 고정본입니다. | 이름이 다른 두 환경이 같은 지문을 만들고 방식 또는 토폴로지 변경은 다른 지문을 만듭니다. |
 | O1 - 사례 변환 결과 | 구현됨: 변경할 수 없는 입력, 허용 목록 증적 compilation, 변환 결과, artifact-first 쓰기 담당 intake, 범용 메타데이터 영속성, 개정 번호 backfill입니다. | 정본 다이제스트, 민감정보 제거, 바이트 상한, 중복 전달, negative-outcome, StateStore, PostgreSQL, 이전 방식 예측 호환성 테스트가 통과합니다. 어댑터는 룰/액션 카탈로그를 쓰지 않습니다. |
 | O2 - 집단 컴파일러 | 구현됨: Huginn이 strict operational-case 이벤트를 전달하고 Muninn이 범위가 제한된 지문 집단을 봉인 및 저장하며 Norns가 합의와 비율 한도를 거쳐 기존 inert `RuleCandidate` 대응을 발행합니다. | 이름이 다른 같은 지문 사례는 합류하고 다른 방식은 합류하지 않습니다. Success-only 및 raw `ResponseOutcome` 근거는 보류되며 balanced 근거는 변경할 수 없는 개정 번호 인용과 함께 한 번만 발행됩니다. |
-| O3 - 카탈로그 compilation | Core 구현됨: Mimir는 승인된 후보를 초안 Rule, 선택적인 명시적 shadow-first `ActionType`, 스키마, 정책, 재생, shadow 증적이 포함된 변경할 수 없는 검토 패키지로 컴파일할 수 있습니다. 운영 검증기와 PR 발행기는 배포 작업으로 남고 Norns는 고정된 wire 신원을 제공합니다. | 실패하거나 충돌하는 증적은 후보를 격리합니다. 동시 재시도는 한 번만 publish하고 해결되지 않은 용량은 제거 없이 backpressure하며 successful 게시는 Saga-owned 감사 후 in-memory 패키지 상태를 간결하게 정리합니다. Operational 후보는 direct 런타임 승격을 사용할 수 없습니다. |
+| O3 - 카탈로그 compilation | 선택적인 보호된 AKS one-shot으로 구현했습니다. frozen case는 Huginn에 들어가고 Muninn이 봉인하며 Norns가 비활성 후보를 내보내고 Mimir가 내용 주소 방식 초안 검토 하나를 컴파일하고 게시하며 Saga가 이벤트 chain을 봉인합니다. 비공개 GitHub App 게시자는 정확한 열린 초안, label, head commit과 review document, base, merge 및 auto-merge 상태를 독립적으로 읽습니다. | 실패하거나 충돌하는 증적은 후보를 격리합니다. 동시 재시도는 한 번만 publish하고 해결되지 않은 용량은 제거 없이 backpressure하며 어떤 검토 패키지도 활성화, merge, 승격 또는 관리 리소스 변경 권한을 부여하지 않습니다. |
 | O4 - T1 reuse | Core 및 영속성 구현됨: T1은 변경할 수 없는 operational-case 맥락을 저장하고 injected current-evidence 검증기를 받아 실패 지문, 리소스 타입, 토폴로지 역할, 그래프, 소유자, precondition, 신원, 영향 범위, 정책, 예행 실행, 멱등성, 롤백 상태를 다시 확인합니다. 서명은 정본 매개변수와 full 사례 맥락을 연결합니다. 구체적인 Kubernetes 및 Azure 수집기는 O5/O6 연결입니다. | 검증기 또는 근거 누락, stale 또는 변경된 맥락, 안전성 검사 실패는 변경 없이 항상 검토 보류됩니다. Azure는 evaluation 시계 기준 범위가 제한된 캐시 age를 평가하면서 이벤트 인제스트 직전 recent 캐시를 허용합니다. 이전 방식 인시던트 pattern은 기존 동작을 유지합니다. |
 | O5 - AKS 전달 | 구현 및 non-production 실제 운영 검증 완료: 기존 Kubernetes 및 Azure 읽기 경계가 현재 reuse, temporal causality, Dynamic 요청에 근거를 제공합니다. One-pod invalid-image fault는 서버 예행 실행, isolated 이름 공간, 45초 관측 구간을 사용했습니다. | Kubernetes는 `ErrImagePull` 및 `ImagePullBackOff`를 보고했고 Azure Monitor는 pod `Pending`, Log Analytics는 pull 실패와 terminating 근거, Activity Log는 클러스터 수명 주기를 보존했습니다. 이름 공간 삭제로 롤백을 완료하고 one-node 클러스터는 `Stopped` / `Succeeded`로 돌아갔습니다. 운영은 사용 불가로 유지했습니다. |
 | O6 - Azure 리소스 absorption | 구현됨: strict promoted-inventory 스냅샷과 구성된 Azure 메트릭이 Kubernetes 및 non-Kubernetes 리소스 타입에 범용 current-reuse, causal, Dynamic 근거 연결을 제공합니다. | 읽기 전용 non-production Container App 훈련에서 healthy 활성 개정 번호 1개, 복제본 1개, 재시작 0회, administrative 쓰기 없이 동일한 pre/게시 상태를 관측했습니다. 단위 근거는 벤치마크 가져오기 없이 정책/precondition/예행 실행 실패 시 차단, 온톨로지 변환 결과, 범위가 제한된 조회, 결정론적 재시작 재생을 증명합니다. |
@@ -297,6 +297,15 @@ T1은 유사도 순위 전에 결정론적 필터로 이전 사례를 검색합�
 
 O0부터 O4까지는 cloud-provider-neutral입니다. O5와 O6는 learned pattern이나 control-loop
 권한 모델을 바꾸지 않고 Azure 근거 연결을 제공합니다.
+
+배포된 O3 trigger는 근거 전용으로 유지됩니다. 검토된 비공개 GitHub App 프로필만
+수락하고 static token과 메모리 transport 또는 audit를 거부하며, 실행 중인 Pantheon과
+같은 타입 agent topic을 통해 frozen operational case를 게시합니다. Managed Host는
+애플리케이션 및 inventory 종결 뒤에만 중지된 template을 시작하고 내용 주소 방식 실행 전
+기록을 보존하며 durable Saga chain 검증과 독립 초안 PR 재확인이 모두 완료된 뒤에만 성공을
+기록합니다. 생성 Rule ID는 `learned.operational.` namespace와 24자리 16진수 suffix를 유지해
+정확한 `rule:<id>` label이 GitHub의 50자 상한에 들어가며 exact rule 또는 action label이
+상한을 넘으면 fail-closed 처리합니다.
 
 ## 초기 구현 범위
 

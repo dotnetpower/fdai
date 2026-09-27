@@ -9,6 +9,7 @@ import pytest
 from fdai.runtime.operational_catalog_review import (
     _load_scenarios,
     build_operational_catalog_review_bindings,
+    build_protected_operational_catalog_review_bindings,
 )
 
 
@@ -34,6 +35,36 @@ def test_enabled_catalog_review_requires_complete_configuration() -> None:
             catalog_root=Path("rule-catalog"),
             policies_root=Path("policies"),
         )
+
+
+def test_enabled_catalog_review_requires_private_gitops_credentials() -> None:
+    with pytest.raises(RuntimeError, match="private GitOps credential binding"):
+        build_operational_catalog_review_bindings(
+            control_loop=object(),  # type: ignore[arg-type]
+            http_client=httpx.AsyncClient(),
+            environment={
+                "FDAI_CATALOG_REVIEW_ENABLED": "1",
+                "FDAI_CATALOG_REVIEW_SCENARIO_DIR": "scenarios",
+                "FDAI_CATALOG_REVIEW_SCENARIO_SET_ID": "scenario-v1",
+                "FDAI_CATALOG_REVIEW_POLICY_VERSION": "policy-v1",
+                "FDAI_GITOPS_OWNER": "example",
+                "FDAI_GITOPS_REPO": "catalog",
+            },
+            catalog_root=Path("rule-catalog"),
+            policies_root=Path("policies"),
+        )
+
+
+async def test_protected_catalog_review_rejects_static_token() -> None:
+    async with httpx.AsyncClient() as client:
+        with pytest.raises(RuntimeError, match="rejects static-token"):
+            await build_protected_operational_catalog_review_bindings(
+                control_loop=object(),  # type: ignore[arg-type]
+                http_client=client,
+                environment={"FDAI_GITOPS_TOKEN": "compatibility-token"},
+                catalog_root=Path("rule-catalog"),
+                policies_root=Path("policies"),
+            )
 
 
 def test_disabled_catalog_review_rejects_partial_settings() -> None:

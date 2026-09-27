@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: ae05f072fb2202bc165ff9a048849e51fe65a093
+translation_source_sha: 01f4a19a3dc8df8206848e8c2a0e920c6f9b4480
 translation_revised: 2026-09-27
 ---
 # 프로젝트 구조
@@ -17,6 +17,7 @@ Assurance Twin의 선택적 보관 근거 출처는 Core 조립 시 주입합니
 Operator 운영 조립 파사드는 런타임 배선을 유지합니다. 목적별 인접 모듈은 수명 주기와 리소스
 정리, 경로 계열 조립 및 읽기 출처 선언을 소유합니다. 호환 내보내기는 기존 가져오기를 보존하며,
 이 분리는 서비스, 신원, 데이터 소유자, wire 계약 또는 권한을 바꾸지 않습니다. 범위가 제한된 의미 후보 선택은 크기가 큰 서술자 축을 생략하고 기능 byte 한도에 맞는 순위 접두사를 보존하며 요청을 실패시키지 않습니다.
+Core package는 배포된 `fdai-operational-catalog-review` entry point를 소유합니다. 기존 durable Pantheon, Saga audit 및 GitHub App delivery adapter를 Core runtime 경계 안에서 조립하며 새 service, executor identity, catalog 활성화, merge 또는 관리 리소스 권한을 추가하지 않습니다.
 Core는 활성 Rule 세대 교체를 쓰기 전용 장벽 뒤에 두고, 완결된 결정은 동시 읽기 임대를 공유합니다. 따라서 결정 하나는 세대 하나만 사용하면서 서로 다른 리소스의 처리를 직렬화하지 않습니다. 목적별 모듈은 이 장벽, 의미 사전 판정, 이벤트 버스 payload 코덱, 조립된 런타임 모델, 사람 승인 레지스트리 연결 및 카탈로그 로더를 소유하며 공개 파사드는 기존 가져오기와 권한 경계를 보존합니다. `runtime/control_loop.py` 파사드는 초기화와 집중 테스트를 위해 기존 카탈로그 로더 이름을 명시적으로 다시 내보냅니다. Core wheel 인벤토리와 서비스 테스트 묶음 매니페스트는 새 런타임 모듈 및 Rule 활성화 테스트마다 하나의 소유 배포판을 지정하며 5개 서비스 경계나 System Knowledge 후보를 변경하지 않습니다.
 공유 Operator 계열 어댑터 파사드는 이제 workflow 영속 처리와 호환 내보내기를 유지합니다.
 대화 영속 처리, 운영 변환 결과와 webhook 처리 및 순수 workflow 카탈로그 렌더링은 각각 목적별

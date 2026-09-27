@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import logging
 from collections.abc import Mapping
@@ -73,6 +74,7 @@ class StateStoreAuditChainAdapter:
     def __init__(self, store: StateStore) -> None:
         self.store = store
         self.entries = []
+        self._append_lock = asyncio.Lock()
 
     async def append(
         self,
@@ -82,46 +84,47 @@ class StateStoreAuditChainAdapter:
         correlation_id: str,
         payload: dict[str, Any],
     ) -> AuditEntry:
-        seq = len(self.entries)
-        prev_hash = self.entries[-1].entry_hash if self.entries else "0" * 64
-        payload_digest = _digest(payload)
-        entry_hash = _digest(
-            {
-                "seq": seq,
-                "prev_hash": prev_hash,
-                "principal": principal,
-                "topic": topic,
-                "correlation_id": correlation_id,
-                "payload_digest": payload_digest,
-            }
-        )
-        entry = AuditEntry(
-            seq=seq,
-            prev_hash=prev_hash,
-            entry_hash=entry_hash,
-            principal=principal,
-            topic=topic,
-            correlation_id=correlation_id,
-            payload_digest=payload_digest,
-        )
-        self.entries.append(entry)
-        # Hand the concrete record to the provider; the Protocol only
-        # cares about the mapping shape.
-        await self.store.append_audit_entry(
-            {
-                "actor": "Saga",
-                "action_kind": "audit.record",
-                "seq": seq,
-                "prev_hash": prev_hash,
-                "entry_hash": entry_hash,
-                "principal": principal,
-                "topic": topic,
-                "correlation_id": correlation_id,
-                "payload_digest": payload_digest,
-                "payload": payload,
-            }
-        )
-        return entry
+        async with self._append_lock:
+            seq = len(self.entries)
+            prev_hash = self.entries[-1].entry_hash if self.entries else "0" * 64
+            payload_digest = _digest(payload)
+            entry_hash = _digest(
+                {
+                    "seq": seq,
+                    "prev_hash": prev_hash,
+                    "principal": principal,
+                    "topic": topic,
+                    "correlation_id": correlation_id,
+                    "payload_digest": payload_digest,
+                }
+            )
+            entry = AuditEntry(
+                seq=seq,
+                prev_hash=prev_hash,
+                entry_hash=entry_hash,
+                principal=principal,
+                topic=topic,
+                correlation_id=correlation_id,
+                payload_digest=payload_digest,
+            )
+            # Publish the local entry only after the provider confirms the
+            # durable append. Terminal observers must never outrun persistence.
+            await self.store.append_audit_entry(
+                {
+                    "actor": "Saga",
+                    "action_kind": "audit.record",
+                    "seq": seq,
+                    "prev_hash": prev_hash,
+                    "entry_hash": entry_hash,
+                    "principal": principal,
+                    "topic": topic,
+                    "correlation_id": correlation_id,
+                    "payload_digest": payload_digest,
+                    "payload": payload,
+                }
+            )
+            self.entries.append(entry)
+            return entry
 
     def verify(self) -> None:
         """Local chain verification (equivalent to in-memory adapter)."""

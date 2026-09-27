@@ -411,7 +411,7 @@ separation changes neither single-writer ownership nor promotion authority.
 
 Realtime deltas improve freshness but do not prove global completeness. A complete reconciliation
 generation remains the authority that closes covered overlays and confirms deletion. Promotion is
-atomic, and a partial or conflicting generation cannot replace the previous complete graph.
+atomic, and a partial or conflicting generation cannot replace the previous complete graph. Independent closure exposes no subscription identifier: it requires one canonical lowercase `/subscriptions/<uuid>` root with no ResourceType filter, hashes that raw scope into `scope_digest`, records `fresh_generation=true` only when the active promotion is not older than the current attempt, and lets the deployment coordinator compare that digest with its protected target.
 
 Resource and relationship updates are ordered per logical resource. Duplicate delivery is a no-op,
 and a stale cursor or older event cannot move an instance backward. Tombstones retain their source,

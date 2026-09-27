@@ -48,6 +48,7 @@ from fdai_deployment_cli.doctor import (
     doctor_json,
     inspect_tools,
 )
+from fdai_deployment_cli.entra_source import run_source_entra_operation
 from fdai_deployment_cli.license import inspect_license
 from fdai_deployment_cli.offline_prepare import prepare_offline_release
 from fdai_deployment_cli.private_output import write_private_output
@@ -96,6 +97,7 @@ def _parser() -> argparse.ArgumentParser:
             "offline_configure_console": _offline_configure_console,
             "offline_install_support": _offline_install_support,
             "provision_azure": _provision_azure,
+            "provision_entra": _provision_entra,
             "provision_source_service_update": _provision_source_service_update,
             "provision_console_update_build": _provision_console_update_build,
             "provision_console_update_plan": _provision_console_update_plan,
@@ -166,8 +168,21 @@ def _provision_init(args: argparse.Namespace) -> int:
 def _provision_azure(args: argparse.Namespace) -> int:
     """Run the standalone active-Azure-login deployment path."""
 
+    from fdai_deployment_cli.catalog_review_profile import (
+        CatalogReviewDeploymentProfile,
+        load_catalog_review_profile,
+    )
     from fdai_deployment_cli.installation_scope import InstallationOptions
 
+    catalog_review_profile = (
+        CatalogReviewDeploymentProfile.unselected()
+        if args.catalog_review_profile is None
+        else load_catalog_review_profile(
+            args.catalog_review_profile
+            if args.catalog_review_profile.is_absolute()
+            else Path.cwd() / args.catalog_review_profile
+        )
+    )
     runtime_profile = RuntimeDeploymentProfile.create(
         runtime_platform=args.runtime,
         database_placement=args.database,
@@ -177,6 +192,8 @@ def _provision_azure(args: argparse.Namespace) -> int:
         user_node_max_count=args.max_user_nodes,
         user_node_sku=args.user_node_sku,
     )
+    if catalog_review_profile.selected and args.runtime != "aks":
+        raise ValueError("selected catalog review profile requires --runtime aks")
     if (args.prepare_only or args.preflight_only) and args.source is None:
         raise ValueError("source-only preparation or preflight requires --source")
     if re.fullmatch(r"[a-z][a-z0-9]{1,11}", args.foundation_workload) is None:
@@ -232,6 +249,10 @@ def _provision_azure(args: argparse.Namespace) -> int:
     ):
         raise ValueError("recovered public deployment requires all three adoption inputs")
     if args.source is not None:
+        if catalog_review_profile.selected:
+            raise ValueError(
+                "selected catalog review profile requires signed-kit standalone deployment"
+            )
         if args.online_url is not None or any(path is not None for path in adoption_paths):
             raise ValueError(
                 "source deployment cannot reuse kit URLs or application-state adoption"
@@ -319,6 +340,7 @@ def _provision_azure(args: argparse.Namespace) -> int:
             adopt_application_state=adoption_path(args.adopt_application_state),
             adopt_application_recovery=adoption_path(args.adopt_application_recovery),
             adopt_resolved_models=adoption_path(args.adopt_resolved_models),
+            catalog_review_profile=catalog_review_profile,
         )
         if result.get("deployment_ready") is not True:
             raise ValueError("standalone deployment did not return verified deployment readiness")
@@ -331,6 +353,20 @@ def _provision_azure(args: argparse.Namespace) -> int:
         ),
     )
     return 0
+
+
+def _provision_entra(args: argparse.Namespace) -> int:
+    """Run the source-owned identity operation without Foundation or application stages."""
+
+    return run_source_entra_operation(
+        source=args.source,
+        work_dir=args.work_dir,
+        target_profile_path=args.target_profile,
+        control_profile_path=args.control_profile,
+        apply=args.apply,
+        output=args.output,
+        timeout_seconds=args.timeout_seconds,
+    )
 
 
 def _provision_source_service_update(args: argparse.Namespace) -> int:

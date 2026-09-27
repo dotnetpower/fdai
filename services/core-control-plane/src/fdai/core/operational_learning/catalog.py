@@ -534,7 +534,7 @@ class CatalogCandidateCompiler:
 
 
 def _compile_rule(candidate: OperationalPatternRuleCandidate) -> DraftCatalogArtifact:
-    rule_id = f"learned.operational.{candidate.pattern_id[:32]}"
+    rule_id = f"learned.operational.{candidate.pattern_id[:24]}"
     mapping: dict[str, object] = {
         "schema_version": "2.0.0",
         "id": rule_id,

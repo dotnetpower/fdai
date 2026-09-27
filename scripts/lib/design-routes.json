@@ -213,6 +213,8 @@
         "scripts/quality/architecture/check-continuous-operational-instance-graph-audit.py",
         "tests/integration/scripts/test_continuous_operational_instance_graph_audit.py",
         "services/core-control-plane/src/fdai/shared/providers/inventory*.py",
+        "packages/service-contracts/src/fdai_service_contracts/inventory_progress.py",
+        "packages/service-contracts/tests/test_inventory_progress.py",
         "services/core-control-plane/src/fdai/core/ontology_platform/inventory_projection.py",
         "services/core-control-plane/src/fdai/core/ontology_platform/topology_history.py",
         "services/core-control-plane/src/fdai/core/ontology_platform/state_transitions.py",
@@ -245,6 +247,7 @@
         "services/core-control-plane/tests/core/ontology_platform/test_graph_evidence_refresh.py",
         "services/core-control-plane/tests/core/ontology_platform/test_operational_instance_competency.py",
         "services/core-control-plane/tests/delivery/test_inventory_live_evidence.py",
+        "services/core-control-plane/tests/delivery/test_inventory_closure.py",
         "services/core-control-plane/tests/delivery/azure/test_runtime_call_telemetry.py",
         "services/operator-service/tests/test_semantic_turn_bridge.py",
         "services/core-control-plane/tests/test_semantic_turn_processor.py",
@@ -297,6 +300,7 @@
         "docs/roadmap/rules-and-detection/observability-and-detection.md"
       ],
       "validate": [
+        "uv run pytest -q --no-cov packages/service-contracts/tests/test_inventory_progress.py services/core-control-plane/tests/delivery/test_inventory_closure.py",
         "uv run pytest -q --no-cov tests/integration/scripts/test_continuous_operational_instance_graph_audit.py",
         "uv run python scripts/quality/architecture/check-continuous-operational-instance-graph-audit.py",
         "uv run pytest -q --no-cov services/core-control-plane/tests/delivery/test_inventory_sync.py services/core-control-plane/tests/delivery/test_inventory_projection_replay_cli.py services/core-control-plane/tests/runtime/test_inventory_ontology.py services/core-control-plane/tests/core/ontology_platform/test_inventory_projection.py",
@@ -1256,7 +1260,13 @@
       "id": "outcome-assurance",
       "paths": [
         "docs/roadmap/architecture/outcome-assurance*.md",
+        "config/sre-cohort-claim-policy.json",
+        ".github/workflows/cohort-observation-import.yml",
+        ".github/workflows/cohort-readiness.yml",
         "services/core-control-plane/src/fdai/core/measurement/**",
+        "services/core-control-plane/src/fdai/delivery/measurement/cohort_*.py",
+        "services/core-control-plane/tests/delivery/measurement/test_cohort_*.py",
+        "tests/integration/scripts/test_cohort_*workflow.py",
         "console/src/routes/operating-outcomes*",
         "console/src/routes/control-assurance*"
       ],
@@ -1276,6 +1286,7 @@
       ],
       "validate": [
         "uv run pytest -q --no-cov services/core-control-plane/tests/core/measurement services/operator-service/tests",
+        "uv run pytest -q --no-cov services/core-control-plane/tests/delivery/measurement/test_cohort_observation_import.py services/core-control-plane/tests/delivery/measurement/test_cohort_observation_import_cli.py services/core-control-plane/tests/delivery/measurement/test_cohort_inventory.py tests/integration/scripts/test_cohort_observation_import_workflow.py tests/integration/scripts/test_cohort_readiness_workflow.py",
         "npm --prefix console test -- --run src/routes/analytics-hubs.test.ts"
       ]
     },
@@ -3222,10 +3233,19 @@
         "infra/runtimes/**",
         "infra/modules/network/**",
         "packages/deployment-cli/src/fdai_deployment_cli/runtime_profile.py",
+        "packages/deployment-cli/src/fdai_deployment_cli/aks_*.py",
+        "packages/deployment-cli/src/fdai_deployment_cli/catalog_review_profile.py",
+        "packages/deployment-cli/src/fdai_deployment_cli/standalone_aks_*.py",
+        "packages/deployment-cli/src/fdai_deployment_cli/standalone_catalog_review.py",
+        "packages/deployment-cli/src/fdai_deployment_cli/standalone_remote_prepare.py",
         "packages/deployment-cli/src/fdai_deployment_cli/standalone_application.py",
         "packages/deployment-cli/src/fdai_deployment_cli/standalone_host.py",
         "packages/deployment-cli/src/fdai_deployment_cli/standalone_host_state.py",
         "packages/deployment-cli/src/fdai_deployment_cli/standalone_host_values.py",
+        "packages/deployment-cli/tests/test_aks_*.py",
+        "packages/deployment-cli/tests/test_catalog_review_profile.py",
+        "packages/deployment-cli/tests/test_standalone_aks_*.py",
+        "packages/deployment-cli/tests/test_standalone_remote_prepare.py",
         "packages/deployment-cli/tests/test_runtime_profile.py",
         "packages/deployment-cli/tests/test_standalone_application.py",
         "packages/deployment-cli/tests/test_standalone_host.py"
@@ -3244,7 +3264,7 @@
       ],
       "validate": [
         "uv run pytest -q --no-cov services/core-control-plane/tests/delivery/dev_operations_gateway/test_gateway.py",
-        "uv run --project packages/deployment-cli python -m pytest -c packages/deployment-cli/pyproject.toml -q packages/deployment-cli/tests/test_runtime_profile.py packages/deployment-cli/tests/test_standalone_application.py packages/deployment-cli/tests/test_standalone_host.py",
+        "uv run --project packages/deployment-cli python -m pytest -c packages/deployment-cli/pyproject.toml -q packages/deployment-cli/tests/test_runtime_profile.py packages/deployment-cli/tests/test_aks_catalog_review.py packages/deployment-cli/tests/test_aks_job_execution.py packages/deployment-cli/tests/test_catalog_review_profile.py packages/deployment-cli/tests/test_standalone_aks_inventory.py packages/deployment-cli/tests/test_standalone_aks_job_execution.py packages/deployment-cli/tests/test_standalone_remote_prepare.py packages/deployment-cli/tests/test_standalone_application.py packages/deployment-cli/tests/test_standalone_host.py",
         "terraform -chdir=infra/runtimes/aks/cluster validate",
         "terraform -chdir=infra/runtimes/aks/database validate",
         "terraform -chdir=infra/runtimes/aks/workloads validate",
@@ -3312,6 +3332,85 @@
       ],
       "validate": [
         "uv run python scripts/quality/architecture/check-independent-services.py"
+      ]
+    },
+    {
+      "id": "entra-only-provisioning",
+      "paths": [
+        "packages/deployment-cli/src/fdai_deployment_cli/entra_source.py",
+        "packages/deployment-cli/src/fdai_deployment_cli/entra_profiles.py",
+        "packages/deployment-cli/src/fdai_deployment_cli/identity_profile.py",
+        "packages/deployment-cli/tests/test_entra_source.py",
+        "scripts/deployment/azure/genesis_entra.py",
+        "scripts/deployment/azure/genesis_entra_operation.py",
+        "scripts/deployment/azure/genesis_entra_operation_support.py",
+        "scripts/deployment/azure/genesis_entra_readback.py",
+        "scripts/deployment/azure/genesis_entra_records.py",
+        "scripts/deployment/azure/genesis_identity_executor.py",
+        "scripts/deployment/azure/genesis_identity_profile.py",
+        "tests/integration/scripts/test_genesis_entra.py",
+        "tests/integration/scripts/test_genesis_entra_operation.py",
+        "tests/integration/scripts/test_genesis_identity_profile.py"
+      ],
+      "must_read": [
+        ".github/instructions/app-shape.instructions.md",
+        ".github/instructions/coding-conventions.instructions.md",
+        "docs/roadmap/architecture/security-and-identity.md",
+        "docs/roadmap/interfaces/user-rbac-and-identity.md",
+        "docs/roadmap/deployment/subscription-genesis-provisioning.md",
+        "docs/roadmap/deployment/subscription-genesis-assurance.md",
+        "docs/roadmap/deployment/installable-deployment-cli.md"
+      ],
+      "docs_update": [
+        "docs/roadmap/interfaces/user-rbac-and-identity.md",
+        "docs/roadmap/deployment/subscription-genesis-provisioning.md",
+        "docs/roadmap/deployment/installable-deployment-cli.md"
+      ],
+      "validate": [
+        "uv run --project packages/deployment-cli python -m pytest -c packages/deployment-cli/pyproject.toml -q packages/deployment-cli/tests/test_entra_source.py packages/deployment-cli/tests/test_entra_bootstrap.py packages/deployment-cli/tests/test_cli_help_hardening.py packages/deployment-cli/tests/test_source_input.py",
+        "uv run pytest -q --no-cov tests/integration/scripts/test_genesis_entra.py tests/integration/scripts/test_genesis_entra_operation.py tests/integration/scripts/test_genesis_identity_profile.py",
+        "uv run mypy --strict packages/deployment-cli/src/fdai_deployment_cli/identity_profile.py packages/deployment-cli/src/fdai_deployment_cli/entra_source.py packages/deployment-cli/src/fdai_deployment_cli/cli.py packages/deployment-cli/src/fdai_deployment_cli/cli_parser.py"
+      ]
+    },
+    {
+      "id": "operational-catalog-review",
+      "paths": [
+        "services/core-control-plane/src/fdai/agents/_framework/provider_adapters.py",
+        "services/core-control-plane/src/fdai/core/operational_learning/review.py",
+        "services/core-control-plane/src/fdai/runtime/catalog_review_github.py",
+        "services/core-control-plane/src/fdai/runtime/operational_catalog_review*.py",
+        "services/core-control-plane/src/fdai/delivery/gitops_pr/adapter.py",
+        "services/core-control-plane/src/fdai/delivery/gitops_pr/catalog_review.py",
+        "services/core-control-plane/src/fdai/shared/providers/remediation_pr.py",
+        "services/core-control-plane/tests/agents/test_provider_integration.py",
+        "services/core-control-plane/tests/runtime/test_operational_catalog_review*.py",
+        "services/core-control-plane/tests/delivery/test_gitops_catalog_review.py",
+        "services/core-control-plane/tests/delivery/gitops_pr/test_adapter.py"
+      ],
+      "must_read": [
+        ".github/instructions/architecture.instructions.md",
+        ".github/instructions/agent-pantheon.instructions.md",
+        ".github/instructions/app-shape.instructions.md",
+        ".github/instructions/coding-conventions.instructions.md",
+        ".github/instructions/generic-scope.instructions.md",
+        "docs/roadmap/rules-and-detection/operational-learning-ontology.md",
+        "docs/roadmap/rules-and-detection/rule-governance.md",
+        "docs/roadmap/agents/agent-pantheon.md",
+        "docs/roadmap/architecture/project-structure-dependency-injection.md",
+        "docs/roadmap/deployment/runtime-deployment-profiles.md"
+      ],
+      "docs_update": [
+        "docs/roadmap/rules-and-detection/operational-learning-ontology.md",
+        "docs/roadmap/rules-and-detection/rule-governance.md",
+        "docs/roadmap/agents/agent-pantheon.md",
+        "docs/roadmap/architecture/project-structure-dependency-injection.md",
+        "docs/roadmap/deployment/runtime-deployment-profiles.md"
+      ],
+      "validate": [
+        "uv run pytest -q --no-cov services/core-control-plane/tests/agents/test_provider_integration.py -k audit_chain",
+        "uv run pytest -q --no-cov services/core-control-plane/tests/delivery/test_gitops_catalog_review.py services/core-control-plane/tests/delivery/gitops_pr/test_adapter.py services/core-control-plane/tests/runtime/test_operational_catalog_review.py services/core-control-plane/tests/runtime/test_operational_catalog_review_trigger.py",
+        "uv run ruff check services/core-control-plane/src/fdai/runtime/catalog_review_github.py services/core-control-plane/src/fdai/runtime/operational_catalog_review.py services/core-control-plane/src/fdai/runtime/operational_catalog_review_frozen.py services/core-control-plane/src/fdai/runtime/operational_catalog_review_trigger.py services/core-control-plane/src/fdai/runtime/operational_catalog_review_pantheon.py services/core-control-plane/src/fdai/runtime/operational_catalog_review_audit.py services/core-control-plane/src/fdai/delivery/gitops_pr/adapter.py services/core-control-plane/src/fdai/delivery/gitops_pr/catalog_review.py",
+        "python3 scripts/quality/architecture/check-design-routes.py"
       ]
     },
     {

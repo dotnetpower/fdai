@@ -328,3 +328,54 @@ run "reject_runtime_as_external_scale_namespace" {
   }
   expect_failures = [var.executor_external_scale_targets]
 }
+
+run "catalog_review_is_a_suspended_shadow_template" {
+  command = plan
+
+  variables {
+    tags = {
+      "fdai.io/source-commit" = "0000000000000000000000000000000000000000"
+    }
+    scheduled_jobs = {
+      catalog-review = {
+        component            = "catalog-review"
+        image                = "example.com/fdai/core@sha256:0000000000000000000000000000000000000000000000000000000000000000"
+        identity_resource_id = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/example/providers/Microsoft.ManagedIdentity/userAssignedIdentities/example"
+        identity_client_id   = "00000000-0000-0000-0000-000000000000"
+        command              = ["python", "-m", "fdai.runtime.operational_catalog_review_trigger"]
+        schedule             = "0 0 1 1 *"
+        suspend              = true
+        deadline_seconds     = 300
+        retry_limit          = 0
+        cpu                  = "500m"
+        memory               = "1Gi"
+        environment = {
+          FDAI_CATALOG_REVIEW_ENABLED = "1"
+        }
+        secret_environment = {
+          FDAI_GITHUB_APP_PRIVATE_KEY = "fdai-github-app-private-key"
+          FDAI_STATE_STORE_DSN        = "fdai-state-store-dsn"
+        }
+      }
+    }
+  }
+
+  assert {
+    condition = (
+      kubernetes_cron_job_v1.job["catalog-review"].spec[0].suspend &&
+      kubernetes_cron_job_v1.job["catalog-review"].spec[0].job_template[0].spec[0].active_deadline_seconds == 300 &&
+      kubernetes_cron_job_v1.job["catalog-review"].spec[0].job_template[0].spec[0].template[0].spec[0].service_account_name == "catalog-review-job" &&
+      kubernetes_cron_job_v1.job["catalog-review"].spec[0].job_template[0].spec[0].template[0].spec[0].container[0].command == tolist(["python", "-m", "fdai.runtime.operational_catalog_review_trigger"]) &&
+      anytrue([
+        for item in kubernetes_cron_job_v1.job["catalog-review"].spec[0].job_template[0].spec[0].template[0].spec[0].container[0].env :
+        try(
+          item.name == "FDAI_GITHUB_APP_PRIVATE_KEY" &&
+          item.value_from[0].secret_key_ref[0].name == "catalog-review-job" &&
+          item.value_from[0].secret_key_ref[0].key == "FDAI_GITHUB_APP_PRIVATE_KEY",
+          false,
+        )
+      ])
+    )
+    error_message = "Catalog review must remain a suspended one-shot template with a secret reference and no scheduled execution."
+  }
+}

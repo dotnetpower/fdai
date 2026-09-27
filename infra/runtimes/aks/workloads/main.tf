@@ -809,6 +809,7 @@ resource "kubernetes_cron_job_v1" "job" {
   spec {
     concurrency_policy            = "Forbid"
     schedule                      = each.value.schedule
+    suspend                       = each.value.suspend
     successful_jobs_history_limit = 3
     failed_jobs_history_limit     = 3
 

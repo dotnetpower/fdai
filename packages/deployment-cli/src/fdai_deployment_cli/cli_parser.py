@@ -213,6 +213,15 @@ def build_parser(handlers: Mapping[str, CommandHandler]) -> argparse.ArgumentPar
             "(default: %(default)s); repeat unchanged on approval resume"
         ),
     )
+    settings.add_argument(
+        "--catalog-review-profile",
+        type=Path,
+        metavar="PATH",
+        help=(
+            "Private reviewed GitHub App profile; omit for an explicit skipped "
+            "catalog-review checkpoint"
+        ),
+    )
     initial = azure.add_argument_group("Initial source installation scope")
     initial.add_argument(
         "--setup-cost-ceiling",
@@ -304,6 +313,53 @@ def build_parser(handlers: Mapping[str, CommandHandler]) -> argparse.ArgumentPar
         help="Resolved model manifest paired with the recovered state",
     )
     azure.set_defaults(handler=handlers["provision_azure"])
+
+    entra = command(
+        provision_commands,
+        "entra",
+        "Observe or apply only the tenant-local FDAI Entra configuration",
+        epilog=(
+            "Without --apply this command is read-only. Apply requires a current interactive "
+            "exact-plan approval and never runs Foundation or application deployment."
+        ),
+    )
+    entra.add_argument(
+        "--source",
+        type=Path,
+        required=True,
+        help="Clean source checkout containing the identity-only coordinator",
+    )
+    entra.add_argument(
+        "--work-dir",
+        type=Path,
+        required=True,
+        help="Absolute private directory for approval, claim, and receipt records",
+    )
+    entra.add_argument(
+        "--target-profile",
+        type=Path,
+        required=True,
+        help="Current-UID mode-0600 target and approved-executor profile",
+    )
+    entra.add_argument(
+        "--control-profile",
+        type=Path,
+        required=True,
+        help="Current-UID mode-0600 reviewed identity-control profile",
+    )
+    entra.add_argument(
+        "--apply",
+        action="store_true",
+        help="Apply the exact Entra app/group plan after current interactive approval",
+    )
+    entra.add_argument(
+        "--timeout-seconds",
+        type=int,
+        default=600,
+        help="Total operation deadline from 30 through 1800 seconds (default: %(default)s)",
+    )
+    entra.add_argument("--output", choices=("text", "json"), default="text")
+    entra.set_defaults(handler=handlers["provision_entra"])
 
     source_update = command(
         provision_commands,
