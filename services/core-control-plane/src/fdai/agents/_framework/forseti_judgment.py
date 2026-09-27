@@ -184,6 +184,8 @@ class ForsetiJudgmentMixin:
                 "quorum_required": 1,
                 "initiator_principal": event.get("initiator_principal"),
             }
+            if isinstance(event.get("action_id"), str) and event["action_id"]:
+                verdict["action_id"] = event["action_id"]
             copy_change_assessment(event, verdict)
             if self.bus is not None:
                 await self.bus.publish("Forseti", "object.verdict", verdict)
@@ -293,6 +295,8 @@ class ForsetiJudgmentMixin:
             "rollback_contract": rollback_contract_for(action_type, self._action_semantics),
             "initiator_principal": event.get("initiator_principal"),
         }
+        if isinstance(event.get("action_id"), str) and event["action_id"]:
+            verdict["action_id"] = event["action_id"]
         workflow_action = event.get("workflow_action")
         if (
             event.get("event_type") in self._anomaly_action_sources
@@ -306,6 +310,7 @@ class ForsetiJudgmentMixin:
         await self._attach_test_context(event, verdict)
         if event.get("event_type") in self._anomaly_action_sources:
             await self._prepare_anomaly_action(event, verdict)
+        self.attach_development_authority(event, verdict)
         self.record_behavior(f"verdict:{verdict['risk_verdict']}")
         if rbac_denied:
             self.record_behavior("rbac_denied")
@@ -334,6 +339,13 @@ class ForsetiJudgmentMixin:
             verdict["resolved_autonomy_ceiling"] = Autonomy.SHADOW_ONLY.value
             verdict["reason"] = "anomaly_action_preparation_failed"
             self.record_behavior("anomaly_action:preparation_held")
+
+    def attach_development_authority(
+        self,
+        event: Mapping[str, Any],
+        verdict: dict[str, Any],
+    ) -> None:
+        raise NotImplementedError
 
     async def _resolve_anomaly_action(self, event: dict[str, Any]) -> tuple[dict[str, Any], bool]:
         """Replace action-like anomaly input only with a current server-resolved candidate."""

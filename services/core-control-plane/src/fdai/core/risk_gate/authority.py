@@ -17,9 +17,12 @@ reproduces the decision exactly.
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from typing import Any
 
+from fdai.core.measurement.operational_promotion import action_type_digest
 from fdai.core.risk_gate.ceiling import (
     AxisLevel,
     Env,
@@ -37,7 +40,23 @@ from fdai.core.risk_gate.risk_table import (
     RiskTable,
     RiskTableVerdict,
 )
-from fdai.shared.contracts.models import OntologyActionType, Tier
+from fdai.shared.contracts.development_authority import (
+    DevelopmentAuthorityDecision,
+    development_authority_audit,
+    evaluate_development_authority,
+)
+from fdai.shared.contracts.models import (
+    ActionInterface,
+    DevelopmentActionConfirmation,
+    FullAuthorityDevelopmentProfile,
+    OntologyActionType,
+    Tier,
+)
+from fdai.shared.providers.development_authority import (
+    DevelopmentAuthorityBindingRequest,
+    DevelopmentAuthorityBindingSource,
+    resolve_development_binding,
+)
 
 # AxisLevel -> the terminal decision word used on the audit entry and by
 # the control loop. SHADOW_ONLY surfaces as "shadow" (judge and log).
@@ -93,11 +112,14 @@ class ExecutionAuthorityDecision:
 
     final_level: AxisLevel
     quorum: int
+    original_level: AxisLevel
+    original_quorum: int
     resolved_ceiling: ResolvedCeiling
     table_verdict: RiskTableVerdict
     feature_vector: FeatureVector
     catalog_version: str
     ceiling_inputs: CeilingInputs
+    development_authority: DevelopmentAuthorityDecision | None = None
 
     @property
     def decision(self) -> str:
@@ -130,11 +152,19 @@ class ExecutionAuthorityDecision:
         return {
             "decision": self.decision,
             "quorum": self.quorum,
+            "original_decision": _LEVEL_TO_DECISION[self.original_level],
+            "original_quorum": self.original_quorum,
+            "effective_quorum": self.quorum,
             "matched_rule_id": self.table_verdict.rule_id,
             "catalog_version": self.catalog_version,
             "feature_vector": self.feature_vector.as_lookup(),
             "ceiling_inputs": self.ceiling_inputs.as_audit_dict(),
             "resolved_ceiling": self.resolved_ceiling.as_audit_dict(),
+            **(
+                {"development_authority": development_authority_audit(self.development_authority)}
+                if self.development_authority is not None
+                else {}
+            ),
         }
 
 
@@ -161,6 +191,11 @@ def evaluate_execution_authority(
     live_probe_failure_streak: int = 0,
     system_degraded: bool = False,
     kill_switch_engaged: bool = False,
+    development_profile: FullAuthorityDevelopmentProfile | Mapping[str, Any] | None = None,
+    development_confirmation: DevelopmentActionConfirmation | Mapping[str, Any] | None = None,
+    development_binding_source: DevelopmentAuthorityBindingSource | None = None,
+    development_binding_request: DevelopmentAuthorityBindingRequest | None = None,
+    evaluated_at: datetime | None = None,
 ) -> ExecutionAuthorityDecision:
     """Run the full pipeline and return one combined decision.
 
@@ -214,9 +249,79 @@ def evaluate_execution_authority(
         system_degraded=system_degraded,
         kill_switch_engaged=kill_switch_engaged,
     )
+    final_level = ceiling.final_level
+    effective_quorum = ceiling.final_quorum
+    development_decision: DevelopmentAuthorityDecision | None = None
+    if development_profile is not None:
+        now = evaluated_at or datetime.now(tz=UTC)
+        try:
+            verification = (
+                resolve_development_binding(
+                    development_binding_source,
+                    development_binding_request,
+                    now=now,
+                )
+                if development_binding_request is not None
+                else None
+            )
+        except ValueError:
+            verification = None
+        if verification is None:
+            development_decision = DevelopmentAuthorityDecision(
+                False,
+                "binding_source_rejected",
+            )
+        elif (
+            verification.binding.action_type != action_type.name
+            or verification.binding.action_type_version != action_type.version
+            or verification.binding.action_type_digest
+            != "sha256:" + action_type_digest(action_type)
+        ):
+            development_decision = DevelopmentAuthorityDecision(
+                False,
+                "current_action_type_mismatch",
+            )
+        else:
+            development_decision = evaluate_development_authority(
+                development_profile,
+                development_confirmation,
+                verification,
+                now=now,
+                original_quorum=ceiling.final_quorum,
+            )
+        unsafe_evidence = (
+            policy_violation
+            or _graph_evidence_missing(
+                action_type,
+                graph_stale=graph_stale,
+                graph_affected=graph_affected,
+            )
+            or system_degraded
+            or kill_switch_engaged
+            or _live_probe_evidence_stale(
+                action_type,
+                live_probe_observation,
+                live_probe_failure_streak,
+            )
+        )
+        if not development_decision.eligible or unsafe_evidence:
+            final_level = AxisLevel.DENY
+            if unsafe_evidence:
+                development_decision = DevelopmentAuthorityDecision(
+                    eligible=False,
+                    reason_code="safety_or_evidence_prerequisite_failed",
+                )
+        elif ceiling.final_level in {
+            AxisLevel.ENFORCE_AUTO,
+            AxisLevel.ENFORCE_HIL,
+        } or _category_only_deny(ceiling, verdict):
+            final_level = AxisLevel.ENFORCE_HIL
+            effective_quorum = 1
     return ExecutionAuthorityDecision(
-        final_level=ceiling.final_level,
-        quorum=ceiling.final_quorum,
+        final_level=final_level,
+        quorum=effective_quorum,
+        original_level=ceiling.final_level,
+        original_quorum=ceiling.final_quorum,
         resolved_ceiling=ceiling,
         table_verdict=verdict,
         feature_vector=feature,
@@ -229,7 +334,61 @@ def evaluate_execution_authority(
             system_degraded=system_degraded,
             kill_switch_engaged=kill_switch_engaged,
         ),
+        development_authority=development_decision,
     )
+
+
+def _category_only_deny(
+    ceiling: ResolvedCeiling,
+    verdict: RiskTableVerdict,
+) -> bool:
+    """Return whether subscription impact category is the only deny source."""
+
+    if verdict.rule_id != "deny-subscription-blast":
+        return False
+    denying_axes = {axis.name for axis in ceiling.axes if axis.level is AxisLevel.DENY}
+    category_axes = {"risk_table", "static_blast"}
+    return (
+        bool(denying_axes)
+        and denying_axes <= category_axes
+        and all(
+            axis.name in category_axes or axis.level >= AxisLevel.ENFORCE_HIL
+            for axis in ceiling.axes
+        )
+    )
+
+
+def _live_probe_evidence_stale(
+    action_type: OntologyActionType,
+    observation: LiveProbeObservation | None,
+    failure_streak: int,
+) -> bool:
+    """Keep unavailable, stale, substituted, or degraded required evidence closed."""
+
+    ref = action_type.live_probe_ref
+    if ref is None:
+        return False
+    return (
+        failure_streak > 0
+        or observation is None
+        or observation.probe_id != ref
+        or observation.degraded
+        or not observation.is_fresh
+    )
+
+
+def _graph_evidence_missing(
+    action_type: OntologyActionType,
+    *,
+    graph_stale: bool | None,
+    graph_affected: int | None,
+) -> bool:
+    requires_fresh = ActionInterface.REQUIRES_INVENTORY_FRESH in action_type.interfaces
+    graph_derived = (
+        action_type.blast_radius is not None
+        and action_type.blast_radius.computation.value == "graph_derived"
+    )
+    return requires_fresh and graph_stale is not False or graph_derived and graph_affected is None
 
 
 __all__ = ["CeilingInputs", "ExecutionAuthorityDecision", "evaluate_execution_authority"]

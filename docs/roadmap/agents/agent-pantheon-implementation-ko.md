@@ -1,8 +1,8 @@
 ---
 title: 에이전트 판테온 구현 계획
 translation_of: agent-pantheon-implementation.md
-translation_source_sha: 6910c943ebb75bf4f627c1fb34afb35ba5d642d6
-translation_revised: 2026-09-22
+translation_source_sha: 82e957c04574d98b80b0d159f36e7da912e198ef
+translation_revised: 2026-09-27
 ---
 
 # 에이전트 판테온 구현 계획
@@ -28,6 +28,7 @@ translation_revised: 2026-09-22
 | 소유 topic producer 완전성 | implemented | [`test_registry.py`](../../../services/core-control-plane/tests/agents/test_registry.py) | AST 기반 registry 검증은 모든 `AgentSpec.publishes` topic이 구체적인 publish call에 도달하도록 요구하고, 선언되지 않은 topic의 producer 근거를 거부합니다. 임의의 문자열 언급을 producer로 취급하지 않고 literal call, import된 topic 상수 및 정확한 dynamic-topic 비교를 인식합니다. |
 | W2-W6 거버넌스, 파이프라인, 인터페이스, 전문 에이전트, 인계 및 보안 메커니즘 | implemented | [`test_runtime_chain.py`](../../../services/core-control-plane/tests/agents/test_runtime_chain.py), [`test_thor_durable.py`](../../../services/core-control-plane/tests/agents/test_thor_durable.py), [`test_conversational_port.py`](../../../services/core-control-plane/tests/agents/test_conversational_port.py), [`test_prompt_deliberation.py`](../../../services/core-control-plane/tests/agents/test_prompt_deliberation.py) | 선택적 T2 종합 전의 T1 답변 평가를 포함한 범위가 제한된 메커니즘을 집중 합성 검사로 실행하지만 실제 운영 검증을 입증하지는 않습니다. |
 | 영속 권한, 복구, 인계 및 학습 재생 | implemented | [`test_runtime.py`](../../../services/core-control-plane/tests/agents/test_runtime.py), [`test_wave2_governance.py`](../../../services/core-control-plane/tests/agents/test_wave2_governance.py), [`test_wave3_pipeline.py`](../../../services/core-control-plane/tests/agents/test_wave3_pipeline.py), [`test_bootstrap_config.py`](../../../services/core-control-plane/tests/runtime/test_bootstrap_config.py) | StateStore 기반 CAS, 점유 유효 기간, 검사 지점, 보낼 편지함 및 시작 복구 경로에는 재시작과 동시성 집중 검사 근거가 있습니다. 범위가 제한된 Low 심각도 복제본 간 및 작업 신원 잔여 문제 두 건은 아래에 열어 둡니다. |
+| 전권 개발 승인 및 복구 | in-progress | `agents/{forseti,thor,var,vidar}.py`; `agents/_framework/*development_authority*.py`; [`test_development_authority.py`](../../../services/core-control-plane/tests/agents/test_development_authority.py) | 명시적 조립은 신뢰 원본으로 검증한 확인 한 건을 Forseti에서 Var와 Thor로 전달하고 Vidar 및 재시작 시 다시 검증하며 신원을 만들어 내지 않습니다. 역할, 토픽 및 `PANTHEON_SPECS`는 바뀌지 않습니다. 업스트림 권위 결속 원본은 구현되거나 배포되지 않았습니다. |
 | 영속 Huginn 유입 중복 제거 | implemented | `agents/{huginn.py,_framework/huginn_dedup.py}` 및 집중 discovery/runtime 검사 | 프로덕션 조립은 유입 consumer를 시작하기 전에 최대 64개의 정확한 용량 shard에 제한된 key claim, 정확한 정규화 재시도 payload, owner lease 및 게시 checkpoint를 영속화합니다. 일반 claim은 권한 없는 개정 번호 CAS를 사용해 각 이벤트를 감사에 중복 기록하지 않으며, 복구와 이행은 계속 감사합니다. 시작 시 기존 단일 행 원장을 멱등적으로 이행하고 압축합니다. Broker 수락 후 checkpoint 전 crash는 event bus의 at-least-once 계약에 따라 동일한 stable idempotency key를 다시 전달할 수 있습니다. |
 | Loki ResilienceScore 생산 | implemented | `agents/{loki.py,_framework/loki_resilience.py}`; 집중 Wave 5 및 cross-vertical 후보 검사 | Loki는 Huginn이 소유하는 정규화 score Event를 consumer의 정확한 후보 계약으로 검증하고 `object.resilience-score`를 게시하며, 범위가 제한된 읽기 전용 score 변환 결과만 유지합니다. 후보는 판단, 승인 또는 실행 권한을 부여하지 않습니다. |
 | Bragi 세션 객체 생산 | implemented | `agents/{bragi.py,_framework/bragi_publication.py}`; 집중 Bragi, 대화, Norns, runtime 및 governance 검사 | 첫 in-process 세션은 content-free `Conversation` 하나를 게시합니다. 명시적 메서드는 검증된 `UserPreferenceRecord`와 동의가 확인된 `PostTurnReviewInput` 값만 받아 소유 topic에 게시하며 판단, 승인 또는 실행 경로를 노출하지 않습니다. 배포가 소유하는 store 및 queue binding은 별도입니다. |
@@ -43,6 +44,7 @@ translation_revised: 2026-09-22
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-27 | in-progress | 고정 역할 및 토픽 경계를 유지하면서 신뢰 원본으로 검증한 전권 개발 묶음을 실제 Forseti, Var, Thor 및 Vidar 타입 경로에 통합했습니다. 원래 정족수와 유효 정족수를 구분하고 선택한 프로필에만 정확한 권한 부여를 재생 신원에 포함합니다. | `current change`; 집중 권한, 버스, 재생 및 인접 검사 723개, 구조 검사, Ruff 및 엄격한 타입 검사 통과. | 권위 있는 배포 원본을 구현하고 결속한 뒤 관리되는 런타임 증적을 보존해야 합니다. 실제 운영 검증은 수행하지 않았습니다. |
 | 2026-09-22 | validated | 로컬 Core 시작 및 종료의 리소스 소유권을 수정했습니다. 이제 런타임 설정은 런타임이 소유하는 단일 StateStore pool을 재사용하고, Pantheon consumer 종료는 첫 drain 기한 뒤 범위가 제한된 마무리 시간을 부여하며, 로컬 broker를 파괴적으로 초기화할 때 모든 관리형 서비스 lock을 유지하므로 연결이 끊긴 실행 중 consumer를 유휴 상태로 오인할 수 없습니다. 에이전트 역할, topic, 모델 정책, 승격 상태 및 권한은 바뀌지 않았습니다. | `현재 변경`; 공유 store, 순서가 지정된 종료, 지연된 stream 닫기, consumer 재시도, broker reset fence, framework layout, Ruff 및 strict typing 집중 검사. 관리형 재시작은 12/12 준비 상태에 도달했고 각 서비스는 lock이 소유하는 프로세스 쌍 하나만 유지했으며 새 세대 marker 뒤에 수정 대상 오류가 나타나지 않았습니다. | 이 범위가 제한된 수명주기 수정에는 남은 작업이 없습니다. 배포된 런타임 검증과 승격 근거는 별개입니다. |
 | 2026-09-21 | implemented | 닫힌 온톨로지 ContextIndex 메시지 묶음과 소유자별 런타임 구독 래퍼를 추가했습니다. Heimdall과 Saga의 ContextIndex 구독 및 타입이 지정된 Huginn 유입을 연결하고 실제 버스 검사에서 드러난 도메인 스키마와 전송 버전 구분을 수정했습니다. | `current change`; 집중 ContextIndex 라우팅, 프레임워크 구조, 인접 Rule 생성 경로, 정확한 감사 후 봉인 검사. | 실제 원본 및 벡터 검증, 감사된 포인터 허용, 최종 결과 재생, 런타임 소비자를 연결합니다. 고정 에이전트 역할, 주요 경로의 모델 정책, 패키지 활성화, 실행 권한은 바뀌지 않았습니다. |
 | 2026-09-21 | implemented | Forseti의 소유자 인증 cross-vertical 유입, Odin 중재, 결정 사례 마무리, HIL 대체 경로, kinetic proposal 검증 및 prospective-lineage 게시를 하나의 목적별 비공개 framework mixin으로 분리했습니다. Forseti는 Judge이자 자신이 소유한 네 객체 topic의 유일한 게시자로 유지되며 승인 또는 실행 권한을 얻지 않습니다. | `현재 변경`, `agents/{forseti.py,_framework/forseti_arbitration.py}`, 12개 관점 비평, 역할·중재·정족수 집중 테스트 145개와 layout, 동등성, import, Ruff 및 strict mypy 게이트 통과. | timeout HIL 종결, Odin 사용 불가, 중복 전달 및 prospective-lineage 구체화에 대한 통제된 runtime 근거를 보존합니다. |

@@ -24,8 +24,9 @@ from fdai.shared.contracts.models import OntologyActionType
 
 #: Distinct-approver quorum an irreversible action MUST clear before it
 #: executes (agent-pantheon.md rule 4.6: irreversible -> HIL with
-#: ``quorum_required >= 2``, no self-approval). Var honors this; Forseti
-#: sets it on the verdict and Thor propagates it onto the ActionRun.
+#: ``quorum_required >= 2``, no self-approval). Forseti records this original
+#: requirement even when an exact development profile makes the effective
+#: quorum one; Thor and Var audit both values.
 IRREVERSIBLE_QUORUM: Final[int] = 2
 
 #: Quorum for an ordinary (reversible) HIL action - a single approver.
@@ -75,8 +76,9 @@ def quorum_for(
 
     :data:`IRREVERSIBLE_QUORUM` for a one-way mutation, else
     :data:`DEFAULT_QUORUM`. This is the single place the two-approver rule
-    for irreversible actions is derived, so Forseti (which stamps it on the
-    verdict) and any other caller stay in lockstep.
+    for irreversible actions is derived, so Forseti stamps the original
+    requirement consistently. A validated development profile can lower only
+    the effective quorum recorded alongside it.
     """
     return IRREVERSIBLE_QUORUM if is_irreversible(action_type_id, catalog) else DEFAULT_QUORUM
 

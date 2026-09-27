@@ -1,16 +1,10 @@
-"""Module-level helpers extracted from control_loop.py (G-2, tracker #14).
-
-These are the small pure-function utilities that ``ControlLoop`` uses:
-resource-property extraction, environment classification, unified-risk
-authority computation, and audit-record shaping. Kept out of the class
-so they stay independently testable and so the orchestrator file
-shrinks to its class-only shape.
-"""
+"""Pure control-loop helpers for environment, authority, and audit shaping."""
 
 from __future__ import annotations
 
 import logging
 from collections.abc import Mapping, Sequence
+from datetime import datetime
 from typing import Any
 
 from fdai.core.executor import ExecutionResult, ExecutorOutcome
@@ -34,6 +28,8 @@ from fdai.shared.contracts.models import (
     Rule,
     Tier,
 )
+
+from . import development_authority as _development_authority
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -74,23 +70,17 @@ def _compute_authority(
     kill_switch_engaged: bool = False,
     inventory_age_seconds: int | None = None,
     live_probe_observation: LiveProbeObservation | None = None,
+    development_profile: _development_authority.FullAuthorityDevelopmentProfile | None = None,
+    development_confirmation: _development_authority.DevelopmentActionConfirmation | None = None,
+    development_binding_source: (
+        _development_authority.DevelopmentAuthorityBindingSource | None
+    ) = None,
+    development_binding_request: (
+        _development_authority.DevelopmentAuthorityBindingRequest | None
+    ) = None,
+    development_evaluated_at: datetime | None = None,
 ) -> ExecutionAuthorityDecision:
-    """Run the execution-authority pipeline for one action + event context.
-
-    Rule-fired actions run under the executor's Managed Identity, whose
-    role is fixed at composition time (execution-model.md 2.5). Until
-    the composition root plumbs a principal_role through the loop, the
-    default is OWNER-equivalent - the MI holds the executor allowlist,
-    which is the safety envelope; ActionType ceilings apply within it.
-    A future PR passes the composition-time role through and drops
-    this default.
-
-    ``cost_override`` is used ahead of ``rule.remediation.cost_impact_monthly_usd``
-    when supplied - this is the hook the Cost Governance
-    :class:`~fdai.shared.providers.cost_estimator.CostEstimator`
-    plumbs a dynamic estimate through (Wave W2.5). ``None`` means "no
-    override", not "known-zero".
-    """
+    """Run authority under the executor role and optional dynamic cost input."""
     environment = _extract_environment(_extract_resource_props(event.payload))
     cost = cost_override if cost_override is not None else rule.remediation.cost_impact_monthly_usd
     return evaluate_execution_authority(
@@ -103,6 +93,11 @@ def _compute_authority(
         system_degraded=system_degraded,
         kill_switch_engaged=kill_switch_engaged,
         live_probe_observation=live_probe_observation,
+        development_profile=development_profile,
+        development_confirmation=development_confirmation,
+        development_binding_source=development_binding_source,
+        development_binding_request=development_binding_request,
+        evaluated_at=development_evaluated_at,
     )
 
 
@@ -173,6 +168,15 @@ def evaluate_unified(
     automation_hold_engaged: bool = False,
     automation_hold_recovery: bool = False,
     live_probe_observation: LiveProbeObservation | None = None,
+    development_profile: _development_authority.FullAuthorityDevelopmentProfile | None = None,
+    development_confirmation: _development_authority.DevelopmentActionConfirmation | None = None,
+    development_binding_source: (
+        _development_authority.DevelopmentAuthorityBindingSource | None
+    ) = None,
+    development_binding_request: (
+        _development_authority.DevelopmentAuthorityBindingRequest | None
+    ) = None,
+    development_evaluated_at: datetime | None = None,
 ) -> UnifiedRiskDecision:
     """Run the runtime-Action gate and the policy-ceiling authority and
     combine them into a single :class:`UnifiedRiskDecision` (canonical-level
@@ -184,15 +188,6 @@ def evaluate_unified(
     reads the static ``rule.remediation.cost_impact_monthly_usd`` as
     before.
     """
-    gate_decision = risk_gate.evaluate(
-        action=action,
-        rule=rule,
-        action_type=action_type,
-        inventory_age_seconds=inventory_age_seconds,
-        precondition_evaluations=precondition_evaluations,
-        automation_hold_engaged=automation_hold_engaged,
-        automation_hold_recovery=automation_hold_recovery,
-    )
     authority = _compute_authority(
         event=event,
         rule=rule,
@@ -203,6 +198,23 @@ def evaluate_unified(
         system_degraded=system_degraded,
         kill_switch_engaged=kill_switch_engaged,
         live_probe_observation=live_probe_observation,
+        development_profile=development_profile,
+        development_confirmation=development_confirmation,
+        development_binding_source=development_binding_source,
+        development_binding_request=development_binding_request,
+        development_evaluated_at=development_evaluated_at,
+    )
+    gate_decision = _development_authority.evaluate_gate(
+        risk_gate=risk_gate,
+        action=action,
+        rule=rule,
+        action_type=action_type,
+        authority=authority,
+        confirmation=development_confirmation,
+        inventory_age_seconds=inventory_age_seconds,
+        precondition_evaluations=precondition_evaluations,
+        automation_hold_engaged=automation_hold_engaged,
+        automation_hold_recovery=automation_hold_recovery,
     )
     return combine(gate_decision, authority)
 

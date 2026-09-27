@@ -544,7 +544,7 @@ Every ActionType, including irreversible actions, declares a live `rollback_cont
 | `remediate.rotate-secret` | `snapshot_restore` | false |
 | `tool.run-chaos-experiment` | `scripted` | false |
 
-An `irreversible: true` action requires HIL, at least two distinct approvers, and no self-approval. Forseti attaches `quorum_required: 2`; Var enforces it.
+An `irreversible: true` action normally requires HIL, at least two distinct approvers, and no self-approval. Forseti attaches `quorum_required: 2`; Var enforces it. The only exception is an explicitly injected full-authority development profile with one currently authenticated Owner and exact action safeguards. Var records original and effective quorum without inventing another person; Thor and Vidar revalidate the same profile, confirmation, action identity, distinct executor, expiry, durable audit, lock, idempotency, and observer before execution or rollback. Roles and topics stay fixed, and profile-scoped promotion never establishes production readiness.
 
 ### 7.6 Handoff as typed delivery
 
@@ -585,7 +585,7 @@ LLM invocation is a capability, not a default: all agents can use their bindings
 | Huginn | no | no | yes (localized, digest-verified and cited ingress state plus deterministic no-LLM boundaries) |
 | Heimdall | no | no | yes (localized, digest-verified and cited observer state plus deterministic no-LLM boundaries) |
 | Vidar | no | no | yes (localized, digest-verified and cited recovery state plus hard-dependency fail-closed boundaries) |
-| Var | no | no | yes (localized, digest-verified and cited HIL state plus current-human and no-self-approval boundaries) |
+| Var | no | no | yes (localized, digest-verified and cited HIL state plus current-human, default no-self-approval, exact development-profile, and public contract-model boundaries) |
 | Bragi | yes (translator and diagnostic presenter only) | no | yes (localized, digest-verified and cited translator-only routing state) |
 | Saga | no | no | yes (localized, digest-verified and cited audit state plus append-only hard-dependency boundaries) |
 | Mimir | no | no | yes (localized, digest-verified and cited rule state plus quality/shadow/reviewed-PR boundaries) |

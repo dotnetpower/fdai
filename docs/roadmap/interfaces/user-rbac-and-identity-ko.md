@@ -1,7 +1,7 @@
 ---
 title: 사용자 RBAC와 Entra 아이덴티티
 translation_of: user-rbac-and-identity.md
-translation_source_sha: 2650d17fd93d95c9824bbf061a97aeee01a2ee2f
+translation_source_sha: fcfb3717adf537f66b08ddf64713f4c847f60947
 translation_revised: 2026-09-27
 ---
 
@@ -347,9 +347,9 @@ Entra OID를 no-self-approval과 감사 상관관계 검사까지 전달합니�
   안정적인 `decided_at`이며 정확한 재시도는 첫 준비/완료 감사 시각을 보존합니다. Operator는
   게시 전에 결정 보낼 편지함을 영속화하고 브로커가 수락한 뒤에만 전달 완료로 표시합니다.
   게시 실패는 재시도 가능한 `503`을 반환합니다.
-- 자기 승인 차단은 서버가 인증한 Entra OID와 pending 항목의 제출자 OID를 비교합니다.
-  일반 인증은 기존 BreakGlass 동작을 유지하지만 사람 승인 기능 검사에서는 BreakGlass를
-  제외합니다.
+- 자기 승인 차단은 서버가 인증한 Entra OID와 pending 항목의 제출자 OID를 비교하며, 사람 승인 기능 검사에서는 BreakGlass를 제외합니다. full-authority 개발 프로필만 동일한 사람을 요청자와 승인자로 허용합니다. 선택된 폐기 가능한 개발 프로필, 최신의 정확한 작업 확인, 서버가 도출한 현재 바인딩이 모두 일치할 때만 인증된 Owner 한 명을 두 역할로 집계할 수 있습니다.
+  감사에는 원래 역할, 정족수, 자기 승인 차단 규칙을 보존하고 가상의 신원을 만들지 않은 채 유효 개발 정족수 1을 기록합니다. 타입이 지정된 권한 레코드는 공개 계약 모델 facade를 사용하며 다이제스트 도우미는 권한을 추가하지 않습니다.
+  프로필, 바인딩 소스, 현재 Owner 검사 또는 구분된 실행기 중 하나라도 없으면 기존 자기 승인 차단 규칙을 유지합니다.
 
 ## 8. 감사 상관관계
 

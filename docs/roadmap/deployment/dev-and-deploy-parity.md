@@ -548,6 +548,11 @@ Each work item MUST be provable at CI time:
   Azure adapters selected by its authoritative profile.
 - Identical input, App Roles, promotion state, and risk configuration produce the same local and
   deployed verdict and Process transition.
+- A full-authority development profile is selected independently from the local/deployed venue.
+  Both venues require the same immutable profile, current authoritative binding source, Owner
+  check, distinct executor, and exact-action confirmation. An unbound local helper never substitutes
+  synthetic scope or safeguard receipts, and an unbound deployment remains on the ordinary
+  multi-operator path or fails closed when the profile was explicitly selected.
 - Interactive local starts all 15 agents by default. It uses Azure transport when Event Hubs is
   configured and bounded in-process EventBus/SSE otherwise, without recording/in-memory executors.
 - Terraform plan with `enable_llm=false` succeeds on a fresh subscription with only

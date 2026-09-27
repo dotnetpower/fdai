@@ -25,6 +25,7 @@ SCHEMA_NAMES = [
     "document-worker-index",
     "executor-command",
     "executor-receipt",
+    "authority/full-authority-development",
     "ontology/object-type",
     "ontology/link-type",
     "ontology/interface-type",

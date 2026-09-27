@@ -9,6 +9,7 @@ from fdai.agents._framework import factory
 from fdai.agents._framework.action_semantics import ActionSemanticsCatalog
 from fdai.agents._framework.anomaly_action import AnomalyActionSource
 from fdai.agents._framework.base import Agent
+from fdai.agents._framework.development_authority_runtime import DevelopmentRuntimeBindings
 from fdai.agents.huginn import Huginn
 from fdai.agents.loki import Loki
 from fdai.agents.mimir import Mimir
@@ -26,6 +27,7 @@ from fdai.core.case_history import (
 from fdai.core.chaos.coverage import ScenarioCoverageAggregator
 from fdai.core.impact_analysis import ChangeAssessmentService
 from fdai.core.learning import PostTurnReviewCoordinator
+from fdai.core.measurement.operational_promotion import action_type_digest
 from fdai.core.ontology_platform.evidence_conflict import EvidenceConflictSink
 from fdai.core.operational_context import OperationalContextMaterializer
 from fdai.core.operational_context.test_context import TestContextSource
@@ -35,6 +37,7 @@ from fdai.core.operational_planning.prospective_lineage import (
     ProspectiveLineageMaterializer,
 )
 from fdai.rule_catalog.schema.rule_semantic_feedback import SemanticFeedbackCandidateSink
+from fdai.shared.contracts.models import OntologyActionType, RegisteredDevelopmentAction
 from fdai.shared.providers.decision_evidence_verifier import DecisionEvidenceAdmissionProvider
 from fdai.shared.providers.state_store import StateStore
 
@@ -138,6 +141,8 @@ def bind_operational_agents(
     test_context_source: TestContextSource | None = None,
     test_context_admission: DecisionEvidenceAdmissionProvider | None = None,
     anomaly_action_sources: dict[str, AnomalyActionSource] | None = None,
+    development: DevelopmentRuntimeBindings | None = None,
+    action_types: tuple[OntologyActionType, ...] = (),
 ) -> None:
     """Replace baseline instances only when runtime bindings are available."""
 
@@ -198,6 +203,25 @@ def bind_operational_agents(
         kinetic_proposal_source=kinetic_proposal_source,
         prospective_lineage_finalizer=prospective_lineage_finalizer,
         change_assessor=change_assessor,
+        development_profile=development.profile if development is not None else None,
+        development_binding_source=(
+            development.binding_source if development is not None else None
+        ),
+        development_executor_principal=(
+            development.executor_principal if development is not None else None
+        ),
+        development_action_types=(
+            {
+                action.name: RegisteredDevelopmentAction(
+                    action_type=action.name,
+                    version=action.version,
+                    action_type_digest="sha256:" + action_type_digest(action),
+                )
+                for action in action_types
+            }
+            if development is not None
+            else None
+        ),
     )
     if forseti is not None:
         agents["Forseti"] = forseti

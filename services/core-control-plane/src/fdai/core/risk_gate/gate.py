@@ -43,12 +43,12 @@ the pipeline / KPI job's responsibility (P2-A + phase-0 KPI dashboard).
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from enum import StrEnum
 from math import isfinite
-from typing import Literal, Protocol
+from typing import Literal, Protocol, cast
 
 from fdai.core.measurement import OperationalPromotionReceipt
 from fdai.core.measurement.operational_promotion import action_type_digest
@@ -56,15 +56,27 @@ from fdai.core.risk_gate.preconditions import PreconditionEvaluation
 from fdai.shared.contracts.models import (
     Action,
     BlastRadiusScope,
+    DevelopmentActionConfirmation,
+    DevelopmentAuthorityEnvelope,
+    DevelopmentAuthorityGrant,
+    DevelopmentBindingVerification,
+    DevelopmentPromotionApproval,
+    FullAuthorityDevelopmentProfile,
     Mode,
     OntologyActionType,
     PreconditionKind,
     Rule,
 )
+from fdai.shared.providers.development_authority import (
+    DevelopmentAuthorityBindingRequest,
+    DevelopmentAuthorityBindingSource,
+)
 from fdai.shared.providers.exemption import (
     ExemptionRegistry,
     empty_exemption_registry,
 )
+
+from . import development_profile as _development_profile
 
 
 class RiskDecisionOutcome(StrEnum):
@@ -114,6 +126,12 @@ class ActionModeRecord:
     scenario_set_version: str | None = None
     action_type_version: str | None = None
     action_type_digest: str | None = None
+    development_profile_digest: str | None = None
+    development_only: bool = False
+    production_ready: bool = False
+    development_valid_until: datetime | None = None
+    original_quorum: int | None = None
+    effective_quorum: int | None = None
 
 
 class OperationalPromotionReceiptVerifier(Protocol):
@@ -123,6 +141,9 @@ class OperationalPromotionReceiptVerifier(Protocol):
         action_type: OntologyActionType,
         receipt: OperationalPromotionReceipt,
     ) -> bool: ...
+
+
+DevelopmentPromotionReceiptVerifier = _development_profile.DevelopmentPromotionReceiptVerifier
 
 
 class PersistedPromotionAuthorityVerifier(Protocol):
@@ -152,10 +173,13 @@ class ActionPromotionRegistry:
         *,
         receipt_verifier: OperationalPromotionReceiptVerifier | None = None,
         allow_legacy_metrics: bool = False,
+        clock: Callable[[], datetime] | None = None,
     ) -> None:
         self._records: dict[str, ActionModeRecord] = {}
+        self._development_records: dict[tuple[str, str], ActionModeRecord] = {}
         self._receipt_verifier = receipt_verifier
         self._allow_legacy_metrics = allow_legacy_metrics
+        self._clock = clock or (lambda: datetime.now(tz=UTC))
 
     def mode_of(self, action_type: str) -> Mode:
         record = self._records.get(action_type)
@@ -163,6 +187,30 @@ class ActionPromotionRegistry:
 
     def record(self, action_type: str) -> ActionModeRecord | None:
         return self._records.get(action_type)
+
+    def development_mode_of(self, profile_digest: str, action_type: str) -> Mode:
+        """Read mode only from the exact development profile namespace."""
+
+        return _development_profile.mode_of(
+            self._development_records,
+            profile_digest=profile_digest,
+            action_type=action_type,
+            clock=self._clock,
+        )
+
+    def development_record(
+        self,
+        profile_digest: str,
+        action_type: str,
+    ) -> ActionModeRecord | None:
+        return cast(
+            ActionModeRecord | None,
+            _development_profile.record_of(
+                self._development_records,
+                profile_digest=profile_digest,
+                action_type=action_type,
+            ),
+        )
 
     def restore(self, action_type: str, record: ActionModeRecord | None) -> None:
         """Reset the in-memory record after a failed durable persist.
@@ -198,7 +246,7 @@ class ActionPromotionRegistry:
                 f"action_type.name {action_type.name!r}"
             )
         gate = action_type.promotion_gate
-        now = datetime.now(tz=UTC)
+        now = self._clock()
         metric_passes = (
             metrics.shadow_days >= gate.min_shadow_days
             and metrics.samples >= gate.min_samples
@@ -244,6 +292,7 @@ class ActionPromotionRegistry:
                 scenario_set_version=(receipt.scenario_set_version if receipt else None),
                 action_type_version=(receipt.action_type_version if receipt else None),
                 action_type_digest=(receipt.action_type_digest if receipt else None),
+                production_ready=True,
             )
         else:
             prior = self._records.get(action_type.name)
@@ -262,6 +311,62 @@ class ActionPromotionRegistry:
             )
         self._records[action_type.name] = record
         return record
+
+    def consider_development_promotion(
+        self,
+        *,
+        profile: FullAuthorityDevelopmentProfile,
+        confirmation: DevelopmentActionConfirmation,
+        binding_source: DevelopmentAuthorityBindingSource,
+        binding_request: DevelopmentAuthorityBindingRequest,
+        binding_verification: DevelopmentBindingVerification,
+        grant: DevelopmentAuthorityGrant,
+        action_type: OntologyActionType,
+        approval: DevelopmentPromotionApproval,
+        metrics: PromotionMetrics | None = None,
+    ) -> ActionModeRecord:
+        """Change only one profile-scoped development registry entry.
+
+        This method cannot affect :meth:`mode_of`, and every resulting record
+        explicitly remains ineligible as production-readiness evidence. Exact
+        current Owner approval can promote development immediately; production
+        shadow metrics never grant or constrain this separate authority axis.
+        """
+        return cast(
+            ActionModeRecord,
+            _development_profile.consider_promotion(
+                self._development_records,
+                record_factory=ActionModeRecord,
+                clock=self._clock,
+                profile=profile,
+                confirmation=confirmation,
+                binding_source=binding_source,
+                binding_request=binding_request,
+                binding_verification=binding_verification,
+                grant=grant,
+                action_type=action_type,
+                approval=approval,
+                metrics=metrics,
+            ),
+        )
+
+    def demote_development(
+        self,
+        profile_digest: str,
+        action_type_name: str,
+    ) -> ActionModeRecord:
+        """Lower one development namespace without touching production mode."""
+
+        return cast(
+            ActionModeRecord,
+            _development_profile.demote(
+                self._development_records,
+                record_factory=ActionModeRecord,
+                clock=self._clock,
+                profile_digest=profile_digest,
+                action_type_name=action_type_name,
+            ),
+        )
 
     def demote(
         self,
@@ -284,7 +389,7 @@ class ActionPromotionRegistry:
         """
         if not action_type_name:
             raise ValueError("action_type_name MUST NOT be empty")
-        now = datetime.now(tz=UTC)
+        now = self._clock()
         prior = self._records.get(action_type_name)
         demoted_at: datetime | None
         if prior is None:
@@ -336,6 +441,10 @@ class RiskGate:
         registry: ActionPromotionRegistry,
         config: RiskGateConfig | None = None,
         exemption_registry: ExemptionRegistry | None = None,
+        clock: Callable[[], datetime] | None = None,
+        development_profile: FullAuthorityDevelopmentProfile | None = None,
+        development_binding_source: DevelopmentAuthorityBindingSource | None = None,
+        development_executor_principal: str | None = None,
     ) -> None:
         cfg = config or RiskGateConfig()
         if cfg.max_affected_resources < 1:
@@ -349,6 +458,10 @@ class RiskGate:
         self._registry = registry
         self._config = cfg
         self._exemptions = exemption_registry or empty_exemption_registry()
+        self._clock = clock or (lambda: datetime.now(tz=UTC))
+        self._development_profile = development_profile
+        self._development_binding_source = development_binding_source
+        self._development_executor_principal = development_executor_principal
 
     def evaluate(
         self,
@@ -361,6 +474,7 @@ class RiskGate:
         automation_hold_engaged: bool = False,
         automation_hold_recovery: bool = False,
         upstream_signal: Literal["deny", "abstain"] | None = None,
+        development_authority: DevelopmentAuthorityEnvelope | None = None,
     ) -> RiskDecision:
         """Return a :class:`RiskDecision` for the proposed action.
 
@@ -502,10 +616,24 @@ class RiskGate:
         # recorded BEFORE the upstream-abstain check so a shadow-mode
         # action never masquerades as a soft ABSTAIN.
         authority_mutation = action_type.name in self._config.hil_authority_action_types
-        effective_mode = (
-            Mode.ENFORCE if authority_mutation else self._registry.mode_of(action_type.name)
-        )
-        if authority_mutation:
+        if development_authority is not None:
+            profile_digest = self._current_development_profile(
+                development_authority,
+                action=action,
+                action_type=action_type,
+            )
+            effective_mode = (
+                self._registry.development_mode_of(profile_digest, action_type.name)
+                if profile_digest is not None
+                else Mode.SHADOW
+            )
+            if profile_digest is None:
+                reasons.append("development_authority_unverified")
+        else:
+            effective_mode = (
+                Mode.ENFORCE if authority_mutation else self._registry.mode_of(action_type.name)
+            )
+        if authority_mutation and development_authority is None:
             reasons.append("authority_mutation_requires_hil")
         elif effective_mode is not Mode.ENFORCE:
             reasons.append("action_type_in_shadow_mode")
@@ -529,6 +657,23 @@ class RiskGate:
             action_id=str(action.action_id),
             effective_mode=effective_mode,
             reasons=tuple(reasons),
+        )
+
+    def _current_development_profile(
+        self,
+        authority: DevelopmentAuthorityEnvelope,
+        *,
+        action: Action,
+        action_type: OntologyActionType,
+    ) -> str | None:
+        return _development_profile.current_profile_digest(
+            authority,
+            action=action,
+            action_type=action_type,
+            profile=self._development_profile,
+            binding_source=self._development_binding_source,
+            executor_principal=self._development_executor_principal,
+            clock=self._clock,
         )
 
 
@@ -584,6 +729,9 @@ def duration_since(dt: datetime) -> timedelta:
 __all__ = [
     "ActionModeRecord",
     "ActionPromotionRegistry",
+    "DevelopmentPromotionReceiptVerifier",
+    "OperationalPromotionReceiptVerifier",
+    "PersistedPromotionAuthorityVerifier",
     "PromotionMetrics",
     "RiskDecision",
     "RiskDecisionOutcome",

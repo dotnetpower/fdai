@@ -15,6 +15,7 @@ Public exports (P2-D + P2-E):
 from fdai.core.risk_gate.gate import (
     ActionModeRecord,
     ActionPromotionRegistry,
+    DevelopmentPromotionReceiptVerifier,
     OperationalPromotionReceiptVerifier,
     PersistedPromotionAuthorityVerifier,
     PromotionMetrics,
@@ -54,6 +55,7 @@ __all__ = [
     "AutomationHoldRecoveryReader",
     "CandidateAction",
     "ChangeWindowEvidenceProvider",
+    "DevelopmentPromotionReceiptVerifier",
     "EventPreconditionEvaluator",
     "GovernedPreconditionEvaluator",
     "OntologyChangeWindowEvidenceProvider",
