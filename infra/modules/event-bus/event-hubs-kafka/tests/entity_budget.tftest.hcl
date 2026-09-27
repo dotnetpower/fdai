@@ -63,3 +63,24 @@ run "auxiliary_rejects_legacy_product_prefix" {
 
   expect_failures = [var.auxiliary_topics]
 }
+
+run "topic_retention_expires_transport_payloads" {
+  command = plan
+
+  variables {
+    name                = "evhns-fdai-example"
+    location            = "example-region"
+    resource_group_name = "rg-example"
+    topics              = ["object.context-index"]
+  }
+
+  assert {
+    condition     = azurerm_eventhub.topic["object.context-index"].message_retention == 1
+    error_message = "primary transport payloads must expire after one day"
+  }
+
+  assert {
+    condition     = azurerm_eventhub.dlq["object.context-index"].message_retention == 7
+    error_message = "dead-letter transport payloads must expire after seven days"
+  }
+}

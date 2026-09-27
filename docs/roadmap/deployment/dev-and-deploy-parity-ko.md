@@ -1,7 +1,7 @@
 ---
 title: Runtime Parity - Authoritative Local Development 및 Test Fixture
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: 48a083a4e286618ec9fbf0852f186d0a7464336c
+translation_source_sha: bf84016168f5b236f2e5834c8befb95153ed2c1c
 translation_revised: 2026-09-27
 ---
 # 런타임 동등성 - 권위 있는 로컬 개발 및 테스트 고정본
@@ -67,7 +67,7 @@ Console 패널을 방문하고, 패널 경계가 안정될 때까지 기다리�
 |-----------|-------------|--------------|
 | 런타임 상태 저장소 및 서비스 통합 | `pgvector/pgvector:pg16` on `:5432` | Azure PostgreSQL Flexible + pgvector |
 | 파괴적 migration 검증 | 별도 `pgvector/pgvector:pg16` cluster on `:5433` | 격리된 CI 검증 데이터베이스 |
-| Event 버스 (통합 테스트) | 최소 두 partition을 사용하는 Redpanda on `:19092` (Kafka wire) | 최소 두 partition을 사용하는 Event Hubs Kafka on `:9093` |
+| Event 버스 (통합 테스트) | 매니페스트 다이제스트로 고정한 Redpanda v26.2.2 on `:19092`와 최소 두 partition (Kafka wire) | 최소 두 partition을 사용하는 Event Hubs Kafka on `:9093` |
 ### 고정 workspace 포트
 커밋된 VS 코드 설정은 각 로컬 web 표면이 항상 같은 포트를 사용하게 합니다. Manual Studio는
 `5474`에서 실행되며 인증된 Console full stack과 함께 시작됩니다. 따라서 별도 명령 없이 제품
