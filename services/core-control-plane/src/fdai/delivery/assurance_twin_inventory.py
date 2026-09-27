@@ -4,24 +4,37 @@ from __future__ import annotations
 
 import hashlib
 import json
-from collections.abc import Mapping
+from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
-from typing import Any
+from typing import Any, TypeVar
 
 import psycopg
 from psycopg.rows import dict_row
 
 from fdai.core.assurance_twin.projection import InMemoryProjection, build_baseline_projection
+from fdai.delivery.persistence.postgres_inventory_delta import (
+    _GRAPH_RECONCILIATION_LOCK,
+)
 from fdai.delivery.persistence.postgres_inventory_snapshot import (
     PostgresInventorySnapshotStoreConfig,
 )
 from fdai.delivery.persistence.postgres_inventory_snapshot_providers import _PROMOTION_LOCK
 from fdai.shared.providers.projection import InventoryDiff, ResourceRef
 
+_FenceResult = TypeVar("_FenceResult")
+
 
 class TwinInventoryUnavailableError(ValueError):
     """The retained Inventory cannot support a trustworthy Twin projection."""
+
+
+class AssuranceTwinInventoryChangedError(TwinInventoryUnavailableError):
+    """The authoritative Inventory changed across a guarded write."""
+
+    def __init__(self, message: str, *, result: object | None = None) -> None:
+        super().__init__(message)
+        self.result = result
 
 
 @dataclass(frozen=True, slots=True)
@@ -30,6 +43,7 @@ class TwinInventoryRevision:
     snapshot_id: str
     source_revision: str
     completed_at: datetime
+    revision_time: datetime
     source: str
     resource_count: int
     delta_count: int
@@ -230,6 +244,16 @@ class PostgresTwinInventorySource:
             snapshot_id=snapshot_id,
             source_revision=f"sha256:{hashlib.sha256(canonical.encode('utf-8')).hexdigest()}",
             completed_at=snapshot["completed_at"],
+            revision_time=max(
+                (
+                    snapshot["completed_at"],
+                    *(
+                        row["observed_at"]
+                        for row in deltas
+                        if isinstance(row["observed_at"], datetime)
+                    ),
+                )
+            ),
             source=str(snapshot["source"]),
             resource_count=len(projection.resources),
             delta_count=len(deltas),
@@ -251,6 +275,56 @@ class PostgresTwinInventorySource:
         if result.source_revision != expected_revision:
             raise TwinInventoryUnavailableError("Twin Inventory revision changed")
         return result
+
+    async def run_at_revision(
+        self,
+        *,
+        expected_revision: str,
+        now: datetime,
+        freshness_ttl: timedelta,
+        required_scopes: tuple[str, ...],
+        operation: Callable[[], Awaitable[_FenceResult]],
+    ) -> _FenceResult:
+        """Hold baseline-promotion and realtime-graph locks through one write."""
+
+        async with await psycopg.AsyncConnection.connect(
+            self._config.dsn,
+            row_factory=dict_row,
+            connect_timeout=self._config.connect_timeout_s,
+        ) as connection:
+            async with connection.transaction():
+                await connection.execute(
+                    "SELECT set_config('statement_timeout', %s, true)",
+                    (str(self._config.statement_timeout_ms),),
+                )
+                await connection.execute(
+                    "SELECT pg_advisory_xact_lock_shared(%s)",
+                    (_PROMOTION_LOCK,),
+                )
+                await connection.execute(
+                    "SELECT pg_advisory_xact_lock(%s)",
+                    (_GRAPH_RECONCILIATION_LOCK,),
+                )
+                await self.load_at_revision(
+                    expected_revision=expected_revision,
+                    now=now,
+                    freshness_ttl=freshness_ttl,
+                    required_scopes=required_scopes,
+                )
+                result = await operation()
+                try:
+                    await self.load_at_revision(
+                        expected_revision=expected_revision,
+                        now=now,
+                        freshness_ttl=freshness_ttl,
+                        required_scopes=required_scopes,
+                    )
+                except TwinInventoryUnavailableError as exc:
+                    raise AssuranceTwinInventoryChangedError(
+                        "Assurance Twin Inventory changed across guarded write",
+                        result=result,
+                    ) from exc
+                return result
 
 
 def _utc_time(value: datetime) -> str:

@@ -1,7 +1,7 @@
 ---
 title: 오퍼레이터 시작 SRE 및 아키텍처 리뷰
 translation_of: operator-initiated-sre-and-arb.md
-translation_source_sha: 4aedd30a2ee71385a3f93486e3c38fd66a8cb410
+translation_source_sha: 955dbe653e9a68938a3bb740337cdb59c27f0155
 translation_revised: 2026-09-27
 ---
 
@@ -69,6 +69,7 @@ Core는 인시던트 배선 뒤에 기존 런타임 모델에서 선택적인 As
 | 오퍼레이터 확인 인시던트 수명 주기 및 조사 기본 기능 | implemented | `fdai/core/incident/workflow.py`, `fdai/core/investigation/coordinator.py`, `tests/core/incident/test_incident_workflow.py`, `tests/core/investigation/test_coordinator.py` | 범위가 제한된 기본 기능이 존재하고 집중 검사를 통과합니다. |
 | 오퍼레이터 확인 인시던트 생성 전송 | implemented | `fdai_service_contracts.incident_creation`, Core 의미 기반 초안 변환 결과 및 인시던트 생성 소비자, Operator 확인 경로, 원본 확인기 및 보낼 편지함 브리지, 집중 교차 서비스 테스트 | 브라우저는 공개 초안 필드 네 개를 제출합니다. Operator는 principal 소유 원본을 다시 읽고 권한 없는 요청을 전용 인시던트 토픽에 게시합니다. Core는 감사되는 인시던트 하나를 생성하거나 재사용합니다. |
 | 런타임 작업 격리 | implemented | `fdai/runtime/bootstrap_tasks.py`, 집중 HIL 부하 제어, 런타임 구성 및 부트스트랩 검사 | 인시던트 생성과 채널 독립 승인 만료 처리는 별도의 감독 작업으로 실행됩니다. 어느 작업도 다른 작업에 승인 또는 실행 권한을 부여하지 않습니다. |
+| Assurance Twin 시작 조립 격리 | implemented | `fdai/runtime/bootstrap_core.py`, Assurance Twin 생산자 및 시작 조립 검사 | Core 시작 조립은 Heimdall의 읽기 전용 자세 생산자도 구성합니다. 이 생산자는 별도의 인벤토리, Rule, 정책, 원본 및 작성기 보호 경계를 사용하며 Operator가 확인한 인시던트 요청, 감사, 승인 또는 실행 경로를 변경하지 않습니다. |
 | 통합 오퍼레이터 SRE 작업 및 진행 상황 계약 | in-progress | `fdai/core/incident/sre_request.py`, `fdai/shared/providers/operator_request.py`, 프로세스 내부 집중 Core 검사 | 프로세스 내부 조정기는 인시던트와 조사 작업 동작을 입증합니다. 배포된 관리 리소스 의미 기반 작업 확인에는 독립적으로 검토된 원본과 요청부터 감사까지의 증적이 더 필요합니다. |
 | ARB 준비 상태, 운영 게이트 및 선언적 검토 변환 결과 | implemented | `fdai/core/architecture_review/readiness.py`, `fdai/core/architecture_review/projection.py`, `fdai/runtime/control_loop.py`, `rule-catalog/workflows/architecture-review.yaml`, `tests/core/architecture_review/` | 오퍼레이터 표면은 `/workflow-apps/architecture-review`와 `/processes/{process_id}`입니다. `/arb/status` 엔드포인트는 없습니다. |
 | 오퍼레이터 작업 흐름 제출 | implemented | `fdai_operator_service/families/workflow/routes.py`, `services/operator-service/tests/test_operator_workflow_family.py` | `POST /workflows/run`은 멱등성 및 revision이 적용된 shadow 제안을 받고 `mode=enforce`를 거부합니다. |
@@ -78,6 +79,7 @@ Core는 인시던트 배선 뒤에 기존 런타임 모델에서 선택적인 As
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-27 | implemented | 인시던트 런타임 옆에 Heimdall의 읽기 전용 Assurance Twin 자세 생산자를 추가하되 인시던트 생성 소유권, 토픽, 스키마, 준비 상태 및 권한은 변경하지 않았습니다. | `current change`, Assurance Twin 런타임 및 서비스 소유권 집중 검사. | 인시던트 런타임 근거는 이 문서에서 계속 추적하고 제안 IaC 검토 근거는 #350에서 추적합니다. |
 | 2026-09-21 | implemented | 인시던트 확인 배선과 준비 상태를 보존하면서 Operator 수명 주기와 리소스 정리, 경로 계열 조립 및 읽기 출처 선언을 운영 조립 파사드에서 분리했습니다. | `current change`, Operator 조립 테스트 120개 통과와 선택적 PDF 테스트 1개 건너뜀, Ruff, strict mypy, Operator 경계, 독립 서비스, 설계 경로 및 LOC 게이트 통과. | 이 내부 소유권 분리에 남은 인시던트 전송 또는 권한 작업은 없습니다. |
 | 2026-09-17 | implemented | 각 감지 에피소드의 Action 멱등성 키를 레지스트리가 실제로 반환한 Incident에 연결하고, 독립 효과 검증이 해당 Incident의 합법적인 최종 경로만 적용하도록 했습니다. | `current change`, `bootstrap_incidents.py`, 같은 리소스 재발 및 재생 집중 검사 | 실제 복구를 주장하기 전에 배포된 인증 에피소드 및 효과 근거를 보존해야 합니다. |
 | 2026-09-17 | implemented | 공용 런타임 작업 감독에서 인시던트 생성 소비자와 항상 구성되는 승인 만료 수렴기를 독립적으로 유지했습니다. | 현재 변경, `bootstrap_tasks.py`, 집중 HIL 및 부트스트랩 검사 | 이 작업 격리 경계에 남은 작업이 없습니다. |

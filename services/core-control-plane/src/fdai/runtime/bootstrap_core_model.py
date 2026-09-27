@@ -10,11 +10,19 @@ from fdai.delivery.assurance_twin_evidence_source import (
     AssuranceTwinEvidenceRequestRelay,
     StateStoreTwinEvidenceRepository,
 )
+from fdai.delivery.assurance_twin_inventory import PostgresTwinInventorySource
 from fdai.delivery.assurance_twin_posture import AssuranceTwinPostureRecorder
+from fdai.delivery.assurance_twin_posture_producer import (
+    AssuranceTwinPostureProducer,
+    CompletePostureEvaluator,
+)
 from fdai.delivery.assurance_twin_publication import AssuranceTwinOutboxPublisher
 from fdai.delivery.assurance_twin_writers import (
     AssuranceTwinAgentWriter,
     RetainedTwinEvidenceSource,
+)
+from fdai.delivery.persistence.postgres_inventory_snapshot import (
+    PostgresInventorySnapshotStoreConfig,
 )
 from fdai.delivery.persistence.state_store_assurance_twin_posture import (
     StateStoreAssuranceTwinPostureLedger,
@@ -149,6 +157,10 @@ def build_assurance_twin_runtime_binding(
     agents: Collection[str] | None,
     event_bus: EventBus,
     retained_source: RetainedTwinEvidenceSource | None,
+    posture_evaluator: CompletePostureEvaluator | None = None,
+    inventory_dsn: str | None = None,
+    posture_scope: str | None = None,
+    required_inventory_scopes: tuple[str, ...] = (),
 ) -> tuple[tuple[Any, ...], tuple[AssuranceTwinAgentWriter, ...]]:
     """Bind no writer without the durable store and all three accountable agents."""
 
@@ -164,11 +176,33 @@ def build_assurance_twin_runtime_binding(
         AssuranceTwinOutboxPublisher(owner=owner, ledger=ledger, bus=event_bus)
         for owner in ("Heimdall", "Forseti")
     )
+    posture_inventory_fence: AssuranceTwinPostureProducer | None = None
     if retained_source is None:
-        retained_source = StateStoreTwinEvidenceRepository(store=state_store)
+        repository = StateStoreTwinEvidenceRepository(store=state_store)
+        retained_source = repository
+        posture_producers: tuple[Any, ...] = ()
+        if (
+            posture_evaluator is not None
+            and inventory_dsn is not None
+            and inventory_dsn.strip()
+            and posture_scope is not None
+            and posture_scope.strip()
+            and required_inventory_scopes
+        ):
+            posture_inventory_fence = AssuranceTwinPostureProducer(
+                inventory=PostgresTwinInventorySource(
+                    config=PostgresInventorySnapshotStoreConfig(dsn=inventory_dsn)
+                ),
+                evaluator=posture_evaluator,
+                repository=repository,
+                scope=posture_scope,
+                required_scopes=required_inventory_scopes,
+            )
+            posture_producers = (posture_inventory_fence,)
         publishers = (
+            *posture_producers,
             AssuranceTwinEvidenceRequestRelay(
-                repository=retained_source,
+                repository=repository,
                 bus=event_bus,
             ),
             *publishers,
@@ -177,10 +211,26 @@ def build_assurance_twin_runtime_binding(
     recorder = AssuranceTwinPostureRecorder(ledger=ledger)
     owners: tuple[Literal["Heimdall", "Forseti"], ...] = ("Heimdall", "Forseti")
     writers = tuple(
-        AssuranceTwinAgentWriter(owner=owner, source=retained_source, recorder=recorder)
+        AssuranceTwinAgentWriter(
+            owner=owner,
+            source=retained_source,
+            recorder=recorder,
+            posture_generation_fence=(posture_evaluator if owner == "Heimdall" else None),
+            posture_inventory_fence=(posture_inventory_fence if owner == "Heimdall" else None),
+        )
         for owner in owners
     )
     return publishers, writers
 
 
-__all__ = ["CoreRuntime"]
+def assurance_twin_inventory_dsn(environment: Mapping[str, str]) -> str | None:
+    """Prefer the configured Inventory database over the shared state database."""
+
+    return (
+        environment.get("FDAI_INVENTORY_DSN", "").strip()
+        or environment.get("FDAI_STATE_STORE_DSN", "").strip()
+        or None
+    )
+
+
+__all__ = ["CoreRuntime", "assurance_twin_inventory_dsn"]

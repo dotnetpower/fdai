@@ -1,6 +1,6 @@
 ---
 translation_of: project-structure-dependency-injection.md
-translation_source_sha: fb4e8ba45b8112aefee53ec8b62d7b2881c0058c
+translation_source_sha: 87fbd47bf521b843740a8daacd6da03f0c9fe367
 translation_revised: 2026-09-27
 ---
 
@@ -175,6 +175,16 @@ import를 모아도 작업 정체성, 문서 수집, 출처 소유권, 구성 �
 `ConfigProvider` - 은 **sync 유지**: 시작 시 한 번 실행되거나, I/O 없는 순수 CPU 경계
 검증이므로 비동기 래퍼는 노이즈만 추가합니다. 테스트는 `pytest-asyncio` + `asyncio_mode =
 "auto"` 로 실행되어 평범한 `비동기 def test_...` 가 per-test 마커 없이 동작합니다. `InvestigationCoordinator`는 기본적으로 직렬 실행하며 요청 순서와 대상별 오류 격리를 보존합니다. 예약 Analyzer 조립은 동시 대상 평가 상한을 4로 명시합니다.
+
+`AssuranceTwinConfirmationStore`는 프로덕션 및 메모리 내 `StateStore` 구현이 선택적으로
+제공하는 기능입니다. 하나의 보관 근거 행과 provisional Heimdall/Forseti 대상 행을 한
+트랜잭션에서 확인하거나 충돌 상태로 전환하므로 원본 race가 확인되지 않은 자세나 검토를
+노출하지 못합니다. Heimdall의 주입된 자세 생산자는
+`PostgresTwinInventorySource.run_at_revision`을 사용해 원본 저장과 작성기 확인이 끝날 때까지
+인벤토리 승격 및 실시간 그래프 잠금을 유지합니다. T0 평가기 세대는 정확한 Rule 모델, OPA
+버전 및 정책 산출물 다이제스트를 포함합니다. 영속 최초 관측 시계는 변경된 개정의 순서를
+정하고 정확한 재시도는 원래 시각을 재사용합니다. 이 보호 경계는 작업 권한을 부여하지 않으며
+Forseti의 제안 IaC 출처를 연결하지 않습니다.
 
 `AssuranceTwinConfirmationStore`는 프로덕션 및 메모리 내 `StateStore` 구현의 선택적
 기능입니다. 보존 근거 행과 provisional Heimdall/Forseti 대상 행을 원자적으로 확인하거나

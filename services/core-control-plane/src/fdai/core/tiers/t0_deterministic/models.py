@@ -94,6 +94,7 @@ class AuditHint:
     tier: str  # "t0" - carried as a plain string to avoid Tier import loop.
     mode: Mode
     citing_rule_ids: tuple[str, ...] = ()
+    abstained_rule_ids: tuple[str, ...] = ()
     evaluation_receipts: tuple[RegoEvaluationReceipt, ...] = ()
     reason: str | None = None
 

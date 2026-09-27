@@ -36,6 +36,12 @@ from fdai.core.assurance_twin.effect_model import (
     simulate_effect_branches,
     update_challenger,
 )
+from fdai.core.assurance_twin.evaluation import (
+    AssuranceTwinEvaluationUnavailableError,
+    CompletePostureEvaluation,
+    evaluate_complete_posture,
+    rule_generation_digest,
+)
 from fdai.core.assurance_twin.fidelity import (
     FidelityStat,
     SimulationFidelityLedger,
@@ -148,6 +154,8 @@ from fdai.core.assurance_twin.trajectory_ledger import (
 )
 
 __all__ = [
+    "AssuranceTwinEvaluationUnavailableError",
+    "CompletePostureEvaluation",
     "AbstainCode",
     "AbstainResult",
     "AssuranceTwinCompilation",
@@ -228,8 +236,10 @@ __all__ = [
     "build_posture_assessment_report",
     "build_posture_report_activity",
     "close_trajectory_outcome",
+    "evaluate_complete_posture",
     "execute_query",
     "question_digest",
+    "rule_generation_digest",
     "evaluate_dynamic_invariants",
     "publish_review",
     "simulate_effect_branches",

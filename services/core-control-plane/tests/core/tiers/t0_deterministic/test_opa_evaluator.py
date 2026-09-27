@@ -148,6 +148,31 @@ def test_non_positive_timeout_is_rejected() -> None:
         OpaRegoEvaluator(policies_root=POLICIES_ROOT, timeout_seconds=0)
 
 
+@requires_opa
+def test_policy_change_after_generation_binding_is_rejected(tmp_path: Path) -> None:
+    rules = _rules_by_id(_load_shipped_rules())
+    rule = rules["object-storage.private-endpoint.required"]
+    relative = Path(rule.check_logic.reference).relative_to("policies")
+    target = tmp_path / relative
+    target.parent.mkdir(parents=True)
+    target.write_bytes((POLICIES_ROOT / relative).read_bytes())
+    evaluator = OpaRegoEvaluator(policies_root=tmp_path)
+    assert evaluator.generation_digest.startswith("sha256:")
+    bound_generation = evaluator.generation_digest
+
+    target.write_text(target.read_text(encoding="utf-8") + "\n", encoding="utf-8")
+
+    assert evaluator.current_generation_digest != bound_generation
+    with pytest.raises(OpaEvaluatorError, match="changed after evaluator generation"):
+        evaluator.evaluate(
+            rule,
+            {
+                "public_network_access_enabled": False,
+                "private_endpoints": (),
+            },
+        )
+
+
 def test_version_timeout_fails_construction(monkeypatch: pytest.MonkeyPatch) -> None:
     import subprocess
 
