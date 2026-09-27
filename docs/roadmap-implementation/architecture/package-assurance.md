@@ -9,22 +9,24 @@ implement the package assurance design.
 
 | Area | State | Evidence | Notes |
 |------|-------|----------|-------|
-| Assurance-level policy | implemented | `config/package-assurance.json`; `check-package-assurance.py`; focused policy tests | Five levels separate internal, lockstep, independent-contract, effect-bearing, and knowledge-evidence obligations without weakening constitutional controls. |
-| Dependency owner binding | implemented | Root and distribution manifests; package assurance checker | Root test mirrors name one owner and reason, and their version ranges cannot drift from that owner. |
-| Compatibility scope | implemented | `fdai-service-contracts` compatibility manifest; package assurance policy and checker | N/N-1 remains mandatory for the independently released cross-process SDK and is not inferred from a filesystem package boundary. |
-| Signed deployment profiles | implemented | `deployment-root.json` builder and verifier; offline-kit signer and acquisition path; focused profile tests | New offline kits bind offline membership to the exact legacy manifest digest. Connected source uses protected source and image manifests, while appliances add container provenance around the offline closure. Legacy kits remain accepted. No artifact publication or Azure deployment is claimed. |
-| Linked lifecycle evidence | implemented | Package assurance policy and checker; capability lifecycle owner | Separate exact-artifact receipts can compose one complete lifecycle while conflicting or missing links stay incomplete. Operational receipts under #355 remain open. |
-| Multi-target review envelope | implemented | `record_cost_governance_review_batch.py`; protected review workflow; focused batch and workflow tests | One bounded envelope decomposes into existing independent target records with stable child request ids and zero approval, execution, or promotion authority. |
-| Capability-scoped optional readiness | implemented | Package assurance policy and checker; existing optional package readiness tests | A disabled unavailable package does not block unrelated complete paths. Enabled missing requirements still fail closed. |
-| Stable extension facades | implemented | Package assurance policy; existing Code Assurance and Cost Governance public facades; independent-service checks | Authority-neutral exports are supported while Core-to-optional-package imports remain blocked. |
+| Minimum boundary policy | implemented | `config/package-assurance.json`; `check-package-assurance.py`; focused policy tests | Unlisted packages use the workspace default. Only published contracts, distributed artifacts, distributed evidence, artifact profiles, and constitutional runtime invariants remain in the global package gate. |
+| Dependency owner binding | not-applicable | Distribution manifests, `uv.lock`, package manager, cold imports, image builds, and service dependency checks | The package gate no longer owns a second root-mirror registry or textual range-equality rule. |
+| Compatibility scope | implemented | `fdai-service-contracts` compatibility manifest and owner tests; optional package rollback tests | The global minimum requires contract versioning only. N/N-1, translators, immutable schemas, and rollback windows are owner-selected when an actual consumer needs them. |
+| Artifact profiles | implemented | Minimum package policy; existing connected, offline-kit, and appliance verifiers | Connected delivery requires declared closure, digest, and provenance. Offline adds a signed root and no public fallback; appliance adds a digest-pinned container. Compatibility and SBOM are recommended unless an owner promotes them into its own contract. |
+| Linked lifecycle evidence | not-applicable | Capability Bundle Lifecycle owner and #355 | Lifecycle transition sets and linked receipt completeness are capability claims, not global package classification. |
+| Multi-target review envelope | not-applicable | Cost Governance campaign/review workflow and focused tests | Review decomposition and independent target decisions remain owned by the protected workflow, not package assurance. |
+| Optional readiness | not-applicable | ADR-0002 and capability composition tests | Availability, enablement, lifecycle, identity, and authority remain independent runtime axes. |
+| Extension facades | not-applicable | Independent-service, import-boundary, and protected-path checks | Core isolation and composition ownership remain enforced without duplicating those rules in package policy. |
 
 ### Implementation history
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-27 | implemented | Replaced five fixed levels and the exhaustive dependency/review/lifecycle policy with boundary-triggered minimum controls. Internal packages now need no global entry; compatibility, SBOM, lifecycle, review, readiness, and facade rules return to their actual owners. | `current change`; package assurance policy/checker, focused policy tests, owning English/Korean design, and directly affected package/repository guidance. | No package-policy implementation remains. Operational lifecycle, campaign, review, release, and deployment evidence continue under their existing owner issues. |
 | 2026-09-26 | implemented | Added tiered package assurance, source-bound root test mirrors, profile-bound signed roots, linked lifecycle evidence, bounded multi-target review envelopes, optional readiness, and facade rules. | `current change`; package assurance checker and focused policy, deployment-root, review batch, workflow, architecture, documentation, and localization checks. | Retain separately authorized operational lifecycle evidence under #355 and Cost Governance campaign/review evidence under #903/#904. No Azure deployment, artifact publication, activation, or promotion is part of this change. |
 
 ### Remaining work
 
-- [ ] Retain the separately authorized operational receipts tracked by #355, #903, and #904.
-  Source implementation and local focused checks do not replace those live evidence requirements.
+- [x] The minimum package-policy implementation is complete in the current change. Operational
+  receipts under #355, #903, and #904 remain owned by those capabilities and are not package-policy
+  completion criteria.

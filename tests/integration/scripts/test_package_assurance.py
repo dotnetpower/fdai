@@ -1,4 +1,4 @@
-"""Focused tests for the machine-readable package assurance policy."""
+"""Focused tests for the minimum package assurance policy."""
 
 from __future__ import annotations
 
@@ -30,104 +30,150 @@ def _policy() -> dict[str, object]:
     return value
 
 
+def _package(policy: dict[str, object], package_id: str) -> dict[str, object]:
+    packages = policy["packages"]
+    assert isinstance(packages, list)
+    package = next(
+        item for item in packages if isinstance(item, dict) and item.get("id") == package_id
+    )
+    return package
+
+
 def test_repository_package_assurance_policy_is_valid() -> None:
     checker = _checker()
     assert checker.validate_policy(REPO_ROOT, _policy()) == []
 
 
-def test_effect_bearing_level_cannot_drop_independent_verification() -> None:
+def test_internal_packages_need_no_global_assurance_entry() -> None:
+    checker = _checker()
+    policy = _policy()
+    packages = policy["packages"]
+    assert isinstance(packages, list)
+    package_ids = {item["id"] for item in packages if isinstance(item, dict)}
+
+    assert checker.validate_policy(REPO_ROOT, policy) == []
+    assert package_ids.isdisjoint(
+        {
+            "fdai-github-app-auth",
+            "fdai-runtime-diagnostics",
+            "fdai-code-assurance",
+            "fdai-aks-commerce",
+        }
+    )
+
+
+def test_distributed_artifact_cannot_drop_integrity_or_provenance() -> None:
     checker = _checker()
     policy = copy.deepcopy(_policy())
-    levels = policy["assurance_levels"]
-    assert isinstance(levels, dict)
-    effect_bearing = levels["effect-bearing"]
-    assert isinstance(effect_bearing, dict)
-    effect_bearing["independent_effect_verification"] = False
+    package = _package(policy, "fdai-deployment-cli")
+    package["required_controls"] = ["exact-digest"]
 
     errors = checker.validate_policy(REPO_ROOT, policy)
 
-    assert any("effect-bearing" in error for error in errors)
+    assert any("boundary minimums" in error and "provenance" in error for error in errors)
 
 
-def test_effect_bearing_package_cannot_be_removed_or_downgraded() -> None:
+def test_published_contract_requires_versioning_not_global_n_minus_one() -> None:
     checker = _checker()
-    removed = copy.deepcopy(_policy())
-    packages = removed["packages"]
-    assert isinstance(packages, list)
-    removed["packages"] = [
-        package
-        for package in packages
-        if not isinstance(package, dict) or package.get("id") != "fdai-deployment-cli"
+    policy = copy.deepcopy(_policy())
+    package = _package(policy, "fdai-service-contracts")
+    package["required_controls"] = []
+
+    errors = checker.validate_policy(REPO_ROOT, policy)
+
+    assert any("versioned-contract" in error for error in errors)
+    assert all("n-minus-one" not in error for error in errors)
+
+
+def test_connected_profile_requires_only_declared_closure_digest_and_provenance() -> None:
+    checker = _checker()
+    policy = copy.deepcopy(_policy())
+    profiles = policy["artifact_profiles"]
+    assert isinstance(profiles, dict)
+    connected = profiles["connected"]
+    assert isinstance(connected, dict)
+    connected["recommended_controls"] = []
+
+    assert checker.validate_policy(REPO_ROOT, policy) == []
+
+
+def test_offline_profile_cannot_drop_signed_root_or_no_public_fallback() -> None:
+    checker = _checker()
+    policy = copy.deepcopy(_policy())
+    profiles = policy["artifact_profiles"]
+    assert isinstance(profiles, dict)
+    offline = profiles["offline"]
+    assert isinstance(offline, dict)
+    offline["required_controls"] = [
+        "declared-dependency-closure",
+        "exact-digest",
+        "provenance",
     ]
-    assert any(
-        "authoritative package inventory" in error
-        for error in checker.validate_policy(REPO_ROOT, removed)
-    )
-
-    downgraded = copy.deepcopy(_policy())
-    packages = downgraded["packages"]
-    assert isinstance(packages, list)
-    deployment_cli = next(
-        package
-        for package in packages
-        if isinstance(package, dict) and package.get("id") == "fdai-deployment-cli"
-    )
-    deployment_cli["assurance_level"] = "lockstep-shared"
-    assert any(
-        "fdai-deployment-cli MUST retain assurance level effect-bearing" in error
-        for error in checker.validate_policy(REPO_ROOT, downgraded)
-    )
-
-
-def test_review_envelope_cannot_gain_authority() -> None:
-    checker = _checker()
-    policy = copy.deepcopy(_policy())
-    review = policy["review_envelope"]
-    assert isinstance(review, dict)
-    review["promotion_authority"] = True
 
     errors = checker.validate_policy(REPO_ROOT, policy)
 
-    assert any("review_envelope" in error for error in errors)
+    assert any("no-public-fallback" in error and "signed-root" in error for error in errors)
 
 
-def test_connected_profile_does_not_require_complete_offline_kit() -> None:
+def test_recommended_controls_never_become_hidden_hard_gates() -> None:
     checker = _checker()
     policy = copy.deepcopy(_policy())
     profiles = policy["artifact_profiles"]
     assert isinstance(profiles, dict)
-    connected = profiles["connected"]
-    assert isinstance(connected, dict)
-    connected["complete_offline_kit_required"] = True
+    for profile in profiles.values():
+        assert isinstance(profile, dict)
+        profile["recommended_controls"] = []
 
-    errors = checker.validate_policy(REPO_ROOT, policy)
-
-    assert any("connected" in error for error in errors)
+    assert checker.validate_policy(REPO_ROOT, policy) == []
 
 
-def test_connected_source_profile_does_not_require_deployment_root() -> None:
+def test_owner_can_add_a_known_stronger_control() -> None:
     checker = _checker()
     policy = copy.deepcopy(_policy())
-    profiles = policy["artifact_profiles"]
-    assert isinstance(profiles, dict)
-    connected = profiles["connected"]
-    assert isinstance(connected, dict)
-    connected["signed_root_required"] = True
+    package = _package(policy, "fdai-deployment-cli")
+    controls = package["required_controls"]
+    assert isinstance(controls, list)
+    controls.append("sbom")
 
-    errors = checker.validate_policy(REPO_ROOT, policy)
-
-    assert any("signed-root" in error for error in errors)
+    assert checker.validate_policy(REPO_ROOT, policy) == []
 
 
-def test_lifecycle_evidence_requires_restart_readback() -> None:
+def test_package_operations_and_enablement_cannot_grant_authority() -> None:
     checker = _checker()
     policy = copy.deepcopy(_policy())
-    lifecycle = policy["lifecycle_evidence"]
-    assert isinstance(lifecycle, dict)
-    transitions = lifecycle["required_transitions"]
-    assert isinstance(transitions, list)
-    transitions.remove("restart")
+    invariants = policy["runtime_invariants"]
+    assert isinstance(invariants, dict)
+    invariants["package_operation_grants_authority"] = True
 
     errors = checker.validate_policy(REPO_ROOT, policy)
 
-    assert any("lifecycle_evidence" in error for error in errors)
+    assert any("package_operation_grants_authority" in error for error in errors)
+
+
+def test_state_change_success_keeps_independent_verification() -> None:
+    checker = _checker()
+    policy = copy.deepcopy(_policy())
+    invariants = policy["runtime_invariants"]
+    assert isinstance(invariants, dict)
+    invariants["state_change_success_requires_independent_verification"] = False
+
+    errors = checker.validate_policy(REPO_ROOT, policy)
+
+    assert any(
+        "state_change_success_requires_independent_verification" in error for error in errors
+    )
+
+
+def test_unknown_controls_and_typo_fields_fail_closed() -> None:
+    checker = _checker()
+    policy = copy.deepcopy(_policy())
+    package = _package(policy, "fdai-deployment-cli")
+    controls = package["required_controls"]
+    assert isinstance(controls, list)
+    controls.append("ceremony-for-everything")
+    package["assurance_level"] = "effect-bearing"
+
+    errors = checker.validate_policy(REPO_ROOT, policy)
+
+    assert any("unsupported controls" in error for error in errors)
+    assert any("unsupported fields" in error for error in errors)

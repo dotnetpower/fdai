@@ -529,12 +529,13 @@ Deployment Preflight keeps its publication decision in `core/deploy_preflight/pr
   historical choice matrix are in [tech-stack.md § OD-1](tech-stack.md#od-1-core-runtime-language).
   Non-Python trees are: [rule-catalog/](../../../rule-catalog) (YAML data), [policies/](../../../policies)
   (Rego), and [infra/](../../../infra) (Terraform HCL).
-- **One lockfile** at the repo root (`uv.lock` or equivalent); the root `pyproject.toml` is a
-  virtual workspace with `package = false`. Each runtime service and shared package has its own
-  distribution manifest. Root CI can mirror a package-owned dependency only for direct test
-  collection. [`config/package-assurance.json`](../../../config/package-assurance.json) binds each
-  mirror to its owning manifest and reason, and the package-assurance gate rejects unlisted mirrors
-  or version drift. Source-checkout compatibility validation adds every declared shared package
+- **A frozen lock for each selected build profile.** The root `uv.lock` is the default workspace
+  lock and the root `pyproject.toml` remains a virtual workspace with `package = false`.
+  Independently released distributions may own another lock or constraints when their release
+  process needs one. Each runtime service and shared package owns its distribution manifest. Root
+  CI may include package-owned dependencies needed for direct test collection; the package manager,
+  frozen lock, cold imports, and owning tests validate that environment without a duplicate mirror
+  registry or textual range-equality gate. Source-checkout compatibility validation adds every declared shared package
   source root, including `packages/runtime-diagnostics/src/`, before importing service codecs. The
   service-suite manifest assigns every service-owned regression exactly one owner, and
   dependency/import manifests name each shared distribution used directly by a service. A security
@@ -546,8 +547,8 @@ Deployment Preflight keeps its publication decision in `core/deploy_preflight/pr
   disabled unavailable package can leave unrelated complete paths ready; an enabled package with
   a missing required binding fails closed for that capability. Protected W7 workflows preserve
   exact release, Process, disclosure, and retention evidence without moving judgment, approval,
-  execution, or promotion authority into package or Operator composition. The level-specific
-  contract is defined in [Package Assurance](package-assurance.md).
+  execution, or promotion authority into package or Operator composition. The boundary-triggered
+  minimum is defined in [Package Assurance](package-assurance.md).
 - Service wire contracts live in `packages/service-contracts/src/fdai_service_contracts/`; `execution_safeguards.py` owns the provider-neutral, authority-free seven-proof bundle shared by Core, workflow, and isolated-Executor producers and validators. `recorded_resource_state.py` owns the provider-neutral state-path applicability sets, the optional exact-target `serving` path, and bounded unavailable-reason tokens shared by Core projection and Operator reads. Azure delivery supplies passive serving evidence through the existing `MetricProvider` seam, and its metadata survives the ontology projection allowlist. Provider adapters may select only a reviewed token; provider response text and provisioning inference stay outside the contract.
   `operational_activity.py` owns versioned, authority-free Agent Activity lifecycle evidence. Version `1.3.0` separates stable activity identity from transition idempotency and requires machine-safe reason codes. `runtime_call.py` owns exact caller and target Resource references plus the no-authority evidence metadata used by authenticated runtime-call projection. Core composition may enrich inventory only after exact release, generation, scope, freshness, and independent-verifier checks. `operator.py` keeps `AuditPageProjection` additive and `AuditQuery.include_summary` explicit: page-only reads remain the default, only Audit requests retained-scope counts and integrity observations, and neither projection grants approval, mutation, or execution authority.
   [Connector and observer contracts](aks-outbound-connector.md) validate scope/time/role without authority; Core owns snapshots, signed preflight, audited recommendations and evidence-bound setup suppression without changing inventory promotion, while Operator consumes leased events into its own ordered read projection for Console. Each published cross-process or durable JSON Schema under `schemas/<contract-id>/<version>.json` is immutable, so a new

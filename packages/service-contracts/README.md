@@ -16,11 +16,12 @@ Use this package for contracts that cross an independently released process boun
 - Provider-neutral protocols that service-owned adapters implement.
 - Stable service identity, execution venue, readiness, and audit serialization records.
 
-These compatibility obligations follow the
-[independent-contract assurance level](../../docs/roadmap/architecture/package-assurance.md).
-They do not apply merely because code has a Python package boundary. Internal lockstep records stay
-with their owning distribution until they become published, cross-process, or durably consumed by
-another release.
+The global [published-contract minimum](../../docs/roadmap/architecture/package-assurance.md)
+requires a stable version. This package additionally owns its N/N-1 checks, translators, and
+rolling-transition evidence because independently released services need them. Those stronger
+obligations do not apply merely because code has a Python package boundary. Internal lockstep
+records stay with their owning distribution until they become published, cross-process, or durably
+consumed by another release.
 
 Contract data can describe an action or an executor boundary, but importing this package never
 grants approval, mutation, provider access, or executor identity. Keep provider clients, database
