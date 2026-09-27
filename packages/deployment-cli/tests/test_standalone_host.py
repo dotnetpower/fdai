@@ -13,6 +13,7 @@ import pytest
 
 from fdai_deployment_cli import (
     aks_workload_jobs,
+    runtime_support_installation,
     standalone_aks_inventory,
     standalone_application,
     standalone_catalog_review,
@@ -85,15 +86,15 @@ def test_runtime_support_uses_only_admitted_artifact_root(
         assert kwargs["cwd"] == tmp_path
         calls.append(command)
 
-    monkeypatch.setattr(standalone_host, "_run", capture)
+    monkeypatch.setattr(runtime_support_installation, "_run", capture)
     monkeypatch.setattr(
-        standalone_host,
+        runtime_support_installation,
         "_capture",
         lambda *_args, **_kwargs: json.dumps(
             [{"name": "example", "version": "1.0"}, {"name": "pip", "version": "26.0"}]
         ),
     )
-    standalone_host._install_runtime_support(
+    runtime_support_installation.install_runtime_support(
         tmp_path,
         artifact_root=artifact_root,
         kit_manifest_digest="a" * 64,
@@ -120,7 +121,7 @@ def test_runtime_support_uses_only_admitted_artifact_root(
 
     (tmp_path / "runtime-venv/bin").mkdir(parents=True)
     calls.clear()
-    standalone_host._install_runtime_support(
+    runtime_support_installation.install_runtime_support(
         tmp_path,
         artifact_root=artifact_root,
         kit_manifest_digest="a" * 64,
@@ -136,9 +137,9 @@ def test_runtime_support_does_not_fall_back_to_kit(tmp_path: Path, monkeypatch) 
     def unexpected(*args, **kwargs):
         pytest.fail("missing admitted support must not execute an installer")
 
-    monkeypatch.setattr(standalone_host, "_run", unexpected)
+    monkeypatch.setattr(runtime_support_installation, "_run", unexpected)
     with pytest.raises(ValueError, match="contract is unavailable"):
-        standalone_host._install_runtime_support(
+        runtime_support_installation.install_runtime_support(
             tmp_path,
             artifact_root=tmp_path / "source-work/verified",
             kit_manifest_digest="a" * 64,
@@ -155,13 +156,13 @@ def test_runtime_support_rejects_partial_environment(
     (environment / "python").write_bytes(b"partial")
 
     monkeypatch.setattr(
-        standalone_host,
+        runtime_support_installation,
         "_run",
         lambda *_args, **_kwargs: pytest.fail("partial environment must not be resumed"),
     )
 
     with pytest.raises(ValueError, match="installation is incomplete"):
-        standalone_host._install_runtime_support(
+        runtime_support_installation.install_runtime_support(
             tmp_path,
             artifact_root=artifact_root,
             kit_manifest_digest="a" * 64,

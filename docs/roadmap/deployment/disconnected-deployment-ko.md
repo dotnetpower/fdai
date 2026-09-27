@@ -1,7 +1,7 @@
 ---
 title: 폐쇄망 배포
 translation_of: disconnected-deployment.md
-translation_source_sha: 93f943300afe61878cacee3c4dec30bd013332c0
+translation_source_sha: 8c7499cdcc60bd4534bebb4bb6b02673846857bf
 translation_revised: 2026-09-22
 ---
 # 폐쇄망 배포
@@ -34,7 +34,7 @@ translation_revised: 2026-09-22
 | 의존성 이미지 게시 어댑터 | implemented | `publish_dependency_oci_archive`; 집중 ACR 테스트 80개 | 서비스 게시와 동일하게 자격 증명 획득 전 검증, 시간 제한, 재시도 없는 전송, 매니페스트 GET 재확인을 적용합니다. 의존성 증적은 FDAI 소스 버전을 주장하지 않습니다. 보호된 호출자 연결은 아직 필요하며 테스트는 Azure 대신 기록용 전송기를 사용합니다. |
 | 오프라인 VM 초기 구성 | implemented | `infra/bootstrap/`; 모의 공급자를 사용한 Terraform 계획 16개 | 명시적 오프라인 모드는 네트워크 초기화 스크립트 없이 사전 준비된 이미지를 선택합니다. 이미지 제작·검증, 접근 경로, 상태 이전은 별도 사전 조건입니다. |
 | 설치 시 Console 설정 | implemented | `console/src/runtime-config.ts`; `console_config.py`; 집중 설정 테스트 및 범용 빌드 | 범용 빌드에 재빌드 없이 공개 API·Entra 설정을 넣고 인증 우회를 차단합니다. 게시와 인증된 접근은 별도 검사입니다. |
-| 런타임 지원 휠 설치 | implemented | `stage-runtime-wheelhouse.py`; `support_install.py`; 집중 테스트 및 네트워크 격리 실제 휠 설치 | 공통 GitHub 인증 및 런타임 진단 라이브러리를 포함한 현재 배포판 8개를 서명된 통합 requirements lock에서 해시, 의존성 검사 및 패키지 재조회와 함께 설치합니다. 중복 wheel 복사본은 검색 위치이지 별도의 직접 요구 사항이 아닙니다. 런타임 서비스는 시작하지 않습니다. |
+| 런타임 지원 휠 설치 | implemented | `stage-runtime-wheelhouse.py`; `support_install.py`; `runtime_support_installation.py`; 집중 테스트 및 네트워크 격리 실제 휠 설치 | 공통 GitHub 인증 및 런타임 진단 라이브러리를 포함한 현재 배포판 8개를 서명된 통합 requirements lock에서 해시, 의존성 검사 및 패키지 재조회와 함께 설치합니다. 중복 wheel 복사본은 검색 위치이지 별도의 직접 요구 사항이 아닙니다. 런타임 서비스는 시작하지 않습니다. |
 | 배포 루트별 고정 공급자 수집 | implemented | `mirror-locked-providers.sh`, 가짜 Terraform을 사용한 오프라인 테스트, Ruff 및 셸 구문 검사 | 시스템 지식 서비스, 서로 다른 AzureRM 버전, Genesis의 AzAPI를 포함한 번들 root 10개가 각 lock file을 유지합니다. 호출별 제한은 300/600초, 전체 제한은 3600초입니다. 실제 다운로드, mirror index 및 전체 서명 구성은 아직 검증하지 않았습니다. |
 | 최초 데이터베이스 자격 증명 생성 | implemented | `infra/initial_postgres_credential.tf`; 모의 Terraform 검증 8개와 루트 연결 회귀 테스트 1개 | 명시적 최초 설치 생성은 민감한 자격 증명을 비공개 상태에 보존합니다. 기존 암호 입력이 기본이며, 이후 활성화는 검토된 교체 작업입니다. |
 | Pinned offline trust 루트 및 release 통합 | not-started | `docs/runbooks/offline-trust-ceremony.md` | CLI 휠에 pinned 루트가 없으며 키트 staging은 통과하는 release 작업 흐름이 아닙니다. |

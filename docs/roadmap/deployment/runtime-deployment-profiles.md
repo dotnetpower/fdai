@@ -153,7 +153,9 @@ requirements lock with index access disabled, exact hashes required, and only ve
 directories exposed as discovery locations. Duplicate wheel copies are never passed as separate
 direct requirements. Completion requires dependency checking, owned-package version readback, and
 a receipt bound to the kit manifest, inventory, requirements, and full package readback. A partial
-environment without that receipt is not resumable success.
+environment without that receipt is not resumable success. The focused
+`runtime_support_installation.py` owner enforces this contract; standalone host orchestration only
+supplies the already-admitted artifact root and signed kit-manifest binding.
 Enrollment and every later application transfer reuse the same VM-bound `fdai-genesis-*` SSH
 host-key alias and attested known-hosts file; runtime selection never permits a second alias or
 first-contact trust.

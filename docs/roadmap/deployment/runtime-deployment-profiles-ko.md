@@ -1,6 +1,6 @@
 ---
 translation_of: runtime-deployment-profiles.md
-translation_source_sha: 2d7321bace9bd5181ece93161e4188ea47cee3a1
+translation_source_sha: 926cfe5cff61c82e4e4329bdc79765d5b8910195
 translation_revised: 2026-09-27
 ---
 # 런타임 배포 프로파일
@@ -164,7 +164,9 @@ requirements lock으로 마이그레이션 및 인벤토리 지원 패키지를 
 디렉터리만 검색 위치로 노출합니다. 중복 wheel 복사본을 별도의 직접 요구 사항으로 전달하지
 않습니다. 완료하려면 의존성 검사, 소유 패키지 버전 재조회, 키트 매니페스트·인벤토리·
 requirements·전체 패키지 재조회에 연결된 영수증이 필요합니다. 해당 영수증이 없는 부분
-환경은 재개 가능한 성공이 아닙니다.
+환경은 재개 가능한 성공이 아닙니다. 전용 `runtime_support_installation.py` 소유자가 이 계약을
+적용하며, standalone host 조정은 이미 허용된 산출물 루트와 서명된 키트 매니페스트 바인딩만
+전달합니다.
 등록과 모든 후속 애플리케이션 전송은 VM에 연결된 같은 `fdai-genesis-*` SSH host-key
 alias와 검증된 known-hosts 파일을 재사용합니다. 런타임 선택은 두 번째 alias나 최초 접촉
 신뢰를 허용하지 않습니다.
