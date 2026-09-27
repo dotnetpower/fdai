@@ -128,7 +128,10 @@ that admission before flushing a queued operational candidate and drops the pair
 after source deletion starts. Physical broker retention and pinned-runtime recovery evidence remain separate.
 The current-case admission logic stays in the private `_framework/norns_case_history.py` helper;
 `Norns` remains the flat Pantheon member and its `AgentSpec`, ownership, and topics are unchanged.
-Norns publishes inert `Pattern` through consensus/rate limits; queued scoped input requires broker retry or retained replay.
+Norns journals each throttled operational candidate with its exact Pattern envelope before
+acknowledgement. Startup restores a bounded batch, rechecks current cases, and resumes the stable
+Pattern-then-candidate publication; publication, source invalidation, or consensus hold leaves only
+digest lineage. Shared overflow stays pending and does not block startup.
 Muninn validates body/envelope versions, recompiles current scoped cases and artifacts, and retains Saga snapshots; reads reject tampering/deletion.
 Mimir journals each exact pending operational review in the existing durable `StateStore` before
 publication. Startup recompiles and rechecks current cases before an idempotent retry; successful
