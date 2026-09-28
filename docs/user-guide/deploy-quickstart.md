@@ -1,7 +1,7 @@
 ---
 title: Deploy Quickstart
 description: Deploy FDAI to Azure from one local command or a digest-pinned disconnected deployment appliance.
-derives_from: [{ source: docs/roadmap/deployment/deploy-and-onboard.md, sha: 18740b813cc22d6491d0037b794dc5d2d5e9ec30 }]
+derives_from: [{ source: docs/roadmap/deployment/deploy-and-onboard.md, sha: f11ffcb201a4d24b985190d7d73a1f1f307368f0 }]
 ---
 
 # Deploy Quickstart
@@ -161,6 +161,11 @@ If you prefer not to install a persistent command, the original checkout wrapper
 ```bash
 bash scripts/deployment/azure/fdai-up.sh --region koreacentral
 ```
+
+To build everything from a checkout instead of using a published kit, add
+`--source <checkout> --signing-key <key>`. That checkout owns the whole run, so run it against the
+revision you intend to deploy. Because the checkout already determines the artifacts, the wrapper
+refuses a simultaneous `--online` or `--offline-kit` selection.
 
 Both commands use the same coordinator. Installing or updating the CLI does not update the signed
 deployment kit: its Genesis scripts come from the verified release, not your clone. A kit-owned fix

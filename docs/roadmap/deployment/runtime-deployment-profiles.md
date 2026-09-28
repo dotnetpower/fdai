@@ -66,7 +66,7 @@ The full-authority development profile remains a separate optional authority inp
 Azure observation requires only scoped `Reader`. Explicit source selection derives the minimum extra role: Azure Monitor, Log Analytics, Cost Management, AKS read-only
 (Cluster User plus RBAC Reader), or evidence-store `Storage Blob Data Reader`. No role can be selected directly or silently bundled. Missing source access reports unsupported.
 The base profile requires no Azure Policy assignment and uses Reader-visible resource metadata for policy evaluation; it grants no write, `User Access Administrator`, or Microsoft Graph permission.
-Issue #341 remains open for inventory/observation live evidence only; GitOps write evidence is optional.
+Inventory and observation live evidence remains Phase 1 ledger work after #341 was closed as not planned on 2026-09-28; GitOps write evidence is optional.
 
 ## Operator contract
 
