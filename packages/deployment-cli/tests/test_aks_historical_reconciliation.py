@@ -551,3 +551,83 @@ def test_plan_preserves_order_when_a_value_interpolates_another_variable() -> No
         validate_reconciliation_plan(
             _single_workload_plan(name, before, after), variables=variables
         )
+
+
+def _secret_provider(entries: list[tuple[str, str]]) -> dict[str, object]:
+    array = "".join(
+        f'- |\n  "objectName": "{object_name}"\n  "objectType": "secret"\n'
+        for _key, object_name in entries
+    )
+    return {
+        "object": {
+            "spec": {
+                "parameters": {"objects": '"array":\n' + array},
+                "secretObjects": [
+                    {
+                        "data": [
+                            {"key": key, "objectName": object_name} for key, object_name in entries
+                        ]
+                    }
+                ],
+            }
+        }
+    }
+
+
+def test_plan_ignores_secret_provider_entry_order() -> None:
+    variables = reconciled_variables(state=_state(), variables=_variables(), live=_live())
+    name = sorted(SERVICES)[0]
+    entries = [("DSN", "fdai-state-store-dsn"), ("INSIGHTS", "fdai-insights")]
+    plan = {
+        "errored": False,
+        "applyable": True,
+        "resource_changes": [
+            {
+                "address": (
+                    "azurerm_federated_identity_credential.identity["
+                    '"workload-operator-service-command"]'
+                ),
+                "change": {"actions": ["no-op"], "before": {}, "after": {}},
+            },
+            {
+                "address": f'kubernetes_manifest.workload_secret_provider["{name}"]',
+                "change": {
+                    "actions": ["update"],
+                    "before": _secret_provider(entries),
+                    "after": _secret_provider(list(reversed(entries))),
+                },
+            },
+        ],
+    }
+
+    validate_reconciliation_plan(plan, variables=variables)
+
+
+def test_plan_rejects_a_removed_secret_binding() -> None:
+    variables = reconciled_variables(state=_state(), variables=_variables(), live=_live())
+    name = sorted(SERVICES)[0]
+    entries = [("DSN", "fdai-state-store-dsn"), ("INSIGHTS", "fdai-insights")]
+    plan = {
+        "errored": False,
+        "applyable": True,
+        "resource_changes": [
+            {
+                "address": (
+                    "azurerm_federated_identity_credential.identity["
+                    '"workload-operator-service-command"]'
+                ),
+                "change": {"actions": ["no-op"], "before": {}, "after": {}},
+            },
+            {
+                "address": f'kubernetes_manifest.workload_secret_provider["{name}"]',
+                "change": {
+                    "actions": ["update"],
+                    "before": _secret_provider(entries),
+                    "after": _secret_provider(entries[:1]),
+                },
+            },
+        ],
+    }
+
+    with pytest.raises(ValueError, match="changes a secret binding"):
+        validate_reconciliation_plan(plan, variables=variables)
