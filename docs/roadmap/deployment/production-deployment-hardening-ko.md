@@ -1,8 +1,8 @@
 ---
 title: 운영 배포 강화
 translation_of: production-deployment-hardening.md
-translation_source_sha: 3cddd290cbd5033fd8ec6d50491e1e36aa8af1df
-translation_revised: 2026-09-28
+translation_source_sha: 03deaf3c2dd30e2170425ec06e75d6d31808bd1d
+translation_revised: 2026-09-29
 ---
 # 운영 배포 강화
 
@@ -36,13 +36,14 @@ translation_revised: 2026-09-28
 | Bot 소유 보호 Core service apply | implemented | `request-protected-operation.yml`, `service-deploy.yml`, Core apply 요청 검증기 및 집중 workflow 검사 | 제출기는 개발 또는 스테이징의 Core에 대해 유효 기간이 남은 model-binding plan만 받습니다. Service workflow는 필수 사람 Environment 승인을 유지하고 변경 전에 정책을 다시 검사합니다. |
 | Scenario-lab 실행기 도구 준비 | implemented | `sre-demo-lab.yml`, `test_scenario_lab.py`, CI 계약 검사, actionlint, 다운로드한 checksum 검증 | 보호된 workflow는 요청 선행 조건을 확인하기 전에 checksum으로 고정된 Helm과 kubelogin을 실행기 임시 저장소에 설치합니다. 후보 실행기에 Helm이 미리 설치됐다고 가정하지 않으며 설치는 Azure 리소스나 실행기 이미지를 변경하지 않습니다. |
 | Scenario-lab 구독 호환 VM 크기 | implemented | `sre-demo-lab.yml`, scenario-lab Terraform 변수, 집중 scenario-lab 계약 테스트 | 구독이 기본값을 제한하면 보호된 저장소 변수로 AKS 노드와 부하 VM 크기를 재정의할 수 있습니다. 재정의 값이 없으면 `Standard_D2s_v5`와 `Standard_B2s`를 유지하며 정확한 Terraform 계획이 계속 승인 경계가 됩니다. |
-| Scenario-lab AKS Store Demo 워크로드 | implemented | `render_aks_store_demo.py`, `verify_store_front_domain.py`, `prepare-runner.sh`, `infra/scenario-lab/outputs.tf`, 집중 scenario-lab 테스트 | 승인된 apply는 커밋과 SHA-256으로 고정된 upstream manifest 하나를 내려받고, 모든 워크로드 이미지를 digest로 고정하고, `store-front`만 결정론적인 Azure 도메인으로 공개하고, `store-admin`은 비공개로 유지하며, `order-service` replica 3개를 기존 장애 대상에 사용합니다. 보호된 apply 및 도메인 준비 증적은 아직 필요합니다. |
+| Scenario-lab AKS Store Demo 워크로드 | validated | `render_aks_store_demo.py`, `verify_store_front_domain.py`, `prepare-runner.sh`, `readback_store_demo.py`, `infra/scenario-lab/outputs.tf`, 집중 scenario-lab 테스트, 보호된 apply [실행 36479158812](https://github.com/dotnetpower/fdai/actions/runs/36479158812) | 승인된 apply는 커밋과 SHA-256으로 고정된 upstream manifest 하나를 내려받고, 모든 워크로드 이미지를 digest로 고정하고, `store-front`만 결정론적인 Azure 도메인으로 공개하고, `store-admin`은 비공개로 유지하며, `order-service` replica 3개를 기존 장애 대상에 사용합니다. 보호된 apply 실행 36479158812는 검증된 readback을 보존했습니다. 모든 워크로드가 Ready였고, 실행 중인 모든 이미지가 고정된 digest와 일치했으며, store front 도메인은 Load Balancer 주소로 해석되고 HTTP 200 상태 검사를 통과했고, Store Admin은 비공개로 유지되었습니다. |
 | exact-revision 보호 운영 적용 근거 | in-progress | [배포와 온보딩](deploy-and-onboard-ko.md#구현-상태) | 코드와 계획 gate는 있지만 이 소유 문서는 모든 제어를 함께 입증하는 현재 운영 적용을 하나로 보존하지 않습니다. |
 
 ### 구현 이력
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-29 | validated | AKS Store Demo에 대한 보호된 scenario-lab apply 근거를 보존했습니다. Plan-only [실행 36478938558](https://github.com/dotnetpower/fdai/actions/runs/36478938558)과 보호된 apply [실행 36479158812](https://github.com/dotnetpower/fdai/actions/runs/36479158812)는 `e975511992b1a113c365a6b654ec892b72665a97`에서 모두 `0 create, 0 update, 0 delete or replace`와 `0 import, 0 scope-case replacement`를 보고했습니다. apply는 digest로 고정된 Store Demo를 준비하고 판정이 `verified`인 readback을 보존했습니다. `order-service` replica 3개를 포함한 모든 워크로드가 Ready였고, 실행 중인 모든 이미지가 고정된 digest와 일치했으며, 결정론적인 `cloudapp.azure.com` 호스트 이름이 Load Balancer 주소로 해석되고 HTTP 200 상태 검사를 통과했고, Store Admin은 외부 수신이 없는 `ClusterIP` 서비스로 유지되었습니다. 실행 후 AKS는 `Stopped`로, 부하 VM은 할당 해제 상태로 되돌아갔고 범위가 제한된 권한 부여도 회수되었습니다. | Readback 아티팩트 `sre-demo-lab-store-demo-36479158812-1`, 저장소 밖에서 검증했습니다. 실행 후 읽기 전용 `az`는 AKS `Stopped`, 부하 VM 할당 해제, MySQL `Ready`, 남은 임시 권한 부여 없음을 보고했습니다. 전달 이력은 [AKS commerce 원장](../../roadmap-implementation/operations/aks-commerce-business-scenario.md)에 있습니다. | Store Demo 워크로드에 대해서는 없음. 장애 시나리오 모음은 #1207에 남아 있습니다. |
 | 2026-09-17 | implemented | Scenario-lab Terraform provider 및 backend 인증을 검증된 deploy runner Managed Identity에 명시적으로 결속했습니다. Candidate slot은 identity fence를 통과했지만 Terraform이 Azure CLI Managed Identity session을 지원되지 않는 CLI user 인증으로 해석했습니다. 이제 `ARM_USE_MSI=true`와 exact deployment client ID가 Azure 권한을 변경하지 않고 runner-local 모호성을 제거합니다. | 실패한 plan `35176312572`, `current change`, `.github/workflows/sre-demo-lab.yml`, 집중 workflow 및 scenario-lab 검사 | binding을 게시하고 exact `aks-store-demo` recovery plan을 재개합니다. |
 | 2026-09-17 | implemented | 오퍼레이터 검토에서 이전 일반 SRE lab 이름이 모호한 것으로 확인되어 commerce scenario-lab을 정확한 전용 클러스터 이름 `aks-store-demo`에 결속했습니다. 워크로드 준비는 계속 해당 새 클러스터의 Terraform output만 사용하며 기존 FDAI 또는 공유 AKS 대상을 선택할 수 없습니다. | `current change`, `infra/scenario-lab/aks.tf`, 집중 Terraform 및 scenario-lab 계약 | partial old-name lab state를 destroy하고 이 naming 경계를 게시한 뒤 새 전용 클러스터를 생성하고 검증합니다. |
 | 2026-09-17 | implemented | 보호된 apply 3개에서 policy가 Terraform 소유 공유 association을 교체한 사실을 확인한 뒤 scenario AKS, MySQL 및 stress subnet에서 Azure Policy 소유 NSG association을 보존했습니다. Provider readback에서 모든 policy NSG가 `Succeeded`이고 기본 inbound deny rule을 가진 것을 확인했습니다. Terraform은 private-endpoint subnet association과 stress VM NIC association을 계속 소유하므로 inbound denial을 약화하지 않고 충돌하는 owner를 제거합니다. | 실패한 apply `35169623286`, exact subnet 및 NSG readback, `current change`, scenario-lab Terraform 및 집중 계약 검사 | ownership 수정을 게시하고 delete가 없는 plan을 요구하여 적용한 뒤 Store Demo workload 및 domain 상태 근거를 보존합니다. |
@@ -111,7 +112,7 @@ translation_revised: 2026-09-28
   exact apply, platform 출력 및 split Core 소비 증적을 보존합니다.
 - [ ] Reader 역할 배정과 두 패키지 Job만 변경하는 삭제 없는 Cost Governance 계획과 exact apply를
   보존한 뒤 배포된 image digest를 독립적으로 검증합니다.
-- [ ] [#1203](https://github.com/dotnetpower/fdai/issues/1203): 먼저 현재 plan의 AKS 및 MySQL
+- [x] [#1203](https://github.com/dotnetpower/fdai/issues/1203): 먼저 현재 plan의 AKS 및 MySQL
   생성 항목을 중지된 기존 lab의 상태 소유권과 조정하되 인프라를 다시 만들거나 덮어쓰지 않고,
   관리자 우회가 비활성화된 필수 검토자 보호 또는 별도로 검토된 동등한 보호를 복원한 뒤,
   합의된 효과로 제한된 현재 exact plan만 승인합니다([AKS commerce
@@ -119,7 +120,9 @@ translation_revised: 2026-09-28
   참조). 그런 다음 장애 시나리오 모음을 실행하기 전에 모든 AKS Store Demo 워크로드가 Ready이고,
   실행 image가 검토된 digest에 결속되며, 공개 Store Front 도메인이 관찰된 Load Balancer로
   해석되고 HTTP 상태 검사를 통과하며, Store Admin은 비공개로 유지됨을 보여 주는 protected
-  scenario-lab apply를 보존합니다.
+  scenario-lab apply를 보존합니다. 보호된 apply
+  [실행 36479158812](https://github.com/dotnetpower/fdai/actions/runs/36479158812)에서 완료했습니다.
+  이 실행은 검증된 Store Demo readback을 보존하고 AKS를 `Stopped`로 되돌렸습니다.
 
 ## 범위가 제한된 split-service 선행 조건 bootstrap
 
