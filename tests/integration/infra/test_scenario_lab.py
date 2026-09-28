@@ -477,7 +477,7 @@ def test_scenario_lab_apply_diagnostic_projects_only_allowlisted_tokens(tmp_path
     assert "resourceGroups" not in result.stdout
 
 
-def test_scenario_lab_plan_diagnostic_projects_only_allowlisted_tokens(tmp_path: Path) -> None:
+def _plan_diagnostic_output(tmp_path: Path, lines: list[object]) -> str:
     workflow = WORKFLOW.read_text(encoding="utf-8")
     script_match = re.search(
         r'python3 - "\$1" <<\'PY_PLAN\'\n(?P<script>.*?)\n          PY_PLAN',
@@ -490,10 +490,7 @@ def test_scenario_lab_plan_diagnostic_projects_only_allowlisted_tokens(tmp_path:
     )
     raw_log = tmp_path / "plan.log"
     raw_log.write_text(
-        "Error: retrieving private deployment value: "
-        'Code="RequestDisallowedByPolicy" Message="private resource name"\n\n'
-        "  with module.private.azurerm_private_endpoint.azure_openai,\n"
-        '  on data-services.tf line 128, in resource "azurerm_private_endpoint" "azure_openai":\n',
+        "".join((line if isinstance(line, str) else json.dumps(line)) + "\n" for line in lines),
         encoding="utf-8",
     )
 
@@ -506,13 +503,154 @@ def test_scenario_lab_plan_diagnostic_projects_only_allowlisted_tokens(tmp_path:
         check=False,
     )
 
-    assert result.returncode == 0
-    assert "provider_read" in result.stdout
-    assert "request_disallowed_by_policy" in result.stdout
-    assert "module.private.azurerm_private_endpoint.azure_openai" in result.stdout
-    assert "RequestDisallowedByPolicy" in result.stdout
-    assert "private deployment value" not in result.stdout
-    assert "private resource name" not in result.stdout
+    assert result.returncode == 0, result.stderr
+    assert result.stderr == ""
+    return result.stdout
+
+
+LEAKED_ROLE_ASSIGNMENT_ID = (
+    "/subscriptions/leak-subscription/resourceGroups/leak-group/providers/"
+    "Microsoft.ContainerService/managedClusters/leak-cluster/providers/"
+    "Microsoft.Authorization/roleAssignments/leak-assignment"
+)
+PLAN_PROGRESS_LINES: list[object] = [
+    {"@level": "info", "@message": "Terraform 1.9.8", "type": "version"},
+    {
+        "@level": "info",
+        "@message": (
+            "azurerm_role_assignment.runner_aks_admin: Refreshing state... "
+            f"[id={LEAKED_ROLE_ASSIGNMENT_ID}]"
+        ),
+        "type": "refresh_start",
+        "hook": {
+            "resource": {"addr": "azurerm_role_assignment.runner_aks_admin"},
+            "id_key": "id",
+            "id_value": LEAKED_ROLE_ASSIGNMENT_ID,
+        },
+    },
+    {
+        "@level": "info",
+        "@message": "authorization audit is not authorized for leak-cluster",
+        "type": "log",
+        "diagnostic": {"severity": "error", "summary": "authorization for leak-cluster"},
+    },
+    {
+        "@level": "warn",
+        "@message": "Warning: Argument is deprecated",
+        "type": "diagnostic",
+        "diagnostic": {
+            "severity": "warning",
+            "summary": "Argument is deprecated",
+            "detail": (
+                "Azure authorization for leak-cluster timed out; the client is not authorized."
+            ),
+            "address": "azurerm_role_assignment.runner_aks_admin",
+        },
+    },
+    "Error: plain text for leak-cluster was not authorized by Microsoft.Authorization",
+]
+
+
+def test_scenario_lab_plan_diagnostic_ignores_refresh_and_progress_text(tmp_path: Path) -> None:
+    workflow = WORKFLOW.read_text(encoding="utf-8")
+
+    stdout = _plan_diagnostic_output(tmp_path, PLAN_PROGRESS_LINES)
+
+    assert 'terraform plan -json "${plan_args[@]}" -input=false -lock-timeout=5m' in workflow
+    assert 'terraform show -json "$plan_file" >"$RUNNER_TEMP/sre-demo-lab-plan.json"' in workflow
+    assert stdout == (
+        "Terraform plan diagnostic errors: 0\n"
+        "Terraform plan diagnostic categories: unclassified\n"
+        "Terraform plan diagnostic addresses: unavailable\n"
+        "Terraform plan diagnostic Azure codes: unavailable\n"
+    )
+
+
+def test_scenario_lab_plan_diagnostic_projects_only_allowlisted_tokens(tmp_path: Path) -> None:
+    error_lines: list[object] = [
+        {
+            "@level": "error",
+            "@message": "Error: leak-message timed out",
+            "type": "diagnostic",
+            "diagnostic": {
+                "severity": "error",
+                "summary": 'retrieving Deployment (Subscription: "leak-subscription")',
+                "detail": (
+                    "unexpected status 403 (403 Forbidden) with error: AuthorizationFailed: "
+                    "The client 'leak-client' with object id 'leak-object' does not have "
+                    "authorization to perform action over scope "
+                    f"'{LEAKED_ROLE_ASSIGNMENT_ID}'"
+                ),
+                "address": (
+                    'module.azure_openai.azurerm_cognitive_deployment.capability["sre-rate-limit"]'
+                ),
+                "snippet": {"code": "leak-snippet", "values": [{"statement": "is leak-value"}]},
+            },
+        },
+        {
+            "type": "diagnostic",
+            "diagnostic": {
+                "severity": "error",
+                "summary": "reading Resource Group leak-group",
+                "detail": (
+                    'Status=404 Code="ResourceGroupNotFound" '
+                    "Message=\"Resource group 'leak-group' could not be found.\""
+                ),
+                "address": "data.azurerm_resource_group.scenario_lab",
+            },
+        },
+        {
+            "type": "diagnostic",
+            "diagnostic": {
+                "severity": "error",
+                "summary": "updating Subnet leak-subnet",
+                "detail": (
+                    "RESPONSE 403: 403 Forbidden\nERROR CODE: RequestDisallowedByPolicy\n"
+                    '{"error":{"code":"RequestDisallowedByPolicy","message":"leak-policy"}}'
+                ),
+                "address": (
+                    'azurerm_subnet_network_security_group_association.scenario_lab["private_endpoints"]'
+                ),
+            },
+        },
+        {
+            "type": "diagnostic",
+            "diagnostic": {
+                "severity": "error",
+                "summary": "Error acquiring the state lock",
+                "detail": "Lock Info: ID: leak-lock",
+                "address": (
+                    "azurerm_kubernetes_cluster.scenario_lab /subscriptions/leak-subscription"
+                ),
+            },
+        },
+        {
+            "type": "diagnostic",
+            "diagnostic": {
+                "severity": "error",
+                "summary": "Resource precondition failed",
+                "detail": "The authenticated Terraform principal must match leak-principal.",
+            },
+        },
+    ]
+
+    stdout = _plan_diagnostic_output(tmp_path, [*PLAN_PROGRESS_LINES, *error_lines])
+
+    assert stdout == (
+        "Terraform plan diagnostic errors: 5\n"
+        "Terraform plan diagnostic categories: authentication, authorization, condition_failed, "
+        "provider_read, request_disallowed_by_policy, resource_not_found, state_lock\n"
+        "Terraform plan diagnostic addresses: "
+        'azurerm_subnet_network_security_group_association.scenario_lab["private_endpoints"], '
+        "data.azurerm_resource_group.scenario_lab, "
+        'module.azure_openai.azurerm_cognitive_deployment.capability["sre-rate-limit"]\n'
+        "Terraform plan diagnostic Azure codes: AuthorizationFailed, HTTP403, HTTP404, "
+        "RequestDisallowedByPolicy, ResourceGroupNotFound\n"
+    )
+    assert "leak" not in stdout
+    assert "/subscriptions/" not in stdout
+    assert "Microsoft.Authorization" not in stdout
+    assert "timeout" not in stdout
 
 
 def test_runner_scripts_fail_before_external_commands_without_authority() -> None:
