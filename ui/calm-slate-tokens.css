@@ -25,6 +25,21 @@
   --cs-tooltip-muted: #6b7178;
   --cs-tooltip-border: #c9cdd1;
   --cs-tooltip-shadow: 0 8px 24px rgba(24, 31, 38, 0.14);
+  /* Code surface and syntax roles of the component gallery's compact code pattern. */
+  --cs-code-bg: #222a31;
+  --cs-code-head-bg: #2b343c;
+  --cs-code-border: #3b4650;
+  --cs-code-rule: rgba(255, 255, 255, 0.08);
+  --cs-code-text: #d8dde1;
+  --cs-code-muted: #98a4ad;
+  --cs-code-key: #8eb6d9;
+  --cs-code-string: #b8d5a8;
+  --cs-code-number: #e5b98d;
+  --cs-code-boolean: #c6add8;
+  --cs-code-comment: #77838d;
+  --cs-code-punctuation: #8f9aa4;
+  --cs-code-command: #f1f3f4;
+  --cs-code-flag: #9ec5c0;
   --cs-font: "Segoe UI Variable Text", "Segoe UI", "Noto Sans KR", "Malgun Gothic", "Apple SD Gothic Neo", sans-serif;
   --cs-font-mono: "Cascadia Code", "JetBrains Mono", "SFMono-Regular", Consolas, monospace;
   --cs-type-page-title-size: 24px;
