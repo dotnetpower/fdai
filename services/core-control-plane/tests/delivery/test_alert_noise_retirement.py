@@ -10,6 +10,7 @@ from fdai.delivery.alert_noise_handler import AlertNoiseAgentHandler, drain_aler
 from fdai.delivery.alert_noise_retirement import ALERT_RESULT_PREFIX
 from fdai.shared.providers.testing.state_store import InMemoryStateStore
 from fdai_service_contracts.alert_noise import NoisePolicy, digest_record
+from fdai_service_contracts.alert_noise_plan import AlertTreatment
 from fdai_service_contracts.alert_noise_wire import (
     AlertNoiseCommand,
     AlertNoiseResult,
@@ -31,14 +32,25 @@ class _Bus:
         self.published.append(key)
 
 
-def _command(request_ref: str, *, requested_at: datetime = _NOW) -> AlertNoiseCommand:
+def _command(
+    request_ref: str,
+    *,
+    requested_at: datetime = _NOW,
+    operation: str = "alert_noise.assess",
+    evidence_digest: str | None = None,
+    period_seconds: int | None = None,
+    treatment: AlertTreatment | None = None,
+) -> AlertNoiseCommand:
     return AlertNoiseCommand(
-        operation="alert_noise.assess",
+        operation=operation,
         request_ref=request_ref,
         requester_ref="principal:example",
         scope_ref="scope:example",
         requested_at=requested_at,
         expires_at=requested_at + timedelta(minutes=5),
+        evidence_digest=evidence_digest,
+        treatment=treatment,
+        period_seconds=period_seconds,
     )
 
 
