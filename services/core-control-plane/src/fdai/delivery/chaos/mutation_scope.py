@@ -26,6 +26,20 @@ ResourceScope = Callable[[], tuple[str, ...]]
 
 _POD_TARGET_TYPES = frozenset({"pod", "disk", "dns"})
 
+# Most entries mutate the resource their `target_type` names, but a few
+# injectors mutate something else: a rollout change and a replica change both
+# act on the Deployment, and the managed-service load injectors act on the
+# service account. Deriving those from the injector reference keeps the approved
+# target equal to the mutated resource without collapsing the two derivations:
+# this side reads catalog data plus the substrate context, while the built
+# injector independently reports its own scope, and
+# `mutation_targets_approved` still compares them.
+_DEPLOYMENT_INJECTORS = frozenset({"kubectl:scale", "kubectl:set-image"})
+_CONTEXT_IDENTITY_INJECTORS: dict[str, str] = {
+    "mysql:query-load": "mysql_server_resource_id",
+    "aoai:rate-limit": "aoai_resource_id",
+}
+
 
 def azure_resource_ref(context: Mapping[str, Any], provider: str, name: str) -> str:
     """Return the ARM identity of one resource in the substrate resource group."""
@@ -93,10 +107,24 @@ def approved_catalog_targets(
     entry: CatalogEntry,
     context: Mapping[str, Any],
 ) -> tuple[str, ...] | None:
-    """Return the targets one catalog run must approve, or ``None`` when unsupported."""
+    """Return the targets one catalog run must approve, or ``None`` when unsupported.
 
+    The injector reference decides first, because an entry's ``target_type``
+    names what the fault is about rather than what the injection writes to: a
+    rollout or replica change acts on the Deployment, and the managed-service
+    load injectors act on the database or model account. Everything else falls
+    back to the ``target_type`` default. A target whose substrate value is absent
+    yields ``None``, so the run is refused before any injection.
+    """
+
+    injector_ref = str(entry.spec.get("injector", ""))
     target_type = str(entry.spec.get("target_type", ""))
     try:
+        if injector_ref in _DEPLOYMENT_INJECTORS:
+            return (kubernetes_deployment_ref(context, str(context["backend_deployment"])),)
+        identity_key = _CONTEXT_IDENTITY_INJECTORS.get(injector_ref)
+        if identity_key is not None:
+            return (str(context[identity_key]),)
         if target_type == "vm":
             vm_ref = azure_resource_ref(
                 context,

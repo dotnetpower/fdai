@@ -1,7 +1,7 @@
 ---
 title: 리포팅 서브시스템
 translation_of: reporting-subsystem.md
-translation_source_sha: a05010c16993ed4212f824cd037483c1d9d20a5e
+translation_source_sha: 3fbfc17e00a33f2d7776760e1e626b2916712f65
 translation_revised: 2026-09-28
 ---
 # 리포팅 서브시스템
@@ -603,6 +603,7 @@ shipped된 서브시스템을 OWASP + `app-shape` 관점에서 체계적으로
 | 2026-09-28 | implemented | 카오스 적용 리포트를 만들던 기존 참조 sweep 드라이버는 통제된 카오스 어댑터 위로 이관될 때까지 모든 실제 실행을 거부합니다. 가져오기, Operator 변환 결과, Console 리포트는 바뀌지 않았지만 그동안 새 측정 결과는 들어오지 않습니다. | `current change`: `scripts/catalog/run-enforce-scenarios.py`, `tests/integration/infra/test_scenario_lab.py`입니다. 집중 scenario-lab 계약 테스트를 통과했습니다. | Sweep이 `GovernedChaosExecutionAdapter` 위로 이관된 뒤에만 통제된 실행에서 측정된 카오스 결과를 다시 받습니다([#94](https://github.com/dotnetpower/fdai/issues/94)). |
 | 2026-09-28 | implemented | 측정 결과 공급원을 통제된 경로 위에 복구했습니다. `scripts/catalog/run-catalog-scenario.py`는 이제 리포트 피드가 읽는 것과 같은 가져오기 계약으로 `enforce-report.json`을 기록하며, 이 기록은 계약을 검증하는 모듈의 `enforce_report_record`가 만듭니다. 남아 있던 원시 sweep 드라이버는 삭제했습니다. 실험을 실제로 수행한 실행만 기록을 남기므로 거부되었거나 재생되었거나 오류로 끝난 실행은 아무것도 추가하지 않습니다. 가져오기, Operator 변환 결과, Console 리포트는 바뀌지 않았습니다. | `current change`: `services/core-control-plane/src/fdai/delivery/chaos/enforce_report.py`, `services/core-control-plane/src/fdai/delivery/chaos/governed_outcome.py`, `scripts/catalog/run-catalog-scenario.py`, 연결된 테스트입니다. 측정 리포트의 존재와 부재를 포함해 집중 enforce-report, report-feed, 카탈로그 실행기, scenario-lab 테스트를 통과했습니다. | 승인된 실제 통제 실행에서 측정된 리포트를 보존합니다. 통제된 실제 실행, 승격, Azure 작업은 수행하지 않았습니다. |
 | 2026-09-28 | implemented | 배포의 근거 변환 단계가 읽는 위치에 측정 리포트를 고정했습니다. `run-catalog-scenario.py --measured-report <path>`는 같은 가져오기 기록을 정확한 경로에 쓰고, scenario-lab sweep은 보호된 워크플로가 이미 변환하고 이후 파쇄하는 경로인 `$FDAI_ENFORCE_REPORT_ROOT/report.json`을 전달합니다. 측정된 실행만 파일을 만들므로, 거부된 sweep은 빈 성공 대신 변환할 대상이 없는 상태로 남습니다. | `current change`: `scripts/catalog/run-catalog-scenario.py`, `scripts/deployment/scenario-lab/run-reference-sweep.sh`, 연결된 테스트입니다. 고정 리포트의 존재, 거부된 실행에서의 부재, 워크플로의 변환 및 결과 게이트 계약을 포함해 집중 카탈로그 실행기와 scenario-lab 테스트를 통과했습니다. | `db`, `llm_endpoint`, `lb` 대상에 정규 식별자가 없는 동안에는 `all` sweep이 워크플로의 10건 결과 게이트를 아직 충족할 수 없습니다. 통제된 실제 실행이나 Azure 작업은 수행하지 않았습니다. |
+| 2026-09-28 | implemented | 측정 결과를 만들 수 있는 시나리오 범위를 넓혔습니다. 카탈로그 실행기는 이제 scenario lab이 이미 게시하던 선택적 MySQL 및 모델 기반을 바인딩하고, 승인 대상은 injector 참조에서 도출합니다. 따라서 데이터베이스, 모델 엔드포인트, 복제본 조정, 롤아웃 시나리오가 `refused_target_type`으로 거부되어 아무것도 남기지 못하는 대신 어댑터에 도달합니다. 리포트 스키마, 가져오기, Operator 변환 결과, Console 리포트는 바뀌지 않았습니다. | `current change`: `scripts/catalog/run-catalog-scenario.py`, `services/core-control-plane/src/fdai/delivery/chaos/substrate_bindings.py`, `services/core-control-plane/src/fdai/delivery/chaos/mutation_scope.py`입니다. 집중 chaos, mutation-scope, substrate-binding, 카탈로그 실행기, scenario-lab suite가 테스트 487개를 통과했습니다. | 측정 리포트는 여전히 승인된 실제 통제 실행이 있어야 하며, 이번에는 수행하지 않았습니다. |
 
 ### 남은 작업
 
