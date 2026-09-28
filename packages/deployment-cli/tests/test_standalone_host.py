@@ -3503,3 +3503,13 @@ def test_legacy_runtime_context_requires_explicit_full_product_selection() -> No
 
     assert standalone_host._runtime_profile_matches({}, observation) is False
     assert standalone_host._runtime_profile_matches({}, explicit_legacy) is True
+
+
+def test_host_checkpoints_create_owner_only_state(monkeypatch: pytest.MonkeyPatch) -> None:
+    masks: list[int] = []
+    monkeypatch.setattr(standalone_host.os, "umask", lambda mask: masks.append(mask) or 0o002)
+
+    with pytest.raises(SystemExit):
+        standalone_host.main(["--help"])
+
+    assert masks == [0o077]
