@@ -1,7 +1,7 @@
 {
   "version": "1.0.0",
   "description": "Complete inventory of registered positive decision boundaries that must resolve decision-critical evidence through the shared admission contract (FDAI-CONST-002).",
-  "decision_surface_digest": "063fb254d8fe462ed92548fbb5924eb74becfd31b1ab0a66076b521e72701a3f",
+  "decision_surface_digest": "face597d6c6f3605ec571d62f432d30ee8a78bd50db39b2625fb6d6428391419",
   "shared_admission": {
     "module": "fdai.shared.providers.decision_evidence_verifier",
     "assessor": "assess_decision_evidence_admission",
@@ -236,7 +236,8 @@
       "purpose_constant": "CURRENT_REUSE_EVIDENCE_PURPOSE",
       "purpose_id": "current-case-reuse",
       "tests": [
-        "services/core-control-plane/tests/core/tiers/t1_lightweight/test_contextual_reuse.py"
+        "services/core-control-plane/tests/core/tiers/t1_lightweight/test_contextual_reuse.py",
+        "services/core-control-plane/tests/agents/test_operational_evidence_owner_records.py"
       ],
       "decisions": [
         {
@@ -326,7 +327,8 @@
       "purpose_id": null,
       "purpose_note": "Uses the exact forecast-context admission purpose; exclusions remain unscorable.",
       "tests": [
-        "services/core-control-plane/tests/core/detection/test_forecast_context.py"
+        "services/core-control-plane/tests/core/detection/test_forecast_context.py",
+        "services/core-control-plane/tests/agents/test_operational_evidence_owner_records.py"
       ],
       "decisions": [
         {
@@ -338,7 +340,8 @@
             }
           ],
           "fail_closed_markers": [
-            "_exclude("
+            "_exclude(",
+            "_exclude_rejected("
           ]
         }
       ]
@@ -351,7 +354,8 @@
       "purpose_id": null,
       "purpose_note": "Admits forecast-history-actions, changes, resource_lifecycle, excluded_windows and forecast-context separately; immutable replay never renews evidence or authority.",
       "tests": [
-        "services/core-control-plane/tests/persistence/test_state_store_forecast_context.py"
+        "services/core-control-plane/tests/persistence/test_state_store_forecast_context.py",
+        "services/core-control-plane/tests/agents/test_operational_evidence_owner_records.py"
       ],
       "decisions": [
         {
@@ -411,7 +415,8 @@
       "purpose_id": null,
       "purpose_note": "Uses case-history-read admission bound to the query arguments and authenticated principal.",
       "tests": [
-        "services/core-control-plane/tests/agents/test_operating_pattern_learning_e2e.py"
+        "services/core-control-plane/tests/agents/test_operating_pattern_learning_e2e.py",
+        "services/core-control-plane/tests/agents/test_operational_evidence_owner_records.py"
       ],
       "decisions": [
         {
@@ -561,7 +566,8 @@
       "purpose_note": "Uses operator-test-context-command admission bound to the complete typed command.",
       "tests": [
         "services/core-control-plane/tests/agents/test_runtime.py",
-        "services/core-control-plane/tests/core/operational_evidence/test_issuance.py"
+        "services/core-control-plane/tests/core/operational_evidence/test_issuance.py",
+        "services/core-control-plane/tests/agents/test_operational_evidence_owner_records.py"
       ],
       "decisions": [
         {
@@ -651,7 +657,8 @@
       "purpose_id": null,
       "purpose_note": "Uses operational-test-context admission and an independent latest source read; never grants execution.",
       "tests": [
-        "services/core-control-plane/tests/agents/test_operational_context_verdict.py"
+        "services/core-control-plane/tests/agents/test_operational_context_verdict.py",
+        "services/core-control-plane/tests/agents/test_operational_evidence_owner_records.py"
       ],
       "decisions": [
         {
@@ -677,7 +684,8 @@
       "purpose_note": "Uses test-context-transition; exact historical replay is a non-mutating no-op, not renewed authority.",
       "tests": [
         "services/core-control-plane/tests/core/operational_context/test_test_context.py",
-        "services/core-control-plane/tests/core/operational_evidence/test_issuance.py"
+        "services/core-control-plane/tests/core/operational_evidence/test_issuance.py",
+        "services/core-control-plane/tests/agents/test_operational_evidence_owner_records.py"
       ],
       "decisions": [
         {

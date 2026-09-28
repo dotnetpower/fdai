@@ -303,6 +303,64 @@ class OperationalEvidenceRejectionRecord(_RejectionRecordBody):
         return self.recorded_at <= _aware(evaluated_at) < self.valid_until
 
 
+class OperationalEvidenceVerifierState(StrEnum):
+    """Writer-readback state of the verifier workload; only ``ready`` may issue."""
+
+    READY = "ready"
+    SELF_VERIFIED = "self_verified"
+    UNAVAILABLE = "unavailable"
+
+
+class OperationalEvidenceSourceHealth(StrEnum):
+    """Outcome of one bounded read the verifier ran against a declared source."""
+
+    HEALTHY = "healthy"
+    UNAVAILABLE = "unavailable"
+
+
+class OperationalEvidenceVerifierReadiness(ContractBase):
+    """Content-free readiness snapshot the verifier serves; it grants no authority.
+
+    A consumer treats a purpose as bound only when this snapshot is current, names the same
+    registry pins it loaded, reports a writer-exclusive proof store, binds the purpose, and
+    reports every source the purpose declares as healthy.
+    """
+
+    schema_version: Literal["1.0.0"] = "1.0.0"
+    state: OperationalEvidenceVerifierState
+    reasons: Annotated[tuple[str, ...], Field(max_length=16)] = ()
+    verifier_id: EvidenceId
+    verifier_version: SemVer
+    trust_registry_pin: Digest
+    grant_registry_pin: Digest
+    bound_purposes: Annotated[tuple[str, ...], Field(max_length=16)] = ()
+    source_health: Annotated[
+        dict[SourceIdentity, OperationalEvidenceSourceHealth], Field(max_length=32)
+    ] = Field(default_factory=dict)
+    probed_at: datetime | None = None
+    execution_authority: Literal[False] = False
+    promotion_authority: Literal[False] = False
+
+    @field_validator("probed_at")
+    @classmethod
+    def _normalize_time(cls, value: datetime | None) -> datetime | None:
+        return None if value is None else _aware(value)
+
+    @model_validator(mode="after")
+    def _consistent(self) -> OperationalEvidenceVerifierReadiness:
+        if self.reasons != tuple(sorted(set(self.reasons))) or any(
+            _REASON_CODE.fullmatch(code) is None for code in self.reasons
+        ):
+            raise ValueError("verifier readiness reasons MUST be ordered codes")
+        if (self.state is OperationalEvidenceVerifierState.READY) == bool(self.reasons):
+            raise ValueError("verifier readiness reasons MUST explain every non-ready state")
+        if self.bound_purposes != tuple(sorted(set(self.bound_purposes))) or (
+            set(self.bound_purposes) - set(OPERATIONAL_EVIDENCE_PURPOSES)
+        ):
+            raise ValueError("verifier readiness purposes MUST be ordered registered purposes")
+        return self
+
+
 __all__ = [
     "LOCATOR_COORDINATES",
     "OPERATIONAL_EVIDENCE_PURPOSES",
@@ -314,4 +372,7 @@ __all__ = [
     "OperationalEvidenceLookup",
     "OperationalEvidenceRejectionClass",
     "OperationalEvidenceRejectionRecord",
+    "OperationalEvidenceSourceHealth",
+    "OperationalEvidenceVerifierReadiness",
+    "OperationalEvidenceVerifierState",
 ]

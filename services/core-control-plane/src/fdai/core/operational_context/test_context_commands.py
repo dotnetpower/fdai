@@ -11,6 +11,7 @@ from fdai_service_contracts.ontology_query import content_digest
 from fdai_service_contracts.test_context import TestContextApplication, TestContextCommand
 
 from fdai.core.operational_evidence.owner_outcome import (
+    OperationalEvidenceRejectedError,
     OperationalEvidenceRequester,
     request_operational_evidence,
 )
@@ -102,8 +103,26 @@ class TestContextCommandHandler:
     async def transition(
         self, payload: Mapping[str, Any], *, reviewed_by_var: bool
     ) -> dict[str, Any]:
-        """Mimir applies an exact proposal or Var-reviewed command and returns audit fields."""
-        command = await self.validate(payload)
+        """Mimir applies an exact proposal or Var-reviewed command and returns audit fields.
+
+        A refusal whose attempt proved an explicit evidence class first appends one Mimir
+        refused-transition audit entry citing the rejection record, then propagates unchanged.
+        """
+        parsed = TestContextCommand.model_validate(payload)
+        try:
+            command = await self.validate(payload)
+            return await self._apply(command, reviewed_by_var=reviewed_by_var)
+        except OperationalEvidenceRejectedError as refused:
+            await self._contexts.record_refused_transition(
+                refused.attempt,
+                access_scope_digest=parsed.request.access_scope_digest,
+                correlation_id=parsed.idempotency_key,
+                now=self._clock(),
+            )
+            raise
+
+    async def _apply(self, command: TestContextCommand, *, reviewed_by_var: bool) -> dict[str, Any]:
+        """Apply one validated command; the store still requires its own transition admission."""
         request = command.request
         if (request.operation != "propose") != reviewed_by_var:
             raise PermissionError("test context review must pass the Var-owned approval topic")

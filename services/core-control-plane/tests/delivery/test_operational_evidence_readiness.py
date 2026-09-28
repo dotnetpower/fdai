@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from datetime import timedelta
 from pathlib import Path
 
 from fdai.core.operational_evidence.registry_json import content_pin
@@ -48,6 +49,25 @@ def _environment(tmp_path: Path, **principals: str) -> dict[str, str]:
     }
 
 
+def readiness_snapshot(env: dict[str, str], **overrides: object) -> dict[str, object]:
+    """Return a current, matching verifier readiness snapshot for ``env``'s pinned registries."""
+    snapshot: dict[str, object] = {
+        "state": "ready",
+        "verifier_id": "operational-evidence-verifier",
+        "verifier_version": "1.0.0",
+        "trust_registry_pin": env["FDAI_OPERATIONAL_EVIDENCE_TRUST_REGISTRY_PIN"],
+        "grant_registry_pin": env["FDAI_OPERATIONAL_EVIDENCE_GRANT_REGISTRY_PIN"],
+        "bound_purposes": sorted(BOUND_READBACK_PURPOSES),
+        "source_health": {
+            "core-control-plane.test-context-store": "healthy",
+            "operator-service.test-context-outbox": "healthy",
+        },
+        "probed_at": (NOW - timedelta(seconds=30)).isoformat(),
+    }
+    snapshot.update(overrides)
+    return snapshot
+
+
 def _rows(
     env: dict[str, str], *, verifier_readiness: dict[str, object] | None = None
 ) -> dict[str, dict[str, object]]:
@@ -75,12 +95,9 @@ def test_bound_purposes_become_available_only_with_observed_writer_exclusive_rea
     unobserved = _rows(env)
     assert all(row["available"] is False for row in unobserved.values())
     assert unobserved["operational-evidence.operator-test-context-command"]["reason"] == (
-        "verifier readiness with a writer-exclusive proof store is not observed"
+        "verifier readiness is not observed"
     )
-    ready = _rows(
-        env,
-        verifier_readiness={"state": "ready", "bound_purposes": sorted(BOUND_READBACK_PURPOSES)},
-    )
+    ready = _rows(env, verifier_readiness=readiness_snapshot(env))
     available = {key for key, row in ready.items() if row["available"]}
     assert available == {f"operational-evidence.{purpose}" for purpose in BOUND_READBACK_PURPOSES}
     for row in ready.values():
@@ -93,19 +110,17 @@ def test_bound_purposes_become_available_only_with_observed_writer_exclusive_rea
 
 
 def test_shared_verifier_identity_or_foreign_writer_reports_self_verified(tmp_path: Path) -> None:
-    shared = _rows(
-        _environment(tmp_path, **{"anchor:operational-evidence-verifier": "fdai_core"}),
-        verifier_readiness={"state": "ready", "bound_purposes": sorted(BOUND_READBACK_PURPOSES)},
-    )
+    shared_env = _environment(tmp_path, **{"anchor:operational-evidence-verifier": "fdai_core"})
+    shared = _rows(shared_env, verifier_readiness=readiness_snapshot(shared_env))
     aggregate = shared.pop("operational-evidence.forecast-context")
     assert aggregate["reason"] == "the pinned registry entry or its anchors are unavailable"
     assert {row["capability_state"] for row in shared.values()} == {"self_verified"}
+    env = _environment(tmp_path)
     foreign = _rows(
-        _environment(tmp_path),
-        verifier_readiness={
-            "state": "self_verified",
-            "bound_purposes": sorted(BOUND_READBACK_PURPOSES),
-        },
+        env,
+        verifier_readiness=readiness_snapshot(
+            env, state="self_verified", reasons=["foreign_insert_grant"]
+        ),
     )
     row = foreign["operational-evidence.operator-test-context-command"]
     assert row["capability_state"] == "self_verified" and row["available"] is False

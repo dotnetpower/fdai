@@ -249,6 +249,8 @@ async def emit_action_run(host: ThorPersistenceHost, run: ActionRun) -> None:
     }
     if run.action_id is not None:
         payload["action_id"] = run.action_id
+    if run.evidence_rejection_ref is not None:
+        payload["evidence_rejection_ref"] = run.evidence_rejection_ref
     payload["action_run_identity"] = action_run_identity_digest(payload)
     if run.state in _TERMINAL_STATES:
         payload["terminal_at"] = datetime.now(tz=UTC).isoformat().replace("+00:00", "Z")

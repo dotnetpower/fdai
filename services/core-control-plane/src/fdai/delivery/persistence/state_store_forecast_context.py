@@ -10,7 +10,12 @@ from dataclasses import asdict
 from datetime import UTC, datetime
 from typing import Any
 
+from fdai.core.detection.forecast_context import forecast_locator
 from fdai.core.detection.forecast_history_ingress import ForecastHistoryCollector
+from fdai.core.operational_evidence.owner_outcome import (
+    OperationalEvidenceRequester,
+    request_operational_evidence,
+)
 from fdai.shared.providers.decision_evidence_verifier import (
     DecisionEvidenceAdmission,
     DecisionEvidenceAdmissionProvider,
@@ -48,11 +53,13 @@ class StateStoreForecastContextProvider:
         admission: DecisionEvidenceAdmissionProvider | None = None,
         clock: Callable[[], datetime] | None = None,
         collector: ForecastHistoryCollector | None = None,
+        evidence: OperationalEvidenceRequester | None = None,
     ) -> None:
         self._store = store
         self._admission = admission
         self._clock = clock or (lambda: datetime.now(UTC))
         self._collector = collector
+        self._evidence = evidence
 
     async def ingest(self, payload: Mapping[str, Any]) -> str:
         """Verify four source coverage slices and retain one exact episode history.
@@ -179,8 +186,18 @@ class StateStoreForecastContextProvider:
     async def _require_admission(
         self, evidence: ForecastContextEvidence, *, purpose: str
     ) -> datetime:
+        """Admit one slice or the aggregate; a recorded rejection raises with its class."""
         if self._admission is None:
             raise ForecastContextUnavailableError("forecast history admission is unavailable")
+        attempt = await request_operational_evidence(
+            self._evidence,
+            evidence_digest="sha256:" + evidence.digest,
+            scope_digest="sha256:" + evidence.access_scope_digest,
+            purpose_id=purpose,
+            source_revision=evidence.source_revision,
+            locator=forecast_locator(evidence),
+            clock=self._clock,
+        )
         receipt = await self._admission.admit(
             evidence_digest="sha256:" + evidence.digest,
             scope_digest="sha256:" + evidence.access_scope_digest,
@@ -189,6 +206,7 @@ class StateStoreForecastContextProvider:
         )
         now = self._clock()
         if not isinstance(receipt, DecisionEvidenceAdmission):
+            attempt.raise_if_rejected("forecast history source coverage admission failed")
             raise ForecastContextUnavailableError(
                 "forecast history source coverage admission failed"
             )

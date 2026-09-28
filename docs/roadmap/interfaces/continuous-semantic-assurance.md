@@ -42,8 +42,9 @@ generated bilingual Golden cases, all five evidence-posture partitions of the Re
 operational declaration universe, and the semantic-judgment and incident-intent regression
 overlays. Its per-partition case counts and identity digests bind the exact Golden files and
 ontology release without retaining question text. Excluded declarations are counted separately.
-Any ontology release change, such as a new ActionType version, rebinds the declaration partition,
-so the same change regenerates the manifest with its builder.
+Any ontology release change, such as a new ActionType version or an edited ontology function source
+whose artifact digest the release pins, rebinds the declaration partition, so the same change
+regenerates the manifest with its builder.
 This repository-only inventory is not an executable campaign, a production binding, or a
 certification receipt.
 

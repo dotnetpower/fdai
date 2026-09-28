@@ -1,8 +1,8 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: 53dcd0d981c96c443c395271a7d7ea420e56381e
-translation_revised: 2026-09-28
+translation_source_sha: 68990c8c74aa420e563024c0659f2c29a680da87
+translation_revised: 2026-09-29
 ---
 # 배포와 온보딩(Deploy and Onboard)
 Azure 구독에 FDAI를 프로비저닝하고 첫 온보딩을 완료해 시스템이 관측 준비되도록 하는 방법. 이 문서는 **구체적 배포 인벤토리, 부트스트랩 순서, 분포/배포 책임 분리**의 정본(source of truth)입니다; 배포 라이프사이클(CI/CD, progressive 전달, 롤백, DR)은 [deployment-ko.md](deployment-ko.md)에 남습니다.
@@ -433,7 +433,7 @@ Workflow는 OCR desired-state 축약을 집중 script에 위임하여 승인 또
   구체화 Job은 큰 불변 프로젝션을 위해 PostgreSQL 문 제한 시간을 5분으로 설정합니다.
   관리 평면의 사전 이미지 바인딩이나 사전 실행은 digest 고정 이미지와 최신 실행 성공을
   readback으로 입증할 때만 허용합니다. 그런 다음 VNet runner는 성공을 보고하기 전에
-  리포지토리의 모든 예상 프로젝션을 PostgreSQL과 비교합니다. 보호된 모델 Settings workflow는 모델 projection을 새로 고치고 런타임 Settings 행이 없을 때만 생성하며, 기존 런타임 근거를 보존하고 읽기 전용 트랜잭션에서 환경에 결속된 두 행을 검증해 새 Console에서 설정 컨트롤을 표시할 수 있게 합니다. 런타임 Settings 구체화는 공유 `RUNTIME_SETTING_SPECS`의 모든 항목을 열거하며, 변환 결과를 한 설정 그룹으로 제한하지 않고 검증된 각 환경 값과 가용성 필드를 보존합니다.
+  리포지토리의 모든 예상 프로젝션을 PostgreSQL과 비교합니다. 보호된 모델 Settings workflow는 모델 projection을 새로 고치고 런타임 Settings 행이 없을 때만 생성하며, 기존 런타임 근거를 보존하고 읽기 전용 트랜잭션에서 환경에 결속된 두 행을 검증해 새 Console에서 설정 컨트롤을 표시할 수 있게 합니다. 런타임 Settings 구체화는 공유 `RUNTIME_SETTING_SPECS`의 모든 항목을 열거하며, 변환 결과를 한 설정 그룹으로 제한하지 않고 검증된 각 환경 값과 가용성 필드를 보존합니다. 운영 근거 발급이 활성화되어 있으면 제한 시간 안에서 검증기 준비 상태 엔드포인트도 한 번 읽으며, 응답이 없거나 형식이 잘못되면 모든 운영 근거 목적을 사용할 수 없는 상태로 둡니다.
 - **Cost Governance 프로필과 배포 후 검사**: `plan-cost-*`와 `apply-cost-*` 요청 식별자는 패키지 활성화 또는 작업 모드를 바꾸지 않고 정확한 다이제스트 고정 Cost Governance 이미지를 Core와 두 작업에 연결합니다. 배포 후 smoke 테스트와 합성 카나리는 [operating-and-verification-ko.md](../operations/operating-and-verification-ko.md)에 계속 정의됩니다.
 
 ## 분포 및 배포 책임 매트릭스

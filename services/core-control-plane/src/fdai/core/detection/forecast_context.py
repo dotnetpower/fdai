@@ -12,6 +12,13 @@ from datetime import UTC, datetime
 from fdai.core.detection.forecast_closure import ForecastObservationProvider
 from fdai.core.detection.forecast_episode import ForecastEpisode
 from fdai.core.detection.forecast_outcome import ForecastObservation
+from fdai.core.operational_evidence.owner_outcome import (
+    UNAVAILABLE_ATTEMPT,
+    OperationalEvidenceAttempt,
+    OperationalEvidenceRejectedError,
+    OperationalEvidenceRequester,
+    request_operational_evidence,
+)
 from fdai.shared.contracts.models import ForecastScoringExclusion, TelemetryCompleteness
 from fdai.shared.providers.decision_evidence_verifier import (
     DecisionEvidenceAdmission,
@@ -38,6 +45,7 @@ class ContextualForecastObservationProvider:
         admission_provider: DecisionEvidenceAdmissionProvider | None = None,
         clock: Callable[[], datetime] | None = None,
         timeout_seconds: float = 5.0,
+        evidence: OperationalEvidenceRequester | None = None,
     ) -> None:
         if (
             isinstance(timeout_seconds, bool)
@@ -50,6 +58,7 @@ class ContextualForecastObservationProvider:
         self._admission_provider = admission_provider
         self._clock = clock or (lambda: datetime.now(tz=UTC))
         self._timeout_seconds = timeout_seconds
+        self._evidence = evidence
 
     async def observe(self, episode: ForecastEpisode) -> ForecastObservation:
         """Bound the entire join and preserve measured telemetry when context work times out."""
@@ -84,6 +93,8 @@ class ContextualForecastObservationProvider:
         try:
             async with asyncio.timeout(self._timeout_seconds):
                 evidence = await self._context.read(request)
+        except OperationalEvidenceRejectedError as rejected:
+            return _exclude_rejected(observation, rejected.attempt)
         except Exception as exc:
             _LOGGER.warning(
                 "forecast_history_unavailable", extra={"error_type": type(exc).__name__}
@@ -101,9 +112,19 @@ class ContextualForecastObservationProvider:
         ):
             return _exclude(observation, "context_mismatch")
         admission = None
+        attempt = UNAVAILABLE_ATTEMPT
         if self._admission_provider is not None:
             try:
                 async with asyncio.timeout(self._timeout_seconds):
+                    attempt = await request_operational_evidence(
+                        self._evidence,
+                        evidence_digest="sha256:" + _context_ref(evidence).split(":", 1)[1],
+                        scope_digest="sha256:" + evidence.access_scope_digest,
+                        purpose_id="forecast-context",
+                        source_revision=evidence.source_revision,
+                        locator=forecast_locator(evidence),
+                        clock=self._clock,
+                    )
                     admission = await self._admission_provider.admit(
                         evidence_digest="sha256:" + _context_ref(evidence).split(":", 1)[1],
                         scope_digest="sha256:" + evidence.access_scope_digest,
@@ -122,7 +143,7 @@ class ContextualForecastObservationProvider:
         ):
             return _exclude(observation, "context_mismatch")
         if not isinstance(admission, DecisionEvidenceAdmission):
-            return _exclude(observation, "intervention_history_unavailable")
+            return _exclude_rejected(observation, attempt)
         if (
             assess_decision_evidence_admission(
                 admission,
@@ -175,6 +196,37 @@ def _exclude(
         observation,
         scoring_exclusions=tuple(sorted({*observation.scoring_exclusions, reason})),
     )
+
+
+def _exclude_rejected(
+    observation: ForecastObservation, attempt: OperationalEvidenceAttempt
+) -> ForecastObservation:
+    """Exclude with the verifier's recorded class and cite it; an outage stays generic."""
+    reference = attempt.rejection_ref
+    if reference is None or len(observation.evidence_refs) >= 64:
+        return _exclude(observation, "intervention_history_unavailable")
+    return replace(
+        observation,
+        evidence_refs=tuple(sorted({*observation.evidence_refs, reference})),
+        scoring_exclusions=tuple(
+            sorted(
+                {
+                    *observation.scoring_exclusions,
+                    attempt.hold_reason("intervention_history_unavailable"),
+                }
+            )
+        ),
+    )
+
+
+def forecast_locator(evidence: ForecastContextEvidence) -> dict[str, str]:
+    """Return the coordinates-only locator every forecast purpose shares for one window."""
+    return {
+        "access_scope_digest": evidence.access_scope_digest,
+        "target_digest": evidence.target_digest,
+        "horizon_started_at": evidence.horizon_started_at.astimezone(UTC).isoformat(),
+        "horizon_ended_at": evidence.horizon_ended_at.astimezone(UTC).isoformat(),
+    }
 
 
 def _context_ref(evidence: ForecastContextEvidence) -> str:

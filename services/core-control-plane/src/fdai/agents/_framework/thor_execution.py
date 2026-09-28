@@ -9,7 +9,10 @@ from typing import Any, Protocol
 from fdai.agents._framework.action_run_state import ActionRunState
 from fdai.agents._framework.thor_action_run import ActionRun, ActionRunStore
 from fdai.core.executor.safeguards import resource_lock_key
-from fdai.core.operational_context.test_context_dispatch import TestContextDispatchGuard
+from fdai.core.operational_context.test_context_dispatch import (
+    TestContextDispatchGuard,
+    TestContextDispatchHold,
+)
 from fdai.shared.contracts.models import Autonomy
 from fdai.shared.providers.resource_lock import ResourceLock
 
@@ -101,11 +104,13 @@ async def execute(host: ThorExecutionHost, run: ActionRun) -> None:
         await host._emit_action_run(run)
         if run.test_context_guard is not None:
             guard = host._test_context_dispatch_guard
+            hold = TestContextDispatchHold()
             if guard is None or not await guard.current(
-                run.test_context_guard, target_ref=run.resource_id
+                run.test_context_guard, target_ref=run.resource_id, hold=hold
             ):
                 run.transition(ActionRunState.DENY_DROPPED)
-                run.outcome = "test_context_changed_before_dispatch"
+                run.outcome = hold.outcome
+                run.evidence_rejection_ref = hold.rejection_ref
                 await host._emit_action_run(run)
                 await host._release_resource_claim(run)
                 host.record_behavior("test_context:dispatch_held")

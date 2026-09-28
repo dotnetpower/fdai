@@ -158,6 +158,18 @@ class OperationalEvidenceVerifierEngine:
 
         return frozenset(self._readbacks)
 
+    @property
+    def identity(self) -> VerifierIdentity:
+        """Return the logical verifier identity this workload issues under."""
+
+        return self._identity
+
+    def current_pins(self) -> RegistryPins | None:
+        """Return the registry pins new records would carry, or nothing without a history."""
+
+        history = self._history()
+        return history.current.pins if history is not None else None
+
     async def issue(
         self,
         request: OperationalEvidenceIssuanceRequest,

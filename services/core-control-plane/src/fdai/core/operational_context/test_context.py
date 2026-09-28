@@ -108,6 +108,8 @@ class TestContextDecision:
     execution_eligibility: Literal["ordinary_gates_required"]
     reason: str
     context_digest: str | None
+    evidence_rejection_ref: str | None = None
+    """The rejection record a hold's explicit evidence class cites; never set otherwise."""
 
 
 class TestContextSource(Protocol):

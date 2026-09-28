@@ -88,6 +88,13 @@ missing. A non-empty exclusion set cannot accompany a scored outcome. Version `1
 readable contract and its serialized shape stays unchanged. A deployment without a context evidence
 binding holds new forecast scoring; an empty intervention list alone never proves absence.
 
+Version `1.2.0` adds one `operational_evidence_*` exclusion that names the class the
+[independent verifier](independent-operational-evidence.md) recorded for a forecast-context or
+history-slice rejection, such as `operational_evidence_conflicting`. It requires exactly one
+`operational-evidence-rejection:` evidence reference citing that rejection record, and neither
+appears without the other. An unavailable verifier keeps the `1.1.0` exclusion
+`intervention_history_unavailable`, and no exclusion ever makes the outcome scorable.
+
 ## Context-aware decision contract
 
 Keep six conclusions independent: observed fact, expected condition, service impact, response

@@ -650,9 +650,15 @@ def _classified_hold(
     context_attempt: OperationalEvidenceAttempt,
     observation_attempt: OperationalEvidenceAttempt,
 ) -> TestContextDecision:
-    """Name an explicit rejection class; only an unavailable attempt keeps the generic hold."""
-    if result.reason == "context_admission_required":
-        return replace(result, reason=context_attempt.hold_reason(result.reason))
-    if result.reason == "observation_admission_required":
-        return replace(result, reason=observation_attempt.hold_reason(result.reason))
-    return result
+    """Name an explicit rejection class and cite its record; unavailable keeps the generic hold."""
+    attempt = {
+        "context_admission_required": context_attempt,
+        "observation_admission_required": observation_attempt,
+    }.get(result.reason)
+    if attempt is None:
+        return result
+    return replace(
+        result,
+        reason=attempt.hold_reason(result.reason),
+        evidence_rejection_ref=attempt.rejection_digest,
+    )
