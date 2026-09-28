@@ -435,16 +435,14 @@ def test_a_mention_that_merges_a_restriction_with_another_constraint_releases_no
     merged = _one_mention_form(_AKS, "AKS ObjectTypes", "object_type")
 
     assert review_forms((merged,), _EXTRACTED, utterance=_AKS) == FormReview(
-        "unfaithful", ("review_merged:9-12",)
+        "unfaithful", ("review_merged:9-12", "review_merged:13-24")
     )
 
 
 def test_one_mention_may_hold_constraints_that_restate_or_only_name_one_thing() -> None:
-    utterance = "List the Resource ObjectType"
-    named = _one_mention_form(utterance, "Resource ObjectType", "object_type")
-    two_names = {
-        "constraints": [_constraint("Resource", "names"), _constraint("ObjectType", "names")]
-    }
+    utterance = "List the AKS clusters"
+    named = _one_mention_form(utterance, "AKS clusters", "resource_type")
+    two_names = {"constraints": [_constraint("AKS", "names"), _constraint("clusters", "names")]}
     restated = {
         "constraints": [_constraint("AKS ObjectTypes", "names"), _constraint("AKS", "restricts")]
     }
@@ -456,6 +454,29 @@ def test_one_mention_may_hold_constraints_that_restate_or_only_name_one_thing() 
     assert review_forms((merged,), alone, utterance=_AKS) == FormReview("faithful")
 
 
+def test_a_kind_mention_that_holds_another_named_thing_releases_nothing() -> None:
+    utterance = "List the Workload ObjectType"
+    two_names = {
+        "constraints": [_constraint("Workload", "names"), _constraint("ObjectType", "names")]
+    }
+    kind = _one_mention_form(utterance, "Workload ObjectType", "declaration_kind")
+    named = _one_mention_form(utterance, "Workload ObjectType", "object_type")
+    raw = _aks_form("List", context=[_quote("the")])
+    raw["mentions"][0].update(domain="object_type", span=_quote("Workload"))
+    raw["mentions"].append(
+        {"id": "m2", "form": "concept", "domain": "declaration_kind", "span": _quote("ObjectType")}
+    )
+    split = _typed(raw, utterance)
+
+    # A kind or ObjectType binds one name, so the name beside it is dropped or confused.
+    for merged in (kind, named):
+        assert review_forms((merged,), two_names, utterance=utterance) == FormReview(
+            "unfaithful", ("review_merged:9-17", "review_merged:18-28")
+        )
+    # The kind word as its own declaration-kind mention states both names.
+    assert review_forms((split,), two_names, utterance=utterance) == FormReview("faithful")
+
+
 async def test_a_merged_mention_is_held_without_a_repair_it_could_not_make() -> None:
     merged = _aks_form("List", context=[_quote("the")])
     merged["mentions"][0].update(domain="object_type", span=_quote("AKS ObjectTypes"))
@@ -464,7 +485,7 @@ async def test_a_merged_mention_is_held_without_a_repair_it_could_not_make() -> 
     observation = await _shadow(model)
 
     assert observation.review == "unfaithful" and observation.released is False
-    assert observation.review_reasons == ("review_merged:9-12",)
+    assert observation.review_reasons == ("review_merged:9-12", "review_merged:13-24")
     assert len(model.form_calls) == 1
 
 

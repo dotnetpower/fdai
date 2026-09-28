@@ -49,6 +49,7 @@ from .semantic_reasoning_handles import (
     bind_references,
     reference_anchors,
 )
+from .semantic_reasoning_kinds import ground_kinds
 from .semantic_reasoning_proposal import (
     FormInputHeldError,
     FormResolution,
@@ -158,6 +159,8 @@ class ShadowPass:
     repair: str | None = None
     repaired_reasons: tuple[str, ...] = ()
     reference_digest: str | None = None
+    # Mentions grounded in the sibling kind lane, whose domain the form now carries.
+    regrounded: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -195,6 +198,7 @@ class ReasoningShadowObservation:
                     "reference_digest": item.reference_digest,
                     "repair": item.repair,
                     "repaired_reasons": list(item.repaired_reasons),
+                    "regrounded": list(item.regrounded),
                     "goals": [
                         {
                             "goal": goal.goal_id,
@@ -618,14 +622,32 @@ async def _run_pass(
             None,
             None,
         )
-    receipt = await _select(
-        model,
-        admission=admission,
+
+    def select(lane: Any, calls: int) -> Any:
+        return _select(
+            model,
+            admission=lane,
+            catalogs=catalogs,
+            utterance=utterance,
+            max_calls=calls,
+            max_shard_bytes=max_shard_bytes,
+        )
+
+    receipt = await select(admission, concept_budget)
+    grounding = await ground_kinds(
+        admission,
+        receipt,
         catalogs=catalogs,
         utterance=utterance,
-        max_calls=concept_budget,
-        max_shard_bytes=max_shard_bytes,
+        select=select,
+        choose=lambda mentions, shard, second: model.choose_concepts(
+            utterance=utterance, mentions=mentions, shard=shard, second=second
+        ),
+        budget=concept_budget - receipt.model_calls,
     )
+    # One grounded form replaces the proposal everywhere after this point.
+    admission, receipt = grounding.admission, grounding.receipt
+    form = admission.form
     anchors = await bind_anchors(admission, resolver, utterance=utterance)
     arguments = dict(compile_args)
     references = bind_references(
@@ -643,13 +665,13 @@ async def _run_pass(
     )
     goals = tuple(
         goal.model_dump(mode="json", include={"level", "operation", "subject_scope"})
-        for goal in resolution.form.goals
+        for goal in form.goals
     )
     shadow_pass = ShadowPass(
         index,
         "admitted",
         (),
-        resolution.form.digest,
+        form.digest,
         receipt.digest,
         anchors.digest,
         tuple(
@@ -664,8 +686,9 @@ async def _run_pass(
         proposal.repair,
         proposal.repaired_reasons,
         references.digest if references.bindings else None,
+        grounding.regrounded,
     )
-    return shadow_pass, goals, compilation, resolution.form
+    return shadow_pass, goals, compilation, form
 
 
 async def _select(

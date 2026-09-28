@@ -147,13 +147,15 @@ word that only means all or every has its own role, quantifies, and like a reque
 extractor labeled such words as exclusions. Roles beyond that stay advisory, because two readers may fairly disagree on whether a word restricts or
 relates, except that a hypothetical premise is stated only by an impact goal. One mention binds one concept or identity, so a mention must not hold an
 extracted restriction beside another disjoint extracted constraint, as when one mention quotes `AKS ObjectTypes`: binding would keep one and drop the
-other. A reference's position words, such as second in the second one, are its typed position, so a reference is never a merged mention. The extractor
-also quotes each literal value on its own, without surrounding words or particles. A literal operand, the mention a name-fragment filter reads, is
-used verbatim, so its quote must equal one of those literals; otherwise the turn is held, and no single reader decides where a literal ends. An
-uncovered constraint gets one review repair that may only add information, checked against the same extraction. Its violation names a mention that
-quotes part of the constraint, and a literal operand's quote must stay exact, so the other words go to the cue that cites it. A merged mention or a
-disagreeing literal is held without a repair, because such a repair cannot split a mention or move a literal. A missing, empty, unlocated, uncovered,
-merged, or disagreeing extraction releases nothing.
+other. An ObjectType or declaration-kind mention binds one closed name, so it holds no second disjoint extracted constraint of any role: live,
+`Resource ObjectType` bound to the ResourceType ObjectType, and `Workload ObjectType` bound as a declaration kind listed every ObjectType, so the kind
+word is its own declaration-kind mention. A reference's position words, such as second in the second one, are its typed position, so a reference is
+never a merged mention. The extractor also quotes each literal value on its own, without surrounding words or particles. A literal operand, the
+mention a name-fragment filter reads, is used verbatim, so its quote must equal one of those literals; otherwise the turn is held, and no single
+reader decides where a literal ends. An uncovered constraint gets one review repair that may only add information, checked against the same
+extraction. Its violation names a mention that quotes part of the constraint, and a literal operand's quote must stay exact, so the other words go to
+the cue that cites it. A merged mention or a disagreeing literal is held without a repair, because such a repair cannot split a mention or move a
+literal. A missing, empty, unlocated, uncovered, merged, or disagreeing extraction releases nothing.
 
 **Direction confirmation**: A reversed relation answers the opposite question, and open-ended extraction named relation starts too rarely to catch it.
 After a faithful review, each goal whose relation has a direction, unless it is stated as either, gets one focused call to a reasoning model, because
@@ -190,9 +192,19 @@ lookup table, and an explicit root candidate stands for resources in general. Fu
 
 - **Class closure**: A `resource_class` mention compiles through `query.resource_class_closure`
   into an exact `Resource.type` set and pins the closure receipt.
-- **Cross-domain match**: `AKS ObjectType` declares domain `object_type`, but the model finds `AKS`
-  only among `Resource.type` candidates as `kubernetes-cluster`. Core returns a clarification that
-  names that candidate instead of substituting another declaration.
+- **Cross-domain match**: At schema level, `AKS ObjectType` declares domain `object_type`, but the
+  model finds `AKS` only among `Resource.type` candidates as `kubernetes-cluster`. Core returns a
+  clarification that names that candidate instead of substituting another declaration.
+- **Kind lanes**: The proposer confuses ObjectTypes and resource types in both directions, and the
+  choice flips with unrelated prompt wording. A concept that every citing goal uses only as an
+  instance-level collection subject, where both kinds compile, is grounded first in its stated
+  catalog. When both choosers find nothing there, both are asked in the sibling kind catalog, and a
+  meaning both choose sets the mention's domain. When the stated catalog was contested and the
+  sibling agrees, both choosers see the contested finalists beside that meaning once, and the
+  mention binds only when both pick the same meaning. The retyped form is admitted again and
+  replaces the proposal for every later stage and record. A critique rejected treating an ObjectType
+  and the resources root as one meaning, because they differ as a type filter, a relation end, and a
+  schema subject, and rejected any retyping that leaves a stage reading the stated form.
 - **Ambiguity**: Two surviving candidates in one domain return one clarification that names both.
 - **Two blind choosers**: Two choosers of different model families, the proposer's and the
   extractor's, each see every shard and resolve their own runoff without seeing the other's choice.

@@ -29,10 +29,18 @@ from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
-from .semantic_reasoning_form import GoalOperation, MentionForm, SemanticQuestionForm, SourceSpan
+from .semantic_reasoning_form import (
+    GoalOperation,
+    MentionDomain,
+    MentionForm,
+    SemanticQuestionForm,
+    SourceSpan,
+)
 from .semantic_reasoning_proposal import MAX_OCCURRENCE, locate_quote
 
 MAX_EXTRACTED_CONSTRAINTS = 24
+# Domains whose mention binds one declaration name, so it can hold no second named thing.
+_DECLARATION_NAMES = frozenset({MentionDomain.DECLARATION_KIND, MentionDomain.OBJECT_TYPE})
 MAX_EXTRACTED_LITERALS = 8
 MAX_REVIEW_REASONS = 8
 _QUOTE_SCHEMA: dict[str, Any] = {
@@ -277,12 +285,17 @@ def describe_unexpressible(item: ExtractedConstraint, utterance: str) -> str:
 def merged_constraints(
     forms: Sequence[SemanticQuestionForm], extraction: ConstraintExtraction
 ) -> tuple[ExtractedConstraint, ...]:
-    """Return each extracted restriction that shares one mention with another constraint.
+    """Return each extracted constraint that one mention would drop when it binds.
 
     A product word inside a mention for the kind of thing it restricts, such as AKS in
     one mention for AKS ObjectTypes, would bind as one concept and lose the restriction.
-    Only the extractor's closed roles and the exact spans decide this; Core never reads
-    the words. Overlapping quotes restate one constraint, so only disjoint ones count.
+    A declaration kind or ObjectType is one closed name, so such a mention that holds
+    another disjoint constraint binds one name and drops or confuses the other: Workload
+    ObjectType bound as a declaration kind lists every ObjectType, and Resource ObjectType
+    was bound to the ResourceType ObjectType. The form states the kind word as its own
+    declaration-kind mention instead. Only the extractor's closed roles, the mention's
+    domain, and the exact spans decide this; Core never reads the words. Overlapping
+    quotes restate one constraint, so only disjoint ones count.
     """
 
     stated = [item for item in extraction.constraints if item.role not in _UNSTATED_ROLES]
@@ -301,8 +314,9 @@ def merged_constraints(
             for item in stated
             if mention.span.start <= item.quote.start and item.quote.end <= mention.span.end
         ]
+        kind = mention.domain in _DECLARATION_NAMES
         for item in inside:
-            if item.role is ConstraintRole.RESTRICTS and any(
+            if (kind or item.role is ConstraintRole.RESTRICTS) and any(
                 other.quote.end <= item.quote.start or item.quote.end <= other.quote.start
                 for other in inside
             ):
