@@ -24,8 +24,12 @@ from .semantic_reasoning_form import (
     GoalOperation,
     MentionDomain,
     MentionForm,
+    RelationReach,
+    RelationScope,
+    RelationSense,
     SemanticQuestionForm,
     SourceSpan,
+    SubjectPosition,
     SubjectRole,
     SubjectScope,
     TimeKind,
@@ -400,12 +404,36 @@ def _overlapping_mentions(form: SemanticQuestionForm) -> list[str]:
     return reasons
 
 
+def _restates_scope(goal: FormGoal) -> bool:
+    """Return whether a relation states exactly its scope group's whole membership.
+
+    A scope reads every member of its group at any depth, so a transitive containment
+    relation from that same group to its members names the same set and only restates it.
+    """
+
+    relation = goal.relation
+    return (
+        relation is not None
+        and relation.anchor is not None
+        and relation.sense is RelationSense.CONTAINMENT
+        and relation.scope is RelationScope.ONE_SENSE
+        and relation.reach is RelationReach.TRANSITIVE
+        and relation.anchor_position is SubjectPosition.SOURCE
+        and goal.subject_scope is SubjectScope.COLLECTION
+    )
+
+
 def _goal_shape_failures(goal: FormGoal, form: SemanticQuestionForm) -> list[str]:
     failures: list[str] = []
     scopes = {item.mention for item in goal.filters if item.role is FilterRole.SCOPE}
-    if goal.relation is not None and (goal.relation.anchor or goal.subject) in scopes:
+    if (
+        goal.relation is not None
+        and (goal.relation.anchor or goal.subject) in scopes
+        and not _restates_scope(goal)
+    ):
         # A scope reads the group's whole membership, and a relation from the same group
-        # reads its stated reach, so stating both leaves the answer undecided.
+        # reads its stated reach, so stating both leaves the answer undecided unless that
+        # reach is the same whole membership.
         failures.append(f"scope_anchor_conflict:{goal.id}")
     subject = form.mention(goal.subject) if goal.subject is not None else None
     # A subject restated by one of the goal's own filters is subsumed by that filter.

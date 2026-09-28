@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from typing import Any
 
 import pytest
@@ -424,9 +425,13 @@ def test_one_group_is_never_both_the_scope_and_the_relation_anchor() -> None:
         ],
     }
     scoped = {**raw, "goals": [{**raw["goals"][0], "relation": None}]}
+    closure = json.loads(json.dumps(raw))
+    closure["goals"][0]["relation"]["reach"] = "transitive"
 
     assert "scope_anchor_conflict:g1" in _admit(raw, utterance).reasons
     assert _admit(scoped, utterance).disposition is AdmissionDisposition.ADMITTED
+    # A transitive containment from the scope group names the same whole membership.
+    assert "scope_anchor_conflict:g1" not in _admit(closure, utterance).reasons
 
 
 def test_a_reciprocal_link_is_read_on_both_sides_whatever_direction_is_stated() -> None:

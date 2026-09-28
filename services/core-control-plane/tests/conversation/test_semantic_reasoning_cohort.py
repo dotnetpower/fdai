@@ -242,3 +242,20 @@ async def _assert_executed(goal: Any, expected: dict[str, Any]) -> None:
         assert {row["group"]["properties.type"]: row["value"] for row in aggregates} == expected[
             "groups"
         ]
+
+
+async def test_a_transitive_containment_from_the_scope_group_only_restates_it() -> None:
+    case = json.loads(json.dumps(next(item for item in _CASES if item["id"] == "count-by-type-en")))
+    case["form"]["goals"][0]["relation"] = {
+        "sense": "containment",
+        "anchor": "m1",
+        "anchor_role": "container",
+        "result_role": "member",
+        "reach": "transitive",
+        "cue": "including nested ones",
+    }
+
+    goal = (await _compile(case)).goal("g1")
+
+    assert goal.status is GoalStatus.COMPILED, goal.reasons
+    await _assert_executed(goal, case["expect"]["g1"])
