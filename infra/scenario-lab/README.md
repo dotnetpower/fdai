@@ -85,7 +85,15 @@ commit already present on protected `main`:
    the apply, and ordinary apply refuses delete or replacement actions except the scope-case grant
    replacements that the plan lists. A failed apply reports the same allowlisted projection as a
    failed plan, adding addresses from Terraform's `apply_errored` hooks. Both come from
-   `scripts/deployment/scenario-lab/terraform_diagnostics.py`. For the one-time transition
+   `scripts/deployment/scenario-lab/terraform_diagnostics.py`. ARM can deny a just-created role
+   assignment on some front ends even after the permissions API reports it effective. When the run
+   creates the holding-group grant, the first write therefore waits until the grant is at least
+   ten minutes old and passes a repeated effective-permission check, within a 15-minute bound. A
+   pre-existing grant needs no wait. If an ordinary apply then fails and every error diagnostic is
+   `AuthorizationFailed`, the workflow waits five minutes, builds one fresh plan, and applies it once.
+   The fresh plan must stay inside the reviewed exact plan: no new address, action, import, or
+   changed attribute. Any other failure, or a second failure, stops the run. For the one-time
+   transition
    from the earlier private cluster, first review `action=plan`, then run `action=recreate-aks` with
    `confirm_aks_recreation=recreate-aks-store-demo`. That action accepts only replacement of the
    exact scenario cluster and its cluster-scoped role assignments, and rejects any other delete.

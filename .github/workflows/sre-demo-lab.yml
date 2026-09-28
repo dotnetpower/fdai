@@ -360,11 +360,17 @@ jobs:
               --scope "$RESOURCE_GROUP_ID" \
               --query id --output tsv --only-show-errors)"
             echo "::add-mask::$assignment_id"
-            printf 'role_assignment_id=%s\n' "$assignment_id" >>"$GITHUB_OUTPUT"
-            printf 'remove_after_run=true\n' >>"$GITHUB_OUTPUT"
+            {
+              printf 'role_assignment_id=%s\n' "$assignment_id"
+              printf 'remove_after_run=true\n'
+              printf 'granted_at_epoch=%s\n' "$(date -u +%s)"
+            } >>"$GITHUB_OUTPUT"
           else
-            printf 'role_assignment_id=\n' >>"$GITHUB_OUTPUT"
-            printf 'remove_after_run=false\n' >>"$GITHUB_OUTPUT"
+            {
+              printf 'role_assignment_id=\n'
+              printf 'remove_after_run=false\n'
+              printf 'granted_at_epoch=\n'
+            } >>"$GITHUB_OUTPUT"
           fi
 
       - name: Grant bounded operator network authority
@@ -666,6 +672,58 @@ jobs:
             --region-short "$TF_VAR_region_short" \
             --runner-principal-id "$DEPLOY_RUNNER_PRINCIPAL_ID"
 
+      - name: Wait for the run grant to settle
+        if: inputs.action == 'apply' || inputs.action == 'recreate-aks'
+        working-directory: ${{ runner.temp }}
+        env:
+          RESOURCE_GROUP_ID: ${{ steps.holding-scope.outputs.resource_group_id }}
+          REMOVE_AFTER_RUN: ${{ steps.deployment-authority.outputs.remove_after_run }}
+          GRANTED_AT_EPOCH: ${{ steps.deployment-authority.outputs.granted_at_epoch }}
+        run: |
+          set -euo pipefail
+          # The permissions API can report a new grant effective before every ARM front end
+          # authorizes it, so a grant created by this run must age before the first write.
+          if [[ "$REMOVE_AFTER_RUN" != "true" ]]; then
+            echo "The pre-existing scenario-lab grant needs no settle wait."
+            exit 0
+          fi
+          [[ "$GRANTED_AT_EPOCH" =~ ^[0-9]{10}$ ]] || {
+            echo "scenario-lab grant creation time is unavailable." >&2
+            exit 1
+          }
+          readonly minimum_age_seconds=600
+          readonly settle_slack_seconds=300
+          readonly check_interval_seconds=30
+          readonly deadline=$((GRANTED_AT_EPOCH + minimum_age_seconds + settle_slack_seconds))
+          attempt=1
+          while :; do
+            effective=false
+            if permissions="$(timeout --foreground 15s az rest \
+              --method get \
+              --url "https://management.azure.com${RESOURCE_GROUP_ID}/providers/Microsoft.Authorization/permissions?api-version=2022-04-01" \
+              --output json \
+              --only-show-errors 2>/dev/null)" &&
+              jq -e 'any(.value[]?; any(.actions[]?; ascii_downcase == "*"))' \
+                <<<"$permissions" >/dev/null; then
+              effective=true
+            fi
+            permissions=""
+            now="$(date -u +%s)"
+            age=$((now - GRANTED_AT_EPOCH))
+            if [[ "$effective" == "true" ]] && ((age >= minimum_age_seconds)); then
+              printf 'The scenario-lab grant is %s seconds old and effective.\n' "$age"
+              exit 0
+            fi
+            if ((now + check_interval_seconds > deadline)); then
+              echo "scenario-lab grant did not settle within its bounded window." >&2
+              exit 1
+            fi
+            printf 'Waiting for the scenario-lab grant to settle (%s, %s seconds old, effective=%s).\n' \
+              "$attempt" "$age" "$effective"
+            sleep "$check_interval_seconds"
+            ((attempt += 1))
+          done
+
       - name: Start retained scenario-lab compute and data
         if: inputs.action == 'apply' || inputs.action == 'recreate-aks'
         env:
@@ -890,20 +948,50 @@ jobs:
 
       - name: Apply exact plan
         if: inputs.action == 'apply' || inputs.action == 'recreate-aks'
+        env:
+          REQUESTED_ACTION: ${{ inputs.action }}
         run: |
           set -euo pipefail
+          diagnostics="$GITHUB_WORKSPACE/scripts/deployment/scenario-lab/terraform_diagnostics.py"
           print_apply_diagnostic() {
             python3 "$GITHUB_WORKSPACE/scripts/deployment/scenario-lab/terraform_diagnostics.py" \
               apply "$1"
           }
-          if ! terraform apply -json -input=false -auto-approve -parallelism=2 \
+          if terraform apply -json -input=false -auto-approve -parallelism=2 \
             "$RUNNER_TEMP/sre-demo-lab.tfplan" \
             >"$RUNNER_TEMP/sre-demo-lab-apply.log" 2>&1; then
-            print_apply_diagnostic "$RUNNER_TEMP/sre-demo-lab-apply.log"
+            echo "scenario-lab Terraform apply completed."
+            exit 0
+          fi
+          print_apply_diagnostic "$RUNNER_TEMP/sre-demo-lab-apply.log"
+          # ARM can deny a just-granted role on some front ends, so an apply whose every error is
+          # AuthorizationFailed gets one fresh plan that must stay inside the reviewed exact plan.
+          if [[ "$REQUESTED_ACTION" != "apply" ]] ||
+            ! python3 "$diagnostics" authorization-only "$RUNNER_TEMP/sre-demo-lab-apply.log"; then
             echo "scenario-lab Terraform apply failed; raw output remains runner-local." >&2
             exit 1
           fi
-          echo "scenario-lab Terraform apply completed."
+          readonly retry_settle_seconds=300
+          printf 'Retrying the pure authorization failure once after %s seconds.\n' \
+            "$retry_settle_seconds"
+          sleep "$retry_settle_seconds"
+          retry_plan="$RUNNER_TEMP/sre-demo-lab-retry.tfplan"
+          if ! terraform plan -json -input=false -lock-timeout=5m -out="$retry_plan" \
+            >"$RUNNER_TEMP/sre-demo-lab-retry-plan.log" 2>&1; then
+            python3 "$diagnostics" plan "$RUNNER_TEMP/sre-demo-lab-retry-plan.log"
+            echo "scenario-lab retry plan failed; raw output remains runner-local." >&2
+            exit 1
+          fi
+          terraform show -json "$retry_plan" >"$RUNNER_TEMP/sre-demo-lab-retry-plan.json"
+          python3 "$diagnostics" plan-subset "$RUNNER_TEMP/sre-demo-lab-plan.json" \
+            "$RUNNER_TEMP/sre-demo-lab-retry-plan.json"
+          if ! terraform apply -json -input=false -auto-approve -parallelism=2 "$retry_plan" \
+            >"$RUNNER_TEMP/sre-demo-lab-retry-apply.log" 2>&1; then
+            print_apply_diagnostic "$RUNNER_TEMP/sre-demo-lab-retry-apply.log"
+            echo "scenario-lab Terraform retry apply failed; raw output remains runner-local." >&2
+            exit 1
+          fi
+          echo "scenario-lab Terraform apply completed after one authorization retry."
 
       - name: Verify running AKS target
         if: inputs.action == 'apply' || inputs.action == 'recreate-aks'
@@ -1241,6 +1329,10 @@ jobs:
             "$RUNNER_TEMP/sre-demo-lab-plan.json" \
             "$RUNNER_TEMP/sre-demo-lab-plan.log" \
             "$RUNNER_TEMP/sre-demo-lab-apply.log" \
+            "$RUNNER_TEMP/sre-demo-lab-retry.tfplan" \
+            "$RUNNER_TEMP/sre-demo-lab-retry-plan.json" \
+            "$RUNNER_TEMP/sre-demo-lab-retry-plan.log" \
+            "$RUNNER_TEMP/sre-demo-lab-retry-apply.log" \
             "$RUNNER_TEMP/sre-demo-lab-destroy.log" \
             "$RUNNER_TEMP/sre-demo-lab-destroy-retry.log" \
             "$RUNNER_TEMP/sre-demo-lab-adoption-state-list.txt" \
