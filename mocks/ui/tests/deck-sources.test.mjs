@@ -516,6 +516,57 @@ test("streaming reveals whole words in place and follow-ups rise to the top with
   }
 });
 
+test("settled answers keep the verdict, sources, tools, and record together", { timeout: 60000 }, async () => {
+  const browser = await chromium.launch({ headless: true });
+  try {
+    let { context, frame, errors } = await openStudy(browser, { state: "settled" });
+    await deckState(frame, "settled", 5000);
+    const layout = await frame.evaluate(() => {
+      const article = document.querySelector(".cs-deck-agent-turn");
+      const head = article.querySelector(".cs-deck-turn-head");
+      const tools = [...article.querySelectorAll(".cs-deck-tools .cs-deck-tool")];
+      return {
+        order: [...article.children].map((node) => node.className.split(" ")[0]),
+        time: head.querySelector(".cs-deck-agent-name + .cs-deck-head-time")?.textContent,
+        tools: tools.map((node) => node.getAttribute("aria-label")),
+        quiet: tools.every((node) => getComputedStyle(node).borderTopColor === "rgba(0, 0, 0, 0)"),
+        pillMarks: article.querySelectorAll(".cs-deck-pill .cs-deck-pill-mark").length,
+      };
+    });
+    assert.deepEqual(layout.order, ["cs-deck-turn-head", "cs-deck-answer", "cs-deck-action-row", "cs-deck-sources",
+      "cs-run-record", "cs-deck-followups"]);
+    assert.equal(layout.time, "10:41");
+    assert.deepEqual(layout.tools, ["Copy reply", "Regenerate", "Review answer quality"]);
+    assert.equal(layout.quiet, true);
+    assert.equal(layout.pillMarks, 0);
+    await frame.locator("[data-action='sources']").click();
+    const opened = await frame.evaluate(() => ({
+      rotated: getComputedStyle(document.querySelector(".cs-deck-pill-more > svg")).transform !== "none",
+      rowBorders: [...document.querySelectorAll(".cs-deck-source")].every((node) => getComputedStyle(node).borderTopStyle === "none"),
+      listBorder: getComputedStyle(document.querySelector(".cs-deck-source-list")).borderTopStyle,
+    }));
+    assert.equal(opened.rotated, true);
+    assert.equal(opened.rowBorders, true);
+    assert.equal(opened.listBorder, "solid");
+    assert.deepEqual(errors, []);
+    await context.close();
+
+    ({ context, frame, errors } = await openStudy(browser, { state: "settled", scenario: "partial" }));
+    await deckState(frame, "settled", 5000);
+    const edges = await frame.evaluate(() => {
+      const prose = document.querySelector(".cs-deck-prose").getBoundingClientRect();
+      const note = document.querySelector(".cs-deck-evidence-note").getBoundingClientRect();
+      return { prose: Math.round(prose.right), note: Math.round(note.right) };
+    });
+    assert.equal(edges.note, edges.prose);
+    assert.equal(await frame.locator(".cs-deck-pill .cs-deck-pill-mark").textContent(), "!");
+    assert.deepEqual(errors, []);
+    await context.close();
+  } finally {
+    await browser.close();
+  }
+});
+
 test("stopping mid-paragraph keeps only the revealed words", { timeout: 60000 }, async () => {
   const browser = await chromium.launch({ headless: true });
   try {

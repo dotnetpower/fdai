@@ -66,12 +66,35 @@
   cursor: pointer;
 }
 
-.cs-deck-conversation .cs-deck-tool { color: var(--cs-deck-meta-text); }
+.cs-deck-conversation .cs-deck-tool {
+  color: var(--cs-deck-meta-text);
+  transition: background-color .15s ease, border-color .15s ease, color .15s ease;
+}
+
 .cs-deck-conversation .cs-deck-tool-icon svg { display: block; }
 
-.cs-deck-conversation :is(.cs-deck-tool, .cs-deck-pill):hover {
+.cs-deck-conversation .cs-deck-tool:hover {
   border-color: var(--cs-deck-line-strong);
   color: var(--cs-text);
+}
+
+/* Reply tools are quiet icons until pointed at, so the verdict and sources read first. */
+.cs-deck-conversation .cs-deck-tools .cs-deck-tool { border-color: transparent; }
+
+.cs-deck-conversation .cs-deck-tools .cs-deck-tool:hover {
+  border-color: var(--cs-hairline);
+  background: color-mix(in srgb, var(--cs-text) 4%, var(--cs-card));
+}
+
+.cs-deck-conversation .cs-deck-pill:hover {
+  border-color: var(--cs-deck-line-strong);
+  color: var(--cs-text);
+}
+
+.cs-deck-tools {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
 }
 
 .cs-deck-conversation .cs-deck-pill { color: var(--cs-text); }
@@ -671,10 +694,10 @@
   color: var(--cs-deck-attention-text);
 }
 
-.cs-deck-prose > p {
-  max-width: 72ch;
-  margin: 0 0 12px;
-}
+/* One reading measure on the prose keeps paragraphs and evidence notes on the same edges. */
+.cs-deck-prose { max-width: 72ch; }
+
+.cs-deck-prose > p { margin: 0 0 12px; }
 
 .cs-deck-prose > p:last-child { margin-bottom: 0; }
 
@@ -750,7 +773,6 @@
 }
 
 .cs-deck-evidence-note {
-  max-width: 72ch;
   box-sizing: border-box;
   display: grid;
   grid-template-columns: 18px minmax(0, 1fr);
@@ -839,11 +861,9 @@
 }
 
 .cs-deck-pill-mark {
-  color: var(--cs-deck-ok-text);
+  color: var(--cs-deck-attention-text);
   font-weight: 800;
 }
-
-.cs-deck-conversation .cs-deck-pill.is-attention .cs-deck-pill-mark { color: var(--cs-deck-attention-text); }
 .cs-deck-pill-stat strong { font-variant-numeric: tabular-nums; }
 
 .cs-deck-pill-issue {
@@ -852,9 +872,14 @@
 }
 
 .cs-deck-pill-more {
-  color: var(--cs-deck-link-text);
-  font-weight: 600;
+  display: inline-flex;
+  color: var(--cs-deck-meta-text);
 }
+
+.cs-deck-pill-more > svg { transition: transform .2s ease; }
+.cs-deck-conversation .cs-deck-pill[aria-expanded="true"] .cs-deck-pill-more > svg { transform: rotate(180deg); }
+
+.cs-deck-head-time { margin-left: 4px; }
 
 .cs-deck-tool-link {
   display: inline-flex;
@@ -864,16 +889,21 @@
 
 .cs-deck-tool-link:hover { text-decoration: none; }
 
-/* ----- Sources panel ----- */
+/* ----- Sources panel: one list with hairline rows rather than a stack of cards. ----- */
 .cs-deck-sources { margin-top: 8px; }
 
 .cs-deck-source-list {
   display: grid;
-  gap: 4px;
   margin: 0;
   padding: 0;
+  overflow: hidden;
+  border: 1px solid var(--cs-hairline);
+  border-radius: var(--cs-radius-sm);
+  background: var(--cs-card);
   list-style: none;
 }
+
+.cs-deck-source-list > li + li { border-top: 1px solid var(--cs-hairline); }
 
 .cs-deck-source {
   min-height: 44px;
@@ -882,34 +912,28 @@
   grid-template-columns: 22px 84px minmax(0, 1fr) auto;
   align-items: center;
   gap: 10px;
-  padding: 6px 12px 6px 8px;
-  border: 1px solid var(--cs-hairline);
-  border-radius: var(--cs-radius-sm);
-  background: var(--cs-card);
+  padding: 7px 12px 7px 10px;
   color: var(--cs-text);
   text-decoration: none;
+  transition: background-color .15s ease;
 }
 
 .cs-deck-source:hover {
-  border-color: var(--cs-deck-line-strong);
-  background: color-mix(in srgb, var(--cs-text) 2%, var(--cs-card));
+  background: color-mix(in srgb, var(--cs-text) 2.5%, var(--cs-card));
   text-decoration: none;
 }
 
 .cs-deck-source:focus-visible {
   outline: 2px solid var(--cs-steel);
-  outline-offset: 2px;
+  outline-offset: -2px;
 }
 
 .cs-deck-source.is-target {
-  border-color: var(--cs-steel);
-  box-shadow: 0 0 0 1px var(--cs-steel);
+  background: var(--cs-deck-accent-tint);
+  box-shadow: inset 0 0 0 1px var(--cs-steel);
 }
 
-.cs-deck-source.is-unavailable {
-  border-style: dashed;
-  background: transparent;
-}
+.cs-deck-source.is-unavailable { background: transparent; }
 
 .cs-deck-source-num {
   width: 22px;
@@ -960,13 +984,14 @@
 .cs-deck-followups {
   display: grid;
   gap: 2px;
-  margin: 14px 0 0;
+  margin: 12px 0 0;
   padding: 0;
   list-style: none;
 }
 
 .cs-deck-followup {
-  width: 100%;
+  width: fit-content;
+  max-width: 100%;
   min-height: 34px;
   box-sizing: border-box;
   display: flex;
@@ -1549,6 +1574,9 @@ details[open] > summary .cs-run-chevron { transform: rotate(225deg) translate(-1
   }
 
   .cs-deck-source > :is(.cs-deck-kind, .cs-deck-source-copy, .cs-deck-source-time) { grid-column: 2; }
+
+  /* The verdict takes its own line; the sources toggle and reply tools stay together below it. */
+  .cs-deck-conversation .cs-deck-action-row > .cs-deck-verification { flex: 1 0 100%; }
 
   .cs-run-timeline { --cs-run-columns: minmax(0, 1fr) auto auto 10px; }
   .cs-model-trace-lane-summary { grid-template-columns: 24px minmax(0, 1fr) auto 10px; }

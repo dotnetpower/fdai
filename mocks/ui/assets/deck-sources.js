@@ -333,7 +333,9 @@
   var SVG_NS = "http://www.w3.org/2000/svg";
   var ICON_PATHS = {
     copy: ["M5.5 5.5h8v8h-8z", "M10.5 5.5V4A1.5 1.5 0 0 0 9 2.5H4A1.5 1.5 0 0 0 2.5 4v5A1.5 1.5 0 0 0 4 10.5h1.5"],
-    regenerate: ["M13 8a5 5 0 1 1-1.46-3.54", "M13 2.5V5h-2.5"]
+    regenerate: ["M13 8a5 5 0 1 1-1.46-3.54", "M13 2.5V5h-2.5"],
+    review: ["M8 2.2l4.8 1.8v3.6c0 3-2 5.2-4.8 6.2-2.8-1-4.8-3.2-4.8-6.2V4z", "M5.8 8.1l1.6 1.6 2.9-3"],
+    chevron: ["M5 6.5l3 3 3-3"]
   };
 
   function h(tag, props, children) {
@@ -908,28 +910,30 @@
     var verification = spec.verification;
     var pill = spec.pill || { attention: false, issue: null };
     var available = availableCount(spec);
-    var pillChildren = [
-      h("span", { class: "cs-deck-pill-mark", "aria-hidden": "true", text: pill.attention ? "!" : CHECK }),
-      h("span", { class: "cs-deck-pill-stat" }, [h("strong", { text: String(available) }), available === 1 ? " source" : " sources"])
-    ];
+    // The verdict and its sources lead; the reply tools stay together at the row end.
+    var pillChildren = [];
+    if (pill.attention) pillChildren.push(h("span", { class: "cs-deck-pill-mark", "aria-hidden": "true", text: "!" }));
+    pillChildren.push(h("span", { class: "cs-deck-pill-stat" }, [h("strong", { text: String(available) }), available === 1 ? " source" : " sources"]));
     if (pill.issue) pillChildren.push(separator(), h("span", { class: "cs-deck-pill-issue", text: pill.issue }));
-    pillChildren.push(separator(), h("span", { class: "cs-deck-pill-more", text: "show sources" }));
+    pillChildren.push(h("span", { class: "cs-deck-pill-more" }, [icon("chevron")]));
     return h("div", { class: "cs-deck-action-row" }, [
       h("span", { class: "cs-deck-verification is-" + verification.tone }, spaced([
         h("span", { class: "cs-deck-verification-mark", "aria-hidden": "true", text: verification.mark }),
         h("span", { text: verification.label }),
         h("span", { class: "cs-deck-verification-detail", text: verification.detail })
       ])),
-      h("button", { type: "button", class: "cs-deck-tool cs-deck-tool-icon", "aria-label": "Copy reply", "data-tip": "Copy reply", "data-action": "copy" }, [icon("copy")]),
-      h("button", { type: "button", class: "cs-deck-tool cs-deck-tool-icon", "aria-label": "Regenerate", "data-tip": "Ask this question again", "data-action": "regenerate" }, [icon("regenerate")]),
-      h("a", { class: "cs-deck-tool cs-deck-tool-link", href: "conversation-assurance.html", text: "Review answer quality" }),
       h("button", {
         type: "button",
         class: "cs-deck-pill" + (pill.attention ? " is-attention" : ""),
         "aria-expanded": "false",
         "aria-controls": turnId + "-sources",
         "data-action": "sources"
-      }, spaced(pillChildren))
+      }, spaced(pillChildren)),
+      h("span", { class: "cs-deck-tools" }, [
+        h("button", { type: "button", class: "cs-deck-tool cs-deck-tool-icon", "aria-label": "Copy reply", "data-tip": "Copy reply", "data-action": "copy" }, [icon("copy")]),
+        h("button", { type: "button", class: "cs-deck-tool cs-deck-tool-icon", "aria-label": "Regenerate", "data-tip": "Ask this question again", "data-action": "regenerate" }, [icon("regenerate")]),
+        h("a", { class: "cs-deck-tool cs-deck-tool-icon", href: "conversation-assurance.html", "aria-label": "Review answer quality", "data-tip": "Review answer quality" }, [icon("review")])
+      ])
     ]);
   }
 
@@ -970,11 +974,17 @@
     }));
   }
 
-  function turnFoot(offsetSeconds) {
+  // The reply time sits beside the agent name, like the time inside the question bubble.
+  function setTurnTime(article, offsetSeconds, animate) {
+    var head = article.querySelector(".cs-deck-turn-head");
+    if (head.querySelector(".cs-deck-head-time")) return;
     var time = stamp(offsetSeconds);
-    return h("div", { class: "cs-deck-turn-foot" }, [
-      h("time", { class: "cs-deck-turn-time", datetime: time.iso, text: time.short })
-    ]);
+    var name = head.querySelector(".cs-deck-agent-name");
+    head.insertBefore(h("time", {
+      class: "cs-deck-turn-time cs-deck-head-time" + (animate ? " cs-deck-fade-in" : ""),
+      datetime: time.iso,
+      text: time.short
+    }), name.nextSibling);
   }
 
   function userTurn(text, offsetSeconds) {
@@ -1513,11 +1523,11 @@
     if (pendingRow && pendingRow.parentNode === article) pendingRow.replaceWith(row);
     else article.appendChild(row);
     article.appendChild(sourcesPanel(spec, turnId));
+    // How the answer was produced stays with the answer; follow-ups lead on to the composer.
     var remaining = (spec.followups || []).filter(function (key) { return !state.asked[key]; });
-    var arriving = [row];
+    var arriving = [row, article.appendChild(runRecord(records[turnId]))];
     if (remaining.length) arriving.push(article.appendChild(followupList(remaining)));
-    arriving.push(article.appendChild(runRecord(records[turnId])));
-    arriving.push(article.appendChild(turnFoot(offset + 6)));
+    setTurnTime(article, offset + 6, animate);
     if (!animate) return;
     arriving.forEach(function (node, order) {
       node.classList.add("cs-deck-enter");
@@ -1659,6 +1669,7 @@
       if (!child.classList.contains("cs-deck-turn-head")) child.remove();
     });
     setAnswerState(article, null);
+    article.querySelectorAll(".cs-deck-head-time").forEach(function (node) { node.remove(); });
     var ctx = newContext(false);
     state.stuck = false;
     beginTurn(record.spec, article, article.id, record.offset, ctx, true);
@@ -1706,7 +1717,7 @@
     article.appendChild(h("div", { class: "cs-deck-action-row" }, [
       h("button", { type: "button", class: "cs-deck-tool", "data-action": "regenerate", text: "Regenerate" })
     ]));
-    article.appendChild(turnFoot(active.offset + 6));
+    setTurnTime(article, active.offset + 6, !state.reduced);
     if (readiness.querySelector(".is-loading")) {
       readiness.textContent = "";
       readiness.appendChild(readinessStrip(state.scenario));
@@ -1872,7 +1883,6 @@
     var panel = article.querySelector(".cs-deck-sources");
     if (!button || !panel) return;
     button.setAttribute("aria-expanded", open ? "true" : "false");
-    button.querySelector(".cs-deck-pill-more").textContent = open ? "hide sources" : "show sources";
     panel.hidden = !open;
     if (!open) panel.querySelectorAll(".is-target").forEach(function (node) { node.classList.remove("is-target"); });
   }
