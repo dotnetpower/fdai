@@ -117,7 +117,8 @@ executor principal, and the ControlLoop and the Pantheon share one source. The C
 accepts an event-carried confirmation. When the Owner's own operator request routes to human
 approval, Core reads the exact target revision, records the binding of the exact action it parks,
 and writes a digest-bound development block into the park. The block retains the original level
-and quorum, the effective quorum of one, the target revision, and the authorized executor identity.
+and quorum, the effective quorum of one, the target revision, the dry-run and scope digests, and the
+authorized executor identity, and the approval card shows those exact facts to the Owner.
 The Owner approves from the FDAI Console approval queue after a fresh Entra sign-in. The Operator
 requires a signed `auth_time` later than the park and at most 10 minutes old, and the decision
 transaction revalidates the exception against the locked park row. Core admits it only after it

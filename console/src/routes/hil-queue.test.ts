@@ -85,6 +85,7 @@ describe("approval search evidence", () => {
       decision_requestable: false,
       decision_unavailable_reason: "missing_expiry",
       development_self_approval_available: false,
+      development_binding: null,
     } satisfies HilQueueItem;
     const text = approvalSearchText(approval);
     for (const expected of ["compute.restart", "resource-a", "event-1", "corr-1", "risk gate", "verifier review", "rule.example"]) {

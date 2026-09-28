@@ -1,7 +1,7 @@
 ---
 title: Operator Console - Data and Wire Contracts
 translation_of: operator-console-wire-contracts.md
-translation_source_sha: 291bb21913396b825ec2be05741309cf0c214640
+translation_source_sha: 6e9bf4f18b2c95eb3e4138d3c9bbccb3febfe7c2
 translation_revised: 2026-09-28
 ---
 
@@ -81,7 +81,7 @@ Operator 소유 수신기는 하나의 결정 서비스에서 처리됩니다. �
 | Teams Bot 액티비티 | `POST /hil/teams-activity` | Bot Framework RS256 서비스 토큰, 발급자, 대상, `serviceurl`, 테넌트, 구성된 그룹 연결 팀과 채널, `invoke` 및 `adaptiveCard/action`을 검증합니다. 정확한 카드 계약에서 `approval_id`를, `from.aadObjectId`에서 행위자를 도출한 뒤 Operator API 대상과 인가된 봇 클라이언트에 대한 위임 OBO 토큰을 검증합니다. |
 | 내부 Slack 중계 | `POST /hil/{approval_id}/decision` | 재생 구간 안에서 타임스탬프, URL 승인 ID 및 정확한 바이트에 대한 HMAC을 검증합니다. 위임된 Operator bearer로 매핑된 Slack 사용자를 확인합니다. 이 경로는 `channel=teams`를 거부합니다. |
 | Slack 브라우저 인계 | `POST /hil/slack/interaction`, `GET/POST /hil/slack/handoff/{nonce}` | 아웃바운드 `fdai_hil_approve` 및 `fdai_hil_reject` 단추는 원래 승인 ID만 전달합니다. 별도의 전송 ID도 본문 다이제스트에 포함합니다. 원본 양식 바이트에 대한 Slack v0 서명과 5분 시간 구간을 확인한 뒤 `team.id`와 `user.id`를 추출합니다. 클릭 하나는 원래 승인, 작업, 워크스페이스, 사용자 매핑 리비전 및 만료 시각에 결합된 일회용 nonce 해시를 받습니다. 서명된 수신기는 서버 출처의 Console URL을 돌려줍니다. 브라우저 미리보기는 권한을 부여하지 않습니다. POST는 사유만 받고 클릭 이후의 `auth_time`이 담긴 검증된 API 토큰과 현재의 정확한 매핑을 요구합니다. nonce를 원자적으로 소모하고 같은 결정 서비스를 호출합니다. 클레임, 권한, 문맥 또는 매핑이 없으면 결정을 보류합니다. 실제 Slack 전달과 Entra 선택적 클레임 구성은 외부 검증으로 남아 있습니다. |
-| Console 개발 자기 승인 | `POST /hil/{approval_id}/operator-decision` | 본문은 계속 `decision`과 `justification`만 받습니다. Core가 개발 블록으로 표시한 보류 항목의 제출자가 승인자이면 경로는 검증된 API 토큰 클레임을 읽고, 보류 이후이면서 10분 이내인 서명된 `auth_time`을 가진 지정 Owner의 승인 결정만 허용합니다. 토큰을 담지 않은 증명을 영속 영수증과 outbox 페이로드에 기록하며, 각 HIL 대기열 항목은 Owner 신원 없이 호출자에게 `development_self_approval_available`만 알려 줍니다. |
+| Console 개발 자기 승인 | `POST /hil/{approval_id}/operator-decision` | 본문은 계속 `decision`과 `justification`만 받습니다. Core가 개발 블록으로 표시한 보류 항목의 제출자가 승인자이면 경로는 검증된 API 토큰 클레임을 읽고, 보류 이후이면서 10분 이내인 서명된 `auth_time`을 가진 지정 Owner의 승인 결정만 허용합니다. 토큰을 담지 않은 증명을 영속 영수증과 outbox 페이로드에 기록하며, 각 HIL 대기열 항목은 Owner 신원 없이 호출자에게 `development_self_approval_available`만 알려 줍니다. 해당 Owner만 `development_binding`(결속, 대상 revision, dry-run 및 범위 다이제스트)도 받으며, 승인 카드는 결정 전에 이를 표시합니다. |
 
 Teams 카드는 `approval_id`, `correlation_id`, `idempotency_key`, `action_hash`, 채널 대상,
 결정 및 필수 근거만 전달합니다. 수신기는 추가 카드 키를 거부하므로 카드 데이터가

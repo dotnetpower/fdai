@@ -1,7 +1,7 @@
 ---
 title: 위험 분류 (자동 실행 vs 사람 승인 vs 차단)
 translation_of: risk-classification.md
-translation_source_sha: 8c328067d351ae57f669766a5d9367f1f38427a7
+translation_source_sha: 0555716c20370bf882d269aea2c3ee5ad4b7a18a
 translation_revised: 2026-09-28
 ---
 
@@ -115,8 +115,8 @@ Action, 결정론적 예행 실행 증적 및 선택된 프로필로 각 결속�
 별도 실행기 주체로 프로필을 선택하고, ControlLoop와 Pantheon은 같은 원본을 공유합니다.
 ControlLoop는 이벤트에 담긴 확인을 받아들이지 않습니다. Owner 본인의 운영자 요청이 사람 승인으로
 라우팅되면 Core는 정확한 대상 revision을 읽고, 보류할 정확한 Action의 결속을 기록하며, 다이제스트로
-결속한 개발 블록을 보류 기록에 씁니다. 이 블록은 원래 수준과 정족수, 유효 정족수 1, 대상 revision 및
-승인된 실행기 신원을 보존합니다. Owner는 Entra에 새로 로그인한 뒤 FDAI Console 승인 대기열에서
+결속한 개발 블록을 보류 기록에 씁니다. 이 블록은 원래 수준과 정족수, 유효 정족수 1, 대상 revision,
+dry-run 및 범위 다이제스트, 승인된 실행기 신원을 보존하며, 승인 카드는 이 정확한 사실을 Owner에게 표시합니다. Owner는 Entra에 새로 로그인한 뒤 FDAI Console 승인 대기열에서
 승인합니다. Operator는 보류 이후이면서 10분 이내인 서명된 `auth_time`을 요구하고, 결정 트랜잭션은
 잠긴 보류 행을 기준으로 예외를 다시 검증합니다. Core는 영속 Operator 영수증과 결속을 다시 읽고 대상
 revision이 바뀌지 않았음을 확인하며 공유 평가기가 현재 ActionType을 포함해 재구성한 확인을 수락한 뒤에만
