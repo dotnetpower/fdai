@@ -39,5 +39,9 @@
   "developmentNote": "전체 권한 개발 프로필에서는 다시 로그인한 뒤 직접 요청한 작업을 승인할 수 있습니다. 이 승인은 이 작업, 대상 revision, dry run에만 적용됩니다.",
   "developmentReauthenticate": "다시 로그인하고 승인",
   "developmentReady": "다시 로그인했습니다. 10분 안에 승인을 기록하세요.",
-  "developmentApprove": "내 요청 승인"
+  "developmentApprove": "내 요청 승인",
+  "fieldTargetRevision": "대상 revision",
+  "fieldDryRunDigest": "Dry-run 다이제스트",
+  "fieldScopeDigest": "범위 다이제스트",
+  "fieldBindingDigest": "결속 다이제스트"
 }

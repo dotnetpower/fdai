@@ -72,6 +72,8 @@ def development_park_block(
         "binding_digest": binding.digest,
         "profile_digest": profile.digest,
         "target_revision": binding.target_revision,
+        "dry_run_digest": binding.dry_run_digest,
+        "scope_digest": canonical_authority_digest(binding.scope.model_dump(mode="json")),
         "original_level": original_level,
         "original_quorum": original_quorum,
         "effective_quorum": 1,
