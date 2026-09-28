@@ -1,8 +1,8 @@
 ---
 title: 채널과 알림(Channels and Notifications)
 translation_of: channels-and-notifications.md
-translation_source_sha: 295d6716ab92edd4a02d57fd52f483c1c1d8f3ca
-translation_revised: 2026-09-27
+translation_source_sha: 1b9fc460abd351fe2789536952639ee20d7d8c1f
+translation_revised: 2026-09-28
 ---
 
 # 채널과 알림(Channels and Notifications)
@@ -96,6 +96,11 @@ Teams Workflows 웹훅 바인딩은
   §6), invoker의 Entra OID를 PR trailer에 운반. PR은 이후 표준 정족수 + 자기승인 없음 규칙을
   따름.
 - **A2/A4 메시지는 절대 승인 버튼이나 실행 링크를 포함하지 않음.**
+- **기본 프로필에서 학습된 패턴과 예측은 A1 요청을 만들지 않음.** 통제된 실행 추가 기능이
+  없으면 Forseti는 예측과 용량 입력이 포함된 중재에 ActionType 없는 판정으로 응답하고, 컨트롤
+  루프는 학습된 T1 재사용을 Action을 만들기 전에 멈추므로 어떤 채널도 이에 대한 승인을 전달하지
+  않음. [학습 및 예측 결과 경계](../agents/agent-pantheon-implementation-ko.md#학습-및-예측-결과-경계)
+  참고.
 
 ### 3.1 A3 명령 롤 게이팅
 

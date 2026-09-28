@@ -1,8 +1,8 @@
 ---
 title: 에이전트 판테온 구현 계획
 translation_of: agent-pantheon-implementation.md
-translation_source_sha: 82e957c04574d98b80b0d159f36e7da912e198ef
-translation_revised: 2026-09-27
+translation_source_sha: 0cb42ef71d310be8955db1429e867b51ff08c8c9
+translation_revised: 2026-09-28
 ---
 
 # 에이전트 판테온 구현 계획
@@ -39,11 +39,13 @@ translation_revised: 2026-09-27
 | 최종 ActionRun 효과 관찰 경로 | implemented | [`executed_action_observation.py`](../../../services/core-control-plane/src/fdai/delivery/executed_action_observation.py), [`wire_azure_operational_evidence.py`](../../../services/core-control-plane/src/fdai/composition/wire_azure_operational_evidence.py), [`test_executed_action_observation.py`](../../../services/core-control-plane/tests/delivery/test_executed_action_observation.py) | Heimdall은 Thor의 최종 ActionRun을 소비하고 정확한 실행 전 아티팩트를 복원하며 검증기가 승인한 독립 관찰만 저장합니다. 배포가 소유하는 서명된 컨텍스트와 실제 종료 근거는 아직 필요합니다. |
 | O7 운영 승격 근거 측정 | implemented | [`operational_promotion.py`](../../../services/core-control-plane/src/fdai/core/measurement/operational_promotion.py), [`operational_promotion_evidence.py`](../../../services/core-control-plane/src/fdai/delivery/measurement/operational_promotion_evidence.py), [`test_operational_promotion_evidence.py`](../../../services/core-control-plane/tests/delivery/test_operational_promotion_evidence.py) | 실행기는 매니페스트에 결합된 불변 배치를 소비하고 인과관계, 측정 단위, 재발 또는 정책 이탈 근거가 없으면 안전하게 차단합니다. 현재 완전한 실제 배치를 구체화하는 런타임 생산자는 없습니다. |
 | 실제 운영 KPI 검증 및 실제 enforce 승격 | in-progress | [운영 학습 온톨로지](../rules-and-detection/operational-learning-ontology-ko.md), [목표와 메트릭](../architecture/goals-and-metrics-ko.md) | 측정 및 관찰 소비자는 있지만 완전하게 보존된 실제 shadow 코호트, 운영 승격 증적, 독립적인 검토 또는 실제 판테온 enforce 승격 근거는 없습니다. |
+| 관찰 우선 학습 및 예측 결과 경계 | implemented | `agents/_framework/{advisory_verdicts,forseti_learned_outputs,thor_persistence,action_run_identity}.py`; `StateStoreActionRunStore.reserve_correlation`; `core/control_loop/_learned_reuse.py`; `runtime/{control_loop,bootstrap_pantheon}.py`; `test_learned_output_profile_boundary.py`; `test_learned_output_arbitration_gate.py`; `test_learned_output_durable_gate.py`; `test_learned_reuse_profile_boundary.py`; `test_bootstrap_pantheon_product_selection.py` | `governed-execution` 제품 추가 기능을 선택하지 않으면 예측, Freyr 용량 중재, 학습된 패턴의 T1 재사용은 Thor가 무시하는 ActionType 없는 자문 근거만 만듭니다. 종결된 자문 중재는 Thor의 영속 비작업 상관관계 점유를 통해 Core 재시작이나 관문 축출 뒤에도 해당 상관관계에서 나중에 관찰된 신호를 자동 실행하지 않도록 막습니다. 추가 기능을 선택하면 기존 관문이 다시 열리며, 의도적인 제한은 하나뿐입니다. 정확한 `mode: enforce`가 없는 예측에서 도출한 작업 판정은 `shadow_only`로 제한됩니다. 선택은 제품 프로필에서만 오며, T2 제안은 이 행의 범위가 아닙니다. |
 
 ### 구현 이력
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-28 | implemented | 기본 프로필에서 학습된 패턴과 예측이 작업 제안이 되던 남은 경로를 기존 `governed-execution` 제품 추가 기능 기준으로 닫았습니다. 컨트롤 루프 빌더가 `RuntimeProductSelection.governed_execution`을 컨트롤 루프에 전달하고, Pantheon 조립은 컨트롤 루프의 값을 Forseti에 전달하므로 두 번째 선택 입력은 없습니다. 추가 기능이 없으면 Forseti는 예측과 용량 입력이 포함된 중재에 ActionType 없는 판정으로 응답하고 예측에서 결정 선택지나 kinetic 제안을 만들지 않으며, 컨트롤 루프는 학습된 T1 재사용을 Action을 만들기 전에 멈춥니다. 종결된 모든 자문 중재는 통제 경로와 마찬가지로 해당 상관관계를 미해결로 기록하고, 상관관계별 잠금 아래에서 판정 하나만 게시하며, Thor는 ActionRun 저장소에 종결된 비작업 점유를 기록해 상관관계를 영속적으로 유지합니다. 따라서 재시작이나 관문 축출 뒤에 같은 상관관계로 온 판정은 통제 경로가 재사용된 상관관계를 거부하듯 거부되며, ActionRun, 승인 또는 실행기 호출은 생기지 않습니다. 추가 기능을 선택하면 기존 관문이 실행되며, 의도적인 제한은 하나뿐입니다. 정확한 `mode: enforce`가 없는 예측에서 도출한 작업 판정은 `shadow_only`로 제한됩니다. 역할, 토픽 및 `PANTHEON_SPECS`는 바뀌지 않았습니다. | `current change`; `test_learned_output_profile_boundary.py`, `test_learned_output_arbitration_gate.py`, `test_learned_output_durable_gate.py`, `test_learned_reuse_profile_boundary.py`, `test_bootstrap_pantheon_product_selection.py`의 검사 50개, 관문별, 미해결 기록, 게시 재시도와 잠금, 영속 점유 및 두 조립 전달 지점의 변이 검사, 제품 프로필로 추가 기능을 선택하도록 갱신한 통제 경로의 중재, 결정 사례, 전문 에이전트 및 T1 연결 검사; 프레임워크 구조, Ruff 및 엄격한 mypy 통과. | T2, 이상 작업 후보, 경보 소음 학습 및 다른 학습 근거 소비자를 검토해야 합니다. 실제 운영 검증은 수행하지 않았습니다. |
 | 2026-09-27 | in-progress | 고정 역할 및 토픽 경계를 유지하면서 신뢰 원본으로 검증한 전권 개발 묶음을 실제 Forseti, Var, Thor 및 Vidar 타입 경로에 통합했습니다. 원래 정족수와 유효 정족수를 구분하고 선택한 프로필에만 정확한 권한 부여를 재생 신원에 포함합니다. | `current change`; 집중 권한, 버스, 재생 및 인접 검사 723개, 구조 검사, Ruff 및 엄격한 타입 검사 통과. | 권위 있는 배포 원본을 구현하고 결속한 뒤 관리되는 런타임 증적을 보존해야 합니다. 실제 운영 검증은 수행하지 않았습니다. |
 | 2026-09-22 | validated | 로컬 Core 시작 및 종료의 리소스 소유권을 수정했습니다. 이제 런타임 설정은 런타임이 소유하는 단일 StateStore pool을 재사용하고, Pantheon consumer 종료는 첫 drain 기한 뒤 범위가 제한된 마무리 시간을 부여하며, 로컬 broker를 파괴적으로 초기화할 때 모든 관리형 서비스 lock을 유지하므로 연결이 끊긴 실행 중 consumer를 유휴 상태로 오인할 수 없습니다. 에이전트 역할, topic, 모델 정책, 승격 상태 및 권한은 바뀌지 않았습니다. | `현재 변경`; 공유 store, 순서가 지정된 종료, 지연된 stream 닫기, consumer 재시도, broker reset fence, framework layout, Ruff 및 strict typing 집중 검사. 관리형 재시작은 12/12 준비 상태에 도달했고 각 서비스는 lock이 소유하는 프로세스 쌍 하나만 유지했으며 새 세대 marker 뒤에 수정 대상 오류가 나타나지 않았습니다. | 이 범위가 제한된 수명주기 수정에는 남은 작업이 없습니다. 배포된 런타임 검증과 승격 근거는 별개입니다. |
 | 2026-09-21 | implemented | 닫힌 온톨로지 ContextIndex 메시지 묶음과 소유자별 런타임 구독 래퍼를 추가했습니다. Heimdall과 Saga의 ContextIndex 구독 및 타입이 지정된 Huginn 유입을 연결하고 실제 버스 검사에서 드러난 도메인 스키마와 전송 버전 구분을 수정했습니다. | `current change`; 집중 ContextIndex 라우팅, 프레임워크 구조, 인접 Rule 생성 경로, 정확한 감사 후 봉인 검사. | 실제 원본 및 벡터 검증, 감사된 포인터 허용, 최종 결과 재생, 런타임 소비자를 연결합니다. 고정 에이전트 역할, 주요 경로의 모델 정책, 패키지 활성화, 실행 권한은 바뀌지 않았습니다. |
@@ -109,6 +111,10 @@ translation_revised: 2026-09-27
   0건 근거를 보존합니다.
 - [ ] 판테온 enforce 운영을 사용하거나 보고하기 전에 독립적인 승격 검토를 완료하고 권위 있는
   승격 집합 증적을 기록합니다.
+- [ ] 검색한 사례 이력에 근거한 T2 제안, 이상 작업 후보, 경보 소음 학습 및 다른 모든 학습 근거
+  소비자를 [학습 및 예측 결과 경계](#학습-및-예측-결과-경계)에 비추어 검토하고, 각 경로를 집중
+  검사로 닫거나 기록합니다. 이 항목은 닫힌
+  [이슈 #1541](https://github.com/dotnetpower/fdai/issues/1541)의 후속 강화 작업입니다.
 
 ## 설계 개요
 
@@ -259,14 +265,41 @@ Bragi는 `object.event`의 단독 쓰기 담당인 `Huginn.ingest`에 연결된 
 - Vertical 간 중재에서는 헌법의 hard constraint가 부적격 선택지를 먼저 제거한 다음 Odin이
   남은 soft objective의 순위를 결정합니다.
 
+### 학습 및 예측 결과 경계
+
+관찰 우선 기본 프로필에서 학습된 패턴과 예측은 자문 근거로만 남습니다.
+[런타임 배포 프로필](../deployment/runtime-deployment-profiles-ko.md#설계-개요)의
+`governed-execution` 추가 기능만 이를 선택합니다. Core 조립은
+`RuntimeProductSelection.governed_execution`으로 이 값을 한 번 읽습니다. 컨트롤 루프 빌더가 값을
+컨트롤 루프에 전달하고, Pantheon 조립은 컨트롤 루프의 값을 Forseti에 전달합니다. 환경 이름,
+포크 표시, 패키지 존재 여부, `FDAI_PANTHEON_ENFORCE`, 실행기 바인딩은 이 추가 기능을 선택하지
+않습니다. 선택 자체는 권한을 부여하지 않습니다. 변경되지 않은 risk gate, Var 승인, Thor 수명
+주기, 안전장치 및 승격 상태가 여전히 모든 결과를 결정합니다.
+
+| 입력 | 기본 프로필 | `governed-execution` 추가 기능 선택 |
+|------|-------------|----------------------------|
+| Heimdall `object.forecast` | Forseti는 사유 `governed_execution_unselected`, `advisory_source: forecast`, `shadow_only` 상한을 가진 ActionType 없는 판정을 게시합니다. 예측 필드에서 규칙 일치, 중재 또는 ActionType을 도출하지 않습니다. | 기존 규칙 일치, 중재, 위험 및 승인 관문이 실행되며, 의도적인 제한은 하나뿐입니다. 정확히 `mode: enforce`를 선언하지 않은 예측에서 Forseti가 작업 판정을 도출하면 다른 모든 상한을 적용한 뒤 그 판정을 `shadow_only`로 제한하고 `source_mode`를 기록합니다. 예측에 대한 ActionType 없는 판정과 중재 판정에는 `source_mode`가 없습니다. |
+| 중재에 포함된 Freyr `object.capacity-forecast` | Odin은 여전히 목표를 비교하지만 Forseti는 DecisionCase 선택지, 계획 기록 또는 kinetic 제안을 만들지 않습니다. 종결된 판정은 ActionType을 지정하지 않고 중재 결과를 근거로 기록합니다. 모든 결과는 DecisionCase가 없을 때의 통제 경로와 마찬가지로 해당 상관관계를 미해결로 기록하므로, 같은 상관관계에서 나중에 관찰된 신호는 자동 실행되지 않습니다. 같은 프로세스에서든 재시작이나 관문 축출 뒤에든 Thor의 영속 상관관계 점유가 제한된 판정을 거부하며, Thor는 영속 저장소 없이 실행될 때만 이를 폐기합니다. | 기존 DecisionCase, 중재, kinetic 제안 및 사람 검토 경로가 실행됩니다. |
+| 학습된 패턴의 T1 재사용 | 컨트롤 루프는 `control_loop.t1_reuse_advisory`를 기록하고 Action을 만들기 전에 멈추므로 실행 승인 평가, risk gate, 승인 요청, 시뮬레이션 또는 전달이 실행되지 않습니다. | 기존 검증, risk gate, 승인 및 전달 경로가 실행됩니다. |
+
+Thor는 모든 프로필에서 이 사유를 가진 ActionType 없는 판정을 무시하므로 ActionRun, 승인, 롤백
+또는 실행기 호출이 이어지지 않습니다. 자문 중재 판정에 대해서는 Thor가 ActionRun 저장소에
+종결된 비작업 상관관계 점유도 기록합니다. 복구는 이 점유를 불러오지 않지만, 기존 상관관계
+검사는 통제 경로가 기록하는 ActionRun의 재사용을 거부하듯 이후 같은 상관관계의 모든 판정을
+거부합니다. 이 판정 조건은 선택 값을 읽지 않으며, Forseti는 추가
+기능이 없을 때만 이 사유를 기록합니다. 관찰된 신호에 대한 결정론적 판단은 두 프로필에서 모두
+바뀌지 않습니다. 예측 `mode` 상한은 이 경계가 선택된 프로필에 추가하는 유일한 제한이며,
+선언되지 않았거나 shadow인 예측을 누락된 모드를 믿지 않고 shadow 우선으로 유지합니다.
+
 ### 구성 및 관측 경계
 
 | 경계 | 계약 |
 |------|------|
 | `consumer_group_prefix` | 환경별로 소비자 그룹을 격리합니다. |
 | `disabled_agents` | 선택적 에이전트를 바인딩과 구독에서 제거하며 Saga와 Vidar는 비활성화할 수 없습니다. |
+| `governed_execution_selected` | `RuntimeProductSelection.governed_execution`을 조립된 컨트롤 루프에서 Forseti로 전달합니다. 기본값은 학습 및 예측 입력을 자문 상태로 유지합니다. |
 | `saga` | enforce 운영에 필요한 추가 전용 영속 감사를 제공합니다. |
-| `thor_state_store` | 최종 상태가 아닌 ActionRun을 재구성하고 재시작 후 리소스 잠금을 보존합니다. |
+| `thor_state_store` | 최종 상태가 아닌 ActionRun을 재구성하고 재시작 후 리소스 잠금을 보존하며, 종결된 비작업 점유로 자문 중재 상관관계를 유지합니다. |
 | `vidar_state_store` | 롤백 점유, 소유자 점유 유효 기간, 차단 개정 번호 및 종결 증적을 영속화합니다. |
 | `var_state_store` | 승인 결정, 최종 페이로드 및 게시 검사 지점을 영속화합니다. |
 | `muninn_state_store` | Muninn 변환 결과, Saga 이슈 상태 및 Norns 인계 학습 복구를 지원합니다. |

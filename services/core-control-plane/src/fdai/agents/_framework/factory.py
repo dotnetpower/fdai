@@ -121,9 +121,14 @@ def configured_forseti(
     development_binding_source: DevelopmentAuthorityBindingSource | None = None,
     development_executor_principal: str | None = None,
     development_action_types: dict[str, RegisteredDevelopmentAction] | None = None,
+    governed_execution_selected: bool = False,
 ) -> Forseti | None:
-    """Build Forseti only when composition supplies an optional binding."""
-    if all(
+    """Build Forseti only when composition supplies an optional binding.
+
+    The baseline Forseti from :func:`instantiate_pantheon` keeps the observation-first default,
+    so an explicitly selected governed execution add-on always builds a configured instance.
+    """
+    if not governed_execution_selected and all(
         value is None
         for value in (
             rbac,
@@ -160,6 +165,7 @@ def configured_forseti(
         development_binding_source=development_binding_source,
         development_executor_principal=development_executor_principal,
         development_action_types=development_action_types,
+        governed_execution_selected=governed_execution_selected,
     )
 
 

@@ -187,6 +187,7 @@ class ControlLoop(
         evidence_conflict_reader: EvidenceConflictCurrentReader | None = None,
         safeguard_lifecycle_coordinator: SafeguardLifecycleCoordinator | None = None,
         clock: Callable[[], datetime] | None = None,
+        governed_execution_selected: bool = False,
     ) -> None:
         if (thor_execution_port is None) != (mutation_dependency_readiness is None):
             raise ValueError(
@@ -277,6 +278,8 @@ class ControlLoop(
         self._direct_api_executor = direct_api_executor
         self._tool_executor = tool_executor
         self._t1_engine = t1_engine
+        # Observation-first by default: T1 reuse of a learned pattern proposes no action (#1541).
+        self._governed_execution_selected = governed_execution_selected is True
         self._case_history_reuse: CaseHistoryMaterializer | None = None
         self._dynamic_runtime_coordinator = dynamic_runtime_coordinator
         self._graph_dynamic_runtime_coordinator = graph_dynamic_runtime_coordinator
@@ -378,6 +381,11 @@ class ControlLoop(
     def action_types(self) -> tuple[OntologyActionType, ...]:
         """Return the immutable ActionType catalog loaded by this loop."""
         return tuple(self._action_types_by_name.values())
+
+    @property
+    def governed_execution_selected(self) -> bool:
+        """Return the composed governed execution add-on selection; it grants no authority."""
+        return self._governed_execution_selected
 
     @property
     def rules(self) -> tuple[Rule, ...]:

@@ -138,13 +138,13 @@
         "When does Odin intervene?",
         "Odin이 개입하지 않는 경우는 언제인가요?"
       ],
-      "source_manifest_hash": "3a6e8f158bb8b35b9c173732cde5679457c69e1897818d49c2f3b321ba85c1fb",
+      "source_manifest_hash": "49eaa7523d570c8c2b2a4c208ed184cce58da894582e457713558ab3803fc2a4",
       "sources": [
         {
           "authority_role": "implementation",
-          "blob_sha": "ff4a36f10218a7a681d54c8e3f15f117e6ccd90b",
-          "line_end": 234,
-          "line_start": 182,
+          "blob_sha": "32dc07e32ef1097e406212ec8bda7aa0317e6bdf",
+          "line_end": 235,
+          "line_start": 183,
           "path": "services/core-control-plane/src/fdai/agents/_framework/forseti_arbitration.py",
           "source_kind": "code",
           "symbol": "ForsetiArbitrationMixin.maybe_request_arbitration"
@@ -169,27 +169,27 @@
         },
         {
           "authority_role": "verification",
-          "blob_sha": "1183cd1842f78c1addcea4fd1e4b81f191478b00",
-          "line_end": 76,
-          "line_start": 61,
+          "blob_sha": "3fddc49db9a913ff89a16bb7257e62d4012866ea",
+          "line_end": 77,
+          "line_start": 62,
           "path": "services/core-control-plane/tests/agents/test_arbitration.py",
           "source_kind": "test",
           "symbol": "test_forseti_requests_arbitration_on_conflicting_advice"
         },
         {
           "authority_role": "verification",
-          "blob_sha": "1183cd1842f78c1addcea4fd1e4b81f191478b00",
-          "line_end": 122,
-          "line_start": 114,
+          "blob_sha": "3fddc49db9a913ff89a16bb7257e62d4012866ea",
+          "line_end": 123,
+          "line_start": 115,
           "path": "services/core-control-plane/tests/agents/test_arbitration.py",
           "source_kind": "test",
           "symbol": "test_forseti_no_arbitration_on_single_domain"
         },
         {
           "authority_role": "verification",
-          "blob_sha": "1183cd1842f78c1addcea4fd1e4b81f191478b00",
-          "line_end": 398,
-          "line_start": 382,
+          "blob_sha": "3fddc49db9a913ff89a16bb7257e62d4012866ea",
+          "line_end": 399,
+          "line_start": 383,
           "path": "services/core-control-plane/tests/agents/test_arbitration.py",
           "source_kind": "test",
           "symbol": "test_close_call_escalates_to_hil"

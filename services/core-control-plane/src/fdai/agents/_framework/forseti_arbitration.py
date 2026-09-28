@@ -35,6 +35,7 @@ from fdai.agents._framework.forseti_decision_helpers import is_conflict as _is_c
 from fdai.agents._framework.forseti_decision_helpers import signal_impact as _signal_impact
 from fdai.agents._framework.forseti_decision_helpers import source_freshness as _source_freshness
 from fdai.agents._framework.forseti_judgment import RISK_VERDICT as _RISK_VERDICT
+from fdai.agents._framework.forseti_learned_outputs import ForsetiLearnedOutputMixin
 from fdai.agents._framework.registry import load_pantheon
 from fdai.agents._framework.runtime_health import AGENT_DEGRADATION_POLICIES, evaluate_degradation
 from fdai.core.decision_case import (
@@ -71,7 +72,7 @@ def _arbitration_owner() -> str | None:
     return load_pantheon().owner_of_topic(_ARBITRATION_DECISION_TOPIC)
 
 
-class ForsetiArbitrationMixin:
+class ForsetiArbitrationMixin(ForsetiLearnedOutputMixin):
     bus: PantheonBus | None
     _action_semantics: ActionSemanticsCatalog | None
     _operational_context: OperationalContextMaterializer | None
@@ -411,7 +412,11 @@ class ForsetiArbitrationMixin:
         # triggers a spurious eviction.
         if len(self.arbitrations) > _MAX_RESOURCES:
             self.arbitrations.pop(next(iter(self.arbitrations)))
-        if decision.get("escalate_hil") is True:
+        escalated = decision.get("escalate_hil") is True
+        outcome = "escalated" if escalated else "resolved"
+        if await self._settle_advisory_arbitration(correlation_id, decision, outcome=outcome):
+            return
+        if escalated:
             await self._escalate_arbitration(correlation_id, decision)
             return
         projection = self._pending_decision_cases.get(correlation_id)
@@ -487,6 +492,8 @@ class ForsetiArbitrationMixin:
         source_freshness: tuple[SourceFreshness, ...],
         evidence_by_domain: dict[str, DomainOptionEvidence] | None = None,
     ) -> DomainDecisionProjection | SpecialistPlanningProjection | None:
+        if self._mark_advisory_arbitration(correlation_id, advice):
+            return None
         if self._operational_context is None or not resource_id or not observed_at:
             return None
         try:
@@ -604,8 +611,16 @@ class ForsetiArbitrationMixin:
 
         Idempotent by correlation id: a redelivered decision re-records the
         winner but does not publish a second verdict, and a decision that
-        arrives after a fail-closed closure cannot reopen it.
+        arrives after a fail-closed closure cannot reopen it. A default-profile
+        arbitration fed by a prediction settles as advisory evidence instead.
         """
+        if await self._settle_advisory_arbitration(
+            correlation_id,
+            decision,
+            outcome=reason,
+            grounding_extra=grounding_extra,
+        ):
+            return None
         if self._unresolved_arbitrations.get(correlation_id) is not None:
             return None
         losing = [str(domain) for domain in decision.get("losing_domains") or []]

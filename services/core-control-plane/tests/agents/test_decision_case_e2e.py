@@ -40,6 +40,7 @@ from fdai.shared.providers.testing.state_store import InMemoryStateStore
 
 from tests.core.operational_planning.test_kinetic_proposal import _plan
 from tests.core.operational_planning.test_twin_execution import _plan_and_release
+from tests.product_selection import governed_execution_selection
 
 REPO_ROOT = Path(__file__).resolve().parents[4]
 AT = "2026-07-31T00:00:00Z"
@@ -174,6 +175,7 @@ async def test_specialist_conflict_reaches_objective_aware_hil_verdict(
     bus = InMemoryBus(registry=load_pantheon())
     store = await _context_store()
     forseti = Forseti(
+        governed_execution_selected=governed_execution_selection(True),
         bus=bus,
         operational_context=OperationalContextMaterializer(store=store),
     )
@@ -241,6 +243,7 @@ async def test_planned_change_assessment_lowers_arbitrated_decision_case() -> No
     bus = InMemoryBus(registry=load_pantheon())
     store = await _context_store()
     forseti = Forseti(
+        governed_execution_selected=governed_execution_selection(True),
         bus=bus,
         operational_context=OperationalContextMaterializer(store=store),
         change_assessor=ChangeAssessmentService(analyzer=ImpactAnalyzer(store=store)),
@@ -311,7 +314,10 @@ async def test_malformed_semantic_case_cannot_reach_human_approval() -> None:
 async def test_selected_option_action_mismatch_is_denied() -> None:
     bus = InMemoryBus(registry=load_pantheon(), isolate_handlers=False)
     store = await _context_store()
-    forseti = Forseti(operational_context=OperationalContextMaterializer(store=store))
+    forseti = Forseti(
+        operational_context=OperationalContextMaterializer(store=store),
+        governed_execution_selected=governed_execution_selection(True),
+    )
     request = await forseti._emit_arbitration_request(  # noqa: SLF001 - semantic wire fixture
         resource_id="resource-example",
         advice={"cost": "scale_down", "capacity": "scale_up"},
@@ -528,6 +534,7 @@ async def _specialist_verdict(
         bus.subscribe("object.prospective-lineage", "Muninn", muninn.on_typed_message)
         bus.subscribe("object.audit-entry", "Muninn", muninn.on_typed_message)
     forseti = Forseti(
+        governed_execution_selected=governed_execution_selection(True),
         bus=bus,
         operational_context=OperationalContextMaterializer(store=store),
         operational_planner=planning,
@@ -688,6 +695,7 @@ async def test_specialist_events_carry_operational_plan_to_human_review() -> Non
         simulator=_PlanningSimulator(),
     )
     forseti = Forseti(
+        governed_execution_selected=governed_execution_selection(True),
         bus=bus,
         operational_context=OperationalContextMaterializer(store=store),
         operational_planner=planning,
@@ -734,7 +742,10 @@ async def test_specialist_events_carry_operational_plan_to_human_review() -> Non
 async def test_non_semantic_decision_case_action_mismatch_is_denied() -> None:
     bus = InMemoryBus(registry=load_pantheon(), isolate_handlers=False)
     store = await _context_store()
-    forseti = Forseti(operational_context=OperationalContextMaterializer(store=store))
+    forseti = Forseti(
+        operational_context=OperationalContextMaterializer(store=store),
+        governed_execution_selected=governed_execution_selection(True),
+    )
     request = await forseti._emit_arbitration_request(  # noqa: SLF001 - semantic wire fixture
         resource_id="resource-example",
         advice={"cost": "scale_down", "capacity": "scale_up"},

@@ -1,8 +1,8 @@
 ---
 title: 운영 학습 온톨로지
 translation_of: operational-learning-ontology.md
-translation_source_sha: e5306f88d3aa466b6166e111b9685eba1dd5fe9a
-translation_revised: 2026-09-27
+translation_source_sha: c831104e8711920923cfc124e1f482e27cf29451
+translation_revised: 2026-09-28
 ---
 # 운영 학습 온톨로지
 
@@ -16,6 +16,11 @@ translation_revised: 2026-09-27
 > 활성 규칙 생성, `ActionType` 승격 또는 자율성 상향 권한이 생기지 않습니다.
 > 따라서 #343은 자문 보정, 재생, 드리프트, 코호트 및 보호 조건 근거만 유지하며 승격,
 > 관리 효과 및 롤백은 선택적 `governed-execution` 범위로 남깁니다.
+> 이 추가 기능이 없으면 예측, Freyr 용량 중재, 학습된 패턴의 T1 재사용도 작업을 제안하지
+> 않습니다. Thor는 종결된 중재의 상관관계를 영속적으로 유지하므로 재시작 뒤에도 그
+> 상관관계에서 나중에 관찰된 신호가 자동 실행되지 않으며, 그 관문은
+> [학습 및 예측 결과 경계](../agents/agent-pantheon-implementation-ko.md#학습-및-예측-결과-경계)가
+> 소유합니다.
 >
 > **의미 권위:** [FDAI 운영 온톨로지](../architecture/operating-ontology-ko.md)가 공유 서비스,
 > 목표, 결정, 효과 모델을 소유합니다. 이 문서는 evidence-to-pattern learning을 소유합니다.
