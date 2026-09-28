@@ -551,7 +551,8 @@ The coordinator performs these stages in order:
 9. Read the Terraform-selected registry and Core application names for substrate readback and
   capability identity without recomputing Azure resource names in Python.
 10. Import and read back every runtime image digest.
-11. Run database migrations and materialize the authoritative catalogs.
+11. Run database migrations and materialize the authoritative catalogs. A lineage adopted by an
+   earlier run advances to head without new adoption evidence.
 12. Deploy the services and verify runtime health.
 13. Require a second zero-change Terraform plan before reporting deployment readiness.
 

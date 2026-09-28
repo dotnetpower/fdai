@@ -1,7 +1,7 @@
 ---
 title: 설치형 배포 CLI
 translation_of: installable-deployment-cli.md
-translation_source_sha: 5465843951f8e5f122c9e28b9c8f337f5c60ce44
+translation_source_sha: 39e998d4c7e2f67e8e7cbbb0c70602f82639fffd
 translation_revised: 2026-09-28
 ---
 
@@ -552,6 +552,7 @@ Git 상태가 깨끗하다는 사실만으로 소스 신원을 입증하지 않�
   신원에 사용하며 Python에서 Azure 리소스 이름을 다시 계산하지 않습니다.
 10. 모든 런타임 이미지 digest를 가져오고 재확인합니다.
 11. 데이터베이스 마이그레이션을 실행하고 권위 있는 카탈로그를 구체화합니다.
+   이전 실행에서 이미 채택된 lineage는 새 채택 증거 없이 head로 진행합니다.
 12. 서비스를 배포하고 런타임 상태를 검증합니다.
 13. 배포 준비 상태를 보고하기 전에 두 번째 Terraform 계획에 변경이 없는지 확인합니다.
 
