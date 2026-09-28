@@ -312,8 +312,18 @@ def hil_item(row: Mapping[str, Any]) -> JsonObject | None:
                 if _nonempty(development.get("block_digest"))
                 else None
             ),
+            "development_binding": _development_binding(development),
         },
     )
+
+
+def _development_binding(block: Mapping[str, Any]) -> JsonObject | None:
+    """Project the exact bound facts the Owner confirms, only from a complete Core block."""
+    fields = ("binding_digest", "target_revision", "dry_run_digest", "scope_digest")
+    values = {field: _nonempty(block.get(field)) for field in fields}
+    if not _nonempty(block.get("block_digest")) or not all(values.values()):
+        return None
+    return cast(JsonObject, values)
 
 
 def caller_development_view(payload: JsonObject, subject_id: str) -> JsonObject:
@@ -328,12 +338,15 @@ def caller_development_view(payload: JsonObject, subject_id: str) -> JsonObject:
             viewed.append(item)
             continue
         owner = item.get("development_self_approval_owner")
+        available = isinstance(owner, str) and bool(caller) and owner.strip().casefold() == caller
         view = {
-            key: value for key, value in item.items() if key != "development_self_approval_owner"
+            key: value
+            for key, value in item.items()
+            if key not in {"development_self_approval_owner", "development_binding"}
         }
-        view["development_self_approval_available"] = (
-            isinstance(owner, str) and bool(caller) and owner.strip().casefold() == caller
-        )
+        view["development_self_approval_available"] = available
+        # Only the Owner who confirms the binding needs its exact facts.
+        view["development_binding"] = item.get("development_binding") if available else None
         viewed.append(view)
     return cast(JsonObject, {**payload, "items": viewed})
 

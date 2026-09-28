@@ -517,6 +517,14 @@ function ApprovalCard({
     [t("approvals.fieldRollback"), rollback],
     [t("approvals.fieldStopCondition"), item.stop_condition],
     [t("approvals.fieldGroundedOn"), item.citing_rule_ids.join(", ")],
+    ...(ownDevelopment && item.development_binding !== null
+      ? [
+        [t("approvals.fieldTargetRevision"), item.development_binding.target_revision],
+        [t("approvals.fieldDryRunDigest"), item.development_binding.dry_run_digest],
+        [t("approvals.fieldScopeDigest"), item.development_binding.scope_digest],
+        [t("approvals.fieldBindingDigest"), item.development_binding.binding_digest],
+      ] as const
+      : []),
   ] as const;
   const submitDecision = async (decision: "approve" | "reject"): Promise<void> => {
     const reason = justification.trim();

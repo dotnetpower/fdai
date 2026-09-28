@@ -2,6 +2,7 @@ import type {
   AuditPage,
   AuditRecordContext,
   AuditSummary,
+  DevelopmentBindingView,
   HilQueuePage,
   IncidentPage,
   RcaView,
@@ -407,6 +408,26 @@ function decodeRcaCausalChain(value: unknown): RcaView["hypotheses"][number]["ca
   };
 }
 
+const DEVELOPMENT_DIGEST = /^sha256:[a-f0-9]{64}$/;
+
+function decodeDevelopmentBinding(value: unknown): DevelopmentBindingView | null {
+  if (value === undefined || value === null) return null;
+  const binding = apiRecord(value, "HIL queue item.development_binding");
+  const fields = ["binding_digest", "target_revision", "dry_run_digest", "scope_digest"] as const;
+  for (const field of fields) {
+    const digest = binding[field];
+    if (typeof digest !== "string" || !DEVELOPMENT_DIGEST.test(digest)) {
+      throw contractError(`HIL queue item.development_binding.${field} MUST be a sha256 digest`);
+    }
+  }
+  return {
+    binding_digest: binding["binding_digest"] as string,
+    target_revision: binding["target_revision"] as string,
+    dry_run_digest: binding["dry_run_digest"] as string,
+    scope_digest: binding["scope_digest"] as string,
+  };
+}
+
 export function decodeHilQueuePage(value: unknown): HilQueuePage {
   const root = apiRecord(value, "HIL queue page");
   if (!Array.isArray(root["items"])) throw contractError("HIL queue page.items MUST be an array");
@@ -474,6 +495,7 @@ export function decodeHilQueuePage(value: unknown): HilQueuePage {
           item["development_self_approval_available"] === undefined
             ? false
             : apiBoolean(item, "development_self_approval_available", "HIL queue item"),
+        development_binding: decodeDevelopmentBinding(item["development_binding"]),
       };
     });
   const total = apiNonNegativeInteger(root, "total", "HIL queue page");

@@ -306,6 +306,14 @@ def test_queue_projection_names_only_the_core_selected_owner() -> None:
         },
     }
 
+    bound = {
+        "target_revision": "sha256:" + "1" * 64,
+        "dry_run_digest": "sha256:" + "2" * 64,
+        "scope_digest": "sha256:" + "3" * 64,
+    }
+    value = row["value"]
+    assert isinstance(value, dict)
+    value["development_authority"] = {**value["development_authority"], **bound}
     projected = hil_item(row)
     plain = hil_item({**row, "value": {**row["value"], "development_authority": None}})
 
@@ -320,5 +328,11 @@ def test_queue_projection_names_only_the_core_selected_owner() -> None:
     assert isinstance(owner_items, list)
     assert [item["development_self_approval_available"] for item in owner_items] == [True, False]
     assert all("development_self_approval_owner" not in item for item in owner_items)
+    assert owner_items[0]["development_binding"] == {
+        "binding_digest": BLOCK["binding_digest"],
+        **bound,
+    }
+    assert owner_items[1]["development_binding"] is None
     assert other_view["items"][0]["development_self_approval_available"] is False  # type: ignore[index]
+    assert other_view["items"][0]["development_binding"] is None  # type: ignore[index]
     assert caller_development_view({"total": 1}, OWNER) == {"total": 1}
