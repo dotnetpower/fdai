@@ -29,6 +29,7 @@ _EXACT_VALUE_OPERATORS = {
     ObjectPredicateOperator.EQUALS,
     ObjectPredicateOperator.NOT_EQUALS,
     ObjectPredicateOperator.IN,
+    ObjectPredicateOperator.EQUALS_IGNORE_CASE,
 }
 
 _TABLE_KINDS = {

@@ -298,7 +298,9 @@ ordered paths use the additive typed-path contract and a new exact function or q
 Optional relationship-traversal `endpoint_predicates` filter only the reached endpoints after
 traversal, so a transitive path through a filtered intermediate stays intact. The verifier checks
 them like ObjectSet predicates, and a filtered result is re-read by exact identity for its own
-output receipt; an incomplete filtered result carries no output marker.
+output receipt; an incomplete filtered result carries no output marker. The `equals_ignore_case`
+predicate compares provider names that are case-insensitive, such as resource groups, exactly apart
+from case and never as a substring.
 
 ### Taxonomy closure
 

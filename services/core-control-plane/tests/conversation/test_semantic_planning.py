@@ -1639,7 +1639,7 @@ def _assert_group_membership_plan(
     assert anchor.kind is QueryNodeKind.OBJECT_SET
     assert definition["limit"] == 2
     assert definition["predicates"][:2] == [
-        {"property": "name", "operator": "equals", "equals": "rg-example"},
+        {"property": "name", "operator": "equals_ignore_case", "equals": "rg-example"},
         {"property": "type", "operator": "equals", "equals": "resource-group"},
     ]
     assert not any(item["property"] == "parent_id" for item in definition["predicates"])

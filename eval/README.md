@@ -29,7 +29,7 @@ Run the focused static contract check from the repository root:
 uv run pytest -q --no-cov tests/integration/evaluation/test_golden_dataset.py -o addopts=''
 ```
 
-Compile and execute every reasoning gold form on the fixture graph:
+Check every reasoning gold form against its reviewed outcome and execute each compiled, output-bearing form on the fixture graph:
 
 ```bash
 uv run pytest -q --no-cov services/core-control-plane/tests/conversation/test_semantic_reasoning_cohort.py

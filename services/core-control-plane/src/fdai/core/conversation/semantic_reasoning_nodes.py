@@ -108,7 +108,7 @@ def subject_selection(
         else:
             unsupported = OperatorResult(unsupported=(f"subject_unsupported:{domain.value}",))
             return selector, [], unsupported
-    predicates, failure = endpoint_predicates(goal, ctx, extra_types=type_values)
+    predicates, failure = endpoint_predicates(goal, ctx, extra_types=type_values, selector=selector)
     if failure is not None:
         return selector, [], failure
     if selector != RESOURCE_OBJECT_TYPE and has_type_predicate(predicates):
@@ -123,8 +123,16 @@ def endpoint_predicates(
     ctx: CompileContext,
     *,
     extra_types: tuple[str, ...] = (),
+    selector: str = RESOURCE_OBJECT_TYPE,
 ) -> tuple[list[dict[str, Any]], OperatorResult | None]:
-    type_values: list[str] = list(extra_types)
+    """Return the endpoint predicates every stated restriction requires.
+
+    Each stated kind restriction narrows the others, so the subject kind and every
+    type filter intersect; an empty intersection clarifies instead of widening. An
+    empty value set is the explicit resources-in-general root and restricts nothing.
+    """
+
+    type_sets: list[frozenset[str]] = [frozenset(extra_types)] if extra_types else []
     predicates: list[dict[str, Any]] = []
     for item in goal.filters:
         if item.role is FilterRole.SCOPE:
@@ -135,22 +143,28 @@ def endpoint_predicates(
                 return [], failure
             if ctx.mention(item.mention).domain not in RESOURCE_TYPE_DOMAINS:
                 return [], OperatorResult(unsupported=("type_filter_domain_unsupported",))
-            type_values.extend(values)
+            if values:
+                type_sets.append(frozenset(values))
         elif item.role is FilterRole.NAME_FRAGMENT:
             predicates.append(
                 {"property": "name", "operator": "contains", "equals": ctx.text(item.mention)}
             )
         else:
             return [], OperatorResult(unsupported=(f"filter_unsupported:{item.role.value}",))
-    unique_types = sorted(set(type_values))
-    if len(unique_types) == 1:
-        predicates.insert(0, {"property": "type", "operator": "equals", "equals": unique_types[0]})
-    elif unique_types:
-        predicates.insert(0, {"property": "type", "operator": "in", "values": unique_types})
-    declared = _declared_types(ctx)
-    for excluded in OPERATIONAL_RESOURCE_EXCLUDED_TYPES:
-        if excluded in declared and excluded not in unique_types:
-            predicates.append({"property": "type", "operator": "not_equals", "equals": excluded})
+    required = sorted(frozenset.intersection(*type_sets)) if type_sets else []
+    if type_sets and not required:
+        return [], OperatorResult(clarify=("type_restrictions_disjoint",))
+    if len(required) == 1:
+        predicates.insert(0, {"property": "type", "operator": "equals", "equals": required[0]})
+    elif required:
+        predicates.insert(0, {"property": "type", "operator": "in", "values": required})
+    if selector == RESOURCE_OBJECT_TYPE:
+        declared = _declared_types(ctx)
+        for excluded in OPERATIONAL_RESOURCE_EXCLUDED_TYPES:
+            if excluded in declared and excluded not in required:
+                predicates.append(
+                    {"property": "type", "operator": "not_equals", "equals": excluded}
+                )
     return predicates, None
 
 

@@ -9,9 +9,13 @@ from fdai.core.conversation.semantic_reasoning_binding import (
     AnchorBinding,
     AnchorBindingReceipt,
     AnchorOutcome,
+    GatewayAnchorResolver,
     bind_anchors,
+    surface_extensions,
 )
 from fdai.core.conversation.semantic_reasoning_compiler import GoalStatus, compile_question_form
+from fdai.shared.contracts.models import CeilingRole
+from fdai.shared.ontology.acl import ProjectionRequest
 
 from tests.conversation.semantic_reasoning_support import (
     DEFAULT_LOOKBACK_SECONDS,
@@ -20,6 +24,7 @@ from tests.conversation.semantic_reasoning_support import (
     admitted,
     concepts,
     fixture_anchors,
+    fixture_gateway,
     plan_verifier,
     production_manifest,
     span,
@@ -130,3 +135,89 @@ def _compile(admission: Any, utterance: str, anchors: AnchorBindingReceipt) -> A
         utterance=utterance,
         anchors=anchors,
     )
+
+
+def test_surface_extensions_cover_every_longer_form_within_the_token() -> None:
+    utterance = "Is (rg-app) up?"
+    start = utterance.index("rg-app")
+
+    forms = surface_extensions(utterance, start, start + len("rg-app"))
+
+    assert set(forms) == {"(rg-app", "rg-app)", "(rg-app)"}
+    assert surface_extensions("Is rg-app up?", 3, 9) == ()
+
+
+async def test_a_longer_exact_name_in_the_same_token_makes_the_anchor_ambiguous() -> None:
+    utterance = "What depends on vm-app-01?"
+    start = utterance.index("vm-app")
+    resolver = GatewayAnchorResolver(
+        await fixture_gateway(),
+        projection_request=ProjectionRequest(
+            caller_role=CeilingRole.READER, declared_purposes=frozenset({PURPOSE})
+        ),
+        purpose=PURPOSE,
+        as_of=NOW,
+    )
+
+    binding = await resolver.resolve(
+        "m1", "vm-app", surface_extensions(utterance, start, start + len("vm-app"))
+    )
+
+    assert binding.outcome is AnchorOutcome.AMBIGUOUS
+    assert binding.candidates == ("vm-1",)
+
+
+async def test_a_particle_after_a_name_still_binds_the_exact_name() -> None:
+    utterance = "sql-app에 의존하는 리소스는?"
+    form = {
+        "mentions": [
+            {"id": "m1", "form": "name", "domain": "instance", "span": span(utterance, "sql-app")}
+        ],
+        "goals": [
+            {
+                "id": "g1",
+                "level": "instance",
+                "operation": "traverse",
+                "subject": "m1",
+                "subject_scope": "anchor",
+                "relation": {
+                    "sense": "dependency",
+                    "anchor_role": "dependency",
+                    "result_role": "dependent",
+                    "cue": span(utterance, "의존하는"),
+                },
+                "cue": span(utterance, "리소스는"),
+                "confidence": 0.9,
+            }
+        ],
+    }
+    resolver = GatewayAnchorResolver(
+        await fixture_gateway(),
+        projection_request=ProjectionRequest(
+            caller_role=CeilingRole.READER, declared_purposes=frozenset({PURPOSE})
+        ),
+        purpose=PURPOSE,
+        as_of=NOW,
+    )
+
+    receipt = await bind_anchors(admitted(form, utterance), resolver, utterance=utterance)
+
+    assert [(item.outcome, item.object_id) for item in receipt.bindings] == [
+        (AnchorOutcome.BOUND, "sql-1")
+    ]
+
+
+async def test_too_many_longer_forms_leave_the_anchor_incomplete() -> None:
+    resolver = GatewayAnchorResolver(
+        await fixture_gateway(),
+        projection_request=ProjectionRequest(
+            caller_role=CeilingRole.READER, declared_purposes=frozenset({PURPOSE})
+        ),
+        purpose=PURPOSE,
+        as_of=NOW,
+    )
+    extensions = tuple(f"sql-app{'가' * 40}{index}" for index in range(900))
+
+    binding = await resolver.resolve("m1", "sql-app", extensions)
+
+    assert binding.outcome is AnchorOutcome.INCOMPLETE

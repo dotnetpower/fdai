@@ -35,10 +35,21 @@ _QUOTED_SPAN_SCHEMA: dict[str, Any] = {
 }
 
 
+class FormInputHeldError(RuntimeError):
+    """A proposal call was refused before transmission; ``reason`` is a closed code."""
+
+    def __init__(self, reason: str) -> None:
+        super().__init__(reason)
+        self.reason = reason
+
+
 @dataclass(frozen=True, slots=True)
 class FormResolution:
+    """A validated form, or typed reasons plus code-authored notes for one repair."""
+
     form: SemanticQuestionForm | None
     reasons: tuple[str, ...]
+    notes: tuple[str, ...] = ()
 
 
 def question_form_proposal_schema() -> dict[str, Any]:
@@ -60,28 +71,39 @@ def resolve_question_form(raw: Mapping[str, Any], *, utterance: str) -> FormReso
     except (TypeError, ValueError):
         return FormResolution(None, ("form_payload_invalid",))
     failures: list[str] = []
+    notes: list[str] = []
     mentions = payload.get("mentions")
     goals = payload.get("goals")
     if not isinstance(mentions, list) or not isinstance(goals, list):
-        return FormResolution(None, ("form_payload_invalid",))
-    for mention in mentions:
+        return FormResolution(
+            None, ("form_payload_invalid",), ("form: mentions and goals MUST be lists",)
+        )
+    for index, mention in enumerate(mentions):
         if isinstance(mention, dict):
-            _bind(mention, "span", utterance, failures, required=True)
-    for goal in goals:
+            _bind(mention, "span", utterance, failures, notes, f"mentions.{index}.span")
+    for index, goal in enumerate(goals):
         if not isinstance(goal, dict):
             continue
-        _bind(goal, "cue", utterance, failures, required=True)
+        _bind(goal, "cue", utterance, failures, notes, f"goals.{index}.cue")
         for key in ("relation", "time"):
             nested = goal.get(key)
             if isinstance(nested, dict):
-                _bind(nested, "cue", utterance, failures, required=key == "relation")
+                path = f"goals.{index}.{key}.cue"
+                _bind(nested, "cue", utterance, failures, notes, path, required=key == "relation")
     if failures:
-        return FormResolution(None, tuple(dict.fromkeys(failures)))
+        return FormResolution(None, tuple(dict.fromkeys(failures)), tuple(notes[:16]))
     try:
         return FormResolution(SemanticQuestionForm.model_validate(payload), ())
     except ValidationError as exc:
-        fields = sorted({".".join(str(part) for part in error["loc"]) for error in exc.errors()})
-        return FormResolution(None, tuple(f"form_contract_invalid:{field}" for field in fields[:8]))
+        errors = exc.errors(include_input=False, include_url=False, include_context=False)
+        fields = sorted({_path(error["loc"]) for error in errors})
+        # Messages are authored by the contract, never copied from the model's values.
+        messages = sorted({f"{_path(error['loc'])}: {error['msg']}" for error in errors})
+        return FormResolution(
+            None,
+            tuple(f"form_contract_invalid:{field}" for field in fields[:8]),
+            tuple(messages[:16]),
+        )
 
 
 def locate_quote(text: str, occurrence: int, utterance: str) -> tuple[int, int] | None:
@@ -102,30 +124,40 @@ def _bind(
     key: str,
     utterance: str,
     failures: list[str],
+    notes: list[str],
+    path: str,
     *,
-    required: bool,
+    required: bool = True,
 ) -> None:
     quoted = container.get(key)
     if quoted is None and not required:
         return
     if not isinstance(quoted, Mapping):
         failures.append(f"quote_missing:{key}")
+        notes.append(f"{path}: a quote with text and occurrence is required")
         return
     text = quoted.get("text")
     occurrence = quoted.get("occurrence", 1)
     if not isinstance(text, str) or isinstance(occurrence, bool) or not isinstance(occurrence, int):
         failures.append(f"quote_invalid:{key}")
+        notes.append(f"{path}: text MUST be a string and occurrence an integer")
         return
     span = locate_quote(text, occurrence, utterance)
     if span is None:
         failures.append(f"quote_not_verbatim:{key}")
+        notes.append(f"{path}: the quote MUST copy the utterance verbatim at that occurrence")
         return
     container[key] = {"start": span[0], "end": span[1]}
+
+
+def _path(location: tuple[int | str, ...]) -> str:
+    return ".".join(str(part) for part in location) or "form"
 
 
 __all__ = [
     "MAX_OCCURRENCE",
     "MAX_QUOTE_CHARS",
+    "FormInputHeldError",
     "FormResolution",
     "locate_quote",
     "question_form_proposal_schema",

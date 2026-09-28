@@ -8,9 +8,13 @@ from typing import Any
 
 import httpx
 import pytest
+from fdai.core.conversation.adaptive_call_scope import bind_adaptive_model_budget
+from fdai.core.conversation.adaptive_models import AdaptivePolicy
+from fdai.core.conversation.adaptive_service import _Budget
 from fdai.core.conversation.semantic_reasoning_binding import GatewayAnchorResolver
 from fdai.core.conversation.semantic_reasoning_concepts import ConceptShard
 from fdai.core.conversation.semantic_reasoning_proposal import (
+    FormInputHeldError,
     locate_quote,
     question_form_proposal_schema,
     resolve_question_form,
@@ -216,7 +220,8 @@ async def test_model_unavailability_and_invalid_forms_stop_without_fallback() ->
 
     assert [item.disposition for item in unavailable.passes] == ["model_unavailable"]
     assert invalid.passes[0].disposition == "invalid"
-    assert invalid.passes[0].compilation is None
+    assert invalid.passes[0].goals == ()
+    assert invalid.compilations == ()
 
 
 class _Identity:
@@ -282,3 +287,151 @@ async def test_adapter_returns_none_for_transport_or_malformed_output() -> None:
 
     assert await _adapter(failing).propose_form(**arguments) is None
     assert await _adapter(malformed).propose_form(**arguments) is None
+
+
+async def test_provider_exceptions_are_contained_as_shadow_errors() -> None:
+    class _Broken(_Model):
+        async def propose_form(self, **kwargs: Any) -> dict[str, Any] | None:
+            raise RuntimeError("provider exploded")
+
+    observation = await _run(_Broken([], {}))
+
+    assert [item.disposition for item in observation.passes] == ["shadow_error"]
+    assert observation.passes[0].reasons == ("shadow_error:RuntimeError",)
+
+
+def _two_candidate_adapter(handler: Any) -> AzureOpenAIQuestionFormModel:
+    target = {
+        "api_version": "2024-06-01",
+        "auth_audience": "https://example.com/.default",
+    }
+    return AzureOpenAIQuestionFormModel(
+        identity=_Identity(),  # type: ignore[arg-type]
+        http_client=httpx.AsyncClient(transport=httpx.MockTransport(handler)),
+        config=AzureOpenAIQuestionFormConfig(
+            candidates=(
+                ModelRequestTarget(
+                    endpoint="https://example.com",
+                    deployment="model-a",
+                    binding_id="binding-a",
+                    **target,
+                ),
+                ModelRequestTarget(
+                    endpoint="https://example.com",
+                    deployment="model-b",
+                    binding_id="binding-b",
+                    **target,
+                ),
+            ),
+            form_system_prompt="Return the closed question form.",
+            concept_system_prompt="Choose concepts.",
+        ),
+    )
+
+
+async def test_a_secret_in_the_utterance_is_never_sent_for_verbatim_quoting() -> None:
+    requests: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        requests.append(request)
+        return httpx.Response(200, json={"choices": [{"message": {"content": "{}"}}]})
+
+    token = "Bearer " + "eyJhbGciOiJIUzI1NiJ9." + "eyJzdWIiOiIxIn0." + "c2lnbmF0dXJl"
+    with pytest.raises(FormInputHeldError) as held:
+        await _adapter(handler).propose_form(
+            utterance=f"Use {token} and list VMs",
+            context=(),
+            locale="en",
+            pass_index=0,
+            prior_goals=(),
+        )
+
+    assert held.value.reason == "input_redacted"
+    assert requests == []
+
+
+async def test_a_bounded_read_ends_after_one_failed_provider_attempt() -> None:
+    requests: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        requests.append(request)
+        return httpx.Response(429)
+
+    budget = _Budget(AdaptivePolicy())
+    adapter = _two_candidate_adapter(handler)
+    async with bind_adaptive_model_budget(budget):
+        result = await adapter.propose_form(
+            utterance=_UTTERANCE, context=(), locale="en", pass_index=0, prior_goals=()
+        )
+
+    assert result is None
+    assert len(requests) == 1
+
+
+async def test_successful_calls_record_measured_usage_in_the_turn_budget() -> None:
+    def handler(_request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json={
+                "choices": [{"message": {"content": json.dumps(_quoted_form())}}],
+                "usage": {"total_tokens": 321},
+            },
+        )
+
+    budget = _Budget(AdaptivePolicy())
+    async with bind_adaptive_model_budget(budget, reserved_calls=1):
+        result = await _adapter(handler).propose_form(
+            utterance=_UTTERANCE, context=(), locale="en", pass_index=0, prior_goals=()
+        )
+
+    assert result == _quoted_form()
+    assert len(budget.observations) == 1
+
+
+async def test_observations_never_carry_utterance_text() -> None:
+    utterance = "Which resources have zebra-secret-7 in their name?"
+    form = {
+        "mentions": [
+            {
+                "id": "m1",
+                "form": "value",
+                "domain": "instance",
+                "span": {"text": "zebra-secret-7", "occurrence": 1},
+            },
+        ],
+        "goals": [
+            {
+                "id": "g1",
+                "level": "instance",
+                "operation": "select",
+                "subject_scope": "collection",
+                "filters": [{"role": "name_fragment", "mention": "m1"}],
+                "cue": {"text": "Which resources", "occurrence": 1},
+                "confidence": 0.9,
+            }
+        ],
+    }
+    observation = await run_reasoning_shadow(
+        model=_Model([form], {}),
+        utterance=utterance,
+        context=(),
+        locale="en",
+        manifest=production_manifest(),
+        verifier=plan_verifier(),
+        purpose=PURPOSE,
+        evaluation_time=NOW,
+        default_lookback_seconds=DEFAULT_LOOKBACK_SECONDS,
+    )
+
+    assert observation.passes[0].goals[0].status == "compiled"
+    assert "zebra-secret-7" not in repr(observation)
+    assert "zebra-secret-7" not in json.dumps(observation.summary())
+
+
+async def test_a_failed_continuation_pass_keeps_the_continuation_visible() -> None:
+    model = _Model([_quoted_form(remaining_goals=True), None], {})
+
+    observation = await _run(model, max_form_passes=2)
+
+    assert observation.continuation_pending is True
+    assert observation.notes == ("continuation_failed",)

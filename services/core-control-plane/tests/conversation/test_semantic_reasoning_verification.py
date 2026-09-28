@@ -204,3 +204,86 @@ def test_a_goal_without_any_plan_is_never_verified() -> None:
         plans=(),
         default_lookback_seconds=DEFAULT_LOOKBACK_SECONDS,
     ) == ("sem_no_plan",)
+
+
+def test_a_traversal_from_another_identity_is_rejected() -> None:
+    admission, receipt, plan = _compiled()
+    swapped = _rewrite(
+        plan,
+        "g1-anchor",
+        lambda args: args["definition"]["predicates"][0].update(equals="object-m2"),
+    )
+
+    violations = _violations(admission, receipt, swapped)
+
+    assert "sem_relation_anchor_differs" in violations
+    assert "prov_operand_without_source:g1-anchor:id" in violations
+
+
+_SCOPED = "List VMs in rg-app"
+
+
+def _scoped() -> tuple[Any, Any, OntologyQueryPlan]:
+    form = {
+        "mentions": [
+            {"id": "m1", "form": "name", "domain": "instance", "span": span(_SCOPED, "rg-app")},
+            {
+                "id": "m2",
+                "form": "concept",
+                "domain": "resource_type",
+                "span": span(_SCOPED, "VMs"),
+            },
+        ],
+        "goals": [
+            {
+                "id": "g1",
+                "level": "instance",
+                "operation": "select",
+                "subject": "m2",
+                "subject_scope": "collection",
+                "filters": [{"role": "scope", "mention": "m1"}],
+                "cue": span(_SCOPED, "List"),
+                "confidence": 0.9,
+            }
+        ],
+    }
+    admission = admitted(form, _SCOPED)
+    receipt = concepts(("m2", MentionDomain.RESOURCE_TYPE, ("compute.vm",)))
+    compilation = compile_question_form(
+        admission,
+        concepts=receipt,
+        manifest=production_manifest(),
+        verifier=plan_verifier(),
+        purpose=PURPOSE,
+        evaluation_time=NOW,
+        default_lookback_seconds=DEFAULT_LOOKBACK_SECONDS,
+        utterance=_SCOPED,
+        anchors=synthetic_anchors(admission),
+    )
+    (batch,) = compilation.goals[0].batches
+    return admission, receipt, batch.plan
+
+
+@pytest.mark.parametrize(
+    ("node", "update", "violation"),
+    (
+        (
+            "g1-members",
+            lambda args: args.update(direction="incoming"),
+            "sem_scope_containment_differs",
+        ),
+        ("g1-members", lambda args: args.update(max_depth=1), "sem_scope_containment_differs"),
+        (
+            "g1-scope",
+            lambda args: args["definition"]["predicates"][0].update(equals="object-m2"),
+            "sem_scope_anchor_differs",
+        ),
+    ),
+)
+def test_a_scope_read_that_is_not_the_bound_containment_is_rejected(
+    node: str, update: Any, violation: str
+) -> None:
+    admission, receipt, plan = _scoped()
+
+    assert _violations(admission, receipt, plan) == ()
+    assert violation in _violations(admission, receipt, _rewrite(plan, node, update))

@@ -74,10 +74,11 @@ async def traversal_endpoints(
     """Return reached endpoints and the output marker a consumer may read.
 
     Endpoint predicates filter only reached endpoints, so a transitive path through a
-    filtered intermediate stays intact. A filtered table is re-read by exact identity
-    and issued its own receipt; an incomplete filtered table carries no output marker,
-    so a downstream ``query_result`` consumer fails closed instead of reading the
-    unfiltered set.
+    filtered intermediate stays intact. The gateway re-reads every reached endpoint by
+    exact identity under the same predicates, so its receipt observes the traversal's
+    store generation even when the filter keeps nothing, and the result is issued its
+    own receipt. An incomplete filtered table carries no output marker, so a downstream
+    ``query_result`` consumer fails closed instead of reading the unfiltered set.
     """
 
     if not traversal.endpoint_predicates:
@@ -92,11 +93,13 @@ async def traversal_endpoints(
     )
     if issue is None or not filtered.complete:
         return filtered, ()
+    reached_ids = tuple(row.row_id for row in table.rows)
     endpoint_ids = tuple(row.row_id for row in filtered.rows)
     output = await gateway.materialize(
         ObjectSetDefinition(
             selector=traversal.selector,
-            object_ids=endpoint_ids,
+            object_ids=reached_ids,
+            predicates=traversal.endpoint_predicates,
             as_of=traversal.as_of,
             purpose=traversal.purpose,
             limit=traversal.limit,
@@ -104,10 +107,8 @@ async def traversal_endpoints(
         ),
         projection_request=request,
     )
-    if (
-        filtered.source_generation is not None
-        and output.receipt.source_generation != filtered.source_generation
-    ):
+    # Only a traversal that reached nothing reads no snapshot; its empty result cannot drift.
+    if reached_ids and output.receipt.source_generation != filtered.source_generation:
         raise QueryNodeHeldError("query_source_generation_conflict")
     if not output.receipt.complete or {
         item.id for item in output.materialization.graph.objects

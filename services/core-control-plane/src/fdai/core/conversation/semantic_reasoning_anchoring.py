@@ -11,6 +11,7 @@ from dataclasses import dataclass
 
 from .semantic_reasoning_form import (
     FormGoal,
+    FormRelation,
     GoalOperation,
     MentionDomain,
     MentionForm,
@@ -18,6 +19,7 @@ from .semantic_reasoning_form import (
     RelationScope,
     RelationSense,
     SubjectPosition,
+    SubjectRole,
 )
 from .semantic_reasoning_nodes import (
     RESOURCE_TYPE_DOMAINS,
@@ -45,52 +47,77 @@ def anchored_relation(goal: FormGoal, ctx: CompileContext) -> AnchoredRelation |
     """Return the anchor, its stored end, and endpoint restrictions for one goal."""
 
     relation = goal.relation
-    if goal.effective_operation is GoalOperation.IMPACT:
-        # Impact has one reviewed meaning: resources that depend on the anchor, one hop.
-        # A model-stated relation cannot redirect it, so a reversed reading cannot compile.
-        anchor = relation.anchor if relation is not None and relation.anchor else goal.subject
-        if not _is_anchor(anchor, ctx) or anchor is None:
-            return OperatorResult(unsupported=("relation_anchor_missing",))
+    impact = goal.effective_operation is GoalOperation.IMPACT
+    if impact and relation is not None and not _reviewed_impact(relation):
+        # Impact has one reviewed reading; another stated relation is not substituted.
+        return OperatorResult(unsupported=("impact_relation_unsupported",))
+    if relation is None and not impact:
+        return OperatorResult(unsupported=("relation_required",))
+    if relation is not None and (relation.anchor_position is None or not relation.roles_consistent):
+        return OperatorResult(unsupported=("relation_role_mismatch",))
+    anchor = relation.anchor if relation is not None and relation.anchor else goal.subject
+    if anchor is None or not _is_anchor(anchor, ctx):
+        return OperatorResult(unsupported=("relation_anchor_missing",))
+    restriction = _result_restriction(goal, anchor, ctx)
+    if isinstance(restriction, OperatorResult):
+        return restriction
+    subject_types, endpoint_object_type = restriction
+    if relation is None or impact:
         return AnchoredRelation(
             anchor=anchor,
             position=SubjectPosition.TARGET,
             sense=RelationSense.DEPENDENCY,
             scope=RelationScope.ONE_SENSE,
             reach=RelationReach.ONE_HOP,
+            subject_types=subject_types,
+            endpoint_object_type=endpoint_object_type,
             implied=True,
         )
-    if relation is None:
-        return OperatorResult(unsupported=("relation_required",))
     position = relation.anchor_position
-    if position is None or not relation.roles_consistent:
+    if position is None:
         return OperatorResult(unsupported=("relation_role_mismatch",))
-    anchor = relation.anchor or goal.subject
-    if not _is_anchor(anchor, ctx) or anchor is None:
-        return OperatorResult(unsupported=("relation_anchor_missing",))
-    sense = relation.sense if relation.scope is RelationScope.ONE_SENSE else None
-    subject_types: tuple[str, ...] = ()
-    endpoint_object_type: str | None = None
-    results = goal.subject if goal.subject not in {None, anchor} else None
-    if results is not None and not goal.restated_subject:
-        domain = ctx.mention(results).domain
-        values, failure = concept_values(results, ctx)
-        if failure is not None:
-            return failure
-        if domain in RESOURCE_TYPE_DOMAINS:
-            subject_types = values
-        elif domain is MentionDomain.OBJECT_TYPE and len(values) == 1:
-            endpoint_object_type = values[0]
-        else:
-            return OperatorResult(unsupported=(f"subject_unsupported:{domain.value}",))
+    if relation.scope is RelationScope.ALL_KINDS and relation.reach is RelationReach.TRANSITIVE:
+        return OperatorResult(unsupported=("all_kinds_transitive_unsupported",))
     return AnchoredRelation(
         anchor=anchor,
         position=position,
-        sense=sense,
+        sense=relation.sense if relation.scope is RelationScope.ONE_SENSE else None,
         scope=relation.scope,
         reach=relation.reach,
         subject_types=subject_types,
         endpoint_object_type=endpoint_object_type,
     )
+
+
+def _reviewed_impact(relation: FormRelation) -> bool:
+    return (
+        relation.sense is RelationSense.DEPENDENCY
+        and relation.scope is RelationScope.ONE_SENSE
+        and relation.anchor_role is SubjectRole.DEPENDENCY
+        and relation.result_role is SubjectRole.DEPENDENT
+        and relation.reach is RelationReach.ONE_HOP
+    )
+
+
+def _result_restriction(
+    goal: FormGoal, anchor: str, ctx: CompileContext
+) -> tuple[tuple[str, ...], str | None] | OperatorResult:
+    """Return the kind restriction a distinct goal subject places on the results."""
+
+    results = goal.subject if goal.subject not in {None, anchor} else None
+    if results is None or goal.restated_subject:
+        return (), None
+    domain = ctx.mention(results).domain
+    if domain is MentionDomain.INSTANCE:
+        return OperatorResult(unsupported=("result_instance_unsupported",))
+    values, failure = concept_values(results, ctx)
+    if failure is not None:
+        return failure
+    if domain in RESOURCE_TYPE_DOMAINS:
+        return values, None
+    if domain is MentionDomain.OBJECT_TYPE and len(values) == 1:
+        return (), values[0]
+    return OperatorResult(unsupported=(f"subject_unsupported:{domain.value}",))
 
 
 def _is_anchor(mention_id: str | None, ctx: CompileContext) -> bool:

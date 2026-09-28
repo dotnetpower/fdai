@@ -344,7 +344,11 @@ def _resource_group_membership_plan(
                     "definition": {
                         "selector": {"kind": "object_type", "name": _RESOURCE_OBJECT_TYPE},
                         "predicates": [
-                            {"property": "name", "operator": "equals", "equals": group_names[0]},
+                            {
+                                "property": "name",
+                                "operator": "equals_ignore_case",
+                                "equals": group_names[0],
+                            },
                             {
                                 "property": "type",
                                 "operator": "equals",

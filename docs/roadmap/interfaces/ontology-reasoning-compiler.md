@@ -8,10 +8,10 @@ question logical form and compiles it deterministically into a verified ontology
 model understands the question, grounds concepts in complete catalogs, and phrases the answer. Code
 validates that meaning, binds anchors, selects reviewed paths, and verifies every claim it shows.
 
-> **Status:** Approved design, 2026-09-28. The contracts, admission, concept selection, compiler,
-> verifiers, and a shadow runner are implemented and unwired from the production turn; the
-> [ledger](../../roadmap-implementation/interfaces/ontology-reasoning-compiler.md) records scope and
-> deviations. The current runtime is described in
+> **Status:** Approved design, 2026-09-28. An initial, partial shadow implementation covers selected
+> operations and is unwired from the production turn; the
+> [ledger](../../roadmap-implementation/interfaces/ontology-reasoning-compiler.md) records scope,
+> measured coverage, and deviations. The current runtime is described in
 > [Hierarchical Conversation Planning](hierarchical-conversation-planning.md) and
 > [Ontology Query Coverage Implementation Plan](ontology-query-coverage-implementation-plan.md).
 > Coverage targets and measured limits belong to [Ontology Reasoning Coverage](ontology-reasoning-coverage.md).
@@ -119,12 +119,12 @@ Core binds the anchor, selects `depends_on` through its `dependency` trait, and 
 
 ## Admission
 
-Bragi admits a proposed form only when every span matches the current utterance or a typed context
-reference, every goal meets the configured confidence floor, no alternative form survives, the
-level fits every mention domain, and each restrictive atom has a cue span. A failed admission
-returns one clarification that lists the competing readings, or it sends a low-confidence level,
-relation, direction, or referent to one independent T2 review that compares closed fields only.
-After anchor binding, a sense that the bound anchor type cannot carry also returns a clarification.
+Bragi admits a form only when every span matches the utterance without cutting through a longer
+identifier, every goal meets the confidence floor, no alternative survives, both relation roles are
+the ends of one sense, every declared mention is used, and the level fits every mention domain.
+Otherwise it returns one clarification or sends a low-confidence field to one independent T2 review
+of closed fields. An admitted atom that no reviewed builder reads, such as a qualifier or a stated
+counterpart, returns a typed unsupported reason; it is never ignored.
 
 Admission bounds model authority; it does not remove it. A wrong but self-consistent form is caught
 only by cue-span review, T2 review, the restated interpretation and confirm-first cells in

@@ -21,7 +21,6 @@ from .semantic_reasoning_admission import AdmissionDisposition, FormAdmission
 from .semantic_reasoning_form import MentionDomain, MentionForm
 
 DEFAULT_SHARD_BYTES = 12 * 1024
-MAX_SHARD_CHOICES = 3
 _DECLARATION_KINDS = ("action", "function", "interface", "link", "object")
 # Every non-referential mention of a catalog domain grounds; references bind to handles.
 _CONCEPT_FORMS = frozenset(
@@ -353,6 +352,10 @@ def apply_runoff(
         if accepted is None:
             continue
         for mention_id, chosen in accepted.items():
+            prior = receipt.binding(mention_id)
+            # A runoff only narrows a mention's own finalists; another mention's cannot bind.
+            if prior is None or not {item.id for item in chosen} <= set(prior.candidate_ids):
+                continue
             binding = _binding(mention_id, request.domain, chosen)
             if binding.outcome is ConceptOutcome.ACCEPTED:
                 resolved[mention_id] = binding
@@ -417,9 +420,9 @@ def _accepted_choices(
             return None
         mention_id = raw.get("mention")
         candidate_ids = raw.get("candidate_ids")
-        if mention_id not in expected or mention_id in accepted:
+        if not isinstance(mention_id, str) or mention_id not in expected or mention_id in accepted:
             return None
-        if not isinstance(candidate_ids, list) or len(candidate_ids) > MAX_SHARD_CHOICES:
+        if not isinstance(candidate_ids, list) or len(candidate_ids) > len(shard.candidates):
             return None
         if any(not isinstance(item, str) or item not in index for item in candidate_ids):
             return None
@@ -481,11 +484,13 @@ def _resource_type_candidates(
             continue
         labels = tuple(str(item) for item in group.get("terms") or ())
         candidates.append(ConceptCandidate(f"group:{group['id']}", members, labels))
-    grouped = {value for candidate in candidates for value in candidate.values}
+    # Every declared value stays selectable on its own, even when it only appears inside a
+    # broader group, so the model is never forced to pick a superset.
+    exact = {candidate.values[0] for candidate in candidates if len(candidate.values) == 1}
     candidates.extend(
         ConceptCandidate(f"value:{value}", (value,), (value,))
         for value in values
-        if value not in grouped
+        if value not in exact
     )
     # The unrestricted root: the operator named resources in general, not one kind.
     candidates.append(
@@ -496,7 +501,6 @@ def _resource_type_candidates(
 
 __all__ = [
     "DEFAULT_SHARD_BYTES",
-    "MAX_SHARD_CHOICES",
     "ConceptBinding",
     "ConceptCandidate",
     "ConceptChooser",

@@ -76,7 +76,9 @@ _REQUIRED_FUNCTIONS: Mapping[tuple[GoalLevel, GoalOperation], frozenset[str]] = 
         {"query.ontology_declaration", "query.ontology_relationships"}
     ),
     (GoalLevel.SCHEMA, GoalOperation.TRAVERSE): frozenset({"query.ontology_relationships"}),
-    (GoalLevel.SCHEMA, GoalOperation.SELECT): frozenset({"query.manifest"}),
+    (GoalLevel.SCHEMA, GoalOperation.SELECT): frozenset(
+        {"query.manifest", "query.ontology_relationships"}
+    ),
     (GoalLevel.SCHEMA, GoalOperation.COUNT): frozenset({"query.manifest"}),
 }
 
@@ -102,7 +104,11 @@ def verify_goal_semantics(
     )
     for node in nodes:
         violations.extend(_operand_violations(node, allowed, goal, default_lookback_seconds))
-    violations.extend(_coverage_violations(goal, plans, allowed, descriptors, admission))
+    violations.extend(
+        _coverage_violations(
+            goal, plans, allowed, descriptors, admission, anchors or AnchorBindingReceipt()
+        )
+    )
     return tuple(dict.fromkeys(violations))
 
 
@@ -126,10 +132,16 @@ class _Allowed:
     def __init__(self) -> None:
         self.anchor_ids: set[str] = set()
         self.fragments: set[str] = set()
-        self.type_values: set[str] = set()
+        self.type_sets: list[frozenset[str]] = []
         self.object_types: set[str] = set()
         self.declaration_kinds: set[str] = set()
         self.relation_object_type = False
+
+    @property
+    def required_types(self) -> frozenset[str]:
+        """Return the intersection every stated kind restriction requires."""
+
+        return frozenset.intersection(*self.type_sets) if self.type_sets else frozenset()
 
 
 def _allowed_operands(
@@ -166,7 +178,8 @@ def _allowed_operands(
         if concept is None or concept.outcome is not ConceptOutcome.ACCEPTED:
             continue
         if mention.domain in {MentionDomain.RESOURCE_TYPE, MentionDomain.RESOURCE_CLASS}:
-            allowed.type_values.update(concept.values)
+            if concept.values:
+                allowed.type_sets.append(frozenset(concept.values))
         elif mention.domain is MentionDomain.OBJECT_TYPE:
             allowed.object_types.update(concept.values)
         elif mention.domain is MentionDomain.DECLARATION_KIND:
@@ -217,7 +230,7 @@ def _predicate_violations(
         elif prop == "name" and operator == "contains":
             permitted = allowed.fragments
         elif prop == "type" and operator in {"equals", "in"}:
-            permitted = allowed.type_values
+            permitted = set(allowed.required_types)
         elif prop == "type" and operator == "not_equals":
             permitted = set(OPERATIONAL_RESOURCE_EXCLUDED_TYPES)
         else:
@@ -265,6 +278,7 @@ def _coverage_violations(
     allowed: _Allowed,
     descriptors: Sequence[Mapping[str, Any]],
     admission: FormAdmission,
+    anchors: AnchorBindingReceipt,
 ) -> list[str]:
     violations: list[str] = []
     outputs = [
@@ -308,7 +322,77 @@ def _coverage_violations(
             if node.kind is QueryNodeKind.RELATIONSHIP_TRAVERSAL
         ):
             violations.append("sem_relation_reach_differs")
+        expected_anchor = _expected_anchor_id(goal, anchors)
+        if expected_anchor is None or _traversal_roots(plans) != {expected_anchor}:
+            violations.append("sem_relation_anchor_differs")
+    elif goal.level is GoalLevel.INSTANCE and any(
+        item.role is FilterRole.SCOPE for item in goal.filters
+    ):
+        scope = next(item.mention for item in goal.filters if item.role is FilterRole.SCOPE)
+        compiled_scope = {
+            (
+                str(node.arguments["link_types"][0]),
+                str(node.arguments["direction"]),
+                node.arguments.get("max_depth"),
+            )
+            for plan in plans
+            for node in plan.nodes
+            if node.kind is QueryNodeKind.RELATIONSHIP_TRAVERSAL
+        }
+        if compiled_scope != _containment_scope_sides(descriptors):
+            violations.append("sem_scope_containment_differs")
+        binding = anchors.binding(scope)
+        scope_id = binding.object_id if binding is not None else None
+        if scope_id is None or _traversal_roots(plans) != {scope_id}:
+            violations.append("sem_scope_anchor_differs")
     return violations
+
+
+def _expected_anchor_id(goal: FormGoal, anchors: AnchorBindingReceipt) -> str | None:
+    relation = goal.relation
+    mention = relation.anchor if relation is not None and relation.anchor else goal.subject
+    binding = anchors.binding(mention) if mention is not None else None
+    if binding is None or binding.outcome is not AnchorOutcome.BOUND:
+        return None
+    return binding.object_id
+
+
+def _traversal_roots(plans: Sequence[OntologyQueryPlan]) -> set[str]:
+    """Return the exact anchor identity each traversal of the goal starts from."""
+
+    roots: set[str] = set()
+    for plan in plans:
+        by_id = {node.node_id: node for node in plan.nodes}
+        for node in plan.nodes:
+            if node.kind is not QueryNodeKind.RELATIONSHIP_TRAVERSAL:
+                continue
+            source = by_id.get(node.depends_on[0]) if node.depends_on else None
+            definition = (
+                (source.arguments.get("definition") or {})
+                if source is not None and source.kind is QueryNodeKind.OBJECT_SET
+                else {}
+            )
+            identities = [
+                item.get("equals")
+                for item in definition.get("predicates") or ()
+                if item.get("property") == "id" and item.get("operator") == "equals"
+            ]
+            roots.add(str(identities[0]) if len(identities) == 1 else "<unbound>")
+    return roots
+
+
+def _containment_scope_sides(
+    descriptors: Sequence[Mapping[str, Any]],
+) -> set[tuple[str, str, Any]]:
+    trait = SENSE_TRAITS[RelationSense.CONTAINMENT]
+    return {
+        (str(item.get("name")), "outgoing", _TRANSITIVE_DEPTH)
+        for item in descriptors
+        if item.get("kind") == "link"
+        and trait in set(item.get("semantic_traits") or ())
+        and item.get("is_transitive") is True
+        and item.get("from_type") == item.get("to_type") == "Resource"
+    }
 
 
 def _filter_coverage(
@@ -326,10 +410,10 @@ def _filter_coverage(
         if _is_result_read(node, plan)
     ]
     for predicates in reads:
-        if allowed.type_values and not any(
+        if allowed.type_sets and not any(
             item.get("property") == "type"
             and item.get("operator") in {"equals", "in"}
-            and set(item.get("values") or [item.get("equals")]) == allowed.type_values
+            and frozenset(item.get("values") or [item.get("equals")]) == allowed.required_types
             for item in predicates
         ):
             violations.append("sem_type_filter_missing")
@@ -341,7 +425,7 @@ def _filter_coverage(
 
 def _is_result_read(node: OntologyQueryNode, plan: OntologyQueryPlan) -> bool:
     if node.kind is QueryNodeKind.RELATIONSHIP_TRAVERSAL:
-        return bool(node.arguments.get("selector", {}).get("name") == "Resource")
+        return True
     if node.kind is not QueryNodeKind.OBJECT_SET:
         return False
     dependents = [item for item in plan.nodes if node.node_id in item.depends_on]
@@ -369,9 +453,20 @@ def _expected_sides(
         return None
     position, sense, scope, reach = anchored
     trait = SENSE_TRAITS[sense] if sense is not None else None
-    restrictive = bool(allowed.type_values or allowed.fragments)
+    restrictive = bool(allowed.type_sets)
     wanted = next(iter(allowed.object_types), None) if allowed.relation_object_type else None
     wanted = wanted or ("Resource" if restrictive else None)
+    named = {
+        str(item.get("name"))
+        for item in descriptors
+        if item.get("kind") == "object" and "name" in (item.get("properties") or {})
+    }
+
+    def fits(endpoint: object) -> bool:
+        return (wanted is None or endpoint == wanted) and (
+            not allowed.fragments or endpoint in named
+        )
+
     expected: set[tuple[str, str]] = set()
     for descriptor in descriptors:
         if descriptor.get("kind") != "link":
@@ -386,11 +481,11 @@ def _expected_sides(
             continue
         name = str(descriptor.get("name"))
         if position in {SubjectPosition.SOURCE, SubjectPosition.EITHER} and (
-            source == "Resource" and (wanted is None or target == wanted)
+            source == "Resource" and fits(target)
         ):
             expected.add((name, "outgoing"))
         if position in {SubjectPosition.TARGET, SubjectPosition.EITHER} and (
-            target == "Resource" and (wanted is None or source == wanted)
+            target == "Resource" and fits(source)
         ):
             expected.add((name, "incoming"))
     return expected

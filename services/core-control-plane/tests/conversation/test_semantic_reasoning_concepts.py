@@ -139,6 +139,13 @@ def test_selection_accepts_shard_choices_and_proves_full_presentation() -> None:
             "missing mention",
         ),
         (lambda shard: None, "model unavailable"),
+        (
+            lambda shard: {
+                "shard_digest": shard.digest,
+                "choices": [{"mention": ["m1"], "candidate_ids": []}],
+            },
+            "unhashable mention",
+        ),
     ),
 )
 def test_invalid_shard_answers_never_bind_a_concept(proposal: Any, reason: str) -> None:
@@ -256,3 +263,54 @@ def test_runoff_presents_cross_shard_finalists_together() -> None:
     assert presented[-1] == ("group:governance", "value:resource-group")
     assert receipt.binding("m1").values == ("resource-group",)  # type: ignore[union-attr]
     assert receipt.model_calls == 3
+
+
+def test_runoff_cannot_bind_another_mentions_finalist() -> None:
+    catalog = (
+        ConceptCandidate("group:compute", ("compute.vm", "compute.vm-scale-set"), ("compute",)),
+        ConceptCandidate("group:database", ("mysql-server", "sql-database"), ("database",)),
+        ConceptCandidate("value:compute.vm", ("compute.vm",), ("virtual machine",)),
+        ConceptCandidate("value:sql-database", ("sql-database",), ("sql database",)),
+    )
+    picks = {
+        "m1": ["group:compute", "value:compute.vm"],
+        "m2": ["group:database", "value:sql-database"],
+    }
+
+    def choose(_utterance: str, mentions: Any, shard: ConceptShard) -> dict[str, Any]:
+        runoff = shard.total == 1 and len(shard.candidates) == 4
+        present = {candidate.id for candidate in shard.candidates}
+        swapped = {"m1": ["group:database"], "m2": ["value:compute.vm"]}
+        return {
+            "shard_digest": shard.digest,
+            "choices": [
+                {
+                    "mention": item["mention"],
+                    "candidate_ids": (
+                        swapped[item["mention"]]
+                        if runoff
+                        else [pick for pick in picks[item["mention"]] if pick in present]
+                    ),
+                }
+                for item in mentions
+            ],
+        }
+
+    receipt = select_concepts(
+        _admission(),
+        catalogs={MentionDomain.RESOURCE_TYPE: catalog},
+        choose=choose,
+        utterance=_UTTERANCE,
+        max_model_calls=8,
+        max_shard_bytes=256,
+    )
+
+    assert {binding.outcome for binding in receipt.bindings} == {ConceptOutcome.AMBIGUOUS}
+
+
+def test_every_declared_type_is_selectable_on_its_own() -> None:
+    catalog = concept_catalogs(production_manifest().descriptors)[MentionDomain.RESOURCE_TYPE]
+    exact = {item.values[0] for item in catalog if len(item.values) == 1}
+    declared = {value for item in catalog for value in item.values}
+
+    assert declared <= exact

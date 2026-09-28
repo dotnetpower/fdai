@@ -220,3 +220,110 @@ def test_all_kinds_reads_every_link_side_including_unmapped_links() -> None:
 
     assert {"contains", "depends_on", "emits_to", "workload_runs_on"} <= names
     assert selection.unmapped_link_types == ()
+
+
+@pytest.mark.parametrize(
+    ("utterance", "text", "disposition"),
+    (
+        ("List VMs in rg-app-dev", "rg-app", AdmissionDisposition.INVALID),
+        ("rg-app에 있는 VM", "rg-app", AdmissionDisposition.ADMITTED),
+        ("List VMs in rg-app.", "rg-app", AdmissionDisposition.ADMITTED),
+        ("List VMs in rg-app.dev", "rg-app", AdmissionDisposition.INVALID),
+        ("List VMs in dev-rg-app", "rg-app", AdmissionDisposition.INVALID),
+        ("Is (rg-app) healthy?", "rg-app", AdmissionDisposition.ADMITTED),
+    ),
+)
+def test_an_instance_quote_cannot_cut_through_a_longer_identifier(
+    utterance: str, text: str, disposition: AdmissionDisposition
+) -> None:
+    start = utterance.index(text)
+    form = {
+        "mentions": [
+            {
+                "id": "m1",
+                "form": "name",
+                "domain": "instance",
+                "span": {"start": start, "end": start + len(text)},
+            }
+        ],
+        "goals": [
+            {
+                "id": "g1",
+                "level": "instance",
+                "operation": "select",
+                "subject_scope": "collection",
+                "filters": [{"role": "scope", "mention": "m1"}],
+                "cue": {"start": 0, "end": 1},
+                "confidence": 0.9,
+            }
+        ],
+    }
+
+    admission = admit_question_form(SemanticQuestionForm.model_validate(form), utterance=utterance)
+
+    assert admission.disposition is disposition
+
+
+def test_a_declared_restriction_hidden_under_a_wide_cue_still_clarifies() -> None:
+    utterance = "List VMs in eastus"
+    form = {
+        "mentions": [
+            {
+                "id": "m1",
+                "form": "concept",
+                "domain": "resource_type",
+                "span": span(utterance, "VMs"),
+            },
+            {"id": "m2", "form": "value", "domain": "region", "span": span(utterance, "eastus")},
+        ],
+        "goals": [
+            {
+                "id": "g1",
+                "level": "instance",
+                "operation": "select",
+                "subject": "m1",
+                "subject_scope": "collection",
+                "cue": span(utterance, "List VMs in eastus"),
+                "confidence": 0.9,
+            }
+        ],
+    }
+
+    admission = admit_question_form(SemanticQuestionForm.model_validate(form), utterance=utterance)
+
+    assert admission.disposition is AdmissionDisposition.CLARIFY
+    assert admission.reasons == ("mention_unused:m2",)
+
+
+def test_qualifier_chains_are_cited_regardless_of_mention_order() -> None:
+    utterance = "vnet-a 서브넷의 VM 목록"
+    mentions = [
+        {
+            "id": "m3",
+            "form": "concept",
+            "domain": "resource_type",
+            "span": span(utterance, "VM"),
+            "qualifier": {"mention": "m2", "sense": "containment"},
+        },
+        {
+            "id": "m2",
+            "form": "concept",
+            "domain": "resource_type",
+            "span": span(utterance, "서브넷"),
+            "qualifier": {"mention": "m1", "sense": "containment"},
+        },
+        {"id": "m1", "form": "name", "domain": "instance", "span": span(utterance, "vnet-a")},
+    ]
+    goal = {
+        "id": "g1",
+        "level": "instance",
+        "operation": "select",
+        "subject": "m3",
+        "subject_scope": "collection",
+        "cue": span(utterance, "목록"),
+        "confidence": 0.9,
+    }
+    forward = SemanticQuestionForm.model_validate({"mentions": mentions, "goals": [goal]})
+    reverse = SemanticQuestionForm.model_validate({"mentions": mentions[::-1], "goals": [goal]})
+
+    assert forward.cited_mentions() == reverse.cited_mentions() == {"m1", "m2", "m3"}

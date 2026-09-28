@@ -352,6 +352,64 @@ def test_history_binds_typed_windows_and_version_pinned_defaults(
     assert ("default_window_applied" in "".join(goal.limitations)) == ("cue" not in time)
 
 
+def _history_form(utterance: str, cue: str, amount: int) -> dict[str, Any]:
+    return {
+        "mentions": [_anchor(utterance, "vm-app-01")],
+        "goals": [
+            {
+                "id": "g1",
+                "level": "instance",
+                "operation": "history",
+                "subject": "m1",
+                "subject_scope": "anchor",
+                "measure": {"kind": "change"},
+                "time": {
+                    "kind": "window",
+                    "value": {"duration": {"amount": amount, "unit": "day"}},
+                    "cue": span(utterance, cue),
+                },
+                "cue": span(utterance, "What changed"),
+                "confidence": 0.9,
+            }
+        ],
+    }
+
+
+@pytest.mark.parametrize(
+    ("utterance", "cue", "amount", "disposition"),
+    (
+        ("What changed on vm-app-01 in the last 3 days?", "last 3 days", 7, "invalid"),
+        ("What changed on vm-app-01 in the last 3 days?", "last 3 days", 3, "admitted"),
+        ("What changed on vm-app-01 in the last \uff13 days?", "last \uff13 days", 3, "admitted"),
+        (
+            "What changed on vm-app-01 in the last 3 days and 2 hours?",
+            "last 3 days and 2 hours",
+            3,
+            "clarify",
+        ),
+    ),
+)
+def test_digits_in_a_time_cue_must_equal_the_typed_value(
+    utterance: str, cue: str, amount: int, disposition: str
+) -> None:
+    admission = admitted(_history_form(utterance, cue, amount), utterance)
+
+    assert admission.disposition.value == disposition
+    if disposition == "invalid":
+        assert admission.reasons == ("time_value_mismatch:g1",)
+    if disposition == "clarify":
+        assert admission.reasons == ("time_value_compound:g1",)
+
+
+def test_a_window_read_from_words_is_marked_as_the_model_reading() -> None:
+    utterance = "What changed on vm-app-01 in the last three days?"
+
+    goal = _compile(utterance, _history_form(utterance, "last three days", 3)).goals[0]
+
+    assert goal.status is GoalStatus.COMPILED
+    assert goal.limitations == ("time_window_model_judged:259200",)
+
+
 def test_schema_goal_reads_declarations_and_never_instances() -> None:
     utterance = "What does the Resource ObjectType declare?"
     form = {
@@ -616,3 +674,580 @@ def test_a_role_that_does_not_belong_to_the_sense_is_inadmissible() -> None:
     assert admission.reasons == ("relation_role_mismatch:g1",)
     assert contradiction.disposition.value == "clarify"
     assert contradiction.reasons == ("relation_roles_inconsistent:g1",)
+
+
+def _as_lookup(form: dict[str, Any], **updates: Any) -> None:
+    """Turn the scoped count into a state lookup of the anchor itself."""
+
+    form["mentions"] = form["mentions"][:1]
+    form["goals"][0].update(
+        operation="lookup", subject="m1", subject_scope="anchor", filters=[], **updates
+    )
+
+
+@pytest.mark.parametrize(
+    ("mutate", "reason"),
+    (
+        (
+            lambda form: form["mentions"][1].update(
+                qualifier={"mention": "m1", "sense": "containment"}
+            ),
+            "qualified_mention_unsupported",
+        ),
+        (
+            lambda form: form["goals"][0].update(measure={"kind": "state"}),
+            "measure_unsupported:state",
+        ),
+        (
+            lambda form: form["goals"][0].update(measure={"kind": "count", "mention": "m1"}),
+            "measure_mention_unsupported",
+        ),
+        (
+            lambda form: _as_lookup(form, measure={"kind": "state", "group_by": "type"}),
+            "group_by_unsupported_for_operation:lookup",
+        ),
+        (
+            lambda form: _as_lookup(
+                form,
+                measure={"kind": "state"},
+                relation={
+                    "sense": "containment",
+                    "anchor": "m1",
+                    "anchor_role": "container",
+                    "result_role": "member",
+                    "cue": span("How many VMs are in rg-app?", "are in"),
+                },
+            ),
+            "relation_unsupported_for_operation:lookup",
+        ),
+    ),
+)
+def test_stated_atoms_no_builder_reads_are_never_dropped(mutate: Any, reason: str) -> None:
+    utterance = "How many VMs are in rg-app?"
+    form = {
+        "mentions": [
+            _anchor(utterance, "rg-app"),
+            {
+                "id": "m2",
+                "form": "concept",
+                "domain": "resource_type",
+                "span": span(utterance, "VMs"),
+            },
+        ],
+        "goals": [
+            {
+                "id": "g1",
+                "level": "instance",
+                "operation": "count",
+                "subject": "m2",
+                "subject_scope": "collection",
+                "filters": [{"role": "scope", "mention": "m1"}],
+                "cue": span(utterance, "How many"),
+                "confidence": 0.9,
+            }
+        ],
+    }
+    mutate(form)
+
+    goal = _compile(
+        utterance, form, concepts(("m2", MentionDomain.RESOURCE_TYPE, ("compute.vm",)))
+    ).goals[0]
+
+    assert goal.status is GoalStatus.UNSUPPORTED
+    assert goal.reasons == (reason,)
+
+
+def test_a_named_counterpart_is_not_dropped_from_a_relation() -> None:
+    utterance = "Does aks-prod-01 depend on sql-app?"
+    form = _relation_form(
+        utterance, anchor="aks-prod-01", sense="dependency", position="source", cue="depend on"
+    )
+    form["mentions"].append(_anchor(utterance, "sql-app", "m2"))
+    form["goals"][0]["relation"]["counterpart"] = "m2"
+
+    goal = _compile(utterance, form).goals[0]
+
+    assert goal.status is GoalStatus.UNSUPPORTED
+    assert goal.reasons == ("counterpart_unsupported",)
+
+
+def test_a_long_provider_identifier_anchor_compiles_without_raising() -> None:
+    identifier = (
+        "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-app/providers/"
+        "Microsoft.ContainerService/managedClusters/aks-prod-01"
+    )
+    utterance = f"What does {identifier} depend on?"
+    form = _relation_form(
+        utterance, anchor=identifier, sense="dependency", position="source", cue="depend on"
+    )
+    form["mentions"][0]["form"] = "identifier"
+
+    goal = _compile(utterance, form).goals[0]
+
+    assert goal.status is GoalStatus.COMPILED
+
+
+@pytest.mark.parametrize(
+    ("relation", "reason"),
+    (
+        (
+            {"sense": "containment", "anchor_role": "container", "result_role": "member"},
+            "impact_relation_unsupported",
+        ),
+        (
+            {
+                "sense": "dependency",
+                "anchor_role": "dependency",
+                "result_role": "dependent",
+                "reach": "transitive",
+            },
+            "impact_relation_unsupported",
+        ),
+    ),
+)
+def test_impact_never_substitutes_another_stated_relation(
+    relation: dict[str, Any], reason: str
+) -> None:
+    utterance = "What is affected if rg-app fails, including everything inside it?"
+    form = _relation_form(
+        utterance,
+        anchor="rg-app",
+        sense="dependency",
+        position="target",
+        cue="affected",
+        operation="impact",
+    )
+    form["goals"][0]["relation"] = {**relation, "cue": span(utterance, "inside")}
+
+    goal = _compile(utterance, form).goals[0]
+
+    assert goal.status is GoalStatus.UNSUPPORTED
+    assert goal.reasons == (reason,)
+
+
+def test_impact_on_a_named_other_resource_is_not_answered_as_a_list() -> None:
+    utterance = "Is vm-app-01 impacted if sql-app fails?"
+    form = _relation_form(
+        utterance,
+        anchor="vm-app-01",
+        sense="dependency",
+        position="target",
+        cue="impacted",
+        operation="impact",
+    )
+    form["mentions"].append(_anchor(utterance, "sql-app", "m2"))
+    form["goals"][0]["relation"]["anchor"] = "m2"
+
+    goal = _compile(utterance, form).goals[0]
+
+    assert goal.status is GoalStatus.UNSUPPORTED
+    assert goal.reasons == ("result_instance_unsupported",)
+
+
+def test_all_kinds_with_transitive_reach_is_refused_not_narrowed() -> None:
+    utterance = "Show everything transitively related to aks-prod-01"
+    form = _relation_form(
+        utterance,
+        anchor="aks-prod-01",
+        sense="dependency",
+        position="either",
+        cue="transitively related",
+        scope="all_kinds",
+        reach="transitive",
+    )
+
+    goal = _compile(utterance, form).goals[0]
+
+    assert goal.reasons == ("all_kinds_transitive_unsupported",)
+
+
+def test_subject_kind_and_type_filter_intersect_instead_of_widening() -> None:
+    utterance = "Which storage resources are storage accounts?"
+    form = {
+        "mentions": [
+            {
+                "id": "m1",
+                "form": "concept",
+                "domain": "resource_class",
+                "span": span(utterance, "storage resources"),
+            },
+            {
+                "id": "m2",
+                "form": "concept",
+                "domain": "resource_type",
+                "span": span(utterance, "storage accounts"),
+            },
+        ],
+        "goals": [
+            {
+                "id": "g1",
+                "level": "instance",
+                "operation": "select",
+                "subject": "m1",
+                "subject_scope": "collection",
+                "filters": [{"role": "type", "mention": "m2"}],
+                "cue": span(utterance, "Which"),
+                "confidence": 0.9,
+            }
+        ],
+    }
+    narrowed = _compile(
+        utterance,
+        form,
+        concepts(
+            ("m1", MentionDomain.RESOURCE_CLASS, ("disk", "file-share", "object-storage")),
+            ("m2", MentionDomain.RESOURCE_TYPE, ("object-storage",)),
+        ),
+    ).goals[0]
+    disjoint = _compile(
+        utterance,
+        form,
+        concepts(
+            ("m1", MentionDomain.RESOURCE_CLASS, ("disk", "file-share")),
+            ("m2", MentionDomain.RESOURCE_TYPE, ("object-storage",)),
+        ),
+    ).goals[0]
+    (batch,) = narrowed.batches
+    predicates = batch.plan.nodes[0].arguments["definition"]["predicates"]
+
+    assert predicates[0] == {"property": "type", "operator": "equals", "equals": "object-storage"}
+    assert disjoint.status is GoalStatus.CLARIFY
+    assert disjoint.reasons == ("type_restrictions_disjoint",)
+
+
+def test_a_non_resource_collection_carries_no_resource_policy_predicates() -> None:
+    utterance = "How many Workloads are there?"
+    form = {
+        "mentions": [
+            {
+                "id": "m1",
+                "form": "concept",
+                "domain": "object_type",
+                "span": span(utterance, "Workloads"),
+            },
+        ],
+        "goals": [
+            {
+                "id": "g1",
+                "level": "instance",
+                "operation": "count",
+                "subject": "m1",
+                "subject_scope": "collection",
+                "cue": span(utterance, "How many"),
+                "confidence": 0.9,
+            }
+        ],
+    }
+
+    goal = _compile(
+        utterance, form, concepts(("m1", MentionDomain.OBJECT_TYPE, ("Workload",)))
+    ).goals[0]
+
+    assert goal.status is GoalStatus.COMPILED
+    assert goal.batches[0].plan.nodes[0].arguments["definition"]["predicates"] == []
+
+
+def test_named_workloads_on_a_resource_keep_their_name_filter() -> None:
+    utterance = "Which workloads named checkout run on vm-app-01?"
+    form = {
+        "mentions": [
+            {
+                "id": "m1",
+                "form": "concept",
+                "domain": "object_type",
+                "span": span(utterance, "workloads"),
+            },
+            {
+                "id": "m2",
+                "form": "value",
+                "domain": "instance",
+                "span": span(utterance, "checkout"),
+            },
+            _anchor(utterance, "vm-app-01", "m3"),
+        ],
+        "goals": [
+            {
+                "id": "g1",
+                "level": "instance",
+                "operation": "select",
+                "subject": "m1",
+                "subject_scope": "collection",
+                "filters": [{"role": "name_fragment", "mention": "m2"}],
+                "relation": {
+                    "sense": "dependency",
+                    "scope": "all_kinds",
+                    "anchor": "m3",
+                    "anchor_role": "either",
+                    "result_role": "either",
+                    "cue": span(utterance, "run on"),
+                },
+                "cue": span(utterance, "Which"),
+                "confidence": 0.9,
+            }
+        ],
+    }
+
+    goal = _compile(
+        utterance, form, concepts(("m1", MentionDomain.OBJECT_TYPE, ("Workload",)))
+    ).goals[0]
+    traversals = [
+        node
+        for batch in goal.batches
+        for node in batch.plan.nodes
+        if node.kind.value == "relationship_traversal"
+    ]
+
+    assert goal.status is GoalStatus.COMPILED
+    assert traversals
+    assert all(
+        node.arguments["endpoint_predicates"]
+        == [{"property": "name", "operator": "contains", "equals": "checkout"}]
+        for node in traversals
+    )
+
+
+def test_a_measure_mention_that_restates_the_subject_or_measure_is_read() -> None:
+    utterance = "What is the current state of aks-prod-01?"
+    form = {
+        "mentions": [
+            _anchor(utterance, "aks-prod-01"),
+            {
+                "id": "m2",
+                "form": "value",
+                "domain": "state",
+                "span": span(utterance, "current state"),
+            },
+        ],
+        "goals": [
+            {
+                "id": "g1",
+                "level": "instance",
+                "operation": "lookup",
+                "subject": "m1",
+                "subject_scope": "anchor",
+                "measure": {"kind": "state", "mention": "m2"},
+                "cue": span(utterance, "What is"),
+                "confidence": 0.9,
+            }
+        ],
+    }
+    subject = {
+        **form,
+        "goals": [{**form["goals"][0], "measure": {"kind": "state", "mention": "m1"}}],
+    }
+    subject["mentions"] = form["mentions"][:1]
+
+    assert _compile(utterance, form).goals[0].status is GoalStatus.COMPILED
+    assert _compile(utterance, subject).goals[0].status is GoalStatus.COMPILED
+
+
+def test_a_schema_relation_with_one_sense_is_not_widened_to_every_link() -> None:
+    utterance = "What can the Resource ObjectType depend on?"
+    form = {
+        "mentions": [
+            {
+                "id": "m1",
+                "form": "concept",
+                "domain": "object_type",
+                "span": span(utterance, "Resource"),
+            }
+        ],
+        "goals": [
+            {
+                "id": "g1",
+                "level": "schema",
+                "operation": "describe_schema",
+                "subject": "m1",
+                "subject_scope": "anchor",
+                "relation": {
+                    "sense": "dependency",
+                    "anchor_role": "dependent",
+                    "result_role": "dependency",
+                    "cue": span(utterance, "depend on"),
+                },
+                "cue": span(utterance, "What can"),
+                "confidence": 0.9,
+            }
+        ],
+    }
+
+    goal = _compile(
+        utterance, form, concepts(("m1", MentionDomain.OBJECT_TYPE, ("Resource",)))
+    ).goals[0]
+
+    assert goal.status is GoalStatus.UNSUPPORTED
+    assert goal.reasons == ("schema_relation_sense_unsupported",)
+
+
+def test_a_qualifier_on_a_measure_mention_is_never_dropped() -> None:
+    utterance = "What is the state of aks-prod-01 in rg-app?"
+    form = {
+        "mentions": [
+            _anchor(utterance, "aks-prod-01"),
+            _anchor(utterance, "rg-app", "m2"),
+            {
+                "id": "m3",
+                "form": "value",
+                "domain": "state",
+                "span": span(utterance, "state"),
+                "qualifier": {"mention": "m2", "sense": "containment"},
+            },
+        ],
+        "goals": [
+            {
+                "id": "g1",
+                "level": "instance",
+                "operation": "lookup",
+                "subject": "m1",
+                "subject_scope": "anchor",
+                "measure": {"kind": "state", "mention": "m3"},
+                "cue": span(utterance, "What is"),
+                "confidence": 0.9,
+            }
+        ],
+    }
+
+    goal = _compile(utterance, form).goals[0]
+
+    assert goal.status is GoalStatus.UNSUPPORTED
+    assert goal.reasons == ("qualified_mention_unsupported",)
+
+
+def _kind_mention(utterance: str, text: str, mention_id: str) -> dict[str, Any]:
+    return {
+        "id": mention_id,
+        "form": "concept",
+        "domain": "declaration_kind",
+        "span": span(utterance, text),
+    }
+
+
+def test_an_uncited_declaration_kind_needs_exactly_one_schema_goal() -> None:
+    utterance = "List resources and LinkTypes, and count ObjectTypes and FunctionTypes"
+    instance_goal = {
+        "id": "g1",
+        "level": "instance",
+        "operation": "select",
+        "subject_scope": "collection",
+        "cue": span(utterance, "List"),
+        "confidence": 0.9,
+    }
+    instance_only = {
+        "mentions": [_kind_mention(utterance, "LinkTypes", "m1")],
+        "goals": [instance_goal],
+    }
+    two_schema_goals = {
+        "mentions": [
+            _kind_mention(utterance, "LinkTypes", "m1"),
+            _kind_mention(utterance, "ObjectTypes", "m2"),
+            _kind_mention(utterance, "FunctionTypes", "m3"),
+        ],
+        "goals": [
+            {
+                "id": f"g{index}",
+                "level": "schema",
+                "operation": "count",
+                "subject": subject,
+                "subject_scope": "collection",
+                "cue": span(utterance, "count"),
+                "confidence": 0.9,
+            }
+            for index, subject in ((1, "m2"), (2, "m3"))
+        ],
+    }
+
+    assert admitted(instance_only, utterance).reasons == ("mention_unused:m1",)
+    assert admitted(two_schema_goals, utterance).reasons == ("declaration_kind_goal_ambiguous:m1",)
+
+
+def test_a_stated_declaration_kind_that_does_not_ground_clarifies() -> None:
+    utterance = "What does the Resource FooType declare?"
+    form = {
+        "mentions": [
+            {
+                "id": "m1",
+                "form": "concept",
+                "domain": "object_type",
+                "span": span(utterance, "Resource"),
+            },
+            _kind_mention(utterance, "FooType", "m2"),
+        ],
+        "goals": [
+            {
+                "id": "g1",
+                "level": "schema",
+                "operation": "describe_schema",
+                "subject": "m1",
+                "subject_scope": "anchor",
+                "cue": span(utterance, "declare"),
+                "confidence": 0.9,
+            }
+        ],
+    }
+    receipt = ConceptSelectionReceipt(
+        bindings=(
+            ConceptBinding(
+                "m1",
+                MentionDomain.OBJECT_TYPE,
+                ConceptOutcome.ACCEPTED,
+                candidate_ids=("value:Resource",),
+                values=("Resource",),
+            ),
+            ConceptBinding(
+                "m2",
+                MentionDomain.DECLARATION_KIND,
+                ConceptOutcome.NOT_FOUND,
+                reason="concept_not_found:declaration_kind",
+            ),
+        )
+    )
+
+    goal = _compile(utterance, form, receipt).goals[0]
+
+    assert goal.status is GoalStatus.CLARIFY
+    assert goal.reasons == ("concept_not_found:declaration_kind",)
+
+
+@pytest.mark.parametrize(
+    ("cue", "amount", "unit", "disposition", "reasons"),
+    (
+        ("last 1,440 minutes", 1440, "minute", "admitted", ()),
+        ("last 1.5 hours", 90, "minute", "clarify", ("time_value_fractional:g1",)),
+        ("last 1 hour 1 minute", 61, "minute", "clarify", ("time_value_compound:g1",)),
+        ("last 1 hour 1 minute", 1, "hour", "clarify", ("time_value_compound:g1",)),
+    ),
+)
+def test_grouped_numbers_verify_and_fractional_amounts_clarify(
+    cue: str, amount: int, unit: str, disposition: str, reasons: tuple[str, ...]
+) -> None:
+    utterance = f"What changed on vm-app-01 in the {cue}?"
+    form = _history_form(utterance, cue, amount)
+    form["goals"][0]["time"]["value"] = {"duration": {"amount": amount, "unit": unit}}
+
+    admission = admitted(form, utterance)
+
+    assert (admission.disposition.value, admission.reasons) == (disposition, reasons)
+
+
+def test_every_applied_window_is_restated_in_the_answer() -> None:
+    utterance = "What changed on vm-app-01 in the last 3 days?"
+
+    goal = _compile(utterance, _history_form(utterance, "last 3 days", 3)).goals[0]
+
+    assert goal.limitations == ("time_window_applied:259200",)
+
+
+@pytest.mark.parametrize(
+    ("mention_text", "reasons"),
+    (("last 3 days", ()), ("3 days", ("mention_unused:m2",))),
+)
+def test_a_mention_that_quotes_exactly_the_time_cue_restates_the_time(
+    mention_text: str, reasons: tuple[str, ...]
+) -> None:
+    utterance = "What changed on vm-app-01 in the last 3 days?"
+    form = _history_form(utterance, "last 3 days", 3)
+    form["mentions"].append(
+        {"id": "m2", "form": "value", "domain": "instance", "span": span(utterance, mention_text)}
+    )
+
+    assert admitted(form, utterance).reasons == reasons

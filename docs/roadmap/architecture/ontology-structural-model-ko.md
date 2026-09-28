@@ -1,7 +1,7 @@
 ---
 title: 온톨로지 구조 모델
 translation_of: ontology-structural-model.md
-translation_source_sha: 8f3f4f2a4304e6c405bcef79b11fd360f2adea38
+translation_source_sha: 41b0ff0b0f445796f4a0e7a824d9c2c6c3eed3f2
 translation_revised: 2026-09-28
 ---
 # 온톨로지 구조 모델
@@ -304,6 +304,8 @@ id, 테이블, 엔드포인트 및 호출자 필터는 표현할 수 없습니�
 관계 탐색의 선택 항목 `endpoint_predicates`는 탐색이 끝난 뒤 도달한 끝점만 거르므로, 걸러진 중간
 객체를 지나는 전이 경로도 유지됩니다. 검증기는 이를 ObjectSet 조건식처럼 검사하고, 걸러진 결과는
 정확한 식별자로 다시 읽어 자체 출력 증적을 받으며, 불완전한 결과에는 출력 표시가 붙지 않습니다.
+`equals_ignore_case` 조건식은 리소스 그룹처럼 대소문자를 구분하지 않는 공급자 이름을 대소문자만
+무시하고 정확하게 비교하며, 부분 문자열로 비교하지 않습니다.
 
 ### 분류 체계 클로저
 

@@ -2,11 +2,14 @@
 
 Admission validates exact spans, level and domain fit, operation requirements,
 competing readings, and confidence. It never reads the utterance for meaning; it
-only confirms that each span the model cited exists and is not blank.
+only confirms that each span the model cited exists and is not blank, and that
+decimal digits inside a time cue equal the typed time value the model proposed.
 """
 
 from __future__ import annotations
 
+import string
+import unicodedata
 from dataclasses import dataclass, field
 from enum import StrEnum
 
@@ -51,6 +54,8 @@ _SCHEMA_FILTER_DOMAINS: dict[FilterRole, frozenset[MentionDomain]] = {
     FilterRole.TYPE: frozenset({MentionDomain.DECLARATION_KIND}),
 }
 _ANCHOR_FORMS = frozenset({MentionForm.IDENTIFIER, MentionForm.NAME})
+_IDENTIFIER_ALNUM = frozenset(string.ascii_letters + string.digits)
+_IDENTIFIER_JOINERS = frozenset("._/-")
 _REFERENCE_FORMS = frozenset({MentionForm.ANAPHOR, MentionForm.ORDINAL})
 # Traverse needs a stated relation; impact and path carry a reviewed implied relation.
 _RELATION_OPERATIONS = frozenset({GoalOperation.TRAVERSE})
@@ -73,6 +78,8 @@ class FormAdmission:
     form: SemanticQuestionForm
     mention_text: dict[str, str] = field(default_factory=dict)
     needs_continuation: bool = False
+    # Goals whose typed time value came from words without digits, so it is the model's reading.
+    judged_times: frozenset[str] = frozenset()
 
 
 def admit_question_form(
@@ -92,16 +99,29 @@ def admit_question_form(
         if text is None:
             invalid.append(f"mention_span_invalid:{mention.id}")
             continue
+        if mention.domain is MentionDomain.INSTANCE and _splits_identifier(mention.span, utterance):
+            invalid.append(f"mention_span_partial:{mention.id}")
+            continue
         mention_text[mention.id] = text
+    judged: set[str] = set()
+    fractional: list[str] = []
     for goal in form.goals:
         invalid.extend(_goal_span_failures(goal, utterance))
         invalid.extend(_goal_shape_failures(goal, form))
+        check = _time_value_check(goal, utterance)
+        if check is _TimeCheck.MISMATCH:
+            invalid.append(f"time_value_mismatch:{goal.id}")
+        elif check in {_TimeCheck.FRACTIONAL, _TimeCheck.COMPOUND}:
+            fractional.append(f"time_value_{check.value}:{goal.id}")
+        elif check is _TimeCheck.JUDGED:
+            judged.add(goal.id)
     if invalid:
         return FormAdmission(AdmissionDisposition.INVALID, tuple(invalid), form, mention_text)
     if form.alternatives:
         reasons = tuple(f"competing_reading:{item.goal}" for item in form.alternatives)
         return FormAdmission(AdmissionDisposition.CLARIFY, reasons, form, mention_text)
-    contradictions = _relation_contradictions(form)
+    # A fractional or compound amount cannot be checked, so the operator restates it.
+    contradictions = (*_relation_contradictions(form), *fractional)
     if contradictions:
         return FormAdmission(AdmissionDisposition.CLARIFY, contradictions, form, mention_text)
     unused = _unused_mentions(form)
@@ -118,7 +138,78 @@ def admit_question_form(
         form,
         mention_text,
         needs_continuation=form.remaining_goals,
+        judged_times=frozenset(judged),
     )
+
+
+class _TimeCheck(StrEnum):
+    STATED = "stated"
+    JUDGED = "judged"
+    MISMATCH = "mismatch"
+    FRACTIONAL = "fractional"
+    COMPOUND = "compound"
+
+
+def _time_value_check(goal: FormGoal, utterance: str) -> _TimeCheck | None:
+    """Compare decimal digits in a goal's time cue with its typed value.
+
+    Digits are compared as whole numbers only. Words such as ``three`` or
+    ``yesterday`` carry no digits, so their typed reading stays the model's and is
+    marked as judged. A fractional amount such as ``1.5``, or several amounts such as
+    ``1 hour 30 minutes``, cannot be checked against one typed value.
+    """
+
+    time = goal.time
+    if time.value is None:
+        return None
+    if time.cue is None or time.cue.end > len(utterance):
+        return _TimeCheck.JUDGED
+    numbers = _decimal_numbers(utterance[time.cue.start : time.cue.end])
+    if not numbers:
+        return _TimeCheck.JUDGED
+    if None in numbers:
+        return _TimeCheck.FRACTIONAL
+    if len(numbers) > 1:
+        return _TimeCheck.COMPOUND
+    if time.value.duration is not None:
+        expected = time.value.duration.amount
+    else:
+        expected = abs(time.value.calendar_offset_days or 0)
+    return _TimeCheck.STATED if set(numbers) == {expected} else _TimeCheck.MISMATCH
+
+
+def _decimal_numbers(text: str) -> tuple[int | None, ...]:
+    """Return each decimal number in ``text``; a fractional number is ``None``.
+
+    Digits joined by ``,`` in groups of three form one grouped number, as in 1,440;
+    digits joined by ``.`` form one fractional number, as in 1.5.
+    """
+
+    numbers: list[int | None] = []
+    index = 0
+    while index < len(text):
+        if not text[index].isdecimal():
+            index += 1
+            continue
+        groups = [""]
+        joiners: list[str] = []
+        while index < len(text):
+            character = text[index]
+            if character.isdecimal():
+                groups[-1] += str(unicodedata.decimal(character))
+            elif character in ",." and index + 1 < len(text) and text[index + 1].isdecimal():
+                joiners.append(character)
+                groups.append("")
+            else:
+                break
+            index += 1
+        if "." in joiners:
+            numbers.append(None)
+        elif joiners and all(len(group) == 3 for group in groups[1:]):
+            numbers.append(int("".join(groups)))
+        else:
+            numbers.extend(int(group) for group in groups)
+    return tuple(numbers)
 
 
 def _span_text(span: SourceSpan, utterance: str) -> str | None:
@@ -128,6 +219,37 @@ def _span_text(span: SourceSpan, utterance: str) -> str | None:
     if not text.strip() or text != text.strip():
         return None
     return text
+
+
+def _splits_identifier(span: SourceSpan, utterance: str) -> bool:
+    """Return whether an instance quote cuts through a longer identifier token.
+
+    This checks only the characters adjacent to the model's quote, so a quote of
+    ``rg-app`` inside ``rg-app-dev`` cannot bind a different resource, while a
+    sentence period after ``rg-app`` still admits it.
+    """
+
+    return _continues(utterance, span.start - 1, -1) or _continues(utterance, span.end, 1)
+
+
+def _continues(utterance: str, index: int, step: int) -> bool:
+    """Return whether an identifier continues at ``index`` when read in ``step`` direction.
+
+    An ASCII letter or digit always continues it; a joiner continues it only when an
+    ASCII letter or digit lies beyond the joiner in the same direction.
+    """
+
+    if not 0 <= index < len(utterance):
+        return False
+    character = utterance[index]
+    if character in _IDENTIFIER_ALNUM:
+        return True
+    beyond = index + step
+    return (
+        character in _IDENTIFIER_JOINERS
+        and 0 <= beyond < len(utterance)
+        and utterance[beyond] in _IDENTIFIER_ALNUM
+    )
 
 
 def _goal_span_failures(goal: FormGoal, utterance: str) -> list[str]:
@@ -225,33 +347,40 @@ def _relation_failures(
 def _unused_mentions(form: SemanticQuestionForm) -> tuple[str, ...]:
     """Return declared mentions that no goal accounts for; each is a dropped restriction.
 
-    A mention inside a used cue restates that cue, and the one reference mention of
-    a prior-result goal without a subject is that goal's subject.
+    An uncited declaration-kind mention is consumed by the form's schema goal, so it
+    stands only when exactly one schema goal exists; with none it is unused, and with
+    several its goal is ambiguous. The one reference mention of a prior-result goal
+    without a subject is its subject. A mention that quotes exactly a goal's typed
+    time cue restates that time expression, which the goal already reads.
     """
 
     cited = set(form.cited_mentions())
-    cues = [
-        span
+    time_cues = {
+        (goal.time.cue.start, goal.time.cue.end)
         for goal in form.goals
-        for span in (
-            goal.cue,
-            goal.relation.cue if goal.relation is not None else None,
-            goal.time.cue,
-        )
-        if span is not None
-    ]
+        if goal.time.value is not None and goal.time.cue is not None
+    }
+    cited.update(
+        mention.id
+        for mention in form.mentions
+        if (mention.span.start, mention.span.end) in time_cues
+    )
     references = [mention.id for mention in form.mentions if mention.form in _REFERENCE_FORMS]
     if len(references) == 1 and any(
         goal.subject_scope is SubjectScope.PRIOR_RESULT and goal.subject is None
         for goal in form.goals
     ):
         cited.add(references[0])
-    return tuple(
-        f"mention_unused:{mention.id}"
-        for mention in form.mentions
-        if mention.id not in cited
-        and not any(mention.span.start < cue.end and cue.start < mention.span.end for cue in cues)
-    )
+    schema_goals = sum(goal.level is GoalLevel.SCHEMA for goal in form.goals)
+    reasons: list[str] = []
+    for mention in form.mentions:
+        if mention.id in cited:
+            continue
+        if mention.domain is not MentionDomain.DECLARATION_KIND or schema_goals == 0:
+            reasons.append(f"mention_unused:{mention.id}")
+        elif schema_goals > 1:
+            reasons.append(f"declaration_kind_goal_ambiguous:{mention.id}")
+    return tuple(reasons)
 
 
 def _relation_contradictions(form: SemanticQuestionForm) -> tuple[str, ...]:

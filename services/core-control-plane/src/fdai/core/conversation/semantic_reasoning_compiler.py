@@ -198,21 +198,21 @@ def _verified_batches(
 ) -> tuple[list[CompiledBatch], tuple[str, ...]]:
     batches: list[CompiledBatch] = []
     for index, spec in enumerate(specs):
-        frame = build_semantic_frame(
-            SemanticFrameProposal(
-                operation=spec.operation,
-                subject_constraints=spec.subject_constraints,
-                measure_concepts=spec.measure_concepts,
-                temporal_scope={},
-                output_shape=spec.output_shape,
-                investigation=None,
-                confidence=confidence,
-            ),
-            utterance=utterance,
-            context=context,
-        )
-        plan = _plan(spec, frame=frame, ctx=ctx)
         try:
+            frame = build_semantic_frame(
+                SemanticFrameProposal(
+                    operation=spec.operation,
+                    subject_constraints=spec.subject_constraints,
+                    measure_concepts=spec.measure_concepts,
+                    temporal_scope={},
+                    output_shape=spec.output_shape,
+                    investigation=None,
+                    confidence=confidence,
+                ),
+                utterance=utterance,
+                context=context,
+            )
+            plan = _plan(spec, frame=frame, ctx=ctx)
             verifier.verify(plan, manifest=ctx.manifest)
             verify_frame_plan_alignment(frame, plan, descriptors=ctx.manifest.descriptors)
         except (PermissionError, ValueError) as exc:

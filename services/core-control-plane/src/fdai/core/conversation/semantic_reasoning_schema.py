@@ -15,7 +15,14 @@ from fdai_service_contracts.ontology_query import (
 )
 
 from .semantic_planning_models import SemanticOutputShape
-from .semantic_reasoning_form import FilterRole, FormGoal, GoalOperation, MentionDomain
+from .semantic_reasoning_form import (
+    FilterRole,
+    FormGoal,
+    GoalLevel,
+    GoalOperation,
+    MentionDomain,
+    RelationScope,
+)
 from .semantic_reasoning_nodes import (
     CompileContext,
     OperatorResult,
@@ -48,18 +55,21 @@ def schema_goal(goal: FormGoal, ctx: CompileContext) -> OperatorResult:
     if failure is not None:
         return failure
     domain = ctx.mention(goal.subject).domain
+    stated = _SUBJECT_KINDS.get(domain)
     linked = False
-    for item in goal.filters:
-        # A declaration-kind filter either restates the subject's own kind, as in the
+    if any(item.role is not FilterRole.TYPE for item in goal.filters):
+        return OperatorResult(clarify=("schema_filter_conflict",))
+    for mention_id in _declared_kinds(goal, ctx):
+        # A declaration-kind mention either restates the subject's own kind, as in the
         # Resource ObjectType, or asks for the LinkTypes of an ObjectType subject.
-        kinds, kind_failure = concept_values(item.mention, ctx)
+        kinds, kind_failure = concept_values(mention_id, ctx)
+        # A stated kind that does not ground is never dropped, cited or not.
         if kind_failure is not None:
             return kind_failure
-        stated = _SUBJECT_KINDS.get(domain)
-        if item.role is FilterRole.TYPE and stated == "object" and set(kinds) == {"link"}:
+        if stated == "object" and set(kinds) == {"link"}:
             linked = True
             continue
-        if item.role is not FilterRole.TYPE or stated is None or set(kinds) != {stated}:
+        if stated is None or set(kinds) != {stated}:
             return OperatorResult(clarify=("schema_filter_conflict",))
     if domain is MentionDomain.DECLARATION_KIND and goal.effective_operation in {
         GoalOperation.SELECT,
@@ -69,6 +79,9 @@ def schema_goal(goal: FormGoal, ctx: CompileContext) -> OperatorResult:
     if domain is not MentionDomain.OBJECT_TYPE or len(values) != 1:
         return OperatorResult(unsupported=(f"schema_subject_unsupported:{domain.value}",))
     name = values[0]
+    if goal.relation is not None and goal.relation.scope is not RelationScope.ALL_KINDS:
+        # The relationship read lists every LinkType; a single stated sense is not narrowed.
+        return OperatorResult(unsupported=("schema_relation_sense_unsupported",))
     if linked or goal.relation is not None or goal.effective_operation is GoalOperation.TRAVERSE:
         function_name = "query.ontology_relationships"
         arguments: dict[str, Any] = {"object_types": [name], "limit": 100}
@@ -105,6 +118,31 @@ def schema_goal(goal: FormGoal, ctx: CompileContext) -> OperatorResult:
             ),
         )
     )
+
+
+def _declared_kinds(goal: FormGoal, ctx: CompileContext) -> tuple[str, ...]:
+    """Return the goal's declaration-kind filters and the uncited kinds it alone consumes.
+
+    Admission lets an uncited declaration-kind mention stand only when exactly one schema
+    goal can consume it, so no other goal ever receives that mention.
+    """
+
+    form = ctx.admission.form
+    cited = form.cited_mentions()
+    filters = tuple(item.mention for item in goal.filters)
+    schema_goals = [item for item in form.goals if item.level is GoalLevel.SCHEMA]
+    uncited = (
+        tuple(
+            mention.id
+            for mention in form.mentions
+            if mention.domain is MentionDomain.DECLARATION_KIND
+            and mention.id not in cited
+            and mention.id != goal.subject
+        )
+        if len(schema_goals) == 1 and schema_goals[0].id == goal.id
+        else ()
+    )
+    return tuple(dict.fromkeys((*filters, *uncited)))
 
 
 def _manifest_goal(goal: FormGoal, ctx: CompileContext, kinds: tuple[str, ...]) -> OperatorResult:

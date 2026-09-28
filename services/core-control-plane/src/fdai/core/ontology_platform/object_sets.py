@@ -357,6 +357,13 @@ def _matches_predicate(properties: Mapping[str, Any], predicate: ObjectPredicate
         return _ordered_compare(value, predicate.equals, at_least=True)
     if predicate.operator is ObjectPredicateOperator.AT_MOST:
         return _ordered_compare(value, predicate.equals, at_least=False)
+    if predicate.operator is ObjectPredicateOperator.EQUALS_IGNORE_CASE:
+        # Provider names such as Azure resource groups compare without regard to case.
+        return (
+            isinstance(value, str)
+            and isinstance(predicate.equals, str)
+            and value.casefold() == predicate.equals.casefold()
+        )
     return _contains(value, predicate.equals)
 
 

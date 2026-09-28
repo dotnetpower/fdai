@@ -33,24 +33,25 @@ from tests.conversation.semantic_reasoning_support import (
 _UTTERANCE = "rg-app 리소스 그룹에 있는 리소스의 상세 정보를 알려줘"
 
 
-def _membership_plan() -> OntologyQueryPlan:
+def _membership_plan(group: str = "rg-app") -> OntologyQueryPlan:
     manifest = production_manifest()
+    utterance = _UTTERANCE.replace("rg-app", group)
     frame = build_semantic_frame(
         SemanticFrameProposal(
             operation=SemanticOperation.SELECT,
-            subject_constraints=("Resource", "rg-app"),
+            subject_constraints=("Resource", group),
             measure_concepts=("parent_id", "type"),
             output_shape=SemanticOutputShape.PROPERTY_FILTERED_RESOURCES,
             investigation=None,
             confidence=0.9,
         ),
-        utterance=_UTTERANCE,
+        utterance=utterance,
         context=(),
     )
     plan = build_stated_value_filter_plan(
         verifier=plan_verifier(),
         frame=frame,
-        utterance=_UTTERANCE,
+        utterance=utterance,
         descriptors=manifest.descriptors,
         manifest=manifest,
         principal=Principal(id="operator", role=Role.READER),
@@ -115,3 +116,10 @@ async def test_parent_substring_would_leak_members_of_a_similarly_named_group() 
 
     assert "vm-app-dev-01" in leaked
     assert "vm-app-dev-01" not in members
+
+
+async def test_group_names_match_without_regard_to_case() -> None:
+    plan = _membership_plan("RG-APP")
+    execution = await execute(plan, await fixture_gateway())
+
+    assert names(execution, plan.output_node_ids[0]) >= {"aks-prod-01", "vm-app-01"}

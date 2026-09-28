@@ -460,10 +460,16 @@ class SemanticQuestionForm(_FormModel):
                 )
             if goal.measure is not None and goal.measure.mention is not None:
                 cited.add(goal.measure.mention)
-        cited.update(
-            mention.qualifier.mention for mention in self.mentions if mention.qualifier is not None
-        )
-        return frozenset(cited)
+        # Follow qualifier chains to a fixed point, so mention order never matters.
+        while True:
+            qualifiers = {
+                mention.qualifier.mention
+                for mention in self.mentions
+                if mention.qualifier is not None and mention.id in cited
+            }
+            if qualifiers <= cited:
+                return frozenset(cited)
+            cited |= qualifiers
 
 
 __all__ = [
