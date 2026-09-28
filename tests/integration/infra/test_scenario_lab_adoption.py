@@ -623,8 +623,9 @@ def test_raw_state_reads_survive_attributes_the_provider_schema_dropped(tmp_path
     ]
     assert instances[1]["attributes"]["id"] == "link-id"
     workflow = WORKFLOW.read_text(encoding="utf-8")
-    assert workflow.count("terraform show -json") == 1
+    assert workflow.count("terraform show -json") == 2
     assert 'terraform show -json "$plan_file"' in workflow
+    assert 'terraform show -json "$retry_plan"' in workflow
     assert workflow.count("terraform state pull | jq -c -f") == 5
     # jq 1.6 sets -e from the last streamed input only, so fail-closed reads slurp the stream.
     assert workflow.count("jq -s -er '\n            .[] | select(") == 3

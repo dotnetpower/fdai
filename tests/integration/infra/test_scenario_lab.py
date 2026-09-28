@@ -397,8 +397,8 @@ def test_scenario_lab_workflow_is_plan_first_and_approval_gated() -> None:
     assert 'CONFIRM_DESTROY" != "destroy-sre-demo-lab"' in workflow
     assert workflow.count("inputs.action != 'destroy-plan'") == 7
     assert "terraform apply -input=false -auto-approve" not in workflow
-    assert workflow.count("terraform apply -json -input=false -auto-approve") == 3
-    assert workflow.count("terraform apply -json -input=false -auto-approve -parallelism=2") == 1
+    assert workflow.count("terraform apply -json -input=false -auto-approve") == 4
+    assert workflow.count("terraform apply -json -input=false -auto-approve -parallelism=2") == 2
     assert workflow.count('"$RUNNER_TEMP/sre-demo-lab.tfplan"') >= 3
     assert "terraform destroy" not in workflow
     assert (

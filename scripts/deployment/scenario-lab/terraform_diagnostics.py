@@ -23,6 +23,7 @@ from pathlib import Path
 from typing import Any
 
 STAGES = ("plan", "apply")
+AUTHORIZATION_ONLY_CODES = frozenset({"AuthorizationFailed", "HTTP403"})
 _INDEX_KEY = r"(?:\[(?:[0-9]+|\"[A-Za-z0-9_.:-]+\")\])?"
 ADDRESS = re.compile(
     r"(?:module\.[A-Za-z0-9_-]+" + _INDEX_KEY + r"\.)*"
@@ -170,6 +171,44 @@ def _address(value: object) -> str | None:
     return value if isinstance(value, str) and ADDRESS.fullmatch(value) else None
 
 
+def _error_diagnostics(lines: Iterable[str]) -> Iterable[Mapping[str, Any]]:
+    for message in _messages(lines):
+        diagnostic = message.get("diagnostic")
+        if (
+            message.get("type") == "diagnostic"
+            and isinstance(diagnostic, Mapping)
+            and diagnostic.get("severity") == "error"
+        ):
+            yield diagnostic
+
+
+def _text(diagnostic: Mapping[str, Any]) -> str:
+    return "\n".join(
+        value
+        for value in (diagnostic.get("summary"), diagnostic.get("detail"))
+        if isinstance(value, str)
+    )
+
+
+def _codes(text: str) -> set[str]:
+    codes = {match for pattern in CODE_PATTERNS for match in pattern.findall(text)}
+    codes.update(KNOWN_CODES.findall(text))
+    codes.update("HTTP" + match for pattern in STATUS_PATTERNS for match in pattern.findall(text))
+    return codes
+
+
+def authorization_only(lines: Iterable[str]) -> bool:
+    """Return whether every error diagnostic is a plain ARM AuthorizationFailed denial."""
+
+    found = False
+    for diagnostic in _error_diagnostics(lines):
+        codes = _codes(_text(diagnostic))
+        if "AuthorizationFailed" not in codes or not codes <= AUTHORIZATION_ONLY_CODES:
+            return False
+        found = True
+    return found
+
+
 def project(lines: Iterable[str], *, stage: str) -> list[str]:
     """Return the allowlisted projection lines for one Terraform JSON UI log."""
 
@@ -197,16 +236,8 @@ def project(lines: Iterable[str], *, stage: str) -> list[str]:
         address = _address(diagnostic.get("address"))
         if address:
             addresses.add(address)
-        text = "\n".join(
-            value
-            for value in (diagnostic.get("summary"), diagnostic.get("detail"))
-            if isinstance(value, str)
-        )
-        codes.update(match for pattern in CODE_PATTERNS for match in pattern.findall(text))
-        codes.update(KNOWN_CODES.findall(text))
-        codes.update(
-            "HTTP" + match for pattern in STATUS_PATTERNS for match in pattern.findall(text)
-        )
+        text = _text(diagnostic)
+        codes.update(_codes(text))
         categories.update(
             name for name, pattern in CATEGORY_PATTERNS.items() if pattern.search(text)
         )
@@ -219,15 +250,122 @@ def project(lines: Iterable[str], *, stage: str) -> list[str]:
     ]
 
 
+def _leaf_paths(value: object, prefix: tuple[str, ...] = ()) -> dict[tuple[str, ...], object]:
+    if isinstance(value, Mapping):
+        leaves: dict[tuple[str, ...], object] = {}
+        for key, item in value.items():
+            leaves.update(_leaf_paths(item, (*prefix, str(key))))
+        return leaves
+    if isinstance(value, list):
+        leaves = {}
+        for index, item in enumerate(value):
+            leaves.update(_leaf_paths(item, (*prefix, str(index))))
+        return leaves
+    return {prefix: value}
+
+
+def _changed_paths(change: Mapping[str, Any]) -> frozenset[str]:
+    before = _leaf_paths(change.get("before"))
+    after = _leaf_paths(change.get("after"))
+    unknown = {path for path, value in _leaf_paths(change.get("after_unknown")).items() if value}
+    missing = object()
+    changed = {
+        path
+        for path in set(before) | set(after)
+        if before.get(path, missing) != after.get(path, missing)
+    }
+    return frozenset(".".join(path) for path in changed | unknown)
+
+
+def _plan_changes(
+    plan: Mapping[str, Any],
+) -> dict[str, tuple[tuple[str, ...], bool, frozenset[str]]]:
+    changes: dict[str, tuple[tuple[str, ...], bool, frozenset[str]]] = {}
+    for resource in plan.get("resource_changes") or ():
+        if not isinstance(resource, Mapping) or not isinstance(resource.get("change"), Mapping):
+            raise ValueError("plan JSON has an invalid resource change")
+        change = resource["change"]
+        actions = tuple(str(action) for action in change.get("actions") or ())
+        importing = change.get("importing") is not None
+        if actions in {("no-op",), ("read",)} and not importing:
+            continue
+        changes[str(resource.get("address"))] = (actions, importing, _changed_paths(change))
+    return changes
+
+
+def plan_subset(
+    reviewed: Mapping[str, Any], retry: Mapping[str, Any]
+) -> tuple[list[str], list[str]]:
+    """Return the retry plan summary and every way it leaves the reviewed exact plan."""
+
+    reviewed_changes = _plan_changes(reviewed)
+    reviewed_addresses = {
+        str(resource.get("address"))
+        for resource in reviewed.get("resource_changes") or ()
+        if isinstance(resource, Mapping)
+    }
+    retry_changes = _plan_changes(retry)
+    violations: list[str] = []
+    for address, (actions, importing, paths) in sorted(retry_changes.items()):
+        label = address if ADDRESS.fullmatch(address) else "unrecognized address"
+        expected = reviewed_changes.get(address)
+        if expected is None:
+            reason = "action change" if address in reviewed_addresses else "new address"
+            violations.append(f"{label} ({reason})")
+        elif actions != expected[0]:
+            violations.append(f"{label} (action change)")
+        elif importing and not expected[1]:
+            violations.append(f"{label} (new import)")
+        elif actions == ("update",) and not paths <= expected[2]:
+            violations.append(f"{label} (new attribute change)")
+    counts = {
+        "create": sum(actions == ("create",) for actions, _, _ in retry_changes.values()),
+        "update": sum(actions == ("update",) for actions, _, _ in retry_changes.values()),
+        "delete": sum("delete" in actions for actions, _, _ in retry_changes.values()),
+        "import": sum(importing for _, importing, _ in retry_changes.values()),
+    }
+    summary = [
+        f"Scenario lab retry plan: {counts['create']} create, {counts['update']} update, "
+        f"{counts['delete']} delete or replace, {counts['import']} import."
+    ]
+    return summary, violations
+
+
+def _read_json(path: str) -> Mapping[str, Any]:
+    document = json.loads(Path(path).read_text(encoding="utf-8"))
+    if not isinstance(document, Mapping):
+        raise ValueError("plan JSON is not an object")
+    return document
+
+
 def main(argv: Sequence[str]) -> int:
-    if len(argv) != 2 or argv[0] not in STAGES:
-        print("usage: terraform_diagnostics.py {plan|apply} <terraform-json-log>", file=sys.stderr)
+    usage = (
+        "usage: terraform_diagnostics.py {plan|apply|authorization-only} <terraform-json-log>\n"
+        "       terraform_diagnostics.py plan-subset <reviewed-plan-json> <retry-plan-json>"
+    )
+    if len(argv) == 3 and argv[0] == "plan-subset":
+        try:
+            summary, violations = plan_subset(_read_json(argv[1]), _read_json(argv[2]))
+        except (OSError, ValueError):
+            print("scenario-lab retry plan comparison is unavailable.", file=sys.stderr)
+            return 1
+        for line in summary:
+            print(line)
+        for violation in violations:
+            print(f"scenario-lab retry plan leaves the reviewed plan: {violation}", file=sys.stderr)
+        return 1 if violations else 0
+    if len(argv) != 2 or argv[0] not in (*STAGES, "authorization-only"):
+        print(usage, file=sys.stderr)
         return 2
     try:
         raw = Path(argv[1]).read_text(encoding="utf-8", errors="replace")
     except OSError:
         print(f"Terraform {argv[0]} diagnostic log unavailable.", file=sys.stderr)
         return 1
+    if argv[0] == "authorization-only":
+        eligible = authorization_only(raw.splitlines())
+        print(f"Terraform apply diagnostic authorization-only: {'yes' if eligible else 'no'}")
+        return 0 if eligible else 1
     for line in project(raw.splitlines(), stage=argv[0]):
         print(line)
     return 0
