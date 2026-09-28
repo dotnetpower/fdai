@@ -7,9 +7,11 @@ independent model call therefore reads only the question and extracts every cons
 with a closed role. Core never interprets the question; it compares the two independent
 outputs structurally. Every letter and digit of each extracted constraint must lie in a
 span that states meaning, never only in a goal cue or context, and a named thing must
-overlap a mention. Roles beyond that stay advisory, because two independent readers may
-fairly disagree on whether a word restricts or relates. A malformed, empty, unlocated,
-or unavailable extraction releases nothing.
+overlap a mention. One mention binds one concept or one identity, so a mention may not
+hold a restriction the extractor found beside another constraint it found: binding would
+keep one and silently drop the other. Roles beyond that stay advisory, because two
+independent readers may fairly disagree on whether a word restricts or relates. A
+malformed, empty, unlocated, or unavailable extraction releases nothing.
 """
 
 from __future__ import annotations
@@ -22,7 +24,7 @@ from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
-from .semantic_reasoning_form import GoalOperation, SemanticQuestionForm, SourceSpan
+from .semantic_reasoning_form import GoalOperation, MentionForm, SemanticQuestionForm, SourceSpan
 from .semantic_reasoning_proposal import MAX_OCCURRENCE, locate_quote
 
 MAX_EXTRACTED_CONSTRAINTS = 24
@@ -112,10 +114,14 @@ def review_forms(
     if extraction is None:
         return FormReview("invalid", ("review_invalid",))
     uncovered = uncovered_constraints(forms, extraction, utterance)
-    if uncovered:
+    merged = merged_constraints(forms, extraction)
+    if uncovered or merged:
         reasons = (
-            f"review_uncovered:{item.role.value}:{item.quote.start}-{item.quote.end}"
-            for item in uncovered
+            *(
+                f"review_uncovered:{item.role.value}:{item.quote.start}-{item.quote.end}"
+                for item in uncovered
+            ),
+            *(f"review_merged:{item.quote.start}-{item.quote.end}" for item in merged),
         )
         return FormReview("unfaithful", tuple(dict.fromkeys(reasons))[:MAX_REVIEW_REASONS])
     return FormReview("faithful")
@@ -169,15 +175,74 @@ def uncovered_constraints(
     )
 
 
-def describe_uncovered(item: ExtractedConstraint, utterance: str) -> str:
-    """Render one uncovered constraint as a repair violation the proposer can act on."""
+def merged_constraints(
+    forms: Sequence[SemanticQuestionForm], extraction: ConstraintExtraction
+) -> tuple[ExtractedConstraint, ...]:
+    """Return each extracted restriction that shares one mention with another constraint.
+
+    A product word inside a mention for the kind of thing it restricts, such as AKS in
+    one mention for AKS ObjectTypes, would bind as one concept and lose the restriction.
+    Only the extractor's closed roles and the exact spans decide this; Core never reads
+    the words. Overlapping quotes restate one constraint, so only disjoint ones count.
+    """
+
+    stated = [item for item in extraction.constraints if item.role is not ConstraintRole.ASKS]
+    found: dict[tuple[int, int], ExtractedConstraint] = {}
+    for mention in (mention for form in forms for mention in form.mentions):
+        inside = [
+            item
+            for item in stated
+            if mention.span.start <= item.quote.start and item.quote.end <= mention.span.end
+        ]
+        for item in inside:
+            if item.role is ConstraintRole.RESTRICTS and any(
+                other.quote.end <= item.quote.start or item.quote.end <= other.quote.start
+                for other in inside
+            ):
+                found.setdefault((item.quote.start, item.quote.end), item)
+    return tuple(found.values())
+
+
+def describe_uncovered(
+    item: ExtractedConstraint,
+    utterance: str,
+    forms: Sequence[SemanticQuestionForm] = (),
+) -> str:
+    """Render one uncovered constraint as a repair violation the proposer can act on.
+
+    When a mention already quotes part of the constraint's words, the violation names
+    that mention, so the proposer decides whether the rest belongs to the same thing or
+    states something else; Core never decides that from the words. A value mention's
+    quote is a literal operand that a review repair may not change, so the violation
+    points the other words to the cue that states the constraint instead.
+    """
 
     quote = _quote(item.quote.start, item.quote.end, utterance)
-    return (
+    described = (
         f'review_uncovered: the words "{quote["text"]}" at occurrence {quote["occurrence"]} '
         f"state a {item.role.value} constraint that no mention, filter, relation, time, "
         "measure, or unsupported constraint states"
     )
+    overlapping = [
+        mention
+        for form in forms
+        for mention in form.mentions
+        if mention.span.start < item.quote.end and item.quote.start < mention.span.end
+    ]
+    named = sorted({item.id for item in overlapping if item.form is not MentionForm.VALUE})
+    literal = sorted({item.id for item in overlapping if item.form is MentionForm.VALUE})
+    if named:
+        described += (
+            f"; mention {', '.join(named)} quotes only part of these words: widen its quote "
+            "when they all name one thing, or give the other words their own place when they "
+            "state something else"
+        )
+    if literal:
+        described += (
+            f"; mention {', '.join(literal)} is a literal value whose quote must stay as it is, "
+            "so state the other words in the cue of the filter or relation that cites it"
+        )
+    return described
 
 
 def quoted_form(form: SemanticQuestionForm, utterance: str) -> dict[str, Any]:
@@ -273,6 +338,7 @@ __all__ = [
     "ExtractedConstraint",
     "FormReview",
     "describe_uncovered",
+    "merged_constraints",
     "extraction_schema",
     "quoted_form",
     "resolve_extraction",

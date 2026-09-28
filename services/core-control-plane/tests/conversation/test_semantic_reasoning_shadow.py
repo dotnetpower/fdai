@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from datetime import timedelta
 from types import SimpleNamespace
 from typing import Any
 
@@ -13,6 +14,7 @@ from fdai.core.conversation.adaptive_models import AdaptivePolicy
 from fdai.core.conversation.adaptive_service import _Budget
 from fdai.core.conversation.semantic_reasoning_binding import GatewayAnchorResolver
 from fdai.core.conversation.semantic_reasoning_concepts import ConceptShard
+from fdai.core.conversation.semantic_reasoning_handles import HandleScope, ResultSetHandle
 from fdai.core.conversation.semantic_reasoning_proposal import (
     FormInputHeldError,
     locate_quote,
@@ -462,3 +464,116 @@ async def test_a_failed_continuation_pass_keeps_the_continuation_visible() -> No
 
     assert observation.continuation_pending is True
     assert observation.notes == ("continuation_failed",)
+
+
+_FOLLOW_UP = "Among them, which ones depend on sql-app?"
+
+
+def _follow_up_form() -> dict[str, Any]:
+    return {
+        "mentions": [
+            {
+                "id": "m1",
+                "form": "anaphor",
+                "domain": "instance",
+                "span": {"text": "them", "occurrence": 1},
+            },
+            {
+                "id": "m2",
+                "form": "name",
+                "domain": "instance",
+                "span": {"text": "sql-app", "occurrence": 1},
+            },
+        ],
+        "goals": [
+            {
+                "id": "g1",
+                "level": "instance",
+                "operation": "traverse",
+                "subject": "m1",
+                "subject_scope": "prior_result",
+                "relation": {
+                    "sense": "dependency",
+                    "anchor": "m2",
+                    "anchor_role": "dependency",
+                    "result_role": "dependent",
+                    "cue": {"text": "depend on", "occurrence": 1},
+                },
+                "cue": {"text": "which ones", "occurrence": 1},
+                "confidence": 0.9,
+            }
+        ],
+    }
+
+
+async def _follow_up(scope: HandleScope, handles: tuple[ResultSetHandle, ...]) -> Any:
+    return await run_reasoning_shadow(
+        model=_Model([_follow_up_form()], {}),
+        account_spans=False,
+        utterance=_FOLLOW_UP,
+        context=(),
+        locale="en",
+        manifest=production_manifest(),
+        verifier=plan_verifier(),
+        purpose=PURPOSE,
+        evaluation_time=NOW,
+        default_lookback_seconds=DEFAULT_LOOKBACK_SECONDS,
+        resolver=GatewayAnchorResolver(
+            await fixture_gateway(),
+            projection_request=ProjectionRequest(
+                caller_role=CeilingRole.READER, declared_purposes=frozenset({PURPOSE})
+            ),
+            purpose=PURPOSE,
+            as_of=NOW,
+        ),
+        retain_compilations=True,
+        handles=handles,
+        handle_scope=scope,
+    )
+
+
+def _follow_up_scope(manifest_digest: str | None = None) -> HandleScope:
+    return HandleScope(
+        conversation_id="conversation-a",
+        principal_id="principal-a",
+        purpose=PURPOSE,
+        manifest_digest=manifest_digest or production_manifest().manifest_digest,
+        now=NOW,
+    )
+
+
+def _shown(scope: HandleScope) -> ResultSetHandle:
+    return ResultSetHandle(
+        handle_id="handle-a",
+        conversation_id=scope.conversation_id,
+        principal_id=scope.principal_id,
+        purpose=scope.purpose,
+        manifest_digest=scope.manifest_digest,
+        expires_at=NOW + timedelta(minutes=30),
+        object_type="Resource",
+        row_ids=("aks-1", "kv-1", "vm-2"),
+    )
+
+
+async def test_a_follow_up_compiles_over_the_rows_the_operator_saw() -> None:
+    scope = _follow_up_scope()
+
+    observation = await _follow_up(scope, (_shown(scope),))
+
+    (only_pass,) = observation.passes
+    assert [goal.status for goal in only_pass.goals] == ["compiled"]
+    assert only_pass.reference_digest is not None
+    assert observation.summary()["passes"][0]["reference_digest"] == only_pass.reference_digest
+    assert "aks-1" not in json.dumps(observation.summary())
+
+
+async def test_a_follow_up_without_a_handle_clarifies_instead_of_guessing() -> None:
+    observation = await _follow_up(_follow_up_scope(), ())
+
+    (only_pass,) = observation.passes
+    assert [goal.reasons for goal in only_pass.goals] == [("prior_result_unavailable",)]
+
+
+async def test_a_handle_scope_from_another_manifest_is_a_caller_error() -> None:
+    with pytest.raises(ValueError, match="handle scope"):
+        await _follow_up(_follow_up_scope("another-manifest"), ())

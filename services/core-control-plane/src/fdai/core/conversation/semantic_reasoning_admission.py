@@ -126,6 +126,7 @@ def admit_question_form(
         if mention.domain is MentionDomain.INSTANCE and _splits_identifier(mention.span, utterance):
             invalid.append(f"mention_span_partial:{mention.id}")
             continue
+        invalid.extend(_position_failures(mention, text))
         mention_text[mention.id] = text
     judged: set[str] = set()
     fractional: list[str] = []
@@ -173,6 +174,24 @@ def admit_question_form(
         needs_continuation=form.remaining_goals,
         judged_times=frozenset(judged),
     )
+
+
+def _position_failures(mention: FormMention, text: str) -> list[str]:
+    """Return why an ordinal's typed position is missing, stray, or unlike its digits.
+
+    Only an ordinal names a position. When its words carry decimal digits, such as 3rd or
+    3번째, they must equal the position; a position read from words, such as first or
+    첫 번째, stays the model's reading.
+    """
+
+    if mention.form is not MentionForm.ORDINAL:
+        return [f"position_unexpected:{mention.id}"] if mention.position is not None else []
+    if mention.position is None or mention.position == 0:
+        return [f"ordinal_position_missing:{mention.id}"]
+    digits = [value for value in _decimal_numbers(text) if value is not None]
+    if digits and digits != [abs(mention.position)]:
+        return [f"ordinal_position_mismatch:{mention.id}"]
+    return []
 
 
 def _unaccounted_runs(

@@ -43,6 +43,7 @@ from .semantic_reasoning_form import (
     SubjectRole,
     TimeKind,
 )
+from .semantic_reasoning_handles import ReferenceReceipt, reference_mention
 from .semantic_reasoning_relations import SENSE_TRAITS
 from .semantic_resource_visibility import OPERATIONAL_RESOURCE_EXCLUDED_TYPES
 
@@ -93,6 +94,7 @@ def verify_goal_semantics(
     plans: Sequence[OntologyQueryPlan],
     default_lookback_seconds: int,
     anchors: AnchorBindingReceipt | None = None,
+    references: ReferenceReceipt | None = None,
 ) -> tuple[str, ...]:
     """Return every V-SEM, V-PROV, and V-LEVEL violation for one goal."""
 
@@ -103,6 +105,13 @@ def verify_goal_semantics(
     allowed = _allowed_operands(
         goal, admission=admission, concepts=concepts, anchors=anchors or AnchorBindingReceipt()
     )
+    reference_id = reference_mention(admission, goal.id)
+    reference = (references or ReferenceReceipt()).binding(reference_id)
+    if reference is not None and reference.bound:
+        # Re-derived from the form: only one row that starts the read anchors it, and the
+        # traversal-root check verifies that anchor; any other reference narrows the read.
+        if not (_read_starts_at(goal, reference.mention_id) and len(reference.row_ids) == 1):
+            allowed.prior_rows = reference.row_ids
     for node in nodes:
         violations.extend(_operand_violations(node, allowed, goal, default_lookback_seconds))
     violations.extend(
@@ -111,6 +120,19 @@ def verify_goal_semantics(
         )
     )
     return tuple(dict.fromkeys(violations))
+
+
+def _read_starts_at(goal: FormGoal, mention_id: str) -> bool:
+    """Return whether the goal's read starts at the mention rather than narrowing to it."""
+
+    if goal.relation is not None:
+        anchor = goal.relation.anchor if goal.relation.anchor is not None else goal.subject
+        return anchor == mention_id
+    return goal.effective_operation in {
+        GoalOperation.LOOKUP,
+        GoalOperation.HISTORY,
+        GoalOperation.IMPACT,
+    }
 
 
 def _level_violations(goal: FormGoal, nodes: Iterable[OntologyQueryNode]) -> list[str]:
@@ -137,6 +159,8 @@ class _Allowed:
         self.object_types: set[str] = set()
         self.declaration_kinds: set[str] = set()
         self.relation_object_type = False
+        # The rows an earlier answer showed, when an anaphor makes them the goal's subject.
+        self.prior_rows: tuple[str, ...] = ()
 
     @property
     def required_types(self) -> frozenset[str]:
@@ -228,6 +252,8 @@ def _predicate_violations(
             continue
         if prop == "id" and operator == "equals":
             permitted: set[str] = allowed.anchor_ids
+        elif prop == "id" and operator == "in":
+            permitted = set(allowed.prior_rows)
         elif prop == "name" and operator == "contains":
             permitted = allowed.fragments
         elif prop == "type" and operator in {"equals", "in"}:
@@ -452,6 +478,9 @@ def _filter_coverage(
         for fragment in allowed.fragments:
             if {"property": "name", "operator": "contains", "equals": fragment} not in predicates:
                 violations.append("sem_name_fragment_missing")
+        prior = {"property": "id", "operator": "in", "values": sorted(allowed.prior_rows)}
+        if allowed.prior_rows and prior not in predicates:
+            violations.append("sem_prior_result_unrestricted")
     return violations
 
 

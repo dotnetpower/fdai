@@ -35,7 +35,9 @@ from .semantic_reasoning_form import (
     RelationScope,
     RelationSense,
     SubjectPosition,
+    SubjectScope,
 )
+from .semantic_reasoning_handles import ReferenceReceipt, restricting_rows
 from .semantic_reasoning_relations import RelationSide, select_relation_sides
 from .semantic_resource_visibility import OPERATIONAL_RESOURCE_EXCLUDED_TYPES
 
@@ -59,6 +61,7 @@ class CompileContext:
     evaluation_time: datetime
     default_lookback_seconds: int
     anchors: AnchorBindingReceipt = AnchorBindingReceipt()
+    references: ReferenceReceipt = ReferenceReceipt()
 
     @property
     def as_of(self) -> str:
@@ -69,6 +72,11 @@ class CompileContext:
 
     def mention(self, mention_id: str) -> FormMention:
         return self.admission.form.mention(mention_id)
+
+    def prior_rows(self, goal: FormGoal) -> tuple[str, ...] | None:
+        """Return the rows an earlier answer showed that restrict this goal's results."""
+
+        return restricting_rows(self.admission, self.references, goal)
 
 
 @dataclass(frozen=True, slots=True)
@@ -96,7 +104,10 @@ def subject_selection(
 ) -> tuple[str, list[dict[str, Any]], OperatorResult | None]:
     selector = RESOURCE_OBJECT_TYPE
     type_values: tuple[str, ...] = ()
-    if goal.subject is not None and not goal.restated_subject:
+    if goal.subject_scope is SubjectScope.PRIOR_RESULT:
+        # The earlier rows are the subject; endpoint predicates restrict to them.
+        pass
+    elif goal.subject is not None and not goal.restated_subject:
         domain = ctx.mention(goal.subject).domain
         values, failure = concept_values(goal.subject, ctx)
         if failure is not None:
@@ -154,6 +165,10 @@ def endpoint_predicates(
     required = sorted(frozenset.intersection(*type_sets)) if type_sets else []
     if type_sets and not required:
         return [], OperatorResult(clarify=("type_restrictions_disjoint",))
+    prior = ctx.prior_rows(goal)
+    if prior is not None:
+        # A reference keeps only rows the operator saw; the gateway still reauthorizes each.
+        predicates.append({"property": "id", "operator": "in", "values": sorted(prior)})
     if len(required) == 1:
         predicates.insert(0, {"property": "type", "operator": "equals", "equals": required[0]})
     elif required:
@@ -188,7 +203,10 @@ def anchor_node(
     """Read the exact identity bound before compilation, never the quoted text."""
 
     mention = ctx.mention(mention_id)
-    if mention.domain is not MentionDomain.INSTANCE or mention.form not in _ANCHOR_FORMS:
+    # A reference anchors like a name only when it is bound to one row of an earlier
+    # answer; any other reference has no anchor binding and fails below.
+    anchor_forms = _ANCHOR_FORMS | {MentionForm.ORDINAL, MentionForm.ANAPHOR}
+    if mention.domain is not MentionDomain.INSTANCE or mention.form not in anchor_forms:
         return OperatorResult(unsupported=(f"anchor_form_unsupported:{mention.form.value}",))
     if mention.qualifier is not None:
         return OperatorResult(unsupported=("qualified_anchor_unsupported",))

@@ -1,5 +1,5 @@
 {
-  "cells": 427,
+  "cells": 433,
   "compiled_cells": [
     "instance.count.attachment.attached.one_hop",
     "instance.count.attachment.either.one_hop",
@@ -29,6 +29,8 @@
     "instance.count.object_type.none",
     "instance.count.object_type.scope",
     "instance.count.object_type.type",
+    "instance.count.prior_result",
+    "instance.count.prior_result.ordinal",
     "instance.count.resource_type.name_fragment",
     "instance.count.resource_type.none",
     "instance.count.resource_type.scope",
@@ -73,6 +75,8 @@
     "instance.select.object_type.none",
     "instance.select.object_type.scope",
     "instance.select.object_type.type",
+    "instance.select.prior_result",
+    "instance.select.prior_result.ordinal",
     "instance.select.resource_type.name_fragment",
     "instance.select.resource_type.none",
     "instance.select.resource_type.scope",
@@ -115,6 +119,8 @@
     "instance.traverse.evidence.either.one_hop",
     "instance.traverse.evidence.evidence.one_hop",
     "instance.traverse.evidence.evidenced.one_hop",
+    "instance.traverse.prior_result.ordinal",
+    "instance.traverse.prior_result.subset",
     "instance.traverse.traffic.either.one_hop",
     "instance.traverse.traffic.receiver.one_hop",
     "instance.traverse.traffic.sender.one_hop",
@@ -148,6 +154,7 @@
     "operation_unsupported:path": 60,
     "operation_unsupported:rank": 1,
     "operation_unsupported:verify_evidence": 1,
+    "prior_result_multiple_anchors_unsupported": 1,
     "relation_not_transitive": 54,
     "relation_required:g1": 3,
     "relation_sense_unmapped:authorization": 20,
@@ -158,7 +165,6 @@
     "schema_operation_unsupported:select": 1,
     "schema_subject_unsupported:declaration_kind": 1,
     "schema_subject_unsupported:resource_type": 3,
-    "subject_scope_unavailable:prior_result": 1,
     "time_unsupported:as_of": 2,
     "time_unsupported:two_windows": 2,
     "time_unsupported:versions": 2,
@@ -166,7 +172,7 @@
     "want_unsupported:verification": 1
   },
   "status_counts": {
-    "compiled": 121,
+    "compiled": 127,
     "inadmissible": 7,
     "unsupported": 299
   },

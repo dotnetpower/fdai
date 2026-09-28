@@ -132,9 +132,13 @@ constraint review, because accounting only makes the proposer consider every wor
 **Blind constraint review**: A second T1 call of another model family reads only the question, beside the judgment call, and extracts every constraint
 with a closed role. Core compares the two outputs structurally: every letter and digit of each extracted constraint must lie in a span that states
 meaning, never only in a goal cue or context, and a named thing must overlap a mention, whose whitespace-delimited word carries an attached particle. Roles beyond that stay advisory, because two readers may
-fairly disagree on whether a word restricts or relates, except that a hypothetical premise is stated only by an impact goal. An uncovered constraint
-gets one review repair that may only add information, checked against the same extraction. A missing, empty, unlocated, or uncovered extraction
-releases nothing.
+fairly disagree on whether a word restricts or relates, except that a hypothetical premise is stated only by an impact goal. One mention binds one
+concept or identity, so a mention must not hold an extracted restriction beside another disjoint extracted constraint, as when one mention quotes
+`AKS ObjectTypes`: binding would keep one and drop the other. An uncovered constraint gets one review repair that may only add information, checked
+against the same extraction. Its violation names a mention that quotes part of the constraint, and a value mention's quote, a literal operand such
+as a name fragment, must stay exact, so the other words go to the cue that cites it. A merged mention is held without a repair, because such a
+repair cannot split a mention. A missing, empty, unlocated, uncovered,
+or merged extraction releases nothing.
 
 A form that breaks its closed schema or a structural rule gets at most one repair call with the code-authored violations. The repaired form passes the
 same admission and must keep every quoted operand, goal, operation, want, typed time, operand-bearing relation, competing reading, and pending-goals
@@ -266,6 +270,22 @@ metadata. Operator persists handles with the durable turn and sends at most four
 versions. An `ordinal` or `anaphor` mention binds to handle rows after reauthorization. `current_rehydrate` rereads the exact ids at the current
 cutoff and labels the answer as current; `snapshot_reference` answers only from the retained snapshot. A missing, expired, cross-conversation,
 deleted, or out-of-range reference returns one clarification.
+
+The shadow runner implements the binding core. A `ResultSetHandle` holds the rows shown, in order, bound to the conversation, principal, purpose,
+`QueryManifest.manifest_digest`, and a timezone-aware expiry, with at most 1,000 unique row ids and a truncation flag. A follow-up binds only the most
+recent handle, and each mismatch returns one typed clarification: `prior_result_unavailable`, `_foreign`, `_changed`, `_expired`, `_empty`,
+`_out_of_range`, or `_ambiguous` for a count from the end of a truncated answer. The model gives an ordinal a signed `position`, 1 for the first and
+-1 for the last; admission rejects a missing or zero position, a position on another form, and a position that differs from decimal digits in the
+ordinal's words. A reference that names exactly one row, an ordinal or an anaphor over a one-row answer, anchors a read it starts: a relation
+whose anchor, or whose subject when the anchor is unstated, is the reference itself, or a lookup, history, or impact read. The traversal-root
+check verifies that anchor. Otherwise a reference narrows the results of a collection read, or of a
+relation anchored elsewhere, through an `id in` predicate over exactly its rows: every handle row for an anaphor and the one row for an ordinal.
+V-PROV admits `id in` operands only from those rows, and V-SEM re-derives from the form which reads a reference narrows and requires the
+restriction on each of them. A read never starts from several rows; that returns `prior_result_multiple_anchors_unsupported`, and a restriction
+too large for one plan node returns `prior_result_too_large`. A reference clarifies only after every check that a new handle could not change. A truncated handle adds the `prior_result_truncated` limitation to an anaphor. The rows
+are reread through the secured gateway, so a row the principal can no longer read never reaches an answer, and each pass records a reference digest
+without row ids. Operator persistence, the request contract, the rendered-order digest, `snapshot_reference`, and selection of an older handle
+remain R8 work.
 
 ## Verification and evidence semantics
 

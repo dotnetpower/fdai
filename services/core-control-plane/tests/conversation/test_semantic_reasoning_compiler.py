@@ -482,7 +482,7 @@ def test_unexpressible_atoms_return_typed_reasons_instead_of_a_substitute(
     assert compiled.batches == ()
 
 
-def test_prior_result_references_wait_for_result_handles() -> None:
+def test_a_prior_result_reference_without_a_handle_clarifies() -> None:
     utterance = "Which resources depend on it?"
     form = _relation_form(
         utterance, anchor="it", sense="dependency", position="target", cue="depend on"
@@ -492,8 +492,8 @@ def test_prior_result_references_wait_for_result_handles() -> None:
 
     compiled = _compile(utterance, form).goals[0]
 
-    assert compiled.status is GoalStatus.UNSUPPORTED
-    assert compiled.reasons == ("subject_scope_unavailable:prior_result",)
+    assert compiled.status is GoalStatus.CLARIFY
+    assert compiled.reasons == ("prior_result_unavailable",)
 
 
 def test_ungrounded_or_ambiguous_concepts_clarify() -> None:

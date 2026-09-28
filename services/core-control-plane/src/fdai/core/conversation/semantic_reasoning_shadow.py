@@ -37,6 +37,12 @@ from .semantic_reasoning_concepts import (
     shard_answer_valid,
 )
 from .semantic_reasoning_form import SemanticQuestionForm
+from .semantic_reasoning_handles import (
+    HandleScope,
+    ResultSetHandle,
+    bind_references,
+    reference_anchors,
+)
 from .semantic_reasoning_proposal import (
     FormInputHeldError,
     FormResolution,
@@ -51,6 +57,7 @@ from .semantic_reasoning_repair import (
 from .semantic_reasoning_review import (
     FormReview,
     describe_uncovered,
+    merged_constraints,
     quoted_form,
     resolve_extraction,
     review_forms,
@@ -130,6 +137,7 @@ class ShadowPass:
     goals: tuple[ShadowGoal, ...] = ()
     repair: str | None = None
     repaired_reasons: tuple[str, ...] = ()
+    reference_digest: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -164,6 +172,7 @@ class ReasoningShadowObservation:
                     "disposition": item.disposition,
                     "reasons": list(item.reasons),
                     "form_digest": item.form_digest,
+                    "reference_digest": item.reference_digest,
                     "repair": item.repair,
                     "repaired_reasons": list(item.repaired_reasons),
                     "goals": [
@@ -230,9 +239,13 @@ async def run_reasoning_shadow(
     retain_compilations: bool = False,
     clock: Callable[[], float] = time.monotonic,
     account_spans: bool = True,
+    handles: tuple[ResultSetHandle, ...] = (),
+    handle_scope: HandleScope | None = None,
 ) -> ReasoningShadowObservation:
     """Run successive bounded form passes and compile each admitted pass."""
 
+    if handle_scope is not None and handle_scope.manifest_digest != manifest.manifest_digest:
+        raise ValueError("handle scope MUST name the manifest this turn compiles against")
     limits = budget or ShadowBudget()
     started = clock()
     counting = _CountingModel(model)
@@ -249,6 +262,8 @@ async def run_reasoning_shadow(
         "purpose": purpose,
         "evaluation_time": evaluation_time,
         "default_lookback_seconds": default_lookback_seconds,
+        "handles": handles,
+        "handle_scope": handle_scope,
     }
     admitted_forms: list[SemanticQuestionForm] = []
     # The extraction reads only the question, so it runs beside the form passes.
@@ -377,12 +392,16 @@ def _review_repair(
         return None
     extraction = resolve_extraction(raw, utterance)
     uncovered = uncovered_constraints(forms, extraction, utterance) if extraction else ()
-    if not uncovered:
+    # A repair only adds information, so it cannot split a mention that merged a
+    # restriction with another constraint; the turn is held instead of spending a call.
+    if not uncovered or (extraction is not None and merged_constraints(forms, extraction)):
         return None
     return _ReviewRepair(
         previous=quoted_form(forms[0], utterance),
         typed=forms[0],
-        violations=tuple(dict.fromkeys(describe_uncovered(item, utterance) for item in uncovered)),
+        violations=tuple(
+            dict.fromkeys(describe_uncovered(item, utterance, forms) for item in uncovered)
+        ),
         reasons=review.reasons,
     )
 
@@ -515,13 +534,19 @@ async def _run_pass(
         max_shard_bytes=max_shard_bytes,
     )
     anchors = await bind_anchors(admission, resolver, utterance=utterance)
+    arguments = dict(compile_args)
+    references = bind_references(
+        admission, arguments.pop("handles", ()), arguments.pop("handle_scope", None)
+    )
+    anchors = reference_anchors(anchors, references)
     compilation = compile_question_form(
         admission,
         concepts=receipt,
         anchors=anchors,
+        references=references,
         utterance=utterance,
         context=context,
-        **compile_args,
+        **arguments,
     )
     goals = tuple(
         goal.model_dump(mode="json", include={"level", "operation", "subject_scope"})
@@ -545,6 +570,7 @@ async def _run_pass(
         ),
         proposal.repair,
         proposal.repaired_reasons,
+        references.digest if references.bindings else None,
     )
     return shadow_pass, goals, compilation, resolution.form
 

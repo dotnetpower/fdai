@@ -10,7 +10,7 @@ that fails any check is reported with its reasons and never broadened.
 from __future__ import annotations
 
 from collections.abc import Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import datetime
 from enum import StrEnum
 from typing import Literal
@@ -29,6 +29,7 @@ from .semantic_planning_models import SemanticFrameProposal
 from .semantic_reasoning_admission import AdmissionDisposition, FormAdmission
 from .semantic_reasoning_binding import AnchorBindingReceipt
 from .semantic_reasoning_concepts import ConceptSelectionReceipt
+from .semantic_reasoning_handles import ReferenceReceipt, reference_mention
 from .semantic_reasoning_nodes import CompileContext, PlanSpec
 from .semantic_reasoning_operators import compile_goal
 from .semantic_reasoning_verification import verify_goal_semantics
@@ -108,6 +109,7 @@ def compile_question_form(
     utterance: str,
     context: tuple[str, ...] = (),
     anchors: AnchorBindingReceipt | None = None,
+    references: ReferenceReceipt | None = None,
 ) -> ReasoningCompilation:
     """Return verified plan batches or typed reasons for every goal of one form."""
 
@@ -125,6 +127,7 @@ def compile_question_form(
         evaluation_time=evaluation_time,
         default_lookback_seconds=default_lookback_seconds,
         anchors=anchors or AnchorBindingReceipt(),
+        references=references or ReferenceReceipt(),
     )
     outcomes: dict[str, GoalCompilation] = {}
     for goal in admission.form.goals:
@@ -137,6 +140,10 @@ def compile_question_form(
             outcomes[goal.id] = GoalCompilation(goal.id, GoalStatus.BLOCKED, blocked)
             continue
         result = compile_goal(goal, ctx)
+        reference = ctx.references.binding(reference_mention(admission, goal.id))
+        if reference is not None and reference.bound and reference.truncated:
+            # The earlier answer showed only part of its rows, so them means only what was seen.
+            result = replace(result, limitations=(*result.limitations, "prior_result_truncated"))
         if result.clarify:
             outcomes[goal.id] = GoalCompilation(
                 goal.id, GoalStatus.CLARIFY, result.clarify, result.limitations
@@ -169,6 +176,7 @@ def compile_question_form(
                 plans=tuple(batch.plan for batch in batches),
                 default_lookback_seconds=default_lookback_seconds,
                 anchors=ctx.anchors,
+                references=ctx.references,
             )
         )
         outcomes[goal.id] = (
