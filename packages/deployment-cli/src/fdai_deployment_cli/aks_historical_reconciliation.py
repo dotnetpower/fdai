@@ -235,7 +235,7 @@ def validate_reconciliation_plan(
             continue
         provider = _indexed_name(address, "kubernetes_manifest.workload_secret_provider")
         if provider is not None and provider in SERVICES and actions == ["update"]:
-            if normalized_secret_provider(before) != normalized_secret_provider(after):
+            if not _effective_secret_binding_unchanged(before, after):
                 raise ValueError("historical AKS reconciliation changes a secret binding")
             continue
         service = _indexed_name(address, "kubernetes_service_v1.workload")
@@ -555,6 +555,26 @@ def normalized_secret_provider(value: dict[str, Any]) -> dict[str, Any]:
     return result
 
 
+def _effective_secret_binding_unchanged(before: object, after: object) -> bool:
+    """Compare the effective SecretProviderClass, not Terraform's recorded manifest.
+
+    ``kubernetes_manifest`` records both the configured ``manifest`` and the ``object`` the
+    cluster holds. A recorded manifest can lag behind an object that already carries a binding,
+    and correcting it removes nothing. Only an effective change matters here, so an absent or
+    unknown object fails closed.
+    """
+
+    if not isinstance(before, dict) or not isinstance(after, dict):
+        return False
+    prior = before.get("object")
+    planned = after.get("object")
+    if not isinstance(prior, dict) or not isinstance(planned, dict):
+        return False
+    return normalized_secret_provider({"object": prior}) == normalized_secret_provider(
+        {"object": planned}
+    )
+
+
 def secret_binding_reordered(address: str, change: object) -> bool:
     """Report a workload SecretProviderClass update that only reorders the same bindings."""
 
@@ -564,11 +584,7 @@ def secret_binding_reordered(address: str, change: object) -> bool:
     detail = change if isinstance(change, dict) else {}
     if detail.get("actions") != ["update"]:
         return False
-    before = detail.get("before")
-    after = detail.get("after")
-    if not isinstance(before, dict) or not isinstance(after, dict):
-        return False
-    return normalized_secret_provider(before) == normalized_secret_provider(after)
+    return _effective_secret_binding_unchanged(detail.get("before"), detail.get("after"))
 
 
 def _normalize_template(template: dict[str, Any]) -> None:
