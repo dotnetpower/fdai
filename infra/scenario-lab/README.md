@@ -83,7 +83,9 @@ commit already present on protected `main`:
    in [Retained resource adoption](#retained-resource-adoption).
 2. Run `action=apply` with an RFC 3339 `expires_at_utc`. The protected environment approval gates
    the apply, and ordinary apply refuses delete or replacement actions except the scope-case grant
-   replacements that the plan lists. For the one-time transition
+   replacements that the plan lists. A failed apply reports the same allowlisted projection as a
+   failed plan, adding addresses from Terraform's `apply_errored` hooks. Both come from
+   `scripts/deployment/scenario-lab/terraform_diagnostics.py`. For the one-time transition
    from the earlier private cluster, first review `action=plan`, then run `action=recreate-aks` with
    `confirm_aks_recreation=recreate-aks-store-demo`. That action accepts only replacement of the
    exact scenario cluster and its cluster-scoped role assignments, and rejects any other delete.
