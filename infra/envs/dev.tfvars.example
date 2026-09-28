@@ -33,7 +33,6 @@ additional_tags = {
 # Never commit either populated value.
 # enable_alert_noise_pilot             = true
 # alert_noise_pilot_phase              = "baseline"
-# alert_noise_pilot_target_resource_id = "/subscriptions/.../resourceGroups/.../providers/Microsoft.KeyVault/vaults/..."
 # alert_noise_pilot_email              = "approved-test-recipient@example.invalid"
 
 # ---------------------------------------------------------------

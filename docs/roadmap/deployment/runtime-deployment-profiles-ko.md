@@ -1,6 +1,6 @@
 ---
 translation_of: runtime-deployment-profiles.md
-translation_source_sha: c72ba599d3c2163064b2c9fccd4ee2177d495c8b
+translation_source_sha: ff02037ce23543230c0acdeaa0b1663c8e8769f7
 translation_revised: 2026-09-28
 ---
 # 런타임 배포 프로파일
@@ -237,7 +237,7 @@ Foundation은 구독 역할 할당을 Reader, Monitoring Reader, Cost Management
 `principal_type = "ServicePrincipal"`을 선언해 위임한 역할 집합을 넓히지 않고 공급자 요청이 해당 조건을 충족하게 합니다. Case-history 콘텐츠의 활성, 삭제 예정,
 이전 버전 및 변경 피드 기간 기본값은 30일이며 운영 이력과 의사 결정 근거 메타데이터는 별도 일정을 유지합니다. AKS 기반 상태는 클러스터, 노드 풀, 클러스터 신원,
 네트워크 연결 및 클러스터 범위 Azure 역할 할당만 소유합니다.
-AKS는 공유 루트의 Key Vault 출력을 사용하고 substrate 재조회는 Terraform 상태가 소유한 `container_registry_id`로 레지스트리를 읽고, 이미지 참조에 사용한 workload 기반 레지스트리와 다르면 실패합니다. 대상 지정 적용이 기록하지 않은 루트 출력은 새로 고침 없는 비대상 계획에서 계획 값이 확정된 경우에만 읽으며, 확정되지 않은 값은 실패로 처리합니다. AKS substrate는 AKS 워크로드가 읽는 Console, 운영 이력 스토리지, 비용 가명 비밀도 적용합니다. 이름이 너무 긴 후보는
+AKS는 공유 루트의 Key Vault 출력을 사용하고 substrate 재조회는 Terraform 상태가 소유한 `container_registry_id`가 가리키는 레지스트리를 선택하고, 이미지 참조에 사용한 workload 기반 레지스트리와 다르면 실패합니다. 대상 지정 적용이 기록하지 않은 루트 출력은 새로 고침 없는 비대상 계획에서 계획 값이 확정된 경우에만 읽으며, 확정되지 않은 값은 실패로 처리합니다. AKS substrate는 AKS 워크로드가 읽는 Console과 비용 가명 비밀도 적용하며, 선택 사항인 운영 이력 보관소는 상세 사설 네트워킹 이후에 제공합니다. 공개 AKS API 서버는 관리형 호스트의 운영 NAT 게이트웨이 주소만 허용합니다. 관리형 호스트 checkpoint는 세션 기본값과 관계없이 소유자 전용 umask로 상태를 만듭니다. 이미지 가져오기는 검증된 각 OCI 레이아웃을 대상 레지스트리 자격 증명 파일로만 복사합니다. 이름이 너무 긴 후보는
 별도의 런타임 명명 규칙을 만들지 않고 결정론적 `kv-aip-<8hex>` 대체 이름을 사용합니다.
 AKS를 선택하면 상세 비공개 네트워킹이 꺼져 있어도 애플리케이션 VNet, 노드 서브넷 및 API 서버
 서브넷을 만듭니다. 별도의 비공개 네트워킹 입력은 AKS 서브넷 선행 조건이 아니라 서비스 비공개
@@ -245,9 +245,11 @@ AKS를 선택하면 상세 비공개 네트워킹이 꺼져 있어도 애플리�
 집중 문서 복구는 Foundation 소유 운영 Blob 영역 링크를 하나로 유지하고 문서 엔드포인트 A
 레코드를 해당 영역에 씁니다. 애플리케이션 VNet은 애플리케이션 영역 링크를 유지하며 DFS 영역은
 필요한 두 VNet에 독립적으로 연결됩니다.
-기본적으로 비활성화되는 개발 환경 알림 과다 수신 파일럿은 어느 런타임을 선택하더라도 공유
-플랫폼 선행 조건으로 유지됩니다. 정확한 대상에는 전용 Action Group 하나와 메트릭 경보 하나만
-포함됩니다. 런타임 선택은 파일럿 승인, 알림 발송 권한 또는 승격을 부여하지 않습니다.
+기본적으로 비활성화되는 개발 환경 알림 과다 수신 파일럿은 어느 런타임을 선택하더라도 운영자가
+로컬에서 수행하는 배포 선행 조건으로 유지됩니다. 기존 FDAI Core Container App을 읽기 전용 `Replicas` 메트릭 범위로 고정하고 전용 Action Group 하나와 메트릭 경보 하나만 만듭니다. Core 앱을 변경하지 않으며
+애플리케이션 데이터, 자격 증명, 연결 문자열 또는 Key Vault 내용을 읽지 않습니다. 런타임 선택은
+파일럿 승인, 알림 발송 권한 또는 승격을 부여하지 않습니다. Terraform 계획과 적용 증적은 로컬
+배포 기록이며 FDAI 런타임 권한이나 효과 근거가 아닙니다.
 독립적인 Azure 컨트롤 플레인 확인에서 클러스터가 `Succeeded` 상태이고 API Server VNet
 Integration이 활성화되어 있으며 검토한 관리 경로로 접근할 수 있음을 증명한 뒤 Kubernetes
 리소스를 적용합니다. 기본 배포는 외부 조정기가 기본 구성을 완료할 수 있도록 인증된 공개 API
@@ -484,7 +486,7 @@ Operator는 의미 처리 및 실시간 Kafka 어댑터에 `FDAI_COMMAND_MI_CLIE
 ServiceAccount 주체를 위한 별도의 연합 자격 증명과 범위가 제한된 역할이 필요합니다. 기본
 client 또는 선언된 명령 client만 선택할 수 있습니다. 선택을 생략하면 기본 client를 유지하고,
 잘못되거나 관련 없는 client는 토큰 교환 전에 거부합니다. 역할을 부여하거나 교환 실패 뒤에
-다른 신원으로 대체하지 않습니다.
+다른 신원으로 대체하지 않습니다. Core의 Kafka 시작 왕복 확인은 `FDAI_AUXILIARY_KAFKA_BOOTSTRAP_SERVERS`로 선택한 운영 네임스페이스의 `runtime.startup.probe` topic을 사용하며, 제어 루프가 모든 합성 probe를 거부하게 되므로 구성 단계에서 `FDAI_STARTUP_KAFKA_PROBE_TOPIC`이 관리되는 이벤트 수집 topic과 같으면 거부합니다.
 
 Core와 격리된 Executor는 대상별 캐시와 동시 요청 통합을 유지하고, 각 연합 토큰 교환 시간을
 제한하며, SDK 세션을 닫고 민감한 진단을 제외한 획득 실패를 보고합니다. 각 서비스는 자체 배포
@@ -531,7 +533,7 @@ API Server VNet Integration을 활성화하고, 나중에 클러스터를 교체
 직렬화한 다음 지역 제한, 필요한 세 개 영역, 아키텍처, 호스트 암호화, 제품군별 quota 및 전체
 quota를 확인합니다. 다른 노드 풀 SKU를 위해 두 번째 카탈로그 요청을 보내거나 실패한
 프로바이더 읽기를 재시도하지 않습니다. 지원하지 않는 대상에서 암호화를 비활성화하지 않습니다.
-할당 가능한 워크로드 범위 검증은 구현 원장에 미완료 항목으로 남아 있습니다. Container Insights는 Managed Identity를 사용하는 `oms_agent` 추가 기능과 Terraform이 소유하는 데이터 수집 규칙(DCR) 및 클러스터 연결을 함께 사용합니다. 이 연결은 관리되는 클러스터 리소스에 의존하지 않고 인증된 구독 및 검토된 배포 입력에서 정확한 클러스터 Resource ID를 재구성하므로, 모니터링 전용 플랜이 관련 없는 클러스터 변경을 포함할 수 없습니다. 이 규칙은 `Microsoft-ContainerInsights-Group-Default` 스트림을 1분마다 선택한 Log Analytics workspace로 보내고 `ContainerLogV2`를 활성화합니다. 실행 중인 agent Pod에 이 연결이 없으면 모니터링 준비 상태가 아닙니다. DCR이 존재하고 workspace 테이블에 현재 레코드가 수집될 때까지 메트릭 및 로그 소스는 사용 불가 상태로 유지됩니다. 애플리케이션 원격 분석에는 Core의 Python Azure Monitor OpenTelemetry Distro를 사용합니다. 공유 기반 구성은 workspace 기반 Application Insights 연결 문자열을 Key Vault 비밀로 저장하고, Core 워크로드 신원에만 이 비밀의 읽기 권한을 부여하며, 별도 상태를 사용하는 AKS 렌더러에는 비밀 이름만 전달합니다. Key Vault CSI는 값을 `APPLICATIONINSIGHTS_CONNECTION_STRING`으로 주입합니다. Core는 비밀이 있을 때만 이 내보내기를 선택하며, `OTEL_EXPORTER_OTLP_ENDPOINT`를 동시에 설정하면 원격 분석을 중복 전송하지 않고 시작을 차단합니다. Application Insights 비밀이 없으면 로컬 프로파일과 명시적인 벤더 중립 OTLP 프로파일은 기존 내보내기를 유지합니다. 저장소 전체 CI는 루트 테스트 수집이 Core 소유 원격 분석 어댑터를 가져올 수 있도록 `azure-monitor-opentelemetry`를 루트 `dev` 추가 의존성에만 미러링합니다. 런타임 의존성 소유자는 계속 Core 서비스 매니페스트이며 저장소 루트는 설치할 수 없는 상태를 유지합니다.
+할당 가능한 워크로드 범위 검증은 구현 원장에 미완료 항목으로 남아 있습니다. Container Insights는 Managed Identity를 사용하는 `oms_agent` 추가 기능과 Terraform이 소유하는 데이터 수집 규칙(DCR) 및 클러스터 연결을 함께 사용합니다. 이 연결은 관리되는 클러스터 리소스에 의존하지 않고 인증된 구독 및 검토된 배포 입력에서 정확한 클러스터 Resource ID를 재구성하므로, 모니터링 전용 플랜이 관련 없는 클러스터 변경을 포함할 수 없습니다. 이 규칙은 `Microsoft-ContainerInsights-Group-Default` 스트림을 1분마다 선택한 Log Analytics workspace로 보내고 `ContainerLogV2`를 활성화합니다. 실행 중인 agent Pod에 이 연결이 없으면 모니터링 준비 상태가 아닙니다. DCR이 존재하고 workspace 테이블에 현재 레코드가 수집될 때까지 메트릭 및 로그 소스는 사용 불가 상태로 유지됩니다. 애플리케이션 원격 분석에는 Core의 Python Azure Monitor OpenTelemetry Distro를 사용합니다. 공유 기반 구성은 workspace 기반 Application Insights 연결 문자열을 Key Vault 비밀로 저장하고, Core 워크로드 신원에만 이 비밀의 읽기 권한을 부여하며, 별도 상태를 사용하는 AKS 렌더러에는 비밀 이름만 전달합니다. Key Vault CSI는 값을 `APPLICATIONINSIGHTS_CONNECTION_STRING`으로 주입합니다. Core는 비밀이 있을 때만 이 내보내기를 선택하며, `OTEL_EXPORTER_OTLP_ENDPOINT`를 동시에 설정하면 원격 분석을 중복 전송하지 않고 시작을 차단합니다. Application Insights 비밀이 없으면 로컬 프로파일과 명시적인 벤더 중립 OTLP 프로파일은 기존 내보내기를 유지합니다. AKS 워크로드 재확인은 배포된 각 컨테이너가 보존된 워크로드 계약이 요구하는 비밀 기반 환경 바인딩을 정확히 선언하는지 검증합니다. 따라서 `APPLICATIONINSIGHTS_CONNECTION_STRING`을 포함해 바인딩을 외부에서 제거하거나 추가하면 정상 롤아웃으로 보고하지 않고 차단합니다. 저장소 전체 CI는 루트 테스트 수집이 Core 소유 원격 분석 어댑터를 가져올 수 있도록 `azure-monitor-opentelemetry`를 루트 `dev` 추가 의존성에만 미러링합니다. 런타임 의존성 소유자는 계속 Core 서비스 매니페스트이며 저장소 루트는 설치할 수 없는 상태를 유지합니다.
 
 로컬 디스크가 없는 기본 SKU는 임시 저장소 대신 플랫폼에서 암호화하는 Managed OS 디스크를
 유지합니다. Checkov 예외는 해당 리소스에만 둡니다. 고정된 검사기 버전은 AzureRM의 이전 업그레이드

@@ -657,21 +657,30 @@ def test_governance_action_execution_paths_match_authority_contract() -> None:
 
 
 def test_shipped_manual_pr_actions_remain_shadow_and_human_approved() -> None:
-    """R7 was not adopted; explicit manual PRs retain their strict authority contract."""
+    """R7 was not adopted; manual PRs and alert actions retain strict authority ceilings."""
 
     from fdai.shared.contracts.models import Autonomy, CeilingRole, ExecutionPath
 
     catalog = load_action_type_catalog(CATALOG_ROOT, schema_registry=_registry())
     manual = [action for action in catalog if action.execution_path is ExecutionPath.PR_MANUAL]
-    assert {action.name for action in manual} == {
-        "ops.restore-alert-configuration",
-        "ops.set-alert-notification-window",
-        "ops.tune-alert-evaluation",
-        "ops.update-alert-routing",
-    }
-    for action in manual:
+    alert = [
+        action
+        for action in catalog
+        if action.name
+        in {
+            "ops.restore-alert-configuration",
+            "ops.set-alert-notification-window",
+            "ops.tune-alert-evaluation",
+            "ops.update-alert-routing",
+        }
+    ]
+    assert manual == []
+    assert len(alert) == 4
+    for action in alert:
+        assert action.execution_path is ExecutionPath.DIRECT_API
+        assert action.rollback_contract is RollbackKind.STATE_FORWARD_ONLY
+    for action in (*manual, *alert):
         assert action.default_mode is Mode.SHADOW
-        assert action.rollback_contract is RollbackKind.PR_REVERT
         assert action.ceiling_by_tier is not None
         for ceiling in (action.ceiling_by_tier.t0, action.ceiling_by_tier.t1):
             assert ceiling is not None

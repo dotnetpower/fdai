@@ -28,7 +28,7 @@
     "producer_release": "N",
     "payload": {
       "result": {
-        "schema_version": "1.0.0", "producer": "Forseti",
+        "schema_version": "1.1.0", "producer": "Forseti",
         "command": {
           "schema_version": "1.0.0", "operation": "alert_noise.assess",
           "request_ref": "request:example", "requester_ref": "principal:example",

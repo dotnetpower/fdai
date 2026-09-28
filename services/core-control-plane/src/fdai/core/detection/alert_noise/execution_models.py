@@ -24,20 +24,13 @@ from fdai_service_contracts.alert_noise_plan import (
 from fdai_service_contracts.executor_models import Digest
 from fdai_service_contracts.ontology_query import content_digest
 
+from fdai.core.detection.alert_noise.action_types import ALERT_ACTIONS as ALERT_ACTIONS
+from fdai.core.detection.alert_noise.action_types import RESTORE_ACTION as RESTORE_ACTION
 from fdai.core.executor.safeguard_evidence_lifecycle import DispatchPort
 from fdai.core.executor.safeguard_lifecycle_coordinator import SafeguardCoordinatedDispatchResult
 from fdai.shared.contracts.models import Action, Rule
 from fdai.shared.providers.remediation_pr import PublishReceipt, RemediationPr
 
-RESTORE_ACTION = "ops.restore-alert-configuration"
-ALERT_ACTIONS = frozenset(
-    {
-        "ops.update-alert-routing",
-        "ops.set-alert-notification-window",
-        "ops.tune-alert-evaluation",
-        RESTORE_ACTION,
-    }
-)
 AlertPublicationCheck = Callable[[datetime], None]
 
 

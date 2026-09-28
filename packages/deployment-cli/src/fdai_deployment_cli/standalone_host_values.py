@@ -102,6 +102,21 @@ def vault_name(uri: str) -> str:
     return match.group(1)
 
 
+def registry_selector(registry_id: str, expected_name: str) -> tuple[str, ...]:
+    """Return ``az acr show`` selectors for a state-owned registry ID of the expected name."""
+
+    match = re.fullmatch(
+        r"/subscriptions/([^/]+)/resourceGroups/([^/]+)/providers/"
+        r"Microsoft\.ContainerRegistry/registries/([^/]+)",
+        registry_id,
+        flags=re.IGNORECASE,
+    )
+    if match is None or match.group(3) != expected_name:
+        raise ValueError("Terraform registry differs from the planned image registry")
+    subscription, resource_group, name = match.groups()
+    return ("--name", name, "--resource-group", resource_group, "--subscription", subscription)
+
+
 def planned_container_registry_name(
     *, workload: str, environment: str, region_short: str, resource_suffix: str
 ) -> str:

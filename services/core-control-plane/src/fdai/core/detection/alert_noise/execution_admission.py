@@ -89,7 +89,8 @@ class _AlertExecutionAdmission:
             or not action.executor_identity_ref
             or action.idempotency_key != alert_execution_key(action.action_type, digest)
             or action.operation is not Operation.UPDATE
-            or action.rollback_ref.kind is not RollbackKind.PR_REVERT
+            or action.rollback_ref.kind
+            not in {RollbackKind.PR_REVERT, RollbackKind.STATE_FORWARD_ONLY}
             or action.rollback_ref.reference != plan.rollback_ref
             or action.blast_radius.count != 1
             or action.blast_radius.scope

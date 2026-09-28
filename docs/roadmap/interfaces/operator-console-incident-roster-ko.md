@@ -1,8 +1,8 @@
 ---
 title: Operator Console - Incident Roster and Fix History
 translation_of: operator-console-incident-roster.md
-translation_source_sha: b7437578c17bd94e8bb797ca6e685e215c5cbc47
-translation_revised: 2026-09-21
+translation_source_sha: 90290343f7f30447a847b533ca1accd58be0de1d
+translation_revised: 2026-09-28
 ---
 
 # Operator Console - 인시던트 명단 and Fix 이력
@@ -455,6 +455,7 @@ RCA 가설은 "왜"를 답할 뿐 "실행"하지 않습니다: 실행 자격은 
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-28 | implemented | 비정규 projection이 계속 커지던 원인 하나를 막았습니다. Kafka 시작 probe가 관리되는 수집 topic을 함께 쓰면 거부된 probe마다 correlation이 `unknown`인 감사 행이 추가되었고, canonical 이전 trigger는 이런 행마다 16 KB 시간 버전을 새로 만들었습니다. 이제 구성 단계에서 해당 probe topic을 거부하며, dev 런타임은 probe를 운영 topic으로 옮겼습니다. | `current change`, `runtime/readiness.py`, `tests/runtime/test_readiness.py`, [#1557](https://github.com/dotnetpower/fdai/issues/1557) 런타임 재조회 | 비정규 correlation이 버전을 만들지 않도록 canonical projection 마이그레이션을 배포합니다. |
 | 2026-08-14 | in-progress | 구현 ledger를 도입하고 RCA PDF 주장을 대상 상태로 수정했으며 이전 출처 이력은 재구성하지 않았습니다. | `current change`; 구현 범위 표에 나열된 현재 incident, RCA, reporting, Operator 및 Console 근거입니다. | 선택적 PDF delivery를 구현하고 관리되는 roster-to-RCA 런타임 근거를 보존해야 합니다. |
 | 2026-08-14 | in-progress | 현재 Microsoft Learn Azure SRE Agent 지침과 비교하여 풍부한 Incident identity, 단계별 조사, 대응 계획 미리 보기, 근거 기반 결과 분석 방식만 수락했습니다. | `current change`; [선택적 차용 계약](#azure-sre-agent-선택적-차용) 및 구현 범위 표의 현재 Operator/Console 경로입니다. | FDAI 실행 권한을 넓히지 않고 범위가 제한된 운영자 중심 공백 네 가지를 구현하고 검증해야 합니다. |
 | 2026-08-14 | implemented | FDAI 권한 경계를 유지하면서 서버 소유 제목 출처, 신뢰된 원본 및 고정 계획 context, 범위가 제한된 감사 milestone, 정확한 drill-down이 있는 같은 스냅샷 결과 cohort를 추가했습니다. | `current change`; `incident_projection.py`, `incidents.detail-sections.tsx` 및 작업 소유 Operator, service-contract, Console, catalog, focused 테스트 경로입니다. Operator `31 passed`, Console `66 passed`, typecheck, strict mypy, Ruff, Pylance 및 catalog parity를 통과했으며 비평 15회 후 Low finding만 남았습니다. | 관리되는 런타임 근거를 별도로 보존해야 합니다. |

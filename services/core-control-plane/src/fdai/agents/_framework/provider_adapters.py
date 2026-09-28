@@ -204,6 +204,11 @@ class StateStoreActionRunStore:
         )
         return status, ActionRun.from_dict(payload) if payload is not None else None
 
+    async def reserve_correlation(self, reservation: Mapping[str, Any]) -> bool:
+        """Write a terminal non-action claim unless the correlation already has a row."""
+        key = f"{self.run_prefix}{reservation['correlation_id']}"
+        return await self.store.write_state_if_absent(key, dict(reservation))
+
     async def save(self, run: ActionRun) -> None:
         completion = await self.store.read_state(self._completion_key(run.idempotency_key))
         if completion is not None:

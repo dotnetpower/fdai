@@ -67,6 +67,7 @@ and resumable work while the roadmap owner remains focused on normative design.
 ### Implementation history
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-28 | deferred | Withdrew the `/alert-quality` Browser Entra and human assistive-technology evidence item after the operator closed #1058 as not planned. | [#1058 decision](https://github.com/dotnetpower/fdai/issues/1058#issuecomment-5862008239). | None planned; any future authenticated accessibility claim needs a new issue with explicit criteria. |
 | 2026-09-21 | implemented | Reused the measured chaos report on Overview, Vertical Outcomes, and Detection Coverage through one strict read-only summary decoder. | `current change`; shared decoder/hook, three route consumers, paired catalogs, focused Vitest, Console typecheck, and standard-port Browser checks. | Retain a governed deployed-revision receipt separately; local report rendering and Browser presentation do not grant execution or promotion authority. |
 | 2026-09-20 | implemented | Closed a false-positive route-test path that accepted the Console access gate as a rendered screen. External Browser Entra route checks now restore session storage before navigation and explicitly reject the authentication-token error surface. | `current change`; focused route contract test passed; Console typecheck passed; corrected `/overview` preflight failed at the expected access boundary. | Refresh the legitimate Browser Entra session with normal operator authentication, then run the route inventory once and retain content-free route outcomes. |
 | 2026-09-20 | implemented | Replaced bottom-following Activity with newest-first virtualized rows and a bounded frozen reading snapshot. Added contextual new-event navigation, millisecond timestamps, cached formatters, 250 ms render batching and non-shrinking fullscreen controls. | `current change`; focused Activity, formatter, bilingual responsive and Waterfall regressions; authenticated standard-port readback with zero document overflow. | No backend retention, source accuracy, audit authority or Waterfall order changed. Synthetic stream tests prove UI mechanics; no deployment or field latency claim is made. |
@@ -267,8 +268,6 @@ checks, not claims that this documentation-only change reran browser or live val
 - [ ] Retain an authenticated `/configuration-baselines` Browser Entra artifact from the exact
   merged revision with one configured baseline and one unpublished state, covering all three views,
   keyboard navigation, and desktop and mobile overflow.
-- [ ] Retain an authorized-scope `/alert-quality` Browser Entra artifact for the exact merged
-  revision and obtain the human assistive-technology confirmation tracked by #1058.
 - [ ] Retain an authenticated `/root-cause-analysis` Browser Entra artifact from the exact merged
   revision, covering one citation-grounded result, one abstained result, related evidence links,
   keyboard disclosure, and desktop and mobile overflow.

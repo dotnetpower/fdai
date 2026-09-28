@@ -1,7 +1,7 @@
 ---
 title: Provisioning 실행 Profile
 translation_of: provisioning-execution-profiles.md
-translation_source_sha: eebf88552e2a8a99f0911196c4eb6c177579e84d
+translation_source_sha: bd2fd95c77136931b20622d962bfec1f0ab5d59b
 translation_revised: 2026-09-28
 ---
 # 프로비저닝 실행 프로파일
@@ -44,6 +44,8 @@ Parser handler, 출력 계약, 정확한 승인 요건 및 변경 권한은 바�
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-28 | implemented | 범위 지정 Run Command Terraform에 모호성 처리를 추가했습니다. 시간 초과, 전송 끊김, 결과 누락이 생기면 상태 대상에 비공개 표식을 남기고 계획과 적용을 막으며, 이후 모든 Run Command가 Azure Activity Log에서 종료 상태가 된 뒤에만 같은 작업의 `verify`를 허용합니다. Azure `Conflict`는 사용 중으로 분류합니다. Terraform을 인프라 전용 복구로 제한하므로 기록 복제와 provider 미러는 범위에서 제외했습니다. | `current change`, `scripts/deployment/azure/scoped_terraform_ambiguity.py`, `scoped_terraform.py`, `tests/integration/scripts/test_scoped_terraform_ambiguity.py`(범위 지정 Terraform 테스트 51개 통과), 실제 읽기 전용 Activity Log 분류 | 이 범위에서 남은 작업은 없습니다. |
+| 2026-09-28 | validated | 병합된 pipeline-stage 송신자 대상을 같은 범위로 적용했습니다. 정확한 계획에는 생성 1건만 있었고, 대상 범위 무변경 확인과 inventory 역할 4개 전체의 ARM 재조회를 통과했습니다. | [#1567](https://github.com/dotnetpower/fdai/pull/1567), [#1561](https://github.com/dotnetpower/fdai/issues/1561) 증적 | 이 범위에서는 남은 작업이 없고, 보강 작업은 [#1550](https://github.com/dotnetpower/fdai/issues/1550)에 남아 있습니다. |
 | 2026-09-27 | validated | Complete kit 패키지 설치를 6.9 MB 서명 Python wheel 모음으로 교체하고 trust root, TUF, 이중 서명, SBOM, 출처, 동일 바이트 어플라이언스 및 두 Azure 진입점 증적 요구를 패키지 완료 조건에서 제거했습니다. | `current change`, 정책 v3, 집중 테스트, 실제 서명 빌드, OpenSSL/checksum 검증 및 pip 빈 환경 설치 | Azure 배포 검증은 패키지 설치와 별도로 유지합니다. |
 | 2026-09-27 | validated | 일반 PC에서 dev AKS 클러스터를 대상으로 첫 실제 범위 지정 적용을 실행했습니다. 병합된 조정기는 Container Insights 연결 생성 1건만 계획했고, digest에 연결된 승인 뒤 적용했으며, 대상 범위 무변경과 작업 영역 연결, 기본 스트림, `ContainerLogV2`, 연결 상태를 Azure Resource Manager로 확인했습니다. | `098384cf5f84c92d98ae1f1146ea10dc959bac93` 기준 [#1543](https://github.com/dotnetpower/fdai/pull/1543), [#1538](https://github.com/dotnetpower/fdai/issues/1538) 증적 | 계획, 시작 기록, 완료 기록을 보호된 계획 저장소에 복제합니다. |
 | 2026-09-27 | implemented | 범위 지정 Run Command Terraform을 추가했습니다. 일반 PC는 보호된 소스에서 등록된 범위 하나를 묶고, 고정 수신기는 관리형 호스트에서 사용자 할당 ID로 계획을 만듭니다. 적용에는 계획 digest에 연결된 정확한 사람 승인이 필요하고, 효과 전 시작 기록을 남기며, 시작 기록이 있는 적용은 반복하지 않고, 대상 범위 무변경 확인과 독립 ARM 재조회로 끝납니다. | `current change`, `scripts/deployment/azure/scoped_terraform.py`, `scoped_terraform_receiver.py`, `tests/integration/scripts/test_scoped_terraform.py`(36개 통과), 연결 생성 1건만 포함한 실제 읽기 전용 `aks-container-insights` 계획 | 보호된 CI로 병합한 뒤 이슈 #1538로 #1171의 첫 실제 범위 지정 적용 증적을 보존합니다. |
@@ -113,8 +115,9 @@ Parser handler, 출력 계약, 정확한 승인 요건 및 변경 권한은 바�
 - [x] 일반 PC에서 `aks-container-insights`의 실제 범위 지정 Run Command 적용 증적 하나를 보존하고,
   정확한 계획 승인, 대상 범위 무변경 결과, 독립 ARM 재조회를 포함합니다. 근거:
   [#1538](https://github.com/dotnetpower/fdai/issues/1538)의 2026-09-27 증적입니다.
-- [ ] 범위 지정 Terraform의 계획, 시작 기록, 완료 기록을 보호된 계획 저장소에 복제하여 호스트를 교체해도
-  복구 근거를 잃지 않게 합니다([#1550](https://github.com/dotnetpower/fdai/issues/1550)).
+- [x] 결과가 불명확한 Run Command는 호스트 명령이 끝날 때까지 검증 전용으로 유지합니다. 근거:
+  [#1550](https://github.com/dotnetpower/fdai/issues/1550). 이 경로는 드문 인프라 전용 복구에만 쓰므로 보호된
+  계획 저장소 복제와 provider 미러는 범위에서 제외했습니다.
 - [ ] 사설 접근을 미리 설정하지 않은 일반 PC에서 기본 배포를 검증하고, 설치 식별자·기존 상태·Trial 시작 시점을 보존한 채 상세 프로비저닝을 진행하며, 선택 기능의 미설정 상태와 기본 서비스 상태를 구분합니다.
 - [ ] API Server VNet Integration과 워크로드 및 API 서버 전용 서브넷을 포함한 AKS 기본 프로파일을 만들고, 배포를 시작한 조정기에서 인증되고 제한된 공개 관리 접근을 검증합니다.
 - [ ] 피어링, 비공개 엔드포인트, DNS, 비공개 클러스터 모드에 대해 `/provisioning` 네트워크 의도, 평가, 정확한 계획 요청, 승인, 적용, rollback 및 독립 재확인 상태를 구현합니다.
@@ -439,10 +442,10 @@ digest가 고정된 실행 묶음을 staging할 수 있습니다. 정확한 프�
   시작 기록만 있으면 소스 리비전과 관계없이 같은 상태 대상의 새 계획과 적용을 막고, `verify`는
   절대 적용하지 않습니다. `apply`와 `verify`는 계획 시점에 보존한 소스 커밋을 다시 사용하므로
   이후 `main`에 병합이 생겨도 작업 하나가 나뉘지 않습니다. 이후 PC는 Azure
-  Resource Manager로 결과 리소스를 읽고 범위별 권위 있는 속성을 비교합니다.
+  Resource Manager로 결과 리소스를 읽고 범위별 권위 있는 속성을 비교합니다. 전송 시간 초과, 연결 끊김, 결과 줄 누락이 생기면 상태 대상에 비공개 모호성 표식을 남깁니다. 이후 계획과 적용은 막히며, 해당 호출 시작 이후의 모든 Run Command가 Azure Activity Log에서 종료 상태가 된 뒤에만 같은 작업의 `verify`를 실행합니다. 이미 실행 중인 명령에 대한 Azure `Conflict`는 모호성이 아니라 사용 중으로 보고합니다.
 
 첫 범위인 `aks-container-insights`는 AKS Container Insights 데이터 수집 규칙과 클러스터 연결을
-대상으로 합니다. 범위를 추가하려면 집중 테스트를 포함한 검토된 소스 변경이 필요합니다. Run
+대상으로 합니다. `aks-inventory-observation-roles`는 substrate inventory의 Reader, Monitoring Reader, Log Analytics Reader, pipeline-stage Event Hubs 송신자 할당을 대상으로 하며, 조정기는 루트의 로컬 모듈 closure만 보내고 선언된 기존 상태 이동은 주소만 바꿀 수 있습니다. 거부된 계획은 범위 밖 주소를 최대 12개까지 반환합니다. 범위를 추가하려면 집중 테스트를 포함한 검토된 소스 변경이 필요합니다. Run
 Command 권한은 이미 VM의 root 권한을 부여하므로 이 경로는 VM 권한을 늘리지 않습니다. 대신 기록되지
 않던 수동 명령을 연결되고 복구 가능한 작업으로 대체합니다.
 

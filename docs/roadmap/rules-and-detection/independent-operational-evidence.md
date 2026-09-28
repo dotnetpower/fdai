@@ -8,8 +8,8 @@ context, forecast intervention history, and case-history reuse. A separate read-
 each authoritative source under its own identity and issues content-free proofs, while the existing boundary
 owners keep consuming them through the unchanged admission seam.
 
-> **Status:** Design only, under review for exit criterion 1 of
-> [#1022](https://github.com/dotnetpower/fdai/issues/1022). No verifier, proof producer, trust registry, or
+> **Status:** Design only. The owner reviewed it for exit criterion 1 of
+> [#1022](https://github.com/dotnetpower/fdai/issues/1022) on 2026-09-28; see [Review decisions](#review-decisions). No verifier, proof producer, trust registry, or
 > principal-to-case-scope mapping is implemented or deployed; every boundary here keeps failing closed.
 >
 > **Agent boundary:** The pantheon remains exactly 15 agents. This design adds no agent or topic, changes no
@@ -112,22 +112,24 @@ Each proof's `subject_digest` equals its receipt field through `expected_verific
 admission window equals the bundle window as `_validate_relations` requires. A failed class produces a
 rejection record, never an issued receipt.
 
-The operational proof store is separate from the `deployment-apply` container:
+The operational proof store is a set of insert-only PostgreSQL tables in both venues, separate from the
+`deployment-apply` container and from the Core state store:
 
-- **Layout.** `authentication/<receipt>.json`, `readback/<receipt>.json`, `bundles/<bundle>.json`,
-  `admissions/<registry-pins>/<lookup>/<reverse-time>-<receipt>.json`, and `rejections/` with the same key
-  shape. A key per issuance lets a lookup be reissued after expiry without overwriting an immutable record.
+- **Layout.** Separate tables hold authentication receipts, readback records, bundles, admissions keyed by
+  `<registry-pins>/<lookup>/<reverse-time>-<receipt>`, and rejections with the same key shape. A key per
+  issuance lets a lookup be reissued after expiry without overwriting an immutable record.
 - **Rejections.** A rejection record is content-free: attempt id, lookup digest, purpose, class, reason codes from
   `LiveEvidenceClaimRejectionReason` or `DecisionEvidenceReadinessReason`, conflict evidence digests, pins,
   verifier id and version, recorded time, and a fixed 60-second `valid_until` that covers that attempt only.
 - **Pins and reads.** `<registry-pins>` names the trust and grant registry revisions behind a record. Consumers
   read at most the two newest records for a lookup under the current pins or under earlier pins that no
   revocation revision retired; neither record extends the other.
-- **Writers.** The verifier is the only data-plane writer, consumer identities only read, the deploy runner has
-  no data-plane role, shared keys are disabled, and records are immutable. A readiness probe reads back the
-  role assignments and reports `self_verified` when another principal can write.
-- **Local venue.** An insert-only loopback PostgreSQL table with separate writer and reader roles exercises the
-  same separation. The local verifier reads real local sources, and provider-backed purposes stay unavailable.
+- **Writers.** The verifier's database role is the only writer and holds `INSERT` without `UPDATE` or
+  `DELETE`; consumer roles hold `SELECT` only; the deploy runner and the migration role hold no runtime data
+  role; and records are immutable. A readiness probe reads back the table grants and role memberships and reports
+  `self_verified` when another role can write.
+- **Local venue.** The same insert-only tables with separate writer and reader roles run on loopback
+  PostgreSQL. The local verifier reads real local sources, and provider-backed purposes stay unavailable.
 
 ## Trust registry and purpose mapping
 
@@ -372,18 +374,19 @@ only after separate explicit authorization, on a selected non-production target,
 - Out of scope: raw history (#1021), the Console workflow (#1023), Pattern-to-T1 intake (#1024), and P0-P6
   qualification (#1026). No tenant values, secrets, or live Azure, model, or deployment activity.
 
-## Open review decisions
+## Review decisions
 
-1. **Proof authenticity.** Keep write exclusivity plus immutability as the anchor, or add detached signatures from a
-   verifier-only, non-exportable Key Vault key, which needs a proof contract version change.
-2. **Human authentication.** Accept the Operator receipt alone, or also corroborate identity-provider sign-in
-   records at the cost of minutes of latency.
-3. **Single steward (optional).** Per-boundary accountability is sufficient. A single steward, if still wanted,
-   can't be Saga or any auditor, can't change `owns` or `subscribes`, and needs a Pantheon charter review.
-4. **Proof store.** Use Blob with time-ordered unique keys, or an insert-only PostgreSQL table in both venues.
-5. **Freshness ceilings.** Confirm the per-slice ceilings, which range from 60 to 3,600 seconds.
-6. **Corroboration cost.** Confirm that `actions`, `changes`, and `resource_lifecycle` corroboration fits the
-   five-second history deadline on the connected target, or approve a reviewed deadline change.
+The owner recorded these decisions on 2026-09-28 for exit criterion 1 of #1022:
+
+1. **Proof authenticity.** Write exclusivity plus immutability is the anchor. There are no detached signatures
+   and no proof contract version change.
+2. **Human authentication.** The Operator authentication receipt alone establishes the human principal. There
+   is no identity-provider sign-in corroboration.
+3. **Accountability.** Per-boundary accountability applies, with no single steward.
+4. **Proof store.** Insert-only PostgreSQL tables in both venues.
+5. **Freshness ceilings.** The per-slice ceilings, from 60 to 3,600 seconds, are confirmed as proposed.
+6. **Corroboration cost.** The five-second history deadline stays. Corroboration that doesn't finish within it
+   yields `unavailable`; no deadline change is approved.
 
 ## Related docs
 

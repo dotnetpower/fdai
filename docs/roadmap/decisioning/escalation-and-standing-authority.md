@@ -43,6 +43,7 @@ Human reporting source-pin refreshes remain descriptive and grant no approval or
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-28 | implemented | Recorded that forecast timing never creates an approval: in the default observation-first profile, forecasts, Freyr capacity predictions, and T1 matches of learned patterns reach no Var approval, because Forseti publishes ActionType-free Verdicts and the control loop stops T1 learned reuse before an Action exists. | `current change`; `test_learned_output_profile_boundary.py`; `test_learned_reuse_profile_boundary.py`. | None for escalation timing; the boundary's remaining work is tracked in the [Agent Pantheon implementation plan](../agents/agent-pantheon-implementation.md#learned-and-predicted-output-boundary). |
 | 2026-09-16 | implemented | Added the unbound durable `ShadowReversionWriter` adapter and made writer failures retain phase-two terminal audit when the intent exists. One command can lower exactly one ActionType; multi-ActionType partial mutation, rejected approval, a changed fence, and registry persistence uncertainty all fail closed. | `current change`; `state_store_shadow_reversion.py`; focused command and persistence tests passed 61 cases; Ruff, format, and strict mypy passed. | Governed cohort evidence, an independently authenticated approval verifier binding, a separately authorized invocation, successful independent effect observations, and provider-commit fence eligibility remain open under #632. |
 | 2026-09-14 | implemented | Bound catalog timing to the exact Heimdall forecast episode and publication under the Core SQL role. Raw request numbers no longer compress deadlines; legacy, missing, expired, closed, or mismatched sources preserve conservative timing. | `current change`; forecast source/evaluator, actual agent publication, coordinator, runtime, and SQL selection: 104 passed; subsequent timezone/source selection: 31 passed; eight source modules strict mypy. | Retain measured timing cohorts and explicit dispatch promotion. Standing-authority modules remain unbound and #632 is unchanged. |
 | 2026-09-13 | in-progress | Reconciled the derived provider-eligibility change with the inert reversion command and local cohort CLI. The corpus schema no longer has a key for declaring ineligible ActionTypes and the decoder no longer passes one to `build_candidate_record`, so a local corpus cannot assert eligibility either. With zero registered adapters every real ActionType in a corpus derives `INELIGIBLE_CAPABILITY`, so a real-ActionType cohort cannot reach a complete receipt; the CLI happy path is exercised only through the explicit test-only hypothetical adapter registry. | `current change`; `core/standing_authority/shadow_cohort_corpus.py`; `tests/core/standing_authority/test_shadow_cohort_cli.py`; `tests/core/standing_authority` passed 344 cases; Ruff, format, and strict mypy passed; Constitution, roadmap-tracking, design-route, document-size, translation, readable-Hangul, punctuation, core-import, boundary-docstring, subsystem-fanout, fork-independence, and file-LOC gates passed. | Unchanged: no writer adapter, no runtime binding, no governed cohort, and no independent effect observation exist. FDAI-CONST-008 stays `planned` and #632 remains open. |
@@ -166,6 +167,14 @@ checks source identity, detector/version, scope digest, cutoff, horizon, and the
 Confidence is not `R²`. Missing legacy fields, closed episodes, stale evidence, failed reads, or
 expiry during I/O keep conservative timing. The five-second read bound never retries a live source.
 The parked record retains the source digest and original deadlines; replay cannot extend them.
+
+Forecast timing only shortens the response window of an approval that already exists. In the
+default observation-first profile, a forecast, a Freyr capacity prediction, or a T1 match of a
+learned pattern creates no approval to time: Forseti publishes an ActionType-free Verdict, and the
+control loop stops T1 learned reuse before it builds an Action. Only the explicitly selected
+governed execution add-on lets such input reach Var through the existing gates, as the
+[learned and predicted output boundary](../agents/agent-pantheon-implementation.md#learned-and-predicted-output-boundary)
+describes.
 
 Enforce construction requires a current-role verifier. The directory adapter disables roster
 caching for this check and requires an active exact person with ordinary Approver/Owner membership.

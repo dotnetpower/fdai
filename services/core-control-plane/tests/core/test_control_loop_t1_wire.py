@@ -54,6 +54,8 @@ from fdai.shared.contracts.validation import (
 )
 from fdai.shared.providers.testing.state_store import InMemoryStateStore
 
+from tests.product_selection import governed_execution_selection
+
 
 def _validator() -> JsonSchemaEventValidator:
     return JsonSchemaEventValidator(JsonSchemaContractValidator(PackageResourceSchemaRegistry()))
@@ -120,6 +122,7 @@ def _make_loop(
     graph_dynamic_runtime_coordinator=None,  # type: ignore[no-untyped-def]
     event_correlator=None,  # type: ignore[no-untyped-def]
     causal_runtime_coordinator=None,  # type: ignore[no-untyped-def]
+    governed_execution_selected: bool = False,
 ) -> ControlLoop:
     # Empty rule catalog -> trust-router abstains. The absent-T1 test
     # validates that path is untouched by the new seam.
@@ -137,6 +140,7 @@ def _make_loop(
         graph_dynamic_runtime_coordinator=graph_dynamic_runtime_coordinator,
         event_correlator=event_correlator,
         causal_runtime_coordinator=causal_runtime_coordinator,
+        governed_execution_selected=governed_execution_selected,
     )
 
 
@@ -736,6 +740,7 @@ async def test_configured_dynamic_gap_holds_before_t1_risk_routing(tmp_path: Pat
         audit=audit,
         tmp_path=tmp_path,
         dynamic_runtime_coordinator=_DynamicCoordinator(),
+        governed_execution_selected=governed_execution_selection(True),
     )
     route = AsyncMock()
     loop._route_t1_reuse = route  # type: ignore[method-assign]

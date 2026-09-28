@@ -2,15 +2,20 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from copy import deepcopy
 from datetime import UTC, datetime
 from typing import Any, Protocol
 
-from fdai.agents._framework.action_run_identity import action_run_identity_digest
+from fdai.agents._framework.action_run_identity import (
+    action_run_identity_digest,
+    durable_correlation_reservation,
+)
 from fdai.agents._framework.action_run_state import (
     TERMINAL_ACTION_RUN_STATES as _TERMINAL_STATES,
 )
 from fdai.agents._framework.action_run_state import ActionRunState
+from fdai.agents._framework.advisory_verdicts import is_advisory_arbitration_verdict
 from fdai.agents._framework.bus import PantheonBus
 from fdai.agents._framework.thor_action_run import ActionRun, ActionRunStore
 from fdai.agents._framework.thor_effect_verification import effect_publication_fields
@@ -27,7 +32,38 @@ class ThorPersistenceHost(Protocol):
 
     async def _execute(self, run: ActionRun) -> None: ...
 
+    def _now(self) -> datetime: ...
+
     def record_behavior(self, key: str) -> None: ...
+
+
+async def hold_advisory_correlation(
+    host: ThorPersistenceHost,
+    verdict: Mapping[str, Any],
+) -> None:
+    """Durably hold an advisory arbitration correlation without creating an ActionRun.
+
+    The governed path records an ActionRun for an arbitration Verdict, and that record's
+    durable correlation claim refuses any later Verdict on the correlation, including after
+    a restart. The default-profile advisory Verdict creates no ActionRun, so Thor writes a
+    terminal non-action claim in its own store instead. Nothing is emitted, approved, locked,
+    or executed; an existing row for the correlation is left unchanged, and a store without
+    reservation support keeps the in-process Forseti gate only, as the in-memory governed
+    path does.
+    """
+
+    reserve = getattr(host._state_store, "reserve_correlation", None)
+    correlation_id = str(verdict.get("correlation_id") or "")
+    if not callable(reserve) or not correlation_id or not is_advisory_arbitration_verdict(verdict):
+        return
+    reserved = await reserve(
+        durable_correlation_reservation(
+            correlation_id=correlation_id,
+            resource_id=str(verdict.get("resource_id") or ""),
+            recorded_at=host._now(),
+        )
+    )
+    host.record_behavior("advisory_correlation:" + ("reserved" if reserved else "already_claimed"))
 
 
 async def rehydrate(host: ThorPersistenceHost) -> int:

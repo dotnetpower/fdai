@@ -55,12 +55,12 @@ const report = {
   acknowledgements: null, findings: [finding], execution_authority: false,
 };
 const plan = {
-  schema_version: "1.0.0", action_type: "ops.update-alert-routing", tenant_ref: "tenant:example", scope_ref: scope,
+  schema_version: "1.1.0", action_type: "ops.update-alert-routing", tenant_ref: "tenant:example", scope_ref: scope,
   requester_ref: "principal:example", evidence_digest: digest, policy_digest: digest, target_revision: digest,
   treatment: { kind: "routing", target_ref: finding.rule_ref, remove_group_ref: "group:source", replacement_group_ref: "group:replacement" },
   service_refs: ["service:example"], lock_refs: ["lock:example"], created_at: "2026-09-14T10:01:00Z", expires_at: "2026-09-14T10:59:00Z",
   max_execution_seconds: 60, max_observation_seconds: 300, max_recovery_seconds: 300, rollback_ref: digest,
-  execution_path: "pr_manual", default_mode: "shadow", quorum_required: 2, execution_authority: false,
+  execution_path: "direct_api", default_mode: "shadow", quorum_required: 2, execution_authority: false,
 };
 const payload = (assessment: unknown = report, plans: readonly unknown[] = [plan]) => decodeAlertQuality({
   source: "alert-noise-governance", available: true, enabled: true, authority: "shadow", unavailable_reason: null, assessment, plans,
@@ -206,7 +206,7 @@ describe("all plan kinds, no approval shortcuts and no invented baselines", () =
         "evidence_reason_limit_reached", "routing_source_mismatch", "routing_replacement_missing",
         "routing_replacement_already_bound", "suppression_deadline_does_not_fit", "evaluation_validation_mismatch",
         "request_expired", "scope_denied", "evidence_not_retained", "synthetic_live_evidence",
-        "preference_store_unavailable", "writer_unavailable", "producer_not_ready"]) {
+        "preference_store_unavailable", "writer_unavailable", "producer_not_ready", "legacy_contract_retired"]) {
         expect(alertQualityReason(reason)).not.toBe(reason);
         expect(alertQualityReason(reason)).not.toBe(alertQualityText("reason.held"));
       }

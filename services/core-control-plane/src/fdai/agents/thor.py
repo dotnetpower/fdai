@@ -39,6 +39,7 @@ from fdai.agents._framework.action_run_state import (
     TERMINAL_ACTION_RUN_STATES as _TERMINAL_STATES,
 )
 from fdai.agents._framework.action_run_state import ActionRunState
+from fdai.agents._framework.advisory_verdicts import is_non_action_verdict
 from fdai.agents._framework.base import Agent
 from fdai.agents._framework.bus import PantheonBus
 from fdai.agents._framework.introspection import IntrospectionResult
@@ -269,10 +270,8 @@ class Thor(ThorDevelopmentAuthorityMixin, ThorEffectVerificationMixin, Agent):
             if payload.get("kind") == "capacity_graduation":
                 self.record_behavior("capacity_graduation_verdict_ignored")
                 return
-            if not payload.get("action_type") and payload.get("reason") in {
-                "anomaly_action_unavailable",
-                "no_rule_match",
-            }:
+            if is_non_action_verdict(payload):
+                await thor_persistence.hold_advisory_correlation(self, payload)
                 self.record_behavior("non_action_verdict_ignored")
                 return
             await self.dispatch_verdict(payload)

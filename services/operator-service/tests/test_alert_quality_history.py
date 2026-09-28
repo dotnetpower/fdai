@@ -16,6 +16,7 @@ from fdai_operator_service.alert_quality_history import (
 )
 from fdai_operator_service.alert_quality_records import alert_quality_requester_ref
 from fdai_service_contracts.alert_noise import digest_record
+from fdai_service_contracts.alert_noise_legacy import _AlertNoiseResultV100
 from fdai_service_contracts.alert_noise_wire import (
     AlertNoiseResult,
     SignedAlertResult,
@@ -141,6 +142,56 @@ async def test_history_never_projects_forged_or_cross_request_claims(change):
     source = StateKvAlertQualityRequestSource(
         state, transport_key=KEY, clock=lambda: source_clock if change == "future" else NOW
     )
+    with pytest.raises((ValueError, RuntimeError)):
+        await source.read(principal_id=PRINCIPAL, scope_ref=SCOPE, request_key="example-key")
+
+
+def legacy_terminal(state, record, *, command=None):
+    command = command or command_from_record(record)
+    current = AlertNoiseResult(
+        command=command,
+        command_digest=digest_record(command),
+        recorded_at=NOW,
+        status="held",
+        reason="source_unavailable",
+    ).model_dump(mode="json")
+    archived = _AlertNoiseResultV100.model_validate({**current, "schema_version": "1.0.0"})
+    signed = {
+        "result": archived.model_dump(mode="json"),
+        "signature": sign_alert_record(archived, KEY),
+    }
+    state.records["operator-alert-quality-result:" + command.request_ref] = signed
+    return signed
+
+
+async def test_authenticated_legacy_terminal_is_unconfirmed_not_current():
+    state = HistoryState()
+    legacy_terminal(state, acceptance(state))
+    snapshot = copy.deepcopy(state.records)
+    source = StateKvAlertQualityRequestSource(state, transport_key=KEY, clock=lambda: NOW)
+    result = await source.read(principal_id=PRINCIPAL, scope_ref=SCOPE, request_key="example-key")
+    row = result.requests[0]
+    assert (row.status, row.reason) == ("unconfirmed", "legacy_contract_retired")
+    assert row.result_recorded_at is None and row.plan is None and row.detail is None
+    assert not row.execution_authority
+    assert state.records == snapshot
+
+
+@pytest.mark.parametrize("change", ["signature", "shape", "rebound"])
+async def test_legacy_terminal_still_requires_an_authentic_exact_binding(change):
+    state = HistoryState()
+    record = acceptance(state)
+    if change == "rebound":
+        command = command_from_record(record)
+        other = command.model_copy(update={"expires_at": command.expires_at - timedelta(seconds=1)})
+        legacy_terminal(state, record, command=other)
+    else:
+        signed = legacy_terminal(state, record)
+        if change == "signature":
+            signed["signature"] = "sha256:" + "a" * 64
+        else:
+            signed["result"]["reason"] = None
+    source = StateKvAlertQualityRequestSource(state, transport_key=KEY, clock=lambda: NOW)
     with pytest.raises((ValueError, RuntimeError)):
         await source.read(principal_id=PRINCIPAL, scope_ref=SCOPE, request_key="example-key")
 

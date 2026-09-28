@@ -95,6 +95,11 @@ equivalence or conversion between the enum families.
   carrying the invoker's Entra OID in the PR trailer. The PR then follows the standard
   quorum + no-self-approval rules.
 - **A2/A4 messages never contain approval buttons or executable links.**
+- **Learned patterns and predictions create no A1 request in the default profile.** Without the
+  governed execution add-on, Forseti answers forecasts and capacity-fed arbitration with
+  ActionType-free Verdicts, and the control loop stops T1 learned reuse before it builds an Action,
+  so no channel carries an approval for them. See the
+  [learned and predicted output boundary](../agents/agent-pantheon-implementation.md#learned-and-predicted-output-boundary).
 
 ### 3.1 A3 command role gating
 
