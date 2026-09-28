@@ -672,6 +672,41 @@ jobs:
           MYSQL_SERVER_NAME: ${{ steps.retained-adoption.outputs.mysql_server_name }}
         run: |
           set -euo pipefail
+          # A new bounded grant can pass the permissions check before ARM authorizes its actions,
+          # so only AuthorizationFailed is retried, within a bounded propagation window.
+          start_with_authorization_retry() {
+            local label="$1"
+            shift
+            local attempt=1 status output code
+            local -r max_attempts=20 retry_seconds=15
+            local -r deadline=$((SECONDS + 300))
+            while :; do
+              status=0
+              output="$("$@" 2>&1)" || status=$?
+              if ((status == 0)); then
+                return 0
+              fi
+              if ((status == 124)); then
+                echo "scenario-lab $label start exceeded its deadline." >&2
+                return 1
+              fi
+              if ! grep -Eq '\(AuthorizationFailed\)|Code:[[:space:]]*AuthorizationFailed' \
+                <<<"$output"; then
+                code="$(grep -Eo 'Code:[[:space:]]*[A-Za-z][A-Za-z0-9_.-]{1,127}' <<<"$output" |
+                  head -n 1 | sed -E 's/^Code:[[:space:]]*//' || true)"
+                echo "scenario-lab $label start failed (${code:-unclassified})." >&2
+                return 1
+              fi
+              if ((attempt >= max_attempts || SECONDS + retry_seconds >= deadline)); then
+                echo "scenario-lab $label start authorization did not propagate within five minutes." >&2
+                return 1
+              fi
+              printf 'Waiting for scenario-lab %s start authorization (%s/%s).\n' \
+                "$label" "$attempt" "$max_attempts"
+              sleep "$retry_seconds"
+              ((attempt += 1))
+            done
+          }
           resource_group="$SCENARIO_LAB_RESOURCE_GROUP_NAME"
           cluster_name="aks-store-demo"
           aks_count="$(az resource list --resource-group "$resource_group" \
@@ -684,7 +719,8 @@ jobs:
               Running) ;;
               Stopped)
                 : >"$RUNNER_TEMP/sre-demo-lab-aks-started-by-run"
-                timeout 900 az aks start --name "$cluster_name" --resource-group "$resource_group" \
+                start_with_authorization_retry AKS \
+                  timeout 900 az aks start --name "$cluster_name" --resource-group "$resource_group" \
                   --output none --only-show-errors
                 ;;
               *)
@@ -714,7 +750,8 @@ jobs:
             Stopped)
               # A stopped flexible server rejects parameter reads, which blocks every later
               # refreshed plan, so the approved apply leaves the started server Ready.
-              timeout 900 az mysql flexible-server start --resource-group "$resource_group" \
+              start_with_authorization_retry MySQL \
+                timeout 900 az mysql flexible-server start --resource-group "$resource_group" \
                 --name "$MYSQL_SERVER_NAME" --output none --only-show-errors
               echo "Started the scenario-lab MySQL server; it remains Ready after this run." \
                 >>"$GITHUB_STEP_SUMMARY"
