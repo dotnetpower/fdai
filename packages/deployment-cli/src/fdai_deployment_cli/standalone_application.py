@@ -627,7 +627,7 @@ def _require_nondestructive_adoption_plan(review: dict[str, Any]) -> None:
 def _approve_plan(
     root: Path, review: dict[str, Any], *, deadline: DeploymentDeadline | None = None
 ) -> Path:
-    """Read two exact confirmations within one bounded window; silence grants nothing."""
+    """Record invocation approval; require one exact confirmation for delete or replace."""
 
     stage, destructive = validate_plan_review(review)
     approval_deadline = DeploymentDeadline(
@@ -655,12 +655,8 @@ def _approve_plan(
     )
     expected = f"{operation}-apply"
     print(json.dumps(review, indent=2, sort_keys=True), file=sys.stderr)
-    print(
-        f"Type the exact stage name to approve ({expected}): ", end="", file=sys.stderr, flush=True
-    )
-    supplied = _approval_input(timeout_seconds=approval_seconds())
-    if supplied != expected:
-        raise ValueError("standalone application plan approval was denied")
+    # Constitution Article 1: the invocation approves a plan; only destruction needs confirmation.
+    print(f"Approved by this invocation: {expected}", file=sys.stderr, flush=True)
     if destructive:
         print(
             f"Plan contains {destructive} delete or replacement action(s); type "
