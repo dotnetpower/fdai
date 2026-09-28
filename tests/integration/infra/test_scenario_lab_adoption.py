@@ -327,6 +327,7 @@ def test_workflow_adopts_starts_and_restores_the_retained_lab_in_order() -> None
         "Upload AKS Store Demo readback evidence",
         "Run approved reference sweep",
         "Restore AKS power state",
+        "Restore stress VM power state",
         "Clean runner artifacts",
         "Revoke bounded scenario-lab deployment authority",
     ]
@@ -463,8 +464,22 @@ next_result() {
       ;;
   esac
 }
+if [[ "$*" == "resource list"* && "$*" == *"virtualMachines"* ]]; then
+  [[ -s "$FAKE_AZ_VM_ROWS" ]] && printf '%b\n' "$(cat "$FAKE_AZ_VM_ROWS")"
+  exit 0
+fi
 if [[ "$*" == "resource list"* ]]; then
   printf '1\n'
+  exit 0
+fi
+if [[ "$*" == "vm start"* ]]; then
+  next_result "$FAKE_AZ_VM_RESULTS"
+  [[ "${FAKE_VM_STAYS_DEALLOCATED:-}" == "true" ]] || printf 'VM running' >"$FAKE_AZ_VM"
+  exit 0
+fi
+if [[ "$*" == "vm show"* ]]; then
+  cat "$FAKE_AZ_VM"
+  printf '\n'
   exit 0
 fi
 if [[ "$*" == "aks start"* ]]; then
@@ -492,7 +507,14 @@ exit 2
 
 
 def _run_start(
-    tmp_path: Path, aks_results: list[str], mysql_results: list[str]
+    tmp_path: Path,
+    aks_results: list[str],
+    mysql_results: list[str],
+    *,
+    vm_rows: str = "",
+    vm_power: str = "VM deallocated",
+    vm_results: Sequence[str] = (),
+    vm_stays_deallocated: bool = False,
 ) -> tuple[subprocess.CompletedProcess[str], list[str]]:
     workflow = WORKFLOW.read_text(encoding="utf-8")
     step = _step(workflow, "Start retained scenario-lab compute and data")
@@ -511,12 +533,20 @@ def _run_start(
     )
     (tmp_path / "power").write_text("Stopped", encoding="utf-8")
     (tmp_path / "mysql").write_text("Stopped", encoding="utf-8")
+    (tmp_path / "vm-rows").write_text(vm_rows, encoding="utf-8")
+    (tmp_path / "vm").write_text(vm_power, encoding="utf-8")
+    (tmp_path / "vm-results").write_text("\n".join([*vm_results, "ok"]) + "\n", "utf-8")
     environment = {
         "PATH": f"{bin_dir}:{os.environ.get('PATH', '')}",
         "RUNNER_TEMP": str(tmp_path),
         "GITHUB_STEP_SUMMARY": str(tmp_path / "summary.md"),
         "SCENARIO_LAB_RESOURCE_GROUP_NAME": RG,
+        "TF_VAR_region_short": "krc",
         "MYSQL_SERVER_NAME": "mysql-fdai-sre-0a1b2c",
+        "FAKE_AZ_VM_ROWS": str(tmp_path / "vm-rows"),
+        "FAKE_AZ_VM": str(tmp_path / "vm"),
+        "FAKE_AZ_VM_RESULTS": str(tmp_path / "vm-results"),
+        "FAKE_VM_STAYS_DEALLOCATED": "true" if vm_stays_deallocated else "false",
         "FAKE_AZ_LOG": str(tmp_path / "az.log"),
         "FAKE_AZ_AKS_RESULTS": str(tmp_path / "aks-results"),
         "FAKE_AZ_MYSQL_RESULTS": str(tmp_path / "mysql-results"),
@@ -568,6 +598,226 @@ def test_start_stops_retrying_authorization_after_a_bounded_window(tmp_path: Pat
         "scenario-lab AKS start authorization did not propagate within five minutes.\n"
     )
     assert "leak" not in result.stdout + result.stderr
+
+
+LAB_VM = "true\\tscenario-lab"
+
+
+def test_start_starts_a_deallocated_stress_vm_and_records_the_marker(tmp_path: Path) -> None:
+    result, log = _run_start(tmp_path, [], [], vm_rows=LAB_VM, vm_results=["auth"])
+    vm_starts = [index for index, line in enumerate(log) if line.startswith("vm start")]
+
+    assert result.returncode == 0, result.stderr
+    assert len(vm_starts) == 2
+    assert "--name vm-fdai-sre-lab-krc-stress" in log[vm_starts[0]]
+    assert "Waiting for scenario-lab stress VM start authorization (1/20)." in result.stdout
+    assert (tmp_path / "sre-demo-lab-vm-started-by-run").is_file()
+    aks_start = next(index for index, line in enumerate(log) if line.startswith("aks start"))
+    mysql_start = next(
+        index for index, line in enumerate(log) if line.startswith("mysql flexible-server start")
+    )
+    assert aks_start < vm_starts[0] < mysql_start
+    assert "leak" not in result.stdout + result.stderr
+
+
+@pytest.mark.parametrize(("vm_rows", "vm_power"), [("", "VM deallocated"), (LAB_VM, "VM running")])
+def test_start_leaves_an_absent_or_running_stress_vm_alone(
+    tmp_path: Path, vm_rows: str, vm_power: str
+) -> None:
+    result, log = _run_start(tmp_path, [], [], vm_rows=vm_rows, vm_power=vm_power)
+
+    assert result.returncode == 0, result.stderr
+    assert not any(line.startswith("vm start") for line in log)
+    assert not (tmp_path / "sre-demo-lab-vm-started-by-run").exists()
+
+
+@pytest.mark.parametrize(
+    ("vm_rows", "vm_power", "message"),
+    [
+        (
+            LAB_VM,
+            "VM deallocating",
+            "scenario-lab apply requires a running, stopped, or deallocated stress VM.\n",
+        ),
+        (
+            LAB_VM,
+            "VM starting",
+            "scenario-lab apply requires a running, stopped, or deallocated stress VM.\n",
+        ),
+        (
+            "false\\tscenario-lab",
+            "VM deallocated",
+            "scenario-lab stress VM ownership tags do not match the lab.\n",
+        ),
+    ],
+)
+def test_start_fails_closed_on_an_unexpected_stress_vm(
+    tmp_path: Path, vm_rows: str, vm_power: str, message: str
+) -> None:
+    result, log = _run_start(tmp_path, [], [], vm_rows=vm_rows, vm_power=vm_power)
+
+    assert result.returncode == 1
+    assert result.stderr == message
+    assert not any(line.startswith("vm start") for line in log)
+    assert not any(line.startswith("mysql flexible-server start") for line in log)
+    assert not (tmp_path / "sre-demo-lab-vm-started-by-run").exists()
+
+
+def test_start_fails_closed_when_the_stress_vm_does_not_reach_running(tmp_path: Path) -> None:
+    result, log = _run_start(tmp_path, [], [], vm_rows=LAB_VM, vm_stays_deallocated=True)
+
+    assert result.returncode == 1
+    assert result.stderr == "scenario-lab stress VM did not reach running.\n"
+    assert sum(line.startswith("vm start") for line in log) == 1
+    assert not any(line.startswith("mysql flexible-server start") for line in log)
+
+
+def test_start_reports_only_the_code_of_a_failed_stress_vm_start(tmp_path: Path) -> None:
+    result, log = _run_start(tmp_path, [], [], vm_rows=LAB_VM, vm_results=["other"])
+
+    assert result.returncode == 1
+    assert result.stderr == "scenario-lab stress VM start failed (OperationNotAllowed).\n"
+    assert (tmp_path / "sre-demo-lab-vm-started-by-run").is_file()
+
+
+FAKE_VM_RESTORE_AZ = """#!/usr/bin/env bash
+set -euo pipefail
+printf '%s\\n' "$*" >>"$FAKE_AZ_LOG"
+if [[ "$*" == "vm deallocate"* ]]; then
+  [[ "${FAKE_DEALLOCATE_FAILS:-}" == "true" ]] && exit 1
+  [[ "${FAKE_DEALLOCATE_NOOP:-}" == "true" ]] || printf 'VM deallocated' >"$FAKE_VM_POWER"
+  exit 0
+fi
+if [[ "$*" == "vm show"* ]]; then
+  if [[ -s "$FAKE_VM_ROWS" ]]; then
+    row="$(head -n 1 "$FAKE_VM_ROWS")"
+    tail -n +2 "$FAKE_VM_ROWS" >"$FAKE_VM_ROWS.next" && mv "$FAKE_VM_ROWS.next" "$FAKE_VM_ROWS"
+    [[ "$row" == "fail" ]] && exit 1
+    printf '%s\\n' "$row"
+    exit 0
+  fi
+  cat "$FAKE_VM_POWER"
+  printf '\\n'
+  exit 0
+fi
+exit 2
+"""
+
+
+def _run_vm_restore(
+    tmp_path: Path,
+    rows: list[str],
+    *,
+    marker: bool = True,
+    deallocate_fails: bool = False,
+    deallocate_noop: bool = False,
+) -> tuple[subprocess.CompletedProcess[str], list[str]]:
+    workflow = WORKFLOW.read_text(encoding="utf-8")
+    step = _step(workflow, "Restore stress VM power state")
+    script = "\n".join(
+        line.removeprefix("          ") for line in step.split("run: |\n", 1)[1].splitlines()
+    )
+    bin_dir = tmp_path / "bin"
+    bin_dir.mkdir()
+    (bin_dir / "az").write_text(FAKE_VM_RESTORE_AZ, encoding="utf-8")
+    (bin_dir / "sleep").write_text("#!/usr/bin/env bash\nexit 0\n", encoding="utf-8")
+    for tool in ("az", "sleep"):
+        (bin_dir / tool).chmod(0o755)
+    (tmp_path / "rows").write_text("".join(row + "\n" for row in rows), encoding="utf-8")
+    (tmp_path / "power").write_text("VM running", encoding="utf-8")
+    if marker:
+        (tmp_path / "sre-demo-lab-vm-started-by-run").write_text("", encoding="utf-8")
+    (tmp_path / "az.log").write_text("", encoding="utf-8")
+    environment = {
+        "PATH": f"{bin_dir}:{os.environ.get('PATH', '')}",
+        "RUNNER_TEMP": str(tmp_path),
+        "SCENARIO_LAB_RESOURCE_GROUP_NAME": RG,
+        "TF_VAR_region_short": "krc",
+        "FAKE_AZ_LOG": str(tmp_path / "az.log"),
+        "FAKE_VM_ROWS": str(tmp_path / "rows"),
+        "FAKE_VM_POWER": str(tmp_path / "power"),
+        "FAKE_DEALLOCATE_FAILS": "true" if deallocate_fails else "false",
+        "FAKE_DEALLOCATE_NOOP": "true" if deallocate_noop else "false",
+    }
+    result = subprocess.run(  # noqa: S603 - resolved Bash and an extracted repository step.
+        [str(BASH), "-c", script],
+        capture_output=True,
+        check=False,
+        env=environment,
+        text=True,
+        timeout=60,
+    )
+    return result, (tmp_path / "az.log").read_text(encoding="utf-8").splitlines()
+
+
+@pytest.mark.parametrize(
+    ("rows", "deallocations"),
+    [
+        (["VM deallocated"], 0),
+        (["VM running"], 1),
+        (["VM stopped"], 1),
+        (["VM starting", "fail", "VM running"], 1),
+    ],
+)
+def test_vm_restore_settles_then_deallocates_only_what_this_run_started(
+    tmp_path: Path, rows: list[str], deallocations: int
+) -> None:
+    result, log = _run_vm_restore(tmp_path, rows)
+
+    assert result.returncode == 0, result.stderr
+    assert sum(line.startswith("vm deallocate") for line in log) == deallocations
+    assert all("--name vm-fdai-sre-lab-krc-stress" in line for line in log)
+    if deallocations:
+        assert log.index(next(line for line in log if line.startswith("vm deallocate"))) == len(
+            rows
+        )
+
+
+def test_vm_restore_does_nothing_without_the_marker(tmp_path: Path) -> None:
+    result, log = _run_vm_restore(tmp_path, ["VM running"], marker=False)
+
+    assert result.returncode == 0
+    assert log == []
+
+
+def test_vm_restore_fails_when_the_vm_does_not_deallocate(tmp_path: Path) -> None:
+    result, log = _run_vm_restore(tmp_path, ["VM running"], deallocate_fails=True)
+
+    assert result.returncode != 0
+    assert sum(line.startswith("vm deallocate") for line in log) == 1
+    assert not any("aks" in line for line in log)
+
+
+def test_vm_restore_verifies_the_deallocated_state(tmp_path: Path) -> None:
+    result, log = _run_vm_restore(tmp_path, ["VM running"], deallocate_noop=True)
+
+    assert result.returncode == 1
+    assert result.stderr == "stress VM power-state rollback did not reach deallocated.\n"
+    assert sum(line.startswith("vm deallocate") for line in log) == 1
+
+
+def test_aks_and_vm_restores_are_independent_always_steps() -> None:
+    workflow = WORKFLOW.read_text(encoding="utf-8")
+    aks = _step(workflow, "Restore AKS power state")
+    vm = _step(workflow, "Restore stress VM power state")
+    condition = (
+        "        if: >-\n"
+        "          always() &&\n"
+        "          steps.protected-source.outcome == 'success' &&\n"
+        "          (inputs.action == 'apply' || inputs.action == 'recreate-aks')\n"
+    )
+
+    assert condition in aks
+    assert condition in vm
+    assert workflow.index("      - name: Restore AKS power state\n") < workflow.index(
+        "      - name: Restore stress VM power state\n"
+    )
+    assert "sre-demo-lab-vm-started-by-run" not in aks
+    assert "sre-demo-lab-aks-started-by-run" not in vm
+    assert "az aks" not in vm
+    assert "az vm" not in aks
+    clean = _step(workflow, "Clean runner artifacts")
+    assert '"$RUNNER_TEMP/sre-demo-lab-vm-started-by-run"; do' in clean
 
 
 STATE_INSTANCES_FILTER = LAB_SCRIPTS / "state-instances.jq"
