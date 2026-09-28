@@ -9,6 +9,7 @@ from typing import Any
 from fdai_deployment_cli.contracts import load_json_object
 
 _IMAGE = re.compile(r"[^\s@]+@sha256:[0-9a-f]{64}")
+_CONFIG_DIGEST = re.compile(r"sha256:[0-9a-f]{64}")
 _REQUIRED = {"core-control-plane", "operator-service", "isolated-executor"}
 WORKLOAD_CONTRACT_KEYS = (
     "image",
@@ -163,11 +164,37 @@ def _items(raw: str, kind: str) -> list[dict[str, Any]]:
         raw.encode("utf-8"), label="AKS observation", max_bytes=16 * 1024 * 1024
     )
     items = result.get("items")
-    if result.get("kind") != kind or not isinstance(items, list) or len(items) > 4096:
+    if not isinstance(items, list) or len(items) > 4096:
         raise ValueError("AKS observation list is invalid")
     if not all(isinstance(item, dict) for item in items):
         raise ValueError("AKS observation item is invalid")
+    observed = result.get("kind")
+    # `kubectl get <resource> --output json` wraps results in a generic `v1.List`
+    # and moves the concrete type onto each item, while `kubectl get --raw` returns
+    # the typed collection. Accept the generic envelope only when every item
+    # declares the expected singular kind, so the type check is never weakened.
+    singular = kind.removesuffix("List")
+    if observed != kind and not (
+        observed == "List" and all(item.get("kind") == singular for item in items)
+    ):
+        raise ValueError("AKS observation list is invalid")
     return items
+
+
+def _running_image_matches(container: dict[str, Any], image: str) -> bool:
+    """Prove the running container resolves to the exact expected image digest.
+
+    ``imageID`` carries the authoritative pulled reference. The sibling ``image``
+    field is runtime dependent: containerd reports the local config digest rather
+    than the deployed reference, so a bare ``sha256:`` value is accepted there.
+    """
+    image_id = container.get("imageID")
+    if not isinstance(image_id, str) or not image_id.endswith("@" + image.split("@", 1)[1]):
+        return False
+    observed = container.get("image")
+    if not isinstance(observed, str) or not observed:
+        return False
+    return observed == image or _CONFIG_DIGEST.fullmatch(observed) is not None
 
 
 def _healthy_pod(pod: dict[str, Any], name: str, image: str, source_commit: str) -> bool:
@@ -188,10 +215,6 @@ def _healthy_pod(pod: dict[str, Any], name: str, image: str, source_commit: str)
     if len(runtime) != 1 or not all(container.get("ready") is True for container in containers):
         return False
     container = runtime[0]
-    image_id = container.get("imageID", "")
-    return (
-        container.get("image") == image
-        and isinstance(image_id, str)
-        and image_id.endswith("@" + image.split("@", 1)[1])
-        and isinstance(container.get("state", {}).get("running"), dict)
+    return _running_image_matches(container, image) and isinstance(
+        container.get("state", {}).get("running"), dict
     )
