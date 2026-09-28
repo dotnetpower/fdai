@@ -498,6 +498,17 @@ def _normalize_container_environment(container: dict[str, Any]) -> None:
             interpolated = True
         if value in (None, ""):
             item.pop("value", None)
+        for source in (
+            item.get("value_from", []) if isinstance(item.get("value_from"), list) else []
+        ):
+            if not isinstance(source, dict):
+                continue
+            for refs in source.values():
+                if not isinstance(refs, list):
+                    continue
+                for ref in refs:
+                    if isinstance(ref, dict) and not ref.get("optional"):
+                        ref.pop("optional", None)
         normalized.append(item)
     if interpolated:
         container["env"] = normalized
