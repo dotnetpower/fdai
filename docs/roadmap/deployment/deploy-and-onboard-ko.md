@@ -1,7 +1,7 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: f11ffcb201a4d24b985190d7d73a1f1f307368f0
+translation_source_sha: 1773af0de4298739c56ab2f898ab8e9fefbdb710
 translation_revised: 2026-09-28
 ---
 # 배포와 온보딩(Deploy and Onboard)
@@ -597,31 +597,9 @@ migration은 URL로 인코딩된 자격 증명을 안전하게 보존하고 격�
 
 ## 비용 효율 원칙
 
-모든 프로비저닝 선택은 이 원칙을 존중; 위반 리소스는 배포 PR에 명시적 정당화 필요. 이 원칙에서
-나오는 **예시 월간 비용 묶음**은 [cost-model-ko.md](../interfaces/cost-model-ko.md)에 있음.
-
-1. **이벤트 기반 우선** - 예약 Container Apps 작업은 실행 사이에 scale-to-zero됩니다. 코어는
-  자격 증명 없는 Event Hubs Kafka-lag scaler가 검증되지 않았으므로 현재 복제본 하나를
-  유지합니다. 이 하한을 바꾸려면 측정되고 검증된 scaler가 필요합니다.
-2. **하루 첫날 한 리전, 한 존, non-HA** - 멀티 존과 멀티 리전은 단계 4 (TBD). 초기 배포는
-   단일 지리적 footprint.
-3. **관리 서비스 축소** - PostgreSQL 내부 pgvector가 vector 저장소; App Insights가 공유 로그
-   Analytics workspace에 바인딩; 별도 vector DB 또는 APM 리소스 프로비저닝 없음.
-4. **기본으로 Basic / Standard 티어** - Premium 티어는 명시된 측정 필요. HA 변형, geo-
-   replication, private-endpoint premium 기능은 연기.
-5. **사용 사례를 커버하는 곳에서 Free 티어** - Static Web Apps (콘솔), Azure Bot (HIL
-   Adaptive Cards), 워크로드 신원 federation (CI/CD) 모두 Free 티어.
-6. **단계적 5개 서비스 목표** - 실행기 근거를 구축하는 동안 Core는 modular 상태를
-  유지합니다. 완료 토폴로지는 둘을 분리하며 다른 패키지는 자체 게이트 없이는 프로세스 내입니다.
-7. **모델 예산 상한** - T2 추론은 이벤트의 ~5-10%에 도달하도록 설계; 토큰/spend 예산은 강제
-   되고 초과분은 uncapped inference가 아니라 HIL로 강등.
-8. **카탈로그는 git-hosted, 서비스가 아님** - 룰 카탈로그는 관리 저장소가 아니라 git 저장소에
-   있으므로 카탈로그 저장에 추가 Azure 리소스 불필요.
-9. **공개 인바운드 엔드포인트 없음** - 첫날에 애플리케이션 게이트웨이 / Front Door / API
-   관리 없음; 유입은 이벤트 버스, egress는 allow-list.
-10. **연기된 DR 리소스** - secondary-region 리소스는 초기에 **프로비저닝되지 않음** ;
-    컨트롤 플레인 DR은 IaC + 상태 백업을 통해 계획됨
-    ([deployment-ko.md](deployment-ko.md#control-plane-disaster-recovery)).
+프로비저닝 비용 원칙은 이 원칙에서 나오는 예시 월간 비용 묶음과 함께
+[비용 모델](../interfaces/cost-model-ko.md#비용-효율-원칙)이 소유합니다. 이 제목은 기존 링크의 안정적인
+대상으로 남아 있습니다.
 
 ## 열림 Decisions
 
