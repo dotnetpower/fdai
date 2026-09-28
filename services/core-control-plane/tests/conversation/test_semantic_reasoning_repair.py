@@ -7,6 +7,7 @@ import json
 from typing import Any
 
 import httpx
+import pytest
 from fdai.core.conversation.semantic_reasoning_proposal import resolve_question_form
 from fdai.core.conversation.semantic_reasoning_repair import FormRepair, repair_keeps_operands
 
@@ -298,3 +299,21 @@ async def test_a_repair_that_drops_a_normalized_pending_signal_is_rejected() -> 
 
     assert observation.passes[0].repair == "operand_dropped"
     assert observation.passes[0].disposition == "invalid"
+
+
+@pytest.mark.parametrize("value", (0, 0.0, "false", [], {}))
+def test_an_unparsed_proposal_keeps_even_a_falsy_stated_pending_value(value: object) -> None:
+    unparsed = _undeclared_filter()
+    unparsed["remaining_goals"] = value
+    kept = _resolved(_quoted_form(remaining_goals=True))
+
+    assert not repair_keeps_operands(unparsed, _resolved(_quoted_form()), utterance=_UTTERANCE)
+    assert repair_keeps_operands(unparsed, kept, utterance=_UTTERANCE)
+
+
+@pytest.mark.parametrize("value", (False, None))
+def test_an_unparsed_explicit_false_or_null_is_not_pending(value: object) -> None:
+    unparsed = _undeclared_filter()
+    unparsed["remaining_goals"] = value
+
+    assert repair_keeps_operands(unparsed, _resolved(_quoted_form()), utterance=_UTTERANCE)

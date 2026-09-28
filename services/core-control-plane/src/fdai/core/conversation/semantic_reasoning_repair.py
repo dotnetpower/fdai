@@ -229,9 +229,12 @@ def _caution(
         if isinstance(alternatives, list)
         else frozenset()
     )
+    # Identity, not equality: a numeric zero is a stated value, not the schema's false.
+    remaining = previous.get("remaining_goals")
     return _Caution(
-        pending=previous.get("remaining_goals", False) not in (False, None),
-        contested=alternatives not in (None, [], ()),
+        pending=remaining is not None and remaining is not False,
+        contested=alternatives is not None
+        and not (isinstance(alternatives, list) and not alternatives),
         contested_goals=contested_goals,
     )
 
