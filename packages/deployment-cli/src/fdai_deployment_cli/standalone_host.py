@@ -2652,7 +2652,7 @@ def _import_images(_args: argparse.Namespace, work_dir: Path) -> dict[str, objec
                 (
                     "oras",
                     "cp",
-                    "--registry-config",
+                    "--to-registry-config",
                     str(registry_config),
                     "--from-oci-layout",
                     f"{layout}@{digest}",
@@ -2825,7 +2825,7 @@ def _import_source_service_image(args: argparse.Namespace, work_dir: Path) -> di
                 (
                     "oras",
                     "cp",
-                    "--registry-config",
+                    "--to-registry-config",
                     str(registry_config),
                     "--from-oci-layout",
                     f"{layout}@{image_digest}",

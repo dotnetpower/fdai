@@ -3513,3 +3513,10 @@ def test_host_checkpoints_create_owner_only_state(monkeypatch: pytest.MonkeyPatc
         standalone_host.main(["--help"])
 
     assert masks == [0o077]
+
+
+def test_oras_copy_uses_the_destination_registry_config() -> None:
+    source = Path(standalone_host.__file__).read_text(encoding="utf-8")
+
+    assert '"cp",\n                    "--registry-config"' not in source
+    assert source.count('"cp",\n                    "--to-registry-config"') == 2
