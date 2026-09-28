@@ -151,6 +151,11 @@ def uncovered_constraints(
     """Return each extracted constraint the admitted forms do not state."""
 
     semantic, mentions = _semantic_spans(forms)
+    # A particle attached after a mention in the same word, such as the case ending of a
+    # Korean name, belongs to that mention; only whitespace delimits the word.
+    semantic.extend(
+        suffix for span in mentions if (suffix := _attached(span, utterance)) is not None
+    )
     # A hypothetical premise, such as if it fails, is what an impact goal states.
     supposing = any(
         goal.effective_operation is GoalOperation.IMPACT for form in forms for goal in form.goals
@@ -202,6 +207,15 @@ def _semantic_spans(
             if goal.measure is not None and goal.measure.cue is not None:
                 semantic.append(goal.measure.cue)
     return semantic, mentions
+
+
+def _attached(span: SourceSpan, utterance: str) -> SourceSpan | None:
+    """Return the rest of the whitespace-delimited word that a mention ends inside."""
+
+    end = span.end
+    while end < len(utterance) and not utterance[end].isspace():
+        end += 1
+    return SourceSpan(start=span.end, end=end) if end > span.end else None
 
 
 def _stated(

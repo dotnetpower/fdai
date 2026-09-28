@@ -633,7 +633,7 @@ profiles:
     mode: active
     root: {id: semantic-constraint-extraction, version: 1, layer: base}
     packs: []
-    system_token_budget: 2048
+    system_token_budget: 3072
     request_token_budget: 32768
     reserved_output_tokens: 1024
     promotion_evidence: [docs/roadmap/interfaces/ontology-reasoning-compiler.md]

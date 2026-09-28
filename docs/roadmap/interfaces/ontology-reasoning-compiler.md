@@ -131,7 +131,7 @@ constraint review, because accounting only makes the proposer consider every wor
 
 **Blind constraint review**: A second T1 call of another model family reads only the question, beside the judgment call, and extracts every constraint
 with a closed role. Core compares the two outputs structurally: every letter and digit of each extracted constraint must lie in a span that states
-meaning, never only in a goal cue or context, and a named thing must overlap a mention. Roles beyond that stay advisory, because two readers may
+meaning, never only in a goal cue or context, and a named thing must overlap a mention, whose whitespace-delimited word carries an attached particle. Roles beyond that stay advisory, because two readers may
 fairly disagree on whether a word restricts or relates, except that a hypothetical premise is stated only by an impact goal. An uncovered constraint
 gets one review repair that may only add information, checked against the same extraction. A missing, empty, unlocated, or uncovered extraction
 releases nothing.

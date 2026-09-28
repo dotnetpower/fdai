@@ -370,3 +370,47 @@ def test_a_hypothetical_premise_is_stated_only_by_an_impact_goal() -> None:
     assert review_forms((_typed(listing, utterance),), extraction, utterance=utterance).reasons == (
         "review_uncovered:supposes:17-33",
     )
+
+
+def test_a_particle_attached_to_a_mention_belongs_to_that_mention() -> None:
+    utterance = "vm-app-01을 포함하는 리소스 그룹은?"
+    form = {
+        "mentions": [
+            {"id": "m1", "form": "name", "domain": "instance", "span": _quote("vm-app-01")},
+            {
+                "id": "m2",
+                "form": "concept",
+                "domain": "resource_type",
+                "span": _quote("리소스 그룹"),
+            },
+        ],
+        "goals": [
+            {
+                "id": "g1",
+                "level": "instance",
+                "operation": "select",
+                "subject": "m2",
+                "subject_scope": "collection",
+                "relation": {
+                    "sense": "containment",
+                    "anchor": "m1",
+                    "anchor_role": "member",
+                    "result_role": "container",
+                    "cue": _quote("포함하는"),
+                },
+                "cue": _quote("은?"),
+                "confidence": 0.9,
+            }
+        ],
+    }
+    typed = _typed(form, utterance)
+    uncued = json.loads(json.dumps(form))
+    uncued["goals"][0]["relation"]["cue"] = _quote("은?")
+    attached = {"constraints": [_constraint("vm-app-01을 포함하는", "relates")]}
+
+    # The case ending after vm-app-01 is part of that word, so the relation cue covers the rest.
+    assert review_forms((typed,), attached, utterance=utterance).faithful
+    # A word no span states stays uncovered even beside an attached particle.
+    assert review_forms((_typed(uncued, utterance),), attached, utterance=utterance).reasons == (
+        "review_uncovered:relates:0-15",
+    )
