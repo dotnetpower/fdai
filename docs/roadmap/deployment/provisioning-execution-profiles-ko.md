@@ -1,8 +1,8 @@
 ---
 title: Provisioning 실행 Profile
 translation_of: provisioning-execution-profiles.md
-translation_source_sha: 01b949368c2b26944c67f79530f2211868b9528e
-translation_revised: 2026-09-27
+translation_source_sha: eebf88552e2a8a99f0911196c4eb6c177579e84d
+translation_revised: 2026-09-28
 ---
 # 프로비저닝 실행 프로파일
 
@@ -114,7 +114,7 @@ Parser handler, 출력 계약, 정확한 승인 요건 및 변경 권한은 바�
   정확한 계획 승인, 대상 범위 무변경 결과, 독립 ARM 재조회를 포함합니다. 근거:
   [#1538](https://github.com/dotnetpower/fdai/issues/1538)의 2026-09-27 증적입니다.
 - [ ] 범위 지정 Terraform의 계획, 시작 기록, 완료 기록을 보호된 계획 저장소에 복제하여 호스트를 교체해도
-  복구 근거를 잃지 않게 합니다.
+  복구 근거를 잃지 않게 합니다([#1550](https://github.com/dotnetpower/fdai/issues/1550)).
 - [ ] 사설 접근을 미리 설정하지 않은 일반 PC에서 기본 배포를 검증하고, 설치 식별자·기존 상태·Trial 시작 시점을 보존한 채 상세 프로비저닝을 진행하며, 선택 기능의 미설정 상태와 기본 서비스 상태를 구분합니다.
 - [ ] API Server VNet Integration과 워크로드 및 API 서버 전용 서브넷을 포함한 AKS 기본 프로파일을 만들고, 배포를 시작한 조정기에서 인증되고 제한된 공개 관리 접근을 검증합니다.
 - [ ] 피어링, 비공개 엔드포인트, DNS, 비공개 클러스터 모드에 대해 `/provisioning` 네트워크 의도, 평가, 정확한 계획 요청, 승인, 적용, rollback 및 독립 재확인 상태를 구현합니다.

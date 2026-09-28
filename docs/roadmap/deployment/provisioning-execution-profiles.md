@@ -111,7 +111,7 @@ remain unchanged.
   exact plan approval, targeted zero-change result, and independent ARM readback. Evidence: the 2026-09-27
   receipt on [#1538](https://github.com/dotnetpower/fdai/issues/1538).
 - [ ] Mirror scoped Terraform plan, claim, and receipt records into the protected plan store so replacing the host
-  cannot lose recovery evidence.
+  cannot lose recovery evidence ([#1550](https://github.com/dotnetpower/fdai/issues/1550)).
 - [ ] Demonstrate ordinary-PC basic deployment without preconfigured private access, with later detailed provisioning that preserves installation identity, existing state and Trial start time; keep optional missing capabilities separate from baseline health.
 - [ ] Create the AKS basic profile with API Server VNet Integration and dedicated workload and API-server subnets, then prove authenticated restricted public management access from the initiating coordinator.
 - [ ] Implement `/provisioning` network intent, assessment, exact-plan request, approval, apply, rollback and independent readback for peering, private endpoints, DNS and private-cluster mode.
