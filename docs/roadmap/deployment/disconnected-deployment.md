@@ -40,6 +40,7 @@ fully disconnected install.
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-28 | implemented | The signed deployment bundle now includes `config/agent-stewardship.yaml` and `config/architecture-review.yaml`. Without them, the live contributor run applied every service migration and then failed catalog materialization on the managed host. | `current change`; a bundle-shaped tree produces all 17 catalog snapshots; bundle tests pass | Retain the live contributor receipt through #1008. |
 | 2026-09-28 | in-progress | Recorded the single-VM no-internet execution residual from constitution Article 1. The signed offline package already installs through `fdaictl provision azure --offline-kit`, but Foundation still creates a separate managed host that bootstraps its toolchain online, and the operator VM needs the Azure CLI. | #461 rescoped; code inspection of `genesis_prepare_inputs.py` bootstrap modes | Make the no-internet VM the execution host and ship the Azure CLI in the package. |
 | 2026-09-28 | implemented | Added the signed deployment-control package: a control-only repair reuses the verified kit runtime payload and replaces only the managed-host CLI after signature, file-set, digest, and remote-digest checks. | `current change`; `packages/deployment-cli/tests/test_control_package.py` (8 passed); 1957 deployment CLI tests | Live use is tracked by #461. |
 | 2026-09-27 | validated | Replaced the complete offline kit as the Python installation package with a 6.9 MB signed wheelhouse. Complete runtime payload, trust-root, SBOM, provenance, appliance, and Azure receipt requirements no longer gate package completion. | `current change`; policy v3, focused builder/checker tests, OpenSSL/checksum verification, and pip cold install. | Validate deployment behavior separately when a deployment is selected. |
@@ -288,7 +289,9 @@ The release scripts are intended to stage the kit on a connected host with
 `scripts/deployment/release/stage-offline-kit.sh`, which collects the `fdai-deployment-cli` wheel and every
 transitive wheel, the signed deployment bundle, the pinned Terraform binary and provider mirror,
 the policy engine binary, and the software bill of materials, then signs the result with
-`scripts/deployment/release/build-offline-kit.py`. The manifest is minted from the staged tree, so
+`scripts/deployment/release/build-offline-kit.py`. The signed bundle also carries the reviewed
+`config/agent-stewardship.yaml` and `config/architecture-review.yaml` that catalog materialization reads during migration.
+The manifest is minted from the staged tree, so
 it cannot attest to content the verifier would reject, and the release private key never enters the
 kit.
 
