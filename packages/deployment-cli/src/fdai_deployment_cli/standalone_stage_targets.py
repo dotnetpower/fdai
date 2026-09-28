@@ -104,7 +104,7 @@ def stage_targets(stage: str, context: dict[str, object]) -> tuple[str, ...]:
 
 
 def moved_state_targets(infra: Path) -> tuple[str, ...]:
-    """Return `moved` destinations whose source address is still in Terraform state.
+    """Return `moved` source and destination addresses whose source is still in Terraform state.
 
     Terraform rejects a targeted plan that leaves such instances out, so every targeted stage
     must include them. Without readable state, no destination is added and Terraform fails closed.
@@ -131,12 +131,13 @@ def moved_state_targets(infra: Path) -> tuple[str, ...]:
     return tuple(
         sorted(
             {
-                destination
+                address
                 for source, destination in blocks
                 if any(
-                    address == source or address.startswith((f"{source}.", f"{source}["))
-                    for address in state
+                    item == source or item.startswith((f"{source}.", f"{source}["))
+                    for item in state
                 )
+                for address in (source, destination)
             }
         )
     )

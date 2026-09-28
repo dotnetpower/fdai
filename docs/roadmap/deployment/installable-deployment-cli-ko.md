@@ -1,7 +1,7 @@
 ---
 title: 설치형 배포 CLI
 translation_of: installable-deployment-cli.md
-translation_source_sha: 08720bf56e7444ce0dd77b9e65ca980189be626c
+translation_source_sha: 08b6ecdf552b77529be0c8e17bf48495907902a7
 translation_revised: 2026-09-28
 ---
 
@@ -547,7 +547,7 @@ Git 상태가 깨끗하다는 사실만으로 소스 신원을 입증하지 않�
 6. 상태 인계와 Managed Host 이미지를 검증합니다.
 7. 선택한 호스트에서 동일한 검증 산출물 폐쇄 집합을 사용할 수 있게 하며 원격 호스트에만 전달합니다.
 8. Managed Identity로 substrate 및 애플리케이션 계획을 실행하고 적용합니다.
-   대상 지정 단계에는 소스가 아직 상태에 남아 있는 각 `moved` 대상도 포함합니다.
+   대상 지정 단계에는 소스가 상태에 남아 있는 각 `moved`의 소스와 대상도 포함합니다.
 9. Terraform이 선택한 레지스트리와 Core 애플리케이션 이름을 읽어 substrate 재조회와 기능
   신원에 사용하며 Python에서 Azure 리소스 이름을 다시 계산하지 않습니다.
 10. 모든 런타임 이미지 digest를 가져오고 재확인합니다.
