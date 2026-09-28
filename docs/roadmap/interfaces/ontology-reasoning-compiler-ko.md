@@ -1,6 +1,6 @@
 ---
 translation_of: ontology-reasoning-compiler.md
-translation_source_sha: 7a23a84748c8156b57c0fa03b40aef8c926cdc6e
+translation_source_sha: 18cd3cb784e90a810e48f2409cdb6949665a89a2
 translation_revised: 2026-09-28
 ---
 # 온톨로지 추론 컴파일러
@@ -10,8 +10,9 @@ translation_revised: 2026-09-28
 이해하고, 개념을 전체 카탈로그에서 고르고, 답변 문장을 씁니다. 코드는 그 의미를 검증하고, 앵커를
 바인딩하고, 검토된 경로를 고르고, 보여 주는 모든 주장을 검증합니다.
 
-> **상태:** 2026-09-28에 승인된 설계입니다. Owner가 같은 날 아래 여덟 가지 결정을 승인했습니다. 이
-> 문서의 어떤 부분도 아직 구현되지 않았습니다. 현재 런타임은 [계층형 대화 계획](hierarchical-conversation-planning-ko.md)과
+> **상태:** 2026-09-28에 승인된 설계입니다. 계약, 수용, 개념 선택, 컴파일러, 검증기, shadow 실행기는
+> 구현되었지만 운영 턴에는 연결되지 않았습니다. 구현 범위와 편차는
+> [원장](../../roadmap-implementation/interfaces/ontology-reasoning-compiler.md)에 기록합니다. 현재 런타임은 [계층형 대화 계획](hierarchical-conversation-planning-ko.md)과
 > [온톨로지 조회 커버리지 구현 계획](ontology-query-coverage-implementation-plan-ko.md)에 설명되어 있습니다.
 > 커버리지 목표와 측정된 한도는 [온톨로지 추론 커버리지](ontology-reasoning-coverage-ko.md)가 담당합니다.
 >
@@ -73,9 +74,9 @@ translation_revised: 2026-09-28
 ## 질문 논리 형식
 
 `SemanticQuestionForm` 버전 `1.0.0`은 `SemanticJudgmentProposal` 스키마 `1.3.0`의 추가 필드
-`question_form`으로 전달됩니다. 모든 필드는 닫힌 열거형, 범위가 제한된 정수, 언급 참조, 현재 발화의
-정확한 원문 구간 중 하나입니다. 모델은 FunctionType, LinkType, ObjectType 피연산자, 객체 식별자,
-인스턴스 정규 값을 절대 제공하지 않습니다.
+`question_form`으로 전달됩니다. 모든 필드는 닫힌 열거형, 범위가 제한된 정수, 언급 참조, 또는 인용한
+구절과 그 출현 순번 중 하나이며, Core가 인용을 정확한 원문 구간에 결속합니다. 모델은 FunctionType,
+LinkType, ObjectType 피연산자, 인스턴스 값을 절대 제공하지 않습니다.
 
 | 필드 | 닫힌 값 |
 |------|---------|
@@ -86,9 +87,10 @@ translation_revised: 2026-09-28
 | `goals[].operation` | `select`, `count`, `lookup`, `traverse`, `path`, `aggregate`, `rank`, `history`, `compare_windows`, `compare_entities`, `diff_versions`, `impact`, `explain_cause`, `verify_evidence`, `describe_schema`, `diagnose`, `draft_action` |
 | `goals[].subject_scope` | `anchor`, `collection`, `prior_result`, `goal_output` |
 | `filters[].role` | `type`, `state`, `health`, `region`, `name_fragment`, `scope` |
-| `relation.sense` | `containment`, `attachment`, `dependency`, `connectivity`, `traffic`, `classification`, `composition`, `ownership`, `evidence` |
+| `relation.sense` | `containment`, `attachment`, `dependency`, `connectivity`, `traffic`, `classification`, `composition`, `ownership`, `authorization`, `evidence` |
 | `relation.scope` | `one_sense`, `all_kinds` |
-| `relation.subject_position` | `source`, `target`, `either` |
+| `relation.anchor` | 관계가 시작되는 언급이며, 목표 주체가 앵커이면 생략 |
+| `relation.anchor_role`, `relation.result_role` | 관계 의미의 양 끝, 예를 들어 `container`와 `member`, `dependent`와 `dependency`이며, 방향이 없으면 둘 다 `either` |
 | `relation.reach` | `one_hop`, `transitive` |
 | `measure.kind` | `count`, `state`, `health`, `metric`, `change`, `event`, `forecast`, `cost` |
 | `measure.group_by` | `endpoint`, `type`, `container`, `none` |
@@ -104,15 +106,15 @@ translation_revised: 2026-09-28
 
 ```yaml
 question_form:
-  mentions: [{id: m1, form: name, domain: instance, span: [26, 37]}]
+  mentions: [{id: m1, form: name, domain: instance, span: {text: aks-prod-01, occurrence: 1}}]
   goals:
     - {id: g1, level: instance, operation: traverse, subject: m1, subject_scope: anchor,
-       relation: {sense: dependency, scope: one_sense, subject_position: target, reach: one_hop, cue: [16, 25]},
-       time: {kind: current}, want: fact, confidence: 0.93}
+       relation: {sense: dependency, anchor_role: dependency, result_role: dependent,
+                  cue: {text: depend on, occurrence: 1}}, confidence: 0.93}
 ```
 
-모델은 `aks-prod-01`이 의존 관계의 대상이라고만 말합니다. Core는 앵커를 바인딩하고, 검토된
-`dependency` 특성으로 `depends_on`을 고르고, 대상 위치를 `incoming` 방향으로 옮깁니다.
+모델은 `aks-prod-01`이 의존 대상이고 결과가 그것에 의존하는 리소스라고만 말합니다. Core는 앵커를
+바인딩하고, `dependency` 특성으로 `depends_on`을 고르고, `incoming` 방향을 읽습니다.
 
 ## 수용
 
@@ -130,11 +132,12 @@ Bragi는 모든 구간이 현재 발화나 타입이 지정된 맥락 참조와 
 
 ### 개념 선택
 
-모델은 각 `concept` 또는 `value` 언급을 선언된 영역 안에서 근거화합니다. Core는 그 영역의 전체 후보
-카탈로그를 검토된 영어와 한국어 이름, 설명과 함께 근거화 예산에 맞는 만큼의 조각으로 나누어
-제시하고, 모델은 모든 조각을 평가합니다. Core는 제시된 조각에 들어 있고 영역과 수준에 맞는 정규
-식별자만 받아들이며, 조각 증적은 모든 후보가 정확히 한 번 제시되었음을 증명합니다. 이름은 모델이
-보는 맥락일 뿐 조회 표가 아닙니다. FunctionType과 ActionType은 수용된 연산과 계약에서 따라 나옵니다.
+모델은 지시어가 아닌 각 언급을 선언된 영역 안에서 근거화합니다. Core는 전체 후보 카탈로그를 검토된
+이름과 함께 예산에 맞는 만큼의 조각으로 나누어 제시하고, 모델은 모든 조각을 평가하며, 증적은 모든
+후보가 정확히 한 번 제시되었음을 증명합니다. Core는 그 후보를 제시한 조각에서 나온 식별자만
+받아들입니다. 조각마다 다른 최종 후보는 결선 호출 한 번에서 함께 비교합니다. 이름은 모델이 보는
+맥락일 뿐 조회 표가 아니며, 명시적인 루트 후보가 리소스 전체를 뜻합니다. FunctionType과 ActionType은
+연산에서 따라 나옵니다.
 
 - **클래스 폐포**: `resource_class` 언급은 `query.resource_class_closure`를 거쳐 정확한
   `Resource.type` 집합으로 컴파일되고 폐포 증적을 고정합니다.
@@ -165,14 +168,15 @@ Bragi는 모든 구간이 현재 발화나 타입이 지정된 맥락 참조와 
 
 모델은 인스턴스를 리소스 그룹이나 클러스터로 분류하지 않으며, 바인딩된 타입이 그 추측을
 대신합니다. `qualifier`가 있는 언급은 한정자를 먼저 바인딩한 뒤 그 한정자의 포함 범위나 타입 범위
-안에서만 찾으므로, 기본 서브넷처럼 공유되는 이름도 정확하게 유지됩니다. 재현은 보존된 스냅샷으로
-같은 증적을 해석하거나, 바인딩을 재현할 수 없다고 보고합니다.
+안에서만 찾으므로, 기본 서브넷처럼 공유되는 이름도 정확하게 유지됩니다. 재현은 같은 증적을
+해석하거나, 바인딩을 재현할 수 없다고 보고합니다.
 
 ### 관계 컴파일
 
-관계 의미는 검토된 `semantic_traits`와 바인딩된 앵커 ObjectType으로 LinkType을 고릅니다.
-`subject_position`은 `forward_role`과 `reverse_role`을 거쳐 `outgoing` 또는 `incoming` 조회 방향으로
-옮겨지며, 저장된 방향은 절대 바꾸지 않습니다. `transitive` 도달은 전이적이고 자기 합성이 가능하다고
+관계 의미는 검토된 `semantic_traits`와 바인딩된 앵커 ObjectType으로 LinkType을 고릅니다. 검토된
+의미별 역할 규약이 저장된 각 끝의 역할을 정합니다. 예를 들어 포함 링크의 `from` 끝은 container입니다.
+따라서 앵커 역할이 저장된 방향을 바꾸지 않고 `outgoing` 또는 `incoming`을 고릅니다. 밝힌 두 역할이
+그 의미의 양 끝이 아니면 명확화를 반환합니다. `transitive` 도달은 전이적이고 자기 합성이 가능하다고
 선언된 LinkType에만 허용되며 깊이는 최대 5입니다.
 
 | 의미 | 특성 | 현재 LinkType |
@@ -184,10 +188,9 @@ Bragi는 모든 구간이 현재 발화나 타입이 지정된 맥락 참조와 
 | `traffic` | traffic | `routes_to`, `runtime_calls` |
 | `classification` | classification | `resource_classified_as`, `resource_type_member_of_class` |
 | `evidence` | evidence | `kubernetes_backed_by`, `capacity_forecast_targets_resource`, `cost_observation_targets_resource` |
-| `composition` | 새로 검토할 특성 | `implemented_by`, `workload_runs_on` |
-| `ownership` | 새로 검토할 특성 | `owns`, `service_owned_by`, `workload_owned_by` |
+| `composition`, `ownership`, `authorization` | 검토할 특성 대기 | `implemented_by`, `workload_runs_on`, `owns`, `service_owned_by` |
 
-- **매핑되지 않은 링크**: 검토된 특성이 없는 LinkType은 제외하고 `link_sense_unmapped`로 셉니다.
+- **매핑되지 않은 링크**: 검토된 특성이 없는 LinkType은 제외하고 `link_sense_unmapped`로 이름을 밝힙니다.
 - **경로**: `path` 목표는 `BusinessService implemented_by Workload workload_runs_on Resource` 같은
   검토되고 버전이 지정된 경로 문법만 씁니다. 매니페스트 조회 방향에 대한 오프라인 탐색은 검토할
   문법을 제안할 수 있지만, 런타임이 스스로 최단 경로를 고르지는 않습니다. 적용 가능한 문법이 둘이면
@@ -220,7 +223,7 @@ Bragi는 모든 구간이 현재 발화나 타입이 지정된 맥락 참조와 
   맞춥니다.
 - **집계 식별**: 개수는 서로 다른 객체 식별자를 세고, 경로 사이의 중복을 없애고, 숨겨진 객체는 알리지
   않은 채 합계와 연결에서 빼며, 계보나 관계 커버리지가 불완전하면 불완전 상태를 유지합니다.
-- **시간**: 모델은 ISO 8601 기간이나 운영자 시간대의 달력 오프셋 같은 타입 시간 값을 원문 구간과
+- **시간**: 모델은 수량과 단위로 된 기간이나 운영자 시간대의 달력 오프셋 같은 타입 시간 값을 원문 구간과
   함께 제안합니다. 코드는 신뢰할 수 있는 UTC 시각을 계산하고, 유효 시간, 이벤트 시간, 기록 시간을
   구분하며, `unspecified`에는 버전이 고정된 기본값을 씁니다.
 - **계획 묶음**: 계획 하나의 노드 32개나 출력 8개를 넘는 목표는 턴 예산 하나 안의 순서가 있는 계획

@@ -115,6 +115,9 @@ from fdai.rule_catalog.schema.inventory_query_language import (
 from fdai.rule_catalog.schema.resource_type import load_resource_type_registry_from_mapping
 from fdai.shared.contracts.models import (
     CeilingRole,
+    LinkCardinality,
+    LinkSemanticTrait,
+    OntologyLinkType,
     OntologyObjectType,
     PropertyDecl,
     PropertyType,
@@ -260,7 +263,11 @@ def _service(
         model=model,
         manifests=_ManifestProvider(manifest),
         verifier=OntologyQueryPlanVerifier(
-            available_kinds=(QueryNodeKind.OBJECT_SET, QueryNodeKind.FUNCTION)
+            available_kinds=(
+                QueryNodeKind.OBJECT_SET,
+                QueryNodeKind.RELATIONSHIP_TRAVERSAL,
+                QueryNodeKind.FUNCTION,
+            )
         ),
         now=lambda: NOW,
         inventory_query_language=inventory_query_language,
@@ -1090,8 +1097,11 @@ def _typed_fixture(
         )
         if function is not None
     )
+    # Group membership reads reviewed containment, so a fixture with parent_id declares it.
+    link_types = (_CONTAINS_LINK,) if include_parent_id else ()
     release = build_ontology_release(
         object_types=(resource,),
+        link_types=link_types,
         function_types=function_types,
     )
     manifest = build_query_manifest(
@@ -1100,6 +1110,7 @@ def _typed_fixture(
         purposes=("operations-review",),
         principal_scope_digest=DIGEST,
         object_types=(resource,),
+        link_types=link_types,
         functions=function_types,
         bound_function_names=tuple(function.name for function in function_types),
         property_values=property_values
@@ -1128,6 +1139,18 @@ def _typed_fixture(
     return manifest, definition
 
 
+_CONTAINS_LINK = OntologyLinkType(
+    schema_version="1.0.0",
+    name="contains",
+    version="1.0.0",
+    from_type="Resource",
+    to_type="Resource",
+    cardinality=LinkCardinality.ONE_TO_MANY,
+    is_transitive=True,
+    forward_role="contains",
+    reverse_role="contained_by",
+    semantic_traits=(LinkSemanticTrait.CONTAINMENT,),
+)
 _RESOURCE_GROUP_GROUP = PropertyValueGroup(
     id="resource-group",
     values=("resource-group",),
@@ -1594,7 +1617,53 @@ def test_resource_group_target_with_collection_facets_filters_group_objects() ->
     assert model.plan_calls == 0
 
 
-def test_named_resource_group_membership_filters_parent_instead_of_group_type() -> None:
+def _assert_group_membership_plan(
+    model: _Model,
+    manifest: Any,
+    utterance: str,
+    *,
+    semantic_judgment: Any = None,
+) -> None:
+    """Members are the containment closure of the one exact group, never a parent substring."""
+
+    outcome = _service(model, manifest, semantic_judgment=semantic_judgment).plan(
+        utterance=utterance,
+        prior_turns=(),
+        principal=Principal(id="operator", role=Role.READER),
+        purpose="operations-review",
+    )
+    assert outcome.disposition is SemanticPlanningDisposition.PLANNED
+    assert outcome.plan is not None
+    anchor, members = outcome.plan.nodes
+    definition = anchor.arguments["definition"]
+    assert anchor.kind is QueryNodeKind.OBJECT_SET
+    assert definition["limit"] == 2
+    assert definition["predicates"][:2] == [
+        {"property": "name", "operator": "equals", "equals": "rg-example"},
+        {"property": "type", "operator": "equals", "equals": "resource-group"},
+    ]
+    assert not any(item["property"] == "parent_id" for item in definition["predicates"])
+    assert members.kind is QueryNodeKind.RELATIONSHIP_TRAVERSAL
+    assert members.depends_on == (anchor.node_id,)
+    assert {
+        key: members.arguments[key]
+        for key in ("link_types", "direction", "max_depth", "endpoint_predicates")
+    } == {
+        "link_types": ["contains"],
+        "direction": "outgoing",
+        "max_depth": 5,
+        "endpoint_predicates": [
+            {
+                "property": "type",
+                "operator": "not_equals",
+                "equals": "authorization.role-assignment",
+            }
+        ],
+    }
+    assert outcome.plan.output_node_ids == (members.node_id,)
+
+
+def test_named_resource_group_membership_reads_containment_from_the_exact_group() -> None:
     manifest, _definition = _typed_fixture(
         groups=(_RESOURCE_GROUP_GROUP,),
         extra_values=("authorization.role-assignment",),
@@ -1609,24 +1678,11 @@ def test_named_resource_group_membership_filters_parent_instead_of_group_type() 
         plan=None,
     )
 
-    predicates = _grounded_predicates(
+    _assert_group_membership_plan(
         model,
         manifest,
         "rg-example 리소스 그룹에 있는 리소스의 상세 정보를 알려줘",
     )
-
-    assert predicates == [
-        {
-            "property": "parent_id",
-            "operator": "contains",
-            "equals": "rg-example",
-        },
-        {
-            "property": "type",
-            "operator": "not_equals",
-            "equals": "authorization.role-assignment",
-        },
-    ]
     assert model.frame_calls == 1
     assert model.plan_calls == 0
 
@@ -1668,25 +1724,12 @@ def test_named_group_judgment_stabilizes_repeated_membership_frames(
         plan=None,
     )
 
-    predicates = _grounded_predicates(
+    _assert_group_membership_plan(
         model,
         manifest,
         utterance,
         semantic_judgment=_JudgmentBoundary(judgment),
     )
-
-    assert predicates == [
-        {
-            "property": "parent_id",
-            "operator": "contains",
-            "equals": "rg-example",
-        },
-        {
-            "property": "type",
-            "operator": "not_equals",
-            "equals": "authorization.role-assignment",
-        },
-    ]
     assert model.frame_calls == 0
     assert model.plan_calls == 0
 

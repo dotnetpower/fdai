@@ -8,8 +8,10 @@ question logical form and compiles it deterministically into a verified ontology
 model understands the question, grounds concepts in complete catalogs, and phrases the answer. Code
 validates that meaning, binds anchors, selects reviewed paths, and verifies every claim it shows.
 
-> **Status:** Approved design, 2026-09-28. The Owner approved the eight decisions below on that
-> date. Nothing in this document is implemented yet. The current runtime is described in
+> **Status:** Approved design, 2026-09-28. The contracts, admission, concept selection, compiler,
+> verifiers, and a shadow runner are implemented and unwired from the production turn; the
+> [ledger](../../roadmap-implementation/interfaces/ontology-reasoning-compiler.md) records scope and
+> deviations. The current runtime is described in
 > [Hierarchical Conversation Planning](hierarchical-conversation-planning.md) and
 > [Ontology Query Coverage Implementation Plan](ontology-query-coverage-implementation-plan.md).
 > Coverage targets and measured limits belong to [Ontology Reasoning Coverage](ontology-reasoning-coverage.md).
@@ -74,8 +76,8 @@ records the measured data and capacity limits.
 
 `SemanticQuestionForm` version `1.0.0` travels as the additive `question_form` field of
 `SemanticJudgmentProposal` schema `1.3.0`. Every field is a closed enum, a bounded integer, a
-mention reference, or an exact current-utterance span. The model never supplies a FunctionType, a
-LinkType, an ObjectType operand, an object identifier, or a canonical instance value.
+mention reference, or a quoted phrase with its occurrence number, which Core binds to an exact
+span. The model never supplies a FunctionType, LinkType, ObjectType operand, or instance value.
 
 | Field | Closed values |
 |-------|---------------|
@@ -86,9 +88,10 @@ LinkType, an ObjectType operand, an object identifier, or a canonical instance v
 | `goals[].operation` | `select`, `count`, `lookup`, `traverse`, `path`, `aggregate`, `rank`, `history`, `compare_windows`, `compare_entities`, `diff_versions`, `impact`, `explain_cause`, `verify_evidence`, `describe_schema`, `diagnose`, `draft_action` |
 | `goals[].subject_scope` | `anchor`, `collection`, `prior_result`, `goal_output` |
 | `filters[].role` | `type`, `state`, `health`, `region`, `name_fragment`, `scope` |
-| `relation.sense` | `containment`, `attachment`, `dependency`, `connectivity`, `traffic`, `classification`, `composition`, `ownership`, `evidence` |
+| `relation.sense` | `containment`, `attachment`, `dependency`, `connectivity`, `traffic`, `classification`, `composition`, `ownership`, `authorization`, `evidence` |
 | `relation.scope` | `one_sense`, `all_kinds` |
-| `relation.subject_position` | `source`, `target`, `either` |
+| `relation.anchor` | The mention the relation starts from; omitted when it is the goal subject |
+| `relation.anchor_role`, `relation.result_role` | Both ends of the sense, such as `container` and `member` or `dependent` and `dependency`; `either` for both |
 | `relation.reach` | `one_hop`, `transitive` |
 | `measure.kind` | `count`, `state`, `health`, `metric`, `change`, `event`, `forecast`, `cost` |
 | `measure.group_by` | `endpoint`, `type`, `container`, `none` |
@@ -104,15 +107,15 @@ Example: `Which resources depend on aks-prod-01?`
 
 ```yaml
 question_form:
-  mentions: [{id: m1, form: name, domain: instance, span: [26, 37]}]
+  mentions: [{id: m1, form: name, domain: instance, span: {text: aks-prod-01, occurrence: 1}}]
   goals:
     - {id: g1, level: instance, operation: traverse, subject: m1, subject_scope: anchor,
-       relation: {sense: dependency, scope: one_sense, subject_position: target, reach: one_hop, cue: [16, 25]},
-       time: {kind: current}, want: fact, confidence: 0.93}
+       relation: {sense: dependency, anchor_role: dependency, result_role: dependent,
+                  cue: {text: depend on, occurrence: 1}}, confidence: 0.93}
 ```
 
-The model states only that `aks-prod-01` is the target of a dependency. Core binds the anchor,
-selects `depends_on` through its reviewed `dependency` trait, and maps the target to `incoming`.
+The model states only that `aks-prod-01` is the dependency and the results are its dependents.
+Core binds the anchor, selects `depends_on` through its `dependency` trait, and reads `incoming`.
 
 ## Admission
 
@@ -132,13 +135,12 @@ gold. The model never chooses identities, LinkTypes, path steps, FunctionTypes, 
 
 ### Concept selection
 
-The model grounds each `concept` or `value` mention inside its declared domain. Core presents the
-complete candidate catalog for that domain, with reviewed English and Korean labels and
-descriptions, in as many bounded shards as the grounding budget needs, and the model evaluates every
-shard. Core accepts a canonical identifier only when a presented shard contains it and it fits the
-domain and level, and a shard receipt proves that every candidate was presented exactly once. Labels
-are model context, never a lookup table. FunctionTypes and ActionTypes follow from admitted
-operations and contracts.
+The model grounds each non-referential mention inside its declared domain. Core presents the
+complete candidate catalog, with reviewed labels, in as many bounded shards as the budget needs; the
+model evaluates every shard, and a receipt proves each candidate was presented exactly once. Core
+accepts an identifier only from the shard that presented it. Finalists that differ across shards
+meet in one runoff call. Labels are model context, never a lookup table, and an explicit root
+candidate stands for resources in general. FunctionTypes and ActionTypes follow from operations.
 
 - **Class closure**: A `resource_class` mention compiles through `query.resource_class_closure`
   into an exact `Resource.type` set and pins the closure receipt.
@@ -172,15 +174,15 @@ protocol:
 The model never labels an instance as a resource group or a cluster; the bound type replaces that
 guess. A mention with a `qualifier` binds its qualifier first and then searches only inside that
 qualifier's containment or type scope, so a shared name such as a default subnet stays exact.
-Replay resolves the same receipt against the retained snapshot or reports that the binding is not
-reproducible.
+Replay resolves the same receipt or reports that the binding is not reproducible.
 
 ### Relation compilation
 
-A sense selects LinkTypes by reviewed `semantic_traits` and the bound anchor ObjectType.
-`subject_position` maps through `forward_role` and `reverse_role` to the `outgoing` or `incoming`
-query side, and stored direction is never rewritten. `transitive` reach requires a LinkType
-declared transitive and self-composable, with depth at most five.
+A sense selects LinkTypes by reviewed `semantic_traits` and the bound anchor ObjectType. A reviewed
+sense-role convention names the role of each stored end, such as container for the `from` end of a
+containment link, so the anchor role selects `outgoing` or `incoming` without rewriting stored
+direction. Stated roles that are not the two ends of the sense return a clarification.
+`transitive` reach requires a LinkType declared transitive and self-composable, depth at most five.
 
 | Sense | Trait | Current LinkTypes |
 |-------|-------|-------------------|
@@ -191,10 +193,9 @@ declared transitive and self-composable, with depth at most five.
 | `traffic` | traffic | `routes_to`, `runtime_calls` |
 | `classification` | classification | `resource_classified_as`, `resource_type_member_of_class` |
 | `evidence` | evidence | `kubernetes_backed_by`, `capacity_forecast_targets_resource`, `cost_observation_targets_resource` |
-| `composition` | new reviewed trait | `implemented_by`, `workload_runs_on` |
-| `ownership` | new reviewed trait | `owns`, `service_owned_by`, `workload_owned_by` |
+| `composition`, `ownership`, `authorization` | reviewed traits pending | `implemented_by`, `workload_runs_on`, `owns`, `service_owned_by` |
 
-- **Unmapped links**: A LinkType without a reviewed trait is excluded and counted as
+- **Unmapped links**: A LinkType without a reviewed trait is excluded and named as
   `link_sense_unmapped`.
 - **Paths**: A `path` goal uses only a reviewed, versioned path grammar, such as
   `BusinessService implemented_by Workload workload_runs_on Resource`. An offline search over
@@ -230,8 +231,8 @@ declared transitive and self-composable, with depth at most five.
 - **Aggregation identity**: Counts use distinct object identities, suppress duplicates across
   paths, exclude hidden objects from totals and connectivity without reporting them, and stay
   incomplete when lineage or relationship coverage is incomplete.
-- **Time**: The model proposes typed temporal values, such as an ISO 8601 duration or a calendar
-  offset in the operator's time zone, with their spans. Code computes trusted UTC instants, keeps
+- **Time**: The model proposes typed values, such as an amount-and-unit duration or a calendar
+  offset in the operator's time zone, with spans. Code computes trusted UTC instants, keeps
   effective, event, and recorded time distinct, and uses a version-pinned default for `unspecified`.
 - **Plan batches**: Goals beyond one plan's 32 nodes or 8 outputs compile into ordered plan batches
   under one turn budget; remaining batches continue as a bounded continuation of verified segments.

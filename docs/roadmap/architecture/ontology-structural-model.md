@@ -227,7 +227,11 @@ reviewed semantic fields:
 
 Role names are scoped to one LinkType and do not imply another stored edge. Traits express domain
 meaning, not colors, layout lanes, or graph coordinates. Existing causal, temporal, transitive,
-cardinality, and endpoint contracts remain independent.
+cardinality, and endpoint contracts remain independent. Each trait also fixes which stored end plays
+which meaning-level role, such as the container at the `from` end of a containment link, so the
+[Ontology Reasoning Compiler](../interfaces/ontology-reasoning-compiler.md) can select a query side
+from a stated role; a LinkType whose stored direction contradicts that convention MUST NOT carry the
+trait.
 
 Provider relationship mappings also carry a reviewed cardinality. Candidate materialization MUST
 match that catalog cardinality, LinkType, endpoint orientation, source property path, and source
@@ -291,6 +295,10 @@ LinkType names is never interpreted as both an ordered path and an unordered tra
 
 Existing v1 relationship traversal remains compatible and supports one LinkType. Multi-LinkType
 ordered paths use the additive typed-path contract and a new exact function or query-node identity.
+Optional relationship-traversal `endpoint_predicates` filter only the reached endpoints after
+traversal, so a transitive path through a filtered intermediate stays intact. The verifier checks
+them like ObjectSet predicates, and a filtered result is re-read by exact identity for its own
+output receipt; an incomplete filtered result carries no output marker.
 
 ### Taxonomy closure
 

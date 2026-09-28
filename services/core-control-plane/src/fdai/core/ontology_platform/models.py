@@ -122,7 +122,11 @@ class ObjectTraversal(ContractBase):
 
 
 class RelationshipTraversalDefinition(ContractBase):
-    """Single-LinkType traversal whose exact roots arrive from one verified dependency."""
+    """Single-LinkType traversal whose exact roots arrive from one verified dependency.
+
+    ``endpoint_predicates`` filter only the reached endpoints after traversal, so
+    a transitive path through a filtered intermediate object stays intact.
+    """
 
     selector: ObjectSelector
     link_types: Annotated[
@@ -136,6 +140,9 @@ class RelationshipTraversalDefinition(ContractBase):
     limit: int = Field(default=100, ge=1, le=1000)
     freshness_seconds: int | None = Field(
         default=None, ge=1, le=86_400, exclude_if=lambda value: value is None
+    )
+    endpoint_predicates: tuple[ObjectPredicate, ...] = Field(
+        default=(), max_length=_MAX_PREDICATES, exclude_if=lambda value: not value
     )
 
     @model_validator(mode="after")

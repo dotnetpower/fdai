@@ -1,0 +1,516 @@
+"""Concept selection over complete, sharded manifest catalogs.
+
+Core presents every candidate of a mention's domain in bounded shards, and the
+model chooses canonical candidate identifiers inside each shard. Labels are
+context for the model and are never matched by code. Core accepts a choice only
+when the presented shard contains it and a shard receipt proves that every
+candidate was presented exactly once.
+"""
+
+from __future__ import annotations
+
+import json
+from collections.abc import Callable, Mapping, Sequence
+from dataclasses import dataclass, field
+from enum import StrEnum
+from typing import Any
+
+from fdai_service_contracts.ontology_query import content_digest
+
+from .semantic_reasoning_admission import AdmissionDisposition, FormAdmission
+from .semantic_reasoning_form import MentionDomain, MentionForm
+
+DEFAULT_SHARD_BYTES = 12 * 1024
+MAX_SHARD_CHOICES = 3
+_DECLARATION_KINDS = ("action", "function", "interface", "link", "object")
+# Every non-referential mention of a catalog domain grounds; references bind to handles.
+_CONCEPT_FORMS = frozenset(
+    {MentionForm.CONCEPT, MentionForm.VALUE, MentionForm.NAME, MentionForm.IDENTIFIER}
+)
+_ANY_RESOURCE = "any:resource"
+_RESOURCE_OBJECT_TYPE = "Resource"
+
+
+class ConceptOutcome(StrEnum):
+    ACCEPTED = "accepted"
+    NOT_FOUND = "not_found"
+    AMBIGUOUS = "ambiguous"
+    UNAVAILABLE = "unavailable"
+
+
+@dataclass(frozen=True, slots=True)
+class ConceptCandidate:
+    """One canonical candidate; ``values`` are the exact identities it binds."""
+
+    id: str
+    values: tuple[str, ...]
+    labels: tuple[str, ...] = ()
+
+    def payload(self) -> dict[str, Any]:
+        return {"id": self.id, "values": list(self.values), "labels": list(self.labels)}
+
+
+@dataclass(frozen=True, slots=True)
+class ConceptShard:
+    domain: MentionDomain
+    index: int
+    total: int
+    candidates: tuple[ConceptCandidate, ...]
+    catalog_digest: str
+
+    @property
+    def digest(self) -> str:
+        return content_digest(self.payload())
+
+    def payload(self) -> dict[str, Any]:
+        return {
+            "domain": self.domain.value,
+            "index": self.index,
+            "total": self.total,
+            "catalog_digest": self.catalog_digest,
+            "candidates": [candidate.payload() for candidate in self.candidates],
+        }
+
+
+@dataclass(frozen=True, slots=True)
+class ConceptBinding:
+    mention_id: str
+    domain: MentionDomain
+    outcome: ConceptOutcome
+    candidate_ids: tuple[str, ...] = ()
+    values: tuple[str, ...] = ()
+    reason: str | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class ConceptSelectionReceipt:
+    """Bindings plus proof that each domain catalog was presented completely."""
+
+    bindings: tuple[ConceptBinding, ...]
+    presented: Mapping[str, tuple[int, int]] = field(default_factory=dict)
+    model_calls: int = 0
+
+    def binding(self, mention_id: str) -> ConceptBinding | None:
+        return next((item for item in self.bindings if item.mention_id == mention_id), None)
+
+    @property
+    def digest(self) -> str:
+        return content_digest(
+            {
+                "bindings": [
+                    {
+                        "mention": item.mention_id,
+                        "domain": item.domain.value,
+                        "outcome": item.outcome.value,
+                        "candidates": list(item.candidate_ids),
+                        "values": list(item.values),
+                    }
+                    for item in self.bindings
+                ],
+                "presented": {key: list(value) for key, value in sorted(self.presented.items())},
+            }
+        )
+
+
+ConceptChooser = Callable[[str, tuple[dict[str, Any], ...], ConceptShard], Mapping[str, Any] | None]
+
+
+def concept_catalogs(
+    descriptors: Sequence[Mapping[str, Any]],
+) -> dict[MentionDomain, tuple[ConceptCandidate, ...]]:
+    """Return complete candidate catalogs for the domains the manifest declares."""
+
+    catalogs: dict[MentionDomain, tuple[ConceptCandidate, ...]] = {}
+    objects = sorted(
+        str(item["name"])
+        for item in descriptors
+        if item.get("kind") == "object" and item.get("name")
+    )
+    catalogs[MentionDomain.OBJECT_TYPE] = tuple(
+        ConceptCandidate(id=f"object:{name}", values=(name,), labels=(name,)) for name in objects
+    )
+    kinds = sorted({str(item.get("kind")) for item in descriptors} & set(_DECLARATION_KINDS))
+    catalogs[MentionDomain.DECLARATION_KIND] = tuple(
+        ConceptCandidate(id=f"kind:{kind}", values=(kind,), labels=(kind,)) for kind in kinds
+    )
+    resource_types = _resource_type_candidates(descriptors)
+    if resource_types:
+        # Reviewed type groups are the resource classes a mention can bind today.
+        catalogs[MentionDomain.RESOURCE_TYPE] = resource_types
+        catalogs[MentionDomain.RESOURCE_CLASS] = resource_types
+    return catalogs
+
+
+def shard_catalog(
+    domain: MentionDomain,
+    candidates: tuple[ConceptCandidate, ...],
+    *,
+    max_bytes: int = DEFAULT_SHARD_BYTES,
+) -> tuple[ConceptShard, ...]:
+    """Split one catalog into ordered shards that each fit the byte budget."""
+
+    if max_bytes < 256:
+        raise ValueError("concept shard budget MUST be at least 256 bytes")
+    catalog_digest = content_digest([candidate.payload() for candidate in candidates])
+    groups: list[list[ConceptCandidate]] = [[]]
+    used = 0
+    for candidate in candidates:
+        size = len(json.dumps(candidate.payload(), ensure_ascii=False).encode("utf-8")) + 1
+        if size > max_bytes:
+            raise ValueError(f"concept candidate {candidate.id} exceeds the shard budget")
+        if groups[-1] and used + size > max_bytes:
+            groups.append([])
+            used = 0
+        groups[-1].append(candidate)
+        used += size
+    total = len(groups)
+    return tuple(
+        ConceptShard(domain, index, total, tuple(group), catalog_digest)
+        for index, group in enumerate(groups)
+    )
+
+
+@dataclass(frozen=True, slots=True)
+class ConceptRequest:
+    """One shard presentation: every mention of one domain against one shard."""
+
+    domain: MentionDomain
+    mentions: tuple[dict[str, Any], ...]
+    shard: ConceptShard
+
+
+@dataclass(frozen=True, slots=True)
+class ConceptSelectionPlan:
+    """Every shard request a form needs, planned before any model call."""
+
+    requests: tuple[ConceptRequest, ...]
+    unavailable: tuple[ConceptBinding, ...]
+    catalog_sizes: Mapping[MentionDomain, int]
+    mention_order: tuple[str, ...]
+
+
+def plan_concept_selection(
+    admission: FormAdmission,
+    *,
+    catalogs: Mapping[MentionDomain, tuple[ConceptCandidate, ...]],
+    max_model_calls: int,
+    max_shard_bytes: int = DEFAULT_SHARD_BYTES,
+) -> ConceptSelectionPlan:
+    """Plan complete shard presentations within the reserved call budget."""
+
+    if admission.disposition is not AdmissionDisposition.ADMITTED:
+        raise ValueError("concept selection requires an admitted form")
+    by_domain: dict[MentionDomain, list[dict[str, Any]]] = {}
+    unavailable: list[ConceptBinding] = []
+    for mention in admission.form.mentions:
+        if mention.form not in _CONCEPT_FORMS or mention.domain is MentionDomain.INSTANCE:
+            continue
+        if mention.domain not in catalogs:
+            unavailable.append(
+                ConceptBinding(
+                    mention.id,
+                    mention.domain,
+                    ConceptOutcome.UNAVAILABLE,
+                    reason=f"concept_domain_unavailable:{mention.domain.value}",
+                )
+            )
+            continue
+        by_domain.setdefault(mention.domain, []).append(
+            {"mention": mention.id, "text": admission.mention_text[mention.id]}
+        )
+    requests: list[ConceptRequest] = []
+    for domain in sorted(by_domain, key=lambda item: item.value):
+        mentions = tuple(by_domain[domain])
+        try:
+            shards = shard_catalog(domain, catalogs[domain], max_bytes=max_shard_bytes)
+        except ValueError:
+            shards = ()
+        if not shards or len(requests) + len(shards) > max_model_calls:
+            reason = (
+                "concept_catalog_unshardable"
+                if not shards
+                else "concept_selection_budget_exhausted"
+            )
+            unavailable.extend(
+                ConceptBinding(item["mention"], domain, ConceptOutcome.UNAVAILABLE, reason=reason)
+                for item in mentions
+            )
+            continue
+        requests.extend(ConceptRequest(domain, mentions, shard) for shard in shards)
+    return ConceptSelectionPlan(
+        requests=tuple(requests),
+        unavailable=tuple(unavailable),
+        catalog_sizes={domain: len(catalogs[domain]) for domain in by_domain},
+        mention_order=tuple(mention.id for mention in admission.form.mentions),
+    )
+
+
+def accept_concept_selection(
+    plan: ConceptSelectionPlan,
+    answers: Sequence[Mapping[str, Any] | None],
+) -> ConceptSelectionReceipt:
+    """Accept only choices that name candidates of the shard each answer covers."""
+
+    if len(answers) != len(plan.requests):
+        raise ValueError("concept selection answers MUST cover every planned shard")
+    bindings = list(plan.unavailable)
+    presented: dict[str, tuple[int, int]] = {}
+    domains = sorted({request.domain for request in plan.requests}, key=lambda item: item.value)
+    for domain in domains:
+        indexed = [
+            (request, answer)
+            for request, answer in zip(plan.requests, answers, strict=True)
+            if request.domain is domain
+        ]
+        mentions = indexed[0][0].mentions
+        chosen: dict[str, list[ConceptCandidate]] = {item["mention"]: [] for item in mentions}
+        presented_count = 0
+        failed = False
+        for request, answer in indexed:
+            accepted = _accepted_choices(answer, shard=request.shard, mentions=mentions)
+            if accepted is None:
+                failed = True
+                continue
+            presented_count += len(request.shard.candidates)
+            for mention_id, candidates in accepted.items():
+                chosen[mention_id].extend(candidates)
+        total = plan.catalog_sizes[domain]
+        presented[domain.value] = (presented_count, total)
+        failed = failed or presented_count != total
+        for item in mentions:
+            mention_id = item["mention"]
+            bindings.append(
+                ConceptBinding(
+                    mention_id,
+                    domain,
+                    ConceptOutcome.UNAVAILABLE,
+                    reason="concept_selection_invalid",
+                )
+                if failed
+                else _binding(mention_id, domain, chosen[mention_id])
+            )
+    order = {mention_id: index for index, mention_id in enumerate(plan.mention_order)}
+    return ConceptSelectionReceipt(
+        bindings=tuple(sorted(bindings, key=lambda item: order[item.mention_id])),
+        presented=presented,
+        model_calls=len(plan.requests),
+    )
+
+
+def runoff_requests(
+    plan: ConceptSelectionPlan,
+    receipt: ConceptSelectionReceipt,
+) -> tuple[ConceptRequest, ...]:
+    """Present the finalists of every mention that stayed ambiguous across shards.
+
+    Shards are judged independently, so a mention can match a broad group in one
+    shard and an exact type in another. One runoff call per domain shows only
+    those finalists together, and the model chooses among them.
+    """
+
+    candidates = {
+        candidate.id: candidate
+        for request in plan.requests
+        for candidate in request.shard.candidates
+    }
+    by_domain: dict[MentionDomain, list[ConceptBinding]] = {}
+    for binding in receipt.bindings:
+        if binding.outcome is ConceptOutcome.AMBIGUOUS:
+            by_domain.setdefault(binding.domain, []).append(binding)
+    requests: list[ConceptRequest] = []
+    for domain in sorted(by_domain, key=lambda item: item.value):
+        bindings = by_domain[domain]
+        finalist_ids = sorted({item for binding in bindings for item in binding.candidate_ids})
+        finalists = tuple(candidates[item] for item in finalist_ids if item in candidates)
+        mention_ids = {binding.mention_id for binding in bindings}
+        mentions = tuple(
+            item
+            for request in plan.requests
+            if request.domain is domain
+            for item in request.mentions
+            if item["mention"] in mention_ids
+        )
+        unique_mentions = tuple({item["mention"]: item for item in mentions}.values())
+        digest = content_digest([candidate.payload() for candidate in finalists])
+        requests.append(
+            ConceptRequest(domain, unique_mentions, ConceptShard(domain, 0, 1, finalists, digest))
+        )
+    return tuple(requests)
+
+
+def apply_runoff(
+    receipt: ConceptSelectionReceipt,
+    requests: Sequence[ConceptRequest],
+    answers: Sequence[Mapping[str, Any] | None],
+) -> ConceptSelectionReceipt:
+    """Replace ambiguous bindings whose runoff answer names exactly one meaning."""
+
+    if len(requests) != len(answers):
+        raise ValueError("concept runoff answers MUST cover every runoff request")
+    resolved: dict[str, ConceptBinding] = {}
+    for request, answer in zip(requests, answers, strict=True):
+        accepted = _accepted_choices(answer, shard=request.shard, mentions=request.mentions)
+        if accepted is None:
+            continue
+        for mention_id, chosen in accepted.items():
+            binding = _binding(mention_id, request.domain, chosen)
+            if binding.outcome is ConceptOutcome.ACCEPTED:
+                resolved[mention_id] = binding
+    return ConceptSelectionReceipt(
+        bindings=tuple(resolved.get(item.mention_id, item) for item in receipt.bindings),
+        presented=receipt.presented,
+        model_calls=receipt.model_calls + len(requests),
+    )
+
+
+def select_concepts(
+    admission: FormAdmission,
+    *,
+    catalogs: Mapping[MentionDomain, tuple[ConceptCandidate, ...]],
+    choose: ConceptChooser,
+    utterance: str,
+    max_model_calls: int,
+    max_shard_bytes: int = DEFAULT_SHARD_BYTES,
+) -> ConceptSelectionReceipt:
+    """Ground every concept mention by presenting its complete domain catalog."""
+
+    plan = plan_concept_selection(
+        admission,
+        catalogs=catalogs,
+        max_model_calls=max_model_calls,
+        max_shard_bytes=max_shard_bytes,
+    )
+    answers = [choose(utterance, request.mentions, request.shard) for request in plan.requests]
+    receipt = accept_concept_selection(plan, answers)
+    runoff = runoff_requests(plan, receipt)
+    if not runoff or receipt.model_calls + len(runoff) > max_model_calls:
+        return receipt
+    return apply_runoff(
+        receipt,
+        runoff,
+        [choose(utterance, request.mentions, request.shard) for request in runoff],
+    )
+
+
+def shard_answer_valid(answer: Mapping[str, Any] | None, request: ConceptRequest) -> bool:
+    """Return whether one shard answer is well formed for its exact request."""
+
+    return _accepted_choices(answer, shard=request.shard, mentions=request.mentions) is not None
+
+
+def _accepted_choices(
+    proposal: Mapping[str, Any] | None,
+    *,
+    shard: ConceptShard,
+    mentions: tuple[dict[str, Any], ...],
+) -> dict[str, list[ConceptCandidate]] | None:
+    if not isinstance(proposal, Mapping) or proposal.get("shard_digest") != shard.digest:
+        return None
+    raw_choices = proposal.get("choices")
+    if not isinstance(raw_choices, list):
+        return None
+    expected = {item["mention"] for item in mentions}
+    index = {candidate.id: candidate for candidate in shard.candidates}
+    accepted: dict[str, list[ConceptCandidate]] = {}
+    for raw in raw_choices:
+        if not isinstance(raw, Mapping):
+            return None
+        mention_id = raw.get("mention")
+        candidate_ids = raw.get("candidate_ids")
+        if mention_id not in expected or mention_id in accepted:
+            return None
+        if not isinstance(candidate_ids, list) or len(candidate_ids) > MAX_SHARD_CHOICES:
+            return None
+        if any(not isinstance(item, str) or item not in index for item in candidate_ids):
+            return None
+        if len(candidate_ids) != len(set(candidate_ids)):
+            return None
+        accepted[str(mention_id)] = [index[item] for item in candidate_ids]
+    if set(accepted) != expected:
+        return None
+    return accepted
+
+
+def _binding(
+    mention_id: str,
+    domain: MentionDomain,
+    candidates: list[ConceptCandidate],
+) -> ConceptBinding:
+    distinct: dict[tuple[str, ...], list[ConceptCandidate]] = {}
+    for candidate in candidates:
+        distinct.setdefault(tuple(sorted(candidate.values)), []).append(candidate)
+    ids = tuple(sorted(candidate.id for candidate in candidates))
+    if not distinct:
+        return ConceptBinding(
+            mention_id, domain, ConceptOutcome.NOT_FOUND, reason=f"concept_not_found:{domain.value}"
+        )
+    if len(distinct) > 1:
+        return ConceptBinding(
+            mention_id,
+            domain,
+            ConceptOutcome.AMBIGUOUS,
+            candidate_ids=ids,
+            reason=f"concept_ambiguous:{domain.value}",
+        )
+    values = next(iter(distinct))
+    return ConceptBinding(mention_id, domain, ConceptOutcome.ACCEPTED, ids, values)
+
+
+def _resource_type_candidates(
+    descriptors: Sequence[Mapping[str, Any]],
+) -> tuple[ConceptCandidate, ...]:
+    resource = next(
+        (
+            item
+            for item in descriptors
+            if item.get("kind") == "object" and item.get("name") == _RESOURCE_OBJECT_TYPE
+        ),
+        None,
+    )
+    properties = resource.get("properties") if isinstance(resource, Mapping) else None
+    domain = properties.get("type") if isinstance(properties, Mapping) else None
+    if not isinstance(domain, Mapping) or not isinstance(domain.get("values"), list):
+        return ()
+    values = sorted(str(item) for item in domain["values"])
+    candidates: list[ConceptCandidate] = []
+    for group in domain.get("value_groups") or ():
+        if not isinstance(group, Mapping) or not isinstance(group.get("id"), str):
+            continue
+        members = tuple(sorted(str(item) for item in group.get("values") or () if item in values))
+        if not members:
+            continue
+        labels = tuple(str(item) for item in group.get("terms") or ())
+        candidates.append(ConceptCandidate(f"group:{group['id']}", members, labels))
+    grouped = {value for candidate in candidates for value in candidate.values}
+    candidates.extend(
+        ConceptCandidate(f"value:{value}", (value,), (value,))
+        for value in values
+        if value not in grouped
+    )
+    # The unrestricted root: the operator named resources in general, not one kind.
+    candidates.append(
+        ConceptCandidate(_ANY_RESOURCE, (), ("any resource type", "resources in general"))
+    )
+    return tuple(sorted(candidates, key=lambda item: item.id))
+
+
+__all__ = [
+    "DEFAULT_SHARD_BYTES",
+    "MAX_SHARD_CHOICES",
+    "ConceptBinding",
+    "ConceptCandidate",
+    "ConceptChooser",
+    "ConceptOutcome",
+    "ConceptRequest",
+    "ConceptSelectionPlan",
+    "ConceptSelectionReceipt",
+    "ConceptShard",
+    "accept_concept_selection",
+    "apply_runoff",
+    "concept_catalogs",
+    "plan_concept_selection",
+    "runoff_requests",
+    "select_concepts",
+    "shard_answer_valid",
+    "shard_catalog",
+]

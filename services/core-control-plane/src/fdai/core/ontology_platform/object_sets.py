@@ -325,7 +325,16 @@ def _matches_all(
     record: OntologyObjectRecord,
     predicates: Sequence[ObjectPredicate],
 ) -> bool:
-    return all(_matches_predicate(record.properties, predicate) for predicate in predicates)
+    return object_matches_predicates(record.properties, predicates)
+
+
+def object_matches_predicates(
+    properties: Mapping[str, Any],
+    predicates: Sequence[ObjectPredicate],
+) -> bool:
+    """Return whether projected properties satisfy every predicate exactly."""
+
+    return all(_matches_predicate(properties, predicate) for predicate in predicates)
 
 
 def _matches_predicate(properties: Mapping[str, Any], predicate: ObjectPredicate) -> bool:
@@ -377,4 +386,4 @@ def _contains(container: Any, member: Any) -> bool:
         return False
 
 
-__all__ = ["ObjectSetService"]
+__all__ = ["ObjectSetService", "object_matches_predicates"]

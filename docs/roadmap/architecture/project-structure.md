@@ -207,7 +207,7 @@ Cloud update comparison validates raw and processing identities; Core rechecks p
   keys and re-judges once with the complete prompt on a coverage gap;
   `semantic_judgment_bounds.py` holds judgment input bounds, and `semantic_planning_assembly.py`
   derives frame intent keys, plan shape keys, frame result keys, and plan descriptor selection for
-  the planning adapter.
+  the planning adapter. The shadow `core/conversation/semantic_reasoning_*.py` modules own the closed question form, admission, concept selection, anchor binding, relation and operator compilation, independent V-SEM, V-PROV, V-LEVEL, and V-CLAIM verification, the coverage receipt, and the digest-only shadow runner of the [Ontology Reasoning Compiler](../interfaces/ontology-reasoning-compiler.md); `core/ontology_platform/query_traversal_tables.py` filters traversal endpoints and issues their exact output receipt.
   `conversation_preflight_family_validation.py` drops model-proposed canonical values on collection
   filters because Core grounds them from source text.
   `fdai_core_service/semantic_answer_presentation.py` renders provider

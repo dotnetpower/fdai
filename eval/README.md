@@ -9,6 +9,7 @@ packages under `benchmarks/`.
 | Path | Purpose |
 |------|---------|
 | `golden-dataset/` | 280 English/Korean cloud-operations question pairs with 35 semantic, runtime-context, ontology traversal, evidence, limitation, and authority expectations. |
+| `ontology-reasoning/` | 60 English/Korean reasoning cases with gold closed question forms and reviewed outcomes on a generic fixture graph, for the [ontology reasoning compiler](../docs/roadmap/interfaces/ontology-reasoning-compiler.md). |
 
 Evaluation assets contain no customer observations, fixed operational answers, credentials, or
 execution authority. A runner should resolve each question against the exact principal-scoped
@@ -26,4 +27,10 @@ Run the focused static contract check from the repository root:
 
 ```bash
 uv run pytest -q --no-cov tests/integration/evaluation/test_golden_dataset.py -o addopts=''
+```
+
+Compile and execute every reasoning gold form on the fixture graph:
+
+```bash
+uv run pytest -q --no-cov services/core-control-plane/tests/conversation/test_semantic_reasoning_cohort.py
 ```
