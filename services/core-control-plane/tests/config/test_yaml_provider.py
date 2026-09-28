@@ -38,6 +38,20 @@ def test_yaml_provider_loads_the_shared_config_shape(tmp_path: Path) -> None:
     assert isinstance(config, AppConfig)
     assert config.azure.region == "krc"
     assert config.runtime.autonomy_mode_default.value == "shadow"
+    assert config.product_profile.name == "observation-first"
+    assert config.product_profile.add_ons == ()
+
+
+def test_yaml_provider_default_requires_no_entra_tenant_id(tmp_path: Path) -> None:
+    body = VALID_YAML.replace(
+        "  tenant_id: 00000000-0000-0000-0000-000000000000\n",
+        "",
+    )
+
+    config = YamlFileConfigProvider(_write(tmp_path / "headless.yaml", body)).get()
+
+    assert config.azure.tenant_id is None
+    assert config.product_profile.graph_bindings_selected is False
 
 
 def test_yaml_provider_reports_file_boundary_failures(tmp_path: Path) -> None:

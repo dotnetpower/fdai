@@ -50,18 +50,21 @@ closed.
 |------|------------------|---------|---------|
 | Runtime platform | `aks`, `container-apps` | `aks` | Hosts FDAI services and scheduled jobs. Container Apps is compatibility-only for new planning. |
 | Database placement | `postgres-flex`, `postgres-aks` | `postgres-flex` | Uses Azure Database for PostgreSQL Flexible Server or a PostgreSQL cluster inside AKS. |
+| Product surface | `observation-first` plus selected add-ons | `observation-first` | Starts headless inventory, telemetry, learning, prediction, replay, drift, and advisory evidence. |
+| Optional add-ons | `read-only-console`, `notifications`, `governed-execution`, `enterprise-identity-governance` | none | Selection never implies availability, enablement, authorization, or execution authority. |
 
 `postgres-aks` is accepted only with `runtime_platform=aks`. Production keeps
 `postgres-flex` until the in-cluster profile has independent zone-loss, backup, point-in-time
 recovery, and upgrade evidence.
 
-The runtime and database axes do not select the full-authority development profile. That authority
-profile is a separate, optional deployment input for one exact disposable test scope. Selecting it
-requires the shared machine contract, a current authoritative binding source, one authenticated
-Owner, and a distinct executor identity. Missing authority bindings do not inherit from `aks`,
-`container-apps`, `postgres-flex`, or `postgres-aks`; an explicitly selected but incomplete
-authority profile fails closed. Runtime composition passes profile records through the public
-contract-model facade; digest helpers never select or enable a profile.
+Runtime, database, environment, fork status, and package presence do not select product add-ons. The shared immutable profile contains only explicit selections and `authority_granted: false`.
+The default constructs no Graph, approval, promotion-to-enforce, rollback, or privileged executor binding. A selected but incomplete add-on fails closed: `read-only-console` and
+`governed-execution` require `enterprise-identity-governance`, and every runtime carries the compiled profile to its own workloads so composition never diverges from the selection.
+The full-authority development profile remains a separate optional authority input for an exact disposable scope and never inherits from this product axis. The optional dev operations gateway is authenticated, so it requires an explicit Operator API audience and refuses to plan without one.
+Azure observation requires only scoped `Reader`. Explicit source selection derives the minimum extra role: Azure Monitor, Log Analytics, Cost Management, AKS read-only
+(Cluster User plus RBAC Reader), or evidence-store `Storage Blob Data Reader`. No role can be selected directly or silently bundled. Missing source access reports unsupported.
+The base profile requires no Azure Policy assignment and uses Reader-visible resource metadata for policy evaluation; it grants no write, `User Access Administrator`, or Microsoft Graph permission.
+Issue #341 remains open for inventory/observation live evidence only; GitOps write evidence is optional.
 
 ## Operator contract
 

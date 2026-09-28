@@ -46,6 +46,7 @@ variables {
   tenant_id                  = "00000000-0000-0000-0000-000000000000"
   postgres_admin_login       = "fdaiadmin"
   postgres_admin_password    = "terraform-test-placeholder-value"
+  operator_api_audience      = "api://00000000-0000-0000-0000-000000000002"
   core_image                 = "mcr.microsoft.com/example/fdai@sha256:0000000000000000000000000000000000000000000000000000000000000000"
 }
 
@@ -228,8 +229,19 @@ run "authority_cutover_moves_the_gateway_caller_and_vertical_identities" {
     env                                        = "dev"
     enable_private_networking                  = true
     enable_dev_operations_gateway              = true
+    enable_governed_execution                  = true
     enable_isolated_executor                   = true
     enable_isolated_executor_authority_cutover = true
+    product_profile_json = jsonencode({
+      schema_version = "fdai.product-profile.v1"
+      name           = "observation-first"
+      add_ons        = ["enterprise-identity-governance", "governed-execution"]
+      observation_permissions = {
+        base_role        = "Reader"
+        selected_sources = []
+      }
+      authority_granted = false
+    })
   }
 
   assert {

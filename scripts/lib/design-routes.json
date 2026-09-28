@@ -3247,6 +3247,65 @@
       ]
     },
     {
+      "id": "observation-first-product-profile",
+      "paths": [
+        "packages/service-contracts/src/fdai_service_contracts/product_profile.py",
+        "packages/service-contracts/tests/test_product_profile.py",
+        "packages/deployment-cli/src/fdai_deployment_cli/runtime_profile.py",
+        "packages/deployment-cli/src/fdai_deployment_cli/installation_scope.py",
+        "packages/deployment-cli/src/fdai_deployment_cli/standalone_product_profile.py",
+        "packages/deployment-cli/tests/test_standalone_product_profile.py",
+        "services/core-control-plane/src/fdai/shared/config/**",
+        "services/core-control-plane/src/fdai/runtime/bootstrap.py",
+        "services/core-control-plane/src/fdai/runtime/bootstrap_plan.py",
+        "services/core-control-plane/src/fdai/runtime/bootstrap_core.py",
+        "services/core-control-plane/src/fdai/runtime/bootstrap_assignment.py",
+        "services/core-control-plane/src/fdai/runtime/control_loop.py",
+        "services/core-control-plane/src/fdai/runtime/control_loop_execution_ports.py",
+        "services/core-control-plane/src/fdai/runtime/delivery.py",
+        "services/core-control-plane/src/fdai/runtime/product_profile.py",
+        "services/core-control-plane/src/fdai/core/risk_gate/gate.py",
+        "infra/main.tf",
+        "infra/variables.tf",
+        "infra/outputs.tf",
+        "infra/modules/compute/container-apps/**",
+        "tests/integration/infra/test_observation_first_profile.py"
+      ],
+      "must_read": [
+        ".github/instructions/architecture.instructions.md",
+        ".github/instructions/app-shape.instructions.md",
+        ".github/instructions/agent-pantheon.instructions.md",
+        ".github/instructions/coding-conventions.instructions.md",
+        ".github/instructions/generic-scope.instructions.md",
+        "docs/roadmap/architecture/fdai-constitution.md",
+        "docs/roadmap/architecture/decisions/0002-independent-runtime-axes.md",
+        "docs/roadmap/architecture/security-and-identity.md",
+        "docs/roadmap/agents/agent-pantheon.md",
+        "docs/roadmap/decisioning/risk-classification.md",
+        "docs/roadmap/interfaces/user-rbac-and-identity.md",
+        "docs/roadmap/rules-and-detection/operational-learning-ontology.md",
+        "docs/roadmap/rules-and-detection/rule-governance.md",
+        "docs/roadmap/deployment/runtime-deployment-profiles.md"
+      ],
+      "docs_update": [
+        "docs/roadmap/architecture/decisions/0002-independent-runtime-axes.md",
+        "docs/roadmap/architecture/security-and-identity.md",
+        "docs/roadmap/agents/agent-pantheon.md",
+        "docs/roadmap/decisioning/risk-classification.md",
+        "docs/roadmap/interfaces/user-rbac-and-identity.md",
+        "docs/roadmap/rules-and-detection/operational-learning-ontology.md",
+        "docs/roadmap/rules-and-detection/rule-governance.md",
+        "docs/roadmap/deployment/runtime-deployment-profiles.md"
+      ],
+      "validate": [
+        "uv run pytest -q --no-cov packages/service-contracts/tests/test_product_profile.py services/core-control-plane/tests/config/test_env_provider.py services/core-control-plane/tests/runtime/test_bootstrap_plan.py services/core-control-plane/tests/core/risk_gate/test_gate.py services/core-control-plane/tests/runtime/test_thor_execution_port.py",
+        "uv run --project packages/deployment-cli python -m pytest -c packages/deployment-cli/pyproject.toml -q packages/deployment-cli/tests/test_runtime_profile.py packages/deployment-cli/tests/test_installation_scope.py packages/deployment-cli/tests/test_standalone_product_profile.py packages/deployment-cli/tests/test_standalone_application_completion.py",
+        "uv run pytest -q --no-cov tests/integration/infra/test_observation_first_profile.py tests/integration/infra/test_inventory_kubernetes_identity.py tests/integration/infra/test_isolated_executor_boundary.py",
+        "terraform -chdir=infra validate",
+        "python3 scripts/quality/architecture/check-design-routes.py"
+      ]
+    },
+    {
       "id": "runtime-deployment-profiles",
       "paths": [
         "delivery/dev_operations_gateway/**",

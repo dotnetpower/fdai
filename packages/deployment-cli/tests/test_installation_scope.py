@@ -126,7 +126,6 @@ def test_expiry_cannot_renew_confirmation(arguments, monkeypatch):
         scope.InstallationOptions(setup_cost_ceiling=301),
         scope.InstallationOptions(setup_cost_ceiling=300, cleanup_temporary_resources=True),
         scope.InstallationOptions(setup_cost_ceiling=300, allow_dedicated_identities=True),
-        scope.InstallationOptions(setup_cost_ceiling=300, console_access="private-https-entra"),
     ],
 )
 def test_changed_preferences_cannot_reprompt(arguments, monkeypatch, options):
@@ -135,6 +134,32 @@ def test_changed_preferences_cannot_reprompt(arguments, monkeypatch, options):
     monkeypatch.setattr(scope, "_read_initial_answer", lambda _: pytest.fail("no reprompt"))
     arguments["options"] = options
     with pytest.raises(ValueError, match="scope changed"):
+        scope.confirm_installation_scope(**arguments)
+
+
+def test_console_access_requires_explicit_complete_add_on_selection(arguments) -> None:
+    arguments["options"] = scope.InstallationOptions(
+        setup_cost_ceiling=300,
+        console_access="public-https-entra",
+    )
+
+    with pytest.raises(ValueError, match="read-only-console"):
+        scope.confirm_installation_scope(**arguments)
+
+
+def test_selected_console_requires_explicit_access_profile(arguments) -> None:
+    runtime_profile = RuntimeDeploymentProfile.create(
+        runtime_platform="aks",
+        database_placement="postgres-flex",
+        product_add_ons=(
+            "enterprise-identity-governance",
+            "read-only-console",
+        ),
+    )
+    arguments["runtime_profile"] = runtime_profile
+    arguments["binding"]["runtime_profile_digest"] = runtime_profile.digest
+
+    with pytest.raises(ValueError, match="explicit access profile"):
         scope.confirm_installation_scope(**arguments)
 
 

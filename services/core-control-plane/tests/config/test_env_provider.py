@@ -39,7 +39,6 @@ def test_env_provider_reports_all_missing_at_once() -> None:
     # Every required env var is in the issue list.
     reported = {i.key for i in exc.value.issues}
     for k in (
-        "AZURE_TENANT_ID",
         "AZURE_SUBSCRIPTION_ID",
         "AZURE_REGION",
         "KAFKA_BOOTSTRAP_SERVERS",
@@ -49,6 +48,44 @@ def test_env_provider_reports_all_missing_at_once() -> None:
         "RUNTIME_ENV",
     ):
         assert k in reported, f"{k} not reported: {reported}"
+    assert "AZURE_TENANT_ID" not in reported
+
+
+def test_env_provider_defaults_to_observation_first_without_tenant_or_secrets() -> None:
+    env = dict(VALID_ENV)
+    env.pop("AZURE_TENANT_ID")
+
+    cfg = EnvVarConfigProvider(env=env).get()
+
+    assert cfg.azure.tenant_id is None
+    assert cfg.product_profile.add_ons == ()
+    assert cfg.product_profile.authority_granted is False
+
+
+def test_env_provider_reads_explicit_canonical_product_add_ons() -> None:
+    env = {
+        **VALID_ENV,
+        "FDAI_PRODUCT_ADDONS_JSON": (
+            '["enterprise-identity-governance","governed-execution",'
+            '"notifications","read-only-console"]'
+        ),
+        "FDAI_OBSERVATION_DATA_SOURCES_JSON": ('["aks","azure-monitor"]'),
+    }
+
+    cfg = EnvVarConfigProvider(env=env).get()
+
+    assert tuple(item.value for item in cfg.product_profile.add_ons) == (
+        "enterprise-identity-governance",
+        "governed-execution",
+        "notifications",
+        "read-only-console",
+    )
+    assert tuple(
+        item.value for item in cfg.product_profile.observation_permissions.selected_sources
+    ) == (
+        "aks",
+        "azure-monitor",
+    )
 
 
 def test_env_provider_rejects_invalid_enum_value() -> None:

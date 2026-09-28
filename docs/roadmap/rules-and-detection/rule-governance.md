@@ -16,6 +16,7 @@ managed-resource execution identity
 activation may use a reviewed pull request, an authenticated direct request, or a signed offline
 package, while every path retains the shadow-before-enforce and safety invariants in
 [architecture.instructions.md](../../../.github/instructions/architecture.instructions.md).
+The observation-first product default loads rules for audit, replay, and advisory evidence only; enforcement construction requires the explicit governed-execution add-on and all ordinary authority.
 
 > Customer-agnostic: all identifiers, scopes, and values below are synthetic placeholders per
 > [generic-scope.instructions.md](../../../.github/instructions/generic-scope.instructions.md).
@@ -105,6 +106,7 @@ assignment's top-level `effect` is the default for rules without an override.
   `deny`/`remediate` is an explicit, separately reviewed change gated on (1) a minimum shadow dwell
   time and sample size, (2) measured shadow accuracy above threshold, and (3) zero policy-violation
   escapes ([architecture.instructions.md](../../../.github/instructions/architecture.instructions.md)).
+- The observation-first profile cannot consume that evidence as activation authority. It records advisory quality and drift; only the explicit governed-execution add-on can enter this gate.
 - A regression **auto-demotes** the assignment back to `audit`; demotion never needs the promotion
   gate, so safety degradation is always fast.
 - The **absence** of an assignment means the rule is unenforced on that scope (governance is

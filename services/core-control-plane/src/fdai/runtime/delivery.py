@@ -42,7 +42,11 @@ _ACS_SCOPE = "https://communication.azure.com/.default"
 _TEAMS_WORKFLOW_SCOPE = "https://service.flow.microsoft.com/.default"
 
 
-def _build_publisher(http_client: httpx.AsyncClient | None) -> Any:
+def _build_publisher(
+    http_client: httpx.AsyncClient | None,
+    *,
+    live_delivery_enabled: bool = True,
+) -> Any:
     """Select the :class:`RemediationPrPublisher` backend for this process.
 
     A static ``FDAI_GITOPS_TOKEN`` or complete GitHub App credential set opts
@@ -60,6 +64,12 @@ def _build_publisher(http_client: httpx.AsyncClient | None) -> Any:
     adapter never opens its own connection; the composition root owns
     the client lifecycle.
     """
+    if not live_delivery_enabled:
+        _LOGGER.info(
+            "remediation_pr_backend",
+            extra={"backend": "recording", "reason": "governed_execution_unselected"},
+        )
+        return RecordingRemediationPrPublisher()
     environment = os.environ
     owner = environment.get("FDAI_GITOPS_OWNER", "").strip()
     repo = environment.get("FDAI_GITOPS_REPO", "").strip()
