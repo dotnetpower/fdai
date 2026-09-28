@@ -1,6 +1,6 @@
 ---
 translation_of: prediction-learning-and-case-history.md
-translation_source_sha: b4988003aa7376413b57b756a6305c5c2b537d82
+translation_source_sha: a606dddddddd438c7de2d7297763282b0b8c215b
 translation_revised: 2026-09-28
 ---
 # 예측 학습 및 케이스 히스토리
@@ -373,6 +373,11 @@ T1 라이브러리 등록이나 승격을 의미하지는 않습니다.
 에이전트 직접 호출도 추가하지 않습니다. 기존 브로커 재시도, 원자적 비교 후 갱신, 검토 신원,
 사례 삭제 선점, 독립 검증 증적이 계속 기준이 됩니다.
 
+[독립 운영 근거 발급](independent-operational-evidence-ko.md)은 여기서 쓰는 각 검증 증적을 누가
+발급하는지 정의합니다. 별도의 검증기 신원, 고정된 신뢰 레지스트리, 명시적인 principal-사례 범위 권한
+부여, 각 경계가 명시적인 유형으로 보고하는 유형 지정 거부 기록을 다룹니다. 아직 설계 단계이므로, 발급
+주체가 구현될 때까지 위의 모든 경계는 계속 차단 상태를 유지합니다.
+
 경계별로 구현하고 검증하되 완료는 연결된 전체 흐름으로 판정합니다. 수집 범위 누락, 오래된
 출처 개정, 겹치는 진술, 자체 검토, 동시 갱신, 저장 도중 원본 삭제, 삭제 실패와 재시작,
 범위 밖 조회, 후보 정정, 실행 직전 만료, 발행 중단을 검사합니다. 배포 검증에는 명시적으로
@@ -506,6 +511,7 @@ T1 벡터 정리는 새 보존 정책이 아니라 기존 원본 삭제 의도�
 | 학습할 내용 | 문서 |
 |-------------|------|
 | 구현 상태 및 남은 작업 | [구현 원장](../../roadmap-implementation/rules-and-detection/prediction-learning-and-case-history.md) |
+| 이 경계들의 독립 근거 발급 | [독립 운영 근거 발급](independent-operational-evidence-ko.md) |
 | Detection 및 예측 채점 | [관측성과 감지](observability-and-detection-ko.md) |
 | 에이전트 소유권 및 토픽 | [에이전트 pantheon](../agents/agent-pantheon-ko.md) |
 | 통제된 offline 기록 | [통제된 trajectory 데이터셋](../interfaces/governed-trajectory-datasets-ko.md) |
