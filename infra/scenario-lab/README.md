@@ -101,7 +101,10 @@ commit already present on protected `main`:
   complete sweep or select one allowlisted scenario for a bounded rehearsal. Every approved apply
   starts the exact AKS target before planning only when it was stopped, prepares the authenticated
   context, runs the selected scenarios sequentially, and restores `Stopped` before cleanup when this
-  run started the cluster.
+  run started the cluster. The same start step starts the exact ownership-tagged stress VM when it
+  is stopped or deallocated, because the cloud-init readiness run command needs a running VM. A
+  separate `always()` restore step deallocates that VM again when this run started it. Each restore
+  runs even if the other fails.
 4. Run `action=destroy-plan` in the `plan-only` environment and review the exact delete count,
    Terraform addresses, and replacement paths without granting deployment authority.
 5. Run `action=destroy` with `confirm_destroy=destroy-sre-demo-lab` only after that review. Destroy

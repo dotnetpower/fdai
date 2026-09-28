@@ -792,6 +792,38 @@ jobs:
                 exit 1
               }
           fi
+          # prepare-runner.sh checks cloud-init through a run command, which needs a running VM.
+          vm_name="vm-fdai-sre-lab-${TF_VAR_region_short}-stress"
+          vm_rows="$(az resource list --resource-group "$resource_group" \
+            --resource-type Microsoft.Compute/virtualMachines --name "$vm_name" \
+            --query '[].[tags."fdai:managed", tags."fdai:layer"]' \
+            --output tsv --only-show-errors)"
+          if [[ -n "$vm_rows" ]]; then
+            [[ "$vm_rows" == $'true\tscenario-lab' ]] || {
+              echo "scenario-lab stress VM ownership tags do not match the lab." >&2
+              exit 1
+            }
+            vm_power="$(az vm show --show-details --resource-group "$resource_group" \
+              --name "$vm_name" --query powerState --output tsv --only-show-errors)"
+            case "$vm_power" in
+              "VM running") ;;
+              "VM deallocated" | "VM stopped")
+                : >"$RUNNER_TEMP/sre-demo-lab-vm-started-by-run"
+                start_with_authorization_retry "stress VM" \
+                  timeout 900 az vm start --resource-group "$resource_group" --name "$vm_name" \
+                  --output none --only-show-errors
+                ;;
+              *)
+                echo "scenario-lab apply requires a running, stopped, or deallocated stress VM." >&2
+                exit 1
+                ;;
+            esac
+            [[ "$(az vm show --show-details --resource-group "$resource_group" --name "$vm_name" \
+              --query powerState --output tsv --only-show-errors)" == "VM running" ]] || {
+                echo "scenario-lab stress VM did not reach running." >&2
+                exit 1
+              }
+          fi
           [[ -z "$MYSQL_SERVER_NAME" ]] && exit 0
           [[ "$MYSQL_SERVER_NAME" =~ ^mysql-fdai-sre-[0-9a-f]{6}$ ]] || {
             echo "scenario-lab MySQL server name does not match the recorded private DNS zone." >&2
@@ -1199,6 +1231,44 @@ jobs:
               exit 1
             }
 
+      # A separate always() step, so either restore still runs when the other one fails.
+      - name: Restore stress VM power state
+        if: >-
+          always() &&
+          steps.protected-source.outcome == 'success' &&
+          (inputs.action == 'apply' || inputs.action == 'recreate-aks')
+        working-directory: infra/scenario-lab
+        run: |
+          set -euo pipefail
+          marker="$RUNNER_TEMP/sre-demo-lab-vm-started-by-run"
+          [[ -f "$marker" ]] || exit 0
+          # The start step writes the marker only after verifying the exact ownership-tagged VM.
+          vm_name="vm-fdai-sre-lab-${TF_VAR_region_short}-stress"
+          resource_group="$SCENARIO_LAB_RESOURCE_GROUP_NAME"
+          # A timed-out start keeps running in Azure and would reject a deallocation, so wait.
+          readonly settle_deadline=$((SECONDS + 1200))
+          while :; do
+            if vm_power="$(az vm show --show-details --resource-group "$resource_group" \
+              --name "$vm_name" --query powerState --output tsv --only-show-errors)"; then
+              case "$vm_power" in
+                "VM deallocated") exit 0 ;;
+                "VM running" | "VM stopped") break ;;
+              esac
+            fi
+            ((SECONDS < settle_deadline)) || {
+              echo "stress VM power-state rollback timed out waiting for the running operation." >&2
+              exit 1
+            }
+            sleep 30
+          done
+          timeout 900 az vm deallocate --resource-group "$resource_group" --name "$vm_name" \
+            --output none --only-show-errors
+          [[ "$(az vm show --show-details --resource-group "$resource_group" --name "$vm_name" \
+            --query powerState --output tsv --only-show-errors)" == "VM deallocated" ]] || {
+              echo "stress VM power-state rollback did not reach deallocated." >&2
+              exit 1
+            }
+
       - name: Destroy exact lab state
         if: inputs.action == 'destroy'
         run: |
@@ -1338,7 +1408,8 @@ jobs:
             "$RUNNER_TEMP/sre-demo-lab-adoption-state-list.txt" \
             "$RUNNER_TEMP/sre-demo-lab-store-demo-readback.json" \
             "infra/scenario-lab/retained-adoption.generated.tf" \
-            "$RUNNER_TEMP/sre-demo-lab-aks-started-by-run"; do
+            "$RUNNER_TEMP/sre-demo-lab-aks-started-by-run" \
+            "$RUNNER_TEMP/sre-demo-lab-vm-started-by-run"; do
             if [[ -f "$artifact" ]]; then
               shred --force --remove "$artifact"
             fi
