@@ -29,6 +29,9 @@ else:
 _ROOTS: Final[tuple[str, ...]] = (
     "alembic",
     "alembic.ini",
+    # Catalog materialization during migration reads these reviewed configuration inputs.
+    "config/agent-stewardship.yaml",
+    "config/architecture-review.yaml",
     "config/deployment-preflight-template.json",
     "infra",
     "policies",
