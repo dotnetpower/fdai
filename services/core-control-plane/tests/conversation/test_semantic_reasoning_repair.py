@@ -219,3 +219,42 @@ def test_trimming_whitespace_or_dropping_a_restated_time_mention_is_a_valid_repa
     assert repair_keeps_operands(padded, _resolved(_quoted_form()), utterance=_UTTERANCE)
     assert repair_keeps_operands(restating, _resolved(timed), utterance=_UTTERANCE)
     assert not repair_keeps_operands(restating, _resolved(_quoted_form()), utterance=_UTTERANCE)
+
+
+_FLIPPED = [
+    {
+        "goal": "g1",
+        "atoms": [
+            {"field": "relation.anchor_role", "value": "dependent"},
+            {"field": "relation.result_role", "value": "dependency"},
+        ],
+    }
+]
+
+
+def test_competing_readings_pending_goals_and_wants_must_survive_a_repair() -> None:
+    ambiguous = _quoted_form(alternatives=_FLIPPED)
+    pending = _quoted_form(remaining_goals=True)
+    causal = _quoted_form()
+    causal["goals"][0]["want"] = "cause"
+
+    assert not repair_keeps_operands(ambiguous, _resolved(_quoted_form()), utterance=_UTTERANCE)
+    assert repair_keeps_operands(ambiguous, _resolved(ambiguous), utterance=_UTTERANCE)
+    assert not repair_keeps_operands(pending, _resolved(_quoted_form()), utterance=_UTTERANCE)
+    assert repair_keeps_operands(pending, _resolved(pending), utterance=_UTTERANCE)
+    assert not repair_keeps_operands(causal, _resolved(_quoted_form()), utterance=_UTTERANCE)
+    assert not repair_keeps_operands(_quoted_form(), _resolved(causal), utterance=_UTTERANCE)
+    assert repair_keeps_operands(causal, _resolved(causal), utterance=_UTTERANCE)
+
+
+async def test_a_repair_that_drops_a_competing_reading_is_rejected() -> None:
+    faulted = _undeclared_filter()
+    faulted["alternatives"] = _FLIPPED
+    faulted["remaining_goals"] = True
+    model = _Model([faulted, _quoted_form()], _PICKS)
+
+    observation = await _run(model)
+
+    assert observation.passes[0].repair == "operand_dropped"
+    assert observation.passes[0].disposition == "invalid"
+    assert observation.compilations == ()

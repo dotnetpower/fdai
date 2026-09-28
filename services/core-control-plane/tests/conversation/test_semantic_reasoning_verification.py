@@ -287,3 +287,102 @@ def test_a_scope_read_that_is_not_the_bound_containment_is_rejected(
 
     assert _violations(admission, receipt, plan) == ()
     assert violation in _violations(admission, receipt, _rewrite(plan, node, update))
+
+
+_LINK_COUNT = "How many LinkTypes are there?"
+_RELATED_LINKS = "How many LinkTypes does the Resource ObjectType have?"
+
+
+def _link_count(utterance: str, **goal: Any) -> dict[str, Any]:
+    mentions = [
+        {
+            "id": "m1",
+            "form": "concept",
+            "domain": "declaration_kind",
+            "span": span(utterance, "LinkTypes"),
+        }
+    ]
+    if "relation" in goal:
+        mentions.append(
+            {
+                "id": "m2",
+                "form": "concept",
+                "domain": "object_type",
+                "span": span(utterance, "Resource"),
+            }
+        )
+    return {
+        "mentions": mentions,
+        "goals": [
+            {
+                "id": "g1",
+                "level": "schema",
+                "operation": "count",
+                "subject": "m1",
+                "subject_scope": "collection",
+                "cue": span(utterance, "How many"),
+                "confidence": 0.9,
+                **goal,
+            }
+        ],
+    }
+
+
+@pytest.mark.parametrize(
+    ("utterance", "goal", "violation"),
+    (
+        (
+            _RELATED_LINKS,
+            {
+                "relation": {
+                    "sense": "dependency",
+                    "scope": "all_kinds",
+                    "anchor": "m2",
+                    "anchor_role": "either",
+                    "result_role": "either",
+                    "cue": span(_RELATED_LINKS, "have"),
+                }
+            },
+            "sem_schema_relation_unread",
+        ),
+        (
+            _LINK_COUNT,
+            {"measure": {"kind": "count", "group_by": "endpoint"}},
+            "sem_schema_group_by_unread",
+        ),
+    ),
+)
+def test_a_manifest_count_never_answers_a_stated_schema_relation_or_grouping(
+    utterance: str, goal: dict[str, Any], violation: str
+) -> None:
+    receipt = concepts(
+        ("m1", MentionDomain.DECLARATION_KIND, ("link",)),
+        ("m2", MentionDomain.OBJECT_TYPE, ("Resource",)),
+    )
+    listing = admitted(_link_count(_LINK_COUNT), _LINK_COUNT)
+    compilation = compile_question_form(
+        listing,
+        concepts=receipt,
+        manifest=production_manifest(),
+        verifier=plan_verifier(),
+        purpose=PURPOSE,
+        evaluation_time=NOW,
+        default_lookback_seconds=DEFAULT_LOOKBACK_SECONDS,
+        utterance=_LINK_COUNT,
+        anchors=synthetic_anchors(listing),
+    )
+    (batch,) = compilation.goals[0].batches
+    stated = admitted(_link_count(utterance, **goal), utterance)
+
+    violations = verify_goal_semantics(
+        stated.form.goals[0],
+        admission=stated,
+        concepts=receipt,
+        descriptors=production_manifest().descriptors,
+        plans=(batch.plan,),
+        default_lookback_seconds=DEFAULT_LOOKBACK_SECONDS,
+        anchors=synthetic_anchors(stated),
+    )
+
+    assert _violations(listing, receipt, batch.plan) == ()
+    assert violation in violations

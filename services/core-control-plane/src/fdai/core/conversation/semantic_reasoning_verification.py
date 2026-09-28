@@ -34,6 +34,7 @@ from .semantic_reasoning_form import (
     FormGoal,
     GoalLevel,
     GoalOperation,
+    GroupBy,
     MentionDomain,
     RelationReach,
     RelationScope,
@@ -295,6 +296,8 @@ def _coverage_violations(
     required = _REQUIRED_FUNCTIONS.get((goal.level, goal.effective_operation))
     if required is not None and functions.isdisjoint(required):
         violations.append("sem_operation_read_missing")
+    if goal.level is GoalLevel.SCHEMA:
+        violations.extend(_schema_violations(goal, functions, admission))
     if goal.level is GoalLevel.INSTANCE:
         violations.extend(_filter_coverage(goal, plans, allowed))
     if goal.level is GoalLevel.INSTANCE and (
@@ -345,6 +348,31 @@ def _coverage_violations(
         scope_id = binding.object_id if binding is not None else None
         if scope_id is None or _traversal_roots(plans) != {scope_id}:
             violations.append("sem_scope_anchor_differs")
+    return violations
+
+
+def _schema_violations(goal: FormGoal, functions: set[str], admission: FormAdmission) -> list[str]:
+    """Return the stated schema relation or grouping that no declaration read answers.
+
+    A schema relation is answered only by the one-hop relationship read of the subject
+    ObjectType's own LinkTypes, and a manifest count groups only by declaration kind.
+    """
+
+    violations: list[str] = []
+    relation = goal.relation
+    if relation is not None:
+        subject = admission.form.mention(goal.subject) if goal.subject is not None else None
+        if (
+            subject is None
+            or subject.domain is not MentionDomain.OBJECT_TYPE
+            or relation.scope is not RelationScope.ALL_KINDS
+            or relation.reach is not RelationReach.ONE_HOP
+            or relation.anchor not in {None, goal.subject}
+            or "query.ontology_relationships" not in functions
+        ):
+            violations.append("sem_schema_relation_unread")
+    if goal.measure is not None and goal.measure.group_by not in {GroupBy.NONE, GroupBy.TYPE}:
+        violations.append("sem_schema_group_by_unread")
     return violations
 
 

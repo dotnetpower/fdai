@@ -4,8 +4,9 @@ A proposal that fails its closed schema or structural admission gets exactly one
 more model call. The call presents the model's own rejected proposal and the
 code-authored violations, and the model judges the correction. The repaired form
 passes the same resolution and admission, and it must keep every operand, goal,
-operation, typed time, and operand-bearing relation the rejected proposal stated:
-a repair may restructure a form but never silently drop a stated constraint.
+operation, want, typed time, operand-bearing relation, competing reading, and
+pending-goals signal the rejected proposal stated: a repair may restructure a form
+but never silently drop a stated constraint or the model's own caution.
 Clarification and review outcomes are never repaired, because they are answers
 to the operator rather than contract faults.
 """
@@ -24,6 +25,7 @@ from .semantic_reasoning_form import (
     SemanticQuestionForm,
     SourceSpan,
     SubjectScope,
+    Want,
 )
 from .semantic_reasoning_proposal import FormResolution, locate_quote, resolve_question_form
 
@@ -118,10 +120,12 @@ def repair_keeps_operands(
     inside a repaired mention, so a repair may widen, split, trim, or relabel a
     mention but never shorten or delete it; only a mention that quoted exactly its
     goal's typed time cue may instead stay inside that goal's repaired time cue.
-    Every earlier goal must survive with its operation, a typed time value must stay
-    typed over at least its earlier cue, and a relation that carried an operand must
-    stay over at least its earlier cue. A quote that no longer locates cannot be
-    matched, so the repair must then keep at least as many mentions as before.
+    Every earlier goal must survive with its operation and want, a typed time value
+    must stay typed over at least its earlier cue, and a relation that carried an
+    operand must stay over at least its earlier cue. A competing reading must stay
+    for each goal that had one, and pending goals must stay pending. A quote that no
+    longer locates cannot be matched, so the repair must then keep at least as many
+    mentions as before.
     """
 
     spans = [(mention.span.start, mention.span.end) for mention in repaired.mentions]
@@ -140,9 +144,12 @@ def repair_keeps_operands(
         for quote in located
     ):
         return False
+    if previous.get("remaining_goals") is True and not repaired.remaining_goals:
+        return False
     goals = previous.get("goals")
-    if not isinstance(goals, list):
-        return True
+    goals = goals if isinstance(goals, list) else []
+    if not _alternatives_kept(previous.get("alternatives"), goals, repaired):
+        return False
     kept = {goal.id: goal for goal in repaired.goals}
     return all(
         _goal_kept(before, kept.get(str(before.get("id"))), utterance)
@@ -151,11 +158,36 @@ def repair_keeps_operands(
     )
 
 
+def _alternatives_kept(
+    alternatives: object, goals: list[Any], repaired: SemanticQuestionForm
+) -> bool:
+    """Return whether every competing reading the rejected proposal stated survives.
+
+    A competing reading makes the form a clarification, so a repair that drops it
+    would answer a question the model itself judged ambiguous.
+    """
+
+    if not isinstance(alternatives, list) or not alternatives:
+        return True
+    kept = {item.goal for item in repaired.alternatives}
+    if not kept:
+        return False
+    goal_ids = {str(goal.get("id")) for goal in goals if isinstance(goal, Mapping)}
+    return all(
+        str(item.get("goal")) in kept
+        for item in alternatives
+        if isinstance(item, Mapping) and str(item.get("goal")) in goal_ids
+    )
+
+
 def _goal_kept(before: Mapping[str, Any], after: FormGoal | None, utterance: str) -> bool:
     if after is None:
         return False
     operation = _enum(GoalOperation, before.get("operation"))
     if operation is not None and operation is not after.operation:
+        return False
+    want = _enum(Want, before.get("want", Want.FACT.value))
+    if want is not None and want is not after.want:
         return False
     time = before.get("time")
     if isinstance(time, Mapping) and time.get("value") is not None:

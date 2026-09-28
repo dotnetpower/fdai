@@ -20,7 +20,9 @@ from .semantic_reasoning_form import (
     FormGoal,
     GoalLevel,
     GoalOperation,
+    GroupBy,
     MentionDomain,
+    RelationReach,
     RelationScope,
 )
 from .semantic_reasoning_nodes import (
@@ -33,6 +35,7 @@ from .semantic_reasoning_nodes import (
 )
 
 _SUBJECT_KINDS = {MentionDomain.OBJECT_TYPE: "object"}
+_MANIFEST_GROUPS = frozenset({GroupBy.NONE, GroupBy.TYPE})
 _OUTPUT_KINDS = {
     "query.ontology_declaration": "query.table",
     "query.ontology_relationships": "ontology.relationships",
@@ -75,13 +78,17 @@ def schema_goal(goal: FormGoal, ctx: CompileContext) -> OperatorResult:
         GoalOperation.SELECT,
         GoalOperation.COUNT,
     }:
+        if goal.relation is not None:
+            # A manifest listing reads every declaration of the kind and never narrows it to
+            # the declarations related to a stated side.
+            return OperatorResult(unsupported=("schema_relation_unsupported:declaration_kind",))
         return _manifest_goal(goal, ctx, values)
     if domain is not MentionDomain.OBJECT_TYPE or len(values) != 1:
         return OperatorResult(unsupported=(f"schema_subject_unsupported:{domain.value}",))
     name = values[0]
-    if goal.relation is not None and goal.relation.scope is not RelationScope.ALL_KINDS:
-        # The relationship read lists every LinkType; a single stated sense is not narrowed.
-        return OperatorResult(unsupported=("schema_relation_sense_unsupported",))
+    relation_failure = _relation_failure(goal)
+    if relation_failure is not None:
+        return OperatorResult(unsupported=(relation_failure,))
     if linked or goal.relation is not None or goal.effective_operation is GoalOperation.TRAVERSE:
         function_name = "query.ontology_relationships"
         arguments: dict[str, Any] = {"object_types": [name], "limit": 100}
@@ -120,6 +127,26 @@ def schema_goal(goal: FormGoal, ctx: CompileContext) -> OperatorResult:
     )
 
 
+def _relation_failure(goal: FormGoal) -> str | None:
+    """Return why an ObjectType relation is not the one-hop read of its own LinkTypes.
+
+    The relationship read lists every LinkType one hop from the subject ObjectType, so
+    a single stated sense, a transitive reach, or an anchor other than the subject
+    would be silently widened or dropped.
+    """
+
+    relation = goal.relation
+    if relation is None:
+        return None
+    if relation.scope is not RelationScope.ALL_KINDS:
+        return "schema_relation_sense_unsupported"
+    if relation.reach is not RelationReach.ONE_HOP:
+        return f"schema_relation_reach_unsupported:{relation.reach.value}"
+    if relation.anchor is not None and relation.anchor != goal.subject:
+        return "schema_relation_anchor_unsupported"
+    return None
+
+
 def _declared_kinds(goal: FormGoal, ctx: CompileContext) -> tuple[str, ...]:
     """Return the goal's declaration-kind filters and the uncited kinds it alone consumes.
 
@@ -146,6 +173,12 @@ def _declared_kinds(goal: FormGoal, ctx: CompileContext) -> tuple[str, ...]:
 
 
 def _manifest_goal(goal: FormGoal, ctx: CompileContext, kinds: tuple[str, ...]) -> OperatorResult:
+    measure = goal.measure
+    if measure is not None and measure.group_by not in _MANIFEST_GROUPS:
+        # A manifest count groups only by declaration kind; no other grouping is substituted.
+        return OperatorResult(
+            unsupported=(f"schema_group_by_unsupported:{measure.group_by.value}",)
+        )
     if not function_declared(ctx, "query.manifest"):
         return OperatorResult(unsupported=("function_unavailable:query.manifest",))
     listing = OntologyQueryNode(

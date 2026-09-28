@@ -1079,6 +1079,153 @@ def test_a_schema_relation_with_one_sense_is_not_widened_to_every_link() -> None
     assert goal.reasons == ("schema_relation_sense_unsupported",)
 
 
+def _schema_mention(utterance: str, mention_id: str, domain: str, text: str) -> dict[str, Any]:
+    form = "name" if domain == "instance" else "concept"
+    return {"id": mention_id, "form": form, "domain": domain, "span": span(utterance, text)}
+
+
+def _either(utterance: str, cue: str, **fields: Any) -> dict[str, Any]:
+    return {
+        "sense": "dependency",
+        "scope": "all_kinds",
+        "anchor_role": "either",
+        "result_role": "either",
+        "cue": span(utterance, cue),
+        **fields,
+    }
+
+
+_KIND_LINKS = "How many LinkTypes does the Resource ObjectType have?"
+_KIND_INSTANCE = "Which LinkTypes does vm-app-01 participate in?"
+_TRANSITIVE = "What can the Resource ObjectType reach transitively?"
+_INSTANCE_ANCHOR = "Which LinkTypes of the Resource ObjectType does vm-app-01 use?"
+_PER_ENDPOINT = "How many ObjectTypes are there per endpoint?"
+
+
+@pytest.mark.parametrize(
+    ("utterance", "mentions", "goal", "reason"),
+    (
+        (
+            _KIND_LINKS,
+            (("m1", "declaration_kind", "LinkTypes"), ("m2", "object_type", "Resource")),
+            {
+                "operation": "count",
+                "subject": "m1",
+                "subject_scope": "collection",
+                "relation": _either(_KIND_LINKS, "have", anchor="m2"),
+            },
+            "schema_relation_unsupported:declaration_kind",
+        ),
+        (
+            _KIND_INSTANCE,
+            (("m1", "declaration_kind", "LinkTypes"), ("m2", "instance", "vm-app-01")),
+            {
+                "operation": "select",
+                "subject": "m1",
+                "subject_scope": "collection",
+                "relation": _either(_KIND_INSTANCE, "participate in", anchor="m2"),
+            },
+            "schema_relation_unsupported:declaration_kind",
+        ),
+        (
+            _TRANSITIVE,
+            (("m1", "object_type", "Resource"),),
+            {
+                "operation": "traverse",
+                "subject": "m1",
+                "subject_scope": "anchor",
+                "relation": _either(_TRANSITIVE, "reach transitively", reach="transitive"),
+            },
+            "schema_relation_reach_unsupported:transitive",
+        ),
+        (
+            _INSTANCE_ANCHOR,
+            (("m1", "object_type", "Resource"), ("m2", "instance", "vm-app-01")),
+            {
+                "operation": "traverse",
+                "subject": "m1",
+                "subject_scope": "anchor",
+                "relation": _either(_INSTANCE_ANCHOR, "use", anchor="m2"),
+            },
+            "schema_relation_anchor_unsupported",
+        ),
+        (
+            _PER_ENDPOINT,
+            (("m1", "declaration_kind", "ObjectTypes"),),
+            {
+                "operation": "count",
+                "subject": "m1",
+                "subject_scope": "collection",
+                "measure": {"kind": "count", "group_by": "endpoint"},
+            },
+            "schema_group_by_unsupported:endpoint",
+        ),
+    ),
+)
+def test_a_schema_relation_or_grouping_no_declaration_read_answers_is_not_widened(
+    utterance: str,
+    mentions: tuple[tuple[str, str, str], ...],
+    goal: dict[str, Any],
+    reason: str,
+) -> None:
+    form = {
+        "mentions": [_schema_mention(utterance, *mention) for mention in mentions],
+        "goals": [
+            {
+                "id": "g1",
+                "level": "schema",
+                "cue": span(utterance, utterance.split()[0]),
+                "confidence": 0.9,
+                **goal,
+            }
+        ],
+    }
+    domains = {
+        "declaration_kind": MentionDomain.DECLARATION_KIND,
+        "object_type": MentionDomain.OBJECT_TYPE,
+    }
+    values = {"LinkTypes": ("link",), "ObjectTypes": ("object",), "Resource": ("Resource",)}
+    receipt = concepts(
+        *(
+            (mention_id, domains[domain], values[text])
+            for mention_id, domain, text in mentions
+            if domain in domains
+        )
+    )
+
+    compiled = _compile(utterance, form, receipt).goals[0]
+
+    assert compiled.status is GoalStatus.UNSUPPORTED
+    assert compiled.reasons == (reason,)
+
+
+def test_a_declaration_count_grouped_by_type_counts_each_kind() -> None:
+    utterance = "How many ObjectTypes are there by type?"
+    form = {
+        "mentions": [_schema_mention(utterance, "m1", "declaration_kind", "ObjectTypes")],
+        "goals": [
+            {
+                "id": "g1",
+                "level": "schema",
+                "operation": "count",
+                "subject": "m1",
+                "subject_scope": "collection",
+                "measure": {"kind": "count", "group_by": "type"},
+                "cue": span(utterance, "How many"),
+                "confidence": 0.9,
+            }
+        ],
+    }
+
+    goal = _compile(
+        utterance, form, concepts(("m1", MentionDomain.DECLARATION_KIND, ("object",)))
+    ).goals[0]
+
+    assert goal.status is GoalStatus.COMPILED
+    (batch,) = goal.batches
+    assert [node.kind.value for node in batch.plan.nodes] == ["function", "aggregate"]
+
+
 def test_a_qualifier_on_a_measure_mention_is_never_dropped() -> None:
     utterance = "What is the state of aks-prod-01 in rg-app?"
     form = {
