@@ -59,6 +59,7 @@ Container Apps and Azure Kubernetes Service (AKS). The canonical design remains 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
 | 2026-09-28 | implemented | Protected single-service deployment now selects the deploy Managed Identity for Terraform. The job signed in as that identity but left the azurerm provider on Azure CLI authentication, which refuses a non-user principal, so every plan and apply stopped at backend initialization. `ARM_USE_MSI` with an explicit `ARM_CLIENT_ID` and disabled CLI/OIDC authentication matches the scoped Terraform receiver. | `current change`; live failure on run 36373163183 at `831eef165`; workflow contract regression | Rerun the protected Operator plan and apply for [#1352](https://github.com/dotnetpower/fdai/issues/1352). |
+| 2026-09-28 | validated | Applied the dev inventory Reader, Monitoring Reader, Log Analytics Reader, and pipeline-stage sender roles through two exact scoped substrate plans. The observation campaign now reports `metrics` and `logs` as `ready` and publishes without topic authorization errors. The authenticated Console lists Metrics (248 evidence items), Logs, and Guest logs source reads as `fresh` and `completed`. | [#1564](https://github.com/dotnetpower/fdai/pull/1564); [#1567](https://github.com/dotnetpower/fdai/pull/1567); [#1561](https://github.com/dotnetpower/fdai/issues/1561) receipts; [#1171](https://github.com/dotnetpower/fdai/issues/1171) Console readback | Cost Management Reader remains unselected, so `cost` stays `unauthorized`. Probe-shaped ingest rejections remain under [#1557](https://github.com/dotnetpower/fdai/issues/1557). |
 | 2026-09-28 | implemented | Substrate ACR readback now passes the name, resource group, and subscription parsed from the state-owned `container_registry_id`, because `az acr show` rejects `--ids`. | `current change`; focused readback regressions; 1972 deployment CLI tests; the live host reproduced `the following arguments are required: --name/-n` | Retain the live AKS receipt through #461. |
 | 2026-09-28 | implemented | The AKS baseline no longer provisions the optional operational-history archive. It has no archive private endpoint, and the live dev subscription policy disables storage public access, so the created account drifted on every zero-change check. An empty archive URL already omits the shadow lifecycle Job. | `current change`; focused source regression; live residual plan showed only `public_network_access_enabled` false -> true on the archive account | Re-enable it with detailed private networking; retain the live AKS receipt through #461. |
 | 2026-09-28 | implemented | Closed three live-diagnosed AKS standalone gaps: root outputs that targeted applies never record are read from a refresh-free non-targeted plan only when known; the AKS substrate now applies the Console, operational-history storage, and cost pseudonym secret the workloads read; initial inventory reads the existing `event_bus_operational_kafka_bootstrap` output. The signed wheelhouse builder also builds locked workspace path dependencies, which #1553 made the CLI require. | `current change`; `tests/test_standalone_planned_outputs.py`; builder regression; 1978 deployment CLI tests; clean-venv wheelhouse install and import; live host plan showed which outputs were known; file-LOC baseline preserved | Retain the live AKS application receipt through #461. |
@@ -244,15 +245,15 @@ completion of the displaced enterprise or execution criteria.
   [#1171](https://github.com/dotnetpower/fdai/issues/1171).
 - [x] Retain an authenticated Console `/live` stream from the running dev cluster. Evidence: the
   2026-09-28 authenticated readback on [#1171](https://github.com/dotnetpower/fdai/issues/1171).
-- [ ] Retain authoritative Metrics and Logs source reads in the Console after the observation-campaign
-  Job runs successfully ([#1171](https://github.com/dotnetpower/fdai/issues/1171),
-  [#1352](https://github.com/dotnetpower/fdai/issues/1352)).
+- [x] Retain authoritative Metrics and Logs source reads in the Console after the observation-campaign
+  Job runs successfully. Evidence: the 2026-09-28 Console readback on
+  [#1171](https://github.com/dotnetpower/fdai/issues/1171).
 - [x] Fix the AKS scheduled Jobs that fail at start because `/opt/fdai-compat/identity_bridge.py`
   is missing, then retain one successful analyzer, inventory, observation-campaign, and canary run.
   Evidence: the 2026-09-28 Job readback on [#1352](https://github.com/dotnetpower/fdai/issues/1352).
-- [ ] Apply the missing inventory observation roles to the dev substrate through an exact plan, then
-  retain reachable `metrics` and `logs` observation domains
-  ([#1561](https://github.com/dotnetpower/fdai/issues/1561)).
+- [x] Apply the missing inventory observation roles to the dev substrate through an exact plan, then
+  retain reachable `metrics` and `logs` observation domains. Evidence: the 2026-09-28 receipts on
+  [#1561](https://github.com/dotnetpower/fdai/issues/1561).
 - [ ] Roll out the signed Core image with the Key Vault-backed Application Insights binding and
   retain fresh application traces, metrics, and correlated logs from the deployed replicas.
 - [x] Implement a selected-service AKS update that changes one digest and source revision, admits only that Deployment update, preserves peer rollout identity, and verifies targeted convergence.
