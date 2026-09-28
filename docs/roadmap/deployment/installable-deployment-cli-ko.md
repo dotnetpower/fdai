@@ -1,7 +1,7 @@
 ---
 title: 설치형 배포 CLI
 translation_of: installable-deployment-cli.md
-translation_source_sha: 6e32cddfa5890df34b2dbb73d503291bc0c1df3c
+translation_source_sha: 81551370d023e1a9a0197e4de9249a705b6dadda
 translation_revised: 2026-09-28
 ---
 
@@ -252,21 +252,20 @@ release나 사용 권한 증명으로 취급하지 않습니다.
 
 ### 소스 런타임 산출물 수락
 
-소스 모드는 서비스, 의존성, 배포 호스트 또는 어플라이언스 이미지를 만들지 않습니다. 테넌트
-프로비저닝은 Docker, Buildx, ACR Tasks, 원격 builder 또는 VM 이미지 캡처를 실행하지 않습니다.
-소스 checkout으로 Foundation 입력을 준비하고 검증할 수 있지만, 운영자가 불변 checkout과 소스
-버전이 일치하는 신뢰할 수 있는 사전 빌드 런타임 산출물 매니페스트를 제공하기 전에는
-애플리케이션 단계에 진입할 수 없습니다.
+연결형 배포는 키트, 패키지 또는 운영자가 제공하는 산출물 매니페스트를 요구해서는 안 되며, 운영자는
+깨끗한 checkout만 제공합니다. 오프라인과 어플라이언스 경로는 서명된 키트를 유지합니다. 소스 모드는
+서비스, 의존성, 호스트 또는 어플라이언스 이미지를 빌드하지 않고 Docker, Buildx, ACR Tasks, 원격
+builder 또는 VM 캡처를 실행하지 않으며, 프로비저닝 중에 Console을 빌드하지도 않습니다.
 
-매니페스트는 기본 서비스 다섯 개의 이미지, 의존성 이미지, Console 콘텐츠 및 마이그레이션 지원을
-digest로 식별합니다. 조정기는 레지스트리 자격 증명을 얻기 전에 서명, 출처, SBOM 범위, 플랫폼,
-소스 버전 및 정확한 파일 제한을 검증합니다. 캐시된 산출물도 같은 검증을 통과해야 합니다. 누락,
-부분 구성, 변경 가능한 태그 또는 버전 불일치는 `runtime_artifacts_required`로 중단하며 설치기가
-빌드로 복구하지 않습니다.
-
-선택한 경우 비공개 레지스트리 미러 또는 반입은 실행 호스트 작업으로 유지합니다. 산출물 위치만
-바꾸고 같은 digest를 독립적으로 다시 확인하며 이미지 바이트를 변경할 수 없습니다. 게시 결과가
-불명확하면 검증만 재개하며 이미지를 다시 빌드하거나 게시하지 않습니다.
+애플리케이션 단계는 검증된 `application-plan` checkpoint에서 이어지며 전송한 snapshot을 다시
+사용합니다. 보호된 공급망 workflow가 공개 게시한 정확한 버전의 이미지와 Console 산출물을 각각
+digest 하나로 확인하고, 소스에 고정한 사이드카 digest를 함께 사용합니다. 외부 Python 지원
+패키지는 hash로 고정한 binary wheel로 설치하고, 자체 패키지는 검증된 snapshot에서 실행합니다.
+Terraform은 커밋된 lock 파일로 provider를 직접 설치합니다. 각 ACR 반입은 호스트 ID로
+digest에 결합된 계획, 사람 승인, 효과 전 claim, digest 재확인을 거칩니다. 누락, 비공개, 부분 구성
+또는 불일치 산출물은 `published_images_unavailable`로 중단하며 빌드로 대체하지 않습니다.
+receipt는 소스 모드 필드를 사용하고 키트나 release 서명 신뢰를 주장하지 않습니다. 이 연결 단계는
+아직 구현되지 않았습니다.
 
 기존 `dev` AKS 설치에서는 적격 배포 호스트의 깨끗한 로컬 checkout에서 서비스 하나를 직접
 업데이트할 수 있습니다. 이 경로는 새 설치 및 release 조립과 분리됩니다.
