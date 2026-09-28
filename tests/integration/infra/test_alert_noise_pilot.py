@@ -15,13 +15,13 @@ def test_alert_noise_pilot_is_one_rule_one_recipient_and_one_axis() -> None:
     assert main.count('resource "azurerm_monitor_action_group"') == 1
     assert main.count("email_receiver {") == 1
     assert "webhook_receiver" not in main
-    assert 'threshold       = var.phase == "baseline" ? 0 : 101' in main
-    assert 'metric_name      = "Availability"' in main
+    assert 'threshold = var.phase == "baseline" ? 0 : 2' in main
+    assert 'metric_namespace = "Microsoft.App/containerApps"' in main
+    assert 'metric_name      = "Replicas"' in main
     assert "severity            = 3" in main
     assert "auto_mitigate       = true" in main
-    assert 'data "azurerm_key_vault" "target"' in main
-    assert "scopes              = [data.azurerm_key_vault.target.id]" in main
-    assert "lower(data.azurerm_key_vault.target.id) == lower(var.target_resource_id)" in main
+    assert "azurerm_key_vault" not in main
+    assert "scopes              = [var.target_container_app_id]" in main
 
 
 def test_alert_noise_pilot_is_default_off_dev_only_and_secret_bound() -> None:
@@ -35,8 +35,10 @@ def test_alert_noise_pilot_is_default_off_dev_only_and_secret_bound() -> None:
     assert 'variable "receiver_email"' in module_variables
     assert "sensitive   = true" in module_variables
     assert "receiver_email          = var.alert_noise_pilot_email" in root
-    assert "target_resource_id      = var.alert_noise_pilot_target_resource_id" in root
-    assert "target_resource_id      = module.key_vault.id" not in root
+    assert "alert_noise_pilot_target_resource_id" not in variables
+    assert "target_container_app_id" in root
+    assert "module.compute.core_app_name" in root
+    assert "Microsoft.App/containerApps" in root
     assert "!var.enable_monitoring" in root
     assert '"fdai:component" = "alert-noise-pilot"' in root
 

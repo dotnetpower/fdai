@@ -1,8 +1,8 @@
 ---
 title: 배포 리소스 규약
 translation_of: deployment-resource-conventions.md
-translation_source_sha: bae44927e8ff3ba191b227ed57bdf42524438649
-translation_revised: 2026-09-16
+translation_source_sha: aa777a2e3e50d90c48f2c0541b727f5f6d7e5f55
+translation_revised: 2026-09-28
 ---
 # 배포 리소스 규약
 
@@ -64,13 +64,14 @@ readback으로 검증합니다. 하나의 공유 요청 workflow는 허용 목�
 관리자 우회를 활성화하지 않고 bot 소유 배포를 승인할 수 있습니다.
 
 알림 과다 수신 검증 선행 조건은 광범위한 모니터링에 포함되지 않는 개발 환경 전용 대상입니다.
-보호 구성에 있는 기존 Key Vault ID 하나를 대상으로 정확히
+기존 `ca-<workload>-<env>-<region>-core` Container App의 `Replicas` 메트릭을 대상으로 정확히
 `ag-<workload>-noise-pilot-<env>-<region>`과
-`alert-<workload>-noise-pilot-<env>-<region>`을 만듭니다. 수신자는 소유자 전용 배포 구성에
-유지합니다. 정확한 적용 전에 기준선, 조정안, 복구 및 정리 계획의 범위를 각각 독립적으로
-검증합니다. 별도 관리 신원이 실행하고 읽기 전용 공급자 경로가 관측하는 이 격리된 개발 환경
-형태는 유지관리자 한 명이 승인할 수 있습니다. 공용 또는 프로덕션 경보 변경은 기존 승인
-정족수를 유지합니다.
+`alert-<workload>-noise-pilot-<env>-<region>`을 만듭니다. 대상은 임의의 리소스 ID 입력을 받지
+않고 내부에서 파생합니다. 수신자는 소유자 전용 배포 구성에 유지합니다. 파일럿은 Core 앱을
+변경하거나 애플리케이션 데이터, 자격 증명, 연결 문자열 또는 Key Vault 내용을 읽지 않습니다.
+정확한 적용 전에 기준선, 조정안, 복구 및 정리 계획의 범위를 각각 독립적으로 검증합니다. 별도
+관리 신원이 실행하고 읽기 전용 공급자 경로가 관측하는 이 격리된 개발 환경 형태는 유지관리자
+한 명이 승인할 수 있습니다. 공용 또는 프로덕션 경보 변경은 기존 승인 정족수를 유지합니다.
 
 A3-E 근거 대상은 별도의 개발 환경 전용 Terraform root입니다. 기존 보호 보유 리소스 그룹을
 참조하고 별도 상태에서 비공개 네트워크, 단일 VM, 신원 2개 및 대상 범위 역할만 소유합니다.
@@ -97,6 +98,7 @@ A3-E 근거 대상은 별도의 개발 환경 전용 Terraform root입니다. �
 | 이전 방식 platform 및 ops-bootstrap Terraform state root | implemented | `infra/main.tf`, `infra/bootstrap/main.tf`, `.github/workflows/deploy-dev.yml` 및 집중 Terraform과 workflow 검사 | 안정적인 backend key와 배포 메커니즘은 제공되지만, 이 두 root의 통제된 적용 증적은 리포지토리에 보존되어 있지 않습니다. 서비스 간 근거를 고정하는 Key Vault secret은 조정되지 않은 고정 만료 대신 조정된 로테이션을 사용합니다. |
 | 초기 구성 기반 계획 경계 | implemented | `fdai_deployment_cli.bootstrap_reconcile`, `.github/workflows/deploy-dev.yml`, 집중 CLI 및 워크플로 검사 | 초기 구성 조정은 대상에 고정된 읽기 전용 작업입니다. 애플리케이션 계획은 기반 단계가 소유한 상태 컨테이너를 만들지 않고 확인합니다. 통제된 기반 적용 및 인계 증적은 아직 필요합니다. |
 | 재사용 Terraform 모듈 호환성 | implemented | `infra/modules/**/versions.tf`, `infra/services/**/modules/**/versions.tf`, TFLint | 모든 재사용 모듈은 Terraform `>= 1.9`를 선언하고 Azure 리소스를 소유한 모듈은 지원되는 AzureRM 4.x 범위를 제한합니다. |
+| 알림 과다 수신 파일럿 리소스 경계 | implemented | `infra/main.tf`, `infra/modules/observability/alert-noise-pilot`, `scripts/deployment/azure/enforce_plan_scope.py`, 집중 인프라 및 계획 범위 검사 | Root는 결정론적 Core Container App ID만 파생합니다. 정확한 계획은 전용 Action Group과 경보를 만들거나 임계값만 `0`과 `2` 사이에서 바꿀 수 있으며 Key Vault 및 Core가 아닌 대상은 차단합니다. 운영 적용 및 알림 근거는 아직 필요합니다. |
 | OHL scale-out evidence target 명명 및 tag | implemented | `infra/main.tf`의 current change, `terraform -chdir=infra test -filter=tests/dev_operations_gateway.tftest.hcl` 결과 8 passed | 실제 프로비저닝 및 recurrence evidence는 열려 있습니다. |
 | A3-E 근거 대상 명명 및 소유권 | implemented | `infra/a3e-evidence-target/`; `verify_a3e_evidence_plan.py`; 집중 Terraform 및 계획 검증기 검사 | Root는 기존 보유 그룹을 참조하고 별도 상태를 사용하며 공인 IP를 만들지 않습니다. 실행기에는 VM 읽기, 시작 및 할당 해제만 부여합니다. 보호된 적용과 운영 근거는 이슈 `#632` 및 `#633`에 남아 있습니다. |
 | Operator schema 및 catalog Job 명명 | implemented | `infra/main.tf`, `infra/modules/operator-api/container-app/`, `.github/workflows/deploy-dev.yml` 및 집중 배포 workflow 테스트 | 결정론적 이름과 digest-pinned image를 연결했으며 순서가 지정된 Job의 보호된 적용 증적은 열려 있습니다. |
@@ -111,6 +113,7 @@ A3-E 근거 대상은 별도의 개발 환경 전용 Terraform root입니다. �
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-28 | implemented | 격리된 개발 환경 알림 과다 수신 선행 조건을 Key Vault Availability에서 결정론적 FDAI Core Container App `Replicas` 메트릭으로 바꾸고 임의 대상 입력을 제거했습니다. | `current change`, 파일럿 Terraform 모듈, 루트 조립, 정확한 계획 범위 검증기, 집중 테스트 22건, Ruff 및 Terraform 검증. | 보호된 수신자를 제공하고 정확한 기준선 계획 승인과 독립적인 발생, 전달, 복구, 역방향 참조 및 정리 근거를 보존합니다. 적용이나 알림은 실행하지 않았습니다. |
 | 2026-09-16 | implemented | 정확한 Terraform 보안 검사가 초기 형태를 거부한 뒤 외부 송신을 거부하는 NSG를 A3-E VM NIC와 subnet에 모두 직접 연결하고 VM extension 작업을 비활성화했습니다. | `current change`; Trivy `0.72.0`에서 잘못된 구성 0건, Checkov `3.2.256`에서 16건 통과 및 0건 실패, 값을 노출하지 않는 미리 보기 검증기에서 정확히 생성 13건, 갱신 0건 및 삭제 0건. | 관리 호스트 계획이나 Azure 효과를 만들기 전에 필수 CI를 통해 수정된 정확한 개정 번호를 게시합니다. |
 | 2026-09-15 | implemented | 실제 부분 Foundation 복구에서 provider와 Azure 조건 오류가 드러난 뒤 임시 OS 캐시와 범위가 포함된 역할 정의 비교 값을 수정했습니다. | 현재 변경; `terraform -chdir=infra/bootstrap test -filter=tests/offline_runner.tftest.hcl`: 정확한 역할·principal 제한과 디스크 캐시를 포함해 14건 통과. | 완료된 작업을 보존하는 별도 승인 후속 계획·적용과 독립 호스트·상태 인계 근거를 보존합니다. |
 | 2026-09-16 | implemented | 일회성 A3-E 근거 VM 하나에 결정론적 이름, 필수 무권한 및 만료 태그, 분리된 실행기 및 관측자 신원, 대상 범위 최소 역할, 정확한 생성 전용 계획 검증을 추가했습니다. | `current change`; `infra/a3e-evidence-target/`; 집중 Terraform, 계획 검증기, CI 계약 및 문서 검사. | 정확한 개정 번호 하나를 게시하고 승인된 원격 상태 계획을 보존한 뒤 이슈 `#632` 및 `#633`에서 별도로 승인된 적용, 할당 해제, 신원, 정리 및 독립 효과 근거를 수집합니다. |
@@ -203,6 +206,8 @@ A3-E 근거 대상은 별도의 개발 환경 전용 Terraform root입니다. �
 | 2026-08-20 | validated | 수정된 stateful Event Bus 지연 규칙을 보호된 monitoring-only 경로로 적용하고 ARM의 `autoMitigate=true`를 확인했으며, 정제된 합성 지연 행 하나로 실제 조건을 시험했습니다. 경고는 `2026-08-20T15:36:09Z`에 발생하고 구성된 정상화 기간 뒤 `2026-08-20T16:02:10Z`에 자동 해제되었습니다. | 보호된 적용 실행 `32383519737`은 생성 0개, 제자리 변경 1개, 삭제 0개였고 정확한 경고 인스턴스 관측이 `Fired` 이후 `Resolved`를 기록했으며 집중 경고 검사 3개가 통과했습니다. | Event Bus 소비자 지연 경고 배포 및 stateful 복구 계약에 남은 작업은 없습니다. |
 ### 남은 작업
 
+- [ ] 알림 과다 수신 파일럿이 결정론적 Action Group과 Core `Replicas` 경보만 만드는 정확한 승인
+  기준선 계획을 보존한 뒤 알림, 복구, 역방향 참조 안전성 및 정리를 독립적으로 검증합니다.
 - [ ] `id-<workload>-<env>-<region>-operator-api`와
   `ca-<workload>-<env>-<region>-operator-api`를 생성하고 독립 Operator 서비스를 새 워크로드
   신원에 연결하며 상태와 동료 서비스 격리를 검증한 뒤 후속 리소스가 준비된 후에만 이전 `readapi`

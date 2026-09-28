@@ -374,15 +374,17 @@ implemented mechanics from the baseline checkpoint, remaining hardening, and ope
 | ANG-5: evaluation tuning and promotion | Native rule-kind semantics and held-out recall/latency gates pass; separately authorized provider tests and a timed pilot retain independent evidence before promotion |
 
 The dev-only provider-qualification prerequisite is a separate default-disabled Terraform module.
-It accepts one existing Key Vault resource ID and one protected test email, creates one dedicated
-Action Group and one severity-3 Availability metric alert, and cannot be combined with broad
-monitoring. Its baseline threshold is `0`; treatment changes only that threshold to `101`; recovery
-restores `0`; cleanup deletes the pair. A plan-scope verifier rejects any other resource or field
-change. This prerequisite does not bypass exact-plan review, the applicable approval contract,
-independent effect observation, or recovery verification, and it never promotes an ActionType or
-Workflow. A single maintainer can approve only the isolated dev shape defined in section 5. Before
-cleanup, an independent provider read must confirm that no other rule references the dedicated
-Action Group; missing or conflicting reverse-reference evidence holds deletion.
+It observes only the existing FDAI Core Container App replica count and accepts one protected test
+email. It creates one dedicated Action Group and one severity-3 `Replicas` metric alert and cannot
+be combined with broad monitoring. It doesn't read application data, credentials, connection
+strings, or Key Vault content, and it doesn't change the Core app. Its baseline threshold is `0`;
+treatment changes only that threshold to `2`; recovery restores `0`; cleanup deletes the pair. A
+plan-scope verifier rejects any other resource or field change. This prerequisite does not bypass
+exact-plan review, the applicable approval contract, independent effect observation, or recovery
+verification, and it never promotes an ActionType or Workflow. A single maintainer can approve only
+the isolated dev shape defined in section 5. Before cleanup, an independent provider read must
+confirm that no other rule references the dedicated Action Group; missing or conflicting
+reverse-reference evidence holds deletion.
 
 The scale fixture covers at least 500 synthetic principals, 20 teams, overlapping direct/group/role
 bindings, and 10000 alert events, including skew toward one service. Versioned policy bounds pages,
