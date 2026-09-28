@@ -2991,8 +2991,8 @@ def test_standalone_migration_uses_interpreter_for_private_bundle_script(
         if "--evidence-output" in command:
             evidence = Path(command[command.index("--evidence-output") + 1])
             schema = Path(command[command.index("--schema-output") + 1])
-            evidence.write_text("{}", encoding="utf-8")
-            schema.write_text("{}", encoding="utf-8")
+            evidence.write_text(json.dumps(private_json(evidence, "")), encoding="utf-8")
+            schema.write_text(json.dumps(private_json(schema, "")), encoding="utf-8")
 
     monkeypatch.setattr(standalone_host, "_private_json", private_json)
     monkeypatch.setattr(standalone_host, "_managed_identity_login_from_context", lambda *_: None)

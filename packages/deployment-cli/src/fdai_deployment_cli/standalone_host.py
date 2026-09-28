@@ -111,6 +111,7 @@ from fdai_deployment_cli.standalone_stage_targets import (
 from fdai_deployment_cli.standalone_stage_targets import stage_targets as _stage_targets
 from fdai_deployment_cli.standalone_host_values import aks_operator_environment
 from fdai_deployment_cli.standalone_management_egress import management_egress_cidrs
+from fdai_deployment_cli.standalone_migration_evidence import verify_service_evidence
 from fdai_deployment_cli.standalone_host_values import (
     console_origin as _console_origin,
 )
@@ -3071,23 +3072,7 @@ def _migrate(_args: argparse.Namespace, work_dir: Path) -> dict[str, object]:
             timeout=1200,
             reason="service database migration failed",
         )
-        (evidence / f"{service}.json").chmod(0o600)
-        (evidence / f"{service}-schema.json").chmod(0o600)
-        migration_evidence = _private_json(
-            evidence / f"{service}.json", f"{service} migration evidence"
-        )
-        schema_evidence = _private_json(
-            evidence / f"{service}-schema.json", f"{service} migration schema"
-        )
-        if (
-            migration_evidence.get("service_id") != service
-            or not isinstance(migration_evidence.get("observed_schema_fingerprint"), str)
-            or schema_evidence.get("schema_version") != 1
-            or schema_evidence.get("service_id") != service
-            or schema_evidence.get("observed_schema_fingerprint")
-            != migration_evidence.get("observed_schema_fingerprint")
-        ):
-            raise ValueError("service migration evidence is incomplete")
+        verify_service_evidence(evidence, service)
     _run_env(
         (
             str(runtime_python),
