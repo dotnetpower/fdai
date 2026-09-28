@@ -117,7 +117,8 @@ The model states only that `aks-prod-01` is the dependency and the results are i
 ## Admission
 
 Bragi admits a form only when every span matches the utterance without cutting through a longer identifier, every goal meets the confidence floor, no
-alternative survives, both relation roles are the ends of one sense, every declared mention is used, and the level fits every mention domain.
+alternative survives, both relation roles are the ends of one sense, every declared mention is used, no two mentions share words, no group is both
+a goal's scope and its relation anchor, and the level fits every mention domain.
 Otherwise it returns one clarification or sends a low-confidence field to one independent T2 review of closed fields. An admitted atom that no
 reviewed builder reads, such as a qualifier or a stated counterpart, returns a typed unsupported reason; it is never ignored.
 
@@ -216,7 +217,8 @@ Replay resolves the same receipt or reports that the binding is not reproducible
 
 A sense selects LinkTypes by reviewed `semantic_traits` and the bound anchor ObjectType. A reviewed sense-role convention names the role of each
 stored end, such as container for the `from` end of a containment link, so the anchor role selects `outgoing` or `incoming` without rewriting stored
-direction. Stated roles that are not the two ends of the sense return a clarification. `transitive` reach requires a LinkType declared transitive and
+direction. Stated roles that are not the two ends of the sense return a clarification. A reciprocal LinkType, such as peering, has no direction, so
+both stored sides are read whatever roles the form states, and V-SEM re-derives that. `transitive` reach requires a LinkType declared transitive and
 self-composable, depth at most five.
 
 | Sense | Trait | Current LinkTypes |

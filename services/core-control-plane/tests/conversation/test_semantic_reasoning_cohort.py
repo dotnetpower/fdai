@@ -44,6 +44,10 @@ _COHORT = json.loads(
     (ROOT / "eval/ontology-reasoning/reasoning-cohort.v1.json").read_text(encoding="utf-8")
 )
 _CASES = tuple(_COHORT["cases"])
+_HOLDOUT = json.loads(
+    (ROOT / "eval/ontology-reasoning/reasoning-holdout.v1.json").read_text(encoding="utf-8")
+)
+_HOLDOUT_CASES = tuple(_HOLDOUT["cases"])
 
 
 def _spanned(value: Any, utterance: str) -> Any:
@@ -60,9 +64,9 @@ def _spanned(value: Any, utterance: str) -> Any:
                 {"start": utterance.index(text), "end": utterance.index(text) + len(text)}
                 for text in item
             ]
-        elif key in {"text", "cue"} and isinstance(item, str):
+        elif key in {"text", "cue", "reach_cue"} and isinstance(item, str):
             start = utterance.index(item)
-            result["span" if key == "text" else "cue"] = {"start": start, "end": start + len(item)}
+            result["span" if key == "text" else key] = {"start": start, "end": start + len(item)}
         else:
             result[key] = _spanned(item, utterance)
     return result
@@ -157,7 +161,20 @@ def test_cohort_is_bilingual_and_generic() -> None:
     }
 
 
-@pytest.mark.parametrize("case", _CASES, ids=lambda case: case["id"])
+def test_the_holdout_is_bilingual_and_shares_no_question_with_the_cohort() -> None:
+    pairs: dict[str, set[str]] = {}
+    for case in _HOLDOUT_CASES:
+        pairs.setdefault(case["pair"], set()).add(case["locale"])
+    assert _HOLDOUT["schema_version"] == "1.0.0"
+    assert all(locales == {"en", "ko"} for locales in pairs.values())
+    assert len({case["id"] for case in _HOLDOUT_CASES}) == len(_HOLDOUT_CASES)
+    assert not {case["id"] for case in _HOLDOUT_CASES} & {case["id"] for case in _CASES}
+    assert not {case["utterance"] for case in _HOLDOUT_CASES} & {
+        case["utterance"] for case in _CASES
+    }
+
+
+@pytest.mark.parametrize("case", _CASES + _HOLDOUT_CASES, ids=lambda case: case["id"])
 async def test_gold_form_reaches_its_reviewed_outcome(case: dict[str, Any]) -> None:
     if "admission" in case["expect"]:
         # A constraint no closed atom states clarifies at admission, before any compile.

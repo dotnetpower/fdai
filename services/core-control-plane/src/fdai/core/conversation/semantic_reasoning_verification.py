@@ -541,11 +541,13 @@ def _expected_sides(
         ):
             continue
         name = str(descriptor.get("name"))
-        if position in {SubjectPosition.SOURCE, SubjectPosition.EITHER} and (
+        # Re-derived here: a reciprocal LinkType has no direction to narrow it by.
+        side = SubjectPosition.EITHER if "reciprocal" in traits else position
+        if side in {SubjectPosition.SOURCE, SubjectPosition.EITHER} and (
             source == "Resource" and fits(target)
         ):
             expected.add((name, "outgoing"))
-        if position in {SubjectPosition.TARGET, SubjectPosition.EITHER} and (
+        if side in {SubjectPosition.TARGET, SubjectPosition.EITHER} and (
             target == "Resource" and fits(source)
         ):
             expected.add((name, "incoming"))

@@ -130,6 +130,7 @@ def admit_question_form(
             continue
         invalid.extend(_position_failures(mention, text))
         mention_text[mention.id] = text
+    invalid.extend(_overlapping_mentions(form))
     judged: set[str] = set()
     fractional: list[str] = []
     for goal in form.goals:
@@ -375,8 +376,30 @@ def _goal_span_failures(goal: FormGoal, utterance: str) -> list[str]:
     ]
 
 
+def _overlapping_mentions(form: SemanticQuestionForm) -> list[str]:
+    """Return a reason for each mention whose span overlaps an earlier mention's span.
+
+    One mention grounds one thing, so words two mentions share, such as a concept
+    mention quoting a whole phrase around a name, would be grounded twice.
+    """
+
+    seen: list[tuple[int, int]] = []
+    reasons: list[str] = []
+    for mention in form.mentions:
+        start, end = mention.span.start, mention.span.end
+        if any(start < other_end and other_start < end for other_start, other_end in seen):
+            reasons.append(f"mention_overlap:{mention.id}")
+        seen.append((start, end))
+    return reasons
+
+
 def _goal_shape_failures(goal: FormGoal, form: SemanticQuestionForm) -> list[str]:
     failures: list[str] = []
+    scopes = {item.mention for item in goal.filters if item.role is FilterRole.SCOPE}
+    if goal.relation is not None and (goal.relation.anchor or goal.subject) in scopes:
+        # A scope reads the group's whole membership, and a relation from the same group
+        # reads its stated reach, so stating both leaves the answer undecided.
+        failures.append(f"scope_anchor_conflict:{goal.id}")
     subject = form.mention(goal.subject) if goal.subject is not None else None
     # A subject restated by one of the goal's own filters is subsumed by that filter.
     restated = subject is not None and any(item.mention == subject.id for item in goal.filters)

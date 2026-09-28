@@ -50,7 +50,7 @@ from .semantic_reasoning_handles import (
     reference_anchors,
 )
 
-_UTTERANCE = "anchor-a scope-b concept-c fragment-d cue-e time-f state-g"
+_UTTERANCE = "anchor-a scope-b concept-c fragment-d cue-e time-f state-g ref-h"
 _PRIOR_ROWS = ("object-prior-1", "object-prior-2")
 _SPANS = {
     token: {"start": _UTTERANCE.index(token), "end": _UTTERANCE.index(token) + len(token)}
@@ -341,7 +341,8 @@ def _form(
         mentions.append(_mention("m1", "name", "instance", "anchor-a"))
         goal.update(subject="m1", subject_scope="anchor")
     elif subject in {"anaphor", "ordinal"}:
-        mention = _mention("m1", subject, "instance", "anchor-a")
+        # A reference has its own words, apart from any named anchor it is narrowed by.
+        mention = _mention("m1", subject, "instance", "ref-h")
         if subject == "ordinal":
             mention["position"] = 1
         mentions.append(mention)
