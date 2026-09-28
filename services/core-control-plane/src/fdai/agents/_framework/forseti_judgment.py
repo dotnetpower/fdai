@@ -5,7 +5,7 @@ from __future__ import annotations
 import asyncio
 import json
 from collections.abc import Callable, Mapping
-from dataclasses import asdict
+from dataclasses import asdict, replace
 from datetime import datetime
 from typing import Any
 
@@ -20,9 +20,15 @@ from fdai.agents._framework.bus import PantheonBus
 from fdai.agents._framework.forseti_decision_helpers import copy_change_assessment, source_freshness
 from fdai.core.operational_context import OperationalContextMaterializer
 from fdai.core.operational_context.test_context import (
+    TestContextDecision,
     TestContextSource,
     evaluate_test_context,
     observation_context_digest,
+)
+from fdai.core.operational_evidence.owner_outcome import (
+    OperationalEvidenceAttempt,
+    OperationalEvidenceRequester,
+    request_operational_evidence,
 )
 from fdai.core.readiness import AuthorityCeiling, DetectionReadinessDecision
 from fdai.shared.contracts.models import Autonomy, Mode
@@ -63,12 +69,17 @@ class ForsetiJudgmentMixin:
     _test_context_source: TestContextSource | None
     _test_context_admission: DecisionEvidenceAdmissionProvider | None
     _test_context_clock: Callable[[], datetime]
+    _test_context_evidence: OperationalEvidenceRequester | None = None
     _rbac: dict[str, frozenset[str]]
     _unresolved_arbitrations: BoundedLruDict[str, dict[str, Any]]
     _anomaly_action_sources: Mapping[str, AnomalyActionSource]
 
     def record_behavior(self, name: str, amount: int = 1) -> None:
         raise NotImplementedError
+
+    def bind_test_context_evidence(self, requester: OperationalEvidenceRequester | None) -> None:
+        """Bind bounded independent issuance: a provider call, never an agent call."""
+        self._test_context_evidence = requester
 
     def _record_detection_readiness(self, payload: dict[str, Any]) -> None:
         resource_id = str(payload.get("resource_id") or "")
@@ -433,6 +444,46 @@ class ForsetiJudgmentMixin:
                 )
                 if claim is None:
                     return
+                observed_at = datetime.fromisoformat(str(event.get("detected_at", "")))
+                observed_value = event.get("observed_value")
+                if isinstance(observed_value, bool) or not isinstance(observed_value, (int, float)):
+                    raise ValueError("test context observation MUST be numeric")
+                context_attempt, observation_attempt = await asyncio.gather(
+                    request_operational_evidence(
+                        self._test_context_evidence,
+                        evidence_digest=claim.digest,
+                        scope_digest="sha256:" + scope,
+                        purpose_id="operational-test-context",
+                        source_revision=claim.policy_revision,
+                        locator={
+                            "context_id": claim.context_id,
+                            "target_ref": target,
+                            "signal_code": str(event["metric"]),
+                        },
+                        clock=self._test_context_clock,
+                    ),
+                    request_operational_evidence(
+                        self._test_context_evidence,
+                        evidence_digest=observation_context_digest(
+                            target_ref=target,
+                            access_scope_digest=scope,
+                            signal_code=str(event.get("metric", "")),
+                            observed_value=observed_value,
+                            observed_at=observed_at,
+                            service_impact=event.get("service_impact", "unknown"),
+                            protected_signal=event.get("protected_signal", True),
+                        ),
+                        scope_digest="sha256:" + scope,
+                        purpose_id="operational-test-observation",
+                        source_revision=claim.policy_revision,
+                        locator={
+                            "target_ref": target,
+                            "signal_code": str(event["metric"]),
+                            "observed_at": observed_at.isoformat(),
+                        },
+                        clock=self._test_context_clock,
+                    ),
+                )
                 admission = (
                     await self._test_context_admission.admit(
                         evidence_digest=claim.digest,
@@ -443,10 +494,6 @@ class ForsetiJudgmentMixin:
                     if self._test_context_admission is not None
                     else None
                 )
-                observed_at = datetime.fromisoformat(str(event.get("detected_at", "")))
-                observed_value = event.get("observed_value")
-                if isinstance(observed_value, bool) or not isinstance(observed_value, (int, float)):
-                    raise ValueError("test context observation MUST be numeric")
                 observation_admission = (
                     await self._test_context_admission.admit(
                         evidence_digest=observation_context_digest(
@@ -478,6 +525,7 @@ class ForsetiJudgmentMixin:
                     admission=admission,
                     observation_admission=observation_admission,
                 )
+                result = _classified_hold(result, context_attempt, observation_attempt)
                 latest = await self._test_context_source.read(
                     target_ref=target,
                     access_scope_digest=scope,
@@ -595,3 +643,16 @@ class ForsetiJudgmentMixin:
 
 
 __all__ = ["ForsetiJudgmentMixin", "RISK_VERDICT", "RULE_MATCH"]
+
+
+def _classified_hold(
+    result: TestContextDecision,
+    context_attempt: OperationalEvidenceAttempt,
+    observation_attempt: OperationalEvidenceAttempt,
+) -> TestContextDecision:
+    """Name an explicit rejection class; only an unavailable attempt keeps the generic hold."""
+    if result.reason == "context_admission_required":
+        return replace(result, reason=context_attempt.hold_reason(result.reason))
+    if result.reason == "observation_admission_required":
+        return replace(result, reason=observation_attempt.hold_reason(result.reason))
+    return result

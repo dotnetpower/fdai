@@ -1,7 +1,7 @@
 ---
 title: Operator Console - Data and Wire Contracts
 translation_of: operator-console-wire-contracts.md
-translation_source_sha: 2a12fd581a7acb6c91f631ea64200699c16522a0
+translation_source_sha: c102d2ee6134f4e69a04af52145751eb8529f4f7
 translation_revised: 2026-09-28
 ---
 
@@ -416,6 +416,7 @@ ActionType은 정확한 의미 ObjectType 또는 InterfaceType target이 있을 
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-28 | implemented | Operator 테스트 맥락 명령 제안이 이제 본문 없는 인증 증적을 멱등 요청 digest 안이 아니라 그 옆에 보관하므로, 갱신된 토큰으로 재시도해도 처음 수락한 증적이 유지됩니다. Core 소유 트리거는 Operator 신원만 해당 행을 삽입하게 하고 요청 필드와 증적을 변경할 수 없게 합니다. 경로, 응답, 다른 제안 계열은 바뀌지 않았습니다. | `current change`; `services/operator-service/tests/test_authentication_receipt.py`; 임시 루프백 PostgreSQL 데이터베이스에서 실행한 `services/core-control-plane/tests/persistence/test_operational_evidence_postgres.py` | 의미 요청은 아직 증적을 보관하지 않습니다. [독립 운영 근거](../../roadmap-implementation/rules-and-detection/independent-operational-evidence.md)를 참조하세요. |
 | 2026-09-27 | implemented | 답변이 공급자 lifecycle 상태, UTC 시각, 완전성을 답변 언어로 표시하고, `execution_authority=false`와 함께 읽기 전용 문장을 제공하며, 이름이 없는 최근 변경에는 참조의 마지막 구간을 표시합니다. | `current change`; `semantic_answer_presentation.py`, `semantic_turn_processor.py`, Service Health 렌더러; 집중 표시 및 프로세서 테스트 통과. | 이 답변 값에 대해 남은 작업은 없습니다. |
 | 2026-09-27 | implemented | Resource 목록과 선언 목록의 제한 문장이 알려진 각 타입 지정 원본 제한 코드를 답변 로케일로 설명하면서 정확한 코드도 표시하고, 알 수 없는 코드는 코드로만 남기도록 했습니다. | `current change`; `semantic_source_limitations.py`, `semantic_turn_processor.py`, `semantic_ontology_answers.py`; `test_semantic_turn_processor.py`의 집중 제한 문장 사례와 한국어 및 영어 Resource 목록 사례 통과. | 타입 지정 제한 문장의 인증된 Console 근거는 지속형 운영 인스턴스 그래프 원장에서 계속 추적합니다. |
 | 2026-09-27 | implemented | 온톨로지 선언 개수 렌더링을 전용 모듈로 옮기고, 일반 행 개수 대신 읽을 수 있는 선언 이름을 표시하며 안전하게 실패하는 선언 목록 답변을 추가했습니다. | `current change`; `semantic_ontology_answers.py`; `test_semantic_turn_processor.py`의 선언 목록, 안전한 실패 목록, 선언 개수 사례 통과. | 매니페스트 목록 답변의 인증된 Console 증적은 계층형 대화 계획 ledger에서 추적합니다. |
