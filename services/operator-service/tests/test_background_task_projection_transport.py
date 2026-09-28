@@ -102,7 +102,7 @@ async def test_repository_accepts_exact_duplicate_and_ignores_older_snapshot() -
             }
         ]
 
-    repository = PostgresBackgroundTaskProjectionRepository(fetch_all=fetch_all)
+    repository = PostgresBackgroundTaskProjectionRepository(fetch_all=fetch_all, clock=lambda: NOW)
 
     stored = await repository.project_background_task_projection(snapshot)
     older = await repository.project_background_task_projection(
@@ -144,7 +144,7 @@ async def test_repository_rejects_cross_owner_snapshot_conflict() -> None:
 
     with pytest.raises(BackgroundTaskProjectionConflictError, match="owner conflicts"):
         await PostgresBackgroundTaskProjectionRepository(
-            fetch_all=fetch_all
+            fetch_all=fetch_all, clock=lambda: NOW
         ).project_background_task_projection(snapshot)
 
 
@@ -171,7 +171,7 @@ async def test_repository_rejects_progress_identity_conflict() -> None:
 
     with pytest.raises(BackgroundTaskProjectionConflictError, match="identity conflicts"):
         await PostgresBackgroundTaskProjectionRepository(
-            fetch_all=fetch_all
+            fetch_all=fetch_all, clock=lambda: NOW
         ).project_background_task_projection(progress)
     assert "progress_order" in calls[0][0]
     assert calls[0][1]["progress_order"] == 1
