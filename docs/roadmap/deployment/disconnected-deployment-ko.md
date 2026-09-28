@@ -1,7 +1,7 @@
 ---
 title: 폐쇄망 배포
 translation_of: disconnected-deployment.md
-translation_source_sha: 0e2c29b3d5c67de69ca5bc50659c931a6e6e2b13
+translation_source_sha: 8e5ee64533ad808b0aca714f33ebe3225fa1f765
 translation_revised: 2026-09-28
 ---
 # 폐쇄망 배포
@@ -290,6 +290,8 @@ pinned Terraform binary 및 프로바이더 mirror, 정책 엔진 binary, softwa
 `scripts/deployment/release/build-offline-kit.py`로 서명합니다. 매니페스트는 staged 트리에서
 생성되므로 검증기가 거부할 내용을 증언할 수 없고, release 비공개 키는 키트에 들어가지
 않습니다.
+서명된 번들에는 마이그레이션 중 카탈로그 구체화가 읽는 검토된 `config/agent-stewardship.yaml`과
+`config/architecture-review.yaml`도 들어 있습니다.
 
 목표 폐쇄망 명령인 `fdaictl provision inspect`는 매니페스트를 파싱하기 전에 서명을 검증하고, 정확한
 CLI 및 platform 버전을 연결하며, symlink와 추가 파일을 거부하고, 모든 다이제스트를 스트리밍
