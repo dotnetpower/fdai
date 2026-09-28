@@ -277,6 +277,7 @@ def hil_item(row: Mapping[str, Any]) -> JsonObject | None:
     if not citing_rules and rule_id:
         citing_rules = [rule_id]
     correlation_id = _nonempty(parked.get("correlation_id"))
+    development = _mapping(parked.get("development_authority"))
     return cast(
         JsonObject,
         {
@@ -305,8 +306,36 @@ def hil_item(row: Mapping[str, Any]) -> JsonObject | None:
             "ttl_expires_at": _nonempty(context.get("expires_at")),
             "decision_requestable": decision_unavailable_reason is None,
             "decision_unavailable_reason": decision_unavailable_reason,
+            # Core names the only Owner who may self-approve after a fresh sign-in.
+            "development_self_approval_owner": (
+                _nonempty(development.get("owner_principal"))
+                if _nonempty(development.get("block_digest"))
+                else None
+            ),
         },
     )
+
+
+def caller_development_view(payload: JsonObject, subject_id: str) -> JsonObject:
+    """Replace the Core-selected development Owner with whether the caller is that Owner."""
+    items = payload.get("items")
+    if not isinstance(items, list):
+        return payload
+    caller = subject_id.strip().casefold()
+    viewed: list[object] = []
+    for item in items:
+        if not isinstance(item, dict):
+            viewed.append(item)
+            continue
+        owner = item.get("development_self_approval_owner")
+        view = {
+            key: value for key, value in item.items() if key != "development_self_approval_owner"
+        }
+        view["development_self_approval_available"] = (
+            isinstance(owner, str) and bool(caller) and owner.strip().casefold() == caller
+        )
+        viewed.append(view)
+    return cast(JsonObject, {**payload, "items": viewed})
 
 
 def _hil_decision_unavailable_reason(

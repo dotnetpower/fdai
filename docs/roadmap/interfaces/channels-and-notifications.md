@@ -69,7 +69,9 @@ durable delivery, and the Teams Workflows webhook binding are owned by
 - **Approval callbacks from any adapter land at `fdai-api`**, which re-validates
   the human's Entra identity ([user-rbac-and-identity.md](user-rbac-and-identity.md#102-api-token-validation))
   before acting. Adapters never authorize decisions themselves. A channel approval never becomes a
-  full-authority development confirmation, which only an Owner-bound exact-action request can carry.
+  full-authority development confirmation. Only the FDAI Console decision route can attach one, as a
+  token-free fresh-sign-in attestation that the HIL decision payload carries to Core for
+  revalidation; Slack and Teams decisions never carry it.
 
 ## 3. Categories (A1-A4)
 

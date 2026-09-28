@@ -9,6 +9,7 @@ from collections.abc import Callable
 from datetime import UTC, datetime
 from typing import Final
 
+from fdai_operator_service.auth import OperatorAuthenticator, _extract_bearer
 from fdai_operator_service.families.iam.capabilities import (
     IamCapability,
     has_capability,
@@ -30,13 +31,16 @@ from fdai_operator_service.families.iam.hil_callback_context import (
 from fdai_operator_service.families.iam.hil_callback_decision import (
     HilCallbackAttempt,
     HilCallbackDecisionService,
+    HilCallbackSession,
 )
+from fdai_operator_service.families.iam.hil_development_approval import development_attestation
 from fdai_operator_service.families.iam.http import (
     error_response,
     read_json_object,
     require_string,
 )
 from fdai_service_contracts import OperatorPrincipalKind, OperatorRole
+from fdai_service_contracts.development_approval import DevelopmentApprovalAttestation
 from starlette.requests import Request
 from starlette.responses import Response
 from starlette.routing import Route
@@ -55,9 +59,44 @@ def make_hil_operator_decision_route(
     audit: HilCallbackAuditWriter | None,
     context_reader: HilCallbackContextReader | None,
     clock: Callable[[], datetime] | None = None,
+    authenticator: OperatorAuthenticator | None = None,
 ) -> Route:
-    """Build the browser decision route without accepting client-supplied authority."""
+    """Build the browser decision route without accepting client-supplied authority.
+
+    With ``authenticator`` bound, the Owner of a Core-marked development park may approve their
+    own request after a fresh Entra sign-in; the signed claims, not the body, prove it.
+    """
     now = clock or (lambda: datetime.now(UTC))
+
+    def attestation(
+        request: Request,
+        session: HilCallbackSession,
+        *,
+        actor: HilCallbackActor,
+        approval_id: str,
+        decision: HilApprovalDecision,
+    ) -> DevelopmentApprovalAttestation | None:
+        context = session.context
+        if (
+            authenticator is None
+            or context is None
+            or decision is not HilApprovalDecision.APPROVE
+            or context.submitter_oid.strip().casefold() != actor.oid
+            or "development_block_digest" not in context.metadata
+        ):
+            return None
+        try:
+            claims = authenticator.verifier(_extract_bearer(request.headers.get("authorization")))
+        except Exception:  # noqa: BLE001 - unverifiable claims cannot prove a fresh sign-in
+            return None
+        return development_attestation(
+            claims=claims,
+            actor_oid=actor.oid,
+            actor_roles=actor.roles,
+            approval_id=approval_id,
+            metadata=context.metadata,
+            now=now(),
+        )
 
     async def post_hil_operator_decision(request: Request) -> Response:
         if registry is None or outbox is None or audit is None or context_reader is None:
@@ -138,6 +177,9 @@ def make_hil_operator_decision_route(
             decision=decision,
             justification=justification,
             actor=actor,
+            development_attestation=attestation(
+                request, session, actor=actor, approval_id=approval_id, decision=decision
+            ),
         )
 
     return Route(
