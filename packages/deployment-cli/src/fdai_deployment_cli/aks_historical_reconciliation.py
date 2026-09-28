@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import copy
+import json
 import re
 from typing import Any
 
@@ -231,6 +232,11 @@ def validate_reconciliation_plan(
         if job is not None and job in _JOBS and actions == ["update"]:
             if _normalized_cron_job(before) != _normalized_cron_job(after):
                 raise ValueError("historical AKS reconciliation changes a scheduled job contract")
+            continue
+        provider = _indexed_name(address, "kubernetes_manifest.workload_secret_provider")
+        if provider is not None and provider in SERVICES and actions == ["update"]:
+            if normalized_secret_provider(before) != normalized_secret_provider(after):
+                raise ValueError("historical AKS reconciliation changes a secret binding")
             continue
         service = _indexed_name(address, "kubernetes_service_v1.workload")
         if service is not None and service in _EXTERNAL_SERVICES and actions == ["update"]:
@@ -500,6 +506,53 @@ def _normalize_container_environment(container: dict[str, Any]) -> None:
         normalized,
         key=lambda item: item.get("name", "") if isinstance(item, dict) else "",
     )
+
+
+def _sorted_block_array(document: str) -> str:
+    """Order a generated ``yamlencode`` array so entry order stops being a difference.
+
+    Terraform renders the array from a map, so its order follows the map key order while a
+    live object can retain an older order. Only the recognized ``key:`` header followed by
+    ``- `` entries is reordered; any other shape is returned unchanged so a real difference
+    still fails.
+    """
+
+    lines = document.splitlines(keepends=True)
+    start = next((index for index, line in enumerate(lines) if line.startswith("- ")), None)
+    if start is None:
+        return document
+    header = lines[:start]
+    blocks: list[list[str]] = []
+    for line in lines[start:]:
+        if line.startswith("- "):
+            blocks.append([line])
+        elif blocks and (line.startswith((" ", "\t")) or not line.strip()):
+            blocks[-1].append(line)
+        else:
+            return document
+    return "".join(header) + "".join("".join(block) for block in sorted("".join(b) for b in blocks))
+
+
+def normalized_secret_provider(value: dict[str, Any]) -> dict[str, Any]:
+    """Compare a workload SecretProviderClass by its bindings, not by generated order."""
+
+    result = copy.deepcopy(value)
+    spec = result.get("object", {})
+    spec = spec.get("spec") if isinstance(spec, dict) else None
+    if not isinstance(spec, dict):
+        return result
+    secret_objects = spec.get("secretObjects")
+    if isinstance(secret_objects, list):
+        for entry in secret_objects:
+            if not isinstance(entry, dict):
+                continue
+            data = entry.get("data")
+            if isinstance(data, list):
+                entry["data"] = sorted(data, key=lambda item: json.dumps(item, sort_keys=True))
+    parameters = spec.get("parameters")
+    if isinstance(parameters, dict) and isinstance(parameters.get("objects"), str):
+        parameters["objects"] = _sorted_block_array(parameters["objects"])
+    return result
 
 
 def _normalize_template(template: dict[str, Any]) -> None:
