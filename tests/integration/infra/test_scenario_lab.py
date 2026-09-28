@@ -653,6 +653,89 @@ def test_scenario_lab_plan_diagnostic_projects_only_allowlisted_tokens(tmp_path:
     assert "timeout" not in stdout
 
 
+@pytest.mark.parametrize(
+    ("summary", "detail", "category"),
+    [
+        (
+            "Failed to query available provider packages",
+            "Could not retrieve the list of available versions for provider hashicorp/azurerm",
+            "provider_installation",
+        ),
+        ("Failed to load plugin schemas", "Error while loading schemas", "provider_installation"),
+        ("Inconsistent dependency lock file", "", "provider_installation"),
+        ("Error loading state: blob leak-blob", "", "backend_state"),
+        ("Failed to get existing workspaces", "containers leak-container", "backend_state"),
+        ("Failed to persist state to backend", "", "backend_state"),
+        ("Error acquiring the state lock", "Lock Info: ID: leak-lock", "state_lock"),
+        ("Invalid provider configuration", "", "provider_configuration"),
+        (
+            "building account: could not acquire access token to parse claims",
+            "",
+            "provider_configuration",
+        ),
+        (
+            "unable to build authorizer for Resource Manager API",
+            "could not configure MSI Authorizer: leak-endpoint",
+            "provider_configuration",
+        ),
+        (
+            "building account",
+            "ManagedIdentityCredential: failed to request token from metadata endpoint",
+            "authentication",
+        ),
+        (
+            "Unsupported argument",
+            'An argument named "leak" is not expected here.',
+            "unsupported_attribute",
+        ),
+        ("Unsupported block type", "", "unsupported_attribute"),
+        ("Unsupported attribute", "", "unsupported_attribute"),
+        (
+            "Invalid index",
+            "The given key does not identify an element.",
+            "invalid_configuration_value",
+        ),
+        ("Incorrect attribute value type", "", "invalid_configuration_value"),
+        ("Invalid for_each argument", "", "invalid_configuration_value"),
+        ("Reference to undeclared input variable", "", "reference_error"),
+        ("Invalid reference", "", "reference_error"),
+        ("Reference to undeclared resource", "", "reference_to_undeclared_resource"),
+        ("Invalid value for variable", "leak-variable validation", "invalid_input_variable"),
+        ("No value for required variable", "", "missing_input_variable"),
+        ("Provider produced invalid plan", "", "provider_inconsistency"),
+        ("Plugin did not respond", "", "plugin_failure"),
+        ("Request cancelled", "", "plugin_failure"),
+        (
+            "retrieving Kubernetes Cluster",
+            "dial tcp: lookup leak-host: no such host",
+            "network",
+        ),
+        ("retrieving Kubernetes Cluster", "context deadline exceeded", "timeout"),
+        (
+            "creating Deployment",
+            "Code=MissingSubscriptionRegistration",
+            "subscription_not_registered",
+        ),
+    ],
+)
+def test_scenario_lab_plan_diagnostic_classifies_terraform_error_summaries(
+    tmp_path: Path, summary: str, detail: str, category: str
+) -> None:
+    line = {
+        "@level": "error",
+        "@message": f"Error: {summary}",
+        "type": "diagnostic",
+        "diagnostic": {"severity": "error", "summary": summary, "detail": detail},
+    }
+
+    stdout = _plan_diagnostic_output(tmp_path, [*PLAN_PROGRESS_LINES, line])
+    categories = stdout.splitlines()[1].removeprefix("Terraform plan diagnostic categories: ")
+
+    assert stdout.splitlines()[0] == "Terraform plan diagnostic errors: 1"
+    assert category in categories.split(", ")
+    assert "leak" not in stdout
+
+
 def test_runner_scripts_fail_before_external_commands_without_authority() -> None:
     prepare = subprocess.run(  # noqa: S603 - fixed repository script and resolved Bash.
         [BASH, str(PREPARE_SCRIPT)],
