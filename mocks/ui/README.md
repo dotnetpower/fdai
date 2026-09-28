@@ -171,7 +171,8 @@ Report and kit:
   question being answered above the top edge, renders the settled answer immediately under reduced
   motion, and supports `?scenario=`, `?state=settled`, `?width=dock`, and `?trace=on` preview
   parameters. The capture switch mirrors the Console "Capture model request and response trace"
-  setting and applies to new turns only. Model calls, digests, and messages in the run record are
+  setting and applies to new turns only. Sources open their provenance in place, and any deck
+  link to another screen asks for confirmation before it navigates. Model calls, digests, and messages in the run record are
   synthetic; the study performs no request, model call, or state change.
 
 ## Usage

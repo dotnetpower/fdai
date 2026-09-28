@@ -917,7 +917,9 @@
 
 .cs-deck-source-list > li + li { border-top: 1px solid var(--cs-hairline); }
 
+/* A source row is a disclosure: it opens provenance in place and never leaves the conversation. */
 .cs-deck-source {
+  width: 100%;
   min-height: 44px;
   box-sizing: border-box;
   display: grid;
@@ -925,9 +927,152 @@
   align-items: center;
   gap: 10px;
   padding: 7px 12px 7px 10px;
+  border: 0;
+  background: transparent;
   color: var(--cs-text);
+  font: inherit;
+  text-align: left;
   text-decoration: none;
+  cursor: pointer;
   transition: background-color .15s ease;
+}
+
+.cs-deck-source[aria-expanded="true"] { background: color-mix(in srgb, var(--cs-text) 2.5%, var(--cs-card)); }
+
+.cs-deck-source-detail {
+  display: grid;
+  justify-items: start;
+  gap: 10px;
+  padding: 2px 12px 12px 42px;
+  background: color-mix(in srgb, var(--cs-text) 2.5%, var(--cs-card));
+}
+
+.cs-deck-source-detail[hidden] { display: none; }
+
+.cs-deck-source-facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 20px;
+  margin: 0;
+}
+
+.cs-deck-source-facts > div {
+  min-width: 0;
+  display: flex;
+  gap: 6px;
+}
+
+.cs-deck-source-facts dt {
+  color: var(--cs-deck-meta-text);
+  font: var(--cs-type-label-size)/var(--cs-type-label-line-height) var(--cs-font);
+}
+
+.cs-deck-source-facts dd {
+  min-width: 0;
+  margin: 0;
+  color: var(--cs-text);
+  font: 500 var(--cs-type-label-size)/var(--cs-type-label-line-height) var(--cs-font);
+  overflow-wrap: anywhere;
+}
+
+/* The only way from a source to another screen; the arrow says it leaves, and it asks first. */
+.cs-deck-source-open {
+  min-height: 28px;
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 10px;
+  border: 1px solid var(--cs-deck-control-line);
+  border-radius: var(--cs-radius-sm);
+  background: var(--cs-card);
+  color: var(--cs-deck-link-text);
+  font: 600 var(--cs-type-label-size)/1 var(--cs-font);
+  cursor: pointer;
+}
+
+.cs-deck-source-open::after {
+  content: "\2197";
+  content: "\2197" / "";
+}
+
+.cs-deck-source-open:hover { background: var(--cs-deck-accent-tint); }
+
+.cs-deck-source-open:focus-visible {
+  outline: 2px solid var(--cs-steel);
+  outline-offset: 2px;
+}
+
+/* ----- Leave confirmation: another screen opens only after the operator agrees. ----- */
+.cs-deck-leave {
+  width: min(400px, calc(100vw - 32px));
+  box-sizing: border-box;
+  margin: auto;
+  padding: 0;
+  border: 1px solid var(--cs-hairline);
+  border-radius: var(--cs-radius);
+  background: var(--cs-card);
+  color: var(--cs-text);
+  box-shadow: var(--cs-tooltip-shadow);
+}
+
+.cs-deck-leave::backdrop { background: color-mix(in srgb, var(--cs-text) 32%, transparent); }
+
+.cs-deck-leave[open] { transition: opacity .16s ease, transform .16s ease; }
+
+@starting-style {
+  .cs-deck-leave[open] { opacity: 0; transform: translateY(6px); }
+}
+
+.cs-deck-leave-form {
+  display: grid;
+  gap: 10px;
+  padding: 18px 20px 16px;
+}
+
+.cs-deck-leave-title {
+  margin: 0;
+  color: var(--cs-text);
+  font: 600 var(--cs-type-panel-title-size)/var(--cs-type-panel-title-line-height) var(--cs-font);
+}
+
+.cs-deck-leave-body {
+  margin: 0;
+  color: var(--cs-deck-meta-text);
+  font: var(--cs-type-compact-size)/var(--cs-type-compact-line-height) var(--cs-font);
+}
+
+.cs-deck-leave-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.cs-deck-leave-actions > button {
+  min-height: 34px;
+  padding: 0 14px;
+  border-radius: var(--cs-radius-sm);
+  font: 600 var(--cs-type-compact-size)/1 var(--cs-font);
+  cursor: pointer;
+}
+
+.cs-deck-leave-stay {
+  border: 1px solid var(--cs-deck-control-line);
+  background: var(--cs-card);
+  color: var(--cs-text);
+}
+
+.cs-deck-leave-open {
+  border: 1px solid var(--cs-steel);
+  background: var(--cs-steel);
+  color: var(--cs-deck-on-accent);
+}
+
+.cs-deck-leave-actions > button:focus-visible {
+  outline: 2px solid var(--cs-steel);
+  outline-offset: 2px;
 }
 
 .cs-deck-source:hover {
@@ -1794,7 +1939,8 @@ details[open] > summary .cs-run-chevron { transform: rotate(225deg) translate(-1
 /* ----- Touch targets ----- */
 @media (max-width: 640px) {
   :is(.cs-deck-followup, .cs-deck-context-chip, .cs-deck-readiness-item, .cs-deck-source, .cs-deck-jump,
-    .cs-run-event-summary, .cs-model-trace-lane-summary, .cs-deck-code-copy) {
+    .cs-run-event-summary, .cs-model-trace-lane-summary, .cs-deck-code-copy, .cs-deck-source-open,
+    .cs-deck-leave-actions > button) {
     min-height: 44px;
   }
 
@@ -1868,7 +2014,8 @@ details[open] > summary .cs-run-chevron { transform: rotate(225deg) translate(-1
   .cs-deck-conversation .cs-grounding-stages > .cs-grounding-stage { transition: none; }
 
   .cs-deck-jump,
-  .cs-deck-sources { transition: none; }
+  .cs-deck-sources,
+  .cs-deck-leave[open] { transition: none; }
 
   .cs-deck-conversation :is(.cs-run-record, .cs-run-event > details, .cs-model-trace-lane > details)::details-content {
     transition: none;

@@ -38,6 +38,19 @@
     readinessInventory: { kind: "Readiness", title: "Evidence-source readiness", meta: "Inventory unavailable; 4 of 5 sources available", time: "10:41:04", href: "settings-diagnostics.html" }
   };
 
+  // Screens a source or deck link can open. Leaving the conversation always asks first.
+  var PAGE_LABEL = {
+    "live.html": "Live cockpit", "architecture.html": "Inventory", "rules.html": "Rule catalog",
+    "rule-trace.html": "Rule trace", "agent-activity.html": "Agent activity", "actions.html": "Actions",
+    "promotion.html": "Promotion", "audit.html": "Audit", "settings-diagnostics.html": "Diagnostics",
+    "incidents.html": "Incidents", "scheduler-runs.html": "Scheduler runs",
+    "conversation-assurance.html": "Conversation assurance"
+  };
+
+  function pageLabel(href) {
+    return PAGE_LABEL[String(href).split(/[?#]/)[0]] || "this screen";
+  }
+
   var READINESS = [
     { key: "inventory", label: "Inventory", href: "architecture.html" },
     { key: "incidents", label: "Incidents", href: "incidents.html" },
@@ -1032,19 +1045,36 @@
         var when = source.time
           ? h("time", { class: "cs-deck-source-time", datetime: DAY + "T" + source.time + "Z", text: source.time + " UTC" })
           : h("span", { class: "cs-deck-source-time", text: source.unavailable ? "Not read" : source.catalog });
-        return h("li", null, [h("a", {
-          class: "cs-deck-source" + (source.unavailable ? " is-unavailable" : ""),
-          id: turnId + "-source-" + number,
-          href: source.href
-        }, spaced([
-          h("span", { class: "cs-deck-source-num", "aria-hidden": "true", text: number }),
-          h("span", { class: "cs-deck-kind", text: source.kind }),
-          h("span", { class: "cs-deck-source-copy" }, spaced([
-            h("span", { class: "cs-deck-source-title", text: source.title }),
-            h("span", { class: "cs-deck-source-meta", text: source.meta })
+        // A source opens its provenance in place; only its explicit Open action leaves, after asking.
+        var detailId = turnId + "-source-" + number + "-detail";
+        var tool = TOOLS[key];
+        var facts = [["Access", "Read-only"], ["Opens", pageLabel(source.href)]];
+        if (tool) facts.unshift(["Read with", tool.tool]);
+        return h("li", null, [
+          h("button", {
+            type: "button",
+            class: "cs-deck-source" + (source.unavailable ? " is-unavailable" : ""),
+            id: turnId + "-source-" + number,
+            "aria-expanded": "false",
+            "aria-controls": detailId,
+            "data-action": "source-detail"
+          }, spaced([
+            h("span", { class: "cs-deck-source-num", "aria-hidden": "true", text: number }),
+            h("span", { class: "cs-deck-kind", text: source.kind }),
+            h("span", { class: "cs-deck-source-copy" }, spaced([
+              h("span", { class: "cs-deck-source-title", text: source.title }),
+              h("span", { class: "cs-deck-source-meta", text: source.meta })
+            ])),
+            when
           ])),
-          when
-        ]))]);
+          h("div", { class: "cs-deck-source-detail", id: detailId, hidden: true }, [
+            h("dl", { class: "cs-deck-source-facts" }, facts.map(function (pair) {
+              return h("div", null, [h("dt", { text: pair[0] }), h("dd", { text: pair[1] })]);
+            })),
+            h("button", { type: "button", class: "cs-deck-source-open", "data-action": "open-page", "data-href": source.href,
+              text: "Open " + pageLabel(source.href) })
+          ])
+        ]);
       }))
     ]);
   }
@@ -2089,6 +2119,54 @@
     input.style.height = Math.min(input.scrollHeight + 2, 120) + "px";
   }
 
+  // ---------- Leaving the conversation asks first ----------
+  var leaveHref = null;
+  var leaveTitle = h("h2", { class: "cs-deck-leave-title", id: "ds-leave-title" });
+  var leaveBody = h("p", { class: "cs-deck-leave-body", id: "ds-leave-body" });
+  var leaveOpen = h("button", { type: "submit", class: "cs-deck-leave-open", value: "open" });
+  var leave = h("dialog", { class: "cs-deck-leave", id: "ds-leave", "aria-labelledby": "ds-leave-title", "aria-describedby": "ds-leave-body" }, [
+    h("form", { class: "cs-deck-leave-form", method: "dialog" }, [
+      leaveTitle,
+      leaveBody,
+      h("div", { class: "cs-deck-leave-actions" }, [
+        h("button", { type: "submit", class: "cs-deck-leave-stay", value: "stay", autofocus: true, text: "Stay here" }),
+        leaveOpen
+      ])
+    ])
+  ]);
+  workspace.appendChild(leave);
+
+  function confirmLeave(href) {
+    if (!href) return;
+    var label = pageLabel(href);
+    leaveHref = href;
+    leaveTitle.textContent = "Open " + label + "?";
+    leaveBody.textContent = "This leaves the conversation and shows " + label + " in its place. Stay here to keep reading.";
+    leaveOpen.textContent = "Open " + label;
+    leave.returnValue = "";
+    hideTip();
+    leave.showModal();
+  }
+
+  leave.addEventListener("close", function () {
+    var href = leaveHref;
+    leaveHref = null;
+    if (leave.returnValue === "open" && href) window.location.assign(href);
+  });
+
+  // Any deck link to another screen waits for consent; in-page anchors and new-tab clicks pass.
+  // The guard listens on the window in the capture phase, so it runs before any document-level
+  // router, including the mock index's preview history, and its preventDefault stops them all.
+  window.addEventListener("click", function (event) {
+    var link = event.target.closest ? event.target.closest("a[href]") : null;
+    if (!link || !workspace.contains(link)) return;
+    var href = link.getAttribute("href");
+    if (!href || href.charAt(0) === "#") return;
+    if (event.button !== 0 || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
+    event.preventDefault();
+    confirmLeave(href);
+  }, true);
+
   // ---------- Events ----------
   transcript.addEventListener("click", function (event) {
     var target = event.target.closest("a, button");
@@ -2109,6 +2187,13 @@
       copyReply(target);
     } else if (action === "copy-code") {
       copyCode(target);
+    } else if (action === "source-detail") {
+      var detail = document.getElementById(target.getAttribute("aria-controls"));
+      var expanded = target.getAttribute("aria-expanded") !== "true";
+      target.setAttribute("aria-expanded", expanded ? "true" : "false");
+      if (detail) detail.hidden = !expanded;
+    } else if (action === "open-page") {
+      confirmLeave(target.getAttribute("data-href"));
     } else if (action === "regenerate") {
       regenerate(target.closest(".cs-deck-agent-turn"));
     } else if (action === "suggest") {

@@ -105,6 +105,10 @@ test("study links only to existing mock destinations", async () => {
   ]);
   assert.ok(targets.size >= 10);
   for (const target of targets) assert.ok(existsSync(join(uiRoot, target)), target);
+  // Every screen a deck link can open has a name for the leave confirmation.
+  for (const target of [...script.matchAll(/href: "([a-z0-9-]+\.html)"/g)].map((match) => match[1])) {
+    assert.ok(script.includes(`"${target}": "`), `${target} has no page label`);
+  }
 });
 
 test("study markup keeps presentation in shared roles", async () => {
@@ -750,6 +754,51 @@ test("short turns size the source window and the preparation panel fades out", {
       requestAnimationFrame(tick);
     }));
     assert.ok(fades.some((value) => value > 0.05 && value < 0.95), fades.join(","));
+    assert.deepEqual(errors, []);
+    await context.close();
+  } finally {
+    await browser.close();
+  }
+});
+
+test("sources open in place and other screens open only after consent", { timeout: 60000 }, async () => {
+  const browser = await chromium.launch({ headless: true });
+  try {
+    const { context, page, frame, errors } = await openStudy(browser, { state: "settled" });
+    await deckState(frame, "settled", 5000);
+    const start = frame.url();
+    await frame.locator("[data-action='sources']").click();
+    const row = frame.locator("#ds-turn-1-source-2");
+    assert.equal(await row.evaluate((node) => node.tagName), "BUTTON");
+    await row.click();
+    assert.equal(await row.getAttribute("aria-expanded"), "true");
+    assert.equal(await frame.locator("#ds-turn-1-source-2-detail").isVisible(), true);
+    assert.match(await frame.locator("#ds-turn-1-source-2-detail").textContent(), /Read withinventory\.read.*AccessRead-only.*OpensInventory/);
+    assert.equal(frame.url(), start);
+
+    const leave = frame.locator("#ds-leave");
+    const open = frame.locator("#ds-turn-1-source-2-detail .cs-deck-source-open");
+    await open.click();
+    assert.equal(await leave.evaluate((node) => node.open), true);
+    assert.equal(await frame.locator("#ds-leave-title").textContent(), "Open Inventory?");
+    assert.equal(await frame.evaluate(() => document.activeElement.textContent), "Stay here");
+    await page.keyboard.press("Escape");
+    assert.equal(await leave.evaluate((node) => node.open), false);
+    assert.equal(await frame.evaluate(() => document.activeElement.textContent), "Open Inventory");
+    assert.equal(frame.url(), start);
+
+    // Links elsewhere in the deck ask the same way, before any router can act on them.
+    await frame.locator(".cs-deck-readiness-item").first().click();
+    assert.equal(await leave.evaluate((node) => node.open), true);
+    await frame.locator(".cs-deck-leave-stay").click();
+    assert.equal(await leave.evaluate((node) => node.open), false);
+    assert.equal(frame.url(), start);
+
+    await frame.locator('.cs-deck-tools a[aria-label="Review answer quality"]').click();
+    assert.equal(await frame.locator("#ds-leave-title").textContent(), "Open Conversation assurance?");
+    await frame.locator(".cs-deck-leave-open").click();
+    await page.waitForFunction(() => document.querySelector("#preview-frame").contentWindow.location.pathname
+      === "/mocks/ui/conversation-assurance.html", null, { timeout: 5000 });
     assert.deepEqual(errors, []);
     await context.close();
   } finally {
