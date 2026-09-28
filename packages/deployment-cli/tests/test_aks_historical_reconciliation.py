@@ -699,3 +699,36 @@ def test_plan_rejects_an_unknown_effective_secret_object() -> None:
 
     with pytest.raises(ValueError, match="changes a secret binding"):
         validate_reconciliation_plan(plan, variables=variables)
+
+
+def test_plan_ignores_an_explicit_false_optional_on_a_secret_reference() -> None:
+    variables = reconciled_variables(state=_state(), variables=_variables(), live=_live())
+    name = sorted(SERVICES)[0]
+    before = _workload_with_environment(
+        name,
+        [{"name": "DSN", "value_from": [{"secret_key_ref": [{"key": "DSN", "optional": False}]}]}],
+    )
+    after = _workload_with_environment(
+        name,
+        [{"name": "DSN", "value_from": [{"secret_key_ref": [{"key": "DSN", "optional": None}]}]}],
+    )
+
+    validate_reconciliation_plan(_single_workload_plan(name, before, after), variables=variables)
+
+
+def test_plan_rejects_a_secret_reference_that_becomes_optional() -> None:
+    variables = reconciled_variables(state=_state(), variables=_variables(), live=_live())
+    name = sorted(SERVICES)[0]
+    before = _workload_with_environment(
+        name,
+        [{"name": "DSN", "value_from": [{"secret_key_ref": [{"key": "DSN", "optional": False}]}]}],
+    )
+    after = _workload_with_environment(
+        name,
+        [{"name": "DSN", "value_from": [{"secret_key_ref": [{"key": "DSN", "optional": True}]}]}],
+    )
+
+    with pytest.raises(ValueError, match="changes a workload contract"):
+        validate_reconciliation_plan(
+            _single_workload_plan(name, before, after), variables=variables
+        )
