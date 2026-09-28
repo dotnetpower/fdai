@@ -14,6 +14,7 @@ from fdai.core.prompts import (
     DefaultPromptComposer,
     FileSystemPromptRegistry,
     PromptAblationProfile,
+    PromptAssembler,
     PromptReplayManifest,
 )
 
@@ -29,6 +30,7 @@ class AzurePromptBundle:
     proposer: ComposedPrompt
     semantic_judgment: str
     semantic_judgment_manifest: PromptReplayManifest
+    semantic_judgment_assembler: PromptAssembler
     semantic_judgment_schema_repair: str
     semantic_judgment_schema_repair_manifest: PromptReplayManifest
     conversation_preflight: str
@@ -76,6 +78,7 @@ async def compose_azure_prompt_bundle(
         proposer=proposer,
         semantic_judgment=semantic_judgment_prompt.system_text,
         semantic_judgment_manifest=semantic_judgment_prompt.replay_manifest(),
+        semantic_judgment_assembler=composer.assembler(capability_id="semantic.judgment"),
         semantic_judgment_schema_repair=semantic_judgment_schema_repair_prompt.system_text,
         semantic_judgment_schema_repair_manifest=(
             semantic_judgment_schema_repair_prompt.replay_manifest()

@@ -1,0 +1,12 @@
+id: semantic-topic-action-request
+version: 1
+layer: pack
+applies_to: [semantic.judgment]
+token_budget: 640
+default_mode: shadow
+body: |-
+  Set the required action_subject independently from targets: advise_only -> none; generic ActionType-backed action or authority-boundary refusal -> ActionType; incident-bound mitigation -> Incident; recovery proposal -> RecoveryPlan; rollback proposal -> Change; active catalog rule remediation -> Rule. These proposal labels apply only to explicit governed artifact requests. The requested deliverable determines action_subject; a referenced source, input, linked artifact, recommendation, or constraint does not replace it. A rollback proposal that uses a linked recovery plan therefore uses Change, while a proposal that creates or revises the recovery plan itself uses RecoveryPlan. For a direct draft_only artifact, also include any source-grounded canonical object_type target supplied by capabilities. Copy the target value exactly from the current utterance even when canonical_value names the broader artifact type. An exact ActionType target is not required to classify the requested artifact as draft_only; include an action_type target only when the capability set supplies that exact canonical ActionType.
+  A direct imperative to start, stop, restart, scale, delete, or otherwise change one named Resource is an ActionType-backed change request: use primary_intent action_request, action_posture draft_only, action_subject ActionType, and preserve the source-grounded resource target. It creates only a review draft for separate human approval and never executes.
+provenance:
+  source: docs/roadmap/decisioning/prompt-composition.md
+  notes: Governed artifact and direct action guidance. Selected per call by preflight request topics.

@@ -10,7 +10,7 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any, Protocol
 
-from fdai_service_contracts.ontology_query import canonical_json, content_digest
+from fdai_service_contracts.ontology_query import content_digest
 from fdai_service_contracts.semantic_judgment import (
     SemanticJudgmentDisposition,
     SemanticJudgmentProposal,
@@ -20,6 +20,7 @@ from fdai_service_contracts.semantic_judgment import (
 from fdai_service_contracts.semantic_turn import SemanticConversationModelTier
 from pydantic import ValidationError
 
+from . import semantic_judgment_assembly as prompt_assembly
 from . import semantic_judgment_capabilities as capability_normalization
 from . import semantic_judgment_grounding as grounding
 from . import semantic_judgment_review as review_policy
@@ -31,12 +32,17 @@ from .conversation_preflight import (
     SocialResponseNarratorResult,
 )
 from .model_observation import ConversationModelObservation, ConversationModelResponse
+from .semantic_judgment_bounds import (
+    bounded_capabilities as _bounded_capabilities,
+)
+from .semantic_judgment_bounds import (
+    bounded_context as _bounded_context,
+)
+from .semantic_judgment_bounds import (
+    bounded_direct_response_profile as _bounded_direct_response_profile,
+)
 
 _MAX_UTTERANCE_CHARS = 32_000
-_MAX_CONTEXT_ITEMS = 8
-_MAX_CONTEXT_CHARS = 12_000
-_MAX_CAPABILITIES = 512
-_MAX_CAPABILITY_BYTES = 524_288
 _MAX_SCHEMA_ATTEMPTS_PER_BINDING = 3
 _MACHINE_TOKEN_SEPARATOR = re.compile(r"[^a-z0-9_.-]+")
 _LOGGER = logging.getLogger(__name__)
@@ -183,6 +189,7 @@ class SemanticJudgmentBoundary:
         bound_subject_types: Sequence[str] = (),
         locale: str = "en",
         direct_response_profile: Mapping[str, Any] | None = None,
+        prompt_assembly_keys: tuple[str, ...] | None = None,
     ) -> SemanticJudgmentResult:
         """Return one bounded judgment, optionally restricting evaluation to T1."""
 
@@ -261,6 +268,9 @@ class SemanticJudgmentBoundary:
                         profile_id=self.profile_id,
                         profile_version=self.profile_version,
                         schema_repair=schema_repair,
+                        **prompt_assembly.model_arguments(
+                            binding is self._primary, binding.model, prompt_assembly_keys
+                        ),
                     )
                 except Exception as exc:  # noqa: BLE001 - provider detail stays content-free
                     _LOGGER.warning(
@@ -596,40 +606,6 @@ class SemanticJudgmentBoundary:
             {**body, "receipt_digest": content_digest(body)}
         )
         return SemanticJudgmentResult(proposal, receipt, observations)
-
-
-def _bounded_context(context: Sequence[str]) -> tuple[str, ...]:
-    selected: list[str] = []
-    total = 0
-    for item in tuple(context)[-_MAX_CONTEXT_ITEMS:]:
-        if not isinstance(item, str):
-            raise TypeError("semantic judgment context MUST contain strings")
-        total += len(item)
-        if total > _MAX_CONTEXT_CHARS:
-            raise ValueError("semantic judgment context exceeds its bound")
-        selected.append(item)
-    return tuple(selected)
-
-
-def _bounded_capabilities(
-    capabilities: Sequence[Mapping[str, Any]],
-) -> tuple[dict[str, Any], ...]:
-    if len(capabilities) > _MAX_CAPABILITIES:
-        raise ValueError("semantic judgment capabilities exceed their count bound")
-    selected = tuple(dict(item) for item in capabilities)
-    if len(canonical_json(list(selected)).encode()) > _MAX_CAPABILITY_BYTES:
-        raise ValueError("semantic judgment capabilities exceed their byte bound")
-    return selected
-
-
-def _bounded_direct_response_profile(
-    profile: Mapping[str, Any] | None,
-) -> dict[str, Any]:
-    selected = dict(profile or {})
-    encoded = canonical_json(selected).encode()
-    if len(encoded) > 16_384:
-        raise ValueError("semantic direct response profile exceeds its byte bound")
-    return selected
 
 
 def _validate_direct_response(

@@ -1,0 +1,11 @@
+id: semantic-query-plan-topology
+version: 1
+layer: pack
+applies_to: [semantic.query.plan]
+token_budget: 512
+default_mode: shadow
+body: |-
+  Current visible connectivity or containment without an exact root id uses one topology_at node with as_of and known_at equal to evaluation_time; do not use object_set, project, or query.ontology_relationships. A property filter uses exactly one object_set node with one or more definition.predicates; do not use set operators unless the request explicitly combines distinct sets. An object_set row exposes exactly id, object_type, and properties; downstream paths use object_type and properties.<property_name>.
+provenance:
+  source: docs/roadmap/decisioning/prompt-composition.md
+  notes: Plan guidance selected per call by the verified frame output shape.

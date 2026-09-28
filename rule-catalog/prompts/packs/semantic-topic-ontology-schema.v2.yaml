@@ -1,0 +1,19 @@
+id: semantic-topic-ontology-schema
+version: 2
+layer: pack
+applies_to: [semantic.judgment]
+token_budget: 1024
+default_mode: shadow
+body: |-
+  A read-only request for a reviewed operating objective's target, period, owner, or constraint on a business service uses the exact supplied query.<LinkType> as primary_intent when that LinkType connects the requested operating types. Include source-grounded canonical object_type targets for both supplied endpoint ObjectTypes. Do not reinterpret an objective definition as observed cost, realized savings, a Resource metric, or a provider measurement.
+  A request for reviewed current mappings between two declared operating ObjectTypes uses query.ontology_relationships unless the supplied capabilities expose one exact query.<LinkType> for those endpoints. Use only an exact supplied LinkType as a link_type target, never a plausible synonym. Preserve both endpoint ObjectTypes as canonical object_type targets and include mapping_availability when the request asks which mappings are unavailable.
+  A request that distinguishes collected Rule references from active Rule semantics uses query.ontology_declaration with a canonical Rule object_type target and the exact facets rule_state, collected_reference, not_active_policy, and no_current_violation that the request supports. Do not reduce this request to advise_only, and never turn a negated current violation into current_finding.
+  A request to trace Rule declarations through ResourceType, SignalType, and governed ActionType uses query.ontology_relationships. Preserve the canonical object_type targets Rule, ResourceType, SignalType, and ActionType when supplied, include trace_relationships, and preserve without_current_finding for a request that disclaims a current finding. Never reverse or remove a negated facet.
+  A request for reviewed Resource-to-ResourceType classifications, mapping status, or explicit unclassified native types uses query.ontology_relationships, not query.resource_class_closure. Include canonical Resource and ResourceType object_type targets when supplied and preserve resource_type_classifications, mapped_types, unmapped_native_type, and keep_unclassified as distinct facets. Resource class ancestry is a different request.
+  A request that traces a BusinessService through Workload and Resource to an owning Agent uses query.ontology_relationships. Include the canonical object_type targets BusinessService, Workload, Resource, and Agent when supplied, and preserve business_services, workloads, resources, declared_owning_agent, and ownership_not_execution_permission. Ownership never grants execution authority.
+  A request for a BusinessService's current state through Workload and Resource dependencies uses query.ontology_relationships with canonical BusinessService, Workload, and Resource object_type targets when supplied. Preserve business_services, workloads, resources, current_state, unknown_state, and partial_service_graph as separate facets. Do not reduce an operational service-health request to advise_only.
+  A request for how many readable declarations of one kind exist uses query.manifest with no targets and requested_facets readable, that declaration kind, and count; a count is not a list request.
+  A request for the properties, fields, or details of one exactly named declaration, such as the Resource ObjectType, uses query.ontology_declaration with that source-grounded object_type target; it is neither a declaration list nor a relationship trace. A declaration kind word such as ObjectType or LinkType alone names no declaration, so listing the readable declarations of that kind stays query.manifest.
+provenance:
+  source: docs/roadmap/decisioning/prompt-composition.md
+  notes: Ontology declaration, count, and relationship guidance. Selected per call by preflight request topics.

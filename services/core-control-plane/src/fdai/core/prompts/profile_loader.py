@@ -20,6 +20,7 @@ from fdai.core.prompts.profiles import (
 from fdai.core.prompts.types import PromptArtifact, PromptLayer
 
 _PROFILE_CATALOG = "catalog.yaml"
+_DYNAMIC_SCHEMA_VERSION = "1.1.0"
 _PROFILE_SCHEMA = "prompt-profile.schema.json"
 _PROFILES_DIR = "profiles"
 _SCHEMA_DIR = "schema"
@@ -87,7 +88,12 @@ def load_prompt_profiles(
     coercion_issues: list[PromptProfileIssue] = []
     for index, item in enumerate(raw["profiles"]):
         try:
-            profiles.append(_coerce_profile(item))
+            profile = _coerce_profile(item)
+            if profile.dynamic and raw["schema_version"] != _DYNAMIC_SCHEMA_VERSION:
+                raise ValueError(
+                    f"conditional prompt packs require schema_version {_DYNAMIC_SCHEMA_VERSION}"
+                )
+            profiles.append(profile)
         except (TypeError, ValueError) as exc:
             coercion_issues.append(
                 PromptProfileIssue(
@@ -134,7 +140,17 @@ def _coerce_ref(raw: object) -> PromptArtifactRef:
         id=str(raw["id"]),
         version=int(raw["version"]),
         layer=PromptLayer(str(raw["layer"])),
+        when_any=_assembly_keys(raw.get("when_any")),
+        covers=_assembly_keys(raw.get("covers")),
     )
+
+
+def _assembly_keys(raw: object) -> tuple[str, ...]:
+    if raw is None:
+        return ()
+    if not isinstance(raw, list) or any(not isinstance(item, str) for item in raw):
+        raise TypeError("prompt assembly keys MUST be a list of strings")
+    return tuple(raw)
 
 
 def _validate_profiles(
