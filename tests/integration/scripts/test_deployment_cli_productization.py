@@ -73,6 +73,54 @@ def test_fdai_up_uses_the_verified_root_interpreter_in_isolation(tmp_path: Path)
     ]
 
 
+def _run_wrapper(tmp_path: Path, *arguments: str) -> tuple[subprocess.CompletedProcess[str], Path]:
+    bash = shutil.which("bash")
+    assert bash is not None
+    fake_bin = tmp_path / "bin"
+    fake_bin.mkdir(exist_ok=True)
+    observed = tmp_path / "arguments"
+    uv = fake_bin / "uv"
+    uv.write_text(
+        '#!/usr/bin/env bash\nprintf \'%s\\n\' "$@" > "$OBSERVED_ARGUMENTS"\n',
+        encoding="ascii",
+    )
+    uv.chmod(0o755)
+    completed = subprocess.run(  # noqa: S603 - fixed repository wrapper under test.
+        [bash, "scripts/deployment/azure/fdai-up.sh", *arguments],
+        cwd=ROOT,
+        env={
+            **os.environ,
+            "PATH": f"{fake_bin}:{os.environ['PATH']}",
+            "OBSERVED_ARGUMENTS": str(observed),
+        },
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    return completed, observed
+
+
+def test_wrapper_passes_source_mode_through_without_forcing_online(tmp_path: Path) -> None:
+    completed, observed = _run_wrapper(tmp_path, "--source", ".", "--region", "westus2")
+
+    assert completed.returncode == 0, completed.stderr
+    assert observed.read_text(encoding="utf-8").splitlines()[-5:] == [
+        "azure",
+        "--source",
+        ".",
+        "--region",
+        "westus2",
+    ]
+
+
+def test_wrapper_requires_source_for_contributor_signing_key(tmp_path: Path) -> None:
+    completed, observed = _run_wrapper(tmp_path, "--signing-key", str(tmp_path / "key.pem"))
+
+    assert completed.returncode == 64
+    assert "--source" in completed.stderr
+    assert not observed.exists()
+
+
 def _public_key_bytes(path: Path) -> bytes:
     key = load_pem_public_key(path.read_bytes())
     assert isinstance(key, Ed25519PublicKey)

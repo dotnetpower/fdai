@@ -202,10 +202,10 @@ Recommended mapping:
   broker, or decision surface. Huginn normalizes those records after Kafka ingress, so the core
   still sees Kafka only. Event Hubs local authentication remains disabled.
 - Runtime services: **AKS Standard** is the new-install default for the five packaged services.
-  Core stays non-privileged and only internal Executor may hold effect authority. Prebuilt, signed,
-  digest-pinned OCI images and runtime-neutral specs render to Kubernetes `Deployment`, `Service`,
-  `ServiceAccount`, HPA, PDB, `NetworkPolicy`, and `CronJob`; tenant provisioning MUST NOT build or
-  capture images. Existing Container Apps installations are compatibility/migration sources. See
+  Core stays non-privileged and only internal Executor may hold effect authority. Digest-pinned OCI
+  images and runtime-neutral specs render to Kubernetes `Deployment`, `Service`, `ServiceAccount`,
+  HPA, PDB, `NetworkPolicy`, and `CronJob`. Contributor deployment builds images from the checkout;
+  the offline package carries them prebuilt. Existing Container Apps installations are compatibility/migration sources. See
   [../../docs/roadmap/architecture/service-decomposition-execution-plan.md](../../docs/roadmap/architecture/service-decomposition-execution-plan.md).
 - Light triggers: AKS `CronJob` resources use the portable schedule contract.
 - Audit/state/KPI + T1 vectors: **PostgreSQL Flexible** with **pgvector** co-located. Dev uses Burstable

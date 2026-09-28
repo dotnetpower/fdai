@@ -6,6 +6,8 @@ derives_from: [{ source: docs/roadmap/deployment/deploy-and-onboard.md, sha: 187
 
 # Deploy Quickstart
 
+> **Deployment distribution:** The [constitution](../roadmap/architecture/fdai-constitution.md#article-1-purpose-and-scope) defines only two installation paths, contributor source deployment and the signed offline package. Any installation gate in this document that the constitution does not list is superseded and no longer applies.
+
 You can deploy FDAI to an Azure subscription after one interactive Azure sign-in. Tenant
 deployment runs from the local `fdaictl` coordinator and a managed host inside the target virtual
 network. It does not use GitHub Actions, repository variables, repository secrets, or a GitHub

@@ -1,10 +1,12 @@
 ---
 title: 폐쇄망 배포
 translation_of: disconnected-deployment.md
-translation_source_sha: a5b97316afe4b44bbd05c3971072a424f374631e
+translation_source_sha: b1d42d6eb0548e934350e9661b8efd24107d59ab
 translation_revised: 2026-09-28
 ---
 # 폐쇄망 배포
+
+> **배포 방식:** [헌법](../architecture/fdai-constitution.md#article-1-purpose-and-scope)은 기여자 소스 배포와 서명된 오프라인 패키지라는 두 가지 설치 방식만 정의합니다. 이 문서의 설치 관문 중 헌법에 없는 것은 대체되었으며 더 이상 적용되지 않습니다.
 
 이 문서는 공용 인터넷 egress가 차단된 네트워크 - 규제받는 금융 테난트, sovereign enclave,
 완전 air-gap 사이트 - 에 FDAI를 배포하는 단일 소유 문서입니다. 리포지토리가 이미 지원하는 것,
