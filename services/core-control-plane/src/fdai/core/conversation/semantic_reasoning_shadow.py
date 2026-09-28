@@ -54,6 +54,7 @@ from .semantic_reasoning_proposal import (
     FormResolution,
     resolve_question_form,
 )
+from .semantic_reasoning_relabel import relabel_mentions
 from .semantic_reasoning_repair import (
     FormProposal,
     FormRepair,
@@ -473,16 +474,27 @@ async def _propose_review_repair(
     resolution = resolve_question_form(raw, utterance=utterance)
     if resolution.form is None:
         return FormProposal(resolution, None, "invalid", repair.reasons)
+    form = relabel_mentions(repair.typed, resolution.form)
+    resolution = replace(resolution, form=form)
     if not repair_keeps_operands(
         repair.previous,
-        resolution.form,
+        form,
         utterance=utterance,
         typed=repair.typed,
         extension_only=True,
     ):
         dropped = FormResolution(None, ("review_repair_operand_dropped",))
         return FormProposal(dropped, None, "operand_dropped", repair.reasons)
-    admission = admit_question_form(resolution.form, utterance=utterance, accounting=accounting)
+    admission = admit_question_form(form, utterance=utterance, accounting=accounting)
+    if admission.disposition is AdmissionDisposition.INVALID and all(
+        reason.startswith("span_unaccounted:") for reason in admission.reasons
+    ):
+        # This is the turn's one repair, and the review reads the repaired form again, so
+        # a word it leaves unplaced is judged there, as after a first-pass repair.
+        relaxed = admit_question_form(
+            form, utterance=utterance, accounting=SpanAccounting(required=False)
+        )
+        return FormProposal(resolution, relaxed, "review_applied_unaccounted", repair.reasons)
     return FormProposal(resolution, admission, "review_applied", repair.reasons)
 
 

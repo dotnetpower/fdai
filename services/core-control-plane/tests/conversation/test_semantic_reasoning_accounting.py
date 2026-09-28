@@ -619,3 +619,149 @@ def test_reach_words_apart_from_the_relation_words_have_their_own_cue() -> None:
     assert review_forms((admission.form,), extraction, utterance=utterance) == FormReview(
         "faithful"
     )
+
+
+def _unaccounted_violations(raw: dict[str, Any], utterance: str) -> tuple[str, ...]:
+    resolution = resolve_question_form(raw, utterance=utterance)
+    admission = admit_question_form(resolution.form, utterance=utterance)  # type: ignore[arg-type]
+    repair = repair_for(raw, resolution, admission, utterance=utterance)
+    assert repair is not None
+    return tuple(item for item in repair.violations if item.startswith("span_unaccounted"))
+
+
+def _declaration_count(utterance_cue: str) -> dict[str, Any]:
+    return {
+        "mentions": [
+            {
+                "id": "m1",
+                "form": "concept",
+                "domain": "declaration_kind",
+                "span": _quote("ObjectType"),
+            }
+        ],
+        "goals": [
+            {
+                "id": "g1",
+                "level": "schema",
+                "operation": "count",
+                "subject": "m1",
+                "subject_scope": "collection",
+                "cue": _quote(utterance_cue),
+                "confidence": 0.9,
+            }
+        ],
+    }
+
+
+def test_a_word_quoted_only_in_part_is_reported_by_the_characters_left() -> None:
+    last = _unaccounted_violations(_declaration_count("몇 개"), "ObjectType은 몇 개?")
+    inner = _unaccounted_violations(_declaration_count("몇 개의"), "몇 개의 ObjectType은?")
+    prefix = {
+        "mentions": [{"id": "m1", "form": "name", "domain": "instance", "span": _quote("app")}],
+        "goals": [
+            {
+                "id": "g1",
+                "level": "instance",
+                "operation": "select",
+                "subject": "m1",
+                "subject_scope": "anchor",
+                "cue": _quote("Show"),
+                "confidence": 0.9,
+            }
+        ],
+        "context": [_quote("health")],
+    }
+    first = _unaccounted_violations(prefix, "Show sql-app health")
+
+    # The characters left are named by their place in the word, never quoted alone.
+    assert last == (
+        'span_unaccounted: the word "ObjectType은" at occurrence 1 is only partly quoted: '
+        "its last character is outside every mention, cue, and context quote",
+    )
+    assert inner == (
+        'span_unaccounted: the word "ObjectType은?" at occurrence 1 is only partly quoted: '
+        "its character 11 is outside every mention, cue, and context quote",
+    )
+    assert first == (
+        'span_unaccounted: the word "sql-app" at occurrence 1 is only partly quoted: '
+        "its first 3 characters are outside every mention, cue, and context quote",
+    )
+
+
+_PLEASE = "Count VMs please"
+
+
+def _please_form(domain: str = "resource_type") -> dict[str, Any]:
+    return {
+        "mentions": [{"id": "m1", "form": "concept", "domain": domain, "span": _quote("VMs")}],
+        "goals": [
+            {
+                "id": "g1",
+                "level": "instance",
+                "operation": "count",
+                "subject": "m1",
+                "subject_scope": "collection",
+                "cue": _quote("Count"),
+                "confidence": 0.9,
+            }
+        ],
+    }
+
+
+async def _please(model: _Model) -> Any:
+    return await run_reasoning_shadow(
+        model=model,
+        utterance=_PLEASE,
+        context=(),
+        locale="en",
+        manifest=production_manifest(),
+        verifier=plan_verifier(),
+        purpose=PURPOSE,
+        evaluation_time=NOW,
+        default_lookback_seconds=DEFAULT_LOOKBACK_SECONDS,
+    )
+
+
+async def test_an_unusable_accounting_repair_leaves_the_proposal_to_the_review() -> None:
+    rewritten = _please_form(domain="resource_class")
+    rewritten["context"] = [_quote("please")]
+    broken = _please_form()
+    broken["context"] = [_quote("pleas e")]
+
+    for repair in (rewritten, broken):
+        observation = await _please(_Model([_please_form(), repair], {}))
+
+        (only_pass,) = observation.passes
+        assert only_pass.disposition == "admitted"
+        assert only_pass.repair == "original_unaccounted"
+        assert only_pass.repaired_reasons == ("span_unaccounted:10-16",)
+        assert observation.review == "faithful" and observation.released is True
+
+
+async def test_an_unusable_accounting_repair_still_releases_no_unstated_restriction() -> None:
+    utterance = "Count running VMs"
+    extraction = {
+        "constraints": [
+            {"quote": _quote("Count"), "role": "asks"},
+            {"quote": _quote("running"), "role": "restricts"},
+            {"quote": _quote("VMs"), "role": "names"},
+        ]
+    }
+    rewritten = _please_form(domain="resource_class")
+    model = _Model([_please_form(), rewritten], {}, extraction=extraction)
+
+    observation = await run_reasoning_shadow(
+        model=model,
+        utterance=utterance,
+        context=(),
+        locale="en",
+        manifest=production_manifest(),
+        verifier=plan_verifier(),
+        purpose=PURPOSE,
+        evaluation_time=NOW,
+        default_lookback_seconds=DEFAULT_LOOKBACK_SECONDS,
+    )
+
+    assert observation.passes[0].repair == "original_unaccounted"
+    assert observation.review == "unfaithful" and observation.released is False
+    assert "review_uncovered:restricts:6-13" in observation.review_reasons

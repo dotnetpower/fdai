@@ -124,15 +124,18 @@ reviewed builder reads, such as a qualifier or a stated counterpart, returns a t
 
 **Utterance span accounting**: Every letter, digit, and math or currency symbol of the utterance must lie inside a mention, a goal, filter, relation,
 time, or measure cue, a context quote, or an unsupported constraint. Core checks this only by Unicode category and never classifies what a word means.
-A form that leaves any such character out is invalid, and its one repair names the missing words, with identifiers masked. The model decides whether a
-word states a constraint, so labeling one as context is its explicit judgment, which the blind constraint review checks. A pass that sets
-`remaining_goals` defers the check to the final pass, which may rely on the mentions and cues of earlier admitted passes but never on their context,
-and no compilation is released until the final pass is admitted. A repair of unaccounted words may add mentions, goals, filters, cue reach, context,
-and values left at their defaults, but it never changes or removes a stated value. A word still unaccounted after that repair is left to the blind
-constraint review, because accounting only makes the proposer consider every word; the review decides whether a word states a constraint. A particle
-attached to an instance name or identifier in the same word is accounted with it, and no repair may change the quote of such a mention, because it is
-an exact lookup key that a widened quote would look up as another name; the review still judges any restriction the particle states. Reach words that
-stand apart from the relation words, such as all the way down, are quoted in the relation's `reach_cue`.
+A form that leaves any such character out is invalid, and its one repair names the missing words, with identifiers masked. A word that a quote holds
+only in part is named whole, with the place of its unquoted characters, such as its last character, so a fragment of a name is never quoted alone. The
+model decides whether a word states a constraint, so labeling one as context is its explicit judgment, which the blind constraint review checks. A
+pass that sets `remaining_goals` defers the check to the final pass, which may rely on the mentions and cues of earlier admitted passes but never on
+their context, and no compilation is released until the final pass is admitted. A repair of unaccounted words may add mentions, goals, filters, cue
+reach, context, and values left at their defaults, but it never changes or removes a stated value. A word still unaccounted after that repair is left
+to the blind constraint review, because accounting only makes the proposer consider every word; the review decides whether a word states a constraint.
+When that repair rewrites or breaks a proposal whose only fault was accounting, the proposal stands as it was and its unplaced words go to the same
+review, and the words a review repair leaves unplaced go to the review that reads its form again. A particle attached to an instance name or
+identifier in the same word is accounted with it, and no repair may change the quote of such a mention, because it is an exact lookup key that a
+widened quote would look up as another name; the review still judges any restriction the particle states. Reach words that stand apart from the
+relation words, such as all the way down, are quoted in the relation's `reach_cue`.
 
 **Blind constraint review**: A second T1 call of another model family reads only the question, beside the judgment call, and extracts every constraint
 with a closed role. Core compares the two outputs structurally: every letter and digit of each extracted constraint must lie in a span that states
@@ -162,13 +165,15 @@ LinkType is read on both sides anyway.
 
 A form that breaks its closed schema or a structural rule gets at most one repair call with the code-authored violations. Each violation states the
 contract rule the form breaks, such as the mention domains a filter accepts, and an unaccounted run is quoted; no violation interprets the question's
-words. The repaired form passes the same admission and must keep every quoted operand, goal, operation, want, typed time, operand-bearing relation,
-competing reading, and pending-goals signal of the rejected proposal; otherwise the original fault stands. These fields compare as the closed schema
-normalizes them. A proposal that never parsed treats every stated pending-goals value other than an explicit false or null as pending, and it fails
-closed when any compared field loses its closed shape, such as a missing goal list, a wrong container, a duplicate goal id, or an unreadable operation
-or want. Only an uncited mention of a parsed proposal that quotes exactly a typed time cue may survive inside a repaired time cue instead of a
-repaired mention. Only an uncited mention of a parsed proposal that quotes exactly a typed time cue may survive inside a repaired time cue instead of
-a repaired mention. Clarifications are answers to the operator and are never repaired.
+words. Mention ids are labels, so before a repaired form is compared with the proposal, each earlier mention's id goes back to the one repaired
+mention of the same form and domain whose quote holds the earlier quote, and every reference follows; if any earlier mention lacks exactly one such
+counterpart, the ids stay as written. The repaired form passes the same admission and must keep every quoted operand, goal, operation, want, typed
+time, operand-bearing relation, competing reading, and pending-goals signal of the rejected proposal; otherwise the original fault stands, except that
+a fault of accounting alone is left to the review as described above. These fields compare as the closed schema normalizes them. A proposal that never
+parsed treats every stated pending-goals value other than an explicit false or null as pending, and it fails closed when any compared field loses its
+closed shape, such as a missing goal list, a wrong container, a duplicate goal id, or an unreadable operation or want. Only an uncited mention of a
+parsed proposal that quotes exactly a typed time cue may survive inside a repaired time cue instead of a repaired mention. Clarifications are answers
+to the operator and are never repaired.
 
 Admission bounds model authority; it does not remove it. A wrong but self-consistent form is caught only by cue-span review, T2 review, the restated
 interpretation and confirm-first cells in [calibrated admission](ontology-reasoning-coverage.md#calibrated-admission), and the evaluation gold. The

@@ -1,6 +1,6 @@
 {
   "algorithm": "sha256",
-  "file_count": 1721,
+  "file_count": 1722,
   "files": {
     ".github/instructions/agent-pantheon.instructions.md": "0e1f083daded7a1f471366c5a47bf09a654963843614dd0315d2a154a3fa117a",
     ".github/instructions/agent-stewardship.instructions.md": "6d34f24fe8879f3edac388d5e7fd9ab138563ca386a5c401f72d8fc3c1698624",
@@ -451,11 +451,12 @@
     "services/core-control-plane/src/fdai/core/conversation/semantic_reasoning_nodes.py": "7e702390c0ccf4861969ccf9f05ebba1ee80cd5c6946207c7c8e711de30e1608",
     "services/core-control-plane/src/fdai/core/conversation/semantic_reasoning_operators.py": "38d955c7cd748da08096813c372ce50fc5f19bd4535c1cce8e3c559c927ccae9",
     "services/core-control-plane/src/fdai/core/conversation/semantic_reasoning_proposal.py": "3baedada4ccd995966b70142a08aae7590c9e78aef3115ab0f064969c012cec6",
+    "services/core-control-plane/src/fdai/core/conversation/semantic_reasoning_relabel.py": "80b4de40b55a91161277467e03a77cb945664edf28509629bcc121f4aee85748",
     "services/core-control-plane/src/fdai/core/conversation/semantic_reasoning_relations.py": "32ff252b54b6d564b549e7fe2192bc822c589ff9c8371da4354c0f6dec30b88b",
-    "services/core-control-plane/src/fdai/core/conversation/semantic_reasoning_repair.py": "0ba36351a379ba7506c05cf91d8333a57b4ebfee687739982e60e4c503706854",
+    "services/core-control-plane/src/fdai/core/conversation/semantic_reasoning_repair.py": "8e03a7b3b3eb7cca6d7066f9b3a4f23f64cee93780d6840595fc3b9e2346260b",
     "services/core-control-plane/src/fdai/core/conversation/semantic_reasoning_review.py": "e7c532d5dd60ff35f41b60ce45c30653db305a5023762a74a7ab3aa094d4392f",
     "services/core-control-plane/src/fdai/core/conversation/semantic_reasoning_schema.py": "53d144da17e92215babafe781191d87bcb2f03a4084d79961e9a8804d2eab14e",
-    "services/core-control-plane/src/fdai/core/conversation/semantic_reasoning_shadow.py": "fc848a1da28527846fee0de32be56a561e508eaab4d6a7c9eca559e6206b3f43",
+    "services/core-control-plane/src/fdai/core/conversation/semantic_reasoning_shadow.py": "3c2392a9debba1145ee23e6c3084329248825439afaf088e88b218e3561b4bc4",
     "services/core-control-plane/src/fdai/core/conversation/semantic_reasoning_verification.py": "444500c310f58a08db629a659840f7330ac1d752c85670de996dfaab357e9657",
     "services/core-control-plane/src/fdai/core/conversation/semantic_recent_resource_change_planning.py": "b0641bf35efa09764c6b78d42d07438b5b795f6167a75504aac44dbba6ff99fb",
     "services/core-control-plane/src/fdai/core/conversation/semantic_relationship_planning.py": "8664db0de9b5beda10f8d073b13ccf64e6b898dcfc2c2d297c34532afb0c9280",
