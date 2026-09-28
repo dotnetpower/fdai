@@ -100,9 +100,15 @@ drift, and role assignment have no local substitute and remain governed-executio
 Recovery plans stay bounded rather than exact-singleton where Azure widens the change set on its
 own. `migration-recovery` accepts any non-empty subset of the reviewed addresses with `update` only
 and still requires the migration Job, because the sandbox ownership tag propagates to every
-task-owned resource in the same plan. Unreviewed addresses, duplicates, replacements, creates, and
-deletes remain blocked, and `create`, `cleanup`, and `extension-recovery` keep their complete
-reviewed sets.
+task-owned resource in the same plan. `partial-cleanup` removes a preserved failed sandbox whose
+apply stopped midway, so it accepts any non-empty reviewed subset with `delete` only. Unreviewed
+addresses, duplicates, replacements, creates, and deletes remain blocked, and `create`, `cleanup`,
+and `extension-recovery` keep their complete reviewed sets.
+
+A preserved failed sandbox is reviewed before removal. The review records the retained resource
+set, confirms no Job or execution surface remains, and enumerates the role assignments its orphaned
+identities still hold. Standing role assignments on an identity that can no longer execute are the
+reason to remove a reviewed failed sandbox rather than retain it indefinitely.
 
 ## Required network paths
 

@@ -1,7 +1,7 @@
 ---
 title: 제한된 네트워크의 Azure 인벤토리
 translation_of: azure-inventory-network-paths.md
-translation_source_sha: 5d9fedf59ac0f3cda661c602ab64d044aa0e854e
+translation_source_sha: 95448b3983339351d9f4c8fd06d649ed12e3a22b
 translation_revised: 2026-09-28
 ---
 # 제한된 네트워크의 Azure 인벤토리
@@ -101,8 +101,15 @@ DNS, 비공개 엔드포인트, 정책 표류, 역할 할당은 로컬 대체물
 Azure가 스스로 변경 집합을 넓히는 경우 복구 계획은 정확한 단일 주소 대신 범위가 제한된
 형태를 유지합니다. `migration-recovery`는 검토된 주소의 비어 있지 않은 부분집합을 `update`
 동작으로만 허용하고 migration 작업은 계속 요구합니다. 샌드박스 소유권 태그가 같은 계획에서
-모든 작업 소유 리소스로 전파되기 때문입니다. 검토되지 않은 주소, 중복, 교체, 생성, 삭제는
-계속 차단되며 `create`, `cleanup`, `extension-recovery`는 완전한 검토 집합을 유지합니다.
+모든 작업 소유 리소스로 전파되기 때문입니다. `partial-cleanup`은 apply가 중간에 멈춘 보존
+샌드박스를 제거하므로 검토된 주소의 비어 있지 않은 부분집합을 `delete` 동작으로만 허용합니다.
+검토되지 않은 주소, 중복, 교체, 생성, 삭제는 계속 차단되며 `create`, `cleanup`,
+`extension-recovery`는 완전한 검토 집합을 유지합니다.
+
+보존된 실패 샌드박스는 제거 전에 검토합니다. 검토는 남은 리소스 집합을 기록하고, 작업이나
+실행 표면이 없음을 확인하며, 고아 신원이 여전히 보유한 역할 할당을 열거합니다. 더 이상
+실행할 수 없는 신원이 상시 역할 할당을 보유하는 상태가, 검토를 마친 실패 샌드박스를 무기한
+보존하지 않고 제거하는 근거입니다.
 
 ## 필수 네트워크 경로
 
