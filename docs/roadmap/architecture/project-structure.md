@@ -542,8 +542,8 @@ Deployment Preflight keeps its publication decision in `core/deploy_preflight/pr
   it records each server-prepared binding once with audit and verifies only a current record, and
   `runtime/development_authority.py` composes it, with the Azure target-revision reader, into the
   ControlLoop, the Pantheon, and the HIL coordinator. `core/hil_resume/development.py` owns the
-  park block and the Owner self-approval admission behind the `DevelopmentBindingPreparer` and
-  `TargetRevisionReader` ports, so Core never imports the delivery registry. The focused
+  park block with the bound facts the Owner sees and the Owner self-approval admission behind the
+  `DevelopmentBindingPreparer` and `TargetRevisionReader` ports; Core never imports the registry. The focused
   `core/risk_gate/development_profile.py` module owns profile-scoped promotion and current-authority
   verification while `gate.py` preserves the public registry and risk-gate API. Contract models
   cross subsystem boundaries only through `fdai.shared.contracts.models`; digest helpers stay in a

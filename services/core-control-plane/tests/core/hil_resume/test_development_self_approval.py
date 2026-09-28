@@ -214,6 +214,10 @@ async def test_park_block_binds_the_exact_owner_action_and_original_requirement(
     )
     assert block["target_revision"] == REVISION
     assert block["executor_identity_ref"] == IDENTITY_REF
+    verification = await scenario.registry.read_verification(str(scenario.action.action_id))
+    assert verification is not None
+    assert block["dry_run_digest"] == verification.binding.dry_run_digest
+    assert block["scope_digest"].startswith("sha256:")
     assert await scenario.store.read_state(BINDING_PREFIX + str(scenario.action.action_id))
     assert park_block({"development_authority": {**block, "original_quorum": 1}}) is None
     assert park_block({}) is None
