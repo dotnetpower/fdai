@@ -885,6 +885,15 @@ resource "kubernetes_cron_job_v1" "job" {
                   read_only  = true
                 }
               }
+
+              dynamic "volume_mount" {
+                for_each = each.value.identity_bridge_enabled ? [1] : []
+                content {
+                  name       = "identity-bridge"
+                  mount_path = "/opt/fdai-compat"
+                  read_only  = true
+                }
+              }
             }
 
             dynamic "volume" {
@@ -898,9 +907,28 @@ resource "kubernetes_cron_job_v1" "job" {
                 }
               }
             }
+
+            dynamic "volume" {
+              for_each = each.value.identity_bridge_enabled ? [var.identity_bridge] : []
+              content {
+                name = "identity-bridge"
+                config_map {
+                  name         = kubernetes_config_map_v1.identity_bridge[0].metadata[0].name
+                  default_mode = "0444"
+                  optional     = false
+                }
+              }
+            }
           }
         }
       }
+    }
+  }
+
+  lifecycle {
+    precondition {
+      condition     = !each.value.identity_bridge_enabled || var.identity_bridge != null
+      error_message = "An identity-bridge scheduled job requires the managed identity bridge ConfigMap contract."
     }
   }
 

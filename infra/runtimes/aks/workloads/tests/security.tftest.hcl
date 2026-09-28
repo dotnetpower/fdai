@@ -379,3 +379,66 @@ run "catalog_review_is_a_suspended_shadow_template" {
     error_message = "Catalog review must remain a suspended one-shot template with a secret reference and no scheduled execution."
   }
 }
+
+run "scheduled_job_identity_bridge_mount" {
+  command = plan
+
+  variables {
+    identity_bridge = {
+      config_map_name = "fdai-identity-bridge"
+      script          = "print('bridge')\n"
+    }
+    scheduled_jobs = {
+      analyzer = {
+        component               = "analyzer"
+        image                   = "example.com/fdai/core@sha256:0000000000000000000000000000000000000000000000000000000000000000"
+        identity_resource_id    = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/example/providers/Microsoft.ManagedIdentity/userAssignedIdentities/example"
+        identity_client_id      = "00000000-0000-0000-0000-000000000000"
+        command                 = ["/app/.venv/bin/python"]
+        args                    = ["/opt/fdai-compat/identity_bridge.py", "--", "python", "-m", "fdai.delivery.analyzer_tick_cli"]
+        schedule                = "* * * * *"
+        deadline_seconds        = 300
+        retry_limit             = 0
+        cpu                     = "500m"
+        memory                  = "1Gi"
+        environment             = {}
+        identity_bridge_enabled = true
+      }
+    }
+  }
+
+  assert {
+    condition = (
+      kubernetes_cron_job_v1.job["analyzer"].spec[0].job_template[0].spec[0].template[0].spec[0].container[0].volume_mount[0].name == "identity-bridge" &&
+      kubernetes_cron_job_v1.job["analyzer"].spec[0].job_template[0].spec[0].template[0].spec[0].container[0].volume_mount[0].mount_path == "/opt/fdai-compat" &&
+      kubernetes_cron_job_v1.job["analyzer"].spec[0].job_template[0].spec[0].template[0].spec[0].container[0].volume_mount[0].read_only &&
+      kubernetes_cron_job_v1.job["analyzer"].spec[0].job_template[0].spec[0].template[0].spec[0].volume[0].config_map[0].name == "fdai-identity-bridge"
+    )
+    error_message = "A scheduled job that runs through the identity bridge must mount the bridge ConfigMap read-only."
+  }
+}
+
+run "reject_scheduled_job_identity_bridge_without_config_map" {
+  command = plan
+
+  variables {
+    scheduled_jobs = {
+      analyzer = {
+        component               = "analyzer"
+        image                   = "example.com/fdai/core@sha256:0000000000000000000000000000000000000000000000000000000000000000"
+        identity_resource_id    = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/example/providers/Microsoft.ManagedIdentity/userAssignedIdentities/example"
+        identity_client_id      = "00000000-0000-0000-0000-000000000000"
+        command                 = ["python", "-m", "fdai.delivery.analyzer_tick_cli"]
+        schedule                = "* * * * *"
+        deadline_seconds        = 300
+        retry_limit             = 0
+        cpu                     = "500m"
+        memory                  = "1Gi"
+        environment             = {}
+        identity_bridge_enabled = true
+      }
+    }
+  }
+
+  expect_failures = [kubernetes_cron_job_v1.job["analyzer"]]
+}
