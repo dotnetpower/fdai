@@ -355,7 +355,8 @@ def _schema_violations(goal: FormGoal, functions: set[str], admission: FormAdmis
     """Return the stated schema relation or grouping that no declaration read answers.
 
     A schema relation is answered only by the one-hop relationship read of the subject
-    ObjectType's own LinkTypes, and a manifest count groups only by declaration kind.
+    ObjectType's own LinkTypes in both directions, and a manifest count groups only by
+    declaration kind.
     """
 
     violations: list[str] = []
@@ -368,6 +369,9 @@ def _schema_violations(goal: FormGoal, functions: set[str], admission: FormAdmis
             or relation.scope is not RelationScope.ALL_KINDS
             or relation.reach is not RelationReach.ONE_HOP
             or relation.anchor not in {None, goal.subject}
+            or relation.counterpart is not None
+            or relation.anchor_role is not SubjectRole.EITHER
+            or relation.result_role is not SubjectRole.EITHER
             or "query.ontology_relationships" not in functions
         ):
             violations.append("sem_schema_relation_unread")

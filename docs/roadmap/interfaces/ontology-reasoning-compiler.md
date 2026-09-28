@@ -129,8 +129,10 @@ counterpart, returns a typed unsupported reason; it is never ignored.
 A form that breaks its closed schema or a structural rule gets at most one repair call with the
 code-authored violations. The repaired form passes the same admission and must keep every quoted
 operand, goal, operation, want, typed time, operand-bearing relation, competing reading, and
-pending-goals signal of the rejected proposal; otherwise the original fault stands. Clarifications
-are answers to the operator and are never repaired.
+pending-goals signal of the rejected proposal; otherwise the original fault stands. These fields
+compare as the closed schema normalizes them, and a proposal that never parsed keeps any stated
+pending-goals value and fails closed on an unreadable want. Clarifications are answers to the
+operator and are never repaired.
 
 Admission bounds model authority; it does not remove it. A wrong but self-consistent form is caught
 only by cue-span review, T2 review, the restated interpretation and confirm-first cells in
@@ -246,9 +248,9 @@ direction. Stated roles that are not the two ends of the sense return a clarific
   property exists, and a `diagnose` goal without an applicable recipe never reuses another type's
   recipe. Both return a typed unsupported atom instead of a name predicate or a substitute.
 - **Schema reads**: A schema relation is answered only by the one-hop `query.ontology_relationships`
-  read of the subject ObjectType's own LinkTypes, and a manifest count groups only by declaration
-  kind. Any other schema relation, reach, anchor, or grouping returns a typed unsupported reason,
-  and V-SEM rejects it independently.
+  read of the subject ObjectType's own LinkTypes in both directions, and a manifest count groups only
+  by declaration kind. Any other schema relation, direction, counterpart, reach, anchor, or grouping
+  returns a typed unsupported reason, and V-SEM rejects it independently.
 
 ### Follow-up references
 

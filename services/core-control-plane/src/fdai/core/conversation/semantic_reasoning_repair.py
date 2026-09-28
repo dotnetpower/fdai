@@ -79,7 +79,7 @@ async def propose_with_repair(
     repaired = resolve_question_form(repaired_raw, utterance=utterance)
     if repaired.form is None:
         return FormProposal(repaired, None, "invalid", faulted)
-    if not repair_keeps_operands(raw, repaired.form, utterance=utterance):
+    if not repair_keeps_operands(raw, repaired.form, utterance=utterance, typed=resolution.form):
         return FormProposal(resolution, admission, "operand_dropped", faulted)
     return FormProposal(repaired, _admit(repaired, utterance), "applied", faulted)
 
@@ -113,6 +113,7 @@ def repair_keeps_operands(
     repaired: SemanticQuestionForm,
     *,
     utterance: str,
+    typed: SemanticQuestionForm | None = None,
 ) -> bool:
     """Return whether the repaired form keeps everything the rejected proposal stated.
 
@@ -126,6 +127,12 @@ def repair_keeps_operands(
     for each goal that had one, and pending goals must stay pending. A quote that no
     longer locates cannot be matched, so the repair must then keep at least as many
     mentions as before.
+
+    ``typed`` is the rejected proposal as the closed schema read it, when it parsed.
+    Operations, wants, competing readings, and pending goals then compare the typed
+    values, because the schema normalizes raw values such as a numeric boolean. A
+    proposal that never parsed has no typed reading, so any present pending-goals
+    value other than false stays pending and an unreadable want fails closed.
     """
 
     spans = [(mention.span.start, mention.span.end) for mention in repaired.mentions]
@@ -144,50 +151,99 @@ def repair_keeps_operands(
         for quote in located
     ):
         return False
-    if previous.get("remaining_goals") is True and not repaired.remaining_goals:
-        return False
     goals = previous.get("goals")
     goals = goals if isinstance(goals, list) else []
-    if not _alternatives_kept(previous.get("alternatives"), goals, repaired):
+    if not _caution(previous, goals, typed).kept_by(repaired):
         return False
     kept = {goal.id: goal for goal in repaired.goals}
-    return all(
-        _goal_kept(before, kept.get(str(before.get("id"))), utterance)
-        for before in goals
-        if isinstance(before, Mapping)
+    if typed is not None:
+        stated = [goal for goal in goals if isinstance(goal, Mapping)]
+        if len(stated) != len(typed.goals):
+            return False
+        return all(
+            _meaning_kept(goal.operation, goal.want, kept.get(goal.id))
+            and _cues_kept(before, kept.get(goal.id), utterance)
+            for before, goal in zip(stated, typed.goals, strict=False)
+        )
+    for before in goals:
+        if not isinstance(before, Mapping):
+            continue
+        after = kept.get(str(before.get("id")))
+        operation = _enum(GoalOperation, before.get("operation"))
+        want = Want.FACT if "want" not in before else _enum(Want, before.get("want"))
+        if after is None or want is None or want is not after.want:
+            return False
+        if operation is not None and operation is not after.operation:
+            return False
+        if not _cues_kept(before, after, utterance):
+            return False
+    return True
+
+
+@dataclass(frozen=True, slots=True)
+class _Caution:
+    """The model's own caution in a rejected proposal: pending goals and competing readings."""
+
+    pending: bool
+    contested: bool
+    contested_goals: frozenset[str]
+
+    def kept_by(self, repaired: SemanticQuestionForm) -> bool:
+        """Return whether the repaired form keeps every stated caution signal.
+
+        A competing reading makes the form a clarification, so a repair that drops
+        it would answer a question the model itself judged ambiguous.
+        """
+
+        if self.pending and not repaired.remaining_goals:
+            return False
+        if not self.contested:
+            return True
+        kept = {item.goal for item in repaired.alternatives}
+        return bool(kept) and self.contested_goals <= kept
+
+
+def _caution(
+    previous: Mapping[str, Any], goals: list[Any], typed: SemanticQuestionForm | None
+) -> _Caution:
+    if typed is not None:
+        return _Caution(
+            pending=typed.remaining_goals,
+            contested=bool(typed.alternatives),
+            contested_goals=frozenset(item.goal for item in typed.alternatives),
+        )
+    alternatives = previous.get("alternatives")
+    goal_ids = {
+        goal["id"]
+        for goal in goals
+        if isinstance(goal, Mapping) and isinstance(goal.get("id"), str)
+    }
+    contested_goals = (
+        frozenset(
+            item["goal"]
+            for item in alternatives
+            if isinstance(item, Mapping)
+            and isinstance(item.get("goal"), str)
+            and item["goal"] in goal_ids
+        )
+        if isinstance(alternatives, list)
+        else frozenset()
+    )
+    return _Caution(
+        pending=previous.get("remaining_goals", False) not in (False, None),
+        contested=alternatives not in (None, [], ()),
+        contested_goals=contested_goals,
     )
 
 
-def _alternatives_kept(
-    alternatives: object, goals: list[Any], repaired: SemanticQuestionForm
-) -> bool:
-    """Return whether every competing reading the rejected proposal stated survives.
-
-    A competing reading makes the form a clarification, so a repair that drops it
-    would answer a question the model itself judged ambiguous.
-    """
-
-    if not isinstance(alternatives, list) or not alternatives:
-        return True
-    kept = {item.goal for item in repaired.alternatives}
-    if not kept:
-        return False
-    goal_ids = {str(goal.get("id")) for goal in goals if isinstance(goal, Mapping)}
-    return all(
-        str(item.get("goal")) in kept
-        for item in alternatives
-        if isinstance(item, Mapping) and str(item.get("goal")) in goal_ids
-    )
+def _meaning_kept(operation: GoalOperation, want: Want, after: FormGoal | None) -> bool:
+    return after is not None and after.operation is operation and after.want is want
 
 
-def _goal_kept(before: Mapping[str, Any], after: FormGoal | None, utterance: str) -> bool:
+def _cues_kept(before: Mapping[str, Any], after: FormGoal | None, utterance: str) -> bool:
+    """Return whether a typed time and an operand-bearing relation keep their cues."""
+
     if after is None:
-        return False
-    operation = _enum(GoalOperation, before.get("operation"))
-    if operation is not None and operation is not after.operation:
-        return False
-    want = _enum(Want, before.get("want", Want.FACT.value))
-    if want is not None and want is not after.want:
         return False
     time = before.get("time")
     if isinstance(time, Mapping) and time.get("value") is not None:

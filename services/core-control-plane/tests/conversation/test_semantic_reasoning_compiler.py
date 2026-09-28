@@ -1100,6 +1100,8 @@ _KIND_INSTANCE = "Which LinkTypes does vm-app-01 participate in?"
 _TRANSITIVE = "What can the Resource ObjectType reach transitively?"
 _INSTANCE_ANCHOR = "Which LinkTypes of the Resource ObjectType does vm-app-01 use?"
 _PER_ENDPOINT = "How many ObjectTypes are there per endpoint?"
+_DIRECTED = "What can the Resource ObjectType depend on through any LinkType?"
+_PAIRED = "Which LinkTypes connect the Resource ObjectType to the Database ObjectType?"
 
 
 @pytest.mark.parametrize(
@@ -1160,6 +1162,30 @@ _PER_ENDPOINT = "How many ObjectTypes are there per endpoint?"
             },
             "schema_group_by_unsupported:endpoint",
         ),
+        (
+            _DIRECTED,
+            (("m1", "object_type", "Resource"),),
+            {
+                "operation": "describe_schema",
+                "subject": "m1",
+                "subject_scope": "anchor",
+                "relation": _either(
+                    _DIRECTED, "depend on", anchor_role="dependent", result_role="dependency"
+                ),
+            },
+            "schema_relation_roles_unsupported",
+        ),
+        (
+            _PAIRED,
+            (("m1", "object_type", "Resource"), ("m2", "object_type", "Database")),
+            {
+                "operation": "describe_schema",
+                "subject": "m1",
+                "subject_scope": "anchor",
+                "relation": _either(_PAIRED, "connect", counterpart="m2"),
+            },
+            "counterpart_unsupported",
+        ),
     ),
 )
 def test_a_schema_relation_or_grouping_no_declaration_read_answers_is_not_widened(
@@ -1184,7 +1210,12 @@ def test_a_schema_relation_or_grouping_no_declaration_read_answers_is_not_widene
         "declaration_kind": MentionDomain.DECLARATION_KIND,
         "object_type": MentionDomain.OBJECT_TYPE,
     }
-    values = {"LinkTypes": ("link",), "ObjectTypes": ("object",), "Resource": ("Resource",)}
+    values = {
+        "LinkTypes": ("link",),
+        "ObjectTypes": ("object",),
+        "Resource": ("Resource",),
+        "Database": ("Database",),
+    }
     receipt = concepts(
         *(
             (mention_id, domains[domain], values[text])

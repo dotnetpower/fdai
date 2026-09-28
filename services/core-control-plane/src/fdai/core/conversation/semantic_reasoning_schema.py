@@ -24,6 +24,7 @@ from .semantic_reasoning_form import (
     MentionDomain,
     RelationReach,
     RelationScope,
+    SubjectRole,
 )
 from .semantic_reasoning_nodes import (
     CompileContext,
@@ -130,9 +131,10 @@ def schema_goal(goal: FormGoal, ctx: CompileContext) -> OperatorResult:
 def _relation_failure(goal: FormGoal) -> str | None:
     """Return why an ObjectType relation is not the one-hop read of its own LinkTypes.
 
-    The relationship read lists every LinkType one hop from the subject ObjectType, so
-    a single stated sense, a transitive reach, or an anchor other than the subject
-    would be silently widened or dropped.
+    The relationship read lists every LinkType one hop from the subject ObjectType in
+    both directions, so a single stated sense, a transitive reach, a direction, a
+    counterpart, or an anchor other than the subject would be silently widened or
+    dropped.
     """
 
     relation = goal.relation
@@ -144,6 +146,14 @@ def _relation_failure(goal: FormGoal) -> str | None:
         return f"schema_relation_reach_unsupported:{relation.reach.value}"
     if relation.anchor is not None and relation.anchor != goal.subject:
         return "schema_relation_anchor_unsupported"
+    if relation.counterpart is not None:
+        return "schema_relation_counterpart_unsupported"
+    if (
+        relation.anchor_role is not SubjectRole.EITHER
+        or relation.result_role is not SubjectRole.EITHER
+    ):
+        # The read lists incoming and outgoing LinkTypes together; one direction is not narrowed.
+        return "schema_relation_roles_unsupported"
     return None
 
 

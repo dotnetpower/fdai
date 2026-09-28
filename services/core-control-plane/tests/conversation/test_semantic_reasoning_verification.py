@@ -386,3 +386,92 @@ def test_a_manifest_count_never_answers_a_stated_schema_relation_or_grouping(
 
     assert _violations(listing, receipt, batch.plan) == ()
     assert violation in violations
+
+
+_LINKS_OF = "Which LinkTypes does the Resource ObjectType have?"
+_LINKS_BETWEEN = "Which LinkTypes connect the Resource ObjectType to the Database ObjectType?"
+
+
+def _links_form(utterance: str, **relation: Any) -> dict[str, Any]:
+    mentions = [
+        {
+            "id": "m1",
+            "form": "concept",
+            "domain": "object_type",
+            "span": span(utterance, "Resource"),
+        }
+    ]
+    if "counterpart" in relation:
+        mentions.append(
+            {
+                "id": "m2",
+                "form": "concept",
+                "domain": "object_type",
+                "span": span(utterance, "Database"),
+            }
+        )
+    return {
+        "mentions": mentions,
+        "goals": [
+            {
+                "id": "g1",
+                "level": "schema",
+                "operation": "describe_schema",
+                "subject": "m1",
+                "subject_scope": "anchor",
+                "relation": {
+                    "sense": "dependency",
+                    "scope": "all_kinds",
+                    "anchor_role": "either",
+                    "result_role": "either",
+                    "cue": span(utterance, "LinkTypes"),
+                    **relation,
+                },
+                "cue": span(utterance, "Which LinkTypes"),
+                "confidence": 0.9,
+            }
+        ],
+    }
+
+
+@pytest.mark.parametrize(
+    ("utterance", "relation"),
+    (
+        (_LINKS_OF, {"anchor_role": "dependent", "result_role": "dependency"}),
+        (_LINKS_BETWEEN, {"counterpart": "m2"}),
+    ),
+)
+def test_a_relationship_read_never_answers_a_directed_or_paired_schema_relation(
+    utterance: str, relation: dict[str, Any]
+) -> None:
+    receipt = concepts(
+        ("m1", MentionDomain.OBJECT_TYPE, ("Resource",)),
+        ("m2", MentionDomain.OBJECT_TYPE, ("Database",)),
+    )
+    listing = admitted(_links_form(_LINKS_OF), _LINKS_OF)
+    compilation = compile_question_form(
+        listing,
+        concepts=receipt,
+        manifest=production_manifest(),
+        verifier=plan_verifier(),
+        purpose=PURPOSE,
+        evaluation_time=NOW,
+        default_lookback_seconds=DEFAULT_LOOKBACK_SECONDS,
+        utterance=_LINKS_OF,
+        anchors=synthetic_anchors(listing),
+    )
+    (batch,) = compilation.goals[0].batches
+    stated = admitted(_links_form(utterance, **relation), utterance)
+
+    violations = verify_goal_semantics(
+        stated.form.goals[0],
+        admission=stated,
+        concepts=receipt,
+        descriptors=production_manifest().descriptors,
+        plans=(batch.plan,),
+        default_lookback_seconds=DEFAULT_LOOKBACK_SECONDS,
+        anchors=synthetic_anchors(stated),
+    )
+
+    assert _violations(listing, receipt, batch.plan) == ()
+    assert "sem_schema_relation_unread" in violations

@@ -258,3 +258,43 @@ async def test_a_repair_that_drops_a_competing_reading_is_rejected() -> None:
     assert observation.passes[0].repair == "operand_dropped"
     assert observation.passes[0].disposition == "invalid"
     assert observation.compilations == ()
+
+
+def test_caution_compares_the_typed_reading_that_the_schema_normalizes() -> None:
+    numeric = _anchorless_relation()
+    numeric["remaining_goals"] = 1
+    typed = _resolved(numeric)
+    fixed = _quoted_form()
+    kept = _quoted_form(remaining_goals=True)
+
+    assert typed.remaining_goals is True
+    assert not repair_keeps_operands(numeric, _resolved(fixed), utterance=_UTTERANCE, typed=typed)
+    assert repair_keeps_operands(numeric, _resolved(kept), utterance=_UTTERANCE, typed=typed)
+
+
+def test_an_unparsed_proposal_keeps_any_pending_value_and_fails_closed_on_its_want() -> None:
+    textual = _undeclared_filter()
+    textual["remaining_goals"] = "true"
+    unreadable = _undeclared_filter()
+    unreadable["goals"][0]["want"] = "why"
+    stated = _undeclared_filter()
+    stated["goals"][0]["want"] = "fact"
+    malformed = _undeclared_filter()
+    malformed["goals"][0]["id"] = ["g1"]
+    malformed["alternatives"] = [{"goal": ["g1"]}, "g1"]
+
+    assert not repair_keeps_operands(textual, _resolved(_quoted_form()), utterance=_UTTERANCE)
+    assert not repair_keeps_operands(unreadable, _resolved(_quoted_form()), utterance=_UTTERANCE)
+    assert repair_keeps_operands(stated, _resolved(_quoted_form()), utterance=_UTTERANCE)
+    assert not repair_keeps_operands(malformed, _resolved(_quoted_form()), utterance=_UTTERANCE)
+
+
+async def test_a_repair_that_drops_a_normalized_pending_signal_is_rejected() -> None:
+    pending = _anchorless_relation()
+    pending["remaining_goals"] = 1
+    model = _Model([pending, _quoted_form()], _PICKS)
+
+    observation = await _run(model)
+
+    assert observation.passes[0].repair == "operand_dropped"
+    assert observation.passes[0].disposition == "invalid"
