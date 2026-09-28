@@ -497,6 +497,8 @@ def test_raw_state_reads_survive_attributes_the_provider_schema_dropped(tmp_path
     assert workflow.count("terraform show -json") == 1
     assert 'terraform show -json "$plan_file"' in workflow
     assert workflow.count("terraform state pull | jq -c -f") == 5
+    # jq 1.6 sets -e from the last streamed input only, so fail-closed reads slurp the stream.
+    assert workflow.count("jq -s -er '\n            .[] | select(") == 3
 
 
 READBACK = runpy.run_path(str(LAB_SCRIPTS / "readback_store_demo.py"))
