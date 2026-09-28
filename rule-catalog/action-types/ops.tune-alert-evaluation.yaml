@@ -1,6 +1,6 @@
 schema_version: "1.0.0"
 name: ops.tune-alert-evaluation
-version: "1.0.0"
+version: "1.1.0"
 operation: update
 interfaces:
   - ControlPlane
@@ -9,7 +9,7 @@ interfaces:
   - RequiresInventoryFresh
   - GraphTraversalRequired
   - RequiresMaintenanceWindow
-rollback_contract: pr_revert
+rollback_contract: state_forward_only
 irreversible: false
 default_mode: shadow
 promotion_gate:
@@ -40,11 +40,12 @@ blast_radius:
 # Declaring the promotion gate does not promote evaluation tuning or its provider.
 description: >-
   Propose one approved threshold or evaluation-parameter change on one supported
-  existing alert rule through a manually reviewed IaC diff, without claiming improved detection.
+  existing alert rule through a provider-neutral plan, without claiming improved detection.
+  No provider mutation adapter is currently bound.
 category: ops
 trigger_kind:
   kind: operator_request
-execution_path: pr_manual
+execution_path: direct_api
 ceiling_by_tier:
   t0:
     max_autonomy: enforce_hil
@@ -72,7 +73,7 @@ argument_schema:
       description: SHA-256 digest of the approved forward plan; no caller-selected target or evaluation.
 provenance:
   source_url: https://github.com/dotnetpower/fdai/blob/main/rule-catalog/action-types/ops.tune-alert-evaluation.yaml
-  resolved_ref: action-type:ops.tune-alert-evaluation@1.0.0
-  content_hash: sha256:d0de280756dffb711d0c7e881a2d997cd024463f014f064ff53682a928218f62
+  resolved_ref: action-type:ops.tune-alert-evaluation@1.1.0
+  content_hash: sha256:02d5092195f6990db00210b8b8bf4b421e505655762f2794a0173d14478137e3
   license: BUSL-1.1
   retrieved_at: "2026-09-14T00:00:00Z"

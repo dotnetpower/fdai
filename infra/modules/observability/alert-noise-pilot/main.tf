@@ -1,13 +1,7 @@
 locals {
-  # Availability is a percentage. The baseline cannot fire; the treatment changes
-  # only this threshold and is expected to fire after the provider evaluation window.
-  threshold       = var.phase == "baseline" ? 0 : 101
-  target_id_parts = split("/", var.target_resource_id)
-}
-
-data "azurerm_key_vault" "target" {
-  name                = local.target_id_parts[8]
-  resource_group_name = local.target_id_parts[4]
+  # The Core app has at least one active replica in the approved pilot baseline.
+  # The baseline cannot fire; treatment changes only this threshold.
+  threshold = var.phase == "baseline" ? 0 : 2
 }
 
 resource "azurerm_monitor_action_group" "pilot" {
@@ -27,8 +21,8 @@ resource "azurerm_monitor_action_group" "pilot" {
 resource "azurerm_monitor_metric_alert" "pilot" {
   name                = var.alert_name
   resource_group_name = var.resource_group_name
-  scopes              = [data.azurerm_key_vault.target.id]
-  description         = "FDAI dev alert-noise qualification pilot"
+  scopes              = [var.target_container_app_id]
+  description         = "FDAI dev alert-noise qualification pilot on Core replica telemetry"
   severity            = 3
   enabled             = true
   auto_mitigate       = true
@@ -36,8 +30,8 @@ resource "azurerm_monitor_metric_alert" "pilot" {
   window_size         = "PT5M"
 
   criteria {
-    metric_namespace = "Microsoft.KeyVault/vaults"
-    metric_name      = "Availability"
+    metric_namespace = "Microsoft.App/containerApps"
+    metric_name      = "Replicas"
     aggregation      = "Average"
     operator         = "LessThan"
     threshold        = local.threshold
@@ -45,13 +39,6 @@ resource "azurerm_monitor_metric_alert" "pilot" {
 
   action {
     action_group_id = azurerm_monitor_action_group.pilot.id
-  }
-
-  lifecycle {
-    precondition {
-      condition     = lower(data.azurerm_key_vault.target.id) == lower(var.target_resource_id)
-      error_message = "Resolved Key Vault must exactly match the protected target resource id."
-    }
   }
 
   tags = var.tags

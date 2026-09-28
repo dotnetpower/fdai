@@ -70,17 +70,20 @@ commit already present on protected `main`:
 
 1. Run `action=plan` and review the resource counts and any quota or policy failures. A failed plan
    reports only allowlisted diagnostic categories, Terraform addresses, and Azure error codes. The
-   raw provider log stays runner-local and is shredded during cleanup.
+   raw provider log stays runner-local and is shredded during cleanup. The plan also lists every
+   retained-resource import and every scope-case grant replacement described in
+   [Retained resource adoption](#retained-resource-adoption).
 2. Run `action=apply` with an RFC 3339 `expires_at_utc`. The protected environment approval gates
-   the apply, and ordinary apply refuses delete or replacement actions. For the one-time transition
+   the apply, and ordinary apply refuses delete or replacement actions except the scope-case grant
+   replacements that the plan lists. For the one-time transition
    from the earlier private cluster, first review `action=plan`, then run `action=recreate-aks` with
    `confirm_aks_recreation=recreate-aks-store-demo`. That action accepts only replacement of the
    exact scenario cluster and its cluster-scoped role assignments, and rejects any other delete.
 3. Set `run_reference_sweep=true` only with a current `approval_ref`. Keep `scenario_id=all` for the
-  complete sweep or select one allowlisted scenario for a bounded rehearsal. The workflow starts
-  the exact Terraform-owned AKS target only when it was stopped, prepares the authenticated context,
-  runs the selected scenarios sequentially, and restores `Stopped` before cleanup when this run
-  started the cluster.
+  complete sweep or select one allowlisted scenario for a bounded rehearsal. Every approved apply
+  starts the exact AKS target before planning only when it was stopped, prepares the authenticated
+  context, runs the selected scenarios sequentially, and restores `Stopped` before cleanup when this
+  run started the cluster.
 4. Run `action=destroy-plan` in the `plan-only` environment and review the exact delete count,
    Terraform addresses, and replacement paths without granting deployment authority.
 5. Run `action=destroy` with `confirm_destroy=destroy-sre-demo-lab` only after that review. Destroy
@@ -116,12 +119,40 @@ destroy operation after the demo.
 After an approved apply, the workflow waits for the Load Balancer address, verifies that the Azure
 hostname resolves to that exact address, checks `http://<hostname>/health`, and prints the browser
 URL in the workflow summary. No VPN or port forwarding is required to open the store front.
+It then retains the `sre-demo-lab-store-demo-<run>-<attempt>` artifact for 30 days. The artifact
+records the public DNS answer, the Kubernetes and Azure Load Balancer addresses, the HTTP health
+status, the readiness of every expected workload including three `order-service` replicas, the
+digest of every running image, and the private `ClusterIP` Store Admin service. Any failed check
+fails the run before a fault sweep starts.
 
 Azure Policy may attach one deployment-external NSG to each workload subnet. Terraform preserves
 those effective AKS, MySQL, and stress-subnet associations instead of replacing them with the
 lab's shared NSG. The lab still owns the private-endpoint subnet association, and the stress VM
 NIC retains its separate deployment-owned NSG. Deployment preflight must observe the default
 inbound deny rule on every effective subnet NSG.
+
+## Retained resource adoption
+
+An interrupted apply or an out-of-band recovery can leave a lab resource in Azure after Terraform
+state stops recording it. The next plan would then try to create a resource that already exists.
+Before every `plan`, `apply`, and `recreate-aks`, the workflow observes only these exact resources:
+the `aks-store-demo` cluster, the recorded MySQL server, the runner's two cluster-scoped AKS
+grants, and the stress VM NIC association with the lab NSG. It writes a Terraform `import` block
+for each one that exists outside state. The cluster, server, and NIC must match the exact lab
+resource ID and carry the `fdai:managed`, `fdai:layer`, `fdai:env`, and `fdai:workload`
+ownership tags. A grant must match the exact runner principal, role, and cluster scope, and the
+NIC must use the lab NSG. Any mismatch stops the run.
+
+The plan shows each import before approval, and the approved apply performs it. The helper never
+imports into state directly. When an Azure CLI recovery recorded a grant scope with different
+letter case, Terraform replaces that grant with the same principal, role, and scope. Ordinary apply
+accepts only that exact case-normalizing replacement. Preparation then waits up to five minutes
+for the replaced grant to reach the Kubernetes API before it installs or changes any workload.
+
+Apply also starts a stopped cluster or MySQL server before planning, because Azure rejects updates
+to stopped resources. The run restores `Stopped` on a cluster it started. It leaves a started MySQL
+server `Ready`, because a stopped flexible server rejects the parameter reads that every refreshed
+plan requires.
 
 ## Deploy the optional commerce scenario
 
@@ -226,6 +257,7 @@ summary artifact with no environment identifiers or secret values.
 - The expiry tag supports cost review but does not delete resources automatically. Explicit
   destroy remains required so cleanup is reviewable and state-consistent.
 - Raw plan, apply, destroy, and enforce reports remain runner-local and are shredded. The workflow
-  retains only a repository-safe summary of scenario outcomes and rollback status.
+  retains only repository-safe summaries: scenario outcomes with rollback status, and the Store
+  Demo readback.
 - No live Azure plan, apply, fault injection, or destroy is evidence for this source change until
   it runs against an exact committed revision and its receipts are retained.

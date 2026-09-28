@@ -70,7 +70,7 @@ export type AlertQualityTreatment =
 
 /** An immutable plan reports required quorum, not fulfilled approval or execution. */
 export interface AlertQualityPlan {
-  readonly schema_version: "1.0.0";
+  readonly schema_version: "1.1.0";
   readonly action_type: typeof ACTIONS[number];
   readonly tenant_ref: string;
   readonly scope_ref: string;
@@ -89,7 +89,7 @@ export interface AlertQualityPlan {
   readonly rollback_ref: string;
   /** A reference only, not a projected replay result or approval. Absent in retained v1. */
   readonly evaluation_receipt_digest?: string | null;
-  readonly execution_path: "pr_manual";
+  readonly execution_path: "direct_api";
   readonly default_mode: "shadow";
   readonly quorum_required: 2;
   readonly execution_authority: false;
@@ -327,7 +327,7 @@ function plan(value: unknown): AlertQualityPlan {
   const expires_at = alertQualityTimestamp(row.expires_at);
   interval(created_at, expires_at);
   return {
-    schema_version: literal(row.schema_version, "1.0.0"), action_type,
+    schema_version: literal(row.schema_version, "1.1.0"), action_type,
     tenant_ref: ref(row.tenant_ref), scope_ref: ref(row.scope_ref), requester_ref: ref(row.requester_ref),
     evidence_digest: digest(row.evidence_digest), policy_digest: digest(row.policy_digest), target_revision: digest(row.target_revision),
     treatment, service_refs: refs(row.service_refs, 64, true), lock_refs: refs(row.lock_refs, 256, true), created_at, expires_at,
@@ -336,7 +336,7 @@ function plan(value: unknown): AlertQualityPlan {
     max_recovery_seconds: boundedInteger(row.max_recovery_seconds, 86_400, 1), rollback_ref: digest(row.rollback_ref),
     ...(Object.hasOwn(row, "evaluation_receipt_digest")
       ? { evaluation_receipt_digest: row.evaluation_receipt_digest === null ? null : digest(row.evaluation_receipt_digest) } : {}),
-    execution_path: literal(row.execution_path, "pr_manual"), default_mode: literal(row.default_mode, "shadow"),
+    execution_path: literal(row.execution_path, "direct_api"), default_mode: literal(row.default_mode, "shadow"),
     quorum_required: literal(row.quorum_required, 2), execution_authority: literal(row.execution_authority, false),
   };
 }

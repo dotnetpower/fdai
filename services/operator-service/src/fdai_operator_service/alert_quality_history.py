@@ -9,6 +9,11 @@ from typing import Annotated, Any, Literal, Protocol, Self
 
 from fdai_service_contracts.alert_noise import Ref
 from fdai_service_contracts.alert_noise_base import AlertContractBase, AlertTime, FalseOnly
+from fdai_service_contracts.alert_noise_legacy import (
+    LEGACY_ALERT_CONTRACT_REASON,
+    LegacyAlertResult,
+    decode_legacy_signed_alert_result,
+)
 from fdai_service_contracts.alert_noise_plan import AlertChangePlan
 from fdai_service_contracts.alert_noise_projection import AlertProposalDetail
 from fdai_service_contracts.alert_noise_wire import SignedAlertResult, verify_alert_record
@@ -166,15 +171,35 @@ class StateKvAlertQualityRequestSource:
             raise AlertQualityUnavailableError("alert request history key is invalid")
         raw = await self._store.read_state("operator-alert-quality-result:" + command.request_ref)
         result = None
+        legacy: LegacyAlertResult | None = None
         if raw is not None:
             _canonical(dict(raw))
-            signed = SignedAlertResult.model_validate(raw)
-            verify_alert_record(signed.result, signed.signature, self._key)
-            if signed.result.command != command:
-                raise AlertQualityUnavailableError("alert request history terminal is mismatched")
-            result = signed.result
+            try:
+                legacy = decode_legacy_signed_alert_result(raw, key=self._key)
+            except ValueError:
+                raise AlertQualityUnavailableError(
+                    "alert request history terminal is invalid"
+                ) from None
+            if legacy is not None:
+                # An authenticated unreleased 1.0.0 terminal is never projected as current.
+                if legacy.command != command:
+                    raise AlertQualityUnavailableError(
+                        "alert request history terminal is mismatched"
+                    )
+            else:
+                signed = SignedAlertResult.model_validate(raw)
+                verify_alert_record(signed.result, signed.signature, self._key)
+                if signed.result.command != command:
+                    raise AlertQualityUnavailableError(
+                        "alert request history terminal is mismatched"
+                    )
+                result = signed.result
         now = self._clock()
-        if command.requested_at > now or (result is not None and result.recorded_at > now):
+        if (
+            command.requested_at > now
+            or (result is not None and result.recorded_at > now)
+            or (legacy is not None and legacy.recorded_at > now)
+        ):
             raise AlertQualityUnavailableError("alert request history is future recorded")
         return AlertQualityRequest.model_validate(
             {
@@ -187,10 +212,14 @@ class StateKvAlertQualityRequestSource:
                 if result is not None
                 else (
                     "unconfirmed"
-                    if now >= command.expires_at or record.get("dispatch_status") == "rejected"
+                    if legacy is not None
+                    or now >= command.expires_at
+                    or record.get("dispatch_status") == "rejected"
                     else "pending"
                 ),
-                "reason": result.reason if result is not None else None,
+                "reason": result.reason
+                if result is not None
+                else (LEGACY_ALERT_CONTRACT_REASON if legacy is not None else None),
                 "result_recorded_at": result.recorded_at if result is not None else None,
                 "plan": result.plan if result is not None else None,
                 "detail": result.detail if result is not None else None,

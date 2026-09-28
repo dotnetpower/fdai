@@ -1,6 +1,6 @@
 schema_version: "1.0.0"
 name: ops.update-alert-routing
-version: "1.0.0"
+version: "1.1.0"
 operation: update
 interfaces:
   - ControlPlane
@@ -9,7 +9,7 @@ interfaces:
   - RequiresInventoryFresh
   - GraphTraversalRequired
   - RequiresMaintenanceWindow
-rollback_contract: pr_revert
+rollback_contract: state_forward_only
 irreversible: false
 default_mode: shadow
 promotion_gate:
@@ -34,16 +34,16 @@ blast_radius:
   max_affected_resources: 1
 # One exact changed object. The action port must separately reject unknown or
 # out-of-resource-group dependencies, protected routes and mixed automation edits.
-# It must verify tested rollback and successful dry-run receipts, fence the target
+# A provider adapter must verify tested recovery and successful dry-run receipts, fence the target
 # and dependencies, retain stable idempotency, and write audit intent plus closure.
 # These declarations are not evidence that the seven safeguards have passed.
 description: >-
-  Propose a manually reviewed IaC diff for one existing alert routing target,
-  resolved only from an immutable approved plan. PR delivery is not an Azure effect.
+  Propose one provider-neutral change for an existing alert routing target,
+  resolved only from an immutable approved plan. No provider mutation adapter is currently bound.
 category: ops
 trigger_kind:
   kind: operator_request
-execution_path: pr_manual
+execution_path: direct_api
 ceiling_by_tier:
   t0:
     max_autonomy: enforce_hil
@@ -71,7 +71,7 @@ argument_schema:
       description: SHA-256 digest of the approved forward plan; no caller-selected target or fields.
 provenance:
   source_url: https://github.com/dotnetpower/fdai/blob/main/rule-catalog/action-types/ops.update-alert-routing.yaml
-  resolved_ref: action-type:ops.update-alert-routing@1.0.0
-  content_hash: sha256:0a946a5320aa969b2c7dc13fd19088fefaaedf350efe02e692417aa199463e44
+  resolved_ref: action-type:ops.update-alert-routing@1.1.0
+  content_hash: sha256:db456a1839327868bc01ae8c1478ae6c2a9c6edbf11eecc2fae8a91204b5d3d6
   license: BUSL-1.1
   retrieved_at: "2026-09-14T00:00:00Z"

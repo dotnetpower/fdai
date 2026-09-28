@@ -128,6 +128,7 @@ class PantheonRuntime:
         raw_event_topic: str,
         registry: PantheonRegistry | None = None,
         enforce: bool = False,
+        governed_execution_selected: bool = False,
         consumer_group_prefix: str = _DEFAULT_GROUP_PREFIX,
         saga: Saga | None = None,
         muninn_state_store: StateStore | None = None,
@@ -290,6 +291,7 @@ class PantheonRuntime:
             capacity_graduation_controller=capacity_graduation_controller,
             development=development_authority,
             action_types=action_types,
+            governed_execution_selected=governed_execution_selected,
         )
         runtime_sensing.configure_heimdall(
             instantiated,

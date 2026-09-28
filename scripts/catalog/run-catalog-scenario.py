@@ -68,6 +68,8 @@ Reports land under `logs/catalog-runs/<timestamp>/`. Every run writes
 one JSON per scenario plus a `report.json` + `summary.md`. Runs that produced a
 measured experiment also land in `enforce-report.json`, the importable contract
 `fdai.delivery.chaos.enforce_report` reads into the durable report feed.
+`--measured-report <path>` additionally writes that same measured report to an
+exact path, so a deployment can pin it where its evidence projection reads.
 """
 
 from __future__ import annotations
@@ -448,6 +450,7 @@ async def _run_enforce(
     scenario_id: str | None,
     sweep: bool = False,
     limit: int | None,
+    measured_report: Path | None = None,
 ) -> int:
     """Run selected promoted scenarios only through the injected governed adapter."""
 
@@ -503,7 +506,7 @@ async def _run_enforce(
             print("sweep halted: rollback or recovery is not verified", flush=True)
             break
     (out_dir / "report.json").write_text(json.dumps({"runs": reports}, indent=2, sort_keys=True))
-    _write_measured_report(out_dir, measured)
+    _write_measured_report(out_dir, measured, measured_report)
     _write_summary(out_dir, reports)
     passed = sum(1 for report in reports if report.get("passed") is True)
     print(f"\nsummary: {passed}/{len(entries)} recovered and detected  ->  {out_dir}", flush=True)
@@ -560,18 +563,26 @@ def _report_dir() -> Path:
     return root
 
 
-def _write_measured_report(out_dir: Path, measured: list[dict[str, Any]]) -> None:
+def _write_measured_report(
+    out_dir: Path,
+    measured: list[dict[str, Any]],
+    measured_report: Path | None = None,
+) -> None:
     """Write the importable enforce report, or nothing when no run was measured.
 
     An empty file would be an unmeasured claim, so the report exists only when at
-    least one governed run produced an experiment record.
+    least one governed run produced an experiment record. ``measured_report``
+    pins a second copy where a deployment's evidence projection reads it; its
+    parent directory must already exist, because creating an unexpected path
+    would hide a misconfigured evidence location.
     """
 
     if not measured:
         return
-    (out_dir / "enforce-report.json").write_text(
-        json.dumps({"runs": measured}, indent=2, sort_keys=True) + "\n"
-    )
+    payload = json.dumps({"runs": measured}, indent=2, sort_keys=True) + "\n"
+    (out_dir / "enforce-report.json").write_text(payload)
+    if measured_report is not None:
+        measured_report.write_text(payload)
 
 
 def _write_summary(out_dir: Path, reports: list[dict[str, Any]]) -> None:
@@ -650,6 +661,11 @@ def main(argv: list[str] | None = None) -> int:
         type=Path,
         help="Write a sanitized, fingerprint-bound validation summary.",
     )
+    p.add_argument(
+        "--measured-report",
+        type=Path,
+        help="Also write the importable measured enforce report to this exact path.",
+    )
     args = p.parse_args(argv)
 
     factory = default_factory()
@@ -670,6 +686,7 @@ def main(argv: list[str] | None = None) -> int:
             scenario_id=args.run,
             sweep=args.run_sweep,
             limit=args.limit,
+            measured_report=args.measured_report,
         )
     )
 

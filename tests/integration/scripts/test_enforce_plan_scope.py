@@ -43,21 +43,27 @@ def test_monitoring_scope_accepts_only_monitoring_module() -> None:
         enforce(_plan("module.compute.container_app"), mode="monitoring")
 
 
-def _pilot_rule(threshold: int) -> dict[str, object]:
+def _pilot_rule(
+    threshold: int,
+    *,
+    scope: str = (
+        "/subscriptions/00000000-0000-0000-0000-000000000001/"
+        "resourceGroups/rg/providers/Microsoft.App/containerApps/ca-example-dev-core"
+    ),
+    metric_namespace: str = "Microsoft.App/containerApps",
+    metric_name: str = "Replicas",
+) -> dict[str, object]:
     return {
         "enabled": True,
         "severity": 3,
         "auto_mitigate": True,
         "frequency": "PT5M",
         "window_size": "PT5M",
-        "scopes": [
-            "/subscriptions/00000000-0000-0000-0000-000000000001/"
-            "resourceGroups/rg/providers/Microsoft.KeyVault/vaults/kv"
-        ],
+        "scopes": [scope],
         "criteria": [
             {
-                "metric_namespace": "Microsoft.KeyVault/vaults",
-                "metric_name": "Availability",
+                "metric_namespace": metric_namespace,
+                "metric_name": metric_name,
                 "aggregation": "Average",
                 "operator": "LessThan",
                 "threshold": threshold,
@@ -97,7 +103,7 @@ def test_alert_noise_pilot_scope_accepts_baseline_treatment_recovery_and_cleanup
     }
     assert enforce(baseline, mode="alert-noise-pilot") == frozenset({group, rule})
 
-    for before, after in ((0, 101), (101, 0)):
+    for before, after in ((0, 2), (2, 0)):
         transition = {
             "resource_changes": [
                 {
@@ -142,7 +148,7 @@ def test_alert_noise_pilot_scope_accepts_baseline_treatment_recovery_and_cleanup
 def test_alert_noise_pilot_scope_rejects_mixed_or_widened_changes() -> None:
     group = "module.alert_noise_pilot[0].azurerm_monitor_action_group.pilot"
     rule = "module.alert_noise_pilot[0].azurerm_monitor_metric_alert.pilot"
-    widened = _pilot_rule(101)
+    widened = _pilot_rule(2)
     widened["severity"] = 2
     plan = {
         "resource_changes": [
@@ -187,6 +193,56 @@ def test_alert_noise_pilot_scope_rejects_mixed_or_widened_changes() -> None:
     }
     with pytest.raises(ValueError, match="cannot delete a drifted resource pair"):
         enforce(drifted_cleanup, mode="alert-noise-pilot")
+
+
+def test_alert_noise_pilot_scope_rejects_non_core_or_key_vault_targets() -> None:
+    group = "module.alert_noise_pilot[0].azurerm_monitor_action_group.pilot"
+    rule = "module.alert_noise_pilot[0].azurerm_monitor_metric_alert.pilot"
+
+    for scope in (
+        "/subscriptions/00000000-0000-0000-0000-000000000001/"
+        "resourceGroups/rg/providers/Microsoft.App/containerApps/ca-example-dev-operator",
+        "/subscriptions/00000000-0000-0000-0000-000000000001/"
+        "resourceGroups/rg/providers/Microsoft.KeyVault/vaults/kv-example",
+    ):
+        unsafe = _pilot_rule(
+            0,
+            scope=scope,
+            metric_namespace=(
+                "Microsoft.KeyVault/vaults"
+                if "KeyVault" in scope
+                else "Microsoft.App/containerApps"
+            ),
+            metric_name="Availability" if "KeyVault" in scope else "Replicas",
+        )
+        plan = {
+            "resource_changes": [
+                {
+                    "address": group,
+                    "change": {
+                        "actions": ["create"],
+                        "before": None,
+                        "after": {
+                            "email_receiver": [
+                                {
+                                    "name": "approved-test-recipient",
+                                    "email_address": "protected@example.invalid",
+                                    "use_common_alert_schema": True,
+                                }
+                            ],
+                            "webhook_receiver": [],
+                        },
+                    },
+                },
+                {
+                    "address": rule,
+                    "change": {"actions": ["create"], "before": None, "after": unsafe},
+                },
+            ]
+        }
+
+        with pytest.raises(ValueError, match="violates the inert baseline"):
+            enforce(plan, mode="alert-noise-pilot")
 
 
 def test_rca_reader_identity_scope_accepts_only_identity_and_role() -> None:

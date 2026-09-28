@@ -5,8 +5,25 @@ from datetime import UTC, datetime, timedelta
 import pytest
 from pydantic import ValidationError
 
-from fdai_service_contracts.alert_noise import Audience, Evaluation, EvidenceStamp
-from fdai_service_contracts.alert_noise_plan import AlertTreatment
+from fdai_service_contracts.alert_noise import (
+    AlertEvidence,
+    Audience,
+    Evaluation,
+    EvidenceStamp,
+    NoiseAssessment,
+)
+from fdai_service_contracts.alert_noise_base import AlertContractBase
+from fdai_service_contracts.alert_noise_evaluation import (
+    EvaluationReceipt,
+    TemporalEvaluationScenarioSet,
+)
+from fdai_service_contracts.alert_noise_plan import AlertChangePlan, AlertTreatment
+from fdai_service_contracts.alert_noise_wire import (
+    SignedAlertCommand,
+    SignedAlertReadiness,
+    SignedAlertResult,
+)
+from fdai_service_contracts.schema import PackageResourceSchemaRegistry
 
 
 def test_audience_rejects_unknown_extra_and_raw_address() -> None:
@@ -64,3 +81,25 @@ def test_evaluation_rejects_nonfinite_and_coercion(value: object) -> None:
 def test_treatment_requires_single_axis() -> None:
     with pytest.raises(ValidationError):
         AlertTreatment(kind="routing", target_ref="rule:one")
+
+
+@pytest.mark.parametrize(
+    ("name", "model", "version"),
+    [
+        ("alert-noise-evidence", AlertEvidence, "1.0.0"),
+        ("alert-noise-assessment", NoiseAssessment, "1.0.0"),
+        ("alert-noise-plan", AlertChangePlan, "1.1.0"),
+        ("alert-noise-command", SignedAlertCommand, "1.0.0"),
+        ("alert-noise-result", SignedAlertResult, "1.1.0"),
+        ("alert-noise-readiness", SignedAlertReadiness, "1.0.0"),
+        ("alert-noise-evaluation", EvaluationReceipt, "1.0.0"),
+        ("alert-noise-temporal-scenarios", TemporalEvaluationScenarioSet, "1.0.0"),
+    ],
+)
+def test_registry_latest_schema_matches_active_alert_model(
+    name: str, model: type[AlertContractBase], version: str
+) -> None:
+    expected = dict(model.model_json_schema())
+    expected["$id"] = f"https://fdai.dev/service-contracts/{name}/{version}"
+
+    assert PackageResourceSchemaRegistry().get(name) == expected

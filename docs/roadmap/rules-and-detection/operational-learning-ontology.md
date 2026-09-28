@@ -13,6 +13,11 @@ rule and action catalogs for governed reuse instead of creating a benchmark-only
 > but selection alone cannot activate a rule, promote an `ActionType`, or raise autonomy.
 > #343 therefore retains advisory calibration, replay, drift, cohort, and guard evidence only;
 > promotion, managed effects, and rollback remain optional governed-execution scope.
+> Without the add-on, forecasts, Freyr capacity arbitration, and T1 reuse of a learned pattern
+> also propose no action, and Thor durably holds a settled arbitration's correlation so a later
+> observed signal on it is not executed automatically, even after a restart; the
+> [learned and predicted output boundary](../agents/agent-pantheon-implementation.md#learned-and-predicted-output-boundary)
+> owns that gate.
 >
 > **Semantic authority:** [FDAI Operating Ontology](../architecture/operating-ontology.md) owns the
 > shared service, objective, decision, and effect model. This document owns evidence-to-pattern learning.

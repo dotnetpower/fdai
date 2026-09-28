@@ -44,6 +44,7 @@ and resumable work while the roadmap owner remains focused on normative design.
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-28 | in-progress | Re-scoped the Phase 2 outcome evidence under the #1541 observation-first decision. Issue #343 keeps learning and prediction evidence measured as advisory quality, replay, calibration, and drift; execution promotion and its effect and rollback observation move to the optional governed-execution add-on. | `current change`; owner decision recorded 2026-09-28 on #1541 and #343 | Retain the advisory cohort evidence; execution promotion is needed only when a deployment selects the add-on. |
 | 2026-09-27 | implemented | Added an attested unavailable outcome for connection-level private state-store failure without converting missing evidence into readiness or relaxing the `require_ready` gate. | `current change`; exact-main failed-run evidence and focused cohort-readiness workflow checks. | Restore private runner connectivity and retain the required real baseline/treatment observations and independent review. |
 | 2026-09-26 | implemented | Added an exact-revision protected cohort readiness workflow that reads aggregate private evidence, emits an attested no-authority receipt, and optionally fails unless every measure reaches the configured floor. | `current change`; workflow contract tests, cohort importer/inventory tests (`45 passed`), CI contract check, and routed design checks. | Add reviewed baseline and treatment exporters, retain 30 independent samples for every required metric and guard in each arm, and complete independent promotion/effect/rollback evidence under issue #343. |
 | 2026-09-12 | implemented | Fixed first-generation durable provider-schema bootstrap to preserve compressed catalog artifacts through backward-compatible `base64` blob records and canonical relative POSIX manifest ordering. | Failed protected apply `34704245514`; `current change`; `provider_schema_state_ledger.py`; focused provider-schema suite passed 69 cases; the shipped 15-file catalog round-trip, Ruff, and strict mypy passed. | Publish the corrected image and retain one exact successful provider-schema Job execution, durable generation, and applicable agent-chain receipt. |
@@ -64,7 +65,15 @@ and resumable work while the roadmap owner remains focused on normative design.
 - [x] Replace the migrated placeholder scope row with bounded rows and rerun all seven focused local validation slices.
 - [x] Complete or explicitly defer collector-to-catalog PR delivery under [issue #340](https://github.com/dotnetpower/fdai/issues/340) by ending Phase 1 at an inert review package and retaining reviewed Phase 2 activation.
 - [ ] Complete the deterministic T2 what-if/dry-run and security verifier path under [issue #345](https://github.com/dotnetpower/fdai/issues/345).
-- [ ] Retain measured T1 absorption, auto-resolution, guard, promotion-review, and independent-effect evidence under [issue #343](https://github.com/dotnetpower/fdai/issues/343) and the P0 baseline [issue #76](https://github.com/dotnetpower/fdai/issues/76).
+- [ ] Retain measured advisory learning and prediction evidence under
+  [issue #343](https://github.com/dotnetpower/fdai/issues/343) and the P0 baseline
+  [issue #76](https://github.com/dotnetpower/fdai/issues/76): a non-synthetic cohort with sample
+  size, confidence intervals, T1 advisory match quality, and every zero-threshold guard; frozen-scenario
+  replay that reproduces each advisory outcome; calibration within the declared tolerance; and drift
+  monitoring. None of this evidence changes authority.
+- [ ] Optional governed-execution add-on, split from #343 under the #1541 observation-first decision
+  and without an active issue: an independently reviewed stored promotion receipt consumed by the
+  Thor-owned governance action, with independent effect and rollback observation.
 - [ ] Bind the Assurance Twin semantic compiler and discovery loop under [issue #344](https://github.com/dotnetpower/fdai/issues/344).
 - [ ] Independently review selected endpoint-pair semantics under [issue #89](https://github.com/dotnetpower/fdai/issues/89) before changing ontology or Rule mappings.
 - [ ] Retain protected rule-watcher and provider-schema scheduled-run receipts under [issue #346](https://github.com/dotnetpower/fdai/issues/346).

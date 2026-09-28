@@ -2007,7 +2007,7 @@ def test_aks_application_readback_requires_complete_baseline(
         return True
 
     monkeypatch.setattr(standalone_host, "_capture", capture)
-    monkeypatch.setattr(standalone_host, "verify_workload_health", verify_health)
+    monkeypatch.setattr(standalone_host.aks_readiness, "verify_workload_health", verify_health)
     context = {
         "runtime_profile": {"runtime_platform": "aks", "database_placement": "postgres-flex"},
         "kubeconfig": str(kubeconfig),
@@ -2237,6 +2237,18 @@ def test_historical_aks_baseline_requires_matching_state_live_and_bounded_plan()
             "replicas": 2,
             "max_replicas": 3,
             "source_commit": source_commit,
+            **(
+                {
+                    "secret_environment": {
+                        "APPLICATIONINSIGHTS_CONNECTION_STRING": (
+                            "fdai-application-insights-connection-string"
+                        ),
+                        "FDAI_STATE_STORE_DSN": "fdai-state-store-dsn",
+                    }
+                }
+                if name == "core-control-plane"
+                else {}
+            ),
         }
         for index, name in enumerate(services, start=1)
     }
@@ -2317,7 +2329,16 @@ def test_historical_aks_baseline_requires_matching_state_live_and_bounded_plan()
         plan=historical_plan,
     )
 
-    assert baseline["expected_workloads"] == workloads
+    assert baseline["expected_workloads"] == {
+        name: {**workload, "secret_environment": workload.get("secret_environment", {})}
+        for name, workload in workloads.items()
+    }
+    assert (
+        baseline["expected_workloads"]["core-control-plane"]["secret_environment"][
+            "APPLICATIONINSIGHTS_CONNECTION_STRING"
+        ]
+        == "fdai-application-insights-connection-string"
+    )
     assert baseline["state_lineage"] == "retained-lineage"
     assert baseline["historical_plan_service"] == "core-control-plane"
     operator_change = next(
@@ -3482,3 +3503,13 @@ def test_legacy_runtime_context_requires_explicit_full_product_selection() -> No
 
     assert standalone_host._runtime_profile_matches({}, observation) is False
     assert standalone_host._runtime_profile_matches({}, explicit_legacy) is True
+
+
+def test_host_checkpoints_create_owner_only_state(monkeypatch: pytest.MonkeyPatch) -> None:
+    masks: list[int] = []
+    monkeypatch.setattr(standalone_host.os, "umask", lambda mask: masks.append(mask) or 0o002)
+
+    with pytest.raises(SystemExit):
+        standalone_host.main(["--help"])
+
+    assert masks == [0o077]

@@ -19,6 +19,10 @@ from types import MappingProxyType
 from typing import Protocol
 
 from fdai_service_contracts.alert_noise import AlertEvidence, digest_record
+from fdai_service_contracts.alert_noise_legacy import (
+    LEGACY_ALERT_CONTRACT_REASON,
+    decode_legacy_alert_plan,
+)
 from fdai_service_contracts.alert_noise_plan import AlertChangePlan, AlertRollbackBaseline
 from fdai_service_contracts.ontology_query import content_digest
 
@@ -69,6 +73,13 @@ class StateStoreAlertPlanReader:
         raw = await self._store.read_state("alert-noise:plan:" + _digest(plan_digest))
         if raw is None:
             raise AlertExecutionHeld("plan_not_retained")
+        try:
+            legacy = decode_legacy_alert_plan(raw, expected_digest=plan_digest)
+        except ValueError:
+            raise AlertExecutionHeld("retained_plan_mismatch") from None
+        if legacy is not None:
+            # An authenticated unreleased 1.0.0 plan can never resume or execute.
+            raise AlertExecutionHeld(LEGACY_ALERT_CONTRACT_REASON)
         plan = AlertChangePlan.model_validate(raw)
         if digest_record(plan) != plan_digest:
             raise AlertExecutionHeld("retained_plan_mismatch")

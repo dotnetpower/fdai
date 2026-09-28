@@ -134,7 +134,7 @@ class StateStoreAlertActionBinder:
             or re.fullmatch(r"[a-f0-9]{64}", digest) is None
             or action.mode is not Mode.SHADOW
             or action.operation is not Operation.UPDATE
-            or action.rollback_ref.kind is not RollbackKind.PR_REVERT
+            or action.rollback_ref.kind is not RollbackKind.STATE_FORWARD_ONLY
             or action.blast_radius.count != 1
             or action.blast_radius.scope
             not in {BlastRadiusScope.RESOURCE, BlastRadiusScope.RESOURCE_GROUP}

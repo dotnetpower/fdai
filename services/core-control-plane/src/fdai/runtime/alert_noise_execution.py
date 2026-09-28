@@ -30,7 +30,6 @@ from fdai.core.detection.alert_noise.execution import (
 from fdai.core.executor.port import _PrNativeExecutionPort
 from fdai.core.executor.safeguard_lifecycle_coordinator import SafeguardLifecycleCoordinator
 from fdai.core.risk_gate import ActionPromotionRegistry
-from fdai.delivery.alert_noise_artifacts import AlertPlanArtifactPreparer, parse_alert_iac_bindings
 from fdai.delivery.alert_noise_authority import (
     StateStoreAlertAuthorityReader,
     StateStoreAlertRecoveryAuthorityReader,
@@ -54,6 +53,7 @@ from fdai.delivery.persistence.state_store_action_promotion import StateStoreAct
 from fdai.runtime.alert_noise_config import parse_alert_noise_config
 from fdai.runtime.alert_noise_control import registered_alert_actions
 from fdai.shared.contracts.models import Action, OntologyRelease
+from fdai.shared.providers.alert_noise import AlertPlanArtifacts
 from fdai.shared.providers.decision_evidence_verifier import DecisionEvidenceAdmissionProvider
 from fdai.shared.providers.process_runtime import ProcessRuntimeStore
 from fdai.shared.providers.remediation_pr import RemediationPr, RemediationPrPublisher
@@ -279,15 +279,7 @@ def build_alert_plan_artifacts(
     store: StateStore,
     publisher: RemediationPrPublisher,
     environment: Mapping[str, str] | None = None,
-) -> AlertPlanArtifactPreparer | None:
-    """Bind exact private source selectors to the already configured real IaC publisher."""
-    values = os.environ if environment is None else environment
-    bindings = parse_alert_iac_bindings(values)
-    if not bindings:
-        return None
-    config = parse_alert_noise_config(values)
-    if config is None or not isinstance(publisher, GitOpsPrAdapter):
-        raise RuntimeError("alert IaC preparation requires scope and real repository bindings")
-    return AlertPlanArtifactPreparer(
-        store=store, source=GitOpsAlertIaCSourceReader(publisher), bindings=bindings
-    )
+) -> AlertPlanArtifacts | None:
+    """Keep Terraform and repository artifacts outside runtime alert governance."""
+    del store, publisher, environment
+    return None

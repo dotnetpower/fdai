@@ -652,6 +652,48 @@ def test_measured_runs_write_an_importable_enforce_report(
     assert signals[0].metadata["approval_ref"] == _APPROVAL_REF
 
 
+def test_measured_report_is_pinned_where_a_deployment_reads_it(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    entries = [_entry("chaos.test.pod-kill")]
+    bindings = _bindings(entries, store=InMemoryStateStore())
+    injector = _Injector()
+    module, _factory = _governed_cli(monkeypatch, tmp_path, entries, bindings, injector)
+    pinned = tmp_path / "evidence" / "report.json"
+    pinned.parent.mkdir()
+
+    result = module.main(
+        ["--run", "chaos.test.pod-kill", "--confirm-enforce", "--measured-report", str(pinned)]
+    )
+
+    assert result == 0
+    signals = load_enforce_report(pinned)
+    assert len(signals) == 1
+    run = json.loads(pinned.read_text(encoding="utf-8"))["runs"][0]
+    assert run["outcome"] == "validated"
+    assert (run["detected"], run["reverted"]) == (True, True)
+
+
+def test_a_refused_run_pins_no_measured_report(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    entries = [_entry("chaos.test.pod-kill", target_type="db")]
+    bindings = _bindings(entries, store=InMemoryStateStore())
+    injector = _Injector()
+    module, _factory = _governed_cli(monkeypatch, tmp_path, entries, bindings, injector)
+    pinned = tmp_path / "evidence" / "report.json"
+    pinned.parent.mkdir()
+
+    result = module.main(
+        ["--run", "chaos.test.pod-kill", "--confirm-enforce", "--measured-report", str(pinned)]
+    )
+
+    assert result == 1
+    assert not pinned.exists()
+
+
 def test_a_refused_run_writes_no_measured_enforce_report(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,

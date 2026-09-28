@@ -148,6 +148,13 @@ At-least-once delivery uses stable correlation and idempotency identities. Per-r
 duplicate suppression, deadlines, backpressure, dead-letter handling, restart replay, and terminal
 audit apply exactly as they do for other verticals.
 
+In the default observation-first profile, a Heimdall forecast and an arbitration that includes
+Freyr's `object.capacity-forecast` settle as ActionType-free advisory Verdicts, so the approval and
+action stages receive nothing from them. Only the explicitly selected governed execution add-on
+routes that input through the existing judgment, approval, and action stages, as the
+[learned and predicted output boundary](../agents/agent-pantheon-implementation.md#learned-and-predicted-output-boundary)
+describes.
+
 ## Bounded autonomous recovery
 
 Before an optional episode reaches human approval, the accountable agents attempt these steps in

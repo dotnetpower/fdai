@@ -1,6 +1,6 @@
 schema_version: "1.0.0"
 name: ops.set-alert-notification-window
-version: "1.0.0"
+version: "1.1.0"
 operation: update
 interfaces:
   - ControlPlane
@@ -9,7 +9,7 @@ interfaces:
   - RequiresInventoryFresh
   - GraphTraversalRequired
   - RequiresMaintenanceWindow
-rollback_contract: pr_revert
+rollback_contract: state_forward_only
 irreversible: false
 default_mode: shadow
 promotion_gate:
@@ -39,12 +39,12 @@ blast_radius:
 # and audit intent plus closure remain mandatory runtime evidence, not catalog claims.
 # Restoring configuration cannot recreate notifications missed during the window.
 description: >-
-  Propose a finite notification window on one existing processing rule through
-  a manually reviewed IaC diff. Preserve protected traffic, automation and independent ingress.
+  Propose a provider-neutral finite notification window on one existing processing rule.
+  Preserve protected traffic, automation and independent ingress. No provider mutation adapter is bound.
 category: ops
 trigger_kind:
   kind: operator_request
-execution_path: pr_manual
+execution_path: direct_api
 ceiling_by_tier:
   t0:
     max_autonomy: enforce_hil
@@ -72,7 +72,7 @@ argument_schema:
       description: SHA-256 digest of the approved forward plan; no caller-selected target or window.
 provenance:
   source_url: https://github.com/dotnetpower/fdai/blob/main/rule-catalog/action-types/ops.set-alert-notification-window.yaml
-  resolved_ref: action-type:ops.set-alert-notification-window@1.0.0
-  content_hash: sha256:af2d460e78472421094b0ca0be234e35079ec416b340b7ba3bce9c912ef18bd7
+  resolved_ref: action-type:ops.set-alert-notification-window@1.1.0
+  content_hash: sha256:456b665f0f6b597276b7d5e8c5efd1d535aa9b33446bd78cfb5b026d025a24c7
   license: BUSL-1.1
   retrieved_at: "2026-09-14T00:00:00Z"

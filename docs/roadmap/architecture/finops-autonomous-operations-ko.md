@@ -1,8 +1,8 @@
 ---
 title: FinOps 자율 운영
 translation_of: finops-autonomous-operations.md
-translation_source_sha: 19faa55bb55e555d2f2cc27a22f4ed30be897fe5
-translation_revised: 2026-09-20
+translation_source_sha: cc730f9117466bf78f114632048c7c342f809d12
+translation_revised: 2026-09-28
 ---
 
 # FinOps 자율 운영
@@ -147,6 +147,13 @@ translation_revised: 2026-09-20
 at-least-once 전달은 안정적인 correlation과 멱등성 식별자를 사용합니다. 리소스별 순서 지정,
 중복 억제, deadline, backpressure, dead-letter 처리, 재시작 replay 및 최종 감사는 다른 vertical과
 동일하게 적용됩니다.
+
+관찰 우선 기본 프로필에서 Heimdall 예측과 Freyr의 `object.capacity-forecast`가 포함된 중재는
+ActionType 없는 자문 판정으로 종결되므로 승인 및 작업 단계는 이 입력에서 아무것도 받지
+않습니다. 명시적으로 선택한 통제된 실행 추가 기능만 이 입력을 기존 판단, 승인 및 작업 단계로
+전달하며, 자세한 내용은
+[학습 및 예측 결과 경계](../agents/agent-pantheon-implementation-ko.md#학습-및-예측-결과-경계)에서
+설명합니다.
 
 ## 범위가 제한된 자율 복구
 

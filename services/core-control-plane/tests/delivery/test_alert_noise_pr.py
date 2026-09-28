@@ -28,6 +28,7 @@ from fdai.delivery.alert_noise_pr import (
 from fdai.shared.contracts.models import Action, ExecutionPath, Mode, WorkflowActionRef
 from fdai.shared.providers.process_runtime import ProcessEvent, ProcessEventKind, ProcessStatus
 from fdai_service_contracts.alert_noise import digest_record
+from fdai_service_contracts.alert_noise_legacy import _AlertChangePlanV100
 from fdai_service_contracts.alert_noise_plan import AlertRollbackBaseline
 
 from tests.core.detection.alert_noise.conftest import evidence as evidence
@@ -62,6 +63,25 @@ async def test_no_missing_plan_or_patch_fallback(harness: SimpleNamespace) -> No
     other = h.plan.model_copy(update={"requester_ref": "person:other"})
     with pytest.raises(AlertExecutionHeld, match="patch_not_retained"):
         await StateStoreAlertPatchReader(store=h.store).read(other)
+    assert h.publisher.calls == 0
+
+
+async def test_retained_legacy_plan_is_retired_only_when_exact(harness: SimpleNamespace) -> None:
+    h = harness
+    legacy = {
+        **h.plan.model_dump(mode="json"),
+        "schema_version": "1.0.0",
+        "execution_path": "pr_manual",
+    }
+    digest = digest_record(_AlertChangePlanV100.model_validate(legacy))
+    reader = StateStoreAlertPlanReader(store=h.store)
+    await h.store.write_state("alert-noise:plan:" + digest, legacy)
+    with pytest.raises(AlertExecutionHeld, match="legacy_contract_retired"):
+        await reader.read(digest)
+    tampered = {**legacy, "policy_digest": "sha256:" + "f" * 64}
+    await h.store.write_state("alert-noise:plan:" + digest, tampered)
+    with pytest.raises(AlertExecutionHeld, match="retained_plan_mismatch"):
+        await reader.read(digest)
     assert h.publisher.calls == 0
 
 

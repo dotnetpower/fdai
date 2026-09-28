@@ -41,6 +41,15 @@ if [[ "$scenario_id" == "all" ]]; then
 else
   scenario_args=(--run "$scenario_id")
 fi
+
+# The deployment's evidence projection reads the measured report from this root,
+# so pin it when the caller supplies one. Only measured runs produce the file.
+report_root="${FDAI_ENFORCE_REPORT_ROOT:-}"
+if [[ -n "$report_root" ]]; then
+  mkdir -p -- "$report_root"
+  scenario_args+=(--measured-report "$report_root/report.json")
+fi
+
 # The reference sweep runs only through the governed chaos adapter; the runner
 # refuses before substrate access when promotion, approval, or the deployment
 # provider is absent.
