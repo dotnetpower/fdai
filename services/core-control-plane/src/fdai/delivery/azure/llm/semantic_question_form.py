@@ -30,6 +30,7 @@ from fdai.core.conversation.adaptive_call_scope import (
 )
 from fdai.core.conversation.model_observation import ConversationModelObservation
 from fdai.core.conversation.semantic_reasoning_concepts import ConceptShard
+from fdai.core.conversation.semantic_reasoning_direction import DirectionQuestion, direction_schema
 from fdai.core.conversation.semantic_reasoning_proposal import (
     FormInputHeldError,
     question_form_proposal_schema,
@@ -122,10 +123,16 @@ class AzureOpenAIQuestionFormConfig:
     extraction_prompt_manifest: PromptReplayManifest | None = None
     # A different model family for the blind extraction keeps its errors independent.
     extraction_candidates: tuple[ModelRequestTarget, ...] = ()
+    # Without a direction prompt no directional relation is confirmed, so none is released.
+    direction_system_prompt: str | None = None
+    direction_prompt_manifest: PromptReplayManifest | None = None
+    # Direction needs syntax, so a reasoning model may confirm it; defaults to the extractor's.
+    direction_candidates: tuple[ModelRequestTarget, ...] = ()
     timeout_seconds: float = 30.0
     form_max_tokens: int = 2_048
     concept_max_tokens: int = 512
     extraction_max_tokens: int = 1_024
+    direction_max_tokens: int = 64
     # Matches the active profiles' request budget; a manifest budget can only lower it.
     max_request_tokens: int = 32_768
 
@@ -138,6 +145,11 @@ class AzureOpenAIQuestionFormConfig:
             *(
                 ((self.extraction_system_prompt, self.extraction_prompt_manifest),)
                 if self.extraction_system_prompt is not None
+                else ()
+            ),
+            *(
+                ((self.direction_system_prompt, self.direction_prompt_manifest),)
+                if self.direction_system_prompt is not None
                 else ()
             ),
         ):
@@ -153,7 +165,9 @@ class AzureOpenAIQuestionFormConfig:
             not 1 <= self.form_max_tokens <= 4_096
             or not 1 <= self.concept_max_tokens <= 2_048
             or not 1 <= self.extraction_max_tokens <= 2_048
+            or not 1 <= self.direction_max_tokens <= 2_048
             or len(self.extraction_candidates) > _MAX_CANDIDATES
+            or len(self.direction_candidates) > _MAX_CANDIDATES
         ):
             raise ValueError("question form output token bounds are out of range")
         if not 1 <= self.max_request_tokens <= _MAX_REQUEST_TOKENS:
@@ -162,6 +176,7 @@ class AzureOpenAIQuestionFormConfig:
             (self.form_prompt_manifest, self.form_max_tokens),
             (self.concept_prompt_manifest, self.concept_max_tokens),
             (self.extraction_prompt_manifest, self.extraction_max_tokens),
+            (self.direction_prompt_manifest, self.direction_max_tokens),
         ):
             if (
                 manifest is not None
@@ -352,6 +367,44 @@ class AzureOpenAIQuestionFormModel:
                 else {}
             ),
         }
+
+    async def check_direction(
+        self,
+        *,
+        utterance: str,
+        context: tuple[str, ...],
+        locale: str,
+        question: DirectionQuestion,
+    ) -> Mapping[str, Any] | None:
+        """Ask the other model family which declared role the named start plays.
+
+        The reader sees the masked question, the named start, the relation sense, and the
+        sense's two roles in their declared order, never the role the proposer chose.
+        """
+
+        candidates = self._config.direction_candidates or self._config.extraction_candidates
+        if self._config.direction_system_prompt is None or not candidates:
+            return None
+        context = context[-_MAX_CONTEXT_ITEMS:]
+        if any(_exposes_secret(text) for text in (utterance, *context, question.anchor)):
+            _held("input_redacted", name="semantic-direction-check", raise_error=True)
+        mask = IdentityMask(utterance, context)
+        payload: dict[str, Any] = {
+            "utterance": mask.utterance,
+            "locale": locale,
+            **question.payload(),
+            "anchor": mask.mask_text(question.anchor),
+        }
+        return await self._complete(
+            system_prompt=self._config.direction_system_prompt,
+            user_payload=payload,
+            schema=direction_schema(),
+            name="semantic-direction-check",
+            max_tokens=self._config.direction_max_tokens,
+            manifest=self._config.direction_prompt_manifest,
+            require_verbatim=False,
+            candidates=candidates,
+        )
 
     async def _complete(
         self,
