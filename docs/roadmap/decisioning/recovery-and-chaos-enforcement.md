@@ -41,13 +41,17 @@ approval, executor, and audit contracts.
 
 ### Remaining work
 
+> **Ownership:** the governed chaos campaign issue
+> [#94](https://github.com/dotnetpower/fdai/issues/94) closed as not planned on 2026-09-28 with its
+> adapter-delegation criterion satisfied. Nothing was dropped: this ledger owns every item below,
+> and that issue is reopened only when the campaign is scheduled.
+
 - [ ] Supply a deployment-owned `GovernedChaosBindings` provider, including a distributed target
   lock, for the protected catalog runner and prove startup refuses enforcement when the binding or
   required authority is absent.
 - [ ] Route catalog CLI submissions through the Core proposal, risk gate, Var approval, Thor, and
   `tool.run-chaos-experiment` pipeline with `GovernedChaosExecutionAdapter` bound in
-  `runtime/delivery.py`, instead of calling the adapter directly, as required by
-  [#94](https://github.com/dotnetpower/fdai/issues/94).
+  `runtime/delivery.py`, instead of calling the adapter directly.
 - [ ] Decide whether the governed harness may observe the expected signal *during* the fault hold,
   then port the detection-latency driver (`scripts/catalog/measure-detection-latency.py`) onto
   `GovernedChaosExecutionAdapter`. It refuses every live run until then. The blocker is structural,
@@ -55,11 +59,9 @@ approval, executor, and audit contracts.
   impact guard polls only stop conditions, and probes the expected signal once afterwards, so the
   only interval it can report is the hold itself. Measuring latency honestly requires in-fault
   polling, which adds probe traffic to the fault window, interacts with the guard loop, and changes
-  what `detected` means, so it needs an owner design rather than a new timestamp field
-  ([#94](https://github.com/dotnetpower/fdai/issues/94)).
+  what `detected` means, so it needs an owner design rather than a new timestamp field.
 - [ ] Collect shadow-only governed chaos evidence on one registered disposable target at a time,
-  without promoting `tool.run-chaos-experiment`, a scenario, an ActionType, or a Workflow, as
-  directed in [#94](https://github.com/dotnetpower/fdai/issues/94).
+  without promoting `tool.run-chaos-experiment`, a scenario, an ActionType, or a Workflow.
 - [ ] Execute the frozen S1-S14 campaign with approved impact envelopes, continuous stop guards,
   independent recovery verification, and retained replayable receipts.
 - [ ] Close the missing constitutional scenario dimensions for recovery and Chaos Engineering before

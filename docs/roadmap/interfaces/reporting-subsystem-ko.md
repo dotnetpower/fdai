@@ -1,7 +1,7 @@
 ---
 title: 리포팅 서브시스템
 translation_of: reporting-subsystem.md
-translation_source_sha: 083f317e8c77ad631f61c12193b6a631dd0762cc
+translation_source_sha: 747ec67d886d6cc4b5e1a56f8c5f9bf85ce2a62a
 translation_revised: 2026-09-28
 ---
 # 리포팅 서브시스템
@@ -608,8 +608,12 @@ shipped된 서브시스템을 OWASP + `app-shape` 관점에서 체계적으로
 
 ### 남은 작업
 
-- [ ] 참조 sweep이 `GovernedChaosExecutionAdapter` 위로 이관되면 통제된 실행에서 측정된 카오스
-  적용 결과를 다시 받습니다([#94](https://github.com/dotnetpower/fdai/issues/94)).
+- [ ] 통제된 실행에서 측정된 카오스 적용 결과를 다시 받습니다. Sweep은 이미 이관되었고 가져오기
+  가능한 리포트를 기록하므로, 남은 것은 그 리포트를 만들어 낼 실행입니다. 배포가
+  `fdai.governed_chaos` 프로바이더를 설치하고 시나리오가 승격되어야 하며, 그렇지 않으면 모든
+  실행이 기반에 닿기 전에 거부됩니다. 두 항목은
+  [recovery-and-chaos-enforcement](../decisioning/recovery-and-chaos-enforcement-ko.md#남은-작업)의
+  남은 작업으로 추적합니다.
 - [ ] 각 프로덕션 데이터 원본에 대해 source 신원, cutoff, 최신성, 사용 불가 및 시간 초과 동작, 부분 widget 격리 및 synthetic-to-live 대체 부재를 보여주는 관리되는 render 증적을 보존합니다.
 - [ ] Report inventory, 명시적 사용 불가 report 선택, variable 차단, 알 수 없는 format, render 오류 격리 및 읽기 전용 method 적용에 대한 인증된 Operator API 및 Console 증적을 보존합니다.
 - [x] `pdf`를 표시하기 전에 선택적 PDF delivery 모듈, registry 연결, package extra, 인증된 GET-only 컨트롤 및 focused escape, 다이제스트, 페이지 나누기, 사용 불가 섹션, 분석 부재, no-network 테스트를 구현합니다.
