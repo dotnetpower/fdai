@@ -13,11 +13,15 @@ from collections.abc import Callable, Mapping
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any
 
+import httpx
+
 from fdai.agents import DevelopmentRuntimeBindings
+from fdai.delivery.azure.target_revision import AzureTargetRevisionReader
 from fdai.delivery.development_bindings import PreparedDevelopmentBindingRegistry
 from fdai.shared.contracts.development_authority import normalized_principal
 from fdai.shared.contracts.models import FullAuthorityDevelopmentProfile
 from fdai.shared.providers.state_store import StateStore
+from fdai.shared.providers.workload_identity import WorkloadIdentity
 
 if TYPE_CHECKING:
     from fdai.core.control_loop import ControlLoop
@@ -48,9 +52,15 @@ def development_control_loop_kwargs(
     environment: Mapping[str, str],
     *,
     store: StateStore | None,
+    identity: WorkloadIdentity | None = None,
+    http_client: httpx.AsyncClient | None = None,
     clock: Callable[[], datetime] = lambda: datetime.now(tz=UTC),
 ) -> dict[str, Any]:
-    """Return ControlLoop development keywords, or none when no profile is selected."""
+    """Return ControlLoop development keywords, or none when no profile is selected.
+
+    Without a workload identity and HTTP client no target revision can be read, so every
+    Owner request parks for ordinary multi-operator approval.
+    """
     profile = load_development_profile(environment, now=clock())
     if profile is None:
         return {}
@@ -67,6 +77,11 @@ def development_control_loop_kwargs(
             profile=profile, store=store, clock=clock
         ),
         "development_executor_principal": executor,
+        "development_revision_reader": (
+            AzureTargetRevisionReader(http=http_client, identity=identity, clock=clock)
+            if identity is not None and http_client is not None
+            else None
+        ),
     }
 
 

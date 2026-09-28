@@ -12,7 +12,11 @@ from fdai.shared.contracts.development_authority import (
     canonical_authority_digest,
     normalized_principal,
 )
-from fdai.shared.contracts.models import DevelopmentBindingVerification
+from fdai.shared.contracts.models import (
+    Action,
+    DevelopmentBindingVerification,
+    OntologyActionType,
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -111,6 +115,43 @@ class DevelopmentAuthorityBindingSource(Protocol):
         """Return a current verified binding, or ``None`` without authority."""
 
 
+@runtime_checkable
+class DevelopmentBindingPreparer(Protocol):
+    """Record exact Core-prepared bindings and read them back from durable state."""
+
+    async def prepare_park_binding(
+        self,
+        *,
+        action: Action,
+        action_type: OntologyActionType,
+        target_revision: str,
+    ) -> DevelopmentBindingVerification:
+        """Record one binding of the exact parked action, or raise without authority."""
+        ...
+
+    async def read_verification(self, action_id: str) -> DevelopmentBindingVerification | None:
+        """Return the durable recorded binding of one action, never a cached copy."""
+        ...
+
+
+@dataclass(frozen=True, slots=True)
+class RecordedDevelopmentBinding:
+    """Binding source over one verification the caller just read from durable state."""
+
+    verification: DevelopmentBindingVerification
+
+    def verify(
+        self,
+        request: DevelopmentAuthorityBindingRequest,
+        *,
+        now: datetime,
+    ) -> DevelopmentBindingVerification | None:
+        """Return the recorded binding only for its own action."""
+        del now
+        binding = self.verification.binding
+        return self.verification if binding.action_id == request.action_id else None
+
+
 def resolve_development_binding(
     source: DevelopmentAuthorityBindingSource | None,
     request: DevelopmentAuthorityBindingRequest,
@@ -151,5 +192,7 @@ def resolve_development_binding(
 __all__ = [
     "DevelopmentAuthorityBindingRequest",
     "DevelopmentAuthorityBindingSource",
+    "DevelopmentBindingPreparer",
+    "RecordedDevelopmentBinding",
     "resolve_development_binding",
 ]

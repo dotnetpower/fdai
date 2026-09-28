@@ -8,6 +8,7 @@ import pytest
 from fdai.core.measurement.operational_promotion import action_type_digest
 from fdai.delivery.development_bindings import (
     BINDING_PREFIX,
+    DEFAULT_BINDING_TTL,
     PreparedDevelopmentBindingRegistry,
     azure_scope_value_digest,
     direct_api_dry_run_digest,
@@ -16,6 +17,7 @@ from fdai.delivery.development_bindings import (
 from fdai.shared.contracts.development_authority import evaluate_development_authority
 from fdai.shared.contracts.models import (
     Action,
+    ExecutionPath,
     FullAuthorityDevelopmentProfile,
     OntologyActionType,
 )
@@ -108,7 +110,7 @@ async def test_prepared_binding_verifies_only_the_exact_current_operation() -> N
     )
     with pytest.raises(ValueError, match="unavailable"):
         resolve_development_binding(registry, _request(profile, other), now=NOW)
-    clock[0] = NOW + timedelta(minutes=16)
+    clock[0] = NOW + DEFAULT_BINDING_TTL + timedelta(minutes=1)
     assert registry.verify(_request(profile, action), now=clock[0]) is None
 
 
@@ -196,7 +198,7 @@ async def test_restart_warms_only_current_bindings_of_the_same_profile() -> None
     assert restarted.verify(_request(profile, action), now=NOW + timedelta(minutes=1)) == (
         verification
     )
-    expired = _registry(profile, store, [NOW + timedelta(minutes=16)])
+    expired = _registry(profile, store, [NOW + DEFAULT_BINDING_TTL + timedelta(minutes=1)])
     assert await expired.load() == 0
 
 
@@ -209,3 +211,32 @@ def test_target_scope_is_case_insensitive_and_keeps_the_profile_tenant() -> None
     assert scope.subscription_digest == azure_scope_value_digest(SUBSCRIPTION)
     assert scope.resource_group_digests == (azure_scope_value_digest(GROUP),)
     assert profile.scope.covers(scope)
+
+
+async def test_park_binding_requires_a_direct_api_action_and_reads_durable_state() -> None:
+    action_type = _action_type().model_copy(update={"execution_path": ExecutionPath.DIRECT_API})
+    profile = _profile_for(action_type)
+    store = InMemoryStateStore()
+    registry = _registry(profile, store, [NOW])
+    action = _operation()
+
+    with pytest.raises(ValueError, match="direct-API"):
+        await registry.prepare_park_binding(
+            action=action,
+            action_type=action_type.model_copy(update={"execution_path": ExecutionPath.PR_NATIVE}),
+            target_revision="sha256:" + "1" * 64,
+        )
+    prepared = await registry.prepare_park_binding(
+        action=action, action_type=action_type, target_revision="sha256:" + "1" * 64
+    )
+    restarted = _registry(profile, store, [NOW])
+
+    assert prepared.binding.dry_run_digest == direct_api_dry_run_digest(action)
+    assert await restarted.read_verification(str(action.action_id)) == prepared
+    assert await restarted.read_verification("00000000-0000-0000-0000-00000000ffff") is None
+    other_source = FullAuthorityDevelopmentProfile.model_validate(
+        {**profile.model_dump(mode="json"), "source_revision": "b" * 40}
+    )
+    assert (
+        await _registry(other_source, store, [NOW]).read_verification(str(action.action_id)) is None
+    )

@@ -46,6 +46,8 @@ from fdai_operator_service.families.iam.hil_callback_context import (
     HilCallbackContextReader,
 )
 from fdai_operator_service.families.iam.http import error_response, family_error
+from fdai_service_contracts import OperatorRole
+from fdai_service_contracts.development_approval import DevelopmentApprovalAttestation
 from starlette.responses import JSONResponse, Response
 
 
@@ -280,8 +282,13 @@ class HilCallbackDecisionService:
         decision: HilApprovalDecision,
         justification: str,
         actor: HilCallbackActor,
+        development_attestation: DevelopmentApprovalAttestation | None = None,
     ) -> Response:
-        """Record one server-authenticated Console decision without channel impersonation."""
+        """Record one server-authenticated Console decision without channel impersonation.
+
+        ``development_attestation`` lets the Owner of a Core-marked development park approve
+        their own request; every other self-approval stays refused.
+        """
         return await self._decide_authenticated(
             session,
             approval_id=approval_id,
@@ -290,6 +297,7 @@ class HilCallbackDecisionService:
             decided_at=self.clock(),
             actor=actor,
             delivery_pending_status=202,
+            development_attestation=development_attestation,
         )
 
     async def _decide_authenticated(
@@ -302,6 +310,7 @@ class HilCallbackDecisionService:
         decided_at: datetime,
         actor: HilCallbackActor,
         delivery_pending_status: int,
+        development_attestation: DevelopmentApprovalAttestation | None = None,
     ) -> Response:
         context = session.context
         if context is None:
@@ -328,7 +337,9 @@ class HilCallbackDecisionService:
                 outcome=HilCallbackOutcome.INVALID,
                 actor=actor,
             )
-        if _normalize(context.submitter_oid) == actor.oid:
+        if _normalize(context.submitter_oid) == actor.oid and not _development_self_approval(
+            context, actor=actor, decision=decision, attestation=development_attestation
+        ):
             return await session.finish(
                 error_response(
                     403,
@@ -383,6 +394,7 @@ class HilCallbackDecisionService:
                 justification=justification,
                 decided_at=decided_at,
                 actor=actor,
+                development_attestation=development_attestation,
             )
         except _AlreadyResolvedError:
             return await session.finish(
@@ -451,6 +463,7 @@ class HilCallbackDecisionService:
         justification: str,
         decided_at: datetime,
         actor: HilCallbackActor,
+        development_attestation: DevelopmentApprovalAttestation | None = None,
     ) -> HilDecisionReceipt:
         if context.expires_at is None:
             raise IamUnavailableError("HIL approval expiry is unavailable")
@@ -478,6 +491,11 @@ class HilCallbackDecisionService:
                 expected_submitter_oid=context.submitter_oid,
                 expected_decision_route=context.metadata.get("decision_route", ""),
                 expected_required_role=context.metadata.get("required_role", ""),
+                development_attestation=(
+                    development_attestation.model_dump(mode="json")
+                    if development_attestation is not None
+                    else None
+                ),
             )
         )
 
@@ -495,6 +513,27 @@ class HilCallbackDecisionService:
             metadata=original.metadata,
             receipt=receipt,
         )
+
+
+def _development_self_approval(
+    context: _ApprovalContext,
+    *,
+    actor: HilCallbackActor,
+    decision: HilApprovalDecision,
+    attestation: DevelopmentApprovalAttestation | None,
+) -> bool:
+    """Admit only the attested Owner approving the exact Core-marked development park."""
+    metadata = context.metadata
+    return (
+        attestation is not None
+        and decision is HilApprovalDecision.APPROVE
+        and OperatorRole.OWNER in actor.roles
+        and _normalize(metadata.get("development_owner_principal", "")) == actor.oid
+        and _normalize(attestation.authenticated_principal) == actor.oid
+        and attestation.block_digest == metadata.get("development_block_digest")
+        and attestation.binding_digest == metadata.get("development_binding_digest")
+        and attestation.profile_digest == metadata.get("development_profile_digest")
+    )
 
 
 class _AlreadyResolvedError(RuntimeError):
