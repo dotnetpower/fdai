@@ -1,6 +1,6 @@
 {
   "algorithm": "sha256",
-  "file_count": 1717,
+  "file_count": 1718,
   "files": {
     ".github/instructions/agent-pantheon.instructions.md": "0e1f083daded7a1f471366c5a47bf09a654963843614dd0315d2a154a3fa117a",
     ".github/instructions/agent-stewardship.instructions.md": "6d34f24fe8879f3edac388d5e7fd9ab138563ca386a5c401f72d8fc3c1698624",
@@ -324,7 +324,7 @@
     "services/core-control-plane/src/fdai/core/conversation/adaptive_call_scope.py": "65c48d0d9558a97cc1c753b1353bbe13f17d39cf46dc5be97fb2857bbd03613b",
     "services/core-control-plane/src/fdai/core/conversation/adaptive_models.py": "8021c3d52a2deaae0c5bf1b63767b252be9c9b24eca22d8c3620156cddef5bb3",
     "services/core-control-plane/src/fdai/core/conversation/adaptive_prompt.py": "de9be643da3987cbb3d938ac0f69e6223c43711fdab58c91222b7ae180871e9d",
-    "services/core-control-plane/src/fdai/core/conversation/adaptive_service.py": "95fa578eb44cf8c86954acac4968757386aa6e60ba14c9b689611375ad741059",
+    "services/core-control-plane/src/fdai/core/conversation/adaptive_service.py": "de01f0c086102bb482d27c2bcb440705d42a5a2d98d56a969064168f7aa0e701",
     "services/core-control-plane/src/fdai/core/conversation/adaptive_wait.py": "1b33c35543e9ea350d362825b4bbf382a7846dac95b92271ba2d3c4307963c4e",
     "services/core-control-plane/src/fdai/core/conversation/answer_plan.py": "a45952635155e081b24d7ce64f003fedd3e5f76e04bbcbf1b308796bc767c4f7",
     "services/core-control-plane/src/fdai/core/conversation/answer_planning.py": "9909d64d83f3010c8dda7999a1c58f5a58648c36c83ade53acd93c2135344bee",
@@ -463,7 +463,7 @@
     "services/core-control-plane/src/fdai/core/conversation/semantic_resource_metric_planning.py": "e17c814e64ca10ec6b61f330be868bca44a1ee50dcba25027d65fa7de5f04697",
     "services/core-control-plane/src/fdai/core/conversation/semantic_resource_state_planning.py": "c1159c81c049756756bb7e2bbbb9d6c3672172f4eb02c7e1f83bb832c2a463ae",
     "services/core-control-plane/src/fdai/core/conversation/semantic_resource_visibility.py": "1bbe76f00f10a8ce6f31db8c69e2ae6a45b12b9c50ce1a41717e57f4c1ccf4b6",
-    "services/core-control-plane/src/fdai/core/conversation/semantic_runtime.py": "8cba04a3c1948b40c101bfea808e76f1408c53520b76720c5dbb864bf0a2506f",
+    "services/core-control-plane/src/fdai/core/conversation/semantic_runtime.py": "d0dd3de160a02e2cd09ac8ea8abf3dca6ea43076ec039d03458f6d6d6c1fb466",
     "services/core-control-plane/src/fdai/core/conversation/semantic_runtime_cancellation.py": "9ed4c4b13dd335d398ab36f56453ca9115cb03bf4a8103ae7e13dc8051bececf",
     "services/core-control-plane/src/fdai/core/conversation/semantic_service_health_planning.py": "4979e0a4d8322f495c2584c78dcecb31eed3b0dfd06f6f5d04c8f265ad04f977",
     "services/core-control-plane/src/fdai/core/conversation/semantic_state_transition_planning.py": "605a37adac23b06482b7775e1bc5f492555048971021342f350992ddc80ad5a4",
@@ -479,6 +479,7 @@
     "services/core-control-plane/src/fdai/core/conversation/tool_arguments.py": "df998cdde8513f2057cc6524126be38e61460201aac6d81425e2a962d4595506",
     "services/core-control-plane/src/fdai/core/conversation/tool_discovery.py": "305d4a7e971a800f5068d0b7c57fbcdf038fc59f8f7dd67591657bc0f5376b60",
     "services/core-control-plane/src/fdai/core/conversation/tools.py": "8d5944f8c4d4f750530d9eb825eb1e015b4f8d3fcdcc72ac64ef59f11190fed3",
+    "services/core-control-plane/src/fdai/core/conversation/work_progress.py": "42cf18a50d1084c7a073b9803282637f7e94dccaec6dd763acb4d220e2ed2bf4",
     "services/core-control-plane/src/fdai/core/conversation/write_tools.py": "77dae0f125caa27683344b6987dc530c707e16842e5aeaf568f035a9c94b5978",
     "services/core-control-plane/src/fdai/core/conversation_assurance/__init__.py": "83efc24307b18597c16601431d53dbd9f25705cfdf93b248c9b4ebb02f35968d",
     "services/core-control-plane/src/fdai/core/conversation_assurance/attribution.py": "78084d85844c3a51e5cb09dda3823887ea810d35f8c1d920a96fff80d0b71b2c",

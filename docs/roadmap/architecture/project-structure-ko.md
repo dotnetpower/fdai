@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 8fff9850d854120cb9c39bb532dd94b99ef00718
+translation_source_sha: d13724140bf7cd5b02f8bfde0de1e76199d359c0
 translation_revised: 2026-09-29
 ---
 # 프로젝트 구조
@@ -310,6 +310,8 @@ Cost Governance 가명 자료는 Operator 조립이 소유하는 비밀입니다
   전달합니다. Operator는 이 테이블만 읽고, 결정론적인 변환 결과 신원으로 중복과 오래된
   reorder를 제거하며, Core `background_task_*` 테이블을 직접 읽지 않습니다.
   검증된 의미 조회 노드 전이는 Core에서 Operator로 향하는 별도의 범위가 제한된 best-effort topic을 사용합니다.
+  같은 topic은 고정된 계획의 첫 노드 전이보다 먼저 계획 시점의 `semantic-work-progress` 고정 형태를
+  한 번 전달합니다. 이 고정 형태는 표현 밀도만 정합니다.
   영속 최종 결과와 근거 증적은 계속 권위가 있으며, 소비자는 내용이 없는 성능 저하 상태, 재설정 가능한
   대기, 원자적 Live cursor 순서, 재시도 가능한 발신함 종료를 유지합니다. 전송 또는 선택적 관찰 실패는
   권한을 부여하거나 부분 답변, 첨부 파일, 인시던트 작업을 승격할 수 없습니다.

@@ -18,10 +18,12 @@ from fdai.core.conversation.semantic_runtime import (
     SemanticConversationRuntime,
     bind_semantic_query_progress_observer,
 )
+from fdai.core.conversation.work_progress import bind_semantic_work_progress_publisher
 from fdai.core.ontology_platform.query_execution import QueryNodeProgress
 from fdai.shared.providers.event_bus import EventBus, subscription
 from fdai.shared.providers.state_store import StateStore
 from fdai_service_contracts import SemanticQueryProgress
+from fdai_service_contracts.semantic_work_progress import SemanticWorkProgress, WorkProgressShape
 from fdai_service_contracts.venue import ExecutionVenue, resolve_execution_venue
 
 from .semantic_turn_processor import (
@@ -333,8 +335,8 @@ async def consume_semantic_turns(
             try:
                 if runtime_call_observer is not None:
                     runtime_call_observer.observe(envelope.payload)
-                progress_queue: asyncio.Queue[SemanticQueryProgress] = asyncio.Queue(
-                    maxsize=_MAX_PROGRESS_RECORDS
+                progress_queue: asyncio.Queue[SemanticQueryProgress | SemanticWorkProgress] = (
+                    asyncio.Queue(maxsize=_MAX_PROGRESS_RECORDS)
                 )
                 progress_publisher = asyncio.create_task(
                     _drain_progress(
@@ -346,16 +348,26 @@ async def consume_semantic_turns(
                 progress_sequence = 0
 
                 async def publish_progress(
-                    progress: QueryNodeProgress,
+                    progress: QueryNodeProgress | WorkProgressShape,
                     request_payload: Mapping[str, Any] = envelope.payload,
-                    queue: asyncio.Queue[SemanticQueryProgress] = progress_queue,
+                    queue: asyncio.Queue[SemanticQueryProgress | SemanticWorkProgress] = (
+                        progress_queue
+                    ),
                 ) -> None:
                     nonlocal progress_sequence
                     progress_sequence += 1
-                    payload = _progress_mapping(
-                        request_payload,
-                        progress,
-                        progress_sequence=progress_sequence,
+                    payload = (
+                        _work_progress_mapping(
+                            request_payload,
+                            progress,
+                            progress_sequence=progress_sequence,
+                        )
+                        if isinstance(progress, WorkProgressShape)
+                        else _progress_mapping(
+                            request_payload,
+                            progress,
+                            progress_sequence=progress_sequence,
+                        )
                     )
                     try:
                         queue.put_nowait(payload)
@@ -363,7 +375,10 @@ async def consume_semantic_turns(
                         return
 
                 try:
-                    with bind_semantic_query_progress_observer(publish_progress):
+                    with (
+                        bind_semantic_query_progress_observer(publish_progress),
+                        bind_semantic_work_progress_publisher(publish_progress),
+                    ):
                         encoded = await processor.process(
                             envelope.payload,
                             cancelled=stop,
@@ -416,7 +431,7 @@ async def _drain_progress(
     *,
     bus: EventBus,
     topic: str,
-    queue: asyncio.Queue[SemanticQueryProgress],
+    queue: asyncio.Queue[SemanticQueryProgress | SemanticWorkProgress],
 ) -> None:
     while True:
         progress = await queue.get()
@@ -433,7 +448,7 @@ async def _drain_progress(
 
 
 async def _close_progress_publisher(
-    queue: asyncio.Queue[SemanticQueryProgress],
+    queue: asyncio.Queue[SemanticQueryProgress | SemanticWorkProgress],
     publisher: asyncio.Task[None],
 ) -> None:
     try:
@@ -566,6 +581,27 @@ def _progress_mapping(
         duration_ms=receipt.duration_ms if receipt is not None else None,
         reason=receipt.reason if receipt is not None else None,
         evidence_refs=receipt.evidence_refs if receipt is not None else (),
+    )
+
+
+def _work_progress_mapping(
+    request_envelope: Mapping[str, Any],
+    shape: WorkProgressShape,
+    *,
+    progress_sequence: int,
+) -> SemanticWorkProgress:
+    """Bind the plan-time pin to the request identity and its shared progress sequence."""
+    semantic = request_envelope.get("semantic_turn")
+    request_id = request_envelope.get("request_id")
+    if not isinstance(semantic, Mapping) or not isinstance(request_id, str):
+        raise ValueError("semantic request identity is missing")
+    return SemanticWorkProgress(
+        request_id=request_id,
+        session_id=str(semantic["session_id"]),
+        turn_id=str(semantic["turn_id"]),
+        turn_sequence=int(semantic["turn_sequence"]),
+        progress_sequence=progress_sequence,
+        work_progress_shape=shape,
     )
 
 
