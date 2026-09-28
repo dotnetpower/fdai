@@ -48,6 +48,10 @@ _HOLDOUT = json.loads(
     (ROOT / "eval/ontology-reasoning/reasoning-holdout.v1.json").read_text(encoding="utf-8")
 )
 _HOLDOUT_CASES = tuple(_HOLDOUT["cases"])
+_HOLDOUT_V2 = json.loads(
+    (ROOT / "eval/ontology-reasoning/reasoning-holdout.v2.json").read_text(encoding="utf-8")
+)
+_HOLDOUT_V2_CASES = tuple(_HOLDOUT_V2["cases"])
 
 
 def _spanned(value: Any, utterance: str) -> Any:
@@ -172,9 +176,14 @@ def test_the_holdout_is_bilingual_and_shares_no_question_with_the_cohort() -> No
     assert not {case["utterance"] for case in _HOLDOUT_CASES} & {
         case["utterance"] for case in _CASES
     }
+    seen = {case["utterance"] for case in (*_CASES, *_HOLDOUT_CASES)}
+    assert not {case["utterance"] for case in _HOLDOUT_V2_CASES} & seen
+    assert len({case["id"] for case in _HOLDOUT_V2_CASES}) == len(_HOLDOUT_V2_CASES)
 
 
-@pytest.mark.parametrize("case", _CASES + _HOLDOUT_CASES, ids=lambda case: case["id"])
+@pytest.mark.parametrize(
+    "case", _CASES + _HOLDOUT_CASES + _HOLDOUT_V2_CASES, ids=lambda case: case["id"]
+)
 async def test_gold_form_reaches_its_reviewed_outcome(case: dict[str, Any]) -> None:
     if "admission" in case["expect"]:
         # A constraint no closed atom states clarifies at admission, before any compile.

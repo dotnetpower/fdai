@@ -124,15 +124,18 @@ reviewed builder reads, such as a qualifier or a stated counterpart, returns a t
 
 **Utterance span accounting**: Every letter, digit, and math or currency symbol of the utterance must lie inside a mention, a goal, filter, relation,
 time, or measure cue, a context quote, or an unsupported constraint. Core checks this only by Unicode category and never classifies what a word means.
-A form that leaves any such character out is invalid, and its one repair names the missing words, with identifiers masked. The model decides whether a
-word states a constraint, so labeling one as context is its explicit judgment, which the blind constraint review checks. A pass that sets
-`remaining_goals` defers the check to the final pass, which may rely on the mentions and cues of earlier admitted passes but never on their context,
-and no compilation is released until the final pass is admitted. A repair of unaccounted words may add mentions, goals, filters, cue reach, context,
-and values left at their defaults, but it never changes or removes a stated value. A word still unaccounted after that repair is left to the blind
-constraint review, because accounting only makes the proposer consider every word; the review decides whether a word states a constraint. A particle
-attached to an instance name or identifier in the same word is accounted with it, and no repair may change the quote of such a mention, because it is
-an exact lookup key that a widened quote would look up as another name; the review still judges any restriction the particle states. Reach words that
-stand apart from the relation words, such as all the way down, are quoted in the relation's `reach_cue`.
+A form that leaves any such character out is invalid, and its one repair names the missing words, with identifiers masked. A word that a quote holds
+only in part is named whole, with the place of its unquoted characters, such as its last character, so a fragment of a name is never quoted alone. The
+model decides whether a word states a constraint, so labeling one as context is its explicit judgment, which the blind constraint review checks. A
+pass that sets `remaining_goals` defers the check to the final pass, which may rely on the mentions and cues of earlier admitted passes but never on
+their context, and no compilation is released until the final pass is admitted. A repair of unaccounted words may add mentions, goals, filters, cue
+reach, context, and values left at their defaults, but it never changes or removes a stated value. A word still unaccounted after that repair is left
+to the blind constraint review, because accounting only makes the proposer consider every word; the review decides whether a word states a constraint.
+When that repair rewrites or breaks a proposal whose only fault was accounting, the proposal stands as it was and its unplaced words go to the same
+review, and the words a review repair leaves unplaced go to the review that reads its form again. A particle attached to an instance name or
+identifier in the same word is accounted with it, and no repair may change the quote of such a mention, because it is an exact lookup key that a
+widened quote would look up as another name; the review still judges any restriction the particle states. Reach words that stand apart from the
+relation words, such as all the way down, are quoted in the relation's `reach_cue`.
 
 **Blind constraint review**: A second T1 call of another model family reads only the question, beside the judgment call, and extracts every constraint
 with a closed role. Core compares the two outputs structurally: every letter and digit of each extracted constraint must lie in a span that states
@@ -144,13 +147,15 @@ word that only means all or every has its own role, quantifies, and like a reque
 extractor labeled such words as exclusions. Roles beyond that stay advisory, because two readers may fairly disagree on whether a word restricts or
 relates, except that a hypothetical premise is stated only by an impact goal. One mention binds one concept or identity, so a mention must not hold an
 extracted restriction beside another disjoint extracted constraint, as when one mention quotes `AKS ObjectTypes`: binding would keep one and drop the
-other. A reference's position words, such as second in the second one, are its typed position, so a reference is never a merged mention. The extractor
-also quotes each literal value on its own, without surrounding words or particles. A literal operand, the mention a name-fragment filter reads, is
-used verbatim, so its quote must equal one of those literals; otherwise the turn is held, and no single reader decides where a literal ends. An
-uncovered constraint gets one review repair that may only add information, checked against the same extraction. Its violation names a mention that
-quotes part of the constraint, and a literal operand's quote must stay exact, so the other words go to the cue that cites it. A merged mention or a
-disagreeing literal is held without a repair, because such a repair cannot split a mention or move a literal. A missing, empty, unlocated, uncovered,
-merged, or disagreeing extraction releases nothing.
+other. An ObjectType or declaration-kind mention binds one closed name, so it holds no second disjoint extracted constraint of any role: live,
+`Resource ObjectType` bound to the ResourceType ObjectType, and `Workload ObjectType` bound as a declaration kind listed every ObjectType, so the kind
+word is its own declaration-kind mention. A reference's position words, such as second in the second one, are its typed position, so a reference is
+never a merged mention. The extractor also quotes each literal value on its own, without surrounding words or particles. A literal operand, the
+mention a name-fragment filter reads, is used verbatim, so its quote must equal one of those literals; otherwise the turn is held, and no single
+reader decides where a literal ends. An uncovered constraint gets one review repair that may only add information, checked against the same
+extraction. Its violation names a mention that quotes part of the constraint, and a literal operand's quote must stay exact, so the other words go to
+the cue that cites it. A merged mention or a disagreeing literal is held without a repair, because such a repair cannot split a mention or move a
+literal. A missing, empty, unlocated, uncovered, merged, or disagreeing extraction releases nothing.
 
 **Direction confirmation**: A reversed relation answers the opposite question, and open-ended extraction named relation starts too rarely to catch it.
 After a faithful review, each goal whose relation has a direction, unless it is stated as either, gets one focused call to a reasoning model, because
@@ -162,13 +167,15 @@ LinkType is read on both sides anyway.
 
 A form that breaks its closed schema or a structural rule gets at most one repair call with the code-authored violations. Each violation states the
 contract rule the form breaks, such as the mention domains a filter accepts, and an unaccounted run is quoted; no violation interprets the question's
-words. The repaired form passes the same admission and must keep every quoted operand, goal, operation, want, typed time, operand-bearing relation,
-competing reading, and pending-goals signal of the rejected proposal; otherwise the original fault stands. These fields compare as the closed schema
-normalizes them. A proposal that never parsed treats every stated pending-goals value other than an explicit false or null as pending, and it fails
-closed when any compared field loses its closed shape, such as a missing goal list, a wrong container, a duplicate goal id, or an unreadable operation
-or want. Only an uncited mention of a parsed proposal that quotes exactly a typed time cue may survive inside a repaired time cue instead of a
-repaired mention. Only an uncited mention of a parsed proposal that quotes exactly a typed time cue may survive inside a repaired time cue instead of
-a repaired mention. Clarifications are answers to the operator and are never repaired.
+words. Mention ids are labels, so before a repaired form is compared with the proposal, each earlier mention's id goes back to the one repaired
+mention of the same form and domain whose quote holds the earlier quote, and every reference follows; if any earlier mention lacks exactly one such
+counterpart, the ids stay as written. The repaired form passes the same admission and must keep every quoted operand, goal, operation, want, typed
+time, operand-bearing relation, competing reading, and pending-goals signal of the rejected proposal; otherwise the original fault stands, except that
+a fault of accounting alone is left to the review as described above. These fields compare as the closed schema normalizes them. A proposal that never
+parsed treats every stated pending-goals value other than an explicit false or null as pending, and it fails closed when any compared field loses its
+closed shape, such as a missing goal list, a wrong container, a duplicate goal id, or an unreadable operation or want. Only an uncited mention of a
+parsed proposal that quotes exactly a typed time cue may survive inside a repaired time cue instead of a repaired mention. Clarifications are answers
+to the operator and are never repaired.
 
 Admission bounds model authority; it does not remove it. A wrong but self-consistent form is caught only by cue-span review, T2 review, the restated
 interpretation and confirm-first cells in [calibrated admission](ontology-reasoning-coverage.md#calibrated-admission), and the evaluation gold. The
@@ -185,9 +192,19 @@ lookup table, and an explicit root candidate stands for resources in general. Fu
 
 - **Class closure**: A `resource_class` mention compiles through `query.resource_class_closure`
   into an exact `Resource.type` set and pins the closure receipt.
-- **Cross-domain match**: `AKS ObjectType` declares domain `object_type`, but the model finds `AKS`
-  only among `Resource.type` candidates as `kubernetes-cluster`. Core returns a clarification that
-  names that candidate instead of substituting another declaration.
+- **Cross-domain match**: At schema level, `AKS ObjectType` declares domain `object_type`, but the
+  model finds `AKS` only among `Resource.type` candidates as `kubernetes-cluster`. Core returns a
+  clarification that names that candidate instead of substituting another declaration.
+- **Kind lanes**: The proposer confuses ObjectTypes and resource types in both directions, and the
+  choice flips with unrelated prompt wording. A concept that every citing goal uses only as an
+  instance-level collection subject, where both kinds compile, is grounded first in its stated
+  catalog. When both choosers find nothing there, both are asked in the sibling kind catalog, and a
+  meaning both choose sets the mention's domain. When the stated catalog was contested and the
+  sibling agrees, both choosers see the contested finalists beside that meaning once, and the
+  mention binds only when both pick the same meaning. The retyped form is admitted again and
+  replaces the proposal for every later stage and record. A critique rejected treating an ObjectType
+  and the resources root as one meaning, because they differ as a type filter, a relation end, and a
+  schema subject, and rejected any retyping that leaves a stage reading the stated form.
 - **Ambiguity**: Two surviving candidates in one domain return one clarification that names both.
 - **Two blind choosers**: Two choosers of different model families, the proposer's and the
   extractor's, each see every shard and resolve their own runoff without seeing the other's choice.

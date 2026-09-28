@@ -14,7 +14,7 @@ to the operator rather than contract faults.
 from __future__ import annotations
 
 from collections.abc import Awaitable, Callable, Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from enum import StrEnum
 from typing import Any
 
@@ -42,6 +42,7 @@ from .semantic_reasoning_form import (
     Want,
 )
 from .semantic_reasoning_proposal import FormResolution, locate_quote, resolve_question_form
+from .semantic_reasoning_relabel import relabel_mentions
 
 MAX_REPAIR_VIOLATIONS = 16
 
@@ -92,15 +93,23 @@ async def propose_with_repair(
     if repaired_raw is None:
         return FormProposal(resolution, admission, "unavailable", faulted)
     repaired = resolve_question_form(repaired_raw, utterance=utterance)
-    if repaired.form is None:
-        return FormProposal(repaired, None, "invalid", faulted)
     # A repair of unaccounted words only places them; it never rewrites stated meaning.
     placing = admission is not None and all(
         reason.startswith("span_unaccounted:") for reason in faulted
     )
+    if repaired.form is None:
+        if placing:
+            return _kept_original(resolution, utterance, faulted)
+        return FormProposal(repaired, None, "invalid", faulted)
+    form = repaired.form
+    if resolution.form is not None:
+        form = relabel_mentions(resolution.form, form)
+        repaired = replace(repaired, form=form)
     if not repair_keeps_operands(
-        raw, repaired.form, utterance=utterance, typed=resolution.form, extension_only=placing
+        raw, form, utterance=utterance, typed=resolution.form, extension_only=placing
     ):
+        if placing:
+            return _kept_original(resolution, utterance, faulted)
         return FormProposal(resolution, admission, "operand_dropped", faulted)
     admission = _admit(repaired, utterance, accounting)
     if (
@@ -114,6 +123,20 @@ async def propose_with_repair(
         relaxed = _admit(repaired, utterance, SpanAccounting(required=False))
         return FormProposal(repaired, relaxed, "applied_unaccounted", faulted)
     return FormProposal(repaired, admission, "applied", faulted)
+
+
+def _kept_original(
+    resolution: FormResolution, utterance: str, faulted: tuple[str, ...]
+) -> FormProposal:
+    """Keep a proposal whose only fault was accounting when its repair is unusable.
+
+    The model was asked once to place its leftover words. A repair that rewrote or
+    broke the form adds nothing trustworthy, so the proposal stands as it was, and
+    whether a leftover word states a constraint is for the blind constraint review.
+    """
+
+    relaxed = _admit(resolution, utterance, SpanAccounting(required=False))
+    return FormProposal(resolution, relaxed, "original_unaccounted", faulted)
 
 
 def _admit(
@@ -140,9 +163,14 @@ def repair_for(
     if resolution.form is None:
         violations = resolution.notes or resolution.reasons
     elif admission is not None and admission.disposition is AdmissionDisposition.INVALID:
-        # Runs of one token render the same quote, so each appears once.
+        quoted = frozenset(
+            index
+            for span in admission.form.declared_spans()
+            for index in range(span.start, span.end)
+        )
+        # Runs of one wholly unquoted token render the same quote, so each appears once.
         violations = tuple(
-            dict.fromkeys(_violation(reason, utterance) for reason in admission.reasons)
+            dict.fromkeys(_violation(reason, utterance, quoted) for reason in admission.reasons)
         )
     else:
         return None
@@ -151,11 +179,13 @@ def repair_for(
     return FormRepair(previous=raw, violations=tuple(violations[:MAX_REPAIR_VIOLATIONS]))
 
 
-def _violation(reason: str, utterance: str) -> str:
+def _violation(reason: str, utterance: str, quoted: frozenset[int] = frozenset()) -> str:
     """Render one admission reason as a violation the model can act on.
 
     An unaccounted run is quoted so the model can place it; any other reason is stated
     as the contract rule it breaks, never as an interpretation of the question's words.
+    ``quoted`` holds every character the form quotes, so a word with a quoted letter or
+    digit is reported as partly quoted rather than as left out.
     """
 
     code, _, where = reason.partition(":")
@@ -169,19 +199,41 @@ def _violation(reason: str, utterance: str) -> str:
         return reason
     # Report the whole whitespace-delimited token, so a name or identifier reaches the
     # adapter's identifier mask intact instead of as an unmasked fragment.
-    while start > 0 and not utterance[start - 1].isspace():
-        start -= 1
-    while end < len(utterance) and not utterance[end].isspace():
-        end += 1
-    word = utterance[start:end]
+    first, last = start, end
+    while first > 0 and not utterance[first - 1].isspace():
+        first -= 1
+    while last < len(utterance) and not utterance[last].isspace():
+        last += 1
+    word = utterance[first:last]
     occurrence = 0
     position = -1
-    while (position := utterance.find(word, position + 1)) != -1 and position <= start:
+    while (position := utterance.find(word, position + 1)) != -1 and position <= first:
         occurrence += 1
+    if not any(utterance[index].isalnum() and index in quoted for index in range(first, last)):
+        return (
+            f'span_unaccounted: the word "{word}" at occurrence {occurrence} is outside every '
+            "mention, cue, and context quote"
+        )
+    # A quote already holds the rest of the word; the model is told which characters are
+    # left by their place in it, so a fragment of a name is never quoted on its own.
     return (
-        f'span_unaccounted: the word "{word}" at occurrence {occurrence} is outside every '
+        f'span_unaccounted: the word "{word}" at occurrence {occurrence} is only partly '
+        f"quoted: {_characters(start - first, end - first, last - first)} outside every "
         "mention, cue, and context quote"
     )
+
+
+def _characters(start: int, end: int, length: int) -> str:
+    """Name a run of a word by its place: first, last, or 1-based character numbers."""
+
+    count = end - start
+    if start == 0:
+        return "its first character is" if count == 1 else f"its first {count} characters are"
+    if end == length:
+        return "its last character is" if count == 1 else f"its last {count} characters are"
+    if count == 1:
+        return f"its character {start + 1} is"
+    return f"its characters {start + 1} to {end} are"
 
 
 def _explained(code: str, where: str) -> str | None:
@@ -224,8 +276,9 @@ def _explained(code: str, where: str) -> str | None:
             "one mention, so quote each named thing on its own"
         ),
         "scope_anchor_conflict": (
-            "goal {0} cites one group as both its scope filter and its relation anchor; state "
-            "that membership once"
+            "goal {0} cites one group as both its scope filter and its relation anchor; keep "
+            "only the scope filter, which covers members at any depth, or only the relation, "
+            "which covers the reach it states"
         ),
     }
     rule = rules.get(code)

@@ -49,11 +49,13 @@ from .semantic_reasoning_handles import (
     bind_references,
     reference_anchors,
 )
+from .semantic_reasoning_kinds import ground_kinds
 from .semantic_reasoning_proposal import (
     FormInputHeldError,
     FormResolution,
     resolve_question_form,
 )
+from .semantic_reasoning_relabel import relabel_mentions
 from .semantic_reasoning_repair import (
     FormProposal,
     FormRepair,
@@ -157,6 +159,8 @@ class ShadowPass:
     repair: str | None = None
     repaired_reasons: tuple[str, ...] = ()
     reference_digest: str | None = None
+    # Mentions grounded in the sibling kind lane, whose domain the form now carries.
+    regrounded: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -194,6 +198,7 @@ class ReasoningShadowObservation:
                     "reference_digest": item.reference_digest,
                     "repair": item.repair,
                     "repaired_reasons": list(item.repaired_reasons),
+                    "regrounded": list(item.regrounded),
                     "goals": [
                         {
                             "goal": goal.goal_id,
@@ -473,16 +478,27 @@ async def _propose_review_repair(
     resolution = resolve_question_form(raw, utterance=utterance)
     if resolution.form is None:
         return FormProposal(resolution, None, "invalid", repair.reasons)
+    form = relabel_mentions(repair.typed, resolution.form)
+    resolution = replace(resolution, form=form)
     if not repair_keeps_operands(
         repair.previous,
-        resolution.form,
+        form,
         utterance=utterance,
         typed=repair.typed,
         extension_only=True,
     ):
         dropped = FormResolution(None, ("review_repair_operand_dropped",))
         return FormProposal(dropped, None, "operand_dropped", repair.reasons)
-    admission = admit_question_form(resolution.form, utterance=utterance, accounting=accounting)
+    admission = admit_question_form(form, utterance=utterance, accounting=accounting)
+    if admission.disposition is AdmissionDisposition.INVALID and all(
+        reason.startswith("span_unaccounted:") for reason in admission.reasons
+    ):
+        # This is the turn's one repair, and the review reads the repaired form again, so
+        # a word it leaves unplaced is judged there, as after a first-pass repair.
+        relaxed = admit_question_form(
+            form, utterance=utterance, accounting=SpanAccounting(required=False)
+        )
+        return FormProposal(resolution, relaxed, "review_applied_unaccounted", repair.reasons)
     return FormProposal(resolution, admission, "review_applied", repair.reasons)
 
 
@@ -606,14 +622,32 @@ async def _run_pass(
             None,
             None,
         )
-    receipt = await _select(
-        model,
-        admission=admission,
+
+    def select(lane: Any, calls: int) -> Any:
+        return _select(
+            model,
+            admission=lane,
+            catalogs=catalogs,
+            utterance=utterance,
+            max_calls=calls,
+            max_shard_bytes=max_shard_bytes,
+        )
+
+    receipt = await select(admission, concept_budget)
+    grounding = await ground_kinds(
+        admission,
+        receipt,
         catalogs=catalogs,
         utterance=utterance,
-        max_calls=concept_budget,
-        max_shard_bytes=max_shard_bytes,
+        select=select,
+        choose=lambda mentions, shard, second: model.choose_concepts(
+            utterance=utterance, mentions=mentions, shard=shard, second=second
+        ),
+        budget=concept_budget - receipt.model_calls,
     )
+    # One grounded form replaces the proposal everywhere after this point.
+    admission, receipt = grounding.admission, grounding.receipt
+    form = admission.form
     anchors = await bind_anchors(admission, resolver, utterance=utterance)
     arguments = dict(compile_args)
     references = bind_references(
@@ -631,13 +665,13 @@ async def _run_pass(
     )
     goals = tuple(
         goal.model_dump(mode="json", include={"level", "operation", "subject_scope"})
-        for goal in resolution.form.goals
+        for goal in form.goals
     )
     shadow_pass = ShadowPass(
         index,
         "admitted",
         (),
-        resolution.form.digest,
+        form.digest,
         receipt.digest,
         anchors.digest,
         tuple(
@@ -652,8 +686,9 @@ async def _run_pass(
         proposal.repair,
         proposal.repaired_reasons,
         references.digest if references.bindings else None,
+        grounding.regrounded,
     )
-    return shadow_pass, goals, compilation, resolution.form
+    return shadow_pass, goals, compilation, form
 
 
 async def _select(
