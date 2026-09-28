@@ -453,7 +453,9 @@ def _prepare(args: argparse.Namespace, work_dir: Path) -> dict[str, object]:
     if not backend.exists():
         shutil.copyfile(backend_example, backend)
         backend.chmod(0o600)
-    registry = f"crfdaidev{region_short}{suffix}"
+    registry = standalone_host_values.planned_container_registry_name(
+        workload=workload, environment="dev", region_short=region_short, resource_suffix=suffix
+    )
     login_server = f"{registry}.azurecr.io"
     runtime = kit.runtime.to_mapping()
     services = _mapping(runtime.get("services"), "runtime services")
@@ -4249,10 +4251,8 @@ def _readback_stage(stage: str, context: dict[str, object]) -> bool:
                 "az",
                 "acr",
                 "show",
-                "--name",
-                _terraform_output(infra, "container_registry_name"),
-                "--subscription",
-                str(context["subscription_id"]),
+                "--ids",
+                _terraform_registry_id(infra, str(context["registry_name"])),
                 "--query",
                 "provisioningState",
                 "--output",
@@ -4491,6 +4491,15 @@ def _terraform_output(infra: Path, name: str) -> str:
         timeout=120,
         reason="Terraform output readback failed",
     ).strip()
+
+
+def _terraform_registry_id(infra: Path, expected_name: str) -> str:
+    """Read the state-owned registry ID and require the name used for image references."""
+
+    registry_id = _terraform_output(infra, "container_registry_id")
+    if registry_id.rstrip("/").rsplit("/", 1)[-1] != expected_name:
+        raise ValueError("Terraform registry differs from the planned image registry")
+    return registry_id
 
 
 def _terraform_json_output(infra: Path, name: str) -> object:
