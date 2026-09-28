@@ -137,6 +137,7 @@ def _prepare(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, add_ons: tuple[str
                 "replicas": 1,
                 "max_replicas": 1,
                 "env": {},
+                "secret_environment": {"FDAI_STATE_STORE_DSN": "fdai-state-store-dsn"},
             }
         },
     )
@@ -164,6 +165,7 @@ def _prepare(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, add_ons: tuple[str
         lambda name, *_a, **_k: {
             "service": name,
             "env": _a[2],
+            "secret_environment": _a[3],
             "image": f"image-{name}",
             "replicas": 1,
             "max_replicas": 1,
