@@ -19,6 +19,7 @@ from fdai.core.conversation.semantic_reasoning_repair import (
     repair_for,
     repair_keeps_operands,
 )
+from fdai.core.conversation.semantic_reasoning_review import FormReview, review_forms
 from fdai.core.conversation.semantic_reasoning_shadow import run_reasoning_shadow
 
 from tests.conversation.semantic_reasoning_support import (
@@ -535,3 +536,86 @@ async def test_words_still_unaccounted_after_the_repair_are_left_to_the_review()
     assert only_pass.repair == "applied_unaccounted"
     assert only_pass.repaired_reasons == ("span_unaccounted:10-16",)
     assert observation.review == "faithful" and observation.released is True
+
+
+def _lookup_form(utterance: str, name: str, form: str = "name") -> dict[str, Any]:
+    return {
+        "mentions": [{"id": "m1", "form": form, "domain": "instance", "span": _quote(name)}],
+        "goals": [
+            {
+                "id": "g1",
+                "level": "instance",
+                "operation": "traverse",
+                "subject": "m1",
+                "subject_scope": "anchor",
+                "relation": {
+                    "sense": "dependency",
+                    "anchor_role": "dependent",
+                    "result_role": "dependency",
+                    "cue": _quote("의존하나요"),
+                },
+                "cue": _quote("무엇에"),
+                "confidence": 0.9,
+            }
+        ],
+    }
+
+
+def test_a_particle_attached_to_a_lookup_key_is_accounted_with_it() -> None:
+    utterance = "aks-prod-01은 무엇에 의존하나요?"
+    other = "vm-app-01만 무엇에 의존하나요?"
+
+    assert _unaccounted(_admit(_lookup_form(utterance, "aks-prod-01"), utterance)) == []
+    # The review, not accounting, judges whether such a particle states a restriction.
+    assert _unaccounted(_admit(_lookup_form(other, "vm-app-01"), other)) == []
+
+
+def test_reach_words_apart_from_the_relation_words_have_their_own_cue() -> None:
+    utterance = "rg-app 안에 있는 리소스를 하위까지 모두 알려줘"
+    form = {
+        "mentions": [
+            {"id": "m1", "form": "name", "domain": "instance", "span": _quote("rg-app")},
+            {"id": "m2", "form": "concept", "domain": "resource_type", "span": _quote("리소스를")},
+        ],
+        "goals": [
+            {
+                "id": "g1",
+                "level": "instance",
+                "operation": "select",
+                "subject": "m2",
+                "subject_scope": "collection",
+                "relation": {
+                    "sense": "containment",
+                    "anchor": "m1",
+                    "anchor_role": "container",
+                    "result_role": "member",
+                    "reach": "transitive",
+                    "cue": _quote("안에 있는"),
+                    "reach_cue": _quote("하위까지"),
+                },
+                "cue": _quote("알려줘"),
+                "confidence": 0.9,
+            }
+        ],
+        "context": [_quote("모두")],
+    }
+    unquoted = json.loads(json.dumps(form))
+    del unquoted["goals"][0]["relation"]["reach_cue"]
+    extraction = {
+        "constraints": [
+            {"quote": _quote("rg-app"), "role": "names"},
+            {"quote": _quote("안에 있는"), "role": "relates"},
+            {"quote": _quote("하위까지"), "role": "restricts"},
+        ],
+        "literals": [],
+    }
+
+    admission = _admit(form, utterance)
+    assert _unaccounted(admission) == []
+    assert admission.form.goals[0].relation is not None
+    reach_cue = admission.form.goals[0].relation.reach_cue
+    assert reach_cue is not None and utterance[reach_cue.start : reach_cue.end] == "하위까지"
+    assert _unaccounted(_admit(unquoted, utterance)) == ["span_unaccounted:18-22"]
+    assert review_forms((admission.form,), extraction, utterance=utterance) == FormReview(
+        "faithful"
+    )

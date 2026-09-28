@@ -31,6 +31,8 @@ from .semantic_reasoning_form import (
     FormMention,
     GoalOperation,
     GroupBy,
+    MentionDomain,
+    MentionForm,
     SemanticQuestionForm,
     SourceSpan,
     SubjectScope,
@@ -208,6 +210,8 @@ def repair_keeps_operands(
         return False
     if extension_only and (typed is None or not _extends(typed, repaired)):
         return False
+    if typed is not None and not _keys_kept(typed, repaired):
+        return False
     spans = [(mention.span.start, mention.span.end) for mention in repaired.mentions]
     times = [
         (goal.time.cue.start, goal.time.cue.end)
@@ -312,6 +316,28 @@ def _caution(
     )
 
 
+def _keys_kept(typed: SemanticQuestionForm, repaired: SemanticQuestionForm) -> bool:
+    """Return whether every exact lookup key of the proposal keeps its exact quote.
+
+    An instance name or identifier binds by its exact characters, so widening it over a
+    particle would look up a different name; a repair keeps such a quote as it was.
+    """
+
+    kept = {mention.id: mention.span for mention in repaired.mentions}
+    return all(
+        kept.get(mention.id) == mention.span
+        for mention in typed.mentions
+        if _is_lookup_key(mention)
+    )
+
+
+def _is_lookup_key(mention: FormMention) -> bool:
+    return mention.domain is MentionDomain.INSTANCE and mention.form in {
+        MentionForm.NAME,
+        MentionForm.IDENTIFIER,
+    }
+
+
 def _extends(typed: SemanticQuestionForm, repaired: SemanticQuestionForm) -> bool:
     """Return whether a repair only adds information to what the proposal stated.
 
@@ -385,7 +411,8 @@ def _goal_extends(before: FormGoal, after: FormGoal) -> bool:
 
 
 def _uncued(value: BaseModel) -> dict[str, Any]:
-    return value.model_dump(mode="json", exclude={"cue"})
+    # Cues may widen or be added by a repair; the typed atoms they quote may not change.
+    return value.model_dump(mode="json", exclude={"cue", "reach_cue"})
 
 
 def _raw_readable(previous: Mapping[str, Any]) -> bool:

@@ -250,6 +250,8 @@ class FormRelation(_FormModel):
     result_role: SubjectRole
     reach: RelationReach = RelationReach.ONE_HOP
     cue: SourceSpan
+    # Words that state the reach apart from the relation words, as in 하위 리소스까지.
+    reach_cue: SourceSpan | None = None
 
     @property
     def roles_consistent(self) -> bool:
@@ -481,6 +483,8 @@ class SemanticQuestionForm(_FormModel):
             spans.extend(item.cue for item in goal.filters if item.cue is not None)
             if goal.relation is not None:
                 spans.append(goal.relation.cue)
+                if goal.relation.reach_cue is not None:
+                    spans.append(goal.relation.reach_cue)
             if goal.time.cue is not None:
                 spans.append(goal.time.cue)
             if goal.measure is not None and goal.measure.cue is not None:

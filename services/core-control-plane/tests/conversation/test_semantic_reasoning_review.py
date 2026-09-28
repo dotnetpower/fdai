@@ -894,3 +894,19 @@ async def test_the_second_concept_chooser_is_the_other_model_family() -> None:
         assert choice["mention"]["enum"] == ["m1"]
         assert choice["candidate_ids"]["items"]["enum"] == ["value:compute.vm"]
         assert schema["properties"]["shard_digest"]["enum"] == [shard.digest]
+
+
+def test_a_word_meaning_all_states_no_restriction_to_cover() -> None:
+    utterance = "sql-app에 의존하는 모든 리소스는?"
+    typed = _dependents_form(utterance)
+    extraction = {
+        "constraints": [
+            _constraint("sql-app에 의존하는", "relates"),
+            _constraint("모든", "quantifies"),
+            _constraint("리소스", "names"),
+        ],
+        "literals": [],
+    }
+
+    assert review_forms((typed,), extraction, utterance=utterance) == FormReview("faithful")
+    assert "quantifies" in extraction_schema()["$defs"]["ConstraintRole"]["enum"]

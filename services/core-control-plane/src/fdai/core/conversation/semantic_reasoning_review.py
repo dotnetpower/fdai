@@ -57,6 +57,7 @@ class ConstraintRole(StrEnum):
     COMPARES = "compares"
     NEGATES = "negates"
     SUPPOSES = "supposes"
+    QUANTIFIES = "quantifies"
     ASKS = "asks"
 
 
@@ -73,6 +74,7 @@ _ISOLATED_ROLES = frozenset(
 _COMPARISON = frozenset(
     {GoalOperation.COMPARE_WINDOWS, GoalOperation.COMPARE_ENTITIES, GoalOperation.DIFF_VERSIONS}
 )
+_UNSTATED_ROLES = frozenset({ConstraintRole.ASKS, ConstraintRole.QUANTIFIES})
 _UNEXPRESSIBLE: dict[ConstraintRole, frozenset[GoalOperation]] = {
     ConstraintRole.NEGATES: frozenset(),
     ConstraintRole.COMPARES: _RANKING | _COMPARISON,
@@ -210,7 +212,8 @@ def uncovered_constraints(
     )
     uncovered: list[ExtractedConstraint] = []
     for item in extraction.constraints:
-        if item.role is ConstraintRole.ASKS or (item.role is ConstraintRole.SUPPOSES and supposing):
+        # A request word and a word meaning all or every state no restriction to cover.
+        if item.role in _UNSTATED_ROLES or (item.role is ConstraintRole.SUPPOSES and supposing):
             continue
         # A restriction the extractor isolated inside such a particle, such as only or
         # from, narrows the answer, so the mention it rides on never states it.
@@ -282,7 +285,7 @@ def merged_constraints(
     the words. Overlapping quotes restate one constraint, so only disjoint ones count.
     """
 
-    stated = [item for item in extraction.constraints if item.role is not ConstraintRole.ASKS]
+    stated = [item for item in extraction.constraints if item.role not in _UNSTATED_ROLES]
     found: dict[tuple[int, int], ExtractedConstraint] = {}
     for mention in (mention for form in forms for mention in form.mentions):
         inside = [
@@ -392,6 +395,8 @@ def _semantic_spans(
             semantic.extend(item.cue for item in goal.filters if item.cue is not None)
             if goal.relation is not None:
                 semantic.append(goal.relation.cue)
+                if goal.relation.reach_cue is not None:
+                    semantic.append(goal.relation.reach_cue)
             if goal.time.cue is not None:
                 semantic.append(goal.time.cue)
             if goal.measure is not None and goal.measure.cue is not None:

@@ -95,6 +95,11 @@ def resolve_question_form(raw: Mapping[str, Any], *, utterance: str) -> FormReso
             if isinstance(nested, dict):
                 path = f"goals.{index}.{key}.cue"
                 _bind(nested, "cue", utterance, failures, notes, path, required=key == "relation")
+                if key == "relation":
+                    reach_path = f"goals.{index}.relation.reach_cue"
+                    _bind(
+                        nested, "reach_cue", utterance, failures, notes, reach_path, required=False
+                    )
     for key in ("context", "unsupported_constraints"):
         quotes = payload.get(key)
         if isinstance(quotes, list):
