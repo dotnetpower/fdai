@@ -34,6 +34,9 @@ from fdai_operator_service.families.conversation.document_export import Conversa
 from fdai_operator_service.families.conversation.semantic_document_presentation import (
     apply_document_answer as _apply_document_answer,
 )
+from fdai_operator_service.families.conversation.semantic_progress_relay import (
+    SemanticProgressRelay as _SemanticProgressRelay,
+)
 from fdai_operator_service.families.conversation.semantic_runtime_activity import (
     progress_query_activity as _progress_query_activity,
 )
@@ -43,6 +46,9 @@ from fdai_operator_service.families.conversation.semantic_runtime_activity impor
 from fdai_operator_service.families.conversation.semantic_turn import SemanticTurnEnvelopeBuilder
 from fdai_operator_service.families.conversation.semantic_turn_presentation import (
     semantic_done_event_data as _done_event_data,
+)
+from fdai_operator_service.families.conversation.semantic_work_progress_presentation import (
+    persisted_work_progress_shape,
 )
 from fdai_operator_service.families.conversation.t1_model_health import (
     T1ModelHealthReader,
@@ -59,7 +65,6 @@ from fdai_operator_service.postgres_semantic_turn_store import (
     SemanticTurnTerminalClosedError,
 )
 from fdai_service_contracts import (
-    MAX_INTENT_GRAPH_GOALS,
     ContractValidationError,
     OperationalEvidenceProjection,
     OperatorPrincipalKind,
@@ -90,8 +95,6 @@ _MAX_PROJECTION_CONFLICT_ATTEMPTS = 5
 _MAX_TRACKED_PROJECTION_CONFLICTS = 256
 _MAX_EXECUTION_OUTPUT_CHARS = 64 * 1024
 _MAX_ANSWER_CHUNK_CHARS = 64
-_MAX_TRACKED_PROGRESS_REQUESTS = 256
-_MAX_PROGRESS_UPDATES_PER_REQUEST = MAX_INTENT_GRAPH_GOALS * 2
 _MAX_CONSUMER_RETRY_MULTIPLIER = 16.0
 _RUNTIME_CALL_LOG_SCHEMA = "fdai.runtime-call-endpoint-log@1.0.0"
 _LOGGER = logging.getLogger(__name__)
@@ -190,83 +193,6 @@ class SemanticTurnResultSource(Protocol):
     ) -> AsyncIterator[Mapping[str, object]]: ...
 
 
-class _SemanticProgressRelay:
-    """Retain a bounded best-effort timeline until the terminal replay arrives."""
-
-    def __init__(self) -> None:
-        self._updates: OrderedDict[str, deque[SemanticQueryProgress]] = OrderedDict()
-        self._signals: dict[str, asyncio.Event] = {}
-        self._terminals: OrderedDict[str, None] = OrderedDict()
-
-    def terminal_committed(self, request_id: str) -> None:
-        """Wake readers only after terminal validation and durable persistence succeed."""
-        self._terminals[request_id] = None
-        self._terminals.move_to_end(request_id)
-        if len(self._terminals) > _MAX_TRACKED_PROGRESS_REQUESTS:
-            self._terminals.popitem(last=False)
-            _LOGGER.warning(
-                "semantic_progress_capacity_evicted",
-                extra={"kind": "terminal", "capacity": _MAX_TRACKED_PROGRESS_REQUESTS},
-            )
-        signal = self._signals.get(request_id)
-        if signal is not None:
-            signal.set()
-
-    def consume(self, payload: Mapping[str, object]) -> bool:
-        """Validate and retain one monotonic update, ignoring stale redelivery."""
-        progress = SemanticQueryProgress.model_validate(payload)
-        updates = self._updates.get(progress.request_id)
-        if updates is None:
-            if len(self._updates) >= _MAX_TRACKED_PROGRESS_REQUESTS:
-                expired_request_id, _expired = self._updates.popitem(last=False)
-                self._signals.pop(expired_request_id, None)
-                _LOGGER.warning(
-                    "semantic_progress_capacity_evicted",
-                    extra={"kind": "progress", "capacity": _MAX_TRACKED_PROGRESS_REQUESTS},
-                )
-            updates = deque(maxlen=_MAX_PROGRESS_UPDATES_PER_REQUEST)
-            self._updates[progress.request_id] = updates
-        elif updates and progress.progress_sequence <= updates[-1].progress_sequence:
-            return False
-        updates.append(progress)
-        self._signals.setdefault(progress.request_id, asyncio.Event()).set()
-        self._updates.move_to_end(progress.request_id)
-        return True
-
-    def after(self, request_id: str, progress_sequence: int) -> tuple[SemanticQueryProgress, ...]:
-        """Return retained updates after one iterator-local sequence cursor."""
-        return tuple(
-            update
-            for update in self._updates.get(request_id, ())
-            if update.progress_sequence > progress_sequence
-        )
-
-    def discard(self, request_id: str) -> None:
-        """Drop transient updates once durable terminal replay is authoritative."""
-        self._updates.pop(request_id, None)
-        self._signals.pop(request_id, None)
-        self._terminals.pop(request_id, None)
-
-    async def wait_for_update(
-        self,
-        request_id: str,
-        progress_sequence: int,
-        *,
-        timeout: float,
-    ) -> None:
-        """Wake one active stream as soon as a newer progress record arrives."""
-        if request_id in self._terminals or self.after(request_id, progress_sequence):
-            return
-        signal = self._signals.setdefault(request_id, asyncio.Event())
-        signal.clear()
-        if request_id in self._terminals or self.after(request_id, progress_sequence):
-            return
-        try:
-            await asyncio.wait_for(signal.wait(), timeout=timeout)
-        except TimeoutError:
-            return
-
-
 @dataclass(frozen=True, slots=True)
 class _SemanticReplayCursor:
     projection_sequence: int
@@ -308,6 +234,7 @@ class _SemanticEventIterator(AsyncIterator[StreamEvent]):
         self._stream_sequence = 0
         self._progress_sequence = 0
         self._running_activities: dict[str, tuple[str, str | None]] = {}
+        self._pin_window_closed = False
         self._queue_initial_progress()
 
     def __aiter__(self) -> _SemanticEventIterator:
@@ -464,6 +391,17 @@ class _SemanticEventIterator(AsyncIterator[StreamEvent]):
                     )
                 store_after = _store_after_sequence(self._cursor)
                 continue
+            pin = self._progress_relay.pin(self._stored.request_id)
+            if pin is not None and not self._pin_window_closed and self._terminal_absent_observed:
+                if (pin.session_id, pin.turn_id, pin.turn_sequence) == (
+                    self._request.session_id,
+                    self._request.turn_id,
+                    self._request.turn_sequence,
+                ):
+                    shape = pin.work_progress_shape.model_dump(mode="json")
+                    self._queue_work_progress(shape, "0:planning")
+                    return
+                self._pin_window_closed = True
             progress_updates = self._progress_relay.after(
                 self._stored.request_id,
                 self._progress_sequence,
@@ -483,10 +421,28 @@ class _SemanticEventIterator(AsyncIterator[StreamEvent]):
                 self._stored.request_id,
                 self._progress_sequence,
                 timeout=min(self._retry_seconds, remaining),
+                pin_pending=not self._pin_window_closed,
             )
+
+    def _queue_work_progress(self, shape: Mapping[str, object], event_id: str) -> None:
+        """Pin presentation density once per stream, ahead of the first query activity."""
+        self._pin_window_closed = True
+        self._stream_sequence += 1
+        self._events.append(
+            StreamEvent(
+                event="work_progress",
+                event_id=event_id,
+                data=cast(
+                    JsonObject,
+                    {"seq": self._stream_sequence, "revision": 0, "work_progress_shape": shape},
+                ),
+            )
+        )
 
     def _queue_progress(self, progress: SemanticQueryProgress) -> None:
         _LOGGER.info("semantic_query_progress_streamed")
+        # A pin that arrives after the first query activity would flip density mid-turn.
+        self._pin_window_closed = True
         activity = _progress_query_activity(progress, locale=self._request.locale)
         self._append_activity(
             f"goal:{progress.step_index}",
@@ -516,6 +472,13 @@ class _SemanticEventIterator(AsyncIterator[StreamEvent]):
             result.data,
             locale=self._request.locale,
         )
+        pin = persisted_work_progress_shape(result.data)
+        if (
+            pin is not None
+            and not self._pin_window_closed
+            and not _cursor_includes(self._cursor, result.sequence, "planning")
+        ):
+            self._queue_work_progress(pin, f"{result.sequence}:planning")
         if not _cursor_includes(self._cursor, result.sequence, "evidence"):
             for index, activity in enumerate(query_activities, start=1):
                 self._append_activity(

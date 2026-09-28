@@ -1,0 +1,156 @@
+{
+  "description": "Operator trajectory_detail for a synthetic three-read semantic projection that services/operator-service/tests/test_semantic_work_progress.py builds at test time. The Console parses the same bytes in console/src/deck/work-progress-emission.test.ts.",
+  "trajectory_detail": {
+    "schema_version": 1,
+    "activities": [
+      {
+        "activity_id": "semantic:goal:resources",
+        "kind": "read.execution",
+        "status": "completed",
+        "label": "Read-only query: query.function",
+        "detail": "Status completed; 1 evidence references",
+        "authority": "server_ontology_query",
+        "source": "server_ontology_query",
+        "observed_at": "2026-09-28T10:41:06.296000+00:00",
+        "evidence_refs": [
+          "evidence-1"
+        ],
+        "execution": {
+          "tool": "Ontology query",
+          "input_kind": "query",
+          "command": "query.function",
+          "target": {
+            "interface_kind": "internal_query",
+            "service": "core-control-plane",
+            "component": "OntologyQueryPlanExecutor",
+            "operation": "function",
+            "source_kind": "registered_query_handler",
+            "transport": "event_bus"
+          },
+          "redacted": true,
+          "status": "completed",
+          "duration_ms": 1,
+          "started_at": "2026-09-28T10:41:06.296000+00:00",
+          "completed_at": "2026-09-28T10:41:06.296000+00:00",
+          "output_status": "not_available",
+          "output": "{\"evidence_ref_count\":1,\"status\":\"completed\"}",
+          "output_truncated": false
+        }
+      },
+      {
+        "activity_id": "semantic:goal:health",
+        "kind": "read.execution",
+        "status": "completed",
+        "label": "Read-only query: query.function",
+        "detail": "Status completed; 1 evidence references",
+        "authority": "server_ontology_query",
+        "source": "server_ontology_query",
+        "observed_at": "2026-09-28T10:41:06.296000+00:00",
+        "evidence_refs": [
+          "evidence-1"
+        ],
+        "execution": {
+          "tool": "Ontology query",
+          "input_kind": "query",
+          "command": "query.function",
+          "target": {
+            "interface_kind": "internal_query",
+            "service": "core-control-plane",
+            "component": "OntologyQueryPlanExecutor",
+            "operation": "function",
+            "source_kind": "registered_query_handler",
+            "transport": "event_bus"
+          },
+          "redacted": true,
+          "status": "completed",
+          "duration_ms": 1,
+          "started_at": "2026-09-28T10:41:06.296000+00:00",
+          "completed_at": "2026-09-28T10:41:06.296000+00:00",
+          "output_status": "not_available",
+          "output": "{\"evidence_ref_count\":1,\"status\":\"completed\"}",
+          "output_truncated": false
+        }
+      },
+      {
+        "activity_id": "semantic:goal:compare",
+        "kind": "read.execution",
+        "status": "completed",
+        "label": "Read-only query: query.function",
+        "detail": "Status completed; 1 evidence references",
+        "authority": "server_ontology_query",
+        "source": "server_ontology_query",
+        "observed_at": "2026-09-28T10:41:06.296000+00:00",
+        "evidence_refs": [
+          "evidence-1"
+        ],
+        "execution": {
+          "tool": "Ontology query",
+          "input_kind": "query",
+          "command": "query.function",
+          "target": {
+            "interface_kind": "internal_query",
+            "service": "core-control-plane",
+            "component": "OntologyQueryPlanExecutor",
+            "operation": "function",
+            "source_kind": "registered_query_handler",
+            "transport": "event_bus"
+          },
+          "redacted": true,
+          "status": "completed",
+          "duration_ms": 1,
+          "started_at": "2026-09-28T10:41:06.296000+00:00",
+          "completed_at": "2026-09-28T10:41:06.296000+00:00",
+          "output_status": "not_available",
+          "output": "{\"evidence_ref_count\":1,\"status\":\"completed\"}",
+          "output_truncated": false
+        }
+      }
+    ],
+    "branches": [],
+    "milestones": [],
+    "omitted": {
+      "activities": 0,
+      "branches": 0,
+      "milestones": 0
+    },
+    "checks_completed": 1,
+    "checks_total": 1,
+    "truncated_outputs": 0,
+    "work_progress_shape": {
+      "schema_version": 1,
+      "density": "procedural",
+      "waves": 2,
+      "planned_reads": 3
+    },
+    "turn_budget": {
+      "schema_version": 1,
+      "model_calls": {
+        "used": 3,
+        "reserved": 0,
+        "maximum": 5
+      },
+      "tokens": {
+        "used": 4382,
+        "reserved": 0,
+        "maximum": 48000
+      },
+      "elapsed_ms": {
+        "used": 3136,
+        "reserved": 0,
+        "maximum": 60000
+      },
+      "as_of": "2026-09-28T10:41:06.296+00:00",
+      "complete": true
+    },
+    "context_receipts": [
+      {
+        "receipt_id": "operator-preference:conversation-model-tier",
+        "kind": "operator_preference",
+        "digest": "60f41d18b86bf48489ffec24c26372618d0294ceadfe5a3764c8299f64fa3ab5",
+        "observed_at": "2026-09-28T10:40:58.296+00:00",
+        "freshness": "fresh",
+        "label": "Conversation model: T2"
+      }
+    ]
+  }
+}

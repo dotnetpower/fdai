@@ -30,10 +30,11 @@ _CATALOG = _REPO / "rule-catalog"
 # Norns review prompt selects t2.reasoner.primary/secondary off-path. Semantic
 # frame/plan prompts use the same resolved reasoner candidates as two strict
 # calls. Semantic judgment and its typed schema repair reuse resolved T1 targets.
-# Conversation
-# preflight and social narration reuse the narrator deployment through distinct,
-# deterministic composition keys. Adaptive plan/answer and review/verify reuse
-# independent configured T1 narrators; optional refine uses t2.reasoner.primary.
+# Conversation preflight and social narration reuse the narrator deployment through distinct,
+# deterministic composition keys. Adaptive plan/answer and review/verify reuse independent
+# configured T1 narrators; optional refine uses t2.reasoner.primary. Ontology reasoning
+# question-form and concept-selection prompts reuse the semantic judgment T1 target as
+# shadow-only composition keys.
 # Adding to this set requires a stated reason.
 _PROMPT_ONLY_CAPABILITIES = frozenset(
     {
@@ -51,8 +52,11 @@ _PROMPT_ONLY_CAPABILITIES = frozenset(
         "conversation.social-narrator.self_introduction",
         "conversation.social-narrator.thanks",
         "norns.post-turn-review",
+        "semantic.concept_selection",
+        "semantic.constraint_extraction",
         "semantic.judgment",
         "semantic.judgment.schema-repair",
+        "semantic.question_form",
         "semantic.query.frame",
         "semantic.query.frame.operational",
         "semantic.query.frame.recovery",

@@ -79,12 +79,13 @@ remains the recovery path when notifications are absent.
 | Deterministic cross-channel presentation planning | implemented | `semantic_presentation_semantics.py`; `semantic_turn_processor.py`; `presentation_rows.py`; `presentation_planner.py`; `presentation_artifact_v2.py`; `presentation.py`; Console artifact and module registry; focused semantic presentation (`137 passed`), Console deck (`693 passed`), and chart browser (`4 passed`) checks | Core derives renderer-neutral semantics from verified terminal rows. Operator revalidates shape-specific roles and row invariants before selecting one of ten visualizations. Web and channel artifact boundaries apply the same bounded schema. Legacy and v2 paths preserve readable rows and exact technical values. The model cannot select a chart component. |
 | Current-screen context publication | implemented | [`context.tsx`](../../../console/src/deck/context.tsx), [`app.tsx`](../../../console/src/app.tsx), [`view-contract.test.ts`](../../../console/src/routes/view-contract.test.ts), focused Console context and route checks, desktop browser inspection | Every registered panel identifies itself during loading, unavailable, error, and route-transition states. Specialized publishers can replace the fallback with bounded visible facts and a shared-catalog glossary without carrying a previous route's snapshot forward. |
 | Work progress contract parsing | implemented | [`work-progress-contract.ts`](../../../console/src/deck/work-progress-contract.ts), [`trajectory-detail.ts`](../../../console/src/deck/trajectory-detail.ts), [`conversation-trajectory-presentation.ts`](../../../console/src/deck/conversation-trajectory-presentation.ts), [`adaptive-investigation-fixtures.test.ts`](../../../console/src/deck/adaptive-investigation-fixtures.test.ts); Console deck suite (`1045 passed`) and typecheck | The Console accepts optional `work_progress_shape`, `turn_budget`, and `context_receipts` fields, drops only a malformed field, lets a contradicting pinned shape fall back to the timeline, and replays milestones as recorded. The shared synthetic fixtures in `mocks/ui/fixtures/adaptive/` parse losslessly. |
-| Server emission of work progress fields | not-started | [Work progress contract](#work-progress-contract) | No Core or Operator producer emits the shape, turn budget telemetry, or context receipts yet, so live turns keep observation-derived density and show policy limits only. |
+| Server emission of work progress fields | implemented | [`semantic_work_progress.py`](../../../packages/service-contracts/src/fdai_service_contracts/semantic_work_progress.py), [`work_progress.py`](../../../services/core-control-plane/src/fdai/core/conversation/work_progress.py), [`semantic_work_progress_projection.py`](../../../services/core-control-plane/src/fdai_core_service/semantic_work_progress_projection.py), [`semantic_progress_relay.py`](../../../services/operator-service/src/fdai_operator_service/families/conversation/semantic_progress_relay.py), [`semantic_work_progress_presentation.py`](../../../services/operator-service/src/fdai_operator_service/families/conversation/semantic_work_progress_presentation.py), [`semantic_trajectory_presentation.py`](../../../services/operator-service/src/fdai_operator_service/families/conversation/semantic_trajectory_presentation.py); focused contract, Core, and Operator work progress tests (`54 passed`) and the Console golden round trip | Core pins the verified read plan before it runs, publishes the pin ahead of the first node progress, and persists the pin, the enforcing adaptive turn budget, and the applied model-tier receipt. Operator sends one `work_progress` frame before the first query activity and keeps the Console envelope. The Console ignores the live frame until it renders the investigation roles. No authenticated runtime receipt is claimed. |
 
 ### Implementation history
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-28 | implemented | Emitted the work progress fields from the semantic path ([#1629](https://github.com/dotnetpower/fdai/issues/1629)). Core pins the one verified read plan before it runs, publishes the pin as `semantic-work-progress` `1.0.0` ahead of the first node progress, and persists it with the enforcing adaptive turn budget and the applied model-tier receipt; adaptive evidence reads stay unpinned. Operator relays one `work_progress` frame before the first query activity in live and replay streams, copies the validated fields into `trajectory_detail`, and keeps at most eight activities within 60 KiB. | `current change`; `packages/service-contracts/src/fdai_service_contracts/semantic_work_progress.py` and its `1.0.0` schema; Core `work_progress.py`, `adaptive_service.py`, `semantic_runtime.py`, `semantic_turn_processor.py`, `semantic_turn_consumer.py`, and `semantic_work_progress_projection.py`; Operator `semantic_progress_relay.py`, `semantic_turn_runtime.py`, `semantic_trajectory_presentation.py`, and `semantic_work_progress_presentation.py`; `uv run pytest -q --no-cov packages/service-contracts/tests/test_semantic_work_progress.py services/core-control-plane/tests/test_semantic_work_progress.py services/operator-service/tests/test_semantic_work_progress.py` (`54 passed`); the diff-selected Python suites (`37838 passed`; three database tests that need `FDAI_DATABASE_URL` fail identically on `origin/main`); `npm --prefix console test -- --run src/deck` (`1036 passed`) and Console typecheck | Consume the live frame and render the investigation roles in the Console; decide whether semantic preflight joins the enforcing turn budget. |
 | 2026-09-28 | implemented | Added the work progress contract: presentation density from typed observations, bounded waves without replanning, workflow-only milestones, turn budget telemetry, context receipts, continuation, findings that are not drafts, and separated authority display. The Console now parses the optional fields fail-closed per field and marks replayed milestones as recorded instead of completed. | `current change`; `console/src/deck/backend-types.ts`, `work-progress-contract.ts`, `trajectory-detail.ts`, `conversation-trajectory.ts`, `conversation-trajectory-presentation.ts`, `conversation-trajectory-view.tsx`, and their focused tests; `mocks/ui/fixtures/adaptive/`; `npm --prefix console test -- --run src/deck src/shared-style-tokens.test.ts src/components/mock-visual-boundary.test.ts` (`1045 passed`); Console typecheck | Emit the fields from the server and render the adaptive investigation roles in the Console. |
 | 2026-09-27 | in-progress | Displayed source-grounded context candidates and separated existing principal-scoped command delivery, audited application, and unevaluated current authorization. Kept writes unavailable rather than accepting browser scope or policy claims. | `current change`; `console/src/deck/test-context-review.tsx`, `test-context-status.ts`, `console/tests/e2e/test-context-candidate.spec.ts`, focused Console and Operator checks. | Reviewed principal/policy mapping, independent proof production, proposal/review/revocation controls, and connected authentication remain open. |
 | 2026-09-15 | in-progress | Added strict no-authority test-context draft decoding and propagation through HTTP, streaming, turn state, and server/local replay. Rejected normalized invalid calendar dates and untyped authority fields. | `current change`; four owning Console test files: 128 passed; production and test typechecks passed. | Complete authenticated scope/policy selection and submission/status presentation; no visual or live qualification was performed. |
@@ -173,12 +174,16 @@ remains the recovery path when notifications are absent.
   evidence-complete answered turns in both locales, without replacing the 2026-08-11 baseline.
 - [ ] Record governed Teams and Slack reduction receipts before claiming channel-wide runtime
   validation.
-- [ ] Emit `work_progress_shape` before the first branch and persist `turn_budget` and
-  `context_receipts` in the semantic turn's trajectory detail, with passing focused Core and
-  Operator projection tests whose output round-trips through `parseTrajectoryDetail` unchanged.
+- [x] Emit `work_progress_shape` before the first branch and persist `turn_budget` and
+  `context_receipts` in the semantic turn's trajectory detail: focused contract, Core, and Operator
+  tests (`54 passed`) cover pin order, persistence, and the Console envelope, and the Operator
+  golden in `services/operator-service/tests/fixtures/` round-trips through `parseTrajectoryDetail`.
 - [ ] Render the adaptive investigation roles from `investigation-timeline.tsx` with
-  `ui/calm-slate-deck-conversation.css`, and record passing Console Deck tests for wave gating,
-  stop, and settled-only budget telemetry.
+  `ui/calm-slate-deck-conversation.css`, pin live density from the `work_progress` frame, and record
+  passing Console Deck tests for wave gating, stop, and settled-only budget telemetry.
+- [ ] Decide whether semantic preflight joins the enforcing turn budget. Either charge it and
+  record focused Core tests proving `turn_budget` counts every model call of the turn, or keep the
+  documented adaptive-budget scope and record that decision here.
 - [x] Complete at least 20 independent visualization critiques and repeat focused hardening until
   no confirmed Medium-or-higher residual remains; 48 checks, 137 focused Python cases, 693 Console
   deck cases, and four desktop/mobile browser cases provide the current evidence.
@@ -534,7 +539,30 @@ action draft never selects it.
   approval surface.
 
 The Console accepts these optional fields in the persisted trajectory detail and drops a malformed
-field without discarding valid evidence. Server emission is not implemented yet.
+field without discarding valid evidence. The server emits them within these bounds:
+
+- **Pin.** Core derives the shape from the one verified read plan right before it runs. Planned
+  reads are the plan's nodes, and waves are its longest dependency depth. A plan beyond 64 reads or
+  8 waves isn't pinned. Core publishes the pin once on the best-effort progress topic as
+  `semantic-work-progress` `1.0.0`, ahead of the plan's first node progress. It persists the same
+  pin in the terminal payload, including a deadline or cancellation hold. Reads that an adaptive
+  answer makes for an environment example are never pinned.
+- **Frame order.** Operator sends at most one `work_progress` SSE frame per stream, before the first
+  query `activity`. A live pin uses event id `0:planning`. A replay uses
+  `<projection sequence>:planning` and skips the frame when the cursor already covers it. A
+  persisted pin that no longer matches the stored intent graph is dropped.
+- **Budget scope.** `turn_budget` reports the enforcing adaptive turn budget where one governed the
+  turn: the governed path after adaptive planning, including its budget hold. Semantic preflight
+  runs before that budget and appears only in the model trace. A directly verified turn has no call
+  or token maximum, so it reports no budget. Charged but unmeasured tokens stay `reserved` and make
+  the measurement incomplete. Tokens and elapsed time that both end over their maxima have no
+  version 1 representation, so the budget is omitted.
+- **Context receipts.** The per-conversation model tier that the request carries is the only
+  operator preference Core applies to a semantic turn, so it is the only receipt. The account
+  narrator preference in Settings isn't carried into semantic turns and produces no receipt.
+- **Envelope.** Operator keeps at most eight leading activities within 60 KiB and counts the rest in
+  `omitted.activities`. A pinned turn without read receipts keeps an empty base detail so its fields
+  replay. A budget or receipt alone never creates a trajectory.
 
 ## Metrics
 

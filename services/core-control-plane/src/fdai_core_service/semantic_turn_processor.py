@@ -12,6 +12,7 @@ from datetime import UTC, datetime
 from typing import Any, Protocol, cast
 from uuid import UUID, uuid5
 
+from fdai.core.conversation.adaptive_service import AdaptiveBudgetTelemetry
 from fdai.core.conversation.intent_graph import resolve_execution_authority
 from fdai.core.conversation.semantic_investigation import InvestigationEntityRole
 from fdai.core.conversation.semantic_planning_cascade import (
@@ -29,6 +30,10 @@ from fdai.core.conversation.semantic_runtime import (
 )
 from fdai.core.conversation.semantic_runtime import optional_document_evidence_degraded
 from fdai.core.conversation.session import Principal, Turn
+from fdai.core.conversation.work_progress import (
+    WorkProgressRecorder,
+    record_semantic_work_progress,
+)
 from fdai.core.ontology_platform import (
     CausalEvidenceJoin,
     MetricWindow,
@@ -77,6 +82,7 @@ from fdai_service_contracts.ontology_query import (
     TaskStatus,
     content_digest,
 )
+from fdai_service_contracts.semantic_work_progress import WorkProgressShape
 from fdai_service_contracts.test_context import TestContextDraft
 
 from fdai_core_service.dialogue_relationship import runtime_relationship
@@ -141,6 +147,7 @@ from .semantic_turn_request import (
 from .semantic_turn_request import (
     prior_turns as _prior_turns,
 )
+from .semantic_work_progress_projection import applied_context_receipts, work_progress_payload
 
 _LOGGER = logging.getLogger(__name__)
 _PROCESSING_STARTED_AT_FIELD = "_fdai_processing_started_at"
@@ -192,6 +199,9 @@ class _SemanticProjectionExtensions:
     investigation_continuation: SemanticInvestigationContinuation | None = None
     operational_evidence: OperationalEvidenceProjection | None = None
     incident_creation_intent: IncidentCreationIntent | None = None
+    work_progress_shape: WorkProgressShape | None = None
+    turn_budget: AdaptiveBudgetTelemetry | None = None
+    context_receipts: tuple[dict[str, object], ...] = ()
 
 
 class _ObservedModelCall(Protocol):
@@ -374,18 +384,20 @@ class SemanticTurnProcessor:
                 reason_code="semantic_deadline_exceeded",
             )
 
-        operation_task = asyncio.create_task(
-            self._process_idempotent(
-                envelope=timed_envelope,
-                request=request,
-                requested_at=requested_at,
-                principal=principal,
-                idempotency_key=idempotency_key,
-                request_digest=request_digest,
-                cancelled=cancelled,
-                assurance_case_id=assurance_case_id,
+        with record_semantic_work_progress() as recorder:
+            operation_task = asyncio.create_task(
+                self._process_idempotent(
+                    envelope=timed_envelope,
+                    request=request,
+                    requested_at=requested_at,
+                    principal=principal,
+                    idempotency_key=idempotency_key,
+                    request_digest=request_digest,
+                    cancelled=cancelled,
+                    assurance_case_id=assurance_case_id,
+                    recorder=recorder,
+                )
             )
-        )
         cancellation_task = asyncio.create_task(cancelled.wait()) if cancelled is not None else None
         waiters: set[asyncio.Task[object]] = {operation_task}
         if cancellation_task is not None:
@@ -405,6 +417,7 @@ class SemanticTurnProcessor:
                     request_digest=request_digest,
                     reason_code="semantic_request_cancelled",
                     disposition="cancelled",
+                    extensions=_with_work_progress(None, recorder),
                 )
             if operation_task not in done:
                 operation_task.cancel()
@@ -414,6 +427,7 @@ class SemanticTurnProcessor:
                     request,
                     request_digest=request_digest,
                     reason_code="semantic_deadline_exceeded",
+                    extensions=_with_work_progress(None, recorder),
                 )
             for task in pending:
                 task.cancel()
@@ -440,6 +454,7 @@ class SemanticTurnProcessor:
         request_digest: str,
         cancelled: asyncio.Event | None,
         assurance_case_id: str | None,
+        recorder: WorkProgressRecorder,
     ) -> bytes:
         try:
             prior = await self._results.get(idempotency_key)
@@ -501,6 +516,7 @@ class SemanticTurnProcessor:
                         requested_at=requested_at,
                         principal=principal,
                         cancelled=cancelled,
+                        recorder=recorder,
                     )
                     failure_stage = "projection"
                     try:
@@ -523,7 +539,7 @@ class SemanticTurnProcessor:
                                     "operational_evidence_over_budget",
                                 ),
                             ),
-                            extensions=None,
+                            extensions=_with_work_progress(None, recorder),
                             request_digest=request_digest,
                         )
                 else:
@@ -658,6 +674,7 @@ class SemanticTurnProcessor:
         requested_at: datetime,
         principal: Principal,
         cancelled: asyncio.Event | None,
+        recorder: WorkProgressRecorder,
     ) -> tuple[ContractSemanticTurnResult, _SemanticProjectionExtensions | None]:
         if request.cancelled or (cancelled is not None and cancelled.is_set()):
             return _terminal_result(request, "cancelled", "semantic_request_cancelled"), None
@@ -716,7 +733,10 @@ class SemanticTurnProcessor:
                 runtime_cancelled.set()
                 runtime_task.cancel()
                 await asyncio.gather(runtime_task, return_exceptions=True)
-                return _terminal_result(request, "cancelled", "semantic_request_cancelled"), None
+                return (
+                    _terminal_result(request, "cancelled", "semantic_request_cancelled"),
+                    _with_work_progress(None, recorder),
+                )
             if runtime_task not in done:
                 runtime_cancelled.set()
                 runtime_task.cancel()
@@ -726,7 +746,7 @@ class SemanticTurnProcessor:
                         request,
                         _terminal_result(request, "held", "semantic_deadline_exceeded"),
                     ),
-                    None,
+                    _with_work_progress(None, recorder),
                 )
             for task in pending:
                 task.cancel()
@@ -740,7 +760,12 @@ class SemanticTurnProcessor:
                 result=result,
                 extensions=extensions,
             )
-            return self._with_answer_continuity(request, result), extensions
+            return self._with_answer_continuity(request, result), _with_work_progress(
+                extensions,
+                recorder,
+                turn_budget=runtime_result.turn_budget,
+                context_receipts=applied_context_receipts(request, observed_at=requested_at),
+            )
         except asyncio.CancelledError:
             runtime_cancelled.set()
             runtime_task.cancel()
@@ -753,7 +778,7 @@ class SemanticTurnProcessor:
                     request,
                     _terminal_result(request, "held", "semantic_runtime_failed"),
                 ),
-                None,
+                _with_work_progress(None, recorder),
             )
         finally:
             if cancellation_task is not None and not cancellation_task.done():
@@ -955,6 +980,14 @@ class SemanticTurnProcessor:
                     idempotency_key=str(envelope["idempotency_key"]),
                     prepared_at=recorded_at,
                 ).model_dump(mode="json")
+            payload.update(
+                work_progress_payload(
+                    shape=extensions.work_progress_shape,
+                    turn_budget=extensions.turn_budget,
+                    context_receipts=extensions.context_receipts,
+                    as_of=recorded_at,
+                )
+            )
         projection = {
             "schema_version": (
                 "1.7.0"
@@ -1068,6 +1101,7 @@ class SemanticTurnProcessor:
         request_digest: str,
         reason_code: str,
         disposition: str = "held",
+        extensions: _SemanticProjectionExtensions | None = None,
     ) -> bytes:
         return self._projection(
             envelope,
@@ -1076,7 +1110,7 @@ class SemanticTurnProcessor:
                 request,
                 _terminal_result(request, disposition, reason_code),
             ),
-            extensions=None,
+            extensions=extensions,
             request_digest=request_digest,
         )
 
@@ -1829,6 +1863,25 @@ def _reported_conversation_model(
         if observation.trace_call.get("kind") in author_kinds
     ]
     return (authored[-1] if authored else observations[-1]).model
+
+
+def _with_work_progress(
+    extensions: _SemanticProjectionExtensions | None,
+    recorder: WorkProgressRecorder,
+    *,
+    turn_budget: AdaptiveBudgetTelemetry | None = None,
+    context_receipts: tuple[dict[str, object], ...] = (),
+) -> _SemanticProjectionExtensions | None:
+    """Attach presentation-only work progress without changing evidence or authority."""
+
+    if recorder.shape is None and turn_budget is None and not context_receipts:
+        return extensions
+    return replace(
+        extensions or _SemanticProjectionExtensions(),
+        work_progress_shape=recorder.shape,
+        turn_budget=turn_budget,
+        context_receipts=context_receipts,
+    )
 
 
 def _merge_projection_extensions(

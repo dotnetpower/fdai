@@ -307,6 +307,8 @@ Cloud update comparison validates raw and processing identities; Core rechecks p
   tables only, deduplicates duplicate and older reordered records by deterministic projection
   identity, and never reads Core `background_task_*` tables directly.
   Verified semantic query-node transitions use a separate bounded best-effort topic from Core to Operator.
+  The same topic carries one plan-time `semantic-work-progress` pin ahead of the pinned plan's first
+  node transition. The pin selects presentation density only.
   Durable terminals and evidence receipts remain authoritative; consumers retain content-free degraded
   health, resettable backoff, atomic Live cursor order, and retryable outbox closure. Transport or optional
   observation failures cannot grant authority or promote partial answers, attachments, or Incident actions.

@@ -63,6 +63,7 @@
           "services/core-control-plane/tests/test_semantic_subscription_scope_answer.py",
           "services/core-control-plane/tests/test_semantic_target_suggestions.py",
           "services/core-control-plane/tests/test_semantic_turn_processor.py",
+          "services/core-control-plane/tests/test_semantic_work_progress.py",
           "services/core-control-plane/tests/verticals"
         ],
         "smoke": []
@@ -231,7 +232,8 @@
           "services/operator-service/tests/test_rule_fire_trace_projection.py",
           "services/operator-service/tests/test_semantic_kafka_adapter.py",
           "services/operator-service/tests/test_semantic_query_progress_relay.py",
-          "services/operator-service/tests/test_semantic_turn_bridge.py"
+          "services/operator-service/tests/test_semantic_turn_bridge.py",
+          "services/operator-service/tests/test_semantic_work_progress.py"
         ],
         "smoke": []
       }
