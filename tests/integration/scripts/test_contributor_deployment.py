@@ -15,13 +15,16 @@ import pytest
 
 _ROOT = Path(__file__).resolve().parents[3]
 _AZD_UP = _ROOT / "scripts/deployment/azure/azd-up.sh"
+_FDAI_UP = _ROOT / "scripts/deployment/azure/fdai-up.sh"
 _GENESIS_UP = _ROOT / "scripts/deployment/azure/genesis-up.sh"
 _CONTRIBUTOR_PLAN = _ROOT / "scripts/deployment/azure/contributor-plan.sh"
 _CONTRIBUTOR_TERRAFORM = _ROOT / "scripts/deployment/azure/contributor-terraform.sh"
 _REPO_CONFIG = _ROOT / "scripts/deployment/azure/set-gh-actions-config.sh"
 _PRIVATE_ONBOARD = _ROOT / "infra/bootstrap/onboard.sh"
 _BASH = shutil.which("bash")
+_GIT = shutil.which("git")
 assert _BASH is not None
+assert _GIT is not None
 
 
 def _write_executable(path: Path, body: str) -> None:
@@ -780,3 +783,120 @@ def test_database_bootstrap_materializes_catalogs_only_when_requested() -> None:
     assert source.index('for service in "${migration_services[@]}"') < source.index(
         "materialize-authoritative-catalogs.py"
     )
+
+
+def _contributor_checkout(root: Path, *, recorder: Path) -> Path:
+    """Create one throwaway checkout whose kit build records its own working directory."""
+
+    (root / "scripts/deployment/azure").mkdir(parents=True)
+    (root / "scripts/deployment/release").mkdir(parents=True)
+    (root / "packages/deployment-cli").mkdir(parents=True)
+    (root / ".venv/bin").mkdir(parents=True)
+    _write_executable(root / ".venv/bin/python", "#!/usr/bin/env bash\nexit 0\n")
+    entry = root / "scripts/deployment/azure/fdai-up.sh"
+    entry.write_text(_FDAI_UP.read_text(encoding="utf-8"), encoding="utf-8")
+    entry.chmod(0o755)
+    _write_executable(
+        root / "scripts/deployment/release/build-standalone-deployment-kit.sh",
+        f"""#!/usr/bin/env bash
+set -euo pipefail
+out=""
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --out) out="$2"; shift 2 ;;
+    *) shift ;;
+  esac
+done
+printf 'build-root=%s\\n' "$(git rev-parse --show-toplevel)" >> "{recorder}"
+install -d -m 0700 "$out"
+: > "$out/fdai-deployment-kit-0.0.0-linux-x86_64.tar.gz"
+""",
+    )
+    subprocess.run(  # noqa: S603 - throwaway local repository
+        [_GIT, "init", "--quiet", str(root)], check=True, capture_output=True
+    )
+    subprocess.run(  # noqa: S603 - throwaway local repository
+        [_GIT, "-C", str(root), "add", "-A"], check=True, capture_output=True
+    )
+    subprocess.run(  # noqa: S603 - throwaway local repository
+        [
+            _GIT,
+            "-C",
+            str(root),
+            "-c",
+            "user.email=test@example.invalid",
+            "-c",
+            "user.name=Test",
+            "commit",
+            "--quiet",
+            "-m",
+            "checkout",
+        ],
+        check=True,
+        capture_output=True,
+    )
+    return root
+
+
+def _run_contributor_up(
+    tmp_path: Path, *arguments: str
+) -> tuple[subprocess.CompletedProcess[str], Path, Path]:
+    recorder = tmp_path / "recorded"
+    recorder.touch()
+    invoker = _contributor_checkout(tmp_path / "invoker", recorder=recorder)
+    selected = _contributor_checkout(tmp_path / "selected", recorder=recorder)
+    fake_bin = tmp_path / "bin"
+    fake_bin.mkdir()
+    _write_executable(
+        fake_bin / "uv",
+        f"""#!/usr/bin/env bash
+printf 'uv=%s\\n' "$*" >> "{recorder}"
+exit 0
+""",
+    )
+    key = tmp_path / "signing-key.pem"
+    key.write_text("key\n", encoding="ascii")
+    key.chmod(0o600)
+    completed = subprocess.run(  # noqa: S603 - isolated checkouts and fake tools
+        [
+            _BASH,
+            str(invoker / "scripts/deployment/azure/fdai-up.sh"),
+            "--source",
+            str(selected),
+            "--signing-key",
+            str(key),
+            *arguments,
+        ],
+        env={
+            **os.environ,
+            "PATH": f"{fake_bin}:{os.environ['PATH']}",
+            "FDAI_CONTRIBUTOR_BUILD_DIR": str(tmp_path / "build"),
+        },
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    return completed, recorder, selected
+
+
+def test_contributor_build_uses_the_selected_checkout_not_the_invoking_repository(
+    tmp_path: Path,
+) -> None:
+    completed, recorder, selected = _run_contributor_up(tmp_path)
+
+    assert completed.returncode == 0, completed.stderr
+    recorded = recorder.read_text(encoding="ascii")
+    assert f"build-root={selected}" in recorded
+    assert f"--python {selected}/.venv/bin/python" in recorded
+    assert f"--project {selected}/packages/deployment-cli" in recorded
+
+
+def test_contributor_source_deployment_refuses_a_conflicting_kit_selection(
+    tmp_path: Path,
+) -> None:
+    other = tmp_path / "other.tar.gz"
+    completed, recorder, _ = _run_contributor_up(tmp_path, "--offline-kit", str(other))
+
+    assert completed.returncode == 64
+    assert "builds its own kit" in completed.stderr
+    assert "build-root=" not in recorder.read_text(encoding="ascii")
