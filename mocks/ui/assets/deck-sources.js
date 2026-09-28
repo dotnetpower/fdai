@@ -1185,9 +1185,10 @@
   // ---------- Scroll follow ----------
   // A live turn eases the view toward new content but never lifts the question being answered above
   // the top edge, so the text someone is reading holds still. When the turn settles, the view eases
-  // just far enough to show the verification row. Scrolling by hand stops the follow; returning to
-  // the bottom or choosing Jump to latest follows the newest content instead.
-  var follow = { frame: 0, mode: "pin", pin: null, reveal: null, userUntil: 0 };
+  // just far enough to show the verification row. Any scroll the follower did not make itself, such
+  // as a wheel, a key, focus moving into view, or find in page, stops the follow unless it lands on
+  // the bottom, which follows the newest content instead.
+  var follow = { frame: 0, mode: "pin", pin: null, reveal: null, expected: 0 };
 
   function contentTop(node) {
     return node.getBoundingClientRect().top - transcript.getBoundingClientRect().top + transcript.scrollTop;
@@ -1211,11 +1212,16 @@
     }
     if (state.reduced) {
       var target = followTarget();
-      if (target > transcript.scrollTop) transcript.scrollTop = target;
+      if (target > transcript.scrollTop) moveScroll(target);
       updateJump();
       return;
     }
     if (!follow.frame) follow.frame = window.requestAnimationFrame(followStep);
+  }
+
+  function moveScroll(value) {
+    transcript.scrollTop = value;
+    follow.expected = transcript.scrollTop;
   }
 
   function followStep() {
@@ -1224,10 +1230,24 @@
     var distance = followTarget() - transcript.scrollTop;
     if (distance > 0.5) {
       // Ease out with a speed cap, so a long reveal glides instead of leaping.
-      transcript.scrollTop += Math.min(28, Math.max(1, distance * 0.16));
+      moveScroll(transcript.scrollTop + Math.min(28, Math.max(1, distance * 0.16)));
       follow.frame = window.requestAnimationFrame(followStep);
     }
     updateJump();
+  }
+
+  // A scroll between the follower's last position and its target, such as a clamp after content
+  // shrinks, keeps the follow; anything else is the reader moving the view.
+  function noteScroll() {
+    var top = transcript.scrollTop;
+    if (Math.abs(top - follow.expected) <= 1) return;
+    var target = followTarget();
+    var onCourse = state.stuck && top >= Math.min(follow.expected, target) - 2 && top <= target + 2;
+    if (!onCourse) {
+      state.stuck = atBottom();
+      if (state.stuck) follow.mode = "bottom";
+    }
+    follow.expected = top;
   }
 
   function followTurn(pin) {
@@ -1268,9 +1288,13 @@
       stages
     ]);
     var placeholder = h("div", { class: "cs-deck-answer-skeleton", "aria-hidden": "true" }, [skeleton(), skeleton(), skeleton()]);
-    var sourceList = h("ul", { class: "cs-grounding-source-list" }, [0, 1, 2].map(function () {
+    // The window holds as many rows as this turn will read, up to three, so no slot waits in vain.
+    var emitted = steps.reduce(function (total, stage) { return total + (stage.emits || []).length; }, 0);
+    var slots = Math.max(1, Math.min(3, emitted));
+    var sourceList = h("ul", { class: "cs-grounding-source-list" }, Array.from({ length: slots }, function () {
       return h("li", { class: "cs-grounding-source is-placeholder", "aria-hidden": "true" }, [skeleton()]);
     }));
+    sourceList.style.setProperty("--cs-grounding-source-rows", String(slots));
     var sourceCount = h("span", { text: "0 read" });
     panel.appendChild(h("div", { class: "cs-grounding-sources" }, [
       h("div", { class: "cs-grounding-sources-head" }, [h("span", { text: "Reading sources" }), sourceCount]),
@@ -1582,6 +1606,7 @@
     cancelRun();
     if (follow.frame) window.cancelAnimationFrame(follow.frame);
     follow.frame = 0;
+    follow.expected = 0;
     followTurn(null);
     hideTip();
     clearSearch();
@@ -1618,7 +1643,7 @@
       await runAgentTurn(spec, ctx, article, turnId, 0);
       settleTurn(spec, ctx, options.announce);
       if (options.scrollTop) {
-        transcript.scrollTop = 0;
+        moveScroll(0);
         updateJump();
       }
     } catch (error) {
@@ -1828,7 +1853,6 @@
     var active = search.hits[search.active];
     if (scroll && active) {
       active.scrollIntoView({ block: "nearest", behavior: state.reduced ? "auto" : "smooth" });
-      state.stuck = atBottom();
       updateJump();
     }
   }
@@ -1911,7 +1935,6 @@
     hideTip();
     target.focus({ preventScroll: true });
     target.scrollIntoView({ block: "nearest", behavior: state.reduced ? "auto" : "smooth" });
-    state.stuck = atBottom();
     updateJump();
   }
 
@@ -2005,22 +2028,9 @@
     }
   });
 
-  var SCROLL_KEYS = { ArrowUp: 1, ArrowDown: 1, PageUp: 1, PageDown: 1, Home: 1, End: 1, " ": 1 };
-  ["wheel", "touchmove", "keydown", "pointerdown"].forEach(function (type) {
-    transcript.addEventListener(type, function (event) {
-      if (type === "keydown" && !SCROLL_KEYS[event.key]) return;
-      // A pointer press on the scroller itself, not its content, is a scrollbar drag.
-      if (type === "pointerdown" && event.target !== transcript) return;
-      follow.userUntil = performance.now() + 600;
-    }, { passive: true });
-  });
-
   transcript.addEventListener("scroll", function () {
     hideTip();
-    if (performance.now() < follow.userUntil) {
-      state.stuck = atBottom();
-      if (state.stuck) follow.mode = "bottom";
-    }
+    noteScroll();
     updateJump();
   }, { passive: true });
 

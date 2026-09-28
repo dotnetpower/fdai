@@ -129,6 +129,14 @@
   container-type: inline-size;
 }
 
+/* A thin, quiet scrollbar keeps the one conversation scroll from competing with the answer. The
+   follower owns the scroll position during a turn, so browser scroll anchoring stays off. */
+.cs-deck-conversation .cs-deck-transcript {
+  overflow-anchor: none;
+  scrollbar-color: color-mix(in srgb, var(--cs-text) 22%, transparent) transparent;
+  scrollbar-width: thin;
+}
+
 .cs-deck-conversation .cs-deck-composer-shell {
   container-name: deck-composer;
   container-type: inline-size;
@@ -495,6 +503,7 @@
 
 .cs-deck-conversation .cs-grounding-panel .cs-grounding-intent > div + div::before {
   content: "/";
+  content: "/" / "";
   margin-inline: 8px;
   color: var(--cs-deck-line-strong);
 }
@@ -572,13 +581,14 @@
   font: 600 var(--cs-type-label-size)/var(--cs-type-label-line-height) var(--cs-font);
 }
 
-/* A fixed three-row window keeps the transcript from resizing while sources arrive. */
+/* A fixed window, sized to the rows the turn will read (at most three), keeps the transcript from
+   resizing while sources arrive. */
 .cs-grounding-source-list {
   --cs-grounding-source-row: 30px;
   display: grid;
   grid-auto-rows: var(--cs-grounding-source-row);
   gap: 4px;
-  height: calc(var(--cs-grounding-source-row) * 3 + 8px);
+  height: calc(var(--cs-grounding-source-row) * var(--cs-grounding-source-rows, 3) + 4px * (var(--cs-grounding-source-rows, 3) - 1));
   margin: 0;
   padding: 0;
   overflow: hidden;
@@ -1728,10 +1738,12 @@ details[open] > summary .cs-run-chevron { transform: rotate(225deg) translate(-1
 }
 
 /* ----- Arrival motion: words fade in as they stream; settled parts rise in with a short stagger. */
-.cs-deck-stream-in { animation: cs-deck-stream-in .22s ease-out both; }
-.cs-deck-fade-in { animation: cs-deck-fade-in .2s ease-out both; }
-.cs-deck-pop { animation: cs-deck-pop .22s cubic-bezier(.2, .7, .2, 1.25) both; }
-.cs-deck-enter { animation: cs-deck-enter .26s cubic-bezier(.2, .7, .2, 1) both; }
+/* Backwards fill hides a staggered entry during its delay but never pins its final values, so a
+   later transition, such as the preparation panel fading out, still runs. */
+.cs-deck-stream-in { animation: cs-deck-stream-in .22s ease-out backwards; }
+.cs-deck-fade-in { animation: cs-deck-fade-in .2s ease-out backwards; }
+.cs-deck-pop { animation: cs-deck-pop .22s cubic-bezier(.2, .7, .2, 1.25) backwards; }
+.cs-deck-enter { animation: cs-deck-enter .26s cubic-bezier(.2, .7, .2, 1) backwards; }
 .cs-deck-enter[data-enter="1"] { animation-delay: 60ms; }
 .cs-deck-enter[data-enter="2"] { animation-delay: 110ms; }
 .cs-deck-enter[data-enter="3"] { animation-delay: 150ms; }

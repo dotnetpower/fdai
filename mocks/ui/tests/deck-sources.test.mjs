@@ -638,6 +638,79 @@ test("tooltips wait for hover intent and chosen follow-ups fold away", { timeout
   }
 });
 
+test("the follower yields to focus moves and keeps a keyboard-started turn pinned", { timeout: 90000 }, async () => {
+  const browser = await chromium.launch({ headless: true });
+  try {
+    const { context, page, frame, errors } = await openStudy(browser, {}, { viewport: { width: 993, height: 641 } });
+    await pressPreview(frame, 'button[data-speed="2"]');
+    await deckState(frame, "settled");
+    const inView = () => frame.evaluate(() => {
+      const box = document.activeElement.getBoundingClientRect();
+      const view = document.getElementById("ds-transcript").getBoundingClientRect();
+      return box.top >= view.top - 1 && box.bottom <= view.bottom + 1;
+    });
+    const questionOffset = () => frame.evaluate(() => {
+      const questions = document.querySelectorAll(".cs-deck-user-turn");
+      return questions[questions.length - 1].getBoundingClientRect().top - document.getElementById("ds-transcript").getBoundingClientRect().top;
+    });
+
+    // Space activates the follow-up; the new question still rises to the top edge.
+    await frame.locator(".cs-deck-followup").first().focus();
+    await page.keyboard.press(" ");
+    await deckState(frame, "preparing", 3000);
+    await frame.waitForTimeout(1200);
+    const offset = await questionOffset();
+    assert.ok(offset >= -1 && offset <= 40, `${Math.round(offset)}px question offset`);
+
+    // Tab brings the next follow-up into view; the follower must not pull it away again.
+    await page.keyboard.press("Tab");
+    await frame.waitForTimeout(900);
+    assert.equal(await frame.evaluate(() => document.activeElement.classList.contains("cs-deck-followup")), true);
+    assert.equal(await inView(), true);
+    assert.deepEqual(errors, []);
+    await context.close();
+  } finally {
+    await browser.close();
+  }
+});
+
+test("short turns size the source window and the preparation panel fades out", { timeout: 90000 }, async () => {
+  const browser = await chromium.launch({ headless: true });
+  try {
+    const { context, frame, errors } = await openStudy(browser, { state: "settled" });
+    await deckState(frame, "settled", 5000);
+    await frame.locator(".cs-deck-followup").first().evaluate((button) => button.click());
+    await frame.waitForFunction(() => document.querySelector(".cs-grounding-status")?.textContent === "Composing answer",
+      null, { timeout: 15000 });
+    const window = await frame.evaluate(() => {
+      const list = document.querySelector(".cs-grounding-source-list");
+      return {
+        rows: list.style.getPropertyValue("--cs-grounding-source-rows"),
+        items: list.children.length,
+        placeholders: list.querySelectorAll(".is-placeholder").length,
+        height: Math.round(list.getBoundingClientRect().height),
+      };
+    });
+    assert.deepEqual(window, { rows: "2", items: 2, placeholders: 0, height: 64 });
+    // Sample the fold every frame: it must pass through partial opacity instead of vanishing.
+    const fades = await frame.evaluate(() => new Promise((resolve) => {
+      const seen = [];
+      const tick = () => {
+        const fold = document.querySelector(".cs-deck-collapse.is-collapsed");
+        if (fold) seen.push(Number(getComputedStyle(fold).opacity));
+        if (seen.length >= 10 || (!fold && seen.length)) resolve(seen);
+        else requestAnimationFrame(tick);
+      };
+      requestAnimationFrame(tick);
+    }));
+    assert.ok(fades.some((value) => value > 0.05 && value < 0.95), fades.join(","));
+    assert.deepEqual(errors, []);
+    await context.close();
+  } finally {
+    await browser.close();
+  }
+});
+
 test("stopping mid-paragraph keeps only the revealed words", { timeout: 60000 }, async () => {
   const browser = await chromium.launch({ headless: true });
   try {

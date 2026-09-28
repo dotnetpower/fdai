@@ -165,7 +165,8 @@ Report and kit:
   audit ticker entirely client-side with no backend.
 - [assets/deck-sources.js](assets/deck-sources.js) - Command deck sources study only. Replays
   scripted synthetic turns whose rule, policy, and ActionType facts match `rule-catalog/`, streams
-  answer text once per animation frame, renders the settled answer immediately under reduced
+  whole words with a short pause after each sentence, eases the transcript without lifting the
+  question being answered above the top edge, renders the settled answer immediately under reduced
   motion, and supports `?scenario=`, `?state=settled`, `?width=dock`, and `?trace=on` preview
   parameters. The capture switch mirrors the Console "Capture model request and response trace"
   setting and applies to new turns only. Model calls, digests, and messages in the run record are
