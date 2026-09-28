@@ -130,6 +130,7 @@ def bind_azure_operational_evidence(
             snapshots=snapshots,
             safety=safety,
             admission_provider=container.decision_evidence_admission_provider,
+            evidence=container.operational_evidence_requester,
         ),
         temporal_causal_evidence_provider=AzureTemporalCausalEvidenceProvider(
             snapshots=snapshots,

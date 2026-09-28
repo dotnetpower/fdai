@@ -1,7 +1,7 @@
 ---
 translation_of: project-structure-dependency-injection.md
-translation_source_sha: 6fce4492cfb369c6a776cc9446bbb0d81899774e
-translation_revised: 2026-09-28
+translation_source_sha: 59e47759bf76d7ac7cefb3528c95a1b796e2f691
+translation_revised: 2026-09-29
 ---
 
 # 프로젝트 구조 의존성 주입
@@ -117,7 +117,7 @@ import를 모아도 작업 정체성, 문서 수집, 출처 소유권, 구성 �
 
 | 경계 | 인터페이스 (`shared/`) | 계약 | 기본 (상류) | 포크 오버라이드 예시 |
 |------|-----------------------|-----|-------------|---------------------|
-| 예측 및 테스트 맥락과 파생 사례 수명 주기 | `ForecastContextProvider`; `TestContextSource` (Core); `CaseHistoryDerivedDataStore` | 정확한 범위, 대상, 시각과 독립 검증 근거. 파생 정리가 끝나야 원본 삭제를 완료하며 실행 권한은 없음 | 정규화된 이력 수집, 의미 초안, 인증된 맥락 명령, Saga가 감사한 적용 결과, Thor 실행 직전 검사, 승인된 Pattern 조회, 실제 라이브러리 DSN을 쓰는 원본 삭제 보호형 T1 벡터 정리를 연결함. 독립 증적 발급, Operator 작업 화면, 다른 후속 사본 정리는 미완료임 | 거버넌스를 따르는 출처 및 검증 증적 공급자와 삭제를 보호하는 사례 저장 어댑터 |
+| 예측 및 테스트 맥락과 파생 사례 수명 주기 | `ForecastContextProvider`; `TestContextSource` (Core); `CaseHistoryDerivedDataStore` | 정확한 범위, 대상, 시각과 독립 검증 근거. 파생 정리가 끝나야 원본 삭제를 완료하며 실행 권한은 없음 | 정규화된 이력 수집, 의미 초안, 인증된 맥락 명령, Saga가 감사한 적용 결과, Thor 실행 직전 검사, 승인된 Pattern 조회, 실제 라이브러리 DSN을 쓰는 원본 삭제 보호형 T1 벡터 정리를 연결하고, 연결된 운영 근거 요청기를 Thor 디스패치 검사, Heimdall 예측 공급자, Pattern 조회, Azure 현재 재사용 검증기에 전달해 각각 명시적 거부 유형을 기록하게 함. 테스트 맥락 밖의 검증기 재확인, Operator 작업 화면, 다른 후속 사본 정리는 미완료임 | 거버넌스를 따르는 출처 및 검증 증적 공급자와 삭제를 보호하는 사례 저장 어댑터 |
 | 제한된 워커 계획 | `core/task_worker/`의 `TaskWorkerPlanningProvider`와 추가형 준비 호출 및 복구 가능 저장소 계약 | 한 번의 호출 전에 토큰/비용 예약을 영속화하고 측정된 사용량이나 미확인 사용량, 원자적 종료 이벤트를 보존합니다. 에이전트 또는 실행 권한은 없습니다. | 명시적으로 활성화한 Core의 `runtime/task_workers.py`가 Azure 계획, 단일 소유자 PostgreSQL 복구, 정확한 대상의 저장된 인벤토리 읽기를 연결합니다. [범위와 선행 조건](../agents/bounded-task-workers-ko.md#운영-구성) | 범위, 예산, 실패 시 사용량 기록을 유지하는 읽기 전용 준비 호출 프로바이더와 복구 가능 저장소 주입 |
 | Event 버스 | `EventBus` (Kafka 프로듀서/컨슈머) | **CSP-중립성 계약** - [이벤트버스](csp-neutrality-ko.md#1-이벤트버스-계약--kafka-와이어-프로토콜) | SASL/OAUTHBEARER (Entra 토큰 소스) 를 사용하는 librdkafka 기반 클라이언트 | AWS IAM SigV4 인증, GCP IAM 인증, Confluent SASL/PLAIN, 자체 호스팅 Kafka mTLS |
 | 런타임 | `RuntimeAdapter` (OCI + Knative 호환 매니페스트 렌더링) | **CSP-중립성 계약** - [런타임](csp-neutrality-ko.md#2-런타임-계약--oci-이미지--knative-호환-매니페스트) | Container Apps IaC 렌더러 (Bicep/Terraform) | Cloud 실행 YAML, App 실행기 서비스, 어떤 K8s 위의 Knative 서비스 |

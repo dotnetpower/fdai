@@ -72,6 +72,7 @@ _PACKAGE_SCHEMAS: dict[tuple[str, str], str] = {
     ("event", "1.0.0"): "event/schema.json",
     ("forecast-outcome", "1.0.0"): "forecast-outcome/schema.json",
     ("forecast-outcome", "1.1.0"): "forecast-outcome/schema-1.1.0.json",
+    ("forecast-outcome", "1.2.0"): "forecast-outcome/schema-1.2.0.json",
     ("response-outcome", "1.0.0"): "response-outcome/schema.json",
     ("action", "1.0.0"): "action/schema.json",
     ("rule", "1.0.0"): "rule/schema.json",

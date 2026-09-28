@@ -5,12 +5,14 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import json
+import logging
 from collections.abc import Callable
 from dataclasses import asdict, replace
 from datetime import UTC, datetime
 from typing import Any
 
 from fdai.core.operational_evidence.owner_outcome import (
+    OperationalEvidenceAttempt,
     OperationalEvidenceRequester,
     request_operational_evidence,
 )
@@ -22,6 +24,9 @@ from fdai.shared.providers.decision_evidence_verifier import (
 from fdai.shared.providers.state_store import StateStore
 
 from .test_context import TestContextClaim
+
+_LOGGER = logging.getLogger(__name__)
+REFUSED_TRANSITION_ACTION = "test_context.transition_refused"
 
 
 class GovernedTestContextStore:
@@ -62,6 +67,47 @@ class GovernedTestContextStore:
         async with asyncio.timeout(5):
             await self._record(
                 claim, expected_revision=expected_revision, now=now, command_key=command_key
+            )
+
+    async def record_refused_transition(
+        self,
+        attempt: OperationalEvidenceAttempt,
+        *,
+        access_scope_digest: str,
+        correlation_id: str,
+        now: datetime,
+    ) -> None:
+        """Append Mimir's refused-transition audit citing the rejection; state never changes.
+
+        Only an attempt that proved an explicit class is recorded; ``unavailable`` keeps the
+        generic refusal. The entry names no ``context_digest``, so the verifier's transition
+        readback never mistakes a refusal for a revision, and an audit outage never turns the
+        caller's refusal into a success.
+        """
+        rejection = attempt.rejection
+        if rejection is None:
+            return
+        entry = {
+            "action_kind": REFUSED_TRANSITION_ACTION,
+            "owner_agent": "Mimir",
+            "correlation_id": correlation_id,
+            "idempotency_key": "test-context-refusal:" + rejection.record_digest,
+            "purpose_id": rejection.purpose_id,
+            "rejection_class": rejection.rejection_class.value,
+            "rejection_ref": rejection.record_digest,
+            "lookup_digest": rejection.lookup_digest,
+            "scope_digest": access_scope_digest,
+            "timestamp": now.isoformat(),
+            "execution_authority": False,
+            "promotion_authority": False,
+        }
+        try:
+            async with asyncio.timeout(5):
+                await self._store.append_audit_entry(entry)
+        except Exception as exc:  # noqa: BLE001 - the caller still raises the refusal
+            _LOGGER.warning(
+                "test_context_refusal_audit_unavailable",
+                extra={"error_type": type(exc).__name__, "purpose_id": rejection.purpose_id},
             )
 
     async def _record(

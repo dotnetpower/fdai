@@ -10,6 +10,10 @@ from typing import TYPE_CHECKING, Protocol
 
 from fdai_service_contracts.ontology_query import content_digest
 
+from fdai.core.operational_evidence.owner_outcome import (
+    UNAVAILABLE_ATTEMPT,
+    OperationalEvidenceAttempt,
+)
 from fdai.shared.contracts.models import Event
 from fdai.shared.providers.decision_evidence_verifier import (
     DecisionEvidenceAdmission,
@@ -137,6 +141,8 @@ class CurrentReuseVerification:
     idempotency_available: bool
     rollback_resolved: bool
     decision_evidence: DecisionEvidenceAdmission | None = None
+    evidence_attempt: OperationalEvidenceAttempt = UNAVAILABLE_ATTEMPT
+    """The issuance attempt behind ``decision_evidence``; it only names a hold's class."""
 
     def __post_init__(self) -> None:
         if self.observed_at.tzinfo is None:
@@ -193,7 +199,11 @@ def contextual_reuse_reasons(
     verification: CurrentReuseVerification,
     evaluated_at: datetime,
 ) -> tuple[str, ...]:
-    """Return every deterministic reason that blocks contextual reuse."""
+    """Return every deterministic reason that blocks contextual reuse.
+
+    A missing admission names the verifier's recorded class and cites its rejection record
+    when the attempt proved one; an unavailable attempt keeps the generic reason.
+    """
     reasons: list[str] = []
     if evaluated_at.utcoffset() is None:
         return ("current_evaluation_time_invalid",)
@@ -230,7 +240,9 @@ def contextual_reuse_reasons(
     )
     reasons.extend(reason for passed, reason in checks if not passed)
     if verification.decision_evidence is None:
-        reasons.append("decision_evidence_admission_missing")
+        reasons.extend(
+            verification.evidence_attempt.hold_reasons("decision_evidence_admission_missing")
+        )
     else:
         if evaluated_at >= verification.decision_evidence.valid_until:
             reasons.append("current_evidence_expired")

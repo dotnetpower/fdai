@@ -1,8 +1,9 @@
-"""Verifier-role readers over the least-privilege test-context source views.
+"""Verifier-role readers over the fixed-parameter test-context source functions.
 
-Each read runs under the verifier's own database role, which holds SELECT on the views alone and
-no write privilege on any source table. Rows come from ``state_kv`` and ``audit_log`` only as the
-views expose them, so the verifier never sees another row family.
+Each read runs under the verifier's own database role, which holds EXECUTE on four SECURITY
+DEFINER functions and no SELECT on any source view or table. A function filters inside the
+definer's context before it returns rows, so the verifier sees only the exact rows its lookup
+names and can neither attach its own predicate nor read planner estimates for other keys.
 """
 
 from __future__ import annotations
@@ -11,9 +12,14 @@ import hashlib
 from collections.abc import Mapping
 from typing import Any
 
+import psycopg
+from fdai_service_contracts.operational_evidence import OperationalEvidenceSourceHealth
+
 from fdai.core.operational_context.test_context_lifecycle import context_history_key
 from fdai.core.operational_evidence.readback.test_context_sources import (
     MAX_TARGET_COMMANDS,
+    OPERATOR_OUTBOX_SOURCE,
+    TEST_CONTEXT_STORE_SOURCE,
     AuditRow,
     OperatorCommandRow,
 )
@@ -23,11 +29,21 @@ from fdai.delivery.persistence.postgres_operational_evidence import (
     role_bound_connection,
 )
 
-_MAX_AUDIT_ROWS = 256
+MAX_AUDIT_DIGESTS = 256
+TARGET_ROW_BOUND = MAX_TARGET_COMMANDS + 1
+"""The commands-for-target function returns at most this many rows, one past the bound."""
+AUDIT_ROW_BOUND = MAX_AUDIT_DIGESTS + 1
+"""The transition-audit function returns at most this many rows, one past the bound."""
+_PROBE_KEY = "fdai-readiness-probe"
+_PROBE_HISTORY_KEY = "test-context-target:v1:" + "0" * 64
+_PROBE_DIGEST = "sha256:" + "0" * 64
+_HEALTH_FAILURES = (OSError, PermissionError, RuntimeError, ValueError, psycopg.Error)
 
 
 class PostgresTestContextEvidenceSources:
-    """Read Operator commands, Mimir history, and atomic audit rows through verifier views."""
+    """Read Operator commands, Mimir history, and atomic audit rows through definer functions."""
+
+    source_ids = (OPERATOR_OUTBOX_SOURCE, TEST_CONTEXT_STORE_SOURCE)
 
     def __init__(self, config: PostgresOperationalEvidenceConfig) -> None:
         if config.expected_role != VERIFIER_ROLE:
@@ -43,8 +59,7 @@ class PostgresTestContextEvidenceSources:
             rows = await (
                 await connection.execute(
                     "SELECT key, record, dispatch_status, authentication_receipt "
-                    "FROM public.operational_evidence_test_context_command "
-                    "WHERE record ->> 'idempotency_key' = %s ORDER BY key LIMIT 2",
+                    "FROM public.fdai_operational_evidence_commands_for_key(%s)",
                     (idempotency_key,),
                 )
             ).fetchall()
@@ -59,12 +74,11 @@ class PostgresTestContextEvidenceSources:
             rows = await (
                 await connection.execute(
                     "SELECT key, record, dispatch_status, authentication_receipt "
-                    "FROM public.operational_evidence_test_context_command "
-                    "WHERE access_scope_digest = %s AND target_ref = %s ORDER BY key LIMIT %s",
-                    (access_scope_digest, target_ref, MAX_TARGET_COMMANDS + 1),
+                    "FROM public.fdai_operational_evidence_commands_for_target(%s, %s)",
+                    (access_scope_digest, target_ref),
                 )
             ).fetchall()
-        return tuple(_command(row) for row in rows)
+        return tuple(_command(row) for row in rows[:TARGET_ROW_BOUND])
 
     async def history(
         self, *, access_scope_digest: str, target_ref: str
@@ -74,8 +88,7 @@ class PostgresTestContextEvidenceSources:
         async with role_bound_connection(self._config) as connection:
             row = await (
                 await connection.execute(
-                    "SELECT value FROM public.operational_evidence_test_context_history "
-                    "WHERE key = %s",
+                    "SELECT public.fdai_operational_evidence_context_history(%s) AS value",
                     (context_history_key(access_scope_digest, target_ref),),
                 )
             ).fetchone()
@@ -84,15 +97,14 @@ class PostgresTestContextEvidenceSources:
     async def transition_entries(self, *, context_digests: tuple[str, ...]) -> tuple[AuditRow, ...]:
         """Return the hash-chained audit rows that name any of the given revisions."""
 
-        if not context_digests or len(context_digests) > _MAX_AUDIT_ROWS:
+        if not context_digests or len(context_digests) > MAX_AUDIT_DIGESTS:
             return ()
         async with role_bound_connection(self._config) as connection:
             rows = await (
                 await connection.execute(
                     "SELECT seq, entry, previous_hash, entry_hash "
-                    "FROM public.operational_evidence_test_context_audit "
-                    "WHERE entry ->> 'context_digest' = ANY(%s) ORDER BY seq LIMIT %s",
-                    (list(context_digests), _MAX_AUDIT_ROWS + 1),
+                    "FROM public.fdai_operational_evidence_transition_audit(%s)",
+                    (list(context_digests),),
                 )
             ).fetchall()
         return tuple(
@@ -102,8 +114,39 @@ class PostgresTestContextEvidenceSources:
                 previous_hash=str(row["previous_hash"]),
                 entry_hash=str(row["entry_hash"]),
             )
-            for row in rows
+            for row in rows[:AUDIT_ROW_BOUND]
         )
+
+    async def source_health(self) -> dict[str, OperationalEvidenceSourceHealth]:
+        """Run one bounded probe read per declared source under the verifier role.
+
+        A probe proves only that the function executes for the verifier; it never reads a row
+        the verifier could not already read, and any failure reports that source unavailable.
+        """
+
+        probes = {
+            OPERATOR_OUTBOX_SOURCE: (
+                "SELECT count(*) AS rows "
+                "FROM public.fdai_operational_evidence_commands_for_key(%s)",
+                (_PROBE_KEY,),
+            ),
+            TEST_CONTEXT_STORE_SOURCE: (
+                "SELECT public.fdai_operational_evidence_context_history(%s) IS NULL AS absent, "
+                "(SELECT count(*) FROM public.fdai_operational_evidence_transition_audit(%s)) "
+                "AS rows",
+                (_PROBE_HISTORY_KEY, [_PROBE_DIGEST]),
+            ),
+        }
+        health: dict[str, OperationalEvidenceSourceHealth] = {}
+        for source_id, (statement, parameters) in probes.items():
+            try:
+                async with role_bound_connection(self._config) as connection:
+                    await (await connection.execute(statement, parameters)).fetchone()
+            except _HEALTH_FAILURES:
+                health[source_id] = OperationalEvidenceSourceHealth.UNAVAILABLE
+            else:
+                health[source_id] = OperationalEvidenceSourceHealth.HEALTHY
+        return health
 
 
 def operator_command_key(idempotency_key: str) -> str:
@@ -122,4 +165,10 @@ def _command(row: Mapping[str, Any]) -> OperatorCommandRow:
     )
 
 
-__all__ = ["PostgresTestContextEvidenceSources", "operator_command_key"]
+__all__ = [
+    "AUDIT_ROW_BOUND",
+    "MAX_AUDIT_DIGESTS",
+    "TARGET_ROW_BOUND",
+    "PostgresTestContextEvidenceSources",
+    "operator_command_key",
+]

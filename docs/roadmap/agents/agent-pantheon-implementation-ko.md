@@ -1,8 +1,8 @@
 ---
 title: 에이전트 판테온 구현 계획
 translation_of: agent-pantheon-implementation.md
-translation_source_sha: 0cb42ef71d310be8955db1429e867b51ff08c8c9
-translation_revised: 2026-09-28
+translation_source_sha: e1e1e99d60320585ef5fdccbeac8b6c83d352587
+translation_revised: 2026-09-29
 ---
 
 # 에이전트 판테온 구현 계획
@@ -45,6 +45,7 @@ translation_revised: 2026-09-28
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-29 | implemented | Thor, Heimdall, Mimir, Forseti가 역할, 소유 객체, 토픽을 유지한 채 독립 검증기가 기록한 명시적 거부 유형을 기록하고 해당 거부 기록을 인용합니다. Thor의 테스트 맥락 디스패치 보류는 `object.action-run`에 `ActionRun` 결과와 `evidence_rejection_ref`를 설정하고, Heimdall은 `object.forecast-outcome`의 `ForecastOutcome` `1.2.0`에서 점수 산정을 제외합니다. Mimir는 `test_context.transition_refused` 감사 항목을 추가하고 `object.policy`를 게시하지 않으며, Forseti의 보류 판정은 `evidence_rejection_ref`를 담습니다. `unavailable`만 각 일반 사유를 유지하고, 발급은 제한된 제공자 호출로 남으며, 실행 권한이나 승격 권한은 바뀌지 않습니다. | `current change`; `agents/_framework/{thor_execution,thor_action_run,thor_persistence,forseti_judgment}.py`; `tests/agents/test_operational_evidence_owner_records.py`; [독립 운영 근거 원장](../../roadmap-implementation/rules-and-detection/independent-operational-evidence.md) 참조 | 검증기 재확인이 연결되지 않은 목적은 여전히 `unavailable`로만 이 에이전트에 도달합니다. |
 | 2026-09-28 | implemented | 기본 프로필에서 학습된 패턴과 예측이 작업 제안이 되던 남은 경로를 기존 `governed-execution` 제품 추가 기능 기준으로 닫았습니다. 컨트롤 루프 빌더가 `RuntimeProductSelection.governed_execution`을 컨트롤 루프에 전달하고, Pantheon 조립은 컨트롤 루프의 값을 Forseti에 전달하므로 두 번째 선택 입력은 없습니다. 추가 기능이 없으면 Forseti는 예측과 용량 입력이 포함된 중재에 ActionType 없는 판정으로 응답하고 예측에서 결정 선택지나 kinetic 제안을 만들지 않으며, 컨트롤 루프는 학습된 T1 재사용을 Action을 만들기 전에 멈춥니다. 종결된 모든 자문 중재는 통제 경로와 마찬가지로 해당 상관관계를 미해결로 기록하고, 상관관계별 잠금 아래에서 판정 하나만 게시하며, Thor는 ActionRun 저장소에 종결된 비작업 점유를 기록해 상관관계를 영속적으로 유지합니다. 따라서 재시작이나 관문 축출 뒤에 같은 상관관계로 온 판정은 통제 경로가 재사용된 상관관계를 거부하듯 거부되며, ActionRun, 승인 또는 실행기 호출은 생기지 않습니다. 추가 기능을 선택하면 기존 관문이 실행되며, 의도적인 제한은 하나뿐입니다. 정확한 `mode: enforce`가 없는 예측에서 도출한 작업 판정은 `shadow_only`로 제한됩니다. 역할, 토픽 및 `PANTHEON_SPECS`는 바뀌지 않았습니다. | `current change`; `test_learned_output_profile_boundary.py`, `test_learned_output_arbitration_gate.py`, `test_learned_output_durable_gate.py`, `test_learned_reuse_profile_boundary.py`, `test_bootstrap_pantheon_product_selection.py`의 검사 50개, 관문별, 미해결 기록, 게시 재시도와 잠금, 영속 점유 및 두 조립 전달 지점의 변이 검사, 제품 프로필로 추가 기능을 선택하도록 갱신한 통제 경로의 중재, 결정 사례, 전문 에이전트 및 T1 연결 검사; 프레임워크 구조, Ruff 및 엄격한 mypy 통과. | T2, 이상 작업 후보, 경보 소음 학습 및 다른 학습 근거 소비자를 검토해야 합니다. 실제 운영 검증은 수행하지 않았습니다. |
 | 2026-09-27 | in-progress | 고정 역할 및 토픽 경계를 유지하면서 신뢰 원본으로 검증한 전권 개발 묶음을 실제 Forseti, Var, Thor 및 Vidar 타입 경로에 통합했습니다. 원래 정족수와 유효 정족수를 구분하고 선택한 프로필에만 정확한 권한 부여를 재생 신원에 포함합니다. | `current change`; 집중 권한, 버스, 재생 및 인접 검사 723개, 구조 검사, Ruff 및 엄격한 타입 검사 통과. | 권위 있는 배포 원본을 구현하고 결속한 뒤 관리되는 런타임 증적을 보존해야 합니다. 실제 운영 검증은 수행하지 않았습니다. |
 | 2026-09-22 | validated | 로컬 Core 시작 및 종료의 리소스 소유권을 수정했습니다. 이제 런타임 설정은 런타임이 소유하는 단일 StateStore pool을 재사용하고, Pantheon consumer 종료는 첫 drain 기한 뒤 범위가 제한된 마무리 시간을 부여하며, 로컬 broker를 파괴적으로 초기화할 때 모든 관리형 서비스 lock을 유지하므로 연결이 끊긴 실행 중 consumer를 유휴 상태로 오인할 수 없습니다. 에이전트 역할, topic, 모델 정책, 승격 상태 및 권한은 바뀌지 않았습니다. | `현재 변경`; 공유 store, 순서가 지정된 종료, 지연된 stream 닫기, consumer 재시도, broker reset fence, framework layout, Ruff 및 strict typing 집중 검사. 관리형 재시작은 12/12 준비 상태에 도달했고 각 서비스는 lock이 소유하는 프로세스 쌍 하나만 유지했으며 새 세대 marker 뒤에 수정 대상 오류가 나타나지 않았습니다. | 이 범위가 제한된 수명주기 수정에는 남은 작업이 없습니다. 배포된 런타임 검증과 승격 근거는 별개입니다. |

@@ -1,7 +1,7 @@
 ---
 translation_of: continuous-operational-instance-graph.md
-translation_source_sha: 43e3c3a52fbc91b8503e862e46597f09f6842c92
-translation_revised: 2026-09-27
+translation_source_sha: 130ab50667c1ddcca7cc1df7c038ad95d021881c
+translation_revised: 2026-09-29
 ---
 # 지속형 운영 인스턴스 그래프
 
@@ -22,9 +22,9 @@ translation_revised: 2026-09-27
 
 ## 설계 개요
 
-과거 Pattern 설명은 같은 의미 함수 레지스트리를 사용하지만 관측된 그래프 상태와 구분합니다.
-`query.operating_patterns`는 principal과 사례 접근 범위를 연결하는 독립 조회 검증 증적 및
-현재 출처 개정을 요구합니다. 요약은 리소스 관측이나 액션 권한을 만들지 않으며,
+과거 Pattern 설명은 같은 의미 함수 레지스트리를 사용하지만 관측된 그래프 상태와 구분합니다. `query.operating_patterns`는
+principal과 사례 접근 범위를 연결하는 독립 조회 검증 증적 및 현재 출처 개정을 요구하며, 검증기가 거부 유형을 기록했다면
+그 유형과 거부 digest를 밝히며 읽기를 거부합니다. 요약은 리소스 관측이나 액션 권한을 만들지 않으며,
 [사례 이력](../rules-and-detection/prediction-learning-and-case-history-ko.md)이 이 계약을 정의합니다.
 
 지속형 수집은 push 이벤트, 재개 가능한 공급자 delta, 적응형 reconciliation을 결합합니다.

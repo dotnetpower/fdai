@@ -36,6 +36,9 @@ from fdai.delivery.persistence.postgres_operational_evidence_grants import (
     read_proof_store_grants,
 )
 from fdai.delivery.persistence.postgres_operational_evidence_sources import (
+    AUDIT_ROW_BOUND,
+    MAX_AUDIT_DIGESTS,
+    TARGET_ROW_BOUND,
     PostgresTestContextEvidenceSources,
 )
 from fdai_service_contracts.ontology_query import content_digest
@@ -64,9 +67,9 @@ from tests.core.operational_evidence.support import (
 
 pytestmark = pytest.mark.integration
 ROOT = Path(__file__).resolve().parents[4]
-MIGRATION = ROOT / (
-    "service-migrations/branches/core-control-plane/versions/20260928_core_operational_evidence.py"
-)
+_VERSIONS = ROOT / "service-migrations/branches/core-control-plane/versions"
+MIGRATION = _VERSIONS / "20260928_core_operational_evidence.py"
+SOURCE_FUNCTIONS = _VERSIONS / "20260929_core_operational_evidence_source_functions.py"
 _BASE_SCHEMA = """
 CREATE TABLE state_kv (
     key TEXT PRIMARY KEY, value JSONB NOT NULL,
@@ -88,10 +91,7 @@ def database() -> Iterator[str]:
     source = source.replace("postgresql+psycopg://", "postgresql://", 1)
     if conninfo_to_dict(source).get("host") not in {"127.0.0.1", "localhost", "::1"}:
         pytest.fail("operational evidence database test requires a loopback-only fixture")
-    statements: list[str] = []
-    module = runpy.run_path(str(MIGRATION))
-    with patch("alembic.op.execute", side_effect=statements.append):
-        module["upgrade"]()
+    statements = _statements(MIGRATION, "upgrade") + _statements(SOURCE_FUNCTIONS, "upgrade")
     name = "fdai_operational_evidence_" + uuid4().hex[:12]
     with psycopg.connect(source, autocommit=True) as admin:
         admin.execute(
@@ -114,6 +114,15 @@ def database() -> Iterator[str]:
             yield dsn
         finally:
             admin.execute(sql.SQL("DROP DATABASE {} WITH (FORCE)").format(sql.Identifier(name)))
+
+
+def _statements(migration: Path, step: str) -> list[str]:
+    """Capture one migration step's SQL without an Alembic context."""
+    statements: list[str] = []
+    module = runpy.run_path(str(migration))
+    with patch("alembic.op.execute", side_effect=statements.append):
+        module[step]()
+    return statements
 
 
 def _as(dsn: str, role: str) -> str:
@@ -247,8 +256,8 @@ def test_operator_command_rows_are_operator_inserted_and_request_immutable(datab
     with psycopg.connect(_as(database, VERIFIER_ROLE)) as verifier:
         row = verifier.execute(
             "SELECT dispatch_status, authentication_receipt, record "
-            "FROM operational_evidence_test_context_command WHERE key = %s",
-            (key,),
+            "FROM fdai_operational_evidence_commands_for_key(%s)",
+            (value["idempotency_key"],),
         ).fetchone()
     assert row is not None and row[0] == "published"
     assert row[1]["token_retained"] is False
@@ -444,12 +453,12 @@ async def test_writer_keeps_the_stored_outcome_when_a_concurrent_attempt_won(
 
 
 def test_source_views_are_security_barriers_that_leak_no_other_rows(database: str) -> None:
-    visible = "test-context-target:v1:" + "a" * 64
+    key, value = _operator_row(OperatorOutbox(), accepted_at=NOW - timedelta(minutes=1))
+    with psycopg.connect(_as(database, "fdai_operator")) as operator:
+        operator.execute("INSERT INTO state_kv (key, value) VALUES (%s, %s)", (key, Jsonb(value)))
     with psycopg.connect(database, autocommit=True) as owner:
         owner.execute(
-            "INSERT INTO state_kv (key, value) VALUES ('private-row-key', '{\"secret\": 1}'), "
-            "(%s, '{}')",
-            (visible,),
+            "INSERT INTO state_kv (key, value) VALUES ('private-row-key', '{\"secret\": 1}')"
         )
         owner.execute(
             "CREATE VIEW leaky_history AS SELECT key, value FROM public.state_kv "
@@ -467,11 +476,7 @@ def test_source_views_are_security_barriers_that_leak_no_other_rows(database: st
             "AND acl.privilege_type = 'TEMPORARY'",
             (VERIFIER_ROLE,),
         ).fetchone()
-    assert {row[0] for row in barriers} == {
-        "operational_evidence_test_context_audit",
-        "operational_evidence_test_context_command",
-        "operational_evidence_test_context_history",
-    }
+    assert {row[0] for row in barriers} == set(_SOURCE_VIEWS)
     assert explicit_temp == (0,)
     seen: list[str] = []
     with psycopg.connect(_as(database, VERIFIER_ROLE), autocommit=True) as verifier:
@@ -484,9 +489,143 @@ def test_source_views_are_security_barriers_that_leak_no_other_rows(database: st
         leaked = [message for message in seen if "private-row-key" in message]
         seen.clear()
         verifier.execute(
-            "SELECT count(*) FROM operational_evidence_test_context_history "
-            "WHERE pg_temp.probe(key)"
+            "SELECT count(*) FROM fdai_operational_evidence_commands_for_key(%s) "
+            "WHERE pg_temp.probe(key)",
+            (value["idempotency_key"],),
         )
     assert leaked, "the non-barrier twin must demonstrate the probe is sensitive"
     assert seen and all("private-row-key" not in message for message in seen)
-    assert any(visible in message for message in seen)
+    assert any(key in message for message in seen)
+
+
+_SOURCE_VIEWS = (
+    "operational_evidence_test_context_audit",
+    "operational_evidence_test_context_command",
+    "operational_evidence_test_context_history",
+)
+_SOURCE_FUNCTIONS = (
+    "fdai_operational_evidence_commands_for_key(text)",
+    "fdai_operational_evidence_commands_for_target(text,text)",
+    "fdai_operational_evidence_context_history(text)",
+    "fdai_operational_evidence_transition_audit(text[])",
+)
+
+
+def _plan_shape(plan: object) -> list[tuple[str, object, object]]:
+    """Flatten an EXPLAIN (ANALYZE, FORMAT JSON) plan into its node types and row counts."""
+    nodes: list[tuple[str, object, object]] = []
+    pending = [plan[0]["Plan"]] if isinstance(plan, list) else []
+    while pending:
+        node = pending.pop()
+        assert "Relation Name" not in node, "the verifier plan must not scan a source relation"
+        nodes.append((node["Node Type"], node["Plan Rows"], node["Actual Rows"]))
+        pending.extend(node.get("Plans", ()))
+    return nodes
+
+
+def test_verifier_cannot_probe_source_keys_through_planner_statistics(database: str) -> None:
+    history_key = "test-context-target:v1:" + "a" * 64
+    with psycopg.connect(database, autocommit=True) as owner:
+        owner.execute(
+            "INSERT INTO state_kv (key, value) VALUES ('private-row-key', '{\"secret\": 1}'), "
+            "(%s, '{\"revision\": 1}')",
+            (history_key,),
+        )
+        owner.execute("ANALYZE state_kv")
+        definitions = owner.execute(
+            "SELECT p.oid::regprocedure::text, p.prosecdef, l.lanname, p.proconfig, "
+            "has_function_privilege(%s, p.oid, 'EXECUTE'), "
+            "has_function_privilege('fdai_core', p.oid, 'EXECUTE') "
+            "FROM pg_proc p JOIN pg_language l ON l.oid = p.prolang "
+            "WHERE p.proname LIKE 'fdai\\_operational\\_evidence\\_%%' "
+            "AND p.pronamespace = 'public'::regnamespace AND p.prokind = 'f' "
+            "AND p.prorettype <> 'trigger'::regtype ORDER BY 1",
+            (VERIFIER_ROLE,),
+        ).fetchall()
+        view_reads = owner.execute(
+            "SELECT bool_or(has_table_privilege(%s, relname, 'SELECT')) "
+            "FROM unnest(%s::text[]) relname",
+            (VERIFIER_ROLE, list(_SOURCE_VIEWS)),
+        ).fetchone()
+    assert [row[0] for row in definitions] == list(_SOURCE_FUNCTIONS)
+    for _name, definer, language, config, verifier_may, core_may in definitions:
+        assert definer is True and language == "sql"
+        assert config == ["search_path=pg_catalog, pg_temp"]
+        assert verifier_may is True and core_may is False
+    assert view_reads == (False,)
+    with psycopg.connect(_as(database, VERIFIER_ROLE), autocommit=True) as verifier:
+        for relation in ("state_kv", "audit_log", *_SOURCE_VIEWS):
+            with pytest.raises(psycopg.errors.InsufficientPrivilege):
+                verifier.execute(f"EXPLAIN SELECT 1 FROM public.{relation}")  # noqa: S608
+        shapes = [
+            _plan_shape(
+                verifier.execute(
+                    "EXPLAIN (ANALYZE, FORMAT JSON) "
+                    "SELECT * FROM fdai_operational_evidence_commands_for_key(%s)",
+                    (probe,),
+                ).fetchone()[0]  # type: ignore[index]
+            )
+            for probe in ("private-row-key", "absent-row-key")
+        ]
+        histories = [
+            verifier.execute(
+                "SELECT fdai_operational_evidence_context_history(%s)", (probe,)
+            ).fetchone()
+            for probe in ("private-row-key", "test-context-target:v1:" + "b" * 64, history_key)
+        ]
+    assert shapes[0] == shapes[1]
+    assert shapes[0][0][0] == "Function Scan" and shapes[0][0][2] == 0
+    assert histories == [(None,), (None,), ({"revision": 1},)]
+
+
+async def test_source_health_reports_each_declared_source(database: str) -> None:
+    sources = PostgresTestContextEvidenceSources(
+        PostgresOperationalEvidenceConfig(
+            dsn=_as(database, VERIFIER_ROLE), expected_role=VERIFIER_ROLE
+        )
+    )
+    assert await sources.source_health() == {
+        "core-control-plane.test-context-store": "healthy",
+        "operator-service.test-context-outbox": "healthy",
+    }
+    with psycopg.connect(database, autocommit=True) as owner:
+        owner.execute(
+            "REVOKE EXECUTE ON FUNCTION fdai_operational_evidence_context_history(TEXT) "
+            f"FROM {VERIFIER_ROLE}"
+        )
+    assert await sources.source_health() == {
+        "core-control-plane.test-context-store": "unavailable",
+        "operator-service.test-context-outbox": "healthy",
+    }
+
+
+def test_source_function_downgrade_restores_view_reads_symmetrically(database: str) -> None:
+    def verifier_access(owner: psycopg.Connection) -> tuple[object, ...]:
+        row = owner.execute(
+            "SELECT bool_and(has_table_privilege(%s, relname, 'SELECT')) "
+            "FROM unnest(%s::text[]) relname",
+            (VERIFIER_ROLE, list(_SOURCE_VIEWS)),
+        ).fetchone()
+        functions = owner.execute(
+            "SELECT count(*) FROM unnest(%s::text[]) signature "
+            "WHERE to_regprocedure(signature) IS NOT NULL",
+            (list(_SOURCE_FUNCTIONS),),
+        ).fetchone()
+        assert row is not None and functions is not None
+        return (row[0], functions[0])
+
+    with psycopg.connect(database, autocommit=True) as owner:
+        assert verifier_access(owner) == (False, 4)
+        for statement in _statements(SOURCE_FUNCTIONS, "downgrade"):
+            owner.execute(statement)
+        assert verifier_access(owner) == (True, 0)
+        for statement in _statements(SOURCE_FUNCTIONS, "upgrade"):
+            owner.execute(statement)
+        assert verifier_access(owner) == (False, 4)
+
+
+def test_source_function_bounds_match_the_reader_bounds() -> None:
+    text = SOURCE_FUNCTIONS.read_text(encoding="utf-8")
+    assert f"LIMIT {TARGET_ROW_BOUND}\n" in text and f"LIMIT {AUDIT_ROW_BOUND}\n" in text
+    assert f"BETWEEN 1 AND {MAX_AUDIT_DIGESTS}" in text
+    assert "plpgsql" not in text.lower() and "format(" not in text

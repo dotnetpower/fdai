@@ -14,6 +14,7 @@ from fdai_service_contracts.operational_evidence import (
     OperationalEvidenceLookup,
     OperationalEvidenceRejectionClass,
     OperationalEvidenceRejectionRecord,
+    OperationalEvidenceVerifierReadiness,
 )
 from fdai_service_contracts.operator_authentication import (
     LOCAL_LOOPBACK_ISSUER,
@@ -161,3 +162,43 @@ def test_authentication_receipt_keeps_exact_groups_and_no_token() -> None:
         audience=LOCAL_LOOPBACK_ISSUER,
     )
     assert local.evidence_class is OperatorAuthenticationEvidenceClass.LOCAL_LOOPBACK
+
+
+def _readiness(**overrides: object) -> OperationalEvidenceVerifierReadiness:
+    values: dict[str, object] = {
+        "state": "ready",
+        "verifier_id": "operational-evidence-verifier",
+        "verifier_version": "1.0.0",
+        "trust_registry_pin": "sha256:" + "4" * 64,
+        "grant_registry_pin": "sha256:" + "5" * 64,
+        "bound_purposes": ["operator-test-context-command", "test-context-transition"],
+        "source_health": {"operator-service.test-context-outbox": "healthy"},
+        "probed_at": _NOW,
+    }
+    values.update(overrides)
+    return OperationalEvidenceVerifierReadiness.model_validate(values)
+
+
+def test_verifier_readiness_is_content_free_and_grants_no_authority() -> None:
+    ready = _readiness()
+    assert ready.execution_authority is False and ready.promotion_authority is False
+    assert ready.model_validate_json(ready.model_dump_json()) == ready
+    blocked = _readiness(state="self_verified", reasons=["foreign_insert_grant"])
+    assert blocked.reasons == ("foreign_insert_grant",)
+    assert _readiness(probed_at=None).probed_at is None
+    for invalid in (
+        {"state": "self_verified"},
+        {"reasons": ["not_probed"]},
+        {"state": "unavailable", "reasons": ["b_reason", "a_reason"]},
+        {"state": "unavailable", "reasons": ["OperationalError"]},
+        {"bound_purposes": ["test-context-transition", "operator-test-context-command"]},
+        {"bound_purposes": ["unregistered-purpose"]},
+        {"source_health": {"operator-service.test-context-outbox": "degraded"}},
+        {"source_health": {f"source-{index}": "healthy" for index in range(33)}},
+        {"probed_at": _NOW.replace(tzinfo=None)},
+        {"execution_authority": True},
+        {"promotion_authority": True},
+        {"unexpected": "field"},
+    ):
+        with pytest.raises(ValidationError):
+            _readiness(**invalid)

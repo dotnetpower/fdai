@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from datetime import datetime
 from enum import StrEnum
 from math import isfinite
@@ -18,13 +19,30 @@ NonEmpty = Annotated[str, Field(min_length=1, max_length=512)]
 
 
 class ForecastScoringExclusion(StrEnum):
-    """Canonical reasons a measured forecast cannot enter untreated scoring."""
+    """Canonical reasons a measured forecast cannot enter untreated scoring.
+
+    The ``operational_evidence_*`` members name an explicit independent-evidence rejection
+    class and exist only in schema ``1.2.0``, where each one cites its rejection record.
+    """
 
     INTERVENTION_HISTORY_UNAVAILABLE = "intervention_history_unavailable"
     CONTEXT_MISMATCH = "context_mismatch"
     EXCLUDED_WINDOW = "excluded_window"
     RESOURCE_DELETED = "resource_deleted"
     INTERVENTION_AFFECTED = "intervention_affected"
+    OPERATIONAL_EVIDENCE_CONFLICTING = "operational_evidence_conflicting"
+    OPERATIONAL_EVIDENCE_CROSS_SCOPE = "operational_evidence_cross_scope"
+    OPERATIONAL_EVIDENCE_PARTIAL = "operational_evidence_partial"
+    OPERATIONAL_EVIDENCE_REPLAY_SUBSTITUTED = "operational_evidence_replay_substituted"
+    OPERATIONAL_EVIDENCE_REVOKED = "operational_evidence_revoked"
+    OPERATIONAL_EVIDENCE_STALE = "operational_evidence_stale"
+    OPERATIONAL_EVIDENCE_SYNTHETIC_LIVE = "operational_evidence_synthetic_live"
+
+
+_EVIDENCE_EXCLUSIONS = frozenset(
+    item for item in ForecastScoringExclusion if item.value.startswith("operational_evidence_")
+)
+_REJECTION_REF = re.compile(r"^operational-evidence-rejection:sha256:[0-9a-f]{64}$")
 
 
 class ForecastOutcomeLabel(StrEnum):
@@ -82,7 +100,7 @@ class ForecastOutcome(_Base):
 
     @model_serializer(mode="wrap")
     def _serialize_version(self, handler: SerializerFunctionWrapHandler) -> dict[str, object]:
-        """Keep the legacy wire shape while allowing explicit v1.1 scoring exclusions."""
+        """Keep the legacy wire shape while allowing explicit v1.1+ scoring exclusions."""
         payload: dict[str, object] = dict(handler(self))
         if self.schema_version == "1.0.0":
             payload.pop("scoring_exclusions", None)
@@ -90,15 +108,33 @@ class ForecastOutcome(_Base):
 
     @model_validator(mode="after")
     def _validate_semantics(self) -> ForecastOutcome:
-        if self.schema_version not in {"1.0.0", "1.1.0"}:
+        if self.schema_version not in {"1.0.0", "1.1.0", "1.2.0"}:
             raise ValueError("forecast outcome schema version is unsupported")
         if self.scoring_exclusions:
-            if self.schema_version != "1.1.0":
+            if self.schema_version == "1.0.0":
                 raise ValueError("forecast scoring exclusions require schema version 1.1.0")
             if self.label is not ForecastOutcomeLabel.UNSCORABLE:
                 raise ValueError("excluded forecast observations MUST be unscorable")
             if len(set(self.scoring_exclusions)) != len(self.scoring_exclusions):
                 raise ValueError("forecast scoring exclusions MUST be unique")
+        evidence_classes = [
+            item for item in self.scoring_exclusions if item in _EVIDENCE_EXCLUSIONS
+        ]
+        rejection_refs = [
+            item
+            for item in self.evidence_refs
+            if item.startswith("operational-evidence-rejection:")
+        ]
+        if evidence_classes and self.schema_version != "1.2.0":
+            raise ValueError("operational evidence exclusions require schema version 1.2.0")
+        if len(evidence_classes) > 1:
+            raise ValueError("a forecast outcome names at most one operational evidence class")
+        if len(rejection_refs) != len(evidence_classes) or any(
+            _REJECTION_REF.fullmatch(item) is None for item in rejection_refs
+        ):
+            raise ValueError(
+                "an operational evidence exclusion MUST cite exactly one rejection record"
+            )
         timestamps = (
             self.feature_cutoff,
             self.horizon_started_at,

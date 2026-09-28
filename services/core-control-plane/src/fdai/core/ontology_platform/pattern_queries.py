@@ -14,6 +14,10 @@ from fdai_service_contracts.ontology_query import content_digest
 
 from fdai.core.case_history import CaseHistoryMaterializer
 from fdai.core.case_history.derived import CaseHistoryProjectionStore
+from fdai.core.operational_evidence.owner_outcome import (
+    OperationalEvidenceRequester,
+    request_operational_evidence,
+)
 from fdai.core.operational_learning import OperatingPatternCompiler, PatternCase
 from fdai.shared.contracts.models import (
     CeilingRole,
@@ -44,15 +48,21 @@ class OperatingPatternQuery:
         admission: DecisionEvidenceAdmissionProvider | None,
         source_revision: str,
         clock: Callable[[], datetime] | None = None,
+        evidence: OperationalEvidenceRequester | None = None,
     ) -> None:
         self._store, self._materializer, self._admission = store, materializer, admission
         self._source_revision = source_revision
         self._clock = clock or (lambda: datetime.now(UTC))
+        self._evidence = evidence
 
     async def read(
         self, arguments: Mapping[str, Any], context: FunctionInvocationContext
     ) -> dict[str, Any]:
-        """Authorize before reading state; expose only current recompiled inert summaries."""
+        """Authorize before reading state; expose only current recompiled inert summaries.
+
+        A read the verifier rejected with an explicit class fails with that class and its
+        rejection record digest; an unavailable issuance keeps the generic refusal.
+        """
         async with asyncio.timeout(5):
             return await self._read(arguments, context)
 
@@ -103,6 +113,19 @@ class OperatingPatternQuery:
                 "purpose": purpose,
             }
         )
+        attempt = await request_operational_evidence(
+            self._evidence,
+            evidence_digest=digest,
+            scope_digest=scope_digest,
+            purpose_id="case-history-read",
+            source_revision=self._source_revision,
+            locator={
+                "principal_ref": context.principal_ref,
+                "request_ref": digest,
+                "case_scope_digest": "sha256:" + scope,
+            },
+            clock=self._clock,
+        )
         receipt = await self._admission.admit(
             evidence_digest=digest,
             scope_digest=scope_digest,
@@ -111,6 +134,7 @@ class OperatingPatternQuery:
         )
         now = self._clock()
         if not isinstance(receipt, DecisionEvidenceAdmission):
+            attempt.raise_if_rejected("pattern query scope authorization failed")
             raise PermissionError("pattern query scope authorization failed")
         if (
             assess_decision_evidence_admission(

@@ -1,7 +1,7 @@
 ---
 translation_of: prediction-learning-and-case-history.md
-translation_source_sha: a606dddddddd438c7de2d7297763282b0b8c215b
-translation_revised: 2026-09-28
+translation_source_sha: 7dc81b83c168ab87826961c06ab0d2a2df77b1b0
+translation_revised: 2026-09-29
 ---
 # 예측 학습 및 케이스 히스토리
 
@@ -89,6 +89,13 @@ maintenance overlap 및 리소스 deletion은 성공한 prediction으로 바꾸�
 평가 제외 사유가 있으면 점수가 있는 결과를 만들 수 없습니다. 버전 `1.0.0`은 계속 읽을 수
 있으며 직렬화 형식도 유지합니다. 맥락 근거가 연결되지 않은 배포에서는 새 예측 평가를
 보류합니다. 개입 목록이 비어 있다는 사실만으로 개입이 없었다고 확정하지 않습니다.
+
+버전 `1.2.0`은 [독립 검증기](independent-operational-evidence-ko.md)가 예측 맥락이나 이력 조각
+거부에 대해 기록한 유형을 밝히는 `operational_evidence_*` 제외 사유 하나를 추가합니다. 예를 들어
+`operational_evidence_conflicting`이 있습니다. 이 사유에는 해당 거부 기록을 인용하는
+`operational-evidence-rejection:` 근거 참조가 정확히 하나 있어야 하며, 둘 중 하나만 나타날 수는
+없습니다. 검증기를 사용할 수 없으면 `1.1.0` 제외 사유인 `intervention_history_unavailable`을
+유지하며, 어떤 제외 사유도 결과를 점수 산정 대상으로 만들지 않습니다.
 
 ## 맥락 기반 판정 계약
 
