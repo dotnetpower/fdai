@@ -68,6 +68,67 @@ def test_exact_migration_recovery_is_accepted() -> None:
     _MODULE.verify_plan(plan, mode="migration-recovery")
 
 
+def test_migration_recovery_accepts_reviewed_ownership_tag_updates() -> None:
+    plan = {
+        "resource_changes": [
+            {"address": address, "change": {"actions": ["update"]}}
+            for address in (
+                "azurerm_container_app_job.migrate",
+                "azurerm_container_app_environment.certification",
+                "azurerm_virtual_network.certification",
+            )
+        ]
+    }
+
+    _MODULE.verify_plan(plan, mode="migration-recovery")
+
+
+def test_migration_recovery_rejects_a_plan_without_the_migration_job() -> None:
+    plan = {
+        "resource_changes": [
+            {
+                "address": "azurerm_virtual_network.certification",
+                "change": {"actions": ["update"]},
+            }
+        ]
+    }
+
+    with pytest.raises(_MODULE.PlanVerificationError, match="complete reviewed"):
+        _MODULE.verify_plan(plan, mode="migration-recovery")
+
+
+def test_migration_recovery_rejects_a_destructive_action() -> None:
+    plan = {
+        "resource_changes": [
+            {
+                "address": "azurerm_container_app_job.migrate",
+                "change": {"actions": ["delete", "create"]},
+            }
+        ]
+    }
+
+    with pytest.raises(_MODULE.PlanVerificationError, match="non-update"):
+        _MODULE.verify_plan(plan, mode="migration-recovery")
+
+
+def test_migration_recovery_rejects_an_unreviewed_address() -> None:
+    plan = {
+        "resource_changes": [
+            {
+                "address": "azurerm_container_app_job.migrate",
+                "change": {"actions": ["update"]},
+            },
+            {
+                "address": "azurerm_virtual_network.shared",
+                "change": {"actions": ["update"]},
+            },
+        ]
+    }
+
+    with pytest.raises(_MODULE.PlanVerificationError, match="unreviewed"):
+        _MODULE.verify_plan(plan, mode="migration-recovery")
+
+
 def test_certification_migration_runs_legacy_then_every_service_branch(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,

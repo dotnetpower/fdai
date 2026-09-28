@@ -202,6 +202,29 @@ image, repository, documentation or logs.
 
 ## Validation Gates
 
+### Reproduce the Data Path Locally First
+
+A disposable task-owned certification sandbox is bring-up work, not tenant deployment. Its defects
+are cheap locally and expensive in a governed round trip, so exhaust local reproduction before
+spending an exact-revision publish, import, bind, and execute cycle.
+
+- Run the owning local harness before any governed execution. For the inventory-network
+  certification that is
+  `tests/integration/services/test_inventory_network_certification_local.py`, which runs the
+  complete legacy plus service-owned migration closure and the bounded inventory promotion against
+  a throwaway local PostgreSQL role whose password carries a percent token.
+- A live failure whose cause is reproducible locally is a harness gap. Extend the harness in the
+  same change that fixes the defect; do not rely on the next governed execution to re-detect it.
+- Every bounded runner that shells out MUST surface a redacted, size-capped reason on failure.
+  An opaque exit code turns one governed execution into two.
+- Schema, credential-encoding, contract, and promotion defects belong to the harness. Provider
+  authorization, private DNS, private endpoint, policy drift, and role assignment remain
+  governed-execution evidence because no local substitute proves them.
+
+Keep the safety controls that bound real effects: pre-effect claims, exact plans, blast-radius
+readback, independent effect verification, preserved failed evidence, and exact cleanup. Local
+reproduction reduces how often those controls are exercised; it never replaces one of them.
+
 ### Preserve AKS and Container Apps Compatibility
 
 - Fix shared Console, authentication, service, and wire-contract defects in their common owner.

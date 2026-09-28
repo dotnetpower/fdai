@@ -1,7 +1,7 @@
 ---
 title: 제한된 네트워크의 Azure 인벤토리
 translation_of: azure-inventory-network-paths.md
-translation_source_sha: cfef80db5ef3c3e6a75efc0ee56b4b88d452834a
+translation_source_sha: 5d9fedf59ac0f3cda661c602ab64d044aa0e854e
 translation_revised: 2026-09-28
 ---
 # 제한된 네트워크의 Azure 인벤토리
@@ -87,6 +87,22 @@ Blob 영역을 연결하거나 그 안에 레코드를 쓰지 않습니다.
 상태를 감사하고, 표준 부분 overlay 쓰기를 한 번만 허용하고, 권한을 부여하지 않은 채 정확한
 활성 세대를 다시 조회합니다. 효과 검증이 성공한 뒤 별도의 정확한 삭제 전용 계획으로
 정리합니다. 캠페인이나 정리 결과가 모호하면 복구 검토를 위해 샌드박스를 보존합니다.
+
+샌드박스 migration 작업은 수집 전에 기존 스키마와 모든 서비스 소유 migration 분기를
+전진시킵니다. 요청한 리소스 유형의 승격이 서비스 소유 컬럼을 읽기 때문입니다. 실행기는
+실패 시 자격 증명을 가리고 크기를 제한한 사유를 보고하므로, 관리되는 실행 하나가 별도의
+진단 실행을 다시 요구하지 않습니다. 스키마, 자격 증명 인코딩, 승격 결함은 로컬 하네스
+[`test_inventory_network_certification_local.py`](../../../tests/integration/services/test_inventory_network_certification_local.py)가
+먼저 재현합니다. 이 하네스는 백분율 문자가 포함된 비밀번호를 쓰는 일회용 로컬 PostgreSQL
+역할에 대해 같은 마이그레이션 묶음과 범위가 제한된 승격을 실행합니다. 공급자 권한, 비공개
+DNS, 비공개 엔드포인트, 정책 표류, 역할 할당은 로컬 대체물이 없으므로 계속 관리되는 실행의
+근거로 남습니다.
+
+Azure가 스스로 변경 집합을 넓히는 경우 복구 계획은 정확한 단일 주소 대신 범위가 제한된
+형태를 유지합니다. `migration-recovery`는 검토된 주소의 비어 있지 않은 부분집합을 `update`
+동작으로만 허용하고 migration 작업은 계속 요구합니다. 샌드박스 소유권 태그가 같은 계획에서
+모든 작업 소유 리소스로 전파되기 때문입니다. 검토되지 않은 주소, 중복, 교체, 생성, 삭제는
+계속 차단되며 `create`, `cleanup`, `extension-recovery`는 완전한 검토 집합을 유지합니다.
 
 ## 필수 네트워크 경로
 
