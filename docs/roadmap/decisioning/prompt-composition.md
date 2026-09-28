@@ -196,7 +196,7 @@ the complete capability manifest. A model-visible route capability was rejected 
 bias judgment and widen intent grounding. Partial-match fallback was replaced by result-key
 coverage because an OR-only selector cannot prove that the chosen meaning had its guidance. Trust,
 grounding, document-mode, posture, and ambiguity rules stay in the protected root because packs are
-ablation-eligible.
+ablation-eligible. A 2026-09-28 reasoning probe showed that the remaining relation, change-attribution, and verification failures come from contracts and compilers rather than guidance, so the proposed [Ontology Reasoning Compiler](../interfaces/ontology-reasoning-compiler.md) narrows judgment to a closed logical form and retires frame and plan prompts only for compiled families.
 
 ## Layer catalog
 

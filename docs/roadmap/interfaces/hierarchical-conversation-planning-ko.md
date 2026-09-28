@@ -1,8 +1,8 @@
 ---
 title: 계층형 대화 계획
 translation_of: hierarchical-conversation-planning.md
-translation_source_sha: 2ee8bcc9158ac9e1cb77bfa17dabd368f661f6e6
-translation_revised: 2026-09-27
+translation_source_sha: cb4a568099c019257beb34bbdba16fef39644c9e
+translation_revised: 2026-09-28
 ---
 
 # 계층형 대화 계획
@@ -333,7 +333,7 @@ Release 게이트는 다음 세 결과를 따로 측정합니다.
 - **질문 처리 결과**: 받아들인 모든 턴은 근거에 기반한 답변, 명확화 요청, 근거 보류,
     지원하지 않는 목표, 통제된 액션 초안 중 하나로 끝납니다.
 - **답변 커버리지**: 역량 검증 질문 중 근거에 기반한 완전한 답변에 도달한 비율입니다. 이 값은
-    배포된 데이터와 근거에 따라 달라지므로 설계상 100%로 표시하지 않습니다.
+    배포된 데이터와 근거에 따라 달라지므로 설계상 100%로 표시하지 않습니다. 제안된 [온톨로지 추론 커버리지](ontology-reasoning-coverage-ko.md)는 이 게이트에 언어, 관계, 인스턴스 원본, 함수, 컴파일 완결 차원을 더합니다.
 
 release 게이트에는 별도의 인식 상태 완결성 기반도 추가되었습니다. 내용 기반 주소를 가진
 `QuestionUniverseReceipt`는 하나의 유한한 release 및 principal 범위 분모를 고정합니다.
@@ -399,7 +399,7 @@ evidence_requirements:
 Change 및 정렬된 구간을 연결합니다. 독립 읽기는 함께 실행할 수 있지만 인과 관계 결합은 증적을
 기다리며 앞선 배포를 설명 후보로만 취급합니다. 의미 판단은 명시적 금지 작업을 현재 발화의
 `forbidden_actions`로 보존하며 목표나 초안을 만들지 않습니다. 별도의 검토 가능한 산출물은
-`draft_only`로 유지할 수 있습니다.
+`draft_only`로 유지할 수 있습니다. 제안된 [온톨로지 추론 컴파일러](ontology-reasoning-compiler-ko.md)는 기능 이름 기반 분해를 닫힌 질문 논리 형식과 관계, 포함, 집계, 시간, 후속 질문의 결정론적 컴파일로 대체합니다.
 
 ## 의도 그래프 계약
 

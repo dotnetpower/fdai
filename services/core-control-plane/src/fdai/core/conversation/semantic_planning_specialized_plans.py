@@ -31,10 +31,21 @@ from .semantic_planning_value_filters import (
     stated_subject_fragment,
     stated_value_filters,
 )
+from .semantic_reasoning_form import (
+    RelationReach,
+    RelationScope,
+    RelationSense,
+    SubjectPosition,
+)
+from .semantic_reasoning_relations import select_relation_sides
 from .semantic_resource_visibility import OPERATIONAL_RESOURCE_EXCLUDED_TYPES
 from .session import Principal
 
 _INCIDENT_EVIDENCE_NODE_ID = "bound_incident_evidence"
+_GROUP_ANCHOR_NODE_ID = "stated-group-anchor"
+_GROUP_MEMBERS_NODE_ID = "stated-group-members"
+_RESOURCE_OBJECT_TYPE = "Resource"
+_RESOURCE_GROUP_TYPE = "resource-group"
 
 
 def build_inventory_document_plan(
@@ -272,7 +283,117 @@ def build_stated_value_filter_plan(
     if not required_grounding <= set(grounded):
         return None
     verifier.verify(plan, manifest=manifest)
+    if fragment_property == "parent_id":
+        return _resource_group_membership_plan(
+            plan,
+            verifier=verifier,
+            frame=frame,
+            manifest=manifest,
+            principal=principal,
+            purpose=purpose,
+            evaluation_time=evaluation_time,
+        )
     return plan
+
+
+def _resource_group_membership_plan(
+    grounded: OntologyQueryPlan,
+    *,
+    verifier: OntologyQueryPlanVerifier,
+    frame: SemanticProblemFrame,
+    manifest: QueryManifest,
+    principal: Principal,
+    purpose: str,
+    evaluation_time: datetime,
+) -> OntologyQueryPlan | None:
+    """Read members through reviewed containment from the exact named group.
+
+    A ``parent_id`` substring selects every resource whose parent identifier
+    merely contains the stated name, including members of other groups whose
+    names share it. Members are instead the reached endpoints of the one
+    transitive containment LinkType from the single exact group object.
+    """
+
+    definition = grounded.nodes[0].arguments["definition"]
+    predicates = [dict(item) for item in definition["predicates"]]
+    group_names = [
+        item["equals"]
+        for item in predicates
+        if item.get("property") == "parent_id" and item.get("operator") == "contains"
+    ]
+    selection = select_relation_sides(
+        manifest.descriptors,
+        anchor_type=_RESOURCE_OBJECT_TYPE,
+        sense=RelationSense.CONTAINMENT,
+        scope=RelationScope.ONE_SENSE,
+        position=SubjectPosition.SOURCE,
+        reach=RelationReach.TRANSITIVE,
+    )
+    sides = tuple(side for side in selection.sides if side.endpoint_type == _RESOURCE_OBJECT_TYPE)
+    if len(group_names) != 1 or not isinstance(group_names[0], str) or len(sides) != 1:
+        return None
+    side = sides[0]
+    endpoint_predicates = [item for item in predicates if item.get("property") != "parent_id"]
+    as_of = evaluation_time.astimezone(UTC).isoformat()
+    proposal = QueryPlanProposal(
+        nodes=(
+            QueryNodeProposal(
+                node_id=_GROUP_ANCHOR_NODE_ID,
+                kind=QueryNodeKind.OBJECT_SET,
+                arguments={
+                    "definition": {
+                        "selector": {"kind": "object_type", "name": _RESOURCE_OBJECT_TYPE},
+                        "predicates": [
+                            {
+                                "property": "name",
+                                "operator": "equals_ignore_case",
+                                "equals": group_names[0],
+                            },
+                            {
+                                "property": "type",
+                                "operator": "equals",
+                                "equals": _RESOURCE_GROUP_TYPE,
+                            },
+                        ],
+                        "as_of": as_of,
+                        "purpose": purpose,
+                        "limit": 2,
+                        "include_relationships": False,
+                    }
+                },
+                output_kind="query.table",
+            ),
+            QueryNodeProposal(
+                node_id=_GROUP_MEMBERS_NODE_ID,
+                kind=QueryNodeKind.RELATIONSHIP_TRAVERSAL,
+                depends_on=(_GROUP_ANCHOR_NODE_ID,),
+                arguments={
+                    "selector": {"kind": "object_type", "name": side.endpoint_type},
+                    "link_types": [side.link_type],
+                    "direction": side.direction,
+                    "max_depth": side.max_depth,
+                    "as_of": as_of,
+                    "purpose": purpose,
+                    "limit": 1000,
+                    **({"endpoint_predicates": endpoint_predicates} if endpoint_predicates else {}),
+                },
+                output_kind="query.table",
+            ),
+        ),
+        output_node_ids=(_GROUP_MEMBERS_NODE_ID,),
+    )
+    plan = _build_plan(
+        proposal,
+        frame=frame,
+        manifest=manifest,
+        principal=principal,
+        purpose=purpose,
+        evaluation_time=evaluation_time,
+    )
+    try:
+        return verifier.verify(plan, manifest=manifest)
+    except (PermissionError, ValueError):
+        return None
 
 
 __all__ = [

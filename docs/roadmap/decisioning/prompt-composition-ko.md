@@ -1,7 +1,7 @@
 ---
 title: 진화하는 시스템 프롬프트
 translation_of: prompt-composition.md
-translation_source_sha: 63af4ea6482a0d603c350abb40b2fd52c0f785f9
+translation_source_sha: bf69fcb19a0439cf672e8fb051dcec8a39936ca5
 translation_revised: 2026-09-28
 ---
 
@@ -188,7 +188,7 @@ frame 형태로 선택하며, compact operational frame 경로는 검토된 의�
 않았습니다. 모델에 보이는 경로 기능은 판단을 편향시키고 의도 근거 범위를 넓힐 수 있어 채택하지
 않았습니다. OR 전용 선택기로는 고른 의미에 지침이 있었음을 증명할 수 없으므로 부분 일치 대체
 동작을 결과 키 포함 검사로 바꾸었습니다. 묶음은 ablation 대상이므로 신뢰, 근거, 문서 모드,
-작업 자세, 모호성 규칙은 보호된 루트에 둡니다.
+작업 자세, 모호성 규칙은 보호된 루트에 둡니다. 2026-09-28 추론 탐침에서 남은 관계, 변경 주체, 검증 실패는 지침이 아니라 계약과 컴파일러에서 비롯된다는 사실이 드러났습니다. 그래서 제안된 [온톨로지 추론 컴파일러](../interfaces/ontology-reasoning-compiler-ko.md)는 판단을 닫힌 논리 형식으로 좁히고, 컴파일되는 계열에 한해서만 프레임과 계획 프롬프트를 없앱니다.
 
 ## 레이어 카탈로그
 

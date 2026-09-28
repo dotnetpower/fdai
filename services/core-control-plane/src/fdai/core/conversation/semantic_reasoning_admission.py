@@ -1,0 +1,399 @@
+"""Admit or clarify one proposed question form using closed-field checks only.
+
+Admission validates exact spans, level and domain fit, operation requirements,
+competing readings, and confidence. It never reads the utterance for meaning; it
+only confirms that each span the model cited exists and is not blank, and that
+decimal digits inside a time cue equal the typed time value the model proposed.
+"""
+
+from __future__ import annotations
+
+import string
+import unicodedata
+from dataclasses import dataclass, field
+from enum import StrEnum
+
+from .semantic_reasoning_form import (
+    SENSE_ROLES,
+    FilterRole,
+    FormGoal,
+    FormMention,
+    GoalLevel,
+    GoalOperation,
+    MentionDomain,
+    MentionForm,
+    SemanticQuestionForm,
+    SourceSpan,
+    SubjectRole,
+    SubjectScope,
+    TimeKind,
+)
+
+DEFAULT_CONFIDENCE_FLOOR = 0.75
+
+_SCHEMA_SUBJECT_DOMAINS = frozenset(
+    {
+        MentionDomain.OBJECT_TYPE,
+        MentionDomain.DECLARATION_KIND,
+        MentionDomain.RESOURCE_CLASS,
+        MentionDomain.RESOURCE_TYPE,
+    }
+)
+_COLLECTION_SUBJECT_DOMAINS = frozenset(
+    {MentionDomain.OBJECT_TYPE, MentionDomain.RESOURCE_TYPE, MentionDomain.RESOURCE_CLASS}
+)
+_FILTER_DOMAINS: dict[FilterRole, frozenset[MentionDomain]] = {
+    FilterRole.TYPE: _COLLECTION_SUBJECT_DOMAINS,
+    FilterRole.STATE: frozenset({MentionDomain.STATE}),
+    FilterRole.HEALTH: frozenset({MentionDomain.HEALTH}),
+    FilterRole.REGION: frozenset({MentionDomain.REGION}),
+    FilterRole.NAME_FRAGMENT: frozenset({MentionDomain.INSTANCE}),
+    FilterRole.SCOPE: frozenset({MentionDomain.INSTANCE}),
+}
+_SCHEMA_FILTER_DOMAINS: dict[FilterRole, frozenset[MentionDomain]] = {
+    FilterRole.TYPE: frozenset({MentionDomain.DECLARATION_KIND}),
+}
+_ANCHOR_FORMS = frozenset({MentionForm.IDENTIFIER, MentionForm.NAME})
+_IDENTIFIER_ALNUM = frozenset(string.ascii_letters + string.digits)
+_IDENTIFIER_JOINERS = frozenset("._/-")
+_REFERENCE_FORMS = frozenset({MentionForm.ANAPHOR, MentionForm.ORDINAL})
+# Traverse needs a stated relation; impact and path carry a reviewed implied relation.
+_RELATION_OPERATIONS = frozenset({GoalOperation.TRAVERSE})
+_MEASURE_OPERATIONS = frozenset({GoalOperation.LOOKUP, GoalOperation.AGGREGATE, GoalOperation.RANK})
+
+
+class AdmissionDisposition(StrEnum):
+    ADMITTED = "admitted"
+    CLARIFY = "clarify"
+    REVIEW = "review"
+    INVALID = "invalid"
+
+
+@dataclass(frozen=True, slots=True)
+class FormAdmission:
+    """Typed admission outcome; only ``ADMITTED`` forms may compile."""
+
+    disposition: AdmissionDisposition
+    reasons: tuple[str, ...]
+    form: SemanticQuestionForm
+    mention_text: dict[str, str] = field(default_factory=dict)
+    needs_continuation: bool = False
+    # Goals whose typed time value came from words without digits, so it is the model's reading.
+    judged_times: frozenset[str] = frozenset()
+
+
+def admit_question_form(
+    form: SemanticQuestionForm,
+    *,
+    utterance: str,
+    confidence_floor: float = DEFAULT_CONFIDENCE_FLOOR,
+) -> FormAdmission:
+    """Return the admission disposition and the exact text of every mention."""
+
+    if not 0.0 < confidence_floor <= 1.0:
+        raise ValueError("confidence floor MUST be in (0, 1]")
+    invalid: list[str] = []
+    mention_text: dict[str, str] = {}
+    for mention in form.mentions:
+        text = _span_text(mention.span, utterance)
+        if text is None:
+            invalid.append(f"mention_span_invalid:{mention.id}")
+            continue
+        if mention.domain is MentionDomain.INSTANCE and _splits_identifier(mention.span, utterance):
+            invalid.append(f"mention_span_partial:{mention.id}")
+            continue
+        mention_text[mention.id] = text
+    judged: set[str] = set()
+    fractional: list[str] = []
+    for goal in form.goals:
+        invalid.extend(_goal_span_failures(goal, utterance))
+        invalid.extend(_goal_shape_failures(goal, form))
+        check = _time_value_check(goal, utterance)
+        if check is _TimeCheck.MISMATCH:
+            invalid.append(f"time_value_mismatch:{goal.id}")
+        elif check in {_TimeCheck.FRACTIONAL, _TimeCheck.COMPOUND}:
+            fractional.append(f"time_value_{check.value}:{goal.id}")
+        elif check is _TimeCheck.JUDGED:
+            judged.add(goal.id)
+    if invalid:
+        return FormAdmission(AdmissionDisposition.INVALID, tuple(invalid), form, mention_text)
+    if form.alternatives:
+        reasons = tuple(f"competing_reading:{item.goal}" for item in form.alternatives)
+        return FormAdmission(AdmissionDisposition.CLARIFY, reasons, form, mention_text)
+    # A fractional or compound amount cannot be checked, so the operator restates it.
+    contradictions = (*_relation_contradictions(form), *fractional)
+    if contradictions:
+        return FormAdmission(AdmissionDisposition.CLARIFY, contradictions, form, mention_text)
+    unused = _unused_mentions(form)
+    if unused:
+        return FormAdmission(AdmissionDisposition.CLARIFY, unused, form, mention_text)
+    low = tuple(
+        f"low_confidence:{goal.id}" for goal in form.goals if goal.confidence < confidence_floor
+    )
+    if low:
+        return FormAdmission(AdmissionDisposition.REVIEW, low, form, mention_text)
+    return FormAdmission(
+        AdmissionDisposition.ADMITTED,
+        (),
+        form,
+        mention_text,
+        needs_continuation=form.remaining_goals,
+        judged_times=frozenset(judged),
+    )
+
+
+class _TimeCheck(StrEnum):
+    STATED = "stated"
+    JUDGED = "judged"
+    MISMATCH = "mismatch"
+    FRACTIONAL = "fractional"
+    COMPOUND = "compound"
+
+
+def _time_value_check(goal: FormGoal, utterance: str) -> _TimeCheck | None:
+    """Compare decimal digits in a goal's time cue with its typed value.
+
+    Digits are compared as whole numbers only. Words such as ``three`` or
+    ``yesterday`` carry no digits, so their typed reading stays the model's and is
+    marked as judged. A fractional amount such as ``1.5``, or several amounts such as
+    ``1 hour 30 minutes``, cannot be checked against one typed value.
+    """
+
+    time = goal.time
+    if time.value is None:
+        return None
+    if time.cue is None or time.cue.end > len(utterance):
+        return _TimeCheck.JUDGED
+    numbers = _decimal_numbers(utterance[time.cue.start : time.cue.end])
+    if not numbers:
+        return _TimeCheck.JUDGED
+    if None in numbers:
+        return _TimeCheck.FRACTIONAL
+    if len(numbers) > 1:
+        return _TimeCheck.COMPOUND
+    if time.value.duration is not None:
+        expected = time.value.duration.amount
+    else:
+        expected = abs(time.value.calendar_offset_days or 0)
+    return _TimeCheck.STATED if set(numbers) == {expected} else _TimeCheck.MISMATCH
+
+
+def _decimal_numbers(text: str) -> tuple[int | None, ...]:
+    """Return each decimal number in ``text``; a fractional number is ``None``.
+
+    Digits joined by ``,`` in groups of three form one grouped number, as in 1,440;
+    digits joined by ``.`` form one fractional number, as in 1.5.
+    """
+
+    numbers: list[int | None] = []
+    index = 0
+    while index < len(text):
+        if not text[index].isdecimal():
+            index += 1
+            continue
+        groups = [""]
+        joiners: list[str] = []
+        while index < len(text):
+            character = text[index]
+            if character.isdecimal():
+                groups[-1] += str(unicodedata.decimal(character))
+            elif character in ",." and index + 1 < len(text) and text[index + 1].isdecimal():
+                joiners.append(character)
+                groups.append("")
+            else:
+                break
+            index += 1
+        if "." in joiners:
+            numbers.append(None)
+        elif joiners and all(len(group) == 3 for group in groups[1:]):
+            numbers.append(int("".join(groups)))
+        else:
+            numbers.extend(int(group) for group in groups)
+    return tuple(numbers)
+
+
+def _span_text(span: SourceSpan, utterance: str) -> str | None:
+    if span.end > len(utterance):
+        return None
+    text = utterance[span.start : span.end]
+    if not text.strip() or text != text.strip():
+        return None
+    return text
+
+
+def _splits_identifier(span: SourceSpan, utterance: str) -> bool:
+    """Return whether an instance quote cuts through a longer identifier token.
+
+    This checks only the characters adjacent to the model's quote, so a quote of
+    ``rg-app`` inside ``rg-app-dev`` cannot bind a different resource, while a
+    sentence period after ``rg-app`` still admits it.
+    """
+
+    return _continues(utterance, span.start - 1, -1) or _continues(utterance, span.end, 1)
+
+
+def _continues(utterance: str, index: int, step: int) -> bool:
+    """Return whether an identifier continues at ``index`` when read in ``step`` direction.
+
+    An ASCII letter or digit always continues it; a joiner continues it only when an
+    ASCII letter or digit lies beyond the joiner in the same direction.
+    """
+
+    if not 0 <= index < len(utterance):
+        return False
+    character = utterance[index]
+    if character in _IDENTIFIER_ALNUM:
+        return True
+    beyond = index + step
+    return (
+        character in _IDENTIFIER_JOINERS
+        and 0 <= beyond < len(utterance)
+        and utterance[beyond] in _IDENTIFIER_ALNUM
+    )
+
+
+def _goal_span_failures(goal: FormGoal, utterance: str) -> list[str]:
+    spans = [("goal_cue", goal.cue)]
+    if goal.relation is not None:
+        spans.append(("relation_cue", goal.relation.cue))
+    if goal.time.cue is not None:
+        spans.append(("time_cue", goal.time.cue))
+    return [
+        f"{name}_span_invalid:{goal.id}"
+        for name, span in spans
+        if _span_text(span, utterance) is None
+    ]
+
+
+def _goal_shape_failures(goal: FormGoal, form: SemanticQuestionForm) -> list[str]:
+    failures: list[str] = []
+    subject = form.mention(goal.subject) if goal.subject is not None else None
+    # A subject restated by one of the goal's own filters is subsumed by that filter.
+    restated = subject is not None and any(item.mention == subject.id for item in goal.filters)
+    related = goal.relation is not None and goal.relation.anchor is not None
+    if goal.level is GoalLevel.SCHEMA:
+        if subject is not None and subject.domain not in _SCHEMA_SUBJECT_DOMAINS:
+            failures.append(f"schema_subject_domain:{goal.id}")
+        if goal.subject_scope is SubjectScope.ANCHOR and subject is None:
+            failures.append(f"schema_subject_missing:{goal.id}")
+    elif restated or related:
+        pass
+    elif goal.subject_scope is SubjectScope.ANCHOR:
+        if subject is None:
+            failures.append(f"anchor_missing:{goal.id}")
+        elif subject.domain is not MentionDomain.INSTANCE or subject.form not in _ANCHOR_FORMS:
+            failures.append(f"anchor_domain:{goal.id}")
+    elif (
+        goal.subject_scope is SubjectScope.COLLECTION
+        and subject is not None
+        and subject.domain not in _COLLECTION_SUBJECT_DOMAINS
+    ):
+        failures.append(f"collection_subject_domain:{goal.id}")
+    filter_domains = _SCHEMA_FILTER_DOMAINS if goal.level is GoalLevel.SCHEMA else _FILTER_DOMAINS
+    for item in goal.filters:
+        allowed = filter_domains.get(item.role, frozenset())
+        if form.mention(item.mention).domain not in allowed:
+            failures.append(f"filter_domain:{goal.id}:{item.role.value}")
+    if goal.operation in _RELATION_OPERATIONS and goal.relation is None:
+        failures.append(f"relation_required:{goal.id}")
+    if goal.relation is not None:
+        failures.extend(_relation_failures(goal, form, subject))
+    if goal.operation in _MEASURE_OPERATIONS and goal.measure is None:
+        failures.append(f"measure_required:{goal.id}")
+    if goal.operation is GoalOperation.HISTORY and goal.time.kind is TimeKind.FUTURE:
+        failures.append(f"history_future_time:{goal.id}")
+    if goal.operation is GoalOperation.DESCRIBE_SCHEMA and goal.level is not GoalLevel.SCHEMA:
+        failures.append(f"describe_schema_level:{goal.id}")
+    if goal.subject_scope is SubjectScope.GOAL_OUTPUT and not goal.depends_on:
+        failures.append(f"goal_output_dependency_missing:{goal.id}")
+    if (
+        goal.subject_scope is SubjectScope.PRIOR_RESULT
+        and subject is not None
+        and subject.form not in _REFERENCE_FORMS
+    ):
+        failures.append(f"prior_result_reference_form:{goal.id}")
+    return failures
+
+
+def _relation_failures(
+    goal: FormGoal,
+    form: SemanticQuestionForm,
+    subject: FormMention | None,
+) -> list[str]:
+    relation = goal.relation
+    if relation is None:
+        return []
+    failures: list[str] = []
+    if relation.anchor_position is None or (
+        relation.result_role is not SubjectRole.EITHER
+        and relation.result_role not in SENSE_ROLES[relation.sense]
+    ):
+        failures.append(f"relation_role_mismatch:{goal.id}")
+    if goal.level is GoalLevel.SCHEMA:
+        return failures
+    anchor = form.mention(relation.anchor) if relation.anchor is not None else subject
+    referenced = goal.subject_scope is SubjectScope.PRIOR_RESULT and any(
+        mention.form in _REFERENCE_FORMS for mention in form.mentions
+    )
+    if not referenced and (
+        anchor is None
+        or anchor.domain is not MentionDomain.INSTANCE
+        or anchor.form not in _ANCHOR_FORMS | _REFERENCE_FORMS
+    ):
+        failures.append(f"relation_anchor_missing:{goal.id}")
+    return failures
+
+
+def _unused_mentions(form: SemanticQuestionForm) -> tuple[str, ...]:
+    """Return declared mentions that no goal accounts for; each is a dropped restriction.
+
+    An uncited declaration-kind mention is consumed by the form's schema goal, so it
+    stands only when exactly one schema goal exists; with none it is unused, and with
+    several its goal is ambiguous. The one reference mention of a prior-result goal
+    without a subject is its subject. A mention that quotes exactly a goal's typed
+    time cue restates that time expression, which the goal already reads.
+    """
+
+    cited = set(form.cited_mentions())
+    time_cues = {
+        (goal.time.cue.start, goal.time.cue.end)
+        for goal in form.goals
+        if goal.time.value is not None and goal.time.cue is not None
+    }
+    cited.update(
+        mention.id
+        for mention in form.mentions
+        if (mention.span.start, mention.span.end) in time_cues
+    )
+    references = [mention.id for mention in form.mentions if mention.form in _REFERENCE_FORMS]
+    if len(references) == 1 and any(
+        goal.subject_scope is SubjectScope.PRIOR_RESULT and goal.subject is None
+        for goal in form.goals
+    ):
+        cited.add(references[0])
+    schema_goals = sum(goal.level is GoalLevel.SCHEMA for goal in form.goals)
+    reasons: list[str] = []
+    for mention in form.mentions:
+        if mention.id in cited:
+            continue
+        if mention.domain is not MentionDomain.DECLARATION_KIND or schema_goals == 0:
+            reasons.append(f"mention_unused:{mention.id}")
+        elif schema_goals > 1:
+            reasons.append(f"declaration_kind_goal_ambiguous:{mention.id}")
+    return tuple(reasons)
+
+
+def _relation_contradictions(form: SemanticQuestionForm) -> tuple[str, ...]:
+    return tuple(
+        f"relation_roles_inconsistent:{goal.id}"
+        for goal in form.goals
+        if goal.relation is not None and not goal.relation.roles_consistent
+    )
+
+
+__all__ = [
+    "DEFAULT_CONFIDENCE_FLOOR",
+    "AdmissionDisposition",
+    "FormAdmission",
+    "admit_question_form",
+]

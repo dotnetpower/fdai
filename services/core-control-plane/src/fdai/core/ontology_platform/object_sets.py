@@ -325,7 +325,16 @@ def _matches_all(
     record: OntologyObjectRecord,
     predicates: Sequence[ObjectPredicate],
 ) -> bool:
-    return all(_matches_predicate(record.properties, predicate) for predicate in predicates)
+    return object_matches_predicates(record.properties, predicates)
+
+
+def object_matches_predicates(
+    properties: Mapping[str, Any],
+    predicates: Sequence[ObjectPredicate],
+) -> bool:
+    """Return whether projected properties satisfy every predicate exactly."""
+
+    return all(_matches_predicate(properties, predicate) for predicate in predicates)
 
 
 def _matches_predicate(properties: Mapping[str, Any], predicate: ObjectPredicate) -> bool:
@@ -348,6 +357,13 @@ def _matches_predicate(properties: Mapping[str, Any], predicate: ObjectPredicate
         return _ordered_compare(value, predicate.equals, at_least=True)
     if predicate.operator is ObjectPredicateOperator.AT_MOST:
         return _ordered_compare(value, predicate.equals, at_least=False)
+    if predicate.operator is ObjectPredicateOperator.EQUALS_IGNORE_CASE:
+        # Provider names such as Azure resource groups compare without regard to case.
+        return (
+            isinstance(value, str)
+            and isinstance(predicate.equals, str)
+            and value.casefold() == predicate.equals.casefold()
+        )
     return _contains(value, predicate.equals)
 
 
@@ -377,4 +393,4 @@ def _contains(container: Any, member: Any) -> bool:
         return False
 
 
-__all__ = ["ObjectSetService"]
+__all__ = ["ObjectSetService", "object_matches_predicates"]

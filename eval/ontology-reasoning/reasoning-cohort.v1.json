@@ -1,0 +1,2735 @@
+{
+  "schema_version": "1.0.0",
+  "description": "Bilingual ontology reasoning cohort with gold closed question forms and fixture-graph outcomes.",
+  "fixture": "services/core-control-plane/tests/conversation/semantic_reasoning_support.py",
+  "cases": [
+    {
+      "id": "dependency-dependents-en",
+      "pair": "dependency-dependents",
+      "locale": "en",
+      "reasoning": "relation",
+      "utterance": "Which resources depend on sql-app?",
+      "form": {
+        "mentions": [
+          {
+            "id": "m1",
+            "form": "name",
+            "domain": "instance",
+            "text": "sql-app"
+          }
+        ],
+        "goals": [
+          {
+            "id": "g1",
+            "level": "instance",
+            "operation": "traverse",
+            "subject_scope": "anchor",
+            "cue": "Which resources",
+            "confidence": 0.9,
+            "subject": "m1",
+            "relation": {
+              "sense": "dependency",
+              "anchor_role": "dependency",
+              "result_role": "dependent",
+              "cue": "depend on"
+            }
+          }
+        ]
+      },
+      "concepts": {},
+      "expect": {
+        "g1": {
+          "status": "compiled",
+          "endpoints": [
+            "aks-prod-01",
+            "vm-app-01"
+          ]
+        }
+      }
+    },
+    {
+      "id": "dependency-dependents-ko",
+      "pair": "dependency-dependents",
+      "locale": "ko",
+      "reasoning": "relation",
+      "utterance": "sql-app에 의존하는 리소스는 무엇인가요?",
+      "form": {
+        "mentions": [
+          {
+            "id": "m1",
+            "form": "name",
+            "domain": "instance",
+            "text": "sql-app"
+          }
+        ],
+        "goals": [
+          {
+            "id": "g1",
+            "level": "instance",
+            "operation": "traverse",
+            "subject_scope": "anchor",
+            "cue": "리소스",
+            "confidence": 0.9,
+            "subject": "m1",
+            "relation": {
+              "sense": "dependency",
+              "anchor_role": "dependency",
+              "result_role": "dependent",
+              "cue": "의존하는"
+            }
+          }
+        ]
+      },
+      "concepts": {},
+      "expect": {
+        "g1": {
+          "status": "compiled",
+          "endpoints": [
+            "aks-prod-01",
+            "vm-app-01"
+          ]
+        }
+      }
+    },
+    {
+      "id": "dependency-requirements-en",
+      "pair": "dependency-requirements",
+      "locale": "en",
+      "reasoning": "relation",
+      "utterance": "What does aks-prod-01 depend on?",
+      "form": {
+        "mentions": [
+          {
+            "id": "m1",
+            "form": "name",
+            "domain": "instance",
+            "text": "aks-prod-01"
+          }
+        ],
+        "goals": [
+          {
+            "id": "g1",
+            "level": "instance",
+            "operation": "traverse",
+            "subject_scope": "anchor",
+            "cue": "What",
+            "confidence": 0.9,
+            "subject": "m1",
+            "relation": {
+              "sense": "dependency",
+              "anchor_role": "dependent",
+              "result_role": "dependency",
+              "cue": "depend on"
+            }
+          }
+        ]
+      },
+      "concepts": {},
+      "expect": {
+        "g1": {
+          "status": "compiled",
+          "endpoints": [
+            "kv-app",
+            "sql-app"
+          ]
+        }
+      }
+    },
+    {
+      "id": "dependency-requirements-ko",
+      "pair": "dependency-requirements",
+      "locale": "ko",
+      "reasoning": "relation",
+      "utterance": "aks-prod-01은 무엇에 의존하나요?",
+      "form": {
+        "mentions": [
+          {
+            "id": "m1",
+            "form": "name",
+            "domain": "instance",
+            "text": "aks-prod-01"
+          }
+        ],
+        "goals": [
+          {
+            "id": "g1",
+            "level": "instance",
+            "operation": "traverse",
+            "subject_scope": "anchor",
+            "cue": "무엇",
+            "confidence": 0.9,
+            "subject": "m1",
+            "relation": {
+              "sense": "dependency",
+              "anchor_role": "dependent",
+              "result_role": "dependency",
+              "cue": "의존하나요"
+            }
+          }
+        ]
+      },
+      "concepts": {},
+      "expect": {
+        "g1": {
+          "status": "compiled",
+          "endpoints": [
+            "kv-app",
+            "sql-app"
+          ]
+        }
+      }
+    },
+    {
+      "id": "containment-members-en",
+      "pair": "containment-members",
+      "locale": "en",
+      "reasoning": "containment",
+      "utterance": "What is inside rg-app, including nested resources?",
+      "form": {
+        "mentions": [
+          {
+            "id": "m1",
+            "form": "name",
+            "domain": "instance",
+            "text": "rg-app"
+          }
+        ],
+        "goals": [
+          {
+            "id": "g1",
+            "level": "instance",
+            "operation": "traverse",
+            "subject_scope": "anchor",
+            "cue": "What",
+            "confidence": 0.9,
+            "subject": "m1",
+            "relation": {
+              "sense": "containment",
+              "anchor_role": "container",
+              "result_role": "member",
+              "cue": "inside",
+              "reach": "transitive"
+            }
+          }
+        ]
+      },
+      "concepts": {},
+      "expect": {
+        "g1": {
+          "status": "compiled",
+          "endpoints": [
+            "aks-prod-01",
+            "kv-app",
+            "snet-app",
+            "sql-app",
+            "vm-app-01",
+            "vnet-app"
+          ]
+        }
+      }
+    },
+    {
+      "id": "containment-members-ko",
+      "pair": "containment-members",
+      "locale": "ko",
+      "reasoning": "containment",
+      "utterance": "rg-app 안에 있는 리소스를 하위 리소스까지 모두 알려줘",
+      "form": {
+        "mentions": [
+          {
+            "id": "m1",
+            "form": "name",
+            "domain": "instance",
+            "text": "rg-app"
+          }
+        ],
+        "goals": [
+          {
+            "id": "g1",
+            "level": "instance",
+            "operation": "traverse",
+            "subject_scope": "anchor",
+            "cue": "리소스를",
+            "confidence": 0.9,
+            "subject": "m1",
+            "relation": {
+              "sense": "containment",
+              "anchor_role": "container",
+              "result_role": "member",
+              "cue": "안에 있는",
+              "reach": "transitive"
+            }
+          }
+        ]
+      },
+      "concepts": {},
+      "expect": {
+        "g1": {
+          "status": "compiled",
+          "endpoints": [
+            "aks-prod-01",
+            "kv-app",
+            "snet-app",
+            "sql-app",
+            "vm-app-01",
+            "vnet-app"
+          ]
+        }
+      }
+    },
+    {
+      "id": "containment-parent-en",
+      "pair": "containment-parent",
+      "locale": "en",
+      "reasoning": "containment",
+      "utterance": "Which resource group contains vm-app-01?",
+      "form": {
+        "mentions": [
+          {
+            "id": "m1",
+            "form": "name",
+            "domain": "instance",
+            "text": "vm-app-01"
+          }
+        ],
+        "goals": [
+          {
+            "id": "g1",
+            "level": "instance",
+            "operation": "traverse",
+            "subject_scope": "anchor",
+            "cue": "Which resource group",
+            "confidence": 0.9,
+            "subject": "m1",
+            "relation": {
+              "sense": "containment",
+              "anchor_role": "member",
+              "result_role": "container",
+              "cue": "contains"
+            }
+          }
+        ]
+      },
+      "concepts": {},
+      "expect": {
+        "g1": {
+          "status": "compiled",
+          "endpoints": [
+            "rg-app"
+          ]
+        }
+      }
+    },
+    {
+      "id": "containment-parent-ko",
+      "pair": "containment-parent",
+      "locale": "ko",
+      "reasoning": "containment",
+      "utterance": "vm-app-01을 포함하는 리소스 그룹은?",
+      "form": {
+        "mentions": [
+          {
+            "id": "m1",
+            "form": "name",
+            "domain": "instance",
+            "text": "vm-app-01"
+          }
+        ],
+        "goals": [
+          {
+            "id": "g1",
+            "level": "instance",
+            "operation": "traverse",
+            "subject_scope": "anchor",
+            "cue": "리소스 그룹",
+            "confidence": 0.9,
+            "subject": "m1",
+            "relation": {
+              "sense": "containment",
+              "anchor_role": "member",
+              "result_role": "container",
+              "cue": "포함하는"
+            }
+          }
+        ]
+      },
+      "concepts": {},
+      "expect": {
+        "g1": {
+          "status": "compiled",
+          "endpoints": [
+            "rg-app"
+          ]
+        }
+      }
+    },
+    {
+      "id": "scoped-count-en",
+      "pair": "scoped-count",
+      "locale": "en",
+      "reasoning": "aggregation",
+      "utterance": "How many VMs are in rg-app?",
+      "form": {
+        "mentions": [
+          {
+            "id": "m1",
+            "form": "name",
+            "domain": "instance",
+            "text": "rg-app"
+          },
+          {
+            "id": "m2",
+            "form": "concept",
+            "domain": "resource_type",
+            "text": "VMs"
+          }
+        ],
+        "goals": [
+          {
+            "id": "g1",
+            "level": "instance",
+            "operation": "count",
+            "subject_scope": "collection",
+            "cue": "How many",
+            "confidence": 0.9,
+            "subject": "m2",
+            "filters": [
+              {
+                "role": "scope",
+                "mention": "m1"
+              }
+            ]
+          }
+        ]
+      },
+      "concepts": {
+        "m2": [
+          "compute.vm"
+        ]
+      },
+      "expect": {
+        "g1": {
+          "status": "compiled",
+          "count": 1
+        }
+      }
+    },
+    {
+      "id": "scoped-count-ko",
+      "pair": "scoped-count",
+      "locale": "ko",
+      "reasoning": "aggregation",
+      "utterance": "rg-app에 있는 VM은 몇 개야?",
+      "form": {
+        "mentions": [
+          {
+            "id": "m1",
+            "form": "name",
+            "domain": "instance",
+            "text": "rg-app"
+          },
+          {
+            "id": "m2",
+            "form": "concept",
+            "domain": "resource_type",
+            "text": "VM"
+          }
+        ],
+        "goals": [
+          {
+            "id": "g1",
+            "level": "instance",
+            "operation": "count",
+            "subject_scope": "collection",
+            "cue": "몇 개",
+            "confidence": 0.9,
+            "subject": "m2",
+            "filters": [
+              {
+                "role": "scope",
+                "mention": "m1"
+              }
+            ]
+          }
+        ]
+      },
+      "concepts": {
+        "m2": [
+          "compute.vm"
+        ]
+      },
+      "expect": {
+        "g1": {
+          "status": "compiled",
+          "count": 1
+        }
+      }
+    },
+    {
+      "id": "typed-dependents-en",
+      "pair": "typed-dependents",
+      "locale": "en",
+      "reasoning": "relation",
+      "utterance": "Which VMs depend on sql-app?",
+      "form": {
+        "mentions": [
+          {
+            "id": "m1",
+            "form": "name",
+            "domain": "instance",
+            "text": "sql-app"
+          },
+          {
+            "id": "m2",
+            "form": "concept",
+            "domain": "resource_type",
+            "text": "VMs"
+          }
+        ],
+        "goals": [
+          {
+            "id": "g1",
+            "level": "instance",
+            "operation": "traverse",
+            "subject_scope": "anchor",
+            "cue": "Which VMs",
+            "confidence": 0.9,
+            "subject": "m1",
+            "relation": {
+              "sense": "dependency",
+              "anchor_role": "dependency",
+              "result_role": "dependent",
+              "cue": "depend on"
+            },
+            "filters": [
+              {
+                "role": "type",
+                "mention": "m2"
+              }
+            ]
+          }
+        ]
+      },
+      "concepts": {
+        "m2": [
+          "compute.vm"
+        ]
+      },
+      "expect": {
+        "g1": {
+          "status": "compiled",
+          "endpoints": [
+            "vm-app-01"
+          ]
+        }
+      }
+    },
+    {
+      "id": "typed-dependents-ko",
+      "pair": "typed-dependents",
+      "locale": "ko",
+      "reasoning": "relation",
+      "utterance": "sql-app에 의존하는 VM은?",
+      "form": {
+        "mentions": [
+          {
+            "id": "m1",
+            "form": "name",
+            "domain": "instance",
+            "text": "sql-app"
+          },
+          {
+            "id": "m2",
+            "form": "concept",
+            "domain": "resource_type",
+            "text": "VM"
+          }
+        ],
+        "goals": [
+          {
+            "id": "g1",
+            "level": "instance",
+            "operation": "traverse",
+            "subject_scope": "anchor",
+            "cue": "VM은",
+            "confidence": 0.9,
+            "subject": "m1",
+            "relation": {
+              "sense": "dependency",
+              "anchor_role": "dependency",
+              "result_role": "dependent",
+              "cue": "의존하는"
+            },
+            "filters": [
+              {
+                "role": "type",
+                "mention": "m2"
+              }
+            ]
+          }
+        ]
+      },
+      "concepts": {
+        "m2": [
+          "compute.vm"
+        ]
+      },
+      "expect": {
+        "g1": {
+          "status": "compiled",
+          "endpoints": [
+            "vm-app-01"
+          ]
+        }
+      }
+    },
+    {
+      "id": "peering-en",
+      "pair": "peering",
+      "locale": "en",
+      "reasoning": "relation",
+      "utterance": "What is vnet-app peered with?",
+      "form": {
+        "mentions": [
+          {
+            "id": "m1",
+            "form": "name",
+            "domain": "instance",
+            "text": "vnet-app"
+          }
+        ],
+        "goals": [
+          {
+            "id": "g1",
+            "level": "instance",
+            "operation": "traverse",
+            "subject_scope": "anchor",
+            "cue": "What",
+            "confidence": 0.9,
+            "subject": "m1",
+            "relation": {
+              "sense": "connectivity",
+              "anchor_role": "either",
+              "result_role": "either",
+              "cue": "peered with"
+            }
+          }
+        ]
+      },
+      "concepts": {},
+      "expect": {
+        "g1": {
+          "status": "compiled",
+          "endpoints": [
+            "vnet-hub"
+          ]
+        }
+      }
+    },
+    {
+      "id": "peering-ko",
+      "pair": "peering",
+      "locale": "ko",
+      "reasoning": "relation",
+      "utterance": "vnet-app과 피어링된 네트워크는?",
+      "form": {
+        "mentions": [
+          {
+            "id": "m1",
+            "form": "name",
+            "domain": "instance",
+            "text": "vnet-app"
+          }
+        ],
+        "goals": [
+          {
+            "id": "g1",
+            "level": "instance",
+            "operation": "traverse",
+            "subject_scope": "anchor",
+            "cue": "네트워크",
+            "confidence": 0.9,
+            "subject": "m1",
+            "relation": {
+              "sense": "connectivity",
+              "anchor_role": "either",
+              "result_role": "either",
+              "cue": "피어링된"
+            }
+          }
+        ]
+      },
+      "concepts": {},
+      "expect": {
+        "g1": {
+          "status": "compiled",
+          "endpoints": [
+            "vnet-hub"
+          ]
+        }
+      }
+    },
+    {
+      "id": "traffic-sources-en",
+      "pair": "traffic-sources",
+      "locale": "en",
+      "reasoning": "relation",
+      "utterance": "What sends traffic to aks-prod-01?",
+      "form": {
+        "mentions": [
+          {
+            "id": "m1",
+            "form": "name",
+            "domain": "instance",
+            "text": "aks-prod-01"
+          }
+        ],
+        "goals": [
+          {
+            "id": "g1",
+            "level": "instance",
+            "operation": "traverse",
+            "subject_scope": "anchor",
+            "cue": "What",
+            "confidence": 0.9,
+            "subject": "m1",
+            "relation": {
+              "sense": "traffic",
+              "anchor_role": "receiver",
+              "result_role": "sender",
+              "cue": "sends traffic to"
+            }
+          }
+        ]
+      },
+      "concepts": {},
+      "expect": {
+        "g1": {
+          "status": "compiled",
+          "endpoints": [
+            "agw-app"
+          ]
+        }
+      }
+    },
+    {
+      "id": "traffic-sources-ko",
+      "pair": "traffic-sources",
+      "locale": "ko",
+      "reasoning": "relation",
+      "utterance": "aks-prod-01로 트래픽을 보내는 리소스는?",
+      "form": {
+        "mentions": [
+          {
+            "id": "m1",
+            "form": "name",
+            "domain": "instance",
+            "text": "aks-prod-01"
+          }
+        ],
+        "goals": [
+          {
+            "id": "g1",
+            "level": "instance",
+            "operation": "traverse",
+            "subject_scope": "anchor",
+            "cue": "리소스는",
+            "confidence": 0.9,
+            "subject": "m1",
+            "relation": {
+              "sense": "traffic",
+              "anchor_role": "receiver",
+              "result_role": "sender",
+              "cue": "트래픽을 보내는"
+            }
+          }
+        ]
+      },
+      "concepts": {},
+      "expect": {
+        "g1": {
+          "status": "compiled",
+          "endpoints": [
+            "agw-app"
+          ]
+        }
+      }
+    },
+    {
+      "id": "all-relationships-en",
+      "pair": "all-relationships",
+      "locale": "en",
+      "reasoning": "relation",
+      "utterance": "Show every relationship of aks-prod-01",
+      "form": {
+        "mentions": [
+          {
+            "id": "m1",
+            "form": "name",
+            "domain": "instance",
+            "text": "aks-prod-01"
+          }
+        ],
+        "goals": [
+          {
+            "id": "g1",
+            "level": "instance",
+            "operation": "traverse",
+            "subject_scope": "anchor",
+            "cue": "Show",
+            "confidence": 0.9,
+            "subject": "m1",
+            "relation": {
+              "sense": "dependency",
+              "anchor_role": "either",
+              "result_role": "either",
+              "cue": "every relationship",
+              "scope": "all_kinds"
+            }
+          }
+        ]
+      },
+      "concepts": {},
+      "expect": {
+        "g1": {
+          "status": "compiled"
+        }
+      }
+    },
+    {
+      "id": "all-relationships-ko",
+      "pair": "all-relationships",
+      "locale": "ko",
+      "reasoning": "relation",
+      "utterance": "aks-prod-01의 모든 관계를 보여줘",
+      "form": {
+        "mentions": [
+          {
+            "id": "m1",
+            "form": "name",
+            "domain": "instance",
+            "text": "aks-prod-01"
+          }
+        ],
+        "goals": [
+          {
+            "id": "g1",
+            "level": "instance",
+            "operation": "traverse",
+            "subject_scope": "anchor",
+            "cue": "보여줘",
+            "confidence": 0.9,
+            "subject": "m1",
+            "relation": {
+              "sense": "dependency",
+              "anchor_role": "either",
+              "result_role": "either",
+              "cue": "모든 관계",
+              "scope": "all_kinds"
+            }
+          }
+        ]
+      },
+      "concepts": {},
+      "expect": {
+        "g1": {
+          "status": "compiled"
+        }
+      }
+    },
+    {
+      "id": "possible-impact-en",
+      "pair": "possible-impact",
+      "locale": "en",
+      "reasoning": "relation",
+      "utterance": "What could be affected if sql-app fails?",
+      "form": {
+        "mentions": [
+          {
+            "id": "m1",
+            "form": "name",
+            "domain": "instance",
+            "text": "sql-app"
+          }
+        ],
+        "goals": [
+          {
+            "id": "g1",
+            "level": "instance",
+            "operation": "impact",
+            "subject_scope": "anchor",
+            "cue": "affected",
+            "confidence": 0.9,
+            "subject": "m1",
+            "relation": {
+              "sense": "dependency",
+              "anchor_role": "dependency",
+              "result_role": "dependent",
+              "cue": "affected"
+            }
+          }
+        ]
+      },
+      "concepts": {},
+      "expect": {
+        "g1": {
+          "status": "compiled",
+          "endpoints": [
+            "aks-prod-01",
+            "vm-app-01"
+          ],
+          "limitations": [
+            "possible_impact_not_observed"
+          ]
+        }
+      }
+    },
+    {
+      "id": "possible-impact-ko",
+      "pair": "possible-impact",
+      "locale": "ko",
+      "reasoning": "relation",
+      "utterance": "sql-app이 장애가 나면 영향을 받을 수 있는 리소스는?",
+      "form": {
+        "mentions": [
+          {
+            "id": "m1",
+            "form": "name",
+            "domain": "instance",
+            "text": "sql-app"
+          }
+        ],
+        "goals": [
+          {
+            "id": "g1",
+            "level": "instance",
+            "operation": "impact",
+            "subject_scope": "anchor",
+            "cue": "영향을 받을 수 있는",
+            "confidence": 0.9,
+            "subject": "m1",
+            "relation": {
+              "sense": "dependency",
+              "anchor_role": "dependency",
+              "result_role": "dependent",
+              "cue": "영향을 받을 수 있는"
+            }
+          }
+        ]
+      },
+      "concepts": {},
+      "expect": {
+        "g1": {
+          "status": "compiled",
+          "endpoints": [
+            "aks-prod-01",
+            "vm-app-01"
+          ],
+          "limitations": [
+            "possible_impact_not_observed"
+          ]
+        }
+      }
+    },
+    {
+      "id": "dependent-count-en",
+      "pair": "dependent-count",
+      "locale": "en",
+      "reasoning": "aggregation",
+      "utterance": "How many resources depend on sql-app?",
+      "form": {
+        "mentions": [
+          {
+            "id": "m1",
+            "form": "name",
+            "domain": "instance",
+            "text": "sql-app"
+          }
+        ],
+        "goals": [
+          {
+            "id": "g1",
+            "level": "instance",
+            "operation": "count",
+            "subject_scope": "anchor",
+            "cue": "How many",
+            "confidence": 0.9,
+            "subject": "m1",
+            "relation": {
+              "sense": "dependency",
+              "anchor_role": "dependency",
+              "result_role": "dependent",
+              "cue": "depend on"
+            }
+          }
+        ]
+      },
+      "concepts": {},
+      "expect": {
+        "g1": {
+          "status": "compiled",
+          "count": 2
+        }
+      }
+    },
+    {
+      "id": "dependent-count-ko",
+      "pair": "dependent-count",
+      "locale": "ko",
+      "reasoning": "aggregation",
+      "utterance": "sql-app에 의존하는 리소스는 몇 개야?",
+      "form": {
+        "mentions": [
+          {
+            "id": "m1",
+            "form": "name",
+            "domain": "instance",
+            "text": "sql-app"
+          }
+        ],
+        "goals": [
+          {
+            "id": "g1",
+            "level": "instance",
+            "operation": "count",
+            "subject_scope": "anchor",
+            "cue": "몇 개",
+            "confidence": 0.9,
+            "subject": "m1",
+            "relation": {
+              "sense": "dependency",
+              "anchor_role": "dependency",
+              "result_role": "dependent",
+              "cue": "의존하는"
+            }
+          }
+        ]
+      },
+      "concepts": {},
+      "expect": {
+        "g1": {
+          "status": "compiled",
+          "count": 2
+        }
+      }
+    },
+    {
+      "id": "current-state-en",
+      "pair": "current-state",
+      "locale": "en",
+      "reasoning": "lookup",
+      "utterance": "What is the current state of aks-prod-01?",
+      "form": {
+        "mentions": [
+          {
+            "id": "m1",
+            "form": "name",
+            "domain": "instance",
+            "text": "aks-prod-01"
+          }
+        ],
+        "goals": [
+          {
+            "id": "g1",
+            "level": "instance",
+            "operation": "lookup",
+            "subject_scope": "anchor",
+            "cue": "current state",
+            "confidence": 0.9,
+            "subject": "m1",
+            "measure": {
+              "kind": "state"
+            }
+          }
+        ]
+      },
+      "concepts": {},
+      "expect": {
+        "g1": {
+          "status": "compiled",
+          "function": "query.resource_current_state"
+        }
+      }
+    },
+    {
+      "id": "current-state-ko",
+      "pair": "current-state",
+      "locale": "ko",
+      "reasoning": "lookup",
+      "utterance": "aks-prod-01의 현재 상태는?",
+      "form": {
+        "mentions": [
+          {
+            "id": "m1",
+            "form": "name",
+            "domain": "instance",
+            "text": "aks-prod-01"
+          }
+        ],
+        "goals": [
+          {
+            "id": "g1",
+            "level": "instance",
+            "operation": "lookup",
+            "subject_scope": "anchor",
+            "cue": "현재 상태",
+            "confidence": 0.9,
+            "subject": "m1",
+            "measure": {
+              "kind": "state"
+            }
+          }
+        ]
+      },
+      "concepts": {},
+      "expect": {
+        "g1": {
+          "status": "compiled",
+          "function": "query.resource_current_state"
+        }
+      }
+    },
+    {
+      "id": "change-history-default-en",
+      "pair": "change-history-default",
+      "locale": "en",
+      "reasoning": "temporal",
+      "utterance": "What changed on vm-app-01?",
+      "form": {
+        "mentions": [
+          {
+            "id": "m1",
+            "form": "name",
+            "domain": "instance",
+            "text": "vm-app-01"
+          }
+        ],
+        "goals": [
+          {
+            "id": "g1",
+            "level": "instance",
+            "operation": "history",
+            "subject_scope": "anchor",
+            "cue": "What changed",
+            "confidence": 0.9,
+            "subject": "m1",
+            "measure": {
+              "kind": "change"
+            },
+            "time": {
+              "kind": "unspecified"
+            }
+          }
+        ]
+      },
+      "concepts": {},
+      "expect": {
+        "g1": {
+          "status": "compiled",
+          "function": "query.resource_change_activity",
+          "lookback_seconds": 86400
+        }
+      }
+    },
+    {
+      "id": "change-history-default-ko",
+      "pair": "change-history-default",
+      "locale": "ko",
+      "reasoning": "temporal",
+      "utterance": "vm-app-01에서 무엇이 바뀌었어?",
+      "form": {
+        "mentions": [
+          {
+            "id": "m1",
+            "form": "name",
+            "domain": "instance",
+            "text": "vm-app-01"
+          }
+        ],
+        "goals": [
+          {
+            "id": "g1",
+            "level": "instance",
+            "operation": "history",
+            "subject_scope": "anchor",
+            "cue": "바뀌었어",
+            "confidence": 0.9,
+            "subject": "m1",
+            "measure": {
+              "kind": "change"
+            },
+            "time": {
+              "kind": "unspecified"
+            }
+          }
+        ]
+      },
+      "concepts": {},
+      "expect": {
+        "g1": {
+          "status": "compiled",
+          "function": "query.resource_change_activity",
+          "lookback_seconds": 86400
+        }
+      }
+    },
+    {
+      "id": "change-history-window-en",
+      "pair": "change-history-window",
+      "locale": "en",
+      "reasoning": "temporal",
+      "utterance": "What changed on vm-app-01 in the last 3 days?",
+      "form": {
+        "mentions": [
+          {
+            "id": "m1",
+            "form": "name",
+            "domain": "instance",
+            "text": "vm-app-01"
+          }
+        ],
+        "goals": [
+          {
+            "id": "g1",
+            "level": "instance",
+            "operation": "history",
+            "subject_scope": "anchor",
+            "cue": "What changed",
+            "confidence": 0.9,
+            "subject": "m1",
+            "measure": {
+              "kind": "change"
+            },
+            "time": {
+              "kind": "window",
+              "value": {
+                "duration": {
+                  "amount": 3,
+                  "unit": "day"
+                }
+              },
+              "cue": "last 3 days"
+            }
+          }
+        ]
+      },
+      "concepts": {},
+      "expect": {
+        "g1": {
+          "status": "compiled",
+          "function": "query.resource_change_activity",
+          "lookback_seconds": 259200
+        }
+      }
+    },
+    {
+      "id": "change-history-window-ko",
+      "pair": "change-history-window",
+      "locale": "ko",
+      "reasoning": "temporal",
+      "utterance": "vm-app-01에서 최근 3일 동안 바뀐 것은?",
+      "form": {
+        "mentions": [
+          {
+            "id": "m1",
+            "form": "name",
+            "domain": "instance",
+            "text": "vm-app-01"
+          }
+        ],
+        "goals": [
+          {
+            "id": "g1",
+            "level": "instance",
+            "operation": "history",
+            "subject_scope": "anchor",
+            "cue": "바뀐 것",
+            "confidence": 0.9,
+            "subject": "m1",
+            "measure": {
+              "kind": "change"
+            },
+            "time": {
+              "kind": "window",
+              "value": {
+                "duration": {
+                  "amount": 3,
+                  "unit": "day"
+                }
+              },
+              "cue": "최근 3일"
+            }
+          }
+        ]
+      },
+      "concepts": {},
+      "expect": {
+        "g1": {
+          "status": "compiled",
+          "function": "query.resource_change_activity",
+          "lookback_seconds": 259200
+        }
+      }
+    },
+    {
+      "id": "schema-declaration-en",
+      "pair": "schema-declaration",
+      "locale": "en",
+      "reasoning": "schema",
+      "utterance": "What does the Resource ObjectType declare?",
+      "form": {
+        "mentions": [
+          {
+            "id": "m1",
+            "form": "concept",
+            "domain": "object_type",
+            "text": "Resource"
+          }
+        ],
+        "goals": [
+          {
+            "id": "g1",
+            "level": "schema",
+            "operation": "describe_schema",
+            "subject_scope": "anchor",
+            "cue": "declare",
+            "confidence": 0.9,
+            "subject": "m1"
+          }
+        ]
+      },
+      "concepts": {
+        "m1": [
+          "Resource"
+        ]
+      },
+      "expect": {
+        "g1": {
+          "status": "compiled",
+          "function": "query.ontology_declaration"
+        }
+      }
+    },
+    {
+      "id": "schema-declaration-ko",
+      "pair": "schema-declaration",
+      "locale": "ko",
+      "reasoning": "schema",
+      "utterance": "Resource ObjectType은 무엇을 선언하나요?",
+      "form": {
+        "mentions": [
+          {
+            "id": "m1",
+            "form": "concept",
+            "domain": "object_type",
+            "text": "Resource"
+          }
+        ],
+        "goals": [
+          {
+            "id": "g1",
+            "level": "schema",
+            "operation": "describe_schema",
+            "subject_scope": "anchor",
+            "cue": "선언하나요",
+            "confidence": 0.9,
+            "subject": "m1"
+          }
+        ]
+      },
+      "concepts": {
+        "m1": [
+          "Resource"
+        ]
+      },
+      "expect": {
+        "g1": {
+          "status": "compiled",
+          "function": "query.ontology_declaration"
+        }
+      }
+    },
+    {
+      "id": "schema-relationships-en",
+      "pair": "schema-relationships",
+      "locale": "en",
+      "reasoning": "schema",
+      "utterance": "Which LinkTypes does the Workload ObjectType have?",
+      "form": {
+        "mentions": [
+          {
+            "id": "m1",
+            "form": "concept",
+            "domain": "object_type",
+            "text": "Workload"
+          }
+        ],
+        "goals": [
+          {
+            "id": "g1",
+            "level": "schema",
+            "operation": "describe_schema",
+            "subject_scope": "anchor",
+            "cue": "Which LinkTypes",
+            "confidence": 0.9,
+            "subject": "m1",
+            "relation": {
+              "sense": "dependency",
+              "anchor_role": "either",
+              "result_role": "either",
+              "cue": "LinkTypes",
+              "scope": "all_kinds"
+            }
+          }
+        ]
+      },
+      "concepts": {
+        "m1": [
+          "Workload"
+        ]
+      },
+      "expect": {
+        "g1": {
+          "status": "compiled",
+          "function": "query.ontology_relationships"
+        }
+      }
+    },
+    {
+      "id": "schema-relationships-ko",
+      "pair": "schema-relationships",
+      "locale": "ko",
+      "reasoning": "schema",
+      "utterance": "Workload ObjectType에는 어떤 LinkType이 있나요?",
+      "form": {
+        "mentions": [
+          {
+            "id": "m1",
+            "form": "concept",
+            "domain": "object_type",
+            "text": "Workload"
+          }
+        ],
+        "goals": [
+          {
+            "id": "g1",
+            "level": "schema",
+            "operation": "describe_schema",
+            "subject_scope": "anchor",
+            "cue": "어떤 LinkType",
+            "confidence": 0.9,
+            "subject": "m1",
+            "relation": {
+              "sense": "dependency",
+              "anchor_role": "either",
+              "result_role": "either",
+              "cue": "LinkType",
+              "scope": "all_kinds"
+            }
+          }
+        ]
+      },
+      "concepts": {
+        "m1": [
+          "Workload"
+        ]
+      },
+      "expect": {
+        "g1": {
+          "status": "compiled",
+          "function": "query.ontology_relationships"
+        }
+      }
+    },
+    {
+      "id": "declaration-count-en",
+      "pair": "declaration-count",
+      "locale": "en",
+      "reasoning": "schema",
+      "utterance": "How many ObjectTypes are declared?",
+      "form": {
+        "mentions": [
+          {
+            "id": "m1",
+            "form": "concept",
+            "domain": "declaration_kind",
+            "text": "ObjectTypes"
+          }
+        ],
+        "goals": [
+          {
+            "id": "g1",
+            "level": "schema",
+            "operation": "count",
+            "subject_scope": "anchor",
+            "cue": "How many",
+            "confidence": 0.9,
+            "subject": "m1"
+          }
+        ]
+      },
+      "concepts": {
+        "m1": [
+          "object"
+        ]
+      },
+      "expect": {
+        "g1": {
+          "status": "compiled",
+          "function": "query.manifest"
+        }
+      }
+    },
+    {
+      "id": "declaration-count-ko",
+      "pair": "declaration-count",
+      "locale": "ko",
+      "reasoning": "schema",
+      "utterance": "선언된 ObjectType은 몇 개인가요?",
+      "form": {
+        "mentions": [
+          {
+            "id": "m1",
+            "form": "concept",
+            "domain": "declaration_kind",
+            "text": "ObjectType"
+          }
+        ],
+        "goals": [
+          {
+            "id": "g1",
+            "level": "schema",
+            "operation": "count",
+            "subject_scope": "anchor",
+            "cue": "몇 개",
+            "confidence": 0.9,
+            "subject": "m1"
+          }
+        ]
+      },
+      "concepts": {
+        "m1": [
+          "object"
+        ]
+      },
+      "expect": {
+        "g1": {
+          "status": "compiled",
+          "function": "query.manifest"
+        }
+      }
+    },
+    {
+      "id": "objecttype-versus-resource-type-en",
+      "pair": "objecttype-versus-resource-type",
+      "locale": "en",
+      "reasoning": "closure",
+      "utterance": "List the AKS ObjectTypes",
+      "form": {
+        "mentions": [
+          {
+            "id": "m1",
+            "form": "concept",
+            "domain": "object_type",
+            "text": "AKS"
+          }
+        ],
+        "goals": [
+          {
+            "id": "g1",
+            "level": "schema",
+            "operation": "select",
+            "subject_scope": "anchor",
+            "cue": "List",
+            "confidence": 0.9,
+            "subject": "m1"
+          }
+        ]
+      },
+      "concepts": {
+        "m1": null
+      },
+      "expect": {
+        "g1": {
+          "status": "clarify",
+          "reasons": [
+            "concept_not_found:object_type"
+          ]
+        }
+      }
+    },
+    {
+      "id": "objecttype-versus-resource-type-ko",
+      "pair": "objecttype-versus-resource-type",
+      "locale": "ko",
+      "reasoning": "closure",
+      "utterance": "AKS ObjectType 목록을 보여줘",
+      "form": {
+        "mentions": [
+          {
+            "id": "m1",
+            "form": "concept",
+            "domain": "object_type",
+            "text": "AKS"
+          }
+        ],
+        "goals": [
+          {
+            "id": "g1",
+            "level": "schema",
+            "operation": "select",
+            "subject_scope": "anchor",
+            "cue": "목록",
+            "confidence": 0.9,
+            "subject": "m1"
+          }
+        ]
+      },
+      "concepts": {
+        "m1": null
+      },
+      "expect": {
+        "g1": {
+          "status": "clarify",
+          "reasons": [
+            "concept_not_found:object_type"
+          ]
+        }
+      }
+    },
+    {
+      "id": "type-collection-en",
+      "pair": "type-collection",
+      "locale": "en",
+      "reasoning": "closure",
+      "utterance": "List all VMs",
+      "form": {
+        "mentions": [
+          {
+            "id": "m1",
+            "form": "concept",
+            "domain": "resource_type",
+            "text": "VMs"
+          }
+        ],
+        "goals": [
+          {
+            "id": "g1",
+            "level": "instance",
+            "operation": "select",
+            "subject_scope": "collection",
+            "cue": "List",
+            "confidence": 0.9,
+            "subject": "m1"
+          }
+        ]
+      },
+      "concepts": {
+        "m1": [
+          "compute.vm"
+        ]
+      },
+      "expect": {
+        "g1": {
+          "status": "compiled",
+          "endpoints": [
+            "vm-app-01",
+            "vm-app-dev-01"
+          ]
+        }
+      }
+    },
+    {
+      "id": "type-collection-ko",
+      "pair": "type-collection",
+      "locale": "ko",
+      "reasoning": "closure",
+      "utterance": "모든 VM 목록을 보여줘",
+      "form": {
+        "mentions": [
+          {
+            "id": "m1",
+            "form": "concept",
+            "domain": "resource_type",
+            "text": "VM"
+          }
+        ],
+        "goals": [
+          {
+            "id": "g1",
+            "level": "instance",
+            "operation": "select",
+            "subject_scope": "collection",
+            "cue": "목록",
+            "confidence": 0.9,
+            "subject": "m1"
+          }
+        ]
+      },
+      "concepts": {
+        "m1": [
+          "compute.vm"
+        ]
+      },
+      "expect": {
+        "g1": {
+          "status": "compiled",
+          "endpoints": [
+            "vm-app-01",
+            "vm-app-dev-01"
+          ]
+        }
+      }
+    },
+    {
+      "id": "name-fragment-en",
+      "pair": "name-fragment",
+      "locale": "en",
+      "reasoning": "closure",
+      "utterance": "Which resources have app-dev in their name?",
+      "form": {
+        "mentions": [
+          {
+            "id": "m1",
+            "form": "value",
+            "domain": "instance",
+            "text": "app-dev"
+          }
+        ],
+        "goals": [
+          {
+            "id": "g1",
+            "level": "instance",
+            "operation": "select",
+            "subject_scope": "collection",
+            "cue": "Which resources",
+            "confidence": 0.9,
+            "filters": [
+              {
+                "role": "name_fragment",
+                "mention": "m1"
+              }
+            ]
+          }
+        ]
+      },
+      "concepts": {},
+      "expect": {
+        "g1": {
+          "status": "compiled",
+          "endpoints": [
+            "rg-app-dev",
+            "vm-app-dev-01"
+          ]
+        }
+      }
+    },
+    {
+      "id": "name-fragment-ko",
+      "pair": "name-fragment",
+      "locale": "ko",
+      "reasoning": "closure",
+      "utterance": "이름에 app-dev가 들어간 리소스는?",
+      "form": {
+        "mentions": [
+          {
+            "id": "m1",
+            "form": "value",
+            "domain": "instance",
+            "text": "app-dev"
+          }
+        ],
+        "goals": [
+          {
+            "id": "g1",
+            "level": "instance",
+            "operation": "select",
+            "subject_scope": "collection",
+            "cue": "리소스는",
+            "confidence": 0.9,
+            "filters": [
+              {
+                "role": "name_fragment",
+                "mention": "m1"
+              }
+            ]
+          }
+        ]
+      },
+      "concepts": {},
+      "expect": {
+        "g1": {
+          "status": "compiled",
+          "endpoints": [
+            "rg-app-dev",
+            "vm-app-dev-01"
+          ]
+        }
+      }
+    },
+    {
+      "id": "region-filter-en",
+      "pair": "region-filter",
+      "locale": "en",
+      "reasoning": "closure",
+      "utterance": "Which VMs are in Korea Central?",
+      "form": {
+        "mentions": [
+          {
+            "id": "m1",
+            "form": "concept",
+            "domain": "resource_type",
+            "text": "VMs"
+          },
+          {
+            "id": "m2",
+            "form": "value",
+            "domain": "region",
+            "text": "Korea Central"
+          }
+        ],
+        "goals": [
+          {
+            "id": "g1",
+            "level": "instance",
+            "operation": "select",
+            "subject_scope": "collection",
+            "cue": "Which VMs",
+            "confidence": 0.9,
+            "subject": "m1",
+            "filters": [
+              {
+                "role": "region",
+                "mention": "m2"
+              }
+            ]
+          }
+        ]
+      },
+      "concepts": {
+        "m1": [
+          "compute.vm"
+        ]
+      },
+      "expect": {
+        "g1": {
+          "status": "unsupported",
+          "reasons": [
+            "filter_unsupported:region"
+          ]
+        }
+      }
+    },
+    {
+      "id": "region-filter-ko",
+      "pair": "region-filter",
+      "locale": "ko",
+      "reasoning": "closure",
+      "utterance": "Korea Central에 있는 VM은?",
+      "form": {
+        "mentions": [
+          {
+            "id": "m1",
+            "form": "concept",
+            "domain": "resource_type",
+            "text": "VM"
+          },
+          {
+            "id": "m2",
+            "form": "value",
+            "domain": "region",
+            "text": "Korea Central"
+          }
+        ],
+        "goals": [
+          {
+            "id": "g1",
+            "level": "instance",
+            "operation": "select",
+            "subject_scope": "collection",
+            "cue": "VM은",
+            "confidence": 0.9,
+            "subject": "m1",
+            "filters": [
+              {
+                "role": "region",
+                "mention": "m2"
+              }
+            ]
+          }
+        ]
+      },
+      "concepts": {
+        "m1": [
+          "compute.vm"
+        ]
+      },
+      "expect": {
+        "g1": {
+          "status": "unsupported",
+          "reasons": [
+            "filter_unsupported:region"
+          ]
+        }
+      }
+    },
+    {
+      "id": "open-incidents-en",
+      "pair": "open-incidents",
+      "locale": "en",
+      "reasoning": "closure",
+      "utterance": "List the open incidents",
+      "form": {
+        "mentions": [
+          {
+            "id": "m1",
+            "form": "concept",
+            "domain": "object_type",
+            "text": "incidents"
+          },
+          {
+            "id": "m2",
+            "form": "value",
+            "domain": "state",
+            "text": "open"
+          }
+        ],
+        "goals": [
+          {
+            "id": "g1",
+            "level": "instance",
+            "operation": "select",
+            "subject_scope": "collection",
+            "cue": "List",
+            "confidence": 0.9,
+            "subject": "m1",
+            "filters": [
+              {
+                "role": "state",
+                "mention": "m2"
+              }
+            ]
+          }
+        ]
+      },
+      "concepts": {
+        "m1": [
+          "Incident"
+        ]
+      },
+      "expect": {
+        "g1": {
+          "status": "unsupported",
+          "reasons": [
+            "filter_unsupported:state"
+          ]
+        }
+      }
+    },
+    {
+      "id": "open-incidents-ko",
+      "pair": "open-incidents",
+      "locale": "ko",
+      "reasoning": "closure",
+      "utterance": "열린 인시던트 목록을 보여줘",
+      "form": {
+        "mentions": [
+          {
+            "id": "m1",
+            "form": "concept",
+            "domain": "object_type",
+            "text": "인시던트"
+          },
+          {
+            "id": "m2",
+            "form": "value",
+            "domain": "state",
+            "text": "열린"
+          }
+        ],
+        "goals": [
+          {
+            "id": "g1",
+            "level": "instance",
+            "operation": "select",
+            "subject_scope": "collection",
+            "cue": "목록",
+            "confidence": 0.9,
+            "subject": "m1",
+            "filters": [
+              {
+                "role": "state",
+                "mention": "m2"
+              }
+            ]
+          }
+        ]
+      },
+      "concepts": {
+        "m1": [
+          "Incident"
+        ]
+      },
+      "expect": {
+        "g1": {
+          "status": "unsupported",
+          "reasons": [
+            "filter_unsupported:state"
+          ]
+        }
+      }
+    },
+    {
+      "id": "change-cause-en",
+      "pair": "change-cause",
+      "locale": "en",
+      "reasoning": "causal",
+      "utterance": "Why did vm-app-01 change?",
+      "form": {
+        "mentions": [
+          {
+            "id": "m1",
+            "form": "name",
+            "domain": "instance",
+            "text": "vm-app-01"
+          }
+        ],
+        "goals": [
+          {
+            "id": "g1",
+            "level": "instance",
+            "operation": "explain_cause",
+            "subject_scope": "anchor",
+            "cue": "Why",
+            "confidence": 0.9,
+            "subject": "m1",
+            "measure": {
+              "kind": "change"
+            },
+            "want": "cause"
+          }
+        ]
+      },
+      "concepts": {},
+      "expect": {
+        "g1": {
+          "status": "unsupported",
+          "reasons": [
+            "want_unsupported:cause"
+          ]
+        }
+      }
+    },
+    {
+      "id": "change-cause-ko",
+      "pair": "change-cause",
+      "locale": "ko",
+      "reasoning": "causal",
+      "utterance": "vm-app-01이 왜 변경됐어?",
+      "form": {
+        "mentions": [
+          {
+            "id": "m1",
+            "form": "name",
+            "domain": "instance",
+            "text": "vm-app-01"
+          }
+        ],
+        "goals": [
+          {
+            "id": "g1",
+            "level": "instance",
+            "operation": "explain_cause",
+            "subject_scope": "anchor",
+            "cue": "왜",
+            "confidence": 0.9,
+            "subject": "m1",
+            "measure": {
+              "kind": "change"
+            },
+            "want": "cause"
+          }
+        ]
+      },
+      "concepts": {},
+      "expect": {
+        "g1": {
+          "status": "unsupported",
+          "reasons": [
+            "want_unsupported:cause"
+          ]
+        }
+      }
+    },
+    {
+      "id": "evidence-verification-en",
+      "pair": "evidence-verification",
+      "locale": "en",
+      "reasoning": "evidence",
+      "utterance": "Is the dependency of aks-prod-01 on sql-app verified?",
+      "form": {
+        "mentions": [
+          {
+            "id": "m1",
+            "form": "name",
+            "domain": "instance",
+            "text": "aks-prod-01"
+          },
+          {
+            "id": "m2",
+            "form": "name",
+            "domain": "instance",
+            "text": "sql-app"
+          }
+        ],
+        "goals": [
+          {
+            "id": "g1",
+            "level": "instance",
+            "operation": "verify_evidence",
+            "subject_scope": "anchor",
+            "cue": "verified",
+            "confidence": 0.9,
+            "subject": "m1",
+            "relation": {
+              "sense": "dependency",
+              "anchor_role": "dependent",
+              "result_role": "dependency",
+              "cue": "dependency",
+              "counterpart": "m2"
+            },
+            "want": "verification"
+          }
+        ]
+      },
+      "concepts": {},
+      "expect": {
+        "g1": {
+          "status": "unsupported",
+          "reasons": [
+            "want_unsupported:verification"
+          ]
+        }
+      }
+    },
+    {
+      "id": "evidence-verification-ko",
+      "pair": "evidence-verification",
+      "locale": "ko",
+      "reasoning": "evidence",
+      "utterance": "aks-prod-01의 sql-app 의존 관계는 검증되었나요?",
+      "form": {
+        "mentions": [
+          {
+            "id": "m1",
+            "form": "name",
+            "domain": "instance",
+            "text": "aks-prod-01"
+          },
+          {
+            "id": "m2",
+            "form": "name",
+            "domain": "instance",
+            "text": "sql-app"
+          }
+        ],
+        "goals": [
+          {
+            "id": "g1",
+            "level": "instance",
+            "operation": "verify_evidence",
+            "subject_scope": "anchor",
+            "cue": "검증되었나요",
+            "confidence": 0.9,
+            "subject": "m1",
+            "relation": {
+              "sense": "dependency",
+              "anchor_role": "dependent",
+              "result_role": "dependency",
+              "cue": "의존 관계",
+              "counterpart": "m2"
+            },
+            "want": "verification"
+          }
+        ]
+      },
+      "concepts": {},
+      "expect": {
+        "g1": {
+          "status": "unsupported",
+          "reasons": [
+            "want_unsupported:verification"
+          ]
+        }
+      }
+    },
+    {
+      "id": "follow-up-subset-en",
+      "pair": "follow-up-subset",
+      "locale": "en",
+      "reasoning": "followup",
+      "utterance": "Among them, which ones depend on sql-app?",
+      "form": {
+        "mentions": [
+          {
+            "id": "m1",
+            "form": "anaphor",
+            "domain": "instance",
+            "text": "them"
+          }
+        ],
+        "goals": [
+          {
+            "id": "g1",
+            "level": "instance",
+            "operation": "traverse",
+            "subject_scope": "prior_result",
+            "cue": "which ones",
+            "confidence": 0.9,
+            "subject": "m1",
+            "relation": {
+              "sense": "dependency",
+              "anchor_role": "dependent",
+              "result_role": "dependency",
+              "cue": "depend on"
+            }
+          }
+        ]
+      },
+      "concepts": {},
+      "expect": {
+        "g1": {
+          "status": "unsupported",
+          "reasons": [
+            "subject_scope_unavailable:prior_result"
+          ]
+        }
+      }
+    },
+    {
+      "id": "follow-up-subset-ko",
+      "pair": "follow-up-subset",
+      "locale": "ko",
+      "reasoning": "followup",
+      "utterance": "그중에서 sql-app에 의존하는 것은?",
+      "form": {
+        "mentions": [
+          {
+            "id": "m1",
+            "form": "anaphor",
+            "domain": "instance",
+            "text": "그중에서"
+          }
+        ],
+        "goals": [
+          {
+            "id": "g1",
+            "level": "instance",
+            "operation": "traverse",
+            "subject_scope": "prior_result",
+            "cue": "것은",
+            "confidence": 0.9,
+            "subject": "m1",
+            "relation": {
+              "sense": "dependency",
+              "anchor_role": "dependent",
+              "result_role": "dependency",
+              "cue": "의존하는"
+            }
+          }
+        ]
+      },
+      "concepts": {},
+      "expect": {
+        "g1": {
+          "status": "unsupported",
+          "reasons": [
+            "subject_scope_unavailable:prior_result"
+          ]
+        }
+      }
+    },
+    {
+      "id": "follow-up-ordinal-en",
+      "pair": "follow-up-ordinal",
+      "locale": "en",
+      "reasoning": "followup",
+      "utterance": "What does the first one depend on?",
+      "form": {
+        "mentions": [
+          {
+            "id": "m1",
+            "form": "ordinal",
+            "domain": "instance",
+            "text": "the first one"
+          }
+        ],
+        "goals": [
+          {
+            "id": "g1",
+            "level": "instance",
+            "operation": "traverse",
+            "subject_scope": "prior_result",
+            "cue": "What",
+            "confidence": 0.9,
+            "subject": "m1",
+            "relation": {
+              "sense": "dependency",
+              "anchor_role": "dependent",
+              "result_role": "dependency",
+              "cue": "depend on"
+            }
+          }
+        ]
+      },
+      "concepts": {},
+      "expect": {
+        "g1": {
+          "status": "unsupported",
+          "reasons": [
+            "subject_scope_unavailable:prior_result"
+          ]
+        }
+      }
+    },
+    {
+      "id": "follow-up-ordinal-ko",
+      "pair": "follow-up-ordinal",
+      "locale": "ko",
+      "reasoning": "followup",
+      "utterance": "첫 번째 것은 무엇에 의존해?",
+      "form": {
+        "mentions": [
+          {
+            "id": "m1",
+            "form": "ordinal",
+            "domain": "instance",
+            "text": "첫 번째 것"
+          }
+        ],
+        "goals": [
+          {
+            "id": "g1",
+            "level": "instance",
+            "operation": "traverse",
+            "subject_scope": "prior_result",
+            "cue": "무엇",
+            "confidence": 0.9,
+            "subject": "m1",
+            "relation": {
+              "sense": "dependency",
+              "anchor_role": "dependent",
+              "result_role": "dependency",
+              "cue": "의존해"
+            }
+          }
+        ]
+      },
+      "concepts": {},
+      "expect": {
+        "g1": {
+          "status": "unsupported",
+          "reasons": [
+            "subject_scope_unavailable:prior_result"
+          ]
+        }
+      }
+    },
+    {
+      "id": "transitive-dependency-en",
+      "pair": "transitive-dependency",
+      "locale": "en",
+      "reasoning": "relation",
+      "utterance": "What does aks-prod-01 depend on, directly or indirectly?",
+      "form": {
+        "mentions": [
+          {
+            "id": "m1",
+            "form": "name",
+            "domain": "instance",
+            "text": "aks-prod-01"
+          }
+        ],
+        "goals": [
+          {
+            "id": "g1",
+            "level": "instance",
+            "operation": "traverse",
+            "subject_scope": "anchor",
+            "cue": "What",
+            "confidence": 0.9,
+            "subject": "m1",
+            "relation": {
+              "sense": "dependency",
+              "anchor_role": "dependent",
+              "result_role": "dependency",
+              "cue": "directly or indirectly",
+              "reach": "transitive"
+            }
+          }
+        ]
+      },
+      "concepts": {},
+      "expect": {
+        "g1": {
+          "status": "unsupported",
+          "reasons": [
+            "relation_not_transitive"
+          ]
+        }
+      }
+    },
+    {
+      "id": "transitive-dependency-ko",
+      "pair": "transitive-dependency",
+      "locale": "ko",
+      "reasoning": "relation",
+      "utterance": "aks-prod-01이 직접 또는 간접적으로 의존하는 리소스는?",
+      "form": {
+        "mentions": [
+          {
+            "id": "m1",
+            "form": "name",
+            "domain": "instance",
+            "text": "aks-prod-01"
+          }
+        ],
+        "goals": [
+          {
+            "id": "g1",
+            "level": "instance",
+            "operation": "traverse",
+            "subject_scope": "anchor",
+            "cue": "리소스는",
+            "confidence": 0.9,
+            "subject": "m1",
+            "relation": {
+              "sense": "dependency",
+              "anchor_role": "dependent",
+              "result_role": "dependency",
+              "cue": "직접 또는 간접적으로",
+              "reach": "transitive"
+            }
+          }
+        ]
+      },
+      "concepts": {},
+      "expect": {
+        "g1": {
+          "status": "unsupported",
+          "reasons": [
+            "relation_not_transitive"
+          ]
+        }
+      }
+    },
+    {
+      "id": "service-path-en",
+      "pair": "service-path",
+      "locale": "en",
+      "reasoning": "relation",
+      "utterance": "What is the path from agw-app to sql-app?",
+      "form": {
+        "mentions": [
+          {
+            "id": "m1",
+            "form": "name",
+            "domain": "instance",
+            "text": "agw-app"
+          },
+          {
+            "id": "m2",
+            "form": "name",
+            "domain": "instance",
+            "text": "sql-app"
+          }
+        ],
+        "goals": [
+          {
+            "id": "g1",
+            "level": "instance",
+            "operation": "path",
+            "subject_scope": "anchor",
+            "cue": "path",
+            "confidence": 0.9,
+            "subject": "m1",
+            "relation": {
+              "sense": "traffic",
+              "anchor_role": "sender",
+              "result_role": "receiver",
+              "cue": "path from",
+              "counterpart": "m2"
+            }
+          }
+        ]
+      },
+      "concepts": {},
+      "expect": {
+        "g1": {
+          "status": "unsupported",
+          "reasons": [
+            "operation_unsupported:path"
+          ]
+        }
+      }
+    },
+    {
+      "id": "service-path-ko",
+      "pair": "service-path",
+      "locale": "ko",
+      "reasoning": "relation",
+      "utterance": "agw-app에서 sql-app까지의 경로는?",
+      "form": {
+        "mentions": [
+          {
+            "id": "m1",
+            "form": "name",
+            "domain": "instance",
+            "text": "agw-app"
+          },
+          {
+            "id": "m2",
+            "form": "name",
+            "domain": "instance",
+            "text": "sql-app"
+          }
+        ],
+        "goals": [
+          {
+            "id": "g1",
+            "level": "instance",
+            "operation": "path",
+            "subject_scope": "anchor",
+            "cue": "경로는",
+            "confidence": 0.9,
+            "subject": "m1",
+            "relation": {
+              "sense": "traffic",
+              "anchor_role": "sender",
+              "result_role": "receiver",
+              "cue": "까지의 경로",
+              "counterpart": "m2"
+            }
+          }
+        ]
+      },
+      "concepts": {},
+      "expect": {
+        "g1": {
+          "status": "unsupported",
+          "reasons": [
+            "operation_unsupported:path"
+          ]
+        }
+      }
+    },
+    {
+      "id": "stopped-vms-en",
+      "pair": "stopped-vms",
+      "locale": "en",
+      "reasoning": "closure",
+      "utterance": "List the stopped VMs",
+      "form": {
+        "mentions": [
+          {
+            "id": "m1",
+            "form": "concept",
+            "domain": "resource_type",
+            "text": "VMs"
+          },
+          {
+            "id": "m2",
+            "form": "value",
+            "domain": "state",
+            "text": "stopped"
+          }
+        ],
+        "goals": [
+          {
+            "id": "g1",
+            "level": "instance",
+            "operation": "select",
+            "subject_scope": "collection",
+            "cue": "List",
+            "confidence": 0.9,
+            "subject": "m1",
+            "filters": [
+              {
+                "role": "state",
+                "mention": "m2"
+              }
+            ]
+          }
+        ]
+      },
+      "concepts": {
+        "m1": [
+          "compute.vm"
+        ]
+      },
+      "expect": {
+        "g1": {
+          "status": "unsupported",
+          "reasons": [
+            "filter_unsupported:state"
+          ]
+        }
+      }
+    },
+    {
+      "id": "stopped-vms-ko",
+      "pair": "stopped-vms",
+      "locale": "ko",
+      "reasoning": "closure",
+      "utterance": "중지된 VM 목록을 보여줘",
+      "form": {
+        "mentions": [
+          {
+            "id": "m1",
+            "form": "concept",
+            "domain": "resource_type",
+            "text": "VM"
+          },
+          {
+            "id": "m2",
+            "form": "value",
+            "domain": "state",
+            "text": "중지된"
+          }
+        ],
+        "goals": [
+          {
+            "id": "g1",
+            "level": "instance",
+            "operation": "select",
+            "subject_scope": "collection",
+            "cue": "목록",
+            "confidence": 0.9,
+            "subject": "m1",
+            "filters": [
+              {
+                "role": "state",
+                "mention": "m2"
+              }
+            ]
+          }
+        ]
+      },
+      "concepts": {
+        "m1": [
+          "compute.vm"
+        ]
+      },
+      "expect": {
+        "g1": {
+          "status": "unsupported",
+          "reasons": [
+            "filter_unsupported:state"
+          ]
+        }
+      }
+    },
+    {
+      "id": "count-by-type-en",
+      "pair": "count-by-type",
+      "locale": "en",
+      "reasoning": "aggregation",
+      "utterance": "Count all resources in rg-app, including nested ones, by type",
+      "form": {
+        "mentions": [
+          {
+            "id": "m1",
+            "form": "name",
+            "domain": "instance",
+            "text": "rg-app"
+          }
+        ],
+        "goals": [
+          {
+            "id": "g1",
+            "level": "instance",
+            "operation": "count",
+            "subject_scope": "collection",
+            "cue": "Count",
+            "confidence": 0.9,
+            "filters": [
+              {
+                "role": "scope",
+                "mention": "m1"
+              }
+            ],
+            "measure": {
+              "kind": "count",
+              "group_by": "type"
+            }
+          }
+        ]
+      },
+      "concepts": {},
+      "expect": {
+        "g1": {
+          "status": "compiled",
+          "groups": {
+            "compute.vm": 1,
+            "kubernetes-cluster": 1,
+            "network.subnet": 1,
+            "network.vnet": 1,
+            "secret-store": 1,
+            "sql-database": 1
+          }
+        }
+      }
+    },
+    {
+      "id": "count-by-type-ko",
+      "pair": "count-by-type",
+      "locale": "ko",
+      "reasoning": "aggregation",
+      "utterance": "rg-app의 하위 리소스까지 모두 유형별로 세어줘",
+      "form": {
+        "mentions": [
+          {
+            "id": "m1",
+            "form": "name",
+            "domain": "instance",
+            "text": "rg-app"
+          }
+        ],
+        "goals": [
+          {
+            "id": "g1",
+            "level": "instance",
+            "operation": "count",
+            "subject_scope": "collection",
+            "cue": "세어줘",
+            "confidence": 0.9,
+            "filters": [
+              {
+                "role": "scope",
+                "mention": "m1"
+              }
+            ],
+            "measure": {
+              "kind": "count",
+              "group_by": "type"
+            }
+          }
+        ]
+      },
+      "concepts": {},
+      "expect": {
+        "g1": {
+          "status": "compiled",
+          "groups": {
+            "compute.vm": 1,
+            "kubernetes-cluster": 1,
+            "network.subnet": 1,
+            "network.vnet": 1,
+            "secret-store": 1,
+            "sql-database": 1
+          }
+        }
+      }
+    }
+  ]
+}

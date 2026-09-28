@@ -1,8 +1,8 @@
 ---
 title: 온톨로지 구조 모델
 translation_of: ontology-structural-model.md
-translation_source_sha: 36982482f0fb0dfbaf157675fdb28ac17b63c354
-translation_revised: 2026-09-27
+translation_source_sha: 41b0ff0b0f445796f4a0e7a824d9c2c6c3eed3f2
+translation_revised: 2026-09-28
 ---
 # 온톨로지 구조 모델
 
@@ -235,7 +235,10 @@ Operator는 안정적인 UID와 관측 revision 필드를 검증하고 Console�
 
 역할 이름은 LinkType 하나의 범위에서만 유효하며 다른 저장 링크를 암시하지 않습니다. 특성은
 도메인 의미를 표현하며 색상, 레이아웃 레인 또는 그래프 좌표를 표현하지 않습니다. 기존 인과,
-시간, 전이, 카디널리티, 엔드포인트 계약은 계속 독립적입니다.
+시간, 전이, 카디널리티, 엔드포인트 계약은 계속 독립적입니다. 각 특성은 저장된 어느 끝이 어떤
+의미 역할을 맡는지도 정합니다. 예를 들어 포함 링크의 `from` 끝은 container입니다. 따라서
+[온톨로지 추론 컴파일러](../interfaces/ontology-reasoning-compiler-ko.md)는 밝힌 역할로 조회
+방향을 고를 수 있으며, 저장 방향이 이 규약과 어긋나는 LinkType은 그 특성을 가져서는 안 됩니다.
 
 Provider 관계 mapping은 검토된 cardinality도 보존합니다. 후보 materialization은 versioned
 proposal generation에 들어가기 전에 카탈로그 cardinality, LinkType, endpoint orientation,
@@ -298,6 +301,11 @@ id, 테이블, 엔드포인트 및 호출자 필터는 표현할 수 없습니�
 
 기존 v1 관계 탐색은 호환성을 유지하고 LinkType 하나를 지원합니다. 여러 LinkType으로 구성된
 순서 경로는 추가되는 형식화된 경로 계약과 새 exact 함수 또는 쿼리 노드 아이덴티티를 사용합니다.
+관계 탐색의 선택 항목 `endpoint_predicates`는 탐색이 끝난 뒤 도달한 끝점만 거르므로, 걸러진 중간
+객체를 지나는 전이 경로도 유지됩니다. 검증기는 이를 ObjectSet 조건식처럼 검사하고, 걸러진 결과는
+정확한 식별자로 다시 읽어 자체 출력 증적을 받으며, 불완전한 결과에는 출력 표시가 붙지 않습니다.
+`equals_ignore_case` 조건식은 리소스 그룹처럼 대소문자를 구분하지 않는 공급자 이름을 대소문자만
+무시하고 정확하게 비교하며, 부분 문자열로 비교하지 않습니다.
 
 ### 분류 체계 클로저
 

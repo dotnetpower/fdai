@@ -55,6 +55,7 @@ class ObjectPredicateOperator(StrEnum):
     AT_LEAST = "at_least"
     AT_MOST = "at_most"
     CONTAINS = "contains"
+    EQUALS_IGNORE_CASE = "equals_ignore_case"
 
 
 class ObjectPredicate(ContractBase):
@@ -82,6 +83,7 @@ class ObjectPredicate(ContractBase):
             ObjectPredicateOperator.AT_LEAST,
             ObjectPredicateOperator.AT_MOST,
             ObjectPredicateOperator.CONTAINS,
+            ObjectPredicateOperator.EQUALS_IGNORE_CASE,
         }
         if self.operator in single_operand:
             if not has_equals or self.equals is None or self.values:
@@ -94,6 +96,11 @@ class ObjectPredicate(ContractBase):
                 raise ValueError("object predicate in requires non-empty values and forbids equals")
         elif has_equals or self.values:
             raise ValueError(f"object predicate {self.operator.value} does not accept operands")
+        # Case folding is defined only for text; any other operand would match nothing.
+        if self.operator is ObjectPredicateOperator.EQUALS_IGNORE_CASE and not isinstance(
+            self.equals, str
+        ):
+            raise ValueError("object predicate equals_ignore_case requires a string operand")
         return self
 
     @model_serializer(mode="wrap")
@@ -122,7 +129,11 @@ class ObjectTraversal(ContractBase):
 
 
 class RelationshipTraversalDefinition(ContractBase):
-    """Single-LinkType traversal whose exact roots arrive from one verified dependency."""
+    """Single-LinkType traversal whose exact roots arrive from one verified dependency.
+
+    ``endpoint_predicates`` filter only the reached endpoints after traversal, so
+    a transitive path through a filtered intermediate object stays intact.
+    """
 
     selector: ObjectSelector
     link_types: Annotated[
@@ -136,6 +147,9 @@ class RelationshipTraversalDefinition(ContractBase):
     limit: int = Field(default=100, ge=1, le=1000)
     freshness_seconds: int | None = Field(
         default=None, ge=1, le=86_400, exclude_if=lambda value: value is None
+    )
+    endpoint_predicates: tuple[ObjectPredicate, ...] = Field(
+        default=(), max_length=_MAX_PREDICATES, exclude_if=lambda value: not value
     )
 
     @model_validator(mode="after")
