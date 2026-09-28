@@ -208,6 +208,8 @@ class FormMention(_FormModel):
     domain: MentionDomain
     span: SourceSpan
     qualifier: FormQualifier | None = None
+    # An ordinal's 1-based position in the rows shown before; a negative one counts from the end.
+    position: int | None = Field(default=None, ge=-1000, le=1000)
 
 
 class FormFilter(_FormModel):

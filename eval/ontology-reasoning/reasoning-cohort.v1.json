@@ -2176,6 +2176,12 @@
             "form": "anaphor",
             "domain": "instance",
             "text": "them"
+          },
+          {
+            "id": "m2",
+            "form": "name",
+            "domain": "instance",
+            "text": "sql-app"
           }
         ],
         "goals": [
@@ -2189,8 +2195,9 @@
             "subject": "m1",
             "relation": {
               "sense": "dependency",
-              "anchor_role": "dependent",
-              "result_role": "dependency",
+              "anchor": "m2",
+              "anchor_role": "dependency",
+              "result_role": "dependent",
               "cue": "depend on"
             }
           }
@@ -2199,11 +2206,18 @@
       "concepts": {},
       "expect": {
         "g1": {
-          "status": "unsupported",
-          "reasons": [
-            "subject_scope_unavailable:prior_result"
+          "status": "compiled",
+          "endpoints": [
+            "aks-prod-01"
           ]
         }
+      },
+      "handle": {
+        "rows": [
+          "aks-1",
+          "kv-1",
+          "vm-2"
+        ]
       }
     },
     {
@@ -2219,6 +2233,12 @@
             "form": "anaphor",
             "domain": "instance",
             "text": "그중에서"
+          },
+          {
+            "id": "m2",
+            "form": "name",
+            "domain": "instance",
+            "text": "sql-app"
           }
         ],
         "goals": [
@@ -2232,8 +2252,9 @@
             "subject": "m1",
             "relation": {
               "sense": "dependency",
-              "anchor_role": "dependent",
-              "result_role": "dependency",
+              "anchor": "m2",
+              "anchor_role": "dependency",
+              "result_role": "dependent",
               "cue": "의존하는"
             }
           }
@@ -2242,11 +2263,18 @@
       "concepts": {},
       "expect": {
         "g1": {
-          "status": "unsupported",
-          "reasons": [
-            "subject_scope_unavailable:prior_result"
+          "status": "compiled",
+          "endpoints": [
+            "aks-prod-01"
           ]
         }
+      },
+      "handle": {
+        "rows": [
+          "aks-1",
+          "kv-1",
+          "vm-2"
+        ]
       }
     },
     {
@@ -2261,7 +2289,8 @@
             "id": "m1",
             "form": "ordinal",
             "domain": "instance",
-            "text": "the first one"
+            "text": "the first one",
+            "position": 1
           }
         ],
         "goals": [
@@ -2285,11 +2314,18 @@
       "concepts": {},
       "expect": {
         "g1": {
-          "status": "unsupported",
-          "reasons": [
-            "subject_scope_unavailable:prior_result"
+          "status": "compiled",
+          "endpoints": [
+            "kv-app",
+            "sql-app"
           ]
         }
+      },
+      "handle": {
+        "rows": [
+          "aks-1",
+          "vm-1"
+        ]
       }
     },
     {
@@ -2304,7 +2340,8 @@
             "id": "m1",
             "form": "ordinal",
             "domain": "instance",
-            "text": "첫 번째 것"
+            "text": "첫 번째 것",
+            "position": 1
           }
         ],
         "goals": [
@@ -2328,11 +2365,18 @@
       "concepts": {},
       "expect": {
         "g1": {
-          "status": "unsupported",
-          "reasons": [
-            "subject_scope_unavailable:prior_result"
+          "status": "compiled",
+          "endpoints": [
+            "kv-app",
+            "sql-app"
           ]
         }
+      },
+      "handle": {
+        "rows": [
+          "aks-1",
+          "vm-1"
+        ]
       }
     },
     {

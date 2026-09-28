@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from datetime import timedelta
 from typing import Any
 
 import pytest
@@ -18,6 +19,12 @@ from fdai.core.conversation.semantic_reasoning_concepts import (
     ConceptSelectionReceipt,
 )
 from fdai.core.conversation.semantic_reasoning_form import MentionDomain
+from fdai.core.conversation.semantic_reasoning_handles import (
+    HandleScope,
+    ResultSetHandle,
+    bind_references,
+    reference_anchors,
+)
 
 from tests.conversation.semantic_reasoning_support import (
     DEFAULT_LOOKBACK_SECONDS,
@@ -77,10 +84,40 @@ def _receipt(case: dict[str, Any], form: dict[str, Any]) -> ConceptSelectionRece
     return ConceptSelectionReceipt(bindings=tuple(bindings))
 
 
+def cohort_handles(case: dict[str, Any]) -> tuple[tuple[ResultSetHandle, ...], HandleScope]:
+    """Return the earlier answer a follow-up case refers to, and the scope it asks from."""
+
+    scope = HandleScope(
+        conversation_id="cohort-conversation",
+        principal_id="cohort-principal",
+        purpose=PURPOSE,
+        manifest_digest="cohort-manifest",
+        now=NOW,
+    )
+    handle = case.get("handle")
+    if handle is None:
+        return (), scope
+    return (
+        ResultSetHandle(
+            handle_id=f"handle-{case['id']}",
+            conversation_id=scope.conversation_id,
+            principal_id=scope.principal_id,
+            purpose=PURPOSE,
+            manifest_digest=scope.manifest_digest,
+            expires_at=NOW + timedelta(hours=1),
+            object_type="Resource",
+            row_ids=tuple(handle["rows"]),
+            truncated=bool(handle.get("truncated", False)),
+        ),
+    ), scope
+
+
 async def _compile(case: dict[str, Any]) -> ReasoningCompilation:
     form = _spanned(case["form"], case["utterance"])
     admission = admitted(form, case["utterance"])
     assert admission.disposition is AdmissionDisposition.ADMITTED, admission.reasons
+    handles, scope = cohort_handles(case)
+    references = bind_references(admission, handles, scope)
     return compile_question_form(
         admission,
         concepts=_receipt(case, form),
@@ -90,7 +127,8 @@ async def _compile(case: dict[str, Any]) -> ReasoningCompilation:
         evaluation_time=NOW,
         default_lookback_seconds=DEFAULT_LOOKBACK_SECONDS,
         utterance=case["utterance"],
-        anchors=await fixture_anchors(admission),
+        anchors=reference_anchors(await fixture_anchors(admission), references),
+        references=references,
     )
 
 

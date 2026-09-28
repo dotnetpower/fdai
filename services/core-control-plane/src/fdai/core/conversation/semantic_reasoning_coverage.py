@@ -36,14 +36,22 @@ from .semantic_reasoning_form import (
     GoalOperation,
     MeasureKind,
     MentionDomain,
+    MentionForm,
     RelationReach,
     RelationSense,
     SemanticQuestionForm,
     SubjectRole,
     TimeKind,
 )
+from .semantic_reasoning_handles import (
+    ReferenceBinding,
+    ReferenceOutcome,
+    ReferenceReceipt,
+    reference_anchors,
+)
 
 _UTTERANCE = "anchor-a scope-b concept-c fragment-d cue-e time-f state-g"
+_PRIOR_ROWS = ("object-prior-1", "object-prior-2")
 _SPANS = {
     token: {"start": _UTTERANCE.index(token), "end": _UTTERANCE.index(token) + len(token)}
     for token in _UTTERANCE.split()
@@ -137,15 +145,31 @@ def reasoning_coverage_receipt(
         if admission.disposition is not AdmissionDisposition.ADMITTED:
             cells.append(CoverageCell(cell_id, "inadmissible", admission.reasons))
             continue
+        # A closed cell with a reference ranges over a synthetic earlier answer of two rows.
+        references = ReferenceReceipt(
+            tuple(
+                ReferenceBinding(
+                    mention.id,
+                    ReferenceOutcome.BOUND,
+                    mention.form,
+                    row_ids=_PRIOR_ROWS[:1] if mention.form is MentionForm.ORDINAL else _PRIOR_ROWS,
+                    handle_id="handle-coverage",
+                )
+                for mention in form.mentions
+                if mention.form in {MentionForm.ANAPHOR, MentionForm.ORDINAL}
+            )
+        )
+        anchors = AnchorBindingReceipt(
+            tuple(
+                AnchorBinding(item, AnchorOutcome.BOUND, object_id=f"object-{item}")
+                for item in anchor_mentions(admission)
+            )
+        )
         compilation = compile_question_form(
             admission,
             concepts=_concepts(form),
-            anchors=AnchorBindingReceipt(
-                tuple(
-                    AnchorBinding(item, AnchorOutcome.BOUND, object_id=f"object-{item}")
-                    for item in anchor_mentions(admission)
-                )
-            ),
+            anchors=reference_anchors(anchors, references),
+            references=references,
             manifest=manifest,
             verifier=verifier,
             purpose=purpose,
@@ -255,17 +279,33 @@ def _cells() -> Iterator[tuple[str, dict[str, Any]]]:
             f"instance.traverse.want.{want}",
             _form("traverse", subject="anchor", relation=relation, want=want),
         )
+    prior_relation = {
+        "sense": "dependency",
+        "anchor_role": "dependency",
+        "result_role": "dependent",
+        "cue": _SPANS["cue-e"],
+    }
     yield (
         "instance.traverse.prior_result",
+        _form("traverse", subject="anaphor", relation=prior_relation),
+    )
+    yield (
+        "instance.traverse.prior_result.ordinal",
+        _form("traverse", subject="ordinal", relation=prior_relation),
+    )
+    for narrowed in ("select", "count"):
+        for subject, suffix in (("anaphor", ""), ("ordinal", ".ordinal")):
+            yield (
+                f"instance.{narrowed}.prior_result{suffix}",
+                _form(narrowed, subject=subject),
+            )
+    yield (
+        "instance.traverse.prior_result.subset",
         _form(
             "traverse",
             subject="anaphor",
-            relation={
-                "sense": "dependency",
-                "anchor_role": "dependency",
-                "result_role": "dependent",
-                "cue": _SPANS["cue-e"],
-            },
+            relation={**prior_relation, "anchor": "m2"},
+            object_anchor=True,
         ),
     )
     for schema_operation in ("describe_schema", "traverse", "select", "count"):
@@ -300,8 +340,11 @@ def _form(
     if subject == "anchor":
         mentions.append(_mention("m1", "name", "instance", "anchor-a"))
         goal.update(subject="m1", subject_scope="anchor")
-    elif subject == "anaphor":
-        mentions.append(_mention("m1", "anaphor", "instance", "anchor-a"))
+    elif subject in {"anaphor", "ordinal"}:
+        mention = _mention("m1", subject, "instance", "anchor-a")
+        if subject == "ordinal":
+            mention["position"] = 1
+        mentions.append(mention)
         goal.update(subject="m1", subject_scope="prior_result")
     elif subject == "none":
         goal.update(subject_scope="collection")

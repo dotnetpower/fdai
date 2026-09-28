@@ -109,6 +109,9 @@ def _result_restriction(
         return (), None
     domain = ctx.mention(results).domain
     if domain is MentionDomain.INSTANCE:
+        # Rows an earlier answer showed restrict the results by identity, not by kind.
+        if ctx.prior_rows(goal) is not None:
+            return (), None
         return OperatorResult(unsupported=("result_instance_unsupported",))
     values, failure = concept_values(results, ctx)
     if failure is not None:
@@ -124,7 +127,13 @@ def _is_anchor(mention_id: str | None, ctx: CompileContext) -> bool:
     if mention_id is None:
         return False
     mention = ctx.mention(mention_id)
-    return mention.domain is MentionDomain.INSTANCE and mention.form in _ANCHOR_FORMS
+    if mention.domain is not MentionDomain.INSTANCE:
+        return False
+    # A reference bound to one row of an earlier answer anchors like a name.
+    return mention.form in _ANCHOR_FORMS or (
+        mention.form in {MentionForm.ORDINAL, MentionForm.ANAPHOR}
+        and ctx.anchors.binding(mention_id) is not None
+    )
 
 
 __all__ = ["AnchoredRelation", "anchored_relation"]
