@@ -711,6 +711,7 @@ def test_incomplete_target_coverage_fails_job_and_readiness(
 def test_scheduling_mode_and_metric_delays_are_explicit() -> None:
     assert resolve_scheduling_mode("") == "one_shot"
     assert resolve_scheduling_mode("container_apps_job") == "container_apps_job"
+    assert resolve_scheduling_mode("kubernetes_cronjob") == "kubernetes_cronjob"
     with pytest.raises(ValueError, match="SCHEDULING"):
         resolve_scheduling_mode("implicit")
     assert metric_source_delays({}) == {

@@ -28,7 +28,7 @@ POD_EVIDENCE_JSON_ENV = POD_EVIDENCE_ENV
 LOOP_INTERVAL_ENV = "FDAI_ANALYZER_INTERVAL_SECONDS"
 BUDGET_ENV = "FDAI_ANALYZER_BUDGET_SECONDS"
 DEFAULT_TICK_BUDGET_SECONDS = 300
-SCHEDULING_MODES = frozenset({"one_shot", "local_loop", "container_apps_job"})
+SCHEDULING_MODES = frozenset({"one_shot", "local_loop", "container_apps_job", "kubernetes_cronjob"})
 
 _TARGET_KEYS = frozenset({"resource_id", "kind", "provider_resource_id"})
 _TRACE_TOPOLOGY_KEYS = frozenset({"topology_ref", "resource_ref", "expected_hops"})
