@@ -48,6 +48,12 @@ def test_cli_wheel_stage_uses_its_private_environment_for_every_uv_command(tmp_p
         timeout=10,
     )
     assert result.returncode == 0, result.stderr
-    assert (tmp_path / "calls").read_text().splitlines() == ["lock", "build", "export", "run"]
+    assert (tmp_path / "calls").read_text().splitlines() == [
+        "lock",
+        "build",
+        "export",
+        "export",
+        "run",
+    ]
     assert list(caller.iterdir()) == [caller / "sentinel"]
     assert (caller / "sentinel").read_text() == "retain unrelated packages"
