@@ -8,13 +8,19 @@ set -euo pipefail
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
 git -C "$repo_root" rev-parse --show-toplevel >/dev/null
 cd "$repo_root"
-if [[ ! -x "$repo_root/.venv/bin/python" ]]; then
+
+# Prepare the locked environment of one selected checkout, which is not always this repository.
+prepare_environment() {
+  local root="$1"
+  [[ -x "$root/.venv/bin/python" ]] && return 0
   command -v uv >/dev/null 2>&1 || {
     echo "fdai-up: uv is required to create the locked local environment" >&2
     exit 4
   }
-  uv sync --frozen
-fi
+  (cd "$root" && uv sync --frozen)
+}
+
+prepare_environment "$repo_root"
 
 source_checkout=""
 signing_key=""
@@ -29,9 +35,10 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
+cli_root="$repo_root"
 fdaictl() {
-  exec uv run --frozen --isolated --python "$repo_root/.venv/bin/python" \
-    --project "$repo_root/packages/deployment-cli" \
+  exec uv run --frozen --isolated --python "$cli_root/.venv/bin/python" \
+    --project "$cli_root/packages/deployment-cli" \
     fdaictl provision azure "$@"
 }
 
@@ -40,14 +47,27 @@ if [[ -n "$signing_key" ]]; then
     echo "fdai-up: --signing-key is used with --source for contributor deployment" >&2
     exit 64
   }
+  for argument in "${forwarded[@]}"; do
+    case "$argument" in
+      --online | --offline-kit | --offline-kit=*)
+        echo "fdai-up: contributor source deployment builds its own kit; remove $argument" >&2
+        exit 64
+        ;;
+    esac
+  done
   [[ "$signing_key" = /* ]] || signing_key="$PWD/$signing_key"
   checkout="$(cd "$source_checkout" && git rev-parse --show-toplevel)"
   commit="$(git -C "$checkout" rev-parse --short=9 HEAD)"
   out="${FDAI_CONTRIBUTOR_BUILD_DIR:-$HOME/.local/state/fdai/contributor}/build-$commit-$(date -u +%Y%m%dT%H%M%SZ)"
   install -d -m 0700 "$(dirname "$out")"
   echo "fdai-up: building deployment artifacts from $commit" >&2
-  "$checkout/scripts/deployment/release/build-standalone-deployment-kit.sh" \
-    --out "$out" --signing-key "$signing_key" >&2
+  prepare_environment "$checkout"
+  # The build resolves its source tree from the working directory, so select the checkout here.
+  (
+    cd "$checkout"
+    "$checkout/scripts/deployment/release/build-standalone-deployment-kit.sh" \
+      --out "$out" --signing-key "$signing_key"
+  ) >&2
   kit="$(find "$out" -maxdepth 1 -name 'fdai-deployment-kit-*.tar.gz' -print -quit)"
   [[ -n "$kit" ]] || {
     echo "fdai-up: the contributor build produced no deployment artifact" >&2
@@ -63,6 +83,7 @@ if [[ -n "$signing_key" ]]; then
       *) deploy+=("$argument") ;;
     esac
   done
+  cli_root="$checkout"
   # The deployment signing key is not the license issuer; pass --license-signing-key explicitly.
   fdaictl --offline-kit "$kit" "${deploy[@]}"
 fi
