@@ -104,6 +104,7 @@ from fdai_operator_service.notification_template_preview import (
     incident_opened_template_preview,
 )
 from fdai_operator_service.ownership_projection import OwnershipProjectionReader
+from fdai_operator_service.projection_logic import caller_development_view
 from fdai_operator_service.projections import (
     ProjectionUnavailableError,
     http_exception_error,
@@ -340,7 +341,10 @@ def build_operator_app(
                 include_details=include_details,
             )
         )
-        return JSONResponse(redact_projection(projection.to_dict(include_details=include_details)))
+        payload = projection.to_dict(include_details=include_details)
+        return JSONResponse(
+            redact_projection(caller_development_view(payload, principal.subject_id))
+        )
 
     async def get_incidents(request: Request) -> Response:
         authorize(request)

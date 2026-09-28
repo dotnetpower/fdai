@@ -194,6 +194,9 @@ def make_iam_family_routes(bindings: IamFamilyBindings) -> tuple[Route, ...]:
             outbox=bindings.hil_outbox,
             audit=bindings.hil_audit,
             context_reader=bindings.hil_context,
+            # The same Operator authenticator verifies the signed auth_time of Slack handoffs
+            # and of Console development self-approvals.
+            authenticator=bindings.slack_authenticator,
         ),
         *make_slack_handoff_routes(
             store=bindings.slack_handoff_store,
