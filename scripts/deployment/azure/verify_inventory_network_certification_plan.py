@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Verify the exact create or cleanup plan for the inventory network sandbox."""
+"""Verify exact lifecycle plans for the inventory network sandbox."""
 
 from __future__ import annotations
 
@@ -53,6 +53,7 @@ EXPECTED_ADDRESSES = frozenset(
 EXPECTED_EXTENSION_RECOVERY = frozenset(
     {"azurerm_postgresql_flexible_server_configuration.extensions"}
 )
+EXPECTED_MIGRATION_RECOVERY = frozenset({"azurerm_container_app_job.migrate"})
 
 
 class PlanVerificationError(ValueError):
@@ -78,10 +79,14 @@ def load_plan(path: Path) -> dict[str, Any]:
 def verify_plan(plan: dict[str, Any], *, mode: str) -> None:
     """Require the complete reviewed address set and one exact action."""
 
-    expected_action = ["delete"] if mode == "cleanup" else ["create"]
-    expected_addresses = (
-        EXPECTED_EXTENSION_RECOVERY if mode == "extension-recovery" else EXPECTED_ADDRESSES
-    )
+    expected_action = {
+        "cleanup": ["delete"],
+        "migration-recovery": ["update"],
+    }.get(mode, ["create"])
+    expected_addresses = {
+        "extension-recovery": EXPECTED_EXTENSION_RECOVERY,
+        "migration-recovery": EXPECTED_MIGRATION_RECOVERY,
+    }.get(mode, EXPECTED_ADDRESSES)
     resource_changes = plan.get("resource_changes")
     if not isinstance(resource_changes, list):
         raise PlanVerificationError("plan JSON must contain resource_changes")
@@ -111,7 +116,10 @@ def main(argv: list[str] | None = None) -> int:
     """Validate one plan and emit only a value-free action count."""
 
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("mode", choices=("create", "cleanup", "extension-recovery"))
+    parser.add_argument(
+        "mode",
+        choices=("create", "cleanup", "extension-recovery", "migration-recovery"),
+    )
     parser.add_argument("plan_json", type=Path)
     args = parser.parse_args(argv)
     try:
@@ -119,9 +127,10 @@ def main(argv: list[str] | None = None) -> int:
     except PlanVerificationError as exc:
         print(f"INVENTORY_NETWORK_PLAN_BLOCKED reason={exc}", file=sys.stderr)
         return 1
-    addresses = (
-        EXPECTED_EXTENSION_RECOVERY if args.mode == "extension-recovery" else EXPECTED_ADDRESSES
-    )
+    addresses = {
+        "extension-recovery": EXPECTED_EXTENSION_RECOVERY,
+        "migration-recovery": EXPECTED_MIGRATION_RECOVERY,
+    }.get(args.mode, EXPECTED_ADDRESSES)
     count = len(addresses)
     print(f"INVENTORY_NETWORK_PLAN_OK mode={args.mode} count={count}")
     return 0

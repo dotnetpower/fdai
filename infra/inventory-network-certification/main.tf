@@ -397,7 +397,7 @@ resource "azurerm_container_app_job" "migrate" {
   resource_group_name          = data.azurerm_resource_group.certification.name
   container_app_environment_id = azurerm_container_app_environment.certification.id
   workload_profile_name        = "Consumption"
-  replica_timeout_in_seconds   = 900
+  replica_timeout_in_seconds   = 1800
   replica_retry_limit          = 0
   tags                         = local.tags
 
@@ -427,12 +427,18 @@ resource "azurerm_container_app_job" "migrate" {
       image   = var.core_image
       cpu     = 0.5
       memory  = "1Gi"
-      command = ["alembic"]
-      args    = ["upgrade", "head"]
+      command = ["python"]
+      args = [
+        "/app/scripts/deployment/azure/run_inventory_network_certification_migrations.py",
+      ]
 
       env {
         name        = "FDAI_DATABASE_URL"
         secret_name = "dsn"
+      }
+      env {
+        name  = "FDAI_NETWORK_CERT_SOURCE_REVISION"
+        value = var.source_revision
       }
     }
   }

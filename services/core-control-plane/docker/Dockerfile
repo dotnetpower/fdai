@@ -100,11 +100,13 @@ COPY --chown=65532:65532 rule-catalog/ /app/rule-catalog/
 COPY --chown=65532:65532 provider-schema-catalog/ /app/provider-schema-catalog/
 COPY --chown=65532:65532 policies/ /app/policies/
 COPY --chown=65532:65532 config/ /app/config/
+COPY --chown=65532:65532 service-migrations/ /app/service-migrations/
 COPY --chown=65532:65532 docs/internals/sregym-absorption-ledger.json /app/docs/internals/sregym-absorption-ledger.json
 COPY --chown=65532:65532 services/assets/resolved-models.json /app/resolved-models.json
 COPY --chown=65532:65532 services/core-control-plane/tests/scenarios/ /app/services/core-control-plane/tests/scenarios/
 COPY --chown=65532:65532 alembic/ /app/alembic/
 COPY --chown=65532:65532 alembic.ini /app/alembic.ini
+COPY --chown=65532:65532 scripts/deployment/azure/run_inventory_network_certification_migrations.py /app/scripts/deployment/azure/run_inventory_network_certification_migrations.py
 COPY --chown=65532:65532 scripts/deployment/local/materialize-authoritative-catalogs.py /app/scripts/deployment/local/materialize-authoritative-catalogs.py
 USER 65532
 RUN test -x /app/.venv/bin/fdai-core-control-plane \
