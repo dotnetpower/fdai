@@ -50,7 +50,8 @@ The builder creates the deployment CLI wheel, downloads its locked runtime depen
 build service images or assemble an Azure deployment payload.
 
 Every shipped file except the signature pair is listed in `SHA256SUMS`; the builder fails when
-`wheels/` contains anything other than wheel files.
+`wheels/` contains anything other than wheel files. Locked workspace path dependencies, such as
+the service contracts, are built as wheels because they have no index hash.
 
 ## Verify and install
 

@@ -1,7 +1,7 @@
 ---
 title: 설치형 배포 CLI
 translation_of: installable-deployment-cli.md
-translation_source_sha: a7f93e89ddf4a60ec5e6e089a14976018402eeac
+translation_source_sha: 6e32cddfa5890df34b2dbb73d503291bc0c1df3c
 translation_revised: 2026-09-28
 ---
 
@@ -386,7 +386,8 @@ python -m pip install --no-index --find-links wheels -r requirements.txt
 ```
 
 6.9 MB wheel 모음은 소스 체크아웃이나 네트워크 호출 없이 `fdaictl`을 설치합니다. 서명 파일 두
-개를 제외한 모든 포함 파일은 `SHA256SUMS`에 나열됩니다. 런타임 이미지,
+개를 제외한 모든 포함 파일은 `SHA256SUMS`에 나열되며, workspace 경로 의존성은 빌드된 wheel로
+포함됩니다. 런타임 이미지,
 Terraform 입력 및 다른 배포 페이로드는 이후 배포 명령에서 선택하며 Python 패키지 설치 요구
 사항이 아닙니다. 어플라이언스는 선택적 전송 래퍼이며 두 번째 패키지 인증 경로가 아닙니다.
 

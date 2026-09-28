@@ -24,6 +24,7 @@ from fdai_service_contracts.product_profile import ObservationDataSource, Produc
 from fdai_deployment_cli import (
     catalog_review_profile,
     standalone_host_values,
+    standalone_planned_outputs,
     standalone_terraform_environment,
 )
 from fdai_deployment_cli import foundation_adoption_host as foundation_host
@@ -3159,7 +3160,9 @@ def _initial_inventory(_args: argparse.Namespace, work_dir: Path) -> dict[str, o
         "FDAI_INVENTORY_PROGRESS_CONTAINER_URL": progress_url,
         "FDAI_INVENTORY_PROGRESS_RUN_ID": f"genesis.{context['source_commit']}",
         "FDAI_INVENTORY_PROGRESS_ATTEMPT_ID": attempt_id,
-        "KAFKA_BOOTSTRAP_SERVERS": _terraform_output(infra, "operational_kafka"),
+        "KAFKA_BOOTSTRAP_SERVERS": _terraform_output(
+            infra, "event_bus_operational_kafka_bootstrap"
+        ),
         "PYTHONPATH": os.pathsep.join(
             (
                 str(bundle / "services/core-control-plane/src"),
@@ -4064,6 +4067,11 @@ def _deployment_binding(_args: argparse.Namespace, work_dir: Path) -> dict[str, 
 
 def _managed_identity_login_from_context(context: dict[str, object], work_dir: Path) -> None:
     _configure_terraform(context)
+    standalone_planned_outputs.bind(
+        Path(str(context["infra"])),
+        variables=work_dir / "application.auto.tfvars.json",
+        data_dir=Path(str(context.get("terraform_data", work_dir / "terraform-data"))),
+    )
     _managed_identity_login(
         str(context["subscription_id"]),
         str(context["tenant_id"]),
@@ -4503,12 +4511,10 @@ def _subnet_network_security_group(
 
 
 def _terraform_output(infra: Path, name: str) -> str:
-    return _capture(
-        ("terraform", "output", "-raw", name),
-        cwd=infra,
-        timeout=120,
-        reason="Terraform output readback failed",
-    ).strip()
+    value = standalone_planned_outputs.read_output(
+        infra, name, raw=True, reason="Terraform output readback failed"
+    )
+    return str(value)
 
 
 def _terraform_registry_id(infra: Path, expected_name: str) -> str:
@@ -4521,16 +4527,9 @@ def _terraform_registry_id(infra: Path, expected_name: str) -> str:
 
 
 def _terraform_json_output(infra: Path, name: str) -> object:
-    raw = _capture(
-        ("terraform", "output", "-json", name),
-        cwd=infra,
-        timeout=120,
-        reason="Terraform JSON output readback failed",
+    return standalone_planned_outputs.read_output(
+        infra, name, raw=False, reason="Terraform JSON output readback failed"
     )
-    try:
-        return json.loads(raw)
-    except json.JSONDecodeError as exc:
-        raise ValueError("Terraform JSON output is invalid") from exc
 
 
 def _run(command: tuple[str, ...] | list[str], *, cwd: Path, timeout: int, reason: str) -> None:

@@ -1,6 +1,6 @@
 ---
 translation_of: package-assurance.md
-translation_source_sha: de1889d7316644678b8214799f45af4a6c98d514
+translation_source_sha: 3b4190862b6f610c0f937dabd9a12c9ba477c073
 translation_revised: 2026-09-28
 ---
 
@@ -51,7 +51,8 @@ checksum 목록 하나를 작성하고 서명해 tar 아카이브를 만듭니�
 배포 payload를 조립하지 않습니다.
 
 서명 파일 두 개를 제외한 모든 포함 파일은 `SHA256SUMS`에 나열됩니다. `wheels/`에 wheel 파일이
-아닌 항목이 있으면 빌더가 실패합니다.
+아닌 항목이 있으면 빌더가 실패합니다. 서비스 계약처럼 잠긴 workspace 경로 의존성은 인덱스
+해시가 없으므로 wheel로 빌드합니다.
 
 ## 검증 및 설치
 
