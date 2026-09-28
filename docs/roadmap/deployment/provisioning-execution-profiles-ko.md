@@ -1,7 +1,7 @@
 ---
 title: Provisioning 실행 Profile
 translation_of: provisioning-execution-profiles.md
-translation_source_sha: 4ce9d64fe043a11e437e60788d3d06e677066b7b
+translation_source_sha: 3673c5d436552cf73ec93a45044729bfe405ee02
 translation_revised: 2026-09-28
 ---
 # 프로비저닝 실행 프로파일
@@ -442,7 +442,7 @@ digest가 고정된 실행 묶음을 staging할 수 있습니다. 정확한 프�
   Resource Manager로 결과 리소스를 읽고 범위별 권위 있는 속성을 비교합니다.
 
 첫 범위인 `aks-container-insights`는 AKS Container Insights 데이터 수집 규칙과 클러스터 연결을
-대상으로 합니다. `aks-inventory-observation-roles`는 substrate inventory의 Reader, Monitoring Reader, Log Analytics Reader 할당을 대상으로 하며, 조정기는 루트의 로컬 모듈 closure만 보내고 선언된 기존 상태 이동은 주소만 바꿀 수 있습니다. 거부된 계획은 범위 밖 주소를 최대 12개까지 반환합니다. 범위를 추가하려면 집중 테스트를 포함한 검토된 소스 변경이 필요합니다. Run
+대상으로 합니다. `aks-inventory-observation-roles`는 substrate inventory의 Reader, Monitoring Reader, Log Analytics Reader, pipeline-stage Event Hubs 송신자 할당을 대상으로 하며, 조정기는 루트의 로컬 모듈 closure만 보내고 선언된 기존 상태 이동은 주소만 바꿀 수 있습니다. 거부된 계획은 범위 밖 주소를 최대 12개까지 반환합니다. 범위를 추가하려면 집중 테스트를 포함한 검토된 소스 변경이 필요합니다. Run
 Command 권한은 이미 VM의 root 권한을 부여하므로 이 경로는 VM 권한을 늘리지 않습니다. 대신 기록되지
 않던 수동 명령을 연결되고 복구 가능한 작업으로 대체합니다.
 

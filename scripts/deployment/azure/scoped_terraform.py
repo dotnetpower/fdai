@@ -340,6 +340,7 @@ INVENTORY_ROLES = {
     "azurerm_role_assignment.inventory_reader": "Reader",
     "azurerm_role_assignment.inventory_monitoring_reader[0]": "Monitoring Reader",
     "azurerm_role_assignment.inventory_log_analytics_reader[0]": "Log Analytics Reader",
+    "azurerm_role_assignment.inventory_stage_sender": "Azure Event Hubs Data Sender",
 }
 
 
