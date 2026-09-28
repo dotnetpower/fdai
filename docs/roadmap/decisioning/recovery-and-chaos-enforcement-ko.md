@@ -1,7 +1,7 @@
 ---
 title: Recovery 및 chaos enforcement
 translation_of: recovery-and-chaos-enforcement.md
-translation_source_sha: 9c37ac30a20c5b9d89b42016912b6388a7ae5c16
+translation_source_sha: 526d3d565f831670a857fed18dd4d57ad203388e
 translation_revised: 2026-09-28
 ---
 # 복구 및 chaos 적용
@@ -41,6 +41,7 @@ translation_revised: 2026-09-28
 | 2026-09-28 | in-progress | 3차 검토 결과를 반영했습니다. 종료 처리는 이제 별도의 결정입니다. `verify_closure`는 정확한 실행과 대상 다이제스트에 대한 `closure` 의도 근거를 반환해야 하고, CLI는 이를 `FDAI_CHAOS_CLOSURE_APPROVAL_REF`에서 읽으며, 각 실행은 적용 승인 다이제스트를 바인딩하므로 그 승인으로는 실행을 종료할 수 없습니다. `closure` 의도이거나 다른 실행 id를 가진 적용 승인은 거부합니다. 예외가 발생한 주입 호출도 이제 주입된 것으로 보므로 harness가 이를 롤백하고, 실행은 복구와 독립 검증 뒤에만 해제됩니다. `injecting` 전에 실행을 종료하면 비교 후 교체로 거부하며, 배타적 `injecting` 전이는 종료 여부를 다시 확인합니다. | `current change`: `services/core-control-plane/src/fdai/core/chaos/harness.py`, `services/core-control-plane/src/fdai/delivery/chaos/`, `scripts/catalog/run-catalog-scenario.py`, 연결된 테스트입니다. `uv run pytest -q --no-cov services/core-control-plane/tests/delivery/chaos services/core-control-plane/tests/core/chaos tests/integration/scripts/test_run_catalog_scenario.py tests/integration/scripts/test_chaos_raw_path_guard.py tests/integration/infra/test_scenario_lab.py`가 적용 승인 재사용, 적용 후 시간 초과, 배제하지 않는 잠금에서의 실행 중 종료 사례를 포함해 테스트 368개를 통과했고 Ruff와 strict mypy도 통과했습니다. | 카탈로그 요청을 Core 파이프라인으로 라우팅하고, 원시 드라이버를 이관하고, 배포 프로바이더를 제공한 뒤 승격 전에 shadow 전용 근거를 수집합니다. |
 | 2026-09-28 | implemented | 참조 sweep을 통제된 어댑터 위로 이관하고 남아 있던 원시 드라이버를 삭제했습니다. `run-catalog-scenario.py --run`은 이제 참조 시나리오 id를 받고, `--run-sweep`은 참조 sweep을 데모 순서대로 선택하며, `scripts/deployment/scenario-lab/run-reference-sweep.sh`는 그 명령만 호출합니다. `fdai.core.chaos.reference_sweep`는 각 참조 시나리오를 같은 `expected_signal`을 내는 `mild` 카탈로그 항목에 대응시키므로, 검토된 항목의 파라미터와 상한, 롤백 안내가 실행을 지배합니다. 실험이 측정된 통제 실행은 가져오기 가능한 `enforce-report.json`도 기록하므로 영속 리포트 피드가 통제된 실행에서 다시 결과를 받을 수 있습니다. 선택은 권한을 부여하지 않으며, 승격되지 않았거나 바인딩이 없는 sweep은 기반 접근 전에 종료 상태 3으로 거부합니다. | `current change`: `services/core-control-plane/src/fdai/core/chaos/reference_sweep.py`, `services/core-control-plane/src/fdai/delivery/chaos/enforce_report.py`, `services/core-control-plane/src/fdai/delivery/chaos/governed_outcome.py`, `scripts/catalog/run-catalog-scenario.py`, `scripts/deployment/scenario-lab/run-reference-sweep.sh`, 연결된 테스트입니다. `uv run pytest -q --no-cov services/core-control-plane/tests/delivery/chaos services/core-control-plane/tests/core/chaos services/core-control-plane/tests/delivery/test_enforce_report.py services/core-control-plane/tests/core/report_feed/test_feed.py tests/integration/scripts/test_run_catalog_scenario.py tests/integration/scripts/test_chaos_raw_path_guard.py tests/integration/scripts/test_fork_runtime_independence.py tests/integration/infra/test_scenario_lab.py`가 참조 선택, sweep 순서, 미승격 sweep 거부, 측정 리포트의 존재와 부재를 포함해 테스트 428개를 통과했습니다. 바인딩이 없는 체크아웃은 `governed_execution_unbound`로 거부했고 Ruff, Ruff format, strict mypy, 셸 문법 검사도 통과했습니다. 시나리오, ActionType, Workflow를 승격하지 않았고 Azure나 기반 작업도 수행하지 않았습니다. | 카탈로그 요청을 Core 파이프라인으로 라우팅하고, 탐지 지연 측정을 이관하고, `db`, `llm_endpoint`, `lb` 대상에 정규 식별자를 부여하고, 배포 프로바이더를 제공한 뒤 승격 전에 shadow 전용 근거를 수집합니다. |
 
+| 2026-09-28 | implemented | 남은 참조 시나리오에 승인 가능한 대상을 부여했습니다. 이제 injector 참조가 `target_type` 기본값보다 먼저 승인 식별자를 결정합니다. 항목의 target type은 fault가 무엇에 관한 것인지를 가리킬 뿐 주입이 실제로 무엇을 기록하는지가 아니기 때문입니다. `kubectl:scale`과 `kubectl:set-image`는 Deployment에, `mysql:query-load`와 `aoai:rate-limit`는 서비스 계정에 작용합니다. 공유된 target type이 다른 injector의 식별자를 빌려 쓰지 않으므로 `db`의 Cosmos 장애 조치는 계속 거부되고 MySQL 부하만 해석됩니다. 새 `substrate_bindings.py`는 완전한 환경이 있을 때만 선택적 MySQL 및 모델 기반을 바인딩하며, 데이터베이스 암호는 연결 팩터리 안에서 파일로부터 읽고 컨텍스트에는 절대 넣지 않습니다. | `current change`: `services/core-control-plane/src/fdai/delivery/chaos/mutation_scope.py`, `services/core-control-plane/src/fdai/delivery/chaos/substrate_bindings.py`, `scripts/catalog/run-catalog-scenario.py`, `infra/scenario-lab/outputs.tf`, `scripts/deployment/scenario-lab/prepare-runner.sh`, 연결된 테스트입니다. 열 개 참조 시나리오가 모두 범위가 일치하는 대상으로 해석되고 기반 값이 없으면 여전히 거부됨을 증명하는 회귀를 포함해 집중 chaos, mutation-scope, substrate-binding, 카탈로그 실행기, scenario-lab suite를 통과했습니다. | 탐지 지연 이관 전에 fault 유지 중 관찰 여부를 결정하고, 카탈로그 요청을 Core 파이프라인으로 라우팅하고, 배포 프로바이더를 제공한 뒤 승격 전에 shadow 전용 근거를 수집합니다. |
 ### 남은 작업
 
 - [ ] 분산 대상 잠금을 포함해 배포가 소유하는 `GovernedChaosBindings` 프로바이더를 보호된
@@ -49,13 +50,15 @@ translation_revised: 2026-09-28
 - [ ] [#94](https://github.com/dotnetpower/fdai/issues/94)의 요구에 따라 어댑터를 직접 호출하지
   않도록 `runtime/delivery.py`에 `GovernedChaosExecutionAdapter`를 연결하고, 카탈로그 CLI 요청을
   Core 제안, 위험 게이트, Var 승인, Thor, `tool.run-chaos-experiment` 파이프라인으로 라우팅합니다.
-- [ ] 탐지 지연 드라이버(`scripts/catalog/measure-detection-latency.py`)를
-  `GovernedChaosExecutionAdapter` 위로 이관합니다. 그 전까지 이 드라이버는 실제 실행을 거부하며,
-  정직하게 이관하려면 통제된 실행이 아직 기록하지 않는 탐지 시각이
+- [ ] 통제된 harness가 fault를 유지하는 *도중에* 예상 신호를 관찰해도 되는지 먼저 결정한 뒤,
+  탐지 지연 드라이버(`scripts/catalog/measure-detection-latency.py`)를
+  `GovernedChaosExecutionAdapter` 위로 이관합니다. 그 전까지 이 드라이버는 실제 실행을 거부합니다.
+  이 차단 요인은 누락된 필드가 아니라 구조입니다. `FaultInjectionHarness`는 주입한 뒤 작성된
+  기간만큼 유지하며, 그동안 영향 가드는 중지 조건만 확인하고, 예상 신호는 유지가 끝난 뒤 한 번만
+  관찰합니다. 따라서 보고할 수 있는 간격은 유지 시간뿐입니다. 지연을 정직하게 측정하려면 유지 중
+  관찰이 필요한데, 이는 fault 구간에 관찰 트래픽을 더하고 가드 루프와 상호작용하며 `detected`의
+  의미를 바꾸므로 새 타임스탬프 필드가 아니라 소유자 설계가
   필요합니다([#94](https://github.com/dotnetpower/fdai/issues/94)).
-- [ ] `db`, `llm_endpoint`, `lb` 카탈로그 대상에 정규 기반 식별자를 부여해
-  `mysql-cpu-pressure`, `aoai-tpm-throttle`, `appgw-backend-failure` 참조 시나리오가 통제된
-  sweep에서 `refused_target_type`으로 거부되지 않게 합니다.
 - [ ] [#94](https://github.com/dotnetpower/fdai/issues/94)의 지시에 따라
   `tool.run-chaos-experiment`, 시나리오, ActionType, Workflow를 승격하지 않고 등록된 일회용 대상
   하나에서 한 번에 하나씩 shadow 전용 통제된 chaos 근거를 수집합니다.

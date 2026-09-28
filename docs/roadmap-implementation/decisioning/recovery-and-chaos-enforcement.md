@@ -51,6 +51,7 @@ and resumable work while the roadmap owner remains focused on normative design.
 
 | 2026-09-28 | implemented | Ported the reference sweep onto the governed adapter and removed the retired raw driver. `run-catalog-scenario.py --run` now accepts a reference scenario id, `--run-sweep` selects the reference sweep in demo order, and `scripts/deployment/scenario-lab/run-reference-sweep.sh` calls only that command. `fdai.core.chaos.reference_sweep` maps each reference scenario to the `mild` catalog entry with the same `expected_signal`, so the reviewed entry's parameters, caps, and rollback note govern the run. Governed runs that produced a measured experiment now also write the importable `enforce-report.json`. Selection grants no authority; an unpromoted or unbound sweep still refuses with exit status 3 before substrate access. | `current change` in `services/core-control-plane/src/fdai/core/chaos/reference_sweep.py`, `services/core-control-plane/src/fdai/delivery/chaos/enforce_report.py`, `services/core-control-plane/src/fdai/delivery/chaos/governed_outcome.py`, `scripts/catalog/run-catalog-scenario.py`, `scripts/deployment/scenario-lab/run-reference-sweep.sh`, and the linked tests; focused chaos, enforce-report, report-feed, catalog-runner, fork-independence, and scenario-lab tests passed, including reference selection, sweep ordering, unpromoted-sweep refusal, and measured-report presence and absence; an unbound checkout refused with `governed_execution_unbound`; Ruff, Ruff format, strict mypy, and shell syntax passed. No scenario, ActionType, or Workflow was promoted, and no Azure or substrate operation was performed. | Route catalog submissions through the Core pipeline, port the detection-latency measurement, give `db`, `llm_endpoint`, and `lb` targets a canonical identity, supply a deployment provider, then collect shadow-only evidence before any promotion. |
 
+| 2026-09-28 | implemented | Gave the remaining reference scenarios an approved target. The injector reference now decides the approved identity before the `target_type` default, because an entry's target type names what a fault is about rather than what the injection writes to: `kubectl:scale` and `kubectl:set-image` act on the Deployment, and `mysql:query-load` and `aoai:rate-limit` act on the service account. A shared target type no longer borrows another injector's identity, so the `db` Cosmos failover stays refused while MySQL load resolves. New `substrate_bindings.py` binds the optional MySQL and model substrate only when its complete environment is present, and the database password is read from its file inside the connection factory, never into the context. | `current change` in `services/core-control-plane/src/fdai/delivery/chaos/mutation_scope.py`, `services/core-control-plane/src/fdai/delivery/chaos/substrate_bindings.py`, `scripts/catalog/run-catalog-scenario.py`, `infra/scenario-lab/outputs.tf`, `scripts/deployment/scenario-lab/prepare-runner.sh`, and the linked tests; focused chaos, mutation-scope, substrate-binding, catalog-runner, and scenario-lab suites passed, including a regression proving all ten reference scenarios resolve to a scope-matched target and that an absent substrate value is still refused. | Decide the in-fault observation question before the detection-latency port, route catalog submissions through the Core pipeline, supply a deployment provider, then collect shadow-only evidence before any promotion. |
 ### Remaining work
 
 - [ ] Supply a deployment-owned `GovernedChaosBindings` provider, including a distributed target
@@ -60,13 +61,15 @@ and resumable work while the roadmap owner remains focused on normative design.
   `tool.run-chaos-experiment` pipeline with `GovernedChaosExecutionAdapter` bound in
   `runtime/delivery.py`, instead of calling the adapter directly, as required by
   [#94](https://github.com/dotnetpower/fdai/issues/94).
-- [ ] Port the detection-latency driver (`scripts/catalog/measure-detection-latency.py`) onto
-  `GovernedChaosExecutionAdapter`. It refuses every live run until then, and an honest port needs a
-  detection timestamp the governed run does not record yet
+- [ ] Decide whether the governed harness may observe the expected signal *during* the fault hold,
+  then port the detection-latency driver (`scripts/catalog/measure-detection-latency.py`) onto
+  `GovernedChaosExecutionAdapter`. It refuses every live run until then. The blocker is structural,
+  not a missing field: `FaultInjectionHarness` injects, holds for the authored duration while the
+  impact guard polls only stop conditions, and probes the expected signal once afterwards, so the
+  only interval it can report is the hold itself. Measuring latency honestly requires in-fault
+  polling, which adds probe traffic to the fault window, interacts with the guard loop, and changes
+  what `detected` means, so it needs an owner design rather than a new timestamp field
   ([#94](https://github.com/dotnetpower/fdai/issues/94)).
-- [ ] Give `db`, `llm_endpoint`, and `lb` catalog targets a canonical substrate identity so the
-  `mysql-cpu-pressure`, `aoai-tpm-throttle`, and `appgw-backend-failure` reference scenarios stop
-  refusing with `refused_target_type` during a governed sweep.
 - [ ] Collect shadow-only governed chaos evidence on one registered disposable target at a time,
   without promoting `tool.run-chaos-experiment`, a scenario, an ActionType, or a Workflow, as
   directed in [#94](https://github.com/dotnetpower/fdai/issues/94).
