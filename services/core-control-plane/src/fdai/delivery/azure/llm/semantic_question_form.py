@@ -12,6 +12,7 @@ traces are content-free: hashes, usage, timing, and redaction counts only.
 from __future__ import annotations
 
 import asyncio
+import copy
 import hashlib
 import json
 import logging
@@ -84,6 +85,29 @@ _CONCEPT_CHOICE_SCHEMA: dict[str, Any] = {
         },
     },
 }
+
+
+def _concept_choice_schema(
+    mention_ids: list[str], candidate_ids: list[str], shard_digest: str
+) -> dict[str, Any]:
+    """Close the choice schema over exactly what this shard presents.
+
+    The model can then name only a presented mention and a presented candidate and echo
+    only this shard's digest, so a text answer or an invented identifier cannot parse.
+    """
+
+    schema = copy.deepcopy(_CONCEPT_CHOICE_SCHEMA)
+    properties = schema["properties"]
+    properties["shard_digest"] = {"type": "string", "enum": [shard_digest]}
+    choice = properties["choices"]["items"]["properties"]
+    if mention_ids:
+        choice["mention"] = {"type": "string", "enum": sorted(set(mention_ids))}
+    if candidate_ids:
+        choice["candidate_ids"] = {
+            "type": "array",
+            "items": {"type": "string", "enum": sorted(set(candidate_ids))},
+        }
+    return schema
 
 
 @dataclass(frozen=True, slots=True)
@@ -222,7 +246,16 @@ class AzureOpenAIQuestionFormModel:
         utterance: str,
         mentions: tuple[dict[str, Any], ...],
         shard: ConceptShard,
+        second: bool = False,
     ) -> Mapping[str, Any] | None:
+        """Choose concepts for one shard; ``second`` asks the other model family blind.
+
+        The second chooser is the extraction model, so two independent readers ground
+        every concept. Without that model there is no second chooser, and nothing binds.
+        """
+
+        if second and not self._config.extraction_candidates:
+            return None
         shard_payload = shard.payload()
         # Catalog strings are reviewed data, but any that decodes to a secret or an exact
         # identifier holds the call rather than being altered, and so does operator text
@@ -247,11 +280,16 @@ class AzureOpenAIQuestionFormModel:
         return await self._complete(
             system_prompt=self._config.concept_system_prompt,
             user_payload=payload,
-            schema=_CONCEPT_CHOICE_SCHEMA,
+            schema=_concept_choice_schema(
+                [str(item.get("mention")) for item in mentions],
+                [candidate.id for candidate in shard.candidates],
+                shard.digest,
+            ),
             name="semantic-concept-selection",
             max_tokens=self._config.concept_max_tokens,
             manifest=self._config.concept_prompt_manifest,
             require_verbatim=False,
+            candidates=self._config.extraction_candidates if second else None,
         )
 
     async def extract_constraints(
@@ -293,6 +331,7 @@ class AzureOpenAIQuestionFormModel:
         constraints = extraction.get("constraints")
         if not isinstance(constraints, list):
             return extraction
+        literals = extraction.get("literals")
         # Quotes point at the masked question, so each maps back to the exact words.
         return {
             **extraction,
@@ -302,6 +341,16 @@ class AzureOpenAIQuestionFormModel:
                 else item
                 for item in constraints
             ],
+            **(
+                {
+                    "literals": [
+                        mask.unmask_quote(item) if isinstance(item, Mapping) else item
+                        for item in literals
+                    ]
+                }
+                if isinstance(literals, list)
+                else {}
+            ),
         }
 
     async def _complete(

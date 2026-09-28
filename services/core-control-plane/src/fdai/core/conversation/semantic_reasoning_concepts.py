@@ -366,6 +366,43 @@ def apply_runoff(
     )
 
 
+def agree_concepts(
+    primary: ConceptSelectionReceipt, second: ConceptSelectionReceipt
+) -> ConceptSelectionReceipt:
+    """Keep each binding on which two blind choosers agree, and clarify every other.
+
+    Agreement compares the values a binding would hand to a plan, so two readers that
+    reach one type through a group and through its value still agree. A missing,
+    different, or one-sided answer, including one chooser's general resources against
+    the other's exact type, becomes an ambiguity that clarifies instead of binding.
+    """
+
+    bindings: list[ConceptBinding] = []
+    for binding in primary.bindings:
+        other = second.binding(binding.mention_id)
+        agreed = other is not None and other.outcome is binding.outcome
+        if agreed and binding.outcome is ConceptOutcome.ACCEPTED:
+            agreed = other is not None and set(other.values) == set(binding.values)
+        if agreed:
+            bindings.append(binding)
+            continue
+        candidates = (*binding.candidate_ids, *(other.candidate_ids if other else ()))
+        bindings.append(
+            ConceptBinding(
+                binding.mention_id,
+                binding.domain,
+                ConceptOutcome.AMBIGUOUS,
+                candidate_ids=tuple(dict.fromkeys(candidates)),
+                reason=f"concept_disagreement:{binding.domain.value}",
+            )
+        )
+    return ConceptSelectionReceipt(
+        bindings=tuple(bindings),
+        presented=primary.presented,
+        model_calls=primary.model_calls + second.model_calls,
+    )
+
+
 def select_concepts(
     admission: FormAdmission,
     *,
@@ -514,6 +551,7 @@ __all__ = [
     "ConceptSelectionReceipt",
     "ConceptShard",
     "accept_concept_selection",
+    "agree_concepts",
     "apply_runoff",
     "concept_catalogs",
     "plan_concept_selection",

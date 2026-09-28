@@ -456,6 +456,21 @@ class SemanticQuestionForm(_FormModel):
     def mention(self, mention_id: str) -> FormMention:
         return next(mention for mention in self.mentions if mention.id == mention_id)
 
+    def literal_mentions(self) -> frozenset[str]:
+        """Return the mentions whose quotes a plan uses verbatim as literal operands.
+
+        A name-fragment filter reads its mention as the characters a name must contain.
+        Any other mention is grounded, bound, or unsupported, so a wrong extent there
+        cannot silently change a query.
+        """
+
+        return frozenset(
+            item.mention
+            for goal in self.goals
+            for item in goal.filters
+            if item.role is FilterRole.NAME_FRAGMENT and item.mention is not None
+        )
+
     def declared_spans(self, *, context: bool = True) -> tuple[SourceSpan, ...]:
         """Return every span the form quotes: mentions, goal, filter, relation, time,
         and measure cues, unsupported constraints, and, unless excluded, context."""

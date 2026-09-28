@@ -30,6 +30,7 @@ from .semantic_reasoning_concepts import (
     ConceptSelectionReceipt,
     ConceptShard,
     accept_concept_selection,
+    agree_concepts,
     apply_runoff,
     concept_catalogs,
     plan_concept_selection,
@@ -57,10 +58,13 @@ from .semantic_reasoning_repair import (
 from .semantic_reasoning_review import (
     FormReview,
     describe_uncovered,
+    describe_unexpressible,
+    literal_disagreements,
     merged_constraints,
     quoted_form,
     resolve_extraction,
     review_forms,
+    unacknowledged_constraints,
     uncovered_constraints,
 )
 
@@ -85,6 +89,7 @@ class QuestionFormModel(Protocol):
         utterance: str,
         mentions: tuple[dict[str, Any], ...],
         shard: ConceptShard,
+        second: bool = False,
     ) -> Mapping[str, Any] | None: ...
 
     async def extract_constraints(
@@ -101,7 +106,7 @@ class ShadowBudget:
     """Per-turn ceilings reserved before the shadow path starts."""
 
     max_form_passes: int = MAX_FORM_PASSES
-    max_concept_calls: int = 8
+    max_concept_calls: int = 16
     max_shard_bytes: int = 12 * 1024
     repairs_per_pass: int = 1
 
@@ -391,17 +396,24 @@ def _review_repair(
     if len(forms) != 1 or len(passes) != 1:
         return None
     extraction = resolve_extraction(raw, utterance)
-    uncovered = uncovered_constraints(forms, extraction, utterance) if extraction else ()
-    # A repair only adds information, so it cannot split a mention that merged a
-    # restriction with another constraint; the turn is held instead of spending a call.
-    if not uncovered or (extraction is not None and merged_constraints(forms, extraction)):
+    if extraction is None:
         return None
+    uncovered = uncovered_constraints(forms, extraction, utterance)
+    unacknowledged = unacknowledged_constraints(forms, extraction, utterance)
+    # A repair only adds information, so it can neither split a mention that merged a
+    # restriction with another constraint nor move a literal; the turn is held instead.
+    if not (uncovered or unacknowledged) or (
+        merged_constraints(forms, extraction) or literal_disagreements(forms, extraction)
+    ):
+        return None
+    violations = (
+        *(describe_uncovered(item, utterance, forms) for item in uncovered),
+        *(describe_unexpressible(item, utterance) for item in unacknowledged),
+    )
     return _ReviewRepair(
         previous=quoted_form(forms[0], utterance),
         typed=forms[0],
-        violations=tuple(
-            dict.fromkeys(describe_uncovered(item, utterance, forms) for item in uncovered)
-        ),
+        violations=tuple(dict.fromkeys(violations)),
         reasons=review.reasons,
     )
 
@@ -584,7 +596,46 @@ async def _select(
     max_calls: int,
     max_shard_bytes: int,
 ) -> ConceptSelectionReceipt:
-    """Present every planned shard to the model, then accept verified choices."""
+    """Ground every concept with two blind choosers of different model families.
+
+    Each chooser sees every planned shard and resolves its own runoff; a binding stands
+    only where both choose the same values, so no single reader grounds a concept.
+    """
+
+    primary, second = await asyncio.gather(
+        _select_one(
+            model,
+            admission=admission,
+            catalogs=catalogs,
+            utterance=utterance,
+            max_calls=max_calls // 2,
+            max_shard_bytes=max_shard_bytes,
+            second=False,
+        ),
+        _select_one(
+            model,
+            admission=admission,
+            catalogs=catalogs,
+            utterance=utterance,
+            max_calls=max_calls // 2,
+            max_shard_bytes=max_shard_bytes,
+            second=True,
+        ),
+    )
+    return agree_concepts(primary, second)
+
+
+async def _select_one(
+    model: QuestionFormModel,
+    *,
+    admission: Any,
+    catalogs: Any,
+    utterance: str,
+    max_calls: int,
+    max_shard_bytes: int,
+    second: bool,
+) -> ConceptSelectionReceipt:
+    """Present every planned shard to one chooser, then accept verified choices."""
 
     plan = plan_concept_selection(
         admission,
@@ -592,30 +643,27 @@ async def _select(
         max_model_calls=max_calls,
         max_shard_bytes=max_shard_bytes,
     )
+
+    async def choose(request: Any) -> Mapping[str, Any] | None:
+        return await model.choose_concepts(
+            utterance=utterance, mentions=request.mentions, shard=request.shard, second=second
+        )
+
     answers: list[Mapping[str, Any] | None] = []
     retries = 0
     for request in plan.requests:
-        answer = await model.choose_concepts(
-            utterance=utterance, mentions=request.mentions, shard=request.shard
-        )
+        answer = await choose(request)
         # One bounded re-ask for a malformed shard answer; a second failure stays invalid.
         if not shard_answer_valid(answer, request) and (len(plan.requests) + retries < max_calls):
             retries += 1
-            answer = await model.choose_concepts(
-                utterance=utterance, mentions=request.mentions, shard=request.shard
-            )
+            answer = await choose(request)
         answers.append(answer)
     receipt = accept_concept_selection(plan, answers)
     receipt = replace(receipt, model_calls=receipt.model_calls + retries)
     runoff = runoff_requests(plan, receipt)
     if not runoff or receipt.model_calls + len(runoff) > max_calls:
         return receipt
-    runoff_answers = [
-        await model.choose_concepts(
-            utterance=utterance, mentions=request.mentions, shard=request.shard
-        )
-        for request in runoff
-    ]
+    runoff_answers = [await choose(request) for request in runoff]
     return apply_runoff(receipt, runoff, runoff_answers)
 
 

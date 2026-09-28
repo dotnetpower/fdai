@@ -87,9 +87,11 @@ class _Model:
         forms: list[dict[str, Any] | None],
         picks: dict[str, list[str]],
         extraction: dict[str, Any] | None = None,
+        second_picks: dict[str, list[str]] | None = None,
     ) -> None:
         self.forms = forms
         self.picks = picks
+        self.second_picks = picks if second_picks is None else second_picks
         self.extraction = extraction
         self.form_calls: list[dict[str, Any]] = []
         self.review_calls: list[dict[str, Any]] = []
@@ -109,9 +111,17 @@ class _Model:
         return self.forms.pop(0) if self.forms else None
 
     async def choose_concepts(
-        self, *, utterance: str, mentions: tuple[dict[str, Any], ...], shard: ConceptShard
+        self,
+        *,
+        utterance: str,
+        mentions: tuple[dict[str, Any], ...],
+        shard: ConceptShard,
+        second: bool = False,
     ) -> dict[str, Any]:
+        """Answer as the primary chooser, or as the blind second chooser when asked."""
+
         self.shards.append(shard)
+        picks = self.second_picks if second else self.picks
         present = {candidate.id for candidate in shard.candidates}
         return {
             "shard_digest": shard.digest,
@@ -119,7 +129,7 @@ class _Model:
                 {
                     "mention": item["mention"],
                     "candidate_ids": [
-                        pick for pick in self.picks.get(item["mention"], []) if pick in present
+                        pick for pick in picks.get(item["mention"], []) if pick in present
                     ],
                 }
                 for item in mentions
@@ -577,3 +587,17 @@ async def test_a_follow_up_without_a_handle_clarifies_instead_of_guessing() -> N
 async def test_a_handle_scope_from_another_manifest_is_a_caller_error() -> None:
     with pytest.raises(ValueError, match="handle scope"):
         await _follow_up(_follow_up_scope("another-manifest"), ())
+
+
+async def test_concepts_bind_only_where_two_blind_choosers_agree() -> None:
+    vms = {"m2": ["value:compute.vm", "group:compute.vm"]}
+    agreeing = _Model([_quoted_form()], vms)
+    differing = _Model([_quoted_form()], vms, second_picks={"m2": ["group:network.subnet"]})
+
+    agreed = await _run(agreeing)
+    disagreed = await _run(differing)
+
+    assert [goal.status for goal in agreed.passes[0].goals] == ["compiled"]
+    (goal,) = disagreed.passes[0].goals
+    assert goal.status == "clarify"
+    assert goal.reasons == ("concept_disagreement:resource_type",)

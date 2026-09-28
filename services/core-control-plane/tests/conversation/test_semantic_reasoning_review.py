@@ -6,7 +6,8 @@ import json
 from typing import Any
 
 import httpx
-from fdai.core.conversation.semantic_reasoning_form import SemanticQuestionForm
+from fdai.core.conversation.semantic_reasoning_concepts import ConceptCandidate, ConceptShard
+from fdai.core.conversation.semantic_reasoning_form import MentionDomain, SemanticQuestionForm
 from fdai.core.conversation.semantic_reasoning_proposal import resolve_question_form
 from fdai.core.conversation.semantic_reasoning_review import (
     FormReview,
@@ -231,7 +232,10 @@ async def test_the_extractor_sees_only_the_masked_question_on_its_own_model() ->
 
     def handler(request: httpx.Request) -> httpx.Response:
         sent.append((str(request.url), json.loads(request.content)))
-        content = {"constraints": [{"quote": _quote("⟦ID1⟧"), "role": "names"}]}
+        content = {
+            "constraints": [{"quote": _quote("⟦ID1⟧"), "role": "names"}],
+            "literals": [_quote("⟦ID1⟧")],
+        }
         return httpx.Response(
             200, json={"choices": [{"message": {"content": json.dumps(content)}}]}
         )
@@ -250,7 +254,10 @@ async def test_the_extractor_sees_only_the_masked_question_on_its_own_model() ->
     assert "00000000-0000" not in text and "managedClusters" not in text
     payload = json.loads(body["messages"][-1]["content"])
     assert set(payload) == {"utterance", "context", "locale"}
-    assert extraction == {"constraints": [{"quote": _quote(identifier), "role": "names"}]}
+    assert extraction == {
+        "constraints": [{"quote": _quote(identifier), "role": "names"}],
+        "literals": [_quote(identifier)],
+    }
     assert disabled is None
 
 
@@ -494,7 +501,8 @@ _FRAGMENT_EXTRACTION = {
     "constraints": [
         _constraint("이름에 app-dev가 들어간", "restricts"),
         _constraint("리소스", "names"),
-    ]
+    ],
+    "literals": [_quote("app-dev")],
 }
 
 
@@ -572,3 +580,317 @@ def test_a_repair_violation_keeps_a_literal_value_and_points_to_its_cue() -> Non
         "words in the cue of the filter or relation that cites it"
     )
     assert "widen" not in described
+
+
+def _fragment_verdict(form: dict[str, Any], *literals: str) -> FormReview:
+    extraction = {**_FRAGMENT_EXTRACTION, "literals": [_quote(item) for item in literals]}
+    return review_forms((_typed(form, _FRAGMENT),), extraction, utterance=_FRAGMENT)
+
+
+def test_a_literal_operand_must_equal_a_literal_the_extractor_quoted_alone() -> None:
+    stated = _fragment_form(cue="이름에 app-dev가 들어간")
+    named = _fragment_form(cue="이름에 app-dev가 들어간")
+    named["mentions"][1]["form"] = "name"
+
+    assert _fragment_verdict(stated, "app-dev") == FormReview("faithful")
+    assert _fragment_verdict(named, "app-dev") == FormReview("faithful")
+    assert _fragment_verdict(stated, "app-dev가").reasons == ("review_literal_differs:4-11",)
+    assert _fragment_verdict(named).reasons == ("review_literal_differs:4-11",)
+    assert extraction_schema()["required"] == ["constraints", "literals"]
+
+
+def test_a_literal_the_extractor_cannot_locate_voids_the_review() -> None:
+    typed = _typed(_fragment_form(cue="이름에 app-dev가 들어간"), _FRAGMENT)
+    unlocated = {**_FRAGMENT_EXTRACTION, "literals": [_quote("app-prod")]}
+    malformed = {**_FRAGMENT_EXTRACTION, "literals": "app-dev"}
+
+    assert review_forms((typed,), unlocated, utterance=_FRAGMENT).outcome == "invalid"
+    assert review_forms((typed,), malformed, utterance=_FRAGMENT).outcome == "invalid"
+
+
+async def test_a_review_repair_never_moves_a_name_that_a_fragment_filter_reads() -> None:
+    first = _fragment_form()
+    first["mentions"][1]["form"] = "name"
+    widened = _fragment_form("app-dev가 들어간", "이름에 app-dev가 들어간")
+    widened["mentions"][1]["form"] = "name"
+
+    observation = await _fragment(
+        _Model([first, widened], {"m1": ["any:resource"]}, extraction=_FRAGMENT_EXTRACTION)
+    )
+
+    assert observation.passes[1].repair == "operand_dropped"
+    assert observation.released is False
+
+
+def test_a_value_no_plan_reads_verbatim_needs_no_extracted_literal() -> None:
+    utterance = "List stopped VMs"
+    form = {
+        "mentions": [
+            {"id": "m1", "form": "concept", "domain": "resource_type", "span": _quote("VMs")},
+            {"id": "m2", "form": "value", "domain": "state", "span": _quote("stopped")},
+        ],
+        "goals": [
+            {
+                "id": "g1",
+                "level": "instance",
+                "operation": "select",
+                "subject": "m1",
+                "subject_scope": "collection",
+                "filters": [{"role": "state", "mention": "m2", "cue": _quote("stopped")}],
+                "cue": _quote("List"),
+                "confidence": 0.9,
+            }
+        ],
+    }
+    extraction = {
+        "constraints": [_constraint("stopped", "restricts"), _constraint("VMs", "names")],
+        "literals": [],
+    }
+
+    assert review_forms((_typed(form, utterance),), extraction, utterance=utterance) == (
+        FormReview("faithful")
+    )
+
+
+def _dependents_form(utterance: str) -> SemanticQuestionForm:
+    form = {
+        "mentions": [
+            {"id": "m1", "form": "name", "domain": "instance", "span": _quote("sql-app")},
+            {"id": "m2", "form": "concept", "domain": "resource_type", "span": _quote("리소스")},
+        ],
+        "goals": [
+            {
+                "id": "g1",
+                "level": "instance",
+                "operation": "select",
+                "subject": "m2",
+                "subject_scope": "collection",
+                "relation": {
+                    "sense": "dependency",
+                    "anchor": "m1",
+                    "anchor_role": "dependency",
+                    "result_role": "dependent",
+                    "cue": _quote("의존하는"),
+                },
+                "cue": _quote("는?"),
+                "confidence": 0.9,
+            }
+        ],
+    }
+    return _typed(form, utterance)
+
+
+def test_a_restriction_isolated_in_an_attached_particle_is_never_stated_by_its_mention() -> None:
+    only = "sql-app에만 의존하는 리소스는?"
+    plain = "sql-app에 의존하는 리소스는?"
+    isolated = {
+        "constraints": [
+            _constraint("sql-app", "names"),
+            _constraint("만", "restricts"),
+            _constraint("의존하는", "relates"),
+            _constraint("리소스", "names"),
+        ],
+        "literals": [],
+    }
+    phrased = {
+        "constraints": [
+            _constraint("sql-app에 의존하는", "relates"),
+            _constraint("리소스", "names"),
+        ],
+        "literals": [],
+    }
+
+    assert review_forms((_dependents_form(only),), isolated, utterance=only).reasons == (
+        "review_uncovered:restricts:8-9",
+    )
+    assert review_forms((_dependents_form(plain),), phrased, utterance=plain) == (
+        FormReview("faithful")
+    )
+
+
+_ONLY = "Which resources depend only on sql-app?"
+_ONLY_EXTRACTION = {
+    "constraints": [
+        _constraint("resources", "names"),
+        _constraint("depend", "relates"),
+        _constraint("only", "negates"),
+        _constraint("sql-app", "names"),
+    ],
+    "literals": [],
+}
+
+
+def _only_form(cue: str = "depend only on", **extra: Any) -> dict[str, Any]:
+    return {
+        "mentions": [
+            {"id": "m1", "form": "concept", "domain": "resource_type", "span": _quote("resources")},
+            {"id": "m2", "form": "name", "domain": "instance", "span": _quote("sql-app")},
+        ],
+        "goals": [
+            {
+                "id": "g1",
+                "level": "instance",
+                "operation": "select",
+                "subject": "m1",
+                "subject_scope": "collection",
+                "relation": {
+                    "sense": "dependency",
+                    "anchor": "m2",
+                    "anchor_role": "dependency",
+                    "result_role": "dependent",
+                    "cue": _quote(cue),
+                },
+                "cue": _quote("Which"),
+                "confidence": 0.9,
+            }
+        ],
+        **extra,
+    }
+
+
+def test_an_exclusion_absorbed_into_a_cue_is_never_stated() -> None:
+    absorbed = _typed(_only_form(), _ONLY)
+    acknowledged = _typed(_only_form("depend", unsupported_constraints=[_quote("only")]), _ONLY)
+
+    assert review_forms((absorbed,), _ONLY_EXTRACTION, utterance=_ONLY).reasons == (
+        "review_unexpressible:negates:23-27",
+    )
+    assert review_forms((acknowledged,), _ONLY_EXTRACTION, utterance=_ONLY) == (
+        FormReview("faithful")
+    )
+
+
+def test_an_exclusion_attached_to_a_name_needs_an_unsupported_constraint() -> None:
+    utterance = "sql-app에만 의존하는 리소스는?"
+    typed = _dependents_form(utterance)
+    whole_word = {
+        "constraints": [
+            _constraint("sql-app에만", "negates"),
+            _constraint("의존하는", "relates"),
+            _constraint("리소스", "names"),
+        ],
+        "literals": [],
+    }
+
+    assert review_forms((typed,), whole_word, utterance=utterance).reasons == (
+        "review_unexpressible:negates:0-9",
+    )
+
+
+def test_a_comparison_absorbed_into_a_measure_cue_is_never_stated() -> None:
+    utterance = "Which VMs run above 80% CPU?"
+    form = {
+        "mentions": [
+            {"id": "m1", "form": "concept", "domain": "resource_type", "span": _quote("VMs")}
+        ],
+        "goals": [
+            {
+                "id": "g1",
+                "level": "instance",
+                "operation": "select",
+                "subject": "m1",
+                "subject_scope": "collection",
+                "measure": {"kind": "metric", "cue": _quote("run above 80% CPU")},
+                "cue": _quote("Which"),
+                "confidence": 0.9,
+            }
+        ],
+    }
+    extraction = {
+        "constraints": [
+            _constraint("VMs", "names"),
+            _constraint("above 80%", "compares"),
+            _constraint("CPU", "measures"),
+        ],
+        "literals": [],
+    }
+
+    assert review_forms((_typed(form, utterance),), extraction, utterance=utterance).reasons == (
+        "review_unexpressible:compares:14-23",
+    )
+
+
+async def test_one_review_repair_turns_an_absorbed_exclusion_into_a_clarification() -> None:
+    repaired = _only_form(unsupported_constraints=[_quote("only")])
+    shortened = _only_form("depend", unsupported_constraints=[_quote("only")])
+    model = _Model([_only_form(), repaired], {"m1": ["any:resource"]}, extraction=_ONLY_EXTRACTION)
+    dropping = _Model(
+        [_only_form(), shortened], {"m1": ["any:resource"]}, extraction=_ONLY_EXTRACTION
+    )
+
+    observation = await run_reasoning_shadow(
+        model=model,
+        account_spans=False,
+        utterance=_ONLY,
+        context=(),
+        locale="en",
+        manifest=production_manifest(),
+        verifier=plan_verifier(),
+        purpose=PURPOSE,
+        evaluation_time=NOW,
+        default_lookback_seconds=DEFAULT_LOOKBACK_SECONDS,
+    )
+
+    shortened_observation = await run_reasoning_shadow(
+        model=dropping,
+        account_spans=False,
+        utterance=_ONLY,
+        context=(),
+        locale="en",
+        manifest=production_manifest(),
+        verifier=plan_verifier(),
+        purpose=PURPOSE,
+        evaluation_time=NOW,
+        default_lookback_seconds=DEFAULT_LOOKBACK_SECONDS,
+    )
+
+    assert "review_unexpressible" in model.form_calls[1]["repair"].violations[0]
+    assert observation.passes[-1].disposition == "clarify"
+    assert observation.passes[-1].reasons == ("constraint_unsupported:23-27",)
+    assert observation.released is False
+    # A repair that shortens the cue drops what it stated, so nothing is released either.
+    assert shortened_observation.passes[-1].repair == "operand_dropped"
+    assert shortened_observation.released is False
+
+
+async def test_the_second_concept_chooser_is_the_other_model_family() -> None:
+    sent: list[str] = []
+    schemas: list[dict[str, Any]] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        sent.append(str(request.url))
+        schemas.append(json.loads(request.content)["response_format"]["json_schema"]["schema"])
+        content = {"shard_digest": "digest", "choices": []}
+        return httpx.Response(
+            200, json={"choices": [{"message": {"content": json.dumps(content)}}]}
+        )
+
+    candidate = ConceptCandidate("value:compute.vm", ("compute.vm",), ("virtual machine",))
+    shard = ConceptShard(MentionDomain.RESOURCE_TYPE, 0, 1, (candidate,), "digest")
+    mentions = ({"mention": "m1", "text": "VMs"},)
+    adapter = _adapter(handler)
+    unpaired = AzureOpenAIQuestionFormModel(
+        identity=_Identity(),  # type: ignore[arg-type]
+        http_client=httpx.AsyncClient(transport=httpx.MockTransport(handler)),
+        config=AzureOpenAIQuestionFormConfig(
+            candidates=(_target("form-model"),),
+            form_system_prompt="Return the closed question form.",
+            concept_system_prompt="Choose concepts.",
+        ),
+    )
+
+    await adapter.choose_concepts(utterance="List VMs", mentions=mentions, shard=shard)
+    await adapter.choose_concepts(utterance="List VMs", mentions=mentions, shard=shard, second=True)
+    none = await unpaired.choose_concepts(
+        utterance="List VMs", mentions=mentions, shard=shard, second=True
+    )
+
+    assert ["form-model" in url for url in sent] == [True, False]
+    assert "review-model" in sent[1]
+    assert none is None
+    # Both choosers may name only the presented mention, candidate, and shard digest.
+    for schema in schemas:
+        choice = schema["properties"]["choices"]["items"]["properties"]
+        assert choice["mention"]["enum"] == ["m1"]
+        assert choice["candidate_ids"]["items"]["enum"] == ["value:compute.vm"]
+        assert schema["properties"]["shard_digest"]["enum"] == [shard.digest]

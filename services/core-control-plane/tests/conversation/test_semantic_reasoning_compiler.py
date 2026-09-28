@@ -1429,3 +1429,64 @@ def test_a_mention_that_quotes_exactly_the_time_cue_restates_the_time(
     )
 
     assert admitted(form, utterance).reasons == reasons
+
+
+_SCOPED_LINKS = "Workload ObjectType에는 어떤 LinkType이 있나요?"
+
+
+def _scoped_kind_form(operation: str = "select", **extra: Any) -> dict[str, Any]:
+    return {
+        "mentions": [
+            _schema_mention(_SCOPED_LINKS, "m1", "object_type", "Workload"),
+            _schema_mention(_SCOPED_LINKS, "m2", "declaration_kind", "LinkType"),
+        ],
+        "goals": [
+            {
+                "id": "g1",
+                "level": "schema",
+                "operation": operation,
+                "subject": "m2",
+                "subject_scope": "collection",
+                "filters": [{"role": "scope", "mention": "m1", "cue": span(_SCOPED_LINKS, "에는")}],
+                "cue": span(_SCOPED_LINKS, "어떤"),
+                "confidence": 0.9,
+                **extra,
+            }
+        ],
+    }
+
+
+def _scoped_receipt(kind: str = "link") -> ConceptSelectionReceipt:
+    return concepts(
+        ("m1", MentionDomain.OBJECT_TYPE, ("Workload",)),
+        ("m2", MentionDomain.DECLARATION_KIND, (kind,)),
+    )
+
+
+def test_a_kind_scoped_to_an_object_type_reads_that_object_types_link_types() -> None:
+    goal = _compile(_SCOPED_LINKS, _scoped_kind_form(), _scoped_receipt()).goals[0]
+
+    assert goal.status is GoalStatus.COMPILED, goal.reasons
+    (batch,) = goal.batches
+    (node,) = batch.plan.nodes
+    assert node.arguments == {
+        "function_name": "query.ontology_relationships",
+        "arguments": {"object_types": ["Workload"], "limit": 100},
+        "dependency_arguments": {},
+    }
+
+
+@pytest.mark.parametrize(
+    ("form", "kind", "status", "reason"),
+    (
+        (_scoped_kind_form(), "action", GoalStatus.UNSUPPORTED, "schema_scope_unsupported"),
+        (_scoped_kind_form("count"), "link", GoalStatus.CLARIFY, "schema_filter_conflict"),
+    ),
+)
+def test_a_scoped_kind_without_a_reviewed_read_is_never_widened(
+    form: dict[str, Any], kind: str, status: GoalStatus, reason: str
+) -> None:
+    goal = _compile(_SCOPED_LINKS, form, _scoped_receipt(kind)).goals[0]
+
+    assert goal.status is status
+    assert goal.reasons == (reason,)
