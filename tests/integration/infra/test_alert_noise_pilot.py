@@ -43,16 +43,14 @@ def test_alert_noise_pilot_is_default_off_dev_only_and_secret_bound() -> None:
     assert '"fdai:component" = "alert-noise-pilot"' in root
 
 
-def test_alert_noise_pilot_single_maintainer_exception_stays_isolated() -> None:
+def test_alert_noise_pilot_terraform_stays_local_deployment_only() -> None:
     owner = (ROOT / "docs/roadmap/operations/alert-noise-governance.md").read_text(encoding="utf-8")
     example = (ROOT / "infra/envs/dev.tfvars.example").read_text(encoding="utf-8")
     owner_prose = " ".join(owner.split())
 
-    assert "single-maintainer exception applies only to the isolated dev" in owner_prose
-    assert "one direct test recipient controlled by that maintainer" in owner_prose
-    assert "distinct managed deployment identity executes it" in owner_prose
-    assert "read-only principal distinct from that" in owner_prose
-    assert "each require their own current exact-plan approval" in owner_prose
-    assert "not standing authority or advance approval of an unknown digest" in owner_prose
-    assert "Any widening returns to the two-human shared-change quorum" in owner_prose
+    assert "prerequisite is outside this Var quorum" in owner_prose
+    assert "one operator-controlled direct test recipient" in owner_prose
+    assert "they never become FDAI approval, execution authority" in owner_prose
+    assert "FDAI does not admit them as Var approval" in owner_prose
+    assert "remains inside the normal two-human runtime quorum" in owner_prose
     assert "both human approval lanes" not in example

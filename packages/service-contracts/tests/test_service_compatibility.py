@@ -801,7 +801,8 @@ def test_wire_fixture_versions_match_declared_producer_releases() -> None:
         declared_version = contract["producer_schemas"][release]["version"]
 
         if fixture["contract_id"] in ALERT_WIRE_MODELS and release == "N":
-            assert declared_version == "1.0.0"
+            expected = "1.1.0" if fixture["contract_id"] == "alert-noise-result" else "1.0.0"
+            assert declared_version == expected
             ALERT_WIRE_MODELS[fixture["contract_id"]].model_validate(fixture["payload"])
         else:
             assert fixture["payload"]["schema_version"] == declared_version
