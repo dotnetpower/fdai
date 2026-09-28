@@ -72,8 +72,6 @@ _SUBSTRATE_TARGETS: Final = (
     "azurerm_role_assignment.isolated_executor_receipt_sender",
     "azurerm_role_assignment.ingestion_eventhubs_sender",
     "azurerm_role_assignment.operator_api_reader",
-    "azurerm_role_assignment.inventory_kubernetes_cluster_user_subscription",
-    "azurerm_role_assignment.inventory_kubernetes_reader_subscription",
     "module.console",
     "module.operational_history_storage",
     "random_id.cost_pseudonym_key",

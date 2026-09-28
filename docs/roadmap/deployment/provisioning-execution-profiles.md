@@ -429,7 +429,8 @@ The explicit adapter is `dev`-only with approval quorum one. Staging and product
 until this transport supports and verifies their protected approval quorum.
 
 Targeted substrate plans include every role assignment the AKS workloads need at start, such as
-the isolated-executor Event Hubs roles and the ingestion sender role.
+the isolated-executor Event Hubs roles and the ingestion sender role. Subscription-scoped roles
+that the deploy identity cannot delegate stay outside those targets.
 
 ### Scoped Run Command Terraform
 
