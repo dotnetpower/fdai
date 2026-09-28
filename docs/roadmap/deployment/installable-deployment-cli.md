@@ -525,7 +525,13 @@ wheels include locked workspace path dependencies, such as the service contracts
 
 The complete release wrapper requires a fresh private output root and preserves earlier archives.
 Caller-relative signing-key paths resolve before changing directories, and current-UID, mode-0600,
-regular-file checks remain required. The build shares a three-hour total budget with per-stage and
+regular-file checks remain required. Because a wrong key and a wrong path fail the same way, a
+separate checker identifies a candidate key before a build consumes it: it reports the packaged
+roots' fingerprints, the roles a candidate satisfies, and the unmet custody requirements, and it
+emits no key material so it stays safe to run wherever the key might be. Both build refusals name
+it. The development profile pins one signer for the complete-kit and bundle roles, so one file
+satisfies `--signing-key`; the license issuer stays a separate key. The build shares a three-hour
+total budget with per-stage and
 no-progress deadlines, including an optional deployment appliance. Nested supervisors forward
 cancellation with shorter cleanup grace than their parent. Success requires a valid archive checksum
 and completion of every requested artifact stage; interruption cannot continue to later signing.
