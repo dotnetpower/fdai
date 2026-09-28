@@ -1,7 +1,7 @@
 ---
 translation_of: package-assurance.md
-translation_source_sha: 1123ed1e60addb35d0168a68fae632485fbf479a
-translation_revised: 2026-09-27
+translation_source_sha: de1889d7316644678b8214799f45af4a6c98d514
+translation_revised: 2026-09-28
 ---
 
 # 패키지 보증
@@ -49,6 +49,9 @@ scripts/deployment/release/build-signed-python-package.sh \
 빌더는 Deployment CLI wheel을 만들고 잠긴 런타임 의존성을 `wheels/`에 다운로드한 다음 정렬된
 checksum 목록 하나를 작성하고 서명해 tar 아카이브를 만듭니다. 서비스 이미지를 빌드하거나 Azure
 배포 payload를 조립하지 않습니다.
+
+서명 파일 두 개를 제외한 모든 포함 파일은 `SHA256SUMS`에 나열됩니다. `wheels/`에 wheel 파일이
+아닌 항목이 있으면 빌더가 실패합니다.
 
 ## 검증 및 설치
 

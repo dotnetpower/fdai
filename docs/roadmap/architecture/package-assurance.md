@@ -49,6 +49,9 @@ The builder creates the deployment CLI wheel, downloads its locked runtime depen
 `wheels/`, writes one sorted checksum list, signs that list, and creates a tar archive. It does not
 build service images or assemble an Azure deployment payload.
 
+Every shipped file except the signature pair is listed in `SHA256SUMS`; the builder fails when
+`wheels/` contains anything other than wheel files.
+
 ## Verify and install
 
 Verify the signature and checksums before invoking pip:
