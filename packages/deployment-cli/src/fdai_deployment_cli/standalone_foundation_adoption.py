@@ -7,6 +7,7 @@ from pathlib import Path
 
 from fdai_deployment_cli.application_state_adoption import ApplicationStateAdoption
 from fdai_deployment_cli.catalog_review_profile import CatalogReviewDeploymentProfile
+from fdai_deployment_cli.control_package import ControlPackage
 from fdai_deployment_cli.deployment_deadline import DeploymentDeadline
 from fdai_deployment_cli.deployment_kit import DeploymentKit
 from fdai_deployment_cli.deployment_progress import begin_stage, progress_detail
@@ -33,6 +34,7 @@ def deploy_with_adopted_foundation(
     application_state_adoption: ApplicationStateAdoption | None,
     catalog_review_profile: CatalogReviewDeploymentProfile | None,
     current_operator_object_id: Callable[[], str],
+    control_package: ControlPackage | None = None,
 ) -> dict[str, object] | None:
     """Return a completed adopted deployment, or None when adoption isn't selected."""
 
@@ -78,4 +80,5 @@ def deploy_with_adopted_foundation(
         foundation_adoption_receipt_digest=str(adoption.receipt["receipt_digest"]),
         catalog_review_profile=catalog_review_profile,
         current_operator_object_id=current_operator_object_id,
+        control_package=control_package,
     )
