@@ -20,6 +20,8 @@ MAX_FORM_GOALS = 4
 MAX_FORM_ALTERNATIVES = 3
 MAX_ALTERNATIVE_ATOMS = 6
 MAX_FORM_BYTES = 6 * 1024
+MAX_CONTEXT_SPANS = 32
+MAX_UNSUPPORTED_CONSTRAINTS = 8
 _MENTION_ID = r"^m[0-9]{1,2}$"
 _GOAL_ID = r"^g[0-9]{1,2}$"
 
@@ -211,6 +213,7 @@ class FormMention(_FormModel):
 class FormFilter(_FormModel):
     role: FilterRole
     mention: Annotated[str, Field(pattern=_MENTION_ID)]
+    cue: SourceSpan | None = None
 
 
 # Reviewed role convention per sense: (role of the stored from-end, role of the to-end).
@@ -272,6 +275,7 @@ class FormMeasure(_FormModel):
     kind: MeasureKind
     group_by: GroupBy = GroupBy.NONE
     mention: Annotated[str, Field(pattern=_MENTION_ID)] | None = None
+    cue: SourceSpan | None = None
 
 
 class DurationUnit(StrEnum):
@@ -389,6 +393,12 @@ class SemanticQuestionForm(_FormModel):
     alternatives: Annotated[
         tuple[FormAlternative, ...], Field(max_length=MAX_FORM_ALTERNATIVES)
     ] = ()
+    # Runs of words the model judges to state no constraint; admission accounts every word.
+    context: Annotated[tuple[SourceSpan, ...], Field(max_length=MAX_CONTEXT_SPANS)] = ()
+    # Words that state a constraint no closed field expresses; they force a clarification.
+    unsupported_constraints: Annotated[
+        tuple[SourceSpan, ...], Field(max_length=MAX_UNSUPPORTED_CONSTRAINTS)
+    ] = ()
     remaining_goals: bool = False
     execution_authority: Literal[False] = False
 
@@ -444,6 +454,25 @@ class SemanticQuestionForm(_FormModel):
     def mention(self, mention_id: str) -> FormMention:
         return next(mention for mention in self.mentions if mention.id == mention_id)
 
+    def declared_spans(self, *, context: bool = True) -> tuple[SourceSpan, ...]:
+        """Return every span the form quotes: mentions, goal, filter, relation, time,
+        and measure cues, unsupported constraints, and, unless excluded, context."""
+
+        spans = [mention.span for mention in self.mentions]
+        for goal in self.goals:
+            spans.append(goal.cue)
+            spans.extend(item.cue for item in goal.filters if item.cue is not None)
+            if goal.relation is not None:
+                spans.append(goal.relation.cue)
+            if goal.time.cue is not None:
+                spans.append(goal.time.cue)
+            if goal.measure is not None and goal.measure.cue is not None:
+                spans.append(goal.measure.cue)
+        spans.extend(self.unsupported_constraints)
+        if context:
+            spans.extend(self.context)
+        return tuple(spans)
+
     def cited_mentions(self) -> frozenset[str]:
         """Return every mention a goal, filter, relation, measure, or qualifier cites."""
 
@@ -473,9 +502,11 @@ class SemanticQuestionForm(_FormModel):
 
 
 __all__ = [
+    "MAX_CONTEXT_SPANS",
     "MAX_FORM_BYTES",
     "MAX_FORM_GOALS",
     "MAX_FORM_MENTIONS",
+    "MAX_UNSUPPORTED_CONSTRAINTS",
     "AtomDiff",
     "DurationUnit",
     "DurationValue",

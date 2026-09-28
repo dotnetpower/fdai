@@ -53,6 +53,7 @@ _PROMPT_ONLY_CAPABILITIES = frozenset(
         "conversation.social-narrator.thanks",
         "norns.post-turn-review",
         "semantic.concept_selection",
+        "semantic.constraint_extraction",
         "semantic.judgment",
         "semantic.judgment.schema-repair",
         "semantic.question_form",

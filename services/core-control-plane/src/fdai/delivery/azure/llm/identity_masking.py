@@ -20,7 +20,8 @@ from fdai.delivery.azure.llm.input_detection import identity_segments
 
 _OPEN = "\u27e6"
 _CLOSE = "\u27e7"
-_QUOTE_CONTAINERS = ("relation", "time")
+_QUOTE_CONTAINERS = ("relation", "time", "measure")
+_QUOTE_LISTS = ("context", "unsupported_constraints")
 
 
 @dataclass(frozen=True, slots=True)
@@ -90,6 +91,11 @@ class IdentityMask:
         if not self._placed:
             return dict(payload)
         return _map_quotes(payload, self._unmask_quote)
+
+    def unmask_quote(self, quote: Mapping[str, Any]) -> Mapping[str, Any]:
+        """Map one quote of the masked utterance back to the exact original words."""
+
+        return self._unmask_quote(quote) if self._placed else dict(quote)
 
     def mask_form(self, payload: Mapping[str, Any]) -> dict[str, Any]:
         """Return an earlier proposal with every quote re-anchored to the masked utterance."""
@@ -181,8 +187,15 @@ def _map_quotes(
                 for key in _QUOTE_CONTAINERS:
                     if key in goal:
                         goal[key] = inside(goal[key], "cue")
+                filters = goal.get("filters")
+                if isinstance(filters, list):
+                    goal["filters"] = [inside(item, "cue") for item in filters]
             converted.append(goal)
         output["goals"] = converted
+    for key in _QUOTE_LISTS:
+        quotes = output.get(key)
+        if isinstance(quotes, list):
+            output[key] = [convert(item) if isinstance(item, Mapping) else item for item in quotes]
     return output
 
 

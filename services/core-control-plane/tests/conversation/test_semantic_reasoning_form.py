@@ -7,6 +7,7 @@ from typing import Any
 import pytest
 from fdai.core.conversation.semantic_reasoning_admission import (
     AdmissionDisposition,
+    SpanAccounting,
     admit_question_form,
 )
 from fdai.core.conversation.semantic_reasoning_form import (
@@ -259,7 +260,11 @@ def test_an_instance_quote_cannot_cut_through_a_longer_identifier(
         ],
     }
 
-    admission = admit_question_form(SemanticQuestionForm.model_validate(form), utterance=utterance)
+    admission = admit_question_form(
+        SemanticQuestionForm.model_validate(form),
+        utterance=utterance,
+        accounting=SpanAccounting(required=False),
+    )
 
     assert admission.disposition is disposition
 
@@ -289,10 +294,16 @@ def test_a_declared_restriction_hidden_under_a_wide_cue_still_clarifies() -> Non
         ],
     }
 
-    admission = admit_question_form(SemanticQuestionForm.model_validate(form), utterance=utterance)
+    parsed = SemanticQuestionForm.model_validate(form)
+    unaccounted = admit_question_form(
+        parsed, utterance=utterance, accounting=SpanAccounting(required=False)
+    )
+    accounted = admit_question_form(parsed, utterance=utterance)
 
-    assert admission.disposition is AdmissionDisposition.CLARIFY
-    assert admission.reasons == ("mention_unused:m2",)
+    # The wide cue accounts for every word, and the unused restriction still clarifies.
+    for admission in (unaccounted, accounted):
+        assert admission.disposition is AdmissionDisposition.CLARIFY
+        assert admission.reasons == ("mention_unused:m2",)
 
 
 def test_qualifier_chains_are_cited_regardless_of_mention_order() -> None:

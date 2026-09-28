@@ -34,6 +34,7 @@ from fdai.core.conversation.semantic_reasoning_proposal import (
     question_form_proposal_schema,
 )
 from fdai.core.conversation.semantic_reasoning_repair import FormRepair
+from fdai.core.conversation.semantic_reasoning_review import extraction_schema
 from fdai.core.prompts import PromptReplayManifest, estimate_chat_request_tokens
 from fdai.delivery.azure.llm.completion_body import completion_body_params
 from fdai.delivery.azure.llm.identity_masking import IdentityMask
@@ -92,9 +93,15 @@ class AzureOpenAIQuestionFormConfig:
     concept_system_prompt: str
     form_prompt_manifest: PromptReplayManifest | None = None
     concept_prompt_manifest: PromptReplayManifest | None = None
+    # Without an extraction prompt the review is unavailable, so no shadow turn is released.
+    extraction_system_prompt: str | None = None
+    extraction_prompt_manifest: PromptReplayManifest | None = None
+    # A different model family for the blind extraction keeps its errors independent.
+    extraction_candidates: tuple[ModelRequestTarget, ...] = ()
     timeout_seconds: float = 30.0
     form_max_tokens: int = 2_048
     concept_max_tokens: int = 512
+    extraction_max_tokens: int = 1_024
     # Matches the active profiles' request budget; a manifest budget can only lower it.
     max_request_tokens: int = 32_768
 
@@ -104,6 +111,11 @@ class AzureOpenAIQuestionFormConfig:
         for prompt, manifest in (
             (self.form_system_prompt, self.form_prompt_manifest),
             (self.concept_system_prompt, self.concept_prompt_manifest),
+            *(
+                ((self.extraction_system_prompt, self.extraction_prompt_manifest),)
+                if self.extraction_system_prompt is not None
+                else ()
+            ),
         ):
             if not prompt or len(prompt) > _MAX_PROMPT_CHARS:
                 raise ValueError("question form prompts MUST be non-empty and bounded")
@@ -113,13 +125,19 @@ class AzureOpenAIQuestionFormConfig:
                 raise ValueError("question form prompt manifest does not match its prompt")
         if not 0 < self.timeout_seconds <= 120:
             raise ValueError("question form timeout_seconds MUST be in (0, 120]")
-        if not 1 <= self.form_max_tokens <= 4_096 or not 1 <= self.concept_max_tokens <= 2_048:
+        if (
+            not 1 <= self.form_max_tokens <= 4_096
+            or not 1 <= self.concept_max_tokens <= 2_048
+            or not 1 <= self.extraction_max_tokens <= 2_048
+            or len(self.extraction_candidates) > _MAX_CANDIDATES
+        ):
             raise ValueError("question form output token bounds are out of range")
         if not 1 <= self.max_request_tokens <= _MAX_REQUEST_TOKENS:
             raise ValueError("question form request token ceiling is out of range")
         for manifest, max_tokens in (
             (self.form_prompt_manifest, self.form_max_tokens),
             (self.concept_prompt_manifest, self.concept_max_tokens),
+            (self.extraction_prompt_manifest, self.extraction_max_tokens),
         ):
             if (
                 manifest is not None
@@ -143,6 +161,7 @@ class AzureOpenAIQuestionFormModel:
         self._http = http_client
         self._config = config
         self._form_schema = question_form_proposal_schema()
+        self._extraction_schema = extraction_schema()
 
     async def propose_form(
         self,
@@ -235,6 +254,56 @@ class AzureOpenAIQuestionFormModel:
             require_verbatim=False,
         )
 
+    async def extract_constraints(
+        self,
+        *,
+        utterance: str,
+        context: tuple[str, ...],
+        locale: str,
+    ) -> Mapping[str, Any] | None:
+        """Ask the independent extractor for every constraint the question states.
+
+        The extractor sees only the question, never the proposed form, so it cannot
+        repeat the proposer's reading.
+        """
+
+        if self._config.extraction_system_prompt is None:
+            return None
+        context = context[-_MAX_CONTEXT_ITEMS:]
+        if any(_exposes_secret(text) for text in (utterance, *context)):
+            _held("input_redacted", name="semantic-constraint-extraction", raise_error=True)
+        mask = IdentityMask(utterance, context)
+        payload: dict[str, Any] = {
+            "utterance": mask.utterance,
+            "context": list(mask.context),
+            "locale": locale,
+        }
+        extraction = await self._complete(
+            system_prompt=self._config.extraction_system_prompt,
+            user_payload=payload,
+            schema=self._extraction_schema,
+            name="semantic-constraint-extraction",
+            max_tokens=self._config.extraction_max_tokens,
+            manifest=self._config.extraction_prompt_manifest,
+            require_verbatim=True,
+            candidates=self._config.extraction_candidates or None,
+        )
+        if extraction is None:
+            return None
+        constraints = extraction.get("constraints")
+        if not isinstance(constraints, list):
+            return extraction
+        # Quotes point at the masked question, so each maps back to the exact words.
+        return {
+            **extraction,
+            "constraints": [
+                {**item, "quote": mask.unmask_quote(item["quote"])}
+                if isinstance(item, Mapping) and isinstance(item.get("quote"), Mapping)
+                else item
+                for item in constraints
+            ],
+        }
+
     async def _complete(
         self,
         *,
@@ -245,6 +314,7 @@ class AzureOpenAIQuestionFormModel:
         max_tokens: int,
         manifest: PromptReplayManifest | None,
         require_verbatim: bool,
+        candidates: tuple[ModelRequestTarget, ...] | None = None,
     ) -> Mapping[str, Any] | None:
         try:
             prepared = prepare_model_messages(
@@ -290,6 +360,7 @@ class AzureOpenAIQuestionFormModel:
                 name=name,
                 max_tokens=max_tokens,
                 manifest=manifest,
+                candidates=candidates or self._config.candidates,
             )
 
         return await run_scoped_model(attempt)
@@ -302,9 +373,10 @@ class AzureOpenAIQuestionFormModel:
         name: str,
         max_tokens: int,
         manifest: PromptReplayManifest | None,
+        candidates: tuple[ModelRequestTarget, ...],
     ) -> Mapping[str, Any] | None:
-        candidate_timeout = self._config.timeout_seconds / len(self._config.candidates)
-        for index, target in enumerate(self._config.candidates):
+        candidate_timeout = self._config.timeout_seconds / len(candidates)
+        for index, target in enumerate(candidates):
             try:
                 async with asyncio.timeout(candidate_timeout):
                     token = await self._identity.get_token(target.auth_audience)

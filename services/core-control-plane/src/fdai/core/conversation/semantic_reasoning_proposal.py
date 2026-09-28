@@ -85,11 +85,23 @@ def resolve_question_form(raw: Mapping[str, Any], *, utterance: str) -> FormReso
         if not isinstance(goal, dict):
             continue
         _bind(goal, "cue", utterance, failures, notes, f"goals.{index}.cue")
-        for key in ("relation", "time"):
+        filters = goal.get("filters")
+        for position, item in enumerate(filters if isinstance(filters, list) else ()):
+            if isinstance(item, dict):
+                path = f"goals.{index}.filters.{position}.cue"
+                _bind(item, "cue", utterance, failures, notes, path, required=False)
+        for key in ("relation", "time", "measure"):
             nested = goal.get(key)
             if isinstance(nested, dict):
                 path = f"goals.{index}.{key}.cue"
                 _bind(nested, "cue", utterance, failures, notes, path, required=key == "relation")
+    for key in ("context", "unsupported_constraints"):
+        quotes = payload.get(key)
+        if isinstance(quotes, list):
+            for index, quoted in enumerate(quotes):
+                holder = {"span": quoted}
+                _bind(holder, "span", utterance, failures, notes, f"{key}.{index}")
+                quotes[index] = holder["span"]
     if failures:
         return FormResolution(None, tuple(dict.fromkeys(failures)), tuple(notes[:16]))
     try:

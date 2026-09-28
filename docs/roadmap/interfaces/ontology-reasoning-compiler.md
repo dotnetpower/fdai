@@ -25,6 +25,7 @@ answer. Code validates that meaning, binds anchors, selects reviewed paths, and 
 | 1. Conversation preflight | Bragi | Social, knowledge, and operational routing | T1, unchanged |
 | 2. Logical-form judgment | Bragi | Proposed `SemanticQuestionForm` | T1, one call plus at most one schema repair |
 | 3. Admission | Bragi | Admitted form, clarification, or review request | Optional T2 review |
+| 3a. Constraint review | Bragi | Blind constraint extraction compared with the admitted form | T1 of another model family, one call beside the judgment |
 | 4. Concept grounding | Bragi, over Mimir catalogs | One canonical concept per mention from the complete domain catalog | T1 over exhaustive catalog shards |
 | 5. Anchor binding | Muninn | Exact identities pinned to one snapshot | None, one bounded read |
 | 6. Compilation and verification | Bragi turn, mechanical | Plan, coverage witness, and independent coverage check | None |
@@ -90,6 +91,9 @@ supplies a FunctionType, LinkType, ObjectType operand, or instance value.
 | `measure.group_by` | `endpoint`, `type`, `container`, `none` |
 | `time.kind` | `current`, `window`, `as_of`, `two_windows`, `versions`, `future`, `unspecified` |
 | `want` | `fact`, `cause`, `verification`, `completeness` |
+| `filters[].cue`, `measure.cue` | Optional quotes of the words that state a restriction, a measure, or a grouping |
+| `context` | At most 32 quotes of words that state no constraint |
+| `unsupported_constraints` | At most 8 quotes of words that state a constraint no closed field expresses; any one clarifies |
 
 One judgment pass holds at most 16 mentions and 4 goals within 6 KiB. Each goal carries a confidence and a cue span for its operation and relation,
 and may depend on an earlier goal. A larger question is judged in successive passes until every goal is accounted. Ambiguity uses at most three
@@ -116,12 +120,30 @@ alternative survives, both relation roles are the ends of one sense, every decla
 Otherwise it returns one clarification or sends a low-confidence field to one independent T2 review of closed fields. An admitted atom that no
 reviewed builder reads, such as a qualifier or a stated counterpart, returns a typed unsupported reason; it is never ignored.
 
+**Utterance span accounting**: Every letter, digit, and math or currency symbol of the utterance must lie inside a mention, a goal, filter, relation,
+time, or measure cue, a context quote, or an unsupported constraint. Core checks this only by Unicode category and never classifies what a word means.
+A form that leaves any such character out is invalid, and its one repair names the missing words, with identifiers masked. The model decides whether a
+word states a constraint, so labeling one as context is its explicit judgment, which the blind constraint review checks. A pass that sets
+`remaining_goals` defers the check to the final pass, which may rely on the mentions and cues of earlier admitted passes but never on their context,
+and no compilation is released until the final pass is admitted. A repair of unaccounted words may add mentions, goals, filters, cue reach, context,
+and values left at their defaults, but it never changes or removes a stated value. A word still unaccounted after that repair is left to the blind
+constraint review, because accounting only makes the proposer consider every word; the review decides whether a word states a constraint.
+
+**Blind constraint review**: A second T1 call of another model family reads only the question, beside the judgment call, and extracts every constraint
+with a closed role. Core compares the two outputs structurally: every letter and digit of each extracted constraint must lie in a span that states
+meaning, never only in a goal cue or context, and a named thing must overlap a mention, whose whitespace-delimited word carries an attached particle. Roles beyond that stay advisory, because two readers may
+fairly disagree on whether a word restricts or relates, except that a hypothetical premise is stated only by an impact goal. An uncovered constraint
+gets one review repair that may only add information, checked against the same extraction. A missing, empty, unlocated, or uncovered extraction
+releases nothing.
+
 A form that breaks its closed schema or a structural rule gets at most one repair call with the code-authored violations. The repaired form passes the
 same admission and must keep every quoted operand, goal, operation, want, typed time, operand-bearing relation, competing reading, and pending-goals
 signal of the rejected proposal; otherwise the original fault stands. These fields compare as the closed schema normalizes them. A proposal that never
 parsed treats every stated pending-goals value other than an explicit false or null as pending, and it fails closed when any compared field loses its
-closed shape, such as a missing goal list, a wrong container, a duplicate goal id, or an unreadable operation or want. Clarifications are answers to
-the operator and are never repaired.
+closed shape, such as a missing goal list, a wrong container, a duplicate goal id, or an unreadable operation or want. Only an uncited mention of a
+parsed proposal that quotes exactly a typed time cue may survive inside a repaired time cue instead of a repaired mention. Only an uncited mention of
+a parsed proposal that quotes exactly a typed time cue may survive inside a repaired time cue instead of a repaired mention. Clarifications are
+answers to the operator and are never repaired.
 
 Admission bounds model authority; it does not remove it. A wrong but self-consistent form is caught only by cue-span review, T2 review, the restated
 interpretation and confirm-first cells in [calibrated admission](ontology-reasoning-coverage.md#calibrated-admission), and the evaluation gold. The
@@ -148,8 +170,9 @@ lookup table, and an explicit root candidate stands for resources in general. Fu
 An `identifier` or `name` mention with domain `instance` becomes an anchor. Binding is a two-phase protocol:
 
 1. After admission and manifest, purpose, and scope checks, Core verifies a single-node resolution
-   plan: exact `id` or `name` equality, the principal scope, the current graph cutoff, and a limit
-   of seven rows.
+   plan: exact `id` equality or `name` equality without regard to case, pushed to the store, the
+   principal scope, the current graph cutoff, and a limit of seven rows. Names that differ only in
+   case are ambiguous.
 2. The executor reads one snapshot. The binding receipt pins the source generation, object
    revisions, cutoff, and release, manifest, and scope digests.
 3. The compiled plan must reference that receipt digest and use exact `root_ids` or `object_ids`.
@@ -275,6 +298,7 @@ not hide verified sibling goals, and the answer lists every unknown atom. Link e
 | Decision | Today | Target |
 |----------|-------|--------|
 | Question meaning | Capability name plus free facet tokens | Closed logical form with cue spans and admission |
+| Completeness of the reading | Nothing checks for a dropped constraint | Blind constraint extraction by another model family, compared structurally |
 | Instance kind of a named object | Model target kind | Anchor binding |
 | Relation direction | Frame or plan model | Admitted position mapped to a reviewed side |
 | Path and LinkType set | Plan model or fixed recipe | Reviewed traits and path grammars |
