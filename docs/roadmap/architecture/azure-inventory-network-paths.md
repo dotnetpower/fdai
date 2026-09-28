@@ -87,6 +87,23 @@ re-queries the exact active generation with no authority. Cleanup uses a separat
 plan after successful effect verification; an ambiguous campaign or cleanup preserves the sandbox
 for recovery review.
 
+The sandbox migration Job advances the legacy schema and every service-owned migration branch
+before collection, because a requested-resource-type promotion reads service-owned columns. Its
+runner reports a redacted, size-capped reason on failure so one governed execution does not require
+a second diagnostic execution. Schema, credential-encoding, and promotion defects are reproduced
+first by the local harness
+[`test_inventory_network_certification_local.py`](../../../tests/integration/services/test_inventory_network_certification_local.py),
+which runs the same closure and bounded promotion against a throwaway local PostgreSQL role whose
+password carries a percent token. Provider authorization, private DNS, private endpoint, policy
+drift, and role assignment have no local substitute and remain governed-execution evidence.
+
+Recovery plans stay bounded rather than exact-singleton where Azure widens the change set on its
+own. `migration-recovery` accepts any non-empty subset of the reviewed addresses with `update` only
+and still requires the migration Job, because the sandbox ownership tag propagates to every
+task-owned resource in the same plan. Unreviewed addresses, duplicates, replacements, creates, and
+deletes remain blocked, and `create`, `cleanup`, and `extension-recovery` keep their complete
+reviewed sets.
+
 ## Required network paths
 
 Run the reachability probe from the subnet and identity that will execute discovery, not from an
