@@ -293,6 +293,7 @@ class AzureOpenAIQuestionFormModel:
         constraints = extraction.get("constraints")
         if not isinstance(constraints, list):
             return extraction
+        literals = extraction.get("literals")
         # Quotes point at the masked question, so each maps back to the exact words.
         return {
             **extraction,
@@ -302,6 +303,16 @@ class AzureOpenAIQuestionFormModel:
                 else item
                 for item in constraints
             ],
+            **(
+                {
+                    "literals": [
+                        mask.unmask_quote(item) if isinstance(item, Mapping) else item
+                        for item in literals
+                    ]
+                }
+                if isinstance(literals, list)
+                else {}
+            ),
         }
 
     async def _complete(

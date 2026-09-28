@@ -17,6 +17,7 @@ from fdai_service_contracts.ontology_query import (
 from .semantic_planning_models import SemanticOutputShape
 from .semantic_reasoning_form import (
     FilterRole,
+    FormFilter,
     FormGoal,
     GoalLevel,
     GoalOperation,
@@ -55,6 +56,9 @@ SCHEMA_FUNCTIONS = frozenset(
 def schema_goal(goal: FormGoal, ctx: CompileContext) -> OperatorResult:
     if goal.subject is None:
         return OperatorResult(unsupported=("schema_subject_missing",))
+    scopes = [item for item in goal.filters if item.role is FilterRole.SCOPE]
+    if scopes:
+        return _scoped_declarations(goal, goal.subject, scopes, ctx)
     values, failure = concept_values(goal.subject, ctx)
     if failure is not None:
         return failure
@@ -126,6 +130,35 @@ def schema_goal(goal: FormGoal, ctx: CompileContext) -> OperatorResult:
             ),
         )
     )
+
+
+def _scoped_declarations(
+    goal: FormGoal, subject: str, scopes: list[FormFilter], ctx: CompileContext
+) -> OperatorResult:
+    """Read the declarations of one kind that one stated ObjectType scopes.
+
+    The LinkTypes in the Workload ObjectType states the kind as the subject and the
+    ObjectType as its scope. That is the same read as the Workload ObjectType's own
+    LinkTypes, so it compiles as that canonical goal; no other kind has a reviewed read
+    scoped to an ObjectType.
+    """
+
+    if (
+        len(scopes) != 1
+        or len(goal.filters) != 1
+        or ctx.mention(subject).domain is not MentionDomain.DECLARATION_KIND
+        or goal.relation is not None
+        or goal.effective_operation is not GoalOperation.SELECT
+    ):
+        return OperatorResult(clarify=("schema_filter_conflict",))
+    kinds, failure = concept_values(subject, ctx)
+    if failure is not None:
+        return failure
+    if set(kinds) != {"link"}:
+        return OperatorResult(unsupported=("schema_scope_unsupported",))
+    kind = FormFilter(role=FilterRole.TYPE, mention=subject, cue=scopes[0].cue)
+    canonical = goal.model_copy(update={"subject": scopes[0].mention, "filters": (kind,)})
+    return schema_goal(canonical, ctx)
 
 
 def _relation_failure(goal: FormGoal) -> str | None:

@@ -31,7 +31,6 @@ from .semantic_reasoning_form import (
     FormMention,
     GoalOperation,
     GroupBy,
-    MentionForm,
     SemanticQuestionForm,
     SourceSpan,
     SubjectScope,
@@ -325,8 +324,10 @@ def _extends(typed: SemanticQuestionForm, repaired: SemanticQuestionForm) -> boo
     """
 
     mentions = {mention.id: mention for mention in repaired.mentions}
+    literal = typed.literal_mentions()
     if not all(
-        (after := mentions.get(mention.id)) is not None and _widens(mention, after)
+        (after := mentions.get(mention.id)) is not None
+        and _widens(mention, after, literal=mention.id in literal)
         for mention in typed.mentions
     ):
         return False
@@ -337,14 +338,15 @@ def _extends(typed: SemanticQuestionForm, repaired: SemanticQuestionForm) -> boo
     )
 
 
-def _widens(before: FormMention, after: FormMention) -> bool:
+def _widens(before: FormMention, after: FormMention, *, literal: bool = False) -> bool:
     """Return whether a mention keeps its id, form, domain, and qualifier within a wider span.
 
-    A value mention's quote is itself the literal operand, such as a name fragment, so
-    widening it would change the query rather than add information; it must stay exact.
+    A literal operand's quote, such as a name fragment, is itself the value the query
+    uses, so widening it would change the query rather than add information; it must
+    stay exact.
     """
 
-    if before.form is MentionForm.VALUE and after.span != before.span:
+    if literal and after.span != before.span:
         return False
     return (
         (after.form, after.domain, after.qualifier)

@@ -55,7 +55,12 @@ def _spanned(value: Any, utterance: str) -> Any:
         return value
     result: dict[str, Any] = {}
     for key, item in value.items():
-        if key in {"text", "cue"} and isinstance(item, str):
+        if key == "unsupported_constraints":
+            result[key] = [
+                {"start": utterance.index(text), "end": utterance.index(text) + len(text)}
+                for text in item
+            ]
+        elif key in {"text", "cue"} and isinstance(item, str):
             start = utterance.index(item)
             result["span" if key == "text" else "cue"] = {"start": start, "end": start + len(item)}
         else:
@@ -154,6 +159,13 @@ def test_cohort_is_bilingual_and_generic() -> None:
 
 @pytest.mark.parametrize("case", _CASES, ids=lambda case: case["id"])
 async def test_gold_form_reaches_its_reviewed_outcome(case: dict[str, Any]) -> None:
+    if "admission" in case["expect"]:
+        # A constraint no closed atom states clarifies at admission, before any compile.
+        admission = admitted(_spanned(case["form"], case["utterance"]), case["utterance"])
+        expected_admission = case["expect"]["admission"]
+        assert admission.disposition.value == expected_admission["disposition"]
+        assert list(admission.reasons) == expected_admission["reasons"]
+        return
     compilation = await _compile(case)
     assert compilation.execution_authority is False
     for goal_id, expected in case["expect"].items():

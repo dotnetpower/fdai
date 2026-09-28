@@ -9,7 +9,12 @@ outputs structurally. Every letter and digit of each extracted constraint must l
 span that states meaning, never only in a goal cue or context, and a named thing must
 overlap a mention. One mention binds one concept or one identity, so a mention may not
 hold a restriction the extractor found beside another constraint it found: binding would
-keep one and silently drop the other. Roles beyond that stay advisory, because two
+keep one and silently drop the other. A literal operand, the mention a name-fragment
+filter reads, is used verbatim, so its quote must equal a literal the extractor quoted on
+its own; no single reader decides where a literal ends. No closed field states an
+exclusion such as not or only, and only a ranking or comparison goal states an order or a
+comparison, so those roles need an unsupported constraint or that goal's cue; a cue,
+context, or particle that covers one would drop it. Roles beyond that stay advisory, because two
 independent readers may fairly disagree on whether a word restricts or relates. A
 malformed, empty, unlocated, or unavailable extraction releases nothing.
 """
@@ -24,10 +29,11 @@ from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
-from .semantic_reasoning_form import GoalOperation, MentionForm, SemanticQuestionForm, SourceSpan
+from .semantic_reasoning_form import GoalOperation, SemanticQuestionForm, SourceSpan
 from .semantic_reasoning_proposal import MAX_OCCURRENCE, locate_quote
 
 MAX_EXTRACTED_CONSTRAINTS = 24
+MAX_EXTRACTED_LITERALS = 8
 MAX_REVIEW_REASONS = 8
 _QUOTE_SCHEMA: dict[str, Any] = {
     "type": "object",
@@ -55,9 +61,23 @@ class ConstraintRole(StrEnum):
 
 
 _RANKING = frozenset({GoalOperation.RANK, GoalOperation.AGGREGATE})
+_ISOLATED_ROLES = frozenset(
+    {
+        ConstraintRole.RESTRICTS,
+        ConstraintRole.NEGATES,
+        ConstraintRole.COMPARES,
+        ConstraintRole.ORDERS,
+        ConstraintRole.TIMES,
+    }
+)
 _COMPARISON = frozenset(
     {GoalOperation.COMPARE_WINDOWS, GoalOperation.COMPARE_ENTITIES, GoalOperation.DIFF_VERSIONS}
 )
+_UNEXPRESSIBLE: dict[ConstraintRole, frozenset[GoalOperation]] = {
+    ConstraintRole.NEGATES: frozenset(),
+    ConstraintRole.COMPARES: _RANKING | _COMPARISON,
+    ConstraintRole.ORDERS: _RANKING,
+}
 
 
 class _ExtractionModel(BaseModel):
@@ -70,11 +90,16 @@ class ExtractedConstraint(_ExtractionModel):
 
 
 class ConstraintExtraction(_ExtractionModel):
-    """Every constraint the question states, each with its exact words and closed role."""
+    """Every constraint the question states, and every literal value it gives exactly.
+
+    ``literals`` defaults to empty only so an older payload still parses; an empty list
+    never excuses a literal operand, which then has no agreeing quote and is held.
+    """
 
     constraints: Annotated[
         tuple[ExtractedConstraint, ...], Field(max_length=MAX_EXTRACTED_CONSTRAINTS)
     ]
+    literals: Annotated[tuple[SourceSpan, ...], Field(max_length=MAX_EXTRACTED_LITERALS)] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -97,6 +122,8 @@ def extraction_schema() -> dict[str, Any]:
     if "SourceSpan" not in definitions:
         raise ValueError("constraint extraction schema has no SourceSpan definition")
     definitions["SourceSpan"] = copy.deepcopy(_QUOTE_SCHEMA)
+    # Strict structured output requires every property, so the extractor always answers.
+    schema["required"] = sorted({*schema.get("required", ()), "literals"})
     return schema
 
 
@@ -114,14 +141,21 @@ def review_forms(
     if extraction is None:
         return FormReview("invalid", ("review_invalid",))
     uncovered = uncovered_constraints(forms, extraction, utterance)
+    unacknowledged = unacknowledged_constraints(forms, extraction, utterance)
     merged = merged_constraints(forms, extraction)
-    if uncovered or merged:
+    differing = literal_disagreements(forms, extraction)
+    if uncovered or unacknowledged or merged or differing:
         reasons = (
             *(
                 f"review_uncovered:{item.role.value}:{item.quote.start}-{item.quote.end}"
                 for item in uncovered
             ),
+            *(
+                f"review_unexpressible:{item.role.value}:{item.quote.start}-{item.quote.end}"
+                for item in unacknowledged
+            ),
             *(f"review_merged:{item.quote.start}-{item.quote.end}" for item in merged),
+            *(f"review_literal_differs:{item.start}-{item.end}" for item in differing),
         )
         return FormReview("unfaithful", tuple(dict.fromkeys(reasons))[:MAX_REVIEW_REASONS])
     return FormReview("faithful")
@@ -145,6 +179,16 @@ def resolve_extraction(raw: Mapping[str, Any], utterance: str) -> ConstraintExtr
         if span is None:
             return None
         item["quote"] = {"start": span[0], "end": span[1]}
+    literals = payload.get("literals", [])
+    if not isinstance(literals, list):
+        return None
+    located_literals = []
+    for quote in literals:
+        span = _locate(quote, utterance)
+        if span is None:
+            return None
+        located_literals.append({"start": span[0], "end": span[1]})
+    payload["literals"] = located_literals
     try:
         return ConstraintExtraction.model_validate(payload)
     except ValidationError:
@@ -159,19 +203,71 @@ def uncovered_constraints(
     semantic, mentions = _semantic_spans(forms)
     # A particle attached after a mention in the same word, such as the case ending of a
     # Korean name, belongs to that mention; only whitespace delimits the word.
-    semantic.extend(
-        suffix for span in mentions if (suffix := _attached(span, utterance)) is not None
-    )
+    suffixes = [suffix for span in mentions if (suffix := _attached(span, utterance)) is not None]
     # A hypothetical premise, such as if it fails, is what an impact goal states.
     supposing = any(
         goal.effective_operation is GoalOperation.IMPACT for form in forms for goal in form.goals
     )
-    return tuple(
-        item
-        for item in extraction.constraints
-        if item.role is not ConstraintRole.ASKS
-        and not (item.role is ConstraintRole.SUPPOSES and supposing)
-        and not _stated(item, semantic, mentions, utterance)
+    uncovered: list[ExtractedConstraint] = []
+    for item in extraction.constraints:
+        if item.role is ConstraintRole.ASKS or (item.role is ConstraintRole.SUPPOSES and supposing):
+            continue
+        # A restriction the extractor isolated inside such a particle, such as only or
+        # from, narrows the answer, so the mention it rides on never states it.
+        isolated = item.role in _ISOLATED_ROLES and any(
+            span.start <= item.quote.start and item.quote.end <= span.end for span in suffixes
+        )
+        spans = semantic if isolated else [*semantic, *suffixes]
+        if not _stated(item, spans, mentions, utterance):
+            uncovered.append(item)
+    return tuple(uncovered)
+
+
+def unacknowledged_constraints(
+    forms: Sequence[SemanticQuestionForm], extraction: ConstraintExtraction, utterance: str
+) -> tuple[ExtractedConstraint, ...]:
+    """Return each exclusion, comparison, or order the forms state only by absorbing it.
+
+    No closed field expresses an exclusion, and only a ranking or comparison goal
+    expresses an order or a comparison, so such a constraint must reach an unsupported
+    constraint or that goal's cue. Characters inside a mention, such as the name an
+    exclusion follows, need no acknowledgment.
+    """
+
+    mentions = [mention.span for form in forms for mention in form.mentions]
+    unacknowledged: list[ExtractedConstraint] = []
+    for item in extraction.constraints:
+        operations = _UNEXPRESSIBLE.get(item.role)
+        if operations is None:
+            continue
+        allowed = [span for form in forms for span in form.unsupported_constraints]
+        allowed.extend(
+            goal.cue
+            for form in forms
+            for goal in form.goals
+            if goal.effective_operation in operations
+        )
+        stated = [
+            index
+            for index in range(item.quote.start, min(item.quote.end, len(utterance)))
+            if utterance[index].isalnum()
+            and not any(span.start <= index < span.end for span in mentions)
+        ]
+        if stated and not any(
+            span.start <= index < span.end for index in stated for span in allowed
+        ):
+            unacknowledged.append(item)
+    return tuple(unacknowledged)
+
+
+def describe_unexpressible(item: ExtractedConstraint, utterance: str) -> str:
+    """Render one absorbed exclusion, comparison, or order as a repair violation."""
+
+    quote = _quote(item.quote.start, item.quote.end, utterance)
+    return (
+        f'review_unexpressible: the words "{quote["text"]}" at occurrence {quote["occurrence"]} '
+        f"state a {item.role.value} constraint that no closed field expresses, so also add "
+        "them to unsupported_constraints and keep every cue and mention as it is"
     )
 
 
@@ -203,6 +299,30 @@ def merged_constraints(
     return tuple(found.values())
 
 
+def literal_operands(forms: Sequence[SemanticQuestionForm]) -> frozenset[tuple[int, str]]:
+    """Return each mention whose quote is used verbatim, by form index and mention id."""
+
+    return frozenset(
+        (index, mention_id)
+        for index, form in enumerate(forms)
+        for mention_id in form.literal_mentions()
+    )
+
+
+def literal_disagreements(
+    forms: Sequence[SemanticQuestionForm], extraction: ConstraintExtraction
+) -> tuple[SourceSpan, ...]:
+    """Return each literal operand whose quote no extracted literal matches exactly."""
+
+    extracted = {(item.start, item.end) for item in extraction.literals}
+    differing: dict[tuple[int, int], SourceSpan] = {}
+    for index, mention_id in sorted(literal_operands(forms)):
+        span = forms[index].mention(mention_id).span
+        if (span.start, span.end) not in extracted:
+            differing.setdefault((span.start, span.end), span)
+    return tuple(differing.values())
+
+
 def describe_uncovered(
     item: ExtractedConstraint,
     utterance: str,
@@ -223,14 +343,19 @@ def describe_uncovered(
         f"state a {item.role.value} constraint that no mention, filter, relation, time, "
         "measure, or unsupported constraint states"
     )
+    operands = literal_operands(forms)
     overlapping = [
-        mention
-        for form in forms
+        (index, mention)
+        for index, form in enumerate(forms)
         for mention in form.mentions
         if mention.span.start < item.quote.end and item.quote.start < mention.span.end
     ]
-    named = sorted({item.id for item in overlapping if item.form is not MentionForm.VALUE})
-    literal = sorted({item.id for item in overlapping if item.form is MentionForm.VALUE})
+    named = sorted(
+        {mention.id for index, mention in overlapping if (index, mention.id) not in operands}
+    )
+    literal = sorted(
+        {mention.id for index, mention in overlapping if (index, mention.id) in operands}
+    )
     if named:
         described += (
             f"; mention {', '.join(named)} quotes only part of these words: widen its quote "
@@ -338,10 +463,14 @@ __all__ = [
     "ExtractedConstraint",
     "FormReview",
     "describe_uncovered",
+    "describe_unexpressible",
+    "literal_disagreements",
+    "literal_operands",
     "merged_constraints",
     "extraction_schema",
     "quoted_form",
     "resolve_extraction",
     "review_forms",
+    "unacknowledged_constraints",
     "uncovered_constraints",
 ]

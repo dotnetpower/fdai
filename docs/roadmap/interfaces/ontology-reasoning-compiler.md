@@ -131,14 +131,19 @@ constraint review, because accounting only makes the proposer consider every wor
 
 **Blind constraint review**: A second T1 call of another model family reads only the question, beside the judgment call, and extracts every constraint
 with a closed role. Core compares the two outputs structurally: every letter and digit of each extracted constraint must lie in a span that states
-meaning, never only in a goal cue or context, and a named thing must overlap a mention, whose whitespace-delimited word carries an attached particle. Roles beyond that stay advisory, because two readers may
-fairly disagree on whether a word restricts or relates, except that a hypothetical premise is stated only by an impact goal. One mention binds one
-concept or identity, so a mention must not hold an extracted restriction beside another disjoint extracted constraint, as when one mention quotes
-`AKS ObjectTypes`: binding would keep one and drop the other. An uncovered constraint gets one review repair that may only add information, checked
-against the same extraction. Its violation names a mention that quotes part of the constraint, and a value mention's quote, a literal operand such
-as a name fragment, must stay exact, so the other words go to the cue that cites it. A merged mention is held without a repair, because such a
-repair cannot split a mention. A missing, empty, unlocated, uncovered,
-or merged extraction releases nothing.
+meaning, never only in a goal cue or context, and a named thing must overlap a mention, whose whitespace-delimited word carries an attached particle;
+a restriction, negation, comparison, order, or time that the extractor isolates inside such a particle, such as only, is never stated by that mention.
+No closed field expresses an exclusion such as not or only, and only a ranking or comparison goal expresses an order or a comparison, so a negation,
+comparison, or order must reach an unsupported constraint or that goal's cue, and its repair adds the unsupported constraint while every cue stays.
+Roles beyond that stay advisory, because two readers may fairly disagree on whether a word restricts or relates, except that a hypothetical premise is
+stated only by an impact goal. One mention binds one concept or identity, so a mention must not hold an extracted restriction beside another disjoint
+extracted constraint, as when one mention quotes `AKS ObjectTypes`: binding would keep one and drop the other. The extractor also quotes each literal
+value on its own, without surrounding words or particles. A literal operand, the mention a name-fragment filter reads, is used verbatim, so its quote
+must equal one of those literals; otherwise the turn is held, and no single reader decides where a literal ends. An uncovered constraint gets one
+review repair that may only add information, checked against the same extraction. Its violation names a mention that quotes part of the constraint,
+and a literal operand's quote must stay exact, so the other words go to the cue that cites it. A merged mention or a disagreeing literal is held
+without a repair, because such a repair cannot split a mention or move a literal. A missing, empty, unlocated, uncovered, merged, or disagreeing
+extraction releases nothing.
 
 A form that breaks its closed schema or a structural rule gets at most one repair call with the code-authored violations. The repaired form passes the
 same admission and must keep every quoted operand, goal, operation, want, typed time, operand-bearing relation, competing reading, and pending-goals
@@ -259,8 +264,10 @@ self-composable, depth at most five.
   recipe. Both return a typed unsupported atom instead of a name predicate or a substitute.
 - **Schema reads**: A schema relation is answered only by the one-hop `query.ontology_relationships`
   read of the subject ObjectType's own LinkTypes in both directions, and a manifest count groups only
-  by declaration kind. Any other schema relation, direction, counterpart, reach, anchor, or grouping
-  returns a typed unsupported reason, and V-SEM rejects it independently.
+  by declaration kind. A LinkType subject scoped to one ObjectType, as in the LinkTypes in Workload,
+  is the same read and compiles as that ObjectType's relationship read; any other kind scoped to an
+  ObjectType is unsupported. Any other schema relation, direction, counterpart, reach, anchor, or
+  grouping returns a typed unsupported reason, and V-SEM rejects it independently.
 
 ### Follow-up references
 

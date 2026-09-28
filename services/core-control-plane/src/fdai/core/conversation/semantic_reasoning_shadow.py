@@ -57,10 +57,13 @@ from .semantic_reasoning_repair import (
 from .semantic_reasoning_review import (
     FormReview,
     describe_uncovered,
+    describe_unexpressible,
+    literal_disagreements,
     merged_constraints,
     quoted_form,
     resolve_extraction,
     review_forms,
+    unacknowledged_constraints,
     uncovered_constraints,
 )
 
@@ -391,17 +394,24 @@ def _review_repair(
     if len(forms) != 1 or len(passes) != 1:
         return None
     extraction = resolve_extraction(raw, utterance)
-    uncovered = uncovered_constraints(forms, extraction, utterance) if extraction else ()
-    # A repair only adds information, so it cannot split a mention that merged a
-    # restriction with another constraint; the turn is held instead of spending a call.
-    if not uncovered or (extraction is not None and merged_constraints(forms, extraction)):
+    if extraction is None:
         return None
+    uncovered = uncovered_constraints(forms, extraction, utterance)
+    unacknowledged = unacknowledged_constraints(forms, extraction, utterance)
+    # A repair only adds information, so it can neither split a mention that merged a
+    # restriction with another constraint nor move a literal; the turn is held instead.
+    if not (uncovered or unacknowledged) or (
+        merged_constraints(forms, extraction) or literal_disagreements(forms, extraction)
+    ):
+        return None
+    violations = (
+        *(describe_uncovered(item, utterance, forms) for item in uncovered),
+        *(describe_unexpressible(item, utterance) for item in unacknowledged),
+    )
     return _ReviewRepair(
         previous=quoted_form(forms[0], utterance),
         typed=forms[0],
-        violations=tuple(
-            dict.fromkeys(describe_uncovered(item, utterance, forms) for item in uncovered)
-        ),
+        violations=tuple(dict.fromkeys(violations)),
         reasons=review.reasons,
     )
 

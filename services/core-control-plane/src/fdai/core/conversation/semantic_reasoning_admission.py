@@ -55,6 +55,8 @@ _FILTER_DOMAINS: dict[FilterRole, frozenset[MentionDomain]] = {
 }
 _SCHEMA_FILTER_DOMAINS: dict[FilterRole, frozenset[MentionDomain]] = {
     FilterRole.TYPE: frozenset({MentionDomain.DECLARATION_KIND}),
+    # A declaration kind scoped to an ObjectType, as in the LinkTypes in Workload.
+    FilterRole.SCOPE: frozenset({MentionDomain.OBJECT_TYPE}),
 }
 _ANCHOR_FORMS = frozenset({MentionForm.IDENTIFIER, MentionForm.NAME})
 _IDENTIFIER_ALNUM = frozenset(string.ascii_letters + string.digits)
