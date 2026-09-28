@@ -840,6 +840,29 @@ jobs:
           uv run pytest -q --no-cov
           services/core-control-plane/tests/providers/test_contracts.py
 
+      - name: Prepare the certification harness administrator URL
+        if: matrix.shard == 2
+        env:
+          POSTGRES_PASSWORD: ci
+        run: |
+          python3 - <<'PY'
+          import os
+
+          admin_url = (
+              "postgresql://fdai:"
+              f"{os.environ['POSTGRES_PASSWORD']}@127.0.0.1:5433/fdai_validation"
+          )
+          print(f"::add-mask::{admin_url}")
+          with open(os.environ["GITHUB_ENV"], "a", encoding="utf-8") as stream:
+              stream.write(f"FDAI_LOCAL_CERTIFICATION_ADMIN_DSN={admin_url}\n")
+          PY
+
+      - name: Reproduce the inventory certification data path
+        if: matrix.shard == 2
+        run: >-
+          uv run pytest -q --no-cov
+          tests/integration/services/test_inventory_network_certification_local.py
+
       - name: Stop loopback provider stack
         if: always() && matrix.shard == 2
         run: docker compose -f infra/local/docker-compose.yml down -v

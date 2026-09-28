@@ -207,6 +207,54 @@ def test_certification_migration_assets_are_shipped_and_bound() -> None:
     assert "replica_timeout_in_seconds   = 1800" in terraform
 
 
+def test_partial_cleanup_accepts_a_preserved_failed_sandbox_subset() -> None:
+    plan = {
+        "resource_changes": [
+            {"address": address, "change": {"actions": ["delete"]}}
+            for address in (
+                "azurerm_virtual_network.certification",
+                "azurerm_storage_account.receipts",
+                "azurerm_user_assigned_identity.campaign",
+            )
+        ]
+    }
+
+    _MODULE.verify_plan(plan, mode="partial-cleanup")
+
+
+def test_partial_cleanup_rejects_an_empty_plan() -> None:
+    with pytest.raises(_MODULE.PlanVerificationError, match="removes nothing"):
+        _MODULE.verify_plan({"resource_changes": []}, mode="partial-cleanup")
+
+
+def test_partial_cleanup_rejects_a_non_delete_action() -> None:
+    plan = {
+        "resource_changes": [
+            {
+                "address": "azurerm_virtual_network.certification",
+                "change": {"actions": ["update"]},
+            }
+        ]
+    }
+
+    with pytest.raises(_MODULE.PlanVerificationError, match="non-delete"):
+        _MODULE.verify_plan(plan, mode="partial-cleanup")
+
+
+def test_partial_cleanup_rejects_an_unreviewed_address() -> None:
+    plan = {
+        "resource_changes": [
+            {
+                "address": "azurerm_virtual_network.shared",
+                "change": {"actions": ["delete"]},
+            }
+        ]
+    }
+
+    with pytest.raises(_MODULE.PlanVerificationError, match="unreviewed"):
+        _MODULE.verify_plan(plan, mode="partial-cleanup")
+
+
 def test_unreviewed_address_is_rejected() -> None:
     plan = _plan("create")
     plan["resource_changes"].append(
