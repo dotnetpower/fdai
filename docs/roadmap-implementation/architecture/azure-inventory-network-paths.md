@@ -17,7 +17,8 @@ and resumable work while the roadmap owner remains focused on normative design.
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
-| 2026-09-28 | implemented | Wired the local certification harness into required CI against the existing loopback validation PostgreSQL, and added a bounded `partial-cleanup` plan mode so a preserved failed sandbox can be removed after review without inventing a complete reviewed set. | `current change`; CI contract pin and 17 plan-gate cases; `check-ci-contracts` and 119 workflow-contract tests. | Complete the reviewed removal of the preserved failed sandbox. |
+| 2026-09-28 | validated | Completed the reviewed removal of the preserved failed sandbox. The review recorded seven task-tagged resources, no Container Apps Job or execution surface, and five standing role assignments held by two orphaned identities. The gated 22-address delete-only plan removed them. | Partial-cleanup claim bound to gate source `fbd47d1c8190f983c0c36ab16e6206ce302a6c88` and plan digest `sha256:2781236237f2d6dabb8a62e9cfd22da08e3df77cd59c1e946b4d89af3108e69b`; authoritative readback of both request ids at `0` resources, `0` remaining certification identities, and `0` certification-scoped role assignments; the application resource group fell from 68 to 61 resources, matching exactly the seven task resources. | None. |
+| 2026-09-28 | implemented | Wired the local certification harness into required CI against the existing loopback validation PostgreSQL, and added a bounded `partial-cleanup` plan mode so a preserved failed sandbox can be removed after review without inventing a complete reviewed set. | [PR #1592](https://github.com/dotnetpower/fdai/pull/1592); CI contract pin and 17 plan-gate cases; `check-ci-contracts` and 119 workflow-contract tests. | Complete the reviewed removal of the preserved failed sandbox. |
 | 2026-09-28 | implemented | Reduced the governed round-trip cost that dominated this campaign. Added a local harness that runs the complete migration closure and the bounded inventory promotion against a throwaway percent-credential PostgreSQL role, made the migration runner report a redacted size-capped failure reason, and relaxed `migration-recovery` to a bounded reviewed subset because Azure propagates the ownership tag across the same plan. | [PR #1586](https://github.com/dotnetpower/fdai/pull/1586); 18 focused plan-gate, local-harness, and interpolation tests; the harness reproduces the merged [PR #1559](https://github.com/dotnetpower/fdai/pull/1559) defect in 15 seconds with the credential redacted. | Wire the harness into required CI so it cannot bit-rot while it skips locally unset. |
 | 2026-09-28 | validated | Completed the governed isolated restricted-network campaign and its exact cleanup. Campaign `job-invnet-campaign-281780f9-2c0t9ot` succeeded, the independent verifier `job-invnet-verify-281780f9-99e5wy6` returned `verified: true`, and the gated 36-address destroy plan removed every task resource. | Verifier receipt digest `sha256:0df76d6d7651792033a4d972b418de3684a82c14a81bc06734601eac9d19fb4c`; cleanup plan digest `sha256:8022354980753072fe63b0326f33bf80e197a7d3c9de2e65ccb4197833443463`; authoritative readback `task-resources-final=0`, `preserved-final=7`, `state-addresses-after=0`. | None for #361; the preserved first failed sandbox stays available for separate recovery review. |
 | 2026-09-28 | implemented | Removed one detached Azure Policy-created subnet NSG that survived the Terraform destroy. It carried the task request tag but was never Terraform-owned and had zero subnet and interface associations. | Bounded orphan-cleanup claim; pre-delete association readback; post-delete task-resource count of zero. | None. |
@@ -51,11 +52,11 @@ and resumable work while the roadmap owner remains focused on normative design.
   and independent verification `job-invnet-verify-281780f9-99e5wy6` ran at source
   `6c00e5afcc5bcd39c2960089a2798f7256abe1b3`; the verifier receipt digest is
   `sha256:0df76d6d7651792033a4d972b418de3684a82c14a81bc06734601eac9d19fb4c`.
-- [ ] Retain a separate protected recovery review for the preserved first failed sandbox
-  `inventory-network-f5b4ad617aca5fa047e5ec265fd7768bc291f751dbf328a9`. Its review found seven
-  task-tagged resources, no Container Apps Job or execution surface, and five standing role
-  assignments held by two orphaned identities, all scoped inside the task set. Remove it with the
-  reviewed `partial-cleanup` plan and confirm both identities and their assignments are gone.
+- [x] Removed the preserved first failed sandbox
+  `inventory-network-f5b4ad617aca5fa047e5ec265fd7768bc291f751dbf328a9` after review. The review
+  found seven task-tagged resources, no execution surface, and five standing role assignments on
+  two orphaned identities. Authoritative readback now reports zero resources, zero certification
+  identities, and zero certification-scoped role assignments for both request ids.
 - [x] Run `tests/integration/services/test_inventory_network_certification_local.py` in required
   CI. The loopback validation PostgreSQL service supplies its administrator URL, and a CI contract
   test pins both the URL preparation and the harness step.
