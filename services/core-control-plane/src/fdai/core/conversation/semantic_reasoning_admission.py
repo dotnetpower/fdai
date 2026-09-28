@@ -2,8 +2,10 @@
 
 Admission validates exact spans, level and domain fit, operation requirements,
 competing readings, and confidence. It never reads the utterance for meaning; it
-only confirms that each span the model cited exists and is not blank, and that
-decimal digits inside a time cue equal the typed time value the model proposed.
+only confirms that each span the model cited exists and is not blank, that
+decimal digits inside a time cue equal the typed time value the model proposed,
+and that every letter, digit, math symbol, and currency symbol lies inside some span
+the model quoted, so no stated word is dropped without the model's explicit judgment.
 """
 
 from __future__ import annotations
@@ -30,6 +32,7 @@ from .semantic_reasoning_form import (
 )
 
 DEFAULT_CONFIDENCE_FLOOR = 0.75
+MAX_UNACCOUNTED_REASONS = 8
 
 _SCHEMA_SUBJECT_DOMAINS = frozenset(
     {
@@ -62,6 +65,26 @@ _RELATION_OPERATIONS = frozenset({GoalOperation.TRAVERSE})
 _MEASURE_OPERATIONS = frozenset({GoalOperation.LOOKUP, GoalOperation.AGGREGATE, GoalOperation.RANK})
 
 
+@dataclass(frozen=True, slots=True)
+class SpanAccounting:
+    """Whether admission accounts for every word, and the spans earlier passes quoted.
+
+    A form that sets ``remaining_goals`` leaves later goals' words to later passes,
+    so only a final pass is checked, against its own spans and the spans earlier passes
+    gave meaning to. Earlier context never carries over, because an earlier pass must
+    not declare a later goal's words to state no constraint.
+    """
+
+    required: bool = True
+    accounted: frozenset[tuple[int, int]] = frozenset()
+
+    def after(self, form: SemanticQuestionForm) -> SpanAccounting:
+        """Return the accounting for the next pass after ``form`` was admitted."""
+
+        spans = {(span.start, span.end) for span in form.declared_spans(context=False)}
+        return SpanAccounting(self.required, self.accounted | spans)
+
+
 class AdmissionDisposition(StrEnum):
     ADMITTED = "admitted"
     CLARIFY = "clarify"
@@ -87,6 +110,7 @@ def admit_question_form(
     *,
     utterance: str,
     confidence_floor: float = DEFAULT_CONFIDENCE_FLOOR,
+    accounting: SpanAccounting = SpanAccounting(),  # noqa: B008 - immutable value object
 ) -> FormAdmission:
     """Return the admission disposition and the exact text of every mention."""
 
@@ -115,10 +139,19 @@ def admit_question_form(
             fractional.append(f"time_value_{check.value}:{goal.id}")
         elif check is _TimeCheck.JUDGED:
             judged.add(goal.id)
+    if accounting.required and not form.remaining_goals:
+        invalid.extend(_unaccounted_runs(form, utterance, accounting.accounted))
     if invalid:
         return FormAdmission(AdmissionDisposition.INVALID, tuple(invalid), form, mention_text)
     if form.alternatives:
         reasons = tuple(f"competing_reading:{item.goal}" for item in form.alternatives)
+        return FormAdmission(AdmissionDisposition.CLARIFY, reasons, form, mention_text)
+    if form.unsupported_constraints:
+        # A stated constraint no closed field expresses is never dropped from the answer.
+        reasons = tuple(
+            f"constraint_unsupported:{span.start}-{span.end}"
+            for span in form.unsupported_constraints
+        )
         return FormAdmission(AdmissionDisposition.CLARIFY, reasons, form, mention_text)
     # A fractional or compound amount cannot be checked, so the operator restates it.
     contradictions = (*_relation_contradictions(form), *fractional)
@@ -140,6 +173,44 @@ def admit_question_form(
         needs_continuation=form.remaining_goals,
         judged_times=frozenset(judged),
     )
+
+
+def _unaccounted_runs(
+    form: SemanticQuestionForm, utterance: str, accounted: frozenset[tuple[int, int]]
+) -> list[str]:
+    """Return a content-free reason for each run of accountable characters no span holds.
+
+    Core classifies characters only by Unicode category, to check that the model placed
+    every letter, digit, and math or currency symbol inside a mention, a cue, context, or
+    an unsupported constraint; it never interprets what the characters mean. Each
+    character must lie inside a span, so an attached particle or a comparison sign needs
+    its own place instead of riding along with a neighboring word.
+    """
+
+    covered = bytearray(len(utterance))
+    for start, end in (
+        *((span.start, span.end) for span in form.declared_spans()),
+        *accounted,
+    ):
+        low, high = max(start, 0), min(end, len(utterance))
+        if low < high:
+            covered[low:high] = b"\x01" * (high - low)
+    missing: list[str] = []
+    run_start: int | None = None
+    for index, character in enumerate(utterance):
+        pending = not covered[index] and _accountable(character)
+        if pending and run_start is None:
+            run_start = index
+        elif not pending and run_start is not None:
+            missing.append(f"span_unaccounted:{run_start}-{index}")
+            run_start = None
+    if run_start is not None:
+        missing.append(f"span_unaccounted:{run_start}-{len(utterance)}")
+    return missing[:MAX_UNACCOUNTED_REASONS]
+
+
+def _accountable(character: str) -> bool:
+    return character.isalnum() or unicodedata.category(character) in {"Sm", "Sc"}
 
 
 class _TimeCheck(StrEnum):
@@ -393,7 +464,9 @@ def _relation_contradictions(form: SemanticQuestionForm) -> tuple[str, ...]:
 
 __all__ = [
     "DEFAULT_CONFIDENCE_FLOOR",
+    "MAX_UNACCOUNTED_REASONS",
     "AdmissionDisposition",
     "FormAdmission",
+    "SpanAccounting",
     "admit_question_form",
 ]

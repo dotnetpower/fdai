@@ -17,7 +17,7 @@ from typing import Any, Literal, Protocol
 
 from fdai.core.ontology_platform import OntologyQueryPlanVerifier, QueryManifest
 
-from .semantic_reasoning_admission import AdmissionDisposition
+from .semantic_reasoning_admission import AdmissionDisposition, SpanAccounting
 from .semantic_reasoning_binding import AnchorResolver, bind_anchors
 from .semantic_reasoning_compiler import ReasoningCompilation, compile_question_form
 from .semantic_reasoning_concepts import (
@@ -30,6 +30,7 @@ from .semantic_reasoning_concepts import (
     runoff_requests,
     shard_answer_valid,
 )
+from .semantic_reasoning_form import SemanticQuestionForm
 from .semantic_reasoning_proposal import FormInputHeldError
 from .semantic_reasoning_repair import FormRepair, propose_with_repair
 
@@ -105,13 +106,17 @@ class ReasoningShadowObservation:
     """Digest-only record of one shadow turn; it carries no utterance text.
 
     ``compilations`` is populated only when an evaluation harness explicitly asks
-    to retain compiled plans; production shadow use never retains them.
+    to retain compiled plans; production shadow use never retains them. ``released``
+    is true only when every pass was admitted and no continuation is pending, because
+    an earlier pass compiles before the final pass accounts for every word; until then
+    every compilation is provisional and no answer may use it.
     """
 
     passes: tuple[ShadowPass, ...]
     model_calls: int
     elapsed_ms: int
     continuation_pending: bool
+    released: bool = False
     execution_authority: Literal[False] = False
     notes: tuple[str, ...] = field(default=())
     compilations: tuple[ReasoningCompilation, ...] = field(default=(), repr=False)
@@ -141,6 +146,7 @@ class ReasoningShadowObservation:
             "model_calls": self.model_calls,
             "elapsed_ms": self.elapsed_ms,
             "continuation_pending": self.continuation_pending,
+            "released": self.released,
             "notes": list(self.notes),
         }
 
@@ -181,6 +187,7 @@ async def run_reasoning_shadow(
     resolver: AnchorResolver | None = None,
     retain_compilations: bool = False,
     clock: Callable[[], float] = time.monotonic,
+    account_spans: bool = True,
 ) -> ReasoningShadowObservation:
     """Run successive bounded form passes and compile each admitted pass."""
 
@@ -193,6 +200,7 @@ async def run_reasoning_shadow(
     catalogs = concept_catalogs(manifest.descriptors)
     pending = False
     notes: list[str] = []
+    accounting = SpanAccounting(required=account_spans)
     for index in range(limits.max_form_passes):
         try:
             outcome = await _run_pass(
@@ -207,6 +215,7 @@ async def run_reasoning_shadow(
                 max_shard_bytes=limits.max_shard_bytes,
                 repairs=limits.repairs_per_pass,
                 resolver=resolver,
+                accounting=accounting,
                 compile_args={
                     "manifest": manifest,
                     "verifier": verifier,
@@ -222,7 +231,7 @@ async def run_reasoning_shadow(
             if pending:
                 notes.append("continuation_failed")
             break
-        shadow_pass, goals, compilation = outcome
+        shadow_pass, goals, compilation, admitted = outcome
         passes.append(shadow_pass)
         if compilation is None:
             if pending:
@@ -234,6 +243,8 @@ async def run_reasoning_shadow(
         if not pending:
             break
         prior_goals = prior_goals + goals
+        if admitted is not None:
+            accounting = accounting.after(admitted)
     if pending and "continuation_failed" not in notes:
         notes.append("continuation_budget_exhausted")
     return ReasoningShadowObservation(
@@ -241,6 +252,9 @@ async def run_reasoning_shadow(
         model_calls=counting.calls,
         elapsed_ms=int((clock() - started) * 1000),
         continuation_pending=pending,
+        released=bool(passes)
+        and not pending
+        and all(item.disposition == "admitted" for item in passes),
         notes=tuple(notes),
         compilations=tuple(compilations),
     )
@@ -260,8 +274,15 @@ async def _run_pass(
     repairs: int,
     resolver: AnchorResolver | None,
     compile_args: dict[str, Any],
-) -> tuple[ShadowPass, tuple[dict[str, Any], ...], ReasoningCompilation | None]:
-    """Run one bounded form pass; return the pass, its goal summaries, and its compilation."""
+    accounting: SpanAccounting,
+) -> tuple[
+    ShadowPass,
+    tuple[dict[str, Any], ...],
+    ReasoningCompilation | None,
+    SemanticQuestionForm | None,
+]:
+    """Run one bounded form pass; return the pass, its goal summaries, its compilation,
+    and the admitted form, whose spans the next pass may rely on."""
 
     async def propose(repair: FormRepair | None = None) -> Mapping[str, Any] | None:
         return await model.propose_form(
@@ -273,9 +294,11 @@ async def _run_pass(
             repair=repair,
         )
 
-    proposal = await propose_with_repair(propose, utterance=utterance, repairs=repairs)
+    proposal = await propose_with_repair(
+        propose, utterance=utterance, repairs=repairs, accounting=accounting
+    )
     if proposal.resolution is None:
-        return ShadowPass(index, "model_unavailable"), (), None
+        return ShadowPass(index, "model_unavailable"), (), None, None
     resolution, admission = proposal.resolution, proposal.admission
     if resolution.form is None or admission is None:
         return (
@@ -287,6 +310,7 @@ async def _run_pass(
                 repaired_reasons=proposal.repaired_reasons,
             ),
             (),
+            None,
             None,
         )
     if admission.disposition is not AdmissionDisposition.ADMITTED:
@@ -300,6 +324,7 @@ async def _run_pass(
                 repaired_reasons=proposal.repaired_reasons,
             ),
             (),
+            None,
             None,
         )
     receipt = await _select(
@@ -342,7 +367,7 @@ async def _run_pass(
         proposal.repair,
         proposal.repaired_reasons,
     )
-    return shadow_pass, goals, compilation
+    return shadow_pass, goals, compilation, resolution.form
 
 
 async def _select(

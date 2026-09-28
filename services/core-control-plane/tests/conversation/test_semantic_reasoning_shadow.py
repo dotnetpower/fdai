@@ -109,9 +109,12 @@ class _Model:
         }
 
 
-async def _run(model: _Model, **budget: Any) -> Any:
+async def _run(model: _Model, *, account_spans: bool = False, **budget: Any) -> Any:
+    """Run the shadow over the fixture; word accounting is off unless a test checks it."""
+
     return await run_reasoning_shadow(
         model=model,
+        account_spans=account_spans,
         utterance=_UTTERANCE,
         context=(),
         locale="en",
@@ -405,7 +408,13 @@ async def test_observations_never_carry_utterance_text() -> None:
                 "level": "instance",
                 "operation": "select",
                 "subject_scope": "collection",
-                "filters": [{"role": "name_fragment", "mention": "m1"}],
+                "filters": [
+                    {
+                        "role": "name_fragment",
+                        "mention": "m1",
+                        "cue": {"text": "have zebra-secret-7 in their name", "occurrence": 1},
+                    }
+                ],
                 "cue": {"text": "Which resources", "occurrence": 1},
                 "confidence": 0.9,
             }

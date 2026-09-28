@@ -7,6 +7,7 @@ from typing import Any
 import pytest
 from fdai.core.conversation.semantic_reasoning_admission import (
     AdmissionDisposition,
+    SpanAccounting,
     admit_question_form,
 )
 from fdai.core.conversation.semantic_reasoning_form import (
@@ -259,7 +260,11 @@ def test_an_instance_quote_cannot_cut_through_a_longer_identifier(
         ],
     }
 
-    admission = admit_question_form(SemanticQuestionForm.model_validate(form), utterance=utterance)
+    admission = admit_question_form(
+        SemanticQuestionForm.model_validate(form),
+        utterance=utterance,
+        accounting=SpanAccounting(required=False),
+    )
 
     assert admission.disposition is disposition
 

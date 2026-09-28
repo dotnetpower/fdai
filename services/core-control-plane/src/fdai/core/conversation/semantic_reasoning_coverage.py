@@ -18,7 +18,11 @@ from fdai_service_contracts.ontology_query import content_digest
 
 from fdai.core.ontology_platform import OntologyQueryPlanVerifier, QueryManifest
 
-from .semantic_reasoning_admission import AdmissionDisposition, admit_question_form
+from .semantic_reasoning_admission import (
+    AdmissionDisposition,
+    SpanAccounting,
+    admit_question_form,
+)
 from .semantic_reasoning_binding import (
     AnchorBinding,
     AnchorBindingReceipt,
@@ -125,7 +129,11 @@ def reasoning_coverage_receipt(
         except ValueError:
             cells.append(CoverageCell(cell_id, "inadmissible", ("form_contract_invalid",)))
             continue
-        admission = admit_question_form(form, utterance=_UTTERANCE)
+        # A closed cell is a synthetic form over one fixed utterance, so it measures
+        # compilation of admissible forms; word accounting is a per-utterance check.
+        admission = admit_question_form(
+            form, utterance=_UTTERANCE, accounting=SpanAccounting(required=False)
+        )
         if admission.disposition is not AdmissionDisposition.ADMITTED:
             cells.append(CoverageCell(cell_id, "inadmissible", admission.reasons))
             continue

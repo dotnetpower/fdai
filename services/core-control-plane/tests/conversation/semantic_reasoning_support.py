@@ -14,7 +14,11 @@ from typing import Any
 import yaml
 from fdai.composition.semantic_query_instance_candidates import declare_instance_candidate_query
 from fdai.composition.semantic_query_value_domains import resource_type_value_domains
-from fdai.core.conversation.semantic_reasoning_admission import FormAdmission, admit_question_form
+from fdai.core.conversation.semantic_reasoning_admission import (
+    FormAdmission,
+    SpanAccounting,
+    admit_question_form,
+)
 from fdai.core.conversation.semantic_reasoning_binding import (
     AnchorBinding,
     AnchorBindingReceipt,
@@ -153,13 +157,22 @@ def plan_verifier() -> OntologyQueryPlanVerifier:
     )
 
 
-def admitted(form: dict[str, Any] | SemanticQuestionForm, utterance: str) -> FormAdmission:
+def admitted(
+    form: dict[str, Any] | SemanticQuestionForm,
+    utterance: str,
+    *,
+    account_spans: bool = False,
+) -> FormAdmission:
+    """Admit a hand-built form; word accounting is off unless a test checks it."""
+
     parsed = (
         form
         if isinstance(form, SemanticQuestionForm)
         else SemanticQuestionForm.model_validate(form)
     )
-    return admit_question_form(parsed, utterance=utterance)
+    return admit_question_form(
+        parsed, utterance=utterance, accounting=SpanAccounting(required=account_spans)
+    )
 
 
 def concepts(*bindings: tuple[str, MentionDomain, tuple[str, ...]]) -> ConceptSelectionReceipt:

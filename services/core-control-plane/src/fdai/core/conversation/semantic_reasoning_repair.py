@@ -18,13 +18,23 @@ from dataclasses import dataclass
 from enum import StrEnum
 from typing import Any
 
-from .semantic_reasoning_admission import AdmissionDisposition, FormAdmission, admit_question_form
+from pydantic import BaseModel
+
+from .semantic_reasoning_admission import (
+    AdmissionDisposition,
+    FormAdmission,
+    SpanAccounting,
+    admit_question_form,
+)
 from .semantic_reasoning_form import (
     FormGoal,
+    FormMention,
     GoalOperation,
+    GroupBy,
     SemanticQuestionForm,
     SourceSpan,
     SubjectScope,
+    TimeKind,
     Want,
 )
 from .semantic_reasoning_proposal import FormResolution, locate_quote, resolve_question_form
@@ -61,6 +71,7 @@ async def propose_with_repair(
     *,
     utterance: str,
     repairs: int,
+    accounting: SpanAccounting = SpanAccounting(),  # noqa: B008 - immutable value object
 ) -> FormProposal:
     """Resolve and admit one proposal, repairing a contract fault at most once."""
 
@@ -68,8 +79,8 @@ async def propose_with_repair(
     if raw is None:
         return FormProposal(None, None)
     resolution = resolve_question_form(raw, utterance=utterance)
-    admission = _admit(resolution, utterance)
-    repair = repair_for(raw, resolution, admission) if repairs > 0 else None
+    admission = _admit(resolution, utterance, accounting)
+    repair = repair_for(raw, resolution, admission, utterance=utterance) if repairs > 0 else None
     if repair is None:
         return FormProposal(resolution, admission)
     faulted = resolution.reasons if admission is None else admission.reasons
@@ -79,33 +90,77 @@ async def propose_with_repair(
     repaired = resolve_question_form(repaired_raw, utterance=utterance)
     if repaired.form is None:
         return FormProposal(repaired, None, "invalid", faulted)
-    if not repair_keeps_operands(raw, repaired.form, utterance=utterance, typed=resolution.form):
+    # A repair of unaccounted words only places them; it never rewrites stated meaning.
+    placing = admission is not None and all(
+        reason.startswith("span_unaccounted:") for reason in faulted
+    )
+    if not repair_keeps_operands(
+        raw, repaired.form, utterance=utterance, typed=resolution.form, extension_only=placing
+    ):
         return FormProposal(resolution, admission, "operand_dropped", faulted)
-    return FormProposal(repaired, _admit(repaired, utterance), "applied", faulted)
+    return FormProposal(repaired, _admit(repaired, utterance, accounting), "applied", faulted)
 
 
-def _admit(resolution: FormResolution, utterance: str) -> FormAdmission | None:
+def _admit(
+    resolution: FormResolution, utterance: str, accounting: SpanAccounting
+) -> FormAdmission | None:
     if resolution.form is None:
         return None
-    return admit_question_form(resolution.form, utterance=utterance)
+    return admit_question_form(resolution.form, utterance=utterance, accounting=accounting)
 
 
 def repair_for(
     raw: Mapping[str, Any],
     resolution: FormResolution,
     admission: FormAdmission | None,
+    *,
+    utterance: str = "",
 ) -> FormRepair | None:
-    """Return the repair request for a contract fault, or None for any other outcome."""
+    """Return the repair request for a contract fault, or None for any other outcome.
+
+    Recorded reasons stay content-free; only the violations shown to the model quote an
+    unaccounted word, so the model can place it, and the adapter masks identifiers there.
+    """
 
     if resolution.form is None:
         violations = resolution.notes or resolution.reasons
     elif admission is not None and admission.disposition is AdmissionDisposition.INVALID:
-        violations = admission.reasons
+        # Runs of one token render the same quote, so each appears once.
+        violations = tuple(
+            dict.fromkeys(_violation(reason, utterance) for reason in admission.reasons)
+        )
     else:
         return None
     if not violations:
         return None
     return FormRepair(previous=raw, violations=tuple(violations[:MAX_REPAIR_VIOLATIONS]))
+
+
+def _violation(reason: str, utterance: str) -> str:
+    """Render a content-free unaccounted-span reason as a quote the model can act on."""
+
+    code, _, where = reason.partition(":")
+    start_text, _, end_text = where.partition("-")
+    if code != "span_unaccounted" or not start_text.isdigit() or not end_text.isdigit():
+        return reason
+    start, end = int(start_text), int(end_text)
+    if end > len(utterance) or start >= end:
+        return reason
+    # Report the whole whitespace-delimited token, so a name or identifier reaches the
+    # adapter's identifier mask intact instead of as an unmasked fragment.
+    while start > 0 and not utterance[start - 1].isspace():
+        start -= 1
+    while end < len(utterance) and not utterance[end].isspace():
+        end += 1
+    word = utterance[start:end]
+    occurrence = 0
+    position = -1
+    while (position := utterance.find(word, position + 1)) != -1 and position <= start:
+        occurrence += 1
+    return (
+        f'span_unaccounted: the word "{word}" at occurrence {occurrence} is outside every '
+        "mention, cue, and context quote"
+    )
 
 
 def repair_keeps_operands(
@@ -114,6 +169,7 @@ def repair_keeps_operands(
     *,
     utterance: str,
     typed: SemanticQuestionForm | None = None,
+    extension_only: bool = False,
 ) -> bool:
     """Return whether the repaired form keeps everything the rejected proposal stated.
 
@@ -138,6 +194,8 @@ def repair_keeps_operands(
     """
 
     if typed is None and not _raw_readable(previous):
+        return False
+    if extension_only and (typed is None or not _extends(typed, repaired)):
         return False
     spans = [(mention.span.start, mention.span.end) for mention in repaired.mentions]
     times = [
@@ -241,6 +299,73 @@ def _caution(
         and not (isinstance(alternatives, list) and not alternatives),
         contested_goals=contested_goals,
     )
+
+
+def _extends(typed: SemanticQuestionForm, repaired: SemanticQuestionForm) -> bool:
+    """Return whether a repair only adds information to what the proposal stated.
+
+    Placing unaccounted words may add a mention, a goal, a filter, a cue's reach, or
+    context, and may state a value the proposal left at its default, such as a subject,
+    relation, measure, grouping, or time window. A stated value never changes or
+    disappears: every mention keeps its id, form, domain, and qualifier within a span
+    that may only widen, and every
+    goal keeps its level, operation, scope, want, dependencies, and stated fields.
+    """
+
+    mentions = {mention.id: mention for mention in repaired.mentions}
+    if not all(
+        (after := mentions.get(mention.id)) is not None and _widens(mention, after)
+        for mention in typed.mentions
+    ):
+        return False
+    goals = {goal.id: goal for goal in repaired.goals}
+    return all(
+        (extended := goals.get(goal.id)) is not None and _goal_extends(goal, extended)
+        for goal in typed.goals
+    )
+
+
+def _widens(before: FormMention, after: FormMention) -> bool:
+    """Return whether a mention keeps its id, form, domain, and qualifier within a wider span."""
+
+    return (
+        (after.form, after.domain, after.qualifier)
+        == (before.form, before.domain, before.qualifier)
+        and after.span.start <= before.span.start
+        and before.span.end <= after.span.end
+    )
+
+
+def _goal_extends(before: FormGoal, after: FormGoal) -> bool:
+    fixed = ("level", "operation", "subject_scope", "want", "depends_on")
+    if any(getattr(before, name) != getattr(after, name) for name in fixed):
+        return False
+    if before.subject is not None and before.subject != after.subject:
+        return False
+    kept = {(item.role, item.mention) for item in after.filters}
+    if not {(item.role, item.mention) for item in before.filters} <= kept:
+        return False
+    if before.relation is not None and (
+        after.relation is None or _uncued(before.relation) != _uncued(after.relation)
+    ):
+        return False
+    if before.time.kind not in {TimeKind.CURRENT, TimeKind.UNSPECIFIED} and (
+        _uncued(before.time) != _uncued(after.time)
+    ):
+        return False
+    measure, repaired = before.measure, after.measure
+    if measure is None:
+        return True
+    return (
+        repaired is not None
+        and repaired.kind is measure.kind
+        and measure.mention in {None, repaired.mention}
+        and measure.group_by in {GroupBy.NONE, repaired.group_by}
+    )
+
+
+def _uncued(value: BaseModel) -> dict[str, Any]:
+    return value.model_dump(mode="json", exclude={"cue"})
 
 
 def _raw_readable(previous: Mapping[str, Any]) -> bool:

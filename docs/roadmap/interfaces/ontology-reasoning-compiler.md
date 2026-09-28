@@ -97,6 +97,9 @@ span. The model never supplies a FunctionType, LinkType, ObjectType operand, or 
 | `measure.group_by` | `endpoint`, `type`, `container`, `none` |
 | `time.kind` | `current`, `window`, `as_of`, `two_windows`, `versions`, `future`, `unspecified` |
 | `want` | `fact`, `cause`, `verification`, `completeness` |
+| `filters[].cue`, `measure.cue` | Optional quotes of the words that state a restriction, a measure, or a grouping |
+| `context` | At most 32 quotes of words that state no constraint |
+| `unsupported_constraints` | At most 8 quotes of words that state a constraint no closed field expresses; any one clarifies |
 
 One judgment pass holds at most 16 mentions and 4 goals within 6 KiB. Each goal carries a
 confidence and a cue span for its operation and relation, and may depend on an earlier goal. A
@@ -125,6 +128,17 @@ the ends of one sense, every declared mention is used, and the level fits every 
 Otherwise it returns one clarification or sends a low-confidence field to one independent T2 review
 of closed fields. An admitted atom that no reviewed builder reads, such as a qualifier or a stated
 counterpart, returns a typed unsupported reason; it is never ignored.
+
+**Utterance span accounting**: Every letter, digit, and math or currency symbol of the utterance
+must lie inside a mention, a goal, filter, relation, time, or measure cue, a context quote, or an
+unsupported constraint. Core checks this only by Unicode category and never classifies what a word
+means. A form that leaves any such character out is invalid, and its one repair names the missing
+words, with identifiers masked. The model decides whether a word states a constraint, so labeling
+one as context is its explicit judgment, which the independent cue-span review checks. A pass that
+sets `remaining_goals` defers the check to the final pass, which may rely on the mentions and cues
+of earlier admitted passes but never on their context, and no compilation is released until the
+final pass is admitted. A repair of unaccounted words may add mentions, goals, filters, cue reach,
+context, and values left at their defaults, but it never changes or removes a stated value.
 
 A form that breaks its closed schema or a structural rule gets at most one repair call with the
 code-authored violations. The repaired form passes the same admission and must keep every quoted
