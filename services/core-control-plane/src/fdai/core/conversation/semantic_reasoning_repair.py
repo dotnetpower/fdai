@@ -25,8 +25,10 @@ from .semantic_reasoning_admission import (
     FormAdmission,
     SpanAccounting,
     admit_question_form,
+    allowed_filter_domains,
 )
 from .semantic_reasoning_form import (
+    FilterRole,
     FormGoal,
     FormMention,
     GoalOperation,
@@ -150,11 +152,17 @@ def repair_for(
 
 
 def _violation(reason: str, utterance: str) -> str:
-    """Render a content-free unaccounted-span reason as a quote the model can act on."""
+    """Render one admission reason as a violation the model can act on.
+
+    An unaccounted run is quoted so the model can place it; any other reason is stated
+    as the contract rule it breaks, never as an interpretation of the question's words.
+    """
 
     code, _, where = reason.partition(":")
     start_text, _, end_text = where.partition("-")
-    if code != "span_unaccounted" or not start_text.isdigit() or not end_text.isdigit():
+    if code != "span_unaccounted":
+        return _explained(code, where) or reason
+    if not start_text.isdigit() or not end_text.isdigit():
         return reason
     start, end = int(start_text), int(end_text)
     if end > len(utterance) or start >= end:
@@ -174,6 +182,54 @@ def _violation(reason: str, utterance: str) -> str:
         f'span_unaccounted: the word "{word}" at occurrence {occurrence} is outside every '
         "mention, cue, and context quote"
     )
+
+
+def _explained(code: str, where: str) -> str | None:
+    """Return the contract rule an admission reason breaks, or None to keep the code."""
+
+    subject, _, role = where.partition(":")
+    if code == "filter_domain" and role in {item.value for item in FilterRole}:
+        filter_role = FilterRole(role)
+        domains = ", ".join(
+            item.value for item in allowed_filter_domains(filter_role, schema=False)
+        )
+        schema = ", ".join(item.value for item in allowed_filter_domains(filter_role, schema=True))
+        return (
+            f"filter_domain: goal {subject} has a {role} filter whose mention domain it cannot "
+            f"take; an instance goal's {role} filter needs a mention with domain "
+            f"{domains or 'none'}, and a schema goal's needs {schema or 'none'}"
+        )
+    rules = {
+        "relation_anchor_missing": (
+            "goal {0} has a relation with no named start; set relation.anchor to the mention "
+            "of the named resource it starts from, or make that mention the goal subject"
+        ),
+        "relation_required": "goal {0} traverses but states no relation; add the relation",
+        "measure_required": "goal {0} reads a measure but states none; add the measure",
+        "anchor_missing": "goal {0} starts from a named thing but has no subject; set it",
+        "relation_role_mismatch": (
+            "the relation roles of goal {0} are not the two ends of its sense; use the two "
+            "roles of that sense, or either for both"
+        ),
+        "collection_subject_domain": (
+            "goal {0} ranges over a collection, so its subject must be a kind of thing: "
+            "object_type, resource_type, or resource_class"
+        ),
+        "mention_unused": (
+            "mention {0} is declared but nothing cites it; cite it from a goal, filter, or "
+            "relation, or remove it"
+        ),
+        "mention_overlap": (
+            "mention {0} shares words with an earlier mention; each word belongs to at most "
+            "one mention, so quote each named thing on its own"
+        ),
+        "scope_anchor_conflict": (
+            "goal {0} cites one group as both its scope filter and its relation anchor; state "
+            "that membership once"
+        ),
+    }
+    rule = rules.get(code)
+    return f"{code}: {rule.format(subject)}" if rule is not None and subject else None
 
 
 def repair_keeps_operands(

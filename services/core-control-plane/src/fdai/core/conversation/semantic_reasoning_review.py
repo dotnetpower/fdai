@@ -29,7 +29,7 @@ from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
-from .semantic_reasoning_form import GoalOperation, SemanticQuestionForm, SourceSpan
+from .semantic_reasoning_form import GoalOperation, MentionForm, SemanticQuestionForm, SourceSpan
 from .semantic_reasoning_proposal import MAX_OCCURRENCE, locate_quote
 
 MAX_EXTRACTED_CONSTRAINTS = 24
@@ -287,7 +287,15 @@ def merged_constraints(
 
     stated = [item for item in extraction.constraints if item.role not in _UNSTATED_ROLES]
     found: dict[tuple[int, int], ExtractedConstraint] = {}
-    for mention in (mention for form in forms for mention in form.mentions):
+    # A reference's position words, such as second in the second one, are its typed
+    # position, not a restriction a concept binding could drop.
+    grounded = (
+        mention
+        for form in forms
+        for mention in form.mentions
+        if mention.form not in {MentionForm.ORDINAL, MentionForm.ANAPHOR}
+    )
+    for mention in grounded:
         inside = [
             item
             for item in stated

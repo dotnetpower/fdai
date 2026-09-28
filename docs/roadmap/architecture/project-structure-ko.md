@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 1b1edc8e3b781bd9d14327d42fbc4914121a92f4
+translation_source_sha: 5a1c61a36b531c5b36e6ea8e5a3f08b2d564e99c
 translation_revised: 2026-09-29
 ---
 # 프로젝트 구조
@@ -208,7 +208,7 @@ Cost Governance 가명 자료는 Operator 조립이 소유하는 비밀입니다
   `core/conversation/semantic_judgment_assembly.py`는 preflight 주제 키를 만들며 포함 누락이 있으면
   전체 프롬프트로 한 번 다시 판단합니다. `semantic_judgment_bounds.py`는 판단 입력 한도를 담고,
   `semantic_planning_assembly.py`는 planning 어댑터가 쓰는 frame 의도 키, plan 형태 키, frame 결과
-  키와 plan 기술자 선택을 만듭니다. shadow 전용 `core/conversation/semantic_reasoning_*.py` 모듈은 [온톨로지 추론 컴파일러](../interfaces/ontology-reasoning-compiler-ko.md)의 닫힌 질문 형식, 발화 구간 회계와, 추출된 제한을 다른 제약과 합친 언급과, 추출된 리터럴과 인용이 일치하지 않는 이름 조각, 단서나 조사로만 나타낸 제외, 비교, 순서도 보류하는 다른 모델 계열의 블라인드 제약 검토와 같은 계열의 방향 있는 모든 관계에 대한 블라인드 확인을 포함한 수용, 스키마가 정규화한 값을 기준으로 비교하고 파싱되지 않은 제안에서 비교하는 모든 필드가 닫힌 스키마의 형태를 지키지 않으면 안전하게 거부하고, 빠진 인용은 어떤 목표도 인용하지 않은 타입 시간 재진술일 때만 허용하며 진술된 피연산자와 경쟁 해석, 남은 목표 신호를 모두 유지하는 한 번으로 제한된 형식 복구, 두 선택자가 모두 고른 값만 바인딩하는 서로 다른 모델 계열의 블라인드 선택자 두 개에 의한 개념 선택, 대소문자를 구분하지 않고 이름을 비교하고, 게이트웨이 시계로 조회하며, 어떤 복구도 조회 키 인용을 바꾸지 못하는 앵커 바인딩, 지시 표현이나 순서 표현을 같은 대화에서 표시된 행에만 바인딩하는 후속 결과 핸들, 상호적인 LinkType을 양쪽 모두 읽는 관계와 연산 컴파일, 단어를 나누는 언급을 거부하는 수용, 독립적인 V-SEM, V-PROV, V-LEVEL, V-CLAIM 검증, 커버리지 증적, 다이제스트만 기록하는 shadow 실행기를 담당하고, `delivery/azure/llm/identity_masking.py`는 정확한 식별자를 불투명한 자리 표시자로만 형식 모델에 보내며, `core/ontology_platform/query_traversal_tables.py`는 탐색 끝점을 거르고 정확한 출력 증적을 발급하며, 리소스 그룹 구성원 조회는 대소문자를 무시한 정확한 이름으로 그룹을 결속한 뒤 `contains`를 탐색합니다. `conversation_preflight_family_validation.py`는 Core가 컬렉션 필터를 원문에서
+  키와 plan 기술자 선택을 만듭니다. shadow 전용 `core/conversation/semantic_reasoning_*.py` 모듈은 [온톨로지 추론 컴파일러](../interfaces/ontology-reasoning-compiler-ko.md)의 닫힌 질문 형식, 발화 구간 회계와, 추출된 제한을 다른 제약과 합친 언급과, 추출된 리터럴과 인용이 일치하지 않는 이름 조각, 단서나 조사로만 나타낸 제외, 비교, 순서도 보류하는 다른 모델 계열의 블라인드 제약 검토와 같은 계열의 방향 있는 모든 관계에 대한 블라인드 확인을 포함한 수용, 스키마가 정규화한 값을 기준으로 비교하고 파싱되지 않은 제안에서 비교하는 모든 필드가 닫힌 스키마의 형태를 지키지 않으면 안전하게 거부하고, 빠진 인용은 어떤 목표도 인용하지 않은 타입 시간 재진술일 때만 허용하며 진술된 피연산자와 경쟁 해석, 남은 목표 신호를 모두 유지하는 위반마다 어긴 계약 규칙을 밝히는 한 번으로 제한된 형식 복구, 두 선택자가 모두 고른 값만 바인딩하는 서로 다른 모델 계열의 블라인드 선택자 두 개에 의한 개념 선택, 대소문자를 구분하지 않고 이름을 비교하고, 게이트웨이 시계로 조회하며, 어떤 복구도 조회 키 인용을 바꾸지 못하는 앵커 바인딩, 지시 표현이나 순서 표현을 같은 대화에서 표시된 행에만 바인딩하는 후속 결과 핸들, 상호적인 LinkType을 양쪽 모두 읽는 관계와 연산 컴파일, 단어를 나누는 언급을 거부하는 수용, 독립적인 V-SEM, V-PROV, V-LEVEL, V-CLAIM 검증, 커버리지 증적, 다이제스트만 기록하는 shadow 실행기를 담당하고, `delivery/azure/llm/identity_masking.py`는 정확한 식별자를 불투명한 자리 표시자로만 형식 모델에 보내며, `core/ontology_platform/query_traversal_tables.py`는 탐색 끝점을 거르고 정확한 출력 증적을 발급하며, 리소스 그룹 구성원 조회는 대소문자를 무시한 정확한 이름으로 그룹을 결속한 뒤 `contains`를 탐색합니다. `conversation_preflight_family_validation.py`는 Core가 컬렉션 필터를 원문에서
   근거화하므로 모델이 제안한 정규 값을 버립니다.
   `fdai_core_service/semantic_answer_presentation.py`는 공급자 lifecycle 상태, ISO 시각, 완전성,
   실행 권한 없음 표시를 운영자 언어로 렌더링하고 기술 상세에는 정확한 값을 유지합니다.

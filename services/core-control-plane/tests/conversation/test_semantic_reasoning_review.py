@@ -910,3 +910,47 @@ def test_a_word_meaning_all_states_no_restriction_to_cover() -> None:
 
     assert review_forms((typed,), extraction, utterance=utterance) == FormReview("faithful")
     assert "quantifies" in extraction_schema()["$defs"]["ConstraintRole"]["enum"]
+
+
+def test_a_references_position_words_are_never_a_merged_restriction() -> None:
+    utterance = "What does the second one depend on?"
+    form = {
+        "mentions": [
+            {
+                "id": "m1",
+                "form": "ordinal",
+                "domain": "instance",
+                "span": _quote("second one"),
+                "position": 2,
+            }
+        ],
+        "goals": [
+            {
+                "id": "g1",
+                "level": "instance",
+                "operation": "traverse",
+                "subject": "m1",
+                "subject_scope": "prior_result",
+                "relation": {
+                    "sense": "dependency",
+                    "anchor_role": "dependent",
+                    "result_role": "dependency",
+                    "cue": _quote("depend on"),
+                },
+                "cue": _quote("What does"),
+                "confidence": 0.9,
+            }
+        ],
+    }
+    extraction = {
+        "constraints": [
+            _constraint("second", "restricts"),
+            _constraint("one", "names"),
+            _constraint("depend on", "relates"),
+        ],
+        "literals": [],
+    }
+
+    assert review_forms((_typed(form, utterance),), extraction, utterance=utterance) == (
+        FormReview("faithful")
+    )

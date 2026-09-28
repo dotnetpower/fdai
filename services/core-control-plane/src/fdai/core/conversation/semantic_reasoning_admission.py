@@ -376,6 +376,13 @@ def _goal_span_failures(goal: FormGoal, utterance: str) -> list[str]:
     ]
 
 
+def allowed_filter_domains(role: FilterRole, *, schema: bool) -> tuple[MentionDomain, ...]:
+    """Return the mention domains a filter role accepts at instance or schema level."""
+
+    table = _SCHEMA_FILTER_DOMAINS if schema else _FILTER_DOMAINS
+    return tuple(sorted(table.get(role, frozenset()), key=lambda item: item.value))
+
+
 def _overlapping_mentions(form: SemanticQuestionForm) -> list[str]:
     """Return a reason for each mention whose span overlaps an earlier mention's span.
 
@@ -525,6 +532,7 @@ def _relation_contradictions(form: SemanticQuestionForm) -> tuple[str, ...]:
 
 
 __all__ = [
+    "allowed_filter_domains",
     "DEFAULT_CONFIDENCE_FLOOR",
     "MAX_UNACCOUNTED_REASONS",
     "AdmissionDisposition",
