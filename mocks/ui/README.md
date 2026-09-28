@@ -125,13 +125,15 @@ Report and kit:
 ## Assets
 
 - [../../ui/calm-slate-tokens.css](../../ui/calm-slate-tokens.css) - shared palette, typography,
-  shape, and elevation tokens consumed by both the Console and static prototypes.
+  shape, elevation, and `--cs-code-*` code surface tokens consumed by both the Console and static
+  prototypes. The component gallery's code pattern and the conversation layer's code blocks both
+  read the code tokens.
 - [../../ui/calm-slate-primitives.css](../../ui/calm-slate-primitives.css) - shared presentation
   primitives such as the semantic top-edge content-update shimmer.
 - [../../ui/calm-slate-deck-conversation.css](../../ui/calm-slate-deck-conversation.css) - portable
   Command Deck conversation roles (readiness strip, retrieval trace, citations, evidence notes,
-  sources panel, follow-ups, composer context, and the run record with its execution timeline and
-  model provider waterfall). Only
+  sources panel, follow-ups, composer context, the run record with its execution timeline and
+  model provider waterfall, and compact code blocks). Only
   [deck-sources.html](deck-sources.html) imports it today. Every rule is scoped under
   `.cs-deck-conversation` or uses a role the Console does not render yet, so importing it changes no
   existing surface. The file header lists the Console component that owns each role and the
