@@ -360,11 +360,17 @@ jobs:
               --scope "$RESOURCE_GROUP_ID" \
               --query id --output tsv --only-show-errors)"
             echo "::add-mask::$assignment_id"
-            printf 'role_assignment_id=%s\n' "$assignment_id" >>"$GITHUB_OUTPUT"
-            printf 'remove_after_run=true\n' >>"$GITHUB_OUTPUT"
+            {
+              printf 'role_assignment_id=%s\n' "$assignment_id"
+              printf 'remove_after_run=true\n'
+              printf 'granted_at_epoch=%s\n' "$(date -u +%s)"
+            } >>"$GITHUB_OUTPUT"
           else
-            printf 'role_assignment_id=\n' >>"$GITHUB_OUTPUT"
-            printf 'remove_after_run=false\n' >>"$GITHUB_OUTPUT"
+            {
+              printf 'role_assignment_id=\n'
+              printf 'remove_after_run=false\n'
+              printf 'granted_at_epoch=\n'
+            } >>"$GITHUB_OUTPUT"
           fi
 
       - name: Grant bounded operator network authority
@@ -666,6 +672,58 @@ jobs:
             --region-short "$TF_VAR_region_short" \
             --runner-principal-id "$DEPLOY_RUNNER_PRINCIPAL_ID"
 
+      - name: Wait for the run grant to settle
+        if: inputs.action == 'apply' || inputs.action == 'recreate-aks'
+        working-directory: ${{ runner.temp }}
+        env:
+          RESOURCE_GROUP_ID: ${{ steps.holding-scope.outputs.resource_group_id }}
+          REMOVE_AFTER_RUN: ${{ steps.deployment-authority.outputs.remove_after_run }}
+          GRANTED_AT_EPOCH: ${{ steps.deployment-authority.outputs.granted_at_epoch }}
+        run: |
+          set -euo pipefail
+          # The permissions API can report a new grant effective before every ARM front end
+          # authorizes it, so a grant created by this run must age before the first write.
+          if [[ "$REMOVE_AFTER_RUN" != "true" ]]; then
+            echo "The pre-existing scenario-lab grant needs no settle wait."
+            exit 0
+          fi
+          [[ "$GRANTED_AT_EPOCH" =~ ^[0-9]{10}$ ]] || {
+            echo "scenario-lab grant creation time is unavailable." >&2
+            exit 1
+          }
+          readonly minimum_age_seconds=600
+          readonly settle_slack_seconds=300
+          readonly check_interval_seconds=30
+          readonly deadline=$((GRANTED_AT_EPOCH + minimum_age_seconds + settle_slack_seconds))
+          attempt=1
+          while :; do
+            effective=false
+            if permissions="$(timeout --foreground 15s az rest \
+              --method get \
+              --url "https://management.azure.com${RESOURCE_GROUP_ID}/providers/Microsoft.Authorization/permissions?api-version=2022-04-01" \
+              --output json \
+              --only-show-errors 2>/dev/null)" &&
+              jq -e 'any(.value[]?; any(.actions[]?; ascii_downcase == "*"))' \
+                <<<"$permissions" >/dev/null; then
+              effective=true
+            fi
+            permissions=""
+            now="$(date -u +%s)"
+            age=$((now - GRANTED_AT_EPOCH))
+            if [[ "$effective" == "true" ]] && ((age >= minimum_age_seconds)); then
+              printf 'The scenario-lab grant is %s seconds old and effective.\n' "$age"
+              exit 0
+            fi
+            if ((now + check_interval_seconds > deadline)); then
+              echo "scenario-lab grant did not settle within its bounded window." >&2
+              exit 1
+            fi
+            printf 'Waiting for the scenario-lab grant to settle (%s, %s seconds old, effective=%s).\n' \
+              "$attempt" "$age" "$effective"
+            sleep "$check_interval_seconds"
+            ((attempt += 1))
+          done
+
       - name: Start retained scenario-lab compute and data
         if: inputs.action == 'apply' || inputs.action == 'recreate-aks'
         env:
@@ -774,181 +832,8 @@ jobs:
         run: |
           set -euo pipefail
           print_plan_diagnostic() {
-            python3 - "$1" <<'PY_PLAN'
-          import json
-          import re
-          import sys
-          from pathlib import Path
-
-          # Only structured error diagnostics are projected. Refresh and progress messages,
-          # warnings, and non-JSON output never contribute a token.
-          index_key = r"(?:\[(?:[0-9]+|\"[A-Za-z0-9_.:-]+\")\])?"
-          address_pattern = re.compile(
-              r"(?:module\.[A-Za-z0-9_-]+" + index_key + r"\.)*"
-              r"(?:data\.)?(?:azurerm|random|terraform)_[A-Za-z0-9_]+\.[A-Za-z0-9_-]+"
-              + index_key
-          )
-          identifier = r"([A-Za-z][A-Za-z0-9_.-]{1,127})"
-          code_patterns = (
-              re.compile(r'\bCode[=:]\s*"?' + identifier),
-              re.compile(r'"code"\s*:\s*"' + identifier + '"'),
-              re.compile(r'\b(?:ErrorCode|ERROR CODE)[=:]\s*"?' + identifier),
-              re.compile(r"\bwith error:\s*([A-Z][A-Za-z0-9]{1,127}):"),
-          )
-          status_patterns = (
-              re.compile(r'\bStatus(?:Code)?[=:]\s*"?([1-5][0-9]{2})\b'),
-              re.compile(r"\bunexpected status\s+([1-5][0-9]{2})\b"),
-              re.compile(r"\bRESPONSE\s+([1-5][0-9]{2})\b"),
-          )
-          category_patterns = {
-              "authentication": re.compile(
-                  r"\b(?:authenticat(?:e|ed|ing|ion)|access token|managed ?identity(?:credential)?"
-                  r"|msi|imds|metadata endpoint|aadsts[0-9]+)\b",
-                  re.IGNORECASE,
-              ),
-              "authorization": re.compile(r"\bauthoriz(?:ation|ed)\b", re.IGNORECASE),
-              "backend_state": re.compile(
-                  r"\b(?:error (?:loading|reading|refreshing|writing|saving) (?:the )?state"
-                  r"|failed to (?:load|read|persist|save|write) (?:the )?state"
-                  r"|failed to get existing workspaces|error loading backend"
-                  r"|failed to configure the backend|backend initialization required"
-                  r"|backend configuration changed)\b",
-                  re.IGNORECASE,
-              ),
-              "capacity_or_quota": re.compile(r"\b(?:capacity|quota)\b", re.IGNORECASE),
-              "condition_failed": re.compile(
-                  r"\b(?:pre|post)condition failed\b", re.IGNORECASE
-              ),
-              "invalid_configuration_value": re.compile(
-                  r"\b(?:invalid (?:attribute name|index|expression|for_each argument"
-                  r"|count argument|template interpolation value|value for module argument"
-                  r"|combination of arguments|resource type)|incorrect attribute value type"
-                  r"|inconsistent conditional result types|missing resource instance key"
-                  r"|error in function call|conflicting configuration arguments)\b",
-                  re.IGNORECASE,
-              ),
-              "invalid_function_argument": re.compile(
-                  r"\binvalid function argument\b", re.IGNORECASE
-              ),
-              "invalid_input_variable": re.compile(
-                  r"\binvalid value for (?:input )?variable\b", re.IGNORECASE
-              ),
-              "missing_input_variable": re.compile(
-                  r"\bno value for required variable\b", re.IGNORECASE
-              ),
-              "missing_required_argument": re.compile(
-                  r"\bmissing required argument\b", re.IGNORECASE
-              ),
-              "network": re.compile(
-                  r"\b(?:dial tcp|no such host|connection refused|connection reset"
-                  r"|network is unreachable|tls handshake|proxyconnect|i/o timeout)\b",
-                  re.IGNORECASE,
-              ),
-              "plugin_failure": re.compile(
-                  r"\b(?:plugin (?:did not respond|crashed|exited|error)|request cancelled)\b",
-                  re.IGNORECASE,
-              ),
-              "provider_configuration": re.compile(
-                  r"\b(?:invalid provider configuration|provider configuration not present"
-                  r"|missing required provider|building azurerm client|building account"
-                  r"|(?:unable to )?build(?:ing)? (?:an? )?authorizer"
-                  r"|could not configure [a-z]+ authorizer)\b",
-                  re.IGNORECASE,
-              ),
-              "provider_inconsistency": re.compile(
-                  r"\b(?:provider produced (?:inconsistent|invalid)|provider returned invalid)\b",
-                  re.IGNORECASE,
-              ),
-              "provider_installation": re.compile(
-                  r"\b(?:failed to (?:query available provider packages|install providers?"
-                  r"|instantiate provider|load plugin schemas|obtain provider schema)"
-                  r"|incompatible provider version|inconsistent dependency lock file"
-                  r"|required plugins are not installed|could not load plugin)\b",
-                  re.IGNORECASE,
-              ),
-              "provider_read": re.compile(
-                  r"(?:^|\berror:\s+)(?:reading|retrieving|listing)\b",
-                  re.IGNORECASE | re.MULTILINE,
-              ),
-              "reference_error": re.compile(
-                  r"\b(?:reference to (?:undeclared|unknown)|invalid reference"
-                  r"|unsupported reference)\b",
-                  re.IGNORECASE,
-              ),
-              "reference_to_undeclared_resource": re.compile(
-                  r"\breference to undeclared resource\b", re.IGNORECASE
-              ),
-              "request_disallowed_by_policy": re.compile(
-                  r"\brequestdisallowedbypolicy\b", re.IGNORECASE
-              ),
-              "resource_already_exists": re.compile(
-                  r"\balready exists\b", re.IGNORECASE
-              ),
-              "resource_not_found": re.compile(
-                  r"\b(?:parentresource|resourcegroup|resource)notfound\b", re.IGNORECASE
-              ),
-              "resource_provider_registration": re.compile(
-                  r"\bresource providers?\b[^\n]{0,80}\bregist", re.IGNORECASE
-              ),
-              "state_lock": re.compile(r"\bstate lock\b", re.IGNORECASE),
-              "subscription_not_registered": re.compile(
-                  r"\b(?:subscriptionnotregistered|missingsubscriptionregistration)\b",
-                  re.IGNORECASE,
-              ),
-              "timeout": re.compile(
-                  r"\b(?:timed out|timeout|deadline exceeded)\b", re.IGNORECASE
-              ),
-              "unsupported_attribute": re.compile(
-                  r"\bunsupported (?:attribute|argument|block type)\b", re.IGNORECASE
-              ),
-          }
-          errors = 0
-          addresses = set()
-          codes = set()
-          categories = set()
-          raw = Path(sys.argv[1]).read_text(encoding="utf-8", errors="replace")
-          for line in raw.splitlines():
-              try:
-                  message = json.loads(line)
-              except ValueError:
-                  continue
-              if not isinstance(message, dict) or message.get("type") != "diagnostic":
-                  continue
-              diagnostic = message.get("diagnostic")
-              if not isinstance(diagnostic, dict) or diagnostic.get("severity") != "error":
-                  continue
-              errors += 1
-              address = diagnostic.get("address")
-              if isinstance(address, str) and address_pattern.fullmatch(address):
-                  addresses.add(address)
-              text = "\n".join(
-                  value
-                  for value in (diagnostic.get("summary"), diagnostic.get("detail"))
-                  if isinstance(value, str)
-              )
-              codes.update(
-                  match for pattern in code_patterns for match in pattern.findall(text)
-              )
-              codes.update(
-                  "HTTP" + match for pattern in status_patterns for match in pattern.findall(text)
-              )
-              categories.update(
-                  name for name, pattern in category_patterns.items() if pattern.search(text)
-              )
-          print(f"Terraform plan diagnostic errors: {errors}")
-          print(
-              "Terraform plan diagnostic categories: "
-              + (", ".join(sorted(categories)) or "unclassified")
-          )
-          print(
-              "Terraform plan diagnostic addresses: "
-              + (", ".join(sorted(addresses)) or "unavailable")
-          )
-          print(
-              "Terraform plan diagnostic Azure codes: "
-              + (", ".join(sorted(codes)) or "unavailable")
-          )
-          PY_PLAN
+            python3 "$GITHUB_WORKSPACE/scripts/deployment/scenario-lab/terraform_diagnostics.py" \
+              plan "$1"
           }
           plan_file="$RUNNER_TEMP/sre-demo-lab.tfplan"
           plan_log="$RUNNER_TEMP/sre-demo-lab-plan.log"
@@ -1063,59 +948,50 @@ jobs:
 
       - name: Apply exact plan
         if: inputs.action == 'apply' || inputs.action == 'recreate-aks'
+        env:
+          REQUESTED_ACTION: ${{ inputs.action }}
         run: |
           set -euo pipefail
+          diagnostics="$GITHUB_WORKSPACE/scripts/deployment/scenario-lab/terraform_diagnostics.py"
           print_apply_diagnostic() {
-            python3 - "$1" <<'PY'
-          import json
-          import re
-          import sys
-          from pathlib import Path
-
-          text = Path(sys.argv[1]).read_text(encoding="utf-8", errors="replace")
-          address_pattern = re.compile(
-              r"^(?:module\.[A-Za-z0-9_]+\.)*"
-              r"azurerm_[A-Za-z0-9_]+\.[A-Za-z0-9_]+"
-              r"(?:\[(?:[0-9]+|\"[A-Za-z0-9_.:-]+\")\])?$"
-          )
-          code_patterns = (
-              re.compile(r'\bCode[=:]\s*"?([A-Za-z][A-Za-z0-9_.-]{1,127})"?'),
-              re.compile(r'"code"\s*:\s*"([A-Za-z][A-Za-z0-9_.-]{1,127})"'),
-          )
-          addresses = set()
-          codes = set()
-          for line in text.splitlines():
-              try:
-                  message = json.loads(line)
-              except json.JSONDecodeError:
-                  continue
-              if message.get("type") == "apply_errored":
-                  address = message.get("hook", {}).get("resource", {}).get("addr")
-                  if isinstance(address, str) and address_pattern.fullmatch(address):
-                      addresses.add(address)
-              if message.get("type") != "diagnostic":
-                  continue
-              diagnostic = message.get("diagnostic", {})
-              address = diagnostic.get("address")
-              if isinstance(address, str) and address_pattern.fullmatch(address):
-                  addresses.add(address)
-              detail = diagnostic.get("detail", "")
-              if isinstance(detail, str):
-                  codes.update(
-                      match for pattern in code_patterns for match in pattern.findall(detail)
-                  )
-          print("Terraform apply diagnostic addresses: " + (", ".join(sorted(addresses)) or "unavailable"))
-          print("Terraform apply diagnostic Azure codes: " + (", ".join(sorted(codes)) or "unavailable"))
-          PY
+            python3 "$GITHUB_WORKSPACE/scripts/deployment/scenario-lab/terraform_diagnostics.py" \
+              apply "$1"
           }
-          if ! terraform apply -json -input=false -auto-approve -parallelism=2 \
+          if terraform apply -json -input=false -auto-approve -parallelism=2 \
             "$RUNNER_TEMP/sre-demo-lab.tfplan" \
             >"$RUNNER_TEMP/sre-demo-lab-apply.log" 2>&1; then
-            print_apply_diagnostic "$RUNNER_TEMP/sre-demo-lab-apply.log"
+            echo "scenario-lab Terraform apply completed."
+            exit 0
+          fi
+          print_apply_diagnostic "$RUNNER_TEMP/sre-demo-lab-apply.log"
+          # ARM can deny a just-granted role on some front ends, so an apply whose every error is
+          # AuthorizationFailed gets one fresh plan that must stay inside the reviewed exact plan.
+          if [[ "$REQUESTED_ACTION" != "apply" ]] ||
+            ! python3 "$diagnostics" authorization-only "$RUNNER_TEMP/sre-demo-lab-apply.log"; then
             echo "scenario-lab Terraform apply failed; raw output remains runner-local." >&2
             exit 1
           fi
-          echo "scenario-lab Terraform apply completed."
+          readonly retry_settle_seconds=300
+          printf 'Retrying the pure authorization failure once after %s seconds.\n' \
+            "$retry_settle_seconds"
+          sleep "$retry_settle_seconds"
+          retry_plan="$RUNNER_TEMP/sre-demo-lab-retry.tfplan"
+          if ! terraform plan -json -input=false -lock-timeout=5m -out="$retry_plan" \
+            >"$RUNNER_TEMP/sre-demo-lab-retry-plan.log" 2>&1; then
+            python3 "$diagnostics" plan "$RUNNER_TEMP/sre-demo-lab-retry-plan.log"
+            echo "scenario-lab retry plan failed; raw output remains runner-local." >&2
+            exit 1
+          fi
+          terraform show -json "$retry_plan" >"$RUNNER_TEMP/sre-demo-lab-retry-plan.json"
+          python3 "$diagnostics" plan-subset "$RUNNER_TEMP/sre-demo-lab-plan.json" \
+            "$RUNNER_TEMP/sre-demo-lab-retry-plan.json"
+          if ! terraform apply -json -input=false -auto-approve -parallelism=2 "$retry_plan" \
+            >"$RUNNER_TEMP/sre-demo-lab-retry-apply.log" 2>&1; then
+            print_apply_diagnostic "$RUNNER_TEMP/sre-demo-lab-retry-apply.log"
+            echo "scenario-lab Terraform retry apply failed; raw output remains runner-local." >&2
+            exit 1
+          fi
+          echo "scenario-lab Terraform apply completed after one authorization retry."
 
       - name: Verify running AKS target
         if: inputs.action == 'apply' || inputs.action == 'recreate-aks'
@@ -1453,6 +1329,10 @@ jobs:
             "$RUNNER_TEMP/sre-demo-lab-plan.json" \
             "$RUNNER_TEMP/sre-demo-lab-plan.log" \
             "$RUNNER_TEMP/sre-demo-lab-apply.log" \
+            "$RUNNER_TEMP/sre-demo-lab-retry.tfplan" \
+            "$RUNNER_TEMP/sre-demo-lab-retry-plan.json" \
+            "$RUNNER_TEMP/sre-demo-lab-retry-plan.log" \
+            "$RUNNER_TEMP/sre-demo-lab-retry-apply.log" \
             "$RUNNER_TEMP/sre-demo-lab-destroy.log" \
             "$RUNNER_TEMP/sre-demo-lab-destroy-retry.log" \
             "$RUNNER_TEMP/sre-demo-lab-adoption-state-list.txt" \

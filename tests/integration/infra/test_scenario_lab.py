@@ -24,6 +24,9 @@ STORE_RENDERER = REPO_ROOT / "scripts" / "deployment" / "scenario-lab" / "render
 STORE_DOMAIN_VERIFIER = (
     REPO_ROOT / "scripts" / "deployment" / "scenario-lab" / "verify_store_front_domain.py"
 )
+DIAGNOSTIC_SCRIPT = (
+    REPO_ROOT / "scripts" / "deployment" / "scenario-lab" / "terraform_diagnostics.py"
+)
 BASH = shutil.which("bash")
 assert BASH is not None
 
@@ -363,17 +366,16 @@ def test_scenario_lab_workflow_is_plan_first_and_approval_gated() -> None:
     assert "azurerm_virtual_network_peering.operator_to_lab[0]" in workflow
     assert "azurerm_private_dns_zone_virtual_network_link.mysql_operator[0]" in workflow
     assert "raw output remains runner-local" in workflow
-    assert "Terraform apply diagnostic addresses:" in workflow
-    assert "Terraform apply diagnostic Azure codes:" in workflow
     assert "Terraform destroy diagnostic addresses:" in workflow
     assert "Terraform destroy diagnostic Azure codes:" in workflow
     assert 'print_destroy_diagnostic "$destroy_log"' in workflow
     assert 'print_destroy_diagnostic "$retry_log"' in workflow
     assert 'print_apply_diagnostic "$RUNNER_TEMP/sre-demo-lab-apply.log"' in workflow
-    assert "Terraform plan diagnostic categories:" in workflow
-    assert "Terraform plan diagnostic addresses:" in workflow
-    assert "Terraform plan diagnostic Azure codes:" in workflow
     assert 'print_plan_diagnostic "$plan_log"' in workflow
+    diagnostics = DIAGNOSTIC_SCRIPT.read_text(encoding="utf-8")
+    assert 'f"{prefix} categories: "' in diagnostics
+    assert 'f"{prefix} addresses: "' in diagnostics
+    assert 'f"{prefix} Azure codes: "' in diagnostics
     assert 'cat "$RUNNER_TEMP/sre-demo-lab-apply.log"' not in workflow
     assert 'cat "$plan_log"' not in workflow
     assert "apply refuses delete or replacement actions" in workflow
@@ -395,8 +397,8 @@ def test_scenario_lab_workflow_is_plan_first_and_approval_gated() -> None:
     assert 'CONFIRM_DESTROY" != "destroy-sre-demo-lab"' in workflow
     assert workflow.count("inputs.action != 'destroy-plan'") == 7
     assert "terraform apply -input=false -auto-approve" not in workflow
-    assert workflow.count("terraform apply -json -input=false -auto-approve") == 3
-    assert workflow.count("terraform apply -json -input=false -auto-approve -parallelism=2") == 1
+    assert workflow.count("terraform apply -json -input=false -auto-approve") == 4
+    assert workflow.count("terraform apply -json -input=false -auto-approve -parallelism=2") == 2
     assert workflow.count('"$RUNNER_TEMP/sre-demo-lab.tfplan"') >= 3
     assert "terraform destroy" not in workflow
     assert (
@@ -435,68 +437,198 @@ def test_scenario_lab_workflow_is_plan_first_and_approval_gated() -> None:
 
 
 def test_scenario_lab_apply_diagnostic_projects_only_allowlisted_tokens(tmp_path: Path) -> None:
+    lines: list[object] = [
+        {
+            "type": "apply_errored",
+            "@message": "private deployment value",
+            "hook": {"resource": {"addr": "azurerm_virtual_network_peering.lab_to_operator[0]"}},
+        },
+        {
+            "type": "diagnostic",
+            "diagnostic": {
+                "severity": "error",
+                "address": "azurerm_virtual_network_peering.lab_to_operator[0]",
+                "detail": (
+                    "Code=RemoteGatewayNotReady Message=private deployment value "
+                    "/subscriptions/private/resourceGroups/private"
+                ),
+            },
+        },
+        {
+            "type": "apply_errored",
+            "hook": {
+                "resource": {
+                    "addr": 'azurerm_subnet_network_security_group_association.scenario_lab["aks"]'
+                }
+            },
+        },
+        {"type": "outputs", "outputs": {"secret": {"sensitive": True, "value": "private"}}},
+    ]
+
+    stdout = _diagnostic_output(tmp_path, "apply", lines)
+
+    assert "azurerm_virtual_network_peering.lab_to_operator[0]" in stdout
+    assert 'azurerm_subnet_network_security_group_association.scenario_lab["aks"]' in stdout
+    assert "RemoteGatewayNotReady" in stdout
+    assert "private deployment value" not in stdout
+    assert "/subscriptions/" not in stdout
+    assert "resourceGroups" not in stdout
+
+
+APPLY_PROGRESS_LINES: list[object] = [
+    {"@level": "info", "@message": "Terraform 1.9.8", "type": "version"},
+    {
+        "@level": "info",
+        "@message": (
+            "azurerm_role_assignment.runner_aks_admin: Modifying... "
+            "[id=/subscriptions/leak-subscription/resourceGroups/leak-group/providers/"
+            "Microsoft.Authorization/roleAssignments/leak-assignment]"
+        ),
+        "type": "apply_start",
+        "hook": {
+            "resource": {"addr": "azurerm_role_assignment.runner_aks_admin"},
+            "action": "update",
+            "id_value": "/subscriptions/leak-subscription/providers/Microsoft.Authorization/x",
+        },
+    },
+    {
+        "@level": "info",
+        "@message": "azurerm_public_ip.egress: Still modifying... authorization pending 429",
+        "type": "apply_progress",
+        "hook": {"resource": {"addr": "azurerm_public_ip.egress"}, "elapsed_seconds": 10},
+    },
+    {
+        "@level": "info",
+        "@message": "azurerm_nat_gateway.egress: Modifications complete",
+        "type": "apply_complete",
+        "hook": {"resource": {"addr": "azurerm_nat_gateway.egress"}, "action": "update"},
+    },
+    {
+        "@level": "warn",
+        "@message": "Warning: throttled while updating leak-name",
+        "type": "diagnostic",
+        "diagnostic": {
+            "severity": "warning",
+            "summary": "AuthorizationFailed while throttled",
+            "detail": "TooManyRequests from IMDS for leak-name; Code=Leaked",
+        },
+    },
+    "Error: plain stderr AuthorizationFailed for leak-name by Microsoft.Authorization",
+]
+
+
+def test_scenario_lab_apply_diagnostic_ignores_progress_and_warnings(tmp_path: Path) -> None:
     workflow = WORKFLOW.read_text(encoding="utf-8")
-    script_match = re.search(
-        r'python3 - "\$1" <<\'PY\'\n(?P<script>.*?)\n          PY',
-        workflow,
-        re.DOTALL,
-    )
-    assert script_match is not None
-    script = "\n".join(
-        line.removeprefix("          ") for line in script_match.group("script").splitlines()
-    )
-    raw_log = tmp_path / "apply.log"
-    raw_log.write_text(
-        '{"type":"apply_errored","@message":"private deployment value",'
-        '"hook":{"resource":{"addr":"azurerm_virtual_network_peering.lab_to_operator[0]"}}}\n'
-        '{"type":"diagnostic","diagnostic":{"severity":"error",'
-        '"address":"azurerm_virtual_network_peering.lab_to_operator[0]",'
-        '"detail":"Code=RemoteGatewayNotReady Message=private deployment value '
-        '/subscriptions/private/resourceGroups/private"}}\n'
-        '{"type":"apply_errored","hook":{"resource":{"addr":'
-        '"azurerm_subnet_network_security_group_association.scenario_lab[\\"aks\\"]"}}}\n'
-        '{"type":"outputs","outputs":{"secret":{"sensitive":true,"value":"private"}}}\n',
-        encoding="utf-8",
+
+    stdout = _diagnostic_output(tmp_path, "apply", APPLY_PROGRESS_LINES)
+
+    assert (
+        'python3 "$GITHUB_WORKSPACE/scripts/deployment/scenario-lab/terraform_diagnostics.py" \\\n'
+        '              apply "$1"'
+    ) in workflow
+    assert 'print_apply_diagnostic "$RUNNER_TEMP/sre-demo-lab-apply.log"' in workflow
+    assert stdout == (
+        "Terraform apply diagnostic errors: 0\n"
+        "Terraform apply diagnostic categories: unclassified\n"
+        "Terraform apply diagnostic addresses: unavailable\n"
+        "Terraform apply diagnostic Azure codes: unavailable\n"
     )
 
-    result = subprocess.run(  # noqa: S603 - fixed interpreter and extracted repository script.
-        [sys.executable, "-", str(raw_log)],
-        input=script,
-        cwd=REPO_ROOT,
-        capture_output=True,
-        text=True,
-        check=False,
-    )
 
-    assert result.returncode == 0
-    assert "azurerm_virtual_network_peering.lab_to_operator[0]" in result.stdout
-    assert 'azurerm_subnet_network_security_group_association.scenario_lab["aks"]' in result.stdout
-    assert "RemoteGatewayNotReady" in result.stdout
-    assert "private deployment value" not in result.stdout
-    assert "/subscriptions/" not in result.stdout
-    assert "resourceGroups" not in result.stdout
+def test_scenario_lab_apply_diagnostic_projects_every_code_format(tmp_path: Path) -> None:
+    error_lines: list[object] = [
+        {
+            "type": "apply_errored",
+            "hook": {"resource": {"addr": "azurerm_network_interface.stress_vm"}},
+        },
+        {
+            "type": "diagnostic",
+            "diagnostic": {
+                "severity": "error",
+                "summary": "updating Network Interface (Subscription: leak-subscription)",
+                "detail": (
+                    "unexpected status 409 (409 Conflict) with error: AnotherOperationInProgress: "
+                    "Operation on leak-name is in progress."
+                ),
+                "address": "azurerm_network_interface.stress_vm",
+            },
+        },
+        {
+            "type": "diagnostic",
+            "diagnostic": {
+                "severity": "error",
+                "summary": "updating Public IP Address leak-ip",
+                "detail": (
+                    "RESPONSE 403: 403 Forbidden\nERROR CODE: RequestDisallowedByPolicy\n"
+                    "Resource leak-ip was disallowed by policy leak-policy."
+                ),
+                "address": "azurerm_public_ip.egress",
+            },
+        },
+        {
+            "type": "diagnostic",
+            "diagnostic": {
+                "severity": "error",
+                "summary": "obtaining Authorization Token from the metadata endpoint",
+                "detail": (
+                    "ManagedIdentityCredential: failed to request token from metadata endpoint: "
+                    "HTTP status 429 Too Many Requests for leak-client"
+                ),
+                "address": "azurerm_network_security_group.scenario_lab",
+            },
+        },
+        {
+            "type": "diagnostic",
+            "diagnostic": {
+                "severity": "error",
+                "summary": "updating Workspace leak-workspace",
+                "detail": (
+                    'Status=403 Code="LinkedAuthorizationFailed" Message="The client leak-client '
+                    'has permission" ErrorCode: AuthorizationFailed'
+                ),
+                "address": "module.log_analytics.azurerm_log_analytics_workspace.primary",
+            },
+        },
+        {
+            "type": "diagnostic",
+            "diagnostic": {
+                "severity": "error",
+                "summary": "updating Private Endpoint leak-endpoint",
+                "detail": '{"error":{"code":"ScopeLocked","message":"leak-lock"}}',
+                "address": "azurerm_private_endpoint.azure_openai /subscriptions/leak",
+            },
+        },
+    ]
+
+    stdout = _diagnostic_output(tmp_path, "apply", [*APPLY_PROGRESS_LINES, *error_lines])
+
+    assert stdout == (
+        "Terraform apply diagnostic errors: 5\n"
+        "Terraform apply diagnostic categories: authentication, authorization, conflict, "
+        "provider_write, request_disallowed_by_policy, resource_lock, throttling, "
+        "token_acquisition\n"
+        "Terraform apply diagnostic addresses: azurerm_network_interface.stress_vm, "
+        "azurerm_network_security_group.scenario_lab, azurerm_public_ip.egress, "
+        "module.log_analytics.azurerm_log_analytics_workspace.primary\n"
+        "Terraform apply diagnostic Azure codes: AnotherOperationInProgress, "
+        "AuthorizationFailed, HTTP403, HTTP409, HTTP429, LinkedAuthorizationFailed, "
+        "RequestDisallowedByPolicy, ScopeLocked\n"
+    )
+    assert "leak" not in stdout
+    assert "/subscriptions/" not in stdout
+    assert "Microsoft.Authorization" not in stdout
+    assert "Leaked" not in stdout
 
 
-def _plan_diagnostic_output(tmp_path: Path, lines: list[object]) -> str:
-    workflow = WORKFLOW.read_text(encoding="utf-8")
-    script_match = re.search(
-        r'python3 - "\$1" <<\'PY_PLAN\'\n(?P<script>.*?)\n          PY_PLAN',
-        workflow,
-        re.DOTALL,
-    )
-    assert script_match is not None
-    script = "\n".join(
-        line.removeprefix("          ") for line in script_match.group("script").splitlines()
-    )
-    raw_log = tmp_path / "plan.log"
+def _diagnostic_output(tmp_path: Path, stage: str, lines: list[object]) -> str:
+    raw_log = tmp_path / f"{stage}.log"
     raw_log.write_text(
         "".join((line if isinstance(line, str) else json.dumps(line)) + "\n" for line in lines),
         encoding="utf-8",
     )
 
-    result = subprocess.run(  # noqa: S603 - fixed interpreter and extracted repository script.
-        [sys.executable, "-", str(raw_log)],
-        input=script,
+    result = subprocess.run(  # noqa: S603 - fixed interpreter and repository script.
+        [sys.executable, str(DIAGNOSTIC_SCRIPT), stage, str(raw_log)],
         cwd=REPO_ROOT,
         capture_output=True,
         text=True,
@@ -506,6 +638,10 @@ def _plan_diagnostic_output(tmp_path: Path, lines: list[object]) -> str:
     assert result.returncode == 0, result.stderr
     assert result.stderr == ""
     return result.stdout
+
+
+def _plan_diagnostic_output(tmp_path: Path, lines: list[object]) -> str:
+    return _diagnostic_output(tmp_path, "plan", lines)
 
 
 LEAKED_ROLE_ASSIGNMENT_ID = (
@@ -557,6 +693,10 @@ def test_scenario_lab_plan_diagnostic_ignores_refresh_and_progress_text(tmp_path
     stdout = _plan_diagnostic_output(tmp_path, PLAN_PROGRESS_LINES)
 
     assert 'terraform plan -json "${plan_args[@]}" -input=false -lock-timeout=5m' in workflow
+    assert (
+        'python3 "$GITHUB_WORKSPACE/scripts/deployment/scenario-lab/terraform_diagnostics.py" \\\n'
+        '              plan "$1"'
+    ) in workflow
     assert 'terraform show -json "$plan_file" >"$RUNNER_TEMP/sre-demo-lab-plan.json"' in workflow
     assert stdout == (
         "Terraform plan diagnostic errors: 0\n"
@@ -639,7 +779,8 @@ def test_scenario_lab_plan_diagnostic_projects_only_allowlisted_tokens(tmp_path:
     assert stdout == (
         "Terraform plan diagnostic errors: 5\n"
         "Terraform plan diagnostic categories: authentication, authorization, condition_failed, "
-        "provider_read, request_disallowed_by_policy, resource_not_found, state_lock\n"
+        "provider_read, provider_write, request_disallowed_by_policy, resource_not_found, "
+        "state_lock\n"
         "Terraform plan diagnostic addresses: "
         'azurerm_subnet_network_security_group_association.scenario_lab["private_endpoints"], '
         "data.azurerm_resource_group.scenario_lab, "
@@ -716,6 +857,20 @@ def test_scenario_lab_plan_diagnostic_projects_only_allowlisted_tokens(tmp_path:
             "Code=MissingSubscriptionRegistration",
             "subscription_not_registered",
         ),
+        (
+            "updating Network Interface leak-nic",
+            "unexpected status 409 (409 Conflict) with error: AnotherOperationInProgress: leak",
+            "conflict",
+        ),
+        ("updating Public IP Address", "The request was throttled; Retry-After: 30", "throttling"),
+        (
+            "building account",
+            "failed to request token from metadata endpoint for leak-client",
+            "token_acquisition",
+        ),
+        ("updating Workspace", '{"error":{"code":"ScopeLocked"}}', "resource_lock"),
+        ("updating Network Security Group leak-nsg", "", "provider_write"),
+        ("waiting for update of Private Endpoint", "", "provider_write"),
     ],
 )
 def test_scenario_lab_plan_diagnostic_classifies_terraform_error_summaries(
@@ -733,6 +888,46 @@ def test_scenario_lab_plan_diagnostic_classifies_terraform_error_summaries(
 
     assert stdout.splitlines()[0] == "Terraform plan diagnostic errors: 1"
     assert category in categories.split(", ")
+    assert "leak" not in stdout
+
+
+@pytest.mark.parametrize(
+    ("detail", "code"),
+    [
+        ('Code="InvalidParameter" Message="leak-message"', "InvalidParameter"),
+        (
+            '{"error":{"code":"PrivateEndpointBadRequest","message":"leak"}}',
+            "PrivateEndpointBadRequest",
+        ),
+        (
+            "RESPONSE 400: 400 Bad Request\nERROR CODE: InvalidResourceReference",
+            "InvalidResourceReference",
+        ),
+        ("ErrorCode=NetcfgInvalidSubnet for leak-subnet", "NetcfgInvalidSubnet"),
+        ("unexpected status 400 (400 Bad Request) with error: SubnetIsFull: leak", "SubnetIsFull"),
+        ("The operation on leak-name failed with RetryableError.", "RetryableError"),
+        ("Request denied: RequestDisallowedByPolicy for leak-policy", "RequestDisallowedByPolicy"),
+        ("The client leak-client failed: AuthorizationFailed", "AuthorizationFailed"),
+        ("unexpected status 503 (503 Service Unavailable)", "HTTP503"),
+        ('Status=429 Code="TooManyRequests"', "HTTP429"),
+        ("RESPONSE 404: 404 Not Found", "HTTP404"),
+        ("received HTTP status 500 from the metadata endpoint", "HTTP500"),
+        ("StatusCode=409", "HTTP409"),
+    ],
+)
+@pytest.mark.parametrize("stage", ["plan", "apply"])
+def test_scenario_lab_diagnostic_projects_each_azure_code_format(
+    tmp_path: Path, stage: str, detail: str, code: str
+) -> None:
+    line = {
+        "type": "diagnostic",
+        "diagnostic": {"severity": "error", "summary": "updating leak-resource", "detail": detail},
+    }
+
+    stdout = _diagnostic_output(tmp_path, stage, [line])
+    codes = stdout.splitlines()[3].removeprefix(f"Terraform {stage} diagnostic Azure codes: ")
+
+    assert code in codes.split(", ")
     assert "leak" not in stdout
 
 
