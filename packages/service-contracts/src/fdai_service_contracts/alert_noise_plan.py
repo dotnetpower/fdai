@@ -73,7 +73,7 @@ class AlertTreatment(ContractBase):
 class AlertChangePlan(ContractBase):
     """Immutable no-authority commitment, reconstructed before every admission."""
 
-    schema_version: Literal["1.0.0"] = "1.0.0"
+    schema_version: Literal["1.1.0"] = "1.1.0"
     action_type: ActionName
     tenant_ref: Ref
     scope_ref: Ref
@@ -91,7 +91,7 @@ class AlertChangePlan(ContractBase):
     max_recovery_seconds: Positive
     rollback_ref: Digest
     evaluation_receipt_digest: Digest | None = None
-    execution_path: Literal["pr_manual"] = "pr_manual"
+    execution_path: Literal["direct_api"] = "direct_api"
     default_mode: Literal["shadow"] = "shadow"
     quorum_required: Literal[2] = 2
     execution_authority: FalseOnly = False

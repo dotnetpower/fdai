@@ -32,7 +32,7 @@ from fdai_deployment_cli.aks_historical_reconciliation import (
     reconciled_variables,
     validate_reconciliation_plan,
 )
-from fdai_deployment_cli.aks_readiness import verify_workload_health
+from fdai_deployment_cli import aks_readiness
 from fdai_deployment_cli.aks_service_update import (
     SERVICES as AKS_SERVICES,
 )
@@ -109,6 +109,7 @@ from fdai_deployment_cli.standalone_stage_targets import (
 )
 from fdai_deployment_cli.standalone_stage_targets import stage_targets as _stage_targets
 from fdai_deployment_cli.standalone_host_values import aks_operator_environment
+from fdai_deployment_cli.standalone_management_egress import management_egress_cidrs
 from fdai_deployment_cli.standalone_host_values import (
     console_origin as _console_origin,
 )
@@ -159,8 +160,9 @@ _STAGES: Final = ("access", "substrate", "runtime", "database", "application")
 
 
 def main(argv: list[str] | None = None) -> int:
-    """Run one remote checkpoint and emit only sanitized JSON."""
+    """Run one remote checkpoint with an owner-only umask and emit only sanitized JSON."""
 
+    os.umask(0o077)
     parser = argparse.ArgumentParser(prog="python -m fdai_deployment_cli.standalone_host")
     parser.add_argument("--work-dir", type=Path, required=True)
     subcommands = parser.add_subparsers(required=True)
@@ -518,6 +520,8 @@ def _prepare(args: argparse.Namespace, work_dir: Path) -> dict[str, object]:
         "resource_name_suffix": suffix,
         "foundation_resource_group_context_digest": str(app["foundation_context_digest"]),
         "enable_private_networking": not aks_baseline,
+        # The AKS baseline has no archive private endpoint; policy-private storage would drift.
+        "enable_operational_history": not aks_baseline,
         "enable_aks_key_vault_private_access": key_vault_private_access,
         "enable_aks_document_storage_private_access": document_storage_private_access,
         "compute_kind": (
@@ -632,6 +636,8 @@ def _prepare_runtime(_args: argparse.Namespace, work_dir: Path) -> dict[str, obj
         "location": application_values["region"],
         "resource_group_name": _terraform_output(substrate, "resource_group_name"),
         "aks_subnet_id": _terraform_output(substrate, "aks_subnet_id"),
+        "aks_api_server_subnet_id": _terraform_output(substrate, "aks_api_server_subnet_id"),
+        "api_server_authorized_ip_ranges": management_egress_cidrs(context, cwd=work_dir),
         "container_registry_id": _terraform_output(substrate, "container_registry_id"),
         "log_analytics_workspace_id": _terraform_output(substrate, "log_workspace_id"),
         "managed_host_principal_id": context["principal_id"],
@@ -1046,10 +1052,7 @@ def _prepare_aks_application(_args: argparse.Namespace, work_dir: Path) -> dict[
         workloads_terraform_data=str(work_dir / "terraform-data-workloads"),
         kubeconfig=str(kubeconfig),
         expected_workloads={
-            name: {
-                key: workload[key] for key in ("image", "replicas", "max_replicas", "source_commit")
-            }
-            for name, workload in workloads.items()
+            name: aks_readiness.workload_contract(workload) for name, workload in workloads.items()
         },
         protected_aks_job_template_digests=job_preparation.protected_template_digests,
         protected_aks_job_identity_bindings=job_preparation.protected_identity_bindings,
@@ -1212,6 +1215,7 @@ def _validate_historical_aks_baseline(
             or type(max_replicas) is not int
             or replicas < 1
             or max_replicas < replicas
+            or not aks_readiness.valid_secret_environment(workload.get("secret_environment", {}))
         ):
             raise ValueError("historical AKS workload contract is invalid")
         expected[name] = {
@@ -1219,6 +1223,7 @@ def _validate_historical_aks_baseline(
             "replicas": replicas,
             "max_replicas": max_replicas,
             "source_commit": source_commit,
+            "secret_environment": dict(workload.get("secret_environment", {})),
         }
 
     state_workloads = _historical_state_workloads(resources)
@@ -1958,7 +1963,7 @@ def _readback_aks_service_update(context: dict[str, object], update: dict[str, A
         return False
     if not peers_unchanged(before=before, after=after, service=service):
         return False
-    return verify_workload_health(
+    return aks_readiness.verify_workload_health(
         deployments=_capture_aks_deployments(context, service=service),
         pods=_capture_aks_pods(context, service=service),
         expected={service: contract},
@@ -2647,7 +2652,7 @@ def _import_images(_args: argparse.Namespace, work_dir: Path) -> dict[str, objec
                 (
                     "oras",
                     "cp",
-                    "--registry-config",
+                    "--to-registry-config",
                     str(registry_config),
                     "--from-oci-layout",
                     f"{layout}@{digest}",
@@ -2820,7 +2825,7 @@ def _import_source_service_image(args: argparse.Namespace, work_dir: Path) -> di
                 (
                     "oras",
                     "cp",
-                    "--registry-config",
+                    "--to-registry-config",
                     str(registry_config),
                     "--from-oci-layout",
                     f"{layout}@{image_digest}",
@@ -4262,8 +4267,7 @@ def _readback_stage(stage: str, context: dict[str, object]) -> bool:
                 "az",
                 "acr",
                 "show",
-                "--ids",
-                _terraform_registry_id(infra, str(context["registry_name"])),
+                *_terraform_registry_selector(infra, str(context["registry_name"])),
                 "--query",
                 "provisioningState",
                 "--output",
@@ -4351,7 +4355,7 @@ def _readback_stage(stage: str, context: dict[str, object]) -> bool:
                     reason="AKS workload observation failed",
                 )
             )
-        return verify_workload_health(
+        return aks_readiness.verify_workload_health(
             deployments=observed[0],
             pods=observed[1],
             expected=expected,
@@ -4517,13 +4521,9 @@ def _terraform_output(infra: Path, name: str) -> str:
     return str(value)
 
 
-def _terraform_registry_id(infra: Path, expected_name: str) -> str:
-    """Read the state-owned registry ID and require the name used for image references."""
-
+def _terraform_registry_selector(infra: Path, expected_name: str) -> tuple[str, ...]:
     registry_id = _terraform_output(infra, "container_registry_id")
-    if registry_id.rstrip("/").rsplit("/", 1)[-1] != expected_name:
-        raise ValueError("Terraform registry differs from the planned image registry")
-    return registry_id
+    return standalone_host_values.registry_selector(registry_id, expected_name)
 
 
 def _terraform_json_output(infra: Path, name: str) -> object:

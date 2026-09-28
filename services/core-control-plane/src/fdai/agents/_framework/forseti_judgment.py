@@ -25,7 +25,7 @@ from fdai.core.operational_context.test_context import (
     observation_context_digest,
 )
 from fdai.core.readiness import AuthorityCeiling, DetectionReadinessDecision
-from fdai.shared.contracts.models import Autonomy
+from fdai.shared.contracts.models import Autonomy, Mode
 from fdai.shared.providers.decision_evidence_verifier import DecisionEvidenceAdmissionProvider
 
 RULE_MATCH: dict[str, str] = {
@@ -159,8 +159,18 @@ class ForsetiJudgmentMixin:
             await self.bus.publish("Forseti", "object.verdict", verdict)
         return verdict
 
-    async def judge(self, event: dict[str, Any]) -> dict[str, Any] | None:
-        """Emit a Verdict on the bus. Returns the verdict payload."""
+    async def judge(
+        self,
+        event: dict[str, Any],
+        *,
+        source_mode: Mode | None = None,
+    ) -> dict[str, Any] | None:
+        """Emit a Verdict on the bus. Returns the verdict payload.
+
+        ``source_mode`` carries the declared mode of learned or predicted input. A shadow source
+        caps the action Verdict at ``shadow_only`` after every other ceiling is applied, so no
+        later adjustment can turn it into an enforcing Verdict.
+        """
         event, candidate_held = await self._resolve_anomaly_action(event)
         action_type = None if candidate_held else event.get("action_type")
         if action_type is None and not candidate_held:
@@ -311,6 +321,11 @@ class ForsetiJudgmentMixin:
         if event.get("event_type") in self._anomaly_action_sources:
             await self._prepare_anomaly_action(event, verdict)
         self.attach_development_authority(event, verdict)
+        if source_mode is not None:
+            verdict["source_mode"] = source_mode.value
+            if source_mode is not Mode.ENFORCE:
+                verdict["resolved_autonomy_ceiling"] = Autonomy.SHADOW_ONLY.value
+                self.record_behavior("source_mode:shadow_ceiling")
         self.record_behavior(f"verdict:{verdict['risk_verdict']}")
         if rbac_denied:
             self.record_behavior("rbac_denied")

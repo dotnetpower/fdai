@@ -791,4 +791,5 @@ def _build_control_loop(
         mutation_dependency_readiness=mutation_dependency_readiness,
         evidence_conflict_reader=evidence_conflict_projection,
         safeguard_lifecycle_coordinator=safeguard_coordinator,
+        governed_execution_selected=governed_execution_enabled,
     )

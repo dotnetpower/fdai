@@ -50,15 +50,36 @@ SCOPES: dict[str, dict[str, Any]] = {
             "azurerm_monitor_data_collection_rule_association.container_insights",
         ),
     },
+    "aks-inventory-observation-roles": {
+        "root": "infra",
+        "module_closure": True,
+        "targets": (
+            "azurerm_role_assignment.inventory_reader",
+            "azurerm_role_assignment.inventory_monitoring_reader[0]",
+            "azurerm_role_assignment.inventory_log_analytics_reader[0]",
+            "azurerm_role_assignment.inventory_stage_sender",
+        ),
+        # Legacy count migrations that Terraform must plan with any target in this root.
+        # They may only move state addresses; any real change is outside the scope.
+        "state_moves": (
+            "module.identity_change.azurerm_user_assigned_identity.primary",
+            "module.identity_change[0].azurerm_user_assigned_identity.primary",
+            "module.identity_finops.azurerm_user_assigned_identity.primary",
+            "module.identity_finops[0].azurerm_user_assigned_identity.primary",
+            "module.identity_resilience.azurerm_user_assigned_identity.primary",
+            "module.identity_resilience[0].azurerm_user_assigned_identity.primary",
+        ),
+    },
 }
 
 
 class ReceiverError(Exception):
     """A typed, secret-free receiver failure."""
 
-    def __init__(self, code: str) -> None:
+    def __init__(self, code: str, addresses: tuple[str, ...] = ()) -> None:
         super().__init__(code)
         self.code = code
+        self.addresses = addresses
 
 
 def canonical(value: object) -> bytes:
@@ -191,16 +212,35 @@ def validate_plan(plan: dict[str, Any], *, scope: str, mode: str) -> list[dict[s
     targets = set(SCOPES[scope]["targets"])
     allowed = MODES[mode]
     changes: list[dict[str, object]] = []
+    outside: list[str] = []
+    rejected: list[str] = []
     for change in plan.get("resource_changes") or []:
         actions = tuple((change.get("change") or {}).get("actions") or ())
         if actions in {("no-op",), ("read",)}:
+            if change.get("previous_address"):
+                moves = set(SCOPES[scope].get("state_moves", ())) | targets
+                if str(change.get("address", "")) not in moves:
+                    outside.append(f"move {change.get('address', '')}")
+                    continue
+                changes.append(
+                    {
+                        "address": str(change.get("address", "")),
+                        "actions": ["move"],
+                        "previous_address": str(change["previous_address"]),
+                    }
+                )
             continue
         address = str(change.get("address", ""))
         if address not in targets:
-            raise ReceiverError("plan_scope_violation")
-        if actions not in allowed:
-            raise ReceiverError("plan_action_rejected")
-        changes.append({"address": address, "actions": list(actions)})
+            outside.append(f"{'/'.join(actions)} {address}")
+        elif actions not in allowed:
+            rejected.append(f"{'/'.join(actions)} {address}")
+        else:
+            changes.append({"address": address, "actions": list(actions)})
+    if outside:
+        raise ReceiverError("plan_scope_violation", tuple(outside[:12]))
+    if rejected:
+        raise ReceiverError("plan_action_rejected", tuple(rejected[:12]))
     return changes
 
 
@@ -370,7 +410,8 @@ def prepare_workspace(incoming: Path, state: Path, request: dict[str, Any]) -> T
 
 
 def target_arguments(request: dict[str, Any]) -> list[str]:
-    return [f"-target={target}" for target in SCOPES[request["scope"]]["targets"]]
+    scope = SCOPES[request["scope"]]
+    return [f"-target={target}" for target in (*scope["targets"], *scope.get("state_moves", ()))]
 
 
 def plan(terraform: Terraform, state: Path, request: dict[str, Any]) -> dict[str, object]:
@@ -490,7 +531,7 @@ def moment() -> str:
 
 def extract_payload(incoming: Path) -> dict[str, Any]:
     destination = incoming / "payload"
-    with tarfile.open(incoming / "payload.tar.gz", "r:gz") as archive:
+    with tarfile.open(incoming / "payload.tar", "r:*") as archive:
         for member in archive.getmembers():
             name = Path(member.name)
             if name.is_absolute() or ".." in name.parts or not (member.isfile() or member.isdir()):
@@ -542,6 +583,8 @@ def main(argv: list[str] | None = None) -> int:
         result = run(args.incoming)
     except ReceiverError as error:
         result = {"state": "error", "code": error.code}
+        if error.addresses:
+            result["addresses"] = list(error.addresses)
     except Exception:  # noqa: BLE001 - fixed code; details stay in host logs
         result = {"state": "error", "code": "receiver_internal_error"}
     print(emit(result))

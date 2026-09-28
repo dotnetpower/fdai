@@ -1,8 +1,8 @@
 ---
 title: 에스컬레이션과 상시 권한(감독형 OODA 루프)
 translation_of: escalation-and-standing-authority.md
-translation_source_sha: 97a973823a85d8647bda9271198556baf8e115b9
-translation_revised: 2026-09-18
+translation_source_sha: c600d44b2c5db87e48b6b18492a7c24c1bfcdada
+translation_revised: 2026-09-28
 ---
 
 # 에스컬레이션과 상시 권한(감독형 OODA 루프)
@@ -45,6 +45,14 @@ Heimdall의 기존 평가기는 계산한 위반 예상 시각과 구성된 예�
 I/O 중 만료는 보수적인 시간을 유지합니다. 5초로 제한된 조회는 실제 원본을 재시도하지
 않습니다. 대기 기록은 원본 다이제스트와 최초 마감 시각을 유지하며 재시도로 연장하지 않습니다.
 
+예측 시간 정보는 이미 존재하는 승인의 응답 기간만 줄입니다. 관찰 우선 기본 프로필에서는
+예측, Freyr 용량 예측 또는 학습된 패턴의 T1 일치가 시간을 계산할 승인을 만들지 않습니다.
+Forseti는 ActionType 없는 판정을 게시하고, 컨트롤 루프는 학습된 T1 재사용을 Action을 만들기
+전에 멈춥니다. 명시적으로 선택한 통제된 실행 추가 기능만 이러한 입력이 기존 관문을 거쳐 Var에
+도달하게 하며, 자세한 내용은
+[학습 및 예측 결과 경계](../agents/agent-pantheon-implementation-ko.md#학습-및-예측-결과-경계)에서
+설명합니다.
+
 실제 전달 모드 구성에는 현재 역할 검증기가 필요합니다. 디렉터리 어댑터는 이 검사에서
 역할 목록 캐시를 사용하지 않고 정확한 활성 사람과 일반 Approver/Owner 역할을 확인합니다.
 조회 실패는 권한 상실로 간주하지 않고 보류하며 조회 후 만료 시간을 다시 확인합니다.
@@ -68,6 +76,7 @@ shadow의 무결성 문제는 관찰에 그치고 실제 승인을 종결하지 
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-28 | implemented | 예측 시간 정보가 승인을 만들지 않음을 기록했습니다. 관찰 우선 기본 프로필에서 예측, Freyr 용량 예측, 학습된 패턴의 T1 일치는 Var 승인에 도달하지 않습니다. Forseti가 ActionType 없는 판정을 게시하고 컨트롤 루프가 학습된 T1 재사용을 Action이 생기기 전에 멈추기 때문입니다. | `current change`; `test_learned_output_profile_boundary.py`; `test_learned_reuse_profile_boundary.py`. | 에스컬레이션 시간에는 남은 작업이 없습니다. 경계의 남은 작업은 [에이전트 판테온 구현 계획](../agents/agent-pantheon-implementation-ko.md#학습-및-예측-결과-경계)에서 추적합니다. |
 | 2026-09-16 | implemented | 연결되지 않은 영속 `ShadowReversionWriter` 어댑터를 추가하고 의도가 존재하는 작성기 실패도 2단계 종결 감사로 보존하게 했습니다. 명령 하나는 ActionType 하나만 낮출 수 있으며, 여러 ActionType의 부분 변형, 승인 거부, 변경된 fence, 레지스트리 영속성 불확실성은 모두 안전한 방향으로 실패합니다. | `current change`; `state_store_shadow_reversion.py`; 집중 명령 및 영속성 테스트 61개 통과; Ruff, 포맷, strict mypy 통과. | 통제된 집단 근거, 독립적으로 인증된 승인 검증기 연결, 별도로 승인된 호출, 성공한 독립 효과 관측, 프로바이더 커밋 fence 자격은 #632에서 계속 열려 있습니다. |
 | 2026-09-14 | implemented | 카탈로그 응답 시간을 Core SQL 역할로 조회한 정확한 Heimdall 예측 에피소드 및 게시 기록에 연결했습니다. 요청의 원시 숫자는 시간을 줄이지 않으며, 이전 형식·누락·만료·종료·불일치 원본은 보수적인 시간을 유지합니다. | `current change`; 예측 원본/평가기, 실제 에이전트 게시, 조정기, 런타임, SQL 검사 104개 통과; 후속 시간대/원본 검사 31개 통과; 소스 8개 strict mypy 통과 | 실측 시간 코호트와 명시적 전달 승격을 별도로 보존합니다. 상시 권한 모듈은 연결하지 않으며 #632는 변경하지 않습니다. |
 | 2026-09-13 | in-progress | 도출된 프로바이더 자격 변경을 비활성 복귀 명령 및 로컬 집단 CLI와 조정했습니다. 자료 집합 스키마에는 부적격 ActionType을 선언할 키가 더 이상 없고 해석기도 이를 `build_candidate_record`에 전달하지 않으므로, 로컬 자료 집합 역시 자격을 주장할 수 없습니다. 등록된 어댑터가 하나도 없으므로 자료 집합의 실제 ActionType은 모두 `INELIGIBLE_CAPABILITY`로 도출되어 실제 ActionType 집단은 완전한 영수증에 도달할 수 없습니다. CLI 정상 경로는 명시적인 테스트 전용 가정 어댑터 레지스트리로만 검증합니다. | `current change`; `core/standing_authority/shadow_cohort_corpus.py`; `tests/core/standing_authority/test_shadow_cohort_cli.py`; `tests/core/standing_authority` 344개 통과; Ruff, 포맷, strict mypy 통과; 헌법, 로드맵 추적, design-route, 문서 크기, 번역, 읽을 수 있는 한글, 문장 부호, core import, 경계 docstring, 하위 시스템 fanout, fork 독립성, 파일 LOC 게이트 통과. | 변경 없음: 작성기 어댑터, 런타임 연결, 통제된 집단, 독립 효과 관측은 모두 존재하지 않습니다. FDAI-CONST-008은 `planned` 상태를 유지하며 #632는 계속 열려 있습니다. |

@@ -185,6 +185,8 @@ Execution authorization uses provider-neutral refs `identity/change`, `identity/
 the delivery composition. The authorization result selects one ref; the Action and direct-API
 request preserve it, and the delivery router chooses the matching `WorkloadIdentity`. An unknown
 or unbound ref is refused rather than falling back to the aggregate executor identity.
+Alert-noise actions never reach a generic direct-API fallback: an alert-specific unavailable route
+holds them in shadow and enforce mode, and other direct-API actions keep the unwired-executor rejection.
 
 Read-only inventory, ingestion, canary, and other service identities remain separate from this
 executor set. Creating a vertical identity does not grant it resource permissions; those role

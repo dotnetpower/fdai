@@ -3242,8 +3242,8 @@ module "monitoring" {
 
 # -----------------------------------------------------------------------
 # Alert-noise qualification pilot (dev-only, opt-in). This creates exactly
-# one dedicated Action Group and one Key Vault Availability alert. Baseline
-# cannot fire; treatment changes only the threshold and recovery restores it.
+# one dedicated Action Group and one Core Container App replica alert.
+# Baseline cannot fire; treatment changes only the threshold.
 # -----------------------------------------------------------------------
 module "alert_noise_pilot" {
   count  = var.enable_alert_noise_pilot ? 1 : 0
@@ -3252,7 +3252,7 @@ module "alert_noise_pilot" {
   environment             = local.env_label
   phase                   = var.alert_noise_pilot_phase
   resource_group_name     = module.resource_group.name
-  target_resource_id      = var.alert_noise_pilot_target_resource_id
+  target_container_app_id = "/subscriptions/${data.azurerm_client_config.current.subscription_id}/resourceGroups/${module.resource_group.name}/providers/Microsoft.App/containerApps/${module.compute.core_app_name}"
   action_group_name       = "ag-${var.workload}-noise-pilot${local.full_suffix}"
   action_group_short_name = "fdai-pilot"
   alert_name              = "alert-${var.workload}-noise-pilot${local.full_suffix}"
@@ -3265,13 +3265,9 @@ check "alert_noise_pilot_boundary" {
     condition = !var.enable_alert_noise_pilot || (
       local.env_label == "dev" &&
       !var.enable_monitoring &&
-      trimspace(var.alert_noise_pilot_email) != "" &&
-      can(regex(
-        "(?i)^/subscriptions/[0-9a-f-]{36}/resourceGroups/[^/]+/providers/Microsoft\\.KeyVault/vaults/[^/]+$",
-        var.alert_noise_pilot_target_resource_id,
-      ))
+      trimspace(var.alert_noise_pilot_email) != ""
     )
-    error_message = "Alert-noise pilot requires dev, broad monitoring disabled, one protected recipient, and one existing Key Vault target."
+    error_message = "Alert-noise pilot requires dev, broad monitoring disabled, and one protected recipient."
   }
 }
 

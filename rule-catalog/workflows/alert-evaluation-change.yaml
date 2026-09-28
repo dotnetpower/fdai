@@ -1,9 +1,9 @@
 schema_version: "1.0.0"
 name: alert-evaluation-change
-version: "1.0.0"
+version: "1.1.0"
 description: >-
   Obtain independent approval for one immutable single-axis alert evaluation plan
-  before proposing its manual IaC change, with plan-bound compensation and independent detection checks.
+  before its direct-API change request, with plan-bound compensation and independent detection checks.
 trigger:
   kind: signal
   signal_type: alert_noise.evaluation.proposed
@@ -29,9 +29,11 @@ steps:
       plan_digest: '${event.payload.alert_plan.plan_digest}'
 anti_scope: >-
   No standing authorization, detector deletion or disablement, mixed treatment axes,
-  protected-alert tuning, inline actions, direct API fallback or dependency impact
+  protected-alert tuning, inline actions, generic direct-API fallback or dependency impact
   beyond one resource group. The action port must revalidate current service-owner
   and distinct Owner approvals for the exact plan, excluding requester and executor,
   and enforce all seven safeguards plus native-rule recall and latency checks.
   Compensation uses the same forward plan digest and separately current recovery
-  authority. Fewer notifications or a merged PR does not establish detection quality.
+  authority. The action abstains until a reviewed provider adapter is bound. Fewer
+  notifications, provider API acceptance, or a Terraform apply does not establish
+  detection quality.

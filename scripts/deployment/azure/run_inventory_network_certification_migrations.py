@@ -15,13 +15,36 @@ from pathlib import Path
 
 _SOURCE_REVISION = re.compile(r"^[0-9a-f]{40}$")
 _SERVICE_ID = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
+_CREDENTIAL = re.compile(r"[a-z+]+://[^\s/@]*@")
 _MAX_SERVICES = 16
 _COMMAND_TIMEOUT_SECONDS = 840
 _MAX_EVIDENCE_BYTES = 1024 * 1024
+_MAX_DIAGNOSTIC_LINES = 12
+_MAX_DIAGNOSTIC_CHARS = 2000
+_SIGNAL = re.compile(
+    r"(\w+Error\b|\bFATAL\b|\bDETAIL\b|\bHINT\b|permission denied"
+    r"|does not exist|already exists|could not connect|timeout)",
+    re.IGNORECASE,
+)
 
 
 class InventoryNetworkMigrationError(RuntimeError):
     """Report a bounded migration failure without rendering credentials."""
+
+
+def _diagnostic(result: subprocess.CompletedProcess[str]) -> str:
+    """Return a bounded, credential-free reason so a failure is diagnosable in place."""
+
+    combined = f"{result.stdout}\n{result.stderr}".strip()
+    if not combined:
+        return "no command output"
+    redacted = _CREDENTIAL.sub("<redacted-credential>@", combined)
+    lines = [line.strip() for line in redacted.splitlines() if line.strip()]
+    # SQLAlchemy prints the failing statement after its reason, so a plain tail hides
+    # the cause. Prefer explicit error signals and fall back to the tail.
+    signals = [line for line in lines if _SIGNAL.search(line)]
+    selected = (signals or lines)[-_MAX_DIAGNOSTIC_LINES:]
+    return "; ".join(selected)[:_MAX_DIAGNOSTIC_CHARS] or "no command output"
 
 
 def _required(environment: Mapping[str, str], name: str) -> str:
@@ -53,7 +76,9 @@ def _run_command(
             f"{label} exceeded its {_COMMAND_TIMEOUT_SECONDS}-second deadline"
         ) from exc
     if result.returncode != 0:
-        raise InventoryNetworkMigrationError(f"{label} failed with exit code {result.returncode}")
+        raise InventoryNetworkMigrationError(
+            f"{label} failed with exit code {result.returncode}: {_diagnostic(result)}"
+        )
     return result
 
 

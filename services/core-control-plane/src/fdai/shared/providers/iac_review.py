@@ -1,10 +1,12 @@
 """IaC review publisher Protocol - Wave A.4.
 
 The Assurance Twin's ambient review path
-([assurance-twin.md](../../../../docs/roadmap/operations/assurance-twin.md) 1) posts a
-grounded Check onto an IaC pull request when the twin's projection
-finds violations against the proposed diff. The seam is CSP-neutral:
-``core/assurance_twin/review.py`` calls this Protocol only.
+([assurance-twin.md](../../../../docs/roadmap/operations/assurance-twin.md) 1) can post a
+grounded Check for a review that the twin already computed from an FDAI
+typed ActionType proposal and its what-if result. The publisher is a
+delivery surface only; a pull-request diff or Terraform plan is never the
+review input. The seam is CSP-neutral: ``core/assurance_twin/review.py``
+calls this Protocol only.
 
 Real adapters (GitHub Checks API, Azure DevOps status hook) live in
 ``delivery/gitops_pr/`` (or a fork's equivalent) and never appear in
@@ -46,17 +48,23 @@ class IacReview:
     """
 
     pr_ref: str
-    """Opaque handle of the IaC pull request being reviewed.
+    """Opaque change handle for the reviewed change.
 
-    Format depends on the adapter (``owner/repo#123`` for GitHub, a
-    numeric id for Azure DevOps). ``core/`` never parses this string.
+    An external Checks adapter uses its own pull-request handle
+    (``owner/repo#123`` for GitHub, a numeric id for Azure DevOps). An
+    Assurance Twin review carries the FDAI typed ActionType proposal ref
+    (``action-proposal:<digest>``); a Terraform plan is never its input.
+    ``core/`` never parses this string.
     """
 
     review_key: str
     """Idempotency key. Same key on redelivery MUST NOT post a duplicate.
 
-    Callers derive it from ``(pr_ref, finding-set hash, twin snapshot
-    revision)`` so a re-run against the same projection is a no-op.
+    An external Checks caller derives it from ``(pr_ref, finding-set hash,
+    twin snapshot revision)`` so a re-run against the same projection is a
+    no-op. An Assurance Twin typed-proposal review uses the proposal ref, so
+    the durable ledger keeps one current review per proposal and a newer
+    exact revision supersedes the older one.
     """
 
     findings: tuple[Finding, ...]

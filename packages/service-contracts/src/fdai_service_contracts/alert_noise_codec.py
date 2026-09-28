@@ -55,7 +55,13 @@ def _validate(contract_id: str, payload: Mapping[str, Any], versions: tuple[str,
     closed kind and schema artifact. Unknown fields/versions are never dropped, and no
     caller can use the offline sentinel to obtain an authenticated runtime record.
     """
-    version = "0.0.0" if payload.get("schema_version") == "0.0.0" else "1.0.0"
+    if payload.get("schema_version") == "0.0.0":
+        version = "0.0.0"
+    elif contract_id == "alert-noise-result":
+        result = payload.get("result")
+        version = str(result.get("schema_version")) if isinstance(result, Mapping) else ""
+    else:
+        version = "1.0.0"
     if version not in versions:
         raise CompatibilityError("alert wire version is not accepted by this peer")
     try:

@@ -2299,7 +2299,8 @@
       "id": "reporting-subsystem",
       "paths": [
         "docs/roadmap/interfaces/reporting-subsystem*.md",
-        "scripts/catalog/run-enforce-scenarios.py",
+        "scripts/catalog/run-catalog-scenario.py",
+        "services/core-control-plane/src/fdai/core/chaos/reference_sweep.py",
         "service-migrations/ownership.json",
         "service-migrations/branches/operator-service/versions/*chaos_report*.py",
         "services/core-control-plane/src/fdai/core/report_feed/adapters.py",
@@ -3842,7 +3843,8 @@
       ],
       "validate": [
         "uv run python scripts/quality/architecture/check-independent-services.py",
-        "uv run python scripts/quality/architecture/check-property-semantic-coverage.py"
+        "uv run python scripts/quality/architecture/check-property-semantic-coverage.py",
+        "uv run python scripts/automation/build_semantic_assurance_corpus.py --check"
       ]
     },
     {

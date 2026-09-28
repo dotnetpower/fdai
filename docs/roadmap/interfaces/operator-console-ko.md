@@ -1,12 +1,18 @@
 ---
 title: FDAI Console 대화
 translation_of: operator-console.md
-translation_source_sha: e6c27eabf79e4a7d31a4d8d8a5e68a1eb24899c9
+translation_source_sha: dc4d41be05564e23adf4693df239d7aaf242d66f
 translation_revised: 2026-09-28
 ---
 # FDAI Console 대화
 사람 오퍼레이터가 CLI, Teams, Slack, 웹 챗을 통해 FDAI에 **역으로 말할 수 있는** 방식입니다. 별도 제품이 아닌 FDAI Console의 **대화형 표면**로서 계층 아키텍처, 도구 카탈로그, LLM tier, 세션 지속성, 도구별 RBAC, 안전 invariant, 롤아웃 상태를 정의합니다. FDAI Console은 읽기 전용 제품이 아니라 통제된 운영자 인터페이스입니다. 서버가 인가한 타입 지정 요청을 제출할 수 있지만, 관리 리소스 실행은 브라우저 밖에서 이루어지며 고위험 작업에는 계속 사람 승인이 필요합니다. 모듈 분리 후에도 제안 claim 타입은 목적별 모델 소유자에 유지하고 공개 보증 파사드, 생성된 CQAS 인벤토리, 정본 시각 매핑을 보존하며 요청 또는 실행 권한은 바뀌지 않습니다. 파사드 가져오기 이름을 보존하는 런타임 카탈로그 로더 분리는 사람 보고 관계, 승인 경로, RBAC 또는 Console 요청 계약을 변경하지 않습니다. Rule 활성화 테스트를 소유 Core 및 Operator 서비스 테스트 묶음에 등록하는 변경은 테스트 선택만 바꾸며 보고 관계나 승인 권한을 부여하지 않습니다. Console 카탈로그 변경 뒤 질문은행과 CQAS 산출물을 다시 생성하는 작업은 원본 약속값만 갱신하며 질문 신원, 보고 권한 또는 대화 실행 권한을 바꾸지 않습니다.
 Push 방향 (시스템 → 사람) 알림은 [channels-and-notifications.md](channels-and-notifications-ko.md)에 있고, 운영 화면과 요청은 [console-operations-ko.md](console-operations-ko.md)에 정의되며 SPA는 [project-structure.md § 콘솔/](../architecture/project-structure-ko.md#모듈-경계모듈-boundaries)에 있습니다. 근거 출처 이력, 스트림 복구, localization 및 아키텍처 지도 복원력은 [console-evidence-and-resilience-ko.md](console-evidence-and-resilience-ko.md)가 소유합니다. Login 초기화는 역할이 할당된 principal의 접근을 검증된 App 역할에서 도출하고 선택적 access-request 변환 결과를 요구하지 않으며, 역할이 없을 때 해당 변환 결과가 사용 불가이면 접근을 계속 차단합니다. 로컬 개발의 독립 서비스 어댑터는 모델 서술에만 Azure CLI를 사용할 수 있고 provider-read 또는 실행 권한은 없습니다. 온톨로지는 하나의 exact-release 레지스트리 변환 결과에서 검토된 의미 모델과 카탈로그 토폴로지를 제공합니다. 런타임 인스턴스는 보안 receipt를 기반으로 하는 별도의 목적 범위 컨텍스트 스냅샷에만 표시됩니다. 인스턴스 화면은 출처 후보 회계, 범위가 제한된 응답 수, 집중 그래프 항목, Inspector 전용 관계, IAM 전용 관계를 분리하여 레이아웃 생략이 프로바이더 근거 누락처럼 보이지 않게 합니다. Fleet 출처 행은 `(source, scope_digest)` 신원을 사용하고 각 불투명 범위 다이제스트를 표시하며 여러 클러스터 상태를 행 하나로 축약하지 않습니다. 화면이 보이는 동안 인증된 인벤토리 무효화 SSE 스트림을 사용하고 커밋된 watermark를 받으면 선택한 인스턴스를 즉시 다시 검증합니다. 교차 출처 재현은 범위가 제한된 `Last-Event-ID` 요청 헤더를 명시적으로 허용합니다. SSE를 사용할 수 없으면 단조 증가 시계를 기준으로 다음 15초 fallback 폴링까지 남은 시간을 표시하며 브라우저 복귀 시에도 즉시 다시 확인합니다. 새로고침 실패 시 마지막으로 검증된 응답을 유지하고 프로바이더 상태를 텍스트가 있는 의미 배지로 표시합니다. SSE와 폴링은 인벤토리 관측을 대체하거나 관계 완전성을 높이지 않습니다. 인시던트 주의 컨트롤은 마운트 중 제출하지 않으며, 명시적으로 클릭할 때마다 인시던트에 결속된 새 대화를 열고, 증적에 결속된 플래너 중단 시 모델 연결 또는 의미 런타임 복구 단계를 현지화해 표시합니다. 서버 검증 결과가 있으면 참조가 0개인 경우까지 그 근거 참조만 인용 출처로 사용하며, 검증 결과가 없을 때만 화면 맥락을 인용합니다.
+
+운영 > 알림 품질은 다시 생성한 TypeScript 계약 뷰로 서명된 결과 `1.1.0`과 그 안의 공급자 중립 계획 `1.1.0`을 디코딩합니다.
+브라우저는 `direct_api`를 보존된 계약 메타데이터로만 표시합니다. 공급자 어댑터를 선택하거나
+로컬 Terraform 계획을 승인으로 취급하거나 관리 리소스 실행 권한을 얻지 않습니다.
+요청 이력은 인증된 미출시 `1.0.0` 결과를 `legacy_contract_retired` 사유와 함께 `unconfirmed`로
+표시하며 그 내용은 렌더링하지 않습니다.
 
 Command Deck의 진행 중인 턴에 대한 후속 입력, 모드 점검 및 대화 취소는 [처리 중인 대화 입력 모드](busy-input-modes-ko.md)를 따릅니다. 크기가 제한되고 형식을 엄격히 검증한 동일 세션의 Operator 조회 결과를 확인한 뒤에만 조작 기능을 사용할 수 있고, 그렇지 않으면 사용 불가 상태로 유지되며 후속 입력 영역도 숨겨지므로 유휴 입력창에 사용 불가 안내가 계속 표시되지 않습니다. 조회 결과를 확인한 뒤에도 로컬 턴이 진행 중이거나, 조회 결과가 진행 중인 턴이나 대기 중인 후속 입력을 보고하거나, 확인된 조작 기능의 실패를 알려야 할 때만 이 영역이 표시됩니다. 로컬 중지 명령은 별개이며 이 조작 기능으로 작업이나 승인을 취소할 수 없습니다.
 Command Deck은 출처에 결합된 테스트 맥락 후보를 표시하지만 이를 승인된 범위 또는 정책 선택지로 취급하지 않습니다. 별도의 인증된 명령 증적 조회는 요청한 principal 본인의 전달 및 과거 감사 적용만 보여 주며 현재 승인 상태는 평가되지 않습니다. 검토된 principal-사례 매핑과 독립적인 증적이 갖춰지기 전까지 브라우저는 제안, 독립 검토, 철회 조작을 제공하지 않습니다. [사례 이력 문서](../rules-and-detection/prediction-learning-and-case-history-ko.md)와 [점진적 대화 문서](operator-console-progressive-conversations-ko.md)를 참고하세요.

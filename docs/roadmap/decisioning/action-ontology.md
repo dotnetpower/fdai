@@ -340,14 +340,13 @@ Operator-requested runtime actions. Shipped Day 1:
 - `ops.upsert-network-rule` / `ops.delete-network-rule` - create, replace, or delete one bounded
   NSG rule through the development operations gateway. Deletion requires Owner-tier approval;
   recovery is a separately governed state-forward action.
-- `ops.update-alert-routing` - replace one existing alert destination through an exact manual PR.
+- `ops.update-alert-routing` - replace one existing alert destination through an exact provider-neutral plan.
 - `ops.set-alert-notification-window` - schedule finite suppression on one existing inert rule.
 - `ops.tune-alert-evaluation` - propose one supported threshold, window, or frequency change.
 - `ops.restore-alert-configuration` - restore the exact retained baseline under separate recovery authority.
 
-The four [alert-noise actions](../operations/alert-noise-governance.md) retain `pr_manual`, shadow defaults,
-Owner-level human approval and independent effect/recovery evidence. [Historical R7](../fork-and-sequencing/implementation-plan.md#26-r7---manual-merge-as-a-flag)
-was not adopted; there is no ActionType `require_manual_merge` field or implicit PR-native substitution.
+The four [alert-noise actions](../operations/alert-noise-governance.md) use provider-neutral `direct_api` with shadow defaults, Owner-level human approval, state-forward recovery, and independent effect/recovery evidence; with no alert provider mutation adapter registered, an alert-specific route holds them before any generic direct-API fallback.
+[Historical R7](../fork-and-sequencing/implementation-plan.md#26-r7---manual-merge-as-a-flag) was not adopted; there is no ActionType `require_manual_merge` field or implicit PR-native substitution.
 
 Resource provisioning is not an operator-request ActionType. FDAI targets environments where infrastructure as code owns resource creation, so a conversation asking to deploy a model or create a cloud resource is unsupported and submits nothing. The same conversation surface can query authorized inventory for resources that already exist.
 
@@ -356,7 +355,7 @@ Resource provisioning is not an operator-request ActionType. FDAI targets enviro
 `ops.flush-cache` / `ops.publish-change-summary` are cross-vertical operator actions. Azure VM/network gateway bindings do not change ownership.
 
 Ops normally use `execution_path: direct_api` for latency-sensitive work. A fork MAY force `pr_manual`
-where compliance requires every runtime change to land as a reviewed diff; the alert actions already require that path.
+where compliance requires every runtime change to land as a reviewed diff.
 
 ### 3.3 `governance.*`
 

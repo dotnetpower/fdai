@@ -126,6 +126,7 @@
   "reason.candidateLimit": "The bounded candidate limit was reached. Returned findings do not cover every potential candidate.",
   "reason.reasonLimit": "The report reached its limit for evidence reasons. The displayed reasons are not a complete list of limitations.",
   "reason.requestExpired": "The request expired before completion. No fresh plan or operational effect is implied.",
+  "reason.legacyContractRetired": "This result used an alert contract version that is no longer supported, so it can't be confirmed. Request a new assessment. No plan or operational effect is implied.",
   "reason.scopeDenied": "The current principal is not authorized for this scope. Select a scope from a fresh authorized list.",
   "reason.evidenceMissing": "The requested frozen evidence is no longer retained. Request a new assessment instead of reusing the old digest.",
   "reason.syntheticHeld": "Synthetic evidence cannot support this Live request. No operational measurement or change has been inferred.",

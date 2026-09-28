@@ -56,7 +56,7 @@ _ALERT_NOISE_PILOT_ACTION_GROUP = "module.alert_noise_pilot[0].azurerm_monitor_a
 _ALERT_NOISE_PILOT_RULE = "module.alert_noise_pilot[0].azurerm_monitor_metric_alert.pilot"
 _ALERT_NOISE_PILOT = frozenset({_ALERT_NOISE_PILOT_ACTION_GROUP, _ALERT_NOISE_PILOT_RULE})
 _ALERT_NOISE_BASELINE_THRESHOLD = 0.0
-_ALERT_NOISE_TREATMENT_THRESHOLD = 101.0
+_ALERT_NOISE_TREATMENT_THRESHOLD = 2.0
 _ALERT_NOISE_RECEIVER_COLLECTIONS = (
     "arm_role_receiver",
     "automation_runbook_receiver",
@@ -165,8 +165,8 @@ def _pilot_rule_is_safe(
         not isinstance(criteria, list)
         or len(criteria) != 1
         or not isinstance(criteria[0], dict)
-        or criteria[0].get("metric_namespace") != "Microsoft.KeyVault/vaults"
-        or criteria[0].get("metric_name") != "Availability"
+        or criteria[0].get("metric_namespace") != "Microsoft.App/containerApps"
+        or criteria[0].get("metric_name") != "Replicas"
         or criteria[0].get("aggregation") != "Average"
         or criteria[0].get("operator") != "LessThan"
         or _pilot_threshold(resource) not in allowed_thresholds
@@ -182,7 +182,7 @@ def _pilot_rule_is_safe(
         or not isinstance(scopes[0], str)
         or re.fullmatch(
             r"(?i)/subscriptions/[0-9a-f-]{36}/resourceGroups/[^/]+/providers/"
-            r"Microsoft\.KeyVault/vaults/[^/]+",
+            r"Microsoft\.App/containerApps/ca-[^/]+-core",
             scopes[0],
         )
         is None
@@ -255,7 +255,7 @@ def _validate_alert_noise_pilot(plan: dict[str, Any], changed: frozenset[str]) -
             or _without_pilot_threshold(before) != _without_pilot_threshold(after)
         ):
             raise ValueError(
-                "Alert-noise pilot treatment or recovery must change only threshold 0 and 101"
+                "Alert-noise pilot treatment or recovery must change only threshold 0 and 2"
             )
         return
     raise ValueError(

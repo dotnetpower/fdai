@@ -20,6 +20,7 @@ from fdai.agents.odin import Odin
 from fdai.shared.providers.testing.state_store import InMemoryStateStore
 
 from fdai_cost_governance import RollingCostAdvisoryProvider
+from tests.product_selection import governed_execution_selection
 
 _COST_RELEASE = "sha256:" + "3" * 64
 _COST_NOW = datetime(2028, 1, 2, tzinfo=UTC)
@@ -96,7 +97,7 @@ def test_specialist_advice_reaches_a_human_review_verdict() -> None:
     bus = InMemoryBus(registry=load_pantheon())
     njord = _njord(bus=bus, anomaly_ratio=1.5)
     freyr = Freyr(bus=bus, scale_up_threshold=0.5)
-    forseti = Forseti(bus=bus)
+    forseti = Forseti(bus=bus, governed_execution_selected=governed_execution_selection(True))
     odin = Odin(bus=bus)
     bus.subscribe("object.cost-anomaly", "Forseti", forseti.on_typed_message)
     bus.subscribe("object.capacity-forecast", "Forseti", forseti.on_typed_message)

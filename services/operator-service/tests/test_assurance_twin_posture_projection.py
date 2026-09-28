@@ -591,3 +591,26 @@ def test_review_detail_projection_rejects_a_slash_variant_of_the_stored_key() ->
     gap = detail["gap"]
     assert isinstance(gap, dict)
     assert gap["reason_code"] == GAP_MALFORMED
+
+
+def test_two_usable_reviews_for_one_change_handle_are_a_conflict_gap() -> None:
+    older = {**_REVIEW_BODY, "review_key": "review-old", "verdict": "clear", "findings": []}
+    newer = {
+        **_REVIEW_BODY,
+        "review_key": "review-new",
+        "verdict": "blocked",
+        "generated_at": "2026-07-07T01:00:00Z",
+    }
+    other = {**_REVIEW_BODY, "review_key": "review-other", "pr_ref": "owner/repo#2"}
+
+    projection = assurance_twin_review_list_projection((_row(older), _row(newer), _row(other)))
+
+    reviews = projection["reviews"]
+    gaps = projection["gaps"]
+    assert isinstance(reviews, list) and isinstance(gaps, list)
+    assert [review["review_key"] for review in reviews] == ["review-other"]
+    assert projection["available"] is True and projection["complete"] is False
+    assert sorted((gap["identity"], gap["reason_code"]) for gap in gaps) == [
+        ("review-new", GAP_CONFLICT),
+        ("review-old", GAP_CONFLICT),
+    ]

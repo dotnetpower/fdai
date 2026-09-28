@@ -113,7 +113,8 @@ class AlertExecutedActionRecord(AlertContractBase):
             or action.action_type not in {plan.action_type, RESTORE_ACTION}
             or action.mode is not Mode.ENFORCE
             or action.operation is not Operation.UPDATE
-            or action.rollback_ref.kind is not RollbackKind.PR_REVERT
+            or action.rollback_ref.kind
+            not in {RollbackKind.PR_REVERT, RollbackKind.STATE_FORWARD_ONLY}
             or action.rollback_ref.reference != plan.rollback_ref
             or action.target_resource_ref != target
             or target not in plan.lock_refs

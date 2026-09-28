@@ -395,6 +395,7 @@ def test_aks_baseline_defers_detailed_private_networking() -> None:
 
     assert '"enable_private_networking": not aks_baseline' in source
     assert '"acr_sku": "Basic" if aks_baseline else "Premium"' in source
+    assert '"enable_operational_history": not aks_baseline' in source
 
 
 @pytest.mark.parametrize(
@@ -1477,7 +1478,11 @@ def test_substrate_readback_uses_the_authoritative_registry_output(
         },
     )
 
-    assert commands[0][commands[0].index("--ids") + 1].endswith("/crfdai2devwus2abc123")
+    command = commands[0]
+    assert "--ids" not in command
+    assert command[command.index("--name") + 1] == "crfdai2devwus2abc123"
+    assert command[command.index("--resource-group") + 1] == "rg"
+    assert command[command.index("--subscription") + 1] == "example"
 
 
 def test_substrate_readback_rejects_a_registry_other_than_the_image_registry(
@@ -1486,7 +1491,10 @@ def test_substrate_readback_rejects_a_registry_other_than_the_image_registry(
     monkeypatch.setattr(
         standalone_host,
         "_terraform_output",
-        lambda _infra, _output: "/subscriptions/example/registries/crfdaidevwus2abc123",
+        lambda _infra, _output: (
+            "/subscriptions/example/resourceGroups/rg/providers/"
+            "Microsoft.ContainerRegistry/registries/crfdaidevwus2abc123"
+        ),
     )
 
     with pytest.raises(ValueError, match="planned image registry"):
@@ -1999,7 +2007,7 @@ def test_aks_application_readback_requires_complete_baseline(
         return True
 
     monkeypatch.setattr(standalone_host, "_capture", capture)
-    monkeypatch.setattr(standalone_host, "verify_workload_health", verify_health)
+    monkeypatch.setattr(standalone_host.aks_readiness, "verify_workload_health", verify_health)
     context = {
         "runtime_profile": {"runtime_platform": "aks", "database_placement": "postgres-flex"},
         "kubeconfig": str(kubeconfig),
@@ -2229,6 +2237,18 @@ def test_historical_aks_baseline_requires_matching_state_live_and_bounded_plan()
             "replicas": 2,
             "max_replicas": 3,
             "source_commit": source_commit,
+            **(
+                {
+                    "secret_environment": {
+                        "APPLICATIONINSIGHTS_CONNECTION_STRING": (
+                            "fdai-application-insights-connection-string"
+                        ),
+                        "FDAI_STATE_STORE_DSN": "fdai-state-store-dsn",
+                    }
+                }
+                if name == "core-control-plane"
+                else {}
+            ),
         }
         for index, name in enumerate(services, start=1)
     }
@@ -2309,7 +2329,16 @@ def test_historical_aks_baseline_requires_matching_state_live_and_bounded_plan()
         plan=historical_plan,
     )
 
-    assert baseline["expected_workloads"] == workloads
+    assert baseline["expected_workloads"] == {
+        name: {**workload, "secret_environment": workload.get("secret_environment", {})}
+        for name, workload in workloads.items()
+    }
+    assert (
+        baseline["expected_workloads"]["core-control-plane"]["secret_environment"][
+            "APPLICATIONINSIGHTS_CONNECTION_STRING"
+        ]
+        == "fdai-application-insights-connection-string"
+    )
     assert baseline["state_lineage"] == "retained-lineage"
     assert baseline["historical_plan_service"] == "core-control-plane"
     operator_change = next(
@@ -3474,3 +3503,20 @@ def test_legacy_runtime_context_requires_explicit_full_product_selection() -> No
 
     assert standalone_host._runtime_profile_matches({}, observation) is False
     assert standalone_host._runtime_profile_matches({}, explicit_legacy) is True
+
+
+def test_host_checkpoints_create_owner_only_state(monkeypatch: pytest.MonkeyPatch) -> None:
+    masks: list[int] = []
+    monkeypatch.setattr(standalone_host.os, "umask", lambda mask: masks.append(mask) or 0o002)
+
+    with pytest.raises(SystemExit):
+        standalone_host.main(["--help"])
+
+    assert masks == [0o077]
+
+
+def test_oras_copy_uses_the_destination_registry_config() -> None:
+    source = Path(standalone_host.__file__).read_text(encoding="utf-8")
+
+    assert '"cp",\n                    "--registry-config"' not in source
+    assert source.count('"cp",\n                    "--to-registry-config"') == 2

@@ -25,6 +25,9 @@ from fdai.delivery.assurance_twin_evidence_codec import (
     evidence_identity as _evidence_identity,
 )
 from fdai.delivery.assurance_twin_evidence_codec import (
+    rule_assessment_body,
+)
+from fdai.delivery.assurance_twin_evidence_codec import (
     valid_digest as _digest,
 )
 from fdai.delivery.assurance_twin_evidence_codec import (
@@ -36,21 +39,18 @@ from fdai.delivery.assurance_twin_evidence_codec import (
 from fdai.delivery.assurance_twin_evidence_conflict import (
     AssuranceTwinEvidenceConflictMixin,
 )
+from fdai.delivery.assurance_twin_review_evidence import AssuranceTwinReviewEvidenceMixin
 from fdai.delivery.assurance_twin_writers import (
     REQUEST_TOPIC,
     AssuranceTwinPublishRequest,
     RetainedTwinEvidence,
-    findings_digest,
     request_key,
-    rule_set_digest,
 )
 from fdai.delivery.persistence.state_store_assurance_twin_posture import (
-    _change_review_body,
     evidence_body_digest,
 )
 from fdai.shared.contracts.models import Mode
 from fdai.shared.providers.event_bus import EventBus
-from fdai.shared.providers.iac_review import IacReview
 from fdai.shared.providers.projection import Finding
 from fdai.shared.providers.state_store import AssuranceTwinConfirmationStore, StateStore
 
@@ -59,8 +59,16 @@ _MAX_PENDING = 1_000
 _LOG = logging.getLogger(__name__)
 
 
-class StateStoreTwinEvidenceRepository(AssuranceTwinEvidenceConflictMixin):
-    """Persist complete producer evidence and serve exact read-only writer snapshots."""
+class StateStoreTwinEvidenceRepository(
+    AssuranceTwinReviewEvidenceMixin,
+    AssuranceTwinEvidenceConflictMixin,
+):
+    """Persist complete producer evidence and serve exact read-only writer snapshots.
+
+    Posture evidence comes from Heimdall's retained Inventory pass. Review evidence
+    comes only from Forseti's typed ActionType proposal review; see
+    :class:`AssuranceTwinReviewEvidenceMixin`.
+    """
 
     def __init__(self, *, store: StateStore) -> None:
         self._store = store
@@ -141,7 +149,7 @@ class StateStoreTwinEvidenceRepository(AssuranceTwinEvidenceConflictMixin):
             "coverage_refs": list(coverage_refs),
             "complete": True,
             "conflict": False,
-            "rule_assessment": _rule_assessment(
+            "rule_assessment": rule_assessment_body(
                 source_revision=source_revision,
                 findings=findings,
                 evaluated_rule_ids=evaluated_rule_ids,
@@ -150,121 +158,6 @@ class StateStoreTwinEvidenceRepository(AssuranceTwinEvidenceConflictMixin):
                 rule_generation_revision=rule_generation_revision,
                 inventory_revision=inventory_revision,
             ),
-            "record": body,
-            "evidence_digest": evidence_body_digest(body),
-        }
-        written = await self._write_exact(request, value)
-        try:
-            await self._clock.release(request)
-        except AssuranceTwinEvidenceClockContentionError:
-            _LOG.warning(
-                "assurance_twin_evidence_clock_release_deferred",
-                extra={"kind": request.kind},
-            )
-        return written
-
-    async def record_review(
-        self,
-        *,
-        review_key: str,
-        pr_ref: str,
-        source_revision: str,
-        findings: tuple[Finding, ...],
-        evaluated_rule_ids: tuple[str, ...],
-        rule_coverage_refs: tuple[str, ...],
-        rule_set_revision: str,
-        rule_generation_revision: str,
-        proposal_digest: str,
-        proposal_evidence_refs: tuple[str, ...],
-        generated_at: datetime,
-        fresh_until: datetime,
-        correlation_id: str,
-    ) -> AssuranceTwinPublishRequest:
-        """Record one exact proposed-IaC review only with complete positive coverage."""
-        _validate_common(
-            source_key=review_key,
-            source_revision=source_revision,
-            evaluated_rule_ids=evaluated_rule_ids,
-            coverage_refs=rule_coverage_refs,
-            generated_at=generated_at,
-            fresh_until=fresh_until,
-            correlation_id=correlation_id,
-        )
-        if (
-            not pr_ref.strip()
-            or not _digest(proposal_digest)
-            or not proposal_evidence_refs
-            or any(not ref.strip() for ref in proposal_evidence_refs)
-        ):
-            raise ValueError("Assurance Twin proposed IaC evidence is incomplete")
-        _validate_findings(findings, evaluated_rule_ids)
-        if not _digest(rule_set_revision):
-            raise ValueError("Assurance Twin Rule set revision is invalid")
-        if not _digest(rule_generation_revision):
-            raise ValueError("Assurance Twin Rule generation revision is invalid")
-        request = _request(
-            kind="review",
-            source_key=review_key,
-            source_revision=source_revision,
-            correlation_id=correlation_id,
-        )
-        generated_at = await self._clock.stable_generated_at(
-            request,
-            proposed=generated_at,
-            fresh_until=fresh_until,
-        )
-        _validate_common(
-            source_key=review_key,
-            source_revision=source_revision,
-            evaluated_rule_ids=evaluated_rule_ids,
-            coverage_refs=rule_coverage_refs,
-            generated_at=generated_at,
-            fresh_until=fresh_until,
-            correlation_id=correlation_id,
-        )
-        judged = build_posture_assessment_report(
-            scope=pr_ref,
-            generated_at=generated_at.astimezone(UTC).isoformat(),
-            mode=Mode.SHADOW,
-            findings=findings,
-        )
-        review = IacReview(
-            pr_ref=pr_ref,
-            review_key=review_key,
-            findings=findings,
-            verdict=judged.verdict.value,
-            mode=Mode.SHADOW,
-            generated_at=generated_at.astimezone(UTC).isoformat(),
-            metadata={"source_revision": source_revision},
-        )
-        body = _change_review_body(review, freshness="fresh", reason_codes=())
-        value = {
-            "kind": "assurance_twin_retained_review",
-            "revision": 1,
-            "request": request.model_dump(mode="json"),
-            "request_status": "pending",
-            "writer_status": "pending",
-            "source_revision": source_revision,
-            "fresh_until": fresh_until.astimezone(UTC).isoformat(),
-            "coverage_refs": sorted({*rule_coverage_refs, *proposal_evidence_refs}),
-            "complete": True,
-            "conflict": False,
-            "rule_assessment": _rule_assessment(
-                source_revision=source_revision,
-                findings=findings,
-                evaluated_rule_ids=evaluated_rule_ids,
-                coverage_refs=rule_coverage_refs,
-                rule_set_revision=rule_set_revision,
-                rule_generation_revision=rule_generation_revision,
-                inventory_revision=None,
-            ),
-            "proposed_iac": {
-                "source_revision": source_revision,
-                "pr_ref": pr_ref,
-                "proposal_digest": proposal_digest,
-                "evidence_refs": list(proposal_evidence_refs),
-                "complete": True,
-            },
             "record": body,
             "evidence_digest": evidence_body_digest(body),
         }
@@ -701,34 +594,6 @@ def _request(
 
 def _state_key(request: AssuranceTwinPublishRequest) -> str:
     return f"{_PREFIX}{request.idempotency_key.removeprefix('sha256:')}"
-
-
-def _rule_assessment(
-    *,
-    source_revision: str,
-    findings: tuple[Finding, ...],
-    evaluated_rule_ids: tuple[str, ...],
-    coverage_refs: tuple[str, ...],
-    rule_set_revision: str | None,
-    rule_generation_revision: str | None,
-    inventory_revision: str | None,
-) -> dict[str, Any]:
-    resolved_rule_set = rule_set_revision or rule_set_digest(evaluated_rule_ids)
-    return {
-        "source_revision": source_revision,
-        "rule_set_digest": resolved_rule_set,
-        "rule_membership_digest": rule_set_digest(evaluated_rule_ids),
-        "rule_generation_digest": rule_generation_revision or resolved_rule_set,
-        "inventory_revision": inventory_revision or source_revision,
-        "evaluated_rule_ids": list(evaluated_rule_ids),
-        "findings_digest": findings_digest(findings),
-        "coverage_refs": list(
-            coverage_refs
-            if resolved_rule_set in coverage_refs
-            else (resolved_rule_set, *coverage_refs)
-        ),
-        "complete": True,
-    }
 
 
 __all__ = [

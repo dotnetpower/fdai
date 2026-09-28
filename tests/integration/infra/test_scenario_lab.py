@@ -274,7 +274,8 @@ def test_scenario_lab_workflow_is_plan_first_and_approval_gated() -> None:
     )
     assert "SCENARIO_LAB_BACKEND_IMAGE" not in workflow
     assert "Configure AKS test substrate" in workflow
-    assert "Start stopped AKS sweep target" in workflow
+    assert "Verify running AKS target" in workflow
+    assert "Start stopped AKS sweep target" not in workflow
     assert 'cluster_name="$(terraform output -raw aks_cluster_name)"' in workflow
     assert '[[ "$cluster_name" == "aks-store-demo" ]]' in workflow
     assert '"$RUNNER_TEMP/sre-demo-lab-aks-started-by-run"' in workflow
@@ -333,7 +334,7 @@ def test_scenario_lab_workflow_is_plan_first_and_approval_gated() -> None:
     assert "--retry 2 --retry-delay 2 --retry-all-errors --retry-max-time 120" in workflow
     assert "required kubelogin installer command is unavailable" in workflow
     assert 'trap \'rm -rf -- "$archive" "$extract_dir"\' EXIT' in workflow
-    assert "for command_name in az helm jq kubectl kubelogin terraform timeout" in workflow
+    assert "for command_name in az helm jq kubectl kubelogin python3 terraform timeout" in workflow
     assert "Adopt succeeded partial-apply network resources" in workflow
     assert "Recover healthy partial workspace state" in workflow
     assert 'terraform state pull >"$state_snapshot"' in workflow
@@ -404,7 +405,7 @@ def test_scenario_lab_workflow_is_plan_first_and_approval_gated() -> None:
     )
     assert "plan_args=(-destroy -refresh=false)" in workflow
     assert "Quiesce private DNS links before destroy" in workflow
-    assert 'select(.type? == "azurerm_private_dns_zone_virtual_network_link")' in workflow
+    assert 'select(.type == "azurerm_private_dns_zone_virtual_network_link")' in workflow
     assert "scenario-lab DNS-link state contains an invalid ARM resource id" in workflow
     assert 'az resource delete --ids "$link_id"' in workflow
     assert 'az resource wait --deleted --ids "$link_id"' in workflow
@@ -548,7 +549,6 @@ def test_runner_scripts_fail_before_external_commands_without_authority() -> Non
 @pytest.mark.parametrize(
     ("driver", "reason"),
     [
-        ("run-enforce-scenarios.py", "raw_harness_driver_retired"),
         ("measure-detection-latency.py", "raw_injection_driver_retired"),
     ],
 )
@@ -572,13 +572,38 @@ def test_raw_reference_drivers_refuse_live_runs_until_ported(driver: str, reason
     assert result.stdout == ""
 
 
+def test_the_retired_raw_reference_sweep_driver_is_gone() -> None:
+    assert not (REPO_ROOT / "scripts" / "catalog" / "run-enforce-scenarios.py").exists()
+
+
+def test_reference_sweep_runs_only_through_the_governed_runner() -> None:
+    sweep = SWEEP_SCRIPT.read_text(encoding="utf-8")
+
+    assert "scripts/catalog/run-catalog-scenario.py" in sweep
+    assert "run-enforce-scenarios.py" not in sweep
+    assert "scenario_args=(--run-sweep)" in sweep
+    assert 'scenario_args=(--run "$scenario_id")' in sweep
+    assert "--confirm-enforce" in sweep
+
+
+def test_reference_sweep_pins_the_measured_report_where_the_workflow_reads_it() -> None:
+    sweep = SWEEP_SCRIPT.read_text(encoding="utf-8")
+    workflow = (REPO_ROOT / ".github" / "workflows" / "sre-demo-lab.yml").read_text(
+        encoding="utf-8"
+    )
+
+    assert 'report_root="${FDAI_ENFORCE_REPORT_ROOT:-}"' in sweep
+    assert 'scenario_args+=(--measured-report "$report_root/report.json")' in sweep
+    assert 'report="$FDAI_ENFORCE_REPORT_ROOT/report.json"' in workflow
+    assert '.outcome == "validated" and .detected == true and .reverted == true' in workflow
+
+
 def test_reference_sweep_passes_the_current_approval_claim() -> None:
     sweep = SWEEP_SCRIPT.read_text(encoding="utf-8")
 
     assert 'export FDAI_ENFORCE_APPROVAL_REF="$approval_ref"' in sweep
     assert 'SCENARIO_LAB_CONFIRM_ENFORCE:-}" != "true"' in sweep
     assert "SCENARIO_LAB_SCENARIO_ID:-all" in sweep
-    assert 'scenario_args+=("$scenario_id")' in sweep
     prepare = PREPARE_SCRIPT.read_text(encoding="utf-8")
     assert "helm show chart chaos-mesh/chaos-mesh" in prepare
     assert "az helm jq kubectl kubelogin python3 terraform" in prepare

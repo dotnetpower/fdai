@@ -60,6 +60,7 @@ from fdai.shared.providers.state_store import (
     StateStore,
     classify_incident_append,
     incident_number_for,
+    state_field_path,
 )
 
 _GENESIS_HASH: Final[str] = GENESIS_HASH
@@ -420,13 +421,20 @@ class PostgresStateStore(PostgresAssuranceTwinConfirmationMixin, StateStore):
     ) -> tuple[tuple[Mapping[str, Any], ...], int]:
         if limit < 1 or offset < 0:
             raise ValueError("limit MUST be >= 1 and offset MUST be >= 0")
-        if field is not None and not field.replace("_", "").isalnum():
+        path = state_field_path(field) if field is not None and "." in field else None
+        if field is not None and path is None and not field.replace("_", "").isalnum():
             raise ValueError("state field MUST be an ASCII identifier")
         if (field is None) != (value is None):
             raise ValueError("state field and value MUST be supplied together")
         escaped_prefix = prefix.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
-        filter_sql = "" if field is None else "AND value ->> %s = %s"
-        filter_params: tuple[object, ...] = () if field is None else (field, value)
+        filter_sql = ""
+        filter_params: tuple[object, ...] = ()
+        if path is not None:
+            filter_sql = "AND value #>> %s::text[] = %s"
+            filter_params = (list(path), value)
+        elif field is not None:
+            filter_sql = "AND value ->> %s = %s"
+            filter_params = (field, value)
         async with self._connection() as conn:
             async with conn.transaction():
                 await self._set_statement_timeout(conn)

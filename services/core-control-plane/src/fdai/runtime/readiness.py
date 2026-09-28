@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from collections.abc import Awaitable, Callable, Mapping, Sequence
+from collections.abc import Awaitable, Callable, Collection, Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 
@@ -271,8 +271,15 @@ def build_startup_readiness_runtime(
     registered_probes: Sequence[StartupProbe[StartupProbeResult]] = (),
     deployment_ceilings: Mapping[str, AuthorityCeiling] | None = None,
     decision_evidence: DecisionEvidenceAdmissionProvider | None = None,
+    ingest_topics: Collection[str] = (),
 ) -> StartupReadinessRuntime:
     """Compose standard required probes plus registered optional destinations."""
+    probe_topic = (
+        environment.get("FDAI_STARTUP_KAFKA_PROBE_TOPIC", "").strip() or _PROBE_TOPIC_DEFAULT
+    )
+    if probe_topic in {topic.strip() for topic in ingest_topics if topic.strip()}:
+        # The control loop would receive every synthetic probe as an invalid event.
+        raise ValueError("FDAI_STARTUP_KAFKA_PROBE_TOPIC MUST NOT be a governed event ingest topic")
     standard_specs = (
         _spec("release.config", "runtime", StartupPhase.STATIC_LOAD),
         _spec("catalog.load", "catalog", StartupPhase.STATIC_LOAD),
@@ -345,8 +352,7 @@ def build_startup_readiness_runtime(
         EventBusRoundTripStartupProbe(
             probe_id="kafka.round-trip",
             event_bus=event_bus,
-            topic=environment.get("FDAI_STARTUP_KAFKA_PROBE_TOPIC", "").strip()
-            or _PROBE_TOPIC_DEFAULT,
+            topic=probe_topic,
             consumer_settle_seconds=_float_value(
                 environment,
                 "FDAI_STARTUP_KAFKA_SETTLE_SECONDS",

@@ -13,7 +13,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from types import MappingProxyType
 
-from fdai.core.detection.alert_noise.execution import ALERT_ACTIONS
+from fdai.core.detection.alert_noise.action_types import ALERT_ACTIONS
 from fdai.core.detection.alert_noise.workflow import (
     ALERT_WORKFLOWS,
     AlertActionBinder,
