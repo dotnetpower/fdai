@@ -87,7 +87,9 @@ test("study copy stays grounded in the shipped rule catalog", async () => {
   ]) {
     assert.ok(script.includes(safeguard), safeguard);
   }
-  assert.match(script, /side_effect_class: read/);
+  // Every tool the run record lists is a read; the replay never records a write authority.
+  assert.match(script, /\["Authority", "read"\]/);
+  assert.doesNotMatch(script, /\["Authority", "(?!read")/);
   for (const stale of [/four safety invariants/, /never a deck button/, /gpt-4o-mini/, /side_effect_class of/,
     /Two peer databases had the identical/, /\bgs-[a-z]/]) {
     assert.doesNotMatch(`${html}\n${script}`, stale);
@@ -112,8 +114,8 @@ test("study markup keeps presentation in shared roles", async () => {
     ...[...html.matchAll(/class="([^"]+)"/g)].flatMap((match) => match[1].split(/\s+/)),
     ...[...script.matchAll(/class: "([^"]+)"/g)].flatMap((match) => match[1].split(/\s+/)),
     ...[...script.matchAll(/className = "([^"]+)"/g)].flatMap((match) => match[1].split(/\s+/)),
-  ].filter((name) => /^cs-(?:deck|grounding)-/.test(name)));
-  assert.ok(roles.size >= 60, `${roles.size} roles`);
+  ].filter((name) => /^cs-(?:deck|grounding|run|model)-/.test(name)));
+  assert.ok(roles.size >= 100, `${roles.size} roles`);
   for (const role of roles) {
     assert.ok(layer.includes(`.${role}`) || primitives.includes(`.${role}`), `${role} has no shared style`);
   }
@@ -136,20 +138,30 @@ test("replay streams preparation, answer, and verification before settling", { t
     await pressPreview(frame, 'button[data-speed="2"]');
     await frame.locator(".cs-grounding-stage.is-active").first().waitFor({ state: "attached", timeout: 5000 });
     assert.equal(await frame.locator(".cs-deck-answer-skeleton").count(), 1);
+    // The whole plan renders up front, so the panel keeps one height while steps run.
+    const planned = await frame.locator(".cs-grounding-stage").count();
+    assert.ok(planned >= 6, `${planned} planned steps`);
+    assert.ok(await frame.locator(".cs-grounding-stage.is-pending").count() >= 1);
+    const panelHeight = await frame.locator(".cs-grounding-panel").evaluate((node) => node.getBoundingClientRect().height);
     await frame.waitForFunction(() => {
       const count = document.querySelector(".cs-grounding-sources-head > span:last-child");
       return count && Number.parseInt(count.textContent, 10) >= 4;
     }, null, { timeout: 15000 });
     assert.equal(await frame.locator(".cs-grounding-source-list > li").count(), 3);
+    assert.equal(await frame.locator(".cs-grounding-stage").count(), planned);
+    assert.equal(await frame.locator(".cs-grounding-panel").evaluate((node) => node.getBoundingClientRect().height), panelHeight);
     await deckState(frame, "answering");
-    assert.equal(await frame.locator(".cs-deck-answer-state.is-draft").textContent(), "Draft");
-    assert.equal(await frame.locator(".cs-grounding-panel").count(), 0);
+    assert.equal(await frame.locator(".cs-deck-turn-head .cs-deck-answer-state.is-draft").textContent(), "Draft");
+    assert.equal(await frame.locator(".cs-grounding-panel, .cs-deck-collapse").count(), 0);
+    assert.equal(await frame.locator(".cs-deck-agent-source").count(), 0);
     await deckState(frame, "settled");
     assert.equal(await frame.locator("#ds-transcript").getAttribute("aria-busy"), "false");
     assert.equal(await frame.locator("#ds-send").textContent(), "Send");
     assert.equal(await frame.locator(".cs-deck-caret, .cs-deck-answer-state").count(), 0);
     assert.match(await frame.locator(".cs-deck-verification").textContent(), /Verified\s+9 of 9 claims supported/);
     assert.equal(await frame.locator(".cs-deck-followup").count(), 3);
+    assert.equal(await frame.locator(".cs-run-record").evaluate((node) => node.open), false);
+    assert.match(await frame.locator(".cs-run-record-stats").textContent(), /^Model trace off \/ model /);
     // The automatic first replay stays silent, so no stale progress message remains.
     assert.equal(await frame.locator("#ds-announcer").textContent(), "");
     await pressPreview(frame, "#ds-finish");
@@ -172,12 +184,19 @@ test("stop and scenario changes cancel the running replay", { timeout: 90000 }, 
     await frame.locator("#ds-search").fill("postgres");
     await frame.locator("#ds-send").click();
     await deckState(frame, "stopped", 3000);
-    assert.equal(await frame.locator(".cs-deck-answer-state.is-stopped").textContent(), "Stopped");
+    assert.equal(await frame.locator(".cs-deck-turn-head .cs-deck-answer-state.is-stopped").textContent(), "Stopped");
     assert.match(await frame.locator(".cs-deck-evidence-note").last().textContent(), /not verified\. Nothing was changed\./);
     assert.equal(await frame.locator("#ds-send").isDisabled(), true);
     assert.equal(await frame.evaluate(() => document.activeElement?.id), "ds-input");
     assert.match(await frame.locator("#ds-search-count").textContent(), /^1\/\d+$/);
     assert.equal(await frame.locator("#ds-search-next").isDisabled(), false);
+
+    // Regenerating clears the stale stopped state before the new attempt prepares.
+    await frame.locator('.cs-deck-action-row [data-action="regenerate"]').click();
+    await deckState(frame, "preparing", 3000);
+    assert.equal(await frame.locator(".cs-deck-turn-head .cs-deck-answer-state").count(), 0);
+    assert.equal(await frame.locator(".cs-deck-turn-head").evaluate((node) => node.childNodes.length), 1);
+    assert.equal(await frame.locator(".cs-deck-agent-turn").count(), 1);
 
     await pressPreview(frame, "#ds-replay");
     await deckState(frame, "preparing", 3000);
@@ -210,7 +229,9 @@ test("each scenario settles with explicit evidence posture and ordered citations
       assert.equal(await frame.locator(".cs-deck-readiness-summary").textContent(), expected.summary, scenario);
       if (expected.note) assert.match(await frame.locator(".cs-deck-evidence-note").textContent(), expected.note, scenario);
       else assert.equal(await frame.locator(".cs-deck-evidence-note").count(), 0, scenario);
-      if (expected.state) assert.equal(await frame.locator(".cs-deck-answer-state").textContent(), expected.state, scenario);
+      if (expected.state) {
+        assert.equal(await frame.locator(".cs-deck-turn-head .cs-deck-answer-state").textContent(), expected.state, scenario);
+      }
       else assert.equal(await frame.locator(".cs-deck-answer-state").count(), 0, scenario);
       if (expected.issue) assert.equal(await frame.locator(".cs-deck-pill-issue").textContent(), expected.issue, scenario);
       else assert.equal(await frame.locator(".cs-deck-pill-issue").count(), 0, scenario);
@@ -302,26 +323,166 @@ test("keyboard focus and closed-deck state survive turn completion", { timeout: 
   }
 });
 
+test("run record shows the observed process and captures model traces per turn", { timeout: 90000 }, async () => {
+  const browser = await chromium.launch({ headless: true });
+  try {
+    const { context, frame, errors } = await openStudy(browser, { state: "settled" });
+    await deckState(frame, "settled", 5000);
+    const first = frame.locator(".cs-run-record").first();
+    assert.equal(await frame.locator(".cs-run-record").count(), 1);
+    assert.equal(await first.locator(".cs-run-record-body").evaluate((node) => node.childElementCount), 0);
+    assert.match(await first.locator(".cs-run-record-stats").textContent(),
+      /^Model trace off \/ model 1\.15 s \/ 3,256 tokens \/ evidence 7\/7 \/ verification Completed$/);
+    assert.match(await first.locator(".cs-run-record-duration").textContent(), /^Server processing \d+\.\d+ s$/);
+    await first.locator(":scope > summary").click();
+    assert.equal(await first.locator(".cs-run-phase").count(), 6);
+    assert.equal(await first.locator(".cs-run-event").count(), 12);
+    assert.equal(await first.locator('.cs-run-event[data-kind="model"]').count(), 0);
+    assert.match(await first.locator(".cs-model-trace-note").textContent(), /^Provider trace capture is off/);
+
+    // A deterministic read keeps its typed query and observed output in the event detail.
+    const read = first.locator('.cs-run-event[data-kind="evidence"]').first();
+    await read.locator("summary").click();
+    assert.match(await read.locator(".cs-run-event-detail").textContent(), /screen\.snapshot route=live tile=12/);
+
+    // Turning capture on never reveals a turn that was answered without it.
+    await frame.locator("#ds-trace").evaluate((input) => input.click());
+    assert.match(await first.locator(".cs-run-record-stats").textContent(), /^Model trace not captured \//);
+    // An open record is rebuilt with its body already filled.
+    assert.equal(await first.evaluate((node) => node.open), true);
+    assert.match(await first.locator(".cs-model-trace-note").textContent(), /^Model trace not captured/);
+    assert.equal(await first.locator('.cs-run-event[data-kind="model"]').count(), 0);
+
+    await pressPreview(frame, 'button[data-speed="2"]');
+    await frame.locator(".cs-deck-followup").first().click();
+    await deckState(frame, "preparing", 3000);
+    await deckState(frame, "settled");
+    const second = frame.locator(".cs-run-record").nth(1);
+    assert.match(await second.locator(".cs-run-record-stats").textContent(), /^2 model calls \//);
+    await second.locator(":scope > summary").click();
+    assert.equal(await second.locator('.cs-run-event[data-kind="model"]').count(), 2);
+    assert.equal(await second.locator(".cs-model-trace-lane").count(), 2);
+    assert.equal(await second.locator(".cs-model-trace-count").textContent(), "2 model calls");
+    const lane = second.locator(".cs-model-trace-lane").first();
+    await lane.locator("summary").click();
+    await frame.waitForFunction(() => [...document.querySelectorAll(".cs-model-trace-lane details[open] .cs-model-trace-hash code")]
+      .every((code) => /^[0-9a-f]{64}$/.test(code.textContent)), null, { timeout: 3000 });
+    assert.equal(await lane.locator(".cs-model-trace-hash").count(), 3);
+    assert.equal(await lane.locator(".cs-model-trace-layers > li").count(), 4);
+    assert.ok(await lane.locator(".cs-model-trace-messages > li").count() >= 2);
+    assert.match(await lane.textContent(), /Assistant response/);
+
+    // The display setting hides captured provider data again without discarding the record.
+    await frame.locator("#ds-trace").evaluate((input) => input.click());
+    assert.match(await second.locator(".cs-run-record-stats").textContent(), /^Model trace off \//);
+    assert.equal(await frame.locator(".cs-model-trace-lane").count(), 0);
+    assert.deepEqual(errors, []);
+    await context.close();
+  } finally {
+    await browser.close();
+  }
+});
+
+test("trace capture can start on from the URL", { timeout: 60000 }, async () => {
+  const browser = await chromium.launch({ headless: true });
+  try {
+    const { context, frame, errors } = await openStudy(browser, { state: "settled", scenario: "partial", trace: "on" });
+    await deckState(frame, "settled", 5000);
+    assert.equal(await frame.locator("#ds-trace").isChecked(), true);
+    assert.match(await frame.locator(".cs-run-record-stats").textContent(), /^2 model calls \/.*evidence 6\/7 \/ verification Degraded$/);
+    await frame.locator(".cs-run-record > summary").click();
+    assert.equal(await frame.locator('.cs-run-event[data-state="failed"]').count(), 1);
+    assert.equal(await frame.locator('.cs-run-phase[data-state="degraded"]').count(), 2);
+    assert.deepEqual(errors, []);
+    await context.close();
+  } finally {
+    await browser.close();
+  }
+});
+
+test("stopping mid-paragraph keeps only the revealed words", { timeout: 60000 }, async () => {
+  const browser = await chromium.launch({ headless: true });
+  try {
+    const { context, frame, errors } = await openStudy(browser);
+    await pressPreview(frame, 'button[data-speed="0.5"]');
+    await deckState(frame, "answering");
+    // Check and stop in one frame, so the stop lands while citations are still unrevealed.
+    await frame.waitForFunction(() => {
+      const prose = document.querySelector(".cs-deck-agent-turn .cs-deck-prose");
+      if (!prose || !prose.textContent.trim() || !prose.querySelector("[hidden]")) return false;
+      document.getElementById("ds-send").click();
+      return true;
+    }, null, { timeout: 10000, polling: "raf" });
+    await deckState(frame, "stopped", 3000);
+    assert.equal(await frame.locator(".cs-deck-prose [hidden]").count(), 0);
+    assert.equal(await frame.locator(".cs-deck-prose p").evaluateAll((nodes) =>
+      nodes.every((node) => node.textContent.trim().length > 0)), true);
+    assert.match(await frame.locator(".cs-deck-evidence-note").last().textContent(), /this partial answer was not verified/);
+    assert.deepEqual(errors, []);
+    await context.close();
+  } finally {
+    await browser.close();
+  }
+});
+
+test("run record keeps wide timeline content inside the record above the compact breakpoint", { timeout: 60000 }, async () => {
+  const browser = await chromium.launch({ headless: true });
+  try {
+    const { context, frame, errors } = await openStudy(browser, { state: "settled", trace: "on" },
+      { viewport: { width: 975, height: 800 }, reducedMotion: "reduce" });
+    await deckState(frame, "settled", 5000);
+    await frame.locator(".cs-run-record > summary").click();
+    await frame.evaluate(() => document.querySelectorAll(".cs-run-record details").forEach((node) => { node.open = true; }));
+    const layout = await frame.evaluate(() => {
+      const record = document.querySelector(".cs-run-record");
+      const edge = record.getBoundingClientRect().right + 0.5;
+      const body = record.querySelector(".cs-run-record-body");
+      return {
+        column: document.querySelector(".cs-deck-transcript").clientWidth,
+        lanes: record.querySelectorAll(".cs-model-trace-lane details[open]").length,
+        clipped: [...record.querySelectorAll("*")].filter((node) => {
+          const box = node.getBoundingClientRect();
+          return box.width > 0 && box.right > edge;
+        }).length,
+        bodyFits: body.scrollWidth <= body.clientWidth,
+        kindShown: getComputedStyle(record.querySelector(".cs-run-event-kind")).display !== "none",
+      };
+    });
+    assert.ok(layout.column > 620 && layout.column < 660, `${layout.column}px column`);
+    assert.equal(layout.kindShown, true);
+    assert.equal(layout.lanes, 2);
+    assert.equal(layout.clipped, 0);
+    assert.equal(layout.bodyFits, true);
+    assert.deepEqual(errors, []);
+    await context.close();
+  } finally {
+    await browser.close();
+  }
+});
+
 test("dock width uses container layout without horizontal overflow", { timeout: 60000 }, async () => {
   const browser = await chromium.launch({ headless: true });
   try {
     const { context, frame, errors } = await openStudy(browser, { state: "settled", width: "dock" });
     await deckState(frame, "settled", 5000);
-    await frame.locator(".cs-deck-processing > summary").click();
+    await frame.locator(".cs-run-record > summary").click();
     await frame.locator("[data-action='sources']").click();
     assert.equal(await frame.locator(".cs-deck-sources").isVisible(), true);
     const layout = await frame.evaluate(() => {
       const workspace = document.getElementById("ds-workspace").getBoundingClientRect();
-      const stage = document.querySelector(".cs-deck-processing .cs-grounding-stage");
+      const event = document.querySelector(".cs-run-event-summary");
+      const phases = document.querySelector(".cs-run-phase-strip");
       const source = document.querySelector(".cs-deck-source");
       const label = document.querySelector(".cs-deck-readiness-label");
-      const overflow = ["#ds-workspace", "#ds-transcript", "#ds-composer", ".cs-deck-sources"].map((selector) => {
+      const overflow = ["#ds-workspace", "#ds-transcript", "#ds-composer", ".cs-deck-sources", ".cs-run-record"].map((selector) => {
         const node = document.querySelector(selector);
         return node.scrollWidth <= node.clientWidth;
       });
       return {
         width: Math.round(workspace.width),
-        columns: getComputedStyle(stage).gridTemplateColumns.split(" ").length,
+        columns: getComputedStyle(event).gridTemplateColumns.split(" ").length,
+        phaseColumns: getComputedStyle(phases).gridTemplateColumns.split(" ").length,
+        kindShown: getComputedStyle(event.querySelector(".cs-run-event-kind")).display !== "none",
         sourceColumns: getComputedStyle(source).gridTemplateColumns.split(" ").length,
         labelClip: getComputedStyle(label).clipPath,
         overflow,
@@ -329,10 +490,12 @@ test("dock width uses container layout without horizontal overflow", { timeout: 
       };
     });
     assert.ok(layout.width <= 440, `${layout.width}`);
-    assert.equal(layout.columns, 3);
+    assert.equal(layout.columns, 4);
+    assert.equal(layout.phaseColumns, 3);
+    assert.equal(layout.kindShown, false);
     assert.equal(layout.sourceColumns, 2);
     assert.equal(layout.labelClip, "inset(50%)");
-    assert.deepEqual(layout.overflow, [true, true, true, true]);
+    assert.deepEqual(layout.overflow, [true, true, true, true, true]);
     assert.equal(layout.documentFits, true);
     assert.deepEqual(errors, []);
     await context.close();

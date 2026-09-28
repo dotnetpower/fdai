@@ -5,9 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Command deck sources - FDAI Console</title>
   <link rel="stylesheet" href="assets/calm-slate.css?v=page-context-v3" />
-  <link rel="stylesheet" href="../../ui/calm-slate-deck-conversation.css?v=conversation-v8" />
+  <link rel="stylesheet" href="../../ui/calm-slate-deck-conversation.css?v=conversation-v19" />
   <script src="assets/calm-slate.js?v=page-context-v3" defer></script>
-  <script src="assets/deck-sources.js?v=conversation-v8" defer></script>
+  <script src="assets/deck-sources.js?v=conversation-v19" defer></script>
   <style>
     /* Page chrome for this study only. Conversation roles live in ui/calm-slate-deck-conversation.css. */
     .ds-page {
@@ -103,6 +103,35 @@
       display: flex;
       flex-wrap: wrap;
       gap: 8px;
+    }
+
+    .ds-switch {
+      min-width: 0;
+      height: auto;
+      min-height: var(--cs-control-height);
+      justify-content: flex-start;
+      align-items: flex-start;
+    }
+
+    .ds-switch .cs-control-switch-track { margin-top: 1px; }
+
+    .ds-switch-copy {
+      min-width: 0;
+      display: grid;
+      gap: 2px;
+    }
+
+    .ds-switch-title {
+      color: var(--cs-text);
+      font-size: var(--cs-type-compact-size);
+      font-weight: 600;
+    }
+
+    .ds-switch-hint {
+      max-width: 76ch;
+      color: var(--cs-text-soft);
+      font-size: var(--cs-type-label-size);
+      line-height: 1.45;
     }
 
     .ds-workspace {
@@ -407,6 +436,16 @@
             <button type="button" data-width="full" aria-pressed="true">Full</button>
             <button type="button" data-width="dock" aria-pressed="false">Dock</button>
           </div>
+        </div>
+        <div class="ds-preview-row">
+          <label class="cs-control-switch ds-switch">
+            <input type="checkbox" id="ds-trace" />
+            <span class="cs-control-switch-track" aria-hidden="true"></span>
+            <span class="ds-switch-copy">
+              <span class="ds-switch-title">Capture model request and response trace</span>
+              <span class="ds-switch-hint">Mirrors Settings &gt; Display. New turns keep a redacted copy of model requests and responses; earlier turns stay uncaptured.</span>
+            </span>
+          </label>
         </div>
         <div class="ds-preview-actions">
           <button type="button" class="cs-control-button" id="ds-replay">Replay</button>

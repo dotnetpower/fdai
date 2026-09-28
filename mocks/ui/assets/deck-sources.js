@@ -9,7 +9,9 @@
   var CONVERSATION_TITLE = "Why is example-postgres flagged?";
   var CHECK = "\u2713";
   var CANCELLED = { cancelled: true };
-  var TIMING = { readiness: 420, stage: 420, source: 140, word: 28, paragraph: 140, verify: 480, step: 260 };
+  var TIMING = { readiness: 320, stage: 300, source: 110, paragraph: 70, verify: 320, step: 200, collapse: 300 };
+  // Answer text reveals at this many characters per second at 1x speed.
+  var STREAM_CPS = 760;
 
   // Each source is data FDAI already holds. Catalog entries carry a version; runtime evidence
   // carries its observation time. Rule, policy, and ActionType identifiers match rule-catalog/.
@@ -40,6 +42,52 @@
     { key: "knowledge", label: "Knowledge", href: "rules.html" },
     { key: "automation", label: "Automation", href: "scheduler-runs.html" }
   ];
+
+  // Read-only console-tool calls behind each source. Every call has side_effect_class "read".
+  var TOOLS = {
+    screen: { label: "Read screen snapshot", tool: "screen.snapshot", input: "query", command: "screen.snapshot route=live tile=12", ms: 34,
+      output: { route: "live", tile: 12, resource: "example-postgres", status: "flagged", observed_at: DAY + "T10:41:05Z" } },
+    inventory: { label: "Read inventory", tool: "inventory.read", input: "query", command: "inventory.read resource=example-postgres fields=backup_retention_days", ms: 61,
+      output: { resource: "example-postgres", type: "postgresql-server", backup_retention_days: 3, observed_at: DAY + "T10:40:52Z" } },
+    inventoryNew: { label: "Read inventory", tool: "inventory.read", input: "query", command: "inventory.read resource=example-postgres fields=backup_retention_days", ms: 58,
+      output: { resource: "example-postgres", type: "postgresql-server", backup_retention_days: 7, observed_at: DAY + "T10:44:12Z" } },
+    inventoryDown: { label: "Read inventory", tool: "inventory.read", input: "query", command: "inventory.read resource=example-postgres fields=backup_retention_days", ms: 1500, status: "failed",
+      output: { status: "unavailable", reason: "source_timeout", timeout_ms: 1500 } },
+    rule: { label: "Match rule catalog", tool: "rule_catalog.match", input: "query", command: "rule_catalog.match resource_type=postgresql-server property=backup_retention_days", ms: 19,
+      output: { rule_id: "postgresql-server.point-in-time-restore", version: "1.0.0", source: "waf", severity: "high", parameters: { min_retention_days: 7 } } },
+    policy: { label: "Evaluate policy", tool: "policy.evaluate", input: "command", command: "policy.evaluate package=fdai.postgresql.point_in_time_restore resource=example-postgres", ms: 16,
+      output: { deny: true, deny_reason: "backup_retention_below_min", evaluated_at: DAY + "T10:38:40Z" } },
+    policySkipped: { label: "Evaluate policy", tool: "policy.evaluate", input: "command", command: "policy.evaluate package=fdai.postgresql.point_in_time_restore resource=example-postgres", ms: 2, status: "degraded",
+      output: { status: "not_evaluated", reason: "input_unavailable", missing: ["backup_retention_days"] } },
+    policySource: { label: "Read policy source", tool: "policy.source", input: "query", command: "policy.source package=fdai.postgresql.point_in_time_restore", ms: 11,
+      output: { path: "policies/postgresql/point_in_time_restore.rego", default_min_retention_days: 7, deny_reason: "backup_retention_below_min" } },
+    compareTimes: { label: "Compare evidence times", tool: "evidence.compare_times", input: "command", command: "evidence.compare_times left=policy.evaluated_at right=inventory.observed_at", ms: 3, status: "degraded",
+      output: { policy_evaluated_at: DAY + "T10:38:40Z", inventory_observed_at: DAY + "T10:44:12Z", newer: "inventory", flag_current: false } },
+    verdict: { label: "Read Forseti verdict", tool: "audit.verdicts", input: "query", command: "audit.verdicts agent=forseti resource=example-postgres limit=1", ms: 27,
+      output: { agent: "forseti", mode: "shadow", decision: "remediate", executed: false, recorded_at: DAY + "T10:38:41Z" } },
+    action: { label: "Read ActionType", tool: "action_types.read", input: "query", command: "action_types.read name=remediate.enable-backup-protection", ms: 14,
+      output: { default_mode: "shadow", promotion_gate: { min_shadow_days: 21, min_samples: 50, min_accuracy: 0.98, max_policy_escapes: 0 }, ceiling_by_tier: { t0: "enforce_hil" }, execution_path: "pr_native" } },
+    promotion: { label: "Read promotion evidence", tool: "promotion.evidence", input: "query", command: "promotion.evidence action_type=remediate.enable-backup-protection", ms: 38,
+      output: { shadow_days: 14, samples: 31, accuracy: 1, policy_escapes: 0, as_of: DAY + "T10:41:06Z" } },
+    promotionDown: { label: "Read promotion evidence", tool: "promotion.evidence", input: "query", command: "promotion.evidence action_type=remediate.enable-backup-protection", ms: 1500, status: "failed",
+      output: { status: "unavailable", source: "audit", reason: "source_timeout", timeout_ms: 1500 } },
+    registry: { label: "Read promotion registry", tool: "promotion.registry", input: "query", command: "promotion.registry action_type=remediate.enable-backup-protection", ms: 21,
+      output: { action_type: "remediate.enable-backup-protection", state: "shadow", since: "2026-09-14", promotion_request: null } },
+    template: { label: "Read remediation template", tool: "rule_catalog.remediation", input: "query", command: "rule_catalog.remediation rule=postgresql-server.point-in-time-restore", ms: 12,
+      output: { template: "remediation/postgresql/raise_backup_retention.tftpl", sets: { backup_retention_days: "min_retention_days" } } },
+    auditRecord: { label: "Read audit record", tool: "audit.records", input: "query", command: "audit.records kind=shadow_judgment resource=example-postgres limit=1", ms: 24,
+      output: { kind: "shadow_judgment", dispatched: false, pull_request: null, recorded_at: DAY + "T10:38:41Z" } },
+    auditNone: { label: "Read audit records", tool: "audit.records", input: "query", command: "audit.records action_type=remediate.enable-backup-protection window=P30D", ms: 33,
+      output: { action_type: "remediate.enable-backup-protection", executions: 0, window: "P30D" } },
+    readinessAudit: { label: "Read source readiness", tool: "sources.readiness", input: "query", command: "sources.readiness", ms: 9,
+      output: { inventory: "available", incidents: "available", audit: "unavailable", knowledge: "available", automation: "available", observed_at: DAY + "T10:41:04Z" } },
+    readinessInventory: { label: "Read source readiness", tool: "sources.readiness", input: "query", command: "sources.readiness", ms: 9,
+      output: { inventory: "unavailable", incidents: "available", audit: "available", knowledge: "available", automation: "available", observed_at: DAY + "T10:41:04Z" } }
+  };
+
+  // Narrator model calls. Bragi only translates: planning maps language to a typed intent and
+  // generation phrases verified facts. Decisions come from the deterministic sources above.
+  var MODEL = { name: "gpt-4.1-mini", planMs: 412, generationMs: 736, profile: "bragi.narrator", profileVersion: "3.2.0" };
 
   function intent(goal, target, scope, windowText) {
     return { label: "Resolve intent", phase: "Intent", intent: [["Goal", goal], ["Target", target], ["Scope", scope], ["Window", windowText]] };
@@ -113,7 +161,7 @@
         SCREEN_STAGE,
         { label: "Read inventory", detail: "Inventory source unavailable: current configuration not read", phase: "Retrieve", emits: ["inventoryDown"], attention: true },
         RULE_STAGE,
-        { label: "Evaluate policy", detail: "Not evaluated: no current configuration to check", phase: "Ground", attention: true },
+        { label: "Evaluate policy", detail: "Not evaluated: no current configuration to check", phase: "Ground", attention: true, tool: "policySkipped" },
         check("3 of 3 claims supported; current state unknown", true)
       ],
       sources: ["inventoryDown", "screen", "rule"],
@@ -137,7 +185,7 @@
         { label: "Read inventory", detail: "example-postgres, backup_retention_days 7, observed 10:44:12 UTC", phase: "Retrieve", emits: ["inventoryNew"] },
         RULE_STAGE,
         { label: "Read policy evaluation", detail: "Evaluated 10:38:40 UTC against the earlier value: deny", phase: "Ground", emits: ["policy"] },
-        { label: "Compare evidence times", detail: "The flag predates the newer inventory read", phase: "Verify", attention: true },
+        { label: "Compare evidence times", detail: "The flag predates the newer inventory read", phase: "Verify", attention: true, tool: "compareTimes" },
         { label: "Read ActionType", detail: "remediate.enable-backup-protection: default shadow", phase: "Retrieve", emits: ["action"] },
         check("5 of 5 claims supported; state unresolved", true)
       ],
@@ -410,7 +458,7 @@
   }
 
   // ---------- Turn parts ----------
-  function stageRow(stage, number, status, entering) {
+  function stageRow(stage, number, status) {
     var copy = h("span", { class: "cs-grounding-stage-copy" }, [h("span", { class: "cs-grounding-stage-label", text: stage.label })]);
     if (stage.intent) {
       copy.appendChild(h("dl", { class: "cs-grounding-intent" }, stage.intent.map(function (pair) {
@@ -419,7 +467,7 @@
     } else {
       copy.appendChild(h("span", { class: "cs-grounding-stage-detail", text: stage.detail }));
     }
-    var row = h("li", { class: "cs-grounding-stage" + (entering ? " is-entering" : "") }, [
+    var row = h("li", { class: "cs-grounding-stage" }, [
       h("span", { class: "cs-grounding-mark", "aria-hidden": "true", text: String(number) }),
       copy,
       h("span", { class: "cs-grounding-phase", text: stage.phase }),
@@ -429,17 +477,15 @@
     return row;
   }
 
+  var STAGE_STATUS_TEXT = { pending: "Not started", active: "In progress", attention: "Needs attention", done: "Done" };
+
   function setStageStatus(row, status) {
-    ["active", "done", "attention"].forEach(function (name) { row.classList.toggle("is-" + name, status === name); });
+    ["pending", "active", "done", "attention"].forEach(function (name) { row.classList.toggle("is-" + name, status === name); });
     var cell = row.querySelector(".cs-grounding-state");
     cell.textContent = "";
-    cell.appendChild(status === "active"
-      ? h("span", { class: "cs-grounding-spinner", "aria-hidden": "true" })
-      : h("span", { "aria-hidden": "true", text: status === "attention" ? "!" : CHECK }));
-    cell.appendChild(h("span", {
-      class: "cs-sr-only",
-      text: status === "active" ? "In progress" : status === "attention" ? "Needs attention" : "Done"
-    }));
+    if (status === "active") cell.appendChild(h("span", { class: "cs-grounding-spinner", "aria-hidden": "true" }));
+    else if (status !== "pending") cell.appendChild(h("span", { "aria-hidden": "true", text: status === "attention" ? "!" : CHECK }));
+    cell.appendChild(h("span", { class: "cs-sr-only", text: STAGE_STATUS_TEXT[status] }));
   }
 
   function previewSource(key) {
@@ -453,27 +499,375 @@
     ]);
   }
 
-  function processingDisclosure(spec) {
-    var available = availableCount(spec);
-    return h("details", { class: "cs-deck-processing" }, [
-      h("summary", { class: "cs-deck-processing-summary" }, spaced([
-        h("span", { class: "cs-deck-processing-label", text: "Deterministic processing" }),
-        h("span", { class: "cs-deck-processing-answerer", text: "Deterministic answerer" }),
-        h("span", { class: "cs-deck-processing-meta", text: spec.stages.length + " steps \u00b7 Read-only" }),
-        h("span", { class: "cs-deck-processing-chevron", "aria-hidden": "true" })
+  // ---------- Run record: observed process, execution timeline, and model trace ----------
+  var PHASES = [["input", "Input"], ["plan", "Plan"], ["collaboration", "Collaboration"],
+    ["evidence", "Evidence and tools"], ["verification", "Verification"], ["answer", "Answer"]];
+  var STATE_LABEL = { completed: "Completed", corrected: "Corrected", degraded: "Degraded", failed: "Failed",
+    unverified: "Not verified", not_observed: "Not observed" };
+  var STATE_MARK = { completed: CHECK, corrected: "\u21bb", degraded: "!", failed: "!", unverified: "!", not_observed: "-" };
+  var PROMPT_LAYERS = [["base", "fdai.narrator-base", "2.0.0", 212], ["role", MODEL.profile, MODEL.profileVersion, 164],
+    ["locale", "locale.en", "1.0.0", 18], ["response", "grounded-answer", "2.1.0", 236]];
+
+  function clockAt(ms) {
+    return new Date(Date.UTC(2026, 8, 28) + ms).toISOString();
+  }
+
+  function clockLabel(iso, withMilliseconds) {
+    return iso.slice(11, withMilliseconds ? 23 : 19);
+  }
+
+  function formatMs(ms) {
+    if (ms === 0) return "0 ms";
+    return ms < 1000 ? ms + " ms" : (ms / 1000).toFixed(2) + " s";
+  }
+
+  function pretty(value) {
+    return JSON.stringify(value, null, 2);
+  }
+
+  function sha256(text) {
+    if (!window.crypto || !window.crypto.subtle || typeof TextEncoder === "undefined") {
+      return Promise.resolve("unavailable in this browser context");
+    }
+    return window.crypto.subtle.digest("SHA-256", new TextEncoder().encode(text)).then(function (buffer) {
+      return Array.prototype.map.call(new Uint8Array(buffer), function (byte) {
+        return byte.toString(16).padStart(2, "0");
+      }).join("");
+    });
+  }
+
+  function toolKeys(spec) {
+    var keys = [];
+    spec.stages.forEach(function (stage) {
+      (stage.emits || []).forEach(function (key) { keys.push(key); });
+      if (stage.tool) keys.push(stage.tool);
+    });
+    return keys;
+  }
+
+  function typedIntent(spec) {
+    var fields = {};
+    (spec.stages[0].intent || []).forEach(function (pair) { fields[pair[0].toLowerCase()] = pair[1]; });
+    var capabilities = [];
+    toolKeys(spec).forEach(function (key) {
+      if (capabilities.indexOf(TOOLS[key].tool) < 0) capabilities.push(TOOLS[key].tool);
+    });
+    return { goal: fields.goal, target: fields.target, scope: fields.scope, window: fields.window,
+      capabilities: capabilities, side_effect_class: "read" };
+  }
+
+  // The narrator model's raw draft, before verification removes unsupported sentences.
+  function modelDraft(spec) {
+    return spec.answer.map(function (paragraph) {
+      var text = paragraph.unsupported ? paragraph.text + " " + paragraph.unsupported : paragraph.text;
+      return text.replace(/\{([a-zA-Z]+)\}/g, function (marker, key) {
+        return " [" + (spec.sources.indexOf(key) + 1) + "]";
+      }).replace(/`/g, "");
+    }).join("\n\n");
+  }
+
+  function verificationState(spec) {
+    if (spec.answerState === "corrected") return "corrected";
+    if (spec.verification.tone === "verified") return "completed";
+    if (spec.verification.label === "Source unavailable") return "unverified";
+    return "degraded";
+  }
+
+  function modelCall(kind, start, ms, messages, response, usage, redactions) {
+    return { kind: kind, model: MODEL.name, start: start, ms: ms, status: "completed", messages: messages,
+      response: response, usage: usage, redactions: redactions };
+  }
+
+  // Deterministic synthetic schedule, so every replay reports the same recorded timings.
+  function buildTrajectory(record) {
+    var spec = record.spec;
+    var question = spec.question || QUESTION;
+    var start = (38463 + record.offset) * 1000 + 160;
+    var cursor = start;
+    var items = [];
+    var calls = [];
+    var plan = typedIntent(spec);
+    items.push({ kind: "turn", kindLabel: "Turn", label: "Input", state: "completed", start: cursor, ms: 0, summary: question,
+      facts: [["Source", "operator"]], records: [["Operator input", question]] });
+    cursor += 6;
+    var planCall = modelCall("semantic_plan", cursor + 8, MODEL.planMs, [
+      { role: "system", content: "You are Bragi, the FDAI narrator. Translate the operator question into one typed intent that uses only registered read-only capabilities. Do not decide, approve, or execute anything." },
+      { role: "system", content: pretty({ locale: "en", route: "live", screen: { tile: 12, resource: "example-postgres" }, capabilities: plan.capabilities }) },
+      { role: "user", content: question }
+    ], { content: pretty(plan) }, { prompt_tokens: 1184, completion_tokens: 142, total_tokens: 1326 }, []);
+    calls.push(planCall);
+    items.push({ kind: "phase", kindLabel: "Phase", label: "Semantic planning", state: "completed", start: cursor, ms: MODEL.planMs + 18,
+      summary: "Typed intent: " + plan.goal,
+      facts: [["Intent", plan.goal], ["Model", MODEL.name], ["Evidence requirement", "grounded"]], records: [["Answer plan", pretty(plan)]] });
+    cursor += MODEL.planMs + 22;
+    var attempted = 0;
+    var completed = 0;
+    toolKeys(spec).forEach(function (key) {
+      var tool = TOOLS[key];
+      var stateName = tool.status || "completed";
+      attempted += 1;
+      if (stateName === "completed") completed += 1;
+      items.push({ kind: "evidence", kindLabel: "Evidence", label: tool.label, state: stateName, start: cursor, ms: tool.ms,
+        summary: SOURCES[key] ? SOURCES[key].title + ": " + SOURCES[key].meta : null,
+        facts: [["Tool", tool.tool], ["Authority", "read"]],
+        records: [[tool.input === "query" ? "IQL or typed query" : "Executed command", tool.command], ["Observed output", pretty(tool.output)]] });
+      cursor += tool.ms + 3;
+    });
+    var facts = spec.sources.map(function (key, index) {
+      var source = SOURCES[key];
+      return { n: index + 1, kind: source.kind, title: source.title, fact: source.meta, available: !source.unavailable };
+    });
+    var draft = modelDraft(spec);
+    var generationCall = modelCall("answer_generation", cursor + 6, MODEL.generationMs, [
+      { role: "system", content: "Compose the answer only from the verified facts. Cite every claim with its source number, state missing evidence explicitly, and never offer to execute or approve an action." },
+      { role: "user", content: pretty({ question: question, facts: facts, claims_must_cite: true }) }
+    ], { content: draft }, { prompt_tokens: 1360 + facts.length * 46, completion_tokens: Math.round(draft.length / 4.2),
+      total_tokens: 1360 + facts.length * 46 + Math.round(draft.length / 4.2) }, [{ rule: "azure_resource_id", replacements: 1 }]);
+    calls.push(generationCall);
+    items.push({ kind: "phase", kindLabel: "Phase", label: "Answer generation", state: "completed", start: cursor, ms: MODEL.generationMs + 14,
+      summary: spec.answer.length + " paragraphs from " + facts.length + " cited facts",
+      facts: [["Model", MODEL.name], ["Format", "markdown"], ["Source", "semantic-direct-response"]], records: [] });
+    cursor += MODEL.generationMs + 20;
+    var check = spec.stages[spec.stages.length - 1];
+    var verification = verificationState(spec);
+    items.push({ kind: "phase", kindLabel: "Phase", label: "Verification", state: verification, start: cursor, ms: 54,
+      summary: check.detail, facts: [["Checks", check.detail], ["Authority", "read"]],
+      records: [["Verification receipt", pretty({ status: spec.verification.label, detail: check.detail,
+        evidence_refs: spec.sources.map(function (key, index) { return "source:" + (index + 1) + ":" + TOOLS[key].tool; }) })]] });
+    cursor += 58;
+    items.push({ kind: "turn", kindLabel: "Turn", label: "Answer", state: "completed", start: cursor, ms: 0,
+      summary: "verification: " + spec.verification.label, facts: [["Source", "semantic-direct-response"], ["Agent", "Bragi"]],
+      records: [["Delivery receipt", pretty({ source: "semantic-direct-response", agent: "bragi",
+        verification_status: spec.verification.label, citation_count: spec.sources.length, follow_ups: (spec.followups || []).length })]] });
+    return {
+      start: start, end: cursor, items: items, calls: calls, attempted: attempted, completed: completed,
+      modelMs: planCall.ms + generationCall.ms, tokens: planCall.usage.total_tokens + generationCall.usage.total_tokens,
+      verification: verification
+    };
+  }
+
+  function barFor(start, ms, spanStart, span) {
+    var left = Math.min(98.5, ((start - spanStart) / span) * 100);
+    var width = Math.min(100 - left, Math.max(1.5, (ms / span) * 100));
+    var bar = h("span", { class: "cs-run-bar" });
+    bar.style.setProperty("--cs-run-start", left.toFixed(2));
+    bar.style.setProperty("--cs-run-width", width.toFixed(2));
+    return h("span", { class: "cs-run-track", "aria-hidden": "true" }, [bar]);
+  }
+
+  function factList(pairs) {
+    return h("dl", { class: "cs-run-facts" }, pairs.map(function (pair) {
+      return h("div", null, [h("dt", { text: pair[0] }), h("dd", null, [pair[1]])]);
+    }));
+  }
+
+  function payload(label, value) {
+    return h("section", { class: "cs-run-payload" }, [
+      h("strong", { text: label }),
+      h("pre", { class: "cs-run-code" }, [h("code", { text: value })])
+    ]);
+  }
+
+  function timeValue(iso) {
+    return h("time", { datetime: iso, text: clockLabel(iso, true) });
+  }
+
+  function timelineEvent(item, trajectory) {
+    var span = Math.max(1, trajectory.end - trajectory.start);
+    var startIso = clockAt(item.start);
+    var detail = h("div", { class: "cs-run-event-detail" });
+    if (item.summary) detail.appendChild(h("p", { class: "cs-run-observed" }, [h("span", { text: "Observed detail" }), item.summary]));
+    detail.appendChild(factList([["Status", STATE_LABEL[item.state]], ["Started", timeValue(startIso)],
+      ["Completed", timeValue(clockAt(item.start + item.ms))]].concat(item.facts)));
+    item.records.forEach(function (entry) { detail.appendChild(payload(entry[0], entry[1])); });
+    return h("li", { class: "cs-run-event", "data-kind": item.kind, "data-state": item.state }, [h("details", null, [
+      h("summary", { class: "cs-run-event-summary" }, spaced([
+        h("span", { class: "cs-run-event-kind", text: item.kindLabel }),
+        h("strong", { class: "cs-run-event-label", text: item.label }),
+        barFor(item.start, item.ms, trajectory.start, span),
+        h("span", { class: "cs-run-event-duration", text: formatMs(item.ms) }),
+        h("span", { class: "cs-run-event-outcome", text: STATE_LABEL[item.state] }),
+        h("span", { class: "cs-run-chevron", "aria-hidden": "true" })
       ])),
-      h("div", { class: "cs-deck-processing-body" }, [
-        h("p", {
-          class: "cs-deck-processing-note",
-          text: "No LLM was used. The deterministic answerer composed this answer from " + available +
-            (available === 1 ? " source" : " sources") +
-            ". Every step used a read-only console-tool (side_effect_class: read), so nothing was executed."
-        }),
-        h("ol", { class: "cs-grounding-stages", "aria-label": "Retrieval trace" }, spec.stages.map(function (stage, index) {
-          return stageRow(stage, index + 1, stage.attention ? "attention" : "done", false);
+      detail
+    ])]);
+  }
+
+  function modelCallItem(call) {
+    return { kind: "model", kindLabel: "Model", label: "Model provider call", state: "completed", start: call.start, ms: call.ms,
+      summary: call.kind + " / " + call.model,
+      facts: [["Model", call.model], ["Request messages", String(call.messages.length)], ["Response", "Recorded"],
+        ["Usage", "prompt " + call.usage.prompt_tokens + " / completion " + call.usage.completion_tokens + " / total " + call.usage.total_tokens],
+        ["Redactions", String(call.redactions.reduce(function (total, item) { return total + item.replacements; }, 0))]],
+      records: [["Model request", pretty(call.messages)], ["Model response", pretty(call.response)]] };
+  }
+
+  function timelineSection(trajectory, includeModelCalls) {
+    var items = trajectory.items.concat(includeModelCalls ? trajectory.calls.map(modelCallItem) : [])
+      .map(function (item, order) { return { item: item, order: order }; })
+      .sort(function (left, right) { return left.item.start - right.item.start || left.order - right.order; })
+      .map(function (entry) { return entry.item; });
+    return h("section", { class: "cs-run-timeline", "aria-label": "Observed execution timeline" }, [
+      h("header", { class: "cs-run-timeline-head" }, [
+        h("h3", { class: "cs-run-timeline-title", text: "Observed execution timeline" }),
+        h("span", { class: "cs-run-timeline-count", text: items.length + " observed events" })
+      ]),
+      h("div", { class: "cs-run-axis", "aria-hidden": "true" }, [h("span", { class: "cs-run-axis-range" }, [
+        h("span", { text: clockLabel(clockAt(trajectory.start)) }),
+        h("span", { text: formatMs(trajectory.end - trajectory.start) }),
+        h("span", { text: clockLabel(clockAt(trajectory.end)) })
+      ])]),
+      h("ol", { class: "cs-run-events" }, items.map(function (item) { return timelineEvent(item, trajectory); }))
+    ]);
+  }
+
+  function hashLine(label, text) {
+    var code = h("code", { text: "computing" });
+    sha256(text).then(function (value) { code.textContent = value; });
+    return h("p", { class: "cs-model-trace-hash" }, [h("span", { text: label }), code]);
+  }
+
+  function modelTraceLane(call, index, spanStart, span) {
+    var startIso = clockAt(call.start);
+    var systemText = call.messages.filter(function (message) { return message.role === "system"; })
+      .map(function (message) { return message.content; }).join("\n\n");
+    var groups = [];
+    call.messages.forEach(function (message) {
+      var previous = groups[groups.length - 1];
+      if (message.role === "system" && previous && previous.role === "system") previous.contents.push(message.content);
+      else groups.push({ role: message.role, contents: [message.content] });
+    });
+    var detail = h("div", { class: "cs-model-trace-detail" }, [
+      hashLine("Request SHA-256", JSON.stringify(call.messages)),
+      h("section", { class: "cs-run-payload", "aria-label": "Dynamic system prompt" }, [
+        h("strong", { text: "Dynamic system prompt" }),
+        hashLine("SYSTEM SHA-256", systemText),
+        factList([["Prompt profile", MODEL.profile + " v" + MODEL.profileVersion],
+          ["SYSTEM tokens / budget", "630 / 1200"]]),
+        h("ol", { class: "cs-model-trace-layers", "aria-label": "Ordered prompt layers" }, PROMPT_LAYERS.map(function (layer) {
+          return h("li", null, [h("code", { text: layer[0] }), h("span", { text: layer[1] + " v" + layer[2] }),
+            h("span", { text: layer[3] + " tokens" })]);
         }))
+      ]),
+      h("ol", { class: "cs-model-trace-messages", "aria-label": "Request messages" }, groups.map(function (group) {
+        return h("li", null, [h("strong", { class: "cs-model-trace-role", text: group.role }),
+          h("pre", { class: "cs-run-code" }, [h("code", { text: group.contents.join("\n\n") })])]);
+      })),
+      h("section", { class: "cs-run-payload", "aria-label": "Assistant response" }, [
+        h("strong", { text: "Assistant response" }),
+        hashLine("Response SHA-256", call.response.content),
+        h("pre", { class: "cs-run-code" }, [h("code", { text: call.response.content })])
+      ]),
+      factList([["prompt_tokens", String(call.usage.prompt_tokens)], ["completion_tokens", String(call.usage.completion_tokens)],
+        ["total_tokens", String(call.usage.total_tokens)],
+        ["Applied redactions", call.redactions.length ? call.redactions.map(function (item) { return item.rule + " x" + item.replacements; }).join(", ") : "None"]])
+    ]);
+    return h("li", { class: "cs-model-trace-lane", "data-status": call.status }, [h("details", null, [
+      h("summary", { class: "cs-model-trace-lane-summary" }, spaced([
+        h("span", { class: "cs-model-trace-index", text: String(index + 1).padStart(2, "0") }),
+        h("span", { class: "cs-model-trace-model", text: call.model }),
+        h("span", { class: "cs-model-trace-kind", text: call.kind }),
+        barFor(call.start, call.ms, spanStart, span),
+        h("time", { class: "cs-model-trace-clock", datetime: startIso, text: clockLabel(startIso, true) }),
+        h("span", { class: "cs-model-trace-duration", text: formatMs(call.ms) }),
+        h("span", { class: "cs-run-chevron", "aria-hidden": "true" })
+      ])),
+      detail
+    ])]);
+  }
+
+  function modelTraceSection(trajectory, captureOn, captured) {
+    var showCalls = captureOn && captured;
+    var section = h("section", { class: "cs-model-trace", "aria-label": "Model provider waterfall" }, [
+      h("header", { class: "cs-model-trace-head" }, [
+        h("div", null, [
+          h("h3", { class: "cs-model-trace-title", text: "Model provider waterfall" }),
+          showCalls ? h("p", { class: "cs-model-trace-notice", text: "Actual provider messages and assistant content after deterministic redaction. Hidden reasoning and provider internals are not captured." }) : null
+        ]),
+        showCalls ? h("span", { class: "cs-model-trace-count", text: trajectory.calls.length + " model calls" }) : null
       ])
     ]);
+    if (!showCalls) {
+      section.appendChild(h("div", { class: "cs-model-trace-note", role: "note" }, captureOn ? [
+        h("strong", { text: "Model trace not captured" }),
+        h("p", { text: "No model trace was captured for this turn. Enable capture in Settings before asking a new question." })
+      ] : [
+        h("strong", { text: "Provider trace capture is off" }),
+        h("p", { text: "Enable model request and response trace in Settings. The change applies to new turns and doesn't reveal previously hidden provider data." })
+      ]));
+      return section;
+    }
+    var first = trajectory.calls[0].start;
+    var last = Math.max.apply(null, trajectory.calls.map(function (call) { return call.start + call.ms; }));
+    var span = Math.max(1, (last - first) * 1.1);
+    section.appendChild(h("ol", { class: "cs-model-trace-lanes" }, trajectory.calls.map(function (call, index) {
+      return modelTraceLane(call, index, first, span);
+    })));
+    return section;
+  }
+
+  function phaseStrip(trajectory, spec) {
+    var evidence = toolKeys(spec).some(function (key) { return TOOLS[key].status; }) ? "degraded" : "completed";
+    var states = { input: "completed", plan: "completed", collaboration: "not_observed", evidence: evidence,
+      verification: trajectory.verification, answer: "completed" };
+    return h("ol", { class: "cs-run-phase-strip", "aria-label": "Question-to-answer trajectory phases" }, PHASES.map(function (phase) {
+      var value = states[phase[0]];
+      return h("li", { class: "cs-run-phase", "data-state": value }, [
+        h("span", { class: "cs-run-phase-mark", "aria-hidden": "true", text: STATE_MARK[value] }),
+        h("strong", { text: phase[1] }),
+        h("small", { text: STATE_LABEL[value] })
+      ]);
+    }));
+  }
+
+  // The body renders on first open, so settled turns stay light until someone inspects them.
+  function runRecord(record, open) {
+    var trajectory = buildTrajectory(record);
+    var captureOn = state.captureTrace;
+    var traceLabel = !captureOn ? "Model trace off" : record.captured ? trajectory.calls.length + " model calls" : "Model trace not captured";
+    var stats = traceLabel + " / model " + formatMs(trajectory.modelMs) + " / " + trajectory.tokens.toLocaleString("en-US") +
+      " tokens / evidence " + trajectory.completed + "/" + trajectory.attempted + " / verification " + STATE_LABEL[trajectory.verification];
+    var body = h("div", { class: "cs-run-record-body" });
+    var details = h("details", { class: "cs-run-record", "data-run-record": record.turnId }, [
+      h("summary", { class: "cs-run-record-summary" }, spaced([
+        h("span", { class: "cs-run-record-title" }, [
+          h("span", { class: "cs-run-record-glyph", "aria-hidden": "true" }, [h("i"), h("i"), h("i")]),
+          h("span", { class: "cs-run-record-title-copy" }, spaced([
+            h("small", { class: "cs-run-record-kicker", text: "Run record" }),
+            h("strong", { class: "cs-run-record-heading", text: "Observed process" })
+          ]))
+        ]),
+        h("span", { class: "cs-run-record-stats", text: stats }),
+        h("span", { class: "cs-run-record-duration" }, [
+          h("span", { class: "cs-run-record-duration-label", text: "Server processing " }),
+          formatMs(trajectory.end - trajectory.start)
+        ]),
+        h("span", { class: "cs-run-record-chevron", "aria-hidden": "true" })
+      ])),
+      body
+    ]);
+    function fill() {
+      if (body.childElementCount) return;
+      body.appendChild(phaseStrip(trajectory, record.spec));
+      body.appendChild(timelineSection(trajectory, captureOn && record.captured));
+      body.appendChild(modelTraceSection(trajectory, captureOn, record.captured));
+    }
+    // Filling on the summary click, before the details element opens, avoids painting an empty body.
+    details.firstElementChild.addEventListener("click", fill);
+    details.addEventListener("toggle", function () { if (details.open) fill(); });
+    if (open) {
+      fill();
+      details.open = true;
+    }
+    return details;
+  }
+
+  // Rebuild in place with the body already filled, so an open record never flashes empty.
+  function refreshRunRecords() {
+    turns.querySelectorAll("details.cs-run-record").forEach(function (current) {
+      var record = records[current.getAttribute("data-run-record")];
+      if (record) current.replaceWith(runRecord(record, current.open));
+    });
   }
 
   function actionRow(spec, turnId) {
@@ -561,12 +955,12 @@
     ]);
   }
 
+  // Semantic answers carry no reply-source chip, matching the Console turn head.
   function agentArticle(turnId) {
     return h("article", { class: "cs-deck-turn cs-deck-agent-turn", id: turnId, "data-turn": "agent" }, [
-      h("header", { class: "cs-deck-turn-head" }, spaced([
-        h("span", { class: "cs-deck-agent-name" }, [h("span", { class: "cs-deck-agent-icon ds-agent-icon", "aria-hidden": "true" }), "Bragi"]),
-        h("span", { class: "cs-deck-agent-source", text: "Deterministic" })
-      ]))
+      h("header", { class: "cs-deck-turn-head" }, [
+        h("span", { class: "cs-deck-agent-name" }, [h("span", { class: "cs-deck-agent-icon ds-agent-icon", "aria-hidden": "true" }), "Bragi"])
+      ])
     ]);
   }
 
@@ -621,6 +1015,7 @@
     asked: {},
     screenAttached: true,
     reduced: reducedMotion.matches,
+    captureTrace: params.get("trace") === "on",
     deckState: "loading"
   };
   var pending = new Map();
@@ -648,13 +1043,14 @@
   var searchCount = byId("ds-search-count");
   var searchPrev = byId("ds-search-prev");
   var searchNext = byId("ds-search-next");
+  var traceSwitch = byId("ds-trace");
 
   // ---------- Replay control ----------
   function cancelRun() {
     state.token += 1;
-    pending.forEach(function (reject, id) {
-      window.clearTimeout(id);
-      reject(CANCELLED);
+    pending.forEach(function (entry) {
+      entry.cancel();
+      entry.reject(CANCELLED);
     });
     pending.clear();
     stopElapsed();
@@ -664,12 +1060,13 @@
     if (ctx.instant) return Promise.resolve();
     if (ctx.token !== state.token) return Promise.reject(CANCELLED);
     return new Promise(function (resolve, reject) {
+      var key = {};
       var id = window.setTimeout(function () {
-        pending.delete(id);
+        pending.delete(key);
         if (ctx.token === state.token) resolve();
         else reject(CANCELLED);
       }, Math.max(0, ms / state.speed));
-      pending.set(id, reject);
+      pending.set(key, { cancel: function () { window.clearTimeout(id); }, reject: reject });
     });
   }
 
@@ -758,35 +1155,35 @@
       stages
     ]);
     var placeholder = h("div", { class: "cs-deck-answer-skeleton", "aria-hidden": "true" }, [skeleton(), skeleton(), skeleton()]);
-    article.appendChild(panel);
-    article.appendChild(placeholder);
+    var sourceList = h("ul", { class: "cs-grounding-source-list" });
+    var sourceCount = h("span", { text: "0 read" });
+    panel.appendChild(h("div", { class: "cs-grounding-sources" }, [
+      h("div", { class: "cs-grounding-sources-head" }, [h("span", { text: "Reading sources" }), sourceCount]),
+      sourceList
+    ]));
+    var fold = h("div", { class: "cs-deck-collapse" }, [h("div", null, [panel, placeholder])]);
+    article.appendChild(fold);
     startElapsed(elapsed);
     followScroll();
-    var sourceList = null;
-    var sourceCount = null;
     var read = 0;
     var missing = 0;
     var steps = spec.stages.filter(function (stage) { return !stage.verify; });
+    // The whole plan renders up front as pending rows, so the panel keeps one height while the
+    // steps run and nothing below it moves.
+    var rows = steps.map(function (stage, index) { return stageRow(stage, index + 1, "pending"); });
+    rows.forEach(function (row) { stages.appendChild(row); });
     for (var index = 0; index < steps.length; index += 1) {
       var stage = steps[index];
-      var row = stageRow(stage, index + 1, "active", !ctx.reduced);
-      stages.appendChild(row);
+      var row = rows[index];
+      setStageStatus(row, "active");
       status.textContent = stage.label;
       followScroll();
       await pause(ctx.reduced ? TIMING.step : TIMING.stage, ctx);
       setStageStatus(row, stage.attention ? "attention" : "done");
       var emits = stage.emits || [];
       for (var item = 0; item < emits.length; item += 1) {
-        if (!sourceList) {
-          sourceList = h("ul", { class: "cs-grounding-source-list" });
-          sourceCount = h("span");
-          panel.appendChild(h("div", { class: "cs-grounding-sources" }, [
-            h("div", { class: "cs-grounding-sources-head" }, [h("span", { text: "Reading sources" }), sourceCount]),
-            sourceList
-          ]));
-        }
         sourceList.appendChild(previewSource(emits[item]));
-        while (sourceList.children.length > 3) sourceList.firstElementChild.remove();
+        rollSourceWindow(sourceList, ctx);
         if (SOURCES[emits[item]].unavailable) missing += 1;
         else read += 1;
         sourceCount.textContent = read + " read" + (missing ? " \u00b7 " + missing + " unavailable" : "");
@@ -797,40 +1194,132 @@
     status.textContent = "Composing answer";
     await pause(TIMING.stage / 2, ctx);
     stopElapsed();
-    panel.remove();
-    placeholder.remove();
+    return fold;
   }
 
-  async function streamParagraph(node, text, spec, ctx, turnId) {
-    if (ctx.reduced) {
-      renderInline(node, text, spec, turnId, false);
-      followScroll();
-      await pause(TIMING.step, ctx);
+  // Keep the newest three sources and slide the window instead of jumping when one leaves.
+  function rollSourceWindow(list, ctx) {
+    if (list.children.length <= 3) return;
+    var first = list.firstElementChild;
+    var pitch = first.getBoundingClientRect().height + 4;
+    first.remove();
+    if (ctx.reduced || typeof list.animate !== "function") return;
+    list.animate([{ transform: "translateY(" + pitch + "px)" }, { transform: "translateY(0)" }],
+      { duration: 220, easing: "cubic-bezier(.2, .7, .2, 1)" });
+  }
+
+  // Fold the preparation panel away before the answer starts. Nothing follows the panel while it
+  // folds, so no rendered content shifts; the fold time does not scale with replay speed.
+  async function foldAway(fold, ctx) {
+    if (!fold) return;
+    if (!ctx.reduced) {
+      fold.classList.add("is-collapsed");
+      await pause(TIMING.collapse * state.speed, ctx);
+    }
+    fold.remove();
+  }
+
+  // Build the final inline DOM once, then reveal its text nodes frame by frame.
+  function revealSteps(root) {
+    var steps = [];
+    (function walk(node) {
+      Array.prototype.forEach.call(node.childNodes, function (child) {
+        if (child.nodeType === Node.TEXT_NODE) {
+          if (!child.nodeValue) return;
+          steps.push({ node: child, text: child.nodeValue });
+          child.nodeValue = "";
+        } else if (child.nodeType === Node.ELEMENT_NODE) {
+          if (child.classList.contains("cs-deck-cite") || child.tagName === "CODE") {
+            child.hidden = true;
+            steps.push({ atom: child });
+          } else {
+            walk(child);
+          }
+        }
+      });
+    })(root);
+    return steps;
+  }
+
+  function streamParagraph(node, text, spec, ctx, turnId) {
+    renderInline(node, text, spec, turnId, false);
+    followScroll();
+    if (ctx.instant) return Promise.resolve();
+    if (ctx.reduced) return pause(TIMING.step, ctx);
+    if (ctx.token !== state.token) return Promise.reject(CANCELLED);
+    var steps = revealSteps(node);
+    var caret = h("span", { class: "cs-deck-caret", "aria-hidden": "true" });
+    node.appendChild(caret);
+    return new Promise(function (resolve, reject) {
+      var key = {};
+      var frameId = 0;
+      var index = 0;
+      var offset = 0;
+      var last = 0;
+      function frame(now) {
+        if (ctx.token !== state.token) return;
+        var budget = last ? Math.max(1, Math.round((now - last) * STREAM_CPS * state.speed / 1000)) : 1;
+        last = now;
+        while (budget > 0 && index < steps.length) {
+          var step = steps[index];
+          if (step.atom) {
+            step.atom.hidden = false;
+            index += 1;
+            budget -= 1;
+            continue;
+          }
+          var take = Math.min(budget, step.text.length - offset);
+          step.node.appendData(step.text.slice(offset, offset + take));
+          offset += take;
+          budget -= take;
+          if (offset >= step.text.length) {
+            index += 1;
+            offset = 0;
+          }
+        }
+        followScroll();
+        if (index < steps.length) {
+          frameId = window.requestAnimationFrame(frame);
+          return;
+        }
+        pending.delete(key);
+        caret.remove();
+        resolve();
+      }
+      pending.set(key, { cancel: function () { window.cancelAnimationFrame(frameId); }, reject: reject });
+      frameId = window.requestAnimationFrame(frame);
+    });
+  }
+
+  function setAnswerState(article, value) {
+    var head = article.querySelector(".cs-deck-turn-head");
+    var badge = head.querySelector(".cs-deck-answer-state");
+    if (!value) {
+      if (!badge) return;
+      if (badge.previousSibling && badge.previousSibling.nodeType === Node.TEXT_NODE) badge.previousSibling.remove();
+      badge.remove();
       return;
     }
-    var tokens = text.split(/(\s+)/);
-    var built = "";
-    var caret = h("span", { class: "cs-deck-caret", "aria-hidden": "true" });
-    for (var index = 0; index < tokens.length; index += 1) {
-      built += tokens[index];
-      if (!tokens[index].trim()) continue;
-      node.textContent = "";
-      renderInline(node, built, spec, turnId, false);
-      node.appendChild(caret);
-      followScroll();
-      await pause(TIMING.word, ctx);
+    if (!badge) {
+      badge = h("span");
+      head.appendChild(document.createTextNode(" "));
+      head.appendChild(badge);
     }
-    caret.remove();
+    badge.className = "cs-deck-answer-state is-" + value;
+    badge.textContent = value === "draft" ? "Draft" : ANSWER_STATE[value];
   }
 
-  async function streamAnswer(spec, ctx, article, turnId) {
-    var answer = h("div", { class: "cs-deck-answer" });
-    var prose = h("div", { class: "cs-deck-prose" });
-    if (!ctx.instant) answer.appendChild(h("span", { class: "cs-deck-answer-state is-draft", text: "Draft" }));
-    answer.appendChild(prose);
+  function createAnswer(ctx, article) {
+    var answer = h("div", { class: "cs-deck-answer" }, [h("div", { class: "cs-deck-prose" })]);
+    if (!ctx.instant) setAnswerState(article, "draft");
     article.appendChild(answer);
-    if (ctx.instant) return answer;
+    return answer;
+  }
+
+  async function streamAnswer(spec, ctx, answer, turnId) {
+    if (ctx.instant) return;
     setDeckState("answering");
+    var prose = answer.querySelector(".cs-deck-prose");
     for (var index = 0; index < spec.answer.length; index += 1) {
       var paragraph = spec.answer[index];
       var node = h("p");
@@ -842,11 +1331,11 @@
       followScroll();
       await pause(TIMING.paragraph, ctx);
     }
-    return answer;
   }
 
+  // The pending row is replaced in place by the final action row, so nothing below it jumps.
   async function verifyAnswer(ctx, article) {
-    if (ctx.instant) return;
+    if (ctx.instant) return null;
     var row = h("div", { class: "cs-deck-action-row ds-pending-row" }, [
       h("span", { class: "cs-deck-verification is-pending" }, spaced([
         h("span", { class: "cs-grounding-spinner", "aria-hidden": "true" }),
@@ -856,10 +1345,10 @@
     article.appendChild(row);
     followScroll();
     await pause(TIMING.verify, ctx);
-    row.remove();
+    return row;
   }
 
-  function finalizeTurn(spec, article, answer, turnId, offset) {
+  function finalizeTurn(spec, article, answer, turnId, offset, pendingRow) {
     var prose = answer.querySelector(".cs-deck-prose");
     prose.textContent = "";
     spec.answer.forEach(function (paragraph, index) {
@@ -870,34 +1359,28 @@
         if (item.after === index) prose.appendChild(noteElement(item, spec, turnId, true));
       });
     });
-    var badge = answer.querySelector(".cs-deck-answer-state");
-    if (spec.answerState) {
-      if (!badge) {
-        badge = h("span");
-        answer.insertBefore(badge, prose);
-      }
-      badge.className = "cs-deck-answer-state is-" + spec.answerState;
-      badge.textContent = ANSWER_STATE[spec.answerState];
-    } else if (badge) {
-      badge.remove();
-    }
-    article.appendChild(processingDisclosure(spec));
-    article.appendChild(actionRow(spec, turnId));
+    setAnswerState(article, spec.answerState);
+    var row = actionRow(spec, turnId);
+    if (pendingRow && pendingRow.parentNode === article) pendingRow.replaceWith(row);
+    else article.appendChild(row);
     article.appendChild(sourcesPanel(spec, turnId));
     var remaining = (spec.followups || []).filter(function (key) { return !state.asked[key]; });
     if (remaining.length) article.appendChild(followupList(remaining));
+    article.appendChild(runRecord(records[turnId]));
     article.appendChild(turnFoot(offset + 6));
   }
 
   async function runAgentTurn(spec, ctx, article, turnId, offset) {
-    if (!ctx.instant) await playPreparation(spec, ctx, article);
-    var answer = await streamAnswer(spec, ctx, article, turnId);
-    await verifyAnswer(ctx, article);
-    finalizeTurn(spec, article, answer, turnId, offset);
+    var fold = ctx.instant ? null : await playPreparation(spec, ctx, article);
+    await foldAway(fold, ctx);
+    var answer = createAnswer(ctx, article);
+    await streamAnswer(spec, ctx, answer, turnId);
+    var pendingRow = await verifyAnswer(ctx, article);
+    finalizeTurn(spec, article, answer, turnId, offset, pendingRow);
   }
 
   function beginTurn(spec, article, turnId, offset, ctx, announceProgress) {
-    records[turnId] = { spec: spec, offset: offset };
+    records[turnId] = { spec: spec, offset: offset, turnId: turnId, captured: state.captureTrace };
     state.active = { article: article, spec: spec, turnId: turnId, offset: offset };
     if (ctx.instant) return;
     setBusy(true);
@@ -1006,6 +1489,7 @@
     Array.prototype.slice.call(article.children).forEach(function (child) {
       if (!child.classList.contains("cs-deck-turn-head")) child.remove();
     });
+    setAnswerState(article, null);
     var ctx = newContext(false);
     state.stuck = false;
     beginTurn(record.spec, article, article.id, record.offset, ctx, true);
@@ -1019,12 +1503,21 @@
     }
   }
 
+  // A stop can land mid-paragraph: drop citations and code the stream never revealed, then any
+  // paragraph left without visible text, so search and the stopped note see only shown words.
+  function pruneUnrevealed(prose) {
+    prose.querySelectorAll("[hidden]").forEach(function (node) { node.remove(); });
+    prose.querySelectorAll("p").forEach(function (node) {
+      if (!node.textContent.trim()) node.remove();
+    });
+  }
+
   function stopTurn() {
     var active = state.active;
     if (!state.busy || !active) return;
     cancelRun();
     var article = active.article;
-    article.querySelectorAll(".cs-grounding-panel, .cs-deck-answer-skeleton, .ds-pending-row, .cs-deck-caret").forEach(function (node) {
+    article.querySelectorAll(".cs-deck-collapse, .cs-grounding-panel, .cs-deck-answer-skeleton, .ds-pending-row, .cs-deck-caret").forEach(function (node) {
       node.remove();
     });
     var answer = article.querySelector(".cs-deck-answer");
@@ -1033,14 +1526,9 @@
       article.appendChild(answer);
     }
     var prose = answer.querySelector(".cs-deck-prose");
+    pruneUnrevealed(prose);
     var hadText = prose.textContent.trim().length > 0;
-    var badge = answer.querySelector(".cs-deck-answer-state");
-    if (!badge) {
-      badge = h("span");
-      answer.insertBefore(badge, prose);
-    }
-    badge.className = "cs-deck-answer-state is-stopped";
-    badge.textContent = ANSWER_STATE.stopped;
+    setAnswerState(article, "stopped");
     prose.appendChild(noteElement({
       tone: "attention",
       label: "Stopped",
@@ -1112,7 +1600,7 @@
   function highlight(root, query) {
     var walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
       acceptNode: function (node) {
-        return node.parentElement && node.parentElement.closest(".cs-deck-cite, .cs-deck-evidence-note-mark, mark")
+        return node.parentElement && node.parentElement.closest(".cs-deck-cite, .cs-deck-evidence-note-mark, mark, [hidden]")
           ? NodeFilter.FILTER_REJECT
           : NodeFilter.FILTER_ACCEPT;
       }
@@ -1437,11 +1925,18 @@
   byId("ds-replay").addEventListener("click", function () { playConversation({ instant: false, announce: true }); });
   byId("ds-finish").addEventListener("click", function () { playConversation({ instant: true, announce: true }); });
 
+  traceSwitch.addEventListener("change", function () {
+    state.captureTrace = traceSwitch.checked;
+    refreshRunRecords();
+    announce(state.captureTrace ? "Model trace capture is on for new turns." : "Model trace capture is off.");
+  });
+
   reducedMotion.addEventListener("change", function (event) { state.reduced = event.matches; });
 
   // ---------- Start ----------
   setPressed("data-scenario", state.scenario);
   setPressed("data-width", state.width);
+  traceSwitch.checked = state.captureTrace;
   workspace.setAttribute("data-width", state.width);
   var settledStart = state.reduced || params.get("state") === "settled";
   playConversation({ instant: settledStart, announce: false, scrollTop: settledStart });

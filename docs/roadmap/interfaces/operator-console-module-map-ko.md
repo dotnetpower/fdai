@@ -1,7 +1,7 @@
 ---
 title: Operator Console Module Map and Boundaries
 translation_of: operator-console-module-map.md
-translation_source_sha: e3ccb0d4b52e8317e01a3a9d7abb90c3e10b33ec
+translation_source_sha: e8144f630ba62695baa402ef64944b52fab52a9f
 translation_revised: 2026-09-28
 ---
 # Operator Console 모듈 지도 and Boundaries
@@ -635,7 +635,7 @@ Console 설정 경로와 정적 디자인 시안은 Calm Slate 컨트롤 토큰�
 `console/src/browser-notifications.ts`, `console/src/components/browser-notification-control.tsx` 및 scope가 제한된 `console/public/notification-sw.js`는 클라이언트 로컬 알림 모듈을 소유하며, [Console Web 알림](console-web-notifications-ko.md)은 전체 선택, 기능, 전달, 확인, 복구 및 권한 계약을 정의합니다. 모든 전달 원장 변경은 같은 출처의 탭 전체가 공유하는 단기 Web Lock을 사용하며, 다시 활성화된 컨트롤은 보존된 원장에서 표시할 전달 상태를 가져옵니다.
 화면에 보이는 제목 컴포넌트는 렌더링되는 제목 내용에만 `title`을 사용합니다. 기본 HTML `title` 말풍선은 접근성과 호환되는 요소로 제한하며, 그 밖의 맥락 도움말은 공통 Tooltip 컴포넌트를 사용합니다.
 정적 컴포넌트 갤러리는 `mocks/ui/assets/component-registry.json`의 계약을 읽고 각 시안을 소유자, 원본, 상태, 사용 지침, 반응형 동작, 접근성 계약 및 제품 참조보다 먼저 표시합니다. 레지스트리가 없거나 잘못되면 정규 상태를 추론하지 않고 문서화를 차단합니다. 갤러리는 합성 표현 근거이며 Console, Operator API 또는 실행기 권한을 부여하지 않습니다.
-`ui/calm-slate-deck-conversation.css`는 Command Deck 대화 화면으로 옮길 수 있는 표현 역할을 담습니다. 근거 원본 준비 상태, 검색 추적, 인용, 근거 한계 안내, 처리 과정 펼침 영역, 출처 패널, 후속 질문, 입력창 맥락이 여기에 속합니다. 정적 시안 `mocks/ui/deck-sources.html`이 기준 사용처이며 Console은 아직 이 파일을 가져오지 않습니다. 공통 프리미티브를 재사용하는 규칙은 `.cs-deck-conversation` 아래로 한정하고, `console/src/shared-style-tokens.test.ts`가 이 계층을 추가 전용으로 유지하므로 가져와도 기존 화면은 바뀌지 않습니다. Console 적용은 덮어쓰기가 아닌 교체 이행입니다. 프리미티브 다음에 이 계층을 가져오고, deck 오버레이에 루트 역할을 추가하고, 소유 deck 컴포넌트에서 역할을 렌더링한 뒤, 대체된 기존 `.deck-*` 선언은 덮어쓰지 않고 삭제합니다. 이 계층은 표현 전용이며 Console, Operator API 또는 실행기 권한을 부여하지 않습니다.
+`ui/calm-slate-deck-conversation.css`는 Command Deck 대화 화면으로 옮길 수 있는 표현 역할을 담습니다. 근거 원본 준비 상태, 검색 추적, 인용, 근거 한계 안내, 출처 패널, 후속 질문, 입력창 맥락, 그리고 단계 표시줄과 관찰된 실행 타임라인, 모델 프로바이더 워터폴을 포함하는 실행 기록이 여기에 속합니다. 정적 시안 `mocks/ui/deck-sources.html`이 기준 사용처이며 Console은 아직 이 파일을 가져오지 않습니다. 이 시안은 준비 계획 전체를 대기 단계로 먼저 표시하고, 고정된 세 줄 창으로 출처를 읽고, 답변 텍스트를 애니메이션 프레임마다 스트리밍하며, 답변이 나타나기 전에 준비 패널을 접습니다. 따라서 턴이 진행되는 동안 이미 렌더링된 내용이 밀리지 않습니다. 또한 Console과 같이 모델 추적 캡처 여부를 턴마다 기록합니다. 실행 기록은 해당 턴에서 캡처가 켜져 있었고 설정이 여전히 켜져 있을 때만 요청, 시스템, 응답 다이제스트가 있는 모델 이벤트와 프로바이더 호출 행을 표시하며, 설정을 켜더라도 캡처하지 않은 턴의 프로바이더 데이터는 드러나지 않습니다. 공통 프리미티브를 재사용하는 규칙은 `.cs-deck-conversation` 아래로 한정하고, `console/src/shared-style-tokens.test.ts`가 이 계층을 추가 전용으로 유지하므로 가져와도 기존 화면은 바뀌지 않습니다. Console 적용은 덮어쓰기가 아닌 교체 이행입니다. 프리미티브 다음에 이 계층을 가져오고, deck 오버레이에 루트 역할을 추가하고, 소유 deck 컴포넌트에서 역할을 렌더링한 뒤, 대체된 기존 `.deck-*` 선언은 덮어쓰지 않고 삭제합니다. 이 계층은 표현 전용이며 Console, Operator API 또는 실행기 권한을 부여하지 않습니다.
 
 ## 경계 불변식
 `core/conversation/`은 프로토콜만 가져옵니다. Azure SDK, HTTP, Bot Framework 및 프로바이더 호출은

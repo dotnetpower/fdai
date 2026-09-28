@@ -103,7 +103,7 @@ Chat surfaces:
 | File | Purpose |
 |------|---------|
 | [deck.html](deck.html) | Command deck (chat) - transcript-first workspace with optional conversation history and current-screen context panels, visible Bragi-to-agent handoffs, grounded citations, observed read-command evidence, and evidence attachments |
-| [deck-sources.html](deck-sources.html) | Production-shaped Command Deck conversation that replays answer preparation: typed intent, read-only retrieval trace, grounded citations, sources panel, verification, and grounded, partial-evidence, source-unavailable, conflicting-evidence, and corrected scenarios |
+| [deck-sources.html](deck-sources.html) | Production-shaped Command Deck conversation that replays answer preparation: typed intent, read-only retrieval trace, grounded citations, sources panel, verification, a run record with the observed execution timeline and model provider waterfall, and grounded, partial-evidence, source-unavailable, conflicting-evidence, and corrected scenarios |
 | [deck-sources-v2.html](deck-sources-v2.html) | Adaptive response lifecycle with an in-transcript selector for investigation, clarification, evidence posture, governed proposal, effect verification, cancellation, memory retention, structured brief, and rendered Markdown document examples |
 | [conversation-response-patterns.html](conversation-response-patterns.html) | Operational response patterns and deterministic selection order for bounded investigation disclosure, target clarification, evidence limits, governed recovery proposals, graded effect verification, cancellation receipts, consent-based durable learning, structured operational briefs, and rendered Markdown documents |
 
@@ -130,7 +130,8 @@ Report and kit:
   primitives such as the semantic top-edge content-update shimmer.
 - [../../ui/calm-slate-deck-conversation.css](../../ui/calm-slate-deck-conversation.css) - portable
   Command Deck conversation roles (readiness strip, retrieval trace, citations, evidence notes,
-  processing disclosure, sources panel, follow-ups, and composer context). Only
+  sources panel, follow-ups, composer context, and the run record with its execution timeline and
+  model provider waterfall). Only
   [deck-sources.html](deck-sources.html) imports it today. Every rule is scoped under
   `.cs-deck-conversation` or uses a role the Console does not render yet, so importing it changes no
   existing surface. The file header lists the Console component that owns each role and the
@@ -163,9 +164,12 @@ Report and kit:
   as Flow while adding risk, SLA, and control state. The page renders the swarm, sparkline, and
   audit ticker entirely client-side with no backend.
 - [assets/deck-sources.js](assets/deck-sources.js) - Command deck sources study only. Replays
-  scripted synthetic turns whose rule, policy, and ActionType facts match `rule-catalog/`, renders
-  the settled answer immediately under reduced motion, and supports `?scenario=`, `?state=settled`,
-  and `?width=dock` preview parameters. It performs no request, model call, or state change.
+  scripted synthetic turns whose rule, policy, and ActionType facts match `rule-catalog/`, streams
+  answer text once per animation frame, renders the settled answer immediately under reduced
+  motion, and supports `?scenario=`, `?state=settled`, `?width=dock`, and `?trace=on` preview
+  parameters. The capture switch mirrors the Console "Capture model request and response trace"
+  setting and applies to new turns only. Model calls, digests, and messages in the run record are
+  synthetic; the study performs no request, model call, or state change.
 
 ## Usage
 

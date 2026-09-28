@@ -21,7 +21,9 @@ const routes = [
 ];
 
 async function openChat(page, name, sequence) {
-  await page.goto(`${origin}/?chat-current=${sequence}#mocks/ui/${name}.html`, { waitUntil: "load" });
+  // The deck study starts with model trace capture on, so the audit also covers provider lanes.
+  const query = name === "deck-sources" ? "?trace=on" : "";
+  await page.goto(`${origin}/?chat-current=${sequence}#mocks/ui/${name}.html${query}`, { waitUntil: "load" });
   await page.waitForFunction(expected => {
     const frame = document.querySelector("#preview-frame");
     return frame?.contentDocument?.readyState === "complete"
@@ -32,6 +34,11 @@ async function openChat(page, name, sequence) {
     // Reduced motion renders the settled answer immediately; no replay timing is involved.
     await frame.locator('body[data-deck-state="settled"]').waitFor({ state: "attached", timeout: 10000 });
     await frame.locator(".cs-deck-followups").waitFor({ state: "visible", timeout: 10000 });
+    await frame.locator(".cs-run-record > summary").click();
+    await frame.locator('.cs-run-event[data-kind="evidence"] summary').first().click();
+    await frame.locator(".cs-model-trace-lane summary").first().click();
+    await frame.waitForFunction(() => [...document.querySelectorAll(".cs-model-trace-hash code")]
+      .every(code => /^[0-9a-f]{64}$/.test(code.textContent)), null, { timeout: 5000 });
   }
   await frame.evaluate(() => new Promise(resolveFrame =>
     requestAnimationFrame(() => requestAnimationFrame(resolveFrame))));
