@@ -75,6 +75,7 @@ _PACKAGE_SCHEMAS: dict[tuple[str, str], str] = {
     ("alert-noise-readiness", "1.0.0"): "schemas/alert-noise-readiness/1.0.0.json",
     ("alert-noise-result", "0.0.0"): "schemas/alert-noise-result/0.0.0.json",
     ("alert-noise-result", "1.0.0"): "schemas/alert-noise-result/1.0.0.json",
+    ("alert-noise-result", "1.1.0"): "schemas/alert-noise-result/1.1.0.json",
     ("channel-attachment-admission", "0.0.0"): "schemas/channel-attachment-admission/0.0.0.json",
     ("channel-attachment-admission", "1.0.0"): "schemas/channel-attachment-admission/1.0.0.json",
     ("channel-attachment-receipt", "0.0.0"): "schemas/channel-attachment-receipt/0.0.0.json",

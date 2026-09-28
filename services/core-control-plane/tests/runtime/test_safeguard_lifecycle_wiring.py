@@ -7,7 +7,12 @@ from datetime import timedelta
 from typing import Any, cast
 
 import pytest
+from fdai.core.executor.direct_api import DirectApiShadowExecutor
 from fdai.core.executor.safeguards import SafeguardReceipt, evaluate_pre_dispatch
+from fdai.delivery.alert_noise_direct_api import (
+    AlertUnavailableDirectApiExecutionPort,
+    UnavailableAlertDirectApiExecutor,
+)
 from fdai.runtime.delivery import _build_direct_api_executor, _build_tool_executor
 from fdai.runtime.isolated_executor_client import (
     EventBusDirectApiExecutionClient,
@@ -21,6 +26,7 @@ from fdai.runtime.safeguard_isolated_executor import (
     SafeguardBoundEventBusDirectApiExecutionClient,
     _RemoteDirectApiLifecycleDispatchPort,
 )
+from fdai.shared.contracts.execution_outcomes import DirectApiExecutionOutcome
 from fdai.shared.contracts.models import ExecutionPath, SafeguardBoundExecutorCommand
 from fdai.shared.providers.testing.process_runtime import InMemoryProcessRuntimeStore
 from fdai.shared.providers.testing.state_store import InMemoryStateStore
@@ -142,6 +148,40 @@ async def test_runtime_direct_and_tool_constructors_bind_lifecycle(
     tool_result = await tool.execute(action=_tool_action(idempotency_key="tool-idem"))
     assert direct_result.safeguard_bundle_digest is not None
     assert tool_result.safeguard_bundle_digest is not None
+
+
+async def test_alert_direct_api_route_refuses_generic_fallback(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    for name in (
+        "FDAI_DIRECT_API_FAKE",
+        "FDAI_DEV_OPERATIONS_GATEWAY_URL",
+        "FDAI_DEV_OPERATIONS_GATEWAY_AUDIENCE",
+        "FDAI_HUMAN_ACCESS_ROLE_GROUPS_JSON",
+    ):
+        monkeypatch.delenv(name, raising=False)
+    audit = InMemoryStateStore()
+    lock = _build_resource_lock({"RUNTIME_ENV": "test"})
+    direct = AlertUnavailableDirectApiExecutionPort(
+        unavailable=DirectApiShadowExecutor(
+            executor=UnavailableAlertDirectApiExecutor(),
+            audit_store=audit,
+            resource_lock=lock,
+        ),
+        fallback=_build_direct_api_executor(audit_store=audit, resource_lock=lock),
+    )
+    action = _direct_action().model_copy(
+        update={
+            "action_type": "ops.update-alert-routing",
+            "citing_rules": ["ops.update-alert-routing"],
+            "params": {"plan_digest": "0" * 64},
+        }
+    )
+
+    result = await direct.execute(action=action)
+
+    assert result.outcome is DirectApiExecutionOutcome.ABSTAINED_PRECONDITION
+    assert result.reason == "alert provider mutation adapter is not configured"
 
 
 async def test_isolated_client_wrapper_sends_finalized_bundle() -> None:

@@ -13,7 +13,7 @@
       "reason": null,
       "result_recorded_at": "2026-09-14T10:02:00Z",
       "plan": {
-        "schema_version": "1.0.0",
+        "schema_version": "1.1.0",
         "action_type": "ops.update-alert-routing",
         "tenant_ref": "tenant:example",
         "scope_ref": "scope:example_team-1",
@@ -40,13 +40,13 @@
         "max_recovery_seconds": 300,
         "rollback_ref": "sha256:2c32c95d0e1718c0c63dbb4fc23a815bb016267365e2500184124b5587fabcfe",
         "evaluation_receipt_digest": null,
-        "execution_path": "pr_manual",
+        "execution_path": "direct_api",
         "default_mode": "shadow",
         "quorum_required": 2,
         "execution_authority": false
       },
       "detail": {
-        "plan_digest": "sha256:ae7df2653ee483e2edb9c50337ab9ab506f2f275d5e94ad7ff6bada31f11d09f",
+        "plan_digest": "sha256:dea64d3a5405183b4eaf8d91c63f182130babff92743f9f6f3e5d2585cc3064e",
         "baseline": {
           "rule": {
             "ref": "rule:example_1",

@@ -74,7 +74,7 @@ class AlertNoiseCommand(ContractBase):
 class AlertNoiseResult(ContractBase):
     """Exact command result consumed only by the matching Operator durable request."""
 
-    schema_version: Literal["1.0.0"] = "1.0.0"
+    schema_version: Literal["1.1.0"] = "1.1.0"
     producer: Literal["Forseti"] = "Forseti"
     command: AlertNoiseCommand
     command_digest: Digest

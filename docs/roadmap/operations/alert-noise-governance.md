@@ -173,18 +173,13 @@ membership alone grants none of these rights. Missing owner/backup coverage hold
 Every affected service needs an authorized owner decision; one approver can represent several
 services only with verified scope. Splitting a shared group into smaller requests cannot evade quorum.
 
-A single-maintainer exception applies only to the isolated dev provider-qualification prerequisite.
-It is eligible when the plan creates or updates only the dedicated pilot rule and Action Group,
-uses one direct test recipient controlled by that maintainer, contains no shared or automation
-receiver, targets `dev`, and preserves the source module's baseline, treatment, recovery, and
-cleanup guards. The maintainer may request and approve the exact current plan. A distinct managed
-deployment identity executes it, and an authenticated read-only principal distinct from that
-executor verifies effects. Baseline, treatment, recovery, and cleanup each require their own
-current exact-plan approval; the treatment approval also binds the fixed recovery envelope. This
-is per-plan current approval, not standing authority or advance approval of an unknown digest.
-The exception does not apply to an existing shared rule, production, suppression, routing changes,
-multiple recipients, standing authority, or ActionType and Workflow promotion. Any widening returns
-to the two-human shared-change quorum.
+The isolated dev provider-qualification prerequisite is outside this Var quorum. One operator uses
+Terraform locally to create or update only the dedicated pilot rule and Action Group, with one
+operator-controlled direct test recipient and no shared or automation receiver. The operator
+confirms each local baseline, treatment, recovery, and cleanup plan. Those confirmations and
+Terraform records are deployment controls only; they never become FDAI approval, execution
+authority, writer exclusion, effect evidence, or promotion evidence. Any shared or production
+alert change remains inside the normal two-human runtime quorum.
 
 Approval pins the plan digest, policy and workflow versions, target revisions, full dependency and
 audience snapshot, change window, expiry, and rollback envelope. A material change or revocation
@@ -197,28 +192,31 @@ revoked forward approval never becomes blanket recovery permission.
 
 ### Registered actions and current delivery limits
 
-The four `ActionType` declarations use `default_mode: shadow`, `pr_revert` and `execution_path: pr_manual`.
+The four `ActionType` declarations use `default_mode: shadow`, state-forward recovery and
+`execution_path: direct_api`.
 Their only argument is the retained forward plan's 64-character lowercase `plan_digest`, never caller-selected fields.
 Registration is not promotion: current Var quorum, risk, source fencing, safeguards and independent proofs gate dispatch.
-The runtime-support manifest records conditional Core execution, observation and recovery backed by focused tests, not operational readiness.
+The runtime-support manifest records no provider mutation binding. An alert-specific unavailable
+route prevents the generic direct-API fallback from receiving these actions, so every attempted
+provider mutation remains an audited hold until an explicit adapter is implemented and reviewed.
 T2 remains `shadow_only` under current policy.
 
 | Registered ActionType | Implemented bounded change | Delivery boundary |
 |---------------------|----------------|------------------|
-| `ops.update-alert-routing` | Replace one existing Action Group binding on one non-protected metric or scheduled-query rule | Exact existing Terraform JSON action list; no receiver rewrite, resource creation, or direct Azure fallback |
-| `ops.set-alert-notification-window` | Enable one existing inert suppression rule for one exact rule and a finite UTC interval | Exact existing Terraform JSON schedule; complete effective-rule, protected-path, and independent-collection evidence required |
-| `ops.tune-alert-evaluation` | Change one simple metric threshold, window, or frequency | Threshold uses same buckets; temporal replay requires uniform samples, paired recall/latency guards, and exact supported Terraform duration fields |
-| `ops.restore-alert-configuration` | Restore the retained plan's pinned baseline only when current bytes match its forward result | Separately current recovery authority through `pr_manual`; no overwrite of a newer revision |
+| `ops.update-alert-routing` | Replace one existing Action Group binding on one non-protected metric or scheduled-query rule | Provider-neutral plan only; no receiver rewrite, resource creation, or provider adapter |
+| `ops.set-alert-notification-window` | Enable one existing inert suppression rule for one exact rule and a finite UTC interval | Complete effective-rule, protected-path, independent-collection, absolute-expiry, and provider-readback evidence required |
+| `ops.tune-alert-evaluation` | Change one simple metric threshold, window, or frequency | Threshold uses same buckets; temporal replay requires uniform samples and paired recall/latency guards |
+| `ops.restore-alert-configuration` | Restore the retained plan's pinned baseline only when the provider revision still matches the forward result | Separately current recovery authority; no overwrite of a newer revision |
 
-`AlertPlanArtifactPreparer` reads an exact existing Terraform JSON file through the already bound
-GitOps adapter and retains its source/result digests and forward/rollback bytes. Group references
-must resolve to real observed Action Groups. A source read is not writer exclusion: the authority
-fence still requires independently admitted exclusion proof covering the repository and dependencies.
-No adapter creates a replacement group or falls back to a direct Azure write.
+The retained plan identifies the exact observed target, single treatment axis, dependencies,
+baseline, recovery envelope, and provider revision without naming a deployment tool. Group
+references must resolve to real observed Action Groups. Configuration ownership metadata can
+describe provenance, but it never grants execution authority. Independently admitted writer
+exclusion and provider revision checks remain required before any future adapter may dispatch.
 
 Resource creation, replacement, mixed notification/automation edits, subscription-wide suppression,
 unbounded recurring windows, and auto-approval are blocked. A new group or processing rule is a
-separately approved IaC prerequisite. Existing shared groups spanning the allowed impact boundary
+separate operator-local deployment prerequisite. Existing shared groups spanning the allowed impact boundary
 remain guidance-only until redesigned. Provider permissions never expand to make a proposal runnable.
 
 ## 6. Agent and persistence ownership
@@ -258,9 +256,9 @@ private. Local/deployed contracts and gates match, without local privileged iden
 service/browser executor. Deterministic assessment adds no live-model dependency.
 
 The opt-in runtime reuses the existing Workflow coordinator, Process store, Var approval path,
-promotion registry, safeguard lifecycle, and GitOps publisher. It retains the exact plan, workflow,
+promotion registry, and safeguard lifecycle. It retains the exact plan, workflow,
 target, mode, and correlation across resume; a shadow Process is not promoted by replay.
-`bind_alert_effect_runtime` connects Heimdall/Forseti callbacks and bounded retained-publication
+`bind_alert_effect_runtime` connects Heimdall/Forseti callbacks and bounded retained-dispatch
 reconciliation to canonical dispatch, closure, and outcome stores. Independent effect admission and
 separate Workflow outcome admission remain required; factory construction produces neither.
 See the [operator runbook](../../runbooks/alert-noise-governance.md) for configuration and prerequisites.
@@ -325,8 +323,8 @@ rule kinds hold. A receipt binds the replay method and latency guard; a same-buc
 admit a window change. These are detector scenarios, not provider delivery or promotion evidence.
 The admitted reader accepts exactly one comparison, threshold cohort, or temporal cohort bound to
 the evidence and treatment digests; replay uses the fixed independent verification time. Repeated
-reads never refresh validity. Terraform emits documented duration tokens including `PT1H` and `P1D`,
-not equivalent-looking values rejected by its provider schema.
+reads never refresh validity. A future provider adapter must render documented native duration
+values and reject equivalent-looking values that its provider schema does not support.
 Fired-only history cannot reveal missed incidents. Traffic/membership shifts remain confounders;
 missing acknowledgement never labels an alert unnecessary or proves a causal improvement.
 
@@ -373,18 +371,19 @@ implemented mechanics from the baseline checkpoint, remaining hardening, and ope
 | ANG-4: finite suppression | Protected/automation exclusion, effective-rule precedence, independent collection, propagation, expiry/time-zone behavior, and restart-safe recovery pass |
 | ANG-5: evaluation tuning and promotion | Native rule-kind semantics and held-out recall/latency gates pass; separately authorized provider tests and a timed pilot retain independent evidence before promotion |
 
-The dev-only provider-qualification prerequisite is a separate default-disabled Terraform module.
+The dev-only provider-qualification prerequisite is a separate default-disabled Terraform module
+used only by an operator as a local deployment tool.
 It observes only the existing FDAI Core Container App replica count and accepts one protected test
 email. It creates one dedicated Action Group and one severity-3 `Replicas` metric alert and cannot
 be combined with broad monitoring. It doesn't read application data, credentials, connection
 strings, or Key Vault content, and it doesn't change the Core app. Its baseline threshold is `0`;
 treatment changes only that threshold to `2`; recovery restores `0`; cleanup deletes the pair. A
 plan-scope verifier rejects any other resource or field change. This prerequisite does not bypass
-exact-plan review, the applicable approval contract, independent effect observation, or recovery
-verification, and it never promotes an ActionType or Workflow. A single maintainer can approve only
-the isolated dev shape defined in section 5. Before cleanup, an independent provider read must
-confirm that no other rule references the dedicated Action Group; missing or conflicting
-reverse-reference evidence holds deletion.
+local operator confirmation or independent effect and cleanup verification. Its Terraform plan,
+digest, and apply receipt are deployment records only. FDAI does not admit them as Var approval,
+runtime execution authority, writer exclusion, effect success, or promotion evidence. Before
+cleanup, an independent provider read must confirm that no other rule references the dedicated
+Action Group; missing or conflicting reverse-reference evidence holds deletion.
 
 The scale fixture covers at least 500 synthetic principals, 20 teams, overlapping direct/group/role
 bindings, and 10000 alert events, including skew toward one service. Versioned policy bounds pages,
@@ -408,7 +407,7 @@ provider conformance, or a passing executable test.
 | Count alerts and mute the busiest rule | Separate episodes, deliveries, and people; protect recall and response deadlines before optimizing volume. |
 | Suppress email while keeping another group on the same alert | Azure suppression removes all groups; preserve an independently unaffected collection and safety path or hold. |
 | Let one recipient approve a shared change | Cover every affected service, retain independent quorum, and never infer authority from Azure recipient roles. |
-| Require an unavailable second human for an isolated single-maintainer dev test | Permit one human to approve each current exact plan only for the dedicated dev rule, recipient, managed executor, read-only observer, recovery, and cleanup envelope; any shared impact restores quorum. |
+| Treat local Terraform confirmation as FDAI approval | Keep local pilot deployment under one operator's local confirmation, but admit none of its plan or apply records as Var approval, runtime authority, effect success, or promotion evidence. |
 | Accept readback or rollback as proof nobody missed an alert | Verify delivery and recovery independently; keep any missed interval as evidence that restoration cannot erase. |
 | Use a local lock or a later cleanup task | Require effective writer fencing and provider-enforced finite windows, including dependency and restart cases. |
 | Compare aggregate recall or maximum latency only | Keep paired case outcomes; one improved case cannot compensate for another lost or delayed positive. |

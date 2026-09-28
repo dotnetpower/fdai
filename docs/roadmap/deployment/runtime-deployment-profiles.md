@@ -283,11 +283,12 @@ endpoints, hub peering and private DNS rather than the AKS subnet prerequisite.
 Focused document recovery keeps the Foundation-owned operations Blob-zone link singular and writes
 the document endpoint A record into that zone. The application VNet retains its application-zone
 link, while the DFS zone links independently to both required VNets.
-The default-disabled dev alert-noise pilot remains a shared-platform prerequisite for either
-runtime choice. It pins the existing FDAI Core Container App as a read-only `Replicas` metric
+The default-disabled dev alert-noise pilot remains an operator-local deployment prerequisite for
+either runtime choice. It pins the existing FDAI Core Container App as a read-only `Replicas` metric
 scope and creates only one dedicated Action Group and one metric alert. It neither changes the Core
 app nor reads application data, credentials, connection strings, or Key Vault content. Runtime
-selection grants no pilot approval, notification authority, or promotion.
+selection grants no pilot approval, notification authority, or promotion. Its Terraform plan and
+apply receipt are local deployment records, not FDAI runtime authority or effect evidence.
 Kubernetes resources are applied only after independent Azure control-plane readback proves that
 the cluster reached `Succeeded`, API Server VNet Integration is active and the reviewed management
 path is reachable. Basic deployment initially keeps authenticated public API access so an external

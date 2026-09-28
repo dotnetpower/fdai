@@ -1,6 +1,6 @@
 ---
 translation_of: runtime-deployment-profiles.md
-translation_source_sha: 8be0b7fc3fb6ad77f7a4d7440999c2a091825d6a
+translation_source_sha: a0f57815ed6ae834dc771de0e385609f9969c16d
 translation_revised: 2026-09-28
 ---
 # 런타임 배포 프로파일
@@ -245,11 +245,11 @@ AKS를 선택하면 상세 비공개 네트워킹이 꺼져 있어도 애플리�
 집중 문서 복구는 Foundation 소유 운영 Blob 영역 링크를 하나로 유지하고 문서 엔드포인트 A
 레코드를 해당 영역에 씁니다. 애플리케이션 VNet은 애플리케이션 영역 링크를 유지하며 DFS 영역은
 필요한 두 VNet에 독립적으로 연결됩니다.
-기본적으로 비활성화되는 개발 환경 알림 과다 수신 파일럿은 어느 런타임을 선택하더라도 공유
-플랫폼 선행 조건으로 유지됩니다. 기존 FDAI Core Container App을 읽기 전용 `Replicas` 메트릭
-범위로 고정하고 전용 Action Group 하나와 메트릭 경보 하나만 만듭니다. Core 앱을 변경하지 않으며
+기본적으로 비활성화되는 개발 환경 알림 과다 수신 파일럿은 어느 런타임을 선택하더라도 운영자가
+로컬에서 수행하는 배포 선행 조건으로 유지됩니다. 기존 FDAI Core Container App을 읽기 전용 `Replicas` 메트릭 범위로 고정하고 전용 Action Group 하나와 메트릭 경보 하나만 만듭니다. Core 앱을 변경하지 않으며
 애플리케이션 데이터, 자격 증명, 연결 문자열 또는 Key Vault 내용을 읽지 않습니다. 런타임 선택은
-파일럿 승인, 알림 발송 권한 또는 승격을 부여하지 않습니다.
+파일럿 승인, 알림 발송 권한 또는 승격을 부여하지 않습니다. Terraform 계획과 적용 증적은 로컬
+배포 기록이며 FDAI 런타임 권한이나 효과 근거가 아닙니다.
 독립적인 Azure 컨트롤 플레인 확인에서 클러스터가 `Succeeded` 상태이고 API Server VNet
 Integration이 활성화되어 있으며 검토한 관리 경로로 접근할 수 있음을 증명한 뒤 Kubernetes
 리소스를 적용합니다. 기본 배포는 외부 조정기가 기본 구성을 완료할 수 있도록 인증된 공개 API

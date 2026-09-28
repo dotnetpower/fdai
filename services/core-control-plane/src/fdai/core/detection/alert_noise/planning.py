@@ -176,7 +176,5 @@ def _check_rule(rule: AlertRule) -> None:
         raise AlertPlanHeld("active_incident_dependency")
     if not rule.enabled:
         raise AlertPlanHeld("disabled_detector")
-    if not rule.iac_owned:
-        raise AlertPlanHeld("iac_ownership_missing")
     if not rule.ownership_verified:
         raise AlertPlanHeld("service_ownership_missing")

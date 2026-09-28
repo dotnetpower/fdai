@@ -21,7 +21,8 @@ def test_routing_plan_is_inert(evidence: AlertEvidence, now: datetime) -> None:
     plan = plan_alert_change(
         evidence, routing(), policy=NoisePolicy(), requester_ref="person:requester", now=now
     )
-    assert plan.execution_path == "pr_manual"
+    assert plan.execution_path == "direct_api"
+    assert plan.schema_version == "1.1.0"
     assert plan.default_mode == "shadow"
     assert plan.quorum_required == 2
     assert not plan.execution_authority
@@ -34,7 +35,6 @@ def test_routing_plan_is_inert(evidence: AlertEvidence, now: datetime) -> None:
         ("severity", 1, "protected_alert"),
         ("classification", "unknown", "protected_alert"),
         ("active_incident", True, "active_incident_dependency"),
-        ("iac_owned", False, "iac_ownership_missing"),
         ("ownership_verified", False, "service_ownership_missing"),
     ],
 )
@@ -57,6 +57,18 @@ def test_automation_and_missing_group_block(evidence: AlertEvidence, now: dateti
         plan_alert_change(
             evidence, routing(), policy=NoisePolicy(), requester_ref="person:requester", now=now
         )
+
+
+def test_iac_ownership_is_not_runtime_authority(evidence: AlertEvidence, now: datetime) -> None:
+    evidence = evidence.model_copy(
+        update={"rules": (evidence.rules[0].model_copy(update={"iac_owned": False}),)}
+    )
+
+    plan = plan_alert_change(
+        evidence, routing(), policy=NoisePolicy(), requester_ref="person:requester", now=now
+    )
+
+    assert plan.execution_path == "direct_api"
 
 
 def test_suppression_requires_finite_delayed_window(evidence: AlertEvidence, now: datetime) -> None:
