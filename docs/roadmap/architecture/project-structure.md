@@ -174,7 +174,7 @@ Cloud update comparison validates raw and processing identities; Core rechecks p
   Resilience execution lineage, and removes that exact extra identity when observation is
   disabled. The source builder stays in `runtime/observation_evidence.py`, leaving
   `runtime/bootstrap_core.py` as composition-only code. Core receives the seed through a Managed
-  Identity-backed Key Vault reference. The separate
+  Identity-backed Key Vault reference. Protected single-service deployment selects that exact deploy Managed Identity for Terraform and disables CLI and OIDC authentication, so no implicit or system identity can be used. The separate
   `fdai-operational-instance-certification` reads generation-fenced PostgreSQL aggregates and writes
   one private Blob receipt through a non-executor identity; all authority fields stay false.
 - **standing-authorization lifecycle has one writer**: authenticated Operator commands enter through
