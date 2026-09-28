@@ -1,7 +1,7 @@
 ---
 title: Recovery 및 chaos enforcement
 translation_of: recovery-and-chaos-enforcement.md
-translation_source_sha: ae06e660fd08fada104b1ef01c0db070e0c20d15
+translation_source_sha: d5288f3b37b290025748642407a1340e436ebdd6
 translation_revised: 2026-09-28
 ---
 # 복구 및 chaos 적용
@@ -44,10 +44,15 @@ translation_revised: 2026-09-28
 
 ### 남은 작업
 
+> **소유권:** 통제된 카오스 캠페인 이슈
+> [#94](https://github.com/dotnetpower/fdai/issues/94)는 어댑터 위임 기준을 충족한 상태로
+> 2026-09-28에 not planned로 닫혔습니다. 누락된 작업은 없습니다. 아래 모든 항목은 이 ledger가
+> 소유하며, 해당 이슈는 캠페인 일정이 잡힐 때만 다시 엽니다.
+
 - [ ] 분산 대상 잠금을 포함해 배포가 소유하는 `GovernedChaosBindings` 프로바이더를 보호된
   카탈로그 실행기용으로 제공하고, 바인딩이나 필요한 권한이 없을 때 적용 모드 시작을 거부하는지
   증명합니다.
-- [ ] [#94](https://github.com/dotnetpower/fdai/issues/94)의 요구에 따라 어댑터를 직접 호출하지
+- [ ] 어댑터를 직접 호출하지
   않도록 `runtime/delivery.py`에 `GovernedChaosExecutionAdapter`를 연결하고, 카탈로그 CLI 요청을
   Core 제안, 위험 게이트, Var 승인, Thor, `tool.run-chaos-experiment` 파이프라인으로 라우팅합니다.
 - [ ] 통제된 harness가 fault를 유지하는 *도중에* 예상 신호를 관찰해도 되는지 먼저 결정한 뒤,
@@ -58,10 +63,9 @@ translation_revised: 2026-09-28
   관찰합니다. 따라서 보고할 수 있는 간격은 유지 시간뿐입니다. 지연을 정직하게 측정하려면 유지 중
   관찰이 필요한데, 이는 fault 구간에 관찰 트래픽을 더하고 가드 루프와 상호작용하며 `detected`의
   의미를 바꾸므로 새 타임스탬프 필드가 아니라 소유자 설계가
-  필요합니다([#94](https://github.com/dotnetpower/fdai/issues/94)).
-- [ ] [#94](https://github.com/dotnetpower/fdai/issues/94)의 지시에 따라
-  `tool.run-chaos-experiment`, 시나리오, ActionType, Workflow를 승격하지 않고 등록된 일회용 대상
-  하나에서 한 번에 하나씩 shadow 전용 통제된 chaos 근거를 수집합니다.
+  필요합니다.
+- [ ] `tool.run-chaos-experiment`, 시나리오, ActionType, Workflow를 승격하지 않고 등록된 일회용
+  대상 하나에서 한 번에 하나씩 shadow 전용 통제된 chaos 근거를 수집합니다.
 - [ ] 승인된 영향 묶음, continuous 중지 가드, 독립 복구 검증 및 보존된 재실행 가능 증적으로
   고정 S1-S14 캠페인을 실행합니다.
 - [ ] 도메인 검증 또는 적용 모드 준비 상태를 주장하기 전에 복구 및 Chaos Engineering의
