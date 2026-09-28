@@ -647,6 +647,7 @@ async def build_core_runtime(
         registered_specs=(*container.startup_probe_specs, *semantic.readiness_specs),
         registered_probes=(*container.startup_probes, *semantic.readiness_probes),
         decision_evidence=container.decision_evidence_admission_provider,
+        ingest_topics=(container.config.kafka.topic_events,),
     )
     startup_report = await readiness.evaluate()
     _LOGGER.info(

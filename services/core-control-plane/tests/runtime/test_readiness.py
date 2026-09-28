@@ -720,3 +720,43 @@ async def test_guarded_operation_is_drained_when_the_supervisor_is_cancelled() -
         await guarded
 
     assert cleaned.is_set()
+
+
+@pytest.mark.parametrize(
+    "environment",
+    [
+        {"FDAI_STARTUP_KAFKA_PROBE_TOPIC": "fdai.change.events"},
+        {"FDAI_STARTUP_KAFKA_PROBE_TOPIC": " fdai.change.events "},
+    ],
+)
+def test_probe_topic_must_not_share_the_governed_ingest_topic(
+    environment: dict[str, str],
+) -> None:
+    with pytest.raises(ValueError, match="governed event ingest topic"):
+        build_startup_readiness_runtime(
+            state_store=InMemoryStateStore(),
+            event_bus=LocalEventBus(),
+            transition_event_bus=LocalEventBus(),
+            event_validator=_Validator(),  # type: ignore[arg-type]
+            identity=LocalWorkloadIdentity(),
+            embedding_model=_Embedding(),
+            policy_compile_probe=_policy_probe(),
+            environment=environment,
+            ingest_topics=("fdai.change.events",),
+        )
+
+
+def test_default_probe_topic_is_accepted_beside_the_ingest_topic() -> None:
+    runtime = build_startup_readiness_runtime(
+        state_store=InMemoryStateStore(),
+        event_bus=LocalEventBus(),
+        transition_event_bus=LocalEventBus(),
+        event_validator=_Validator(),  # type: ignore[arg-type]
+        identity=LocalWorkloadIdentity(),
+        embedding_model=_Embedding(),
+        policy_compile_probe=_policy_probe(),
+        environment={"FDAI_STARTUP_KAFKA_SETTLE_SECONDS": "0"},
+        ingest_topics=("fdai.change.events",),
+    )
+
+    assert runtime is not None
