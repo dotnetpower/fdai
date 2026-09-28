@@ -1,8 +1,8 @@
 ---
 title: 폐쇄망 배포
 translation_of: disconnected-deployment.md
-translation_source_sha: f796566654030331671f3e0110b1f01e7b3d2d5f
-translation_revised: 2026-09-27
+translation_source_sha: a5b97316afe4b44bbd05c3971072a424f374631e
+translation_revised: 2026-09-28
 ---
 # 폐쇄망 배포
 
@@ -297,6 +297,20 @@ CLI 및 platform 버전을 연결하며, symlink와 추가 파일을 거부하�
 프로바이더와 그 정확한 버전이 여기 있습니다. 서명은 문서가 변조되지 않았음을 증명하지만
 아무것도 기술하지 않는 문서를 알아채지는 못합니다. 그래서 훈련은 SBOM이 매니페스트가 나열한
 모든 파일을 설명하는지 단정합니다.
+
+#### 배포 제어 패키지
+
+배포 제어 코드를 수정할 때 전체 키트를 새로 만들 필요는 없습니다. 운영자는 `--offline-kit`과
+함께 `--control-package <signed-wheelhouse.tar.gz>`를 지정할 수 있습니다. 조정기는 패키지에
+고정된 릴리스 루트로 `SHA256SUMS`에 대한 분리형 Ed25519 서명, 목록과 정확히 일치하는 파일
+구성, 모든 파일 다이제스트, 고정된 `fdai-deployment-cli` wheel 하나를 검증합니다. 관리형
+호스트는 같은 아카이브를 받아 같은 SHA-256 다이제스트를 보고해야 하며, 새 환경에 이
+wheelhouse만 사용해 CLI를 설치합니다.
+
+런타임 이미지, Terraform 번들, 도구 모음, Console은 계속 검증된 키트가 제공합니다. 실행
+바인딩과 관리형 호스트 작업 디렉터리에는 제어 패키지 다이제스트가 포함되므로 패키지가 바뀌면
+새 준비 컨텍스트가 필요합니다. 배포 결과는 키트 소스 커밋과 함께 제어 패키지 다이제스트와
+버전을 보고합니다. 제어 패키지는 승인, 적용 또는 런타임 권한을 부여하지 않습니다.
 
 ### 5. 공용 egress 없이 룰 카탈로그 최신화
 

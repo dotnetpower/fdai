@@ -24,6 +24,7 @@ from fdai_deployment_cli.catalog_review_profile import (
 )
 from fdai_deployment_cli.console_config import configure_console
 from fdai_deployment_cli.contracts import canonical_digest
+from fdai_deployment_cli.control_package import ControlPackage
 from fdai_deployment_cli.deadline_transport import DeadlineTransport
 from fdai_deployment_cli.deployment_deadline import DeploymentDeadline
 from fdai_deployment_cli.deployment_kit import DeploymentKit, archive_verified_kit
@@ -57,6 +58,7 @@ def deploy_standalone_application(
     runtime_profile: RuntimeDeploymentProfile | None = None,
     application_state_adoption: ApplicationStateAdoption | None = None,
     catalog_review_profile: CatalogReviewDeploymentProfile | None = None,
+    control_package: ControlPackage | None = None,
 ) -> dict[str, object]:
     """Deploy and independently replan the application without a workflow host."""
 
@@ -92,14 +94,15 @@ def deploy_standalone_application(
     archive_digest = archive_verified_kit(kit, transport_archive)
     entra_path = prepared.root / "entra-bindings.json"
     _replace_private_json(entra_path, entra_bindings)
-    work_ref = canonical_digest(
-        {
-            "target_binding": prepared.target_binding,
-            "source_commit": prepared.source_commit,
-            "kit_manifest_digest": prepared.kit_manifest_digest,
-            "runtime_profile_digest": selected_runtime.digest,
-        }
-    )[:24]
+    work_binding: dict[str, object] = {
+        "target_binding": prepared.target_binding,
+        "source_commit": prepared.source_commit,
+        "kit_manifest_digest": prepared.kit_manifest_digest,
+        "runtime_profile_digest": selected_runtime.digest,
+    }
+    if control_package is not None:
+        work_binding["control_package_digest"] = control_package.archive_digest
+    work_ref = canonical_digest(work_binding)[:24]
     username = str(runner["admin_username"])
     if _SSH_USER.fullmatch(username) is None:
         raise ValueError("Foundation runner SSH username is invalid")
@@ -147,6 +150,7 @@ def deploy_standalone_application(
             catalog_review_profile=(
                 catalog_review_profile or CatalogReviewDeploymentProfile.unselected()
             ),
+            control_package=control_package,
         )
         if (
             isinstance(host_preparation, dict)

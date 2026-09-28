@@ -11,6 +11,7 @@ from typing import Any
 
 from fdai_deployment_cli.application_state_adoption import ApplicationStateAdoption
 from fdai_deployment_cli.catalog_review_profile import CatalogReviewDeploymentProfile
+from fdai_deployment_cli.control_package import ControlPackage
 from fdai_deployment_cli.deployment_deadline import DeploymentDeadline
 from fdai_deployment_cli.deployment_kit import DeploymentKit
 from fdai_deployment_cli.deployment_progress import begin_stage, terminal_output
@@ -33,6 +34,7 @@ def complete_application(
     current_operator_object_id: Callable[[], str],
     foundation_adoption_receipt_digest: str | None = None,
     catalog_review_profile: CatalogReviewDeploymentProfile | None = None,
+    control_package: ControlPackage | None = None,
 ) -> dict[str, object]:
     """Configure identity and complete one exact standalone application deployment."""
 
@@ -70,6 +72,7 @@ def complete_application(
         catalog_review_profile=(
             catalog_review_profile or CatalogReviewDeploymentProfile.unselected()
         ),
+        control_package=control_package,
     )
     deadline.remaining()
     result: dict[str, object] = {
@@ -92,6 +95,9 @@ def complete_application(
         "mutation_performed": True,
         "subscription_ready": False,
     }
+    if control_package is not None:
+        result["control_package_digest"] = control_package.archive_digest
+        result["control_package_version"] = control_package.version
     if foundation_adoption_receipt_digest is not None:
         result["foundation_adoption_receipt_digest"] = foundation_adoption_receipt_digest
     return result
