@@ -1,6 +1,6 @@
 ---
 translation_of: runtime-deployment-profiles.md
-translation_source_sha: 00487468c71bac1649817f0d8529efd28b480c5a
+translation_source_sha: c72ba599d3c2163064b2c9fccd4ee2177d495c8b
 translation_revised: 2026-09-28
 ---
 # 런타임 배포 프로파일
@@ -382,7 +382,7 @@ identity-bridge 호환성은 일반 `List` 허용을 다시 도입하지 않습�
 Worker ClamAV 정의, 정확한 identity bridge를 복원할 수 있습니다. 이 계약은 inventory 읽기 역할 생성,
 identity-bridge 상태 주소 이행, 기존 Job, Deployment, Service의 공급자 정규화만 허용합니다. 계획은
 모든 워크로드 이미지와 소스 버전, command federated identity, bridge script, ClamAV digest, 초기화,
-UID, GID, 쓰기 가능 volume, Pod group을 보존해야 합니다. 다른 주소나 계약 차이는 모두 거부합니다.
+UID, GID, 쓰기 가능 volume, Pod group을 보존해야 합니다. 다른 주소나 계약 차이는 모두 거부합니다. 같은 wrapper로 실행하는 예약 Job은 `identity_bridge_enabled`를 설정하며, 이 설정은 해당 ConfigMap을 `/opt/fdai-compat`에 읽기 전용으로 마운트합니다. 조정은 bridge를 쓰는 모든 Job에 이 플래그를 설정하고, bridge 계약 없이 플래그만 설정하면 사전 조건이 거부합니다.
 조정에는 별도 exact approval, 효과 재조회, 완전한 전체 범위 변경 없음 계획이 필요하며, 이 근거가
 있어야 과거 상태 채택을 다시 시도할 수 있습니다. 검증기는 공급자 관점에서 동일한 생략, null, 빈
 `sub_path`와 `sub_path_expr` 값만 정규화합니다. 비어 있지 않은 subpath는 계약 변경으로 계속 거부합니다.

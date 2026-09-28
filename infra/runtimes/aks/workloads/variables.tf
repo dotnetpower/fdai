@@ -189,20 +189,21 @@ variable "identity_bridge" {
 variable "scheduled_jobs" {
   description = "Runtime-neutral scheduled job specifications."
   type = map(object({
-    component            = string
-    image                = string
-    identity_resource_id = string
-    identity_client_id   = string
-    command              = list(string)
-    args                 = optional(list(string), [])
-    schedule             = string
-    suspend              = optional(bool, false)
-    deadline_seconds     = number
-    retry_limit          = number
-    cpu                  = string
-    memory               = string
-    environment          = map(string)
-    secret_environment   = optional(map(string), {})
+    component               = string
+    image                   = string
+    identity_resource_id    = string
+    identity_client_id      = string
+    command                 = list(string)
+    args                    = optional(list(string), [])
+    schedule                = string
+    suspend                 = optional(bool, false)
+    deadline_seconds        = number
+    retry_limit             = number
+    cpu                     = string
+    memory                  = string
+    environment             = map(string)
+    secret_environment      = optional(map(string), {})
+    identity_bridge_enabled = optional(bool, false)
   }))
   default = {}
 }

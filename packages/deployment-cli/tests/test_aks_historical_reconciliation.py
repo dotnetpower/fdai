@@ -449,3 +449,24 @@ def test_reconciliation_plan_accepts_only_legacy_normalization() -> None:
     ][2]["sub_path"] = "unexpected"
     with pytest.raises(ValueError, match="workload contract"):
         validate_reconciliation_plan(unsafe_subpath, variables=variables)
+
+
+def test_reconciled_variables_mount_the_bridge_for_bridged_scheduled_jobs() -> None:
+    original = _variables()
+    original["scheduled_jobs"] = {
+        "analyzer": {
+            "command": ["/app/.venv/bin/python"],
+            "args": ["/opt/fdai-compat/identity_bridge.py", "--", "python", "-m", "fdai.x"],
+        },
+        "catalog-review": {"command": ["python", "-m", "fdai.y"], "args": []},
+    }
+
+    result = reconciled_variables(state=_state(), variables=original, live=_live())
+
+    assert result["scheduled_jobs"]["analyzer"]["identity_bridge_enabled"] is True
+    assert "identity_bridge_enabled" not in result["scheduled_jobs"]["catalog-review"]
+    assert "identity_bridge_enabled" not in original["scheduled_jobs"]["analyzer"]
+
+    original["scheduled_jobs"]["analyzer"]["identity_bridge_enabled"] = False
+    with pytest.raises(ValueError, match="scheduled job identity bridge"):
+        reconciled_variables(state=_state(), variables=original, live=_live())
