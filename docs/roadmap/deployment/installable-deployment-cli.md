@@ -592,20 +592,7 @@ have distinct value-safe errors. Corrupt or partial retained content is preserve
 not silently replaced or accepted. Retry never deletes run state, SSH keys, plans, or approvals,
 never changes a signed source file, and never repeats an Azure effect from kit-cache evidence.
 
-### Deployment-control package
-
-A deployment-control repair does not require a new complete kit. With `--offline-kit`, the operator
-can add `--control-package <signed-wheelhouse.tar.gz>`. The coordinator verifies the detached
-Ed25519 signature over `SHA256SUMS` with the package-pinned release root, the exact listed file set,
-every file digest, and one pinned `fdai-deployment-cli` wheel. The managed host receives the same
-archive, must report the same SHA-256 digest, and installs the CLI into a fresh environment only
-from that wheelhouse.
-
-The verified kit still supplies every runtime image, the Terraform bundle, the toolchain, and the
-Console. The run binding and managed-host work directory include the control-package digest, so a
-changed package requires a new prepared context. The deployment result reports the control-package
-digest and version beside the kit source commit. The control package grants no approval, apply, or
-runtime authority.
+A control-only repair can reuse a verified kit through a [signed deployment-control package](disconnected-deployment.md#deployment-control-package).
 
 ## Capability token behavior
 
