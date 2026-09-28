@@ -607,7 +607,18 @@ def test_reference_sweep_passes_the_current_approval_claim() -> None:
     prepare = PREPARE_SCRIPT.read_text(encoding="utf-8")
     assert "helm show chart chaos-mesh/chaos-mesh" in prepare
     assert "az helm jq kubectl kubelogin python3 terraform" in prepare
-    assert "--public-fqdn" in prepare
+    # The lab API is public; Azure rejects --public-fqdn for a cluster that is not private.
+    assert "--public-fqdn" not in prepare
+    assert 'resource_group="$(jq -er \'.resource_group\' <<<"$terraform_output")"' in prepare
+    assert 'aks_cluster_name="$(jq -er \'.aks_cluster_name\' <<<"$terraform_output")"' in prepare
+    assert (
+        "az aks get-credentials \\\n"
+        '  --resource-group "$resource_group" \\\n'
+        '  --name "$aks_cluster_name" \\\n'
+        '  --file "$kubeconfig" \\\n'
+        "  --overwrite-existing \\\n"
+        "  --only-show-errors\n"
+    ) in prepare
     assert "--admin" not in prepare
     assert 'kubelogin convert-kubeconfig --kubeconfig "$kubeconfig" -l msi' in prepare
     assert "-l devicecode" not in prepare

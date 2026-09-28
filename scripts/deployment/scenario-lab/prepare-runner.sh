@@ -44,12 +44,13 @@ if [[ "$active_subscription" != "$subscription_id" ]]; then
   exit 1
 fi
 
+# The lab API server is public, so the default kubeconfig already targets its public FQDN. Azure
+# rejects the private-cluster public-FQDN credential option for a cluster that is not private.
 az aks get-credentials \
   --resource-group "$resource_group" \
   --name "$aks_cluster_name" \
   --file "$kubeconfig" \
   --overwrite-existing \
-  --public-fqdn \
   --only-show-errors
 export KUBECONFIG="$kubeconfig"
 kubelogin convert-kubeconfig --kubeconfig "$kubeconfig" -l msi
