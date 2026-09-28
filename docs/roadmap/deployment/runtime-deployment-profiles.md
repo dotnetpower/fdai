@@ -57,17 +57,13 @@ closed.
 `postgres-flex` until the in-cluster profile has independent zone-loss, backup, point-in-time
 recovery, and upgrade evidence.
 
-Runtime, database, environment, fork status, and package presence do not select product add-ons.
-The shared immutable profile contains only explicit selections and `authority_granted: false`.
-The default constructs no Graph, approval, promotion-to-enforce, rollback, or privileged executor
-binding. A selected but incomplete add-on fails closed. The full-authority development profile
-remains a separate optional authority input for an exact disposable scope and never inherits from
-this product axis. Azure observation requires only scoped `Reader`. Explicit source selection
-derives the minimum extra role: Azure Monitor, Log Analytics, Cost Management, AKS read-only
-(Cluster User plus RBAC Reader), or evidence-store `Storage Blob Data Reader`. No role can be
-selected directly or silently bundled. Missing source access reports unsupported. The base profile
-requires no Azure Policy assignment and uses Reader-visible resource metadata for policy evaluation;
-it grants no write, `User Access Administrator`, or Microsoft Graph permission.
+Runtime, database, environment, fork status, and package presence do not select product add-ons. The shared immutable profile contains only explicit selections and `authority_granted: false`.
+The default constructs no Graph, approval, promotion-to-enforce, rollback, or privileged executor binding. A selected but incomplete add-on fails closed: `read-only-console` and
+`governed-execution` require `enterprise-identity-governance`, and every runtime carries the compiled profile to its own workloads so composition never diverges from the selection.
+The full-authority development profile remains a separate optional authority input for an exact disposable scope and never inherits from this product axis.
+Azure observation requires only scoped `Reader`. Explicit source selection derives the minimum extra role: Azure Monitor, Log Analytics, Cost Management, AKS read-only
+(Cluster User plus RBAC Reader), or evidence-store `Storage Blob Data Reader`. No role can be selected directly or silently bundled. Missing source access reports unsupported.
+The base profile requires no Azure Policy assignment and uses Reader-visible resource metadata for policy evaluation; it grants no write, `User Access Administrator`, or Microsoft Graph permission.
 Issue #341 remains open for inventory/observation live evidence only; GitOps write evidence is optional.
 
 ## Operator contract

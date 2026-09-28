@@ -480,7 +480,10 @@ def deploy_standalone_application(
         ):
             raise ValueError("standalone application convergence is incomplete")
         console_receipt: dict[str, object] | None = None
-        if selected_runtime.product_profile.selects(ProductAddOn.READ_ONLY_CONSOLE):
+        if (
+            selected_runtime.product_profile.selects(ProductAddOn.READ_ONLY_CONSOLE)
+            and selected_runtime.runtime_platform.value == "aks"
+        ):
             if entra_bindings is None:
                 raise ValueError("read-only Console requires enterprise identity bindings")
             browser_console = _mapping(

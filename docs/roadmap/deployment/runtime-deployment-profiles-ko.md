@@ -1,7 +1,7 @@
 ---
 translation_of: runtime-deployment-profiles.md
-translation_source_sha: 5eb95bf197c34de5ec573375b3b3d44fe898ecac
-translation_revised: 2026-09-27
+translation_source_sha: d3c3136a8ca0eb51f39864548c78ff59d704de94
+translation_revised: 2026-09-28
 ---
 # 런타임 배포 프로파일
 
@@ -48,7 +48,7 @@ facade로 import를 모아도 AKS 관측, Cost Governance 활성화, 배포 권�
 `postgres-flex`를 사용합니다.
 
 런타임, 데이터베이스, 환경, 포크 상태 및 패키지 존재 여부는 제품 추가 기능을 선택하지 않습니다. 공유 불변 프로필은 명시적 선택과 `authority_granted: false`만 포함합니다.
-기본값은 Graph, 승인, enforce 승격, 롤백 또는 권한 있는 실행기 바인딩을 조립하지 않으며, 선택했지만 불완전한 추가 기능은 안전하게 차단됩니다.
+기본값은 Graph, 승인, enforce 승격, 롤백 또는 권한 있는 실행기 바인딩을 조립하지 않으며, 선택했지만 불완전한 추가 기능은 안전하게 차단됩니다. `read-only-console`과 `governed-execution`은 `enterprise-identity-governance`를 요구하고, 모든 런타임은 컴파일된 프로필을 자신의 워크로드까지 전달하므로 조립이 선택과 어긋나지 않습니다.
 Azure 관찰의 필수 역할은 범위가 제한된 `Reader` 하나뿐입니다. Azure Monitor, Log Analytics, Cost Management, AKS 또는 근거 저장소 출처를 명시적으로 선택하면 각 출처의 최소 읽기 역할을 파생합니다.
 역할을 직접 선택하거나 묶어서 부여할 수 없으며 접근이 없으면 지원되지 않음으로 보고합니다. 기본 프로필은 Azure Policy 할당을 요구하지 않고 `Reader`로 볼 수 있는 리소스 메타데이터만 평가하며
 쓰기, `User Access Administrator` 또는 Microsoft Graph 권한을 부여하지 않습니다. 이슈 #341은 인벤토리/관찰 실제 근거에만 열어 두며 GitOps 쓰기 근거는 선택 사항입니다.

@@ -1,8 +1,8 @@
 ---
 title: 보안과 아이덴티티
 translation_of: security-and-identity.md
-translation_source_sha: 1157105e188b2fc0f7126d9bb8887003919ba331
-translation_revised: 2026-09-27
+translation_source_sha: 65c6dc83133e5bbc6ba6c71825d95f724cbe34b6
+translation_revised: 2026-09-28
 ---
 
 # 보안과 아이덴티티
@@ -136,7 +136,7 @@ ChatOps에 로그인하는 사람, 존재하는 Entra 그룹, 콘솔이 GitHub A
 HIL 채널 또는 관리 리소스 쓰기 역할이 없습니다. Azure 관찰 신원은 범위가 제한된 `Reader`를
 사용하며 배포는 구성된 읽기 출처에만 `Monitoring Reader`, `Log Analytics Reader`, `Cost
 Management Reader`, `AKS read-only`(Cluster User와 RBAC Reader) 또는 `Storage Blob Data
-Reader`를 파생합니다. 역할을 직접 선택하거나 묶을 수 없습니다. 기본값은 Azure Policy 할당을
+Reader`를 파생합니다. 역할을 직접 선택하거나 묶을 수 없습니다. Console과 governed-execution 추가 기능은 엔터프라이즈 아이덴티티 거버넌스를 요구하므로, 신원 전제 조건 없이 사람을 인증하는 표면은 없습니다. 기본값은 Azure Policy 할당을
 요구하지 않고 `Reader`로 볼 수 있는 리소스 메타데이터를 평가하며, 더 많은 접근이 필요한
 출처는 지원되지 않음으로 보고합니다. `Contributor`, `User Access Administrator`, Graph
 애플리케이션 권한 및 모든 쓰기 역할은 기본 프로필 밖에 있습니다.

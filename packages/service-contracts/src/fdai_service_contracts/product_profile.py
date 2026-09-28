@@ -5,7 +5,7 @@ from __future__ import annotations
 from enum import StrEnum
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 
 class ProductAddOn(StrEnum):
@@ -106,6 +106,22 @@ class ProductProfile(BaseModel):
         if value != tuple(sorted(value, key=str)):
             raise ValueError("product add-ons must use canonical order")
         return value
+
+    @model_validator(mode="after")
+    def _require_identity_prerequisite(self) -> ProductProfile:
+        """Block a selected surface whose authenticated identity prerequisite is absent."""
+
+        if ProductAddOn.ENTERPRISE_IDENTITY_GOVERNANCE in self.add_ons:
+            return self
+        if ProductAddOn.READ_ONLY_CONSOLE in self.add_ons:
+            raise ValueError(
+                "read-only Console currently requires explicit enterprise identity governance"
+            )
+        if ProductAddOn.GOVERNED_EXECUTION in self.add_ons:
+            raise ValueError(
+                "governed execution currently requires explicit enterprise identity governance"
+            )
+        return self
 
     def selects(self, add_on: ProductAddOn) -> bool:
         """Return whether one optional surface was explicitly selected."""

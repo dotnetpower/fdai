@@ -43,21 +43,6 @@ class RuntimeDeploymentProfile:
     product_profile: ProductProfile = field(default_factory=ProductProfile)
 
     def __post_init__(self) -> None:
-        selected = set(self.product_profile.add_ons)
-        if (
-            ProductAddOn.READ_ONLY_CONSOLE in selected
-            and ProductAddOn.ENTERPRISE_IDENTITY_GOVERNANCE not in selected
-        ):
-            raise ValueError(
-                "read-only Console currently requires explicit enterprise identity governance"
-            )
-        if (
-            ProductAddOn.GOVERNED_EXECUTION in selected
-            and ProductAddOn.ENTERPRISE_IDENTITY_GOVERNANCE not in selected
-        ):
-            raise ValueError(
-                "governed execution currently requires explicit enterprise identity governance"
-            )
         if self.runtime_platform is RuntimePlatform.CONTAINER_APPS:
             if self.database_placement is not DatabasePlacement.POSTGRES_FLEX:
                 raise ValueError("Container Apps requires postgres-flex")

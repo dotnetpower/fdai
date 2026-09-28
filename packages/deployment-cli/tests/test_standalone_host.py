@@ -1751,7 +1751,12 @@ def test_prepare_aks_application_requires_core_semantic_environment(
         "tenant_id": "tenant",
         "subscription_id": "subscription",
     }
-    application = {"enable_llm": True, "region": "westus2", "env": "dev"}
+    application = {
+        "enable_llm": True,
+        "region": "westus2",
+        "env": "dev",
+        "product_profile_json": '{"schema_version":"fdai.product-profile.v1"}',
+    }
     identities = {
         name: {"resource_id": f"/identities/{name}", "client_id": f"{name}-client"}
         for name in (

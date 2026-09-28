@@ -19,7 +19,11 @@ from pathlib import Path
 from typing import Any, Final
 from urllib.parse import urlencode
 
-from fdai_service_contracts.product_profile import ObservationDataSource, ProductAddOn
+from fdai_service_contracts.product_profile import (
+    ObservationDataSource,
+    ProductAddOn,
+    ProductProfile,
+)
 
 from fdai_deployment_cli import (
     catalog_review_profile,
@@ -852,7 +856,15 @@ def _prepare_aks_application(_args: argparse.Namespace, work_dir: Path) -> dict[
     application_values = _private_json(
         work_dir / "application.auto.tfvars.json", "application variables"
     )
-    console_origin = _console_origin(str(substrate_outputs["console_hostname"]))
+    console_selected = _selects_add_on(context, ProductAddOn.READ_ONLY_CONSOLE)
+    enterprise_identity_selected = _selects_add_on(
+        context, ProductAddOn.ENTERPRISE_IDENTITY_GOVERNANCE
+    )
+    operator_api_selected = console_selected or enterprise_identity_selected
+    governed_execution_selected = _selects_add_on(context, ProductAddOn.GOVERNED_EXECUTION)
+    console_origin = (
+        _console_origin(str(substrate_outputs["console_hostname"])) if console_selected else ""
+    )
     backend_nsg_id = _subnet_network_security_group(
         str(substrate_outputs["aks_subnet_id"]),
         context=context,
@@ -894,6 +906,7 @@ def _prepare_aks_application(_args: argparse.Namespace, work_dir: Path) -> dict[
         "FDAI_OPERATING_MODEL_TOPIC": substrate_outputs["operating_model_topic"],
         "FDAI_AUXILIARY_KAFKA_BOOTSTRAP_SERVERS": substrate_outputs["operational_kafka"],
         "FDAI_ISOLATED_EXECUTOR_AUTHORITY_CUTOVER": "1",
+        "FDAI_PRODUCT_PROFILE_JSON": str(application_values["product_profile_json"]),
     }
     core_environment.update(
         _aks_core_conversation_environment(
@@ -902,35 +915,37 @@ def _prepare_aks_application(_args: argparse.Namespace, work_dir: Path) -> dict[
             semantic_topics=semantic_topics,
         )
     )
-    operator_environment = {
-        "AZURE_CLIENT_ID": operator_identity["client_id"],
-        "FDAI_COMMAND_MI_CLIENT_ID": command_identity["client_id"],
-        "FDAI_ENTRA_TENANT_ID": context["tenant_id"],
-        "FDAI_API_AUDIENCE": application_values["operator_api_audience"],
-        "FDAI_RBAC_READERS_GROUP_ID": application_values["rbac_readers_group_id"],
-        "FDAI_RBAC_CONTRIBUTORS_GROUP_ID": application_values["rbac_contributors_group_id"],
-        "FDAI_RBAC_APPROVERS_GROUP_ID": application_values["rbac_approvers_group_id"],
-        "FDAI_RBAC_OWNERS_GROUP_ID": application_values["rbac_owners_group_id"],
-        "FDAI_RBAC_BREAK_GLASS_GROUP_ID": application_values["rbac_break_glass_group_id"],
-        "FDAI_STEWARDSHIP_REQUIRE_BINDINGS": "1",
-        "FDAI_MAINTAINERS": application_values["stewardship_maintainers"],
-        "FDAI_KAFKA_BOOTSTRAP_SERVERS": core_environment["KAFKA_BOOTSTRAP_SERVERS"],
-        "KAFKA_TOPIC_EVENTS": core_environment["KAFKA_TOPIC_EVENTS"],
-        "FDAI_SEMANTIC_TURN_REQUEST_TOPIC": str(semantic_topics[0]),
-        "FDAI_SEMANTIC_TURN_PROJECTION_TOPIC": str(semantic_topics[1]),
-        "FDAI_SEMANTIC_TURN_PHYSICAL_TOPIC": substrate_outputs["semantic_physical"],
-        "FDAI_READ_INVESTIGATION_REQUEST_TOPIC": str(semantic_topics[2]),
-        "FDAI_OPERATOR_API_CORS_ALLOW_ORIGINS": console_origin,
-    }
-    operator_environment.update(
-        {
-            f"FDAI_STEWARD_{name.upper()}": binding
-            for name, binding in _mapping(
-                application_values["stewardship_agent_bindings"],
-                "stewardship bindings",
-            ).items()
+    operator_environment: dict[str, object] = {}
+    if operator_api_selected:
+        operator_environment = {
+            "AZURE_CLIENT_ID": operator_identity["client_id"],
+            "FDAI_COMMAND_MI_CLIENT_ID": command_identity["client_id"],
+            "FDAI_ENTRA_TENANT_ID": context["tenant_id"],
+            "FDAI_API_AUDIENCE": application_values["operator_api_audience"],
+            "FDAI_RBAC_READERS_GROUP_ID": application_values["rbac_readers_group_id"],
+            "FDAI_RBAC_CONTRIBUTORS_GROUP_ID": application_values["rbac_contributors_group_id"],
+            "FDAI_RBAC_APPROVERS_GROUP_ID": application_values["rbac_approvers_group_id"],
+            "FDAI_RBAC_OWNERS_GROUP_ID": application_values["rbac_owners_group_id"],
+            "FDAI_RBAC_BREAK_GLASS_GROUP_ID": application_values["rbac_break_glass_group_id"],
+            "FDAI_STEWARDSHIP_REQUIRE_BINDINGS": "1",
+            "FDAI_MAINTAINERS": application_values["stewardship_maintainers"],
+            "FDAI_KAFKA_BOOTSTRAP_SERVERS": core_environment["KAFKA_BOOTSTRAP_SERVERS"],
+            "KAFKA_TOPIC_EVENTS": core_environment["KAFKA_TOPIC_EVENTS"],
+            "FDAI_SEMANTIC_TURN_REQUEST_TOPIC": str(semantic_topics[0]),
+            "FDAI_SEMANTIC_TURN_PROJECTION_TOPIC": str(semantic_topics[1]),
+            "FDAI_SEMANTIC_TURN_PHYSICAL_TOPIC": substrate_outputs["semantic_physical"],
+            "FDAI_READ_INVESTIGATION_REQUEST_TOPIC": str(semantic_topics[2]),
+            "FDAI_OPERATOR_API_CORS_ALLOW_ORIGINS": console_origin,
         }
-    )
+        operator_environment.update(
+            {
+                f"FDAI_STEWARD_{name.upper()}": binding
+                for name, binding in _mapping(
+                    application_values["stewardship_agent_bindings"],
+                    "stewardship bindings",
+                ).items()
+            }
+        )
     dsn_secret = {
         "APPLICATIONINSIGHTS_CONNECTION_STRING": str(
             substrate_outputs["application_insights_secret_name"]
@@ -942,7 +957,9 @@ def _prepare_aks_application(_args: argparse.Namespace, work_dir: Path) -> dict[
         "core-control-plane": _aks_workload(
             "core", refs, core_identity, core_environment, dsn_secret, "/ready", "/live"
         ),
-        "operator-service": _aks_workload(
+    }
+    if operator_api_selected:
+        workloads["operator-service"] = _aks_workload(
             "operator",
             refs,
             operator_identity,
@@ -956,8 +973,9 @@ def _prepare_aks_application(_args: argparse.Namespace, work_dir: Path) -> dict[
             external=True,
             service_port=80,
             additional_identities={"command": command_identity},
-        ),
-        "isolated-executor": _aks_workload(
+        )
+    if governed_execution_selected:
+        workloads["isolated-executor"] = _aks_workload(
             "executor",
             refs,
             executor_identity,
@@ -980,23 +998,25 @@ def _prepare_aks_application(_args: argparse.Namespace, work_dir: Path) -> dict[
             },
             "/ready",
             "/live",
-        ),
-    }
-    workloads.update(
-        _aks_document_workloads(
-            refs=refs,
-            ingestion_identity=ingestion_identity,
-            worker_identity=ingestion_worker_identity,
-            application_values=application_values,
-            kafka=str(substrate_outputs["kafka"]),
-            postgres_fqdn=str(substrate_outputs["postgres_fqdn"]),
-            document_store=_mapping(
-                substrate_outputs["document_store"], "document storage binding"
-            ),
-            document_topics=_mapping(substrate_outputs["document_topics"], "document event topics"),
-            console_origin=console_origin,
         )
-    )
+    if console_selected:
+        workloads.update(
+            _aks_document_workloads(
+                refs=refs,
+                ingestion_identity=ingestion_identity,
+                worker_identity=ingestion_worker_identity,
+                application_values=application_values,
+                kafka=str(substrate_outputs["kafka"]),
+                postgres_fqdn=str(substrate_outputs["postgres_fqdn"]),
+                document_store=_mapping(
+                    substrate_outputs["document_store"], "document storage binding"
+                ),
+                document_topics=_mapping(
+                    substrate_outputs["document_topics"], "document event topics"
+                ),
+                console_origin=console_origin,
+            )
+        )
     for workload in workloads.values():
         workload["source_commit"] = context["source_commit"]
     job_preparation = _prepare_aks_scheduled_jobs(
@@ -3348,7 +3368,10 @@ def _verify(_args: argparse.Namespace, work_dir: Path) -> dict[str, object]:
     if not health:
         raise ValueError("standalone application runtime health is incomplete")
     browser_console = (
-        _browser_console_binding(context, work_dir) if _runtime_platform(context) == "aks" else None
+        _browser_console_binding(context, work_dir)
+        if _runtime_platform(context) == "aks"
+        and _selects_add_on(context, ProductAddOn.READ_ONLY_CONSOLE)
+        else None
     )
     receipt: dict[str, object] = {
         "schema_version": "fdai.standalone-application-verification.v1",
@@ -3509,6 +3532,25 @@ def _runtime_platform(context: dict[str, object]) -> str:
     if platform not in {"container-apps", "aks"}:
         raise ValueError("runtime deployment platform is invalid")
     return str(platform)
+
+
+def _context_product_profile(context: dict[str, object]) -> ProductProfile:
+    """Return the immutable product profile recorded with the selected runtime profile."""
+
+    value = context.get("runtime_profile")
+    if value is None:
+        return ProductProfile()
+    profile = _mapping(value, "runtime deployment profile")
+    product = profile.get("product_profile")
+    if product is None:
+        return ProductProfile()
+    return ProductProfile.model_validate(_mapping(product, "product profile"))
+
+
+def _selects_add_on(context: dict[str, object], add_on: ProductAddOn) -> bool:
+    """Report whether the recorded product profile explicitly selected one add-on."""
+
+    return _context_product_profile(context).selects(add_on)
 
 
 def _prepare_aks_kubeconfig(

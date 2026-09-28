@@ -9,7 +9,11 @@ from fdai_service_contracts.product_profile import ProductAddOn, ProductProfile
 
 
 def _profile(*add_ons: ProductAddOn) -> ProductProfile:
-    return ProductProfile(add_ons=tuple(sorted(add_ons, key=str)))
+    selected = set(add_ons)
+    dependents = {ProductAddOn.READ_ONLY_CONSOLE, ProductAddOn.GOVERNED_EXECUTION}
+    if selected & dependents:
+        selected.add(ProductAddOn.ENTERPRISE_IDENTITY_GOVERNANCE)
+    return ProductProfile(add_ons=tuple(sorted(selected, key=str)))
 
 
 def test_bootstrap_plan_preserves_disabled_consumer_defaults() -> None:
