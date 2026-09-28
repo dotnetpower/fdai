@@ -37,6 +37,34 @@ describe("buildTrajectoryPresentation", () => {
     expect(view).toContain('return t("deck.trajectory.coverageGap")');
   });
 
+  it("follows a server-pinned shape only while the observations agree", () => {
+    const read = {
+      activityId: "read-1", kind: "query", status: "completed" as const, label: "Read", completed: 1, total: 1,
+      execution: { tool: "inventory.read", command: "inventory.read", inputKind: "query" as const, redacted: true as const },
+    };
+    const compact = { schema_version: 1 as const, density: "compact" as const, waves: 1, planned_reads: 1 };
+    const procedural = { schema_version: 1 as const, density: "procedural" as const, waves: 2, planned_reads: 2 };
+
+    expect(workProgressPresentation(trajectory({}, { activities: [read], workProgressShape: compact })))
+      .toBe("compact");
+    expect(workProgressPresentation(trajectory({}, {
+      activities: [read, { ...read, activityId: "read-2" }], workProgressShape: compact,
+    }))).toBe("timeline");
+    expect(workProgressPresentation(trajectory({}, { activities: [read], workProgressShape: procedural })))
+      .toBe("timeline");
+    // A compact pin keeps a running query compact but never overrides a failed or command read.
+    expect(workProgressPresentation(trajectory({}, {
+      activities: [{ ...read, status: "running" as const }], workProgressShape: compact,
+    }))).toBe("compact");
+    expect(workProgressPresentation(trajectory({}, {
+      activities: [{ ...read, status: "failed" as const }], workProgressShape: compact,
+    }))).toBe("timeline");
+    expect(workProgressPresentation(trajectory({}, {
+      activities: [{ ...read, execution: { ...read.execution, inputKind: "command" as const } }], workProgressShape: compact,
+    }))).toBe("timeline");
+    expect(workProgressPresentation(trajectory({}, { workProgressShape: procedural }))).toBe("none");
+  });
+
   it("selects the smallest sufficient work-progress presentation", () => {
     expect(workProgressPresentation(trajectory({}))).toBe("none");
 

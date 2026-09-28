@@ -87,11 +87,21 @@ export function workProgressPresentation(
   if (observedCount === 0 && trajectory.milestones.length === 0) return "none";
 
   const activity = trajectory.activities[0];
-  const compactRead = observedCount === 1 &&
+  const singleQuery = observedCount === 1 &&
     trajectory.milestones.length === 0 &&
-    activity?.status === "completed" &&
-    activity.execution?.inputKind === "query";
-  return compactRead ? "compact" : "timeline";
+    activity?.execution?.inputKind === "query";
+  // A server-pinned shape holds only while the observations agree with it. A procedural pin always
+  // shows the timeline. A compact pin keeps one query read compact while it is still pending or
+  // running, so the density doesn't flip on completion; a failed, unavailable, or command read, a
+  // second read, or any milestone falls back to the timeline.
+  const shape = trajectory.workProgressShape;
+  if (shape) {
+    if (shape.density === "procedural") return "timeline";
+    return singleQuery && activity?.status !== "failed" && activity?.status !== "unavailable"
+      ? "compact"
+      : "timeline";
+  }
+  return singleQuery && activity?.status === "completed" ? "compact" : "timeline";
 }
 
 function collaborationState(trajectory: ConversationTrajectory): TrajectoryPhaseState {

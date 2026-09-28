@@ -1,12 +1,22 @@
-// Command deck sources - scripted source-streaming study for mocks/ui/deck-sources.html.
-// Synthetic data only. The replay performs no network request, model call, or state change.
+// Command deck conversation studies: the one-shot source-streaming study (deck-sources.html) and
+// the adaptive investigation study (deck-adaptive.html), which replays fixtures/adaptive/*.json.
+// Synthetic data only. The replay performs no model call, provider read, or state change; the
+// adaptive study only fetches its local fixture files.
 (function () {
   "use strict";
 
   var DAY = "2026-09-28";
-  var ROUTE = "Live cockpit";
-  var QUESTION = "example-postgres keeps getting flagged. Why, and can you fix it automatically?";
-  var CONVERSATION_TITLE = "Why is example-postgres flagged?";
+  var STUDY = document.body.getAttribute("data-study") === "adaptive" ? "adaptive" : "sources";
+  var ADAPTIVE = STUDY === "adaptive";
+  var ROUTE = ADAPTIVE ? "Inventory" : "Live cockpit";
+  var QUESTION = ADAPTIVE
+    ? "Compare the configuration in example-inventory.md with the live example-rg-app resource group."
+    : "example-postgres keeps getting flagged. Why, and can you fix it automatically?";
+  var CONVERSATION_TITLE = ADAPTIVE ? "Configuration comparison" : "Why is example-postgres flagged?";
+  var INTRO_LEAD = ADAPTIVE
+    ? "Bragi plans typed reads, runs them in waves, and answers from what it observed. This preview replays one scripted investigation."
+    : "Bragi answers from read-only sources and cites each claim. This preview replays one scripted question.";
+  var INVESTIGATIONS = ["no-drift", "drift", "partial", "conflict", "denied", "clarify", "stale", "budget"];
   var CHECK = "\u2713";
   var CANCELLED = { cancelled: true };
   var TIMING = { readiness: 320, stage: 300, source: 110, paragraph: 70, verify: 320, step: 200, collapse: 240 };
@@ -349,7 +359,8 @@
     regenerate: ["M13 8a5 5 0 1 1-1.46-3.54", "M13 2.5V5h-2.5"],
     review: ["M8 2.2l4.8 1.8v3.6c0 3-2 5.2-4.8 6.2-2.8-1-4.8-3.2-4.8-6.2V4z", "M5.8 8.1l1.6 1.6 2.9-3"],
     chevron: ["M5 6.5l3 3 3-3"],
-    check: ["M3.5 8.4l2.9 2.9 6.1-6.6"]
+    check: ["M3.5 8.4l2.9 2.9 6.1-6.6"],
+    file: ["M4 2.5h5l3 3v8H4z", "M9 2.5v3h3"]
   };
 
   function h(tag, props, children) {
@@ -601,6 +612,7 @@
 
   // Deterministic synthetic schedule; a replayed turn maps it onto the phase times it observed.
   function buildTrajectory(record) {
+    if (record.fixture) return fixtureTrajectory(record);
     var spec = record.spec;
     var question = spec.question || QUESTION;
     var start = (38463 + record.offset) * 1000 + 160;
@@ -711,7 +723,8 @@
     }));
   }
 
-  var PAYLOAD_LANGUAGE = { "IQL or typed query": "query", "Executed command": "shell" };
+  var PAYLOAD_LANGUAGE = { "IQL or typed query": "query", "Executed command": "shell", "Typed call": "query",
+    "Provider equivalent": "shell" };
 
   function payload(label, value) {
     return h("section", { class: "cs-run-payload" }, [
@@ -944,7 +957,8 @@
   }
 
   function phaseStrip(trajectory, spec) {
-    var evidence = toolKeys(spec).some(function (key) { return TOOLS[key].status; }) ? "degraded" : "completed";
+    var evidence = trajectory.evidenceState ||
+      (toolKeys(spec).some(function (key) { return TOOLS[key].status; }) ? "degraded" : "completed");
     var states = { input: "completed", plan: "completed", collaboration: "not_observed", evidence: evidence,
       verification: trajectory.verification, answer: "completed" };
     return h("ol", { class: "cs-run-phase-strip", "aria-label": "Question-to-answer trajectory phases" }, PHASES.map(function (phase) {
@@ -1104,10 +1118,16 @@
     }), name.nextSibling);
   }
 
-  function userTurn(text, offsetSeconds) {
+  // An attached document shows as a chip inside the question it came with.
+  function userTurn(text, offsetSeconds, attachment) {
     var time = stamp(offsetSeconds);
     return h("article", { class: "cs-deck-turn cs-deck-user-turn", "data-turn": "user" }, [
       h("div", { class: "cs-deck-user-bubble" }, [
+        attachment ? h("p", { class: "cs-deck-user-attachment" }, spaced([
+          icon("file"),
+          h("span", { class: "cs-deck-user-attachment-name", text: attachment.name }),
+          h("span", { class: "cs-deck-user-attachment-meta", text: attachment.lines + " lines" })
+        ])) : null,
         h("p", { class: "cs-deck-user-line", text: text }),
         h("div", { class: "cs-deck-user-time" }, [
           h("time", { class: "cs-deck-turn-time", datetime: time.iso, text: time.short })
@@ -1132,7 +1152,7 @@
         skeleton(), skeleton(), skeleton()
       ]);
     }
-    var unavailable = SCENARIOS[mode].unavailableSources;
+    var unavailable = (SCENARIOS[mode] || SCENARIOS.grounded).unavailableSources;
     var items = READINESS.map(function (source) {
       var down = unavailable.indexOf(source.key) >= 0;
       return h("li", null, [h("a", {
@@ -1160,11 +1180,18 @@
   }
 
   // ---------- State ----------
-  var ANSWER_STATE = { partial: "Partial", corrected: "Corrected", stopped: "Stopped" };
+  var ANSWER_STATE = { partial: "Partial", corrected: "Corrected", stopped: "Stopped", unverified: "Unverified" };
   var params = new URLSearchParams(window.location.search);
+
+  function initialScenario() {
+    var requested = params.get("scenario");
+    if (ADAPTIVE) return INVESTIGATIONS.indexOf(requested) >= 0 ? requested : "no-drift";
+    return SCENARIOS[requested] ? requested : "grounded";
+  }
+
   var reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
   var state = {
-    scenario: SCENARIOS[params.get("scenario")] ? params.get("scenario") : "grounded",
+    scenario: initialScenario(),
     speed: 1,
     width: params.get("width") === "dock" ? "dock" : "full",
     token: 0,
@@ -1738,6 +1765,7 @@
   }
 
   async function playConversation(options) {
+    if (ADAPTIVE) return playInvestigationConversation(options);
     resetConversation();
     var spec = SCENARIOS[state.scenario];
     var ctx = newContext(options.instant);
@@ -1825,12 +1853,15 @@
     setAnswerState(article, null);
     article.querySelectorAll(".cs-deck-head-time").forEach(function (node) { node.remove(); });
     var ctx = newContext(false);
+    var fixture = record.fixture;
     state.stuck = false;
     beginTurn(record.spec, article, article.id, record.offset, ctx, true);
+    if (fixture) records[article.id].fixture = fixture;
     input.focus({ preventScroll: true });
     article.scrollIntoView({ block: "nearest", behavior: state.reduced ? "auto" : "smooth" });
     try {
-      await runAgentTurn(record.spec, ctx, article, article.id, record.offset);
+      if (fixture) await runInvestigationTurn(fixture, ctx, article, article.id, record.offset);
+      else await runAgentTurn(record.spec, ctx, article, article.id, record.offset);
       settleTurn(record.spec, ctx, true);
     } catch (error) {
       ignoreCancel(error);
@@ -1854,6 +1885,7 @@
     article.querySelectorAll(".cs-deck-collapse, .cs-grounding-panel, .cs-deck-answer-skeleton, .ds-pending-row, .cs-deck-caret").forEach(function (node) {
       node.remove();
     });
+    stopInvestigation(article);
     var answer = article.querySelector(".cs-deck-answer");
     if (!answer) {
       answer = h("div", { class: "cs-deck-answer" }, [h("div", { class: "cs-deck-prose" })]);
@@ -1893,7 +1925,7 @@
     titleNode.textContent = "New conversation";
     turns.appendChild(h("section", { class: "ds-intro" + (state.reduced ? "" : " cs-deck-enter"), "aria-labelledby": "ds-intro-title" }, [
       h("h3", { class: "ds-intro-title", id: "ds-intro-title", text: "Ask about " + ROUTE }),
-      h("p", { class: "ds-intro-lead", text: "Bragi answers from read-only sources and cites each claim. This preview replays one scripted question." }),
+      h("p", { class: "ds-intro-lead", text: INTRO_LEAD }),
       h("button", { type: "button", class: "ds-intro-card", "data-action": "suggest" }, spaced([
         h("span", { class: "ds-intro-card-label", text: "Suggested for this screen" }),
         h("span", { class: "ds-intro-card-text", text: QUESTION })
@@ -2085,7 +2117,7 @@
       finish("Copy is unavailable in this preview");
       return;
     }
-    navigator.clipboard.writeText(plainAnswer(record.spec)).then(function () {
+    navigator.clipboard.writeText(record.fixture ? plainInvestigation(record.fixture) : plainAnswer(record.spec)).then(function () {
       finish("Copied");
     }, function () {
       finish("Copy is unavailable in this preview");
@@ -2117,6 +2149,674 @@
   function resizeInput() {
     input.style.height = "auto";
     input.style.height = Math.min(input.scrollHeight + 2, 120) + "px";
+  }
+
+  // ---------- Adaptive investigation: a procedural answer built from typed read waves ----------
+  // The study reads the synthetic trajectories in fixtures/adaptive/, the same files the Console's
+  // contract tests parse. Density comes from the typed trajectory, never from answer prose.
+  var fixtureCache = {};
+  var PLAIN_SPEC = { sources: [] };
+  var FRESHNESS_TEXT = { fresh: "Current", stale: "Stale", superseded: "Superseded" };
+  var AUTHORIZATION_TEXT = { allowed: "Allowed", denied: "Denied", unavailable: "Unavailable" };
+  var TONE_STATE = { verified: "completed", attention: "degraded", failure: "unverified", pending: "not_observed" };
+  var INVESTIGATION_ANSWER_STATE = { partial: "partial", unverified: "unverified" };
+  var REPLAY_MS = { minimum: 320, maximum: 1300, scale: 1.6, deadline: 1200 };
+
+  function loadFixture(name) {
+    if (!fixtureCache[name]) {
+      fixtureCache[name] = fetch("fixtures/adaptive/" + name + ".json", { cache: "no-cache" }).then(function (response) {
+        if (!response.ok) throw new Error("Fixture " + name + " returned " + response.status);
+        return response.json();
+      });
+      fixtureCache[name].catch(function () { delete fixtureCache[name]; });
+    }
+    return fixtureCache[name];
+  }
+
+  function investigationSpec(fixture) {
+    var verification = fixture.answer.verification;
+    return {
+      question: fixture.question,
+      sources: [],
+      stages: [],
+      answer: [],
+      followups: [],
+      verification: verification,
+      announce: "Investigation answered. " + verification.label + ": " + verification.detail + "."
+    };
+  }
+
+  function activityPresentation(fixture, activity) {
+    return fixture.presentation[activity.activity_id] || { operation: activity.authority || "read", authorization: "allowed" };
+  }
+
+  function activityKind(activity) {
+    if (!activity.execution) return "Comparison";
+    var prefix = activity.execution.tool.split(".")[0];
+    return prefix.charAt(0).toUpperCase() + prefix.slice(1);
+  }
+
+  function activityOutcome(activity, presentation) {
+    if (presentation.authorization === "denied") return { status: "denied", text: "Denied" };
+    if (activity.status === "completed") return { status: "completed", text: formatMs(activity.execution ? activity.execution.duration_ms : 40) };
+    if (activity.status === "failed") return { status: "failed", text: activity.execution && activity.execution.duration_ms >= 5000 ? "Timed out" : "Failed" };
+    return { status: "unavailable", text: "Not read" };
+  }
+
+  // Reads replay a little slower than they ran so parallel lanes stay legible.
+  function replayMs(activity) {
+    if (activity.status === "unavailable" && (!activity.execution || activity.execution.duration_ms === 0)) return REPLAY_MS.deadline;
+    var ms = activity.execution ? activity.execution.duration_ms : 200;
+    return Math.max(REPLAY_MS.minimum, Math.min(REPLAY_MS.maximum, ms * REPLAY_MS.scale));
+  }
+
+  function planLead(fixture) {
+    return h("p", { class: "cs-deck-plan-lead" }, spaced([
+      h("span", { class: "cs-deck-plan-label", text: "Plan" }),
+      h("span", { text: fixture.plan.summary })
+    ]));
+  }
+
+  // An applied preference is a receipt: context for presentation, never evidence or instructions.
+  function contextReceipt(receipts) {
+    if (!receipts || !receipts.length) return null;
+    var current = receipts.filter(function (receipt) { return receipt.freshness === "fresh"; });
+    return h("details", { class: "cs-deck-context-receipt" }, [
+      h("summary", { class: "cs-deck-context-receipt-summary" }, spaced([
+        h("span", { class: "cs-deck-context-receipt-label", text: "Context applied" }),
+        h("span", { class: "cs-deck-context-receipt-value", text: current.length
+          ? current.map(function (receipt) { return receipt.label; }).join(", ")
+          : "No current preference" }),
+        h("span", { class: "cs-run-chevron", "aria-hidden": "true" })
+      ])),
+      h("div", { class: "cs-deck-context-receipt-body" }, [
+        h("p", { class: "cs-deck-context-receipt-note", text: "Context only: it shapes the presentation and is not evidence or instructions." }),
+        h("ul", { class: "cs-deck-context-receipt-list" }, receipts.map(function (receipt) {
+          return h("li", { "data-freshness": receipt.freshness }, spaced([
+            h("strong", { text: receipt.label }),
+            h("span", { class: "cs-deck-context-receipt-freshness", text: FRESHNESS_TEXT[receipt.freshness] }),
+            h("span", { text: "Observed " + clockLabel(receipt.observed_at) }),
+            h("code", { text: receipt.digest.slice(0, 12) })
+          ]));
+        }))
+      ])
+    ]);
+  }
+
+  function seconds(ms) {
+    return (ms / 1000).toFixed(1).replace(/\.0$/, "") + " s";
+  }
+
+  function thousands(count) {
+    return (count / 1000).toFixed(1).replace(/\.0$/, "") + "k";
+  }
+
+  // Policy limits show while the turn runs; the server's used-of-maximum telemetry replaces them
+  // once the turn ends, so the header never implies a live meter the contract does not stream.
+  function limitsText(budget, settled) {
+    var limits = budget || { model_calls: { maximum: 5 }, tokens: { maximum: 48000 }, elapsed_ms: { maximum: 60000 } };
+    if (!settled || !budget) {
+      return "Limits: " + limits.model_calls.maximum + " model calls, " + thousands(limits.tokens.maximum) + " tokens, " +
+        seconds(limits.elapsed_ms.maximum);
+    }
+    var used = budget.model_calls.used + " of " + budget.model_calls.maximum + " model calls, " +
+      thousands(budget.tokens.used) + " of " + thousands(budget.tokens.maximum) + " tokens, " +
+      seconds(budget.elapsed_ms.used) + " of " + seconds(budget.elapsed_ms.maximum);
+    return budget.exhaustion_reason === "deadline" ? "Turn deadline reached: " + used : "Used: " + used;
+  }
+
+  function waveItem(title, label, turnId, index) {
+    var bodyId = turnId + "-wave-" + index;
+    var mark = h("span", { class: "cs-deck-wave-mark", "aria-hidden": "true", text: title === "Compare" ? "=" : String(index) });
+    var meta = h("span", { class: "cs-deck-wave-meta", text: "Queued" });
+    var head = h("button", {
+      type: "button",
+      class: "cs-deck-wave-head",
+      "aria-expanded": "false",
+      "aria-controls": bodyId,
+      "data-action": "wave-toggle"
+    }, spaced([
+      mark,
+      h("span", { class: "cs-deck-wave-title", text: title }),
+      h("span", { class: "cs-deck-wave-label", text: label }),
+      meta,
+      h("span", { class: "cs-run-chevron", "aria-hidden": "true" })
+    ]));
+    var activities = h("ol", { class: "cs-deck-activities" });
+    var body = h("div", { class: "cs-deck-wave-body", id: bodyId, hidden: true }, [activities]);
+    var node = h("li", { class: "cs-deck-wave", "data-state": "pending" }, [head, body]);
+    return { node: node, head: head, mark: mark, meta: meta, activities: activities, body: body, items: [] };
+  }
+
+  function setWaveState(wave, value, text) {
+    wave.node.setAttribute("data-state", value);
+    wave.meta.textContent = text;
+    if (value === "running") {
+      wave.mark.textContent = "";
+      wave.mark.appendChild(h("span", { class: "cs-grounding-spinner" }));
+    } else if (value !== "pending") {
+      wave.mark.textContent = value === "done" ? CHECK : "!";
+    }
+  }
+
+  // A new fold or unfold cancels the one in flight and starts from the current height, so a quick
+  // second click never leaves the body hidden under an expanded header.
+  var waveMotion = new WeakMap();
+
+  function showWave(wave, expanded, animate) {
+    var body = wave.body;
+    var from = body.hidden ? 0 : body.getBoundingClientRect().height;
+    var running = waveMotion.get(body);
+    if (running) running.cancel();
+    wave.head.setAttribute("aria-expanded", expanded ? "true" : "false");
+    body.style.overflow = "";
+    if (!animate || state.reduced || typeof body.animate !== "function" || (!expanded && body.hidden)) {
+      body.hidden = !expanded;
+      return;
+    }
+    body.hidden = false;
+    var to = expanded ? body.getBoundingClientRect().height : 0;
+    body.style.overflow = "hidden";
+    var motion = body.animate([{ height: from + "px", opacity: expanded ? 0.4 : 1 }, { height: to + "px", opacity: expanded ? 1 : 0.4 }],
+      { duration: 220, easing: "cubic-bezier(.2, .7, .2, 1)" });
+    waveMotion.set(body, motion);
+    motion.finished.then(function () {
+      waveMotion.delete(body);
+      body.style.overflow = "";
+      if (!expanded) body.hidden = true;
+    }, function () {});
+  }
+
+  function activityItem(fixture, activity) {
+    var presentation = activityPresentation(fixture, activity);
+    var mark = h("span", { class: "cs-deck-activity-mark", "aria-hidden": "true" });
+    var status = h("span", { class: "cs-deck-activity-status" });
+    var body = h("div", { class: "cs-deck-activity-detail" }, [
+      h("p", { class: "cs-deck-activity-note", text: "Details appear when this read ends." })
+    ]);
+    var node = h("li", { class: "cs-deck-activity", "data-status": "pending" }, [h("details", null, [
+      h("summary", { class: "cs-deck-activity-summary" }, spaced([
+        mark,
+        h("span", { class: "cs-deck-activity-label", text: activity.label }),
+        h("span", { class: "cs-deck-activity-kind", text: activityKind(activity) }),
+        status,
+        h("span", { class: "cs-run-chevron", "aria-hidden": "true" })
+      ])),
+      body
+    ])]);
+    return { node: node, mark: mark, status: status, body: body, activity: activity, presentation: presentation };
+  }
+
+  function setActivityRunning(item) {
+    item.node.setAttribute("data-status", "running");
+    item.mark.textContent = "";
+    item.mark.appendChild(h("span", { class: "cs-grounding-spinner" }));
+    item.status.textContent = "Running";
+  }
+
+  // Details render once the read ends, so a running card never shows an output early.
+  function finishActivity(item, animate) {
+    var outcome = activityOutcome(item.activity, item.presentation);
+    item.node.setAttribute("data-status", outcome.status);
+    item.mark.textContent = outcome.status === "completed" ? CHECK : "!";
+    if (animate) item.mark.classList.add("cs-deck-pop");
+    item.status.textContent = outcome.text;
+    fillActivityDetail(item);
+    return outcome;
+  }
+
+  function fillActivityDetail(item) {
+    var activity = item.activity;
+    var presentation = item.presentation;
+    var execution = activity.execution;
+    var target = execution && execution.target;
+    item.body.textContent = "";
+    if (activity.detail) item.body.appendChild(h("p", { class: "cs-deck-activity-note", text: activity.detail }));
+    var facts = [["Operation", presentation.operation || activity.authority || "read"],
+      ["Authorization", AUTHORIZATION_TEXT[presentation.authorization] || "Allowed"],
+      ["Evidence authority", presentation.evidence_authority || "none"],
+      ["Execution authority", "None"]];
+    if (target) facts.push(["Target", [target.service, target.component, target.operation].join(" / ")]);
+    if (execution) facts.push(["Tool", execution.tool]);
+    item.body.appendChild(factList(facts));
+    if (!execution) return;
+    item.body.appendChild(payload("Typed call", execution.command));
+    if (presentation.provider) item.body.appendChild(payload("Provider equivalent", presentation.provider));
+    if (execution.output) item.body.appendChild(payload("Observed output", execution.output));
+  }
+
+  function milestoneItem(milestone, animate) {
+    return h("li", { class: "cs-deck-milestone" + (animate ? " cs-deck-enter" : "") }, spaced([
+      h("span", { class: "cs-deck-milestone-label", text: "Progress" }),
+      h("span", { class: "cs-deck-milestone-text", text: milestone.text }),
+      h("time", { class: "cs-deck-milestone-time", datetime: milestone.recorded_at, text: clockLabel(milestone.recorded_at) })
+    ]));
+  }
+
+  function investigationFrame(fixture, turnId) {
+    var detail = fixture.trajectory_detail;
+    var waves = fixture.plan.waves.map(function (wave, index) {
+      var entry = waveItem("Wave " + (index + 1), wave.label, turnId, index + 1);
+      entry.activityData = detail.activities.filter(function (activity) {
+        return activity.branch_id && wave.branch_ids.indexOf(activity.branch_id) >= 0;
+      });
+      return entry;
+    });
+    var reductions = detail.activities.filter(function (activity) { return !activity.branch_id; });
+    if (reductions.length) {
+      var subject = reductions[0].label.replace(/^Compare\s+/i, "");
+      var compare = waveItem("Compare", subject.charAt(0).toUpperCase() + subject.slice(1), turnId, waves.length + 1);
+      compare.activityData = reductions;
+      compare.compare = true;
+      waves.push(compare);
+    }
+    var status = h("span", { class: "cs-deck-investigation-status", text: "Planned: " + fixture.plan.waves.length + " waves" });
+    var limits = h("span", { class: "cs-deck-investigation-limits", text: limitsText(detail.turn_budget, false) });
+    var list = h("ol", { class: "cs-deck-waves" }, waves.map(function (wave) { return wave.node; }));
+    var block = h("section", { class: "cs-deck-investigation", "aria-label": "Investigation" }, [
+      h("header", { class: "cs-deck-investigation-head" }, spaced([
+        h("span", { class: "cs-deck-investigation-title", text: "Investigation" }),
+        status,
+        limits
+      ])),
+      list
+    ]);
+    return { block: block, status: status, limits: limits, list: list, waves: waves };
+  }
+
+  function waveSummary(wave, outcomes) {
+    var done = outcomes.filter(function (outcome) { return outcome.status === "completed"; }).length;
+    var total = outcomes.length;
+    if (wave.compare) return done === total ? "Completed" : "Not completed";
+    if (done === total) return total + (total === 1 ? " read completed" : " reads completed");
+    return done + " of " + total + " completed";
+  }
+
+  async function playWaves(parts, fixture, ctx) {
+    var milestones = fixture.trajectory_detail.milestones.slice();
+    var planned = fixture.plan.waves.length;
+    for (var index = 0; index < parts.waves.length; index += 1) {
+      var wave = parts.waves[index];
+      parts.status.textContent = wave.compare ? "Comparing results" : "Wave " + (index + 1) + " of " + planned;
+      wave.items = wave.activityData.map(function (activity) { return activityItem(fixture, activity); });
+      wave.items.forEach(function (item) {
+        wave.activities.appendChild(item.node);
+        setActivityRunning(item);
+      });
+      setWaveState(wave, "running", wave.items.length > 1 ? wave.items.length + " reads in parallel" : "Running");
+      showWave(wave, true, true);
+      followScroll();
+      var outcomes = await Promise.all(wave.items.map(function (item) {
+        return pause(replayMs(item.activity), ctx).then(function () {
+          var outcome = finishActivity(item, !ctx.reduced);
+          followScroll();
+          return outcome;
+        });
+      }));
+      var trouble = outcomes.some(function (outcome) { return outcome.status !== "completed"; });
+      setWaveState(wave, trouble ? "attention" : "done", waveSummary(wave, outcomes));
+      await pause(180, ctx);
+      showWave(wave, false, true);
+      var milestone = wave.compare ? null : milestones.shift();
+      if (milestone) {
+        parts.list.insertBefore(milestoneItem(milestone, !ctx.reduced), wave.node.nextSibling);
+        followScroll();
+        await pause(260, ctx);
+      }
+    }
+    milestones.forEach(function (milestone) { parts.list.appendChild(milestoneItem(milestone, !ctx.reduced)); });
+    settleInvestigationHead(parts, fixture);
+  }
+
+  function settleWaves(parts, fixture) {
+    var milestones = fixture.trajectory_detail.milestones.slice();
+    parts.waves.forEach(function (wave) {
+      wave.items = wave.activityData.map(function (activity) { return activityItem(fixture, activity); });
+      var outcomes = wave.items.map(function (item) {
+        wave.activities.appendChild(item.node);
+        return finishActivity(item, false);
+      });
+      var trouble = outcomes.some(function (outcome) { return outcome.status !== "completed"; });
+      setWaveState(wave, trouble ? "attention" : "done", waveSummary(wave, outcomes));
+      var milestone = wave.compare ? null : milestones.shift();
+      if (milestone) parts.list.insertBefore(milestoneItem(milestone, false), wave.node.nextSibling);
+    });
+    milestones.forEach(function (milestone) { parts.list.appendChild(milestoneItem(milestone, false)); });
+    settleInvestigationHead(parts, fixture);
+  }
+
+  function settleInvestigationHead(parts, fixture) {
+    var detail = fixture.trajectory_detail;
+    var reads = detail.activities.filter(function (activity) { return activity.execution; });
+    var completed = reads.filter(function (activity) { return activity.status === "completed"; }).length;
+    parts.status.textContent = fixture.plan.waves.length + (fixture.plan.waves.length === 1 ? " wave, " : " waves, ") +
+      completed + " of " + reads.length + " reads completed";
+    parts.block.setAttribute("data-settled", "");
+  }
+
+  function answerBlocks(fixture, turnId, animate) {
+    var answer = fixture.answer;
+    var blocks = [];
+    if (answer.facts.length) {
+      blocks.push(h("dl", { class: "cs-deck-answer-facts" }, answer.facts.map(function (pair) {
+        return h("div", null, [h("dt", { text: pair[0] }), h("dd", { text: pair[1] })]);
+      })));
+    }
+    if (answer.checks.length) {
+      blocks.push(h("ul", { class: "cs-deck-answer-checks" }, answer.checks.map(function (text) { return h("li", { text: text }); })));
+    }
+    answer.limitations.forEach(function (text) {
+      blocks.push(noteElement({ tone: answer.state === "unverified" ? "conflict" : "attention", label: "Limit", text: text },
+        PLAIN_SPEC, turnId, false));
+    });
+    if (answer.note) blocks.push(h("p", { class: "cs-deck-answer-note", text: answer.note }));
+    if (answer.next_step) {
+      blocks.push(h("p", { class: "cs-deck-answer-next" }, [h("strong", { text: "Next safe step: " }), answer.next_step]));
+    }
+    if (animate) blocks.forEach(function (block, order) {
+      block.classList.add("cs-deck-enter");
+      if (order) block.setAttribute("data-enter", String(Math.min(order, 3)));
+    });
+    return blocks;
+  }
+
+  async function streamInvestigationAnswer(fixture, ctx, answer, turnId) {
+    if (ctx.instant) return;
+    setDeckState("answering");
+    var prose = answer.querySelector(".cs-deck-prose");
+    var lead = h("p");
+    prose.appendChild(lead);
+    await streamParagraph(lead, fixture.answer.lead, PLAIN_SPEC, ctx, turnId, null);
+    var blocks = answerBlocks(fixture, turnId, !ctx.reduced);
+    for (var index = 0; index < blocks.length; index += 1) {
+      prose.appendChild(blocks[index]);
+      followScroll();
+      await pause(TIMING.paragraph * 2, ctx);
+    }
+  }
+
+  function investigationActionRow(fixture) {
+    var verification = fixture.answer.verification;
+    var children = [
+      h("span", { class: "cs-deck-verification is-" + verification.tone }, spaced([
+        h("span", { class: "cs-deck-verification-mark", "aria-hidden": "true", text: verification.mark }),
+        h("span", { text: verification.label }),
+        h("span", { class: "cs-deck-verification-detail", text: verification.detail })
+      ]))
+    ];
+    fixture.affordances.forEach(function (affordance) {
+      if (affordance.kind !== "draft_remediation") return;
+      children.push(h("button", { type: "button", class: "cs-deck-affordance", "data-action": "draft-remediation",
+        "data-tip": "Starts a separate request that rechecks scope and policy", text: affordance.label }));
+    });
+    children.push(h("span", { class: "cs-deck-tools" }, [
+      h("button", { type: "button", class: "cs-deck-tool cs-deck-tool-icon", "aria-label": "Copy reply", "data-tip": "Copy reply", "data-action": "copy" }, [icon("copy")]),
+      h("button", { type: "button", class: "cs-deck-tool cs-deck-tool-icon", "aria-label": "Regenerate", "data-tip": "Ask this question again", "data-action": "regenerate" }, [icon("regenerate")]),
+      h("a", { class: "cs-deck-tool cs-deck-tool-icon", href: "conversation-assurance.html", "aria-label": "Review answer quality", "data-tip": "Review answer quality" }, [icon("review")])
+    ]));
+    return h("div", { class: "cs-deck-action-row" }, children);
+  }
+
+  function previewFollowups(texts) {
+    return h("ul", { class: "cs-deck-followups", "aria-label": "Suggested follow-ups" }, texts.map(function (text) {
+      return h("li", null, [h("button", { type: "button", class: "cs-deck-followup", "data-followup-text": text, "aria-disabled": "false", text: text })]);
+    }));
+  }
+
+  function finalizeInvestigation(fixture, article, answer, turnId, offset, pendingRow, animate) {
+    // The budget is end-of-turn telemetry, so it replaces the policy limits only once the answer settles.
+    var limits = article.querySelector(".cs-deck-investigation-limits");
+    if (limits) limits.textContent = limitsText(fixture.trajectory_detail.turn_budget, true);
+    var prose = answer.querySelector(".cs-deck-prose");
+    prose.textContent = "";
+    prose.appendChild(h("p", { text: fixture.answer.lead }));
+    answerBlocks(fixture, turnId, false).forEach(function (block) { prose.appendChild(block); });
+    setAnswerState(article, INVESTIGATION_ANSWER_STATE[fixture.answer.state] || null, animate);
+    var row = investigationActionRow(fixture);
+    if (pendingRow && pendingRow.parentNode === article) pendingRow.replaceWith(row);
+    else article.appendChild(row);
+    var arriving = [row, article.appendChild(runRecord(records[turnId]))];
+    if (fixture.followups.length) arriving.push(article.appendChild(previewFollowups(fixture.followups)));
+    setTurnTime(article, offset + 6, animate);
+    if (!animate) return;
+    arriving.forEach(function (node, order) {
+      node.classList.add("cs-deck-enter");
+      if (order) node.setAttribute("data-enter", String(Math.min(order, 3)));
+    });
+  }
+
+  async function runInvestigationTurn(fixture, ctx, article, turnId, offset) {
+    var record = records[turnId];
+    var started = performance.now();
+    var parts = investigationFrame(fixture, turnId);
+    article.appendChild(planLead(fixture));
+    var receipt = contextReceipt(fixture.trajectory_detail.context_receipts);
+    if (receipt) article.appendChild(receipt);
+    if (!ctx.instant && !ctx.reduced) parts.block.classList.add("cs-deck-enter");
+    article.appendChild(parts.block);
+    followScroll();
+    if (ctx.instant) settleWaves(parts, fixture);
+    else await playWaves(parts, fixture, ctx);
+    var prepared = performance.now() - started;
+    var answer = createAnswer(ctx, article);
+    await streamInvestigationAnswer(fixture, ctx, answer, turnId);
+    var streamed = performance.now() - started;
+    var pendingRow = await verifyAnswer(ctx, article);
+    if (!ctx.instant) record.observed = { prepared: prepared, streamed: streamed, total: performance.now() - started };
+    finalizeInvestigation(fixture, article, answer, turnId, offset, pendingRow, !ctx.instant && !ctx.reduced);
+  }
+
+  async function playInvestigationConversation(options) {
+    resetConversation();
+    var ctx = newContext(options.instant);
+    var name = state.scenario;
+    titleNode.textContent = CONVERSATION_TITLE;
+    readiness.textContent = "";
+    readiness.appendChild(readinessStrip(ctx.instant ? "grounded" : "loading"));
+    var fixture;
+    try {
+      fixture = await loadFixture(name);
+    } catch (error) {
+      if (ctx.token !== state.token) return;
+      turns.appendChild(h("p", { class: "ds-composer-note", role: "status", text: "The " + name + " fixture could not be loaded." }));
+      readiness.textContent = "";
+      readiness.appendChild(readinessStrip("grounded"));
+      setDeckState("settled");
+      return;
+    }
+    if (ctx.token !== state.token) return;
+    if (workspace.getAttribute("data-open") === "false") {
+      ctx = newContext(true);
+      options = { instant: true, announce: false, scrollTop: options.scrollTop };
+      readiness.textContent = "";
+      readiness.appendChild(readinessStrip("grounded"));
+    }
+    turns.appendChild(userTurn(fixture.question, 0, fixture.attachment));
+    var turnId = nextTurnId();
+    var article = agentArticle(turnId);
+    turns.appendChild(article);
+    state.stuck = !options.scrollTop;
+    var spec = investigationSpec(fixture);
+    beginTurn(spec, article, turnId, 0, ctx, options.announce);
+    records[turnId].fixture = fixture;
+    try {
+      if (!ctx.instant) {
+        pause(TIMING.readiness, ctx).then(function () {
+          readiness.textContent = "";
+          readiness.appendChild(readinessStrip("grounded", !ctx.reduced));
+        }, ignoreCancel);
+      }
+      await runInvestigationTurn(fixture, ctx, article, turnId, 0);
+      settleTurn(spec, ctx, options.announce);
+      if (options.scrollTop) {
+        moveScroll(0);
+        updateJump();
+      }
+    } catch (error) {
+      ignoreCancel(error);
+    }
+  }
+
+  // Suggested questions and Draft remediation start a separate request; this preview only records it.
+  function previewRequest(button, question, reply) {
+    if (state.busy) return;
+    var item = button.closest(".cs-deck-followups > li");
+    if (item) retire(item.parentElement.children.length === 1 ? item.parentElement : item);
+    if (button.classList.contains("cs-deck-affordance")) {
+      button.disabled = true;
+      button.textContent = "Draft requested";
+    }
+    hideTip();
+    state.clock += 40;
+    var offset = state.clock;
+    turns.appendChild(userTurn(question, offset));
+    var turnId = nextTurnId();
+    var article = agentArticle(turnId);
+    turns.appendChild(article);
+    state.stuck = true;
+    followTurn(article.previousElementSibling);
+    reserveTurn(article);
+    article.appendChild(h("div", { class: "cs-deck-answer" + (state.reduced ? "" : " cs-deck-enter") }, [
+      h("div", { class: "cs-deck-prose" }, [h("p", { text: reply })])
+    ]));
+    setTurnTime(article, offset + 1, !state.reduced);
+    followScroll();
+    announce(reply);
+  }
+
+  function plainInvestigation(fixture) {
+    var answer = fixture.answer;
+    return [answer.lead]
+      .concat(answer.facts.map(function (pair) { return pair[0] + ": " + pair[1]; }))
+      .concat(answer.checks.map(function (text) { return "- " + text; }))
+      .concat(answer.limitations.map(function (text) { return "Limit: " + text; }))
+      .concat(answer.note ? [answer.note] : [])
+      .concat(answer.next_step ? ["Next safe step: " + answer.next_step] : [])
+      .join("\n");
+  }
+
+  // The run record maps the investigation onto the same phase, evidence, and model rows as the
+  // one-shot study, so both forms share one timeline and one provider waterfall.
+  function fixtureTrajectory(record) {
+    var fixture = record.fixture;
+    var detail = fixture.trajectory_detail;
+    var start = (38463 + record.offset) * 1000 + 160;
+    var cursor = start;
+    var items = [];
+    var calls = [];
+    var budgetCalls = detail.turn_budget ? detail.turn_budget.model_calls.used : 3;
+    items.push({ kind: "turn", kindLabel: "Turn", label: "Input", state: "completed", start: cursor, ms: 0, summary: fixture.question,
+      facts: [["Source", "operator"]], records: [["Operator input", fixture.question]] });
+    cursor += 6;
+    var planOutput = { summary: fixture.plan.summary, waves: fixture.plan.waves.map(function (wave) {
+      return { wave: wave.id, label: wave.label, branches: wave.branch_ids };
+    }) };
+    var planCall = modelCall("semantic_plan", cursor + 8, MODEL.planMs, [
+      { role: "system", content: "You are Bragi, the FDAI narrator. Plan once: compile the question into typed read waves that use only registered read-only capabilities. Do not decide, approve, or execute anything." },
+      { role: "user", content: fixture.question }
+    ], { content: pretty(planOutput) }, { prompt_tokens: 1320, completion_tokens: 188, total_tokens: 1508 }, []);
+    calls.push(planCall);
+    items.push({ kind: "phase", kindLabel: "Phase", label: "Semantic planning", state: "completed", start: cursor, ms: MODEL.planMs + 18,
+      summary: fixture.plan.waves.length + " waves planned", facts: [["Model", MODEL.name], ["Waves", String(fixture.plan.waves.length)]],
+      records: [["Answer plan", pretty(planOutput)]] });
+    cursor += MODEL.planMs + 22;
+    var executions = detail.activities.filter(function (activity) { return activity.execution; });
+    var first = executions.length
+      ? Math.min.apply(null, executions.map(function (activity) { return Date.parse(activity.execution.started_at); }))
+      : 0;
+    var evidenceEnd = cursor;
+    var attempted = 0;
+    var completed = 0;
+    detail.activities.forEach(function (activity) {
+      var presentation = activityPresentation(fixture, activity);
+      var execution = activity.execution;
+      var begin = execution ? cursor + (Date.parse(execution.started_at) - first) : evidenceEnd;
+      var ms = execution ? execution.duration_ms : 40;
+      if (execution) {
+        attempted += 1;
+        if (activity.status === "completed") completed += 1;
+      }
+      var records = execution ? [["IQL or typed query", execution.command]] : [];
+      if (execution && execution.output) records.push(["Observed output", execution.output]);
+      // A denied or cancelled read observed nothing; only a read that ran and broke is a failure.
+      var outcome = activity.status === "completed" ? "completed" : activity.status === "failed" ? "failed" : "not_observed";
+      items.push({ kind: execution ? "evidence" : "phase", kindLabel: execution ? "Evidence" : "Phase", label: activity.label,
+        state: outcome, start: begin, ms: ms, summary: activity.detail || null,
+        facts: [["Tool", execution ? execution.tool : "deterministic comparison"], ["Authority", activity.authority],
+          ["Authorization", AUTHORIZATION_TEXT[presentation.authorization] || "Allowed"]], records: records });
+      evidenceEnd = Math.max(evidenceEnd, begin + ms);
+    });
+    cursor = evidenceEnd + 6;
+    var generationStart = cursor;
+    var generationCall = modelCall("answer_generation", cursor + 6, MODEL.generationMs, [
+      { role: "system", content: "Compose the answer only from the verified reads. Lead with the finding, keep limits explicit, and never offer to execute or approve an action." },
+      { role: "user", content: pretty({ question: fixture.question, facts: fixture.answer.facts, checks: fixture.answer.checks }) }
+    ], { content: fixture.answer.lead }, { prompt_tokens: 1640, completion_tokens: 212, total_tokens: 1852 }, []);
+    calls.push(generationCall);
+    items.push({ kind: "phase", kindLabel: "Phase", label: "Answer generation", state: "completed", start: cursor, ms: MODEL.generationMs + 14,
+      summary: "Answer from " + completed + " completed reads", facts: [["Model", MODEL.name]], records: [] });
+    cursor += MODEL.generationMs + 20;
+    if (budgetCalls >= 3) {
+      var reviewCall = modelCall("quality_review", cursor + 4, 280, [
+        { role: "system", content: "Review goal coverage, contradictions, and unsupported operational claims. Report issues only." },
+        { role: "user", content: fixture.answer.lead }
+      ], { content: pretty({ coverage: "complete", issues: [] }) }, { prompt_tokens: 980, completion_tokens: 42, total_tokens: 1022 }, []);
+      calls.push(reviewCall);
+      items.push({ kind: "phase", kindLabel: "Phase", label: "Quality review", state: "completed", start: cursor, ms: 290,
+        summary: "Independent review", facts: [["Model", MODEL.name]], records: [] });
+      cursor += 296;
+    }
+    var verificationStart = cursor;
+    var verification = TONE_STATE[fixture.answer.verification.tone] || "not_observed";
+    items.push({ kind: "phase", kindLabel: "Phase", label: "Verification", state: verification === "not_observed" ? "completed" : verification,
+      start: cursor, ms: 54, summary: fixture.answer.verification.detail, facts: [["Checks", fixture.answer.verification.detail], ["Authority", "read"]],
+      records: [] });
+    cursor += 58;
+    items.push({ kind: "turn", kindLabel: "Turn", label: "Answer", state: "completed", start: cursor, ms: 0,
+      summary: "verification: " + fixture.answer.verification.label, facts: [["Agent", "Bragi"]], records: [] });
+    var trajectory = {
+      start: start, end: cursor, items: items, calls: calls, attempted: attempted, completed: completed,
+      modelMs: calls.reduce(function (total, call) { return total + call.ms; }, 0),
+      tokens: detail.turn_budget ? detail.turn_budget.tokens.used : calls.reduce(function (total, call) { return total + call.usage.total_tokens; }, 0),
+      verification: verification,
+      evidenceState: completed < attempted ? "degraded" : "completed"
+    };
+    return record.observed ? observedTrajectory(trajectory, record.observed, [start, generationStart, verificationStart]) : trajectory;
+  }
+
+  // A wave that never started has no reads to show, so its header does not open an empty body.
+  function toggleWave(button) {
+    var body = document.getElementById(button.getAttribute("aria-controls"));
+    var wave = button.closest(".cs-deck-wave");
+    if (!body || !wave || /^(pending|skipped)$/.test(wave.getAttribute("data-state"))) return;
+    showWave({ head: button, body: body }, button.getAttribute("aria-expanded") !== "true", true);
+  }
+
+  // A stop leaves every read that finished, and marks the reads still running as stopped.
+  function stopInvestigation(article) {
+    var block = article.querySelector(":scope > .cs-deck-investigation");
+    if (!block) return;
+    // The header counts reads only after the last wave settles; a stop before that says so.
+    var unfinished = !block.hasAttribute("data-settled");
+    block.querySelectorAll(".cs-deck-activity[data-status='running']").forEach(function (node) {
+      node.setAttribute("data-status", "stopped");
+      var mark = node.querySelector(".cs-deck-activity-mark");
+      mark.textContent = "-";
+      node.querySelector(".cs-deck-activity-status").textContent = "Stopped";
+      node.querySelector(".cs-deck-activity-detail").replaceChildren(
+        h("p", { class: "cs-deck-activity-note", text: "Stopped before this read returned. Nothing was changed." }));
+    });
+    block.querySelectorAll(".cs-deck-wave[data-state='running']").forEach(function (node) {
+      node.setAttribute("data-state", "stopped");
+      node.querySelector(".cs-deck-wave-mark").textContent = "-";
+      node.querySelector(".cs-deck-wave-meta").textContent = "Stopped";
+    });
+    block.querySelectorAll(".cs-deck-wave[data-state='pending']").forEach(function (node) {
+      node.setAttribute("data-state", "skipped");
+      node.querySelector(".cs-deck-wave-meta").textContent = "Not started";
+    });
+    var status = block.querySelector(".cs-deck-investigation-status");
+    if (status && unfinished) status.textContent = "Stopped before the answer";
   }
 
   // ---------- Leaving the conversation asks first ----------
@@ -2177,11 +2877,21 @@
       return;
     }
     if (target.classList.contains("cs-deck-followup")) {
-      askFollowUp(target);
+      if (target.hasAttribute("data-followup-text")) {
+        previewRequest(target, target.getAttribute("data-followup-text"),
+          "This preview replays scripted investigations only. In the Console, this question starts a new request with its own plan, reads, and limits.");
+      } else {
+        askFollowUp(target);
+      }
       return;
     }
     var action = target.getAttribute("data-action");
-    if (action === "sources") {
+    if (action === "wave-toggle") {
+      toggleWave(target);
+    } else if (action === "draft-remediation") {
+      previewRequest(target, "Draft a remediation for these differences.",
+        "Draft remediation is a separate request. FDAI rechecks the scope, the policy, and whether a typed draft is available before it prepares one, and nothing runs without approval. This preview stops here.");
+    } else if (action === "sources") {
       setSources(target.closest(".cs-deck-agent-turn"), target.getAttribute("aria-expanded") !== "true");
     } else if (action === "copy") {
       copyReply(target);

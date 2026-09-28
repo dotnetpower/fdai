@@ -304,7 +304,7 @@
     "unverified_operational_success_claim_rate",
     "worst_slice_regression_count"
   ],
-  "inventory_digest": "sha256:7e995d1da6d13b421ff523277f1b1df28308f15a2a03d273f801cb6c89c88896",
+  "inventory_digest": "sha256:6addee950001df4c491e3d626348cdd4f33083f3be27993b70f2d71b4ff66377",
   "metric_contract": {
     "ambiguity": [
       {
@@ -937,7 +937,7 @@
     "set_recall": "true_positive_items / expected_items"
   },
   "source_digests": {
-    "console/src/deck/backend-types.ts": "sha256:515545abf9c176939709adc25a4edd3ca20fdb421652555081315f05cc96ff7f",
+    "console/src/deck/backend-types.ts": "sha256:13a7dac51054782056d49f4484d522e6ead2b10cb89a8e1e1d9cc3d96be8f056",
     "console/src/deck/presentation-artifact.ts": "sha256:5946d614e455c632368810c25954a233aaa9de60b69b53f0f733d4b06485973c",
     "console/src/deck/presentation-modules/charts.tsx": "sha256:9b93cf0c49ca9151f41e4e5037e8a1b3c0ade3b0cf949c89b15d02f29a57d890",
     "console/src/deck/presentation-modules/registry.tsx": "sha256:980c49bf7a12162ca3690966bcafefc57f379c81c6febb4844e94d6691f0d029",

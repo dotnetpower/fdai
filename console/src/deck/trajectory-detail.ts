@@ -9,6 +9,7 @@ import {
   parseInvestigationActivity,
   parseInvestigationMilestone,
 } from "./backend-normalizers";
+import { parseContextReceipts, parseTurnBudget, parseWorkProgressShape } from "./work-progress-contract";
 
 const MAX_DETAIL_CHARS = 64 * 1024;
 const MAX_ACTIVITIES = 8;
@@ -37,6 +38,10 @@ export function parseTrajectoryDetail(raw: unknown): TrajectoryDetail | undefine
   }
   const omitted = parseOmitted(record.omitted);
   if (!omitted || !boundedInteger(record.truncated_outputs, 0, 10_000)) return undefined;
+  // Optional work progress contracts; a malformed one is dropped without discarding the evidence.
+  const workProgressShape = parseWorkProgressShape(record.work_progress_shape);
+  const turnBudget = parseTurnBudget(record.turn_budget);
+  const contextReceipts = parseContextReceipts(record.context_receipts);
   return {
     schema_version: 1,
     activities: activities as InvestigationActivity[],
@@ -44,6 +49,9 @@ export function parseTrajectoryDetail(raw: unknown): TrajectoryDetail | undefine
     milestones: milestones as InvestigationMilestone[],
     omitted,
     truncated_outputs: record.truncated_outputs,
+    ...(workProgressShape ? { work_progress_shape: workProgressShape } : {}),
+    ...(turnBudget ? { turn_budget: turnBudget } : {}),
+    ...(contextReceipts ? { context_receipts: contextReceipts } : {}),
   };
 }
 

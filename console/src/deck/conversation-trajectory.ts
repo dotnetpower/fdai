@@ -1,4 +1,11 @@
-import type { EvidenceBranch, InvestigationActivity, InvestigationMilestone } from "./backend";
+import type {
+  ContextReceipt,
+  EvidenceBranch,
+  InvestigationActivity,
+  InvestigationMilestone,
+  TurnBudgetTelemetry,
+  WorkProgressShape,
+} from "./backend";
 import { isSemanticDirectResponseSource } from "./backend-normalizers";
 import type { Turn } from "./command-deck-presenters";
 
@@ -9,6 +16,9 @@ export interface ConversationTrajectory {
   readonly activities: readonly InvestigationActivity[];
   readonly branches: readonly EvidenceBranch[];
   readonly milestones: readonly InvestigationMilestone[];
+  readonly workProgressShape?: WorkProgressShape;
+  readonly turnBudget?: TurnBudgetTelemetry;
+  readonly contextReceipts?: readonly ContextReceipt[];
   readonly startedAt?: string;
   readonly completedAt?: string;
   readonly durationMs?: number;
@@ -143,6 +153,13 @@ function buildTrajectory(
     ...(completedAt ? { completedAt } : {}),
     ...(durationMs !== undefined ? { durationMs } : {}),
     ...(timingSource ? { timingSource } : {}),
+    ...(answer.trajectoryDetail?.work_progress_shape
+      ? { workProgressShape: answer.trajectoryDetail.work_progress_shape }
+      : {}),
+    ...(answer.trajectoryDetail?.turn_budget ? { turnBudget: answer.trajectoryDetail.turn_budget } : {}),
+    ...(answer.trajectoryDetail?.context_receipts
+      ? { contextReceipts: answer.trajectoryDetail.context_receipts }
+      : {}),
   };
 }
 

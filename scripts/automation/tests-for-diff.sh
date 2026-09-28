@@ -20,7 +20,9 @@
 #   - Repository data with Python consumers maps to its owning test area.
 #   - Global test and dependency configuration selects the full suite.
 #   - Docs, console, CLI, and infrastructure changes without Python consumers
-#     are covered by their dedicated gates instead of pytest.
+#     are covered by their dedicated gates instead of pytest. Console
+#     presentation contracts that the semantic-intent inventory digests select
+#     that generated artifact's equality test.
 #   - Output is deduplicated and lexicographically sorted.
 #   - Exit 0 with an empty stdout when there is nothing python-shaped to
 #     test.
@@ -130,6 +132,12 @@ while IFS= read -r file; do
             ;;
         extensions/code-assurance/*)
             add_test "extensions/code-assurance/tests"
+            continue
+            ;;
+        # scripts/automation/build_semantic_intent_coverage.py records a digest of each file,
+        # so an edit makes the committed inventory stale until it is regenerated.
+        console/src/deck/backend-types.ts|console/src/deck/presentation-artifact.ts|console/src/deck/presentation-modules/types.ts|console/src/deck/presentation-modules/registry.tsx|console/src/deck/presentation-modules/charts.tsx)
+            add_test "tests/integration/evaluation/test_semantic_intent_coverage.py"
             continue
             ;;
     esac

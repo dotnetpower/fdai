@@ -67,6 +67,25 @@ describe("parseTrajectoryDetail", () => {
     expect(parseTrajectoryDetail(parsed)).toEqual(parsed);
   });
 
+  it("keeps valid work progress contracts and drops only a malformed one", () => {
+    const parsed = parseTrajectoryDetail({
+      ...detail(),
+      work_progress_shape: { schema_version: 1, density: "procedural", waves: 2, planned_reads: 4 },
+      turn_budget: { schema_version: 1, complete: true, as_of: "2026-07-31T01:00:02Z",
+        model_calls: { used: 9, reserved: 0, maximum: 5 },
+        tokens: { used: 1, reserved: 0, maximum: 10 },
+        elapsed_ms: { used: 1, reserved: 0, maximum: 10 } },
+      context_receipts: [{ receipt_id: "ctx-1", kind: "operator_preference", digest: "b".repeat(64),
+        observed_at: "2026-07-31T01:00:00Z", freshness: "stale", label: "Short answers" }],
+    });
+
+    expect(parsed?.activities).toHaveLength(1);
+    expect(parsed?.work_progress_shape?.density).toBe("procedural");
+    expect(parsed?.turn_budget).toBeUndefined();
+    expect(parsed?.context_receipts?.[0]?.freshness).toBe("stale");
+    expect(parseTrajectoryDetail(parsed)).toEqual(parsed);
+  });
+
   it.each([
     { schema_version: 2 },
     { activities: Array(9).fill(detail().activities[0]) },

@@ -1,0 +1,45 @@
+{
+  "schema": "fdai.mock.adaptive-investigation.index/1",
+  "scenarios": [
+    {
+      "scenario": "no-drift",
+      "label": "No drift",
+      "file": "no-drift.json"
+    },
+    {
+      "scenario": "drift",
+      "label": "Drift found",
+      "file": "drift.json"
+    },
+    {
+      "scenario": "partial",
+      "label": "Read timed out",
+      "file": "partial.json"
+    },
+    {
+      "scenario": "conflict",
+      "label": "Conflicting evidence",
+      "file": "conflict.json"
+    },
+    {
+      "scenario": "denied",
+      "label": "Access denied",
+      "file": "denied.json"
+    },
+    {
+      "scenario": "clarify",
+      "label": "Clarification",
+      "file": "clarify.json"
+    },
+    {
+      "scenario": "stale",
+      "label": "Stale context",
+      "file": "stale.json"
+    },
+    {
+      "scenario": "budget",
+      "label": "Turn limit reached",
+      "file": "budget.json"
+    }
+  ]
+}
