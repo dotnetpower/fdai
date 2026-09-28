@@ -249,21 +249,20 @@ open. Local and mocked transport evidence do not establish a successful Azure de
 
 ### Source runtime artifact admission
 
-Source mode does not create service, dependency, deployment-host or appliance images. Tenant
-provisioning never invokes Docker, Buildx, ACR Tasks, a remote builder or VM image capture. A source
-checkout can prepare and verify Foundation inputs, but it cannot enter the application stage until
-the operator supplies a trusted prebuilt runtime artifact manifest whose source revision matches the
-immutable checkout.
+A connected deployment MUST NOT require a kit, package, or operator-supplied artifact manifest; the
+operator supplies only the clean checkout. Offline and appliance paths keep the signed kit. Source
+mode never builds service, dependency, host, or appliance images or invokes Docker, Buildx, ACR
+Tasks, a remote builder, or VM capture, and it never runs a Console build during provisioning.
 
-The manifest identifies all five baseline service images, dependency images, Console content and
-migration support by digest. The coordinator verifies signatures, provenance, SBOM coverage,
-platform, source revision and exact file bounds before registry credentials are acquired. A cache
-hit is accepted only after the same verification. Missing, partial, mutable-tagged or mismatched
-artifacts stop with `runtime_artifacts_required`; the installer never repairs them by building.
-
-Private registry mirror or import remains execution-host work when selected. It changes only the
-artifact location, independently reads back the same digest and cannot alter image bytes. An
-ambiguous publication claim resumes verification only and never rebuilds or republishes the image.
+The application stage continues from the verified `application-plan` checkpoint and reuses the
+transferred snapshot. It resolves the exact-revision images and Console artifact that the protected
+supply-chain workflow published publicly, one digest each, plus source-pinned sidecar digests.
+Third-party Python support installs from hash-locked binary wheels while owned packages run from
+the verified snapshot. Terraform installs providers directly under the committed lock files. Each
+ACR import uses a digest-bound plan, human approval, pre-effect claim, and digest readback under
+the host identity. Missing, private, partial, or mismatched artifacts stop with
+`published_images_unavailable` and never fall back to a build. Receipts use source-mode fields and
+never claim kit or release-signature trust. This continuation is not yet implemented.
 
 An existing `dev` AKS installation can update one service directly from a clean local checkout on
 its eligible deployment host. This path is separate from new installation and release assembly:
