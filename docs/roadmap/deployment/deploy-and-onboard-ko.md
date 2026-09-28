@@ -1,8 +1,8 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: 18740b813cc22d6491d0037b794dc5d2d5e9ec30
-translation_revised: 2026-09-27
+translation_source_sha: f11ffcb201a4d24b985190d7d73a1f1f307368f0
+translation_revised: 2026-09-28
 ---
 # 배포와 온보딩(Deploy and Onboard)
 Azure 구독에 FDAI를 프로비저닝하고 첫 온보딩을 완료해 시스템이 관측 준비되도록 하는 방법. 이 문서는 **구체적 배포 인벤토리, 부트스트랩 순서, 분포/배포 책임 분리**의 정본(source of truth)입니다; 배포 라이프사이클(CI/CD, progressive 전달, 롤백, DR)은 [deployment-ko.md](deployment-ko.md)에 남습니다.
@@ -191,6 +191,7 @@ Preflight, 출처 우선순위, 커버리지 및 stale 유지 계약은
 
 - [`fdai-up.sh`](../../../scripts/deployment/azure/fdai-up.sh)는 `az login` 후 사용하는 비공개 `dev` 단일 명령 경로입니다. 버전이 지정된 서명 키트 하나를 검증하며 독립적인 아티팩트 준비, 읽기 전용 검색, 공급자 요청, 정책 프로브 작업에는 범위가 제한된 병렬 실행을 사용합니다.
   현재의 각 계획을 승인받고 Foundation과 tenant 구성을 완료하며 수동 Managed Host에서 적용한 뒤 변경 없음 계획을 요구합니다. 승인, 적용, 정리, 상태, 인계 경계는 계속 직렬로 수행합니다. GitHub 저장소 구성과 workflow dispatch는 이 경로에 포함되지 않습니다.
+  기여자 소스 배포는 `--source <checkout> --signing-key <key>`를 추가합니다. 선택한 checkout이 실행 전체를 소유합니다. 해당 checkout의 잠긴 환경을 준비하고 그 안에서 키트를 빌드하며 배포 CLI도 거기에서 실행하므로, 다른 clone에서 호출해도 호출한 쪽 리비전이 대신 들어갈 수 없습니다. 이미 그 checkout이 키트를 결정하므로 `--online`이나 `--offline-kit`를 함께 지정하면 전달하지 않고 거부합니다.
 - [`genesis-up.sh`](../../../scripts/deployment/azure/genesis-up.sh)는 하위 수준 15단계 기반 계층
   경로를 유지합니다. 점유가 있으면 검증만 재개하며 기반 계층 완료만으로 준비 상태를 주장하지 않습니다.
 - [`verify-azure-context.sh`](../../../scripts/deployment/azure/verify-azure-context.sh)는 변경 전에 Azure CLI와 `azd` 진입점을 승인된 구독 및 테넌트 쌍에 연결하며, Genesis는 활성 CLI 선택을 바꾸지 않고 정확한 구독 결합 ARM 위치 엔드포인트로 지역 가용성을 확인하고 정책 프로브 정리는 다중 값 TSV를 순서가 있는 줄로 파싱한 뒤 부재를 증명합니다.
