@@ -1,9 +1,11 @@
 """Two-phase anchor binding: exact identity reads before compilation.
 
 The model quotes a resource as it was written; it does not know whether that
-text is a name or a provider identifier. Core reads both exact properties in one
-bounded snapshot and binds the anchor to the single object found, or reports
-absence, ambiguity, or incompleteness. A quote that touches other characters of
+text is a name or a provider identifier. Core reads both properties in one
+bounded snapshot, the identifier exactly and the name without regard to case, as
+operators type names in any case, and binds the anchor to the single object found,
+or reports absence, ambiguity, or incompleteness. Two names that differ only in
+case are ambiguous and never bind. A quote that touches other characters of
 its whitespace-delimited token, such as a particle or a parenthesis, may be the
 start or end of a longer name, so every longer exact form within that token is
 read too and any match makes the anchor ambiguous. Compiled plans then read the
@@ -36,7 +38,11 @@ ANCHOR_CANDIDATE_LIMIT = 7
 MAX_EXTENSION_CHARS = 16
 _ANCHOR_FORMS = frozenset({MentionForm.IDENTIFIER, MentionForm.NAME})
 _RESOURCE = "Resource"
-_IDENTITY_PROPERTIES = ("id", "name")
+# The identifier compares exactly; a name compares without regard to case, pushed to the store.
+_IDENTITY_READS = (
+    ("id", ObjectPredicateOperator.EQUALS),
+    ("name", ObjectPredicateOperator.EQUALS_IGNORE_CASE),
+)
 
 
 class AnchorOutcome(StrEnum):
@@ -161,7 +167,7 @@ async def bind_anchors(
 
 
 class GatewayAnchorResolver:
-    """Resolve anchors through exact secured reads of each identity property."""
+    """Resolve anchors through bounded secured reads of each identity property."""
 
     def __init__(
         self,
@@ -184,10 +190,8 @@ class GatewayAnchorResolver:
         complete = True
         generations: set[str] = set()
         reads = [
-            ObjectPredicate(
-                property=property_name, operator=ObjectPredicateOperator.EQUALS, equals=text
-            )
-            for property_name in _IDENTITY_PROPERTIES
+            ObjectPredicate(property=property_name, operator=operator, equals=text)
+            for property_name, operator in _IDENTITY_READS
         ]
         if extensions:
             try:

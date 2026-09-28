@@ -1,6 +1,6 @@
 ---
 translation_of: ontology-reasoning-compiler.md
-translation_source_sha: 3d7d6e1dbf3e4d4f69a3171fec52f39b27bdc256
+translation_source_sha: 4cce3d96263c119afcd71de4a9e84f9f1c22f24d
 translation_revised: 2026-09-29
 ---
 # 온톨로지 추론 컴파일러
@@ -184,7 +184,8 @@ Bragi는 모든 구간이 더 긴 식별자를 자르지 않고 발화와 일치
 영역이 `instance`인 `identifier` 또는 `name` 언급은 앵커가 됩니다. 바인딩은 두 단계 프로토콜입니다.
 
 1. 수용과 매니페스트, 목적, 범위 검사가 끝나면 Core는 단일 노드 해석 계획을 검증합니다. 조건은 정확한
-   `id` 또는 `name` 일치, principal 범위, 현재 그래프 기준 시점, 행 7개 한도입니다.
+   `id` 일치 또는 저장소에서 대소문자를 구분하지 않는 `name` 일치, principal 범위, 현재 그래프 기준
+   시점, 행 7개 한도입니다. 대소문자만 다른 이름은 모호한 것으로 봅니다.
 2. 실행기는 스냅샷 하나를 읽습니다. 바인딩 증적은 원본 세대, 객체 리비전, 기준 시점, release,
    매니페스트, 범위 다이제스트를 고정합니다.
 3. 컴파일된 계획은 그 증적 다이제스트를 참조하고 정확한 `root_ids` 또는 `object_ids`를 써야 합니다.

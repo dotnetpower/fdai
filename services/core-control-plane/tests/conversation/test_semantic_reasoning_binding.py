@@ -221,3 +221,64 @@ async def test_too_many_longer_forms_leave_the_anchor_incomplete() -> None:
     binding = await resolver.resolve("m1", "sql-app", extensions)
 
     assert binding.outcome is AnchorOutcome.INCOMPLETE
+
+
+async def test_a_differently_cased_name_binds_the_same_object() -> None:
+    utterance = "Which resources depend on SQL-App?"
+
+    receipt = await fixture_anchors(admitted(_form(utterance, "SQL-App"), utterance))
+
+    (binding,) = receipt.bindings
+    assert (binding.outcome, binding.object_id) == (AnchorOutcome.BOUND, "sql-1")
+
+
+class _Spy:
+    """Record every read and answer the name read with the given objects."""
+
+    def __init__(self, names: tuple[str, ...]) -> None:
+        self.names = names
+        self.definitions: list[Any] = []
+
+    async def materialize(self, definition: Any, *, projection_request: Any) -> Any:
+        from types import SimpleNamespace
+
+        self.definitions.append(definition)
+        (predicate,) = definition.predicates
+        objects = (
+            [SimpleNamespace(id=f"object-{index}") for index, _ in enumerate(self.names)]
+            if predicate.property == "name"
+            else []
+        )
+        return SimpleNamespace(
+            receipt=SimpleNamespace(complete=True, source_generation="spy-generation"),
+            materialization=SimpleNamespace(graph=SimpleNamespace(objects=objects)),
+        )
+
+
+async def test_names_that_differ_only_in_case_are_ambiguous_and_reads_stay_bounded() -> None:
+    from fdai.core.conversation.semantic_reasoning_binding import ANCHOR_CANDIDATE_LIMIT
+    from fdai.core.ontology_platform import ObjectPredicateOperator
+
+    request = ProjectionRequest(
+        caller_role=CeilingRole.READER, declared_purposes=frozenset({PURPOSE})
+    )
+    spy = _Spy(("app-1", "App-1"))
+    resolver = GatewayAnchorResolver(
+        spy,  # type: ignore[arg-type]
+        projection_request=request,
+        purpose=PURPOSE,
+        as_of=NOW,
+    )
+
+    binding = await resolver.resolve("m1", "APP-1")
+
+    assert binding.outcome is AnchorOutcome.AMBIGUOUS
+    assert binding.candidates == ("object-0", "object-1")
+    # Every read filters in the store by one identity predicate within the candidate limit.
+    assert [
+        (item.predicates[0].property, item.predicates[0].operator) for item in spy.definitions
+    ] == [
+        ("id", ObjectPredicateOperator.EQUALS),
+        ("name", ObjectPredicateOperator.EQUALS_IGNORE_CASE),
+    ]
+    assert all(item.limit == ANCHOR_CANDIDATE_LIMIT for item in spy.definitions)

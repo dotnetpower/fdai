@@ -170,8 +170,9 @@ lookup table, and an explicit root candidate stands for resources in general. Fu
 An `identifier` or `name` mention with domain `instance` becomes an anchor. Binding is a two-phase protocol:
 
 1. After admission and manifest, purpose, and scope checks, Core verifies a single-node resolution
-   plan: exact `id` or `name` equality, the principal scope, the current graph cutoff, and a limit
-   of seven rows.
+   plan: exact `id` equality or `name` equality without regard to case, pushed to the store, the
+   principal scope, the current graph cutoff, and a limit of seven rows. Names that differ only in
+   case are ambiguous.
 2. The executor reads one snapshot. The binding receipt pins the source generation, object
    revisions, cutoff, and release, manifest, and scope digests.
 3. The compiled plan must reference that receipt digest and use exact `root_ids` or `object_ids`.
