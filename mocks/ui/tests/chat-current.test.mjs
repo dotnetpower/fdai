@@ -14,6 +14,7 @@ const origin = "http://127.0.0.1:5373";
 const routes = [
   "deck",
   "deck-sources",
+  "deck-adaptive",
   "deck-sources-v2",
   "incident-conversation",
   "conversation-response-patterns",
@@ -22,7 +23,7 @@ const routes = [
 
 async function openChat(page, name, sequence) {
   // The deck study starts with model trace capture on, so the audit also covers provider lanes.
-  const query = name === "deck-sources" ? "?trace=on" : "";
+  const query = name === "deck-sources" ? "?trace=on" : name === "deck-adaptive" ? "?trace=on&scenario=drift" : "";
   await page.goto(`${origin}/?chat-current=${sequence}#mocks/ui/${name}.html${query}`, { waitUntil: "load" });
   await page.waitForFunction(expected => {
     const frame = document.querySelector("#preview-frame");
@@ -39,6 +40,15 @@ async function openChat(page, name, sequence) {
     await frame.locator(".cs-model-trace-lane summary").first().click();
     await frame.waitForFunction(() => [...document.querySelectorAll(".cs-model-trace-hash code")]
       .every(code => /^[0-9a-f]{64}$/.test(code.textContent)), null, { timeout: 5000 });
+  }
+  if (name === "deck-adaptive") {
+    // The audit covers an open wave, an open read card, the context receipt, and the run record.
+    await frame.locator('body[data-deck-state="settled"]').waitFor({ state: "attached", timeout: 10000 });
+    await frame.locator(".cs-deck-context-receipt > summary").click();
+    await frame.locator(".cs-deck-wave-head").first().click();
+    await frame.locator(".cs-deck-activity > details > summary").nth(1).click();
+    await frame.locator(".cs-run-record > summary").click();
+    await frame.locator(".cs-model-trace-lane summary").first().click();
   }
   await frame.evaluate(() => new Promise(resolveFrame =>
     requestAnimationFrame(() => requestAnimationFrame(resolveFrame))));
@@ -299,7 +309,7 @@ test("chat surfaces reflow at constrained and mobile widths", { timeout: 120000 
         const frame = await openChat(page, route, `${viewport.name}-${++sequence}`);
         const measurement = await frame.evaluate(measureChat, viewport.width);
         assertMeasurement(measurement, route, "light");
-        if (route === "deck-sources") {
+        if (route === "deck-sources" || route === "deck-adaptive") {
           assert.equal(await frame.locator(".cs-deck-transcript").evaluate(element =>
             element.scrollWidth <= element.clientWidth), true);
         }

@@ -78,11 +78,14 @@ remains the recovery path when notifications are absent.
 | Verified semantic answer presentation | validated | [`semantic_turn_processor.py`](../../../services/core-control-plane/src/fdai_core_service/semantic_turn_processor.py), [`semantic_turn_presentation.py`](../../../services/operator-service/src/fdai_operator_service/families/conversation/semantic_turn_presentation.py), [`semantic_turn_runtime.py`](../../../services/operator-service/src/fdai_operator_service/families/conversation/semantic_turn_runtime.py), [`semantic-answer-presentation.spec.ts`](../../../console/tests/live-e2e/semantic-answer-presentation.spec.ts), `.fdai/live-validation/semantic-answer-presentation-244d003ef77bd37dc0041f0b6a29634cdbaacb91-post-validation/` | The bounded authenticated Web/Korean path is validated at centrally validated source revision `244d003ef` with an explicit workspace patch digest. The first and regenerated turns retained five observed phases, the same incident and technical-output digests, read-only evidence collection, no primary JSON, and `execution_authority=false`. This state does not claim Teams, Slack, the four-stage ontology runner, or the bilingual 100-case cohort. |
 | Deterministic cross-channel presentation planning | implemented | `semantic_presentation_semantics.py`; `semantic_turn_processor.py`; `presentation_rows.py`; `presentation_planner.py`; `presentation_artifact_v2.py`; `presentation.py`; Console artifact and module registry; focused semantic presentation (`137 passed`), Console deck (`693 passed`), and chart browser (`4 passed`) checks | Core derives renderer-neutral semantics from verified terminal rows. Operator revalidates shape-specific roles and row invariants before selecting one of ten visualizations. Web and channel artifact boundaries apply the same bounded schema. Legacy and v2 paths preserve readable rows and exact technical values. The model cannot select a chart component. |
 | Current-screen context publication | implemented | [`context.tsx`](../../../console/src/deck/context.tsx), [`app.tsx`](../../../console/src/app.tsx), [`view-contract.test.ts`](../../../console/src/routes/view-contract.test.ts), focused Console context and route checks, desktop browser inspection | Every registered panel identifies itself during loading, unavailable, error, and route-transition states. Specialized publishers can replace the fallback with bounded visible facts and a shared-catalog glossary without carrying a previous route's snapshot forward. |
+| Work progress contract parsing | implemented | [`work-progress-contract.ts`](../../../console/src/deck/work-progress-contract.ts), [`trajectory-detail.ts`](../../../console/src/deck/trajectory-detail.ts), [`conversation-trajectory-presentation.ts`](../../../console/src/deck/conversation-trajectory-presentation.ts), [`adaptive-investigation-fixtures.test.ts`](../../../console/src/deck/adaptive-investigation-fixtures.test.ts); Console deck suite (`1045 passed`) and typecheck | The Console accepts optional `work_progress_shape`, `turn_budget`, and `context_receipts` fields, drops only a malformed field, lets a contradicting pinned shape fall back to the timeline, and replays milestones as recorded. The shared synthetic fixtures in `mocks/ui/fixtures/adaptive/` parse losslessly. |
+| Server emission of work progress fields | not-started | [Work progress contract](#work-progress-contract) | No Core or Operator producer emits the shape, turn budget telemetry, or context receipts yet, so live turns keep observation-derived density and show policy limits only. |
 
 ### Implementation history
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-28 | implemented | Added the work progress contract: presentation density from typed observations, bounded waves without replanning, workflow-only milestones, turn budget telemetry, context receipts, continuation, findings that are not drafts, and separated authority display. The Console now parses the optional fields fail-closed per field and marks replayed milestones as recorded instead of completed. | `current change`; `console/src/deck/backend-types.ts`, `work-progress-contract.ts`, `trajectory-detail.ts`, `conversation-trajectory.ts`, `conversation-trajectory-presentation.ts`, `conversation-trajectory-view.tsx`, and their focused tests; `mocks/ui/fixtures/adaptive/`; `npm --prefix console test -- --run src/deck src/shared-style-tokens.test.ts src/components/mock-visual-boundary.test.ts` (`1045 passed`); Console typecheck | Emit the fields from the server and render the adaptive investigation roles in the Console. |
 | 2026-09-27 | in-progress | Displayed source-grounded context candidates and separated existing principal-scoped command delivery, audited application, and unevaluated current authorization. Kept writes unavailable rather than accepting browser scope or policy claims. | `current change`; `console/src/deck/test-context-review.tsx`, `test-context-status.ts`, `console/tests/e2e/test-context-candidate.spec.ts`, focused Console and Operator checks. | Reviewed principal/policy mapping, independent proof production, proposal/review/revocation controls, and connected authentication remain open. |
 | 2026-09-15 | in-progress | Added strict no-authority test-context draft decoding and propagation through HTTP, streaming, turn state, and server/local replay. Rejected normalized invalid calendar dates and untyped authority fields. | `current change`; four owning Console test files: 128 passed; production and test typechecks passed. | Complete authenticated scope/policy selection and submission/status presentation; no visual or live qualification was performed. |
 | 2026-09-14 | validated | Removed the automatic-only idle gate from the explicit top-bar Incident selection. The click now opens a fresh bound conversation, preserves the prior screen draft, omits screen evidence and a default target agent, and submits the exact Incident binding. | Focused Console tests passed, the synthetic browser regression passed, and the authenticated standard-port Console rendered an `Answer ready` terminal with three verified correlated audit records and `plan_source=bound_incident`. | No remaining implementation work for this bounded entry-path repair. |
@@ -170,6 +173,12 @@ remains the recovery path when notifications are absent.
   evidence-complete answered turns in both locales, without replacing the 2026-08-11 baseline.
 - [ ] Record governed Teams and Slack reduction receipts before claiming channel-wide runtime
   validation.
+- [ ] Emit `work_progress_shape` before the first branch and persist `turn_budget` and
+  `context_receipts` in the semantic turn's trajectory detail, with passing focused Core and
+  Operator projection tests whose output round-trips through `parseTrajectoryDetail` unchanged.
+- [ ] Render the adaptive investigation roles from `investigation-timeline.tsx` with
+  `ui/calm-slate-deck-conversation.css`, and record passing Console Deck tests for wave gating,
+  stop, and settled-only budget telemetry.
 - [x] Complete at least 20 independent visualization critiques and repeat focused hardening until
   no confirmed Medium-or-higher residual remains; 48 checks, 137 focused Python cases, 693 Console
   deck cases, and four desktop/mobile browser cases provide the current evidence.
@@ -479,6 +488,53 @@ Intent-graph goal arguments stay bounded at 128 nodes and six nesting levels on 
 contract. Six levels is the depth an object-set membership predicate needs: arguments, definition,
 predicates, one predicate, its values array, and one value. A shallower bound silently held every
 answer whose plan filtered by membership.
+
+## Work progress contract
+
+The same typed trajectory can appear as one compact answer or as a procedural investigation. The
+choice is presentation density, not authority. Answer prose, an agent name, or the presence of an
+action draft never selects it.
+
+- **Density.** Each channel derives density from typed observations. The Console's
+  `workProgressPresentation` shows one completed query read compactly and shows every multi-read,
+  multi-wave, or milestone-bearing trajectory as a timeline. A server that pins the shape emits a
+  versioned `work_progress_shape` (`schema_version` 1, `density` `compact` or `procedural`, `waves`
+  1 to 8, `planned_reads` 0 to 64) before the first branch and persists it for replay. A pinned
+  shape that contradicts the observations falls back to the timeline.
+- **Waves.** Independent reads form the first wave. Reads that depend on an earlier authority result
+  form bounded follow-up waves. The compiler plans once, so an investigation never asks the model to
+  replan between waves and the turn limits bound the whole procedure.
+- **Milestones.** An `InvestigationMilestone` states a deterministic workflow fact, such as a branch
+  completing or verification starting. It carries no evidence claim. An interim operational
+  statement uses a receipt-bound confirmed segment and follows its revision and retraction rules.
+  Replay shows a milestone as recorded, not completed.
+- **Turn budget telemetry.** When the server reports it, `turn_budget` (`schema_version` 1) carries
+  `used`, `reserved`, and `maximum` for model calls, tokens, and elapsed milliseconds, the `as_of`
+  time, measurement completeness, and an optional exhaustion reason: `deadline`, `model_calls`,
+  `tokens`, `rate_limited`, or `cancelled`. A measure ends above its maximum only when it is the
+  exhaustion reason: observed tokens replace their reservation before the check, and a deadline is
+  noticed after it passes. Model calls are reserved before each call and never exceed their
+  maximum. Without the telemetry, clients show the policy limits and the observed values as
+  separate facts and never draw a remaining-budget meter.
+- **Context receipts.** An applied operator preference appears only as a `context_receipts` entry
+  with a receipt id, the `operator_preference` kind, a SHA-256 digest, the observation time, a
+  `fresh`, `stale`, or `superseded` freshness, and a bounded label. A receipt is context, not
+  evidence or instructions. Stale or superseded context forces a fresh authoritative read or a
+  partial result.
+- **Continuation.** When a limit ends the turn, the answer is `partial` or `held_for_review` and
+  names its unresolved goals. Continuing is a new typed request for a named gap with a new request
+  identity, revalidated freshness and authorization, and a cumulative bound. It is never an
+  automatic retry after a timeout or `429`.
+- **Findings are not drafts.** A diagnosis or drift finding ends with the verified finding, the
+  evidence gaps, and the next safe step. Drafting a remediation is a separate explicit typed request
+  that rechecks scope, policy, and draft availability.
+- **Authority display.** Each activity separates the operation (`read`, `simulate`, or `draft`),
+  the authorization result (`allowed`, `denied`, or `unavailable`), the evidence authority, and the
+  execution authority, which is always none. Risk appears only on a registered ActionType draft or
+  approval surface.
+
+The Console accepts these optional fields in the persisted trajectory detail and drops a malformed
+field without discarding valid evidence. Server emission is not implemented yet.
 
 ## Metrics
 

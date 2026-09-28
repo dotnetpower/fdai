@@ -104,6 +104,7 @@ Chat surfaces:
 |------|---------|
 | [deck.html](deck.html) | Command deck (chat) - transcript-first workspace with optional conversation history and current-screen context panels, visible Bragi-to-agent handoffs, grounded citations, observed read-command evidence, and evidence attachments |
 | [deck-sources.html](deck-sources.html) | Production-shaped Command Deck conversation that replays answer preparation: typed intent, read-only retrieval trace, grounded citations, sources panel, verification, a run record with the observed execution timeline and model provider waterfall, and grounded, partial-evidence, source-unavailable, conflicting-evidence, and corrected scenarios |
+| [deck-adaptive.html](deck-adaptive.html) | Procedural Command Deck investigation replayed from the shared synthetic trajectories in `fixtures/adaptive/`: a plan line, a context receipt, gated parallel read waves, activity cards that separate operation, authorization, evidence authority, and execution authority, workflow milestones, settled turn budget telemetry, and a fact-grid answer across no-drift, drift, timed-out read, conflicting evidence, denied access, clarification, stale context, and turn deadline scenarios |
 | [deck-sources-v2.html](deck-sources-v2.html) | Adaptive response lifecycle with an in-transcript selector for investigation, clarification, evidence posture, governed proposal, effect verification, cancellation, memory retention, structured brief, and rendered Markdown document examples |
 | [conversation-response-patterns.html](conversation-response-patterns.html) | Operational response patterns and deterministic selection order for bounded investigation disclosure, target clarification, evidence limits, governed recovery proposals, graded effect verification, cancellation receipts, consent-based durable learning, structured operational briefs, and rendered Markdown documents |
 
@@ -133,8 +134,9 @@ Report and kit:
 - [../../ui/calm-slate-deck-conversation.css](../../ui/calm-slate-deck-conversation.css) - portable
   Command Deck conversation roles (readiness strip, retrieval trace, citations, evidence notes,
   sources panel, follow-ups, composer context, the run record with its execution timeline and
-  model provider waterfall, and compact code blocks). Only
-  [deck-sources.html](deck-sources.html) imports it today. Every rule is scoped under
+  model provider waterfall, compact code blocks, and the adaptive investigation roles). Only
+  [deck-sources.html](deck-sources.html) and [deck-adaptive.html](deck-adaptive.html) import it
+  today. Every rule is scoped under
   `.cs-deck-conversation` or uses a role the Console does not render yet, so importing it changes no
   existing surface. The file header lists the Console component that owns each role and the
   adoption steps: import the file, add the root role, render the roles, and delete the superseded
@@ -165,7 +167,12 @@ Report and kit:
   explains tier, autonomy, and mode badges on hover or focus. Queue preserves the same work facts
   as Flow while adding risk, SLA, and control state. The page renders the swarm, sparkline, and
   audit ticker entirely client-side with no backend.
-- [assets/deck-sources.js](assets/deck-sources.js) - Command deck sources study only. Replays
+- [assets/deck-study.css](assets/deck-study.css) - page chrome shared by the two Command deck
+  studies: preview controls, the workspace shell, and the empty-conversation intro.
+- [assets/deck-sources.js](assets/deck-sources.js) - Command deck sources and adaptive
+  investigation studies. The adaptive study, selected by `data-study="adaptive"`, reads
+  `fixtures/adaptive/*.json`, the synthetic trajectories that the Console contract tests also
+  parse, and replays each wave's reads in parallel before the next wave starts. Replays
   scripted synthetic turns whose rule, policy, and ActionType facts match `rule-catalog/`, streams
   whole words with a short pause after each sentence, eases the transcript without lifting the
   question being answered above the top edge, renders the settled answer immediately under reduced
@@ -215,8 +222,13 @@ without querying Azure or invoking operational APIs.
 Chat study checks run against the design server on `127.0.0.1:5373`:
 
 ```bash
-node --test mocks/ui/tests/chat-current.test.mjs mocks/ui/tests/deck-sources.test.mjs
+node --test mocks/ui/tests/chat-current.test.mjs mocks/ui/tests/deck-sources.test.mjs mocks/ui/tests/deck-adaptive.test.mjs
 ```
+
+The adaptive investigation checks keep the fixtures synthetic and internally consistent, then cover
+reading order, activity-card authority fields, wave gating and parallel reads, every scenario's
+verification result and limits, stop, separate draft and follow-up requests, dock and mobile widths,
+reduced motion, and forced colors.
 
 The source-streaming checks confirm the study copy against the rule catalog, cover replay, stop,
 scenario changes, keyboard citations, search, dock width, reduced motion, and forced colors, and

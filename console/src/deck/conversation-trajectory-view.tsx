@@ -615,7 +615,7 @@ function EvidenceTimeline({ activities, branches, milestones }: {
         {milestones.map((milestone) => {
           const recordedAt = firstValidTimestamp(milestone.recordedAt);
           return (
-        <li key={milestone.messageId} data-status="completed"><span class="deck-trajectory-milestone" aria-hidden="true" />
+        <li key={milestone.messageId} data-status="recorded" data-kind="milestone"><span class="deck-trajectory-milestone" aria-hidden="true" />
           <div class="deck-trajectory-milestone-copy"><span class="deck-trajectory-kind is-milestone">{t("deck.trajectory.milestone")}</span>
             <strong>{milestone.text}</strong><Timestamp value={recordedAt} /></div></li>
           );
