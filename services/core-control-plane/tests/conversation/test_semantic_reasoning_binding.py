@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import timedelta
 from typing import Any
 
 import pytest
@@ -282,3 +283,32 @@ async def test_names_that_differ_only_in_case_are_ambiguous_and_reads_stay_bound
         ("name", ObjectPredicateOperator.EQUALS_IGNORE_CASE),
     ]
     assert all(item.limit == ANCHOR_CANDIDATE_LIMIT for item in spy.definitions)
+
+
+async def test_a_resolver_reads_at_the_gateway_clock_and_names_a_stale_read() -> None:
+    gateway = await fixture_gateway()
+    request = ProjectionRequest(
+        caller_role=CeilingRole.READER, declared_purposes=frozenset({PURPOSE})
+    )
+    reads: list[None] = []
+
+    def clock() -> Any:
+        reads.append(None)
+        return NOW
+
+    live = GatewayAnchorResolver(gateway, projection_request=request, purpose=PURPOSE, as_of=clock)
+    stale = GatewayAnchorResolver(
+        gateway, projection_request=request, purpose=PURPOSE, as_of=NOW - timedelta(minutes=1)
+    )
+
+    bound = await live.resolve("m1", "sql-app")
+    unbound = await stale.resolve("m1", "sql-app")
+
+    assert bound.outcome is AnchorOutcome.BOUND and bound.object_id == "sql-1"
+    assert len(reads) >= 1
+    assert unbound.outcome is AnchorOutcome.UNAVAILABLE
+    assert unbound.reason == "as_of_stale"
+    assert (
+        AnchorBindingReceipt((unbound,)).digest
+        != AnchorBindingReceipt((AnchorBinding("m1", AnchorOutcome.UNAVAILABLE),)).digest
+    )

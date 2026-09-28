@@ -275,99 +275,109 @@ async def run_reasoning_shadow(
     extraction = asyncio.ensure_future(
         _extract(counting, utterance=utterance, context=context, locale=locale)
     )
-    for index in range(limits.max_form_passes):
-        try:
-            outcome = await _run_pass(
-                counting,
-                index=index,
-                utterance=utterance,
-                context=context,
-                locale=locale,
-                prior_goals=prior_goals,
-                catalogs=catalogs,
-                concept_budget=limits.max_concept_calls - counting.concept_calls,
-                max_shard_bytes=limits.max_shard_bytes,
-                repairs=limits.repairs_per_pass,
-                resolver=resolver,
-                accounting=accounting,
-                compile_args=compile_args,
-            )
-        except Exception as exc:  # noqa: BLE001 - shadow work must never fail the turn
-            held = exc.reason if isinstance(exc, FormInputHeldError) else None
-            reason = held or f"shadow_error:{type(exc).__name__}"
-            passes.append(ShadowPass(index, "input_held" if held else "shadow_error", (reason,)))
-            if pending:
-                notes.append("continuation_failed")
-            break
-        shadow_pass, goals, compilation, admitted = outcome
-        passes.append(shadow_pass)
-        if admitted is not None and shadow_pass.disposition == "admitted":
-            admitted_forms.append(admitted)
-        if compilation is None:
-            if pending:
-                notes.append("continuation_failed")
-            break
-        if retain_compilations:
-            compilations.append(compilation)
-        pending = compilation.needs_continuation
-        if not pending:
-            break
-        prior_goals = prior_goals + goals
-        if admitted is not None:
-            accounting = accounting.after(admitted)
-    if pending and "continuation_failed" not in notes:
-        notes.append("continuation_budget_exhausted")
-    complete = (
-        bool(passes) and not pending and all(item.disposition == "admitted" for item in passes)
-    )
-    review: FormReview | None = None
-    if complete:
-        raw, failure = await extraction
-        review = (
-            FormReview("unavailable", (failure,))
-            if failure is not None
-            else review_forms(admitted_forms, raw, utterance=utterance)
-        )
-        repair = _review_repair(review, raw, admitted_forms, passes, limits, utterance=utterance)
-        if repair is not None:
-            shadow_pass, _goals, compilation, admitted = await _run_pass(
-                counting,
-                index=len(passes),
-                utterance=utterance,
-                context=context,
-                locale=locale,
-                prior_goals=(),
-                catalogs=catalogs,
-                concept_budget=limits.max_concept_calls - counting.concept_calls,
-                max_shard_bytes=limits.max_shard_bytes,
-                repairs=0,
-                resolver=resolver,
-                compile_args=compile_args,
-                accounting=SpanAccounting(required=account_spans),
-                review_repair=repair,
-            )
+    try:
+        for index in range(limits.max_form_passes):
+            try:
+                outcome = await _run_pass(
+                    counting,
+                    index=index,
+                    utterance=utterance,
+                    context=context,
+                    locale=locale,
+                    prior_goals=prior_goals,
+                    catalogs=catalogs,
+                    concept_budget=limits.max_concept_calls - counting.concept_calls,
+                    max_shard_bytes=limits.max_shard_bytes,
+                    repairs=limits.repairs_per_pass,
+                    resolver=resolver,
+                    accounting=accounting,
+                    compile_args=compile_args,
+                )
+            except Exception as exc:  # noqa: BLE001 - shadow work must never fail the turn
+                held = exc.reason if isinstance(exc, FormInputHeldError) else None
+                reason = held or f"shadow_error:{type(exc).__name__}"
+                passes.append(
+                    ShadowPass(index, "input_held" if held else "shadow_error", (reason,))
+                )
+                if pending:
+                    notes.append("continuation_failed")
+                break
+            shadow_pass, goals, compilation, admitted = outcome
             passes.append(shadow_pass)
             if admitted is not None and shadow_pass.disposition == "admitted":
-                review = review_forms((admitted,), raw, utterance=utterance)
-                if retain_compilations and compilation is not None:
-                    compilations = [compilation]
-            else:
-                complete = False
-    else:
-        extraction.cancel()
-        with contextlib.suppress(asyncio.CancelledError):
-            await extraction
-    return ReasoningShadowObservation(
-        passes=tuple(passes),
-        model_calls=counting.calls,
-        elapsed_ms=int((clock() - started) * 1000),
-        continuation_pending=pending,
-        released=complete and review is not None and review.faithful,
-        review=review.outcome if review is not None else None,
-        review_reasons=review.reasons if review is not None else (),
-        notes=tuple(notes),
-        compilations=tuple(compilations),
-    )
+                admitted_forms.append(admitted)
+            if compilation is None:
+                if pending:
+                    notes.append("continuation_failed")
+                break
+            if retain_compilations:
+                compilations.append(compilation)
+            pending = compilation.needs_continuation
+            if not pending:
+                break
+            prior_goals = prior_goals + goals
+            if admitted is not None:
+                accounting = accounting.after(admitted)
+        if pending and "continuation_failed" not in notes:
+            notes.append("continuation_budget_exhausted")
+        complete = (
+            bool(passes) and not pending and all(item.disposition == "admitted" for item in passes)
+        )
+        review: FormReview | None = None
+        if complete:
+            raw, failure = await extraction
+            review = (
+                FormReview("unavailable", (failure,))
+                if failure is not None
+                else review_forms(admitted_forms, raw, utterance=utterance)
+            )
+            repair = _review_repair(
+                review, raw, admitted_forms, passes, limits, utterance=utterance
+            )
+            if repair is not None:
+                shadow_pass, _goals, compilation, admitted = await _run_pass(
+                    counting,
+                    index=len(passes),
+                    utterance=utterance,
+                    context=context,
+                    locale=locale,
+                    prior_goals=(),
+                    catalogs=catalogs,
+                    concept_budget=limits.max_concept_calls - counting.concept_calls,
+                    max_shard_bytes=limits.max_shard_bytes,
+                    repairs=0,
+                    resolver=resolver,
+                    compile_args=compile_args,
+                    accounting=SpanAccounting(required=account_spans),
+                    review_repair=repair,
+                )
+                passes.append(shadow_pass)
+                if admitted is not None and shadow_pass.disposition == "admitted":
+                    review = review_forms((admitted,), raw, utterance=utterance)
+                    if retain_compilations and compilation is not None:
+                        compilations = [compilation]
+                else:
+                    complete = False
+        else:
+            extraction.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                await extraction
+        return ReasoningShadowObservation(
+            passes=tuple(passes),
+            model_calls=counting.calls,
+            elapsed_ms=int((clock() - started) * 1000),
+            continuation_pending=pending,
+            released=complete and review is not None and review.faithful,
+            review=review.outcome if review is not None else None,
+            review_reasons=review.reasons if review is not None else (),
+            notes=tuple(notes),
+            compilations=tuple(compilations),
+        )
+    finally:
+        # A cancelled or failed turn never leaves the extraction's provider call running.
+        if not extraction.done():
+            extraction.cancel()
+        await asyncio.gather(extraction, return_exceptions=True)
 
 
 @dataclass(frozen=True, slots=True)
