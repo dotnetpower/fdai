@@ -738,23 +738,40 @@ jobs:
           set -euo pipefail
           print_plan_diagnostic() {
             python3 - "$1" <<'PY_PLAN'
+          import json
           import re
           import sys
           from pathlib import Path
 
-          text = Path(sys.argv[1]).read_text(encoding="utf-8", errors="replace")
+          # Only structured error diagnostics are projected. Refresh and progress messages,
+          # warnings, and non-JSON output never contribute a token.
+          index_key = r"(?:\[(?:[0-9]+|\"[A-Za-z0-9_.:-]+\")\])?"
           address_pattern = re.compile(
-              r"\bwith\s+((?:module\.[A-Za-z0-9_]+\.)*"
-              r"(?:azurerm|random|terraform)_[A-Za-z0-9_]+\.[A-Za-z0-9_]+"
-              r"(?:\[[0-9]+\])?),"
+              r"(?:module\.[A-Za-z0-9_-]+" + index_key + r"\.)*"
+              r"(?:data\.)?(?:azurerm|random|terraform)_[A-Za-z0-9_]+\.[A-Za-z0-9_-]+"
+              + index_key
           )
+          identifier = r"([A-Za-z][A-Za-z0-9_.-]{1,127})"
           code_patterns = (
-              re.compile(r'\bCode[=:]\s*"?([A-Za-z][A-Za-z0-9_.-]{1,127})"?'),
-              re.compile(r'"code"\s*:\s*"([A-Za-z][A-Za-z0-9_.-]{1,127})"'),
+              re.compile(r'\bCode[=:]\s*"?' + identifier),
+              re.compile(r'"code"\s*:\s*"' + identifier + '"'),
+              re.compile(r'\b(?:ErrorCode|ERROR CODE)[=:]\s*"?' + identifier),
+              re.compile(r"\bwith error:\s*([A-Z][A-Za-z0-9]{1,127}):"),
+          )
+          status_patterns = (
+              re.compile(r'\bStatus(?:Code)?[=:]\s*"?([1-5][0-9]{2})\b'),
+              re.compile(r"\bunexpected status\s+([1-5][0-9]{2})\b"),
+              re.compile(r"\bRESPONSE\s+([1-5][0-9]{2})\b"),
           )
           category_patterns = {
+              "authentication": re.compile(
+                  r"\b(?:authenticat(?:e|ed|ing|ion)|access token)\b", re.IGNORECASE
+              ),
               "authorization": re.compile(r"\bauthoriz(?:ation|ed)\b", re.IGNORECASE),
               "capacity_or_quota": re.compile(r"\b(?:capacity|quota)\b", re.IGNORECASE),
+              "condition_failed": re.compile(
+                  r"\b(?:pre|post)condition failed\b", re.IGNORECASE
+              ),
               "invalid_function_argument": re.compile(
                   r"\binvalid function argument\b", re.IGNORECASE
               ),
@@ -764,8 +781,12 @@ jobs:
               "missing_required_argument": re.compile(
                   r"\bmissing required argument\b", re.IGNORECASE
               ),
+              "plugin_failure": re.compile(
+                  r"\bplugin (?:did not respond|crashed|exited)\b", re.IGNORECASE
+              ),
               "provider_read": re.compile(
-                  r"\berror:\s+(?:reading|retrieving|listing)\b", re.IGNORECASE
+                  r"(?:^|\berror:\s+)(?:reading|retrieving|listing)\b",
+                  re.IGNORECASE | re.MULTILINE,
               ),
               "reference_to_undeclared_resource": re.compile(
                   r"\breference to undeclared resource\b", re.IGNORECASE
@@ -779,6 +800,10 @@ jobs:
               "resource_not_found": re.compile(
                   r"\b(?:parentresource|resourcegroup|resource)notfound\b", re.IGNORECASE
               ),
+              "resource_provider_registration": re.compile(
+                  r"\bresource providers?\b[^\n]{0,80}\bregist", re.IGNORECASE
+              ),
+              "state_lock": re.compile(r"\bstate lock\b", re.IGNORECASE),
               "subscription_not_registered": re.compile(
                   r"\bsubscriptionnotregistered\b", re.IGNORECASE
               ),
@@ -787,28 +812,51 @@ jobs:
                   r"\bunsupported attribute\b", re.IGNORECASE
               ),
           }
-          addresses = sorted(set(address_pattern.findall(text)))
-          codes = sorted(
-              {
-                  match
-                  for pattern in code_patterns
-                  for match in pattern.findall(text)
-              }
-          )
-          categories = sorted(
-              name for name, pattern in category_patterns.items() if pattern.search(text)
-          )
+          errors = 0
+          addresses = set()
+          codes = set()
+          categories = set()
+          raw = Path(sys.argv[1]).read_text(encoding="utf-8", errors="replace")
+          for line in raw.splitlines():
+              try:
+                  message = json.loads(line)
+              except ValueError:
+                  continue
+              if not isinstance(message, dict) or message.get("type") != "diagnostic":
+                  continue
+              diagnostic = message.get("diagnostic")
+              if not isinstance(diagnostic, dict) or diagnostic.get("severity") != "error":
+                  continue
+              errors += 1
+              address = diagnostic.get("address")
+              if isinstance(address, str) and address_pattern.fullmatch(address):
+                  addresses.add(address)
+              text = "\n".join(
+                  value
+                  for value in (diagnostic.get("summary"), diagnostic.get("detail"))
+                  if isinstance(value, str)
+              )
+              codes.update(
+                  match for pattern in code_patterns for match in pattern.findall(text)
+              )
+              codes.update(
+                  "HTTP" + match for pattern in status_patterns for match in pattern.findall(text)
+              )
+              categories.update(
+                  name for name, pattern in category_patterns.items() if pattern.search(text)
+              )
+          print(f"Terraform plan diagnostic errors: {errors}")
           print(
               "Terraform plan diagnostic categories: "
-              + (", ".join(categories) or "unclassified")
+              + (", ".join(sorted(categories)) or "unclassified")
           )
           print(
               "Terraform plan diagnostic addresses: "
-              + (", ".join(addresses) or "unavailable")
+              + (", ".join(sorted(addresses)) or "unavailable")
           )
           print(
               "Terraform plan diagnostic Azure codes: "
-              + (", ".join(codes) or "unavailable")
+              + (", ".join(sorted(codes)) or "unavailable")
           )
           PY_PLAN
           }
@@ -819,7 +867,7 @@ jobs:
           else
             plan_args=()
           fi
-          if ! terraform plan "${plan_args[@]}" -input=false -lock-timeout=5m \
+          if ! terraform plan -json "${plan_args[@]}" -input=false -lock-timeout=5m \
             -out="$plan_file" >"$plan_log" 2>&1; then
             print_plan_diagnostic "$plan_log"
             echo "scenario-lab Terraform plan failed; raw output remains runner-local." >&2
