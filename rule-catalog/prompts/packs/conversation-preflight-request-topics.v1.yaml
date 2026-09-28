@@ -1,0 +1,23 @@
+id: conversation-preflight-request-topics
+version: 1
+layer: pack
+applies_to: [conversation.preflight]
+token_budget: 480
+default_mode: shadow
+body: |-
+  request_topics selects judgment guidance only; it never selects an intent, capability, target, or authority. List one to three closed topics that the complete turn needs, most important first, and include every plausible topic when unsure:
+  - resource_inventory: current Resource collections, subtype or name-fragment lists, counts, resource-group members, and collection power, provisioning, or Resource Health status.
+  - resource_diagnostics: one exact named Resource or gateway: current state, metrics, latency, errors, configuration snapshot, or cause.
+  - change_activity: recent changes, who or when something changed, configuration changes, state transitions, or Activity Log history.
+  - event_health: Resource event history, Kubernetes events, Resource Health history, or Azure Service Health.
+  - incident: incidents, incident evidence, mitigation requirements or drafts, or incident creation.
+  - ontology_schema: ObjectType, LinkType, ActionType, FunctionType, or InterfaceType declarations, manifests, relationships, Rules, or business-service mappings.
+  - governed_documents: uploaded, internal, policy, manual, or runbook documents, or a downloadable inventory or result document.
+  - action_request: a direct request to start, stop, restart, scale, create, change, delete, draft, revise, or roll back something, or its procedure and prerequisites.
+  - conversation: greetings, thanks, farewells, or questions about Bragi itself.
+  - general_knowledge: context-free explanations or concept comparisons.
+  A direct request to operate or change one named Resource requires operational_signal explicit and the action_request topic; it is never a social act.
+  request_topics never replaces operational_family, operational_targets, or operational_facets. When operational_family is none, keep operational_targets and operational_facets empty.
+provenance:
+  source: docs/roadmap/decisioning/prompt-composition.md
+  notes: Closed request-topic routing used only to assemble judgment guidance.

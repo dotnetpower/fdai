@@ -1,0 +1,12 @@
+id: semantic-query-plan-aggregation
+version: 1
+layer: pack
+applies_to: [semantic.query.plan]
+token_budget: 512
+default_mode: shadow
+body: |-
+  For aggregation_table over declaration types, use query.manifest as a query.table dependency followed by aggregate. Create one query.manifest function node named manifest with no dependencies and output_kind query.table. Create one aggregate node named aggregate that depends only on manifest, has output_kind query.table, and arguments exactly shaped as {"operation":"count","group_by":[],"limit":1..1000}; aggregate is the only output node. For aggregation_table over runtime objects, use one object_set source followed by an aggregate node with the same aggregate envelope.
+  A relationship-type count frame with subject_constraints ["link"] uses query.manifest kinds exactly ["link"] followed by the count aggregate above. A declared resource type filter with subject_constraints ["Resource"] and measure_concepts ["type"] uses one Resource object_set whose only predicate is {"property":"type","operator":"exists"}. Do not replace `link` or `type` with a natural-language alias, and do not omit the predicate.
+provenance:
+  source: docs/roadmap/decisioning/prompt-composition.md
+  notes: Plan guidance selected per call by the verified frame output shape.

@@ -15,10 +15,8 @@ from fdai.core.conversation.conversation_preflight import (
     ConversationPreflightBoundary,
     SocialResponseNarratorBinding,
 )
-from fdai.core.conversation.semantic_judgment import (
-    SemanticJudgmentBoundary,
-)
-from fdai.core.prompts import PromptReplayManifest
+from fdai.core.conversation.semantic_judgment import SemanticJudgmentBoundary
+from fdai.core.prompts import PromptAssembler, PromptReplayManifest
 from fdai.rule_catalog.schema.llm_resolver import ResolvedModels
 from fdai.shared.providers.workload_identity import WorkloadIdentity
 
@@ -50,6 +48,7 @@ def build_azure_semantic_judgment_factory(
     social_narrator_prompt_manifests: Mapping[str, PromptReplayManifest] | None = None,
     held_capabilities: frozenset[str] = frozenset(),
     intent_hardening_enabled: bool = False,
+    system_prompt_assembler: PromptAssembler | None = None,
 ) -> SemanticJudgmentFactory | None:
     """Return a loop-bound T1/T2 factory or ``None`` when unavailable."""
 
@@ -112,6 +111,7 @@ def build_azure_semantic_judgment_factory(
             social_narrator_system_prompts=narrator_prompts,
             social_narrator_prompt_manifests=social_narrator_prompt_manifests,
             intent_hardening_enabled=intent_hardening_enabled,
+            system_prompt_assembler=system_prompt_assembler,
             owner_loop=owner_loop,
         )
         escalation = (
