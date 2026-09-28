@@ -204,7 +204,8 @@ completion of the displaced enterprise or execution criteria.
 | #343 | open | n/a | Retain advisory learning, prediction calibration, replay, drift, cohort, and zero-guard evidence. | Keep promotion, executor consumption, effect verification, and rollback evidence only under governed execution. |
 
 Update 2026-09-28: the owner later closed #341 as `not_planned` in a backlog reduction. Its
-inventory and observation live evidence remains remaining work in the Phase 1 ledger.
+inventory and observation live evidence remains remaining work in the Phase 1 ledger. #343 was
+closed the same way; its advisory learning and prediction evidence remains Phase 2 ledger work.
 
 ### Exact English evidence comments
 
