@@ -1,7 +1,7 @@
 ---
 title: 폐쇄망 배포
 translation_of: disconnected-deployment.md
-translation_source_sha: b1d42d6eb0548e934350e9661b8efd24107d59ab
+translation_source_sha: 0e2c29b3d5c67de69ca5bc50659c931a6e6e2b13
 translation_revised: 2026-09-28
 ---
 # 폐쇄망 배포
@@ -66,6 +66,8 @@ translation_revised: 2026-09-28
   빈 환경에 설치합니다.
 - [ ] Azure 배포 동작은 패키지 설치와 별도로 검증합니다. 런타임 페이로드, 정확한 계획, 롤백,
   상태, 정리 작업은 배포 소유자 범위로 유지합니다.
+- [ ] 인터넷에 연결되지 않은 Azure VM 한 대에서 전체 설치를 실행합니다. 그 VM이 실행 호스트가 되고,
+  Azure CLI는 패키지가 제공하며, 온라인으로 부트스트랩하는 별도 Foundation 호스트는 사용하지 않습니다.
 
 ## 한눈에 보는 설계
 
