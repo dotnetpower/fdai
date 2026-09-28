@@ -468,6 +468,40 @@ def _normalized_cron_job(value: dict[str, Any]) -> dict[str, Any]:
     return result
 
 
+def _normalize_container_environment(container: dict[str, Any]) -> None:
+    """Compare environment by name and binding, not by Terraform list order.
+
+    Kubernetes resolves ``$(VAR)`` references in declaration order, so ordering is only
+    incidental while no value uses that syntax. When one does, the order is preserved and a
+    reordering stays a real contract change. Terraform also records an unset literal as ``""``
+    in state and ``None`` in a plan for the same secret-backed entry; both mean "no literal".
+    """
+
+    entries = container.get("env")
+    if not isinstance(entries, list):
+        return
+    normalized: list[Any] = []
+    interpolated = False
+    for entry in entries:
+        if not isinstance(entry, dict):
+            normalized.append(entry)
+            continue
+        item = copy.deepcopy(entry)
+        value = item.get("value")
+        if isinstance(value, str) and "$(" in value:
+            interpolated = True
+        if value in (None, ""):
+            item.pop("value", None)
+        normalized.append(item)
+    if interpolated:
+        container["env"] = normalized
+        return
+    container["env"] = sorted(
+        normalized,
+        key=lambda item: item.get("name", "") if isinstance(item, dict) else "",
+    )
+
+
 def _normalize_template(template: dict[str, Any]) -> None:
     metadata = _mapping(template.get("metadata", [{}])[0], "planned Pod metadata")
     annotations = metadata.get("annotations")
@@ -500,6 +534,7 @@ def _normalize_template(template: dict[str, Any]) -> None:
             security = item.get("security_context")
             if isinstance(security, list) and len(security) == 1 and isinstance(security[0], dict):
                 security[0].pop("run_as_non_root", None)
+            _normalize_container_environment(item)
             mounts = item.get("volume_mount")
             if isinstance(mounts, list):
                 item["volume_mount"] = [
