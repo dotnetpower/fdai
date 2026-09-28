@@ -554,10 +554,8 @@ jobs:
           suffix="fdai-sre-lab-${TF_VAR_region_short}"
           operator_vnet_name="$(jq -er '.vnet_name' <<<"$TF_VAR_operator_access")"
           operator_vnet_rg="$(jq -er '.vnet_resource_group_name' <<<"$TF_VAR_operator_access")"
-          mysql_zone_name="$(terraform show -json | jq -er '
-            .. | objects |
-            select(.address? == "azurerm_private_dns_zone.mysql") |
-            .values.name
+          mysql_zone_name="$(terraform state pull | jq -c -f "$GITHUB_WORKSPACE/scripts/deployment/scenario-lab/state-instances.jq" | jq -er '
+            select(.address == "azurerm_private_dns_zone.mysql") | .attributes.name
           ' | head -n 1)"
           terraform state list >"$state_list"
 
@@ -610,12 +608,11 @@ jobs:
           set -euo pipefail
           link_state="$RUNNER_TEMP/sre-demo-lab-dns-links-state.tsv"
           link_ids="$RUNNER_TEMP/sre-demo-lab-dns-link-ids.txt"
-          terraform show -json | jq -r '
-            .. | objects |
-            select(.type? == "azurerm_private_dns_zone_virtual_network_link") |
-            select(.address? | test("^(azurerm_private_dns_zone_virtual_network_link\\.(mysql_(lab|runner|operator)|openai_lab)(\\[0\\])?|module\\.azure_openai_private_endpoint\\.azurerm_private_dns_zone_virtual_network_link\\.(this|extra)(\\[.*\\])?)$")) |
-            select(.values.id? | type == "string") |
-            [.address, .values.id] | @tsv
+          terraform state pull | jq -c -f "$GITHUB_WORKSPACE/scripts/deployment/scenario-lab/state-instances.jq" | jq -r '
+            select(.type == "azurerm_private_dns_zone_virtual_network_link") |
+            select(.address | test("^(azurerm_private_dns_zone_virtual_network_link\\.(mysql_(lab|runner|operator)|openai_lab)(\\[0\\])?|module\\.azure_openai_private_endpoint\\.azurerm_private_dns_zone_virtual_network_link\\.(this|extra)(\\[.*\\])?)$")) |
+            select(.attributes.id? | type == "string") |
+            [.address, .attributes.id] | @tsv
           ' >"$link_state"
           cut -f2 "$link_state" >"$link_ids"
           link_delete_count="$(wc -l <"$link_state")"
@@ -656,10 +653,9 @@ jobs:
           umask 077
           adoption_state_list="$RUNNER_TEMP/sre-demo-lab-adoption-state-list.txt"
           terraform state list >"$adoption_state_list"
-          mysql_zone_name="$(terraform show -json | jq -r '
-            [.. | objects | select(.address? == "azurerm_private_dns_zone.mysql") | .values.name] |
-            first // ""
-          ')"
+          mysql_zone_name="$(terraform state pull | jq -c -f "$GITHUB_WORKSPACE/scripts/deployment/scenario-lab/state-instances.jq" | jq -r '
+            select(.address == "azurerm_private_dns_zone.mysql") | .attributes.name
+          ' | head -n 1)"
           python3 "$GITHUB_WORKSPACE/scripts/deployment/scenario-lab/adopt_retained_resources.py" \
             --state-addresses "$adoption_state_list" \
             --output retained-adoption.generated.tf \
@@ -1244,10 +1240,9 @@ jobs:
             exit 0
           fi
           print_destroy_diagnostic "$destroy_log"
-          zone_name="$(terraform show -json | jq -er '
-            .. | objects |
-            select(.address? == "module.azure_openai_private_endpoint.azurerm_private_dns_zone.this") |
-            .values.name
+          zone_name="$(terraform state pull | jq -c -f "$GITHUB_WORKSPACE/scripts/deployment/scenario-lab/state-instances.jq" | jq -er '
+            select(.address == "module.azure_openai_private_endpoint.azurerm_private_dns_zone.this") |
+            .attributes.name
           ' | head -n 1)" || {
             echo "scenario-lab Terraform destroy failed; raw output remains runner-local." >&2
             exit 1
@@ -1260,10 +1255,8 @@ jobs:
             echo "scenario-lab DNS recovery refuses a zone with visible VNet links." >&2
             exit 1
           }
-          lab_vnet_id="$(terraform show -json | jq -er '
-            .. | objects |
-            select(.address? == "azurerm_virtual_network.scenario_lab") |
-            .values.id
+          lab_vnet_id="$(terraform state pull | jq -c -f "$GITHUB_WORKSPACE/scripts/deployment/scenario-lab/state-instances.jq" | jq -er '
+            select(.address == "azurerm_virtual_network.scenario_lab") | .attributes.id
           ' | head -n 1)" || {
             echo "scenario-lab DNS recovery requires the Terraform-owned lab VNet." >&2
             exit 1
