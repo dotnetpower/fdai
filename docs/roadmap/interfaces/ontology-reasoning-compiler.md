@@ -144,12 +144,13 @@ word that only means all or every has its own role, quantifies, and like a reque
 extractor labeled such words as exclusions. Roles beyond that stay advisory, because two readers may fairly disagree on whether a word restricts or
 relates, except that a hypothetical premise is stated only by an impact goal. One mention binds one concept or identity, so a mention must not hold an
 extracted restriction beside another disjoint extracted constraint, as when one mention quotes `AKS ObjectTypes`: binding would keep one and drop the
-other. The extractor also quotes each literal value on its own, without surrounding words or particles. A literal operand, the mention a name-fragment
-filter reads, is used verbatim, so its quote must equal one of those literals; otherwise the turn is held, and no single reader decides where a
-literal ends. An uncovered constraint gets one review repair that may only add information, checked against the same extraction. Its violation names a
-mention that quotes part of the constraint, and a literal operand's quote must stay exact, so the other words go to the cue that cites it. A merged
-mention or a disagreeing literal is held without a repair, because such a repair cannot split a mention or move a literal. A missing, empty,
-unlocated, uncovered, merged, or disagreeing extraction releases nothing.
+other. A reference's position words, such as second in the second one, are its typed position, so a reference is never a merged mention. The extractor
+also quotes each literal value on its own, without surrounding words or particles. A literal operand, the mention a name-fragment filter reads, is
+used verbatim, so its quote must equal one of those literals; otherwise the turn is held, and no single reader decides where a literal ends. An
+uncovered constraint gets one review repair that may only add information, checked against the same extraction. Its violation names a mention that
+quotes part of the constraint, and a literal operand's quote must stay exact, so the other words go to the cue that cites it. A merged mention or a
+disagreeing literal is held without a repair, because such a repair cannot split a mention or move a literal. A missing, empty, unlocated, uncovered,
+merged, or disagreeing extraction releases nothing.
 
 **Direction confirmation**: A reversed relation answers the opposite question, and open-ended extraction named relation starts too rarely to catch it.
 After a faithful review, each goal whose relation has a direction, unless it is stated as either, gets one focused call to a reasoning model, because
@@ -159,14 +160,15 @@ order, never the role the proposer chose, and answers first, second, either, or 
 unclear or missing answer, or either for a sense without a reciprocal LinkType holds the turn; either for a sense with one is accepted, because that
 LinkType is read on both sides anyway.
 
-A form that breaks its closed schema or a structural rule gets at most one repair call with the code-authored violations. The repaired form passes the
-same admission and must keep every quoted operand, goal, operation, want, typed time, operand-bearing relation, competing reading, and pending-goals
-signal of the rejected proposal; otherwise the original fault stands. These fields compare as the closed schema normalizes them. A proposal that never
-parsed treats every stated pending-goals value other than an explicit false or null as pending, and it fails closed when any compared field loses its
-closed shape, such as a missing goal list, a wrong container, a duplicate goal id, or an unreadable operation or want. Only an uncited mention of a
-parsed proposal that quotes exactly a typed time cue may survive inside a repaired time cue instead of a repaired mention. Only an uncited mention of
-a parsed proposal that quotes exactly a typed time cue may survive inside a repaired time cue instead of a repaired mention. Clarifications are
-answers to the operator and are never repaired.
+A form that breaks its closed schema or a structural rule gets at most one repair call with the code-authored violations. Each violation states the
+contract rule the form breaks, such as the mention domains a filter accepts, and an unaccounted run is quoted; no violation interprets the question's
+words. The repaired form passes the same admission and must keep every quoted operand, goal, operation, want, typed time, operand-bearing relation,
+competing reading, and pending-goals signal of the rejected proposal; otherwise the original fault stands. These fields compare as the closed schema
+normalizes them. A proposal that never parsed treats every stated pending-goals value other than an explicit false or null as pending, and it fails
+closed when any compared field loses its closed shape, such as a missing goal list, a wrong container, a duplicate goal id, or an unreadable operation
+or want. Only an uncited mention of a parsed proposal that quotes exactly a typed time cue may survive inside a repaired time cue instead of a
+repaired mention. Only an uncited mention of a parsed proposal that quotes exactly a typed time cue may survive inside a repaired time cue instead of
+a repaired mention. Clarifications are answers to the operator and are never repaired.
 
 Admission bounds model authority; it does not remove it. A wrong but self-consistent form is caught only by cue-span review, T2 review, the restated
 interpretation and confirm-first cells in [calibrated admission](ontology-reasoning-coverage.md#calibrated-admission), and the evaluation gold. The

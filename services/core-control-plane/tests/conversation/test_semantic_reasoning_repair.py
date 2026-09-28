@@ -9,7 +9,11 @@ from typing import Any
 import httpx
 import pytest
 from fdai.core.conversation.semantic_reasoning_proposal import resolve_question_form
-from fdai.core.conversation.semantic_reasoning_repair import FormRepair, repair_keeps_operands
+from fdai.core.conversation.semantic_reasoning_repair import (
+    FormRepair,
+    _violation,
+    repair_keeps_operands,
+)
 
 from tests.conversation.test_semantic_reasoning_shadow import (
     _UTTERANCE,
@@ -57,7 +61,9 @@ async def test_a_structural_admission_fault_is_repaired_once() -> None:
 
     assert observation.passes[0].repair == "applied"
     assert observation.passes[0].repaired_reasons == ("relation_anchor_missing:g1",)
-    assert model.form_calls[1]["repair"].violations == ("relation_anchor_missing:g1",)
+    # The recorded reason stays a code; the model sees the rule that code breaks.
+    (violation,) = model.form_calls[1]["repair"].violations
+    assert violation.startswith("relation_anchor_missing: goal g1 has a relation with no")
     assert observation.passes[0].disposition == "admitted"
 
 
@@ -448,3 +454,14 @@ def test_a_repair_never_moves_an_exact_lookup_key() -> None:
     assert not repair_keeps_operands(
         previous, widened, utterance=utterance, typed=typed, extension_only=True
     )
+
+
+def test_an_admission_violation_is_shown_as_the_rule_it_breaks() -> None:
+    fragment = _violation("filter_domain:g1:name_fragment", "Which resources have hub in them?")
+    anchorless = _violation("relation_anchor_missing:g1", "")
+    unknown = _violation("time_value_mismatch:g1", "")
+
+    assert fragment.startswith("filter_domain: goal g1 has a name_fragment filter")
+    assert "needs a mention with domain instance" in fragment
+    assert anchorless.startswith("relation_anchor_missing: goal g1 has a relation with no")
+    assert unknown == "time_value_mismatch:g1"
