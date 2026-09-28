@@ -89,11 +89,14 @@ class _Model:
         picks: dict[str, list[str]],
         extraction: dict[str, Any] | None = None,
         second_picks: dict[str, list[str]] | None = None,
+        direction: str | None = "agree",
     ) -> None:
         self.forms = forms
         self.picks = picks
         self.second_picks = picks if second_picks is None else second_picks
         self.extraction = extraction
+        self.direction = direction
+        self.direction_calls: list[Any] = []
         self.form_calls: list[dict[str, Any]] = []
         self.review_calls: list[dict[str, Any]] = []
         self.shards: list[ConceptShard] = []
@@ -110,6 +113,19 @@ class _Model:
     async def propose_form(self, **kwargs: Any) -> dict[str, Any] | None:
         self.form_calls.append(kwargs)
         return self.forms.pop(0) if self.forms else None
+
+    async def check_direction(self, *, question: Any, **kwargs: Any) -> dict[str, Any] | None:
+        """Agree with the form's role by default; a test may disagree or stay unclear."""
+
+        self.direction_calls.append(question)
+        if self.direction is None:
+            return None
+        if self.direction == "unclear":
+            return {"reading": "unclear"}
+        agrees = question.first is question.stated
+        if self.direction == "disagree":
+            agrees = not agrees
+        return {"reading": "first" if agrees else "second"}
 
     async def choose_concepts(
         self,
@@ -219,7 +235,10 @@ async def test_shadow_turn_compiles_grounded_goals_and_records_digests_only() ->
     assert [goal["status"] for goal in summary["passes"][0]["goals"]] == ["compiled"]
     assert len(model.review_calls) == 1
     assert observation.review == "faithful" and observation.released is True
-    assert observation.model_calls == 1 + len(model.shards) + len(model.review_calls)
+    assert len(model.direction_calls) == 1
+    assert observation.model_calls == (
+        1 + len(model.shards) + len(model.review_calls) + len(model.direction_calls)
+    )
     assert _UTTERANCE not in json.dumps(summary)
     assert observation.execution_authority is False
 
@@ -629,3 +648,37 @@ async def test_cancelling_the_shadow_never_leaves_the_extraction_running() -> No
     with pytest.raises(asyncio.CancelledError):
         await task
     assert extraction_cancelled.is_set()
+
+
+@pytest.mark.parametrize(
+    ("direction", "reason"),
+    (
+        ("disagree", "review_direction_differs:g1"),
+        ("unclear", "review_direction_unclear:g1"),
+        (None, "review_direction_unavailable:g1"),
+    ),
+)
+async def test_a_relation_direction_the_blind_reader_does_not_confirm_is_held(
+    direction: str | None, reason: str
+) -> None:
+    vms = {"m2": ["value:compute.vm", "group:compute.vm"]}
+    observation = await _run(_Model([_quoted_form()], vms, direction=direction))
+
+    assert observation.review == "unfaithful" and observation.released is False
+    assert observation.review_reasons == (reason,)
+
+
+async def test_the_direction_reader_sees_both_roles_in_declared_order_never_the_choice() -> None:
+    model = _Model([_quoted_form()], {"m2": ["value:compute.vm", "group:compute.vm"]})
+
+    await _run(model)
+
+    (question,) = model.direction_calls
+    payload = question.payload()
+    assert payload == {
+        "anchor": "sql-app",
+        "sense": "dependency",
+        "first": "dependent",
+        "second": "dependency",
+    }
+    assert "stated" not in payload and question.stated.value == "dependency"

@@ -151,6 +151,14 @@ mention that quotes part of the constraint, and a literal operand's quote must s
 mention or a disagreeing literal is held without a repair, because such a repair cannot split a mention or move a literal. A missing, empty,
 unlocated, uncovered, merged, or disagreeing extraction releases nothing.
 
+**Direction confirmation**: A reversed relation answers the opposite question, and open-ended extraction named relation starts too rarely to catch it.
+After a faithful review, each goal whose relation has a direction, unless it is stated as either, gets one focused call to a reasoning model, because
+direction turns on syntax: on seven questions asked twice, a reasoning model read every direction right while the small models misread Korean object
+clauses the same way the proposer did. The reader sees the masked question, the named start, the sense, and the sense's two roles in their declared
+order, never the role the proposer chose, and answers first, second, either, or unclear. Core compares that answer with the form. A different role, an
+unclear or missing answer, or either for a sense without a reciprocal LinkType holds the turn; either for a sense with one is accepted, because that
+LinkType is read on both sides anyway.
+
 A form that breaks its closed schema or a structural rule gets at most one repair call with the code-authored violations. The repaired form passes the
 same admission and must keep every quoted operand, goal, operation, want, typed time, operand-bearing relation, competing reading, and pending-goals
 signal of the rejected proposal; otherwise the original fault stands. These fields compare as the closed schema normalizes them. A proposal that never

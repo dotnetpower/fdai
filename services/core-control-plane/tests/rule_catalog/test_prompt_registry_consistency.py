@@ -54,6 +54,7 @@ _PROMPT_ONLY_CAPABILITIES = frozenset(
         "norns.post-turn-review",
         "semantic.concept_selection",
         "semantic.constraint_extraction",
+        "semantic.direction_check",
         "semantic.judgment",
         "semantic.judgment.schema-repair",
         "semantic.question_form",

@@ -37,6 +37,11 @@ from .semantic_reasoning_concepts import (
     runoff_requests,
     shard_answer_valid,
 )
+from .semantic_reasoning_direction import (
+    DirectionQuestion,
+    direction_questions,
+    direction_reasons,
+)
 from .semantic_reasoning_form import SemanticQuestionForm
 from .semantic_reasoning_handles import (
     HandleScope,
@@ -98,6 +103,15 @@ class QuestionFormModel(Protocol):
         utterance: str,
         context: tuple[str, ...],
         locale: str,
+    ) -> Mapping[str, Any] | None: ...
+
+    async def check_direction(
+        self,
+        *,
+        utterance: str,
+        context: tuple[str, ...],
+        locale: str,
+        question: DirectionQuestion,
     ) -> Mapping[str, Any] | None: ...
 
 
@@ -210,10 +224,11 @@ class _CountingModel:
         self.form_calls = 0
         self.concept_calls = 0
         self.review_calls = 0
+        self.direction_calls = 0
 
     @property
     def calls(self) -> int:
-        return self.form_calls + self.concept_calls + self.review_calls
+        return self.form_calls + self.concept_calls + self.review_calls + self.direction_calls
 
     async def propose_form(self, **kwargs: Any) -> Mapping[str, Any] | None:
         self.form_calls += 1
@@ -226,6 +241,10 @@ class _CountingModel:
     async def extract_constraints(self, **kwargs: Any) -> Mapping[str, Any] | None:
         self.review_calls += 1
         return await self._inner.extract_constraints(**kwargs)
+
+    async def check_direction(self, **kwargs: Any) -> Mapping[str, Any] | None:
+        self.direction_calls += 1
+        return await self._inner.check_direction(**kwargs)
 
 
 async def run_reasoning_shadow(
@@ -324,6 +343,7 @@ async def run_reasoning_shadow(
             bool(passes) and not pending and all(item.disposition == "admitted" for item in passes)
         )
         review: FormReview | None = None
+        reviewed: tuple[SemanticQuestionForm, ...] = tuple(admitted_forms)
         if complete:
             raw, failure = await extraction
             review = (
@@ -354,10 +374,20 @@ async def run_reasoning_shadow(
                 passes.append(shadow_pass)
                 if admitted is not None and shadow_pass.disposition == "admitted":
                     review = review_forms((admitted,), raw, utterance=utterance)
+                    reviewed = (admitted,)
                     if retain_compilations and compilation is not None:
                         compilations = [compilation]
                 else:
                     complete = False
+            if complete and review is not None and review.faithful:
+                review = await _confirm_directions(
+                    counting,
+                    reviewed,
+                    utterance=utterance,
+                    context=context,
+                    locale=locale,
+                    descriptors=manifest.descriptors,
+                )
         else:
             extraction.cancel()
             with contextlib.suppress(asyncio.CancelledError):
@@ -454,6 +484,35 @@ async def _propose_review_repair(
         return FormProposal(dropped, None, "operand_dropped", repair.reasons)
     admission = admit_question_form(resolution.form, utterance=utterance, accounting=accounting)
     return FormProposal(resolution, admission, "review_applied", repair.reasons)
+
+
+async def _confirm_directions(
+    model: _CountingModel,
+    forms: tuple[SemanticQuestionForm, ...],
+    *,
+    utterance: str,
+    context: tuple[str, ...],
+    locale: str,
+    descriptors: Any,
+) -> FormReview:
+    """Confirm each directional relation with a blind reader, holding any disagreement."""
+
+    questions = direction_questions(forms, utterance=utterance, descriptors=descriptors)
+    if not questions:
+        return FormReview("faithful")
+    answers = await asyncio.gather(
+        *(
+            model.check_direction(
+                utterance=utterance, context=context, locale=locale, question=question
+            )
+            for question in questions
+        ),
+        return_exceptions=True,
+    )
+    reasons = direction_reasons(
+        questions, [answer if isinstance(answer, Mapping) else None for answer in answers]
+    )
+    return FormReview("unfaithful", reasons) if reasons else FormReview("faithful")
 
 
 async def _extract(
