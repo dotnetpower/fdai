@@ -187,6 +187,8 @@ def _map_quotes(
                 for key in _QUOTE_CONTAINERS:
                     if key in goal:
                         goal[key] = inside(goal[key], "cue")
+                if "relation" in goal:
+                    goal["relation"] = inside(goal["relation"], "reach_cue")
                 filters = goal.get("filters")
                 if isinstance(filters, list):
                     goal["filters"] = [inside(item, "cue") for item in filters]

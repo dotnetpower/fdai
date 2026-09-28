@@ -203,15 +203,23 @@ def _unaccounted_runs(
 
     Core classifies characters only by Unicode category, to check that the model placed
     every letter, digit, and math or currency symbol inside a mention, a cue, context, or
-    an unsupported constraint; it never interprets what the characters mean. Each
-    character must lie inside a span, so an attached particle or a comparison sign needs
-    its own place instead of riding along with a neighboring word.
+    an unsupported constraint; it never interprets what the characters mean. A particle
+    attached to an instance name or identifier in the same whitespace-delimited word is
+    accounted with it, because that quote is an exact lookup key a repair must never
+    widen; the blind review still judges any restriction such a particle states. Any
+    other character, such as a comparison sign, needs its own place.
     """
 
     covered = bytearray(len(utterance))
+    suffixes = [
+        (mention.span.end, _word_end(utterance, mention.span.end))
+        for mention in form.mentions
+        if mention.domain is MentionDomain.INSTANCE and mention.form in _ANCHOR_FORMS
+    ]
     for start, end in (
         *((span.start, span.end) for span in form.declared_spans()),
         *accounted,
+        *suffixes,
     ):
         low, high = max(start, 0), min(end, len(utterance))
         if low < high:
@@ -228,6 +236,14 @@ def _unaccounted_runs(
     if run_start is not None:
         missing.append(f"span_unaccounted:{run_start}-{len(utterance)}")
     return missing[:MAX_UNACCOUNTED_REASONS]
+
+
+def _word_end(utterance: str, index: int) -> int:
+    """Return where the whitespace-delimited word that ``index`` falls inside ends."""
+
+    while index < len(utterance) and not utterance[index].isspace():
+        index += 1
+    return index
 
 
 def _accountable(character: str) -> bool:
@@ -348,6 +364,8 @@ def _goal_span_failures(goal: FormGoal, utterance: str) -> list[str]:
     spans = [("goal_cue", goal.cue)]
     if goal.relation is not None:
         spans.append(("relation_cue", goal.relation.cue))
+        if goal.relation.reach_cue is not None:
+            spans.append(("reach_cue", goal.relation.reach_cue))
     if goal.time.cue is not None:
         spans.append(("time_cue", goal.time.cue))
     return [

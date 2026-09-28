@@ -404,3 +404,47 @@ def test_unparsed_collections_are_read_as_the_closed_schema_reads_them(
     assert not repair_keeps_operands(unreadable, repaired, utterance=_UTTERANCE)
     # Omitted mentions are the schema's empty default, so the goals still bind the repair.
     assert repair_keeps_operands(omitted_mentions, repaired, utterance=_UTTERANCE)
+
+
+def test_a_repair_never_moves_an_exact_lookup_key() -> None:
+    utterance = "aks-prod-01은 무엇에 의존하나요?"
+
+    def form(name: str) -> dict[str, Any]:
+        return {
+            "mentions": [
+                {
+                    "id": "m1",
+                    "form": "name",
+                    "domain": "instance",
+                    "span": {"text": name, "occurrence": 1},
+                }
+            ],
+            "goals": [
+                {
+                    "id": "g1",
+                    "level": "instance",
+                    "operation": "traverse",
+                    "subject": "m1",
+                    "subject_scope": "anchor",
+                    "relation": {
+                        "sense": "dependency",
+                        "anchor_role": "dependent",
+                        "result_role": "dependency",
+                        "cue": {"text": "의존하나요", "occurrence": 1},
+                    },
+                    "cue": {"text": "무엇에", "occurrence": 1},
+                    "confidence": 0.9,
+                }
+            ],
+        }
+
+    typed = resolve_question_form(form("aks-prod-01"), utterance=utterance).form
+    widened = resolve_question_form(form("aks-prod-01은"), utterance=utterance).form
+    assert typed is not None and widened is not None
+    previous = form("aks-prod-01")
+
+    assert repair_keeps_operands(previous, typed, utterance=utterance, typed=typed)
+    assert not repair_keeps_operands(previous, widened, utterance=utterance, typed=typed)
+    assert not repair_keeps_operands(
+        previous, widened, utterance=utterance, typed=typed, extension_only=True
+    )

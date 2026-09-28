@@ -87,6 +87,7 @@ supplies a FunctionType, LinkType, ObjectType operand, or instance value.
 | `relation.anchor` | The mention the relation starts from; omitted when it is the goal subject |
 | `relation.anchor_role`, `relation.result_role` | Both ends of the sense, such as `container` and `member` or `dependent` and `dependency`; `either` for both |
 | `relation.reach` | `one_hop`, `transitive` |
+| `relation.reach_cue` | Optional quote of reach words that stand apart from the relation words |
 | `measure.kind` | `count`, `state`, `health`, `metric`, `change`, `event`, `forecast`, `cost` |
 | `measure.group_by` | `endpoint`, `type`, `container`, `none` |
 | `time.kind` | `current`, `window`, `as_of`, `two_windows`, `versions`, `future`, `unspecified` |
@@ -127,23 +128,27 @@ word states a constraint, so labeling one as context is its explicit judgment, w
 `remaining_goals` defers the check to the final pass, which may rely on the mentions and cues of earlier admitted passes but never on their context,
 and no compilation is released until the final pass is admitted. A repair of unaccounted words may add mentions, goals, filters, cue reach, context,
 and values left at their defaults, but it never changes or removes a stated value. A word still unaccounted after that repair is left to the blind
-constraint review, because accounting only makes the proposer consider every word; the review decides whether a word states a constraint.
+constraint review, because accounting only makes the proposer consider every word; the review decides whether a word states a constraint. A particle
+attached to an instance name or identifier in the same word is accounted with it, and no repair may change the quote of such a mention, because it is
+an exact lookup key that a widened quote would look up as another name; the review still judges any restriction the particle states. Reach words that
+stand apart from the relation words, such as all the way down, are quoted in the relation's `reach_cue`.
 
 **Blind constraint review**: A second T1 call of another model family reads only the question, beside the judgment call, and extracts every constraint
 with a closed role. Core compares the two outputs structurally: every letter and digit of each extracted constraint must lie in a span that states
 meaning, never only in a goal cue or context, and a named thing must overlap a mention, whose whitespace-delimited word carries an attached particle;
 a restriction, negation, comparison, order, or time that the extractor isolates inside such a particle, such as only, is never stated by that mention.
 No closed field expresses an exclusion such as not or only, and only a ranking or comparison goal expresses an order or a comparison, so a negation,
-comparison, or order must reach an unsupported constraint or that goal's cue, and its repair adds the unsupported constraint while every cue stays.
-Roles beyond that stay advisory, because two readers may fairly disagree on whether a word restricts or relates, except that a hypothetical premise is
-stated only by an impact goal. One mention binds one concept or identity, so a mention must not hold an extracted restriction beside another disjoint
-extracted constraint, as when one mention quotes `AKS ObjectTypes`: binding would keep one and drop the other. The extractor also quotes each literal
-value on its own, without surrounding words or particles. A literal operand, the mention a name-fragment filter reads, is used verbatim, so its quote
-must equal one of those literals; otherwise the turn is held, and no single reader decides where a literal ends. An uncovered constraint gets one
-review repair that may only add information, checked against the same extraction. Its violation names a mention that quotes part of the constraint,
-and a literal operand's quote must stay exact, so the other words go to the cue that cites it. A merged mention or a disagreeing literal is held
-without a repair, because such a repair cannot split a mention or move a literal. A missing, empty, unlocated, uncovered, merged, or disagreeing
-extraction releases nothing.
+comparison, or order must reach an unsupported constraint or that goal's cue, and its repair adds the unsupported constraint while every cue stays. A
+word that only means all or every has its own role, quantifies, and like a request word it states no restriction to cover; without that role the
+extractor labeled such words as exclusions. Roles beyond that stay advisory, because two readers may fairly disagree on whether a word restricts or
+relates, except that a hypothetical premise is stated only by an impact goal. One mention binds one concept or identity, so a mention must not hold an
+extracted restriction beside another disjoint extracted constraint, as when one mention quotes `AKS ObjectTypes`: binding would keep one and drop the
+other. The extractor also quotes each literal value on its own, without surrounding words or particles. A literal operand, the mention a name-fragment
+filter reads, is used verbatim, so its quote must equal one of those literals; otherwise the turn is held, and no single reader decides where a
+literal ends. An uncovered constraint gets one review repair that may only add information, checked against the same extraction. Its violation names a
+mention that quotes part of the constraint, and a literal operand's quote must stay exact, so the other words go to the cue that cites it. A merged
+mention or a disagreeing literal is held without a repair, because such a repair cannot split a mention or move a literal. A missing, empty,
+unlocated, uncovered, merged, or disagreeing extraction releases nothing.
 
 A form that breaks its closed schema or a structural rule gets at most one repair call with the code-authored violations. The repaired form passes the
 same admission and must keep every quoted operand, goal, operation, want, typed time, operand-bearing relation, competing reading, and pending-goals
