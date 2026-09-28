@@ -470,3 +470,84 @@ def test_reconciled_variables_mount_the_bridge_for_bridged_scheduled_jobs() -> N
     original["scheduled_jobs"]["analyzer"]["identity_bridge_enabled"] = False
     with pytest.raises(ValueError, match="scheduled job identity bridge"):
         reconciled_variables(state=_state(), variables=original, live=_live())
+
+
+def _workload_with_environment(name: str, entries: list[dict[str, object]]) -> dict[str, object]:
+    workload = _terraform_workload(name, legacy=False)
+    container = workload["spec"][0]["template"][0]["spec"][0]["container"][0]
+    container["env"] = entries
+    return workload
+
+
+def _single_workload_plan(
+    name: str, before: dict[str, object], after: dict[str, object]
+) -> dict[str, object]:
+    return {
+        "errored": False,
+        "applyable": True,
+        "resource_changes": [
+            {
+                "address": (
+                    "azurerm_federated_identity_credential.identity["
+                    '"workload-operator-service-command"]'
+                ),
+                "change": {"actions": ["no-op"], "before": {}, "after": {}},
+            },
+            {
+                "address": f'kubernetes_deployment_v1.workload["{name}"]',
+                "change": {"actions": ["update"], "before": before, "after": after},
+            },
+        ],
+    }
+
+
+def test_plan_ignores_environment_order_and_unset_literal_representation() -> None:
+    variables = reconciled_variables(state=_state(), variables=_variables(), live=_live())
+    name = sorted(SERVICES)[0]
+    secret_binding = [{"secret_key_ref": [{"key": "DSN", "name": name}]}]
+    before = _workload_with_environment(
+        name,
+        [
+            {"name": "B_TOPIC", "value": "events"},
+            {"name": "A_HOST", "value": "host:9093"},
+            {"name": "DSN", "value": "", "value_from": secret_binding},
+        ],
+    )
+    after = _workload_with_environment(
+        name,
+        [
+            {"name": "A_HOST", "value": "host:9093"},
+            {"name": "B_TOPIC", "value": "events"},
+            {"name": "DSN", "value": None, "value_from": secret_binding},
+        ],
+    )
+
+    validate_reconciliation_plan(_single_workload_plan(name, before, after), variables=variables)
+
+
+def test_plan_still_rejects_a_real_environment_change() -> None:
+    variables = reconciled_variables(state=_state(), variables=_variables(), live=_live())
+    name = sorted(SERVICES)[0]
+    before = _workload_with_environment(name, [{"name": "A_HOST", "value": "host:9093"}])
+    after = _workload_with_environment(name, [{"name": "A_HOST", "value": "other:9093"}])
+
+    with pytest.raises(ValueError, match="changes a workload contract"):
+        validate_reconciliation_plan(
+            _single_workload_plan(name, before, after), variables=variables
+        )
+
+
+def test_plan_preserves_order_when_a_value_interpolates_another_variable() -> None:
+    variables = reconciled_variables(state=_state(), variables=_variables(), live=_live())
+    name = sorted(SERVICES)[0]
+    entries = [
+        {"name": "B_BASE", "value": "host"},
+        {"name": "A_URL", "value": "https://$(B_BASE)/api"},
+    ]
+    before = _workload_with_environment(name, entries)
+    after = _workload_with_environment(name, list(reversed(entries)))
+
+    with pytest.raises(ValueError, match="changes a workload contract"):
+        validate_reconciliation_plan(
+            _single_workload_plan(name, before, after), variables=variables
+        )
