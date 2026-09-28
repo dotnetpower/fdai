@@ -1,8 +1,8 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: b47a9510498ca176e2c2a562a22709982fa9b2e1
-translation_revised: 2026-09-28
+translation_source_sha: 83899a73fae68c3d89173357889fb8ce98e54e28
+translation_revised: 2026-09-29
 ---
 # 프로젝트 구조
 이 시스템은 하나의 웹 앱이 아니라 **headless 컨트롤 플레인 + 얇은 콘솔 + ChatOps**입니다. 이 문서는 검증된 5개 서비스 기준선과 독립 패키지 시스템 지식 서비스 후보의 모듈 경계, 의존성 방향, 조립 및 저장소 규칙을 정의합니다. 공유 서비스 계약 SDK는 권한을 부여하지 않는 `RuntimeScopeReceipt`를 소유하며, 서비스가 소유하는 모든 진입점은 시작 전에 이 증적을 하나 내보내 제품 목적, 실행 위치 및 허용된 완전한 기능 행을 결속하되 프로바이더 상태나 성공을 주장하지 않습니다. 공유 온톨로지 코드는 프로덕션 라우팅 및 탐지 제어의 고정된 절대 범위 레지스트리를 소유하고, 런타임과 전달 계층은 활성 값을 버전이 지정된 구성에 유지하며 새 권한 경로를 가져오지 않습니다. Post-turn 런타임 스킬 초안은 스킬을 활성화하지 않고 정규화된 검증 근거 참조를 제안 식별자, 영속 저장소 및 감사 메타데이터에 보존합니다. Bootstrap은 후보를 평가하거나 게시하기 전에 Norns 룰 힌트를 현재 discovery-activation 결정 뒤에 결속합니다. 패키지 release 카탈로그는 도달 가능한 소스 개정 번호에만 고정하며 파생 소스 게이트는 커밋 전과 CI에서 기록된 모든 소스 blob을 비교합니다. 소유 설계 원본만 바뀌면 upstream 통합 뒤에 다시 생성하여 카탈로그 레코드는 유지하고 원본 약속값과 집계 다이제스트만 최종 병합 blob 및 도달 가능한 보호 main 개정 번호에 맞춥니다. 질문은행과 CQAS 산출물도 정확한 원본 카탈로그에서 의존성 순서에 따라 전체를 다시 생성하며 다이제스트만 수동으로 수정하지 않습니다. 확인된 인시던트 생성은 전용 논리 토픽의 버전이 지정된 권한 없는 요청으로 Operator/Core 경계를 통과합니다. Operator는 인증, 원본 초안 재검증 및 영속 수락을 소유하고 Core만 인시던트 수명 주기와 감사 레코드를 기록합니다. 물리 패키지 소유권은 [다중 서비스 저장소 레이아웃](multi-service-repository-layout-ko.md), 로컬 및 배포 topology는 [App 형태](../../../.github/instructions/app-shape.instructions.md)를 참조하세요.
@@ -208,7 +208,7 @@ Cost Governance 가명 자료는 Operator 조립이 소유하는 비밀입니다
   `core/conversation/semantic_judgment_assembly.py`는 preflight 주제 키를 만들며 포함 누락이 있으면
   전체 프롬프트로 한 번 다시 판단합니다. `semantic_judgment_bounds.py`는 판단 입력 한도를 담고,
   `semantic_planning_assembly.py`는 planning 어댑터가 쓰는 frame 의도 키, plan 형태 키, frame 결과
-  키와 plan 기술자 선택을 만듭니다. shadow 전용 `core/conversation/semantic_reasoning_*.py` 모듈은 [온톨로지 추론 컴파일러](../interfaces/ontology-reasoning-compiler-ko.md)의 닫힌 질문 형식, 수용, 스키마가 정규화한 값을 기준으로 비교하고 파싱되지 않은 제안의 읽을 수 없는 신중 신호는 안전하게 거부하며 진술된 피연산자와 경쟁 해석, 남은 목표 신호를 모두 유지하는 한 번으로 제한된 형식 복구, 개념 선택, 앵커 바인딩, 관계와 연산 컴파일, 독립적인 V-SEM, V-PROV, V-LEVEL, V-CLAIM 검증, 커버리지 증적, 다이제스트만 기록하는 shadow 실행기를 담당하고, `delivery/azure/llm/identity_masking.py`는 정확한 식별자를 불투명한 자리 표시자로만 형식 모델에 보내며, `core/ontology_platform/query_traversal_tables.py`는 탐색 끝점을 거르고 정확한 출력 증적을 발급하며, 리소스 그룹 구성원 조회는 대소문자를 무시한 정확한 이름으로 그룹을 결속한 뒤 `contains`를 탐색합니다. `conversation_preflight_family_validation.py`는 Core가 컬렉션 필터를 원문에서
+  키와 plan 기술자 선택을 만듭니다. shadow 전용 `core/conversation/semantic_reasoning_*.py` 모듈은 [온톨로지 추론 컴파일러](../interfaces/ontology-reasoning-compiler-ko.md)의 닫힌 질문 형식, 수용, 스키마가 정규화한 값을 기준으로 비교하고 파싱되지 않은 제안에서 비교하는 필드가 닫힌 형태를 잃으면 안전하게 거부하며 진술된 피연산자와 경쟁 해석, 남은 목표 신호를 모두 유지하는 한 번으로 제한된 형식 복구, 개념 선택, 앵커 바인딩, 관계와 연산 컴파일, 독립적인 V-SEM, V-PROV, V-LEVEL, V-CLAIM 검증, 커버리지 증적, 다이제스트만 기록하는 shadow 실행기를 담당하고, `delivery/azure/llm/identity_masking.py`는 정확한 식별자를 불투명한 자리 표시자로만 형식 모델에 보내며, `core/ontology_platform/query_traversal_tables.py`는 탐색 끝점을 거르고 정확한 출력 증적을 발급하며, 리소스 그룹 구성원 조회는 대소문자를 무시한 정확한 이름으로 그룹을 결속한 뒤 `contains`를 탐색합니다. `conversation_preflight_family_validation.py`는 Core가 컬렉션 필터를 원문에서
   근거화하므로 모델이 제안한 정규 값을 버립니다.
   `fdai_core_service/semantic_answer_presentation.py`는 공급자 lifecycle 상태, ISO 시각, 완전성,
   실행 권한 없음 표시를 운영자 언어로 렌더링하고 기술 상세에는 정확한 값을 유지합니다.

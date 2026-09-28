@@ -131,10 +131,13 @@ def repair_keeps_operands(
     ``typed`` is the rejected proposal as the closed schema read it, when it parsed.
     Operations, wants, competing readings, and pending goals then compare the typed
     values, because the schema normalizes raw values such as a numeric boolean. A
-    proposal that never parsed has no typed reading, so any present pending-goals
-    value other than false stays pending and an unreadable want fails closed.
+    proposal that never parsed has no typed reading, so every field compared here
+    must keep its closed shape, any present pending-goals value other than false
+    stays pending, and anything unreadable fails closed instead of counting as absent.
     """
 
+    if typed is None and not _raw_readable(previous):
+        return False
     spans = [(mention.span.start, mention.span.end) for mention in repaired.mentions]
     times = [
         (goal.time.cue.start, goal.time.cue.end)
@@ -173,7 +176,7 @@ def repair_keeps_operands(
         want = Want.FACT if "want" not in before else _enum(Want, before.get("want"))
         if after is None or want is None or want is not after.want:
             return False
-        if operation is not None and operation is not after.operation:
+        if operation is None or operation is not after.operation:
             return False
         if not _cues_kept(before, after, utterance):
             return False
@@ -239,6 +242,44 @@ def _caution(
     )
 
 
+def _raw_readable(previous: Mapping[str, Any]) -> bool:
+    """Return whether every field compared here keeps its closed shape in unparsed output.
+
+    Mentions and goals must be lists of objects, goal ids unique text, operations and
+    wants readable, and time and relation objects when present. A wrong container, a
+    duplicate id, or an unreadable value cannot be compared, so it never counts as an
+    absent constraint.
+    """
+
+    mentions = previous.get("mentions")
+    if mentions is not None and not _objects(mentions):
+        return False
+    goals = previous.get("goals")
+    if goals is None:
+        return True
+    if not _objects(goals):
+        return False
+    ids = [goal.get("id") for goal in goals]
+    if not all(isinstance(item, str) for item in ids) or len(set(ids)) != len(ids):
+        return False
+    return all(_raw_goal_readable(goal) for goal in goals)
+
+
+def _objects(value: object) -> bool:
+    return isinstance(value, list) and all(isinstance(item, Mapping) for item in value)
+
+
+def _raw_goal_readable(goal: Mapping[str, Any]) -> bool:
+    if _enum(GoalOperation, goal.get("operation")) is None:
+        return False
+    if "want" in goal and _enum(Want, goal["want"]) is None:
+        return False
+    return all(
+        goal.get(field) is None or isinstance(goal.get(field), Mapping)
+        for field in ("time", "relation")
+    )
+
+
 def _meaning_kept(operation: GoalOperation, want: Want, after: FormGoal | None) -> bool:
     return after is not None and after.operation is operation and after.want is want
 
@@ -263,9 +304,11 @@ def _cues_kept(before: Mapping[str, Any], after: FormGoal | None, utterance: str
 
 def _carries_operand(goal: Mapping[str, Any], relation: Mapping[str, Any]) -> bool:
     scope = _enum(SubjectScope, goal.get("subject_scope"))
+    # An unreadable subject scope may name an anchor, so its relation stays protected.
     return (
         relation.get("anchor") is not None
         or relation.get("counterpart") is not None
+        or scope is None
         or scope is SubjectScope.ANCHOR
     )
 

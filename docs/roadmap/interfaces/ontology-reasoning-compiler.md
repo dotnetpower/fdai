@@ -130,9 +130,10 @@ A form that breaks its closed schema or a structural rule gets at most one repai
 code-authored violations. The repaired form passes the same admission and must keep every quoted
 operand, goal, operation, want, typed time, operand-bearing relation, competing reading, and
 pending-goals signal of the rejected proposal; otherwise the original fault stands. These fields
-compare as the closed schema normalizes them, and a proposal that never parsed treats every stated
-pending-goals value other than an explicit false or null as pending and fails closed on an
-unreadable want. Clarifications are answers to the operator and are never repaired.
+compare as the closed schema normalizes them. A proposal that never parsed treats every stated
+pending-goals value other than an explicit false or null as pending, and it fails closed when any
+compared field loses its closed shape, such as a wrong container, a duplicate goal id, or an
+unreadable operation or want. Clarifications are answers to the operator and are never repaired.
 
 Admission bounds model authority; it does not remove it. A wrong but self-consistent form is caught
 only by cue-span review, T2 review, the restated interpretation and confirm-first cells in

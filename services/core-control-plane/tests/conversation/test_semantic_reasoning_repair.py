@@ -317,3 +317,45 @@ def test_an_unparsed_explicit_false_or_null_is_not_pending(value: object) -> Non
     unparsed["remaining_goals"] = value
 
     assert repair_keeps_operands(unparsed, _resolved(_quoted_form()), utterance=_UTTERANCE)
+
+
+def _reshaped(field: str) -> dict[str, Any]:
+    form = _undeclared_filter()
+    goal = form["goals"][0]
+    if field == "goals":
+        form["goals"] = goal
+    elif field == "mentions":
+        form["mentions"] = form["mentions"][0]
+    elif field == "duplicate_id":
+        twin = copy.deepcopy(goal)
+        twin.update(level="schema", cue={"text": "what", "occurrence": 1})
+        form["goals"].append(twin)
+    elif field == "operation":
+        goal["operation"] = {"value": "count"}
+    elif field == "time":
+        goal["time"] = [{"kind": "window", "value": {"duration": {"amount": 3, "unit": "day"}}}]
+    elif field == "relation":
+        goal["relation"] = [goal["relation"]]
+    return form
+
+
+@pytest.mark.parametrize(
+    "field", ("goals", "mentions", "duplicate_id", "operation", "time", "relation")
+)
+def test_an_unparsed_proposal_whose_compared_fields_lose_their_shape_fails_closed(
+    field: str,
+) -> None:
+    repaired = _resolved(_quoted_form())
+
+    assert repair_keeps_operands(_undeclared_filter(), repaired, utterance=_UTTERANCE)
+    assert not repair_keeps_operands(_reshaped(field), repaired, utterance=_UTTERANCE)
+
+
+def test_an_unreadable_subject_scope_keeps_its_relation() -> None:
+    unscoped = _undeclared_filter()
+    unscoped["goals"][0]["subject_scope"] = "somewhere"
+    relation_free = _quoted_form()
+    relation_free["goals"][0]["relation"] = None
+
+    assert not repair_keeps_operands(unscoped, _resolved(relation_free), utterance=_UTTERANCE)
+    assert repair_keeps_operands(unscoped, _resolved(_quoted_form()), utterance=_UTTERANCE)
