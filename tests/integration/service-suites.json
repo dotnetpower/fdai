@@ -87,6 +87,7 @@
           "services/operator-service/tests/test_assurance_twin_posture_projection.py",
           "services/operator-service/tests/test_assignment_projection.py",
           "services/operator-service/tests/test_assignment_revocation.py",
+          "services/operator-service/tests/test_authentication_receipt.py",
           "services/operator-service/tests/test_autonomy_measurement_projection.py",
           "services/operator-service/tests/test_azure_cli_token.py",
           "services/operator-service/tests/test_azure_workload_credential.py",

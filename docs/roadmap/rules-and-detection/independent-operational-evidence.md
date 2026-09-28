@@ -8,9 +8,12 @@ context, forecast intervention history, and case-history reuse. A separate read-
 each authoritative source under its own identity and issues content-free proofs, while the existing boundary
 owners keep consuming them through the unchanged admission seam.
 
-> **Status:** Design only. The owner reviewed it for exit criterion 1 of
-> [#1022](https://github.com/dotnetpower/fdai/issues/1022) on 2026-09-28; see [Review decisions](#review-decisions). No verifier, proof producer, trust registry, or
-> principal-to-case-scope mapping is implemented or deployed; every boundary here keeps failing closed.
+> **Status:** Partially implemented. The owner reviewed the design for exit criterion 1 of
+> [#1022](https://github.com/dotnetpower/fdai/issues/1022) on 2026-09-28; see [Review decisions](#review-decisions).
+> The verifier engine, issuance seam, pinned trust and case-scope grant registries, insert-only proof store,
+> Operator authentication receipt, and three test-context readbacks exist and pass local checks; see
+> [Implementation notes](#implementation-notes). No verifier workload is deployed, and every purpose without a
+> bound source readback stays `unavailable`.
 >
 > **Agent boundary:** The pantheon remains exactly 15 agents. This design adds no agent or topic, changes no
 > agent's `owns` or `subscribes`, and grants no execution or promotion authority.
@@ -27,7 +30,9 @@ explicitly; only `unavailable` keeps today's generic hold.
 
 ## Current state and gap
 
-Core paths are relative to `services/core-control-plane/src/fdai/`; other paths are repository-relative.
+Core paths are relative to `services/core-control-plane/src/fdai/`; other paths are repository-relative. This
+section records the gap the design closes as reviewed; [Implementation notes](#implementation-notes) describe what
+now exists.
 
 - **Consumers exist.** Every boundary below calls `assess_decision_evidence_admission` from
   `shared/providers/decision_evidence_verifier.py`. Without an admission it holds with a generic reason, such
@@ -119,8 +124,9 @@ The operational proof store is a set of insert-only PostgreSQL tables in both ve
   `<registry-pins>/<lookup>/<reverse-time>-<receipt>`, and rejections with the same key shape. A key per
   issuance lets a lookup be reissued after expiry without overwriting an immutable record.
 - **Rejections.** A rejection record is content-free: attempt id, lookup digest, purpose, class, reason codes from
-  `LiveEvidenceClaimRejectionReason` or `DecisionEvidenceReadinessReason`, conflict evidence digests, pins,
-  verifier id and version, recorded time, and a fixed 60-second `valid_until` that covers that attempt only.
+  `LiveEvidenceClaimRejectionReason`, `DecisionEvidenceReadinessReason`, or the readback's fixed code set, conflict
+  evidence digests, pins, verifier id and version, recorded time, and a fixed 60-second `valid_until` that covers
+  that attempt only.
 - **Pins and reads.** `<registry-pins>` names the trust and grant registry revisions behind a record. Consumers
   read at most the two newest records for a lookup under the current pins or under earlier pins that no
   revocation revision retired; neither record extends the other.
@@ -142,15 +148,16 @@ binds trust anchors to workload principals and the proof store address, which ne
 | `purpose_id`, `authority_class`, `method_*` | One of the eleven purpose ids and its readback contract; no purpose substitutes for another |
 | `producers`, `sources` | Registered requesting boundaries, authoritative and corroborating sources, and their anchors |
 | `freshness_policy` | Policy id, version, and ceiling; its digest is the freshness-policy proof subject |
-| `verifier` | `verifier_id`, `verifier_version`, `trust_anchor_id`, `valid_from`, `valid_until`, and `revoked` |
+| `verifiers` | One or more bindings, each with `verifier_id`, `verifier_version`, `trust_anchor_id`, `valid_from`, `valid_until`, and `revoked`; rotation adds a binding beside the one it replaces |
 | `separation` | Source, producer, reviewer, and every executor-class anchor that must differ from the verifier |
 | `evidence_class` | `live` in deployed venues; a `local-loopback` anchor is refused outside local venues |
 
 - **Review and load.** A revision is content-addressed and pinned out of band after review, like the
   [operating-intent source](../architecture/operating-intent-source.md). Author and reviewer are distinct
   humans; the full-authority development profile's one Owner may do both, recorded as development-only. The
-  verifier and every consumer load the same pin; a digest mismatch, unknown field, duplicate key, or missing
-  anchor makes the purpose unavailable.
+  verifier and every consumer load the same pin; a digest mismatch, unknown field, duplicate key, missing
+  anchor, or verifier trust anchor that is also a producer, source, or separation anchor makes the purpose
+  unavailable. Identity-separation checks therefore skip only anchors that verifier bindings use exclusively.
 - **Rotation and revocation.** The loader classifies each revision by content, not by label. Any removal,
   narrowing, validity shortening, or `revoked` flag on a binding, grant, purpose, or case scope makes it a revocation
   revision; authors revoke entries instead of deleting them. A revocation revision retires live admissions under
@@ -365,6 +372,57 @@ only after separate explicit authorization, on a selected non-production target,
 | Negative drills | Each rejection class except self-verified produces its expected rejection record and matching owner reason in the dedicated test scope; the self-verified drill asserts capability state `self_verified`; a stopped verifier yields only `unavailable` and never passes another class's drill |
 | Stop conditions | Missing identity, `429` or `503`, a deadline, or conflicting evidence stops the run and records the missing stage |
 | Record | The deployed SHA, registry digests, scope digest, timestamps, and receipt references; independent operational qualification stays with [#1026](https://github.com/dotnetpower/fdai/issues/1026) |
+
+## Implementation notes
+
+Core paths are relative to `services/core-control-plane/src/fdai/`. Each item records how the design is realized
+today; the [implementation ledger](../../roadmap-implementation/rules-and-detection/independent-operational-evidence.md)
+tracks what remains.
+
+- **Contracts.** `fdai_service_contracts.operational_evidence` defines the lookup, the coordinates-only locator, the
+  content-free request and response, and the rejection record with its fixed 60-second window.
+  `fdai_service_contracts.operator_authentication` defines the token-free Operator authentication receipt.
+- **Seam and owners.** `shared/providers/operational_evidence_issuer.py` declares `OperationalEvidenceIssuer` and the
+  attempt-scoped outcome reader. `core/operational_evidence/owner_outcome.py` coalesces identical in-flight requests
+  and accepts a rejection only after re-reading the record that attempt named. Var and Mimir refuse commands and
+  transitions with `OperationalEvidenceRejectedError`, which names the class, and Forseti's hold reason names it. Thor,
+  Heimdall, T1 reuse, and the Pattern read keep their generic holds because only `unavailable` is reachable for them.
+- **Verifier.** `core/operational_evidence/issuance.py` and `proofs.py` build the receipt, five proofs, and bundle
+  from registry entries and its own readback, evaluates them with `DecisionEvidenceReadinessGate`, and writes one admission or one
+  rejection. `separation.py` refuses a verifier principal that equals any independent principal, and
+  `delivery/operational_evidence_server.py` serves the loopback endpoint. The workload issues only under the exact
+  binding of its own verifier version, so a routine rotation leaves an earlier workload and its retained admissions
+  valid until they expire, while a revocation revision retires them. A replayed attempt returns its stored outcome,
+  even when a concurrent writer inserted it first; an attempt id reused for another lookup is `unavailable`.
+- **Venue.** `FDAI_EXECUTION_VENUE`, resolved by `resolve_execution_venue`, is authoritative. An anchor document
+  that names another venue or repeats a key leaves every purpose unavailable and stops the verifier workload, and
+  the loopback workload starts only in the local venue because a deployed venue has no workload caller
+  authenticator yet.
+- **Registries.** `config/operational-evidence-trust-registry.json` is the reviewed upstream registry.
+  `trust_registry.py`, `grant_registry.py`, their `*_loader.py` modules, and `revision_history.py` load pinned
+  revisions strictly, classify each revision by content, retire earlier pins after a revocation revision, and end lineage only when its matched binding or
+  grant is revoked. A matching grant that is not yet valid neither grants nor denies; only revoked or expired
+  matches deny. A purpose whose verifier trust anchor is also a producer, source, or separation anchor reports
+  `verifier_anchor_not_exclusive`. The upstream `forecast-context` entry names the verifier's own slice
+  admissions, under the verifier trust anchor, as its source, so it stays unavailable until a reviewed source
+  model replaces that entry. Deployment supplies the grant registry, pins, and anchor binding.
+- **Proof store and sources.** The core-control-plane service migration `core_operational_evidence_20260928` creates
+  the five insert-only tables, the verifier and reader roles, and immutability triggers. It also lets only the Operator
+  identity insert test-context command rows, freezes their request fields and receipt, and exposes those rows, Mimir's
+  history, and its audit rows to the verifier through read-only security-barrier views, so a caller-supplied
+  function never observes the content of another `state_kv` row. Built-in leakproof operators still evaluate
+  every underlying key, so planner estimates and `EXPLAIN ANALYZE` row counts let the verifier role test for and
+  count keys; values stay hidden. The migration revokes any direct `TEMPORARY` grant from the verifier role; the
+  PostgreSQL default `PUBLIC` grant remains because Core uses temporary tables, and the barrier protects row
+  content without depending on it. The Operator retains the receipt beside, not inside, the idempotent request
+  digest.
+- **Readbacks.** `operator-test-context-command`, `test-context-transition`, and `operational-test-context` read real
+  sources. A current context is admissible only when the transition admission it cites has the lookup rebuilt from
+  that context and its prior record; any other cited admission is `replay_substituted`. `admit` rechecks each
+  retained record against its exact verifier binding and that binding's readiness under the current anchors. The
+  observation, forecast, case-history, and current-reuse purposes have no bound source readback.
+- **Capability and handoff.** `delivery/operational_evidence_readiness.py` adds one Settings row per purpose, and
+  `delivery/operational_evidence_handoff_cli.py` runs the automatable connected-handoff stages and lists the owed drills.
 
 ## Non-goals
 

@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from fdai_service_contracts import OperatorPrincipal, OperatorPrincipalKind, OperatorRole
+from fdai_service_contracts.operator_authentication import OperatorAuthenticationReceipt
 from starlette.requests import Request
 
 from fdai_operator_service.auth import AuthorizationError, OperatorAuthenticator
@@ -41,10 +42,18 @@ class OperatorFamilyAuthorizer:
 
     async def authorize(self, request: Request, *, operation: str) -> PrincipalScope:
         """Authenticate conversation reads, Reader chat, and role-gated proposals."""
+        scope, _receipt = await self.authorize_with_receipt(request, operation=operation)
+        return scope
+
+    async def authorize_with_receipt(
+        self, request: Request, *, operation: str
+    ) -> tuple[PrincipalScope, OperatorAuthenticationReceipt | None]:
+        """Authorize once and return the content-free receipt of that token verification."""
         required = _WRITE_ROLES if operation in _CONVERSATION_WRITE_OPERATIONS else _READ_ROLES
         if operation in {"test-context.review", "test-context.revoke"}:
             required = frozenset({OperatorRole.APPROVER, OperatorRole.OWNER})
-        principal = self.authenticator.authenticate(request.headers.get("authorization"))
+        identity = self.authenticator.authenticate_identity(request.headers.get("authorization"))
+        principal = identity.principal
         if principal.principal_kind is OperatorPrincipalKind.WORKLOAD:
             if operation != "chat.stream" or principal.roles != frozenset({OperatorRole.READER}):
                 raise AuthorizationError(
@@ -56,11 +65,14 @@ class OperatorFamilyAuthorizer:
             raise AuthorizationError(
                 f"principal lacks required role: any of {{{expected}}} (has {{{actual}}})"
             )
-        return PrincipalScope(
-            subject_id=principal.subject_id,
-            roles=frozenset(role.value for role in principal.roles),
-            principal_kind=principal.principal_kind,
-            groups=principal.groups,
+        return (
+            PrincipalScope(
+                subject_id=principal.subject_id,
+                roles=frozenset(role.value for role in principal.roles),
+                principal_kind=principal.principal_kind,
+                groups=principal.groups,
+            ),
+            identity.authentication_receipt,
         )
 
     async def iam(self, request: Request) -> IamPrincipal:

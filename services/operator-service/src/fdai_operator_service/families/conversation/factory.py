@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections.abc import AsyncIterator, Awaitable, Callable
 from dataclasses import dataclass
+from typing import cast
 
 from fdai_operator_service.families.conversation.contracts import (
     ActionConfirmationBody,
@@ -13,8 +14,10 @@ from fdai_operator_service.families.conversation.contracts import (
     ConversationProposal,
     ConversationProposalOutbox,
     ConversationQuery,
+    ConversationReceiptAuthorizer,
     ConversationStreamReader,
     ConversationStreamRequest,
+    JsonObject,
 )
 from fdai_operator_service.families.conversation.document_refs import (
     DocumentContextResolver,
@@ -148,7 +151,20 @@ def _proposal_endpoint(
         if dependencies.outbox is None:
             return unavailable_response("conversation proposal outbox")
         try:
-            scope = await dependencies.authorizer.authorize(request, operation=spec.operation)
+            receipt: JsonObject | None = None
+            if spec.operation.startswith("test-context.") and isinstance(
+                dependencies.authorizer, ConversationReceiptAuthorizer
+            ):
+                scope, verified = await dependencies.authorizer.authorize_with_receipt(
+                    request, operation=spec.operation
+                )
+                receipt = (
+                    cast(JsonObject, verified.model_dump(mode="json"))
+                    if verified is not None
+                    else None
+                )
+            else:
+                scope = await dependencies.authorizer.authorize(request, operation=spec.operation)
             body = (
                 await read_json_body(request, maximum=spec.max_body_bytes)
                 if spec.max_body_bytes
@@ -192,9 +208,10 @@ def _proposal_endpoint(
                 path_params=path_params,
                 confirmed=body.get("confirmed") is True,
                 cancellation=spec.operation.endswith((".cancel", ".cancel_current", ".expire")),
+                authentication_receipt=receipt,
             )
-            receipt = await dependencies.outbox.append(proposal)
-            return response_from_contract(receipt.response)
+            outbox_receipt = await dependencies.outbox.append(proposal)
+            return response_from_contract(outbox_receipt.response)
         except ConversationBoundaryError as exc:
             return boundary_error_response(exc)
 

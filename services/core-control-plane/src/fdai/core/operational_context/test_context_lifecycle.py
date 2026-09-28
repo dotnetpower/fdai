@@ -10,6 +10,10 @@ from dataclasses import asdict, replace
 from datetime import UTC, datetime
 from typing import Any
 
+from fdai.core.operational_evidence.owner_outcome import (
+    OperationalEvidenceRequester,
+    request_operational_evidence,
+)
 from fdai.shared.providers.decision_evidence_verifier import (
     DecisionEvidenceAdmission,
     DecisionEvidenceAdmissionProvider,
@@ -34,10 +38,12 @@ class GovernedTestContextStore:
         store: StateStore,
         admission: DecisionEvidenceAdmissionProvider,
         clock: Callable[[], datetime] | None = None,
+        evidence: OperationalEvidenceRequester | None = None,
     ) -> None:
         self._store = store
         self._admission = admission
         self._clock = clock or (lambda: datetime.now(UTC))
+        self._evidence = evidence
 
     async def record_transition(
         self,
@@ -45,13 +51,26 @@ class GovernedTestContextStore:
         *,
         expected_revision: int,
         now: datetime,
+        command_key: str | None = None,
     ) -> None:
-        """Record a draft, independent review, or terminal revocation; failed CAS is retryable."""
+        """Record a draft, independent review, or terminal revocation; failed CAS is retryable.
+
+        ``command_key`` locates the triggering Operator command so Mimir can request
+        independent issuance before its compare-and-set write; without it only an
+        already retained admission can satisfy the transition.
+        """
         async with asyncio.timeout(5):
-            await self._record(claim, expected_revision=expected_revision, now=now)
+            await self._record(
+                claim, expected_revision=expected_revision, now=now, command_key=command_key
+            )
 
     async def _record(
-        self, claim: TestContextClaim, *, expected_revision: int, now: datetime
+        self,
+        claim: TestContextClaim,
+        *,
+        expected_revision: int,
+        now: datetime,
+        command_key: str | None = None,
     ) -> bool:
         if now.utcoffset() is None or claim.recorded_at > now:
             raise ValueError("test context transition time is invalid")
@@ -106,8 +125,19 @@ class GovernedTestContextStore:
                     raise PermissionError(
                         "overlapping reviewed test contexts require conflict resolution"
                     )
-        transition_digest = _digest(
-            {"claim": claim.digest, "prior": prior.digest if prior else None}
+        transition_digest = context_transition_digest(claim, prior)
+        attempt = await request_operational_evidence(
+            self._evidence if command_key else None,
+            evidence_digest=transition_digest,
+            scope_digest="sha256:" + claim.access_scope_digest,
+            purpose_id="test-context-transition",
+            source_revision=claim.policy_revision,
+            locator={
+                "idempotency_key": command_key or "",
+                "context_id": claim.context_id,
+                "target_ref": claim.target_ref,
+            },
+            clock=self._clock,
         )
         admission = await self._admission.admit(
             evidence_digest=transition_digest,
@@ -117,6 +147,7 @@ class GovernedTestContextStore:
         )
         completed_at = self._clock()
         if admission is None or not isinstance(admission, DecisionEvidenceAdmission):
+            attempt.raise_if_rejected("test context transition requires independent admission")
             raise PermissionError("test context transition requires independent admission")
         if (
             assess_decision_evidence_admission(
@@ -304,3 +335,23 @@ def _digest(value: dict[str, Any]) -> str:
 
 def _state_key(scope: str, target: str) -> str:
     return "test-context-target:v1:" + _digest({"scope": scope, "target": target}).split(":", 1)[1]
+
+
+def context_history_key(access_scope_digest: str, target_ref: str) -> str:
+    """Return the StateStore key of one scope and target's revisioned context history."""
+    return _state_key(access_scope_digest, target_ref)
+
+
+def context_transition_digest(claim: TestContextClaim, prior: TestContextClaim | None) -> str:
+    """Bind one transition to its exact prior revision; the verifier recomputes this digest."""
+    return _digest({"claim": claim.digest, "prior": prior.digest if prior else None})
+
+
+def parse_test_context_history(
+    value: Any,
+) -> tuple[int, dict[str, tuple[TestContextClaim, ...]]]:
+    """Validate one stored target history with the store's own chain rules."""
+    revision, histories = _state(value)
+    return revision, {
+        identity: tuple(_claim(item) for item in items) for identity, items in histories.items()
+    }
