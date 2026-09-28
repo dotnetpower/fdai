@@ -57,7 +57,7 @@ concurrency:
 jobs:
   scenario-lab:
     if: github.ref == 'refs/heads/main'
-    runs-on: [self-hosted, fdai-deploy, fdai-deploy-candidate]
+    runs-on: [self-hosted, fdai-deploy, fdai-deploy-candidate, fdai-scenario-lab]
     timeout-minutes: 240
     environment: >-
       ${{ (inputs.action == 'plan' || inputs.action == 'destroy-plan') &&
@@ -802,28 +802,78 @@ jobs:
           )
           category_patterns = {
               "authentication": re.compile(
-                  r"\b(?:authenticat(?:e|ed|ing|ion)|access token)\b", re.IGNORECASE
+                  r"\b(?:authenticat(?:e|ed|ing|ion)|access token|managed ?identity(?:credential)?"
+                  r"|msi|imds|metadata endpoint|aadsts[0-9]+)\b",
+                  re.IGNORECASE,
               ),
               "authorization": re.compile(r"\bauthoriz(?:ation|ed)\b", re.IGNORECASE),
+              "backend_state": re.compile(
+                  r"\b(?:error (?:loading|reading|refreshing|writing|saving) (?:the )?state"
+                  r"|failed to (?:load|read|persist|save|write) (?:the )?state"
+                  r"|failed to get existing workspaces|error loading backend"
+                  r"|failed to configure the backend|backend initialization required"
+                  r"|backend configuration changed)\b",
+                  re.IGNORECASE,
+              ),
               "capacity_or_quota": re.compile(r"\b(?:capacity|quota)\b", re.IGNORECASE),
               "condition_failed": re.compile(
                   r"\b(?:pre|post)condition failed\b", re.IGNORECASE
+              ),
+              "invalid_configuration_value": re.compile(
+                  r"\b(?:invalid (?:attribute name|index|expression|for_each argument"
+                  r"|count argument|template interpolation value|value for module argument"
+                  r"|combination of arguments|resource type)|incorrect attribute value type"
+                  r"|inconsistent conditional result types|missing resource instance key"
+                  r"|error in function call|conflicting configuration arguments)\b",
+                  re.IGNORECASE,
               ),
               "invalid_function_argument": re.compile(
                   r"\binvalid function argument\b", re.IGNORECASE
               ),
               "invalid_input_variable": re.compile(
-                  r"\binvalid value for input variable\b", re.IGNORECASE
+                  r"\binvalid value for (?:input )?variable\b", re.IGNORECASE
+              ),
+              "missing_input_variable": re.compile(
+                  r"\bno value for required variable\b", re.IGNORECASE
               ),
               "missing_required_argument": re.compile(
                   r"\bmissing required argument\b", re.IGNORECASE
               ),
+              "network": re.compile(
+                  r"\b(?:dial tcp|no such host|connection refused|connection reset"
+                  r"|network is unreachable|tls handshake|proxyconnect|i/o timeout)\b",
+                  re.IGNORECASE,
+              ),
               "plugin_failure": re.compile(
-                  r"\bplugin (?:did not respond|crashed|exited)\b", re.IGNORECASE
+                  r"\b(?:plugin (?:did not respond|crashed|exited|error)|request cancelled)\b",
+                  re.IGNORECASE,
+              ),
+              "provider_configuration": re.compile(
+                  r"\b(?:invalid provider configuration|provider configuration not present"
+                  r"|missing required provider|building azurerm client|building account"
+                  r"|(?:unable to )?build(?:ing)? (?:an? )?authorizer"
+                  r"|could not configure [a-z]+ authorizer)\b",
+                  re.IGNORECASE,
+              ),
+              "provider_inconsistency": re.compile(
+                  r"\b(?:provider produced (?:inconsistent|invalid)|provider returned invalid)\b",
+                  re.IGNORECASE,
+              ),
+              "provider_installation": re.compile(
+                  r"\b(?:failed to (?:query available provider packages|install providers?"
+                  r"|instantiate provider|load plugin schemas|obtain provider schema)"
+                  r"|incompatible provider version|inconsistent dependency lock file"
+                  r"|required plugins are not installed|could not load plugin)\b",
+                  re.IGNORECASE,
               ),
               "provider_read": re.compile(
                   r"(?:^|\berror:\s+)(?:reading|retrieving|listing)\b",
                   re.IGNORECASE | re.MULTILINE,
+              ),
+              "reference_error": re.compile(
+                  r"\b(?:reference to (?:undeclared|unknown)|invalid reference"
+                  r"|unsupported reference)\b",
+                  re.IGNORECASE,
               ),
               "reference_to_undeclared_resource": re.compile(
                   r"\breference to undeclared resource\b", re.IGNORECASE
@@ -842,11 +892,14 @@ jobs:
               ),
               "state_lock": re.compile(r"\bstate lock\b", re.IGNORECASE),
               "subscription_not_registered": re.compile(
-                  r"\bsubscriptionnotregistered\b", re.IGNORECASE
+                  r"\b(?:subscriptionnotregistered|missingsubscriptionregistration)\b",
+                  re.IGNORECASE,
               ),
-              "timeout": re.compile(r"\b(?:timed out|timeout)\b", re.IGNORECASE),
+              "timeout": re.compile(
+                  r"\b(?:timed out|timeout|deadline exceeded)\b", re.IGNORECASE
+              ),
               "unsupported_attribute": re.compile(
-                  r"\bunsupported attribute\b", re.IGNORECASE
+                  r"\bunsupported (?:attribute|argument|block type)\b", re.IGNORECASE
               ),
           }
           errors = 0

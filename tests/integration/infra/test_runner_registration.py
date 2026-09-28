@@ -19,7 +19,9 @@ _SSD_DEPLOY_WORKFLOWS = (
     "publish-console.yml",
     "refresh-catalogs.yml",
     "service-deploy.yml",
-    "sre-demo-lab.yml",
+)
+_SCENARIO_LAB_RUNS_ON = (
+    "runs-on: [self-hosted, fdai-deploy, fdai-deploy-candidate, fdai-scenario-lab]"
 )
 
 
@@ -29,6 +31,19 @@ def test_protected_deploy_workflows_select_ssd_runners() -> None:
     for workflow_name in _SSD_DEPLOY_WORKFLOWS:
         workflow = (workflow_root / workflow_name).read_text(encoding="utf-8")
         assert "runs-on: [self-hosted, fdai-deploy, fdai-deploy-candidate]" in workflow
+
+
+def test_scenario_lab_runs_only_on_runners_labeled_for_the_lab() -> None:
+    github_root = Path(__file__).resolve().parents[3] / ".github"
+    workflow = (github_root / "workflows" / "sre-demo-lab.yml").read_text(encoding="utf-8")
+    actionlint = (github_root / "actionlint.yaml").read_text(encoding="utf-8")
+
+    assert workflow.count("runs-on:") == 1
+    assert _SCENARIO_LAB_RUNS_ON in workflow
+    assert "    - fdai-scenario-lab\n" in actionlint
+    for other in sorted((github_root / "workflows").glob("*.yml")):
+        if other.name != "sre-demo-lab.yml":
+            assert "fdai-scenario-lab" not in other.read_text(encoding="utf-8"), other.name
 
 
 def test_registration_replaces_existing_local_configuration() -> None:
