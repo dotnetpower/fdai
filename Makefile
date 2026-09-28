@@ -7,7 +7,8 @@
 
 
 .PHONY: dev-up dev-down dev-logs dev-nuke help workflow-status workflow-preflight \
-	lint format test test-changed service-test service-test-all operator gates check validation-status validation-run \
+	lint format test test-changed service-test service-test-all operator gates check derived-refresh derived-check \
+	validation-status validation-run \
 	validation-all worktree-maintenance worktree-cleanup roadmap-verification-sync roadmap-verification-status \
 	roadmap-verification-report roadmap-verification-retry roadmap-verification-apply \
 	roadmap-implementation-start roadmap-implementation-status roadmap-implementation-stop \
@@ -79,6 +80,12 @@ gates: ## repo hygiene: punctuation / guids / translations / core-imports / risk
 	python3 scripts/quality/architecture/check-risk-table-change.py
 
 check: lint gates test operator ## explicit broad local checks (not all GitHub Actions jobs)
+
+derived-refresh: ## regenerate every contract- and catalog-derived artifact after a contract or catalog change
+	bash scripts/automation/refresh-derived-artifacts.sh
+
+derived-check: ## verify every contract- and catalog-derived artifact is current
+	bash scripts/automation/refresh-derived-artifacts.sh --check
 
 validation-status: ## show commits waiting for centralized integration validation
 	@python3 scripts/automation/validation_queue.py status

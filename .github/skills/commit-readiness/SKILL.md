@@ -45,8 +45,7 @@ to make a commit pass.
 | `ModuleNotFoundError` for a locked dev dependency such as PyYAML in an isolated worktree | Run `uv sync --frozen --extra dev` from that exact worktree, verify its `.venv` contains the dependency, and retry the commit. Do not run the restore from another checkout or reuse another checkout's `.venv`. |
 | Shared-path or mixed-edit failure | Defer that path or separate only the task-owned edit without altering unrelated work. |
 | Ruff, whitespace, or EOF failure | Apply the narrow fix, inspect it, and retry the same commit once. |
-| Translation, translation-quality, or derived-source failure | Update the paired or derived document semantically and refresh its recorded SHA. |
-| Design-doc-impact failure | Read the route-selected owner document and add the required design update. Do not add an unrelated doc merely to satisfy path matching. |
+| Translation, translation-quality, derived-source, or design-doc-impact advisory | The commit proceeds. Before pushing, update the paired, derived, or route-selected owner document semantically and refresh its recorded SHA; pre-push and CI enforce these for the whole branch. Do not add an unrelated doc merely to satisfy path matching. |
 | Framework integrity or protected-path failure | Stop and route through the approved framework or fork seam. Never disable, re-sign without authority, or bypass the guard. |
 | Content-safety or hygiene failure | Remove the prohibited content at its source; do not add a broad exception to land the commit. |
 | Unrelated baseline failure | Report the exact blocker and leave unrelated files unchanged. |

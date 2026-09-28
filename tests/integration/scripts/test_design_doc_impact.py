@@ -183,6 +183,17 @@ def test_unrouted_change_needs_no_doc_churn() -> None:
     assert failures == []
 
 
+def test_pytest_conftest_isolation_needs_no_design_doc() -> None:
+    module = _load_module()
+
+    assert module.is_test_support_only("packages/deployment-cli/tests/conftest.py")
+    assert module.is_test_support_only("services/core-control-plane/tests/conftest.py")
+    assert not module.is_test_support_only("packages/deployment-cli/tests/test_runtime_build.py")
+    assert not module.is_test_support_only(
+        "packages/deployment-cli/src/fdai_deployment_cli/standalone_host.py"
+    )
+
+
 def test_generated_question_bank_outputs_need_no_duplicate_design_update() -> None:
     module = _load_module()
     manifest = {

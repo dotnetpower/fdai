@@ -348,19 +348,43 @@ if [ -f scripts/integrity/check-integrity.sh ] && [ -f security/integrity/manife
 fi
 
 # ---------------------------------------------------------------------------
-# 4c. Design-document impact. Routes behavior-bearing paths through the
-#     machine-readable design registry and requires an owning design doc in
-#     the same pushed range.
+# 4c. Design-document impact, document size, English/Korean sync, and roadmap
+#     ledgers. These documentation-coupled gates are advisory at commit time
+#     and enforced here. They judge the whole topic branch against its
+#     protected base, like the pull request, so one owning-doc, translation,
+#     or ledger update covers every later push of the same branch.
 # ---------------------------------------------------------------------------
+doc_range="$range"
+protected_base="$(git symbolic-ref --quiet "refs/remotes/$remote_name/HEAD" 2>/dev/null || true)"
+protected_base="${protected_base:-refs/remotes/$remote_name/main}"
+if git cat-file -e "${protected_base}^{commit}" 2>/dev/null; then
+  branch_base="$(git merge-base "$protected_base" "$local_sha" 2>/dev/null || true)"
+  if [ -n "$branch_base" ]; then
+    doc_range="$branch_base..$local_sha"
+  fi
+fi
 if [ -f scripts/quality/architecture/check-design-doc-impact.py ]; then
-  if ! python3 scripts/quality/architecture/check-design-doc-impact.py "$range"; then
+  if ! python3 scripts/quality/architecture/check-design-doc-impact.py "$doc_range"; then
     echo "pre-push: BLOCKED - owning design documentation was not updated."
     exit 1
   fi
 fi
 if [ -f scripts/quality/architecture/check-document-size.py ]; then
-  if ! python3 scripts/quality/architecture/check-document-size.py "$range"; then
-    echo "pre-push: BLOCKED - oversized roadmap document grew instead of being split."
+  if ! python3 scripts/quality/architecture/check-document-size.py "$doc_range"; then
+    echo "pre-push: BLOCKED - a roadmap document exceeded its size bound."
+    exit 1
+  fi
+fi
+if [ -f scripts/quality/localization/check-translations.sh ]; then
+  if ! bash scripts/quality/localization/check-translations.sh; then
+    echo "pre-push: BLOCKED - English and Korean documents are out of sync."
+    echo "  Run:  python3 scripts/quality/localization/refresh-translation-sha.py <foo-ko.md>"
+    exit 1
+  fi
+fi
+if [ -f scripts/quality/architecture/check-roadmap-implementation-tracking.py ]; then
+  if ! python3 scripts/quality/architecture/check-roadmap-implementation-tracking.py "$doc_range"; then
+    echo "pre-push: BLOCKED - roadmap implementation ledgers are incomplete or rewritten."
     exit 1
   fi
 fi

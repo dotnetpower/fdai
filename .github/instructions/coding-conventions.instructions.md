@@ -15,6 +15,10 @@ Design documents govern published architecture and behavior, not contract-preser
 
 - **Design context**: before changing architecture, public behavior, authority, or a cross-subsystem
   contract, read route-selected design context. Local contract-preserving work may use owning tests.
+- **Implementation first**: a new shadow or development-profile capability MAY land its code before
+  its owning design, translation, and ledger updates. Those updates MUST land in the same PR, and the
+  design critique and deferred hardening MUST finish before promotion or production use. Commit-time
+  documentation gates are advisory; pre-push and CI enforce them for the whole branch.
 - **Documentation updates**: update documentation when changing documented behavior, public interfaces,
   supported DI seams, operator config, or schemas; internal repairs do not require roadmap edits.
 - **Bilingual docs (MUST)**: user-facing docs (root `README.md` and everything under

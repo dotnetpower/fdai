@@ -25,18 +25,32 @@ def test_new_large_document_is_rejected() -> None:
     assert errors and "maximum is 400" in errors[0]
 
 
-def test_legacy_oversized_document_must_not_grow() -> None:
+def test_legacy_oversized_document_may_grow_with_an_advisory() -> None:
     module = _load_module()
+    documents = (("docs/roadmap/legacy.md", 701, 700),)
 
-    errors = module.size_violations((("docs/roadmap/legacy.md", 701, 700),))
+    assert module.size_violations(documents) == []
+    advisories = module.size_advisories(documents)
+    assert advisories and "grew 700 -> 701" in advisories[0]
 
-    assert errors and "grew 700 -> 701" in errors[0]
+
+def test_legacy_document_is_rejected_above_the_hard_ceiling() -> None:
+    module = _load_module()
+    ceiling = module.LEGACY_HARD_MAX_LINES
+    documents = (("docs/roadmap/legacy.md", ceiling + 1, ceiling),)
+
+    errors = module.size_violations(documents)
+
+    assert errors and f"grew {ceiling} -> {ceiling + 1}" in errors[0]
+    assert module.size_advisories(documents) == []
+    assert module.size_violations((("docs/roadmap/legacy.md", ceiling + 1, ceiling + 2),)) == []
 
 
 def test_legacy_oversized_document_may_shrink() -> None:
     module = _load_module()
 
     assert module.size_violations((("docs/roadmap/legacy.md", 699, 700),)) == []
+    assert module.size_advisories((("docs/roadmap/legacy.md", 699, 700),)) == []
 
 
 def test_code_map_has_a_focused_byte_limit() -> None:

@@ -148,6 +148,8 @@ the scope named here.
   recorded in `foo-ko.md`.
 - If the translator has not yet reflected an English update, the SHA in `-ko.md` will
   no longer match `foo.md` → CI fails → the PR must update both sides before merge.
+  Local work-in-progress commits MAY lag; the commit hook only advises, and pre-push and
+  CI enforce the pair.
 - Adding a **new** `foo.md` in scope MUST create `foo-ko.md` in the same PR.
 - Removing `foo.md` MUST remove `foo-ko.md` in the same PR.
 
