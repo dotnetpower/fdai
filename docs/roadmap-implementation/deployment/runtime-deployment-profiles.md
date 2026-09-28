@@ -57,6 +57,7 @@ Container Apps and Azure Kubernetes Service (AKS). The canonical design remains 
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-28 | validated | Opened the authenticated AKS Console `/live` stream through the gateway root. It returned `200` and reported an authoritative runtime source, which closes the original `/operator` 404 path. | [#1171](https://github.com/dotnetpower/fdai/issues/1171) authenticated readback | Metrics and Logs source reads stay absent until the observation-campaign Job stops failing on the missing identity bridge ([#1352](https://github.com/dotnetpower/fdai/issues/1352)). |
 | 2026-09-28 | implemented | Managed-host preparation can install the deployment CLI from a signed control package instead of the kit wheels. It recreates the host environment, requires the locally verified archive digest on the host, and binds that digest into the host work directory. Kit runtime payload handling is unchanged. | `current change`; `packages/deployment-cli/tests/test_control_package.py`; 1957 deployment CLI tests | Retain a live AKS application receipt through #461. |
 | 2026-09-28 | validated | Started the dev AKS cluster, which subscription governance automation had stopped on 2026-09-20. The workspace received fresh Container Insights rows within ten minutes: `KubePodInventory` (1012), `ContainerLogV2` (3723), `KubeNodeInventory` (28), and `InsightsMetrics` (714). Core, Operator, ingestion, processing, and isolated-executor pods reported `Running`. | [#1171](https://github.com/dotnetpower/fdai/issues/1171) readback; association applied through [#1543](https://github.com/dotnetpower/fdai/pull/1543) | Scheduled analyzer, inventory, observation-campaign, and canary Jobs fail because `/opt/fdai-compat/identity_bridge.py` is missing ([#1352](https://github.com/dotnetpower/fdai/issues/1352)). Authenticated `/live` and source-state reads remain open. |
 | 2026-09-27 | implemented | Removed signed-kit and duplicate online/offline path requirements from runtime completion. The signed Python wheelhouse installs the CLI; selected deployment payloads and runtime evidence remain separate. | `current change`; package policy v3, real wheelhouse cold install, and revised runtime owner contract. | Validate only the selected runtime deployment path. |
@@ -180,8 +181,11 @@ Container Apps and Azure Kubernetes Service (AKS). The canonical design remains 
 - [x] Retain fresh `KubePodInventory` and `ContainerLogV2` rows from the running dev cluster after
   the exact reviewed scoped apply. Evidence: the 2026-09-28 workspace readback on
   [#1171](https://github.com/dotnetpower/fdai/issues/1171).
-- [ ] Retain an authenticated Console `/live` stream and successful metrics/log source-state reads
-  from the running dev cluster ([#1171](https://github.com/dotnetpower/fdai/issues/1171)).
+- [x] Retain an authenticated Console `/live` stream from the running dev cluster. Evidence: the
+  2026-09-28 authenticated readback on [#1171](https://github.com/dotnetpower/fdai/issues/1171).
+- [ ] Retain authoritative Metrics and Logs source reads in the Console after the observation-campaign
+  Job runs successfully ([#1171](https://github.com/dotnetpower/fdai/issues/1171),
+  [#1352](https://github.com/dotnetpower/fdai/issues/1352)).
 - [ ] Fix the AKS scheduled Jobs that fail at start because `/opt/fdai-compat/identity_bridge.py`
   is missing, then retain one successful analyzer, inventory, observation-campaign, and canary run
   ([#1352](https://github.com/dotnetpower/fdai/issues/1352)).
