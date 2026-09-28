@@ -157,6 +157,8 @@ def build_thor_execution_port(
             audit_store=audit_store,
             resource_lock=resource_lock,
             idempotency=idempotency_store,
+            # The adapter refuses every request, so enforce mode reaches its explicit reason.
+            allow_enforce=True,
             safeguard_coordinator=safeguard_coordinator,
         ),
         fallback=direct_api_executor,

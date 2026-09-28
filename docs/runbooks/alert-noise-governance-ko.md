@@ -2,7 +2,7 @@
 title: 알림 과다 수신 관리 런북
 description: shadow 우선 알림 평가와 공급자 중립 변경 및 복구 선행 조건을 검토합니다.
 translation_of: alert-noise-governance.md
-translation_source_sha: 774ae157c8c26b5bd812fd7c64d2dd4d75cc8056
+translation_source_sha: 921859eeacd9dfb5de6691d29c7658db831d9ecf
 translation_revised: 2026-09-28
 fdai_runbook:
   schema_version: 1.0.0
@@ -107,6 +107,15 @@ fdai_runbook:
 전에는 새 요청을 끄고 접수된 작업을 대조하며 발신함, 결과 및 복구 상태를 보존합니다.
 활성 기록의 구버전 변환기는 없습니다. 새 세 경로의 증거는 호환성 처리 구조에 한정되며
 기존에 배포 검증을 마친 일곱 경로의 전환 증거에 포함되지 않습니다.
+
+계획과 결과 `1.0.0` 레코드는 출시된 적이 없으며 수동으로 구성한 환경에만 있을 수 있습니다.
+그런 환경에서 `1.1.0` Core나 Operator 작업자를 시작하기 전에 이전 알림 과다 수신 작업자를 모두
+중지하여 업그레이드 중에 `1.0.0` 결과를 게시하지 못하게 합니다. `1.1.0` 작업자는 남아 있는
+`1.0.0` 레코드를 읽기 전용 보관 디코더로 인증한 뒤 감사 기록과 함께 폐기합니다. Core 발신함은
+해당 행을 `retired`로 표시하고, 보관된 계획은 `legacy_contract_retired`로 보류하며, 요청 이력은
+해당 요청을 `unconfirmed`로 표시합니다. 인증에 실패한 레코드는 계속 사용할 수 없습니다. 정확한
+키로 찾을 수 없는 대기 행은 내용을 그대로 유지하고 `alert_noise.result.retirement_denied` 감사
+기록을 하나 받으므로, 삭제하지 말고 수동으로 복구합니다.
 
 ### Settings와 요청 API
 

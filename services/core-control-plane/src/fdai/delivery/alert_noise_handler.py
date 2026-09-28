@@ -14,6 +14,7 @@ from fdai_service_contracts.alert_noise import (
     digest_record,
 )
 from fdai_service_contracts.alert_noise_codec import ALERT_RESULT_WIRE_BYTES
+from fdai_service_contracts.alert_noise_legacy import decode_legacy_alert_result
 from fdai_service_contracts.alert_noise_plan import AlertChangePlan
 from fdai_service_contracts.alert_noise_projection import AlertProposalDetail
 from fdai_service_contracts.alert_noise_wire import (
@@ -32,6 +33,7 @@ from fdai.core.detection.alert_noise.workflow import AlertWorkflowCoordinator
 from fdai.delivery.alert_noise_codecs import COMMAND_CONSUMER_V1, RESULT_PRODUCER_V1
 from fdai.delivery.alert_noise_evidence import StateStoreAlertEvaluationReader
 from fdai.delivery.alert_noise_projection import alert_proposal_detail
+from fdai.delivery.alert_noise_retirement import retire_unpublishable_result
 from fdai.shared.providers.alert_noise import (
     AlertEvidenceSource,
     AlertPeriodEvidenceSource,
@@ -167,7 +169,14 @@ class AlertNoiseAgentHandler:
         result_key = "alert-noise:result:" + command.request_ref
         existing = await self.store.read_state(result_key)
         if existing is not None:
-            result = AlertNoiseResult.model_validate(existing["result"])
+            retained = existing["result"]
+            legacy = decode_legacy_alert_result(retained)
+            if legacy is not None:
+                if legacy.command != command:
+                    raise ValueError("alert result identity conflict")
+                # A retired 1.0.0 result stays terminal; it is never re-planned or republished.
+                return dict(retained)
+            result = AlertNoiseResult.model_validate(retained)
             if result.command != command:
                 raise ValueError("alert result identity conflict")
             return result.model_dump(mode="json")
@@ -314,7 +323,14 @@ async def drain_alert_noise_results(
     )
     published = 0
     for row in reversed(rows):
-        result = AlertNoiseResult.model_validate(row["result"])
+        try:
+            result: AlertNoiseResult | None = AlertNoiseResult.model_validate(row["result"])
+        except (KeyError, TypeError, ValueError):
+            result = None
+        if result is None or type(row.get("revision")) is not int:
+            # One unpublishable row must not stop the outbox or later results.
+            await retire_unpublishable_result(handler.store, row)
+            continue
         signed = SignedAlertResult(
             result=result, signature=sign_alert_record(result, handler.transport_key)
         )

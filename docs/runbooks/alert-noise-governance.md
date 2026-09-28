@@ -108,6 +108,15 @@ requests, reconcile accepted work, and retain its outboxes, results and recovery
 record has an old-peer translator. The three new edges are mechanical compatibility evidence,
 not part of the previously certified seven-edge deployed transition.
 
+Plan and result `1.0.0` records were never released and can exist only in a manually configured
+environment. Before you start `1.1.0` Core or Operator workers there, stop every earlier alert-noise
+worker so it can't publish a `1.0.0` result during the upgrade. The `1.1.0` workers authenticate
+any remaining `1.0.0` record with a read-only archived decoder and retire it with an audit record:
+the Core outbox marks the row `retired`, a retained plan holds as `legacy_contract_retired`, and
+request history shows the request as `unconfirmed`. A record that fails authentication stays
+unavailable. A pending row that can't be addressed by its exact key keeps its content and gets one
+`alert_noise.result.retirement_denied` audit record; repair it manually rather than deleting it.
+
 ### Settings and request API
 
 All routes revalidate current identity and exact scope; responses use `Cache-Control: no-store`.

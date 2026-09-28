@@ -1,7 +1,7 @@
 ---
 title: FDAI Console 대화
 translation_of: operator-console.md
-translation_source_sha: 075491083b6dd32435e066d1ff340b946ff5d846
+translation_source_sha: dc4d41be05564e23adf4693df239d7aaf242d66f
 translation_revised: 2026-09-28
 ---
 # FDAI Console 대화
@@ -11,6 +11,8 @@ Push 방향 (시스템 → 사람) 알림은 [channels-and-notifications.md](cha
 운영 > 알림 품질은 다시 생성한 TypeScript 계약 뷰로 서명된 결과 `1.1.0`과 그 안의 공급자 중립 계획 `1.1.0`을 디코딩합니다.
 브라우저는 `direct_api`를 보존된 계약 메타데이터로만 표시합니다. 공급자 어댑터를 선택하거나
 로컬 Terraform 계획을 승인으로 취급하거나 관리 리소스 실행 권한을 얻지 않습니다.
+요청 이력은 인증된 미출시 `1.0.0` 결과를 `legacy_contract_retired` 사유와 함께 `unconfirmed`로
+표시하며 그 내용은 렌더링하지 않습니다.
 
 Command Deck의 진행 중인 턴에 대한 후속 입력, 모드 점검 및 대화 취소는 [처리 중인 대화 입력 모드](busy-input-modes-ko.md)를 따릅니다. 크기가 제한되고 형식을 엄격히 검증한 동일 세션의 Operator 조회 결과를 확인한 뒤에만 조작 기능을 사용할 수 있고, 그렇지 않으면 사용 불가 상태로 유지되며 후속 입력 영역도 숨겨지므로 유휴 입력창에 사용 불가 안내가 계속 표시되지 않습니다. 조회 결과를 확인한 뒤에도 로컬 턴이 진행 중이거나, 조회 결과가 진행 중인 턴이나 대기 중인 후속 입력을 보고하거나, 확인된 조작 기능의 실패를 알려야 할 때만 이 영역이 표시됩니다. 로컬 중지 명령은 별개이며 이 조작 기능으로 작업이나 승인을 취소할 수 없습니다.
 Command Deck은 출처에 결합된 테스트 맥락 후보를 표시하지만 이를 승인된 범위 또는 정책 선택지로 취급하지 않습니다. 별도의 인증된 명령 증적 조회는 요청한 principal 본인의 전달 및 과거 감사 적용만 보여 주며 현재 승인 상태는 평가되지 않습니다. 검토된 principal-사례 매핑과 독립적인 증적이 갖춰지기 전까지 브라우저는 제안, 독립 검토, 철회 조작을 제공하지 않습니다. [사례 이력 문서](../rules-and-detection/prediction-learning-and-case-history-ko.md)와 [점진적 대화 문서](operator-console-progressive-conversations-ko.md)를 참고하세요.

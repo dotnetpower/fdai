@@ -206,7 +206,7 @@ describe("all plan kinds, no approval shortcuts and no invented baselines", () =
         "evidence_reason_limit_reached", "routing_source_mismatch", "routing_replacement_missing",
         "routing_replacement_already_bound", "suppression_deadline_does_not_fit", "evaluation_validation_mismatch",
         "request_expired", "scope_denied", "evidence_not_retained", "synthetic_live_evidence",
-        "preference_store_unavailable", "writer_unavailable", "producer_not_ready"]) {
+        "preference_store_unavailable", "writer_unavailable", "producer_not_ready", "legacy_contract_retired"]) {
         expect(alertQualityReason(reason)).not.toBe(reason);
         expect(alertQualityReason(reason)).not.toBe(alertQualityText("reason.held"));
       }

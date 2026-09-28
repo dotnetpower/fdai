@@ -198,7 +198,8 @@ Their only argument is the retained forward plan's 64-character lowercase `plan_
 Registration is not promotion: current Var quorum, risk, source fencing, safeguards and independent proofs gate dispatch.
 The runtime-support manifest records no provider mutation binding. An alert-specific unavailable
 route prevents the generic direct-API fallback from receiving these actions, so every attempted
-provider mutation remains an audited hold until an explicit adapter is implemented and reviewed.
+provider mutation, in shadow or enforce mode, remains an audited hold until an explicit adapter is
+implemented and reviewed. Other direct-API actions keep their unwired-executor rejection.
 T2 remains `shadow_only` under current policy.
 
 | Registered ActionType | Implemented bounded change | Delivery boundary |
@@ -251,7 +252,12 @@ contracts; an interrupted attempt cannot be retried as an unrelated fresh plan.
 Core owns decisions, Operator owns request outboxes/projections, and Executor owns dispatch state.
 Services exchange typed events, not each other's tables. Signed command/result/readiness codecs
 preserve exact models and bounds; unavailable old peers never authorize downgrade or readiness.
-Both consumers precede activation; rollback preserves accepted work. Observer artifacts remain
+Both consumers precede activation; rollback preserves accepted work. Unreleased 1.0.0 plan and
+result records are authenticated only by a read-only archived decoder, then retired explicitly:
+the Core outbox retires them by exact key with an audit record, a retained plan holds as
+`legacy_contract_retired`, and Operator history shows the request as `unconfirmed`. They are never
+executed, re-planned, or republished as current, and every pre-1.1.0 worker stops before
+activation. Observer artifacts remain
 private. Local/deployed contracts and gates match, without local privileged identity or a new
 service/browser executor. Deterministic assessment adds no live-model dependency.
 
