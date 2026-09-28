@@ -1,7 +1,7 @@
 ---
 title: 채널과 알림(Channels and Notifications)
 translation_of: channels-and-notifications.md
-translation_source_sha: 1b9fc460abd351fe2789536952639ee20d7d8c1f
+translation_source_sha: bc0066ab174f3b006fb09b9d68107f69320c5859
 translation_revised: 2026-09-28
 ---
 
@@ -69,7 +69,8 @@ Teams Workflows 웹훅 바인딩은
 - **어떤 어댑터의 승인 콜백도 `fdai-api`에 랜딩** , 이는 액션 전에 사람의 Entra
   아이덴티티를 재검증
   ([user-rbac-and-identity-ko.md](user-rbac-and-identity-ko.md#102-api-token-validation)).
-  어댑터는 절대 자체로 결정을 authorize 하지 않음.
+  어댑터는 절대 자체로 결정을 authorize 하지 않음. 채널 승인은 full-authority 개발 확인이 될 수
+  없으며, 개발 확인은 Owner에 결속된 정확한 작업 요청만 담을 수 있습니다.
 
 ## 3. 카테고리 (A1-A4)
 

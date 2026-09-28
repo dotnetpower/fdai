@@ -119,6 +119,7 @@ from fdai.runtime.control_loop_support import (
     pending_index_writer as _pending_index_writer,
 )
 from fdai.runtime.delivery import _build_hil_channel, _build_publisher
+from fdai.runtime.development_authority import development_control_loop_kwargs
 from fdai.runtime.isolated_executor_client import (
     EventBusDirectApiExecutionClient as EventBusDirectApiExecutionClient,
 )
@@ -719,6 +720,7 @@ def _build_control_loop(
         effect_observer = tag_effect_verifier.observe
 
     return ControlLoop(
+        **development_control_loop_kwargs(os.environ, store=audit_store),
         event_ingest=event_ingest,
         trust_router=trust_router,
         t0_engine=t0,
