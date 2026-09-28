@@ -109,6 +109,7 @@ from fdai_deployment_cli.standalone_stage_targets import (
 )
 from fdai_deployment_cli.standalone_stage_targets import stage_targets as _stage_targets
 from fdai_deployment_cli.standalone_host_values import aks_operator_environment
+from fdai_deployment_cli.standalone_management_egress import management_egress_cidrs
 from fdai_deployment_cli.standalone_host_values import (
     console_origin as _console_origin,
 )
@@ -634,6 +635,8 @@ def _prepare_runtime(_args: argparse.Namespace, work_dir: Path) -> dict[str, obj
         "location": application_values["region"],
         "resource_group_name": _terraform_output(substrate, "resource_group_name"),
         "aks_subnet_id": _terraform_output(substrate, "aks_subnet_id"),
+        "aks_api_server_subnet_id": _terraform_output(substrate, "aks_api_server_subnet_id"),
+        "api_server_authorized_ip_ranges": management_egress_cidrs(context, cwd=work_dir),
         "container_registry_id": _terraform_output(substrate, "container_registry_id"),
         "log_analytics_workspace_id": _terraform_output(substrate, "log_workspace_id"),
         "managed_host_principal_id": context["principal_id"],
