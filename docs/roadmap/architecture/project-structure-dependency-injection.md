@@ -192,6 +192,25 @@ so read-only processing can continue without an unverified deployment-authority 
 
 The [Agent Pantheon implementation plan](../agents/agent-pantheon-implementation.md#bounded-shared-state) owns the shared `StateStore` removal and replay semantics.
 
+## Full-authority development profile composition
+
+The optional full-authority development profile is a separate authority input, not an
+environment label, fork marker, or runtime-platform choice. Composition accepts it only with an
+exact profile, a current `DevelopmentAuthorityBindingSource`, an Owner authorizer, and a distinct
+executor identity. The binding source re-derives the current target scope, ActionType and policy
+revisions, dry-run and safeguard receipts, lock, audit, and observer evidence before each
+admission. An absent profile preserves the ordinary multi-operator path; a selected profile with
+any missing binding fails closed. `delivery/development_bindings.py` is the authoritative source:
+it records each server-prepared binding once with audit and verifies only a current record, and
+`runtime/development_authority.py` composes it, with the Azure target-revision reader, into the
+ControlLoop, the Pantheon, and the HIL coordinator. `core/hil_resume/development.py` owns the
+park block with the bound facts the Owner sees and the Owner self-approval admission behind the
+`DevelopmentBindingPreparer` and `TargetRevisionReader` ports; Core never imports the registry. The focused
+`core/risk_gate/development_profile.py` module owns profile-scoped promotion and current-authority
+verification while `gate.py` preserves the public registry and risk-gate API. Contract models
+cross subsystem boundaries only through `fdai.shared.contracts.models`; digest helpers stay in a
+non-model authority facade and never grant authority.
+
 ## Related docs
 
 | To learn about | Read |

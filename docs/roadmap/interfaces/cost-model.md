@@ -5,8 +5,8 @@ title: Cost Model (Illustrative)
 
 Estimated monthly cost of the minimum Azure resource inventory defined in
 [deploy-and-onboard.md](../deployment/deploy-and-onboard.md#azure-resource-inventory-minimum-set), broken
-down by fixed vs variable spend and by traffic scenario. Cost-efficiency principles come from
-[deploy-and-onboard.md](../deployment/deploy-and-onboard.md#cost-efficiency-principles).
+down by fixed vs variable spend and by traffic scenario, under the
+[cost-efficiency principles](#cost-efficiency-principles) below.
 
 > **Historical planning example - not a deployment estimate.** The bands below are a planning
 > snapshot for the original minimum set, not a total from the current Terraform plan. Azure list prices change by region, over time, and by
@@ -16,6 +16,36 @@ down by fixed vs variable spend and by traffic scenario. Cost-efficiency princip
 > commitment. Nothing here is a guarantee. Figures reflect list prices at the time the
 > document was authored; a `pricing.confirmed_at` field on the fork's cost dashboard MUST
 > record when they were last verified.
+
+## Cost-Efficiency Principles
+
+Every provisioning choice honors these principles; a resource that violates them needs an
+explicit justification in the deployment PR. The **illustrative monthly cost envelope** in this
+document results from these principles.
+
+1. **Event-driven first** - scheduled Container Apps Jobs scale to zero between runs. The core
+  currently keeps one replica because a credential-free Event Hubs Kafka-lag scaler has not
+  been verified; changing that floor requires a measured, tested scaler.
+2. **One region, one zone, non-HA at day zero** - multi-zone and multi-region are Phase 4
+   (TBD). The initial deployment is a single geographic footprint.
+3. **Managed services collapsed** - pgvector inside PostgreSQL is the vector store; App
+   Insights binds to the shared Log Analytics workspace; no separate vector DB or APM
+   resource is provisioned.
+4. **Basic / Standard tiers by default** - Premium tiers require a stated, measured need. HA
+   variants, geo-replication, and private-endpoint premium features are deferred.
+5. **Free tiers where they cover the use case** - Static Web Apps (console), Azure Bot
+   (HIL Adaptive Cards), and workload identity federation (CI/CD) are all Free tier.
+6. **Staged five-service target** - Core remains modular while Executor evidence is built; the
+  completed topology separates them, and other packages stay in-process without their own gates.
+7. **Model budget cap** - T2 inference is designed to reach ~5-10% of events; token/spend
+   budgets are enforced and overflow degrades to HIL, never to uncapped inference.
+8. **Catalog is git-hosted, not a service** - the rule catalog lives in a git repository, not
+   a managed store, so no extra Azure resource is needed for catalog storage.
+9. **No public inbound endpoint** - no Application Gateway / Front Door / API Management on
+   day zero; ingress is the event bus, egress is allow-listed.
+10. **Deferred DR resources** - secondary-region resources are **not** provisioned initially;
+    control-plane DR is planned via IaC + state backups (see
+    [deployment.md](../deployment/deployment.md#control-plane-disaster-recovery)).
 
 ## Assumptions
 
