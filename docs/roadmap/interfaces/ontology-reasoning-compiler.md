@@ -352,7 +352,7 @@ human review before promotion.
 |-------|-------|---------------|
 | R0 | Cohort, holdout, fixture graph, strict gold, production-faithful function binding in the harness | Baseline L1 and L2 receipts |
 | R1 | Form, admission, binding, handle, coverage-rule, evidence-manifest, and pushdown contracts with version negotiation | Codec and N/N-1 tests; no behavior change |
-| R2 | Interim V-PROV and V-LEVEL over existing typed judgment fields | Zero invented identity literals and zero schema answers to instance targets on both corpora |
+| R2 | Interim V-PROV and V-LEVEL over existing typed judgment fields, plus resource-group membership through `contains` from the exact group | Zero invented identity literals, zero schema answers to instance targets, and membership equal to `contains` closure on the fixture graph |
 | R3 | Shadow form judgment and admission | Atom accuracy of at least 90% and stability of at least 90% per type on the holdout |
 | R4 | Concept resolver and anchor binding protocol | L2 binding correctness 100% on the fixture graph |
 | R5 | Relation compiler after trait review, path grammars, and traversal root lineage | Shadow relation and containment holdout at least 85% with hard zeros |

@@ -44,7 +44,8 @@ evidence.
   aggregate and path pushdown contracts with N/N-1 codec tests and no behavior change.
 - [ ] Complete R2: enforce interim operand-provenance and instance-versus-schema checks on the
   current path, with zero invented identity literals and zero schema answers to instance targets on
-  both corpora.
+  both corpora, and replace lexical `parent_id` group membership with `contains` closure from the
+  exact group, matching that closure on the fixture graph.
 - [ ] Complete R3 through R8 with the exit evidence in the owner delivery-round table, including
   reviewed trait and path grammar catalog changes, traversal root lineage, the location property,
   the link-evidence allowlist, and a result-handle threat review.
