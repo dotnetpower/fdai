@@ -432,7 +432,7 @@ def test_an_accounting_repair_may_state_defaults_but_never_rewrite_stated_meanin
     assert not _placing(grouped, regrouped)
 
 
-async def test_a_continuation_that_never_accounts_for_its_words_is_never_released() -> None:
+async def test_a_continuation_word_left_unstated_is_never_released() -> None:
     utterance = "Count VMs and list AKS clusters"
     first = {
         "mentions": [
@@ -468,7 +468,15 @@ async def test_a_continuation_that_never_accounts_for_its_words_is_never_release
         ],
         "context": [_quote("and")],
     }
-    model = _Model([first, dropped, json.loads(json.dumps(dropped))], {})
+    extraction = {
+        "constraints": [
+            {"quote": _quote("Count"), "role": "asks"},
+            {"quote": _quote("VMs"), "role": "names"},
+            {"quote": _quote("AKS"), "role": "restricts"},
+            {"quote": _quote("clusters"), "role": "names"},
+        ]
+    }
+    model = _Model([first, dropped, json.loads(json.dumps(dropped))], {}, extraction=extraction)
 
     observation = await run_reasoning_shadow(
         model=model,
@@ -482,6 +490,48 @@ async def test_a_continuation_that_never_accounts_for_its_words_is_never_release
         default_lookback_seconds=DEFAULT_LOOKBACK_SECONDS,
     )
 
-    assert [item.disposition for item in observation.passes] == ["admitted", "invalid"]
+    # The leftover word is admitted after its repair, and the review finds it unstated.
+    assert [item.disposition for item in observation.passes] == ["admitted", "admitted"]
+    assert observation.passes[1].repair == "applied_unaccounted"
+    assert observation.review == "unfaithful"
+    assert observation.review_reasons == ("review_uncovered:restricts:19-22",)
     assert observation.released is False
-    assert "continuation_failed" in observation.notes
+
+
+async def test_words_still_unaccounted_after_the_repair_are_left_to_the_review() -> None:
+    utterance = "Count VMs please"
+    form = {
+        "mentions": [
+            {"id": "m1", "form": "concept", "domain": "resource_type", "span": _quote("VMs")}
+        ],
+        "goals": [
+            {
+                "id": "g1",
+                "level": "instance",
+                "operation": "count",
+                "subject": "m1",
+                "subject_scope": "collection",
+                "cue": _quote("Count"),
+                "confidence": 0.9,
+            }
+        ],
+    }
+    model = _Model([form, json.loads(json.dumps(form))], {})
+
+    observation = await run_reasoning_shadow(
+        model=model,
+        utterance=utterance,
+        context=(),
+        locale="en",
+        manifest=production_manifest(),
+        verifier=plan_verifier(),
+        purpose=PURPOSE,
+        evaluation_time=NOW,
+        default_lookback_seconds=DEFAULT_LOOKBACK_SECONDS,
+    )
+
+    (only_pass,) = observation.passes
+    assert only_pass.disposition == "admitted"
+    assert only_pass.repair == "applied_unaccounted"
+    assert only_pass.repaired_reasons == ("span_unaccounted:10-16",)
+    assert observation.review == "faithful" and observation.released is True

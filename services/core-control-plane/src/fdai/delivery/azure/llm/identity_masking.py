@@ -92,6 +92,11 @@ class IdentityMask:
             return dict(payload)
         return _map_quotes(payload, self._unmask_quote)
 
+    def unmask_quote(self, quote: Mapping[str, Any]) -> Mapping[str, Any]:
+        """Map one quote of the masked utterance back to the exact original words."""
+
+        return self._unmask_quote(quote) if self._placed else dict(quote)
+
     def mask_form(self, payload: Mapping[str, Any]) -> dict[str, Any]:
         """Return an earlier proposal with every quote re-anchored to the masked utterance."""
 

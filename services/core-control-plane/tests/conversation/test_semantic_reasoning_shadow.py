@@ -80,11 +80,27 @@ def _quoted_form(**overrides: Any) -> dict[str, Any]:
 
 
 class _Model:
-    def __init__(self, forms: list[dict[str, Any] | None], picks: dict[str, list[str]]) -> None:
+    def __init__(
+        self,
+        forms: list[dict[str, Any] | None],
+        picks: dict[str, list[str]],
+        extraction: dict[str, Any] | None = None,
+    ) -> None:
         self.forms = forms
         self.picks = picks
+        self.extraction = extraction
         self.form_calls: list[dict[str, Any]] = []
+        self.review_calls: list[dict[str, Any]] = []
         self.shards: list[ConceptShard] = []
+
+    async def extract_constraints(self, **kwargs: Any) -> dict[str, Any] | None:
+        """Return the configured extraction, or only the request words, which bind nothing."""
+
+        self.review_calls.append(kwargs)
+        if self.extraction is not None:
+            return self.extraction
+        first = kwargs["utterance"].split()[0]
+        return {"constraints": [{"quote": {"text": first, "occurrence": 1}, "role": "asks"}]}
 
     async def propose_form(self, **kwargs: Any) -> dict[str, Any] | None:
         self.form_calls.append(kwargs)
@@ -188,7 +204,9 @@ async def test_shadow_turn_compiles_grounded_goals_and_records_digests_only() ->
     (only_pass,) = observation.passes
     assert only_pass.disposition == "admitted"
     assert [goal["status"] for goal in summary["passes"][0]["goals"]] == ["compiled"]
-    assert observation.model_calls == 1 + len(model.shards)
+    assert len(model.review_calls) == 1
+    assert observation.review == "faithful" and observation.released is True
+    assert observation.model_calls == 1 + len(model.shards) + len(model.review_calls)
     assert _UTTERANCE not in json.dumps(summary)
     assert observation.execution_authority is False
 

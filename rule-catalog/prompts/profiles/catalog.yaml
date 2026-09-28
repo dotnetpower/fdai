@@ -611,7 +611,7 @@ profiles:
     mode: active
     root: {id: semantic-question-form, version: 1, layer: base}
     packs: []
-    system_token_budget: 8192
+    system_token_budget: 10240
     request_token_budget: 32768
     reserved_output_tokens: 2048
     promotion_evidence: [docs/roadmap/interfaces/ontology-reasoning-compiler.md]
@@ -625,6 +625,17 @@ profiles:
     system_token_budget: 2048
     request_token_budget: 32768
     reserved_output_tokens: 512
+    promotion_evidence: [docs/roadmap/interfaces/ontology-reasoning-compiler.md]
+    provenance: {source: docs/roadmap/interfaces/ontology-reasoning-compiler.md}
+  - id: active.semantic-constraint-extraction
+    version: 1
+    capability_id: semantic.constraint_extraction
+    mode: active
+    root: {id: semantic-constraint-extraction, version: 1, layer: base}
+    packs: []
+    system_token_budget: 2048
+    request_token_budget: 32768
+    reserved_output_tokens: 1024
     promotion_evidence: [docs/roadmap/interfaces/ontology-reasoning-compiler.md]
     provenance: {source: docs/roadmap/interfaces/ontology-reasoning-compiler.md}
   - id: active.adaptive-plan

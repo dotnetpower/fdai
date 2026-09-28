@@ -494,7 +494,11 @@ def _resource_type_candidates(
     )
     # The unrestricted root: the operator named resources in general, not one kind.
     candidates.append(
-        ConceptCandidate(_ANY_RESOURCE, (), ("any resource type", "resources in general"))
+        ConceptCandidate(
+            _ANY_RESOURCE,
+            (),
+            ("any resource type", "resources in general", "모든 종류의 리소스", "리소스 전체"),
+        )
     )
     return tuple(sorted(candidates, key=lambda item: item.id))
 

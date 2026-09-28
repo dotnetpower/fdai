@@ -98,7 +98,18 @@ async def propose_with_repair(
         raw, repaired.form, utterance=utterance, typed=resolution.form, extension_only=placing
     ):
         return FormProposal(resolution, admission, "operand_dropped", faulted)
-    return FormProposal(repaired, _admit(repaired, utterance, accounting), "applied", faulted)
+    admission = _admit(repaired, utterance, accounting)
+    if (
+        admission is not None
+        and admission.disposition is AdmissionDisposition.INVALID
+        and all(reason.startswith("span_unaccounted:") for reason in admission.reasons)
+    ):
+        # Accounting nudges the proposer once; after its repair, whether a leftover word
+        # states a constraint is for the blind constraint review, which releases nothing
+        # it cannot find stated.
+        relaxed = _admit(repaired, utterance, SpanAccounting(required=False))
+        return FormProposal(repaired, relaxed, "applied_unaccounted", faulted)
+    return FormProposal(repaired, admission, "applied", faulted)
 
 
 def _admit(

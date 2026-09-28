@@ -9,6 +9,8 @@ plan, renders an answer, or changes the production turn.
 
 from __future__ import annotations
 
+import asyncio
+import contextlib
 import time
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field, replace
@@ -17,7 +19,11 @@ from typing import Any, Literal, Protocol
 
 from fdai.core.ontology_platform import OntologyQueryPlanVerifier, QueryManifest
 
-from .semantic_reasoning_admission import AdmissionDisposition, SpanAccounting
+from .semantic_reasoning_admission import (
+    AdmissionDisposition,
+    SpanAccounting,
+    admit_question_form,
+)
 from .semantic_reasoning_binding import AnchorResolver, bind_anchors
 from .semantic_reasoning_compiler import ReasoningCompilation, compile_question_form
 from .semantic_reasoning_concepts import (
@@ -31,8 +37,25 @@ from .semantic_reasoning_concepts import (
     shard_answer_valid,
 )
 from .semantic_reasoning_form import SemanticQuestionForm
-from .semantic_reasoning_proposal import FormInputHeldError
-from .semantic_reasoning_repair import FormRepair, propose_with_repair
+from .semantic_reasoning_proposal import (
+    FormInputHeldError,
+    FormResolution,
+    resolve_question_form,
+)
+from .semantic_reasoning_repair import (
+    FormProposal,
+    FormRepair,
+    propose_with_repair,
+    repair_keeps_operands,
+)
+from .semantic_reasoning_review import (
+    FormReview,
+    describe_uncovered,
+    quoted_form,
+    resolve_extraction,
+    review_forms,
+    uncovered_constraints,
+)
 
 MAX_FORM_PASSES = 3
 
@@ -55,6 +78,14 @@ class QuestionFormModel(Protocol):
         utterance: str,
         mentions: tuple[dict[str, Any], ...],
         shard: ConceptShard,
+    ) -> Mapping[str, Any] | None: ...
+
+    async def extract_constraints(
+        self,
+        *,
+        utterance: str,
+        context: tuple[str, ...],
+        locale: str,
     ) -> Mapping[str, Any] | None: ...
 
 
@@ -107,9 +138,11 @@ class ReasoningShadowObservation:
 
     ``compilations`` is populated only when an evaluation harness explicitly asks
     to retain compiled plans; production shadow use never retains them. ``released``
-    is true only when every pass was admitted and no continuation is pending, because
-    an earlier pass compiles before the final pass accounts for every word; until then
-    every compilation is provisional and no answer may use it.
+    is true only when every pass was admitted, no continuation is pending, and every
+    constraint the independent extraction found lies in a span of the admitted forms
+    that states it, because an earlier pass compiles before the final pass accounts for
+    every word and before the review; until then every compilation is provisional and
+    no answer may use it.
     """
 
     passes: tuple[ShadowPass, ...]
@@ -117,6 +150,8 @@ class ReasoningShadowObservation:
     elapsed_ms: int
     continuation_pending: bool
     released: bool = False
+    review: str | None = None
+    review_reasons: tuple[str, ...] = ()
     execution_authority: Literal[False] = False
     notes: tuple[str, ...] = field(default=())
     compilations: tuple[ReasoningCompilation, ...] = field(default=(), repr=False)
@@ -147,6 +182,8 @@ class ReasoningShadowObservation:
             "elapsed_ms": self.elapsed_ms,
             "continuation_pending": self.continuation_pending,
             "released": self.released,
+            "review": self.review,
+            "review_reasons": list(self.review_reasons),
             "notes": list(self.notes),
         }
 
@@ -158,10 +195,11 @@ class _CountingModel:
         self._inner = inner
         self.form_calls = 0
         self.concept_calls = 0
+        self.review_calls = 0
 
     @property
     def calls(self) -> int:
-        return self.form_calls + self.concept_calls
+        return self.form_calls + self.concept_calls + self.review_calls
 
     async def propose_form(self, **kwargs: Any) -> Mapping[str, Any] | None:
         self.form_calls += 1
@@ -170,6 +208,10 @@ class _CountingModel:
     async def choose_concepts(self, **kwargs: Any) -> Mapping[str, Any] | None:
         self.concept_calls += 1
         return await self._inner.choose_concepts(**kwargs)
+
+    async def extract_constraints(self, **kwargs: Any) -> Mapping[str, Any] | None:
+        self.review_calls += 1
+        return await self._inner.extract_constraints(**kwargs)
 
 
 async def run_reasoning_shadow(
@@ -201,6 +243,18 @@ async def run_reasoning_shadow(
     pending = False
     notes: list[str] = []
     accounting = SpanAccounting(required=account_spans)
+    compile_args: dict[str, Any] = {
+        "manifest": manifest,
+        "verifier": verifier,
+        "purpose": purpose,
+        "evaluation_time": evaluation_time,
+        "default_lookback_seconds": default_lookback_seconds,
+    }
+    admitted_forms: list[SemanticQuestionForm] = []
+    # The extraction reads only the question, so it runs beside the form passes.
+    extraction = asyncio.ensure_future(
+        _extract(counting, utterance=utterance, context=context, locale=locale)
+    )
     for index in range(limits.max_form_passes):
         try:
             outcome = await _run_pass(
@@ -216,13 +270,7 @@ async def run_reasoning_shadow(
                 repairs=limits.repairs_per_pass,
                 resolver=resolver,
                 accounting=accounting,
-                compile_args={
-                    "manifest": manifest,
-                    "verifier": verifier,
-                    "purpose": purpose,
-                    "evaluation_time": evaluation_time,
-                    "default_lookback_seconds": default_lookback_seconds,
-                },
+                compile_args=compile_args,
             )
         except Exception as exc:  # noqa: BLE001 - shadow work must never fail the turn
             held = exc.reason if isinstance(exc, FormInputHeldError) else None
@@ -233,6 +281,8 @@ async def run_reasoning_shadow(
             break
         shadow_pass, goals, compilation, admitted = outcome
         passes.append(shadow_pass)
+        if admitted is not None and shadow_pass.disposition == "admitted":
+            admitted_forms.append(admitted)
         if compilation is None:
             if pending:
                 notes.append("continuation_failed")
@@ -247,17 +297,139 @@ async def run_reasoning_shadow(
             accounting = accounting.after(admitted)
     if pending and "continuation_failed" not in notes:
         notes.append("continuation_budget_exhausted")
+    complete = (
+        bool(passes) and not pending and all(item.disposition == "admitted" for item in passes)
+    )
+    review: FormReview | None = None
+    if complete:
+        raw, failure = await extraction
+        review = (
+            FormReview("unavailable", (failure,))
+            if failure is not None
+            else review_forms(admitted_forms, raw, utterance=utterance)
+        )
+        repair = _review_repair(review, raw, admitted_forms, passes, limits, utterance=utterance)
+        if repair is not None:
+            shadow_pass, _goals, compilation, admitted = await _run_pass(
+                counting,
+                index=len(passes),
+                utterance=utterance,
+                context=context,
+                locale=locale,
+                prior_goals=(),
+                catalogs=catalogs,
+                concept_budget=limits.max_concept_calls - counting.concept_calls,
+                max_shard_bytes=limits.max_shard_bytes,
+                repairs=0,
+                resolver=resolver,
+                compile_args=compile_args,
+                accounting=SpanAccounting(required=account_spans),
+                review_repair=repair,
+            )
+            passes.append(shadow_pass)
+            if admitted is not None and shadow_pass.disposition == "admitted":
+                review = review_forms((admitted,), raw, utterance=utterance)
+                if retain_compilations and compilation is not None:
+                    compilations = [compilation]
+            else:
+                complete = False
+    else:
+        extraction.cancel()
+        with contextlib.suppress(asyncio.CancelledError):
+            await extraction
     return ReasoningShadowObservation(
         passes=tuple(passes),
         model_calls=counting.calls,
         elapsed_ms=int((clock() - started) * 1000),
         continuation_pending=pending,
-        released=bool(passes)
-        and not pending
-        and all(item.disposition == "admitted" for item in passes),
+        released=complete and review is not None and review.faithful,
+        review=review.outcome if review is not None else None,
+        review_reasons=review.reasons if review is not None else (),
         notes=tuple(notes),
         compilations=tuple(compilations),
     )
+
+
+@dataclass(frozen=True, slots=True)
+class _ReviewRepair:
+    """The admitted form the review found incomplete, and the constraints it must state."""
+
+    previous: Mapping[str, Any]
+    typed: SemanticQuestionForm
+    violations: tuple[str, ...]
+    reasons: tuple[str, ...]
+
+
+def _review_repair(
+    review: FormReview,
+    raw: Mapping[str, Any] | None,
+    forms: list[SemanticQuestionForm],
+    passes: list[ShadowPass],
+    limits: ShadowBudget,
+    *,
+    utterance: str,
+) -> _ReviewRepair | None:
+    """Return one repair for a single admitted pass whose review found uncovered words."""
+
+    if review.outcome != "unfaithful" or raw is None or limits.repairs_per_pass < 1:
+        return None
+    if len(forms) != 1 or len(passes) != 1:
+        return None
+    extraction = resolve_extraction(raw, utterance)
+    uncovered = uncovered_constraints(forms, extraction, utterance) if extraction else ()
+    if not uncovered:
+        return None
+    return _ReviewRepair(
+        previous=quoted_form(forms[0], utterance),
+        typed=forms[0],
+        violations=tuple(dict.fromkeys(describe_uncovered(item, utterance) for item in uncovered)),
+        reasons=review.reasons,
+    )
+
+
+async def _propose_review_repair(
+    propose: Callable[..., Any],
+    repair: _ReviewRepair,
+    *,
+    utterance: str,
+    accounting: SpanAccounting,
+) -> FormProposal:
+    """Ask the proposer to state the uncovered constraints, adding information only."""
+
+    raw = await propose(repair=FormRepair(previous=repair.previous, violations=repair.violations))
+    if raw is None:
+        return FormProposal(None, None, "unavailable", repair.reasons)
+    resolution = resolve_question_form(raw, utterance=utterance)
+    if resolution.form is None:
+        return FormProposal(resolution, None, "invalid", repair.reasons)
+    if not repair_keeps_operands(
+        repair.previous,
+        resolution.form,
+        utterance=utterance,
+        typed=repair.typed,
+        extension_only=True,
+    ):
+        dropped = FormResolution(None, ("review_repair_operand_dropped",))
+        return FormProposal(dropped, None, "operand_dropped", repair.reasons)
+    admission = admit_question_form(resolution.form, utterance=utterance, accounting=accounting)
+    return FormProposal(resolution, admission, "review_applied", repair.reasons)
+
+
+async def _extract(
+    model: _CountingModel,
+    *,
+    utterance: str,
+    context: tuple[str, ...],
+    locale: str,
+) -> tuple[Mapping[str, Any] | None, str | None]:
+    """Ask the independent extractor for every constraint the question states."""
+
+    try:
+        raw = await model.extract_constraints(utterance=utterance, context=context, locale=locale)
+    except Exception as exc:  # noqa: BLE001 - an unavailable review releases nothing
+        held = exc.reason if isinstance(exc, FormInputHeldError) else None
+        return None, held or f"review_error:{type(exc).__name__}"
+    return raw, None
 
 
 async def _run_pass(
@@ -275,6 +447,7 @@ async def _run_pass(
     resolver: AnchorResolver | None,
     compile_args: dict[str, Any],
     accounting: SpanAccounting,
+    review_repair: _ReviewRepair | None = None,
 ) -> tuple[
     ShadowPass,
     tuple[dict[str, Any], ...],
@@ -294,8 +467,14 @@ async def _run_pass(
             repair=repair,
         )
 
-    proposal = await propose_with_repair(
-        propose, utterance=utterance, repairs=repairs, accounting=accounting
+    proposal = (
+        await propose_with_repair(
+            propose, utterance=utterance, repairs=repairs, accounting=accounting
+        )
+        if review_repair is None
+        else await _propose_review_repair(
+            propose, review_repair, utterance=utterance, accounting=accounting
+        )
     )
     if proposal.resolution is None:
         return ShadowPass(index, "model_unavailable"), (), None, None
