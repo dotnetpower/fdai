@@ -57,6 +57,7 @@ SCOPES: dict[str, dict[str, Any]] = {
             "azurerm_role_assignment.inventory_reader",
             "azurerm_role_assignment.inventory_monitoring_reader[0]",
             "azurerm_role_assignment.inventory_log_analytics_reader[0]",
+            "azurerm_role_assignment.inventory_stage_sender",
         ),
         # Legacy count migrations that Terraform must plan with any target in this root.
         # They may only move state addresses; any real change is outside the scope.

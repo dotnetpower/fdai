@@ -580,7 +580,7 @@ def test_inventory_role_readback_requires_expected_roles_and_one_principal() -> 
         f"/scope/{index}": {
             "properties": {"principalId": "p", "roleDefinitionId": f"/x/def-{index}"}
         }
-        for index in range(3)
+        for index in range(4)
     }
 
     def fake(command: tuple[str, ...], _timeout: int) -> str:
@@ -590,7 +590,7 @@ def test_inventory_role_readback_requires_expected_roles_and_one_principal() -> 
         return json.dumps(documents[url.split("management.azure.com", 1)[1].split("?", 1)[0]])
 
     assert all(coordinator.check_inventory_roles(fake, ids, {}, "apply").values())
-    documents["/scope/2"]["properties"]["principalId"] = "other"
+    documents["/scope/3"]["properties"]["principalId"] = "other"
     assert coordinator.check_inventory_roles(fake, ids, {}, "apply")["single_principal"] is False
     with pytest.raises(coordinator.CoordinatorError, match="lacks"):
-        coordinator.check_inventory_roles(fake, dict(list(ids.items())[:2]), {}, "apply")
+        coordinator.check_inventory_roles(fake, dict(list(ids.items())[:3]), {}, "apply")
