@@ -8,6 +8,7 @@ from typing import Any
 import pytest
 import yaml
 from fdai.core.chaos.injector import DetectionOnlyInjector, MutationScopedInjector
+from fdai.core.chaos.reference_sweep import REFERENCE_SWEEP_CATALOG_IDS
 from fdai.core.chaos.scenario_catalog import CatalogEntry, load_all
 from fdai.delivery.chaos.factories import default_factory
 from fdai.delivery.chaos.factory_bodies import _CHAOS_MESH_KINDS
@@ -15,6 +16,7 @@ from fdai.delivery.chaos.mutation_scope import (
     ScopedInjector,
     approved_catalog_targets,
     azure_resource_ref,
+    kubernetes_deployment_ref,
     kubernetes_pods_ref,
     mutation_targets_approved,
 )
@@ -95,29 +97,87 @@ def test_vm_targets_bind_the_vm_identity_the_injector_mutates() -> None:
     assert not mutation_targets_approved(injector, (_PODS_REF,))
 
 
-@pytest.mark.parametrize(
-    ("injector_ref", "approved"),
-    [
-        pytest.param("chaos-mesh:PodChaos", True, id="selector-fault-on-approved-pods"),
-        pytest.param("kubectl:set-image", False, id="deployment-mutation-outside-pods"),
-    ],
-)
-def test_pod_targets_approve_only_selector_bound_mutations(
-    injector_ref: str,
-    approved: bool,
-) -> None:
+def test_pod_targets_approve_only_selector_bound_mutations() -> None:
     entry, injector = _injector_for(
-        lambda item: item.spec["injector"] == injector_ref and item.spec["target_type"] == "pod"
+        lambda item: (
+            item.spec["injector"] == "chaos-mesh:PodChaos" and item.spec["target_type"] == "pod"
+        )
     )
 
     targets = approved_catalog_targets(entry, _CONTEXT)
 
     assert targets == (_PODS_REF,)
-    assert mutation_targets_approved(injector, targets) is approved
+    assert mutation_targets_approved(injector, targets)
+    assert not mutation_targets_approved(injector, (_VM_REF,))
 
 
-def test_unsupported_target_types_have_no_derived_targets() -> None:
-    entry = next(item for item in _executable() if item.spec["target_type"] == "lb")
+@pytest.mark.parametrize(
+    ("injector_ref", "target_type"),
+    [
+        pytest.param("kubectl:set-image", "pod", id="rollout-change-acts-on-the-deployment"),
+        pytest.param("kubectl:scale", "lb", id="replica-change-acts-on-the-deployment"),
+    ],
+)
+def test_deployment_injectors_approve_the_deployment_not_the_pods(
+    injector_ref: str,
+    target_type: str,
+) -> None:
+    """A rollout or replica change writes to the Deployment, whatever its fault is about."""
+
+    entry, injector = _injector_for(
+        lambda item: (
+            item.spec["injector"] == injector_ref and item.spec["target_type"] == target_type
+        )
+    )
+
+    targets = approved_catalog_targets(entry, _CONTEXT)
+
+    assert targets == (kubernetes_deployment_ref(_CONTEXT, "backend"),)
+    assert mutation_targets_approved(injector, targets)
+    assert not mutation_targets_approved(injector, (_PODS_REF,))
+
+
+@pytest.mark.parametrize(
+    ("injector_ref", "context_key"),
+    [
+        pytest.param("mysql:query-load", "mysql_server_resource_id", id="mysql-flexible-server"),
+        pytest.param("aoai:rate-limit", "aoai_resource_id", id="model-endpoint-account"),
+    ],
+)
+def test_managed_service_injectors_approve_the_service_account_identity(
+    injector_ref: str,
+    context_key: str,
+) -> None:
+    entry, injector = _injector_for(lambda item: item.spec["injector"] == injector_ref)
+
+    targets = approved_catalog_targets(entry, _CONTEXT)
+
+    assert targets == (_CONTEXT[context_key],)
+    assert mutation_targets_approved(injector, targets)
+    assert not mutation_targets_approved(injector, (_PODS_REF,))
+
+
+def test_an_injector_whose_substrate_value_is_absent_is_refused() -> None:
+    without_database = {key: value for key, value in _CONTEXT.items()}
+    del without_database["mysql_server_resource_id"]
+    entry = next(item for item in _executable() if item.spec["injector"] == "mysql:query-load")
+
+    assert approved_catalog_targets(entry, without_database) is None
+    assert approved_catalog_targets(entry, {}) is None
+
+
+def test_a_shared_target_type_does_not_borrow_another_injectors_identity() -> None:
+    """`db` covers both MySQL load and a Cosmos failover; only the former is derivable."""
+
+    cosmos = next(item for item in _executable() if item.spec["injector"] == "az:cosmosdb-failover")
+
+    assert cosmos.spec["target_type"] == "db"
+    assert approved_catalog_targets(cosmos, _CONTEXT) is None
+
+
+@pytest.mark.parametrize("target_type", ["gpu", "ingress", "node", "secret_store", "vmss"])
+def test_unsupported_target_types_have_no_derived_targets(target_type: str) -> None:
+    entry = next(item for item in _executable() if item.spec["target_type"] == target_type)
 
     assert approved_catalog_targets(entry, _CONTEXT) is None
     assert approved_catalog_targets(entry, {}) is None
@@ -193,3 +253,21 @@ def test_every_chaos_mesh_body_selects_exactly_its_declared_pods(kind: str) -> N
     }
     assert injector.mutated_resources(target=selected) == (selected,)
     assert selected == _PODS_REF
+
+
+def test_every_reference_sweep_scenario_has_a_scope_matched_target() -> None:
+    """The ten reference scenarios must reach the adapter, not `refused_target_type`."""
+
+    catalog = {entry.id: entry for entry in _executable()}
+    unresolved: list[str] = []
+    for reference_id, catalog_id in REFERENCE_SWEEP_CATALOG_IDS.items():
+        entry = catalog.get(catalog_id)
+        if entry is None:
+            unresolved.append(f"{reference_id}: not executable")
+            continue
+        injector, _probe = default_factory().build(entry, dict(_CONTEXT))
+        targets = approved_catalog_targets(entry, _CONTEXT)
+        if targets is None or not mutation_targets_approved(injector, targets):
+            unresolved.append(f"{reference_id}: {targets}")
+
+    assert not unresolved

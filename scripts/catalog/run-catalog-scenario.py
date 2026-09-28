@@ -113,6 +113,7 @@ from fdai.delivery.chaos.governed_bindings import (
 from fdai.delivery.chaos.governed_closure import GovernedChaosClosure
 from fdai.delivery.chaos.governed_records import CHAOS_ACTION_TYPE, catalog_enforce_request
 from fdai.delivery.chaos.mutation_scope import approved_catalog_targets
+from fdai.delivery.chaos.substrate_bindings import optional_substrate_bindings
 from fdai.rule_catalog.schema.action_type import load_action_type_from_mapping
 from fdai.shared.contracts.models import Mode, OntologyActionType, Tier
 from fdai.shared.contracts.registry import PackageResourceSchemaRegistry
@@ -173,6 +174,16 @@ def _substrate_context() -> dict[str, Any]:
     ctx["backend_container"] = os.environ.get("FDAI_ENFORCE_BACKEND_CONTAINER", "web")
     ctx["backend_restore_replicas"] = int(os.environ.get("FDAI_ENFORCE_BACKEND_REPLICAS", "3"))
     ctx["backend_image"] = os.environ.get("FDAI_ENFORCE_BACKEND_IMAGE", "nginx")
+    # The db and llm_endpoint scenarios need a substrate the pod and VM
+    # scenarios do not. An absent or partial group stays unbound, so those
+    # entries keep refusing instead of failing part way through a run.
+    ctx.update(
+        optional_substrate_bindings(
+            os.environ,
+            sub_id=ctx["sub_id"],
+            resource_group=ctx["resource_group"],
+        )
+    )
     return ctx
 
 
