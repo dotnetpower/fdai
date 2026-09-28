@@ -173,7 +173,13 @@ Heimdall's injected posture producer additionally uses `PostgresTwinInventorySou
 to hold the Inventory promotion and realtime graph locks through source persistence and writer
 confirmation. The T0 evaluator generation includes exact Rule models, OPA version, and policy
 artifact digests. Durable first-seen clocks order changed revisions while exact retries reuse their
-original time. These fences grant no action authority and do not bind Forseti's proposed-IaC source.
+original time. Forseti's typed-proposal review producer holds the same Inventory fence through its
+review writes, and it retires a fence-rejected request before a bounded re-derivation. These fences
+grant no action authority, and no Terraform plan is a review input. `StateStore.read_state_page`
+also accepts a dotted field path of ASCII identifiers, such as `publication_outbox.published`, for
+its equality filter; PostgreSQL evaluates it with `#>>` over a bound path array, and single-field
+filters are unchanged. No segment may start with a digit, so PostgreSQL never reads one as an array
+index.
 
 The shared `MetricProviderError` contract owns bounded failure metadata; Azure transports classify it and the Analyzer redacts identities.
 The [metric diagnostics contract](aks-diagnostic-evidence-plane.md#safe-metric-failure-diagnostics) preserves legacy providers, empty results, and fail-closed behavior.

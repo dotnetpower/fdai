@@ -5,14 +5,14 @@ title: Project Structure
 The system is a **headless control plane + thin console + ChatOps**, not one web app. This document defines module boundaries, dependency direction, composition, and repository conventions for the validated five-service baseline and the independently packaged System Knowledge Service candidate. The shared service-contract SDK owns an authority-free `RuntimeScopeReceipt`; every service-owned entry point emits one before startup to bind product purpose, execution venue, and the complete permitted capability row without claiming provider state or success. Shared ontology code owns the pinned hard-bound registry for production routing and detection controls; runtime and delivery keep the active values in versioned configuration and import no new authority path. Post-turn runtime skill drafts retain canonical verified evidence references in proposal identity, durable storage, and audit metadata without activating the skill. Bootstrap binds Norns rule hints behind the current discovery-activation decision before evaluating or publishing candidates. Packaged release catalogs bind only to reachable source revisions, and the derived-source gate compares every recorded source blob before commit and in CI. When an owning design source changes without changing catalog records, post-integration regeneration updates only the source commitment and aggregate digest so they identify the final merged blobs and reachable protected-main revision. Question-bank and CQAS artifacts likewise regenerate as a whole from exact source catalogs in dependency order; digest-only hand edits are not supported. Confirmed Incident creation crosses the Operator/Core boundary as a versioned, no-authority request on its own logical topic: Operator owns authentication, source-draft revalidation, and durable acceptance, while Core alone writes the Incident lifecycle and audit record. See [Multi-Service Repository Layout](multi-service-repository-layout.md) for physical package ownership and [App Shape](../../../.github/instructions/app-shape.instructions.md) for local and deployed topology.
 ## Design at a glance
 
-The Assurance Twin's production composition binds Heimdall's retained Inventory posture producer,
-durable evidence repository, and content-free request outbox when the fixed Pantheon roles and state
-store are present. The producer reuses the control loop's immutable T0/OPA generation off the event
-loop, requires declared inputs for every Resource, and holds Inventory promotion and graph locks
-through source/target confirmation. Missing, stale, changing, or incomplete evidence remains
-unavailable. Forseti's proposed-IaC producer remains unbound. This addition changes no cross-service
-schema, approval, or execution path. Rule-generation timestamps use a dedicated UTC clock and never
-consume the injected control-loop clock used for replay, action creation, dispatch, or effect evidence.
+The Assurance Twin's production composition binds Heimdall's retained Inventory posture producer, durable evidence repository,
+and content-free request outbox when the fixed Pantheon roles and state store are present. The producer reuses the control
+loop's immutable T0/OPA generation off the event loop, requires declared inputs for every Resource, and holds Inventory
+promotion and graph locks through source/target confirmation. Missing, stale, changing, or incomplete evidence remains
+unavailable. Forseti reviews typed ActionType proposals and their what-if, never Terraform plans, and the Twin outbox relays
+page only unpublished rows through a dotted `StateStore` field filter ([Assurance Twin](../operations/assurance-twin.md)).
+This addition changes no cross-service schema, approval, or execution path. Rule-generation timestamps use a dedicated UTC
+clock and never consume the injected control-loop clock used for replay, action creation, dispatch, or effect evidence.
 Core resolves Rule and submission-criterion types through the shared contracts facade rather than a
 contracts submodule, preserving the repository's one-way public import boundary.
 
