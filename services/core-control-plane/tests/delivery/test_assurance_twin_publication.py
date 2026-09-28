@@ -7,7 +7,11 @@ from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 
 import pytest
-from fdai.core.assurance_twin import build_posture_assessment_report
+from fdai.core.assurance_twin import (
+    TypedActionProposal,
+    TypedProposalAssessment,
+    build_posture_assessment_report,
+)
 from fdai.delivery.assurance_twin_posture import AssuranceTwinPostureRecorder
 from fdai.delivery.assurance_twin_publication import (
     PUBLICATION_TOPIC,
@@ -19,7 +23,6 @@ from fdai.delivery.assurance_twin_writers import (
     REQUEST_TOPIC,
     AssuranceTwinAgentWriter,
     AssuranceTwinPublishRequest,
-    ProposedIacAssessment,
     RetainedTwinEvidence,
     RuleFindingAssessment,
     findings_digest,
@@ -48,7 +51,26 @@ from fdai_service_contracts.semantic_turn import LOGICAL_TOPIC_FIELD
 
 _SCOPE = "sub/00000000-0000-0000-0000-000000000001"
 _REVISION = "sha256:" + "a" * 64
+_WHAT_IF = "sha256:" + "d" * 64
+_EFFECT = "sha256:" + "e" * 64
+_CHANGE = "sha256:" + "9" * 64
 _NOW = datetime.now(UTC) - timedelta(seconds=1)
+
+
+@pytest.fixture(autouse=True)
+def _evidence_clock() -> None:
+    """Pin evidence times at each test's start instead of module import."""
+    global _NOW
+    _NOW = datetime.now(UTC) - timedelta(seconds=1)
+
+
+def _proposal() -> TypedActionProposal:
+    return TypedActionProposal.create(
+        action_type="remediate.disable-public-access",
+        action_type_version="1.0.0",
+        targets=(ResourceRef(resource_type="compute.vm", ref="vm-1"),),
+        parameters={},
+    )
 
 
 def _finding(rule: str = "rule-1") -> Finding:
@@ -71,13 +93,43 @@ def _report(rule: str = "rule-1") -> object:
 
 
 def _review(rule: str = "rule-1") -> IacReview:
+    proposal = _proposal()
     return IacReview(
-        pr_ref="example/project#1",
+        pr_ref=proposal.proposal_ref,
         review_key="review-1",
         findings=(_finding(rule),),
         verdict="blocked",
         mode=Mode.SHADOW,
         generated_at=_NOW.isoformat(),
+        metadata={
+            "evidence_kind": "typed_action_proposal",
+            "action_type": proposal.action_type,
+            "action_type_version": proposal.action_type_version,
+            "proposal_digest": proposal.proposal_digest,
+            "what_if_digest": _WHAT_IF,
+            "effect_digest": _EFFECT,
+            "change_digest": _CHANGE,
+            "inventory_revision": _REVISION,
+        },
+    )
+
+
+def _typed_assessment() -> TypedProposalAssessment:
+    proposal = _proposal()
+    return TypedProposalAssessment(
+        source_revision=_REVISION,
+        proposal_ref=proposal.proposal_ref,
+        action_type=proposal.action_type,
+        action_type_version=proposal.action_type_version,
+        proposal_digest=proposal.proposal_digest,
+        parameters_digest=proposal.parameters_digest,
+        targets=proposal.targets,
+        what_if_digest=_WHAT_IF,
+        effect_digest=_EFFECT,
+        change_digest=_CHANGE,
+        inventory_revision=_REVISION,
+        evidence_refs=tuple(sorted({proposal.proposal_digest, _WHAT_IF, _EFFECT, _CHANGE})),
+        complete=True,
     )
 
 
@@ -111,17 +163,7 @@ def _evidence(record: object) -> RetainedTwinEvidence:
             coverage_refs=(membership_digest, "rule-coverage:1"),
             complete=True,
         ),
-        proposed_iac=(
-            ProposedIacAssessment(
-                source_revision=_REVISION,
-                pr_ref=record.pr_ref,
-                proposal_digest="sha256:" + "c" * 64,
-                evidence_refs=("proposed-change:1",),
-                complete=True,
-            )
-            if isinstance(record, IacReview)
-            else None
-        ),
+        typed_proposal=_typed_assessment() if isinstance(record, IacReview) else None,
     )
 
 
@@ -175,20 +217,44 @@ async def test_rule_assessment_required_for_both_writers(kind: str, gap: str) ->
     assert store.audit_entries == ()
 
 
-@pytest.mark.parametrize("gap", ["missing", "incomplete", "wrong_revision", "wrong_pr", "no_refs"])
-async def test_review_requires_complete_proposed_iac_evidence(gap: str) -> None:
+@pytest.mark.parametrize(
+    "gap",
+    [
+        "missing",
+        "incomplete",
+        "wrong_revision",
+        "wrong_ref",
+        "wrong_inventory",
+        "substituted_targets",
+        "no_refs",
+        "untyped_body",
+    ],
+)
+async def test_review_requires_complete_typed_proposal_evidence(gap: str) -> None:
     store, bus, source = InMemoryStateStore(), InMemoryEventBus(), _Source()
     ledger, _, forseti = _bindings(store, bus, source)
-    assert source.review is not None and source.review.proposed_iac is not None
-    proposal = source.review.proposed_iac
-    changed = {
-        "missing": None,
-        "incomplete": replace(proposal, complete=False),
-        "wrong_revision": replace(proposal, source_revision="sha256:" + "f" * 64),
-        "wrong_pr": replace(proposal, pr_ref="other-pr"),
-        "no_refs": replace(proposal, evidence_refs=()),
-    }[gap]
-    source.review = replace(source.review, proposed_iac=changed)
+    assert source.review is not None and source.review.typed_proposal is not None
+    typed = source.review.typed_proposal
+    if gap == "untyped_body":
+        assert isinstance(source.review.record, IacReview)
+        source.review = _evidence(replace(source.review.record, metadata={}))
+    else:
+        changed = {
+            "missing": None,
+            "incomplete": replace(typed, complete=False),
+            "wrong_revision": replace(typed, source_revision="sha256:" + "f" * 64),
+            "wrong_ref": replace(typed, proposal_ref="action-proposal:" + "0" * 64),
+            "wrong_inventory": replace(typed, inventory_revision="sha256:" + "8" * 64),
+            "substituted_targets": replace(
+                typed,
+                targets=(
+                    ResourceRef(resource_type="compute.vm", ref="vm-1"),
+                    ResourceRef(resource_type="compute.vm", ref="vm-2"),
+                ),
+            ),
+            "no_refs": replace(typed, evidence_refs=()),
+        }[gap]
+        source.review = replace(source.review, typed_proposal=changed)
     assert not await forseti.process(_request("review"))
     assert await ledger.pending_publications(owner="Forseti") == ()
     assert store.audit_entries == ()

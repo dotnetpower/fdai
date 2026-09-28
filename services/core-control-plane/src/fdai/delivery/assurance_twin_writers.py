@@ -18,6 +18,10 @@ from fdai.core.assurance_twin.report import (
     PostureAssessmentReport,
     build_posture_assessment_report,
 )
+from fdai.core.assurance_twin.typed_proposal import (
+    TypedProposalAssessment,
+    typed_proposal_admissible,
+)
 from fdai.delivery.assurance_twin_inventory import AssuranceTwinInventoryChangedError
 from fdai.delivery.assurance_twin_posture import AssuranceTwinPostureRecorder
 from fdai.delivery.persistence.state_store_assurance_twin_posture import (
@@ -67,17 +71,6 @@ class RuleFindingAssessment:
 
 
 @dataclass(frozen=True, slots=True)
-class ProposedIacAssessment:
-    """Trusted proposed-change readback, not a browser or request payload."""
-
-    source_revision: str
-    pr_ref: str
-    proposal_digest: str
-    evidence_refs: tuple[str, ...]
-    complete: bool
-
-
-@dataclass(frozen=True, slots=True)
 class RetainedTwinEvidence:
     """Read-only snapshot pinned to one revision and positive coverage."""
 
@@ -89,7 +82,7 @@ class RetainedTwinEvidence:
     complete: bool
     conflict: bool = False
     rule_assessment: RuleFindingAssessment | None = None
-    proposed_iac: ProposedIacAssessment | None = None
+    typed_proposal: TypedProposalAssessment | None = None
 
 
 class RetainedTwinEvidenceSource(Protocol):
@@ -133,12 +126,15 @@ class AssuranceTwinAgentWriter:
         recorder: AssuranceTwinPostureRecorder,
         posture_generation_fence: AssuranceTwinRuleGenerationFence | None = None,
         posture_inventory_fence: AssuranceTwinInventoryFence | None = None,
+        review_generation_fence: AssuranceTwinRuleGenerationFence | None = None,
+        review_inventory_fence: AssuranceTwinInventoryFence | None = None,
     ) -> None:
         self.owner = owner
         self._source = source
         self._recorder = recorder
-        self._posture_generation_fence = posture_generation_fence
-        self._posture_inventory_fence = posture_inventory_fence
+        heimdall = owner == "Heimdall"
+        self._generation_fence = posture_generation_fence if heimdall else review_generation_fence
+        self._inventory_fence = posture_inventory_fence if heimdall else review_inventory_fence
 
     async def process(self, request: AssuranceTwinPublishRequest) -> bool:
         """Persist only a complete, fresh, conflict-free exact source revision."""
@@ -165,16 +161,16 @@ class AssuranceTwinAgentWriter:
             return False
         if not _admissible(snapshot, request):
             return False
-        if self.owner == "Heimdall" and self._posture_generation_fence is not None:
-            posture_assessment = snapshot.rule_assessment
-            if posture_assessment is None:
+        if self._generation_fence is not None:
+            fenced_assessment = snapshot.rule_assessment
+            if fenced_assessment is None:
                 return False
-            fenced = await self._posture_generation_fence.run_assurance_twin_if_current(
-                rule_generation_revision=posture_assessment.rule_generation_digest,
+            fenced = await self._generation_fence.run_assurance_twin_if_current(
+                rule_generation_revision=fenced_assessment.rule_generation_digest,
                 operation=lambda: self._persist_with_inventory_fence(
                     request,
                     snapshot,
-                    posture_assessment.inventory_revision,
+                    fenced_assessment.inventory_revision,
                 ),
             )
             return fenced is True
@@ -191,16 +187,14 @@ class AssuranceTwinAgentWriter:
         snapshot: RetainedTwinEvidence,
         inventory_revision: str,
     ) -> bool:
-        if self.owner == "Heimdall" and self._posture_inventory_fence is not None:
+        if self._inventory_fence is not None:
             try:
-                fenced = (
-                    await self._posture_inventory_fence.run_assurance_twin_inventory_if_current(
-                        inventory_revision=inventory_revision,
-                        operation=lambda: self._persist_inventory_snapshot(
-                            request,
-                            snapshot,
-                        ),
-                    )
+                fenced = await self._inventory_fence.run_assurance_twin_inventory_if_current(
+                    inventory_revision=inventory_revision,
+                    operation=lambda: self._persist_inventory_snapshot(
+                        request,
+                        snapshot,
+                    ),
                 )
             except AssuranceTwinInventoryChangedError:
                 await self._mark_source_conflict(request, snapshot)
@@ -245,7 +239,7 @@ class AssuranceTwinAgentWriter:
             review = snapshot.record
             if not isinstance(review, IacReview) or review.review_key != request.source_key:
                 return False
-            result = await self._recorder.record_change_review(
+            result = await self._recorder.record_proposal_review(
                 review,
                 correlation_id=request.correlation_id,
                 freshness=OperationalFreshness.FRESH,
@@ -394,17 +388,11 @@ def _admissible(snapshot: RetainedTwinEvidence, request: AssuranceTwinPublishReq
         if evidence_body_digest(body) != snapshot.evidence_digest:
             return False
         if isinstance(record, IacReview):
-            proposed = snapshot.proposed_iac
-            if (
-                not isinstance(proposed, ProposedIacAssessment)
-                or proposed.complete is not True
-                or proposed.source_revision != snapshot.source_revision
-                or proposed.pr_ref != record.pr_ref
-                or not _digest(proposed.proposal_digest)
-                or not proposed.evidence_refs
-                or any(
-                    not isinstance(ref, str) or not ref.strip() for ref in proposed.evidence_refs
-                )
+            if not typed_proposal_admissible(
+                snapshot.typed_proposal,
+                source_revision=snapshot.source_revision,
+                inventory_revision=assessment.inventory_revision,
+                review=record,
             ):
                 return False
             judged = build_posture_assessment_report(
@@ -467,7 +455,6 @@ __all__ = [
     "AssuranceTwinInventoryFence",
     "AssuranceTwinPublishRequest",
     "AssuranceTwinRuleGenerationFence",
-    "ProposedIacAssessment",
     "RetainedTwinEvidence",
     "RetainedTwinEvidenceSource",
     "RuleFindingAssessment",

@@ -121,8 +121,12 @@ def build_change_review_activity(
     correlation_id: str,
     freshness: OperationalFreshness,
     reason_codes: tuple[str, ...] = (),
+    superseded: bool = False,
 ) -> AssuranceTwinReviewActivity:
     """Build one bounded activity tip for an ambient per-change review.
+
+    ``superseded`` marks a review that a newer retained revision for the same
+    proposal already replaced; such a tip is never published.
 
     Raises:
         ValueError: when ``correlation_id`` is empty or ``freshness`` is
@@ -131,8 +135,10 @@ def build_change_review_activity(
 
     if not correlation_id.strip():
         raise ValueError("change review activity correlation_id MUST be non-empty")
-    status = _status_for(freshness, reason_codes)
-    review_identity = _privacy_safe_identity(review.review_key)
+    status = (
+        OperationalActivityStatus.SUPERSEDED if superseded else _status_for(freshness, reason_codes)
+    )
+    review_identity = _review_evidence_identity(review, freshness, reason_codes)
     correlation_identity = _privacy_safe_identity(correlation_id)
     return AssuranceTwinReviewActivity(
         activity_id=f"assurance-twin.change-review:{review_identity}:{status.value}",
@@ -188,6 +194,38 @@ def _posture_evidence_identity(
     body = {
         **report.to_dict(),
         "generated_at": _parse_timestamp(report.generated_at).astimezone(UTC).isoformat(),
+        "freshness": freshness.value,
+        "reason_codes": list(reason_codes),
+    }
+    encoded = json.dumps(body, sort_keys=True, separators=(",", ":"), default=str)
+    return _privacy_safe_identity(encoded)
+
+
+def _review_evidence_identity(
+    review: IacReview,
+    freshness: OperationalFreshness,
+    reason_codes: tuple[str, ...],
+) -> str:
+    """Bind one exact review revision, so a newer review of one proposal is a new tip."""
+
+    body = {
+        "review_key": review.review_key,
+        "pr_ref": review.pr_ref,
+        "verdict": review.verdict,
+        "mode": review.mode.value,
+        "generated_at": _parse_timestamp(review.generated_at).astimezone(UTC).isoformat(),
+        "metadata": dict(review.metadata),
+        "findings": [
+            [
+                finding.rule_id,
+                finding.resource.resource_type,
+                finding.resource.ref,
+                finding.severity,
+                finding.reason,
+                list(finding.evidence_refs),
+            ]
+            for finding in review.findings
+        ],
         "freshness": freshness.value,
         "reason_codes": list(reason_codes),
     }
