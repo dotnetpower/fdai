@@ -102,6 +102,21 @@ def vault_name(uri: str) -> str:
     return match.group(1)
 
 
+def planned_container_registry_name(
+    *, workload: str, environment: str, region_short: str, resource_suffix: str
+) -> str:
+    """Return the exact container registry name rendered by the verified Terraform root."""
+
+    if (
+        re.fullmatch(r"[a-z][a-z0-9]{1,11}", workload) is None
+        or re.fullmatch(r"[a-z][a-z0-9-]{1,15}", environment) is None
+        or re.fullmatch(r"[a-z][a-z0-9]{1,7}", region_short) is None
+        or re.fullmatch(r"[0-9a-f]{6}", resource_suffix) is None
+    ):
+        raise ValueError("planned container registry name inputs are invalid")
+    return f"cr{workload}{environment.replace('-', '')}{region_short}{resource_suffix}"
+
+
 def planned_key_vault_name(
     *, workload: str, environment: str, region_short: str, resource_suffix: str
 ) -> str:
