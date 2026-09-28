@@ -218,8 +218,31 @@ def test_trimming_whitespace_or_dropping_a_restated_time_mention_is_a_valid_repa
     )
 
     assert repair_keeps_operands(padded, _resolved(_quoted_form()), utterance=_UTTERANCE)
-    assert repair_keeps_operands(restating, _resolved(timed), utterance=_UTTERANCE)
-    assert not repair_keeps_operands(restating, _resolved(_quoted_form()), utterance=_UTTERANCE)
+    assert repair_keeps_operands(
+        restating, _resolved(timed), utterance=_UTTERANCE, typed=_resolved(restating)
+    )
+    assert not repair_keeps_operands(
+        restating, _resolved(_quoted_form()), utterance=_UTTERANCE, typed=_resolved(restating)
+    )
+    # Without the closed schema's reading, no time restatement can excuse a dropped quote.
+    assert not repair_keeps_operands(restating, _resolved(timed), utterance=_UTTERANCE)
+
+
+def test_a_cited_operand_never_counts_as_a_restated_time() -> None:
+    timed = _quoted_form()
+    timed["goals"][0]["time"] = {
+        "kind": "window",
+        "value": {"duration": {"amount": 3, "unit": "day"}},
+        "cue": {"text": "sql-app", "occurrence": 1},
+    }
+    unanchored = copy.deepcopy(timed)
+    unanchored["mentions"] = unanchored["mentions"][1:]
+    unanchored["goals"][0].update(subject="m2", subject_scope="collection", filters=[])
+    unanchored["goals"][0]["relation"]["anchor"] = None
+
+    assert not repair_keeps_operands(
+        timed, _resolved(unanchored), utterance=_UTTERANCE, typed=_resolved(timed)
+    )
 
 
 _FLIPPED = [

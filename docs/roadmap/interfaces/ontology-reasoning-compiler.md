@@ -133,7 +133,9 @@ pending-goals signal of the rejected proposal; otherwise the original fault stan
 compare as the closed schema normalizes them. A proposal that never parsed treats every stated
 pending-goals value other than an explicit false or null as pending, and it fails closed when any
 compared field loses its closed shape, such as a missing goal list, a wrong container, a duplicate
-goal id, or an unreadable operation or want. Clarifications are answers to the operator and are never repaired.
+goal id, or an unreadable operation or want. Only an uncited mention of a parsed proposal that quotes
+exactly a typed time cue may survive inside a repaired time cue instead of a repaired mention.
+Clarifications are answers to the operator and are never repaired.
 
 Admission bounds model authority; it does not remove it. A wrong but self-consistent form is caught
 only by cue-span review, T2 review, the restated interpretation and confirm-first cells in

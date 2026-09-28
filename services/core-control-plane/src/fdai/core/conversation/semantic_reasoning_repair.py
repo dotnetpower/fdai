@@ -119,8 +119,9 @@ def repair_keeps_operands(
 
     Every non-space character of each earlier mention quote, of any domain, must lie
     inside a repaired mention, so a repair may widen, split, trim, or relabel a
-    mention but never shorten or delete it; only a mention that quoted exactly its
-    goal's typed time cue may instead stay inside that goal's repaired time cue.
+    mention but never shorten or delete it; only an uncited mention of a parsed
+    proposal that quoted exactly a typed time cue may instead stay inside a repaired
+    time cue.
     Every earlier goal must survive with its operation and want, a typed time value
     must stay typed over at least its earlier cue, and a relation that carried an
     operand must stay over at least its earlier cue. A competing reading must stay
@@ -147,7 +148,7 @@ def repair_keeps_operands(
     located, unlocated = _previous_mentions(previous, utterance)
     if unlocated and len(spans) < len(located) + unlocated:
         return False
-    restated = _previous_time_cues(previous, utterance)
+    restated = _restated_time_mentions(typed) if typed is not None else frozenset()
     if not all(
         _covered(quote, spans, utterance)
         or (quote in restated and _covered(quote, times, utterance))
@@ -339,16 +340,26 @@ def _previous_mentions(
     return located, unlocated
 
 
-def _previous_time_cues(previous: Mapping[str, Any], utterance: str) -> set[tuple[int, int]]:
-    goals = previous.get("goals")
-    cues: set[tuple[int, int]] = set()
-    for goal in goals if isinstance(goals, list) else ():
-        time = goal.get("time") if isinstance(goal, Mapping) else None
-        if isinstance(time, Mapping) and time.get("value") is not None:
-            span = _locate(time.get("cue"), utterance)
-            if span is not None:
-                cues.add(span)
-    return cues
+def _restated_time_mentions(typed: SemanticQuestionForm) -> frozenset[tuple[int, int]]:
+    """Return the spans of uncited mentions that quote exactly a typed time cue.
+
+    Only such a mention merely restates its goal's time, so only it may survive inside a
+    repaired time cue instead of a repaired mention. The exemption needs the closed
+    schema's reading: a proposal that never parsed has no validated time to restate, and
+    a mention any goal cites is an operand, never a time restatement.
+    """
+
+    cues = {
+        (goal.time.cue.start, goal.time.cue.end)
+        for goal in typed.goals
+        if goal.time.value is not None and goal.time.cue is not None
+    }
+    cited = typed.cited_mentions()
+    return frozenset(
+        (mention.span.start, mention.span.end)
+        for mention in typed.mentions
+        if mention.id not in cited and (mention.span.start, mention.span.end) in cues
+    )
 
 
 def _locate(quote: object, utterance: str) -> tuple[int, int] | None:
