@@ -552,31 +552,31 @@
         "When can an ActionType leave shadow mode?",
         "ActionType은 언제 shadow-mode를 벗어나나요?"
       ],
-      "source_manifest_hash": "4289c58615fea20d218906ed22dd17d3b736ad9a7264519f044902cadf7680dd",
+      "source_manifest_hash": "7e623f69f3afc11127f57ec518306fc223734e886117484865f6ad41b851cdf9",
       "sources": [
         {
           "authority_role": "implementation",
-          "blob_sha": "122bd47db7ea4efdc764ffc0c15d0d7c2748df4c",
-          "line_end": 313,
-          "line_start": 230,
+          "blob_sha": "bd160899392118b92d69015e39adb1219cbd7a94",
+          "line_end": 329,
+          "line_start": 236,
           "path": "services/core-control-plane/src/fdai/core/risk_gate/gate.py",
           "source_kind": "code",
           "symbol": "ActionPromotionRegistry.consider_promotion"
         },
         {
           "authority_role": "verification",
-          "blob_sha": "0f628f988d28c9fd9bb6f94ead2788c574fb3ad9",
-          "line_end": 470,
-          "line_start": 456,
+          "blob_sha": "6ffd931f64c22d50edda197104879f4c984df145",
+          "line_end": 491,
+          "line_start": 477,
           "path": "services/core-control-plane/tests/core/risk_gate/test_gate.py",
           "source_kind": "test",
           "symbol": "test_promotion_registry_promotes_when_metrics_pass_gate"
         },
         {
           "authority_role": "verification",
-          "blob_sha": "0f628f988d28c9fd9bb6f94ead2788c574fb3ad9",
-          "line_end": 496,
-          "line_start": 473,
+          "blob_sha": "6ffd931f64c22d50edda197104879f4c984df145",
+          "line_end": 517,
+          "line_start": 494,
           "path": "services/core-control-plane/tests/core/risk_gate/test_gate.py",
           "source_kind": "test",
           "symbol": "test_promotion_registry_demotes_when_metrics_regress"

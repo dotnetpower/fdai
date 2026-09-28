@@ -16,8 +16,6 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
-from fdai_service_contracts.product_profile import ProductAddOn
-
 from fdai_deployment_cli import standalone_catalog_checkpoint
 from fdai_deployment_cli.application_state_adoption import ApplicationStateAdoption
 from fdai_deployment_cli.bundle import extract_bundle_archive
@@ -94,9 +92,8 @@ def deploy_standalone_application(
         raise ValueError("standalone host SSH key differs from Foundation evidence")
     transport_archive = prepared.root / "standalone-kit.tar.gz"
     archive_digest = archive_verified_kit(kit, transport_archive)
-    entra_path: Path | None = None
-    if entra_bindings is not None:
-        entra_path = prepared.root / "entra-bindings.json"
+    entra_path = prepared.root / "entra-bindings.json" if entra_bindings is not None else None
+    if entra_path is not None:
         _replace_private_json(entra_path, entra_bindings)
     work_binding: dict[str, object] = {
         "target_binding": prepared.target_binding,
@@ -484,10 +481,7 @@ def deploy_standalone_application(
         ):
             raise ValueError("standalone application convergence is incomplete")
         console_receipt: dict[str, object] | None = None
-        if (
-            selected_runtime.product_profile.selects(ProductAddOn.READ_ONLY_CONSOLE)
-            and selected_runtime.runtime_platform.value == "aks"
-        ):
+        if selected_runtime.console_selected and selected_runtime.runtime_platform.value == "aks":
             if entra_bindings is None:
                 raise ValueError("read-only Console requires enterprise identity bindings")
             browser_console = _mapping(

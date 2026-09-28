@@ -6,7 +6,11 @@ import json
 from collections.abc import Callable
 from typing import Any
 
-from fdai_service_contracts.product_profile import AzureObservationRole, ProductAddOn
+from fdai_service_contracts.product_profile import (
+    AzureObservationRole,
+    ProductAddOn,
+    ProductProfile,
+)
 
 from fdai_deployment_cli.runtime_profile import RuntimeDeploymentProfile
 
@@ -87,4 +91,18 @@ def product_terraform_values(
     return values
 
 
-__all__ = ["product_terraform_values"]
+def context_selects_add_on(context: dict[str, Any], add_on: ProductAddOn) -> bool:
+    """Report whether the recorded deployment context explicitly selected one add-on."""
+
+    runtime = context.get("runtime_profile")
+    if not isinstance(runtime, dict):
+        return False
+    product = runtime.get("product_profile")
+    if product is None:
+        return False
+    if not isinstance(product, dict):
+        raise ValueError("product profile is invalid")
+    return ProductProfile.model_validate(product).selects(add_on)
+
+
+__all__ = ["context_selects_add_on", "product_terraform_values"]

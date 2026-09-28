@@ -42,6 +42,12 @@ class RuntimeDeploymentProfile:
     user_node_sku: str = "Standard_D4as_v5"
     product_profile: ProductProfile = field(default_factory=ProductProfile)
 
+    @property
+    def console_selected(self) -> bool:
+        """Report the explicitly selected read-only Console surface."""
+
+        return self.product_profile.selects(ProductAddOn.READ_ONLY_CONSOLE)
+
     def __post_init__(self) -> None:
         if self.runtime_platform is RuntimePlatform.CONTAINER_APPS:
             if self.database_placement is not DatabasePlacement.POSTGRES_FLEX:

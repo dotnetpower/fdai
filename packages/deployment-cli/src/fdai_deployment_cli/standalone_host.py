@@ -19,11 +19,7 @@ from pathlib import Path
 from typing import Any, Final
 from urllib.parse import urlencode
 
-from fdai_service_contracts.product_profile import (
-    ObservationDataSource,
-    ProductAddOn,
-    ProductProfile,
-)
+from fdai_service_contracts.product_profile import ObservationDataSource, ProductAddOn
 
 from fdai_deployment_cli import (
     catalog_review_profile,
@@ -59,6 +55,9 @@ from fdai_deployment_cli.private_output import read_private_bytes, write_private
 from fdai_deployment_cli.runtime_profile import (
     RuntimeDeploymentProfile,
     legacy_runtime_profile_digest,
+)
+from fdai_deployment_cli.standalone_product_profile import (
+    context_selects_add_on as _selects_add_on,
 )
 from fdai_deployment_cli.standalone_product_profile import product_terraform_values
 from fdai_deployment_cli.runtime_support_installation import (
@@ -108,6 +107,7 @@ from fdai_deployment_cli.standalone_stage_targets import (
     focused_private_access as _focused_private_access,
 )
 from fdai_deployment_cli.standalone_stage_targets import stage_targets as _stage_targets
+from fdai_deployment_cli.standalone_host_values import aks_operator_environment
 from fdai_deployment_cli.standalone_host_values import (
     console_origin as _console_origin,
 )
@@ -915,37 +915,20 @@ def _prepare_aks_application(_args: argparse.Namespace, work_dir: Path) -> dict[
             semantic_topics=semantic_topics,
         )
     )
-    operator_environment: dict[str, object] = {}
-    if operator_api_selected:
-        operator_environment = {
-            "AZURE_CLIENT_ID": operator_identity["client_id"],
-            "FDAI_COMMAND_MI_CLIENT_ID": command_identity["client_id"],
-            "FDAI_ENTRA_TENANT_ID": context["tenant_id"],
-            "FDAI_API_AUDIENCE": application_values["operator_api_audience"],
-            "FDAI_RBAC_READERS_GROUP_ID": application_values["rbac_readers_group_id"],
-            "FDAI_RBAC_CONTRIBUTORS_GROUP_ID": application_values["rbac_contributors_group_id"],
-            "FDAI_RBAC_APPROVERS_GROUP_ID": application_values["rbac_approvers_group_id"],
-            "FDAI_RBAC_OWNERS_GROUP_ID": application_values["rbac_owners_group_id"],
-            "FDAI_RBAC_BREAK_GLASS_GROUP_ID": application_values["rbac_break_glass_group_id"],
-            "FDAI_STEWARDSHIP_REQUIRE_BINDINGS": "1",
-            "FDAI_MAINTAINERS": application_values["stewardship_maintainers"],
-            "FDAI_KAFKA_BOOTSTRAP_SERVERS": core_environment["KAFKA_BOOTSTRAP_SERVERS"],
-            "KAFKA_TOPIC_EVENTS": core_environment["KAFKA_TOPIC_EVENTS"],
-            "FDAI_SEMANTIC_TURN_REQUEST_TOPIC": str(semantic_topics[0]),
-            "FDAI_SEMANTIC_TURN_PROJECTION_TOPIC": str(semantic_topics[1]),
-            "FDAI_SEMANTIC_TURN_PHYSICAL_TOPIC": substrate_outputs["semantic_physical"],
-            "FDAI_READ_INVESTIGATION_REQUEST_TOPIC": str(semantic_topics[2]),
-            "FDAI_OPERATOR_API_CORS_ALLOW_ORIGINS": console_origin,
-        }
-        operator_environment.update(
-            {
-                f"FDAI_STEWARD_{name.upper()}": binding
-                for name, binding in _mapping(
-                    application_values["stewardship_agent_bindings"],
-                    "stewardship bindings",
-                ).items()
-            }
+    operator_environment = (
+        aks_operator_environment(
+            application_values=application_values,
+            core_environment=core_environment,
+            substrate_outputs=substrate_outputs,
+            semantic_topics=semantic_topics,
+            operator_identity=operator_identity,
+            command_identity=command_identity,
+            tenant_id=str(context["tenant_id"]),
+            console_origin=console_origin,
         )
+        if operator_api_selected
+        else {}
+    )
     dsn_secret = {
         "APPLICATIONINSIGHTS_CONNECTION_STRING": str(
             substrate_outputs["application_insights_secret_name"]
@@ -3532,25 +3515,6 @@ def _runtime_platform(context: dict[str, object]) -> str:
     if platform not in {"container-apps", "aks"}:
         raise ValueError("runtime deployment platform is invalid")
     return str(platform)
-
-
-def _context_product_profile(context: dict[str, object]) -> ProductProfile:
-    """Return the immutable product profile recorded with the selected runtime profile."""
-
-    value = context.get("runtime_profile")
-    if value is None:
-        return ProductProfile()
-    profile = _mapping(value, "runtime deployment profile")
-    product = profile.get("product_profile")
-    if product is None:
-        return ProductProfile()
-    return ProductProfile.model_validate(_mapping(product, "product profile"))
-
-
-def _selects_add_on(context: dict[str, object], add_on: ProductAddOn) -> bool:
-    """Report whether the recorded product profile explicitly selected one add-on."""
-
-    return _context_product_profile(context).selects(add_on)
 
 
 def _prepare_aks_kubeconfig(

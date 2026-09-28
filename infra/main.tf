@@ -2051,6 +2051,11 @@ resource "azurerm_function_app_flex_consumption" "dev_gateway" {
       condition     = var.env == "dev" && var.enable_private_networking
       error_message = "enable_dev_operations_gateway requires env=dev and enable_private_networking=true."
     }
+
+    precondition {
+      condition     = trimspace(trimprefix(var.operator_api_audience, "api://")) != ""
+      error_message = "enable_dev_operations_gateway requires operator_api_audience for authenticated access."
+    }
   }
 
   depends_on = [
