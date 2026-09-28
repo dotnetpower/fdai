@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import pytest
+from fdai.delivery.assurance_twin_review_producer import AssuranceTwinReviewProducer
 from fdai.delivery.assurance_twin_writers import RetainedTwinEvidence
 from fdai.runtime.bootstrap_core_model import (
     assurance_twin_inventory_dsn,
@@ -87,12 +88,13 @@ def test_state_store_source_is_bound_by_default_for_writers() -> None:
 
 
 def test_complete_posture_producer_binds_only_with_production_inputs() -> None:
+    evaluator = _PostureEvaluator()
     publishers, writers = build_assurance_twin_runtime_binding(
         state_store=InMemoryStateStore(),
         agents=_ROSTER,
         event_bus=InMemoryEventBus(),
         retained_source=None,
-        posture_evaluator=_PostureEvaluator(),  # type: ignore[arg-type]
+        posture_evaluator=evaluator,  # type: ignore[arg-type]
         inventory_dsn="postgresql://example.invalid/fdai",
         posture_scope="subscription:scope-a",
         required_inventory_scopes=("scope-a",),
@@ -100,11 +102,38 @@ def test_complete_posture_producer_binds_only_with_production_inputs() -> None:
 
     assert tuple(publisher.owner for publisher in publishers) == (
         "Heimdall",
+        "Forseti",
         "EvidenceSource",
         "Heimdall",
         "Forseti",
     )
     assert tuple(writer.owner for writer in writers) == ("Heimdall", "Forseti")
+    posture_producer, review_producer = publishers[0], publishers[1]
+    assert isinstance(review_producer, AssuranceTwinReviewProducer)
+    assert review_producer._inventory is posture_producer._inventory
+    assert len(review_producer._effects) == 0
+    heimdall, forseti = writers
+    assert heimdall._generation_fence is evaluator
+    assert heimdall._inventory_fence is posture_producer
+    assert forseti._generation_fence is evaluator
+    assert forseti._inventory_fence is review_producer
+
+
+def test_injected_source_binds_no_review_producer_or_review_fence() -> None:
+    publishers, writers = build_assurance_twin_runtime_binding(
+        state_store=InMemoryStateStore(),
+        agents=_ROSTER,
+        event_bus=InMemoryEventBus(),
+        retained_source=_UnavailableSource(),
+        posture_evaluator=_PostureEvaluator(),  # type: ignore[arg-type]
+        inventory_dsn="postgresql://example.invalid/fdai",
+        posture_scope="subscription:scope-a",
+        required_inventory_scopes=("scope-a",),
+    )
+
+    assert not any(isinstance(item, AssuranceTwinReviewProducer) for item in publishers)
+    forseti = writers[1]
+    assert forseti._generation_fence is None and forseti._inventory_fence is None
 
 
 def test_inventory_dsn_precedes_shared_state_dsn() -> None:

@@ -5,6 +5,16 @@ from datetime import UTC, datetime, timedelta
 
 import psycopg
 import pytest
+from fdai.core.assurance_twin import (
+    DeclaredPropertyEffect,
+    PredictedChangeSet,
+    ProposalWhatIfResult,
+    ReviewedActionTypeEffect,
+    TypedActionProposal,
+    WhatIfStatus,
+    build_baseline_projection,
+    derive_predicted_change_set,
+)
 from fdai.delivery.assurance_twin_evidence_source import (
     AssuranceTwinEvidenceExpiredError,
     AssuranceTwinEvidenceRequestRelay,
@@ -261,21 +271,63 @@ async def test_failed_source_reservations_spill_without_losing_first_seen_time()
     assert retained.record.generated_at == _NOW.isoformat()
 
 
-async def test_review_requires_exact_proposed_iac_evidence() -> None:
+def _change_set() -> PredictedChangeSet:
+    proposal = TypedActionProposal.create(
+        action_type="remediate.disable-public-access",
+        action_type_version="1.0.0",
+        targets=(ResourceRef("azure.storage-account", "resource-1"),),
+        parameters={},
+    )
+    return derive_predicted_change_set(
+        proposal=proposal,
+        what_if=ProposalWhatIfResult(
+            proposal_digest=proposal.proposal_digest,
+            status=WhatIfStatus.PASSED,
+            complete=True,
+            synthetic=False,
+            source_authority="simulation_engine",
+            producer_id="what-if-test",
+            observed_at=_NOW,
+            expires_at=_NOW + timedelta(minutes=5),
+            affected_targets=proposal.targets,
+            evidence_refs=("what-if:1",),
+        ),
+        effect=ReviewedActionTypeEffect(
+            action_type="remediate.disable-public-access",
+            action_type_version="1.0.0",
+            target_resource_types=("azure.storage-account",),
+            property_effects=(DeclaredPropertyEffect("public_access", constant_json='"disabled"'),),
+            review_ref="effect-review:test",
+        ),
+        projection=build_baseline_projection(
+            ((ResourceRef("azure.storage-account", "resource-1"), {"public_access": "enabled"}),)
+        ),
+        inventory_revision=_REVISION,
+        now=_NOW,
+    )
+
+
+async def test_review_records_exact_typed_proposal_evidence() -> None:
     store = InMemoryStateStore()
     source = StateStoreTwinEvidenceRepository(store=store)
-    with pytest.raises(ValueError, match="proposed IaC"):
+    change_set = _change_set()
+    foreign = Finding(
+        rule_id="rule.example",
+        resource=ResourceRef("azure.storage-account", "resource-2"),
+        severity="high",
+        reason="A finding outside the proposal targets.",
+        evidence_refs=("rule-evaluation:2",),
+    )
+    with pytest.raises(ValueError, match="proposal targets"):
         await source.record_review(
             review_key="review-1",
-            pr_ref="example/repo#1",
+            change_set=change_set,
             source_revision=_REVISION,
-            findings=(_finding(),),
+            findings=(foreign,),
             evaluated_rule_ids=("rule.example",),
             rule_coverage_refs=("rule-coverage:1",),
             rule_set_revision=_RULE_SET_REVISION,
             rule_generation_revision=_RULE_GENERATION_REVISION,
-            proposal_digest="",
-            proposal_evidence_refs=(),
             generated_at=_NOW,
             fresh_until=_NOW + timedelta(minutes=5),
             correlation_id="correlation-1",
@@ -283,23 +335,23 @@ async def test_review_requires_exact_proposed_iac_evidence() -> None:
 
     request = await source.record_review(
         review_key="review-1",
-        pr_ref="example/repo#1",
+        change_set=change_set,
         source_revision=_REVISION,
         findings=(_finding(),),
         evaluated_rule_ids=("rule.example",),
         rule_coverage_refs=("rule-coverage:1",),
         rule_set_revision=_RULE_SET_REVISION,
         rule_generation_revision=_RULE_GENERATION_REVISION,
-        proposal_digest="sha256:" + "b" * 64,
-        proposal_evidence_refs=("proposal-readback:1",),
         generated_at=_NOW,
         fresh_until=_NOW + timedelta(minutes=5),
         correlation_id="correlation-1",
     )
     snapshot = await source.read_review("review-1", _REVISION)
-    assert snapshot is not None
-    assert snapshot.proposed_iac is not None
-    assert snapshot.proposed_iac.pr_ref == "example/repo#1"
+    assert snapshot is not None and snapshot.typed_proposal is not None
+    proposal = change_set.proposal
+    assert snapshot.typed_proposal.proposal_ref == proposal.proposal_ref
+    assert snapshot.record.pr_ref == proposal.proposal_ref  # type: ignore[union-attr]
+    assert snapshot.typed_proposal.change_digest == change_set.change_digest
     assert request.kind == "review"
     writer = AssuranceTwinAgentWriter(
         owner="Forseti",
@@ -312,6 +364,7 @@ async def test_review_requires_exact_proposed_iac_evidence() -> None:
     retained = await store.read_state("runtime:assurance-twin-review:review-1")
     assert retained is not None
     assert retained["publication_outbox"]["owner_agent"] == "Forseti"
+    assert retained["metadata"]["evidence_kind"] == "typed_action_proposal"
 
 
 async def test_conflicting_evidence_is_tombstoned_by_accountable_writer() -> None:
@@ -1261,11 +1314,10 @@ async def test_provisional_rows_do_not_hide_confirmed_outbox_candidate() -> None
             },
         )
 
-    candidates = await StateStoreAssuranceTwinPostureLedger(store=store).pending_publications(
-        owner="Heimdall"
-    )
-    assert len(candidates) == 1
-    assert candidates[0][0] == prefix + "confirmed"
+    ledger = StateStoreAssuranceTwinPostureLedger(store=store)
+    first = await ledger.pending_publications(owner="Heimdall")
+    second = await ledger.pending_publications(owner="Heimdall")
+    assert [key for key, _row in (*first, *second)] == [prefix + "confirmed"]
 
 
 async def test_provisional_rows_do_not_hide_legacy_outbox_candidate() -> None:
@@ -1297,7 +1349,7 @@ async def test_provisional_rows_do_not_hide_legacy_outbox_candidate() -> None:
     assert any(key == prefix + "legacy" for key, _row in candidates)
 
 
-async def test_confirmed_batch_reserves_capacity_for_legacy_candidate() -> None:
+async def test_full_confirmed_page_cannot_starve_a_legacy_candidate() -> None:
     store = InMemoryStateStore()
     prefix = "runtime:assurance-twin-posture:"
     await store.write_state(
@@ -1318,10 +1370,10 @@ async def test_confirmed_batch_reserves_capacity_for_legacy_candidate() -> None:
         )
 
     ledger = StateStoreAssuranceTwinPostureLedger(store=store)
-    await ledger.pending_publications(owner="Heimdall")
-    candidates = await ledger.pending_publications(owner="Heimdall")
-    assert len(candidates) == 100
-    assert any(key == prefix + "legacy" for key, _row in candidates)
+    first = await ledger.pending_publications(owner="Heimdall")
+    second = await ledger.pending_publications(owner="Heimdall")
+    assert len(first) == 100
+    assert [key for key, _row in second] == [prefix + "legacy"]
 
 
 async def test_request_publication_is_guarded_against_target_tombstone() -> None:

@@ -13,7 +13,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 from dataclasses import dataclass
 
-from fdai.core.chaos.contract import ExperimentOutcome
+from fdai.core.chaos.contract import ExperimentOutcome, ExperimentResult
 from fdai.core.chaos.run_state import ChaosRunSnapshot, ChaosRunState
 from fdai.core.chaos.runner import GovernedChaosRunResult
 from fdai.shared.providers.tool import ToolCallOutcome, ToolCallReceipt
@@ -28,6 +28,8 @@ class GovernedChaosOutcome:
     recovered: bool
     experiment_outcome: str | None
     detected: bool | None
+    experiment: ExperimentResult | None = None
+    """This process's audit-shaped experiment record, absent for a run it did not execute."""
 
     @property
     def passed(self) -> bool:
@@ -67,6 +69,7 @@ def governed_outcome(result: GovernedChaosRunResult) -> GovernedChaosOutcome:
         recovered=result.state.state is ChaosRunState.RECOVERED,
         experiment_outcome=experiment.outcome.value if experiment is not None else None,
         detected=experiment.detected if experiment is not None else None,
+        experiment=experiment,
     )
 
 

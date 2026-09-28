@@ -34,6 +34,23 @@ class IncidentOpenAppendResult:
 
 
 _INCIDENT_NUMBER_PREFIX = re.compile(r"^INC-\d{6}$")
+_STATE_FIELD_SEGMENT = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")
+
+
+def state_field_path(field: str) -> tuple[str, ...]:
+    """Return the segments of one dotted ``read_state_page`` field path.
+
+    A path has at least two ASCII identifier segments, such as
+    ``publication_outbox.published``. A segment never starts with a digit, so PostgreSQL
+    never reads it as an array index. Anything else is rejected before a query runs.
+    """
+
+    segments = tuple(field.split("."))
+    if len(segments) < 2 or any(
+        _STATE_FIELD_SEGMENT.fullmatch(segment) is None for segment in segments
+    ):
+        raise ValueError("state field path MUST be dotted ASCII identifier segments")
+    return segments
 
 
 def incident_number_for(prefix: str, sequence: int) -> str:
@@ -194,7 +211,15 @@ class StateStore(Protocol):
         field: str | None = None,
         value: str | None = None,
     ) -> tuple[tuple[Mapping[str, Any], ...], int]:
-        """Return one newest-first filtered page and its total row count."""
+        """Return one newest-first filtered page and its total row count.
+
+        ``field`` and ``value`` are supplied together. ``field`` names one top-level
+        JSON field, or a dotted path of ASCII identifier segments such as
+        ``publication_outbox.published`` that addresses a nested value. A row matches
+        when the addressed value equals ``value``: booleans compare as ``true`` or
+        ``false`` and strings compare exactly. A missing path or JSON null never
+        matches, and an invalid dotted path raises ``ValueError``.
+        """
         ...
 
     async def append_incident_transition(self, entry: Mapping[str, Any]) -> IncidentAppendStatus:
@@ -432,5 +457,6 @@ __all__ = [
     "StateStoreKeysetReader",
     "classify_incident_append",
     "incident_number_for",
+    "state_field_path",
     "workflow_approval_decisions_from_state",
 ]
