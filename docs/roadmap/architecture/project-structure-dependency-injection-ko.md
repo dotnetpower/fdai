@@ -1,7 +1,7 @@
 ---
 translation_of: project-structure-dependency-injection.md
-translation_source_sha: 87fbd47bf521b843740a8daacd6da03f0c9fe367
-translation_revised: 2026-09-27
+translation_source_sha: 7dd570a25868d2ae083fd35f11a9bffeeead4435
+translation_revised: 2026-09-28
 ---
 
 # 프로젝트 구조 의존성 주입
@@ -183,8 +183,13 @@ import를 모아도 작업 정체성, 문서 수집, 출처 소유권, 구성 �
 `PostgresTwinInventorySource.run_at_revision`을 사용해 원본 저장과 작성기 확인이 끝날 때까지
 인벤토리 승격 및 실시간 그래프 잠금을 유지합니다. T0 평가기 세대는 정확한 Rule 모델, OPA
 버전 및 정책 산출물 다이제스트를 포함합니다. 영속 최초 관측 시계는 변경된 개정의 순서를
-정하고 정확한 재시도는 원래 시각을 재사용합니다. 이 보호 경계는 작업 권한을 부여하지 않으며
-Forseti의 제안 IaC 출처를 연결하지 않습니다.
+정하고 정확한 재시도는 원래 시각을 재사용합니다. Forseti의 형식화 제안 검토 생산자도 검토 쓰기가
+끝날 때까지 같은 인벤토리 보호 경계를 유지하며, 보호 경계가 거부한 요청은 제한된 재도출 전에
+폐기합니다. `StateStore.read_state_page`의 동등 비교 필터는 `publication_outbox.published`처럼 ASCII
+식별자로 이루어진 점 경로도 받습니다. PostgreSQL은 바인딩된 경로 배열에 `#>>`로 이를 평가하며, 단일
+필드 필터는 바뀌지 않습니다. 경로 구간은 숫자로 시작할 수 없으므로 PostgreSQL이 구간을 배열 색인으로
+읽지 않습니다. 이 보호 경계는 작업 권한을 부여하지 않으며,
+Terraform 계획은 검토 입력이 아닙니다.
 
 `AssuranceTwinConfirmationStore`는 프로덕션 및 메모리 내 `StateStore` 구현의 선택적
 기능입니다. 보존 근거 행과 provisional Heimdall/Forseti 대상 행을 원자적으로 확인하거나

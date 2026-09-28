@@ -7,11 +7,13 @@ from datetime import datetime
 from typing import Any, Literal
 
 from fdai.core.assurance_twin.report import build_posture_assessment_report
+from fdai.core.assurance_twin.typed_proposal import TypedProposalAssessment
 from fdai.delivery.assurance_twin_writers import (
     AssuranceTwinPublishRequest,
-    ProposedIacAssessment,
     RetainedTwinEvidence,
     RuleFindingAssessment,
+    findings_digest,
+    rule_set_digest,
 )
 from fdai.delivery.persistence.state_store_assurance_twin_posture import (
     _check_bounded_findings,
@@ -76,18 +78,9 @@ def decode_evidence(
         coverage_refs=tuple(rule_raw.get("coverage_refs") or ()),
         complete=rule_raw.get("complete") is True,
     )
-    proposed_raw = raw.get("proposed_iac")
-    proposed = (
-        ProposedIacAssessment(
-            source_revision=str(proposed_raw.get("source_revision") or ""),
-            pr_ref=str(proposed_raw.get("pr_ref") or ""),
-            proposal_digest=str(proposed_raw.get("proposal_digest") or ""),
-            evidence_refs=tuple(proposed_raw.get("evidence_refs") or ()),
-            complete=proposed_raw.get("complete") is True,
-        )
-        if isinstance(proposed_raw, Mapping)
-        else None
-    )
+    # A retired proposed-IaC row has no typed readback and stays unavailable.
+    typed_raw = raw.get("typed_proposal")
+    typed = _typed_proposal(typed_raw) if isinstance(typed_raw, Mapping) else None
     return RetainedTwinEvidence(
         record=record,
         source_revision=revision,
@@ -97,8 +90,38 @@ def decode_evidence(
         complete=True,
         conflict=raw.get("conflict") is True,
         rule_assessment=rule_assessment,
-        proposed_iac=proposed,
+        typed_proposal=typed,
     )
+
+
+def rule_assessment_body(
+    *,
+    source_revision: str,
+    findings: tuple[Finding, ...],
+    evaluated_rule_ids: tuple[str, ...],
+    coverage_refs: tuple[str, ...],
+    rule_set_revision: str | None,
+    rule_generation_revision: str | None,
+    inventory_revision: str | None,
+) -> dict[str, Any]:
+    """Serialize one complete Rule assessment bound to its exact findings."""
+
+    resolved_rule_set = rule_set_revision or rule_set_digest(evaluated_rule_ids)
+    return {
+        "source_revision": source_revision,
+        "rule_set_digest": resolved_rule_set,
+        "rule_membership_digest": rule_set_digest(evaluated_rule_ids),
+        "rule_generation_digest": rule_generation_revision or resolved_rule_set,
+        "inventory_revision": inventory_revision or source_revision,
+        "evaluated_rule_ids": list(evaluated_rule_ids),
+        "findings_digest": findings_digest(findings),
+        "coverage_refs": list(
+            coverage_refs
+            if resolved_rule_set in coverage_refs
+            else (resolved_rule_set, *coverage_refs)
+        ),
+        "complete": True,
+    }
 
 
 def validate_common(
@@ -185,6 +208,31 @@ def advance_target_outbox(
     return {"publication_outbox": {**outbox, "record_revision": revision}}
 
 
+def _typed_proposal(raw: Mapping[str, Any]) -> TypedProposalAssessment:
+    targets = raw.get("targets")
+    if not isinstance(targets, list) or any(
+        not isinstance(item, list) or len(item) != 2 for item in targets
+    ):
+        raise ValueError("Assurance Twin typed proposal targets are malformed")
+    return TypedProposalAssessment(
+        source_revision=str(raw.get("source_revision") or ""),
+        proposal_ref=str(raw.get("proposal_ref") or ""),
+        action_type=str(raw.get("action_type") or ""),
+        action_type_version=str(raw.get("action_type_version") or ""),
+        proposal_digest=str(raw.get("proposal_digest") or ""),
+        parameters_digest=str(raw.get("parameters_digest") or ""),
+        targets=tuple(
+            ResourceRef(resource_type=str(item[0]), ref=str(item[1])) for item in targets
+        ),
+        what_if_digest=str(raw.get("what_if_digest") or ""),
+        effect_digest=str(raw.get("effect_digest") or ""),
+        change_digest=str(raw.get("change_digest") or ""),
+        inventory_revision=str(raw.get("inventory_revision") or ""),
+        evidence_refs=tuple(raw.get("evidence_refs") or ()),
+        complete=raw.get("complete") is True,
+    )
+
+
 def _findings(raw: object) -> tuple[Finding, ...]:
     if not isinstance(raw, list):
         raise ValueError("Assurance Twin retained findings are malformed")
@@ -208,6 +256,7 @@ __all__ = [
     "advance_target_outbox",
     "decode_evidence",
     "evidence_identity",
+    "rule_assessment_body",
     "source_conflict_audit",
     "valid_digest",
     "validate_common",
