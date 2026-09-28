@@ -28,13 +28,20 @@
  *                               cs-run-phase refinements, cs-run-timeline, cs-run-axis,
  *                               cs-run-events, cs-run-event-*, cs-run-track, cs-run-bar,
  *                               cs-run-chevron, cs-run-facts, cs-run-payload, cs-run-observed
+ *   investigation-timeline.tsx  cs-deck-plan-lead, cs-deck-plan-label, cs-deck-context-receipt-*,
+ *                               cs-deck-investigation-*, cs-deck-waves, cs-deck-wave-*,
+ *                               cs-deck-activities, cs-deck-activity-*, cs-deck-milestone-*
+ *                               (adaptive investigation form, reference mocks/ui/deck-adaptive.html)
+ *   grounded-reply.tsx (investigation answers)
+ *                               cs-deck-answer-facts, cs-deck-answer-checks, cs-deck-answer-note,
+ *                               cs-deck-answer-next, cs-deck-affordance
  *   rich-content.tsx CodeBlock and json-code-block.tsx
  *                               cs-deck-code, cs-deck-code-* (compact code pattern of the
  *                               component gallery, colored by the shared --cs-code-* tokens)
  *   model-trace-waterfall.tsx   cs-model-trace-*
  *   rich-content.tsx            cs-deck-cite, cs-deck-cite-run, cs-deck-caret
  *   command-deck-presenters.tsx cs-deck-followups, cs-deck-followup, cs-deck-user-line,
- *                               cs-deck-user-time
+ *                               cs-deck-user-time, cs-deck-user-attachment-*
  *   command-deck-view.tsx       cs-deck-transcript, cs-deck-transcript-inner,
  *                               cs-deck-composer-context, cs-deck-context-chip,
  *                               cs-deck-composer-note, cs-deck-search-hit
@@ -184,6 +191,43 @@
   display: flex;
   justify-content: flex-end;
   margin-top: 4px;
+}
+
+/* An attached document rides inside the question it came with, as a quiet file chip. */
+.cs-deck-user-attachment {
+  width: fit-content;
+  max-width: 100%;
+  min-height: 26px;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 2px 0 6px;
+  padding: 2px 9px 2px 7px;
+  border: 1px solid var(--cs-hairline);
+  border-radius: var(--cs-radius-sm);
+  background: var(--cs-card);
+  color: var(--cs-text);
+  font: 500 var(--cs-type-label-size)/var(--cs-type-label-line-height) var(--cs-font);
+}
+
+.cs-deck-user-attachment > svg {
+  flex: none;
+  color: var(--cs-deck-meta-text);
+}
+
+.cs-deck-user-attachment-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cs-deck-user-attachment-meta {
+  flex: none;
+  color: var(--cs-deck-meta-text);
+  font-weight: 400;
+  font-variant-numeric: tabular-nums;
 }
 
 .cs-deck-conversation .cs-deck-turn-time { color: var(--cs-deck-meta-text); }
@@ -706,6 +750,11 @@
   color: var(--cs-deck-attention-text);
 }
 
+.cs-deck-answer-state.is-unverified {
+  border-color: color-mix(in srgb, var(--cs-dusty-red) 45%, var(--cs-hairline));
+  color: var(--cs-deck-failure-text);
+}
+
 /* One reading measure on the prose keeps paragraphs and evidence notes on the same edges. */
 .cs-deck-prose { max-width: 72ch; }
 
@@ -1183,6 +1232,456 @@
   cursor: not-allowed;
 }
 
+/* ----- Adaptive investigation: plan, context receipt, read waves, and workflow progress. ----- */
+/* The plan is one quiet line above the work; the answer below it stays the primary read. */
+.cs-deck-plan-lead {
+  max-width: 72ch;
+  margin: 2px 0 10px;
+  color: var(--cs-text);
+  font: var(--cs-type-compact-size)/var(--cs-type-compact-line-height) var(--cs-font);
+}
+
+.cs-deck-plan-label {
+  min-height: 20px;
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  margin-right: 2px;
+  padding: 0 8px;
+  border: 1px solid var(--cs-hairline);
+  border-radius: var(--cs-radius-pill);
+  color: var(--cs-deck-meta-text);
+  font: 600 var(--cs-type-label-size)/1 var(--cs-font);
+  vertical-align: .06em;
+}
+
+/* An applied preference is a receipt for presentation context, never evidence. */
+.cs-deck-context-receipt {
+  max-width: 72ch;
+  margin: 0 0 10px;
+  color: var(--cs-deck-meta-text);
+  font: var(--cs-type-label-size)/var(--cs-type-label-line-height) var(--cs-font);
+}
+
+/* The summary's hover field reaches past the text, so its words align with the plan line. */
+.cs-deck-context-receipt-summary {
+  width: fit-content;
+  max-width: calc(100% + 16px);
+  min-height: 28px;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-inline: -8px;
+  padding: 2px 8px;
+  border-radius: var(--cs-radius-sm);
+  cursor: pointer;
+  list-style: none;
+}
+
+.cs-deck-context-receipt-summary::-webkit-details-marker { display: none; }
+.cs-deck-context-receipt-summary::marker { content: ""; }
+.cs-deck-context-receipt-summary:hover { background: color-mix(in srgb, var(--cs-text) 4%, var(--cs-card)); }
+
+.cs-deck-context-receipt-summary:focus-visible {
+  outline: 2px solid var(--cs-steel);
+  outline-offset: 1px;
+}
+
+.cs-deck-context-receipt-label {
+  flex: none;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.cs-deck-context-receipt-value {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--cs-text);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cs-deck-context-receipt-body {
+  display: grid;
+  gap: 6px;
+  margin-top: 4px;
+  padding: 8px 12px;
+  border: 1px solid var(--cs-hairline);
+  border-radius: var(--cs-radius-sm);
+  background: color-mix(in srgb, var(--cs-text) 2%, var(--cs-card));
+}
+
+.cs-deck-context-receipt-note { margin: 0; }
+
+.cs-deck-context-receipt-list {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.cs-deck-context-receipt-list > li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 2px 10px;
+}
+
+.cs-deck-context-receipt-list strong {
+  color: var(--cs-text);
+  font-weight: 600;
+}
+
+.cs-deck-context-receipt-list code {
+  font-family: var(--cs-font-mono);
+  font-size: var(--cs-type-label-size);
+}
+
+.cs-deck-context-receipt-list > li:not([data-freshness="fresh"]) .cs-deck-context-receipt-freshness {
+  color: var(--cs-deck-attention-text);
+  font-weight: 600;
+}
+
+/* The investigation panel keeps the preparation panel's frame, so both forms read as one family. */
+.cs-deck-investigation {
+  width: 100%;
+  box-sizing: border-box;
+  margin: 0 0 16px;
+  border: 1px solid var(--cs-deck-line-strong);
+  border-radius: var(--cs-radius);
+  background: color-mix(in srgb, var(--cs-text) 1.5%, var(--cs-card));
+}
+
+.cs-deck-investigation-head {
+  min-height: 44px;
+  box-sizing: border-box;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 10px;
+  padding: 6px 12px;
+  border-bottom: 1px solid var(--cs-hairline);
+}
+
+.cs-deck-investigation-title {
+  flex: none;
+  color: var(--cs-text);
+  font: 600 var(--cs-type-compact-size)/var(--cs-type-compact-line-height) var(--cs-font);
+  white-space: nowrap;
+}
+
+.cs-deck-investigation-status,
+.cs-deck-investigation-limits {
+  color: var(--cs-deck-meta-text);
+  font: var(--cs-type-label-size)/var(--cs-type-label-line-height) var(--cs-font);
+  font-variant-numeric: tabular-nums;
+}
+
+.cs-deck-investigation-status {
+  flex: 1 1 18ch;
+  min-width: 0;
+}
+
+.cs-deck-investigation-limits {
+  flex: none;
+  margin-left: auto;
+}
+
+.cs-deck-waves {
+  display: grid;
+  gap: 1px;
+  margin: 0;
+  padding: 6px;
+  list-style: none;
+}
+
+/* One status column: the wave mark shows its number, then a spinner, then the outcome. */
+.cs-deck-wave-head {
+  width: 100%;
+  min-height: 32px;
+  box-sizing: border-box;
+  display: grid;
+  grid-template-columns: 20px auto minmax(0, 1fr) auto 10px;
+  align-items: center;
+  gap: 10px;
+  padding: 4px 8px;
+  border: 0;
+  border-radius: var(--cs-radius-sm);
+  background: transparent;
+  color: var(--cs-text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color .2s ease;
+}
+
+.cs-deck-wave-head:hover { background: color-mix(in srgb, var(--cs-text) 3%, var(--cs-card)); }
+
+.cs-deck-wave-head:focus-visible {
+  outline: 2px solid var(--cs-steel);
+  outline-offset: -2px;
+}
+
+.cs-deck-wave[data-state="running"] > .cs-deck-wave-head { background: color-mix(in srgb, var(--cs-steel) 6%, transparent); }
+
+.cs-deck-wave-head[aria-expanded="true"] .cs-run-chevron { transform: rotate(225deg) translate(-1px, -1px); }
+
+.cs-deck-wave:is([data-state="pending"], [data-state="skipped"]) .cs-run-chevron { visibility: hidden; }
+
+.cs-deck-wave-mark,
+.cs-deck-activity-mark {
+  box-sizing: border-box;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--cs-deck-line-strong);
+  border-radius: 50%;
+  background: var(--cs-card);
+  color: var(--cs-deck-meta-text);
+  font: 700 var(--cs-type-label-size)/1 var(--cs-font);
+  font-variant-numeric: tabular-nums;
+  transition: border-color .2s ease, background-color .2s ease;
+}
+
+.cs-deck-wave-mark {
+  width: 20px;
+  height: 20px;
+}
+
+.cs-deck-activity-mark {
+  width: 16px;
+  height: 16px;
+}
+
+.cs-deck-wave:is([data-state="pending"], [data-state="skipped"]) .cs-deck-wave-mark,
+.cs-deck-activity[data-status="pending"] .cs-deck-activity-mark { border-style: dashed; }
+
+.cs-deck-wave[data-state="running"] .cs-deck-wave-mark,
+.cs-deck-activity[data-status="running"] .cs-deck-activity-mark {
+  border-color: transparent;
+  background: transparent;
+}
+
+.cs-deck-wave[data-state="done"] .cs-deck-wave-mark,
+.cs-deck-activity[data-status="completed"] .cs-deck-activity-mark {
+  border-color: color-mix(in srgb, var(--cs-sage) 42%, var(--cs-hairline));
+  background: color-mix(in srgb, var(--cs-sage) 10%, var(--cs-card));
+  color: var(--cs-deck-ok-text);
+}
+
+.cs-deck-wave:is([data-state="attention"], [data-state="stopped"]) .cs-deck-wave-mark,
+.cs-deck-activity:is([data-status="failed"], [data-status="unavailable"], [data-status="stopped"]) .cs-deck-activity-mark {
+  border-color: color-mix(in srgb, var(--cs-terracotta) 60%, var(--cs-hairline));
+  background: var(--cs-deck-attention-tint);
+  color: var(--cs-deck-attention-text);
+}
+
+.cs-deck-activity[data-status="denied"] .cs-deck-activity-mark {
+  border-color: color-mix(in srgb, var(--cs-dusty-red) 55%, var(--cs-hairline));
+  background: var(--cs-deck-failure-tint);
+  color: var(--cs-deck-failure-text);
+}
+
+.cs-deck-wave-title {
+  color: var(--cs-text);
+  font: 600 var(--cs-type-compact-size)/var(--cs-type-compact-line-height) var(--cs-font);
+  white-space: nowrap;
+}
+
+.cs-deck-wave-label {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--cs-text);
+  font: var(--cs-type-compact-size)/var(--cs-type-compact-line-height) var(--cs-font);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cs-deck-wave-meta {
+  color: var(--cs-deck-meta-text);
+  font: var(--cs-type-label-size)/var(--cs-type-label-line-height) var(--cs-font);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.cs-deck-wave:is([data-state="attention"], [data-state="stopped"]) .cs-deck-wave-meta {
+  color: var(--cs-deck-attention-text);
+  font-weight: 600;
+}
+
+/* Reads sit under their wave label, aligned past the wave's status column. */
+.cs-deck-wave-body { padding: 2px 4px 6px 38px; }
+.cs-deck-wave-body[hidden] { display: none; }
+
+.cs-deck-activities {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.cs-deck-activity + .cs-deck-activity { border-top: 1px solid var(--cs-hairline); }
+
+.cs-deck-activity-summary {
+  min-height: 32px;
+  box-sizing: border-box;
+  display: grid;
+  grid-template-columns: 16px minmax(0, 1fr) auto auto 10px;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 6px;
+  border-radius: var(--cs-radius-sm);
+  cursor: pointer;
+  list-style: none;
+}
+
+.cs-deck-activity-summary::-webkit-details-marker { display: none; }
+.cs-deck-activity-summary::marker { content: ""; }
+.cs-deck-activity-summary:hover { background: color-mix(in srgb, var(--cs-text) 3%, var(--cs-card)); }
+
+.cs-deck-activity-summary:focus-visible {
+  outline: 2px solid var(--cs-steel);
+  outline-offset: -2px;
+}
+
+.cs-deck-activity-mark > .cs-grounding-spinner {
+  width: 14px;
+  height: 14px;
+}
+
+.cs-deck-activity-label {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--cs-text);
+  font: 500 var(--cs-type-label-size)/1.4 var(--cs-font);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cs-deck-activity-kind,
+.cs-deck-activity-status {
+  color: var(--cs-deck-meta-text);
+  font: var(--cs-type-label-size)/1.35 var(--cs-font);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.cs-deck-activity-status {
+  min-width: 7ch;
+  text-align: right;
+}
+
+.cs-deck-activity:is([data-status="failed"], [data-status="unavailable"], [data-status="stopped"]) .cs-deck-activity-status {
+  color: var(--cs-deck-attention-text);
+  font-weight: 600;
+}
+
+.cs-deck-activity[data-status="denied"] .cs-deck-activity-status {
+  color: var(--cs-deck-failure-text);
+  font-weight: 600;
+}
+
+.cs-deck-activity-note {
+  margin: 0;
+  color: var(--cs-text);
+  font: var(--cs-type-label-size)/1.45 var(--cs-font);
+}
+
+/* Progress lines are workflow facts between waves: quiet text, never a second verdict. */
+.cs-deck-milestone {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 2px 8px;
+  padding: 2px 8px 4px 38px;
+  color: var(--cs-deck-meta-text);
+  font: var(--cs-type-label-size)/var(--cs-type-label-line-height) var(--cs-font);
+}
+
+.cs-deck-milestone-label { font-weight: 600; }
+
+.cs-deck-milestone-text {
+  flex: 1 1 24ch;
+  min-width: 0;
+  color: var(--cs-text);
+}
+
+.cs-deck-milestone-time { font-variant-numeric: tabular-nums; }
+
+/* Investigation answers: a fact grid, per-check lines, and one next safe step. */
+.cs-deck-answer-facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 8px 16px;
+  margin: 0 0 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--cs-hairline);
+  border-radius: var(--cs-radius-sm);
+  background: color-mix(in srgb, var(--cs-text) 2%, var(--cs-card));
+}
+
+.cs-deck-answer-facts > div { min-width: 0; }
+
+.cs-deck-answer-facts dt {
+  color: var(--cs-deck-meta-text);
+  font: var(--cs-type-label-size)/1.35 var(--cs-font);
+}
+
+.cs-deck-answer-facts dd {
+  margin: 2px 0 0;
+  color: var(--cs-text);
+  font: 600 var(--cs-type-compact-size)/1.4 var(--cs-font);
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+
+.cs-deck-answer-checks {
+  display: grid;
+  gap: 4px;
+  margin: 0 0 12px;
+  padding-left: 1.25em;
+}
+
+.cs-deck-answer-checks > li { padding-left: 2px; }
+.cs-deck-answer-checks > li::marker { color: var(--cs-deck-meta-text); }
+
+.cs-deck-answer-note {
+  color: var(--cs-deck-meta-text);
+  font-size: var(--cs-type-compact-size);
+}
+
+.cs-deck-answer-next strong { font-weight: 650; }
+
+/* A draft is a separate request: one outlined control, never a primary call to act. */
+.cs-deck-affordance {
+  min-height: 28px;
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 11px;
+  border: 1px solid var(--cs-deck-control-line);
+  border-radius: var(--cs-radius-pill);
+  background: var(--cs-card);
+  color: var(--cs-text);
+  font: 500 var(--cs-type-label-size)/var(--cs-type-label-line-height) var(--cs-font);
+  cursor: pointer;
+  transition: background-color .15s ease, border-color .15s ease;
+}
+
+.cs-deck-affordance:hover { background: color-mix(in srgb, var(--cs-steel) 7%, var(--cs-card)); }
+
+.cs-deck-affordance:focus-visible {
+  outline: 2px solid var(--cs-steel);
+  outline-offset: 1px;
+}
+
+.cs-deck-affordance:disabled {
+  border-color: var(--cs-hairline);
+  background: transparent;
+  color: var(--cs-deck-meta-text);
+  cursor: default;
+}
+
 /* ----- Run record: observed process, execution timeline, and model provider trace ----- */
 .cs-deck-conversation .cs-run-record {
   margin-top: 16px;
@@ -1509,7 +2008,8 @@
 details[open] > summary .cs-run-chevron { transform: rotate(225deg) translate(-1px, -1px); }
 
 .cs-run-event-detail,
-.cs-model-trace-detail {
+.cs-model-trace-detail,
+.cs-deck-activity-detail {
   display: grid;
   gap: 12px;
   margin: 0 6px 10px;
@@ -1898,6 +2398,28 @@ details[open] > summary .cs-run-chevron { transform: rotate(225deg) translate(-1
   .cs-deck-conversation .cs-run-phase:nth-child(6)::before { right: 50%; }
   .cs-deck-conversation .cs-run-phase:nth-child(4)::before { left: 50%; }
   .cs-deck-conversation .cs-run-phase strong { white-space: normal; }
+
+  /* Narrow investigations keep the outcome beside each read and move wave meta to its own line. */
+  .cs-deck-investigation-limits {
+    flex-basis: 100%;
+    margin-left: 0;
+  }
+
+  .cs-deck-wave-head {
+    grid-template-columns: 20px auto minmax(0, 1fr) 10px;
+    row-gap: 0;
+  }
+
+  .cs-deck-wave-meta {
+    grid-column: 2 / 4;
+    grid-row: 2;
+  }
+
+  .cs-deck-wave-head > .cs-run-chevron { grid-column: 4; }
+  .cs-deck-wave-body { padding-left: 8px; }
+  .cs-deck-milestone { padding-left: 8px; }
+  .cs-deck-activity-kind { display: none; }
+  .cs-deck-activity-summary { grid-template-columns: 16px minmax(0, 1fr) auto 10px; }
 }
 
 /* Visually hidden text keeps the accessible name while narrow containers show the short form. */
@@ -1940,7 +2462,8 @@ details[open] > summary .cs-run-chevron { transform: rotate(225deg) translate(-1
 @media (max-width: 640px) {
   :is(.cs-deck-followup, .cs-deck-context-chip, .cs-deck-readiness-item, .cs-deck-source, .cs-deck-jump,
     .cs-run-event-summary, .cs-model-trace-lane-summary, .cs-deck-code-copy, .cs-deck-source-open,
-    .cs-deck-leave-actions > button) {
+    .cs-deck-leave-actions > button, .cs-deck-wave-head, .cs-deck-activity-summary,
+    .cs-deck-context-receipt-summary, .cs-deck-affordance) {
     min-height: 44px;
   }
 
@@ -1959,17 +2482,20 @@ details[open] > summary .cs-run-chevron { transform: rotate(225deg) translate(-1
 
 /* ----- Motion ----- */
 /* ----- Disclosure motion: record sections open by height where the browser supports it. ----- */
-.cs-deck-conversation :is(.cs-run-record, .cs-run-event > details, .cs-model-trace-lane > details) {
+.cs-deck-conversation :is(.cs-run-record, .cs-run-event > details, .cs-model-trace-lane > details,
+  .cs-deck-activity > details, .cs-deck-context-receipt) {
   interpolate-size: allow-keywords;
 }
 
-.cs-deck-conversation :is(.cs-run-record, .cs-run-event > details, .cs-model-trace-lane > details)::details-content {
+.cs-deck-conversation :is(.cs-run-record, .cs-run-event > details, .cs-model-trace-lane > details,
+  .cs-deck-activity > details, .cs-deck-context-receipt)::details-content {
   block-size: 0;
   overflow: clip;
   transition: block-size .24s cubic-bezier(.2, .7, .2, 1), content-visibility .24s allow-discrete;
 }
 
-.cs-deck-conversation :is(.cs-run-record[open], .cs-run-event > details[open], .cs-model-trace-lane > details[open])::details-content {
+.cs-deck-conversation :is(.cs-run-record[open], .cs-run-event > details[open], .cs-model-trace-lane > details[open],
+  .cs-deck-activity > details[open], .cs-deck-context-receipt[open])::details-content {
   block-size: auto;
 }
 
@@ -2017,18 +2543,25 @@ details[open] > summary .cs-run-chevron { transform: rotate(225deg) translate(-1
   .cs-deck-sources,
   .cs-deck-leave[open] { transition: none; }
 
-  .cs-deck-conversation :is(.cs-run-record, .cs-run-event > details, .cs-model-trace-lane > details)::details-content {
+  .cs-deck-conversation :is(.cs-run-record, .cs-run-event > details, .cs-model-trace-lane > details,
+    .cs-deck-activity > details, .cs-deck-context-receipt)::details-content {
     transition: none;
   }
 
   .cs-deck-collapse,
   .cs-run-chevron,
+  .cs-deck-wave-head,
+  .cs-deck-wave-mark,
+  .cs-deck-activity-mark,
+  .cs-deck-affordance,
   .cs-deck-conversation .cs-run-record-chevron { transition: none; }
 }
 
 @media (forced-colors: active) {
   :is(.cs-deck-cite, .cs-deck-source-num, .cs-deck-answer-state, .cs-deck-readiness-item,
-    .cs-deck-context-chip, .cs-grounding-authority, .cs-grounding-mark, .cs-deck-source) {
+    .cs-deck-context-chip, .cs-grounding-authority, .cs-grounding-mark, .cs-deck-source,
+    .cs-deck-wave-mark, .cs-deck-activity-mark, .cs-deck-affordance, .cs-deck-user-attachment,
+    .cs-deck-plan-label) {
     border: 1px solid CanvasText;
   }
 

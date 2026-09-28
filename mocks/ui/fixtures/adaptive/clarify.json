@@ -1,0 +1,208 @@
+{
+  "schema": "fdai.mock.adaptive-investigation/1",
+  "scenario": "clarify",
+  "label": "Clarification",
+  "question": "Compare the configuration in example-inventory.md with the live app resource group.",
+  "attachment": {
+    "name": "example-inventory.md",
+    "lines": 184
+  },
+  "plan": {
+    "summary": "Read the documented configuration and the live inventory, then compare missing, added, and changed resources.",
+    "waves": [
+      {
+        "id": "w1",
+        "label": "Document and discovery",
+        "branch_ids": [
+          "b-doc",
+          "b-inventory"
+        ]
+      }
+    ]
+  },
+  "presentation": {
+    "a-doc": {
+      "operation": "read",
+      "authorization": "allowed",
+      "evidence_authority": "operator_attachment"
+    },
+    "a-discover": {
+      "operation": "read",
+      "authorization": "allowed",
+      "evidence_authority": "server_inventory_graph",
+      "provider": "az group list --query \"[?starts_with(name,'example-rg-app')].{name:name}\""
+    }
+  },
+  "answer": {
+    "state": "clarification",
+    "lead": "Two resource groups match equally. Which one should I compare?",
+    "facts": [
+      [
+        "example-rg-app-eastus",
+        "East US"
+      ],
+      [
+        "example-rg-app-westus",
+        "West US"
+      ]
+    ],
+    "checks": [],
+    "limitations": [
+      "No comparison ran yet; FDAI does not guess between equal matches."
+    ],
+    "note": null,
+    "next_step": null,
+    "verification": {
+      "tone": "pending",
+      "mark": "?",
+      "label": "Needs your choice",
+      "detail": "2 equal matches"
+    }
+  },
+  "followups": [
+    "Compare example-rg-app-eastus",
+    "Compare example-rg-app-westus"
+  ],
+  "affordances": [],
+  "trajectory_detail": {
+    "schema_version": 1,
+    "activities": [
+      {
+        "activity_id": "a-doc",
+        "kind": "query",
+        "status": "completed",
+        "label": "Read example-inventory.md",
+        "completed": 1,
+        "total": 1,
+        "authority": "read",
+        "observed_at": "2026-09-28T10:41:03.780Z",
+        "branch_id": "b-doc",
+        "execution": {
+          "tool": "document.read",
+          "command": "document.read attachment=example-inventory.md sections=resources",
+          "input_kind": "query",
+          "target": {
+            "interface_kind": "internal_query",
+            "service": "core-control-plane",
+            "component": "attachments",
+            "operation": "read",
+            "source_kind": "operator_attachment",
+            "transport": "in_process"
+          },
+          "redacted": true,
+          "started_at": "2026-09-28T10:41:03.600Z",
+          "duration_ms": 180,
+          "output": "{\n  \"attachment\": \"example-inventory.md\",\n  \"lines\": 184,\n  \"baseline\": \"2026-09-28T10:36:00Z\",\n  \"resources\": 23,\n  \"sections\": [\n    \"resource group\",\n    \"virtual machines\",\n    \"disks\",\n    \"network\",\n    \"schedules\"\n  ]\n}",
+          "completed_at": "2026-09-28T10:41:03.780Z"
+        }
+      },
+      {
+        "activity_id": "a-discover",
+        "kind": "query",
+        "status": "completed",
+        "label": "Find matching resource groups",
+        "completed": 1,
+        "total": 1,
+        "authority": "read",
+        "observed_at": "2026-09-28T10:41:03.950Z",
+        "branch_id": "b-inventory",
+        "execution": {
+          "tool": "inventory.list",
+          "command": "inventory.list type=resource_group name_prefix=example-rg-app fields=name,location",
+          "input_kind": "query",
+          "target": {
+            "interface_kind": "internal_query",
+            "service": "core-control-plane",
+            "component": "inventory",
+            "operation": "list",
+            "source_kind": "server_inventory_graph",
+            "transport": "in_process"
+          },
+          "redacted": true,
+          "started_at": "2026-09-28T10:41:03.610Z",
+          "duration_ms": 340,
+          "output": "{\n  \"matches\": [\n    {\n      \"name\": \"example-rg-app-eastus\",\n      \"location\": \"eastus\",\n      \"score\": 0.91\n    },\n    {\n      \"name\": \"example-rg-app-westus\",\n      \"location\": \"westus\",\n      \"score\": 0.91\n    }\n  ]\n}",
+          "completed_at": "2026-09-28T10:41:03.950Z"
+        }
+      }
+    ],
+    "branches": [
+      {
+        "branch_id": "b-doc",
+        "branch_kind": "tool",
+        "parent_branch_id": null,
+        "status": "completed",
+        "summary": "Attached document read: 23 documented resources.",
+        "started_at": "2026-09-28T10:41:03.600Z",
+        "evidence_refs": [
+          "attachment:example-inventory.md"
+        ],
+        "completed_at": "2026-09-28T10:41:03.780Z",
+        "duration_ms": 180
+      },
+      {
+        "branch_id": "b-inventory",
+        "branch_kind": "operational",
+        "parent_branch_id": null,
+        "status": "completed",
+        "summary": "Resource group discovery: 2 equal matches.",
+        "started_at": "2026-09-28T10:41:03.610Z",
+        "evidence_refs": [
+          "inventory:resource_groups"
+        ],
+        "completed_at": "2026-09-28T10:41:03.950Z",
+        "duration_ms": 340
+      }
+    ],
+    "milestones": [
+      {
+        "message_id": "m-wave-1",
+        "text": "Wave 1 finished: 2 reads completed. Waiting for your choice.",
+        "agent": "Bragi",
+        "recorded_at": "2026-09-28T10:41:03.955Z"
+      }
+    ],
+    "omitted": {
+      "activities": 0,
+      "branches": 0,
+      "milestones": 0
+    },
+    "truncated_outputs": 0,
+    "work_progress_shape": {
+      "schema_version": 1,
+      "density": "procedural",
+      "waves": 1,
+      "planned_reads": 2
+    },
+    "turn_budget": {
+      "schema_version": 1,
+      "model_calls": {
+        "used": 2,
+        "reserved": 0,
+        "maximum": 5
+      },
+      "tokens": {
+        "used": 3360,
+        "reserved": 0,
+        "maximum": 48000
+      },
+      "elapsed_ms": {
+        "used": 1610,
+        "reserved": 0,
+        "maximum": 60000
+      },
+      "as_of": "2026-09-28T10:41:04.770Z",
+      "complete": true
+    },
+    "context_receipts": [
+      {
+        "receipt_id": "ctx-pref-verified-limits",
+        "kind": "operator_preference",
+        "digest": "4387bcca8a6975714d80543e87dc9740b24af3a922b96b37d4460e062d07e4dc",
+        "observed_at": "2026-09-28T10:40:58Z",
+        "freshness": "fresh",
+        "label": "Separate verified facts from limitations"
+      }
+    ]
+  }
+}

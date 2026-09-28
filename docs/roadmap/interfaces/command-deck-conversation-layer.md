@@ -13,7 +13,10 @@ Console, Operator API, or executor authority.
   readiness, the retrieval trace, citations, evidence notes, the sources panel, follow-ups, the
   composer context, compact code blocks, and the run record with its phase strip, observed
   execution timeline, and model provider waterfall.
-- `mocks/ui/deck-sources.html` is the reference consumer. The Console doesn't import the layer yet.
+- `mocks/ui/deck-sources.html` (one-shot answer) and `mocks/ui/deck-adaptive.html` (adaptive
+  investigation) are the reference consumers. They share one replay engine,
+  `mocks/ui/assets/deck-sources.js`, and one page stylesheet, `mocks/ui/assets/deck-study.css`.
+  The Console doesn't import the layer yet.
 - Rules that reuse a shared primitive are scoped under `.cs-deck-conversation`, and
   `console/src/shared-style-tokens.test.ts` keeps the layer additive, so importing it changes no
   existing surface.
@@ -40,6 +43,40 @@ events and provider lanes with request, system, and response digests only when c
 that turn and the setting is still on. Turning the setting on never reveals provider data for a
 turn that wasn't captured. A replayed turn maps the run record's synthetic schedule onto the phase
 times it observed, so the recorded durations match what was shown.
+
+## Adaptive investigation form
+
+A procedural investigation keeps its work in the transcript instead of folding it away. Density
+comes from the typed trajectory as the
+[work progress contract](operator-console-progressive-conversations.md#work-progress-contract)
+defines, never from answer prose. The study renders these roles:
+
+- **Plan.** One line with the plan the compiler made, above the work it describes.
+- **Waves.** One row per planned wave, with one status mark each: the wave number, a spinner, then
+  the outcome. Reads in a wave run as parallel lanes, and the next wave starts only after the
+  current one ends. A finished wave folds to a one-line summary, so the transcript stays calm while
+  the next wave runs. A deterministic comparison, when planned, follows as the last row.
+- **Activity cards.** Each read shows its label, kind, status, and duration. Its details show the
+  operation, authorization result, evidence authority, execution authority none, the target
+  identity, and the tool, then the typed call and the redacted provider representation as compact
+  code blocks, and the output or the reason it has none. Details render only after the read ends.
+- **Workflow milestones.** Deterministic progress facts after each wave, styled apart from answer
+  text and never carrying evidence claims.
+- **Limits.** The policy limits while the turn runs. When the turn settles, the server's
+  used-of-maximum telemetry replaces them. The study draws no live remaining-budget meter.
+- **Context receipt.** A collapsed receipt for an applied operator preference, labeled as context
+  rather than evidence or instructions.
+
+The answer leads with the finding, then a fact grid, one line per check, any limits as evidence
+notes, and a next safe step. Stopping keeps every finished read, marks running reads as stopped
+and waves that haven't started as not started, and composes no answer. Suggested follow-ups start a
+new request.
+
+The study's investigation scenarios cover no drift, drift found, a timed-out read, conflicting
+evidence, denied authorization, a clarification between equal matches, stale context, and an
+exhausted budget. A drift finding offers Draft remediation as a separate request instead of
+creating a draft. The scenarios read the synthetic trajectories in `mocks/ui/fixtures/adaptive/`,
+which the Console's contract tests also parse.
 
 ## Code blocks
 
