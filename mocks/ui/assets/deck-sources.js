@@ -9,9 +9,12 @@
   var CONVERSATION_TITLE = "Why is example-postgres flagged?";
   var CHECK = "\u2713";
   var CANCELLED = { cancelled: true };
-  var TIMING = { readiness: 320, stage: 300, source: 110, paragraph: 70, verify: 320, step: 200, collapse: 300 };
-  // Answer text reveals at this many characters per second at 1x speed.
-  var STREAM_CPS = 760;
+  var TIMING = { readiness: 320, stage: 300, source: 110, paragraph: 70, verify: 320, step: 200, collapse: 240 };
+  // Answer text reveals whole words at this many characters per second at 1x speed, and holds
+  // briefly after each sentence so the reply reads with a natural cadence.
+  var STREAM_CPS = 1000;
+  var SENTENCE_PAUSE = 60;
+  var SENTENCE_END = /[.!?;]["')\]]*\s*$/;
 
   // Each source is data FDAI already holds. Catalog entries carry a version; runtime evidence
   // carries its observation time. Rule, policy, and ActionType identifiers match rule-catalog/.
@@ -467,11 +470,11 @@
     } else {
       copy.appendChild(h("span", { class: "cs-grounding-stage-detail", text: stage.detail }));
     }
-    var row = h("li", { class: "cs-grounding-stage" }, [
-      h("span", { class: "cs-grounding-mark", "aria-hidden": "true", text: String(number) }),
+    var row = h("li", { class: "cs-grounding-stage", "data-step": String(number) }, [
+      h("span", { class: "cs-grounding-mark", "aria-hidden": "true" }),
       copy,
       h("span", { class: "cs-grounding-phase", text: stage.phase }),
-      h("span", { class: "cs-grounding-state" })
+      h("span", { class: "cs-sr-only" })
     ]);
     setStageStatus(row, status);
     return row;
@@ -479,13 +482,15 @@
 
   var STAGE_STATUS_TEXT = { pending: "Not started", active: "In progress", attention: "Needs attention", done: "Done" };
 
+  // The mark is the single status cue: the step number, then a spinner, then the outcome.
   function setStageStatus(row, status) {
     ["pending", "active", "done", "attention"].forEach(function (name) { row.classList.toggle("is-" + name, status === name); });
-    var cell = row.querySelector(".cs-grounding-state");
-    cell.textContent = "";
-    if (status === "active") cell.appendChild(h("span", { class: "cs-grounding-spinner", "aria-hidden": "true" }));
-    else if (status !== "pending") cell.appendChild(h("span", { "aria-hidden": "true", text: status === "attention" ? "!" : CHECK }));
-    cell.appendChild(h("span", { class: "cs-sr-only", text: STAGE_STATUS_TEXT[status] }));
+    var mark = row.querySelector(".cs-grounding-mark");
+    mark.textContent = "";
+    if (status === "pending") mark.textContent = row.getAttribute("data-step");
+    else if (status === "active") mark.appendChild(h("span", { class: "cs-grounding-spinner" }));
+    else mark.appendChild(h("span", { class: "cs-deck-pop", text: status === "attention" ? "!" : CHECK }));
+    row.querySelector(":scope > .cs-sr-only").textContent = STAGE_STATUS_TEXT[status];
   }
 
   function previewSource(key) {
@@ -578,7 +583,7 @@
       response: response, usage: usage, redactions: redactions };
   }
 
-  // Deterministic synthetic schedule, so every replay reports the same recorded timings.
+  // Deterministic synthetic schedule; a replayed turn maps it onto the phase times it observed.
   function buildTrajectory(record) {
     var spec = record.spec;
     var question = spec.question || QUESTION;
@@ -630,6 +635,7 @@
     cursor += MODEL.generationMs + 20;
     var check = spec.stages[spec.stages.length - 1];
     var verification = verificationState(spec);
+    var verificationStart = cursor;
     items.push({ kind: "phase", kindLabel: "Phase", label: "Verification", state: verification, start: cursor, ms: 54,
       summary: check.detail, facts: [["Checks", check.detail], ["Authority", "read"]],
       records: [["Verification receipt", pretty({ status: spec.verification.label, detail: check.detail,
@@ -639,11 +645,39 @@
       summary: "verification: " + spec.verification.label, facts: [["Source", "semantic-direct-response"], ["Agent", "Bragi"]],
       records: [["Delivery receipt", pretty({ source: "semantic-direct-response", agent: "bragi",
         verification_status: spec.verification.label, citation_count: spec.sources.length, follow_ups: (spec.followups || []).length })]] });
-    return {
+    var trajectory = {
       start: start, end: cursor, items: items, calls: calls, attempted: attempted, completed: completed,
       modelMs: planCall.ms + generationCall.ms, tokens: planCall.usage.total_tokens + generationCall.usage.total_tokens,
       verification: verification
     };
+    return record.observed ? observedTrajectory(trajectory, record.observed, [start, generationCall.start - 6, verificationStart])
+      : trajectory;
+  }
+
+  // A replayed turn records when preparation, streaming, and verification ended. Mapping the
+  // synthetic schedule onto those marks keeps the run record's durations equal to what was shown.
+  function observedTrajectory(trajectory, observed, marks) {
+    var from = marks.concat([trajectory.end]);
+    var to = [0, observed.prepared, observed.streamed, observed.total].map(function (ms) { return trajectory.start + ms; });
+    function map(time) {
+      for (var index = 1; index < from.length; index += 1) {
+        if (time <= from[index] || index === from.length - 1) {
+          var span = from[index] - from[index - 1];
+          var ratio = span > 0 ? Math.min(1, Math.max(0, (time - from[index - 1]) / span)) : 1;
+          return to[index - 1] + ratio * (to[index] - to[index - 1]);
+        }
+      }
+      return time;
+    }
+    trajectory.items.concat(trajectory.calls).forEach(function (entry) {
+      var begin = map(entry.start);
+      var finish = map(entry.start + entry.ms);
+      entry.start = Math.round(begin);
+      entry.ms = Math.max(0, Math.round(finish - begin));
+    });
+    trajectory.end = Math.round(to[3]);
+    trajectory.modelMs = trajectory.calls.reduce(function (total, call) { return total + call.ms; }, 0);
+    return trajectory;
   }
 
   function barFor(start, ms, spanStart, span) {
@@ -964,7 +998,7 @@
     ]);
   }
 
-  function readinessStrip(mode) {
+  function readinessStrip(mode, animate) {
     if (mode === "loading") {
       return h("div", { class: "cs-deck-readiness is-loading", role: "status", "aria-busy": "true" }, [
         h("span", { class: "cs-sr-only", text: "Loading evidence-source readiness" }),
@@ -984,7 +1018,7 @@
         down ? h("span", { class: "cs-deck-readiness-state", text: "Unavailable" }) : null
       ]))]);
     });
-    return h("nav", { class: "cs-deck-readiness", "aria-label": "Evidence sources" }, [
+    return h("nav", { class: "cs-deck-readiness" + (animate ? " cs-deck-fade-in" : ""), "aria-label": "Evidence sources" }, [
       h("span", { class: "cs-deck-readiness-label", text: "Evidence sources" }),
       h("ul", { class: "cs-deck-readiness-items" }, items),
       h("span", {
@@ -1130,23 +1164,92 @@
     return transcript.scrollHeight - transcript.scrollTop - transcript.clientHeight < 32;
   }
 
+  // Reserved room below the newest turn is blank, so only real content counts as newer below.
   function updateJump() {
-    jump.hidden = atBottom();
+    var last = turns.lastElementChild;
+    var content = last && last.lastElementChild;
+    var bottom = content ? content.getBoundingClientRect().bottom : 0;
+    jump.hidden = atBottom() || bottom <= transcript.getBoundingClientRect().bottom + 8;
+  }
+
+  // ---------- Scroll follow ----------
+  // A live turn eases the view toward new content but never lifts the question being answered above
+  // the top edge, so the text someone is reading holds still. When the turn settles, the view eases
+  // just far enough to show the verification row. Scrolling by hand stops the follow; returning to
+  // the bottom or choosing Jump to latest follows the newest content instead.
+  var follow = { frame: 0, mode: "pin", pin: null, reveal: null, userUntil: 0 };
+
+  function contentTop(node) {
+    return node.getBoundingClientRect().top - transcript.getBoundingClientRect().top + transcript.scrollTop;
+  }
+
+  function followTarget() {
+    var max = transcript.scrollHeight - transcript.clientHeight;
+    if (follow.mode === "bottom" || !follow.pin || !follow.pin.isConnected) return Math.max(0, max);
+    var target = Math.min(max, contentTop(follow.pin) - 12);
+    if (follow.reveal && follow.reveal.isConnected) {
+      var need = contentTop(follow.reveal) + follow.reveal.offsetHeight + 16 - transcript.clientHeight;
+      target = Math.max(target, Math.min(max, need));
+    }
+    return Math.max(0, target);
   }
 
   function followScroll() {
-    if (state.stuck) transcript.scrollTop = transcript.scrollHeight;
+    if (!state.stuck) {
+      updateJump();
+      return;
+    }
+    if (state.reduced) {
+      var target = followTarget();
+      if (target > transcript.scrollTop) transcript.scrollTop = target;
+      updateJump();
+      return;
+    }
+    if (!follow.frame) follow.frame = window.requestAnimationFrame(followStep);
+  }
+
+  function followStep() {
+    follow.frame = 0;
+    if (!state.stuck) return;
+    var distance = followTarget() - transcript.scrollTop;
+    if (distance > 0.5) {
+      // Ease out with a speed cap, so a long reveal glides instead of leaping.
+      transcript.scrollTop += Math.min(28, Math.max(1, distance * 0.16));
+      follow.frame = window.requestAnimationFrame(followStep);
+    }
     updateJump();
+  }
+
+  function followTurn(pin) {
+    follow.mode = "pin";
+    follow.pin = pin;
+    follow.reveal = null;
+  }
+
+  // Reserve room below a new question so it can rise to the top edge. The reserve keeps the view
+  // from snapping when the preparation panel folds and moves to the newest turn when another starts.
+  function reserveTurn(article) {
+    turns.querySelectorAll(".cs-deck-agent-turn[data-reserved]").forEach(function (node) {
+      node.style.minHeight = "";
+      node.removeAttribute("data-reserved");
+    });
+    var question = article.previousElementSibling;
+    if (!question) return;
+    var need = contentTop(question) - 12 - (transcript.scrollHeight - transcript.clientHeight);
+    if (need <= 0) return;
+    article.style.minHeight = Math.ceil(article.offsetHeight + need) + "px";
+    article.setAttribute("data-reserved", "");
   }
 
   // ---------- Turn lifecycle ----------
   async function playPreparation(spec, ctx, article) {
-    var status = h("span", { class: "cs-grounding-status", text: "Resolving intent and evidence needs" });
+    var steps = spec.stages.filter(function (stage) { return !stage.verify; });
+    var status = h("span", { class: "cs-grounding-status", text: "Step 1 of " + steps.length });
     var elapsed = h("span", { class: "cs-grounding-elapsed", "aria-hidden": "true", text: "0.0 s" });
     var stages = h("ol", { class: "cs-grounding-stages", "aria-label": "Preparation steps" });
+    // The active step's own spinner is the only busy cue, so the header carries no second one.
     var panel = h("section", { class: "cs-grounding-panel", "aria-label": "Preparing answer" }, [
       h("header", { class: "cs-grounding-head" }, spaced([
-        h("span", { class: "cs-grounding-spinner", "aria-hidden": "true" }),
         h("span", { class: "cs-grounding-title", text: "Preparing answer" }),
         status,
         elapsed,
@@ -1155,19 +1258,21 @@
       stages
     ]);
     var placeholder = h("div", { class: "cs-deck-answer-skeleton", "aria-hidden": "true" }, [skeleton(), skeleton(), skeleton()]);
-    var sourceList = h("ul", { class: "cs-grounding-source-list" });
+    var sourceList = h("ul", { class: "cs-grounding-source-list" }, [0, 1, 2].map(function () {
+      return h("li", { class: "cs-grounding-source is-placeholder", "aria-hidden": "true" }, [skeleton()]);
+    }));
     var sourceCount = h("span", { text: "0 read" });
     panel.appendChild(h("div", { class: "cs-grounding-sources" }, [
       h("div", { class: "cs-grounding-sources-head" }, [h("span", { text: "Reading sources" }), sourceCount]),
       sourceList
     ]));
-    var fold = h("div", { class: "cs-deck-collapse" }, [h("div", null, [panel, placeholder])]);
+    var fold = h("div", { class: "cs-deck-collapse" }, [h("div", null, [panel])]);
     article.appendChild(fold);
+    article.appendChild(placeholder);
     startElapsed(elapsed);
     followScroll();
     var read = 0;
     var missing = 0;
-    var steps = spec.stages.filter(function (stage) { return !stage.verify; });
     // The whole plan renders up front as pending rows, so the panel keeps one height while the
     // steps run and nothing below it moves.
     var rows = steps.map(function (stage, index) { return stageRow(stage, index + 1, "pending"); });
@@ -1176,14 +1281,19 @@
       var stage = steps[index];
       var row = rows[index];
       setStageStatus(row, "active");
-      status.textContent = stage.label;
+      status.textContent = "Step " + (index + 1) + " of " + steps.length;
       followScroll();
       await pause(ctx.reduced ? TIMING.step : TIMING.stage, ctx);
       setStageStatus(row, stage.attention ? "attention" : "done");
       var emits = stage.emits || [];
       for (var item = 0; item < emits.length; item += 1) {
-        sourceList.appendChild(previewSource(emits[item]));
-        rollSourceWindow(sourceList, ctx);
+        var slot = sourceList.querySelector(":scope > .is-placeholder");
+        if (slot) {
+          slot.replaceWith(previewSource(emits[item]));
+        } else {
+          sourceList.appendChild(previewSource(emits[item]));
+          rollSourceWindow(sourceList, ctx);
+        }
         if (SOURCES[emits[item]].unavailable) missing += 1;
         else read += 1;
         sourceCount.textContent = read + " read" + (missing ? " \u00b7 " + missing + " unavailable" : "");
@@ -1219,66 +1329,97 @@
     fold.remove();
   }
 
-  // Build the final inline DOM once, then reveal its text nodes frame by frame.
-  function revealSteps(root) {
-    var steps = [];
+  // Build the final inline DOM once, then split its text into words the stream reveals whole, so a
+  // half-typed word never appears at a line end and jumps to the next line.
+  function revealUnits(root) {
+    var units = [];
     (function walk(node) {
       Array.prototype.forEach.call(node.childNodes, function (child) {
         if (child.nodeType === Node.TEXT_NODE) {
           if (!child.nodeValue) return;
-          steps.push({ node: child, text: child.nodeValue });
+          (child.nodeValue.match(/\s*\S+\s*|\s+/g) || []).forEach(function (word) {
+            units.push({ node: child, text: word });
+          });
           child.nodeValue = "";
         } else if (child.nodeType === Node.ELEMENT_NODE) {
-          if (child.classList.contains("cs-deck-cite") || child.tagName === "CODE") {
+          // A citation run keeps its word, markers, and punctuation together, so it arrives whole
+          // rather than growing past the line end and wrapping as a block.
+          if (child.classList.contains("cs-deck-cite-run") || child.classList.contains("cs-deck-cite") ||
+              child.tagName === "CODE") {
             child.hidden = true;
-            steps.push({ atom: child });
+            units.push({ atom: child, cost: Math.max(2, child.textContent.length) });
           } else {
             walk(child);
           }
         }
       });
     })(root);
-    return steps;
+    return units;
   }
 
-  function streamParagraph(node, text, spec, ctx, turnId) {
+  function streamParagraph(node, text, spec, ctx, turnId, onReveal) {
     renderInline(node, text, spec, turnId, false);
     followScroll();
-    if (ctx.instant) return Promise.resolve();
-    if (ctx.reduced) return pause(TIMING.step, ctx);
+    if (ctx.instant || ctx.reduced) {
+      if (onReveal) onReveal();
+      return ctx.instant ? Promise.resolve() : pause(TIMING.step, ctx);
+    }
     if (ctx.token !== state.token) return Promise.reject(CANCELLED);
-    var steps = revealSteps(node);
+    var units = revealUnits(node);
+    // The caret joins with the first words, so an empty paragraph takes no height beforehand.
     var caret = h("span", { class: "cs-deck-caret", "aria-hidden": "true" });
-    node.appendChild(caret);
     return new Promise(function (resolve, reject) {
       var key = {};
       var frameId = 0;
       var index = 0;
-      var offset = 0;
+      var budget = 0;
       var last = 0;
+      var holdUntil = 0;
       function frame(now) {
         if (ctx.token !== state.token) return;
-        var budget = last ? Math.max(1, Math.round((now - last) * STREAM_CPS * state.speed / 1000)) : 1;
-        last = now;
-        while (budget > 0 && index < steps.length) {
-          var step = steps[index];
-          if (step.atom) {
-            step.atom.hidden = false;
+        if (now >= holdUntil) {
+          budget += last ? (now - last) * STREAM_CPS * state.speed / 1000 : 0;
+          // One fading chunk per text node and frame keeps the DOM small while words arrive softly.
+          var chunk = null;
+          var chunkNode = null;
+          while (index < units.length) {
+            var unit = units[index];
+            var cost = unit.atom ? unit.cost : unit.text.length;
+            if (cost > budget) break;
+            budget -= cost;
             index += 1;
-            budget -= 1;
-            continue;
-          }
-          var take = Math.min(budget, step.text.length - offset);
-          step.node.appendData(step.text.slice(offset, offset + take));
-          offset += take;
-          budget -= take;
-          if (offset >= step.text.length) {
-            index += 1;
-            offset = 0;
+            if (unit.atom) {
+              unit.atom.hidden = false;
+              unit.atom.classList.add("cs-deck-stream-in");
+              chunk = null;
+              if (index < units.length && SENTENCE_END.test(unit.atom.textContent)) {
+                holdUntil = now + SENTENCE_PAUSE / state.speed;
+                budget = 0;
+                break;
+              }
+              continue;
+            }
+            if (!chunk || chunkNode !== unit.node) {
+              chunk = h("span", { class: "cs-deck-stream-in" });
+              unit.node.parentNode.insertBefore(chunk, unit.node);
+              chunkNode = unit.node;
+            }
+            chunk.textContent += unit.text;
+            if (index < units.length && SENTENCE_END.test(unit.text)) {
+              holdUntil = now + SENTENCE_PAUSE / state.speed;
+              budget = 0;
+              break;
+            }
           }
         }
+        last = now;
+        if (index > 0 && !caret.isConnected) node.appendChild(caret);
+        if (onReveal && index > 0) {
+          onReveal();
+          onReveal = null;
+        }
         followScroll();
-        if (index < steps.length) {
+        if (index < units.length) {
           frameId = window.requestAnimationFrame(frame);
           return;
         }
@@ -1291,7 +1432,7 @@
     });
   }
 
-  function setAnswerState(article, value) {
+  function setAnswerState(article, value, animate) {
     var head = article.querySelector(".cs-deck-turn-head");
     var badge = head.querySelector(".cs-deck-answer-state");
     if (!value) {
@@ -1305,14 +1446,15 @@
       head.appendChild(document.createTextNode(" "));
       head.appendChild(badge);
     }
-    badge.className = "cs-deck-answer-state is-" + value;
+    badge.className = "cs-deck-answer-state is-" + value + (animate ? " cs-deck-fade-in" : "");
     badge.textContent = value === "draft" ? "Draft" : ANSWER_STATE[value];
   }
 
+  // The answer takes the skeleton's place, so the first words appear where the placeholder was.
   function createAnswer(ctx, article) {
     var answer = h("div", { class: "cs-deck-answer" }, [h("div", { class: "cs-deck-prose" })]);
-    if (!ctx.instant) setAnswerState(article, "draft");
-    article.appendChild(answer);
+    if (!ctx.instant) setAnswerState(article, "draft", !ctx.reduced);
+    article.insertBefore(answer, article.querySelector(":scope > .cs-deck-answer-skeleton"));
     return answer;
   }
 
@@ -1320,11 +1462,18 @@
     if (ctx.instant) return;
     setDeckState("answering");
     var prose = answer.querySelector(".cs-deck-prose");
+    var placeholder = answer.parentNode.querySelector(":scope > .cs-deck-answer-skeleton");
+    // The skeleton stays until the first words are drawn, so the answer slot is never empty.
+    function dropPlaceholder() {
+      if (placeholder) placeholder.remove();
+      placeholder = null;
+    }
     for (var index = 0; index < spec.answer.length; index += 1) {
       var paragraph = spec.answer[index];
       var node = h("p");
       prose.appendChild(node);
-      await streamParagraph(node, paragraph.unsupported ? paragraph.text + " " + paragraph.unsupported : paragraph.text, spec, ctx, turnId);
+      await streamParagraph(node, paragraph.unsupported ? paragraph.text + " " + paragraph.unsupported : paragraph.text, spec, ctx, turnId,
+        index === 0 ? dropPlaceholder : null);
       (spec.notes || []).forEach(function (item) {
         if (item.after === index && item.when !== "verify") prose.appendChild(noteElement(item, spec, turnId, false));
       });
@@ -1336,7 +1485,7 @@
   // The pending row is replaced in place by the final action row, so nothing below it jumps.
   async function verifyAnswer(ctx, article) {
     if (ctx.instant) return null;
-    var row = h("div", { class: "cs-deck-action-row ds-pending-row" }, [
+    var row = h("div", { class: "cs-deck-action-row ds-pending-row" + (ctx.reduced ? "" : " cs-deck-enter") }, [
       h("span", { class: "cs-deck-verification is-pending" }, spaced([
         h("span", { class: "cs-grounding-spinner", "aria-hidden": "true" }),
         h("span", { text: "Checking answer" })
@@ -1348,7 +1497,7 @@
     return row;
   }
 
-  function finalizeTurn(spec, article, answer, turnId, offset, pendingRow) {
+  function finalizeTurn(spec, article, answer, turnId, offset, pendingRow, animate) {
     var prose = answer.querySelector(".cs-deck-prose");
     prose.textContent = "";
     spec.answer.forEach(function (paragraph, index) {
@@ -1359,30 +1508,45 @@
         if (item.after === index) prose.appendChild(noteElement(item, spec, turnId, true));
       });
     });
-    setAnswerState(article, spec.answerState);
+    setAnswerState(article, spec.answerState, animate);
     var row = actionRow(spec, turnId);
     if (pendingRow && pendingRow.parentNode === article) pendingRow.replaceWith(row);
     else article.appendChild(row);
     article.appendChild(sourcesPanel(spec, turnId));
     var remaining = (spec.followups || []).filter(function (key) { return !state.asked[key]; });
-    if (remaining.length) article.appendChild(followupList(remaining));
-    article.appendChild(runRecord(records[turnId]));
-    article.appendChild(turnFoot(offset + 6));
+    var arriving = [row];
+    if (remaining.length) arriving.push(article.appendChild(followupList(remaining)));
+    arriving.push(article.appendChild(runRecord(records[turnId])));
+    arriving.push(article.appendChild(turnFoot(offset + 6)));
+    if (!animate) return;
+    arriving.forEach(function (node, order) {
+      node.classList.add("cs-deck-enter");
+      if (order) node.setAttribute("data-enter", String(Math.min(order, 3)));
+    });
   }
 
   async function runAgentTurn(spec, ctx, article, turnId, offset) {
+    var record = records[turnId];
+    var started = performance.now();
     var fold = ctx.instant ? null : await playPreparation(spec, ctx, article);
     await foldAway(fold, ctx);
+    var prepared = performance.now() - started;
     var answer = createAnswer(ctx, article);
     await streamAnswer(spec, ctx, answer, turnId);
+    var streamed = performance.now() - started;
     var pendingRow = await verifyAnswer(ctx, article);
-    finalizeTurn(spec, article, answer, turnId, offset, pendingRow);
+    if (!ctx.instant) {
+      record.observed = { prepared: prepared, streamed: streamed, total: performance.now() - started };
+    }
+    finalizeTurn(spec, article, answer, turnId, offset, pendingRow, !ctx.instant && !ctx.reduced);
   }
 
   function beginTurn(spec, article, turnId, offset, ctx, announceProgress) {
     records[turnId] = { spec: spec, offset: offset, turnId: turnId, captured: state.captureTrace };
     state.active = { article: article, spec: spec, turnId: turnId, offset: offset };
+    followTurn(article.previousElementSibling);
     if (ctx.instant) return;
+    reserveTurn(article);
     setBusy(true);
     setDeckState("preparing");
     if (announceProgress) announce("Bragi is preparing an answer.");
@@ -1390,6 +1554,7 @@
 
   function settleTurn(spec, ctx, announceResult) {
     if (ctx.token !== state.token) return;
+    if (state.active) follow.reveal = state.active.article.querySelector(":scope > .cs-deck-action-row");
     state.active = null;
     setBusy(false);
     setDeckState("settled");
@@ -1405,6 +1570,9 @@
 
   function resetConversation() {
     cancelRun();
+    if (follow.frame) window.cancelAnimationFrame(follow.frame);
+    follow.frame = 0;
+    followTurn(null);
     hideTip();
     clearSearch();
     state.active = null;
@@ -1432,9 +1600,10 @@
     beginTurn(spec, article, turnId, 0, ctx, options.announce);
     try {
       if (!ctx.instant) {
-        await pause(TIMING.readiness, ctx);
-        readiness.textContent = "";
-        readiness.appendChild(readinessStrip(state.scenario));
+        pause(TIMING.readiness, ctx).then(function () {
+          readiness.textContent = "";
+          readiness.appendChild(readinessStrip(state.scenario, !ctx.reduced));
+        }, ignoreCancel);
       }
       await runAgentTurn(spec, ctx, article, turnId, 0);
       settleTurn(spec, ctx, options.announce);
@@ -1807,15 +1976,29 @@
     }
   });
 
+  var SCROLL_KEYS = { ArrowUp: 1, ArrowDown: 1, PageUp: 1, PageDown: 1, Home: 1, End: 1, " ": 1 };
+  ["wheel", "touchmove", "keydown", "pointerdown"].forEach(function (type) {
+    transcript.addEventListener(type, function (event) {
+      if (type === "keydown" && !SCROLL_KEYS[event.key]) return;
+      // A pointer press on the scroller itself, not its content, is a scrollbar drag.
+      if (type === "pointerdown" && event.target !== transcript) return;
+      follow.userUntil = performance.now() + 600;
+    }, { passive: true });
+  });
+
   transcript.addEventListener("scroll", function () {
     hideTip();
-    state.stuck = atBottom();
+    if (performance.now() < follow.userUntil) {
+      state.stuck = atBottom();
+      if (state.stuck) follow.mode = "bottom";
+    }
     updateJump();
   }, { passive: true });
 
   jump.addEventListener("click", function () {
-    transcript.scrollTo({ top: transcript.scrollHeight, behavior: state.reduced ? "auto" : "smooth" });
     state.stuck = true;
+    follow.mode = "bottom";
+    transcript.scrollTo({ top: transcript.scrollHeight, behavior: state.reduced ? "auto" : "smooth" });
     input.focus({ preventScroll: true });
   });
 

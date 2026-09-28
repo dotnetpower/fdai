@@ -305,12 +305,15 @@
 
 .cs-grounding-elapsed {
   flex: none;
+  min-width: 4.5ch;
   color: var(--cs-deck-meta-text);
+  text-align: right;
   font: var(--cs-type-label-size)/var(--cs-type-label-line-height) var(--cs-font);
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
 
+/* Authority stays visible but quiet: a hairline label, not a second heading. */
 .cs-grounding-authority {
   flex: none;
   min-height: 22px;
@@ -320,22 +323,27 @@
   padding: 1px 9px;
   border: 1px solid var(--cs-hairline);
   border-radius: var(--cs-radius-pill);
-  color: var(--cs-text);
-  font: 600 var(--cs-type-label-size)/var(--cs-type-label-line-height) var(--cs-font);
+  color: var(--cs-deck-meta-text);
+  font: 500 var(--cs-type-label-size)/var(--cs-type-label-line-height) var(--cs-font);
   white-space: nowrap;
 }
 
 .cs-grounding-stages {
   display: grid;
-  gap: 2px;
+  gap: 1px;
   margin: 0;
   padding: 6px;
   list-style: none;
 }
 
+/* One status column: the mark shows the step number, then a spinner, then the outcome. */
 .cs-deck-conversation .cs-grounding-stages > .cs-grounding-stage {
-  grid-template-columns: 20px minmax(0, 1fr) auto 16px;
-  align-items: start;
+  min-height: 30px;
+  grid-template-columns: 20px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  padding: 3px 8px;
+  transition: background-color .2s ease;
 }
 
 .cs-deck-conversation .cs-grounding-stage.is-active {
@@ -354,24 +362,36 @@
   color: var(--cs-deck-meta-text);
   font: 600 var(--cs-type-label-size)/1 var(--cs-font);
   font-variant-numeric: tabular-nums;
+  transition: border-color .2s ease, background-color .2s ease;
 }
 
+.cs-deck-conversation .cs-grounding-stage.is-pending .cs-grounding-mark { border-style: dashed; }
+
 .cs-deck-conversation .cs-grounding-stage.is-active .cs-grounding-mark {
-  border-color: var(--cs-steel);
-  color: var(--cs-deck-link-text);
+  border-color: transparent;
+  background: transparent;
+}
+
+.cs-deck-conversation .cs-grounding-stage.is-active .cs-grounding-mark > .cs-grounding-spinner {
+  width: 16px;
+  height: 16px;
+}
+
+.cs-deck-conversation .cs-grounding-stage.is-done .cs-grounding-mark {
+  border-color: color-mix(in srgb, var(--cs-sage) 42%, var(--cs-hairline));
+  background: color-mix(in srgb, var(--cs-sage) 10%, var(--cs-card));
+  color: var(--cs-deck-ok-text);
+  font-weight: 700;
 }
 
 .cs-deck-conversation .cs-grounding-stage.is-attention .cs-grounding-mark {
   border-color: color-mix(in srgb, var(--cs-terracotta) 60%, var(--cs-hairline));
+  background: var(--cs-deck-attention-tint);
   color: var(--cs-deck-attention-text);
+  font-weight: 700;
 }
 
-/* Planned steps that have not started read as quieter text, not as reduced opacity. */
-.cs-deck-conversation .cs-grounding-stage.is-pending .cs-grounding-mark { border-style: dashed; }
-
-.cs-deck-conversation .cs-grounding-stage.is-pending .cs-grounding-stage-label {
-  color: var(--cs-deck-meta-text);
-}
+.cs-grounding-mark > .cs-deck-pop { display: block; }
 
 .cs-grounding-stage-copy {
   min-width: 0;
@@ -381,8 +401,14 @@
 
 .cs-grounding-stage-label {
   color: var(--cs-text);
-  font: 600 var(--cs-type-compact-size)/var(--cs-type-compact-line-height) var(--cs-font);
+  font: 500 var(--cs-type-compact-size)/var(--cs-type-compact-line-height) var(--cs-font);
   overflow-wrap: anywhere;
+  transition: color .2s ease;
+}
+
+/* Planned steps read as quieter labels, not as reduced opacity. */
+.cs-deck-conversation .cs-grounding-stage.is-pending .cs-grounding-stage-label {
+  color: var(--cs-deck-meta-text);
 }
 
 .cs-grounding-stage-detail {
@@ -395,9 +421,7 @@
   color: var(--cs-deck-attention-text);
 }
 
-/* Live rows stay one line tall, so a finished step never shrinks the panel. */
-.cs-deck-conversation .cs-grounding-panel .cs-grounding-stages > .cs-grounding-stage { align-items: center; }
-
+/* Live rows stay one line tall, so a finished step never resizes the panel. */
 .cs-deck-conversation .cs-grounding-panel .cs-grounding-stage-copy {
   display: flex;
   align-items: baseline;
@@ -416,21 +440,53 @@
 
 .cs-deck-conversation .cs-grounding-panel :is(.cs-grounding-stage-detail, .cs-grounding-intent) {
   flex: 1 1 auto;
+  transition: opacity .2s ease;
 }
 
+/* A step's observed result appears only once the step has run, so nothing is shown early. */
+.cs-deck-conversation .cs-grounding-panel .cs-grounding-stage:is(.is-pending, .is-active)
+  :is(.cs-grounding-stage-detail, .cs-grounding-intent) {
+  visibility: hidden;
+  opacity: 0;
+  transition: opacity .2s ease, visibility 0s .2s;
+}
+
+/* In the live row the intent reads as one line of values that truncates cleanly at its end. */
 .cs-deck-conversation .cs-grounding-panel .cs-grounding-intent {
-  flex-wrap: nowrap;
+  display: block;
   margin: 0;
 }
 
-.cs-deck-conversation .cs-grounding-panel .cs-grounding-intent > div { flex: none; }
+.cs-deck-conversation .cs-grounding-panel .cs-grounding-intent > div,
+.cs-deck-conversation .cs-grounding-panel .cs-grounding-intent dd { display: inline; }
+
+/* The live row shows intent values only; their labels stay available to assistive technology. */
+.cs-deck-conversation .cs-grounding-panel .cs-grounding-intent dt {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.cs-deck-conversation .cs-grounding-panel .cs-grounding-intent > div + div::before {
+  content: "/";
+  margin-inline: 8px;
+  color: var(--cs-deck-line-strong);
+}
+
+.cs-deck-conversation .cs-grounding-panel .cs-grounding-intent dd {
+  color: var(--cs-deck-meta-text);
+  font-weight: 400;
+}
 
 /* The preparation panel folds away instead of disappearing, so the answer glides into place. */
 .cs-deck-collapse {
   display: grid;
   grid-template-rows: 1fr;
   opacity: 1;
-  transition: grid-template-rows .28s cubic-bezier(.2, .7, .2, 1), opacity .2s ease;
+  transition: grid-template-rows .24s cubic-bezier(.2, .7, .2, 1), opacity .18s ease;
 }
 
 .cs-deck-collapse > * {
@@ -469,36 +525,12 @@
   overflow-wrap: anywhere;
 }
 
+/* The phase is a quiet annotation; the mark and label carry the step state. */
 .cs-grounding-phase {
   justify-self: end;
-  min-height: 20px;
-  box-sizing: border-box;
-  display: inline-flex;
-  align-items: center;
-  padding: 1px 8px;
-  border: 1px solid var(--cs-hairline);
-  border-radius: var(--cs-radius-pill);
   color: var(--cs-deck-meta-text);
   font: var(--cs-type-label-size)/var(--cs-type-label-line-height) var(--cs-font);
   white-space: nowrap;
-}
-
-.cs-grounding-state {
-  width: 16px;
-  height: 20px;
-  display: grid;
-  place-items: center;
-  color: var(--cs-deck-ok-text);
-  font: 700 var(--cs-type-label-size)/1 var(--cs-font);
-}
-
-.cs-deck-conversation .cs-grounding-stage.is-attention .cs-grounding-state {
-  color: var(--cs-deck-attention-text);
-}
-
-.cs-grounding-state > .cs-grounding-spinner {
-  width: 12px;
-  height: 12px;
 }
 
 .cs-grounding-sources {
@@ -539,6 +571,22 @@
   background: color-mix(in srgb, var(--cs-text) 3.5%, var(--cs-card));
   animation: cs-deck-rise .24s ease both;
 }
+
+/* Empty slots hold the window's shape until the first sources arrive. */
+.cs-deck-conversation .cs-grounding-source-list > .cs-grounding-source.is-placeholder {
+  display: flex;
+  align-items: center;
+  background: transparent;
+  animation: none;
+}
+
+.cs-deck-conversation .cs-grounding-source.is-placeholder > .cs-deck-skeleton {
+  width: 44%;
+  height: 10px;
+}
+
+.cs-deck-conversation .cs-grounding-source.is-placeholder:nth-child(2) > .cs-deck-skeleton { width: 32%; }
+.cs-deck-conversation .cs-grounding-source.is-placeholder:nth-child(3) > .cs-deck-skeleton { width: 38%; }
 
 .cs-grounding-source-copy {
   min-width: 0;
@@ -652,14 +700,15 @@
   opacity: 1;
 }
 
+/* A steady caret marks the live edge; blinking would compete with the arriving words. */
 .cs-deck-caret {
   display: inline-block;
   width: 2px;
   height: 1.1em;
   margin-left: 2px;
   vertical-align: -.15em;
+  border-radius: 1px;
   background: var(--cs-steel);
-  animation: cs-deck-caret 1s steps(1) infinite;
 }
 
 .cs-deck-cite-run { white-space: nowrap; }
@@ -1477,7 +1526,7 @@ details[open] > summary .cs-run-chevron { transform: rotate(225deg) translate(-1
   }
 
   .cs-deck-conversation .cs-grounding-stages > .cs-grounding-stage {
-    grid-template-columns: 20px minmax(0, 1fr) 16px;
+    grid-template-columns: 20px minmax(0, 1fr);
   }
 
   .cs-deck-conversation .cs-grounding-stages .cs-grounding-phase { display: none; }
@@ -1603,8 +1652,20 @@ details[open] > summary .cs-run-chevron { transform: rotate(225deg) translate(-1
 }
 
 /* ----- Motion ----- */
+/* ----- Arrival motion: words fade in as they stream; settled parts rise in with a short stagger. */
+.cs-deck-stream-in { animation: cs-deck-stream-in .22s ease-out both; }
+.cs-deck-fade-in { animation: cs-deck-fade-in .2s ease-out both; }
+.cs-deck-pop { animation: cs-deck-pop .22s cubic-bezier(.2, .7, .2, 1.25) both; }
+.cs-deck-enter { animation: cs-deck-enter .26s cubic-bezier(.2, .7, .2, 1) both; }
+.cs-deck-enter[data-enter="1"] { animation-delay: 60ms; }
+.cs-deck-enter[data-enter="2"] { animation-delay: 110ms; }
+.cs-deck-enter[data-enter="3"] { animation-delay: 150ms; }
+
 @keyframes cs-deck-spin { to { transform: rotate(360deg); } }
-@keyframes cs-deck-caret { 50% { opacity: 0; } }
+@keyframes cs-deck-stream-in { from { opacity: .1; } }
+@keyframes cs-deck-fade-in { from { opacity: 0; } }
+@keyframes cs-deck-pop { from { opacity: 0; transform: scale(.6); } }
+@keyframes cs-deck-enter { from { opacity: 0; transform: translateY(4px); } }
 
 @keyframes cs-deck-shimmer {
   from { background-position: 100% 0; }
@@ -1618,11 +1679,16 @@ details[open] > summary .cs-run-chevron { transform: rotate(225deg) translate(-1
 
 @media (prefers-reduced-motion: reduce) {
   .cs-grounding-spinner,
-  .cs-deck-caret,
   .cs-deck-skeleton,
+  .cs-deck-stream-in,
+  .cs-deck-fade-in,
+  .cs-deck-pop,
+  .cs-deck-enter,
   .cs-deck-conversation .cs-grounding-source-list > .cs-grounding-source {
     animation: none;
   }
+
+  .cs-deck-conversation .cs-grounding-stages > .cs-grounding-stage { transition: none; }
 
   .cs-deck-collapse,
   .cs-run-chevron,
@@ -1631,7 +1697,7 @@ details[open] > summary .cs-run-chevron { transform: rotate(225deg) translate(-1
 
 @media (forced-colors: active) {
   :is(.cs-deck-cite, .cs-deck-source-num, .cs-deck-answer-state, .cs-deck-readiness-item,
-    .cs-deck-context-chip, .cs-grounding-phase, .cs-grounding-mark, .cs-deck-source) {
+    .cs-deck-context-chip, .cs-grounding-authority, .cs-grounding-mark, .cs-deck-source) {
     border: 1px solid CanvasText;
   }
 

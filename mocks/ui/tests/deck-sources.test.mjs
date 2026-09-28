@@ -175,6 +175,45 @@ test("replay streams preparation, answer, and verification before settling", { t
   }
 });
 
+test("preparation shows each result only after its step and the record matches the replay", { timeout: 90000 }, async () => {
+  const browser = await chromium.launch({ headless: true });
+  try {
+    const { context, frame, errors } = await openStudy(browser, { trace: "on" });
+    await frame.locator(".cs-grounding-stage.is-active").first().waitFor({ state: "attached", timeout: 5000 });
+    const early = await frame.evaluate(() => ({
+      placeholders: document.querySelectorAll(".cs-grounding-source.is-placeholder").length,
+      headSpinners: document.querySelectorAll(".cs-grounding-head .cs-grounding-spinner").length,
+      status: document.querySelector(".cs-grounding-status").textContent,
+      pendingHidden: [...document.querySelectorAll(".cs-grounding-stage.is-pending .cs-grounding-stage-detail")]
+        .every((node) => getComputedStyle(node).visibility === "hidden"),
+      activeMark: !!document.querySelector(".cs-grounding-stage.is-active .cs-grounding-mark .cs-grounding-spinner"),
+    }));
+    assert.equal(early.placeholders, 3);
+    assert.equal(early.headSpinners, 0);
+    assert.match(early.status, /^Step 1 of 7$/);
+    assert.equal(early.pendingHidden, true);
+    assert.equal(early.activeMark, true);
+    await frame.waitForFunction(() => document.querySelector(".cs-grounding-status")?.textContent === "Composing answer",
+      null, { timeout: 15000 });
+    const prepared = await frame.evaluate(() => ({
+      elapsed: Number.parseFloat(document.querySelector(".cs-grounding-elapsed").textContent),
+      doneShown: [...document.querySelectorAll(".cs-grounding-stage.is-done .cs-grounding-stage-detail")]
+        .every((node) => getComputedStyle(node).visibility === "visible"),
+      placeholders: document.querySelectorAll(".cs-grounding-source.is-placeholder").length,
+    }));
+    assert.equal(prepared.doneShown, true);
+    assert.equal(prepared.placeholders, 0);
+    await deckState(frame, "settled");
+    const recorded = Number.parseFloat((await frame.locator(".cs-run-record-duration").textContent()).replace(/^\D+/, ""));
+    assert.ok(recorded >= prepared.elapsed, `${recorded} s recorded for ${prepared.elapsed} s of preparation`);
+    assert.match(await frame.locator(".cs-run-record-stats").textContent(), /^2 model calls \//);
+    assert.deepEqual(errors, []);
+    await context.close();
+  } finally {
+    await browser.close();
+  }
+});
+
 test("stop and scenario changes cancel the running replay", { timeout: 90000 }, async () => {
   const browser = await chromium.launch({ headless: true });
   try {
@@ -393,6 +432,83 @@ test("trace capture can start on from the URL", { timeout: 60000 }, async () => 
     await frame.locator(".cs-run-record > summary").click();
     assert.equal(await frame.locator('.cs-run-event[data-state="failed"]').count(), 1);
     assert.equal(await frame.locator('.cs-run-phase[data-state="degraded"]').count(), 2);
+    assert.deepEqual(errors, []);
+    await context.close();
+  } finally {
+    await browser.close();
+  }
+});
+
+test("streaming reveals whole words in place and follow-ups rise to the top without jumps", { timeout: 90000 }, async () => {
+  const browser = await chromium.launch({ headless: true });
+  try {
+    const { context, frame, errors } = await openStudy(browser, {}, { viewport: { width: 993, height: 641 } });
+    // Sample every frame: streamed words must end at a word boundary and never move once shown.
+    await frame.evaluate(() => {
+      const report = window.__streamCheck = { frames: 0, partial: 0, moved: 0, maxScrollStep: 0, questionAbove: 0 };
+      const seen = new WeakMap();
+      const transcript = document.getElementById("ds-transcript");
+      let lastScroll = transcript.scrollTop;
+      const tick = () => {
+        const caret = document.querySelector(".cs-deck-caret");
+        const paragraph = caret && caret.closest("p");
+        if (paragraph) {
+          report.frames += 1;
+          const chunks = paragraph.querySelectorAll(".cs-deck-stream-in");
+          const lastChunk = chunks[chunks.length - 1];
+          if (lastChunk && !lastChunk.matches(".cs-deck-cite-run, .cs-deck-cite, code") && !/[\s.,;:!?)]$/.test(lastChunk.textContent)) {
+            report.partial += 1;
+          }
+          const base = paragraph.getBoundingClientRect();
+          chunks.forEach((chunk) => {
+            const rect = chunk.getClientRects()[0];
+            if (!rect) return;
+            const spot = [rect.left - base.left, rect.top - base.top];
+            const before = seen.get(chunk);
+            if (before && (Math.abs(spot[0] - before[0]) > 1 || Math.abs(spot[1] - before[1]) > 1)) report.moved += 1;
+            seen.set(chunk, spot);
+          });
+        }
+        report.maxScrollStep = Math.max(report.maxScrollStep, Math.abs(transcript.scrollTop - lastScroll));
+        lastScroll = transcript.scrollTop;
+        const questions = transcript.querySelectorAll(".cs-deck-user-turn");
+        const question = questions[questions.length - 1];
+        if (document.body.dataset.deckState !== "settled" && question &&
+            question.getBoundingClientRect().top < transcript.getBoundingClientRect().top - 1) report.questionAbove += 1;
+        requestAnimationFrame(tick);
+      };
+      requestAnimationFrame(tick);
+    });
+    await deckState(frame, "settled");
+    // Scroll the way a reader would before choosing a follow-up, then measure only the app's motion.
+    await frame.evaluate(() => {
+      const transcript = document.getElementById("ds-transcript");
+      transcript.scrollTop = transcript.scrollHeight;
+      window.__streamCheck.maxScrollStep = 0;
+    });
+    await frame.waitForTimeout(100);
+    await frame.evaluate(() => { window.__streamCheck.maxScrollStep = 0; });
+    await frame.locator(".cs-deck-followup").first().evaluate((button) => button.click());
+    await deckState(frame, "preparing", 3000);
+    await deckState(frame, "settled");
+    await frame.waitForTimeout(600);
+    const report = await frame.evaluate(() => {
+      const transcript = document.getElementById("ds-transcript").getBoundingClientRect();
+      const row = document.querySelectorAll(".cs-deck-agent-turn")[1].querySelector(":scope > .cs-deck-action-row");
+      const box = row.getBoundingClientRect();
+      return { ...window.__streamCheck, verdictVisible: box.top >= transcript.top && box.bottom <= transcript.bottom };
+    });
+    assert.ok(report.frames > 20, `${report.frames} streaming frames`);
+    assert.equal(report.partial, 0);
+    assert.equal(report.moved, 0);
+    assert.equal(report.questionAbove, 0);
+    assert.ok(report.maxScrollStep <= 30, `${report.maxScrollStep}px scroll step`);
+    // While the turn is live the question holds at the top; on settle the view eases to the verdict.
+    assert.equal(report.verdictVisible, true);
+    // Settled parts arrive with a short stagger instead of appearing at once.
+    const second = frame.locator(".cs-deck-agent-turn").nth(1);
+    assert.equal(await second.locator(":scope > .cs-deck-action-row.cs-deck-enter").count(), 1);
+    assert.equal(await second.locator(':scope > .cs-run-record.cs-deck-enter[data-enter]').count(), 1);
     assert.deepEqual(errors, []);
     await context.close();
   } finally {
