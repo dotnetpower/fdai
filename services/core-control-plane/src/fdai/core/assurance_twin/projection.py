@@ -1,10 +1,11 @@
 """In-memory :class:`ScratchProjection` implementation.
 
-The upstream projection primitive shared by Twin and Preflight. Real
-projections (Azure Resource Graph-backed for Twin, Terraform-plan-
-backed for Preflight) implement the same Protocol; this in-memory
-version is what the composition root binds on Day 1 and what tests
-use to prove diff semantics without a cloud dependency.
+The upstream projection primitive shared by Twin and Preflight. The Twin
+builds it only from the retained Inventory revision and applies only
+reviewed effects of FDAI typed ActionType proposals; a Terraform plan is
+never a Twin input. This in-memory version is what the composition root
+binds and what tests use to prove diff semantics without a cloud
+dependency.
 
 Invariants (property-tested):
 

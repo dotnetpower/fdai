@@ -1,20 +1,28 @@
-"""Atomic embedded outbox and Saga audit lineage for retained Twin records."""
+"""Atomic embedded outbox and Saga audit lineage for retained Twin records.
+
+The relay finds candidates through the existing nested ``publication_outbox.published``
+state, so row shapes stay identical to earlier releases and each pass reads one bounded
+page of unpublished rows instead of the retained history.
+"""
 
 from __future__ import annotations
 
 import hashlib
+import logging
 from collections.abc import Mapping
 from typing import Any
 
 from fdai_service_contracts import AgentOperationalActivity
 
 from fdai.core.assurance_twin.posture_activity import AssuranceTwinReviewActivity
-from fdai.shared.providers.state_store import StateStore, StateStoreKeysetReader
+from fdai.shared.providers.state_store import StateStore
 
 POSTURE_REPORT_STATE_PREFIX = "runtime:assurance-twin-posture:"
 CHANGE_REVIEW_STATE_PREFIX = "runtime:assurance-twin-review:"
 _PUBLICATION_FIELD = "publication_outbox"
+_UNPUBLISHED_PATH = "publication_outbox.published"
 _REVISION_FIELD = "revision"
+_LOG = logging.getLogger(__name__)
 
 
 def _owner_prefix(owner: str) -> str:
@@ -91,73 +99,40 @@ class AssuranceTwinOutboxMixin:
     async def pending_publications(
         self, *, owner: str, limit: int = 100
     ) -> tuple[tuple[str, Mapping[str, Any]], ...]:
-        """Read bounded durable candidates; the relay rechecks each before sending."""
+        """Read one bounded page of unpublished candidates; the relay rechecks each.
+
+        Only rows whose nested outbox entry is unpublished are paged, so the cost of a
+        pass is bounded by ``limit`` rather than by retained history. A rotating offset
+        reaches a backlog larger than one page, which is logged and never raised;
+        unconfirmed provisional rows are skipped here and rechecked on later passes.
+        """
 
         prefix = _owner_prefix(owner)
         if not 1 <= limit <= 100:
             raise ValueError("assurance twin outbox limit MUST be in [1, 100]")
-        candidates: list[tuple[str, Mapping[str, Any]]] = []
-        for offset in range(0, 1000, 100):
+        offsets = getattr(self, "_pending_outbox_offsets", {})
+        offset = int(offsets.get(owner, 0))
+        rows, total = await self._store.read_state_page(
+            prefix, limit=limit, offset=offset, field=_UNPUBLISHED_PATH, value="false"
+        )
+        if not rows and offset:
+            offset = 0
             rows, total = await self._store.read_state_page(
-                prefix,
-                limit=100,
-                offset=offset,
-                field="source_confirmed",
-                value="true",
+                prefix, limit=limit, field=_UNPUBLISHED_PATH, value="false"
             )
-            if total > 1000:
-                raise RuntimeError("assurance twin outbox scan exceeds bounded capacity")
-            for row in rows:
-                outbox = row.get(_PUBLICATION_FIELD)
-                if isinstance(outbox, Mapping) and outbox.get("published") is False:
-                    identity = row.get("scope" if owner == "Heimdall" else "review_key")
-                    if not isinstance(identity, str):
-                        raise RuntimeError("assurance twin outbox record identity is malformed")
-                    candidates.append((f"{prefix}{identity}", row))
-                    if len(candidates) >= limit:
-                        break
-            if offset + 100 >= total:
-                break
-        legacy: list[tuple[str, Mapping[str, Any]]] = []
-        legacy_limit = max(1, limit // 10)
-        if legacy_limit:
-            cursors = getattr(self, "_legacy_outbox_cursors", {})
-            cursor = str(cursors.get(owner, ""))
-            if isinstance(self._store, StateStoreKeysetReader):
-                keys = await self._store.read_state_keys(prefix, after=cursor, limit=100)
-                retained_rows: list[Mapping[str, Any]] = []
-                for key in keys:
-                    retained = await self._store.read_state(key)
-                    if retained is not None:
-                        retained_rows.append(retained)
-                rows = tuple(retained_rows)
-                cursors[owner] = keys[-1] if keys else ""
-            else:
-                offsets = getattr(self, "_legacy_outbox_offsets", {})
-                offset = int(offsets.get(owner, 0))
-                rows, total = await self._store.read_state_page(
-                    prefix,
-                    limit=100,
-                    offset=offset,
-                )
-                next_offset = offset + len(rows)
-                offsets[owner] = 0 if not rows or next_offset >= total else next_offset
-                self._legacy_outbox_offsets = offsets
-            for row in rows:
-                if "source_confirmed" in row:
-                    continue
-                outbox = row.get(_PUBLICATION_FIELD)
-                if isinstance(outbox, Mapping) and outbox.get("published") is False:
-                    identity = row.get("scope" if owner == "Heimdall" else "review_key")
-                    if not isinstance(identity, str):
-                        raise RuntimeError("assurance twin outbox record identity is malformed")
-                    legacy.append((f"{prefix}{identity}", row))
-                    if len(legacy) >= legacy_limit:
-                        break
-            self._legacy_outbox_cursors = cursors
-        if legacy:
-            return tuple((*candidates[: limit - len(legacy)], *legacy))
-        return tuple(candidates[:limit])
+        offsets[owner] = (offset + len(rows)) % total if total else 0
+        self._pending_outbox_offsets = offsets
+        if total > limit:
+            _LOG.warning("assurance_twin_outbox_backlog", extra={"owner": owner, "pending": total})
+        candidates: list[tuple[str, Mapping[str, Any]]] = []
+        for row in rows:
+            if row.get("source_confirmed", True) is not True:
+                continue
+            identity = row.get("scope" if owner == "Heimdall" else "review_key")
+            if not isinstance(identity, str):
+                raise RuntimeError("assurance twin outbox record identity is malformed")
+            candidates.append((f"{prefix}{identity}", row))
+        return tuple(candidates)
 
     async def read_publication(self, key: str, *, owner: str) -> Mapping[str, Any] | None:
         if not key.startswith(_owner_prefix(owner)):
