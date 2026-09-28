@@ -160,8 +160,9 @@ _STAGES: Final = ("access", "substrate", "runtime", "database", "application")
 
 
 def main(argv: list[str] | None = None) -> int:
-    """Run one remote checkpoint and emit only sanitized JSON."""
+    """Run one remote checkpoint with an owner-only umask and emit only sanitized JSON."""
 
+    os.umask(0o077)
     parser = argparse.ArgumentParser(prog="python -m fdai_deployment_cli.standalone_host")
     parser.add_argument("--work-dir", type=Path, required=True)
     subcommands = parser.add_subparsers(required=True)
