@@ -36,7 +36,12 @@ from .adaptive_call_scope import (
     bind_adaptive_model_budget,
 )
 from .adaptive_models import AdaptiveEvidence
-from .adaptive_service import AdaptiveConversationService, AdaptiveDeferred, AdaptiveUnavailable
+from .adaptive_service import (
+    AdaptiveBudgetTelemetry,
+    AdaptiveConversationService,
+    AdaptiveDeferred,
+    AdaptiveUnavailable,
+)
 from .adaptive_wait import await_adaptive_call
 from .conversation_preflight import (
     DIRECT_SOCIAL_ACTS,
@@ -64,6 +69,7 @@ from .semantic_runtime_cancellation import (
     _run_preflight_with_cancellation,
 )
 from .session import Principal, Turn
+from .work_progress import publish_work_progress_pin
 
 _PROGRESS_OBSERVER: ContextVar[QueryProgressObserver | None] = ContextVar(
     "semantic_query_progress_observer",
@@ -110,6 +116,7 @@ class SemanticTurnResult:
     intent_graph_evidence: dict[str, Any] | None = None
     execution_authority: Literal[False] = False
     adaptive_answer: AdaptiveAnswer | None = None
+    turn_budget: AdaptiveBudgetTelemetry | None = None
 
     def __post_init__(self) -> None:
         if self.execution_authority:
@@ -234,7 +241,7 @@ class SemanticConversationRuntime:
         if cancelled is not None and cancelled.is_set():
             raise asyncio.CancelledError
 
-        async def verified(question: str) -> SemanticTurnResult:
+        async def verified(question: str, *, pin: bool = True) -> SemanticTurnResult:
             return await self._handle_verified(
                 utterance=question,
                 prior_turns=prior_turns,
@@ -251,6 +258,7 @@ class SemanticConversationRuntime:
                 conversation_profile=conversation_profile,
                 preflight_result=preflight_result,
                 target_agent=target_agent,
+                pin_work_progress=pin,
             )
 
         if document_context is not None:
@@ -264,7 +272,7 @@ class SemanticConversationRuntime:
             return await verified(utterance)
 
         async def evidence(question: str) -> AdaptiveEvidence:
-            result = await verified(question)
+            result = await verified(question, pin=False)
             if result.disposition != "answered" or result.execution is None:
                 return AdaptiveEvidence(status="held", limitation=result.reason)
             degraded_optional_document = optional_document_evidence_degraded(
@@ -436,7 +444,8 @@ class SemanticConversationRuntime:
                             timeout=outcome.budget.remaining,
                             cancelled=cancelled,
                         )
-                except (TimeoutError, AdaptiveBudgetExceededError):
+                except (TimeoutError, AdaptiveBudgetExceededError) as exc:
+                    outcome.budget.end_turn(exc)
                     return SemanticTurnResult(
                         disposition="held",
                         reason="adaptive_governed_budget_exhausted",
@@ -445,6 +454,7 @@ class SemanticConversationRuntime:
                             reason="adaptive_governed_budget_exhausted",
                             model_observations=tuple(outcome.budget.observations),
                         ),
+                        turn_budget=outcome.budget.telemetry(),
                     )
                 recorded = {id(item) for item in outcome.budget.observations}
                 outcome.budget.observations.extend(
@@ -460,7 +470,7 @@ class SemanticConversationRuntime:
                     ),
                 )
                 if governed.disposition != "action_draft" or not needs_explanation:
-                    return governed
+                    return replace(governed, turn_budget=outcome.budget.telemetry())
                 explanation = await self._adaptive.resume_after_governed_draft(
                     outcome,
                     read_evidence=evidence,
@@ -474,6 +484,7 @@ class SemanticConversationRuntime:
                         governed.planning,
                         model_observations=explanation.observations,
                     ),
+                    turn_budget=outcome.budget.telemetry(),
                 )
             if outcome is not None:
                 return SemanticTurnResult(
@@ -506,6 +517,7 @@ class SemanticConversationRuntime:
         conversation_profile: Mapping[str, str] | None = None,
         preflight_result: ConversationPreflightResult | None = None,
         target_agent: str = "Bragi",
+        pin_work_progress: bool = True,
     ) -> SemanticTurnResult:
         """Terminate every accepted turn without invoking a compatibility parser."""
         planner = self._planner
@@ -583,6 +595,8 @@ class SemanticConversationRuntime:
         )
         if executor is None:  # pragma: no cover - constructor invariant
             raise RuntimeError("semantic executor binding is unavailable")
+        if pin_work_progress:
+            await publish_work_progress_pin(planning.plan)
         execution = await executor.execute(
             planning.plan,
             expected_release_digest=planning.plan.ontology_release_digest,

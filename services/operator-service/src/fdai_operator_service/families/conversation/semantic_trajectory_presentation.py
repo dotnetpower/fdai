@@ -7,9 +7,15 @@ from collections.abc import Mapping
 from typing import cast
 
 from fdai_operator_service.families.conversation.contracts import JsonObject
+from fdai_operator_service.families.conversation.semantic_work_progress_presentation import (
+    work_progress_detail_fields,
+)
 
 _MAX_EXECUTION_COMMAND_CHARS = 16 * 1024
 _MAX_EXECUTION_OUTPUT_CHARS = 2_048
+# The Console accepts at most eight activities in 64 KiB of detail; stay inside with a margin.
+_MAX_DETAIL_ACTIVITIES = 8
+_MAX_DETAIL_BYTES = 60 * 1024
 
 
 def semantic_technical_trajectory(
@@ -20,12 +26,22 @@ def semantic_technical_trajectory(
     checks_total: int,
     locale: str,
 ) -> JsonObject | None:
-    """Project only receipt-backed read attempts with content-redacted execution detail."""
+    """Project only receipt-backed read attempts with content-redacted execution detail.
+
+    A pinned turn keeps an empty base detail even when no read receipt survived, so its work
+    progress fields replay. Receipts or budget alone never create a trajectory.
+    """
     semantic = projection.get("semantic_result")
     if not isinstance(semantic, Mapping):
         return None
+    work_progress = work_progress_detail_fields(projection, locale=locale)
+    pinned = "work_progress_shape" in work_progress
     graph = semantic.get("intent_graph")
     evidence = semantic.get("intent_graph_evidence")
+    if graph is None and evidence is None:
+        return (
+            _bounded_detail([], work_progress, checks_completed, checks_total) if pinned else None
+        )
     graph_goals = graph.get("goals") if isinstance(graph, Mapping) else None
     evidence_goals = evidence.get("goals") if isinstance(evidence, Mapping) else None
     if (
@@ -49,8 +65,7 @@ def semantic_technical_trajectory(
         if isinstance(outputs, list)
         else {}
     )
-    activities: list[JsonObject] = []
-    truncated_outputs = 0
+    activities: list[tuple[JsonObject, bool]] = []
     korean = locale.casefold().startswith("ko")
     for graph_goal, receipt in zip(graph_goals, evidence_goals, strict=True):
         if not isinstance(graph_goal, Mapping) or not isinstance(receipt, Mapping):
@@ -94,7 +109,6 @@ def semantic_technical_trajectory(
             node_output.get("display_truncated") is True
             or node_output.get("source_truncation_reason") is not None
         )
-        truncated_outputs += int(output_truncated)
         output = redacted_execution_output(
             status=status,
             reason=reason,
@@ -108,61 +122,77 @@ def semantic_technical_trajectory(
             status=status,
             node_output=node_output,
         )
-        activities.append(
-            cast(
-                JsonObject,
-                {
-                    "activity_id": f"semantic:goal:{node_id}",
-                    "kind": "read.execution",
-                    "status": trajectory_status(status),
-                    "label": (
-                        f"읽기 전용 조회: {capability}"
-                        if korean
-                        else f"Read-only query: {capability}"
-                    ),
-                    "detail": (
-                        f"상태 {status}, 근거 참조 {len(refs)}개"
-                        if korean
-                        else f"Status {status}; {len(refs)} evidence references"
-                    ),
-                    "authority": receipt.get("authority") or "read_only",
-                    "source": receipt.get("authority") or "registered_query_handler",
-                    "observed_at": completed_at,
-                    "evidence_refs": refs,
-                    "execution": {
-                        "tool": "Ontology query",
-                        "input_kind": "query",
-                        "command": command,
-                        "target": semantic_query_target(capability),
-                        "redacted": True,
-                        "status": status,
-                        "duration_ms": duration_ms,
-                        "started_at": started_at,
-                        "completed_at": completed_at,
-                        "output_status": (
-                            "available" if node_output is not None else "not_available"
-                        ),
-                        "output": output,
-                        "output_truncated": output_truncated,
-                    },
+        activity = cast(
+            JsonObject,
+            {
+                "activity_id": f"semantic:goal:{node_id}",
+                "kind": "read.execution",
+                "status": trajectory_status(status),
+                "label": (
+                    f"읽기 전용 조회: {capability}" if korean else f"Read-only query: {capability}"
+                ),
+                "detail": (
+                    f"상태 {status}, 근거 참조 {len(refs)}개"
+                    if korean
+                    else f"Status {status}; {len(refs)} evidence references"
+                ),
+                "authority": receipt.get("authority") or "read_only",
+                "source": receipt.get("authority") or "registered_query_handler",
+                "observed_at": completed_at,
+                "evidence_refs": refs,
+                "execution": {
+                    "tool": "Ontology query",
+                    "input_kind": "query",
+                    "command": command,
+                    "target": semantic_query_target(capability),
+                    "redacted": True,
+                    "status": status,
+                    "duration_ms": duration_ms,
+                    "started_at": started_at,
+                    "completed_at": completed_at,
+                    "output_status": ("available" if node_output is not None else "not_available"),
+                    "output": output,
+                    "output_truncated": output_truncated,
                 },
-            )
+            },
         )
-    if not activities:
+        activities.append((activity, output_truncated))
+    if not activities and not pinned:
         return None
-    return cast(
-        JsonObject,
-        {
-            "schema_version": 1,
-            "activities": activities,
-            "branches": [],
-            "milestones": [],
-            "omitted": {"activities": 0, "branches": 0, "milestones": 0},
-            "checks_completed": checks_completed,
-            "checks_total": checks_total,
-            "truncated_outputs": truncated_outputs,
-        },
-    )
+    return _bounded_detail(activities, work_progress, checks_completed, checks_total)
+
+
+def _bounded_detail(
+    activities: list[tuple[JsonObject, bool]],
+    work_progress: JsonObject,
+    checks_completed: int,
+    checks_total: int,
+) -> JsonObject:
+    """Keep leading activities within the Console envelope and count what was omitted."""
+    kept = activities[:_MAX_DETAIL_ACTIVITIES]
+    while True:
+        detail = cast(
+            JsonObject,
+            {
+                "schema_version": 1,
+                "activities": [activity for activity, _truncated in kept],
+                "branches": [],
+                "milestones": [],
+                "omitted": {
+                    "activities": len(activities) - len(kept),
+                    "branches": 0,
+                    "milestones": 0,
+                },
+                "checks_completed": checks_completed,
+                "checks_total": checks_total,
+                "truncated_outputs": sum(truncated for _activity, truncated in kept),
+                **work_progress,
+            },
+        )
+        encoded = json.dumps(detail, ensure_ascii=False, separators=(",", ":")).encode()
+        if not kept or len(encoded) <= _MAX_DETAIL_BYTES:
+            return detail
+        kept = kept[:-1]
 
 
 def verified_query_command(

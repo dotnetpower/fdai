@@ -1,8 +1,8 @@
 ---
 title: 오퍼레이터 콘솔 점진적 대화
 translation_of: operator-console-progressive-conversations.md
-translation_source_sha: 01733a60970e96e16d6132ba0f3edd099151a9a4
-translation_revised: 2026-09-28
+translation_source_sha: f5900d20d5df3bc884cb75e5ede2b74e15f7ad0c
+translation_revised: 2026-09-29
 ---
 # 오퍼레이터 콘솔 점진적 대화
 
@@ -79,7 +79,7 @@ Operator는 최종 결과의 검증과 영속 저장이 완료된 뒤 대기 중
 | 검증된 의미 답변 표현 | 검증됨 | [`semantic_turn_processor.py`](../../../services/core-control-plane/src/fdai_core_service/semantic_turn_processor.py), [`semantic_turn_presentation.py`](../../../services/operator-service/src/fdai_operator_service/families/conversation/semantic_turn_presentation.py), [`semantic_turn_runtime.py`](../../../services/operator-service/src/fdai_operator_service/families/conversation/semantic_turn_runtime.py), [`semantic-answer-presentation.spec.ts`](../../../console/tests/live-e2e/semantic-answer-presentation.spec.ts), `.fdai/live-validation/semantic-answer-presentation-244d003ef77bd37dc0041f0b6a29634cdbaacb91-post-validation/` | 범위가 제한된 인증 Web/한국어 경로는 명시적 workspace patch digest와 함께 중앙 검증된 source revision `244d003ef`에서 검증됐습니다. 최초 턴과 재생성 턴은 관찰된 5단계, 동일한 인시던트 및 기술 출력 digest, 읽기 전용 근거 수집, primary JSON 미노출, `execution_authority=false`를 유지했습니다. 이 상태는 Teams, Slack, 4단계 온톨로지 실행기 또는 이중 언어 100-case 집단을 주장하지 않습니다. |
 | 결정론적 교차 채널 표현 계획 | 구현됨 | `semantic_presentation_semantics.py`, `semantic_turn_processor.py`, `presentation_rows.py`, `presentation_planner.py`, `presentation_artifact_v2.py`, `presentation.py`, Console artifact 및 module registry, 집중 semantic presentation 검사 137개, Console deck 검사 693개, chart browser 검사 4개 통과 | Core는 검증된 종단 행에서 renderer-neutral semantics를 파생합니다. Operator는 시각화 10개 중 하나를 선택하기 전에 shape별 역할과 행 불변식을 다시 검증합니다. Web과 channel artifact 경계는 동일한 bounded schema를 적용합니다. Legacy와 v2 경로는 읽기 쉬운 행과 exact 기술 값을 보존합니다. 모델은 차트 컴포넌트를 선택할 수 없습니다. |
 | 작업 진행 계약 해석 | 구현됨 | [`work-progress-contract.ts`](../../../console/src/deck/work-progress-contract.ts), [`trajectory-detail.ts`](../../../console/src/deck/trajectory-detail.ts), [`conversation-trajectory-presentation.ts`](../../../console/src/deck/conversation-trajectory-presentation.ts), [`adaptive-investigation-fixtures.test.ts`](../../../console/src/deck/adaptive-investigation-fixtures.test.ts), Console deck 전체 검사(`1045 passed`)와 타입 검사 | Console은 선택 필드인 `work_progress_shape`, `turn_budget`, `context_receipts`를 받아들이고, 형식이 잘못된 필드만 버리며, 관찰과 모순되는 고정 형태는 타임라인으로 되돌리고, 재생한 마일스톤을 기록됨으로 표시합니다. `mocks/ui/fixtures/adaptive/`의 공유 합성 fixture는 손실 없이 해석됩니다. |
-| 작업 진행 필드의 서버 방출 | not-started | [작업 진행 계약](#작업-진행-계약) | 아직 Core나 Operator 생산자가 형태, 턴 예산 계측, 맥락 영수증을 방출하지 않으므로 실제 턴은 관찰 기반 밀도를 유지하고 정책 한도만 보여 줍니다. |
+| 작업 진행 필드의 서버 방출 | 구현됨 | [`semantic_work_progress.py`](../../../packages/service-contracts/src/fdai_service_contracts/semantic_work_progress.py), [`work_progress.py`](../../../services/core-control-plane/src/fdai/core/conversation/work_progress.py), [`semantic_work_progress_projection.py`](../../../services/core-control-plane/src/fdai_core_service/semantic_work_progress_projection.py), [`semantic_progress_relay.py`](../../../services/operator-service/src/fdai_operator_service/families/conversation/semantic_progress_relay.py), [`semantic_work_progress_presentation.py`](../../../services/operator-service/src/fdai_operator_service/families/conversation/semantic_work_progress_presentation.py), [`semantic_trajectory_presentation.py`](../../../services/operator-service/src/fdai_operator_service/families/conversation/semantic_trajectory_presentation.py), 집중 계약, Core, Operator 작업 진행 테스트(`54 passed`)와 Console golden 왕복 검사 | Core는 검증된 읽기 계획을 실행하기 직전에 형태를 고정하고, 첫 노드 진행 상황보다 먼저 고정 형태를 게시하며, 고정 형태와 턴을 통제한 적응형 턴 예산, 적용된 모델 등급 영수증을 저장합니다. Operator는 첫 조회 활동보다 먼저 `work_progress` 프레임을 한 번 보내고 Console이 받아들이는 한도를 지킵니다. Console은 조사 역할을 렌더링하기 전까지 실시간 프레임을 무시합니다. 인증된 런타임 증적은 주장하지 않습니다. |
 
 불완전한 근거에 기록된 충돌도 있으면 Web 바닥글은 불완전성을 기본 차단 사유로 유지하고,
 충돌을 별도의 보조 사실로 표시합니다.
@@ -88,6 +88,7 @@ Operator는 최종 결과의 검증과 영속 저장이 완료된 뒤 대기 중
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-28 | 구현됨 | 의미 경로에서 작업 진행 필드를 방출했습니다([#1629](https://github.com/dotnetpower/fdai/issues/1629)). Core는 검증된 읽기 계획 하나를 실행하기 직전에 고정하고, 첫 노드 진행 상황보다 먼저 `semantic-work-progress` `1.0.0`으로 고정 형태를 게시하며, 턴을 통제한 적응형 턴 예산과 적용된 모델 등급 영수증과 함께 저장합니다. 적응형 근거 읽기는 고정하지 않습니다. Operator는 실시간 스트림과 재생 스트림 모두에서 첫 조회 활동보다 먼저 `work_progress` 프레임을 한 번 전달하고, 검증한 필드를 `trajectory_detail`에 복사하며, 활동을 60 KiB 안에서 최대 8개로 유지합니다. | `current change`; `packages/service-contracts/src/fdai_service_contracts/semantic_work_progress.py`와 `1.0.0` 스키마; Core `work_progress.py`, `adaptive_service.py`, `semantic_runtime.py`, `semantic_turn_processor.py`, `semantic_turn_consumer.py`, `semantic_work_progress_projection.py`; Operator `semantic_progress_relay.py`, `semantic_turn_runtime.py`, `semantic_trajectory_presentation.py`, `semantic_work_progress_presentation.py`; `uv run pytest -q --no-cov packages/service-contracts/tests/test_semantic_work_progress.py services/core-control-plane/tests/test_semantic_work_progress.py services/operator-service/tests/test_semantic_work_progress.py`(`54 passed`); 변경 범위로 선택한 Python 전체 검사(`37838 passed`, `FDAI_DATABASE_URL`이 필요한 데이터베이스 테스트 3개는 `origin/main`에서도 같은 방식으로 실패); `npm --prefix console test -- --run src/deck`(`1036 passed`)와 Console 타입 검사 | Console에서 실시간 프레임을 사용하고 조사 역할을 렌더링해야 합니다. 의미 사전 분류를 턴 예산에 포함할지 결정해야 합니다. |
 | 2026-09-28 | 구현됨 | 작업 진행 계약을 추가했습니다. 표시 밀도는 타입 기반 관찰에서 정하고, 웨이브는 재계획 없이 범위를 제한하며, 마일스톤은 작업 흐름 사실만 담습니다. 또한 턴 예산 계측, 맥락 영수증, 이어서 진행, 초안이 아닌 발견 사항, 분리된 권한 표시를 정의합니다. 이제 Console은 선택 필드를 필드 단위로 fail closed 방식으로 해석하고, 재생한 마일스톤을 완료가 아닌 기록됨으로 표시합니다. | `current change`; `console/src/deck/backend-types.ts`, `work-progress-contract.ts`, `trajectory-detail.ts`, `conversation-trajectory.ts`, `conversation-trajectory-presentation.ts`, `conversation-trajectory-view.tsx`와 각 집중 테스트; `mocks/ui/fixtures/adaptive/`; `npm --prefix console test -- --run src/deck src/shared-style-tokens.test.ts src/components/mock-visual-boundary.test.ts`(`1045 passed`); Console 타입 검사 | 서버에서 필드를 방출하고 Console에서 적응형 조사 역할을 렌더링해야 합니다. |
 | 2026-09-15 | in-progress | 실행 권한 없는 테스트 맥락 초안을 엄격하게 해석하고 HTTP, 스트림, 대화 상태, 서버 및 로컬 재생으로 전달합니다. 브라우저가 보정하는 잘못된 날짜와 타입 계약에 없는 권한 필드를 거부합니다. | `current change`; Console 담당 검사 파일 4개의 128개 검사 및 운영/테스트 타입 검사 통과. | 인증된 범위 및 정책 선택과 제출/상태 표시를 구현해야 합니다. 화면 및 실제 환경 검증은 수행하지 않았습니다. |
 | 2026-09-14 | 검증됨 | 명시적인 상단 표시줄 Incident 선택에서 자동 동작 전용 idle 게이트를 제거했습니다. 클릭하면 새로운 바인딩 대화를 열고 이전 화면 초안을 보존하며, 화면 근거와 기본 대상 에이전트를 제외한 정확한 인시던트 바인딩을 제출합니다. | 집중 Console 테스트와 합성 브라우저 회귀 검사가 통과했고, 인증된 표준 포트 Console에서 검증된 상관관계 감사 레코드 3건과 `plan_source=bound_incident`를 포함한 `Answer ready` 최종 결과를 표시했습니다. | 이 범위가 제한된 진입 경로 수정에 남은 구현 작업은 없습니다. |
@@ -174,12 +175,16 @@ Operator는 최종 결과의 검증과 영속 저장이 완료된 뒤 대기 중
 - [ ] 2026-08-11 기준선을 교체하지 않고, 두 언어 모두에서 근거가 완전한 answered 턴이 있는
   seed `0x0fda1`의 영어/한국어 100-case 무작위 보증 통과 산출물을 보존합니다.
 - [ ] 채널 전체 런타임 검증을 주장하기 전에 통제된 Teams 및 Slack 집약 증적을 기록합니다.
-- [ ] 첫 가지 전에 `work_progress_shape`를 방출하고 의미 턴의 궤적 상세에 `turn_budget`과
-  `context_receipts`를 저장하며, 출력이 `parseTrajectoryDetail`을 거쳐도 그대로 유지되는 집중
-  Core 및 Operator 투영 테스트 통과를 기록합니다.
+- [x] 첫 가지 전에 `work_progress_shape`를 방출하고 의미 턴의 궤적 상세에 `turn_budget`과
+  `context_receipts`를 저장합니다. 집중 계약, Core, Operator 테스트(`54 passed`)가 고정 형태 순서,
+  저장, Console 수용 한도를 검증하고, `services/operator-service/tests/fixtures/`의 Operator golden이
+  `parseTrajectoryDetail`을 거쳐도 그대로 유지됩니다.
 - [ ] `investigation-timeline.tsx`에서 `ui/calm-slate-deck-conversation.css`로 적응형 조사 역할을
-  렌더링하고, 웨이브 순서 제어, 중지, 완료 시점 전용 예산 계측에 대한 Console Deck 테스트 통과를
-  기록합니다.
+  렌더링하고, `work_progress` 프레임으로 실시간 밀도를 고정하며, 웨이브 순서 제어, 중지, 완료 시점
+  전용 예산 계측에 대한 Console Deck 테스트 통과를 기록합니다.
+- [ ] 의미 사전 분류를 턴 예산에 포함할지 결정합니다. 포함한다면 `turn_budget`이 턴의 모든 모델
+  호출을 센다는 집중 Core 테스트를 기록하고, 포함하지 않는다면 문서화된 적응형 예산 범위를 유지한다는
+  결정을 여기에 기록합니다.
 - [x] 독립적인 시각화 비평을 20개 이상 완료하고 확인된 Medium 이상 잔여가 없을 때까지 집중
   hardening을 반복합니다. 현재 근거는 check 48개, 집중 Python 검사 137개, Console deck 검사
   693개, desktop/mobile browser 검사 4개입니다.
@@ -515,7 +520,30 @@ object-set membership 술어에 필요한 깊이입니다. arguments, definition
   등록된 ActionType 초안이나 승인 화면에서만 나타납니다.
 
 Console은 영속 궤적 상세에서 이 선택적 필드를 받아들이며, 잘못된 필드는 유효한 근거를 버리지 않고
-그 필드만 제외합니다. 서버 송신은 아직 구현되지 않았습니다.
+그 필드만 제외합니다. 서버는 다음 범위 안에서 이 필드를 보냅니다.
+
+- **고정 형태.** Core는 검증된 읽기 계획 하나를 실행하기 직전에 그 계획에서 형태를 도출합니다.
+  계획된 읽기 수는 계획의 노드 수이고, 웨이브 수는 가장 긴 의존성 깊이입니다. 읽기가 64개를
+  넘거나 웨이브가 8개를 넘는 계획은 고정하지 않습니다. Core는 계획의 첫 노드 진행 상황보다 먼저
+  best-effort 진행 topic에 `semantic-work-progress` `1.0.0`으로 고정 형태를 한 번 게시합니다. 같은
+  고정 형태를 최종 payload에도 저장하며, 마감이나 취소로 보류된 턴도 마찬가지입니다. 적응형 답변이
+  환경 예시를 위해 수행하는 읽기는 고정하지 않습니다.
+- **프레임 순서.** Operator는 스트림마다 첫 조회 `activity`보다 먼저 `work_progress` SSE 프레임을
+  최대 한 번 보냅니다. 실시간 고정 형태는 이벤트 ID `0:planning`을 사용합니다. 재생은
+  `<projection sequence>:planning`을 사용하고, 커서가 이미 이 프레임을 지났으면 보내지 않습니다.
+  저장된 의도 그래프와 더 이상 맞지 않는 저장 고정 형태는 버립니다.
+- **예산 범위.** `turn_budget`은 턴을 실제로 통제한 적응형 턴 예산이 있을 때 그 예산을 보고합니다.
+  적응형 계획 뒤의 통제된 경로와 그 경로의 예산 보류가 여기에 해당합니다. 의미 사전 분류는 이
+  예산보다 먼저 실행되며 모델 추적에만 나타납니다. 곧바로 검증 경로로 가는 턴에는 호출이나 토큰
+  최대치가 없으므로 예산을 보고하지 않습니다. 차감했지만 측정하지 못한 토큰은 `reserved`로 남고
+  측정을 불완전하게 만듭니다. 토큰과 경과 시간이 모두 최대치를 넘으면 버전 1로 표현할 수 없으므로
+  예산을 생략합니다.
+- **맥락 영수증.** 요청에 담긴 대화별 모델 등급이 Core가 의미 턴에 적용하는 유일한 운영자 선호이므로
+  유일한 영수증이 됩니다. Settings의 계정 서술기 선호는 의미 턴에 전달되지 않으므로 영수증을 만들지
+  않습니다.
+- **수용 한도.** Operator는 앞쪽 활동을 60 KiB 안에서 최대 8개까지 유지하고 나머지는
+  `omitted.activities`로 셉니다. 읽기 증적이 없는 고정 턴도 빈 기본 상세를 유지해 필드를 재생할 수
+  있게 합니다. 예산이나 영수증만으로는 궤적을 만들지 않습니다.
 
 ## 지표
 

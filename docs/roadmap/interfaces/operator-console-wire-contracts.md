@@ -413,6 +413,19 @@ InterfaceType target. Legacy actions without that evidence lower completeness an
 InterfaceType and FunctionType keep their registry identity and topology nodes until more than one
 meaningful active declaration and an authoritative usage source justify dedicated P2 views.
 
+### 13.11 Semantic work progress frame
+
+The semantic `POST /chat/stream` path adds one optional `work_progress` event. Its data is
+`{seq, revision: 0, work_progress_shape}`, and the shape follows the
+[work progress contract](operator-console-progressive-conversations.md#work-progress-contract).
+Operator sends the event at most once per stream and before the first query `activity`. A live
+frame uses event id `0:planning`, and a replayed frame uses `<projection sequence>:planning`.
+Clients that don't recognize the event ignore it. It carries no evidence or execution authority.
+
+The terminal `done` event's `trajectory_detail` may carry `work_progress_shape`, `turn_budget`, and
+`context_receipts`. Operator validates each field separately and drops a malformed field alone. It
+keeps at most eight activities within 60 KiB and counts the rest in `omitted.activities`.
+
 ## Implementation status
 
 ### Implementation scope
@@ -431,12 +444,14 @@ meaningful active declaration and an authoritative usage source justify dedicate
 | Incident creation draft and typed confirmation | implemented | `fdai_service_contracts.incident_creation`; Core semantic projection and Incident creation consumer; Operator confirmation route and outbox bridge; Console confirmation client; service-suite ownership; focused cross-service and CI contract tests | The browser sends only the four public draft fields. Operator reloads the exact source, queues a versioned no-authority request, and Core opens or reuses one audited Incident. HTTP `202` remains pending until `/incidents` observes the record. |
 | Managed-resource semantic action confirmation | in-progress | Existing `OntologyActionIntent` validation, confirmation route, and action-confirmation worker | Core does not yet project a confirmable non-Incident action intent. Completing that source requires an independently reviewed ActionType draft and request-to-audit receipt. |
 | CLI, Teams, and Slack wire parity | in-progress | `cli/`; channel adapters and tests | Shared presentation contracts exist. No current governed multi-channel parity receipt is retained here. |
+| Semantic work progress frame and trajectory fields | implemented | `semantic_turn_runtime.py`; `semantic_progress_relay.py`; `semantic_work_progress_presentation.py`; `semantic_trajectory_presentation.py`; `services/operator-service/tests/test_semantic_work_progress.py` (`15 passed`); `console/src/deck/work-progress-emission.test.ts` | Live and replay streams send one pin frame before the first query activity. The Console parses the persisted fields losslessly and ignores the live frame until it renders the investigation roles. |
 | Governed cross-contract runtime evidence | in-progress | Operator and Console focused tests | Unit and integration checks prove mechanics, not one authenticated receipt spanning callback, proposal, code artifact, ontology, and durable audit surfaces. |
 
 ### Implementation history
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-28 | implemented | Added the optional semantic `work_progress` stream event and the persisted work progress fields in `trajectory_detail`, bounded to the Console envelope. | `current change`; Operator `semantic_turn_runtime.py`, `semantic_progress_relay.py`, `semantic_trajectory_presentation.py`, and `semantic_work_progress_presentation.py`; `services/operator-service/tests/test_semantic_work_progress.py` (`15 passed`); `npm --prefix console test -- --run src/deck` (`1036 passed`) | Consume the live frame in the Console. |
 | 2026-09-28 | implemented | Operator test-context command proposals now retain a content-free authentication receipt beside, not inside, the idempotent request digest, so a retry with a refreshed token keeps the first acceptance's receipt; a Core-owned trigger lets only the Operator identity insert those rows and freezes their request fields and receipt. No route, response, or other proposal family changed. | `current change`; `services/operator-service/tests/test_authentication_receipt.py`; `services/core-control-plane/tests/persistence/test_operational_evidence_postgres.py` against a temporary loopback PostgreSQL database | Semantic requests retain no receipt yet; see [independent operational evidence](../../roadmap-implementation/rules-and-detection/independent-operational-evidence.md). |
 | 2026-09-27 | implemented | Answers now name provider lifecycle states, UTC instants, and completeness in the answer language, pair `execution_authority=false` with a read-only sentence, and show the last reference segment for unnamed recent changes. | `current change`; `semantic_answer_presentation.py`, `semantic_turn_processor.py`, Service Health renderers; focused presentation and processor tests passed. | None for these answer values. |
 | 2026-09-27 | implemented | Resource and declaration list limitation lines now explain each known typed source-limitation code in the answer locale while keeping the exact code visible, and unknown codes remain codes only. | `current change`; `semantic_source_limitations.py`, `semantic_turn_processor.py`, and `semantic_ontology_answers.py`; focused limitation and Korean and English Resource-list cases in `test_semantic_turn_processor.py` passed. | Authenticated Console evidence for a typed limitation line remains tracked by the continuous operational instance graph ledger. |

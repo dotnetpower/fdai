@@ -1,8 +1,8 @@
 ---
 title: Operator Console - Data and Wire Contracts
 translation_of: operator-console-wire-contracts.md
-translation_source_sha: 6e9bf4f18b2c95eb3e4138d3c9bbccb3febfe7c2
-translation_revised: 2026-09-28
+translation_source_sha: 13144705fb65d3d4821040ac9e7c83fe7db1bee3
+translation_revised: 2026-09-29
 ---
 
 # Operator Console - 데이터 and Wire Contracts
@@ -393,6 +393,19 @@ ActionType은 정확한 의미 ObjectType 또는 InterfaceType target이 있을 
 활성 선언이 두 개 이상이고 권한 있는 사용 원본이 전용 P2 보기를 정당화할 때까지 레지스트리 신원과
 토폴로지 노드만 유지합니다.
 
+### 13.11 의미 작업 진행 프레임
+
+의미 `POST /chat/stream` 경로에는 선택적인 `work_progress` 이벤트가 하나 추가됩니다. 데이터는
+`{seq, revision: 0, work_progress_shape}`이며, 형태는
+[작업 진행 계약](operator-console-progressive-conversations-ko.md#작업-진행-계약)을 따릅니다.
+Operator는 스트림마다 첫 조회 `activity`보다 먼저 이 이벤트를 최대 한 번 보냅니다. 실시간 프레임은
+이벤트 ID `0:planning`을, 재생 프레임은 `<projection sequence>:planning`을 사용합니다. 이 이벤트를
+모르는 클라이언트는 무시합니다. 근거나 실행 권한은 담지 않습니다.
+
+최종 `done` 이벤트의 `trajectory_detail`에는 `work_progress_shape`, `turn_budget`,
+`context_receipts`가 들어갈 수 있습니다. Operator는 필드마다 따로 검증하고 잘못된 필드만 버립니다.
+활동은 60 KiB 안에서 최대 8개까지 유지하고 나머지는 `omitted.activities`로 셉니다.
+
 ## 구현 상태
 
 ### 구현 범위
@@ -411,12 +424,14 @@ ActionType은 정확한 의미 ObjectType 또는 InterfaceType target이 있을 
 | 인시던트 생성 초안 및 타입이 지정된 확인 | implemented | `fdai_service_contracts.incident_creation`, Core 의미 기반 변환 결과 및 인시던트 생성 소비자, Operator 확인 경로 및 보낼 편지함 브리지, Console 확인 클라이언트, 서비스 테스트 묶음 소유권, 집중 교차 서비스 및 CI 계약 테스트 | 브라우저는 공개 초안 필드 네 개만 보냅니다. Operator는 정확한 원본을 다시 읽고 버전이 지정된 권한 없는 요청을 대기열에 넣으며, Core는 감사되는 인시던트 하나를 생성하거나 재사용합니다. HTTP `202`는 `/incidents`에서 레코드를 확인할 때까지 대기 상태입니다. |
 | 관리 리소스 의미 기반 작업 확인 | in-progress | 기존 `OntologyActionIntent` 검증, 확인 경로 및 작업 확인 작업자 | Core는 아직 확인 가능한 비인시던트 작업 의도를 변환하지 않습니다. 이 원본을 완료하려면 독립적으로 검토된 ActionType 초안과 요청부터 감사까지의 증적이 필요합니다. |
 | CLI, Teams 및 Slack wire 동등성 | in-progress | `cli/`; channel 어댑터 및 테스트 | 공유 presentation 계약은 있습니다. 현재 관리되는 다중 채널 동등성 증적은 여기에 보존되지 않았습니다. |
+| 의미 작업 진행 프레임 및 궤적 필드 | implemented | `semantic_turn_runtime.py`, `semantic_progress_relay.py`, `semantic_work_progress_presentation.py`, `semantic_trajectory_presentation.py`, `services/operator-service/tests/test_semantic_work_progress.py`(`15 passed`), `console/src/deck/work-progress-emission.test.ts` | 실시간 스트림과 재생 스트림은 첫 조회 활동보다 먼저 고정 형태 프레임을 한 번 보냅니다. Console은 저장된 필드를 손실 없이 해석하고, 조사 역할을 렌더링하기 전까지 실시간 프레임을 무시합니다. |
 | 관리되는 계약 간 런타임 근거 | in-progress | Operator 및 Console focused 테스트 | 단위 및 통합 검사는 동작 방식을 입증하지만 callback, proposal, code 산출물, 온톨로지 및 영속 감사 화면을 잇는 인증 증적은 아닙니다. |
 
 ### 구현 이력
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-28 | implemented | 선택적인 의미 `work_progress` 스트림 이벤트와 `trajectory_detail`에 저장되는 작업 진행 필드를 추가하고, Console이 받아들이는 한도 안으로 제한했습니다. | `current change`; Operator `semantic_turn_runtime.py`, `semantic_progress_relay.py`, `semantic_trajectory_presentation.py`, `semantic_work_progress_presentation.py`; `services/operator-service/tests/test_semantic_work_progress.py`(`15 passed`); `npm --prefix console test -- --run src/deck`(`1036 passed`) | Console에서 실시간 프레임을 사용해야 합니다. |
 | 2026-09-28 | implemented | Operator 테스트 맥락 명령 제안이 이제 본문 없는 인증 증적을 멱등 요청 digest 안이 아니라 그 옆에 보관하므로, 갱신된 토큰으로 재시도해도 처음 수락한 증적이 유지됩니다. Core 소유 트리거는 Operator 신원만 해당 행을 삽입하게 하고 요청 필드와 증적을 변경할 수 없게 합니다. 경로, 응답, 다른 제안 계열은 바뀌지 않았습니다. | `current change`; `services/operator-service/tests/test_authentication_receipt.py`; 임시 루프백 PostgreSQL 데이터베이스에서 실행한 `services/core-control-plane/tests/persistence/test_operational_evidence_postgres.py` | 의미 요청은 아직 증적을 보관하지 않습니다. [독립 운영 근거](../../roadmap-implementation/rules-and-detection/independent-operational-evidence.md)를 참조하세요. |
 | 2026-09-27 | implemented | 답변이 공급자 lifecycle 상태, UTC 시각, 완전성을 답변 언어로 표시하고, `execution_authority=false`와 함께 읽기 전용 문장을 제공하며, 이름이 없는 최근 변경에는 참조의 마지막 구간을 표시합니다. | `current change`; `semantic_answer_presentation.py`, `semantic_turn_processor.py`, Service Health 렌더러; 집중 표시 및 프로세서 테스트 통과. | 이 답변 값에 대해 남은 작업은 없습니다. |
 | 2026-09-27 | implemented | Resource 목록과 선언 목록의 제한 문장이 알려진 각 타입 지정 원본 제한 코드를 답변 로케일로 설명하면서 정확한 코드도 표시하고, 알 수 없는 코드는 코드로만 남기도록 했습니다. | `current change`; `semantic_source_limitations.py`, `semantic_turn_processor.py`, `semantic_ontology_answers.py`; `test_semantic_turn_processor.py`의 집중 제한 문장 사례와 한국어 및 영어 Resource 목록 사례 통과. | 타입 지정 제한 문장의 인증된 Console 근거는 지속형 운영 인스턴스 그래프 원장에서 계속 추적합니다. |

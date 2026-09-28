@@ -9,7 +9,7 @@ import time
 from collections.abc import Awaitable, Callable, Mapping, Sequence
 from dataclasses import dataclass, field
 from functools import lru_cache
-from typing import TypeVar
+from typing import Literal, TypeVar
 
 from fdai_service_contracts.adaptive_answer import AdaptiveAnswer, AdaptiveGoalResult
 from fdai_service_contracts.ontology_query import EvidenceAuthority
@@ -62,6 +62,29 @@ class AdaptiveUnavailable:
     observations: tuple[ConversationModelObservation, ...]
 
 
+BudgetLimit = Literal["deadline", "model_calls", "tokens"]
+
+
+@dataclass(frozen=True, slots=True)
+class AdaptiveBudgetTelemetry:
+    """Settled measures of the enforcing adaptive turn budget, with no wall-clock time.
+
+    Tokens charged as a byte-based reservation but never reconciled with measured usage stay
+    reserved, which makes the measurement incomplete. The separate semantic preflight runs before
+    this budget exists and is reported only in the model trace.
+    """
+
+    calls: int
+    max_calls: int
+    tokens_used: int
+    tokens_reserved: int
+    max_tokens: int
+    elapsed_ms: int
+    max_elapsed_ms: int
+    complete: bool
+    exhaustion_reason: BudgetLimit | None
+
+
 @dataclass(slots=True)
 class _Budget:
     policy: AdaptivePolicy
@@ -70,6 +93,9 @@ class _Budget:
     started: float = field(init=False)
     calls: int = 0
     tokens: int = 0
+    pending_tokens: int = 0
+    limit_hits: list[BudgetLimit] = field(default_factory=list)
+    ended_by: BudgetLimit | None = None
     observations: list[ConversationModelObservation] = field(default_factory=list)
 
     def __post_init__(self) -> None:
@@ -81,15 +107,22 @@ class _Budget:
 
     def reserve(self, input_bytes: int, output_tokens: int, reserved_calls: int) -> int:
         reservation = input_bytes + output_tokens
-        if (
-            input_bytes > self.policy.max_input_bytes
-            or self.remaining <= 0
-            or self.calls + reserved_calls >= self.policy.max_calls
-            or self.tokens + reservation > self.policy.max_tokens
-        ):
+        limit: BudgetLimit | None = (
+            "deadline"
+            if self.remaining <= 0
+            else "model_calls"
+            if self.calls + reserved_calls >= self.policy.max_calls
+            else "tokens"
+            if self.tokens + reservation > self.policy.max_tokens
+            else None
+        )
+        if limit is not None:
+            self.record_exhaustion(limit)
+        if input_bytes > self.policy.max_input_bytes or limit is not None:
             raise AdaptiveBudgetExceededError("adaptive model budget exhausted")
         self.calls += 1
         self.tokens += reservation
+        self.pending_tokens += reservation
         return reservation
 
     def observe(self, reservation: int, observation: ConversationModelObservation) -> None:
@@ -97,8 +130,58 @@ class _Budget:
         observed = (observation.usage or {}).get("total_tokens")
         if type(observed) is int and observed >= 0:
             self.tokens += observed - reservation
+            self.pending_tokens = max(0, self.pending_tokens - reservation)
+        if self.tokens > self.policy.max_tokens:
+            self.record_exhaustion("tokens")
+        if self.remaining <= 0:
+            self.record_exhaustion("deadline")
         if self.tokens > self.policy.max_tokens or self.remaining <= 0:
             raise AdaptiveBudgetExceededError("adaptive observed model budget exceeded")
+
+    def record_exhaustion(self, limit: BudgetLimit, *, ended_turn: bool = False) -> None:
+        """Remember each limit that stopped model work and the one that ended the turn."""
+        if limit not in self.limit_hits:
+            self.limit_hits.append(limit)
+        if ended_turn:
+            self.ended_by = limit
+
+    def end_turn(self, error: BaseException) -> None:
+        """Record the limit that ended a governed path stopped by a timeout or budget denial."""
+        if isinstance(error, TimeoutError):
+            self.record_exhaustion("deadline", ended_turn=True)
+        elif self.limit_hits:
+            self.record_exhaustion(self.limit_hits[-1], ended_turn=True)
+
+    def telemetry(self) -> AdaptiveBudgetTelemetry | None:
+        """Snapshot settled measures, or ``None`` when v1 telemetry cannot represent them.
+
+        A measure may end above its maximum only as the exhaustion reason, so an overshoot names
+        its own limit. Tokens and elapsed time both over their maxima have no v1 representation.
+        """
+        elapsed_ms = max(0, round((self.clock() - self.started) * 1000))
+        max_elapsed_ms = round(self.policy.total_seconds * 1000)
+        tokens_over = self.tokens > self.policy.max_tokens
+        elapsed_over = elapsed_ms > max_elapsed_ms
+        if self.calls > self.policy.max_calls or (tokens_over and elapsed_over):
+            return None
+        reason: BudgetLimit | None = (
+            "tokens"
+            if tokens_over
+            else "deadline"
+            if elapsed_over
+            else self.ended_by or (self.limit_hits[0] if self.limit_hits else None)
+        )
+        return AdaptiveBudgetTelemetry(
+            calls=self.calls,
+            max_calls=self.policy.max_calls,
+            tokens_used=self.tokens - self.pending_tokens,
+            tokens_reserved=self.pending_tokens,
+            max_tokens=self.policy.max_tokens,
+            elapsed_ms=elapsed_ms,
+            max_elapsed_ms=max_elapsed_ms,
+            complete=self.pending_tokens == 0,
+            exhaustion_reason=reason,
+        )
 
 
 @dataclass(frozen=True, slots=True)
