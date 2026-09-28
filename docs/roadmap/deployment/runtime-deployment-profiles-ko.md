@@ -1,6 +1,6 @@
 ---
 translation_of: runtime-deployment-profiles.md
-translation_source_sha: c4390ac786aa3bc9937632ba1eb665f0810cf0cf
+translation_source_sha: fdcfd31e617e0a3be07a2b97b240fb9aef0d9f61
 translation_revised: 2026-09-28
 ---
 # 런타임 배포 프로파일
@@ -484,7 +484,7 @@ Operator는 의미 처리 및 실시간 Kafka 어댑터에 `FDAI_COMMAND_MI_CLIE
 ServiceAccount 주체를 위한 별도의 연합 자격 증명과 범위가 제한된 역할이 필요합니다. 기본
 client 또는 선언된 명령 client만 선택할 수 있습니다. 선택을 생략하면 기본 client를 유지하고,
 잘못되거나 관련 없는 client는 토큰 교환 전에 거부합니다. 역할을 부여하거나 교환 실패 뒤에
-다른 신원으로 대체하지 않습니다.
+다른 신원으로 대체하지 않습니다. Core의 Kafka 시작 왕복 확인은 `FDAI_AUXILIARY_KAFKA_BOOTSTRAP_SERVERS`로 선택한 운영 네임스페이스의 `runtime.startup.probe` topic을 사용하며, 제어 루프가 모든 합성 probe를 거부하게 되므로 구성 단계에서 `FDAI_STARTUP_KAFKA_PROBE_TOPIC`이 관리되는 이벤트 수집 topic과 같으면 거부합니다.
 
 Core와 격리된 Executor는 대상별 캐시와 동시 요청 통합을 유지하고, 각 연합 토큰 교환 시간을
 제한하며, SDK 세션을 닫고 민감한 진단을 제외한 획득 실패를 보고합니다. 각 서비스는 자체 배포

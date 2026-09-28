@@ -477,7 +477,7 @@ adapters while `AZURE_CLIENT_ID` remains its primary workload identity. Each ide
 own federated credential for the same ServiceAccount subject and its separately scoped roles.
 Only the primary or declared command client can be selected; an omitted selection keeps the primary
 client, and an invalid or unrelated client fails before token exchange. This does not grant roles
-or fall back after a failed exchange.
+or fall back after a failed exchange. Core's Kafka startup round trip uses the operational namespace selected by `FDAI_AUXILIARY_KAFKA_BOOTSTRAP_SERVERS` and its `runtime.startup.probe` topic; composition rejects a `FDAI_STARTUP_KAFKA_PROBE_TOPIC` equal to the governed event ingest topic because the control loop would reject every synthetic probe.
 
 Core and isolated Executor retain audience-specific caching and request coalescing, bound each
 federated token exchange, close its SDK session, and sanitize acquisition failures. Each declares
