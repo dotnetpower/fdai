@@ -103,7 +103,7 @@ Chat surfaces:
 | File | Purpose |
 |------|---------|
 | [deck.html](deck.html) | Command deck (chat) - transcript-first workspace with optional conversation history and current-screen context panels, visible Bragi-to-agent handoffs, grounded citations, observed read-command evidence, and evidence attachments |
-| [deck-sources.html](deck-sources.html) | Same conversation surface zoomed into how Bragi streams retrieval + citations into an in-progress reply |
+| [deck-sources.html](deck-sources.html) | Production-shaped Command Deck conversation that replays answer preparation: typed intent, read-only retrieval trace, grounded citations, sources panel, verification, a run record with the observed execution timeline and model provider waterfall, and grounded, partial-evidence, source-unavailable, conflicting-evidence, and corrected scenarios |
 | [deck-sources-v2.html](deck-sources-v2.html) | Adaptive response lifecycle with an in-transcript selector for investigation, clarification, evidence posture, governed proposal, effect verification, cancellation, memory retention, structured brief, and rendered Markdown document examples |
 | [conversation-response-patterns.html](conversation-response-patterns.html) | Operational response patterns and deterministic selection order for bounded investigation disclosure, target clarification, evidence limits, governed recovery proposals, graded effect verification, cancellation receipts, consent-based durable learning, structured operational briefs, and rendered Markdown documents |
 
@@ -125,9 +125,20 @@ Report and kit:
 ## Assets
 
 - [../../ui/calm-slate-tokens.css](../../ui/calm-slate-tokens.css) - shared palette, typography,
-  shape, and elevation tokens consumed by both the Console and static prototypes.
+  shape, elevation, and `--cs-code-*` code surface tokens consumed by both the Console and static
+  prototypes. The component gallery's code pattern and the conversation layer's code blocks both
+  read the code tokens.
 - [../../ui/calm-slate-primitives.css](../../ui/calm-slate-primitives.css) - shared presentation
   primitives such as the semantic top-edge content-update shimmer.
+- [../../ui/calm-slate-deck-conversation.css](../../ui/calm-slate-deck-conversation.css) - portable
+  Command Deck conversation roles (readiness strip, retrieval trace, citations, evidence notes,
+  sources panel, follow-ups, composer context, the run record with its execution timeline and
+  model provider waterfall, and compact code blocks). Only
+  [deck-sources.html](deck-sources.html) imports it today. Every rule is scoped under
+  `.cs-deck-conversation` or uses a role the Console does not render yet, so importing it changes no
+  existing surface. The file header lists the Console component that owns each role and the
+  adoption steps: import the file, add the root role, render the roles, and delete the superseded
+  legacy `.deck-*` declarations instead of overriding them.
 - [assets/calm-slate.css](assets/calm-slate.css) - mock layout and component styles over the shared tokens:
   layout container (max-width 1160px), section number badges, cards, KPI grid, AS-IS/TO-BE
   comparison, critique table, pill tags, severity badges, trust-tier chips, buttons, forms,
@@ -154,6 +165,15 @@ Report and kit:
   explains tier, autonomy, and mode badges on hover or focus. Queue preserves the same work facts
   as Flow while adding risk, SLA, and control state. The page renders the swarm, sparkline, and
   audit ticker entirely client-side with no backend.
+- [assets/deck-sources.js](assets/deck-sources.js) - Command deck sources study only. Replays
+  scripted synthetic turns whose rule, policy, and ActionType facts match `rule-catalog/`, streams
+  whole words with a short pause after each sentence, eases the transcript without lifting the
+  question being answered above the top edge, renders the settled answer immediately under reduced
+  motion, and supports `?scenario=`, `?state=settled`, `?width=dock`, and `?trace=on` preview
+  parameters. The capture switch mirrors the Console "Capture model request and response trace"
+  setting and applies to new turns only. Sources open their provenance in place, and any deck
+  link to another screen asks for confirmation before it navigates. Model calls, digests, and messages in the run record are
+  synthetic; the study performs no request, model call, or state change.
 
 ## Usage
 
@@ -191,6 +211,16 @@ npm --prefix console run test:e2e:quick -- tests/e2e/governance-current-mock.spe
 The checks exercise the actual master iframe and current computed theme, not a gallery substitute.
 Desktop checks precede constrained and mobile validation. They use synthetic local assets only,
 without querying Azure or invoking operational APIs.
+
+Chat study checks run against the design server on `127.0.0.1:5373`:
+
+```bash
+node --test mocks/ui/tests/chat-current.test.mjs mocks/ui/tests/deck-sources.test.mjs
+```
+
+The source-streaming checks confirm the study copy against the rule catalog, cover replay, stop,
+scenario changes, keyboard citations, search, dock width, reduced motion, and forced colors, and
+require every `cs-deck-*` and `cs-grounding-*` class in the study to have a shared style.
 
 ## Palette
 

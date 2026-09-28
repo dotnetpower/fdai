@@ -1,8 +1,8 @@
 ---
 title: Operator Console Module Map and Boundaries
 translation_of: operator-console-module-map.md
-translation_source_sha: 964bd89f647e73975302499a65353d691037f7bf
-translation_revised: 2026-09-22
+translation_source_sha: 7ca734babad23e199925f80d00f528d5b36f78c8
+translation_revised: 2026-09-28
 ---
 # Operator Console 모듈 지도 and Boundaries
 
@@ -634,7 +634,7 @@ Console 설정 경로와 정적 디자인 시안은 Calm Slate 컨트롤 토큰�
 `console/src/components/account-menu.tsx`는 로그인 계정 표현을 소유하고 MSAL 이름과 사용자 이름을 표시하며 서버가 검증한 `GET /iam/self` 변환 결과에서만 FDAI 역할을 읽고 IAM 경로로 연결합니다. `console/src/auth.ts`는 로그인 힌트 없이 Entra 계정 선택기를 열고 일반 토큰 획득 및 IAM 권한 확인으로 돌아옵니다. 이 컴포넌트는 디렉터리를 전환하거나 기능을 부여하거나 프로바이더 자격 증명을 받지 않습니다.
 `console/src/browser-notifications.ts`, `console/src/components/browser-notification-control.tsx` 및 scope가 제한된 `console/public/notification-sw.js`는 클라이언트 로컬 알림 모듈을 소유하며, [Console Web 알림](console-web-notifications-ko.md)은 전체 선택, 기능, 전달, 확인, 복구 및 권한 계약을 정의합니다. 모든 전달 원장 변경은 같은 출처의 탭 전체가 공유하는 단기 Web Lock을 사용하며, 다시 활성화된 컨트롤은 보존된 원장에서 표시할 전달 상태를 가져옵니다.
 화면에 보이는 제목 컴포넌트는 렌더링되는 제목 내용에만 `title`을 사용합니다. 기본 HTML `title` 말풍선은 접근성과 호환되는 요소로 제한하며, 그 밖의 맥락 도움말은 공통 Tooltip 컴포넌트를 사용합니다.
-정적 컴포넌트 갤러리는 `mocks/ui/assets/component-registry.json`의 계약을 읽고 각 시안을 소유자, 원본, 상태, 사용 지침, 반응형 동작, 접근성 계약 및 제품 참조보다 먼저 표시합니다. 레지스트리가 없거나 잘못되면 정규 상태를 추론하지 않고 문서화를 차단합니다. 갤러리는 합성 표현 근거이며 Console, Operator API 또는 실행기 권한을 부여하지 않습니다.
+정적 컴포넌트 갤러리는 `mocks/ui/assets/component-registry.json`의 계약을 읽고 각 시안을 소유자, 원본, 상태, 사용 지침, 반응형 동작, 접근성 계약 및 제품 참조보다 먼저 표시합니다. 레지스트리가 없거나 잘못되면 정규 상태를 추론하지 않고 문서화를 차단합니다. 갤러리는 합성 표현 근거이며 Console, Operator API 또는 실행기 권한을 부여하지 않습니다. 이식 가능한 대화 표현 역할과 기준 시안, 그 재생 및 화면 이동 동작은 [Command Deck 대화 표현 계층](command-deck-conversation-layer-ko.md)이 담당합니다.
 
 ## 경계 불변식
 `core/conversation/`은 프로토콜만 가져옵니다. Azure SDK, HTTP, Bot Framework 및 프로바이더 호출은

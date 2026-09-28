@@ -1,8 +1,8 @@
 ---
 title: FDAI 로드맵
 translation_of: README.md
-translation_source_sha: 4405a299df8f11020d357d5449e5893496cfcf41
-translation_revised: 2026-09-27
+translation_source_sha: ff3ba1b6d588ec40589ece848bba423c628cb171
+translation_revised: 2026-09-28
 ---
 # FDAI 로드맵
 
@@ -134,6 +134,7 @@ canonical 영문 roadmap context를 실제 4,500줄로 제한합니다. Route가
 | 18a | [console-read-boundary-ko.md](deployment/console-read-boundary-ko.md) | 서버 소유 읽기 출처 선언, 로컬 인증, 워크로드 근거 및 범위가 제한된 인벤토리 조회 |
 | 19 | [operator-console-ko.md](interfaces/operator-console-ko.md) | CLI, Teams, Slack, web의 FDAI Console 대화, 도구별 RBAC, LLM 계층, 세션 영속성 |
 | 19k | [operator-console-module-map-ko.md](interfaces/operator-console-module-map-ko.md) | 대화 모듈 소유권, CLI/API 경로 지도, 채널 어댑터 및 코어/전달 경계 |
+| 19k1 | [command-deck-conversation-layer-ko.md](interfaces/command-deck-conversation-layer-ko.md) | 이식 가능한 Command Deck 대화 표현 역할, 기준 시안, 재생 동작 및 화면 이동 동의 |
 | 19l | [operator-console-progressive-conversations-ko.md](interfaces/operator-console-progressive-conversations-ko.md) | 범위가 제한된 읽기 가지, ordered reduction, 검증된 개정 번호, 취소, 재생 및 진행 상황 메트릭 |
 | 19m | [narrator-routing-and-latency-ko.md](interfaces/narrator-routing-and-latency-ko.md) | T1 서술기 배포 라우팅, 멀티모달 탐색, 운영자 선호 설정, TTFT, 웹 검색 풀 및 런타임 전달 결정 |
 | 19n | [hierarchical-conversation-planning-ko.md](interfaces/hierarchical-conversation-planning-ko.md) | Non-keyword 의미 decomposition, structural 온톨로지 조회 커버리지, 검증된 의도 그래프, 근거 결합 및 답변 경계 |
