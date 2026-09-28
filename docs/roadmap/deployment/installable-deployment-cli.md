@@ -592,6 +592,8 @@ have distinct value-safe errors. Corrupt or partial retained content is preserve
 not silently replaced or accepted. Retry never deletes run state, SSH keys, plans, or approvals,
 never changes a signed source file, and never repeats an Azure effect from kit-cache evidence.
 
+A control-only repair can reuse a verified kit through a [signed deployment-control package](disconnected-deployment.md#deployment-control-package).
+
 ## Capability token behavior
 
 A maintainer signing key is not an adopter prerequisite. The command uses a matching operator-held
