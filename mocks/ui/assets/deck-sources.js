@@ -698,11 +698,97 @@
     }));
   }
 
+  var PAYLOAD_LANGUAGE = { "IQL or typed query": "query", "Executed command": "shell" };
+
   function payload(label, value) {
     return h("section", { class: "cs-run-payload" }, [
       h("strong", { text: label }),
-      h("pre", { class: "cs-run-code" }, [h("code", { text: value })])
+      codeBlock(value, PAYLOAD_LANGUAGE[label])
     ]);
+  }
+
+  // ---------- Code: the component gallery's compact code pattern ----------
+  var codeSource = new WeakMap();
+  var JSON_TOKEN = /("(?:[^"\\]|\\.)*")(\s*:)?|(-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?)|\b(true|false|null)\b|([{}\[\],])/g;
+
+  function codeToken(text, kind) {
+    return h("span", { class: "cs-deck-code-token is-" + kind, text: text });
+  }
+
+  function jsonTokens(line) {
+    var parts = [];
+    var last = 0;
+    var match;
+    JSON_TOKEN.lastIndex = 0;
+    while ((match = JSON_TOKEN.exec(line)) !== null) {
+      if (match.index > last) parts.push(line.slice(last, match.index));
+      if (match[1]) {
+        parts.push(codeToken(match[1], match[2] ? "key" : "string"));
+        if (match[2]) parts.push(codeToken(match[2], "punctuation"));
+      } else if (match[3]) {
+        parts.push(codeToken(match[3], "number"));
+      } else if (match[4]) {
+        parts.push(codeToken(match[4], "boolean"));
+      } else {
+        parts.push(codeToken(match[5], "punctuation"));
+      }
+      last = JSON_TOKEN.lastIndex;
+    }
+    if (last < line.length) parts.push(line.slice(last));
+    return parts;
+  }
+
+  // A typed query or command reads as its verb, then key=value arguments.
+  function commandTokens(line) {
+    var parts = [];
+    line.split(/(\s+)/).forEach(function (part, index) {
+      var equals = part.indexOf("=");
+      if (index === 0 && part) parts.push(codeToken(part, "command"));
+      else if (equals > 0) parts.push(codeToken(part.slice(0, equals + 1), "flag"), part.slice(equals + 1));
+      else if (/^--?[a-z]/i.test(part)) parts.push(codeToken(part, "flag"));
+      else if (part) parts.push(part);
+    });
+    return parts;
+  }
+
+  // Colors never replace the text: copy returns the exact source, and every token stays readable.
+  function codeBlock(text, language) {
+    var kind = language || (/^\s*[\[{]/.test(text) ? "json" : "text");
+    var code = h("code");
+    text.split("\n").forEach(function (line) {
+      var parts = kind === "json" ? jsonTokens(line) : kind === "text" ? [line] : commandTokens(line);
+      code.appendChild(h("span", { class: "cs-deck-code-line" }, parts.length && line ? parts : [" "]));
+    });
+    var label = kind === "json" ? "JSON" : kind;
+    var figure = h("figure", { class: "cs-deck-code" }, [
+      h("figcaption", { class: "cs-deck-code-head" }, [
+        h("span", { class: "cs-deck-code-lang", text: kind }),
+        h("button", { type: "button", class: "cs-deck-code-copy", "data-action": "copy-code", "aria-label": "Copy " + label, text: "Copy" })
+      ]),
+      h("div", { class: "cs-deck-code-scroll" }, [h("pre", { class: "cs-deck-code-block" }, [code])])
+    ]);
+    codeSource.set(figure, text);
+    return figure;
+  }
+
+  function copyCode(button) {
+    var figure = button.closest(".cs-deck-code");
+    var text = figure && codeSource.get(figure);
+    if (text === undefined) return;
+    var finish = function (copied) {
+      button.textContent = copied ? "Copied" : "Unavailable";
+      button.classList.toggle("is-copied", copied);
+      announce(copied ? "Copied." : "Copy is unavailable in this preview.");
+      window.setTimeout(function () {
+        button.textContent = "Copy";
+        button.classList.remove("is-copied");
+      }, 1200);
+    };
+    if (!navigator.clipboard || !window.isSecureContext) {
+      finish(false);
+      return;
+    }
+    navigator.clipboard.writeText(text).then(function () { finish(true); }, function () { finish(false); });
   }
 
   function timeValue(iso) {
@@ -787,13 +873,14 @@
         }))
       ]),
       h("ol", { class: "cs-model-trace-messages", "aria-label": "Request messages" }, groups.map(function (group) {
-        return h("li", null, [h("strong", { class: "cs-model-trace-role", text: group.role }),
-          h("pre", { class: "cs-run-code" }, [h("code", { text: group.contents.join("\n\n") })])]);
+        // Each message keeps its own block, so a JSON context message is highlighted as JSON.
+        return h("li", null, [h("strong", { class: "cs-model-trace-role", text: group.role })]
+          .concat(group.contents.map(function (content) { return codeBlock(content); })));
       })),
       h("section", { class: "cs-run-payload", "aria-label": "Assistant response" }, [
         h("strong", { text: "Assistant response" }),
         hashLine("Response SHA-256", call.response.content),
-        h("pre", { class: "cs-run-code" }, [h("code", { text: call.response.content })])
+        codeBlock(call.response.content)
       ]),
       factList([["prompt_tokens", String(call.usage.prompt_tokens)], ["completion_tokens", String(call.usage.completion_tokens)],
         ["total_tokens", String(call.usage.total_tokens)],
@@ -2020,6 +2107,8 @@
       setSources(target.closest(".cs-deck-agent-turn"), target.getAttribute("aria-expanded") !== "true");
     } else if (action === "copy") {
       copyReply(target);
+    } else if (action === "copy-code") {
+      copyCode(target);
     } else if (action === "regenerate") {
       regenerate(target.closest(".cs-deck-agent-turn"));
     } else if (action === "suggest") {

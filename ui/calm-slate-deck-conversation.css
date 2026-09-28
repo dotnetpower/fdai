@@ -27,8 +27,10 @@
  *                               cs-run-record refinements, cs-run-record-duration-label,
  *                               cs-run-phase refinements, cs-run-timeline, cs-run-axis,
  *                               cs-run-events, cs-run-event-*, cs-run-track, cs-run-bar,
- *                               cs-run-chevron, cs-run-facts, cs-run-payload, cs-run-code,
- *                               cs-run-observed
+ *                               cs-run-chevron, cs-run-facts, cs-run-payload, cs-run-observed
+ *   rich-content.tsx CodeBlock and json-code-block.tsx
+ *                               cs-deck-code, cs-deck-code-* (compact code pattern of the
+ *                               component gallery, colored by the shared --cs-code-* tokens)
  *   model-trace-waterfall.tsx   cs-model-trace-*
  *   rich-content.tsx            cs-deck-cite, cs-deck-cite-run, cs-deck-caret
  *   command-deck-presenters.tsx cs-deck-followups, cs-deck-followup, cs-deck-user-line,
@@ -1420,26 +1422,114 @@ details[open] > summary .cs-run-chevron { transform: rotate(225deg) translate(-1
   font: 600 var(--cs-type-label-size)/1.35 var(--cs-font);
 }
 
-.cs-run-code {
-  max-height: 260px;
-  box-sizing: border-box;
+/* ----- Code: the component gallery's compact code pattern on the shared code tokens. ----- */
+.cs-deck-code {
+  min-width: 0;
   margin: 0;
-  padding: 8px 10px;
-  overflow: auto;
-  border: 1px solid var(--cs-hairline);
+  overflow: hidden;
+  border: 1px solid var(--cs-code-border);
+  border-radius: 7px;
+  background: var(--cs-code-bg);
+  color: var(--cs-code-text);
+}
+
+.cs-deck-code-head {
+  min-height: 32px;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 2px 4px 2px 10px;
+  border-bottom: 1px solid var(--cs-code-rule);
+  background: var(--cs-code-head-bg);
+}
+
+.cs-deck-code-lang {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--cs-code-muted);
+  font: 600 var(--cs-type-label-size)/1.2 var(--cs-font);
+  letter-spacing: .04em;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.cs-deck-code-copy {
+  min-height: 28px;
+  box-sizing: border-box;
+  flex: none;
+  padding: 2px 9px;
+  border: 1px solid color-mix(in srgb, var(--cs-code-text) 18%, transparent);
   border-radius: var(--cs-radius-sm);
-  background: var(--cs-card);
-  color: var(--cs-text);
-  font: var(--cs-type-label-size)/1.5 var(--cs-font-mono);
+  background: color-mix(in srgb, var(--cs-code-text) 5%, transparent);
+  color: var(--cs-code-text);
+  font: 600 var(--cs-type-label-size)/1 var(--cs-font);
+  cursor: pointer;
+  transition: border-color .15s ease, background-color .15s ease, color .15s ease;
+}
+
+.cs-deck-code-copy:hover {
+  border-color: color-mix(in srgb, var(--cs-code-text) 34%, transparent);
+  background: color-mix(in srgb, var(--cs-code-text) 10%, transparent);
+}
+
+.cs-deck-code-copy:focus-visible {
+  outline: 2px solid var(--cs-code-key);
+  outline-offset: -2px;
+}
+
+.cs-deck-code-copy.is-copied {
+  border-color: color-mix(in srgb, var(--cs-code-string) 45%, transparent);
+  color: var(--cs-code-string);
+}
+
+/* Scrolling stays inside the block; long payload lines wrap so the record never overflows. */
+.cs-deck-code-scroll {
+  max-height: 260px;
+  overflow: auto;
+  padding: 8px 0 9px;
+  color-scheme: dark;
+  scrollbar-color: color-mix(in srgb, var(--cs-code-text) 30%, transparent) transparent;
+  scrollbar-width: thin;
+}
+
+.cs-deck-code-block {
+  margin: 0;
+  color: var(--cs-code-text);
+  font: var(--cs-type-label-size)/1.58 var(--cs-font-mono);
+  font-variant-ligatures: none;
+  tab-size: 2;
+}
+
+.cs-deck-code-block > code {
+  display: block;
+  padding: 0;
+  border-radius: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+}
+
+.cs-deck-code-line {
+  display: block;
+  min-height: 1.58em;
+  padding: 0 12px;
   overflow-wrap: anywhere;
   white-space: pre-wrap;
 }
 
-.cs-run-code > code {
-  padding: 0;
-  background: none;
-  color: inherit;
-  font: inherit;
+.cs-deck-code-token.is-key { color: var(--cs-code-key); }
+.cs-deck-code-token.is-string { color: var(--cs-code-string); }
+.cs-deck-code-token.is-number { color: var(--cs-code-number); }
+.cs-deck-code-token.is-boolean { color: var(--cs-code-boolean); }
+.cs-deck-code-token.is-punctuation { color: var(--cs-code-punctuation); }
+.cs-deck-code-token.is-flag { color: var(--cs-code-flag); }
+
+.cs-deck-code-token.is-command {
+  color: var(--cs-code-command);
+  font-weight: 600;
 }
 
 .cs-model-trace-note {
@@ -1499,7 +1589,7 @@ details[open] > summary .cs-run-chevron { transform: rotate(225deg) translate(-1
 .cs-model-trace-messages > li {
   min-width: 0;
   display: grid;
-  gap: 4px;
+  gap: 6px;
 }
 
 /* ----- Composer ----- */
@@ -1704,7 +1794,7 @@ details[open] > summary .cs-run-chevron { transform: rotate(225deg) translate(-1
 /* ----- Touch targets ----- */
 @media (max-width: 640px) {
   :is(.cs-deck-followup, .cs-deck-context-chip, .cs-deck-readiness-item, .cs-deck-source, .cs-deck-jump,
-    .cs-run-event-summary, .cs-model-trace-lane-summary) {
+    .cs-run-event-summary, .cs-model-trace-lane-summary, .cs-deck-code-copy) {
     min-height: 44px;
   }
 
@@ -1801,6 +1891,7 @@ details[open] > summary .cs-run-chevron { transform: rotate(225deg) translate(-1
   }
 
   .cs-deck-skeleton { background: GrayText; }
+  .cs-deck-code { border: 1px solid CanvasText; }
   .cs-run-bar { background: Highlight; }
   .cs-run-track { outline: 1px solid CanvasText; }
   .cs-deck-caret { background: CanvasText; }

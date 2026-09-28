@@ -466,6 +466,52 @@ test("run record reads as one quiet line and colors only trouble", { timeout: 60
   }
 });
 
+test("run record payloads use the component gallery's compact code pattern", { timeout: 60000 }, async () => {
+  const [tokens, gallery] = await Promise.all([
+    readFile(join(root, "ui/calm-slate-tokens.css"), "utf8"),
+    readFile(join(uiRoot, "assets/calm-slate.css"), "utf8"),
+  ]);
+  assert.match(tokens, /--cs-code-bg: #222a31;/);
+  assert.match(gallery, /\.cs-code-compact \{[^}]*background: var\(--cs-code-bg\)/);
+  assert.match(gallery, /\.cs-code-token\.is-key \{ color: var\(--cs-code-key\); \}/);
+  const browser = await chromium.launch({ headless: true });
+  try {
+    const { context, frame, errors } = await openStudy(browser, { state: "settled", trace: "on" });
+    await context.grantPermissions(["clipboard-read", "clipboard-write"], { origin });
+    await deckState(frame, "settled", 5000);
+    await frame.locator(".cs-run-record > summary").click();
+    const event = frame.locator('.cs-run-event[data-kind="evidence"]').first();
+    await event.locator("summary").click();
+    const blocks = await event.evaluate((node) => [...node.querySelectorAll(".cs-deck-code")].map((block) => ({
+      lang: block.querySelector(".cs-deck-code-lang").textContent,
+      copy: block.querySelector(".cs-deck-code-copy").getAttribute("aria-label"),
+      background: getComputedStyle(block).backgroundColor,
+      tokens: [...new Set([...block.querySelectorAll(".cs-deck-code-token")].map((token) => token.className.split(" ")[1]))].sort(),
+    })));
+    assert.deepEqual(blocks.map((block) => block.lang), ["query", "json"]);
+    assert.deepEqual(blocks.map((block) => block.copy), ["Copy query", "Copy JSON"]);
+    assert.ok(blocks.every((block) => block.background === "rgb(34, 42, 49)"), blocks.map((block) => block.background).join(","));
+    assert.deepEqual(blocks[0].tokens, ["is-command", "is-flag"]);
+    assert.deepEqual(blocks[1].tokens, ["is-key", "is-number", "is-punctuation", "is-string"]);
+    assert.equal(await frame.locator(".cs-run-code").count(), 0);
+
+    // Copy returns the exact source, then the button settles back to its idle label.
+    const copy = event.locator(".cs-deck-code-copy").nth(1);
+    await copy.click();
+    await frame.locator(".cs-deck-code-copy.is-copied").waitFor({ state: "attached", timeout: 2000 });
+    assert.equal(await copy.textContent(), "Copied");
+    const copied = await frame.evaluate(() => navigator.clipboard.readText());
+    assert.equal(JSON.parse(copied).resource, "example-postgres");
+    assert.match(copied, /\n  "route": "live",\n/);
+    await frame.locator(".cs-deck-code-copy.is-copied").waitFor({ state: "detached", timeout: 3000 });
+    assert.equal(await copy.textContent(), "Copy");
+    assert.deepEqual(errors, []);
+    await context.close();
+  } finally {
+    await browser.close();
+  }
+});
+
 test("trace capture can start on from the URL", { timeout: 60000 }, async () => {
   const browser = await chromium.launch({ headless: true });
   try {
