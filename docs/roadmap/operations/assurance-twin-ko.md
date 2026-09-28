@@ -1,8 +1,8 @@
 ---
 title: 어슈어런스 트윈 (질의가능하고 선제적이며 검증가능한 리뷰)
 translation_of: assurance-twin.md
-translation_source_sha: b1fc09193ed032180dc937dd60892b154ce8c111
-translation_revised: 2026-09-27
+translation_source_sha: 01a122c53fcde6d05fed16bf6bb70578f63e0bd9
+translation_revised: 2026-09-28
 ---
 # 어슈어런스 트윈 (질의가능하고 선제적이며 검증가능한 리뷰)
 
@@ -52,7 +52,13 @@ event-driven, risk-gated 설계를 저하시키지 않으면서 커버하는 리
 또는 인벤토리 개정 변경이 있으면 자세를 사용할 수 없습니다. 인벤토리 승격 및 실시간
 그래프 잠금은 원본 저장과 Heimdall 확인이 끝날 때까지 유지됩니다. 영속 최초 관측 순서,
 원본/대상 충돌 보호 경계 및 기준선에 제한된 최신성은 지연된 근거가 현재 상태가 되는 것을
-막습니다. Forseti의 제안 IaC 생산자, 외부 검토 전달 및 통제된 런타임 증적은 남아 있습니다.
+막습니다. 프로덕션은 Forseti의 검토 생산자도 FDAI의 형식화된 ActionType 제안에 연결합니다.
+정확한 제안 하나, 같은 제안 다이제스트에 결속된 완료된 what-if, 검토를 거쳐 선언된 ActionType
+효과가 보관 인벤토리 개정의 임시 변환 결과를 만들고, 같은 T0/OPA 세대가 이를 평가합니다.
+2026-09-28 소유자 결정에 따라 Terraform은 로컬 배포 도구이며 거버넌스나 검토 입력으로 사용하지
+않습니다. 검토된 효과 모델과 형식화된 what-if 생산자는 아직 제공되지 않으므로 프로덕션에서
+제출된 모든 제안은 명시적으로 사용할 수 없는 상태로 남습니다. 외부 검토 전달과 통제된 런타임
+증적은 남아 있습니다.
 
 ### 구현 범위
 
@@ -62,11 +68,12 @@ event-driven, risk-gated 설계를 저하시키지 않으면서 커버하는 리
 | 스칼라 Dynamic 효과 모델, 충실도 측정, 범위가 제한된 런타임 조정 | implemented | [`effect_model.py`](../../../services/core-control-plane/src/fdai/core/assurance_twin/effect_model.py), [`fidelity.py`](../../../services/core-control-plane/src/fdai/core/assurance_twin/fidelity.py), [`runtime.py`](../../../services/core-control-plane/src/fdai/core/assurance_twin/runtime.py) 및 해당 집중 테스트 | 활성 모델은 변경하지 않고, challenger는 적격 결과에서만 학습하며, 불일치는 사람 검토로 낮춥니다. |
 | 그래프 전역 Dynamic 궤적, 전파, 불변식, 에피소드 종결, 모델 레지스트리 | implemented | [`graph_effect.py`](../../../services/core-control-plane/src/fdai/core/assurance_twin/graph_effect.py), [`graph_runtime.py`](../../../services/core-control-plane/src/fdai/core/assurance_twin/graph_runtime.py), [`graph_closure.py`](../../../services/core-control-plane/src/fdai/core/assurance_twin/graph_closure.py) 및 그래프 집중 테스트 | 런타임은 근거를 반환하기 전에 예측 에피소드를 저장하고 완전한 독립 관측에서만 challenger 구획을 갱신합니다. |
 | 심층 Security Assessment 피드, 결정론적 분석기, 카탈로그 보고서 | implemented | [`core/security/`](../../../services/core-control-plane/src/fdai/core/security), [`security_assessment.py`](../../../services/core-control-plane/src/fdai/core/reporting/datasources/security_assessment.py), [`test_assessment.py`](../../../services/core-control-plane/tests/core/security/test_assessment.py), [`test_security_assessment_datasource.py`](../../../services/core-control-plane/tests/core/reporting/test_security_assessment_datasource.py) | 아래에서 설명하는 Twin 전용 자세 패널과는 별도의 보고 하위 시스템입니다. |
-| 보관된 `Resource` 개정과 작성기 수용 계약 | implemented | [`assurance_twin_inventory.py`](../../../services/core-control-plane/src/fdai/delivery/assurance_twin_inventory.py), [`assurance_twin_writers.py`](../../../services/core-control-plane/src/fdai/delivery/assurance_twin_writers.py), 출처 및 게시 집중 테스트 | 스냅샷과 범위가 제한된 `Resource` 변경분은 하나의 정규 다이제스트로 식별됩니다. 신뢰된 출처는 빈 결과의 다이제스트까지 포함해 개정이 일치하는 완전한 규칙 평가를 제공해야 합니다. 검토에는 완전한 제안된 IaC 근거도 필요합니다. 실제 평가기나 관계 변경분은 연결하지 않았습니다. |
-| 운영 Twin 연결과 선제적 변경 검토 전달 | in-progress | [`evaluation.py`](../../../services/core-control-plane/src/fdai/core/assurance_twin/evaluation.py), [`assurance_twin_posture_producer.py`](../../../services/core-control-plane/src/fdai/delivery/assurance_twin_posture_producer.py), [`assurance_twin_evidence_source.py`](../../../services/core-control-plane/src/fdai/delivery/assurance_twin_evidence_source.py), 런타임 조립 | Heimdall의 프로덕션 생산자는 변경할 수 없는 T0/OPA 정책 세대로 정확한 보관 인벤토리 개정을 평가하고 `Resource`별 입력이 완전한 결과만 기록합니다. 요청 아웃박스에는 내용이 없으며 인벤토리, Rule, 정책, 원본, 대상 및 최신성 보호 경계는 불확실할 때 사용할 수 없는 상태를 선택합니다. Forseti의 제안 IaC 생산자와 통제된 런타임 증적은 아직 연결되지 않았습니다. |
+| 보관된 `Resource` 개정과 작성기 수용 계약 | implemented | [`assurance_twin_inventory.py`](../../../services/core-control-plane/src/fdai/delivery/assurance_twin_inventory.py), [`assurance_twin_writers.py`](../../../services/core-control-plane/src/fdai/delivery/assurance_twin_writers.py), 출처 및 게시 집중 테스트 | 스냅샷과 범위가 제한된 `Resource` 변경분은 하나의 정규 다이제스트로 식별됩니다. 신뢰된 출처는 빈 결과의 다이제스트까지 포함해 개정이 일치하는 완전한 규칙 평가를 제공해야 합니다. 검토에는 같은 인벤토리 개정에 결속된 완전한 형식화 ActionType 제안 판독 결과도 필요합니다. 폐기된 제안 IaC 판독 결과는 수용하지 않습니다. 관계 변경분은 연결하지 않았습니다. |
+| 운영 Twin 연결과 선제적 변경 검토 전달 | in-progress | [`evaluation.py`](../../../services/core-control-plane/src/fdai/core/assurance_twin/evaluation.py), [`assurance_twin_posture_producer.py`](../../../services/core-control-plane/src/fdai/delivery/assurance_twin_posture_producer.py), [`assurance_twin_evidence_source.py`](../../../services/core-control-plane/src/fdai/delivery/assurance_twin_evidence_source.py), 런타임 조립 | Heimdall의 프로덕션 생산자는 변경할 수 없는 T0/OPA 정책 세대로 정확한 보관 인벤토리 개정을 평가하고 `Resource`별 입력이 완전한 결과만 기록합니다. 요청 아웃박스에는 내용이 없으며 인벤토리, Rule, 정책, 원본, 대상 및 최신성 보호 경계는 불확실할 때 사용할 수 없는 상태를 선택합니다. Forseti의 형식화 제안 검토 생산자가 함께 연결되며, 통제된 런타임 증적은 아직 남아 있습니다. |
+| Forseti 형식화 ActionType 제안 검토 | implemented | [`typed_proposal.py`](../../../services/core-control-plane/src/fdai/core/assurance_twin/typed_proposal.py), [`proposal_effects.py`](../../../services/core-control-plane/src/fdai/core/assurance_twin/proposal_effects.py), [`assurance_twin_review_producer.py`](../../../services/core-control-plane/src/fdai/delivery/assurance_twin_review_producer.py), [`assurance_twin_proposal_intake.py`](../../../services/core-control-plane/src/fdai/delivery/assurance_twin_proposal_intake.py), [`test_assurance_twin_review_producer.py`](../../../services/core-control-plane/tests/delivery/test_assurance_twin_review_producer.py) | 내용으로 식별되는 영속 입력 대기열이 정확한 제안 하나와 그 what-if를 받습니다. 생산자는 검토를 거쳐 선언된 효과만 제안의 보관 대상에 적용하고 컨트롤 루프 T0/OPA 세대로 평가하며, 바뀌는 모든 리프 값을 적용 Rule의 입력이 포함해야 합니다. 검토 키가 제안 참조이므로 더 새로운 개정이 이전 검토를 원자적으로 대체하고, Operator 변환 결과는 한 변경 핸들에 사용 가능한 검토가 둘이면 충돌로 처리합니다. 입력 대기열 행은 작성기가 확인한 뒤에만 `reviewed`가 되며, 보호 경계 거부 시 오래된 요청을 폐기하며 도출은 최대 세 번까지 시도합니다. 누락되었거나 오래되었거나 불완전하거나 실패했거나 합성되었거나 상충하는 what-if 결과, 지원하지 않는 ActionType 버전, 선언되지 않은 매개변수, 평가되지 않은 속성, 보관 개정 밖의 대상은 사용할 수 없음으로 정리됩니다. 제공되는 효과 카탈로그는 비어 있으며 아직 형식화된 what-if 생산자가 제출하지 않습니다. |
 | 엄격한 의미 컴파일과 판단 보류 피드백 | implemented | [`query.py`](../../../services/core-control-plane/src/fdai/core/assurance_twin/query.py), [`semantic_query.py`](../../../services/core-control-plane/src/fdai/core/assurance_twin/semantic_query.py), [`runtime/assurance_twin_query.py`](../../../services/core-control-plane/src/fdai/runtime/assurance_twin_query.py), 집중 질의 및 런타임 테스트 50개 | 주입된 컴파일러는 읽기 전용 계획이 검증을 통과하기 전에 정확한 입력 다이제스트, 컴파일러 개정, 제한된 결과 수, 근거 참조를 연결해야 합니다. 판단 보류는 주입된 발견 sink를 통해 내용 없는 무권한 공백만 발행합니다. 런타임 기본값은 명시적인 모델 사용 불가입니다. |
 | T1 재사용, ChatOps 입력, 통제된 런타임 근거 | in-progress | [`chat.py`](../../../services/core-control-plane/src/fdai/core/assurance_twin/chat.py), 공유 의미 판단 계약 | 메시지 라우팅, T1 재사용, 구체적인 모델 프로바이더, 인증된 종단 증적은 아직 검증되지 않았습니다. |
-| Heimdall/Forseti 로컬 이벤트 게시 | implemented | [`assurance_twin_writers.py`](../../../services/core-control-plane/src/fdai/delivery/assurance_twin_writers.py), [`assurance_twin_publication.py`](../../../services/core-control-plane/src/fdai/delivery/assurance_twin_publication.py), [`test_assurance_twin_publication.py`](../../../services/core-control-plane/tests/delivery/test_assurance_twin_publication.py) | 요청에는 발견 사항이 없습니다. 출처가 요청한 개정의 완전하고 최신이며 상충하지 않는 근거를 반환한 경우에만 작성기가 저장합니다. Saga에 귀속된 감사 이력과 내장 아웃박스는 정확한 행과 함께 원자적으로 저장됩니다. Heimdall은 원본/대상 확인이 끝날 때까지 권위 있는 인벤토리 잠금도 유지합니다. 일시적인 실패는 임시 상태를 유지하고 확인된 개정 변경은 게시를 철회합니다. Forseti는 여전히 프로덕션 제안 IaC 출처가 필요합니다. |
+| Heimdall/Forseti 로컬 이벤트 게시 | implemented | [`assurance_twin_writers.py`](../../../services/core-control-plane/src/fdai/delivery/assurance_twin_writers.py), [`assurance_twin_publication.py`](../../../services/core-control-plane/src/fdai/delivery/assurance_twin_publication.py), [`test_assurance_twin_publication.py`](../../../services/core-control-plane/tests/delivery/test_assurance_twin_publication.py) | 요청에는 발견 사항이 없습니다. 출처가 요청한 개정의 완전하고 최신이며 상충하지 않는 근거를 반환한 경우에만 작성기가 저장합니다. Saga에 귀속된 감사 이력과 내장 아웃박스는 정확한 행과 함께 원자적으로 저장됩니다. Heimdall은 원본/대상 확인이 끝날 때까지 권위 있는 인벤토리 잠금도 유지합니다. 일시적인 실패는 임시 상태를 유지하고 확인된 개정 변경은 게시를 철회합니다. Forseti 작성기는 형식화 제안 검토에 같은 Rule 세대 및 인벤토리 보호 경계를 유지합니다. |
 | Twin 전용 운영자 패널과 거버넌스가 적용된 수정 제안 연결 | in-progress | [`posture_activity.py`](../../../services/core-control-plane/src/fdai/core/assurance_twin/posture_activity.py), [`assurance_twin_posture.py`](../../../services/core-control-plane/src/fdai/delivery/assurance_twin_posture.py), [`state_store_assurance_twin_posture.py`](../../../services/core-control-plane/src/fdai/delivery/persistence/state_store_assurance_twin_posture.py), [`assurance_twin_posture_projection.py`](../../../services/operator-service/src/fdai_operator_service/assurance_twin_posture_projection.py), [`assurance-twin` 콘솔 경로](../../../console/src/routes/assurance-twin.tsx) | 레코더는 출처와 내장된 게시 대기를 포함하는 제한된 보고서 및 검토 본문을 감사 기록과 같은 트랜잭션에서 개정 번호로 보호하여 저장합니다. Heimdall과 Forseti는 각자 소유하는 별도의 활동을 사용합니다. 관찰자에게만 허용되는 공유 운영 활동 스키마를 Forseti 소유로 위장하지 않습니다. 중계기는 정확한 영속 개정을 확인하고 게시 사실을 기록합니다. 늦거나 상충하는 근거는 현재 행을 바꾸거나 게시하지 못합니다. Operator와 콘솔은 영속 발견 사항과 근거 공백을 읽고 권한을 재계산하지 않습니다. 신뢰할 수 있는 출처, 외부 Checks 발행기, 수정 제안 연결, 통제된 실제 증적은 여전히 연결되지 않았습니다. |
 
 일치하는 검토 재전달은 읽기 전용 no-op이므로 감사 항목을 추가하지 않고 최신 순서를 바꾸지
@@ -83,10 +90,14 @@ event-driven, risk-gated 설계를 저하시키지 않으면서 커버하는 리
 발견 사항 집합에 부합하는지 확인하며, 근거가 없거나 오래되거나 상충할 때 판정을
 추론하지 않습니다. 버스 알림에는 `current: false`와
 `publication_complete: false`를 넣습니다. 중계기가 마지막으로 읽은 뒤 더 새로운
-행이 저장될 수 있으므로 현재 상태는 영속 변환 결과만 판단합니다.
+행이 저장될 수 있으므로 현재 상태는 영속 변환 결과만 판단합니다. 중계기는 `StateStore` 점 경로
+필드 필터로 기존의 중첩 `publication_outbox.published` 값이 false인 행만 페이지로 읽으므로, 한 번의
+처리에서 보관 이력 전체가 아니라 제한된 페이지 하나만 읽고 적체는 예외 대신 로그로 남깁니다. 행 형태는
+이전 릴리스와 같으므로 따로 롤백된 Core나 Operator도 다이제스트 불일치 없이 이 행을 읽습니다.
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-28 | in-progress | Terraform은 로컬 배포 도구이며 거버넌스 입력이 될 수 없다는 소유자 결정에 따라 제안 IaC 검토 입력을 FDAI 형식화 ActionType 제안으로 대체했습니다. 내용으로 식별되는 제안 및 what-if 계약, 바뀌는 모든 리프 값의 Rule 입력 범위를 확인하는 검토된 효과 기반 임시 변환 도출, 작성기 확인 전까지 `recorded`로 남는 영속 입력 대기열, 원자적 대체와 변환 결과 충돌 보호를 갖춘 제안별 현재 검토 하나, Rule 세대 및 인벤토리 쓰기 보호 경계와 제한된 재도출을 갖춘 Forseti의 프로덕션 연결 검토 생산자, 점 경로 `StateStore` 필드 필터로 미게시 행 기준 처리 비용이 제한되고 행 형태는 이전 릴리스와 같은 아웃박스 중계기를 추가했습니다. 폐기된 제안 IaC 행은 계속 사용할 수 없습니다. | `current change`; `core/assurance_twin/{typed_proposal,proposal_effects,evaluation}.py`, `shared/providers/state_store.py`, `delivery/persistence/{postgres,assurance_twin_outbox}.py`, `delivery/assurance_twin_{review_producer,review_follow_up,proposal_intake,review_evidence}.py`, `delivery/persistence/state_store_assurance_twin_proposal_review.py`; 형식화 제안, 생산자, 수명 주기, 원장, 출처, 게시, 시작 조립, Operator 변환 결과, Pantheon 배치 집중 테스트, Ruff, strict mypy. | 검토된 ActionType 효과 모델을 선언하고 형식화된 what-if 생산자를 입력 대기열에 연결한 뒤 외부 Checks를 전달하고 원본부터 렌더링까지 통제된 증적 하나를 보존합니다. |
 | 2026-09-27 | in-progress | Heimdall의 프로덕션 자세 생산자를 정확한 보관 인벤토리 및 변경할 수 없는 T0/OPA 세대에 연결했습니다. `Resource`별 입력 완전성, 영속 단조 증가 원본 순서, 현재 정책 및 인벤토리 보호 경계, 잠금이 적용된 2단계 원본/대상 확인, 재시작에 안전한 종단 상태 복구를 추가했습니다. | `current change`; 평가기, 인벤토리, OPA 정책 변경, 원본, 작성기, 시작 조립, 경합 및 재시도 집중 검사, Ruff, strict mypy. | Forseti의 완전한 제안 IaC 생산자와 외부 Checks 발행기를 연결한 뒤 원본부터 렌더링까지 통제된 증적 하나를 보존합니다. |
 | 2026-09-27 | implemented | 보관된 `Resource` 세대와 범위가 제한된 변경분을 내용으로 식별하고, 작성기가 같은 개정의 완전한 규칙 점검 결과와 검토에 필요한 제안된 IaC 근거를 요구하도록 했습니다. 운영 출처와 요청 생산자는 연결하지 않았습니다. | `current change`; `assurance_twin_inventory.py`, `assurance_twin_writers.py`, 인벤토리 및 게시 집중 테스트. | 책임 있는 완전한 평가기와 변경 제안 출처를 연결하고, 보류 중인 관계 변경을 처리하고, 내용 없는 버스 요청을 발행한 뒤 통제된 런타임 증적을 보관합니다. |
 | 2026-09-27 | implemented | Heimdall 보고서와 Forseti 검토 작성기를 분리하고, 정확한 개정의 상태, 아웃박스, 감사를 원자적으로 저장하며 재시작 중계기를 감독하도록 했습니다. 출처를 사용할 수 없거나 근거가 충돌할 때 검토 판정을 만들어 내지 않습니다. | `current change`; `assurance_twin_writers.py`, `assurance_twin_publication.py`, Core, Operator 및 콘솔 집중 검사. | 신뢰할 수 있는 운영 근거를 연결하고 통제된 런타임 증적을 보관합니다. |
@@ -125,6 +136,9 @@ event-driven, risk-gated 설계를 저하시키지 않으면서 커버하는 리
   독립적으로 감독되는 Heimdall/Forseti 작성기에 연결합니다. 내용 없는 요청은
   근거가 아니며 공격자가 영향을 줄 수 있는 선제적 수집 페이로드는 권위 있는
   Twin 근거가 될 수 없습니다.
+- [ ] 거버넌스 검토 출처가 있는 검토된 ActionType 속성 효과 모델을 선언하고, 정확한 제안과
+  what-if 쌍을 영속 입력 대기열에 제출하는 형식화 파이프라인 what-if 생산자를 연결합니다. 둘 다
+  준비될 때까지 제출된 모든 제안은 명시적으로 사용할 수 없음으로 정리됩니다.
 - [ ] 하나의 전체 인벤토리-보고서 렌더링에 대한 통제된 런타임 증적을 수집합니다. 이 항목은
   운영 `Inventory` 연결과 신뢰된 생산자를 필요로 하므로 구현도 검증도 완료되지 않았습니다.
   실제 증적은 아직 없으며 대체 증적을 만들어 넣어서도 안 됩니다.
@@ -152,21 +166,46 @@ retrieval-augmented 챗봇은 다섯 가지 구조적 결함을 안고 리뷰 �
 거부합니다. 주입된 신뢰할 수 있는 출처는 해당 개정을 다시 읽고 명시적인 규칙
 적용 범위, 평가한 규칙 식별자, 규칙 집합 다이제스트 및 완전한 점검
 결과 집합의 다이제스트를 제공해야 합니다. 발견된 문제가 없다는 결과도 이 독립적이고
-완전한 규칙 평가가 있어야만 정상으로 표시합니다. 검토에는 같은 개정과 PR에 연결된
-완전한 제안된 IaC 근거가 추가로 필요합니다. 보류 중인 관계 변경, 근거 부재, 개정
-불일치, 오래되거나 상충하는 출처는 사용할 수 없습니다. 스키마 검증을 거친 내용
-없는 요청을 정당하게 선택하고 발행할 기존 생산자가 없으므로 운영 작성기는 기본적으로
-연결되지 않습니다. 이 읽기 전용 기록은 승인, 변경 또는 실행 권한을 부여하지 않습니다.
+완전한 규칙 평가가 있어야만 정상으로 표시합니다. 보류 중인 관계 변경, 근거 부재, 개정
+불일치, 오래되거나 상충하는 출처는 사용할 수 없습니다. 이 읽기 전용 기록은 승인, 변경 또는
+실행 권한을 부여하지 않습니다.
 
-트윈은 요청이 아니라 이벤트에서 변경을 리뷰합니다. 변경 신호가 도착하면(IaC pull 요청
-열림, Activity Log 리소스 쓰기, 표류 차이), `event-ingest` 가 정규화하고, 트윈이 scratch
-투영에 차이를 적용하며, T0가 영향받는 규칙을 평가하고, 결과가 리뷰로 되돌아 게시됩니다 -
-PR의 Checks API 주석 또는 인시던트의 발견 사항. "요청 시 배포 후 평가" 케이스가 "변경 시,
-요청 없이 평가됨"이 됩니다.
+Forseti는 IaC 계획이 아니라 FDAI 자체의 형식화된 변경 제안을 검토합니다. 2026-09-28 소유자
+결정에 따라 Terraform은 로컬 배포 도구이며 거버넌스 수준에서 사용하지 않으므로, Terraform
+계획, 렌더링된 템플릿 또는 pull request 차이는 Twin 검토 입력이 될 수 없습니다. 검토 입력
+하나는 정확한 ActionType 식별자와 버전, 정확한 대상 `Resource` 참조, 정규 매개변수
+다이제스트, 그리고 내용으로 식별되는 같은 제안 다이제스트에 결속된 완료된 what-if 또는
+dry-run 결과 하나를 묶습니다. what-if는 통과했고 완전하며 최신이고 합성되지 않았으며
+`simulation_engine` 권한 분류에서 나와야 하고, 제안의 대상을 정확히 명시해야 합니다. 해당
+ActionType 버전에 대해 검토를 거쳐 선언된 효과 모델은 매개변수를 대상의 최상위 속성에
+대응시킵니다. 모든 매개변수는 사용되거나 비활성으로 선언되어야 합니다.
 
-예: 개발자가 비공개 엔드포인트 없이 저장소 계정을 추가하는 IaC PR을 엽니다. 리뷰가
-요청되기 전에 트윈이 검사를 게시합니다: `차단된 - object-storage.private-endpoint.필수
-(규칙 인용), 해석: 비공개 엔드포인트 추가 또는 exemption 적용`.
+트윈은 요청이 아니라 형식화된 변경이 제안될 때 검토합니다. 형식화 파이프라인 생산자는 제안과
+what-if를 내용으로 식별되는 영속 입력 대기열에 제출합니다. Forseti의 생산자는 보관 인벤토리
+개정에 있는 제안 대상의 임시 변환 결과에 선언된 효과를 적용하고, 컨트롤 루프 T0/OPA 세대가
+완전한 평가 증적으로 변경된 대상을 평가합니다. 기록되는 각 속성의 보관 값과 예측 값을 리프 단위로
+비교하며, 실제로 바뀌는 모든 리프는 해당 대상에 적용되는 Rule 하나 이상이 선언한 입력으로 포함되어야
+합니다. 상위 경로의 입력은 하위 경로를 포함하지만, 하위 경로의 입력은 상위나 형제 경로를 포함하지
+않으며, 바뀌지 않은 리프에는 입력이 필요하지 않습니다. 그렇지 않으면 변경은
+`effect_unassessed`입니다. 그런 다음 Forseti의 작성기는 정확한 개정의 아웃박스를 통해 범위가
+제한된 읽기 전용 검토를 게시합니다. 효과 모델 누락, 없거나 오래되었거나 불완전하거나 실패했거나
+상충하는 what-if, 보관 개정 밖의 대상, 선언되지 않은 매개변수, 평가되지 않은 속성이 있으면
+제안은 `clear`가 아니라 사용할 수 없음으로 정리됩니다.
+
+검토 키는 제안 참조이므로 원장은 제안마다 정확히 하나의 현재 검토를 유지합니다. 더 새로운 개정은
+하나의 compare-and-set으로 이전 검토, 그 아웃박스, Saga 계보를 대체하며, 지연된 이전 개정은
+이를 대체하지 못합니다. Operator 변환 결과도 한 변경 핸들에 사용 가능한 검토가 둘이면 충돌
+공백으로 처리합니다. 입력 대기열 행은 작성기가 그 정확한 검토를 확인할 때까지 `recorded`로
+남습니다. Rule 세대나 인벤토리 개정 변경으로 작성기의 보호된 커밋이 막히면, Forseti는 중계기가
+멈추도록 오래된 요청을 폐기합니다. what-if가 최신인 동안 최대 세 번의 도출 시도 안에서 다시
+도출하며, 그렇지 않으면 `rule_generation_changed` 또는 `inventory_revision_changed`로 제안을
+사용할 수 없음으로 정리합니다. 외부 Checks 발행기는 나중에 보관된 검토를 표시할 수 있지만, 이는
+전달이지 입력이 아닙니다.
+
+예: 형식화된 제안이 저장소 계정 하나에 `public_access: enabled`를 설정하려 합니다. 해당
+ActionType 버전에 대한 검토된 효과 모델과 그 정확한 제안에 대한 완료된 what-if가 있으면,
+Forseti는 누가 요청하기 전에 해당 대상에서 위반된 공개 접근 Rule을 인용하는 `blocked` 검토를
+게시합니다. 이 검토는 제안을 승인, 실행 또는 승격하지 않습니다.
 
 ### 2. Ontology-grounded (수집에서 그래프 질의로)
 
@@ -412,6 +451,8 @@ Supplemental 프로바이더는 서버 매개변수, diagnostic-setting 상태, 
 | `graph_effect` / `graph_runtime` | 범위가 제한된 그래프 효과를 전파하고 필수 active-trajectory 불변식을 평가하며 review-only 시뮬레이션 근거를 반환합니다. |
 | `trajectory_ledger` | Predicted trajectory 에피소드를 저장하고 완전한 comparable 결과만 StateStore를 통해 atomically close합니다. |
 | `graph_closure` | 독립적인 관측을 off-path로 배출하고 challenger 구획을 갱신하며 활성 변경과 승격이 없었음을 감사합니다. |
+| `typed_proposal` | 내용으로 식별되는 형식화 ActionType 제안, what-if 결과, Forseti 작성기가 다시 검증하는 보관 형식화 제안 판독 결과를 정의합니다. |
+| `proposal_effects` | 정확한 검토된 ActionType 효과 모델을 찾아 제안의 보관 대상에 대한 예측 임시 변경을 도출하거나 명시적인 사용 불가 사유를 반환합니다. |
 | `posture_activity` | Heimdall의 기존 제한된 자세 활동과 Forseti의 별도 읽기 전용 검토 활동을 만듭니다. 전달 레코더는 각 활동을 보관 기록 및 Saga에 귀속된 추가 전용 감사와 함께 준비합니다. 독립적으로 감독되는 두 중계기가 개정에 결속된 이벤트를 게시합니다. 발견 사항을 계산하려면 주입된 신뢰할 수 있는 출처가 여전히 필요합니다. |
 
 `PostgresTwinInventorySource`는 반복 읽기 트랜잭션에서 보관된 Inventory 데이터베이스의
@@ -420,8 +461,11 @@ Supplemental 프로바이더는 서버 매개변수, diagnostic-setting 상태, 
 반영할 수 없는 관계 변경도 거부합니다. Heimdall의 프로덕션 자세 생산자는 이벤트 루프 밖에서
 컨트롤 루프의 변경할 수 없는 T0/OPA 세대를 재사용하고, 모든 `Resource`의 선언된 Rule 입력과
 증적을 요구하며, 원본 저장과 작성기 확인이 끝날 때까지 인벤토리 승격 및 실시간 그래프 잠금을
-유지합니다. 운영 검토 연결에는 신뢰할 수 있고 완전성 검증을 거친 제안 변경 근거 생산자가
-여전히 필요합니다.
+유지합니다. Forseti의 검토 생산자는 같은 인벤토리 출처와 T0/OPA 세대를 공유합니다. 영속 입력
+대기열의 형식화된 ActionType 제안만, 그리고 검토된 효과 모델을 통해서만 검토합니다. 카탈로그가
+비어 있으면 평가되지 않은 변경을 오해를 부르는 `clear` 판정으로 바꾸지 않고 모든 제안을 사용할
+수 없음으로 유지합니다. 인벤토리 스냅샷 식별자만으로는 두 생산자가 요구하는 정확한 개정이 되지
+않습니다.
 
 목표 전달은 기존 `chatops` 어댑터에 인텐트 하나를 추가하고(질문 입력, 근거 있는 답 출력)
 제안과 Checks API 리뷰에 `gitops-pr` 어댑터를 재사용합니다. 현재 저장소에는

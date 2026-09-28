@@ -53,8 +53,14 @@ the control loop. Every Resource must have declared input-complete Rule coverage
 missing property, pending relationship change, stale baseline, policy drift, or Inventory revision
 change keeps posture unavailable. Inventory promotion and realtime graph locks remain held through
 the source write and Heimdall confirmation. Durable first-seen ordering, source/target conflict
-fencing, and baseline-capped freshness prevent delayed evidence from becoming current. Forseti's
-proposed-IaC producer, external review delivery, and governed runtime evidence remain open.
+fencing, and baseline-capped freshness prevent delayed evidence from becoming current. Production
+also binds Forseti's review producer to FDAI typed ActionType proposals: one exact proposal, its
+completed what-if bound to the same proposal digest, and a reviewed declared ActionType effect
+produce a scratch projection of the retained Inventory revision that the same T0/OPA generation
+evaluates. Following the 2026-09-28 owner decision, Terraform is a local deployment tool and never
+a governance or review input. No reviewed effect model or typed what-if producer ships yet, so every
+submitted proposal stays explicitly unavailable in production. External review delivery and
+governed runtime evidence remain open.
 
 ### Implementation scope
 
@@ -64,11 +70,12 @@ proposed-IaC producer, external review delivery, and governed runtime evidence r
 | Scalar Dynamic effect models, fidelity measurement, and bounded runtime coordination | implemented | [`effect_model.py`](../../../services/core-control-plane/src/fdai/core/assurance_twin/effect_model.py), [`fidelity.py`](../../../services/core-control-plane/src/fdai/core/assurance_twin/fidelity.py), [`runtime.py`](../../../services/core-control-plane/src/fdai/core/assurance_twin/runtime.py), and their focused tests | Active models stay immutable, challengers learn only from eligible outcomes, and divergence lowers the result to review. |
 | Graph-wide Dynamic trajectories, propagation, invariants, episode closure, and model registry | implemented | [`graph_effect.py`](../../../services/core-control-plane/src/fdai/core/assurance_twin/graph_effect.py), [`graph_runtime.py`](../../../services/core-control-plane/src/fdai/core/assurance_twin/graph_runtime.py), [`graph_closure.py`](../../../services/core-control-plane/src/fdai/core/assurance_twin/graph_closure.py), and focused graph tests | The runtime persists prediction episodes before returning evidence and updates challenger slices only from complete independent observations. |
 | Deep Security Assessment feed, deterministic analyzer, and catalog report | implemented | [`core/security/`](../../../services/core-control-plane/src/fdai/core/security), [`security_assessment.py`](../../../services/core-control-plane/src/fdai/core/reporting/datasources/security_assessment.py), [`test_assessment.py`](../../../services/core-control-plane/tests/core/security/test_assessment.py), and [`test_security_assessment_datasource.py`](../../../services/core-control-plane/tests/core/reporting/test_security_assessment_datasource.py) | This is a separate reporting subsystem, not the Twin-specific posture panel described below. |
-| Retained Resource revision and writer admission contract | implemented | [`assurance_twin_inventory.py`](../../../services/core-control-plane/src/fdai/delivery/assurance_twin_inventory.py), [`assurance_twin_writers.py`](../../../services/core-control-plane/src/fdai/delivery/assurance_twin_writers.py), and focused source/publication tests | The snapshot and bounded Resource delta content share one canonical digest. A trusted source must supply complete, revision-matched rule evaluation (including a digest of an empty result); reviews also require complete proposed-IaC evidence. This does not bind a real evaluator or relationship overlay. |
-| Production Twin binding and ambient change-review delivery | in-progress | [`evaluation.py`](../../../services/core-control-plane/src/fdai/core/assurance_twin/evaluation.py), [`assurance_twin_posture_producer.py`](../../../services/core-control-plane/src/fdai/delivery/assurance_twin_posture_producer.py), [`assurance_twin_evidence_source.py`](../../../services/core-control-plane/src/fdai/delivery/assurance_twin_evidence_source.py), and runtime composition | Heimdall's production producer evaluates the exact retained Inventory revision with the immutable T0/OPA policy generation and records only per-Resource input-complete results. The request outbox remains content-free, and Inventory, Rule, policy, source, target, and freshness fences fail closed. Forseti's proposed-IaC producer and the governed runtime receipt remain unbound. |
+| Retained Resource revision and writer admission contract | implemented | [`assurance_twin_inventory.py`](../../../services/core-control-plane/src/fdai/delivery/assurance_twin_inventory.py), [`assurance_twin_writers.py`](../../../services/core-control-plane/src/fdai/delivery/assurance_twin_writers.py), and focused source/publication tests | The snapshot and bounded Resource delta content share one canonical digest. A trusted source must supply complete, revision-matched rule evaluation (including a digest of an empty result); reviews also require a complete typed ActionType proposal readback bound to the same Inventory revision. The retired proposed-IaC readback is never admitted. This does not bind a relationship overlay. |
+| Production Twin binding and ambient change-review delivery | in-progress | [`evaluation.py`](../../../services/core-control-plane/src/fdai/core/assurance_twin/evaluation.py), [`assurance_twin_posture_producer.py`](../../../services/core-control-plane/src/fdai/delivery/assurance_twin_posture_producer.py), [`assurance_twin_evidence_source.py`](../../../services/core-control-plane/src/fdai/delivery/assurance_twin_evidence_source.py), and runtime composition | Heimdall's production producer evaluates the exact retained Inventory revision with the immutable T0/OPA policy generation and records only per-Resource input-complete results. The request outbox remains content-free, and Inventory, Rule, policy, source, target, and freshness fences fail closed. Forseti's typed-proposal review producer is bound beside it; the governed runtime receipt remains open. |
+| Forseti typed ActionType proposal review | implemented | [`typed_proposal.py`](../../../services/core-control-plane/src/fdai/core/assurance_twin/typed_proposal.py), [`proposal_effects.py`](../../../services/core-control-plane/src/fdai/core/assurance_twin/proposal_effects.py), [`assurance_twin_review_producer.py`](../../../services/core-control-plane/src/fdai/delivery/assurance_twin_review_producer.py), [`assurance_twin_proposal_intake.py`](../../../services/core-control-plane/src/fdai/delivery/assurance_twin_proposal_intake.py), [`test_assurance_twin_review_producer.py`](../../../services/core-control-plane/tests/delivery/test_assurance_twin_review_producer.py) | A durable content-addressed intake accepts one exact proposal and its what-if. The producer applies only a reviewed declared effect to the proposal's retained targets, evaluates them with the control loop T0/OPA generation, and requires an applying Rule input covering every changed leaf value. The review key is the proposal ref, so a newer revision supersedes the older review atomically and the Operator projection treats two usable reviews for one change handle as a conflict. An intake row is `reviewed` only after writer confirmation; a fence rejection retires the stale request, with at most three derivation attempts. Missing, stale, incomplete, failed, synthetic, or conflicting what-if results, unsupported ActionType versions, undeclared parameters, unassessed properties, and targets outside the retained revision settle unavailable. The shipped effect catalog is empty and no typed what-if producer submits yet. |
 | Strict semantic compilation and abstention feedback | implemented | [`query.py`](../../../services/core-control-plane/src/fdai/core/assurance_twin/query.py), [`semantic_query.py`](../../../services/core-control-plane/src/fdai/core/assurance_twin/semantic_query.py), [`runtime/assurance_twin_query.py`](../../../services/core-control-plane/src/fdai/runtime/assurance_twin_query.py), and focused query/runtime tests (`50 passed`) | Injected compilers must bind the exact input digest, compiler revision, bounded limit, and evidence refs before a read-only plan survives verification. Abstentions emit content-free, no-authority gaps through an injected discovery sink. The runtime default remains explicit model unavailable. |
 | T1 reuse, ChatOps intake, and governed runtime evidence | in-progress | [`chat.py`](../../../services/core-control-plane/src/fdai/core/assurance_twin/chat.py) and the shared semantic judgment contract | Message routing, T1 reuse, a concrete model provider, and an authenticated end-to-end receipt remain unvalidated. |
-| Heimdall/Forseti local event publication | implemented | [`assurance_twin_writers.py`](../../../services/core-control-plane/src/fdai/delivery/assurance_twin_writers.py), [`assurance_twin_publication.py`](../../../services/core-control-plane/src/fdai/delivery/assurance_twin_publication.py), [`test_assurance_twin_publication.py`](../../../services/core-control-plane/tests/delivery/test_assurance_twin_publication.py) | Requests contain no findings. A source must return complete, fresh, conflict-free evidence at the requested revision before either writer persists it. Saga-attributed audit and the embedded outbox commit atomically with the exact row. Heimdall additionally holds the authoritative Inventory locks through atomic source/target confirmation; transient reads remain provisional, while confirmed drift revokes the outbox. Forseti still awaits its production proposed-IaC source. |
+| Heimdall/Forseti local event publication | implemented | [`assurance_twin_writers.py`](../../../services/core-control-plane/src/fdai/delivery/assurance_twin_writers.py), [`assurance_twin_publication.py`](../../../services/core-control-plane/src/fdai/delivery/assurance_twin_publication.py), [`test_assurance_twin_publication.py`](../../../services/core-control-plane/tests/delivery/test_assurance_twin_publication.py) | Requests contain no findings. A source must return complete, fresh, conflict-free evidence at the requested revision before either writer persists it. Saga-attributed audit and the embedded outbox commit atomically with the exact row. Heimdall additionally holds the authoritative Inventory locks through atomic source/target confirmation; transient reads remain provisional, while confirmed drift revokes the outbox. Forseti's writer holds the same Rule-generation and Inventory fences for typed-proposal reviews. |
 | Twin-specific operator panel and governed remediation proposal bridge | in-progress | [`posture_activity.py`](../../../services/core-control-plane/src/fdai/core/assurance_twin/posture_activity.py), [`assurance_twin_posture.py`](../../../services/core-control-plane/src/fdai/delivery/assurance_twin_posture.py), [`state_store_assurance_twin_posture.py`](../../../services/core-control-plane/src/fdai/delivery/persistence/state_store_assurance_twin_posture.py), [`assurance_twin_posture_projection.py`](../../../services/operator-service/src/fdai_operator_service/assurance_twin_posture_projection.py), and the [`assurance-twin` Console route](../../../console/src/routes/assurance-twin.tsx) | The recorder stores bounded, revision-fenced report and review bodies with provenance and an embedded pending outbox in the same audited transaction. Heimdall and Forseti have separate owner-checked activities; the shared observer-only operational activity schema is not misused to assign Forseti an observer role. A relay validates and acknowledges the exact retained revision; delayed and conflicting evidence cannot replace or publish a current row. Operator and Console render durable findings and gaps without recomputing authority. A trusted source, external Checks publisher, remediation bridge, and governed live receipt remain unbound. |
 
 ### Implementation history
@@ -80,10 +87,15 @@ migration is required. The writers require positive coverage and a bounded 30-mi
 generation-to-expiry window. Forseti checks a retained review's verdict against its complete
 finding set; it does not infer a verdict from a missing, stale, or conflicting source. Bus tips
 carry `current: false` and `publication_complete: false`: a newer row can win after the relay's
-last read, so the durable projection remains the only source of currentness.
+last read, so the durable projection remains the only source of currentness. A relay pass pages
+only rows whose existing nested `publication_outbox.published` value is false through the
+`StateStore` dotted field filter, so it reads one bounded page instead of the retained history, and
+a backlog is logged rather than raised. Row shapes stay identical to the previous release, so a
+separately rolled-back Core or Operator reads them without digest mismatches.
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-28 | in-progress | Replaced the proposed-IaC review input with FDAI typed ActionType proposals after the owner decision that Terraform is a local deployment tool and never a governance input. Added the content-addressed proposal and what-if contracts, reviewed-effect scratch derivation with Rule-input coverage of every changed leaf value, a durable intake that stays `recorded` until writer confirmation, one current review per proposal with atomic supersession and a projection conflict guard, Forseti's production-bound review producer with Rule-generation and Inventory write fences and bounded re-derivation, and outbox relays whose pass cost is bounded by unpublished rows through a dotted `StateStore` field filter, with row shapes unchanged from the previous release. Retired proposed-IaC rows stay unavailable. | `current change`; `core/assurance_twin/{typed_proposal,proposal_effects,evaluation}.py`, `shared/providers/state_store.py`, `delivery/persistence/{postgres,assurance_twin_outbox}.py`, `delivery/assurance_twin_{review_producer,review_follow_up,proposal_intake,review_evidence}.py`, `delivery/persistence/state_store_assurance_twin_proposal_review.py`; focused typed-proposal, producer, lifecycle, ledger, source, publication, bootstrap, Operator projection, and Pantheon layout tests; Ruff and strict mypy. | Declare reviewed ActionType effect models and bind a typed what-if producer to the intake; then deliver external Checks and retain one governed source-to-rendering receipt. |
 | 2026-09-27 | in-progress | Bound Heimdall's production posture producer to exact retained Inventory and immutable T0/OPA generations. Added per-Resource input completeness, durable monotonic source ordering, current-policy and current-Inventory fences, locked two-phase source/target confirmation, and restart-safe terminal recovery. | `current change`; focused evaluator, Inventory, source, writer, bootstrap, OPA drift, race, and retry checks; Ruff and strict mypy. | Bind Forseti's complete proposed-IaC producer and external Checks publisher, then retain one governed source-to-rendering receipt. |
 | 2026-09-27 | implemented | Content-addressed the retained Resource generation and bounded overlay; writer admission now requires explicit complete rule findings and, for reviews, proposed-IaC evidence at the same revision. Kept production source and request producer unbound. | `current change`; `assurance_twin_inventory.py`, `assurance_twin_writers.py`, focused Inventory and publication tests. | Bind an accountable complete evaluator and proposed-change source, resolve pending relationships, publish content-free bus requests, and retain a governed runtime receipt. |
 | 2026-09-27 | implemented | Added independent Heimdall report and Forseti review writers with exact-revision atomic state/outbox/audit and supervised replay relays. An unavailable or conflicting source cannot synthesize a review verdict. | `current change`; `assurance_twin_writers.py`, `assurance_twin_publication.py`, focused Core, Operator, and Console checks. | Bind trusted production evidence and retain a governed runtime receipt. |
@@ -122,6 +134,9 @@ last read, so the durable projection remains the only source of currentness.
 - [ ] Bind a trusted retained-evidence source and production inventory/change ingress to the
   independently supervised Heimdall/Forseti writers. Content-free requests are not evidence;
   an attacker-influenced ambient ingress payload must not become authoritative Twin evidence.
+- [ ] Declare reviewed ActionType property-effect models with governance review provenance and
+  bind a typed-pipeline what-if producer that submits exact proposal and what-if pairs to the
+  durable intake. Until both exist, every submitted proposal settles explicitly unavailable.
 - [ ] Capture a governed runtime receipt for one complete inventory-to-report rendering. This
   requires the production `Inventory` binding and a trusted producer, so neither implementation nor
   validation is complete: no live receipt exists and none may be fabricated.
@@ -149,23 +164,47 @@ overlay (including observation times). `load_at_revision` re-reads and rejects l
 A trusted, injected source must re-read that revision
 and provide positive rule coverage, evaluated rule ids, a rule-set digest, and a digest of the
 complete finding set. An empty finding set is clear only after that independent complete rule
-assessment. Review admission additionally requires complete proposed-IaC evidence tied to the
-same revision and PR. Pending relationship overlays, absent evidence, revision drift, stale or
-conflicting sources remain unavailable. No existing producer can truthfully select and publish
-the schema-validated content-free request, so production writers remain unbound by default.
-None of these read-only records grants approval, mutation, or execution authority.
+assessment. Pending relationship overlays, absent evidence, revision drift, stale or
+conflicting sources remain unavailable. None of these read-only records grants approval,
+mutation, or execution authority.
 
-The twin reviews changes on the event, not on request. When a change signal
-arrives (an IaC pull request opened, an Activity Log resource write, a drift
-diff), `event-ingest` normalizes it, the twin applies the diff to a scratch
-projection, T0 evaluates the affected rules, and the result is posted back as a
-review - a Checks API annotation on the PR, or a finding on the incident. The
-"assess after deploy on request" case becomes "assessed on change, unprompted".
+Forseti reviews FDAI's own typed change proposals, never an IaC plan. The owner decision of
+2026-09-28 is that Terraform is a local deployment tool and must not be used at the governance
+level, so a Terraform plan, rendered template, or pull-request diff is never a Twin review input.
+One review input binds an exact ActionType id and version, exact target Resource refs, a
+canonical parameter digest, and one completed what-if or dry-run result bound to the same
+content-addressed proposal digest. The what-if must be passed, complete, current, non-synthetic,
+from the `simulation_engine` authority class, and must name exactly the proposal's targets.
+A reviewed, declared effect model for that exact ActionType version maps the parameters onto
+top-level target properties. Every parameter must be consumed or declared inert.
 
-Example: a developer opens an IaC PR that adds a storage account without a
-private endpoint. Before any review is requested, the twin posts a Check:
-`blocked - object-storage.private-endpoint.required (rule cited), resolution:
-add private endpoint or apply exemption`.
+The twin reviews typed changes as they are proposed, not on request. A typed-pipeline producer
+submits the proposal and what-if to a durable, content-addressed intake. Forseti's producer
+applies the declared effect to a scratch projection of the proposal's targets in the retained
+Inventory revision, and the control loop T0/OPA generation evaluates the changed targets with
+complete receipts. The retained and predicted values of each written property are compared leaf
+by leaf, and every leaf that actually changes must be covered by a declared input of at least one
+applying Rule for that target. An input on a parent path covers its children; a child input never
+covers its parent or siblings, and unchanged leaves need no coverage. Otherwise the change is
+`effect_unassessed`. Forseti's writer then publishes a bounded read-only review through the
+exact-revision outbox. A missing effect model, an absent, stale, incomplete, failed, or
+conflicting what-if, a target outside the retained revision, an undeclared parameter, or an
+unassessed property settles the proposal unavailable instead of `clear`.
+
+The review key is the proposal ref, so the ledger keeps exactly one current review per proposal.
+A newer revision supersedes the older review, its outbox, and its Saga lineage in one
+compare-and-set; a delayed older revision never replaces it. The Operator projection also treats
+two usable reviews for one change handle as a conflict gap. An intake row stays `recorded` until
+the writer confirms that exact review. When a Rule-generation or Inventory revision change blocks
+the writer's fenced commit, Forseti retires the stale request so the relay stops. It re-derives
+while the what-if is fresh, within at most three derivation attempts, and otherwise settles the
+proposal unavailable with `rule_generation_changed` or `inventory_revision_changed`. An external
+Checks publisher can later render the retained review; it is delivery, not an input.
+
+Example: a typed proposal would set `public_access: enabled` on one storage account. With a
+reviewed effect model for that exact ActionType version and a completed what-if for that exact
+proposal, Forseti publishes a `blocked` review that cites the violated public-access Rule for that
+target before anyone asks. The review never approves, executes, or promotes the proposal.
 
 ### 2. Ontology-grounded (retrieval to graph query)
 
@@ -431,6 +470,8 @@ cloud SDK and no privileged identity.
 | `graph_effect` / `graph_runtime` | Propagate bounded graph effects, evaluate required active-trajectory invariants, and return review-only simulation evidence. |
 | `trajectory_ledger` | Persist predicted trajectory episodes and atomically close only complete comparable outcomes through StateStore. |
 | `graph_closure` | Drain independent observations off-path, update challenger slices, and audit that active mutation and promotion did not occur. |
+| `typed_proposal` | Define content-addressed typed ActionType proposals, what-if results, and the retained typed-proposal readback that Forseti's writer re-validates. |
+| `proposal_effects` | Resolve an exact reviewed ActionType effect model and derive the predicted scratch change for the proposal's retained targets, or return an explicit unavailable reason. |
 | `posture_activity` | Build Heimdall's existing bounded posture activity and Forseti's separate private, authority-free review activity. The delivery recorder stages each with its retained record and Saga-attributed append-only audit; two supervised relays publish revision-bound envelopes. An injected trusted source is still required to compute findings. |
 
 `PostgresTwinInventorySource` loads the active observed, full-scope snapshot from the retained
@@ -439,12 +480,11 @@ coverage, limits baseline Resources and realtime deltas, and refuses pending rel
 that the Resource-only scratch projection cannot represent. Heimdall's production posture producer
 reuses the control loop's immutable T0/OPA generation off the event-loop thread, requires every
 Resource's declared Rule inputs and receipts, and holds Inventory promotion and realtime graph
-locks through source persistence and writer confirmation. A production review binding still needs
-a trusted, completeness-checked proposed-change evidence producer,
-an exact revision covering both the snapshot and its realtime overlay, and a governed event
-source for content-free report/review requests. An Inventory snapshot id by itself is not
-that revision. Until these inputs are defined, binding an empty evaluator would turn
-unassessed resources into a misleading `clear` verdict.
+locks through source persistence and writer confirmation. Forseti's review producer shares that
+Inventory source and T0/OPA generation. It reviews only typed ActionType proposals from the durable
+intake and only through reviewed effect models; an empty catalog keeps every proposal unavailable
+rather than turning an unassessed change into a misleading `clear` verdict. An Inventory snapshot
+id by itself is not the exact revision that either producer requires.
 
 Target delivery adds one intent to the existing `chatops` adapter (question in, grounded answer
 out) and reuses the `gitops-pr` adapter for proposals and Checks API reviews. The current

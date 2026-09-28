@@ -114,13 +114,19 @@ def assurance_twin_review_list_projection(
     *,
     durable_key_prefix: str | None = None,
 ) -> dict[str, object]:
-    """Project bounded ambient change-review summaries, newest first."""
+    """Project bounded ambient change-review summaries, newest first.
+
+    One change handle (``pr_ref``) has at most one current review. More than one usable
+    review for the same handle is split truth, so every such row becomes a conflict gap
+    instead of letting an older ``clear`` stand beside a newer ``blocked``.
+    """
 
     reviews, gaps = _classify(
         rows,
         decode=_review_summary,
         identity_key="review_key",
         durable_key_prefix=durable_key_prefix,
+        group_key="pr_ref",
     )
     reviews.sort(key=lambda item: str(item["generated_at"]), reverse=True)
     return {
@@ -197,8 +203,12 @@ def _classify(
     decode: Any,
     identity_key: str,
     durable_key_prefix: str | None = None,
+    group_key: str | None = None,
 ) -> tuple[list[dict[str, object]], list[dict[str, object]]]:
-    """Split bounded rows into usable records and explicit evidence gaps."""
+    """Split bounded rows into usable records and explicit evidence gaps.
+
+    ``group_key`` names a field whose value may appear on at most one usable record.
+    """
 
     usable: list[dict[str, object]] = []
     gaps: list[dict[str, object]] = []
@@ -238,6 +248,16 @@ def _classify(
         usable.append(record)
 
     conflicting = {identity for identity, count in identity_counts.items() if count > 1}
+    if group_key is not None:
+        group_counts: dict[str, int] = {}
+        for record in usable:
+            group = str(record[group_key])
+            group_counts[group] = group_counts.get(group, 0) + 1
+        conflicting |= {
+            str(record[identity_key])
+            for record in usable
+            if group_counts[str(record[group_key])] > 1
+        }
     if conflicting:
         retained = [record for record in usable if str(record[identity_key]) not in conflicting]
         gaps.extend(_gap(identity, None, GAP_CONFLICT) for identity in sorted(conflicting))
