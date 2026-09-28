@@ -63,7 +63,7 @@ def test_runtime_tree_has_no_fork_mode_branch() -> None:
         "alembic.ini",
         "pyproject.toml",
         "uv.lock",
-        "scripts/catalog/run-enforce-scenarios.py",
+        "scripts/catalog/run-catalog-scenario.py",
         "Makefile",
         "mocks/app.js",
         "examples/design-mock.html",
