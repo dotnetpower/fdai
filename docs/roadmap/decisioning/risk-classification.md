@@ -127,8 +127,14 @@ and the shared evaluator accepts the reconstructed confirmation, including the c
 Because the Owner's decision is the approval's only receipt, a refused self-approval closes the park
 with its reason so the Owner can submit the request again. Inside the profile,
 disposable-resource recreation is the bounded recovery path. Any missing evidence parks the action
-for ordinary multi-operator approval. The capability stays `in-progress` until a live Owner run is
-retained. Focused tests don't establish a live deployment or production readiness.
+for ordinary multi-operator approval. The runtime Owner check accepts only the profile's owner
+principal while the profile is current. Audit preserves the original role, quorum, and
+no-self-approval rule and records the effective development quorum of one without inventing
+identities; typed authority records use the public contract-model facade, and digest helpers add no
+authority. A missing profile, binding source, current Owner check, or distinct executor keeps the
+ordinary no-self-approval rule, and Slack, Teams, and self-rejection keep the ordinary refusal. The
+capability stays `in-progress` until a live Owner run is retained. Focused tests don't establish a
+live deployment or production readiness.
 
 ## Classification Dimensions
 

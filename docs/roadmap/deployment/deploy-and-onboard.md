@@ -595,33 +595,9 @@ preventing stale collection; any failed verification aborts promotion and trigge
 
 ## Cost-Efficiency Principles
 
-Every provisioning choice honors these principles; a resource that violates them needs an
-explicit justification in the deployment PR. The **illustrative monthly cost envelope** that
-results from these principles is in [cost-model.md](../interfaces/cost-model.md).
-
-1. **Event-driven first** - scheduled Container Apps Jobs scale to zero between runs. The core
-  currently keeps one replica because a credential-free Event Hubs Kafka-lag scaler has not
-  been verified; changing that floor requires a measured, tested scaler.
-2. **One region, one zone, non-HA at day zero** - multi-zone and multi-region are Phase 4
-   (TBD). The initial deployment is a single geographic footprint.
-3. **Managed services collapsed** - pgvector inside PostgreSQL is the vector store; App
-   Insights binds to the shared Log Analytics workspace; no separate vector DB or APM
-   resource is provisioned.
-4. **Basic / Standard tiers by default** - Premium tiers require a stated, measured need. HA
-   variants, geo-replication, and private-endpoint premium features are deferred.
-5. **Free tiers where they cover the use case** - Static Web Apps (console), Azure Bot
-   (HIL Adaptive Cards), and workload identity federation (CI/CD) are all Free tier.
-6. **Staged five-service target** - Core remains modular while Executor evidence is built; the
-  completed topology separates them, and other packages stay in-process without their own gates.
-7. **Model budget cap** - T2 inference is designed to reach ~5-10% of events; token/spend
-   budgets are enforced and overflow degrades to HIL, never to uncapped inference.
-8. **Catalog is git-hosted, not a service** - the rule catalog lives in a git repository, not
-   a managed store, so no extra Azure resource is needed for catalog storage.
-9. **No public inbound endpoint** - no Application Gateway / Front Door / API Management on
-   day zero; ingress is the event bus, egress is allow-listed.
-10. **Deferred DR resources** - secondary-region resources are **not** provisioned initially;
-    control-plane DR is planned via IaC + state backups (see
-    [deployment.md](deployment.md#control-plane-disaster-recovery)).
+The provisioning cost principles are owned by
+[Cost Model](../interfaces/cost-model.md#cost-efficiency-principles), next to the illustrative
+monthly envelope they produce. This heading remains as a stable target for existing links.
 
 ## Open Decisions
 
