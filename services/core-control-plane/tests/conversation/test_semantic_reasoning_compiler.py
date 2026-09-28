@@ -1490,3 +1490,18 @@ def test_a_scoped_kind_without_a_reviewed_read_is_never_widened(
 
     assert goal.status is status
     assert goal.reasons == (reason,)
+
+
+@pytest.mark.parametrize("position", ("source", "target", "either"))
+async def test_a_peering_answers_from_either_end_whatever_direction_is_stated(
+    position: str,
+) -> None:
+    utterance = "What is vnet-hub peered with?"
+    form = _relation_form(
+        utterance, anchor="vnet-hub", sense="connectivity", position=position, cue="peered with"
+    )
+
+    compilation = await _compile_bound(utterance, form)
+
+    assert compilation.goals[0].status is GoalStatus.COMPILED, compilation.goals[0].reasons
+    assert await _endpoint_names(compilation) == {"vnet-app"}

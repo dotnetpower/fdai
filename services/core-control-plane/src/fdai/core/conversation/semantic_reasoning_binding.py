@@ -14,6 +14,7 @@ exact bound identity, never the quoted text.
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime
 from enum import StrEnum
@@ -28,7 +29,10 @@ from fdai.core.ontology_platform import (
     ObjectSelectorKind,
     ObjectSetDefinition,
 )
-from fdai.core.ontology_platform.query_gateway import SecuredObjectSetQueryGateway
+from fdai.core.ontology_platform.query_gateway import (
+    SecuredObjectSetQueryGateway,
+    UnsupportedObjectSetAsOfError,
+)
 from fdai.shared.ontology.acl import ProjectionRequest
 
 from .semantic_reasoning_admission import FormAdmission
@@ -60,6 +64,8 @@ class AnchorBinding:
     object_id: str | None = None
     candidates: tuple[str, ...] = ()
     source_generation: str | None = None
+    # Why a read left the anchor unbound, as a typed code; never read text.
+    reason: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -81,6 +87,7 @@ class AnchorBindingReceipt:
                     "object_id": item.object_id,
                     "candidates": list(item.candidates),
                     "source_generation": item.source_generation,
+                    "reason": item.reason,
                 }
                 for item in self.bindings
             ]
@@ -175,8 +182,15 @@ class GatewayAnchorResolver:
         *,
         projection_request: ProjectionRequest,
         purpose: str,
-        as_of: datetime,
+        as_of: datetime | Callable[[], datetime],
     ) -> None:
+        """Bind reads to ``as_of``; a clock reads the current cutoff at each read.
+
+        A live gateway accepts only an ``as_of`` within seconds of its own cutoff, so a
+        resolver used after slow model calls passes the gateway's clock rather than a
+        time captured before them.
+        """
+
         self._gateway = gateway
         self._request = projection_request
         self._purpose = purpose
@@ -207,7 +221,7 @@ class GatewayAnchorResolver:
             definition = ObjectSetDefinition(
                 selector=ObjectSelector(kind=ObjectSelectorKind.OBJECT_TYPE, name=_RESOURCE),
                 predicates=(predicate,),
-                as_of=self._as_of,
+                as_of=self._as_of() if callable(self._as_of) else self._as_of,
                 purpose=self._purpose,
                 limit=ANCHOR_CANDIDATE_LIMIT,
                 include_relationships=False,
@@ -216,8 +230,11 @@ class GatewayAnchorResolver:
                 secured = await self._gateway.materialize(
                     definition, projection_request=self._request
                 )
-            except Exception:  # noqa: BLE001 - any failed read leaves the anchor unbound
-                return AnchorBinding(mention_id, AnchorOutcome.UNAVAILABLE)
+            except UnsupportedObjectSetAsOfError:
+                return AnchorBinding(mention_id, AnchorOutcome.UNAVAILABLE, reason="as_of_stale")
+            except Exception as exc:  # noqa: BLE001 - any failed read leaves the anchor unbound
+                reason = f"anchor_read_failed:{type(exc).__name__}"
+                return AnchorBinding(mention_id, AnchorOutcome.UNAVAILABLE, reason=reason)
             complete = complete and secured.receipt.complete
             if secured.receipt.source_generation is not None:
                 generations.add(secured.receipt.source_generation)

@@ -117,7 +117,8 @@ The model states only that `aks-prod-01` is the dependency and the results are i
 ## Admission
 
 Bragi admits a form only when every span matches the utterance without cutting through a longer identifier, every goal meets the confidence floor, no
-alternative survives, both relation roles are the ends of one sense, every declared mention is used, and the level fits every mention domain.
+alternative survives, both relation roles are the ends of one sense, every declared mention is used, no two mentions share words, no group is both
+a goal's scope and its relation anchor, and the level fits every mention domain.
 Otherwise it returns one clarification or sends a low-confidence field to one independent T2 review of closed fields. An admitted atom that no
 reviewed builder reads, such as a qualifier or a stated counterpart, returns a typed unsupported reason; it is never ignored.
 
@@ -216,7 +217,8 @@ Replay resolves the same receipt or reports that the binding is not reproducible
 
 A sense selects LinkTypes by reviewed `semantic_traits` and the bound anchor ObjectType. A reviewed sense-role convention names the role of each
 stored end, such as container for the `from` end of a containment link, so the anchor role selects `outgoing` or `incoming` without rewriting stored
-direction. Stated roles that are not the two ends of the sense return a clarification. `transitive` reach requires a LinkType declared transitive and
+direction. Stated roles that are not the two ends of the sense return a clarification. A reciprocal LinkType, such as peering, has no direction, so
+both stored sides are read whatever roles the form states, and V-SEM re-derives that. `transitive` reach requires a LinkType declared transitive and
 self-composable, depth at most five.
 
 | Sense | Trait | Current LinkTypes |
@@ -414,6 +416,21 @@ shadow turns, holdout correctness meets its absolute floor and beats the current
 points, p95 latency does not rise, SRE Agent parity holds, and the 68-case corpus does not regress. Rollback restores the previous registry entry, and
 the current path stays intact until R10. The per-family lanes in [Ontology Reasoning Coverage](ontology-reasoning-coverage.md#closure-program) gate
 these rounds.
+
+**Production shadow wiring**: Promotion evidence comes only from the form carried as an additive field of the existing judgment call, the approved
+first decision; a tap that makes its own model calls beside a turn measures a different, independently sampled reading, so its records are an
+experiment that promotion excludes. Either wiring must meet these conditions, from a design critique:
+
+- An anchor read takes the gateway's cutoff at the moment of the read, because the gateway accepts an `as_of` only within seconds of its own cutoff
+  and model calls take longer; a rejected read is the typed `as_of_stale`, never a generic unavailability.
+- Cancelling or timing out the shadow cancels and drains every provider call it started.
+- The shadow runs from a sanitized context under its own provider budget, stops its fan-out on HTTP 429 or 503, and never charges or cancels the
+  answer's budget.
+- Only one top-level eligible operational utterance per turn is observed; other routes and break-glass principals record typed skips, and capacity
+  skips and timeouts stay in the denominators.
+- Anchor reads use the same role, purpose, and principal scope digest construction as the turn's executor.
+- Records carry a keyed sample identifier instead of an unsalted digest of the utterance or principal, go to a durable sink, and are enabled only by a
+  typed configuration setting that defaults to off.
 
 ## Approved decisions
 

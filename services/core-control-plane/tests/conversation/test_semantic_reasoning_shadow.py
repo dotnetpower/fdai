@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
 from datetime import timedelta
 from types import SimpleNamespace
@@ -601,3 +602,30 @@ async def test_concepts_bind_only_where_two_blind_choosers_agree() -> None:
     (goal,) = disagreed.passes[0].goals
     assert goal.status == "clarify"
     assert goal.reasons == ("concept_disagreement:resource_type",)
+
+
+async def test_cancelling_the_shadow_never_leaves_the_extraction_running() -> None:
+    started = asyncio.Event()
+    extraction_cancelled = asyncio.Event()
+
+    class _Stuck(_Model):
+        async def propose_form(self, **kwargs: Any) -> dict[str, Any] | None:
+            started.set()
+            await asyncio.Event().wait()
+            return None
+
+        async def extract_constraints(self, **kwargs: Any) -> dict[str, Any] | None:
+            try:
+                await asyncio.Event().wait()
+            except asyncio.CancelledError:
+                extraction_cancelled.set()
+                raise
+            return None
+
+    task = asyncio.create_task(_run(_Stuck([], {})))
+    await asyncio.wait_for(started.wait(), timeout=5)
+    task.cancel()
+
+    with pytest.raises(asyncio.CancelledError):
+        await task
+    assert extraction_cancelled.is_set()

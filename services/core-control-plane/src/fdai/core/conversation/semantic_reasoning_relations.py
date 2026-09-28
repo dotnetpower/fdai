@@ -23,6 +23,7 @@ TRANSITIVE_MAX_DEPTH = 5
 
 # Reviewed closed mapping from a relation sense to one LinkType semantic trait.
 # ``composition`` has no reviewed trait yet, so it selects nothing.
+RECIPROCAL_TRAIT = "reciprocal"
 SENSE_TRAITS: Mapping[RelationSense, str | None] = {
     RelationSense.CONTAINMENT: "containment",
     RelationSense.ATTACHMENT: "attachment",
@@ -116,12 +117,12 @@ def select_relation_sides(
         depth = TRANSITIVE_MAX_DEPTH if reach is RelationReach.TRANSITIVE else 1
         forward_role = _role(descriptor.get("forward_role"))
         reverse_role = _role(descriptor.get("reverse_role"))
-        if (
-            position in {SubjectPosition.SOURCE, SubjectPosition.EITHER}
-            and from_type == anchor_type
-        ):
+        # A reciprocal LinkType, such as peering, has no direction, so a stated direction
+        # never narrows it to one stored side.
+        side = SubjectPosition.EITHER if RECIPROCAL_TRAIT in traits else position
+        if side in {SubjectPosition.SOURCE, SubjectPosition.EITHER} and from_type == anchor_type:
             sides.append(RelationSide(name, "outgoing", anchor_type, to_type, forward_role, depth))
-        if position in {SubjectPosition.TARGET, SubjectPosition.EITHER} and to_type == anchor_type:
+        if side in {SubjectPosition.TARGET, SubjectPosition.EITHER} and to_type == anchor_type:
             sides.append(
                 RelationSide(name, "incoming", anchor_type, from_type, reverse_role, depth)
             )
@@ -144,6 +145,7 @@ def _role(value: object) -> str | None:
 
 
 __all__ = [
+    "RECIPROCAL_TRAIT",
     "SENSE_TRAITS",
     "TRANSITIVE_MAX_DEPTH",
     "RelationSelection",

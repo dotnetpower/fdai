@@ -338,3 +338,108 @@ def test_qualifier_chains_are_cited_regardless_of_mention_order() -> None:
     reverse = SemanticQuestionForm.model_validate({"mentions": mentions[::-1], "goals": [goal]})
 
     assert forward.cited_mentions() == reverse.cited_mentions() == {"m1", "m2", "m3"}
+
+
+def _admit(raw: dict[str, Any], utterance: str) -> Any:
+    return admit_question_form(
+        SemanticQuestionForm.model_validate(raw),
+        utterance=utterance,
+        accounting=SpanAccounting(required=False),
+    )
+
+
+def test_two_mentions_never_share_words() -> None:
+    utterance = "What is in rg-app-dev?"
+    raw = {
+        "mentions": [
+            {
+                "id": "m1",
+                "form": "concept",
+                "domain": "resource_type",
+                "span": span(utterance, "What is in rg-app-dev"),
+            },
+            {
+                "id": "m2",
+                "form": "name",
+                "domain": "instance",
+                "span": span(utterance, "rg-app-dev"),
+            },
+        ],
+        "goals": [
+            {
+                "id": "g1",
+                "level": "instance",
+                "operation": "select",
+                "subject": "m1",
+                "subject_scope": "collection",
+                "relation": {
+                    "sense": "containment",
+                    "anchor": "m2",
+                    "anchor_role": "container",
+                    "result_role": "member",
+                    "cue": span(utterance, "is in"),
+                },
+                "cue": span(utterance, "What"),
+                "confidence": 0.9,
+            }
+        ],
+    }
+
+    admission = _admit(raw, utterance)
+
+    assert admission.disposition is AdmissionDisposition.INVALID
+    assert "mention_overlap:m2" in admission.reasons
+
+
+def test_one_group_is_never_both_the_scope_and_the_relation_anchor() -> None:
+    utterance = "rg-app의 모든 리소스를 보여줘"
+    raw = {
+        "mentions": [
+            {"id": "m1", "form": "name", "domain": "instance", "span": span(utterance, "rg-app")},
+            {
+                "id": "m2",
+                "form": "concept",
+                "domain": "resource_type",
+                "span": span(utterance, "리소스를"),
+            },
+        ],
+        "goals": [
+            {
+                "id": "g1",
+                "level": "instance",
+                "operation": "select",
+                "subject": "m2",
+                "subject_scope": "collection",
+                "filters": [{"role": "scope", "mention": "m1"}],
+                "relation": {
+                    "sense": "containment",
+                    "anchor": "m1",
+                    "anchor_role": "container",
+                    "result_role": "member",
+                    "cue": span(utterance, "의"),
+                },
+                "cue": span(utterance, "보여줘"),
+                "confidence": 0.9,
+            }
+        ],
+    }
+    scoped = {**raw, "goals": [{**raw["goals"][0], "relation": None}]}
+
+    assert "scope_anchor_conflict:g1" in _admit(raw, utterance).reasons
+    assert _admit(scoped, utterance).disposition is AdmissionDisposition.ADMITTED
+
+
+def test_a_reciprocal_link_is_read_on_both_sides_whatever_direction_is_stated() -> None:
+    descriptors = production_manifest().descriptors
+
+    for position in (SubjectPosition.SOURCE, SubjectPosition.TARGET, SubjectPosition.EITHER):
+        selection = select_relation_sides(
+            descriptors,
+            anchor_type="Resource",
+            sense=RelationSense.CONNECTIVITY,
+            scope=RelationScope.ONE_SENSE,
+            position=position,
+            reach=RelationReach.ONE_HOP,
+        )
+        peering = {(side.link_type, side.direction) for side in selection.sides}
+        assert {("peered_with", "outgoing"), ("peered_with", "incoming")} <= peering
