@@ -2,7 +2,7 @@
 title: 배포 빠른 시작
 description: 단일 로컬 명령 또는 digest로 고정된 폐쇄망 배포 어플라이언스로 FDAI를 Azure에 배포합니다.
 translation_of: deploy-quickstart.md
-translation_source_sha: 75dfa7c220e23797fc394bca2c15b9a8c42d1b20
+translation_source_sha: 34fd3eefd91bc782bd64ba982c3b6bdb81b2409d
 translation_revised: 2026-09-28
 ---
 
@@ -165,6 +165,15 @@ bash scripts/deployment/azure/fdai-up.sh --region koreacentral
 추가합니다. 그 checkout이 실행 전체를 소유하므로 배포하려는 리비전에서 실행해야 합니다. 이미
 checkout이 아티팩트를 결정하므로 `--online`이나 `--offline-kit`를 함께 지정하면 래퍼가
 거부합니다.
+
+빌드가 키를 사용하기 전에 먼저 키를 식별할 수 있습니다. 이 명령은 지문과 보관 상태만 출력하며 키
+자체는 출력하지 않습니다.
+
+```bash
+python3 scripts/deployment/release/check-signing-key.py --key secrets/<키파일>.pem
+```
+
+키 하나가 완전 키트와 번들 역할을 모두 담당합니다. 키 파일은 소유자 전용(`chmod 600`)이어야 합니다.
 
 두 명령은 같은 조정기를 사용합니다. CLI를 설치하거나 갱신해도 서명된 배포 키트가 갱신되지는
 않습니다. Genesis 스크립트는 복제본이 아니라 검증된 릴리스에서 가져옵니다. 키트 내부 코드의

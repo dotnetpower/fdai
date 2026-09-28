@@ -103,7 +103,11 @@ for environment, public_name in (
     or details.st_uid != os.geteuid()
     or details.st_nlink != 1
   ):
-    raise SystemExit("build-standalone-kit: signing key metadata is invalid")
+    raise SystemExit(
+      "build-standalone-kit: signing key metadata is invalid."
+      " Identify a candidate with"
+      " scripts/deployment/release/check-signing-key.py --key <path>."
+    )
   private = load_pem_private_key(private_path.read_bytes(), password=None)
   public = load_pem_public_key(
     (root / "packages/deployment-cli/src/fdai_deployment_cli/trust" / public_name).read_bytes()
@@ -113,7 +117,11 @@ for environment, public_name in (
     or not isinstance(public, Ed25519PublicKey)
     or private.public_key().public_bytes_raw() != public.public_bytes_raw()
   ):
-    raise SystemExit("build-standalone-kit: signing key differs from packaged trust root")
+    raise SystemExit(
+      "build-standalone-kit: signing key differs from packaged trust root."
+      " Identify a candidate with"
+      " scripts/deployment/release/check-signing-key.py --key <path>."
+    )
 PY
 
 source_commit="$(git -C "$repo_root" rev-parse HEAD)"
