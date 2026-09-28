@@ -1,7 +1,7 @@
 ---
 title: Provisioning 실행 Profile
 translation_of: provisioning-execution-profiles.md
-translation_source_sha: 3673c5d436552cf73ec93a45044729bfe405ee02
+translation_source_sha: c064f603b863612bc3f0d78146c8092d2c7ab59b
 translation_revised: 2026-09-28
 ---
 # 프로비저닝 실행 프로파일
@@ -44,6 +44,7 @@ Parser handler, 출력 계약, 정확한 승인 요건 및 변경 권한은 바�
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-28 | validated | 병합된 pipeline-stage 송신자 대상을 같은 범위로 적용했습니다. 정확한 계획에는 생성 1건만 있었고, 대상 범위 무변경 확인과 inventory 역할 4개 전체의 ARM 재조회를 통과했습니다. | [#1567](https://github.com/dotnetpower/fdai/pull/1567), [#1561](https://github.com/dotnetpower/fdai/issues/1561) 증적 | 이 범위에서는 남은 작업이 없고, 보강 작업은 [#1550](https://github.com/dotnetpower/fdai/issues/1550)에 남아 있습니다. |
 | 2026-09-27 | validated | Complete kit 패키지 설치를 6.9 MB 서명 Python wheel 모음으로 교체하고 trust root, TUF, 이중 서명, SBOM, 출처, 동일 바이트 어플라이언스 및 두 Azure 진입점 증적 요구를 패키지 완료 조건에서 제거했습니다. | `current change`, 정책 v3, 집중 테스트, 실제 서명 빌드, OpenSSL/checksum 검증 및 pip 빈 환경 설치 | Azure 배포 검증은 패키지 설치와 별도로 유지합니다. |
 | 2026-09-27 | validated | 일반 PC에서 dev AKS 클러스터를 대상으로 첫 실제 범위 지정 적용을 실행했습니다. 병합된 조정기는 Container Insights 연결 생성 1건만 계획했고, digest에 연결된 승인 뒤 적용했으며, 대상 범위 무변경과 작업 영역 연결, 기본 스트림, `ContainerLogV2`, 연결 상태를 Azure Resource Manager로 확인했습니다. | `098384cf5f84c92d98ae1f1146ea10dc959bac93` 기준 [#1543](https://github.com/dotnetpower/fdai/pull/1543), [#1538](https://github.com/dotnetpower/fdai/issues/1538) 증적 | 계획, 시작 기록, 완료 기록을 보호된 계획 저장소에 복제합니다. |
 | 2026-09-27 | implemented | 범위 지정 Run Command Terraform을 추가했습니다. 일반 PC는 보호된 소스에서 등록된 범위 하나를 묶고, 고정 수신기는 관리형 호스트에서 사용자 할당 ID로 계획을 만듭니다. 적용에는 계획 digest에 연결된 정확한 사람 승인이 필요하고, 효과 전 시작 기록을 남기며, 시작 기록이 있는 적용은 반복하지 않고, 대상 범위 무변경 확인과 독립 ARM 재조회로 끝납니다. | `current change`, `scripts/deployment/azure/scoped_terraform.py`, `scoped_terraform_receiver.py`, `tests/integration/scripts/test_scoped_terraform.py`(36개 통과), 연결 생성 1건만 포함한 실제 읽기 전용 `aks-container-insights` 계획 | 보호된 CI로 병합한 뒤 이슈 #1538로 #1171의 첫 실제 범위 지정 적용 증적을 보존합니다. |
