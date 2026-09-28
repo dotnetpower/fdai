@@ -405,7 +405,7 @@ def test_scenario_lab_workflow_is_plan_first_and_approval_gated() -> None:
     )
     assert "plan_args=(-destroy -refresh=false)" in workflow
     assert "Quiesce private DNS links before destroy" in workflow
-    assert 'select(.type? == "azurerm_private_dns_zone_virtual_network_link")' in workflow
+    assert 'select(.type == "azurerm_private_dns_zone_virtual_network_link")' in workflow
     assert "scenario-lab DNS-link state contains an invalid ARM resource id" in workflow
     assert 'az resource delete --ids "$link_id"' in workflow
     assert 'az resource wait --deleted --ids "$link_id"' in workflow
