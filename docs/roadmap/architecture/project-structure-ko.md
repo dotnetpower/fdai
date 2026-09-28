@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 2a39d40e7527f43a8a0c71538a89452fec9a91e7
+translation_source_sha: 2d2f5ba7bdf3a5e0fb8ccffa8c346ede2812aa37
 translation_revised: 2026-09-28
 ---
 # 프로젝트 구조
@@ -537,6 +537,8 @@ Muninn은 게시와 원본 소유 legacy 정리에 하나의 Core 소유 cohort 
   API를 유지합니다. 계약 모델은 `fdai.shared.contracts.models` 공개 facade를 통해서만 하위
   시스템 경계를 통과합니다. 다이제스트 도우미는 모델이 아닌 권한 facade에 남으며 권한을
   부여하지 않습니다.
+- `governed-execution` 추가 기능을 선택하지 않으면 학습 및 예측 입력은 ActionType 없는 근거로만
+  남습니다. 이 경계는 [에이전트 판테온 계획](../agents/agent-pantheon-implementation-ko.md#학습-및-예측-결과-경계)이 소유합니다.
 - 기본 환경 공급자와 선택적이고 범위가 제한된 `YamlFileConfigProvider`는 동일한 JSON Schema 및
   Pydantic 경계로 진입합니다. YAML 공급자는 UTF-8 매핑 하나를 읽고 중복 키와 1MiB를 넘는 파일을
   차단합니다. 또한 symlink, regular file이 아닌 대상 및 지원하지 않거나 지나치게 중첩된 YAML을

@@ -237,6 +237,39 @@ def durable_action_run_state(
     }
 
 
+def durable_correlation_reservation(
+    *,
+    correlation_id: str,
+    resource_id: str,
+    recorded_at: datetime,
+) -> dict[str, Any]:
+    """Build Thor's terminal non-action claim for an advisory arbitration correlation.
+
+    The row sits in the ActionRun key namespace so the existing correlation claim
+    validates it like any terminal ActionRun: its identity digest belongs to no
+    ActionRun, so every later Verdict on the correlation is refused with the same
+    error the governed path raises for a reused correlation. It is never active, so
+    recovery never loads it, and it carries no ActionType, state, or parameters.
+    """
+
+    identity = {
+        "correlation_id": correlation_id,
+        "action_type": "",
+        "resource_id": resource_id,
+        "action_idempotency_key": f"advisory-arbitration:{correlation_id}",
+        "verdict": "advisory_reservation",
+    }
+    return {
+        "kind": "advisory_correlation_reservation",
+        "correlation_id": correlation_id,
+        "resource_id": resource_id,
+        "action_run_identity": action_run_identity_digest(identity),
+        "active": "false",
+        "revision": 0,
+        "recorded_at": recorded_at.isoformat(),
+    }
+
+
 def durable_action_run_payload(value: Mapping[str, Any]) -> dict[str, Any]:
     """Remove persistence metadata from one durable ActionRun row."""
 
@@ -351,6 +384,7 @@ __all__ = [
     "claim_durable_action_run_identity",
     "durable_action_run_payload",
     "durable_action_run_state",
+    "durable_correlation_reservation",
     "is_action_run_identity",
     "load_durable_action_run_correlation",
     "rollback_matches_action_run",

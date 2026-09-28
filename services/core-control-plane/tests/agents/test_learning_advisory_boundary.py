@@ -308,7 +308,9 @@ async def test_heimdall_forecast_reaches_thor_only_as_a_non_action_verdict() -> 
         assert verdict["action_type"] == ""
         assert verdict["risk_verdict"] == "hil"
         assert verdict["resolved_autonomy_ceiling"] == "shadow_only"
-        assert verdict["reason"] == "no_rule_match"
+        # The default observation-first profile records why no rule match was attempted.
+        assert verdict["reason"] == "governed_execution_unselected"
+        assert verdict["advisory_source"] == "forecast"
     assert thor.behavior_snapshot()["non_action_verdict_ignored"] == len(
         bus.messages_on("object.verdict")
     )

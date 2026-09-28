@@ -63,9 +63,7 @@ from fdai.delivery.prospective_lineage import (
 )
 from fdai.delivery.repo_assets import repo_asset_root
 from fdai.delivery.runtime_settings import RuntimeSettingsService
-from fdai.rule_catalog.schema.capacity_graduation_policy import (
-    load_capacity_graduation_policy,
-)
+from fdai.rule_catalog.schema.capacity_graduation_policy import load_capacity_graduation_policy
 from fdai.runtime.aks_commerce import (
     ActionObservation,
     VerifiedIncidentResolver,
@@ -482,6 +480,7 @@ async def initialize_pantheon(
             "fdai-pantheon",
         ).strip(),
         enforce=pantheon_enforce,
+        governed_execution_selected=config.control_loop.governed_execution_selected,
         thor_executor=(
             acceptance_bindings.execute
             if acceptance_bindings is not None

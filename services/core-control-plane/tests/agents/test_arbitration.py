@@ -17,6 +17,7 @@ from fdai.agents.njord import Njord
 from fdai.agents.odin import Odin
 
 from fdai_cost_governance import RollingCostAdvisoryProvider
+from tests.product_selection import governed_execution_selection
 
 _COST_RELEASE = "sha256:" + "3" * 64
 _COST_NOW = datetime(2028, 1, 2, tzinfo=UTC)
@@ -1379,7 +1380,7 @@ def test_odin_verdict_observation_never_publishes() -> None:
 def test_escalated_arbitration_reaches_a_human_verdict_end_to_end() -> None:
     """A near-tie Odin refuses to settle MUST NOT vanish after arbitration."""
     bus = _bus()
-    forseti = Forseti(bus=bus)
+    forseti = Forseti(bus=bus, governed_execution_selected=governed_execution_selection(True))
     odin = Odin(bus=bus)
     bus.subscribe("object.arbitration-request", "Odin", odin.on_typed_message)
     bus.subscribe("object.arbitration-decision", "Forseti", forseti.on_typed_message)

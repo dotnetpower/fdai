@@ -544,6 +544,8 @@ Deployment Preflight keeps its publication decision in `core/deploy_preflight/pr
   verification while `gate.py` preserves the public registry and risk-gate API. Contract models
   cross subsystem boundaries only through `fdai.shared.contracts.models`; digest helpers stay in a
   non-model authority facade and never grant authority.
+- Without the `governed-execution` add-on, learned and predicted input stays ActionType-free
+  evidence; the [Agent Pantheon plan](../agents/agent-pantheon-implementation.md#learned-and-predicted-output-boundary) owns the boundary.
 - The default environment provider and the optional bounded `YamlFileConfigProvider` both enter the
   same JSON Schema and Pydantic boundary. The YAML provider reads one UTF-8 mapping, rejects
   symlinks, non-regular files, duplicate keys, unsupported or excessively nested YAML, and files
