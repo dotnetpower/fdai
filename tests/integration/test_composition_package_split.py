@@ -110,6 +110,9 @@ _EXPECTED_FILES = frozenset(
         "semantic_query_azure_composition.py",
         # Composes authoritative inventory state with ontology-native shadow parity.
         "wire_read_investigation.py",
+        # Routes the eleven operational evidence purposes to the insert-only proof
+        # store and binds the bounded issuance requester without adding authority.
+        "operational_evidence_binding.py",
     }
 )
 

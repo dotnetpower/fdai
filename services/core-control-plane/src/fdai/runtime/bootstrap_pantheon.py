@@ -25,6 +25,7 @@ from fdai.agents import (
 from fdai.agents.vidar import RollbackExecutor
 from fdai.composition import Container
 from fdai.composition.cost_governance_activation import build_cost_runtime_bindings
+from fdai.composition.operational_evidence_binding import build_test_context_command_handler
 from fdai.core.capacity import CapacityGraduationController
 from fdai.core.chaos.coverage import ScenarioCoverageAggregator
 from fdai.core.control_loop import ControlLoop
@@ -33,7 +34,6 @@ from fdai.core.impact_analysis import ChangeAssessmentService, ImpactAnalyzer
 from fdai.core.learning import PostTurnProposalModel, RuleHintSubmitter
 from fdai.core.ontology_platform import EffectReconciliationRequestSink
 from fdai.core.operational_context import OperationalContextMaterializer
-from fdai.core.operational_context.test_context_commands import TestContextCommandHandler
 from fdai.core.operational_context.test_context_dispatch import TestContextDispatchGuard
 from fdai.core.operational_context.test_context_lifecycle import GovernedTestContextStore
 from fdai.core.operational_planning import (
@@ -648,14 +648,13 @@ async def initialize_pantheon(
         ).handle,
     )
     pantheon_runtime.subscription_count += 1
-    if config.container.decision_evidence_admission_provider is not None:
-        context_commands = TestContextCommandHandler(
-            contexts=GovernedTestContextStore(
-                store=config.incident_audit_store,
-                admission=config.container.decision_evidence_admission_provider,
-            ),
-            admission=config.container.decision_evidence_admission_provider,
-        )
+    context_commands = build_test_context_command_handler(
+        store=config.incident_audit_store, container=config.container
+    )
+    cast(Any, pantheon_runtime.agents["Forseti"]).bind_test_context_evidence(
+        config.container.operational_evidence_requester
+    )
+    if context_commands is not None:
         for owner in ("Mimir", "Var"):
             cast(Any, pantheon_runtime.agents[owner]).bind_test_context_commands(context_commands)
     pantheon_runtime.subscription_count += runtime_subscriptions.bind_recovery_effect_observation(

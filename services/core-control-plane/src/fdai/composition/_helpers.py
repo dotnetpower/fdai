@@ -43,6 +43,7 @@ from ..core.ontology_platform import (
     ReconciliationArtifactResolver,
 )
 from ..core.ontology_platform.governed_document_queries import GovernedDocumentReader
+from ..core.operational_evidence.owner_outcome import OperationalEvidenceRequester
 from ..core.quality_gate.critic import CriticModel
 from ..core.quality_gate.debate import DebateOrchestrator
 from ..core.quality_gate.deterministic_evidence import DeterministicEvidenceVerifier
@@ -254,6 +255,7 @@ class Container:
     operational_readiness_report_publisher: ReadinessReportPublisher | None = None
     architecture_review_evidence_provider: ProductionEvidenceProvider | None = None
     decision_evidence_admission_provider: DecisionEvidenceAdmissionProvider | None = None
+    operational_evidence_requester: OperationalEvidenceRequester | None = None
     distiller: Distiller = field(default_factory=AbstainingDistiller)
     manual_source: ManualSource = field(default_factory=EmptyManualSource)
     manual_classifier: ManualClassifier = field(default_factory=AbstainingManualClassifier)

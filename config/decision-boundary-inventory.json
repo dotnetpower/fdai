@@ -1,7 +1,7 @@
 {
   "version": "1.0.0",
   "description": "Complete inventory of registered positive decision boundaries that must resolve decision-critical evidence through the shared admission contract (FDAI-CONST-002).",
-  "decision_surface_digest": "28cb7a04aaf91a10aab06a3aa37df3e6d7134d19e4dd37bdb7ed00b296375c47",
+  "decision_surface_digest": "063fb254d8fe462ed92548fbb5924eb74becfd31b1ab0a66076b521e72701a3f",
   "shared_admission": {
     "module": "fdai.shared.providers.decision_evidence_verifier",
     "assessor": "assess_decision_evidence_admission",
@@ -527,7 +527,8 @@
       "purpose_id": null,
       "purpose_note": "Separately assesses operational-test-context and operational-test-observation.",
       "tests": [
-        "services/core-control-plane/tests/core/operational_context/test_test_context.py"
+        "services/core-control-plane/tests/core/operational_context/test_test_context.py",
+        "services/core-control-plane/tests/agents/test_operational_evidence_owners.py"
       ],
       "decisions": [
         {
@@ -559,7 +560,8 @@
       "purpose_id": null,
       "purpose_note": "Uses operator-test-context-command admission bound to the complete typed command.",
       "tests": [
-        "services/core-control-plane/tests/agents/test_runtime.py"
+        "services/core-control-plane/tests/agents/test_runtime.py",
+        "services/core-control-plane/tests/core/operational_evidence/test_issuance.py"
       ],
       "decisions": [
         {
@@ -674,7 +676,8 @@
       "purpose_id": null,
       "purpose_note": "Uses test-context-transition; exact historical replay is a non-mutating no-op, not renewed authority.",
       "tests": [
-        "services/core-control-plane/tests/core/operational_context/test_test_context.py"
+        "services/core-control-plane/tests/core/operational_context/test_test_context.py",
+        "services/core-control-plane/tests/core/operational_evidence/test_issuance.py"
       ],
       "decisions": [
         {
