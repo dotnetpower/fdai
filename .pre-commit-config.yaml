@@ -14,6 +14,10 @@
 # Worker-session hooks keep commits cheap and deterministic. Full strict mypy,
 # diff-selected tests, and repository-wide gates run once per stable batch
 # through `make validation-run`; CI remains the authoritative merge gate.
+# Documentation-coupled gates (owning-doc impact, English/Korean sync, Korean
+# prose quality, derived-source pins) are advisory at commit time so
+# implementation can land first; .githooks/pre-push and CI enforce them for the
+# pushed range.
 
 repos:
   # 1. Ruff - fast Python lint + format check. `ruff format --check`
@@ -69,18 +73,20 @@ repos:
         always_run: true
         pass_filenames: false
       - id: check-translations
-        name: check-translations.sh
-        entry: bash scripts/quality/localization/check-translations.sh
+        name: check-translations.sh (advisory; pre-push and CI enforce)
+        entry: bash scripts/automation/advisory-gate.sh bash scripts/quality/localization/check-translations.sh
         language: system
         pass_filenames: false
+        verbose: true
         files: ^(README(?:-ko)?\.md|docs/.*\.md)$
         exclude: ^docs/internals/
       - id: check-derived-sources
-        name: check-derived-sources.py (staged snapshot)
-        entry: python3 scripts/quality/localization/check-derived-sources.py --cached --changed-only
+        name: check-derived-sources.py (staged snapshot; advisory, CI enforces)
+        entry: bash scripts/automation/advisory-gate.sh python3 scripts/quality/localization/check-derived-sources.py --cached --changed-only
         language: system
         always_run: true
         pass_filenames: false
+        verbose: true
       - id: check-action-runbooks
         name: check-action-runbooks.py
         entry: python3 scripts/quality/documentation/check-action-runbooks.py
@@ -100,17 +106,19 @@ repos:
         pass_filenames: false
         files: ^(rule-catalog/sources/|services/core-control-plane/src/fdai/rule_catalog/pipeline/collect/collector\.py$|scripts/quality/repository/check-reference-only-sources\.py$)
       - id: check-translation-quality
-        name: check-translation-quality.py
-        entry: python3 scripts/quality/localization/check-translation-quality.py
+        name: check-translation-quality.py (advisory; CI enforces)
+        entry: bash scripts/automation/advisory-gate.sh python3 scripts/quality/localization/check-translation-quality.py
         language: system
         require_serial: true
+        verbose: true
         files: ^(README-ko\.md|docs/.*-ko\.md)$
         exclude: ^docs/internals/
       - id: check-design-doc-impact
-        name: check-design-doc-impact.py (staged paths)
-        entry: python3 scripts/quality/architecture/check-design-doc-impact.py --cached
+        name: check-design-doc-impact.py (staged paths; advisory, pre-push and CI enforce)
+        entry: bash scripts/automation/advisory-gate.sh python3 scripts/quality/architecture/check-design-doc-impact.py --cached
         language: system
         pass_filenames: false
+        verbose: true
       - id: check-contract-pins
         name: check-contract-pins.sh (composition layout + legacy migration pins)
         entry: bash scripts/quality/architecture/check-contract-pins.sh

@@ -79,8 +79,9 @@ Required sections (order matters, headings can vary):
    than ~15 lines of prose SHOULD be broken into H3 subsections or a table.
 
 One document owns one coherent design responsibility. Target no more than 300 lines. A new
-roadmap document over 400 lines is rejected, and a legacy document over 650 lines may only shrink.
-The `check-document-size.py` ratchet enforces those bounds.
+roadmap document over 400 lines is rejected. A legacy document over 650 lines may grow with an
+advisory while a feature reaches its first completion, then should be split; growth above 1500
+lines is rejected. The `check-document-size.py` gate enforces those bounds.
 
 When a document outgrows one responsibility, keep the original path as a short index and move
 complete concepts into focused companion documents. Do not duplicate normative text. Update

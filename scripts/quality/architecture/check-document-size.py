@@ -1,5 +1,10 @@
 #!/usr/bin/env python3
-"""Ratchet oversized roadmap documents toward focused owner documents."""
+"""Bound roadmap document size while legacy documents may grow during implementation.
+
+New documents stay under their line limit. A legacy document over the growth floor may grow with
+an advisory so a first implementation can land before the document is split; it is rejected only
+above the hard ceiling.
+"""
 
 from __future__ import annotations
 
@@ -10,6 +15,7 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parents[3]
 NEW_DOC_MAX_LINES = 400
 LEGACY_GROWTH_FLOOR = 650
+LEGACY_HARD_MAX_LINES = 1500
 FOCUSED_DOCUMENT_MAX_BYTES = {
     "docs/roadmap/architecture/code-map.md": 32 * 1024,
     "docs/roadmap/architecture/code-map-ko.md": 32 * 1024,
@@ -83,14 +89,26 @@ def size_violations(documents: tuple[tuple[str, int, int | None], ...]) -> list[
             )
         elif (
             old_lines is not None
-            and current_lines > LEGACY_GROWTH_FLOOR
+            and current_lines > LEGACY_HARD_MAX_LINES
             and current_lines > old_lines
         ):
             errors.append(
-                f"{path}: legacy oversized document grew {old_lines} -> {current_lines}; "
-                "split it into focused owner documents"
+                f"{path}: legacy document grew {old_lines} -> {current_lines}; maximum is "
+                f"{LEGACY_HARD_MAX_LINES}; split it into focused owner documents"
             )
     return errors
+
+
+def size_advisories(documents: tuple[tuple[str, int, int | None], ...]) -> list[str]:
+    """Report legacy growth that remains allowed until the owning feature is complete."""
+    return [
+        f"{path}: legacy oversized document grew {old_lines} -> {current_lines}; split it "
+        "into focused owner documents after the feature's first completion"
+        for path, current_lines, old_lines in documents
+        if old_lines is not None
+        and LEGACY_GROWTH_FLOOR < current_lines <= LEGACY_HARD_MAX_LINES
+        and current_lines > old_lines
+    ]
 
 
 def byte_size_violations(documents: tuple[tuple[str, int], ...]) -> list[str]:
@@ -125,6 +143,8 @@ def main(argv: list[str]) -> int:
             )
         )
         byte_documents.append((relative, current_bytes))
+    for advisory in size_advisories(tuple(documents)):
+        print(f"document-size: ADVISORY: {advisory}", file=sys.stderr)
     errors = size_violations(tuple(documents))
     errors.extend(byte_size_violations(tuple(byte_documents)))
     if errors:

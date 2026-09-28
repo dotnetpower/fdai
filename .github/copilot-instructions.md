@@ -55,9 +55,13 @@ unknown, no-op, denial, rollback, or human-review outcome with an audit record.
 
 ## Agent Workflow (MUST)
 
-1. Classify the request first. Architecture, public contracts, authority, cross-subsystem behavior,
-   persistent data flow, or material tradeoffs require a small design, critique, and revision before
-   implementation. Local fixes and already-approved designs do not require a new design artifact.
+1. Classify the request first. Implement first when a new capability stays in shadow mode or inside
+   the full-authority development profile's test scope: record a short design note in the pull
+   request, then complete the owning design, critique, and hardening at its first completion, before
+   promotion or production use. Changes to promoted or production architecture, public contracts,
+   authority, or persistent data flow still require a small design, critique, and revision before
+   implementation. Runtime safety principles are never deferred. Local fixes and already-approved
+   designs do not require a new design artifact.
 2. Resolve route-selected context once per task. Read every required document directly before a
    high-risk edit. Make the smallest coherent change, update affected contracts and docs, never
    hand-edit generated artifacts, and keep the user's requested outcome ahead of incidental tooling.
@@ -87,7 +91,8 @@ unknown, no-op, denial, rollback, or human-review outcome with an audit record.
    paths from the active checkout with `git commit -m "<message>" -- <task-owned paths>`; stage new
    task-owned files first when needed. Preserve unrelated index and worktree changes, never bypass
    hooks, and do not rerun successful checks unless relevant inputs changed. The commit hook is the
-   deterministic preflight. Load the [`commit-readiness` skill](skills/commit-readiness/SKILL.md)
+   deterministic preflight; its documentation-coupled gates only advise, and pre-push and CI enforce
+   owning docs, translations, and ledgers for the whole branch. Load the [`commit-readiness` skill](skills/commit-readiness/SKILL.md)
    only after a hook failure or when one task-owned path mixes unrelated edits. Git, hook, signing,
    or push failures MUST NOT interrupt unfinished implementation. Never create a remote-only commit.
    GitHub content APIs such as `create_or_update_file` and `push_files`, and cloud coding agents,
