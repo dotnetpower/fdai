@@ -225,9 +225,9 @@ Chat study checks run against the design server on `127.0.0.1:5373`:
 node --test mocks/ui/tests/chat-current.test.mjs mocks/ui/tests/deck-sources.test.mjs mocks/ui/tests/deck-adaptive.test.mjs
 ```
 
-The adaptive investigation checks keep the fixtures synthetic and internally consistent, then
-cover reading order, activity-card authority fields, wave gating and parallel reads, every
-scenario's verdict and limits, stop, separate draft and follow-up requests, dock and mobile widths,
+The adaptive investigation checks keep the fixtures synthetic and internally consistent, then cover
+reading order, activity-card authority fields, wave gating and parallel reads, every scenario's
+verification result and limits, stop, separate draft and follow-up requests, dock and mobile widths,
 reduced motion, and forced colors.
 
 The source-streaming checks confirm the study copy against the rule catalog, cover replay, stop,
