@@ -29,7 +29,10 @@ if not database_url.startswith(("postgresql://", "postgresql+psycopg://")):
     raise SystemExit(2)
 if database_url.startswith("postgresql://"):
     database_url = "postgresql+psycopg://" + database_url[len("postgresql://") :]
-config.set_main_option("sqlalchemy.url", database_url)
+
+# ConfigParser treats percent signs in URL-encoded credentials as interpolation
+# tokens. Doubling them preserves the exact URL returned by get_main_option.
+config.set_main_option("sqlalchemy.url", database_url.replace("%", "%%"))
 
 
 def _lock_key(scope: str) -> int:

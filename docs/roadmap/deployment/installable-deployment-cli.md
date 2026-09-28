@@ -385,7 +385,8 @@ sha256sum -c SHA256SUMS
 python -m pip install --no-index --find-links wheels -r requirements.txt
 ```
 
-The 6.9 MB wheelhouse installs `fdaictl` without a source checkout or network call. Runtime images,
+The 6.9 MB wheelhouse installs `fdaictl` without a source checkout or network call. Every shipped
+file except the signature pair is listed in `SHA256SUMS`. Runtime images,
 Terraform inputs, and other deployment payloads are selected later by the deployment command and
 are not Python package-installation requirements. An appliance is an optional transport wrapper,
 not a second package-certification path.
