@@ -3,18 +3,16 @@ title: Ontology Reasoning Compiler
 ---
 # Ontology Reasoning Compiler
 
-This document owns the target design that turns an operator question into a closed, span-grounded
-question logical form and compiles it deterministically into a verified ontology query plan. The
-model understands the question, grounds concepts in complete catalogs, and phrases the answer. Code
-validates that meaning, binds anchors, selects reviewed paths, and verifies every claim it shows.
+This document owns the target design that turns an operator question into a closed, span-grounded question logical form and compiles it
+deterministically into a verified ontology query plan. The model understands the question, grounds concepts in complete catalogs, and phrases the
+answer. Code validates that meaning, binds anchors, selects reviewed paths, and verifies every claim it shows.
 
-> **Status:** Approved design, 2026-09-28. An initial, partial shadow implementation covers selected
-> operations and is unwired from the production turn; the
-> [ledger](../../roadmap-implementation/interfaces/ontology-reasoning-compiler.md) records scope,
-> measured coverage, and deviations. The current runtime is described in
+> **Status:** Approved design, 2026-09-28. An initial, partial shadow implementation covers selected operations
+> and is unwired from the production turn; the [ledger](../../roadmap-implementation/interfaces/ontology-reasoning-compiler.md)
+> records scope, measured coverage, and deviations. The current runtime is described in
 > [Hierarchical Conversation Planning](hierarchical-conversation-planning.md) and
-> [Ontology Query Coverage Implementation Plan](ontology-query-coverage-implementation-plan.md).
-> Coverage targets and measured limits belong to [Ontology Reasoning Coverage](ontology-reasoning-coverage.md).
+> [Ontology Query Coverage Implementation Plan](ontology-query-coverage-implementation-plan.md). Coverage targets and
+> measured limits belong to [Ontology Reasoning Coverage](ontology-reasoning-coverage.md).
 >
 > **Authority boundary:** Logical forms, admission and compile receipts, anchor bindings, result
 > handles, and plans are read-only records with `execution_authority=false`. An explicit change
@@ -33,16 +31,15 @@ validates that meaning, binds anchors, selects reviewed paths, and verifies ever
 | 7. Execution | Muninn and Heimdall readers | Receipts, tables, lineage, and completeness | None |
 | 8. Answer composition | Bragi | Evidence-bound claims, per-goal status, and a bilingual answer | T1 author, V-CLAIM, independent T1 review |
 
-The compiler and verifier are mechanical Core components inside the Bragi-owned semantic turn. They
-consume immutable projections, make no agent calls, and publish nothing; Saga keeps the turn audit.
-A supported form replaces the capability-named intent and the model-authored frame and plan, and an
-unsupported form returns the exact missing atom and reason instead of the nearest capability.
+The compiler and verifier are mechanical Core components inside the Bragi-owned semantic turn. They consume immutable projections, make no agent
+calls, and publish nothing; Saga keeps the turn audit. A supported form replaces the capability-named intent and the model-authored frame and plan,
+and an unsupported form returns the exact missing atom and reason instead of the nearest capability.
 
 ## Verified baseline
 
 The review traced one turn from `SemanticPlanningService.plan` in
-[`semantic_planning.py`](../../../services/core-control-plane/src/fdai/core/conversation/semantic_planning.py)
-to rendering in [`semantic_turn_processor.py`](../../../services/core-control-plane/src/fdai_core_service/semantic_turn_processor.py).
+[`semantic_planning.py`](../../../services/core-control-plane/src/fdai/core/conversation/semantic_planning.py) to rendering in
+[`semantic_turn_processor.py`](../../../services/core-control-plane/src/fdai_core_service/semantic_turn_processor.py).
 
 | Stage | Where reasoning happens today | Gap |
 |-------|-------------------------------|-----|
@@ -54,14 +51,11 @@ to rendering in [`semantic_turn_processor.py`](../../../services/core-control-pl
 | Execution | Bounded secured ObjectSets, single-root traversal, stepwise typed paths | Traversal rows have no root lineage, and link evidence properties are redacted |
 | Answer | Shape-specific templates; any incomplete receipt holds the turn | No per-goal epistemic status; follow-up context is prior-turn text only |
 
-A bounded two-run live planning probe of 36 English and Korean reasoning cases on 2026-09-28, a
-session-local design input rather than a governed receipt, answered six cases per run as asked.
-Fourteen to sixteen cases produced a verified plan for a different question: the anchor instead of
-its neighbors, schema relationships for an instance question, inverted containment, a region read
-as a name fragment, or an all-zero incident identity. Only 23 cases were stable across runs. The
-local graph already held verified links for the probed anchors, so most relational failures are
-compiler and contract gaps; [Ontology Reasoning Coverage](ontology-reasoning-coverage.md#measured-baseline)
-records the measured data and capacity limits.
+A bounded two-run live planning probe of 36 English and Korean reasoning cases on 2026-09-28, a session-local design input rather than a governed
+receipt, answered six cases per run as asked. Fourteen to sixteen cases produced a verified plan for a different question: the anchor instead of its
+neighbors, schema relationships for an instance question, inverted containment, a region read as a name fragment, or an all-zero incident identity.
+Only 23 cases were stable across runs. The local graph already held verified links for the probed anchors, so most relational failures are compiler
+and contract gaps; [Ontology Reasoning Coverage](ontology-reasoning-coverage.md#measured-baseline) records the measured data and capacity limits.
 
 ## Root causes
 
@@ -74,10 +68,9 @@ records the measured data and capacity limits.
 
 ## Question logical form
 
-`SemanticQuestionForm` version `1.0.0` travels as the additive `question_form` field of
-`SemanticJudgmentProposal` schema `1.3.0`. Every field is a closed enum, a bounded integer, a
-mention reference, or a quoted phrase with its occurrence number, which Core binds to an exact
-span. The model never supplies a FunctionType, LinkType, ObjectType operand, or instance value.
+`SemanticQuestionForm` version `1.0.0` travels as the additive `question_form` field of `SemanticJudgmentProposal` schema `1.3.0`. Every field is a
+closed enum, a bounded integer, a mention reference, or a quoted phrase with its occurrence number, which Core binds to an exact span. The model never
+supplies a FunctionType, LinkType, ObjectType operand, or instance value.
 
 | Field | Closed values |
 |-------|---------------|
@@ -98,10 +91,9 @@ span. The model never supplies a FunctionType, LinkType, ObjectType operand, or 
 | `time.kind` | `current`, `window`, `as_of`, `two_windows`, `versions`, `future`, `unspecified` |
 | `want` | `fact`, `cause`, `verification`, `completeness` |
 
-One judgment pass holds at most 16 mentions and 4 goals within 6 KiB. Each goal carries a
-confidence and a cue span for its operation and relation, and may depend on an earlier goal. A
-larger question is judged in successive passes until every goal is accounted. Ambiguity uses at most
-three alternatives, each an atom diff of at most six atoms, never one merged form.
+One judgment pass holds at most 16 mentions and 4 goals within 6 KiB. Each goal carries a confidence and a cue span for its operation and relation,
+and may depend on an earlier goal. A larger question is judged in successive passes until every goal is accounted. Ambiguity uses at most three
+alternatives, each an atom diff of at most six atoms, never one merged form.
 
 Example: `Which resources depend on aks-prod-01?`
 
@@ -114,42 +106,35 @@ question_form:
                   cue: {text: depend on, occurrence: 1}}, confidence: 0.93}
 ```
 
-The model states only that `aks-prod-01` is the dependency and the results are its dependents.
-Core binds the anchor, selects `depends_on` through its `dependency` trait, and reads `incoming`.
+The model states only that `aks-prod-01` is the dependency and the results are its dependents. Core binds the anchor, selects `depends_on` through its
+`dependency` trait, and reads `incoming`.
 
 ## Admission
 
-Bragi admits a form only when every span matches the utterance without cutting through a longer
-identifier, every goal meets the confidence floor, no alternative survives, both relation roles are
-the ends of one sense, every declared mention is used, and the level fits every mention domain.
-Otherwise it returns one clarification or sends a low-confidence field to one independent T2 review
-of closed fields. An admitted atom that no reviewed builder reads, such as a qualifier or a stated
-counterpart, returns a typed unsupported reason; it is never ignored.
+Bragi admits a form only when every span matches the utterance without cutting through a longer identifier, every goal meets the confidence floor, no
+alternative survives, both relation roles are the ends of one sense, every declared mention is used, and the level fits every mention domain.
+Otherwise it returns one clarification or sends a low-confidence field to one independent T2 review of closed fields. An admitted atom that no
+reviewed builder reads, such as a qualifier or a stated counterpart, returns a typed unsupported reason; it is never ignored.
 
-A form that breaks its closed schema or a structural rule gets at most one repair call with the
-code-authored violations. The repaired form passes the same admission and must keep every quoted
-operand, goal, operation, want, typed time, operand-bearing relation, competing reading, and
-pending-goals signal of the rejected proposal; otherwise the original fault stands. These fields
-compare as the closed schema normalizes them. A proposal that never parsed treats every stated
-pending-goals value other than an explicit false or null as pending, and it fails closed when any
-compared field loses its closed shape, such as a missing goal list, a wrong container, a duplicate
-goal id, or an unreadable operation or want. Clarifications are answers to the operator and are never repaired.
+A form that breaks its closed schema or a structural rule gets at most one repair call with the code-authored violations. The repaired form passes the
+same admission and must keep every quoted operand, goal, operation, want, typed time, operand-bearing relation, competing reading, and pending-goals
+signal of the rejected proposal; otherwise the original fault stands. These fields compare as the closed schema normalizes them. A proposal that never
+parsed treats every stated pending-goals value other than an explicit false or null as pending, and it fails closed when any compared field loses its
+closed shape, such as a missing goal list, a wrong container, a duplicate goal id, or an unreadable operation or want. Clarifications are answers to
+the operator and are never repaired.
 
-Admission bounds model authority; it does not remove it. A wrong but self-consistent form is caught
-only by cue-span review, T2 review, the restated interpretation and confirm-first cells in
-[calibrated admission](ontology-reasoning-coverage.md#calibrated-admission), and the evaluation
-gold. The model never chooses identities, LinkTypes, path steps, FunctionTypes, or answer claims.
+Admission bounds model authority; it does not remove it. A wrong but self-consistent form is caught only by cue-span review, T2 review, the restated
+interpretation and confirm-first cells in [calibrated admission](ontology-reasoning-coverage.md#calibrated-admission), and the evaluation gold. The
+model never chooses identities, LinkTypes, path steps, FunctionTypes, or answer claims.
 
 ## Deterministic compilation
 
 ### Concept selection
 
-The model grounds each non-referential mention inside its declared domain. Core presents the
-complete candidate catalog, with reviewed labels, in as many bounded shards as the budget needs; the
-model evaluates every shard, and a receipt proves each candidate was presented exactly once. Core
-accepts an identifier only from the shard that presented it. Finalists that differ across shards
-meet in one runoff call. Labels are model context, never a lookup table, and an explicit root
-candidate stands for resources in general. FunctionTypes and ActionTypes follow from operations.
+The model grounds each non-referential mention inside its declared domain. Core presents the complete candidate catalog, with reviewed labels, in as
+many bounded shards as the budget needs; the model evaluates every shard, and a receipt proves each candidate was presented exactly once. Core accepts
+an identifier only from the shard that presented it. Finalists that differ across shards meet in one runoff call. Labels are model context, never a
+lookup table, and an explicit root candidate stands for resources in general. FunctionTypes and ActionTypes follow from operations.
 
 - **Class closure**: A `resource_class` mention compiles through `query.resource_class_closure`
   into an exact `Resource.type` set and pins the closure receipt.
@@ -160,8 +145,7 @@ candidate stands for resources in general. FunctionTypes and ActionTypes follow 
 
 ### Anchor binding
 
-An `identifier` or `name` mention with domain `instance` becomes an anchor. Binding is a two-phase
-protocol:
+An `identifier` or `name` mention with domain `instance` becomes an anchor. Binding is a two-phase protocol:
 
 1. After admission and manifest, purpose, and scope checks, Core verifies a single-node resolution
    plan: exact `id` or `name` equality, the principal scope, the current graph cutoff, and a limit
@@ -180,18 +164,16 @@ protocol:
 | None, complete source | Verified-scope absence with bounded name suggestions |
 | None, incomplete source | Hold with the typed completeness reason |
 
-The model never labels an instance as a resource group or a cluster; the bound type replaces that
-guess. A mention with a `qualifier` binds its qualifier first and then searches only inside that
-qualifier's containment or type scope, so a shared name such as a default subnet stays exact.
+The model never labels an instance as a resource group or a cluster; the bound type replaces that guess. A mention with a `qualifier` binds its
+qualifier first and then searches only inside that qualifier's containment or type scope, so a shared name such as a default subnet stays exact.
 Replay resolves the same receipt or reports that the binding is not reproducible.
 
 ### Relation compilation
 
-A sense selects LinkTypes by reviewed `semantic_traits` and the bound anchor ObjectType. A reviewed
-sense-role convention names the role of each stored end, such as container for the `from` end of a
-containment link, so the anchor role selects `outgoing` or `incoming` without rewriting stored
-direction. Stated roles that are not the two ends of the sense return a clarification.
-`transitive` reach requires a LinkType declared transitive and self-composable, depth at most five.
+A sense selects LinkTypes by reviewed `semantic_traits` and the bound anchor ObjectType. A reviewed sense-role convention names the role of each
+stored end, such as container for the `from` end of a containment link, so the anchor role selects `outgoing` or `incoming` without rewriting stored
+direction. Stated roles that are not the two ends of the sense return a clarification. `transitive` reach requires a LinkType declared transitive and
+self-composable, depth at most five.
 
 | Sense | Trait | Current LinkTypes |
 |-------|-------|-------------------|
@@ -255,21 +237,17 @@ direction. Stated roles that are not the two ends of the sense return a clarific
 
 ### Follow-up references
 
-Core issues a `ResultSetHandle` after deterministic rendering, so it matches what the operator saw.
-The opaque server-side handle binds the deployment scope, principal, conversation, purpose,
-manifest digest, expiry, and rendered-order digest, and stores typed row keys, sort, page, and
-truncation metadata. Operator persists handles with the durable turn and sends at most four recent
-handle references as typed request context under negotiated versions. An `ordinal` or `anaphor`
-mention binds to handle rows after reauthorization. `current_rehydrate` rereads the exact ids at the
-current cutoff and labels the answer as current; `snapshot_reference` answers only from the
-retained snapshot. A missing, expired, cross-conversation, deleted, or out-of-range reference
-returns one clarification.
+Core issues a `ResultSetHandle` after deterministic rendering, so it matches what the operator saw. The opaque server-side handle binds the deployment
+scope, principal, conversation, purpose, manifest digest, expiry, and rendered-order digest, and stores typed row keys, sort, page, and truncation
+metadata. Operator persists handles with the durable turn and sends at most four recent handle references as typed request context under negotiated
+versions. An `ordinal` or `anaphor` mention binds to handle rows after reauthorization. `current_rehydrate` rereads the exact ids at the current
+cutoff and labels the answer as current; `snapshot_reference` answers only from the retained snapshot. A missing, expired, cross-conversation,
+deleted, or out-of-range reference returns one clarification.
 
 ## Verification and evidence semantics
 
-The compiler emits a `SemanticCoverageProof` as a witness. The verifier does not trust it. It
-reconstructs the expected coverage from a versioned coverage-rule table in the catalog and from
-typed node output lineage, and keeps every existing check:
+The compiler emits a `SemanticCoverageProof` as a witness. The verifier does not trust it. It reconstructs the expected coverage from a versioned
+coverage-rule table in the catalog and from typed node output lineage, and keeps every existing check:
 
 - **V-SEM coverage**: Every operation, filter, relation, measure, order, time, and want atom maps
   to a node pattern required by its rule. A restrictive atom that cannot compile blocks its goal and
@@ -286,14 +264,11 @@ typed node output lineage, and keeps every existing check:
   a cause.
 
 Each goal receives a runtime status from the `EpistemicStatus` vocabulary in
-[`epistemic_coverage.py`](../../../services/core-control-plane/src/fdai/core/conversation/epistemic_coverage.py).
-`VERIFIED_EMPTY` needs closed-population proof: complete source, no truncation, and complete
-relationship coverage for the compiled LinkTypes. Any other empty result is `UNKNOWN_INCOMPLETE`
-and says that no match exists in the verified scope. Missing workload mappings are unavailable, not
-empty. One failed goal does not hide verified sibling goals, and the answer lists every unknown
-atom. Link evidence uses a reviewed projection allowlist of `verified`, `verification_method`,
-authority, effective time, freshness ceiling, and completeness, and a visible link still cannot
-reveal a hidden endpoint.
+[`epistemic_coverage.py`](../../../services/core-control-plane/src/fdai/core/conversation/epistemic_coverage.py). `VERIFIED_EMPTY` needs
+closed-population proof: complete source, no truncation, and complete relationship coverage for the compiled LinkTypes. Any other empty result is
+`UNKNOWN_INCOMPLETE` and says that no match exists in the verified scope. Missing workload mappings are unavailable, not empty. One failed goal does
+not hide verified sibling goals, and the answer lists every unknown atom. Link evidence uses a reviewed projection allowlist of `verified`,
+`verification_method`, authority, effective time, freshness ceiling, and completeness, and a visible link still cannot reveal a hidden endpoint.
 
 ## Model role
 
@@ -307,11 +282,9 @@ reveal a hidden endpoint.
 | Operands | Utterance regular expressions or the plan model | Spans, bindings, handles, and server defaults |
 | Answer prose | Shape templates in code | Model-authored claims that pass V-CLAIM and independent review |
 
-The judgment prompt keeps the protected root and describes only the closed form, span and cue rules,
-and bilingual examples per operation, without the FunctionType catalog for read goals. Frame and
-plan model calls retire for compiled forms; the plan model stays shadow-only for uncompiled forms
-and must pass V-SEM and V-PROV. T2 never authors a plan, and the unused `query.<LinkType>` intent
-affordance is removed.
+The judgment prompt keeps the protected root and describes only the closed form, span and cue rules, and bilingual examples per operation, without the
+FunctionType catalog for read goals. Frame and plan model calls retire for compiled forms; the plan model stays shadow-only for uncompiled forms and
+must pass V-SEM and V-PROV. T2 never authors a plan, and the unused `query.<LinkType>` intent affordance is removed.
 
 ## Alternatives and critique
 
@@ -337,9 +310,8 @@ An independent review of the first draft found these defects; each revision is p
 
 ## Answer composition
 
-Bragi's T1 author writes every answer, including the interpretation restatement, from the admitted
-form, verified evidence tables, per-goal epistemic statuses, and typed limitation codes. No answer
-prose comes from code templates; only catalog notices and verified data views render without the
+Bragi's T1 author writes every answer, including the interpretation restatement, from the admitted form, verified evidence tables, per-goal epistemic
+statuses, and typed limitation codes. No answer prose comes from code templates; only catalog notices and verified data views render without the
 model, and they add no fact. The author returns structured claims, shown only after verification.
 
 | Claim field | Contract |
@@ -350,14 +322,12 @@ model, and they add no fact. The author returns structured claims, shown only af
 | `spans` | The exact text span of every surface phrase and literal, bound to the proposition |
 | `rows` | For list and count goals, the row identifiers that the claim names or aggregates |
 
-V-CLAIM compares names through canonical identities, never substrings. It rejects an answer when a
-claim lacks references, a proposition or literal differs from its evidence, a literal is undeclared,
-a required limitation, goal, or form atom is missing, a count differs from the authoritative count,
-a result row is neither named, aggregated, nor listed in the complete table, or a cause claim lacks
-causal evidence. An independent T1 reviewer then checks entailment. A rejected answer regenerates
-once with typed reasons, then holds with the verified evidence view. Evidence larger than one author
-call is composed in bounded chunks and synthesized under the same row account. Evaluation and the
-parity gate belong to [Ontology Reasoning Coverage](ontology-reasoning-coverage.md#assurance-and-sre-agent-parity).
+V-CLAIM compares names through canonical identities, never substrings. It rejects an answer when a claim lacks references, a proposition or literal
+differs from its evidence, a literal is undeclared, a required limitation, goal, or form atom is missing, a count differs from the authoritative
+count, a result row is neither named, aggregated, nor listed in the complete table, or a cause claim lacks causal evidence. An independent T1 reviewer
+then checks entailment. A rejected answer regenerates once with typed reasons, then holds with the verified evidence view. Evidence larger than one
+author call is composed in bounded chunks and synthesized under the same row account. Evaluation and the parity gate belong to [Ontology Reasoning
+Coverage](ontology-reasoning-coverage.md#assurance-and-sre-agent-parity).
 
 ## Delivery rounds
 
@@ -375,14 +345,12 @@ parity gate belong to [Ontology Reasoning Coverage](ontology-reasoning-coverage.
 | R9 | Promotion per operation family through the promotion registry | Promotion and SRE Agent parity receipts per family; frame and plan prompts retired for promoted families |
 | R10 | Removal of lexical re-derivation and template renderers in promoted paths | Replay equivalence and one stable rollback release |
 
-Every round implements, runs focused tests, runs L1 with at least two repeats and L2, fixes
-regressions, and appends a ledger row. The form path runs in shadow beside the current path and
-records only digests and dispositions. A family is promoted only when hard zeros hold on all
-repeats and sampled shadow turns, holdout correctness meets its absolute floor and beats the current
-path outside the noise band, English and Korean differ by at most 5 points, p95 latency does not
-rise, SRE Agent parity holds, and the 68-case corpus does not regress. Rollback restores the
-previous registry entry, and the current path stays intact until R10. The per-family lanes in
-[Ontology Reasoning Coverage](ontology-reasoning-coverage.md#closure-program) gate these rounds.
+Every round implements, runs focused tests, runs L1 with at least two repeats and L2, fixes regressions, and appends a ledger row. The form path runs
+in shadow beside the current path and records only digests and dispositions. A family is promoted only when hard zeros hold on all repeats and sampled
+shadow turns, holdout correctness meets its absolute floor and beats the current path outside the noise band, English and Korean differ by at most 5
+points, p95 latency does not rise, SRE Agent parity holds, and the 68-case corpus does not regress. Rollback restores the previous registry entry, and
+the current path stays intact until R10. The per-family lanes in [Ontology Reasoning Coverage](ontology-reasoning-coverage.md#closure-program) gate
+these rounds.
 
 ## Approved decisions
 
