@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import subprocess
 from pathlib import Path
 
@@ -29,6 +30,20 @@ _ALL_TEST_ROOTS = [
     "tests/integration",
 ]
 _SCRIPT_TEST_ROOT = "tests/integration/scripts"
+_INVENTORY_TEST = "tests/integration/evaluation/test_semantic_intent_coverage.py"
+# Every Console file whose digest the semantic-intent inventory records.
+_INVENTORY_CONSOLE_INPUTS = tuple(
+    sorted(
+        set(
+            re.findall(
+                r'"(console/src/[^"]+)"',
+                (_ROOT / "scripts" / "automation" / "build_semantic_intent_coverage.py").read_text(
+                    encoding="utf-8"
+                ),
+            )
+        )
+    )
+)
 
 
 def _core_source(repo: Path, *parts: str) -> Path:
@@ -277,6 +292,28 @@ def test_selects_code_assurance_tests_for_packaged_skill_change(git_repo: Path) 
 
     assert result.returncode == 0, result.stderr
     assert result.stdout.splitlines() == ["extensions/code-assurance/tests"]
+
+
+def test_inventory_console_inputs_are_discovered() -> None:
+    assert "console/src/deck/backend-types.ts" in _INVENTORY_CONSOLE_INPUTS
+    assert len(_INVENTORY_CONSOLE_INPUTS) >= 5
+
+
+@pytest.mark.parametrize("path", _INVENTORY_CONSOLE_INPUTS)
+def test_inventory_console_input_selects_inventory_test(git_repo: Path, path: str) -> None:
+    inventory_test = git_repo / _INVENTORY_TEST
+    inventory_test.parent.mkdir(parents=True)
+    inventory_test.write_text("\n", encoding="utf-8")
+    assert _run(git_repo, "git", "add", ".").returncode == 0
+    assert _run(git_repo, "git", "commit", "--quiet", "-m", "add inventory test").returncode == 0
+    source = git_repo / path
+    source.parent.mkdir(parents=True, exist_ok=True)
+    source.write_text("export const example = 1;\n", encoding="utf-8")
+
+    result = _run(git_repo, "bash", str(_SELECTOR))
+
+    assert result.returncode == 0, result.stderr
+    assert result.stdout.splitlines() == [_INVENTORY_TEST]
 
 
 def test_unknown_python_source_falls_back_to_full_suite(git_repo: Path) -> None:
