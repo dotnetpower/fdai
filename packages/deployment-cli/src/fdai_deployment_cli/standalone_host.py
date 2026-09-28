@@ -32,7 +32,7 @@ from fdai_deployment_cli.aks_historical_reconciliation import (
     reconciled_variables,
     validate_reconciliation_plan,
 )
-from fdai_deployment_cli.aks_readiness import verify_workload_health
+from fdai_deployment_cli import aks_readiness
 from fdai_deployment_cli.aks_service_update import (
     SERVICES as AKS_SERVICES,
 )
@@ -1052,10 +1052,7 @@ def _prepare_aks_application(_args: argparse.Namespace, work_dir: Path) -> dict[
         workloads_terraform_data=str(work_dir / "terraform-data-workloads"),
         kubeconfig=str(kubeconfig),
         expected_workloads={
-            name: {
-                key: workload[key] for key in ("image", "replicas", "max_replicas", "source_commit")
-            }
-            for name, workload in workloads.items()
+            name: aks_readiness.workload_contract(workload) for name, workload in workloads.items()
         },
         protected_aks_job_template_digests=job_preparation.protected_template_digests,
         protected_aks_job_identity_bindings=job_preparation.protected_identity_bindings,
@@ -1218,6 +1215,7 @@ def _validate_historical_aks_baseline(
             or type(max_replicas) is not int
             or replicas < 1
             or max_replicas < replicas
+            or not aks_readiness.valid_secret_environment(workload.get("secret_environment", {}))
         ):
             raise ValueError("historical AKS workload contract is invalid")
         expected[name] = {
@@ -1225,6 +1223,7 @@ def _validate_historical_aks_baseline(
             "replicas": replicas,
             "max_replicas": max_replicas,
             "source_commit": source_commit,
+            "secret_environment": dict(workload.get("secret_environment", {})),
         }
 
     state_workloads = _historical_state_workloads(resources)
@@ -1964,7 +1963,7 @@ def _readback_aks_service_update(context: dict[str, object], update: dict[str, A
         return False
     if not peers_unchanged(before=before, after=after, service=service):
         return False
-    return verify_workload_health(
+    return aks_readiness.verify_workload_health(
         deployments=_capture_aks_deployments(context, service=service),
         pods=_capture_aks_pods(context, service=service),
         expected={service: contract},
@@ -4356,7 +4355,7 @@ def _readback_stage(stage: str, context: dict[str, object]) -> bool:
                     reason="AKS workload observation failed",
                 )
             )
-        return verify_workload_health(
+        return aks_readiness.verify_workload_health(
             deployments=observed[0],
             pods=observed[1],
             expected=expected,
