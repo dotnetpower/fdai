@@ -161,7 +161,7 @@ test("replay streams preparation, answer, and verification before settling", { t
     assert.match(await frame.locator(".cs-deck-verification").textContent(), /Verified\s+9 of 9 claims supported/);
     assert.equal(await frame.locator(".cs-deck-followup").count(), 3);
     assert.equal(await frame.locator(".cs-run-record").evaluate((node) => node.open), false);
-    assert.match(await frame.locator(".cs-run-record-stats").textContent(), /^Model trace off \/ model /);
+    assert.match(await frame.locator(".cs-run-record-stats").textContent(), /^Model trace off \u00b7 model /);
     // The automatic first replay stays silent, so no stale progress message remains.
     assert.equal(await frame.locator("#ds-announcer").textContent(), "");
     await pressPreview(frame, "#ds-finish");
@@ -206,7 +206,7 @@ test("preparation shows each result only after its step and the record matches t
     await deckState(frame, "settled");
     const recorded = Number.parseFloat((await frame.locator(".cs-run-record-duration").textContent()).replace(/^\D+/, ""));
     assert.ok(recorded >= prepared.elapsed, `${recorded} s recorded for ${prepared.elapsed} s of preparation`);
-    assert.match(await frame.locator(".cs-run-record-stats").textContent(), /^2 model calls \//);
+    assert.match(await frame.locator(".cs-run-record-stats").textContent(), /^2 model calls \u00b7 /);
     assert.deepEqual(errors, []);
     await context.close();
   } finally {
@@ -371,7 +371,7 @@ test("run record shows the observed process and captures model traces per turn",
     assert.equal(await frame.locator(".cs-run-record").count(), 1);
     assert.equal(await first.locator(".cs-run-record-body").evaluate((node) => node.childElementCount), 0);
     assert.match(await first.locator(".cs-run-record-stats").textContent(),
-      /^Model trace off \/ model 1\.15 s \/ 3,256 tokens \/ evidence 7\/7 \/ verification Completed$/);
+      /^Model trace off \u00b7 model 1\.15 s \u00b7 3,256 tokens \u00b7 evidence 7 of 7 \u00b7 verification completed$/);
     assert.match(await first.locator(".cs-run-record-duration").textContent(), /^Server processing \d+\.\d+ s$/);
     await first.locator(":scope > summary").click();
     assert.equal(await first.locator(".cs-run-phase").count(), 6);
@@ -386,7 +386,7 @@ test("run record shows the observed process and captures model traces per turn",
 
     // Turning capture on never reveals a turn that was answered without it.
     await frame.locator("#ds-trace").evaluate((input) => input.click());
-    assert.match(await first.locator(".cs-run-record-stats").textContent(), /^Model trace not captured \//);
+    assert.match(await first.locator(".cs-run-record-stats").textContent(), /^Model trace not captured \u00b7 /);
     // An open record is rebuilt with its body already filled.
     assert.equal(await first.evaluate((node) => node.open), true);
     assert.match(await first.locator(".cs-model-trace-note").textContent(), /^Model trace not captured/);
@@ -397,7 +397,7 @@ test("run record shows the observed process and captures model traces per turn",
     await deckState(frame, "preparing", 3000);
     await deckState(frame, "settled");
     const second = frame.locator(".cs-run-record").nth(1);
-    assert.match(await second.locator(".cs-run-record-stats").textContent(), /^2 model calls \//);
+    assert.match(await second.locator(".cs-run-record-stats").textContent(), /^2 model calls \u00b7 /);
     await second.locator(":scope > summary").click();
     assert.equal(await second.locator('.cs-run-event[data-kind="model"]').count(), 2);
     assert.equal(await second.locator(".cs-model-trace-lane").count(), 2);
@@ -413,8 +413,51 @@ test("run record shows the observed process and captures model traces per turn",
 
     // The display setting hides captured provider data again without discarding the record.
     await frame.locator("#ds-trace").evaluate((input) => input.click());
-    assert.match(await second.locator(".cs-run-record-stats").textContent(), /^Model trace off \//);
+    assert.match(await second.locator(".cs-run-record-stats").textContent(), /^Model trace off \u00b7 /);
     assert.equal(await frame.locator(".cs-model-trace-lane").count(), 0);
+    assert.deepEqual(errors, []);
+    await context.close();
+  } finally {
+    await browser.close();
+  }
+});
+
+test("run record reads as one quiet line and colors only trouble", { timeout: 60000 }, async () => {
+  const { layer } = await sources();
+  assert.match(layer, /::details-content \{\n  block-size: 0;/);
+  const browser = await chromium.launch({ headless: true });
+  try {
+    const { context, frame, errors } = await openStudy(browser, { state: "settled", scenario: "partial", trace: "on" });
+    await deckState(frame, "settled", 5000);
+    await frame.locator(".cs-run-record > summary").click();
+    const record = await frame.evaluate(() => {
+      const summary = document.querySelector(".cs-run-record-summary");
+      const color = (node) => getComputedStyle(node).color;
+      const completed = document.querySelector('.cs-run-event[data-state="completed"] .cs-run-event-outcome');
+      const failed = document.querySelector('.cs-run-event[data-state="failed"] .cs-run-event-outcome');
+      const kind = document.querySelector(".cs-run-event-kind");
+      return {
+        heading: summary.querySelector(".cs-run-record-heading").textContent,
+        kicker: summary.querySelectorAll(".cs-run-record-kicker").length,
+        oneLine: summary.getBoundingClientRect().height <= 48,
+        statsFit: summary.querySelector(".cs-run-record-stats").scrollWidth <= summary.querySelector(".cs-run-record-stats").clientWidth,
+        completedNeutral: color(completed) === color(kind),
+        failedColored: color(failed) !== color(kind),
+        kindBorder: getComputedStyle(kind).borderTopStyle,
+        completedPhaseLabels: [...document.querySelectorAll('.cs-run-phase[data-state="completed"] small')]
+          .every((node) => node.classList.contains("cs-sr-only")),
+        degradedPhaseLabel: document.querySelector('.cs-run-phase[data-state="degraded"] small').classList.contains("cs-sr-only"),
+      };
+    });
+    assert.equal(record.heading, "Run record");
+    assert.equal(record.kicker, 0);
+    assert.equal(record.oneLine, true);
+    assert.equal(record.statsFit, true);
+    assert.equal(record.completedNeutral, true);
+    assert.equal(record.failedColored, true);
+    assert.equal(record.kindBorder, "none");
+    assert.equal(record.completedPhaseLabels, true);
+    assert.equal(record.degradedPhaseLabel, false);
     assert.deepEqual(errors, []);
     await context.close();
   } finally {
@@ -428,7 +471,7 @@ test("trace capture can start on from the URL", { timeout: 60000 }, async () => 
     const { context, frame, errors } = await openStudy(browser, { state: "settled", scenario: "partial", trace: "on" });
     await deckState(frame, "settled", 5000);
     assert.equal(await frame.locator("#ds-trace").isChecked(), true);
-    assert.match(await frame.locator(".cs-run-record-stats").textContent(), /^2 model calls \/.*evidence 6\/7 \/ verification Degraded$/);
+    assert.match(await frame.locator(".cs-run-record-stats").textContent(), /^2 model calls \u00b7 .*evidence 6 of 7 \u00b7 verification degraded$/);
     await frame.locator(".cs-run-record > summary").click();
     assert.equal(await frame.locator('.cs-run-event[data-state="failed"]').count(), 1);
     assert.equal(await frame.locator('.cs-run-phase[data-state="degraded"]').count(), 2);

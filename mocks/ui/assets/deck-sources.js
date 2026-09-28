@@ -851,7 +851,8 @@
       return h("li", { class: "cs-run-phase", "data-state": value }, [
         h("span", { class: "cs-run-phase-mark", "aria-hidden": "true", text: STATE_MARK[value] }),
         h("strong", { text: phase[1] }),
-        h("small", { text: STATE_LABEL[value] })
+        // The check mark already says completed; other states keep their visible label.
+        h("small", { class: value === "completed" ? "cs-sr-only" : null, text: STATE_LABEL[value] })
       ]);
     }));
   }
@@ -861,17 +862,15 @@
     var trajectory = buildTrajectory(record);
     var captureOn = state.captureTrace;
     var traceLabel = !captureOn ? "Model trace off" : record.captured ? trajectory.calls.length + " model calls" : "Model trace not captured";
-    var stats = traceLabel + " / model " + formatMs(trajectory.modelMs) + " / " + trajectory.tokens.toLocaleString("en-US") +
-      " tokens / evidence " + trajectory.completed + "/" + trajectory.attempted + " / verification " + STATE_LABEL[trajectory.verification];
+    var stats = [traceLabel, "model " + formatMs(trajectory.modelMs), trajectory.tokens.toLocaleString("en-US") + " tokens",
+      "evidence " + trajectory.completed + " of " + trajectory.attempted,
+      "verification " + STATE_LABEL[trajectory.verification].toLowerCase()].join(" \u00b7 ");
     var body = h("div", { class: "cs-run-record-body" });
     var details = h("details", { class: "cs-run-record", "data-run-record": record.turnId }, [
       h("summary", { class: "cs-run-record-summary" }, spaced([
         h("span", { class: "cs-run-record-title" }, [
           h("span", { class: "cs-run-record-glyph", "aria-hidden": "true" }, [h("i"), h("i"), h("i")]),
-          h("span", { class: "cs-run-record-title-copy" }, spaced([
-            h("small", { class: "cs-run-record-kicker", text: "Run record" }),
-            h("strong", { class: "cs-run-record-heading", text: "Observed process" })
-          ]))
+          h("strong", { class: "cs-run-record-heading", text: "Run record" })
         ]),
         h("span", { class: "cs-run-record-stats", text: stats }),
         h("span", { class: "cs-run-record-duration" }, [

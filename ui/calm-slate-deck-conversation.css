@@ -1085,16 +1085,32 @@
   text-transform: none;
 }
 
-.cs-deck-conversation .cs-run-record-heading { font-size: var(--cs-type-compact-size); }
+/* One quiet line: what the record is, what it measured, and how long the server worked. */
+.cs-deck-conversation .cs-run-record-heading {
+  font-size: var(--cs-type-compact-size);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.cs-deck-conversation .cs-run-record-summary { min-height: 44px; }
 
 .cs-deck-conversation .cs-run-record-stats {
+  overflow: hidden;
   color: var(--cs-deck-meta-text);
   font-size: var(--cs-type-label-size);
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .cs-deck-conversation .cs-run-record-duration {
+  color: var(--cs-text);
+  font: 500 var(--cs-type-label-size)/var(--cs-type-label-line-height) var(--cs-font);
+  font-variant-numeric: tabular-nums;
+}
+
+.cs-run-record-duration-label {
   color: var(--cs-deck-meta-text);
-  font: var(--cs-type-label-size) var(--cs-font-mono);
+  font-weight: 400;
 }
 
 .cs-deck-conversation .cs-run-record-chevron { border-color: var(--cs-deck-meta-text); }
@@ -1111,7 +1127,7 @@
 }
 
 .cs-deck-conversation .cs-run-phase strong,
-.cs-deck-conversation .cs-run-phase small {
+.cs-deck-conversation .cs-run-phase small:not(.cs-sr-only) {
   display: block;
   overflow: hidden;
   font: var(--cs-type-label-size)/var(--cs-type-label-line-height) var(--cs-font);
@@ -1124,10 +1140,12 @@
   font-weight: 600;
 }
 
-.cs-deck-conversation .cs-run-phase small {
+.cs-deck-conversation .cs-run-phase small:not(.cs-sr-only) {
   margin-top: 2px;
   color: var(--cs-deck-meta-text);
 }
+
+.cs-deck-conversation .cs-run-phase strong { font-weight: 500; }
 
 .cs-deck-conversation .cs-run-phase-mark {
   color: var(--cs-deck-meta-text);
@@ -1193,7 +1211,7 @@
   gap: 8px;
   padding-inline: 6px;
   color: var(--cs-deck-meta-text);
-  font: var(--cs-type-label-size)/1.35 var(--cs-font-mono);
+  font: var(--cs-type-label-size)/1.35 var(--cs-font);
   font-variant-numeric: tabular-nums;
 }
 
@@ -1242,11 +1260,9 @@
   outline-offset: -2px;
 }
 
+/* The kind is a quiet annotation; the label, bar, and outcome carry the row. */
 .cs-run-event-kind {
   justify-self: start;
-  padding: 1px 7px;
-  border: 1px solid var(--cs-hairline);
-  border-radius: var(--cs-radius-pill);
   color: var(--cs-deck-meta-text);
   font: var(--cs-type-label-size)/1.35 var(--cs-font);
   white-space: nowrap;
@@ -1257,7 +1273,7 @@
   min-width: 0;
   overflow: hidden;
   color: var(--cs-text);
-  font: 600 var(--cs-type-label-size)/1.4 var(--cs-font);
+  font: 500 var(--cs-type-label-size)/1.4 var(--cs-font);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -1272,7 +1288,7 @@
   min-width: 0;
   overflow: hidden;
   color: var(--cs-deck-meta-text);
-  font: var(--cs-type-label-size)/1.35 var(--cs-font-mono);
+  font: var(--cs-type-label-size)/1.35 var(--cs-font);
   font-variant-numeric: tabular-nums;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -1300,15 +1316,17 @@
   background: var(--cs-steel);
 }
 
-.cs-run-event[data-kind="phase"] .cs-run-bar { background: var(--cs-navy); }
-.cs-run-event[data-kind="turn"] .cs-run-bar { background: var(--cs-text); }
-:is(.cs-run-event[data-kind="model"], .cs-model-trace-lane) .cs-run-bar { background: var(--cs-plum); }
+/* Neutral phase bars frame the work; color is kept for model calls and for trouble. */
+.cs-run-event[data-kind="phase"] .cs-run-bar { background: color-mix(in srgb, var(--cs-text) 34%, var(--cs-card)); }
+.cs-run-event[data-kind="turn"] .cs-run-bar { background: color-mix(in srgb, var(--cs-text) 55%, var(--cs-card)); }
+:is(.cs-run-event[data-kind="model"], .cs-model-trace-lane) .cs-run-bar { background: color-mix(in srgb, var(--cs-plum) 78%, var(--cs-card)); }
 .cs-run-event[data-state="degraded"] .cs-run-bar { background: var(--cs-terracotta); }
 .cs-run-event[data-state="failed"] .cs-run-bar { background: var(--cs-dusty-red); }
 
+/* A completed step is the expected case, so only a different outcome takes color. */
 .cs-run-event-outcome {
-  color: var(--cs-deck-ok-text);
-  font: 600 var(--cs-type-label-size)/1.35 var(--cs-font);
+  color: var(--cs-deck-meta-text);
+  font: 500 var(--cs-type-label-size)/1.35 var(--cs-font);
   text-align: right;
   white-space: nowrap;
 }
@@ -1355,7 +1373,7 @@ details[open] > summary .cs-run-chevron { transform: rotate(225deg) translate(-1
   display: block;
   color: var(--cs-deck-meta-text);
   font-size: var(--cs-type-label-size);
-  font-weight: 600;
+  font-weight: 500;
 }
 
 .cs-run-facts {
@@ -1367,15 +1385,16 @@ details[open] > summary .cs-run-chevron { transform: rotate(225deg) translate(-1
 
 .cs-run-facts > div { min-width: 0; }
 
+/* Values carry the weight; their keys stay quiet. */
 .cs-run-facts dt {
   color: var(--cs-deck-meta-text);
-  font: 600 var(--cs-type-label-size)/1.35 var(--cs-font);
+  font: var(--cs-type-label-size)/1.35 var(--cs-font);
 }
 
 .cs-run-facts dd {
   margin: 2px 0 0;
   color: var(--cs-text);
-  font: var(--cs-type-label-size)/1.45 var(--cs-font);
+  font: 500 var(--cs-type-label-size)/1.45 var(--cs-font);
   overflow-wrap: anywhere;
 }
 
@@ -1680,6 +1699,21 @@ details[open] > summary .cs-run-chevron { transform: rotate(225deg) translate(-1
 }
 
 /* ----- Motion ----- */
+/* ----- Disclosure motion: record sections open by height where the browser supports it. ----- */
+.cs-deck-conversation :is(.cs-run-record, .cs-run-event > details, .cs-model-trace-lane > details) {
+  interpolate-size: allow-keywords;
+}
+
+.cs-deck-conversation :is(.cs-run-record, .cs-run-event > details, .cs-model-trace-lane > details)::details-content {
+  block-size: 0;
+  overflow: clip;
+  transition: block-size .24s cubic-bezier(.2, .7, .2, 1), content-visibility .24s allow-discrete;
+}
+
+.cs-deck-conversation :is(.cs-run-record[open], .cs-run-event > details[open], .cs-model-trace-lane > details[open])::details-content {
+  block-size: auto;
+}
+
 /* ----- Arrival motion: words fade in as they stream; settled parts rise in with a short stagger. */
 .cs-deck-stream-in { animation: cs-deck-stream-in .22s ease-out both; }
 .cs-deck-fade-in { animation: cs-deck-fade-in .2s ease-out both; }
@@ -1717,6 +1751,10 @@ details[open] > summary .cs-run-chevron { transform: rotate(225deg) translate(-1
   }
 
   .cs-deck-conversation .cs-grounding-stages > .cs-grounding-stage { transition: none; }
+
+  .cs-deck-conversation :is(.cs-run-record, .cs-run-event > details, .cs-model-trace-lane > details)::details-content {
+    transition: none;
+  }
 
   .cs-deck-collapse,
   .cs-run-chevron,
