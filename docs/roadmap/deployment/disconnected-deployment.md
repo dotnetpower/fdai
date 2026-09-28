@@ -40,6 +40,7 @@ fully disconnected install.
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-28 | in-progress | Recorded the single-VM no-internet execution residual from constitution Article 1. The signed offline package already installs through `fdaictl provision azure --offline-kit`, but Foundation still creates a separate managed host that bootstraps its toolchain online, and the operator VM needs the Azure CLI. | #461 rescoped; code inspection of `genesis_prepare_inputs.py` bootstrap modes | Make the no-internet VM the execution host and ship the Azure CLI in the package. |
 | 2026-09-28 | implemented | Added the signed deployment-control package: a control-only repair reuses the verified kit runtime payload and replaces only the managed-host CLI after signature, file-set, digest, and remote-digest checks. | `current change`; `packages/deployment-cli/tests/test_control_package.py` (8 passed); 1957 deployment CLI tests | Live use is tracked by #461. |
 | 2026-09-27 | validated | Replaced the complete offline kit as the Python installation package with a 6.9 MB signed wheelhouse. Complete runtime payload, trust-root, SBOM, provenance, appliance, and Azure receipt requirements no longer gate package completion. | `current change`; policy v3, focused builder/checker tests, OpenSSL/checksum verification, and pip cold install. | Validate deployment behavior separately when a deployment is selected. |
 | 2026-09-16 | in-progress | Removed private-host runtime image build and tenant appliance construction from the current disconnected deployment contract. The tenant now verifies and mirrors or imports release-built digests without changing bytes. | `current change`; documentation and deployment-skill contracts only; implementation remains unchanged. | Remove builder entry points from tenant orchestration and retain one no-public-egress deployment receipt using only prebuilt artifacts. |
@@ -64,6 +65,9 @@ fully disconnected install.
   `sha256sum`, and pip commands.
 - [ ] Validate Azure deployment behavior separately from package installation. Deployment runtime
   payloads, exact plans, rollback, health, and cleanup remain deployment-owner work.
+- [ ] Run the complete installation from one Azure VM without internet access. That VM is the
+  execution host, the package supplies the Azure CLI, and no separate internet-bootstrapped
+  Foundation host is used.
 
 ## Design at a glance
 
