@@ -255,6 +255,53 @@ def test_absent_secret_contract_preserves_existing_readback() -> None:
     )
 
 
+def test_generic_list_envelope_is_accepted_when_items_declare_their_kind() -> None:
+    deployments, pods = _observations()
+    deployments["kind"] = "List"
+    for item in deployments["items"]:
+        item["kind"] = "Deployment"
+    pods["kind"] = "List"
+    for item in pods["items"]:
+        item["kind"] = "Pod"
+
+    assert _verify(deployments, pods)
+
+
+@pytest.mark.parametrize("defect", ["missing-item-kind", "wrong-item-kind", "unknown-envelope"])
+def test_untyped_or_mistyped_list_envelope_fails_closed(defect: str) -> None:
+    deployments, pods = _observations()
+    pods["kind"] = "List" if defect != "unknown-envelope" else "ServiceList"
+    for item in pods["items"]:
+        if defect == "wrong-item-kind":
+            item["kind"] = "Deployment"
+        elif defect == "unknown-envelope":
+            item["kind"] = "Pod"
+    assert not _verify(deployments, pods)
+
+
+def test_containerd_config_digest_image_is_accepted_with_matching_image_id() -> None:
+    deployments, pods = _observations()
+    for pod in pods["items"]:
+        pod["status"]["containerStatuses"][0]["image"] = "sha256:" + "3" * 64
+
+    assert _verify(deployments, pods)
+
+
+@pytest.mark.parametrize("observed", ["", "sha256:bad", "example.com/other:latest", None])
+def test_unresolvable_running_image_fails_closed(observed: object) -> None:
+    deployments, pods = _observations()
+    pods["items"][0]["status"]["containerStatuses"][0]["image"] = observed
+    assert not _verify(deployments, pods)
+
+
+def test_config_digest_image_still_requires_the_exact_image_id_digest() -> None:
+    deployments, pods = _observations()
+    status = pods["items"][0]["status"]["containerStatuses"][0]
+    status["image"] = "sha256:" + "3" * 64
+    status["imageID"] = "docker-pullable://example.com/fdai/service@sha256:" + "b" * 64
+    assert not _verify(deployments, pods)
+
+
 @pytest.mark.parametrize(
     "defect", ["null-metadata", "null-container", "boolean-counter", "null-state"]
 )
