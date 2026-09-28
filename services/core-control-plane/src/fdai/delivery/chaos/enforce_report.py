@@ -75,6 +75,40 @@ async def import_enforce_report(path: Path, *, dsn: str) -> int:
     return len(signals)
 
 
+def enforce_report_record(
+    result: ExperimentResult,
+    *,
+    approval_ref: str,
+    elapsed_seconds: float,
+) -> dict[str, Any]:
+    """Return one governed run serialized as an importable enforce-report record.
+
+    The importer accepts exactly :data:`_REQUIRED_RESULT_FIELDS`, so producing the
+    record here keeps the writer and the reader on one contract. A run that never
+    produced an :class:`ExperimentResult` has no measured result and MUST be
+    omitted from the report rather than reported with invented fields.
+    """
+
+    return {
+        "approval_ref": approval_ref,
+        "detected": result.detected,
+        "elapsed_seconds": round(max(elapsed_seconds, 0.0), 2),
+        "ended_at": result.ended_at.isoformat(),
+        "error": result.error,
+        "expected_signal": result.expected_signal,
+        "experiment_id": result.experiment_id,
+        "injected": result.injected,
+        "mode": result.mode.value,
+        "outcome": result.outcome.value,
+        "reverted": result.reverted,
+        "scenario_id": result.scenario_id,
+        "started_at": result.started_at.isoformat(),
+        "stop_reason": result.stop_reason,
+        "stopped": result.stopped,
+        "targets": list(result.targets),
+    }
+
+
 def _signal_from_record(record: Mapping[str, Any]) -> ReportSignal:
     if set(record) != _REQUIRED_RESULT_FIELDS:
         raise ValueError("enforce report run fields do not match the supported contract")
@@ -188,4 +222,9 @@ if __name__ == "__main__":
     raise SystemExit(main())
 
 
-__all__ = ["import_enforce_report", "load_enforce_report", "main"]
+__all__ = [
+    "enforce_report_record",
+    "import_enforce_report",
+    "load_enforce_report",
+    "main",
+]
