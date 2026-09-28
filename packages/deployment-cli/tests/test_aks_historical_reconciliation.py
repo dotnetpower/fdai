@@ -631,3 +631,71 @@ def test_plan_rejects_a_removed_secret_binding() -> None:
 
     with pytest.raises(ValueError, match="changes a secret binding"):
         validate_reconciliation_plan(plan, variables=variables)
+
+
+def _secret_provider_resource(
+    manifest: list[tuple[str, str]], live: list[tuple[str, str]]
+) -> dict[str, object]:
+    return {
+        "manifest": _secret_provider(manifest)["object"],
+        "object": _secret_provider(live)["object"],
+    }
+
+
+def test_plan_accepts_a_recorded_manifest_catching_up_to_the_live_object() -> None:
+    variables = reconciled_variables(state=_state(), variables=_variables(), live=_live())
+    name = sorted(SERVICES)[0]
+    entries = [("DSN", "fdai-state-store-dsn"), ("INSIGHTS", "fdai-insights")]
+    plan = {
+        "errored": False,
+        "applyable": True,
+        "resource_changes": [
+            {
+                "address": (
+                    "azurerm_federated_identity_credential.identity["
+                    '"workload-operator-service-command"]'
+                ),
+                "change": {"actions": ["no-op"], "before": {}, "after": {}},
+            },
+            {
+                "address": f'kubernetes_manifest.workload_secret_provider["{name}"]',
+                "change": {
+                    "actions": ["update"],
+                    "before": _secret_provider_resource(entries[:1], entries),
+                    "after": _secret_provider_resource(entries, list(reversed(entries))),
+                },
+            },
+        ],
+    }
+
+    validate_reconciliation_plan(plan, variables=variables)
+
+
+def test_plan_rejects_an_unknown_effective_secret_object() -> None:
+    variables = reconciled_variables(state=_state(), variables=_variables(), live=_live())
+    name = sorted(SERVICES)[0]
+    entries = [("DSN", "fdai-state-store-dsn")]
+    plan = {
+        "errored": False,
+        "applyable": True,
+        "resource_changes": [
+            {
+                "address": (
+                    "azurerm_federated_identity_credential.identity["
+                    '"workload-operator-service-command"]'
+                ),
+                "change": {"actions": ["no-op"], "before": {}, "after": {}},
+            },
+            {
+                "address": f'kubernetes_manifest.workload_secret_provider["{name}"]',
+                "change": {
+                    "actions": ["update"],
+                    "before": _secret_provider_resource(entries, entries),
+                    "after": {"manifest": _secret_provider(entries)["object"], "object": None},
+                },
+            },
+        ],
+    }
+
+    with pytest.raises(ValueError, match="changes a secret binding"):
+        validate_reconciliation_plan(plan, variables=variables)
