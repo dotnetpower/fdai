@@ -77,13 +77,24 @@ def load_plan(path: Path) -> dict[str, Any]:
 
 
 def verify_plan(plan: dict[str, Any], *, mode: str) -> None:
-    """Require the complete reviewed address set and one exact action."""
+    """Bound the changed address set and the single permitted action for one mode.
+
+    ``create``, ``cleanup``, and ``extension-recovery`` require their complete reviewed
+    set. ``migration-recovery`` updates the certification runtime in place, and Azure
+    propagates the sandbox ownership tag to every task-owned resource in the same plan,
+    so it accepts any non-empty subset of the reviewed set. Unreviewed addresses,
+    duplicates, replacements, and every action other than the mode's own remain blocked.
+    """
 
     expected_action = {
         "cleanup": ["delete"],
         "migration-recovery": ["update"],
     }.get(mode, ["create"])
     expected_addresses = {
+        "extension-recovery": EXPECTED_EXTENSION_RECOVERY,
+        "migration-recovery": EXPECTED_ADDRESSES,
+    }.get(mode, EXPECTED_ADDRESSES)
+    required_addresses = {
         "extension-recovery": EXPECTED_EXTENSION_RECOVERY,
         "migration-recovery": EXPECTED_MIGRATION_RECOVERY,
     }.get(mode, EXPECTED_ADDRESSES)
@@ -108,7 +119,7 @@ def verify_plan(plan: dict[str, Any], *, mode: str) -> None:
             raise PlanVerificationError("plan changes an unreviewed address")
         if actions != expected_action:
             raise PlanVerificationError(f"{mode} plan contains a non-{expected_action[0]} action")
-    if observed != expected_addresses:
+    if not required_addresses <= observed:
         raise PlanVerificationError("plan does not contain the complete reviewed address set")
 
 
