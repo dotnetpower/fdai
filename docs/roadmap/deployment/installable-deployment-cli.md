@@ -558,9 +558,9 @@ state transition, handoff, migration, and application activation remain serial.
 
 ## Approval and recovery
 
-Every mutating checkpoint binds approval to one exact binary plan and expiry. A changed plan needs
-new approval. Destructive plans require a second exact confirmation. Silence never grants
-authority.
+The invocation approves each exact plan it shows; the approval record still binds the plan digest,
+actor, and expiry. A deletion or replacement of an existing resource needs one exact typed
+confirmation, and closed input grants nothing.
 
 Before an effect, the coordinator writes an immutable claim. If the outcome becomes ambiguous, a
 later invocation performs authoritative readback and a zero-change plan. It does not repeat the

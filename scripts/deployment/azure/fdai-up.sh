@@ -63,7 +63,8 @@ if [[ -n "$signing_key" ]]; then
       *) deploy+=("$argument") ;;
     esac
   done
-  fdaictl --offline-kit "$kit" --license-signing-key "$signing_key" "${deploy[@]}"
+  # The deployment signing key is not the license issuer; pass --license-signing-key explicitly.
+  fdaictl --offline-kit "$kit" "${deploy[@]}"
 fi
 
 selected=0

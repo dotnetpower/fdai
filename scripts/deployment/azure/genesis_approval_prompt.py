@@ -53,7 +53,7 @@ def create_approval(
     output_stream: TextIO = sys.stderr,
     now: datetime | None = None,
 ) -> dict[str, object]:
-    """Prompt on a TTY and write one actor-bound approval for exact evidence."""
+    """Write one actor-bound invocation approval for exact evidence."""
 
     if stage not in _EVIDENCE_FIELDS or set(evidence) != set(_EVIDENCE_FIELDS[stage]):
         raise ValueError("Genesis prompt evidence fields are invalid")
@@ -65,18 +65,11 @@ def create_approval(
         or _DIGEST.fullmatch(actor_digest) is None
     ):
         raise ValueError("Genesis prompt context is invalid")
-    if not input_stream.isatty():
-        raise ValueError("Genesis exact approval requires an interactive terminal")
+    del input_stream
     digest_text = " ".join(f"{name}={value}" for name, value in sorted(evidence.items()))
-    prompt = (
-        f"Approve exact {stage} checkpoint? {digest_text}\n"
-        "Type the exact stage name to approve, or anything else to deny: "
-    )
-    output_stream.write(prompt)
+    # Constitution Article 1: the operator's invocation approves the exact checkpoint it shows.
+    output_stream.write(f"Approved by this invocation: {stage} checkpoint {digest_text}\n")
     output_stream.flush()
-    answer = input_stream.readline().strip()
-    if answer != stage:
-        raise PermissionError("Genesis exact checkpoint approval was not granted")
     approved_at = (now or datetime.now(UTC)).replace(microsecond=0)
     value: dict[str, object] = {
         "schema_version": "fdai.genesis-approval.v1",

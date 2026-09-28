@@ -33,17 +33,11 @@ def _review(**overrides):
     return value
 
 
-@pytest.mark.parametrize("prompt_number", [1, 2])
-def test_approval_eof_never_grants_authority(
-    tmp_path, monkeypatch, capsys, prompt_number, ready_terminal
+def test_destructive_confirmation_eof_never_grants_authority(
+    tmp_path, monkeypatch, capsys, ready_terminal
 ) -> None:
-    calls = []
-
     def read_input(_prompt):
-        calls.append(True)
-        if len(calls) == prompt_number:
-            raise EOFError()
-        return "application-apply"
+        raise EOFError()
 
     monkeypatch.setattr("builtins.input", read_input)
     monkeypatch.setattr(
@@ -151,7 +145,7 @@ def test_review_expiring_during_approval_never_writes_approval(
             return clock[0]
 
     monkeypatch.setattr(standalone_review, "datetime", Clock)
-    answers = iter(("application-apply", "application-apply-destructive"))
+    answers = iter(("application-apply-destructive",))
     monkeypatch.setattr("builtins.input", lambda _prompt: next(answers))
 
     def actor(_binding, **_kwargs):
@@ -179,7 +173,7 @@ def test_exact_approval_still_passes_managed_host_validation(
             ],
         },
     )
-    answers = iter((f"{stage}-apply", f"{stage}-apply-destructive"))
+    answers = iter((f"{stage}-apply-destructive",))
     monkeypatch.setattr("builtins.input", lambda _prompt: next(answers))
     monkeypatch.setattr(
         standalone_application, "_azure_actor_digest", lambda _binding, **_kwargs: "d" * 64
@@ -199,7 +193,9 @@ def test_runtime_profile_bound_review_passes_exact_approval(
         runtime_platform="aks",
         summary={"action_counts": {"update": 1}},
     )
-    monkeypatch.setattr("builtins.input", lambda _prompt: "application-apply")
+    monkeypatch.setattr(
+        "builtins.input", lambda _prompt: pytest.fail("a non-destructive plan must not prompt")
+    )
     monkeypatch.setattr(
         standalone_application, "_azure_actor_digest", lambda _binding, **_kwargs: "d" * 64
     )
@@ -224,12 +220,9 @@ def test_historical_reconciliation_uses_distinct_exact_approval(
         },
     )
     answers: list[str] = []
-
-    def approve(_prompt: str) -> str:
-        answers.append("historical-reconciliation-apply")
-        return answers[-1]
-
-    monkeypatch.setattr("builtins.input", approve)
+    monkeypatch.setattr(
+        "builtins.input", lambda _prompt: pytest.fail("a non-destructive plan must not prompt")
+    )
     monkeypatch.setattr(
         standalone_application, "_azure_actor_digest", lambda _binding, **_kwargs: "d" * 64
     )
@@ -238,7 +231,7 @@ def test_historical_reconciliation_uses_distinct_exact_approval(
     approval = json.loads(approval_path.read_text())
 
     assert approval_path.name == "historical-reconciliation-approval.json"
-    assert answers == ["historical-reconciliation-apply"]
+    assert answers == []
     standalone_host._validate_approval(review, approval, context=review)
 
 
@@ -256,7 +249,7 @@ def test_residual_recovery_uses_distinct_exact_approval(
             "original_claim_digest": "1" * 64,
         },
     )
-    supplied = iter(("substrate-residual-apply", "substrate-residual-apply-destructive"))
+    supplied = iter(("substrate-residual-apply-destructive",))
     answers: list[str] = []
 
     def approve(_prompt: str) -> str:
@@ -272,7 +265,7 @@ def test_residual_recovery_uses_distinct_exact_approval(
     approval = json.loads(approval_path.read_text())
 
     assert approval_path.name == "substrate-residual-approval.json"
-    assert answers == ["substrate-residual-apply", "substrate-residual-apply-destructive"]
+    assert answers == ["substrate-residual-apply-destructive"]
     standalone_host._validate_approval(review, approval, context=review)
 
 
@@ -301,7 +294,7 @@ def test_application_approval_cannot_use_noninteractive_input(monkeypatch):
 def test_destructive_confirmation_shares_remaining_budget(tmp_path, monkeypatch):
     clock = [0.0]
     waits = []
-    answers = iter(("application-apply", "application-apply-destructive"))
+    answers = iter(("application-apply-destructive",))
     monkeypatch.setattr(standalone_application, "time", SimpleNamespace(monotonic=lambda: clock[0]))
     monkeypatch.setattr(standalone_application, "_wait_for_approval_input", waits.append)
 
@@ -316,4 +309,16 @@ def test_destructive_confirmation_shares_remaining_budget(tmp_path, monkeypatch)
     standalone_application._approve_plan(
         tmp_path, _review(), deadline=DeploymentDeadline(10, clock=lambda: clock[0])
     )
-    assert waits == [10, 7]
+    assert waits == [10]
+
+
+def test_wrong_destructive_confirmation_is_denied(tmp_path, monkeypatch, ready_terminal) -> None:
+    monkeypatch.setattr("builtins.input", lambda _prompt: "application-apply")
+    monkeypatch.setattr(
+        standalone_application,
+        "_azure_actor_digest",
+        lambda _binding, **_kwargs: pytest.fail("denial must not reach actor lookup"),
+    )
+    with pytest.raises(ValueError, match="destructive"):
+        standalone_application._approve_plan(tmp_path, _review())
+    assert not list(tmp_path.glob("*approval.json"))
