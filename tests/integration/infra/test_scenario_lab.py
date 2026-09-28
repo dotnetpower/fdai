@@ -274,7 +274,8 @@ def test_scenario_lab_workflow_is_plan_first_and_approval_gated() -> None:
     )
     assert "SCENARIO_LAB_BACKEND_IMAGE" not in workflow
     assert "Configure AKS test substrate" in workflow
-    assert "Start stopped AKS sweep target" in workflow
+    assert "Verify running AKS target" in workflow
+    assert "Start stopped AKS sweep target" not in workflow
     assert 'cluster_name="$(terraform output -raw aks_cluster_name)"' in workflow
     assert '[[ "$cluster_name" == "aks-store-demo" ]]' in workflow
     assert '"$RUNNER_TEMP/sre-demo-lab-aks-started-by-run"' in workflow
@@ -333,7 +334,7 @@ def test_scenario_lab_workflow_is_plan_first_and_approval_gated() -> None:
     assert "--retry 2 --retry-delay 2 --retry-all-errors --retry-max-time 120" in workflow
     assert "required kubelogin installer command is unavailable" in workflow
     assert 'trap \'rm -rf -- "$archive" "$extract_dir"\' EXIT' in workflow
-    assert "for command_name in az helm jq kubectl kubelogin terraform timeout" in workflow
+    assert "for command_name in az helm jq kubectl kubelogin python3 terraform timeout" in workflow
     assert "Adopt succeeded partial-apply network resources" in workflow
     assert "Recover healthy partial workspace state" in workflow
     assert 'terraform state pull >"$state_snapshot"' in workflow
