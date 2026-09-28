@@ -359,3 +359,25 @@ def test_an_unreadable_subject_scope_keeps_its_relation() -> None:
 
     assert not repair_keeps_operands(unscoped, _resolved(relation_free), utterance=_UTTERANCE)
     assert repair_keeps_operands(unscoped, _resolved(_quoted_form()), utterance=_UTTERANCE)
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    (("goals", None), ("goals", []), ("goals", "missing"), ("mentions", None)),
+)
+def test_unparsed_collections_are_read_as_the_closed_schema_reads_them(
+    field: str, value: object
+) -> None:
+    unreadable = _undeclared_filter()
+    if value == "missing":
+        del unreadable[field]
+    else:
+        unreadable[field] = value
+    omitted_mentions = _undeclared_filter()
+    del omitted_mentions["mentions"]
+    omitted_mentions["goals"][0]["filters"] = [{"role": "type", "mention": "m9"}]
+    repaired = _resolved(_quoted_form())
+
+    assert not repair_keeps_operands(unreadable, repaired, utterance=_UTTERANCE)
+    # Omitted mentions are the schema's empty default, so the goals still bind the repair.
+    assert repair_keeps_operands(omitted_mentions, repaired, utterance=_UTTERANCE)

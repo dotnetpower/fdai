@@ -252,12 +252,12 @@ def _raw_readable(previous: Mapping[str, Any]) -> bool:
     """
 
     mentions = previous.get("mentions")
-    if mentions is not None and not _objects(mentions):
+    # The schema reads omitted mentions as none, but never an explicit null or another shape.
+    if "mentions" in previous and not _objects(mentions):
         return False
     goals = previous.get("goals")
-    if goals is None:
-        return True
-    if not _objects(goals):
+    # Goals are required and non-empty, so a missing, null, or empty list is unreadable.
+    if not _objects(goals) or not goals:
         return False
     ids = [goal.get("id") for goal in goals]
     if not all(isinstance(item, str) for item in ids) or len(set(ids)) != len(ids):
