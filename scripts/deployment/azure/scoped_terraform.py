@@ -27,6 +27,7 @@ from pathlib import Path
 from typing import Any
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+import scoped_terraform_ambiguity as ambiguity  # noqa: E402
 import scoped_terraform_receiver as receiver  # noqa: E402
 
 PROFILE_SCHEMA = "fdai.scoped-terraform-profile.v1"
@@ -52,6 +53,14 @@ class CoordinatorError(Exception):
     """An actionable, secret-free coordinator failure."""
 
 
+class RunCommandBusyError(CoordinatorError):
+    """Azure refused the invocation because another Run Command is active on the host."""
+
+
+class TransportAmbiguousError(CoordinatorError):
+    """The invocation may still be running or may have finished without a readable result."""
+
+
 def capture(command: tuple[str, ...], timeout: int) -> str:
     label = " ".join(command[:4:3] if command[1:2] == ("-C",) else command[:2])
     try:
@@ -61,6 +70,8 @@ def capture(command: tuple[str, ...], timeout: int) -> str:
     except subprocess.TimeoutExpired:
         raise CoordinatorError(f"{label} exceeded {timeout}s") from None
     if completed.returncode != 0:
+        if "Run command extension execution is in progress" in completed.stderr:
+            raise RunCommandBusyError("another Run Command is active on the managed host")
         raise CoordinatorError(f"{label} failed with {completed.returncode}")
     return completed.stdout
 
@@ -239,25 +250,31 @@ def invoke(run: Runner, vm: str, script: str, operation: str) -> dict[str, Any]:
         os.chmod(handle.name, 0o600)
         handle.write(script)
         handle.flush()
-        output = run(
-            (
-                "az",
-                "vm",
-                "run-command",
-                "invoke",
-                "--ids",
-                vm,
-                "--command-id",
-                "RunShellScript",
-                "--scripts",
-                f"@{handle.name}",
-                "--only-show-errors",
-                "-o",
-                "json",
-            ),
-            TIMEOUTS[operation],
+        command = (
+            "az",
+            "vm",
+            "run-command",
+            "invoke",
+            "--ids",
+            vm,
+            "--command-id",
+            "RunShellScript",
+            "--scripts",
+            f"@{handle.name}",
+            "--only-show-errors",
+            "-o",
+            "json",
         )
-    return parse_result(output)
+        try:
+            output = run(command, TIMEOUTS[operation])
+        except RunCommandBusyError:
+            raise
+        except (CoordinatorError, subprocess.SubprocessError) as error:
+            raise TransportAmbiguousError(str(error)) from None
+    try:
+        return parse_result(output)
+    except (CoordinatorError, ValueError, KeyError, IndexError) as error:
+        raise TransportAmbiguousError(str(error)) from None
 
 
 def verify_context(run: Runner, profile: dict[str, Any]) -> str:
@@ -389,6 +406,10 @@ READBACK = {
 }
 
 
+def target_key(scope: str, profile: dict[str, Any]) -> str:
+    return pointer_key(scope, "*", profile)
+
+
 def pointer_key(scope: str, mode: str, profile: dict[str, Any]) -> str:
     return receiver.sha256(
         receiver.canonical(
@@ -481,7 +502,32 @@ def execute(args: argparse.Namespace, run: Runner = capture) -> dict[str, object
             review = json.loads(review_path.read_text())
             request["approval"] = approve(review, binding, actor)
         script = build_script(receiver_bytes, payload_archive(source, request, variables))
-        result = invoke(run, profile["vm_resource_id"], script, args.operation)
+        key = target_key(args.scope, profile)
+        resolving = ambiguity.require_settled(
+            run,
+            STATE_ROOT,
+            key,
+            vm_resource_id=profile["vm_resource_id"],
+            operation_id=binding["operation_id"],
+            operation=args.operation,
+        )
+        started_at = datetime.now(UTC)
+        try:
+            result = invoke(run, profile["vm_resource_id"], script, args.operation)
+        except TransportAmbiguousError as error:
+            ambiguity.record(
+                STATE_ROOT,
+                key,
+                operation_id=binding["operation_id"],
+                operation=args.operation,
+                started_at=started_at,
+            )
+            raise CoordinatorError(
+                f"Run Command outcome is unknown ({error}); plan and apply are blocked until"
+                f" verify succeeds for operation {binding['operation_id']}"
+            ) from None
+        if resolving and result.get("state") == "verified":
+            ambiguity.clear(STATE_ROOT, key)
     if args.operation == "plan" and result.get("state") == "planned":
         receiver.validate_plan(
             {
@@ -528,7 +574,12 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     try:
         outcome = execute(args)
-    except (CoordinatorError, receiver.ReceiverError, subprocess.SubprocessError) as error:
+    except (
+        CoordinatorError,
+        ambiguity.AmbiguousOutcomeError,
+        receiver.ReceiverError,
+        subprocess.SubprocessError,
+    ) as error:
         print(f"scoped-terraform: {error}", file=sys.stderr)
         return 1
     print(json.dumps(outcome, indent=2, sort_keys=True))
