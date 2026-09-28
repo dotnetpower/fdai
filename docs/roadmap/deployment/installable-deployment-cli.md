@@ -574,7 +574,7 @@ a new prepared context.
 An online retry keeps the work directory and treats its retained kit as untrusted input. It checks
 the package-pinned release signature, compatibility, exact file set, all digests, runtime images,
 and bundle binding again before advancing. An existing materialized payload is reused only when it
-matches those verified files exactly. A new execution copy of the signed bundle avoids reusing
+matches those verified files exactly; only the pinned `bin/` tools and Terraform are owner-executable. A new execution copy of the signed bundle avoids reusing
 Python bytecode, Terraform scratch files, or other residue from a previous execution copy.
 
 The cache records a digest of the requested artifact URL to reject an implicit source switch.
