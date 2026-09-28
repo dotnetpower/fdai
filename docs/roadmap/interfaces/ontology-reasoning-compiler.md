@@ -173,6 +173,13 @@ lookup table, and an explicit root candidate stands for resources in general. Fu
   only among `Resource.type` candidates as `kubernetes-cluster`. Core returns a clarification that
   names that candidate instead of substituting another declaration.
 - **Ambiguity**: Two surviving candidates in one domain return one clarification that names both.
+- **Two blind choosers**: Two choosers of different model families, the proposer's and the
+  extractor's, each see every shard and resolve their own runoff without seeing the other's choice.
+  A binding stands only when both reach the same values, so a group and its type agree; any other
+  answer, including general resources against one exact type, clarifies with
+  `concept_disagreement`. Without the second family nothing binds. Each chooser answers through a
+  schema closed over the presented mention ids, candidate ids, and shard digest, so a text answer or
+  an invented identifier cannot parse.
 
 ### Anchor binding
 

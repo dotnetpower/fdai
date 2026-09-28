@@ -6,7 +6,8 @@ import json
 from typing import Any
 
 import httpx
-from fdai.core.conversation.semantic_reasoning_form import SemanticQuestionForm
+from fdai.core.conversation.semantic_reasoning_concepts import ConceptCandidate, ConceptShard
+from fdai.core.conversation.semantic_reasoning_form import MentionDomain, SemanticQuestionForm
 from fdai.core.conversation.semantic_reasoning_proposal import resolve_question_form
 from fdai.core.conversation.semantic_reasoning_review import (
     FormReview,
@@ -850,3 +851,46 @@ async def test_one_review_repair_turns_an_absorbed_exclusion_into_a_clarificatio
     # A repair that shortens the cue drops what it stated, so nothing is released either.
     assert shortened_observation.passes[-1].repair == "operand_dropped"
     assert shortened_observation.released is False
+
+
+async def test_the_second_concept_chooser_is_the_other_model_family() -> None:
+    sent: list[str] = []
+    schemas: list[dict[str, Any]] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        sent.append(str(request.url))
+        schemas.append(json.loads(request.content)["response_format"]["json_schema"]["schema"])
+        content = {"shard_digest": "digest", "choices": []}
+        return httpx.Response(
+            200, json={"choices": [{"message": {"content": json.dumps(content)}}]}
+        )
+
+    candidate = ConceptCandidate("value:compute.vm", ("compute.vm",), ("virtual machine",))
+    shard = ConceptShard(MentionDomain.RESOURCE_TYPE, 0, 1, (candidate,), "digest")
+    mentions = ({"mention": "m1", "text": "VMs"},)
+    adapter = _adapter(handler)
+    unpaired = AzureOpenAIQuestionFormModel(
+        identity=_Identity(),  # type: ignore[arg-type]
+        http_client=httpx.AsyncClient(transport=httpx.MockTransport(handler)),
+        config=AzureOpenAIQuestionFormConfig(
+            candidates=(_target("form-model"),),
+            form_system_prompt="Return the closed question form.",
+            concept_system_prompt="Choose concepts.",
+        ),
+    )
+
+    await adapter.choose_concepts(utterance="List VMs", mentions=mentions, shard=shard)
+    await adapter.choose_concepts(utterance="List VMs", mentions=mentions, shard=shard, second=True)
+    none = await unpaired.choose_concepts(
+        utterance="List VMs", mentions=mentions, shard=shard, second=True
+    )
+
+    assert ["form-model" in url for url in sent] == [True, False]
+    assert "review-model" in sent[1]
+    assert none is None
+    # Both choosers may name only the presented mention, candidate, and shard digest.
+    for schema in schemas:
+        choice = schema["properties"]["choices"]["items"]["properties"]
+        assert choice["mention"]["enum"] == ["m1"]
+        assert choice["candidate_ids"]["items"]["enum"] == ["value:compute.vm"]
+        assert schema["properties"]["shard_digest"]["enum"] == [shard.digest]

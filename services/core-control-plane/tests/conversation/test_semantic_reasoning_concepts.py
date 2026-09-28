@@ -6,9 +6,12 @@ from typing import Any
 
 import pytest
 from fdai.core.conversation.semantic_reasoning_concepts import (
+    ConceptBinding,
     ConceptCandidate,
     ConceptOutcome,
+    ConceptSelectionReceipt,
     ConceptShard,
+    agree_concepts,
     concept_catalogs,
     select_concepts,
     shard_catalog,
@@ -314,3 +317,39 @@ def test_every_declared_type_is_selectable_on_its_own() -> None:
     declared = {value for item in catalog for value in item.values}
 
     assert declared <= exact
+
+
+def _bound(mention_id: str, *values: str, candidates: tuple[str, ...] = ()) -> ConceptBinding:
+    return ConceptBinding(
+        mention_id,
+        MentionDomain.RESOURCE_TYPE,
+        ConceptOutcome.ACCEPTED,
+        candidate_ids=candidates or tuple(f"value:{value}" for value in values),
+        values=values,
+    )
+
+
+def _receipt(*bindings: ConceptBinding, calls: int = 1) -> ConceptSelectionReceipt:
+    return ConceptSelectionReceipt(bindings=bindings, model_calls=calls)
+
+
+def test_two_blind_choosers_bind_only_the_values_they_agree_on() -> None:
+    same = _bound("m1", "compute.vm")
+    through_group = _bound("m1", "compute.vm", candidates=("group:compute.vm",))
+    general = _bound("m1")
+    missing = ConceptBinding("m1", MentionDomain.RESOURCE_TYPE, ConceptOutcome.NOT_FOUND)
+
+    agreed = agree_concepts(_receipt(same), _receipt(through_group, calls=2))
+    differing = agree_concepts(_receipt(same), _receipt(_bound("m1", "network.subnet")))
+    widened = agree_concepts(_receipt(general), _receipt(_bound("m1", "network.subnet")))
+    one_sided = agree_concepts(_receipt(same), _receipt(missing))
+    unanswered = agree_concepts(_receipt(same), _receipt())
+    neither = agree_concepts(_receipt(missing), _receipt(missing))
+
+    assert agreed.bindings == (same,) and agreed.model_calls == 3
+    for receipt in (differing, widened, one_sided, unanswered):
+        (binding,) = receipt.bindings
+        assert binding.outcome is ConceptOutcome.AMBIGUOUS
+        assert binding.reason == "concept_disagreement:resource_type"
+        assert binding.values == ()
+    assert neither.bindings == (missing,)
