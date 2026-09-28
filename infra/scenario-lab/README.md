@@ -27,7 +27,14 @@ paths, while S14 uses the existing alert ingress and investigation path.
 
 ## Prerequisites
 
-Use the existing self-hosted runner labeled `fdai-deploy`. The runner must have `az`, `terraform`,
+Use an existing self-hosted runner labeled `fdai-deploy`, `fdai-deploy-candidate`, and
+`fdai-scenario-lab`. The workflow selects all three labels, so only runners that carry the
+additive `fdai-scenario-lab` label run lab jobs; other workflows ignore that label. The label exists
+because two lab `terraform plan` runs failed only on a runner built from a different image, while
+every plan on the specialized-image runners succeeded. Add it only to a runner built from the same
+specialized image as the runners that already carry it, and remove it from any runner whose
+environment is in doubt.
+The runner must have `az`, `terraform`,
 `kubectl`, `helm`, and `jq`, and must reach the private state account and the peered lab VNet. The
 protected workflow installs a checksum-pinned `kubelogin` in runner-temporary storage so Azure RBAC
 kubeconfigs can authenticate without changing the runner image.
@@ -69,10 +76,11 @@ Run [.github/workflows/sre-demo-lab.yml](../../.github/workflows/sre-demo-lab.ym
 commit already present on protected `main`:
 
 1. Run `action=plan` and review the resource counts and any quota or policy failures. A failed plan
-   reports only allowlisted diagnostic categories, Terraform addresses, and Azure error codes. The
-   raw provider log stays runner-local and is shredded during cleanup. The plan also lists every
-   retained-resource import and every scope-case grant replacement described in
-   [Retained resource adoption](#retained-resource-adoption).
+   reports only an error count and the allowlisted categories, Terraform addresses, and Azure error
+   codes taken from Terraform's structured error diagnostics; refresh and progress output never
+   contributes a token. The raw provider log stays runner-local and is shredded during cleanup. The
+   plan also lists every retained-resource import and every scope-case grant replacement described
+   in [Retained resource adoption](#retained-resource-adoption).
 2. Run `action=apply` with an RFC 3339 `expires_at_utc`. The protected environment approval gates
    the apply, and ordinary apply refuses delete or replacement actions except the scope-case grant
    replacements that the plan lists. For the one-time transition
