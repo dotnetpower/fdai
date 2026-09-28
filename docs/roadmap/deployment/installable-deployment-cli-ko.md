@@ -1,11 +1,13 @@
 ---
 title: 설치형 배포 CLI
 translation_of: installable-deployment-cli.md
-translation_source_sha: 81551370d023e1a9a0197e4de9249a705b6dadda
+translation_source_sha: cafbc49049da2d6246984adb721608072b6199d3
 translation_revised: 2026-09-28
 ---
 
 # 설치형 배포 CLI
+
+> **배포 방식:** [헌법](../architecture/fdai-constitution.md#article-1-purpose-and-scope)은 기여자 소스 배포와 서명된 오프라인 패키지라는 두 가지 설치 방식만 정의합니다. 이 문서의 설치 관문 중 헌법에 없는 것은 대체되었으며 더 이상 적용되지 않습니다.
 
 이 문서는 공개 FDAI 배포 명령을 정의합니다. 운영자는 Azure 로그인 후 하나의 로컬 조정기를
 실행하고, Terraform 적용과 비공개 데이터 플레인 작업은 대상 Virtual Network 내부의 Managed
@@ -252,20 +254,10 @@ release나 사용 권한 증명으로 취급하지 않습니다.
 
 ### 소스 런타임 산출물 수락
 
-연결형 배포는 키트, 패키지 또는 운영자가 제공하는 산출물 매니페스트를 요구해서는 안 되며, 운영자는
-깨끗한 checkout만 제공합니다. 오프라인과 어플라이언스 경로는 서명된 키트를 유지합니다. 소스 모드는
-서비스, 의존성, 호스트 또는 어플라이언스 이미지를 빌드하지 않고 Docker, Buildx, ACR Tasks, 원격
-builder 또는 VM 캡처를 실행하지 않으며, 프로비저닝 중에 Console을 빌드하지도 않습니다.
-
-애플리케이션 단계는 검증된 `application-plan` checkpoint에서 이어지며 전송한 snapshot을 다시
-사용합니다. 보호된 공급망 workflow가 공개 게시한 정확한 버전의 이미지와 Console 산출물을 각각
-digest 하나로 확인하고, 소스에 고정한 사이드카 digest를 함께 사용합니다. 외부 Python 지원
-패키지는 hash로 고정한 binary wheel로 설치하고, 자체 패키지는 검증된 snapshot에서 실행합니다.
-Terraform은 커밋된 lock 파일로 provider를 직접 설치합니다. 각 ACR 반입은 호스트 ID로
-digest에 결합된 계획, 사람 승인, 효과 전 claim, digest 재확인을 거칩니다. 누락, 비공개, 부분 구성
-또는 불일치 산출물은 `published_images_unavailable`로 중단하며 빌드로 대체하지 않습니다.
-receipt는 소스 모드 필드를 사용하고 키트나 release 서명 신뢰를 주장하지 않습니다. 이 연결 단계는
-아직 구현되지 않았습니다.
+기여자 소스 배포는 헌법의 배포 방식을 따릅니다. `--source`와 `--signing-key`를 지정하면
+`fdai-up.sh`가 서비스 이미지를 포함한 모든 배포 산출물을 checkout에서 빌드하고 배포합니다. 보호
+브랜치, CI 결과, 게시된 산출물, attestation, provenance 또는 SBOM이 필요하지 않습니다.
+오프라인 패키지는 인터넷에 연결되지 않은 Azure VM을 위한 서명된 패키지 하나를 유지합니다.
 
 기존 `dev` AKS 설치에서는 적격 배포 호스트의 깨끗한 로컬 checkout에서 서비스 하나를 직접
 업데이트할 수 있습니다. 이 경로는 새 설치 및 release 조립과 분리됩니다.

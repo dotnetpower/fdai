@@ -96,10 +96,11 @@ unknown, no-op, denial, rollback, or human-review outcome with an audit record.
    the expected local commit.
 6. Treat GitHub Actions, Azure operations, container publication, and other slow network work as a
    post-validation phase. Local checks are preflight, not complete GitHub Actions parity; CI-only
-   jobs and the exact pushed-SHA environment remain authoritative. Deployment and release target a
-   pushed SHA with required CI and protected preflight; local validation receipts never grant
-   authority. Explicit deployment authorization permits entering the applicable repository
-   deployment workflow. Delivery authorization never
+   jobs and the exact pushed-SHA environment remain authoritative. FDAI installation follows only the
+   two [deployment distribution](../docs/roadmap/architecture/fdai-constitution.md#article-1-purpose-and-scope)
+   paths: a key holder's contributor deployment from any local checkout, or a signed offline
+   package. Neither requires a protected branch, CI result, published artifact, or attestation.
+   Explicit deployment authorization permits entering the applicable deployment path. Delivery authorization never
    selects a tenant, subscription, environment, or exact Terraform plan and never supplies a secret.
    For coding-session operations, an authenticated Owner's explicit request for a development action
    on an already selected full-authority development target, source, and scope authorizes the session
@@ -109,11 +110,10 @@ unknown, no-op, denial, rollback, or human-review outcome with an audit record.
    authorization ends on target, source, scope, effect, or plan drift and grants no authority outside
    the exact dedicated test scope. Use a task branch or isolated worktree
    for each active outcome. Only superseded PR runs may be cancelled. A release or deployment
-   candidate must have terminal required CI for its exact revision, but unrelated reviewed changes
-   need not wait for every optional workflow on an earlier `main` revision. A session waiting on external evidence is blocked or idle, not
+   candidate does not wait on CI; unrelated reviewed changes need not wait for any optional
+   workflow on an earlier `main` revision. A session waiting on external evidence is blocked or idle, not
    active WIP. Report local implementation, publication, and deployment completion separately.
-   Do not poll or rerun remote work to test an edit. Full image publication and attestation belong
-   to an explicitly selected release or deployment candidate, not every source change. The only
+   Do not poll or rerun remote work to test an edit. The only
    polling exception is `scripts/automation/pr_delivery_daemon.py`, started by the `pr-delivery`
    skill after explicit delivery authorization. It is limited to one PR in one clean isolated
    worktree, checks no more often than every 30 seconds, has total and no-progress deadlines of at

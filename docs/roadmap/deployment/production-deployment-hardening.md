@@ -3,6 +3,8 @@ title: Production deployment hardening
 ---
 # Production deployment hardening
 
+> **Deployment distribution:** The [constitution](../architecture/fdai-constitution.md#article-1-purpose-and-scope) defines only two installation paths, contributor source deployment and the signed offline package. Any installation gate in this document that the constitution does not list is superseded and no longer applies.
+
 This document defines the production-only deployment controls that tighten FDAI's development
 posture without changing its runtime contracts. It covers teardown behavior, durability, private
 networking, trusted images, notification destinations, monitoring, and cost ceilings.

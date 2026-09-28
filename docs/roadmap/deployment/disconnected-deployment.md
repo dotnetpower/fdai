@@ -3,6 +3,8 @@ title: Disconnected Deployment
 ---
 # Disconnected Deployment
 
+> **Deployment distribution:** The [constitution](../architecture/fdai-constitution.md#article-1-purpose-and-scope) defines only two installation paths, contributor source deployment and the signed offline package. Any installation gate in this document that the constitution does not list is superseded and no longer applies.
+
 This document is the single owner for deploying FDAI into a network that blocks public internet
 egress - a regulated financial tenant, a sovereign enclave, or a fully air-gapped site. It states
 what the repository already supports, what an operator must supply, and which gaps still block a

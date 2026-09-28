@@ -3,6 +3,8 @@ title: Provisioning Execution Profiles
 ---
 # Provisioning Execution Profiles
 
+> **Deployment distribution:** The [constitution](../architecture/fdai-constitution.md#article-1-purpose-and-scope) defines only two installation paths, contributor source deployment and the signed offline package. Any installation gate in this document that the constitution does not list is superseded and no longer applies.
+
 This document defines how the planned `fdaictl` distribution selects a provisioning host, connectivity mode, command
 transport, and access path. It also defines the human approval and workload-identity boundary
 that applies before Terraform changes infrastructure or role assignments.
