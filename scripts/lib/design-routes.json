@@ -2525,7 +2525,9 @@
         "services/core-control-plane/tests/core/ontology_platform/**",
         "services/core-control-plane/tests/test_semantic_turn_processor.py",
         "services/operator-service/tests/test_semantic_kafka_adapter.py",
-        "services/operator-service/tests/test_semantic_turn_bridge.py"
+        "services/operator-service/tests/test_semantic_turn_bridge.py",
+        "docs/roadmap/interfaces/ontology-reasoning-compiler*.md",
+        "docs/roadmap-implementation/interfaces/ontology-reasoning-compiler.md"
       ],
       "must_read": [
         ".github/instructions/architecture.instructions.md",
@@ -2534,7 +2536,8 @@
         "docs/roadmap/architecture/ontology-structural-model.md",
         "docs/roadmap/architecture/operating-ontology.md",
         "docs/roadmap/architecture/operating-ontology-platform.md",
-        "docs/roadmap/architecture/continuous-operational-instance-graph.md"
+        "docs/roadmap/architecture/continuous-operational-instance-graph.md",
+        "docs/roadmap/interfaces/ontology-reasoning-compiler.md"
       ],
       "docs_update_routes": [
         "conversation-attachments",
@@ -2545,7 +2548,8 @@
         "docs/roadmap/interfaces/continuous-question-space.md",
         "docs/roadmap/architecture/ontology-structural-model.md",
         "docs/roadmap/architecture/operating-ontology-platform.md",
-        "docs/roadmap/architecture/continuous-operational-instance-graph.md"
+        "docs/roadmap/architecture/continuous-operational-instance-graph.md",
+        "docs/roadmap/interfaces/ontology-reasoning-compiler.md"
       ],
       "validate": [
         "uv run pytest -q --no-cov services/core-control-plane/tests/conversation/test_coverage_gate.py services/core-control-plane/tests/conversation/test_epistemic_coverage.py services/core-control-plane/tests/conversation/test_semantic_planning.py services/core-control-plane/tests/core/ontology_platform services/core-control-plane/tests/test_semantic_turn_processor.py services/operator-service/tests/test_semantic_kafka_adapter.py services/operator-service/tests/test_semantic_turn_bridge.py packages/service-contracts/tests/test_ontology_query.py",

@@ -1,8 +1,8 @@
 ---
 title: FDAI 로드맵
 translation_of: README.md
-translation_source_sha: 4405a299df8f11020d357d5449e5893496cfcf41
-translation_revised: 2026-09-27
+translation_source_sha: 73499e8f48703dfd1dbb64ec750ade97e89141d9
+translation_revised: 2026-09-28
 ---
 # FDAI 로드맵
 
@@ -137,6 +137,7 @@ canonical 영문 roadmap context를 실제 4,500줄로 제한합니다. Route가
 | 19l | [operator-console-progressive-conversations-ko.md](interfaces/operator-console-progressive-conversations-ko.md) | 범위가 제한된 읽기 가지, ordered reduction, 검증된 개정 번호, 취소, 재생 및 진행 상황 메트릭 |
 | 19m | [narrator-routing-and-latency-ko.md](interfaces/narrator-routing-and-latency-ko.md) | T1 서술기 배포 라우팅, 멀티모달 탐색, 운영자 선호 설정, TTFT, 웹 검색 풀 및 런타임 전달 결정 |
 | 19n | [hierarchical-conversation-planning-ko.md](interfaces/hierarchical-conversation-planning-ko.md) | Non-keyword 의미 decomposition, structural 온톨로지 조회 커버리지, 검증된 의도 그래프, 근거 결합 및 답변 경계 |
+| 19n.1 | [ontology-reasoning-compiler-ko.md](interfaces/ontology-reasoning-compiler-ko.md) | 제안된 닫힌 질문 논리 형식, 앵커 바인딩, 검토된 관계 경로, 독립적인 의미 커버리지 검증 |
 | 19r | [system-knowledge-service-ko.md](interfaces/system-knowledge-service-ko.md) | 전용 Teams 멘션 봇과 운영 권한 없는 독립 release 고정 FDAI 설계 및 구현 지식 서비스 |
 | 19o | [ontology-query-coverage-implementation-plan-ko.md](interfaces/ontology-query-coverage-implementation-plan-ko.md) | 매니페스트, 조회 계획, 의미 세대, 토폴로지 이력, causal 근거 및 이전 방식 전환을 위한 감사된 구현 공백과 의존성 순서 작업 패키지 |
 | 19p | [continuous-question-space-ko.md](interfaces/continuous-question-space-ko.md) | 정확한 릴리스의 유한 질문 사례, 이중 언어 후보 생성, 캠페인 근거 원장, strict v2 보증 및 제한된 예약 실행 |

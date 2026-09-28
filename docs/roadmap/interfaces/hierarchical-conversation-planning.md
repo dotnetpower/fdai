@@ -387,7 +387,7 @@ This example is a logical form, not a phrase rule. No individual word, including
 prior verified context, locale, and time reference. Ambiguous request kinds or calendar boundaries
 return a clarification before any operational read.
 
-After schema grounding, the graph binds metrics, Services, topology, and Changes; `forbidden_actions` create no goal or draft.
+After schema grounding, the graph binds metrics, Services, topology, and Changes; `forbidden_actions` create no goal or draft. The proposed [Ontology Reasoning Compiler](ontology-reasoning-compiler.md) replaces capability-named decomposition with a closed question logical form and deterministic relation, containment, aggregation, temporal, and follow-up compilation.
 
 ## Intent graph contract
 
