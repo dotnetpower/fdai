@@ -8,10 +8,11 @@ question logical form and compiles it deterministically into a verified ontology
 model classifies meaning among closed types. Code admits that meaning, binds concepts and anchors,
 selects reviewed relation paths, proves that the plan preserves it, and decides what may be claimed.
 
-> **Status:** Proposed design, 2026-09-28. Nothing in this document is implemented. The current
-> runtime is described in [Hierarchical Conversation Planning](hierarchical-conversation-planning.md)
-> and [Ontology Query Coverage Implementation Plan](ontology-query-coverage-implementation-plan.md).
-> Implementation starts only after design approval.
+> **Status:** Approved design, 2026-09-28. The Owner approved the eight decisions below on that
+> date. Nothing in this document is implemented yet. The current runtime is described in
+> [Hierarchical Conversation Planning](hierarchical-conversation-planning.md) and
+> [Ontology Query Coverage Implementation Plan](ontology-query-coverage-implementation-plan.md).
+> Coverage targets and measured limits belong to [Ontology Reasoning Coverage](ontology-reasoning-coverage.md).
 >
 > **Authority boundary:** Logical forms, admission and compile receipts, anchor bindings, result
 > handles, and plans are read-only records with `execution_authority=false`. An explicit change
@@ -22,7 +23,7 @@ selects reviewed relation paths, proves that the plan preserves it, and decides 
 | Stage | Accountable agent | Output | Model use |
 |-------|-------------------|--------|-----------|
 | 1. Conversation preflight | Bragi | Social, knowledge, and operational routing | T1, unchanged |
-| 2. Logical-form judgment | Bragi | Proposed `SemanticQuestionForm` | T1, one call |
+| 2. Logical-form judgment | Bragi | Proposed `SemanticQuestionForm` | T1, one call plus at most one schema repair |
 | 3. Admission | Bragi | Admitted form, clarification, or review request | Optional T2 review |
 | 4. Concept resolution | Mimir catalogs | Domain-restricted bindings for concept mentions | None |
 | 5. Anchor binding | Muninn | Exact identities pinned to one snapshot | None, one bounded read |
@@ -30,11 +31,10 @@ selects reviewed relation paths, proves that the plan preserves it, and decides 
 | 7. Execution | Muninn and Heimdall readers | Receipts, tables, lineage, and completeness | None |
 | 8. Epistemic assessment and rendering | Bragi | Per-goal status and a bilingual answer | None |
 
-The compiler and verifier are mechanical Core components inside the Bragi-owned semantic turn.
-They consume immutable manifest, catalog, and graph projections, make no agent calls, and publish
-nothing; Saga keeps the existing turn audit. For a supported form, the compiler replaces the
-capability-named intent and the model-authored frame and plan. An unsupported form returns the
-exact missing atom and reason instead of the nearest existing capability.
+The compiler and verifier are mechanical Core components inside the Bragi-owned semantic turn. They
+consume immutable projections, make no agent calls, and publish nothing; Saga keeps the turn audit.
+A supported form replaces the capability-named intent and the model-authored frame and plan, and an
+unsupported form returns the exact missing atom and reason instead of the nearest capability.
 
 ## Verified baseline
 
@@ -52,18 +52,14 @@ to rendering in [`semantic_turn_processor.py`](../../../services/core-control-pl
 | Execution | Bounded secured ObjectSets, single-root traversal, stepwise typed paths | Traversal rows have no root lineage, and link evidence properties are redacted |
 | Answer | Shape-specific templates; any incomplete receipt holds the turn | No per-goal epistemic status; follow-up context is prior-turn text only |
 
-A bounded live planning probe on 2026-09-28 ran 36 English and Korean reasoning cases twice
-through the production planning service with the active T1 profiles. It is a session-local design
-input, not a governed receipt. Six cases per run answered the asked question. Fourteen to sixteen
-cases produced a verified plan for a different question: the anchor itself instead of its
-neighbors, schema relationships for an instance question, an inverted containment direction, a
-region read as a name fragment, or an all-zero incident identity. The rest failed closed, and only
-23 of 36 cases produced the same outcome in both runs.
-
-The local development graph already held verified containment, attachment, dependency, routing,
-and peering links for the probed anchors, each with verification metadata. Retained topology
-history was empty, no workload or service composition links existed, and provider location existed
-only inside the nested `properties` value. Most relational failures are compiler and contract gaps.
+A bounded two-run live planning probe of 36 English and Korean reasoning cases on 2026-09-28, a
+session-local design input rather than a governed receipt, answered six cases per run as asked.
+Fourteen to sixteen cases produced a verified plan for a different question: the anchor instead of
+its neighbors, schema relationships for an instance question, inverted containment, a region read
+as a name fragment, or an all-zero incident identity. Only 23 cases were stable across runs. The
+local graph already held verified links for the probed anchors, so most relational failures are
+compiler and contract gaps; [Ontology Reasoning Coverage](ontology-reasoning-coverage.md#measured-baseline)
+records the measured data and capacity limits.
 
 ## Root causes
 
@@ -88,22 +84,24 @@ LinkType, an ObjectType operand, an object identifier, or a canonical instance v
 |-------|---------------|
 | `mentions[].form` | `identifier`, `name`, `concept`, `value`, `anaphor`, `ordinal` |
 | `mentions[].domain` | `instance`, `object_type`, `resource_type`, `resource_class`, `state`, `health`, `metric`, `region`, `declaration_kind` |
+| `mentions[].qualifier` | One earlier mention id plus a relation sense, such as a subnet name inside a named network |
 | `goals[].level` | `instance`, `schema` |
-| `goals[].operation` | `select`, `count`, `lookup`, `traverse`, `path`, `aggregate`, `rank`, `history`, `compare_windows`, `diff_versions`, `explain_cause`, `verify_evidence`, `describe_schema`, `diagnose`, `draft_action` |
+| `goals[].operation` | `select`, `count`, `lookup`, `traverse`, `path`, `aggregate`, `rank`, `history`, `compare_windows`, `compare_entities`, `diff_versions`, `impact`, `explain_cause`, `verify_evidence`, `describe_schema`, `diagnose`, `draft_action` |
 | `goals[].subject_scope` | `anchor`, `collection`, `prior_result`, `goal_output` |
 | `filters[].role` | `type`, `state`, `health`, `region`, `name_fragment`, `scope` |
 | `relation.sense` | `containment`, `attachment`, `dependency`, `connectivity`, `traffic`, `classification`, `composition`, `ownership`, `evidence` |
 | `relation.scope` | `one_sense`, `all_kinds` |
 | `relation.subject_position` | `source`, `target`, `either` |
 | `relation.reach` | `one_hop`, `transitive` |
-| `measure.kind` | `count`, `state`, `health`, `metric`, `change`, `event` |
+| `measure.kind` | `count`, `state`, `health`, `metric`, `change`, `event`, `forecast`, `cost` |
 | `measure.group_by` | `endpoint`, `type`, `container`, `none` |
-| `time.kind` | `current`, `window`, `as_of`, `two_windows`, `versions`, `unspecified` |
+| `time.kind` | `current`, `window`, `as_of`, `two_windows`, `versions`, `future`, `unspecified` |
 | `want` | `fact`, `cause`, `verification`, `completeness` |
 
 One form holds at most 16 mentions and 4 goals. Each goal carries a confidence and a cue span for
 its operation and relation, and a goal may depend on an earlier goal. Ambiguity uses at most three
-complete alternative forms, never one merged form.
+alternatives, each an atom diff of at most six atoms against the primary form, never one merged
+form. A serialized form above 6 KiB returns the `question_too_complex` clarification.
 
 Example: `Which resources depend on aks-prod-01?`
 
@@ -123,9 +121,8 @@ question_form:
       confidence: 0.93
 ```
 
-The model states that `aks-prod-01` is the target of a dependency. Core binds the anchor, selects
-the `depends_on` LinkType through its reviewed `dependency` trait, and maps the target position to
-the `depends_on.incoming` side.
+The model states only that `aks-prod-01` is the target of a dependency. Core binds the anchor,
+selects `depends_on` through its reviewed `dependency` trait, and maps the target to `incoming`.
 
 ## Admission
 
@@ -136,10 +133,10 @@ returns one clarification that lists the competing readings, or it sends a low-c
 relation, direction, or referent to one independent T2 review that compares closed fields only.
 After anchor binding, a sense that the bound anchor type cannot carry also returns a clarification.
 
-Admission bounds model authority; it does not remove it. The model still chooses meaning among
-closed types, so a wrong but self-consistent form is caught only by cue-span review, T2 review,
-and the independent evaluation gold. The model never chooses identities, LinkTypes, path steps,
-FunctionTypes, or answer claims.
+Admission bounds model authority; it does not remove it. A wrong but self-consistent form is caught
+only by cue-span review, T2 review, the restated interpretation and confirm-first cells in
+[calibrated admission](ontology-reasoning-coverage.md#calibrated-admission), and the evaluation
+gold. The model never chooses identities, LinkTypes, path steps, FunctionTypes, or answer claims.
 
 ## Deterministic compilation
 
@@ -179,8 +176,10 @@ protocol:
 | None, incomplete source | Hold with the typed completeness reason |
 
 The model never labels an instance as a resource group or a cluster; the bound type replaces that
-guess. Replay resolves the same receipt against the retained snapshot or reports that the binding
-is not reproducible.
+guess. A mention with a `qualifier` binds its qualifier first and then searches only inside that
+qualifier's containment or type scope, so a shared name such as a default subnet stays exact.
+Replay resolves the same receipt against the retained snapshot or reports that the binding is not
+reproducible.
 
 ### Relation compilation
 
@@ -219,12 +218,14 @@ declared transitive and self-composable, with depth at most five.
 
 | Operation | Compilation |
 |-----------|-------------|
-| `select`, `count`, `rank` | ObjectSet with grounded type, state, health, name-fragment, and scope predicates, then order, limit, or aggregate nodes |
-| `lookup` | Anchor ObjectSet plus the FunctionType whose declared output covers the requested measure |
+| `select`, `count`, `rank` | ObjectSet with grounded type, state, health, name-fragment, and scope predicates, then order and limit nodes; inventory-wide counts use the secured aggregate pushdown |
+| `lookup` | Anchor ObjectSet plus the FunctionType whose declared output covers the requested measure, including forecast and cost readers when bound |
 | `traverse` | ObjectSet with `root_ids` and traversal, or `typed_path` for endpoint-typed steps |
 | `aggregate` | Traversal or ObjectSet plus an aggregate node; `endpoint` and `container` grouping require per-row root lineage |
 | `history` | `query.resource_change_activity`, `query.resource_state_transitions`, or `query.resource_event_history` over the anchor |
 | `compare_windows`, `diff_versions` | Two `topology_at` nodes plus `topology_diff`, or `query.ontology_release_diff` |
+| `compare_entities` | Two anchors of one ObjectType read with the same measure at one pinned cutoff |
+| `impact` | Reverse dependency and composition closure from the anchor; the answer states possible impact, never observed impact |
 | `explain_cause` | Symptom measure, neighborhood changes, and causal support or refutation evidence |
 | `verify_evidence` | Link-evidence projection for anchor relations, or `query.ontology_evidence_health` for scope completeness |
 | `describe_schema` | `query.manifest`, `query.ontology_declaration`, `query.ontology_relationships`, or `query.resource_class_closure` |
@@ -232,29 +233,26 @@ declared transitive and self-composable, with depth at most five.
 
 - **Contracts**: FunctionType selection matches declared inputs, outputs,
   `x-fdai-measure-concepts`, and dependency-only arguments.
-- **Aggregation identity**: Counts use distinct object identities by default, suppress duplicates
-  across paths, count redacted endpoints as redacted, and stay incomplete when lineage or
-  relationship coverage is incomplete.
+- **Aggregation identity**: Counts use distinct object identities, suppress duplicates across
+  paths, exclude hidden objects from totals and connectivity without reporting them, and stay
+  incomplete when lineage or relationship coverage is incomplete.
 - **Time**: Windows use trusted UTC and distinguish effective, event, and recorded time. An
   `unspecified` history window uses a version-pinned server default per operation.
-- **Region**: A `region` filter compiles only after a declared `Resource.location` property exists;
-  until then it is an unsupported atom, never a name predicate.
-- **Diagnose**: A goal without an applicable recipe is unsupported instead of reusing a recipe for
-  another resource type.
+- **Unsupported atoms**: A `region` filter compiles only after a declared `Resource.location`
+  property exists, and a `diagnose` goal without an applicable recipe never reuses another type's
+  recipe. Both return a typed unsupported atom instead of a name predicate or a substitute.
 
 ### Follow-up references
 
 Core issues a `ResultSetHandle` after deterministic rendering, so it matches what the operator saw.
 The opaque server-side handle binds the deployment scope, principal, conversation, purpose,
-manifest digest, expiry, and rendered-order digest. It stores typed row keys with each row's
-ObjectType, sort, page, and truncation metadata, and bounded rows. Operator persists handles with
-the durable turn and sends at most four recent handle references as typed request context under
-negotiated request and projection versions.
-
-An `ordinal` or `anaphor` mention binds to handle rows after reauthorization. `current_rehydrate`
-reads the exact ids at the current cutoff and labels the answer as current; `snapshot_reference`
-answers only from the retained snapshot. A missing, expired, cross-conversation, deleted, or
-out-of-range reference returns one clarification.
+manifest digest, expiry, and rendered-order digest, and stores typed row keys, sort, page, and
+truncation metadata. Operator persists handles with the durable turn and sends at most four recent
+handle references as typed request context under negotiated versions. An `ordinal` or `anaphor`
+mention binds to handle rows after reauthorization. `current_rehydrate` rereads the exact ids at the
+current cutoff and labels the answer as current; `snapshot_reference` answers only from the
+retained snapshot. A missing, expired, cross-conversation, deleted, or out-of-range reference
+returns one clarification.
 
 ## Verification and evidence semantics
 
@@ -297,11 +295,11 @@ reveal a hidden endpoint.
 | Operands | Utterance regular expressions or the plan model | Spans, bindings, handles, and server defaults |
 | Answer claims | Shape templates | Independent coverage check plus epistemic status |
 
-The judgment prompt keeps the protected root and describes the closed form, span and cue rules,
-and bilingual examples per operation. It no longer needs the FunctionType capability catalog for
-read goals. Frame and plan model calls retire for compiled forms. The plan model stays shadow-only
-for uncompiled forms, and its output must pass V-SEM and V-PROV. T2 never authors a plan. The unused
-`query.<LinkType>` intent affordance is removed.
+The judgment prompt keeps the protected root and describes only the closed form, span and cue rules,
+and bilingual examples per operation, without the FunctionType catalog for read goals. Frame and
+plan model calls retire for compiled forms; the plan model stays shadow-only for uncompiled forms
+and must pass V-SEM and V-PROV. T2 never authors a plan, and the unused `query.<LinkType>` intent
+affordance is removed.
 
 ## Alternatives and critique
 
@@ -325,6 +323,7 @@ An independent review of the first draft found these defects; each revision is p
 | Unsafe handles | Conversation, purpose, manifest, and rendered-order binding with explicit modes |
 | Unclear ownership and shortest-path guessing | Named agents per stage and reviewed path grammars |
 | Weak statistics and missing prerequisites | Locked holdout, independent gold, floors, intervals, a contract round, and data gates |
+| Capacity review after approval: duplicate names, output budget, missing question shapes | Qualified mentions, atom-diff alternatives, a 6 KiB cap, and the taxonomy additions in [Ontology Reasoning Coverage](ontology-reasoning-coverage.md#question-taxonomy-closure) |
 
 ## Evaluation
 
@@ -341,17 +340,18 @@ The reasoning cohort extends the live planning harness and adds a deterministic 
 | Measured | Atom accuracy, form stability, L2 correctness, honest-reason precision, clarification precision and recall, model calls, and p95 latency from at least 100 turns |
 
 The session-local 68-case prompt corpus moves into the repository with level, forbidden-function,
-and required-atom checks, so a wrong verified plan no longer passes. An A/A run of the current profiles differed by 1.5 points, so
-paired comparisons use at least three repeats, bootstrap confidence intervals, and a 3-point noise
-band. Zero hard failures in about 60 holdout turns bounds the true rate below about 5% at 95%
-confidence, so shadow operation also samples live turns for human review before promotion.
+and required-atom checks, so a wrong verified plan no longer passes. An A/A run of the current
+profiles differed by 1.5 points, so paired comparisons use at least three repeats, bootstrap
+confidence intervals, and a 3-point noise band. Zero hard failures in about 60 holdout turns bounds
+the true rate below about 5% at 95% confidence, so shadow operation also samples live turns for
+human review before promotion.
 
 ## Delivery rounds
 
 | Round | Scope | Exit evidence |
 |-------|-------|---------------|
 | R0 | Cohort, holdout, fixture graph, strict gold, production-faithful function binding in the harness | Baseline L1 and L2 receipts |
-| R1 | Form, admission, binding, handle, and coverage-rule contracts with version negotiation | Codec and N/N-1 tests; no behavior change |
+| R1 | Form, admission, binding, handle, coverage-rule, evidence-manifest, and pushdown contracts with version negotiation | Codec and N/N-1 tests; no behavior change |
 | R2 | Interim V-PROV and V-LEVEL over existing typed judgment fields | Zero invented identity literals and zero schema answers to instance targets on both corpora |
 | R3 | Shadow form judgment and admission | Atom accuracy of at least 90% and stability of at least 90% per type on the holdout |
 | R4 | Concept resolver and anchor binding protocol | L2 binding correctness 100% on the fixture graph |
@@ -368,9 +368,12 @@ records only digests and dispositions. A family is promoted only when hard zeros
 repeats and sampled shadow turns, holdout correctness meets its absolute floor and beats the current
 path outside the noise band, English and Korean differ by at most 5 points, p95 latency does not
 rise, and the 68-case corpus does not regress beyond noise. Rollback restores the previous registry
-entry, and the current path stays intact until R10.
+entry, and the current path stays intact until R10. The per-family lanes in
+[Ontology Reasoning Coverage](ontology-reasoning-coverage.md#closure-program) gate these rounds.
 
-## Decisions requiring approval
+## Approved decisions
+
+The Owner approved these decisions on 2026-09-28.
 
 1. Carry the form in the same judgment call as an additive field.
 2. Allow the two-phase anchor binding read before compilation.
@@ -386,6 +389,7 @@ entry, and the current path stays intact until R10.
 | To learn about | Read |
 |----------------|------|
 | Delivery status and remaining work | [Implementation ledger](../../roadmap-implementation/interfaces/ontology-reasoning-compiler.md) |
+| Coverage guarantees, measured limits, and closure program | [Ontology Reasoning Coverage](ontology-reasoning-coverage.md) |
 | Highest design authority | [FDAI Constitution](../architecture/fdai-constitution.md) |
 | Current semantic turn path | [Hierarchical Conversation Planning](hierarchical-conversation-planning.md) |
 | Query contracts and work packages | [Ontology Query Coverage Implementation Plan](ontology-query-coverage-implementation-plan.md) |

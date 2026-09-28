@@ -1,6 +1,6 @@
 ---
 translation_of: ontology-reasoning-compiler.md
-translation_source_sha: d0c87a0c0a3df5a237b669a942e54629cd32942f
+translation_source_sha: cc1fe2a34a7a475c861b7673898c5de114010f27
 translation_revised: 2026-09-28
 ---
 # 온톨로지 추론 컴파일러
@@ -10,10 +10,10 @@ translation_revised: 2026-09-28
 안에서 의미만 분류합니다. 코드는 그 의미를 수용하고, 개념과 앵커를 바인딩하고, 검토된 관계 경로를
 고르고, 계획이 의미를 보존함을 증명하고, 답변이 주장할 수 있는 범위를 정합니다.
 
-> **상태:** 2026-09-28에 제안된 설계입니다. 이 문서의 어떤 부분도 아직 구현되지 않았습니다. 현재
-> 런타임은 [계층형 대화 계획](hierarchical-conversation-planning-ko.md)과
+> **상태:** 2026-09-28에 승인된 설계입니다. Owner가 같은 날 아래 여덟 가지 결정을 승인했습니다. 이
+> 문서의 어떤 부분도 아직 구현되지 않았습니다. 현재 런타임은 [계층형 대화 계획](hierarchical-conversation-planning-ko.md)과
 > [온톨로지 조회 커버리지 구현 계획](ontology-query-coverage-implementation-plan-ko.md)에 설명되어 있습니다.
-> 구현은 설계 승인 후에 시작합니다.
+> 커버리지 목표와 측정된 한도는 [온톨로지 추론 커버리지](ontology-reasoning-coverage-ko.md)가 담당합니다.
 >
 > **권한 경계:** 논리 형식, 수용 증적과 컴파일 증적, 앵커 바인딩, 결과 핸들, 계획은 모두
 > `execution_authority=false`인 읽기 전용 기록입니다. 명시적인 변경 요청은 여전히 기존의 타입이
@@ -24,7 +24,7 @@ translation_revised: 2026-09-28
 | 단계 | 책임 에이전트 | 출력 | 모델 사용 |
 |------|---------------|------|-----------|
 | 1. 대화 사전 판별 | Bragi | 사교, 지식, 운영 경로 선택 | T1, 변경 없음 |
-| 2. 논리 형식 판단 | Bragi | 제안된 `SemanticQuestionForm` | T1, 한 번 호출 |
+| 2. 논리 형식 판단 | Bragi | 제안된 `SemanticQuestionForm` | T1, 한 번 호출과 최대 한 번의 스키마 복구 |
 | 3. 수용 | Bragi | 수용된 형식, 명확화 또는 검토 요청 | 선택적 T2 검토 |
 | 4. 개념 해석 | Mimir 카탈로그 | 개념 언급마다 영역이 제한된 바인딩 | 없음 |
 | 5. 앵커 바인딩 | Muninn | 하나의 스냅샷에 고정된 정확한 식별자 | 없음, 범위가 제한된 읽기 1회 |
@@ -33,10 +33,9 @@ translation_revised: 2026-09-28
 | 8. 인식 상태 평가와 렌더링 | Bragi | 목표별 상태와 이중 언어 답변 | 없음 |
 
 컴파일러와 검증기는 Bragi가 소유한 의미 턴 안의 기계적인 Core 구성 요소입니다. 변경 불가능한
-매니페스트, 카탈로그, 그래프 변환 결과를 소비하고, 에이전트를 호출하지 않으며, 아무것도 발행하지
-않습니다. 턴 감사 기록은 기존대로 Saga가 유지합니다. 지원되는 형식에서는 컴파일러가 기능 이름
-기반 의도와 모델이 작성한 프레임과 계획을 대체합니다. 지원되지 않는 형식은 가장 가까운 기존 기능
-대신 빠진 원자와 이유를 정확히 반환합니다.
+변환 결과를 소비하고, 에이전트를 호출하지 않으며, 아무것도 발행하지 않고, 턴 감사 기록은 Saga가
+유지합니다. 지원되는 형식은 기능 이름 기반 의도와 모델이 작성한 프레임과 계획을 대체하며, 지원되지
+않는 형식은 가장 가까운 기능 대신 빠진 원자와 이유를 정확히 반환합니다.
 
 ## 검증된 기준선
 
@@ -54,17 +53,13 @@ translation_revised: 2026-09-28
 | 실행 | 범위가 제한된 보안 ObjectSet, 단일 루트 탐색, 단계별 타입 경로 | 탐색 행에 루트 계보가 없고 링크 근거 속성은 가려짐 |
 | 답변 | 형태별 템플릿, 불완전한 증적이 하나라도 있으면 턴 전체를 보류함 | 목표별 인식 상태가 없고, 후속 질문 맥락은 이전 턴 텍스트뿐임 |
 
-2026-09-28의 범위가 제한된 실시간 계획 탐침은 영어와 한국어 추론 사례 36개를 활성 T1 프로필과
-운영 계획 서비스로 두 번 실행했습니다. 이 결과는 세션 안에서만 쓴 설계 입력이며 관리되는 증적이
-아닙니다. 실행마다 6개 사례만 질문에 맞게 답했습니다. 14개에서 16개 사례는 다른 질문에 대한 검증된
-계획을 만들었습니다. 이웃 대신 앵커 자신, 인스턴스 질문에 대한 스키마 관계, 뒤집힌 포함 방향,
-이름 조각으로 읽힌 리전, 모두 0인 인시던트 식별자가 그 예입니다. 나머지는 안전하게 실패했고, 두
-실행에서 같은 결과를 낸 사례는 36개 중 23개뿐이었습니다.
-
-로컬 개발 그래프에는 탐침한 앵커의 검증된 포함, 연결, 의존, 라우팅, 피어링 링크가 이미 있었고
-링크마다 검증 메타데이터가 있었습니다. 보존된 토폴로지 이력은 비어 있었고, 워크로드나 서비스 구성
-링크는 없었으며, 제공자 위치는 중첩된 `properties` 값 안에만 있었습니다. 관계 질문 실패는 대부분
-컴파일러와 계약의 미비점입니다.
+2026-09-28에 영어와 한국어 추론 사례 36개로 두 번 실행한 범위가 제한된 실시간 계획 탐침은 관리되는
+증적이 아니라 세션 안에서만 쓴 설계 입력이며, 실행마다 6개 사례만 질문대로 답했습니다. 14개에서
+16개 사례는 다른 질문에 대한 검증된 계획을 만들었습니다. 이웃 대신 앵커 자신, 인스턴스 질문에 대한
+스키마 관계, 뒤집힌 포함 방향, 이름 조각으로 읽힌 리전, 모두 0인 인시던트 식별자가 그 예입니다. 두
+실행에서 같은 결과는 23개뿐이었습니다. 로컬 그래프에는 탐침한 앵커의 검증된 링크가 이미 있었으므로
+관계 질문 실패는 대부분 컴파일러와 계약의 미비점이며, 측정된 데이터와 용량 한도는
+[온톨로지 추론 커버리지](ontology-reasoning-coverage-ko.md#측정된-기준선)에 기록되어 있습니다.
 
 ## 근본 원인
 
@@ -89,22 +84,24 @@ translation_revised: 2026-09-28
 |------|---------|
 | `mentions[].form` | `identifier`, `name`, `concept`, `value`, `anaphor`, `ordinal` |
 | `mentions[].domain` | `instance`, `object_type`, `resource_type`, `resource_class`, `state`, `health`, `metric`, `region`, `declaration_kind` |
+| `mentions[].qualifier` | 앞선 언급 식별자 하나와 관계 의미, 예를 들어 이름이 지정된 네트워크 안의 서브넷 이름 |
 | `goals[].level` | `instance`, `schema` |
-| `goals[].operation` | `select`, `count`, `lookup`, `traverse`, `path`, `aggregate`, `rank`, `history`, `compare_windows`, `diff_versions`, `explain_cause`, `verify_evidence`, `describe_schema`, `diagnose`, `draft_action` |
+| `goals[].operation` | `select`, `count`, `lookup`, `traverse`, `path`, `aggregate`, `rank`, `history`, `compare_windows`, `compare_entities`, `diff_versions`, `impact`, `explain_cause`, `verify_evidence`, `describe_schema`, `diagnose`, `draft_action` |
 | `goals[].subject_scope` | `anchor`, `collection`, `prior_result`, `goal_output` |
 | `filters[].role` | `type`, `state`, `health`, `region`, `name_fragment`, `scope` |
 | `relation.sense` | `containment`, `attachment`, `dependency`, `connectivity`, `traffic`, `classification`, `composition`, `ownership`, `evidence` |
 | `relation.scope` | `one_sense`, `all_kinds` |
 | `relation.subject_position` | `source`, `target`, `either` |
 | `relation.reach` | `one_hop`, `transitive` |
-| `measure.kind` | `count`, `state`, `health`, `metric`, `change`, `event` |
+| `measure.kind` | `count`, `state`, `health`, `metric`, `change`, `event`, `forecast`, `cost` |
 | `measure.group_by` | `endpoint`, `type`, `container`, `none` |
-| `time.kind` | `current`, `window`, `as_of`, `two_windows`, `versions`, `unspecified` |
+| `time.kind` | `current`, `window`, `as_of`, `two_windows`, `versions`, `future`, `unspecified` |
 | `want` | `fact`, `cause`, `verification`, `completeness` |
 
 하나의 형식에는 언급이 최대 16개, 목표가 최대 4개 들어갑니다. 목표마다 신뢰도와 연산 및 관계의
-단서 구간이 있고, 목표는 앞선 목표에 의존할 수 있습니다. 모호성은 최대 세 개의 완전한 대안 형식으로
-표현하며, 하나로 합친 형식은 쓰지 않습니다.
+단서 구간이 있고, 목표는 앞선 목표에 의존할 수 있습니다. 모호성은 대안 최대 세 개로 표현하며, 각
+대안은 주 형식과의 원자 차이 최대 6개로만 적고 하나로 합친 형식은 쓰지 않습니다. 직렬화한 형식이
+6 KiB를 넘으면 `question_too_complex` 명확화를 반환합니다.
 
 예: `Which resources depend on aks-prod-01?`
 
@@ -125,8 +122,7 @@ question_form:
 ```
 
 모델은 `aks-prod-01`이 의존 관계의 대상이라고만 말합니다. Core는 앵커를 바인딩하고, 검토된
-`dependency` 특성으로 `depends_on` LinkType을 고르고, 대상 위치를 `depends_on.incoming` 방향으로
-옮깁니다.
+`dependency` 특성으로 `depends_on`을 고르고, 대상 위치를 `incoming` 방향으로 옮깁니다.
 
 ## 수용
 
@@ -136,9 +132,9 @@ Bragi는 모든 구간이 현재 발화나 타입이 지정된 맥락 참조와 
 낮은 수준, 관계, 방향, 지시 대상을 닫힌 필드만 비교하는 독립적인 T2 검토 한 번에 보냅니다. 앵커
 바인딩 뒤에 바인딩된 앵커 타입이 가질 수 없는 관계 의미가 나와도 명확화를 반환합니다.
 
-수용은 모델 권한을 제한할 뿐 없애지 않습니다. 모델은 여전히 닫힌 타입 안에서 의미를 고르므로,
-틀렸지만 자기모순이 없는 형식은 단서 구간 검토, T2 검토, 독립적인 평가 정답으로만 잡힙니다. 모델은
-식별자, LinkType, 경로 단계, FunctionType, 답변 주장을 고르지 않습니다.
+수용은 모델 권한을 제한할 뿐 없애지 않습니다. 틀렸지만 자기모순이 없는 형식은 단서 구간 검토, T2
+검토, [보정된 수용](ontology-reasoning-coverage-ko.md#보정된-수용)의 해석 재진술과 확인 우선 칸, 평가
+정답으로만 잡힙니다. 모델은 식별자, LinkType, 경로 단계, FunctionType, 답변 주장을 고르지 않습니다.
 
 ## 결정론적 컴파일
 
@@ -176,7 +172,9 @@ Core는 각 `concept` 또는 `value` 언급을 선언된 영역 안에서만, �
 | 없음, 원본 불완전 | 타입이 지정된 완전성 사유와 함께 보류 |
 
 모델은 인스턴스를 리소스 그룹이나 클러스터로 분류하지 않으며, 바인딩된 타입이 그 추측을
-대신합니다. 재현은 보존된 스냅샷으로 같은 증적을 해석하거나, 바인딩을 재현할 수 없다고 보고합니다.
+대신합니다. `qualifier`가 있는 언급은 한정자를 먼저 바인딩한 뒤 그 한정자의 포함 범위나 타입 범위
+안에서만 찾으므로, 기본 서브넷처럼 공유되는 이름도 정확하게 유지됩니다. 재현은 보존된 스냅샷으로
+같은 증적을 해석하거나, 바인딩을 재현할 수 없다고 보고합니다.
 
 ### 관계 컴파일
 
@@ -213,12 +211,14 @@ Core는 각 `concept` 또는 `value` 언급을 선언된 영역 안에서만, �
 
 | 연산 | 컴파일 |
 |------|--------|
-| `select`, `count`, `rank` | 근거에 기반한 타입, 상태, 건강, 이름 조각, 범위 조건식을 가진 ObjectSet 뒤에 정렬, 한도, 집계 노드 |
-| `lookup` | 앵커 ObjectSet과, 선언된 출력이 요청한 측정을 포함하는 FunctionType |
+| `select`, `count`, `rank` | 근거에 기반한 타입, 상태, 건강, 이름 조각, 범위 조건식을 가진 ObjectSet 뒤에 정렬과 한도 노드, 인벤토리 전체 개수는 보안 집계 pushdown 사용 |
+| `lookup` | 앵커 ObjectSet과, 선언된 출력이 요청한 측정을 포함하는 FunctionType, 바인딩되면 예측과 비용 reader 포함 |
 | `traverse` | `root_ids`와 탐색을 가진 ObjectSet, 또는 끝점 타입이 있는 단계에는 `typed_path` |
 | `aggregate` | 탐색이나 ObjectSet 뒤에 집계 노드, `endpoint`와 `container` 그룹화에는 행별 루트 계보가 필요 |
 | `history` | 앵커에 대한 `query.resource_change_activity`, `query.resource_state_transitions`, `query.resource_event_history` |
 | `compare_windows`, `diff_versions` | `topology_at` 노드 두 개와 `topology_diff`, 또는 `query.ontology_release_diff` |
+| `compare_entities` | 같은 ObjectType의 앵커 두 개를 하나의 고정 기준 시점에서 같은 측정으로 읽음 |
+| `impact` | 앵커에서 역방향 의존과 구성 폐포, 답변은 관측된 영향이 아닌 가능한 영향으로 표시 |
 | `explain_cause` | 증상 측정, 이웃의 변경, 인과 지지 또는 반박 근거 |
 | `verify_evidence` | 앵커 관계에 대한 링크 근거 변환 결과, 또는 범위 완전성을 위한 `query.ontology_evidence_health` |
 | `describe_schema` | `query.manifest`, `query.ontology_declaration`, `query.ontology_relationships`, `query.resource_class_closure` |
@@ -226,27 +226,24 @@ Core는 각 `concept` 또는 `value` 언급을 선언된 영역 안에서만, �
 
 - **계약**: FunctionType 선택은 선언된 입력, 출력, `x-fdai-measure-concepts`, 의존성 전용 인자를
   맞춥니다.
-- **집계 식별**: 개수는 기본적으로 서로 다른 객체 식별자를 세고, 경로 사이의 중복을 없애고, 가려진
-  끝점은 가려진 것으로 세며, 계보나 관계 커버리지가 불완전하면 불완전 상태를 유지합니다.
+- **집계 식별**: 개수는 서로 다른 객체 식별자를 세고, 경로 사이의 중복을 없애고, 숨겨진 객체는 알리지
+  않은 채 합계와 연결에서 빼며, 계보나 관계 커버리지가 불완전하면 불완전 상태를 유지합니다.
 - **시간**: 구간은 신뢰할 수 있는 UTC를 쓰고 유효 시간, 이벤트 시간, 기록 시간을 구분합니다.
   `unspecified` 이력 구간은 연산별로 버전이 고정된 서버 기본값을 씁니다.
-- **리전**: `region` 필터는 선언된 `Resource.location` 속성이 생긴 뒤에만 컴파일됩니다. 그 전에는
-  이름 조건식이 아니라 지원되지 않는 원자로 처리합니다.
-- **진단**: 적용 가능한 레시피가 없는 목표는 다른 리소스 타입의 레시피를 재사용하지 않고 지원되지
-  않음으로 처리합니다.
+- **지원되지 않는 원자**: `region` 필터는 선언된 `Resource.location` 속성이 생긴 뒤에만 컴파일되고,
+  적용 가능한 레시피가 없는 `diagnose` 목표는 다른 타입의 레시피를 재사용하지 않습니다. 둘 다 이름
+  조건식이나 대체 기능 대신 타입이 지정된 지원되지 않는 원자를 반환합니다.
 
 ### 후속 질문 참조
 
 Core는 결정론적 렌더링 뒤에 `ResultSetHandle`을 발급하므로 운영자가 본 결과와 일치합니다. 불투명한
 서버 측 핸들은 배포 범위, principal, 대화, 목적, 매니페스트 다이제스트, 만료, 렌더링 순서
-다이제스트를 묶습니다. 행마다 ObjectType을 가진 타입 행 키, 정렬, 페이지, 잘림 메타데이터, 범위가
-제한된 행을 저장합니다. Operator는 핸들을 영속 턴과 함께 저장하고, 협상된 요청과 변환 결과 버전
-아래에서 최근 핸들 참조를 최대 4개까지 타입이 지정된 요청 맥락으로 보냅니다.
-
-`ordinal` 또는 `anaphor` 언급은 재인가 뒤 핸들 행에 바인딩됩니다. `current_rehydrate`는 정확한
-식별자를 현재 기준 시점에 다시 읽고 답변을 현재 상태로 표시하며, `snapshot_reference`는 보존된
-스냅샷으로만 답합니다. 핸들이 없거나 만료되었거나, 다른 대화의 것이거나, 삭제되었거나, 범위를
-벗어나면 명확화 하나를 반환합니다.
+다이제스트를 묶고, 타입 행 키, 정렬, 페이지, 잘림 메타데이터를 저장합니다. Operator는 핸들을 영속
+턴과 함께 저장하고, 협상된 버전 아래에서 최근 핸들 참조를 최대 4개까지 타입이 지정된 요청 맥락으로
+보냅니다. `ordinal` 또는 `anaphor` 언급은 재인가 뒤 핸들 행에 바인딩됩니다. `current_rehydrate`는
+정확한 식별자를 현재 기준 시점에 다시 읽고 답변을 현재 상태로 표시하며, `snapshot_reference`는
+보존된 스냅샷으로만 답합니다. 핸들이 없거나 만료되었거나, 다른 대화의 것이거나, 삭제되었거나,
+범위를 벗어나면 명확화 하나를 반환합니다.
 
 ## 검증과 근거 의미
 
@@ -287,11 +284,10 @@ Core는 결정론적 렌더링 뒤에 `ResultSetHandle`을 발급하므로 운�
 | 피연산자 | 발화 정규식 또는 계획 모델 | 구간, 바인딩, 핸들, 서버 기본값 |
 | 답변 주장 | 형태별 템플릿 | 독립적인 커버리지 검사와 인식 상태 |
 
-판단 프롬프트는 보호된 루트를 유지하고 닫힌 형식, 구간과 단서 규칙, 연산별 이중 언어 예시만
-설명합니다. 읽기 목표에는 더 이상 FunctionType 기능 카탈로그가 필요 없습니다. 컴파일된 형식에서는
-프레임과 계획 모델 호출을 없앱니다. 계획 모델은 컴파일되지 않은 형식에 대해서만 shadow로 남고, 그
-출력은 V-SEM과 V-PROV를 통과해야 합니다. T2는 계획을 작성하지 않습니다. 쓰이지 않는
-`query.<LinkType>` 의도 경로는 제거합니다.
+판단 프롬프트는 보호된 루트를 유지하고, 읽기 목표에는 FunctionType 카탈로그 없이 닫힌 형식, 구간과
+단서 규칙, 연산별 이중 언어 예시만 설명합니다. 컴파일된 형식에서는 프레임과 계획 모델 호출을 없애고,
+계획 모델은 컴파일되지 않은 형식에 대해서만 shadow로 남아 V-SEM과 V-PROV를 통과해야 합니다. T2는
+계획을 작성하지 않으며, 쓰이지 않는 `query.<LinkType>` 의도 경로는 제거합니다.
 
 ## 대안과 비평
 
@@ -315,6 +311,7 @@ Core는 결정론적 렌더링 뒤에 `ResultSetHandle`을 발급하므로 운�
 | 안전하지 않은 핸들 | 대화, 목적, 매니페스트, 렌더링 순서 바인딩과 명시적 모드 |
 | 불분명한 소유권과 최단 경로 추측 | 단계별 책임 에이전트와 검토된 경로 문법 |
 | 약한 통계와 빠진 전제 조건 | 잠긴 홀드아웃 세트, 독립 정답, 하한, 신뢰 구간, 계약 라운드, 데이터 게이트 |
+| 승인 뒤 용량 검토: 중복 이름, 출력 예산, 빠진 질문 형태 | 한정 언급, 원자 차이 대안, 6 KiB 상한, [온톨로지 추론 커버리지](ontology-reasoning-coverage-ko.md#질문-분류-체계-완결)의 분류 추가 |
 
 ## 평가
 
@@ -341,7 +338,7 @@ Core는 결정론적 렌더링 뒤에 `ResultSetHandle`을 발급하므로 운�
 | 라운드 | 범위 | 종료 근거 |
 |--------|------|-----------|
 | R0 | 코호트, 홀드아웃 세트, 고정 그래프, 엄격한 정답, 운영과 같은 함수 바인딩을 쓰는 하네스 | 기준선 L1과 L2 증적 |
-| R1 | 버전 협상을 갖춘 형식, 수용, 바인딩, 핸들, 커버리지 규칙 계약 | 코덱과 N/N-1 테스트, 동작 변경 없음 |
+| R1 | 버전 협상을 갖춘 형식, 수용, 바인딩, 핸들, 커버리지 규칙, 근거 매니페스트, pushdown 계약 | 코덱과 N/N-1 테스트, 동작 변경 없음 |
 | R2 | 기존 타입 판단 필드에 대한 임시 V-PROV와 V-LEVEL | 두 코퍼스에서 지어낸 식별자 리터럴 0건, 인스턴스 대상에 대한 스키마 답변 0건 |
 | R3 | shadow 형식 판단과 수용 | 홀드아웃 세트에서 유형별 원자 정확도 90% 이상, 안정성 90% 이상 |
 | R4 | 개념 해석기와 앵커 바인딩 프로토콜 | 고정 그래프에서 L2 바인딩 정확도 100% |
@@ -358,8 +355,12 @@ Core는 결정론적 렌더링 뒤에 `ResultSetHandle`을 발급하므로 운�
 절대 하한을 넘고 잡음 구간 밖에서 현재 경로보다 좋으며, 영어와 한국어의 차이가 5점 이하이고, p95
 지연이 늘지 않고, 68개 사례 코퍼스가 잡음 이상으로 후퇴하지 않을 때만 승격됩니다. 롤백은 이전
 레지스트리 항목을 복원하며, 현재 경로는 R10까지 그대로 유지됩니다.
+[온톨로지 추론 커버리지](ontology-reasoning-coverage-ko.md#완결-프로그램)의 계열별 레인이 이 라운드들을
+제한합니다.
 
-## 승인이 필요한 결정
+## 승인된 결정
+
+Owner가 2026-09-28에 다음 결정을 승인했습니다.
 
 1. 형식을 같은 판단 호출의 추가 필드로 전달합니다.
 2. 컴파일 전에 두 단계 앵커 바인딩 읽기를 허용합니다.
@@ -375,6 +376,7 @@ Core는 결정론적 렌더링 뒤에 `ResultSetHandle`을 발급하므로 운�
 | 알아볼 내용 | 문서 |
 |-------------|------|
 | 전달 상태와 남은 작업 | [구현 원장](../../roadmap-implementation/interfaces/ontology-reasoning-compiler.md) |
+| 커버리지 보장, 측정된 한도, 종결 프로그램 | [온톨로지 추론 커버리지](ontology-reasoning-coverage-ko.md) |
 | 최상위 설계 권한 | [FDAI 헌법](../architecture/fdai-constitution-ko.md) |
 | 현재 의미 턴 경로 | [계층형 대화 계획](hierarchical-conversation-planning-ko.md) |
 | 조회 계약과 작업 패키지 | [온톨로지 조회 커버리지 구현 계획](ontology-query-coverage-implementation-plan-ko.md) |

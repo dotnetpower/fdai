@@ -5,10 +5,11 @@ and resumable work while the roadmap owner remains focused on normative design.
 
 ## Implementation status
 
-The [owner design](../../roadmap/interfaces/ontology-reasoning-compiler.md) is proposed and awaits
-approval. The evidence column cites existing kernel primitives that the design reuses; it does not
-claim that any part of the design is implemented. The 2026-09-28 reasoning probe was a
-session-local planning measurement and is not retained as repository evidence.
+The [owner design](../../roadmap/interfaces/ontology-reasoning-compiler.md) was approved on
+2026-09-28 and is not yet implemented. The evidence column cites existing kernel primitives that the
+design reuses; it does not claim that any part of the design is implemented. The 2026-09-28
+reasoning probe was a session-local planning measurement and is not retained as repository
+evidence.
 
 ### Implementation scope
 
@@ -30,16 +31,17 @@ session-local planning measurement and is not retained as repository evidence.
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
 | 2026-09-28 | not-started | Adopted the proposed owner design and this ledger after a traced review of preflight, judgment, frame, plan, verification, execution, and rendering, a two-run bilingual 36-case planning probe, and an independent design critique whose findings were revised into the design. Earlier provenance for this scope was not reconstructed. | `current change`; `docs/roadmap/interfaces/ontology-reasoning-compiler.md`; `docs/roadmap/interfaces/ontology-reasoning-compiler-ko.md`; changed-path translation, punctuation, link, route, document-size, and roadmap tracking checks | Obtain approval for the listed decisions, then start round R0. |
+| 2026-09-28 | not-started | Recorded Owner approval of the eight design decisions and revised the approved design after a capacity review: qualified mentions for shared names, atom-diff alternatives with a 6 KiB form cap, `compare_entities` and `impact` operations, `forecast` and `cost` measures, a `future` time kind, aggregate pushdown for inventory-wide counts, and evidence-manifest and pushdown contracts in round R1. The per-family coverage lanes in the companion coverage design now gate the rounds. | `current change`; `docs/roadmap/interfaces/ontology-reasoning-compiler.md`; `docs/roadmap/interfaces/ontology-reasoning-compiler-ko.md`; [coverage ledger](ontology-reasoning-coverage.md); changed-path documentation gates | Start round R0 together with coverage lane L4. |
 
 ### Remaining work
 
-- [ ] Record approval or revision of each of the eight decisions listed in the owner design, with
-  the approving review reference.
+- [x] Record approval of the eight decisions listed in the owner design. Evidence: the owner
+  design's `Approved decisions` section and the 2026-09-28 approval history row.
 - [ ] Complete R0: commit the bilingual reasoning cohort with a locked holdout, a generic fixture
   graph, strict gold, and production-faithful function binding in the harness, and record baseline
   L1 and L2 receipts.
-- [ ] Complete R1: land the form, admission, binding, handle, and coverage-rule contracts with
-  N/N-1 codec tests and no behavior change.
+- [ ] Complete R1: land the form, admission, binding, handle, coverage-rule, evidence-manifest, and
+  aggregate and path pushdown contracts with N/N-1 codec tests and no behavior change.
 - [ ] Complete R2: enforce interim operand-provenance and instance-versus-schema checks on the
   current path, with zero invented identity literals and zero schema answers to instance targets on
   both corpora.
@@ -50,3 +52,5 @@ session-local planning measurement and is not retained as repository evidence.
   prompts only for promoted families.
 - [ ] Complete R10: remove lexical re-derivation from promoted paths after replay equivalence and
   one stable rollback release.
+- [ ] Before promoting any operation family in R9, record the coverage-lane exits that gate it in
+  the [coverage ledger](ontology-reasoning-coverage.md).

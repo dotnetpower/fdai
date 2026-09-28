@@ -321,7 +321,7 @@ The release gate measures three separate outcomes:
 - **Question disposition**: Every accepted turn ends as a grounded answer, clarification, evidence
     hold, unsupported goal, or governed action draft.
 - **Answer coverage**: The measured share of competency questions that reach a complete grounded
-    answer. This value depends on deployed data and evidence and is never presented as 100% by design.
+    answer. This value depends on deployed data and evidence and is never presented as 100% by design. The proposed [Ontology Reasoning Coverage](ontology-reasoning-coverage.md) adds language, relation, instance-source, function, and compile-closure dimensions to this gate.
 
 The release gate now also has a separate epistemic-closure foundation. A content-addressed
 `QuestionUniverseReceipt` freezes one finite release and principal-scoped denominator.

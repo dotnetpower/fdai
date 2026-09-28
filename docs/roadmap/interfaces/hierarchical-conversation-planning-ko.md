@@ -1,7 +1,7 @@
 ---
 title: 계층형 대화 계획
 translation_of: hierarchical-conversation-planning.md
-translation_source_sha: faab93228f4237487e014ddaf0736ad6b1254dec
+translation_source_sha: cb4a568099c019257beb34bbdba16fef39644c9e
 translation_revised: 2026-09-28
 ---
 
@@ -333,7 +333,7 @@ Release 게이트는 다음 세 결과를 따로 측정합니다.
 - **질문 처리 결과**: 받아들인 모든 턴은 근거에 기반한 답변, 명확화 요청, 근거 보류,
     지원하지 않는 목표, 통제된 액션 초안 중 하나로 끝납니다.
 - **답변 커버리지**: 역량 검증 질문 중 근거에 기반한 완전한 답변에 도달한 비율입니다. 이 값은
-    배포된 데이터와 근거에 따라 달라지므로 설계상 100%로 표시하지 않습니다.
+    배포된 데이터와 근거에 따라 달라지므로 설계상 100%로 표시하지 않습니다. 제안된 [온톨로지 추론 커버리지](ontology-reasoning-coverage-ko.md)는 이 게이트에 언어, 관계, 인스턴스 원본, 함수, 컴파일 완결 차원을 더합니다.
 
 release 게이트에는 별도의 인식 상태 완결성 기반도 추가되었습니다. 내용 기반 주소를 가진
 `QuestionUniverseReceipt`는 하나의 유한한 release 및 principal 범위 분모를 고정합니다.
