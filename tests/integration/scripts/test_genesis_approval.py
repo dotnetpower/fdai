@@ -199,28 +199,24 @@ def test_prompt_creates_actor_bound_exact_approval(tmp_path: Path) -> None:
     assert loaded.actor_digest == "9" * 64
 
 
-def test_prompt_rejects_non_tty_or_wrong_exact_text(tmp_path: Path) -> None:
+def test_invocation_approves_the_exact_checkpoint_without_input(tmp_path: Path) -> None:
     tmp_path.chmod(0o700)
-    common = {
-        "stage": "foundation-apply",
-        "evidence": {"review_digest": "c" * 64, "plan_digest": "d" * 64},
-        "run_binding": RUN_BINDING,
-        "source_commit": SOURCE_COMMIT,
-        "actor_digest": "9" * 64,
-        "output_stream": io.StringIO(),
-    }
-    with pytest.raises(ValueError, match="interactive terminal"):
-        create_approval(
-            **common,
-            output=tmp_path / "non-tty.json",
-            input_stream=io.StringIO("foundation-apply\n"),
-        )
-    with pytest.raises(PermissionError, match="was not granted"):
-        create_approval(
-            **common,
-            output=tmp_path / "denied.json",
-            input_stream=_TtyInput("yes\n"),
-        )
+    output = io.StringIO()
+    value = create_approval(
+        stage="foundation-apply",
+        evidence={"review_digest": "c" * 64, "plan_digest": "d" * 64},
+        run_binding=RUN_BINDING,
+        source_commit=SOURCE_COMMIT,
+        actor_digest="9" * 64,
+        output=tmp_path / "approval.json",
+        input_stream=io.StringIO(""),
+        output_stream=output,
+    )
+
+    assert value["approved"] is True
+    assert value["evidence"] == {"review_digest": "c" * 64, "plan_digest": "d" * 64}
+    assert "Approved by this invocation: foundation-apply" in output.getvalue()
+    assert (tmp_path / "approval.json").stat().st_mode & 0o777 == 0o600
 
 
 @pytest.fixture(params=[False, True, "successor"])
