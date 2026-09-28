@@ -3520,3 +3520,20 @@ def test_oras_copy_uses_the_destination_registry_config() -> None:
 
     assert '"cp",\n                    "--registry-config"' not in source
     assert source.count('"cp",\n                    "--to-registry-config"') == 2
+
+
+def test_aks_runtime_configuration_binds_consumer_scoped_dsns_and_roles() -> None:
+    source = Path(standalone_host.__file__).read_text(encoding="utf-8")
+
+    assert '"FDAI_START_CONSUMER": "1"' in source
+    assert '{"FDAI_DATABASE_URL": "fdai-ingestion-api-dsn"}' in source
+    assert '{"FDAI_DATABASE_URL": "fdai-ingestion-worker-dsn"}' in source
+    targets = standalone_stage_targets.substrate_targets(
+        {"runtime_profile": {"runtime_platform": "aks", "database_placement": "postgres-flex"}}
+    )
+    for address in (
+        "azurerm_role_assignment.isolated_executor_command_receiver",
+        "azurerm_role_assignment.isolated_executor_receipt_sender",
+        "azurerm_role_assignment.ingestion_eventhubs_sender",
+    ):
+        assert address in targets
