@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import base64
+import gzip
 import hashlib
 import importlib.util
 import json
@@ -148,7 +149,7 @@ class Host:
         incoming = self.tmp / f"incoming-{len(list(self.tmp.glob('incoming-*')))}"
         incoming.mkdir()
         (incoming / "receiver.py").write_bytes(self.receiver_bytes)
-        (incoming / "payload.tar.gz").write_bytes(
+        (incoming / "payload.tar").write_bytes(
             coordinator.payload_archive(self.source, request, self.variables)
         )
         return receiver.run(incoming, base=self.base, identity=lambda _executor: None)
@@ -373,9 +374,11 @@ def test_script_embeds_digest_checked_receiver_and_payload() -> None:
     receiver_bytes, payload = b"print('receiver')\n", b"payload-bytes"
     script = coordinator.build_script(receiver_bytes, payload)
 
-    blocks = re.findall(r"<<'(FDAI_\w+)'\n(.*?)\n\1\n", script, re.DOTALL)
+    blocks = re.findall(r"<<'(FDAI_\w+)'[^\n]*\n(.*?)\n\1\n", script, re.DOTALL)
     decoded = {name: base64.b64decode(body) for name, body in blocks}
-    assert decoded == {"FDAI_RECEIVER": receiver_bytes, "FDAI_PAYLOAD": payload}
+    assert gzip.decompress(decoded["FDAI_RECEIVER"]) == receiver_bytes
+    assert decoded["FDAI_PAYLOAD"] == payload
+    assert "| gzip -dc >" in script
     assert hashlib.sha256(receiver_bytes).hexdigest() in script
     assert hashlib.sha256(payload).hexdigest() in script
     assert "sha256sum -c" in script and "python3 -I" in script
@@ -527,3 +530,67 @@ def test_exit_status_requires_applied_converged_and_read_back(
     operation: str, result: dict[str, object], expected: bool
 ) -> None:
     assert coordinator.succeeded(operation, result) is expected
+
+
+def test_validation_reports_out_of_scope_addresses() -> None:
+    plan = _plan((DCRA, ["create"]), ("azurerm_kubernetes_cluster.runtime", ["update"]))
+
+    with pytest.raises(receiver.ReceiverError) as raised:
+        receiver.validate_plan(plan, scope=SCOPE, mode="apply")
+    assert raised.value.addresses == ("update azurerm_kubernetes_cluster.runtime",)
+    line = receiver.emit({"state": "error", "code": raised.value.code})
+    assert "plan_scope_violation" in line
+
+
+def test_module_closure_keeps_only_referenced_terraform_inputs(tmp_path: Path) -> None:
+    root = tmp_path / "source"
+    (root / "modules/used").mkdir(parents=True)
+    (root / "modules/unused").mkdir(parents=True)
+    (root / "tests").mkdir()
+    (root / "main.tf").write_text('module "a" {\n  source = "./modules/used"\n}\n')
+    (root / ".terraform.lock.hcl").write_text("lock\n")
+    (root / "README.md").write_text("docs\n")
+    (root / "modules/used/main.tf").write_text('resource "x" "y" {}\n')
+    (root / "modules/used/policy.xml.tftpl").write_text("<x/>\n")
+    (root / "modules/used/helper.py").write_text("print()\n")
+    (root / "modules/unused/main.tf").write_text("\n")
+    (root / "tests/a.tftest.hcl").write_text("\n")
+
+    coordinator.prune_to_module_closure(root)
+
+    kept = sorted(p.relative_to(root).as_posix() for p in root.rglob("*") if p.is_file())
+    assert kept == [
+        ".terraform.lock.hcl",
+        "main.tf",
+        "modules/used/main.tf",
+        "modules/used/policy.xml.tftpl",
+    ]
+    (root / "main.tf").write_text('module "a" {\n  source = "../outside"\n}\n')
+    (tmp_path / "outside").mkdir()
+    with pytest.raises(coordinator.CoordinatorError, match="leaves"):
+        coordinator.prune_to_module_closure(root)
+
+
+def test_inventory_role_readback_requires_expected_roles_and_one_principal() -> None:
+    ids = {address: f"/scope/{index}" for index, address in enumerate(coordinator.INVENTORY_ROLES)}
+    definitions = {
+        role: f"def-{index}" for index, role in enumerate(coordinator.INVENTORY_ROLES.values())
+    }
+    documents = {
+        f"/scope/{index}": {
+            "properties": {"principalId": "p", "roleDefinitionId": f"/x/def-{index}"}
+        }
+        for index in range(3)
+    }
+
+    def fake(command: tuple[str, ...], _timeout: int) -> str:
+        if command[1] == "role":
+            return definitions[command[command.index("--name") + 1]] + "\n"
+        url = command[command.index("--url") + 1]
+        return json.dumps(documents[url.split("management.azure.com", 1)[1].split("?", 1)[0]])
+
+    assert all(coordinator.check_inventory_roles(fake, ids, {}, "apply").values())
+    documents["/scope/2"]["properties"]["principalId"] = "other"
+    assert coordinator.check_inventory_roles(fake, ids, {}, "apply")["single_principal"] is False
+    with pytest.raises(coordinator.CoordinatorError, match="lacks"):
+        coordinator.check_inventory_roles(fake, dict(list(ids.items())[:2]), {}, "apply")
