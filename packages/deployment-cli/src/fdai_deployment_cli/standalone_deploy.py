@@ -19,8 +19,9 @@ from fdai_deployment_cli.application_state_adoption import (
     ApplicationStateAdoption,
     stage_application_state_adoption,
 )
-from fdai_deployment_cli.catalog_review_profile import CatalogReviewDeploymentProfile
 from fdai_deployment_cli.azure_naming import azure_region_short_name
+from fdai_deployment_cli.catalog_review_profile import CatalogReviewDeploymentProfile
+from fdai_deployment_cli.control_package import verify_control_package
 from fdai_deployment_cli.deployment_deadline import DeploymentDeadline
 from fdai_deployment_cli.deployment_kit import DeploymentKit, acquire_deployment_kit
 from fdai_deployment_cli.deployment_progress import begin_stage, progress_detail, terminal_output
@@ -84,8 +85,13 @@ def deploy_azure_foundation(
     adopt_foundation_directory: Path | None = None,
     adopt_foundation_recovery_directory: Path | None = None,
     catalog_review_profile: CatalogReviewDeploymentProfile | None = None,
+    control_package: Path | None = None,
 ) -> dict[str, object]:
-    """Advance one standalone deployment through verified application convergence."""
+    """Advance one standalone deployment through verified application convergence.
+
+    ``control_package`` optionally selects a signed deployment-control wheelhouse that replaces
+    only the managed-host CLI; the verified kit still supplies every runtime payload.
+    """
 
     deadline = DeploymentDeadline(timeout_seconds, clock=time.monotonic)
     selected_runtime = runtime_profile or RuntimeDeploymentProfile.create(
@@ -107,6 +113,12 @@ def deploy_azure_foundation(
         online_url=online_url,
     )
     deadline.remaining()
+    control = None
+    if control_package is not None:
+        if online:
+            raise ValueError("a control package requires a local signed offline kit")
+        progress_detail("Verifying the signed deployment-control package")
+        control = verify_control_package(control_package)
     adoption_inputs = (
         adopt_application_state,
         adopt_application_recovery,
@@ -149,6 +161,7 @@ def deploy_azure_foundation(
         application_state_adoption=adoption,
         catalog_review_profile=catalog_review_profile,
         current_operator_object_id=_current_operator_object_id,
+        control_package=control,
     )
     if adopted is not None:
         return adopted
@@ -310,6 +323,7 @@ def deploy_azure_foundation(
                     catalog_review_profile or CatalogReviewDeploymentProfile.unselected()
                 ),
                 current_operator_object_id=_current_operator_object_id,
+                control_package=control,
             )
         if foundation_exit.returncode != 2:
             raise ValueError("standalone Foundation orchestration failed")
