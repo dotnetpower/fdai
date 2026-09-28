@@ -35,6 +35,7 @@ from .conversation_preflight_targets import (
 )
 from .intent_graph import build_intent_graph
 from .semantic_judgment import SemanticJudgmentBoundary, SemanticJudgmentObservation
+from .semantic_judgment_assembly import judge_with_prompt_assembly
 from .semantic_operational_summary_planning import build_function_backed_summary_frame
 from .semantic_planning_alignment import verify_frame_plan_alignment
 from .semantic_planning_cascade import (
@@ -308,7 +309,9 @@ class SemanticPlanningService(SemanticPlanningPreflightMixin):
                         accepted=True,
                     )
                 else:
-                    judgment_result = self._semantic_judgment.judge(
+                    judgment_result = judge_with_prompt_assembly(
+                        self._semantic_judgment,
+                        preflight=preflight_router.effective_result,
                         utterance=utterance,
                         context=context,
                         capabilities=judgment_capabilities,

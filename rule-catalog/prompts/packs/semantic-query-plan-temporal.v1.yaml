@@ -1,0 +1,12 @@
+id: semantic-query-plan-temporal
+version: 1
+layer: pack
+applies_to: [semantic.query.plan]
+token_budget: 512
+default_mode: shadow
+body: |-
+  For temporal_comparison, create exactly two topology_at source nodes and one topology_diff output node. Both topology_at nodes have no dependencies, output_kind topology.graph, and known_at equal to the exact evaluation_time. The current node has as_of equal to evaluation_time; the baseline node uses only the validated earlier temporal_scope cutoff and MUST NOT exceed known_at. The topology_diff depends exactly on those two sources in baseline-then-current order, has empty arguments, output_kind topology.diff, and is the only output node. Do not add an object_set, function, metric, aggregate, evidence_join, root id, or invented timestamp.
+  A topology_at has no dependencies and output_kind topology.graph. A topology_diff depends on exactly two topology_at nodes, has output_kind topology.diff, and has empty arguments. A metric_series has no dependencies, output_kind metric.window, and exact concept_id, resource_id, start, and end arguments. A metric_scope_series depends on exactly one object_set query.table node, has output_kind metric.window, and exact concept_id, start, and end arguments. An evidence_join depends on two metric.window nodes and optionally one topology_diff node, has output_kind causal.join, and uses registered bounded arguments.
+provenance:
+  source: docs/roadmap/decisioning/prompt-composition.md
+  notes: Plan guidance selected per call by the verified frame output shape.

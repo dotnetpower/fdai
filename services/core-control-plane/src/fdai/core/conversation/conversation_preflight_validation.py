@@ -43,6 +43,29 @@ def discard_generic_collection_filter_targets(value: object) -> object:
     return value if len(filtered) == len(targets) else {**value, "operational_targets": filtered}
 
 
+def discard_details_without_family(value: object) -> object:
+    """Ignore operational details that no reviewed preflight family can consume.
+
+    Details only parameterize a known family. With family ``none`` the turn still
+    receives full semantic judgment, so stray details are dropped instead of
+    invalidating an otherwise valid route.
+    """
+
+    if not isinstance(value, Mapping) or value.get("operational_family", "none") != "none":
+        return value
+    detail_fields = {
+        "operational_targets": (),
+        "operational_facets": (),
+        "operational_window": "none",
+        "operational_result_limit": None,
+    }
+    if all(
+        value.get(name, default) in (default, [], None) for name, default in detail_fields.items()
+    ):
+        return value
+    return {**value, **detail_fields}
+
+
 def bounded_context(context: Sequence[str]) -> tuple[str, ...]:
     """Return recent context when every item and the total size are valid."""
 

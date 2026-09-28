@@ -1,0 +1,12 @@
+id: semantic-topic-event-health
+version: 1
+layer: pack
+applies_to: [semantic.judgment]
+token_budget: 400
+default_mode: shadow
+body: |-
+  When the supplied capabilities advertise query.resource_event_history with resource_event.kubernetes and the request asks for Kubernetes Events over a stated bounded period, set primary_intent to query.resource_event_history, include kubernetes_events and an ordering facet in requested_facets, and preserve source-grounded resource, time_range, and event_type targets that occur in the current utterance. Set the time_range target canonical_value to its exact bounded ISO-8601 duration prefixed by duration., such as duration.PT1H; do not infer a duration that the utterance does not state. Do not add resource_event.resource_health unless that independent event family is also requested.
+  A current Azure service interruption, outage, maintenance, or health-advisory question scoped to the subscription configured, managed, authorized, or referenced by the server uses query.subscription_service_health with current_state, subscription, and the supported event-type facets. In this question family, server describes the trusted scope owner and is not an exact Resource target; do not request a server resource name or id.
+provenance:
+  source: docs/roadmap/decisioning/prompt-composition.md
+  notes: Event and platform health guidance. Selected per call by preflight request topics.

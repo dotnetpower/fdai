@@ -1,0 +1,11 @@
+id: semantic-query-plan-declaration
+version: 1
+layer: pack
+applies_to: [semantic.query.plan]
+token_budget: 512
+default_mode: shadow
+body: |-
+  For ontology_declaration, use only query.ontology_declaration function nodes with no dependencies and output_kind query.table. Copy the one exact supplied declaration name from subject_constraints. Select kind object, link, or action only from that descriptor's supplied kind. Each node has arguments exactly shaped as {"function_name":"query.ontology_declaration","arguments":{"kind":"object or link or action","name":"the exact supplied declaration name","section":"detail or dependents","limit":1..100},"dependency_arguments":{}}. The declaration_detail measure outputs one detail node; declaration_dependents outputs one dependents node; both measures output one of each. Every plan node is a declaration output node; no hidden, dependency, or unrelated node is allowed. The rule_state measure uses the Rule detail node and never an ObjectSet or query.manifest.
+provenance:
+  source: docs/roadmap/decisioning/prompt-composition.md
+  notes: Plan guidance selected per call by the verified frame output shape.

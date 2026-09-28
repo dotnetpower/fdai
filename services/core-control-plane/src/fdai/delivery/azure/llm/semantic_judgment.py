@@ -30,7 +30,7 @@ from fdai.core.conversation.semantic_judgment import (
     SemanticJudgmentModelResponse,
     SemanticJudgmentObservation,
 )
-from fdai.core.prompts import PromptReplayManifest, estimate_chat_request_tokens
+from fdai.core.prompts import PromptAssembler, PromptReplayManifest, estimate_chat_request_tokens
 from fdai.core.prompts.types import PromptLayer
 from fdai.delivery.azure.llm.completion_body import completion_body_params
 from fdai.delivery.azure.llm.model_trace import (
@@ -71,6 +71,7 @@ class AzureOpenAISemanticJudgmentModelConfig:
     social_narrator_timeout_seconds: float = 10.0
     max_tokens: int = 2_048
     intent_hardening_enabled: bool = False
+    system_prompt_assembler: PromptAssembler | None = None
 
     def __post_init__(self) -> None:
         if not 1 <= len(self.candidates) <= _MAX_CANDIDATES:
@@ -94,6 +95,13 @@ class AzureOpenAISemanticJudgmentModelConfig:
         ):
             raise ValueError("social narrator system prompt MUST be non-empty and bounded")
         _validate_prompt_manifest(self.system_prompt, self.system_prompt_manifest)
+        if self.system_prompt_assembler is not None and (
+            self.system_prompt_assembler.complete.system_text != self.system_prompt
+            or self.system_prompt_manifest is None
+            or self.system_prompt_assembler.complete.replay_manifest()
+            != self.system_prompt_manifest
+        ):
+            raise ValueError("semantic judgment assembler MUST match the complete system prompt")
         _validate_prompt_manifest(
             self.preflight_system_prompt,
             self.preflight_prompt_manifest,
@@ -149,6 +157,13 @@ class AzureOpenAISemanticJudgmentModel:
         self._config = config
         self._owner_loop = owner_loop
 
+    @property
+    def supports_prompt_assembly(self) -> bool:
+        """True when this model composes its system prompt per call from assembly keys."""
+
+        assembler = self._config.system_prompt_assembler
+        return assembler is not None and assembler.dynamic
+
     def judge(
         self,
         *,
@@ -161,6 +176,7 @@ class AzureOpenAISemanticJudgmentModel:
         profile_id: str,
         profile_version: str,
         schema_repair: tuple[dict[str, str], ...],
+        prompt_assembly_keys: tuple[str, ...] | None = None,
     ) -> Mapping[str, Any] | SemanticJudgmentModelResponse | None:
         """Return a raw JSON-object proposal or ``None`` on transport failure."""
 
@@ -195,15 +211,20 @@ class AzureOpenAISemanticJudgmentModel:
             return {"invalid_semantic_judgment_input": True}
         if len(encoded.encode()) > _MAX_REQUEST_BYTES:
             return {"invalid_semantic_judgment_input": True}
+        system_prompt = self._config.system_prompt
+        prompt_manifest = self._config.system_prompt_manifest
+        assembler = self._config.system_prompt_assembler
+        if assembler is not None and prompt_assembly_keys is not None:
+            assembled = assembler.assemble(prompt_assembly_keys)
+            system_prompt = assembled.system_text
+            prompt_manifest = assembled.replay_manifest()
         future = asyncio.run_coroutine_threadsafe(
             self._complete(
                 encoded,
                 input_digest=input_digest,
                 proposal_schema=_semantic_judgment_proposal_schema(
                     intent_hardening_enabled=self._config.intent_hardening_enabled,
-                    document_query_enabled=_document_query_prompt_enabled(
-                        self._config.system_prompt_manifest
-                    )
+                    document_query_enabled=_document_query_prompt_enabled(prompt_manifest)
                     and any(
                         capability.get("kind") == "function_type"
                         and capability.get("name") == "query.governed_documents"
@@ -211,8 +232,8 @@ class AzureOpenAISemanticJudgmentModel:
                     ),
                     source_locale=locale,
                 ),
-                system_prompt=self._config.system_prompt,
-                prompt_manifest=self._config.system_prompt_manifest,
+                system_prompt=system_prompt,
+                prompt_manifest=prompt_manifest,
                 call_kind="semantic-judgment",
                 max_tokens=self._config.max_tokens,
                 temperature=0.0,
@@ -270,7 +291,7 @@ class AzureOpenAISemanticJudgmentModel:
             self._complete(
                 encoded,
                 input_digest=input_digest,
-                proposal_schema=ConversationPreflightProposal.model_json_schema(),
+                proposal_schema=_preflight_proposal_schema(self._config.preflight_prompt_manifest),
                 system_prompt=self._config.preflight_system_prompt,
                 prompt_manifest=self._config.preflight_prompt_manifest,
                 call_kind="conversation-preflight",
@@ -607,6 +628,19 @@ def _validate_output_reserve(
         and manifest.reserved_output_tokens < required_tokens
     ):
         raise ValueError(f"{name} prompt output reserve is below configured max_tokens")
+
+
+def _preflight_proposal_schema(manifest: PromptReplayManifest | None) -> dict[str, Any]:
+    """Request routing topics only from a preflight prompt that defines them."""
+
+    schema = ConversationPreflightProposal.model_json_schema()
+    if manifest is None or not any(
+        layer.id == "conversation-preflight-request-topics" and layer.layer is PromptLayer.PACK
+        for layer in manifest.layer_manifest
+    ):
+        schema["properties"].pop("request_topics", None)
+        schema.get("$defs", {}).pop("RequestTopic", None)
+    return schema
 
 
 def _document_query_prompt_enabled(manifest: PromptReplayManifest | None) -> bool:

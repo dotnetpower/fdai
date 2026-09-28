@@ -26,7 +26,7 @@ import httpx
 from ..core.metering.emitter import MeteringEmitter
 from ..core.metering.pricing import PricingTable
 from ..core.metering.sink import MeteringSink
-from ..core.prompts import PromptReplayManifest
+from ..core.prompts import PromptAssembler, PromptReplayManifest
 from ..core.quality_gate.critic import CriticModel
 from ..core.quality_gate.debate import DebateOrchestrator, DebateOrchestratorConfig
 from ..core.quality_gate.gate import CrossCheckModel
@@ -68,6 +68,7 @@ def bind_azure_llm_bindings(
     proposer_prompt_manifest: PromptReplayManifest | None = None,
     semantic_judgment_system_prompt: str | None = None,
     semantic_judgment_prompt_manifest: PromptReplayManifest | None = None,
+    semantic_judgment_prompt_assembler: PromptAssembler | None = None,
     semantic_judgment_schema_repair_system_prompt: str | None = None,
     semantic_judgment_schema_repair_prompt_manifest: PromptReplayManifest | None = None,
     conversation_preflight_system_prompt: str | None = None,
@@ -204,6 +205,7 @@ def bind_azure_llm_bindings(
         endpoint_resolver=endpoint_resolver,
         system_prompt=semantic_judgment_system_prompt,
         system_prompt_manifest=semantic_judgment_prompt_manifest,
+        system_prompt_assembler=semantic_judgment_prompt_assembler,
         schema_repair_system_prompt=semantic_judgment_schema_repair_system_prompt,
         schema_repair_prompt_manifest=semantic_judgment_schema_repair_prompt_manifest,
         preflight_system_prompt=conversation_preflight_system_prompt,
