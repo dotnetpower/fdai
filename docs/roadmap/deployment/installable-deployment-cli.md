@@ -547,6 +547,7 @@ The coordinator performs these stages in order:
 6. Verify state handoff and the managed-host image.
 7. Make the same verified artifact closure available on the selected host; transfer it only for a remote host.
 8. Run the substrate and application plans under the managed identity.
+   Targeted stages also include each `moved` destination whose source is still in state.
 9. Read the Terraform-selected registry and Core application names for substrate readback and
   capability identity without recomputing Azure resource names in Python.
 10. Import and read back every runtime image digest.

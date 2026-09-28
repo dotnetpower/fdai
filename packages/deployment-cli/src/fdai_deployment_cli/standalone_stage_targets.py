@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+import re
+import subprocess
+from pathlib import Path
 from typing import Final
 
 _SUBSTRATE_TARGETS: Final = (
@@ -85,12 +88,58 @@ def database_placement(context: dict[str, object]) -> str:
     return str(placement)
 
 
+_MOVED = re.compile(r"moved\s*\{\s*from\s*=\s*(\S+)\s+to\s*=\s*(\S+)\s*\}")
+
+
 def stage_targets(stage: str, context: dict[str, object]) -> tuple[str, ...]:
     if stage == "access":
-        return focused_access_targets(context)
-    if stage == "substrate":
-        return substrate_targets(context)
-    return ()
+        base = focused_access_targets(context)
+    elif stage == "substrate":
+        base = substrate_targets(context)
+    else:
+        return ()
+    infra = context.get("infra")
+    moved = moved_state_targets(Path(infra)) if isinstance(infra, str) else ()
+    return base + tuple(target for target in moved if target not in base)
+
+
+def moved_state_targets(infra: Path) -> tuple[str, ...]:
+    """Return `moved` destinations whose source address is still in Terraform state.
+
+    Terraform rejects a targeted plan that leaves such instances out, so every targeted stage
+    must include them. Without readable state, no destination is added and Terraform fails closed.
+    """
+
+    blocks = [
+        match.groups()
+        for path in sorted(infra.glob("*.tf"))
+        for match in _MOVED.finditer(path.read_text(encoding="utf-8"))
+    ]
+    if not blocks:
+        return ()
+    listed = subprocess.run(
+        ("terraform", "state", "list"),
+        cwd=infra,
+        check=False,
+        capture_output=True,
+        text=True,
+        timeout=300,
+    )
+    if listed.returncode != 0:
+        return ()
+    state = set(listed.stdout.split())
+    return tuple(
+        sorted(
+            {
+                destination
+                for source, destination in blocks
+                if any(
+                    address == source or address.startswith((f"{source}.", f"{source}["))
+                    for address in state
+                )
+            }
+        )
+    )
 
 
 def focused_private_access(context: dict[str, object]) -> bool:
