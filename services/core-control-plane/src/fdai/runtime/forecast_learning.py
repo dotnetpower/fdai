@@ -24,6 +24,7 @@ from fdai.core.detection.governance_policy import (
     load_detection_governance_policy,
 )
 from fdai.core.detection.metric_source import MetricSeriesSource
+from fdai.core.operational_evidence.owner_outcome import OperationalEvidenceRequester
 from fdai.delivery.forecast_history_configuration import parse_forecast_history_configuration
 from fdai.delivery.persistence.postgres_forecast_episode import (
     PostgresForecastEpisodeStore,
@@ -56,6 +57,7 @@ def build_forecast_learning_runtime(
     context_provider: ForecastContextProvider | None = None,
     context_admission: DecisionEvidenceAdmissionProvider | None = None,
     clock: Callable[[], datetime] | None = None,
+    context_evidence: OperationalEvidenceRequester | None = None,
 ) -> ForecastLearningRuntime | None:
     policy_path = governance_policy_path or repo_asset_root() / DETECTION_GOVERNANCE_POLICY_PATH
     governance_policy = load_detection_governance_policy(policy_path)
@@ -79,6 +81,7 @@ def build_forecast_learning_runtime(
                 context=context_provider,
                 admission_provider=context_admission,
                 clock=clock,
+                evidence=context_evidence,
             ),
         ),
     )

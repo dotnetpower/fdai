@@ -26,7 +26,10 @@ from fdai.core.detection.forecast_episode import (
 from fdai.core.detection.forecast_operational_metrics import (
     reduce_forecast_operational_metrics,
 )
-from fdai.core.detection.forecast_outcome import ForecastObservation
+from fdai.core.detection.forecast_outcome import (
+    ForecastObservation,
+    forecast_outcome_schema_version,
+)
 from fdai.shared.contracts.models import ForecastOutcome, Mode
 
 _EPISODE_COLUMNS = """
@@ -590,7 +593,7 @@ def _observation_mapping(observation: ForecastObservation | None) -> dict[str, o
     if observation.actual_breach_at is not None:
         _aware("actual breach time", observation.actual_breach_at)
     payload: dict[str, object] = {
-        "schema_version": "1.1.0" if observation.scoring_exclusions else "1.0.0",
+        "schema_version": forecast_outcome_schema_version(observation.scoring_exclusions),
         "observed_value": observation.observed_value,
         "actual_breach_at": (
             observation.actual_breach_at.isoformat()

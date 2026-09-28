@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from collections.abc import Mapping
 from copy import deepcopy
 from dataclasses import dataclass, field
@@ -25,6 +26,8 @@ from fdai.core.operational_context.test_context_dispatch import TestContextDispa
 from fdai.core.operational_planning import KineticActionProposal
 from fdai.core.operational_planning.prospective_lineage import ProspectiveLineage
 from fdai.shared.contracts.models import Autonomy
+
+_REJECTION_REF = re.compile(r"^sha256:[0-9a-f]{64}$")
 
 
 @dataclass
@@ -50,6 +53,7 @@ class ActionRun:
     decision_case: dict[str, Any] | None = None
     operational_context: dict[str, Any] | None = None
     test_context_guard: TestContextDispatchBinding | None = None
+    evidence_rejection_ref: str | None = None
     workflow_action: dict[str, Any] | None = None
     kinetic_proposal: dict[str, Any] | None = None
     prospective_lineage: dict[str, Any] | None = None
@@ -83,6 +87,11 @@ class ActionRun:
             self.execution_closure_ref,
             self.effect_verified_at,
         )
+        if self.evidence_rejection_ref is not None and (
+            not isinstance(self.evidence_rejection_ref, str)
+            or _REJECTION_REF.fullmatch(self.evidence_rejection_ref) is None
+        ):
+            raise ValueError("ActionRun evidence rejection reference MUST be a SHA-256 digest")
 
     def transition(self, new_state: ActionRunState) -> None:
         self.history.append(self.state)
@@ -114,6 +123,11 @@ class ActionRun:
             **(
                 {"test_context_guard": self.test_context_guard.model_dump(mode="json")}
                 if self.test_context_guard is not None
+                else {}
+            ),
+            **(
+                {"evidence_rejection_ref": self.evidence_rejection_ref}
+                if self.evidence_rejection_ref is not None
                 else {}
             ),
             "workflow_action": deepcopy(self.workflow_action),
@@ -178,6 +192,7 @@ class ActionRun:
                 if data.get("test_context_guard") is not None
                 else None
             ),
+            evidence_rejection_ref=data.get("evidence_rejection_ref"),
             workflow_action=action_run_lineage.bounded_workflow_action(data.get("workflow_action")),
             kinetic_proposal=durable_kinetic_proposal(data.get("kinetic_proposal")),
             prospective_lineage=durable_prospective_lineage(data.get("prospective_lineage")),

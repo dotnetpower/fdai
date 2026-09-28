@@ -368,6 +368,7 @@ async def build_semantic_runtime(
                 materializer=lambda: control_loop.case_history_reuse,
                 admission=container.decision_evidence_admission_provider,
                 source_revision=control_loop.ontology_release.digest,
+                evidence=container.operational_evidence_requester,
             )
             if control_loop.ontology_release is not None
             else None

@@ -14,8 +14,10 @@ from pathlib import Path
 from typing import Any
 
 from fdai.delivery.integration_readiness import integration_projection
+from fdai.delivery.operational_evidence_readiness import observe_verifier_readiness
 from fdai.delivery.persistence import PostgresStateStore, PostgresStateStoreConfig
 from fdai.delivery.runtime_settings import RUNTIME_SETTING_SPECS, RuntimeSettingsService
+from fdai_service_contracts.operational_evidence import OperationalEvidenceVerifierReadiness
 
 MODEL_SETTINGS_KEY = "operator-projection:iam:model-settings"
 RUNTIME_SETTINGS_KEY = "operator-projection:iam:runtime-settings"
@@ -155,8 +157,16 @@ def model_settings_projection(
     }
 
 
-def runtime_settings_projection(environ: Mapping[str, str]) -> dict[str, object]:
-    """Build read-only runtime diagnostics from the validated prepared environment."""
+def runtime_settings_projection(
+    environ: Mapping[str, str],
+    *,
+    operational_evidence_readiness: OperationalEvidenceVerifierReadiness | None = None,
+) -> dict[str, object]:
+    """Build read-only runtime diagnostics from the validated prepared environment.
+
+    ``operational_evidence_readiness`` is the one verifier snapshot observed for this
+    materialization; without it every operational evidence purpose stays unavailable.
+    """
     runtime_settings = RuntimeSettingsService(store=None, env=environ)
     environment_values = runtime_settings.environment_values()
     settings = [
@@ -184,7 +194,9 @@ def runtime_settings_projection(environ: Mapping[str, str]) -> dict[str, object]
     # Reuse the one shared readiness implementation so the local projection can
     # never drift from the deployed one, and so notification bindings are
     # represented locally instead of being silently dropped.
-    integrations = integration_projection(environ)
+    integrations = integration_projection(
+        environ, operational_evidence_readiness=operational_evidence_readiness
+    )
     runtime_environment = environ.get("RUNTIME_ENV", "").strip().lower()
     if runtime_environment not in {"dev", "staging", "prod"}:
         runtime_environment = "unspecified"
@@ -372,7 +384,10 @@ async def materialize(
     )
     if model_only:
         return
-    runtime_projection = runtime_settings_projection(os.environ)
+    runtime_projection = runtime_settings_projection(
+        os.environ,
+        operational_evidence_readiness=await observe_verifier_readiness(os.environ),
+    )
     if seed_runtime_if_missing:
         await store.write_state_if_absent(RUNTIME_SETTINGS_KEY, runtime_projection)
     else:

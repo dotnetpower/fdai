@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+from collections.abc import Iterable
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Literal
@@ -16,6 +17,19 @@ from fdai.shared.contracts.models import (
     Mode,
     TelemetryCompleteness,
 )
+
+
+def forecast_outcome_schema_version(exclusions: Iterable[str]) -> str:
+    """Return the oldest outcome schema version that can carry these scoring exclusions.
+
+    An independent-evidence class needs ``1.2.0``, any other exclusion ``1.1.0``, and none
+    keeps the legacy ``1.0.0`` shape.
+    """
+
+    values = set(exclusions)
+    if any(value.startswith("operational_evidence_") for value in values):
+        return "1.2.0"
+    return "1.1.0" if values else "1.0.0"
 
 
 @dataclass(frozen=True, slots=True)
@@ -58,6 +72,18 @@ class ForecastObservation:
             or len(set(self.scoring_exclusions)) != len(self.scoring_exclusions)
         ):
             raise ValueError("forecast observation scoring exclusions MUST be unique known codes")
+        evidence_classes = [
+            value for value in self.scoring_exclusions if value.startswith("operational_evidence_")
+        ]
+        rejection_refs = [
+            value
+            for value in self.evidence_refs
+            if value.startswith("operational-evidence-rejection:")
+        ]
+        if len(evidence_classes) > 1 or len(rejection_refs) != len(evidence_classes):
+            raise ValueError(
+                "forecast observation evidence class MUST cite exactly one rejection record"
+            )
         if self.intervention_refs and self.actual_breach_at is not None:
             object.__setattr__(
                 self,
@@ -79,7 +105,7 @@ def close_forecast(
         f"{expectation.prediction_id}:{expectation.horizon_ended_at.isoformat()}",
     )
     return ForecastOutcome(
-        schema_version="1.1.0" if observation.scoring_exclusions else "1.0.0",
+        schema_version=forecast_outcome_schema_version(observation.scoring_exclusions),
         outcome_id=outcome_id,
         idempotency_key=f"forecast-outcome:{outcome_id}",
         correlation_id=expectation.correlation_id,

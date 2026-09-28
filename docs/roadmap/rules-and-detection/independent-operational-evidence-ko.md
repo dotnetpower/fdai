@@ -1,7 +1,7 @@
 ---
 translation_of: independent-operational-evidence.md
-translation_source_sha: 3603bbb206d5a74ac4101ab9578ef6c8f016ce5a
-translation_revised: 2026-09-28
+translation_source_sha: 5241e0483ade8aad5f980d5ceecb2e3e469c84b8
+translation_revised: 2026-09-29
 ---
 # 독립 운영 근거 발급
 
@@ -13,7 +13,8 @@ translation_revised: 2026-09-28
 > **상태:** 일부 구현되었습니다. 소유자가 2026-09-28에 [#1022](https://github.com/dotnetpower/fdai/issues/1022)
 > 종료 조건 1에 대한 설계 검토를 마쳤으며, 내용은 [검토 결정](#검토-결정)에 있습니다.
 > 검증기 엔진, 발급 경로, 고정된 신뢰 레지스트리와 사례 범위 권한 부여 레지스트리, 삽입 전용 증명 저장소,
-> Operator 인증 증적, 세 가지 테스트 맥락 재확인이 구현되어 로컬 검사를 통과합니다.
+> Operator 인증 증적, 세 가지 테스트 맥락 재확인, 모든 소비 소유자의 유형별 기록, Settings 준비 상태 관측이
+> 구현되어 로컬 검사를 통과합니다.
 > [구현 참고 사항](#구현-참고-사항)을 확인하세요. 배포된 검증기 워크로드는 없으며, 출처 재확인이 연결되지 않은
 > 목적은 모두 `unavailable` 상태를 유지합니다.
 >
@@ -387,9 +388,13 @@ Core 경로는 `services/core-control-plane/src/fdai/` 기준 상대 경로입�
   Operator 인증 증적을 정의합니다.
 - **경로와 소유자.** `shared/providers/operational_evidence_issuer.py`는 `OperationalEvidenceIssuer`와 시도 범위
   결과 조회기를 선언합니다. `core/operational_evidence/owner_outcome.py`는 동일한 진행 중 요청을 병합하고, 해당
-  시도가 지목한 기록을 다시 읽은 뒤에만 거부를 받아들입니다. Var와 Mimir는 유형을 명시하는
-  `OperationalEvidenceRejectedError`로 명령과 전이를 거부하며, Forseti의 보류 사유에도 유형이 드러납니다. Thor,
-  Heimdall, T1 재사용, Pattern 읽기는 `unavailable`만 도달 가능하므로 일반 보류를 유지합니다.
+  시도가 지목한 기록을 다시 읽은 뒤에만 거부를 받아들입니다. 모든 소비 소유자는 `admit` 전에 발급을 요청하며,
+  증명된 유형은 일반 사유만 대체하고 거부 기록 digest를 인용합니다. Var와 Mimir는
+  `OperationalEvidenceRejectedError`로 거부하고, Mimir는 `context_digest`가 없는 `test_context.transition_refused`
+  감사 항목도 추가합니다. Forseti의 보류는 `evidence_rejection_ref`를 담고, Thor의 디스패치 보류는 `ActionRun`
+  결과와 `evidence_rejection_ref`를 설정합니다. Heimdall은 점수 산정과 조각 보존 중 어느 쪽이 거부되었든
+  `ForecastOutcome` 스키마 `1.2.0`의 `operational_evidence_*` 유형과 `operational-evidence-rejection:` 근거 참조로
+  점수 산정을 제외합니다. T1 사유 코드와 Pattern 읽기의 거부도 유형을 밝히고 기록을 인용합니다.
 - **검증기.** `core/operational_evidence/issuance.py`와 `proofs.py`는 레지스트리 항목과 자체 재확인으로 근거 증적, 다섯 증명,
   묶음을 만들고 `DecisionEvidenceReadinessGate`로 평가한 뒤 발급 기록 하나 또는 거부 기록 하나를 작성합니다.
   `separation.py`는 독립 principal과 같은 검증기 principal을 거부하며, `delivery/operational_evidence_server.py`는
@@ -410,19 +415,26 @@ Core 경로는 `services/core-control-plane/src/fdai/` 기준 상대 경로입�
   바인딩은 배포가 제공합니다.
 - **증명 저장소와 출처.** core-control-plane 서비스 마이그레이션 `core_operational_evidence_20260928`은 삽입 전용
   테이블 다섯 개, 검증기 역할과 읽기 역할, 변경 방지 트리거를 만듭니다. 또한 Operator 신원만 테스트 맥락 명령 행을
-  삽입하게 하고, 그 요청 필드와 증적을 변경할 수 없게 하며, 그 행과 Mimir 이력, 감사 행을 읽기 전용 보안 장벽
-  뷰로 검증기에 노출하므로, 호출자가 넣은 함수는 다른 `state_kv` 행의 내용을 볼 수 없습니다. 다만 기본 제공
-  leakproof 연산자는 여전히 모든 기반 키를 평가하므로, 검증기 역할은 플래너 추정치와 `EXPLAIN ANALYZE` 행 수로 키의
-  존재 여부를 확인하고 개수를 셀 수 있으며, 값은 드러나지 않습니다. 마이그레이션은 검증기 역할에 직접 부여된
-  `TEMPORARY` 권한을 회수합니다. Core가 임시 테이블을 사용하므로 PostgreSQL 기본 `PUBLIC` 권한은 남아 있으며,
-  보안 장벽은 이 권한과 관계없이 행 내용을 보호합니다. Operator는 증적을 멱등 요청 digest 안이 아니라 그 옆에
-  보관합니다.
+  삽입하게 하고, 그 요청 필드와 증적을 변경할 수 없게 하며, 그 행과 Mimir 이력, 감사 행 위에 읽기 전용 보안 장벽
+  뷰를 정의합니다. 후속 마이그레이션 `core_operational_evidence_source_functions_20260929`는 이 뷰에 대한 검증기의
+  `SELECT` 권한을 회수하고, `search_path`가 고정되고 동적 SQL이 없는 고정 매개변수 `SECURITY DEFINER` SQL 함수
+  네 개에 대한 `EXECUTE` 권한만 부여합니다. 각 함수는 정의자 권한 안에서 먼저 걸러 내므로 호출자가 넣은 조건은
+  반환된 행만 보게 되고, 플래너 추정치나 `EXPLAIN ANALYZE` 행 수로 다른 `state_kv` 키를 알아낼 수 없습니다. 이
+  마이그레이션의 downgrade는 뷰 권한을 복원합니다. 첫 마이그레이션은 검증기 역할에 직접 부여된 `TEMPORARY` 권한을
+  회수하며, Core가 임시 테이블을 사용하므로 PostgreSQL 기본 `PUBLIC` 권한은 남아 있습니다. Operator는 증적을 멱등
+  요청 digest 안이 아니라 그 옆에 보관합니다.
 - **재확인.** `operator-test-context-command`, `test-context-transition`, `operational-test-context`는 실제 출처를
   읽습니다. 현재 맥락은 인용한 전이 발급 기록의 조회가 그 맥락과 직전 기록으로 다시 만든 조회와 같을 때만 인정되며,
   다른 발급 기록을 인용하면 `replay_substituted`입니다. `admit`은 보관된 기록마다 정확한 검증기 바인딩과 현재 앵커
   기준의 그 바인딩 준비 상태를 다시 확인합니다. 관측, 예측, 사례 이력, 현재 재사용 목적에는 연결된 출처 재확인이
   없습니다.
-- **기능 상태와 인계.** `delivery/operational_evidence_readiness.py`는 목적마다 Settings 행 하나를 추가하고,
+- **기능 상태와 인계.** `delivery/operational_evidence_readiness.py`는 목적마다 Settings 행 하나를 추가합니다. 런타임
+  Settings 구체화는 모든 실패를 관측되지 않음으로 처리하는 제한된 읽기로 검증기 준비 상태 엔드포인트를 한 번
+  관측하고, 형식이 지정된 `OperationalEvidenceVerifierReadiness` 스냅샷을 프로젝션에 전달합니다. 행은 스냅샷이
+  120초 이내이고, 이 검증기와 같은 레지스트리 고정값을 가리키며, 검증기만 쓸 수 있는 증명 저장소를 보고하고,
+  목적을 연결했고, 자신의 검증기 버전에 활성 바인딩이 있으며, 제한된 탐침 읽기 뒤에 목적이 선언한 모든 출처를
+  정상으로 보고할 때만 `available`입니다. 충족하지 못한 전제 조건은 각각 이름이 표시되고, 구성만으로는 행을 사용
+  가능하게 만들 수 없으며, 사용 가능 여부는 권한을 부여하지 않습니다.
   `delivery/operational_evidence_handoff_cli.py`는 자동화할 수 있는 연결 환경 인계 단계를 실행하며 남은 훈련을
   나열합니다.
 

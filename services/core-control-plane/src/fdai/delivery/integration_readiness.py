@@ -33,6 +33,8 @@ from fdai.delivery.operational_evidence_readiness import operational_evidence_pr
 from fdai.shared.providers.notifications import ChannelMode
 
 if TYPE_CHECKING:
+    from fdai_service_contracts.operational_evidence import OperationalEvidenceVerifierReadiness
+
     from fdai.delivery.notifications.bindings import NotificationBindingSpec
     from fdai.shared.providers.notifications import TrustTier
 
@@ -437,12 +439,17 @@ def notification_bindings_projection(env: Mapping[str, str]) -> dict[str, object
     return row
 
 
-def integration_projection(env: Mapping[str, str]) -> list[dict[str, object]]:
+def integration_projection(
+    env: Mapping[str, str],
+    *,
+    operational_evidence_readiness: OperationalEvidenceVerifierReadiness | None = None,
+) -> list[dict[str, object]]:
     """Build the complete source-attributed integration list for one runtime.
 
     This is the single implementation behind both the deployed Core projection
     and the local materialized projection, so the two venues can never drift
-    into different readiness vocabularies.
+    into different readiness vocabularies. ``operational_evidence_readiness`` is
+    the verifier snapshot the caller observed; without it no purpose is available.
     """
     a2_row, a4_row = teams_notification_projections(env)
     channel_rows = notification_channel_capability_projections(env)
@@ -511,7 +518,7 @@ def integration_projection(env: Mapping[str, str]) -> list[dict[str, object]]:
         jira,
         human_access,
         forecast_history_projection(env),
-        *operational_evidence_projection(env),
+        *operational_evidence_projection(env, verifier_readiness=operational_evidence_readiness),
     ]
 
 

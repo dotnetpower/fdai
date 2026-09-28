@@ -13,6 +13,10 @@ from typing import Literal, Protocol
 from fdai.core.assurance_twin import DynamicSimulationRequest, SimulationBranch, SimulationSnapshot
 from fdai.core.case_history import FailureFingerprint
 from fdai.core.detection.series import MetricSample
+from fdai.core.operational_evidence.owner_outcome import (
+    OperationalEvidenceRequester,
+    request_operational_evidence,
+)
 from fdai.core.rca import TemporalCausalEvidence, TemporalSeries
 from fdai.core.tiers.t1_lightweight import (
     CurrentReuseVerification,
@@ -191,6 +195,7 @@ class AzureCurrentReuseVerifier:
         max_future_skew: timedelta = timedelta(minutes=1),
         clock: Callable[[], datetime] | None = None,
         admission_provider: DecisionEvidenceAdmissionProvider | None = None,
+        evidence: OperationalEvidenceRequester | None = None,
     ) -> None:
         if max_snapshot_age <= timedelta(0) or max_future_skew < timedelta(0):
             raise ValueError("Azure current snapshot freshness bounds are invalid")
@@ -200,6 +205,7 @@ class AzureCurrentReuseVerifier:
         self._max_future_skew = max_future_skew
         self._clock = clock or (lambda: datetime.now(tz=UTC))
         self._admission_provider = admission_provider
+        self._evidence = evidence
 
     async def verify(
         self,
@@ -248,13 +254,28 @@ class AzureCurrentReuseVerifier:
         )
         if self._admission_provider is None:
             return verification
+        evidence_digest = current_reuse_evidence_digest(verification)
+        scope_digest = current_reuse_scope_digest(event=event, action=action, context=context)
+        attempt = await request_operational_evidence(
+            self._evidence,
+            evidence_digest=evidence_digest,
+            scope_digest=scope_digest,
+            purpose_id=CURRENT_REUSE_EVIDENCE_PURPOSE,
+            source_revision=context.graph_digest,
+            locator={
+                "case_ref": context.case_ref,
+                "resource_ref": resource_ref,
+                "event_id": str(event.event_id),
+            },
+            clock=self._clock,
+        )
         admission = await self._admission_provider.admit(
-            evidence_digest=current_reuse_evidence_digest(verification),
-            scope_digest=current_reuse_scope_digest(event=event, action=action, context=context),
+            evidence_digest=evidence_digest,
+            scope_digest=scope_digest,
             purpose_id=CURRENT_REUSE_EVIDENCE_PURPOSE,
             source_revision=context.graph_digest,
         )
-        return replace(verification, decision_evidence=admission)
+        return replace(verification, decision_evidence=admission, evidence_attempt=attempt)
 
 
 @dataclass(frozen=True, slots=True)

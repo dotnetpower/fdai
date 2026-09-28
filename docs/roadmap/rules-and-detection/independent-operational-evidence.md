@@ -11,7 +11,8 @@ owners keep consuming them through the unchanged admission seam.
 > **Status:** Partially implemented. The owner reviewed the design for exit criterion 1 of
 > [#1022](https://github.com/dotnetpower/fdai/issues/1022) on 2026-09-28; see [Review decisions](#review-decisions).
 > The verifier engine, issuance seam, pinned trust and case-scope grant registries, insert-only proof store,
-> Operator authentication receipt, and three test-context readbacks exist and pass local checks; see
+> Operator authentication receipt, three test-context readbacks, class-specific records in every consuming
+> owner, and Settings readiness observation exist and pass local checks; see
 > [Implementation notes](#implementation-notes). No verifier workload is deployed, and every purpose without a
 > bound source readback stays `unavailable`.
 >
@@ -384,9 +385,14 @@ tracks what remains.
   `fdai_service_contracts.operator_authentication` defines the token-free Operator authentication receipt.
 - **Seam and owners.** `shared/providers/operational_evidence_issuer.py` declares `OperationalEvidenceIssuer` and the
   attempt-scoped outcome reader. `core/operational_evidence/owner_outcome.py` coalesces identical in-flight requests
-  and accepts a rejection only after re-reading the record that attempt named. Var and Mimir refuse commands and
-  transitions with `OperationalEvidenceRejectedError`, which names the class, and Forseti's hold reason names it. Thor,
-  Heimdall, T1 reuse, and the Pattern read keep their generic holds because only `unavailable` is reachable for them.
+  and accepts a rejection only after re-reading the record that attempt named. Every consuming owner requests
+  issuance before `admit`, and a proven class replaces only its generic reason while citing the rejection record
+  digest: Var and Mimir refuse with `OperationalEvidenceRejectedError`, and Mimir also appends a
+  `test_context.transition_refused` audit entry with no `context_digest`; Forseti's hold carries
+  `evidence_rejection_ref`; Thor's dispatch hold sets the `ActionRun` outcome and `evidence_rejection_ref`; Heimdall
+  excludes scoring with an `operational_evidence_*` class in `ForecastOutcome` schema `1.2.0` and an
+  `operational-evidence-rejection:` evidence reference, whether scoring or slice retention was rejected; the T1
+  reason codes and the Pattern read's refusal name the class and cite the record.
 - **Verifier.** `core/operational_evidence/issuance.py` and `proofs.py` build the receipt, five proofs, and bundle
   from registry entries and its own readback, evaluates them with `DecisionEvidenceReadinessGate`, and writes one admission or one
   rejection. `separation.py` refuses a verifier principal that equals any independent principal, and
@@ -408,20 +414,27 @@ tracks what remains.
   model replaces that entry. Deployment supplies the grant registry, pins, and anchor binding.
 - **Proof store and sources.** The core-control-plane service migration `core_operational_evidence_20260928` creates
   the five insert-only tables, the verifier and reader roles, and immutability triggers. It also lets only the Operator
-  identity insert test-context command rows, freezes their request fields and receipt, and exposes those rows, Mimir's
-  history, and its audit rows to the verifier through read-only security-barrier views, so a caller-supplied
-  function never observes the content of another `state_kv` row. Built-in leakproof operators still evaluate
-  every underlying key, so planner estimates and `EXPLAIN ANALYZE` row counts let the verifier role test for and
-  count keys; values stay hidden. The migration revokes any direct `TEMPORARY` grant from the verifier role; the
-  PostgreSQL default `PUBLIC` grant remains because Core uses temporary tables, and the barrier protects row
-  content without depending on it. The Operator retains the receipt beside, not inside, the idempotent request
-  digest.
+  identity insert test-context command rows, freezes their request fields and receipt, and defines read-only
+  security-barrier views over those rows, Mimir's history, and its audit rows. The follow-on migration
+  `core_operational_evidence_source_functions_20260929` revokes the verifier's `SELECT` on those views and grants it
+  `EXECUTE` only on four fixed-parameter `SECURITY DEFINER` SQL functions with a pinned `search_path` and no dynamic
+  SQL. Each function filters inside the definer's context, so a caller-supplied predicate sees only returned rows and
+  planner estimates or `EXPLAIN ANALYZE` row counts no longer reveal other `state_kv` keys; its downgrade restores the
+  view grant. The first migration revokes any direct `TEMPORARY` grant from the verifier role; the PostgreSQL default
+  `PUBLIC` grant remains because Core uses temporary tables. The Operator retains the receipt beside, not inside, the
+  idempotent request digest.
 - **Readbacks.** `operator-test-context-command`, `test-context-transition`, and `operational-test-context` read real
   sources. A current context is admissible only when the transition admission it cites has the lookup rebuilt from
   that context and its prior record; any other cited admission is `replay_substituted`. `admit` rechecks each
   retained record against its exact verifier binding and that binding's readiness under the current anchors. The
   observation, forecast, case-history, and current-reuse purposes have no bound source readback.
-- **Capability and handoff.** `delivery/operational_evidence_readiness.py` adds one Settings row per purpose, and
+- **Capability and handoff.** `delivery/operational_evidence_readiness.py` adds one Settings row per purpose. Runtime
+  Settings materialization observes the verifier readiness endpoint once, through a bounded read that treats every
+  failure as unobserved, and passes the typed `OperationalEvidenceVerifierReadiness` snapshot into the projection. A
+  row is `available` only when that snapshot is at most 120 seconds old, names this verifier and the same registry
+  pins, reports a writer-exclusive proof store, binds the purpose, has an active binding for its own verifier
+  version, and reports every source the purpose declares as healthy after a bounded probe read; each failed
+  prerequisite is named, configuration alone never makes a row available, and availability grants no authority.
   `delivery/operational_evidence_handoff_cli.py` runs the automatable connected-handoff stages and lists the owed drills.
 
 ## Non-goals

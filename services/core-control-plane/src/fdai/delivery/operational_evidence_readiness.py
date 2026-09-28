@@ -1,33 +1,51 @@
 """Settings projection rows for operational evidence issuance, one row per purpose.
 
 Each row separates availability, deployment preference, and authority. A purpose is
-``available`` only when the pinned registries load, the purpose has no registry or anchor
-defect, a source readback is bound for it, and an observed verifier readiness snapshot shows a
-writer-exclusive proof store. Availability grants no authority: every row reports shadow
-authority and no execution or promotion authority. Configuration values are never echoed.
+``available`` only when the pinned registries load without a defect for it, a source readback
+is bound for it, and a current verifier readiness snapshot names the same registry pins, an
+active binding of its own verifier version, a writer-exclusive proof store, the purpose among
+its bound purposes, and every source the purpose declares as healthy. Configuration alone never
+proves availability, and availability grants no authority: every row reports shadow authority
+and no execution or promotion authority. Configuration values are never echoed.
 """
 
 from __future__ import annotations
 
 from collections.abc import Mapping
-from datetime import UTC, datetime
+from dataclasses import dataclass
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
-from fdai_service_contracts.operational_evidence import OPERATIONAL_EVIDENCE_PURPOSES
+import httpx
+from fdai_service_contracts.operational_evidence import (
+    OPERATIONAL_EVIDENCE_PURPOSES,
+    OperationalEvidenceSourceHealth,
+    OperationalEvidenceVerifierReadiness,
+    OperationalEvidenceVerifierState,
+)
+from pydantic import ValidationError
 
 from fdai.core.operational_evidence.registry_json import RegistryUnavailableError
-from fdai.core.operational_evidence.trust_registry import purpose_defects
+from fdai.core.operational_evidence.revision_history import RegistryHistory
+from fdai.core.operational_evidence.trust_registry import (
+    DeploymentAnchors,
+    PurposeTrust,
+    purpose_defects,
+)
 from fdai.delivery.operational_evidence_configuration import (
     VERIFIER_ID,
     OperationalEvidenceSettings,
     load_anchors,
     load_registry_history,
 )
+from fdai.delivery.operational_evidence_transport import read_verifier_readiness
 from fdai.delivery.repo_assets import repo_asset_root
 
 BOUND_READBACK_PURPOSES = frozenset(
     {"operational-test-context", "operator-test-context-command", "test-context-transition"}
 )
+READINESS_MAX_AGE = timedelta(seconds=120)
+READINESS_MAX_SKEW = timedelta(seconds=30)
 _SOURCE_LIMITATIONS = {
     "case-history-read": "no retained Operator authentication receipt per semantic request exists",
     "current-case-reuse": "current safety results are not retained as readable receipts",
@@ -35,12 +53,61 @@ _SOURCE_LIMITATIONS = {
     "operational-test-observation": "no verifier-identity metric or health readback is bound",
 }
 _FORECAST_LIMITATION = "raw forecast history sources are not attestable yet (#1021)"
+_WRITER_NOT_READY = "verifier readiness with a writer-exclusive proof store is not observed"
+_READY = OperationalEvidenceVerifierState.READY
+_HEALTHY = OperationalEvidenceSourceHealth.HEALTHY
+
+
+@dataclass(frozen=True, slots=True)
+class _Registries:
+    """The Core's own pinned registries and anchors, or why they cannot be loaded."""
+
+    history: RegistryHistory | None
+    anchors: DeploymentAnchors | None
+    reason: str | None
+
+
+@dataclass(frozen=True, slots=True)
+class _Observation:
+    """One parsed readiness snapshot and why it cannot vouch for any purpose, if it cannot."""
+
+    readiness: OperationalEvidenceVerifierReadiness | None
+    reason: str | None
+
+    @property
+    def self_verified(self) -> bool:
+        return (
+            self.readiness is not None
+            and self.readiness.state is OperationalEvidenceVerifierState.SELF_VERIFIED
+        )
+
+    @property
+    def writer_exclusive(self) -> bool:
+        return self.reason is None and self.readiness is not None and self.readiness.state is _READY
+
+
+async def observe_verifier_readiness(
+    env: Mapping[str, str], *, client: httpx.AsyncClient | None = None
+) -> OperationalEvidenceVerifierReadiness | None:
+    """Read the verifier readiness endpoint once when issuance is enabled and bound.
+
+    Nothing is read while issuance is disabled or the endpoint is unset, and any failure
+    leaves the verifier unobserved, which keeps every purpose unavailable.
+    """
+
+    settings = OperationalEvidenceSettings.from_environment(env)
+    if not settings.enabled or not settings.verifier_url:
+        return None
+    if client is not None:
+        return await read_verifier_readiness(client, base_url=settings.verifier_url)
+    async with httpx.AsyncClient(timeout=2.0) as owned:
+        return await read_verifier_readiness(owned, base_url=settings.verifier_url)
 
 
 def operational_evidence_projection(
     env: Mapping[str, str],
     *,
-    verifier_readiness: Mapping[str, object] | None = None,
+    verifier_readiness: OperationalEvidenceVerifierReadiness | Mapping[str, object] | None = None,
     root: Path | None = None,
     now: datetime | None = None,
 ) -> list[dict[str, object]]:
@@ -49,46 +116,107 @@ def operational_evidence_projection(
     settings = OperationalEvidenceSettings.from_environment(env)
     prerequisites = settings.prerequisites()
     configured = settings.enabled or any(prerequisites.values())
-    registry_reason: str | None = None
-    defects: dict[str, tuple[str, ...]] = {}
     at = now or datetime.now(UTC)
-    if all(prerequisites.values()):
-        try:
-            history = load_registry_history(settings, root=root or repo_asset_root())
-            anchors = load_anchors(settings)
-        except (OSError, RegistryUnavailableError, ValueError):
-            registry_reason = "a pinned registry or the anchor binding is unavailable"
-        else:
-            defects = {
-                purpose: purpose_defects(
-                    history.current.trust,
-                    anchors,
-                    purpose_id=purpose,
-                    verifier_id=VERIFIER_ID,
-                    at=at,
-                )
-                for purpose in OPERATIONAL_EVIDENCE_PURPOSES
-            }
-    else:
-        registry_reason = "deployment prerequisites are incomplete"
-    state = str((verifier_readiness or {}).get("state", "unobserved"))
-    raw_bound = (verifier_readiness or {}).get("bound_purposes", ())
-    bound = frozenset(
-        str(item) for item in (raw_bound if isinstance(raw_bound, (list, tuple)) else ())
-    )
+    registries = _registries(settings, prerequisites, root=root)
+    defects: dict[str, tuple[str, ...]] = {}
+    if registries.history is not None and registries.anchors is not None:
+        defects = {
+            purpose: purpose_defects(
+                registries.history.current.trust,
+                registries.anchors,
+                purpose_id=purpose,
+                verifier_id=VERIFIER_ID,
+                at=at,
+            )
+            for purpose in OPERATIONAL_EVIDENCE_PURPOSES
+        }
+    observation = _observe(verifier_readiness, registries.history, at)
     return [
         _row(
             purpose,
             settings=settings,
             prerequisites=prerequisites,
             configured=configured,
-            registry_reason=registry_reason,
+            registries=registries,
             defects=defects.get(purpose, ()),
-            verifier_state=state,
-            verifier_bound=purpose in bound,
+            observation=observation,
+            at=at,
         )
         for purpose in OPERATIONAL_EVIDENCE_PURPOSES
     ]
+
+
+def _registries(
+    settings: OperationalEvidenceSettings, prerequisites: Mapping[str, bool], *, root: Path | None
+) -> _Registries:
+    if not all(prerequisites.values()):
+        return _Registries(None, None, "deployment prerequisites are incomplete")
+    try:
+        history = load_registry_history(settings, root=root or repo_asset_root())
+        anchors = load_anchors(settings)
+    except (OSError, RegistryUnavailableError, ValueError):
+        return _Registries(None, None, "a pinned registry or the anchor binding is unavailable")
+    return _Registries(history, anchors, None)
+
+
+def _observe(
+    raw: OperationalEvidenceVerifierReadiness | Mapping[str, object] | None,
+    history: RegistryHistory | None,
+    at: datetime,
+) -> _Observation:
+    if raw is None:
+        return _Observation(None, "verifier readiness is not observed")
+    try:
+        readiness = (
+            raw
+            if isinstance(raw, OperationalEvidenceVerifierReadiness)
+            else OperationalEvidenceVerifierReadiness.model_validate(raw)
+        )
+    except (ValidationError, ValueError):
+        return _Observation(None, "verifier readiness is malformed")
+    if readiness.verifier_id != VERIFIER_ID:
+        return _Observation(readiness, "verifier readiness names another verifier identity")
+    if history is not None and (
+        readiness.trust_registry_pin != history.current.pins.trust_pin
+        or readiness.grant_registry_pin != history.current.pins.grant_pin
+    ):
+        return _Observation(readiness, "verifier registry pins differ from the pinned registries")
+    probed = readiness.probed_at
+    if probed is None or at - probed > READINESS_MAX_AGE or probed - at > READINESS_MAX_SKEW:
+        return _Observation(readiness, "verifier readiness is not current")
+    return _Observation(readiness, None)
+
+
+def _binding_active(
+    registries: _Registries,
+    readiness: OperationalEvidenceVerifierReadiness,
+    purpose: str,
+    at: datetime,
+) -> bool:
+    if registries.history is None or registries.anchors is None:
+        return False
+    return not purpose_defects(
+        registries.history.current.trust,
+        registries.anchors,
+        purpose_id=purpose,
+        verifier_id=VERIFIER_ID,
+        verifier_version=readiness.verifier_version,
+        at=at,
+    )
+
+
+def _unhealthy_sources(
+    entry: PurposeTrust | None, readiness: OperationalEvidenceVerifierReadiness
+) -> tuple[str, ...]:
+    if entry is None:
+        return ("purpose_not_registered",)
+    return tuple(
+        sorted(
+            source.source_id
+            for source in entry.sources
+            if readiness.source_health.get(source.source_id) is not _HEALTHY
+        )
+    )
 
 
 def _row(
@@ -97,18 +225,27 @@ def _row(
     settings: OperationalEvidenceSettings,
     prerequisites: Mapping[str, bool],
     configured: bool,
-    registry_reason: str | None,
+    registries: _Registries,
     defects: tuple[str, ...],
-    verifier_state: str,
-    verifier_bound: bool,
+    observation: _Observation,
+    at: datetime,
 ) -> dict[str, object]:
     readback_bound = purpose in BOUND_READBACK_PURPOSES
-    self_verified = "self_verified" in defects or verifier_state == "self_verified"
+    self_verified = "self_verified" in defects or observation.self_verified
+    readiness = observation.readiness if observation.reason is None else None
+    purpose_bound = readiness is not None and purpose in readiness.bound_purposes
+    binding_active = readiness is not None and _binding_active(registries, readiness, purpose, at)
+    entry = (
+        registries.history.current.trust.purpose(purpose)
+        if registries.history is not None
+        else None
+    )
+    unhealthy = _unhealthy_sources(entry, readiness) if readiness is not None else ("unobserved",)
     reason: str | None
     if not settings.enabled:
         reason = "not enabled by deployment configuration"
-    elif registry_reason is not None:
-        reason = registry_reason
+    elif registries.reason is not None:
+        reason = registries.reason
     elif self_verified:
         reason = "self_verified: another principal can write or share the verifier identity"
     elif defects:
@@ -119,8 +256,16 @@ def _row(
             if purpose.startswith("forecast-history-")
             else _SOURCE_LIMITATIONS.get(purpose, "no source readback is bound")
         )
-    elif verifier_state != "ready" or not verifier_bound:
-        reason = "verifier readiness with a writer-exclusive proof store is not observed"
+    elif observation.reason is not None:
+        reason = observation.reason
+    elif not observation.writer_exclusive:
+        reason = _WRITER_NOT_READY
+    elif not purpose_bound:
+        reason = "the verifier has not bound a source readback for this purpose"
+    elif not binding_active:
+        reason = "the observed verifier version has no active binding for this purpose"
+    elif unhealthy:
+        reason = "declared sources are not healthy: " + ", ".join(unhealthy)
     else:
         reason = None
     available = reason is None
@@ -144,15 +289,28 @@ def _row(
         "unavailable_reason": reason,
         "prerequisites": [
             *({"name": name, "satisfied": value} for name, value in sorted(prerequisites.items())),
-            {"name": "pinned_registries_and_anchors", "satisfied": registry_reason is None},
+            {"name": "pinned_registries_and_anchors", "satisfied": registries.reason is None},
             {
                 "name": "purpose_registry_entry",
-                "satisfied": registry_reason is None and not defects,
+                "satisfied": registries.reason is None and not defects,
             },
             {"name": "source_readback_bound", "satisfied": readback_bound},
-            {"name": "writer_exclusive_proof_store", "satisfied": verifier_state == "ready"},
+            {"name": "verifier_readiness_current", "satisfied": observation.reason is None},
+            {"name": "writer_exclusive_proof_store", "satisfied": observation.writer_exclusive},
+            {"name": "verifier_bound_purpose", "satisfied": purpose_bound},
+            {"name": "verifier_binding_active", "satisfied": binding_active},
+            {
+                "name": "declared_sources_healthy",
+                "satisfied": readiness is not None and not unhealthy,
+            },
         ],
     }
 
 
-__all__ = ["BOUND_READBACK_PURPOSES", "operational_evidence_projection"]
+__all__ = [
+    "BOUND_READBACK_PURPOSES",
+    "READINESS_MAX_AGE",
+    "READINESS_MAX_SKEW",
+    "observe_verifier_readiness",
+    "operational_evidence_projection",
+]

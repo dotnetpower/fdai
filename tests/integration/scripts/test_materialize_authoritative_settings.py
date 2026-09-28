@@ -321,3 +321,45 @@ def test_materialize_requires_state_store_dsn(monkeypatch: pytest.MonkeyPatch) -
 
     with pytest.raises(RuntimeError, match="FDAI_STATE_STORE_DSN MUST be configured"):
         asyncio.run(module.materialize(model_only=True))
+
+
+def test_materialize_passes_one_observed_verifier_readiness(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Runtime Settings rows use exactly the verifier readiness observed for this run."""
+    module = _module()
+    observed = object()
+    observations: list[dict[str, str]] = []
+    passed: list[object] = []
+    writes: dict[str, object] = {}
+
+    async def observe(env: dict[str, str]) -> object:
+        observations.append(dict(env))
+        return observed
+
+    def projection(
+        environ: dict[str, str], *, operational_evidence_readiness: object = None
+    ) -> list[dict[str, object]]:
+        del environ
+        passed.append(operational_evidence_readiness)
+        return []
+
+    class Store:
+        def __init__(self, *, config: object) -> None:
+            del config
+
+        async def write_state(self, key: str, value: object) -> None:
+            writes[key] = value
+
+    monkeypatch.setattr(module, "observe_verifier_readiness", observe)
+    monkeypatch.setattr(module, "integration_projection", projection)
+    monkeypatch.setattr(module, "PostgresStateStore", Store)
+    monkeypatch.setenv("FDAI_STATE_STORE_DSN", "postgresql://example.invalid/fdai")
+    monkeypatch.delenv("LLM_RESOLVED_MODELS_PATH", raising=False)
+
+    asyncio.run(module.materialize(model_only=True))
+    assert observations == [] and passed == []
+    asyncio.run(module.materialize())
+    assert len(observations) == 1 and passed == [observed]
+    runtime = writes["operator-projection:iam:runtime-settings"]
+    assert isinstance(runtime, dict) and runtime["integrations"] == []

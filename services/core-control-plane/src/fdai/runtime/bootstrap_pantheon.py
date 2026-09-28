@@ -290,6 +290,7 @@ async def initialize_pantheon(
     forecast_context = StateStoreForecastContextProvider(
         config.incident_audit_store,
         admission=config.container.decision_evidence_admission_provider,
+        evidence=config.container.operational_evidence_requester,
         collector=forecast_history_collector_from_environment(
             dsn=state_store_dsn,
             environment=config.environment,
@@ -301,6 +302,7 @@ async def initialize_pantheon(
         metric_provider=config.container.metric_provider,
         context_provider=forecast_context,
         context_admission=config.container.decision_evidence_admission_provider,
+        context_evidence=config.container.operational_evidence_requester,
     )
     if forecast_learning_runtime is not None:
         await forecast_learning_runtime.store.verify_schema()
@@ -689,6 +691,7 @@ async def initialize_pantheon(
                     admission=config.container.decision_evidence_admission_provider,
                 ),
                 admission=config.container.decision_evidence_admission_provider,
+                evidence=config.container.operational_evidence_requester,
             )
         )
     cast(Any, thor_agent).set_shadow_required(

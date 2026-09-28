@@ -5,7 +5,8 @@ owns only the operational proof store. It refuses to start when its principal eq
 producer, reviewer, or executor-class principal, and it refuses to issue while the proof-store
 grants readback shows another writer (``self_verified``). The local venue accepts loopback
 callers only; a deployed venue requires a workload caller authenticator, which this module does
-not provide, so it refuses to start there.
+not provide, so it refuses to start there. Its readiness snapshot names the registry pins, the
+bound purposes, and a bounded health read of every source it binds; it grants no authority.
 """
 
 from __future__ import annotations
@@ -16,15 +17,19 @@ import ipaddress
 import logging
 import os
 from collections.abc import Awaitable, Callable, Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Protocol
 
+import psycopg
 from aiohttp import web
 from fdai_service_contracts.operational_evidence import (
     OperationalEvidenceIssuanceRequest,
     OperationalEvidenceIssuanceResponse,
+    OperationalEvidenceSourceHealth,
+    OperationalEvidenceVerifierReadiness,
+    OperationalEvidenceVerifierState,
 )
 from pydantic import ValidationError
 
@@ -51,7 +56,7 @@ from fdai.delivery.operational_evidence_configuration import (
     load_registry_history,
     string_list,
 )
-from fdai.delivery.operational_evidence_transport import ISSUANCE_PATH
+from fdai.delivery.operational_evidence_transport import ISSUANCE_PATH, READINESS_PATH
 from fdai.delivery.persistence.postgres_operational_evidence import (
     VERIFIER_ROLE,
     PostgresOperationalEvidenceConfig,
@@ -65,7 +70,6 @@ from fdai.delivery.persistence.postgres_operational_evidence_sources import (
     PostgresTestContextEvidenceSources,
 )
 
-READINESS_PATH = "/v1/operational-evidence/readiness"
 _LOGGER = logging.getLogger(__name__)
 _MAX_REQUEST_BYTES = 16_384
 
@@ -97,6 +101,7 @@ class VerifierReadiness:
     state: str = "unavailable"
     reasons: tuple[str, ...] = ("not_probed",)
     probed_at: datetime | None = None
+    source_health: dict[str, OperationalEvidenceSourceHealth] = field(default_factory=dict)
 
 
 def build_verifier_app(
@@ -125,14 +130,21 @@ def build_verifier_app(
 
     async def ready(_: web.Request) -> web.StreamResponse:
         current = readiness()
-        return web.json_response(
-            {
-                "state": current.state,
-                "reasons": list(current.reasons),
-                "bound_purposes": sorted(engine.bound_purposes()),
-                "execution_authority": False,
-            }
+        pins = engine.current_pins()
+        if pins is None:
+            return web.json_response({"error": "registry_unavailable"}, status=503)
+        snapshot = OperationalEvidenceVerifierReadiness(
+            state=OperationalEvidenceVerifierState(current.state),
+            reasons=() if current.state == "ready" else tuple(sorted(set(current.reasons))),
+            verifier_id=engine.identity.verifier_id,
+            verifier_version=engine.identity.verifier_version,
+            trust_registry_pin=pins.trust_pin,
+            grant_registry_pin=pins.grant_pin,
+            bound_purposes=tuple(sorted(engine.bound_purposes())),
+            source_health=dict(current.source_health),
+            probed_at=current.probed_at,
         )
+        return web.Response(body=snapshot.model_dump_json(), content_type="application/json")
 
     app = web.Application(client_max_size=_MAX_REQUEST_BYTES)
     app.router.add_post(ISSUANCE_PATH, issue)
@@ -195,12 +207,17 @@ def build_verifier_workload(
     async def probe() -> VerifierReadiness:
         try:
             readback = await read_proof_store_grants(store, allowed_writer_members=members)
-        except (OSError, RuntimeError, ValueError) as exc:
-            readiness.state, readiness.reasons = "unavailable", (type(exc).__name__,)
+        except (OSError, RuntimeError, ValueError, psycopg.Error) as exc:
+            _LOGGER.warning(
+                "operational_evidence_writer_readback_unavailable",
+                extra={"error_type": type(exc).__name__},
+            )
+            readiness.state, readiness.reasons = "unavailable", ("writer_readback_unavailable",)
         else:
             reasons = readback.self_verified_reasons()
             readiness.state = "self_verified" if reasons else "ready"
             readiness.reasons = reasons
+        readiness.source_health = await sources.source_health()
         readiness.probed_at = datetime.now(UTC)
         return readiness
 

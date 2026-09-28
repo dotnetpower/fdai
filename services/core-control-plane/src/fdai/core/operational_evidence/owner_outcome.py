@@ -33,6 +33,7 @@ from fdai.shared.providers.operational_evidence_issuer import (
 )
 
 _LOGGER = logging.getLogger(__name__)
+REJECTION_REF_PREFIX = "operational-evidence-rejection:"
 _EXPECTED_FAILURES = (
     OperationalEvidenceUnavailableError,
     LookupError,
@@ -45,10 +46,14 @@ _EXPECTED_FAILURES = (
 
 
 class OperationalEvidenceRejectedError(PermissionError):
-    """A boundary refused an input because the verifier recorded an explicit class."""
+    """A boundary refused an input because the verifier recorded an explicit class.
+
+    The message names the class and cites the content-free rejection record digest.
+    """
 
     def __init__(self, message: str, *, attempt: OperationalEvidenceAttempt) -> None:
-        super().__init__(f"{message}: {attempt.hold_reason('unavailable')}")
+        citation = f" ({attempt.rejection_digest})" if attempt.rejection_digest else ""
+        super().__init__(f"{message}: {attempt.hold_reason('unavailable')}{citation}")
         self.attempt = attempt
 
 
@@ -67,12 +72,27 @@ class OperationalEvidenceAttempt:
     def rejection_digest(self) -> str | None:
         return self.rejection.record_digest if self.rejection is not None else None
 
+    @property
+    def rejection_ref(self) -> str | None:
+        """Return the namespaced reference an owner cites beside other evidence references."""
+
+        digest = self.rejection_digest
+        return REJECTION_REF_PREFIX + digest if digest is not None else None
+
     def hold_reason(self, generic: str) -> str:
         """Return the owner's reason: the generic hold unless a class was proven."""
 
         if self.rejection is None:
             return generic
         return f"operational_evidence_{self.rejection.rejection_class.value}"
+
+    def hold_reasons(self, generic: str) -> tuple[str, ...]:
+        """Return the class and its rejection citation, or only the generic hold."""
+
+        reference = self.rejection_ref
+        if reference is None:
+            return (generic,)
+        return (self.hold_reason(generic), reference)
 
     def raise_if_rejected(self, message: str) -> None:
         """Refuse with the explicit class; an outage keeps the caller's generic refusal."""
@@ -223,6 +243,7 @@ async def request_operational_evidence(
 
 
 __all__ = [
+    "REJECTION_REF_PREFIX",
     "UNAVAILABLE_ATTEMPT",
     "OperationalEvidenceAttempt",
     "OperationalEvidenceRejectedError",
