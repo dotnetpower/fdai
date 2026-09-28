@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import argparse
 import base64
+import gzip
 import io
 import json
 import os
@@ -39,6 +40,8 @@ SECRET_MARKERS = re.compile(
     re.IGNORECASE,
 )
 VARIABLE = re.compile(r'^variable\s+"([A-Za-z0-9_]+)"', re.MULTILINE)
+MODULE_SOURCE = re.compile(r'source\s*=\s*"(\.{1,2}/[^"]+)"')
+TERRAFORM_INPUT = re.compile(r"(\.tf|\.tftpl|^\.terraform\.lock\.hcl)$")
 TIMEOUTS = {"plan": 2400, "apply": 5100, "verify": 2400}
 STATE_ROOT = Path.home() / ".local/state/fdai/scoped-terraform"
 REPOSITORY = Path(__file__).resolve().parents[3]
@@ -147,6 +150,30 @@ def export_source(commit: str, root: str, destination: Path) -> None:
     (destination / "export" / root).rename(destination / "source")
 
 
+def prune_to_module_closure(source: Path) -> None:
+    """Keep only Terraform inputs for the root and its local module closure."""
+
+    keep: set[Path] = set()
+    pending = [source]
+    while pending:
+        directory = pending.pop().resolve()
+        if directory in keep:
+            continue
+        if not directory.is_relative_to(source.resolve()) or not directory.is_dir():
+            raise CoordinatorError("scope module source leaves the exported root")
+        keep.add(directory)
+        for path in directory.glob("*.tf"):
+            for match in MODULE_SOURCE.finditer(path.read_text(encoding="utf-8")):
+                pending.append(directory / match.group(1))
+    for path in sorted(source.rglob("*"), reverse=True):
+        if path.is_file() and (
+            path.parent.resolve() not in keep or not TERRAFORM_INPUT.search(path.name)
+        ):
+            path.unlink()
+        elif path.is_dir() and not any(path.iterdir()):
+            path.rmdir()
+
+
 def payload_archive(source: Path, request: dict[str, Any], variables: bytes) -> bytes:
     buffer = io.BytesIO()
 
@@ -155,7 +182,7 @@ def payload_archive(source: Path, request: dict[str, Any], variables: bytes) -> 
         info.size, info.mode, info.mtime = len(data), 0o600, 0
         tar.addfile(info, io.BytesIO(data))
 
-    with tarfile.open(fileobj=buffer, mode="w:gz", compresslevel=9) as tar:
+    with tarfile.open(fileobj=buffer, mode="w:xz", preset=9) as tar:
         add("request.json", receiver.canonical(request))
         add("vars.json", variables)
         for path in sorted(source.rglob("*")):
@@ -165,7 +192,7 @@ def payload_archive(source: Path, request: dict[str, Any], variables: bytes) -> 
 
 
 def build_script(receiver_bytes: bytes, payload: bytes) -> str:
-    receiver_b64 = base64.encodebytes(receiver_bytes).decode().strip()
+    receiver_b64 = base64.encodebytes(gzip.compress(receiver_bytes, 9, mtime=0)).decode().strip()
     payload_b64 = base64.encodebytes(payload).decode().strip()
     failure = receiver.RESULT_PREFIX + '{"code":"transfer_digest_mismatch","state":"error"}'
     script = f"""#!/bin/bash
@@ -175,14 +202,14 @@ base={receiver.DEFAULT_BASE}
 install -d -m 0700 "$base"
 incoming="$(mktemp -d "$base/.incoming-XXXXXXXX")"
 trap 'rm -rf "$incoming"' EXIT
-base64 -d > "$incoming/receiver.py" <<'FDAI_RECEIVER'
+base64 -d <<'FDAI_RECEIVER' | gzip -dc > "$incoming/receiver.py"
 {receiver_b64}
 FDAI_RECEIVER
-base64 -d > "$incoming/payload.tar.gz" <<'FDAI_PAYLOAD'
+base64 -d > "$incoming/payload.tar" <<'FDAI_PAYLOAD'
 {payload_b64}
 FDAI_PAYLOAD
 if ! printf '%s  %s\\n' {receiver.sha256(receiver_bytes)} "$incoming/receiver.py" \\
-    {receiver.sha256(payload)} "$incoming/payload.tar.gz" | sha256sum -c --quiet --status; then
+    {receiver.sha256(payload)} "$incoming/payload.tar" | sha256sum -c --quiet --status; then
   echo '{failure}'
   exit 1
 fi
@@ -309,7 +336,56 @@ def check_container_insights(
     }
 
 
-READBACK = {"aks-container-insights": check_container_insights}
+INVENTORY_ROLES = {
+    "azurerm_role_assignment.inventory_reader": "Reader",
+    "azurerm_role_assignment.inventory_monitoring_reader[0]": "Monitoring Reader",
+    "azurerm_role_assignment.inventory_log_analytics_reader[0]": "Log Analytics Reader",
+}
+
+
+def check_inventory_roles(
+    run: Runner, resources: dict[str, str], variables: dict[str, Any], mode: str
+) -> dict[str, bool]:
+    if mode == "destroy":
+        return {"terraform_state_absent": not resources}
+    if set(resources) != set(INVENTORY_ROLES) or not all(resources.values()):
+        raise CoordinatorError("Terraform state lacks the inventory observation role ids")
+    principals: set[str] = set()
+    checks: dict[str, bool] = {}
+    for address, role in INVENTORY_ROLES.items():
+        url = f"https://management.azure.com{resources[address]}?api-version=2022-04-01"
+        properties = (
+            json.loads(run(("az", "rest", "--method", "get", "--url", url), 120)).get("properties")
+            or {}
+        )
+        expected = run(
+            (
+                "az",
+                "role",
+                "definition",
+                "list",
+                "--name",
+                role,
+                "--query",
+                "[0].name",
+                "-o",
+                "tsv",
+            ),
+            120,
+        ).strip()
+        principals.add(str(properties.get("principalId", "")))
+        definition = str(properties.get("roleDefinitionId", "")).rsplit("/", 1)[-1]
+        checks[address.rsplit(".", 1)[-1].removesuffix("[0]")] = (
+            bool(expected) and definition == expected
+        )
+    checks["single_principal"] = len(principals) == 1 and "" not in principals
+    return checks
+
+
+READBACK = {
+    "aks-container-insights": check_container_insights,
+    "aks-inventory-observation-roles": check_inventory_roles,
+}
 
 
 def pointer_key(scope: str, mode: str, profile: dict[str, Any]) -> str:
@@ -358,6 +434,8 @@ def execute(args: argparse.Namespace, run: Runner = capture) -> dict[str, object
     with tempfile.TemporaryDirectory(prefix="fdai-scoped-") as temporary:
         work = Path(temporary)
         export_source(commit, scope["root"], work)
+        if scope.get("module_closure"):
+            prune_to_module_closure(work / "source")
         source = work / "source"
         declared = {
             name for path in source.glob("*.tf") for name in VARIABLE.findall(path.read_text())
@@ -407,7 +485,14 @@ def execute(args: argparse.Namespace, run: Runner = capture) -> dict[str, object
         receiver.validate_plan(
             {
                 "resource_changes": [
-                    {"address": c["address"], "change": c} for c in result["changes"]
+                    {
+                        "address": c["address"],
+                        "previous_address": c.get("previous_address"),
+                        "change": {
+                            "actions": ["no-op"] if c["actions"] == ["move"] else c["actions"]
+                        },
+                    }
+                    for c in result["changes"]
                 ]
             },
             scope=args.scope,
