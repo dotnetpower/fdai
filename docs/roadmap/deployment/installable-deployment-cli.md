@@ -520,7 +520,8 @@ bindings, never host deployment defaults. CLI build tooling uses a stage-private
 than the caller's selected virtual environment. Complete builds use one private detached checkout
 of a pinned commit, excluding caller-local ignored inputs and signing keys. Raw tracked bytes,
 modes, and a stable metadata fingerprint are checked throughout assembly and immediately before
-signing; unchanged lockfiles or Git status flags alone do not prove source identity.
+signing; unchanged lockfiles or Git status flags alone do not prove source identity. The CLI
+wheels include locked workspace path dependencies, such as the service contracts, built as wheels.
 
 The complete release wrapper requires a fresh private output root and preserves earlier archives.
 Caller-relative signing-key paths resolve before changing directories, and current-UID, mode-0600,
