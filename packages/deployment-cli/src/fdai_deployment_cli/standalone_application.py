@@ -92,8 +92,9 @@ def deploy_standalone_application(
         raise ValueError("standalone host SSH key differs from Foundation evidence")
     transport_archive = prepared.root / "standalone-kit.tar.gz"
     archive_digest = archive_verified_kit(kit, transport_archive)
-    entra_path = prepared.root / "entra-bindings.json" if entra_bindings is not None else None
-    if entra_path is not None:
+    entra_path = None
+    if entra_bindings is not None:
+        entra_path = prepared.root / "entra-bindings.json"
         _replace_private_json(entra_path, entra_bindings)
     work_binding: dict[str, object] = {
         "target_binding": prepared.target_binding,

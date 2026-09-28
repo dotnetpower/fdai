@@ -47,7 +47,15 @@ case "$command" in
     exit 0
     ;;
   build)
+    project=""
     while [[ $# -gt 0 ]]; do
+      if [[ "$1" == "--project" ]]; then
+        project="$2"
+      fi
+      if [[ "$1" == "--out-dir" && "$project" == */service-contracts ]]; then
+        printf 'contracts-wheel' >"$2/fdai_service_contracts-0.1.0-py3-none-any.whl"
+        exit 0
+      fi
       if [[ "$1" == "--out-dir" ]]; then
         mkdir -p "$2"
         printf 'primary-wheel' >"$2/fdai_deployment_cli-0.1.1-py3-none-any.whl"
@@ -65,6 +73,8 @@ case "$command" in
       fi
       shift
     done
+    printf '../service-contracts\\ndependency==1.0\\n'
+    exit 0
     ;;
   run)
     while [[ $# -gt 0 ]]; do
@@ -144,4 +154,5 @@ exit 2
     assert sorted(path.name for path in (package / "wheels").glob("*.whl")) == [
         "dependency-1.0-py3-none-any.whl",
         "fdai_deployment_cli-0.1.1-py3-none-any.whl",
+        "fdai_service_contracts-0.1.0-py3-none-any.whl",
     ]

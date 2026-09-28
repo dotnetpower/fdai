@@ -65,6 +65,11 @@ _SUBSTRATE_TARGETS: Final = (
     "azurerm_role_assignment.ingestion_worker_eventhubs_sender",
     "azurerm_role_assignment.ingestion_worker_pantheon_receiver",
     "azurerm_role_assignment.executor_eventhubs_data_owner",
+    "module.console",
+    "module.operational_history_storage",
+    "random_id.cost_pseudonym_key",
+    "azurerm_key_vault_secret.cost_pseudonym_key",
+    "azurerm_role_assignment.operator_cost_pseudonym_secret_reader",
 )
 
 

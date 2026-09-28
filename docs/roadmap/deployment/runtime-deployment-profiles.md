@@ -278,7 +278,7 @@ matching Terraform resources set `principal_type = "ServicePrincipal"` so the pr
 superseded-version, and change-feed periods to 30 days; operational-history and decision-evidence metadata keep their separate schedules. The AKS substrate state owns only the
 cluster, node pools, cluster identity, networking attachment, and cluster-scoped Azure role
 assignments.
-AKS consumes the shared root's Key Vault output and substrate readback reads the registry through Terraform's state-owned `container_registry_id` and fails when it differs from the workload-aware registry used for image references. Overlength candidates use the
+AKS consumes the shared root's Key Vault output and substrate readback reads the registry through Terraform's state-owned `container_registry_id` and fails when it differs from the workload-aware registry used for image references. A root output that a targeted apply never recorded is read from a refresh-free, non-targeted plan only when its planned value is known; an unknown value fails closed. The AKS substrate also applies the Console, operational-history storage, and cost pseudonym secret that the workloads read. Overlength candidates use the
 deterministic `kv-aip-<8hex>` fallback without creating a second runtime naming rule.
 Selecting AKS creates the application VNet plus node and API-server subnets even when detailed
 private networking is off. The separate private-networking input controls service private
