@@ -23,6 +23,10 @@ from fdai.core.chaos.promotion_evidence import (
     ScenarioPromotionLedger,
     ScenarioPromotionState,
 )
+from fdai.core.chaos.reference_sweep import (
+    reference_catalog_id,
+    reference_sweep_catalog_ids,
+)
 from fdai.core.chaos.run_state import ChaosRunState
 from fdai.core.chaos.run_store import ChaosRunStore
 from fdai.core.chaos.scenario_catalog import CatalogEntry, catalog_fingerprint
@@ -37,6 +41,7 @@ from fdai.core.recovery import (
     compile_recovery_plan,
 )
 from fdai.delivery.chaos import governed_bindings
+from fdai.delivery.chaos.enforce_report import load_enforce_report
 from fdai.delivery.chaos.factories import default_factory
 from fdai.delivery.chaos.governed_bindings import (
     ChaosApprovalEvidence,
@@ -573,6 +578,96 @@ def test_enforce_delegates_to_governed_adapter_and_replays_duplicate_runs(
     assert request.metadata["approval_ref"] == _APPROVAL_REF
     assert request.metadata["tier"] == "t0"
     assert [item.seconds for item in request.stop_conditions] == [600]
+
+
+def test_reference_scenario_id_selects_its_reviewed_catalog_entry(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    catalog_id = reference_catalog_id("aks-pod-kill")
+    assert catalog_id is not None
+    entries = [_entry(catalog_id), _entry("chaos.test.other")]
+    bindings = _bindings(entries, store=InMemoryStateStore())
+    injector = _Injector()
+    module, _factory = _governed_cli(monkeypatch, tmp_path, entries, bindings, injector)
+
+    result = module.main(["--run", "aks-pod-kill", "--confirm-enforce"])
+
+    runs = _report(tmp_path)["runs"]
+    assert result == 0
+    assert [run["scenario_id"] for run in runs] == [catalog_id]
+
+
+def test_run_sweep_executes_the_reference_scenarios_in_demo_order(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    sweep_ids = reference_sweep_catalog_ids()
+    selected = (sweep_ids[2], sweep_ids[0])
+    entries = [_entry("chaos.test.unmapped"), *(_entry(item) for item in selected)]
+    bindings = _bindings(entries, store=InMemoryStateStore())
+    injector = _Injector()
+    module, _factory = _governed_cli(monkeypatch, tmp_path, entries, bindings, injector)
+
+    result = module.main(["--run-sweep", "--confirm-enforce"])
+
+    runs = _report(tmp_path)["runs"]
+    assert result == 0
+    assert [run["scenario_id"] for run in runs] == [sweep_ids[0], sweep_ids[2]]
+
+
+def test_run_sweep_refuses_when_no_reference_scenario_is_promoted(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    entries = [_entry("chaos.test.pod-kill")]
+    bindings = _bindings(entries, store=InMemoryStateStore())
+    injector = _Injector()
+    module, _factory = _governed_cli(monkeypatch, tmp_path, entries, bindings, injector)
+
+    result = module.main(["--run-sweep", "--confirm-enforce"])
+
+    report = _report(tmp_path)
+    assert result == 3
+    assert report["reason"] == "no_executable_promoted_scenario"
+    assert "--run-sweep" in report["detail"]
+    assert injector.injected == []
+
+
+def test_measured_runs_write_an_importable_enforce_report(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    entries = [_entry("chaos.test.pod-kill")]
+    bindings = _bindings(entries, store=InMemoryStateStore())
+    injector = _Injector()
+    module, _factory = _governed_cli(monkeypatch, tmp_path, entries, bindings, injector)
+
+    result = module.main(["--run", "chaos.test.pod-kill", "--confirm-enforce"])
+
+    measured = sorted((tmp_path / "logs" / "catalog-runs").glob("*/enforce-report.json"))
+    assert result == 0
+    signals = load_enforce_report(measured[-1])
+    assert len(signals) == 1
+    assert signals[0].metadata["approval_ref"] == _APPROVAL_REF
+
+
+def test_a_refused_run_writes_no_measured_enforce_report(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    entries = [_entry("chaos.test.pod-kill", target_type="db")]
+    bindings = _bindings(entries, store=InMemoryStateStore())
+    injector = _Injector()
+    module, _factory = _governed_cli(monkeypatch, tmp_path, entries, bindings, injector)
+
+    result = module.main(["--run", "chaos.test.pod-kill", "--confirm-enforce"])
+
+    runs = _report(tmp_path)["runs"]
+    assert result == 1
+    assert runs[0]["outcome"] == "refused_target_type"
+    assert list((tmp_path / "logs" / "catalog-runs").glob("*/enforce-report.json")) == []
+    assert injector.injected == []
 
 
 def test_run_all_halts_sweep_after_unverified_recovery(

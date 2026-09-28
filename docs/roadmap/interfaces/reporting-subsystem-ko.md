@@ -1,7 +1,7 @@
 ---
 title: 리포팅 서브시스템
 translation_of: reporting-subsystem.md
-translation_source_sha: ae84b09dd386c18aa8cc15b32cf251d2d03fedbf
+translation_source_sha: 4e5a98a4ba834824464c64e8d0f6c47eb0cce87d
 translation_revised: 2026-09-28
 ---
 # 리포팅 서브시스템
@@ -601,6 +601,7 @@ shipped된 서브시스템을 OWASP + `app-shape` 관점에서 체계적으로
 | 2026-08-15 | implemented | format 모듈이 정확히 하나의 `FormatEncoder`를 제공하고, 내보내진 뒤 등록되거나 opt-in으로 문서화되며, `core/reporting`과 공유 계약 밖의 어떤 것도 import하지 않도록 `check-report-format-boundary` 게이트를 추가했습니다. | `current change`; `scripts/quality/architecture/check-report-format-boundary.py`; `pytest tests/integration/scripts/test_report_format_boundary.py` (5 passed); pre-commit, `verify.sh`, CI 연결. | 프로덕션 데이터 원본 및 인증된 표면 증적은 계속 열려 있습니다. |
 | 2026-09-21 | implemented | 엄격한 카오스 적용 리포트 가져오기, SELECT-only Operator 변환 결과 및 제한된 구간의 측정된 Console 리포트를 추가했습니다. | `current change`; 가져오기, report-feed, Operator 변환 결과 및 마이그레이션 경로; focused pytest, Ruff 및 strict mypy 검사입니다. | 아래 데이터 원본 근거 항목에 따라 관리되는 프로덕션 렌더링 증적을 보존해야 합니다. |
 | 2026-09-28 | implemented | 카오스 적용 리포트를 만들던 기존 참조 sweep 드라이버는 통제된 카오스 어댑터 위로 이관될 때까지 모든 실제 실행을 거부합니다. 가져오기, Operator 변환 결과, Console 리포트는 바뀌지 않았지만 그동안 새 측정 결과는 들어오지 않습니다. | `current change`: `scripts/catalog/run-enforce-scenarios.py`, `tests/integration/infra/test_scenario_lab.py`입니다. 집중 scenario-lab 계약 테스트를 통과했습니다. | Sweep이 `GovernedChaosExecutionAdapter` 위로 이관된 뒤에만 통제된 실행에서 측정된 카오스 결과를 다시 받습니다([#94](https://github.com/dotnetpower/fdai/issues/94)). |
+| 2026-09-28 | implemented | 측정 결과 공급원을 통제된 경로 위에 복구했습니다. `scripts/catalog/run-catalog-scenario.py`는 이제 리포트 피드가 읽는 것과 같은 가져오기 계약으로 `enforce-report.json`을 기록하며, 이 기록은 계약을 검증하는 모듈의 `enforce_report_record`가 만듭니다. 남아 있던 원시 sweep 드라이버는 삭제했습니다. 실험을 실제로 수행한 실행만 기록을 남기므로 거부되었거나 재생되었거나 오류로 끝난 실행은 아무것도 추가하지 않습니다. 가져오기, Operator 변환 결과, Console 리포트는 바뀌지 않았습니다. | `current change`: `services/core-control-plane/src/fdai/delivery/chaos/enforce_report.py`, `services/core-control-plane/src/fdai/delivery/chaos/governed_outcome.py`, `scripts/catalog/run-catalog-scenario.py`, 연결된 테스트입니다. 측정 리포트의 존재와 부재를 포함해 집중 enforce-report, report-feed, 카탈로그 실행기, scenario-lab 테스트를 통과했습니다. | 승인된 실제 통제 실행에서 측정된 리포트를 보존합니다. 통제된 실제 실행, 승격, Azure 작업은 수행하지 않았습니다. |
 
 ### 남은 작업
 

@@ -548,7 +548,6 @@ def test_runner_scripts_fail_before_external_commands_without_authority() -> Non
 @pytest.mark.parametrize(
     ("driver", "reason"),
     [
-        ("run-enforce-scenarios.py", "raw_harness_driver_retired"),
         ("measure-detection-latency.py", "raw_injection_driver_retired"),
     ],
 )
@@ -572,13 +571,26 @@ def test_raw_reference_drivers_refuse_live_runs_until_ported(driver: str, reason
     assert result.stdout == ""
 
 
+def test_the_retired_raw_reference_sweep_driver_is_gone() -> None:
+    assert not (REPO_ROOT / "scripts" / "catalog" / "run-enforce-scenarios.py").exists()
+
+
+def test_reference_sweep_runs_only_through_the_governed_runner() -> None:
+    sweep = SWEEP_SCRIPT.read_text(encoding="utf-8")
+
+    assert "scripts/catalog/run-catalog-scenario.py" in sweep
+    assert "run-enforce-scenarios.py" not in sweep
+    assert "scenario_args=(--run-sweep)" in sweep
+    assert 'scenario_args=(--run "$scenario_id")' in sweep
+    assert "--confirm-enforce" in sweep
+
+
 def test_reference_sweep_passes_the_current_approval_claim() -> None:
     sweep = SWEEP_SCRIPT.read_text(encoding="utf-8")
 
     assert 'export FDAI_ENFORCE_APPROVAL_REF="$approval_ref"' in sweep
     assert 'SCENARIO_LAB_CONFIRM_ENFORCE:-}" != "true"' in sweep
     assert "SCENARIO_LAB_SCENARIO_ID:-all" in sweep
-    assert 'scenario_args+=("$scenario_id")' in sweep
     prepare = PREPARE_SCRIPT.read_text(encoding="utf-8")
     assert "helm show chart chaos-mesh/chaos-mesh" in prepare
     assert "az helm jq kubectl kubelogin python3 terraform" in prepare

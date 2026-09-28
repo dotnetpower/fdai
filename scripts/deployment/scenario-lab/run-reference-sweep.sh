@@ -36,8 +36,12 @@ source "$environment_file"
 export FDAI_ENFORCE_APPROVAL_REF="$approval_ref"
 
 cd "$repo_root"
-scenario_args=()
-if [[ "$scenario_id" != "all" ]]; then
-  scenario_args+=("$scenario_id")
+if [[ "$scenario_id" == "all" ]]; then
+  scenario_args=(--run-sweep)
+else
+  scenario_args=(--run "$scenario_id")
 fi
-uv run python scripts/catalog/run-enforce-scenarios.py "${scenario_args[@]}"
+# The reference sweep runs only through the governed chaos adapter; the runner
+# refuses before substrate access when promotion, approval, or the deployment
+# provider is absent.
+uv run python scripts/catalog/run-catalog-scenario.py "${scenario_args[@]}" --confirm-enforce

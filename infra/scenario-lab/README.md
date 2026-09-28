@@ -186,10 +186,12 @@ export FDAI_DEV_ACCESS_EXTRA_DNS_DOMAINS_JSON="$(
 bash tools/dev-access/scripts/wsl-dns.sh apply
 ```
 
-The workstation can then prepare the same environment. The reference sweep driver,
-`scripts/catalog/run-enforce-scenarios.py`, currently refuses every live run with exit status 3
-until it is ported onto `GovernedChaosExecutionAdapter`, so the sweep below and the protected
-workflow's sweep step fail closed without injecting a fault:
+The workstation can then prepare the same environment. The reference sweep now runs only through
+`scripts/catalog/run-catalog-scenario.py`, which delegates every live run to
+`GovernedChaosExecutionAdapter`. `SCENARIO_LAB_SCENARIO_ID=all` selects the reference sweep in demo
+order; any other allowlisted value selects that one reference scenario. Until a deployment installs
+the `fdai.governed_chaos` provider and the selected scenarios are promoted, the sweep below and the
+protected workflow's sweep step refuse with exit status 3 before touching the substrate:
 
 ```bash
 runtime_dir="$(mktemp -d)"
