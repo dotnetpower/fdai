@@ -28,6 +28,12 @@ from .semantic_reasoning_form import (
     TimeKind,
     Want,
 )
+from .semantic_reasoning_handles import (
+    MAX_REFERENCE_BYTES,
+    reference_bytes,
+    reference_mention,
+    starts_from_reference,
+)
 from .semantic_reasoning_nodes import (
     COLLECTION_LIMIT,
     FUNCTION_ANCHOR_LIMIT,
@@ -72,7 +78,7 @@ _RELATION_READS = frozenset(
 def compile_goal(goal: FormGoal, ctx: CompileContext) -> OperatorResult:
     """Return plan specs for one goal or the exact reason it cannot compile."""
 
-    if goal.subject_scope in {SubjectScope.PRIOR_RESULT, SubjectScope.GOAL_OUTPUT}:
+    if goal.subject_scope is SubjectScope.GOAL_OUTPUT:
         return OperatorResult(
             unsupported=(f"subject_scope_unavailable:{goal.subject_scope.value}",)
         )
@@ -86,6 +92,11 @@ def compile_goal(goal: FormGoal, ctx: CompileContext) -> OperatorResult:
     unread = _unread_atom(goal, ctx)
     if unread is not None:
         return OperatorResult(unsupported=(unread,))
+    # A reference clarifies only after every check a new handle could not change.
+    if goal.subject_scope is SubjectScope.PRIOR_RESULT:
+        failure = _prior_result_failure(goal, ctx)
+        if failure is not None:
+            return failure
     if goal.level is GoalLevel.SCHEMA:
         return schema_goal(goal, ctx)
     if (
@@ -101,6 +112,27 @@ def compile_goal(goal: FormGoal, ctx: CompileContext) -> OperatorResult:
     if goal.effective_operation is GoalOperation.HISTORY:
         return _history_goal(goal, ctx)
     return OperatorResult(unsupported=(f"operation_unsupported:{goal.effective_operation.value}",))
+
+
+def _prior_result_failure(goal: FormGoal, ctx: CompileContext) -> OperatorResult | None:
+    """Return why a goal over an earlier answer's rows cannot compile, if it cannot.
+
+    A reference that binds no rows clarifies with its typed reason. An anaphor over
+    several rows cannot anchor one traversal, so a goal that starts from them is
+    unsupported rather than silently reduced to one row.
+    """
+
+    mention_id = reference_mention(ctx.admission, goal.id)
+    binding = ctx.references.binding(mention_id)
+    if binding is None:
+        return OperatorResult(clarify=("prior_result_unavailable",))
+    if not binding.bound:
+        return OperatorResult(clarify=(f"prior_result_{binding.outcome.value}",))
+    if starts_from_reference(goal, mention_id) and len(binding.row_ids) != 1:
+        return OperatorResult(unsupported=("prior_result_multiple_anchors_unsupported",))
+    if reference_bytes(binding.row_ids) > MAX_REFERENCE_BYTES:
+        return OperatorResult(unsupported=("prior_result_too_large",))
+    return None
 
 
 _INSTANCE_OPERATIONS = frozenset(

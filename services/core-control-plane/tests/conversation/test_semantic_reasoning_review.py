@@ -10,7 +10,9 @@ from fdai.core.conversation.semantic_reasoning_form import SemanticQuestionForm
 from fdai.core.conversation.semantic_reasoning_proposal import resolve_question_form
 from fdai.core.conversation.semantic_reasoning_review import (
     FormReview,
+    describe_uncovered,
     extraction_schema,
+    resolve_extraction,
     review_forms,
 )
 from fdai.core.conversation.semantic_reasoning_shadow import run_reasoning_shadow
@@ -414,3 +416,159 @@ def test_a_particle_attached_to_a_mention_belongs_to_that_mention() -> None:
     assert review_forms((_typed(uncued, utterance),), attached, utterance=utterance).reasons == (
         "review_uncovered:relates:0-15",
     )
+
+
+def _one_mention_form(utterance: str, text: str, domain: str) -> SemanticQuestionForm:
+    form = _aks_form("List", context=[_quote("the")])
+    form["mentions"][0].update(domain=domain, span=_quote(text))
+    return _typed(form, utterance)
+
+
+def test_a_mention_that_merges_a_restriction_with_another_constraint_releases_nothing() -> None:
+    merged = _one_mention_form(_AKS, "AKS ObjectTypes", "object_type")
+
+    assert review_forms((merged,), _EXTRACTED, utterance=_AKS) == FormReview(
+        "unfaithful", ("review_merged:9-12",)
+    )
+
+
+def test_one_mention_may_hold_constraints_that_restate_or_only_name_one_thing() -> None:
+    utterance = "List the Resource ObjectType"
+    named = _one_mention_form(utterance, "Resource ObjectType", "object_type")
+    two_names = {
+        "constraints": [_constraint("Resource", "names"), _constraint("ObjectType", "names")]
+    }
+    restated = {
+        "constraints": [_constraint("AKS ObjectTypes", "names"), _constraint("AKS", "restricts")]
+    }
+    alone = {"constraints": [_constraint("AKS", "restricts")]}
+    merged = _one_mention_form(_AKS, "AKS ObjectTypes", "object_type")
+
+    assert review_forms((named,), two_names, utterance=utterance) == FormReview("faithful")
+    assert review_forms((merged,), restated, utterance=_AKS) == FormReview("faithful")
+    assert review_forms((merged,), alone, utterance=_AKS) == FormReview("faithful")
+
+
+async def test_a_merged_mention_is_held_without_a_repair_it_could_not_make() -> None:
+    merged = _aks_form("List", context=[_quote("the")])
+    merged["mentions"][0].update(domain="object_type", span=_quote("AKS ObjectTypes"))
+    model = _Model([merged, merged], {}, extraction=_EXTRACTED)
+
+    observation = await _shadow(model)
+
+    assert observation.review == "unfaithful" and observation.released is False
+    assert observation.review_reasons == ("review_merged:9-12",)
+    assert len(model.form_calls) == 1
+
+
+def test_a_repair_violation_names_a_mention_that_quotes_part_of_the_constraint() -> None:
+    utterance = "첫 번째 것은 무엇에 의존해?"
+    form = _aks_form("무엇에", context=[_quote("것은")])
+    form["mentions"][0].update(form="ordinal", domain="instance", span=_quote("첫 번째"))
+    form["mentions"][0]["position"] = 1
+    form["goals"][0].update(level="instance", operation="traverse", subject_scope="prior_result")
+    form["goals"][0]["relation"] = {
+        "sense": "dependency",
+        "anchor_role": "dependent",
+        "result_role": "dependency",
+        "cue": _quote("의존해"),
+    }
+    typed = _typed(form, utterance)
+    extraction = resolve_extraction(
+        {"constraints": [_constraint("첫 번째 것", "names")]}, utterance
+    )
+    assert extraction is not None
+
+    partial = describe_uncovered(extraction.constraints[0], utterance, (typed,))
+    alone = describe_uncovered(extraction.constraints[0], utterance)
+
+    assert partial.endswith(
+        "; mention m1 quotes only part of these words: widen its quote when they all name "
+        "one thing, or give the other words their own place when they state something else"
+    )
+    assert "mention m1" not in alone
+
+
+_FRAGMENT = "이름에 app-dev가 들어간 리소스는?"
+_FRAGMENT_EXTRACTION = {
+    "constraints": [
+        _constraint("이름에 app-dev가 들어간", "restricts"),
+        _constraint("리소스", "names"),
+    ]
+}
+
+
+def _fragment_form(value: str = "app-dev", cue: str = "이름에") -> dict[str, Any]:
+    return {
+        "mentions": [
+            {"id": "m1", "form": "concept", "domain": "resource_type", "span": _quote("리소스")},
+            {"id": "m2", "form": "value", "domain": "instance", "span": _quote(value)},
+        ],
+        "goals": [
+            {
+                "id": "g1",
+                "level": "instance",
+                "operation": "select",
+                "subject": "m1",
+                "subject_scope": "collection",
+                "filters": [{"role": "name_fragment", "mention": "m2", "cue": _quote(cue)}],
+                "cue": _quote("리소스는"),
+                "confidence": 0.9,
+            }
+        ],
+    }
+
+
+async def _fragment(model: _Model) -> Any:
+    return await run_reasoning_shadow(
+        model=model,
+        account_spans=False,
+        utterance=_FRAGMENT,
+        context=(),
+        locale="ko",
+        manifest=production_manifest(),
+        verifier=plan_verifier(),
+        purpose=PURPOSE,
+        evaluation_time=NOW,
+        default_lookback_seconds=DEFAULT_LOOKBACK_SECONDS,
+        retain_compilations=True,
+    )
+
+
+async def test_a_review_repair_never_changes_a_literal_value() -> None:
+    picks = {"m1": ["any:resource"]}
+    widened = await _fragment(
+        _Model(
+            [_fragment_form(), _fragment_form("app-dev가 들어간", "이름에 app-dev가 들어간")],
+            picks,
+            extraction=_FRAGMENT_EXTRACTION,
+        )
+    )
+    cued = await _fragment(
+        _Model(
+            [_fragment_form(), _fragment_form(cue="이름에 app-dev가 들어간")],
+            picks,
+            extraction=_FRAGMENT_EXTRACTION,
+        )
+    )
+
+    assert widened.passes[1].repair == "operand_dropped" and widened.released is False
+    assert cued.review == "faithful" and cued.released is True
+    (batch,) = cued.compilations[0].goals[0].batches
+    assert '"equals":"app-dev","operator":"contains","property":"name"' in "".join(
+        node.arguments_json for node in batch.plan.nodes
+    )
+
+
+def test_a_repair_violation_keeps_a_literal_value_and_points_to_its_cue() -> None:
+    typed = _typed(_fragment_form(), _FRAGMENT)
+    extraction = resolve_extraction(_FRAGMENT_EXTRACTION, _FRAGMENT)
+    assert extraction is not None
+
+    described = describe_uncovered(extraction.constraints[0], _FRAGMENT, (typed,))
+
+    assert described.endswith(
+        "; mention m2 is a literal value whose quote must stay as it is, so state the other "
+        "words in the cue of the filter or relation that cites it"
+    )
+    assert "widen" not in described
