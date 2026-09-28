@@ -29,8 +29,8 @@ from fdai_deployment_cli import (
 )
 from fdai_deployment_cli import foundation_adoption_host as foundation_host
 from fdai_deployment_cli.aks_historical_reconciliation import (
-    normalized_secret_provider,
     reconciled_variables,
+    secret_binding_reordered,
     validate_reconciliation_plan,
 )
 from fdai_deployment_cli import aks_readiness
@@ -1172,22 +1172,6 @@ def _prepare_aks_service_update(args: argparse.Namespace, work_dir: Path) -> dic
     }
 
 
-def _secret_binding_reordered(address: str, change: object) -> bool:
-    """Report a workload SecretProviderClass update that only reorders the same bindings."""
-
-    match = re.fullmatch(r'kubernetes_manifest[.]workload_secret_provider\["([^"\\]+)"\]', address)
-    if match is None or match.group(1) not in AKS_SERVICES:
-        return False
-    detail = change if isinstance(change, dict) else {}
-    if detail.get("actions") != ["update"]:
-        return False
-    before = detail.get("before")
-    after = detail.get("after")
-    if not isinstance(before, dict) or not isinstance(after, dict):
-        return False
-    return normalized_secret_provider(before) == normalized_secret_provider(after)
-
-
 def _validate_historical_aks_baseline(
     *,
     state: dict[str, Any],
@@ -1283,10 +1267,9 @@ def _validate_historical_aks_baseline(
             or not all(isinstance(action, str) for action in actions)
         ):
             raise ValueError("historical AKS deployment plan change is invalid")
-        if _secret_binding_reordered(address, change.get("change")):
-            actions = ["no-op"]
-        projected.append({"address": address, "actions": actions})
-        if not set(actions).issubset({"no-op", "read"}):
+        reordered = secret_binding_reordered(address, change.get("change"))
+        projected.append({"address": address, "actions": ["no-op"] if reordered else actions})
+        if not reordered and not set(actions).issubset({"no-op", "read"}):
             out_of_scope_mutation = True
         if isinstance(address, str) and address.startswith("kubernetes_deployment_v1.workload["):
             deployment_seen = True

@@ -555,6 +555,22 @@ def normalized_secret_provider(value: dict[str, Any]) -> dict[str, Any]:
     return result
 
 
+def secret_binding_reordered(address: str, change: object) -> bool:
+    """Report a workload SecretProviderClass update that only reorders the same bindings."""
+
+    match = re.fullmatch(r'kubernetes_manifest[.]workload_secret_provider\["([^"\\]+)"\]', address)
+    if match is None or match.group(1) not in SERVICES:
+        return False
+    detail = change if isinstance(change, dict) else {}
+    if detail.get("actions") != ["update"]:
+        return False
+    before = detail.get("before")
+    after = detail.get("after")
+    if not isinstance(before, dict) or not isinstance(after, dict):
+        return False
+    return normalized_secret_provider(before) == normalized_secret_provider(after)
+
+
 def _normalize_template(template: dict[str, Any]) -> None:
     metadata = _mapping(template.get("metadata", [{}])[0], "planned Pod metadata")
     annotations = metadata.get("annotations")
