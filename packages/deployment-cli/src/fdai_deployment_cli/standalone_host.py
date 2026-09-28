@@ -4264,8 +4264,7 @@ def _readback_stage(stage: str, context: dict[str, object]) -> bool:
                 "az",
                 "acr",
                 "show",
-                "--ids",
-                _terraform_registry_id(infra, str(context["registry_name"])),
+                *_terraform_registry_selector(infra, str(context["registry_name"])),
                 "--query",
                 "provisioningState",
                 "--output",
@@ -4519,13 +4518,9 @@ def _terraform_output(infra: Path, name: str) -> str:
     return str(value)
 
 
-def _terraform_registry_id(infra: Path, expected_name: str) -> str:
-    """Read the state-owned registry ID and require the name used for image references."""
-
+def _terraform_registry_selector(infra: Path, expected_name: str) -> tuple[str, ...]:
     registry_id = _terraform_output(infra, "container_registry_id")
-    if registry_id.rstrip("/").rsplit("/", 1)[-1] != expected_name:
-        raise ValueError("Terraform registry differs from the planned image registry")
-    return registry_id
+    return standalone_host_values.registry_selector(registry_id, expected_name)
 
 
 def _terraform_json_output(infra: Path, name: str) -> object:

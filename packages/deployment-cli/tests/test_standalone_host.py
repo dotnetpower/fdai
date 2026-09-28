@@ -1478,7 +1478,11 @@ def test_substrate_readback_uses_the_authoritative_registry_output(
         },
     )
 
-    assert commands[0][commands[0].index("--ids") + 1].endswith("/crfdai2devwus2abc123")
+    command = commands[0]
+    assert "--ids" not in command
+    assert command[command.index("--name") + 1] == "crfdai2devwus2abc123"
+    assert command[command.index("--resource-group") + 1] == "rg"
+    assert command[command.index("--subscription") + 1] == "example"
 
 
 def test_substrate_readback_rejects_a_registry_other_than_the_image_registry(
@@ -1487,7 +1491,10 @@ def test_substrate_readback_rejects_a_registry_other_than_the_image_registry(
     monkeypatch.setattr(
         standalone_host,
         "_terraform_output",
-        lambda _infra, _output: "/subscriptions/example/registries/crfdaidevwus2abc123",
+        lambda _infra, _output: (
+            "/subscriptions/example/resourceGroups/rg/providers/"
+            "Microsoft.ContainerRegistry/registries/crfdaidevwus2abc123"
+        ),
     )
 
     with pytest.raises(ValueError, match="planned image registry"):
