@@ -46,7 +46,7 @@ from __future__ import annotations
 import logging
 from collections.abc import Awaitable, Callable, Mapping, Sequence
 from datetime import UTC, datetime
-from typing import cast
+from typing import Any, cast
 
 from fdai.core.executor import (
     DirectApiExecutionPort,
@@ -72,6 +72,7 @@ from fdai.core.hil_resume.delegation import (
     DelegationRefusal,
     evaluate_hil_delegation,
 )
+from fdai.core.hil_resume.development import HilDevelopmentApprovalMixin
 from fdai.core.hil_resume.dispatch import HilDispatchMixin
 from fdai.core.hil_resume.escalation_supervisor import (
     EscalationRung,
@@ -108,14 +109,17 @@ from fdai.core.ontology_platform.reconciliation_producer import EffectReconcilia
 from fdai.core.operational_planning import PreDispatchKineticSafetyWriter
 from fdai.shared.contracts.models import (
     Action,
+    FullAuthorityDevelopmentProfile,
     OntologyActionType,
     Rule,
 )
+from fdai.shared.providers.development_authority import DevelopmentAuthorityBindingSource
 from fdai.shared.providers.hil_channel import (
     HilChannel,
     HilDecision,
 )
 from fdai.shared.providers.state_store import StateStore
+from fdai.shared.providers.target_revision import TargetRevisionReader
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -123,7 +127,9 @@ _STATUS_PENDING = "pending"
 _STATUS_RESOLVED = "resolved"
 
 
-class HilResumeCoordinator(HilAuditMixin, HilDispatchMixin, HilRequestMixin):
+class HilResumeCoordinator(
+    HilAuditMixin, HilDispatchMixin, HilRequestMixin, HilDevelopmentApprovalMixin
+):
     """Parks HIL-routed actions and resumes them on an approval decision."""
 
     def __init__(
@@ -202,6 +208,9 @@ class HilResumeCoordinator(HilAuditMixin, HilDispatchMixin, HilRequestMixin):
         self._evidence_conflict_reader = evidence_conflict_reader
         self._safeguard_lifecycle_coordinator = safeguard_lifecycle_coordinator
         self._effect_reconciliation_request_sink = effect_reconciliation_request_sink
+        self._development_profile: FullAuthorityDevelopmentProfile | None = None
+        self._development_bindings: DevelopmentAuthorityBindingSource | None = None
+        self._development_revisions: TargetRevisionReader | None = None
         self._report_line_hil = (
             ReportLineHilCoordinator(
                 store=state_store,
@@ -223,6 +232,20 @@ class HilResumeCoordinator(HilAuditMixin, HilDispatchMixin, HilRequestMixin):
             else None
         )
 
+    def bind_development_authority(
+        self,
+        *,
+        profile: FullAuthorityDevelopmentProfile,
+        bindings: DevelopmentAuthorityBindingSource | None,
+        revisions: TargetRevisionReader | None,
+    ) -> None:
+        """Bind the selected development profile once; its absence keeps no-self-approval."""
+        if self._development_profile is not None:
+            raise RuntimeError("development authority is already bound")
+        self._development_profile = profile
+        self._development_bindings = bindings
+        self._development_revisions = revisions
+
     # ------------------------------------------------------------------
     # resolve (approve -> execute | reject | timeout)
     # ------------------------------------------------------------------
@@ -235,6 +258,7 @@ class HilResumeCoordinator(HilAuditMixin, HilDispatchMixin, HilRequestMixin):
         approver_oid: str,
         reason: str = "",
         approver_can_approve_hil: bool = True,
+        development_attestation: Mapping[str, Any] | None = None,
     ) -> ResolveResult:
         """Apply a terminal decision to a parked action.
 
@@ -248,6 +272,11 @@ class HilResumeCoordinator(HilAuditMixin, HilDispatchMixin, HilRequestMixin):
         who lacks it, and - when the park carries a different ``assignee_oid``
         than the approver - records the approval as **delegated** so the audit
         shows both the actual approver and the original assignee.
+
+        ``development_attestation`` is the Operator's fresh-authentication record for an
+        Owner approving their own request under the selected development profile. It lifts
+        the self-approval refusal only after
+        :func:`~fdai.core.hil_resume.development.admit_development_self_approval` admits it.
         """
         parked = await self._state_store.read_state(_park_key(approval_id))
         if parked is None:
@@ -414,6 +443,19 @@ class HilResumeCoordinator(HilAuditMixin, HilDispatchMixin, HilRequestMixin):
                 approver_can_approve_hil=approver_can_approve_hil,
                 assignee_oid=assignee_oid,
             )
+            if (
+                delegation.refusal is DelegationRefusal.SELF_APPROVAL
+                and development_attestation is not None
+                and approver_can_approve_hil
+            ):
+                admitted = await self._admit_development_self_approval(
+                    parked,
+                    approver_oid=approver_oid,
+                    attestation=development_attestation,
+                )
+                if isinstance(admitted, ResolveResult):
+                    return admitted
+                delegation = admitted
             if not delegation.allowed:
                 if delegation.refusal is DelegationRefusal.MISSING_CAPABILITY:
                     await self._audit(

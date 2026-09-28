@@ -470,6 +470,10 @@ export function decodeHilQueuePage(value: unknown): HilQueuePage {
         ttl_expires_at: ttlExpiresAt,
         decision_requestable: decisionRequestable,
         decision_unavailable_reason: decisionUnavailableReason,
+        development_self_approval_available:
+          item["development_self_approval_available"] === undefined
+            ? false
+            : apiBoolean(item, "development_self_approval_available", "HIL queue item"),
       };
     });
   const total = apiNonNegativeInteger(root, "total", "HIL queue page");
