@@ -32,6 +32,7 @@ evidence.
 |------|-------|--------|----------|-----------|
 | 2026-09-28 | not-started | Adopted the proposed owner design and this ledger after a traced review of preflight, judgment, frame, plan, verification, execution, and rendering, a two-run bilingual 36-case planning probe, and an independent design critique whose findings were revised into the design. Earlier provenance for this scope was not reconstructed. | `current change`; `docs/roadmap/interfaces/ontology-reasoning-compiler.md`; `docs/roadmap/interfaces/ontology-reasoning-compiler-ko.md`; changed-path translation, punctuation, link, route, document-size, and roadmap tracking checks | Obtain approval for the listed decisions, then start round R0. |
 | 2026-09-28 | not-started | Recorded Owner approval of the eight design decisions and revised the approved design after a capacity review: qualified mentions for shared names, atom-diff alternatives with a 6 KiB form cap, `compare_entities` and `impact` operations, `forecast` and `cost` measures, a `future` time kind, aggregate pushdown for inventory-wide counts, and evidence-manifest and pushdown contracts in round R1. The per-family coverage lanes in the companion coverage design now gate the rounds. | `current change`; `docs/roadmap/interfaces/ontology-reasoning-compiler.md`; `docs/roadmap/interfaces/ontology-reasoning-compiler-ko.md`; [coverage ledger](ontology-reasoning-coverage.md); changed-path documentation gates | Start round R0 together with coverage lane L4. |
+| 2026-09-28 | not-started | Applied the Owner directives to the approved design: the model grounds concepts over complete catalog shards instead of term lookup, proposes typed temporal values instead of regular-expression parsing, and authors every answer and restatement as evidence-bound claims checked by V-CLAIM and independent review instead of template renderers. Oversized questions and plans now run as successive judgment passes and plan batches with a bounded continuation instead of size refusals, R0 adds an Azure SRE Agent parity baseline, R9 requires parity receipts, and evaluation ownership moved to the coverage design. V-CLAIM now checks full claim propositions with exact spans and canonical identities, and only catalog notices and verified data views render without the model. | `current change`; `docs/roadmap/interfaces/ontology-reasoning-compiler.md`; `docs/roadmap/interfaces/ontology-reasoning-compiler-ko.md`; `.github/instructions/conversation-grounding.instructions.md`; `.github/skills/sre-agent-parity/SKILL.md`; changed-path documentation and route gates | Start R0 with the SRE Agent parity baseline after the coverage decisions are approved. |
 
 ### Remaining work
 
@@ -39,19 +40,21 @@ evidence.
   design's `Approved decisions` section and the 2026-09-28 approval history row.
 - [ ] Complete R0: commit the bilingual reasoning cohort with a locked holdout, a generic fixture
   graph, strict gold, and production-faithful function binding in the harness, and record baseline
-  L1 and L2 receipts.
-- [ ] Complete R1: land the form, admission, binding, handle, coverage-rule, evidence-manifest, and
-  aggregate and path pushdown contracts with N/N-1 codec tests and no behavior change.
+  L1, L2, and Azure SRE Agent parity receipts.
+- [ ] Complete R1: land the form, admission, grounding, binding, handle, coverage-rule,
+  evidence-manifest, aggregate and path pushdown, and claim contracts with N/N-1 codec tests and no
+  behavior change.
 - [ ] Complete R2: enforce interim operand-provenance and instance-versus-schema checks on the
   current path, with zero invented identity literals and zero schema answers to instance targets on
   both corpora, and replace lexical `parent_id` group membership with `contains` closure from the
   exact group, matching that closure on the fixture graph.
 - [ ] Complete R3 through R8 with the exit evidence in the owner delivery-round table, including
-  reviewed trait and path grammar catalog changes, traversal root lineage, the location property,
-  the link-evidence allowlist, and a result-handle threat review.
-- [ ] Complete R9: record one promotion receipt per operation family, and retire frame and plan
-  prompts only for promoted families.
-- [ ] Complete R10: remove lexical re-derivation from promoted paths after replay equivalence and
-  one stable rollback release.
+  model concept grounding over complete shards, typed temporal values, reviewed trait and path
+  grammar catalog changes, traversal root lineage, the location property, the link-evidence
+  allowlist, a result-handle threat review, and V-CLAIM with zero escapes.
+- [ ] Complete R9: record one promotion receipt and one SRE Agent parity receipt per operation
+  family, and retire frame and plan prompts only for promoted families.
+- [ ] Complete R10: remove lexical re-derivation and template renderers from promoted paths after
+  replay equivalence and one stable rollback release.
 - [ ] Before promoting any operation family in R9, record the coverage-lane exits that gate it in
   the [coverage ledger](ontology-reasoning-coverage.md).

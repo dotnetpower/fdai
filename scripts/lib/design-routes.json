@@ -1944,6 +1944,7 @@
         "docs/roadmap/interfaces/document-lifecycle-governance*.md"
       ],
       "must_read": [
+        ".github/instructions/conversation-grounding.instructions.md",
         ".github/instructions/app-shape.instructions.md",
         ".github/instructions/coding-conventions.instructions.md",
         "docs/roadmap/interfaces/conversation-attachments.md",
@@ -2455,6 +2456,7 @@
         "rule-catalog/vocabulary/**"
       ],
       "must_read": [
+        ".github/instructions/conversation-grounding.instructions.md",
         ".github/instructions/architecture.instructions.md",
         "docs/roadmap/interfaces/hierarchical-conversation-planning.md",
         "docs/roadmap/interfaces/ontology-query-coverage-implementation-plan.md",
@@ -2532,6 +2534,7 @@
         "docs/roadmap-implementation/interfaces/ontology-reasoning-coverage.md"
       ],
       "must_read": [
+        ".github/instructions/conversation-grounding.instructions.md",
         ".github/instructions/architecture.instructions.md",
         "docs/roadmap/interfaces/ontology-query-coverage-implementation-plan.md",
         "docs/roadmap/interfaces/continuous-question-space.md",

@@ -5,8 +5,8 @@ title: Ontology Reasoning Compiler
 
 This document owns the target design that turns an operator question into a closed, span-grounded
 question logical form and compiles it deterministically into a verified ontology query plan. The
-model classifies meaning among closed types. Code admits that meaning, binds concepts and anchors,
-selects reviewed relation paths, proves that the plan preserves it, and decides what may be claimed.
+model understands the question, grounds concepts in complete catalogs, and phrases the answer. Code
+validates that meaning, binds anchors, selects reviewed paths, and verifies every claim it shows.
 
 > **Status:** Approved design, 2026-09-28. The Owner approved the eight decisions below on that
 > date. Nothing in this document is implemented yet. The current runtime is described in
@@ -25,11 +25,11 @@ selects reviewed relation paths, proves that the plan preserves it, and decides 
 | 1. Conversation preflight | Bragi | Social, knowledge, and operational routing | T1, unchanged |
 | 2. Logical-form judgment | Bragi | Proposed `SemanticQuestionForm` | T1, one call plus at most one schema repair |
 | 3. Admission | Bragi | Admitted form, clarification, or review request | Optional T2 review |
-| 4. Concept resolution | Mimir catalogs | Domain-restricted bindings for concept mentions | None |
+| 4. Concept grounding | Bragi, over Mimir catalogs | One canonical concept per mention from the complete domain catalog | T1 over exhaustive catalog shards |
 | 5. Anchor binding | Muninn | Exact identities pinned to one snapshot | None, one bounded read |
 | 6. Compilation and verification | Bragi turn, mechanical | Plan, coverage witness, and independent coverage check | None |
 | 7. Execution | Muninn and Heimdall readers | Receipts, tables, lineage, and completeness | None |
-| 8. Epistemic assessment and rendering | Bragi | Per-goal status and a bilingual answer | None |
+| 8. Answer composition | Bragi | Evidence-bound claims, per-goal status, and a bilingual answer | T1 author, V-CLAIM, independent T1 review |
 
 The compiler and verifier are mechanical Core components inside the Bragi-owned semantic turn. They
 consume immutable projections, make no agent calls, and publish nothing; Saga keeps the turn audit.
@@ -70,9 +70,6 @@ records the measured data and capacity limits.
 | Prompt | Recipe prompts ask the plan model to copy node shapes; prompt text cannot enforce provenance | All-zero incident identity, repeated judgment retries on invented canonical values |
 | Data and reader absence | No retained topology history, workload mappings, alert or open-incident reader, cost observations, declared location property, or link-evidence projection | Topology diff, service impact, alerts, open incidents, region filters, verification status |
 
-Prompt edits move a case between nearest capabilities but cannot create an operator, compiler, or
-reader. The design adds contracts and deterministic components and shrinks the prompts.
-
 ## Question logical form
 
 `SemanticQuestionForm` version `1.0.0` travels as the additive `question_form` field of
@@ -98,27 +95,20 @@ LinkType, an ObjectType operand, an object identifier, or a canonical instance v
 | `time.kind` | `current`, `window`, `as_of`, `two_windows`, `versions`, `future`, `unspecified` |
 | `want` | `fact`, `cause`, `verification`, `completeness` |
 
-One form holds at most 16 mentions and 4 goals. Each goal carries a confidence and a cue span for
-its operation and relation, and a goal may depend on an earlier goal. Ambiguity uses at most three
-alternatives, each an atom diff of at most six atoms against the primary form, never one merged
-form. A serialized form above 6 KiB returns the `question_too_complex` clarification.
+One judgment pass holds at most 16 mentions and 4 goals within 6 KiB. Each goal carries a
+confidence and a cue span for its operation and relation, and may depend on an earlier goal. A
+larger question is judged in successive passes until every goal is accounted. Ambiguity uses at most
+three alternatives, each an atom diff of at most six atoms, never one merged form.
 
 Example: `Which resources depend on aks-prod-01?`
 
 ```yaml
 question_form:
-  mentions:
-    - {id: m1, form: name, domain: instance, span: [26, 37]}
+  mentions: [{id: m1, form: name, domain: instance, span: [26, 37]}]
   goals:
-    - id: g1
-      level: instance
-      operation: traverse
-      subject: m1
-      subject_scope: anchor
-      relation: {sense: dependency, scope: one_sense, subject_position: target, reach: one_hop, cue: [16, 25]}
-      time: {kind: current}
-      want: fact
-      confidence: 0.93
+    - {id: g1, level: instance, operation: traverse, subject: m1, subject_scope: anchor,
+       relation: {sense: dependency, scope: one_sense, subject_position: target, reach: one_hop, cue: [16, 25]},
+       time: {kind: current}, want: fact, confidence: 0.93}
 ```
 
 The model states only that `aks-prod-01` is the target of a dependency. Core binds the anchor,
@@ -140,18 +130,22 @@ gold. The model never chooses identities, LinkTypes, path steps, FunctionTypes, 
 
 ## Deterministic compilation
 
-### Concept resolution
+### Concept selection
 
-Core resolves each `concept` or `value` mention only inside its declared domain, using reviewed
-bilingual catalogs and the existing span normalization. FunctionTypes and ActionTypes are never
-resolved from language; they follow from admitted operations and contracts.
+The model grounds each `concept` or `value` mention inside its declared domain. Core presents the
+complete candidate catalog for that domain, with reviewed English and Korean labels and
+descriptions, in as many bounded shards as the grounding budget needs, and the model evaluates every
+shard. Core accepts a canonical identifier only when a presented shard contains it and it fits the
+domain and level, and a shard receipt proves that every candidate was presented exactly once. Labels
+are model context, never a lookup table. FunctionTypes and ActionTypes follow from admitted
+operations and contracts.
 
 - **Class closure**: A `resource_class` mention compiles through `query.resource_class_closure`
   into an exact `Resource.type` set and pins the closure receipt.
-- **Cross-domain match**: `AKS ObjectType` declares domain `object_type`, but `AKS` exists only as
-  the `kubernetes-cluster` `Resource.type` value. Core returns a clarification that names that
-  candidate instead of substituting another declaration.
-- **Ambiguity**: Two surviving values inside one domain return one clarification that names both.
+- **Cross-domain match**: `AKS ObjectType` declares domain `object_type`, but the model finds `AKS`
+  only among `Resource.type` candidates as `kubernetes-cluster`. Core returns a clarification that
+  names that candidate instead of substituting another declaration.
+- **Ambiguity**: Two surviving candidates in one domain return one clarification that names both.
 
 ### Anchor binding
 
@@ -236,8 +230,11 @@ declared transitive and self-composable, with depth at most five.
 - **Aggregation identity**: Counts use distinct object identities, suppress duplicates across
   paths, exclude hidden objects from totals and connectivity without reporting them, and stay
   incomplete when lineage or relationship coverage is incomplete.
-- **Time**: Windows use trusted UTC and distinguish effective, event, and recorded time. An
-  `unspecified` history window uses a version-pinned server default per operation.
+- **Time**: The model proposes typed temporal values, such as an ISO 8601 duration or a calendar
+  offset in the operator's time zone, with their spans. Code computes trusted UTC instants, keeps
+  effective, event, and recorded time distinct, and uses a version-pinned default for `unspecified`.
+- **Plan batches**: Goals beyond one plan's 32 nodes or 8 outputs compile into ordered plan batches
+  under one turn budget; remaining batches continue as a bounded continuation of verified segments.
 - **Unsupported atoms**: A `region` filter compiles only after a declared `Resource.location`
   property exists, and a `diagnose` goal without an applicable recipe never reuses another type's
   recipe. Both return a typed unsupported atom instead of a name predicate or a substitute.
@@ -292,8 +289,9 @@ reveal a hidden endpoint.
 | Instance kind of a named object | Model target kind | Anchor binding |
 | Relation direction | Frame or plan model | Admitted position mapped to a reviewed side |
 | Path and LinkType set | Plan model or fixed recipe | Reviewed traits and path grammars |
+| Concepts, values, and time | Term lists, lexical ranking, and regular expressions | Model choice from complete catalog shards and typed values, validated by code |
 | Operands | Utterance regular expressions or the plan model | Spans, bindings, handles, and server defaults |
-| Answer claims | Shape templates | Independent coverage check plus epistemic status |
+| Answer prose | Shape templates in code | Model-authored claims that pass V-CLAIM and independent review |
 
 The judgment prompt keeps the protected root and describes only the closed form, span and cue rules,
 and bilingual examples per operation, without the FunctionType catalog for read goals. Frame and
@@ -309,66 +307,67 @@ affordance is removed.
 | Agentic T2 traversal with tool calls | Rejected | The model would compute paths, weakening determinism, provenance, and replay |
 | Model-generated graph query text | Rejected | Raw query text is outside the plan contract and hard to verify |
 | Embedding authority for concepts | Rejected | Similarity can propose candidates only |
+| Deterministic answer templates | Rejected | Rigid prose misses the operator's question and cannot meet the SRE Agent bar; verified model-authored claims keep facts exact |
 | Logical form plus deterministic compiler | Selected | Keeps the model on closed classification and moves binding, paths, and claims to code |
 
 An independent review of the first draft found these defects; each revision is part of this design:
 
 | Finding | Revision |
 |---------|----------|
-| Overstated removal of model authority | Admission, cue spans, per-goal confidence, optional closed-field T2 review, and a narrowed claim |
-| Lexical concept inference | `mentions[].domain`, domain-restricted resolution, and clarification for cross-domain matches |
-| Merged `connected` answers | No sense `any`; ambiguity clarifies, and only an explicit request admits `all_kinds` |
-| Self-certified coverage | Independent rule-based coverage, blocking restrictive atoms, and the full causal conditions |
-| Binding race | Two-phase snapshot protocol, receipt pinning, and seven-row truncation detection |
-| Unsafe handles | Conversation, purpose, manifest, and rendered-order binding with explicit modes |
-| Unclear ownership and shortest-path guessing | Named agents per stage and reviewed path grammars |
-| Weak statistics and missing prerequisites | Locked holdout, independent gold, floors, intervals, a contract round, and data gates |
-| Capacity review after approval: duplicate names, output budget, missing question shapes | Qualified mentions, atom-diff alternatives, a 6 KiB cap, and the taxonomy additions in [Ontology Reasoning Coverage](ontology-reasoning-coverage.md#question-taxonomy-closure) |
+| Overstated model authority and lexical concept inference | Admission, cue spans, per-goal confidence, closed-field T2 review, and domain-restricted grounding |
+| Merged `connected` answers and shortest-path guessing | Clarification for ambiguity, explicit `all_kinds`, and reviewed path grammars |
+| Self-certified coverage and binding races | Independent rule-based coverage, blocking restrictive atoms, and the two-phase snapshot protocol |
+| Unsafe handles, unclear ownership, and weak statistics | Bound handles, named agents, a locked holdout, independent gold, and confidence intervals |
+| Capacity review: duplicate names, output budget, missing question shapes | Qualified mentions, atom-diff alternatives, and the taxonomy additions in [Ontology Reasoning Coverage](ontology-reasoning-coverage.md#question-taxonomy-closure) |
+| Owner directives: no lexical meaning, no template answers, nothing dropped by a bound | Model grounding over complete shards, evidence-bound composition with V-CLAIM, successive passes, and plan batches |
 
-## Evaluation
+## Answer composition
 
-The reasoning cohort extends the live planning harness and adds a deterministic execution level.
+Bragi's T1 author writes every answer, including the interpretation restatement, from the admitted
+form, verified evidence tables, per-goal epistemic statuses, and typed limitation codes. No answer
+prose comes from code templates; only catalog notices and verified data views render without the
+model, and they add no fact. The author returns structured claims, shown only after verification.
 
-| Aspect | Contract |
-|--------|----------|
-| Types | Closure, relations, reviewed paths, containment, time and versions, cause versus correlation, evidence verification, relational aggregation, follow-up, and schema versus instance |
-| Size | Per type, at least 12 development and 8 locked holdout cases split by locale, including three honest negative cases and multi-turn follow-up cases |
-| Gold | Two reviewers adjudicate form atoms, LinkType set and side, node kinds, the epistemic status on a generic fixture graph, and forbidden outcomes |
-| Robustness | Metamorphic wording, locale, name, and order variants; adversarial duplicate names, empty or truncated neighborhoods, and redacted endpoints |
-| Levels | L1 measures live T1 form accuracy; L2 runs admission, compilation, and execution over the frozen fixture graph without a model |
-| Hard zeros | Silent semantic loss against the gold, operands without provenance, wrong-level answers, causal claims without causal evidence, and unauthorized execution |
-| Measured | Atom accuracy, form stability, L2 correctness, honest-reason precision, clarification precision and recall, model calls, and p95 latency from at least 100 turns |
+| Claim field | Contract |
+|-------------|----------|
+| `kind` | `restatement`, `fact`, `count`, `relation`, `state`, `change`, `cause_hypothesis`, `limitation`, or `next_check` |
+| `refs` | Evidence cells or limitation codes that support the claim |
+| `proposition` | Canonical subject, predicate with direction, object or value, polarity, comparator or quantifier, unit, temporal basis and time zone, modality, and rounding |
+| `spans` | The exact text span of every surface phrase and literal, bound to the proposition |
+| `rows` | For list and count goals, the row identifiers that the claim names or aggregates |
 
-The session-local 68-case prompt corpus moves into the repository with level, forbidden-function,
-and required-atom checks, so a wrong verified plan no longer passes. An A/A run of the current
-profiles differed by 1.5 points, so paired comparisons use at least three repeats, bootstrap
-confidence intervals, and a 3-point noise band. Zero hard failures in about 60 holdout turns bounds
-the true rate below about 5% at 95% confidence, so shadow operation also samples live turns for
-human review before promotion.
+V-CLAIM compares names through canonical identities, never substrings. It rejects an answer when a
+claim lacks references, a proposition or literal differs from its evidence, a literal is undeclared,
+a required limitation, goal, or form atom is missing, a count differs from the authoritative count,
+a result row is neither named, aggregated, nor listed in the complete table, or a cause claim lacks
+causal evidence. An independent T1 reviewer then checks entailment. A rejected answer regenerates
+once with typed reasons, then holds with the verified evidence view. Evidence larger than one author
+call is composed in bounded chunks and synthesized under the same row account. Evaluation and the
+parity gate belong to [Ontology Reasoning Coverage](ontology-reasoning-coverage.md#assurance-and-sre-agent-parity).
 
 ## Delivery rounds
 
 | Round | Scope | Exit evidence |
 |-------|-------|---------------|
-| R0 | Cohort, holdout, fixture graph, strict gold, production-faithful function binding in the harness | Baseline L1 and L2 receipts |
-| R1 | Form, admission, binding, handle, coverage-rule, evidence-manifest, and pushdown contracts with version negotiation | Codec and N/N-1 tests; no behavior change |
+| R0 | Cohort, holdout, fixture graph, strict gold, a production-faithful harness, and an Azure SRE Agent baseline | Baseline L1, L2, and parity receipts |
+| R1 | Form, admission, concept-selection, binding, handle, coverage-rule, evidence-manifest, pushdown, and claim contracts with version negotiation | Codec and N/N-1 tests; no behavior change |
 | R2 | Interim V-PROV and V-LEVEL over existing typed judgment fields, plus resource-group membership through `contains` from the exact group | Zero invented identity literals, zero schema answers to instance targets, and membership equal to `contains` closure on the fixture graph |
-| R3 | Shadow form judgment and admission | Atom accuracy of at least 90% and stability of at least 90% per type on the holdout |
-| R4 | Concept resolver and anchor binding protocol | L2 binding correctness 100% on the fixture graph |
+| R3 | Shadow form judgment, admission, and concept selection over complete shards | Atom and concept accuracy and stability of at least 90% per type on the holdout |
+| R4 | Anchor binding protocol and typed temporal values | L2 binding and time correctness 100% on the fixture graph |
 | R5 | Relation compiler after trait review, path grammars, and traversal root lineage | Shadow relation and containment holdout at least 85% with hard zeros |
 | R6 | Aggregation, rank, and diagnose recipes; region after the location property ships | Shadow aggregation and diagnose holdouts pass hard zeros |
 | R7 | History, versions, cause, and verification after the link-evidence allowlist | Typed unavailability for absent history; zero causal claims without causal evidence |
-| R8 | Result handles after a threat review | Follow-up holdout at least 85%; zero cross-conversation bindings |
-| R9 | Promotion per operation family through the promotion registry | Promotion receipt per family; frame and plan prompts retired for promoted families |
-| R10 | Removal of lexical re-derivation in promoted paths | Replay equivalence and one stable rollback release |
+| R8 | Result handles after a threat review, and evidence-bound answer composition | Follow-up holdout at least 85%; zero cross-conversation bindings; zero V-CLAIM escapes |
+| R9 | Promotion per operation family through the promotion registry | Promotion and SRE Agent parity receipts per family; frame and plan prompts retired for promoted families |
+| R10 | Removal of lexical re-derivation and template renderers in promoted paths | Replay equivalence and one stable rollback release |
 
 Every round implements, runs focused tests, runs L1 with at least two repeats and L2, fixes
 regressions, and appends a ledger row. The form path runs in shadow beside the current path and
 records only digests and dispositions. A family is promoted only when hard zeros hold on all
 repeats and sampled shadow turns, holdout correctness meets its absolute floor and beats the current
 path outside the noise band, English and Korean differ by at most 5 points, p95 latency does not
-rise, and the 68-case corpus does not regress beyond noise. Rollback restores the previous registry
-entry, and the current path stays intact until R10. The per-family lanes in
+rise, SRE Agent parity holds, and the 68-case corpus does not regress. Rollback restores the
+previous registry entry, and the current path stays intact until R10. The per-family lanes in
 [Ontology Reasoning Coverage](ontology-reasoning-coverage.md#closure-program) gate these rounds.
 
 ## Approved decisions
