@@ -441,6 +441,64 @@ def test_restore_settles_a_running_operation_before_one_bounded_stop(
     assert sum("aks stop" in line for line in log) == stops
 
 
+STATE_INSTANCES_FILTER = LAB_SCRIPTS / "state-instances.jq"
+
+
+@pytest.mark.skipif(JQ is None, reason="jq is required by the protected workflow")
+def test_raw_state_reads_survive_attributes_the_provider_schema_dropped(tmp_path: Path) -> None:
+    state = {
+        "version": 4,
+        "resources": [
+            {
+                "mode": "managed",
+                "type": "azurerm_private_dns_zone",
+                "name": "mysql",
+                "instances": [{"attributes": {"name": "0a1b2c.mysql.database.azure.com"}}],
+            },
+            {
+                "mode": "managed",
+                "type": "azurerm_private_dns_zone_virtual_network_link",
+                "name": "mysql_operator",
+                "instances": [{"index_key": 0, "attributes": {"id": "link-id", "store": 1}}],
+            },
+            {
+                "module": "module.azure_openai_private_endpoint",
+                "mode": "managed",
+                "type": "azurerm_private_dns_zone_virtual_network_link",
+                "name": "extra",
+                "instances": [{"index_key": "runner", "attributes": {"id": "extra-id"}}],
+            },
+            {
+                "mode": "data",
+                "type": "azurerm_resource_group",
+                "name": "scenario_lab",
+                "instances": [{"attributes": {"name": "ignored"}}],
+            },
+        ],
+    }
+    state_file = tmp_path / "state.json"
+    state_file.write_text(json.dumps(state), encoding="utf-8")
+
+    result = subprocess.run(  # noqa: S603 - resolved jq and repository filter.
+        [str(JQ), "-c", "-f", str(STATE_INSTANCES_FILTER), str(state_file)],
+        capture_output=True,
+        check=True,
+        text=True,
+    )
+
+    instances = [json.loads(line) for line in result.stdout.splitlines()]
+    assert [item["address"] for item in instances] == [
+        "azurerm_private_dns_zone.mysql",
+        "azurerm_private_dns_zone_virtual_network_link.mysql_operator[0]",
+        'module.azure_openai_private_endpoint.azurerm_private_dns_zone_virtual_network_link.extra["runner"]',
+    ]
+    assert instances[1]["attributes"]["id"] == "link-id"
+    workflow = WORKFLOW.read_text(encoding="utf-8")
+    assert workflow.count("terraform show -json") == 1
+    assert 'terraform show -json "$plan_file"' in workflow
+    assert workflow.count("terraform state pull | jq -c -f") == 5
+
+
 READBACK = runpy.run_path(str(LAB_SCRIPTS / "readback_store_demo.py"))
 HOST = "fdai-store-lab-krc-0a1b2c.koreacentral.cloudapp.azure.com"
 LB_IP = "203.0.113.10"
