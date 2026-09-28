@@ -96,7 +96,17 @@ class OperatorRequestHost(Protocol):
         rule: Rule,
         correlation_id: str,
         submitter_oid: str,
+        development_authority: Mapping[str, Any] | None = None,
     ) -> None: ...
+
+    async def _development_park_block(
+        self,
+        *,
+        action: Action,
+        authorization: ExecutionAuthorizationResult | None,
+        unified: UnifiedRiskDecision,
+        initiator: object,
+    ) -> dict[str, Any] | None: ...
 
     async def _notify_decision(
         self,
@@ -235,6 +245,12 @@ async def process_operator_request(
                 rule=rule,
                 correlation_id=correlation_id,
                 submitter_oid=initiator,
+                development_authority=await host._development_park_block(
+                    action=action,
+                    authorization=authorization,
+                    unified=unified,
+                    initiator=initiator,
+                ),
             )
         return await _finish_terminal(
             host, event, correlation_id, resource_type, rule, ControlLoopOutcome.HIL, "hil"

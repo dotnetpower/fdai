@@ -10,7 +10,7 @@ Container Apps and Azure Kubernetes Service (AKS). The canonical design remains 
 
 | Area | State | Evidence | Notes |
 |------|-------|----------|-------|
-| Observation-first product profile | implemented | shared `ProductProfile`; deployment CLI runtime profile and standalone composition; Core bootstrap profile; focused contract, deployment, runtime, and Terraform tests | New profiles select no add-ons or optional data sources, skip Entra and Console setup, disable executors, and retain only scoped Reader. #341 remains open only for inventory/observation live evidence in default scope; every GitOps publication or write criterion moves to optional governed execution. |
+| Observation-first product profile | implemented | shared `ProductProfile`; deployment CLI runtime profile and standalone composition; Core bootstrap profile; focused contract, deployment, runtime, and Terraform tests | New profiles select no add-ons or optional data sources, skip Entra and Console setup, disable executors, and retain only scoped Reader. Inventory/observation live evidence in default scope remains Phase 1 ledger work after #341 was closed as not planned on 2026-09-28; every GitOps publication or write criterion moves to optional governed execution. |
 | Focused private access stage | implemented | `standalone_host.py`; `standalone_application.py`; `standalone_remote_prepare.py`; focused targets, readback, approval, progress and transport tests | Selected endpoint/DNS/peering resources converge under a distinct exact plan before data-plane resources. Access ambiguity uses the standard residual contract. Live full-stage convergence remains open. |
 | Policy-forced document storage private recovery | implemented | `standalone_terraform_environment.py`; `standalone_host_values.py`; focused CLI and Terraform contracts; native Terraform validation | Exact existing-account readback can select only Blob/DFS endpoints, DNS and shared peering, with the boolean retained in context. The runner reuses the Foundation-owned Blob zone through an exact A record instead of a conflicting duplicate link. Full private networking remains unselected. Live convergence remains open. |
 | Policy-forced Key Vault private recovery | implemented | `standalone_terraform_environment.py`; `standalone_host_values.py`; focused CLI and Terraform contracts; native Terraform validation | AKS baseline remains public by default. Existing-vault readback can select only Key Vault endpoint/DNS and exact runner/application peering, with the boolean retained in context. Live convergence remains open. |
@@ -202,6 +202,10 @@ completion of the displaced enterprise or execution criteria.
 | #1502 | closed | `not_planned` | Superseded: the default has no governed-execution or full-authority-development requirement. | Preserve the implementation as optional governed-execution support; track any deployment binding and live proof separately. |
 | #341 | open | n/a | Retain exact-revision inventory and observation evidence only. | Move draft PR, GitOps publication, and write/no-write verification to governed-execution add-on wording. |
 | #343 | open | n/a | Retain advisory learning, prediction calibration, replay, drift, cohort, and zero-guard evidence. | Keep promotion, executor consumption, effect verification, and rollback evidence only under governed execution. |
+
+Update 2026-09-28: the owner later closed #341 as `not_planned` in a backlog reduction. Its
+inventory and observation live evidence remains remaining work in the Phase 1 ledger. #343 was
+closed the same way; its advisory learning and prediction evidence remains Phase 2 ledger work.
 
 ### Exact English evidence comments
 

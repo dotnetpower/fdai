@@ -43,8 +43,6 @@
 866 services/operator-service/src/fdai_operator_service/investigation_projection.py
 # Pre-existing semantic turn persistence debt; growth is blocked pending repository decomposition.
 834 services/operator-service/src/fdai_operator_service/postgres_semantic_turn_store.py
-# Pre-existing IAM contract aggregation debt; growth is blocked pending contract-family extraction.
-801 services/operator-service/src/fdai_operator_service/families/iam/contracts.py
 # Service plan guard debt after extracting structure and external binding validation.
 2679 scripts/deployment/service/guard_plan.py
 # Pre-existing service plan bundle debt; growth is blocked pending artifact-stage extraction.

@@ -168,6 +168,7 @@ class HilDispatchMixin:
             parked.get("request_fingerprint"),
             parked.get("action_hash"),
             parked.get("action"),
+            parked.get("development_authority"),
         )
         candidate = parked
         approval_id = str(parked["approval_id"])
@@ -221,6 +222,7 @@ class HilDispatchMixin:
                 latest.get("request_fingerprint"),
                 latest.get("action_hash"),
                 latest.get("action"),
+                latest.get("development_authority"),
             ) != immutable:
                 return False
             candidate = latest

@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import logging
+from collections.abc import Mapping
+from typing import Any
 
 from fdai.core.control_loop.models import ControlLoopOutcome
 from fdai.core.hil_resume import HilResumeCoordinator
@@ -78,6 +80,7 @@ async def request_hil_approval(
     correlation_id: str,
     submitter_oid: str,
     event: Event | None = None,
+    development_authority: Mapping[str, Any] | None = None,
 ) -> None:
     if coordinator is None:
         return
@@ -87,6 +90,7 @@ async def request_hil_approval(
             rule=rule,
             submitter_oid=submitter_oid,
             correlation_id=correlation_id,
+            development_authority=development_authority,
             escalation_context=(
                 {"finding_class": event.event_type, "impact": action.blast_radius.scope.value}
                 if event is not None

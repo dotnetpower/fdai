@@ -339,6 +339,7 @@ categories, trust tiers, per-vendor rules, and fallback policy - lives in
 - No-self-approval compares the server-authenticated Entra OID with the pending item's submitter OID, and the Human approval capability check excludes BreakGlass. The full-authority development profile is the only same-human exception: one authenticated Owner can count as requester and approver only when the selected disposable-development profile, fresh exact-action confirmation, and server-derived current binding all match. The runtime Owner check accepts only the profile's owner principal while the profile is current.
   Audit preserves the original role, quorum, and no-self-approval rule and records an effective development quorum of one without inventing identities; typed authority records use the public contract-model facade, and digest helpers add no authority.
   A missing profile, binding source, current Owner check, or distinct executor keeps the ordinary no-self-approval rule.
+  The exception is available only for an approve decision from the FDAI Console on a park that Core marked with a development block. The Operator derives the attestation from a signed API-token `auth_time` later than the park and at most 10 minutes old; the decision transaction repeats the check against the locked park row; and Core admits it only after it rereads the durable Operator receipt, binding, and target revision. Slack, Teams, and a self-rejection keep the ordinary refusal.
 
 ## 8. Audit Correlation
 

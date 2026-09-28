@@ -8,6 +8,8 @@ from dataclasses import asdict, replace
 from datetime import UTC, datetime
 from typing import cast
 
+from fdai_service_contracts.development_approval import DEVELOPMENT_APPROVAL_ATTESTATION_FIELD
+
 from fdai_operator_service.families.iam.contracts import (
     HilApprovalDecision,
     HilDecisionCommand,
@@ -28,6 +30,7 @@ from fdai_operator_service.families.iam.hil_decision_outbox import (
     hil_decision_delivery_key,
     outbox_payload,
 )
+from fdai_operator_service.families.iam.hil_development_approval import development_metadata
 from fdai_operator_service.postgres_family_store import (
     PostgresFamilyStore,
     PostgresFamilyStoreUnavailable,
@@ -121,6 +124,13 @@ class PostgresIamHilMixin:
                 expected_submitter_oid=command.expected_submitter_oid,
                 expected_decision_route=command.expected_decision_route,
                 expected_required_role=command.expected_required_role,
+                # Only a development self-approval widens the store call, so other stores and
+                # recorded replays keep their exact legacy shape.
+                **(
+                    {"development_attestation": command.development_attestation}
+                    if command.development_attestation is not None
+                    else {}
+                ),
             )
         except PostgresHilDecisionExpiredError as exc:
             raise IamExpiredError(str(exc)) from exc
@@ -208,6 +218,7 @@ class PostgresIamHilMixin:
             metadata = {str(key): str(value) for key, value in raw_metadata.items()}
         else:
             raise IamUnavailableError("HIL callback metadata is malformed")
+        metadata.update(development_metadata(state))
         return HilCallbackContext(
             approval_id=approval_id,
             correlation_id=cast(str, correlation_id),
@@ -258,6 +269,13 @@ def _hil_receipt(value: Mapping[str, object]) -> HilDecisionReceipt:
             justification=str(value.get("justification") or ""),
             already_recorded=value.get("already_recorded") is True,
             delivered=value.get("delivered") is True,
+            development_attestation=(
+                dict(attestation)
+                if isinstance(
+                    attestation := value.get(DEVELOPMENT_APPROVAL_ATTESTATION_FIELD), Mapping
+                )
+                else None
+            ),
         )
     except KeyError as exc:
         raise IamUnavailableError("stored HIL decision receipt is malformed") from exc

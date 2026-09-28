@@ -34,8 +34,12 @@ from fdai.shared.providers.state_store import StateStore
 
 BINDING_PREFIX = "development-binding:"
 SOURCE_ID = "fdai-core-prepared-bindings"
-DEFAULT_BINDING_TTL = timedelta(minutes=15)
+# Matches the default HIL park approval window, so a parked binding outlives its approval.
+DEFAULT_BINDING_TTL = timedelta(minutes=30)
 AUDIT_CONTRACT = "fdai.saga.two-phase-audit@1"
+# Constitution Article 7: inside the development profile, disposable-resource recreation or
+# teardown is the bounded recovery path for every bound resource.
+DISPOSABLE_RECOVERY_CONTRACT = "fdai.development.disposable-recreation@1"
 
 
 def azure_scope_value_digest(value: str) -> str:
@@ -154,7 +158,11 @@ class PreparedDevelopmentBindingRegistry:
                 ),
                 rollback_contract_digest=authority_text_digest(action.rollback_ref.kind.value),
                 rollback_test_digest=canonical_authority_digest(
-                    action.rollback_ref.model_dump(mode="json")
+                    {
+                        "recovery_contract": DISPOSABLE_RECOVERY_CONTRACT,
+                        "scope": scope.model_dump(mode="json"),
+                        "rollback_ref": action.rollback_ref.model_dump(mode="json"),
+                    }
                 ),
                 blast_radius_digest=canonical_authority_digest(
                     action.blast_radius.model_dump(mode="json")
@@ -207,6 +215,35 @@ class PreparedDevelopmentBindingRegistry:
         self._index[binding.action_id] = verification
         return verification
 
+    async def prepare_park_binding(
+        self,
+        *,
+        action: Action,
+        action_type: OntologyActionType,
+        target_revision: str,
+    ) -> DevelopmentBindingVerification:
+        """Record the binding of one exact direct-API action about to be parked for approval."""
+        if action_type.execution_path is not ExecutionPath.DIRECT_API:
+            raise ValueError("development parking supports only direct-API actions")
+        return await self.prepare(
+            action=action,
+            action_type=action_type,
+            target_revision=target_revision,
+            dry_run_digest=direct_api_dry_run_digest(action),
+        )
+
+    async def read_verification(self, action_id: str) -> DevelopmentBindingVerification | None:
+        """Read the durable binding of ``action_id`` for this profile, bypassing the index."""
+        row = await self._store.read_state(BINDING_PREFIX + action_id)
+        verification = _verification_or_none(row)
+        if (
+            verification is None
+            or verification.binding.action_id != action_id
+            or verification.source_revision != self._profile.source_revision
+        ):
+            return None
+        return verification
+
     def verify(
         self,
         request: DevelopmentAuthorityBindingRequest,
@@ -248,6 +285,7 @@ __all__ = [
     "AUDIT_CONTRACT",
     "BINDING_PREFIX",
     "DEFAULT_BINDING_TTL",
+    "DISPOSABLE_RECOVERY_CONTRACT",
     "SOURCE_ID",
     "PreparedDevelopmentBindingRegistry",
     "azure_scope_value_digest",

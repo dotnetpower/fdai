@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 07ab0044ccdc676789a3bb75e2fc43d823ae78a0
+translation_source_sha: 1ca84755f0e1d3cdd9d0a500c837f3a213a1d71f
 translation_revised: 2026-09-28
 ---
 # 프로젝트 구조
@@ -533,7 +533,10 @@ Muninn은 게시와 원본 소유 legacy 정리에 하나의 Core 소유 cohort 
   없으면 기존 다중 운영자 경로를 유지하고, 프로필을 선택한 상태에서 바인딩이 하나라도
   누락되면 안전하게 차단합니다. `delivery/development_bindings.py`가 권위 있는 바인딩 소스로서
   서버가 준비한 바인딩을 감사 기록과 함께 한 번만 기록하고 현재 기록만 검증하며,
-  `runtime/development_authority.py`가 이를 ControlLoop와 Pantheon에 조립합니다. 집중된 `core/risk_gate/development_profile.py` 모듈은
+  `runtime/development_authority.py`가 이를 Azure 대상 revision 판독기와 함께 ControlLoop, Pantheon 및
+  HIL 조정자에 조립합니다. `core/hil_resume/development.py`는 `DevelopmentBindingPreparer`와
+  `TargetRevisionReader` 포트 뒤에서 보류 블록과 Owner 자기 승인 허용을 소유하므로 Core는 delivery
+  레지스트리를 가져오지 않습니다. 집중된 `core/risk_gate/development_profile.py` 모듈은
   프로필 범위 승격과 현재 권한 검증을 소유하며, `gate.py`는 공개 레지스트리와 risk-gate
   API를 유지합니다. 계약 모델은 `fdai.shared.contracts.models` 공개 facade를 통해서만 하위
   시스템 경계를 통과합니다. 다이제스트 도우미는 모델이 아닌 권한 facade에 남으며 권한을

@@ -1,7 +1,7 @@
 ---
 title: 폐쇄망 배포
 translation_of: disconnected-deployment.md
-translation_source_sha: b1d42d6eb0548e934350e9661b8efd24107d59ab
+translation_source_sha: 8e5ee64533ad808b0aca714f33ebe3225fa1f765
 translation_revised: 2026-09-28
 ---
 # 폐쇄망 배포
@@ -66,6 +66,8 @@ translation_revised: 2026-09-28
   빈 환경에 설치합니다.
 - [ ] Azure 배포 동작은 패키지 설치와 별도로 검증합니다. 런타임 페이로드, 정확한 계획, 롤백,
   상태, 정리 작업은 배포 소유자 범위로 유지합니다.
+- [ ] 인터넷에 연결되지 않은 Azure VM 한 대에서 전체 설치를 실행합니다. 그 VM이 실행 호스트가 되고,
+  Azure CLI는 패키지가 제공하며, 온라인으로 부트스트랩하는 별도 Foundation 호스트는 사용하지 않습니다.
 
 ## 한눈에 보는 설계
 
@@ -288,6 +290,8 @@ pinned Terraform binary 및 프로바이더 mirror, 정책 엔진 binary, softwa
 `scripts/deployment/release/build-offline-kit.py`로 서명합니다. 매니페스트는 staged 트리에서
 생성되므로 검증기가 거부할 내용을 증언할 수 없고, release 비공개 키는 키트에 들어가지
 않습니다.
+서명된 번들에는 마이그레이션 중 카탈로그 구체화가 읽는 검토된 `config/agent-stewardship.yaml`과
+`config/architecture-review.yaml`도 들어 있습니다.
 
 목표 폐쇄망 명령인 `fdaictl provision inspect`는 매니페스트를 파싱하기 전에 서명을 검증하고, 정확한
 CLI 및 platform 버전을 연결하며, symlink와 추가 파일을 거부하고, 모든 다이제스트를 스트리밍

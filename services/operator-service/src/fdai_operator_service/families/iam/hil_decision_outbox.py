@@ -34,6 +34,7 @@ from fdai_operator_service.families.iam.contracts import (
 from fdai_operator_service.families.iam.report_line_contact_outbox import (
     ReportLineContactOutboxDrainer,
 )
+from fdai_service_contracts.development_approval import DEVELOPMENT_APPROVAL_ATTESTATION_FIELD
 
 _LOGGER = logging.getLogger(__name__)
 _DELIVERY_SUFFIX = ":delivery"
@@ -48,7 +49,7 @@ def hil_decision_delivery_key(idempotency_key: str) -> str:
 
 def hil_decision_payload(receipt: HilDecisionReceipt) -> dict[str, object]:
     """Build the single canonical decision payload both publishers emit."""
-    return {
+    payload: dict[str, object] = {
         "approval_id": receipt.approval_id,
         "idempotency_key": receipt.idempotency_key,
         "decision": receipt.decision.value,
@@ -57,6 +58,9 @@ def hil_decision_payload(receipt: HilDecisionReceipt) -> dict[str, object]:
         "decided_at": receipt.decided_at.astimezone(UTC).isoformat(),
         "receipt_ref": receipt.receipt_ref,
     }
+    if receipt.development_attestation is not None:
+        payload[DEVELOPMENT_APPROVAL_ATTESTATION_FIELD] = dict(receipt.development_attestation)
+    return payload
 
 
 def outbox_payload(receipt: HilDecisionReceipt) -> dict[str, object]:
@@ -81,7 +85,12 @@ def receipt_from_outbox_payload(payload: Mapping[str, object]) -> HilDecisionRec
         raise ValueError("HIL decision outbox payload time is not timezone-aware")
     justification = raw.get("justification", "")
     receipt_ref = raw.get("receipt_ref", "")
-    if not isinstance(justification, str) or not isinstance(receipt_ref, str):
+    attestation = raw.get(DEVELOPMENT_APPROVAL_ATTESTATION_FIELD)
+    if (
+        not isinstance(justification, str)
+        or not isinstance(receipt_ref, str)
+        or (attestation is not None and not isinstance(attestation, Mapping))
+    ):
         raise ValueError("HIL decision outbox payload is malformed")
     return HilDecisionReceipt(
         approval_id=approval_id,
@@ -91,6 +100,7 @@ def receipt_from_outbox_payload(payload: Mapping[str, object]) -> HilDecisionRec
         decided_at=decided_at,
         receipt_ref=receipt_ref,
         justification=justification,
+        development_attestation=dict(attestation) if attestation is not None else None,
     )
 
 

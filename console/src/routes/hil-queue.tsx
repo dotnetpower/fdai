@@ -23,6 +23,11 @@ import { t } from "./i18n/approvals";
 import type { ConsoleDataMode } from "../console-data-mode";
 import { SlackApprovalHandoff } from "./slack-approval-handoff";
 import {
+  clearDevelopmentReauthentication,
+  hasDevelopmentReauthentication,
+  markDevelopmentReauthentication,
+} from "./development-approval";
+import {
   identityForMutationIntent,
   type MutationIntentIdentity,
 } from "../mutation-intent";
@@ -151,6 +156,7 @@ export function HilQueueRoute({ client, auth, dataMode }: Props) {
             query={query}
             dataMode={dataMode}
             client={client}
+            auth={auth}
             decisionReceipt={decisionReceipt}
             onQueryChange={setQuery}
             onDecisionRecorded={(receipt) => {
@@ -273,6 +279,7 @@ function HilBody({
   query,
   dataMode,
   client,
+  auth,
   decisionReceipt,
   onQueryChange,
   onDecisionRecorded,
@@ -281,6 +288,7 @@ function HilBody({
   readonly query: string;
   readonly dataMode: ConsoleDataMode;
   readonly client: OperatorApiClient;
+  readonly auth: AuthContext;
   readonly decisionReceipt: HilDecisionReceipt | null;
   readonly onQueryChange: (value: string) => void;
   readonly onDecisionRecorded: (receipt: HilDecisionReceipt) => void;
@@ -429,6 +437,7 @@ function HilBody({
               now={now}
               dataMode={dataMode}
               client={client}
+              auth={auth}
               decisionRecorded={decisionReceipt?.approval_id === item.approval_id}
               onDecisionRecorded={onDecisionRecorded}
             />
@@ -467,6 +476,7 @@ function ApprovalCard({
   now,
   dataMode,
   client,
+  auth,
   decisionRecorded,
   onDecisionRecorded,
 }: {
@@ -474,9 +484,14 @@ function ApprovalCard({
   readonly now: number;
   readonly dataMode: ConsoleDataMode;
   readonly client: OperatorApiClient;
+  readonly auth: AuthContext;
   readonly decisionRecorded: boolean;
   readonly onDecisionRecorded: (receipt: HilDecisionReceipt) => void;
 }) {
+  const ownDevelopment = item.development_self_approval_available;
+  const [reauthenticated, setReauthenticated] = useState(
+    () => ownDevelopment && hasDevelopmentReauthentication(item.approval_id),
+  );
   const expired = approvalIsExpired(item, now);
   const [justification, setJustification] = useState("");
   const [pendingDecision, setPendingDecision] = useState<"approve" | "reject" | null>(null);
@@ -525,9 +540,15 @@ function ApprovalCard({
         reason,
         nextIntent.idempotencyKey,
       );
+      if (ownDevelopment) clearDevelopmentReauthentication();
       onDecisionRecorded(receipt);
     } catch (error) {
       setDecisionError(error instanceof Error ? error.message : String(error));
+      if (ownDevelopment) {
+        // A refused or stale sign-in needs a new one; never leave the Owner on a dead approve.
+        clearDevelopmentReauthentication();
+        setReauthenticated(false);
+      }
     } finally {
       setPendingDecision(null);
     }
@@ -626,11 +647,34 @@ function ApprovalCard({
             </a>
           </nav>
         ) : null}
-        {canDecide ? (
+        {canDecide && ownDevelopment && !reauthenticated ? (
+          <div class="approval-decision-form">
+            <p class="muted">{t("approvals.developmentNote")}</p>
+            {decisionError !== null ? (
+              <div class="state-block state-error" role="alert">{decisionError}</div>
+            ) : null}
+            <div class="approval-decision-actions">
+              <button
+                type="button"
+                class="btn btn-primary"
+                disabled={!auth.interactiveSignIn}
+                onClick={() => {
+                  markDevelopmentReauthentication(item.approval_id);
+                  void auth.signIn({ reauthenticate: true });
+                }}
+              >
+                {t("approvals.developmentReauthenticate")}
+              </button>
+            </div>
+          </div>
+        ) : canDecide ? (
           <form
             class="approval-decision-form"
             onSubmit={(event) => event.preventDefault()}
           >
+            {ownDevelopment ? (
+              <p class="muted" role="status">{t("approvals.developmentReady")}</p>
+            ) : null}
             <label>
               <span>{t("approvals.justification")}</span>
               <textarea
@@ -652,18 +696,20 @@ function ApprovalCard({
               >
                 {pendingDecision === "approve"
                   ? t("approvals.recordingDecision")
-                  : t("approvals.approve")}
+                  : ownDevelopment ? t("approvals.developmentApprove") : t("approvals.approve")}
               </button>
-              <button
-                type="button"
-                class="btn"
-                disabled={pendingDecision !== null}
-                onClick={() => void submitDecision("reject")}
-              >
-                {pendingDecision === "reject"
-                  ? t("approvals.recordingDecision")
-                  : t("approvals.reject")}
-              </button>
+              {ownDevelopment ? null : (
+                <button
+                  type="button"
+                  class="btn"
+                  disabled={pendingDecision !== null}
+                  onClick={() => void submitDecision("reject")}
+                >
+                  {pendingDecision === "reject"
+                    ? t("approvals.recordingDecision")
+                    : t("approvals.reject")}
+                </button>
+              )}
             </div>
           </form>
         ) : item.decision_unavailable_reason !== null && dataMode === "live" ? (
