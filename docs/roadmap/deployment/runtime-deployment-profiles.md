@@ -585,8 +585,8 @@ The selected profile compiles a finite dependency graph:
 
 Every mutating node has its own exact plan, current human approval, pre-effect claim, timeout,
 rollback or recovery reference, and authoritative observer. `deployment_ready=true` requires all
-selected services healthy, workload identities effective, Kafka round trips complete, database
-migrations current, one canary job successful, and every selected state root at a second
+selected services healthy, workload identities effective, Kafka round trips complete, legacy and
+service-owned database migrations current, one canary job successful, and every selected state root at a second
 zero-change plan. Each Operator replica coalesces identical incident-attention reads for concurrent
 SSE subscribers inside one two-second poll interval. This cache is process-local, carries no durable
 evidence or authority, and does not coordinate replicas. Mixed-revision service rollout preserves
