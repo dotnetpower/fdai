@@ -196,6 +196,61 @@ class AssuranceTwinPostureRecorder:
             stored_evidence_digest=write.stored_evidence_digest,
         )
 
+    async def record_proposal_review(
+        self,
+        review: IacReview,
+        *,
+        correlation_id: str,
+        freshness: OperationalFreshness,
+        evidence_source_revision: str,
+        source_confirmed: bool = True,
+    ) -> AssuranceTwinPostureRecord:
+        """Persist the one current typed-proposal review for ``review.pr_ref``.
+
+        A newer revision atomically supersedes the older retained review; a delayed
+        older revision returns a superseded tip and a same-instant different body a
+        conflict tip. Neither is published.
+        """
+
+        if review.mode is not Mode.SHADOW:
+            raise ValueError("assurance twin review publication requires shadow mode")
+        activity = build_change_review_activity(
+            review,
+            correlation_id=correlation_id,
+            freshness=freshness,
+        )
+        write = await self._ledger.record_proposal_review(
+            review,
+            freshness=freshness.value,
+            activity_id=activity.activity_id,
+            correlation_id=correlation_id,
+            evidence_source_revision=evidence_source_revision,
+            source_confirmed=source_confirmed,
+            activity=activity,
+        )
+        if write.conflict:
+            activity = build_change_review_activity(
+                review,
+                correlation_id=correlation_id,
+                freshness=OperationalFreshness.UNAVAILABLE,
+                reason_codes=(REVIEW_CONFLICT_REASON_CODE,),
+            )
+        elif not write.created and write.stored_evidence_digest != write.evidence_digest:
+            activity = build_change_review_activity(
+                review,
+                correlation_id=correlation_id,
+                freshness=freshness,
+                superseded=True,
+            )
+        return AssuranceTwinPostureRecord(
+            activity=activity,
+            durable_write_created=write.created,
+            published=False,
+            evidence_digest=write.evidence_digest,
+            conflict=write.conflict,
+            stored_evidence_digest=write.stored_evidence_digest,
+        )
+
     async def mark_source_conflict(
         self,
         *,

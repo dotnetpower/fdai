@@ -6,6 +6,10 @@ from collections.abc import Collection, Mapping
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Literal
 
+from fdai.core.assurance_twin.proposal_effects import (
+    ReviewedActionTypeEffect,
+    ReviewedEffectCatalog,
+)
 from fdai.delivery.assurance_twin_evidence_source import (
     AssuranceTwinEvidenceRequestRelay,
     StateStoreTwinEvidenceRepository,
@@ -16,7 +20,9 @@ from fdai.delivery.assurance_twin_posture_producer import (
     AssuranceTwinPostureProducer,
     CompletePostureEvaluator,
 )
+from fdai.delivery.assurance_twin_proposal_intake import StateStoreTypedProposalReviewIntake
 from fdai.delivery.assurance_twin_publication import AssuranceTwinOutboxPublisher
+from fdai.delivery.assurance_twin_review_producer import AssuranceTwinReviewProducer
 from fdai.delivery.assurance_twin_writers import (
     AssuranceTwinAgentWriter,
     RetainedTwinEvidenceSource,
@@ -161,8 +167,15 @@ def build_assurance_twin_runtime_binding(
     inventory_dsn: str | None = None,
     posture_scope: str | None = None,
     required_inventory_scopes: tuple[str, ...] = (),
+    reviewed_effects: tuple[ReviewedActionTypeEffect, ...] = (),
 ) -> tuple[tuple[Any, ...], tuple[AssuranceTwinAgentWriter, ...]]:
-    """Bind no writer without the durable store and all three accountable agents."""
+    """Bind no writer without the durable store and all three accountable agents.
+
+    With production Inventory and T0/OPA inputs, Heimdall's posture producer and
+    Forseti's typed-proposal review producer share the retained Inventory source.
+    Forseti reviews only ActionType versions in ``reviewed_effects``; an empty
+    catalog keeps every submitted proposal explicitly unavailable.
+    """
 
     if (
         state_store is None
@@ -177,6 +190,7 @@ def build_assurance_twin_runtime_binding(
         for owner in ("Heimdall", "Forseti")
     )
     posture_inventory_fence: AssuranceTwinPostureProducer | None = None
+    review_inventory_fence: AssuranceTwinReviewProducer | None = None
     if retained_source is None:
         repository = StateStoreTwinEvidenceRepository(store=state_store)
         retained_source = repository
@@ -189,16 +203,25 @@ def build_assurance_twin_runtime_binding(
             and posture_scope.strip()
             and required_inventory_scopes
         ):
+            inventory_source = PostgresTwinInventorySource(
+                config=PostgresInventorySnapshotStoreConfig(dsn=inventory_dsn)
+            )
             posture_inventory_fence = AssuranceTwinPostureProducer(
-                inventory=PostgresTwinInventorySource(
-                    config=PostgresInventorySnapshotStoreConfig(dsn=inventory_dsn)
-                ),
+                inventory=inventory_source,
                 evaluator=posture_evaluator,
                 repository=repository,
                 scope=posture_scope,
                 required_scopes=required_inventory_scopes,
             )
-            posture_producers = (posture_inventory_fence,)
+            review_inventory_fence = AssuranceTwinReviewProducer(
+                inventory=inventory_source,
+                evaluator=posture_evaluator,
+                repository=repository,
+                intake=StateStoreTypedProposalReviewIntake(store=state_store),
+                effects=ReviewedEffectCatalog(reviewed_effects),
+                required_scopes=required_inventory_scopes,
+            )
+            posture_producers = (posture_inventory_fence, review_inventory_fence)
         publishers = (
             *posture_producers,
             AssuranceTwinEvidenceRequestRelay(
@@ -217,6 +240,10 @@ def build_assurance_twin_runtime_binding(
             recorder=recorder,
             posture_generation_fence=(posture_evaluator if owner == "Heimdall" else None),
             posture_inventory_fence=(posture_inventory_fence if owner == "Heimdall" else None),
+            review_generation_fence=(
+                posture_evaluator if review_inventory_fence is not None else None
+            ),
+            review_inventory_fence=review_inventory_fence,
         )
         for owner in owners
     )
