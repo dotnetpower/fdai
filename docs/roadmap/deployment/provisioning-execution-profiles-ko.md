@@ -1,7 +1,7 @@
 ---
 title: Provisioning 실행 Profile
 translation_of: provisioning-execution-profiles.md
-translation_source_sha: f5eccd00a5644c291df1bbccfd2a95d0e7297370
+translation_source_sha: 4ce6f5ebc93d94f3fde0b696d2b7c42fd642c61d
 translation_revised: 2026-09-28
 ---
 # 프로비저닝 실행 프로파일
@@ -406,6 +406,9 @@ digest가 고정된 실행 묶음을 staging할 수 있습니다. 정확한 프�
 조정기의 더 짧은 기한을 완화하지 않습니다.
 명시적 adapter는 승인 정족수 1인 `dev`에서만 사용할 수 있습니다. staging과 production은 이
 전송 경로가 보호된 승인 정족수를 지원하고 검증할 때까지 차단합니다.
+
+대상 지정 substrate 계획에는 격리 실행기 Event Hubs 역할과 수집 송신 역할처럼 AKS 워크로드가
+시작할 때 필요한 모든 역할 할당이 포함됩니다.
 
 ### 범위 지정 Run Command Terraform
 

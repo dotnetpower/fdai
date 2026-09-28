@@ -918,6 +918,7 @@ def _prepare_aks_application(_args: argparse.Namespace, work_dir: Path) -> dict[
         "FDAI_AUXILIARY_KAFKA_BOOTSTRAP_SERVERS": substrate_outputs["operational_kafka"],
         "FDAI_ISOLATED_EXECUTOR_AUTHORITY_CUTOVER": "1",
         "FDAI_PRODUCT_PROFILE_JSON": str(application_values["product_profile_json"]),
+        "FDAI_START_CONSUMER": "1",
     }
     core_environment.update(
         _aks_core_conversation_environment(
@@ -3720,14 +3721,13 @@ def _aks_document_workloads(
         "FDAI_CLAMAV_HOST": "127.0.0.1",
         "FDAI_CLAMAV_PORT": "3310",
     }
-    database_secret = {"FDAI_DATABASE_URL": "fdai-state-store-dsn"}
     return {
         "document-ingestion-api": _aks_workload(
             "ingestion",
             refs,
             ingestion_identity,
             api_environment,
-            database_secret,
+            {"FDAI_DATABASE_URL": "fdai-ingestion-api-dsn"},
             "/healthz",
             "/healthz",
             external=True,
@@ -3738,7 +3738,7 @@ def _aks_document_workloads(
             refs,
             worker_identity,
             worker_environment,
-            database_secret,
+            {"FDAI_DATABASE_URL": "fdai-ingestion-worker-dsn"},
             "/ready",
             "/live",
             fs_group=101,

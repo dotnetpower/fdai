@@ -85,7 +85,7 @@ This ledger records delivery state for the bounded AKS commerce scenario defined
 
 ### Remaining work
 
-- [ ] Port the approved reference sweep onto `GovernedChaosExecutionAdapter` so a one-scenario fault can run again; until then the sweep driver refuses every live run ([#94](https://github.com/dotnetpower/fdai/issues/94)).
+- [x] Port the approved reference sweep onto `GovernedChaosExecutionAdapter` so a one-scenario fault can run again. Delivered in [PR #1583](https://github.com/dotnetpower/fdai/pull/1583) and [PR #1593](https://github.com/dotnetpower/fdai/pull/1593); the retired raw driver is deleted and all ten reference scenarios resolve to a scope-matched target. Running a sweep still needs the two preconditions below.
 - [ ] Run a plan-only preview from the merged adoption workflow and confirm that it lists only the reviewed imports, the case-normalizing runner grant replacements, and the agreed creates and updates. Approve only that exact apply, then retain the Store Demo readback artifact and the final `Stopped` cluster readback ([#1203](https://github.com/dotnetpower/fdai/issues/1203)). The adoption never widens roles and never runs under a single-fault authorization.
 - [ ] After a current exact plan is approved, run only `aks-pod-cpu-spike` and retain finding, bounded rollback, independent readback, prior-power-state restoration and separately qualified T1/T2 audit evidence. Plan-only success and unchanged `Stopped` readback are not fault or recovery evidence.
 
@@ -106,7 +106,10 @@ This ledger records delivery state for the bounded AKS commerce scenario defined
   fully configured sweep refuses with `governed_execution_unbound` and would then refuse with
   `no_executable_promoted_scenario`. Neither is an Azure authorization problem. Promotion is
   gated on live-shadow evidence that does not exist, and the bindings carry the Var approval
-  verifier, so both belong to [#94](https://github.com/dotnetpower/fdai/issues/94).
+  verifier. Both are owned by the remaining work in
+  [recovery-and-chaos-enforcement](../decisioning/recovery-and-chaos-enforcement.md#remaining-work);
+  the campaign issue [#94](https://github.com/dotnetpower/fdai/issues/94) closed as not planned on
+  2026-09-28 and tracks neither.
 - [ ] Retain one separately approved live Azure receipt for the public AKS API, public HTTPS access, degraded business impact, governed recovery, and independently verified recovery.
 - [ ] Validate an order-acceptance-only evidence profile with reviewed minimum replicas, observation freshness, failed-order threshold, and explicit RabbitMQ scope without marking missing fulfillment evidence healthy.
 - [x] Implement the acceptance-only typed intent, conservative reducer, inert exact-target candidate and receipt-gated Analyzer; preserve synthetic-traffic provenance and verify the canonical Incident path locally.

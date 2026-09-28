@@ -428,6 +428,9 @@ provide Python and OpenSSL. These limits do not weaken the coordinator's shorter
 The explicit adapter is `dev`-only with approval quorum one. Staging and production remain blocked
 until this transport supports and verifies their protected approval quorum.
 
+Targeted substrate plans include every role assignment the AKS workloads need at start, such as
+the isolated-executor Event Hubs roles and the ingestion sender role.
+
 ### Scoped Run Command Terraform
 
 **Design and critique:** The Terraform backend is private, and subscription policy can deny any public
