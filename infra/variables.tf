@@ -1129,7 +1129,7 @@ variable "alert_webhook_url" {
 }
 
 variable "enable_alert_noise_pilot" {
-  description = "Create one dev-only Key Vault Availability alert and dedicated test Action Group for exact alert-noise qualification."
+  description = "Create one dev-only Core Container App replica alert and dedicated test Action Group for exact alert-noise qualification."
   type        = bool
   default     = false
 }
@@ -1143,13 +1143,6 @@ variable "alert_noise_pilot_phase" {
     condition     = contains(["baseline", "treatment"], var.alert_noise_pilot_phase)
     error_message = "alert_noise_pilot_phase must be baseline or treatment."
   }
-}
-
-variable "alert_noise_pilot_target_resource_id" {
-  description = "Existing dev Key Vault resource id for the isolated alert-noise pilot. Supply through protected configuration."
-  type        = string
-  default     = ""
-  sensitive   = true
 }
 
 variable "alert_noise_pilot_email" {

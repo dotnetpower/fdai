@@ -106,12 +106,12 @@
       "producer": "core-control-plane",
       "consumer": "operator-service",
       "compatibility_policy": "version-negotiated",
-      "compatibility_notes": "Exact signed result 1.0.0 including proposal detail; optional fields do not imply signature-compatible downgrade. The 0.0.0 marker is unavailable, not a result. Both N consumers precede activation; preserve durable accepted work and terminal reservations during rollback. The alert-specific 950000-byte bound does not widen generic service codecs or certify deployed transitions.",
+      "compatibility_notes": "Exact signed result 1.1.0 includes the provider-neutral plan 1.1.0; optional fields do not imply signature-compatible downgrade. The 0.0.0 marker is unavailable, not a result. Both N consumers precede activation; preserve durable accepted work and terminal reservations during rollback. The alert-specific 950000-byte bound does not widen generic service codecs or certify deployed transitions. Unreleased 1.0.0 durable records are authenticated read-only and retired, never accepted as current.",
       "producer_schemas": {
         "N-1": {"version": "0.0.0", "path": "schemas/alert-noise-result/0.0.0.json"},
-        "N": {"version": "1.0.0", "path": "schemas/alert-noise-result/1.0.0.json"}
+        "N": {"version": "1.1.0", "path": "schemas/alert-noise-result/1.1.0.json"}
       },
-      "consumer_accepts": {"N-1": ["0.0.0"], "N": ["0.0.0", "1.0.0"]},
+      "consumer_accepts": {"N-1": ["0.0.0"], "N": ["0.0.0", "1.1.0"]},
       "producer_codecs": {"N-1": "fdai.delivery.alert_noise_codecs:RESULT_PRODUCER_UNAVAILABLE", "N": "fdai.delivery.alert_noise_codecs:RESULT_PRODUCER_V1"},
       "consumer_codecs": {"N-1": "fdai_operator_service.alert_quality_codecs:RESULT_CONSUMER_UNAVAILABLE", "N": "fdai_operator_service.alert_quality_codecs:RESULT_CONSUMER_V1"},
       "delivery": {

@@ -106,15 +106,15 @@ def workflows(
 
 
 @pytest.mark.parametrize("name", ACTION_NAMES)
-def test_alert_actions_pin_manual_owner_hil_and_safeguard_declarations(
+def test_alert_actions_pin_provider_neutral_owner_hil_and_safeguard_declarations(
     name: str, actions: dict[str, OntologyActionType]
 ) -> None:
     action = actions[name]
     assert action.category is not None and action.category.value == "ops"
     assert action.operation is Operation.UPDATE
-    assert action.execution_path is ExecutionPath.PR_MANUAL
+    assert action.execution_path is ExecutionPath.DIRECT_API
     assert action.default_mode is Mode.SHADOW
-    assert action.rollback_contract is RollbackKind.PR_REVERT
+    assert action.rollback_contract is RollbackKind.STATE_FORWARD_ONLY
     assert action.irreversible is False
     assert action.trigger_kind is not None
     assert action.trigger_kind.kind is TriggerKind.OPERATOR_REQUEST

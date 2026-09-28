@@ -59,6 +59,7 @@ export function alertQualityReason(reason: string): string {
     routing_coverage_incomplete: "reason.audienceHeld",
     candidate_limit_reached: "reason.candidateLimit", evidence_reason_limit_reached: "reason.reasonLimit",
     request_expired: "reason.requestExpired", scope_denied: "reason.scopeDenied",
+    legacy_contract_retired: "reason.legacyContractRetired",
     evidence_not_retained: "reason.evidenceMissing", evidence_unavailable: "reason.evidenceHeld",
     synthetic_live_evidence: "reason.syntheticHeld",
     preference_store_unavailable: "settings.reason.store", writer_unavailable: "settings.reason.writer",

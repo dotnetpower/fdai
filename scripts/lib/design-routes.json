@@ -3842,7 +3842,8 @@
       ],
       "validate": [
         "uv run python scripts/quality/architecture/check-independent-services.py",
-        "uv run python scripts/quality/architecture/check-property-semantic-coverage.py"
+        "uv run python scripts/quality/architecture/check-property-semantic-coverage.py",
+        "uv run python scripts/automation/build_semantic_assurance_corpus.py --check"
       ]
     },
     {

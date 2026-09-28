@@ -62,6 +62,10 @@ def _payload(contract_id, release="N"):
     )
 
 
+def _active_version(contract_id: str) -> str:
+    return "1.1.0" if contract_id == "alert-noise-result" else "1.0.0"
+
+
 @pytest.mark.parametrize("contract_id", ALERT_WIRE_MODELS)
 @pytest.mark.parametrize("producer_release", ["N-1", "N"])
 @pytest.mark.parametrize("consumer_release", ["N-1", "N"])
@@ -85,18 +89,19 @@ def test_manifest_executes_each_exact_peer_pair(contract_id, producer_release, c
 @pytest.mark.parametrize("contract_id", ALERT_WIRE_MODELS)
 def test_offline_marker_cannot_be_an_active_signed_record(contract_id):
     value = _payload(contract_id, "N-1")
-    consumer = AlertConsumerCodec(contract_id, "N", ("0.0.0", "1.0.0"))
+    active_version = _active_version(contract_id)
+    consumer = AlertConsumerCodec(contract_id, "N", ("0.0.0", active_version))
     assert consumer.decode_mapping(value) == value
     with pytest.raises(ValueError):
         ALERT_WIRE_MODELS[contract_id].model_validate(value)
     with pytest.raises(CompatibilityError):
-        AlertProducerCodec(contract_id, "N", "1.0.0").encode(value)
+        AlertProducerCodec(contract_id, "N", active_version).encode(value)
 
 
 @pytest.mark.parametrize("contract_id", ALERT_WIRE_MODELS)
 def test_major_and_unknown_fields_have_no_silent_downgrade(contract_id):
     payload = _payload(contract_id)
-    consumer = AlertConsumerCodec(contract_id, "N", ("1.0.0",))
+    consumer = AlertConsumerCodec(contract_id, "N", (_active_version(contract_id),))
     for field, value in (("schema_version", "2.0.0"), ("future_field", None)):
         with pytest.raises(CompatibilityError):
             consumer.decode_mapping({**payload, field: value})
@@ -155,8 +160,8 @@ def test_result_retains_full_signed_content_above_generic_wire_limit():
     key = b"test-only-not-a-deployment-key-32bytes"
     signed = SignedAlertResult(result=value.result, signature=sign_alert_record(value.result, key))
     original = signed.model_dump(mode="json")
-    producer = AlertProducerCodec("alert-noise-result", "N", "1.0.0")
-    consumer = AlertConsumerCodec("alert-noise-result", "N", ("1.0.0",))
+    producer = AlertProducerCodec("alert-noise-result", "N", "1.1.0")
+    consumer = AlertConsumerCodec("alert-noise-result", "N", ("1.1.0",))
     encoded = producer.encode(original)
     assert MAX_WIRE_BYTES < len(encoded) < ALERT_RESULT_WIRE_BYTES
     decoded = consumer.decode(encoded)

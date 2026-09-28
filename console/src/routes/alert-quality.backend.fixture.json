@@ -40,7 +40,7 @@
   },
   "plans": [
     {
-      "schema_version": "1.0.0",
+      "schema_version": "1.1.0",
       "action_type": "ops.update-alert-routing",
       "tenant_ref": "tenant:example",
       "scope_ref": "scope:example_team-1",
@@ -67,7 +67,7 @@
       "max_recovery_seconds": 300,
       "rollback_ref": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
       "evaluation_receipt_digest": null,
-      "execution_path": "pr_manual",
+      "execution_path": "direct_api",
       "default_mode": "shadow",
       "quorum_required": 2,
       "execution_authority": false

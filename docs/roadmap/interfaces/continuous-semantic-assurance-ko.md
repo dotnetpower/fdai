@@ -1,7 +1,7 @@
 ---
 translation_of: continuous-semantic-assurance.md
-translation_source_sha: 0a7c8ac8ff3c3323ddb9dfbe73576ad49162df9f
-translation_revised: 2026-09-27
+translation_source_sha: 17849dca64d4a970fba79e3d70e294e78c2e3454
+translation_revised: 2026-09-28
 ---
 # 지속형 의미 보증
 
@@ -42,7 +42,8 @@ Corpus 크기는 소스 리비전의 관측 속성입니다. 논리 기대치, �
 영어/한국어 Golden 사례, Reader 범위의 운영 선언 질문에 대한 다섯 근거 상태별 사례, 의미
 판단과 장애 의도 회귀 사례를 합칩니다. 각 묶음의 사례 수와 식별자 다이제스트는 질문 원문을
 저장하지 않고 정확한 Golden 파일 및 온톨로지 릴리스에 연결됩니다. 제외된 선언은 별도로
-계산합니다. 이 리포지토리 자료 목록은 실행 가능한 캠페인, 운영 환경 연결 또는 인증 증적이
+계산합니다. 새 ActionType 버전처럼 온톨로지 릴리스가 바뀌면 선언 묶음도 다시 연결되므로, 같은 변경에서
+빌더로 매니페스트를 다시 생성합니다. 이 리포지토리 자료 목록은 실행 가능한 캠페인, 운영 환경 연결 또는 인증 증적이
 아닙니다.
 
 ## 실행 프로필

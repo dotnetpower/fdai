@@ -85,6 +85,7 @@ from fdai_service_contracts.alert_noise import (
     digest_record,
 )
 from fdai_service_contracts.alert_noise_evaluation import EvaluationReceipt
+from fdai_service_contracts.alert_noise_legacy import _AlertChangePlanV100
 from fdai_service_contracts.alert_noise_plan import AlertTreatment
 from fdai_service_contracts.decision_evidence import (
     DecisionCriticalEvidenceReceipt,
@@ -529,6 +530,22 @@ async def test_source_digest_must_match_retained_reader(
     h = workflow_harness
     with pytest.raises(AlertExecutionHeld):
         await h.coordinator.run(**{**h.inputs, field: "sha256:" + "9" * 64})
+    assert await h.processes.list() == ()
+
+
+async def test_retained_legacy_plan_is_held_before_any_process(
+    workflow_harness: SimpleNamespace,
+) -> None:
+    h = workflow_harness
+    legacy = {
+        **h.plan.model_dump(mode="json"),
+        "schema_version": "1.0.0",
+        "execution_path": "pr_manual",
+    }
+    digest = digest_record(_AlertChangePlanV100.model_validate(legacy))
+    await h.store.write_state("alert-noise:plan:" + digest, legacy)
+    with pytest.raises(AlertExecutionHeld, match="legacy_contract_retired"):
+        await h.coordinator.run(**{**h.inputs, "plan_digest": digest})
     assert await h.processes.list() == ()
 
 

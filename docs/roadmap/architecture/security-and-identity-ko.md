@@ -1,7 +1,7 @@
 ---
 title: 보안과 아이덴티티
 translation_of: security-and-identity.md
-translation_source_sha: 65c6dc83133e5bbc6ba6c71825d95f724cbe34b6
+translation_source_sha: fe210800a1776d9fb52c2b85818e1599884407e6
 translation_revised: 2026-09-28
 ---
 
@@ -185,6 +185,8 @@ P0 열림 결정 *"Executor-side 신원 대응"*을 해결합니다. 현재 Terr
 조립에 노출합니다. 권한 확인 결과가 하나의 참조를 선택하면 액션과 direct-API
 요청이 이를 보존하고 전달 라우터가 일치하는 `WorkloadIdentity`를 선택합니다. 알 수 없거나
 연결되지 않은 참조는 집계 실행기 신원으로 대체 경로하지 않고 거부됩니다.
+알림 과다 수신 작업은 일반 direct-API 대체 경로에 도달하지 않습니다. 알림 전용 unavailable 경로가
+shadow와 enforce 모드 모두에서 이 작업을 보류하고, 다른 direct-API 작업은 실행기 미연결 거부를 유지합니다.
 
 읽기 전용 인벤토리, 인제스트, canary와 다른 서비스 신원은 이 실행기 집합과 분리됩니다.
 버티컬 신원 생성 자체는 리소스 권한을 부여하지 않으며 역할 배정은 명시적

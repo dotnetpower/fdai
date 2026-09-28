@@ -1,6 +1,6 @@
 schema_version: "1.0.0"
 name: ops.restore-alert-configuration
-version: "1.0.0"
+version: "1.1.0"
 operation: update
 interfaces:
   - ControlPlane
@@ -9,7 +9,7 @@ interfaces:
   - RequiresInventoryFresh
   - GraphTraversalRequired
   - RequiresMaintenanceWindow
-rollback_contract: pr_revert
+rollback_contract: state_forward_only
 irreversible: false
 default_mode: shadow
 promotion_gate:
@@ -38,14 +38,15 @@ blast_radius:
 # Restore only that plan's changed fields on its exact target, preserving other edits
 # and fencing target/dependencies within one resource group. Tested rollback, dry-run,
 # stable idempotency and two-phase audit are required again on the recovery path.
-# Independent observation, not a revert PR, must prove restored configuration/effects.
+# Independent observation, not provider acceptance, must prove restored configuration/effects.
 description: >-
   Propose conditional restoration of only an approved forward plan's changed fields
-  to its pinned baseline through a manually reviewed IaC diff and current recovery authority.
+  to its pinned baseline through a provider-neutral plan and current recovery authority.
+  No provider mutation adapter is currently bound.
 category: ops
 trigger_kind:
   kind: operator_request
-execution_path: pr_manual
+execution_path: direct_api
 ceiling_by_tier:
   t0:
     max_autonomy: enforce_hil
@@ -73,7 +74,7 @@ argument_schema:
       description: The same SHA-256 digest as the approved forward plan, not a new restore plan or target.
 provenance:
   source_url: https://github.com/dotnetpower/fdai/blob/main/rule-catalog/action-types/ops.restore-alert-configuration.yaml
-  resolved_ref: action-type:ops.restore-alert-configuration@1.0.0
-  content_hash: sha256:2950843de77b390c3166efbc3e7046e2541b98f8878585f204c6e14d957faa11
+  resolved_ref: action-type:ops.restore-alert-configuration@1.1.0
+  content_hash: sha256:7553d66f21c58bd2ef412d55992c533e4758cea6cf2b1399fd31228af632425d
   license: BUSL-1.1
   retrieved_at: "2026-09-14T00:00:00Z"

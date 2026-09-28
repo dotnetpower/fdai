@@ -21,6 +21,7 @@ import httpx
 
 from fdai.core.executor import (
     DirectApiExecutionPort,
+    DirectApiShadowExecutor,
     InProcessThorExecutionPort,
     ShadowExecutor,
     ThorExecutionPort,
@@ -28,7 +29,10 @@ from fdai.core.executor import (
 from fdai.core.executor.renderer import TemplateRenderer
 from fdai.core.executor.tool_call import ToolReceiptObserver
 from fdai.core.workflow.workflow_runtime import WorkflowActionDispatcher
-from fdai.runtime.alert_noise_execution import build_alert_pr_execution_port
+from fdai.delivery.alert_noise_direct_api import (
+    AlertUnavailableDirectApiExecutionPort,
+    UnavailableAlertDirectApiExecutor,
+)
 from fdai.runtime.delivery import _build_direct_api_executor, _build_tool_executor
 from fdai.runtime.isolated_executor_client import EventBusDirectApiExecutionClient
 from fdai.runtime.safeguard_isolated_executor import (
@@ -126,17 +130,6 @@ def build_thor_execution_port(
         idempotency=idempotency_store,
         safeguard_coordinator=safeguard_coordinator,
     )
-    alert_executor = build_alert_pr_execution_port(
-        fallback=executor,
-        audit_store=audit_store,
-        publisher=publisher,
-        resource_lock=resource_lock,
-        coordinator=safeguard_coordinator,
-        promotion_registry=promotion_registry,
-        ontology_release=ontology_release,
-        decision_evidence_provider=container.decision_evidence_admission_provider,
-        process_store=process_store,
-    )
     if isinstance(direct_api_execution_port, EventBusDirectApiExecutionClient):
         direct_api_executor: DirectApiExecutionPort | None = (
             SafeguardBoundEventBusDirectApiExecutionClient(
@@ -158,6 +151,18 @@ def build_thor_execution_port(
             execution_identities=execution_identities,
             safeguard_coordinator=safeguard_coordinator,
         )
+    direct_api_executor = AlertUnavailableDirectApiExecutionPort(
+        unavailable=DirectApiShadowExecutor(
+            executor=UnavailableAlertDirectApiExecutor(),
+            audit_store=audit_store,
+            resource_lock=resource_lock,
+            idempotency=idempotency_store,
+            # The adapter refuses every request, so enforce mode reaches its explicit reason.
+            allow_enforce=True,
+            safeguard_coordinator=safeguard_coordinator,
+        ),
+        fallback=direct_api_executor,
+    )
     tool_executor = _build_tool_executor(
         audit_store=audit_store,
         resource_lock=resource_lock,
@@ -169,9 +174,7 @@ def build_thor_execution_port(
         safeguard_coordinator=safeguard_coordinator,
     )
     return InProcessThorExecutionPort(
-        # The compatibility dataclass still names ShadowExecutor rather than
-        # the structural PR port. Both normal dispatch and HIL receive this wrapper.
-        pr_native=cast(ShadowExecutor, alert_executor),
+        pr_native=executor,
         direct_api=direct_api_executor,
         tool_call=tool_executor,
         safeguard_lifecycle_ready=True,

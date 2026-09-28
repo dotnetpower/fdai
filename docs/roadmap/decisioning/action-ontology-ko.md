@@ -1,8 +1,8 @@
 ---
 title: Action 온톨로지
 translation_of: action-ontology.md
-translation_source_sha: 9852c3620969f45f21d7e61c59f947cc6b1f985f
-translation_revised: 2026-09-17
+translation_source_sha: a17ed98e06ab438d788b131f10b5f5f4575019cf
+translation_revised: 2026-09-28
 ---
 
 # 액션 온톨로지
@@ -326,14 +326,13 @@ direct-API 및 tool-call 요청과 감사 항목은 같은 목록을 flatten하�
 - `ops.upsert-network-rule` / `ops.delete-network-rule` - 개발 operations 게이트웨이를 통해
   범위가 제한된 NSG 룰 하나를 생성, 교체 또는 삭제합니다. 삭제는 Owner-tier 승인이 필요하며 복구는
   별도로 통제된 state-forward 액션입니다.
-- `ops.update-alert-routing` - 정확한 수동 PR을 통해 기존 알림 대상 하나를 교체합니다.
+- `ops.update-alert-routing` - 공급자 중립의 정확한 계획으로 기존 알림 대상 하나를 교체합니다.
 - `ops.set-alert-notification-window` - 기존 비활성 규칙 하나에 유한한 억제 구간을 설정합니다.
 - `ops.tune-alert-evaluation` - 지원되는 임계값, 평가 구간 또는 주기 중 한 축의 변경을 제안합니다.
 - `ops.restore-alert-configuration` - 별도 복구 권한으로 정확히 보존된 기준선을 복원합니다.
 
-네 [알림 과다 수신 관리 작업](../operations/alert-noise-governance-ko.md)은 `pr_manual`, shadow 기본값,
-Owner 수준의 사람 승인과 독립 효과/복구 근거를 유지합니다. [과거 R7 제안](../fork-and-sequencing/implementation-plan-ko.md)은
-채택되지 않았습니다. ActionType에는 `require_manual_merge` 필드가 없으며 PR-native로 암묵적으로 바꾸지 않습니다.
+네 [알림 과다 수신 관리 작업](../operations/alert-noise-governance-ko.md)은 공급자 중립 `direct_api`, shadow 기본값, Owner 수준의 사람 승인, 상태 전진형 복구와 독립 효과/복구 근거를 사용하며, 알림 공급자 변경 어댑터가 등록되어 있지 않으므로 알림 전용 경로가 일반 direct-API 대체 경로보다 먼저 이 작업을 보류합니다.
+[과거 R7 제안](../fork-and-sequencing/implementation-plan-ko.md)은 채택되지 않았습니다. ActionType에는 `require_manual_merge` 필드가 없으며 PR-native로 암묵적으로 바꾸지 않습니다.
 
 리소스 프로비저닝은 운영자 요청 ActionType이 아닙니다. FDAI는 코드형 인프라가 리소스 생성을 소유하는 환경을 대상으로 하므로 모델 배포나 클라우드 리소스 생성을 요청하는 대화는 지원되지 않으며 아무것도 제출하지 않습니다. 같은 대화 화면에서 권한이 있는 인벤토리를 조회하여 이미 존재하는 리소스를 확인할 수 있습니다.
 
@@ -342,7 +341,7 @@ Owner 수준의 사람 승인과 독립 효과/복구 근거를 유지합니다.
 `ops.flush-cache` / `ops.publish-change-summary`는 여러 버티컬에 걸친 운영자 작업입니다. Azure VM/네트워크 게이트웨이 연결은 소유권을 바꾸지 않습니다.
 
 지연에 민감한 운영 작업은 보통 `execution_path: direct_api`를 사용합니다. 규정상 모든 변경을 검토 가능한 차이로 남겨야 한다면
-포크는 `pr_manual`을 강제할 수 있으며, 알림 작업은 이미 이 경로를 요구합니다.
+포크는 `pr_manual`을 강제할 수 있습니다.
 
 ### 3.3 `governance.*`
 

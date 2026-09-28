@@ -23,16 +23,16 @@ variable "resource_group_name" {
   type = string
 }
 
-variable "target_resource_id" {
-  description = "Existing Key Vault resource id observed by the pilot metric alert."
+variable "target_container_app_id" {
+  description = "Existing FDAI Core Container App resource id observed by the pilot metric alert."
   type        = string
 
   validation {
     condition = can(regex(
-      "(?i)^/subscriptions/[0-9a-f-]{36}/resourceGroups/[^/]+/providers/Microsoft\\.KeyVault/vaults/[^/]+$",
-      var.target_resource_id,
+      "(?i)^/subscriptions/[0-9a-f-]{36}/resourceGroups/[^/]+/providers/Microsoft\\.App/containerApps/ca-[^/]+-core$",
+      var.target_container_app_id,
     ))
-    error_message = "target_resource_id must be one existing Azure Key Vault resource id."
+    error_message = "target_container_app_id must be one existing FDAI Core Container App resource id."
   }
 }
 

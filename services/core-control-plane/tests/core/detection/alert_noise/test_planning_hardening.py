@@ -103,7 +103,6 @@ def routing() -> AlertTreatment:
     ("change", "reason"),
     [
         ({"ownership_verified": False}, "service_ownership_missing"),
-        ({"iac_owned": False}, "iac_ownership_missing"),
         ({"enabled": False}, "disabled_detector"),
         ({"active_incident": True}, "active_incident_dependency"),
         ({"severity": 1}, "protected_alert"),
