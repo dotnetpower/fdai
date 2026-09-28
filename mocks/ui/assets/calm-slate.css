@@ -1,4 +1,4 @@
-@import url("../../../ui/calm-slate-tokens.css?v=semantic-type-v5");
+@import url("../../../ui/calm-slate-tokens.css?v=semantic-type-v6");
 @import url("../../../ui/calm-slate-primitives.css?v=semantic-type-v5");
 @import url("./graph-workspace.css?v=1");
 
@@ -47,12 +47,12 @@ code { font-family: var(--cs-font-mono); font-size: var(--cs-type-label-size); b
 
 /* Measured interaction targets in standalone studies; chart marks keep their geometry. */
 .cs-embedded :is(.dk-layout-controls button, .dk-close, .dk-exec-copy,
-  .dk-turn-actions button, .gs-speed button, .toolbar button, .cs-chip,
+  .dk-turn-actions button, .toolbar button, .cs-chip,
   .chat-alert, .chat-quiet) { min-width: 34px; min-height: 34px; }
 .cs-operator-neutral .cs-live-fullscreen { width: 34px; height: 34px; }
 @media (max-width: 620px) {
   .cs-embedded :is(.dk-layout-controls button, .dk-close, .dk-exec-copy,
-    .dk-turn-actions button, .gs-speed button, .toolbar button, .cs-chip,
+    .dk-turn-actions button, .toolbar button, .cs-chip,
     .chat-alert, .chat-quiet) { min-width: 44px; min-height: 44px; }
   .cs-embedded .dk-turn-actions { opacity: 1; flex-wrap: wrap; }
   .cs-operator-neutral .cs-live-fullscreen { width: 44px; height: 44px; }
@@ -1516,18 +1516,18 @@ body.cs-has-sidebar { padding-left: var(--cs-sidebar-w); }
 .cs-code-copy.is-copied { border-color: rgba(184,213,168,.45); color: #B8D5A8; }
 .cs-code-panel[hidden] { display: none; }
 .cs-code-scroll { min-height: 286px; max-height: 420px; overflow: auto; padding: 14px 0 16px; }
-.cs-code-block { min-width: max-content; margin: 0; counter-reset: cs-code-line; background: transparent; color: #D8DDE1; font: 12.5px/1.72 "Cascadia Code", "Consolas", monospace; font-variant-ligatures: none; tab-size: 2; }
+.cs-code-block { min-width: max-content; margin: 0; counter-reset: cs-code-line; background: transparent; color: var(--cs-code-text); font: 12.5px/1.72 "Cascadia Code", "Consolas", monospace; font-variant-ligatures: none; tab-size: 2; }
 .cs-code-block code { display: block; padding: 0; border-radius: 0; background: transparent; color: inherit; font: inherit; }
 .cs-code-line { display: block; min-height: 1.72em; padding: 0 20px 0 56px; white-space: pre; }
 .cs-code-line::before { counter-increment: cs-code-line; content: counter(cs-code-line); display: inline-block; width: 24px; margin-left: -38px; margin-right: 14px; color: #68747E; text-align: right; user-select: none; }
-.cs-code-token.is-key { color: #8EB6D9; }
-.cs-code-token.is-string { color: #B8D5A8; }
-.cs-code-token.is-number { color: #E5B98D; }
-.cs-code-token.is-boolean { color: #C6ADD8; }
-.cs-code-token.is-comment { color: #77838D; font-style: italic; }
-.cs-code-token.is-command { color: #F1F3F4; font-weight: 600; }
-.cs-code-token.is-flag { color: #9EC5C0; }
-.cs-code-token.is-punctuation { color: #8F9AA4; }
+.cs-code-token.is-key { color: var(--cs-code-key); }
+.cs-code-token.is-string { color: var(--cs-code-string); }
+.cs-code-token.is-number { color: var(--cs-code-number); }
+.cs-code-token.is-boolean { color: var(--cs-code-boolean); }
+.cs-code-token.is-comment { color: var(--cs-code-comment); font-style: italic; }
+.cs-code-token.is-command { color: var(--cs-code-command); font-weight: 600; }
+.cs-code-token.is-flag { color: var(--cs-code-flag); }
+.cs-code-token.is-punctuation { color: var(--cs-code-punctuation); }
 .cs-code-caption { display: flex; justify-content: space-between; gap: 16px; margin-top: 10px; color: var(--cs-text-soft); font-size: 12px; }
 .cs-code-variants { margin-top: 28px; padding-top: 22px; border-top: 1px solid var(--cs-hairline); }
 .cs-code-variants-head { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; margin-bottom: 14px; }
@@ -1539,9 +1539,9 @@ body.cs-has-sidebar { padding-left: var(--cs-sidebar-w); }
 .cs-code-chat-avatar { width: 26px; height: 26px; flex: 0 0 auto; display: inline-flex; align-items: center; justify-content: center; border-radius: 50%; background: var(--cs-plum); color: #fff; font-size: 9px; font-weight: 700; }
 .cs-code-chat-bubble { min-width: 0; max-width: 560px; padding: 11px 12px 12px; border: 1px solid var(--cs-hairline); border-radius: 8px; background: var(--cs-card); box-shadow: 0 2px 8px rgba(46,54,64,.045); }
 .cs-code-chat-bubble > p { margin: 0 0 8px; color: var(--cs-text); font-size: 12.5px; }
-.cs-code-compact { overflow: hidden; border: 1px solid #3B4650; border-radius: 7px; background: #222A31; color: #E7E9EB; }
-.cs-code-compact-head { min-height: 32px; display: flex; align-items: center; gap: 8px; padding: 0 6px 0 10px; border-bottom: 1px solid rgba(255,255,255,.08); background: #2B343C; }
-.cs-code-compact-lang { flex: 1; color: #98A4AD; font: 700 9.5px var(--cs-font); letter-spacing: .06em; text-transform: uppercase; }
+.cs-code-compact { overflow: hidden; border: 1px solid var(--cs-code-border); border-radius: 7px; background: var(--cs-code-bg); color: #E7E9EB; }
+.cs-code-compact-head { min-height: 32px; display: flex; align-items: center; gap: 8px; padding: 0 6px 0 10px; border-bottom: 1px solid var(--cs-code-rule); background: var(--cs-code-head-bg); }
+.cs-code-compact-lang { flex: 1; color: var(--cs-code-muted); font: 700 9.5px var(--cs-font); letter-spacing: .06em; text-transform: uppercase; }
 .cs-code-compact .cs-code-copy { min-height: 24px; padding: 2px 7px; font-size: 9.5px; }
 .cs-code-compact .cs-code-scroll { min-height: 0; max-height: 138px; padding: 8px 0 9px; }
 .cs-code-compact .cs-code-block { font-size: 11.5px; line-height: 1.58; }
