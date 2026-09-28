@@ -83,6 +83,7 @@ from fdai.rule_catalog.schema.override import Override
 from fdai.rule_catalog.schema.property_semantic import PropertySemanticRegistry
 from fdai.shared.contracts.models import (
     Event,
+    FullAuthorityDevelopmentProfile,
     OntologyActionType,
     OntologyRelease,
     ResponseOutcome,
@@ -91,6 +92,7 @@ from fdai.shared.contracts.models import (
 from fdai.shared.providers.alert_noise import AlertPlanArtifacts
 from fdai.shared.providers.blast_probe import LiveBlastProbe
 from fdai.shared.providers.cost_estimator import CostEstimator
+from fdai.shared.providers.development_authority import DevelopmentAuthorityBindingSource
 from fdai.shared.providers.execution_authorization import (
     ExecutionAccessGrantSink,
     ExecutionAuthorizationEvaluator,
@@ -188,6 +190,9 @@ class ControlLoop(
         safeguard_lifecycle_coordinator: SafeguardLifecycleCoordinator | None = None,
         clock: Callable[[], datetime] | None = None,
         governed_execution_selected: bool = False,
+        development_profile: FullAuthorityDevelopmentProfile | None = None,
+        development_binding_source: DevelopmentAuthorityBindingSource | None = None,
+        development_executor_principal: str | None = None,
     ) -> None:
         if (thor_execution_port is None) != (mutation_dependency_readiness is None):
             raise ValueError(
@@ -241,6 +246,9 @@ class ControlLoop(
         self._mutation_dependency_readiness = mutation_dependency_readiness
         self._evidence_conflict_reader = evidence_conflict_reader
         self._safeguard_lifecycle_coordinator = safeguard_lifecycle_coordinator
+        self._development_profile = development_profile
+        self._development_binding_source = development_binding_source
+        self._development_executor_principal = development_executor_principal
         self._executor = executor
         self._audit_store = audit_store
         self._rules_by_id = dict(rules_by_id)
@@ -322,6 +330,23 @@ class ControlLoop(
         if self._t1_engine is not None:
             self._t1_engine.bind_case_history(materializer)
         self._case_history_reuse = materializer
+
+    @property
+    def development_authority_parts(
+        self,
+    ) -> tuple[FullAuthorityDevelopmentProfile, DevelopmentAuthorityBindingSource, str] | None:
+        """Return the selected development profile inputs shared with the Pantheon."""
+        if (
+            self._development_profile is None
+            or self._development_binding_source is None
+            or not self._development_executor_principal
+        ):
+            return None
+        return (
+            self._development_profile,
+            self._development_binding_source,
+            self._development_executor_principal,
+        )
 
     @property
     def case_history_reuse(self) -> CaseHistoryMaterializer | None:

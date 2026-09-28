@@ -16,6 +16,7 @@ from fdai.core.control_loop._helpers import (
     evaluate_unified,
 )
 from fdai.core.control_loop._safeguard_commitment import ControlLoopSafeguardCommitmentMixin
+from fdai.core.control_loop.development_request import development_authority_inputs
 from fdai.core.executor import ExecutionResult, ExecutorOutcome, ShadowExecutor
 from fdai.core.executor.direct_api import DirectApiExecutionResult
 from fdai.core.executor.port import DirectApiExecutionPort
@@ -45,6 +46,7 @@ from fdai.shared.contracts.models import (
     Action,
     Event,
     ExecutionPath,
+    FullAuthorityDevelopmentProfile,
     OntologyActionType,
     Rule,
     Tier,
@@ -55,6 +57,7 @@ from fdai.shared.providers.blast_probe import (
     ProbeQuery,
     ProbeVerdict,
 )
+from fdai.shared.providers.development_authority import DevelopmentAuthorityBindingSource
 from fdai.shared.providers.execution_authorization import (
     ExecutionAccessGrantSink,
     ExecutionAuthorizationEvaluator,
@@ -96,6 +99,9 @@ class ControlLoopExecutionMixin(
     _automation_hold_reader: AutomationHoldReader | None
     _risk_gate: RiskGate | None
     _risk_table: RiskTable | None
+    _development_profile: FullAuthorityDevelopmentProfile | None
+    _development_binding_source: DevelopmentAuthorityBindingSource | None
+    _development_executor_principal: str | None
     _tool_executor: ToolCallShadowExecutor | None
 
     async def _measure_live_probe(
@@ -565,6 +571,15 @@ class ControlLoopExecutionMixin(
                 automation_hold_engaged=automation_hold_engaged,
                 automation_hold_recovery=automation_hold_recovery,
                 live_probe_observation=live_probe_observation,
+                **development_authority_inputs(
+                    profile=self._development_profile,
+                    binding_source=self._development_binding_source,
+                    executor_principal=self._development_executor_principal,
+                    event=event,
+                    action=action,
+                    action_type=action_type,
+                    now=self._clock(),
+                ),
             )
             conflict_disposition = EvidenceConflictDisposition.NOT_APPLICABLE
             conflict_revision_refs: list[str] = []

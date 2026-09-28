@@ -84,6 +84,8 @@ from fdai.runtime.forecast_learning import (
     forecast_history_collector_from_environment,
 )
 from fdai.runtime.operational_catalog_review import build_operational_catalog_review_bindings
+from fdai.runtime.pantheon_inputs import pantheon_development_bindings
+from fdai.runtime.pantheon_inputs import pantheon_heartbeat as _pantheon_heartbeat
 from fdai.runtime.post_turn_review import (
     PostTurnReviewRuntime,
     build_azure_post_turn_models,
@@ -497,6 +499,7 @@ async def initialize_pantheon(
         var_state_store=config.incident_audit_store,
         execution_resource_lock=execution_resource_lock,
         approver_authorizer=approver_authorizer_from_environment(config.environment),
+        development_authority=pantheon_development_bindings(config.control_loop),
         saga=config.runtime_saga,
         muninn_state_store=config.incident_audit_store,
         huginn_state_store=config.incident_audit_store,
@@ -776,19 +779,6 @@ async def initialize_pantheon(
         discovery_activation=discovery_activation,
         alert_noise_handler=alert_noise_handler,
     )
-
-
-def _pantheon_heartbeat(environment: Mapping[str, str]) -> float | None:
-    raw = environment.get("FDAI_PANTHEON_HEARTBEAT_SECONDS", "").strip()
-    if not raw:
-        return None
-    try:
-        heartbeat = float(raw)
-    except ValueError as exc:
-        raise RuntimeError(f"FDAI_PANTHEON_HEARTBEAT_SECONDS={raw!r} is not a float") from exc
-    if heartbeat <= 0:
-        raise RuntimeError(f"FDAI_PANTHEON_HEARTBEAT_SECONDS MUST be > 0; got {heartbeat}")
-    return heartbeat
 
 
 __all__ = [

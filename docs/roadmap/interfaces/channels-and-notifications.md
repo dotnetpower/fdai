@@ -68,7 +68,8 @@ durable delivery, and the Teams Workflows webhook binding are owned by
   picks channels per the fork's routing config (§6). It holds no vendor knowledge.
 - **Approval callbacks from any adapter land at `fdai-api`**, which re-validates
   the human's Entra identity ([user-rbac-and-identity.md](user-rbac-and-identity.md#102-api-token-validation))
-  before acting. Adapters never authorize decisions themselves.
+  before acting. Adapters never authorize decisions themselves. A channel approval never becomes a
+  full-authority development confirmation, which only an Owner-bound exact-action request can carry.
 
 ## 3. Categories (A1-A4)
 
