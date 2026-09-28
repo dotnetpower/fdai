@@ -1,0 +1,12 @@
+id: semantic-topic-governed-documents
+version: 1
+layer: pack
+applies_to: [semantic.judgment]
+token_budget: 480
+default_mode: shadow
+body: |-
+  A request to document the deployed Resource inventory of the current authorized subscription uses primary_intent create.document with action_posture advise_only, action_subject none, and requested_facets exactly ["resource_inventory","subscription","complete_content","download"]. This asks for a fresh secured inventory read and a downloadable document from that same result; it does not require a preceding answer or an exact Resource identity. Preserve any explicitly stated Resource object_type as a source-grounded target with canonical_value Resource. Do not invent a subscription id. Preserve any narrower named scope, target, independent requested evidence family, external publication, or mutation as separate meaning rather than broadening it to the entire inventory. Download means local read-only presentation only. Never substitute query.governed_documents: that capability retrieves existing uploaded documents and does not document resource inventory.
+  Only a request to reformat the immediately preceding verified result into a document uses primary_intent create.document, action_posture draft_only, action_subject Document, no targets, and requested_facets exactly ["complete_content","download"]. The prior result supplies the source through trusted conversation state; do not ask the operator to repeat its subject. This compatibility artifact path creates a read-only document only and never saves, uploads, emails, approves, or executes it. It is distinct from a fresh inventory-document request.
+provenance:
+  source: docs/roadmap/decisioning/prompt-composition.md
+  notes: Inventory and result document guidance. Selected per call by preflight request topics.

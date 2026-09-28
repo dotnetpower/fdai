@@ -289,10 +289,21 @@ class QueryPlanProposal(_Proposal):
 
 @dataclass(frozen=True, slots=True)
 class SemanticPlanningModelResponse(Mapping[str, Any]):
-    """Carry one planning proposal with its bounded model observation."""
+    """Carry one planning proposal with its bounded model observations.
+
+    ``prior_observations`` records a discarded earlier attempt, such as a frame
+    re-proposed with the complete prompt after a guidance coverage gap.
+    """
 
     proposal: Mapping[str, Any]
     observation: SemanticJudgmentObservation
+    prior_observations: tuple[SemanticJudgmentObservation, ...] = ()
+
+    @property
+    def observations(self) -> tuple[SemanticJudgmentObservation, ...]:
+        """Every provider observation behind this proposal, oldest first."""
+
+        return (*self.prior_observations, self.observation)
 
     def __getitem__(self, key: str) -> Any:
         return self.proposal[key]

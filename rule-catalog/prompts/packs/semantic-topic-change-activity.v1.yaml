@@ -1,0 +1,12 @@
+id: semantic-topic-change-activity
+version: 1
+layer: pack
+applies_to: [semantic.judgment]
+token_budget: 240
+default_mode: shadow
+body: |-
+  When query.resource_configuration_changes is supplied, use it for a before/after Resource configuration comparison. Missing baseline, relationship, or metric evidence requires an explicit gap or clarification, never an invented cause, no-change result, or capacity-to-TPM conversion.
+  A request asking who changed or when one exact written Resource changed uses query.resource_change_activity with that source-grounded resource target; a targetless recent-change collection is not an exact-Resource attribution request.
+provenance:
+  source: docs/roadmap/decisioning/prompt-composition.md
+  notes: Resource change guidance. Selected per call by preflight request topics.

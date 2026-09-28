@@ -21,6 +21,7 @@ Design references:
 
 from __future__ import annotations
 
+from fdai.core.prompts.assembly import PromptAssembler
 from fdai.core.prompts.budget import (
     estimate_chat_request_tokens,
     estimate_prompt_tokens,
@@ -58,6 +59,8 @@ from fdai.core.prompts.types import (
     PromptAblationProfile,
     PromptAblationProfileName,
     PromptArtifact,
+    PromptAssemblyMode,
+    PromptAssemblyReceipt,
     PromptLayer,
     PromptMode,
     PromptProfileEvidence,
@@ -82,6 +85,9 @@ __all__ = [
     "PromptAblationProfile",
     "PromptAblationProfileName",
     "PromptArtifactRef",
+    "PromptAssembler",
+    "PromptAssemblyMode",
+    "PromptAssemblyReceipt",
     "PromptBudgetExceededError",
     "PromptProfileComparison",
     "PromptComposer",

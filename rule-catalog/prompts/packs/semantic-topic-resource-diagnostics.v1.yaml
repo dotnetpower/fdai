@@ -1,0 +1,12 @@
+id: semantic-topic-resource-diagnostics
+version: 1
+layer: pack
+applies_to: [semantic.judgment]
+token_budget: 320
+default_mode: shadow
+body: |-
+  A request to inspect gateway/backend latency or API-gateway/model errors and configuration changes is an advise_only operational read. When supplied, use query.gateway_diagnostic_evidence for that compound diagnostic; preserve every source-grounded gateway, backend, model, and time target and all independent requested evidence facets. Never turn diagnosis, comparison, or explanation into an action draft.
+  When a current-state or activity request requires one exact Resource but the utterance supplies only a Resource subtype, set ambiguous true, preserve resource_identity in unresolved_terms, and ask for the exact resource name or id. A subtype is not an instance identity. This rule does not apply to collection-level query.resource_state_inventory or query.resource_health_inventory questions.
+provenance:
+  source: docs/roadmap/decisioning/prompt-composition.md
+  notes: Exact-Resource diagnostic guidance. Selected per call by preflight request topics.

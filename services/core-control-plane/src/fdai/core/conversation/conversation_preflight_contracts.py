@@ -22,7 +22,10 @@ from .conversation_preflight_answer_safety import (
     general_answer_contains_link,
     general_answer_contains_operational_claim,
 )
-from .conversation_preflight_validation import discard_generic_collection_filter_targets
+from .conversation_preflight_validation import (
+    discard_details_without_family,
+    discard_generic_collection_filter_targets,
+)
 from .model_observation import ConversationModelObservation, ConversationModelResponse
 
 Digest = Annotated[str, Field(pattern=r"^sha256:[a-f0-9]{64}$")]
@@ -120,6 +123,24 @@ class OperationalPreflightFamily(StrEnum):
     GATEWAY_DIAGNOSTIC_EVIDENCE = "gateway_diagnostic_evidence"
 
 
+class RequestTopic(StrEnum):
+    """Closed instruction families that only select judgment prompt guidance.
+
+    A topic never selects an intent, widens a capability, or grants authority.
+    """
+
+    RESOURCE_INVENTORY = "resource_inventory"
+    RESOURCE_DIAGNOSTICS = "resource_diagnostics"
+    CHANGE_ACTIVITY = "change_activity"
+    EVENT_HEALTH = "event_health"
+    INCIDENT = "incident"
+    ONTOLOGY_SCHEMA = "ontology_schema"
+    GOVERNED_DOCUMENTS = "governed_documents"
+    ACTION_REQUEST = "action_request"
+    CONVERSATION = "conversation"
+    GENERAL_KNOWLEDGE = "general_knowledge"
+
+
 class OperationalWindowMode(StrEnum):
     """Typed temporal posture for one reviewed operational preflight family."""
 
@@ -142,6 +163,7 @@ class ConversationPreflightProposal(QueryContract):
     operational_targets: Annotated[tuple[SemanticTarget, ...], Field(max_length=4)] = ()
     operational_facets: Annotated[tuple[str, ...], Field(max_length=24)] = ()
     operational_result_limit: Annotated[int, Field(ge=1, le=20)] | None = None
+    request_topics: Annotated[tuple[RequestTopic, ...], Field(max_length=3)] = ()
     confidence: Annotated[float, Field(ge=0.0, le=1.0)]
     authority: Literal["candidate_only"] = "candidate_only"
     execution_authority: Literal[False] = False
@@ -149,7 +171,7 @@ class ConversationPreflightProposal(QueryContract):
     @model_validator(mode="before")
     @classmethod
     def _discard_generic_collection_filter_targets(cls, value: object) -> object:
-        return discard_generic_collection_filter_targets(value)
+        return discard_details_without_family(discard_generic_collection_filter_targets(value))
 
     @model_validator(mode="after")
     def _route_is_consistent(self) -> ConversationPreflightProposal:
@@ -164,6 +186,8 @@ class ConversationPreflightProposal(QueryContract):
             raise ValueError("operational preflight window requires a known operational family")
         if len(self.operational_facets) != len(set(self.operational_facets)):
             raise ValueError("operational preflight facets MUST be unique")
+        if len(self.request_topics) != len(set(self.request_topics)):
+            raise ValueError("conversation preflight request topics MUST be unique")
         pure_general = (
             self.social_act is SocialAct.NONE
             and self.knowledge_signal is GeneralKnowledgeSignal.EXPLICIT

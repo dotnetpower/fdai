@@ -13,8 +13,11 @@ from fdai.core.prompts.types import (
     ComposedPrompt,
     LayerRef,
     PromptArtifact,
+    PromptAssemblyMode,
+    PromptAssemblyReceipt,
     PromptLayer,
     PromptProfileEvidence,
+    validate_assembly_keys,
 )
 
 _COMPONENT_ID = re.compile(r"^[a-z0-9][a-z0-9.\-]{0,127}$")
@@ -35,6 +38,8 @@ class PromptArtifactRef:
     id: str
     version: int
     layer: PromptLayer
+    when_any: tuple[str, ...] = ()
+    covers: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
         if _COMPONENT_ID.fullmatch(self.id) is None:
@@ -43,6 +48,29 @@ class PromptArtifactRef:
             raise ValueError("prompt artifact ref version MUST be a positive integer")
         if not isinstance(self.layer, PromptLayer):
             raise ValueError("prompt artifact ref layer MUST be a PromptLayer")
+        validate_assembly_keys(self.when_any, name="when_any")
+        validate_assembly_keys(self.covers, name="covers")
+        if self.covers and not self.when_any:
+            raise ValueError("prompt artifact ref covers requires when_any")
+
+    @property
+    def conditional(self) -> bool:
+        """True when this pack joins a composition only for matching assembly keys."""
+
+        return bool(self.when_any)
+
+    def digest_payload(self) -> dict[str, object]:
+        """Return digest fields; unconditional refs keep their historical shape."""
+
+        payload: dict[str, object] = {
+            "id": self.id,
+            "layer": self.layer.value,
+            "version": self.version,
+        }
+        if self.when_any:
+            payload["when_any"] = sorted(self.when_any)
+            payload["covers"] = sorted(self.covers)
+        return payload
 
 
 @dataclass(frozen=True, slots=True)
@@ -87,12 +115,26 @@ class PromptProfile:
             raise ValueError("prompt profile reserved output MUST be below its request budget")
         if len({(ref.id, ref.version, ref.layer) for ref in self.packs}) != len(self.packs):
             raise ValueError("prompt profile pack refs MUST be unique")
+        if self.root.conditional or self.root.covers:
+            raise ValueError("prompt profile root MUST NOT be conditional")
         if any(not item for item in self.promotion_evidence):
             raise ValueError("prompt profile promotion evidence MUST be non-empty")
         if len(set(self.promotion_evidence)) != len(self.promotion_evidence):
             raise ValueError("prompt profile promotion evidence MUST be unique")
         if not self.provenance_source:
             raise ValueError("prompt profile provenance source MUST be non-empty")
+
+    @property
+    def dynamic(self) -> bool:
+        """True when at least one pack is selected per call by assembly keys."""
+
+        return any(ref.conditional for ref in self.packs)
+
+    @property
+    def governed_keys(self) -> tuple[str, ...]:
+        """Result keys whose guidance lives only in conditional packs."""
+
+        return tuple(sorted({key for ref in self.packs for key in ref.covers}))
 
     @property
     def digest(self) -> str:
@@ -102,10 +144,7 @@ class PromptProfile:
             "capability_id": self.capability_id,
             "id": self.id,
             "mode": self.mode.value,
-            "packs": [
-                {"id": ref.id, "layer": ref.layer.value, "version": ref.version}
-                for ref in self.packs
-            ],
+            "packs": [ref.digest_payload() for ref in self.packs],
             "promotion_evidence": list(self.promotion_evidence),
             "provenance_source": self.provenance_source,
             "request_token_budget": self.request_token_budget,
@@ -182,8 +221,63 @@ class PromptRequestBudgetExceededError(RuntimeError):
         super().__init__(f"{surface} request exceeds prompt profile budget ({estimate} > {budget})")
 
 
+def assembly_receipt(
+    selection: PromptSelection,
+    *,
+    mode: PromptAssemblyMode,
+    keys: tuple[str, ...],
+    selected: tuple[int, ...],
+    system_text: str,
+    ablated: frozenset[int] = frozenset(),
+) -> PromptAssemblyReceipt:
+    """Bind one per-call conditional-pack decision to its exact profile and text.
+
+    ``ablated`` pack indexes were removed by a reviewed ablation profile and are
+    recorded there instead of as assembly exclusions.
+    """
+
+    profile = selection.profile
+    if profile is None or len(profile.packs) != len(selection.packs):
+        raise ValueError("prompt assembly requires one exact profile selection")
+    chosen = frozenset(selected)
+    if chosen & ablated:
+        raise ValueError("prompt assembly cannot select an ablated pack")
+    unselected = tuple(
+        LayerRef(
+            id=artifact.id,
+            version=artifact.version,
+            layer=artifact.layer,
+            token_estimate=estimate_prompt_tokens(artifact.body),
+        )
+        for index, artifact in enumerate(selection.packs)
+        if index not in chosen and index not in ablated
+    )
+    covered = tuple(sorted({key for index in chosen for key in profile.packs[index].covers}))
+    ordered_keys = tuple(sorted(set(keys)))
+    payload = {
+        "keys": list(ordered_keys),
+        "mode": mode.value,
+        "profile_digest": selection.digest,
+        "selected": [profile.packs[index].digest_payload() for index in sorted(chosen)],
+        "system_text_sha256": hashlib.sha256(system_text.encode()).hexdigest(),
+    }
+    encoded = json.dumps(payload, ensure_ascii=True, separators=(",", ":"), sort_keys=True)
+    return PromptAssemblyReceipt(
+        mode=mode,
+        keys=ordered_keys,
+        unselected_layers=unselected,
+        covered_keys=covered,
+        governed_keys=profile.governed_keys,
+        digest="sha256:" + hashlib.sha256(encoded.encode()).hexdigest(),
+    )
+
+
 def compose_static_selection(selection: PromptSelection) -> ComposedPrompt:
-    """Compose catalog-only layers without runtime memory, tools, or skills."""
+    """Compose catalog-only layers without runtime memory, tools, or skills.
+
+    A dynamic profile composes every pack here; per-call selection belongs to
+    :class:`fdai.core.prompts.assembly.PromptAssembler`.
+    """
 
     artifacts = (selection.root, *selection.packs)
     system_text = "\n\n".join(artifact.body for artifact in artifacts)
@@ -213,10 +307,22 @@ def compose_static_selection(selection: PromptSelection) -> ComposedPrompt:
         system_token_budget=profile.system_token_budget if profile is not None else None,
         request_token_budget=profile.request_token_budget if profile is not None else None,
         reserved_output_tokens=profile.reserved_output_tokens if profile is not None else None,
+        assembly=(
+            assembly_receipt(
+                selection,
+                mode=PromptAssemblyMode.COMPLETE,
+                keys=(),
+                selected=tuple(range(len(selection.packs))),
+                system_text=system_text,
+            )
+            if profile is not None and profile.dynamic
+            else None
+        ),
     )
 
 
 __all__ = [
+    "assembly_receipt",
     "compose_static_selection",
     "PromptArtifactRef",
     "PromptBudgetExceededError",
