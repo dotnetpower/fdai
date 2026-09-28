@@ -172,6 +172,9 @@ cannot fill either approval slot. A job title, Azure email role, chat acknowledg
 membership alone grants none of these rights. Missing owner/backup coverage holds the proposal.
 Every affected service needs an authorized owner decision; one approver can represent several
 services only with verified scope. Splitting a shared group into smaller requests cannot evade quorum.
+Inside the full-authority development profile's dedicated test scope, one authenticated Owner fills
+both lanes, as the constitution allows, and the audit keeps the original two-lane requirement.
+Shared and production scopes keep the two-human quorum.
 
 The isolated dev provider-qualification prerequisite is outside this Var quorum. One operator uses
 Terraform locally to create or update only the dedicated pilot rule and Action Group, with one
@@ -285,9 +288,9 @@ independent production and operational validation are not established by this ch
 | Safeguard | Required proof |
 |-----------|----------------|
 | Stop condition | Protected-path loss, stale context, new dependency, active dependent incident, identity/policy change, telemetry loss, or deadline stops forward work |
-| Tested rollback | Pinned prior fields, IaC revision, authorized recovery operation, expected recovery duration, and independently observed restore |
+| Tested rollback | Pinned prior fields and provider revision, authorized recovery operation, expected recovery duration, and independently observed restore |
 | Impact limit | Explicit resource/rule/audience/dependency manifest; one resource-group-equivalent boundary per execution unit |
-| Successful dry-run | Exact provider-shape validation, IaC diff, complete effective-routing simulation, positive/negative scenarios, and unchanged protected paths |
+| Successful dry-run | Exact provider-shape validation and field diff, complete effective-routing simulation, positive/negative scenarios, and unchanged protected paths |
 | Logical-target lock | Stable keys for changed objects and shared routing dependencies; provider-native revision checks where supported |
 | Stable idempotency | Same plan, target revision, effect, and window reuse one dispatch identity across retries/restart |
 | Two-phase audit | Saga intent before dispatch, then authoritative applied/held/failed/recovered outcome with all receipt references |
@@ -297,6 +300,10 @@ are insufficient. That write stays unavailable until a governed exclusive-writer
 no competing portal, IaC, or automation writer can change the target. Unknown writer ownership holds.
 The same protection covers critical routing dependencies through commit. An advisory reverse-edge
 snapshot or a lock that ignores other writers cannot protect against a newly attached alert rule.
+Inside the development profile's dedicated test scope, where FDAI owns every target, the held
+logical-target lock plus a provider revision re-read before the write is enough for the first
+implementation. The governed exclusive-writer mechanism is a hardening condition before any shared
+or production target ([#1589](https://github.com/dotnetpower/fdai/issues/1589)).
 
 Compare frozen baseline and treatment first. Pilot one existing non-protected rule and service;
 advance to the next independently approved unit only after its predecessor's outcome closes.
@@ -368,6 +375,14 @@ can prioritize advice or aggregate optional FDAI messages, never silently drop p
 These are dependency-ordered exit conditions, not completion claims or rollout dates. The
 [implementation ledger](../../roadmap-implementation/operations/alert-noise-governance.md) separates
 implemented mechanics from the baseline checkpoint, remaining hardening, and operational evidence.
+
+Delivery is implementation-first. The first completion implements every package's mechanics, the
+provider adapter, and the dev pilot inside the full-authority development profile. These are
+hardening conditions before promotion or production use, not implementation prerequisites:
+independently admitted evidence producers, the timed pilot's independent evidence, governed writer
+fencing, authenticated accessibility, production promotion thresholds, the scale fixture, the full
+negative-case matrix, and the coverage floor. [#1589](https://github.com/dotnetpower/fdai/issues/1589)
+tracks them.
 
 | Package | Observable exit condition |
 |---------|---------------------------|
