@@ -11,8 +11,12 @@ from typing import Any, Protocol
 
 import psycopg
 from fdai_service_contracts import OperatorRole
+from fdai_service_contracts.development_approval import DEVELOPMENT_APPROVAL_ATTESTATION_FIELD
 from psycopg.rows import dict_row
 
+from fdai_operator_service.families.iam.hil_development_approval import (
+    development_self_approval_admitted,
+)
 from fdai_operator_service.postgres_family_store import (
     PostgresFamilyStoreConfig,
     PostgresFamilyStoreUnavailable,
@@ -51,6 +55,7 @@ class HilDecisionStore(Protocol):
         expected_submitter_oid: str,
         expected_decision_route: str,
         expected_required_role: str,
+        development_attestation: Mapping[str, object] | None = None,
     ) -> StoredProposal: ...
 
 
@@ -75,6 +80,7 @@ class PostgresHilDecisionStore:
         expected_submitter_oid: str,
         expected_decision_route: str,
         expected_required_role: str,
+        development_attestation: Mapping[str, object] | None = None,
     ) -> StoredProposal:
         """Fence one pending approval and atomically retain its decision plus outbox."""
         if decided_at.tzinfo is None or expected_expires_at.tzinfo is None:
@@ -139,8 +145,10 @@ class PostgresHilDecisionStore:
                             approval_id=approval_id,
                             idempotency_key=idempotency_key,
                             action_hash=action_hash,
+                            decision=decision,
                             approver_oid=approver_oid,
                             approver_roles=approver_roles,
+                            development_attestation=development_attestation,
                             database_now=clock_row["database_now"],
                             expected_expires_at=expected_expires_at,
                             expected_submitter_oid=expected_submitter_oid,
@@ -168,6 +176,10 @@ class PostgresHilDecisionStore:
                             and existing_receipt.get("delivered") is True
                         ),
                     }
+                    if development_attestation is not None:
+                        receipt[DEVELOPMENT_APPROVAL_ATTESTATION_FIELD] = dict(
+                            development_attestation
+                        )
                     if existing_receipt is not None:
                         _validate_existing_hil_receipt(existing_receipt, receipt)
                         receipt = existing_receipt
@@ -190,7 +202,9 @@ class PostgresHilDecisionStore:
                             "justification",
                             "decided_at",
                             "receipt_ref",
+                            DEVELOPMENT_APPROVAL_ATTESTATION_FIELD,
                         )
+                        if key in receipt
                     }
                     outbox_key, outbox_proposal = _operator_proposal_record(
                         family="iam",
@@ -300,6 +314,8 @@ def _validate_hil_decision_park(
     expected_submitter_oid: str,
     expected_decision_route: str,
     expected_required_role: str,
+    decision: str = "",
+    development_attestation: Mapping[str, object] | None = None,
 ) -> None:
     if parked.get("status") != "pending":
         raise PostgresProposalConflict("HIL approval is no longer pending")
@@ -314,7 +330,17 @@ def _validate_hil_decision_park(
         raise PostgresFamilyStoreUnavailable("HIL approval submitter identity is unavailable")
     if submitter.strip().casefold() != expected_submitter_oid.strip().casefold():
         raise PostgresProposalConflict("HIL approval submitter changed before decision")
-    if submitter.strip().casefold() == approver_oid.strip().casefold():
+    if submitter.strip().casefold() == approver_oid.strip().casefold() and not (
+        isinstance(database_now, datetime)
+        and development_self_approval_admitted(
+            parked,
+            approver_oid=approver_oid,
+            approver_roles=approver_roles,
+            decision=decision,
+            attestation=development_attestation,
+            now=database_now,
+        )
+    ):
         raise PostgresHilDecisionPermissionError("requester MUST NOT approve their own request")
 
     context = parked.get("approval_context")

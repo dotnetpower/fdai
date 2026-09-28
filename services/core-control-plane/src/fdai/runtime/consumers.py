@@ -338,11 +338,15 @@ async def _consume_hil_decisions(
                         payload=payload,
                     )
                     continue
+                attestation = payload.get("development_attestation")
                 await coordinator.resolve(
                     approval_id=approval_id,
                     decision=decision,
                     approver_oid=approver_oid,
                     reason=justification,
+                    development_attestation=(
+                        attestation if isinstance(attestation, Mapping) else None
+                    ),
                 )
             except Exception as exc:  # noqa: BLE001 - broker boundary isolation
                 reason = f"hil_decision_consume_error:{type(exc).__name__}"

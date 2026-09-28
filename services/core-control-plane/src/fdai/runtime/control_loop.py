@@ -720,7 +720,9 @@ def _build_control_loop(
         effect_observer = tag_effect_verifier.observe
 
     return ControlLoop(
-        **development_control_loop_kwargs(os.environ, store=audit_store),
+        **development_control_loop_kwargs(
+            os.environ, store=audit_store, identity=identity, http_client=http_client
+        ),
         event_ingest=event_ingest,
         trust_router=trust_router,
         t0_engine=t0,

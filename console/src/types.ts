@@ -423,6 +423,8 @@ export interface HilQueueItem {
   readonly ttl_expires_at: string | null;
   readonly decision_requestable: boolean;
   readonly decision_unavailable_reason: string | null;
+  /** Whether the caller is the Core-selected Owner who may self-approve after a fresh sign-in. */
+  readonly development_self_approval_available: boolean;
 }
 
 export interface HilQueuePage {

@@ -101,6 +101,7 @@ from fdai.shared.providers.ontology_instance import OntologyInstanceStore
 from fdai.shared.providers.process_runtime import ProcessRuntimeStore
 from fdai.shared.providers.stage_publisher import NullStagePublisher, StagePublisher
 from fdai.shared.providers.state_store import StateStore
+from fdai.shared.providers.target_revision import TargetRevisionReader
 from fdai.shared.resilience import DegradationController, KillSwitch
 
 _LOGGER = logging.getLogger(__name__)
@@ -193,6 +194,7 @@ class ControlLoop(
         development_profile: FullAuthorityDevelopmentProfile | None = None,
         development_binding_source: DevelopmentAuthorityBindingSource | None = None,
         development_executor_principal: str | None = None,
+        development_revision_reader: TargetRevisionReader | None = None,
     ) -> None:
         if (thor_execution_port is None) != (mutation_dependency_readiness is None):
             raise ValueError(
@@ -249,6 +251,13 @@ class ControlLoop(
         self._development_profile = development_profile
         self._development_binding_source = development_binding_source
         self._development_executor_principal = development_executor_principal
+        self._development_revision_reader = development_revision_reader
+        if hil_resume_coordinator is not None and development_profile is not None:
+            hil_resume_coordinator.bind_development_authority(
+                profile=development_profile,
+                bindings=development_binding_source,
+                revisions=development_revision_reader,
+            )
         self._executor = executor
         self._audit_store = audit_store
         self._rules_by_id = dict(rules_by_id)

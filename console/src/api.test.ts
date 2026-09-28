@@ -242,9 +242,12 @@ describe("Operator API response decoders", () => {
         ttl_expires_at: "2026-07-15T10:30:00Z",
         decision_requestable: true,
         decision_unavailable_reason: null,
+        development_self_approval_available: true,
       }],
       total: 1,
     }).items[0];
+    expect(legacyItem?.development_self_approval_available).toBe(false);
+    expect(enrichedItem?.development_self_approval_available).toBe(true);
     expect(enrichedItem?.rollback_kind).toBe("pr_revert");
     expect(enrichedItem?.blast_radius_count).toBe(1);
     expect(enrichedItem?.citing_rule_ids).toEqual(["example.rule"]);

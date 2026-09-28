@@ -1,7 +1,7 @@
 ---
 title: 채널과 알림(Channels and Notifications)
 translation_of: channels-and-notifications.md
-translation_source_sha: bc0066ab174f3b006fb09b9d68107f69320c5859
+translation_source_sha: 1b5aab142a601284f2dd3e3b2df7b9327083a930
 translation_revised: 2026-09-28
 ---
 
@@ -70,7 +70,8 @@ Teams Workflows 웹훅 바인딩은
   아이덴티티를 재검증
   ([user-rbac-and-identity-ko.md](user-rbac-and-identity-ko.md#102-api-token-validation)).
   어댑터는 절대 자체로 결정을 authorize 하지 않음. 채널 승인은 full-authority 개발 확인이 될 수
-  없으며, 개발 확인은 Owner에 결속된 정확한 작업 요청만 담을 수 있습니다.
+  없습니다. FDAI Console 결정 경로만 토큰을 담지 않은 새 로그인 증명을 첨부할 수 있으며, HIL 결정
+  페이로드가 이를 Core로 전달해 다시 검증합니다. Slack과 Teams 결정은 이 증명을 담지 않습니다.
 
 ## 3. 카테고리 (A1-A4)
 

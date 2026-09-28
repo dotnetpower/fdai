@@ -40,3 +40,36 @@ async def test_hil_consumer_routes_contact_consent_without_action_decision() -> 
         expected_consent_revision=0,
     )
     coordinator.resolve.assert_not_called()
+
+
+async def test_hil_consumer_forwards_only_a_mapping_development_attestation() -> None:
+    bus = InMemoryEventBus()
+    coordinator = AsyncMock()
+    decision = {
+        "approval_id": "approval-1",
+        "decision": "approve",
+        "approver_oid": "owner-1",
+        "justification": "Verified the exact development action.",
+    }
+    await bus.publish(
+        "hil-decisions",
+        "approval-1",
+        {**decision, "development_attestation": {"approval_id": "approval-1"}},
+    )
+    await bus.publish(
+        "hil-decisions",
+        "approval-2",
+        {**decision, "approval_id": "approval-2", "development_attestation": "x"},
+    )
+
+    await _consume_hil_decisions(
+        bus=bus,
+        topic="hil-decisions",
+        coordinator=coordinator,
+        stop=asyncio.Event(),
+    )
+
+    attestations = [
+        call.kwargs["development_attestation"] for call in coordinator.resolve.await_args_list
+    ]
+    assert attestations == [{"approval_id": "approval-1"}, None]

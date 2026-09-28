@@ -91,8 +91,13 @@ class HilRequestMixin:
         assignee_oid: str | None = None,
         escalation_rungs: Sequence[EscalationRung] = (),
         escalation_context: Mapping[str, object] | None = None,
+        development_authority: Mapping[str, Any] | None = None,
     ) -> RequestApprovalResult:
-        """Park ``action`` before dispatching its approval request."""
+        """Park ``action`` before dispatching its approval request.
+
+        ``development_authority`` is the Core-written development park block; its digest joins
+        the request fingerprint so the block cannot change while the park is pending.
+        """
 
         if not submitter_oid.strip():
             raise ValueError(
@@ -155,6 +160,11 @@ class HilRequestMixin:
             ttl_seconds=ttl_seconds,
             assignee_oid=resolved_assignee,
             route_digest=route_plan.digest if route_plan is not None else None,
+            development_digest=(
+                str(development_authority["block_digest"])
+                if development_authority is not None
+                else None
+            ),
         )
         parked = {
             "status": ("awaiting_contact_consent" if route_plan is not None else _STATUS_PENDING),
@@ -188,6 +198,8 @@ class HilRequestMixin:
                 contact_consent.expires_at.isoformat() if contact_consent is not None else None
             ),
         }
+        if development_authority is not None:
+            parked["development_authority"] = dict(development_authority)
         if resolved_escalation_rungs and route_plan is None:
             if self.escalation_supervisor is None:
                 raise ValueError("escalation_rungs require an escalation supervisor")
@@ -221,6 +233,19 @@ class HilRequestMixin:
                 "report_line_route_digest": (route_plan.digest if route_plan is not None else None),
                 "contact_consent_id": (
                     contact_consent.consent_id if contact_consent is not None else None
+                ),
+                "development_authority": (
+                    {
+                        key: development_authority.get(key)
+                        for key in (
+                            "block_digest",
+                            "original_level",
+                            "original_quorum",
+                            "effective_quorum",
+                        )
+                    }
+                    if development_authority is not None
+                    else None
                 ),
             },
         )
