@@ -1,8 +1,8 @@
 ---
 title: Operator Console Module Map and Boundaries
 translation_of: operator-console-module-map.md
-translation_source_sha: 964bd89f647e73975302499a65353d691037f7bf
-translation_revised: 2026-09-22
+translation_source_sha: e3ccb0d4b52e8317e01a3a9d7abb90c3e10b33ec
+translation_revised: 2026-09-28
 ---
 # Operator Console 모듈 지도 and Boundaries
 
@@ -635,6 +635,7 @@ Console 설정 경로와 정적 디자인 시안은 Calm Slate 컨트롤 토큰�
 `console/src/browser-notifications.ts`, `console/src/components/browser-notification-control.tsx` 및 scope가 제한된 `console/public/notification-sw.js`는 클라이언트 로컬 알림 모듈을 소유하며, [Console Web 알림](console-web-notifications-ko.md)은 전체 선택, 기능, 전달, 확인, 복구 및 권한 계약을 정의합니다. 모든 전달 원장 변경은 같은 출처의 탭 전체가 공유하는 단기 Web Lock을 사용하며, 다시 활성화된 컨트롤은 보존된 원장에서 표시할 전달 상태를 가져옵니다.
 화면에 보이는 제목 컴포넌트는 렌더링되는 제목 내용에만 `title`을 사용합니다. 기본 HTML `title` 말풍선은 접근성과 호환되는 요소로 제한하며, 그 밖의 맥락 도움말은 공통 Tooltip 컴포넌트를 사용합니다.
 정적 컴포넌트 갤러리는 `mocks/ui/assets/component-registry.json`의 계약을 읽고 각 시안을 소유자, 원본, 상태, 사용 지침, 반응형 동작, 접근성 계약 및 제품 참조보다 먼저 표시합니다. 레지스트리가 없거나 잘못되면 정규 상태를 추론하지 않고 문서화를 차단합니다. 갤러리는 합성 표현 근거이며 Console, Operator API 또는 실행기 권한을 부여하지 않습니다.
+`ui/calm-slate-deck-conversation.css`는 Command Deck 대화 화면으로 옮길 수 있는 표현 역할을 담습니다. 근거 원본 준비 상태, 검색 추적, 인용, 근거 한계 안내, 처리 과정 펼침 영역, 출처 패널, 후속 질문, 입력창 맥락이 여기에 속합니다. 정적 시안 `mocks/ui/deck-sources.html`이 기준 사용처이며 Console은 아직 이 파일을 가져오지 않습니다. 공통 프리미티브를 재사용하는 규칙은 `.cs-deck-conversation` 아래로 한정하고, `console/src/shared-style-tokens.test.ts`가 이 계층을 추가 전용으로 유지하므로 가져와도 기존 화면은 바뀌지 않습니다. Console 적용은 덮어쓰기가 아닌 교체 이행입니다. 프리미티브 다음에 이 계층을 가져오고, deck 오버레이에 루트 역할을 추가하고, 소유 deck 컴포넌트에서 역할을 렌더링한 뒤, 대체된 기존 `.deck-*` 선언은 덮어쓰지 않고 삭제합니다. 이 계층은 표현 전용이며 Console, Operator API 또는 실행기 권한을 부여하지 않습니다.
 
 ## 경계 불변식
 `core/conversation/`은 프로토콜만 가져옵니다. Azure SDK, HTTP, Bot Framework 및 프로바이더 호출은

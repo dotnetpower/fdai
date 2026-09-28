@@ -29,12 +29,9 @@ async function openChat(page, name, sequence) {
   }, name);
   const frame = await (await page.locator("#preview-frame").elementHandle()).contentFrame();
   if (name === "deck-sources") {
-    await frame.evaluate(() => {
-      window.SPEED = 0.01;
-      document.getElementById("gs-replay").click();
-    });
-    await frame.locator(".gs-grounded").waitFor({ state: "visible", timeout: 10000 });
-    await frame.locator(".gs-followups").waitFor({ state: "visible", timeout: 10000 });
+    // Reduced motion renders the settled answer immediately; no replay timing is involved.
+    await frame.locator('body[data-deck-state="settled"]').waitFor({ state: "attached", timeout: 10000 });
+    await frame.locator(".cs-deck-followups").waitFor({ state: "visible", timeout: 10000 });
   }
   await frame.evaluate(() => new Promise(resolveFrame =>
     requestAnimationFrame(() => requestAnimationFrame(resolveFrame))));
@@ -173,10 +170,15 @@ test("chat mock sources use the current shared contract", async () => {
     assert.equal(headers.every(header => /\bscope="col"/.test(header)), true, `${route}: header scopes`);
   }
   const sources = await readFile(join(uiRoot, "deck-sources.html"), "utf8");
-  assert.match(sources, /var pill = el\("button", "gs-grounded"\)/);
-  assert.match(sources, /pill\.setAttribute\("aria-expanded", "false"\)/);
-  assert.match(sources, /<textarea class="gs-input"[^>]*readonly>/);
-  assert.match(sources, /<button class="gs-send" type="button" disabled>Preview only/);
+  const sourcesScript = await readFile(join(uiRoot, "assets/deck-sources.js"), "utf8");
+  assert.match(sources, /calm-slate-deck-conversation\.css\?v=/);
+  assert.match(sources, /class="[^"]*\bcs-deck-conversation\b/);
+  assert.match(sources, /<textarea class="cs-deck-composer-input"[^>]*placeholder="Ask anything\.\.\."/);
+  assert.doesNotMatch(sources, /<textarea[^>]*\breadonly\b/);
+  assert.doesNotMatch(sources, /\sstyle="/);
+  assert.doesNotMatch(`${sources}\n${sourcesScript}`, /\bgs-[a-z]/);
+  assert.match(sourcesScript, /"aria-expanded": "false"/);
+  assert.match(sourcesScript, /prefers-reduced-motion: reduce/);
 });
 
 test("chat surfaces pass desktop Light and Dark states", { timeout: 120000 }, async () => {
@@ -231,14 +233,15 @@ test("chat interactions preserve evidence and authority boundaries", { timeout: 
     const page = await context.newPage();
 
     let frame = await openChat(page, "deck-sources", 1);
-    const grounded = frame.locator(".gs-grounded");
+    const grounded = frame.locator("[data-action='sources']").first();
     assert.equal(await grounded.getAttribute("aria-expanded"), "false");
     await grounded.click();
     assert.equal(await grounded.getAttribute("aria-expanded"), "true");
-    assert.equal(await frame.locator("#gs-retrieval-trace").isVisible(), true);
+    assert.equal(await frame.locator(".cs-deck-sources").first().isVisible(), true);
     await grounded.click();
-    assert.equal(await frame.locator("#gs-retrieval-trace").isVisible(), false);
-    assert.equal(await frame.locator(".gs-send").isDisabled(), true);
+    assert.equal(await frame.locator(".cs-deck-sources").first().isVisible(), false);
+    assert.equal(await frame.locator("#ds-send").isDisabled(), true);
+    assert.equal(await frame.getByRole("button", { name: /execute|approve|remediate/i }).count(), 0);
 
     frame = await openChat(page, "deck-sources-v2", 2);
     const previewControls = frame.locator("#ex-preview-controls");
@@ -290,8 +293,8 @@ test("chat surfaces reflow at constrained and mobile widths", { timeout: 120000 
         const measurement = await frame.evaluate(measureChat, viewport.width);
         assertMeasurement(measurement, route, "light");
         if (route === "deck-sources") {
-          assert.equal(await frame.locator(".gs-body").evaluate(element =>
-            getComputedStyle(element).gridTemplateColumns.split(" ").length), 1);
+          assert.equal(await frame.locator(".cs-deck-transcript").evaluate(element =>
+            element.scrollWidth <= element.clientWidth), true);
         }
         await page.screenshot({
           path: join(output, `${route}-${viewport.name}.png`),

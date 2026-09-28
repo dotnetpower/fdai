@@ -23,6 +23,14 @@ const adaptiveMock = readFileSync(
   fileURLToPath(new URL("../../mocks/ui/deck-sources-v2.html", import.meta.url)),
   "utf8",
 );
+const conversationLayer = readFileSync(
+  fileURLToPath(new URL("../../ui/calm-slate-deck-conversation.css", import.meta.url)),
+  "utf8",
+);
+const sourceStreamingMock = readFileSync(
+  fileURLToPath(new URL("../../mocks/ui/deck-sources.html", import.meta.url)),
+  "utf8",
+);
 const productionDeck = [
   "./deck/command-deck-view.tsx",
   "./deck/command-deck-presenters.tsx",
@@ -230,5 +238,48 @@ describe("shared Calm Slate tokens", () => {
     expect(adaptiveMock).toContain('.ex-conversation-search, .ex-conversation-filters button, .ex-conversation-select { min-height: 44px;');
     expect(adaptiveMock).toContain('workbench.querySelector(".ex-attach").addEventListener');
     expect(adaptiveMock).toContain('workbench.querySelector(".ex-send").addEventListener');
+  });
+
+  test("keeps the conversation layer additive until the Console adopts it", () => {
+    const withoutComments = (css: string) => css.replace(/\/\*[\s\S]*?\*\//g, "");
+    const topLevelSelectors = (prelude: string) => {
+      const selectors: string[] = [];
+      let depth = 0;
+      let current = "";
+      for (const character of prelude) {
+        if (character === "(") depth += 1;
+        if (character === ")") depth -= 1;
+        if (character === "," && depth === 0) {
+          selectors.push(current.trim());
+          current = "";
+        } else {
+          current += character;
+        }
+      }
+      return [...selectors, current.trim()].filter(Boolean);
+    };
+    const primitiveRoles = new Set(
+      [...withoutComments(sharedPrimitives).matchAll(/\.(cs-[a-z0-9-]+)/g)].map((match) => match[1] ?? ""),
+    );
+    const declarations = withoutComments(conversationLayer);
+    const selectors = [...declarations.matchAll(/([^{}]+)\{/g)]
+      .map((match) => (match[1] ?? "").trim())
+      .filter((prelude) => !prelude.startsWith("@") && !/^(?:from|to|\d+%)$/.test(prelude))
+      .flatMap(topLevelSelectors);
+    expect(selectors.length).toBeGreaterThan(100);
+    for (const selector of selectors) {
+      const reusesPrimitive = [...selector.matchAll(/\.(cs-[a-z0-9-]+)/g)]
+        .some((match) => primitiveRoles.has(match[1] ?? ""));
+      if (reusesPrimitive) {
+        expect(selector.startsWith(".cs-deck-conversation "), selector).toBe(true);
+      }
+    }
+    expect(declarations).not.toContain("!important");
+    expect(declarations).not.toMatch(/#[0-9a-f]{3,8}\b/i);
+    expect(declarations).toContain("container-name: deck-transcript;");
+    expect(conversationLayer).toContain("Console adoption is a replacement migration");
+    expect(sourceStreamingMock).toContain("../../ui/calm-slate-deck-conversation.css?v=");
+    expect(sourceStreamingMock).toContain("cs-deck-surface cs-deck-workspace-shell cs-deck-conversation");
+    expect(sourceStreamingMock).not.toMatch(/\bgs-[a-z]/);
   });
 });

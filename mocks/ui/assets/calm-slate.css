@@ -47,12 +47,12 @@ code { font-family: var(--cs-font-mono); font-size: var(--cs-type-label-size); b
 
 /* Measured interaction targets in standalone studies; chart marks keep their geometry. */
 .cs-embedded :is(.dk-layout-controls button, .dk-close, .dk-exec-copy,
-  .dk-turn-actions button, .gs-speed button, .toolbar button, .cs-chip,
+  .dk-turn-actions button, .toolbar button, .cs-chip,
   .chat-alert, .chat-quiet) { min-width: 34px; min-height: 34px; }
 .cs-operator-neutral .cs-live-fullscreen { width: 34px; height: 34px; }
 @media (max-width: 620px) {
   .cs-embedded :is(.dk-layout-controls button, .dk-close, .dk-exec-copy,
-    .dk-turn-actions button, .gs-speed button, .toolbar button, .cs-chip,
+    .dk-turn-actions button, .toolbar button, .cs-chip,
     .chat-alert, .chat-quiet) { min-width: 44px; min-height: 44px; }
   .cs-embedded .dk-turn-actions { opacity: 1; flex-wrap: wrap; }
   .cs-operator-neutral .cs-live-fullscreen { width: 44px; height: 44px; }
