@@ -15,9 +15,8 @@ from fdai.composition import (
     bind_azure_decision_evidence_admission,
     bind_decision_evidence_admission,
 )
-from fdai.composition.readiness import (
-    build_operational_readiness_event_handler,
-)
+from fdai.composition.operational_evidence_binding import bind_operational_evidence
+from fdai.composition.readiness import build_operational_readiness_event_handler
 from fdai.composition.readiness_catalog import load_runtime_best_practice_bindings
 from fdai.core.chaos.symptom_index import build_from_promoted
 from fdai.core.licensing import LicenseEntitlementAuthority
@@ -163,7 +162,9 @@ async def build_core_runtime(
         product_selection.governed_execution and github_credentials_configured(environment)
     )
     if (
-        plan.requires_channel_http_client or gitops_delivery_requested
+        plan.requires_channel_http_client
+        or gitops_delivery_requested
+        or environment.get("FDAI_OPERATIONAL_EVIDENCE_ENABLED", "").strip() == "1"
     ) and resources.http_client is None:
         resources.http_client = _new_http_client()
     hil_identity = _product_profile.build_hil_identity(
@@ -198,8 +199,7 @@ async def build_core_runtime(
         identity=identity,
     )
     decision_evidence_container_url = environment.get(
-        "FDAI_DECISION_EVIDENCE_CONTAINER_URL",
-        "",
+        "FDAI_DECISION_EVIDENCE_CONTAINER_URL", ""
     ).strip()
     if decision_evidence_container_url:
         if identity is None:
@@ -219,6 +219,7 @@ async def build_core_runtime(
         )
     else:
         container = bind_decision_evidence_admission(container, state_store=state_store)
+    container = bind_operational_evidence(container, environment, resources.http_client)
     stewardship_governance_worker: StewardshipGovernanceWorker | None = None
     stewardship_merge_effects_worker: StewardshipMergeEffectsWorker | None = None
     scoped_publisher = None

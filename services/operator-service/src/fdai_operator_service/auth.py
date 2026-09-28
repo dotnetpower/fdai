@@ -15,10 +15,15 @@ from fdai_service_contracts import (
     OperatorRole,
     OperatorTokenVerifier,
 )
+from fdai_service_contracts.operator_authentication import OperatorAuthenticationReceipt
 from jwt import PyJWKClient
 from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
 
+from fdai_operator_service.authentication_receipt import (
+    live_authentication_receipt,
+    local_authentication_receipt,
+)
 from fdai_operator_service.environment import OperatorEnvironment
 from fdai_operator_service.local_auth import LocalAzureCliIdentity, resolve_azure_cli_identity
 
@@ -89,11 +94,16 @@ class EntraJwtVerifier:
 
 @dataclass(frozen=True, slots=True)
 class VerifiedOperatorIdentity:
-    """Retain verified authority, display identity, and authorized client binding."""
+    """Retain verified authority, display identity, and authorized client binding.
+
+    ``authentication_receipt`` is the content-free token-verification receipt; it carries no
+    token and no display identity, and it is absent when a required claim was missing.
+    """
 
     principal: OperatorPrincipal
     username: str | None
     authorized_party: str | None
+    authentication_receipt: OperatorAuthenticationReceipt | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -129,6 +139,11 @@ class OperatorAuthenticator:
                     principal=self.local_principal,
                     username=self.local_username,
                     authorized_party=None,
+                    authentication_receipt=local_authentication_receipt(
+                        self.local_principal,
+                        session_token=self.local_session_token or "",
+                        group_ids=self.group_ids,
+                    ),
                 )
             raise AuthenticationError("local Azure CLI session token is missing or invalid")
         token = _extract_bearer(authorization_header)
@@ -157,28 +172,36 @@ class OperatorAuthenticator:
                 raise AuthenticationError(
                     "invalid claims: workload principals MUST NOT carry group claims"
                 )
+            workload = OperatorPrincipal(
+                subject_id=_principal_digest(subject_id),
+                roles=claimed_roles,
+                principal_kind=principal_kind,
+            )
             return VerifiedOperatorIdentity(
-                principal=OperatorPrincipal(
-                    subject_id=_principal_digest(subject_id),
-                    roles=claimed_roles,
-                    principal_kind=principal_kind,
-                ),
+                principal=workload,
                 username=None,
                 authorized_party=_authorized_party(claims),
+                authentication_receipt=live_authentication_receipt(
+                    claims, principal=workload, group_ids=self.group_ids
+                ),
             )
         if not claimed_roles:
             claimed_roles = frozenset(
                 role for role, group_id in self.group_ids.items() if group_id in groups
             )
+        human = OperatorPrincipal(
+            subject_id=subject_id,
+            roles=claimed_roles,
+            principal_kind=principal_kind,
+            groups=groups,
+        )
         return VerifiedOperatorIdentity(
-            principal=OperatorPrincipal(
-                subject_id=subject_id,
-                roles=claimed_roles,
-                principal_kind=principal_kind,
-                groups=groups,
-            ),
+            principal=human,
             username=_display_username(claims),
             authorized_party=_authorized_party(claims),
+            authentication_receipt=live_authentication_receipt(
+                claims, principal=human, group_ids=self.group_ids
+            ),
         )
 
     def require_any(

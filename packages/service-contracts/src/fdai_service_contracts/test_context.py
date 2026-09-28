@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from datetime import UTC, datetime
-from typing import Annotated, Literal
+from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
@@ -162,3 +163,31 @@ class TestContextApplication(BaseModel):
             and self.state
             == {"propose": "proposed", "review": "reviewed", "revoke": "revoked"}[request.operation]
         )
+
+
+def context_command_from_record(record: Mapping[str, Any]) -> TestContextCommand:
+    """Rebuild a command from one durable Operator outbox record, never from request text.
+
+    The Operator bridge and the independent verifier share this exact rule, so the command
+    digest a boundary owner admits is the digest the verifier recomputes from the source row.
+    Only the authenticated durable principal becomes the actor.
+    """
+    payload = record["payload"]
+    scope = payload["scope"]
+    if scope["subject_id"] != record["principal_id"] or scope.get("principal_kind") != "human":
+        raise ValueError("test context command must retain its authenticated human principal")
+    request = TestContextRequest.model_validate(payload["body"])
+    operation = "test-context." + request.operation
+    if record["operation"] != operation or payload["operation"] != operation:
+        raise ValueError("test context command operation mismatch")
+    if payload["idempotency_key"] != record["idempotency_key"]:
+        raise ValueError("test context command idempotency mismatch")
+    return TestContextCommand(
+        request=request,
+        actor_id=record["principal_id"],
+        actor_roles=tuple(
+            role for role in scope["roles"] if role in {"Contributor", "Approver", "Owner"}
+        ),
+        idempotency_key=record["idempotency_key"],
+        requested_at=datetime.fromisoformat(record["accepted_at"]),
+    )

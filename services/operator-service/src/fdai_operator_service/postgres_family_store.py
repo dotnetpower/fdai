@@ -1766,8 +1766,9 @@ class PostgresFamilyStore:
         idempotency_key: str,
         payload: Mapping[str, object],
         accepted_at: datetime | None = None,
+        authentication_receipt: Mapping[str, object] | None = None,
     ) -> StoredProposal:
-        """Atomically persist a typed proposal and return its durable outbox receipt."""
+        """Persist a typed proposal; a receipt stays outside the idempotent request digest."""
         request = {
             "family": family,
             "operation": operation,
@@ -1789,6 +1790,11 @@ class PostgresFamilyStore:
             "mode": "shadow",
             "accepted_at": accepted_at_text,
             **request,
+            **(
+                {"authentication_receipt": dict(authentication_receipt)}
+                if authentication_receipt
+                else {}
+            ),
         }
         key = _proposal_key(family, idempotency_key)
         inserted, stored = await self._insert_if_absent(key=key, value=record)
@@ -3371,17 +3377,8 @@ class UnavailablePostgresFamilyStore(PostgresFamilyStore):
         del principal_id, limit
         raise PostgresFamilyStoreUnavailable("authoritative user context is unavailable")
 
-    async def append_proposal(
-        self,
-        *,
-        family: str,
-        operation: str,
-        principal_id: str | None,
-        idempotency_key: str,
-        payload: Mapping[str, object],
-        accepted_at: datetime | None = None,
-    ) -> StoredProposal:
-        del family, operation, principal_id, idempotency_key, payload, accepted_at
+    async def append_proposal(self, **request: Any) -> StoredProposal:
+        del request
         raise PostgresFamilyStoreUnavailable("proposal outbox is unavailable")
 
     async def read_proposal(

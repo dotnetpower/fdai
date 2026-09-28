@@ -149,14 +149,26 @@ class PostgresConversationAdapters:
                 scope=proposal.scope,
                 body=ActionConfirmationBody.model_validate(proposal.body),
             )
+        payload = dict(_mapping(asdict(proposal)))
+        receipt = payload.pop("authentication_receipt", None)
         try:
-            stored = await self.store.append_proposal(
-                family="conversation",
-                operation=proposal.operation,
-                principal_id=proposal.scope.subject_id,
-                idempotency_key=proposal.idempotency_key,
-                payload=_mapping(asdict(proposal)),
-            )
+            if isinstance(receipt, dict) and proposal.operation.startswith("test-context."):
+                stored = await self.store.append_proposal(
+                    family="conversation",
+                    operation=proposal.operation,
+                    principal_id=proposal.scope.subject_id,
+                    idempotency_key=proposal.idempotency_key,
+                    payload=payload,
+                    authentication_receipt=receipt,
+                )
+            else:
+                stored = await self.store.append_proposal(
+                    family="conversation",
+                    operation=proposal.operation,
+                    principal_id=proposal.scope.subject_id,
+                    idempotency_key=proposal.idempotency_key,
+                    payload=payload,
+                )
         except PostgresProposalConflict as exc:
             raise HTTPException(status_code=409, detail=str(exc)) from exc
         except PostgresFamilyStoreUnavailable as exc:

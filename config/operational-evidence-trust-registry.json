@@ -1,0 +1,552 @@
+{
+  "schema_version": "1.0.0",
+  "registry_id": "fdai.operational-evidence.trust-registry",
+  "revision": 1,
+  "purposes": [
+    {
+      "purpose_id": "case-history-read",
+      "authority_class": "case_scope_grant_readback",
+      "method_id": "case-history-read-readback",
+      "method_version": "1.0.0",
+      "evidence_class": "live",
+      "producers": [
+        {
+          "producer_id": "core-control-plane",
+          "producer_version": "1.0.0",
+          "anchor_id": "anchor:core-runtime"
+        }
+      ],
+      "sources": [
+        {
+          "source_id": "operator-service.authentication-receipts",
+          "role": "authoritative",
+          "anchor_id": "anchor:operator-service"
+        },
+        {
+          "source_id": "deployment.case-scope-grants",
+          "role": "corroborating",
+          "anchor_id": "anchor:operating-intent-source"
+        }
+      ],
+      "freshness_policy": {
+        "policy_id": "case-history-read-freshness",
+        "policy_version": "1.0.0",
+        "ceiling_seconds": 60
+      },
+      "verifiers": [
+        {
+          "verifier_id": "operational-evidence-verifier",
+          "verifier_version": "1.0.0",
+          "trust_anchor_id": "anchor:operational-evidence-verifier",
+          "valid_from": "2026-09-28T00:00:00+00:00",
+          "valid_until": "2027-09-28T00:00:00+00:00",
+          "revoked": false
+        }
+      ],
+      "separation": [
+        "anchor:core-runtime",
+        "anchor:deploy-runner",
+        "anchor:dev-operations-gateway-executor",
+        "anchor:isolated-executor",
+        "anchor:operator-reviewers",
+        "anchor:vertical-effect-executors"
+      ],
+      "revoked": false
+    },
+    {
+      "purpose_id": "current-case-reuse",
+      "authority_class": "current_case_readback",
+      "method_id": "current-case-reuse-readback",
+      "method_version": "1.0.0",
+      "evidence_class": "live",
+      "producers": [
+        {
+          "producer_id": "core-control-plane",
+          "producer_version": "1.0.0",
+          "anchor_id": "anchor:core-runtime"
+        }
+      ],
+      "sources": [
+        {
+          "source_id": "inventory.current-snapshot",
+          "role": "authoritative",
+          "anchor_id": "anchor:inventory"
+        },
+        {
+          "source_id": "core-control-plane.case-history",
+          "role": "corroborating",
+          "anchor_id": "anchor:core-runtime"
+        },
+        {
+          "source_id": "core-control-plane.safety-receipts",
+          "role": "corroborating",
+          "anchor_id": "anchor:core-runtime"
+        }
+      ],
+      "freshness_policy": {
+        "policy_id": "current-case-reuse-freshness",
+        "policy_version": "1.0.0",
+        "ceiling_seconds": 300
+      },
+      "verifiers": [
+        {
+          "verifier_id": "operational-evidence-verifier",
+          "verifier_version": "1.0.0",
+          "trust_anchor_id": "anchor:operational-evidence-verifier",
+          "valid_from": "2026-09-28T00:00:00+00:00",
+          "valid_until": "2027-09-28T00:00:00+00:00",
+          "revoked": false
+        }
+      ],
+      "separation": [
+        "anchor:core-runtime",
+        "anchor:deploy-runner",
+        "anchor:dev-operations-gateway-executor",
+        "anchor:isolated-executor",
+        "anchor:operator-reviewers",
+        "anchor:vertical-effect-executors"
+      ],
+      "revoked": false
+    },
+    {
+      "purpose_id": "forecast-context",
+      "authority_class": "forecast_context_readback",
+      "method_id": "forecast-context-readback",
+      "method_version": "1.0.0",
+      "evidence_class": "live",
+      "producers": [
+        {
+          "producer_id": "core-control-plane",
+          "producer_version": "1.0.0",
+          "anchor_id": "anchor:core-runtime"
+        }
+      ],
+      "sources": [
+        {
+          "source_id": "operational-evidence.forecast-slice-admissions",
+          "role": "authoritative",
+          "anchor_id": "anchor:operational-evidence-verifier"
+        }
+      ],
+      "freshness_policy": {
+        "policy_id": "forecast-context-freshness",
+        "policy_version": "1.0.0",
+        "ceiling_seconds": 3600
+      },
+      "verifiers": [
+        {
+          "verifier_id": "operational-evidence-verifier",
+          "verifier_version": "1.0.0",
+          "trust_anchor_id": "anchor:operational-evidence-verifier",
+          "valid_from": "2026-09-28T00:00:00+00:00",
+          "valid_until": "2027-09-28T00:00:00+00:00",
+          "revoked": false
+        }
+      ],
+      "separation": [
+        "anchor:core-runtime",
+        "anchor:deploy-runner",
+        "anchor:dev-operations-gateway-executor",
+        "anchor:isolated-executor",
+        "anchor:operator-reviewers",
+        "anchor:vertical-effect-executors"
+      ],
+      "revoked": false
+    },
+    {
+      "purpose_id": "forecast-history-actions",
+      "authority_class": "forecast_history_readback",
+      "method_id": "forecast-history-actions-readback",
+      "method_version": "1.0.0",
+      "evidence_class": "live",
+      "producers": [
+        {
+          "producer_id": "core-control-plane",
+          "producer_version": "1.0.0",
+          "anchor_id": "anchor:core-runtime"
+        }
+      ],
+      "sources": [
+        {
+          "source_id": "core-control-plane.action-audit",
+          "role": "authoritative",
+          "anchor_id": "anchor:core-runtime"
+        },
+        {
+          "source_id": "azure.activity-log",
+          "role": "corroborating",
+          "anchor_id": "anchor:azure-platform"
+        }
+      ],
+      "freshness_policy": {
+        "policy_id": "forecast-history-actions-freshness",
+        "policy_version": "1.0.0",
+        "ceiling_seconds": 3600
+      },
+      "verifiers": [
+        {
+          "verifier_id": "operational-evidence-verifier",
+          "verifier_version": "1.0.0",
+          "trust_anchor_id": "anchor:operational-evidence-verifier",
+          "valid_from": "2026-09-28T00:00:00+00:00",
+          "valid_until": "2027-09-28T00:00:00+00:00",
+          "revoked": false
+        }
+      ],
+      "separation": [
+        "anchor:core-runtime",
+        "anchor:deploy-runner",
+        "anchor:dev-operations-gateway-executor",
+        "anchor:isolated-executor",
+        "anchor:operator-reviewers",
+        "anchor:vertical-effect-executors"
+      ],
+      "revoked": false
+    },
+    {
+      "purpose_id": "forecast-history-changes",
+      "authority_class": "forecast_history_readback",
+      "method_id": "forecast-history-changes-readback",
+      "method_version": "1.0.0",
+      "evidence_class": "live",
+      "producers": [
+        {
+          "producer_id": "core-control-plane",
+          "producer_version": "1.0.0",
+          "anchor_id": "anchor:core-runtime"
+        }
+      ],
+      "sources": [
+        {
+          "source_id": "inventory.observation-journal",
+          "role": "authoritative",
+          "anchor_id": "anchor:inventory"
+        },
+        {
+          "source_id": "azure.resource-graph-changes",
+          "role": "corroborating",
+          "anchor_id": "anchor:azure-platform"
+        }
+      ],
+      "freshness_policy": {
+        "policy_id": "forecast-history-changes-freshness",
+        "policy_version": "1.0.0",
+        "ceiling_seconds": 3600
+      },
+      "verifiers": [
+        {
+          "verifier_id": "operational-evidence-verifier",
+          "verifier_version": "1.0.0",
+          "trust_anchor_id": "anchor:operational-evidence-verifier",
+          "valid_from": "2026-09-28T00:00:00+00:00",
+          "valid_until": "2027-09-28T00:00:00+00:00",
+          "revoked": false
+        }
+      ],
+      "separation": [
+        "anchor:core-runtime",
+        "anchor:deploy-runner",
+        "anchor:dev-operations-gateway-executor",
+        "anchor:isolated-executor",
+        "anchor:operator-reviewers",
+        "anchor:vertical-effect-executors"
+      ],
+      "revoked": false
+    },
+    {
+      "purpose_id": "forecast-history-excluded_windows",
+      "authority_class": "forecast_history_readback",
+      "method_id": "forecast-history-excluded_windows-readback",
+      "method_version": "1.0.0",
+      "evidence_class": "live",
+      "producers": [
+        {
+          "producer_id": "core-control-plane",
+          "producer_version": "1.0.0",
+          "anchor_id": "anchor:core-runtime"
+        }
+      ],
+      "sources": [
+        {
+          "source_id": "core-control-plane.change-window-history",
+          "role": "authoritative",
+          "anchor_id": "anchor:core-runtime"
+        },
+        {
+          "source_id": "operating-intent.source-revisions",
+          "role": "corroborating",
+          "anchor_id": "anchor:operating-intent-source"
+        }
+      ],
+      "freshness_policy": {
+        "policy_id": "forecast-history-excluded_windows-freshness",
+        "policy_version": "1.0.0",
+        "ceiling_seconds": 3600
+      },
+      "verifiers": [
+        {
+          "verifier_id": "operational-evidence-verifier",
+          "verifier_version": "1.0.0",
+          "trust_anchor_id": "anchor:operational-evidence-verifier",
+          "valid_from": "2026-09-28T00:00:00+00:00",
+          "valid_until": "2027-09-28T00:00:00+00:00",
+          "revoked": false
+        }
+      ],
+      "separation": [
+        "anchor:core-runtime",
+        "anchor:deploy-runner",
+        "anchor:dev-operations-gateway-executor",
+        "anchor:isolated-executor",
+        "anchor:operator-reviewers",
+        "anchor:vertical-effect-executors"
+      ],
+      "revoked": false
+    },
+    {
+      "purpose_id": "forecast-history-resource_lifecycle",
+      "authority_class": "forecast_history_readback",
+      "method_id": "forecast-history-resource_lifecycle-readback",
+      "method_version": "1.0.0",
+      "evidence_class": "live",
+      "producers": [
+        {
+          "producer_id": "core-control-plane",
+          "producer_version": "1.0.0",
+          "anchor_id": "anchor:core-runtime"
+        }
+      ],
+      "sources": [
+        {
+          "source_id": "inventory.incarnation-ledger",
+          "role": "authoritative",
+          "anchor_id": "anchor:inventory"
+        },
+        {
+          "source_id": "azure.resource-existence",
+          "role": "corroborating",
+          "anchor_id": "anchor:azure-platform"
+        }
+      ],
+      "freshness_policy": {
+        "policy_id": "forecast-history-resource_lifecycle-freshness",
+        "policy_version": "1.0.0",
+        "ceiling_seconds": 3600
+      },
+      "verifiers": [
+        {
+          "verifier_id": "operational-evidence-verifier",
+          "verifier_version": "1.0.0",
+          "trust_anchor_id": "anchor:operational-evidence-verifier",
+          "valid_from": "2026-09-28T00:00:00+00:00",
+          "valid_until": "2027-09-28T00:00:00+00:00",
+          "revoked": false
+        }
+      ],
+      "separation": [
+        "anchor:core-runtime",
+        "anchor:deploy-runner",
+        "anchor:dev-operations-gateway-executor",
+        "anchor:isolated-executor",
+        "anchor:operator-reviewers",
+        "anchor:vertical-effect-executors"
+      ],
+      "revoked": false
+    },
+    {
+      "purpose_id": "operational-test-context",
+      "authority_class": "test_context_store_readback",
+      "method_id": "operational-test-context-readback",
+      "method_version": "1.0.0",
+      "evidence_class": "live",
+      "producers": [
+        {
+          "producer_id": "core-control-plane",
+          "producer_version": "1.0.0",
+          "anchor_id": "anchor:core-runtime"
+        }
+      ],
+      "sources": [
+        {
+          "source_id": "core-control-plane.test-context-store",
+          "role": "authoritative",
+          "anchor_id": "anchor:core-runtime"
+        },
+        {
+          "source_id": "operator-service.test-context-outbox",
+          "role": "corroborating",
+          "anchor_id": "anchor:operator-service"
+        }
+      ],
+      "freshness_policy": {
+        "policy_id": "operational-test-context-freshness",
+        "policy_version": "1.0.0",
+        "ceiling_seconds": 300
+      },
+      "verifiers": [
+        {
+          "verifier_id": "operational-evidence-verifier",
+          "verifier_version": "1.0.0",
+          "trust_anchor_id": "anchor:operational-evidence-verifier",
+          "valid_from": "2026-09-28T00:00:00+00:00",
+          "valid_until": "2027-09-28T00:00:00+00:00",
+          "revoked": false
+        }
+      ],
+      "separation": [
+        "anchor:core-runtime",
+        "anchor:deploy-runner",
+        "anchor:dev-operations-gateway-executor",
+        "anchor:isolated-executor",
+        "anchor:operator-reviewers",
+        "anchor:vertical-effect-executors"
+      ],
+      "revoked": false
+    },
+    {
+      "purpose_id": "operational-test-observation",
+      "authority_class": "provider_observation_readback",
+      "method_id": "operational-test-observation-readback",
+      "method_version": "1.0.0",
+      "evidence_class": "live",
+      "producers": [
+        {
+          "producer_id": "core-control-plane",
+          "producer_version": "1.0.0",
+          "anchor_id": "anchor:core-runtime"
+        }
+      ],
+      "sources": [
+        {
+          "source_id": "azure-monitor.metrics",
+          "role": "authoritative",
+          "anchor_id": "anchor:azure-platform"
+        },
+        {
+          "source_id": "operating-scope.dependency-health",
+          "role": "corroborating",
+          "anchor_id": "anchor:azure-platform"
+        }
+      ],
+      "freshness_policy": {
+        "policy_id": "operational-test-observation-freshness",
+        "policy_version": "1.0.0",
+        "ceiling_seconds": 300
+      },
+      "verifiers": [
+        {
+          "verifier_id": "operational-evidence-verifier",
+          "verifier_version": "1.0.0",
+          "trust_anchor_id": "anchor:operational-evidence-verifier",
+          "valid_from": "2026-09-28T00:00:00+00:00",
+          "valid_until": "2027-09-28T00:00:00+00:00",
+          "revoked": false
+        }
+      ],
+      "separation": [
+        "anchor:core-runtime",
+        "anchor:deploy-runner",
+        "anchor:dev-operations-gateway-executor",
+        "anchor:isolated-executor",
+        "anchor:operator-reviewers",
+        "anchor:vertical-effect-executors"
+      ],
+      "revoked": false
+    },
+    {
+      "purpose_id": "operator-test-context-command",
+      "authority_class": "operator_command_readback",
+      "method_id": "operator-test-context-command-readback",
+      "method_version": "1.0.0",
+      "evidence_class": "live",
+      "producers": [
+        {
+          "producer_id": "core-control-plane",
+          "producer_version": "1.0.0",
+          "anchor_id": "anchor:core-runtime"
+        }
+      ],
+      "sources": [
+        {
+          "source_id": "operator-service.test-context-outbox",
+          "role": "authoritative",
+          "anchor_id": "anchor:operator-service"
+        }
+      ],
+      "freshness_policy": {
+        "policy_id": "operator-test-context-command-freshness",
+        "policy_version": "1.0.0",
+        "ceiling_seconds": 600
+      },
+      "verifiers": [
+        {
+          "verifier_id": "operational-evidence-verifier",
+          "verifier_version": "1.0.0",
+          "trust_anchor_id": "anchor:operational-evidence-verifier",
+          "valid_from": "2026-09-28T00:00:00+00:00",
+          "valid_until": "2027-09-28T00:00:00+00:00",
+          "revoked": false
+        }
+      ],
+      "separation": [
+        "anchor:core-runtime",
+        "anchor:deploy-runner",
+        "anchor:dev-operations-gateway-executor",
+        "anchor:isolated-executor",
+        "anchor:operator-reviewers",
+        "anchor:vertical-effect-executors"
+      ],
+      "revoked": false
+    },
+    {
+      "purpose_id": "test-context-transition",
+      "authority_class": "test_context_store_readback",
+      "method_id": "test-context-transition-readback",
+      "method_version": "1.0.0",
+      "evidence_class": "live",
+      "producers": [
+        {
+          "producer_id": "core-control-plane",
+          "producer_version": "1.0.0",
+          "anchor_id": "anchor:core-runtime"
+        }
+      ],
+      "sources": [
+        {
+          "source_id": "core-control-plane.test-context-store",
+          "role": "authoritative",
+          "anchor_id": "anchor:core-runtime"
+        },
+        {
+          "source_id": "operator-service.test-context-outbox",
+          "role": "corroborating",
+          "anchor_id": "anchor:operator-service"
+        }
+      ],
+      "freshness_policy": {
+        "policy_id": "test-context-transition-freshness",
+        "policy_version": "1.0.0",
+        "ceiling_seconds": 120
+      },
+      "verifiers": [
+        {
+          "verifier_id": "operational-evidence-verifier",
+          "verifier_version": "1.0.0",
+          "trust_anchor_id": "anchor:operational-evidence-verifier",
+          "valid_from": "2026-09-28T00:00:00+00:00",
+          "valid_until": "2027-09-28T00:00:00+00:00",
+          "revoked": false
+        }
+      ],
+      "separation": [
+        "anchor:core-runtime",
+        "anchor:deploy-runner",
+        "anchor:dev-operations-gateway-executor",
+        "anchor:isolated-executor",
+        "anchor:operator-reviewers",
+        "anchor:vertical-effect-executors"
+      ],
+      "revoked": false
+    }
+  ]
+}

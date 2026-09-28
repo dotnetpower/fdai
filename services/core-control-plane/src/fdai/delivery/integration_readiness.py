@@ -29,6 +29,7 @@ from collections.abc import Mapping, Sequence
 from typing import TYPE_CHECKING, Final
 
 from fdai.delivery.forecast_history_readiness import forecast_history_projection
+from fdai.delivery.operational_evidence_readiness import operational_evidence_projection
 from fdai.shared.providers.notifications import ChannelMode
 
 if TYPE_CHECKING:
@@ -510,6 +511,7 @@ def integration_projection(env: Mapping[str, str]) -> list[dict[str, object]]:
         jira,
         human_access,
         forecast_history_projection(env),
+        *operational_evidence_projection(env),
     ]
 
 

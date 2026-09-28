@@ -5,7 +5,6 @@ from __future__ import annotations
 import asyncio
 import logging
 from collections.abc import Mapping
-from datetime import datetime
 from typing import Any
 from uuid import uuid4
 
@@ -13,7 +12,7 @@ from fdai_service_contracts.test_context import (
     TEST_CONTEXT_RESULT_TOPIC,
     TestContextApplication,
     TestContextCommand,
-    TestContextRequest,
+    context_command_from_record,
 )
 
 from fdai_operator_service.background_task_projection_runtime import BackgroundTaskProjectionSource
@@ -163,22 +162,4 @@ class TestContextBridge:
 
 def command_from_record(record: Mapping[str, Any]) -> TestContextCommand:
     """Use only the authenticated durable principal; never accept actor fields from body."""
-    payload = record["payload"]
-    scope = payload["scope"]
-    if scope["subject_id"] != record["principal_id"] or scope.get("principal_kind") != "human":
-        raise ValueError("test context command must retain its authenticated human principal")
-    request = TestContextRequest.model_validate(payload["body"])
-    operation = "test-context." + request.operation
-    if record["operation"] != operation or payload["operation"] != operation:
-        raise ValueError("test context command operation mismatch")
-    if payload["idempotency_key"] != record["idempotency_key"]:
-        raise ValueError("test context command idempotency mismatch")
-    return TestContextCommand(
-        request=request,
-        actor_id=record["principal_id"],
-        actor_roles=tuple(
-            role for role in scope["roles"] if role in {"Contributor", "Approver", "Owner"}
-        ),
-        idempotency_key=record["idempotency_key"],
-        requested_at=datetime.fromisoformat(record["accepted_at"]),
-    )
+    return context_command_from_record(record)
