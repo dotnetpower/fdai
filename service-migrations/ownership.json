@@ -240,6 +240,11 @@
       "handover_semantic_package",
       "operator_assignment_receipt",
       "operator_rule_activation_receipt",
+      "operational_evidence_admission",
+      "operational_evidence_authentication",
+      "operational_evidence_bundle",
+      "operational_evidence_readback",
+      "operational_evidence_rejection",
       "action_outbox",
       "audit_log",
       "case_history",
@@ -459,6 +464,11 @@
   "whole_table_writers": {
     "core-control-plane": [
       "handover_semantic_package",
+      "operational_evidence_admission",
+      "operational_evidence_authentication",
+      "operational_evidence_bundle",
+      "operational_evidence_readback",
+      "operational_evidence_rejection",
       "action_outbox",
       "case_history",
       "case_history_chunk",

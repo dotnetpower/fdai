@@ -31,6 +31,7 @@ and the code/CI gates in
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-28 | in-progress | Recorded the independent operational evidence verifier as a separate non-executor workload identity. The loopback workload refuses to start when its principal equals any source, producer, reviewer, or executor-class principal, and a proof-store grants readback reports `self_verified` whenever another role can write. | `current change`; `services/core-control-plane/tests/core/operational_evidence/test_registries.py`; `services/core-control-plane/tests/persistence/test_operational_evidence_postgres.py` against a temporary loopback PostgreSQL database | No deployed verifier identity, workload caller authenticator, or Azure own-role readback exists; see the [independent operational evidence ledger](../../roadmap-implementation/rules-and-detection/independent-operational-evidence.md). |
 | 2026-09-22 | implemented | Bound direct Rule activation to authenticated requester and distinct approver identities, and removed Operator's direct access to the Core-owned immutable receipt table. A locked definer trigger captures accepted source proposals while Core retains read-only receipt access. | `current change`; focused contract and HTTP-boundary tests; real disposable PostgreSQL role test; migration inventory; strict mypy and Ruff. | Retain deployed role and audit evidence before claiming operational validation. Membership still grants no enforcement or execution authority. |
 | 2026-09-20 | validated | Isolated automatic RCA log and trace reads behind independent source deadlines and the current Azure Monitor query endpoint. Timeout remains unavailable evidence, one source cannot suppress another source's completed citations, and no result grants decision or execution authority. | `current change`; 353 focused RCA and Azure adapter tests passed; Ruff and strict mypy passed; the configured local read identity completed both real providers in 1.793 seconds under the five-second side-path bound with no citation for the probe scope. | Retain governed multi-workspace evidence with actual error rows before claiming operational cause accuracy. |
 | 2026-09-17 | implemented | Added an isolated-Executor Kubernetes effect identity with namespace-scoped Role verbs for exact Pod restart, Deployment scaling, and digest-pinned rollout recovery. | `current change`; isolated Executor adapter and tests, AKS renderer, namespace Role and RoleBinding tests, and runtime-support manifest. | Apply an exact reviewed AKS plan after the cluster is available, then retain independent effect readback before claiming runtime validation. |
@@ -163,6 +164,10 @@ Administrator`, Graph application permissions, and every write role remain outsi
   (cross-domain assumption is denied, not just unused).
 - Execution identities are **non-interactive**: no interactive/console sign-in, no human
   credentials attached, and disabled for any use outside the event loop.
+- The [independent operational evidence](../rules-and-detection/independent-operational-evidence.md)
+  verifier is a separate non-executor workload identity. It refuses to start when its principal equals
+  any source, producer, reviewer, or executor-class principal, and it holds only the insert-only
+  proof-store writer role and read-only source views.
 - Prefer **credential-free auth**: workload identity federation / OIDC token exchange so the
   executor holds no long-lived secret. Where a secret is unavoidable it is short-lived and
   auto-rotated (see Secrets and Config).

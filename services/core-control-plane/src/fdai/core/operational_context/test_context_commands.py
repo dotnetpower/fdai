@@ -10,6 +10,10 @@ from typing import Any
 from fdai_service_contracts.ontology_query import content_digest
 from fdai_service_contracts.test_context import TestContextApplication, TestContextCommand
 
+from fdai.core.operational_evidence.owner_outcome import (
+    OperationalEvidenceRequester,
+    request_operational_evidence,
+)
 from fdai.shared.providers.decision_evidence_verifier import (
     DecisionEvidenceAdmission,
     DecisionEvidenceAdmissionProvider,
@@ -29,16 +33,27 @@ class TestContextCommandHandler:
         contexts: GovernedTestContextStore,
         admission: DecisionEvidenceAdmissionProvider,
         clock: Callable[[], datetime] | None = None,
+        evidence: OperationalEvidenceRequester | None = None,
     ) -> None:
         self._contexts = contexts
         self._admission = admission
         self._clock = clock or (lambda: datetime.now(UTC))
+        self._evidence = evidence
 
     async def validate(self, payload: Mapping[str, Any]) -> TestContextCommand:
         """Check complete command identity and independent proof before accessing case scope."""
         command = TestContextCommand.model_validate(payload)
         digest = content_digest(command.model_dump(mode="json"))
         request = command.request
+        attempt = await request_operational_evidence(
+            self._evidence,
+            evidence_digest=digest,
+            scope_digest="sha256:" + request.access_scope_digest,
+            purpose_id="operator-test-context-command",
+            source_revision=request.policy_revision,
+            locator={"idempotency_key": command.idempotency_key},
+            clock=self._clock,
+        )
         admission = await self._admission.admit(
             evidence_digest=digest,
             scope_digest="sha256:" + request.access_scope_digest,
@@ -47,6 +62,7 @@ class TestContextCommandHandler:
         )
         now = self._clock()
         if admission is None or not isinstance(admission, DecisionEvidenceAdmission):
+            attempt.raise_if_rejected("test context command identity or scope admission failed")
             raise PermissionError("test context command identity or scope admission failed")
         if (
             assess_decision_evidence_admission(
@@ -91,57 +107,22 @@ class TestContextCommandHandler:
         request = command.request
         if (request.operation != "propose") != reviewed_by_var:
             raise PermissionError("test context review must pass the Var-owned approval topic")
-        if request.operation == "propose":
-            if (
-                request.expected_min is None
-                or request.expected_max is None
-                or request.effective_from is None
-                or request.effective_to is None
-            ):
-                raise ValueError("test context proposal envelope is incomplete")
-            claim = TestContextClaim(
-                context_id=request.context_id,
-                revision=1,
-                access_scope_digest=request.access_scope_digest,
-                target_ref=request.target_ref,
-                signal_code=request.signal_code,
-                expected_min=request.expected_min,
-                expected_max=request.expected_max,
-                effective_from=request.effective_from,
-                effective_to=request.effective_to,
-                recorded_at=command.requested_at,
-                source_ref=request.source_ref,
-                requested_by=command.actor_id,
-                reviewed_by="",
-                policy_revision=request.policy_revision,
-                state="proposed",
-            )
-        else:
-            prior = await self._contexts.read_revision(
+        prior = (
+            None
+            if request.operation == "propose"
+            else await self._contexts.read_revision(
                 context_id=request.context_id,
                 target_ref=request.target_ref,
                 access_scope_digest=request.access_scope_digest,
                 revision=request.expected_revision,
             )
-            if prior is None or (prior.signal_code, prior.source_ref, prior.policy_revision) != (
-                request.signal_code,
-                request.source_ref,
-                request.policy_revision,
-            ):
-                raise ValueError("test context review source no longer matches the proposal")
-            if command.actor_id.strip().casefold() == prior.requested_by.strip().casefold():
-                raise PermissionError(
-                    "test context requester cannot review or revoke their own request"
-                )
-            claim = replace(
-                prior,
-                revision=request.expected_revision + 1,
-                reviewed_by=command.actor_id,
-                recorded_at=command.requested_at,
-                state="reviewed" if request.operation == "review" else "revoked",
-            )
+        )
+        claim = transition_claim(command, prior)
         await self._contexts.record_transition(
-            claim, expected_revision=request.expected_revision, now=self._clock()
+            claim,
+            expected_revision=request.expected_revision,
+            now=self._clock(),
+            command_key=command.idempotency_key,
         )
         return {
             "kind": "test_context_revision",
@@ -170,3 +151,54 @@ class TestContextCommandHandler:
             "idempotency_key": "test-context:" + claim.digest,
             "correlation_id": command.idempotency_key,
         }
+
+
+def transition_claim(
+    command: TestContextCommand, prior: TestContextClaim | None
+) -> TestContextClaim:
+    """Rebuild the exact next revision from one authenticated command and its prior revision.
+
+    Mimir and the independent verifier share this rule, so the transition digest a boundary
+    owner admits is the digest the verifier recomputes from the Operator source row.
+    """
+    request = command.request
+    if request.operation == "propose":
+        if (
+            request.expected_min is None
+            or request.expected_max is None
+            or request.effective_from is None
+            or request.effective_to is None
+        ):
+            raise ValueError("test context proposal envelope is incomplete")
+        return TestContextClaim(
+            context_id=request.context_id,
+            revision=1,
+            access_scope_digest=request.access_scope_digest,
+            target_ref=request.target_ref,
+            signal_code=request.signal_code,
+            expected_min=request.expected_min,
+            expected_max=request.expected_max,
+            effective_from=request.effective_from,
+            effective_to=request.effective_to,
+            recorded_at=command.requested_at,
+            source_ref=request.source_ref,
+            requested_by=command.actor_id,
+            reviewed_by="",
+            policy_revision=request.policy_revision,
+            state="proposed",
+        )
+    if prior is None or (prior.signal_code, prior.source_ref, prior.policy_revision) != (
+        request.signal_code,
+        request.source_ref,
+        request.policy_revision,
+    ):
+        raise ValueError("test context review source no longer matches the proposal")
+    if command.actor_id.strip().casefold() == prior.requested_by.strip().casefold():
+        raise PermissionError("test context requester cannot review or revoke their own request")
+    return replace(
+        prior,
+        revision=request.expected_revision + 1,
+        reviewed_by=command.actor_id,
+        recorded_at=command.requested_at,
+        state="reviewed" if request.operation == "review" else "revoked",
+    )

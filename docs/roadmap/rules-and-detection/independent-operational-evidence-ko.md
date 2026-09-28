@@ -1,6 +1,6 @@
 ---
 translation_of: independent-operational-evidence.md
-translation_source_sha: 9e1d753c8d3406525a1afa55b25bde1dd4242953
+translation_source_sha: 3603bbb206d5a74ac4101ab9578ef6c8f016ce5a
 translation_revised: 2026-09-28
 ---
 # 독립 운영 근거 발급
@@ -10,9 +10,12 @@ translation_revised: 2026-09-28
 각 출처를 읽고 본문을 담지 않은 증명을 발급하며, 기존 경계 소유자는 변경되지 않은 검증 증적 조회 경로로
 이 증명을 계속 사용합니다.
 
-> **상태:** 설계 단계입니다. 소유자가 2026-09-28에 [#1022](https://github.com/dotnetpower/fdai/issues/1022)
-> 종료 조건 1에 대한 검토를 마쳤으며, 내용은 [검토 결정](#검토-결정)에 있습니다. 검증기, 증명 생산자, 신뢰 레지스트리, principal-사례 범위 매핑은 구현되거나 배포되지
-> 않았으며, 여기에 나오는 모든 경계는 계속 차단 상태를 유지합니다.
+> **상태:** 일부 구현되었습니다. 소유자가 2026-09-28에 [#1022](https://github.com/dotnetpower/fdai/issues/1022)
+> 종료 조건 1에 대한 설계 검토를 마쳤으며, 내용은 [검토 결정](#검토-결정)에 있습니다.
+> 검증기 엔진, 발급 경로, 고정된 신뢰 레지스트리와 사례 범위 권한 부여 레지스트리, 삽입 전용 증명 저장소,
+> Operator 인증 증적, 세 가지 테스트 맥락 재확인이 구현되어 로컬 검사를 통과합니다.
+> [구현 참고 사항](#구현-참고-사항)을 확인하세요. 배포된 검증기 워크로드는 없으며, 출처 재확인이 연결되지 않은
+> 목적은 모두 `unavailable` 상태를 유지합니다.
 >
 > **에이전트 경계:** 판테온은 정확히 15개 에이전트로 유지합니다. 이 설계는 에이전트나 토픽을 추가하지 않고,
 > 어떤 에이전트의 `owns`나 `subscribes`도 바꾸지 않으며, 실행 권한이나 승격 권한을 부여하지 않습니다.
@@ -29,7 +32,9 @@ translation_revised: 2026-09-28
 
 ## 현재 상태와 공백
 
-Core 경로는 `services/core-control-plane/src/fdai/` 기준이며, 그 밖의 경로는 리포지토리 루트 기준입니다.
+Core 경로는 `services/core-control-plane/src/fdai/` 기준이며, 그 밖의 경로는 리포지토리 루트 기준입니다. 이
+섹션은 검토 당시 설계가 메우려던 공백을 기록하며, 현재 구현된 내용은 [구현 참고 사항](#구현-참고-사항)에서
+설명합니다.
 
 - **소비자는 이미 있습니다.** 아래의 모든 경계는 `shared/providers/decision_evidence_verifier.py`의
   `assess_decision_evidence_admission`을 호출합니다. 검증 증적이 없으면 `context_admission_required` 같은 일반
@@ -121,8 +126,9 @@ Core 상태 저장소와 분리됩니다.
   발급 기록, 같은 키 형태의 거부 기록을 각각 별도 테이블에 둡니다. 발급마다 키가 다르므로 변경 불가능한
   기록을 덮어쓰지 않고도 만료 후 같은 조회를 다시 발급할 수 있습니다.
 - **거부 기록.** 거부 기록에는 본문이 없으며 시도 id, 조회 digest, 목적, 유형,
-  `LiveEvidenceClaimRejectionReason` 또는 `DecisionEvidenceReadinessReason`의 사유 코드, 충돌 근거 digest,
-  고정값, 검증기 id와 버전, 기록 시각, 해당 시도에만 적용되는 고정 60초 `valid_until`을 담습니다.
+  `LiveEvidenceClaimRejectionReason`, `DecisionEvidenceReadinessReason`, 또는 재확인의 고정 코드 집합에서 나온
+  사유 코드, 충돌 근거 digest, 고정값, 검증기 id와 버전, 기록 시각, 해당 시도에만 적용되는 고정 60초
+  `valid_until`을 담습니다.
 - **고정값과 읽기.** `<registry-pins>`는 기록의 근거가 된 신뢰 레지스트리와 권한 부여 레지스트리 개정을 나타냅니다.
   소비자는 현재 고정값이나 철회 개정이 폐기하지 않은 이전 고정값 아래에서 조회마다 최신 기록을 최대 두 개만
   읽으며, 어느 기록도 다른 기록의 유효 기간을 늘리지 않습니다.
@@ -144,15 +150,16 @@ principal과 증명 저장소 주소에 바인딩합니다. 이런 값은 리포
 | `purpose_id`, `authority_class`, `method_*` | 목적 id 열한 개 중 하나와 그 재조회 계약. 어떤 목적도 다른 목적을 대신하지 못함 |
 | `producers`, `sources` | 등록된 요청 경계, 권한 있는 출처와 교차 확인 출처, 각각의 앵커 |
 | `freshness_policy` | 정책 id, 버전, 상한. 이 정책의 digest가 최신성 정책 증명의 대상 |
-| `verifier` | `verifier_id`, `verifier_version`, `trust_anchor_id`, `valid_from`, `valid_until`, `revoked` |
+| `verifiers` | 하나 이상의 바인딩. 각 바인딩에는 `verifier_id`, `verifier_version`, `trust_anchor_id`, `valid_from`, `valid_until`, `revoked`가 있으며, 교체 시 기존 바인딩 옆에 새 바인딩을 추가함 |
 | `separation` | 검증기와 달라야 하는 출처, 생산자, 검토자, 모든 실행기 계열 앵커 |
 | `evidence_class` | 배포 환경에서는 `live`이며, 로컬 환경 밖에서는 `local-loopback` 앵커를 거부 |
 
 - **검토와 적재.** 개정은 내용 주소로 식별하며, 검토 후
   [operating-intent 출처](../architecture/operating-intent-source-ko.md)처럼 대역 외에서 고정합니다. 작성자와
   검토자는 서로 다른 사람이어야 하며, 전체 권한 개발 프로필의 단일 Owner만 둘을 겸하고 개발 전용으로 기록합니다.
-  검증기와 모든 소비자는 같은 고정값을 적재하며, digest 불일치, 알 수 없는 필드, 중복 키, 누락된 앵커가 있으면
-  해당 목적을 사용할 수 없습니다.
+  검증기와 모든 소비자는 같은 고정값을 적재하며, digest 불일치, 알 수 없는 필드, 중복 키, 누락된 앵커가 있거나
+  검증기 신뢰 앵커가 생산자, 출처, 분리 앵커로도 쓰이면 해당 목적을 사용할 수 없습니다. 따라서 신원 분리 검사는
+  검증기 바인딩만 쓰는 앵커만 건너뜁니다.
 - **교체와 철회.** 적재기는 각 개정을 이름표가 아니라 내용으로 분류합니다. 바인딩, 권한 부여, 목적, 사례 범위에
   대한 제거, 축소, 유효 기간 단축, `revoked` 표시가 하나라도 있으면 철회 개정이며, 작성자는 항목을 삭제하지 않고
   철회합니다. 철회 개정은 이전 고정값 아래에서 사용 중인 검증 증적을 폐기하고(경계가 다시 요청함), 일치했던
@@ -368,6 +375,56 @@ shadow로 내려가지만 발급 장애는 해당 목적만 `unavailable`로 만
 | 부정 훈련 | 전용 테스트 범위에서 자체 검증을 제외한 각 거부 유형이 예상한 거부 기록과 그에 맞는 소유자 사유를 만들고, 자체 검증 훈련은 기능 상태 `self_verified`를 확인하며, 중지된 검증기는 `unavailable`만 내며 다른 유형의 훈련을 통과하지 못함 |
 | 중지 조건 | 신원 누락, `429`나 `503`, 기한 초과, 충돌 근거가 있으면 실행을 멈추고 누락된 단계를 기록함 |
 | 기록 | 배포된 SHA, 레지스트리 digest, 범위 digest, 시각, 증적 참조. 독립 운영 자격 검증은 계속 [#1026](https://github.com/dotnetpower/fdai/issues/1026) 범위 |
+
+## 구현 참고 사항
+
+Core 경로는 `services/core-control-plane/src/fdai/` 기준 상대 경로입니다. 각 항목은 현재 설계가 구현된 방식을
+기록하며, 남은 작업은 [구현 원장](../../roadmap-implementation/rules-and-detection/independent-operational-evidence.md)에서
+추적합니다.
+
+- **계약.** `fdai_service_contracts.operational_evidence`는 조회, 좌표만 담는 위치 정보, 본문이 없는 요청과 응답,
+  고정 60초 기간을 가진 거부 기록을 정의합니다. `fdai_service_contracts.operator_authentication`은 토큰이 없는
+  Operator 인증 증적을 정의합니다.
+- **경로와 소유자.** `shared/providers/operational_evidence_issuer.py`는 `OperationalEvidenceIssuer`와 시도 범위
+  결과 조회기를 선언합니다. `core/operational_evidence/owner_outcome.py`는 동일한 진행 중 요청을 병합하고, 해당
+  시도가 지목한 기록을 다시 읽은 뒤에만 거부를 받아들입니다. Var와 Mimir는 유형을 명시하는
+  `OperationalEvidenceRejectedError`로 명령과 전이를 거부하며, Forseti의 보류 사유에도 유형이 드러납니다. Thor,
+  Heimdall, T1 재사용, Pattern 읽기는 `unavailable`만 도달 가능하므로 일반 보류를 유지합니다.
+- **검증기.** `core/operational_evidence/issuance.py`와 `proofs.py`는 레지스트리 항목과 자체 재확인으로 근거 증적, 다섯 증명,
+  묶음을 만들고 `DecisionEvidenceReadinessGate`로 평가한 뒤 발급 기록 하나 또는 거부 기록 하나를 작성합니다.
+  `separation.py`는 독립 principal과 같은 검증기 principal을 거부하며, `delivery/operational_evidence_server.py`는
+  루프백 엔드포인트를 제공합니다. 워크로드는 자신의 검증기 버전에 해당하는 정확한 바인딩으로만 발급하므로, 일상적
+  교체 후에도 이전 워크로드와 이미 보관된 발급 기록은 만료될 때까지 유효하고, 철회 개정은 이를 폐기합니다. 재실행된
+  시도는 동시에 실행된 작성자가 먼저 삽입한 경우에도 저장된 결과를 반환하며, 다른 조회에 다시 사용된 시도 ID는
+  `unavailable`입니다.
+- **실행 환경.** `resolve_execution_venue`가 해석한 `FDAI_EXECUTION_VENUE`가 기준입니다. 앵커 문서가 다른 실행
+  환경을 지정하거나 키를 반복하면 모든 목적이 사용할 수 없는 상태가 되고 검증기 워크로드가 멈춥니다. 배포 환경에는
+  아직 워크로드 호출자 인증기가 없으므로 루프백 워크로드는 로컬 환경에서만 시작합니다.
+- **레지스트리.** `config/operational-evidence-trust-registry.json`은 검토된 업스트림 레지스트리입니다.
+  `trust_registry.py`, `grant_registry.py`, 각각의 `*_loader.py` 모듈, `revision_history.py`는 고정된 개정을 엄격하게 읽고, 각 개정을 내용으로
+  분류하며, 철회 개정 이후 이전 고정값을 폐기하고, 일치한 바인딩이나 권한 부여가 철회될 때만 계보를 끝냅니다.
+  아직 유효 기간이 시작되지 않은 일치 권한 부여는 권한을 주지도 거부하지도 않으며, 철회되었거나 만료된 일치 항목만
+  거부합니다. 검증기 신뢰 앵커가 생산자, 출처, 분리 앵커로도 쓰이는 목적은 `verifier_anchor_not_exclusive`를
+  보고합니다. 업스트림 `forecast-context` 항목은 검증기 신뢰 앵커 아래의 검증기 자체 조각 발급 기록을 출처로
+  지정하므로, 검토된 출처 모델이 이 항목을 대체할 때까지 사용할 수 없습니다. 권한 부여 레지스트리, 고정값, 앵커
+  바인딩은 배포가 제공합니다.
+- **증명 저장소와 출처.** core-control-plane 서비스 마이그레이션 `core_operational_evidence_20260928`은 삽입 전용
+  테이블 다섯 개, 검증기 역할과 읽기 역할, 변경 방지 트리거를 만듭니다. 또한 Operator 신원만 테스트 맥락 명령 행을
+  삽입하게 하고, 그 요청 필드와 증적을 변경할 수 없게 하며, 그 행과 Mimir 이력, 감사 행을 읽기 전용 보안 장벽
+  뷰로 검증기에 노출하므로, 호출자가 넣은 함수는 다른 `state_kv` 행의 내용을 볼 수 없습니다. 다만 기본 제공
+  leakproof 연산자는 여전히 모든 기반 키를 평가하므로, 검증기 역할은 플래너 추정치와 `EXPLAIN ANALYZE` 행 수로 키의
+  존재 여부를 확인하고 개수를 셀 수 있으며, 값은 드러나지 않습니다. 마이그레이션은 검증기 역할에 직접 부여된
+  `TEMPORARY` 권한을 회수합니다. Core가 임시 테이블을 사용하므로 PostgreSQL 기본 `PUBLIC` 권한은 남아 있으며,
+  보안 장벽은 이 권한과 관계없이 행 내용을 보호합니다. Operator는 증적을 멱등 요청 digest 안이 아니라 그 옆에
+  보관합니다.
+- **재확인.** `operator-test-context-command`, `test-context-transition`, `operational-test-context`는 실제 출처를
+  읽습니다. 현재 맥락은 인용한 전이 발급 기록의 조회가 그 맥락과 직전 기록으로 다시 만든 조회와 같을 때만 인정되며,
+  다른 발급 기록을 인용하면 `replay_substituted`입니다. `admit`은 보관된 기록마다 정확한 검증기 바인딩과 현재 앵커
+  기준의 그 바인딩 준비 상태를 다시 확인합니다. 관측, 예측, 사례 이력, 현재 재사용 목적에는 연결된 출처 재확인이
+  없습니다.
+- **기능 상태와 인계.** `delivery/operational_evidence_readiness.py`는 목적마다 Settings 행 하나를 추가하고,
+  `delivery/operational_evidence_handoff_cli.py`는 자동화할 수 있는 연결 환경 인계 단계를 실행하며 남은 훈련을
+  나열합니다.
 
 ## 목표가 아닌 것
 
