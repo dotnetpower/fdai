@@ -58,6 +58,7 @@ Container Apps and Azure Kubernetes Service (AKS). The canonical design remains 
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-28 | deferred | The dev alert-noise pilot operation is not planned after the operator closed #1057. The module stays default-disabled, and no apply or notification ran. | [#1057 decision](https://github.com/dotnetpower/fdai/issues/1057#issuecomment-5862036923). | None planned for this pilot. |
 | 2026-09-28 | implemented | Clarified that the dev alert-noise Terraform module is an operator-local deployment tool and that its plan or apply records never become FDAI approval, runtime authority, effect evidence, or promotion evidence. | `current change`; alert-noise owner contract, deployment profile, provider-neutral plan `1.1.0`, and explicit unavailable provider route. | Retain local deployment confirmation and independent operational observations separately; implement a reviewed provider adapter before any FDAI mutation. |
 | 2026-09-28 | implemented | Replaced the dev alert-noise pilot's Key Vault target with the internally pinned FDAI Core Container App `Replicas` metric without changing either runtime profile. | `current change`; pilot Terraform module, root composition, exact plan-scope verifier, 22 focused tests, Ruff, and Terraform validation. | Supply the protected recipient and retain exact baseline plan approval plus independent firing, delivery, recovery, reverse-reference, and cleanup evidence. No apply or notification has run. |
 | 2026-09-28 | implemented | Managed-host preparation can install the deployment CLI from a signed control package instead of the kit wheels. It recreates the host environment, requires the locally verified archive digest on the host, and binds that digest into the host work directory. Kit runtime payload handling is unchanged. | `current change`; `packages/deployment-cli/tests/test_control_package.py`; 1957 deployment CLI tests | Retain a live AKS application receipt through #461. |
@@ -164,9 +165,6 @@ Container Apps and Azure Kubernetes Service (AKS). The canonical design remains 
 
 ### Remaining work
 
-- [ ] Retain an exact locally reviewed baseline plan for the FDAI Core Container App `Replicas` pilot, then
-  independently verify firing, direct test-recipient delivery, resolution, recovery,
-  reverse-reference safety, and cleanup without changing the Core app.
 - [ ] Run the exact-main AKS inventory Job and retain its complete/active generation closure receipt.
 - [ ] Run the selected private catalog-review checkpoint and retain the exact inert draft-PR and
   durable Saga-chain receipt.

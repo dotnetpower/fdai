@@ -1,7 +1,7 @@
 ---
 title: 배포 리소스 규약
 translation_of: deployment-resource-conventions.md
-translation_source_sha: 8938de8952fbf279f1d83e179e2974d50ef8ef10
+translation_source_sha: 8790dec2c2cf083d1e1708c6cf3a777af43f9143
 translation_revised: 2026-09-28
 ---
 # 배포 리소스 규약
@@ -114,6 +114,7 @@ A3-E 근거 대상은 별도의 개발 환경 전용 Terraform root입니다. �
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-28 | deferred | 운영자가 #1057을 not planned로 닫았으므로 알림 과다 수신 파일럿 운영은 계획하지 않습니다. 선행 조건은 기본 비활성 상태로 유지하며 적용이나 알림은 실행하지 않았습니다. | [#1057 결정](https://github.com/dotnetpower/fdai/issues/1057#issuecomment-5862036923). | 이 파일럿에 계획된 작업은 없습니다. |
 | 2026-09-28 | implemented | 알림 과다 수신 Terraform 계획은 운영자가 로컬에서 사용하는 배포 기록이며 FDAI 승인, 런타임 권한, 효과 또는 승격 의미에서 제외된다는 점을 명확히 했습니다. | `current change`, 공급자 중립 알림 계획 `1.1.0`, 명시적 unavailable 공급자 경로 및 수정된 배포 경계. | 로컬 배포 확인과 FDAI 런타임 근거를 분리하고 변경 전에 검토된 공급자 어댑터를 구현합니다. |
 | 2026-09-28 | implemented | 격리된 개발 환경 알림 과다 수신 선행 조건을 Key Vault Availability에서 결정론적 FDAI Core Container App `Replicas` 메트릭으로 바꾸고 임의 대상 입력을 제거했습니다. | `current change`, 파일럿 Terraform 모듈, 루트 조립, 정확한 계획 범위 검증기, 집중 테스트 22건, Ruff 및 Terraform 검증. | 보호된 수신자를 제공하고 정확한 기준선 계획 승인과 독립적인 발생, 전달, 복구, 역방향 참조 및 정리 근거를 보존합니다. 적용이나 알림은 실행하지 않았습니다. |
 | 2026-09-16 | implemented | 정확한 Terraform 보안 검사가 초기 형태를 거부한 뒤 외부 송신을 거부하는 NSG를 A3-E VM NIC와 subnet에 모두 직접 연결하고 VM extension 작업을 비활성화했습니다. | `current change`; Trivy `0.72.0`에서 잘못된 구성 0건, Checkov `3.2.256`에서 16건 통과 및 0건 실패, 값을 노출하지 않는 미리 보기 검증기에서 정확히 생성 13건, 갱신 0건 및 삭제 0건. | 관리 호스트 계획이나 Azure 효과를 만들기 전에 필수 CI를 통해 수정된 정확한 개정 번호를 게시합니다. |
@@ -208,8 +209,6 @@ A3-E 근거 대상은 별도의 개발 환경 전용 Terraform root입니다. �
 | 2026-08-20 | validated | 수정된 stateful Event Bus 지연 규칙을 보호된 monitoring-only 경로로 적용하고 ARM의 `autoMitigate=true`를 확인했으며, 정제된 합성 지연 행 하나로 실제 조건을 시험했습니다. 경고는 `2026-08-20T15:36:09Z`에 발생하고 구성된 정상화 기간 뒤 `2026-08-20T16:02:10Z`에 자동 해제되었습니다. | 보호된 적용 실행 `32383519737`은 생성 0개, 제자리 변경 1개, 삭제 0개였고 정확한 경고 인스턴스 관측이 `Fired` 이후 `Resolved`를 기록했으며 집중 경고 검사 3개가 통과했습니다. | Event Bus 소비자 지연 경고 배포 및 stateful 복구 계약에 남은 작업은 없습니다. |
 ### 남은 작업
 
-- [ ] 알림 과다 수신 파일럿이 결정론적 Action Group과 Core `Replicas` 경보만 만드는 정확한 로컬 검토
-  기준선 계획을 보존한 뒤 알림, 복구, 역방향 참조 안전성 및 정리를 독립적으로 검증합니다.
 - [ ] `id-<workload>-<env>-<region>-operator-api`와
   `ca-<workload>-<env>-<region>-operator-api`를 생성하고 독립 Operator 서비스를 새 워크로드
   신원에 연결하며 상태와 동료 서비스 격리를 검증한 뒤 후속 리소스가 준비된 후에만 이전 `readapi`

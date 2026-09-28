@@ -116,6 +116,7 @@ separately approved stages.
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-28 | deferred | The alert-noise pilot operation is not planned after the operator closed #1057; the prerequisite stays default-disabled and no apply or notification ran. | [#1057 decision](https://github.com/dotnetpower/fdai/issues/1057#issuecomment-5862036923). | None planned for this pilot. |
 | 2026-09-28 | implemented | Clarified that alert-noise Terraform plans are operator-local deployment records and removed them from FDAI approval, runtime authority, effect, and promotion semantics. | `current change`; provider-neutral alert plan `1.1.0`, explicit unavailable provider route, and revised deployment boundary. | Keep local deployment confirmation separate from FDAI runtime evidence and implement a reviewed provider adapter before any mutation. |
 | 2026-09-28 | implemented | Retargeted the isolated dev alert-noise prerequisite from Key Vault Availability to the deterministic FDAI Core Container App `Replicas` metric and removed the arbitrary target input. | `current change`; pilot Terraform module, root composition, exact plan-scope verifier, 22 focused tests, Ruff, and Terraform validation. | Supply the protected recipient and retain exact baseline plan approval plus independent firing, delivery, recovery, reverse-reference, and cleanup evidence. No apply or notification has run. |
 | 2026-09-16 | implemented | Bound the egress-deny NSG directly to the A3-E VM NIC as well as its subnet and disabled VM extension operations after exact Terraform security scans rejected the initial shape. | `current change`; Trivy `0.72.0` reports 0 misconfigurations; Checkov `3.2.256` reports 16 passed and 0 failed; the value-blind preview verifier accepts exactly 13 creates, 0 updates, and 0 deletes. | Publish the corrected exact revision through protected CI before any managed-host plan or Azure effect. |
@@ -210,9 +211,6 @@ separately approved stages.
 | 2026-08-20 | validated | Applied the corrected stateful Event Bus lag rule through the protected monitoring-only path, verified ARM `autoMitigate=true`, and exercised the live condition with one sanitized synthetic lag row. The alert fired at `2026-08-20T15:36:09Z` and resolved automatically at `2026-08-20T16:02:10Z` after the configured clear periods. | Protected apply run `32383519737` changed 0 resources by creation, 1 in place, and 0 by destruction; exact alert instance observations recorded `Fired` then `Resolved`; focused alert checks passed 3 cases. | None for the Event Bus consumer lag alert deployment and stateful recovery contract. |
 ### Remaining work
 
-- [ ] Retain an exact locally reviewed baseline plan proving the alert-noise pilot creates only the
-  deterministic Action Group and Core `Replicas` alert, then independently verify notification,
-  recovery, reverse-reference safety, and cleanup.
 - [ ] Apply a protected development replacement that creates
   `id-<workload>-<env>-<region>-operator-api` and
   `ca-<workload>-<env>-<region>-operator-api`, binds the independent Operator service to the new
