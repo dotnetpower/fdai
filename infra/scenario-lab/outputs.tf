@@ -45,6 +45,9 @@ output "enforce_environment" {
     mysql_server          = azurerm_mysql_flexible_server.scenario_lab.name
     mysql_password        = random_password.mysql_admin.result
     azure_openai_endpoint = module.azure_openai.endpoint
+    # The llm_endpoint chaos scenarios bind this exact ARM id as their mutation
+    # scope, so it is read from the module rather than derived from the endpoint.
+    azure_openai_resource_id = module.azure_openai.resource_id
     azure_openai_deployment = lookup(
       module.azure_openai.deployments,
       var.azure_openai_deployment_name,

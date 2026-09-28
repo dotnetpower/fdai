@@ -194,6 +194,7 @@ write_export FDAI_ENFORCE_MYSQL_USER "$(jq -er '.mysql_user' <<<"$terraform_outp
 write_export FDAI_ENFORCE_MYSQL_SERVER "$(jq -er '.mysql_server' <<<"$terraform_output")"
 write_export FDAI_ENFORCE_MYSQL_PW_FILE "$password_file"
 write_export FDAI_ENFORCE_AOAI_ENDPOINT "$(jq -er '.azure_openai_endpoint' <<<"$terraform_output")"
+write_export FDAI_ENFORCE_AOAI_RESOURCE_ID "$(jq -er '.azure_openai_resource_id' <<<"$terraform_output")"
 write_export FDAI_ENFORCE_AOAI_DEPLOYMENT "$(jq -er '.azure_openai_deployment' <<<"$terraform_output")"
 chmod 600 "$environment_file"
 
