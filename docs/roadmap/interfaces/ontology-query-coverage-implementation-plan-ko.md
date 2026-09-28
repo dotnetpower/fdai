@@ -1,6 +1,6 @@
 ---
 translation_of: ontology-query-coverage-implementation-plan.md
-translation_source_sha: a325f6811620c49e162773364abf1d5788fed1af
+translation_source_sha: 99b8d33f59367ac9b563f29972ccbe3de483f505
 translation_revised: 2026-09-28
 ---
 # 온톨로지 조회 커버리지 구현 계획
@@ -338,6 +338,7 @@ LinkType 근거만으로는 가능한 관계만 설명할 수 있으며 현재 �
 | OQ-09 | 검토된 metric-semantic 레지스트리와 메트릭 series, 변경 지점, aligned 구간, cross-resource temporal 상관관계 및 causal support/refutation 함수를 추가합니다. | OQ-03, OQ-05, OQ-08 | Request-growth 및 storage-write-loss 시나리오가 zero와 누락된 데이터를 구분하고 시간 순서를 원인으로 단정하지 않으며 competing explanation을 인용합니다. |
 | OQ-10 | 새 경로를 모든 호환성 경로와 shadow 재생하고 집단으로 승격한 뒤 ordinary 언어에서 정규식, 키워드 서술기, phrase-based 답변 의도 및 canonical-string 읽기 계획 수립을 제거합니다. 명시적 exact-command 표면은 별도로 유지합니다. | OQ-05, OQ-06, OQ-09 | 새 경로가 집단 quality/지연 시간을 유지하거나 개선하고 이전 방식 ordinary-language 라우팅 share는 0이며 exact technical 명령은 결정론적하게 남습니다. |
 | OQ-11 | 모든 온톨로지 release/기능 변경에 연속 구조 및 인식 상태 커버리지 게이트를 적용합니다. | OQ-10 | 구조 커버리지, 유한 질문 우주 집계, 최종 인식 상태 처리 결과는 100%이고, 지원되지 않거나 근거 없는 주장, 숨겨진 범위 누출, 안전하지 않은 변이 생존, 언어 차이, 권한 없는 실행은 0이며 답변 커버리지는 집단별로 보고합니다. |
+| OQ-12 | 기능 이름 기반 관계 계획을 [온톨로지 추론 컴파일러](ontology-reasoning-compiler-ko.md)의 닫힌 질문 논리 형식, 수용 검사, 두 단계 앵커 바인딩, 검토된 관계 경로, 독립적인 커버리지 검증으로 대체합니다. | OQ-04, OQ-05. OQ-07, OQ-08, OQ-11은 해당 계열의 승격을 제한합니다. | 담당 설계의 추론 코호트 홀드아웃 게이트를 조용한 의미 손실, 출처 없는 피연산자, 잘못된 수준의 답변이 모두 0인 상태로 통과합니다. |
 
 ## 병렬 레인 및 병합 지점
 
@@ -346,6 +347,7 @@ LinkType 근거만으로는 가능한 관계만 설명할 수 있으며 현재 �
 - **레인 C - 의미 변환 결과:** OQ-02의 서술자 신원이 고정된해지면 OQ-06을 시작합니다.
 - **레인 D - operational 근거:** OQ-03 이후 OQ-04/OQ-05와 병렬로 OQ-07 -> OQ-08 -> OQ-09를 진행합니다.
 - **레인 E - 대화 전환:** OQ-04 -> OQ-05 -> OQ-10이며 전환에서 OQ-06/OQ-09와 결합합니다.
+- **레인 F - 추론 컴파일:** OQ-12는 OQ-05 이후 시작하며, OQ-07, OQ-08, OQ-11 근거가 갖춰지는 대로 연산 계열을 하나씩 승격합니다.
 
 각 레인은 focused 테스트만 실행합니다. OQ-10은 완전한 종단 간 행동을 비교하는 첫 통합
 지점이고 OQ-11은 release 게이트입니다.
@@ -463,3 +465,4 @@ fail-close합니다.
 | Rule-specific 의미 세대 | [Rule 의미 검색](../rules-and-detection/rule-semantic-retrieval-ko.md) |
 | Causal 가설 근거 및 종결 | [인과 인시던트 그래프](../rules-and-detection/causal-incident-graph-ko.md) |
 | Console 및 서술기 권한 | [FDAI Console 대화](operator-console-ko.md) |
+| 질문 논리 형식과 결정론적 추론 컴파일 | [온톨로지 추론 컴파일러](ontology-reasoning-compiler-ko.md) |

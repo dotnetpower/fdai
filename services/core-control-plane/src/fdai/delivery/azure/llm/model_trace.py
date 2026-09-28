@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import hashlib
 import json
-import re
 import time
 from collections import Counter
 from collections.abc import Mapping, Sequence
@@ -14,38 +13,13 @@ from typing import Annotated, Any, Final, Literal
 
 from pydantic import Field, model_validator
 
+from fdai.delivery.azure.llm.redaction_rules import REDACTED, redact
 from fdai.shared.contracts.models import ContractBase
 
 _MAX_MESSAGES: Final[int] = 24
 _MAX_REQUEST_CHARS: Final[int] = 12_000
 _MAX_RESPONSE_CHARS: Final[int] = 6_000
 _TRUNCATED: Final[str] = "\n[TRUNCATED]"
-_REDACTED: Final[str] = "[REDACTED]"
-_PATTERNS: Final[tuple[tuple[str, re.Pattern[str]], ...]] = (
-    ("inline-image", re.compile(r"(?i)data:image/[a-z0-9.+-]+;base64,[a-z0-9+/=_\r\n-]+")),
-    ("bearer-token", re.compile(r"(?i)\bbearer\s+[a-z0-9._~+/=-]+")),
-    (
-        "named-secret",
-        re.compile(
-            r"(?i)\b(?:password|secret|token|api[_-]?key)[\"']?\s*[:=]\s*"
-            r"[\"']?[^\s,;\"'}]+"
-        ),
-    ),
-    ("jwt", re.compile(r"\beyJ[a-zA-Z0-9_-]+\.[a-zA-Z0-9_-]+\.[a-zA-Z0-9_-]+\b")),
-    ("azure-resource-id", re.compile(r"(?i)/subscriptions/[0-9a-f-]+(?:/[^\s\"'<>]+)+")),
-    (
-        "guid",
-        re.compile(
-            r"(?i)(?<![0-9a-f])"
-            r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"
-            r"(?![0-9a-f])"
-        ),
-    ),
-    ("email", re.compile(r"(?i)\b[a-z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-z0-9.-]+\.[a-z]{2,}\b")),
-    ("ip-address", re.compile(r"(?<!\d)(?:\d{1,3}\.){3}\d{1,3}(?!\d)")),
-    ("url", re.compile(r"(?i)https?://[^\s\"'<>]+")),
-    ("sas-value", re.compile(r"(?i)(?:\?|&)(?:sig|se|sp|sv|st|spr)=[^&\s\"'<>]+")),
-)
 
 
 @dataclass(frozen=True, slots=True)
@@ -286,12 +260,7 @@ def _text_content(value: Any, redactions: Counter[str]) -> str:
 
 
 def _redact(value: str, *, max_chars: int | None) -> tuple[str, Counter[str]]:
-    output = value
-    redactions: Counter[str] = Counter()
-    for rule, pattern in _PATTERNS:
-        output, count = pattern.subn(_REDACTED, output)
-        if count:
-            redactions[rule] += count
+    output, redactions = redact(value)
     if max_chars is not None and len(output) > max_chars:
         keep = max(0, max_chars - len(_TRUNCATED))
         output = f"{output[:keep]}{_TRUNCATED}"[:max_chars]
@@ -350,7 +319,7 @@ def _build_minimization_receipt(
 
 
 def _has_meaningful_text(value: str) -> bool:
-    candidate = value.replace(_REDACTED, "").strip()
+    candidate = value.replace(REDACTED, "").strip()
     return bool(candidate)
 
 
