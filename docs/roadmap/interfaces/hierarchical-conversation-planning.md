@@ -321,7 +321,7 @@ The release gate measures three separate outcomes:
 - **Question disposition**: Every accepted turn ends as a grounded answer, clarification, evidence
     hold, unsupported goal, or governed action draft.
 - **Answer coverage**: The measured share of competency questions that reach a complete grounded
-    answer. This value depends on deployed data and evidence and is never presented as 100% by design.
+    answer. This value depends on deployed data and evidence and is never presented as 100% by design. The proposed [Ontology Reasoning Coverage](ontology-reasoning-coverage.md) adds language, relation, instance-source, function, and compile-closure dimensions to this gate.
 
 The release gate now also has a separate epistemic-closure foundation. A content-addressed
 `QuestionUniverseReceipt` freezes one finite release and principal-scoped denominator.
@@ -387,7 +387,7 @@ This example is a logical form, not a phrase rule. No individual word, including
 prior verified context, locale, and time reference. Ambiguous request kinds or calendar boundaries
 return a clarification before any operational read.
 
-After schema grounding, the graph binds metrics, Services, topology, and Changes; `forbidden_actions` create no goal or draft.
+After schema grounding, the graph binds metrics, Services, topology, and Changes; `forbidden_actions` create no goal or draft. The proposed [Ontology Reasoning Compiler](ontology-reasoning-compiler.md) replaces capability-named decomposition with a closed question logical form and deterministic relation, containment, aggregation, temporal, and follow-up compilation.
 
 ## Intent graph contract
 

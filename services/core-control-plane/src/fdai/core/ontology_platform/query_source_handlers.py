@@ -6,6 +6,7 @@ import json
 import logging
 from collections.abc import Mapping, Sequence
 from dataclasses import asdict, is_dataclass
+from functools import partial
 
 from fdai_service_contracts.ontology_query import (
     EvidenceAuthority,
@@ -35,7 +36,12 @@ from .query_gateway import (
     SecuredOntologyInstancePathReceipt,
 )
 from .query_receipt_authority import SecuredQueryReceiptAuthority, secured_query_scope_digest
-from .query_values import QueryRow, QueryTable, relationship_endpoint_table
+from .query_traversal_tables import (
+    relationship_traversal_table,
+    secured_query_table,
+    traversal_endpoints,
+)
+from .query_values import QueryRow, QueryTable
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -100,7 +106,7 @@ class SecuredObjectSetNodeHandler:
             except ValueError:
                 _LOGGER.warning("secured_object_set_failed", extra={"stage": "receipt"})
                 raise
-        table = _secured_query_table(secured)
+        table = secured_query_table(secured)
         return QueryNodeResult(
             value=table,
             evidence_refs=(
@@ -182,43 +188,38 @@ class SecuredRelationshipTraversalNodeHandler:
                 secured,
                 provider=self._decision_evidence,
             )
-        table = _relationship_traversal_table(
+        table, output_refs = await traversal_endpoints(
+            relationship_traversal_table(
+                secured,
+                root_ids=(dependency.rows[0].row_id,),
+                link_type=traversal.link_types[0],
+                direction=traversal.direction,
+                max_depth=traversal.max_depth,
+            ),
+            traversal,
             secured,
-            root_ids=(dependency.rows[0].row_id,),
-            link_type=traversal.link_types[0],
-            direction=traversal.direction,
-            max_depth=traversal.max_depth,
+            gateway=self._gateway,
+            request=self._request,
+            issue=(
+                partial(
+                    _issue_secured_result,
+                    self._receipt_authority,
+                    provider=self._decision_evidence,
+                )
+                if self._receipt_authority is not None
+                else None
+            ),
         )
         return QueryNodeResult(
             value=table,
             evidence_refs=_evidence_refs(dependencies)
             + (
                 f"ontology-object-set:{secured.receipt.projected_result_digest}",
-                f"ontology-object-set-output:{secured.receipt.projected_result_digest}",
+                *output_refs,
                 f"ontology-query-table:{table.digest}",
             ),
             authority=EvidenceAuthority.SERVER_INVENTORY_GRAPH,
         )
-
-
-def _relationship_traversal_table(
-    secured: SecuredObjectSetQueryResult,
-    *,
-    root_ids: tuple[str, ...],
-    link_type: str,
-    direction: str,
-    max_depth: int = 1,
-) -> QueryTable:
-    """Return only endpoints reached from the dependency roots."""
-
-    return relationship_endpoint_table(
-        _secured_query_table(secured),
-        secured.materialization.graph,
-        root_ids=root_ids,
-        link_type=link_type,
-        direction=direction,
-        max_depth=max_depth,
-    )
 
 
 class SecuredTypedPathNodeHandler:
@@ -296,7 +297,7 @@ class SecuredTypedPathNodeHandler:
                     secured,
                     provider=self._decision_evidence,
                 )
-            current = _relationship_traversal_table(
+            current = relationship_traversal_table(
                 secured,
                 root_ids=root_ids,
                 link_type=step.link_type,
@@ -749,32 +750,6 @@ def _query_table(value: object) -> QueryTable:
         truncation_reason=truncation_reason,
         numeric_fields=tuple(numeric_fields),
         source_generation=source_generation,
-    )
-
-
-def _secured_query_table(secured: SecuredObjectSetQueryResult) -> QueryTable:
-    limitation = (
-        secured.receipt.truncation_reason.value
-        if secured.receipt.truncation_reason is not None
-        else None
-        if secured.receipt.complete
-        else secured.materialization.graph.source_incomplete_reason or "source_incomplete"
-    )
-    return QueryTable(
-        rows=tuple(
-            QueryRow.from_values(
-                record.id,
-                {
-                    "id": record.id,
-                    "object_type": record.object_type,
-                    "properties": record.properties,
-                },
-            )
-            for record in secured.materialization.graph.objects
-        ),
-        complete=secured.receipt.complete,
-        truncation_reason=limitation,
-        source_generation=secured.receipt.source_generation,
     )
 
 

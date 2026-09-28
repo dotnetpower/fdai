@@ -327,6 +327,7 @@ Agent instance.
 | OQ-09 | Add a reviewed metric-semantic registry and bounded functions for metric series, change points, aligned windows, cross-resource temporal correlation, and causal support/refutation. | OQ-03, OQ-05, OQ-08 | Request-growth and storage-write-loss scenarios distinguish zero from missing data, correlate changes without asserting chronology as cause, and cite competing explanations. |
 | OQ-10 | Shadow-replay the new path against every compatibility route, promote by measured cohort, then remove regex, keyword narrator, phrase-based answer intent, and canonical-string read planning from ordinary language. Preserve an explicit exact-command surface separately. | OQ-05, OQ-06, OQ-09 | New path meets or improves cohort quality and latency, legacy ordinary-language routing share is zero, and exact technical commands remain deterministic. |
 | OQ-11 | Enforce continuous structural and epistemic coverage gates on every ontology release and capability change. | OQ-10 | Structural coverage, finite question-universe accounting, and terminal epistemic disposition are 100%; unsupported or ungrounded claims, hidden-scope leaks, unsafe mutation survivors, locale divergence, and unauthorized executions are zero; answer coverage is reported by cohort, not asserted. |
+| OQ-12 | Replace capability-named relational planning with the closed question logical form, admission, two-phase anchor binding, reviewed relation paths, and independent coverage verification in the [Ontology Reasoning Compiler](ontology-reasoning-compiler.md). | OQ-04, OQ-05; OQ-07, OQ-08, and OQ-11 gate the affected family promotions | Reasoning-cohort holdout gates in the owner design pass with zero silent semantic loss, operands without provenance, and wrong-level answers. |
 
 ## Parallel lanes and merge points
 
@@ -335,6 +336,7 @@ Agent instance.
 - **Lane C - semantic projection:** OQ-06 begins after descriptor identity from OQ-02 is stable.
 - **Lane D - operational evidence:** OQ-07 -> OQ-08 -> OQ-09, parallel to OQ-04/OQ-05 after OQ-03.
 - **Lane E - conversation cutover:** OQ-04 -> OQ-05 -> OQ-10, joining OQ-06 and OQ-09 at cutover.
+- **Lane F - reasoning compilation:** OQ-12 starts after OQ-05 and promotes one operation family at a time as OQ-07, OQ-08, and OQ-11 evidence exists.
 
 Each lane runs only focused tests. OQ-10 is the first integration point that compares complete
 end-to-end behavior. OQ-11 is the release gate.
@@ -454,3 +456,4 @@ provider and durable adapter bindings are explicit delivery gaps and fail closed
 | Rule-specific semantic generations | [Rule Semantic Retrieval](../rules-and-detection/rule-semantic-retrieval.md) |
 | Causal hypothesis evidence and closure | [Causal Incident Graph](../rules-and-detection/causal-incident-graph.md) |
 | Console and narrator authority | [FDAI Console Conversations](operator-console.md) |
+| Question logical form and deterministic reasoning compilation | [Ontology Reasoning Compiler](ontology-reasoning-compiler.md) |
