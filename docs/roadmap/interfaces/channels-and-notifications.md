@@ -17,6 +17,10 @@ The read-only console's identity and interaction flows remain out of scope; this
 only its outbound browser-notification boundary. Console identity lives in
 [user-rbac-and-identity.md](user-rbac-and-identity.md).
 
+> **Product profile:** The observation-first default constructs no channel. Notifications require
+> the explicit `notifications` add-on; A1 approval additionally requires governed execution and
+> complete enterprise identity evidence. Environment values alone cannot select either add-on.
+
 Production A3 ingress, publishing, lifecycle, persistence composition, deployment, and rollback are
 owned by [Production A3 channel runtime](production-a3-channel-runtime.md).
 

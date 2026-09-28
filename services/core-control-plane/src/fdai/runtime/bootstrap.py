@@ -97,6 +97,7 @@ async def _run(*, runtime_scope_receipt_digest: str | None = None) -> int:
     plan = build_bootstrap_plan(
         llm_mode=container.config.llm.mode,
         environment=os.environ,
+        product_profile=container.config.product_profile,
     )
     summary = _summarize_config(container)
     _LOGGER.info("startup_ok", extra={"config": summary})

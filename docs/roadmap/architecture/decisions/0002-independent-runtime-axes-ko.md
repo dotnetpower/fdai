@@ -1,8 +1,8 @@
 ---
 title: ADR-0002 Independent Runtime and Customization Axes
 translation_of: 0002-independent-runtime-axes.md
-translation_source_sha: 89624bf2946de0403f54739cbd6b98394b1719b5
-translation_revised: 2026-08-31
+translation_source_sha: 32e00d05f4e13fddf0d643f96e777a812efa5530
+translation_revised: 2026-09-27
 ---
 # ADR-0002: 독립적인 런타임 및 Customization 축
 
@@ -34,6 +34,7 @@ FDAI는 다음 축을 독립 구성으로 취급합니다.
 |----|---------|-----------|
 | 실행 위치 | `FDAI_EXECUTION_VENUE`를 통한 `local`, `deployed` | 프로세스 launcher |
 | 배포 환경 | `dev`, `staging`, `production` | 배포 구성 |
+| 제품 표면 프로필 | `observation-first`와 명시적 독립 추가 기능 | 배포가 주입한 타입 지정 프로필 |
 | 근거 프로파일 | `authoritative`, `fixture` | 조립 루트 |
 | 액션 수명 주기 | `shadow`, `enforce` | ActionType 및 작업 흐름별 승격 레지스트리 |
 | 사용자 신원 | Entra principal 및 App 역할 | 브라우저 토큰 및 RBAC 정책 |
@@ -49,6 +50,9 @@ FDAI는 다음 축을 독립 구성으로 취급합니다.
 
 - 로컬 실행은 shadow 모드, 테스트 고정본, anonymous 권한 확인 또는 local-only business logic을
   강제하지 않습니다.
+- 기본 제품 프로필은 헤드리스 관찰 우선입니다. Console, 알림, `governed-execution` 및
+  `enterprise-identity-governance`는 명시적으로 선택해야 합니다. 선택은 조립 가능성만 바꾸며
+  사용 가능성, 활성화, 인가, 승격 및 실행 권한은 독립 축으로 유지됩니다.
 - 개발 배포는 운영과 같은 risk, 승인, blast-radius, 롤백, 감사 게이트를
   통과할 때 promoted 액션을 강제 적용 모드로 실행할 수 있습니다.
 - 운영 배포도 어떤 액션이든 shadow 모드로 유지할 수 있습니다.
@@ -72,8 +76,8 @@ FDAI는 다음 축을 독립 구성으로 취급합니다.
   deploy할 수 있습니다.
 - 포크 detection은 업스트림 framework 표면을 보호합니다. 런타임 행동, 자율성, 신원,
   환경을 변경하지 않습니다.
-- 공개 패키지 export는 검색 가능성만 바꿉니다. 런타임 가용성, 액션 수명 주기, 신원,
-  권한 확인 또는 실행 권한을 선택하지 않습니다.
+- 공개 패키지 export는 검색 가능성만 바꿉니다. 제품 추가 기능, 런타임 가용성, 액션 수명
+  주기, 신원, 권한 확인 또는 실행 권한을 선택하지 않습니다.
 - 권한 확인 정책과 effective-access 근거는 배포 입력입니다. 환경과 포크
   상태는 권한 부여 자세를 선택하거나 신원의 접근 권한을 암시하지 않습니다.
 - 선택적 패키지를 활성화해도 활성화 선호만 바뀝니다. 데이터 접근 권한이나 액션 수명 주기 또는
@@ -84,14 +88,16 @@ FDAI는 다음 축을 독립 구성으로 취급합니다.
 
 ### Interactive 로컬 프로파일
 
-기본 interactive 로컬 프로파일은 production-parity control-plane 클라이언트 및 런타임입니다.
+기본 interactive 로컬 프로파일은 운영과 동등한 헤드리스 관찰 런타임입니다.
 
-- 브라우저는 배포와 같은 Entra JWT 및 App 역할 검사를 사용합니다.
+- 브라우저, Entra 앱, 사람 역할 그룹, Graph 권한, 승인 채널 또는 권한 있는 실행기가 필요하지
+  않습니다. 읽기 전용 Console과 엔터프라이즈 신원 추가 기능을 모두 명시적으로 선택하면
+  브라우저는 배포와 같은 Entra JWT 및 App 역할 검사를 사용합니다.
 - Azure CLI 자격 증명은 개발 데이터 평면을 읽는 로컬 Azure 프로바이더 어댑터로 제한합니다.
   브라우저 principal 또는 실행기 신원을 대체하지 않습니다.
 - 동일한 에이전트 pantheon, 카탈로그, 승격 레지스트리, risk 게이트, 프로세스 저널, 단계 이벤트를
   로컬에서도 실행합니다.
-- 독립 패키지로 구성된 백엔드 서비스 5개를 별도 로컬 프로세스로 실행합니다. 상태 저장 서비스는
+- 명시적 전체 스택 추가 기능은 독립 패키지로 구성된 백엔드 서비스 5개를 별도 로컬 프로세스로 실행합니다. 상태 저장 서비스는
   Docker PostgreSQL의 역할 범위 DSN을 사용하고, 서비스 간 이벤트는 Docker Redpanda를 사용하며,
   문서 검사는 Docker ClamAV를 사용합니다. Azure CLI는 권위 있는 Azure 읽기 및 모델 adapter로만
   제한됩니다.

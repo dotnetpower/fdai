@@ -1,6 +1,6 @@
 ---
 translation_of: runtime-deployment-profiles.md
-translation_source_sha: 40b07eeb79eb01f8f06c034eca7b7685b6412169
+translation_source_sha: 909fe8a84d1ae7ac870511a2be51b5dfd59a5809
 translation_revised: 2026-09-28
 ---
 # 런타임 배포 프로파일
@@ -40,18 +40,18 @@ facade로 import를 모아도 AKS 관측, Cost Governance 활성화, 배포 권�
 |----|---------|--------|------|
 | 런타임 플랫폼 | `aks`, `container-apps` | `aks` | FDAI 서비스와 예약 작업을 호스팅합니다. Container Apps는 신규 계획에서 호환 용도로만 사용합니다. |
 | 데이터베이스 배치 | `postgres-flex`, `postgres-aks` | `postgres-flex` | Azure Database for PostgreSQL Flexible Server 또는 AKS 내부 PostgreSQL 클러스터를 사용합니다. |
+| 제품 표면 | `observation-first`와 명시적으로 선택한 추가 기능 | `observation-first` | 헤드리스 인벤토리, 텔레메트리, 학습, 예측, 재생, 드리프트 및 자문 근거를 시작합니다. |
+| 선택적 추가 기능 | `read-only-console`, `notifications`, `governed-execution`, `enterprise-identity-governance` | 없음 | 선택은 사용 가능성, 활성화, 인가 또는 실행 권한을 의미하지 않습니다. |
 
 `postgres-aks`는 `runtime_platform=aks`일 때만 사용할 수 있습니다. 클러스터 내부 프로파일이
 영역 손실, 백업, 특정 시점 복구, 업그레이드에 대한 독립 근거를 확보할 때까지 프로덕션에서는
 `postgres-flex`를 사용합니다.
 
-런타임과 데이터베이스 축은 full-authority 개발 프로필을 선택하지 않습니다. 이 권한 프로필은
-하나의 정확한 폐기 가능 테스트 범위에 사용하는 별도의 선택적 배포 입력입니다. 이 프로필을
-선택하려면 공유 기계 계약, 최신 권위 있는 바인딩 소스, 인증된 Owner 한 명, 실행기와 구분되는
-신원이 필요합니다. 누락된 권한 바인딩은 `aks`, `container-apps`, `postgres-flex`,
-`postgres-aks`에서 상속되지 않습니다. 권한 프로필을 명시적으로 선택했지만 구성이 불완전하면
-안전하게 차단합니다. 런타임 조립은 공개 계약 모델 facade를 통해 프로필 레코드를 전달하며,
-다이제스트 도우미는 프로필을 선택하거나 활성화하지 않습니다.
+런타임, 데이터베이스, 환경, 포크 상태 및 패키지 존재 여부는 제품 추가 기능을 선택하지 않습니다. 공유 불변 프로필은 명시적 선택과 `authority_granted: false`만 포함합니다.
+기본값은 Graph, 승인, enforce 승격, 롤백 또는 권한 있는 실행기 바인딩을 조립하지 않으며, 선택했지만 불완전한 추가 기능은 안전하게 차단됩니다. `read-only-console`과 `governed-execution`은 `enterprise-identity-governance`를 요구하고, 모든 런타임은 컴파일된 프로필을 자신의 워크로드까지 전달하므로 조립이 선택과 어긋나지 않습니다. full-authority 개발 프로필은 정확한 폐기 가능 범위를 위한 별도의 선택적 권한 입력이며 이 제품 축에서 상속되지 않습니다. 선택적 dev operations gateway는 인증을 사용하므로 명시적인 Operator API audience가 필요하며 없으면 계획을 거부합니다.
+Azure 관찰의 필수 역할은 범위가 제한된 `Reader` 하나뿐입니다. Azure Monitor, Log Analytics, Cost Management, AKS 또는 근거 저장소 출처를 명시적으로 선택하면 각 출처의 최소 읽기 역할을 파생합니다.
+역할을 직접 선택하거나 묶어서 부여할 수 없으며 접근이 없으면 지원되지 않음으로 보고합니다. 기본 프로필은 Azure Policy 할당을 요구하지 않고 `Reader`로 볼 수 있는 리소스 메타데이터만 평가하며
+쓰기, `User Access Administrator` 또는 Microsoft Graph 권한을 부여하지 않습니다. 이슈 #341은 인벤토리/관찰 실제 근거에만 열어 두며 GitOps 쓰기 근거는 선택 사항입니다.
 
 ## 운영자 계약
 

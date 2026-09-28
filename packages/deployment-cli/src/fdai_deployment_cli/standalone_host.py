@@ -19,6 +19,8 @@ from pathlib import Path
 from typing import Any, Final
 from urllib.parse import urlencode
 
+from fdai_service_contracts.product_profile import ObservationDataSource, ProductAddOn
+
 from fdai_deployment_cli import (
     catalog_review_profile,
     standalone_host_values,
@@ -50,7 +52,14 @@ from fdai_deployment_cli.deployment_kit import acquire_deployment_kit
 from fdai_deployment_cli.license import inspect_license
 from fdai_deployment_cli.oci_archive import validate_oci_archive
 from fdai_deployment_cli.private_output import read_private_bytes, write_private_output
-from fdai_deployment_cli.runtime_profile import RuntimeDeploymentProfile
+from fdai_deployment_cli.runtime_profile import (
+    RuntimeDeploymentProfile,
+    legacy_runtime_profile_digest,
+)
+from fdai_deployment_cli.standalone_product_profile import (
+    context_selects_add_on as _selects_add_on,
+)
+from fdai_deployment_cli.standalone_product_profile import product_terraform_values
 from fdai_deployment_cli.runtime_support_installation import (
     install_runtime_support as _install_runtime_support,
 )
@@ -98,6 +107,7 @@ from fdai_deployment_cli.standalone_stage_targets import (
     focused_private_access as _focused_private_access,
 )
 from fdai_deployment_cli.standalone_stage_targets import stage_targets as _stage_targets
+from fdai_deployment_cli.standalone_host_values import aks_operator_environment
 from fdai_deployment_cli.standalone_host_values import (
     console_origin as _console_origin,
 )
@@ -167,7 +177,7 @@ def main(argv: list[str] | None = None) -> int:
     prepare = subcommands.add_parser("prepare")
     prepare.add_argument("--kit", type=Path, required=True)
     prepare.add_argument("--handoff", type=Path, required=True)
-    prepare.add_argument("--entra", type=Path, required=True)
+    prepare.add_argument("--entra", type=Path)
     prepare.add_argument("--foundation-adoption", type=Path)
     prepare.add_argument("--adoption-state", type=Path)
     prepare.add_argument("--adoption-models", type=Path)
@@ -181,6 +191,18 @@ def main(argv: list[str] | None = None) -> int:
     prepare.add_argument("--user-node-min-count", type=int, default=3)
     prepare.add_argument("--user-node-max-count", type=int, default=5)
     prepare.add_argument("--user-node-sku", default="Standard_D4as_v5")
+    prepare.add_argument(
+        "--product-add-on",
+        action="append",
+        choices=tuple(item.value for item in ProductAddOn),
+        default=[],
+    )
+    prepare.add_argument(
+        "--observation-source",
+        action="append",
+        choices=tuple(item.value for item in ObservationDataSource),
+        default=[],
+    )
     prepare.set_defaults(handler=_prepare)
 
     prepare_runtime = subcommands.add_parser("prepare-runtime")
@@ -305,7 +327,25 @@ def _verify_source_runtime(args: argparse.Namespace, _work_dir: Path) -> dict[st
 def _prepare(args: argparse.Namespace, work_dir: Path) -> dict[str, object]:
     _private_directory(work_dir)
     handoff = _private_json(_absolute(args.handoff), "Foundation handoff")
-    entra = _private_json(_absolute(args.entra), "Entra bindings")
+    runtime_profile = RuntimeDeploymentProfile.create(
+        runtime_platform=str(args.runtime_platform),
+        database_placement=str(args.database_placement),
+        system_node_count=int(args.system_node_count),
+        system_node_sku=args.system_node_sku,
+        user_node_min_count=int(args.user_node_min_count),
+        user_node_max_count=int(args.user_node_max_count),
+        user_node_sku=str(args.user_node_sku),
+        product_add_ons=tuple(args.product_add_on),
+        observation_data_sources=tuple(args.observation_source),
+    )
+    enterprise_identity_selected = runtime_profile.product_profile.selects(
+        ProductAddOn.ENTERPRISE_IDENTITY_GOVERNANCE
+    )
+    if enterprise_identity_selected and args.entra is None:
+        raise ValueError("enterprise identity governance requires Entra bindings")
+    if not enterprise_identity_selected and args.entra is not None:
+        raise ValueError("Entra bindings require enterprise identity governance")
+    entra = _private_json(_absolute(args.entra), "Entra bindings") if args.entra is not None else {}
     runner = _mapping(handoff.get("runner"), "Foundation runner")
     state = _mapping(handoff.get("state"), "Foundation state")
     ops = _mapping(handoff.get("ops"), "Foundation operations")
@@ -316,15 +356,6 @@ def _prepare(args: argparse.Namespace, work_dir: Path) -> dict[str, object]:
         runner=runner,
     )
     initial_inventory_binding = _initial_inventory_binding(foundation.subscription_id)
-    runtime_profile = RuntimeDeploymentProfile.create(
-        runtime_platform=str(args.runtime_platform),
-        database_placement=str(args.database_placement),
-        system_node_count=int(args.system_node_count),
-        system_node_sku=args.system_node_sku,
-        user_node_min_count=int(args.user_node_min_count),
-        user_node_max_count=int(args.user_node_max_count),
-        user_node_sku=str(args.user_node_sku),
-    )
     foundation_binding_digest = _foundation_binding_digest(
         handoff,
         runner=runner,
@@ -332,7 +363,7 @@ def _prepare(args: argparse.Namespace, work_dir: Path) -> dict[str, object]:
         ops=ops,
         app=app,
     )
-    entra_binding_digest = canonical_digest(entra)
+    entra_binding_digest = canonical_digest(entra) if enterprise_identity_selected else None
     adoption = _application_state_adoption(args)
     adoption_digest = canonical_digest(adoption[0]) if adoption is not None else ""
     catalog_profile_path = getattr(args, "catalog_review_profile", None)
@@ -405,7 +436,7 @@ def _prepare(args: argparse.Namespace, work_dir: Path) -> dict[str, object]:
             or retained.get("document_storage_private_access")
             is not document_storage_private_access
             or retained.get("document_storage_account_name") != document_storage_account_name
-            or _runtime_profile_digest(retained) != runtime_profile.digest
+            or not _runtime_profile_matches(retained, runtime_profile)
         ):
             raise ValueError("standalone host retained context differs")
         foundation.adoption.require_context(retained)
@@ -472,23 +503,6 @@ def _prepare(args: argparse.Namespace, work_dir: Path) -> dict[str, object]:
     if runtime_profile.database_placement.value == "postgres-aks":
         refs["pgvector"] = f"{login_server}/pgvector@{_required_image_digest(sidecars, 'pgvector')}"
     aks_baseline = runtime_profile.runtime_platform.value == "aks"
-    operator_id = _required_guid(entra, "CURRENT_OPERATOR_OBJECT_ID")
-    steward_names = (
-        "Odin",
-        "Thor",
-        "Forseti",
-        "Huginn",
-        "Heimdall",
-        "Vidar",
-        "Var",
-        "Bragi",
-        "Saga",
-        "Mimir",
-        "Muninn",
-        "Norns",
-        "Njord",
-        "Freyr",
-    )
     values: dict[str, object] = {
         "workload": workload,
         "env": "dev",
@@ -522,22 +536,17 @@ def _prepare(args: argparse.Namespace, work_dir: Path) -> dict[str, object]:
         "ingestion_image": refs["document-ingestion-api"],
         "ingestion_migration_image": refs["document-ingestion-api"],
         "clamav_image": refs["clamav"],
-        "enable_console": True,
-        "enable_operator_api": True,
-        "enable_isolated_executor": True,
-        "enable_document_ingestion": runtime_profile.runtime_platform.value == "aks",
         "ingestion_cohost_worker": False,
         "ingestion_cors_allow_origins": "https://localhost",
         "enable_llm": adoption is not None,
-        "operator_api_audience": str(entra["OPERATOR_API_AUDIENCE"]),
-        "rbac_readers_group_id": str(entra["RBAC_READERS_GROUP_ID"]),
-        "rbac_contributors_group_id": str(entra["RBAC_CONTRIBUTORS_GROUP_ID"]),
-        "rbac_approvers_group_id": str(entra["RBAC_APPROVERS_GROUP_ID"]),
-        "rbac_owners_group_id": str(entra["RBAC_OWNERS_GROUP_ID"]),
-        "rbac_break_glass_group_id": str(entra["RBAC_BREAK_GLASS_GROUP_ID"]),
-        "stewardship_maintainers": operator_id,
-        "stewardship_agent_bindings": {name: f"user:{operator_id}" for name in steward_names},
     }
+    values.update(
+        product_terraform_values(
+            runtime_profile,
+            entra,
+            require_guid=_required_guid,
+        )
+    )
     values.update(catalog_review_profile.catalog_review_terraform_values(catalog_profile))
     if adoption is not None:
         values.update(
@@ -847,7 +856,15 @@ def _prepare_aks_application(_args: argparse.Namespace, work_dir: Path) -> dict[
     application_values = _private_json(
         work_dir / "application.auto.tfvars.json", "application variables"
     )
-    console_origin = _console_origin(str(substrate_outputs["console_hostname"]))
+    console_selected = _selects_add_on(context, ProductAddOn.READ_ONLY_CONSOLE)
+    enterprise_identity_selected = _selects_add_on(
+        context, ProductAddOn.ENTERPRISE_IDENTITY_GOVERNANCE
+    )
+    operator_api_selected = console_selected or enterprise_identity_selected
+    governed_execution_selected = _selects_add_on(context, ProductAddOn.GOVERNED_EXECUTION)
+    console_origin = (
+        _console_origin(str(substrate_outputs["console_hostname"])) if console_selected else ""
+    )
     backend_nsg_id = _subnet_network_security_group(
         str(substrate_outputs["aks_subnet_id"]),
         context=context,
@@ -889,6 +906,7 @@ def _prepare_aks_application(_args: argparse.Namespace, work_dir: Path) -> dict[
         "FDAI_OPERATING_MODEL_TOPIC": substrate_outputs["operating_model_topic"],
         "FDAI_AUXILIARY_KAFKA_BOOTSTRAP_SERVERS": substrate_outputs["operational_kafka"],
         "FDAI_ISOLATED_EXECUTOR_AUTHORITY_CUTOVER": "1",
+        "FDAI_PRODUCT_PROFILE_JSON": str(application_values["product_profile_json"]),
     }
     core_environment.update(
         _aks_core_conversation_environment(
@@ -897,34 +915,19 @@ def _prepare_aks_application(_args: argparse.Namespace, work_dir: Path) -> dict[
             semantic_topics=semantic_topics,
         )
     )
-    operator_environment = {
-        "AZURE_CLIENT_ID": operator_identity["client_id"],
-        "FDAI_COMMAND_MI_CLIENT_ID": command_identity["client_id"],
-        "FDAI_ENTRA_TENANT_ID": context["tenant_id"],
-        "FDAI_API_AUDIENCE": application_values["operator_api_audience"],
-        "FDAI_RBAC_READERS_GROUP_ID": application_values["rbac_readers_group_id"],
-        "FDAI_RBAC_CONTRIBUTORS_GROUP_ID": application_values["rbac_contributors_group_id"],
-        "FDAI_RBAC_APPROVERS_GROUP_ID": application_values["rbac_approvers_group_id"],
-        "FDAI_RBAC_OWNERS_GROUP_ID": application_values["rbac_owners_group_id"],
-        "FDAI_RBAC_BREAK_GLASS_GROUP_ID": application_values["rbac_break_glass_group_id"],
-        "FDAI_STEWARDSHIP_REQUIRE_BINDINGS": "1",
-        "FDAI_MAINTAINERS": application_values["stewardship_maintainers"],
-        "FDAI_KAFKA_BOOTSTRAP_SERVERS": core_environment["KAFKA_BOOTSTRAP_SERVERS"],
-        "KAFKA_TOPIC_EVENTS": core_environment["KAFKA_TOPIC_EVENTS"],
-        "FDAI_SEMANTIC_TURN_REQUEST_TOPIC": str(semantic_topics[0]),
-        "FDAI_SEMANTIC_TURN_PROJECTION_TOPIC": str(semantic_topics[1]),
-        "FDAI_SEMANTIC_TURN_PHYSICAL_TOPIC": substrate_outputs["semantic_physical"],
-        "FDAI_READ_INVESTIGATION_REQUEST_TOPIC": str(semantic_topics[2]),
-        "FDAI_OPERATOR_API_CORS_ALLOW_ORIGINS": console_origin,
-    }
-    operator_environment.update(
-        {
-            f"FDAI_STEWARD_{name.upper()}": binding
-            for name, binding in _mapping(
-                application_values["stewardship_agent_bindings"],
-                "stewardship bindings",
-            ).items()
-        }
+    operator_environment = (
+        aks_operator_environment(
+            application_values=application_values,
+            core_environment=core_environment,
+            substrate_outputs=substrate_outputs,
+            semantic_topics=semantic_topics,
+            operator_identity=operator_identity,
+            command_identity=command_identity,
+            tenant_id=str(context["tenant_id"]),
+            console_origin=console_origin,
+        )
+        if operator_api_selected
+        else {}
     )
     dsn_secret = {
         "APPLICATIONINSIGHTS_CONNECTION_STRING": str(
@@ -937,7 +940,9 @@ def _prepare_aks_application(_args: argparse.Namespace, work_dir: Path) -> dict[
         "core-control-plane": _aks_workload(
             "core", refs, core_identity, core_environment, dsn_secret, "/ready", "/live"
         ),
-        "operator-service": _aks_workload(
+    }
+    if operator_api_selected:
+        workloads["operator-service"] = _aks_workload(
             "operator",
             refs,
             operator_identity,
@@ -951,8 +956,9 @@ def _prepare_aks_application(_args: argparse.Namespace, work_dir: Path) -> dict[
             external=True,
             service_port=80,
             additional_identities={"command": command_identity},
-        ),
-        "isolated-executor": _aks_workload(
+        )
+    if governed_execution_selected:
+        workloads["isolated-executor"] = _aks_workload(
             "executor",
             refs,
             executor_identity,
@@ -975,23 +981,25 @@ def _prepare_aks_application(_args: argparse.Namespace, work_dir: Path) -> dict[
             },
             "/ready",
             "/live",
-        ),
-    }
-    workloads.update(
-        _aks_document_workloads(
-            refs=refs,
-            ingestion_identity=ingestion_identity,
-            worker_identity=ingestion_worker_identity,
-            application_values=application_values,
-            kafka=str(substrate_outputs["kafka"]),
-            postgres_fqdn=str(substrate_outputs["postgres_fqdn"]),
-            document_store=_mapping(
-                substrate_outputs["document_store"], "document storage binding"
-            ),
-            document_topics=_mapping(substrate_outputs["document_topics"], "document event topics"),
-            console_origin=console_origin,
         )
-    )
+    if console_selected:
+        workloads.update(
+            _aks_document_workloads(
+                refs=refs,
+                ingestion_identity=ingestion_identity,
+                worker_identity=ingestion_worker_identity,
+                application_values=application_values,
+                kafka=str(substrate_outputs["kafka"]),
+                postgres_fqdn=str(substrate_outputs["postgres_fqdn"]),
+                document_store=_mapping(
+                    substrate_outputs["document_store"], "document storage binding"
+                ),
+                document_topics=_mapping(
+                    substrate_outputs["document_topics"], "document event topics"
+                ),
+                console_origin=console_origin,
+            )
+        )
     for workload in workloads.values():
         workload["source_commit"] = context["source_commit"]
     job_preparation = _prepare_aks_scheduled_jobs(
@@ -1335,16 +1343,8 @@ def _adopt_historical_aks_application(
     if _SOURCE_COMMIT.fullmatch(source_commit) is None:
         raise ValueError("historical AKS adoption source revision is invalid")
     profile_value = _mapping(binding.get("runtime_profile"), "historical AKS runtime profile")
-    profile = RuntimeDeploymentProfile.create(
-        runtime_platform=str(profile_value.get("runtime_platform", "")),
-        database_placement=str(profile_value.get("database_placement", "")),
-        system_node_count=profile_value.get("system_node_count", 0),
-        system_node_sku=profile_value.get("system_node_sku"),
-        user_node_min_count=profile_value.get("user_node_min_count", 0),
-        user_node_max_count=profile_value.get("user_node_max_count", 0),
-        user_node_sku=str(profile_value.get("user_node_sku", "")),
-    )
-    if profile.runtime_platform.value != "aks" or profile.to_mapping() != profile_value:
+    profile = RuntimeDeploymentProfile.from_mapping(profile_value)
+    if profile.runtime_platform.value != "aks" or not profile.matches_mapping(profile_value):
         raise ValueError("historical AKS adoption runtime profile differs")
 
     evidence_root = binding_path.parent.resolve()
@@ -3351,7 +3351,10 @@ def _verify(_args: argparse.Namespace, work_dir: Path) -> dict[str, object]:
     if not health:
         raise ValueError("standalone application runtime health is incomplete")
     browser_console = (
-        _browser_console_binding(context, work_dir) if _runtime_platform(context) == "aks" else None
+        _browser_console_binding(context, work_dir)
+        if _runtime_platform(context) == "aks"
+        and _selects_add_on(context, ProductAddOn.READ_ONLY_CONSOLE)
+        else None
     )
     receipt: dict[str, object] = {
         "schema_version": "fdai.standalone-application-verification.v1",
@@ -4354,13 +4357,28 @@ def _runtime_profile_digest(context: dict[str, object]) -> str:
 
     value = context.get("runtime_profile_digest")
     if value is None:
-        return RuntimeDeploymentProfile.create(
-            runtime_platform="container-apps",
-            database_placement="postgres-flex",
-        ).digest
+        return legacy_runtime_profile_digest(
+            RuntimeDeploymentProfile.create(
+                runtime_platform="container-apps",
+                database_placement="postgres-flex",
+            )
+        )
     if not isinstance(value, str) or _DIGEST.fullmatch(value) is None:
         raise ValueError("standalone runtime profile digest is invalid")
     return value
+
+
+def _runtime_profile_matches(
+    context: dict[str, object],
+    profile: RuntimeDeploymentProfile,
+) -> bool:
+    retained = _runtime_profile_digest(context)
+    if retained == profile.digest:
+        return True
+    legacy_full_product = len(profile.product_profile.add_ons) == len(ProductAddOn) and len(
+        profile.product_profile.observation_permissions.selected_sources
+    ) == len(ObservationDataSource)
+    return legacy_full_product and retained == legacy_runtime_profile_digest(profile)
 
 
 def _container_app_health(context: dict[str, object], infra: Path) -> bool:

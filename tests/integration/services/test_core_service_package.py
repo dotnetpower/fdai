@@ -127,6 +127,7 @@ EXPECTED_RUNTIME_MODULES = {
     "pantheon_assurance_evidence.py",
     "pantheon_conversation_assurance.py",
     "post_turn_review.py",
+    "product_profile.py",
     "providers.py",
     "rca_bindings.py",
     "read_investigation_runtime.py",

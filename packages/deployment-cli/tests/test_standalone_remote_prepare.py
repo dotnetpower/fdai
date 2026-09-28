@@ -20,9 +20,8 @@ def test_prepare_remote_transfers_foundation_adoption(tmp_path: Path) -> None:
     plan.mkdir(mode=0o700)
     archive = tmp_path / "kit.tar.gz"
     handoff = plan / "foundation-private-handoff.json"
-    entra = tmp_path / "entra.json"
     adoption = root / "foundation-adoption-receipt.json"
-    for path in (archive, handoff, entra, adoption):
+    for path in (archive, handoff, adoption):
         path.write_text(path.name, encoding="utf-8")
     archive_digest = "a" * 64
     remote_root = "/home/fdai/.fdai-transfer-example"
@@ -56,8 +55,8 @@ def test_prepare_remote_transfers_foundation_adoption(tmp_path: Path) -> None:
         archive_digest=archive_digest,
         handoff_path=handoff,
         remote_handoff=f"{remote_root}/foundation-handoff.json",
-        entra_path=entra,
-        remote_entra=f"{remote_root}/entra-bindings.json",
+        entra_path=None,
+        remote_entra=None,
         app_work=f"{remote_root}/application",
         timeout_seconds=1800,
     )
@@ -67,6 +66,7 @@ def test_prepare_remote_transfers_foundation_adoption(tmp_path: Path) -> None:
         f"{remote_root}/foundation-adoption.json",
     ) in tunnel.copies
     prepare = next(command for command in tunnel.commands if "--foundation-adoption" in command)
+    assert "--entra" not in prepare
     assert prepare[prepare.index("--foundation-adoption") + 1] == (
         f"{remote_root}/foundation-adoption.json"
     )
@@ -105,9 +105,8 @@ def test_cleanup_incomplete_overrides_and_chains_setup_failure(
 ) -> None:
     archive = tmp_path / "kit.tar.gz"
     handoff = tmp_path / "handoff.json"
-    entra = tmp_path / "entra.json"
     key = tmp_path / "catalog-review.pem"
-    for path in (archive, handoff, entra, key):
+    for path in (archive, handoff, key):
         path.write_text(path.name, encoding="utf-8")
     archive_digest = "a" * 64
     remote_root = "/home/fdai/.fdai-transfer-example"
@@ -145,8 +144,8 @@ def test_cleanup_incomplete_overrides_and_chains_setup_failure(
             archive_digest=archive_digest,
             handoff_path=handoff,
             remote_handoff=f"{remote_root}/handoff.json",
-            entra_path=entra,
-            remote_entra=f"{remote_root}/entra.json",
+            entra_path=None,
+            remote_entra=None,
             app_work=f"{remote_root}/application",
             timeout_seconds=1800,
             catalog_review_profile=_selected_profile(key),

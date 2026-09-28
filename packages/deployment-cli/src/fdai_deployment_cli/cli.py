@@ -191,6 +191,8 @@ def _provision_azure(args: argparse.Namespace) -> int:
         user_node_min_count=args.user_nodes,
         user_node_max_count=args.max_user_nodes,
         user_node_sku=args.user_node_sku,
+        product_add_ons=tuple(args.product_add_ons),
+        observation_data_sources=tuple(args.observation_data_sources),
     )
     if catalog_review_profile.selected and args.runtime != "aks":
         raise ValueError("selected catalog review profile requires --runtime aks")
@@ -281,7 +283,7 @@ def _provision_azure(args: argparse.Namespace) -> int:
                 installation_options=(
                     InstallationOptions(
                         setup_cost_ceiling=args.setup_cost_ceiling,
-                        console_access=args.console_access or "public-https-entra",
+                        console_access=args.console_access or "none",
                         allow_dedicated_identities=args.allow_dedicated_identities,
                         cleanup_temporary_resources=args.cleanup_temporary_resources,
                     )

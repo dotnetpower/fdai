@@ -1,8 +1,8 @@
 ---
 title: 채널과 알림(Channels and Notifications)
 translation_of: channels-and-notifications.md
-translation_source_sha: 98af37786836b785716949a7ec748a6addbc8d6c
-translation_revised: 2026-09-28
+translation_source_sha: 295d6716ab92edd4a02d57fd52f483c1c1d8f3ca
+translation_revised: 2026-09-27
 ---
 
 # 채널과 알림(Channels and Notifications)
@@ -19,6 +19,10 @@ FDAI가 Teams, Slack, 이메일, 웹훅, paging 서비스, SMS, Direct Line 사�
 읽기 전용 콘솔의 신원 및 interaction 흐름은 이 문서 범위 밖이고, 아웃바운드 브라우저
 알림 경계만 이 문서가 소유합니다. 콘솔 신원은
 [user-rbac-and-identity-ko.md](user-rbac-and-identity-ko.md)에 있습니다.
+
+> **제품 프로필:** 관찰 우선 기본값은 채널을 조립하지 않습니다. 알림에는 명시적
+> `notifications` 추가 기능이 필요하며 A1 승인에는 `governed-execution`과 완전한 엔터프라이즈
+> 신원 근거가 추가로 필요합니다. 환경 값만으로는 어떤 추가 기능도 선택할 수 없습니다.
 
 운영 A3 유입, 발행, 수명 주기, 영속성 조립, 배포 및 롤백은
 [운영 A3 채널 런타임](production-a3-channel-runtime-ko.md)이 소유합니다.

@@ -1751,7 +1751,12 @@ def test_prepare_aks_application_requires_core_semantic_environment(
         "tenant_id": "tenant",
         "subscription_id": "subscription",
     }
-    application = {"enable_llm": True, "region": "westus2", "env": "dev"}
+    application = {
+        "enable_llm": True,
+        "region": "westus2",
+        "env": "dev",
+        "product_profile_json": '{"schema_version":"fdai.product-profile.v1"}',
+    }
     identities = {
         name: {"resource_id": f"/identities/{name}", "client_id": f"{name}-client"}
         for name in (
@@ -3412,3 +3417,30 @@ def test_private_service_migration_launcher_runs_through_fixed_interpreter(
 
     assert result.returncode == 0, result.stderr
     assert result.stdout.endswith("service-migrations/migrate.py core-control-plane bootstrap\n")
+
+
+def test_legacy_runtime_context_requires_explicit_full_product_selection() -> None:
+    observation = standalone_host.RuntimeDeploymentProfile.create(
+        runtime_platform="container-apps",
+        database_placement="postgres-flex",
+    )
+    explicit_legacy = standalone_host.RuntimeDeploymentProfile.create(
+        runtime_platform="container-apps",
+        database_placement="postgres-flex",
+        product_add_ons=(
+            "enterprise-identity-governance",
+            "governed-execution",
+            "notifications",
+            "read-only-console",
+        ),
+        observation_data_sources=(
+            "aks",
+            "azure-monitor",
+            "cost-management",
+            "evidence-store",
+            "log-analytics",
+        ),
+    )
+
+    assert standalone_host._runtime_profile_matches({}, observation) is False
+    assert standalone_host._runtime_profile_matches({}, explicit_legacy) is True

@@ -304,13 +304,15 @@ output "contributor_core_service_tfvars" {
     observation_context = {
       enabled                              = var.enable_isolated_executor
       signing_seed_secret_id               = var.enable_isolated_executor ? azurerm_key_vault_secret.ohl_observation_signing_seed.id : ""
-      executor_credential_lineage          = var.enable_isolated_executor ? "azure-managed-identity:${module.identity_finops.client_id}" : ""
-      vm_start_executor_credential_lineage = var.enable_isolated_executor ? "azure-managed-identity:${module.identity_resilience.client_id}" : ""
+      executor_credential_lineage          = var.enable_isolated_executor ? "azure-managed-identity:${module.identity_finops[0].client_id}" : ""
+      vm_start_executor_credential_lineage = var.enable_isolated_executor ? "azure-managed-identity:${module.identity_resilience[0].client_id}" : ""
       source_credential_lineage            = var.enable_isolated_executor ? "azure-managed-identity:${module.inventory_identity.client_id}" : ""
       source_identity_client_id            = var.enable_isolated_executor ? module.inventory_identity.client_id : ""
     }
     decision_evidence_container_url = (
-      var.enable_operational_history ? module.decision_evidence_storage[0].container_url : ""
+      length(module.decision_evidence_storage) > 0
+      ? module.decision_evidence_storage[0].container_url
+      : ""
     )
     tags = local.tags
   } : null
@@ -363,8 +365,8 @@ output "ohl_observation_context_binding" {
     source_identity_resource_id = module.inventory_identity.resource_id
     }, var.enable_isolated_executor ? {
     signing_seed_secret_id               = azurerm_key_vault_secret.ohl_observation_signing_seed.id
-    executor_credential_lineage          = "azure-managed-identity:${module.identity_finops.client_id}"
-    vm_start_executor_credential_lineage = "azure-managed-identity:${module.identity_resilience.client_id}"
+    executor_credential_lineage          = "azure-managed-identity:${module.identity_finops[0].client_id}"
+    vm_start_executor_credential_lineage = "azure-managed-identity:${module.identity_resilience[0].client_id}"
     source_credential_lineage            = "azure-managed-identity:${module.inventory_identity.client_id}"
   } : {})
 }
@@ -468,32 +470,32 @@ output "cost_governance_analyzer_job_name" {
 # Per-vertical Managed Identities (phase-3 § Unified Control Loop).
 output "identity_change_resource_id" {
   description = "Change Safety vertical Managed Identity resource id."
-  value       = module.identity_change.resource_id
+  value       = try(module.identity_change[0].resource_id, "")
 }
 
 output "identity_change_principal_id" {
   description = "Change Safety vertical MI object id (assign action-whitelist roles here)."
-  value       = module.identity_change.principal_id
+  value       = try(module.identity_change[0].principal_id, "")
 }
 
 output "identity_resilience_resource_id" {
   description = "Resilience vertical Managed Identity resource id."
-  value       = module.identity_resilience.resource_id
+  value       = try(module.identity_resilience[0].resource_id, "")
 }
 
 output "identity_resilience_principal_id" {
   description = "Resilience vertical MI object id."
-  value       = module.identity_resilience.principal_id
+  value       = try(module.identity_resilience[0].principal_id, "")
 }
 
 output "identity_finops_resource_id" {
   description = "FinOps vertical Managed Identity resource id."
-  value       = module.identity_finops.resource_id
+  value       = try(module.identity_finops[0].resource_id, "")
 }
 
 output "identity_finops_principal_id" {
   description = "FinOps vertical MI object id."
-  value       = module.identity_finops.principal_id
+  value       = try(module.identity_finops[0].principal_id, "")
 }
 
 # ---------------------------------------------------------------------------

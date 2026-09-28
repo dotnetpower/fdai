@@ -26,7 +26,7 @@ inside the target virtual network.
 | Connected artifact source | Clean source plus an approved exact-revision image manifest; optional `--online` kit acquisition uses the complete offline-compatible closure |
 | Disconnected artifact source | Complete offline profile embedded in a digest-pinned deployment appliance |
 | Approval | Current human approval bound to each exact plan digest |
-| Execution identity | Managed host user-assigned Managed Identity |
+| Runtime identity | Scoped read-only observation identity by default; privileged executor only for the explicit governed-execution add-on |
 | GitHub dependency | None for tenant deployment |
 
 GitHub Actions may validate source, build images, and optionally publish signed releases; publication is not a deployment-validation prerequisite. GitHub Actions cannot plan, apply, resume, or tear down a tenant deployment. The read-only [observer artifact preflight](../architecture/aks-outbound-connector.md#artifact-preflight) reuses the same pinned-root offline kit and OCI verifier for an exact Core image; its bounded process result creates no new release trust, approval or installation authority. The kit may also bind one optional default Rule activation profile by path, id, source timestamp, file digest, and complete-kit manifest digest. Preparation emits deterministic Core environment bindings only; it neither applies a generation nor deploys a tenant workload.
@@ -478,8 +478,8 @@ only after installing the reviewed CLI while idle; it does not change an already
 | `fdaictl provision console-update build` | Build one source-bound Console artifact from protected Git source | No |
 | `fdaictl provision console-update plan` | Seal an existing-development target plus candidate and rollback artifacts | No |
 | `fdaictl provision console-update apply` | Publish one exact Console plan and verify remote content and access | Yes, after exact terminal approval |
-| `fdaictl provision azure --online` | Run standalone Azure deployment with the selected connected payload | Yes, after exact approvals |
-| `fdaictl provision azure --offline-kit <path>` | Run the same deployment with a local deployment payload | Yes, after exact approvals |
+| `fdaictl provision azure --online` | Acquire a signed kit and deploy the headless observation-first profile; repeated `--add-on` and `--observation-source` selections opt into independent surfaces and derive each source's minimum read role | Infrastructure only after exact plan approval; no managed-resource execution authority by default |
+| `fdaictl provision azure --offline-kit <path>` | Run the same profile contract without public artifact acquisition | Same exact profile and approvals |
 | `fdaictl onboard guided --simulate` | Rehearse the finite stage graph | No |
 | `fdaictl onboard status` | Read a local hash-chained rehearsal journal | No |
 | `fdaictl bundle verify` | Inspect an optional deployment bundle | No |
