@@ -12,6 +12,7 @@ from fdai_deployment_cli.catalog_review_profile import (
     CatalogReviewDeploymentProfile,
     stage_catalog_review_profile,
 )
+from fdai_deployment_cli.control_package import PACKAGE_ROOT, ControlPackage
 from fdai_deployment_cli.foundation_adoption_transport import stage_foundation_context
 from fdai_deployment_cli.runtime_profile import RuntimeDeploymentProfile
 
@@ -35,8 +36,14 @@ def prepare_remote(
     remote_adoption_descriptor: str = "",
     timeout_seconds: int,
     catalog_review_profile: CatalogReviewDeploymentProfile | None = None,
+    control_package: ControlPackage | None = None,
 ) -> dict[str, object]:
-    """Transfer exact inputs and invoke the value-free host preparation command."""
+    """Transfer exact inputs and invoke the value-free host preparation command.
+
+    With a verified ``control_package``, the host installs ``fdai-deployment-cli`` only from
+    that signed wheelhouse after a remote digest match; the kit still supplies every runtime
+    payload. Without it, the host installs the CLI from the kit wheels.
+    """
 
     selected_runtime = runtime_profile or RuntimeDeploymentProfile.create(
         runtime_platform="container-apps",
@@ -70,6 +77,9 @@ def prepare_remote(
     digest = tunnel.ssh(("sha256sum", remote_archive), timeout=300)
     if digest.returncode != 0 or digest.stdout.split(maxsplit=1)[0] != archive_digest:
         raise ValueError("standalone transport archive digest differs")
+    install_cli = _kit_cli_installation(remote_root)
+    if control_package is not None:
+        install_cli = _stage_control_package(tunnel, remote_root, control_package)
     try:
         catalog_review_arguments = stage_catalog_review_profile(
             catalog_review_profile or CatalogReviewDeploymentProfile.unselected(),
@@ -131,19 +141,9 @@ def prepare_remote(
         commands = (
             (("rm", "-rf", "--", f"{remote_root}/kit"), 300),
             (("tar", "-xzf", remote_archive, "-C", remote_root), 1800),
+            (("rm", "-rf", "--", f"{remote_root}/venv"), 300),
             (("python3", "-m", "venv", f"{remote_root}/venv"), 300),
-            (
-                (
-                    f"{remote_root}/venv/bin/pip",
-                    "install",
-                    "--no-index",
-                    "--no-cache-dir",
-                    "--find-links",
-                    f"{remote_root}/kit/python",
-                    "fdai-deployment-cli",
-                ),
-                900,
-            ),
+            *install_cli,
             (("install", "-d", "-m", "0700", app_work), 60),
             (prepare_arguments, 1800),
         )
@@ -172,6 +172,60 @@ def prepare_remote(
     ):
         raise ValueError("standalone managed-host preparation result is invalid")
     return {str(key): value for key, value in result.items()}
+
+
+def _kit_cli_installation(remote_root: str) -> tuple[tuple[tuple[str, ...], int], ...]:
+    return (
+        (
+            (
+                f"{remote_root}/venv/bin/pip",
+                "install",
+                "--no-index",
+                "--no-cache-dir",
+                "--find-links",
+                f"{remote_root}/kit/python",
+                "fdai-deployment-cli",
+            ),
+            900,
+        ),
+    )
+
+
+def _stage_control_package(
+    tunnel: Any, remote_root: str, control_package: ControlPackage
+) -> tuple[tuple[tuple[str, ...], int], ...]:
+    """Copy the locally verified wheelhouse and require the same bytes on the host."""
+
+    remote_control = f"{remote_root}/control.tar.gz"
+    control_root = f"{remote_root}/control"
+    if tunnel.ssh(("rm", "-f", "--", remote_control), timeout=60).returncode != 0:
+        raise ValueError("standalone control package reset failed")
+    tunnel.copy_to(control_package.archive, remote_control, timeout=300)
+    digest = tunnel.ssh(("sha256sum", remote_control), timeout=120)
+    if (
+        digest.returncode != 0
+        or digest.stdout.split(maxsplit=1)[0] != control_package.archive_digest
+    ):
+        raise ValueError("standalone control package digest differs")
+    package = f"{control_root}/{PACKAGE_ROOT}"
+    return (
+        (("rm", "-rf", "--", control_root), 120),
+        (("install", "-d", "-m", "0700", control_root), 60),
+        (("tar", "-xzf", remote_control, "-C", control_root), 300),
+        (
+            (
+                f"{remote_root}/venv/bin/pip",
+                "install",
+                "--no-index",
+                "--no-cache-dir",
+                "--find-links",
+                f"{package}/wheels",
+                "--requirement",
+                f"{package}/requirements.txt",
+            ),
+            900,
+        ),
+    )
 
 
 def _cleanup_catalog_review_staging(tunnel: Any, *, remote_root: str) -> None:

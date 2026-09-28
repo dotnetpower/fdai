@@ -31,8 +31,9 @@ from fdai.core.operator_memory import (
     ScopeKind,
     wrap_operator_note,
 )
+from fdai.core.prompts.assembly import PromptAssembler
 from fdai.core.prompts.budget import estimate_prompt_tokens
-from fdai.core.prompts.profiles import PromptBudgetExceededError
+from fdai.core.prompts.profiles import PromptBudgetExceededError, assembly_receipt
 from fdai.core.prompts.registry import LegacyPromptRegistry, resolve_prompt_selection
 from fdai.core.prompts.skill_disclosure import compose_skill_disclosure
 from fdai.core.prompts.types import (
@@ -41,6 +42,7 @@ from fdai.core.prompts.types import (
     LayerRef,
     PromptAblationProfile,
     PromptArtifact,
+    PromptAssemblyMode,
     PromptLayer,
     PromptMode,
     SkillBundleReplayRecord,
@@ -331,6 +333,26 @@ class DefaultPromptComposer(PromptComposer):
             canary_tokens=canary_tokens,
             skill_records=skill_records,
             skill_bundle_records=skill_bundle_records,
+            assembly=(
+                assembly_receipt(
+                    selection,
+                    mode=PromptAssemblyMode.COMPLETE,
+                    keys=(),
+                    selected=tuple(
+                        index
+                        for index, pack in enumerate(selection.packs)
+                        if any(pack is active for active in active_packs)
+                    ),
+                    system_text=system_text,
+                    ablated=frozenset(
+                        index
+                        for index, pack in enumerate(selection.packs)
+                        if not any(pack is active for active in active_packs)
+                    ),
+                )
+                if profile is not None and profile.dynamic
+                else None
+            ),
         )
         _LOG.info(
             "prompt_composition_completed",
@@ -348,6 +370,41 @@ class DefaultPromptComposer(PromptComposer):
             },
         )
         return composed
+
+    def assembler(
+        self,
+        *,
+        capability_id: str,
+        profile_id: str | None = None,
+    ) -> PromptAssembler:
+        """Return a per-call assembler over one exact profile's catalog layers.
+
+        Runtime tool, memory, skill, and canary layers are not part of dynamic
+        assembly; the reviewed ablation profile still removes eligible packs.
+        """
+
+        selection = resolve_prompt_selection(
+            self._registry,
+            capability_id,
+            profile_id=profile_id,
+        )
+        if selection.profile is None:
+            raise LookupError(f"prompt assembly requires an exact profile for {capability_id!r}")
+        self._ablation.disables(selection.root.layer, selection.root.id)
+        ablated_indexes = frozenset(
+            index
+            for index, pack in enumerate(selection.packs)
+            if self._ablation.disables(pack.layer, pack.id)
+        )
+        return PromptAssembler(
+            selection,
+            ablation_profile=self._ablation.name,
+            ablated_layers=tuple(
+                _ablated_ref(selection.packs[index], self._ablation)
+                for index in sorted(ablated_indexes)
+            ),
+            ablated_indexes=ablated_indexes,
+        )
 
     def _inject_canaries(self, assembled: list[_AssembledLayer]) -> Mapping[str, str]:
         """Prepend a canary token to every assembled layer body.

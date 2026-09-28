@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: d55b7a5eb37a696e7be502395e5ae61761c16430
+translation_source_sha: 9a627e82422d543ba8c5acbb8c4d9f13027c05ae
 translation_revised: 2026-09-28
 ---
 # 프로젝트 구조
@@ -204,6 +204,12 @@ Cost Governance 가명 자료는 Operator 조립이 소유하는 비밀입니다
   `core/conversation/semantic_stated_list_scope.py`는 결정론적 Resource 목록을 목록으로 답할 수 있는
   요청에만 사용합니다. 카탈로그 신호가 변경 작업이나 관계 요청을 나타내면 목록을 거부하고, 원문
   그대로의 이름 조각으로 목록을 만들며, 지역으로 한정된 조각은 명확화합니다.
+  `core/prompts/assembly.py`는 형식이 정해진 조립 키로 동적 프로필을 호출마다 조립하고,
+  `core/conversation/semantic_judgment_assembly.py`는 preflight 주제 키를 만들며 포함 누락이 있으면
+  전체 프롬프트로 한 번 다시 판단합니다. `semantic_judgment_bounds.py`는 판단 입력 한도를 담고,
+  `semantic_planning_assembly.py`는 planning 어댑터가 쓰는 frame 의도 키, plan 형태 키, frame 결과
+  키와 plan 기술자 선택을 만듭니다. `conversation_preflight_family_validation.py`는 Core가 컬렉션 필터를 원문에서
+  근거화하므로 모델이 제안한 정규 값을 버립니다.
   `fdai_core_service/semantic_answer_presentation.py`는 공급자 lifecycle 상태, ISO 시각, 완전성,
   실행 권한 없음 표시를 운영자 언어로 렌더링하고 기술 상세에는 정확한 값을 유지합니다.
   `fdai_core_service/semantic_source_limitations.py`는 타입이 지정된 원본 제한 코드를 운영자의

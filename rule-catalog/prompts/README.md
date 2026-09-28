@@ -29,6 +29,9 @@ for the full design.
 - New prompts default to `default_mode: shadow`. Artifact mode never activates a root prompt.
   `profiles/catalog.yaml` selects one exact active profile per capability, and an explicit profile id
   selects a shadow treatment.
+- A dynamic profile (catalog schema `1.1.0`) marks packs conditional with `when_any` assembly keys
+  and names the result keys each pack governs with `covers`. The root is never conditional. See
+  [Dynamic assembly](../../docs/roadmap/decisioning/prompt-composition.md#dynamic-assembly).
 - All bodies use ASCII punctuation only. The repo-wide
   [`scripts/quality/repository/check-punctuation.sh`](../../scripts/quality/repository/check-punctuation.sh) enforces this.
 

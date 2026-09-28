@@ -14,6 +14,7 @@ consumes injected `ComposedPrompt` values produced by the composer.
 | `profiles.py` | Exact profile, artifact reference, budget, and static composition contracts |
 | `profile_loader.py` | Profile schema loading and exact artifact-reference validation |
 | `profile_evaluation.py` | Content-free active-versus-shadow size and identity comparison |
+| `assembly.py` | `PromptAssembler`: per-call conditional-pack selection with replay receipts |
 | `registry.py` | `PromptRegistry` Protocol + `FileSystemPromptRegistry` |
 | `composer.py` | `PromptComposer` Protocol + `DefaultPromptComposer` (Base + Task Pack + Tool Manifest + Operator Memory) |
 | `testing.py` | `StaticPromptComposer` fake for tests |

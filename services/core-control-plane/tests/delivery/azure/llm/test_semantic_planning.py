@@ -99,7 +99,7 @@ def test_adapter_config_rejects_a_system_prompt_above_the_hard_limit() -> None:
     with pytest.raises(ValueError, match="system prompts MUST be non-empty and bounded"):
         AzureOpenAISemanticPlanningModelConfig(
             candidates=(_target("primary"),),
-            frame_system_prompt="x" * 33_001,
+            frame_system_prompt="x" * 65_537,
             plan_system_prompt="bounded",
         )
 
@@ -626,7 +626,7 @@ async def test_escalated_frame_returns_unavailable_when_recovery_prompt_exceeds_
             http_client=client,
             config=AzureOpenAISemanticPlanningModelConfig(
                 candidates=(_target("primary"),),
-                frame_system_prompt="x" * 32_768,
+                frame_system_prompt="x" * 65_500,
                 plan_system_prompt="bounded",
                 timeout_seconds=2,
             ),
@@ -883,3 +883,202 @@ async def test_adapter_uses_candidate_order_and_returns_none_after_malformed_out
     assert validation_errors
     assert all(set(error) == {"location", "type"} for error in validation_errors)
     assert "private provider detail" not in caplog.text
+
+
+def _dynamic_frame_config() -> AzureOpenAISemanticPlanningModelConfig:
+    from fdai.core.prompts import (
+        PromptArtifactRef,
+        PromptAssembler,
+        PromptLayer,
+        PromptProfile,
+        PromptProfileMode,
+        PromptSelection,
+    )
+    from fdai.core.prompts.types import PromptArtifact, PromptMode
+
+    def artifact(artifact_id: str, layer: PromptLayer = PromptLayer.PACK) -> PromptArtifact:
+        return PromptArtifact(
+            id=artifact_id,
+            version=1,
+            layer=layer,
+            body=f"{artifact_id} frame guidance.",
+            applies_to=("semantic.query.frame",),
+            token_budget=None,
+            default_mode=PromptMode.SHADOW,
+            provenance_source="test",
+        )
+
+    profile = PromptProfile(
+        id="shadow.test-frame",
+        version=1,
+        capability_id="semantic.query.frame",
+        mode=PromptProfileMode.SHADOW,
+        root=PromptArtifactRef("core", 1, PromptLayer.BASE),
+        packs=(
+            PromptArtifactRef(
+                "ontology",
+                1,
+                PromptLayer.PACK,
+                when_any=("intent:query.manifest",),
+                covers=("shape:ontology_manifest",),
+            ),
+            PromptArtifactRef(
+                "inventory",
+                1,
+                PromptLayer.PACK,
+                when_any=("intent:query.contextual_resources",),
+                covers=("shape:resource_list",),
+            ),
+        ),
+        system_token_budget=65_536,
+        request_token_budget=196_608,
+        reserved_output_tokens=2048,
+        promotion_evidence=(),
+        provenance_source="test",
+    )
+    assembler = PromptAssembler(
+        PromptSelection(
+            root=artifact("core", PromptLayer.BASE),
+            packs=(artifact("ontology"), artifact("inventory")),
+            profile=profile,
+        )
+    )
+    base = _config()
+    return AzureOpenAISemanticPlanningModelConfig(
+        candidates=base.candidates,
+        frame_system_prompt=assembler.complete.system_text,
+        plan_system_prompt=base.plan_system_prompt,
+        frame_prompt_manifest=assembler.complete.replay_manifest(),
+        frame_prompt_assembler=assembler,
+        timeout_seconds=2,
+    )
+
+
+async def test_frame_with_uncovered_shape_is_reproposed_with_the_complete_prompt() -> None:
+    systems: list[str] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        systems.append(json.loads(request.content)["messages"][0]["content"])
+        return _response(_frame_payload())
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        model = AzureOpenAISemanticPlanningModel(
+            identity=_Identity(),  # type: ignore[arg-type]
+            http_client=client,
+            config=_dynamic_frame_config(),
+            owner_loop=asyncio.get_running_loop(),
+        )
+        response = await asyncio.to_thread(
+            model.propose_frame,
+            utterance="List readable object types",
+            context=(),
+            descriptors=({"kind": "object", "name": "Resource"},),
+            principal_role="reader",
+            purpose="operations-review",
+            semantic_judgment={"primary_intent": "query.manifest"},
+        )
+
+    assert isinstance(response, SemanticPlanningModelResponse)
+    assert len(systems) == 2
+    assert systems[0].startswith("core frame guidance.\n\nontology frame guidance.\nRequired")
+    assert "inventory frame guidance." in systems[1]
+    assert len(response.observations) == 2
+    first, second = (item.prompt_replay_manifest for item in response.observations)
+    assert first is not None and first.assembly is not None
+    assert first.assembly.mode.value == "selected"
+    assert second is not None and second.assembly is not None
+    assert second.assembly.mode.value == "complete"
+
+
+async def test_frame_with_covered_shape_keeps_the_selected_prompt() -> None:
+    systems: list[str] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        systems.append(json.loads(request.content)["messages"][0]["content"])
+        return _response(_frame_payload())
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        model = AzureOpenAISemanticPlanningModel(
+            identity=_Identity(),  # type: ignore[arg-type]
+            http_client=client,
+            config=_dynamic_frame_config(),
+            owner_loop=asyncio.get_running_loop(),
+        )
+        response = await asyncio.to_thread(
+            model.propose_frame,
+            utterance="List resources",
+            context=(),
+            descriptors=({"kind": "object", "name": "Resource"},),
+            principal_role="reader",
+            purpose="operations-review",
+            semantic_judgment={"primary_intent": "query.contextual_resources"},
+        )
+
+    assert isinstance(response, SemanticPlanningModelResponse)
+    assert len(systems) == 1
+    assert "ontology frame guidance." not in systems[0]
+    assert len(response.observations) == 1
+
+
+def test_read_only_plan_payload_omits_action_descriptors() -> None:
+    from types import SimpleNamespace
+
+    from fdai.core.conversation.semantic_planning_assembly import (
+        plan_descriptors as _plan_descriptors,
+    )
+
+    descriptors = (
+        {"kind": "function", "name": "query.manifest"},
+        {"kind": "action", "name": "restart-vm"},
+        {"kind": "object", "name": "Resource"},
+    )
+
+    read = _plan_descriptors(
+        descriptors,
+        SimpleNamespace(
+            output_shape="ontology_manifest", subject_constraints=(), measure_concepts=()
+        ),
+    )  # type: ignore[arg-type]
+    draft = _plan_descriptors(
+        descriptors,
+        SimpleNamespace(output_shape="action_draft", subject_constraints=(), measure_concepts=()),
+    )  # type: ignore[arg-type]
+
+    guided = _plan_descriptors(
+        descriptors,
+        SimpleNamespace(
+            output_shape="ontology_manifest", subject_constraints=(), measure_concepts=()
+        ),  # type: ignore[arg-type]
+        "Use one query.manifest function node.",
+    )
+    unnamed = _plan_descriptors(
+        (*descriptors, {"kind": "function", "name": "query.incident_evidence"}),
+        SimpleNamespace(
+            output_shape="ontology_manifest", subject_constraints=(), measure_concepts=()
+        ),  # type: ignore[arg-type]
+        "Use one query.manifest function node.",
+    )
+
+    assert [item["name"] for item in read] == ["query.manifest", "Resource"]
+    assert draft == descriptors
+    assert [item["name"] for item in guided] == ["query.manifest", "Resource"]
+    assert "query.incident_evidence" not in [item["name"] for item in unnamed]
+
+
+def test_frame_prompt_bound_leaves_room_for_the_reviewed_profile_budget() -> None:
+    base = _config()
+    frame_prompt = "Propose one semantic frame. " * 1_500
+
+    config = AzureOpenAISemanticPlanningModelConfig(
+        candidates=base.candidates,
+        frame_system_prompt=frame_prompt,
+        plan_system_prompt=base.plan_system_prompt,
+    )
+
+    assert len(config.frame_system_prompt) > 33_000
+    with pytest.raises(ValueError, match="bounded"):
+        AzureOpenAISemanticPlanningModelConfig(
+            candidates=base.candidates,
+            frame_system_prompt="x" * 65_537,
+            plan_system_prompt=base.plan_system_prompt,
+        )

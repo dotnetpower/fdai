@@ -134,7 +134,9 @@ def preflight_operational_judgment(
         }:
             return _reject_operational_promotion("unsupported_target_kind")
         if collection_filter and target.canonical_value is not None:
-            return _reject_operational_promotion("collection_filter_canonicalization_not_allowed")
+            # Core grounds collection filters from their source text; a model-proposed
+            # canonical value carries no authority and is dropped instead of voiding the route.
+            target = target.model_copy(update={"canonical_value": None})
         if collection_filter and any(
             start <= target.source_start and target.source_end <= end
             for start, end in exact_runtime_spans

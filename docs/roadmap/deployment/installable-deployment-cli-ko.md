@@ -1,8 +1,8 @@
 ---
 title: 설치형 배포 CLI
 translation_of: installable-deployment-cli.md
-translation_source_sha: da00b048f17960d1db0fab7fceb640de96095adb
-translation_revised: 2026-09-27
+translation_source_sha: 427661435298fa13b6403d304401ca669d443844
+translation_revised: 2026-09-28
 ---
 
 # 설치형 배포 CLI
@@ -592,6 +592,8 @@ HTTP 상태, 연결 실패, 로컬 경로 충돌, 권한, 저장 공간 부족�
 별도 오류로 표시합니다. 손상되거나 불완전한 보존 파일은 유지한 채 차단하며 몰래 교체하거나
 수락하지 않습니다. 재시도는 실행 상태, SSH 키, 계획, 승인을 삭제하거나 서명된 소스를
 바꾸지 않으며, 키트 캐시를 근거로 Azure 작업을 반복하지 않습니다.
+
+제어 코드만 수정한 경우 [서명된 배포 제어 패키지](disconnected-deployment-ko.md#배포-제어-패키지)로 검증된 키트를 재사용할 수 있습니다.
 
 ## 기능 토큰 동작
 

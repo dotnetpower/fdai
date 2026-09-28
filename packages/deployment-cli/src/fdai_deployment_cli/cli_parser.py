@@ -308,6 +308,12 @@ def build_parser(handlers: Mapping[str, CommandHandler]) -> argparse.ArgumentPar
         help="Maintainer-only private issuer key file; not an adopter prerequisite",
     )
     advanced.add_argument(
+        "--control-package",
+        type=Path,
+        metavar="PATH",
+        help="Signed deployment-control wheelhouse for the managed host (--offline-kit only)",
+    )
+    advanced.add_argument(
         "--trial-token",
         type=Path,
         metavar="PATH",

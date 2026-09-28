@@ -43,9 +43,12 @@ def test_shipped_active_profiles_pin_exact_versions() -> None:
 
     assert judgment.profile is not None
     assert judgment.profile.mode is PromptProfileMode.ACTIVE
-    assert (judgment.root.id, judgment.root.version) == ("semantic-judgment", 8)
-    assert (frame.root.id, frame.root.version) == ("semantic-query-frame", 40)
-    assert (plan.root.id, plan.root.version) == ("semantic-query-plan", 18)
+    assert (judgment.root.id, judgment.root.version) == ("semantic-judgment-core", 1)
+    assert judgment.profile.dynamic
+    assert (frame.root.id, frame.root.version) == ("semantic-query-frame-core", 1)
+    assert (plan.root.id, plan.root.version) == ("semantic-query-plan-core", 1)
+    assert frame.profile is not None and frame.profile.dynamic
+    assert plan.profile is not None and plan.profile.dynamic
 
 
 @pytest.mark.parametrize(
@@ -172,7 +175,7 @@ def test_shadow_profile_requires_explicit_id_and_preserves_active_selection() ->
     assert treatment.profile is not None
     assert active.profile.mode is PromptProfileMode.ACTIVE
     assert treatment.profile.mode is PromptProfileMode.SHADOW
-    assert active.root.id == "semantic-query-frame"
+    assert active.root.id == "semantic-query-frame-core"
     assert treatment.root.id == "semantic-query-frame-common"
 
 
@@ -250,13 +253,11 @@ def test_static_composition_enforces_profile_system_budget(tmp_path: Path) -> No
     catalog = tmp_path / "catalog"
     shutil.copytree(_CATALOG / "prompts", catalog / "prompts")
     profile_path = catalog / "prompts" / "profiles" / "catalog.yaml"
-    profile_path.write_text(
-        profile_path.read_text().replace(
-            "system_token_budget: 65536\n    request_token_budget: 196608",
-            "system_token_budget: 1\n    request_token_budget: 196608",
-            1,
-        )
-    )
+    text = profile_path.read_text()
+    start = text.index("  - id: active.semantic-query-frame\n")
+    end = text.index("\n  - id: ", start + 10)
+    block = text[start:end].replace("system_token_budget: 65536", "system_token_budget: 1", 1)
+    profile_path.write_text(text[:start] + block + text[end:])
     registry = FileSystemPromptRegistry(catalog)
 
     with pytest.raises(PromptBudgetExceededError, match="exceeds system token budget"):

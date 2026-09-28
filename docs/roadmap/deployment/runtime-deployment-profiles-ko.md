@@ -1,6 +1,6 @@
 ---
 translation_of: runtime-deployment-profiles.md
-translation_source_sha: d3c3136a8ca0eb51f39864548c78ff59d704de94
+translation_source_sha: 89042297ce8eb010e2e2d2dccab2570ce8292072
 translation_revised: 2026-09-28
 ---
 # 런타임 배포 프로파일
@@ -595,7 +595,7 @@ anti-affinity, disruption budget, 백업 불변성, 특정 시점 복구, 노드
 변경을 일으키는 각 노드는 자체 정확한 플랜, 현재 사람 승인, 효과 전 claim, timeout, rollback 또는
 복구 참조, 권위 있는 observer를 가집니다. `deployment_ready=true`가 되려면 선택된 모든 서비스가
 정상이어야 하고, 워크로드 신원이 유효해야 하며, Kafka 왕복이 완료되어야 합니다. 또한 데이터베이스
-마이그레이션이 최신이고 canary 작업 하나가 성공해야 하며 선택된 모든 상태 root의 두 번째 플랜에서
+기존 및 서비스 소유 마이그레이션이 최신이고 canary 작업 하나가 성공해야 하며 선택된 모든 상태 root의 두 번째 플랜에서
 변경이 없어야 합니다. 각 Operator replica는 하나의 2초 polling 구간 안에서 동시 SSE 구독자의 동일한
 인시던트 주의 읽기를 합칩니다. 이 cache는 프로세스 로컬이며 영속 근거나 권한을 가지지 않고 replica
 사이를 조정하지 않습니다. 혼합 개정 서비스 배포는 감사 API의 페이지 전용 기본값을 유지합니다. 최신

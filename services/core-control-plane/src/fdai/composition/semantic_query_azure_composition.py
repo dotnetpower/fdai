@@ -34,6 +34,7 @@ from fdai.core.ontology_platform.subscription_scope_queries import SubscriptionS
 from fdai.core.ontology_platform.vm_process_evidence import VmProcessCpuReader
 from fdai.core.prompts import (
     FileSystemPromptRegistry,
+    PromptAssembler,
     compose_static_selection,
 )
 from fdai.delivery.azure.llm.semantic_planning import (
@@ -168,6 +169,8 @@ def compose_azure_semantic_query_runtime(
             prompts.resolve(_RECOVERY_FRAME_CAPABILITY)
         )
         plan_prompt = compose_static_selection(prompts.resolve(_PLAN_CAPABILITY))
+        frame_assembler = PromptAssembler(prompts.resolve(_FRAME_CAPABILITY))
+        plan_assembler = PromptAssembler(prompts.resolve(_PLAN_CAPABILITY))
         t1_model = AzureOpenAISemanticPlanningModel(
             identity=identity,
             http_client=http_client,
@@ -181,6 +184,8 @@ def compose_azure_semantic_query_runtime(
                 plan_prompt_manifest=plan_prompt.replay_manifest(),
                 operational_frame_prompt_manifest=operational_frame_prompt.replay_manifest(),
                 recovery_frame_prompt_manifest=recovery_frame_prompt.replay_manifest(),
+                frame_prompt_assembler=frame_assembler,
+                plan_prompt_assembler=plan_assembler,
             ),
             owner_loop=owner_loop,
         )
@@ -198,6 +203,8 @@ def compose_azure_semantic_query_runtime(
                     plan_prompt_manifest=plan_prompt.replay_manifest(),
                     operational_frame_prompt_manifest=operational_frame_prompt.replay_manifest(),
                     recovery_frame_prompt_manifest=recovery_frame_prompt.replay_manifest(),
+                    frame_prompt_assembler=frame_assembler,
+                    plan_prompt_assembler=plan_assembler,
                 ),
                 owner_loop=owner_loop,
             )

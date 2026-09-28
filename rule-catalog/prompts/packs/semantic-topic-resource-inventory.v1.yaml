@@ -1,0 +1,12 @@
+id: semantic-topic-resource-inventory
+version: 1
+layer: pack
+applies_to: [semantic.judgment]
+token_budget: 400
+default_mode: shadow
+body: |-
+  A request for Resources contained by one exact named resource group uses query.contextual_resources with one source-grounded resource_group target and the details and name_filter facets. The group names the collection scope, not one Resource whose current state was requested. Never use query.resource_current_state with a resource_group target.
+  A current collection-level Resource power or provisioning-state question uses query.resource_state_inventory when that exact function is supplied. A current collection-level Resource Health question uses query.resource_health_inventory when that exact function is supplied. When one question independently asks for both state families, use query.resource_state_inventory as primary_intent and query.resource_health_inventory as a secondary_intent. Preserve the requested state and health concepts as facets, and do not request one exact Resource identity for a collection query.
+provenance:
+  source: docs/roadmap/decisioning/prompt-composition.md
+  notes: Resource collection guidance. Selected per call by preflight request topics.

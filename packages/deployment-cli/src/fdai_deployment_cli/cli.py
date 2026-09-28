@@ -255,6 +255,8 @@ def _provision_azure(args: argparse.Namespace) -> int:
         path is not None for path in foundation_adoption_paths
     ):
         raise ValueError("Foundation adoption requires both retained directories")
+    if args.control_package is not None and args.offline_kit is None:
+        raise ValueError("--control-package requires --offline-kit")
     if args.source is not None:
         if catalog_review_profile.selected:
             raise ValueError(
@@ -350,6 +352,7 @@ def _provision_azure(args: argparse.Namespace) -> int:
             adopt_foundation_directory=adoption_path(args.adopt_foundation_directory),
             adopt_foundation_recovery_directory=adoption_path(args.adopt_foundation_recovery),
             catalog_review_profile=catalog_review_profile,
+            control_package=adoption_path(args.control_package),
         )
         if result.get("deployment_ready") is not True:
             raise ValueError("standalone deployment did not return verified deployment readiness")
