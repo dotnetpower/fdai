@@ -1,6 +1,6 @@
 ---
 translation_of: developer-workflow-assurance.md
-translation_source_sha: 593b8d6633088f64140368817d02695383d6c274
+translation_source_sha: 4249c4b6107b87b8c176b92aef0cc20c148e1b69
 translation_revised: 2026-09-27
 ---
 
@@ -13,6 +13,10 @@ translation_revised: 2026-09-27
 > 범위: 이 제한된 캠페인은 [이슈 #116](https://github.com/dotnetpower/fdai/issues/116)에서
 > 추적합니다. 워크플로 최적화는 설계 문맥, 집중 검사, SHA 기반 CI, 신원 확인 또는 배포 승인을
 > 우회하지 않습니다. 로컬 validation queue는 opt-in 진단이며 commit, push 또는 배포 권한이 아닙니다.
+>
+> 로컬 제품 기본값은 헤드리스 관찰 우선 프로필입니다. Console 전체 스택, 알림, 엔터프라이즈
+> 신원 및 `governed-execution`은 서로 독립적인 명시적 추가 기능이며 개발 도구나 패키지
+> 존재 여부로 선택할 수 없습니다.
 
 ## 설계 개요
 

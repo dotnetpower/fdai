@@ -50,7 +50,7 @@ def deploy_standalone_application(
     kit: DeploymentKit,
     prepared: Any,
     foundation_status: dict[str, Any],
-    entra_bindings: dict[str, str],
+    entra_bindings: dict[str, str] | None,
     scripts: Path,
     license_signing_key: Path | None,
     trial_token: Path | None,
@@ -92,8 +92,9 @@ def deploy_standalone_application(
         raise ValueError("standalone host SSH key differs from Foundation evidence")
     transport_archive = prepared.root / "standalone-kit.tar.gz"
     archive_digest = archive_verified_kit(kit, transport_archive)
-    entra_path = prepared.root / "entra-bindings.json"
-    _replace_private_json(entra_path, entra_bindings)
+    entra_path = prepared.root / "entra-bindings.json" if entra_bindings is not None else None
+    if entra_path is not None:
+        _replace_private_json(entra_path, entra_bindings)
     work_binding: dict[str, object] = {
         "target_binding": prepared.target_binding,
         "source_commit": prepared.source_commit,
@@ -109,7 +110,7 @@ def deploy_standalone_application(
     remote_root = f"/home/{username}/.fdai-transfer-{work_ref}"
     remote_archive = f"{remote_root}/kit.tar.gz"
     remote_handoff = f"{remote_root}/foundation-handoff.json"
-    remote_entra = f"{remote_root}/entra-bindings.json"
+    remote_entra = f"{remote_root}/entra-bindings.json" if entra_path is not None else None
     remote_approval = f"{remote_root}/approval.json"
     remote_adoption_state = f"{remote_root}/application-state.json"
     remote_adoption_models = f"{remote_root}/resolved-models.json"
@@ -480,7 +481,9 @@ def deploy_standalone_application(
         ):
             raise ValueError("standalone application convergence is incomplete")
         console_receipt: dict[str, object] | None = None
-        if selected_runtime.runtime_platform.value == "aks":
+        if selected_runtime.console_selected and selected_runtime.runtime_platform.value == "aks":
+            if entra_bindings is None:
+                raise ValueError("read-only Console requires enterprise identity bindings")
             browser_console = _mapping(
                 verification.get("browser_console"), "browser Console verification"
             )
@@ -541,6 +544,7 @@ def deploy_standalone_application(
         "runtime_profile_digest": selected_runtime.digest,
         "runtime_platform": selected_runtime.runtime_platform.value,
         "database_placement": selected_runtime.database_placement.value,
+        "product_profile": selected_runtime.product_profile.model_dump(mode="json"),
         "remote_transient_cleanup_verified": True,
         "application_state_adopted": application_state_adoption is not None,
         "application_state_adoption_descriptor_digest": adoption_descriptor_digest,

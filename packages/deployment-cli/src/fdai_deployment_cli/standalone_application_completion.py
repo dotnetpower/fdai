@@ -9,6 +9,8 @@ from contextlib import redirect_stdout
 from pathlib import Path
 from typing import Any
 
+from fdai_service_contracts.product_profile import ProductAddOn
+
 from fdai_deployment_cli.application_state_adoption import ApplicationStateAdoption
 from fdai_deployment_cli.catalog_review_profile import CatalogReviewDeploymentProfile
 from fdai_deployment_cli.control_package import ControlPackage
@@ -38,26 +40,28 @@ def complete_application(
 ) -> dict[str, object]:
     """Configure identity and complete one exact standalone application deployment."""
 
-    begin_stage("identity")
-    sys.path.insert(0, str(scripts))
-    try:
-        supervisor = importlib.import_module("genesis_supervisor")
-        entra = importlib.import_module("genesis_entra")
-        approval_prompt = importlib.import_module("genesis_approval_prompt")
-        actor_digest = approval_prompt.current_actor_digest(prepared.run_binding)
-        with (
-            terminal_output("Identity configuration and any required approval"),
-            redirect_stdout(sys.stderr),
-        ):
-            entra_bindings = supervisor._configure_entra(
-                prepared=prepared,
-                status=status,
-                actor_digest=actor_digest,
-                plan=entra.plan_entra(),
-            )
-        entra_bindings["CURRENT_OPERATOR_OBJECT_ID"] = current_operator_object_id()
-    finally:
-        sys.path.remove(str(scripts))
+    entra_bindings: dict[str, str] | None = None
+    if selected_runtime.product_profile.selects(ProductAddOn.ENTERPRISE_IDENTITY_GOVERNANCE):
+        begin_stage("identity")
+        sys.path.insert(0, str(scripts))
+        try:
+            supervisor = importlib.import_module("genesis_supervisor")
+            entra = importlib.import_module("genesis_entra")
+            approval_prompt = importlib.import_module("genesis_approval_prompt")
+            actor_digest = approval_prompt.current_actor_digest(prepared.run_binding)
+            with (
+                terminal_output("Identity configuration and any required approval"),
+                redirect_stdout(sys.stderr),
+            ):
+                entra_bindings = supervisor._configure_entra(
+                    prepared=prepared,
+                    status=status,
+                    actor_digest=actor_digest,
+                    plan=entra.plan_entra(),
+                )
+            entra_bindings["CURRENT_OPERATOR_OBJECT_ID"] = current_operator_object_id()
+        finally:
+            sys.path.remove(str(scripts))
     application = deploy_standalone_application(
         kit=kit,
         prepared=prepared,
@@ -88,6 +92,7 @@ def complete_application(
         "runtime_profile_digest": selected_runtime.digest,
         "runtime_platform": selected_runtime.runtime_platform.value,
         "database_placement": selected_runtime.database_placement.value,
+        "product_profile": selected_runtime.product_profile.model_dump(mode="json"),
         "application_converged": True,
         "deployment_ready": True,
         "inventory_ready": application.get("inventory_ready") is True,

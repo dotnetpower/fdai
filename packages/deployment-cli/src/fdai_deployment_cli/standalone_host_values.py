@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import re
+from typing import Any
 
 from fdai_deployment_cli.contracts import canonical_digest
 
@@ -101,6 +102,21 @@ def vault_name(uri: str) -> str:
     return match.group(1)
 
 
+def planned_container_registry_name(
+    *, workload: str, environment: str, region_short: str, resource_suffix: str
+) -> str:
+    """Return the exact container registry name rendered by the verified Terraform root."""
+
+    if (
+        re.fullmatch(r"[a-z][a-z0-9]{1,11}", workload) is None
+        or re.fullmatch(r"[a-z][a-z0-9-]{1,15}", environment) is None
+        or re.fullmatch(r"[a-z][a-z0-9]{1,7}", region_short) is None
+        or re.fullmatch(r"[0-9a-f]{6}", resource_suffix) is None
+    ):
+        raise ValueError("planned container registry name inputs are invalid")
+    return f"cr{workload}{environment.replace('-', '')}{region_short}{resource_suffix}"
+
+
 def planned_key_vault_name(
     *, workload: str, environment: str, region_short: str, resource_suffix: str
 ) -> str:
@@ -151,3 +167,45 @@ def console_origin(hostname: str) -> str:
     ):
         raise ValueError("Console Static Web App hostname is invalid")
     return f"https://{hostname}"
+
+
+def aks_operator_environment(
+    *,
+    application_values: dict[str, Any],
+    core_environment: dict[str, Any],
+    substrate_outputs: dict[str, Any],
+    semantic_topics: list[Any],
+    operator_identity: dict[str, Any],
+    command_identity: dict[str, Any],
+    tenant_id: str,
+    console_origin: str,
+) -> dict[str, object]:
+    """Bind the Operator API pod environment selected by the enterprise identity surface."""
+
+    bindings = application_values["stewardship_agent_bindings"]
+    if not isinstance(bindings, dict):
+        raise ValueError("stewardship bindings are invalid")
+    environment: dict[str, object] = {
+        "AZURE_CLIENT_ID": operator_identity["client_id"],
+        "FDAI_COMMAND_MI_CLIENT_ID": command_identity["client_id"],
+        "FDAI_ENTRA_TENANT_ID": tenant_id,
+        "FDAI_API_AUDIENCE": application_values["operator_api_audience"],
+        "FDAI_RBAC_READERS_GROUP_ID": application_values["rbac_readers_group_id"],
+        "FDAI_RBAC_CONTRIBUTORS_GROUP_ID": application_values["rbac_contributors_group_id"],
+        "FDAI_RBAC_APPROVERS_GROUP_ID": application_values["rbac_approvers_group_id"],
+        "FDAI_RBAC_OWNERS_GROUP_ID": application_values["rbac_owners_group_id"],
+        "FDAI_RBAC_BREAK_GLASS_GROUP_ID": application_values["rbac_break_glass_group_id"],
+        "FDAI_STEWARDSHIP_REQUIRE_BINDINGS": "1",
+        "FDAI_MAINTAINERS": application_values["stewardship_maintainers"],
+        "FDAI_KAFKA_BOOTSTRAP_SERVERS": core_environment["KAFKA_BOOTSTRAP_SERVERS"],
+        "KAFKA_TOPIC_EVENTS": core_environment["KAFKA_TOPIC_EVENTS"],
+        "FDAI_SEMANTIC_TURN_REQUEST_TOPIC": str(semantic_topics[0]),
+        "FDAI_SEMANTIC_TURN_PROJECTION_TOPIC": str(semantic_topics[1]),
+        "FDAI_SEMANTIC_TURN_PHYSICAL_TOPIC": substrate_outputs["semantic_physical"],
+        "FDAI_READ_INVESTIGATION_REQUEST_TOPIC": str(semantic_topics[2]),
+        "FDAI_OPERATOR_API_CORS_ALLOW_ORIGINS": console_origin,
+    }
+    environment.update(
+        {f"FDAI_STEWARD_{name.upper()}": binding for name, binding in bindings.items()}
+    )
+    return environment

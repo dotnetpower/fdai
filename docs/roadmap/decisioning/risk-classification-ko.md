@@ -1,8 +1,8 @@
 ---
 title: 위험 분류 (자동 실행 vs 사람 승인 vs 차단)
 translation_of: risk-classification.md
-translation_source_sha: 7b5a4c4973e69f9b36d094caeace8ee82b5bd567
-translation_revised: 2026-09-28
+translation_source_sha: ecf140af9e53a4ed90611e76adffd86161db936e
+translation_revised: 2026-09-27
 ---
 
 # 위험 분류 (자동 실행 vs 사람 승인 vs 차단)
@@ -31,7 +31,8 @@ translation_revised: 2026-09-28
 | 기존 control-loop 감사 변환 결과 | implemented | [`_helpers.py`](../../../services/core-control-plane/src/fdai/core/control_loop/_helpers.py), [`test_control_loop_authority.py`](../../../services/core-control-plane/tests/core/test_control_loop_authority.py) | 감사 데이터에는 매칭된 규칙, 최종 판정, 정족수 및 해석된 상한이 포함됩니다. |
 | 승인 및 변경 거버넌스 적용 | in-progress | [`check-risk-table-change.py`](../../../scripts/quality/architecture/check-risk-table-change.py), [`test_check_risk_table_change.py`](../../../tests/integration/scripts/test_check_risk_table_change.py), [변경 프로세스](#변경-프로세스), [CODEOWNERS](../../../.github/CODEOWNERS) | 커밋 게이트가 계약의 메타데이터 절반을 적용합니다. 엄격히 증가하는 버전, 변하지 않는 Owner 계층 소유권, 모든 규칙의 서면 정당화, 마지막에 남는 fail-close 기본값입니다. 또한 변경 방향을 분류하므로 완화 편집은 patch bump 뒤에 숨을 수 없습니다. 2인 정족수와 Owner 계층 검토 절반은 배포 포크의 branch protection이므로 로컬 체크아웃에서는 증명되지 않은 상태로 남습니다. |
 | 재현에 충분한 특성 및 카탈로그 메타데이터 | implemented | [`authority.py`](../../../services/core-control-plane/src/fdai/core/risk_gate/authority.py), [`test_authority.py`](../../../services/core-control-plane/tests/core/risk_gate/test_authority.py) | 권한 감사 페이로드가 정확한 특성 벡터와 위험 테이블 카탈로그 버전을 직렬화하며, 테이블이 바뀐 뒤에도 기록된 페이로드를 자신의 카탈로그 버전으로 재현하는 집중 검사가 있습니다. |
-| 전권 개발 프로필 | in-progress | [`development_authority.py`](../../../services/core-control-plane/src/fdai/shared/contracts/development_authority.py), [`test_development_authority.py`](../../../services/core-control-plane/tests/contracts/test_development_authority.py), [FDAI 헌법](../architecture/fdai-constitution-ko.md#제8조-자율성과-사전승인-권한) | 불변 계약, 신뢰할 수 있는 원본 Protocol, 명시적 Pantheon 조립 경로, 프로필 범위 RiskGate 모드 및 fail-closed 소비자에는 집중 검사 근거가 있습니다. 업스트림은 권위 있는 결속 원본 구현을 제공하지 않으며 기본 Core ControlLoop, 워크플로 및 RBAC 조립은 아직 선택하지 않습니다. |
+| 전권 개발 프로필 | in-progress | [`development_authority.py`](../../../services/core-control-plane/src/fdai/shared/contracts/development_authority.py), [`test_development_authority.py`](../../../services/core-control-plane/tests/contracts/test_development_authority.py), [FDAI 헌법](../architecture/fdai-constitution-ko.md#제8조-자율성과-사전승인-권한) | 선택적 계약은 권위 있는 배포 원본 없이는 안전하게 차단됩니다. #1541 병합 후 #1502를 기본값에서 `not_planned`/대체됨으로 닫으며 개발 권한 또는 실제 바인딩 기준을 완료했다고 주장하지 않습니다. |
+| 관찰 우선 권한 상한 | implemented | 공유 `ProductProfile`, 런타임 부트스트랩, RiskGate 레지스트리, Thor 포트 및 집중 부정 검사 | 기본 프로필은 ActionType 모드를 항상 shadow로 유지하며 영속 승격 갱신기, HIL, 워크플로 작업 디스패처, 롤백 또는 권한 있는 실행기 바인딩을 조립하지 않습니다. 추가 기능 선택만으로는 권한이 생기지 않습니다. |
 
 ### 구현 이력
 
@@ -43,6 +44,7 @@ translation_revised: 2026-09-28
 | 2026-08-14 | in-progress | 변경 계약의 메타데이터 절반을 커밋 게이트로 적용하고, 완화 편집을 버전 문자열에서 드러나게 했습니다. | `current change`; [`check-risk-table-change.py`](../../../scripts/quality/architecture/check-risk-table-change.py), [`test_check_risk_table_change.py`](../../../tests/integration/scripts/test_check_risk_table_change.py); 집중 게이트 검사 26건이 통과했고, 배포된 테이블에 대해 변경 없음, bump 없는 완화, patch bump 완화, minor bump 완화 경우를 실행해 확인했습니다. | 승인 정족수와 Owner 계층 검토는 배포 포크의 branch protection으로 남으며, 관리되는 런타임 증적을 보존해야 합니다. |
 | 2026-09-27 | not-started | 런타임 지원을 주장하지 않고 단독 Owner와 전용 Azure 테스트 범위를 위한 전권 개발 프로필 목표를 채택했습니다. | `current change`; 헌법, 압축 지침 및 집중 헌법 검사. | 프로필을 사용할 수 있다고 보고하기 전에 위험, 승인, 승격, 롤백 및 실행기 승인 전반에 하나의 범위 결속 프로필 계약을 구현합니다. |
 | 2026-09-27 | in-progress | 하나의 불변 공유 프로필, 배포가 주입하는 신뢰 결속 원본 계약, 현재 작업에 대한 정확한 확인, 실제 Forseti-Var-Thor 조립 및 프로덕션 준비 상태를 부여하지 않는 프로필 범위 개발 승격을 추가했습니다. | `current change`; 공유 권한 스키마, 모델 및 평가기; 위험, RBAC, 워크플로, 운영 학습, Forseti, Var, Thor 및 Vidar 집중 경로; 집중 검사 723개 통과. | 현재 대상 범위, 리비전 및 보호 장치 증적을 확인하는 권위 있는 배포 원본을 구현하고 결속해야 합니다. 선택적 컨텍스트를 배포된 Core ControlLoop, 워크플로 및 RBAC 진입점에 연결한 뒤 관리되는 런타임 증적을 보존해야 합니다. 실제 운영 검증은 수행하지 않았습니다. |
+| 2026-09-27 | implemented | 관찰 우선을 제품 기본값으로 정하고 `governed-execution`을 명시적으로 선택하지 않으면 모든 enforce 승격 경로를 조립하지 않도록 했습니다. | `current change`; 공유 제품 프로필, Core 부트스트랩/조립, enforce를 허용하지 않는 승격 레지스트리 및 기본값/추가 기능 집중 검사. | 기존 배포는 출시 전에 명시적 추가 기능을 기록해야 합니다. 실제 권한 근거는 별도이며 이번 작업에서 실제 운영 검증을 요청하지 않았습니다. |
 
 ### 남은 작업
 

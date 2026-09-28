@@ -690,6 +690,36 @@ variable "inventory_kubernetes_subscription_discovery_enabled" {
   default     = true
 }
 
+variable "enable_inventory_monitoring_reader" {
+  description = "Grant the inventory identity Monitoring Reader for explicitly selected telemetry observation."
+  type        = bool
+  default     = false
+}
+
+variable "enable_inventory_log_analytics_reader" {
+  description = "Grant the inventory identity Log Analytics Reader on the FDAI workspace."
+  type        = bool
+  default     = false
+}
+
+variable "enable_inventory_cost_management_reader" {
+  description = "Grant the inventory identity Cost Management Reader for the selected scope."
+  type        = bool
+  default     = false
+}
+
+variable "enable_inventory_aks_reader" {
+  description = "Grant the inventory identity the AKS read-only roles selected by the product profile."
+  type        = bool
+  default     = false
+}
+
+variable "enable_inventory_evidence_store_reader" {
+  description = "Enable the observation profile's read-only evidence-store role."
+  type        = bool
+  default     = false
+}
+
 variable "inventory_kubernetes_cluster_bindings_json" {
   description = "Sensitive deployment JSON for at most 32 exact AKS workload-identity observation bindings. Mutually exclusive with legacy single-cluster values."
   type        = string
@@ -1333,6 +1363,48 @@ variable "enable_isolated_executor" {
   description = "Provision the internal SD-07 isolated Executor in shadow-only mode. Effect authority remains disabled until SD-08."
   type        = bool
   default     = false
+}
+
+variable "enable_governed_execution" {
+  description = "Select governed execution surfaces and privileged executor identities. Default false for observation-first deployment."
+  type        = bool
+  default     = false
+}
+
+variable "product_profile_json" {
+  description = "Canonical authority-neutral product profile injected into Core runtime composition."
+  type        = string
+  default     = "{\"add_ons\":[],\"authority_granted\":false,\"name\":\"observation-first\",\"observation_permissions\":{\"base_role\":\"Reader\",\"selected_sources\":[]},\"schema_version\":\"fdai.product-profile.v1\"}"
+
+  validation {
+    condition = (
+      can(jsondecode(var.product_profile_json)) &&
+      try(jsondecode(var.product_profile_json).schema_version, "") == "fdai.product-profile.v1" &&
+      try(jsondecode(var.product_profile_json).name, "") == "observation-first" &&
+      try(jsondecode(var.product_profile_json).authority_granted, true) == false &&
+      length(setsubtract(
+        toset(try(jsondecode(var.product_profile_json).add_ons, [])),
+        toset([
+          "enterprise-identity-governance",
+          "governed-execution",
+          "notifications",
+          "read-only-console",
+        ]),
+      )) == 0 &&
+      try(jsondecode(var.product_profile_json).observation_permissions.base_role, "") == "Reader" &&
+      length(setsubtract(
+        toset(try(jsondecode(var.product_profile_json).observation_permissions.selected_sources, [])),
+        toset([
+          "aks",
+          "azure-monitor",
+          "cost-management",
+          "evidence-store",
+          "log-analytics",
+        ]),
+      )) == 0
+    )
+    error_message = "product_profile_json must be the authority-neutral observation-first contract with only supported add-ons and read roles."
+  }
 }
 
 variable "enable_isolated_executor_authority_cutover" {

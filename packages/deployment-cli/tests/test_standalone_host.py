@@ -1456,8 +1456,9 @@ def test_substrate_readback_uses_the_authoritative_registry_output(
         standalone_host,
         "_terraform_output",
         lambda _infra, output: (
-            "state-selected-registry"
-            if output == "container_registry_name"
+            "/subscriptions/example/resourceGroups/rg/providers/"
+            "Microsoft.ContainerRegistry/registries/crfdai2devwus2abc123"
+            if output == "container_registry_id"
             else pytest.fail(f"unexpected output: {output}")
         ),
     )
@@ -1471,12 +1472,41 @@ def test_substrate_readback_uses_the_authoritative_registry_output(
         "substrate",
         {
             "infra": str(tmp_path),
-            "registry_name": "predicted-but-wrong",
+            "registry_name": "crfdai2devwus2abc123",
             "subscription_id": "00000000-0000-0000-0000-000000000001",
         },
     )
 
-    assert commands[0][commands[0].index("--name") + 1] == "state-selected-registry"
+    assert commands[0][commands[0].index("--ids") + 1].endswith("/crfdai2devwus2abc123")
+
+
+def test_substrate_readback_rejects_a_registry_other_than_the_image_registry(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(
+        standalone_host,
+        "_terraform_output",
+        lambda _infra, _output: "/subscriptions/example/registries/crfdaidevwus2abc123",
+    )
+
+    with pytest.raises(ValueError, match="planned image registry"):
+        standalone_host._readback_stage(
+            "substrate",
+            {
+                "infra": str(tmp_path),
+                "registry_name": "crfdai2devwus2abc123",
+                "subscription_id": "00000000-0000-0000-0000-000000000001",
+            },
+        )
+
+
+def test_planned_registry_name_includes_the_foundation_workload() -> None:
+    assert (
+        standalone_host_values.planned_container_registry_name(
+            workload="fdai2", environment="dev", region_short="wus2", resource_suffix="d672ee"
+        )
+        == "crfdai2devwus2d672ee"
+    )
 
 
 @pytest.mark.parametrize("existing", [False, True])
@@ -1751,7 +1781,12 @@ def test_prepare_aks_application_requires_core_semantic_environment(
         "tenant_id": "tenant",
         "subscription_id": "subscription",
     }
-    application = {"enable_llm": True, "region": "westus2", "env": "dev"}
+    application = {
+        "enable_llm": True,
+        "region": "westus2",
+        "env": "dev",
+        "product_profile_json": '{"schema_version":"fdai.product-profile.v1"}',
+    }
     identities = {
         name: {"resource_id": f"/identities/{name}", "client_id": f"{name}-client"}
         for name in (
@@ -3412,3 +3447,30 @@ def test_private_service_migration_launcher_runs_through_fixed_interpreter(
 
     assert result.returncode == 0, result.stderr
     assert result.stdout.endswith("service-migrations/migrate.py core-control-plane bootstrap\n")
+
+
+def test_legacy_runtime_context_requires_explicit_full_product_selection() -> None:
+    observation = standalone_host.RuntimeDeploymentProfile.create(
+        runtime_platform="container-apps",
+        database_placement="postgres-flex",
+    )
+    explicit_legacy = standalone_host.RuntimeDeploymentProfile.create(
+        runtime_platform="container-apps",
+        database_placement="postgres-flex",
+        product_add_ons=(
+            "enterprise-identity-governance",
+            "governed-execution",
+            "notifications",
+            "read-only-console",
+        ),
+        observation_data_sources=(
+            "aks",
+            "azure-monitor",
+            "cost-management",
+            "evidence-store",
+            "log-analytics",
+        ),
+    )
+
+    assert standalone_host._runtime_profile_matches({}, observation) is False
+    assert standalone_host._runtime_profile_matches({}, explicit_legacy) is True

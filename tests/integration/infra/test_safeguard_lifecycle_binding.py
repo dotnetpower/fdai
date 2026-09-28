@@ -33,8 +33,8 @@ def test_core_service_binds_exact_source_revision_to_runtime() -> None:
     assert "source_identity_resource_id = module.inventory_identity.resource_id" in (
         observation_binding
     )
-    assert "module.identity_finops.client_id" in observation_binding
-    assert "module.identity_resilience.client_id" in observation_binding
+    assert "module.identity_finops[0].client_id" in observation_binding
+    assert "module.identity_resilience[0].client_id" in observation_binding
 
 
 def test_deploy_workflow_forwards_source_revision_to_tfvars() -> None:

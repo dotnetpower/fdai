@@ -677,6 +677,38 @@
       ]
     },
     {
+      "id": "operational-evidence-issuance",
+      "paths": [
+        "docs/roadmap/rules-and-detection/independent-operational-evidence*.md",
+        "docs/roadmap-implementation/rules-and-detection/independent-operational-evidence.md",
+        "services/core-control-plane/src/fdai/agents/_framework/forseti_judgment.py",
+        "services/core-control-plane/src/fdai/composition/semantic_query_invocation_context.py",
+        "services/core-control-plane/src/fdai/core/operational_context/test_context*.py",
+        "services/core-control-plane/src/fdai/core/detection/forecast_context.py",
+        "services/core-control-plane/src/fdai/core/ontology_platform/pattern_queries.py",
+        "services/core-control-plane/src/fdai/core/tiers/t1_lightweight/contextual_reuse.py",
+        "services/core-control-plane/src/fdai/delivery/azure/decision_evidence.py",
+        "services/core-control-plane/src/fdai/delivery/azure/operational_evidence.py",
+        "services/core-control-plane/src/fdai/delivery/persistence/state_store_decision_evidence.py",
+        "services/core-control-plane/src/fdai/delivery/persistence/state_store_forecast_context.py",
+        "services/core-control-plane/src/fdai/shared/providers/decision_evidence_verifier.py",
+        "services/operator-service/src/fdai_operator_service/auth.py",
+        "services/operator-service/src/fdai_operator_service/test_context_runtime.py"
+      ],
+      "must_read": [
+        ".github/instructions/architecture.instructions.md",
+        ".github/instructions/agent-pantheon.instructions.md",
+        "docs/roadmap/architecture/fdai-constitution.md",
+        "docs/roadmap/rules-and-detection/independent-operational-evidence.md",
+        "config/decision-boundary-inventory.json"
+      ],
+      "validate": [
+        "python3 scripts/quality/architecture/check-decision-boundary-coverage.py",
+        "uv run pytest -q --no-cov services/core-control-plane/tests/core/readiness/test_decision_evidence.py services/core-control-plane/tests/persistence/test_state_store_decision_evidence.py services/core-control-plane/tests/delivery/azure/test_decision_evidence.py services/core-control-plane/tests/delivery/azure/test_operational_evidence.py services/core-control-plane/tests/core/operational_context/test_test_context.py services/core-control-plane/tests/persistence/test_state_store_forecast_context.py services/core-control-plane/tests/core/detection/test_forecast_context.py services/core-control-plane/tests/core/tiers/t1_lightweight/test_contextual_reuse.py services/core-control-plane/tests/agents/test_operational_context_verdict.py services/core-control-plane/tests/agents/test_operating_pattern_learning_e2e.py",
+        "uv run pytest -q --no-cov services/operator-service/tests/test_test_context_commands.py services/operator-service/tests/test_operator_workload_auth.py services/operator-service/tests/test_local_auth.py"
+      ]
+    },
+    {
       "id": "issue-lifecycle",
       "paths": [
         ".github/ISSUE_TEMPLATE/**",
@@ -3211,6 +3243,65 @@
       ],
       "validate": [
         "uv run pytest -q --no-cov services/core-control-plane/tests/rule_catalog/schema/test_llm_resolver.py services/core-control-plane/tests/rule_catalog/schema/test_llm_resolver_cli.py",
+        "python3 scripts/quality/architecture/check-design-routes.py"
+      ]
+    },
+    {
+      "id": "observation-first-product-profile",
+      "paths": [
+        "packages/service-contracts/src/fdai_service_contracts/product_profile.py",
+        "packages/service-contracts/tests/test_product_profile.py",
+        "packages/deployment-cli/src/fdai_deployment_cli/runtime_profile.py",
+        "packages/deployment-cli/src/fdai_deployment_cli/installation_scope.py",
+        "packages/deployment-cli/src/fdai_deployment_cli/standalone_product_profile.py",
+        "packages/deployment-cli/tests/test_standalone_product_profile.py",
+        "services/core-control-plane/src/fdai/shared/config/**",
+        "services/core-control-plane/src/fdai/runtime/bootstrap.py",
+        "services/core-control-plane/src/fdai/runtime/bootstrap_plan.py",
+        "services/core-control-plane/src/fdai/runtime/bootstrap_core.py",
+        "services/core-control-plane/src/fdai/runtime/bootstrap_assignment.py",
+        "services/core-control-plane/src/fdai/runtime/control_loop.py",
+        "services/core-control-plane/src/fdai/runtime/control_loop_execution_ports.py",
+        "services/core-control-plane/src/fdai/runtime/delivery.py",
+        "services/core-control-plane/src/fdai/runtime/product_profile.py",
+        "services/core-control-plane/src/fdai/core/risk_gate/gate.py",
+        "infra/main.tf",
+        "infra/variables.tf",
+        "infra/outputs.tf",
+        "infra/modules/compute/container-apps/**",
+        "tests/integration/infra/test_observation_first_profile.py"
+      ],
+      "must_read": [
+        ".github/instructions/architecture.instructions.md",
+        ".github/instructions/app-shape.instructions.md",
+        ".github/instructions/agent-pantheon.instructions.md",
+        ".github/instructions/coding-conventions.instructions.md",
+        ".github/instructions/generic-scope.instructions.md",
+        "docs/roadmap/architecture/fdai-constitution.md",
+        "docs/roadmap/architecture/decisions/0002-independent-runtime-axes.md",
+        "docs/roadmap/architecture/security-and-identity.md",
+        "docs/roadmap/agents/agent-pantheon.md",
+        "docs/roadmap/decisioning/risk-classification.md",
+        "docs/roadmap/interfaces/user-rbac-and-identity.md",
+        "docs/roadmap/rules-and-detection/operational-learning-ontology.md",
+        "docs/roadmap/rules-and-detection/rule-governance.md",
+        "docs/roadmap/deployment/runtime-deployment-profiles.md"
+      ],
+      "docs_update": [
+        "docs/roadmap/architecture/decisions/0002-independent-runtime-axes.md",
+        "docs/roadmap/architecture/security-and-identity.md",
+        "docs/roadmap/agents/agent-pantheon.md",
+        "docs/roadmap/decisioning/risk-classification.md",
+        "docs/roadmap/interfaces/user-rbac-and-identity.md",
+        "docs/roadmap/rules-and-detection/operational-learning-ontology.md",
+        "docs/roadmap/rules-and-detection/rule-governance.md",
+        "docs/roadmap/deployment/runtime-deployment-profiles.md"
+      ],
+      "validate": [
+        "uv run pytest -q --no-cov packages/service-contracts/tests/test_product_profile.py services/core-control-plane/tests/config/test_env_provider.py services/core-control-plane/tests/runtime/test_bootstrap_plan.py services/core-control-plane/tests/core/risk_gate/test_gate.py services/core-control-plane/tests/runtime/test_thor_execution_port.py",
+        "uv run --project packages/deployment-cli python -m pytest -c packages/deployment-cli/pyproject.toml -q packages/deployment-cli/tests/test_runtime_profile.py packages/deployment-cli/tests/test_installation_scope.py packages/deployment-cli/tests/test_standalone_product_profile.py packages/deployment-cli/tests/test_standalone_application_completion.py",
+        "uv run pytest -q --no-cov tests/integration/infra/test_observation_first_profile.py tests/integration/infra/test_inventory_kubernetes_identity.py tests/integration/infra/test_isolated_executor_boundary.py",
+        "terraform -chdir=infra validate",
         "python3 scripts/quality/architecture/check-design-routes.py"
       ]
     },

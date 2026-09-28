@@ -11,7 +11,9 @@ enforce operation in both local and deployed environments. Consumers import type
 
 > **Scope:** This design reuses the existing incident registry, typed action pipeline, Process
 > journal, risk gate, and executor adapters. It does not add a console-owned executor or a second
-> judgment path.
+> judgment path. The observation-first default may create and investigate evidence-backed
+> Incidents, but all managed-resource actions remain advisory until governed execution is selected
+> and independently authorized.
 >
 > **Safety boundary:** Enforce means that an ActionType already promoted through its own gate may
 > reach its configured adapter after policy, risk, approval, what-if, lock, and idempotency checks.

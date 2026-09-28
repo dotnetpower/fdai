@@ -50,7 +50,6 @@ from fdai.core.rca import (
     TemporalCausalityAnalyzer,
 )
 from fdai.core.risk_gate import (
-    ActionPromotionRegistry,
     GovernedPreconditionEvaluator,
     RiskGate,
     RiskGateConfig,
@@ -90,7 +89,7 @@ from fdai.rule_catalog.schema.rule import load_rule_catalog
 from fdai.rule_catalog.schema.signal_type import load_signal_type_registry_from_mapping
 from fdai.rule_catalog.schema.workflow import load_workflow_catalog
 from fdai.runtime.adaptive_telemetry import build_adaptive_telemetry_from_container
-from fdai.runtime.alert_noise_control import build_alert_workflow_bindings
+from fdai.runtime.alert_noise_control import AlertWorkflowBindings, build_alert_workflow_bindings
 from fdai.runtime.configuration import _resolve_catalog_root, _resolve_policies_root
 from fdai.runtime.control_loop_catalogs import (
     load_parameter_relaxation_policies as _load_parameter_relaxation_policies,
@@ -125,6 +124,7 @@ from fdai.runtime.isolated_executor_client import (
 )
 from fdai.runtime.licensing import gate_execution
 from fdai.runtime.metric_semantic_catalog import load_metric_semantic_registry
+from fdai.runtime.product_profile import RuntimeProductSelection, build_promotion_registry
 from fdai.runtime.providers import (
     _build_audit_store,
     _build_idempotency_store,
@@ -198,6 +198,9 @@ def _build_control_loop(
     GitOps env vars opt into the real adapter. ``None`` is fine when
     the container runs in fake-publisher mode (dev / unit tests).
     """
+    product_selection = RuntimeProductSelection.from_profile(container.config.product_profile)
+    governed_execution_enabled = product_selection.governed_execution
+    notification_bindings_enabled = product_selection.notifications
     catalog_root = _resolve_catalog_root()
     require_production_safeguard_readiness(thor_execution_port)
     policies_root = _resolve_policies_root(catalog_root)
@@ -376,41 +379,35 @@ def _build_control_loop(
     idempotency_store: Any = None
     safeguard_coordinator: Any = None
     if thor_execution_port is None:
-        publisher = _build_publisher(http_client)
+        publisher = _build_publisher(
+            http_client,
+            live_delivery_enabled=governed_execution_enabled,
+        )
         renderer = TemplateRenderer(remediation_root=remediation_root)
-        idempotency_store = _build_idempotency_store()
-        safeguard_coordinator = _build_safeguard_lifecycle_coordinator(
-            audit_store=audit_store,
-            resource_lock=resource_lock,
-            process_store=process_runtime_store,
-            receipt_journal_consumer=(
-                direct_api_execution_port.bind_receipt_journal
-                if isinstance(direct_api_execution_port, EventBusDirectApiExecutionClient)
-                else None
-            ),
-            receipt_journal_capacity=(
-                direct_api_execution_port.max_pending_requests
-                if isinstance(direct_api_execution_port, EventBusDirectApiExecutionClient)
-                else 256
-            ),
-        )
+        if governed_execution_enabled:
+            idempotency_store = _build_idempotency_store()
+            safeguard_coordinator = _build_safeguard_lifecycle_coordinator(
+                audit_store=audit_store,
+                resource_lock=resource_lock,
+                process_store=process_runtime_store,
+                receipt_journal_consumer=(
+                    direct_api_execution_port.bind_receipt_journal
+                    if isinstance(direct_api_execution_port, EventBusDirectApiExecutionClient)
+                    else None
+                ),
+                receipt_journal_capacity=(
+                    direct_api_execution_port.max_pending_requests
+                    if isinstance(direct_api_execution_port, EventBusDirectApiExecutionClient)
+                    else 256
+                ),
+            )
     risk_table = load_risk_table(catalog_root / "risk-classification.yaml")
-    promotion_registry: ActionPromotionRegistry
-    promotion_state_refresher = None
-    if os.environ.get("FDAI_STATE_STORE_DSN", "").strip():
-        from fdai.delivery.persistence import StateStoreActionPromotionRegistry
-
-        durable_registry = StateStoreActionPromotionRegistry(
-            store=audit_store,
-            receipt_verifier=container.operational_promotion_receipt_verifier,
-            persisted_authority_verifier=container.persisted_promotion_authority_verifier,
-        )
-        promotion_registry = durable_registry
-        promotion_state_refresher = durable_registry.refresh
-    else:
-        promotion_registry = ActionPromotionRegistry(
-            receipt_verifier=container.operational_promotion_receipt_verifier,
-        )
+    promotion_registry, promotion_state_refresher = build_promotion_registry(
+        product_selection,
+        container=container,
+        audit_store=audit_store,
+        durable=bool(os.environ.get("FDAI_STATE_STORE_DSN", "").strip()),
+    )
     risk_gate = RiskGate(
         registry=promotion_registry,
         config=RiskGateConfig(
@@ -478,6 +475,7 @@ def _build_control_loop(
         property_semantics=property_semantics,
         catalog_root=catalog_root,
         process_store=process_runtime_store,
+        governed_execution_enabled=governed_execution_enabled,
     )
     thor_execution_port = gate_execution(thor_execution_port, license_authority, audit_store)
     executor, direct_api_executor, tool_executor = _legacy_executor_bindings(thor_execution_port)
@@ -527,63 +525,65 @@ def _build_control_loop(
     # stops at the persisted queue (backward-compatible). Parking never
     # turns a HIL verdict into an execution - the coordinator holds the
     # no-self-approval + idempotency invariants.
-    hil_channel = _build_hil_channel(http_client, hil_identity)
-    if isinstance(hil_channel, SlackHilAdapter):
-        hil_channel = DurableSlackApprovalChannel(adapter=hil_channel, store=audit_store)
-    approval_load_policy = _load_approval_load_policy(catalog_root)
-    escalation_rungs = _load_hil_escalation_rungs(catalog_root) if hil_channel else ()
-    from fdai.runtime.hil_escalation import build_hil_runtime_support
+    hil_resume_coordinator = None
+    pre_dispatch_kinetic_safety_writer = None
+    evidence_conflict_projection = None
+    if governed_execution_enabled:
+        hil_channel = (
+            _build_hil_channel(http_client, hil_identity) if notification_bindings_enabled else None
+        )
+        if isinstance(hil_channel, SlackHilAdapter):
+            hil_channel = DurableSlackApprovalChannel(adapter=hil_channel, store=audit_store)
+        approval_load_policy = _load_approval_load_policy(catalog_root)
+        escalation_rungs = _load_hil_escalation_rungs(catalog_root) if hil_channel else ()
+        from fdai.runtime.hil_escalation import build_hil_runtime_support
 
-    hil_support = build_hil_runtime_support(
-        catalog_root=catalog_root,
-        environment=os.environ,
-        http_client=http_client,
-        identity=identity,
-        store=audit_store,
-        channel=hil_channel,
-        load_policy=approval_load_policy,
-        escalation_rungs=escalation_rungs,
-    )
-    report_line_runtime = hil_support.report_lines
-    escalation_supervisor = hil_support.escalation
-    approval_load_controller = hil_support.load_controller
-    approval_expiry_reconciler = hil_support.expiry_reconciler
-    approval_reminder_dispatcher = hil_support.reminder_dispatcher
-    pre_dispatch_kinetic_safety_writer = ExistingProposalKineticSafetyWriter(
-        proposal_store=StateStoreKineticActionProposalStore(store=audit_store),
-        artifact_store=StateStoreExecutedActionArtifactStore(store=audit_store),
-        action_types_by_name=action_types_by_name,
-        active_release=ontology_release,
-        prospective_lineage_readiness=StateStoreProspectiveLineageReadinessReader(audit_store),
-    )
-    evidence_conflict_projection = StateStoreEvidenceConflictProjection(audit_store)
-    hil_resume_coordinator = HilResumeCoordinator(
-        state_store=audit_store,
-        executor=executor,
-        hil_channel=hil_channel,
-        rules_by_id={r.id: r for r in active_rules},
-        direct_api_executor=direct_api_executor,
-        tool_executor=tool_executor,
-        action_types_by_name=action_types_by_name,
-        pending_index_writer=_pending_index_writer,
-        approval_load_controller=approval_load_controller,
-        approval_expiry_reconciler=approval_expiry_reconciler,
-        approval_reminder_dispatcher=approval_reminder_dispatcher,
-        escalation_supervisor=escalation_supervisor,
-        default_escalation_rungs=escalation_rungs,
-        pre_dispatch_kinetic_safety_writer=pre_dispatch_kinetic_safety_writer,
-        thor_execution_port=thor_execution_port,
-        mutation_dependency_readiness=mutation_dependency_readiness,
-        evidence_conflict_reader=evidence_conflict_projection,
-        safeguard_lifecycle_coordinator=safeguard_coordinator,
-        effect_reconciliation_request_sink=effect_reconciliation_request_sink,
-        report_line_router=(
-            report_line_runtime.router if report_line_runtime is not None else None
-        ),
-        contact_consent_service=(
-            report_line_runtime.consent if report_line_runtime is not None else None
-        ),
-    )
+        hil_support = build_hil_runtime_support(
+            catalog_root=catalog_root,
+            environment=os.environ,
+            http_client=http_client,
+            identity=identity,
+            store=audit_store,
+            channel=hil_channel,
+            load_policy=approval_load_policy,
+            escalation_rungs=escalation_rungs,
+        )
+        report_line_runtime = hil_support.report_lines
+        pre_dispatch_kinetic_safety_writer = ExistingProposalKineticSafetyWriter(
+            proposal_store=StateStoreKineticActionProposalStore(store=audit_store),
+            artifact_store=StateStoreExecutedActionArtifactStore(store=audit_store),
+            action_types_by_name=action_types_by_name,
+            active_release=ontology_release,
+            prospective_lineage_readiness=StateStoreProspectiveLineageReadinessReader(audit_store),
+        )
+        evidence_conflict_projection = StateStoreEvidenceConflictProjection(audit_store)
+        hil_resume_coordinator = HilResumeCoordinator(
+            state_store=audit_store,
+            executor=executor,
+            hil_channel=hil_channel,
+            rules_by_id={r.id: r for r in active_rules},
+            direct_api_executor=direct_api_executor,
+            tool_executor=tool_executor,
+            action_types_by_name=action_types_by_name,
+            pending_index_writer=_pending_index_writer,
+            approval_load_controller=hil_support.load_controller,
+            approval_expiry_reconciler=hil_support.expiry_reconciler,
+            approval_reminder_dispatcher=hil_support.reminder_dispatcher,
+            escalation_supervisor=hil_support.escalation,
+            default_escalation_rungs=escalation_rungs,
+            pre_dispatch_kinetic_safety_writer=pre_dispatch_kinetic_safety_writer,
+            thor_execution_port=thor_execution_port,
+            mutation_dependency_readiness=mutation_dependency_readiness,
+            evidence_conflict_reader=evidence_conflict_projection,
+            safeguard_lifecycle_coordinator=safeguard_coordinator,
+            effect_reconciliation_request_sink=effect_reconciliation_request_sink,
+            report_line_router=(
+                report_line_runtime.router if report_line_runtime is not None else None
+            ),
+            contact_consent_service=(
+                report_line_runtime.consent if report_line_runtime is not None else None
+            ),
+        )
     kill_switch = StateStoreKillSwitch(store=audit_store)
 
     ontology_instance_store = (
@@ -645,52 +645,62 @@ def _build_control_loop(
             trajectory_ledger=StateStoreTrajectoryEpisodeLedger(audit_store),
         )
 
-    workflow_outcome_ledger = StateStoreWorkflowOutcomeLedger(
-        audit_store,
-        decision_evidence_provider=container.decision_evidence_admission_provider,
-    )
-    workflow_action_dispatcher = build_workflow_action_dispatcher(
-        event_bus=workflow_event_bus,
-        topic=container.config.kafka.topic_events,
-        workflows_present=bool(workflows),
-    )
-    workflow_automation_holds = StateStoreAutomationHoldLedger(
-        audit_store,
-        resource_lock=resource_lock,
-    )
-    workflow_coordinator = _build_workflow_coordinator(
-        catalog_root=catalog_root,
-        workflows=workflows,
-        action_types_by_name=action_types_by_name,
-        audit_store=audit_store,
-        process_store=process_runtime_store,
-        ontology_store=ontology_instance_store,
-        outcome_verifier=workflow_outcome_ledger,
-        architecture_evidence_provider=container.architecture_review_evidence_provider,
-        decision_evidence_provider=container.decision_evidence_admission_provider,
-        action_dispatcher=workflow_action_dispatcher,
-        automation_holds=workflow_automation_holds,
-    )
-    alert_bindings = build_alert_workflow_bindings(
-        workflow_coordinator=workflow_coordinator,
-        workflows=workflows,
-        action_types_by_name=action_types_by_name,
-        ontology_release=ontology_release,
-        process_store=process_runtime_store,
-        audit_store=audit_store,
-        promotion_registry=promotion_registry,
-        decision_evidence_provider=container.decision_evidence_admission_provider,
-    )
+    workflow_outcome_ledger = None
+    workflow_automation_holds = None
+    workflow_coordinator = None
+    alert_bindings = AlertWorkflowBindings()
+    if governed_execution_enabled:
+        workflow_outcome_ledger = StateStoreWorkflowOutcomeLedger(
+            audit_store,
+            decision_evidence_provider=container.decision_evidence_admission_provider,
+        )
+        workflow_action_dispatcher = build_workflow_action_dispatcher(
+            event_bus=workflow_event_bus,
+            topic=container.config.kafka.topic_events,
+            workflows_present=bool(workflows),
+        )
+        workflow_automation_holds = StateStoreAutomationHoldLedger(
+            audit_store,
+            resource_lock=resource_lock,
+        )
+        workflow_coordinator = _build_workflow_coordinator(
+            catalog_root=catalog_root,
+            workflows=workflows,
+            action_types_by_name=action_types_by_name,
+            audit_store=audit_store,
+            process_store=process_runtime_store,
+            ontology_store=ontology_instance_store,
+            outcome_verifier=workflow_outcome_ledger,
+            architecture_evidence_provider=container.architecture_review_evidence_provider,
+            decision_evidence_provider=container.decision_evidence_admission_provider,
+            action_dispatcher=workflow_action_dispatcher,
+            automation_holds=workflow_automation_holds,
+        )
+        alert_bindings = build_alert_workflow_bindings(
+            workflow_coordinator=workflow_coordinator,
+            workflows=workflows,
+            action_types_by_name=action_types_by_name,
+            ontology_release=ontology_release,
+            process_store=process_runtime_store,
+            audit_store=audit_store,
+            promotion_registry=promotion_registry,
+            decision_evidence_provider=container.decision_evidence_admission_provider,
+        )
     from fdai.runtime.alert_noise_execution import build_alert_plan_artifacts
 
-    alert_plan_artifacts = build_alert_plan_artifacts(store=audit_store, publisher=publisher)
+    alert_plan_artifacts = (
+        build_alert_plan_artifacts(store=audit_store, publisher=publisher)
+        if governed_execution_enabled
+        else None
+    )
     expected_effect_provider = container.mscp_expected_effect_provider
     effect_observer = container.mscp_effect_observer
     gateway_url = os.environ.get("FDAI_DEV_OPERATIONS_GATEWAY_URL", "").strip()
     gateway_audience = os.environ.get("FDAI_DEV_OPERATIONS_GATEWAY_AUDIENCE", "").strip()
     tag_effect_identity = (execution_identities or {}).get("identity/change") or identity
     if (
-        expected_effect_provider is None
+        governed_execution_enabled
+        and expected_effect_provider is None
         and effect_observer is None
         and gateway_url
         and gateway_audience
@@ -763,9 +773,13 @@ def _build_control_loop(
         response_outcome_sink=response_outcome_sink,
         effect_reconciliation_request_sink=effect_reconciliation_request_sink,
         pre_dispatch_kinetic_safety_writer=pre_dispatch_kinetic_safety_writer,
-        workflow_outcome_recorder=build_workflow_recovery_outcome_recorder(
-            workflow_outcome_ledger,
-            audit_store=audit_store,
+        workflow_outcome_recorder=(
+            build_workflow_recovery_outcome_recorder(
+                workflow_outcome_ledger,
+                audit_store=audit_store,
+            )
+            if workflow_outcome_ledger is not None
+            else None
         ),
         ontology_instance_store=ontology_instance_store,
         property_semantics=property_semantics,

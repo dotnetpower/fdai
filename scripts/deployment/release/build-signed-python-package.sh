@@ -60,6 +60,12 @@ UV_PROJECT_ENVIRONMENT="$out/release-env" uv run \
   --project "$repo_root/packages/deployment-cli" --locked --no-dev --group release \
   --python "$python" python -m pip download --only-binary=:all: --require-hashes \
   --dest "$wheels" --requirement "$out/dependencies.txt" >/dev/null
+# uv build writes an unsigned .gitignore marker; the signed package holds only wheels.
+rm -f -- "$wheels/.gitignore"
+if find "$wheels" -mindepth 1 ! \( -type f -name '*.whl' \) -print -quit | grep -q .; then
+  echo "build-signed-python-package: wheelhouse contains a non-wheel entry" >&2
+  exit 3
+fi
 
 printf 'fdai-deployment-cli==%s\n' "$version" >"$package/requirements.txt"
 cat >"$package/INSTALL.txt" <<'EOF'

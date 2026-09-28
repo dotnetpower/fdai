@@ -1,6 +1,6 @@
 ---
 translation_of: runtime-deployment-profiles.md
-translation_source_sha: a0f57815ed6ae834dc771de0e385609f9969c16d
+translation_source_sha: 6390a698dbc07584ff9ee3e4d7ccf4b3d7316148
 translation_revised: 2026-09-28
 ---
 # 런타임 배포 프로파일
@@ -40,18 +40,18 @@ facade로 import를 모아도 AKS 관측, Cost Governance 활성화, 배포 권�
 |----|---------|--------|------|
 | 런타임 플랫폼 | `aks`, `container-apps` | `aks` | FDAI 서비스와 예약 작업을 호스팅합니다. Container Apps는 신규 계획에서 호환 용도로만 사용합니다. |
 | 데이터베이스 배치 | `postgres-flex`, `postgres-aks` | `postgres-flex` | Azure Database for PostgreSQL Flexible Server 또는 AKS 내부 PostgreSQL 클러스터를 사용합니다. |
+| 제품 표면 | `observation-first`와 명시적으로 선택한 추가 기능 | `observation-first` | 헤드리스 인벤토리, 텔레메트리, 학습, 예측, 재생, 드리프트 및 자문 근거를 시작합니다. |
+| 선택적 추가 기능 | `read-only-console`, `notifications`, `governed-execution`, `enterprise-identity-governance` | 없음 | 선택은 사용 가능성, 활성화, 인가 또는 실행 권한을 의미하지 않습니다. |
 
 `postgres-aks`는 `runtime_platform=aks`일 때만 사용할 수 있습니다. 클러스터 내부 프로파일이
 영역 손실, 백업, 특정 시점 복구, 업그레이드에 대한 독립 근거를 확보할 때까지 프로덕션에서는
 `postgres-flex`를 사용합니다.
 
-런타임과 데이터베이스 축은 full-authority 개발 프로필을 선택하지 않습니다. 이 권한 프로필은
-하나의 정확한 폐기 가능 테스트 범위에 사용하는 별도의 선택적 배포 입력입니다. 이 프로필을
-선택하려면 공유 기계 계약, 최신 권위 있는 바인딩 소스, 인증된 Owner 한 명, 실행기와 구분되는
-신원이 필요합니다. 누락된 권한 바인딩은 `aks`, `container-apps`, `postgres-flex`,
-`postgres-aks`에서 상속되지 않습니다. 권한 프로필을 명시적으로 선택했지만 구성이 불완전하면
-안전하게 차단합니다. 런타임 조립은 공개 계약 모델 facade를 통해 프로필 레코드를 전달하며,
-다이제스트 도우미는 프로필을 선택하거나 활성화하지 않습니다.
+런타임, 데이터베이스, 환경, 포크 상태 및 패키지 존재 여부는 제품 추가 기능을 선택하지 않습니다. 공유 불변 프로필은 명시적 선택과 `authority_granted: false`만 포함합니다.
+기본값은 Graph, 승인, enforce 승격, 롤백 또는 권한 있는 실행기 바인딩을 조립하지 않으며, 선택했지만 불완전한 추가 기능은 안전하게 차단됩니다. `read-only-console`과 `governed-execution`은 `enterprise-identity-governance`를 요구하고, 모든 런타임은 컴파일된 프로필을 자신의 워크로드까지 전달하므로 조립이 선택과 어긋나지 않습니다. full-authority 개발 프로필은 정확한 폐기 가능 범위를 위한 별도의 선택적 권한 입력이며 이 제품 축에서 상속되지 않습니다. 선택적 dev operations gateway는 인증을 사용하므로 명시적인 Operator API audience가 필요하며 없으면 계획을 거부합니다.
+Azure 관찰의 필수 역할은 범위가 제한된 `Reader` 하나뿐입니다. Azure Monitor, Log Analytics, Cost Management, AKS 또는 근거 저장소 출처를 명시적으로 선택하면 각 출처의 최소 읽기 역할을 파생합니다.
+역할을 직접 선택하거나 묶어서 부여할 수 없으며 접근이 없으면 지원되지 않음으로 보고합니다. 기본 프로필은 Azure Policy 할당을 요구하지 않고 `Reader`로 볼 수 있는 리소스 메타데이터만 평가하며
+쓰기, `User Access Administrator` 또는 Microsoft Graph 권한을 부여하지 않습니다. 이슈 #341은 인벤토리/관찰 실제 근거에만 열어 두며 GitOps 쓰기 근거는 선택 사항입니다.
 
 ## 운영자 계약
 
@@ -237,7 +237,7 @@ Foundation은 구독 역할 할당을 Reader, Monitoring Reader, Cost Management
 `principal_type = "ServicePrincipal"`을 선언해 위임한 역할 집합을 넓히지 않고 공급자 요청이 해당 조건을 충족하게 합니다. Case-history 콘텐츠의 활성, 삭제 예정,
 이전 버전 및 변경 피드 기간 기본값은 30일이며 운영 이력과 의사 결정 근거 메타데이터는 별도 일정을 유지합니다. AKS 기반 상태는 클러스터, 노드 풀, 클러스터 신원,
 네트워크 연결 및 클러스터 범위 Azure 역할 할당만 소유합니다.
-AKS는 공유 루트의 Key Vault 출력을 사용하고 substrate 재조회는 Terraform의 `container_registry_name`을 사용하며 Python은 두 리소스 이름을 다시 계산하지 않습니다. 이름이 너무 긴 후보는
+AKS는 공유 루트의 Key Vault 출력을 사용하고 substrate 재조회는 Terraform 상태가 소유한 `container_registry_id`로 레지스트리를 읽고, 이미지 참조에 사용한 workload 기반 레지스트리와 다르면 실패합니다. 이름이 너무 긴 후보는
 별도의 런타임 명명 규칙을 만들지 않고 결정론적 `kv-aip-<8hex>` 대체 이름을 사용합니다.
 AKS를 선택하면 상세 비공개 네트워킹이 꺼져 있어도 애플리케이션 VNet, 노드 서브넷 및 API 서버
 서브넷을 만듭니다. 별도의 비공개 네트워킹 입력은 AKS 서브넷 선행 조건이 아니라 서비스 비공개
@@ -384,7 +384,7 @@ identity-bridge 호환성은 일반 `List` 허용을 다시 도입하지 않습�
 Worker ClamAV 정의, 정확한 identity bridge를 복원할 수 있습니다. 이 계약은 inventory 읽기 역할 생성,
 identity-bridge 상태 주소 이행, 기존 Job, Deployment, Service의 공급자 정규화만 허용합니다. 계획은
 모든 워크로드 이미지와 소스 버전, command federated identity, bridge script, ClamAV digest, 초기화,
-UID, GID, 쓰기 가능 volume, Pod group을 보존해야 합니다. 다른 주소나 계약 차이는 모두 거부합니다.
+UID, GID, 쓰기 가능 volume, Pod group을 보존해야 합니다. 다른 주소나 계약 차이는 모두 거부합니다. 같은 wrapper로 실행하는 예약 Job은 `identity_bridge_enabled`를 설정하며, 이 설정은 해당 ConfigMap을 `/opt/fdai-compat`에 읽기 전용으로 마운트합니다. 조정은 bridge를 쓰는 모든 Job에 이 플래그를 설정하고, bridge 계약 없이 플래그만 설정하면 사전 조건이 거부합니다.
 조정에는 별도 exact approval, 효과 재조회, 완전한 전체 범위 변경 없음 계획이 필요하며, 이 근거가
 있어야 과거 상태 채택을 다시 시도할 수 있습니다. 검증기는 공급자 관점에서 동일한 생략, null, 빈
 `sub_path`와 `sub_path_expr` 값만 정규화합니다. 비어 있지 않은 subpath는 계약 변경으로 계속 거부합니다.
@@ -597,7 +597,7 @@ anti-affinity, disruption budget, 백업 불변성, 특정 시점 복구, 노드
 변경을 일으키는 각 노드는 자체 정확한 플랜, 현재 사람 승인, 효과 전 claim, timeout, rollback 또는
 복구 참조, 권위 있는 observer를 가집니다. `deployment_ready=true`가 되려면 선택된 모든 서비스가
 정상이어야 하고, 워크로드 신원이 유효해야 하며, Kafka 왕복이 완료되어야 합니다. 또한 데이터베이스
-마이그레이션이 최신이고 canary 작업 하나가 성공해야 하며 선택된 모든 상태 root의 두 번째 플랜에서
+기존 및 서비스 소유 마이그레이션이 최신이고 canary 작업 하나가 성공해야 하며 선택된 모든 상태 root의 두 번째 플랜에서
 변경이 없어야 합니다. 각 Operator replica는 하나의 2초 polling 구간 안에서 동시 SSE 구독자의 동일한
 인시던트 주의 읽기를 합칩니다. 이 cache는 프로세스 로컬이며 영속 근거나 권한을 가지지 않고 replica
 사이를 조정하지 않습니다. 혼합 개정 서비스 배포는 감사 API의 페이지 전용 기본값을 유지합니다. 최신

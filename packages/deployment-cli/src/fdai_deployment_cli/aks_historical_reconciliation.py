@@ -21,6 +21,7 @@ _INVENTORY_RESOURCES = {
     "kubernetes_cluster_role_binding_v1.inventory_reader[0]",
 }
 _JOBS = {"analyzer", "canary", "inventory", "observation-campaign"}
+_BRIDGE_SCRIPT = "/opt/fdai-compat/identity_bridge.py"
 _EXTERNAL_SERVICES = {"core-control-plane", "document-processing-worker", "isolated-executor"}
 _LEGACY_RUNTIME_COMMANDS = {
     "core-control-plane": (
@@ -93,6 +94,16 @@ def reconciled_variables(
         if workload.get("identity_bridge_enabled") not in (None, True):
             raise ValueError(f"historical AKS {name} identity bridge binding differs")
         workload["identity_bridge_enabled"] = True
+
+    jobs = _mapping(result.get("scheduled_jobs", {}), "historical AKS scheduled jobs")
+    for name, job_value in jobs.items():
+        job = _mapping(job_value, f"historical AKS {name} scheduled job")
+        arguments = job.get("args") or []
+        if list(arguments[:2]) != [_BRIDGE_SCRIPT, "--"]:
+            continue
+        if job.get("identity_bridge_enabled") not in (None, True):
+            raise ValueError(f"historical AKS {name} scheduled job identity bridge binding differs")
+        job["identity_bridge_enabled"] = True
 
     operator = _mapping(workloads.get("operator-service"), "operator workload")
     operator_live = deployments["operator-service"]

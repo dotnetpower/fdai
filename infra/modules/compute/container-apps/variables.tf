@@ -497,6 +497,12 @@ variable "azure_tenant_id" {
   type        = string
 }
 
+variable "product_profile_json" {
+  description = "Canonical authority-neutral product profile for Core composition."
+  type        = string
+  default     = "{\"add_ons\":[],\"authority_granted\":false,\"name\":\"observation-first\",\"observation_permissions\":{\"base_role\":\"Reader\",\"selected_sources\":[]},\"schema_version\":\"fdai.product-profile.v1\"}"
+}
+
 variable "azure_subscription_id" {
   description = "Enclosing subscription id (`AZURE_SUBSCRIPTION_ID`)."
   type        = string

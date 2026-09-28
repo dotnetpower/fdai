@@ -6,6 +6,8 @@ import argparse
 from collections.abc import Callable, Mapping
 from pathlib import Path
 
+from fdai_service_contracts.product_profile import ObservationDataSource, ProductAddOn
+
 from fdai_deployment_cli.__about__ import __version__
 from fdai_deployment_cli.cli_help import (
     AZURE_DESCRIPTION,
@@ -222,6 +224,27 @@ def build_parser(handlers: Mapping[str, CommandHandler]) -> argparse.ArgumentPar
             "catalog-review checkpoint"
         ),
     )
+    settings.add_argument(
+        "--add-on",
+        action="append",
+        choices=tuple(item.value for item in ProductAddOn),
+        default=[],
+        dest="product_add_ons",
+        metavar="ADD_ON",
+        help=(
+            "Explicit optional product surface; repeat for multiple add-ons. "
+            "The observation-first default selects none"
+        ),
+    )
+    settings.add_argument(
+        "--observation-source",
+        action="append",
+        choices=tuple(item.value for item in ObservationDataSource),
+        default=[],
+        dest="observation_data_sources",
+        metavar="SOURCE",
+        help=("Optional observation source; its minimum read-only role is derived by the profile"),
+    )
     initial = azure.add_argument_group("Initial source installation scope")
     initial.add_argument(
         "--setup-cost-ceiling",
@@ -234,7 +257,10 @@ def build_parser(handlers: Mapping[str, CommandHandler]) -> argparse.ArgumentPar
         choices=("public-https-entra", "private-https-entra"),
         default=None,
         metavar="ACCESS",
-        help="Console exposure preference (default: public-https-entra); never changes deployment alone",
+        help=(
+            "Console exposure for an explicitly selected read-only-console add-on; "
+            "the observation-first default is headless"
+        ),
     )
     initial.add_argument(
         "--allow-dedicated-identities",

@@ -4,7 +4,11 @@ version = "0.1.1"
 description = "Installable FDAI deployment and subscription genesis CLI"
 readme = "README.md"
 requires-python = ">=3.12"
-dependencies = ["cryptography>=45,<51", "rich>=14,<15"]
+dependencies = [
+    "cryptography>=45,<51",
+    "fdai-service-contracts==0.1.0",
+    "rich>=14,<15",
+]
 
 [dependency-groups]
 dev = [
@@ -41,3 +45,6 @@ files = ["src/fdai_deployment_cli"]
 [tool.pytest.ini_options]
 addopts = ["-ra", "--strict-markers", "--strict-config"]
 testpaths = ["tests"]
+
+[tool.uv.sources]
+fdai-service-contracts = { path = "../service-contracts", editable = true }

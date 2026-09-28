@@ -19,6 +19,7 @@ from __future__ import annotations
 from typing import Annotated
 from uuid import UUID
 
+from fdai_service_contracts.product_profile import ProductProfile
 from pydantic import BaseModel, ConfigDict, Field
 
 from fdai.shared.contracts.models import Mode, SemVer
@@ -40,7 +41,7 @@ class _ConfigBase(BaseModel):
 
 
 class AzureConfig(_ConfigBase):
-    tenant_id: UUID
+    tenant_id: UUID | None = None
     subscription_id: UUID
     resource_group: Annotated[str, Field(min_length=1, max_length=90)] = "rg-fdai"
     region: Annotated[str, Field(min_length=2, max_length=32)]
@@ -189,6 +190,7 @@ class AppConfig(_ConfigBase):
     postgres: PostgresConfig
     rule_catalog: RuleCatalogConfig = Field(default_factory=RuleCatalogConfig)
     runtime: RuntimeConfig
+    product_profile: ProductProfile = Field(default_factory=ProductProfile)
     llm: LlmConfig = Field(default_factory=LlmConfig)
     rule_governance: RuleGovernanceConfig = Field(default_factory=RuleGovernanceConfig)
 
