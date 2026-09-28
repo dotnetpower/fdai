@@ -30,6 +30,7 @@ from fdai_deployment_cli import (
 from fdai_deployment_cli import foundation_adoption_host as foundation_host
 from fdai_deployment_cli.aks_historical_reconciliation import (
     reconciled_variables,
+    secret_binding_reordered,
     validate_reconciliation_plan,
 )
 from fdai_deployment_cli import aks_readiness
@@ -1266,8 +1267,9 @@ def _validate_historical_aks_baseline(
             or not all(isinstance(action, str) for action in actions)
         ):
             raise ValueError("historical AKS deployment plan change is invalid")
-        projected.append({"address": address, "actions": actions})
-        if not set(actions).issubset({"no-op", "read"}):
+        reordered = secret_binding_reordered(address, change.get("change"))
+        projected.append({"address": address, "actions": ["no-op"] if reordered else actions})
+        if not reordered and not set(actions).issubset({"no-op", "read"}):
             out_of_scope_mutation = True
         if isinstance(address, str) and address.startswith("kubernetes_deployment_v1.workload["):
             deployment_seen = True
