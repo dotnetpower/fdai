@@ -335,7 +335,8 @@
     copy: ["M5.5 5.5h8v8h-8z", "M10.5 5.5V4A1.5 1.5 0 0 0 9 2.5H4A1.5 1.5 0 0 0 2.5 4v5A1.5 1.5 0 0 0 4 10.5h1.5"],
     regenerate: ["M13 8a5 5 0 1 1-1.46-3.54", "M13 2.5V5h-2.5"],
     review: ["M8 2.2l4.8 1.8v3.6c0 3-2 5.2-4.8 6.2-2.8-1-4.8-3.2-4.8-6.2V4z", "M5.8 8.1l1.6 1.6 2.9-3"],
-    chevron: ["M5 6.5l3 3 3-3"]
+    chevron: ["M5 6.5l3 3 3-3"],
+    check: ["M3.5 8.4l2.9 2.9 6.1-6.6"]
   };
 
   function h(tag, props, children) {
@@ -1275,7 +1276,7 @@
       h("div", { class: "cs-grounding-sources-head" }, [h("span", { text: "Reading sources" }), sourceCount]),
       sourceList
     ]));
-    var fold = h("div", { class: "cs-deck-collapse" }, [h("div", null, [panel])]);
+    var fold = h("div", { class: "cs-deck-collapse" + (ctx.reduced ? "" : " cs-deck-enter") }, [h("div", null, [panel])]);
     article.appendChild(fold);
     article.appendChild(placeholder);
     startElapsed(elapsed);
@@ -1625,6 +1626,19 @@
     }
   }
 
+  // A chosen follow-up folds away instead of vanishing, so the rows below it glide up.
+  function retire(node) {
+    if (state.reduced || typeof node.animate !== "function") {
+      node.remove();
+      return;
+    }
+    node.inert = true;
+    node.style.overflow = "hidden";
+    var height = node.getBoundingClientRect().height;
+    node.animate([{ height: height + "px", opacity: 1 }, { height: "0px", opacity: 0, marginTop: "0px" }],
+      { duration: 200, easing: "cubic-bezier(.2, .7, .2, 1)" }).finished.then(function () { node.remove(); }, function () { node.remove(); });
+  }
+
   async function askFollowUp(button) {
     if (state.busy || button.getAttribute("aria-disabled") === "true") return;
     var key = button.getAttribute("data-followup");
@@ -1634,8 +1648,7 @@
     var item = button.closest("li");
     var list = item.parentElement;
     var neighbor = item.nextElementSibling || item.previousElementSibling;
-    item.remove();
-    if (!list.children.length) list.remove();
+    retire(list.children.length === 1 ? list : item);
     cancelRun();
     hideTip();
     clearSearch();
@@ -1673,7 +1686,7 @@
     state.stuck = false;
     beginTurn(record.spec, article, article.id, record.offset, ctx, true);
     input.focus({ preventScroll: true });
-    article.scrollIntoView({ block: "nearest" });
+    article.scrollIntoView({ block: "nearest", behavior: state.reduced ? "auto" : "smooth" });
     try {
       await runAgentTurn(record.spec, ctx, article, article.id, record.offset);
       settleTurn(record.spec, ctx, true);
@@ -1713,7 +1726,7 @@
       label: "Stopped",
       text: hadText ? "this partial answer was not verified. Nothing was changed." : "no answer was composed. Nothing was changed."
     }, active.spec, active.turnId, false));
-    article.appendChild(h("div", { class: "cs-deck-action-row" }, [
+    article.appendChild(h("div", { class: "cs-deck-action-row" + (state.reduced ? "" : " cs-deck-enter") }, [
       h("button", { type: "button", class: "cs-deck-tool", "data-action": "regenerate", text: "Regenerate" })
     ]));
     setTurnTime(article, active.offset + 6, !state.reduced);
@@ -1736,7 +1749,7 @@
       readiness.appendChild(readinessStrip(state.scenario));
     }
     titleNode.textContent = "New conversation";
-    turns.appendChild(h("section", { class: "ds-intro", "aria-labelledby": "ds-intro-title" }, [
+    turns.appendChild(h("section", { class: "ds-intro" + (state.reduced ? "" : " cs-deck-enter"), "aria-labelledby": "ds-intro-title" }, [
       h("h3", { class: "ds-intro-title", id: "ds-intro-title", text: "Ask about " + ROUTE }),
       h("p", { class: "ds-intro-lead", text: "Bragi answers from read-only sources and cites each claim. This preview replays one scripted question." }),
       h("button", { type: "button", class: "ds-intro-card", "data-action": "suggest" }, spaced([
@@ -1814,7 +1827,7 @@
     searchNext.disabled = search.hits.length === 0;
     var active = search.hits[search.active];
     if (scroll && active) {
-      active.scrollIntoView({ block: "nearest" });
+      active.scrollIntoView({ block: "nearest", behavior: state.reduced ? "auto" : "smooth" });
       state.stuck = atBottom();
       updateJump();
     }
@@ -1850,6 +1863,7 @@
   var tip = h("div", { class: "ds-tooltip", id: "ds-tooltip", role: "tooltip", hidden: true });
   document.body.appendChild(tip);
   var tipOwner = null;
+  var tipTimer = 0;
 
   function showTip(target) {
     var text = target.getAttribute("data-tip");
@@ -1871,6 +1885,7 @@
   }
 
   function hideTip() {
+    window.clearTimeout(tipTimer);
     if (tipOwner) tipOwner.removeAttribute("aria-describedby");
     tipOwner = null;
     tip.hidden = true;
@@ -1895,7 +1910,7 @@
     target.classList.add("is-target");
     hideTip();
     target.focus({ preventScroll: true });
-    target.scrollIntoView({ block: "nearest" });
+    target.scrollIntoView({ block: "nearest", behavior: state.reduced ? "auto" : "smooth" });
     state.stuck = atBottom();
     updateJump();
   }
@@ -1913,11 +1928,16 @@
     var record = article && records[article.id];
     if (!record) return;
     var finish = function (label) {
+      var copied = label === "Copied";
       button.setAttribute("data-tip", label);
+      if (copied) button.replaceChildren(icon("check"));
+      button.classList.toggle("is-done", copied);
       showTip(button);
       announce(label + ".");
       window.setTimeout(function () {
         button.setAttribute("data-tip", "Copy reply");
+        button.classList.remove("is-done");
+        if (copied) button.replaceChildren(icon("copy"));
         if (tipOwner === button) hideTip();
       }, 1500);
     };
@@ -2011,10 +2031,13 @@
     input.focus({ preventScroll: true });
   });
 
+  // Pointer tooltips wait for a short hover so sweeping across citations does not flash them.
   document.addEventListener("pointerover", function (event) {
     var target = event.target.closest ? event.target.closest("[data-tip]") : null;
+    window.clearTimeout(tipTimer);
     if (target) {
-      if (target !== tipOwner) showTip(target);
+      if (target === tipOwner) return;
+      tipTimer = window.setTimeout(function () { showTip(target); }, tipOwner ? 60 : 320);
     } else if (tipOwner && document.activeElement !== tipOwner) {
       hideTip();
     }

@@ -149,7 +149,8 @@ test("replay streams preparation, answer, and verification before settling", { t
     }, null, { timeout: 15000 });
     assert.equal(await frame.locator(".cs-grounding-source-list > li").count(), 3);
     assert.equal(await frame.locator(".cs-grounding-stage").count(), planned);
-    assert.equal(await frame.locator(".cs-grounding-panel").evaluate((node) => node.getBoundingClientRect().height), panelHeight);
+    const laterHeight = await frame.locator(".cs-grounding-panel").evaluate((node) => node.getBoundingClientRect().height);
+    assert.ok(Math.abs(laterHeight - panelHeight) < 0.5, `${panelHeight} -> ${laterHeight}`);
     await deckState(frame, "answering");
     assert.equal(await frame.locator(".cs-deck-turn-head .cs-deck-answer-state.is-draft").textContent(), "Draft");
     assert.equal(await frame.locator(".cs-grounding-panel, .cs-deck-collapse").count(), 0);
@@ -603,6 +604,33 @@ test("settled answers keep the verdict, sources, tools, and record together", { 
     });
     assert.equal(edges.note, edges.prose);
     assert.equal(await frame.locator(".cs-deck-pill .cs-deck-pill-mark").textContent(), "!");
+    assert.deepEqual(errors, []);
+    await context.close();
+  } finally {
+    await browser.close();
+  }
+});
+
+test("tooltips wait for hover intent and chosen follow-ups fold away", { timeout: 90000 }, async () => {
+  const { layer } = await sources();
+  assert.match(layer, /@starting-style \{\n  \.cs-deck-jump/);
+  const browser = await chromium.launch({ headless: true });
+  try {
+    const { context, frame, errors } = await openStudy(browser, { state: "settled" });
+    await deckState(frame, "settled", 5000);
+    const cite = frame.locator("a.cs-deck-cite").first();
+    await cite.hover();
+    assert.equal(await frame.locator("#ds-tooltip").isVisible(), false);
+    await frame.locator("#ds-tooltip").waitFor({ state: "visible", timeout: 2000 });
+    await frame.locator(".cs-deck-prose > p").first().hover({ position: { x: 4, y: 4 } });
+    assert.equal(await frame.locator("#ds-tooltip").isVisible(), false);
+
+    const count = await frame.locator(".cs-deck-followup").count();
+    await frame.locator(".cs-deck-followup").first().evaluate((button) => button.click());
+    const retiring = frame.locator(".cs-deck-followups > li").first();
+    assert.equal(await retiring.evaluate((node) => node.inert), true);
+    await frame.waitForFunction((before) => document.querySelectorAll(".cs-deck-agent-turn")[0]
+      .querySelectorAll(".cs-deck-followup").length === before - 1, count, { timeout: 2000 });
     assert.deepEqual(errors, []);
     await context.close();
   } finally {

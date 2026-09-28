@@ -5,9 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Command deck sources - FDAI Console</title>
   <link rel="stylesheet" href="assets/calm-slate.css?v=page-context-v3" />
-  <link rel="stylesheet" href="../../ui/calm-slate-deck-conversation.css?v=conversation-v33" />
+  <link rel="stylesheet" href="../../ui/calm-slate-deck-conversation.css?v=conversation-v35" />
   <script src="assets/calm-slate.js?v=page-context-v3" defer></script>
-  <script src="assets/deck-sources.js?v=conversation-v33" defer></script>
+  <script src="assets/deck-sources.js?v=conversation-v35" defer></script>
   <style>
     /* Page chrome for this study only. Conversation roles live in ui/calm-slate-deck-conversation.css. */
     .ds-page {
@@ -372,6 +372,16 @@
     }
 
     .ds-tooltip[hidden] { display: none; }
+
+    .ds-tooltip { transition: opacity .14s ease; }
+
+    @starting-style {
+      .ds-tooltip { opacity: 0; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .ds-tooltip { transition: none; }
+    }
 
     @container ds-workspace (max-width: 720px) {
       .ds-header { grid-template-columns: minmax(0, 1fr) minmax(140px, 220px) auto; }

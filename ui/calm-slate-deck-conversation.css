@@ -1555,6 +1555,19 @@ details[open] > summary .cs-run-chevron { transform: rotate(225deg) translate(-1
 }
 
 .cs-deck-jump[hidden] { display: none; }
+
+/* Jump to latest and the sources list ease in when they appear instead of popping. */
+.cs-deck-jump,
+.cs-deck-sources {
+  transition: opacity .18s ease, transform .18s ease;
+}
+
+@starting-style {
+  .cs-deck-jump { opacity: 0; transform: translateY(4px); }
+  .cs-deck-sources { opacity: 0; transform: translateY(-3px); }
+}
+
+.cs-deck-conversation .cs-deck-tools .cs-deck-tool.is-done { color: var(--cs-deck-ok-text); }
 .cs-deck-jump:hover { border-color: var(--cs-deck-line-strong); }
 
 .cs-deck-jump:focus-visible {
@@ -1751,6 +1764,9 @@ details[open] > summary .cs-run-chevron { transform: rotate(225deg) translate(-1
   }
 
   .cs-deck-conversation .cs-grounding-stages > .cs-grounding-stage { transition: none; }
+
+  .cs-deck-jump,
+  .cs-deck-sources { transition: none; }
 
   .cs-deck-conversation :is(.cs-run-record, .cs-run-event > details, .cs-model-trace-lane > details)::details-content {
     transition: none;
