@@ -1,7 +1,7 @@
 ---
 title: Operator Console Module Map and Boundaries
 translation_of: operator-console-module-map.md
-translation_source_sha: 0b5271d441395fdba1bd5784fc28af1a959bf41b
+translation_source_sha: 7ca734babad23e199925f80d00f528d5b36f78c8
 translation_revised: 2026-09-28
 ---
 # Operator Console 모듈 지도 and Boundaries
@@ -634,8 +634,7 @@ Console 설정 경로와 정적 디자인 시안은 Calm Slate 컨트롤 토큰�
 `console/src/components/account-menu.tsx`는 로그인 계정 표현을 소유하고 MSAL 이름과 사용자 이름을 표시하며 서버가 검증한 `GET /iam/self` 변환 결과에서만 FDAI 역할을 읽고 IAM 경로로 연결합니다. `console/src/auth.ts`는 로그인 힌트 없이 Entra 계정 선택기를 열고 일반 토큰 획득 및 IAM 권한 확인으로 돌아옵니다. 이 컴포넌트는 디렉터리를 전환하거나 기능을 부여하거나 프로바이더 자격 증명을 받지 않습니다.
 `console/src/browser-notifications.ts`, `console/src/components/browser-notification-control.tsx` 및 scope가 제한된 `console/public/notification-sw.js`는 클라이언트 로컬 알림 모듈을 소유하며, [Console Web 알림](console-web-notifications-ko.md)은 전체 선택, 기능, 전달, 확인, 복구 및 권한 계약을 정의합니다. 모든 전달 원장 변경은 같은 출처의 탭 전체가 공유하는 단기 Web Lock을 사용하며, 다시 활성화된 컨트롤은 보존된 원장에서 표시할 전달 상태를 가져옵니다.
 화면에 보이는 제목 컴포넌트는 렌더링되는 제목 내용에만 `title`을 사용합니다. 기본 HTML `title` 말풍선은 접근성과 호환되는 요소로 제한하며, 그 밖의 맥락 도움말은 공통 Tooltip 컴포넌트를 사용합니다.
-정적 컴포넌트 갤러리는 `mocks/ui/assets/component-registry.json`의 계약을 읽고 각 시안을 소유자, 원본, 상태, 사용 지침, 반응형 동작, 접근성 계약 및 제품 참조보다 먼저 표시합니다. 레지스트리가 없거나 잘못되면 정규 상태를 추론하지 않고 문서화를 차단합니다. 갤러리는 합성 표현 근거이며 Console, Operator API 또는 실행기 권한을 부여하지 않습니다.
-`ui/calm-slate-deck-conversation.css`는 Command Deck 대화 화면으로 옮길 수 있는 표현 역할을 담습니다. 근거 원본 준비 상태, 검색 추적, 인용, 근거 한계 안내, 출처 패널, 후속 질문, 입력창 맥락, 그리고 단계 표시줄과 관찰된 실행 타임라인, 모델 프로바이더 워터폴을 포함하는 실행 기록이 여기에 속합니다. 정적 시안 `mocks/ui/deck-sources.html`이 기준 사용처이며 Console은 아직 이 파일을 가져오지 않습니다. 이 시안은 준비 계획 전체를 대기 단계로 먼저 표시하고 각 단계의 결과는 그 단계가 실행된 뒤에만 보여 줍니다. 고정된 세 줄 창으로 출처를 읽고, 답변은 단어 단위로 스트리밍하면서 문장이 끝날 때마다 잠시 멈추며, 답변이 나타나기 전에 준비 패널을 접습니다. 대화 기록은 답변 중인 질문을 위쪽 가장자리 밖으로 밀어 올리지 않으면서 새 내용 쪽으로 부드럽게 이동하고, 턴이 끝나면 검증 행이 보이는 위치까지 이동하며, 운영자가 직접 스크롤하면 즉시 따라가기를 멈춥니다. 따라서 읽고 있는 텍스트가 갑자기 움직이지 않습니다. 또한 Console과 같이 모델 추적 캡처 여부를 턴마다 기록합니다. 실행 기록은 해당 턴에서 캡처가 켜져 있었고 설정이 여전히 켜져 있을 때만 요청, 시스템, 응답 다이제스트가 있는 모델 이벤트와 프로바이더 호출 행을 표시하며, 설정을 켜더라도 캡처하지 않은 턴의 프로바이더 데이터는 드러나지 않습니다. 재생된 턴은 실행 기록의 합성 일정을 실제로 관찰한 단계 시각에 맞추므로, 기록된 소요 시간이 화면에 보인 과정과 일치합니다. 출처를 선택하면 대화를 벗어나지 않고 그 자리에서 출처 정보를 펼칩니다. 출처의 열기 동작과 근거 원본 표시줄을 포함해 다른 화면으로 이동하는 deck 링크는 모두 먼저 확인 대화 상자로 운영자에게 묻고, 동의한 경우에만 이동합니다. 공통 프리미티브를 재사용하는 규칙은 `.cs-deck-conversation` 아래로 한정하고, `console/src/shared-style-tokens.test.ts`가 이 계층을 추가 전용으로 유지하므로 가져와도 기존 화면은 바뀌지 않습니다. Console 적용은 덮어쓰기가 아닌 교체 이행입니다. 프리미티브 다음에 이 계층을 가져오고, deck 오버레이에 루트 역할을 추가하고, 소유 deck 컴포넌트에서 역할을 렌더링한 뒤, 대체된 기존 `.deck-*` 선언은 덮어쓰지 않고 삭제합니다. 이 계층은 표현 전용이며 Console, Operator API 또는 실행기 권한을 부여하지 않습니다.
+정적 컴포넌트 갤러리는 `mocks/ui/assets/component-registry.json`의 계약을 읽고 각 시안을 소유자, 원본, 상태, 사용 지침, 반응형 동작, 접근성 계약 및 제품 참조보다 먼저 표시합니다. 레지스트리가 없거나 잘못되면 정규 상태를 추론하지 않고 문서화를 차단합니다. 갤러리는 합성 표현 근거이며 Console, Operator API 또는 실행기 권한을 부여하지 않습니다. 이식 가능한 대화 표현 역할과 기준 시안, 그 재생 및 화면 이동 동작은 [Command Deck 대화 표현 계층](command-deck-conversation-layer-ko.md)이 담당합니다.
 
 ## 경계 불변식
 `core/conversation/`은 프로토콜만 가져옵니다. Azure SDK, HTTP, Bot Framework 및 프로바이더 호출은
