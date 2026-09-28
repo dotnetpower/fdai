@@ -2,11 +2,13 @@
 title: 배포 빠른 시작
 description: 단일 로컬 명령 또는 digest로 고정된 폐쇄망 배포 어플라이언스로 FDAI를 Azure에 배포합니다.
 translation_of: deploy-quickstart.md
-translation_source_sha: 8b978d8a9db9046b4e26ee0341062228f44c2948
-translation_revised: 2026-09-27
+translation_source_sha: 9af9faf3563e9e20312ae3545f3396bedd7f9711
+translation_revised: 2026-09-28
 ---
 
 # 배포 빠른 시작
+
+> **배포 방식:** [헌법](../roadmap/architecture/fdai-constitution.md#article-1-purpose-and-scope)은 기여자 소스 배포와 서명된 오프라인 패키지라는 두 가지 설치 방식만 정의합니다. 이 문서의 설치 관문 중 헌법에 없는 것은 대체되었으며 더 이상 적용되지 않습니다.
 
 한 번의 대화형 Azure 로그인으로 FDAI를 Azure 구독에 배포할 수 있습니다. 대상 환경 배포는
 로컬 `fdaictl` 조정기와 대상 Virtual Network 내부의 Managed Host에서 실행됩니다. GitHub

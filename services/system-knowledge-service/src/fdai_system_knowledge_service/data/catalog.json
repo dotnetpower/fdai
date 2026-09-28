@@ -1,7 +1,7 @@
 {
-  "catalog_digest": "sha256:bb4652abeb1383e356b61cfc53943e7e0306349495eb3dd4ade30fd843562e29",
+  "catalog_digest": "sha256:9b1787e263d3aa51f0237fa2e1538bdc3e0969fa885df8b7be84ea440ab75a51",
   "execution_authority": false,
-  "generated_at": "2026-09-28T02:39:35.791393Z",
+  "generated_at": "2026-09-28T07:31:00.338723Z",
   "records": [
     {
       "designed_behavior": [
@@ -21,13 +21,13 @@
         "How does FDAI keep actions safe?",
         "FDAI는 작업을 어떻게 안전하게 실행하나요?"
       ],
-      "record_digest": "sha256:25e78eb03bb966ce47265029cd46973757219377398b034847d3897d213b48f9",
+      "record_digest": "sha256:d326a977ca7f9ed4918b73d5b05c41ef515c6d778e4b2f7725649d34c05143df",
       "sources": [
         {
           "authority_role": "design",
-          "blob_sha": "1300e23ed1b548c4cb5e6804689c69d2b684ef84",
-          "line_end": 90,
-          "line_start": 90,
+          "blob_sha": "508f443f48568254c8ee37c095454a635956e39d",
+          "line_end": 110,
+          "line_start": 110,
           "path": "docs/roadmap/architecture/fdai-constitution.md",
           "source_kind": "doc",
           "symbol": "Article 3: Agent-driven authority"
@@ -235,13 +235,13 @@
         "What accuracy does FDAI guarantee?",
         "FDAI는 어떤 정확성을 보장하나요?"
       ],
-      "record_digest": "sha256:025354b8e7cc2a3a2852bb8b757e7f7a6b7771f7780d8e6455c5c0942af17496",
+      "record_digest": "sha256:6e46114f4ac9259e84c6d80ce3e284f58a4c2e7b15866d0739f1d0d61b272850",
       "sources": [
         {
           "authority_role": "design",
-          "blob_sha": "1300e23ed1b548c4cb5e6804689c69d2b684ef84",
-          "line_end": 63,
-          "line_start": 63,
+          "blob_sha": "508f443f48568254c8ee37c095454a635956e39d",
+          "line_end": 83,
+          "line_start": 83,
           "path": "docs/roadmap/architecture/fdai-constitution.md",
           "source_kind": "doc",
           "symbol": "Article 2: Contract-conformant accuracy"
@@ -553,5 +553,5 @@
     }
   ],
   "schema_version": "1.0.0",
-  "source_revision": "655e46083999cbcf87c965474e753e665c454d80"
+  "source_revision": "fbd47d1c8190f983c0c36ab16e6206ce302a6c88"
 }

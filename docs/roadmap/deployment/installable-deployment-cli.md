@@ -4,6 +4,8 @@ title: Installable Deployment CLI
 
 # Installable Deployment CLI
 
+> **Deployment distribution:** The [constitution](../architecture/fdai-constitution.md#article-1-purpose-and-scope) defines only two installation paths, contributor source deployment and the signed offline package. Any installation gate in this document that the constitution does not list is superseded and no longer applies.
+
 This document defines the public FDAI deployment command. Operators run one local coordinator
 after Azure sign-in, while Terraform apply and private data-plane work run on the managed host
 inside the target virtual network.
@@ -249,20 +251,11 @@ open. Local and mocked transport evidence do not establish a successful Azure de
 
 ### Source runtime artifact admission
 
-A connected deployment MUST NOT require a kit, package, or operator-supplied artifact manifest; the
-operator supplies only the clean checkout. Offline and appliance paths keep the signed kit. Source
-mode never builds service, dependency, host, or appliance images or invokes Docker, Buildx, ACR
-Tasks, a remote builder, or VM capture, and it never runs a Console build during provisioning.
-
-The application stage continues from the verified `application-plan` checkpoint and reuses the
-transferred snapshot. It resolves the exact-revision images and Console artifact that the protected
-supply-chain workflow published publicly, one digest each, plus source-pinned sidecar digests.
-Third-party Python support installs from hash-locked binary wheels while owned packages run from
-the verified snapshot. Terraform installs providers directly under the committed lock files. Each
-ACR import uses a digest-bound plan, human approval, pre-effect claim, and digest readback under
-the host identity. Missing, private, partial, or mismatched artifacts stop with
-`published_images_unavailable` and never fall back to a build. Receipts use source-mode fields and
-never claim kit or release-signature trust. This continuation is not yet implemented.
+Contributor source deployment follows the constitution's deployment distribution. With `--source`
+and `--signing-key`, `fdai-up.sh` builds every deployment artifact from the checkout, including
+service images, and deploys it. It requires no protected branch, CI result, published artifact,
+attestation, provenance, or SBOM. The offline package keeps one signed package for an Azure VM
+without internet access.
 
 An existing `dev` AKS installation can update one service directly from a clean local checkout on
 its eligible deployment host. This path is separate from new installation and release assembly:

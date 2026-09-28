@@ -1,5 +1,8 @@
 #!/usr/bin/env bash
-# Run one signed-package Azure deployment after interactive az login.
+# Install FDAI to Azure after interactive az login.
+#
+# Contributor source deployment: --source <checkout> --signing-key <key> builds everything from
+# the checkout, then deploys it. Offline package: --offline-kit <package>.
 set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
@@ -12,17 +15,67 @@ if [[ ! -x "$repo_root/.venv/bin/python" ]]; then
   }
   uv sync --frozen
 fi
-source_mode=1
-for argument in "$@"; do
-  if [[ "$argument" == "--online" || "$argument" == "--offline-kit" || "$argument" == --offline-kit=* ]]; then
-    source_mode=0
+
+source_checkout=""
+signing_key=""
+forwarded=()
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --source) source_checkout="$2"; forwarded+=("$1" "$2"); shift 2 ;;
+    --source=*) source_checkout="${1#--source=}"; forwarded+=("$1"); shift ;;
+    --signing-key) signing_key="$2"; shift 2 ;;
+    --signing-key=*) signing_key="${1#--signing-key=}"; shift ;;
+    *) forwarded+=("$1"); shift ;;
+  esac
+done
+
+fdaictl() {
+  exec uv run --frozen --isolated --python "$repo_root/.venv/bin/python" \
+    --project "$repo_root/packages/deployment-cli" \
+    fdaictl provision azure "$@"
+}
+
+if [[ -n "$signing_key" ]]; then
+  [[ -n "$source_checkout" ]] || {
+    echo "fdai-up: --signing-key is used with --source for contributor deployment" >&2
+    exit 64
+  }
+  [[ "$signing_key" = /* ]] || signing_key="$PWD/$signing_key"
+  checkout="$(cd "$source_checkout" && git rev-parse --show-toplevel)"
+  commit="$(git -C "$checkout" rev-parse --short=9 HEAD)"
+  out="${FDAI_CONTRIBUTOR_BUILD_DIR:-$HOME/.local/state/fdai/contributor}/build-$commit-$(date -u +%Y%m%dT%H%M%SZ)"
+  install -d -m 0700 "$(dirname "$out")"
+  echo "fdai-up: building deployment artifacts from $commit" >&2
+  "$checkout/scripts/deployment/release/build-standalone-deployment-kit.sh" \
+    --out "$out" --signing-key "$signing_key" >&2
+  kit="$(find "$out" -maxdepth 1 -name 'fdai-deployment-kit-*.tar.gz' -print -quit)"
+  [[ -n "$kit" ]] || {
+    echo "fdai-up: the contributor build produced no deployment artifact" >&2
+    exit 3
+  }
+  deploy=()
+  skip=0
+  for argument in "${forwarded[@]}"; do
+    if [[ "$skip" -eq 1 ]]; then skip=0; continue; fi
+    case "$argument" in
+      --source) skip=1 ;;
+      --source=*) ;;
+      *) deploy+=("$argument") ;;
+    esac
+  done
+  fdaictl --offline-kit "$kit" --license-signing-key "$signing_key" "${deploy[@]}"
+fi
+
+selected=0
+for argument in "${forwarded[@]}"; do
+  if [[ "$argument" == "--online" || "$argument" == "--offline-kit" || "$argument" == --offline-kit=* || "$argument" == "--source" || "$argument" == --source=* ]]; then
+    selected=1
     break
   fi
 done
-if [[ "$source_mode" -eq 1 ]]; then
-  set -- --online "$@"
+if [[ "$selected" -eq 0 ]]; then
+  set -- --online "${forwarded[@]}"
+else
+  set -- "${forwarded[@]}"
 fi
-
-exec uv run --frozen --isolated --python "$repo_root/.venv/bin/python" \
-  --project "$repo_root/packages/deployment-cli" \
-  fdaictl provision azure "$@"
+fdaictl "$@"
