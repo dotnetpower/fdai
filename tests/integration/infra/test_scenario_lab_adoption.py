@@ -441,6 +441,135 @@ def test_restore_settles_a_running_operation_before_one_bounded_stop(
     assert sum("aks stop" in line for line in log) == stops
 
 
+FAKE_START_AZ = """#!/usr/bin/env bash
+set -euo pipefail
+printf '%s\n' "$*" >>"$FAKE_AZ_LOG"
+next_result() {
+  local results="$1"
+  local result
+  result="$(head -n 1 "$results")"
+  tail -n +2 "$results" >"$results.next" && mv "$results.next" "$results"
+  case "$result" in
+    auth)
+      printf "ERROR: (AuthorizationFailed) The client 'leak-client' with object id "
+      printf "'leak-object' does not have authorization over scope '/subscriptions/leak'.\n"
+      printf 'Code: AuthorizationFailed\n'
+      exit 1
+      ;;
+    other)
+      printf "ERROR: (OperationNotAllowed) leak-message for '/subscriptions/leak'.\n"
+      printf 'Code: OperationNotAllowed\n'
+      exit 1
+      ;;
+  esac
+}
+if [[ "$*" == "resource list"* ]]; then
+  printf '1\n'
+  exit 0
+fi
+if [[ "$*" == "aks start"* ]]; then
+  next_result "$FAKE_AZ_AKS_RESULTS"
+  printf 'Running' >"$FAKE_AZ_POWER"
+  exit 0
+fi
+if [[ "$*" == "aks show"* ]]; then
+  cat "$FAKE_AZ_POWER"
+  printf '\n'
+  exit 0
+fi
+if [[ "$*" == "mysql flexible-server start"* ]]; then
+  next_result "$FAKE_AZ_MYSQL_RESULTS"
+  printf 'Ready' >"$FAKE_AZ_MYSQL"
+  exit 0
+fi
+if [[ "$*" == "mysql flexible-server show"* ]]; then
+  cat "$FAKE_AZ_MYSQL"
+  printf '\n'
+  exit 0
+fi
+exit 2
+"""
+
+
+def _run_start(
+    tmp_path: Path, aks_results: list[str], mysql_results: list[str]
+) -> tuple[subprocess.CompletedProcess[str], list[str]]:
+    workflow = WORKFLOW.read_text(encoding="utf-8")
+    step = _step(workflow, "Start retained scenario-lab compute and data")
+    script = "\n".join(
+        line.removeprefix("          ") for line in step.split("run: |\n", 1)[1].splitlines()
+    )
+    bin_dir = tmp_path / "bin"
+    bin_dir.mkdir()
+    (bin_dir / "az").write_text(FAKE_START_AZ, encoding="utf-8")
+    (bin_dir / "sleep").write_text("#!/usr/bin/env bash\nexit 0\n", encoding="utf-8")
+    for tool in ("az", "sleep"):
+        (bin_dir / tool).chmod(0o755)
+    (tmp_path / "aks-results").write_text("\n".join([*aks_results, "ok"]) + "\n", encoding="utf-8")
+    (tmp_path / "mysql-results").write_text(
+        "\n".join([*mysql_results, "ok"]) + "\n", encoding="utf-8"
+    )
+    (tmp_path / "power").write_text("Stopped", encoding="utf-8")
+    (tmp_path / "mysql").write_text("Stopped", encoding="utf-8")
+    environment = {
+        "PATH": f"{bin_dir}:{os.environ.get('PATH', '')}",
+        "RUNNER_TEMP": str(tmp_path),
+        "GITHUB_STEP_SUMMARY": str(tmp_path / "summary.md"),
+        "SCENARIO_LAB_RESOURCE_GROUP_NAME": RG,
+        "MYSQL_SERVER_NAME": "mysql-fdai-sre-0a1b2c",
+        "FAKE_AZ_LOG": str(tmp_path / "az.log"),
+        "FAKE_AZ_AKS_RESULTS": str(tmp_path / "aks-results"),
+        "FAKE_AZ_MYSQL_RESULTS": str(tmp_path / "mysql-results"),
+        "FAKE_AZ_POWER": str(tmp_path / "power"),
+        "FAKE_AZ_MYSQL": str(tmp_path / "mysql"),
+    }
+    result = subprocess.run(  # noqa: S603 - resolved Bash and an extracted repository step.
+        [str(BASH), "-c", script],
+        capture_output=True,
+        check=False,
+        env=environment,
+        text=True,
+        timeout=60,
+    )
+    log = (tmp_path / "az.log").read_text(encoding="utf-8").splitlines()
+    return result, log
+
+
+def test_start_retries_only_propagating_authorization_for_each_target(tmp_path: Path) -> None:
+    result, log = _run_start(tmp_path, ["auth", "auth"], ["auth"])
+    output = result.stdout + result.stderr
+
+    assert result.returncode == 0, result.stderr
+    assert sum(line.startswith("aks start") for line in log) == 3
+    assert sum(line.startswith("mysql flexible-server start") for line in log) == 2
+    assert "Waiting for scenario-lab AKS start authorization (2/20)." in result.stdout
+    assert "Waiting for scenario-lab MySQL start authorization (1/20)." in result.stdout
+    assert (tmp_path / "sre-demo-lab-aks-started-by-run").is_file()
+    assert "leak" not in output
+    assert "/subscriptions/" not in output
+
+
+def test_start_reports_only_the_code_of_a_non_authorization_failure(tmp_path: Path) -> None:
+    result, log = _run_start(tmp_path, ["other"], [])
+
+    assert result.returncode == 1
+    assert sum(line.startswith("aks start") for line in log) == 1
+    assert not any(line.startswith("mysql flexible-server start") for line in log)
+    assert result.stderr == "scenario-lab AKS start failed (OperationNotAllowed).\n"
+    assert (tmp_path / "sre-demo-lab-aks-started-by-run").is_file()
+
+
+def test_start_stops_retrying_authorization_after_a_bounded_window(tmp_path: Path) -> None:
+    result, log = _run_start(tmp_path, ["auth"] * 25, [])
+
+    assert result.returncode == 1
+    assert sum(line.startswith("aks start") for line in log) == 20
+    assert result.stderr == (
+        "scenario-lab AKS start authorization did not propagate within five minutes.\n"
+    )
+    assert "leak" not in result.stdout + result.stderr
+
+
 STATE_INSTANCES_FILTER = LAB_SCRIPTS / "state-instances.jq"
 
 
