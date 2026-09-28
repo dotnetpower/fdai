@@ -5,6 +5,15 @@ from fdai.delivery.agent_activity import DEFAULT_STAGE_TOPIC
 from fdai.runtime.bootstrap_plan import VERTICAL_IDENTITY_ENV, build_bootstrap_plan
 from fdai.runtime.venue import ExecutionVenue, ExecutionVenueError
 from fdai.shared.config.models import LlmMode
+from fdai_service_contracts.product_profile import ProductAddOn, ProductProfile
+
+
+def _profile(*add_ons: ProductAddOn) -> ProductProfile:
+    selected = set(add_ons)
+    dependents = {ProductAddOn.READ_ONLY_CONSOLE, ProductAddOn.GOVERNED_EXECUTION}
+    if selected & dependents:
+        selected.add(ProductAddOn.ENTERPRISE_IDENTITY_GOVERNANCE)
+    return ProductProfile(add_ons=tuple(sorted(selected, key=str)))
 
 
 def test_bootstrap_plan_preserves_disabled_consumer_defaults() -> None:
@@ -51,30 +60,46 @@ def test_bootstrap_plan_rejects_invalid_venue_only_for_enabled_consumer() -> Non
 
 
 @pytest.mark.parametrize(
-    ("environment", "request_name"),
+    ("environment", "request_name", "profile"),
     [
-        ({"FDAI_MONITOR_WORKSPACE_ID": "workspace"}, "telemetry"),
-        ({"FDAI_PROMETHEUS_ENDPOINT": "https://example.com"}, "telemetry"),
-        ({"FDAI_CONFIGURATION_DRIFT_ENABLED": "1"}, "configuration_drift"),
-        ({"FDAI_DEV_OPERATIONS_GATEWAY_URL": "https://example.com"}, "gateway"),
-        ({"FDAI_CASE_HISTORY_CONTAINER_URL": "https://example.com"}, "case_history"),
+        ({"FDAI_MONITOR_WORKSPACE_ID": "workspace"}, "telemetry", ProductProfile()),
+        ({"FDAI_PROMETHEUS_ENDPOINT": "https://example.com"}, "telemetry", ProductProfile()),
+        (
+            {"FDAI_CONFIGURATION_DRIFT_ENABLED": "1"},
+            "configuration_drift",
+            ProductProfile(),
+        ),
+        (
+            {"FDAI_DEV_OPERATIONS_GATEWAY_URL": "https://example.com"},
+            "gateway",
+            _profile(ProductAddOn.GOVERNED_EXECUTION),
+        ),
+        (
+            {"FDAI_CASE_HISTORY_CONTAINER_URL": "https://example.com"},
+            "case_history",
+            ProductProfile(),
+        ),
         (
             {next(iter(VERTICAL_IDENTITY_ENV.values())): "client-id"},
             "vertical_execution",
+            _profile(ProductAddOn.GOVERNED_EXECUTION),
         ),
         (
             {"FDAI_STEWARDSHIP_AUDIT_INTERVAL_SECONDS": "3600"},
             "stewardship_health",
+            _profile(ProductAddOn.ENTERPRISE_IDENTITY_GOVERNANCE),
         ),
     ],
 )
 def test_bootstrap_plan_identifies_optional_identity_requirements(
     environment: dict[str, str],
     request_name: str,
+    profile: ProductProfile,
 ) -> None:
     plan = build_bootstrap_plan(
         llm_mode=LlmMode.LOCAL_FAKE,
         environment=environment,
+        product_profile=profile,
     )
 
     assert plan.identity_requests.any_requested is True
@@ -150,9 +175,13 @@ def test_bootstrap_plan_rejects_diagnostic_stream_without_consumer() -> None:
     ],
 )
 def test_bootstrap_plan_identifies_each_http_channel(environment_key: str) -> None:
+    add_ons = [ProductAddOn.NOTIFICATIONS]
+    if "APPROVAL" in environment_key or environment_key == "FDAI_GITOPS_TOKEN":
+        add_ons.append(ProductAddOn.GOVERNED_EXECUTION)
     plan = build_bootstrap_plan(
         llm_mode=LlmMode.LOCAL_FAKE,
         environment={environment_key: "configured"},
+        product_profile=_profile(*add_ons),
     )
 
     assert plan.requires_channel_http_client is True
@@ -166,6 +195,7 @@ def test_bootstrap_plan_enables_github_for_complete_app_credentials() -> None:
             "FDAI_GITHUB_APP_INSTALLATION_ID": "123",
             "FDAI_GITHUB_APP_PRIVATE_KEY": "configured",
         },
+        product_profile=_profile(ProductAddOn.GOVERNED_EXECUTION),
     )
 
     assert plan.github_change_feed_enabled is True
@@ -186,6 +216,10 @@ def test_bootstrap_plan_resolves_consumer_bindings_once() -> None:
             "FDAI_STAGE_TOPIC": " custom.stage.topic ",
             "FDAI_ISOLATED_EXECUTOR_AUTHORITY_CUTOVER": "1",
         },
+        product_profile=_profile(
+            ProductAddOn.GOVERNED_EXECUTION,
+            ProductAddOn.NOTIFICATIONS,
+        ),
     )
 
     assert plan.venue is ExecutionVenue.DEPLOYED
@@ -195,3 +229,31 @@ def test_bootstrap_plan_resolves_consumer_bindings_once() -> None:
     assert plan.pantheon_object_topic == "custom.objects"
     assert plan.stage_topic == "custom.stage.topic"
     assert plan.isolated_executor_authority_cutover is True
+
+
+def test_observation_first_ignores_incidental_add_on_environment() -> None:
+    plan = build_bootstrap_plan(
+        llm_mode=LlmMode.LOCAL_FAKE,
+        environment={
+            "FDAI_GITOPS_TOKEN": "configured",
+            "FDAI_GITOPS_OWNER": "owner",
+            "FDAI_GITOPS_REPO": "repo",
+            "FDAI_CHATOPS_WEBHOOK_URL": "configured",
+            "FDAI_TEAMS_APPROVAL_ACTIVITY_URL": "configured",
+            "FDAI_EMAIL_ENDPOINT": "configured",
+            "FDAI_DEV_OPERATIONS_GATEWAY_URL": "configured",
+            "FDAI_CHANGE_MI_CLIENT_ID": "configured",
+            "FDAI_STEWARDSHIP_AUDIT_INTERVAL_SECONDS": "3600",
+            "FDAI_ISOLATED_EXECUTOR_AUTHORITY_CUTOVER": "1",
+        },
+    )
+
+    assert plan.product_profile == ProductProfile()
+    assert plan.github_change_feed_enabled is False
+    assert plan.chatops_enabled is False
+    assert plan.email_enabled is False
+    assert plan.isolated_executor_authority_cutover is False
+    assert plan.identity_requests.gateway is False
+    assert plan.identity_requests.vertical_execution is False
+    assert plan.identity_requests.stewardship_health is False
+    assert plan.requires_initial_identity is False

@@ -1,7 +1,7 @@
 ---
 translation_of: project-structure-dependency-injection.md
-translation_source_sha: 87fbd47bf521b843740a8daacd6da03f0c9fe367
-translation_revised: 2026-09-27
+translation_source_sha: 6fce4492cfb369c6a776cc9446bbb0d81899774e
+translation_revised: 2026-09-28
 ---
 
 # 프로젝트 구조 의존성 주입
@@ -183,8 +183,13 @@ import를 모아도 작업 정체성, 문서 수집, 출처 소유권, 구성 �
 `PostgresTwinInventorySource.run_at_revision`을 사용해 원본 저장과 작성기 확인이 끝날 때까지
 인벤토리 승격 및 실시간 그래프 잠금을 유지합니다. T0 평가기 세대는 정확한 Rule 모델, OPA
 버전 및 정책 산출물 다이제스트를 포함합니다. 영속 최초 관측 시계는 변경된 개정의 순서를
-정하고 정확한 재시도는 원래 시각을 재사용합니다. 이 보호 경계는 작업 권한을 부여하지 않으며
-Forseti의 제안 IaC 출처를 연결하지 않습니다.
+정하고 정확한 재시도는 원래 시각을 재사용합니다. Forseti의 형식화 제안 검토 생산자도 검토 쓰기가
+끝날 때까지 같은 인벤토리 보호 경계를 유지하며, 보호 경계가 거부한 요청은 제한된 재도출 전에
+폐기합니다. `StateStore.read_state_page`의 동등 비교 필터는 `publication_outbox.published`처럼 ASCII
+식별자로 이루어진 점 경로도 받습니다. PostgreSQL은 바인딩된 경로 배열에 `#>>`로 이를 평가하며, 단일
+필드 필터는 바뀌지 않습니다. 경로 구간은 숫자로 시작할 수 없으므로 PostgreSQL이 구간을 배열 색인으로
+읽지 않습니다. 이 보호 경계는 작업 권한을 부여하지 않으며,
+Terraform 계획은 검토 입력이 아닙니다.
 
 `AssuranceTwinConfirmationStore`는 프로덕션 및 메모리 내 `StateStore` 구현의 선택적
 기능입니다. 보존 근거 행과 provisional Heimdall/Forseti 대상 행을 원자적으로 확인하거나
@@ -203,6 +208,25 @@ privileged I/O 전에 확인하는 실제 상한을 제공합니다. 어느 계�
 계속할 수 있습니다.
 
 [에이전트 판테온 구현 계획](../agents/agent-pantheon-implementation-ko.md#범위가-제한된-공유-상태)이 공유 `StateStore`의 범위 제한 제거 및 재생 의미 체계를 소유합니다.
+
+## Full-authority 개발 프로필 조립
+
+선택적 full-authority 개발 프로필은 환경 레이블, 포크 표시 또는 런타임 플랫폼 선택이 아닌
+별도의 권한 입력입니다. 조립 계층은 정확한 프로필, 최신
+`DevelopmentAuthorityBindingSource`, Owner 권한 검증기, 실행기와 구분되는 신원이 모두
+있을 때만 이 프로필을 받습니다. 바인딩 소스는 각 승인 전에 현재 대상 범위, ActionType 및
+정책 개정, 예행 실행과 안전장치 증적, 잠금, 감사, 관찰자 근거를 다시 도출합니다. 프로필이
+없으면 기존 다중 운영자 경로를 유지하고, 프로필을 선택한 상태에서 바인딩이 하나라도
+누락되면 안전하게 차단합니다. `delivery/development_bindings.py`가 권위 있는 바인딩 소스로서
+서버가 준비한 바인딩을 감사 기록과 함께 한 번만 기록하고 현재 기록만 검증하며,
+`runtime/development_authority.py`가 이를 Azure 대상 revision 판독기와 함께 ControlLoop, Pantheon 및
+HIL 조정자에 조립합니다. `core/hil_resume/development.py`는 `DevelopmentBindingPreparer`와
+`TargetRevisionReader` 포트 뒤에서 Owner에게 보여 줄 결속 사실을 담은 보류 블록과 Owner 자기 승인 허용을
+소유하며, Core는 delivery 레지스트리를 가져오지 않습니다. 집중된 `core/risk_gate/development_profile.py` 모듈은
+프로필 범위 승격과 현재 권한 검증을 소유하며, `gate.py`는 공개 레지스트리와 risk-gate
+API를 유지합니다. 계약 모델은 `fdai.shared.contracts.models` 공개 facade를 통해서만 하위
+시스템 경계를 통과합니다. 다이제스트 도우미는 모델이 아닌 권한 facade에 남으며 권한을
+부여하지 않습니다.
 
 ## 관련 문서
 

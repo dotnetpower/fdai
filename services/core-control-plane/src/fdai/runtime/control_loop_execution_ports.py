@@ -21,6 +21,7 @@ import httpx
 
 from fdai.core.executor import (
     DirectApiExecutionPort,
+    DirectApiShadowExecutor,
     InProcessThorExecutionPort,
     ShadowExecutor,
     ThorExecutionPort,
@@ -28,7 +29,10 @@ from fdai.core.executor import (
 from fdai.core.executor.renderer import TemplateRenderer
 from fdai.core.executor.tool_call import ToolReceiptObserver
 from fdai.core.workflow.workflow_runtime import WorkflowActionDispatcher
-from fdai.runtime.alert_noise_execution import build_alert_pr_execution_port
+from fdai.delivery.alert_noise_direct_api import (
+    AlertUnavailableDirectApiExecutionPort,
+    UnavailableAlertDirectApiExecutor,
+)
 from fdai.runtime.delivery import _build_direct_api_executor, _build_tool_executor
 from fdai.runtime.isolated_executor_client import EventBusDirectApiExecutionClient
 from fdai.runtime.safeguard_isolated_executor import (
@@ -83,6 +87,7 @@ def build_thor_execution_port(
     property_semantics: Any,
     catalog_root: Path,
     process_store: ProcessRuntimeStore | None = None,
+    governed_execution_enabled: bool = True,
 ) -> ThorExecutionPort:
     """Return the Thor port, composing the in-process one when none is injected.
 
@@ -91,8 +96,20 @@ def build_thor_execution_port(
     executor cannot bypass that lifecycle either.
     """
 
+    if not governed_execution_enabled and port is not None:
+        raise RuntimeError("Thor execution binding requires the governed-execution product add-on")
     if port is not None:
         return port
+    if not governed_execution_enabled:
+        return InProcessThorExecutionPort(
+            pr_native=ShadowExecutor(
+                publisher=publisher,
+                audit_store=audit_store,
+                renderer=cast(TemplateRenderer, renderer),
+                resource_lock=resource_lock,
+            ),
+            safeguard_lifecycle_ready=False,
+        )
     graph_model_promotion_registry = None
     if os.environ.get("FDAI_STATE_STORE_DSN", "").strip():
         from fdai.delivery.persistence.state_store_graph_model_promotion import (
@@ -112,17 +129,6 @@ def build_thor_execution_port(
         resource_lock=resource_lock,
         idempotency=idempotency_store,
         safeguard_coordinator=safeguard_coordinator,
-    )
-    alert_executor = build_alert_pr_execution_port(
-        fallback=executor,
-        audit_store=audit_store,
-        publisher=publisher,
-        resource_lock=resource_lock,
-        coordinator=safeguard_coordinator,
-        promotion_registry=promotion_registry,
-        ontology_release=ontology_release,
-        decision_evidence_provider=container.decision_evidence_admission_provider,
-        process_store=process_store,
     )
     if isinstance(direct_api_execution_port, EventBusDirectApiExecutionClient):
         direct_api_executor: DirectApiExecutionPort | None = (
@@ -145,6 +151,18 @@ def build_thor_execution_port(
             execution_identities=execution_identities,
             safeguard_coordinator=safeguard_coordinator,
         )
+    direct_api_executor = AlertUnavailableDirectApiExecutionPort(
+        unavailable=DirectApiShadowExecutor(
+            executor=UnavailableAlertDirectApiExecutor(),
+            audit_store=audit_store,
+            resource_lock=resource_lock,
+            idempotency=idempotency_store,
+            # The adapter refuses every request, so enforce mode reaches its explicit reason.
+            allow_enforce=True,
+            safeguard_coordinator=safeguard_coordinator,
+        ),
+        fallback=direct_api_executor,
+    )
     tool_executor = _build_tool_executor(
         audit_store=audit_store,
         resource_lock=resource_lock,
@@ -156,9 +174,7 @@ def build_thor_execution_port(
         safeguard_coordinator=safeguard_coordinator,
     )
     return InProcessThorExecutionPort(
-        # The compatibility dataclass still names ShadowExecutor rather than
-        # the structural PR port. Both normal dispatch and HIL receive this wrapper.
-        pr_native=cast(ShadowExecutor, alert_executor),
+        pr_native=executor,
         direct_api=direct_api_executor,
         tool_call=tool_executor,
         safeguard_lifecycle_ready=True,

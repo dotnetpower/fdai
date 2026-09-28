@@ -717,6 +717,7 @@ class HilDecisionReceipt:
     justification: str = ""
     already_recorded: bool = False
     delivered: bool = False
+    development_attestation: Mapping[str, object] | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -735,6 +736,7 @@ class HilDecisionCommand:
     expected_submitter_oid: str
     expected_decision_route: str
     expected_required_role: str
+    development_attestation: Mapping[str, object] | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -792,10 +794,7 @@ class ReportLineContactOutbox(Protocol):
         limit: int,
     ) -> tuple[ReportLineContactContext, ...]: ...
 
-    async def enqueue_report_line_contact(
-        self,
-        command: ReportLineContactCommand,
-    ) -> None: ...
+    async def enqueue_report_line_contact(self, command: ReportLineContactCommand) -> None: ...
 
 
 __all__ = [name for name in globals() if not name.startswith("_")]

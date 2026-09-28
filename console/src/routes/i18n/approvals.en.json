@@ -35,5 +35,13 @@
   "slackFreshness": "Sign in again with Entra after the Slack click. A cached session cannot authorize this decision.",
   "slackReauthenticate": "Sign in again with Entra",
   "slackRecord": "Record this decision",
-  "slackDismiss": "Dismiss handoff"
+  "slackDismiss": "Dismiss handoff",
+  "developmentNote": "The full-authority development profile lets you approve your own request after a fresh sign-in. Your approval covers only this exact action, target revision, and dry run.",
+  "developmentReauthenticate": "Sign in again to approve",
+  "developmentReady": "You signed in again. Record your approval within 10 minutes.",
+  "developmentApprove": "Approve your request",
+  "fieldTargetRevision": "Target revision",
+  "fieldDryRunDigest": "Dry-run digest",
+  "fieldScopeDigest": "Scope digest",
+  "fieldBindingDigest": "Binding digest"
 }

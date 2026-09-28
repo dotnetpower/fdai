@@ -242,9 +242,24 @@ describe("Operator API response decoders", () => {
         ttl_expires_at: "2026-07-15T10:30:00Z",
         decision_requestable: true,
         decision_unavailable_reason: null,
+        development_self_approval_available: true,
+        development_binding: {
+          binding_digest: `sha256:${"a".repeat(64)}`,
+          target_revision: `sha256:${"b".repeat(64)}`,
+          dry_run_digest: `sha256:${"c".repeat(64)}`,
+          scope_digest: `sha256:${"d".repeat(64)}`,
+        },
       }],
       total: 1,
     }).items[0];
+    expect(legacyItem?.development_self_approval_available).toBe(false);
+    expect(enrichedItem?.development_self_approval_available).toBe(true);
+    expect(legacyItem?.development_binding).toBeNull();
+    expect(enrichedItem?.development_binding?.target_revision).toBe(`sha256:${"b".repeat(64)}`);
+    expect(() => decodeHilQueuePage({
+      items: [{ ...legacy, development_binding: { binding_digest: "sha256:short" } }],
+      total: 1,
+    })).toThrow(/development_binding/);
     expect(enrichedItem?.rollback_kind).toBe("pr_revert");
     expect(enrichedItem?.blast_radius_count).toBe(1);
     expect(enrichedItem?.citing_rule_ids).toEqual(["example.rule"]);

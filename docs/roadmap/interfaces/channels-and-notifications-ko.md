@@ -1,7 +1,7 @@
 ---
 title: 채널과 알림(Channels and Notifications)
 translation_of: channels-and-notifications.md
-translation_source_sha: 98af37786836b785716949a7ec748a6addbc8d6c
+translation_source_sha: 1b5aab142a601284f2dd3e3b2df7b9327083a930
 translation_revised: 2026-09-28
 ---
 
@@ -19,6 +19,10 @@ FDAI가 Teams, Slack, 이메일, 웹훅, paging 서비스, SMS, Direct Line 사�
 읽기 전용 콘솔의 신원 및 interaction 흐름은 이 문서 범위 밖이고, 아웃바운드 브라우저
 알림 경계만 이 문서가 소유합니다. 콘솔 신원은
 [user-rbac-and-identity-ko.md](user-rbac-and-identity-ko.md)에 있습니다.
+
+> **제품 프로필:** 관찰 우선 기본값은 채널을 조립하지 않습니다. 알림에는 명시적
+> `notifications` 추가 기능이 필요하며 A1 승인에는 `governed-execution`과 완전한 엔터프라이즈
+> 신원 근거가 추가로 필요합니다. 환경 값만으로는 어떤 추가 기능도 선택할 수 없습니다.
 
 운영 A3 유입, 발행, 수명 주기, 영속성 조립, 배포 및 롤백은
 [운영 A3 채널 런타임](production-a3-channel-runtime-ko.md)이 소유합니다.
@@ -65,7 +69,9 @@ Teams Workflows 웹훅 바인딩은
 - **어떤 어댑터의 승인 콜백도 `fdai-api`에 랜딩** , 이는 액션 전에 사람의 Entra
   아이덴티티를 재검증
   ([user-rbac-and-identity-ko.md](user-rbac-and-identity-ko.md#102-api-token-validation)).
-  어댑터는 절대 자체로 결정을 authorize 하지 않음.
+  어댑터는 절대 자체로 결정을 authorize 하지 않음. 채널 승인은 full-authority 개발 확인이 될 수
+  없습니다. FDAI Console 결정 경로만 토큰을 담지 않은 새 로그인 증명을 첨부할 수 있으며, HIL 결정
+  페이로드가 이를 Core로 전달해 다시 검증합니다. Slack과 Teams 결정은 이 증명을 담지 않습니다.
 
 ## 3. 카테고리 (A1-A4)
 
@@ -92,6 +98,11 @@ Teams Workflows 웹훅 바인딩은
   §6), invoker의 Entra OID를 PR trailer에 운반. PR은 이후 표준 정족수 + 자기승인 없음 규칙을
   따름.
 - **A2/A4 메시지는 절대 승인 버튼이나 실행 링크를 포함하지 않음.**
+- **기본 프로필에서 학습된 패턴과 예측은 A1 요청을 만들지 않음.** 통제된 실행 추가 기능이
+  없으면 Forseti는 예측과 용량 입력이 포함된 중재에 ActionType 없는 판정으로 응답하고, 컨트롤
+  루프는 학습된 T1 재사용을 Action을 만들기 전에 멈추므로 어떤 채널도 이에 대한 승인을 전달하지
+  않음. [학습 및 예측 결과 경계](../agents/agent-pantheon-implementation-ko.md#학습-및-예측-결과-경계)
+  참고.
 
 ### 3.1 A3 명령 롤 게이팅
 

@@ -37,6 +37,7 @@ and resumable work while the roadmap owner remains focused on normative design.
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-28 | in-progress | Re-scoped the Phase 1 live evidence under the #1541 observation-first decision. Issue #341 keeps the live inventory and observation evidence; GitOps draft-PR publication moves to an optional write add-on. | `current change`; owner decision recorded 2026-09-28 on #1541 and #341 | Retain the live inventory receipt and no-mutation observation; the GitOps add-on is needed only when a deployment selects it. |
 | 2026-08-31 | implemented | Defined the Phase 1/2 collector boundary around the existing snapshot mirror and inert review package. Phase 1 never mutates the active catalog; Phase 2 owns reviewed shadow promotion and rollback. | `current change`; 111 focused collect, parser, snapshot-mirror, review, and orchestrator checks passed. | Bind live PR delivery separately before claiming operational validation. |
 | 2026-08-31 | implemented | Reconciled the historical Phase 1 seed list with the implemented Cost Governance package boundary. VMSS over-provisioning remains extension-owned and base replay composes the package explicitly when needed. | `current change`; package resource, package inventory, and base import-boundary checks. | No remaining work for issue #338; later live package validation stays in the Cost Governance delivery ledger. |
 | 2026-08-31 | implemented | Narrowed the Phase 1 out-of-band detector to its implemented Azure Activity Log source, added explicit audited unsupported-signal outcomes, and exposed the detector through the provider-neutral Container binding. Documented inventory freshness as an authority gate after finding formation. | `current change`; 193 focused detector, metrics, control-loop, and risk checks passed. | Add another signal only with an authoritative completeness/freshness contract and focused parity checks. |
@@ -54,4 +55,10 @@ and resumable work while the roadmap owner remains focused on normative design.
 - [x] Bind what-if and configuration-drift evidence into one audited Phase 1 T0 path, or narrow the integration claim, under [issue #342](https://github.com/dotnetpower/fdai/issues/342).
 - [x] Resolve the supported Change Safety signal set and inventory-before-verdict boundary under [issue #339](https://github.com/dotnetpower/fdai/issues/339).
 - [ ] Complete constitutional capability-pack coverage under [issue #76](https://github.com/dotnetpower/fdai/issues/76).
-- [ ] Retain exact-revision live Azure inventory and shadow GitOps evidence under [issue #341](https://github.com/dotnetpower/fdai/issues/341).
+- [ ] Retain exact-revision live Azure inventory evidence under
+  [issue #341](https://github.com/dotnetpower/fdai/issues/341): a read-only inventory identity binding
+  without secrets, one complete generation receipt with scope, freshness, coverage, and revision, and
+  an independent observation that the run mutated no managed resource.
+- [ ] Optional GitOps write add-on, split from #341 under the #1541 observation-first decision and
+  without an active issue: bind the reviewed GitOps destination, produce one frozen-scenario draft
+  shadow PR with exact rule and action labels and an append-only audit record, and prove no merge.

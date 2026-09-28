@@ -83,6 +83,7 @@ from fdai.rule_catalog.schema.override import Override
 from fdai.rule_catalog.schema.property_semantic import PropertySemanticRegistry
 from fdai.shared.contracts.models import (
     Event,
+    FullAuthorityDevelopmentProfile,
     OntologyActionType,
     OntologyRelease,
     ResponseOutcome,
@@ -91,6 +92,7 @@ from fdai.shared.contracts.models import (
 from fdai.shared.providers.alert_noise import AlertPlanArtifacts
 from fdai.shared.providers.blast_probe import LiveBlastProbe
 from fdai.shared.providers.cost_estimator import CostEstimator
+from fdai.shared.providers.development_authority import DevelopmentAuthorityBindingSource
 from fdai.shared.providers.execution_authorization import (
     ExecutionAccessGrantSink,
     ExecutionAuthorizationEvaluator,
@@ -99,6 +101,7 @@ from fdai.shared.providers.ontology_instance import OntologyInstanceStore
 from fdai.shared.providers.process_runtime import ProcessRuntimeStore
 from fdai.shared.providers.stage_publisher import NullStagePublisher, StagePublisher
 from fdai.shared.providers.state_store import StateStore
+from fdai.shared.providers.target_revision import TargetRevisionReader
 from fdai.shared.resilience import DegradationController, KillSwitch
 
 _LOGGER = logging.getLogger(__name__)
@@ -187,6 +190,11 @@ class ControlLoop(
         evidence_conflict_reader: EvidenceConflictCurrentReader | None = None,
         safeguard_lifecycle_coordinator: SafeguardLifecycleCoordinator | None = None,
         clock: Callable[[], datetime] | None = None,
+        governed_execution_selected: bool = False,
+        development_profile: FullAuthorityDevelopmentProfile | None = None,
+        development_binding_source: DevelopmentAuthorityBindingSource | None = None,
+        development_executor_principal: str | None = None,
+        development_revision_reader: TargetRevisionReader | None = None,
     ) -> None:
         if (thor_execution_port is None) != (mutation_dependency_readiness is None):
             raise ValueError(
@@ -240,6 +248,16 @@ class ControlLoop(
         self._mutation_dependency_readiness = mutation_dependency_readiness
         self._evidence_conflict_reader = evidence_conflict_reader
         self._safeguard_lifecycle_coordinator = safeguard_lifecycle_coordinator
+        self._development_profile = development_profile
+        self._development_binding_source = development_binding_source
+        self._development_executor_principal = development_executor_principal
+        self._development_revision_reader = development_revision_reader
+        if hil_resume_coordinator is not None and development_profile is not None:
+            hil_resume_coordinator.bind_development_authority(
+                profile=development_profile,
+                bindings=development_binding_source,
+                revisions=development_revision_reader,
+            )
         self._executor = executor
         self._audit_store = audit_store
         self._rules_by_id = dict(rules_by_id)
@@ -277,6 +295,8 @@ class ControlLoop(
         self._direct_api_executor = direct_api_executor
         self._tool_executor = tool_executor
         self._t1_engine = t1_engine
+        # Observation-first by default: T1 reuse of a learned pattern proposes no action (#1541).
+        self._governed_execution_selected = governed_execution_selected is True
         self._case_history_reuse: CaseHistoryMaterializer | None = None
         self._dynamic_runtime_coordinator = dynamic_runtime_coordinator
         self._graph_dynamic_runtime_coordinator = graph_dynamic_runtime_coordinator
@@ -319,6 +339,23 @@ class ControlLoop(
         if self._t1_engine is not None:
             self._t1_engine.bind_case_history(materializer)
         self._case_history_reuse = materializer
+
+    @property
+    def development_authority_parts(
+        self,
+    ) -> tuple[FullAuthorityDevelopmentProfile, DevelopmentAuthorityBindingSource, str] | None:
+        """Return the selected development profile inputs shared with the Pantheon."""
+        if (
+            self._development_profile is None
+            or self._development_binding_source is None
+            or not self._development_executor_principal
+        ):
+            return None
+        return (
+            self._development_profile,
+            self._development_binding_source,
+            self._development_executor_principal,
+        )
 
     @property
     def case_history_reuse(self) -> CaseHistoryMaterializer | None:
@@ -378,6 +415,11 @@ class ControlLoop(
     def action_types(self) -> tuple[OntologyActionType, ...]:
         """Return the immutable ActionType catalog loaded by this loop."""
         return tuple(self._action_types_by_name.values())
+
+    @property
+    def governed_execution_selected(self) -> bool:
+        """Return the composed governed execution add-on selection; it grants no authority."""
+        return self._governed_execution_selected
 
     @property
     def rules(self) -> tuple[Rule, ...]:

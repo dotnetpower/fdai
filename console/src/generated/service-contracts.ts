@@ -67,7 +67,7 @@ export interface AlertNoiseResultV0_0_0 {
   readonly capability: "unavailable";
 }
 
-export interface AlertNoiseResultV1_0_0Evaluation {
+export interface AlertNoiseResultV1_1_0Evaluation {
   readonly metric_ref: string;
   readonly operator: "above" | "below";
   readonly threshold: number;
@@ -76,7 +76,7 @@ export interface AlertNoiseResultV1_0_0Evaluation {
   readonly aggregation: "average" | "maximum" | "minimum";
 }
 
-export interface AlertNoiseResultV1_0_0AlertTreatment {
+export interface AlertNoiseResultV1_1_0AlertTreatment {
   readonly kind: "routing" | "suppression" | "evaluation";
   readonly target_ref: string;
   readonly replacement_group_ref?: string | null;
@@ -84,10 +84,10 @@ export interface AlertNoiseResultV1_0_0AlertTreatment {
   readonly processing_rule_ref?: string | null;
   readonly starts_at?: string | null;
   readonly ends_at?: string | null;
-  readonly evaluation?: AlertNoiseResultV1_0_0Evaluation | null;
+  readonly evaluation?: AlertNoiseResultV1_1_0Evaluation | null;
 }
 
-export interface AlertNoiseResultV1_0_0AlertNoiseCommand {
+export interface AlertNoiseResultV1_1_0AlertNoiseCommand {
   readonly schema_version?: "1.0.0";
   readonly operation: "alert_noise.assess" | "alert_noise.propose";
   readonly request_ref: string;
@@ -96,12 +96,12 @@ export interface AlertNoiseResultV1_0_0AlertNoiseCommand {
   readonly requested_at: string;
   readonly expires_at: string;
   readonly evidence_digest?: string | null;
-  readonly treatment?: AlertNoiseResultV1_0_0AlertTreatment | null;
+  readonly treatment?: AlertNoiseResultV1_1_0AlertTreatment | null;
   readonly execution_authority?: false;
   readonly period_seconds?: number | null;
 }
 
-export interface AlertNoiseResultV1_0_0NoiseFinding {
+export interface AlertNoiseResultV1_1_0NoiseFinding {
   readonly rule_ref: string;
   readonly service_ref: string;
   readonly reason: "storm" | "flapping" | "overlap" | "broad_role" | "unowned" | "protected" | "incomplete";
@@ -116,7 +116,7 @@ export interface AlertNoiseResultV1_0_0NoiseFinding {
   readonly audience_kinds?: ReadonlyArray<"direct" | "group" | "role" | "channel" | "oncall"> | null;
 }
 
-export interface AlertNoiseResultV1_0_0NoiseAssessment {
+export interface AlertNoiseResultV1_1_0NoiseAssessment {
   readonly schema_version?: "1.0.0";
   readonly source?: "alert-noise-evidence";
   readonly evidence_digest: string;
@@ -133,12 +133,12 @@ export interface AlertNoiseResultV1_0_0NoiseAssessment {
   readonly notification_attempts: number | null;
   readonly confirmed_deliveries: number | null;
   readonly acknowledgements: number | null;
-  readonly findings: ReadonlyArray<AlertNoiseResultV1_0_0NoiseFinding>;
+  readonly findings: ReadonlyArray<AlertNoiseResultV1_1_0NoiseFinding>;
   readonly execution_authority?: false;
 }
 
-export interface AlertNoiseResultV1_0_0AlertChangePlan {
-  readonly schema_version?: "1.0.0";
+export interface AlertNoiseResultV1_1_0AlertChangePlan {
+  readonly schema_version?: "1.1.0";
   readonly action_type: "ops.update-alert-routing" | "ops.set-alert-notification-window" | "ops.tune-alert-evaluation" | "ops.restore-alert-configuration";
   readonly tenant_ref: string;
   readonly scope_ref: string;
@@ -146,7 +146,7 @@ export interface AlertNoiseResultV1_0_0AlertChangePlan {
   readonly evidence_digest: string;
   readonly policy_digest: string;
   readonly target_revision: string;
-  readonly treatment: AlertNoiseResultV1_0_0AlertTreatment;
+  readonly treatment: AlertNoiseResultV1_1_0AlertTreatment;
   readonly service_refs: ReadonlyArray<string>;
   readonly lock_refs: ReadonlyArray<string>;
   readonly created_at: string;
@@ -156,13 +156,13 @@ export interface AlertNoiseResultV1_0_0AlertChangePlan {
   readonly max_recovery_seconds: number;
   readonly rollback_ref: string;
   readonly evaluation_receipt_digest?: string | null;
-  readonly execution_path?: "pr_manual";
+  readonly execution_path?: "direct_api";
   readonly default_mode?: "shadow";
   readonly quorum_required?: 2;
   readonly execution_authority?: false;
 }
 
-export interface AlertNoiseResultV1_0_0AlertRule {
+export interface AlertNoiseResultV1_1_0AlertRule {
   readonly ref: string;
   readonly resource_ref: string;
   readonly service_ref: string;
@@ -173,13 +173,13 @@ export interface AlertNoiseResultV1_0_0AlertRule {
   readonly group_refs?: ReadonlyArray<string>;
   readonly enabled?: boolean;
   readonly stateful?: boolean;
-  readonly evaluation?: AlertNoiseResultV1_0_0Evaluation | null;
+  readonly evaluation?: AlertNoiseResultV1_1_0Evaluation | null;
   readonly active_incident?: boolean;
   readonly iac_owned?: boolean;
   readonly ownership_verified?: boolean;
 }
 
-export interface AlertNoiseResultV1_0_0ProcessingRule {
+export interface AlertNoiseResultV1_1_0ProcessingRule {
   readonly ref: string;
   readonly revision: string;
   readonly rule_refs: ReadonlyArray<string>;
@@ -191,12 +191,12 @@ export interface AlertNoiseResultV1_0_0ProcessingRule {
   readonly semantics_complete?: boolean;
 }
 
-export interface AlertNoiseResultV1_0_0AlertRollbackBaseline {
-  readonly rule: AlertNoiseResultV1_0_0AlertRule;
-  readonly processing_rule?: AlertNoiseResultV1_0_0ProcessingRule | null;
+export interface AlertNoiseResultV1_1_0AlertRollbackBaseline {
+  readonly rule: AlertNoiseResultV1_1_0AlertRule;
+  readonly processing_rule?: AlertNoiseResultV1_1_0ProcessingRule | null;
 }
 
-export interface AlertNoiseResultV1_0_0EvaluationCaseResult {
+export interface AlertNoiseResultV1_1_0EvaluationCaseResult {
   readonly ref: string;
   readonly actionable: boolean;
   readonly baseline_detected: boolean;
@@ -205,12 +205,12 @@ export interface AlertNoiseResultV1_0_0EvaluationCaseResult {
   readonly treatment_latency_seconds: number | null;
 }
 
-export interface AlertNoiseResultV1_0_0EvaluationReceipt {
+export interface AlertNoiseResultV1_1_0EvaluationReceipt {
   readonly rule_ref: string;
   readonly rule_revision: string;
   readonly scenario_digest: string;
-  readonly baseline: AlertNoiseResultV1_0_0Evaluation;
-  readonly treatment: AlertNoiseResultV1_0_0Evaluation;
+  readonly baseline: AlertNoiseResultV1_1_0Evaluation;
+  readonly treatment: AlertNoiseResultV1_1_0Evaluation;
   readonly evaluated_at: string;
   readonly expires_at: string;
   readonly baseline_true_positive: number;
@@ -224,42 +224,42 @@ export interface AlertNoiseResultV1_0_0EvaluationReceipt {
   readonly replay_method?: "same-bucket-threshold-v1" | "uniform-metric-series-v1";
   readonly baseline_max_latency_seconds?: number | null;
   readonly treatment_max_latency_seconds?: number | null;
-  readonly case_results?: ReadonlyArray<AlertNoiseResultV1_0_0EvaluationCaseResult>;
+  readonly case_results?: ReadonlyArray<AlertNoiseResultV1_1_0EvaluationCaseResult>;
   readonly execution_authority?: false;
 }
 
-export interface AlertNoiseResultV1_0_0AlertProcessLink {
+export interface AlertNoiseResultV1_1_0AlertProcessLink {
   readonly process_id: string;
   readonly workflow_ref: string;
   readonly status: "pending" | "running" | "waiting" | "compensating" | "compensated" | "succeeded" | "failed" | "cancelled" | "timed_out";
   readonly mode: "shadow" | "enforce";
 }
 
-export interface AlertNoiseResultV1_0_0AlertProposalDetail {
+export interface AlertNoiseResultV1_1_0AlertProposalDetail {
   readonly plan_digest: string;
-  readonly baseline: AlertNoiseResultV1_0_0AlertRollbackBaseline;
-  readonly evaluation?: AlertNoiseResultV1_0_0EvaluationReceipt | null;
-  readonly process?: AlertNoiseResultV1_0_0AlertProcessLink | null;
+  readonly baseline: AlertNoiseResultV1_1_0AlertRollbackBaseline;
+  readonly evaluation?: AlertNoiseResultV1_1_0EvaluationReceipt | null;
+  readonly process?: AlertNoiseResultV1_1_0AlertProcessLink | null;
   readonly recorded_at: string;
   readonly execution_authority?: false;
 }
 
-export interface AlertNoiseResultV1_0_0AlertNoiseResult {
-  readonly schema_version?: "1.0.0";
+export interface AlertNoiseResultV1_1_0AlertNoiseResult {
+  readonly schema_version?: "1.1.0";
   readonly producer?: "Forseti";
-  readonly command: AlertNoiseResultV1_0_0AlertNoiseCommand;
+  readonly command: AlertNoiseResultV1_1_0AlertNoiseCommand;
   readonly command_digest: string;
   readonly recorded_at: string;
   readonly status: "assessment_ready" | "proposal_ready" | "held";
   readonly reason?: string | null;
-  readonly assessment?: AlertNoiseResultV1_0_0NoiseAssessment | null;
-  readonly plan?: AlertNoiseResultV1_0_0AlertChangePlan | null;
-  readonly detail?: AlertNoiseResultV1_0_0AlertProposalDetail | null;
+  readonly assessment?: AlertNoiseResultV1_1_0NoiseAssessment | null;
+  readonly plan?: AlertNoiseResultV1_1_0AlertChangePlan | null;
+  readonly detail?: AlertNoiseResultV1_1_0AlertProposalDetail | null;
   readonly execution_authority?: false;
 }
 
-export interface AlertNoiseResultV1_0_0 {
-  readonly result: AlertNoiseResultV1_0_0AlertNoiseResult;
+export interface AlertNoiseResultV1_1_0 {
+  readonly result: AlertNoiseResultV1_1_0AlertNoiseResult;
   readonly signature: string;
 }
 
@@ -1378,7 +1378,7 @@ export type FdaiServiceContract =
   | AlertNoiseReadinessV0_0_0
   | AlertNoiseReadinessV1_0_0
   | AlertNoiseResultV0_0_0
-  | AlertNoiseResultV1_0_0
+  | AlertNoiseResultV1_1_0
   | ChannelAttachmentAdmissionV0_0_0
   | ChannelAttachmentAdmissionV1_0_0
   | ChannelAttachmentReceiptV0_0_0

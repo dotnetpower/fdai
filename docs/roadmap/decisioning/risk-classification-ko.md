@@ -1,7 +1,7 @@
 ---
 title: 위험 분류 (자동 실행 vs 사람 승인 vs 차단)
 translation_of: risk-classification.md
-translation_source_sha: 7b5a4c4973e69f9b36d094caeace8ee82b5bd567
+translation_source_sha: 93b76843a471040584a6e78861d5b16c635ea817
 translation_revised: 2026-09-28
 ---
 
@@ -31,7 +31,8 @@ translation_revised: 2026-09-28
 | 기존 control-loop 감사 변환 결과 | implemented | [`_helpers.py`](../../../services/core-control-plane/src/fdai/core/control_loop/_helpers.py), [`test_control_loop_authority.py`](../../../services/core-control-plane/tests/core/test_control_loop_authority.py) | 감사 데이터에는 매칭된 규칙, 최종 판정, 정족수 및 해석된 상한이 포함됩니다. |
 | 승인 및 변경 거버넌스 적용 | in-progress | [`check-risk-table-change.py`](../../../scripts/quality/architecture/check-risk-table-change.py), [`test_check_risk_table_change.py`](../../../tests/integration/scripts/test_check_risk_table_change.py), [변경 프로세스](#변경-프로세스), [CODEOWNERS](../../../.github/CODEOWNERS) | 커밋 게이트가 계약의 메타데이터 절반을 적용합니다. 엄격히 증가하는 버전, 변하지 않는 Owner 계층 소유권, 모든 규칙의 서면 정당화, 마지막에 남는 fail-close 기본값입니다. 또한 변경 방향을 분류하므로 완화 편집은 patch bump 뒤에 숨을 수 없습니다. 2인 정족수와 Owner 계층 검토 절반은 배포 포크의 branch protection이므로 로컬 체크아웃에서는 증명되지 않은 상태로 남습니다. |
 | 재현에 충분한 특성 및 카탈로그 메타데이터 | implemented | [`authority.py`](../../../services/core-control-plane/src/fdai/core/risk_gate/authority.py), [`test_authority.py`](../../../services/core-control-plane/tests/core/risk_gate/test_authority.py) | 권한 감사 페이로드가 정확한 특성 벡터와 위험 테이블 카탈로그 버전을 직렬화하며, 테이블이 바뀐 뒤에도 기록된 페이로드를 자신의 카탈로그 버전으로 재현하는 집중 검사가 있습니다. |
-| 전권 개발 프로필 | in-progress | [`development_authority.py`](../../../services/core-control-plane/src/fdai/shared/contracts/development_authority.py), [`test_development_authority.py`](../../../services/core-control-plane/tests/contracts/test_development_authority.py), [FDAI 헌법](../architecture/fdai-constitution-ko.md#제8조-자율성과-사전승인-권한) | 불변 계약, 신뢰할 수 있는 원본 Protocol, 명시적 Pantheon 조립 경로, 프로필 범위 RiskGate 모드 및 fail-closed 소비자에는 집중 검사 근거가 있습니다. 업스트림은 권위 있는 결속 원본 구현을 제공하지 않으며 기본 Core ControlLoop, 워크플로 및 RBAC 조립은 아직 선택하지 않습니다. |
+| 전권 개발 프로필 | in-progress | [`development_authority.py`](../../../services/core-control-plane/src/fdai/shared/contracts/development_authority.py), [`test_development_authority.py`](../../../services/core-control-plane/tests/contracts/test_development_authority.py), [FDAI 헌법](../architecture/fdai-constitution-ko.md#제8조-자율성과-사전승인-권한) | Core가 권위 있는 원본을 제공하며 배포 선택 시 ControlLoop와 Pantheon에 함께 조립합니다. Core는 Owner 본인의 요청을 다이제스트로 결속한 상태로 보류하고, FDAI Console 승인 대기열은 Operator, 결정 저장소 및 Core가 다시 검증한 뒤에만 새로 인증한 Owner의 자기 승인을 허용합니다([`hil_resume/development.py`](../../../services/core-control-plane/src/fdai/core/hil_resume/development.py), [`test_development_self_approval.py`](../../../services/core-control-plane/tests/core/hil_resume/test_development_self_approval.py)). 실제 Owner 실행 기록 보존은 남아 있습니다([#1594](https://github.com/dotnetpower/fdai/issues/1594)). #1541 병합 후 #1502를 기본값에서 `not_planned`/대체됨으로 닫으며 개발 권한 또는 실제 바인딩 기준을 완료했다고 주장하지 않습니다. |
+| 관찰 우선 권한 상한 | implemented | 공유 `ProductProfile`, 런타임 부트스트랩, RiskGate 레지스트리, Thor 포트 및 집중 부정 검사 | 기본 프로필은 ActionType 모드를 항상 shadow로 유지하며 영속 승격 갱신기, HIL, 워크플로 작업 디스패처, 롤백 또는 권한 있는 실행기 바인딩을 조립하지 않습니다. 추가 기능 선택만으로는 권한이 생기지 않습니다. |
 
 ### 구현 이력
 
@@ -43,6 +44,9 @@ translation_revised: 2026-09-28
 | 2026-08-14 | in-progress | 변경 계약의 메타데이터 절반을 커밋 게이트로 적용하고, 완화 편집을 버전 문자열에서 드러나게 했습니다. | `current change`; [`check-risk-table-change.py`](../../../scripts/quality/architecture/check-risk-table-change.py), [`test_check_risk_table_change.py`](../../../tests/integration/scripts/test_check_risk_table_change.py); 집중 게이트 검사 26건이 통과했고, 배포된 테이블에 대해 변경 없음, bump 없는 완화, patch bump 완화, minor bump 완화 경우를 실행해 확인했습니다. | 승인 정족수와 Owner 계층 검토는 배포 포크의 branch protection으로 남으며, 관리되는 런타임 증적을 보존해야 합니다. |
 | 2026-09-27 | not-started | 런타임 지원을 주장하지 않고 단독 Owner와 전용 Azure 테스트 범위를 위한 전권 개발 프로필 목표를 채택했습니다. | `current change`; 헌법, 압축 지침 및 집중 헌법 검사. | 프로필을 사용할 수 있다고 보고하기 전에 위험, 승인, 승격, 롤백 및 실행기 승인 전반에 하나의 범위 결속 프로필 계약을 구현합니다. |
 | 2026-09-27 | in-progress | 하나의 불변 공유 프로필, 배포가 주입하는 신뢰 결속 원본 계약, 현재 작업에 대한 정확한 확인, 실제 Forseti-Var-Thor 조립 및 프로덕션 준비 상태를 부여하지 않는 프로필 범위 개발 승격을 추가했습니다. | `current change`; 공유 권한 스키마, 모델 및 평가기; 위험, RBAC, 워크플로, 운영 학습, Forseti, Var, Thor 및 Vidar 집중 경로; 집중 검사 723개 통과. | 현재 대상 범위, 리비전 및 보호 장치 증적을 확인하는 권위 있는 배포 원본을 구현하고 결속해야 합니다. 선택적 컨텍스트를 배포된 Core ControlLoop, 워크플로 및 RBAC 진입점에 연결한 뒤 관리되는 런타임 증적을 보존해야 합니다. 실제 운영 검증은 수행하지 않았습니다. |
+| 2026-09-27 | implemented | 관찰 우선을 제품 기본값으로 정하고 `governed-execution`을 명시적으로 선택하지 않으면 모든 enforce 승격 경로를 조립하지 않도록 했습니다. | `current change`; 공유 제품 프로필, Core 부트스트랩/조립, enforce를 허용하지 않는 승격 레지스트리 및 기본값/추가 기능 집중 검사. | 기존 배포는 출시 전에 명시적 추가 기능을 기록해야 합니다. 실제 권한 근거는 별도이며 이번 작업에서 실제 운영 검증을 요청하지 않았습니다. |
+| 2026-09-28 | in-progress | 참조용 권위 결속 원본과 조립을 구현했습니다. Core는 직접 만든 Action과 결정론적 예행 실행 증적으로 정확한 결속 하나를 준비하고 감사 기록과 함께 한 번만 기록하며, `verify`는 현재 기록된 결속만 반환합니다. 프로필과 별도 실행기 주체가 경로를 선택하며 형식이 잘못되었거나 만료되었거나 일치하지 않는 선택은 시작을 실패시킵니다. ControlLoop는 `development_authority_confirmation`을 담은 이벤트에만 개발 경로를 적용하고 Pantheon은 같은 프로필과 원본을 공유합니다. | `current change`; `delivery/development_bindings.py`, `runtime/development_authority.py`, `core/control_loop/development_request.py`; 집중 검사 17개와 관련 Core 검사 9167개 통과. | 준비 요청, 새 인증을 요구하는 Owner 확인 및 Console 승인 대기열 화면을 구현합니다([#1594](https://github.com/dotnetpower/fdai/issues/1594)). 실제 환경 검증은 하지 않았습니다. |
+| 2026-09-28 | in-progress | 이벤트에 담긴 확인 대신 승인 대기열 통합으로 바꿨습니다. Owner 본인의 요청이 사람 승인으로 라우팅되면 Core는 정확한 대상 revision을 읽고, 보류할 정확한 Action의 결속을 기록하며, 원래 수준과 정족수를 보존하는 다이제스트 결속 개발 블록을 기록합니다. Owner는 Entra에 새로 로그인한 뒤 FDAI Console에서 승인합니다. Operator, 결정 트랜잭션 및 Core가 각각 예외를 다시 검증하며, Core는 일반 재개 claim이 보류된 정확한 Action을 디스패치하기 전에 영속 Operator 영수증, 결속 및 대상 revision을 다시 읽습니다. | `current change`; `core/hil_resume/development.py`, `core/control_loop/development_request.py`, `delivery/azure/target_revision.py`, Operator `hil_development_approval.py`, Console 승인 카드; Core, Operator, Console 집중 검사 통과. | 전용 테스트 범위에서 실제 Owner 자기 승인 실행 기록 하나를 보존하고, 범주 전용 거부를 개발 경로로 허용합니다. 실제 환경 검증은 하지 않았습니다. |
 
 ### 남은 작업
 
@@ -55,6 +59,9 @@ translation_revised: 2026-09-28
 - [ ] 범위 행을 `validated`로 높이기 전에 하나의 고정된 리비전에서 위험 판정의 관리되는 런타임 증적을 보존합니다.
 - [x] 공유 계약과 명시적 Pantheon 경로는 신뢰할 수 있는 원본 결과가 있어야 정확하고 최신인
   Owner 확인 한 건으로 개발 환경의 유효 정족수를 낮출 수 있습니다.
+- [ ] [#1594](https://github.com/dotnetpower/fdai/issues/1594): 전용 테스트 범위 안에서 유일한
+  Owner가 새로 로그인한 뒤 보류된 본인 요청을 승인하는 실제 실행 기록 하나를 보존하고, 범주 전용
+  거부를 개발 경로로 허용합니다.
 - [ ] [#1502](https://github.com/dotnetpower/fdai/issues/1502): 현재 대상 범위, ActionType 및 정책 리비전, 대상 리비전, 보호 장치, dry-run,
   감사, 잠금 및 관찰자 증적을 확인하는 배포 소유의 권위 있는 원본을 배포된 Core ControlLoop,
   워크플로 및 RBAC 진입점에 연결합니다. 그 전에는 해당 원본 없이 프로필을 선택해도
@@ -102,9 +109,25 @@ A3-E 경계가 계속 유효하고 에스컬레이션 기한이 지난 후 사�
 리소스 그룹 신원에 다이제스트만 사용합니다. 배포 구성은 프로필, 현재 Owner 확인 및 별도
 실행기 신원을 명시적으로 주입해야 합니다. Var와 Thor는 원래 위험 및 정족수를 유지하면서
 개발 환경의 유효 정족수 1을 기록합니다. 개발 승격은 정확한 프로필 네임스페이스에만 기록되고
-`production_ready: false`로 표시됩니다. 실제 Pantheon 조립은 명시적으로 주입된 신뢰 원본을
-사용할 수 있지만 업스트림은 권위 있는 원본 구현을 제공하지 않습니다. 배포된 Core ControlLoop,
-워크플로 및 RBAC 진입점은 이를 기본으로 선택하지 않으므로 잔여 작업은 fail-closed 상태이며
+`production_ready: false`로 표시됩니다. Core가 권위 있는 원본을 제공합니다. Core는 직접 만든
+Action, 결정론적 예행 실행 증적 및 선택된 프로필로 각 결속을 준비하고 감사 기록과 함께 한 번만
+기록하며, 현재 기록된 결속만 검증합니다. 배포는 `FDAI_FULL_AUTHORITY_DEVELOPMENT_PROFILE_JSON`과
+별도 실행기 주체로 프로필을 선택하고, ControlLoop와 Pantheon은 같은 원본을 공유합니다.
+ControlLoop는 이벤트에 담긴 확인을 받아들이지 않습니다. Owner 본인의 운영자 요청이 사람 승인으로
+라우팅되면 Core는 정확한 대상 revision을 읽고, 보류할 정확한 Action의 결속을 기록하며, 다이제스트로
+결속한 개발 블록을 보류 기록에 씁니다. 이 블록은 원래 수준과 정족수, 유효 정족수 1, 대상 revision,
+dry-run 및 범위 다이제스트, 승인된 실행기 신원을 보존하며, 승인 카드는 이 정확한 사실을 Owner에게 표시합니다. Owner는 Entra에 새로 로그인한 뒤 FDAI Console 승인 대기열에서
+승인합니다. Operator는 보류 이후이면서 10분 이내인 서명된 `auth_time`을 요구하고, 결정 트랜잭션은
+잠긴 보류 행을 기준으로 예외를 다시 검증합니다. Core는 영속 Operator 영수증과 결속을 다시 읽고 대상
+revision이 바뀌지 않았음을 확인하며 공유 평가기가 현재 ActionType을 포함해 재구성한 확인을 수락한 뒤에만
+이를 허용합니다. Owner의 결정이 해당 승인의 유일한 영수증이므로 자기 승인이 거부되면 Core는 거부 사유와 함께
+보류 항목을 닫고, Owner는 요청을 다시 제출할 수 있습니다.
+프로필 안에서는 일회용 리소스 재생성이 범위가 정해진 복구 경로입니다. 근거가 하나라도 없으면 일반
+여러 운영자 승인으로 보류합니다. 런타임 Owner 검사는 프로필이 유효한 동안 프로필의 Owner 주체만 허용합니다.
+감사에는 원래 역할, 정족수, 자기 승인 차단 규칙을 보존하고 가상의 신원을 만들지 않은 채 유효 개발 정족수 1을
+기록합니다. 타입이 지정된 권한 레코드는 공개 계약 모델 facade를 사용하며 다이제스트 도우미는 권한을 추가하지
+않습니다. 프로필, 결속 원본, 현재 Owner 검사 또는 구분된 실행기 중 하나라도 없으면 기존 자기 승인 차단 규칙을
+유지하며, Slack, Teams 및 본인 요청 거부도 기존 차단 규칙을 유지합니다. 실제 Owner 실행 기록을 보존하기 전까지
 기능 상태는 `in-progress`입니다. 집중 검사는 실제 배포 또는 프로덕션 준비 상태를 입증하지 않습니다.
 
 ## 분류 차원

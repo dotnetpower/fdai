@@ -278,6 +278,8 @@ override.tf.json
 infra/backend.tf
 infra/bootstrap/backend.tf
 infra/scenario-lab/backend.tf
+# The scenario-lab workflow writes run-local import blocks for retained resources.
+infra/scenario-lab/retained-adoption.generated.tf
 *_override.tf.json
 
 # --------------------------------------------------------------------------

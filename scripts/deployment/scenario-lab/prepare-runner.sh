@@ -54,6 +54,19 @@ az aks get-credentials \
 export KUBECONFIG="$kubeconfig"
 kubelogin convert-kubeconfig --kubeconfig "$kubeconfig" -l msi
 
+# A replaced or new cluster-scoped Azure RBAC grant can take minutes to reach the Kubernetes API.
+readonly kubernetes_authorization_deadline_seconds=300
+readonly kubernetes_authorization_retry_seconds=15
+kubernetes_authorization_deadline=$((SECONDS + kubernetes_authorization_deadline_seconds))
+until timeout --foreground 60s kubectl auth can-i create namespaces --quiet >/dev/null 2>&1; do
+  if ((SECONDS + kubernetes_authorization_retry_seconds >= kubernetes_authorization_deadline)); then
+    echo "prepare-runner: Kubernetes authorization did not propagate within five minutes." >&2
+    exit 1
+  fi
+  echo "prepare-runner: waiting for Kubernetes authorization to propagate." >&2
+  sleep "$kubernetes_authorization_retry_seconds"
+done
+
 helm repo add chaos-mesh https://charts.chaos-mesh.org --force-update >/dev/null
 helm show chart chaos-mesh/chaos-mesh --version "$chaos_mesh_version" >/dev/null
 helm upgrade --install chaos-mesh chaos-mesh/chaos-mesh \
@@ -78,6 +91,10 @@ kubectl --namespace fdai-sre-demo rollout status statefulset/documentdb --timeou
 kubectl --namespace fdai-sre-demo rollout status statefulset/rabbitmq --timeout=15m
 kubectl --namespace fdai-sre-demo wait --for=condition=available deployment \
   --all --timeout=15m
+# Available stays true during a surge rollout, so wait for every Deployment to finish its rollout.
+while IFS= read -r deployment; do
+  kubectl --namespace fdai-sre-demo rollout status "$deployment" --timeout=15m
+done < <(kubectl --namespace fdai-sre-demo get deployments --output=name)
 kubectl --namespace fdai-sre-demo wait \
   --for=jsonpath='{.status.loadBalancer.ingress[0].ip}' \
   service/store-front \
@@ -177,6 +194,7 @@ write_export FDAI_ENFORCE_MYSQL_USER "$(jq -er '.mysql_user' <<<"$terraform_outp
 write_export FDAI_ENFORCE_MYSQL_SERVER "$(jq -er '.mysql_server' <<<"$terraform_output")"
 write_export FDAI_ENFORCE_MYSQL_PW_FILE "$password_file"
 write_export FDAI_ENFORCE_AOAI_ENDPOINT "$(jq -er '.azure_openai_endpoint' <<<"$terraform_output")"
+write_export FDAI_ENFORCE_AOAI_RESOURCE_ID "$(jq -er '.azure_openai_resource_id' <<<"$terraform_output")"
 write_export FDAI_ENFORCE_AOAI_DEPLOYMENT "$(jq -er '.azure_openai_deployment' <<<"$terraform_output")"
 chmod 600 "$environment_file"
 

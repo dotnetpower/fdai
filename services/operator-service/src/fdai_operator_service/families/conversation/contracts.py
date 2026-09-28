@@ -5,9 +5,10 @@ from __future__ import annotations
 import json
 from collections.abc import AsyncIterator
 from dataclasses import dataclass, field
-from typing import Annotated, Protocol
+from typing import Annotated, Protocol, runtime_checkable
 
 from fdai_service_contracts import OperatorPrincipalKind
+from fdai_service_contracts.operator_authentication import OperatorAuthenticationReceipt
 from pydantic import BaseModel, ConfigDict, Field
 from starlette.requests import Request
 
@@ -83,6 +84,8 @@ class ConversationProposal:
     path_params: JsonObject = field(default_factory=dict)
     confirmed: bool = False
     cancellation: bool = False
+    authentication_receipt: JsonObject | None = None
+    """Content-free receipt retained beside, never inside, the idempotent request payload."""
 
     def __post_init__(self) -> None:
         _bounded_text("operation", self.operation, maximum=MAX_OPERATION_CHARS)
@@ -178,6 +181,15 @@ class ConversationAuthorizer(Protocol):
     """Authenticate a request and apply server-owned authorization for an operation."""
 
     async def authorize(self, request: Request, *, operation: str) -> PrincipalScope: ...
+
+
+@runtime_checkable
+class ConversationReceiptAuthorizer(Protocol):
+    """Authorize once and also return the content-free authentication receipt."""
+
+    async def authorize_with_receipt(
+        self, request: Request, *, operation: str
+    ) -> tuple[PrincipalScope, OperatorAuthenticationReceipt | None]: ...
 
 
 class ConversationProjectionReader(Protocol):

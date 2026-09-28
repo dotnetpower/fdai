@@ -214,6 +214,27 @@ def _enforced_registry(action_type_name: str) -> ActionPromotionRegistry:
     return registry
 
 
+def test_observation_only_registry_never_activates_an_action_type() -> None:
+    action_type = _shipped_action_types()["remediate.tag-add"]
+    metrics = PromotionMetrics(
+        action_type=action_type.name,
+        shadow_days=action_type.promotion_gate.min_shadow_days,
+        samples=action_type.promotion_gate.min_samples,
+        accuracy=1.0,
+        policy_escapes=0,
+    )
+    registry = ActionPromotionRegistry(
+        allow_legacy_metrics=True,
+        enforcement_enabled=False,
+    )
+
+    record = registry.consider_promotion(action_type=action_type, metrics=metrics)
+
+    assert record.mode is Mode.SHADOW
+    assert record.production_ready is False
+    assert registry.mode_of(action_type.name) is Mode.SHADOW
+
+
 def _satisfied_preconditions(
     action_type: OntologyActionType,
 ) -> tuple[PreconditionEvaluation, ...]:

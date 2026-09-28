@@ -7,6 +7,7 @@ import logging
 from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import replace
 from datetime import UTC, datetime
+from typing import Any
 
 from fdai.core.control_loop._execution_effects import ControlLoopExecutionEffectsMixin
 from fdai.core.control_loop._governance import ControlLoopGovernanceMixin
@@ -16,6 +17,7 @@ from fdai.core.control_loop._helpers import (
     evaluate_unified,
 )
 from fdai.core.control_loop._safeguard_commitment import ControlLoopSafeguardCommitmentMixin
+from fdai.core.control_loop.development_request import prepare_development_park
 from fdai.core.executor import ExecutionResult, ExecutorOutcome, ShadowExecutor
 from fdai.core.executor.direct_api import DirectApiExecutionResult
 from fdai.core.executor.port import DirectApiExecutionPort
@@ -45,6 +47,7 @@ from fdai.shared.contracts.models import (
     Action,
     Event,
     ExecutionPath,
+    FullAuthorityDevelopmentProfile,
     OntologyActionType,
     Rule,
     Tier,
@@ -55,6 +58,7 @@ from fdai.shared.providers.blast_probe import (
     ProbeQuery,
     ProbeVerdict,
 )
+from fdai.shared.providers.development_authority import DevelopmentAuthorityBindingSource
 from fdai.shared.providers.execution_authorization import (
     ExecutionAccessGrantSink,
     ExecutionAuthorizationEvaluator,
@@ -63,6 +67,7 @@ from fdai.shared.providers.execution_authorization import (
     ExecutionAuthorizationStatus,
 )
 from fdai.shared.providers.state_store import StateStore
+from fdai.shared.providers.target_revision import TargetRevisionReader
 from fdai.shared.resilience import DegradationController, KillSwitch
 
 _LOGGER = logging.getLogger("fdai.core.control_loop.orchestrator")
@@ -96,6 +101,10 @@ class ControlLoopExecutionMixin(
     _automation_hold_reader: AutomationHoldReader | None
     _risk_gate: RiskGate | None
     _risk_table: RiskTable | None
+    _development_profile: FullAuthorityDevelopmentProfile | None
+    _development_binding_source: DevelopmentAuthorityBindingSource | None
+    _development_executor_principal: str | None
+    _development_revision_reader: TargetRevisionReader | None
     _tool_executor: ToolCallShadowExecutor | None
 
     async def _measure_live_probe(
@@ -448,6 +457,26 @@ class ControlLoopExecutionMixin(
             outcome=ExecutorOutcome.REJECTED_INVARIANT,
             mode=action.mode,
             reason=f"evidence conflict requires shadow-only: {disposition.value}",
+        )
+
+    async def _development_park_block(
+        self,
+        *,
+        action: Action,
+        authorization: ExecutionAuthorizationResult | None,
+        unified: UnifiedRiskDecision,
+        initiator: object,
+    ) -> dict[str, Any] | None:
+        """Return the development park block for the Owner's own exact action, if eligible."""
+        return await prepare_development_park(
+            profile=self._development_profile,
+            bindings=self._development_binding_source,
+            revisions=self._development_revision_reader,
+            initiator=initiator,
+            action=action,
+            action_type=self._action_types_by_name.get(action.action_type),
+            authorization=authorization,
+            unified=unified,
         )
 
     async def _evaluate_and_audit(

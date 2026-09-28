@@ -191,6 +191,8 @@ def _provision_azure(args: argparse.Namespace) -> int:
         user_node_min_count=args.user_nodes,
         user_node_max_count=args.max_user_nodes,
         user_node_sku=args.user_node_sku,
+        product_add_ons=tuple(args.product_add_ons),
+        observation_data_sources=tuple(args.observation_data_sources),
     )
     if catalog_review_profile.selected and args.runtime != "aks":
         raise ValueError("selected catalog review profile requires --runtime aks")
@@ -253,6 +255,8 @@ def _provision_azure(args: argparse.Namespace) -> int:
         path is not None for path in foundation_adoption_paths
     ):
         raise ValueError("Foundation adoption requires both retained directories")
+    if args.control_package is not None and args.offline_kit is None:
+        raise ValueError("--control-package requires --offline-kit")
     if args.source is not None:
         if catalog_review_profile.selected:
             raise ValueError(
@@ -279,7 +283,7 @@ def _provision_azure(args: argparse.Namespace) -> int:
                 installation_options=(
                     InstallationOptions(
                         setup_cost_ceiling=args.setup_cost_ceiling,
-                        console_access=args.console_access or "public-https-entra",
+                        console_access=args.console_access or "none",
                         allow_dedicated_identities=args.allow_dedicated_identities,
                         cleanup_temporary_resources=args.cleanup_temporary_resources,
                     )
@@ -348,6 +352,7 @@ def _provision_azure(args: argparse.Namespace) -> int:
             adopt_foundation_directory=adoption_path(args.adopt_foundation_directory),
             adopt_foundation_recovery_directory=adoption_path(args.adopt_foundation_recovery),
             catalog_review_profile=catalog_review_profile,
+            control_package=adoption_path(args.control_package),
         )
         if result.get("deployment_ready") is not True:
             raise ValueError("standalone deployment did not return verified deployment readiness")

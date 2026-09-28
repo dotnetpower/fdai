@@ -15,9 +15,8 @@ from fdai.composition import (
     bind_azure_decision_evidence_admission,
     bind_decision_evidence_admission,
 )
-from fdai.composition.readiness import (
-    build_operational_readiness_event_handler,
-)
+from fdai.composition.operational_evidence_binding import bind_operational_evidence
+from fdai.composition.readiness import build_operational_readiness_event_handler
 from fdai.composition.readiness_catalog import load_runtime_best_practice_bindings
 from fdai.core.chaos.symptom_index import build_from_promoted
 from fdai.core.licensing import LicenseEntitlementAuthority
@@ -28,18 +27,13 @@ from fdai.delivery.repo_assets import repo_asset_root
 from fdai.delivery.runtime_settings import RuntimeSettingsService
 from fdai.delivery.startup_probe import OpaCompileStartupProbe
 from fdai.runtime import bootstrap_core_model, bootstrap_incidents
+from fdai.runtime import product_profile as _product_profile
 from fdai.runtime.blast_probe import bind_live_blast_probe_failure_streak
-from fdai.runtime.bootstrap_bindings import (
-    build_effect_reconciliation_request_binding as _build_effect_reconciliation_request_binding,
-)
 from fdai.runtime.bootstrap_bindings import (
     build_effect_reconciliation_worker as _build_effect_reconciliation_worker,
 )
 from fdai.runtime.bootstrap_bindings import (
     build_runtime_workload_identity as _build_runtime_workload_identity,
-)
-from fdai.runtime.bootstrap_bindings import (
-    build_vertical_execution_identities as _build_vertical_execution_identities,
 )
 from fdai.runtime.bootstrap_hil import (
     build_hil_workflow_registry as _build_hil_workflow_registry,
@@ -117,9 +111,6 @@ from fdai.runtime.stewardship_governance import (
     StewardshipGovernanceWorker,
     build_stewardship_governance_worker,
 )
-from fdai.runtime.stewardship_identity_health import (
-    build_stewardship_identity_health_worker,
-)
 from fdai.runtime.stewardship_merge_effects import StewardshipMergeEffectsWorker
 from fdai.runtime.task_workers import bind_task_workers
 from fdai.runtime.venue import ExecutionVenue, resolve_execution_venue
@@ -166,20 +157,22 @@ async def build_core_runtime(
                 metric_whitelist=plan.diagnostic_metric_whitelist,
             ),
         )
-    gitops_delivery_requested = github_credentials_configured(environment)
+    product_selection = _product_profile.RuntimeProductSelection.from_profile(plan.product_profile)
+    gitops_delivery_requested = (
+        product_selection.governed_execution and github_credentials_configured(environment)
+    )
     if (
-        plan.requires_channel_http_client or gitops_delivery_requested
+        plan.requires_channel_http_client
+        or gitops_delivery_requested
+        or environment.get("FDAI_OPERATIONAL_EVIDENCE_ENABLED", "").strip() == "1"
     ) and resources.http_client is None:
         resources.http_client = _new_http_client()
-    hil_identity = None
-    if environment.get("FDAI_TEAMS_APPROVAL_ACTIVITY_URL", "").strip():
-        if resources.http_client is None:  # pragma: no cover - guarded by the bootstrap plan
-            raise RuntimeError("Teams approval Bot delivery requires an HTTP client")
-        hil_identity = _build_runtime_workload_identity(
-            resources.http_client,
-            client_id_env="FDAI_TEAMS_BOT_MI_CLIENT_ID",
-            require_client_id=True,
-        )
+    hil_identity = _product_profile.build_hil_identity(
+        product_selection,
+        environment=environment,
+        resources=resources,
+        identity_builder=_build_runtime_workload_identity,
+    )
     if plan.github_change_feed_enabled and resources.http_client is not None:
         container = _attach_runtime_github_change_feed(
             container,
@@ -206,8 +199,7 @@ async def build_core_runtime(
         identity=identity,
     )
     decision_evidence_container_url = environment.get(
-        "FDAI_DECISION_EVIDENCE_CONTAINER_URL",
-        "",
+        "FDAI_DECISION_EVIDENCE_CONTAINER_URL", ""
     ).strip()
     if decision_evidence_container_url:
         if identity is None:
@@ -227,6 +219,7 @@ async def build_core_runtime(
         )
     else:
         container = bind_decision_evidence_admission(container, state_store=state_store)
+    container = bind_operational_evidence(container, environment, resources.http_client)
     stewardship_governance_worker: StewardshipGovernanceWorker | None = None
     stewardship_merge_effects_worker: StewardshipMergeEffectsWorker | None = None
     scoped_publisher = None
@@ -286,7 +279,8 @@ async def build_core_runtime(
         merge_worker=stewardship_merge_effects_worker,
         resource_lock=_build_resource_lock,
     )
-    stewardship_identity_health_worker = build_stewardship_identity_health_worker(
+    stewardship_identity_health_worker = _product_profile.build_stewardship_identity_health(
+        product_selection,
         store=state_store,
         http_client=resources.http_client,
         identity=identity,
@@ -426,7 +420,8 @@ async def build_core_runtime(
             "graph_dynamic_runtime_unavailable",
             extra={"reason": "graph_evidence_prerequisites_absent"},
         )
-    effect_request_binding = _build_effect_reconciliation_request_binding(
+    effect_request_binding = _product_profile.build_effect_reconciliation_binding(
+        product_selection,
         state_store=state_store,
         event_bus=messaging.bus,
         artifact_source=container.executed_action_reconciliation_artifact_source,
@@ -455,10 +450,13 @@ async def build_core_runtime(
         symptom_index=symptom_index,
         identity=identity,
         hil_identity=hil_identity,
-        execution_identities=_build_vertical_execution_identities(
+        execution_identities=_product_profile.build_vertical_execution_identities(
+            product_selection,
             http_client=resources.http_client,
         ),
-        direct_api_execution_port=resources.isolated_executor_client,
+        direct_api_execution_port=(
+            resources.isolated_executor_client if product_selection.governed_execution else None
+        ),
         response_outcome_sink=relay_response_outcome,
         effect_reconciliation_request_sink=(
             effect_request_binding.producer if effect_request_binding is not None else None
@@ -650,6 +648,7 @@ async def build_core_runtime(
         registered_specs=(*container.startup_probe_specs, *semantic.readiness_specs),
         registered_probes=(*container.startup_probes, *semantic.readiness_probes),
         decision_evidence=container.decision_evidence_admission_provider,
+        ingest_topics=(container.config.kafka.topic_events,),
     )
     startup_report = await readiness.evaluate()
     _LOGGER.info(
@@ -682,6 +681,7 @@ async def build_core_runtime(
         identity=identity,
         runtime_values=runtime_values,
         readiness=readiness.state,
+        product_profile=plan.product_profile,
     )
     resources.pantheon = await initialize_pantheon(
         PantheonInitialization(

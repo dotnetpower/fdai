@@ -449,3 +449,286 @@ def test_reconciliation_plan_accepts_only_legacy_normalization() -> None:
     ][2]["sub_path"] = "unexpected"
     with pytest.raises(ValueError, match="workload contract"):
         validate_reconciliation_plan(unsafe_subpath, variables=variables)
+
+
+def test_reconciled_variables_mount_the_bridge_for_bridged_scheduled_jobs() -> None:
+    original = _variables()
+    original["scheduled_jobs"] = {
+        "analyzer": {
+            "command": ["/app/.venv/bin/python"],
+            "args": ["/opt/fdai-compat/identity_bridge.py", "--", "python", "-m", "fdai.x"],
+        },
+        "catalog-review": {"command": ["python", "-m", "fdai.y"], "args": []},
+    }
+
+    result = reconciled_variables(state=_state(), variables=original, live=_live())
+
+    assert result["scheduled_jobs"]["analyzer"]["identity_bridge_enabled"] is True
+    assert "identity_bridge_enabled" not in result["scheduled_jobs"]["catalog-review"]
+    assert "identity_bridge_enabled" not in original["scheduled_jobs"]["analyzer"]
+
+    original["scheduled_jobs"]["analyzer"]["identity_bridge_enabled"] = False
+    with pytest.raises(ValueError, match="scheduled job identity bridge"):
+        reconciled_variables(state=_state(), variables=original, live=_live())
+
+
+def _workload_with_environment(name: str, entries: list[dict[str, object]]) -> dict[str, object]:
+    workload = _terraform_workload(name, legacy=False)
+    container = workload["spec"][0]["template"][0]["spec"][0]["container"][0]
+    container["env"] = entries
+    return workload
+
+
+def _single_workload_plan(
+    name: str, before: dict[str, object], after: dict[str, object]
+) -> dict[str, object]:
+    return {
+        "errored": False,
+        "applyable": True,
+        "resource_changes": [
+            {
+                "address": (
+                    "azurerm_federated_identity_credential.identity["
+                    '"workload-operator-service-command"]'
+                ),
+                "change": {"actions": ["no-op"], "before": {}, "after": {}},
+            },
+            {
+                "address": f'kubernetes_deployment_v1.workload["{name}"]',
+                "change": {"actions": ["update"], "before": before, "after": after},
+            },
+        ],
+    }
+
+
+def test_plan_ignores_environment_order_and_unset_literal_representation() -> None:
+    variables = reconciled_variables(state=_state(), variables=_variables(), live=_live())
+    name = sorted(SERVICES)[0]
+    secret_binding = [{"secret_key_ref": [{"key": "DSN", "name": name}]}]
+    before = _workload_with_environment(
+        name,
+        [
+            {"name": "B_TOPIC", "value": "events"},
+            {"name": "A_HOST", "value": "host:9093"},
+            {"name": "DSN", "value": "", "value_from": secret_binding},
+        ],
+    )
+    after = _workload_with_environment(
+        name,
+        [
+            {"name": "A_HOST", "value": "host:9093"},
+            {"name": "B_TOPIC", "value": "events"},
+            {"name": "DSN", "value": None, "value_from": secret_binding},
+        ],
+    )
+
+    validate_reconciliation_plan(_single_workload_plan(name, before, after), variables=variables)
+
+
+def test_plan_still_rejects_a_real_environment_change() -> None:
+    variables = reconciled_variables(state=_state(), variables=_variables(), live=_live())
+    name = sorted(SERVICES)[0]
+    before = _workload_with_environment(name, [{"name": "A_HOST", "value": "host:9093"}])
+    after = _workload_with_environment(name, [{"name": "A_HOST", "value": "other:9093"}])
+
+    with pytest.raises(ValueError, match="changes a workload contract"):
+        validate_reconciliation_plan(
+            _single_workload_plan(name, before, after), variables=variables
+        )
+
+
+def test_plan_preserves_order_when_a_value_interpolates_another_variable() -> None:
+    variables = reconciled_variables(state=_state(), variables=_variables(), live=_live())
+    name = sorted(SERVICES)[0]
+    entries = [
+        {"name": "B_BASE", "value": "host"},
+        {"name": "A_URL", "value": "https://$(B_BASE)/api"},
+    ]
+    before = _workload_with_environment(name, entries)
+    after = _workload_with_environment(name, list(reversed(entries)))
+
+    with pytest.raises(ValueError, match="changes a workload contract"):
+        validate_reconciliation_plan(
+            _single_workload_plan(name, before, after), variables=variables
+        )
+
+
+def _secret_provider(entries: list[tuple[str, str]]) -> dict[str, object]:
+    array = "".join(
+        f'- |\n  "objectName": "{object_name}"\n  "objectType": "secret"\n'
+        for _key, object_name in entries
+    )
+    return {
+        "object": {
+            "spec": {
+                "parameters": {"objects": '"array":\n' + array},
+                "secretObjects": [
+                    {
+                        "data": [
+                            {"key": key, "objectName": object_name} for key, object_name in entries
+                        ]
+                    }
+                ],
+            }
+        }
+    }
+
+
+def test_plan_ignores_secret_provider_entry_order() -> None:
+    variables = reconciled_variables(state=_state(), variables=_variables(), live=_live())
+    name = sorted(SERVICES)[0]
+    entries = [("DSN", "fdai-state-store-dsn"), ("INSIGHTS", "fdai-insights")]
+    plan = {
+        "errored": False,
+        "applyable": True,
+        "resource_changes": [
+            {
+                "address": (
+                    "azurerm_federated_identity_credential.identity["
+                    '"workload-operator-service-command"]'
+                ),
+                "change": {"actions": ["no-op"], "before": {}, "after": {}},
+            },
+            {
+                "address": f'kubernetes_manifest.workload_secret_provider["{name}"]',
+                "change": {
+                    "actions": ["update"],
+                    "before": _secret_provider(entries),
+                    "after": _secret_provider(list(reversed(entries))),
+                },
+            },
+        ],
+    }
+
+    validate_reconciliation_plan(plan, variables=variables)
+
+
+def test_plan_rejects_a_removed_secret_binding() -> None:
+    variables = reconciled_variables(state=_state(), variables=_variables(), live=_live())
+    name = sorted(SERVICES)[0]
+    entries = [("DSN", "fdai-state-store-dsn"), ("INSIGHTS", "fdai-insights")]
+    plan = {
+        "errored": False,
+        "applyable": True,
+        "resource_changes": [
+            {
+                "address": (
+                    "azurerm_federated_identity_credential.identity["
+                    '"workload-operator-service-command"]'
+                ),
+                "change": {"actions": ["no-op"], "before": {}, "after": {}},
+            },
+            {
+                "address": f'kubernetes_manifest.workload_secret_provider["{name}"]',
+                "change": {
+                    "actions": ["update"],
+                    "before": _secret_provider(entries),
+                    "after": _secret_provider(entries[:1]),
+                },
+            },
+        ],
+    }
+
+    with pytest.raises(ValueError, match="changes a secret binding"):
+        validate_reconciliation_plan(plan, variables=variables)
+
+
+def _secret_provider_resource(
+    manifest: list[tuple[str, str]], live: list[tuple[str, str]]
+) -> dict[str, object]:
+    return {
+        "manifest": _secret_provider(manifest)["object"],
+        "object": _secret_provider(live)["object"],
+    }
+
+
+def test_plan_accepts_a_recorded_manifest_catching_up_to_the_live_object() -> None:
+    variables = reconciled_variables(state=_state(), variables=_variables(), live=_live())
+    name = sorted(SERVICES)[0]
+    entries = [("DSN", "fdai-state-store-dsn"), ("INSIGHTS", "fdai-insights")]
+    plan = {
+        "errored": False,
+        "applyable": True,
+        "resource_changes": [
+            {
+                "address": (
+                    "azurerm_federated_identity_credential.identity["
+                    '"workload-operator-service-command"]'
+                ),
+                "change": {"actions": ["no-op"], "before": {}, "after": {}},
+            },
+            {
+                "address": f'kubernetes_manifest.workload_secret_provider["{name}"]',
+                "change": {
+                    "actions": ["update"],
+                    "before": _secret_provider_resource(entries[:1], entries),
+                    "after": _secret_provider_resource(entries, list(reversed(entries))),
+                },
+            },
+        ],
+    }
+
+    validate_reconciliation_plan(plan, variables=variables)
+
+
+def test_plan_rejects_an_unknown_effective_secret_object() -> None:
+    variables = reconciled_variables(state=_state(), variables=_variables(), live=_live())
+    name = sorted(SERVICES)[0]
+    entries = [("DSN", "fdai-state-store-dsn")]
+    plan = {
+        "errored": False,
+        "applyable": True,
+        "resource_changes": [
+            {
+                "address": (
+                    "azurerm_federated_identity_credential.identity["
+                    '"workload-operator-service-command"]'
+                ),
+                "change": {"actions": ["no-op"], "before": {}, "after": {}},
+            },
+            {
+                "address": f'kubernetes_manifest.workload_secret_provider["{name}"]',
+                "change": {
+                    "actions": ["update"],
+                    "before": _secret_provider_resource(entries, entries),
+                    "after": {"manifest": _secret_provider(entries)["object"], "object": None},
+                },
+            },
+        ],
+    }
+
+    with pytest.raises(ValueError, match="changes a secret binding"):
+        validate_reconciliation_plan(plan, variables=variables)
+
+
+def test_plan_ignores_an_explicit_false_optional_on_a_secret_reference() -> None:
+    variables = reconciled_variables(state=_state(), variables=_variables(), live=_live())
+    name = sorted(SERVICES)[0]
+    before = _workload_with_environment(
+        name,
+        [{"name": "DSN", "value_from": [{"secret_key_ref": [{"key": "DSN", "optional": False}]}]}],
+    )
+    after = _workload_with_environment(
+        name,
+        [{"name": "DSN", "value_from": [{"secret_key_ref": [{"key": "DSN", "optional": None}]}]}],
+    )
+
+    validate_reconciliation_plan(_single_workload_plan(name, before, after), variables=variables)
+
+
+def test_plan_rejects_a_secret_reference_that_becomes_optional() -> None:
+    variables = reconciled_variables(state=_state(), variables=_variables(), live=_live())
+    name = sorted(SERVICES)[0]
+    before = _workload_with_environment(
+        name,
+        [{"name": "DSN", "value_from": [{"secret_key_ref": [{"key": "DSN", "optional": False}]}]}],
+    )
+    after = _workload_with_environment(
+        name,
+        [{"name": "DSN", "value_from": [{"secret_key_ref": [{"key": "DSN", "optional": True}]}]}],
+    )
+
+    with pytest.raises(ValueError, match="changes a workload contract"):
+        validate_reconciliation_plan(
+            _single_workload_plan(name, before, after), variables=variables
+        )

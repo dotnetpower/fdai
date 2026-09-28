@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import copy
+import json
 import re
 from typing import Any
 
@@ -21,6 +22,7 @@ _INVENTORY_RESOURCES = {
     "kubernetes_cluster_role_binding_v1.inventory_reader[0]",
 }
 _JOBS = {"analyzer", "canary", "inventory", "observation-campaign"}
+_BRIDGE_SCRIPT = "/opt/fdai-compat/identity_bridge.py"
 _EXTERNAL_SERVICES = {"core-control-plane", "document-processing-worker", "isolated-executor"}
 _LEGACY_RUNTIME_COMMANDS = {
     "core-control-plane": (
@@ -93,6 +95,16 @@ def reconciled_variables(
         if workload.get("identity_bridge_enabled") not in (None, True):
             raise ValueError(f"historical AKS {name} identity bridge binding differs")
         workload["identity_bridge_enabled"] = True
+
+    jobs = _mapping(result.get("scheduled_jobs", {}), "historical AKS scheduled jobs")
+    for name, job_value in jobs.items():
+        job = _mapping(job_value, f"historical AKS {name} scheduled job")
+        arguments = job.get("args") or []
+        if list(arguments[:2]) != [_BRIDGE_SCRIPT, "--"]:
+            continue
+        if job.get("identity_bridge_enabled") not in (None, True):
+            raise ValueError(f"historical AKS {name} scheduled job identity bridge binding differs")
+        job["identity_bridge_enabled"] = True
 
     operator = _mapping(workloads.get("operator-service"), "operator workload")
     operator_live = deployments["operator-service"]
@@ -220,6 +232,11 @@ def validate_reconciliation_plan(
         if job is not None and job in _JOBS and actions == ["update"]:
             if _normalized_cron_job(before) != _normalized_cron_job(after):
                 raise ValueError("historical AKS reconciliation changes a scheduled job contract")
+            continue
+        provider = _indexed_name(address, "kubernetes_manifest.workload_secret_provider")
+        if provider is not None and provider in SERVICES and actions == ["update"]:
+            if not _effective_secret_binding_unchanged(before, after):
+                raise ValueError("historical AKS reconciliation changes a secret binding")
             continue
         service = _indexed_name(address, "kubernetes_service_v1.workload")
         if service is not None and service in _EXTERNAL_SERVICES and actions == ["update"]:
@@ -457,6 +474,130 @@ def _normalized_cron_job(value: dict[str, Any]) -> dict[str, Any]:
     return result
 
 
+def _normalize_container_environment(container: dict[str, Any]) -> None:
+    """Compare environment by name and binding, not by Terraform list order.
+
+    Kubernetes resolves ``$(VAR)`` references in declaration order, so ordering is only
+    incidental while no value uses that syntax. When one does, the order is preserved and a
+    reordering stays a real contract change. Terraform also records an unset literal as ``""``
+    in state and ``None`` in a plan for the same secret-backed entry; both mean "no literal".
+    """
+
+    entries = container.get("env")
+    if not isinstance(entries, list):
+        return
+    normalized: list[Any] = []
+    interpolated = False
+    for entry in entries:
+        if not isinstance(entry, dict):
+            normalized.append(entry)
+            continue
+        item = copy.deepcopy(entry)
+        value = item.get("value")
+        if isinstance(value, str) and "$(" in value:
+            interpolated = True
+        if value in (None, ""):
+            item.pop("value", None)
+        for source in (
+            item.get("value_from", []) if isinstance(item.get("value_from"), list) else []
+        ):
+            if not isinstance(source, dict):
+                continue
+            for refs in source.values():
+                if not isinstance(refs, list):
+                    continue
+                for ref in refs:
+                    if isinstance(ref, dict) and not ref.get("optional"):
+                        ref.pop("optional", None)
+        normalized.append(item)
+    if interpolated:
+        container["env"] = normalized
+        return
+    container["env"] = sorted(
+        normalized,
+        key=lambda item: item.get("name", "") if isinstance(item, dict) else "",
+    )
+
+
+def _sorted_block_array(document: str) -> str:
+    """Order a generated ``yamlencode`` array so entry order stops being a difference.
+
+    Terraform renders the array from a map, so its order follows the map key order while a
+    live object can retain an older order. Only the recognized ``key:`` header followed by
+    ``- `` entries is reordered; any other shape is returned unchanged so a real difference
+    still fails.
+    """
+
+    lines = document.splitlines(keepends=True)
+    start = next((index for index, line in enumerate(lines) if line.startswith("- ")), None)
+    if start is None:
+        return document
+    header = lines[:start]
+    blocks: list[list[str]] = []
+    for line in lines[start:]:
+        if line.startswith("- "):
+            blocks.append([line])
+        elif blocks and (line.startswith((" ", "\t")) or not line.strip()):
+            blocks[-1].append(line)
+        else:
+            return document
+    return "".join(header) + "".join("".join(block) for block in sorted("".join(b) for b in blocks))
+
+
+def normalized_secret_provider(value: dict[str, Any]) -> dict[str, Any]:
+    """Compare a workload SecretProviderClass by its bindings, not by generated order."""
+
+    result = copy.deepcopy(value)
+    spec = result.get("object", {})
+    spec = spec.get("spec") if isinstance(spec, dict) else None
+    if not isinstance(spec, dict):
+        return result
+    secret_objects = spec.get("secretObjects")
+    if isinstance(secret_objects, list):
+        for entry in secret_objects:
+            if not isinstance(entry, dict):
+                continue
+            data = entry.get("data")
+            if isinstance(data, list):
+                entry["data"] = sorted(data, key=lambda item: json.dumps(item, sort_keys=True))
+    parameters = spec.get("parameters")
+    if isinstance(parameters, dict) and isinstance(parameters.get("objects"), str):
+        parameters["objects"] = _sorted_block_array(parameters["objects"])
+    return result
+
+
+def _effective_secret_binding_unchanged(before: object, after: object) -> bool:
+    """Compare the effective SecretProviderClass, not Terraform's recorded manifest.
+
+    ``kubernetes_manifest`` records both the configured ``manifest`` and the ``object`` the
+    cluster holds. A recorded manifest can lag behind an object that already carries a binding,
+    and correcting it removes nothing. Only an effective change matters here, so an absent or
+    unknown object fails closed.
+    """
+
+    if not isinstance(before, dict) or not isinstance(after, dict):
+        return False
+    prior = before.get("object")
+    planned = after.get("object")
+    if not isinstance(prior, dict) or not isinstance(planned, dict):
+        return False
+    return normalized_secret_provider({"object": prior}) == normalized_secret_provider(
+        {"object": planned}
+    )
+
+
+def secret_binding_reordered(address: str, change: object) -> bool:
+    """Report a workload SecretProviderClass update that only reorders the same bindings."""
+
+    match = re.fullmatch(r'kubernetes_manifest[.]workload_secret_provider\["([^"\\]+)"\]', address)
+    if match is None or match.group(1) not in SERVICES:
+        return False
+    detail = change if isinstance(change, dict) else {}
+    if detail.get("actions") != ["update"]:
+        return False
+    return _effective_secret_binding_unchanged(detail.get("before"), detail.get("after"))
+
+
 def _normalize_template(template: dict[str, Any]) -> None:
     metadata = _mapping(template.get("metadata", [{}])[0], "planned Pod metadata")
     annotations = metadata.get("annotations")
@@ -489,6 +630,7 @@ def _normalize_template(template: dict[str, Any]) -> None:
             security = item.get("security_context")
             if isinstance(security, list) and len(security) == 1 and isinstance(security[0], dict):
                 security[0].pop("run_as_non_root", None)
+            _normalize_container_environment(item)
             mounts = item.get("volume_mount")
             if isinstance(mounts, list):
                 item["volume_mount"] = [

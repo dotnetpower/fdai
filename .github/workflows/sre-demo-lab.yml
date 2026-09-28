@@ -270,7 +270,7 @@ jobs:
             echo "recreate-aks requires the exact confirm_aks_recreation value." >&2
             exit 1
           fi
-          for command_name in az helm jq kubectl kubelogin terraform timeout; do
+          for command_name in az helm jq kubectl kubelogin python3 terraform timeout; do
             command -v "$command_name" >/dev/null 2>&1 || {
               echo "required runner command is unavailable: $command_name" >&2
               exit 1
@@ -554,10 +554,8 @@ jobs:
           suffix="fdai-sre-lab-${TF_VAR_region_short}"
           operator_vnet_name="$(jq -er '.vnet_name' <<<"$TF_VAR_operator_access")"
           operator_vnet_rg="$(jq -er '.vnet_resource_group_name' <<<"$TF_VAR_operator_access")"
-          mysql_zone_name="$(terraform show -json | jq -er '
-            .. | objects |
-            select(.address? == "azurerm_private_dns_zone.mysql") |
-            .values.name
+          mysql_zone_name="$(terraform state pull | jq -c -f "$GITHUB_WORKSPACE/scripts/deployment/scenario-lab/state-instances.jq" | jq -s -er '
+            .[] | select(.address == "azurerm_private_dns_zone.mysql") | .attributes.name
           ' | head -n 1)"
           terraform state list >"$state_list"
 
@@ -610,12 +608,11 @@ jobs:
           set -euo pipefail
           link_state="$RUNNER_TEMP/sre-demo-lab-dns-links-state.tsv"
           link_ids="$RUNNER_TEMP/sre-demo-lab-dns-link-ids.txt"
-          terraform show -json | jq -r '
-            .. | objects |
-            select(.type? == "azurerm_private_dns_zone_virtual_network_link") |
-            select(.address? | test("^(azurerm_private_dns_zone_virtual_network_link\\.(mysql_(lab|runner|operator)|openai_lab)(\\[0\\])?|module\\.azure_openai_private_endpoint\\.azurerm_private_dns_zone_virtual_network_link\\.(this|extra)(\\[.*\\])?)$")) |
-            select(.values.id? | type == "string") |
-            [.address, .values.id] | @tsv
+          terraform state pull | jq -c -f "$GITHUB_WORKSPACE/scripts/deployment/scenario-lab/state-instances.jq" | jq -r '
+            select(.type == "azurerm_private_dns_zone_virtual_network_link") |
+            select(.address | test("^(azurerm_private_dns_zone_virtual_network_link\\.(mysql_(lab|runner|operator)|openai_lab)(\\[0\\])?|module\\.azure_openai_private_endpoint\\.azurerm_private_dns_zone_virtual_network_link\\.(this|extra)(\\[.*\\])?)$")) |
+            select(.attributes.id? | type == "string") |
+            [.address, .attributes.id] | @tsv
           ' >"$link_state"
           cut -f2 "$link_state" >"$link_ids"
           link_delete_count="$(wc -l <"$link_state")"
@@ -644,6 +641,94 @@ jobs:
               terraform state rm -lock-timeout=5m "$address" >/dev/null
             fi
           done
+
+      - name: Adopt retained scenario-lab compute and data
+        if: >-
+          inputs.action == 'plan' ||
+          inputs.action == 'apply' ||
+          inputs.action == 'recreate-aks'
+        id: retained-adoption
+        run: |
+          set -euo pipefail
+          umask 077
+          adoption_state_list="$RUNNER_TEMP/sre-demo-lab-adoption-state-list.txt"
+          terraform state list >"$adoption_state_list"
+          mysql_zone_name="$(terraform state pull | jq -c -f "$GITHUB_WORKSPACE/scripts/deployment/scenario-lab/state-instances.jq" | jq -r '
+            select(.address == "azurerm_private_dns_zone.mysql") | .attributes.name
+          ' | head -n 1)"
+          python3 "$GITHUB_WORKSPACE/scripts/deployment/scenario-lab/adopt_retained_resources.py" \
+            --state-addresses "$adoption_state_list" \
+            --output retained-adoption.generated.tf \
+            --mysql-zone-name "$mysql_zone_name" \
+            --github-output "$GITHUB_OUTPUT" \
+            --subscription-id "$ARM_SUBSCRIPTION_ID" \
+            --resource-group "$SCENARIO_LAB_RESOURCE_GROUP_NAME" \
+            --region-short "$TF_VAR_region_short" \
+            --runner-principal-id "$DEPLOY_RUNNER_PRINCIPAL_ID"
+
+      - name: Start retained scenario-lab compute and data
+        if: inputs.action == 'apply' || inputs.action == 'recreate-aks'
+        env:
+          MYSQL_SERVER_NAME: ${{ steps.retained-adoption.outputs.mysql_server_name }}
+        run: |
+          set -euo pipefail
+          resource_group="$SCENARIO_LAB_RESOURCE_GROUP_NAME"
+          cluster_name="aks-store-demo"
+          aks_count="$(az resource list --resource-group "$resource_group" \
+            --resource-type Microsoft.ContainerService/managedClusters --name "$cluster_name" \
+            --query 'length(@)' --output tsv --only-show-errors)"
+          if [[ "$aks_count" == "1" ]]; then
+            power_state="$(az aks show --name "$cluster_name" --resource-group "$resource_group" \
+              --query powerState.code --output tsv --only-show-errors)"
+            case "$power_state" in
+              Running) ;;
+              Stopped)
+                : >"$RUNNER_TEMP/sre-demo-lab-aks-started-by-run"
+                timeout 900 az aks start --name "$cluster_name" --resource-group "$resource_group" \
+                  --output none --only-show-errors
+                ;;
+              *)
+                echo "scenario-lab apply requires a Running or Stopped AKS cluster." >&2
+                exit 1
+                ;;
+            esac
+            [[ "$(az aks show --name "$cluster_name" --resource-group "$resource_group" \
+              --query powerState.code --output tsv --only-show-errors)" == "Running" ]] || {
+                echo "scenario-lab AKS cluster did not reach Running." >&2
+                exit 1
+              }
+          fi
+          [[ -z "$MYSQL_SERVER_NAME" ]] && exit 0
+          [[ "$MYSQL_SERVER_NAME" =~ ^mysql-fdai-sre-[0-9a-f]{6}$ ]] || {
+            echo "scenario-lab MySQL server name does not match the recorded private DNS zone." >&2
+            exit 1
+          }
+          mysql_count="$(az resource list --resource-group "$resource_group" \
+            --resource-type Microsoft.DBforMySQL/flexibleServers --name "$MYSQL_SERVER_NAME" \
+            --query 'length(@)' --output tsv --only-show-errors)"
+          [[ "$mysql_count" == "1" ]] || exit 0
+          mysql_state="$(az mysql flexible-server show --resource-group "$resource_group" \
+            --name "$MYSQL_SERVER_NAME" --query state --output tsv --only-show-errors)"
+          case "$mysql_state" in
+            Ready) ;;
+            Stopped)
+              # A stopped flexible server rejects parameter reads, which blocks every later
+              # refreshed plan, so the approved apply leaves the started server Ready.
+              timeout 900 az mysql flexible-server start --resource-group "$resource_group" \
+                --name "$MYSQL_SERVER_NAME" --output none --only-show-errors
+              echo "Started the scenario-lab MySQL server; it remains Ready after this run." \
+                >>"$GITHUB_STEP_SUMMARY"
+              ;;
+            *)
+              echo "scenario-lab apply requires a Ready or Stopped MySQL server." >&2
+              exit 1
+              ;;
+          esac
+          [[ "$(az mysql flexible-server show --resource-group "$resource_group" \
+            --name "$MYSQL_SERVER_NAME" --query state --output tsv --only-show-errors)" == "Ready" ]] || {
+              echo "scenario-lab MySQL server did not reach Ready." >&2
+              exit 1
+            }
 
       - name: Build bounded plan
         env:
@@ -744,10 +829,20 @@ jobs:
           create_count="$(jq '[.resource_changes[]? | select(.change.actions == ["create"])] | length' "$RUNNER_TEMP/sre-demo-lab-plan.json")"
           update_count="$(jq '[.resource_changes[]? | select(.change.actions == ["update"])] | length' "$RUNNER_TEMP/sre-demo-lab-plan.json")"
           delete_count="$(jq '[.resource_changes[]? | select(.change.actions | index("delete"))] | length' "$RUNNER_TEMP/sre-demo-lab-plan.json")"
+          import_count="$(jq '[.resource_changes[]? | select(.change.importing != null)] | length' "$RUNNER_TEMP/sre-demo-lab-plan.json")"
+          scope_case_replacements="$(jq -c \
+            -f "$GITHUB_WORKSPACE/scripts/deployment/scenario-lab/scope-case-replacements.jq" \
+            "$RUNNER_TEMP/sre-demo-lab-plan.json")"
+          scope_case_count="$(jq 'length' <<<"$scope_case_replacements")"
           printf 'Scenario lab plan: %s create, %s update, %s delete or replace.\n' \
             "$create_count" "$update_count" "$delete_count"
+          printf 'Scenario lab adoption: %s import, %s scope-case replacement.\n' \
+            "$import_count" "$scope_case_count"
           jq -r '.resource_changes[]? | "\(.change.actions | join("+"))\t\(.address)"' \
             "$RUNNER_TEMP/sre-demo-lab-plan.json"
+          jq -r '.resource_changes[]? | select(.change.importing != null) | "import\t\(.address)"' \
+            "$RUNNER_TEMP/sre-demo-lab-plan.json"
+          jq -r '.[] | "scope-case-replacement\t\(.)"' <<<"$scope_case_replacements"
           jq -r '
             def scalar_paths: [paths(scalars)];
             .resource_changes[]? |
@@ -766,7 +861,7 @@ jobs:
             (.change.replace_paths // [])[]? |
             "replace-path\t\($address)\t\(map(tostring) | join("."))"
           ' "$RUNNER_TEMP/sre-demo-lab-plan.json"
-          if [[ "$REQUESTED_ACTION" == "apply" && "$delete_count" -ne 0 ]]; then
+          if [[ "$REQUESTED_ACTION" == "apply" && "$((delete_count - scope_case_count))" -ne 0 ]]; then
             echo "apply refuses delete or replacement actions; use plan for review, then explicit destroy." >&2
             exit 1
           fi
@@ -884,38 +979,24 @@ jobs:
           fi
           echo "scenario-lab Terraform apply completed."
 
-      - name: Start stopped AKS sweep target
-        if: inputs.action == 'apply' && inputs.run_reference_sweep
+      - name: Verify running AKS target
+        if: inputs.action == 'apply' || inputs.action == 'recreate-aks'
         working-directory: infra/scenario-lab
         run: |
           set -euo pipefail
           cluster_name="$(terraform output -raw aks_cluster_name)"
           resource_group="$(terraform output -raw resource_group_name)"
           [[ "$cluster_name" == "aks-store-demo" ]] || {
-            echo "reference sweep requires the exact disposable AKS cluster." >&2
+            echo "scenario-lab apply requires the exact disposable AKS cluster." >&2
             exit 1
           }
           [[ "$resource_group" == "$SCENARIO_LAB_RESOURCE_GROUP_NAME" ]] || {
-            echo "reference sweep resource group does not match the protected scope." >&2
+            echo "scenario-lab AKS resource group does not match the protected scope." >&2
             exit 1
           }
-          power_state="$(az aks show --name "$cluster_name" --resource-group "$resource_group" \
-            --query powerState.code --output tsv --only-show-errors)"
-          case "$power_state" in
-            Running) ;;
-            Stopped)
-              : >"$RUNNER_TEMP/sre-demo-lab-aks-started-by-run"
-              timeout 900 az aks start --name "$cluster_name" --resource-group "$resource_group" \
-                --output none --only-show-errors
-              ;;
-            *)
-              echo "reference sweep requires a Running or Stopped AKS cluster." >&2
-              exit 1
-              ;;
-          esac
           [[ "$(az aks show --name "$cluster_name" --resource-group "$resource_group" \
             --query powerState.code --output tsv --only-show-errors)" == "Running" ]] || {
-              echo "reference sweep AKS cluster did not reach Running." >&2
+              echo "scenario-lab AKS cluster is not Running after apply." >&2
               exit 1
             }
 
@@ -941,6 +1022,50 @@ jobs:
           store_front_url="$(<"$store_front_url_file")"
           printf 'store_front_url=%s\n' "$store_front_url" >>"$GITHUB_OUTPUT"
           printf 'AKS Store Demo: %s\n' "$store_front_url" >>"$GITHUB_STEP_SUMMARY"
+
+      - name: Retain AKS Store Demo readback
+        if: inputs.action == 'apply' || inputs.action == 'recreate-aks'
+        id: store-demo-readback
+        working-directory: ${{ github.workspace }}
+        env:
+          STORE_FRONT_URL: ${{ steps.prepare.outputs.store_front_url }}
+          TARGET_COMMIT_SHA: ${{ inputs.commit_sha }}
+        run: |
+          set -euo pipefail
+          evidence="$RUNNER_TEMP/sre-demo-lab-store-demo-readback.json"
+          resource_group="$(terraform -chdir=infra/scenario-lab output -raw resource_group_name)"
+          cluster_name="$(terraform -chdir=infra/scenario-lab output -raw aks_cluster_name)"
+          [[ "$cluster_name" == "aks-store-demo" && "$resource_group" == "$SCENARIO_LAB_RESOURCE_GROUP_NAME" ]] || {
+            echo "Store Demo readback target changed." >&2
+            exit 1
+          }
+          KUBECONFIG="$RUNNER_TEMP/sre-demo-lab-runtime/kubeconfig" \
+            python3 scripts/deployment/scenario-lab/readback_store_demo.py \
+            --output "$evidence" \
+            --store-front-url "$STORE_FRONT_URL" \
+            --resource-group "$resource_group" \
+            --cluster-name "$cluster_name" \
+            --source-commit "$TARGET_COMMIT_SHA" \
+            --run-id "$GITHUB_RUN_ID" \
+            --run-attempt "$GITHUB_RUN_ATTEMPT"
+          jq -r '
+            "Store Demo readback: \(.verdict); workloads ready: " +
+            "\([.workloads[] | select(.ready_replicas == .expected_replicas)] | length)/" +
+            "\(.workloads | length); health: \(.store_front.http_health_status)"
+          ' "$evidence" >>"$GITHUB_STEP_SUMMARY"
+
+      - name: Upload AKS Store Demo readback evidence
+        if: >-
+          always() &&
+          steps.protected-source.outcome == 'success' &&
+          (steps.store-demo-readback.outcome == 'success' ||
+          steps.store-demo-readback.outcome == 'failure')
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: sre-demo-lab-store-demo-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/sre-demo-lab-store-demo-readback.json
+          if-no-files-found: warn
+          retention-days: 30
 
       - name: Run approved reference sweep
         if: inputs.action == 'apply' && inputs.run_reference_sweep
@@ -1027,19 +1152,31 @@ jobs:
         if: >-
           always() &&
           steps.protected-source.outcome == 'success' &&
-          inputs.action == 'apply' &&
-          inputs.run_reference_sweep
+          (inputs.action == 'apply' || inputs.action == 'recreate-aks')
         working-directory: infra/scenario-lab
         run: |
           set -euo pipefail
           marker="$RUNNER_TEMP/sre-demo-lab-aks-started-by-run"
           [[ -f "$marker" ]] || exit 0
-          cluster_name="$(terraform output -raw aks_cluster_name)"
-          resource_group="$(terraform output -raw resource_group_name)"
-          [[ "$cluster_name" == "aks-store-demo" && "$resource_group" == "$SCENARIO_LAB_RESOURCE_GROUP_NAME" ]] || {
-            echo "AKS power-state rollback target changed." >&2
-            exit 1
-          }
+          # The start step writes the marker only for this exact cluster, so a failed apply that
+          # never recorded the cluster in state still restores the power state it changed.
+          cluster_name="aks-store-demo"
+          resource_group="$SCENARIO_LAB_RESOURCE_GROUP_NAME"
+          # A timed-out start keeps running in Azure and would reject a stop, so wait for it.
+          readonly settle_deadline=$((SECONDS + 1200))
+          while :; do
+            if state_row="$(az aks show --name "$cluster_name" --resource-group "$resource_group" \
+              --query '[[provisioningState, powerState.code]]' --output tsv --only-show-errors)"; then
+              read -r provisioning_state power_state <<<"$state_row"
+              [[ "$provisioning_state" == "Succeeded" && "$power_state" == "Stopped" ]] && exit 0
+              [[ "$provisioning_state" == "Succeeded" || "$provisioning_state" == "Failed" ]] && break
+            fi
+            ((SECONDS < settle_deadline)) || {
+              echo "AKS power-state rollback timed out waiting for the running operation." >&2
+              exit 1
+            }
+            sleep 30
+          done
           timeout 900 az aks stop --name "$cluster_name" --resource-group "$resource_group" \
             --output none --only-show-errors
           [[ "$(az aks show --name "$cluster_name" --resource-group "$resource_group" \
@@ -1103,10 +1240,9 @@ jobs:
             exit 0
           fi
           print_destroy_diagnostic "$destroy_log"
-          zone_name="$(terraform show -json | jq -er '
-            .. | objects |
-            select(.address? == "module.azure_openai_private_endpoint.azurerm_private_dns_zone.this") |
-            .values.name
+          zone_name="$(terraform state pull | jq -c -f "$GITHUB_WORKSPACE/scripts/deployment/scenario-lab/state-instances.jq" | jq -s -er '
+            .[] | select(.address == "module.azure_openai_private_endpoint.azurerm_private_dns_zone.this") |
+            .attributes.name
           ' | head -n 1)" || {
             echo "scenario-lab Terraform destroy failed; raw output remains runner-local." >&2
             exit 1
@@ -1119,10 +1255,8 @@ jobs:
             echo "scenario-lab DNS recovery refuses a zone with visible VNet links." >&2
             exit 1
           }
-          lab_vnet_id="$(terraform show -json | jq -er '
-            .. | objects |
-            select(.address? == "azurerm_virtual_network.scenario_lab") |
-            .values.id
+          lab_vnet_id="$(terraform state pull | jq -c -f "$GITHUB_WORKSPACE/scripts/deployment/scenario-lab/state-instances.jq" | jq -s -er '
+            .[] | select(.address == "azurerm_virtual_network.scenario_lab") | .attributes.id
           ' | head -n 1)" || {
             echo "scenario-lab DNS recovery requires the Terraform-owned lab VNet." >&2
             exit 1
@@ -1183,6 +1317,9 @@ jobs:
             "$RUNNER_TEMP/sre-demo-lab-apply.log" \
             "$RUNNER_TEMP/sre-demo-lab-destroy.log" \
             "$RUNNER_TEMP/sre-demo-lab-destroy-retry.log" \
+            "$RUNNER_TEMP/sre-demo-lab-adoption-state-list.txt" \
+            "$RUNNER_TEMP/sre-demo-lab-store-demo-readback.json" \
+            "infra/scenario-lab/retained-adoption.generated.tf" \
             "$RUNNER_TEMP/sre-demo-lab-aks-started-by-run"; do
             if [[ -f "$artifact" ]]; then
               shred --force --remove "$artifact"

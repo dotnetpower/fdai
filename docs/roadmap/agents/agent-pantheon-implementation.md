@@ -37,11 +37,13 @@ cross-agent workflow has an independent rollout record in
 | Terminal ActionRun effect-observation path | implemented | [`executed_action_observation.py`](../../../services/core-control-plane/src/fdai/delivery/executed_action_observation.py), [`wire_azure_operational_evidence.py`](../../../services/core-control-plane/src/fdai/composition/wire_azure_operational_evidence.py), [`test_executed_action_observation.py`](../../../services/core-control-plane/tests/delivery/test_executed_action_observation.py) | Heimdall consumes Thor's terminal ActionRun, restores exact pre-dispatch artifacts, and stores only verifier-accepted independent observations. Deployment-owned signed context and live closure evidence remain open. |
 | O7 operational-promotion evidence measurement | implemented | [`operational_promotion.py`](../../../services/core-control-plane/src/fdai/core/measurement/operational_promotion.py), [`operational_promotion_evidence.py`](../../../services/core-control-plane/src/fdai/delivery/measurement/operational_promotion_evidence.py), [`test_operational_promotion_evidence.py`](../../../services/core-control-plane/tests/delivery/test_operational_promotion_evidence.py) | The runner consumes manifest-bound immutable batches and fails closed on missing causal, unit, recurrence, or policy-escape evidence. No runtime producer currently materializes the complete live batches. |
 | Live operational KPI validation and actual enforce promotion | in-progress | [Operational Learning Ontology](../rules-and-detection/operational-learning-ontology.md), [Goals and Metrics](../architecture/goals-and-metrics.md) | Measurement and observation consumers exist, but no complete retained live-shadow cohort, operational promotion receipt, independent review, or actual pantheon enforce promotion is evidenced by this plan. |
+| Observation-first learned and predicted output boundary | implemented | `agents/_framework/{advisory_verdicts,forseti_learned_outputs,thor_persistence,action_run_identity}.py`; `StateStoreActionRunStore.reserve_correlation`; `core/control_loop/_learned_reuse.py`; `runtime/{control_loop,bootstrap_pantheon}.py`; `test_learned_output_profile_boundary.py`; `test_learned_output_arbitration_gate.py`; `test_learned_output_durable_gate.py`; `test_learned_reuse_profile_boundary.py`; `test_bootstrap_pantheon_product_selection.py` | Without the `governed-execution` product add-on, forecasts, Freyr capacity arbitration, and T1 reuse of learned patterns produce ActionType-free advisory evidence that Thor ignores. A settled advisory arbitration holds later observed signals on its correlation from automatic execution, including after a Core restart or gate eviction, through Thor's durable non-action correlation claim. Selecting the add-on reopens the existing gates with one deliberate restriction: a forecast-derived action Verdict without an exact `mode: enforce` is capped at `shadow_only`. The selection comes only from the product profile; T2 proposals are outside this row. |
 
 ### Implementation history
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-28 | implemented | Closed the residual default-profile paths by which learned patterns and predictions became action proposals, gated on the existing `governed-execution` product add-on. The control-loop builder passes `RuntimeProductSelection.governed_execution` to the control loop, and Pantheon composition passes the control loop's value to Forseti, so no second selection input exists. Without the add-on, Forseti answers forecasts and capacity-fed arbitration with ActionType-free Verdicts and builds no decision options or kinetic proposals from a prediction, and the control loop stops T1 learned reuse before it builds an Action. Every settled advisory arbitration marks its correlation unresolved as the governed path does, publishes one Verdict under a per-correlation lock, and Thor holds the correlation durably with a terminal non-action claim in its ActionRun store, so a later Verdict on it is refused after a restart or gate eviction as a reused correlation is refused on the governed path; no ActionRun, approval, or executor call results. With the add-on, the existing gates run with one deliberate restriction: an action Verdict derived from a forecast without an exact `mode: enforce` is capped at `shadow_only`. Roles, topics, and `PANTHEON_SPECS` are unchanged. | `current change`; 50 cases in `test_learned_output_profile_boundary.py`, `test_learned_output_arbitration_gate.py`, `test_learned_output_durable_gate.py`, `test_learned_reuse_profile_boundary.py`, and `test_bootstrap_pantheon_product_selection.py`, a mutation check for each gate, the unresolved mark, the publication retry and lock, the durable hold, and both composition hand-offs, and the governed-path arbitration, decision-case, specialist, and T1 wire tests updated to select the add-on through the product profile; framework layout, Ruff, and strict mypy passed. | Review T2, anomaly-action, alert-noise, and other learned-evidence consumers. No live validation was performed. |
 | 2026-09-27 | in-progress | Integrated a trusted-source-verified full-authority development envelope through the real Forseti, Var, Thor, and Vidar typed path while preserving fixed roles and topics. Original and effective quorum remain distinct, and replay identity includes the exact grant only for the selected profile. | `current change`; 723 focused authority, bus, replay, and adjacent cases passed; layout, Ruff, and strict typing checks passed. | Implement and bind the authoritative deployment source, then retain governed runtime receipts. No live validation was performed. |
 | 2026-09-22 | validated | Repaired local Core startup and shutdown resource ownership. Runtime settings now reuse the one runtime-owned StateStore pool, Pantheon consumer shutdown grants bounded finalization after the first drain deadline, and destructive local broker reset holds every managed service lock so a disconnected live consumer cannot appear idle. Agent roles, topics, model policy, promotion state, and authority are unchanged. | `current change`; focused shared-store, ordered shutdown, delayed stream-close, consumer retry, broker reset fence, framework layout, Ruff, and strict typing checks; the managed restart reached 12/12 readiness with one lock-owned process pair per service and no repaired error signature after the new generation marker. | No work remains for this bounded lifecycle repair. Deployed runtime validation and promotion evidence remain separate. |
 | 2026-09-21 | implemented | Added a closed ontology ContextIndex envelope and owner-specific runtime subscription wrapper, with Heimdall and Saga ContextIndex subscriptions and typed Huginn ingress. Corrected the domain-schema/transport-version distinction exposed by the real bus test. | `current change`; focused ContextIndex routing, framework layout, adjacent Rule-generation flow, and exact audit-before-seal checks. | Bind real source/vector validation, audited pointer admission, terminal replay, and runtime consumers. The fixed agent roles, hot-path model policy, package activation, and execution authority remain unchanged. |
@@ -107,6 +109,11 @@ cross-agent workflow has an independent rollout record in
   and confidence intervals for each promotion candidate.
 - [ ] Complete an independent promotion review and record the authoritative promoted-set receipt
   before enabling or reporting pantheon enforce operation.
+- [ ] Review T2 proposals grounded on retrieved case history, anomaly-action candidates,
+  alert-noise learning, and every other learned-evidence consumer against the
+  [learned and predicted output boundary](#learned-and-predicted-output-boundary), then close or
+  record each path with a focused test. This is a follow-up hardening item for the closed
+  [issue #1541](https://github.com/dotnetpower/fdai/issues/1541).
 
 ## Design at a glance
 
@@ -259,14 +266,43 @@ external signal cannot spoof an operator action.
 - During cross-vertical arbitration, constitutional hard constraints remove ineligible options
   before Odin ranks the remaining soft objectives.
 
+### Learned and predicted output boundary
+
+In the default observation-first profile, learned patterns and predictions remain advisory
+evidence. The `governed-execution` add-on of the
+[runtime deployment profile](../deployment/runtime-deployment-profiles.md#design-at-a-glance)
+is the only selection. Core composition reads it once through
+`RuntimeProductSelection.governed_execution`: the control-loop builder passes the value to the
+control loop, and Pantheon composition passes the control loop's value to Forseti. Environment
+names, fork markers, package presence, `FDAI_PANTHEON_ENFORCE`, and executor bindings never
+select it. Selection grants no authority by itself: the unchanged risk gate, Var approval, Thor
+lifecycle, safeguards, and promotion state still decide every outcome.
+
+| Input | Default profile | `governed-execution` add-on selected |
+|-------|-----------------|------------------------------------|
+| Heimdall `object.forecast` | Forseti publishes an ActionType-free Verdict with reason `governed_execution_unselected`, `advisory_source: forecast`, and a `shadow_only` ceiling. It derives no rule match, arbitration, or ActionType from forecast fields. | The existing rule-match, arbitration, risk, and approval gates run with one deliberate restriction: when Forseti derives an action Verdict from a forecast that doesn't declare exactly `mode: enforce`, it caps that Verdict at `shadow_only` after every other ceiling and records `source_mode` on it. ActionType-free and arbitration Verdicts for a forecast carry no `source_mode`. |
+| Freyr `object.capacity-forecast` in arbitration | Odin still weighs the objectives, but Forseti builds no DecisionCase options, planning record, or kinetic proposal. The settled Verdict names no ActionType and records the arbitration outcome as evidence. Every outcome still marks the correlation unresolved, as the governed path does without a DecisionCase, so a later observed signal on it is held from automatic execution: Thor's durable correlation claim refuses the gated Verdict in process and after a restart or gate eviction, and Thor drops it only when it runs without a durable store. | The existing DecisionCase, arbitration, kinetic-proposal, and human-review path runs. |
+| T1 reuse of a learned pattern | The control loop writes `control_loop.t1_reuse_advisory` and stops before it builds an Action, so no execution authorization, risk gate, approval request, simulation, or dispatch runs. | The existing verification, risk gate, approval, and dispatch path runs. |
+
+Thor ignores an ActionType-free Verdict with this reason in every profile, so no ActionRun,
+approval, rollback, or executor call follows. For an advisory arbitration Verdict, Thor also
+writes a terminal non-action correlation claim to its ActionRun store. Recovery never loads the
+claim, but the existing correlation check refuses every later Verdict on that correlation, as it
+refuses reuse of the ActionRun that the governed path records. The predicate reads no selection; Forseti emits the
+reason only without the add-on. Deterministic judgment of observed signals is unchanged in both
+profiles. The forecast `mode` cap is the one restriction the boundary adds to the selected
+profile; it keeps an undeclared or shadow forecast shadow-first instead of trusting a missing
+mode.
+
 ### Configurable and observable seams
 
 | Seam | Contract |
 |------|----------|
 | `consumer_group_prefix` | Isolates consumer groups by environment. |
 | `disabled_agents` | Removes optional agents from binding and subscription; Saga and Vidar cannot be disabled. |
+| `governed_execution_selected` | Carries `RuntimeProductSelection.governed_execution` from the composed control loop to Forseti. The default keeps learned and predicted input advisory. |
 | `saga` | Supplies append-only durable audit for enforce operation. |
-| `thor_state_store` | Rehydrates non-terminal ActionRuns and preserves resource locks after restart. |
+| `thor_state_store` | Rehydrates non-terminal ActionRuns, preserves resource locks after restart, and holds advisory arbitration correlations with terminal non-action claims. |
 | `vidar_state_store` | Persists rollback claims, owner leases, fencing revisions, and terminal receipts. |
 | `var_state_store` | Persists approval decisions, final payloads, and publication checkpoints. |
 | `muninn_state_store` | Backs Muninn projections, Saga issue state, and Norns handoff-learning recovery. |

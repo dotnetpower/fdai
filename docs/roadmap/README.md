@@ -137,6 +137,7 @@ cap, narrow its owner set or split a multi-responsibility owner instead of addin
 | 18a | [console-read-boundary.md](deployment/console-read-boundary.md) | server-owned read-source declarations, local authentication, workload evidence, and bounded inventory queries |
 | 19 | [operator-console.md](interfaces/operator-console.md) | FDAI Console conversations across CLI, Teams, Slack, and web, with per-tool RBAC, LLM tiers, and session persistence |
 | 19k | [operator-console-module-map.md](interfaces/operator-console-module-map.md) | conversation module ownership, CLI/API route map, channel adapters, and core/delivery boundary |
+| 19k1 | [command-deck-conversation-layer.md](interfaces/command-deck-conversation-layer.md) | portable Command Deck conversation roles, reference study, replay behavior, and navigation consent |
 | 19l | [operator-console-progressive-conversations.md](interfaces/operator-console-progressive-conversations.md) | bounded read branches, ordered reduction, verified revisions, cancellation, replay, and progress metrics |
 | 19m | [narrator-routing-and-latency.md](interfaces/narrator-routing-and-latency.md) | T1 narrator deployment routing, multimodal probes, operator preference, TTFT, web-search pooling, and runtime delivery decisions |
 | 19n | [hierarchical-conversation-planning.md](interfaces/hierarchical-conversation-planning.md) | non-keyword semantic decomposition, structural ontology query coverage, verified intent graphs, evidence joins, and answer boundaries |

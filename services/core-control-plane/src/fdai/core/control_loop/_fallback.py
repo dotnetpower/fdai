@@ -16,6 +16,7 @@ from fdai.core.control_loop._execution_outcomes import (
 from fdai.core.control_loop._execution_outcomes import (
     is_execution_success as _is_execution_success,
 )
+from fdai.core.control_loop._learned_reuse import record_learned_reuse_advisory
 from fdai.core.control_loop.models import ControlLoopOutcome, ControlLoopResult
 from fdai.core.executor.action_builder import ActionBuilder, ActionBuildError
 from fdai.core.hil_resume import HilResumeCoordinator
@@ -47,6 +48,7 @@ class ControlLoopFallbackMixin(DynamicSimulationAuditMixin):
 
     _action_builder: ActionBuilder
     _audit_store: StateStore
+    _governed_execution_selected: bool
     _hil_resume_coordinator: HilResumeCoordinator | None
     _risk_gate: RiskGate | None
     _risk_table: RiskTable | None
@@ -169,6 +171,17 @@ class ControlLoopFallbackMixin(DynamicSimulationAuditMixin):
             )
             await self._write_t1_audit(event=event, decision=decision, t1=t1_decision)
             if t1_decision.outcome is T1Outcome.REUSED:
+                if not self._governed_execution_selected:
+                    return await record_learned_reuse_advisory(
+                        self._audit_store,
+                        self._emit_stage,
+                        event=event,
+                        decision=decision,
+                        t1=t1_decision,
+                        cs_decision=cs_decision,
+                        event_id=event_id,
+                        correlation_id=correlation_id,
+                    )
                 dynamic_guard = await self._simulate_and_audit_dynamic(
                     event=event,
                     t1=t1_decision,

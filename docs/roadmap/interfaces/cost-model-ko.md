@@ -1,16 +1,15 @@
 ---
 title: 비용 모델 (예시)
 translation_of: cost-model.md
-translation_source_sha: 1be959949625599ee60d867138c86ef9b1990581
-translation_revised: 2026-08-25
+translation_source_sha: 317a396d19b6c1d72c65c0587baf2598957833a5
+translation_revised: 2026-09-28
 ---
 
 # 비용 모델 (예시)
 
 [deploy-and-onboard-ko.md](../deployment/deploy-and-onboard-ko.md#azure-resource-inventory-minimum-set) 에
 정의된 최소 Azure 리소스 인벤토리의 월간 예상 비용을, 고정 vs 변동 지출과 트래픽 시나리오로
-분해합니다. 비용 효율 원칙은
-[deploy-and-onboard-ko.md](../deployment/deploy-and-onboard-ko.md#cost-efficiency-principles) 에서 옵니다.
+분해하며, 아래 [비용 효율 원칙](#비용-효율-원칙)을 따릅니다.
 
 > **과거 계획 예시 - 배포 견적 아님.** 아래 가격 band는 초기 최소 세트의 계획 수립 스냅샷이며
 > 현재 Terraform 계획의 합계가 아닙니다. Azure 리스트 가격은 리전, 시간, 구독 계약(EA / CSP / MCAPS /
@@ -20,6 +19,34 @@ translation_revised: 2026-08-25
 > 재확인되어야 합니다. 여기의 어느 것도 보장이 아닙니다. 수치는 문서 작성 시점의 리스트
 > 가격을 반영합니다; 포크의 비용 대시보드에 `pricing.confirmed_at` 필드가 마지막 검증
 > 시점을 기록해야 합니다.
+
+## 비용 효율 원칙
+
+모든 프로비저닝 선택은 이 원칙을 따르며, 원칙을 위반하는 리소스는 배포 PR에 명시적인 정당화가
+필요합니다. 이 문서의 **예시 월간 비용 묶음**은 이 원칙에서 나옵니다.
+
+1. **이벤트 기반 우선** - 예약 Container Apps 작업은 실행 사이에 scale-to-zero됩니다. 코어는
+  자격 증명 없는 Event Hubs Kafka-lag scaler가 검증되지 않았으므로 현재 복제본 하나를
+  유지합니다. 이 하한을 바꾸려면 측정되고 검증된 scaler가 필요합니다.
+2. **하루 첫날 한 리전, 한 존, non-HA** - 멀티 존과 멀티 리전은 단계 4 (TBD). 초기 배포는
+   단일 지리적 footprint.
+3. **관리 서비스 축소** - PostgreSQL 내부 pgvector가 vector 저장소; App Insights가 공유 로그
+   Analytics workspace에 바인딩; 별도 vector DB 또는 APM 리소스 프로비저닝 없음.
+4. **기본으로 Basic / Standard 티어** - Premium 티어는 명시된 측정 필요. HA 변형, geo-
+   replication, private-endpoint premium 기능은 연기.
+5. **사용 사례를 커버하는 곳에서 Free 티어** - Static Web Apps (콘솔), Azure Bot (HIL
+   Adaptive Cards), 워크로드 신원 federation (CI/CD) 모두 Free 티어.
+6. **단계적 5개 서비스 목표** - 실행기 근거를 구축하는 동안 Core는 modular 상태를
+  유지합니다. 완료 토폴로지는 둘을 분리하며 다른 패키지는 자체 게이트 없이는 프로세스 내입니다.
+7. **모델 예산 상한** - T2 추론은 이벤트의 ~5-10%에 도달하도록 설계; 토큰/spend 예산은 강제
+   되고 초과분은 uncapped inference가 아니라 HIL로 강등.
+8. **카탈로그는 git-hosted, 서비스가 아님** - 룰 카탈로그는 관리 저장소가 아니라 git 저장소에
+   있으므로 카탈로그 저장에 추가 Azure 리소스 불필요.
+9. **공개 인바운드 엔드포인트 없음** - 첫날에 애플리케이션 게이트웨이 / Front Door / API
+   관리 없음; 유입은 이벤트 버스, egress는 allow-list.
+10. **연기된 DR 리소스** - secondary-region 리소스는 초기에 **프로비저닝되지 않음** ;
+    컨트롤 플레인 DR은 IaC + 상태 백업을 통해 계획됨
+    ([deployment-ko.md](../deployment/deployment-ko.md#control-plane-disaster-recovery)).
 
 ## 가정(Assumptions)
 

@@ -111,6 +111,11 @@ def is_version_only_package_metadata(path: str, diff_range: str) -> bool:
     )
 
 
+def is_test_support_only(path: str) -> bool:
+    """Exclude pytest ``conftest.py`` files, which hold test fixtures and isolation only."""
+    return Path(path).name == "conftest.py"
+
+
 def is_test_registration_only(
     path: str, *, diff_range: str | None = None, cached: bool = False
 ) -> bool:
@@ -291,7 +296,8 @@ def main(argv: list[str]) -> int:
     paths = {
         path
         for path in paths
-        if not is_test_registration_only(
+        if not is_test_support_only(path)
+        and not is_test_registration_only(
             path,
             diff_range=argument if argument != "--cached" else None,
             cached=argument == "--cached",

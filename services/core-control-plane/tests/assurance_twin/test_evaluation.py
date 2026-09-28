@@ -216,3 +216,22 @@ def test_findings_above_operator_bound_are_unavailable() -> None:
             inventory_revision=_REVISION,
             rule_generation_time=_GENERATION_TIME,
         )
+
+
+def test_complete_posture_reports_declared_rule_inputs_per_resource() -> None:
+    rules = (
+        _rule("rule.declared", required_property="property.compute.vm.deny"),
+        _rule("rule.wildcard"),
+    )
+    result = evaluate_complete_posture(
+        engine=T0Engine(index=RuleIndex.build(rules), evaluator=_ReceiptEvaluator()),
+        rules=rules,
+        projection=_projection(),
+        inventory_revision=_REVISION,
+        rule_generation_time=_GENERATION_TIME,
+    )
+
+    assert result.declared_inputs == (
+        (ResourceRef("compute.vm", "vm-a"), ("deny",)),
+        (ResourceRef("compute.vm", "vm-b"), ("deny",)),
+    )

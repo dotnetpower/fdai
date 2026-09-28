@@ -1,12 +1,11 @@
 """Catalog-driven chaos-scenario runner.
 
-Unlike the retired `scripts/catalog/run-enforce-scenarios.py` and
-`scripts/catalog/measure-detection-latency.py` raw drivers, which now refuse
-every live run until they are ported onto the governed adapter, this driver
-loads scenarios from `rule-catalog/chaos-scenarios/` and dispatches each through
-the :class:`~fdai.core.chaos.factory.ScenarioFactory`. It is the runtime
-answer to "the catalog says X; does the delivery layer know how to
-execute X?".
+This driver loads scenarios from `rule-catalog/chaos-scenarios/` and dispatches
+each through the :class:`~fdai.core.chaos.factory.ScenarioFactory`. It is the
+runtime answer to "the catalog says X; does the delivery layer know how to
+execute X?", and it is the only live chaos path: the retired raw drivers were
+removed, and `scripts/catalog/measure-detection-latency.py` still refuses every
+live run until its measurement is ported onto the governed adapter.
 
 Usage:
 
@@ -20,6 +19,12 @@ Usage:
     # Governed enforce of one promoted scenario against the FDAI_ENFORCE_* substrate
     python scripts/catalog/run-catalog-scenario.py --run chaos.chaos-mesh.pod-failure \
         --confirm-enforce
+
+    # The same governed enforce selected by its reference scenario id
+    python scripts/catalog/run-catalog-scenario.py --run aks-pod-cpu-spike --confirm-enforce
+
+    # Governed enforce of the reference sweep, in demo order
+    python scripts/catalog/run-catalog-scenario.py --run-sweep --confirm-enforce
 
     # Governed enforce of every executable promoted entry, one at a time
     python scripts/catalog/run-catalog-scenario.py --run-all --confirm-enforce
@@ -39,6 +44,11 @@ installed `fdai.governed_chaos` entry point named `catalog-scenario`. Without
 that provider, enforce refuses before substrate access, writes a structured
 refusal report, and exits with status 3.
 
+`--run-sweep` and a reference scenario id passed to `--run` select reviewed
+catalog entries through `fdai.core.chaos.reference_sweep`. Selection grants no
+authority: a mapped entry still has to be promoted, executable, and target-
+resolvable, so an unpromoted sweep refuses exactly like any other enforce.
+
 `FDAI_ENFORCE_APPROVAL_REF` names the current human approval for the injected
 verifier to check; it is a claim, never approval by itself. Substrate context
 comes from the `FDAI_ENFORCE_*` env vars. Each run's targets are the canonical
@@ -55,7 +65,11 @@ the adapter directly rather than through the Core proposal, risk, Var, and
 Thor pipeline; that routing remains open work.
 
 Reports land under `logs/catalog-runs/<timestamp>/`. Every run writes
-one JSON per scenario plus a `report.json` + `summary.md`.
+one JSON per scenario plus a `report.json` + `summary.md`. Runs that produced a
+measured experiment also land in `enforce-report.json`, the importable contract
+`fdai.delivery.chaos.enforce_report` reads into the durable report feed.
+`--measured-report <path>` additionally writes that same measured report to an
+exact path, so a deployment can pin it where its evidence projection reads.
 """
 
 from __future__ import annotations
@@ -77,13 +91,19 @@ from fdai.core.chaos.catalog_evidence import (
     build_catalog_validation_summary,
     write_catalog_validation_summary,
 )
+from fdai.core.chaos.contract import ExperimentResult
 from fdai.core.chaos.factory import ScenarioFactory
+from fdai.core.chaos.reference_sweep import (
+    reference_sweep_catalog_ids,
+    resolve_scenario_id,
+)
 from fdai.core.chaos.scenario_catalog import (
     CatalogEntry,
     catalog_fingerprint,
     load_all,
     load_promoted,
 )
+from fdai.delivery.chaos.enforce_report import enforce_report_record
 from fdai.delivery.chaos.factories import default_factory
 from fdai.delivery.chaos.governed import GovernedChaosExecutionAdapter
 from fdai.delivery.chaos.governed_bindings import (
@@ -93,6 +113,7 @@ from fdai.delivery.chaos.governed_bindings import (
 from fdai.delivery.chaos.governed_closure import GovernedChaosClosure
 from fdai.delivery.chaos.governed_records import CHAOS_ACTION_TYPE, catalog_enforce_request
 from fdai.delivery.chaos.mutation_scope import approved_catalog_targets
+from fdai.delivery.chaos.substrate_bindings import optional_substrate_bindings
 from fdai.rule_catalog.schema.action_type import load_action_type_from_mapping
 from fdai.shared.contracts.models import Mode, OntologyActionType, Tier
 from fdai.shared.contracts.registry import PackageResourceSchemaRegistry
@@ -153,6 +174,16 @@ def _substrate_context() -> dict[str, Any]:
     ctx["backend_container"] = os.environ.get("FDAI_ENFORCE_BACKEND_CONTAINER", "web")
     ctx["backend_restore_replicas"] = int(os.environ.get("FDAI_ENFORCE_BACKEND_REPLICAS", "3"))
     ctx["backend_image"] = os.environ.get("FDAI_ENFORCE_BACKEND_IMAGE", "nginx")
+    # The db and llm_endpoint scenarios need a substrate the pod and VM
+    # scenarios do not. An absent or partial group stays unbound, so those
+    # entries keep refusing instead of failing part way through a run.
+    ctx.update(
+        optional_substrate_bindings(
+            os.environ,
+            sub_id=ctx["sub_id"],
+            resource_group=ctx["resource_group"],
+        )
+    )
     return ctx
 
 
@@ -288,17 +319,35 @@ def _select_entries(
     promoted: list[CatalogEntry],
     *,
     scenario_id: str | None,
+    sweep: bool,
     limit: int | None,
 ) -> list[CatalogEntry]:
+    """Return the executable promoted entries one enforce command may run.
+
+    ``scenario_id`` accepts a catalog id or a reference scenario id. ``sweep``
+    selects the reference sweep in demo order and keeps that order rather than
+    catalog order, so a halted sweep stops at the declared scenario.
+    """
+
     entries = factory.executable_entries(promoted)
-    if scenario_id is not None:
-        entries = [entry for entry in entries if entry.id == scenario_id]
-    elif limit is not None:
-        entries = entries[:limit]
+    if sweep:
+        by_id = {entry.id: entry for entry in entries}
+        entries = [
+            by_id[catalog_id] for catalog_id in reference_sweep_catalog_ids() if catalog_id in by_id
+        ]
+        selection = "--run-sweep"
+    elif scenario_id is not None:
+        wanted = resolve_scenario_id(scenario_id)
+        entries = [entry for entry in entries if entry.id == wanted]
+        selection = scenario_id
+    else:
+        if limit is not None:
+            entries = entries[:limit]
+        selection = "--run-all"
     if not entries:
         raise _EnforceRefusalError(
             "no_executable_promoted_scenario",
-            f"no executable promoted scenario matches {scenario_id or '--run-all'!r}",
+            f"no executable promoted scenario matches {selection!r}",
         )
     return entries
 
@@ -307,24 +356,30 @@ async def _execute_one(
     adapter: GovernedChaosExecutionAdapter,
     request: ToolCallRequest,
     out_dir: Path,
+    measured: list[dict[str, Any]],
 ) -> dict[str, Any]:
     """Delegate one request to the governed adapter and persist its verdicts.
 
     Recovery and detection stay separate fields; a run passes only when it
-    recovered and its expected signal was validated.
+    recovered and its expected signal was validated. A run that produced a
+    measured experiment also appends one importable enforce-report record to
+    ``measured``; a refused, replayed, or errored run contributes nothing, so
+    the report never carries an unmeasured result.
     """
 
     scenario_id = str(request.arguments["scenario_id"])
+    approval_ref = request.metadata.get("approval_ref")
     payload: dict[str, Any] = {
         "scenario_id": scenario_id,
         "mode": Mode.ENFORCE.value,
         "idempotency_key": request.idempotency_key,
-        "approval_ref": request.metadata.get("approval_ref"),
+        "approval_ref": approval_ref,
         "recovered": False,
         "detected": None,
         "passed": False,
     }
     started = time.monotonic()
+    experiment: ExperimentResult | None = None
     try:
         outcome = await adapter.run(request)
     except ToolError as exc:
@@ -333,6 +388,7 @@ async def _execute_one(
         payload.update(outcome="adapter_error", error=type(exc).__name__, rollback_succeeded=None)
     else:
         receipt = outcome.receipt
+        experiment = outcome.experiment
         payload.update(
             outcome=receipt.outcome.value,
             run_id=receipt.receipt_ref,
@@ -346,6 +402,14 @@ async def _execute_one(
             passed=outcome.passed,
         )
     payload["elapsed_seconds"] = round(time.monotonic() - started, 2)
+    if experiment is not None and isinstance(approval_ref, str):
+        measured.append(
+            enforce_report_record(
+                experiment,
+                approval_ref=approval_ref,
+                elapsed_seconds=payload["elapsed_seconds"],
+            )
+        )
     (out_dir / f"{_slugify(scenario_id)}.json").write_text(
         json.dumps(payload, indent=2, sort_keys=True) + "\n"
     )
@@ -395,7 +459,9 @@ async def _run_enforce(
     factory: ScenarioFactory,
     *,
     scenario_id: str | None,
+    sweep: bool = False,
     limit: int | None,
+    measured_report: Path | None = None,
 ) -> int:
     """Run selected promoted scenarios only through the injected governed adapter."""
 
@@ -407,7 +473,13 @@ async def _run_enforce(
         action_type = _chaos_action_type()
         all_entries = load_all()
         promoted = load_promoted()
-        entries = _select_entries(factory, promoted, scenario_id=scenario_id, limit=limit)
+        entries = _select_entries(
+            factory,
+            promoted,
+            scenario_id=scenario_id,
+            sweep=sweep,
+            limit=limit,
+        )
     except _EnforceRefusalError as refusal:
         return _refuse(out_dir, refusal)
     adapter = GovernedChaosExecutionAdapter(
@@ -421,6 +493,7 @@ async def _run_enforce(
     )
     fingerprint = catalog_fingerprint(all_entries)
     reports: list[dict[str, Any]] = []
+    measured: list[dict[str, Any]] = []
     for index, entry in enumerate(entries):
         if index:
             await asyncio.sleep(_SETTLE_SECONDS)
@@ -436,7 +509,7 @@ async def _run_enforce(
             stop_conditions=tuple(action_type.stop_conditions),
             tier=Tier.T0,
         )
-        payload = await _execute_one(adapter, request, out_dir)
+        payload = await _execute_one(adapter, request, out_dir, measured)
         reports.append(payload)
         if payload["outcome"] in {"failed", "adapter_error"} or (
             payload.get("rollback_succeeded") is False
@@ -444,6 +517,7 @@ async def _run_enforce(
             print("sweep halted: rollback or recovery is not verified", flush=True)
             break
     (out_dir / "report.json").write_text(json.dumps({"runs": reports}, indent=2, sort_keys=True))
+    _write_measured_report(out_dir, measured, measured_report)
     _write_summary(out_dir, reports)
     passed = sum(1 for report in reports if report.get("passed") is True)
     print(f"\nsummary: {passed}/{len(entries)} recovered and detected  ->  {out_dir}", flush=True)
@@ -500,6 +574,28 @@ def _report_dir() -> Path:
     return root
 
 
+def _write_measured_report(
+    out_dir: Path,
+    measured: list[dict[str, Any]],
+    measured_report: Path | None = None,
+) -> None:
+    """Write the importable enforce report, or nothing when no run was measured.
+
+    An empty file would be an unmeasured claim, so the report exists only when at
+    least one governed run produced an experiment record. ``measured_report``
+    pins a second copy where a deployment's evidence projection reads it; its
+    parent directory must already exist, because creating an unexpected path
+    would hide a misconfigured evidence location.
+    """
+
+    if not measured:
+        return
+    payload = json.dumps({"runs": measured}, indent=2, sort_keys=True) + "\n"
+    (out_dir / "enforce-report.json").write_text(payload)
+    if measured_report is not None:
+        measured_report.write_text(payload)
+
+
 def _write_summary(out_dir: Path, reports: list[dict[str, Any]]) -> None:
     lines = [
         "# Catalog run summary",
@@ -534,7 +630,12 @@ def main(argv: list[str] | None = None) -> int:
     grp.add_argument(
         "--run",
         metavar="SCENARIO_ID",
-        help="Run one promoted scenario through the governed adapter.",
+        help="Run one promoted scenario, by catalog id or reference scenario id.",
+    )
+    grp.add_argument(
+        "--run-sweep",
+        action="store_true",
+        help="Run the reference scenario sweep, in demo order, through the governed adapter.",
     )
     grp.add_argument(
         "--run-all",
@@ -571,6 +672,11 @@ def main(argv: list[str] | None = None) -> int:
         type=Path,
         help="Write a sanitized, fingerprint-bound validation summary.",
     )
+    p.add_argument(
+        "--measured-report",
+        type=Path,
+        help="Also write the importable measured enforce report to this exact path.",
+    )
     args = p.parse_args(argv)
 
     factory = default_factory()
@@ -584,8 +690,16 @@ def main(argv: list[str] | None = None) -> int:
             raise SystemExit("--close requires explicit --confirm-closure")
         return asyncio.run(_close(scenario_id=args.close, reason=args.closure_reason))
     if not args.confirm_enforce:
-        raise SystemExit("--run / --run-all requires explicit --confirm-enforce")
-    return asyncio.run(_run_enforce(factory, scenario_id=args.run, limit=args.limit))
+        raise SystemExit("--run / --run-sweep / --run-all requires explicit --confirm-enforce")
+    return asyncio.run(
+        _run_enforce(
+            factory,
+            scenario_id=args.run,
+            sweep=args.run_sweep,
+            limit=args.limit,
+            measured_report=args.measured_report,
+        )
+    )
 
 
 if __name__ == "__main__":

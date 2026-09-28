@@ -20,6 +20,7 @@ from fdai.shared.providers.state_store import (
     StateStore,
     classify_incident_append,
     incident_number_for,
+    state_field_path,
     workflow_approval_decisions_from_state,
 )
 
@@ -31,6 +32,23 @@ def _field_matches(actual: object, expected: str) -> bool:
     if isinstance(actual, bool):
         return str(actual).lower() == expected
     return actual == expected
+
+
+def _field_value(
+    item: Mapping[str, Any],
+    field: str,
+    path: tuple[str, ...] | None,
+) -> object:
+    """Resolve one top-level field or a validated dotted path; missing is ``None``."""
+
+    if path is None:
+        return item.get(field)
+    current: object = item
+    for segment in path:
+        if not isinstance(current, Mapping) or segment not in current:
+            return None
+        current = current[segment]
+    return current
 
 
 def _approval_guard_matches(
@@ -396,12 +414,13 @@ class InMemoryStateStore(StateStore):
     ) -> tuple[tuple[Mapping[str, Any], ...], int]:
         if limit < 1 or offset < 0:
             raise ValueError("limit MUST be >= 1 and offset MUST be >= 0")
+        path = state_field_path(field) if field is not None and "." in field else None
         with self._lock:
             matching = [
                 deepcopy(item)
                 for key, item in reversed(tuple(self._state.items()))
                 if key.startswith(prefix)
-                and (field is None or _field_matches(item.get(field), str(value)))
+                and (field is None or _field_matches(_field_value(item, field, path), str(value)))
             ]
         return tuple(matching[offset : offset + limit]), len(matching)
 

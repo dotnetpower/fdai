@@ -561,6 +561,10 @@ def materialize_verified_artifacts(
         )
     terraform = destination / verification.terraform_binary
     terraform.chmod(0o700)
+    # Pinned kubectl, kubelogin, and opa run from bin/ on the execution host.
+    for tool in sorted((destination / "bin").glob("*")):
+        if tool.is_file() and not tool.is_symlink():
+            tool.chmod(0o700)
     return MaterializedOfflineArtifacts(
         terraform_binary=terraform,
         provider_mirror=destination / verification.provider_mirror_prefix,

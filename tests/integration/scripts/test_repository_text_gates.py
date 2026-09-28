@@ -331,6 +331,40 @@ def test_pre_commit_scopes_expensive_repository_gates() -> None:
     assert "files: ^services/core-control-plane/src/fdai/core/" in core_imports
 
 
+def test_documentation_coupled_gates_advise_at_commit_and_enforce_at_push() -> None:
+    config = (_ROOT / ".pre-commit-config.yaml").read_text(encoding="utf-8")
+    for hook_id in (
+        "check-translations",
+        "check-derived-sources",
+        "check-translation-quality",
+        "check-design-doc-impact",
+    ):
+        hook = config.split(f"- id: {hook_id}\n", 1)[1].split("- id:", 1)[0]
+        assert "scripts/automation/advisory-gate.sh" in hook, hook_id
+        assert "verbose: true" in hook, hook_id
+    pre_push = (_ROOT / ".githooks" / "pre-push").read_text(encoding="utf-8")
+    for command in (
+        'check-design-doc-impact.py "$doc_range"',
+        'check-document-size.py "$doc_range"',
+        "bash scripts/quality/localization/check-translations.sh",
+        'check-roadmap-implementation-tracking.py "$doc_range"',
+    ):
+        assert command in pre_push
+    assert 'doc_range="$branch_base..$local_sha"' in pre_push
+
+
+def test_advisory_gate_reports_a_gap_without_blocking_the_commit(tmp_path: Path) -> None:
+    script = str(_ROOT / "scripts/automation/advisory-gate.sh")
+
+    failing = _run(tmp_path, "bash", script, "false")
+    passing = _run(tmp_path, "bash", script, "true")
+    usage = _run(tmp_path, "bash", script)
+
+    assert failing.returncode == 0 and "ADVISORY" in failing.stderr
+    assert passing.returncode == 0 and passing.stderr == ""
+    assert usage.returncode == 2
+
+
 def test_readable_hangul_gate_is_wired_to_ci_and_fast_verification() -> None:
     workflow = (_ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
     verification = (_ROOT / "scripts" / "verify.sh").read_text(encoding="utf-8")

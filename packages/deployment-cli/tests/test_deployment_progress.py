@@ -381,7 +381,17 @@ def test_real_coordinator_keeps_approval_and_intermediate_json_off_stdout(
         application,
     )
     result = cli.main(
-        ["provision", "azure", "--online", "--output", "json", "--work-dir", str(root)]
+        [
+            "provision",
+            "azure",
+            "--online",
+            "--output",
+            "json",
+            "--work-dir",
+            str(root),
+            "--add-on",
+            "enterprise-identity-governance",
+        ]
     )
     captured = capsys.readouterr()
     assert "FDAI | Azure deployment" not in captured.err

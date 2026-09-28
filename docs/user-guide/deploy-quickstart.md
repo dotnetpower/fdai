@@ -1,10 +1,12 @@
 ---
 title: Deploy Quickstart
 description: Deploy FDAI to Azure from one local command or a digest-pinned disconnected deployment appliance.
-derives_from: [{ source: docs/roadmap/deployment/deploy-and-onboard.md, sha: 18740b813cc22d6491d0037b794dc5d2d5e9ec30 }]
+derives_from: [{ source: docs/roadmap/deployment/deploy-and-onboard.md, sha: 53dcd0d981c96c443c395271a7d7ea420e56381e }]
 ---
 
 # Deploy Quickstart
+
+> **Deployment distribution:** The [constitution](../roadmap/architecture/fdai-constitution.md#article-1-purpose-and-scope) defines only two installation paths, contributor source deployment and the signed offline package. Any installation gate in this document that the constitution does not list is superseded and no longer applies.
 
 You can deploy FDAI to an Azure subscription after one interactive Azure sign-in. Tenant
 deployment runs from the local `fdaictl` coordinator and a managed host inside the target virtual
@@ -159,6 +161,20 @@ If you prefer not to install a persistent command, the original checkout wrapper
 ```bash
 bash scripts/deployment/azure/fdai-up.sh --region koreacentral
 ```
+
+To build everything from a checkout instead of using a published kit, add
+`--source <checkout> --signing-key <key>`. That checkout owns the whole run, so run it against the
+revision you intend to deploy. Because the checkout already determines the artifacts, the wrapper
+refuses a simultaneous `--online` or `--offline-kit` selection.
+
+To confirm a key before the build uses it, identify it first. The command prints fingerprints and
+custody status, never key material:
+
+```bash
+python3 scripts/deployment/release/check-signing-key.py --key secrets/<your-key>.pem
+```
+
+One key covers both the complete-kit and bundle roles. The key file must be owner-only (`chmod 600`).
 
 Both commands use the same coordinator. Installing or updating the CLI does not update the signed
 deployment kit: its Genesis scripts come from the verified release, not your clone. A kit-owned fix

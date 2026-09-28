@@ -423,6 +423,17 @@ export interface HilQueueItem {
   readonly ttl_expires_at: string | null;
   readonly decision_requestable: boolean;
   readonly decision_unavailable_reason: string | null;
+  /** Whether the caller is the Core-selected Owner who may self-approve after a fresh sign-in. */
+  readonly development_self_approval_available: boolean;
+  /** Exact bound facts the development Owner confirms; absent for every other caller. */
+  readonly development_binding: DevelopmentBindingView | null;
+}
+
+export interface DevelopmentBindingView {
+  readonly binding_digest: string;
+  readonly target_revision: string;
+  readonly dry_run_digest: string;
+  readonly scope_digest: string;
 }
 
 export interface HilQueuePage {

@@ -55,11 +55,27 @@ version="$(
 uv lock --check --project "$repo_root/packages/deployment-cli" >/dev/null
 uv build --wheel --project "$repo_root/packages/deployment-cli" --out-dir "$wheels" >/dev/null
 uv export --project "$repo_root/packages/deployment-cli" --locked --no-dev --no-emit-project \
-  --format requirements-txt --output-file "$out/dependencies.txt" >/dev/null
+  --no-emit-local --format requirements-txt --output-file "$out/dependencies.txt" >/dev/null
+# Locked workspace path dependencies have no index hash; build each one as a wheel instead.
+while IFS= read -r local_dependency; do
+  [[ -n "$local_dependency" ]] || continue
+  uv build --wheel --project "$repo_root/packages/deployment-cli/$local_dependency" \
+    --out-dir "$wheels" >/dev/null
+done < <(
+  uv export --project "$repo_root/packages/deployment-cli" --locked --no-dev --no-emit-project \
+    --no-editable --no-hashes --no-header --no-annotate --format requirements-txt |
+    sed -n 's#^\(\.\{1,2\}/[A-Za-z0-9._/-]*\)$#\1#p'
+)
 UV_PROJECT_ENVIRONMENT="$out/release-env" uv run \
   --project "$repo_root/packages/deployment-cli" --locked --no-dev --group release \
   --python "$python" python -m pip download --only-binary=:all: --require-hashes \
   --dest "$wheels" --requirement "$out/dependencies.txt" >/dev/null
+# uv build writes an unsigned .gitignore marker; the signed package holds only wheels.
+rm -f -- "$wheels/.gitignore"
+if find "$wheels" -mindepth 1 ! \( -type f -name '*.whl' \) -print -quit | grep -q .; then
+  echo "build-signed-python-package: wheelhouse contains a non-wheel entry" >&2
+  exit 3
+fi
 
 printf 'fdai-deployment-cli==%s\n' "$version" >"$package/requirements.txt"
 cat >"$package/INSTALL.txt" <<'EOF'

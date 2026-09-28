@@ -118,7 +118,12 @@ class Forseti(
     AssignmentJudgmentMixin,
     ForsetiAlertNoiseMixin,
 ):
-    """Wave-3 Forseti: rule match + risk verdict + RBAC + SecurityEvent."""
+    """Wave-3 Forseti: rule match + risk verdict + RBAC + SecurityEvent.
+
+    ``governed_execution_selected`` is the explicit add-on selection. Its default keeps
+    forecasts and prediction-fed capacity arbitration advisory: they publish ActionType-free
+    Verdicts, and only the selected add-on lets them reach the existing action gates.
+    """
 
     def __init__(
         self,
@@ -143,11 +148,17 @@ class Forseti(
         development_binding_source: DevelopmentAuthorityBindingSource | None = None,
         development_executor_principal: str | None = None,
         development_action_types: Mapping[str, RegisteredDevelopmentAction] | None = None,
+        governed_execution_selected: bool = False,
     ) -> None:
         if cross_vertical_timeout_seconds <= 0.0 or cross_vertical_timeout_seconds > 300.0:
             raise ValueError("cross_vertical_timeout_seconds MUST be in (0, 300]")
         super().__init__(spec=_FORSETI)
         self.bus = bus
+        # Observation-first by default: learned and predicted input stays advisory (#1541).
+        self._governed_execution_selected = governed_execution_selected is True
+        self._advisory_arbitrations: BoundedLruDict[str, dict[str, Any]] = BoundedLruDict(
+            _MAX_RESOURCES
+        )
         self.initialize_assignment_checks()
         self._rbac = rbac if rbac is not None else _DEFAULT_RBAC
         self._action_semantics = action_semantics
@@ -268,7 +279,10 @@ class Forseti(
             elif topic == "object.anomaly" and payload.get("stage") == "protection_check":
                 await self.judge_document_safety(payload)
             return
-        if topic in ("object.event", "object.anomaly", "object.drift", "object.forecast"):
+        if topic == "object.forecast":
+            await self._judge_forecast(payload)
+            return
+        if topic in ("object.event", "object.anomaly", "object.drift"):
             if topic == "object.event":
                 await self._attach_change_assessment(payload)
             arbitration = await self.maybe_request_arbitration(payload)

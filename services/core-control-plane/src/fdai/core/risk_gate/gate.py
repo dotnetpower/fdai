@@ -173,15 +173,19 @@ class ActionPromotionRegistry:
         *,
         receipt_verifier: OperationalPromotionReceiptVerifier | None = None,
         allow_legacy_metrics: bool = False,
+        enforcement_enabled: bool = True,
         clock: Callable[[], datetime] | None = None,
     ) -> None:
         self._records: dict[str, ActionModeRecord] = {}
         self._development_records: dict[tuple[str, str], ActionModeRecord] = {}
         self._receipt_verifier = receipt_verifier
         self._allow_legacy_metrics = allow_legacy_metrics
+        self._enforcement_enabled = enforcement_enabled
         self._clock = clock or (lambda: datetime.now(tz=UTC))
 
     def mode_of(self, action_type: str) -> Mode:
+        if not self._enforcement_enabled:
+            return Mode.SHADOW
         record = self._records.get(action_type)
         return record.mode if record is not None else Mode.SHADOW
 
@@ -191,6 +195,8 @@ class ActionPromotionRegistry:
     def development_mode_of(self, profile_digest: str, action_type: str) -> Mode:
         """Read mode only from the exact development profile namespace."""
 
+        if not self._enforcement_enabled:
+            return Mode.SHADOW
         return _development_profile.mode_of(
             self._development_records,
             profile_digest=profile_digest,
@@ -245,6 +251,16 @@ class ActionPromotionRegistry:
                 f"metrics.action_type {metrics.action_type!r} != "
                 f"action_type.name {action_type.name!r}"
             )
+        if not self._enforcement_enabled:
+            record = ActionModeRecord(
+                action_type=action_type.name,
+                mode=Mode.SHADOW,
+                metrics=metrics,
+                action_type_version=action_type.version,
+                action_type_digest=action_type_digest(action_type),
+            )
+            self._records[action_type.name] = record
+            return record
         gate = action_type.promotion_gate
         now = self._clock()
         metric_passes = (
@@ -332,6 +348,8 @@ class ActionPromotionRegistry:
         current Owner approval can promote development immediately; production
         shadow metrics never grant or constrain this separate authority axis.
         """
+        if not self._enforcement_enabled:
+            raise RuntimeError("ActionType enforcement is unavailable in observation-first mode")
         return cast(
             ActionModeRecord,
             _development_profile.consider_promotion(

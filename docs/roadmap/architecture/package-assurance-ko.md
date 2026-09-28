@@ -1,17 +1,19 @@
 ---
 translation_of: package-assurance.md
-translation_source_sha: 1123ed1e60addb35d0168a68fae632485fbf479a
-translation_revised: 2026-09-27
+translation_source_sha: e579f742ec234f89c4d417501b6f6d0be819953a
+translation_revised: 2026-09-28
 ---
 
 # 패키지 보증
+
+> **배포 방식:** [헌법](fdai-constitution.md#article-1-purpose-and-scope)은 기여자 소스 배포와 서명된 오프라인 패키지라는 두 가지 설치 방식만 정의합니다. 이 문서의 설치 관문 중 헌법에 없는 것은 대체되었으며 더 이상 적용되지 않습니다.
 
 이 문서는 FDAI Python 패키지의 최소 배포 계약을 정의합니다. 오프라인 패키지는 일반 로컬 pip
 wheelhouse처럼 설치할 수 있으며, 설치 전에 private key로 만든 detached signature 하나만
 추가로 검증합니다.
 
-> **범위:** 이 계약은 Python 패키지 배포만 다룹니다. Azure 신원, Terraform 승인, 런타임 이미지,
-> 데이터베이스 이행, 서비스 상태 및 배포 복구는 해당 배포 소유자가 관리합니다.
+> **범위:** 이 계약은 Python 패키지와 오프라인 배포 패키지를 다룹니다. Azure 신원, 데이터베이스
+> 이행, 서비스 상태 및 배포 복구는 해당 배포 소유자가 관리합니다.
 >
 > **구현 원장:** 현재 제공 근거는
 > [패키지 보증 구현 원장](../../roadmap-implementation/architecture/package-assurance.md)에서
@@ -50,6 +52,10 @@ scripts/deployment/release/build-signed-python-package.sh \
 checksum 목록 하나를 작성하고 서명해 tar 아카이브를 만듭니다. 서비스 이미지를 빌드하거나 Azure
 배포 payload를 조립하지 않습니다.
 
+서명 파일 두 개를 제외한 모든 포함 파일은 `SHA256SUMS`에 나열됩니다. `wheels/`에 wheel 파일이
+아닌 항목이 있으면 빌더가 실패합니다. 서비스 계약처럼 잠긴 workspace 경로 의존성은 인덱스
+해시가 없으므로 wheel로 빌드합니다.
+
 ## 검증 및 설치
 
 pip를 실행하기 전에 서명과 checksum을 검증합니다.
@@ -73,6 +79,15 @@ FDAI 패키지 보증이 요구하는 항목은 checksum 목록에 대한 유효
 
 Private key는 저장소와 패키지 외부에 보관합니다. 패키지 설치는 Azure 접근, 실행 권한, 기능 사용
 설정 또는 승인을 부여하지 않습니다.
+
+## 오프라인 배포 패키지
+
+헌법의 오프라인 방식은
+`scripts/deployment/release/build-standalone-deployment-kit.sh --signing-key <key>`로 만든 완전한
+패키지 하나를 사용합니다. 이 패키지에는 wheelhouse와 함께 Terraform 구성, Terraform과 provider
+mirror, kubectl과 kubelogin, 서비스 및 사이드카 이미지, Console, 마이그레이션 지원이 들어 있습니다.
+인터넷에 연결되지 않은 Azure VM에는 다른 것이 필요하지 않습니다. key 하나로 서명하며 다른 패키지
+관문은 적용되지 않습니다.
 
 ## 제거한 제약
 

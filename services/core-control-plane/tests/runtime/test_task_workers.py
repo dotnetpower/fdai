@@ -16,6 +16,7 @@ from fdai.rule_catalog.schema.llm_resolver import (
 )
 from fdai.runtime import bootstrap_core, task_workers
 from fdai.runtime.bootstrap_resources import RuntimeResources
+from fdai_service_contracts.product_profile import ProductProfile
 
 
 def binding_arguments(dsn: str = "host=127.0.0.1 dbname=synthetic user=fdai_core") -> dict:
@@ -192,7 +193,11 @@ async def test_actual_core_assembly_calls_the_production_worker_boundary(
         held_model_capabilities=frozenset(),
         llm_bindings=SimpleNamespace(conversation_pricing=args["pricing"]),
     )
-    plan = SimpleNamespace(requires_channel_http_client=False, github_change_feed_enabled=False)
+    plan = SimpleNamespace(
+        requires_channel_http_client=False,
+        github_change_feed_enabled=False,
+        product_profile=ProductProfile(),
+    )
     async with httpx.AsyncClient() as client:
         resources = RuntimeResources(http_client=client)
         with pytest.raises(ReachedWorkerBoundaryError):

@@ -37,6 +37,9 @@ from fdai.delivery.persistence.state_store_assurance_twin_conflict import (
 from fdai.delivery.persistence.state_store_assurance_twin_conflict import (
     with_conflict_marker as _with_conflict_marker,
 )
+from fdai.delivery.persistence.state_store_assurance_twin_proposal_review import (
+    AssuranceTwinProposalReviewMixin,
+)
 from fdai.shared.providers.iac_review import IacReview
 from fdai.shared.providers.state_store import StateStore
 
@@ -189,6 +192,7 @@ class AssuranceTwinLedgerWrite:
 class StateStoreAssuranceTwinPostureLedger(
     AssuranceTwinConflictMixin,
     AssuranceTwinOutboxMixin,
+    AssuranceTwinProposalReviewMixin,
 ):
     """Durable posture-report and change-review projection over ``StateStore``."""
 

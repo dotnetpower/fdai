@@ -40,6 +40,7 @@ from fdai.runtime.delivery import _incident_roster_url, _validate_incident_notif
 from fdai.shared.config import AppConfig
 from fdai.shared.contracts.models import Mode
 from fdai.shared.providers.testing.event_bus import InMemoryEventBus
+from fdai_service_contracts.product_profile import ProductAddOn, ProductProfile
 
 _SHADOW_MUTATION_READINESS = MutationDependencyReadiness(
     saga_audit_durable=False,
@@ -64,6 +65,23 @@ def app_config() -> AppConfig:
             },
             "postgres": {"host": "psql.example", "database": "fdai"},
             "runtime": {"env": "dev"},
+        }
+    )
+
+
+@pytest.fixture
+def governed_app_config(app_config: AppConfig) -> AppConfig:
+    """Return the same configuration with the governed-execution surfaces selected."""
+
+    return app_config.model_copy(
+        update={
+            "product_profile": ProductProfile(
+                add_ons=(
+                    ProductAddOn.ENTERPRISE_IDENTITY_GOVERNANCE,
+                    ProductAddOn.GOVERNED_EXECUTION,
+                    ProductAddOn.NOTIFICATIONS,
+                )
+            )
         }
     )
 
@@ -1435,14 +1453,14 @@ def test_build_control_loop_uses_injected_stage_publisher(
 
 
 def test_build_control_loop_wires_inventory_age_provider(
-    monkeypatch: pytest.MonkeyPatch, app_config: AppConfig
+    monkeypatch: pytest.MonkeyPatch, governed_app_config: AppConfig
 ) -> None:
     monkeypatch.setenv("FDAI_INVENTORY_DSN", "postgresql://example/db")
     from fdai.__main__ import _build_control_loop
     from fdai.composition import default_container
 
     loop = _build_control_loop(
-        default_container(app_config),
+        default_container(governed_app_config),
         http_client=None,
         mutation_dependency_readiness=_SHADOW_MUTATION_READINESS,
     )
@@ -1453,7 +1471,7 @@ def test_build_control_loop_wires_inventory_age_provider(
 
 
 def test_build_control_loop_wires_hil_coordinator_when_webhook_set(
-    monkeypatch: pytest.MonkeyPatch, app_config: AppConfig
+    monkeypatch: pytest.MonkeyPatch, governed_app_config: AppConfig
 ) -> None:
     """Setting the ChatOps webhook opts the loop into the HIL approval
     round-trip: a HIL-routed action parks + pushes an A1 card."""
@@ -1463,7 +1481,7 @@ def test_build_control_loop_wires_hil_coordinator_when_webhook_set(
     from fdai.composition import default_container
 
     loop = _build_control_loop(
-        default_container(app_config),
+        default_container(governed_app_config),
         http_client=httpx.AsyncClient(),
         identity=_TeamsWorkloadIdentity(),
         hil_identity=_TeamsWorkloadIdentity(),
@@ -1478,7 +1496,7 @@ def test_build_control_loop_wires_hil_coordinator_when_webhook_set(
 
 def test_build_control_loop_does_not_reuse_execution_identity_for_hil(
     monkeypatch: pytest.MonkeyPatch,
-    app_config: AppConfig,
+    governed_app_config: AppConfig,
 ) -> None:
     monkeypatch.setenv("FDAI_CHATOPS_WEBHOOK_URL", "https://example.com/webhook")
     _set_teams_approval_destination(monkeypatch)
@@ -1487,7 +1505,7 @@ def test_build_control_loop_does_not_reuse_execution_identity_for_hil(
 
     with pytest.raises(RuntimeError, match="requires a workload identity"):
         _build_control_loop(
-            default_container(app_config),
+            default_container(governed_app_config),
             http_client=httpx.AsyncClient(),
             identity=_TeamsWorkloadIdentity(),
             mutation_dependency_readiness=_SHADOW_MUTATION_READINESS,

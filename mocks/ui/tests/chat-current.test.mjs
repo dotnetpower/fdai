@@ -14,6 +14,7 @@ const origin = "http://127.0.0.1:5373";
 const routes = [
   "deck",
   "deck-sources",
+  "deck-adaptive",
   "deck-sources-v2",
   "incident-conversation",
   "conversation-response-patterns",
@@ -21,7 +22,9 @@ const routes = [
 ];
 
 async function openChat(page, name, sequence) {
-  await page.goto(`${origin}/?chat-current=${sequence}#mocks/ui/${name}.html`, { waitUntil: "load" });
+  // The deck study starts with model trace capture on, so the audit also covers provider lanes.
+  const query = name === "deck-sources" ? "?trace=on" : name === "deck-adaptive" ? "?trace=on&scenario=drift" : "";
+  await page.goto(`${origin}/?chat-current=${sequence}#mocks/ui/${name}.html${query}`, { waitUntil: "load" });
   await page.waitForFunction(expected => {
     const frame = document.querySelector("#preview-frame");
     return frame?.contentDocument?.readyState === "complete"
@@ -29,12 +32,23 @@ async function openChat(page, name, sequence) {
   }, name);
   const frame = await (await page.locator("#preview-frame").elementHandle()).contentFrame();
   if (name === "deck-sources") {
-    await frame.evaluate(() => {
-      window.SPEED = 0.01;
-      document.getElementById("gs-replay").click();
-    });
-    await frame.locator(".gs-grounded").waitFor({ state: "visible", timeout: 10000 });
-    await frame.locator(".gs-followups").waitFor({ state: "visible", timeout: 10000 });
+    // Reduced motion renders the settled answer immediately; no replay timing is involved.
+    await frame.locator('body[data-deck-state="settled"]').waitFor({ state: "attached", timeout: 10000 });
+    await frame.locator(".cs-deck-followups").waitFor({ state: "visible", timeout: 10000 });
+    await frame.locator(".cs-run-record > summary").click();
+    await frame.locator('.cs-run-event[data-kind="evidence"] summary').first().click();
+    await frame.locator(".cs-model-trace-lane summary").first().click();
+    await frame.waitForFunction(() => [...document.querySelectorAll(".cs-model-trace-hash code")]
+      .every(code => /^[0-9a-f]{64}$/.test(code.textContent)), null, { timeout: 5000 });
+  }
+  if (name === "deck-adaptive") {
+    // The audit covers an open wave, an open read card, the context receipt, and the run record.
+    await frame.locator('body[data-deck-state="settled"]').waitFor({ state: "attached", timeout: 10000 });
+    await frame.locator(".cs-deck-context-receipt > summary").click();
+    await frame.locator(".cs-deck-wave-head").first().click();
+    await frame.locator(".cs-deck-activity > details > summary").nth(1).click();
+    await frame.locator(".cs-run-record > summary").click();
+    await frame.locator(".cs-model-trace-lane summary").first().click();
   }
   await frame.evaluate(() => new Promise(resolveFrame =>
     requestAnimationFrame(() => requestAnimationFrame(resolveFrame))));
@@ -173,10 +187,15 @@ test("chat mock sources use the current shared contract", async () => {
     assert.equal(headers.every(header => /\bscope="col"/.test(header)), true, `${route}: header scopes`);
   }
   const sources = await readFile(join(uiRoot, "deck-sources.html"), "utf8");
-  assert.match(sources, /var pill = el\("button", "gs-grounded"\)/);
-  assert.match(sources, /pill\.setAttribute\("aria-expanded", "false"\)/);
-  assert.match(sources, /<textarea class="gs-input"[^>]*readonly>/);
-  assert.match(sources, /<button class="gs-send" type="button" disabled>Preview only/);
+  const sourcesScript = await readFile(join(uiRoot, "assets/deck-sources.js"), "utf8");
+  assert.match(sources, /calm-slate-deck-conversation\.css\?v=/);
+  assert.match(sources, /class="[^"]*\bcs-deck-conversation\b/);
+  assert.match(sources, /<textarea class="cs-deck-composer-input"[^>]*placeholder="Ask anything\.\.\."/);
+  assert.doesNotMatch(sources, /<textarea[^>]*\breadonly\b/);
+  assert.doesNotMatch(sources, /\sstyle="/);
+  assert.doesNotMatch(`${sources}\n${sourcesScript}`, /\bgs-[a-z]/);
+  assert.match(sourcesScript, /"aria-expanded": "false"/);
+  assert.match(sourcesScript, /prefers-reduced-motion: reduce/);
 });
 
 test("chat surfaces pass desktop Light and Dark states", { timeout: 120000 }, async () => {
@@ -231,14 +250,15 @@ test("chat interactions preserve evidence and authority boundaries", { timeout: 
     const page = await context.newPage();
 
     let frame = await openChat(page, "deck-sources", 1);
-    const grounded = frame.locator(".gs-grounded");
+    const grounded = frame.locator("[data-action='sources']").first();
     assert.equal(await grounded.getAttribute("aria-expanded"), "false");
     await grounded.click();
     assert.equal(await grounded.getAttribute("aria-expanded"), "true");
-    assert.equal(await frame.locator("#gs-retrieval-trace").isVisible(), true);
+    assert.equal(await frame.locator(".cs-deck-sources").first().isVisible(), true);
     await grounded.click();
-    assert.equal(await frame.locator("#gs-retrieval-trace").isVisible(), false);
-    assert.equal(await frame.locator(".gs-send").isDisabled(), true);
+    assert.equal(await frame.locator(".cs-deck-sources").first().isVisible(), false);
+    assert.equal(await frame.locator("#ds-send").isDisabled(), true);
+    assert.equal(await frame.getByRole("button", { name: /execute|approve|remediate/i }).count(), 0);
 
     frame = await openChat(page, "deck-sources-v2", 2);
     const previewControls = frame.locator("#ex-preview-controls");
@@ -289,9 +309,9 @@ test("chat surfaces reflow at constrained and mobile widths", { timeout: 120000 
         const frame = await openChat(page, route, `${viewport.name}-${++sequence}`);
         const measurement = await frame.evaluate(measureChat, viewport.width);
         assertMeasurement(measurement, route, "light");
-        if (route === "deck-sources") {
-          assert.equal(await frame.locator(".gs-body").evaluate(element =>
-            getComputedStyle(element).gridTemplateColumns.split(" ").length), 1);
+        if (route === "deck-sources" || route === "deck-adaptive") {
+          assert.equal(await frame.locator(".cs-deck-transcript").evaluate(element =>
+            element.scrollWidth <= element.clientWidth), true);
         }
         await page.screenshot({
           path: join(output, `${route}-${viewport.name}.png`),

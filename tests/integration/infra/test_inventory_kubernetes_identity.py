@@ -30,7 +30,7 @@ def test_inventory_identity_gets_only_aks_rbac_reader_for_configured_cluster() -
     assert 'role_definition_name = "Azure Kubernetes Service RBAC Reader"' in main
     assert "principal_id         = module.inventory_identity.principal_id" in main
     assert 'role_definition_name = "Azure Kubernetes Service RBAC Cluster Admin"' not in main
-    assert "for_each             = nonsensitive(local.inventory_kubernetes_cluster_refs)" in main
+    assert "for_each = var.enable_inventory_aks_reader ? nonsensitive(" in main
     assert "scope                = each.value" in main
     assert (
         variables.count(
@@ -41,7 +41,7 @@ def test_inventory_identity_gets_only_aks_rbac_reader_for_configured_cluster() -
     )
 
 
-def test_inventory_identity_defaults_to_subscription_wide_aks_read_roles() -> None:
+def test_inventory_identity_requires_explicit_subscription_wide_aks_read_selection() -> None:
     main = _MAIN.read_text(encoding="utf-8")
     variables = (_ROOT / "infra/variables.tf").read_text(encoding="utf-8")
     job = _JOB.read_text(encoding="utf-8")
@@ -49,7 +49,15 @@ def test_inventory_identity_defaults_to_subscription_wide_aks_read_roles() -> No
     discovery_variable = variables.split(
         'variable "inventory_kubernetes_subscription_discovery_enabled"', maxsplit=1
     )[1].split('variable "inventory_kubernetes_cluster_bindings_json"', maxsplit=1)[0]
+    role_variable = variables.split('variable "enable_inventory_aks_reader"', maxsplit=1)[1].split(
+        'variable "enable_inventory_evidence_store_reader"', maxsplit=1
+    )[0]
     assert "default     = true" in discovery_variable
+    assert "default     = false" in role_variable
+    assert (
+        "var.enable_inventory_aks_reader &&\n"
+        "    var.inventory_kubernetes_subscription_discovery_enabled"
+    ) in main
     assert (
         'resource "azurerm_role_assignment" "inventory_kubernetes_cluster_user_subscription"'
         in main

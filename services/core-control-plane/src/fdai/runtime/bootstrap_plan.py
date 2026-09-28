@@ -7,6 +7,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 
 from fdai_github_app_auth import github_credentials_configured
+from fdai_service_contracts.product_profile import ProductAddOn, ProductProfile
 
 from fdai.delivery.agent_activity import DEFAULT_STAGE_TOPIC
 from fdai.runtime.venue import ExecutionVenue, resolve_execution_venue, uses_workload_identity
@@ -66,6 +67,7 @@ class BootstrapPlan:
     diagnostic_kafka_bootstrap_servers: str | None
     diagnostic_topic: str | None
     diagnostic_metric_whitelist: tuple[str, ...]
+    product_profile: ProductProfile
 
     @property
     def requires_channel_http_client(self) -> bool:
@@ -78,9 +80,14 @@ def build_bootstrap_plan(
     *,
     llm_mode: str,
     environment: Mapping[str, str],
+    product_profile: ProductProfile | None = None,
 ) -> BootstrapPlan:
     """Resolve startup decisions without acquiring resources or changing process state."""
 
+    selected_profile = product_profile or ProductProfile()
+    governed_execution = selected_profile.selects(ProductAddOn.GOVERNED_EXECUTION)
+    notifications = selected_profile.selects(ProductAddOn.NOTIFICATIONS)
+    enterprise_identity = selected_profile.selects(ProductAddOn.ENTERPRISE_IDENTITY_GOVERNANCE)
     start_consumer = environment.get("FDAI_START_CONSUMER", "").lower() in {"1", "true"}
     venue = resolve_execution_venue(environment) if start_consumer else None
     identity_requests = IdentityRequests(
@@ -91,14 +98,13 @@ def build_bootstrap_plan(
         configuration_drift=environment.get("FDAI_CONFIGURATION_DRIFT_ENABLED", "").strip().lower()
         in {"1", "true"},
         diagnostic=False,
-        gateway=bool(environment.get("FDAI_DEV_OPERATIONS_GATEWAY_URL", "").strip()),
+        gateway=governed_execution
+        and bool(environment.get("FDAI_DEV_OPERATIONS_GATEWAY_URL", "").strip()),
         case_history=bool(environment.get("FDAI_CASE_HISTORY_CONTAINER_URL", "").strip()),
-        vertical_execution=any(
-            environment.get(env_var, "").strip() for env_var in VERTICAL_IDENTITY_ENV.values()
-        ),
-        stewardship_health=bool(
-            environment.get("FDAI_STEWARDSHIP_AUDIT_INTERVAL_SECONDS", "").strip()
-        ),
+        vertical_execution=governed_execution
+        and any(environment.get(env_var, "").strip() for env_var in VERTICAL_IDENTITY_ENV.values()),
+        stewardship_health=enterprise_identity
+        and bool(environment.get("FDAI_STEWARDSHIP_AUDIT_INTERVAL_SECONDS", "").strip()),
     )
     auxiliary_bootstrap = environment.get(_AUXILIARY_KAFKA_BOOTSTRAP_ENV, "").strip()
     diagnostic_bootstrap = environment.get("FDAI_DIAGNOSTIC_KAFKA_BOOTSTRAP_SERVERS", "").strip()
@@ -132,31 +138,38 @@ def build_bootstrap_plan(
         identity_requests=identity_requests,
         requires_initial_identity=(llm_mode == LlmMode.AZURE or identity_requests.any_requested),
         consumer_requires_workload_identity=(venue is not None and uses_workload_identity(venue)),
-        github_change_feed_enabled=github_credentials_configured(environment),
-        chatops_enabled=bool(
+        github_change_feed_enabled=governed_execution
+        and github_credentials_configured(environment),
+        chatops_enabled=notifications
+        and bool(
             environment.get("FDAI_CHATOPS_WEBHOOK_URL")
-            or environment.get("FDAI_TEAMS_APPROVAL_ACTIVITY_URL")
-            or any(
-                environment.get(key)
-                for key in (
-                    "FDAI_SLACK_APPROVAL_API_URL",
-                    "FDAI_SLACK_APPROVAL_CHANNEL_ID",
-                    "FDAI_SLACK_APPROVAL_BOT_TOKEN",
+            or (
+                governed_execution
+                and (
+                    environment.get("FDAI_TEAMS_APPROVAL_ACTIVITY_URL")
+                    or any(
+                        environment.get(key)
+                        for key in (
+                            "FDAI_SLACK_APPROVAL_API_URL",
+                            "FDAI_SLACK_APPROVAL_CHANNEL_ID",
+                            "FDAI_SLACK_APPROVAL_BOT_TOKEN",
+                        )
+                    )
                 )
             )
         ),
-        email_enabled=bool(environment.get("FDAI_EMAIL_ENDPOINT")),
+        email_enabled=notifications and bool(environment.get("FDAI_EMAIL_ENDPOINT")),
         auxiliary_kafka_bootstrap_servers=auxiliary_bootstrap or None,
         pantheon_object_topic=environment.get(
             "FDAI_PANTHEON_OBJECT_TOPIC", "fdai.pantheon.objects"
         ).strip(),
         stage_topic=environment.get("FDAI_STAGE_TOPIC", "").strip() or DEFAULT_STAGE_TOPIC,
-        isolated_executor_authority_cutover=(
-            environment.get("FDAI_ISOLATED_EXECUTOR_AUTHORITY_CUTOVER", "").strip() == "1"
-        ),
+        isolated_executor_authority_cutover=governed_execution
+        and (environment.get("FDAI_ISOLATED_EXECUTOR_AUTHORITY_CUTOVER", "").strip() == "1"),
         diagnostic_kafka_bootstrap_servers=diagnostic_bootstrap or None,
         diagnostic_topic=diagnostic_topic or None,
         diagnostic_metric_whitelist=diagnostic_whitelist,
+        product_profile=selected_profile,
     )
 
 

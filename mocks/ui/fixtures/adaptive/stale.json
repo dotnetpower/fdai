@@ -1,0 +1,471 @@
+{
+  "schema": "fdai.mock.adaptive-investigation/1",
+  "scenario": "stale",
+  "label": "Stale context",
+  "question": "Compare the configuration in example-inventory.md with the live example-rg-app resource group.",
+  "attachment": {
+    "name": "example-inventory.md",
+    "lines": 184
+  },
+  "plan": {
+    "summary": "Read the documented configuration and the live inventory, then compare missing, added, and changed resources.",
+    "waves": [
+      {
+        "id": "w1",
+        "label": "Document and inventory",
+        "branch_ids": [
+          "b-doc",
+          "b-inventory"
+        ]
+      },
+      {
+        "id": "w2",
+        "label": "Configuration details",
+        "branch_ids": [
+          "b-details"
+        ]
+      }
+    ]
+  },
+  "presentation": {
+    "a-doc": {
+      "operation": "read",
+      "authorization": "allowed",
+      "evidence_authority": "operator_attachment"
+    },
+    "a-rg": {
+      "operation": "read",
+      "authorization": "allowed",
+      "evidence_authority": "server_inventory_graph",
+      "provider": "az group show --name example-rg-app --query \"{location:location,state:properties.provisioningState}\""
+    },
+    "a-resources": {
+      "operation": "read",
+      "authorization": "allowed",
+      "evidence_authority": "server_inventory_graph",
+      "provider": "az resource list --resource-group example-rg-app --query \"[].{type:type,name:name}\""
+    },
+    "a-vms": {
+      "operation": "read",
+      "authorization": "allowed",
+      "evidence_authority": "server_inventory_graph",
+      "provider": "az vm list --resource-group example-rg-app --show-details --query \"[].{name:name,size:hardwareProfile.vmSize}\""
+    },
+    "a-disks": {
+      "operation": "read",
+      "authorization": "allowed",
+      "evidence_authority": "server_inventory_graph",
+      "provider": "az disk list --resource-group example-rg-app --query \"[].{name:name,encryption:encryption.type}\""
+    },
+    "a-network": {
+      "operation": "read",
+      "authorization": "allowed",
+      "evidence_authority": "server_inventory_graph",
+      "provider": "az network nsg list --resource-group example-rg-app --query \"[].{name:name,rules:length(securityRules)}\""
+    },
+    "a-schedules": {
+      "operation": "read",
+      "authorization": "allowed",
+      "evidence_authority": "server_inventory_graph",
+      "provider": "az resource list --resource-group example-rg-app --resource-type Microsoft.DevTestLab/schedules"
+    },
+    "a-compare": {
+      "operation": "read",
+      "authorization": "allowed",
+      "evidence_authority": "deterministic_comparison"
+    },
+    "a-context": {
+      "operation": "read",
+      "authorization": "allowed",
+      "evidence_authority": "operator_preferences"
+    }
+  },
+  "answer": {
+    "state": null,
+    "lead": "No drift: the live resource group matches the document.",
+    "facts": [
+      [
+        "Document baseline",
+        "10:36 UTC"
+      ],
+      [
+        "Live read",
+        "10:41 UTC"
+      ],
+      [
+        "Resources",
+        "23 documented, 23 live"
+      ],
+      [
+        "Missing or added",
+        "None"
+      ]
+    ],
+    "checks": [
+      "3 virtual machines: size, zone, identity, and power state match.",
+      "3 managed disks: encryption, security type, IOPS, and throughput match.",
+      "Network: 3 interfaces, 1 virtual network, and 2 security groups with no custom rules match.",
+      "2 auto-shutdown schedules: target, time, status, and notification match."
+    ],
+    "limitations": [],
+    "note": "An older preference was superseded, so FDAI re-read your current preference before answering.",
+    "next_step": null,
+    "verification": {
+      "tone": "verified",
+      "mark": "\u2713",
+      "label": "Verified",
+      "detail": "12 of 12 checks consistent"
+    }
+  },
+  "followups": [
+    "Show the virtual machine details",
+    "When was the document last updated?"
+  ],
+  "affordances": [],
+  "trajectory_detail": {
+    "schema_version": 1,
+    "activities": [
+      {
+        "activity_id": "a-doc",
+        "kind": "query",
+        "status": "completed",
+        "label": "Read example-inventory.md",
+        "completed": 1,
+        "total": 1,
+        "authority": "read",
+        "observed_at": "2026-09-28T10:41:03.780Z",
+        "branch_id": "b-doc",
+        "execution": {
+          "tool": "document.read",
+          "command": "document.read attachment=example-inventory.md sections=resources",
+          "input_kind": "query",
+          "target": {
+            "interface_kind": "internal_query",
+            "service": "core-control-plane",
+            "component": "attachments",
+            "operation": "read",
+            "source_kind": "operator_attachment",
+            "transport": "in_process"
+          },
+          "redacted": true,
+          "started_at": "2026-09-28T10:41:03.600Z",
+          "duration_ms": 180,
+          "output": "{\n  \"attachment\": \"example-inventory.md\",\n  \"lines\": 184,\n  \"baseline\": \"2026-09-28T10:36:00Z\",\n  \"resources\": 23,\n  \"sections\": [\n    \"resource group\",\n    \"virtual machines\",\n    \"disks\",\n    \"network\",\n    \"schedules\"\n  ]\n}",
+          "completed_at": "2026-09-28T10:41:03.780Z"
+        }
+      },
+      {
+        "activity_id": "a-context",
+        "kind": "query",
+        "status": "completed",
+        "label": "Refresh operator preferences",
+        "completed": 1,
+        "total": 1,
+        "authority": "read",
+        "observed_at": "2026-09-28T10:41:03.810Z",
+        "branch_id": "b-doc",
+        "execution": {
+          "tool": "preferences.read",
+          "command": "preferences.read principal=current kind=presentation",
+          "input_kind": "query",
+          "target": {
+            "interface_kind": "internal_query",
+            "service": "core-control-plane",
+            "component": "preferences",
+            "operation": "read",
+            "source_kind": "operator_preferences",
+            "transport": "in_process"
+          },
+          "redacted": true,
+          "started_at": "2026-09-28T10:41:03.610Z",
+          "duration_ms": 200,
+          "output": "{\n  \"preferences\": 1,\n  \"superseded\": 1,\n  \"observed_at\": \"2026-09-28T10:41:02.300Z\"\n}",
+          "completed_at": "2026-09-28T10:41:03.810Z"
+        }
+      },
+      {
+        "activity_id": "a-rg",
+        "kind": "query",
+        "status": "completed",
+        "label": "Read the resource group",
+        "completed": 1,
+        "total": 1,
+        "authority": "read",
+        "observed_at": "2026-09-28T10:41:03.910Z",
+        "branch_id": "b-inventory",
+        "execution": {
+          "tool": "inventory.read",
+          "command": "inventory.read scope=resource_group:example-rg-app fields=location,provisioning_state,tags",
+          "input_kind": "query",
+          "target": {
+            "interface_kind": "internal_query",
+            "service": "core-control-plane",
+            "component": "inventory",
+            "operation": "read",
+            "source_kind": "server_inventory_graph",
+            "transport": "in_process"
+          },
+          "redacted": true,
+          "started_at": "2026-09-28T10:41:03.620Z",
+          "duration_ms": 290,
+          "output": "{\n  \"resource_group\": \"example-rg-app\",\n  \"location\": \"eastus\",\n  \"provisioning_state\": \"Succeeded\",\n  \"tags\": {}\n}",
+          "completed_at": "2026-09-28T10:41:03.910Z"
+        }
+      },
+      {
+        "activity_id": "a-resources",
+        "kind": "query",
+        "status": "completed",
+        "label": "List resources",
+        "completed": 1,
+        "total": 1,
+        "authority": "read",
+        "observed_at": "2026-09-28T10:41:04.150Z",
+        "branch_id": "b-inventory",
+        "execution": {
+          "tool": "inventory.list",
+          "command": "inventory.list scope=resource_group:example-rg-app fields=type,name,provisioning_state",
+          "input_kind": "query",
+          "target": {
+            "interface_kind": "internal_query",
+            "service": "core-control-plane",
+            "component": "inventory",
+            "operation": "list",
+            "source_kind": "server_inventory_graph",
+            "transport": "in_process"
+          },
+          "redacted": true,
+          "started_at": "2026-09-28T10:41:03.630Z",
+          "duration_ms": 520,
+          "output": "{\n  \"count\": 23,\n  \"by_type\": {\n    \"virtual_machine\": 3,\n    \"managed_disk\": 3,\n    \"network_interface\": 3,\n    \"public_ip\": 3,\n    \"virtual_network\": 1,\n    \"network_security_group\": 2,\n    \"vm_extension\": 4,\n    \"schedule\": 2,\n    \"ssh_public_key\": 2\n  }\n}",
+          "completed_at": "2026-09-28T10:41:04.150Z"
+        }
+      },
+      {
+        "activity_id": "a-vms",
+        "kind": "query",
+        "status": "completed",
+        "label": "Read virtual machines",
+        "completed": 1,
+        "total": 1,
+        "authority": "read",
+        "observed_at": "2026-09-28T10:41:04.420Z",
+        "branch_id": "b-inventory",
+        "execution": {
+          "tool": "inventory.read",
+          "command": "inventory.read type=virtual_machine scope=resource_group:example-rg-app fields=size,zone,identity,power_state",
+          "input_kind": "query",
+          "target": {
+            "interface_kind": "internal_query",
+            "service": "core-control-plane",
+            "component": "inventory",
+            "operation": "read",
+            "source_kind": "server_inventory_graph",
+            "transport": "in_process"
+          },
+          "redacted": true,
+          "started_at": "2026-09-28T10:41:03.640Z",
+          "duration_ms": 780,
+          "output": "{\n  \"virtual_machines\": [\n    {\n      \"name\": \"example-vm-web-01\",\n      \"size\": \"Standard_D4s_v5\",\n      \"zone\": \"1\",\n      \"power_state\": \"deallocated\"\n    },\n    {\n      \"name\": \"example-vm-web-02\",\n      \"size\": \"Standard_D4s_v5\",\n      \"zone\": \"2\",\n      \"power_state\": \"deallocated\"\n    },\n    {\n      \"name\": \"example-vm-jobs-01\",\n      \"size\": \"Standard_D2s_v5\",\n      \"zone\": null,\n      \"power_state\": \"deallocated\"\n    }\n  ]\n}",
+          "completed_at": "2026-09-28T10:41:04.420Z"
+        }
+      },
+      {
+        "activity_id": "a-disks",
+        "kind": "query",
+        "status": "completed",
+        "label": "Read disk security and performance",
+        "completed": 1,
+        "total": 1,
+        "authority": "read",
+        "observed_at": "2026-09-28T10:41:05.000Z",
+        "branch_id": "b-details",
+        "execution": {
+          "tool": "inventory.read",
+          "command": "inventory.read type=managed_disk scope=resource_group:example-rg-app fields=encryption,security_type,iops,throughput",
+          "input_kind": "query",
+          "target": {
+            "interface_kind": "internal_query",
+            "service": "core-control-plane",
+            "component": "inventory",
+            "operation": "read",
+            "source_kind": "server_inventory_graph",
+            "transport": "in_process"
+          },
+          "redacted": true,
+          "started_at": "2026-09-28T10:41:04.460Z",
+          "duration_ms": 540,
+          "output": "{\n  \"managed_disks\": 3,\n  \"encryption\": \"platform_managed_key\",\n  \"security_type\": \"TrustedLaunch\",\n  \"iops\": 500,\n  \"throughput_mbps\": 60\n}",
+          "completed_at": "2026-09-28T10:41:05.000Z"
+        }
+      },
+      {
+        "activity_id": "a-network",
+        "kind": "query",
+        "status": "completed",
+        "label": "Read network configuration",
+        "completed": 1,
+        "total": 1,
+        "authority": "read",
+        "observed_at": "2026-09-28T10:41:05.150Z",
+        "branch_id": "b-details",
+        "execution": {
+          "tool": "inventory.read",
+          "command": "inventory.read type=network_interface,network_security_group scope=resource_group:example-rg-app fields=subnet,rules",
+          "input_kind": "query",
+          "target": {
+            "interface_kind": "internal_query",
+            "service": "core-control-plane",
+            "component": "inventory",
+            "operation": "read",
+            "source_kind": "server_inventory_graph",
+            "transport": "in_process"
+          },
+          "redacted": true,
+          "started_at": "2026-09-28T10:41:04.470Z",
+          "duration_ms": 680,
+          "output": "{\n  \"network_interfaces\": 3,\n  \"virtual_networks\": 1,\n  \"security_groups\": 2,\n  \"custom_rules\": 0,\n  \"public_ips\": [\n    \"203.0.113.10\",\n    \"203.0.113.11\",\n    \"203.0.113.12\"\n  ]\n}",
+          "completed_at": "2026-09-28T10:41:05.150Z"
+        }
+      },
+      {
+        "activity_id": "a-schedules",
+        "kind": "query",
+        "status": "completed",
+        "label": "Read auto-shutdown schedules",
+        "completed": 1,
+        "total": 1,
+        "authority": "read",
+        "observed_at": "2026-09-28T10:41:04.860Z",
+        "branch_id": "b-details",
+        "execution": {
+          "tool": "inventory.read",
+          "command": "inventory.read type=schedule scope=resource_group:example-rg-app fields=target,status,time,notification",
+          "input_kind": "query",
+          "target": {
+            "interface_kind": "internal_query",
+            "service": "core-control-plane",
+            "component": "inventory",
+            "operation": "read",
+            "source_kind": "server_inventory_graph",
+            "transport": "in_process"
+          },
+          "redacted": true,
+          "started_at": "2026-09-28T10:41:04.480Z",
+          "duration_ms": 380,
+          "output": "{\n  \"schedules\": [\n    {\n      \"target\": \"example-vm-web-01\",\n      \"status\": \"enabled\",\n      \"time\": \"19:00\",\n      \"notification\": true\n    },\n    {\n      \"target\": \"example-vm-jobs-01\",\n      \"status\": \"enabled\",\n      \"time\": \"03:00\",\n      \"notification\": false\n    }\n  ]\n}",
+          "completed_at": "2026-09-28T10:41:04.860Z"
+        }
+      }
+    ],
+    "branches": [
+      {
+        "branch_id": "b-doc",
+        "branch_kind": "tool",
+        "parent_branch_id": null,
+        "status": "completed",
+        "summary": "Attached document read: 23 documented resources.",
+        "started_at": "2026-09-28T10:41:03.600Z",
+        "evidence_refs": [
+          "attachment:example-inventory.md"
+        ],
+        "completed_at": "2026-09-28T10:41:03.810Z",
+        "duration_ms": 210
+      },
+      {
+        "branch_id": "b-inventory",
+        "branch_kind": "operational",
+        "parent_branch_id": null,
+        "status": "completed",
+        "summary": "Live inventory read: resource group, 23 resources, 3 virtual machines.",
+        "started_at": "2026-09-28T10:41:03.620Z",
+        "evidence_refs": [
+          "inventory:resource_group",
+          "inventory:resources",
+          "inventory:virtual_machines"
+        ],
+        "completed_at": "2026-09-28T10:41:04.420Z",
+        "duration_ms": 800
+      },
+      {
+        "branch_id": "b-details",
+        "branch_kind": "operational",
+        "parent_branch_id": "b-inventory",
+        "status": "completed",
+        "summary": "Configuration details read: disks, network, schedules.",
+        "started_at": "2026-09-28T10:41:04.460Z",
+        "evidence_refs": [
+          "inventory:managed_disks",
+          "inventory:network",
+          "inventory:schedules"
+        ],
+        "completed_at": "2026-09-28T10:41:05.150Z",
+        "duration_ms": 690
+      }
+    ],
+    "milestones": [
+      {
+        "message_id": "m-wave-1",
+        "text": "Wave 1 finished: 5 reads completed. Configuration details started.",
+        "agent": "Bragi",
+        "recorded_at": "2026-09-28T10:41:04.425Z"
+      },
+      {
+        "message_id": "m-wave-2",
+        "text": "Wave 2 finished: 3 reads completed. Answer started.",
+        "agent": "Bragi",
+        "recorded_at": "2026-09-28T10:41:05.155Z"
+      }
+    ],
+    "omitted": {
+      "activities": 0,
+      "branches": 0,
+      "milestones": 0
+    },
+    "truncated_outputs": 0,
+    "work_progress_shape": {
+      "schema_version": 1,
+      "density": "procedural",
+      "waves": 2,
+      "planned_reads": 8
+    },
+    "turn_budget": {
+      "schema_version": 1,
+      "model_calls": {
+        "used": 3,
+        "reserved": 0,
+        "maximum": 5
+      },
+      "tokens": {
+        "used": 4382,
+        "reserved": 0,
+        "maximum": 48000
+      },
+      "elapsed_ms": {
+        "used": 3106,
+        "reserved": 0,
+        "maximum": 60000
+      },
+      "as_of": "2026-09-28T10:41:06.266Z",
+      "complete": true
+    },
+    "context_receipts": [
+      {
+        "receipt_id": "ctx-pref-old",
+        "kind": "operator_preference",
+        "digest": "c8e9eb7e37549c65cd8e9bfdfbe532db029d00609807fac40b4042ddeca1873a",
+        "observed_at": "2026-07-30T09:02:11Z",
+        "freshness": "superseded",
+        "label": "Summarize in one line"
+      },
+      {
+        "receipt_id": "ctx-pref-verified-limits",
+        "kind": "operator_preference",
+        "digest": "4387bcca8a6975714d80543e87dc9740b24af3a922b96b37d4460e062d07e4dc",
+        "observed_at": "2026-09-28T10:41:03.810Z",
+        "freshness": "fresh",
+        "label": "Separate verified facts from limitations"
+      }
+    ]
+  }
+}

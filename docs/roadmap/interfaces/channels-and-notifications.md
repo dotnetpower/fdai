@@ -17,6 +17,10 @@ The read-only console's identity and interaction flows remain out of scope; this
 only its outbound browser-notification boundary. Console identity lives in
 [user-rbac-and-identity.md](user-rbac-and-identity.md).
 
+> **Product profile:** The observation-first default constructs no channel. Notifications require
+> the explicit `notifications` add-on; A1 approval additionally requires governed execution and
+> complete enterprise identity evidence. Environment values alone cannot select either add-on.
+
 Production A3 ingress, publishing, lifecycle, persistence composition, deployment, and rollback are
 owned by [Production A3 channel runtime](production-a3-channel-runtime.md).
 
@@ -64,7 +68,10 @@ durable delivery, and the Teams Workflows webhook binding are owned by
   picks channels per the fork's routing config (§6). It holds no vendor knowledge.
 - **Approval callbacks from any adapter land at `fdai-api`**, which re-validates
   the human's Entra identity ([user-rbac-and-identity.md](user-rbac-and-identity.md#102-api-token-validation))
-  before acting. Adapters never authorize decisions themselves.
+  before acting. Adapters never authorize decisions themselves. A channel approval never becomes a
+  full-authority development confirmation. Only the FDAI Console decision route can attach one, as a
+  token-free fresh-sign-in attestation that the HIL decision payload carries to Core for
+  revalidation; Slack and Teams decisions never carry it.
 
 ## 3. Categories (A1-A4)
 
@@ -91,6 +98,11 @@ equivalence or conversion between the enum families.
   carrying the invoker's Entra OID in the PR trailer. The PR then follows the standard
   quorum + no-self-approval rules.
 - **A2/A4 messages never contain approval buttons or executable links.**
+- **Learned patterns and predictions create no A1 request in the default profile.** Without the
+  governed execution add-on, Forseti answers forecasts and capacity-fed arbitration with
+  ActionType-free Verdicts, and the control loop stops T1 learned reuse before it builds an Action,
+  so no channel carries an approval for them. See the
+  [learned and predicted output boundary](../agents/agent-pantheon-implementation.md#learned-and-predicted-output-boundary).
 
 ### 3.1 A3 command role gating
 

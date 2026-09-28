@@ -91,6 +91,14 @@ from fdai.core.assurance_twin.projection import (
     InMemoryProjection,
     build_baseline_projection,
 )
+from fdai.core.assurance_twin.proposal_effects import (
+    DeclaredPropertyEffect,
+    PredictedChangeSet,
+    ProposalReviewUnavailableError,
+    ReviewedActionTypeEffect,
+    ReviewedEffectCatalog,
+    derive_predicted_change_set,
+)
 from fdai.core.assurance_twin.query import (
     AbstainCode,
     AbstainResult,
@@ -152,6 +160,13 @@ from fdai.core.assurance_twin.trajectory_ledger import (
     TrajectoryClosure,
     TrajectoryEpisodeConflictError,
 )
+from fdai.core.assurance_twin.typed_proposal import (
+    ProposalWhatIfResult,
+    TypedActionProposal,
+    TypedProposalAssessment,
+    WhatIfStatus,
+    typed_proposal_admissible,
+)
 
 __all__ = [
     "AssuranceTwinEvaluationUnavailableError",
@@ -166,6 +181,7 @@ __all__ = [
     "CausalEvidenceGrade",
     "ChallengerUpdate",
     "CompiledQuery",
+    "DeclaredPropertyEffect",
     "DeterministicPatternCompiler",
     "DiscoveryHandoffStatus",
     "DynamicSimulationResult",
@@ -206,6 +222,9 @@ __all__ = [
     "OpenTrajectoryEpisode",
     "PostureAssessmentReport",
     "PostureVerdict",
+    "PredictedChangeSet",
+    "ProposalReviewUnavailableError",
+    "ProposalWhatIfResult",
     "Predicate",
     "PredicateOp",
     "QueryKind",
@@ -215,6 +234,8 @@ __all__ = [
     "QueryVerifier",
     "ReviewOutcome",
     "ReviewResult",
+    "ReviewedActionTypeEffect",
+    "ReviewedEffectCatalog",
     "RegistryUpdate",
     "FidelityStat",
     "SimulationFidelityLedger",
@@ -230,12 +251,16 @@ __all__ = [
     "TrajectoryEpisodeConflictError",
     "TrajectoryOutcome",
     "TrajectoryOutcomeStatus",
+    "TypedActionProposal",
+    "TypedProposalAssessment",
     "TypedQuery",
+    "WhatIfStatus",
     "build_baseline_projection",
     "build_change_review_activity",
     "build_posture_assessment_report",
     "build_posture_report_activity",
     "close_trajectory_outcome",
+    "derive_predicted_change_set",
     "evaluate_complete_posture",
     "execute_query",
     "question_digest",
@@ -244,6 +269,7 @@ __all__ = [
     "publish_review",
     "simulate_effect_branches",
     "simulate_graph_effects",
+    "typed_proposal_admissible",
     "update_challenger",
     "update_graph_challenger",
 ]

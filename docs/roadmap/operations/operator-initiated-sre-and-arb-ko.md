@@ -1,7 +1,7 @@
 ---
 title: 오퍼레이터 시작 SRE 및 아키텍처 리뷰
 translation_of: operator-initiated-sre-and-arb.md
-translation_source_sha: 955dbe653e9a68938a3bb740337cdb59c27f0155
+translation_source_sha: a6dcaabbc0a5b0e50335d94863313ca610fa48a2
 translation_revised: 2026-09-27
 ---
 
@@ -14,7 +14,9 @@ translation_revised: 2026-09-27
 
 > **범위:** 이 설계는 기존 인시던트 레지스트리, 타입이 지정된 액션 파이프라인, 프로세스 저널, risk
 > 게이트, 실행기 어댑터를 재사용합니다. Console 소유 실행기 또는 두 번째 판단 경로를
-> 추가하지 않습니다.
+> 추가하지 않습니다. 관찰 우선 기본값은 근거가 있는 인시던트를 만들고 조사할 수 있지만,
+> 모든 관리 리소스 작업은 `governed-execution`을 선택하고 별도로 권한을 확인할 때까지
+> 자문 상태로 남습니다.
 >
 > **안전 경계:** 강제 적용은 자체 게이트를 통해 이미 승격된 ActionType이 정책, risk,
 > 승인, what-if, 잠금, 멱등성 검사를 거친 후 구성된 어댑터에 도달할 수 있음을

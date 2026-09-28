@@ -356,7 +356,18 @@ build_cli_wheels() {
     uv build --wheel --project packages/deployment-cli --out-dir "$OUT/wheels" >/dev/null
   run_timed 300 \
     uv export --project packages/deployment-cli --locked --no-dev --no-emit-project \
-    --format requirements-txt --output-file "$OUT/cli-requirements.txt" >/dev/null
+    --no-emit-local --format requirements-txt --output-file "$OUT/cli-requirements.txt" >/dev/null
+  # Locked workspace path dependencies have no index hash; build each one as a wheel instead.
+  local local_dependency
+  while IFS= read -r local_dependency; do
+    [[ -n "$local_dependency" ]] || continue
+    run_timed 600 uv build --wheel --project "packages/deployment-cli/$local_dependency" \
+      --out-dir "$OUT/wheels" >/dev/null
+  done < <(
+    uv export --project packages/deployment-cli --locked --no-dev --no-emit-project \
+      --no-editable --no-hashes --no-header --no-annotate --format requirements-txt |
+      sed -n 's#^\(\.\{1,2\}/[A-Za-z0-9._/-]*\)$#\1#p'
+  )
   run_timed 900 \
     uv run --project packages/deployment-cli --locked --no-dev --group release \
     --python "$PYTHON" python -m pip download --only-binary=:all: --require-hashes \

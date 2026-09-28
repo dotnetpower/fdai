@@ -108,6 +108,7 @@
       ["typography.html", "Typography", "is-steel"],
       ["deck.html", "Command deck", "is-plum"],
       ["deck-sources.html", "Command deck sources", "is-teal"],
+      ["deck-adaptive.html", "Adaptive investigation", "is-teal"],
       ["deck-sources-v2.html", "Adaptive response", "is-teal"],
       ["incident-conversation.html", "Incident conversation", "is-terracotta"],
       ["chat-home-variants.html", "Chat home variants", "is-steel"],

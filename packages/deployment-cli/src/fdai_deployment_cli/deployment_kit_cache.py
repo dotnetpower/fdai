@@ -118,7 +118,9 @@ def validate_retained_archive(path: Path, *, max_bytes: int) -> None:
         )
 
 
-def validate_cached_tree(root: Path, *, executable: Path | None = None) -> None:
+def validate_cached_tree(
+    root: Path, *, executable: Path | None = None, tool_directory: Path | None = None
+) -> None:
     """Require private, owned, non-linked cached files; content is checked separately."""
 
     directories = [root]
@@ -145,7 +147,8 @@ def validate_cached_tree(root: Path, *, executable: Path | None = None) -> None:
             if stat.S_ISDIR(details.st_mode):
                 directories.append(path)
                 continue
-            expected_mode = 0o700 if path == executable else 0o600
+            is_tool = tool_directory is not None and path.parent == tool_directory
+            expected_mode = 0o700 if path == executable or is_tool else 0o600
             if (
                 not stat.S_ISREG(details.st_mode)
                 or stat.S_IMODE(details.st_mode) != expected_mode
@@ -161,7 +164,7 @@ def verify_retained_artifacts(
     """Recheck the entire existing snapshot against newly authenticated source digests."""
 
     terraform = destination / verification.terraform_binary
-    validate_cached_tree(destination, executable=terraform)
+    validate_cached_tree(destination, executable=terraform, tool_directory=destination / "bin")
     files, sizes, _total = _scan_tree(destination)
     if (
         files != dict(verification.file_digests)

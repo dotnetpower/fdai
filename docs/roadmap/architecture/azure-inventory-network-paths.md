@@ -26,7 +26,7 @@ unavailable" and retains the last complete snapshot.
 | Area | State | Evidence | Notes |
 |------|-------|----------|-------|
 | Restricted-network discovery and ordered source fallback | in-progress | Azure inventory adapters under `delivery/azure/`; deployment preflight and connectivity contracts | The bounded adapters and failure classes exist. This document does not retain one exact-revision protected deployment proving every fallback rung. |
-| Isolated fallback certification | implemented | `inventory_network_certification.py`; `infra/inventory-network-certification/`; exact create and cleanup plan gate; focused tests | The task-owned sandbox can prove token, DNS, TLS, bounded ARG, private projection, one ARG-to-ARM fallback, active-generation retention, recovery, independent private receipt readback, and exact cleanup without changing the existing development network. A governed run remains open. |
+| Isolated fallback certification | implemented | `inventory_network_certification.py`; `infra/inventory-network-certification/`; exact create, migration-recovery, and cleanup plan gates; focused tests | The task-owned sandbox can prove token, DNS, TLS, bounded ARG, private projection, one ARG-to-ARM fallback, active-generation retention, recovery, independent private receipt readback, and exact cleanup without changing the existing development network. Its migration Job advances both legacy and service-owned schema branches before collection. A governed run remains open. |
 | Snapshot authority and stale-state handling | implemented | Inventory sync, projection, and reconciliation tests cited by [CSP-Neutrality Contracts](csp-neutrality.md#implementation-status) | Partial collection cannot replace the last complete promoted generation or authorize an absence claim. |
 | Subnet-specific network controls | implemented | `infra/modules/network/main.tf`; `infra/bootstrap/main.tf`; focused network hardening tests | VM-bearing subnets deny Internet inbound through explicit NSGs. Azure-managed delegated and private-endpoint subnets retain their service-owned network-policy contracts. |
 | AKS fleet observation binding | implemented | `infra/main.tf`; `infra/scenario-lab/aks.tf`; Container Apps Inventory Job; focused AKS identity and scenario tests | Exact workload-identity bindings remain read-only. The disposable scenario may expose one Entra and Azure RBAC protected public API with local accounts disabled; its Trivy and Checkov public-access suppressions remain resource-local. |
@@ -35,6 +35,8 @@ unavailable" and retains the last complete snapshot.
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-28 | implemented | Made the certification migration Job advance the legacy schema and every service-owned migration branch from the exact image before inventory collection. The Core image carries the migration graph only as deployment support, and a one-address recovery plan gate limits adoption by the retained sandbox. | `current change`; focused migration-runner and plan-gate tests; strict mypy; Terraform validation. | Publish the exact image, apply the migration-Job-only recovery plan, rerun migration, and start a new campaign execution. |
+| 2026-09-28 | in-progress | Two protected-image campaign executions stopped with sanitized `UndefinedColumn` failures for both ARG and ARM after the legacy-only migration Job reported success. A read-only private diagnostic proved the shared schema gap without another provider read or campaign retry. | Private terminal execution, migration, and diagnostic claims; sanitized failure-type readback. | Preserve both executions and repair migration parity before a new execution. |
 | 2026-09-27 | implemented | Replaced a generic TLS ClientHello on PostgreSQL port 5432 with a real `sslmode=require` psycopg connection and authoritative `pg_stat_ssl` readback. | `current change`; focused negotiated-TLS regression and strict mypy. | Publish the fixed image and use a new campaign execution. |
 | 2026-09-27 | in-progress | The second combined execution passed management-plane TLS but PostgreSQL reset the generic ClientHello because its wire protocol requires SSLRequest negotiation. No inventory source or semantic write ran. | Exact execution and sanitized traceback. | Keep that execution terminal and run a new execution with negotiated PostgreSQL TLS. |
 | 2026-09-27 | implemented | Preserved a successful TLS reachability result when only the best-effort SSL shutdown exceeds its close timeout. DNS, connect, handshake, hostname, and cipher failures still fail the campaign. | `current change`; focused asynchronous close regression and transport checks. | Publish the fixed image and use a new campaign execution. |
@@ -84,6 +86,29 @@ and unavailable semantic refresh states, permits one canonical partial-overlay w
 re-queries the exact active generation with no authority. Cleanup uses a separate exact delete-only
 plan after successful effect verification; an ambiguous campaign or cleanup preserves the sandbox
 for recovery review.
+
+The sandbox migration Job advances the legacy schema and every service-owned migration branch
+before collection, because a requested-resource-type promotion reads service-owned columns. Its
+runner reports a redacted, size-capped reason on failure so one governed execution does not require
+a second diagnostic execution. Schema, credential-encoding, and promotion defects are reproduced
+first by the local harness
+[`test_inventory_network_certification_local.py`](../../../tests/integration/services/test_inventory_network_certification_local.py),
+which runs the same closure and bounded promotion against a throwaway local PostgreSQL role whose
+password carries a percent token. Provider authorization, private DNS, private endpoint, policy
+drift, and role assignment have no local substitute and remain governed-execution evidence.
+
+Recovery plans stay bounded rather than exact-singleton where Azure widens the change set on its
+own. `migration-recovery` accepts any non-empty subset of the reviewed addresses with `update` only
+and still requires the migration Job, because the sandbox ownership tag propagates to every
+task-owned resource in the same plan. `partial-cleanup` removes a preserved failed sandbox whose
+apply stopped midway, so it accepts any non-empty reviewed subset with `delete` only. Unreviewed
+addresses, duplicates, replacements, creates, and deletes remain blocked, and `create`, `cleanup`,
+and `extension-recovery` keep their complete reviewed sets.
+
+A preserved failed sandbox is reviewed before removal. The review records the retained resource
+set, confirms no Job or execution surface remains, and enumerates the role assignments its orphaned
+identities still hold. Standing role assignments on an identity that can no longer execute are the
+reason to remove a reviewed failed sandbox rather than retain it indefinitely.
 
 ## Required network paths
 

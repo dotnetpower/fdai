@@ -1,7 +1,7 @@
 ---
 title: 보안과 아이덴티티
 translation_of: security-and-identity.md
-translation_source_sha: 066e97070e5437ed43909f4b2e9b94c50a1bc8e6
+translation_source_sha: 299bc79e41d0aca9b412088084edf05161832f19
 translation_revised: 2026-09-28
 ---
 
@@ -34,6 +34,7 @@ translation_revised: 2026-09-28
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-28 | in-progress | 독립 운영 근거 검증기를 실행기가 아닌 별도 워크로드 아이덴티티로 기록했습니다. 루프백 워크로드는 자신의 principal이 출처, 생산자, 검토자, 실행기 계열 principal 중 하나와 같으면 시작을 거부하며, 증명 저장소 권한 재조회는 다른 역할이 쓸 수 있을 때 `self_verified`를 보고합니다. | `current change`; `services/core-control-plane/tests/core/operational_evidence/test_registries.py`; 임시 루프백 PostgreSQL 데이터베이스에서 실행한 `services/core-control-plane/tests/persistence/test_operational_evidence_postgres.py` | 배포된 검증기 아이덴티티, 워크로드 호출자 인증기, Azure 자체 역할 재조회는 없습니다. [독립 운영 근거 원장](../../roadmap-implementation/rules-and-detection/independent-operational-evidence.md)을 참조하세요. |
 | 2026-09-22 | implemented | 직접 Rule 활성화를 인증된 요청자와 서로 다른 승인자 신원에 결속하고 Core 소유의 불변 receipt table에 대한 Operator의 직접 접근을 제거했습니다. 잠긴 definer trigger가 수락된 source proposal을 캡처하며 Core는 receipt 읽기 전용 접근만 유지합니다. | `current change`; 집중 계약 및 HTTP 경계 테스트; 실제 일회용 PostgreSQL role 테스트; migration inventory; strict mypy 및 Ruff. | 운영 검증을 주장하기 전에 배포된 role 및 감사 근거를 보존합니다. 멤버십은 계속 enforce 또는 실행 권한을 부여하지 않습니다. |
 | 2026-09-20 | validated | 자동 RCA 로그와 추적 읽기를 독립 출처 deadline과 현재 Azure Monitor 조회 endpoint 뒤에 격리했습니다. Timeout은 사용 불가 근거로 남고 한 출처가 다른 출처의 완료된 인용을 막지 않으며, 어떤 결과도 판단 또는 실행 권한을 부여하지 않습니다. | `current change`; 집중 RCA 및 Azure 어댑터 테스트 353건, Ruff 및 strict mypy 통과, 구성된 로컬 읽기 신원으로 실제 프로바이더 둘을 5초 side-path 상한 안에서 1.793초에 완료했으며 probe 범위의 인용은 0건이었습니다. | 운영 원인 정확도를 주장하기 전에 실제 오류 행이 있는 통제된 다중 작업 영역 근거를 보존합니다. |
 | 2026-09-17 | implemented | 정확한 Pod 재시작, Deployment 크기 조정 및 다이제스트 고정 롤아웃 복구를 위해 격리된 실행기에 namespace 범위의 Kubernetes 효과 신원을 추가했습니다. | `current change`; 격리된 실행기 어댑터와 테스트, AKS 렌더러, namespace Role 및 RoleBinding 테스트, 런타임 지원 매니페스트. | 클러스터 사용 가능 후 정확한 AKS 계획을 검토하고 적용한 뒤, 런타임 검증을 주장하기 전에 독립 효과 확인을 보존합니다. |
@@ -132,6 +133,15 @@ ChatOps에 로그인하는 사람, 존재하는 Entra 그룹, 콘솔이 GitHub A
 은 [user-rbac-and-identity-ko.md](../interfaces/user-rbac-and-identity-ko.md) 에 있습니다. 승인 ≠ 실행:
 사람은 아래의 실행기 아이덴티티를 절대 보유하지 않습니다.
 
+기본 제품 프로필에는 실행기 신원, Entra 애플리케이션, FDAI 사람 역할 그룹, Graph 권한,
+HIL 채널 또는 관리 리소스 쓰기 역할이 없습니다. Azure 관찰 신원은 범위가 제한된 `Reader`를
+사용하며 배포는 구성된 읽기 출처에만 `Monitoring Reader`, `Log Analytics Reader`, `Cost
+Management Reader`, `AKS read-only`(Cluster User와 RBAC Reader) 또는 `Storage Blob Data
+Reader`를 파생합니다. 역할을 직접 선택하거나 묶을 수 없습니다. Console과 governed-execution 추가 기능은 엔터프라이즈 아이덴티티 거버넌스를 요구하므로, 신원 전제 조건 없이 사람을 인증하는 표면은 없습니다. 기본값은 Azure Policy 할당을
+요구하지 않고 `Reader`로 볼 수 있는 리소스 메타데이터를 평가하며, 더 많은 접근이 필요한
+출처는 지원되지 않음으로 보고합니다. `Contributor`, `User Access Administrator`, Graph
+애플리케이션 권한 및 모든 쓰기 역할은 기본 프로필 밖에 있습니다.
+
 - 실행기 는 "짧은 수명의, audience-scoped OIDC 토큰을 가져와" 만 노출하는 **`WorkloadIdentity`
   인터페이스** 를 통해 인증해야 합니다. 이것이 [워크로드 신원 계약](csp-neutrality-ko.md#4-워크로드-아이덴티티-계약--oidc-토큰)
   의 구현입니다; 구체적 발급자 (Azure 의 Managed Identity, AWS 의 IRSA, GCP 의 워크로드
@@ -154,6 +164,10 @@ ChatOps에 로그인하는 사람, 존재하는 Entra 그룹, 콘솔이 GitHub A
   단순히 미사용이 아니라 거부됨).
 - 실행 아이덴티티는 **비대화형** : 대화형/콘솔 사인인 없음, 사람 자격증명 부착 없음, 이벤트
   루프 외 사용은 비활성화.
+- [독립 운영 근거](../rules-and-detection/independent-operational-evidence-ko.md) 검증기는 별도의
+  실행기가 아닌 워크로드 아이덴티티입니다. 자신의 principal이 출처, 생산자, 검토자, 실행기 계열
+  principal 중 하나와 같으면 시작을 거부하며, 삽입 전용 증명 저장소 작성자 역할과 읽기 전용 출처 뷰만
+  보유합니다.
 - **credential-free 인증 선호**: 워크로드 신원 federation / OIDC 토큰 교환으로 실행기가
   장기 시크릿을 보유하지 않음. 시크릿이 불가피한 곳에서는 단명·자동 로테이트(Secrets and
   구성 참조).
@@ -176,6 +190,8 @@ P0 열림 결정 *"Executor-side 신원 대응"*을 해결합니다. 현재 Terr
 조립에 노출합니다. 권한 확인 결과가 하나의 참조를 선택하면 액션과 direct-API
 요청이 이를 보존하고 전달 라우터가 일치하는 `WorkloadIdentity`를 선택합니다. 알 수 없거나
 연결되지 않은 참조는 집계 실행기 신원으로 대체 경로하지 않고 거부됩니다.
+알림 과다 수신 작업은 일반 direct-API 대체 경로에 도달하지 않습니다. 알림 전용 unavailable 경로가
+shadow와 enforce 모드 모두에서 이 작업을 보류하고, 다른 direct-API 작업은 실행기 미연결 거부를 유지합니다.
 
 읽기 전용 인벤토리, 인제스트, canary와 다른 서비스 신원은 이 실행기 집합과 분리됩니다.
 버티컬 신원 생성 자체는 리소스 권한을 부여하지 않으며 역할 배정은 명시적

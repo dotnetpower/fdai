@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Verify the exact create or cleanup plan for the inventory network sandbox."""
+"""Verify exact lifecycle plans for the inventory network sandbox."""
 
 from __future__ import annotations
 
@@ -53,10 +53,26 @@ EXPECTED_ADDRESSES = frozenset(
 EXPECTED_EXTENSION_RECOVERY = frozenset(
     {"azurerm_postgresql_flexible_server_configuration.extensions"}
 )
+EXPECTED_MIGRATION_RECOVERY = frozenset({"azurerm_container_app_job.migrate"})
 
 
 class PlanVerificationError(ValueError):
     """Report a fail-closed plan-shape violation without exposing plan values."""
+
+
+def _changed_addresses(plan: dict[str, Any]) -> int:
+    """Count changes that are neither a no-op nor a read."""
+
+    resource_changes = plan.get("resource_changes")
+    if not isinstance(resource_changes, list):
+        return 0
+    return sum(
+        1
+        for item in resource_changes
+        if isinstance(item, dict)
+        and isinstance(item.get("change"), dict)
+        and item["change"].get("actions") not in (["no-op"], ["read"])
+    )
 
 
 def load_plan(path: Path) -> dict[str, Any]:
@@ -76,12 +92,35 @@ def load_plan(path: Path) -> dict[str, Any]:
 
 
 def verify_plan(plan: dict[str, Any], *, mode: str) -> None:
-    """Require the complete reviewed address set and one exact action."""
+    """Bound the changed address set and the single permitted action for one mode.
 
-    expected_action = ["delete"] if mode == "cleanup" else ["create"]
-    expected_addresses = (
-        EXPECTED_EXTENSION_RECOVERY if mode == "extension-recovery" else EXPECTED_ADDRESSES
-    )
+    ``create``, ``cleanup``, and ``extension-recovery`` require their complete reviewed
+    set. ``migration-recovery`` updates the certification runtime in place, and Azure
+    propagates the sandbox ownership tag to every task-owned resource in the same plan,
+    so it accepts any non-empty subset of the reviewed set. ``partial-cleanup`` removes
+    a preserved failed sandbox whose apply stopped midway, so its reviewed set is
+    inherently incomplete. Unreviewed addresses, duplicates, replacements, and every
+    action other than the mode's own remain blocked in every mode.
+    """
+
+    if mode == "partial-cleanup" and not _changed_addresses(plan):
+        raise PlanVerificationError("partial cleanup plan removes nothing")
+
+    expected_action = {
+        "cleanup": ["delete"],
+        "partial-cleanup": ["delete"],
+        "migration-recovery": ["update"],
+    }.get(mode, ["create"])
+    expected_addresses = {
+        "extension-recovery": EXPECTED_EXTENSION_RECOVERY,
+        "migration-recovery": EXPECTED_ADDRESSES,
+        "partial-cleanup": EXPECTED_ADDRESSES,
+    }.get(mode, EXPECTED_ADDRESSES)
+    required_addresses = {
+        "extension-recovery": EXPECTED_EXTENSION_RECOVERY,
+        "migration-recovery": EXPECTED_MIGRATION_RECOVERY,
+        "partial-cleanup": frozenset(),
+    }.get(mode, EXPECTED_ADDRESSES)
     resource_changes = plan.get("resource_changes")
     if not isinstance(resource_changes, list):
         raise PlanVerificationError("plan JSON must contain resource_changes")
@@ -103,7 +142,7 @@ def verify_plan(plan: dict[str, Any], *, mode: str) -> None:
             raise PlanVerificationError("plan changes an unreviewed address")
         if actions != expected_action:
             raise PlanVerificationError(f"{mode} plan contains a non-{expected_action[0]} action")
-    if observed != expected_addresses:
+    if not required_addresses <= observed:
         raise PlanVerificationError("plan does not contain the complete reviewed address set")
 
 
@@ -111,18 +150,31 @@ def main(argv: list[str] | None = None) -> int:
     """Validate one plan and emit only a value-free action count."""
 
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("mode", choices=("create", "cleanup", "extension-recovery"))
+    parser.add_argument(
+        "mode",
+        choices=(
+            "create",
+            "cleanup",
+            "partial-cleanup",
+            "extension-recovery",
+            "migration-recovery",
+        ),
+    )
     parser.add_argument("plan_json", type=Path)
     args = parser.parse_args(argv)
     try:
-        verify_plan(load_plan(args.plan_json), mode=args.mode)
+        plan = load_plan(args.plan_json)
+        verify_plan(plan, mode=args.mode)
     except PlanVerificationError as exc:
         print(f"INVENTORY_NETWORK_PLAN_BLOCKED reason={exc}", file=sys.stderr)
         return 1
-    addresses = (
-        EXPECTED_EXTENSION_RECOVERY if args.mode == "extension-recovery" else EXPECTED_ADDRESSES
+    count = (
+        _changed_addresses(plan)
+        if args.mode in ("partial-cleanup", "migration-recovery")
+        else len(
+            {"extension-recovery": EXPECTED_EXTENSION_RECOVERY}.get(args.mode, EXPECTED_ADDRESSES)
+        )
     )
-    count = len(addresses)
     print(f"INVENTORY_NETWORK_PLAN_OK mode={args.mode} count={count}")
     return 0
 

@@ -4,6 +4,8 @@ title: Installable Deployment CLI
 
 # Installable Deployment CLI
 
+> **Deployment distribution:** The [constitution](../architecture/fdai-constitution.md#article-1-purpose-and-scope) defines only two installation paths, contributor source deployment and the signed offline package. Any installation gate in this document that the constitution does not list is superseded and no longer applies.
+
 This document defines the public FDAI deployment command. Operators run one local coordinator
 after Azure sign-in, while Terraform apply and private data-plane work run on the managed host
 inside the target virtual network.
@@ -26,7 +28,7 @@ inside the target virtual network.
 | Connected artifact source | Clean source plus an approved exact-revision image manifest; optional `--online` kit acquisition uses the complete offline-compatible closure |
 | Disconnected artifact source | Complete offline profile embedded in a digest-pinned deployment appliance |
 | Approval | Current human approval bound to each exact plan digest |
-| Execution identity | Managed host user-assigned Managed Identity |
+| Runtime identity | Scoped read-only observation identity by default; privileged executor only for the explicit governed-execution add-on |
 | GitHub dependency | None for tenant deployment |
 
 GitHub Actions may validate source, build images, and optionally publish signed releases; publication is not a deployment-validation prerequisite. GitHub Actions cannot plan, apply, resume, or tear down a tenant deployment. The read-only [observer artifact preflight](../architecture/aks-outbound-connector.md#artifact-preflight) reuses the same pinned-root offline kit and OCI verifier for an exact Core image; its bounded process result creates no new release trust, approval or installation authority. The kit may also bind one optional default Rule activation profile by path, id, source timestamp, file digest, and complete-kit manifest digest. Preparation emits deterministic Core environment bindings only; it neither applies a generation nor deploys a tenant workload.
@@ -249,21 +251,11 @@ open. Local and mocked transport evidence do not establish a successful Azure de
 
 ### Source runtime artifact admission
 
-Source mode does not create service, dependency, deployment-host or appliance images. Tenant
-provisioning never invokes Docker, Buildx, ACR Tasks, a remote builder or VM image capture. A source
-checkout can prepare and verify Foundation inputs, but it cannot enter the application stage until
-the operator supplies a trusted prebuilt runtime artifact manifest whose source revision matches the
-immutable checkout.
-
-The manifest identifies all five baseline service images, dependency images, Console content and
-migration support by digest. The coordinator verifies signatures, provenance, SBOM coverage,
-platform, source revision and exact file bounds before registry credentials are acquired. A cache
-hit is accepted only after the same verification. Missing, partial, mutable-tagged or mismatched
-artifacts stop with `runtime_artifacts_required`; the installer never repairs them by building.
-
-Private registry mirror or import remains execution-host work when selected. It changes only the
-artifact location, independently reads back the same digest and cannot alter image bytes. An
-ambiguous publication claim resumes verification only and never rebuilds or republishes the image.
+Contributor source deployment follows the constitution's deployment distribution. With `--source`
+and `--signing-key`, `fdai-up.sh` builds every deployment artifact from the checkout, including
+service images, and deploys it. It requires no protected branch, CI result, published artifact,
+attestation, provenance, or SBOM. The offline package keeps one signed package for an Azure VM
+without internet access.
 
 An existing `dev` AKS installation can update one service directly from a clean local checkout on
 its eligible deployment host. This path is separate from new installation and release assembly:
@@ -385,7 +377,9 @@ sha256sum -c SHA256SUMS
 python -m pip install --no-index --find-links wheels -r requirements.txt
 ```
 
-The 6.9 MB wheelhouse installs `fdaictl` without a source checkout or network call. Runtime images,
+The 6.9 MB wheelhouse installs `fdaictl` without a source checkout or network call. Every shipped
+file except the signature pair is listed in `SHA256SUMS`, and workspace path dependencies ship as
+built wheels. Runtime images,
 Terraform inputs, and other deployment payloads are selected later by the deployment command and
 are not Python package-installation requirements. An appliance is an optional transport wrapper,
 not a second package-certification path.
@@ -477,8 +471,8 @@ only after installing the reviewed CLI while idle; it does not change an already
 | `fdaictl provision console-update build` | Build one source-bound Console artifact from protected Git source | No |
 | `fdaictl provision console-update plan` | Seal an existing-development target plus candidate and rollback artifacts | No |
 | `fdaictl provision console-update apply` | Publish one exact Console plan and verify remote content and access | Yes, after exact terminal approval |
-| `fdaictl provision azure --online` | Run standalone Azure deployment with the selected connected payload | Yes, after exact approvals |
-| `fdaictl provision azure --offline-kit <path>` | Run the same deployment with a local deployment payload | Yes, after exact approvals |
+| `fdaictl provision azure --online` | Acquire a signed kit and deploy the headless observation-first profile; repeated `--add-on` and `--observation-source` selections opt into independent surfaces and derive each source's minimum read role | Infrastructure only after exact plan approval; no managed-resource execution authority by default |
+| `fdaictl provision azure --offline-kit <path>` | Run the same profile contract without public artifact acquisition | Same exact profile and approvals |
 | `fdaictl onboard guided --simulate` | Rehearse the finite stage graph | No |
 | `fdaictl onboard status` | Read a local hash-chained rehearsal journal | No |
 | `fdaictl bundle verify` | Inspect an optional deployment bundle | No |
@@ -526,11 +520,18 @@ bindings, never host deployment defaults. CLI build tooling uses a stage-private
 than the caller's selected virtual environment. Complete builds use one private detached checkout
 of a pinned commit, excluding caller-local ignored inputs and signing keys. Raw tracked bytes,
 modes, and a stable metadata fingerprint are checked throughout assembly and immediately before
-signing; unchanged lockfiles or Git status flags alone do not prove source identity.
+signing; unchanged lockfiles or Git status flags alone do not prove source identity. The CLI
+wheels include locked workspace path dependencies, such as the service contracts, built as wheels.
 
 The complete release wrapper requires a fresh private output root and preserves earlier archives.
 Caller-relative signing-key paths resolve before changing directories, and current-UID, mode-0600,
-regular-file checks remain required. The build shares a three-hour total budget with per-stage and
+regular-file checks remain required. Because a wrong key and a wrong path fail the same way, a
+separate checker identifies a candidate key before a build consumes it: it reports the packaged
+roots' fingerprints, the roles a candidate satisfies, and the unmet custody requirements, and it
+emits no key material so it stays safe to run wherever the key might be. Both build refusals name
+it. The development profile pins one signer for the complete-kit and bundle roles, so one file
+satisfies `--signing-key`; the license issuer stays a separate key. The build shares a three-hour
+total budget with per-stage and
 no-progress deadlines, including an optional deployment appliance. Nested supervisors forward
 cancellation with shorter cleanup grace than their parent. Success requires a valid archive checksum
 and completion of every requested artifact stage; interruption cannot continue to later signing.
@@ -552,10 +553,12 @@ The coordinator performs these stages in order:
 6. Verify state handoff and the managed-host image.
 7. Make the same verified artifact closure available on the selected host; transfer it only for a remote host.
 8. Run the substrate and application plans under the managed identity.
+   Targeted stages also include each `moved` source and destination whose source is in state.
 9. Read the Terraform-selected registry and Core application names for substrate readback and
   capability identity without recomputing Azure resource names in Python.
 10. Import and read back every runtime image digest.
-11. Run database migrations and materialize the authoritative catalogs.
+11. Run database migrations and materialize the authoritative catalogs. A lineage adopted by an
+   earlier run advances to head without new adoption evidence.
 12. Deploy the services and verify runtime health.
 13. Require a second zero-change Terraform plan before reporting deployment readiness.
 
@@ -564,9 +567,9 @@ state transition, handoff, migration, and application activation remain serial.
 
 ## Approval and recovery
 
-Every mutating checkpoint binds approval to one exact binary plan and expiry. A changed plan needs
-new approval. Destructive plans require a second exact confirmation. Silence never grants
-authority.
+The invocation approves each exact plan it shows; the approval record still binds the plan digest,
+actor, and expiry. A deletion or replacement of an existing resource needs one exact typed
+confirmation, and closed input grants nothing.
 
 Before an effect, the coordinator writes an immutable claim. If the outcome becomes ambiguous, a
 later invocation performs authoritative readback and a zero-change plan. It does not repeat the
@@ -578,7 +581,7 @@ a new prepared context.
 An online retry keeps the work directory and treats its retained kit as untrusted input. It checks
 the package-pinned release signature, compatibility, exact file set, all digests, runtime images,
 and bundle binding again before advancing. An existing materialized payload is reused only when it
-matches those verified files exactly. A new execution copy of the signed bundle avoids reusing
+matches those verified files exactly; only the pinned `bin/` tools and Terraform are owner-executable. A new execution copy of the signed bundle avoids reusing
 Python bytecode, Terraform scratch files, or other residue from a previous execution copy.
 
 The cache records a digest of the requested artifact URL to reject an implicit source switch.
@@ -591,6 +594,8 @@ HTTP status, connection failure, local destination conflicts, permissions, and s
 have distinct value-safe errors. Corrupt or partial retained content is preserved and blocked,
 not silently replaced or accepted. Retry never deletes run state, SSH keys, plans, or approvals,
 never changes a signed source file, and never repeats an Azure effect from kit-cache evidence.
+
+A control-only repair can reuse a verified kit through a [signed deployment-control package](disconnected-deployment.md#deployment-control-package).
 
 ## Capability token behavior
 

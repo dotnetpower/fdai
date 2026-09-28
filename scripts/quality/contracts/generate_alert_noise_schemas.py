@@ -41,7 +41,14 @@ def main() -> int:
     parser.add_argument("--check", action="store_true")
     args = parser.parse_args()
     mismatches = []
-    entries = [(name, "1.0.0", model) for name, model in MODELS.items()]
+    entries = [
+        (
+            name,
+            "1.1.0" if name in {"alert-noise-plan", "alert-noise-result"} else "1.0.0",
+            model,
+        )
+        for name, model in MODELS.items()
+    ]
     entries.extend((name, "0.0.0", AlertUnavailable) for name in ALERT_WIRE_MODELS)
     for name, version, model in entries:
         schema = model.model_json_schema()

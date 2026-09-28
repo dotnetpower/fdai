@@ -1,7 +1,7 @@
 ---
 title: 리포팅 서브시스템
 translation_of: reporting-subsystem.md
-translation_source_sha: ae84b09dd386c18aa8cc15b32cf251d2d03fedbf
+translation_source_sha: 083f317e8c77ad631f61c12193b6a631dd0762cc
 translation_revised: 2026-09-28
 ---
 # 리포팅 서브시스템
@@ -593,6 +593,7 @@ shipped된 서브시스템을 OWASP + `app-shape` 관점에서 체계적으로
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-28 | implemented | Core 소유 삽입 전용 운영 근거 증명 테이블 다섯 개를 공유 service migration inventory에 등록했으며 reporting source, widget, 경로 또는 쓰기 권한에는 추가하지 않았습니다. | `current change`; `tests/integration/services/test_service_migration_inventory.py` 73개 통과, 루프백 PostgreSQL 역할 테스트에서 검증기 역할만 증명 기록을 삽입함을 확인했습니다. | reporting 동작이나 datasource 근거는 바뀌지 않았습니다. |
 | 2026-09-22 | implemented | Core 소유 Rule 활성화 receipt table을 공유 service migration inventory에 등록했으며 reporting source, widget, 경로 또는 쓰기 권한에는 추가하지 않았습니다. | `current change`; service migration inventory 73개 통과, 실제 PostgreSQL role 테스트에서 Operator에 receipt table 직접 접근이 없음을 확인. | Reporting 동작이나 data source 근거는 변경되지 않았습니다. |
 | 2026-08-14 | in-progress | 구현 ledger를 도입하고 선택적 PDF 구현 주장을 수정했으며 이전 출처 이력은 재구성하지 않았습니다. | `current change`; 구현 범위 표에 나열된 현재 reporting core, 카탈로그, Operator, Console 및 focused 검사입니다. | 권위 있는 데이터 원본 근거를 보존하고 PDF를 표시하기 전에 선택적 delivery를 구현해야 합니다. |
 | 2026-08-14 | implemented | 독립 Operator Service에 opt-in PDF delivery를 추가하고 catalog와 runtime registry가 일치할 때만 Console 다운로드 컨트롤을 노출했습니다. | `current change`; service-local encoder, operations 경로 negotiation, package extra, Console 컨트롤, focused PDF, 경로, composition 및 Console 테스트입니다. | 인증된 inventory, render, 사용 불가, 오류 격리 및 읽기 전용 runtime 증적을 보존해야 합니다. |
@@ -601,6 +602,9 @@ shipped된 서브시스템을 OWASP + `app-shape` 관점에서 체계적으로
 | 2026-08-15 | implemented | format 모듈이 정확히 하나의 `FormatEncoder`를 제공하고, 내보내진 뒤 등록되거나 opt-in으로 문서화되며, `core/reporting`과 공유 계약 밖의 어떤 것도 import하지 않도록 `check-report-format-boundary` 게이트를 추가했습니다. | `current change`; `scripts/quality/architecture/check-report-format-boundary.py`; `pytest tests/integration/scripts/test_report_format_boundary.py` (5 passed); pre-commit, `verify.sh`, CI 연결. | 프로덕션 데이터 원본 및 인증된 표면 증적은 계속 열려 있습니다. |
 | 2026-09-21 | implemented | 엄격한 카오스 적용 리포트 가져오기, SELECT-only Operator 변환 결과 및 제한된 구간의 측정된 Console 리포트를 추가했습니다. | `current change`; 가져오기, report-feed, Operator 변환 결과 및 마이그레이션 경로; focused pytest, Ruff 및 strict mypy 검사입니다. | 아래 데이터 원본 근거 항목에 따라 관리되는 프로덕션 렌더링 증적을 보존해야 합니다. |
 | 2026-09-28 | implemented | 카오스 적용 리포트를 만들던 기존 참조 sweep 드라이버는 통제된 카오스 어댑터 위로 이관될 때까지 모든 실제 실행을 거부합니다. 가져오기, Operator 변환 결과, Console 리포트는 바뀌지 않았지만 그동안 새 측정 결과는 들어오지 않습니다. | `current change`: `scripts/catalog/run-enforce-scenarios.py`, `tests/integration/infra/test_scenario_lab.py`입니다. 집중 scenario-lab 계약 테스트를 통과했습니다. | Sweep이 `GovernedChaosExecutionAdapter` 위로 이관된 뒤에만 통제된 실행에서 측정된 카오스 결과를 다시 받습니다([#94](https://github.com/dotnetpower/fdai/issues/94)). |
+| 2026-09-28 | implemented | 측정 결과 공급원을 통제된 경로 위에 복구했습니다. `scripts/catalog/run-catalog-scenario.py`는 이제 리포트 피드가 읽는 것과 같은 가져오기 계약으로 `enforce-report.json`을 기록하며, 이 기록은 계약을 검증하는 모듈의 `enforce_report_record`가 만듭니다. 남아 있던 원시 sweep 드라이버는 삭제했습니다. 실험을 실제로 수행한 실행만 기록을 남기므로 거부되었거나 재생되었거나 오류로 끝난 실행은 아무것도 추가하지 않습니다. 가져오기, Operator 변환 결과, Console 리포트는 바뀌지 않았습니다. | `current change`: `services/core-control-plane/src/fdai/delivery/chaos/enforce_report.py`, `services/core-control-plane/src/fdai/delivery/chaos/governed_outcome.py`, `scripts/catalog/run-catalog-scenario.py`, 연결된 테스트입니다. 측정 리포트의 존재와 부재를 포함해 집중 enforce-report, report-feed, 카탈로그 실행기, scenario-lab 테스트를 통과했습니다. | 승인된 실제 통제 실행에서 측정된 리포트를 보존합니다. 통제된 실제 실행, 승격, Azure 작업은 수행하지 않았습니다. |
+| 2026-09-28 | implemented | 배포의 근거 변환 단계가 읽는 위치에 측정 리포트를 고정했습니다. `run-catalog-scenario.py --measured-report <path>`는 같은 가져오기 기록을 정확한 경로에 쓰고, scenario-lab sweep은 보호된 워크플로가 이미 변환하고 이후 파쇄하는 경로인 `$FDAI_ENFORCE_REPORT_ROOT/report.json`을 전달합니다. 측정된 실행만 파일을 만들므로, 거부된 sweep은 빈 성공 대신 변환할 대상이 없는 상태로 남습니다. | `current change`: `scripts/catalog/run-catalog-scenario.py`, `scripts/deployment/scenario-lab/run-reference-sweep.sh`, 연결된 테스트입니다. 고정 리포트의 존재, 거부된 실행에서의 부재, 워크플로의 변환 및 결과 게이트 계약을 포함해 집중 카탈로그 실행기와 scenario-lab 테스트를 통과했습니다. | `db`, `llm_endpoint`, `lb` 대상에 정규 식별자가 없는 동안에는 `all` sweep이 워크플로의 10건 결과 게이트를 아직 충족할 수 없습니다. 통제된 실제 실행이나 Azure 작업은 수행하지 않았습니다. |
+| 2026-09-28 | implemented | 측정 결과를 만들 수 있는 시나리오 범위를 넓혔습니다. 카탈로그 실행기는 이제 scenario lab이 이미 게시하던 선택적 MySQL 및 모델 기반을 바인딩하고, 승인 대상은 injector 참조에서 도출합니다. 따라서 데이터베이스, 모델 엔드포인트, 복제본 조정, 롤아웃 시나리오가 `refused_target_type`으로 거부되어 아무것도 남기지 못하는 대신 어댑터에 도달합니다. 리포트 스키마, 가져오기, Operator 변환 결과, Console 리포트는 바뀌지 않았습니다. | `current change`: `scripts/catalog/run-catalog-scenario.py`, `services/core-control-plane/src/fdai/delivery/chaos/substrate_bindings.py`, `services/core-control-plane/src/fdai/delivery/chaos/mutation_scope.py`입니다. 집중 chaos, mutation-scope, substrate-binding, 카탈로그 실행기, scenario-lab suite가 테스트 487개를 통과했습니다. | 측정 리포트는 여전히 승인된 실제 통제 실행이 있어야 하며, 이번에는 수행하지 않았습니다. |
 
 ### 남은 작업
 

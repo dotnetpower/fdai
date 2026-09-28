@@ -59,34 +59,25 @@ def test_current_catalog_baseline_has_54_explicit_rows(
     assert set(manifest["actions"]) == set(catalog)
 
 
-def test_alert_actions_have_conditional_manual_pr_support_without_operational_claims(
+def test_alert_actions_are_explicitly_unsupported_without_provider_adapter(
     checker: ModuleType,
     manifest: dict[str, Any],
 ) -> None:
     expected = {
-        "ops.restore-alert-configuration@1.0.0",
-        "ops.set-alert-notification-window@1.0.0",
-        "ops.tune-alert-evaluation@1.0.0",
-        "ops.update-alert-routing@1.0.0",
+        "ops.restore-alert-configuration@1.1.0",
+        "ops.set-alert-notification-window@1.1.0",
+        "ops.tune-alert-evaluation@1.1.0",
+        "ops.update-alert-routing@1.1.0",
     }
-    binding = manifest["bindings"]["core-alert-manual-pr"]
-    profile = manifest["support_profiles"]["alert-manual-pr"]
     catalog = checker._load_catalog(REPO_ROOT, manifest["catalog_root"])
 
-    assert checker._binding_members(manifest["actions"])["core-alert-manual-pr"] == expected
-    assert binding["runtime_surface"] == "core"
-    assert binding["route_status"] == "conditional"
-    assert binding["mode_support"] == {"shadow": "conditional", "enforce": "conditional"}
-    assert binding["activation_conditions"]
-    assert profile["effect_observation"]["status"] == "conditional"
-    assert profile["recovery"]["status"] == "conditional"
-    assert profile["evidence"]["level"] == "focused_tests"
-    assert not checker._demo_ready(binding, profile)
+    assert "core-alert-manual-pr" not in manifest["bindings"]
+    assert "alert-manual-pr" not in manifest["support_profiles"]
     for reference in expected:
-        assert manifest["actions"][reference]["bindings"] == {
-            "core-alert-manual-pr": "alert-manual-pr"
-        }
-        assert catalog[reference].execution_path == "pr_manual"
+        support = manifest["actions"][reference]
+        assert support["bindings"] == {}
+        assert support["unsupported_reason"] == "No alert provider mutation adapter is registered."
+        assert catalog[reference].execution_path == "direct_api"
         assert catalog[reference].default_mode == "shadow"
 
 

@@ -143,6 +143,7 @@ def bind_operational_agents(
     anomaly_action_sources: dict[str, AnomalyActionSource] | None = None,
     development: DevelopmentRuntimeBindings | None = None,
     action_types: tuple[OntologyActionType, ...] = (),
+    governed_execution_selected: bool = False,
 ) -> None:
     """Replace baseline instances only when runtime bindings are available."""
 
@@ -222,6 +223,7 @@ def bind_operational_agents(
             if development is not None
             else None
         ),
+        governed_execution_selected=governed_execution_selected,
     )
     if forseti is not None:
         agents["Forseti"] = forseti

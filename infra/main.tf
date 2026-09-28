@@ -54,6 +54,41 @@ moved {
   to   = azurerm_role_assignment.executor_eventhubs_data_owner["runtime.startup.probe"]
 }
 
+moved {
+  from = module.identity_change
+  to   = module.identity_change[0]
+}
+
+moved {
+  from = module.identity_resilience
+  to   = module.identity_resilience[0]
+}
+
+moved {
+  from = module.identity_finops
+  to   = module.identity_finops[0]
+}
+
+moved {
+  from = azurerm_role_assignment.inventory_monitoring_reader
+  to   = azurerm_role_assignment.inventory_monitoring_reader[0]
+}
+
+moved {
+  from = azurerm_role_assignment.rca_monitoring_reader
+  to   = azurerm_role_assignment.rca_monitoring_reader[0]
+}
+
+moved {
+  from = azurerm_role_assignment.inventory_log_analytics_reader
+  to   = azurerm_role_assignment.inventory_log_analytics_reader[0]
+}
+
+moved {
+  from = azurerm_role_assignment.inventory_cost_reader
+  to   = azurerm_role_assignment.inventory_cost_reader[0]
+}
+
 data "azurerm_client_config" "current" {}
 
 resource "terraform_data" "deploy_runner_identity_fence" {
@@ -116,7 +151,17 @@ locals {
     "fdai:managed-by" = "terraform"
     "fdai:vertical"   = var.cost_vertical
   }
-  tags = merge(local.base_tags, var.additional_tags)
+  tags            = merge(local.base_tags, var.additional_tags)
+  product_profile = jsondecode(var.product_profile_json)
+  product_add_ons = toset(local.product_profile.add_ons)
+  enterprise_identity_governance_selected = contains(
+    local.product_add_ons,
+    "enterprise-identity-governance",
+  )
+  decision_evidence_enabled = (
+    var.enable_operational_history &&
+    var.enable_inventory_evidence_store_reader
+  )
   operator_channel_edge_state_store_secret_id = join("", [
     "/subscriptions/${data.azurerm_client_config.current.subscription_id}",
     "/resourceGroups/rg-${var.workload}${local.full_suffix}",
@@ -875,6 +920,7 @@ resource "azurerm_role_assignment" "inventory_reader" {
 }
 
 resource "azurerm_role_assignment" "inventory_monitoring_reader" {
+  count                = var.enable_inventory_monitoring_reader ? 1 : 0
   scope                = "/subscriptions/${data.azurerm_client_config.current.subscription_id}"
   role_definition_name = "Monitoring Reader"
   principal_id         = module.inventory_identity.principal_id
@@ -882,6 +928,7 @@ resource "azurerm_role_assignment" "inventory_monitoring_reader" {
 }
 
 resource "azurerm_role_assignment" "rca_monitoring_reader" {
+  count                = var.enable_inventory_monitoring_reader ? 1 : 0
   scope                = "/subscriptions/${data.azurerm_client_config.current.subscription_id}"
   role_definition_name = "Monitoring Reader"
   principal_id         = module.rca_reader_identity.principal_id
@@ -889,12 +936,14 @@ resource "azurerm_role_assignment" "rca_monitoring_reader" {
 }
 
 resource "azurerm_role_assignment" "inventory_log_analytics_reader" {
+  count                = var.enable_inventory_log_analytics_reader ? 1 : 0
   scope                = module.log_analytics.workspace_id
   role_definition_name = "Log Analytics Reader"
   principal_id         = module.inventory_identity.principal_id
 }
 
 resource "azurerm_role_assignment" "inventory_cost_reader" {
+  count                = var.enable_inventory_cost_management_reader ? 1 : 0
   scope                = "/subscriptions/${data.azurerm_client_config.current.subscription_id}"
   role_definition_name = "Cost Management Reader"
   principal_id         = module.inventory_identity.principal_id
@@ -978,6 +1027,7 @@ locals {
     var.inventory_kubernetes_audience != ""
   )
   inventory_kubernetes_subscription_discovery_enabled = (
+    var.enable_inventory_aks_reader &&
     var.inventory_kubernetes_subscription_discovery_enabled &&
     !local.inventory_kubernetes_static_binding_configured
   )
@@ -1005,7 +1055,9 @@ resource "azurerm_role_assignment" "inventory_kubernetes_reader_subscription" {
 }
 
 resource "azurerm_role_assignment" "inventory_kubernetes_reader" {
-  for_each             = nonsensitive(local.inventory_kubernetes_cluster_refs)
+  for_each = var.enable_inventory_aks_reader ? nonsensitive(
+    local.inventory_kubernetes_cluster_refs
+  ) : toset([])
   scope                = each.value
   role_definition_name = "Azure Kubernetes Service RBAC Reader"
   principal_id         = module.inventory_identity.principal_id
@@ -1169,6 +1221,7 @@ resource "azurerm_role_assignment" "ohl_evidence_eventhubs_sender" {
 # module only guarantees the MI resources exist.
 # -----------------------------------------------------------------------
 module "identity_change" {
+  count               = var.enable_governed_execution ? 1 : 0
   source              = "./modules/identity/user-assigned-mi"
   name                = "id-${var.workload}${local.full_suffix}-change"
   resource_group_name = module.resource_group.name
@@ -1177,6 +1230,7 @@ module "identity_change" {
 }
 
 module "identity_resilience" {
+  count               = var.enable_governed_execution ? 1 : 0
   source              = "./modules/identity/user-assigned-mi"
   name                = "id-${var.workload}${local.full_suffix}-resilience"
   resource_group_name = module.resource_group.name
@@ -1185,6 +1239,7 @@ module "identity_resilience" {
 }
 
 module "identity_finops" {
+  count               = var.enable_governed_execution ? 1 : 0
   source              = "./modules/identity/user-assigned-mi"
   name                = "id-${var.workload}${local.full_suffix}-finops"
   resource_group_name = module.resource_group.name
@@ -1194,9 +1249,11 @@ module "identity_finops" {
 
 locals {
   vertical_identity_ids = [
-    module.identity_change.resource_id,
-    module.identity_resilience.resource_id,
-    module.identity_finops.resource_id,
+    for identity in concat(
+      module.identity_change,
+      module.identity_resilience,
+      module.identity_finops,
+    ) : identity.resource_id
   ]
   core_vertical_identity_ids = (
     var.enable_isolated_executor_authority_cutover ? [] : local.vertical_identity_ids
@@ -1205,14 +1262,18 @@ locals {
     var.enable_isolated_executor_authority_cutover ? local.vertical_identity_ids : []
   )
   effect_executor_principal_ids = [
-    module.identity_change.principal_id,
-    module.identity_resilience.principal_id,
-    module.identity_finops.principal_id,
+    for identity in concat(
+      module.identity_change,
+      module.identity_resilience,
+      module.identity_finops,
+    ) : identity.principal_id
   ]
   effect_executor_client_ids = [
-    module.identity_change.client_id,
-    module.identity_resilience.client_id,
-    module.identity_finops.client_id,
+    for identity in concat(
+      module.identity_change,
+      module.identity_resilience,
+      module.identity_finops,
+    ) : identity.client_id
   ]
 }
 
@@ -1220,10 +1281,52 @@ resource "terraform_data" "isolated_executor_authority_cutover_contract" {
   lifecycle {
     precondition {
       condition = (
-        !var.enable_isolated_executor_authority_cutover ||
-        (var.enable_isolated_executor && var.enable_dev_operations_gateway)
+        var.enable_governed_execution ==
+        contains(local.product_add_ons, "governed-execution")
       )
-      error_message = "enable_isolated_executor_authority_cutover requires the isolated Executor and dev operations gateway."
+      error_message = "enable_governed_execution must match the exact product profile."
+    }
+
+    precondition {
+      condition = (
+        var.enable_console ==
+        contains(local.product_add_ons, "read-only-console")
+      )
+      error_message = "enable_console must match the exact product profile."
+    }
+
+    precondition {
+      condition = (
+        !var.enable_operator_api ||
+        contains(local.product_add_ons, "read-only-console") ||
+        local.enterprise_identity_governance_selected
+      )
+      error_message = "enable_operator_api requires an explicitly selected Console or enterprise identity add-on."
+    }
+
+    precondition {
+      condition = (
+        !var.enable_email_notifications ||
+        contains(local.product_add_ons, "notifications")
+      )
+      error_message = "email notifications require the notifications product add-on."
+    }
+
+    precondition {
+      condition     = !var.enable_isolated_executor || var.enable_governed_execution
+      error_message = "enable_isolated_executor requires the governed-execution product add-on."
+    }
+
+    precondition {
+      condition = (
+        !var.enable_isolated_executor_authority_cutover ||
+        (
+          var.enable_governed_execution &&
+          var.enable_isolated_executor &&
+          var.enable_dev_operations_gateway
+        )
+      )
+      error_message = "enable_isolated_executor_authority_cutover requires governed execution, the isolated Executor, and the dev operations gateway."
     }
   }
 }
@@ -1458,7 +1561,7 @@ module "operational_history_storage" {
 # Decision-evidence admissions use a dedicated immutable container. The runtime
 # can read but cannot mint, overwrite, or delete records.
 module "decision_evidence_storage" {
-  count  = var.enable_operational_history ? 1 : 0
+  count  = local.decision_evidence_enabled ? 1 : 0
   source = "./modules/storage/case-history"
 
   name = substr(
@@ -1486,7 +1589,7 @@ module "decision_evidence_storage" {
 }
 
 resource "azurerm_role_assignment" "decision_evidence_inventory_reader" {
-  count                = var.enable_operational_history ? 1 : 0
+  count                = local.decision_evidence_enabled ? 1 : 0
   scope                = module.decision_evidence_storage[0].id
   role_definition_name = "Storage Blob Data Reader"
   principal_id         = module.inventory_identity.principal_id
@@ -1599,7 +1702,7 @@ resource "azurerm_private_endpoint" "operational_history_blob" {
 }
 
 resource "azurerm_private_endpoint" "decision_evidence_blob" {
-  count               = var.enable_operational_history && var.enable_private_networking ? 1 : 0
+  count               = local.decision_evidence_enabled && var.enable_private_networking ? 1 : 0
   name                = "pe-de-blob-${var.workload}${local.full_suffix}"
   location            = var.region
   resource_group_name = module.resource_group.name
@@ -1657,7 +1760,7 @@ resource "azurerm_private_dns_a_record" "operational_history_runner_blob" {
 
 resource "azurerm_private_dns_a_record" "decision_evidence_runner_blob" {
   count = (
-    var.enable_operational_history
+    local.decision_evidence_enabled
     && var.enable_private_networking
     && var.runner_vnet_id != ""
     && var.ops_resource_group_name != ""
@@ -1947,6 +2050,11 @@ resource "azurerm_function_app_flex_consumption" "dev_gateway" {
     precondition {
       condition     = var.env == "dev" && var.enable_private_networking
       error_message = "enable_dev_operations_gateway requires env=dev and enable_private_networking=true."
+    }
+
+    precondition {
+      condition     = trimspace(trimprefix(var.operator_api_audience, "api://")) != ""
+      error_message = "enable_dev_operations_gateway requires operator_api_audience for authenticated access."
     }
   }
 
@@ -2529,13 +2637,19 @@ module "compute" {
     var.dr_drill_enabled ? module.dr_drill_identity[0].client_id : ""
   )
   change_identity_client_id = (
-    var.enable_isolated_executor_authority_cutover ? "" : module.identity_change.client_id
+    var.enable_governed_execution && !var.enable_isolated_executor_authority_cutover
+    ? module.identity_change[0].client_id
+    : ""
   )
   resilience_identity_client_id = (
-    var.enable_isolated_executor_authority_cutover ? "" : module.identity_resilience.client_id
+    var.enable_governed_execution && !var.enable_isolated_executor_authority_cutover
+    ? module.identity_resilience[0].client_id
+    : ""
   )
   finops_identity_client_id = (
-    var.enable_isolated_executor_authority_cutover ? "" : module.identity_finops.client_id
+    var.enable_governed_execution && !var.enable_isolated_executor_authority_cutover
+    ? module.identity_finops[0].client_id
+    : ""
   )
   isolated_executor_authority_cutover = var.enable_isolated_executor_authority_cutover
   startup_kafka_settle_seconds        = var.startup_kafka_settle_seconds
@@ -2587,7 +2701,7 @@ module "compute" {
 
   # Required config env vars - `EnvVarConfigProvider` fails-fast if any is
   # unset, so wire them all from the surrounding infra outputs.
-  azure_tenant_id                     = var.tenant_id
+  azure_tenant_id                     = local.enterprise_identity_governance_selected ? var.tenant_id : ""
   azure_subscription_id               = data.azurerm_client_config.current.subscription_id
   azure_resource_group                = module.resource_group.name
   azure_region                        = var.region
@@ -2603,6 +2717,7 @@ module "compute" {
   postgres_database                   = module.state_store.database_name
   runtime_env                         = var.env == "" ? "dev" : var.env
   autonomy_mode_default               = "shadow"
+  product_profile_json                = var.product_profile_json
   dev_operations_gateway_url          = var.enable_dev_operations_gateway && !var.enable_isolated_executor_authority_cutover ? "https://${azurerm_function_app_flex_consumption.dev_gateway[0].default_hostname}" : ""
   dev_operations_gateway_audience     = var.enable_dev_operations_gateway && !var.enable_isolated_executor_authority_cutover ? var.operator_api_audience : ""
 
@@ -3064,13 +3179,15 @@ module "isolated_executor" {
   identity_client_id           = module.isolated_executor_identity[0].client_id
   extra_identity_ids           = local.isolated_executor_vertical_identity_ids
   change_identity_client_id = (
-    var.enable_isolated_executor_authority_cutover ? module.identity_change.client_id : ""
+    var.enable_isolated_executor_authority_cutover ? module.identity_change[0].client_id : ""
   )
   resilience_identity_client_id = (
-    var.enable_isolated_executor_authority_cutover ? module.identity_resilience.client_id : ""
+    var.enable_isolated_executor_authority_cutover
+    ? module.identity_resilience[0].client_id
+    : ""
   )
   finops_identity_client_id = (
-    var.enable_isolated_executor_authority_cutover ? module.identity_finops.client_id : ""
+    var.enable_isolated_executor_authority_cutover ? module.identity_finops[0].client_id : ""
   )
   authority_cutover = var.enable_isolated_executor_authority_cutover
   dev_operations_gateway_url = (
@@ -3125,8 +3242,8 @@ module "monitoring" {
 
 # -----------------------------------------------------------------------
 # Alert-noise qualification pilot (dev-only, opt-in). This creates exactly
-# one dedicated Action Group and one Key Vault Availability alert. Baseline
-# cannot fire; treatment changes only the threshold and recovery restores it.
+# one dedicated Action Group and one Core Container App replica alert.
+# Baseline cannot fire; treatment changes only the threshold.
 # -----------------------------------------------------------------------
 module "alert_noise_pilot" {
   count  = var.enable_alert_noise_pilot ? 1 : 0
@@ -3135,7 +3252,7 @@ module "alert_noise_pilot" {
   environment             = local.env_label
   phase                   = var.alert_noise_pilot_phase
   resource_group_name     = module.resource_group.name
-  target_resource_id      = var.alert_noise_pilot_target_resource_id
+  target_container_app_id = "/subscriptions/${data.azurerm_client_config.current.subscription_id}/resourceGroups/${module.resource_group.name}/providers/Microsoft.App/containerApps/${module.compute.core_app_name}"
   action_group_name       = "ag-${var.workload}-noise-pilot${local.full_suffix}"
   action_group_short_name = "fdai-pilot"
   alert_name              = "alert-${var.workload}-noise-pilot${local.full_suffix}"
@@ -3148,13 +3265,9 @@ check "alert_noise_pilot_boundary" {
     condition = !var.enable_alert_noise_pilot || (
       local.env_label == "dev" &&
       !var.enable_monitoring &&
-      trimspace(var.alert_noise_pilot_email) != "" &&
-      can(regex(
-        "(?i)^/subscriptions/[0-9a-f-]{36}/resourceGroups/[^/]+/providers/Microsoft\\.KeyVault/vaults/[^/]+$",
-        var.alert_noise_pilot_target_resource_id,
-      ))
+      trimspace(var.alert_noise_pilot_email) != ""
     )
-    error_message = "Alert-noise pilot requires dev, broad monitoring disabled, one protected recipient, and one existing Key Vault target."
+    error_message = "Alert-noise pilot requires dev, broad monitoring disabled, and one protected recipient."
   }
 }
 

@@ -23,7 +23,11 @@ class AssuranceTwinEvaluationUnavailableError(ValueError):
 
 @dataclass(frozen=True, slots=True)
 class CompletePostureEvaluation:
-    """Content-addressed result of one complete deterministic posture pass."""
+    """Content-addressed result of one complete deterministic posture pass.
+
+    ``declared_inputs`` lists, per evaluated Resource, the property paths that its
+    applying Rules declare as inputs. A wildcard evaluation declares no path.
+    """
 
     findings: tuple[Finding, ...]
     evaluated_rule_ids: tuple[str, ...]
@@ -31,6 +35,7 @@ class CompletePostureEvaluation:
     rule_generation_digest: str
     rule_generation_time: datetime
     coverage_refs: tuple[str, ...]
+    declared_inputs: tuple[tuple[ResourceRef, tuple[str, ...]], ...] = ()
 
 
 def evaluate_complete_posture(
@@ -56,6 +61,7 @@ def evaluate_complete_posture(
     evaluated: set[str] = set()
     findings: list[Finding] = []
     coverage: list[dict[str, object]] = []
+    declared_inputs: list[tuple[ResourceRef, tuple[str, ...]]] = []
     for resource in sorted(
         projection.resources,
         key=lambda item: (item.resource_type, item.ref),
@@ -82,11 +88,14 @@ def evaluate_complete_posture(
             raise AssuranceTwinEvaluationUnavailableError(
                 "Assurance Twin deterministic evaluation receipts are incomplete"
             )
-        _require_declared_inputs(
+        declared_paths = _require_declared_inputs(
             rules_by_id=rules_by_id,
             rule_ids=hint.citing_rule_ids,
             resource=resource,
             properties=resource_properties,
+        )
+        declared_inputs.append(
+            (ResourceRef(resource.resource_type, resource.ref), tuple(sorted(declared_paths)))
         )
         receipt_by_rule = dict(zip(hint.citing_rule_ids, hint.evaluation_receipts, strict=True))
         evaluated.update(hint.citing_rule_ids)
@@ -162,6 +171,7 @@ def evaluate_complete_posture(
         rule_generation_digest=generation_digest,
         rule_generation_time=rule_generation_time,
         coverage_refs=(inventory_revision, rule_set_digest, coverage_digest),
+        declared_inputs=tuple(declared_inputs),
     )
 
 
@@ -188,11 +198,14 @@ def _require_declared_inputs(
     rule_ids: tuple[str, ...],
     resource: ResourceRef,
     properties: object,
-) -> None:
+) -> frozenset[str]:
+    """Require every declared input and return the declared property paths."""
+
     if not isinstance(properties, dict):
         raise AssuranceTwinEvaluationUnavailableError(
             "Assurance Twin Resource properties are unavailable"
         )
+    declared_paths: set[str] = set()
     for rule_id in rule_ids:
         rule = rules_by_id[rule_id]
         required_refs = {
@@ -216,6 +229,8 @@ def _require_declared_inputs(
                 raise AssuranceTwinEvaluationUnavailableError(
                     "Assurance Twin Rule input property is unavailable"
                 )
+            declared_paths.add(path)
+    return frozenset(declared_paths)
 
 
 def _property_present(properties: dict[str, object], path: str) -> bool:

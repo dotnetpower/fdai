@@ -152,7 +152,13 @@ def coordinator(tmp_path, monkeypatch):
     )
     monkeypatch.setattr(standalone_deploy, "_current_operator_object_id", lambda: "synthetic")
 
-    def invoke(*, runner_receipt=None, online=True, foundation_adoption=False):
+    def invoke(
+        *,
+        runner_receipt=None,
+        online=True,
+        foundation_adoption=False,
+        product_add_ons=(),
+    ):
         return standalone_deploy.deploy_azure_foundation(
             work_dir=root,
             online=online,
@@ -161,6 +167,11 @@ def coordinator(tmp_path, monkeypatch):
             region="koreacentral",
             monthly_cost_ceiling=1000,
             timeout_seconds=2000,
+            runtime_profile=standalone_deploy.RuntimeDeploymentProfile.create(
+                runtime_platform="container-apps",
+                database_placement="postgres-flex",
+                product_add_ons=product_add_ons,
+            ),
             license_signing_key=None,
             trial_token=None,
             adopt_runner_image_receipt=runner_receipt,
@@ -186,8 +197,15 @@ def test_approval_prompt_uses_only_remaining_deadline(coordinator):
 def test_application_receives_budget_after_foundation_and_identity(coordinator):
     invoke, options, _clock = coordinator
     options.update(application=True, foundation_elapsed=1700, identity_elapsed=100)
-    invoke()
+    invoke(product_add_ons=("enterprise-identity-governance",))
     assert options["application_timeout"] == 200
+
+
+def test_default_profile_skips_the_identity_stage_budget(coordinator):
+    invoke, options, _clock = coordinator
+    options.update(application=True, foundation_elapsed=1700, identity_elapsed=100)
+    invoke()
+    assert options["application_timeout"] == 300
 
 
 def test_preparation_does_not_reset_the_overall_deadline(coordinator):

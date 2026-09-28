@@ -8,6 +8,10 @@ product control plane or its execution authority.
 > A workflow optimization never bypasses design context, focused checks, SHA-addressed CI,
 > identity verification, or deployment approval. A local validation queue is an opt-in diagnostic,
 > not a commit, push, or deployment authority.
+>
+> The local product default is the headless observation-first profile. Console full stack,
+> notifications, enterprise identity, and governed execution remain explicit independent add-ons;
+> developer tooling and package presence cannot select them.
 
 ## Design at a glance
 

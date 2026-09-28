@@ -138,13 +138,13 @@
         "When does Odin intervene?",
         "Odin이 개입하지 않는 경우는 언제인가요?"
       ],
-      "source_manifest_hash": "3a6e8f158bb8b35b9c173732cde5679457c69e1897818d49c2f3b321ba85c1fb",
+      "source_manifest_hash": "49eaa7523d570c8c2b2a4c208ed184cce58da894582e457713558ab3803fc2a4",
       "sources": [
         {
           "authority_role": "implementation",
-          "blob_sha": "ff4a36f10218a7a681d54c8e3f15f117e6ccd90b",
-          "line_end": 234,
-          "line_start": 182,
+          "blob_sha": "32dc07e32ef1097e406212ec8bda7aa0317e6bdf",
+          "line_end": 235,
+          "line_start": 183,
           "path": "services/core-control-plane/src/fdai/agents/_framework/forseti_arbitration.py",
           "source_kind": "code",
           "symbol": "ForsetiArbitrationMixin.maybe_request_arbitration"
@@ -169,27 +169,27 @@
         },
         {
           "authority_role": "verification",
-          "blob_sha": "1183cd1842f78c1addcea4fd1e4b81f191478b00",
-          "line_end": 76,
-          "line_start": 61,
+          "blob_sha": "3fddc49db9a913ff89a16bb7257e62d4012866ea",
+          "line_end": 77,
+          "line_start": 62,
           "path": "services/core-control-plane/tests/agents/test_arbitration.py",
           "source_kind": "test",
           "symbol": "test_forseti_requests_arbitration_on_conflicting_advice"
         },
         {
           "authority_role": "verification",
-          "blob_sha": "1183cd1842f78c1addcea4fd1e4b81f191478b00",
-          "line_end": 122,
-          "line_start": 114,
+          "blob_sha": "3fddc49db9a913ff89a16bb7257e62d4012866ea",
+          "line_end": 123,
+          "line_start": 115,
           "path": "services/core-control-plane/tests/agents/test_arbitration.py",
           "source_kind": "test",
           "symbol": "test_forseti_no_arbitration_on_single_domain"
         },
         {
           "authority_role": "verification",
-          "blob_sha": "1183cd1842f78c1addcea4fd1e4b81f191478b00",
-          "line_end": 398,
-          "line_start": 382,
+          "blob_sha": "3fddc49db9a913ff89a16bb7257e62d4012866ea",
+          "line_end": 399,
+          "line_start": 383,
           "path": "services/core-control-plane/tests/agents/test_arbitration.py",
           "source_kind": "test",
           "symbol": "test_close_call_escalates_to_hil"
@@ -552,31 +552,31 @@
         "When can an ActionType leave shadow mode?",
         "ActionType은 언제 shadow-mode를 벗어나나요?"
       ],
-      "source_manifest_hash": "4289c58615fea20d218906ed22dd17d3b736ad9a7264519f044902cadf7680dd",
+      "source_manifest_hash": "7e623f69f3afc11127f57ec518306fc223734e886117484865f6ad41b851cdf9",
       "sources": [
         {
           "authority_role": "implementation",
-          "blob_sha": "122bd47db7ea4efdc764ffc0c15d0d7c2748df4c",
-          "line_end": 313,
-          "line_start": 230,
+          "blob_sha": "bd160899392118b92d69015e39adb1219cbd7a94",
+          "line_end": 329,
+          "line_start": 236,
           "path": "services/core-control-plane/src/fdai/core/risk_gate/gate.py",
           "source_kind": "code",
           "symbol": "ActionPromotionRegistry.consider_promotion"
         },
         {
           "authority_role": "verification",
-          "blob_sha": "0f628f988d28c9fd9bb6f94ead2788c574fb3ad9",
-          "line_end": 470,
-          "line_start": 456,
+          "blob_sha": "6ffd931f64c22d50edda197104879f4c984df145",
+          "line_end": 491,
+          "line_start": 477,
           "path": "services/core-control-plane/tests/core/risk_gate/test_gate.py",
           "source_kind": "test",
           "symbol": "test_promotion_registry_promotes_when_metrics_pass_gate"
         },
         {
           "authority_role": "verification",
-          "blob_sha": "0f628f988d28c9fd9bb6f94ead2788c574fb3ad9",
-          "line_end": 496,
-          "line_start": 473,
+          "blob_sha": "6ffd931f64c22d50edda197104879f4c984df145",
+          "line_end": 517,
+          "line_start": 494,
           "path": "services/core-control-plane/tests/core/risk_gate/test_gate.py",
           "source_kind": "test",
           "symbol": "test_promotion_registry_demotes_when_metrics_regress"
@@ -705,11 +705,11 @@
         "Does the browser hold the executor identity?",
         "브라우저가 실행기 신원을 갖나요?"
       ],
-      "source_manifest_hash": "b2c998bef98006df4e92d6ff3039728722998a253b0a3e0df8d6c9672e22f21a",
+      "source_manifest_hash": "539cf44dac1fedccd8ff3e989660179e9dacea8c3752ecf1f4bd89570e37bf1c",
       "sources": [
         {
           "authority_role": "design",
-          "blob_sha": "2355682e064b42b0cca4e9115cf4f5e35a57bff6",
+          "blob_sha": "aad7e702ce9055c70f961d344fc076f30e29be7a",
           "line_end": 60,
           "line_start": 28,
           "path": ".github/instructions/app-shape.instructions.md",
@@ -993,11 +993,11 @@
         "Can local Console use synthetic operational evidence?",
         "로컬 Console이 합성 운영 근거를 써도 되나요?"
       ],
-      "source_manifest_hash": "0b9071f5a2ff3038e95b93b6570128c8b21b5ccdcbf6205aed96f8b9cf3755f4",
+      "source_manifest_hash": "2144c8bb9d83bca9c5bef44055011dab6bfb64b1ad301bd38c059281c781b504",
       "sources": [
         {
           "authority_role": "design",
-          "blob_sha": "2355682e064b42b0cca4e9115cf4f5e35a57bff6",
+          "blob_sha": "aad7e702ce9055c70f961d344fc076f30e29be7a",
           "line_end": 118,
           "line_start": 82,
           "path": ".github/instructions/app-shape.instructions.md",

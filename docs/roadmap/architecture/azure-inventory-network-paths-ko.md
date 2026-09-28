@@ -1,8 +1,8 @@
 ---
 title: 제한된 네트워크의 Azure 인벤토리
 translation_of: azure-inventory-network-paths.md
-translation_source_sha: 96522f6b56798ec8bb7a7ba9edac5286a7e1ed6a
-translation_revised: 2026-09-27
+translation_source_sha: 95448b3983339351d9f4c8fd06d649ed12e3a22b
+translation_revised: 2026-09-28
 ---
 # 제한된 네트워크의 Azure 인벤토리
 
@@ -29,7 +29,7 @@ FDAI는 네트워크 도달성, 아이덴티티, 수집, 프로젝션을 별도 
 | 영역 | 상태 | 근거 | 참고 |
 |------|------|------|------|
 | 제한된 네트워크 발견 및 순서가 지정된 출처 대체 경로 | in-progress | `delivery/azure/` 아래 Azure 인벤토리 어댑터, 배포 preflight 및 연결 계약 | 범위가 제한된 어댑터와 실패 분류가 있습니다. 이 문서는 모든 대체 단계를 입증하는 exact-revision 보호 배포를 하나로 보존하지 않습니다. |
-| 격리된 대체 경로 인증 | implemented | `inventory_network_certification.py`, `infra/inventory-network-certification/`, 정확한 생성 및 정리 계획 검증기, 집중 검사 | 작업 전용 샌드박스는 기존 개발 네트워크를 변경하지 않고 토큰, DNS, TLS, 범위가 제한된 ARG, 비공개 변환 결과, ARG에서 ARM으로 한 번 전환, 활성 세대 유지, 복구, 독립적인 비공개 증적 조회, 정확한 정리를 입증할 수 있습니다. 관리되는 실행은 아직 남아 있습니다. |
+| 격리된 대체 경로 인증 | implemented | `inventory_network_certification.py`, `infra/inventory-network-certification/`, 정확한 생성, migration 복구 및 정리 계획 검증기, 집중 검사 | 작업 전용 샌드박스는 기존 개발 네트워크를 변경하지 않고 토큰, DNS, TLS, 범위가 제한된 ARG, 비공개 변환 결과, ARG에서 ARM으로 한 번 전환, 활성 세대 유지, 복구, 독립적인 비공개 증적 조회, 정확한 정리를 입증할 수 있습니다. migration 작업은 수집 전에 기존 스키마와 서비스 소유 스키마 분기를 모두 전진시킵니다. 관리되는 실행은 아직 남아 있습니다. |
 | 스냅샷 권위 및 stale 상태 처리 | implemented | [CSP-중립성 계약](csp-neutrality-ko.md#구현-상태)이 인용하는 인벤토리 동기화, 프로젝션 및 재조정 테스트 | 부분 수집은 마지막 완전 승격 세대를 교체하거나 부재 주장을 승인할 수 없습니다. |
 | 서브넷별 네트워크 제어 | implemented | `infra/modules/network/main.tf`, `infra/bootstrap/main.tf`, 집중 네트워크 강화 테스트 | VM이 있는 서브넷은 명시적인 NSG로 Internet inbound를 거부합니다. Azure 관리형 delegated 및 private-endpoint 서브넷은 서비스 소유 네트워크 정책 계약을 유지합니다. |
 | AKS fleet 관측 연결 | implemented | `infra/main.tf`, `infra/scenario-lab/aks.tf`, Container Apps Inventory Job, 집중 AKS 신원 및 시나리오 검사 | 정확한 workload-identity 연결은 읽기 전용으로 유지됩니다. 폐기 가능한 시나리오는 Microsoft Entra와 Azure RBAC로 보호되고 로컬 계정이 비활성화된 공개 API 하나를 사용할 수 있으며, Trivy 및 Checkov 공개 접근 예외는 해당 리소스에만 적용됩니다. |
@@ -38,6 +38,8 @@ FDAI는 네트워크 도달성, 아이덴티티, 수집, 프로젝션을 별도 
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-28 | implemented | 인증 migration 작업이 인벤토리 수집 전에 정확한 이미지의 기존 스키마와 모든 서비스 소유 migration 분기를 전진하도록 했습니다. Core 이미지는 배포 지원 목적으로만 migration 그래프를 포함하며, 단일 주소 복구 계획 게이트가 보존된 샌드박스의 채택 범위를 제한합니다. | `current change`, 집중 migration 실행기 및 계획 게이트 검사, strict mypy, Terraform 검증. | 정확한 이미지를 게시하고 migration 작업 전용 복구 계획을 적용한 뒤 migration과 새 캠페인 실행을 시작합니다. |
+| 2026-09-28 | in-progress | 기존 migration만 실행한 작업이 성공을 보고한 뒤 보호된 이미지의 캠페인 실행 2개가 ARG와 ARM 모두에서 정제된 `UndefinedColumn` 실패로 중단됐습니다. 읽기 전용 비공개 진단으로 공급자 조회나 캠페인 재시도 없이 공유 스키마 미비점을 입증했습니다. | 비공개 최종 실행, migration 및 진단 claim, 정제된 실패 유형 재확인. | 두 실행을 보존하고 새 실행 전에 migration 동등성을 복구합니다. |
 | 2026-09-27 | implemented | PostgreSQL 포트 5432에 일반 TLS ClientHello를 보내는 대신 `sslmode=require` psycopg 연결과 권위 있는 `pg_stat_ssl` 재확인을 사용하도록 바꿨습니다. | `current change`, 집중 negotiated-TLS 회귀 검사와 strict mypy. | 수정 이미지를 게시하고 새 캠페인 실행을 사용합니다. |
 | 2026-09-27 | in-progress | 두 번째 통합 실행은 관리 평면 TLS를 통과했지만 PostgreSQL wire 프로토콜이 SSLRequest 협상을 요구해 일반 ClientHello를 reset했습니다. 인벤토리 원본 또는 의미 쓰기는 실행되지 않았습니다. | 정확한 실행과 정제된 traceback. | 해당 실행은 최종 상태로 유지하고 PostgreSQL TLS를 협상하는 새 실행을 시작합니다. |
 | 2026-09-27 | implemented | 최선형 SSL 종료만 close 제한 시간을 넘긴 경우 성공한 TLS 도달성 결과를 보존했습니다. DNS, 연결, handshake, hostname, cipher 실패는 계속 캠페인을 중단합니다. | `current change`, 집중 비동기 종료 회귀 검사와 전송 검사. | 수정 이미지를 게시하고 새 캠페인 실행을 사용합니다. |
@@ -85,6 +87,29 @@ Blob 영역을 연결하거나 그 안에 레코드를 쓰지 않습니다.
 상태를 감사하고, 표준 부분 overlay 쓰기를 한 번만 허용하고, 권한을 부여하지 않은 채 정확한
 활성 세대를 다시 조회합니다. 효과 검증이 성공한 뒤 별도의 정확한 삭제 전용 계획으로
 정리합니다. 캠페인이나 정리 결과가 모호하면 복구 검토를 위해 샌드박스를 보존합니다.
+
+샌드박스 migration 작업은 수집 전에 기존 스키마와 모든 서비스 소유 migration 분기를
+전진시킵니다. 요청한 리소스 유형의 승격이 서비스 소유 컬럼을 읽기 때문입니다. 실행기는
+실패 시 자격 증명을 가리고 크기를 제한한 사유를 보고하므로, 관리되는 실행 하나가 별도의
+진단 실행을 다시 요구하지 않습니다. 스키마, 자격 증명 인코딩, 승격 결함은 로컬 하네스
+[`test_inventory_network_certification_local.py`](../../../tests/integration/services/test_inventory_network_certification_local.py)가
+먼저 재현합니다. 이 하네스는 백분율 문자가 포함된 비밀번호를 쓰는 일회용 로컬 PostgreSQL
+역할에 대해 같은 마이그레이션 묶음과 범위가 제한된 승격을 실행합니다. 공급자 권한, 비공개
+DNS, 비공개 엔드포인트, 정책 표류, 역할 할당은 로컬 대체물이 없으므로 계속 관리되는 실행의
+근거로 남습니다.
+
+Azure가 스스로 변경 집합을 넓히는 경우 복구 계획은 정확한 단일 주소 대신 범위가 제한된
+형태를 유지합니다. `migration-recovery`는 검토된 주소의 비어 있지 않은 부분집합을 `update`
+동작으로만 허용하고 migration 작업은 계속 요구합니다. 샌드박스 소유권 태그가 같은 계획에서
+모든 작업 소유 리소스로 전파되기 때문입니다. `partial-cleanup`은 apply가 중간에 멈춘 보존
+샌드박스를 제거하므로 검토된 주소의 비어 있지 않은 부분집합을 `delete` 동작으로만 허용합니다.
+검토되지 않은 주소, 중복, 교체, 생성, 삭제는 계속 차단되며 `create`, `cleanup`,
+`extension-recovery`는 완전한 검토 집합을 유지합니다.
+
+보존된 실패 샌드박스는 제거 전에 검토합니다. 검토는 남은 리소스 집합을 기록하고, 작업이나
+실행 표면이 없음을 확인하며, 고아 신원이 여전히 보유한 역할 할당을 열거합니다. 더 이상
+실행할 수 없는 신원이 상시 역할 할당을 보유하는 상태가, 검토를 마친 실패 샌드박스를 무기한
+보존하지 않고 제거하는 근거입니다.
 
 ## 필수 네트워크 경로
 

@@ -1,8 +1,8 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: 18740b813cc22d6491d0037b794dc5d2d5e9ec30
-translation_revised: 2026-09-27
+translation_source_sha: 53dcd0d981c96c443c395271a7d7ea420e56381e
+translation_revised: 2026-09-28
 ---
 # 배포와 온보딩(Deploy and Onboard)
 Azure 구독에 FDAI를 프로비저닝하고 첫 온보딩을 완료해 시스템이 관측 준비되도록 하는 방법. 이 문서는 **구체적 배포 인벤토리, 부트스트랩 순서, 분포/배포 책임 분리**의 정본(source of truth)입니다; 배포 라이프사이클(CI/CD, progressive 전달, 롤백, DR)은 [deployment-ko.md](deployment-ko.md)에 남습니다.
@@ -191,6 +191,8 @@ Preflight, 출처 우선순위, 커버리지 및 stale 유지 계약은
 
 - [`fdai-up.sh`](../../../scripts/deployment/azure/fdai-up.sh)는 `az login` 후 사용하는 비공개 `dev` 단일 명령 경로입니다. 버전이 지정된 서명 키트 하나를 검증하며 독립적인 아티팩트 준비, 읽기 전용 검색, 공급자 요청, 정책 프로브 작업에는 범위가 제한된 병렬 실행을 사용합니다.
   현재의 각 계획을 승인받고 Foundation과 tenant 구성을 완료하며 수동 Managed Host에서 적용한 뒤 변경 없음 계획을 요구합니다. 승인, 적용, 정리, 상태, 인계 경계는 계속 직렬로 수행합니다. GitHub 저장소 구성과 workflow dispatch는 이 경로에 포함되지 않습니다.
+  기여자 소스 배포는 `--source <checkout> --signing-key <key>`를 추가합니다. 선택한 checkout이 실행 전체를 소유합니다. 해당 checkout의 잠긴 환경을 준비하고 그 안에서 키트를 빌드하며 배포 CLI도 거기에서 실행하므로, 다른 clone에서 호출해도 호출한 쪽 리비전이 대신 들어갈 수 없습니다. 이미 그 checkout이 키트를 결정하므로 `--online`이나 `--offline-kit`를 함께 지정하면 전달하지 않고 거부합니다.
+- [`check-signing-key.py`](../../../scripts/deployment/release/check-signing-key.py)는 빌드가 개인 키를 사용하기 전에 후보 키를 식별합니다. 패키징된 루트의 지문, 후보가 충족하는 역할, 키트 빌드가 요구하는 소유자 전용 보관 상태를 보고합니다. 키 자체는 출력하지 않으므로 키를 보유했을 수 있는 어느 머신에서든 안전하게 실행할 수 있습니다. 개발 프로필은 완전 키트와 번들 역할에 서명자 하나를 고정하므로 파일 하나로 `--signing-key`를 충족하며, 라이선스 발급자는 별도 키입니다.
 - [`genesis-up.sh`](../../../scripts/deployment/azure/genesis-up.sh)는 하위 수준 15단계 기반 계층
   경로를 유지합니다. 점유가 있으면 검증만 재개하며 기반 계층 완료만으로 준비 상태를 주장하지 않습니다.
 - [`verify-azure-context.sh`](../../../scripts/deployment/azure/verify-azure-context.sh)는 변경 전에 Azure CLI와 `azd` 진입점을 승인된 구독 및 테넌트 쌍에 연결하며, Genesis는 활성 CLI 선택을 바꾸지 않고 정확한 구독 결합 ARM 위치 엔드포인트로 지역 가용성을 확인하고 정책 프로브 정리는 다중 값 TSV를 순서가 있는 줄로 파싱한 뒤 부재를 증명합니다.
@@ -596,31 +598,9 @@ migration은 URL로 인코딩된 자격 증명을 안전하게 보존하고 격�
 
 ## 비용 효율 원칙
 
-모든 프로비저닝 선택은 이 원칙을 존중; 위반 리소스는 배포 PR에 명시적 정당화 필요. 이 원칙에서
-나오는 **예시 월간 비용 묶음**은 [cost-model-ko.md](../interfaces/cost-model-ko.md)에 있음.
-
-1. **이벤트 기반 우선** - 예약 Container Apps 작업은 실행 사이에 scale-to-zero됩니다. 코어는
-  자격 증명 없는 Event Hubs Kafka-lag scaler가 검증되지 않았으므로 현재 복제본 하나를
-  유지합니다. 이 하한을 바꾸려면 측정되고 검증된 scaler가 필요합니다.
-2. **하루 첫날 한 리전, 한 존, non-HA** - 멀티 존과 멀티 리전은 단계 4 (TBD). 초기 배포는
-   단일 지리적 footprint.
-3. **관리 서비스 축소** - PostgreSQL 내부 pgvector가 vector 저장소; App Insights가 공유 로그
-   Analytics workspace에 바인딩; 별도 vector DB 또는 APM 리소스 프로비저닝 없음.
-4. **기본으로 Basic / Standard 티어** - Premium 티어는 명시된 측정 필요. HA 변형, geo-
-   replication, private-endpoint premium 기능은 연기.
-5. **사용 사례를 커버하는 곳에서 Free 티어** - Static Web Apps (콘솔), Azure Bot (HIL
-   Adaptive Cards), 워크로드 신원 federation (CI/CD) 모두 Free 티어.
-6. **단계적 5개 서비스 목표** - 실행기 근거를 구축하는 동안 Core는 modular 상태를
-  유지합니다. 완료 토폴로지는 둘을 분리하며 다른 패키지는 자체 게이트 없이는 프로세스 내입니다.
-7. **모델 예산 상한** - T2 추론은 이벤트의 ~5-10%에 도달하도록 설계; 토큰/spend 예산은 강제
-   되고 초과분은 uncapped inference가 아니라 HIL로 강등.
-8. **카탈로그는 git-hosted, 서비스가 아님** - 룰 카탈로그는 관리 저장소가 아니라 git 저장소에
-   있으므로 카탈로그 저장에 추가 Azure 리소스 불필요.
-9. **공개 인바운드 엔드포인트 없음** - 첫날에 애플리케이션 게이트웨이 / Front Door / API
-   관리 없음; 유입은 이벤트 버스, egress는 allow-list.
-10. **연기된 DR 리소스** - secondary-region 리소스는 초기에 **프로비저닝되지 않음** ;
-    컨트롤 플레인 DR은 IaC + 상태 백업을 통해 계획됨
-    ([deployment-ko.md](deployment-ko.md#control-plane-disaster-recovery)).
+프로비저닝 비용 원칙은 이 원칙에서 나오는 예시 월간 비용 묶음과 함께
+[비용 모델](../interfaces/cost-model-ko.md#비용-효율-원칙)이 소유합니다. 이 제목은 기존 링크의 안정적인
+대상으로 남아 있습니다.
 
 ## 열림 Decisions
 

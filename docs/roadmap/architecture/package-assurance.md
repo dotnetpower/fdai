@@ -4,13 +4,15 @@ title: Package Assurance
 
 # Package assurance
 
+> **Deployment distribution:** The [constitution](fdai-constitution.md#article-1-purpose-and-scope) defines only two installation paths, contributor source deployment and the signed offline package. Any installation gate in this document that the constitution does not list is superseded and no longer applies.
+
 This document defines the minimal distribution contract for an FDAI Python package. An offline
 package should install like an ordinary local pip wheelhouse, with one detached private-key
 signature added before installation.
 
-> **Scope:** This contract covers Python package distribution only. Azure identity, Terraform
-> approval, runtime images, database migration, service health, and deployment recovery belong to
-> their deployment owners.
+> **Scope:** This contract covers the Python package and the offline deployment package. Azure
+> identity, database migration, service health, and deployment recovery belong to their deployment
+> owners.
 >
 > **Implementation ledger:** Current delivery evidence is tracked in the
 > [Package Assurance implementation ledger](../../roadmap-implementation/architecture/package-assurance.md).
@@ -49,6 +51,10 @@ The builder creates the deployment CLI wheel, downloads its locked runtime depen
 `wheels/`, writes one sorted checksum list, signs that list, and creates a tar archive. It does not
 build service images or assemble an Azure deployment payload.
 
+Every shipped file except the signature pair is listed in `SHA256SUMS`; the builder fails when
+`wheels/` contains anything other than wheel files. Locked workspace path dependencies, such as
+the service contracts, are built as wheels because they have no index hash.
+
 ## Verify and install
 
 Verify the signature and checksums before invoking pip:
@@ -72,6 +78,14 @@ list. File hashes are the signed content map, not a separate approval system.
 
 The private key stays outside the repository and package. Installing the package does not grant
 Azure access, execution authority, feature activation, or approval.
+
+## Offline deployment package
+
+The constitution's offline path uses one complete package built with
+`scripts/deployment/release/build-standalone-deployment-kit.sh --signing-key <key>`. It carries the
+wheelhouse plus the Terraform configuration, Terraform and its provider mirror, kubectl and
+kubelogin, service and sidecar images, the Console, and migration support. An Azure VM without
+internet access needs nothing else. One key signs it, and no other package gate applies.
 
 ## Constraints removed
 

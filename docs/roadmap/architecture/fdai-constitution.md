@@ -60,6 +60,26 @@ unreachable, or unauthorized, and never as a substitute for a binding a venue fa
 Synthetic, fixture, seeded, or demo substitution remains prohibited in every venue, so closing a
 venue-parity gap means binding the real source rather than manufacturing its output.
 
+**Deployment distribution.** FDAI supports exactly two ways to install itself, and each requires only
+what this paragraph lists:
+
+1. *Contributor source deployment.* A contributor who clones the repository, signs in with
+   `az login`, and holds the development signing private key can deploy every FDAI resource to their
+   own subscription with one command. The command builds what it needs from the checkout, including
+   service images. It requires no protected branch, CI result, published artifact, prebuilt
+   package, appliance, attestation, provenance, SBOM, or maintainer involvement.
+2. *Offline package.* A key holder builds one signed offline package that contains every artifact
+   needed to configure all FDAI resources. On an Azure VM without internet access, that package alone
+   is sufficient: no download, public registry, package index, or build is needed, while Azure
+   management and data-plane endpoints stay reachable through Azure network paths. The only package
+   guarantee is one detached Ed25519 signature over its checksum list.
+
+Installation tooling adds no other gate. The operator's invocation approves the plan it shows;
+only deleting or replacing an existing resource needs an explicit extra confirmation. Articles 7
+and 8 govern FDAI's own actions on managed resources, not the installation of FDAI. Secrets never
+enter the repository, logs, or command lines. A lower layer that adds another installation gate is
+defective under Article 10.
+
 ## Article 2: Contract-conformant accuracy
 
 **FDAI-CONST-002 - Zero unsafe guesses.** FDAI targets 100% contract-conformant terminal behavior.

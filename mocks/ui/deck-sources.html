@@ -3,528 +3,132 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Command Deck - Source Streaming - FDAI Console</title>
-  <link rel="stylesheet" href="assets/calm-slate.css?v=page-context-v3" />
+  <title>Command deck sources - FDAI Console</title>
+  <link rel="stylesheet" href="assets/calm-slate.css?v=page-context-v4" />
+  <link rel="stylesheet" href="../../ui/calm-slate-deck-conversation.css?v=conversation-v44" />
   <script src="assets/calm-slate.js?v=page-context-v3" defer></script>
-  <style>
-    /* =====================================================================
-       Grok-style source-streaming mock (gs-*)
-       Layered on top of calm-slate.css. Shows the FDAI Command Deck
-       preparing an answer: Bragi (narrator) grounds on READ-ONLY sources
-       (screen snapshot, console-tools, rule catalog, OPA policy, audit,
-       agent verdicts) and streams that retrieval trace before the answer.
-       The deck never executes - it is a translator, not a judge.
-       ===================================================================== */
-
-    }
-    .gs-dot { width: 10px; height: 10px; border-radius: 50%; background: #d9d5d1; }
-    .gs-frame-route { margin-left: auto; font-weight: 600; color: var(--cs-navy); letter-spacing: .03em; text-transform: uppercase; font-size: 11px; }
-
-    /* Two-column deck body: transcript + "what I see" digest. */
-    .gs-body { display: grid; grid-template-columns: 1fr 232px; min-height: 380px; }
-    @media (max-width: 860px) { .gs-body { grid-template-columns: 1fr; } }
-
-    .gs-transcript {
-      padding: 13px 15px;
-      display: flex; flex-direction: column; gap: 11px;
-      border-right: 1px solid var(--cs-hairline);
-      overflow: hidden;
-    }
-    .gs-digest {
-      padding: 12px 12px 15px;
-      background: var(--cs-shade);
-      font-size: 12px;
-    }
-    .gs-digest-title { font-size: 10px; text-transform: uppercase; letter-spacing: .06em; color: var(--cs-text-soft); font-weight: 700; }
-    .gs-digest-group { margin-top: 10px; }
-    .gs-digest-group h4 { margin: 0 0 4px; font-size: 10px; color: var(--cs-navy); text-transform: uppercase; letter-spacing: .05em; }
-    .gs-fact { display: flex; justify-content: space-between; gap: 10px; padding: 2px 0; border-bottom: 1px dotted var(--cs-hairline); }
-    .gs-fact .k { color: var(--cs-text-soft); }
-    .gs-fact .v { font-weight: 600; font-variant-numeric: tabular-nums; }
-
-    /* Turn bubbles. */
-    .gs-turn { display: flex; flex-direction: column; gap: 4px; }
-    .gs-turn-role { font-size: 9.5px; text-transform: uppercase; letter-spacing: .06em; color: var(--cs-text-soft); font-weight: 700; }
-    .gs-turn.op .gs-bubble {
-      align-self: flex-start; max-width: 92%;
-      background: #EEF2F6; border: 1px solid #DCE4EC;
-      border-radius: 11px 11px 11px 3px; padding: 7px 11px; color: var(--cs-text); font-size: 12.5px;
-    }
-    .gs-answer { max-width: 100%; font-size: 12.5px; }
-    .gs-answer p { margin: 0 0 8px; line-height: 1.55; }
-    .gs-answer p:last-child { margin-bottom: 0; }
-
-    /* Inline citation chips [n]. */
-    .gs-cite {
-      display: inline-flex; align-items: center; justify-content: center;
-      min-width: 16px; height: 16px; padding: 0 4px; margin: 0 1px;
-      border-radius: 4px; font-size: 10px; font-weight: 700; vertical-align: 1px;
-      background: rgba(68,104,142,.14); color: var(--cs-steel); cursor: help;
-      transition: background .15s;
-    }
-    .gs-cite:hover { background: rgba(68,104,142,.28); }
-
-    /* ---- Retrieval trace panel (the Grok-style "reading sources") ---- */
-    .gs-trace {
-      border: 1px solid var(--cs-hairline);
-      border-radius: 12px;
-      background: linear-gradient(180deg, #FCFBFA, #F6F4F2);
-      overflow: hidden;
-    }
-    .gs-trace-head {
-      display: flex; align-items: center; gap: 8px;
-      padding: 8px 11px; border-bottom: 1px solid var(--cs-hairline);
-    }
-    .gs-spin { width: 13px; height: 13px; border-radius: 50%;
-      border: 2px solid rgba(68,104,142,.25); border-top-color: var(--cs-steel);
-      animation: gs-rot .7s linear infinite; }
-    @keyframes gs-rot { to { transform: rotate(360deg); } }
-    .gs-trace-title { font-weight: 700; font-size: 12px; }
-    .gs-trace-sub { color: var(--cs-text-soft); font-size: 11px; }
-    .gs-trace-timer { margin-left: auto; font-variant-numeric: tabular-nums; font-size: 10.5px; color: var(--cs-text-soft); }
-
-    /* Stage rows: appear one at a time, tick off when done. */
-    .gs-stages { list-style: none; margin: 0; padding: 4px 5px 1px; }
-    .gs-stage {
-      display: flex; align-items: center; gap: 8px;
-      padding: 4px 6px; border-radius: 7px; font-size: 11.5px;
-      opacity: 0; transform: translateY(4px);
-      animation: gs-rise .28s ease forwards;
-    }
-    @keyframes gs-rise { to { opacity: 1; transform: none; } }
-    .gs-stage-ico {
-      width: 18px; height: 18px; border-radius: 5px; flex: none;
-      display: inline-flex; align-items: center; justify-content: center;
-      font-size: 11px; background: rgba(62,76,89,.10); color: var(--cs-navy);
-    }
-    .gs-stage.done .gs-stage-ico { background: rgba(94,130,89,.16); color: var(--cs-sage); }
-    .gs-stage.active .gs-stage-ico { background: rgba(68,104,142,.16); color: var(--cs-steel); }
-    .gs-stage-label { font-weight: 600; }
-    .gs-stage-detail { color: var(--cs-text-soft); }
-    .gs-stage-check { margin-left: auto; color: var(--cs-sage); font-weight: 700; opacity: 0; transition: opacity .2s; }
-    .gs-stage.done .gs-stage-check { opacity: 1; }
-    .gs-stage-side {
-      font-size: 9px; text-transform: uppercase; letter-spacing: .05em;
-      padding: 1px 5px; border-radius: 999px; font-weight: 700;
-      background: #EDEAE7; color: var(--cs-text-soft);
-    }
-    .gs-side-read { background: rgba(68,104,142,.12); color: var(--cs-steel); }
-    .gs-side-simulate { background: rgba(123,108,156,.14); color: var(--cs-plum); }
-    .gs-side-route { background: rgba(79,132,126,.14); color: var(--cs-teal); }
-    .gs-side-ground { background: rgba(188,116,73,.14); color: var(--cs-terracotta); }
-
-    /* Source strip: a slot-machine window - only 2-3 cards show and the
-       track rolls upward as new sources arrive. */
-    .gs-sources { padding: 3px 10px 10px; }
-    .gs-sources-label { font-size: 10px; text-transform: uppercase; letter-spacing: .05em; color: var(--cs-text-soft); font-weight: 700; margin: 3px 0 6px; }
-    .gs-slot {
-      height: 108px; overflow: hidden; position: relative;
-      -webkit-mask-image: linear-gradient(180deg, transparent 0, #000 20%, #000 86%, transparent 100%);
-      mask-image: linear-gradient(180deg, transparent 0, #000 20%, #000 86%, transparent 100%);
-    }
-    .gs-strip {
-      list-style: none; margin: 0; padding: 0;
-      display: flex; flex-direction: column; gap: 6px;
-      transition: transform .32s cubic-bezier(.22,.61,.36,1);
-      will-change: transform;
-    }
-    .gs-src {
-      display: flex; align-items: center; gap: 7px;
-      padding: 5px 8px; border: 1px solid var(--cs-hairline); border-radius: 8px;
-      background: var(--cs-card); width: 100%; flex: none; box-sizing: border-box;
-      opacity: 0; transform: translateY(8px) scale(.98);
-      animation: gs-pop .26s ease forwards;
-    }
-    @keyframes gs-pop { to { opacity: 1; transform: none; } }
-    /* After grounding completes, re-expanding the trace must not replay the
-       entry animations (display toggle would otherwise restart them). */
-    .gs-settled .gs-stage { animation: none; opacity: 1; transform: none; }
-    .gs-settled .gs-src { animation: none; opacity: 1; }
-    .gs-src-badge {
-      width: 24px; height: 24px; border-radius: 6px; flex: none;
-      display: inline-flex; align-items: center; justify-content: center;
-      font-size: 8px; font-weight: 800; letter-spacing: .02em; color: #fff;
-    }
-    .gs-b-screen { background: var(--cs-steel); }
-    .gs-b-rule   { background: var(--cs-terracotta); }
-    .gs-b-policy { background: var(--cs-plum); }
-    .gs-b-audit  { background: var(--cs-navy); }
-    .gs-b-agent  { background: var(--cs-sage); }
-    .gs-src-txt { min-width: 0; display: flex; flex-direction: column; line-height: 1.25; }
-    .gs-src-title { display: block; font-weight: 700; font-size: 11.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .gs-src-meta { display: block; font-size: 10px; color: var(--cs-text-soft); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-
-    /* Collapsed summary pill (after grounding completes). */
-    .gs-grounded {
-      display: inline-flex; align-items: center; gap: 7px; flex-wrap: wrap;
-      padding: 6px 10px; border: 1px solid var(--cs-hairline); border-radius: 999px;
-      background: var(--cs-card); font-size: 11px; cursor: pointer;
-      box-shadow: var(--cs-shadow);
-    }
-    .gs-grounded:hover { box-shadow: var(--cs-shadow-hover); }
-    .gs-grounded .gs-check { color: var(--cs-sage); font-weight: 800; }
-    .gs-grounded .gs-more { color: var(--cs-steel); font-weight: 600; margin-left: 2px; }
-    .gs-pill-stat { color: var(--cs-text-soft); }
-    .gs-pill-stat strong { color: var(--cs-text); font-variant-numeric: tabular-nums; }
-
-    /* Follow-up chips. */
-    .gs-followups { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 3px; }
-    .gs-followup {
-      border: 1px solid var(--cs-hairline); background: var(--cs-card);
-      border-radius: 999px; padding: 4px 10px; font: inherit; font-size: 11.5px;
-      color: var(--cs-steel); cursor: pointer;
-    }
-    .gs-followup:hover { background: #EEF2F6; }
-
-    /* Caret while streaming answer text. */
-    .gs-caret { display: inline-block; width: 6px; height: 13px; background: var(--cs-steel);
-      margin-left: 1px; vertical-align: -2px; animation: gs-blink .9s step-end infinite; }
-    @keyframes gs-blink { 50% { opacity: 0; } }
-
-    /* Fake input row (read-only). */
-    .gs-inputrow {
-      display: flex; align-items: center; gap: 8px;
-      padding: 9px 13px; border-top: 1px solid var(--cs-hairline); background: var(--cs-shade);
-    }
-    .gs-input {
-      flex: 1; padding: 7px 11px; border: 1px solid var(--cs-hairline);
-      border-radius: 8px; background: var(--cs-card); color: var(--cs-text-soft); font-size: 12px;
-    }
-    .gs-send { border: 0; border-radius: 8px; padding: 7px 14px; font: inherit; font-weight: 700;
-      font-size: 12.5px; color: #fff; background: var(--cs-steel); cursor: pointer; }
-
-    .gs-controls { display: flex; align-items: center; gap: 12px; margin: 0 0 16px; flex-wrap: wrap; }
-    .cs-readonly-banner { overflow-wrap: anywhere; }
-    .gs-btn { border: 1px solid var(--cs-hairline); background: var(--cs-card); border-radius: 9px;
-      padding: 8px 16px; font: inherit; font-weight: 600; cursor: pointer; color: var(--cs-navy); }
-    .gs-btn:hover { background: var(--cs-shade); }
-    .gs-speed { display: inline-flex; gap: 4px; }
-    .gs-speed button { border: 1px solid var(--cs-hairline); background: var(--cs-card); border-radius: 7px;
-      padding: 5px 10px; font: inherit; font-size: 12px; cursor: pointer; }
-    .gs-speed button.on { background: var(--cs-steel); color: #fff; border-color: var(--cs-steel); }
-    @media (max-width: 620px) {
-      .cs-readonly-banner { display: block; line-height: 1.55; }
-      .cs-readonly-banner > :first-child { margin-right: 6px; }
-      .gs-controls > .cs-muted:last-child { flex: 1 1 100%; }
-    }
-  </style>
+  <script src="assets/deck-sources.js?v=conversation-v44" defer></script>
+  <link rel="stylesheet" href="assets/deck-study.css?v=study-v2" />
   <link rel="stylesheet" href="assets/chat-current.css?v=11" />
 </head>
-<body class="gs-page-body" data-chat-theme="clear-neutral" data-chat-surface="current">
-  <main class="cs-container cs-page">
-    <div class="cs-page-header cs-mb-16">
-      <div class="cs-eyebrow">Command deck &middot; Narrator (Bragi) &middot; Read-only</div>
-      <h1>Answer preparation - source streaming</h1>
-      <p class="cs-lead">When an operator asks the deck a question, the narrator streams the retrieval
-        trace before the answer: which read-only sources it consults and grounds on. Every card below is
-        data FDAI already holds - the screen snapshot, console-tools, the rule catalog with provenance,
-        OPA policy, the audit log, and agent verdicts. The deck reads and cites; it never executes.</p>
-    </div>
+<body data-preserve-page-title data-chat-theme="clear-neutral" data-chat-surface="current" data-deck-state="loading">
+  <main class="ds-page">
+    <h1 class="cs-sr-only">Command deck sources</h1>
 
-    <div class="cs-readonly-banner">
-      <strong>Why show this.</strong> Grounding is a UI contract, not a claim. The trace proves the
-      answer is built from cited, read-only sources (each tagged with a side_effect_class of
-      <em>read</em> / <em>simulate</em> / <em>route</em>), so an operator can verify every sentence.
-      Actions still flow through remediation PRs and HIL - never a deck button.
-    </div>
-
-    <div class="gs-controls">
-      <button class="gs-btn" id="gs-replay" type="button">&#9654; Replay</button>
-      <span class="cs-muted" style="font-size:13px">Speed</span>
-      <span class="gs-speed" id="gs-speed">
-        <button data-mult="1.8" type="button">0.5x</button>
-        <button data-mult="1" type="button">1x</button>
-        <button data-mult="0.5" class="on" type="button">2x</button>
-      </span>
-      <span class="cs-muted" style="font-size:12.5px; margin-left:auto">Illustrative mock - values are representative, not live.</span>
-    </div>
-
-    <div class="gs-stage-wrap">
-      <div class="gs-frame">
-        <div class="gs-frame-topbar">
-          <span class="gs-dot"></span><span class="gs-dot"></span><span class="gs-dot"></span>
-          <span>Command deck</span>
-          <span class="cs-muted">&middot; grounds on what is on screen</span>
-          <span class="gs-frame-route">Live cockpit</span>
+    <details class="ds-preview" id="ds-preview">
+      <summary>
+        <span class="ds-preview-title">Preview controls</span>
+        <span class="ds-preview-note">Synthetic example &middot; No live execution</span>
+      </summary>
+      <div class="ds-preview-body">
+        <p class="ds-preview-lead">Replays one Command deck answer: Bragi reads read-only sources, grounds each claim, and states evidence limits. The deck can only draft a typed request; the server revalidates it, and a separate executor identity applies any approved change. Every value is synthetic, and nothing runs against a real system.</p>
+        <div class="ds-preview-row">
+          <span class="ds-preview-label" id="ds-scenario-label">Scenario</span>
+          <div class="cs-control-segmented ds-segmented" role="group" aria-labelledby="ds-scenario-label">
+            <button type="button" data-scenario="grounded" aria-pressed="true">Grounded</button>
+            <button type="button" data-scenario="partial" aria-pressed="false">Partial evidence</button>
+            <button type="button" data-scenario="unavailable" aria-pressed="false">Source unavailable</button>
+            <button type="button" data-scenario="conflict" aria-pressed="false">Conflicting evidence</button>
+            <button type="button" data-scenario="corrected" aria-pressed="false">Corrected</button>
+          </div>
         </div>
-
-        <div class="gs-body">
-          <section class="gs-transcript" id="gs-transcript" aria-label="Command deck transcript" aria-live="polite">
-            <!-- filled by JS -->
-          </section>
-
-          <aside class="gs-digest">
-            <div class="gs-digest-title">What I see</div>
-            <div class="gs-digest-group">
-              <h4>Live cockpit</h4>
-              <div class="gs-fact"><span class="k">tiles</span><span class="v">60</span></div>
-              <div class="gs-fact"><span class="k">events / s</span><span class="v">4.2</span></div>
-              <div class="gs-fact"><span class="k">failed</span><span class="v">3</span></div>
-              <div class="gs-fact"><span class="k">shadow / enforce</span><span class="v">12 / 48</span></div>
-            </div>
-            <div class="gs-digest-group">
-              <h4>Tier mix</h4>
-              <div class="gs-fact"><span class="k">T0</span><span class="v">78%</span></div>
-              <div class="gs-fact"><span class="k">T1</span><span class="v">16%</span></div>
-              <div class="gs-fact"><span class="k">T2</span><span class="v">6%</span></div>
-            </div>
-            <div class="gs-digest-group">
-              <h4>Focused tile #12</h4>
-              <div class="gs-fact"><span class="k">resource</span><span class="v">postgres-flex-prod</span></div>
-              <div class="gs-fact"><span class="k">vertical</span><span class="v">Resilience</span></div>
-              <div class="gs-fact"><span class="k">status</span><span class="v" style="color:var(--cs-dusty-red)">flagged</span></div>
-            </div>
-          </aside>
+        <div class="ds-preview-row">
+          <span class="ds-preview-label" id="ds-speed-label">Replay speed</span>
+          <div class="cs-control-segmented ds-segmented" role="group" aria-labelledby="ds-speed-label">
+            <button type="button" data-speed="0.5" aria-pressed="false">0.5x</button>
+            <button type="button" data-speed="1" aria-pressed="true">1x</button>
+            <button type="button" data-speed="2" aria-pressed="false">2x</button>
+          </div>
+          <span class="ds-preview-label" id="ds-width-label">Width</span>
+          <div class="cs-control-segmented ds-segmented" role="group" aria-labelledby="ds-width-label">
+            <button type="button" data-width="full" aria-pressed="true">Full</button>
+            <button type="button" data-width="dock" aria-pressed="false">Dock</button>
+          </div>
         </div>
-
-        <div class="gs-inputrow">
-          <label class="cs-sr-only" for="gs-composer">Ask the Command deck</label>
-          <textarea class="gs-input" id="gs-composer" rows="1" readonly>Ask about tiles, verticals, approvals, audit, or promotion...</textarea>
-          <button class="gs-send" type="button" disabled>Preview only</button>
+        <div class="ds-preview-row">
+          <label class="cs-control-switch ds-switch">
+            <input type="checkbox" id="ds-trace" />
+            <span class="cs-control-switch-track" aria-hidden="true"></span>
+            <span class="ds-switch-copy">
+              <span class="ds-switch-title">Capture model request and response trace</span>
+              <span class="ds-switch-hint">Mirrors Settings &gt; Display. New turns keep a redacted copy of model requests and responses; earlier turns stay uncaptured.</span>
+            </span>
+          </label>
+        </div>
+        <div class="ds-preview-actions">
+          <button type="button" class="cs-control-button" id="ds-replay">Replay</button>
+          <button type="button" class="cs-control-button" id="ds-finish">Show result</button>
         </div>
       </div>
-    </div>
+    </details>
+
+    <section class="ds-workspace cs-deck-surface cs-deck-workspace-shell cs-deck-conversation" id="ds-workspace" aria-label="Command deck" data-width="full" data-open="true">
+      <header class="ds-header cs-deck-workspace-header" id="ds-header">
+        <div class="ds-header-title">
+          <span class="ds-header-glyph" aria-hidden="true">
+            <svg viewBox="0 0 16 16" width="16" height="16" focusable="false"><path d="M3 2.75h10a1.5 1.5 0 0 1 1.5 1.5v6a1.5 1.5 0 0 1-1.5 1.5H7L3.5 14v-2.25H3a1.5 1.5 0 0 1-1.5-1.5v-6A1.5 1.5 0 0 1 3 2.75Z" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" /></svg>
+          </span>
+          <span class="ds-header-copy">
+            <h2 class="ds-header-conversation" id="ds-conversation-title">Why is example-postgres flagged?</h2>
+            <span class="ds-header-route">Live cockpit</span>
+          </span>
+        </div>
+        <div class="ds-search" role="search">
+          <span class="ds-search-icon" aria-hidden="true">&#8981;</span>
+          <input class="ds-search-input" id="ds-search" type="search" placeholder="Search turns..." aria-label="Search this conversation" autocomplete="off" />
+          <span class="ds-search-count" id="ds-search-count" aria-live="polite"></span>
+          <button type="button" class="ds-icon-button" id="ds-search-prev" aria-label="Previous match" data-tip="Previous match" disabled>
+            <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" focusable="false"><path d="M8 12.5v-9M4 7.5l4-4 4 4" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" /></svg>
+          </button>
+          <button type="button" class="ds-icon-button" id="ds-search-next" aria-label="Next match" data-tip="Next match" disabled>
+            <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" focusable="false"><path d="M8 3.5v9M4 8.5l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" /></svg>
+          </button>
+          <kbd class="ds-kbd">Ctrl K</kbd>
+        </div>
+        <div class="ds-header-actions">
+          <button type="button" class="ds-icon-button" id="ds-new" aria-label="New conversation" data-tip="New conversation">
+            <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" focusable="false"><path d="M8 3v10M3 8h10" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" /></svg>
+          </button>
+          <button type="button" class="ds-icon-button" id="ds-close" aria-label="Close command deck" data-tip="Close command deck">
+            <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" focusable="false"><path d="M4 4l8 8M12 4l-8 8" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" /></svg>
+          </button>
+        </div>
+      </header>
+
+      <div class="cs-deck-source-readiness-slot" id="ds-readiness"></div>
+
+      <div class="cs-deck-workspace-body ds-body-grid" id="ds-body">
+        <div class="cs-deck-transcript-column">
+          <section class="cs-deck-transcript" id="ds-transcript" role="log" aria-label="Conversation" aria-live="polite" aria-relevant="additions" aria-busy="false">
+            <div class="cs-deck-transcript-inner" id="ds-turns"></div>
+          </section>
+        </div>
+      </div>
+
+      <form class="cs-deck-composer-shell ds-composer" id="ds-composer">
+        <div class="cs-deck-composer-context">
+          <button type="button" class="cs-deck-context-chip" id="ds-context" aria-label="Remove reference screen: Live cockpit" data-tip="Exclude this screen from future questions. Messages already sent stay in the conversation.">
+            <span><span class="cs-deck-context-prefix">Reference screen: </span>Live cockpit</span><span aria-hidden="true">&times;</span>
+          </button>
+          <button type="button" class="cs-deck-jump" id="ds-jump" data-tip="Jump to latest" hidden><span aria-hidden="true">&darr;</span> <span class="cs-deck-jump-label">Jump to latest</span></button>
+        </div>
+        <div class="cs-deck-composer-grid">
+          <button type="button" class="cs-deck-tool cs-deck-tool-icon" id="ds-attach" aria-label="Attach evidence" data-tip="Attach evidence">
+            <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" focusable="false"><path d="M8 3v10M3 8h10" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" /></svg>
+          </button>
+          <textarea class="cs-deck-composer-input" id="ds-input" rows="1" placeholder="Ask anything..." aria-label="Ask anything about Live cockpit, or type / for commands"></textarea>
+          <button type="submit" class="cs-deck-composer-send" id="ds-send" disabled>Send</button>
+        </div>
+        <p class="cs-deck-composer-note" id="ds-composer-note" role="status"></p>
+      </form>
+
+      <div class="ds-closed" id="ds-closed" hidden>
+        <p>Command deck is closed.</p>
+        <button type="button" class="cs-control-button" id="ds-reopen">Open Command deck</button>
+      </div>
+    </section>
+
+    <div class="cs-sr-only" id="ds-announcer" role="status" aria-live="polite" aria-atomic="true"></div>
   </main>
-
-  <script>
-    // ===================================================================
-    // Mock data - every source below is something FDAI's data model
-    // can actually express (ViewSnapshot, console-tools, rule catalog
-    // with provenance, OPA policy, audit log, agent verdicts).
-    // ===================================================================
-    var QUESTION = "postgres-flex-prod keeps getting flagged - why, and can you auto-fix it?";
-
-    var STAGES = [
-      { ico: "\u25A3", tool: "screen",       side: "read",     ms: 40,  label: "Read screen snapshot",            detail: "Live cockpit - 60 tiles, 3 failed" },
-      { ico: "\u21C4", tool: "bragi-router", side: "route",    ms: 240, label: "Route the question",              detail: "auto chose gpt-4o-mini - p50 240ms (of 3)" },
-      { ico: "\u2318", tool: "rule-trace",   side: "read",     ms: 60,  label: "Consult console-tool: rule-trace", detail: "resource postgres-flex-prod" },
-      { ico: "\u2318", tool: "audit",        side: "read",     ms: 55,  label: "Consult console-tool: audit",     detail: "last 30d for this resource" },
-      { ico: "\u25C8", tool: "rule-catalog", side: "ground",   ms: 120, label: "Ground on rule catalog",          detail: "3 rules matched - provenance cited", emit: true },
-      { ico: "\u2696", tool: "opa",          side: "simulate", ms: 35,  label: "Cross-check policy (OPA)",         detail: "postgresql/pitr.rego evaluates to deny" },
-      { ico: "\u2726", tool: "forseti",      side: "read",     ms: 25,  label: "Read Forseti verdict",            detail: "auto-eligible but shadow -> HIL" },
-      { ico: "\u270E", tool: "bragi",        side: "read",     ms: 70,  label: "Compose grounded answer",         detail: "citations [1] - [6]" }
-    ];
-
-    var SOURCES = [
-      { type: "screen", tag: "SCREEN",  title: "Live cockpit - tile #12", meta: "postgres-flex-prod - flagged" },
-      { type: "rule",   tag: "WAF",     title: "azure-waf-rel-05",        meta: "PITR disabled - severity high" },
-      { type: "rule",   tag: "CIS",     title: "cis-azure-4.1.3",         meta: "log retention - medium" },
-      { type: "rule",   tag: "MCSB",    title: "mcsb-dp-4",               meta: "backup enabled - high" },
-      { type: "policy", tag: "OPA",     title: "postgresql/pitr.rego",    meta: "evaluates to deny" },
-      { type: "audit",  tag: "AUDIT",   title: "evt-9f3a2c",              meta: "auto-remediation precedent" },
-      { type: "agent",  tag: "FORSETI", title: "Verdict: shadow",         meta: "judge-and-log, no execute" }
-    ];
-
-    // Answer paragraphs; {n} becomes a citation chip.
-    var ANSWER = [
-      "postgres-flex-prod is flagged because point-in-time recovery (PITR) is disabled. Three catalog rules agree {1}{2}{3}, and the OPA policy postgresql/pitr.rego evaluates to deny {4}.",
-      "Can I auto-fix it? Not yet. The remediation ActionType enable-pitr is still in shadow mode, so Forseti judges and logs the finding but does not execute it {5}. Two peer databases had the identical finding auto-remediated last month once that action was promoted to enforce {6} - that is the precedent for promoting this one.",
-      "When it does run, the fix ships as a remediation PR carrying all four safety invariants: a stop-condition, rollback via pr_revert, blast-radius capped to this single resource, and an audit entry. Promotion to enforce is a separate reviewed change - it never rides along with the first PR."
-    ];
-
-    var CITES = [
-      { n: 1, type: "rule",   title: "azure-waf-rel-05",     meta: "Azure WAF - high" },
-      { n: 2, type: "rule",   title: "cis-azure-4.1.3",      meta: "CIS Benchmark - medium" },
-      { n: 3, type: "rule",   title: "mcsb-dp-4",            meta: "MCSB - high" },
-      { n: 4, type: "policy", title: "postgresql/pitr.rego", meta: "OPA - deny" },
-      { n: 5, type: "agent",  title: "Forseti verdict",      meta: "shadow - judge-and-log" },
-      { n: 6, type: "audit",  title: "evt-9f3a2c",           meta: "peer auto-remediation" }
-    ];
-
-    var FOLLOWUPS = [
-      "show the remediation PR diff",
-      "why is enable-pitr still in shadow?",
-      "what would promote it to enforce?"
-    ];
-
-    // ---- animation engine ------------------------------------------------
-    var SPEED = 1;
-    var running = false;
-    var timers = [];
-    function sleep(ms) { return new Promise(function (r) { timers.push(setTimeout(r, ms * SPEED)); }); }
-    function clearTimers() { timers.forEach(clearTimeout); timers = []; }
-    function el(tag, cls, html) { var e = document.createElement(tag); if (cls) e.className = cls; if (html != null) e.innerHTML = html; return e; }
-    function citeTitle(c) { return c.title + " - " + c.meta; }
-
-    function citeChip(n) {
-      var c = CITES[n - 1];
-      var s = document.createElement("span");
-      s.className = "gs-cite";
-      s.textContent = n;
-      if (c) s.title = citeTitle(c);
-      return s;
-    }
-    function renderAnswerPara(text, host) {
-      // Split on {n} markers and interleave citation chips.
-      var parts = text.split(/(\{\d+\})/);
-      parts.forEach(function (p) {
-        var m = p.match(/^\{(\d+)\}$/);
-        if (m) host.appendChild(citeChip(parseInt(m[1], 10)));
-        else host.appendChild(document.createTextNode(p));
-      });
-    }
-
-    async function run() {
-      if (running) { clearTimers(); }
-      running = true;
-      var t = document.getElementById("gs-transcript");
-      t.innerHTML = "";
-
-      // 1. operator turn
-      var op = el("div", "gs-turn op");
-      op.appendChild(el("span", "gs-turn-role", "you"));
-      op.appendChild(el("div", "gs-bubble", QUESTION));
-      t.appendChild(op);
-      await sleep(500);
-
-      // 2. retrieval trace panel
-      var trace = el("div", "gs-trace");
-      trace.id = "gs-retrieval-trace";
-      var head = el("div", "gs-trace-head");
-      head.appendChild(el("span", "gs-spin"));
-      head.appendChild(el("span", "gs-trace-title", "Preparing answer"));
-      head.appendChild(el("span", "gs-trace-sub", "Bragi is grounding on read-only sources"));
-      var timer = el("span", "gs-trace-timer", "0 ms");
-      head.appendChild(timer);
-      trace.appendChild(head);
-      var vms = 0; // virtual elapsed - representative per-stage budget, not wall-clock
-      var stagesOl = el("ol", "gs-stages");
-      trace.appendChild(stagesOl);
-      var sourcesBox = el("div", "gs-sources");
-      sourcesBox.style.display = "none";
-      sourcesBox.appendChild(el("div", "gs-sources-label", "Reading sources"));
-      var slot = el("div", "gs-slot");
-      var strip = el("ul", "gs-strip");
-      slot.appendChild(strip);
-      sourcesBox.appendChild(slot);
-      trace.appendChild(sourcesBox);
-      t.appendChild(trace);
-      await sleep(900);
-
-      // 3. stream stages
-      for (var i = 0; i < STAGES.length; i++) {
-        var s = STAGES[i];
-        var li = el("li", "gs-stage active");
-        li.appendChild(el("span", "gs-stage-ico", s.ico));
-        li.appendChild(el("span", "gs-stage-label", s.label));
-        li.appendChild(el("span", "gs-stage-detail", "- " + s.detail));
-        li.appendChild(el("span", "gs-stage-side gs-side-" + s.side, s.side));
-        var chk = el("span", "gs-stage-check", "\u2713");
-        li.appendChild(chk);
-        stagesOl.appendChild(li);
-        vms += s.ms;
-        timer.textContent = vms + " ms";
-        await sleep(430);
-
-        // grounding stage emits the fast source cascade (slot-machine roll)
-        if (s.emit) {
-          sourcesBox.style.display = "block";
-          var GAP = 6, VISIBLE = 3, pitch = 0;
-          for (var j = 0; j < SOURCES.length; j++) {
-            var src = SOURCES[j];
-            var card = el("li", "gs-src");
-            card.appendChild(el("span", "gs-src-badge gs-b-" + src.type, src.tag));
-            var txt = el("span", "gs-src-txt");
-            txt.appendChild(el("span", "gs-src-title", src.title));
-            txt.appendChild(el("span", "gs-src-meta", src.meta));
-            card.appendChild(txt);
-            strip.appendChild(card);
-            if (!pitch) pitch = card.offsetHeight + GAP;
-            // roll the track up so only the newest ~VISIBLE cards stay in view
-            var over = (j + 1) - VISIBLE;
-            strip.style.transform = over > 0 ? "translateY(" + (-over * pitch) + "px)" : "none";
-            await sleep(95);
-          }
-          await sleep(220);
-        }
-        li.classList.remove("active");
-        li.classList.add("done");
-      }
-
-      var elapsed = vms;
-
-      // 4. collapse trace into a grounded pill
-      await sleep(180);
-      var pill = el("button", "gs-grounded");
-      pill.type = "button";
-      pill.setAttribute("aria-expanded", "false");
-      pill.setAttribute("aria-controls", trace.id);
-      pill.innerHTML =
-        '<span class="gs-check">\u2713</span> Grounded on ' +
-        '<span class="gs-pill-stat"><strong>' + SOURCES.length + '</strong> sources</span> &middot; ' +
-        '<span class="gs-pill-stat"><strong>3</strong> console-tools</span> &middot; ' +
-        '<span class="gs-pill-stat"><strong>1</strong> policy</span> &middot; ' +
-        '<span class="gs-pill-stat">Bragi / gpt-4o-mini &middot; <strong>' + elapsed + '</strong> ms</span>' +
-        '<span class="gs-more">show trace</span>';
-      var expanded = false;
-      pill.addEventListener("click", function () {
-        expanded = !expanded;
-        trace.style.display = expanded ? "block" : "none";
-        pill.querySelector(".gs-more").textContent = expanded ? "hide trace" : "show trace";
-        pill.setAttribute("aria-expanded", String(expanded));
-      });
-      trace.parentNode.insertBefore(pill, trace);
-      trace.classList.add("gs-settled");
-      trace.style.display = "none";
-      head.querySelector(".gs-spin").style.display = "none";
-      head.querySelector(".gs-trace-title").textContent = "Retrieval trace";
-      head.querySelector(".gs-trace-sub").textContent = "read-only - Bragi never executes";
-
-      // 5. stream the answer
-      await sleep(260);
-      var ans = el("div", "gs-turn");
-      ans.appendChild(el("span", "gs-turn-role", "deck"));
-      var body = el("div", "gs-answer");
-      ans.appendChild(body);
-      t.appendChild(ans);
-
-      for (var p = 0; p < ANSWER.length; p++) {
-        var para = document.createElement("p");
-        body.appendChild(para);
-        var caret = el("span", "gs-caret");
-        para.appendChild(caret);
-        // stream word by word, resolving citation chips inline
-        var tokens = ANSWER[p].split(/(\s+)/);
-        var buf = "";
-        for (var k = 0; k < tokens.length; k++) {
-          buf += tokens[k];
-          // flush whenever we complete a chunk (keeps chips atomic)
-          para.removeChild(caret);
-          para.innerHTML = "";
-          renderAnswerPara(buf, para);
-          para.appendChild(caret);
-          if (tokens[k].trim().length) await sleep(20);
-        }
-        para.removeChild(caret);
-      }
-
-      // 6. follow-up chips
-      await sleep(180);
-      var fu = el("div", "gs-followups");
-      FOLLOWUPS.forEach(function (f) {
-        var b = el("button", "gs-followup", f);
-        b.type = "button";
-        fu.appendChild(b);
-      });
-      ans.appendChild(fu);
-
-      running = false;
-    }
-
-    // ---- controls --------------------------------------------------------
-    document.getElementById("gs-replay").addEventListener("click", function () {
-      clearTimers();
-      run();
-    });
-    document.getElementById("gs-speed").addEventListener("click", function (e) {
-      var btn = e.target.closest("button");
-      if (!btn) return;
-      SPEED = parseFloat(btn.getAttribute("data-mult"));
-      Array.prototype.forEach.call(this.children, function (c) { c.classList.remove("on"); });
-      btn.classList.add("on");
-    });
-
-    run();
-  </script>
 </body>
 </html>

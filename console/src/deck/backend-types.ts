@@ -452,6 +452,52 @@ export interface TurnTiming {
   readonly phases: readonly TurnTimingPhase[];
 }
 
+export type WorkProgressDensity = "compact" | "procedural";
+
+/** Server-pinned presentation density for one turn. Density never carries authority. */
+export interface WorkProgressShape {
+  readonly schema_version: 1;
+  readonly density: WorkProgressDensity;
+  readonly waves: number;
+  readonly planned_reads: number;
+}
+
+export type TurnBudgetExhaustion =
+  | "deadline"
+  | "model_calls"
+  | "tokens"
+  | "rate_limited"
+  | "cancelled";
+
+export interface TurnBudgetMeasure {
+  readonly used: number;
+  readonly reserved: number;
+  readonly maximum: number;
+}
+
+/** Measured turn budget; clients draw no remaining-budget meter without it. */
+export interface TurnBudgetTelemetry {
+  readonly schema_version: 1;
+  readonly model_calls: TurnBudgetMeasure;
+  readonly tokens: TurnBudgetMeasure;
+  readonly elapsed_ms: TurnBudgetMeasure;
+  readonly as_of: string;
+  readonly complete: boolean;
+  readonly exhaustion_reason?: TurnBudgetExhaustion;
+}
+
+export type ContextReceiptFreshness = "fresh" | "stale" | "superseded";
+
+/** An applied operator preference: context only, never evidence or instructions. */
+export interface ContextReceipt {
+  readonly receipt_id: string;
+  readonly kind: "operator_preference";
+  readonly digest: string;
+  readonly observed_at: string;
+  readonly freshness: ContextReceiptFreshness;
+  readonly label: string;
+}
+
 export interface TrajectoryDetail {
   readonly schema_version: 1;
   readonly activities: readonly InvestigationActivity[];
@@ -463,6 +509,9 @@ export interface TrajectoryDetail {
     readonly milestones: number;
   };
   readonly truncated_outputs: number;
+  readonly work_progress_shape?: WorkProgressShape;
+  readonly turn_budget?: TurnBudgetTelemetry;
+  readonly context_receipts?: readonly ContextReceipt[];
 }
 
 export type IntentEvidenceMode =

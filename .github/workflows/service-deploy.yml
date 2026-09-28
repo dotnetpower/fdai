@@ -113,6 +113,13 @@ jobs:
     timeout-minutes: 120
     env:
       ARM_USE_AZUREAD: "true"
+      # The deploy runner signs in as its user-assigned Managed Identity, which the azurerm
+      # provider rejects through Azure CLI authentication. Select that exact identity
+      # explicitly, exactly as the scoped Terraform receiver does.
+      ARM_USE_MSI: "true"
+      ARM_USE_CLI: "false"
+      ARM_USE_OIDC: "false"
+      ARM_CLIENT_ID: ${{ vars.DEPLOY_RUNNER_CLIENT_ID }}
       ARM_SUBSCRIPTION_ID: ${{ vars.ARM_SUBSCRIPTION_ID }}
       ARM_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
       DEPLOY_RUNNER_CLIENT_ID: ${{ vars.DEPLOY_RUNNER_CLIENT_ID }}

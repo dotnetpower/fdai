@@ -130,16 +130,22 @@ its replay and evidence checks:
 
 The canonical execution path remains
 [`scripts/catalog/run-catalog-scenario.py`](../../scripts/catalog/run-catalog-scenario.py).
-Its `--run` and `--run-all` modes delegate only through the injected
-`GovernedChaosExecutionAdapter` and refuse with a structured report when no
-deployment provider is installed. The command still calls the adapter directly
+Its `--run`, `--run-sweep`, and `--run-all` modes delegate only through the
+injected `GovernedChaosExecutionAdapter` and refuse with a structured report when
+no deployment provider is installed. The command still calls the adapter directly
 rather than through the Core proposal, risk, Var, and Thor pipeline; see
 [Governed execution path](../../docs/roadmap/decisioning/recovery-and-chaos-enforcement.md#governed-execution-path).
 `--close` releases a target held by an escalated or orphaned run only through a
 separate, audited closure approval (`FDAI_CHAOS_CLOSURE_APPROVAL_REF`) by a
 distinct Var approver; the run's own enforce approval is refused.
-The legacy `scripts/catalog/run-enforce-scenarios.py` and
-`scripts/catalog/measure-detection-latency.py` drivers refuse every live run
-with exit status 3 until they are ported onto the adapter.
+`--run-sweep`, and a reference scenario id passed to `--run`, select reviewed
+catalog entries through `fdai.core.chaos.reference_sweep`. Each reference
+scenario maps to the `mild` entry that raises the same `expected_signal`; the
+catalog entry's parameters, caps, and rollback note govern the run. Selection
+grants no authority, so an unpromoted or unbound sweep still refuses.
+Runs that produced a measured experiment also write `enforce-report.json`, the
+importable contract `fdai.delivery.chaos.enforce_report` reads into the durable
+report feed. `scripts/catalog/measure-detection-latency.py` still refuses every
+live run with exit status 3 until its measurement is ported onto the adapter.
 One-off campaign runners under ignored or private paths are investigation
 artifacts, not a second runtime or promotion path.

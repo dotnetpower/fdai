@@ -1,0 +1,2579 @@
+/*
+ * Calm Slate Command Deck conversation layer.
+ *
+ * Portable presentation roles for the Command Deck conversation screen. The reference consumer is
+ * the static study mocks/ui/deck-sources.html. Every rule is scoped by the root role
+ * `.cs-deck-conversation` or uses a class name the Console does not render yet, so importing this
+ * file never changes an existing surface by itself.
+ *
+ * Console adoption is a replacement migration, not an override:
+ *   1. Import this file in console/src/styles.css after calm-slate-primitives.css.
+ *   2. Add `cs-deck-conversation` to the Command Deck root (`.deck-overlay`).
+ *   3. Render the roles below from the owning components (role map).
+ *   4. Delete the superseded legacy declarations for `.deck-rt-*`, `.deck-gr-*`, `.deck-src-*`,
+ *      `.deck-cite-chip`, `.deck-followup*`, `.deck-source-readiness*`, `.deck-source-status*`,
+ *      `.deck-verification*`, `.deck-llm-escalation*`, `.deck-answer-state`, and the presentation
+ *      parts of `.deck-trajectory-*`, `.deck-execution-*`, and `.deck-model-trace-*`. Console rules
+ *      load after this file with equal specificity, so a leftover declaration silently wins. Do not
+ *      compensate with stronger selectors or `!important`.
+ *
+ * Role map (Console owner -> roles):
+ *   source-readiness-view.tsx   cs-deck-readiness, cs-deck-readiness-*, cs-deck-skeleton
+ *   retrieval-trace.tsx         cs-grounding-* (live trace, source window), cs-deck-answer-skeleton
+ *   grounded-reply.tsx          cs-deck-answer-state, cs-deck-prose, cs-deck-evidence-note,
+ *                               cs-deck-verification-*, cs-deck-pill-*, cs-deck-sources,
+ *                               cs-deck-source-*, cs-deck-kind, cs-deck-tool-link, cs-deck-collapse
+ *   conversation-trajectory-view.tsx and conversation-execution-timeline-view.tsx
+ *                               cs-run-record refinements, cs-run-record-duration-label,
+ *                               cs-run-phase refinements, cs-run-timeline, cs-run-axis,
+ *                               cs-run-events, cs-run-event-*, cs-run-track, cs-run-bar,
+ *                               cs-run-chevron, cs-run-facts, cs-run-payload, cs-run-observed
+ *   investigation-timeline.tsx  cs-deck-plan-lead, cs-deck-plan-label, cs-deck-context-receipt-*,
+ *                               cs-deck-investigation-*, cs-deck-waves, cs-deck-wave-*,
+ *                               cs-deck-activities, cs-deck-activity-*, cs-deck-milestone-*
+ *                               (adaptive investigation form, reference mocks/ui/deck-adaptive.html)
+ *   grounded-reply.tsx (investigation answers)
+ *                               cs-deck-answer-facts, cs-deck-answer-checks, cs-deck-answer-note,
+ *                               cs-deck-answer-next, cs-deck-affordance
+ *   rich-content.tsx CodeBlock and json-code-block.tsx
+ *                               cs-deck-code, cs-deck-code-* (compact code pattern of the
+ *                               component gallery, colored by the shared --cs-code-* tokens)
+ *   model-trace-waterfall.tsx   cs-model-trace-*
+ *   rich-content.tsx            cs-deck-cite, cs-deck-cite-run, cs-deck-caret
+ *   command-deck-presenters.tsx cs-deck-followups, cs-deck-followup, cs-deck-user-line,
+ *                               cs-deck-user-time, cs-deck-user-attachment-*
+ *   command-deck-view.tsx       cs-deck-transcript, cs-deck-transcript-inner,
+ *                               cs-deck-composer-context, cs-deck-context-chip,
+ *                               cs-deck-composer-note, cs-deck-search-hit
+ *
+ * Contract: shared tokens only, status color on the datum, text at or above 12px, no colored top or
+ * left edge, and layout decisions through the Console's existing `deck-transcript` container.
+ * Viewport media queries are used only for touch-target sizing.
+ */
+
+/* ----- Root: derived colors that stay at WCAG AA on card, bg, and shade in every palette. ----- */
+/* sRGB interpolation keeps computed colors in color(srgb ...) form for contrast tooling. */
+.cs-deck-conversation {
+  --cs-deck-ok-text: color-mix(in srgb, var(--cs-sage) 72%, var(--cs-text));
+  --cs-deck-attention-text: color-mix(in srgb, var(--cs-terracotta) 68%, var(--cs-text));
+  --cs-deck-failure-text: color-mix(in srgb, var(--cs-dusty-red) 80%, var(--cs-text));
+  --cs-deck-link-text: color-mix(in srgb, var(--cs-steel) 82%, var(--cs-text));
+  --cs-deck-meta-text: color-mix(in srgb, var(--cs-text-soft) 78%, var(--cs-text));
+  --cs-deck-on-accent: var(--cs-card);
+  --cs-deck-line-strong: color-mix(in srgb, var(--cs-text) 18%, var(--cs-hairline));
+  --cs-deck-control-line: color-mix(in srgb, var(--cs-text) 48%, var(--cs-hairline));
+  --cs-deck-accent-tint: color-mix(in srgb, var(--cs-steel) 12%, var(--cs-card));
+  --cs-deck-attention-tint: color-mix(in srgb, var(--cs-terracotta) 6%, var(--cs-card));
+  --cs-deck-failure-tint: color-mix(in srgb, var(--cs-dusty-red) 6%, var(--cs-card));
+  color: var(--cs-text);
+  font-family: var(--cs-font);
+}
+
+/* ----- Refinements of shared primitives inside the conversation layer. ----- */
+.cs-deck-conversation :is(.cs-deck-tool, .cs-deck-pill) {
+  font: var(--cs-type-label-size)/var(--cs-type-label-line-height) var(--cs-font);
+  cursor: pointer;
+}
+
+.cs-deck-conversation .cs-deck-tool {
+  color: var(--cs-deck-meta-text);
+  transition: background-color .15s ease, border-color .15s ease, color .15s ease;
+}
+
+.cs-deck-conversation .cs-deck-tool-icon svg { display: block; }
+
+.cs-deck-conversation .cs-deck-tool:hover {
+  border-color: var(--cs-deck-line-strong);
+  color: var(--cs-text);
+}
+
+/* Reply tools are quiet icons until pointed at, so the verdict and sources read first. */
+.cs-deck-conversation .cs-deck-tools .cs-deck-tool { border-color: transparent; }
+
+.cs-deck-conversation .cs-deck-tools .cs-deck-tool:hover {
+  border-color: var(--cs-hairline);
+  background: color-mix(in srgb, var(--cs-text) 4%, var(--cs-card));
+}
+
+.cs-deck-conversation .cs-deck-pill:hover {
+  border-color: var(--cs-deck-line-strong);
+  color: var(--cs-text);
+}
+
+.cs-deck-tools {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.cs-deck-conversation .cs-deck-pill { color: var(--cs-text); }
+
+.cs-deck-conversation .cs-deck-action-row {
+  gap: 6px 8px;
+  margin-top: 12px;
+}
+
+.cs-deck-conversation .cs-deck-composer-send {
+  color: var(--cs-deck-on-accent);
+  cursor: pointer;
+}
+
+.cs-deck-conversation .cs-deck-composer-send:disabled {
+  border-color: var(--cs-hairline);
+  background: var(--cs-shade);
+  color: var(--cs-deck-meta-text);
+  cursor: not-allowed;
+}
+
+.cs-deck-conversation .cs-deck-composer-send.is-stop {
+  border-color: var(--cs-deck-line-strong);
+  background: var(--cs-card);
+  color: var(--cs-text);
+}
+
+.cs-deck-conversation .cs-deck-transcript-column {
+  position: relative;
+  grid-template-rows: minmax(0, 1fr);
+  container-name: deck-transcript;
+  container-type: inline-size;
+}
+
+/* A thin, quiet scrollbar keeps the one conversation scroll from competing with the answer. The
+   follower owns the scroll position during a turn, so browser scroll anchoring stays off. */
+.cs-deck-conversation .cs-deck-transcript {
+  overflow-anchor: none;
+  scrollbar-color: color-mix(in srgb, var(--cs-text) 22%, transparent) transparent;
+  scrollbar-width: thin;
+}
+
+.cs-deck-conversation .cs-deck-composer-shell {
+  container-name: deck-composer;
+  container-type: inline-size;
+}
+
+.cs-deck-conversation .cs-grounding-panel { border-radius: var(--cs-radius); }
+
+.cs-deck-conversation .cs-grounding-head {
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  padding: 6px 12px;
+}
+
+/* ----- Transcript ----- */
+.cs-deck-transcript {
+  min-width: 0;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.cs-deck-transcript-inner {
+  width: min(100%, 900px);
+  box-sizing: border-box;
+  margin: 0 auto;
+  padding: 24px 24px 48px;
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+}
+
+.cs-deck-user-line {
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.62;
+  overflow-wrap: anywhere;
+}
+
+.cs-deck-user-line + .cs-deck-user-line { margin-top: 4px; }
+
+.cs-deck-user-time {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 4px;
+}
+
+/* An attached document rides inside the question it came with, as a quiet file chip. */
+.cs-deck-user-attachment {
+  width: fit-content;
+  max-width: 100%;
+  min-height: 26px;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 2px 0 6px;
+  padding: 2px 9px 2px 7px;
+  border: 1px solid var(--cs-hairline);
+  border-radius: var(--cs-radius-sm);
+  background: var(--cs-card);
+  color: var(--cs-text);
+  font: 500 var(--cs-type-label-size)/var(--cs-type-label-line-height) var(--cs-font);
+}
+
+.cs-deck-user-attachment > svg {
+  flex: none;
+  color: var(--cs-deck-meta-text);
+}
+
+.cs-deck-user-attachment-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cs-deck-user-attachment-meta {
+  flex: none;
+  color: var(--cs-deck-meta-text);
+  font-weight: 400;
+  font-variant-numeric: tabular-nums;
+}
+
+.cs-deck-conversation .cs-deck-turn-time { color: var(--cs-deck-meta-text); }
+
+/* ----- Evidence-source readiness ----- */
+.cs-deck-readiness {
+  min-width: 0;
+  min-height: 40px;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px 12px;
+  padding: 5px max(20px, calc((100% - 900px) / 2));
+  border-bottom: 1px solid var(--cs-hairline);
+  background: var(--cs-bg);
+  color: var(--cs-deck-meta-text);
+  font: var(--cs-type-label-size)/var(--cs-type-label-line-height) var(--cs-font);
+  container-name: deck-readiness;
+  container-type: inline-size;
+}
+
+.cs-deck-readiness-label {
+  color: var(--cs-text);
+  font-weight: 600;
+}
+
+.cs-deck-readiness-items {
+  min-width: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.cs-deck-readiness-item {
+  min-height: 28px;
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 8px;
+  border: 1px solid var(--cs-hairline);
+  border-radius: var(--cs-radius-sm);
+  background: var(--cs-card);
+  color: var(--cs-text);
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.cs-deck-readiness-item:hover {
+  border-color: var(--cs-deck-line-strong);
+  text-decoration: none;
+}
+
+.cs-deck-readiness-item:focus-visible {
+  outline: 2px solid var(--cs-steel);
+  outline-offset: 2px;
+}
+
+.cs-deck-readiness-mark {
+  width: 14px;
+  height: 14px;
+  box-sizing: border-box;
+  display: inline-grid;
+  place-items: center;
+  border: 1.5px solid currentColor;
+  border-radius: 50%;
+  font: 800 9px/1 var(--cs-font);
+}
+
+.cs-deck-readiness-item.is-available .cs-deck-readiness-mark { color: var(--cs-deck-ok-text); }
+.cs-deck-readiness-item.is-unknown .cs-deck-readiness-mark { color: var(--cs-deck-meta-text); }
+
+.cs-deck-readiness-item.is-unavailable {
+  border-color: color-mix(in srgb, var(--cs-dusty-red) 45%, var(--cs-hairline));
+}
+
+.cs-deck-readiness-item.is-unavailable .cs-deck-readiness-mark,
+.cs-deck-readiness-state {
+  color: var(--cs-deck-failure-text);
+}
+
+.cs-deck-readiness-state { font-weight: 600; }
+
+.cs-deck-readiness-summary {
+  color: var(--cs-text);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.cs-deck-readiness-summary.is-attention { color: var(--cs-deck-failure-text); }
+
+.cs-deck-readiness-time {
+  margin-left: auto;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.cs-deck-readiness.is-loading { gap: 8px; }
+
+.cs-deck-readiness.is-loading .cs-deck-skeleton {
+  width: 88px;
+  height: 18px;
+}
+
+.cs-deck-skeleton {
+  display: block;
+  width: 100%;
+  height: 12px;
+  border-radius: 4px;
+  background: linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--cs-text) 6%, var(--cs-card)) 0%,
+    color-mix(in srgb, var(--cs-text) 11%, var(--cs-card)) 50%,
+    color-mix(in srgb, var(--cs-text) 6%, var(--cs-card)) 100%
+  );
+  background-size: 200% 100%;
+  animation: cs-deck-shimmer 1.4s ease-in-out infinite;
+}
+
+/* ----- Retrieval trace: the live preparation panel. ----- */
+.cs-grounding-spinner {
+  width: 14px;
+  height: 14px;
+  flex: none;
+  box-sizing: border-box;
+  border: 2px solid color-mix(in srgb, var(--cs-steel) 28%, transparent);
+  border-top-color: var(--cs-steel);
+  border-radius: 50%;
+  animation: cs-deck-spin .8s linear infinite;
+}
+
+.cs-grounding-title {
+  flex: none;
+  color: var(--cs-text);
+  font: 600 var(--cs-type-compact-size)/var(--cs-type-compact-line-height) var(--cs-font);
+  white-space: nowrap;
+}
+
+.cs-grounding-status {
+  flex: 1 1 12ch;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--cs-deck-meta-text);
+  font: var(--cs-type-label-size)/var(--cs-type-label-line-height) var(--cs-font);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cs-grounding-elapsed {
+  flex: none;
+  min-width: 4.5ch;
+  color: var(--cs-deck-meta-text);
+  text-align: right;
+  font: var(--cs-type-label-size)/var(--cs-type-label-line-height) var(--cs-font);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* Authority stays visible but quiet: a hairline label, not a second heading. */
+.cs-grounding-authority {
+  flex: none;
+  min-height: 22px;
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  padding: 1px 9px;
+  border: 1px solid var(--cs-hairline);
+  border-radius: var(--cs-radius-pill);
+  color: var(--cs-deck-meta-text);
+  font: 500 var(--cs-type-label-size)/var(--cs-type-label-line-height) var(--cs-font);
+  white-space: nowrap;
+}
+
+.cs-grounding-stages {
+  display: grid;
+  gap: 1px;
+  margin: 0;
+  padding: 6px;
+  list-style: none;
+}
+
+/* One status column: the mark shows the step number, then a spinner, then the outcome. */
+.cs-deck-conversation .cs-grounding-stages > .cs-grounding-stage {
+  min-height: 30px;
+  grid-template-columns: 20px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  padding: 3px 8px;
+  transition: background-color .2s ease;
+}
+
+.cs-deck-conversation .cs-grounding-stage.is-active {
+  background: color-mix(in srgb, var(--cs-steel) 6%, transparent);
+}
+
+.cs-grounding-mark {
+  width: 20px;
+  height: 20px;
+  box-sizing: border-box;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--cs-deck-line-strong);
+  border-radius: 50%;
+  background: var(--cs-card);
+  color: var(--cs-deck-meta-text);
+  font: 600 var(--cs-type-label-size)/1 var(--cs-font);
+  font-variant-numeric: tabular-nums;
+  transition: border-color .2s ease, background-color .2s ease;
+}
+
+.cs-deck-conversation .cs-grounding-stage.is-pending .cs-grounding-mark { border-style: dashed; }
+
+.cs-deck-conversation .cs-grounding-stage.is-active .cs-grounding-mark {
+  border-color: transparent;
+  background: transparent;
+}
+
+.cs-deck-conversation .cs-grounding-stage.is-active .cs-grounding-mark > .cs-grounding-spinner {
+  width: 16px;
+  height: 16px;
+}
+
+.cs-deck-conversation .cs-grounding-stage.is-done .cs-grounding-mark {
+  border-color: color-mix(in srgb, var(--cs-sage) 42%, var(--cs-hairline));
+  background: color-mix(in srgb, var(--cs-sage) 10%, var(--cs-card));
+  color: var(--cs-deck-ok-text);
+  font-weight: 700;
+}
+
+.cs-deck-conversation .cs-grounding-stage.is-attention .cs-grounding-mark {
+  border-color: color-mix(in srgb, var(--cs-terracotta) 60%, var(--cs-hairline));
+  background: var(--cs-deck-attention-tint);
+  color: var(--cs-deck-attention-text);
+  font-weight: 700;
+}
+
+.cs-grounding-mark > .cs-deck-pop { display: block; }
+
+.cs-grounding-stage-copy {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.cs-grounding-stage-label {
+  color: var(--cs-text);
+  font: 500 var(--cs-type-compact-size)/var(--cs-type-compact-line-height) var(--cs-font);
+  overflow-wrap: anywhere;
+  transition: color .2s ease;
+}
+
+/* Planned steps read as quieter labels, not as reduced opacity. */
+.cs-deck-conversation .cs-grounding-stage.is-pending .cs-grounding-stage-label {
+  color: var(--cs-deck-meta-text);
+}
+
+.cs-grounding-stage-detail {
+  color: var(--cs-deck-meta-text);
+  font: var(--cs-type-label-size)/1.45 var(--cs-font);
+  overflow-wrap: anywhere;
+}
+
+.cs-deck-conversation .cs-grounding-stage.is-attention .cs-grounding-stage-detail {
+  color: var(--cs-deck-attention-text);
+}
+
+/* Live rows stay one line tall, so a finished step never resizes the panel. */
+.cs-deck-conversation .cs-grounding-panel .cs-grounding-stage-copy {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  overflow: hidden;
+}
+
+.cs-deck-conversation .cs-grounding-panel :is(.cs-grounding-stage-label, .cs-grounding-stage-detail, .cs-grounding-intent) {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cs-deck-conversation .cs-grounding-panel .cs-grounding-stage-label { flex: none; }
+
+.cs-deck-conversation .cs-grounding-panel :is(.cs-grounding-stage-detail, .cs-grounding-intent) {
+  flex: 1 1 auto;
+  transition: opacity .2s ease;
+}
+
+/* A step's observed result appears only once the step has run, so nothing is shown early. */
+.cs-deck-conversation .cs-grounding-panel .cs-grounding-stage:is(.is-pending, .is-active)
+  :is(.cs-grounding-stage-detail, .cs-grounding-intent) {
+  visibility: hidden;
+  opacity: 0;
+  transition: opacity .2s ease, visibility 0s .2s;
+}
+
+/* In the live row the intent reads as one line of values that truncates cleanly at its end. */
+.cs-deck-conversation .cs-grounding-panel .cs-grounding-intent {
+  display: block;
+  margin: 0;
+}
+
+.cs-deck-conversation .cs-grounding-panel .cs-grounding-intent > div,
+.cs-deck-conversation .cs-grounding-panel .cs-grounding-intent dd { display: inline; }
+
+/* The live row shows intent values only; their labels stay available to assistive technology. */
+.cs-deck-conversation .cs-grounding-panel .cs-grounding-intent dt {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.cs-deck-conversation .cs-grounding-panel .cs-grounding-intent > div + div::before {
+  content: "/";
+  content: "/" / "";
+  margin-inline: 8px;
+  color: var(--cs-deck-line-strong);
+}
+
+.cs-deck-conversation .cs-grounding-panel .cs-grounding-intent dd {
+  color: var(--cs-deck-meta-text);
+  font-weight: 400;
+}
+
+/* The preparation panel folds away instead of disappearing, so the answer glides into place. */
+.cs-deck-collapse {
+  display: grid;
+  grid-template-rows: 1fr;
+  opacity: 1;
+  transition: grid-template-rows .24s cubic-bezier(.2, .7, .2, 1), opacity .18s ease;
+}
+
+.cs-deck-collapse > * {
+  min-height: 0;
+  overflow: hidden;
+}
+
+.cs-deck-collapse.is-collapsed {
+  grid-template-rows: 0fr;
+  opacity: 0;
+}
+
+.cs-grounding-intent {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 14px;
+  margin: 2px 0 0;
+}
+
+.cs-grounding-intent > div {
+  min-width: 0;
+  display: inline-flex;
+  gap: 5px;
+}
+
+.cs-grounding-intent dt {
+  color: var(--cs-deck-meta-text);
+  font: var(--cs-type-label-size)/1.45 var(--cs-font);
+}
+
+.cs-grounding-intent dd {
+  min-width: 0;
+  margin: 0;
+  color: var(--cs-text);
+  font: 600 var(--cs-type-label-size)/1.45 var(--cs-font);
+  overflow-wrap: anywhere;
+}
+
+/* The phase is a quiet annotation; the mark and label carry the step state. */
+.cs-grounding-phase {
+  justify-self: end;
+  color: var(--cs-deck-meta-text);
+  font: var(--cs-type-label-size)/var(--cs-type-label-line-height) var(--cs-font);
+  white-space: nowrap;
+}
+
+.cs-grounding-sources {
+  margin: 0 6px 8px;
+  padding: 8px 6px 0;
+  border-top: 1px solid var(--cs-hairline);
+}
+
+.cs-grounding-sources-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  margin: 0 0 6px;
+  color: var(--cs-deck-meta-text);
+  font: 600 var(--cs-type-label-size)/var(--cs-type-label-line-height) var(--cs-font);
+}
+
+/* A fixed window, sized to the rows the turn will read (at most three), keeps the transcript from
+   resizing while sources arrive. */
+.cs-grounding-source-list {
+  --cs-grounding-source-row: 30px;
+  display: grid;
+  grid-auto-rows: var(--cs-grounding-source-row);
+  gap: 4px;
+  height: calc(var(--cs-grounding-source-row) * var(--cs-grounding-source-rows, 3) + 4px * (var(--cs-grounding-source-rows, 3) - 1));
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  list-style: none;
+}
+
+.cs-deck-conversation .cs-grounding-source-list > .cs-grounding-source {
+  min-height: 0;
+  grid-template-columns: 84px minmax(0, 1fr);
+  gap: 8px;
+  padding: 0 10px;
+  border: 1px solid transparent;
+  background: color-mix(in srgb, var(--cs-text) 3.5%, var(--cs-card));
+  animation: cs-deck-rise .24s ease both;
+}
+
+/* Empty slots hold the window's shape until the first sources arrive. */
+.cs-deck-conversation .cs-grounding-source-list > .cs-grounding-source.is-placeholder {
+  display: flex;
+  align-items: center;
+  background: transparent;
+  animation: none;
+}
+
+.cs-deck-conversation .cs-grounding-source.is-placeholder > .cs-deck-skeleton {
+  width: 44%;
+  height: 10px;
+}
+
+.cs-deck-conversation .cs-grounding-source.is-placeholder:nth-child(2) > .cs-deck-skeleton { width: 32%; }
+.cs-deck-conversation .cs-grounding-source.is-placeholder:nth-child(3) > .cs-deck-skeleton { width: 38%; }
+
+.cs-grounding-source-copy {
+  min-width: 0;
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  overflow: hidden;
+}
+
+.cs-grounding-source-title,
+.cs-grounding-source-meta {
+  min-width: 0;
+  overflow: hidden;
+  font: var(--cs-type-label-size)/var(--cs-type-label-line-height) var(--cs-font);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cs-grounding-source-title {
+  flex: 0 1 auto;
+  color: var(--cs-text);
+  font-weight: 600;
+}
+
+.cs-grounding-source-meta {
+  flex: 1 1 auto;
+  color: var(--cs-deck-meta-text);
+}
+
+.cs-deck-conversation .cs-grounding-source-list > .cs-grounding-source.is-unavailable {
+  border-color: var(--cs-deck-line-strong);
+  border-style: dashed;
+  background: transparent;
+}
+
+.cs-deck-conversation .cs-grounding-source.is-unavailable .cs-grounding-source-meta {
+  color: var(--cs-deck-failure-text);
+}
+
+.cs-deck-kind {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--cs-deck-meta-text);
+  font: 600 var(--cs-type-label-size)/var(--cs-type-label-line-height) var(--cs-font);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ----- Answer ----- */
+.cs-deck-answer-skeleton {
+  max-width: 72ch;
+  display: grid;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.cs-deck-answer-skeleton > .cs-deck-skeleton:nth-child(2) { width: 82%; }
+.cs-deck-answer-skeleton > .cs-deck-skeleton:nth-child(3) { width: 58%; }
+
+.cs-deck-answer-state {
+  width: fit-content;
+  min-height: 22px;
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  margin: 0 0 8px;
+  padding: 1px 9px;
+  border: 1px solid var(--cs-hairline);
+  border-radius: var(--cs-radius-pill);
+  color: var(--cs-deck-meta-text);
+  font: 600 var(--cs-type-label-size)/var(--cs-type-label-line-height) var(--cs-font);
+}
+
+.cs-deck-conversation .cs-deck-turn-head .cs-deck-answer-state {
+  min-height: 18px;
+  margin: 0 0 0 4px;
+  padding: 0 8px;
+}
+
+.cs-deck-answer-state:is(.is-partial, .is-corrected, .is-stopped) {
+  border-color: color-mix(in srgb, var(--cs-terracotta) 45%, var(--cs-hairline));
+  color: var(--cs-deck-attention-text);
+}
+
+.cs-deck-answer-state.is-unverified {
+  border-color: color-mix(in srgb, var(--cs-dusty-red) 45%, var(--cs-hairline));
+  color: var(--cs-deck-failure-text);
+}
+
+/* One reading measure on the prose keeps paragraphs and evidence notes on the same edges. */
+.cs-deck-prose { max-width: 72ch; }
+
+.cs-deck-prose > p { margin: 0 0 12px; }
+
+.cs-deck-prose > p:last-child { margin-bottom: 0; }
+
+/* Streaming reveals citations and code only when the text reaches them. */
+.cs-deck-prose [hidden] { display: none; }
+
+.cs-deck-conversation :is(.cs-deck-prose, .cs-deck-evidence-note) code {
+  padding: .08em .35em;
+  border-radius: 4px;
+  background: var(--cs-shade);
+  color: var(--cs-text);
+  font-family: var(--cs-font-mono);
+  font-size: max(var(--cs-type-label-size), .86em);
+  overflow-wrap: anywhere;
+}
+
+.cs-deck-conversation .cs-deck-composer-input {
+  border-color: var(--cs-deck-control-line);
+}
+
+.cs-deck-conversation .cs-deck-composer-input::placeholder {
+  color: var(--cs-deck-meta-text);
+  opacity: 1;
+}
+
+/* A steady caret marks the live edge; blinking would compete with the arriving words. */
+.cs-deck-caret {
+  display: inline-block;
+  width: 2px;
+  height: 1.1em;
+  margin-left: 2px;
+  vertical-align: -.15em;
+  border-radius: 1px;
+  background: var(--cs-steel);
+}
+
+.cs-deck-cite-run { white-space: nowrap; }
+
+.cs-deck-cite {
+  min-width: 20px;
+  height: 20px;
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-left: 3px;
+  padding: 0 5px;
+  border-radius: 4px;
+  background: var(--cs-deck-accent-tint);
+  color: var(--cs-deck-link-text);
+  font: 700 var(--cs-type-label-size)/1 var(--cs-font);
+  font-variant-numeric: tabular-nums;
+  text-decoration: none;
+  vertical-align: .1em;
+}
+
+.cs-deck-cite + .cs-deck-cite { margin-left: 2px; }
+
+.cs-deck-cite:hover {
+  background: color-mix(in srgb, var(--cs-steel) 22%, var(--cs-card));
+  text-decoration: none;
+}
+
+.cs-deck-cite:focus-visible {
+  outline: 2px solid var(--cs-steel);
+  outline-offset: 1px;
+}
+
+.cs-deck-cite.is-unavailable {
+  border: 1px dashed var(--cs-deck-line-strong);
+  background: transparent;
+  color: var(--cs-deck-meta-text);
+}
+
+.cs-deck-evidence-note {
+  box-sizing: border-box;
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr);
+  gap: 8px;
+  margin: 12px 0;
+  padding: 9px 12px;
+  border: 1px solid color-mix(in srgb, var(--cs-terracotta) 38%, var(--cs-hairline));
+  border-radius: var(--cs-radius-sm);
+  background: var(--cs-deck-attention-tint);
+  color: var(--cs-text);
+  font: var(--cs-type-compact-size)/var(--cs-type-compact-line-height) var(--cs-font);
+}
+
+.cs-deck-evidence-note:last-child { margin-bottom: 0; }
+
+.cs-deck-evidence-note.is-conflict {
+  border-color: color-mix(in srgb, var(--cs-dusty-red) 42%, var(--cs-hairline));
+  background: var(--cs-deck-failure-tint);
+}
+
+.cs-deck-evidence-note-mark {
+  width: 18px;
+  height: 18px;
+  box-sizing: border-box;
+  display: grid;
+  place-items: center;
+  margin-top: 1px;
+  border: 1.5px solid currentColor;
+  border-radius: 50%;
+  color: var(--cs-deck-attention-text);
+  font: 800 11px/1 var(--cs-font);
+}
+
+.cs-deck-evidence-note.is-conflict .cs-deck-evidence-note-mark { color: var(--cs-deck-failure-text); }
+.cs-deck-evidence-note p { margin: 0; }
+.cs-deck-evidence-note strong { font-weight: 650; }
+
+.cs-deck-evidence-note a {
+  color: var(--cs-deck-link-text);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.cs-deck-search-hit {
+  border-radius: 2px;
+  background: color-mix(in srgb, var(--cs-terracotta) 22%, var(--cs-card));
+  color: inherit;
+}
+
+.cs-deck-search-hit.is-active {
+  background: color-mix(in srgb, var(--cs-terracotta) 38%, var(--cs-card));
+  outline: 2px solid var(--cs-deck-attention-text);
+  outline-offset: 1px;
+}
+
+/* ----- Reply actions ----- */
+.cs-deck-verification {
+  min-height: 28px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-right: 4px;
+  color: var(--cs-text);
+  font: 600 var(--cs-type-label-size)/var(--cs-type-label-line-height) var(--cs-font);
+}
+
+.cs-deck-verification.is-verified { color: var(--cs-deck-ok-text); }
+.cs-deck-verification.is-attention { color: var(--cs-deck-attention-text); }
+.cs-deck-verification.is-failure { color: var(--cs-deck-failure-text); }
+.cs-deck-verification.is-pending { color: var(--cs-deck-meta-text); }
+
+.cs-deck-verification-mark {
+  width: 16px;
+  height: 16px;
+  box-sizing: border-box;
+  display: grid;
+  place-items: center;
+  border: 1.5px solid currentColor;
+  border-radius: 50%;
+  font: 800 10px/1 var(--cs-font);
+}
+
+.cs-deck-verification-detail {
+  color: var(--cs-deck-meta-text);
+  font-weight: 400;
+}
+
+.cs-deck-pill-mark {
+  color: var(--cs-deck-attention-text);
+  font-weight: 800;
+}
+.cs-deck-pill-stat strong { font-variant-numeric: tabular-nums; }
+
+.cs-deck-pill-issue {
+  color: var(--cs-deck-attention-text);
+  font-weight: 600;
+}
+
+.cs-deck-pill-more {
+  display: inline-flex;
+  color: var(--cs-deck-meta-text);
+}
+
+.cs-deck-pill-more > svg { transition: transform .2s ease; }
+.cs-deck-conversation .cs-deck-pill[aria-expanded="true"] .cs-deck-pill-more > svg { transform: rotate(180deg); }
+
+.cs-deck-head-time { margin-left: 4px; }
+
+.cs-deck-tool-link {
+  display: inline-flex;
+  align-items: center;
+  text-decoration: none;
+}
+
+.cs-deck-tool-link:hover { text-decoration: none; }
+
+/* ----- Sources panel: one list with hairline rows rather than a stack of cards. ----- */
+.cs-deck-sources { margin-top: 8px; }
+
+.cs-deck-source-list {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid var(--cs-hairline);
+  border-radius: var(--cs-radius-sm);
+  background: var(--cs-card);
+  list-style: none;
+}
+
+.cs-deck-source-list > li + li { border-top: 1px solid var(--cs-hairline); }
+
+/* A source row is a disclosure: it opens provenance in place and never leaves the conversation. */
+.cs-deck-source {
+  width: 100%;
+  min-height: 44px;
+  box-sizing: border-box;
+  display: grid;
+  grid-template-columns: 22px 84px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 12px 7px 10px;
+  border: 0;
+  background: transparent;
+  color: var(--cs-text);
+  font: inherit;
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+  transition: background-color .15s ease;
+}
+
+.cs-deck-source[aria-expanded="true"] { background: color-mix(in srgb, var(--cs-text) 2.5%, var(--cs-card)); }
+
+.cs-deck-source-detail {
+  display: grid;
+  justify-items: start;
+  gap: 10px;
+  padding: 2px 12px 12px 42px;
+  background: color-mix(in srgb, var(--cs-text) 2.5%, var(--cs-card));
+}
+
+.cs-deck-source-detail[hidden] { display: none; }
+
+.cs-deck-source-facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 20px;
+  margin: 0;
+}
+
+.cs-deck-source-facts > div {
+  min-width: 0;
+  display: flex;
+  gap: 6px;
+}
+
+.cs-deck-source-facts dt {
+  color: var(--cs-deck-meta-text);
+  font: var(--cs-type-label-size)/var(--cs-type-label-line-height) var(--cs-font);
+}
+
+.cs-deck-source-facts dd {
+  min-width: 0;
+  margin: 0;
+  color: var(--cs-text);
+  font: 500 var(--cs-type-label-size)/var(--cs-type-label-line-height) var(--cs-font);
+  overflow-wrap: anywhere;
+}
+
+/* The only way from a source to another screen; the arrow says it leaves, and it asks first. */
+.cs-deck-source-open {
+  min-height: 28px;
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 10px;
+  border: 1px solid var(--cs-deck-control-line);
+  border-radius: var(--cs-radius-sm);
+  background: var(--cs-card);
+  color: var(--cs-deck-link-text);
+  font: 600 var(--cs-type-label-size)/1 var(--cs-font);
+  cursor: pointer;
+}
+
+.cs-deck-source-open::after {
+  content: "\2197";
+  content: "\2197" / "";
+}
+
+.cs-deck-source-open:hover { background: var(--cs-deck-accent-tint); }
+
+.cs-deck-source-open:focus-visible {
+  outline: 2px solid var(--cs-steel);
+  outline-offset: 2px;
+}
+
+/* ----- Leave confirmation: another screen opens only after the operator agrees. ----- */
+.cs-deck-leave {
+  width: min(400px, calc(100vw - 32px));
+  box-sizing: border-box;
+  margin: auto;
+  padding: 0;
+  border: 1px solid var(--cs-hairline);
+  border-radius: var(--cs-radius);
+  background: var(--cs-card);
+  color: var(--cs-text);
+  box-shadow: var(--cs-tooltip-shadow);
+}
+
+.cs-deck-leave::backdrop { background: color-mix(in srgb, var(--cs-text) 32%, transparent); }
+
+.cs-deck-leave[open] { transition: opacity .16s ease, transform .16s ease; }
+
+@starting-style {
+  .cs-deck-leave[open] { opacity: 0; transform: translateY(6px); }
+}
+
+.cs-deck-leave-form {
+  display: grid;
+  gap: 10px;
+  padding: 18px 20px 16px;
+}
+
+.cs-deck-leave-title {
+  margin: 0;
+  color: var(--cs-text);
+  font: 600 var(--cs-type-panel-title-size)/var(--cs-type-panel-title-line-height) var(--cs-font);
+}
+
+.cs-deck-leave-body {
+  margin: 0;
+  color: var(--cs-deck-meta-text);
+  font: var(--cs-type-compact-size)/var(--cs-type-compact-line-height) var(--cs-font);
+}
+
+.cs-deck-leave-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.cs-deck-leave-actions > button {
+  min-height: 34px;
+  padding: 0 14px;
+  border-radius: var(--cs-radius-sm);
+  font: 600 var(--cs-type-compact-size)/1 var(--cs-font);
+  cursor: pointer;
+}
+
+.cs-deck-leave-stay {
+  border: 1px solid var(--cs-deck-control-line);
+  background: var(--cs-card);
+  color: var(--cs-text);
+}
+
+.cs-deck-leave-open {
+  border: 1px solid var(--cs-steel);
+  background: var(--cs-steel);
+  color: var(--cs-deck-on-accent);
+}
+
+.cs-deck-leave-actions > button:focus-visible {
+  outline: 2px solid var(--cs-steel);
+  outline-offset: 2px;
+}
+
+.cs-deck-source:hover {
+  background: color-mix(in srgb, var(--cs-text) 2.5%, var(--cs-card));
+  text-decoration: none;
+}
+
+.cs-deck-source:focus-visible {
+  outline: 2px solid var(--cs-steel);
+  outline-offset: -2px;
+}
+
+.cs-deck-source.is-target {
+  background: var(--cs-deck-accent-tint);
+  box-shadow: inset 0 0 0 1px var(--cs-steel);
+}
+
+.cs-deck-source.is-unavailable { background: transparent; }
+
+.cs-deck-source-num {
+  width: 22px;
+  height: 22px;
+  box-sizing: border-box;
+  display: grid;
+  place-items: center;
+  border-radius: 4px;
+  background: var(--cs-deck-accent-tint);
+  color: var(--cs-deck-link-text);
+  font: 700 var(--cs-type-label-size)/1 var(--cs-font);
+  font-variant-numeric: tabular-nums;
+}
+
+.cs-deck-source.is-unavailable .cs-deck-source-num {
+  border: 1px dashed var(--cs-deck-line-strong);
+  background: transparent;
+  color: var(--cs-deck-meta-text);
+}
+
+.cs-deck-source-copy {
+  min-width: 0;
+  display: grid;
+  gap: 1px;
+}
+
+.cs-deck-source-title {
+  font: 600 var(--cs-type-compact-size)/1.4 var(--cs-font);
+  overflow-wrap: anywhere;
+}
+
+.cs-deck-source-meta {
+  color: var(--cs-deck-meta-text);
+  font: var(--cs-type-label-size)/1.45 var(--cs-font);
+  overflow-wrap: anywhere;
+}
+
+.cs-deck-source.is-unavailable .cs-deck-source-meta { color: var(--cs-deck-failure-text); }
+
+.cs-deck-source-time {
+  color: var(--cs-deck-meta-text);
+  font: var(--cs-type-label-size)/var(--cs-type-label-line-height) var(--cs-font);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* ----- Follow-ups ----- */
+.cs-deck-followups {
+  display: grid;
+  gap: 2px;
+  margin: 12px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.cs-deck-followup {
+  width: fit-content;
+  max-width: 100%;
+  min-height: 34px;
+  box-sizing: border-box;
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 6px 8px;
+  border: 0;
+  border-radius: var(--cs-radius-sm);
+  background: transparent;
+  color: var(--cs-deck-link-text);
+  font: var(--cs-type-compact-size)/1.45 var(--cs-font);
+  text-align: left;
+  cursor: pointer;
+}
+
+.cs-deck-followup::before {
+  content: "\21B3";
+  content: "\21B3" / "";
+  flex: none;
+  color: var(--cs-deck-meta-text);
+}
+
+.cs-deck-followup:hover { background: color-mix(in srgb, var(--cs-steel) 7%, var(--cs-card)); }
+
+.cs-deck-followup:focus-visible {
+  outline: 2px solid var(--cs-steel);
+  outline-offset: 1px;
+}
+
+.cs-deck-followup[aria-disabled="true"] {
+  color: var(--cs-deck-meta-text);
+  cursor: not-allowed;
+}
+
+/* ----- Adaptive investigation: plan, context receipt, read waves, and workflow progress. ----- */
+/* The plan is one quiet line above the work; the answer below it stays the primary read. */
+.cs-deck-plan-lead {
+  max-width: 72ch;
+  margin: 2px 0 10px;
+  color: var(--cs-text);
+  font: var(--cs-type-compact-size)/var(--cs-type-compact-line-height) var(--cs-font);
+}
+
+.cs-deck-plan-label {
+  min-height: 20px;
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  margin-right: 2px;
+  padding: 0 8px;
+  border: 1px solid var(--cs-hairline);
+  border-radius: var(--cs-radius-pill);
+  color: var(--cs-deck-meta-text);
+  font: 600 var(--cs-type-label-size)/1 var(--cs-font);
+  vertical-align: .06em;
+}
+
+/* An applied preference is a receipt for presentation context, never evidence. */
+.cs-deck-context-receipt {
+  max-width: 72ch;
+  margin: 0 0 10px;
+  color: var(--cs-deck-meta-text);
+  font: var(--cs-type-label-size)/var(--cs-type-label-line-height) var(--cs-font);
+}
+
+/* The summary's hover field reaches past the text, so its words align with the plan line. */
+.cs-deck-context-receipt-summary {
+  width: fit-content;
+  max-width: calc(100% + 16px);
+  min-height: 28px;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-inline: -8px;
+  padding: 2px 8px;
+  border-radius: var(--cs-radius-sm);
+  cursor: pointer;
+  list-style: none;
+}
+
+.cs-deck-context-receipt-summary::-webkit-details-marker { display: none; }
+.cs-deck-context-receipt-summary::marker { content: ""; }
+.cs-deck-context-receipt-summary:hover { background: color-mix(in srgb, var(--cs-text) 4%, var(--cs-card)); }
+
+.cs-deck-context-receipt-summary:focus-visible {
+  outline: 2px solid var(--cs-steel);
+  outline-offset: 1px;
+}
+
+.cs-deck-context-receipt-label {
+  flex: none;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.cs-deck-context-receipt-value {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--cs-text);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cs-deck-context-receipt-body {
+  display: grid;
+  gap: 6px;
+  margin-top: 4px;
+  padding: 8px 12px;
+  border: 1px solid var(--cs-hairline);
+  border-radius: var(--cs-radius-sm);
+  background: color-mix(in srgb, var(--cs-text) 2%, var(--cs-card));
+}
+
+.cs-deck-context-receipt-note { margin: 0; }
+
+.cs-deck-context-receipt-list {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.cs-deck-context-receipt-list > li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 2px 10px;
+}
+
+.cs-deck-context-receipt-list strong {
+  color: var(--cs-text);
+  font-weight: 600;
+}
+
+.cs-deck-context-receipt-list code {
+  font-family: var(--cs-font-mono);
+  font-size: var(--cs-type-label-size);
+}
+
+.cs-deck-context-receipt-list > li:not([data-freshness="fresh"]) .cs-deck-context-receipt-freshness {
+  color: var(--cs-deck-attention-text);
+  font-weight: 600;
+}
+
+/* The investigation panel keeps the preparation panel's frame, so both forms read as one family. */
+.cs-deck-investigation {
+  width: 100%;
+  box-sizing: border-box;
+  margin: 0 0 16px;
+  border: 1px solid var(--cs-deck-line-strong);
+  border-radius: var(--cs-radius);
+  background: color-mix(in srgb, var(--cs-text) 1.5%, var(--cs-card));
+}
+
+.cs-deck-investigation-head {
+  min-height: 44px;
+  box-sizing: border-box;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 10px;
+  padding: 6px 12px;
+  border-bottom: 1px solid var(--cs-hairline);
+}
+
+.cs-deck-investigation-title {
+  flex: none;
+  color: var(--cs-text);
+  font: 600 var(--cs-type-compact-size)/var(--cs-type-compact-line-height) var(--cs-font);
+  white-space: nowrap;
+}
+
+.cs-deck-investigation-status,
+.cs-deck-investigation-limits {
+  color: var(--cs-deck-meta-text);
+  font: var(--cs-type-label-size)/var(--cs-type-label-line-height) var(--cs-font);
+  font-variant-numeric: tabular-nums;
+}
+
+.cs-deck-investigation-status {
+  flex: 1 1 18ch;
+  min-width: 0;
+}
+
+.cs-deck-investigation-limits {
+  flex: none;
+  margin-left: auto;
+}
+
+.cs-deck-waves {
+  display: grid;
+  gap: 1px;
+  margin: 0;
+  padding: 6px;
+  list-style: none;
+}
+
+/* One status column: the wave mark shows its number, then a spinner, then the outcome. */
+.cs-deck-wave-head {
+  width: 100%;
+  min-height: 32px;
+  box-sizing: border-box;
+  display: grid;
+  grid-template-columns: 20px auto minmax(0, 1fr) auto 10px;
+  align-items: center;
+  gap: 10px;
+  padding: 4px 8px;
+  border: 0;
+  border-radius: var(--cs-radius-sm);
+  background: transparent;
+  color: var(--cs-text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color .2s ease;
+}
+
+.cs-deck-wave-head:hover { background: color-mix(in srgb, var(--cs-text) 3%, var(--cs-card)); }
+
+.cs-deck-wave-head:focus-visible {
+  outline: 2px solid var(--cs-steel);
+  outline-offset: -2px;
+}
+
+.cs-deck-wave[data-state="running"] > .cs-deck-wave-head { background: color-mix(in srgb, var(--cs-steel) 6%, transparent); }
+
+.cs-deck-wave-head[aria-expanded="true"] .cs-run-chevron { transform: rotate(225deg) translate(-1px, -1px); }
+
+.cs-deck-wave:is([data-state="pending"], [data-state="skipped"]) .cs-run-chevron { visibility: hidden; }
+
+.cs-deck-wave-mark,
+.cs-deck-activity-mark {
+  box-sizing: border-box;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--cs-deck-line-strong);
+  border-radius: 50%;
+  background: var(--cs-card);
+  color: var(--cs-deck-meta-text);
+  font: 700 var(--cs-type-label-size)/1 var(--cs-font);
+  font-variant-numeric: tabular-nums;
+  transition: border-color .2s ease, background-color .2s ease;
+}
+
+.cs-deck-wave-mark {
+  width: 20px;
+  height: 20px;
+}
+
+.cs-deck-activity-mark {
+  width: 16px;
+  height: 16px;
+}
+
+.cs-deck-wave:is([data-state="pending"], [data-state="skipped"]) .cs-deck-wave-mark,
+.cs-deck-activity[data-status="pending"] .cs-deck-activity-mark { border-style: dashed; }
+
+.cs-deck-wave[data-state="running"] .cs-deck-wave-mark,
+.cs-deck-activity[data-status="running"] .cs-deck-activity-mark {
+  border-color: transparent;
+  background: transparent;
+}
+
+.cs-deck-wave[data-state="done"] .cs-deck-wave-mark,
+.cs-deck-activity[data-status="completed"] .cs-deck-activity-mark {
+  border-color: color-mix(in srgb, var(--cs-sage) 42%, var(--cs-hairline));
+  background: color-mix(in srgb, var(--cs-sage) 10%, var(--cs-card));
+  color: var(--cs-deck-ok-text);
+}
+
+.cs-deck-wave:is([data-state="attention"], [data-state="stopped"]) .cs-deck-wave-mark,
+.cs-deck-activity:is([data-status="failed"], [data-status="unavailable"], [data-status="stopped"]) .cs-deck-activity-mark {
+  border-color: color-mix(in srgb, var(--cs-terracotta) 60%, var(--cs-hairline));
+  background: var(--cs-deck-attention-tint);
+  color: var(--cs-deck-attention-text);
+}
+
+.cs-deck-activity[data-status="denied"] .cs-deck-activity-mark {
+  border-color: color-mix(in srgb, var(--cs-dusty-red) 55%, var(--cs-hairline));
+  background: var(--cs-deck-failure-tint);
+  color: var(--cs-deck-failure-text);
+}
+
+.cs-deck-wave-title {
+  color: var(--cs-text);
+  font: 600 var(--cs-type-compact-size)/var(--cs-type-compact-line-height) var(--cs-font);
+  white-space: nowrap;
+}
+
+.cs-deck-wave-label {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--cs-text);
+  font: var(--cs-type-compact-size)/var(--cs-type-compact-line-height) var(--cs-font);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cs-deck-wave-meta {
+  color: var(--cs-deck-meta-text);
+  font: var(--cs-type-label-size)/var(--cs-type-label-line-height) var(--cs-font);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.cs-deck-wave:is([data-state="attention"], [data-state="stopped"]) .cs-deck-wave-meta {
+  color: var(--cs-deck-attention-text);
+  font-weight: 600;
+}
+
+/* Reads sit under their wave label, aligned past the wave's status column. */
+.cs-deck-wave-body { padding: 2px 4px 6px 38px; }
+.cs-deck-wave-body[hidden] { display: none; }
+
+.cs-deck-activities {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.cs-deck-activity + .cs-deck-activity { border-top: 1px solid var(--cs-hairline); }
+
+.cs-deck-activity-summary {
+  min-height: 32px;
+  box-sizing: border-box;
+  display: grid;
+  grid-template-columns: 16px minmax(0, 1fr) auto auto 10px;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 6px;
+  border-radius: var(--cs-radius-sm);
+  cursor: pointer;
+  list-style: none;
+}
+
+.cs-deck-activity-summary::-webkit-details-marker { display: none; }
+.cs-deck-activity-summary::marker { content: ""; }
+.cs-deck-activity-summary:hover { background: color-mix(in srgb, var(--cs-text) 3%, var(--cs-card)); }
+
+.cs-deck-activity-summary:focus-visible {
+  outline: 2px solid var(--cs-steel);
+  outline-offset: -2px;
+}
+
+.cs-deck-activity-mark > .cs-grounding-spinner {
+  width: 14px;
+  height: 14px;
+}
+
+.cs-deck-activity-label {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--cs-text);
+  font: 500 var(--cs-type-label-size)/1.4 var(--cs-font);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cs-deck-activity-kind,
+.cs-deck-activity-status {
+  color: var(--cs-deck-meta-text);
+  font: var(--cs-type-label-size)/1.35 var(--cs-font);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.cs-deck-activity-status {
+  min-width: 7ch;
+  text-align: right;
+}
+
+.cs-deck-activity:is([data-status="failed"], [data-status="unavailable"], [data-status="stopped"]) .cs-deck-activity-status {
+  color: var(--cs-deck-attention-text);
+  font-weight: 600;
+}
+
+.cs-deck-activity[data-status="denied"] .cs-deck-activity-status {
+  color: var(--cs-deck-failure-text);
+  font-weight: 600;
+}
+
+.cs-deck-activity-note {
+  margin: 0;
+  color: var(--cs-text);
+  font: var(--cs-type-label-size)/1.45 var(--cs-font);
+}
+
+/* Progress lines are workflow facts between waves: quiet text, never a second verdict. */
+.cs-deck-milestone {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 2px 8px;
+  padding: 2px 8px 4px 38px;
+  color: var(--cs-deck-meta-text);
+  font: var(--cs-type-label-size)/var(--cs-type-label-line-height) var(--cs-font);
+}
+
+.cs-deck-milestone-label { font-weight: 600; }
+
+.cs-deck-milestone-text {
+  flex: 1 1 24ch;
+  min-width: 0;
+  color: var(--cs-text);
+}
+
+.cs-deck-milestone-time { font-variant-numeric: tabular-nums; }
+
+/* Investigation answers: a fact grid, per-check lines, and one next safe step. */
+.cs-deck-answer-facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 8px 16px;
+  margin: 0 0 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--cs-hairline);
+  border-radius: var(--cs-radius-sm);
+  background: color-mix(in srgb, var(--cs-text) 2%, var(--cs-card));
+}
+
+.cs-deck-answer-facts > div { min-width: 0; }
+
+.cs-deck-answer-facts dt {
+  color: var(--cs-deck-meta-text);
+  font: var(--cs-type-label-size)/1.35 var(--cs-font);
+}
+
+.cs-deck-answer-facts dd {
+  margin: 2px 0 0;
+  color: var(--cs-text);
+  font: 600 var(--cs-type-compact-size)/1.4 var(--cs-font);
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+
+.cs-deck-answer-checks {
+  display: grid;
+  gap: 4px;
+  margin: 0 0 12px;
+  padding-left: 1.25em;
+}
+
+.cs-deck-answer-checks > li { padding-left: 2px; }
+.cs-deck-answer-checks > li::marker { color: var(--cs-deck-meta-text); }
+
+.cs-deck-answer-note {
+  color: var(--cs-deck-meta-text);
+  font-size: var(--cs-type-compact-size);
+}
+
+.cs-deck-answer-next strong { font-weight: 650; }
+
+/* A draft is a separate request: one outlined control, never a primary call to act. */
+.cs-deck-affordance {
+  min-height: 28px;
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 11px;
+  border: 1px solid var(--cs-deck-control-line);
+  border-radius: var(--cs-radius-pill);
+  background: var(--cs-card);
+  color: var(--cs-text);
+  font: 500 var(--cs-type-label-size)/var(--cs-type-label-line-height) var(--cs-font);
+  cursor: pointer;
+  transition: background-color .15s ease, border-color .15s ease;
+}
+
+.cs-deck-affordance:hover { background: color-mix(in srgb, var(--cs-steel) 7%, var(--cs-card)); }
+
+.cs-deck-affordance:focus-visible {
+  outline: 2px solid var(--cs-steel);
+  outline-offset: 1px;
+}
+
+.cs-deck-affordance:disabled {
+  border-color: var(--cs-hairline);
+  background: transparent;
+  color: var(--cs-deck-meta-text);
+  cursor: default;
+}
+
+/* ----- Run record: observed process, execution timeline, and model provider trace ----- */
+.cs-deck-conversation .cs-run-record {
+  margin-top: 16px;
+  background: var(--cs-card);
+}
+
+.cs-deck-conversation .cs-run-record-summary {
+  min-height: 48px;
+  border-radius: var(--cs-radius);
+  cursor: pointer;
+}
+
+.cs-deck-conversation .cs-run-record-summary::marker { content: ""; }
+
+.cs-deck-conversation .cs-run-record-summary:hover {
+  background: color-mix(in srgb, var(--cs-text) 3%, var(--cs-card));
+}
+
+.cs-deck-conversation .cs-run-record-summary:focus-visible {
+  outline: 2px solid var(--cs-steel);
+  outline-offset: -2px;
+}
+
+.cs-deck-conversation .cs-run-record[open] > .cs-run-record-summary {
+  border-radius: var(--cs-radius) var(--cs-radius) 0 0;
+}
+
+.cs-deck-conversation .cs-run-record-glyph {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  align-items: end;
+  gap: 2px;
+}
+
+.cs-deck-conversation .cs-run-record-glyph > i {
+  display: block;
+  height: 10px;
+  border-radius: 1px;
+  background: var(--cs-deck-meta-text);
+}
+
+.cs-deck-conversation .cs-run-record-glyph > i:first-child {
+  height: 6px;
+  background: var(--cs-steel);
+}
+
+.cs-deck-conversation .cs-run-record-glyph > i:last-child {
+  height: 14px;
+  background: var(--cs-sage);
+}
+
+.cs-deck-conversation .cs-run-record-kicker {
+  color: var(--cs-deck-meta-text);
+  font-size: var(--cs-type-label-size);
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+/* One quiet line: what the record is, what it measured, and how long the server worked. */
+.cs-deck-conversation .cs-run-record-heading {
+  font-size: var(--cs-type-compact-size);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.cs-deck-conversation .cs-run-record-summary { min-height: 44px; }
+
+.cs-deck-conversation .cs-run-record-stats {
+  overflow: hidden;
+  color: var(--cs-deck-meta-text);
+  font-size: var(--cs-type-label-size);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cs-deck-conversation .cs-run-record-duration {
+  color: var(--cs-text);
+  font: 500 var(--cs-type-label-size)/var(--cs-type-label-line-height) var(--cs-font);
+  font-variant-numeric: tabular-nums;
+}
+
+.cs-run-record-duration-label {
+  color: var(--cs-deck-meta-text);
+  font-weight: 400;
+}
+
+.cs-deck-conversation .cs-run-record-chevron { border-color: var(--cs-deck-meta-text); }
+
+.cs-deck-conversation .cs-run-record[open] > .cs-run-record-summary .cs-run-record-chevron {
+  transform: rotate(225deg) translate(-1px, -1px);
+}
+
+/* One shrinkable track keeps wide timeline content inside the record instead of clipping it. */
+.cs-deck-conversation .cs-run-record-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 18px;
+}
+
+.cs-deck-conversation .cs-run-phase strong,
+.cs-deck-conversation .cs-run-phase small:not(.cs-sr-only) {
+  display: block;
+  overflow: hidden;
+  font: var(--cs-type-label-size)/var(--cs-type-label-line-height) var(--cs-font);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cs-deck-conversation .cs-run-phase strong {
+  color: var(--cs-text);
+  font-weight: 600;
+}
+
+.cs-deck-conversation .cs-run-phase small:not(.cs-sr-only) {
+  margin-top: 2px;
+  color: var(--cs-deck-meta-text);
+}
+
+.cs-deck-conversation .cs-run-phase strong { font-weight: 500; }
+
+.cs-deck-conversation .cs-run-phase-mark {
+  color: var(--cs-deck-meta-text);
+  font: 800 9px/1 var(--cs-font);
+}
+
+.cs-deck-conversation .cs-run-phase[data-state="completed"] .cs-run-phase-mark {
+  border-color: var(--cs-deck-ok-text);
+  color: var(--cs-deck-ok-text);
+}
+
+.cs-deck-conversation .cs-run-phase:is([data-state="corrected"], [data-state="degraded"]) .cs-run-phase-mark {
+  border-color: var(--cs-deck-attention-text);
+  color: var(--cs-deck-attention-text);
+}
+
+.cs-deck-conversation .cs-run-phase:is([data-state="failed"], [data-state="unverified"]) .cs-run-phase-mark {
+  border-color: var(--cs-deck-failure-text);
+  color: var(--cs-deck-failure-text);
+}
+
+.cs-deck-conversation .cs-run-phase[data-state="not_observed"] .cs-run-phase-mark { border-style: dashed; }
+
+.cs-run-timeline,
+.cs-model-trace {
+  --cs-run-columns: 88px minmax(0, 1fr) minmax(96px, 1.3fr) 68px 92px 10px;
+  display: grid;
+  gap: 8px;
+}
+
+.cs-run-timeline-head,
+.cs-model-trace-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.cs-run-timeline-title,
+.cs-model-trace-title {
+  margin: 0;
+  color: var(--cs-text);
+  font: 600 var(--cs-type-compact-size)/var(--cs-type-compact-line-height) var(--cs-font);
+}
+
+.cs-run-timeline-count,
+.cs-model-trace-count {
+  flex: none;
+  color: var(--cs-deck-meta-text);
+  font: var(--cs-type-label-size)/var(--cs-type-label-line-height) var(--cs-font);
+}
+
+.cs-model-trace-notice {
+  max-width: 72ch;
+  margin: 2px 0 0;
+  color: var(--cs-deck-meta-text);
+  font: var(--cs-type-label-size)/1.45 var(--cs-font);
+}
+
+.cs-run-axis {
+  display: grid;
+  grid-template-columns: var(--cs-run-columns);
+  gap: 8px;
+  padding-inline: 6px;
+  color: var(--cs-deck-meta-text);
+  font: var(--cs-type-label-size)/1.35 var(--cs-font);
+  font-variant-numeric: tabular-nums;
+}
+
+.cs-run-axis-range {
+  grid-column: 3;
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.cs-run-events,
+.cs-model-trace-lanes {
+  margin: 0;
+  padding: 0;
+  border-top: 1px solid var(--cs-hairline);
+  list-style: none;
+}
+
+.cs-run-event,
+.cs-model-trace-lane { border-bottom: 1px solid var(--cs-hairline); }
+
+.cs-run-event-summary,
+.cs-model-trace-lane-summary {
+  min-height: 36px;
+  box-sizing: border-box;
+  display: grid;
+  grid-template-columns: var(--cs-run-columns);
+  align-items: center;
+  gap: 8px;
+  padding: 4px 6px;
+  cursor: pointer;
+  list-style: none;
+}
+
+.cs-model-trace-lane-summary { grid-template-columns: 28px minmax(0, .9fr) minmax(0, .8fr) minmax(96px, 1.3fr) 96px 68px 10px; }
+
+:is(.cs-run-event-summary, .cs-model-trace-lane-summary)::-webkit-details-marker { display: none; }
+:is(.cs-run-event-summary, .cs-model-trace-lane-summary)::marker { content: ""; }
+
+:is(.cs-run-event-summary, .cs-model-trace-lane-summary):hover {
+  background: color-mix(in srgb, var(--cs-text) 3%, var(--cs-card));
+}
+
+:is(.cs-run-event-summary, .cs-model-trace-lane-summary):focus-visible {
+  outline: 2px solid var(--cs-steel);
+  outline-offset: -2px;
+}
+
+/* The kind is a quiet annotation; the label, bar, and outcome carry the row. */
+.cs-run-event-kind {
+  justify-self: start;
+  color: var(--cs-deck-meta-text);
+  font: var(--cs-type-label-size)/1.35 var(--cs-font);
+  white-space: nowrap;
+}
+
+.cs-run-event-label,
+.cs-model-trace-model {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--cs-text);
+  font: 500 var(--cs-type-label-size)/1.4 var(--cs-font);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cs-model-trace-model { font-family: var(--cs-font-mono); }
+
+.cs-model-trace-index,
+.cs-model-trace-kind,
+.cs-model-trace-clock,
+.cs-run-event-duration,
+.cs-model-trace-duration {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--cs-deck-meta-text);
+  font: var(--cs-type-label-size)/1.35 var(--cs-font);
+  font-variant-numeric: tabular-nums;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cs-model-trace-kind { font-family: var(--cs-font); }
+.cs-run-event-duration,
+.cs-model-trace-duration { text-align: right; }
+
+.cs-run-track {
+  position: relative;
+  height: 8px;
+  overflow: hidden;
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--cs-text) 7%, var(--cs-card));
+}
+
+.cs-run-bar {
+  position: absolute;
+  top: 1px;
+  bottom: 1px;
+  left: calc(var(--cs-run-start, 0) * 1%);
+  width: max(3px, calc(var(--cs-run-width, 0) * 1%));
+  border-radius: 3px;
+  background: var(--cs-steel);
+}
+
+/* Neutral phase bars frame the work; color is kept for model calls and for trouble. */
+.cs-run-event[data-kind="phase"] .cs-run-bar { background: color-mix(in srgb, var(--cs-text) 34%, var(--cs-card)); }
+.cs-run-event[data-kind="turn"] .cs-run-bar { background: color-mix(in srgb, var(--cs-text) 55%, var(--cs-card)); }
+:is(.cs-run-event[data-kind="model"], .cs-model-trace-lane) .cs-run-bar { background: color-mix(in srgb, var(--cs-plum) 78%, var(--cs-card)); }
+.cs-run-event[data-state="degraded"] .cs-run-bar { background: var(--cs-terracotta); }
+.cs-run-event[data-state="failed"] .cs-run-bar { background: var(--cs-dusty-red); }
+
+/* A completed step is the expected case, so only a different outcome takes color. */
+.cs-run-event-outcome {
+  color: var(--cs-deck-meta-text);
+  font: 500 var(--cs-type-label-size)/1.35 var(--cs-font);
+  text-align: right;
+  white-space: nowrap;
+}
+
+.cs-run-event:is([data-state="degraded"], [data-state="corrected"]) .cs-run-event-outcome {
+  color: var(--cs-deck-attention-text);
+}
+
+.cs-run-event:is([data-state="failed"], [data-state="unverified"]) .cs-run-event-outcome {
+  color: var(--cs-deck-failure-text);
+}
+
+.cs-run-chevron {
+  width: 7px;
+  height: 7px;
+  box-sizing: border-box;
+  border-right: 1.5px solid var(--cs-deck-meta-text);
+  border-bottom: 1.5px solid var(--cs-deck-meta-text);
+  transform: rotate(45deg) translateY(-2px);
+  transition: transform .16s ease;
+}
+
+details[open] > summary .cs-run-chevron { transform: rotate(225deg) translate(-1px, -1px); }
+
+.cs-run-event-detail,
+.cs-model-trace-detail,
+.cs-deck-activity-detail {
+  display: grid;
+  gap: 12px;
+  margin: 0 6px 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--cs-hairline);
+  border-radius: var(--cs-radius-sm);
+  background: color-mix(in srgb, var(--cs-text) 2%, var(--cs-card));
+}
+
+.cs-run-observed {
+  max-width: 72ch;
+  margin: 0;
+  color: var(--cs-text);
+  font: var(--cs-type-compact-size)/var(--cs-type-compact-line-height) var(--cs-font);
+}
+
+.cs-run-observed > span {
+  display: block;
+  color: var(--cs-deck-meta-text);
+  font-size: var(--cs-type-label-size);
+  font-weight: 500;
+}
+
+.cs-run-facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 8px 16px;
+  margin: 0;
+}
+
+.cs-run-facts > div { min-width: 0; }
+
+/* Values carry the weight; their keys stay quiet. */
+.cs-run-facts dt {
+  color: var(--cs-deck-meta-text);
+  font: var(--cs-type-label-size)/1.35 var(--cs-font);
+}
+
+.cs-run-facts dd {
+  margin: 2px 0 0;
+  color: var(--cs-text);
+  font: 500 var(--cs-type-label-size)/1.45 var(--cs-font);
+  overflow-wrap: anywhere;
+}
+
+.cs-run-payload {
+  min-width: 0;
+  display: grid;
+  gap: 4px;
+}
+
+.cs-run-payload > strong,
+.cs-model-trace-role {
+  color: var(--cs-text);
+  font: 600 var(--cs-type-label-size)/1.35 var(--cs-font);
+}
+
+/* ----- Code: the component gallery's compact code pattern on the shared code tokens. ----- */
+.cs-deck-code {
+  min-width: 0;
+  margin: 0;
+  overflow: hidden;
+  border: 1px solid var(--cs-code-border);
+  border-radius: 7px;
+  background: var(--cs-code-bg);
+  color: var(--cs-code-text);
+}
+
+.cs-deck-code-head {
+  min-height: 32px;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 2px 4px 2px 10px;
+  border-bottom: 1px solid var(--cs-code-rule);
+  background: var(--cs-code-head-bg);
+}
+
+.cs-deck-code-lang {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--cs-code-muted);
+  font: 600 var(--cs-type-label-size)/1.2 var(--cs-font);
+  letter-spacing: .04em;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.cs-deck-code-copy {
+  min-height: 28px;
+  box-sizing: border-box;
+  flex: none;
+  padding: 2px 9px;
+  border: 1px solid color-mix(in srgb, var(--cs-code-text) 18%, transparent);
+  border-radius: var(--cs-radius-sm);
+  background: color-mix(in srgb, var(--cs-code-text) 5%, transparent);
+  color: var(--cs-code-text);
+  font: 600 var(--cs-type-label-size)/1 var(--cs-font);
+  cursor: pointer;
+  transition: border-color .15s ease, background-color .15s ease, color .15s ease;
+}
+
+.cs-deck-code-copy:hover {
+  border-color: color-mix(in srgb, var(--cs-code-text) 34%, transparent);
+  background: color-mix(in srgb, var(--cs-code-text) 10%, transparent);
+}
+
+.cs-deck-code-copy:focus-visible {
+  outline: 2px solid var(--cs-code-key);
+  outline-offset: -2px;
+}
+
+.cs-deck-code-copy.is-copied {
+  border-color: color-mix(in srgb, var(--cs-code-string) 45%, transparent);
+  color: var(--cs-code-string);
+}
+
+/* Scrolling stays inside the block; long payload lines wrap so the record never overflows. */
+.cs-deck-code-scroll {
+  max-height: 260px;
+  overflow: auto;
+  padding: 8px 0 9px;
+  color-scheme: dark;
+  scrollbar-color: color-mix(in srgb, var(--cs-code-text) 30%, transparent) transparent;
+  scrollbar-width: thin;
+}
+
+.cs-deck-code-block {
+  margin: 0;
+  color: var(--cs-code-text);
+  font: var(--cs-type-label-size)/1.58 var(--cs-font-mono);
+  font-variant-ligatures: none;
+  tab-size: 2;
+}
+
+.cs-deck-code-block > code {
+  display: block;
+  padding: 0;
+  border-radius: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+}
+
+.cs-deck-code-line {
+  display: block;
+  min-height: 1.58em;
+  padding: 0 12px;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+.cs-deck-code-token.is-key { color: var(--cs-code-key); }
+.cs-deck-code-token.is-string { color: var(--cs-code-string); }
+.cs-deck-code-token.is-number { color: var(--cs-code-number); }
+.cs-deck-code-token.is-boolean { color: var(--cs-code-boolean); }
+.cs-deck-code-token.is-punctuation { color: var(--cs-code-punctuation); }
+.cs-deck-code-token.is-flag { color: var(--cs-code-flag); }
+
+.cs-deck-code-token.is-command {
+  color: var(--cs-code-command);
+  font-weight: 600;
+}
+
+.cs-model-trace-note {
+  display: grid;
+  gap: 2px;
+  padding: 10px 12px;
+  border: 1px dashed var(--cs-deck-line-strong);
+  border-radius: var(--cs-radius-sm);
+  color: var(--cs-text);
+  font: var(--cs-type-compact-size)/var(--cs-type-compact-line-height) var(--cs-font);
+}
+
+.cs-model-trace-note strong { font-weight: 600; }
+.cs-model-trace-note p { margin: 0; color: var(--cs-deck-meta-text); }
+
+.cs-model-trace-hash {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 8px;
+  margin: 0;
+  color: var(--cs-deck-meta-text);
+  font: var(--cs-type-label-size)/1.45 var(--cs-font);
+}
+
+.cs-model-trace-hash code {
+  padding: 0;
+  background: none;
+  color: var(--cs-text);
+  font: var(--cs-type-label-size)/1.45 var(--cs-font-mono);
+  overflow-wrap: anywhere;
+}
+
+.cs-model-trace-layers,
+.cs-model-trace-messages {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.cs-model-trace-layers > li {
+  display: grid;
+  grid-template-columns: minmax(96px, auto) minmax(0, 1fr) auto;
+  gap: 8px;
+  color: var(--cs-text);
+  font: var(--cs-type-label-size)/1.45 var(--cs-font);
+}
+
+.cs-model-trace-layers code {
+  padding: 0;
+  background: none;
+  color: var(--cs-text);
+  font: var(--cs-type-label-size)/1.45 var(--cs-font-mono);
+}
+
+.cs-model-trace-messages > li {
+  min-width: 0;
+  display: grid;
+  gap: 6px;
+}
+
+/* ----- Composer ----- */
+.cs-deck-composer-context {
+  width: min(100%, 900px);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0 auto 8px;
+}
+
+.cs-deck-context-chip {
+  min-height: 28px;
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 10px;
+  border: 1px solid var(--cs-hairline);
+  border-radius: var(--cs-radius-pill);
+  background: var(--cs-card);
+  color: var(--cs-text);
+  font: var(--cs-type-label-size)/var(--cs-type-label-line-height) var(--cs-font);
+  cursor: pointer;
+}
+
+.cs-deck-context-chip.is-empty {
+  border-style: dashed;
+  color: var(--cs-deck-meta-text);
+}
+
+.cs-deck-context-chip:hover { border-color: var(--cs-deck-line-strong); }
+
+.cs-deck-context-chip:focus-visible {
+  outline: 2px solid var(--cs-steel);
+  outline-offset: 2px;
+}
+
+.cs-deck-composer-note {
+  width: min(100%, 900px);
+  margin: 8px auto 0;
+  color: var(--cs-deck-meta-text);
+  font: var(--cs-type-label-size)/1.45 var(--cs-font);
+}
+
+.cs-deck-composer-note:empty { margin-block: 0; }
+
+/* Jump to latest sits in the composer context row, so it never covers transcript text or controls. */
+.cs-deck-jump {
+  min-height: 28px;
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+  padding: 2px 10px;
+  border: 1px solid var(--cs-hairline);
+  border-radius: var(--cs-radius-pill);
+  background: var(--cs-card);
+  color: var(--cs-text);
+  font: 600 var(--cs-type-label-size)/var(--cs-type-label-line-height) var(--cs-font);
+  cursor: pointer;
+}
+
+.cs-deck-jump[hidden] { display: none; }
+
+/* Jump to latest and the sources list ease in when they appear instead of popping. */
+.cs-deck-jump,
+.cs-deck-sources {
+  transition: opacity .18s ease, transform .18s ease;
+}
+
+@starting-style {
+  .cs-deck-jump { opacity: 0; transform: translateY(4px); }
+  .cs-deck-sources { opacity: 0; transform: translateY(-3px); }
+}
+
+.cs-deck-conversation .cs-deck-tools .cs-deck-tool.is-done { color: var(--cs-deck-ok-text); }
+.cs-deck-jump:hover { border-color: var(--cs-deck-line-strong); }
+
+.cs-deck-jump:focus-visible {
+  outline: 2px solid var(--cs-steel);
+  outline-offset: 2px;
+}
+
+/* ----- Container-driven layout ----- */
+@container deck-transcript (max-width: 620px) {
+  .cs-deck-transcript-inner {
+    padding: 16px 12px 32px;
+    gap: 22px;
+  }
+
+  .cs-deck-conversation .cs-grounding-stages > .cs-grounding-stage {
+    grid-template-columns: 20px minmax(0, 1fr);
+  }
+
+  .cs-deck-conversation .cs-grounding-stages .cs-grounding-phase { display: none; }
+
+  .cs-deck-conversation .cs-grounding-source-list > .cs-grounding-source {
+    grid-template-columns: 72px minmax(0, 1fr);
+  }
+
+  .cs-grounding-source-meta { display: none; }
+
+  .cs-deck-source {
+    grid-template-columns: 22px minmax(0, 1fr);
+    align-items: start;
+    gap: 2px 10px;
+  }
+
+  .cs-deck-source-num {
+    grid-column: 1;
+    grid-row: 1 / span 3;
+  }
+
+  .cs-deck-source > :is(.cs-deck-kind, .cs-deck-source-copy, .cs-deck-source-time) { grid-column: 2; }
+
+  /* The verdict takes its own line; the sources toggle and reply tools stay together below it. */
+  .cs-deck-conversation .cs-deck-action-row > .cs-deck-verification { flex: 1 0 100%; }
+
+  .cs-run-timeline { --cs-run-columns: minmax(0, 1fr) auto auto 10px; }
+  .cs-model-trace-lane-summary { grid-template-columns: 24px minmax(0, 1fr) auto 10px; }
+
+  .cs-run-event-kind,
+  .cs-run-event .cs-run-track,
+  .cs-run-axis,
+  .cs-model-trace-kind,
+  .cs-model-trace-lane .cs-run-track,
+  .cs-model-trace-clock { display: none; }
+
+  .cs-deck-conversation .cs-run-record-summary {
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 4px 8px;
+  }
+
+  .cs-deck-conversation .cs-run-record-stats {
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
+
+  .cs-deck-conversation .cs-run-record-chevron { display: none; }
+
+  .cs-deck-conversation .cs-run-record-heading { white-space: nowrap; }
+
+  /* The duration keeps its full accessible name while the narrow row shows only the value. */
+  .cs-run-record-duration-label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  .cs-deck-conversation .cs-run-phase-strip {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    row-gap: 12px;
+  }
+
+  .cs-deck-conversation .cs-run-phase:nth-child(3)::before,
+  .cs-deck-conversation .cs-run-phase:nth-child(6)::before { right: 50%; }
+  .cs-deck-conversation .cs-run-phase:nth-child(4)::before { left: 50%; }
+  .cs-deck-conversation .cs-run-phase strong { white-space: normal; }
+
+  /* Narrow investigations keep the outcome beside each read and move wave meta to its own line. */
+  .cs-deck-investigation-limits {
+    flex-basis: 100%;
+    margin-left: 0;
+  }
+
+  .cs-deck-wave-head {
+    grid-template-columns: 20px auto minmax(0, 1fr) 10px;
+    row-gap: 0;
+  }
+
+  .cs-deck-wave-meta {
+    grid-column: 2 / 4;
+    grid-row: 2;
+  }
+
+  .cs-deck-wave-head > .cs-run-chevron { grid-column: 4; }
+  .cs-deck-wave-body { padding-left: 8px; }
+  .cs-deck-milestone { padding-left: 8px; }
+  .cs-deck-activity-kind { display: none; }
+  .cs-deck-activity-summary { grid-template-columns: 16px minmax(0, 1fr) auto 10px; }
+}
+
+/* Visually hidden text keeps the accessible name while narrow containers show the short form. */
+@container deck-readiness (max-width: 760px) {
+  .cs-deck-readiness-label,
+  .cs-deck-readiness-time-label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+}
+
+@container deck-readiness (max-width: 560px) {
+  .cs-deck-readiness-items {
+    flex: 1 1 100%;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scrollbar-width: thin;
+  }
+
+  .cs-deck-readiness-items > li:has(.is-unavailable) { order: -1; }
+}
+
+@container deck-composer (max-width: 480px) {
+  .cs-deck-context-prefix,
+  .cs-deck-jump-label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+}
+
+/* ----- Touch targets ----- */
+@media (max-width: 640px) {
+  :is(.cs-deck-followup, .cs-deck-context-chip, .cs-deck-readiness-item, .cs-deck-source, .cs-deck-jump,
+    .cs-run-event-summary, .cs-model-trace-lane-summary, .cs-deck-code-copy, .cs-deck-source-open,
+    .cs-deck-leave-actions > button, .cs-deck-wave-head, .cs-deck-activity-summary,
+    .cs-deck-context-receipt-summary, .cs-deck-affordance) {
+    min-height: 44px;
+  }
+
+  .cs-deck-conversation .cs-run-record-summary { min-height: 44px; }
+
+  .cs-deck-jump {
+    min-width: 44px;
+    justify-content: center;
+  }
+
+  .cs-deck-cite {
+    min-width: 24px;
+    height: 24px;
+  }
+}
+
+/* ----- Motion ----- */
+/* ----- Disclosure motion: record sections open by height where the browser supports it. ----- */
+.cs-deck-conversation :is(.cs-run-record, .cs-run-event > details, .cs-model-trace-lane > details,
+  .cs-deck-activity > details, .cs-deck-context-receipt) {
+  interpolate-size: allow-keywords;
+}
+
+.cs-deck-conversation :is(.cs-run-record, .cs-run-event > details, .cs-model-trace-lane > details,
+  .cs-deck-activity > details, .cs-deck-context-receipt)::details-content {
+  block-size: 0;
+  overflow: clip;
+  transition: block-size .24s cubic-bezier(.2, .7, .2, 1), content-visibility .24s allow-discrete;
+}
+
+.cs-deck-conversation :is(.cs-run-record[open], .cs-run-event > details[open], .cs-model-trace-lane > details[open],
+  .cs-deck-activity > details[open], .cs-deck-context-receipt[open])::details-content {
+  block-size: auto;
+}
+
+/* ----- Arrival motion: words fade in as they stream; settled parts rise in with a short stagger. */
+/* Backwards fill hides a staggered entry during its delay but never pins its final values, so a
+   later transition, such as the preparation panel fading out, still runs. */
+.cs-deck-stream-in { animation: cs-deck-stream-in .22s ease-out backwards; }
+.cs-deck-fade-in { animation: cs-deck-fade-in .2s ease-out backwards; }
+.cs-deck-pop { animation: cs-deck-pop .22s cubic-bezier(.2, .7, .2, 1.25) backwards; }
+.cs-deck-enter { animation: cs-deck-enter .26s cubic-bezier(.2, .7, .2, 1) backwards; }
+.cs-deck-enter[data-enter="1"] { animation-delay: 60ms; }
+.cs-deck-enter[data-enter="2"] { animation-delay: 110ms; }
+.cs-deck-enter[data-enter="3"] { animation-delay: 150ms; }
+
+@keyframes cs-deck-spin { to { transform: rotate(360deg); } }
+@keyframes cs-deck-stream-in { from { opacity: .1; } }
+@keyframes cs-deck-fade-in { from { opacity: 0; } }
+@keyframes cs-deck-pop { from { opacity: 0; transform: scale(.6); } }
+@keyframes cs-deck-enter { from { opacity: 0; transform: translateY(4px); } }
+
+@keyframes cs-deck-shimmer {
+  from { background-position: 100% 0; }
+  to { background-position: -100% 0; }
+}
+
+@keyframes cs-deck-rise {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cs-grounding-spinner,
+  .cs-deck-skeleton,
+  .cs-deck-stream-in,
+  .cs-deck-fade-in,
+  .cs-deck-pop,
+  .cs-deck-enter,
+  .cs-deck-conversation .cs-grounding-source-list > .cs-grounding-source {
+    animation: none;
+  }
+
+  .cs-deck-conversation .cs-grounding-stages > .cs-grounding-stage { transition: none; }
+
+  .cs-deck-jump,
+  .cs-deck-sources,
+  .cs-deck-leave[open] { transition: none; }
+
+  .cs-deck-conversation :is(.cs-run-record, .cs-run-event > details, .cs-model-trace-lane > details,
+    .cs-deck-activity > details, .cs-deck-context-receipt)::details-content {
+    transition: none;
+  }
+
+  .cs-deck-collapse,
+  .cs-run-chevron,
+  .cs-deck-wave-head,
+  .cs-deck-wave-mark,
+  .cs-deck-activity-mark,
+  .cs-deck-affordance,
+  .cs-deck-conversation .cs-run-record-chevron { transition: none; }
+}
+
+@media (forced-colors: active) {
+  :is(.cs-deck-cite, .cs-deck-source-num, .cs-deck-answer-state, .cs-deck-readiness-item,
+    .cs-deck-context-chip, .cs-grounding-authority, .cs-grounding-mark, .cs-deck-source,
+    .cs-deck-wave-mark, .cs-deck-activity-mark, .cs-deck-affordance, .cs-deck-user-attachment,
+    .cs-deck-plan-label) {
+    border: 1px solid CanvasText;
+  }
+
+  .cs-deck-search-hit {
+    background: Mark;
+    color: MarkText;
+  }
+
+  .cs-deck-skeleton { background: GrayText; }
+  .cs-deck-code { border: 1px solid CanvasText; }
+  .cs-run-bar { background: Highlight; }
+  .cs-run-track { outline: 1px solid CanvasText; }
+  .cs-deck-caret { background: CanvasText; }
+  .cs-grounding-spinner { border-color: GrayText; border-top-color: CanvasText; }
+}

@@ -1,7 +1,7 @@
 ---
 title: Operator Console - Data and Wire Contracts
 translation_of: operator-console-wire-contracts.md
-translation_source_sha: 2a12fd581a7acb6c91f631ea64200699c16522a0
+translation_source_sha: 6e9bf4f18b2c95eb3e4138d3c9bbccb3febfe7c2
 translation_revised: 2026-09-28
 ---
 
@@ -81,6 +81,7 @@ Operator 소유 수신기는 하나의 결정 서비스에서 처리됩니다. �
 | Teams Bot 액티비티 | `POST /hil/teams-activity` | Bot Framework RS256 서비스 토큰, 발급자, 대상, `serviceurl`, 테넌트, 구성된 그룹 연결 팀과 채널, `invoke` 및 `adaptiveCard/action`을 검증합니다. 정확한 카드 계약에서 `approval_id`를, `from.aadObjectId`에서 행위자를 도출한 뒤 Operator API 대상과 인가된 봇 클라이언트에 대한 위임 OBO 토큰을 검증합니다. |
 | 내부 Slack 중계 | `POST /hil/{approval_id}/decision` | 재생 구간 안에서 타임스탬프, URL 승인 ID 및 정확한 바이트에 대한 HMAC을 검증합니다. 위임된 Operator bearer로 매핑된 Slack 사용자를 확인합니다. 이 경로는 `channel=teams`를 거부합니다. |
 | Slack 브라우저 인계 | `POST /hil/slack/interaction`, `GET/POST /hil/slack/handoff/{nonce}` | 아웃바운드 `fdai_hil_approve` 및 `fdai_hil_reject` 단추는 원래 승인 ID만 전달합니다. 별도의 전송 ID도 본문 다이제스트에 포함합니다. 원본 양식 바이트에 대한 Slack v0 서명과 5분 시간 구간을 확인한 뒤 `team.id`와 `user.id`를 추출합니다. 클릭 하나는 원래 승인, 작업, 워크스페이스, 사용자 매핑 리비전 및 만료 시각에 결합된 일회용 nonce 해시를 받습니다. 서명된 수신기는 서버 출처의 Console URL을 돌려줍니다. 브라우저 미리보기는 권한을 부여하지 않습니다. POST는 사유만 받고 클릭 이후의 `auth_time`이 담긴 검증된 API 토큰과 현재의 정확한 매핑을 요구합니다. nonce를 원자적으로 소모하고 같은 결정 서비스를 호출합니다. 클레임, 권한, 문맥 또는 매핑이 없으면 결정을 보류합니다. 실제 Slack 전달과 Entra 선택적 클레임 구성은 외부 검증으로 남아 있습니다. |
+| Console 개발 자기 승인 | `POST /hil/{approval_id}/operator-decision` | 본문은 계속 `decision`과 `justification`만 받습니다. Core가 개발 블록으로 표시한 보류 항목의 제출자가 승인자이면 경로는 검증된 API 토큰 클레임을 읽고, 보류 이후이면서 10분 이내인 서명된 `auth_time`을 가진 지정 Owner의 승인 결정만 허용합니다. 토큰을 담지 않은 증명을 영속 영수증과 outbox 페이로드에 기록하며, 각 HIL 대기열 항목은 Owner 신원 없이 호출자에게 `development_self_approval_available`만 알려 줍니다. 해당 Owner만 `development_binding`(결속, 대상 revision, dry-run 및 범위 다이제스트)도 받으며, 승인 카드는 결정 전에 이를 표시합니다. |
 
 Teams 카드는 `approval_id`, `correlation_id`, `idempotency_key`, `action_hash`, 채널 대상,
 결정 및 필수 근거만 전달합니다. 수신기는 추가 카드 키를 거부하므로 카드 데이터가
@@ -416,6 +417,7 @@ ActionType은 정확한 의미 ObjectType 또는 InterfaceType target이 있을 
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-28 | implemented | Operator 테스트 맥락 명령 제안이 이제 본문 없는 인증 증적을 멱등 요청 digest 안이 아니라 그 옆에 보관하므로, 갱신된 토큰으로 재시도해도 처음 수락한 증적이 유지됩니다. Core 소유 트리거는 Operator 신원만 해당 행을 삽입하게 하고 요청 필드와 증적을 변경할 수 없게 합니다. 경로, 응답, 다른 제안 계열은 바뀌지 않았습니다. | `current change`; `services/operator-service/tests/test_authentication_receipt.py`; 임시 루프백 PostgreSQL 데이터베이스에서 실행한 `services/core-control-plane/tests/persistence/test_operational_evidence_postgres.py` | 의미 요청은 아직 증적을 보관하지 않습니다. [독립 운영 근거](../../roadmap-implementation/rules-and-detection/independent-operational-evidence.md)를 참조하세요. |
 | 2026-09-27 | implemented | 답변이 공급자 lifecycle 상태, UTC 시각, 완전성을 답변 언어로 표시하고, `execution_authority=false`와 함께 읽기 전용 문장을 제공하며, 이름이 없는 최근 변경에는 참조의 마지막 구간을 표시합니다. | `current change`; `semantic_answer_presentation.py`, `semantic_turn_processor.py`, Service Health 렌더러; 집중 표시 및 프로세서 테스트 통과. | 이 답변 값에 대해 남은 작업은 없습니다. |
 | 2026-09-27 | implemented | Resource 목록과 선언 목록의 제한 문장이 알려진 각 타입 지정 원본 제한 코드를 답변 로케일로 설명하면서 정확한 코드도 표시하고, 알 수 없는 코드는 코드로만 남기도록 했습니다. | `current change`; `semantic_source_limitations.py`, `semantic_turn_processor.py`, `semantic_ontology_answers.py`; `test_semantic_turn_processor.py`의 집중 제한 문장 사례와 한국어 및 영어 Resource 목록 사례 통과. | 타입 지정 제한 문장의 인증된 Console 근거는 지속형 운영 인스턴스 그래프 원장에서 계속 추적합니다. |
 | 2026-09-27 | implemented | 온톨로지 선언 개수 렌더링을 전용 모듈로 옮기고, 일반 행 개수 대신 읽을 수 있는 선언 이름을 표시하며 안전하게 실패하는 선언 목록 답변을 추가했습니다. | `current change`; `semantic_ontology_answers.py`; `test_semantic_turn_processor.py`의 선언 목록, 안전한 실패 목록, 선언 개수 사례 통과. | 매니페스트 목록 답변의 인증된 Console 증적은 계층형 대화 계획 ledger에서 추적합니다. |

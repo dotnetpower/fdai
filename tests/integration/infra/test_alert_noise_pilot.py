@@ -15,13 +15,13 @@ def test_alert_noise_pilot_is_one_rule_one_recipient_and_one_axis() -> None:
     assert main.count('resource "azurerm_monitor_action_group"') == 1
     assert main.count("email_receiver {") == 1
     assert "webhook_receiver" not in main
-    assert 'threshold       = var.phase == "baseline" ? 0 : 101' in main
-    assert 'metric_name      = "Availability"' in main
+    assert 'threshold = var.phase == "baseline" ? 0 : 2' in main
+    assert 'metric_namespace = "Microsoft.App/containerApps"' in main
+    assert 'metric_name      = "Replicas"' in main
     assert "severity            = 3" in main
     assert "auto_mitigate       = true" in main
-    assert 'data "azurerm_key_vault" "target"' in main
-    assert "scopes              = [data.azurerm_key_vault.target.id]" in main
-    assert "lower(data.azurerm_key_vault.target.id) == lower(var.target_resource_id)" in main
+    assert "azurerm_key_vault" not in main
+    assert "scopes              = [var.target_container_app_id]" in main
 
 
 def test_alert_noise_pilot_is_default_off_dev_only_and_secret_bound() -> None:
@@ -35,22 +35,22 @@ def test_alert_noise_pilot_is_default_off_dev_only_and_secret_bound() -> None:
     assert 'variable "receiver_email"' in module_variables
     assert "sensitive   = true" in module_variables
     assert "receiver_email          = var.alert_noise_pilot_email" in root
-    assert "target_resource_id      = var.alert_noise_pilot_target_resource_id" in root
-    assert "target_resource_id      = module.key_vault.id" not in root
+    assert "alert_noise_pilot_target_resource_id" not in variables
+    assert "target_container_app_id" in root
+    assert "module.compute.core_app_name" in root
+    assert "Microsoft.App/containerApps" in root
     assert "!var.enable_monitoring" in root
     assert '"fdai:component" = "alert-noise-pilot"' in root
 
 
-def test_alert_noise_pilot_single_maintainer_exception_stays_isolated() -> None:
+def test_alert_noise_pilot_terraform_stays_local_deployment_only() -> None:
     owner = (ROOT / "docs/roadmap/operations/alert-noise-governance.md").read_text(encoding="utf-8")
     example = (ROOT / "infra/envs/dev.tfvars.example").read_text(encoding="utf-8")
     owner_prose = " ".join(owner.split())
 
-    assert "single-maintainer exception applies only to the isolated dev" in owner_prose
-    assert "one direct test recipient controlled by that maintainer" in owner_prose
-    assert "distinct managed deployment identity executes it" in owner_prose
-    assert "read-only principal distinct from that" in owner_prose
-    assert "each require their own current exact-plan approval" in owner_prose
-    assert "not standing authority or advance approval of an unknown digest" in owner_prose
-    assert "Any widening returns to the two-human shared-change quorum" in owner_prose
+    assert "prerequisite is outside this Var quorum" in owner_prose
+    assert "one operator-controlled direct test recipient" in owner_prose
+    assert "they never become FDAI approval, execution authority" in owner_prose
+    assert "FDAI does not admit them as Var approval" in owner_prose
+    assert "remains inside the normal two-human runtime quorum" in owner_prose
     assert "both human approval lanes" not in example

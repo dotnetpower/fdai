@@ -27,7 +27,8 @@ policy (auto vs HIL) and initial policy approver"* from
 | Existing control-loop audit projection | implemented | [`_helpers.py`](../../../services/core-control-plane/src/fdai/core/control_loop/_helpers.py), [`test_control_loop_authority.py`](../../../services/core-control-plane/tests/core/test_control_loop_authority.py) | Audit data includes the matched rule, final decision, quorum, and resolved ceiling. |
 | Approval and change-governance enforcement | in-progress | [`check-risk-table-change.py`](../../../scripts/quality/architecture/check-risk-table-change.py), [`test_check_risk_table_change.py`](../../../tests/integration/scripts/test_check_risk_table_change.py), [Change Process](#change-process), [CODEOWNERS](../../../.github/CODEOWNERS) | A commit gate now enforces the metadata half of the contract - a strictly increasing version, unchanged Owner-tier ownership, a written justification on every rule, and a fail-close default that stays last - and classifies the change direction so a loosening edit cannot hide behind a patch bump. The two-person quorum and Owner-tier review half is branch protection on the deployment's fork and stays unproven from a local checkout. |
 | Replay-complete feature and catalog metadata | implemented | [`authority.py`](../../../services/core-control-plane/src/fdai/core/risk_gate/authority.py), [`test_authority.py`](../../../services/core-control-plane/tests/core/risk_gate/test_authority.py) | The authority audit payload serializes the exact feature vector and the risk-table catalog version, and focused checks replay a recorded payload against its own catalog version after the table changes. |
-| Full-authority development profile | in-progress | [`development_authority.py`](../../../services/core-control-plane/src/fdai/shared/contracts/development_authority.py), [`test_development_authority.py`](../../../services/core-control-plane/tests/contracts/test_development_authority.py), [FDAI Constitution](../architecture/fdai-constitution.md#article-8-autonomy-and-standing-authority) | The immutable contract, trusted-source Protocol, explicit Pantheon composition path, profile-scoped RiskGate mode, and fail-closed consumers have focused evidence. Upstream supplies no authoritative binding-source implementation, and default Core ControlLoop, workflow, and RBAC composition remain unselected. |
+| Full-authority development profile | in-progress | [`development_authority.py`](../../../services/core-control-plane/src/fdai/shared/contracts/development_authority.py), [`test_development_authority.py`](../../../services/core-control-plane/tests/contracts/test_development_authority.py), [FDAI Constitution](../architecture/fdai-constitution.md#article-8-autonomy-and-standing-authority) | Core provides the authoritative source, and deployment selection composes it into the ControlLoop and the Pantheon. Core parks the Owner's own request with a digest-bound binding, and the FDAI Console approval queue admits that Owner's freshly authenticated self-approval after Operator, decision-store, and Core revalidation ([`hil_resume/development.py`](../../../services/core-control-plane/src/fdai/core/hil_resume/development.py), [`test_development_self_approval.py`](../../../services/core-control-plane/tests/core/hil_resume/test_development_self_approval.py)). A retained live Owner run remains ([#1594](https://github.com/dotnetpower/fdai/issues/1594)). After #1541 merges, #1502 closes as `not_planned`/superseded for the default; this does not complete its development-authority or live-binding criteria. |
+| Observation-first authority ceiling | implemented | shared `ProductProfile`; runtime bootstrap, RiskGate registry, Thor-port, and focused negative tests | The default profile permanently resolves ActionType mode to shadow and constructs no durable promotion refresher, HIL, workflow action dispatcher, rollback, or privileged executor binding. Explicit add-on selection still supplies no authority by itself. |
 
 ### Implementation history
 
@@ -39,6 +40,9 @@ policy (auto vs HIL) and initial policy approver"* from
 | 2026-08-14 | in-progress | Enforced the metadata half of the change contract with a commit gate and made loosening edits legible in the version string. | `current change`; [`check-risk-table-change.py`](../../../scripts/quality/architecture/check-risk-table-change.py), [`test_check_risk_table_change.py`](../../../tests/integration/scripts/test_check_risk_table_change.py); focused gate checks passed 26 cases, and the gate was exercised against the shipped table for the unchanged, loosening-without-bump, loosening-patch-bump, and loosening-minor-bump cases. | Approval quorum and Owner-tier review stay branch protection on the deployment's fork; retain governed runtime receipts. |
 | 2026-09-27 | not-started | Adopted the full-authority development profile target for a sole Owner and dedicated Azure test scope without claiming runtime support. | `current change`; Constitution, compact instructions, and focused constitutional checks. | Implement one scope-bound profile contract across risk, approval, promotion, rollback, and executor admission before reporting the profile available. |
 | 2026-09-27 | in-progress | Added one immutable shared profile, a deployment-injected trusted binding-source contract, exact current-operation confirmation, real Forseti-to-Var-to-Thor composition, and profile-scoped development promotion without production readiness. | `current change`; shared authority schema/model/evaluator; risk, RBAC, workflow, operational-learning, Forseti, Var, Thor, and Vidar focused paths; 723 focused cases passed. | Implement and bind an authoritative deployment source for current target scope, revisions, and safeguard receipts; bind the optional context into the deployed Core ControlLoop, workflow, and RBAC entry points; retain governed runtime receipts. No live validation was performed. |
+| 2026-09-27 | implemented | Made observation-first the product default and disabled every enforcement/promotion construction path unless governed execution is explicitly selected. | `current change`; shared product profile, Core bootstrap/composition, non-enforcing promotion registry, and focused default/add-on tests. | Migrate existing deployments by recording explicit add-ons before rollout; live authority evidence remains separate and was not requested. |
+| 2026-09-28 | in-progress | Implemented the reference authoritative binding source and its composition. Core prepares one exact binding from its own built Action and deterministic dry-run receipt, records it once with audit, and `verify` returns only a current recorded binding. The profile and a distinct executor principal select the path, and a malformed, expired, or mismatched selection fails startup. The ControlLoop takes the development path only for an event that carries `development_authority_confirmation`, and the Pantheon shares the same profile and source. | `current change`; `delivery/development_bindings.py`, `runtime/development_authority.py`, and `core/control_loop/development_request.py`; 17 focused tests and 9167 affected Core tests passed. | Implement the prepare request, the Owner confirmation with fresh authentication, and the Console approval-queue surface ([#1594](https://github.com/dotnetpower/fdai/issues/1594)). No live validation was performed. |
+| 2026-09-28 | in-progress | Replaced the event-carried confirmation with approval-queue integration. When the Owner's own request routes to human approval, Core reads the exact target revision, records the binding of the exact parked action, and writes a digest-bound development block that retains the original level and quorum. The Owner approves from the FDAI Console after a fresh Entra sign-in. The Operator, the decision transaction, and Core each revalidate the exception, and Core rereads the durable Operator receipt, binding, and target revision before the ordinary resume claim dispatches the exact parked action. | `current change`; `core/hil_resume/development.py`, `core/control_loop/development_request.py`, `delivery/azure/target_revision.py`, the Operator `hil_development_approval.py`, and the Console approval card; focused Core, Operator, and Console checks passed. | Retain one live Owner self-approval run in the dedicated test scope, and admit category-only denials through the development path. No live validation was performed. |
 
 ### Remaining work
 
@@ -51,6 +55,9 @@ policy (auto vs HIL) and initial policy approver"* from
 - [ ] Retain governed runtime receipts for risk decisions on one pinned revision before promoting any scope row to `validated`.
 - [x] The shared contract and explicit Pantheon path require a trusted source result before one
   exact fresh Owner confirmation can lower the effective development quorum.
+- [ ] [#1594](https://github.com/dotnetpower/fdai/issues/1594): Retain one live run in which the
+  sole Owner approves their own parked request after a fresh sign-in inside the dedicated test
+  scope, and admit category-only denials through the development path.
 - [ ] [#1502](https://github.com/dotnetpower/fdai/issues/1502): Bind a deployment-owned authoritative source for current target scope,
   ActionType and policy revisions, target revision, safeguards, dry-run, audit, lock, and observer
   receipts into the deployed Core ControlLoop, workflow, and RBAC entry points. Until then,
@@ -102,11 +109,32 @@ ineligible. The shared contract is immutable and digest-only for tenant, subscri
 resource-group identity. Deployment composition must inject the profile, current Owner check, and
 distinct executor identity explicitly. Var and Thor retain the original risk and quorum while
 recording the effective development quorum of one. Development promotion writes only to the exact
-profile namespace and records `production_ready: false`. The real Pantheon composition can consume
-an explicitly injected trusted source, but upstream provides no authoritative source implementation.
-The deployed Core ControlLoop, workflow, and RBAC entry points do not select one by default, so that
-residual remains fail-closed and the capability stays `in-progress`. Focused tests don't establish
-a live deployment or production readiness.
+profile namespace and records `production_ready: false`. Core provides the authoritative source: it
+prepares each binding from its own built Action, deterministic dry-run receipt, and the selected
+profile, records it once with an audit entry, and verifies only a current recorded binding.
+Deployment selects the profile through `FDAI_FULL_AUTHORITY_DEVELOPMENT_PROFILE_JSON` and a distinct
+executor principal, and the ControlLoop and the Pantheon share one source. The ControlLoop never
+accepts an event-carried confirmation. When the Owner's own operator request routes to human
+approval, Core reads the exact target revision, records the binding of the exact action it parks,
+and writes a digest-bound development block into the park. The block retains the original level
+and quorum, the effective quorum of one, the target revision, the dry-run and scope digests, and the
+authorized executor identity, and the approval card shows those exact facts to the Owner.
+The Owner approves from the FDAI Console approval queue after a fresh Entra sign-in. The Operator
+requires a signed `auth_time` later than the park and at most 10 minutes old, and the decision
+transaction revalidates the exception against the locked park row. Core admits it only after it
+rereads the durable Operator receipt and binding, confirms that the target revision is unchanged,
+and the shared evaluator accepts the reconstructed confirmation, including the current ActionType.
+Because the Owner's decision is the approval's only receipt, a refused self-approval closes the park
+with its reason so the Owner can submit the request again. Inside the profile,
+disposable-resource recreation is the bounded recovery path. Any missing evidence parks the action
+for ordinary multi-operator approval. The runtime Owner check accepts only the profile's owner
+principal while the profile is current. Audit preserves the original role, quorum, and
+no-self-approval rule and records the effective development quorum of one without inventing
+identities; typed authority records use the public contract-model facade, and digest helpers add no
+authority. A missing profile, binding source, current Owner check, or distinct executor keeps the
+ordinary no-self-approval rule, and Slack, Teams, and self-rejection keep the ordinary refusal. The
+capability stays `in-progress` until a live Owner run is retained. Focused tests don't establish a
+live deployment or production readiness.
 
 ## Classification Dimensions
 
