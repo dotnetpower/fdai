@@ -518,6 +518,8 @@ def _prepare(args: argparse.Namespace, work_dir: Path) -> dict[str, object]:
         "resource_name_suffix": suffix,
         "foundation_resource_group_context_digest": str(app["foundation_context_digest"]),
         "enable_private_networking": not aks_baseline,
+        # The AKS baseline has no archive private endpoint; policy-private storage would drift.
+        "enable_operational_history": not aks_baseline,
         "enable_aks_key_vault_private_access": key_vault_private_access,
         "enable_aks_document_storage_private_access": document_storage_private_access,
         "compute_kind": (

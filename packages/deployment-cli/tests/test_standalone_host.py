@@ -395,6 +395,7 @@ def test_aks_baseline_defers_detailed_private_networking() -> None:
 
     assert '"enable_private_networking": not aks_baseline' in source
     assert '"acr_sku": "Basic" if aks_baseline else "Premium"' in source
+    assert '"enable_operational_history": not aks_baseline' in source
 
 
 @pytest.mark.parametrize(
