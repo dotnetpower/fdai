@@ -1,8 +1,8 @@
 ---
 title: Operator Console - Data and Wire Contracts
 translation_of: operator-console-wire-contracts.md
-translation_source_sha: 7a585356dab5a2932ed4abe7ebd403722d394047
-translation_revised: 2026-09-29
+translation_source_sha: cf1794764b22ed99153219aac9f705a71678175a
+translation_revised: 2026-09-30
 ---
 
 # Operator Console - 데이터 and Wire Contracts
@@ -427,6 +427,10 @@ Operator는 스트림마다 첫 조회 `activity`보다 먼저 이 이벤트를 
 최종 `done` 이벤트의 `trajectory_detail`에는 `work_progress_shape`, `turn_budget`,
 `context_receipts`가 들어갈 수 있습니다. Operator는 필드마다 따로 검증하고 잘못된 필드만 버립니다.
 활동은 60 KiB 안에서 최대 8개까지 유지하고 나머지는 `omitted.activities`로 셉니다.
+
+### 13.12 의미 턴 인증 영수증 참조
+
+Operator는 `FDAI_SEMANTIC_AUTHENTICATION_RECEIPT_REF_ENABLED`가 켜진 경우에만 `operator-core-request` 1.9.0에 콘텐츠가 없는 선택적 `authentication_receipt_ref`를 보냅니다. 이 설정의 기본값은 꺼짐이며, 꺼져 있으면 모든 envelope는 이전 버전과 바이트를 그대로 유지합니다. 1.9.0을 받는 Core를 먼저 배포한 뒤에만 켜십시오. 이 참조는 권한을 부여하지 않으며, 검증기가 구체적인 영수증 출처를 연결할 때까지 `case-history-read`는 연결되지 않은 상태로 남습니다.
 
 ## 구현 상태
 

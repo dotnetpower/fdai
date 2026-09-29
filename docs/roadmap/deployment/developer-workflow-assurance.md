@@ -97,6 +97,9 @@ managed-resource route reaches this socket.
 The observer-proposal consumer is a normal application lifecycle worker, not a diagnostic channel.
 Its readiness joins the Operator worker checks; its GET projection neither reaches this socket nor authorizes a stack restart or live provider probe.
 
+Operator composition also reads the default-off semantic authentication receipt-reference setting. It changes
+no diagnostic socket, launcher, capture scope, or developer validation authority.
+
 The `status` command sends a bounded protocol request to each socket. A socket path left behind by
 an interrupted process is unavailable, not healthy.
 

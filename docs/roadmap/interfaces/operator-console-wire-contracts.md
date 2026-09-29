@@ -450,6 +450,10 @@ The terminal `done` event's `trajectory_detail` may carry `work_progress_shape`,
 `context_receipts`. Operator validates each field separately and drops a malformed field alone. It
 keeps at most eight activities within 60 KiB and counts the rest in `omitted.activities`.
 
+### 13.12 Semantic turn authentication receipt reference
+
+The Operator emits the optional content-free `authentication_receipt_ref` in `operator-core-request` 1.9.0 only when `FDAI_SEMANTIC_AUTHENTICATION_RECEIPT_REF_ENABLED` is on. The setting defaults off, and with it off every envelope keeps its earlier version and bytes. Enable it only after a Core that accepts 1.9.0 is deployed. The reference grants no authority, and `case-history-read` stays unbound until the verifier binds a concrete receipt source.
+
 ## Implementation status
 
 ### Implementation scope
