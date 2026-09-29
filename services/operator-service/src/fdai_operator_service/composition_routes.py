@@ -70,6 +70,7 @@ from fdai_operator_service.runtime_projection_reader import (
     RuntimeProjectionReader,
     RuntimeProjectionReaderConfig,
 )
+from fdai_operator_service.test_context_choices import TestContextChoiceSource
 
 WEBHOOK_SIGNING_SECRET_ENV = "FDAI_OPERATOR_WEBHOOK_SECRET"  # noqa: S105
 COST_PSEUDONYM_KEY_ENV = "FDAI_COST_PSEUDONYM_KEY"  # noqa: S105
@@ -145,7 +146,12 @@ def _build_route_families(
     database_url = environment.database_url
     if database_url is None:  # pragma: no cover - store construction requires the same URL
         raise RuntimeError("validated Operator database URL is missing")
-    postgres_adapters = PostgresConversationAdapters(store)
+    choice_source = (
+        TestContextChoiceSource.from_json_text(environment.test_context_grant_registry_json)
+        if environment.test_context_grant_registry_json
+        else TestContextChoiceSource.unavailable("grant_registry_unavailable")
+    )
+    postgres_adapters = PostgresConversationAdapters(store, test_context_choices=choice_source)
     postgres_conversation = ConversationAssuranceReader(
         ConversationAssuranceReaderConfig(
             dsn=database_url,

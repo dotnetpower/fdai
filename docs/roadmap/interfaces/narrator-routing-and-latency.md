@@ -13,6 +13,8 @@ review from system-governed T2 reasoning.
 > faster conversations.
 
 ## Narrator latency routing
+Test-context lifecycle submission is deterministic Console workflow, not narrator routing. A semantic draft may open the form, but server-owned choices and Operator/Core lifecycle checks decide every accepted command.
+
 
 The independent Operator Service owns the authenticated conversation HTTP boundary and relays
 semantic turns over Kafka. Core owns model selection and inference in the standard local and

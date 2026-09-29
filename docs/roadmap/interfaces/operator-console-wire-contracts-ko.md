@@ -1,7 +1,7 @@
 ---
 title: Operator Console - Data and Wire Contracts
 translation_of: operator-console-wire-contracts.md
-translation_source_sha: cf1794764b22ed99153219aac9f705a71678175a
+translation_source_sha: 36c286eb3cb871aeba798af214b476d3dd4951b7
 translation_revised: 2026-09-30
 ---
 
@@ -10,6 +10,8 @@ translation_revised: 2026-09-30
 > [operator-console-ko.md](operator-console-ko.md) 섹션 13 (13.1-13.3, 13.6-13.9)에서 분리한 focused 소유자 문서입니다.
 
 ## 13. 데이터 + wire 계약
+테스트 맥락 선택지는 전용 인증 읽기 계약입니다. 검토된 범위와 정책 선택지 및 출처 개정을 반환하며, 수명 주기 쓰기는 계속 기존 제안, 검토, 철회 경로를 사용하고 `execution_authority=false`를 유지합니다.
+
 Core가 감독하는 인스턴스 인덱스 조정은 Incident 생성 및 전송과 분리됩니다. 접수는 모델 인자나 인덱스 레코드가 아닌 인증된 Function 호출 문맥에서만 이뤄집니다. 후보 준비와 정확한 ID 조회는 Incident를 생성하거나 변경을 승인하거나 의미 전송 계약의 실행 권한 없음 원칙을 바꿀 수 없습니다. 전용 최종 변환은 principal, release, 검색어, 결과 다이제스트, 호출 근거 및 후보 집계를 검증합니다. 식별자/타입/수정 버전 행만 표시하고 전체 목록이나 실행 권한이 아니라는 안내를 두 언어로 제공합니다. 후보 0개는 부재를 입증하지 않으며 원시 속성은 제외합니다.
 Core 초기화는 조립된 런타임 데이터 모델과 사람 승인 레지스트리 연결을 목적별 모듈에 유지합니다. Incident consumer, 감독 작업, 논리 토픽, 영속 수락 및 Operator/Core 권한 분리는 변경되지 않습니다.
 

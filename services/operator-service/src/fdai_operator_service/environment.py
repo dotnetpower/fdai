@@ -55,6 +55,7 @@ READ_INVESTIGATION_COMPLETION_CONSUMER_GROUP_ENV = (
 BACKGROUND_TASK_PROJECTION_TOPIC_ENV = "FDAI_BACKGROUND_TASK_PROJECTION_TOPIC"
 BACKGROUND_TASK_PROJECTION_CONSUMER_GROUP_ENV = "FDAI_BACKGROUND_TASK_PROJECTION_CONSUMER_GROUP_ID"
 MANAGED_IDENTITY_CLIENT_ID_ENV = "FDAI_COMMAND_MI_CLIENT_ID"
+TEST_CONTEXT_GRANT_REGISTRY_JSON_ENV = "FDAI_TEST_CONTEXT_GRANT_REGISTRY_JSON"
 DEFAULT_HOST = "0.0.0.0"  # noqa: S104 - Container ingress terminates external HTTPS.
 DEFAULT_PORT = 8000
 DEFAULT_DATABASE_STATEMENT_TIMEOUT_MS = 20_000
@@ -127,6 +128,7 @@ class OperatorEnvironment:
     background_task_projection_topic: str | None
     background_task_projection_consumer_group_id: str | None
     managed_identity_client_id: str | None
+    test_context_grant_registry_json: str | None
 
     @classmethod
     def parse(cls, environ: Mapping[str, str]) -> OperatorEnvironment:
@@ -407,6 +409,9 @@ class OperatorEnvironment:
                 f"{BACKGROUND_TASK_PROJECTION_TOPIC_ENV} MUST be distinct from other topics"
             )
         managed_identity_client_id = values.get(MANAGED_IDENTITY_CLIENT_ID_ENV, "").strip() or None
+        test_context_grant_registry_json = (
+            values.get(TEST_CONTEXT_GRANT_REGISTRY_JSON_ENV, "").strip() or None
+        )
 
         return cls(
             values=MappingProxyType(values),
@@ -449,6 +454,7 @@ class OperatorEnvironment:
                 background_task_projection_consumer_group_id
             ),
             managed_identity_client_id=managed_identity_client_id,
+            test_context_grant_registry_json=test_context_grant_registry_json,
         )
 
 
@@ -534,6 +540,7 @@ __all__ = [
     "SEMANTIC_AUTHENTICATION_RECEIPT_REF_ENV",
     "SEMANTIC_REQUEST_TOPIC_ENV",
     "TENANT_ENV",
+    "TEST_CONTEXT_GRANT_REGISTRY_JSON_ENV",
     "OperatorEnvironment",
     "OperatorServiceConfigurationError",
 ]
