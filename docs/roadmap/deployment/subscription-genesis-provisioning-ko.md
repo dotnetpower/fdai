@@ -1,7 +1,7 @@
 ---
 title: 구독 초기 프로비저닝
 translation_of: subscription-genesis-provisioning.md
-translation_source_sha: 6729f70892f809447efb9d2e77255e5f4a487c48
+translation_source_sha: 70ef2d3a2d051fd8d5e94433b34d6a0edad6196b
 translation_revised: 2026-09-27
 ---
 # 구독 초기 프로비저닝
@@ -158,7 +158,12 @@ Storage 생성 및 상태 읽기를 각각 동시에 실행합니다. 도구 준
 등록, 전송, 이전을 반복하지 않습니다.
 
 기반 계층 적용은 Marketplace 이미지 버전, 초기 구성 산출물, Terraform 실행 파일, 도구 체인
-체크섬을 고정하고 검증한 뒤 컨트롤 플레인 재확인과 변경 없음 계획을 수행합니다. 등록 단계는
+체크섬을 고정하고 검증한 뒤 컨트롤 플레인 재확인과 변경 없음 계획을 수행합니다. 그 계획을
+실행하기 전에, 적용된 상태에서 실제로 관측한 운영 공인 IP 태그를 결합합니다. 일부 구독은 생성
+시점에 모든 공인 IP에 `FirstPartyUsage=/Unprivileged`를 부여하는데 정확한 계획은 이를 예측할
+수 없습니다. 이 결합이 없으면 적용 후 계획이 매번 Bastion과 NAT 주소의 교체를 요구하므로 신규
+설치가 수렴할 수 없습니다. 빈 값이거나 정확히 그 정책 태그인 경우만 허용하며, 다른 태그는
+받아들이지 않고 실행을 중단합니다. 등록 단계는
 단기 GitHub 토큰을 정확한
 Bastion 터널의 SSH 표준 입력으로만 전달한 뒤 신원, 서비스, 레이블, GitHub 상태를 검증합니다.
 상태 인계는 로컬 상태 삭제를 허용하기 전에 로컬 및 원격 lineage, serial, 주소, 신원, 원격
