@@ -805,6 +805,46 @@ def test_core_change_consumer_readiness_rejects_measured_backlog(tmp_path: Path)
     )
 
 
+def test_core_change_consumer_readiness_keeps_an_idle_caught_up_consumer_ready(
+    tmp_path: Path,
+) -> None:
+    log_dir = tmp_path / ".fdai" / "logs"
+    log_dir.mkdir(parents=True)
+    log_file = log_dir / "core-runtime.log"
+    measured = datetime(2026, 8, 20, 13, 0, tzinfo=UTC)
+    prefix = (
+        "2026-08-20T13:00:00.000000+00:00 event_bus_consumer_progress "
+        '[topic="fdai.change.events", consumer_group="fdai-local-example-core", '
+    )
+    log_file.write_text(
+        prefix + "partition=0, committed_offset=5, highwater_offset=5, consumer_lag=0, "
+        'progress_kind="heartbeat"]\n'
+        + prefix
+        + "partition=1, committed_offset=7, highwater_offset=7, consumer_lag=0, "
+        'progress_kind="heartbeat"]\n',
+        encoding="utf-8",
+    )
+
+    def ready(after_seconds: int) -> bool:
+        return developer_workflow_runtime._core_change_consumer_ready(
+            tmp_path, now=measured + timedelta(seconds=after_seconds)
+        )
+
+    # The event bus re-reports an idle caught-up partition only every 300 seconds.
+    assert ready(300)
+    assert not ready(376)
+
+    with log_file.open("a", encoding="utf-8") as handle:
+        handle.write(
+            prefix + "partition=1, committed_offset=7, highwater_offset=9, consumer_lag=2, "
+            'progress_kind="heartbeat"]\n'
+        )
+
+    # A partition with backlog is reported every interval, so its measurement must be recent.
+    assert ready(60)
+    assert not ready(100)
+
+
 @pytest.mark.parametrize(
     "reason",
     ["tick_failed", "target_resolution_unavailable", "run_receipt_unavailable", "tick_deadline"],
