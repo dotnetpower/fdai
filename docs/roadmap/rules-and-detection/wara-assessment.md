@@ -14,6 +14,9 @@ cannot grant approval, policy, risk, promotion, mutation, or execution authority
 > **Initial mode:** Assessment is shadow-only. A live Azure observation requires a separately
 > authorized provider binding and a governed runtime receipt.
 
+
+The reviewed workflow catalog materialization path seeds Built-in WorkflowDefinition rows when the Console needs WARA-related workflow browsing or bindings; this adds no WARA execution or promotion authority.
+
 ## Design at a glance
 
 The assessment has five deterministic stages:

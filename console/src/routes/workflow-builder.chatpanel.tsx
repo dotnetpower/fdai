@@ -608,6 +608,7 @@ function WorkflowPreview({
                 name: saved.workflowName,
                 lifecycle: saved.lifecycle,
                 definitionId: saved.definitionId,
+                revision: saved.revision,
               })}
             </p>
           ) : null}

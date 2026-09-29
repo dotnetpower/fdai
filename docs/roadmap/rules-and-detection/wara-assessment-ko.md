@@ -1,8 +1,8 @@
 ---
 title: WARA 근거 기반 평가
 translation_of: wara-assessment.md
-translation_source_sha: 1ea874d54d4162988e508437ed5bb5b41daa1d85
-translation_revised: 2026-09-21
+translation_source_sha: 9316fd49824cf62bc11a066b6fec80664b568351
+translation_revised: 2026-09-29
 ---
 # WARA 근거 기반 평가
 
@@ -16,6 +16,9 @@ Resiliency Library(APRL) 목록을 범위를 인식하는 읽기 전용 평가�
 >
 > **초기 모드:** 평가는 shadow 전용입니다. 실제 Azure 관측에는 별도로 권한이 부여된
 > 공급자 바인딩과 관리되는 런타임 증적이 필요합니다.
+
+
+검토된 워크플로 카탈로그 materialization 경로는 Console 에 WARA 관련 워크플로 탐색 또는 바인딩이 필요할 때 Built-in WorkflowDefinition 행을 시드합니다. 이는 WARA 실행 또는 promotion 권한을 추가하지 않습니다.
 
 ## 설계 요약
 

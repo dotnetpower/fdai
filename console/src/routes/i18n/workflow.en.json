@@ -106,7 +106,7 @@
     "propose": "Propose catalog file on GitHub",
     "saveHintBeforePath": "Saving creates a principal-owned private DRAFT. It cannot run or appear in Operations. The GitHub path proposes",
     "saveHintAfterPath": "for separate catalog review; promotion remains a later governance change.",
-    "saveSuccess": "Saved {name} as {lifecycle} ({definitionId}).",
+    "saveSuccess": "Saved {name} as {lifecycle} ({definitionId}, revision {revision}).",
     "saveError": "Could not save draft: {error}",
     "proposeUnavailable": "GitHub proposal link unavailable. Copy the validated YAML and add it to the catalog review path shown below.",
     "validationPassed": "Passed - the draft is structurally valid, every catalog reference resolves, and it loads cleanly. This check does not execute or simulate the workflow. A published draft still starts in shadow mode.",

@@ -15,6 +15,7 @@ from fdai_operator_service.postgres_family_store import (
     PostgresFamilyStoreConfig,
     PostgresFamilyStoreUnavailable,
 )
+from fdai_operator_service.postgres_workflow_authoring import PostgresWorkflowAuthoringStore
 from fdai_operator_service.postgres_workflow_definitions import (
     PostgresWorkflowDefinitionCatalog,
 )
@@ -33,11 +34,12 @@ _INSERT_DEFINITION = (
 
 
 def _admin_dsn() -> str:
-    if os.environ.get("FDAI_SERVICE_MIGRATIONS_READY") != "1":
-        pytest.skip("service-owned migrations are not ready")
-    value = os.environ.get("FDAI_SERVICE_DATABASE_URL", "").strip()
+    value = (
+        os.environ.get("FDAI_SERVICE_DATABASE_URL", "").strip()
+        or os.environ.get("FDAI_VALIDATION_DATABASE_URL", "").strip()
+    )
     if not value:
-        pytest.skip("FDAI_SERVICE_DATABASE_URL is unset")
+        pytest.skip("FDAI_SERVICE_DATABASE_URL and FDAI_VALIDATION_DATABASE_URL are unset")
     dsn = value.replace("postgresql+psycopg://", "postgresql://", 1)
     if conninfo_to_dict(dsn).get("host") not in {"127.0.0.1", "localhost", "::1"}:
         pytest.fail("workflow definition database test requires a loopback-only database")
@@ -79,6 +81,11 @@ async def test_operator_role_reads_only_the_principal_scope_from_real_tables() -
     definition_ids = [str(row["definition_id"]) for row in (*definitions.values(), denied)]
     binding_ids = [f"binding-a-{suffix}", f"binding-b-{suffix}"]
     async with await psycopg.AsyncConnection.connect(admin, autocommit=True) as admin_connection:
+        audit_table = await admin_connection.execute(
+            "SELECT to_regclass('operator_workflow_authoring_audit')"
+        )
+        if (await audit_table.fetchone())[0] is None:
+            pytest.skip("operator workflow authoring migration is not applied")
         try:
             for row in definitions.values():
                 await admin_connection.execute(_INSERT_DEFINITION, row)
@@ -113,6 +120,54 @@ async def test_operator_role_reads_only_the_principal_scope_from_real_tables() -
             assert [binding["binding_id"] for binding in bindings if isinstance(binding, dict)] == [
                 f"binding-a-{suffix}"
             ]
+            writer = PostgresWorkflowAuthoringStore(store)
+            draft = await writer.create_definition(
+                principal_id=principal_a,
+                idempotency_key=f"draft-{suffix}",
+                expected_revision="new",
+                payload={
+                    "confirmed": True,
+                    "workflow": {
+                        "schema_version": "1.0.0",
+                        "name": f"wf-draft-{suffix}",
+                        "version": "1.0.0",
+                        "default_mode": "shadow",
+                        "trigger": {"kind": "signal", "signal_type": "object.event"},
+                        "promotion_gate": {
+                            "min_shadow_days": 1,
+                            "min_samples": 1,
+                            "min_accuracy": 1,
+                            "max_policy_escapes": 0,
+                        },
+                        "steps": [{"id": "notify", "action_type_ref": "tool.notify"}],
+                    },
+                },
+            )
+            assert draft.status_code == 201
+            created_id = str(draft.payload["definition"]["definition_id"])
+            definition_ids.append(created_id)
+            binding = await writer.create_binding(
+                principal_id=principal_a,
+                idempotency_key=f"binding-{suffix}",
+                expected_revision="new",
+                payload={
+                    "confirmed": True,
+                    "definition_id": created_id,
+                    "trigger": "deck_open",
+                },
+            )
+            assert binding.payload["revision"] == 1
+            replay = await writer.create_binding(
+                principal_id=principal_a,
+                idempotency_key=f"binding-{suffix}",
+                expected_revision="new",
+                payload={
+                    "confirmed": True,
+                    "definition_id": created_id,
+                    "trigger": "deck_open",
+                },
+            )
+            assert replay.payload["duplicate"] is True
             with pytest.raises(PostgresFamilyStoreUnavailable):
                 await store._fetch_all(f"{_INSERT_DEFINITION} RETURNING definition_id", denied)
             privileges = await admin_connection.execute(
@@ -126,10 +181,22 @@ async def test_operator_role_reads_only_the_principal_scope_from_real_tables() -
                 for table, privilege, allowed in await privileges.fetchall()
                 if allowed
             }
-            assert granted == {("workflow_definition", "SELECT"), ("workflow_binding", "SELECT")}
+            assert granted == {
+                ("workflow_definition", "SELECT"),
+                ("workflow_definition", "INSERT"),
+                ("workflow_binding", "SELECT"),
+                ("workflow_binding", "INSERT"),
+                ("workflow_binding", "UPDATE"),
+                ("workflow_binding", "DELETE"),
+            }
         finally:
             await admin_connection.execute(
-                "DELETE FROM workflow_binding WHERE binding_id = ANY(%s)", (binding_ids,)
+                "DELETE FROM operator_workflow_authoring_audit WHERE principal_id = %s",
+                (principal_a,),
+            )
+            await admin_connection.execute(
+                "DELETE FROM workflow_binding WHERE binding_id = ANY(%s) OR principal_id = %s",
+                (binding_ids, principal_a),
             )
             await admin_connection.execute(
                 "DELETE FROM workflow_definition WHERE definition_id = ANY(%s)", (definition_ids,)

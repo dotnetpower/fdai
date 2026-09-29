@@ -1,7 +1,7 @@
 ---
 title: 온톨로지 구조 모델
 translation_of: ontology-structural-model.md
-translation_source_sha: 99920cca065da28a6dedb5076c423459c92d52d8
+translation_source_sha: f6207b5080419ba94ee0739ca797d89d49b045d3
 translation_revised: 2026-09-29
 ---
 # 온톨로지 구조 모델
@@ -26,6 +26,9 @@ translation_revised: 2026-09-29
 > 모델 기능 선택은 카탈로그 계열을 발행기로 한정할 수 있습니다. Resolver enrichment는 binding
 > policy와 seal을 포함한 완전한 배포 record를 보존할 때만 narrator 또는 primary-pool 후보를 추가할 수 있습니다.
 > 이 필드는 배포 메타데이터이며 온톨로지 신원이 아니고 모델 호출 또는 실행 권한을 부여할 수 없습니다. Provider kind와 API style도 같은 경계의 endpoint 메타데이터로 유지합니다.
+
+
+워크플로 authoring 레코드는 ontology identity 밖에 남습니다. 저장된 비공개 정의, 바인딩, 카탈로그에서 시드된 Built-in 은 검토된 Workflow 문서에 대한 Operator projection 이며 Resource, ObjectType, LinkType 또는 action authority 를 만들 수 없습니다.
 
 ## 설계 요약
 

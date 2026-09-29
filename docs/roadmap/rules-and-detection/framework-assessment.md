@@ -14,6 +14,9 @@ guidance, observed evidence, human approval, and operational authority separate.
 > **Initial mode:** Every assessment is read-only shadow work. An assessment result cannot authorize
 > risk, approval, promotion, remediation, deployment, or execution.
 
+
+The shared workflow catalog materialization path also seeds Built-in WorkflowDefinition rows from reviewed catalog content; those rows support Console browsing and binding only, and they do not authorize assessment execution or promotion.
+
 ## Design at a glance
 
 The shared assessment boundary has six deterministic stages:

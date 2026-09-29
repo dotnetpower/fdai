@@ -20,6 +20,9 @@ Complements the survey of the industry reference in
 [docs/internals/datadog-visualization-surface.md](../../internals/datadog-visualization-surface.md);
 the shipping catalog here is a bounded, product-relevant subset.
 
+
+Workflow definition authoring uses the same read-projection discipline: committed private drafts, bindings, and built-in catalog seeds become Operator projection inputs before the Console renders Mine, Built-in, or My automations.
+
 ## Why it exists
 
 The console pull-surface has always shipped one-off `ReadPanel`
