@@ -20,6 +20,7 @@ from fdai.rule_catalog.schema.catalog_search import (
     catalog_search_schema_digest,
     rule_reference_catalog_digest,
 )
+from fdai.rule_catalog.schema.ontology_catalog import load_ontology_catalog
 from fdai.rule_catalog.schema.rego_semantics import load_rego_semantics
 from fdai.rule_catalog.schema.rule_semantic_evaluation_policy import (
     load_retrieval_evaluation_policy_from_json,
@@ -41,7 +42,13 @@ from fdai.rule_catalog.schema.rule_semantic_validation_receipt_catalog import (
     SemanticValidationReceiptCatalogError,
     load_semantic_validation_receipts,
 )
-from fdai.shared.contracts.models import OntologyActionType, OntologyRelease, Rule
+from fdai.shared.contracts.models import (
+    OntologyActionType,
+    OntologyDeclarationKind,
+    OntologyRelease,
+    Rule,
+)
+from fdai.shared.contracts.registry import SchemaRegistry
 from fdai.shared.providers.catalog_search import (
     CatalogSemanticIndex,
     build_document_digest_manifest,
@@ -62,6 +69,44 @@ class RuleGenerationReconciliation:
 
     workers: RuleGenerationWorkerBindings
     request: RuleGenerationBuildRequestEvent | None
+
+
+def governed_catalog_release(
+    catalog_root: Path,
+    *,
+    schema_registry: SchemaRegistry,
+    operational_release: OntologyRelease,
+) -> OntologyRelease:
+    """Return the governed catalog release that reviewed Rule semantic pins bind.
+
+    The runtime's operational release adds source-derived FunctionTypes to the governed
+    catalog, while the release-derived pin generator measures Rule semantic manifests,
+    promoted surfaces, and validation receipts against the governed catalog alone. The
+    governed release is loaded from the same catalog root with the injected schema
+    registry and is accepted only when the operational release equals it plus function
+    declarations, so a catalog that changed between the two loads cannot bind.
+    """
+
+    try:
+        catalog = load_ontology_catalog(
+            catalog_root,
+            schema_registry=schema_registry,
+            probes_root=catalog_root / "probes" if (catalog_root / "probes").is_dir() else None,
+        )
+        release = catalog.build_release()
+    except Exception as exc:  # noqa: BLE001 - an unloadable catalog leaves generation unbound
+        raise RuleGenerationDocumentsUnavailableError(
+            "governed ontology catalog is unavailable"
+        ) from exc
+    governed = set(release.declarations)
+    added = set(operational_release.declarations) - governed
+    if not governed <= set(operational_release.declarations) or any(
+        declaration.kind is not OntologyDeclarationKind.FUNCTION for declaration in added
+    ):
+        raise RuleGenerationDocumentsUnavailableError(
+            "governed ontology release does not match the operational release"
+        )
+    return release
 
 
 def build_rule_generation_document_resolver(

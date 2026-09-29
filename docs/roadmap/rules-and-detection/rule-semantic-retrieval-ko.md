@@ -1,7 +1,7 @@
 ---
 translation_of: rule-semantic-retrieval.md
-translation_source_sha: 5cd0a391fdd865979354741d125b1abf17a726aa
-translation_revised: 2026-09-20
+translation_source_sha: c19245a6d36678e93211348fe5e0a9b66d6be502
+translation_revised: 2026-09-29
 ---
 # Rule 의미 검색
 
@@ -109,6 +109,7 @@ PostgreSQL은 후보를 반환하기 전에 활성 세대 식별자를 계속 �
 | 2026-08-13 | implemented | endpoint binding에서 파생한 임베딩 식별자, 엄격한 승격 표면 문서 로딩, replay가 동일한 요청 영속성, 정확한 준비 상태 증적 연결 및 Heimdall 검증 뒤의 Mimir 소유 활성화 명령 발행으로 운영 세대 reconciliation을 완료했습니다. 질의 바인딩도 다른 임베딩 공간 또는 모델 버전의 활성 세대를 거부합니다. | `current change`; `rule_generation_documents.py`, 의미 인덱스 어댑터, `mimir.py`, `activation.py` 및 집중 문서, worker, 런타임, 활성화, bootstrap 검사 | 이 기능을 `validated`로 변경하기 전에 통제된 실제 빌드, 검증, 활성화 및 Reader 범위 변환 결과 근거를 기록합니다. |
 | 2026-08-29 | implemented | 하드닝 18차에서 운영 연결, 조정, 활성화 게시, Mimir/Heimdall 소유권, Reader 범위 변환 결과를 다시 감사했습니다. 저장소 구현에는 Low를 넘는 문제가 없었고 유일한 남은 항목은 관리되는 실제 근거입니다. | `current change`; 집중 의미 검색, 부팅, 활성화, 게시 및 변환 결과 검사. | 저장소 권한을 바꾸지 않고 관리되는 실제 근거를 기록합니다. |
 | 2026-09-15 | implemented | 기존 ActionType 수정으로 온톨로지 release가 바뀌어 [#946](https://github.com/dotnetpower/fdai/issues/946) / [PR #1014](https://github.com/dotnetpower/fdai/pull/1014)의 소스 참조만 갱신했습니다. 실제 메모리 내 어휘 검색으로 동일한 평가 전용 사례 7개에서 한국어 증적을 다시 계산했습니다. 필수 집단마다 표본은 1개이며, 직접 작성한 표면의 승격 상태, 학습 자료, 현재 임계값과 이전 증적은 유지했습니다. | `current change`; [새 한국어 증적](../../../rule-catalog/surface-validation-receipts/3e44e952cbe8bbed633e91a1482ddd0380241895c1d51c5d494fecdb29a7d187.json); 변경하지 않은 데이터셋 `sha256:1307e83d264c8c0b6fdc4342f840b51cebe18f930ca4bd9242387052da54d6de`. 구현 세션 결과: 정본 증적 로딩과 [`test_korean_surface_candidate_passes_exact_inactive_generation_review`](../../../services/core-control-plane/tests/rule_catalog/test_discovery_catalog_search.py)가 통과했고, 강화한 [생성기 회귀 검사](../../../tests/integration/scripts/test_refresh_release_derived_pins.py)는 `9 passed`, 두 번째 기본 검사는 `measured=7 fixtures=16 changed=0`을 기록했습니다. 이번 문서 편집에서는 다시 실행하지 않았습니다. | [일반 CI 실행 34921323157의 시도 1](https://github.com/dotnetpower/fdai/actions/runs/34921323157/attempts/1)은 head `c8edd`에서 실패했습니다. 로컬 수정은 새 커밋과 해당 head의 CI를 기다립니다. 운영 연결과 Reader 범위 변환 결과의 통제된 실제 근거는 미완료로 유지합니다. 배포 인덱스나 승격 레지스트리를 활성화하거나 변경하지 않았습니다. |
+| 2026-09-29 | implemented | Rule 생성을 거버넌스 카탈로그 release에 다시 바인딩했습니다([#1656](https://github.com/dotnetpower/fdai/issues/1656)). 런타임이 운영 release에 소스 파생 FunctionType을 선언하기 시작한 뒤로 시작 시 Rule 의미 매니페스트를 그 release로 만들었고, 거버넌스 release에 고정된 승격 표면이 더는 맞지 않아 `rule_generation_reconciliation_unavailable`이 매번 reconciliation을 연결하지 못하게 했습니다. 이제 시작 시 같은 카탈로그 루트에서 거버넌스 release를 불러와 운영 release가 여기에 function 선언만 더한 것과 같을 때만 받아들이고, 매니페스트, 요청, 세대, 인덱스 바인딩을 이 release에 묶습니다. | `test_rule_generation_documents.py`가 실제 런타임 control loop를 만들어 거버넌스 release를 바인딩하고 운영 release는 실패함을 보이며, 불일치와 시작 시 성능 저하 회귀 테스트를 포함합니다. | 없음. |
 
 ### 남은 작업
 
@@ -123,7 +124,8 @@ PostgreSQL은 후보를 반환하기 전에 활성 세대 식별자를 계속 �
   검증기에 정확한 행을 반환하기 전에 수명 주기, 행 식별자, 내용 해시, 순서, 개수 또는
   매니페스트 차이를 거부합니다.
 - [x] 운영 bootstrap은 영속 어댑터를 구성하고 선택적 세대 준비 상태를 등록합니다. 시작할 때
-  정확한 현재 Rule 카탈로그, 의미 스키마, 온톨로지 release 및 embedder 차원만 연결합니다.
+  정확한 현재 Rule 카탈로그, 의미 스키마, 거버넌스 카탈로그 온톨로지 release 및 embedder 차원만
+  연결합니다.
   상태가 없거나 오래되거나 접근할 수 없거나 사용할 수 없을 때 안정적인 성능 저하 사유를
   제공하며 집중 bootstrap 및 구성 검사에서 테스트 46개가 통과했습니다.
 - [x] 제한 시간이 있는 EventBus worker가 영속 활성화 결과를 발행하며 Mimir만 책임 명령 및
@@ -199,6 +201,13 @@ FDAI는 Rule 순위를 정하기 전에 의미를 해석합니다. 정확한 카
 누락된 의미는 알 수 없음으로 유지됩니다. 파서는 조건식, 개념 또는 관계를
 추측하지 않습니다.
 
+온톨로지 release 다이제스트는 release 파생 고정값 생성기도 측정하는 거버넌스 카탈로그
+release입니다. 런타임의 운영 release는 이 카탈로그에 소스에서 파생된 역량 FunctionType을
+더하며 런타임 계획을 식별할 뿐, Rule 의미 매니페스트, 승격된 표면, 검증 영수증 또는 그 검색
+세대는 식별하지 않습니다. 시작할 때 같은 카탈로그 루트에서 거버넌스 release를 불러오고, 운영
+release가 여기에 function 선언만 더한 것과 같을 때만 받아들입니다. 그렇지 않으면 Rule 생성은
+연결되지 않은 상태로 남습니다.
+
 ### RuleSemanticSurface
 
 의미 표면은 운영자가 한 매니페스트의 의미를 표현할 수 있는 방식을 제안합니다. 검토된
@@ -232,7 +241,7 @@ loader는 해당 다이제스트를 다시 계산하고 모든 승격된 표면 
 하나의 세대는 완전한 검색 가능 코퍼스를 고정합니다.
 
 - 코퍼스 및 카탈로그 개정 번호
-- 의미 스키마 및 온톨로지 release 다이제스트
+- 의미 스키마 및 거버넌스 카탈로그 온톨로지 release 다이제스트
 - 임베딩 space ID, 모델 버전 및 dimension
 - 정확한 행 개수, 계층형 정규 다이제스트 루트 및 최대 256개 행의 순서가 있는 청크
 - 최대 256개 행의 호환 세대에만 쓰는 순서가 있는 인라인 문서 다이제스트

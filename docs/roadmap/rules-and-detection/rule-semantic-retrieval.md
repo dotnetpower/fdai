@@ -105,6 +105,7 @@ Evaluation policy `1.1.0` requires an explicit `min_samples_per_metric` from 2 t
 | 2026-08-29 | implemented | Hardening round 18 re-audited production binding, reconciliation, activation publication, Mimir/Heimdall ownership, and Reader-scoped projection. No repository defect above Low remained; the sole open item is governed live evidence. | `current change`; focused semantic retrieval, bootstrap, activation, publication, and projection checks. | Record governed live evidence without changing repository authority. |
 | 2026-09-15 | implemented | Source-only refresh for [#946](https://github.com/dotnetpower/fdai/issues/946) / [PR #1014](https://github.com/dotnetpower/fdai/pull/1014) after existing ActionType edits changed the ontology release. Real in-memory lexical retrieval recomputed the Korean receipt from the same seven held-out cases, one sample per required cohort; authored promoted status, training, current thresholds, and prior receipts remain unchanged. | `current change`; [new Korean receipt](../../../rule-catalog/surface-validation-receipts/3e44e952cbe8bbed633e91a1482ddd0380241895c1d51c5d494fecdb29a7d187.json); unchanged dataset `sha256:1307e83d264c8c0b6fdc4342f840b51cebe18f930ca4bd9242387052da54d6de`. Implementation-session results: canonical receipt loading and [`test_korean_surface_candidate_passes_exact_inactive_generation_review`](../../../services/core-control-plane/tests/rule_catalog/test_discovery_catalog_search.py) passed; strengthened [generator regressions](../../../tests/integration/scripts/test_refresh_release_derived_pins.py) `9 passed`; second default check `measured=7 fixtures=16 changed=0`. These results were not rerun for this documentation edit. | [Normal CI run 34921323157, attempt 1](https://github.com/dotnetpower/fdai/actions/runs/34921323157/attempts/1) failed at head `c8edd`; the local repair awaits a new commit and exact-head CI. Governed live binding and Reader-scoped projection evidence remain open. No deployed index or promotion registry was activated or changed. |
 | 2026-09-15 | implemented | Re-evaluated source commitments after four alert ActionTypes changed the ontology release in [PR #1030](https://github.com/dotnetpower/fdai/pull/1030). The existing generator reran all seven original held-out cases and 16 unchanged F1-F8 fixtures, preserved the authored promoted surface and old receipts, and wrote one new validation-only receipt. | `current change`; [new receipt](../../../rule-catalog/surface-validation-receipts/0772dcbbaef0a5086cd12fc81519c9ae9165891b24b044c216c65d378ba3e2ea.json), same frozen dataset and policy; 44 focused catalog/runtime/profile checks plus 18 corrected-pin/generator/receipt checks passed; second default generator check reports zero changes. | Exact-head PR CI and governed live retrieval evidence remain separate. No deployed index, activation or promotion registry changed. |
+| 2026-09-29 | implemented | Rebound Rule generation to the governed catalog release ([#1656](https://github.com/dotnetpower/fdai/issues/1656)). Since the runtime began declaring source-derived FunctionTypes in its operational release, startup built Rule semantic manifests against that release, the promoted surfaces pinned to the governed release no longer matched, and `rule_generation_reconciliation_unavailable` left reconciliation unbound at every start. Startup now loads the governed release from the same catalog root, accepts it only when the operational release equals it plus function declarations, and binds manifests, requests, generations, and the index binding to it. | `test_rule_generation_documents.py` builds the real runtime control loop, binds the governed release, and shows the operational release fails; mismatch and startup degradation regressions. | None. |
 
 ### Remaining work
 
@@ -119,8 +120,8 @@ Evaluation policy `1.1.0` requires an explicit `min_samples_per_metric` from 2 t
   reject lifecycle, row identity, content hash, order, count, or manifest drift before returning
   exact rows to an independent validator.
 - [x] Production bootstrap composes the durable adapter and registers optional generation
-  readiness. Startup binds only the exact current Rule catalog, semantic schema, ontology release,
-  and embedder dimension; stable degradation reasons cover missing, stale, inaccessible, and
+  readiness. Startup binds only the exact current Rule catalog, semantic schema, governed catalog
+  ontology release, and embedder dimension; stable degradation reasons cover missing, stale, inaccessible, and
   unavailable state. Focused bootstrap and composition checks pass 46 tests.
 - [x] A timeout-bounded EventBus worker publishes durable activation results, and Mimir is the only
   accountable command and result subscriber. Focused restart, duplicate delivery, lease expiry,
@@ -194,6 +195,13 @@ The deterministic manifest records what the source artifacts prove:
 
 Missing semantics remain unknown. A parser never invents a predicate, concept, or relationship.
 
+The ontology release digest is the governed catalog release, which the release-derived pin
+generator also measures. The runtime's operational release adds source-derived competency
+FunctionTypes to that catalog and identifies runtime plans, never a Rule semantic manifest, a
+promoted surface, a validation receipt, or their search generation. Startup loads the governed
+release from the same catalog root and accepts it only when the operational release equals it
+plus function declarations; otherwise Rule generation stays unbound.
+
 ### RuleSemanticSurface
 
 A semantic surface is a proposal for how operators may express one manifest's meaning. It may
@@ -227,7 +235,7 @@ invalidating the generation that the receipt evaluated.
 A generation pins one complete searchable corpus:
 
 - corpus and catalog revision;
-- semantic schema and ontology release digests;
+- semantic schema and governed catalog ontology release digests;
 - embedding space identity, model version, and dimension;
 - exact row count, a hierarchical canonical digest root, and ordered chunks of at most 256 rows;
 - inline ordered document digests only for compatibility generations of at most 256 rows;

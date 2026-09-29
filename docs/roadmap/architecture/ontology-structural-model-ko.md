@@ -1,8 +1,8 @@
 ---
 title: 온톨로지 구조 모델
 translation_of: ontology-structural-model.md
-translation_source_sha: 41b0ff0b0f445796f4a0e7a824d9c2c6c3eed3f2
-translation_revised: 2026-09-28
+translation_source_sha: 99920cca065da28a6dedb5076c423459c92d52d8
+translation_revised: 2026-09-29
 ---
 # 온톨로지 구조 모델
 
@@ -387,6 +387,12 @@ Operator 변환 결과는 검토된 확장 가능 유형만 노출합니다. AKS
 표시합니다. 값이 없거나 음수이거나 정수가 아니거나 지원되지 않는 유형이면 표시하지 않습니다.
 확장 작업 중인 값은 최근 커밋된 프로바이더 관측값입니다. 원하는 용량이나 같은 수의 Kubernetes
 Node가 Ready 상태라는 증거로 사용하지 않습니다.
+
+거버넌스 카탈로그 release는 검토된 카탈로그 선언만 담으며 검토된 카탈로그 아티팩트, 즉 Rule 의미
+고정값, Cost Governance 의미 프로필, Operator 카탈로그 변환 결과를 식별합니다. 런타임의 운영
+release는 소스에서 파생된 역량 FunctionType을 더하며 런타임 계획을 식별합니다. 운영 release는 항상
+거버넌스 release에 function 선언만 더한 것과 같으므로, 한 식별자에 바인딩하는 소비자는 두 다이제스트를
+서로 비교하지 않고 이 관계를 확인합니다.
 
 Operator 변환 결과는 출처 세대, 온톨로지 release, 쿼리 상한, 관계 커버리지, 정확한 제한 코드를
 보존합니다. Console은 의미 특성으로 포함, 의존성, 접속, 권한 부여, 분류, 근거 보기를 만들 수

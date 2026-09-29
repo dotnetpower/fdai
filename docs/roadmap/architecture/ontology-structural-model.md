@@ -385,6 +385,12 @@ count. Missing, negative, non-integral, or unsupported values remain absent. Dur
 operation, the value is the latest committed provider observation; it is neither desired capacity
 nor proof that the same number of Kubernetes Nodes is Ready.
 
+The governed catalog release covers only reviewed catalog declarations and identifies reviewed
+catalog artifacts: Rule semantic pins, the Cost Governance semantic profile, and Operator catalog
+projections. The runtime's operational release adds source-derived competency FunctionTypes and
+identifies runtime plans. It always equals the governed release plus function declarations, so a
+consumer that binds one identity checks that relationship instead of comparing digests across them.
+
 Operator projections preserve source generation, ontology release, query bounds, relationship
 coverage, and exact limitation codes. The Console may build containment, dependency, connectivity,
 authorization, classification, and evidence views from semantic traits. It also provides an
