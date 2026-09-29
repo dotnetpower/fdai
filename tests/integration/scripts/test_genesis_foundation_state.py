@@ -1394,3 +1394,89 @@ def test_remote_handoff_failure_reports_a_recognized_status_token() -> None:
     )
 
     assert "remote status tokens: remote_backend_denied" in summary
+
+
+class _Tunnel:
+    """Record remote invocations and answer them from a fixed script."""
+
+    def __init__(self, responses: list[subprocess.CompletedProcess[str]]) -> None:
+        self._responses = responses
+        self.calls: list[tuple[str, ...]] = []
+
+    def ssh(self, arguments, *, timeout: int, input_text: str | None = None):
+        del timeout, input_text
+        self.calls.append(tuple(arguments))
+        return self._responses.pop(0)
+
+
+_WORK = "e" * 64
+_ARGS = ("--work-id", _WORK)
+_PROGRAM = ("/usr/local/sbin/fdai-migrate-foundation-state",)
+
+
+def _clear(tunnel: _Tunnel) -> None:
+    state_command._clear_abandoned_remote_work(
+        tunnel,
+        migration_program=_PROGRAM,
+        remote_arguments=_ARGS,
+        remote_archive="/home/runner/.fdai-transfer.tar.gz",
+        remote_work="/home/runner/.fdai-state-handoff/work",
+        work_id=_WORK,
+    )
+
+
+def test_a_clean_runner_is_not_asked_to_clean_up() -> None:
+    tunnel = _Tunnel([_completed(0), _completed(0)])
+
+    _clear(tunnel)
+
+    assert all("cleanup" not in call for call in tunnel.calls)
+
+
+def test_abandoned_remote_work_is_cleared_so_a_retry_can_proceed() -> None:
+    """work_id is receipt-derived, so a retry reuses the same paths and must recover."""
+
+    tunnel = _Tunnel(
+        [
+            _completed(1),
+            _completed(0),
+            _completed(0, stdout=f"state_handoff_cleanup_complete work_ref={_WORK[:24]}\n"),
+            _completed(0),
+            _completed(0),
+        ]
+    )
+
+    _clear(tunnel)
+
+    assert (*_PROGRAM, "cleanup", *_ARGS) in tunnel.calls
+
+
+def test_a_failed_cleanup_stops_and_reports_the_remote_cause() -> None:
+    tunnel = _Tunnel(
+        [
+            _completed(1),
+            _completed(0),
+            _completed(3, stderr="fdai-migrate-foundation-state: backend denied\n"),
+        ]
+    )
+
+    with pytest.raises(ValueError) as failure:
+        _clear(tunnel)
+
+    assert "preflight is not clean" in str(failure.value)
+    assert "backend denied" in str(failure.value)
+
+
+def test_a_remnant_surviving_cleanup_still_stops_the_run() -> None:
+    tunnel = _Tunnel(
+        [
+            _completed(1),
+            _completed(0),
+            _completed(0, stdout=f"state_handoff_cleanup_complete work_ref={_WORK[:24]}\n"),
+            _completed(1),
+            _completed(0),
+        ]
+    )
+
+    with pytest.raises(ValueError, match="not clean after cleanup"):
+        _clear(tunnel)

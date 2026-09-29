@@ -22,11 +22,15 @@ read-only, without giving the Operator API an executor identity.
 | Account identity and same-tenant account selection | implemented | `console/src/components/account-menu.tsx`; `console/src/auth.ts`; focused Console account tests (`11 passed`), typecheck, and production build | The header panel displays MSAL identity and server-verified roles without adding authority. Interactive sessions can open the Entra account picker without a login hint and re-enter the existing startup authorization boundary. |
 | Local operator identity selection | implemented | `config.ts`; `environment.py`; `prepare-operator-service-env.sh`; focused Console, Operator, preparation, and HIL route tests | Standard preparation selects Browser Entra even when a stale private Console environment requests Azure CLI auth. The fixed-ceiling Azure CLI principal requires the explicit `--auth-mode azure-cli` preparation argument plus paired browser and API confirmation. The HIL route returns full detail only for verified `Approver` or `Owner` roles. |
 | Recorded Resource state source | implemented | `test_operator_service_composition.py::test_recorded_state_route_and_source_are_common_to_both_venues`; [recorded-state evidence](../../roadmap-implementation/interfaces/recorded-resource-state.md) | Directory, exploration, and batch-state routes share the inventory family store in both venues. Source configuration does not certify the freshness of a recorded fact. |
+| Workflow definition catalog read | implemented | `postgres_workflow_definitions.py`; `family_adapters.py`; `operator_workflow_definition_read_20260929`; `test_workflow_definition_catalog.py`; `test_workflow_definition_catalog_postgres.py` | Both venues read the Operator-owned tables directly under a SELECT-only grant, scoped to the authenticated principal with a fail-closed recheck. No writer populates the tables yet ([#1655](https://github.com/dotnetpower/fdai/issues/1655)), and no authenticated Browser sweep is retained. |
+| Python task capability report | implemented | `python_task_capability.py`; `test_python_task_capability.py`; Console `python-task.test.ts` and `workflow-builder.test.ts` | The Operator reports an explicit unavailable state because it binds no Python task owner or VM task runner. Binding a governed owner remains open. |
 
 ### Implementation history
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-29 | implemented | Moved the tracker for the durable definition and binding writer from [#1664](https://github.com/dotnetpower/fdai/issues/1664), which is now closed as a duplicate, to [#1655](https://github.com/dotnetpower/fdai/issues/1655). The read-boundary scope is unchanged. | Issue scope update on #1655; `current change`. | Bind the writer under #1655. |
+| 2026-09-29 | implemented | Replaced the two producer-less Workflow builder reads that answered HTTP `503` ([#1655](https://github.com/dotnetpower/fdai/issues/1655)). `workflow-definition.list` now reads the Operator-owned definition and binding tables directly under a new SELECT-only grant, scoped to the authenticated principal with a fail-closed recheck. `python-task.capabilities` now returns the composition's explicit unavailable report, and the Console explains the reported state. | `current change`; `postgres_workflow_definitions.py`, `python_task_capability.py`, `family_adapters.py`, `20260929_operator_workflow_definition_read.py`, and Console `python-task.ts` and `workflow-builder*`; 40 focused Operator tests, a real PostgreSQL grant and isolation test on a fully migrated loopback database, and 7 killed principal-scope mutations. A route sweep through the production composition returned `200` for both routes with per-principal Mine and bindings and `401` without a token. | Retain an authenticated Browser `/workflow-builder` sweep on the standard local stack. Land the writer tracked by [#1664](https://github.com/dotnetpower/fdai/issues/1664) and a governed Python task owner. |
 | 2026-09-21 | implemented | Moved the complete read-source declaration registry and route-family assembly behind focused Operator composition modules while preserving facade imports and conservative availability semantics. | `current change`; ten focused data-source tests and 120 full composition tests passed with one optional PDF skip; Ruff, strict mypy, and Operator boundary checks passed. | No read-source or authority work remains for this internal ownership split. |
 | 2026-09-14 | implemented | Isolated the Browser Entra ontology-assurance stack from ambient CLI-auth preparation by clearing both API and Vite pairs before starting its Operator and Console processes. | `current change`; `run_ontology_assurance.py`; focused assurance process-spec regression. | Repeat the independent integrated critique. |
 | 2026-09-14 | implemented | Made the live-E2E frontend clear both Vite CLI-principal values, matching the API launcher, and replaced removed legacy-module examples with supported launchers. | `current change`; `playwright.live.config.ts`; focused live-E2E config test; documentation checks. | Repeat the independent integrated critique. |
@@ -66,6 +70,11 @@ read-only, without giving the Operator API an executor identity.
   authenticated browser receipt that distinguishes no observed activity from an unavailable relay.
 - [ ] Bind the governed Python task authoring provider and retain its no-execution-authority
   capability receipt.
+- [ ] Retain an authenticated Browser Entra sweep of `/workflow-builder` on the standard local
+  full stack that records HTTP `200` for `/workflows/definitions` and `/python-tasks/capabilities`.
+- [ ] Land the definition and binding writer tracked by
+  [#1655](https://github.com/dotnetpower/fdai/issues/1655), then show a saved private draft under
+  Mine for its owner and under no other principal's groups.
 - [ ] Retain an authenticated browser receipt showing the recorded-state source declaration and
   fact-level evidence gaps without treating a configured source as a fresh observation.
 
@@ -109,6 +118,53 @@ of the generic operational read model. Both venues read the same immutable inven
 an unconfigured store is explicitly unavailable. A configured authoritative source identifies
 where records come from, not whether each recorded fact is current. Dashboard v2 and Ontology
 Instances preserve that distinction through the [recorded-state contract](../interfaces/recorded-resource-state.md).
+
+## Workflow definitions and Python task capability
+
+The Workflow builder reads two sources that the Operator service answers from its own state
+instead of from a materialized `state_kv` projection:
+
+| Route | Operation | Source |
+|-------|-----------|--------|
+| `GET /workflows/definitions` | `workflow-definition.list` | Direct read of the Operator-owned `workflow_definition` and `workflow_binding` tables |
+| `GET /python-tasks/capabilities` | `python-task.capabilities` | The Operator composition's report of the Python task owners it binds |
+
+The definition catalog follows these scoping rules:
+
+- A `global` definition is visible to every authenticated principal, and a `private` definition
+  only to its owner. `team` visibility stays excluded until a team-membership source is bound.
+- Upstream definitions form **Built-in**, the caller's own definitions form **Mine**, and every
+  other visible definition forms **Shared**. A Shared entry withholds its owner reference.
+- Bindings are limited to the caller's own automation settings.
+- The Operator role has SELECT-only access through the
+  `operator_workflow_definition_read_20260929` service migration. After each query, the reader
+  repeats the visibility and ownership checks, so a predicate regression fails the read instead of
+  disclosing another principal's records.
+
+The capability report returns HTTP `200` with `available: false`, `unavailable_reasons`, and every
+operation disabled. The independent Operator binds no Python task validator, VM task runner,
+artifact store, author, run submitter, or schedule store. It never holds a VM Run Command
+identity, and Core's `FDAI_VM_TASK_ENABLED` executor binding can't make these authoring operations
+available. The Console hides the Author Python task control and announces the reported reasons as
+a status message.
+
+We chose direct reads over projection producers for two reasons:
+
+- Definitions and bindings are durable, principal-owned records, not repository catalogs. A shared
+  projection would need a per-principal key space, a refresh for every write, and a separate
+  isolation proof. A request-time read stays bound to the authenticated principal and current
+  store state, like the user-context and conversation-assurance reads.
+- A capability derived from the composition that serves the routes can't advertise an operation
+  that the Operator doesn't serve.
+
+An unreachable store, a missing grant, a malformed record, a record outside the principal scope,
+or more than 200 definitions or bindings returns HTTP `503` with an explicit reason. An empty store
+returns an explicitly sourced empty catalog. Local and deployed composition use the same reader,
+and local preparation and deployment apply the same Operator service migrations. No runtime
+writer populates these tables yet: the definition and binding routes queue inert shadow proposals
+that nothing consumes, and built-in definitions aren't seeded. Until
+[#1655](https://github.com/dotnetpower/fdai/issues/1655) lands that writer, the catalog lists only
+records already in the store, and a database created since the service split has none.
 
 ## Local authentication
 

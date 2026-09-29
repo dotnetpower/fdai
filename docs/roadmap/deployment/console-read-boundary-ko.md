@@ -1,8 +1,8 @@
 ---
 title: Console 읽기 경계
 translation_of: console-read-boundary.md
-translation_source_sha: 75f45265944f2744bcf5ba27d49ef3266f69d697
-translation_revised: 2026-09-21
+translation_source_sha: 209c1392d7ac009d4c6adc4c64e15dac93acd303
+translation_revised: 2026-09-29
 ---
 # Console 읽기 경계
 
@@ -25,11 +25,15 @@ translation_revised: 2026-09-21
 | 계정 신원 및 동일 테넌트 계정 선택 | 구현됨 | `console/src/components/account-menu.tsx`; `console/src/auth.ts`; 집중 콘솔 계정 테스트(`11 passed`), typecheck 및 프로덕션 빌드 | 헤더 패널은 권한을 추가하지 않고 MSAL 신원과 서버가 검증한 역할을 표시합니다. 대화형 세션은 로그인 힌트 없이 Entra 계정 선택기를 열고 기존 시작 권한 확인 경계로 다시 진입할 수 있습니다. |
 | 로컬 운영자 신원 선택 | implemented | `config.ts`; `environment.py`; `prepare-operator-service-env.sh`; 집중 Console, Operator, 준비 및 HIL 경로 테스트 | 표준 준비는 비공개 Console 환경에 오래된 Azure CLI 인증 요청이 남아 있어도 Browser Entra를 선택합니다. 역할 상한이 고정된 Azure CLI principal을 사용하려면 준비 명령에 `--auth-mode azure-cli`를 명시하고 브라우저 및 API 확인 값을 함께 설정해야 합니다. HIL 경로는 검증된 `Approver` 또는 `Owner` 역할에만 전체 상세를 반환합니다. |
 | 기록된 Resource 상태 출처 | implemented | `test_operator_service_composition.py::test_recorded_state_route_and_source_are_common_to_both_venues`; [기록된 상태 근거](../../roadmap-implementation/interfaces/recorded-resource-state.md) | 목록, 탐색 및 일괄 상태 조회 경로는 두 실행 환경에서 같은 인벤토리 계열 저장소를 사용합니다. 출처를 구성했다고 해서 기록된 사실의 최신성이 입증되지는 않습니다. |
+| 워크플로 정의 카탈로그 읽기 | implemented | `postgres_workflow_definitions.py`; `family_adapters.py`; `operator_workflow_definition_read_20260929`; `test_workflow_definition_catalog.py`; `test_workflow_definition_catalog_postgres.py` | 두 실행 환경 모두 SELECT 전용 권한으로 Operator가 소유한 테이블을 직접 읽고, 인증된 principal 범위로 제한하며 실패 시 닫히는 재확인을 수행합니다. 아직 테이블을 채우는 writer가 없으며([#1655](https://github.com/dotnetpower/fdai/issues/1655)) 인증된 브라우저 전수 검사 증적도 보존되지 않았습니다. |
+| Python 작업 기능 보고 | implemented | `python_task_capability.py`; `test_python_task_capability.py`; Console `python-task.test.ts` 및 `workflow-builder.test.ts` | Operator는 Python 작업 담당 구성 요소나 VM 작업 실행기를 연결하지 않으므로 명시적인 사용 불가 상태를 보고합니다. 통제된 담당 구성 요소 연결은 남은 작업입니다. |
 
 ### 구현 이력
 
 | 날짜 | 상태 | 변경 | 근거 | 잔여 작업 |
 |------|------|------|------|-----------|
+| 2026-09-29 | implemented | 영속 정의·바인딩 writer의 추적 이슈를 중복으로 닫은 [#1664](https://github.com/dotnetpower/fdai/issues/1664)에서 [#1655](https://github.com/dotnetpower/fdai/issues/1655)로 옮겼습니다. 읽기 경계 범위는 그대로입니다. | #1655의 이슈 범위 갱신; `current change`. | #1655에서 writer를 연결합니다. |
+| 2026-09-29 | implemented | HTTP `503`을 반환하던, 생산자가 없는 워크플로 빌더 읽기 두 개를 교체했습니다([#1655](https://github.com/dotnetpower/fdai/issues/1655)). 이제 `workflow-definition.list`는 새 SELECT 전용 권한으로 Operator가 소유한 정의 및 바인딩 테이블을 직접 읽고, 인증된 principal 범위로 제한하며 실패 시 닫히는 재확인을 수행합니다. `python-task.capabilities`는 조립 구성의 명시적인 사용 불가 보고를 반환하며, Console은 보고된 상태를 설명합니다. | `current change`; `postgres_workflow_definitions.py`, `python_task_capability.py`, `family_adapters.py`, `20260929_operator_workflow_definition_read.py` 및 Console `python-task.ts`와 `workflow-builder*`; 집중 Operator 테스트 40개, 모든 마이그레이션을 적용한 루프백 데이터베이스에서의 실제 PostgreSQL 권한 및 격리 테스트, principal 범위 변이 7개 제거. 운영 조립을 통한 경로 전수 검사는 두 경로 모두 `200`을 반환했고 principal별 Mine과 바인딩을 분리했으며, 토큰 없는 요청에는 `401`을 반환했습니다. | 표준 로컬 스택에서 인증된 브라우저 `/workflow-builder` 전수 검사를 보존합니다. [#1664](https://github.com/dotnetpower/fdai/issues/1664)에서 추적하는 writer와 통제된 Python 작업 담당 구성 요소를 연결합니다. |
 | 2026-09-21 | implemented | 보수적인 가용성 의미와 파사드 가져오기를 보존하면서 전체 읽기 출처 선언 레지스트리와 경로 계열 조립을 목적별 Operator 조립 모듈 뒤로 옮겼습니다. | `current change`, 집중 데이터 출처 테스트 10개와 전체 조립 테스트 120개 통과 및 선택적 PDF 테스트 1개 건너뜀, Ruff, strict mypy 및 Operator 경계 검사 통과. | 이 내부 소유권 분리에 남은 읽기 출처 또는 권한 작업은 없습니다. |
 | 2026-09-14 | implemented | Browser Entra 온톨로지 보증 스택이 Operator 및 Console 프로세스를 시작하기 전에 API와 Vite 플래그 쌍을 모두 해제하여 주변 CLI 인증 준비와 격리되도록 했습니다. | `current change`; `run_ontology_assurance.py`; 집중 보증 프로세스 사양 회귀 테스트. | 독립 통합 비평을 반복합니다. |
 | 2026-09-14 | implemented | 라이브 E2E 프런트엔드도 API 실행기와 동일하게 Vite CLI principal 값 두 개를 모두 해제하도록 하고, 제거된 기존 모듈 예시를 지원되는 실행기로 교체했습니다. | `current change`; `playwright.live.config.ts`; 집중 라이브 E2E 구성 테스트; 문서 검사. | 독립 통합 비평을 반복합니다. |
@@ -68,6 +72,11 @@ translation_revised: 2026-09-21
 - [ ] 프로비저닝 진행 상황과 라이브 온보딩 관찰 relay를 연결한 뒤, 관찰된 활동 없음과 relay 사용
   불가를 구분하는 인증된 브라우저 증적을 보존합니다.
 - [ ] 통제된 Python 작업 작성 프로바이더를 연결하고 실행 권한 없음 기능 증적을 보존합니다.
+- [ ] 표준 로컬 전체 스택에서 `/workflow-builder`를 인증된 Browser Entra로 전수 검사하고
+  `/workflows/definitions`와 `/python-tasks/capabilities`가 HTTP `200`을 반환한 기록을 보존합니다.
+- [ ] [#1655](https://github.com/dotnetpower/fdai/issues/1655)에서 추적하는 정의 및 바인딩 writer를
+  연결한 뒤, 저장한 비공개 초안이 소유자의 Mine에만 표시되고 다른 principal의 그룹에는 표시되지
+  않음을 보여 줍니다.
 - [ ] 구성된 출처를 최신 관측으로 취급하지 않으면서 기록 상태 출처 선언과 사실별 근거 누락을
   보여 주는 인증된 브라우저 증적을 보존합니다.
 
@@ -108,6 +117,51 @@ unavailable 화면은 선언된 사유 또는 자체 카탈로그 문구를 보�
 구성하지 않으면 명시적으로 사용 불가 상태가 됩니다. 권위 있는 출처를 구성했다는 선언은
 레코드의 출처를 나타낼 뿐, 각 기록이 최신임을 의미하지 않습니다. Dashboard v2와 온톨로지
 인스턴스 화면은 [기록 상태 계약](../interfaces/recorded-resource-state-ko.md)을 통해 이 구분을 유지합니다.
+
+## 워크플로 정의 및 Python 작업 기능
+
+워크플로 빌더는 Operator 서비스가 구체화된 `state_kv` 변환 결과 대신 자체 상태에서 응답하는
+두 가지 출처를 읽습니다.
+
+| 경로 | 작업 | 출처 |
+|------|------|------|
+| `GET /workflows/definitions` | `workflow-definition.list` | Operator가 소유한 `workflow_definition` 및 `workflow_binding` 테이블을 직접 읽음 |
+| `GET /python-tasks/capabilities` | `python-task.capabilities` | Operator 조립 구성이 연결한 Python 작업 담당 구성 요소 보고 |
+
+정의 카탈로그는 다음 범위 규칙을 따릅니다.
+
+- `global` 정의는 인증된 모든 principal에게, `private` 정의는 소유자에게만 표시됩니다. 팀 구성원
+  출처가 연결되기 전까지 `team` 가시성은 제외됩니다.
+- 업스트림 정의는 **Built-in**, 호출자 자신의 정의는 **Mine**, 그 밖에 표시되는 정의는
+  **Shared**로 묶입니다. Shared 항목은 소유자 참조를 공개하지 않습니다.
+- 바인딩은 호출자 자신의 자동화 설정으로 제한됩니다.
+- Operator 역할은 `operator_workflow_definition_read_20260929` 서비스 마이그레이션을 통해 SELECT
+  전용 권한을 받습니다. 읽기 모듈은 각 쿼리 뒤에 가시성과 소유권 검사를 다시 수행하므로, 조건절
+  회귀가 생겨도 다른 principal의 레코드를 공개하지 않고 읽기가 실패합니다.
+
+기능 보고는 `available: false`, `unavailable_reasons` 및 모든 작업의 비활성화 상태를 HTTP `200`으로
+반환합니다. 독립 Operator는 Python 작업 검증기, VM 작업 실행기, 아티팩트 저장소, 작성기, 실행
+제출기 또는 일정 저장소를 연결하지 않습니다. Operator는 VM Run Command 신원을 보유하지 않으며,
+Core의 `FDAI_VM_TASK_ENABLED` 실행기 연결이 있어도 이 작성 작업은 사용할 수 없습니다.
+Console은 Python 작업 작성 컨트롤을 숨기고 보고된 사유를 상태 메시지로 알립니다.
+
+변환 결과 생산자 대신 직접 읽기를 선택한 이유는 두 가지입니다.
+
+- 정의와 바인딩은 리포지토리 카탈로그가 아니라 principal이 소유한 영속 레코드입니다. 공유 변환
+  결과는 principal별 키 공간, 모든 쓰기에 대한 새로 고침 및 별도의 격리 증명이 필요합니다. 요청
+  시점의 읽기는 사용자 컨텍스트 및 대화 보증 읽기처럼 인증된 principal과 현재 저장소 상태에
+  결속됩니다.
+- 경로를 제공하는 조립 구성에서 도출한 기능 보고는 Operator가 제공하지 않는 작업을 광고할 수
+  없습니다.
+
+저장소에 연결할 수 없거나, 권한이 없거나, 레코드가 잘못되었거나, principal 범위 밖의 레코드가
+있거나, 정의 또는 바인딩이 200개를 넘으면 명시적인 사유와 함께 HTTP `503`을 반환합니다. 저장소가
+비어 있으면 출처가 명시된 빈 카탈로그를 반환합니다. 로컬 및 배포 조립은 같은 읽기 모듈을
+사용하며, 로컬 준비와 배포는 같은 Operator 서비스 마이그레이션을 적용합니다. 아직 이 테이블을
+채우는 런타임 writer는 없습니다. 정의 및 바인딩 경로는 아무도 소비하지 않는 비활성 shadow
+제안을 대기열에 넣고, 기본 제공 정의는 시드되지 않습니다.
+[#1655](https://github.com/dotnetpower/fdai/issues/1655)가 writer를 연결하기 전까지 카탈로그는 저장소에
+이미 있는 레코드만 나열하며, 서비스 분리 이후 생성된 데이터베이스에는 그런 레코드가 없습니다.
 
 ## 로컬 인증
 

@@ -26,7 +26,7 @@ afterEach(() => {
 
 describe("Python task authoring client", () => {
   it("decodes the server operation capability manifest", () => {
-    expect(decodePythonTaskAvailability({
+    const decoded = decodePythonTaskAvailability({
       available: true,
       operations: {
         generate: false,
@@ -36,10 +36,48 @@ describe("Python task authoring client", () => {
         request_run: false,
         schedule: true,
       },
-    }).operations.generate).toBe(false);
+    });
+    expect(decoded.available && decoded.operations.generate).toBe(false);
+    expect(decoded.available && decoded.operations.validate).toBe(true);
     expect(() => decodePythonTaskAvailability({ available: true, operations: {} })).toThrow(
       "invalid response",
     );
+  });
+
+  it("decodes an explicit server-reported unavailable state", () => {
+    const disabled = {
+      generate: false,
+      validate: false,
+      stage: false,
+      test: false,
+      request_run: false,
+      schedule: false,
+    };
+    expect(decodePythonTaskAvailability({
+      schema_version: "1.0.0",
+      available: false,
+      unavailable_reasons: ["python_task_validator_not_bound", "python_task_vm_runner_not_bound"],
+      operations: disabled,
+      vm_task_runner: { bound: false },
+      execution_authority: false,
+    })).toEqual({
+      available: false,
+      reasons: ["python_task_validator_not_bound", "python_task_vm_runner_not_bound"],
+    });
+    for (const invalid of [
+      { available: false, unavailable_reasons: [], operations: disabled },
+      { available: false, operations: disabled },
+      { available: false, unavailable_reasons: [""], operations: disabled },
+      { available: false, unavailable_reasons: [7], operations: disabled },
+      {
+        available: false,
+        unavailable_reasons: ["python_task_vm_runner_not_bound"],
+        operations: { ...disabled, validate: true },
+      },
+      { available: "false", unavailable_reasons: ["x"], operations: disabled },
+    ]) {
+      expect(() => decodePythonTaskAvailability(invalid)).toThrow("invalid response");
+    }
   });
 
   it("binds a staged artifact to every execution-relevant draft field", () => {

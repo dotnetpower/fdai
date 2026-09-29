@@ -48,9 +48,15 @@ from fdai_operator_service.postgres_family_store import (
     PostgresProposalConflict,
 )
 from fdai_operator_service.postgres_semantic_turn_store import rule_search_projection_key
+from fdai_operator_service.postgres_workflow_definitions import PostgresWorkflowDefinitionCatalog
 from fdai_operator_service.process_transition_projection import (
     ProcessControlUnavailableError,
     ProcessTransitionDeniedError,
+)
+from fdai_operator_service.python_task_capability import (
+    UNBOUND_PYTHON_TASKS,
+    PythonTaskBindings,
+    python_task_capability_result,
 )
 from fdai_operator_service.rule_activation_notice import rule_activation_proposal_revision
 from fdai_operator_service.workflow_catalog_projection import (
@@ -71,6 +77,7 @@ class PostgresWorkflowAdapters:
     """Read workflow projections and durably queue shadow-only workflow proposals."""
 
     store: PostgresFamilyStore
+    python_tasks: PythonTaskBindings = UNBOUND_PYTHON_TASKS
 
     async def read(self, request: WorkflowReadRequest) -> WorkflowReadResult:
         """Read a revisioned authoritative workflow projection."""
@@ -78,6 +85,13 @@ class PostgresWorkflowAdapters:
         try:
             if request.operation is WorkflowOperation.CONTEXT_SELECTION_COMPARISON_LIST:
                 return await self._read_context_selection_comparisons(request)
+            if request.operation is WorkflowOperation.WORKFLOW_DEFINITION_LIST:
+                # Principal-scoped durable records are read directly, never materialized.
+                return await PostgresWorkflowDefinitionCatalog(self.store._fetch_all).read(
+                    request.principal_id
+                )
+            if request.operation is WorkflowOperation.PYTHON_CAPABILITIES:
+                return python_task_capability_result(self.python_tasks)
             if request.operation is WorkflowOperation.RULE_SEARCH:
                 query_digest = rule_search_query_digest(request.body)
                 stored = await self.store.read_rule_search_projection(

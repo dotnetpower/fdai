@@ -494,6 +494,11 @@ The checksum-pinned repository generator derives it from the same N/N-1 JSON Sch
 The Operator service still validates wire payloads against the canonical schema, and Console receives no deployment, approval, mutation, or execution authority.
 The Audit workspace requests the additive `summary=true` envelope. A current Operator returns retained-query counts, record context, and integrity observations, while an older Operator keeps the page-only envelope that Console treats as unavailable summary evidence.
 Incident, Agent Activity, and Trace reads omit the flag and retain their bounded page cost.
+The Workflow builder reads its definition catalog directly from the Operator-owned definition store
+and scopes every row to the authenticated principal. Its Python task capability comes from the
+Operator composition, which reports an explicit unavailable state while no Python task owner is
+bound. [Console Read Boundary](../deployment/console-read-boundary.md#workflow-definitions-and-python-task-capability)
+owns both source decisions.
 
 Split into focused owner documents:
 

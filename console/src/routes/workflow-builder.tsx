@@ -30,7 +30,7 @@ import type {
 } from "../workflow/validate";
 import {
   decodePythonTaskAvailability,
-  type PythonTaskAvailability,
+  type PythonTaskCapabilityReport,
 } from "../workflow/python-task";
 import type { CombinedData } from "./workflow-builder.model";
 import { BuiltInList } from "./workflow-builder.catalog";
@@ -75,7 +75,7 @@ export async function loadWorkflowDefinitions(
 
 export async function loadPythonTaskAvailability(
   client: Pick<OperatorApiClient, "panel">,
-): Promise<PythonTaskAvailability | null> {
+): Promise<PythonTaskCapabilityReport | null> {
   try {
     const payload = await client.panel<unknown>("/python-tasks/capabilities");
     return decodePythonTaskAvailability(payload);
@@ -255,7 +255,7 @@ function WorkflowShell({
     );
   }
   if (mode === "python") {
-    return data.pythonTasks
+    return data.pythonTasks !== null && data.pythonTasks.available
       ? <PythonTaskWorkbench availability={data.pythonTasks} onBack={() => setMode("list")} />
       : null;
   }
