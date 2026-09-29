@@ -1,7 +1,7 @@
 ---
 translation_of: continuous-question-space.md
-translation_source_sha: 17fae3dbdf10953237939dc1d00bf10851fa9d3c
-translation_revised: 2026-09-29
+translation_source_sha: 3bbccd2acfc72646c034a0068d3ad66ce8339a7a
+translation_revised: 2026-09-30
 ---
 # 지속형 질문 공간
 
@@ -183,6 +183,7 @@ query 함수 12/36입니다. 검토된 대응표가 없으므로 Pantheon-to-sem
 ### 구현 이력
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-30 | implemented | `case-history-read` 연결로 고정된 `core/ontology_platform` 소스 다이제스트가 바뀌어 이에 의존하는 의미 의도 범위 산출물을 다시 생성했습니다. `FunctionInvocationContext`에 Operator 요청 참조가 추가되었고 Pattern 읽기 로케이터가 이를 바인딩합니다. 모든 질문 신원, 준비 상태, 지표 정의, 분모, 범위 수치, 권한은 그대로입니다. | `current change`; 공식 `build_semantic_intent_coverage.py` 실행. | 사례별 의미 검토와 런타임 검증을 계속합니다. 이 다이제스트 갱신은 답변 가능 상태나 운영 준비 근거를 추가하지 않습니다. |
 | 2026-09-29 | implemented | 테스트 맥락 검토 및 수동 조회 Console 레이블로 연결된 영어와 한국어 카탈로그 다이제스트가 바뀌어 질문 400개의 질문은행과 이에 의존하는 의미 의도 범위 산출물을 다시 생성했습니다. 모든 질문 신원, 준비 상태, 지표 정의, 분모, 범위 수치, 권한은 그대로입니다. | `current change`; 공식 `build_question_bank.py` 실행 후 `build_semantic_intent_coverage.py` 실행. | 사례별 의미 검토와 런타임 검증을 계속합니다. 이 다이제스트 갱신은 답변 가능 상태나 운영 준비 근거를 추가하지 않습니다. |
 | 2026-09-29 | implemented | 테스트 맥락 수명 주기 Console 레이블로 연결된 영어와 한국어 카탈로그 다이제스트가 바뀌어 질문 400개의 질문은행과 이에 의존하는 의미 의도 범위 산출물을 다시 생성했습니다. 모든 질문 신원, 준비 상태, 지표 정의, 분모, 범위 수치, 권한은 그대로입니다. | `current change`; 공식 `build_question_bank.py` 실행 후 `build_semantic_intent_coverage.py` 실행. | 사례별 의미 검토와 런타임 검증을 계속합니다. 이 다이제스트 갱신은 답변 가능 상태나 운영 준비 근거를 추가하지 않습니다. |
 | 2026-09-29 | implemented | 관측 출처 Console 레이블로 연결된 영어와 한국어 카탈로그 다이제스트가 바뀌어 질문 400개의 질문은행과 이에 의존하는 의미 의도 범위 산출물을 다시 생성했습니다. 모든 질문 신원, 준비 상태, 지표 정의, 분모, 범위 수치, 권한은 그대로입니다. | `current change`; 공식 `build_question_bank.py` 실행 후 `build_semantic_intent_coverage.py` 실행, `tests/integration/evaluation` 38개 통과. | 사례별 의미 검토와 런타임 검증을 계속합니다. 이 다이제스트 갱신은 답변 가능 상태나 운영 준비 근거를 추가하지 않습니다. |

@@ -191,3 +191,27 @@ def test_deployed_attachment_origin_refuses_loopback_http() -> None:
     values["FDAI_EXECUTION_VENUE"] = "deployed"
     with pytest.raises(ChannelEdgeConfigurationError, match="fixed HTTPS origin"):
         ChannelEdgeEnvironment.parse(values)
+
+
+@pytest.mark.parametrize(
+    ("raw", "expected"),
+    [(None, False), ("0", False), ("false", False), ("1", True), ("true", True), ("on", True)],
+)
+def test_semantic_receipt_reference_setting_matches_the_operator_parser(
+    raw: str | None, expected: bool
+) -> None:
+    values = _environment()
+    if raw is not None:
+        values["FDAI_SEMANTIC_AUTHENTICATION_RECEIPT_REF_ENABLED"] = raw
+
+    environment = ChannelEdgeEnvironment.parse(values)
+
+    assert environment.semantic_authentication_receipt_ref_enabled is expected
+
+
+def test_semantic_receipt_reference_setting_rejects_an_unknown_value() -> None:
+    values = _environment()
+    values["FDAI_SEMANTIC_AUTHENTICATION_RECEIPT_REF_ENABLED"] = "maybe"
+
+    with pytest.raises(ChannelEdgeConfigurationError, match="MUST be a boolean"):
+        ChannelEdgeEnvironment.parse(values)

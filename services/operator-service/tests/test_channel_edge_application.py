@@ -19,6 +19,10 @@ from fdai_operator_service.families.conversation.channel_edge.environment import
 from fdai_operator_service.families.conversation.channel_edge.slack_ingress import (
     SlackIngressAction,
 )
+from fdai_operator_service.families.conversation.semantic_authentication_receipts import (
+    AuthenticationReceiptRetainingOutbox,
+)
+from fdai_operator_service.families.conversation.semantic_turn_runtime import SemanticTurnBridge
 
 
 class _Runtime:
@@ -160,3 +164,26 @@ async def test_production_composition_binds_complete_local_attachment_ingestor(
         getattr(check, "__name__", "") == "probe_readiness" for check in runtime._readiness_checks
     )
     await runtime.aclose()
+
+
+@pytest.mark.parametrize("enabled", [False, True])
+async def test_production_composition_retains_receipts_only_when_the_reference_is_enabled(
+    enabled: bool,
+) -> None:
+    environment = _environment()
+    environment["FDAI_SEMANTIC_AUTHENTICATION_RECEIPT_REF_ENABLED"] = "true" if enabled else "false"
+
+    runtime = ProductionChannelEdgeComposition().build_runtime(environment)
+    outbox = runtime._pipeline._semantic_outbox
+
+    try:
+        if enabled:
+            assert isinstance(outbox, AuthenticationReceiptRetainingOutbox)
+            assert isinstance(outbox.delegate, SemanticTurnBridge)
+            assert outbox.builder is outbox.delegate._builder
+            assert outbox.builder._emit_authentication_receipt_ref is True
+        else:
+            assert isinstance(outbox, SemanticTurnBridge)
+            assert outbox._builder._emit_authentication_receipt_ref is False
+    finally:
+        await runtime.aclose()

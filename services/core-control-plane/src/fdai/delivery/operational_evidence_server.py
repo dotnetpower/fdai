@@ -52,6 +52,7 @@ from fdai.core.operational_evidence.own_role_readback import (
     VerifierOwnRoleReadbackError,
     evaluate_verifier_own_roles,
 )
+from fdai.core.operational_evidence.readback.case_history_read import CaseHistoryReadback
 from fdai.core.operational_evidence.readback.test_context_command import (
     OperatorTestContextCommandReadback,
 )
@@ -332,6 +333,7 @@ def build_verifier_workload(
         history=lambda: history,
         anchors=anchors,
         readbacks=(
+            CaseHistoryReadback(receipts=semantic_receipts),
             OperatorTestContextCommandReadback(commands=sources),
             ContextTransitionReadback(commands=sources, history=sources, audit=sources),
             OperationalTestContextReadback(commands=sources, history=sources, audit=sources),

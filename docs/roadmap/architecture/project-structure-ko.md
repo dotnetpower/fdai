@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 45060c9faa73a875e33c9444a2a60fe17a879c57
+translation_source_sha: fa389c53834db9854d53196072a8ad0aa1fabf8b
 translation_revised: 2026-09-30
 ---
 # 프로젝트 구조
@@ -29,7 +29,7 @@ Operator 운영 조립 파사드는 런타임 배선을 유지합니다. 목적�
 이 분리는 서비스, 신원, 데이터 소유자, wire 계약 또는 권한을 바꾸지 않습니다. 범위가 제한된 의미 후보 선택은 크기가 큰 서술자 축을 생략하고 기능 byte 한도에 맞는 순위 접두사를 보존하며 요청을 실패시키지 않습니다.
 Core package는 배포된 `fdai-operational-catalog-review` entry point를 소유합니다. 기존 durable Pantheon, Saga audit 및 GitHub App delivery adapter를 Core runtime 경계 안에서 조립하며 새 service, executor identity, catalog 활성화, merge 또는 관리 리소스 권한을 추가하지 않습니다. Core package는 `fdai.delivery.automation_blueprint_tick_cli` binding도 소유하며, PostgreSQL blueprint evidence, candidate, proposal, audit 및 scheduler store를 아직 배포가 예약하지 않은 하나의 inert 일회성 tick으로 조립하되 Operator route나 tick에 관리 리소스 executor identity를 부여하지 않습니다.
 Core는 활성 Rule 세대 교체를 쓰기 전용 장벽 뒤에 두고, 완결된 결정은 동시 읽기 임대를 공유합니다. 따라서 결정 하나는 세대 하나만 사용하면서 서로 다른 리소스의 처리를 직렬화하지 않습니다. 목적별 모듈은 이 장벽, 의미 사전 판정, 이벤트 버스 payload 코덱, 조립된 런타임 모델, 사람 승인 레지스트리 연결 및 카탈로그 로더를 소유하며 공개 파사드는 기존 가져오기와 권한 경계를 보존합니다. `runtime/control_loop.py` 파사드는 초기화와 집중 테스트를 위해 기존 카탈로그 로더 이름을 명시적으로 다시 내보냅니다. Core wheel 인벤토리와 서비스 테스트 묶음 매니페스트는 새 런타임 모듈 및 Rule 활성화 테스트마다 하나의 소유 배포판을 지정하며 5개 서비스 경계나 System Knowledge 후보를 변경하지 않습니다. 목적별 `runtime/causal_bindings.py` 소유자는 배포의 범위가 제한된 시계열에 런타임 온톨로지 저장소 위의 Forseti `CausalHypothesis` 투영과 Thor ActionRun 영수증용 `delivery/persistence/state_store_causal_receipts.py` 확인기를 연결하며, 인과 개정은 근거로만 남습니다.
-Operator의 삽입 전용 인증 영수증 테이블은 Operator 역할만 쓰며, 검증기 역할에 권한을 준 Core 소유 고정 매개변수 출처 함수로만 읽습니다. 따라서 Core 롤백은 역할보다 이 함수를 먼저 삭제하며, 어떤 Operator 객체도 검증기 역할에 의존하지 않습니다. 계약 호환성 매니페스트는 `operator-core-request` 1.9.0을 협상하며, Operator는 기본값이 꺼진 설정 뒤에서만 이를 보냅니다.
+Operator의 삽입 전용 인증 영수증 테이블은 Operator 역할만 쓰며, 검증기 역할에 권한을 준 Core 소유 고정 매개변수 출처 함수로만 읽습니다. 따라서 Core 롤백은 역할보다 이 함수를 먼저 삭제하며, 어떤 Operator 객체도 검증기 역할에 의존하지 않습니다. 계약 호환성 매니페스트는 `operator-core-request` 1.9.0을 협상하며, Operator는 기본값이 꺼진 설정 뒤에서만 이를 보냅니다. 이 설정을 켜면 Operator API와 채널 edge는 의미 outbox를 `families/conversation/semantic_authentication_receipts.py`로 감싸고, 참조를 게시하기 전에 요청마다 영수증 다이제스트와 요청 id를 키로 영수증을 보존합니다.
 공유 Operator 계열 어댑터 파사드는 이제 workflow 영속 처리와 호환 내보내기를 유지합니다.
 대화 영속 처리, 운영 변환 결과와 webhook 처리 및 순수 workflow 카탈로그 렌더링은 각각 목적별
 소유자를 가집니다. 이 분리는 principal 범위, 영속 제안 멱등성, 사용 불가 동작 및 실행기 없음

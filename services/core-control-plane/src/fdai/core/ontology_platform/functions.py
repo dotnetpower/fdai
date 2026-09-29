@@ -47,6 +47,7 @@ class FunctionInvocationContext(ContractBase):
     authentication_receipt_ref: Annotated[str, Field(pattern=r"^sha256:[a-f0-9]{64}$")] | None = (
         None
     )
+    authentication_request_ref: Annotated[str, Field(min_length=1, max_length=256)] | None = None
     document_refs: tuple[
         Annotated[
             str,

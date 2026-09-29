@@ -458,7 +458,7 @@ keeps at most eight activities within 60 KiB and counts the rest in `omitted.act
 
 ### 13.12 Semantic turn authentication receipt reference
 
-The Operator emits the optional content-free `authentication_receipt_ref` in `operator-core-request` 1.9.0 only when `FDAI_SEMANTIC_AUTHENTICATION_RECEIPT_REF_ENABLED` is on. The setting defaults off, and with it off every envelope keeps its earlier version and bytes. Enable it only after a Core that accepts 1.9.0 is deployed. The reference grants no authority, and `case-history-read` stays unbound until the verifier binds a concrete receipt source.
+The Operator emits the optional content-free `authentication_receipt_ref` in `operator-core-request` 1.9.0 only when `FDAI_SEMANTIC_AUTHENTICATION_RECEIPT_REF_ENABLED` is on. The setting defaults off, and with it off every envelope keeps its earlier version and bytes. Enable it only after a Core that accepts 1.9.0 is deployed. The reference grants no authority by itself. With the setting on, the Operator API and the channel edge retain the content-free receipt for each semantic request before they send the reference, and the verifier checks `case-history-read` against the receipt retained for that exact request. With it off, Pattern reads still fail closed.
 
 ## Implementation status
 

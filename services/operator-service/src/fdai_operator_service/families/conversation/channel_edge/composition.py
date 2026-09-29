@@ -86,6 +86,11 @@ from fdai_operator_service.families.conversation.postgres_channel_delivery impor
     PostgresChannelDeliveryConfig,
     PostgresChannelDeliveryStore,
 )
+from fdai_operator_service.families.conversation.semantic_authentication_receipts import (
+    AuthenticationReceiptRetainingOutbox,
+    PostgresAuthenticationReceiptWriter,
+)
+from fdai_operator_service.families.conversation.semantic_turn import SemanticTurnEnvelopeBuilder
 from fdai_operator_service.families.conversation.semantic_turn_runtime import SemanticTurnBridge
 from fdai_operator_service.postgres_family_store import (
     PostgresFamilyStore,
@@ -150,6 +155,9 @@ class ProductionChannelEdgeComposition:
             ),
             credential=semantic_credential,
         )
+        semantic_builder = SemanticTurnEnvelopeBuilder(
+            emit_authentication_receipt_ref=environment.semantic_authentication_receipt_ref_enabled
+        )
         semantic_bridge = SemanticTurnBridge(
             store=family_store,
             publisher=semantic_bus,
@@ -157,6 +165,16 @@ class ProductionChannelEdgeComposition:
             request_topic=environment.semantic_request_topic,
             result_topic=environment.semantic_projection_topic,
             result_group=environment.semantic_consumer_group,
+            builder=semantic_builder,
+        )
+        semantic_outbox = (
+            AuthenticationReceiptRetainingOutbox(
+                delegate=semantic_bridge,
+                builder=semantic_builder,
+                writer=PostgresAuthenticationReceiptWriter(dsn=environment.database_url),
+            )
+            if environment.semantic_authentication_receipt_ref_enabled
+            else semantic_bridge
         )
         publishers: dict[ChannelKind, ChannelPublisher] = {}
         resources: list[AsyncResource] = [provider_http]
@@ -277,7 +295,7 @@ class ProductionChannelEdgeComposition:
             principals=StaticChannelPrincipalResolver(environment.principal_scopes),
             bindings=bindings,
             deliveries=deliveries,
-            semantic_outbox=semantic_bridge,
+            semantic_outbox=semantic_outbox,
             semantic_streams=semantic_bridge,
             publishers=publishers,
             attachment_ingestor=attachment_ingestor,

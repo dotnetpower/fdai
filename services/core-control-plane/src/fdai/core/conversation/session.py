@@ -73,6 +73,7 @@ class Principal:
     display_name: str = ""
     groups: frozenset[str] = frozenset()
     authentication_receipt_ref: str | None = None
+    authentication_request_ref: str | None = None
 
     def __post_init__(self) -> None:
         if not self.id:
@@ -86,6 +87,11 @@ class Principal:
             or len(self.authentication_receipt_ref) != 71
         ):
             raise ValueError("Principal.authentication_receipt_ref MUST be a sha256 digest")
+        if self.authentication_request_ref is not None and (
+            not self.authentication_request_ref.strip()
+            or len(self.authentication_request_ref) > 256
+        ):
+            raise ValueError("Principal.authentication_request_ref MUST be bounded")
 
 
 TurnDirection = Literal["inbound", "outbound", "tool_call", "tool_result", "system"]

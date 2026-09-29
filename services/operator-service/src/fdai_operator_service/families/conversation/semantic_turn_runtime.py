@@ -1271,6 +1271,7 @@ class SemanticTurnConversationAdapters:
     fallback_projections: ConversationProjectionReader
     fallback_outbox: ConversationProposalOutbox
     fallback_streams: ConversationStreamReader
+    semantic_outbox: ConversationProposalOutbox | None = None
     document_exporter: ConversationDocumentExporter | None = None
     t1_model_health_reader: T1ModelHealthReader | None = None
 
@@ -1305,7 +1306,7 @@ class SemanticTurnConversationAdapters:
     async def append(self, proposal: ConversationProposal) -> OutboxReceipt:
         """Select semantic acceptance only for chat.stream proposals."""
         if proposal.operation == "chat.stream":
-            return await self.bridge.append(proposal)
+            return await (self.semantic_outbox or self.bridge).append(proposal)
         return await self.fallback_outbox.append(proposal)
 
     async def open(self, request: ConversationStreamRequest) -> ConversationEventStream:

@@ -99,8 +99,9 @@ managed-resource route reaches this socket.
 The observer-proposal consumer is a normal application lifecycle worker, not a diagnostic channel.
 Its readiness joins the Operator worker checks; its GET projection neither reaches this socket nor authorizes a stack restart or live provider probe.
 
-Operator composition also reads the default-off semantic authentication receipt-reference setting. It changes
-no diagnostic socket, launcher, capture scope, or developer validation authority.
+Operator composition also reads the default-off semantic authentication receipt-reference setting and, when it
+is on, wraps the semantic outbox with per-request receipt retention. It changes no diagnostic socket, launcher,
+capture scope, or developer validation authority.
 
 The `status` and `capture` commands find each service's identity-bound socket by sending a bounded
 protocol request to the newest candidates and keeping the one whose live server names that service.
