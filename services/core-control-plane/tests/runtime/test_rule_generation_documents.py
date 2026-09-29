@@ -7,12 +7,15 @@ from collections.abc import Mapping
 from dataclasses import replace
 from datetime import UTC, datetime
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Any
 
 import fdai.runtime.rule_generation_documents as rule_generation_documents
 import pytest
 import yaml
 from fdai.agents import PantheonRuntime
+from fdai.composition import default_container
+from fdai.core.executor.port import MutationDependencyReadiness
 from fdai.delivery.catalog_search import InMemoryCatalogSemanticIndex
 from fdai.rule_catalog.schema.catalog_search import (
     catalog_search_schema_digest,
@@ -29,13 +32,18 @@ from fdai.rule_catalog.schema.rule_semantic_surface_catalog import (
     SemanticSurfaceCatalogError,
     SemanticSurfaceCatalogIssue,
 )
+from fdai.runtime import bootstrap_semantics
 from fdai.runtime.bootstrap_lifecycle import publish_rule_generation_reconciliation
+from fdai.runtime.control_loop import _build_control_loop
 from fdai.runtime.rule_generation_documents import (
     RuleGenerationDocumentsUnavailableError,
     build_rule_generation_document_resolver,
     build_rule_generation_reconciliation,
     get_or_create_rule_generation_request,
+    governed_catalog_release,
 )
+from fdai.shared.config import AppConfig
+from fdai.shared.contracts.models import OntologyDeclarationKind
 from fdai.shared.contracts.registry import PackageResourceSchemaRegistry
 from fdai.shared.providers.event_bus import PublishReceipt
 from fdai.shared.providers.testing.event_bus import InMemoryEventBus
@@ -264,3 +272,89 @@ def test_resolver_reports_invalid_surface_catalog_as_unavailable(
         )
 
     assert isinstance(raised.value.__cause__, SemanticSurfaceCatalogError)
+
+
+def test_runtime_rule_generation_binds_the_governed_catalog_release(
+    app_config: AppConfig,
+) -> None:
+    container = default_container(app_config)
+    loop = _build_control_loop(
+        container,
+        http_client=None,
+        mutation_dependency_readiness=MutationDependencyReadiness(
+            saga_audit_durable=True,
+            vidar_recovery_contracts=frozenset({"state_forward_only"}),
+        ),
+    )
+    ontology, _rules = _catalogs()
+    operational = loop.ontology_release
+    assert operational is not None
+    governed = governed_catalog_release(
+        CATALOG_ROOT,
+        schema_registry=container.schema_registry,
+        operational_release=operational,
+    )
+
+    # The release-derived pin generator pins the governed catalog release, while the
+    # operational release also declares source-derived FunctionTypes.
+    assert governed.digest == ontology.build_release().digest
+    assert operational.digest != governed.digest
+
+    def resolver(release: Any) -> Any:
+        return build_rule_generation_document_resolver(
+            catalog_root=CATALOG_ROOT,
+            rules=loop.rules,
+            action_types=loop.action_types,
+            ontology_release=release,
+            embedder=_Embedding(),
+        )
+
+    bound = resolver(governed)
+    assert bound.ontology_release_digest == governed.digest
+    assert {document.rule_id for document in bound.active_documents} == {
+        rule.id for rule in loop.rules
+    }
+    # Pinned surfaces never match manifests built against the operational release (#1656).
+    with pytest.raises(RuleGenerationDocumentsUnavailableError):
+        resolver(operational)
+
+
+def test_a_governed_release_that_differs_beyond_functions_is_rejected() -> None:
+    ontology, _rules = _catalogs()
+    governed = ontology.build_release()
+    declarations = governed.declarations
+    link = next(item for item in declarations if item.kind is OntologyDeclarationKind.LINK)
+    extra = link.model_copy(update={"name": f"{link.name}_extra"})
+
+    for changed in (declarations[1:], (*declarations, extra)):
+        with pytest.raises(
+            RuleGenerationDocumentsUnavailableError,
+            match="does not match the operational release",
+        ):
+            governed_catalog_release(
+                CATALOG_ROOT,
+                schema_registry=PackageResourceSchemaRegistry(),
+                operational_release=SimpleNamespace(declarations=changed),  # type: ignore[arg-type]
+            )
+
+
+def test_startup_leaves_rule_generation_unbound_when_the_governed_release_differs(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    ontology, _rules = _catalogs()
+    mismatched = SimpleNamespace(declarations=ontology.build_release().declarations[1:])
+    container = SimpleNamespace(schema_registry=PackageResourceSchemaRegistry())
+
+    with caplog.at_level("WARNING", logger="fdai.startup"):
+        release = bootstrap_semantics._governed_catalog_release(
+            CATALOG_ROOT,
+            container,  # type: ignore[arg-type]
+            SimpleNamespace(ontology_release=mismatched),  # type: ignore[arg-type]
+        )
+
+    assert release is None
+    assert [record.message for record in caplog.records] == [
+        "rule_generation_reconciliation_unavailable"
+    ]
+    source = Path(bootstrap_semantics.__file__).read_text(encoding="utf-8")
+    assert source.count("ontology_release=catalog_release,") == 2

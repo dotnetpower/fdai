@@ -93,15 +93,34 @@ from fdai.runtime.rule_generation_documents import (
     RuleGenerationDocumentsUnavailableError,
     RuleGenerationReconciliation,
     build_rule_generation_reconciliation,
+    governed_catalog_release,
 )
 from fdai.runtime.semantic_model_identity import SemanticModelIdentityReadiness
-from fdai.shared.contracts.models import OntologyDeclarationKind
+from fdai.shared.contracts.models import OntologyDeclarationKind, OntologyRelease
 from fdai.shared.providers.event_bus import EventBus
 from fdai.shared.providers.log_query import NoopLogQueryProvider
 from fdai.shared.providers.state_store import StateStore
 from fdai.shared.providers.workload_identity import WorkloadIdentity
 
 _LOGGER = logging.getLogger("fdai.startup")
+
+
+def _governed_catalog_release(
+    catalog_root: Path, container: Container, control_loop: ControlLoop
+) -> OntologyRelease | None:
+    """Return the governed catalog release, or None so Rule generation stays unbound."""
+
+    if control_loop.ontology_release is None:
+        return None
+    try:
+        return governed_catalog_release(
+            catalog_root,
+            schema_registry=container.schema_registry,
+            operational_release=control_loop.ontology_release,
+        )
+    except RuleGenerationDocumentsUnavailableError as exc:
+        _LOGGER.warning("rule_generation_reconciliation_unavailable", extra={"reason": str(exc)})
+        return None
 
 
 def _semantic_resource_freshness_seconds(environment: Mapping[str, str]) -> int:
@@ -186,11 +205,14 @@ async def build_semantic_runtime(
 
     catalog_root = _resolve_catalog_root()
     llm_bindings = container.require_llm_bindings()
+    # Rule semantic manifests, surfaces, and their search generation are reviewed catalog
+    # artifacts, so they bind the governed release rather than the operational one.
+    catalog_release = _governed_catalog_release(catalog_root, container, control_loop)
     catalog_binding = await build_catalog_semantic_runtime_binding(
         config=environment,
         embedder=llm_bindings.embedding_model,
         rules=control_loop.rules,
-        ontology_release=control_loop.ontology_release,
+        ontology_release=catalog_release,
     )
     query_catalog_index = catalog_binding.index if catalog_binding.available else None
     query_catalog_digest = catalog_binding.catalog_digest if catalog_binding.available else None
@@ -201,13 +223,13 @@ async def build_semantic_runtime(
         environment=environment,
     )
     reconciliation: RuleGenerationReconciliation | None = None
-    if catalog_binding.index is not None and control_loop.ontology_release is not None:
+    if catalog_binding.index is not None and catalog_release is not None:
         try:
             reconciliation = await build_rule_generation_reconciliation(
                 catalog_root=catalog_root,
                 rules=control_loop.rules,
                 action_types=control_loop.action_types,
-                ontology_release=control_loop.ontology_release,
+                ontology_release=catalog_release,
                 embedder=llm_bindings.embedding_model,
                 index=catalog_binding.index,
                 store=state_store,
