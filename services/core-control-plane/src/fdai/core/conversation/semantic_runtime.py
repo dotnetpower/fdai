@@ -44,7 +44,7 @@ from .adaptive_service import (
 )
 from .adaptive_wait import await_adaptive_call
 from .conversation_preflight import (
-    DIRECT_SOCIAL_ACTS,
+    VERIFIED_SOCIAL_ACTS,
     ContextDependency,
     ConversationPreflightResult,
     GeneralKnowledgeSignal,
@@ -390,7 +390,7 @@ class SemanticConversationRuntime:
                 proposal.operational_signal
                 in {OperationalSignal.EXPLICIT, OperationalSignal.CONTEXTUAL}
                 or (
-                    proposal.social_act in DIRECT_SOCIAL_ACTS
+                    proposal.social_act in VERIFIED_SOCIAL_ACTS
                     and proposal.operational_signal is OperationalSignal.NONE
                     and proposal.context_dependency
                     in {ContextDependency.NONE, ContextDependency.SOCIAL_CONTINUITY}

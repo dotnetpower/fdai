@@ -1,8 +1,8 @@
 ---
 title: 계층형 대화 계획
 translation_of: hierarchical-conversation-planning.md
-translation_source_sha: ff63ac9f7aa98ed08f9ad59edd848810ec587459
-translation_revised: 2026-09-29
+translation_source_sha: 195d8c1f5c5a8e0ce5d8c88e5184c60317ea014c
+translation_revised: 2026-09-30
 ---
 
 # 계층형 대화 계획
@@ -53,7 +53,9 @@ Compact T1 conversation preflight는 매니페스트 로드와 전체 의미 판
 자기소개를 높은 확신도로 판정하면 모델 작성 응답을 직접 반환할 수 있습니다.
 
 preflight는 첫 번째 턴에도 실행됩니다. 명시적이거나 맥락 의존적인 운영 신호는 Adaptive 설명
-플래너 비용을 먼저 지불하지 않고 검증된 의미 경로로 들어갑니다. 혼합 요청은 지식 목표와 운영 목표를
+플래너 비용을 먼저 지불하지 않고 검증된 의미 경로로 들어갑니다. preflight가 운영, 지식, 스레드, 사회적
+신호를 하나도 설정하지 않은 턴은 형식화된 요청이 없으므로 역시 검증된 경로로 들어가며, Adaptive
+플래너가 읽기 없이 답하지 않습니다. 혼합 요청은 지식 목표와 운영 목표를
 분리하기 위해 Adaptive 경로를 유지합니다. 정확한 Resource 현재 상태 요청을 포함한 검토된
 유형에서는 preflight가 원문에 결속된 대상과 범위가 제한된 facet을 제안할 수 있습니다. Core는 요청이 명시적이고 맥락과 독립적이며 확신도가
 0.75 이상일 때만 이 제안을 재사용합니다. 또한 현재 발화 및 제안 digest와 일치하고 유형별 형식이
@@ -192,6 +194,7 @@ Operator의 초기 레이블은 모든 턴에 조사 계획이 필요하다고 �
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-29 | implemented | 사전 판정이 운영, 지식, 스레드, 사회적 신호를 하나도 설정하지 않은 턴은 이제 검증된 경로로 들어갑니다. 긴 Console 대화에서 Key Vault 목록을 묻는 이런 턴이 Adaptive 플래너로 가서 읽기 없이 대화 내용만으로 답한 적이 있습니다. Adaptive 계획이 의미 경로로 되돌려 보낸 읽기는 의미 경로 자체의 단계 한도를 유지합니다. | `test_explicit_operational_preflight_bypasses_adaptive_planning`(명시적 신호와 신호 없음 사례), `test_a_read_handed_back_to_the_semantic_path_keeps_its_own_stage_bounds`, dev discuss 추적에서 추적한 사전 판정 129개 중 신호 없는 사전 판정 9개를 확인했습니다. | 나열된 남은 작업 외에는 없습니다. |
 | 2026-09-27 | validated | 커밋된 변경으로 전체 스택을 재시작한 뒤 인증된 로컬 Console 턴을 보존했습니다. 한국어와 영어 AKS 목록 질문은 재사용된 사전 판정 판단과 T1 호출 한 번으로 `kubernetes-cluster` Resource만 나열했고 원본 범위가 부분적이라는 한계를 밝혔습니다. 읽을 수 있는 ObjectType 목록은 행 개수 대신 표시 한도와 함께 선언 이름을 표시했고, 사전 판정 승격 거부 사유가 로컬 일반 로그에 기록됐습니다. | 로컬 전체 스택의 인증된 Browser Entra Console 턴; Core 로그 이벤트 `semantic_planning_judgment_reused_preflight`와 `promotion_rejection_reason`; 위의 2026-09-27 implemented 행. | 한국어 현재 상태 표현과 선언 개수·상세 대조 질문은 남아 있습니다. |
 | 2026-09-27 | implemented | 한국어 AKS 목록 질문이 검증된 ObjectType 행 개수로 답변되던 문제를 수정했습니다. 사전 판정 v5는 하위 유형 목록을 Resource 컬렉션으로 유지하고, 판단 v5는 후보 `stated_values`와 하위 유형 컬렉션 목표를 추가합니다. Core는 발화에 나온 Resource 유형을 설명하지 못하는 대상 없는 스키마 제안을 보류하고, 명시 필터 컴파일러는 발화에 나온 상태, 보조 의도 또는 이름 조각을 더 이상 누락하지 않으며, 매니페스트 목록은 행 개수 대신 읽을 수 있는 선언 이름을 표시합니다. 사전 판정 승격 거부 사유도 로컬 일반 로그에 기록됩니다. | `current change`; `semantic_catalog_value_mentions.py`, `semantic_manifest_planning.py`, `semantic_target_candidate_planning.py`, `semantic_resource_state_planning.py`, `semantic_ontology_answers.py`, `capture-local-service-log.py` 및 프롬프트 산출물 3개; 집중 Core 검사 4018건과 로그 수집 검사 2건 통과, 새 사례는 이전 코드에서 실패; 배포 하나에 고정하고 프로바이더 오류가 없던 제한된 실제 T1 비교: 사전 판정 56/60 대 49/60(보고된 질문 3/3 대 0/3), 사전 판정을 우회한 판단은 최종 문구 기준 53/60 대 49/60이며 하위 유형 시도 24건이 모두 정확했고 대조 질문을 Resource 목록으로 답한 경우는 없었습니다. | 한국어 현재 상태 표현은 아직 T1 판단에서 누락되는 경우가 있으며 답변 대신 보류됩니다. 선언 개수와 선언 상세 대조 질문은 두 프로필 모두 실패합니다. 인증된 재시작 후 Console 증적을 보존합니다. |
 | 2026-09-20 | implemented | 닫힌 정본 선언 목록 프롬프트를 추가하고 완전한 단일 종류 형태에만 불필요한 스키마 복구를 생략했습니다. 개수, 상세 및 추가 facet은 별도 경로를 유지합니다. | `current change`, 판단·매니페스트·프롬프트·레지스트리 집중 테스트 227개, strict mypy 및 Ruff 통과, 고정 기능 T1 수정본에서 정확한 EN/KO 목록 10건과 개수·상세 의도를 유지한 대조 사례 2건 확인 | 인증된 전체 매니페스트 조회 증적이 필요합니다. 작은 모델 집단은 영속 인덱스나 운영 관련성 인증이 아닙니다. |

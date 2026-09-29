@@ -30,7 +30,10 @@ from fdai.core.conversation.semantic_reasoning_compiler import (
     compile_question_form,
 )
 from fdai.core.conversation.semantic_reasoning_form import MentionDomain
-from fdai.core.conversation.semantic_reasoning_shadow import ReasoningShadowObservation
+from fdai.core.conversation.semantic_reasoning_shadow import (
+    ReasoningShadowObservation,
+    ShadowPass,
+)
 from fdai.core.conversation.session import Principal, Role
 
 from tests.conversation.semantic_reasoning_support import (
@@ -202,8 +205,19 @@ def test_a_second_goal_limitation_or_batch_is_never_answered_as_complete(
     for variant in variants:
         observation = _observation(compilations=(variant,))
         assert _ticket(observation).outcome(manifest_digest="d", observations=[]) is None
-    two = _observation(compilations=(compilation, compilation))
+    two = _observation(
+        compilations=(compilation, compilation),
+        passes=(ShadowPass(0, "admitted", shape=("m1:instance:name", "g1:instance:count:anchor")),),
+    )
     assert _ticket(two).outcome(manifest_digest="d", observations=[]) is None
+    shapes = [
+        record.form_shapes
+        for record in caplog.records
+        if record.msg == "semantic_compiled_answer_completed"
+    ]
+    # The last pass's content-free shape shows how the declined question was read.
+    assert shapes[-1] == ["m1:instance:name", "g1:instance:count:anchor"]
+    assert shapes[0] == []
     # Every decline names the one rule that kept the compilation from answering.
     assert _decline_reasons(caplog) == [
         "goal_count",

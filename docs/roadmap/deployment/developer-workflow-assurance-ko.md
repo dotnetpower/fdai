@@ -1,7 +1,7 @@
 ---
 translation_of: developer-workflow-assurance.md
-translation_source_sha: f5c3bc8249e49fc72c2f8c7077481f68a0d9e9cb
-translation_revised: 2026-09-29
+translation_source_sha: e83fd6ed79254b096aa85e8129d3fc4b00ca2256
+translation_revised: 2026-09-30
 ---
 
 # 개발 워크플로 보증
@@ -176,6 +176,13 @@ Runtime은 내용이 제거된 조회 활동 변환과 검증된 문서 답변 �
 - 모델 프레임이나 계획 호출, 해결되지 않은 프레임 용어, 거부된 계획
 - T2 상향 또는 보류
 - 명확화, 보류, 미지원, 조언, 부분 답변 결과, 온톨로지 읽기 없음, 불완전한 증거
+- 컴파일된 답변 결과, 또는 release된 형식 해석 때문에 보류된 단어 기반 복구 계획
+
+컴파일된 답변 이벤트는 거절된 컴파일이 통과하지 못한 선택 규칙 하나, 배치 수, 마지막 form 패스의
+형태도 기록합니다. 형태는 각 언급과 목표를 form 안의 식별자와 닫힌 값으로만 나타냅니다. 예를 들어
+`m1:instance:name`, `qualifier:m2:m1:containment`, `measure:g1:count:container`와 같으므로 검토자는
+질문을 읽지 않고도 종류를 한정자로 밝혔다는 사실을 볼 수 있습니다. 검토가 무효이면 추출이 검토 역할을
+할 수 없는 이유(질문에 없는 인용 등)를 인용 없이 기록합니다.
 
 신호는 검토할 위치를 가리킬 뿐 원인에 대한 결론이 아닙니다. `dev-discuss explain`은 스냅샷을
 캡처하고 각 추적을 신호와 함께 출력합니다. 질문은 패킷에 들어가지 않으므로 검토자는 자신이 한

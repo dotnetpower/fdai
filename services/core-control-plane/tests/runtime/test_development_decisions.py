@@ -379,8 +379,18 @@ def test_the_compiled_answer_event_keeps_closed_reasons_and_points_a_cue_at_it()
                 "goal_statuses": ["unsupported"],
                 "goal_reasons": ["operation_unsupported:rank", "rg-fdai-dev-krc quoted"],
                 "goal_limitations": [],
+                "decline_reason": "not_released",
+                "batch_count": 0,
+                "form_shapes": ["m1:instance:name", "qualifier:m1:m2:containment", "m1 kv-a"],
                 "model_calls": 5,
                 "elapsed_ms": 4100,
+            },
+        )
+        _PLANNER.info(
+            "semantic_compiled_answer_veto",
+            extra={
+                "plan_source": "server_stated_filter",
+                "goal_reasons": ["filter_unsupported:region"],
             },
         )
         observe_semantic_decision({"semantic_result": _semantic_result()})
@@ -391,5 +401,14 @@ def test_the_compiled_answer_event_keeps_closed_reasons_and_points_a_cue_at_it()
     assert step.attributes["goal_reasons"] == ("operation_unsupported:rank", "~")
     assert step.attributes["released"] is False
     assert step.attributes["model_calls"] == 5
+    assert step.attributes["decline_reason"] == "not_released"
+    assert step.attributes["batch_count"] == 0
+    # A form shape keeps closed tokens and redacts anything that is not one.
+    assert step.attributes["form_shapes"] == (
+        "m1:instance:name",
+        "qualifier:m1:m2:containment",
+        "~",
+    )
+    assert "compiled_answer_veto" in {cue.code for cue in trace.cues}
     assert "rg-fdai-dev-krc" not in trace.model_dump_json()
     assert "compiled_answer_declined" in {cue.code for cue in trace.cues}

@@ -51,6 +51,7 @@ COMPILED_PLAN_SOURCE = "compiled_question_form"
 _MAX_EVENT_ITEMS = 16
 # One ontology query plan names at most eight output nodes.
 _MAX_PLAN_OUTPUTS = 8
+_MAX_SHAPE_ITEMS = 24
 # Plans recovered from words the judgment stated, not from a typed reading of the question.
 _LEXICAL_PLAN_SOURCES = frozenset({"server_stated_filter", "server_resource_target_candidates"})
 
@@ -431,6 +432,9 @@ def _log_completion(
                 "model_calls": observation.model_calls,
                 "elapsed_ms": observation.elapsed_ms,
                 "notes": list(observation.notes[:_MAX_EVENT_ITEMS]),
+                "form_shapes": list(
+                    observation.passes[-1].shape[:_MAX_SHAPE_ITEMS] if observation.passes else ()
+                ),
             }
         )
     _LOGGER.info("semantic_compiled_answer_completed", extra=extra)

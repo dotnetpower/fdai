@@ -63,6 +63,7 @@ _SERVER_EVENT_KEYS = frozenset(
 _SERVER_EVENT_LIST_KEYS = frozenset(
     {
         "failed_preconditions",
+        "form_shapes",
         "goal_limitations",
         "goal_reasons",
         "goal_statuses",

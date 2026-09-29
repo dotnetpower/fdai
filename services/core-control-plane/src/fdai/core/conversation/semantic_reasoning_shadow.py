@@ -74,6 +74,7 @@ from .semantic_reasoning_review import (
     unacknowledged_constraints,
     uncovered_constraints,
 )
+from .semantic_reasoning_shape import form_shape
 
 MAX_FORM_PASSES = 3
 
@@ -161,6 +162,7 @@ class ShadowPass:
     reference_digest: str | None = None
     # Mentions grounded in the sibling kind lane, whose domain the form now carries.
     regrounded: tuple[str, ...] = ()
+    shape: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -631,6 +633,7 @@ async def _run_pass(
                 resolution.form.digest,
                 repair=proposal.repair,
                 repaired_reasons=proposal.repaired_reasons,
+                shape=form_shape(resolution.form),
             ),
             (),
             None,
@@ -701,6 +704,7 @@ async def _run_pass(
         proposal.repaired_reasons,
         references.digest if references.bindings else None,
         grounding.regrounded,
+        form_shape(form),
     )
     return shadow_pass, goals, compilation, form
 

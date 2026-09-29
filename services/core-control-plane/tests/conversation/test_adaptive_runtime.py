@@ -415,7 +415,12 @@ async def test_general_knowledge_does_not_require_an_adaptive_answer_runtime() -
     assert (query_model.frame_calls, query_model.plan_calls) == (0, 0)
 
 
-async def test_explicit_operational_preflight_bypasses_adaptive_planning() -> None:
+# A turn that states no operational, knowledge, thread, or social signal requests nothing
+# typed; it is read on the verified path instead of being answered without a read.
+@pytest.mark.parametrize("signal", [OperationalSignal.EXPLICIT, OperationalSignal.NONE])
+async def test_explicit_operational_preflight_bypasses_adaptive_planning(
+    signal: OperationalSignal,
+) -> None:
     manifest, _definition = _fixture()
     query_model = QueryModel(frame=None, plan=None)
     adaptive_model = AnswerModel(plan=answer_plan(), answer=_draft(), review=_review())
@@ -436,7 +441,7 @@ async def test_explicit_operational_preflight_bypasses_adaptive_planning() -> No
             return ConversationPreflightResult(
                 proposal=ConversationPreflightProposal(
                     social_act=SocialAct.NONE,
-                    operational_signal=OperationalSignal.EXPLICIT,
+                    operational_signal=signal,
                     context_dependency=ContextDependency.NONE,
                     confidence=0.99,
                 )

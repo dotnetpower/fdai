@@ -177,6 +177,14 @@ Each cue names a code and the step to inspect. Cues cover:
 - T2 escalation or withholding.
 - A clarification, held, unsupported, advisory, or partial outcome, no ontology read, or incomplete
   evidence.
+- A compiled-answer outcome, or a word-recovered plan held by the released typed reading.
+
+A compiled-answer event also names the one selection rule a declined compilation failed, its batch
+count, and the shape of the last form pass. The shape lists each mention and goal only by its
+form-local id and closed values, such as `m1:instance:name`, `qualifier:m2:m1:containment`, or
+`measure:g1:count:container`, so a reviewer can see that a kind was stated as a qualifier without
+reading the question. An invalid review names why the extraction could not serve, such as a quote
+that is not in the question, without the quote.
 
 A cue is a review pointer, not a causal conclusion. `dev-discuss explain` captures a snapshot and
 prints each trace with its cues. The reviewer compares them with the questions they asked, because

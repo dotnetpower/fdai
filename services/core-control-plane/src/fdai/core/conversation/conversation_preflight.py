@@ -7,6 +7,7 @@ from .conversation_preflight_boundary import (
 from .conversation_preflight_contracts import (
     DIRECT_SOCIAL_ACTS,
     SOCIAL_NARRATOR_CAPABILITY_IDS,
+    VERIFIED_SOCIAL_ACTS,
     ContextDependency,
     ConversationPreflightBinding,
     ConversationPreflightModel,
@@ -50,6 +51,7 @@ __all__ = [
     "SocialResponseNarratorModel",
     "SocialResponseNarratorResult",
     "SocialAct",
+    "VERIFIED_SOCIAL_ACTS",
     "named_subscription_requested",
     "operational_target_is_generic",
     "operational_target_is_exact",
