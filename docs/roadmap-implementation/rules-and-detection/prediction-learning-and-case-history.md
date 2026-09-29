@@ -42,6 +42,7 @@ and resumable work while the roadmap owner remains focused on normative design.
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-29 | in-progress | Attempted the four #1021 raw source producers, a Settings preference, and a Thor dispatch start time in an isolated branch. Five independent review rounds kept rejecting it, and the last round found an enforce-mode Thor regression: a second same-state `ActionRun` save failed every real dispatch and triggered Vidar rollback, and shadow runs wrote dispatch intents. The branch was not merged, so no runtime behavior changed. The review findings now make each #1021 item precise about the proof it needs. | `current change`; this ledger only; unmerged branch `agents/rd-forecast-sources` was reviewed with Thor, Forseti, development-authority, and T2 recovery suites that exposed the regression. | Deliver each source only with its proof, starting with a dispatch-intent record that never re-saves an `ActionRun` in the same state. |
 | 2026-09-29 | in-progress | Reconciled delivery status with GitHub. Recorded that #718, #1021, #1023, #1024, and #1026 were closed as not planned on 2026-09-28 and that this ledger is their resumable record; checked #1022 criterion 1 and the owner-boundary issuance item against their evidence; closed the blocking item after the owner re-evaluated the three dependent issues; and marked durable `Pattern` publication `implemented` after #1025 closed with a deployed retention readback. No implementation or runtime state changed. | `current change`; this ledger; [#1022 owner decision record](https://github.com/dotnetpower/fdai/issues/1022#issuecomment-5863412337), [PR #1649](https://github.com/dotnetpower/fdai/pull/1649), and the [#1025 readback](https://github.com/dotnetpower/fdai/issues/1025#issuecomment-5864351096); `check-roadmap-implementation-tracking.py` and doc-link checks. | Raw forecast sources, forecast-purpose proofs, P2-P6 integration, and connected qualification stay open below. |
 | 2026-09-29 | implemented | Added `ForecastOutcome` schema `1.2.0`. When the independent verifier recorded an explicit class for a forecast-context or history-slice rejection, Heimdall's closure excludes scoring with that `operational_evidence_*` class and cites the rejection record through exactly one `operational-evidence-rejection:` evidence reference; the typed model and JSON Schema refuse either without the other, and an unavailable verifier keeps the `1.1.0` `intervention_history_unavailable` exclusion. Earlier versions keep their shapes, and no exclusion makes an outcome scorable. | `current change`; `shared/contracts/forecast-outcome/schema-1.2.0.json`, `shared/contracts/models/forecast_outcome.py`, `core/detection/{forecast_context,forecast_outcome}.py`, `delivery/persistence/{state_store_forecast_context,postgres_forecast_episode}.py`; `pytest tests/contracts/test_forecast_outcome_evidence_classes.py tests/contracts/test_forecast_outcome.py tests/agents/test_operational_evidence_owner_records.py tests/core/detection` | Forecast-history and forecast-context readbacks stay with [#1022](https://github.com/dotnetpower/fdai/issues/1022) and raw sources with #1021, so today only `unavailable` reaches the scoring join outside tests. |
 | 2026-09-28 | in-progress | Recorded the reviewable source-specific design for independent operational evidence issuance (#1022 criterion 1) in a focused owner and linked it from the completion design. It names the separate verifier identity, invocation path, proof layout, typed rejection records with class-specific owner outcomes, trust and grant registries, and rejection matrix for every admission purpose this owner consumes. Accountability stays with each consuming boundary agent. It was revised before publication to resolve two rounds of independent critique (6 Medium and 3 Low findings). Design only: no consumer behavior, issuer, contract, or authority changed. | `current change`; `docs/roadmap/rules-and-detection/independent-operational-evidence.md`, `prediction-learning-and-case-history.md`, their Korean pairs, and the [issuance ledger](independent-operational-evidence.md); changed-path translation, translation-quality, readable-Hangul, roadmap-tracking, design-route, doc-link, punctuation, and document-size checks. | Owner review of #1022 criterion 1, then criteria 2-7 before any operational admission exists; #1023, #1024, and #1026 stay blocked on implemented issuance. |
@@ -135,18 +136,33 @@ deployed qualification remain unavailable.
   telemetry completeness separately from context eligibility.
 - [ ] #1021: Retain a positive, authenticated start-of-window external-change checkpoint and
   bounded recovery receipt for the exact scope and subject before claiming complete change
-  coverage; prove the other three source slices independently before exposing scoring.
+  coverage; prove the other three source slices independently before exposing scoring. The
+  checkpoint must be a start anchor derived from a complete reconciliation recorded before
+  `start_at`, with journal fence continuity checked separately through `end_at`; a single-instant
+  checkpoint can never cover a window. Any optional checkpoint write inside inventory promotion
+  must run in a savepoint so a missing table can't abort promotion.
 - [ ] #1021: Bind the `actions` producer to a bounded, target-scoped reader over existing Thor and
   Saga records whose watermark proves event-time completeness, with a reviewed intervention-outcome
   mapping and no second writer. The current audit record time and pre-lock entry construction cannot
-  prove it.
+  prove it. A dispatch start time must be persisted without a second same-state `ActionRun` save,
+  which `StateStoreActionRunStore` rejects and which would fail enforce-mode dispatch; shadow runs
+  must write no dispatch intent. Completeness also needs a database-clock watermark past the window
+  end plus grace and a verified contiguous audit segment.
 - [ ] #1021: Bind the `excluded_windows` producer to an attested, revisioned reviewed `ChangeWindow`
   history with merged intervals and a positive initial state; current objects cannot prove absence.
+  The history must be an append-only revision table with each revision's own recorded time,
+  withdrawal revisions for removed windows, correct re-admission of an earlier document, and a
+  positive empty-history checkpoint at or before `start_at`; an empty history is unknown, not
+  `not_excluded`.
 - [ ] #1021: Attest post-window complete reconciliation for the exact subject so the lifecycle
-  producer can issue positive coverage; unconfirmed tombstones remain incomplete.
+  producer can issue positive coverage; unconfirmed tombstones remain incomplete. The attesting
+  reconciliation must observe the subject after `end_at`, be recorded at or before `known_at`, and
+  agree with the last incarnation.
 - [ ] #1021: Render availability, the deployment opt-in, prerequisites, and per-source binding in
   Settings with English and Korean strings and tests, and add an audited Settings preference separate
-  from deployment configuration before claiming the capability-flag contract.
+  from deployment configuration before claiming the capability-flag contract. The preference must
+  actually gate the collector and producers, no environment variable may set it or availability, and
+  the row must not show `disabled` while producers run.
 - [x] P1: Run `test_closure_observation_survives_restart_and_rejects_conflicting_retry` against
   loopback PostgreSQL and prove migration, restart readback, exact duplicate handling, conflicting
   retry rejection, completeness counts, and rollback. All three completeness cases passed.
