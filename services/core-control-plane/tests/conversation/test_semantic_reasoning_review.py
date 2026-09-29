@@ -328,6 +328,19 @@ async def test_one_review_repair_states_the_uncovered_constraint_and_releases() 
     assert len(model.review_calls) == 1
 
 
+async def test_a_review_repair_that_reads_only_part_of_the_question_releases_nothing() -> None:
+    stated = _grouped_form(measure={"kind": "count", "group_by": "type", "cue": _quote("by type")})
+    stated["context"] = []
+    stated["remaining_goals"] = True
+    model = _Model([_grouped_form(), stated], {}, extraction=_GROUPED_EXTRACTION)
+
+    observation = await _grouped(model)
+
+    assert observation.passes[-1].repair == "review_applied"
+    assert observation.released is False
+    assert observation.continuation_pending is True
+
+
 async def test_a_review_repair_that_rewrites_meaning_or_fails_releases_nothing() -> None:
     regrouped = _grouped_form(
         operation="select",

@@ -45,6 +45,8 @@ _SERVER_EVENT_KEYS = frozenset(
     {
         "disposition",
         "failure_type",
+        "result",
+        "review",
         "plan_source",
         "promotion_rejection_reason",
         "reason",
@@ -58,7 +60,20 @@ _SERVER_EVENT_KEYS = frozenset(
     }
 )
 _SERVER_EVENT_LIST_KEYS = frozenset(
-    {"failed_preconditions", "route_keys", "temporal_keys", "uncovered_keys", "uncovered_roles"}
+    {
+        "failed_preconditions",
+        "goal_limitations",
+        "goal_reasons",
+        "goal_statuses",
+        "notes",
+        "pass_dispositions",
+        "pass_reasons",
+        "review_reasons",
+        "route_keys",
+        "temporal_keys",
+        "uncovered_keys",
+        "uncovered_roles",
+    }
 )
 _MODEL_EVENT_KEYS = frozenset(
     {
@@ -88,8 +103,10 @@ _NUMERIC_EVENT_KEYS = frozenset(
     {
         "attempt",
         "clarification_count",
+        "compiled_goals",
         "descriptor_bytes",
         "descriptor_count",
+        "elapsed_ms",
         "exact_occurrences",
         "failed_precondition_count",
         "grounded_count",
@@ -102,6 +119,7 @@ _NUMERIC_EVENT_KEYS = frozenset(
         "operation_matches",
         "presented",
         "query_sides_available",
+        "released",
         "service_impact_matches",
         "symptom_span_available",
         "target_available",
@@ -131,6 +149,9 @@ _EVENT_CUES = {
     "semantic_type_grounding_unavailable": "type_grounding_unavailable",
 }
 _OUTCOME_CUES = frozenset({"advisory_response", "clarification", "held", "unsupported"})
+_COMPILED_ANSWER_RESULTS = frozenset(
+    {"cancelled", "declined", "failed", "selected", "skipped", "timeout"}
+)
 _alias_lock = Lock()
 _aliases: dict[str, OrderedDict[str, str]] = {"model": OrderedDict(), "session": OrderedDict()}
 _alias_counters = {"model": 0, "session": 0}
@@ -401,6 +422,9 @@ class _TraceBuilder:
         cue = _EVENT_CUES.get(name)
         if cue is not None:
             self._cue(cue, index)
+        result = extras.get("result")
+        if name == "semantic_compiled_answer_completed" and result in _COMPILED_ANSWER_RESULTS:
+            self._cue(f"compiled_answer_{result}", index)
 
     def add_intent_graph(self, graph: Mapping[str, Any]) -> None:
         goals = _mappings(graph.get("goals"))

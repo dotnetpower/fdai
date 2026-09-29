@@ -365,3 +365,31 @@ def test_the_trace_records_the_projection_the_turn_delivers() -> None:
         "operational_evidence_over_budget",
     )
     assert "held_outcome" in {cue.code for cue in traces[0].cues}
+
+
+def test_the_compiled_answer_event_keeps_closed_reasons_and_points_a_cue_at_it() -> None:
+    with bind_decision_events():
+        _PLANNER.info(
+            "semantic_compiled_answer_completed",
+            extra={
+                "result": "declined",
+                "released": False,
+                "review": "uncovered",
+                "pass_dispositions": ["admitted"],
+                "goal_statuses": ["unsupported"],
+                "goal_reasons": ["operation_unsupported:rank", "rg-fdai-dev-krc quoted"],
+                "goal_limitations": [],
+                "model_calls": 5,
+                "elapsed_ms": 4100,
+            },
+        )
+        observe_semantic_decision({"semantic_result": _semantic_result()})
+    trace = decision_snapshot().traces[0]
+    step = next(
+        item for item in trace.steps if item.stage == "event.semantic_compiled_answer_completed"
+    )
+    assert step.attributes["goal_reasons"] == ("operation_unsupported:rank", "~")
+    assert step.attributes["released"] is False
+    assert step.attributes["model_calls"] == 5
+    assert "rg-fdai-dev-krc" not in trace.model_dump_json()
+    assert "compiled_answer_declined" in {cue.code for cue in trace.cues}

@@ -483,7 +483,23 @@ never filters its members, and where no second reader runs a frame that drops th
 widening the list. A state collection needs T2 review only when a stated state lacks a reviewed state concept, as the fourth approved
 decision requires, and a collection whose typed targets are grounded states is planned as a state collection. A proposal that copies
 one span as two targets is repaired. Relationship questions about one named instance remain unexpressible on this path and wait for
-the relation compiler.
+the relation compiler. A judgment that ends ambiguous now ends the turn with its clarification once the deterministic pre-frame checks
+have run; the frame model no longer reinterprets the utterance without the judgment and its constraint review.
+
+**Local compiled answers**: In the local development profile the launcher also sets `FDAI_SEMANTIC_COMPILED_ANSWERS=1`, which needs
+the second reader, and the composition honors the flag only in the local execution venue. The planner then starts the form path beside
+the judgment on every unbound operational turn that needs no document evidence, with its own provider calls and budget scope, an
+absolute deadline, and anchor reads under the same role, purpose, and principal scope as the turn's executor. The planner consults the
+path only after the deterministic pre-frame checks, and an ambiguous judgment's clarification wins over it. The path answers only when
+it is released and its single retained compilation holds exactly one goal compiled into one verified batch, with no continuation and no
+limitation. The planner then stamps the plan with the gateway's current cutoff, verifies it again, and answers from that compiled
+frame and plan instead of the judgment path's frame and plan stages. When the judgment leaves a stated constraint uncovered, such a
+compilation may answer instead of the hold. Every other outcome leaves the current path to answer the turn: a typed unsupported
+reason, a clarification, a held review, a continuation, a timeout, or a provider failure. Ending or cancelling the turn cancels the
+path, and the owner loop drains its provider calls. The path emits one content-free decision event for every outcome, including a
+skip, cancellation, timeout, or failure, with its pass dispositions, review outcome, per-goal statuses, reasons, and limitations, so
+`dev discuss` shows why a question was or was not compiled. The form comes from a separate call beside the turn, so these records are
+the experiment that production shadow wiring excludes from promotion evidence, and no family is promoted by them.
 
 ## Approved decisions
 

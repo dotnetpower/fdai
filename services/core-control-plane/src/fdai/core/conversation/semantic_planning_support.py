@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import copy
 import json
+import logging
 import re
 from collections.abc import Mapping, Sequence
 from datetime import UTC, datetime, timedelta
@@ -19,6 +20,7 @@ from fdai_service_contracts.ontology_query import (
     canonical_json,
     content_digest,
 )
+from fdai_service_contracts.semantic_judgment import SemanticJudgmentDisposition
 
 from fdai.core.ontology_platform import QueryManifest
 
@@ -398,3 +400,84 @@ def _investigation_clarification(reason: str) -> str:
         "mixed_relationship_direction": "Which dependency direction should I investigate?",
     }
     return questions.get(reason, "Which exact investigation scope should I use?")
+
+
+def log_judgment_posture(logger: logging.Logger, judgment_decision: Any) -> None:
+    """Record the judgment's closed decision fields for diagnosis, never its text."""
+
+    judgment_posture = (
+        judgment_decision.proposal.action_posture
+        if judgment_decision.proposal is not None
+        else judgment_decision.disposition.value
+    )
+    logger.info(
+        f"semantic_planning_judgment_{judgment_posture}",
+        extra={
+            "disposition": judgment_decision.disposition.value,
+            "tier": (judgment_decision.tier.value if judgment_decision.tier is not None else None),
+            "action_posture": judgment_posture,
+            "primary_intent": (
+                judgment_decision.proposal.primary_intent
+                if judgment_decision.proposal is not None
+                else None
+            ),
+            "secondary_intents": (
+                ",".join(judgment_decision.proposal.secondary_intents)
+                if judgment_decision.proposal is not None
+                else ""
+            ),
+            "discourse_mode": (
+                judgment_decision.proposal.discourse_mode.value
+                if judgment_decision.proposal is not None
+                else None
+            ),
+            "requested_facets": (
+                ",".join(judgment_decision.proposal.requested_facets)
+                if judgment_decision.proposal is not None
+                else ""
+            ),
+            "target_count": (
+                len(judgment_decision.proposal.targets)
+                if judgment_decision.proposal is not None
+                else 0
+            ),
+            "target_kinds": (
+                ",".join(target.kind for target in judgment_decision.proposal.targets)
+                if judgment_decision.proposal is not None
+                else ""
+            ),
+            "canonical_target_types": (
+                ",".join(
+                    sorted(
+                        {
+                            target.canonical_value
+                            for target in judgment_decision.proposal.targets
+                            if target.canonical_value is not None
+                        }
+                    )
+                )
+                if judgment_decision.proposal is not None
+                else ""
+            ),
+        },
+    )
+
+
+def judgment_clarification_outcome(
+    judgment_decision: Any,
+    manifest_digest: str,
+) -> SemanticPlanningOutcome | None:
+    """End an ambiguous judgment with its clarification instead of a frame reinterpretation."""
+
+    if (
+        judgment_decision is None
+        or judgment_decision.disposition is not SemanticJudgmentDisposition.CLARIFICATION
+    ):
+        return None
+    proposal = judgment_decision.proposal
+    return _outcome(
+        SemanticPlanningDisposition.CLARIFICATION,
+        "semantic_clarification_required",
+        manifest_digest=manifest_digest,
+        clarification=proposal.clarification if proposal is not None else None,
+    )

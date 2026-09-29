@@ -34,6 +34,12 @@ from .conversation_preflight_targets import (
     resource_catalog_constraints,
 )
 from .intent_graph import build_intent_graph
+from .semantic_compiled_answers import (
+    CompiledAnswerPath,
+    CompiledAnswerTicket,
+    compiled_answer_or,
+    start_compiled_answer,
+)
 from .semantic_judgment import SemanticJudgmentBoundary, SemanticJudgmentObservation
 from .semantic_judgment_assembly import judge_with_prompt_assembly
 from .semantic_judgment_coverage import (
@@ -106,6 +112,8 @@ from .semantic_planning_support import (
     _plan_node_summary,
     _validated_descriptors,
     _validated_metric_concepts,
+    judgment_clarification_outcome,
+    log_judgment_posture,
 )
 from .semantic_resource_state_planning import resource_condition_intents_grounded
 from .semantic_test_context import test_context_capability, test_context_planning_outcome
@@ -144,10 +152,12 @@ class SemanticPlanningService(SemanticPlanningPreflightMixin):
         now: Callable[[], datetime] | None = None,
         type_grounding: ResourceTypeGrounding | None = None,
         coverage_review: JudgmentCoverageReview | None = None,
+        compiled_answers: CompiledAnswerPath | None = None,
     ) -> None:
         self._manifests = manifests
         self._type_grounding = type_grounding
         self._coverage_review = coverage_review
+        self._compiled_answers = compiled_answers
         self._verifier = verifier
         self._selector = descriptor_selector or CompleteManifestSelector()
         self._semantic_judgment = semantic_judgment
@@ -209,7 +219,7 @@ class SemanticPlanningService(SemanticPlanningPreflightMixin):
             supplied_preflight_result=preflight_result,
             model_observations=model_observations,
         )
-
+        ticket: CompiledAnswerTicket | None = None
         try:
             context = _bounded_context(prior_turns)
             preflight_outcome = preflight_router.run(context)
@@ -221,6 +231,18 @@ class SemanticPlanningService(SemanticPlanningPreflightMixin):
             scope_mismatch = manifest.principal_role.value != principal.role.value
             if scope_mismatch or purpose not in manifest.purposes:
                 raise PermissionError("principal manifest scope does not match planning request")
+            if self._compiled_answers is not None and unbound_conversation:
+                ticket = start_compiled_answer(
+                    self._compiled_answers,
+                    eligible=bound_resource_context is None and not required_document_evidence,
+                    utterance=utterance,
+                    context=context,
+                    locale=locale,
+                    manifest=manifest,
+                    verifier=self._verifier,
+                    principal=principal,
+                    purpose=purpose,
+                )
             selected = self._selector.select(
                 utterance=utterance,
                 manifest=manifest,
@@ -324,73 +346,19 @@ class SemanticPlanningService(SemanticPlanningPreflightMixin):
                     "semantic_judgment_review_unavailable",
                 }:
                     return preflight_router.finish(
-                        _outcome(
-                            SemanticPlanningDisposition.UNAVAILABLE,
-                            judgment_decision.reason_code,
+                        compiled_answer_or(
+                            ticket,
+                            _outcome(
+                                SemanticPlanningDisposition.UNAVAILABLE,
+                                judgment_decision.reason_code,
+                                manifest_digest=manifest.manifest_digest,
+                                model_observations=tuple(model_observations),
+                            ),
                             manifest_digest=manifest.manifest_digest,
-                            model_observations=tuple(model_observations),
+                            observations=model_observations,
                         )
                     )
-                judgment_posture = (
-                    judgment_decision.proposal.action_posture
-                    if judgment_decision.proposal is not None
-                    else judgment_decision.disposition.value
-                )
-                _LOGGER.info(
-                    f"semantic_planning_judgment_{judgment_posture}",
-                    extra={
-                        "disposition": judgment_decision.disposition.value,
-                        "tier": (
-                            judgment_decision.tier.value
-                            if judgment_decision.tier is not None
-                            else None
-                        ),
-                        "action_posture": judgment_posture,
-                        "primary_intent": (
-                            judgment_decision.proposal.primary_intent
-                            if judgment_decision.proposal is not None
-                            else None
-                        ),
-                        "secondary_intents": (
-                            ",".join(judgment_decision.proposal.secondary_intents)
-                            if judgment_decision.proposal is not None
-                            else ""
-                        ),
-                        "discourse_mode": (
-                            judgment_decision.proposal.discourse_mode.value
-                            if judgment_decision.proposal is not None
-                            else None
-                        ),
-                        "requested_facets": (
-                            ",".join(judgment_decision.proposal.requested_facets)
-                            if judgment_decision.proposal is not None
-                            else ""
-                        ),
-                        "target_count": (
-                            len(judgment_decision.proposal.targets)
-                            if judgment_decision.proposal is not None
-                            else 0
-                        ),
-                        "target_kinds": (
-                            ",".join(target.kind for target in judgment_decision.proposal.targets)
-                            if judgment_decision.proposal is not None
-                            else ""
-                        ),
-                        "canonical_target_types": (
-                            ",".join(
-                                sorted(
-                                    {
-                                        target.canonical_value
-                                        for target in judgment_decision.proposal.targets
-                                        if target.canonical_value is not None
-                                    }
-                                )
-                            )
-                            if judgment_decision.proposal is not None
-                            else ""
-                        ),
-                    },
-                )
+                log_judgment_posture(_LOGGER, judgment_decision)
                 if judgment_decision.proposal is not None and (
                     judgment_decision.accepted
                     or judgment_decision.proposal.primary_intent
@@ -478,6 +446,19 @@ class SemanticPlanningService(SemanticPlanningPreflightMixin):
             )
             if pre_frame_outcome is not None:
                 return preflight_router.finish(pre_frame_outcome)
+            # An explicit clarification wins over the form path; the two readers disagreed.
+            clarified = judgment_clarification_outcome(judgment_decision, manifest.manifest_digest)
+            if clarified is not None:
+                return preflight_router.finish(clarified)
+            compiled = (
+                ticket.outcome(
+                    manifest_digest=manifest.manifest_digest, observations=model_observations
+                )
+                if ticket is not None
+                else None
+            )
+            if compiled is not None:
+                return preflight_router.finish(compiled)
             stage = "frame_proposal"
             frame_result = deterministic_pre_frame_selection(
                 judgment=judgment_proposal,
@@ -781,6 +762,9 @@ class SemanticPlanningService(SemanticPlanningPreflightMixin):
                     "semantic_planning_failed",
                 )
             )
+        finally:
+            if ticket is not None:
+                ticket.cancel()
 
 
 __all__ = [
