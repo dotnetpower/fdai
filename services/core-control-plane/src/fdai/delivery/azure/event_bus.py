@@ -502,10 +502,12 @@ async def _monitor_consumer_progress(
     topic: str,
     group_id: str,
     interval_seconds: float = _CONSUMER_PROGRESS_INTERVAL_SECONDS,
+    idle_interval_seconds: float = 300.0,
 ) -> None:
-    """Export broker-backed lag even while downstream processing is stalled."""
+    """Export broker lag while processing stalls; a caught-up idle partition re-reports slowly."""
     last_end_offsets: dict[TopicPartition, int] = {}
     last_lags: dict[TopicPartition, int | None] = {}
+    last_reported: dict[TopicPartition, float] = {}
     delay_seconds = min(_CONSUMER_INITIAL_PROGRESS_SECONDS, interval_seconds)
     while True:
         await asyncio.sleep(delay_seconds)
@@ -517,12 +519,14 @@ async def _monitor_consumer_progress(
                 if not partitions:
                     continue
                 delay_seconds = interval_seconds
+                now = asyncio.get_running_loop().time()
                 end_offsets = await consumer.end_offsets(partitions)
                 for topic_partition in partitions:
                     highwater_offset = end_offsets.get(topic_partition)
                     if (
                         highwater_offset == last_end_offsets.get(topic_partition)
                         and last_lags.get(topic_partition) == 0
+                        and now - last_reported[topic_partition] < idle_interval_seconds
                     ):
                         continue
                     committed_offset = await consumer.committed(topic_partition)
@@ -537,6 +541,7 @@ async def _monitor_consumer_progress(
                     )
                     last_end_offsets[topic_partition] = highwater_offset
                     last_lags[topic_partition] = lag
+                    last_reported[topic_partition] = now
                     _log_consumer_progress(
                         topic=topic,
                         group_id=group_id,
