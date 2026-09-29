@@ -122,7 +122,7 @@ def decode_dashboard_snapshot(result: Sequence[Mapping[str, object]]) -> Dashboa
                     occurred_at=fact.occurred_at,
                     seq=seq,
                     action_ids=tuple(str(value) for value in fact.action_ids),
-                    synthetic=fact.synthetic is True,
+                    synthetic=fact.synthetic,
                 )
             )
         elif kind == "measurement.action_outcome.v1":

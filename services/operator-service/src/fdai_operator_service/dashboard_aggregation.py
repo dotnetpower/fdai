@@ -26,7 +26,8 @@ class ClassifiedEvent:
     occurred_at: datetime
     seq: int
     action_ids: tuple[str, ...] = ()
-    synthetic: bool = False
+    synthetic: bool | None = None
+    """Explicit source marker; ``None`` means the source never declared it."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -93,6 +94,11 @@ def aggregate_dashboard(
     contribute. Pending and neutral events remain in the event denominator.
     Timing measures retain their own sample sizes. Cost requires complete spend
     coverage of that event universe and at least one independently resolved event.
+
+    Only explicitly synthetic events leave the cohort. An event whose source never
+    declared the marker stays in the observed counts as ``unknown`` provenance and
+    is never relabelled as verified non-synthetic evidence. The result is a
+    moving-window observation, not a deployed-runtime qualification.
     """
 
     latest_events: dict[str, ClassifiedEvent] = {}
@@ -112,10 +118,10 @@ def aggregate_dashboard(
     cohort = {
         event.event_id: event
         for event in latest_events.values()
-        if not event.synthetic and window_start <= event.occurred_at <= window_end
+        if event.synthetic is not True and window_start <= event.occurred_at <= window_end
     }
     if len(cohort) != sum(
-        not event.synthetic and window_start <= event.occurred_at <= window_end
+        event.synthetic is not True and window_start <= event.occurred_at <= window_end
         for event in latest_events.values()
     ):
         raise ValueError("measurement event id has conflicting idempotency identities")
@@ -244,6 +250,7 @@ def aggregate_dashboard(
         "cost_per_resolved_event_usd": cost_per_resolved,
     }
     by_tier = Counter(event.tier for event in cohort.values() if event.tier is not None)
+    unknown_marker = sum(event.synthetic is None for event in cohort.values())
     finalized = len(resolved) + len(adverse)
     return {
         "schema_version": "1.0.0",
@@ -274,7 +281,15 @@ def aggregate_dashboard(
             *(f"mixed_context:{key}" for key in sorted(mixed)),
             *(f"missing_source:{key}" for key in sorted(missing_sources)),
             *(["unattributed_human_input"] if not human_source_complete else []),
+            *(["unknown_synthetic_marker"] if unknown_marker else []),
         ],
+        "provenance": {
+            "qualification": "observation",
+            "synthetic_marker": {
+                "declared_non_synthetic": total - unknown_marker,
+                "unknown": unknown_marker,
+            },
+        },
         "leading": {
             key: {"value": None, "baseline": None, "direction": "lower"}
             for key in (
@@ -308,6 +323,7 @@ def aggregate_dashboard(
         else [],
         "tier": {
             "mix": {key: value / total for key, value in sorted(by_tier.items())} if total else {},
+            "counts": dict(sorted(by_tier.items())),
             "bands": {"t0": [0.70, 0.80], "t1": [0.15, 0.20], "t2": [0.05, 0.10]},
         },
         "trend": {},
