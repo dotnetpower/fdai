@@ -22,51 +22,6 @@ capability metadata. A `ContextSelectionPolicy` can return only ordered selected
 `ContextManifest`. The mandatory wrapper executes the policy twice on the exact same input,
 validates every invariant, and reconstructs the selected immutable entries. No policy receives a
 store, retriever, summarizer, renderer, model client, tool, or executor.
-
-## Implementation status
-
-### Implementation scope
-
-| Area | State | Evidence | Notes |
-|------|-------|----------|-------|
-| Deterministic policy contract, tiered adapter, and invariant wrapper | implemented | `services/core-control-plane/src/fdai/core/working_context/`; `services/core-control-plane/tests/core/working_context/test_policy_validation.py`; `services/core-control-plane/tests/core/working_context/test_working_context.py` | The frozen input, double execution, manifest checks, pinned-entry checks, and fail-closed behavior have focused coverage. |
-| Policy registry and governance transitions | implemented | `services/core-control-plane/src/fdai/core/working_context/governance.py`; `services/core-control-plane/tests/core/working_context/test_policy_governance.py`; `services/core-control-plane/tests/core/capability_catalog/test_runtime.py` | Install, shadow enablement, explicit promotion, demotion, kill switch, rollback, and revision compare-and-set are implemented without automatic promotion. |
-| Bounded shadow evaluation, comparison storage adapter, and approved-fixture replay | implemented | `services/core-control-plane/src/fdai/core/working_context/shadow.py`; `services/core-control-plane/src/fdai/core/working_context/evidence.py`; `services/core-control-plane/src/fdai/core/working_context/replay.py`; `services/core-control-plane/tests/core/working_context/test_policy_shadow.py`; `services/core-control-plane/tests/core/working_context/test_evidence.py` | The components and their failure isolation pass focused tests. This state does not claim that the production composition binds them. |
-| Shadow composition and bounded comparison persistence | implemented | `services/core-control-plane/src/fdai/runtime/bootstrap.py`; `services/core-control-plane/tests/runtime/test_bootstrap_context_selection.py`; `services/core-control-plane/tests/composition/test_wire_context_selection.py` | Core consumer startup binds the runner to its existing `StateStore` before runtime assembly and gives pending comparisons five seconds to drain before cancelling them and closing the store. A fresh container can read retained comparisons from the same store. The active runtime turn assembler does not yet invoke the runner; no deployed candidate or live comparison is proved. |
-| Reader comparison API and Console view | implemented | `services/operator-service/src/fdai_operator_service/context_selection_projection.py`; `services/operator-service/src/fdai_operator_service/families/workflow/manifest.py`; `services/operator-service/tests/test_operator_workflow_family.py`; `console/src/routes/context-selection-comparisons.test.ts` | The Reader-gated `GET /context-selection-comparisons` route projects bounded durable records, a malformed record fails closed, and the Console decoder accepts the authoritative payload. |
-| Bounded comparison retention | implemented | `services/core-control-plane/src/fdai/shared/providers/state_store.py`; `services/core-control-plane/src/fdai/core/working_context/evidence.py`; `services/core-control-plane/src/fdai/core/working_context/shadow.py`; `services/core-control-plane/tests/core/working_context/test_policy_shadow.py`; `services/core-control-plane/tests/persistence/test_state_store_retention.py` | `ContextShadowConfig.retain_evaluations` bounds durable comparison rows. Retention runs off-request after each shadow batch, removes exactly the rows a bounded newest-first read would never return, and a failed prune never discards the comparisons just written. The `delete_states_beyond` primitive cannot name a key, refuses an empty prefix, is idempotent, and leaves a neighbouring prefix untouched, so it can never erase an authoritative record or an audit entry. |
-
-### Implementation history
-
-| Date | State | Change | Evidence | Remaining |
-|------|-------|--------|----------|-----------|
-| 2026-08-13 | in-progress | Adopted the implementation ledger without reconstructing earlier provenance. Recorded the focused-test-backed core policy, governance, shadow, storage-adapter, and replay components as implemented, while separating missing production composition and Operator API delivery. | `current change`; source and focused tests listed in the scope table; `uv run pytest -q --no-cov services/core-control-plane/tests/core/working_context services/core-control-plane/tests/core/capability_catalog/test_runtime.py services/core-control-plane/tests/core/conversation/test_context_bridge.py services/core-control-plane/tests/core/conversation/test_assemble_turn_context.py` (`70 passed`); `npm --prefix console test -- --run src/routes/context-selection-comparisons.test.ts` (`3 passed`) | Bind and prove durable production shadow evaluation, expose the Reader-gated comparison route, and collect governed runtime evidence before claiming `validated`. |
-| 2026-08-14 | implemented | Added the `bind_context_selection_shadow` composition seam, the paired `Container` invariant, and the Reader-gated Operator Service `GET /context-selection-comparisons` projection over the existing tracked-state prefix. | `current change`; `wire_context_selection.py`, `context_selection_projection.py`, workflow route manifest; focused checks passed 53 core composition cases, 34 Operator cases, and 5 Console decoder cases; task-scoped Ruff and strict mypy passed. | Record governed runtime evidence tracing one eligible shadow evaluation through durable persistence and Operator API retrieval before any scope row becomes `validated`. |
-| 2026-08-14 | implemented | Bounded durable comparison retention with a prefix-scoped `delete_states_beyond` primitive that cannot name a key, so shadow evaluation can stay enabled without unbounded tracked-state growth. | `current change`; `state_store.py`, `testing/state_store.py`, `persistence/postgres.py`, `evidence.py`, `shadow.py`, `test_policy_shadow.py`; focused working-context, composition, and provider checks passed 187 cases; strict mypy passed 1421 source files. | Record governed runtime evidence tracing one eligible shadow evaluation through durable persistence and Operator API retrieval before any scope row becomes `validated`. |
-| 2026-08-16 | in-progress | Corrected the scope row above, which read "Production shadow composition ... implemented" and carried a checked exit item saying bound production shadow evaluation is composed through `bind_context_selection_shadow`. Nothing composes it: the seam has no caller outside its own module, the `composition` facade, and one test, and this document's own suite asserts the default container leaves shadow evaluation unbound. The seam's behavior is implemented and tested; the composition is not, so the row is now `in-progress` and the exit item is split into the proven half and the open half. | `current change`; `grep -rn bind_context_selection_shadow --include=*.py services/ packages/ scripts/` matches only `wire_context_selection.py`, `composition/__init__.py`, and `tests/composition/test_wire_context_selection.py`. | Call the seam from a bootstrap path and prove the assembled production container exposes a bound runner. |
-| 2026-09-27 | implemented | Bound Core consumer startup to the existing shadow seam and its runtime-owned state store. Startup passes the bound container to runtime assembly and drains pending comparisons before store shutdown; rebuilding a container can read retained comparisons from the same store. | `current change`; `runtime/bootstrap.py`, `tests/runtime/test_bootstrap_context_selection.py`, `tests/composition/test_wire_context_selection.py`; focused bootstrap, composition, and context-selection checks. | Prove an eligible candidate is evaluated by a deployed turn and retrieved through the Operator API before claiming operational validation. |
-| 2026-09-27 | implemented | Bounded shutdown to five seconds. On timeout, pending shadow work is cancelled before the store closes; cancellation is not misreported as a candidate failure, and store cleanup still runs if draining fails. | `current change`; `runtime/bootstrap.py`, `core/working_context/shadow.py`, `test_bootstrap_context_selection.py`, `test_policy_shadow.py`; focused startup and shadow-runner checks. | Connect the active turn assembler and obtain governed comparison readback; an interrupted comparison is not completed evidence. |
-
-### Remaining work
-
-- [x] The `bind_context_selection_shadow` seam schedules bounded candidate evaluation and persists
-   its comparison through `StateStore`, proven by `test_assembled_turn_persists_bounded_shadow_comparison`.
-- [x] Core consumer bootstrap composes `bind_context_selection_shadow` with its existing state store.
-   `test_consumer_bootstrap_binds_and_drains_context_shadow` proves the assembled runtime receives
-   the runner and drains or cancels pending work before store shutdown; the default unstarted
-   container remains unbound.
-- [ ] Connect the active conversation turn assembler to the composed policy authority and shadow
-   runner. Exit condition: a focused runtime turn test persists one candidate comparison through
-   the bootstrapped store without changing the active manifest.
-- [x] The Reader-gated Operator Service `GET /context-selection-comparisons` route is registered in
-   the workflow family manifest; API integration tests and the Console decoder test pass against
-   its authoritative response.
-- [ ] Record governed runtime evidence that traces one eligible shadow evaluation through durable
-   persistence and Operator API retrieval before changing any scope row to `validated`.
-- [x] Durable comparison rows are bounded by `ContextShadowConfig.retain_evaluations`; retention runs
-   off-request after each shadow batch, keeps exactly the readable newest rows, and a failed prune
-   never discards the comparisons just written.
-
 ## Contract boundary
 
 The core contract lives under `services/core-control-plane/src/fdai/core/working_context/`:
@@ -179,6 +134,7 @@ projection; a malformed durable record fails closed with HTTP 503 rather than a 
 
 | To learn about | Read |
 |----------------|------|
+| Delivery status and remaining work | [Implementation ledger](../../roadmap-implementation/decisioning/context-selection-policy.md) |
 | Working-context tiers and prompt layers | [Evolving System Prompt](prompt-composition.md) |
 | Conversation persistence and assembly | [Operator Console](../interfaces/operator-console.md) |
 | Module and DI boundaries | [Project Structure](../architecture/project-structure.md) |

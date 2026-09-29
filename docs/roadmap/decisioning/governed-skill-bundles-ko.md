@@ -1,7 +1,7 @@
 ---
 translation_of: governed-skill-bundles.md
-translation_source_sha: 5091aa14debba5008575fcbc638ca1d5df929ee0
-translation_revised: 2026-08-14
+translation_source_sha: 9f7c00475e660cfa771dcffe17fd6f15d489267c
+translation_revised: 2026-09-29
 ---
 # 통제된 스킬 Bundles
 
@@ -21,40 +21,6 @@ instruction, 출처 이력, self-digest를 선언합니다. Detached 서명은 s
 해석은 atomic합니다. FDAI는 번들 서명과 모든 구성원의 활성화된 상태, exact 버전,
 발행기 trust, 본문 다이제스트, 도구 선행 조건, 에이전트 충족 여부를 다시 확인합니다. 하나라도 실패하면
 고정된 거절 사유 하나만 반환하고 구성원 내용은 반환하지 않습니다.
-
-## 구현 상태
-
-### 구현 범위
-
-| 영역 | 상태 | 근거 | 참고 |
-|------|------|------|------|
-| 정본 매니페스트, 스키마, 서명 도메인, 변경 불가능 카탈로그 | implemented | `rule-catalog/schema/skill-bundle.schema.json`; `services/core-control-plane/src/fdai/core/skills/bundle_manifest.py`; `services/core-control-plane/src/fdai/core/skills/bundle_catalog.py`; `services/core-control-plane/tests/core/skills/test_bundle_manifest.py`; `services/core-control-plane/tests/core/skills/test_bundle_catalog.py`; `services/core-control-plane/tests/rule_catalog/schema/test_skill_bundle_schema.py` | focused test는 정본 바이트, 중복 및 알 수 없는 필드, 정확한 버전, 자체 다이제스트, 서명 분리, 비활성 우선 설치, 권한 비확장, 원자적 해석, 고정된 거절 사유를 다룹니다. |
-| 감사되는 수명 주기 및 workshop 검토 | implemented | `services/core-control-plane/src/fdai/core/skills/bundle_lifecycle.py`; `services/core-control-plane/src/fdai/core/skills/bundle_workshop.py`; `services/core-control-plane/tests/core/skills/test_bundle_lifecycle.py`; `services/core-control-plane/tests/core/skills/test_bundle_workshop.py` | focused test는 변경 불가능 전이, 롤백 경로, 내용 없는 감사 이벤트, 자체 검토 차단, 반복 서명 검증, 비활성 승격을 입증합니다. |
-| 런타임 해석, 프롬프트 변환, 재생 메타데이터, quality-gate 감사 직렬화 | implemented | `services/core-control-plane/src/fdai/core/skills/runtime.py`; `services/core-control-plane/src/fdai/core/prompts/skill_disclosure.py`; `services/core-control-plane/tests/core/skills/test_bundle_runtime.py`; `services/core-control-plane/tests/core/prompts/test_skill_bundle_disclosure.py` | focused test는 전체 구성원 로드, all-or-nothing 예산 및 신뢰 실패, 결정론적 번들 프롬프트 계층, 선택 및 거절 재생 레코드, 내용 없는 감사 메타데이터를 다룹니다. |
-| 영속 산출물 codec, 격리된 산출물 종류, fail-closed 시작 재구성 | implemented | `services/core-control-plane/src/fdai/core/supply_chain/skill_bundle.py`; `services/core-control-plane/src/fdai/core/supply_chain/skill_bundle_loader.py`; `alembic/versions/20260720_0042_skill_bundle_artifacts.py`; `services/core-control-plane/tests/core/supply_chain/test_skill_bundle.py`; `services/core-control-plane/tests/core/supply_chain/test_skill_bundle_loader.py` | focused test는 결정론적 산출물 인코딩, 잘못된 archive 거부, 다이제스트 및 신원 검증, 활성 상태 복원, 중복 거부, fail-closed 재시작 동작을 다룹니다. 이 상태는 실제 데이터베이스 이행이나 배포된 재시작을 주장하지 않습니다. |
-| Bragi 명령, 타입이 지정된 RPC, 읽기 전용 Console 점검 | in-progress | `services/core-control-plane/src/fdai/core/conversation/skill_discovery.py`; `services/core-control-plane/src/fdai/core/rpc/skill_discovery.py`; `services/core-control-plane/tests/core/skills/test_bundle_surface_parity.py`; `services/core-control-plane/tests/core/rpc/test_skill_discovery.py`; `console/src/routes/skills.tsx`; `console/src/routes/skills.test.ts` | focused test는 이제 모든 Bragi 및 타입이 지정된 RPC 번들 연산을 직접 호출하고, 두 화면 모두에서 내용 없는 단일 안정 거절 이유를 입증하며, 읽기 전용 reader 바닥과 읽기 범위를 입증하고, Bragi와 RPC와 Console 점검 페이로드가 다시 게시된 동일 런타임 스냅샷을 읽음을 입증합니다. 운영 composition이 트래픽 제공 전에 그 스냅샷을 게시함은 아직 입증하지 않습니다. |
-| 운영 composition 및 거버넌스가 적용된 런타임 근거 | in-progress | `services/core-control-plane/src/fdai/core/skills/runtime.py`; `services/core-control-plane/src/fdai/core/supply_chain/skill_bundle_loader.py` | 소스와 focused test는 구현 주장을 뒷받침하지만, 이행, 재시작 재구성, 번들 게시, 점검, 해석, 감사 동작을 하나의 배포 흐름에서 입증하는 거버넌스 적용 런타임 receipt가 없습니다. 따라서 어떤 행도 `validated`가 아닙니다. |
-
-### 구현 이력
-
-| 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
-|------|------|------|------|-----------|
-| 2026-08-14 | in-progress | 이전 출처를 재구성하지 않고 구현 ledger를 도입했습니다. focused test로 뒷받침되는 매니페스트, 카탈로그, 수명 주기, workshop, 해석, 프롬프트, 재생, 산출물, 시작 loader 동작을 implemented로 기록하고 불완전한 전달 화면 근거와 배포된 런타임 검증을 분리했습니다. | `current change`; 구현 범위 표에 나열된 소스 및 focused test; route가 지정한 core suite (`51 passed`); `uv run pytest -q --no-cov services/core-control-plane/tests/core/rpc/test_skill_discovery.py` (`2 passed`); `npm --prefix console test -- --run src/routes/skills.test.ts` (`3 passed`) | Bragi 및 번들 RPC 연산 직접 coverage를 추가하고, 실제 영속 재시작과 운영 composition을 입증하며, `validated`를 주장하기 전에 거버넌스가 적용된 런타임 receipt를 수집합니다. |
-| 2026-08-14 | in-progress | Bragi 및 타입이 지정된 RPC 번들 연산 직접 coverage와 단일 권위 스냅샷 동등성 검사를 추가하고, `describe_skill_bundle`이 도구 밖으로 예외를 던지는 대신 `load_skill_bundle`과 동일한 안정 거절을 반환하도록 바꿈습니다. | `current change`; `services/core-control-plane/tests/core/skills/test_bundle_surface_parity.py`; `services/core-control-plane/src/fdai/core/conversation/skill_discovery.py`; 집중 skills, 번들 RPC, 번들 프롬프트 검사 72개가 통과했습니다. | 운영 composition이 트래픽 제공 전에 스냅샷을 게시함을 입증하고, 영속 이행을 적용하며, `validated`를 주장하기 전에 거버넌스가 적용된 런타임 receipt를 수집합니다. |
-| 2026-08-14 | in-progress | 거절된 번들 describe가 자신의 거절 진단을 추가하도록 해, 거부된 메타데이터 읽기가 호출측에서만이 아니라 진단 링에서도 보이도록 했습니다. | `current change`; `services/core-control-plane/src/fdai/core/skills/runtime.py`; `services/core-control-plane/tests/core/skills/test_bundle_surface_parity.py`; 집중 risk-gate, runbook, skills, RPC, 프롬프트 검사 402개가 통과했습니다. | 운영 composition이 트래픽 제공 전에 스냅샷을 게시함을 입증하고, 영속 이행을 적용하며, `validated`를 주장하기 전에 거버넌스가 적용된 런타임 receipt를 수집합니다. |
-
-### 남은 작업
-
-- [x] 목록, 설명, 로드, 거절 동작, 읽기 전용 control 경계를 다루는 Bragi 명령 및 타입이
-	지정된 RPC 번들 연산 focused test를 추가했으며, Bragi와 RPC와 Console 점검 페이로드가
-	다시 게시된 동일한 런타임 번들 스냅샷에서 답함을 입증합니다.
-- [ ] 일회용 PostgreSQL 데이터베이스에 이행 `20260720_0042`를 적용하고 영속 설치,
-	비활성화/활성화, 재시작 재구성, 변조된 레코드 거부 통합 테스트를 통과합니다.
-- [ ] 운영 composition에서 서명된 스킬 재구성을 서명된 번들 재구성보다 먼저 연결하고,
-	트래픽을 받기 전에 두 스냅샷을 모두 게시함을 입증하는 통합 테스트를 통과합니다.
-- [ ] 범위 행을 `validated`로 변경하기 전에 영속 재시작, 운영자 점검, 원자적 프롬프트
-	해석, 거절 감사, 재생에 대한 거버넌스 적용 런타임 근거를 수집합니다.
-
 ## 산출물 계약
 
 공개 스키마는
@@ -151,10 +117,11 @@ release 작업 흐름 액션 업그레이드는 정본 번들 바이트, detache
 reproducibility 검사, 승인 경계를 보존해야 하며 산출물 전송 계층 구현만 변경할 수
 있습니다.
 
-## Related docs
+## 관련 문서
 
 | To learn about | 읽기 |
 |----------------|------|
+| 구현 상태 및 남은 작업 | [구현 원장](../../roadmap-implementation/decisioning/governed-skill-bundles.md) |
 | Progressive single-skill 공개 | [프롬프트 조립](prompt-composition-ko.md#reviewed-runtime-skill) |
 | 영속 trusted 산출물과 조립 | [Project Structure](../architecture/project-structure-ko.md) |
 | 읽기 전용 운영자 점검 | [Operator Console](../interfaces/operator-console-ko.md) |

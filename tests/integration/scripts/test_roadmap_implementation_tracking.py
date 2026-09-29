@@ -127,6 +127,56 @@ def test_migration_accepts_history_links_rebased_to_the_delegated_ledger() -> No
     assert not any("history is append-only" in error for error in errors)
 
 
+def test_changed_mirror_of_an_inline_owner_is_rejected() -> None:
+    module = _load_module()
+    previous_mirror = _ledger()
+    edited_mirror = _ledger(
+        extra_history="| 2026-08-15 | implemented | Edited the mirror. | x | y |\n",
+    )
+
+    errors = module.tracking_violations(
+        _ledger(),
+        edited_mirror,
+        owner_relative="docs/roadmap/architecture/owner.md",
+        previous_owner=_ledger(),
+        previous_ledger=previous_mirror,
+    )
+
+    assert len(errors) == 1
+    assert "docs/roadmap-implementation/architecture/owner.md changed" in errors[0]
+    assert "migrate-roadmap-implementation-ledgers.py" in errors[0]
+
+
+def test_new_mirror_of_an_inline_owner_is_rejected() -> None:
+    module = _load_module()
+
+    errors = module.tracking_violations(
+        _ledger(),
+        _ledger(),
+        owner_relative="docs/roadmap/architecture/owner.md",
+        previous_owner=_ledger(),
+        previous_ledger=None,
+    )
+
+    assert any("changed while this owner keeps" in error for error in errors)
+
+
+def test_unchanged_mirror_of_an_inline_owner_is_accepted() -> None:
+    module = _load_module()
+
+    errors = module.tracking_violations(
+        _ledger(),
+        _ledger(),
+        owner_relative="docs/roadmap/architecture/owner.md",
+        previous_owner=_ledger(),
+        previous_ledger=_ledger(),
+    )
+
+    assert errors == []
+    assert module.has_inline_status(_ledger())
+    assert not module.has_inline_status(_delegated_owner())
+
+
 def test_missing_required_subsection_is_rejected() -> None:
     module = _load_module()
     content = _ledger().replace("### Remaining work", "### Follow-up")
