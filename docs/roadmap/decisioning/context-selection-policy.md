@@ -92,6 +92,10 @@ The production adapter stores these records under the existing `StateStore` trac
 This reuses PostgreSQL durability and atomic create semantics; no new table or Alembic migration is
 required. Fan-out, pending runs, and timeouts are all bounded.
 
+The semantic turn processor passes the composed policy authority and shadow runner into the existing
+turn-context assembly seam when both bindings are available. The returned working context remains
+shadow evidence only; the semantic result projection and active manifest stay on their existing path.
+
 `bind_context_selection_shadow` is the composition seam that binds the runner. The runner owns its
 durable store, so a deployment cannot schedule evaluation without somewhere to record it. Install
 every capability bundle first: a later `install_capability_bundle` rebuilds the runner on the
