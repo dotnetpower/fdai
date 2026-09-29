@@ -251,9 +251,16 @@ def detached_named_spans(
 
 
 def _copied_spans(proposal: SemanticJudgmentProposal) -> tuple[tuple[int, int], ...]:
-    return tuple(
+    spans = tuple(
         (target.source_start, target.source_end)
         for target in (*proposal.targets, *proposal.forbidden_actions)
+    )
+    # A span stretched over another copied span merges two constraints into one operand,
+    # so it covers nothing; only the separately copied operands count.
+    return tuple(
+        span
+        for span in spans
+        if not any(other != span and span[0] <= other[0] and other[1] <= span[1] for other in spans)
     )
 
 

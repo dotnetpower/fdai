@@ -775,3 +775,12 @@ def _runtime_result(
         intent_graph={},
         intent_graph_evidence={},
     )
+
+
+def test_free_text_operands_never_become_assurance_subject_types() -> None:
+    from fdai_core_service.semantic_assurance_projection import _subject_types
+
+    assert _subject_types(("Resource", "VM들", "rg-example", "컨테이너 앱", "Incident")) == (
+        "Incident",
+        "Resource",
+    )

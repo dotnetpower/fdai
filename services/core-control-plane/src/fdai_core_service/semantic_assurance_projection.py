@@ -480,7 +480,9 @@ def _subject_types(values: object) -> tuple[str, ...]:
         candidate
         for value in values
         if isinstance(value, str)
+        # Only ASCII type identifiers are subjects; free-text operands never reach the projection.
         if (candidate := value.split(":", 1)[0]).replace("_", "").isalnum()
+        and candidate.isascii()
         and candidate[:1].isupper()
     }
     return tuple(sorted(subjects))
