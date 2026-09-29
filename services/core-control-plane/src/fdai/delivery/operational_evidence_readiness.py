@@ -47,10 +47,10 @@ BOUND_READBACK_PURPOSES = frozenset(
 READINESS_MAX_AGE = timedelta(seconds=120)
 READINESS_MAX_SKEW = timedelta(seconds=30)
 _SOURCE_LIMITATIONS = {
-    "case-history-read": "no retained Operator authentication receipt per semantic request exists",
-    "current-case-reuse": "current safety results are not retained as readable receipts",
+    "case-history-read": "semantic authentication receipt source is not durably bound",
+    "current-case-reuse": "verifier-identity current-case provider readback is unavailable",
     "forecast-context": "the four forecast-history slices cannot be issued yet",
-    "operational-test-observation": "no verifier-identity metric or health readback is bound",
+    "operational-test-observation": "verifier-identity provider readback is unavailable",
 }
 _FORECAST_LIMITATION = "raw forecast history sources are not attestable yet (#1021)"
 _WRITER_NOT_READY = "verifier readiness with a writer-exclusive proof store is not observed"
