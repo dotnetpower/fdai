@@ -22,6 +22,7 @@ _EFFECT_FREE_FAILURE_REASONS = frozenset(
 )
 _BLOCKING_EVENTS = frozenset(
     {
+        "action.dispatch-claimed",
         "action.dispatched",
         "compensation.started",
         "compensation.dispatched",
