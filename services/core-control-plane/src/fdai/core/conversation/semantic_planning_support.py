@@ -475,9 +475,12 @@ def judgment_clarification_outcome(
     ):
         return None
     proposal = judgment_decision.proposal
+    # An ambiguous proposal always states its question; without one the reading is unknown.
+    if proposal is None or not proposal.clarification:
+        return None
     return _outcome(
         SemanticPlanningDisposition.CLARIFICATION,
         "semantic_clarification_required",
         manifest_digest=manifest_digest,
-        clarification=proposal.clarification if proposal is not None else None,
+        clarification=proposal.clarification,
     )

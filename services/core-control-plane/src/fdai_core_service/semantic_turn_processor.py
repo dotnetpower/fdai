@@ -148,6 +148,7 @@ from .semantic_turn_request import (
 from .semantic_turn_request import (
     prior_turns as _prior_turns,
 )
+from .semantic_verified_rows import verified_rows_table
 from .semantic_work_progress_projection import applied_context_receipts, work_progress_payload
 
 _LOGGER = logging.getLogger(__name__)
@@ -3450,6 +3451,7 @@ def _render_general_query_answer(
                 if korean
                 else f"- Verified {returned} of {total} rows."
             )
+            lines.extend(verified_rows_table(output, korean=korean))
     lines.extend(
         [
             "",
