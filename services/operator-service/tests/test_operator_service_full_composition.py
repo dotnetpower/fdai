@@ -514,6 +514,7 @@ def test_configured_postgres_adapters_dispatch_reads_and_typed_proposals(
                     "resource_name": "service-one",
                     "explicit_deep": False,
                 },
+                "principal_roles": ["Contributor"],
             },
         }
     ]
