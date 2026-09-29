@@ -314,11 +314,16 @@ def count_node(node_id: str, source_id: str, group: list[str]) -> OntologyQueryN
     )
 
 
+# A Resource's container is its direct parent, the `from` end of its `contains` link.
+GROUP_BY_FIELDS = {GroupBy.TYPE: "properties.type", GroupBy.CONTAINER: "properties.parent_id"}
+
+
 def group_by(goal: FormGoal) -> list[str] | OperatorResult:
     if goal.measure is None or goal.measure.group_by is GroupBy.NONE:
         return []
-    if goal.measure.group_by is GroupBy.TYPE:
-        return ["properties.type"]
+    field = GROUP_BY_FIELDS.get(goal.measure.group_by)
+    if field is not None:
+        return [field]
     return OperatorResult(unsupported=(f"group_by_unsupported:{goal.measure.group_by.value}",))
 
 
@@ -404,6 +409,7 @@ def function_declared(ctx: CompileContext, name: str) -> bool:
 
 
 __all__ = [
+    "GROUP_BY_FIELDS",
     "state_filter_node",
     "COLLECTION_LIMIT",
     "FUNCTION_ANCHOR_LIMIT",

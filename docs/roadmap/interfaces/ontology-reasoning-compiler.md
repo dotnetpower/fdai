@@ -505,6 +505,11 @@ eight plan outputs; a shared anchor read may repeat only with identical content.
 a reviewed state catalog built from the state inventory function's declared concepts and labels, and the collection is
 read through that function, whose state concepts V-PROV and V-SEM check against the bound state. A state filter on
 another ObjectType stays `filter_unsupported:state`, because no reviewed reader holds that lifecycle.
+A count grouped by container groups members by their direct parent, the `from` end of `contains`, and V-SEM rejects
+an aggregate whose grouping differs from the stated one. The routing preflight's context now also yields newest-first
+within its smaller bound: before, a context longer than that bound skipped the preflight, so after a few long
+answers a standalone question went to the adaptive planner, which could answer it from general knowledge. A trimmed
+context records the kept and dropped item counts as a decision event.
 
 ## Approved decisions
 

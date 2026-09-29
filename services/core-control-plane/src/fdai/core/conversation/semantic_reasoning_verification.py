@@ -46,6 +46,7 @@ from .semantic_reasoning_form import (
     TimeKind,
 )
 from .semantic_reasoning_handles import ReferenceReceipt, reference_mention
+from .semantic_reasoning_nodes import GROUP_BY_FIELDS
 from .semantic_reasoning_relations import SENSE_TRAITS
 from .semantic_resource_visibility import OPERATIONAL_RESOURCE_EXCLUDED_TYPES
 
@@ -323,6 +324,15 @@ def _coverage_violations(
         for node in outputs
     ):
         violations.append("sem_count_not_aggregated")
+    grouped = GROUP_BY_FIELDS.get(goal.measure.group_by) if goal.measure is not None else None
+    if (
+        goal.level is GoalLevel.INSTANCE
+        and goal.effective_operation is GoalOperation.COUNT
+        and any(
+            node.arguments.get("group_by", []) != ([grouped] if grouped else []) for node in outputs
+        )
+    ):
+        violations.append("sem_group_by_mismatch")
     functions = {
         name for plan in plans for node in plan.nodes if (name := _function_name(node)) is not None
     }

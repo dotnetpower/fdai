@@ -1,6 +1,6 @@
 ---
 translation_of: ontology-reasoning-compiler.md
-translation_source_sha: 244c9317fef07a025676ffab657d28eff99c020d
+translation_source_sha: 81c2c53e8f3bc0fe7dc5f7119b69f8a00ef0b4b7
 translation_revised: 2026-09-29
 ---
 # 온톨로지 추론 컴파일러
@@ -541,6 +541,11 @@ production shadow 연결이 승격 근거에서 제외하는 실험이며, 이 �
 함수가 선언한 개념과 레이블로 만든 검토된 상태 카탈로그로 바인딩되고, 수집은 그 함수로 읽습니다. V-PROV와
 V-SEM은 그 함수의 상태 개념을 바인딩된 상태와 대조합니다. 다른 ObjectType의 상태 필터는 그 생애 주기를 읽는
 검토된 reader가 없으므로 계속 `filter_unsupported:state`입니다.
+컨테이너별로 묶은 개수는 구성원을 `contains`의 `from` 끝인 직접 상위 리소스별로 묶으며, V-SEM은 묶는 기준이
+밝힌 기준과 다른 집계를 거부합니다. 라우팅 사전 판정의 문맥도 이제 더 작은 자체 한도 안에서 최신 항목부터
+유지합니다. 이전에는 문맥이 그 한도를 넘으면 사전 판정을 건너뛰었으므로, 긴 답변이 몇 번 이어진 뒤에는 단독
+질문이 적응형 플래너로 넘어가 일반 지식으로 답할 수 있었습니다. 문맥을 줄이면 유지한 항목 수와 제외한 항목
+수를 판단 이벤트로 기록합니다.
 
 ## 승인된 결정
 

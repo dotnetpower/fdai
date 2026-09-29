@@ -1575,3 +1575,40 @@ def test_a_counted_state_and_an_unbound_state_never_widen_the_read() -> None:
     (batch,) = counted.goals[0].batches
     assert [node.kind.value for node in batch.plan.nodes] == ["object_set", "function", "aggregate"]
     assert unbound.goals[0].status is not GoalStatus.COMPILED
+
+
+def test_a_count_grouped_by_container_groups_members_by_their_direct_parent() -> None:
+    utterance = "Count resources by resource group"
+    form = {
+        "mentions": [
+            {
+                "id": "m1",
+                "form": "concept",
+                "domain": "resource_type",
+                "span": span(utterance, "resources"),
+            }
+        ],
+        "goals": [
+            {
+                "id": "g1",
+                "level": "instance",
+                "operation": "count",
+                "subject": "m1",
+                "subject_scope": "collection",
+                "measure": {
+                    "kind": "count",
+                    "group_by": "container",
+                    "cue": span(utterance, "by resource group"),
+                },
+                "cue": span(utterance, "Count"),
+                "confidence": 0.9,
+            }
+        ],
+    }
+    compilation = _compile(utterance, form, concepts(("m1", MentionDomain.RESOURCE_TYPE, ())))
+
+    goal = compilation.goals[0]
+    assert goal.status is GoalStatus.COMPILED, goal.reasons
+    (batch,) = goal.batches
+    aggregate = batch.plan.nodes[-1]
+    assert aggregate.arguments == {"operation": "count", "group_by": ["properties.parent_id"]}

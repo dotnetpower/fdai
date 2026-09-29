@@ -104,6 +104,8 @@ _NUMERIC_EVENT_KEYS = frozenset(
         "attempt",
         "clarification_count",
         "compiled_goals",
+        "context_items_dropped",
+        "context_items_kept",
         "descriptor_bytes",
         "descriptor_count",
         "elapsed_ms",
@@ -128,6 +130,7 @@ _NUMERIC_EVENT_KEYS = frozenset(
     }
 )
 _EVENT_CUES = {
+    "conversation_preflight_context_trimmed": "preflight_context_trimmed",
     "conversation_preflight_model_failed": "preflight_model_failed",
     "conversation_preflight_operational_promotion_rejected": "preflight_promotion_rejected",
     "conversation_preflight_operational_shape_rejected": "preflight_shape_rejected",

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from collections.abc import Mapping, Sequence
 from typing import Any, cast
 
@@ -10,6 +11,7 @@ from pydantic import ValidationError
 
 from .conversation_preflight_targets import operational_target_is_generic
 
+_LOGGER = logging.getLogger(__name__)
 _MAX_CONTEXT_ITEMS = 4
 _MAX_CONTEXT_CHARS = 4_000
 _MAX_PROFILE_BYTES = 16_384
@@ -67,18 +69,34 @@ def discard_details_without_family(value: object) -> object:
 
 
 def bounded_context(context: Sequence[str]) -> tuple[str, ...]:
-    """Return recent context when every item and the total size are valid."""
+    """Return the newest context that fits the routing bound, oldest first.
 
+    Earlier turns yield first, as the planner's own context does, so a long earlier answer
+    never stops the preflight from routing the current question. The turn that crosses the
+    bound keeps its leading characters; every older turn is left out and counted.
+    """
+
+    items = tuple(context)
+    if any(not isinstance(item, str) for item in items):
+        raise TypeError("conversation preflight context MUST contain strings")
     selected: list[str] = []
-    total = 0
-    for item in tuple(context)[-_MAX_CONTEXT_ITEMS:]:
-        if not isinstance(item, str):
-            raise TypeError("conversation preflight context MUST contain strings")
-        total += len(item)
-        if total > _MAX_CONTEXT_CHARS:
-            raise ValueError("conversation preflight context exceeds its bound")
-        selected.append(item)
-    return tuple(selected)
+    remaining = _MAX_CONTEXT_CHARS
+    for item in reversed(items[-_MAX_CONTEXT_ITEMS:]):
+        kept = item[:remaining]
+        if not kept:
+            break
+        selected.append(kept)
+        remaining -= len(kept)
+    dropped = len(items) - len(selected)
+    if dropped or any(
+        len(kept) < len(item)
+        for kept, item in zip(reversed(selected), items[-len(selected) :], strict=False)
+    ):
+        _LOGGER.info(
+            "conversation_preflight_context_trimmed",
+            extra={"context_items_kept": len(selected), "context_items_dropped": dropped},
+        )
+    return tuple(reversed(selected))
 
 
 def bounded_profile(profile: Mapping[str, Any]) -> dict[str, Any]:
