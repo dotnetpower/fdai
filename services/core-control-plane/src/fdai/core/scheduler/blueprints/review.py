@@ -89,20 +89,29 @@ class AutomationBlueprintReviewService:
             raise PermissionError("principal is not authorized to review automation blueprints")
         if not reason.strip():
             raise ValueError("automation blueprint review reason MUST be non-empty")
+        reason = reason.strip()
         current = await self._store.get(candidate_id)
         if current.proposer == principal.id:
             raise PermissionError("automation blueprint proposer cannot self-review")
+        requested_state = (
+            AutomationBlueprintState.ACCEPTED if approve else AutomationBlueprintState.REJECTED
+        )
+        if (
+            current.state is requested_state
+            and current.reviewed_by == principal.id
+            and current.review_reason == reason
+        ):
+            return current
         if current.expires_at <= at:
             raise ValueError("automation blueprint candidate has expired")
         if current.state is not AutomationBlueprintState.DRAFT:
             raise ValueError("only a draft automation blueprint can be reviewed")
-        state = AutomationBlueprintState.ACCEPTED if approve else AutomationBlueprintState.REJECTED
         reviewed = await self._store.transition(
             replace(
                 current,
-                state=state,
+                state=requested_state,
                 reviewed_by=principal.id,
-                review_reason=reason.strip(),
+                review_reason=reason,
             ),
             expected_state=AutomationBlueprintState.DRAFT,
         )
@@ -112,8 +121,8 @@ class AutomationBlueprintReviewService:
             self.metrics.accepted += 1
         else:
             self.metrics.rejected += 1
-            self.metrics.rejection_reasons[reason.strip()] += 1
-        await self._audit.append(_event(f"automation_blueprint.{state.value}", reviewed))
+            self.metrics.rejection_reasons[reason] += 1
+        await self._audit.append(_event(f"automation_blueprint.{requested_state.value}", reviewed))
         return reviewed
 
     async def materialize(
