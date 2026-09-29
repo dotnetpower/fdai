@@ -26,6 +26,7 @@ from fdai_service_contracts import SemanticQueryProgress
 from fdai_service_contracts.semantic_work_progress import SemanticWorkProgress, WorkProgressShape
 from fdai_service_contracts.venue import ExecutionVenue, resolve_execution_venue
 
+from .development_decisions import bind_decision_events
 from .semantic_turn_processor import (
     OperationalEvidenceProjectionReader,
     RuntimeSettingsReader,
@@ -378,6 +379,7 @@ async def consume_semantic_turns(
                     with (
                         bind_semantic_query_progress_observer(publish_progress),
                         bind_semantic_work_progress_publisher(publish_progress),
+                        bind_decision_events(),
                     ):
                         encoded = await processor.process(
                             envelope.payload,

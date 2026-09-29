@@ -51,6 +51,10 @@ def _parser() -> argparse.ArgumentParser:
     imported.add_argument("--result", required=True, type=Path)
     report = commands.add_parser("report")
     report.add_argument("--top", type=int, default=20)
+    explain = commands.add_parser("explain")
+    explain.add_argument("--service", choices=SERVICES, default="core-control-plane")
+    explain.add_argument("--last", type=int, default=10)
+    explain.add_argument("--json", action="store_true")
     return parser
 
 
@@ -418,10 +422,73 @@ def _report(root: Path, top: int) -> int:
     return 0
 
 
+def _explain(packet: DevelopmentProfilePacket, profile_path: Path, last: int, as_json: bool) -> int:
+    """Render retained decision traces and their review cues without adding any content."""
+    if not 1 <= last <= 50:
+        raise ValueError("--last MUST be between 1 and 50")
+    traces = packet.decisions[-last:]
+    cue_counts: dict[str, int] = {}
+    outcomes: dict[str, int] = {}
+    for trace in traces:
+        for cue in trace.cues:
+            cue_counts[cue.code] = cue_counts.get(cue.code, 0) + 1
+        outcome = trace.steps[-1].attributes
+        key = f"{outcome.get('disposition', '~')}/{outcome.get('reason_code', '~')}"
+        outcomes[key] = outcomes.get(key, 0) + 1
+    summary = {
+        "packet": str(profile_path),
+        "retained": len(packet.decisions),
+        "shown": len(traces),
+        "evicted": packet.decisions_evicted,
+        "rejected": packet.decisions_rejected,
+        "cues": dict(sorted(cue_counts.items(), key=lambda item: (-item[1], item[0]))),
+        "outcomes": dict(sorted(outcomes.items(), key=lambda item: (-item[1], item[0]))),
+    }
+    if as_json:
+        rendered = [trace.model_dump(mode="json") for trace in traces]
+        print(json.dumps({**summary, "traces": rendered}, ensure_ascii=True, indent=2))
+        return 0
+    print(json.dumps(summary, ensure_ascii=True))
+    for trace in traces:
+        cues_by_step: dict[int, list[str]] = {}
+        for cue in trace.cues:
+            cues_by_step.setdefault(cue.step, []).append(cue.code)
+        print(
+            f"\n#{trace.sequence} session={trace.session} turn={trace.turn_sequence} "
+            f"recorded={trace.recorded_at.isoformat(timespec='seconds')}"
+        )
+        for index, step in enumerate(trace.steps):
+            values = " ".join(
+                f"{key}={_render_value(value)}"
+                for key, value in step.attributes.items()
+                if not (key == "status" and value == "completed")
+            )
+            marker = f"  <- {','.join(cues_by_step[index])}" if index in cues_by_step else ""
+            print(f"  [{index:02d}] {step.stage:<44} {values}{marker}")
+    return 0
+
+
+def _render_value(value: object) -> str:
+    if isinstance(value, bool):
+        return "true" if value else "false"
+    if isinstance(value, tuple | list):
+        return ",".join(str(item) for item in value) or "-"
+    return str(value)
+
+
 async def _main_async(options: argparse.Namespace) -> int:
     root = _root()
     if options.command == "status":
         return await _status(root)
+    if options.command == "explain":
+        packet = await _capture(
+            root,
+            service=options.service,
+            duration_ms=0,
+            cpu=False,
+            heap=False,
+        )
+        return _explain(packet, _write_packet(root, packet), options.last, options.json)
     if options.command == "report":
         return _report(root, options.top)
     if options.command == "copilot-import":

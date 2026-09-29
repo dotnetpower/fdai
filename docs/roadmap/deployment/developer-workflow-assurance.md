@@ -114,6 +114,79 @@ The runtime delegates content-redacted query activity projection and verified do
 materialization to focused modules. Event ordering, replay cursors, progress monotonicity, deadline
 holds, diagnostic timing, and no-execution authority remain owned by the durable runtime.
 
+### Semantic decision traces
+
+A timing profile shows where a turn spent time, not why the runtime understood a question the way
+it did. When the channel is enabled, Core keeps one content-free decision trace for each completed
+semantic turn in a process-local buffer. A trace records these steps in order:
+
+1. The routing preflight or adaptive plan.
+2. Each recorded judgment attempt.
+3. The closed-choice grounding calls.
+4. The planner's own decision events.
+5. The executed intent graph.
+6. The outcome.
+
+The planner already emits structured decision events for judgment retries, rejected proposals,
+unresolved target spans, T2 escalation, recovery, grounding, and the selected plan source. The
+semantic turn consumer binds one bounded collector to each turn, and a logging handler that exists
+only in the enabled channel copies those events into it. Each event keeps only allowlisted fields.
+
+A trace keeps only typed machine values:
+
+- Model-authored tokens, such as the operational family, request topics, context dependency, target
+  kinds, intents, facets, and output shapes, are kept only when they belong to the reviewed
+  vocabulary. That vocabulary contains the words in the customer-agnostic prompt and vocabulary
+  catalogs. Any other model-authored token becomes the constant `~` marker, and the step counts
+  and flags it for review.
+- Server-constructed tokens, such as reason codes, dispositions, plan sources, capabilities,
+  ObjectType, LinkType, and FunctionType names, and evidence posture, must pass the closed-token
+  grammar. That grammar rejects hyphens, spaces, quotes, and non-ASCII text.
+- Counts, flags, and target kinds in order. Source offsets are compared inside the process to
+  derive the uncovered-target cue and never leave it.
+- Predicate property and operator pairs. A predicate value is kept only for a `type` predicate
+  whose value is a reviewed resource type identifier.
+- Process-local aliases in place of model deployment names and session identifiers. An alias
+  neither reveals its value nor links traces across processes.
+
+A trace never keeps question or answer text, target or canonical values, quotes, other predicate
+values, clarification or draft text, evidence rows, resource identifiers, request or response
+bodies, or hidden reasoning. The packet schema checks the token grammar again and validates that
+every cue points at an existing step. Recording is bounded best effort. It waits at most ten
+milliseconds for the buffer lock, catches its own failures, and never raises into or blocks the
+product turn. The buffer keeps at most 50 traces of at most 16,000 bytes each. It starts empty after
+a restart and leaves the process only in an explicit owner-only capture or export. Each packet
+reports cumulative evicted and rejected counts. Rejections since the previous capture add the
+`decision_traces_rejected` limitation. A packet without decision data keeps the schema `1.0.0` wire
+shape, and a packet with decision data uses schema `1.1.0`.
+
+Each cue names a code and the step to inspect. Cues cover:
+
+- An adaptive routing takeover or an active-thread dependency.
+- A judgment retry, rejection, ambiguity, or unreviewed model token.
+- A preflight target that no judgment target covers, or a type target without a bound type
+  predicate.
+- A model frame or plan call, unresolved frame terms, or a rejected plan.
+- T2 escalation or withholding.
+- A clarification, held, unsupported, advisory, or partial outcome, no ontology read, or incomplete
+  evidence.
+
+A cue is a review pointer, not a causal conclusion. `dev-discuss explain` captures a snapshot and
+prints each trace with its cues. The reviewer compares them with the questions they asked, because
+those questions never enter the packet. Frame and plan provenance appears as model call counts
+and the planner's reported plan source.
+
+| Critique | Revision |
+|----------|----------|
+| The token grammar alone is not a privacy boundary, because model-authored open tokens can echo a resource name. | Model-authored tokens require reviewed vocabulary membership; value-bearing fields are never read. |
+| Re-parsing model responses cannot show every decision, because some responses are blank, truncated, or never observed. | The planner's own structured decision events are captured per turn, and unparsed calls are marked instead of guessed. |
+| Truncated digests of deployment names and sessions can be guessed or linked. | Process-local aliases replace both values. |
+| Exact target offsets disclose question structure. | Offsets stay in the process; traces keep target kinds and the derived uncovered-target cue. |
+| A recording defect or lock wait could affect the product turn. | Recording catches its own failures, waits at most ten milliseconds, and assigns sequence and position under one lock. |
+| Retained history could be mistaken for capture-window evidence, and one rejection could mark every later packet incomplete. | Packets carry cumulative evicted and rejected counts; only new rejections add a limitation, and each trace keeps its recording time. |
+| A new packet field could break schema `1.0.0` readers. | Packets without decision data keep the `1.0.0` wire shape and digest. |
+| A bare cue cannot show which step to inspect. | Each cue carries a validated step index. |
+
 Every packet binds the Git revision, local service input digest, worktree patch digest, process
 identity, runtime-scope receipt digest, time window, and packet digest. Capture admission compares
 the canonical service input digest. Git revision and worktree digest remain provenance, so a commit

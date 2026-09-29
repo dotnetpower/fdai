@@ -48,6 +48,21 @@ The maximum capture is 30 seconds. One process accepts one capture at a time. CP
 capture are enabled by default for a timed profile. Never repeat a failed live capture without a
 new hypothesis.
 
+## Explain a Misunderstanding
+
+When a question was misrouted, mistyped, or answered with a clarification or hold, ask the
+questions in the Console first, then print the retained Core decision traces:
+
+```bash
+.venv/bin/python scripts/automation/dev-discuss.py explain --last 10
+```
+
+Each trace lists the preflight or adaptive plan, judgment attempts, grounding calls, planner
+decision events, intent graph, and outcome. Each cue points at the step to inspect. A `~` value is
+a model token outside the reviewed vocabulary. Compare the traces with the questions you asked in
+order; the traces never contain question, answer, target, or predicate text. A cue is a review
+pointer, not a causal conclusion. `copilot-export` includes the same traces in its packet.
+
 ## GitHub Copilot Review
 
 Export one question and packet:

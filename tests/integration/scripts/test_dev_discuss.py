@@ -403,3 +403,62 @@ async def test_status_and_capture_find_an_identity_bound_launcher_socket(
         "operator-service": False,
     }
     assert packet.service_id == "core-control-plane"
+
+
+def _decision_profile() -> DevelopmentProfilePacket:
+    values = _profile().model_dump(mode="json", exclude={"packet_digest"})
+    trace = {
+        "sequence": 7,
+        "recorded_at": datetime.now(UTC).isoformat(),
+        "session": "s2",
+        "turn_sequence": 3,
+        "steps": [
+            {
+                "stage": "preflight",
+                "attributes": {
+                    "family": "resource_collection",
+                    "target_kinds": ["resource_type_filter", "resource_group"],
+                    "status": "completed",
+                },
+            },
+            {
+                "stage": "outcome",
+                "attributes": {
+                    "disposition": "clarification",
+                    "reason_code": "semantic_clarification_required",
+                    "read_performed": False,
+                },
+            },
+        ],
+        "cues": [
+            {"code": "preflight_target_uncovered", "step": 0},
+            {"code": "clarification_outcome", "step": 1},
+        ],
+    }
+    return DevelopmentProfilePacket.build(
+        **{**values, "schema_version": "1.1.0", "decisions": [trace], "decisions_evicted": 2}
+    )
+
+
+def test_explain_renders_typed_steps_cues_and_summary(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    module = _load()
+    packet = _decision_profile()
+    assert module._explain(packet, tmp_path / "profile.json", 10, False) == 0
+    lines = capsys.readouterr().out.splitlines()
+    summary = json.loads(lines[0])
+    assert summary["retained"] == 1
+    assert summary["evicted"] == 2
+    assert summary["cues"] == {"clarification_outcome": 1, "preflight_target_uncovered": 1}
+    assert summary["outcomes"] == {"clarification/semantic_clarification_required": 1}
+    assert lines[2].startswith("#7 session=s2 turn=3")
+    assert "target_kinds=resource_type_filter,resource_group" in lines[3]
+    assert "status=" not in lines[3]
+    assert lines[3].endswith("<- preflight_target_uncovered")
+    assert "read_performed=false" in lines[4]
+    assert module._explain(packet, tmp_path / "profile.json", 1, True) == 0
+    rendered = json.loads(capsys.readouterr().out)
+    assert rendered["traces"][0]["cues"][1] == {"code": "clarification_outcome", "step": 1}
+    with pytest.raises(ValueError, match="--last"):
+        module._explain(packet, tmp_path / "profile.json", 0, False)
