@@ -6,8 +6,14 @@ from datetime import UTC, datetime
 from pathlib import Path
 from types import ModuleType
 
+from fdai.delivery.inventory_operator_graph import operator_inventory_payload
+from fdai.shared.providers.inventory_snapshot import InventoryObservationKind
+
 REPO_ROOT = Path(__file__).resolve().parents[3]
 SCRIPT = REPO_ROOT / "scripts/deployment/local/refresh-authoritative-inventory.py"
+GRAPH_MODULE = (
+    REPO_ROOT / "services/core-control-plane/src/fdai/delivery/inventory_operator_graph.py"
+)
 
 
 def _module() -> ModuleType:
@@ -86,13 +92,12 @@ def test_refresh_keeps_provider_clients_open_through_inventory_promotion() -> No
 
 
 def test_operator_projection_is_bounded_and_filters_unsupported_links() -> None:
-    module = _module()
-    payload = module._operator_inventory_payload(
+    payload = operator_inventory_payload(
         snapshot_id="example-snapshot",
         snapshot_at=datetime(2026, 8, 10, 12, 0, tzinfo=UTC),
         now=datetime(2026, 8, 10, 12, 1, tzinfo=UTC),
         source="example-inventory",
-        observation_kind=module.InventoryObservationKind.OBSERVED,
+        observation_kind=InventoryObservationKind.OBSERVED,
         freshness_budget_seconds=86400,
         resource_rows=[
             {
@@ -162,12 +167,11 @@ def test_operator_projection_is_bounded_and_filters_unsupported_links() -> None:
 
 
 def test_operator_projection_does_not_claim_expired_or_expected_inventory_is_fresh() -> None:
-    module = _module()
     for kind, age in [
-        (module.InventoryObservationKind.OBSERVED, 2),
-        (module.InventoryObservationKind.EXPECTED, 0),
+        (InventoryObservationKind.OBSERVED, 2),
+        (InventoryObservationKind.EXPECTED, 0),
     ]:
-        payload = module._operator_inventory_payload(
+        payload = operator_inventory_payload(
             snapshot_id="example-snapshot",
             snapshot_at=datetime(2026, 8, 10, 12, 0, tzinfo=UTC),
             now=datetime(2026, 8, 10 + age, 12, 0, tzinfo=UTC),
@@ -183,13 +187,12 @@ def test_operator_projection_does_not_claim_expired_or_expected_inventory_is_fre
 
 
 def test_operator_projection_preserves_unreconciled_changes_and_newer_failures() -> None:
-    module = _module()
-    payload = module._operator_inventory_payload(
+    payload = operator_inventory_payload(
         snapshot_id="example-snapshot",
         snapshot_at=datetime(2026, 8, 10, 12, 0, tzinfo=UTC),
         now=datetime(2026, 8, 10, 12, 1, tzinfo=UTC),
         source="example-inventory",
-        observation_kind=module.InventoryObservationKind.OBSERVED,
+        observation_kind=InventoryObservationKind.OBSERVED,
         freshness_budget_seconds=86400,
         resource_rows=[],
         link_rows=[],
@@ -203,7 +206,11 @@ def test_operator_projection_preserves_unreconciled_changes_and_newer_failures()
 
 
 def test_operator_projection_carries_promoted_snapshot_provenance() -> None:
-    source = SCRIPT.read_text(encoding="utf-8")
+    source = GRAPH_MODULE.read_text(encoding="utf-8")
     assert "SELECT s.id, s.completed_at, s.source, s.observation_kind" in source
     assert 'snapshot_id=str(snapshot["id"])' in source
     assert 'observation_kind=InventoryObservationKind(snapshot["observation_kind"])' in source
+    # The local refresh writes the same projection the reconciliation loop maintains.
+    assert "await write_operator_inventory_graph(dsn=dsn, state_store=state_store)" in (
+        SCRIPT.read_text(encoding="utf-8")
+    )

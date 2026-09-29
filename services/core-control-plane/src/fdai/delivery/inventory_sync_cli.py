@@ -758,6 +758,7 @@ async def _main(argv: list[str]) -> None:
                 extra={"failure_codes": failure_codes},
             )
             print("inventory reconciliation failed; retry scheduled", flush=True)
+        await inventory_sync_cli_support.reconcile_local_operator_graph(config.dsn)
         if not loop:
             return
         await asyncio.sleep(config.loop_seconds)

@@ -45,6 +45,9 @@ from fdai.delivery.inventory_collection import (
     collection_producer_digest,
 )
 from fdai.delivery.inventory_job_config import InventoryJobConfig, verify_declarative_sha256
+from fdai.delivery.inventory_operator_graph import (
+    reconcile_local_operator_graph as reconcile_local_operator_graph,
+)
 from fdai.delivery.inventory_progress import InventoryProgressRecorder
 from fdai.delivery.inventory_sync import InventoryPromotionEnricher, PromotedInventoryObservation
 from fdai.delivery.inventory_sync_cli_models import InventoryOntologyProjectionIncompleteError

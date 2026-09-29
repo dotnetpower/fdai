@@ -366,6 +366,34 @@ write_database_identity() {
   mv "$temporary" "$target"
 }
 
+# Whole-database recreation keeps both volumes, so the stages that materialize rows
+# also bind each database's current OID, which changes when it is dropped and recreated.
+write_database_incarnation() {
+  local target="$stage_marker_dir/database-incarnation.sha256"
+  local temporary
+  local incarnation
+  mkdir -p "$stage_marker_dir"
+  umask 077
+  temporary="$(mktemp "${target}.XXXXXX")"
+  incarnation="$(mktemp "${target}.inventory.XXXXXX")"
+  if ! {
+    cat "$stage_marker_dir/database-volumes.sha256" &&
+      run_bounded database-incarnation docker exec fdai-postgres \
+        psql -U fdai -d postgres -AtX \
+        -c "SELECT oid FROM pg_database WHERE datname='fdai'" &&
+      run_bounded database-incarnation docker exec fdai-postgres-validation \
+        psql -U fdai -d postgres -AtX \
+        -c "SELECT oid FROM pg_database WHERE datname='fdai_validation'"
+  } > "$incarnation" || [[ "$(wc -l < "$incarnation")" -ne 3 ]]; then
+    cat "$incarnation" >&2
+    rm -f "$temporary" "$incarnation"
+    return 1
+  fi
+  sha256sum "$incarnation" | cut -d' ' -f1 > "$temporary"
+  rm -f "$incarnation"
+  mv "$temporary" "$target"
+}
+
 if [[ "$force_preparation" == "1" ]]; then
   rm -f "$legacy_preparation_marker"
   rm -f "$stage_marker_dir"/*.sha256
@@ -513,6 +541,7 @@ run_bounded local-model-settings \
 
 write_database_identity
 database_identity="$stage_marker_dir/database-volumes.sha256"
+database_incarnation="$stage_marker_dir/database-incarnation.sha256"
 
 local_state_inputs=(
   pyproject.toml
@@ -551,13 +580,13 @@ inventory_inputs=(
   .fdai/local-runtime.env
   rule-catalog
   scripts/deployment/local/refresh-authoritative-inventory.py
-  "$database_identity"
+  "$database_incarnation"
 )
 settings_inputs=(
   .fdai/local-runtime.env
   services/core-control-plane/src/fdai/delivery/runtime_settings.py
   scripts/deployment/local/materialize-authoritative-settings.py
-  "$database_identity"
+  "$database_incarnation"
 )
 catalog_inputs=(
   .fdai/local-runtime.env
@@ -565,7 +594,7 @@ catalog_inputs=(
   policies
   rule-catalog
   scripts/deployment/local/materialize-authoritative-catalogs.py
-  "$database_identity"
+  "$database_incarnation"
 )
 service_environment_inputs=(
   .fdai/local-runtime.env
@@ -582,6 +611,7 @@ run_stage \
   local-state \
   "$(path_digest local-state "${local_state_inputs[@]}")" \
   prepare_local_state
+write_database_incarnation
 run_stage \
   runtime-environment \
   "$(configuration_digest \

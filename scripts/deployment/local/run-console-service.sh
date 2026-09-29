@@ -238,6 +238,7 @@ case "$service" in
       FDAI_INVENTORY_DSN="$FDAI_STATE_STORE_DSN"
       FDAI_INVENTORY_SCOPES="$AZURE_SUBSCRIPTION_ID"
       FDAI_INVENTORY_RECOVERY_DELTA=1
+      FDAI_INVENTORY_OPERATOR_GRAPH_PROJECTION=1
       PYTHONPATH="$service_pythonpath"
       "$repo_root/.venv/bin/python" -m fdai.delivery.inventory_sync_cli --loop
     )

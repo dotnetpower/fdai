@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: ba41fb359bf6223dc4cebbfe4ed6dd5450f91d57
+translation_source_sha: b4e084b19383ad3608e74ae966d5738681662a1f
 translation_revised: 2026-09-29
 ---
 # 프로젝트 구조
@@ -101,11 +101,14 @@ ResourceType 카탈로그는 검토된 공급자-중립 신원을 소유하고, 
 
 ## Core 도메인 탐색 결정
 
-Resource 수집 청크의 인코딩은 `delivery/inventory_collection.py`에 둡니다. 기존 스냅샷 공개
-모듈은 원자적 청크 및 재개 지점 저장과 제한된 재생을
-`delivery/persistence/postgres_inventory_chunks.py`에 위임하며 두 경로는 지원 모듈의 후보
-배치 작성기를 재사용합니다. 이 도우미는 승격을 소유하거나 공급자 연속 조회의 권한을 부여하지
-않습니다.
+Resource 수집 청크의 인코딩은 `delivery/inventory_collection.py`에 둡니다. 기존 스냅샷 공개 모듈은
+원자적 청크 및 재개 지점 저장과 제한된 재생을
+`delivery/persistence/postgres_inventory_chunks.py`에 위임하며 두 경로는 지원 모듈의 후보 배치
+작성기를 재사용합니다. 이 도우미는 승격을 소유하거나 공급자 연속 조회의 권한을 부여하지 않습니다.
+`delivery/inventory_operator_graph.py`는 활성 스냅샷에서 제한된 Console 인벤토리 그래프 투영을
+만듭니다. 로컬 준비는 전체 새로 고침 뒤에 이 투영을 쓰고, 로컬 조정 루프는
+`FDAI_INVENTORY_OPERATOR_GRAPH_PROJECTION=1`일 때만 스냅샷이나 신선도가 바뀌면 다시 씁니다. 배포 환경은
+이 값을 설정하지 않습니다.
 
 **초기 설계.** 모든 평면 Core 하위 시스템을 `pipeline`, `incident`, `operator`, `knowledge`
 또는 `platform` 아래로 실제 이동한 뒤 한 번의 코드 변경 도구로 모든 가져오기를 다시 작성합니다.

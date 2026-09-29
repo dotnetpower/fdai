@@ -839,6 +839,21 @@ esac
     )
 
 
+_DATABASE_BACKED_STAGES = frozenset(
+    {"authoritative-inventory", "authoritative-settings", "authoritative-catalogs"}
+)
+
+
+def _incarnation_digest(digest: str, oid: str = "16384") -> str:
+    """Return the fake stage digest the harness derives from one database incarnation."""
+
+    volumes = hashlib.sha256(
+        b"fdai-pgdata 2026-08-23T00:00:00Z\nfdai-validation-pgdata 2026-08-23T00:00:00Z\n"
+    ).hexdigest()
+    incarnation = hashlib.sha256(f"{volumes}\n{oid}\n{oid}\n".encode()).hexdigest()
+    return hashlib.sha256(f"{digest}:{incarnation}".encode()).hexdigest()
+
+
 def _staged_preparation_repo(
     tmp_path: Path,
     *,
@@ -940,6 +955,8 @@ fi
                 stage_digest = hashlib.sha256(
                     f"{digest}\nauth-mode={auth_mode}\n".encode()
                 ).hexdigest()
+            if stage in _DATABASE_BACKED_STAGES:
+                stage_digest = _incarnation_digest(digest)
             (marker_dir / f"{stage}.sha256").write_text(
                 f"{stage_digest}\n",
                 encoding="utf-8",
@@ -950,7 +967,16 @@ fi
 set -euo pipefail
 case "$1" in
     */run-bounded-command.py) shift; exec {str(sys.executable)!r} {str(_BOUNDED_RUNNER)!r} "$@" ;;
-  */local-service-input-digest.py) printf '%s\\n' {digest!r} ;;
+  */local-service-input-digest.py)
+        for argument in "$@"; do
+            if [[ "$argument" == *database-incarnation.sha256 ]]; then
+                printf '%s:%s' {digest!r} "$(<"$argument")" | sha256sum | cut -d' ' -f1
+                exit 0
+            fi
+        done
+        printf '%s\\n' {digest!r} ;;
+  */refresh-authoritative-inventory.py|*/materialize-authoritative-settings.py) exit 0 ;;
+  */materialize-authoritative-catalogs.py) exit 0 ;;
   */developer-workflow.py) exit 0 ;;
   */sync-entra-spa-redirect.py) exit 0 ;;
         */ensure-local-models.py)
@@ -969,6 +995,10 @@ set -euo pipefail
 if [[ "$1" == "volume" && "$2" == "inspect" ]]; then
   printf 'fdai-pgdata 2026-08-23T00:00:00Z\\n'
   printf 'fdai-validation-pgdata 2026-08-23T00:00:00Z\\n'
+  exit 0
+fi
+if [[ "$1" == "exec" ]]; then
+  printf '%s\\n' "${FDAI_TEST_DATABASE_OID:-16384}"
   exit 0
 fi
 exit 99
@@ -1116,6 +1146,37 @@ def test_preparation_reruns_local_state_when_database_was_recreated(tmp_path: Pa
     assert result.returncode == 0
     assert result.stdout.count("event=reused") == 7
     assert result.stdout.count("stage=local-state event=completed") == 1
+
+
+def test_database_backed_stages_rerun_when_the_database_was_recreated_in_place(
+    tmp_path: Path,
+) -> None:
+    repo, environment = _staged_preparation_repo(tmp_path)
+    environment["FDAI_TEST_LOCAL_STATE_READY"] = "0"
+    # Projection stages source the generated runtime environment before they run.
+    (repo / ".fdai/local-runtime.env").write_text("FDAI_TEST_PREPARED=1\n", encoding="utf-8")
+
+    def prepare(oid: str) -> str:
+        result = subprocess.run(  # noqa: S603 - fixed test script and executable.
+            [_BASH, str(repo / "scripts/deployment/local/prepare-console-full-stack.sh")],
+            cwd=repo,
+            env={**environment, "FDAI_TEST_DATABASE_OID": oid},
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=3,
+        )
+        assert result.returncode == 0, result.stderr
+        return result.stdout
+
+    retained = prepare("16384")
+    # Size-bounded maintenance drops and recreates the database inside the same volume.
+    recreated = prepare("24576")
+
+    assert retained.count("event=reused") == 7
+    assert recreated.count("event=reused") == 4
+    for stage in ("local-state", *sorted(_DATABASE_BACKED_STAGES)):
+        assert recreated.count(f"stage={stage} event=completed") == 1
 
 
 def test_preparation_stops_when_model_settings_cannot_be_generated(tmp_path: Path) -> None:
