@@ -508,7 +508,7 @@ def test_a_named_resource_qualified_by_its_container_is_admitted() -> None:
     assert not any(reason.startswith("qualifier_not_instance") for reason in admission.reasons)
 
 
-def test_one_group_is_never_both_the_scope_and_the_relation_anchor() -> None:
+def test_a_group_is_the_scope_and_a_relation_anchor_only_as_one_membership() -> None:
     utterance = "rg-app의 모든 리소스를 보여줘"
     raw = {
         "mentions": [
@@ -543,11 +543,18 @@ def test_one_group_is_never_both_the_scope_and_the_relation_anchor() -> None:
     scoped = {**raw, "goals": [{**raw["goals"][0], "relation": None}]}
     closure = json.loads(json.dumps(raw))
     closure["goals"][0]["relation"]["reach"] = "transitive"
+    depends = json.loads(json.dumps(raw))
+    depends["goals"][0]["relation"].update(
+        sense="dependency", anchor_role="dependency", result_role="dependent"
+    )
 
-    assert "scope_anchor_conflict:g1" in _admit(raw, utterance).reasons
     assert _admit(scoped, utterance).disposition is AdmissionDisposition.ADMITTED
-    # A transitive containment from the scope group names the same whole membership.
+    # One phrase such as rg-app의 read both as the scope and as a containment from the same
+    # group names one membership; the compiler reads the scope's whole membership.
+    assert "scope_anchor_conflict:g1" not in _admit(raw, utterance).reasons
     assert "scope_anchor_conflict:g1" not in _admit(closure, utterance).reasons
+    # Another sense from the scope group asks for something else, so it stays a conflict.
+    assert "scope_anchor_conflict:g1" in _admit(depends, utterance).reasons
 
 
 def test_a_reciprocal_link_is_read_on_both_sides_whatever_direction_is_stated() -> None:

@@ -25,7 +25,6 @@ from .semantic_reasoning_form import (
     GoalOperation,
     MentionDomain,
     MentionForm,
-    RelationReach,
     RelationScope,
     RelationSense,
     SemanticQuestionForm,
@@ -446,12 +445,13 @@ def _restates_scope(goal: FormGoal) -> bool:
     """
 
     relation = goal.relation
+    # A one-hop containment from the scope's own group also only restates that membership:
+    # the compiler reads it as the scope's whole membership, the reading of "in the group".
     return (
         relation is not None
         and relation.anchor is not None
         and relation.sense is RelationSense.CONTAINMENT
         and relation.scope is RelationScope.ONE_SENSE
-        and relation.reach is RelationReach.TRANSITIVE
         and relation.anchor_position is SubjectPosition.SOURCE
         and goal.subject_scope is SubjectScope.COLLECTION
     )
@@ -462,6 +462,15 @@ def _goal_shape_failures(goal: FormGoal, form: SemanticQuestionForm) -> list[str
     # A why question has one canonical reading, so no other goal can drop its cause atom.
     if (goal.operation is GoalOperation.EXPLAIN_CAUSE) != (goal.want is Want.CAUSE):
         failures.append(f"cause_form_inconsistent:{goal.id}")
+    # A relation relates its results to another named thing, never a named subject to itself;
+    # a reference to earlier rows may start its own read, so it is the one exception.
+    if (
+        goal.relation is not None
+        and goal.subject is not None
+        and goal.relation.anchor == goal.subject
+        and goal.subject_scope is not SubjectScope.PRIOR_RESULT
+    ):
+        failures.append(f"relation_anchor_is_subject:{goal.id}")
     scopes = {item.mention for item in goal.filters if item.role is FilterRole.SCOPE}
     if (
         goal.relation is not None

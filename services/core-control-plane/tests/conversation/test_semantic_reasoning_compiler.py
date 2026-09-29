@@ -705,20 +705,6 @@ def _as_lookup(form: dict[str, Any], **updates: Any) -> None:
             lambda form: _as_lookup(form, measure={"kind": "state", "group_by": "type"}),
             "group_by_unsupported_for_operation:lookup",
         ),
-        (
-            lambda form: _as_lookup(
-                form,
-                measure={"kind": "state"},
-                relation={
-                    "sense": "containment",
-                    "anchor": "m1",
-                    "anchor_role": "container",
-                    "result_role": "member",
-                    "cue": span("How many VMs are in rg-app?", "are in"),
-                },
-            ),
-            "relation_unsupported_for_operation:lookup",
-        ),
     ),
 )
 def test_stated_atoms_no_builder_reads_are_never_dropped(mutate: Any, reason: str) -> None:
@@ -1711,3 +1697,32 @@ def test_a_history_goal_reads_activity_as_activity_and_states_its_window() -> No
     (batch,) = goal.batches
     assert batch.frame.output_shape == "change_activity"
     assert batch.frame.evidence_requirements == ("window.applied.259200",)
+
+
+def test_a_relation_anchored_on_its_own_named_subject_is_repaired_not_read() -> None:
+    utterance = "How many VMs are in rg-app?"
+    form = {
+        "mentions": [_anchor(utterance, "rg-app")],
+        "goals": [
+            {
+                "id": "g1",
+                "level": "instance",
+                "operation": "lookup",
+                "subject": "m1",
+                "subject_scope": "anchor",
+                "measure": {"kind": "state"},
+                "relation": {
+                    "sense": "containment",
+                    "anchor": "m1",
+                    "anchor_role": "container",
+                    "result_role": "member",
+                    "cue": span(utterance, "are in"),
+                },
+                "cue": span(utterance, "How many"),
+                "confidence": 0.9,
+            }
+        ],
+    }
+
+    # The relation states nothing beyond its subject, so the one repair drops or moves it.
+    assert "relation_anchor_is_subject:g1" in admitted(form, utterance).reasons

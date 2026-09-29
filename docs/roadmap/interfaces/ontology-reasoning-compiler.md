@@ -118,8 +118,9 @@ The model states only that `aks-prod-01` is the dependency and the results are i
 
 Bragi admits a form only when every span matches the utterance without cutting through a longer identifier, every goal meets the confidence floor, no
 alternative survives, both relation roles are the ends of one sense, every declared mention is used, no two mentions share words, no group is both a
-goal's scope and its relation anchor unless the relation is a transitive containment from that group to its members, which only restates the scope's
-whole membership, every qualifier places one named instance inside another named instance, and the level fits every mention domain. A kind, a
+goal's scope and its relation anchor unless the relation is a containment from that group to its members, which only restates the scope's whole
+membership and is read as that membership, no relation anchors on its own named subject, every qualifier places one named instance inside
+another named instance, and the level fits every mention domain. A kind, a
 state, or a container of the results stated as a qualifier is a structural fault with one repair that restates it as a filter or as the goal's
 relation, unless the qualifier sits on a goal subject and names one of that goal's own filters, as in running VMs with a running filter; the
 filter reads it, so the qualifier restates it and drops nothing. Otherwise it returns one clarification or sends a low-confidence field to one independent T2 review of closed fields. An admitted atom
