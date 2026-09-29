@@ -33,6 +33,7 @@ and resumable work while the roadmap owner remains focused on normative design.
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-29 | in-progress | Reconciled delivery status with GitHub: #718 was closed as not planned on 2026-09-28, so this ledger keeps the forecast promotion re-evaluation, and #1228's protected source delivery through PR #1231 is recorded separately from its open deployed readback. Neither change alters implementation or runtime state. | `current change`; this ledger; `check-roadmap-implementation-tracking.py` and doc-link checks. | Deployed readbacks and receipts below; forecast scoring waits on the source producers and admissions in the prediction learning ledger. |
 | 2026-09-22 | in-progress | Rechecked actual local tier evidence after cancelling the predecessor wait at the operator's request. At the recorded cutoff, 19,111 T0 measurements comprise 13,986 routing abstentions, 2,999 compliant outcomes and 2,126 HIL outcomes; all 34 T1 measurements are abstentions, and no T2 measurement exists. Every T1 audit links to one terminal measurement from inventory delta ingress, and every original routing record has no candidate Rule. The earlier 13,668/34/0 observation remains historical and was not treated as a fixed denominator. | Read-only local PostgreSQL queries at `2026-09-22T04:02:01.308468Z`, cutoff seq `75861`; measurement interval begins `2026-09-22T00:55:56.892093Z`; T1 audit seq range `127` to `38518`. `test_consult_t2_without_grounding_rules_skips_proposer` and `test_control_loop_measurement.py`: `61 passed` on the current shared checkout, not an immutable deployed-image claim. No source file was edited or event replayed. | Retain one genuinely eligible T1 abstention with original target and permitted grounding Rules, then evaluate it once through the existing bounded T2 shadow gate and preserve all gate/audit evidence. Null synthetic provenance is not non-synthetic certification. No ratio, fabricated Event, invented Rule, model run or Azure mutation is claimed. |
 | 2026-09-21 | implemented | Preserved the inventory-verified canonical Resource type in analyzer finding Events so a real finding without a deterministic rule can enter T1 instead of failing the trust-router type boundary. | `current change`; `analyzer_tick.py`; focused canonical publication and trust-router regression. | Retain one governed live finding receipt that reaches T1, then observe T2 only when T1 legitimately abstains; no tier ratio is quota-forced. |
 | 2026-09-17 | implemented | Split inventory promotion projection and configuration-event publication from the oversized inventory CLI into a focused observer module without changing the handoff contract. | `current change`; `inventory_ontology_observer.py`; focused publisher, shipped-rule T0 dispatch, observer, and recovery tests (`70 passed`); enforce-mode LOC, Ruff, format, and strict mypy passed. | No structural work remains for this split; governed full-stack evidence remains open below. |
@@ -99,10 +100,12 @@ and resumable work while the roadmap owner remains focused on normative design.
 - [ ] Complete one bounded T2 shadow evaluation only from an actual eligible T1 abstention with preserved original Event, target and grounding Rules. The 2026-09-22 cohort has no such input: 34/34 original candidate lists are empty. Preserve mixed-model cross-check, deterministic verifier, grounding, audit and no-execution authority; do not relabel this preflight refusal as Live T2 evidence.
 - [ ] Distinguish local observed tier measurements, their original source/provenance and the Console's moving window from deployed-runtime qualification. Preserve null synthetic markers as unknown and record observed counts only.
 
-- [ ] Complete [issue #1228](https://github.com/dotnetpower/fdai/issues/1228) with protected delivery
-  and an authenticated Console readback matching a newly completed, pinned configuration check.
-  Baseline activation, Knowledge indexing, and review scheduling need their own authoritative
-  prerequisites; a populated projection alone does not establish those outcomes.
+- [ ] Complete [issue #1228](https://github.com/dotnetpower/fdai/issues/1228): its source criteria
+  merged through protected checks in [PR #1231](https://github.com/dotnetpower/fdai/pull/1231); retain
+  an authenticated Console readback that matches a newly completed, pinned configuration check on a
+  deployed revision installed through either constitutional deployment path. Baseline activation,
+  Knowledge indexing, and review scheduling need their own authoritative prerequisites; a populated
+  projection alone does not establish those outcomes.
 
 - [x] The analyzer entry point the Terraform job configures exists, publishes canonical window-keyed Events, and reports publish failures with a non-zero result, proven by `services/core-control-plane/tests/delivery/test_analyzer_tick.py`.
 - [x] Analyzer targets resolve from the configured list plus the durable inventory projection through a reviewed neutral resource-type map, and unmapped types, unusable or stale observed state facts, and a failed projection read fail closed, proven by `services/core-control-plane/tests/delivery/test_analyzer_targets.py`.
@@ -136,6 +139,10 @@ and resumable work while the roadmap owner remains focused on normative design.
   change-window treatment, and promotion thresholds in
   `config/detection-governance-policy.json`, with exact loader checks in
   `services/core-control-plane/tests/core/detection/test_governance_policy.py`.
-- [ ] Re-evaluate forecast promotion at or after `2026-09-24T11:00:02Z` under
-  [issue #718](https://github.com/dotnetpower/fdai/issues/718). Keep observation mode unless the
-  governed snapshot contains at least 30 scorable episodes and satisfies every promotion threshold.
+- [ ] Re-evaluate forecast promotion at or after `2026-09-24T11:00:02Z`. The owner closed
+  [issue #718](https://github.com/dotnetpower/fdai/issues/718) as not planned on 2026-09-28, and this
+  item is its resumable record. Keep observation mode unless the governed snapshot contains at least
+  30 scorable episodes and satisfies every promotion threshold. Scoring stays excluded as
+  `intervention_history_unavailable` until the forecast source producers and independent source
+  admissions tracked in the [prediction learning ledger](prediction-learning-and-case-history.md#remaining-work)
+  exist, so no episode is scorable yet.

@@ -23,6 +23,7 @@ and resumable work while the roadmap owner remains focused on normative design.
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-29 | in-progress | Promoted the `ops.start-vm` residual from the 2026-09-12 history row into an observable remaining-work item and pointed the plan item at the deployment design owner instead of its ledger. No implementation or runtime state changed. | `current change`; this ledger; `check-roadmap-implementation-tracking.py` and doc-link checks. | Declare and bind the start-vm observation, then retain the governed live receipts below. |
 | 2026-09-12 | in-progress | Added a dedicated read-only ARM VM power-state source and `ops.start-vm@1.0.0` collector. Complete adverse states reach reconciliation as mismatches, while incomplete, conflicting, censored, stale, and late observations remain explicit unscorable or timed-out evidence. The provider receipt cannot supply the observed state, and no runtime binding was added. | `current change`; `vm_power_state.py`; `vm_power_state_observation.py`; focused source, collector, and reconciliation tests passed. | Add a reviewed semantic declaration to the shipped ActionType and retain a governed observation through a separately authorized runtime binding. |
 | 2026-08-14 | in-progress | Adopted the implementation ledger without reconstructing earlier provenance. | `current change`; integrated lane source and focused tests listed in the scope table. | Retain protected live-drill and recurrence evidence. |
 | 2026-08-14 | implemented | Connected ordinary execution to effect-reconciliation request production through existing exact V2 plans and a durable lease-fenced publication outbox without changing executor outcomes on downstream failure. | `current change`; reconciliation producer, outbox, publication, ControlLoop, runtime, and composition paths; focused validation passed 163 tests. | Bind production exact-plan and independent-observation sources, then retain governed live closure evidence. |
@@ -42,8 +43,13 @@ and resumable work while the roadmap owner remains focused on normative design.
   focused checks cited in the 2026-08-30 history row.
 - [x] Add an unwired exact-target Azure VM power-state source and
   `ops.start-vm@1.0.0` observation collector that preserves adverse and unusable evidence.
+- [ ] Declare the reviewed `ops.start-vm@1.0.0` observation semantics on the shipped ActionType and
+  bind the exact one-VM power-state collector through the existing shadow runtime path. Exit:
+  focused catalog, collector, and runtime-composition tests show a bound collector that reports only
+  independently observed state and grants no authority. A governed live observation stays with the
+  next item.
 - [ ] Apply the exact platform and Core service plans described by
-  [`deploy-and-onboard.md`](../deployment/deploy-and-onboard.md), then retain one controlled,
+  [`deploy-and-onboard.md`](../../roadmap/deployment/deploy-and-onboard.md), then retain one controlled,
   non-synthetic observation that the verified mailbox accepts and replays.
 - [ ] Run the protected live drill in
   [`ohl-scale-out-evidence.md`](../../runbooks/ohl-scale-out-evidence.md) and retain exact
