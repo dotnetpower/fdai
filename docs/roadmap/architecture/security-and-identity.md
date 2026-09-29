@@ -167,12 +167,13 @@ Administrator`, Graph application permissions, and every write role remain outsi
   credentials attached, and disabled for any use outside the event loop.
 - The [independent operational evidence](../rules-and-detection/independent-operational-evidence.md)
   verifier is a separate non-executor workload identity. It refuses to start when its principal equals
-  any source, producer, reviewer, or executor-class principal, and it holds only the insert-only
-  proof-store writer role and `EXECUTE` on fixed-parameter `SECURITY DEFINER` source functions, never a
-  direct `SELECT` on a source view or table. A purpose is bound only when its source is read under the
-  verifier's own identity from a store another principal writes; rows that the producer or Operator can
-  write never stand in for a platform or inventory source, so readbacks without such a source stay
-  unbound.
+  any source, producer, reviewer, or executor-class principal, accepts deployed issuance calls only
+  from the registered producer workload identity, reads back its own Azure roles at startup, and
+  holds only the insert-only proof-store writer role and `EXECUTE` on fixed-parameter
+  `SECURITY DEFINER` source functions, never a direct `SELECT` on a source view or table. A purpose is
+  bound only when its source is read under the verifier's own identity from a store another principal
+  writes; rows that the producer or Operator can write never stand in for a platform or inventory
+  source, so readbacks without such a source stay unbound.
 - Prefer **credential-free auth**: workload identity federation / OIDC token exchange so the
   executor holds no long-lived secret. Where a secret is unavoidable it is short-lived and
   auto-rotated (see Secrets and Config).
