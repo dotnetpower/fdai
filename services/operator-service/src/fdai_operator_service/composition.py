@@ -15,6 +15,7 @@ from fdai_service_contracts import (
     OperatorReadModel,
     OperatorTokenVerifier,
 )
+from fdai_service_contracts.post_turn_review import POST_TURN_REVIEW_TOPIC
 from fdai_service_contracts.venue import (
     bus_security_protocol,
     resolve_execution_venue,
@@ -69,6 +70,10 @@ from fdai_operator_service.context_selection import ContextSelectionRegistry
 from fdai_operator_service.contracts import ReadinessProbe
 from fdai_operator_service.environment import (
     OperatorEnvironment,
+)
+from fdai_operator_service.families.conversation.post_turn_review import (
+    NonBlockingPostTurnReviewQueue,
+    PostTurnReviewPreferenceSource,
 )
 from fdai_operator_service.families.conversation.semantic_turn import SemanticTurnEnvelopeBuilder
 from fdai_operator_service.families.conversation.semantic_turn_runtime import (
@@ -231,6 +236,7 @@ class ProductionOperatorComposition:
             context_selection_registry=context_selection_registry,
             relationship_resolver=self.adaptive_relationship_resolver,
             runtime_call_observer=runtime_call_endpoint_observer_from_config(environment.values),
+            post_turn_review_publisher=semantic_bus,
         )
         read_investigation_bridge = (
             ReadInvestigationBridge(
@@ -596,6 +602,7 @@ def _semantic_bridge(
     context_selection_registry: ContextSelectionRegistry,
     relationship_resolver: DialogueRelationshipResolver | None = None,
     runtime_call_observer: RuntimeCallEndpointObserver | None = None,
+    post_turn_review_publisher: SemanticTurnEventPublisher | None = None,
 ) -> SemanticTurnBridge | None:
     if publisher is None and result_source is None:
         return None
@@ -603,6 +610,14 @@ def _semantic_bridge(
         raise RuntimeError("semantic publisher and result source MUST be configured together")
     if store is None:
         raise RuntimeError("semantic transport requires the authoritative PostgreSQL store")
+    post_turn_reviews = (
+        NonBlockingPostTurnReviewQueue(
+            source=PostTurnReviewPreferenceSource(store),
+            publisher=post_turn_review_publisher,
+        )
+        if post_turn_review_publisher is not None
+        else None
+    )
     return SemanticTurnBridge(
         store=store,
         publisher=publisher,
@@ -615,6 +630,7 @@ def _semantic_bridge(
         ),
         relationship_resolver=relationship_resolver,
         runtime_call_observer=runtime_call_observer,
+        post_turn_reviews=post_turn_reviews,
     )
 
 
@@ -636,6 +652,7 @@ def _build_semantic_bus(environment: OperatorEnvironment) -> OperatorSemanticKaf
             request_topic=environment.semantic_request_topic or "operator.semantic-turn.requests",
             projection_topic=environment.semantic_projection_topic
             or "core.semantic-turn.projections",
+            post_turn_review_topic=POST_TURN_REVIEW_TOPIC,
             read_investigation_topic=environment.read_investigation_request_topic,
             read_investigation_completion_topic=(environment.read_investigation_completion_topic),
             background_task_projection_topic=environment.background_task_projection_topic,

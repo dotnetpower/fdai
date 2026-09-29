@@ -4,7 +4,7 @@ title: Continuous Operational Instance Graph
 # Continuous Operational Instance Graph
 
 This document owns the runtime contract that keeps cloud resource instances, relationships, and observed state current in the FDAI ontology.
-Collection is continuous and load-aware, while raw history moves through typed rollups and verified archives so the active data plane remains bounded. Principal-scoped semantic candidates omit oversized axes, preserve the ranked prefix within the byte bound, and keep generated coverage on the exact catalog function denominator with every reviewed ontology-platform source digest bound into the artifact.
+Collection is continuous and load-aware, while raw history moves through typed rollups and verified archives so the active data plane remains bounded. Principal-scoped semantic candidates omit oversized axes, preserve the ranked prefix within the byte bound, and keep generated coverage on the exact catalog function denominator with every reviewed ontology-platform source digest bound into the artifact. The Operator post-turn review queue observes terminal semantic projections only as completed-turn learning evidence; it creates no observed graph fact, provider read, or execution authority.
 
 [Alert noise governance](../operations/alert-noise-governance.md) retains separate private alert,
 audience, and delivery evidence. Those records and their scope bindings do not promote an inventory

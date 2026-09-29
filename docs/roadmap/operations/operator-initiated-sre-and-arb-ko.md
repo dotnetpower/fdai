@@ -1,11 +1,13 @@
 ---
 title: 오퍼레이터 시작 SRE 및 아키텍처 리뷰
 translation_of: operator-initiated-sre-and-arb.md
-translation_source_sha: a6dcaabbc0a5b0e50335d94863313ca610fa48a2
-translation_revised: 2026-09-27
+translation_source_sha: 45550ba71d06501eeaf25d0da77344c474d665a0
+translation_revised: 2026-09-29
 ---
 
 # 오퍼레이터 시작 SRE 및 아키텍처 리뷰
+
+Operator post-turn review 발행은 projection 이후 완료된 semantic turn만 관찰하며 Incident 또는 ARB workflow를 생성, 확인, 변경할 수 없습니다.
 
 이 계획은 인시던트가 아닌 운영 작업을 FDAI가 식별하는 방법, 오퍼레이터의 SRE 요청을
 거버넌스가 적용되는 인시던트 대응으로 전환하는 방법, 아키텍처 검토 Board(ARB)

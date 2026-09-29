@@ -50,6 +50,9 @@ Azure transport sends every Pantheon logical object topic through the configured
 topic with `MultiplexedEventBus`. The headless runtime and Operator API therefore share the same
 logical-to-physical mapping. Process-local transport keeps the same logical contract without
 inventing Azure evidence.
+Production Operator composition now offers terminal answered semantic turns to a bounded
+asynchronous post-turn queue, which publishes the shared Bragi-owned `object.post-turn-review`
+envelope through the configured semantic transport without blocking turn projection.
 
 ## Eligibility
 

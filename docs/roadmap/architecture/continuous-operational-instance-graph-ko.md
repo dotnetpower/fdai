@@ -1,9 +1,11 @@
 ---
 translation_of: continuous-operational-instance-graph.md
-translation_source_sha: 130ab50667c1ddcca7cc1df7c038ad95d021881c
+translation_source_sha: d8623fc5d15d66916b7f746089506f56b6af2e2d
 translation_revised: 2026-09-29
 ---
 # 지속형 운영 인스턴스 그래프
+
+Operator post-turn review 큐는 최종 semantic projection을 completed-turn 학습 근거로만 관찰하며, observed graph fact, provider read, 실행 권한을 만들지 않습니다.
 
 이 문서는 클라우드 리소스 인스턴스, 관계, 관측 상태를 FDAI 온톨로지에서 최신으로
 유지하는 런타임 계약을 소유합니다. 수집은 지속적이며 부하를 고려하고, 원시 이력은 타입이

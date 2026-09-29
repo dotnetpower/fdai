@@ -1,7 +1,7 @@
 ---
 title: Post-Turn 개선 검토
 translation_of: post-turn-improvement-review.md
-translation_source_sha: a5a75815cdb0a8ca29ff2c7a7a221cdd532b71a4
+translation_source_sha: d3fdeb91b1c0e6272f55a826efcf31d581ae4da9
 translation_revised: 2026-09-29
 ---
 
@@ -53,6 +53,9 @@ Azure 전송 계층은 모든 Pantheon logical 객체 토픽을 `MultiplexedEven
 physical 객체 토픽으로 보냅니다. 따라서 headless 런타임과 Operator API는 같은
 logical-to-physical 대응을 사용합니다. Process-local 전송 계층도 Azure 근거를 만들지 않고
 같은 logical 계약을 유지합니다.
+Production Operator 구성은 이제 최종 answered semantic turn을 범위가 제한된 asynchronous
+post-turn 큐에 제공하며, 이 큐는 turn projection을 차단하지 않고 공유된 Bragi 소유
+`object.post-turn-review` 묶음을 구성된 semantic transport로 발행합니다.
 
 ## 충족 여부
 

@@ -52,7 +52,7 @@ Core assembles the optional Assurance Twin report/review writers and outbox rela
 runtime model after Incident wiring, then supervises each independently. Relay recovery
 requires StateStore and Heimdall, Forseti, and Saga; writers additionally require an injected
 retained-evidence source. Their authority-free requests never enter Incident creation or action
-confirmation. This shared lifecycle placement changes no Incident owner, transition, or approval.
+confirmation. This shared lifecycle placement changes no Incident owner, transition, or approval. Operator post-turn review publication observes completed semantic turns after projection and cannot create, confirm, or mutate an Incident or ARB workflow.
 
 ![Design at a glance. The main stages are Operator request, Problem response?, Correlation ID and optional Process ID, Incident registry, Typed ActionProposal, Trust and risk gates, Judge, journal, and audit, Promoted executor adapter, Approval then resume, Stage stream.](../../diagrams/generated/fdai-roadmap-operations-operator-initiated-sre-and-arb-01.en.svg)
 
