@@ -25,6 +25,7 @@ and resumable work while the roadmap owner remains focused on normative design.
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-29 | in-progress | Recorded the second-approval channel as deferred to forks, matching the design's fork-first channel decision, and linked the authenticated Console validation item to its open issue #1548. | `current change`; [Wave 3 step B pipeline slices](../../roadmap/decisioning/prompt-composition.md); `core/operator_memory/hil_pipeline.py`. | State-inventory availability, exact-Resource change attribution, core T2 web grounding, and governed T2 receipts. |
 | 2026-09-28 | in-progress | Reclassified the remaining conversation reasoning failures after a traced review and a two-run bilingual 36-case planning probe: relation, containment, change-attribution, verification, and follow-up failures come from missing contracts, compilers, and readers rather than prompt guidance, and the 68-case gold counted some verified plans for a different question as passes. The open state-inventory review and exact-Resource change-attribution items stay open until the [Ontology Reasoning Compiler](../../roadmap/interfaces/ontology-reasoning-compiler.md) ledger records replacement evidence. | `current change`; session-local probe with 6 of 36 cases answering the asked question in each run, 14 to 16 verified plans for a different question, and 23 of 36 cases stable across runs; cross-reference in `docs/roadmap/decisioning/prompt-composition.md` | Active prompt profiles are unchanged; retire frame or plan prompts only for families promoted under the reasoning compiler ledger. |
 | 2026-09-28 | in-progress | Calibrated the session-local evaluation with an A/A run of two identical active configurations to separate prompt effects from model variance. | 68 bilingual cases x 2 per configuration: 129/136 and 127/136 (1.5-point spread); 6 cases changed outcome across the 4 identical runs and 2 always failed at planning. Promoted changes (+11.0 points all-static to all-dynamic) and rejected treatments (-3.7 and -6.9 points) exceed this spread. | Treat differences within about 3 points on this corpus as noise; exact-Resource change and evidence-validation planning need real inventory evidence. |
 | 2026-09-28 | in-progress | Raised the Azure planning adapter's hard system-prompt character bound from 33,000 to 65,536 so the complete frame fallback no longer sits 126 characters below a startup failure; the reviewed per-profile system and request budgets remain the authoritative per-call limits. | `current change`; focused planning adapter tests prove a 42,000-character frame prompt is accepted and a 65,537-character prompt is rejected. | Keep new frame guidance in conditional packs so the complete fallback stays well inside the reviewed budget. |
@@ -54,15 +55,18 @@ and resumable work while the roadmap owner remains focused on normative design.
 | 2026-08-14 | implemented | Added the bounded GitHub skill-source delivery adapter without changing quarantine, approval, or runtime prompt eligibility. | `current change`; concrete adapter and focused rejection-path tests listed in the scope table. | Compose the scheduled source owner and retain governed refresh, approval, and revocation evidence. |
 | 2026-08-14 | implemented | Hardened external source delivery with strict ETag validation and redacted credential-provider failures while preserving quarantine and disabled-first prompt eligibility. | `current change`; focused skill-source adapter tests `28 passed`. | Scheduled composition and governed lifecycle evidence remain open. |
 | 2026-08-14 | in-progress | Added the upstream second-approval evidence the fork-first channel depends on: a bounded approval window, a replay-safe entry identity derived from the approval, and exhaustive no-self-approval coverage. | `current change`; [`hil_pipeline.py`](../../../services/core-control-plane/src/fdai/core/operator_memory/hil_pipeline.py), [`test_hil_pipeline.py`](../../../services/core-control-plane/tests/core/operator_memory/test_hil_pipeline.py); focused operator-memory and bridge checks passed 76 cases; strict mypy and task-scoped Ruff passed. | Build the fork-first channel that invokes the materializer, then enable the pipeline slice. |
+| 2026-09-29 | in-progress | Recorded why the state-inventory availability, exact-Resource change attribution, and web-snippet items stay open: each changes live conversation reasoning or the T2 tool manifest, and this owner accepts such changes only after a measured model-backed A/B, which this campaign did not run. | `current change`; the remaining-work items below. | Run an authorized model-backed A/B for each change before promotion. |
 
 ### Remaining work
 
 - [x] Promote the dynamic semantic judgment and topic preflight profiles on recorded A/B evidence.
-- [ ] Validate the promoted dynamic judgment in the authenticated local Console.
+- [ ] Validate the promoted dynamic judgment in the authenticated local Console
+  ([#1548](https://github.com/dotnetpower/fdai/issues/1548) tracks this last exit criterion).
 - [ ] Keep state-inventory answers available when the required independent T2 review is
-  unavailable, or report that dependency explicitly instead of a generic unavailable hold.
+  unavailable, or report that dependency explicitly instead of a generic unavailable hold. Like
+  every change to live conversation reasoning here, acceptance needs a measured model-backed A/B.
 - [ ] Plan exact-Resource change attribution without a temporal-comparison or invalid target-activity
-  frame.
+  frame. Acceptance needs the same measured model-backed A/B.
 - [x] Remove the measured request-budget overruns; they came from plan requests above the former
   65,536 budget, not from frame requests.
 - [x] Split the frame prompt by accepted judgment intent and the plan prompt by verified frame
@@ -71,12 +75,14 @@ and resumable work while the roadmap owner remains focused on normative design.
 - [ ] Retain an authorized model-backed active-versus-compact cohort for judgment, frame, and plan;
   require no safety or authority regression before changing an active profile digest.
 - [ ] Thread sanitized, allowlisted web snippets into the core T2 tool manifest with exact source
-  receipts, prompt digest replay, and negative injection tests.
+  receipts, prompt digest replay, and negative injection tests. This changes the T2 tool manifest,
+  so it also needs a measured model-backed run before promotion.
 - [x] The upstream second-approval step proves distinct-principal, no-self-approval, a bounded
   approval window, and replay: a redelivery refuses with `already_materialized` and materializes
   exactly once.
-- [ ] Build the fork-first channel that invokes the second-approval step, then enable that pipeline
-  slice.
+- [ ] Deferred (fork-owned): build the channel that invokes the second-approval step, then enable
+  that pipeline slice. The design keeps this channel fork-first because the approval surface
+  varies per deployment; upstream ships the tested `hil_pipeline.py` step and the materializer seam.
 - [ ] Retain a governed end-to-end T2 receipt proving the composed prompt, debate, citations, final
   verifier result, and zero execution authority on one pinned catalog revision.
 - [ ] Retain a governed answer-continuity shadow campaign that ablates each eligible prompt layer,
