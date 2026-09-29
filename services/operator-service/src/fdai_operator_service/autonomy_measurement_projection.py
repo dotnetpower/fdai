@@ -30,7 +30,12 @@ _VERTICALS = frozenset({"resilience", "change_safety", "cost", "unattributed"})
 
 
 def validate_autonomy_measurement(value: object) -> dict[str, object]:
-    """Return one complete non-synthetic measurement envelope or fail closed."""
+    """Return one complete non-synthetic measurement envelope or fail closed.
+
+    The envelope is an observation over a moving window. Its provenance block must
+    account for every cohort event as either declared non-synthetic or unknown, and
+    unknown markers must also appear as the ``unknown_synthetic_marker`` gap.
+    """
 
     try:
         projection = _mapping(value)
@@ -42,9 +47,10 @@ def validate_autonomy_measurement(value: object) -> dict[str, object]:
             _mapping(projection.get("rules")),
             ("active", "candidates_30d", "promoted_30d"),
         )
+        unknown_marker = _validate_provenance(projection, sample_size)
         success = _mapping(projection.get("success"))
         _validate_metrics(success, _SUCCESS_METRICS)
-        _validate_metric_evidence(projection, success)
+        _validate_metric_evidence(projection, success, unknown_marker=unknown_marker)
         auto_resolution_rate = _mapping(success["auto_resolution_rate"])
         auto_resolution_value = _optional_ratio(auto_resolution_rate.get("value"))
         _optional_ratio(auto_resolution_rate.get("baseline"))
@@ -65,7 +71,7 @@ def validate_autonomy_measurement(value: object) -> dict[str, object]:
             verticals=verticals,
             auto_resolution_value=auto_resolution_value,
         )
-        _validate_tier(_mapping(projection.get("tier")))
+        _validate_tier(_mapping(projection.get("tier")), sample_size)
         _number_series(_mapping(projection.get("trend")))
     except (KeyError, TypeError, ValueError):
         raise ProjectionUnavailableError(_ERROR) from None
@@ -102,9 +108,29 @@ def _validate_metrics(
             raise ValueError
 
 
+def _validate_provenance(projection: Mapping[str, object], sample_size: int) -> int:
+    """Require an observation qualification whose marker counts cover the cohort."""
+    provenance = _mapping(projection.get("provenance"))
+    if (
+        provenance.keys() != {"qualification", "synthetic_marker"}
+        or provenance.get("qualification") != "observation"
+    ):
+        raise ValueError
+    marker = _mapping(provenance.get("synthetic_marker"))
+    if marker.keys() != {"declared_non_synthetic", "unknown"}:
+        raise ValueError
+    declared = _integer(marker.get("declared_non_synthetic"), positive=False)
+    unknown = _integer(marker.get("unknown"), positive=False)
+    if declared + unknown != sample_size:
+        raise ValueError
+    return unknown
+
+
 def _validate_metric_evidence(
     projection: Mapping[str, object],
     success: Mapping[str, object],
+    *,
+    unknown_marker: int,
 ) -> None:
     samples = _mapping(projection.get("metric_samples"))
     if samples.keys() != _SUCCESS_METRICS.keys():
@@ -121,7 +147,7 @@ def _validate_metric_evidence(
         if not isinstance(value, str) or not value or value in seen:
             raise ValueError
         seen.add(value)
-        if value == "unattributed_human_input":
+        if value in {"unattributed_human_input", "unknown_synthetic_marker"}:
             continue
         prefix, separator, metric_id = value.partition(":")
         if (
@@ -130,6 +156,8 @@ def _validate_metric_evidence(
             or metric_id not in _SOURCE_METRICS
         ):
             raise ValueError
+    if ("unknown_synthetic_marker" in seen) != (unknown_marker > 0):
+        raise ValueError
 
 
 def _validate_guards(value: object) -> None:
@@ -216,13 +244,23 @@ def _validate_totals(
         raise ValueError
 
 
-def _validate_tier(tier: Mapping[str, object]) -> None:
+def _validate_tier(tier: Mapping[str, object], sample_size: int) -> None:
+    """Require observed tier counts whose shares equal the reported mix."""
     mix = _mapping(tier.get("mix"))
     if not mix.keys() <= _TIER_KEYS:
         raise ValueError
     shares = tuple(_ratio(value) for value in mix.values())
     if sum(shares) > 1 + 1e-12:
         raise ValueError
+    counts = _mapping(tier.get("counts"))
+    if counts.keys() != mix.keys():
+        raise ValueError
+    observed = {key: _integer(value, positive=True) for key, value in counts.items()}
+    if sum(observed.values()) > sample_size:
+        raise ValueError
+    for key, count in observed.items():
+        if abs(_ratio(mix[key]) - count / sample_size) > 1e-12:
+            raise ValueError
     bands = _mapping(tier.get("bands"))
     if not bands.keys() <= _TIER_KEYS:
         raise ValueError

@@ -1,7 +1,7 @@
 import type { AutonomyPayload, VerticalSummary } from "../types";
 import { t } from "../i18n";
 import { routeHref } from "../router";
-import { formatUsd } from "./dashboard.model";
+import { formatUsd, measurementEvidenceKind } from "./dashboard.model";
 
 export function VerticalCards({
   verticals,
@@ -67,10 +67,14 @@ export function measuredTierMix(
 }
 
 export function livingRulesProvenance(
-  autonomy: Pick<AutonomyPayload, "synthetic" | "source">,
-): { readonly kind: "simulated" | "measured"; readonly source: string; readonly asOf: string | null } {
+  autonomy: Pick<AutonomyPayload, "synthetic" | "source" | "provenance">,
+): {
+  readonly kind: "simulated" | "observed" | "measured";
+  readonly source: string;
+  readonly asOf: string | null;
+} {
   return {
-    kind: autonomy.synthetic ? "simulated" : "measured",
+    kind: measurementEvidenceKind(autonomy),
     source: autonomy.source.name,
     asOf: autonomy.source.as_of,
   };
@@ -81,7 +85,7 @@ export function LivingRules({
   provenance,
 }: {
   readonly rules: AutonomyPayload["rules"];
-  readonly provenance: Pick<AutonomyPayload, "synthetic" | "source">;
+  readonly provenance: Pick<AutonomyPayload, "synthetic" | "source" | "provenance">;
 }) {
   const evidence = livingRulesProvenance(provenance);
   return (

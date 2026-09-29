@@ -23,6 +23,7 @@ EVENT = ClassifiedEvent(
     occurred_at=START + timedelta(hours=1),
     seq=1,
     action_ids=("action-a",),
+    synthetic=False,
 )
 OUTCOME = ActionObservation(
     event_id="event-a",
@@ -317,3 +318,47 @@ def test_metric_overwrite_requires_an_immediate_same_sample_correction() -> None
         reduce(metrics=[original, unchained])
     with pytest.raises(ValueError, match="crosses sample identity"):
         reduce(metrics=[original, crossed])
+
+
+def test_unknown_synthetic_marker_stays_observed_but_unverified() -> None:
+    unknown = replace(
+        EVENT, event_id="event-b", identity="ingest-b", tier="t1", seq=3, synthetic=None
+    )
+    result = reduce(events=[EVENT, unknown])
+
+    assert result["sample_size"] == 2
+    assert result["synthetic"] is False
+    assert result["provenance"] == {
+        "qualification": "observation",
+        "synthetic_marker": {"declared_non_synthetic": 1, "unknown": 1},
+    }
+    assert "unknown_synthetic_marker" in result["measurement_gaps"]
+    assert result["tier"]["counts"] == {"t0": 1, "t1": 1}
+    assert result["tier"]["mix"] == {"t0": 0.5, "t1": 0.5}
+
+
+def test_explicit_synthetic_events_leave_the_observed_cohort() -> None:
+    synthetic = replace(EVENT, event_id="event-b", identity="ingest-b", seq=3, synthetic=True)
+    result = reduce(events=[EVENT, synthetic])
+
+    assert result["sample_size"] == 1
+    assert result["provenance"]["synthetic_marker"] == {
+        "declared_non_synthetic": 1,
+        "unknown": 0,
+    }
+    assert "unknown_synthetic_marker" not in result["measurement_gaps"]
+    assert result["tier"]["counts"] == {"t0": 1}
+
+
+def test_empty_window_reports_no_provenance_counts() -> None:
+    result = reduce()
+
+    assert result["provenance"]["synthetic_marker"] == {
+        "declared_non_synthetic": 0,
+        "unknown": 0,
+    }
+    assert result["tier"] == {
+        "mix": {},
+        "counts": {},
+        "bands": {"t0": [0.70, 0.80], "t1": [0.15, 0.20], "t2": [0.05, 0.10]},
+    }
