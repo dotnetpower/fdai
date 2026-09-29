@@ -28,6 +28,7 @@ from dataclasses import dataclass, replace
 from typing import Any
 
 from fdai_service_contracts.ontology_query import content_digest
+from pydantic import ValidationError
 
 from .semantic_reasoning_admission import (
     AdmissionDisposition,
@@ -147,14 +148,16 @@ async def ground_kinds(
             grounded[mention_id] = after
         else:
             runoffs.append((before, after))
-    if runoffs and budget - spent >= 2:
-        for before, after in runoffs:
-            chosen = await _cross_lane_runoff(
-                before, after, catalogs=catalogs, admission=admission, choose=choose
-            )
-            spent += 2
-            if chosen is not None:
-                grounded[before.mention_id] = chosen
+    for before, after in runoffs:
+        # Each runoff asks both choosers once, so the turn's concept budget is checked each time.
+        if budget - spent < 2:
+            break
+        chosen, calls = await _cross_lane_runoff(
+            before, after, catalogs=catalogs, admission=admission, choose=choose
+        )
+        spent += calls
+        if chosen is not None:
+            grounded[before.mention_id] = chosen
     if not grounded:
         return KindGrounding(admission, _spent(receipt, spent))
     final = _retyped(admission, grounded, utterance)
@@ -192,7 +195,11 @@ def _retyped(
     for mention in payload["mentions"]:
         if mention["id"] in domains:
             mention["domain"] = domains[mention["id"]].value
-    form = SemanticQuestionForm.model_validate(payload)
+    try:
+        form = SemanticQuestionForm.model_validate(payload)
+    except ValidationError:
+        # A longer domain can cross the form's byte budget; the stated outcome then stands.
+        return None
     # Accounting reads only spans, which a kind never changes; every structural rule reruns.
     retyped = admit_question_form(
         form, utterance=utterance, accounting=SpanAccounting(required=False)
@@ -207,8 +214,11 @@ async def _cross_lane_runoff(
     catalogs: Mapping[MentionDomain, tuple[ConceptCandidate, ...]],
     admission: FormAdmission,
     choose: LaneChoose,
-) -> ConceptBinding | None:
-    """Ask both choosers once to pick between a contested lane and an agreed sibling."""
+) -> tuple[ConceptBinding | None, int]:
+    """Ask both choosers once to pick between a contested lane and an agreed sibling.
+
+    Return the binding both choose, if any, and the model calls made.
+    """
 
     lanes: dict[str, MentionDomain] = {}
     finalists: list[ConceptCandidate] = []
@@ -219,7 +229,7 @@ async def _cross_lane_runoff(
                 lanes[candidate_id] = binding.domain
                 finalists.append(index[candidate_id])
     if not any(lane is before.domain for lane in lanes.values()):
-        return None
+        return None, 0
     shard = ConceptShard(
         before.domain,
         0,
@@ -235,7 +245,7 @@ async def _cross_lane_runoff(
     meanings = []
     for answer in answers:
         if not isinstance(answer, Mapping) or not shard_answer_valid(answer, request):
-            return None
+            return None, 2
         (choice,) = answer["choices"]
         picked = {
             (lanes[item.id], tuple(sorted(item.values)))
@@ -243,10 +253,10 @@ async def _cross_lane_runoff(
             if item.id in choice["candidate_ids"]
         }
         if len(picked) != 1:
-            return None
+            return None, 2
         meanings.append(next(iter(picked)))
     if meanings[0] != meanings[1]:
-        return None
+        return None, 2
     domain, values = meanings[0]
     ids = tuple(
         sorted(
@@ -255,7 +265,7 @@ async def _cross_lane_runoff(
             if lanes[item.id] is domain and tuple(sorted(item.values)) == values
         )
     )
-    return ConceptBinding(before.mention_id, domain, ConceptOutcome.ACCEPTED, ids, values)
+    return ConceptBinding(before.mention_id, domain, ConceptOutcome.ACCEPTED, ids, values), 2
 
 
 def _spent(receipt: ConceptSelectionReceipt, calls: int) -> ConceptSelectionReceipt:

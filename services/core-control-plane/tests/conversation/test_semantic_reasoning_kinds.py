@@ -4,11 +4,13 @@ from __future__ import annotations
 
 from typing import Any
 
+import pytest
+from fdai.core.conversation import semantic_reasoning_form as form_module
 from fdai.core.conversation.semantic_reasoning_concepts import ConceptShard
 from fdai.core.conversation.semantic_reasoning_form import SemanticQuestionForm
 from fdai.core.conversation.semantic_reasoning_kinds import eligible_kind_mentions
 from fdai.core.conversation.semantic_reasoning_proposal import resolve_question_form
-from fdai.core.conversation.semantic_reasoning_shadow import run_reasoning_shadow
+from fdai.core.conversation.semantic_reasoning_shadow import ShadowBudget, run_reasoning_shadow
 
 from tests.conversation.semantic_reasoning_support import (
     DEFAULT_LOOKBACK_SECONDS,
@@ -189,4 +191,76 @@ async def test_a_contested_kind_binds_only_when_both_choosers_pick_one_lane() ->
     assert goal.status.value == "compiled"
     assert held.passes[0].regrounded == ()
     (goal,) = held.compilations[0].goals
+    assert goal.status.value == "clarify"
+
+
+_TWO = "List the resource groups and list the resource groups"
+
+
+def _two_groups() -> dict[str, Any]:
+    return {
+        "mentions": [
+            {
+                "id": "m1",
+                "form": "concept",
+                "domain": "object_type",
+                "span": _quote("resource groups"),
+            },
+            {
+                "id": "m2",
+                "form": "concept",
+                "domain": "object_type",
+                "span": _quote("resource groups", 2),
+            },
+        ],
+        "goals": [_goal(), _goal(id="g2", subject="m2", cue=_quote("list"))],
+        "context": [_quote("the"), _quote("and"), _quote("the", 2)],
+    }
+
+
+async def _budgeted(model: _Model, calls: int) -> Any:
+    return await run_reasoning_shadow(
+        model=model,
+        utterance=_TWO,
+        context=(),
+        locale="en",
+        manifest=production_manifest(),
+        verifier=plan_verifier(),
+        purpose=PURPOSE,
+        evaluation_time=NOW,
+        default_lookback_seconds=DEFAULT_LOOKBACK_SECONDS,
+        budget=ShadowBudget(max_concept_calls=calls),
+    )
+
+
+async def test_each_cross_lane_runoff_fits_the_turn_concept_budget() -> None:
+    def contested() -> _RunoffModel:
+        picks = {mention: ["object:Resource", "group:resource-group"] for mention in ("m1", "m2")}
+        second = {mention: ["group:resource-group"] for mention in ("m1", "m2")}
+        runoff = ("group:resource-group", "group:resource-group")
+        return _RunoffModel([_two_groups()], picks, second_picks=second, runoff=runoff)
+
+    open_budget = contested()
+    await _budgeted(open_budget, 64)
+    needed = len(open_budget.shards) + open_budget.runoff_calls
+    tight = contested()
+    await _budgeted(tight, needed - 1)
+
+    assert open_budget.runoff_calls == 4
+    # Only the runoff the budget still covers runs; the other mention keeps its outcome.
+    assert tight.runoff_calls == 2
+    assert len(tight.shards) + tight.runoff_calls <= needed - 1
+
+
+async def test_a_retype_past_the_form_byte_budget_keeps_the_stated_outcome(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    stated = _typed(_groups(), _GROUPS)
+    monkeypatch.setattr(form_module, "MAX_FORM_BYTES", len(stated.canonical_json().encode()))
+    model = _Model([_groups()], {"m1": ["group:resource-group"]})
+
+    observation = await _shadow(model, _GROUPS)
+
+    assert observation.passes[0].regrounded == ()
+    (goal,) = observation.compilations[0].goals
     assert goal.status.value == "clarify"

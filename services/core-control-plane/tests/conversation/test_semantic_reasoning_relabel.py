@@ -5,6 +5,8 @@ from __future__ import annotations
 import json
 from typing import Any
 
+import pytest
+from fdai.core.conversation import semantic_reasoning_form as form_module
 from fdai.core.conversation.semantic_reasoning_form import SemanticQuestionForm
 from fdai.core.conversation.semantic_reasoning_proposal import resolve_question_form
 from fdai.core.conversation.semantic_reasoning_relabel import relabel_mentions
@@ -202,3 +204,35 @@ async def test_a_restriction_a_review_repair_leaves_unplaced_is_never_released()
     assert observation.passes[1].repair == "review_applied_unaccounted"
     assert observation.review == "unfaithful" and observation.released is False
     assert observation.review_reasons == ("review_uncovered:restricts:18-25",)
+
+
+def test_a_restored_label_past_the_form_byte_budget_leaves_the_repair_as_written(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    previous = _quoted_form()
+    previous["mentions"][1]["id"] = "m10"
+    previous["goals"][0]["filters"] = [{"role": "type", "mention": "m10"}]
+    typed = _typed(previous)
+    repaired = _typed(_quoted_form())
+    monkeypatch.setattr(form_module, "MAX_FORM_BYTES", len(repaired.canonical_json().encode()))
+
+    assert relabel_mentions(typed, repaired) is repaired
+
+
+class _FailingRepairModel(_Model):
+    """Propose normally, then fail on the review repair's proposal call."""
+
+    async def propose_form(self, **kwargs: Any) -> dict[str, Any] | None:
+        if kwargs.get("repair") is not None:
+            raise RuntimeError("provider failed")
+        return await super().propose_form(**kwargs)
+
+
+async def test_a_review_repair_that_fails_is_recorded_and_releases_nothing() -> None:
+    model = _FailingRepairModel([_grouped()], {}, extraction=_extraction())
+
+    observation = await _shadow(model, _GROUPED)
+
+    assert [item.disposition for item in observation.passes] == ["admitted", "shadow_error"]
+    assert observation.passes[1].reasons == ("shadow_error:RuntimeError",)
+    assert observation.released is False

@@ -725,17 +725,50 @@ async def _please(model: _Model) -> Any:
 async def test_an_unusable_accounting_repair_leaves_the_proposal_to_the_review() -> None:
     rewritten = _please_form(domain="resource_class")
     rewritten["context"] = [_quote("please")]
-    broken = _please_form()
-    broken["context"] = [_quote("pleas e")]
 
-    for repair in (rewritten, broken):
-        observation = await _please(_Model([_please_form(), repair], {}))
+    observation = await _please(_Model([_please_form(), rewritten], {}))
 
+    (only_pass,) = observation.passes
+    assert only_pass.disposition == "admitted"
+    assert only_pass.repair == "original_unaccounted"
+    assert only_pass.repaired_reasons == ("span_unaccounted:10-16",)
+    assert observation.review == "faithful" and observation.released is True
+
+
+async def test_a_repair_that_reads_the_question_differently_or_breaks_holds_the_turn() -> None:
+    utterance = "Show how many VMs"
+    listed = _please_form()
+    listed["goals"][0].update(operation="select", cue=_quote("Show"))
+    counted = _please_form()
+    counted["goals"][0].update(operation="count", cue=_quote("Show how many"))
+    broken = json.loads(json.dumps(listed))
+    broken["context"] = [_quote("how  many")]
+    extraction = {
+        "constraints": [
+            {"quote": _quote("Show how many"), "role": "asks"},
+            {"quote": _quote("VMs"), "role": "names"},
+        ]
+    }
+
+    for repair, outcome in ((counted, "operand_dropped"), (broken, "invalid")):
+        model = _Model([json.loads(json.dumps(listed)), repair], {}, extraction=extraction)
+        observation = await run_reasoning_shadow(
+            model=model,
+            utterance=utterance,
+            context=(),
+            locale="en",
+            manifest=production_manifest(),
+            verifier=plan_verifier(),
+            purpose=PURPOSE,
+            evaluation_time=NOW,
+            default_lookback_seconds=DEFAULT_LOOKBACK_SECONDS,
+        )
+
+        # A count read for a list, or a repair that never parses, is no agreed reading.
         (only_pass,) = observation.passes
-        assert only_pass.disposition == "admitted"
-        assert only_pass.repair == "original_unaccounted"
-        assert only_pass.repaired_reasons == ("span_unaccounted:10-16",)
-        assert observation.review == "faithful" and observation.released is True
+        assert only_pass.repair == outcome
+        assert only_pass.disposition == "invalid"
+        assert observation.released is False
 
 
 async def test_an_unusable_accounting_repair_still_releases_no_unstated_restriction() -> None:

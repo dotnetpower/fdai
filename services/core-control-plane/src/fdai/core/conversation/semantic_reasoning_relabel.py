@@ -14,6 +14,8 @@ from __future__ import annotations
 
 from typing import Any
 
+from pydantic import ValidationError
+
 from .semantic_reasoning_form import SemanticQuestionForm
 
 _MAX_MENTION_NUMBER = 99
@@ -53,7 +55,11 @@ def relabel_mentions(
             _rename(goal["relation"], "counterpart", renames)
         if goal.get("measure") is not None:
             _rename(goal["measure"], "mention", renames)
-    return SemanticQuestionForm.model_validate(payload)
+    try:
+        return SemanticQuestionForm.model_validate(payload)
+    except ValidationError:
+        # A longer restored label can cross the form's byte budget; the comparison decides.
+        return repaired
 
 
 def _renames(repaired: SemanticQuestionForm, restored: dict[str, str]) -> dict[str, str]:
