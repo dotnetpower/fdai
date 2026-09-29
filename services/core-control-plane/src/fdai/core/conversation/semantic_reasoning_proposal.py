@@ -119,9 +119,14 @@ def resolve_question_form(raw: Mapping[str, Any], *, utterance: str) -> FormReso
         fields = sorted({_path(error["loc"]) for error in errors})
         # Messages are authored by the contract, never copied from the model's values.
         messages = sorted({f"{_path(error['loc'])}: {error['msg']}" for error in errors})
+        # A whole-form rule names itself as a closed code, so a trace shows which rule failed.
+        rules = sorted({_rule_code(str(error["msg"])) for error in errors if not error["loc"]})
         return FormResolution(
             None,
-            tuple(f"form_contract_invalid:{field}" for field in fields[:8]),
+            (
+                *(f"form_contract_invalid:{field}" for field in fields[:8]),
+                *(f"form_contract_rule:{rule}" for rule in rules[:4] if rule),
+            ),
             tuple(messages[:16]),
         )
 
@@ -286,6 +291,14 @@ def _bind(
         notes.append(f"{path}: the quote MUST copy the utterance verbatim at that occurrence")
         return
     container[key] = {"start": span[0], "end": span[1]}
+
+
+def _rule_code(message: str) -> str:
+    """Return a contract-authored validator message as one closed snake_case code."""
+
+    text = message.removeprefix("Value error, ").casefold()
+    words = "".join(char if char.isascii() and char.isalnum() else " " for char in text).split()
+    return "_".join(words)[:60].rstrip("_")
 
 
 def _path(location: tuple[int | str, ...]) -> str:

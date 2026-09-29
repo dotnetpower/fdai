@@ -931,3 +931,18 @@ def test_a_named_resource_or_literal_cited_by_a_measure_is_never_moved_to_its_cu
     # of silently reading a broader history.
     assert form is not None and [item.id for item in form.mentions] == ["m1", "m2"]
     assert form.goals[0].measure is not None and form.goals[0].measure.mention == "m2"
+
+
+def test_a_broken_whole_form_rule_is_named_as_a_closed_code() -> None:
+    utterance = "aks-app의 이벤트 보여줘"
+    raw = _event_form(
+        {"kind": "event"},
+        [{"id": "m1", "form": "name", "domain": "instance", "span": _quote("aks-app")}],
+    )
+    raw["goals"][0]["subject"] = "m9"
+
+    resolution = resolve_question_form(raw, utterance=utterance)
+
+    assert resolution.form is None
+    assert "form_contract_invalid:form" in resolution.reasons
+    assert "form_contract_rule:form_goal_cites_an_undeclared_mention" in resolution.reasons

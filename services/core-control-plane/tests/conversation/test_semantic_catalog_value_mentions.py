@@ -381,3 +381,27 @@ def test_catalog_vocabulary_binds_subtypes_but_not_declaration_lists(
     stated = stated_catalog_values(utterance, catalog_descriptors)
 
     assert tuple(value for item in stated for value in item.values) == values
+
+
+def test_typed_only_never_holds_a_read_on_a_catalog_value_found_among_the_words() -> None:
+    from fdai.core.conversation.semantic_planning_frame_checks import (
+        deterministic_pre_frame_outcome,
+    )
+
+    def outcome(typed_only: bool) -> Any:
+        return deterministic_pre_frame_outcome(
+            judgment=_manifest_list(),
+            utterance="aks 목록을 보여줘",
+            context=(),
+            descriptors=tuple(_manifest().descriptors),
+            manifest_digest=_manifest().manifest_digest,
+            bound_incident=False,
+            judgment_accepted=True,
+            locale="ko",
+            typed_only=typed_only,
+        )
+
+    held = outcome(False)
+    assert held is not None and held.disposition is SemanticPlanningDisposition.CLARIFICATION
+    # Only a typed reading decides what a read states, so the word-matching gate stays closed.
+    assert outcome(True) is None

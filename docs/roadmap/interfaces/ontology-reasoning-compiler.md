@@ -664,6 +664,9 @@ family; code still reads no meaning from words.
 - **Bounded retries**: An unusable extraction, such as one quoting words the question lacks, is read
   once more by the same extractor under the same review rules. A reading whose only fault is a
   concept that no reviewed value matches is resampled like other mislabels.
+- **No word-matching gate**: In typed-only mode, the pre-frame gate that finds a catalog value among
+  the utterance's words no longer holds a read, so only a typed reading decides what a read question
+  states. A broken whole-form rule is named as a closed `form_contract_rule` code in the trace.
 
 **Reads**
 

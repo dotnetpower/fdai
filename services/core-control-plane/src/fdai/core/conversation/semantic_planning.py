@@ -444,6 +444,7 @@ class SemanticPlanningService(SemanticPlanningPreflightMixin):
                 bound_incident=bound_incident is not None,
                 judgment_accepted=(judgment_decision is not None and judgment_decision.accepted),
                 locale=locale,
+                typed_only=self._compiled_answers is not None and self._compiled_answers.typed_only,
             )
             if pre_frame_outcome is not None:
                 return preflight_router.finish(pre_frame_outcome)

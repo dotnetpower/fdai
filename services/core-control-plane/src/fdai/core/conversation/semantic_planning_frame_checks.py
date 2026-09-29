@@ -128,8 +128,13 @@ def deterministic_pre_frame_outcome(
     bound_incident: bool,
     judgment_accepted: bool = False,
     locale: str = "en",
+    typed_only: bool = False,
 ) -> SemanticPlanningOutcome | None:
-    """Return deterministic short-circuit outcomes before model frame proposal."""
+    """Return deterministic short-circuit outcomes before model frame proposal.
+
+    ``typed_only`` skips the gate that finds a catalog value among the utterance's words,
+    because in that mode only a typed reading decides what a read question states.
+    """
 
     guidance = incident_mitigation_requirements_guidance(
         judgment,
@@ -168,13 +173,17 @@ def deterministic_pre_frame_outcome(
             "semantic_non_direct_discourse",
             manifest_digest=manifest_digest,
         )
-    manifest_conflict = manifest_catalog_value_conflict(
-        judgment,
-        judgment_accepted=judgment_accepted,
-        utterance=utterance,
-        context=context,
-        descriptors=descriptors,
-        locale=locale,
+    manifest_conflict = (
+        None
+        if typed_only
+        else manifest_catalog_value_conflict(
+            judgment,
+            judgment_accepted=judgment_accepted,
+            utterance=utterance,
+            context=context,
+            descriptors=descriptors,
+            locale=locale,
+        )
     )
     if manifest_conflict is not None:
         conflict_proposal, conflict_frame = manifest_conflict
