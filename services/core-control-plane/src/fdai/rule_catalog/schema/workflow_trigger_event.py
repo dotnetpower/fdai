@@ -16,8 +16,15 @@ _SCHEMA_FILE = "workflow_trigger_events.schema.json"
 
 
 class WorkflowTriggerEventSemantics(StrEnum):
+    """What a Workflow-only trigger event means.
+
+    ``observation`` covers an evidence object that starts a Workflow but is deliberately not a T0
+    ``SignalType``, so registering it here never widens T0 rule dispatch resolution.
+    """
+
     REQUEST = "request"
     COMMAND = "command"
+    OBSERVATION = "observation"
 
 
 class WorkflowTriggerEventEntry(BaseModel):

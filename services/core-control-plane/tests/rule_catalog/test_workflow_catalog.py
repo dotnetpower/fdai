@@ -205,7 +205,7 @@ def test_workflow_trigger_event_registry_rejects_malformed_entries() -> None:
                 "events": [
                     {
                         "id": "change.request.submitted",
-                        "semantics": "observation",
+                        "semantics": "telemetry",
                         "description": "Wrong semantics.",
                         "owner": "workflow.runtime",
                     }

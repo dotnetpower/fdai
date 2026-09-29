@@ -103,14 +103,14 @@ Field rules the loader enforces:
 
 - **Resolved `signal_type` typing.** A `kind: signal` trigger now must resolve at
   catalog load to exactly one registered observation `SignalType` or one reviewed
-  `workflow-trigger-events.yaml` request or command event. Unknown values fail
+  `workflow-trigger-events.yaml` request, command, or Workflow-only observation event. Unknown values fail
   closed, exact duplicates across the two vocabularies are ambiguous, and the
   loaded `WorkflowTrigger` records which vocabulary resolved the reference.
   Observation-style triggers such as `object.drift` stay in the existing
   `SignalType` registry, while request and command triggers such as
   `chaos.experiment.requested` stay out of T0 rule dispatch. The
-  `object.capacity-forecast` workflow trigger is cataloged as an operational
-  planning command so it can start a workflow without widening `SignalType`
+  `object.capacity-forecast` workflow trigger is cataloged as a Workflow-only
+  observation so it can start operational planning without widening `SignalType`
   dispatch.
 - **`on_failure` also runs on the success path.** The compiled Runbook runner
   walks every declared step in order; an `on_failure` target is a normal step

@@ -33,6 +33,6 @@ events:
   owner: control.plane
   description: Request to start the SRE-for-SRE self-debug workflow for a control-plane defect.
 - id: object.capacity-forecast
-  semantics: command
+  semantics: observation
   owner: operational.planning
-  description: Command emitted when bounded capacity-forecast evidence is ready to start operational planning without widening T0 SignalType dispatch.
+  description: Bounded capacity-forecast evidence that starts operational planning; it is a Workflow-only trigger, not a T0 SignalType, so T0 dispatch stays unchanged.

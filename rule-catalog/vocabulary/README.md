@@ -31,7 +31,7 @@ difference is a runtime instance of that declaration and does not belong in this
 | [`link-types/`](link-types/) | Directed LinkType declarations, endpoint types, cardinality, and causal or temporal semantics. |
 | [`resource-types.yaml`](resource-types.yaml) | Resource type identifiers that rules and inventory records may reference. |
 | [`signal-types.yaml`](signal-types.yaml) | Signal type identifiers used by rule and event semantics. |
-| [`workflow-trigger-events.yaml`](workflow-trigger-events.yaml) | Workflow trigger events with request or command semantics that intentionally do not participate in deterministic T0 rule dispatch. |
+| [`workflow-trigger-events.yaml`](workflow-trigger-events.yaml) | Workflow trigger events with request, command, or Workflow-only observation semantics that intentionally do not participate in deterministic T0 rule dispatch. |
 | [`property-semantics.yaml`](property-semantics.yaml) | Reviewed property meaning, type, unit, normalization, authority, and freshness metadata. Coverage is partial by design; `scripts/quality/architecture/check-property-semantic-coverage.py` measures it and ranks the remaining gaps. |
 | [`inventory-query-language.yaml`](inventory-query-language.yaml) | Bounded inventory query vocabulary. |
 | [`investigation-intents.yaml`](investigation-intents.yaml) | Canonical investigation intent identifiers. |
