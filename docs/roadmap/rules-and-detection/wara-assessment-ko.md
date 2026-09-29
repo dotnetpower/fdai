@@ -1,10 +1,12 @@
 ---
 title: WARA 근거 기반 평가
 translation_of: wara-assessment.md
-translation_source_sha: 1ea874d54d4162988e508437ed5bb5b41daa1d85
-translation_revised: 2026-09-21
+translation_source_sha: 670a81f1da690450dcb0acfd065958404928ae84
+translation_revised: 2026-09-29
 ---
 # WARA 근거 기반 평가
+
+Post-turn review 묶음도 WARA scope, APRL measurement, assessment admission, authority에서 제외됩니다.
 
 이 설계는 고정된 Azure Well-Architected Reliability Assessment(WARA) 및 Azure Proactive
 Resiliency Library(APRL) 목록을 범위를 인식하는 읽기 전용 평가로 전환합니다. 지침, 근거,

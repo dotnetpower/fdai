@@ -1,11 +1,13 @@
 ---
 title: 온톨로지 기반 FinOps 패키지 아키텍처
 translation_of: finops-package-architecture.md
-translation_source_sha: 662f6e462ba553545d1720342d1cc63336213d6c
-translation_revised: 2026-09-28
+translation_source_sha: 9f70382e23adde066a870816b10e2908c435b8c0
+translation_revised: 2026-09-29
 ---
 
 # 온톨로지 기반 FinOps 패키지 아키텍처
+
+Operator post-turn review 발행도 Cost Governance package 활성화, Njord 발행, cost data access, action authority의 범위 밖에 있습니다.
 
 이 문서는 FDAI가 비용 거버넌스를 독립적으로 빌드하는 `fdai-cost-governance` 배포판으로
 패키징하면서 운영 온톨로지와 고정된 15개 에이전트 조직을 자율 운영의 중심에 유지하는 방법을

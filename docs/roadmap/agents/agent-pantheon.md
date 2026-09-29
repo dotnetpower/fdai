@@ -33,7 +33,7 @@ The pantheon is a thin re-framing of the existing FDAI control loop into named o
 - **Repository layout preserves the boundary.** Named agents live in [`services/core-control-plane/src/fdai/agents/`](../../../services/core-control-plane/src/fdai/agents); shared runtime machinery stays in private `_framework`. External callers import only `fdai.agents`, as the layout test enforces. Runtime composition uses explicitly exported callback types from the owning agent module; exporting a type grants no topic, observation, approval, or execution authority. Heimdall's action-observation relay and Thor's durable `ActionRun` codec, verdict validation, audit-gated execution phase, replay/publication lifecycle, effect closure, and read-only conversation projection use focused private helpers. Thor remains their only privileged caller and the sole `ActionRun` publisher; the helpers own no `AgentSpec`, topic, judgment, approval, audit, recovery, or execution authority. Durable replay rejects prospective lineage without its exact kinetic proposal.
 Composition and scenario replay import `ActionSemanticsCatalog` from `fdai.agents` to bind
 catalog-backed reversibility. The export grants no authority and preserves the conservative
-approval quorum when no catalog is bound. Frozen replay inputs and digest pins remain immutable.
+approval quorum when no catalog is bound. Frozen replay inputs and digest pins remain immutable. Bragi's post-turn review publisher still owns only the typed `object.post-turn-review` envelope; Norns remains the learner that evaluates and routes inert drafts.
 ## 2. Organization chart
 
 Thor (operations) and Forseti (judgment) report to Odin. Four governance staff have independent dotted reporting lines to Odin.

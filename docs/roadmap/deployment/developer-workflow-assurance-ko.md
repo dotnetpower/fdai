@@ -1,10 +1,14 @@
 ---
 translation_of: developer-workflow-assurance.md
-translation_source_sha: 93e7ae725fe964d4367c5d2372d3ed25a6737cdb
+translation_source_sha: 19ac7c8c09384aac8f656c6e3490868194b32be0
 translation_revised: 2026-09-29
 ---
 
 # 개발 워크플로 보증
+
+Post-turn review ingress는 supervised Core runtime task만 추가하며 developer workflow authority 또는 diagnostic shortcut을 추가하지 않습니다.
+
+Local post-turn review mechanics 테스트는 loopback PostgreSQL과 in-memory event bus를 근거로 사용할 수 있지만, deployed transport receipt나 developer workflow authority가 아닙니다.
 
 이 문서는 동시 FDAI 개발을 빠르고 재개 가능하며 fail-closed 상태로 유지하는 저장소 통제를
 정의합니다. 개발 워크플로 진단과 지연 근거를 소유하며, 제품 control plane이나 실행 권한은

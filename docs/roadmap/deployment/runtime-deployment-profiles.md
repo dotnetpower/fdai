@@ -369,6 +369,11 @@ the shared ADLS account and the `fdai.pipeline.stages` entity. The Worker Pod in
 digest-pinned ClamAV image as a replica-local TCP sidecar. Its root remains read-only and only the
 declared database, run and temporary paths receive size-limited `emptyDir` volumes. The restricted namespace requires `runAsNonRoot` at both Pod and container scope for workloads, init containers, sidecars, and scheduled jobs; a Pod-level setting alone does not satisfy admission.
 
+The optional operational evidence verifier is a separate internal workload with its own user-assigned
+Managed Identity. It is not part of the baseline five-service readiness set, receives no executor
+identity, and starts only after its caller authenticator, executor-class anchor preflight, proof-store
+writer readback, and Azure own-role readback pass.
+
 Scheduled jobs use `concurrencyPolicy=Forbid`, one completion, one parallel worker, a bounded active deadline,
 a retry limit, and bounded history. Manual jobs require a separate approval and are not perpetual desired-state resources.
 The AKS baseline renders analyzer, canary, inventory, observation campaign, and operational-history lifecycle

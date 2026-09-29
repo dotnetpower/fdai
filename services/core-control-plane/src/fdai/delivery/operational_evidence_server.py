@@ -4,9 +4,9 @@ The workload is not an agent. It publishes and subscribes to no topic, invokes n
 owns only the operational proof store. It refuses to start when its principal equals a source,
 producer, reviewer, or executor-class principal, and it refuses to issue while the proof-store
 grants readback shows another writer (``self_verified``). The local venue accepts loopback
-callers only; a deployed venue requires a workload caller authenticator, which this module does
-not provide, so it refuses to start there. Its readiness snapshot names the registry pins, the
-bound purposes, and a bounded health read of every source it binds; it grants no authority.
+callers only; the deployed venue requires a registered producer-token authenticator and an
+own-role readback. Its readiness snapshot names the registry pins, the bound purposes, and a
+bounded health read of every source it binds; it grants no authority.
 """
 
 from __future__ import annotations
@@ -14,6 +14,7 @@ from __future__ import annotations
 import argparse
 import asyncio
 import ipaddress
+import json
 import logging
 import os
 from collections.abc import Awaitable, Callable, Mapping
@@ -22,8 +23,11 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Protocol
 
+import httpx
+import jwt
 import psycopg
 from aiohttp import web
+from azure.core.exceptions import AzureError
 from fdai_service_contracts.operational_evidence import (
     OperationalEvidenceIssuanceRequest,
     OperationalEvidenceIssuanceResponse,
@@ -33,9 +37,20 @@ from fdai_service_contracts.operational_evidence import (
 )
 from pydantic import ValidationError
 
+from fdai.core.operational_evidence.deployment_preflight import (
+    VerifierDeploymentPreflightError,
+    assert_verifier_not_executor_class,
+    build_executor_class_anchor_set,
+)
 from fdai.core.operational_evidence.issuance import (
     OperationalEvidenceVerifierEngine,
     VerifierIdentity,
+)
+from fdai.core.operational_evidence.own_role_readback import (
+    OwnRolePolicy,
+    VerifierOwnRoleReadback,
+    VerifierOwnRoleReadbackError,
+    evaluate_verifier_own_roles,
 )
 from fdai.core.operational_evidence.readback.test_context_command import (
     OperatorTestContextCommandReadback,
@@ -46,8 +61,21 @@ from fdai.core.operational_evidence.readback.test_context_lifecycle import (
 )
 from fdai.core.operational_evidence.revision_history import RegistryHistory
 from fdai.core.operational_evidence.separation import assert_verifier_separation
-from fdai.core.operational_evidence.trust_registry import Venue
+from fdai.core.operational_evidence.trust_registry import DeploymentAnchors, TrustRegistry, Venue
+from fdai.delivery.azure.operational_evidence_roles import (
+    AzureAuthorizationRoleAssignmentReader,
+    build_azure_management_token_provider,
+)
+from fdai.delivery.operational_evidence_caller_auth import (
+    StaticJwksBearerTokenValidator,
+    WorkloadCallerAuthenticator,
+)
 from fdai.delivery.operational_evidence_configuration import (
+    CALLER_TOKEN_AUDIENCE_ENV,
+    CALLER_TOKEN_ISSUER_ENV,
+    CALLER_TOKEN_JWKS_ENV,
+    OWN_ROLE_ALLOWED_SCOPES_ENV,
+    OWN_ROLE_READBACK_SCOPES_ENV,
     PRODUCER_ID,
     VERIFIER_ID,
     VERIFIER_VERSION,
@@ -78,6 +106,12 @@ class CallerAuthenticator(Protocol):
     """Map one HTTP caller to the principal its producer anchor must equal."""
 
     def authenticate(self, request: web.Request) -> str | None: ...
+
+
+class OwnRoleReader(Protocol):
+    """Read this verifier workload's own role assignments."""
+
+    async def read(self) -> VerifierOwnRoleReadback: ...
 
 
 @dataclass(frozen=True, slots=True)
@@ -160,7 +194,8 @@ class VerifierWorkload:
     readiness: VerifierReadiness
     probe: Callable[[], Awaitable[VerifierReadiness]]
     history: RegistryHistory
-    local_producer_principal: str
+    caller: CallerAuthenticator
+    deployed_venue: bool
 
 
 def build_verifier_workload(
@@ -168,14 +203,15 @@ def build_verifier_workload(
     *,
     root: Path,
     clock: Callable[[], datetime] | None = None,
+    caller_authenticator: CallerAuthenticator | None = None,
+    own_role_reader: OwnRoleReader | None = None,
 ) -> VerifierWorkload:
     """Load pinned registries, refuse identity equality, and bind real local sources."""
 
     settings = OperationalEvidenceSettings.from_environment(env)
-    if settings.execution_venue is not Venue.LOCAL:
-        raise RuntimeError(
-            "a deployed verifier requires a workload caller authenticator that is not bound"
-        )
+    deployed = settings.execution_venue is Venue.DEPLOYED
+    if settings.execution_venue not in {Venue.LOCAL, Venue.DEPLOYED}:
+        raise RuntimeError("operational evidence verifier venue is unsupported or invalid")
     history = load_registry_history(settings, root=root)
     anchors = load_anchors(settings)
     trust = history.current.trust
@@ -189,13 +225,24 @@ def build_verifier_workload(
     if len(principals) != 1 or None in principals or not settings.verifier_dsn:
         raise RuntimeError("operational evidence verifier principal or store is unbound")
     verifier_principal = str(next(iter(principals)))
+    if deployed:
+        try:
+            executor_principals = build_executor_class_anchor_set(settings.executor_anchor_inputs())
+        except VerifierDeploymentPreflightError as exc:
+            raise RuntimeError("deployed verifier executor anchors are unbound") from exc
+        assert_verifier_not_executor_class(
+            verifier_principal=verifier_principal,
+            executor_class_principals=executor_principals,
+        )
+    else:
+        executor_principals = frozenset(
+            string_list(settings.executor_principals_json, label="executor principals")
+        )
     assert_verifier_separation(
         trust,
         anchors,
         verifier_principal=verifier_principal,
-        executor_class_principals=string_list(
-            settings.executor_principals_json, label="executor principals"
-        ),
+        executor_class_principals=executor_principals,
     )
     store = PostgresOperationalEvidenceConfig(
         dsn=settings.verifier_dsn, expected_role=VERIFIER_ROLE
@@ -203,8 +250,24 @@ def build_verifier_workload(
     sources = PostgresTestContextEvidenceSources(store)
     readiness = VerifierReadiness()
     members = string_list(settings.writer_members_json, label="writer members")
+    caller = caller_authenticator or (
+        _deployed_caller_authenticator(settings, trust, anchors) if deployed else None
+    )
+    if caller is None:
+        producer = _producer_principal(trust, anchors)
+        if producer is None:
+            raise RuntimeError("operational evidence producer anchor is unbound")
+        caller = LoopbackCallerAuthenticator(producer)
+    role_reader = (
+        own_role_reader or _configured_role_reader(env, settings, verifier_principal)
+        if deployed
+        else own_role_reader
+    )
 
     async def probe() -> VerifierReadiness:
+        state = "unavailable"
+        reasons: tuple[str, ...] = ("not_probed",)
+        source_health: dict[str, OperationalEvidenceSourceHealth] = {}
         try:
             readback = await read_proof_store_grants(store, allowed_writer_members=members)
         except (OSError, RuntimeError, ValueError, psycopg.Error) as exc:
@@ -212,12 +275,47 @@ def build_verifier_workload(
                 "operational_evidence_writer_readback_unavailable",
                 extra={"error_type": type(exc).__name__},
             )
-            readiness.state, readiness.reasons = "unavailable", ("writer_readback_unavailable",)
+            state, reasons = "unavailable", ("writer_readback_unavailable",)
         else:
-            reasons = readback.self_verified_reasons()
-            readiness.state = "self_verified" if reasons else "ready"
-            readiness.reasons = reasons
-        readiness.source_health = await sources.source_health()
+            grant_reasons = readback.self_verified_reasons()
+            state = "self_verified" if grant_reasons else "ready"
+            reasons = grant_reasons
+        if deployed and state == "ready":
+            if role_reader is None:
+                state, reasons = "unavailable", ("role_readback_unavailable",)
+            else:
+                try:
+                    own_roles = await role_reader.read()
+                    role_reasons = evaluate_verifier_own_roles(
+                        own_roles,
+                        policy=OwnRolePolicy(
+                            verifier_principal_id=verifier_principal,
+                            allowed_role_scopes=_allowed_role_scopes(
+                                settings.allowed_role_scopes_json
+                            ),
+                        ),
+                    )
+                except (
+                    OSError,
+                    RuntimeError,
+                    ValueError,
+                    VerifierOwnRoleReadbackError,
+                    httpx.HTTPError,
+                    jwt.PyJWTError,
+                    AzureError,
+                    psycopg.Error,
+                ) as exc:
+                    _LOGGER.warning(
+                        "operational_evidence_own_role_readback_unavailable",
+                        extra={"error_type": type(exc).__name__},
+                    )
+                    role_reasons = ("role_readback_unavailable",)
+                if role_reasons:
+                    state, reasons = "unavailable", role_reasons
+        source_health = await sources.source_health()
+        readiness.state = state
+        readiness.reasons = reasons
+        readiness.source_health = source_health
         readiness.probed_at = datetime.now(UTC)
         return readiness
 
@@ -238,36 +336,29 @@ def build_verifier_workload(
         clock=clock,
         issuance_blocked=blocked,
     )
-    producer = next(
-        (
-            anchors.principal(item.anchor_id)
-            for entry in trust.purposes.values()
-            for item in entry.producers
-            if item.producer_id == PRODUCER_ID
-        ),
-        None,
-    )
-    if producer is None:
-        raise RuntimeError("operational evidence producer anchor is unbound")
     return VerifierWorkload(
         engine=engine,
         readiness=readiness,
         probe=probe,
         history=history,
-        local_producer_principal=producer,
+        caller=caller,
+        deployed_venue=deployed,
     )
 
 
 async def serve(env: Mapping[str, str], *, root: Path, host: str, port: int) -> None:
-    """Run the local verifier until cancelled; refuse any non-loopback bind address."""
+    """Run the verifier until cancelled; local venue refuses non-loopback binds."""
 
-    if not ipaddress.ip_address(host).is_loopback:
+    deployed = OperationalEvidenceSettings.from_environment(env).execution_venue is Venue.DEPLOYED
+    if not deployed and not ipaddress.ip_address(host).is_loopback:
         raise RuntimeError("the local verifier binds loopback addresses only")
     workload = build_verifier_workload(env, root=root)
     await workload.probe()
+    if workload.deployed_venue and workload.readiness.state != "ready":
+        raise RuntimeError("deployed operational evidence verifier startup checks failed")
     app = build_verifier_app(
         workload.engine,
-        caller=LoopbackCallerAuthenticator(workload.local_producer_principal),
+        caller=workload.caller,
         readiness=lambda: workload.readiness,
     )
     runner = web.AppRunner(app)
@@ -310,6 +401,99 @@ __all__ = [
     "main",
     "serve",
 ]
+
+
+def _producer_principal(trust: TrustRegistry, anchors: DeploymentAnchors) -> str | None:
+    return next(
+        (
+            anchors.principal(item.anchor_id)
+            for entry in trust.purposes.values()
+            for item in entry.producers
+            if item.producer_id == PRODUCER_ID
+        ),
+        None,
+    )
+
+
+def _deployed_caller_authenticator(
+    settings: OperationalEvidenceSettings,
+    trust: TrustRegistry,
+    anchors: DeploymentAnchors,
+) -> CallerAuthenticator:
+    producer = _producer_principal(trust, anchors)
+    if (
+        producer is None
+        or not settings.caller_token_issuer
+        or not settings.caller_token_audience
+        or not settings.caller_token_jwks_json
+    ):
+        missing = ", ".join(
+            key
+            for key, value in {
+                CALLER_TOKEN_ISSUER_ENV: settings.caller_token_issuer,
+                CALLER_TOKEN_AUDIENCE_ENV: settings.caller_token_audience,
+                CALLER_TOKEN_JWKS_ENV: settings.caller_token_jwks_json,
+            }.items()
+            if not value
+        )
+        raise RuntimeError(
+            "a deployed verifier requires a workload caller authenticator"
+            + (f" ({missing})" if missing else "")
+        )
+    return WorkloadCallerAuthenticator(
+        expected_issuer=settings.caller_token_issuer,
+        expected_audience=settings.caller_token_audience,
+        registered_producer_principal=producer,
+        validator=StaticJwksBearerTokenValidator(
+            issuer=settings.caller_token_issuer,
+            audience=settings.caller_token_audience,
+            jwks_json=settings.caller_token_jwks_json,
+        ),
+    )
+
+
+def _configured_role_reader(
+    env: Mapping[str, str], settings: OperationalEvidenceSettings, verifier_principal: str
+) -> OwnRoleReader | None:
+    if settings.own_role_assignments_json:
+        raise RuntimeError("deployed verifier own-role readback cannot come from environment")
+    if not settings.allowed_role_scopes_json:
+        raise RuntimeError(f"{OWN_ROLE_ALLOWED_SCOPES_ENV} is required in deployed venue")
+    scopes = string_list(
+        settings.role_readback_scopes_json,
+        label="role readback scopes",
+    )
+    if not scopes:
+        raise RuntimeError(f"{OWN_ROLE_READBACK_SCOPES_ENV} is required in deployed venue")
+    client = httpx.AsyncClient(timeout=2.0)
+    return AzureAuthorizationRoleAssignmentReader(
+        client=client,
+        token_provider=build_azure_management_token_provider(
+            env,
+            client_id=env.get("FDAI_MI_CLIENT_ID", "").strip()
+            or env.get("AZURE_CLIENT_ID", "").strip(),
+        ),
+        principal_id=verifier_principal,
+        scopes=scopes,
+    )
+
+
+def _allowed_role_scopes(raw: str) -> dict[str, tuple[str, ...]]:
+    try:
+        value = json.loads(raw)
+    except json.JSONDecodeError as exc:
+        raise RuntimeError(f"{OWN_ROLE_ALLOWED_SCOPES_ENV} is not valid JSON") from exc
+    if not isinstance(value, dict):
+        raise RuntimeError(f"{OWN_ROLE_ALLOWED_SCOPES_ENV} must be a JSON object")
+    allowed: dict[str, tuple[str, ...]] = {}
+    for role, scopes in value.items():
+        if not isinstance(role, str) or not isinstance(scopes, list):
+            raise RuntimeError(f"{OWN_ROLE_ALLOWED_SCOPES_ENV} entries are malformed")
+        normalized = tuple(str(scope).rstrip("/") for scope in scopes if str(scope).strip())
+        if not normalized:
+            raise RuntimeError(f"{OWN_ROLE_ALLOWED_SCOPES_ENV} entry has no scopes")
+        allowed[role] = normalized
+    return allowed
 
 
 if __name__ == "__main__":  # pragma: no cover - manual local entry point
