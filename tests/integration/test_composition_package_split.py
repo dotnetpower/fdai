@@ -116,6 +116,9 @@ _EXPECTED_FILES = frozenset(
         # Routes the eleven operational evidence purposes to the insert-only proof
         # store and binds the bounded issuance requester without adding authority.
         "operational_evidence_binding.py",
+        # Reconstructs signed runtime skills before governed skill bundles and
+        # publishes both read-only disclosure snapshots before readiness.
+        "wire_skill_disclosure.py",
     }
 )
 
