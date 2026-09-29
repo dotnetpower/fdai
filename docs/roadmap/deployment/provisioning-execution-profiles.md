@@ -34,7 +34,7 @@ remain unchanged.
 | Audited Run Command private relay | implemented | `execution_bundle.py`, `run_command_receiver.py`, `run_command_private_relay.py`, fixed bootstrap/orchestration modules, and 25 focused passing tests | One eligible Linux deployment host can stage a digest-bound bundle to one peered WSL host without cloud artifact storage. Live Azure transfer evidence and automatic access-profile routing remain open. |
 | Scoped Run Command Terraform | validated | `scripts/deployment/azure/scoped_terraform.py`; `scoped_terraform_receiver.py`; 36 focused tests; one live dev `aks-container-insights` apply receipt | An ordinary PC runs one registered Terraform scope on the managed host through Action Run Command without a private network path. The first dev apply passed targeted zero-change and independent ARM readback. Staging and production remain blocked. |
 | Fresh-subscription local coordinator | implemented | `fdaictl provision azure`; `fdai-up.sh`; signed-kit, Foundation, Bastion, managed-host, approval, license, migration, and convergence modules; routed lifecycle tests | One `dev` process derives the target from the active Azure CLI user and keeps stateful transitions serial. Tenant deployment has no GitHub transport. A governed Azure receipt and complete subscription-assurance evidence remain open. |
-| Prebuilt OCI deployment appliance consumption | in-progress | `run-deployment-appliance.sh`; focused script and CLI tests | Tenant provisioning can start the manual standalone coordinator from a release-published, digest-pinned appliance with no public artifact fallback. A governed artifact-offline Azure receipt remains open; tenant deployment does not construct the image. |
+| Prebuilt OCI deployment appliance consumption | not-applicable | Constitution Article 1 (Deployment distribution) | Installation supports exactly two paths, contributor source deployment and a signed offline package, and adds no other gate. The appliance builder and entry point are deleted; no release step produces an image. |
 | Signed offline Python package | validated | `build-signed-python-package.sh`; package policy v3; real OpenSSL/checksum verification and pip cold install | A 6.9 MB wheelhouse contains the CLI and dependencies. One detached Ed25519 signature is the only package-specific assurance control. |
 | Stable Network API Foundation discovery | validated | PR #926; `deployment-v0.1.0-r4`; [issue #803 evidence](https://github.com/dotnetpower/fdai/issues/803#issuecomment-5653340906) | The published signed bundle passed all Foundation input reads in West US 2; no plan, apply, recovery, or deployment-readiness claim was produced. |
 | Temporary public-access cleanup | not-started | The access preference contract in this document | No composed command proves bounded creation, automatic cleanup, incomplete-on-cleanup-failure behavior, and audit closure. |
@@ -498,7 +498,7 @@ deployment kit. The managed host consumes only the kit's authenticated binaries,
 runtime images, and migration wheels.
 
 Operational validation does not require this publication path. A locally built, independently
-verified complete signed kit can supply both the local coordinator and the deployment appliance.
+verified complete signed kit supplies the local coordinator; no appliance image is produced.
 
 The target release workflow builds the wheel and source distribution once in a read-only job, checks that
 the Python and bundle versions match, and publishes that exact artifact through PyPI Trusted
