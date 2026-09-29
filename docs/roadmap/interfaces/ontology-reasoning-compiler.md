@@ -473,9 +473,10 @@ returns to the judgment as repair feedback and otherwise holds the turn as `sema
 only or not is covered by the copied operand it touches. A named thing standing apart from every copied span is offered to the same
 closed choice as a possibly omitted subtype. A membership frame never compiles without its exact group, the container's own kind word
 never filters its members, and where no second reader runs a frame that drops the operand of a stated relation holds instead of
-widening the list. A state collection needs T2 review only when
-a stated state lacks a reviewed state concept, as the fourth approved decision requires. Relationship questions about one named
-instance remain unexpressible on this path and wait for the relation compiler.
+widening the list. A state collection needs T2 review only when a stated state lacks a reviewed state concept, as the fourth approved
+decision requires, and a collection whose typed targets are grounded states is planned as a state collection. A proposal that copies
+one span as two targets is repaired. Relationship questions about one named instance remain unexpressible on this path and wait for
+the relation compiler.
 
 ## Approved decisions
 

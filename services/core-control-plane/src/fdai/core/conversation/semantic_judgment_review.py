@@ -42,6 +42,28 @@ def requires_independent_review(proposal: SemanticJudgmentProposal) -> bool:
     )
 
 
+_STATE_COLLECTION_KINDS = frozenset({*_STATE_TARGET_KINDS, "resource_type_filter"})
+
+
+def promoted_state_collection(proposal: SemanticJudgmentProposal) -> SemanticJudgmentProposal:
+    """Read a collection whose typed targets are grounded states as a state collection.
+
+    The target kinds, not a facet spelling, carry the request: when every stated state
+    already carries one reviewed state concept the collection needs no second tier, as
+    the fourth approved decision states, so it is planned as a state collection.
+    """
+
+    states = [target for target in proposal.targets if target.kind in _STATE_TARGET_KINDS]
+    if (
+        proposal.primary_intent != "query.contextual_resources"
+        or not states
+        or any(target.kind not in _STATE_COLLECTION_KINDS for target in proposal.targets)
+        or any(target.canonical_value not in RESOURCE_STATE_MEASURE_CONCEPTS for target in states)
+    ):
+        return proposal
+    return proposal.model_copy(update={"primary_intent": "query.resource_state_inventory"})
+
+
 def proposals_match(
     primary: SemanticJudgmentProposal,
     reviewer: SemanticJudgmentProposal,
@@ -88,4 +110,9 @@ def _signature(proposal: SemanticJudgmentProposal) -> tuple[object, ...]:
     )
 
 
-__all__ = ["proposals_match", "requires_independent_review", "validate_independent_bindings"]
+__all__ = [
+    "promoted_state_collection",
+    "proposals_match",
+    "requires_independent_review",
+    "validate_independent_bindings",
+]

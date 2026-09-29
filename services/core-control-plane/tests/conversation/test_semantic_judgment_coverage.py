@@ -14,7 +14,10 @@ from fdai.core.conversation.semantic_judgment_coverage import (
     settled_proposal,
     uncovered_constraint_spans,
 )
-from fdai.core.conversation.semantic_judgment_review import requires_independent_review
+from fdai.core.conversation.semantic_judgment_review import (
+    promoted_state_collection,
+    requires_independent_review,
+)
 from fdai.core.conversation.semantic_planning import SemanticPlanningService
 from fdai.core.conversation.semantic_planning_models import SemanticPlanningDisposition
 from fdai.core.conversation.semantic_reasoning_review import resolve_extraction
@@ -500,3 +503,67 @@ def test_a_target_stretched_over_another_target_covers_no_restriction() -> None:
     uncovered = uncovered_constraint_spans(proposal, extraction, utterance)
 
     assert [utterance[span.start : span.end] for span in uncovered] == ["실행 중인"]
+
+
+@pytest.mark.parametrize(
+    ("canonical", "extra", "promoted"),
+    (
+        ("resource_state.running", None, True),
+        (None, None, False),
+        ("resource_state.running", ("resource_group", "rg"), False),
+    ),
+)
+def test_a_collection_of_grounded_states_is_planned_as_a_state_collection(
+    canonical: str | None,
+    extra: tuple[str, str] | None,
+    promoted: bool,
+) -> None:
+    utterance = "rg 실행 중인 VM 보여줘"
+    state = _target(utterance, "resource_state_filter", "실행 중인")
+    state["canonical_value"] = canonical
+    targets = [state, _target(utterance, "resource_type_filter", "VM")]
+    if extra is not None:
+        targets.append(_target(utterance, *extra))
+    proposal = SemanticJudgmentProposal.model_validate(
+        _proposal(
+            primary_intent="query.contextual_resources",
+            targets=targets,
+            requested_facets=["resource_collection", "list"],
+        )
+    )
+
+    result = promoted_state_collection(proposal)
+
+    expected = "query.resource_state_inventory" if promoted else "query.contextual_resources"
+    assert result.primary_intent == expected
+
+
+def test_one_span_copied_as_two_kinds_is_repaired() -> None:
+    utterance = "rg-example 리소스 그룹에 뭐가 있어?"
+    group = _target(utterance, "resource_group", "rg-example")
+    duplicate = _target(utterance, "resource_name_filter", "rg-example")
+    model = _SequenceModel(
+        [
+            _proposal(
+                primary_intent="query.contextual_resources",
+                targets=[group, duplicate],
+                requested_facets=["resource_collection", "list"],
+            ),
+            _proposal(
+                primary_intent="query.contextual_resources",
+                targets=[group],
+                requested_facets=["resource_collection", "list"],
+            ),
+        ]
+    )
+
+    result = _boundary(model).judge(
+        utterance=utterance,
+        context=(),
+        capabilities=({"kind": "function_type", "name": "query.contextual_resources"},),
+    )
+
+    assert result.accepted is True
+    assert result.proposal is not None
+    assert [target.kind for target in result.proposal.targets] == ["resource_group"]
+    assert model.schema_repairs[1][0]["reason"] == "semantic targets MUST NOT copy one span twice"

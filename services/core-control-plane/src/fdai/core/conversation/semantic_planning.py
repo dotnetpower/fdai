@@ -43,6 +43,7 @@ from .semantic_judgment_coverage import (
     settled_proposal,
     start_coverage,
 )
+from .semantic_judgment_review import promoted_state_collection
 from .semantic_planning_alignment import verify_frame_plan_alignment
 from .semantic_planning_cascade import (
     BOUNDED_T2_ESCALATION_POLICY,
@@ -417,7 +418,7 @@ class SemanticPlanningService(SemanticPlanningPreflightMixin):
                         },
                     )
                 if judgment_decision.accepted and judgment_decision.proposal is not None:
-                    accepted = judgment_decision.proposal
+                    accepted = promoted_state_collection(judgment_decision.proposal)
                     if self._type_grounding is not None:
                         grounding = self._type_grounding.ground(
                             utterance=utterance,
@@ -430,7 +431,7 @@ class SemanticPlanningService(SemanticPlanningPreflightMixin):
                         manifest_descriptors = grounding.manifest_descriptors
                         model_observations.extend(grounding.observations)
                         accepted = settled_proposal(coverage, grounding.judgment)
-                        judgment_decision = replace(judgment_decision, proposal=accepted)
+                    judgment_decision = replace(judgment_decision, proposal=accepted)
                     semantic_judgment = accepted.model_dump(mode="json")
             _LOGGER.info("semantic_planning_stage_completed", extra={"stage": stage})
             judgment_proposal = (
