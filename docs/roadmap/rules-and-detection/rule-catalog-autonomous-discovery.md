@@ -171,38 +171,9 @@ The reviewer cannot be the action initiator. Replayed or already reviewed observ
 increase sample or reviewed counts, and the review cannot change the policy-escape fact recorded on
 the original shadow outcome.
 
-## Implementation status
 
-### Implementation scope
+## Related docs
 
-| Area | State | Evidence | Notes |
-|------|-------|----------|-------|
-| Candidate grounding and poisoning guard | implemented | `services/core-control-plane/src/fdai/agents/_framework/candidate_guard.py`; `services/core-control-plane/tests/agents/test_candidate_guard.py` | Mimir quarantines ungrounded, malformed, or flooding candidates without granting promotion authority. |
-| Norns consensus | implemented | `services/core-control-plane/src/fdai/agents/_framework/norns_consensus.py`; `services/core-control-plane/tests/agents/test_norns_consensus.py` | All three deterministic perspectives must agree before Norns publishes an inert candidate. |
-| Candidate review and catalog compilation | implemented | `services/core-control-plane/src/fdai/core/operational_learning/catalog.py`; `review.py`; `services/core-control-plane/tests/agents/test_mimir_catalog_review.py` | Review packages and bounded publication state are implemented; activation still requires the ordinary catalog-as-code path. |
-| Override and operational-signal intake | implemented | `services/core-control-plane/src/fdai/core/operational_learning/override_signals.py`; `discovery_contracts.py`; focused override-signal, cycle, and Norns learner tests | Audited override use emits a normalized signal only after configurable distinct-scope, dwell, and shadow-hit thresholds clear. No unsupported `object.override` topic is created. |
-| Per-candidate shadow-dwell evidence and threshold gate | implemented | `services/core-control-plane/src/fdai/core/operational_learning/shadow_dwell.py`; `services/core-control-plane/tests/core/operational_learning/test_shadow_dwell.py`; `services/core-control-plane/tests/agents/test_discovery_shadow_{dwell,review}.py` | Norns retains each shadow observation once, Var records a distinct human review, Saga stamps the reviewed audit entry, and Mimir still refuses insufficient, inconsistent, target-mismatched, or escaped evidence. |
-| Long-horizon discovery cycle | implemented | `services/core-control-plane/src/fdai/core/operational_learning/discovery_cycle.py`; `services/core-control-plane/tests/core/operational_learning/test_discovery_cycle.py` | The interval-bucket scheduler persists observe, hypothesize, verify, and integrate stages with stable identities, timeout and volume bounds, revision fencing, terminal replay, and bounded retention. Deployment-supplied sources and models remain configuration, not embedded provider values. |
-| Mixed-model cross-check | implemented | `services/core-control-plane/src/fdai/core/operational_learning/discovery_contracts.py`; `discovery_cycle.py`; focused cycle tests | Construction requires distinct model identities and families. Every candidate is digest-bound to independent re-approval, and disagreement or digest substitution stays held for human review. |
-| Loop throughput metrics | implemented | `DiscoveryCycleMetrics`; focused cycle persistence tests | Each completed cycle stores an audited no-authority projection for candidates per cycle, gate pass rate, override-trigger rate, and retirement rate. |
-
-### Implementation history
-
-| Date | State | Change | Evidence | Remaining |
-|------|-------|--------|----------|-----------|
-| 2026-08-14 | in-progress | Adopted the implementation ledger without reconstructing earlier provenance. | `current change`; current source and focused tests listed in the scope table. | Complete the scheduled loop, shadow evidence, override intake, and mixed-model gate. |
-| 2026-08-15 | in-progress | Implemented per-candidate shadow-dwell retention and the fail-closed threshold gate, and split the former combined scheduler/dwell row. | `current change`; `services/core-control-plane/src/fdai/core/operational_learning/shadow_dwell.py`; `uv run pytest -q --no-cov services/core-control-plane/tests/core/operational_learning services/core-control-plane/tests/agents` passed (1214 tests). | Scheduler, mixed-model cross-check, loop metrics, and an audit-entry producer for operator review outcomes. |
-| 2026-08-29 | implemented | Added the replayable bounded discovery cycle, independent-family candidate re-approval, override-aware audited throughput metrics, and the Var-Saga-Norns human shadow-review closure without adding catalog or execution authority. | `current change`; discovery cycle, persistence, shadow dwell, Var, and Saga paths; `uv run pytest -q --no-cov services/core-control-plane/tests/core/operational_learning services/core-control-plane/tests/agents/test_discovery_shadow_dwell.py services/core-control-plane/tests/agents/test_discovery_shadow_review.py services/core-control-plane/tests/agents/test_wave2_governance.py services/core-control-plane/tests/agents/test_wave3_pipeline.py services/core-control-plane/tests/agents/test_quorum.py services/core-control-plane/tests/agents/test_framework_layout.py services/core-control-plane/tests/agents/test_pantheon_doc_parity.py` passed 309 tests. | Retain a governed deployed cycle and live review cohort before raising any area to `validated`. |
-| 2026-08-29 | implemented | Hardening round 1 closed a nested authority-field injection path in model-produced candidate payloads. The inert-candidate contract now searches every nested mapping and sequence before integration. | `current change`; `discovery_contracts.py`; `test_discovery_cycle.py`; focused tests passed 8 cases with Ruff and strict mypy. | Continue the bounded hardening campaign; governed deployment evidence remains separate. |
-| 2026-08-29 | implemented | Hardening round 2 prevented a losing scheduler replica from reporting an in-flight cycle as a completed replay. Concurrent claim losers now receive an explicit in-progress failure. | `current change`; `discovery_cycle.py`; `test_discovery_cycle.py`; focused tests passed 9 cases with Ruff and strict mypy. | Continue the bounded hardening campaign; governed deployment evidence remains separate. |
-| 2026-08-29 | implemented | Hardening round 3 made persisted candidate decisions revalidate their SHA-256 identity during replay, so corrupted state cannot enter a review report under an arbitrary lookup key. | `current change`; `discovery_persistence.py`; `test_discovery_cycle.py`; focused tests passed 9 cases with Ruff and strict mypy. | Continue the bounded hardening campaign; governed deployment evidence remains separate. |
-| 2026-08-29 | implemented | Hardening round 4 prevented target-cardinality churn from evicting the only retained policy-escape evidence. When every retained target has escaped, new-target intake now fails closed instead of forgetting an escape. | `current change`; `shadow_dwell.py`; `test_shadow_dwell.py`; focused dwell and review tests passed 60 cases with Ruff and strict mypy. | Continue the bounded hardening campaign; governed deployment evidence remains separate. |
-| 2026-08-29 | implemented | Added thresholded override-audit intake and completed the cross-document hardening campaign at round 16. The source requires three distinct scopes, 14 observed days, and 100 shadow hits by default, preserves incomplete input, and emits only inert override signals. Final governance and collection reviews found no remaining issue above Low. | `current change`; `override_signals.py`; focused discovery and governance tests. | Governed live evidence remains separate from repository implementation. |
-
-### Remaining work
-
-- [x] Complete the bounded implementation scope: persist the four-stage cycle with replayable
-  identities, retain one human-reviewed shadow sample without duplication, bind override signals and
-  independent-family disagreement to review, and publish audited throughput metrics. Focused
-  evidence is in `services/core-control-plane/tests/core/operational_learning/test_discovery_cycle.py`
-  and `services/core-control-plane/tests/agents/test_discovery_shadow_review.py`.
+| To learn about | Read |
+|----------------|------|
+| Delivery status and remaining work | [Implementation ledger](../../roadmap-implementation/rules-and-detection/rule-catalog-autonomous-discovery.md) |

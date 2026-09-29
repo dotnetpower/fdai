@@ -325,6 +325,11 @@ def ledger_violations(
     return errors
 
 
+def has_inline_status(owner_content: str) -> bool:
+    """Return whether an owner still keeps its inline implementation status section."""
+    return bool(_heading_indexes(owner_content.splitlines(), SECTION_HEADING))
+
+
 def tracking_violations(
     owner_content: str,
     ledger_content: str | None,
@@ -333,15 +338,29 @@ def tracking_violations(
     previous_owner: str | None = None,
     previous_ledger: str | None = None,
 ) -> list[str]:
-    """Validate the one authoritative ledger for a roadmap owner."""
+    """Validate the one authoritative ledger for a roadmap owner.
+
+    An owner that keeps its inline section stays authoritative, so the gate never reads its
+    mirrored ledger. Editing that mirror would therefore diverge silently; a changed mirror is
+    rejected until the owner is migrated.
+    """
     owner_section_count = len(_heading_indexes(owner_content.splitlines(), SECTION_HEADING))
     if owner_section_count == 1:
-        return ledger_violations(
+        errors = ledger_violations(
             owner_content,
             previous_owner,
             relative=owner_relative,
             previous_relative=owner_relative,
         )
+        if ledger_content is not None and ledger_content != previous_ledger:
+            mirror = _ledger_relative(owner_relative)
+            errors.append(
+                f"mirrored ledger {mirror} changed while this owner keeps "
+                f"its authoritative inline '{SECTION_HEADING}' section; migrate the owner with "
+                "scripts/automation/migrate-roadmap-implementation-ledgers.py or record the "
+                "change in the inline section"
+            )
+        return errors
     if owner_section_count > 1:
         return [f"expected at most one '{SECTION_HEADING}' section; found {owner_section_count}"]
 
@@ -403,6 +422,13 @@ def main(argv: list[str]) -> int:
         ):
             print(f"roadmap-implementation-tracking: ERROR: {relative}: {error}", file=sys.stderr)
             failures += 1
+        if not all_docs and current_ledger is not None and has_inline_status(current_owner):
+            print(
+                f"roadmap-implementation-tracking: NOTE: {relative}: the inline status is "
+                f"authoritative and {ledger_relative} is not validated; migrate the owner to "
+                "remove the duplicate status source",
+                file=sys.stderr,
+            )
     if failures:
         return 1
     print(f"roadmap-implementation-tracking: OK ({len(documents)} changed owner document(s))")

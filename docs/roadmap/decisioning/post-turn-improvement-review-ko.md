@@ -1,8 +1,8 @@
 ---
 title: Post-Turn 개선 검토
 translation_of: post-turn-improvement-review.md
-translation_source_sha: 9eb1c62de6e87c9e7ceea62552a6d037c7e0fc61
-translation_revised: 2026-09-20
+translation_source_sha: 187fbfaff243ffa194054e7648dd42b187ff08f5
+translation_revised: 2026-09-29
 ---
 
 # Post-Turn 개선 검토
@@ -13,36 +13,6 @@ translation_revised: 2026-09-20
 
 > **범위:** 검토는 운영자 기억, 런타임 스킬 또는 룰 힌트를 제안합니다. 런타임 동작을
 > 변경하거나 권한을 부여하거나 자체 출력을 승인하거나 완료된 응답을 지연하지 않습니다.
-
-## 구현 상태
-
-### 구현 범위
-
-| 영역 | 상태 | 근거 | 참고 |
-|------|------|------|------|
-| 충족 여부 및 제한된 입력 계약 | implemented | [`test_eligibility.py`](../../../services/core-control-plane/tests/core/learning/test_eligibility.py), [`test_norns_post_turn.py`](../../../services/core-control-plane/tests/agents/test_norns_post_turn.py) | 동의, 생산자 소유권, 근거 범위 및 결정론적 충족 여부에 집중 테스트가 있습니다. |
-| 독립 검토 및 통제된 라우팅 | implemented | [`test_consensus.py`](../../../services/core-control-plane/tests/core/learning/test_consensus.py), [`test_routing.py`](../../../services/core-control-plane/tests/core/learning/test_routing.py), [`test_workshop.py`](../../../services/core-control-plane/tests/core/skills/test_workshop.py), [`test_postgres_skill_proposal.py`](../../../services/core-control-plane/tests/persistence/test_postgres_skill_proposal.py) | 서로 다른 모델 계열의 완전한 합의만 비활성 기억, 스킬 또는 룰 힌트 초안을 라우팅합니다. 스킬 초안은 정규화된 검증 근거 참조를 제안 식별자, 영속 저장소 및 감사 이벤트에 결속합니다. |
-| 영속 중복 제거 및 런타임 연결 | implemented | [`test_service.py`](../../../services/core-control-plane/tests/core/learning/test_service.py), [`test_post_turn_review.py`](../../../services/core-control-plane/tests/runtime/test_post_turn_review.py) | 응답 경로를 지연하지 않는 최종 기록과 중복 억제가 테스트되어 있습니다. |
-| Bragi publisher 경계 | implemented | `agents/_framework/bragi_publication.py`; `test_bragi_publications.py`; `test_norns_post_turn.py` | 검증된 `PostTurnReviewInput`은 Bragi가 소유하는 `object.post-turn-review` 묶음 하나가 되어 off-path에서 Norns에 도달합니다. 배포된 Operator queue binding은 아직 필요합니다. |
-| 운영 시나리오 근거 | in-progress | [검증](#검증) | 집중 동작은 구현되어 있지만 세 가지 종단 간 학습 시나리오와 배포된 다중 서비스 증적은 보존되지 않았습니다. |
-
-### 구현 이력
-
-| 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
-|------|------|------|------|-----------|
-| 2026-09-20 | implemented | 동의가 확인된 `PostTurnReviewInput`을 위한 typed Bragi publisher를 추가하고 canonical transport topic을 `object.turn`에서 `object.post-turn-review`로 정정했습니다. | `현재 변경`; 집중 Bragi ownership 및 Norns intake 검사. | 배포된 Operator non-blocking queue를 이 publisher에 결속하고 restart-safe duplicate-delivery 근거를 보존합니다. |
-| 2026-09-12 | implemented | Norns post-turn 룰 힌트를 현재 discovery-activation 게시 게이트 뒤에 두는 운영 bootstrap 결속을 추출하고 테스트했습니다. | `current change`; 집중 bootstrap 결속 검사(`2 passed`). | 전체 Bragi 묶음 시나리오와 배포된 중복 전달 증적을 보존합니다. |
-| 2026-09-12 | implemented | 스킬을 활성화하지 않고 검증된 post-turn 근거 참조를 런타임 스킬 초안 식별자, Operator 소유 PostgreSQL 영속성, 재시작 readback 및 감사 메타데이터에 결속했습니다. | `current change`; migration `operator_skill_proposal_evidence_20260912`; 집중 스킬, 라우팅 및 PostgreSQL 검사(`12 passed`). | bootstrap으로 조립한 시나리오 근거와 배포된 중복 전달 증적을 보존합니다. |
-| 2026-08-14 | in-progress | 이전 출처 이력을 재구성하지 않고 구현 원장을 도입했습니다. | `current change`; 구현 범위 표의 현재 소스와 집중 테스트입니다. | 종단 간 시나리오와 배포된 전송 근거를 보존해야 합니다. |
-
-### 남은 작업
-
-- [ ] 복잡한 도구 복구, 명시적 수정 발견 및 반복 절차 룰 힌트 라우팅이 활성 정책을
-  변경하지 않는다는 종단 간 근거를 보존합니다.
-- [ ] 중복 전달이 하나의 최종 검토 기록을 만든다는 배포된 Bragi-to-Norns 전송 및 재시작
-  증적을 보존합니다.
-- [ ] 배포된 Operator non-blocking queue를 Bragi의 typed post-turn publisher에 결속합니다.
-
 ## 한눈에 보는 설계
 
 Bragi는 `object.post-turn-review`에 범위가 제한된 completed-turn 묶음 하나를 발행합니다. Learner인
@@ -72,7 +42,8 @@ hidden reasoning, unrestricted 프로세스 상태, unrestricted 도구 출력�
 
 Bragi는 계속 `object.post-turn-review`의 single 쓰기 담당입니다. Typed publisher는 이미 검증되고
 동의가 확인된 `PostTurnReviewInput`만 받습니다. Operator API는 범위가 제한된 큐에 제출하고 해당
-경계를 호출해야 하며 검토자를 만들거나 자신을 Bragi 또는 Norns로 표시하지 않습니다.
+큐는 Operator 소유 요청을 발행합니다. Core ingress가 Bragi 경계를 호출하며, Operator는
+검토자를 만들거나 자신을 Bragi 또는 Norns로 표시하지 않습니다.
 
 Norns는 `object.post-turn-review`의 consent-filtered `post_turn_review` 묶음을 구독합니다.
 `producer_principal`이 `Bragi`가 아닌 묶음을 차단하고 검토 대응을 엄격하게 parse한 뒤
@@ -83,6 +54,11 @@ Azure 전송 계층은 모든 Pantheon logical 객체 토픽을 `MultiplexedEven
 physical 객체 토픽으로 보냅니다. 따라서 headless 런타임과 Operator API는 같은
 logical-to-physical 대응을 사용합니다. Process-local 전송 계층도 Azure 근거를 만들지 않고
 같은 logical 계약을 유지합니다.
+Production Operator 구성은 이제 최종 answered semantic turn을 범위가 제한된 asynchronous
+post-turn 큐에 제공하며, 이 큐는 turn projection을 차단하지 않고 Operator 소유
+`operator.post-turn-review.requests` 묶음을 구성된 semantic transport로 발행합니다.
+Core는 이 요청을 소비하고 검증한 뒤 Bragi의 typed publisher를 호출하므로 Bragi만
+`object.post-turn-review`를 씁니다.
 
 ## 충족 여부
 
@@ -181,6 +157,7 @@ cross-replica 제안 점유, 읽기 전용 변환 결과, agent-role 배치를 �
 
 | 알아볼 내용 | 문서 |
 |------------|------|
+| 구현 상태 및 남은 작업 | [구현 원장](../../roadmap-implementation/decisioning/post-turn-improvement-review.md) |
 | Pantheon 소유권 및 토픽 | [에이전트 Pantheon](../agents/agent-pantheon-ko.md) |
 | Operator 기억 및 런타임 스킬 | [프롬프트 조립](prompt-composition-ko.md) |
 | Consent 및 대화 영속성 | [Operator Console](../interfaces/operator-console-ko.md) |

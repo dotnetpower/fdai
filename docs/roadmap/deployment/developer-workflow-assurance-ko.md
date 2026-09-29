@@ -1,10 +1,14 @@
 ---
 translation_of: developer-workflow-assurance.md
-translation_source_sha: e83fd6ed79254b096aa85e8129d3fc4b00ca2256
+translation_source_sha: 5183741be075d4e5ef436c1eccf779d476d884eb
 translation_revised: 2026-09-30
 ---
 
 # 개발 워크플로 보증
+
+Post-turn review ingress는 supervised Core runtime task만 추가하며 developer workflow authority 또는 diagnostic shortcut을 추가하지 않습니다.
+
+Local post-turn review mechanics 테스트는 loopback PostgreSQL과 in-memory event bus를 근거로 사용할 수 있지만, deployed transport receipt나 developer workflow authority가 아닙니다.
 
 이 문서는 동시 FDAI 개발을 빠르고 재개 가능하며 fail-closed 상태로 유지하는 저장소 통제를
 정의합니다. 개발 워크플로 진단과 지연 근거를 소유하며, 제품 control plane이나 실행 권한은
@@ -115,7 +119,8 @@ Operator semantic runtime은 제품 projection을 위해 assurance 답변 생성
 probe, packet, export 또는 Copilot 검토에 들어가지 않습니다.
 Runtime은 내용이 제거된 조회 활동 변환과 검증된 문서 답변 구체화를 전용 모듈에 위임합니다.
 이벤트 순서, 재생 cursor, 진행 단조성, 기한 보류, 진단 timing 및 실행 권한 없음은 영속 runtime이
-계속 소유합니다.
+계속 소유합니다. Runtime이 직접 만든 기한 보류는 별도 로컬 보류 경로로 영속화합니다. 수집 단계가 다시
+계산하는 근거 digest와 projection 신원은 Core projection에만 있기 때문입니다.
 
 ### 의미 판단 추적
 

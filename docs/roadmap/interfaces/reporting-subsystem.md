@@ -87,9 +87,9 @@ measured, read-only evidence. The scenario runner imports only a bounded report
 that passes exact field, type, timestamp, size, and duplicate-key validation.
 Core retains each result as a `report_signal`; this import does not create an
 Incident, audit entry, trace, promotion decision, or auto-resolution claim. The
-legacy reference-sweep driver that produced these reports now refuses every
-live run until it is ported onto the governed chaos adapter, so no new measured
-results arrive in the meantime.
+governed catalog runner and detection-latency driver now produce these records
+only after `GovernedChaosExecutionAdapter` returns a measured experiment. A
+refused, replayed, or untimed run does not create synthetic latency evidence.
 
 The independent Operator Service reads those records through the
 `operator_chaos_report_signal` security-barrier view. Its service role receives
@@ -98,6 +98,11 @@ then advertises the source only when that reader is bound, and renders bounded
 1-, 7-, or 30-day windows with explicit `synthetic: false` provenance and no
 mutation authority. Live, Incident, Audit, and Trace screens keep their own
 authoritative contracts instead of copying this observational evidence.
+
+That grant pattern is recorded in the shared ownership manifest, which names one
+write owner per table. A table this subsystem neither writes nor projects, such as
+the Core-owned `licensing_trial` singleton, appears there without becoming a report
+source: the manifest defines ownership, not reporting visibility.
 
 ## Widget catalog
 
@@ -610,7 +615,7 @@ never crash serialization or misorder a chart. Each item is covered in
   importable report, so what remains is a run that produces one: a deployment must install the
   `fdai.governed_chaos` provider and a scenario must be promoted, or every run refuses before
   substrate access. Both are tracked as remaining work in
-  [recovery-and-chaos-enforcement](../decisioning/recovery-and-chaos-enforcement.md#remaining-work).
+  [recovery-and-chaos-enforcement](../../roadmap-implementation/decisioning/recovery-and-chaos-enforcement.md#remaining-work).
 - [ ] Retain governed render receipts for each production datasource showing source identity, cutoff, freshness, unavailable and timeout behavior, partial-widget isolation, and no synthetic-to-live substitution.
 - [ ] Retain authenticated Operator API and Console receipts for report inventory, explicit unavailable report selection, variable rejection, unknown format, render error isolation, and read-only method enforcement.
 - [x] Implement an optional PDF delivery module, registry binding, package extra, authenticated GET-only control, and focused escaping, digest, pagination, unavailable-section, no-analysis, and no-network tests before advertising `pdf`.

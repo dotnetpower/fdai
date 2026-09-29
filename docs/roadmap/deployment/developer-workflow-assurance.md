@@ -1,5 +1,7 @@
 # Developer workflow assurance
 
+The post-turn review ingress adds only a supervised Core runtime task; it adds no developer workflow authority or diagnostic shortcut.
+
 This document defines the repository controls that keep concurrent FDAI development fast,
 resumable, and fail-closed. It owns developer workflow diagnostics and latency evidence, not the
 product control plane or its execution authority.
@@ -36,7 +38,7 @@ audit log, infer session ownership after a commit, or convert an unavailable dia
 successful result.
 Core bootstrap retains the existing `runtime_settings_service_from_env` test seam while production startup reuses its runtime-owned `StateStore` for one settings snapshot. This compatibility path changes no diagnostic socket, execution venue, provider identity, or deployment authority.
 Consumer startup also binds the [context-selection shadow runner](../decisioning/context-selection-policy.md#shadow-evaluation-and-evidence) to that existing store and gives pending comparisons five seconds to finish before cancelling them and closing the store. This changes neither the developer diagnostic surface nor the active prompt selection.
-The Core manifest's deployed `fdai-operational-catalog-review` entry point runs outside the local diagnostic channel. Adding it changes no task-backed launcher, socket identity, capture scope, or developer validation authority.
+The Core manifest's deployed `fdai-operational-catalog-review` entry point runs outside the local diagnostic channel. Adding it changes no task-backed launcher, socket identity, capture scope, or developer validation authority. Local post-turn review mechanics tests may use loopback PostgreSQL and the in-memory event bus as evidence, but they are not deployed transport receipts or developer workflow authority.
 
 Long-running workspace supervisors receive every required endpoint and private-file path from their
 committed VS Code task. The Conversation Assurance supervisor task passes the standard loopback
@@ -112,7 +114,9 @@ attribution, and a held assessment state for the product projection. Those field
 conversation data and never enter the diagnostic probe, packet, export, or Copilot review.
 The runtime delegates content-redacted query activity projection and verified document-answer
 materialization to focused modules. Event ordering, replay cursors, progress monotonicity, deadline
-holds, diagnostic timing, and no-execution authority remain owned by the durable runtime.
+holds, diagnostic timing, and no-execution authority remain owned by the durable runtime. A deadline
+hold that the runtime builds itself persists through a separate local-hold path, because only a Core
+projection carries the evidence digest and projection identity that ingest recomputes.
 
 ### Semantic decision traces
 

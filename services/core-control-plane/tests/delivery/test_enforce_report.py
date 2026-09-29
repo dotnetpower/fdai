@@ -51,8 +51,24 @@ def test_loads_authoritative_enforce_result_as_structured_signal(tmp_path: Path)
         "reverted": "true",
         "injected": "true",
         "stopped": "true",
+        "detection_latency_seconds": "unknown",
         "approval_ref": "approval:test-sweep",
     }
+
+
+def test_loads_optional_detection_latency_fields(tmp_path: Path) -> None:
+    report = tmp_path / "report.json"
+    run = _run()
+    run.update(
+        injected_at="2026-09-21T11:02:00.500000+00:00",
+        detection_observed_at="2026-09-21T11:02:01.750000+00:00",
+        detection_latency_seconds=1.25,
+    )
+    _write(report, {"runs": [run]})
+
+    signal = load_enforce_report(report)[0]
+
+    assert signal.metadata["detection_latency_seconds"] == "1.25"
 
 
 def test_rejects_conflicting_derived_rollback_value(tmp_path: Path) -> None:

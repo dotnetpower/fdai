@@ -172,6 +172,7 @@ enforce the split. A reader never becomes a writer by deployment proximity.
 | Data or table | Single write owner | Permitted projection readers | Migration owner |
 |---------------|--------------------|------------------------------|-----------------|
 | `operator_assignment_receipt` | Operator inserts authenticated commands atomically with outbox proposals; runtime updates and deletes are prohibited | Core exact-reference reader | Core `core_assignment_receipts_20260914`; dependent Operator insert/read grant |
+| `licensing_trial` | Core activates one singleton row and advances observations under a revision predicate; a trigger keeps activation, bindings, and clock denial immutable, and no role receives DELETE | none; the entitlement resolver reads it through Core | Core `core_licensing_trial_20260929` |
 | `state_kv` `human_assignment:` | Core's audit-sealed assignment lifecycle; database trigger rejects Operator writes | Operator exact-case effect projection and outbox revision observation | Core-owned shared table and additive assignment guard; destructive rollback is blocked while receipts exist |
 | `audit_log` | Saga through the append-only audit store | Operator API audit projections, Norns reviewed intake, verification jobs | Alembic migration job |
 | Operator API read projections | No durable write; pure projection code owns request-local values only | Authenticated routes over each named authoritative store | Not applicable |

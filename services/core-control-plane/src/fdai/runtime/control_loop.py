@@ -35,19 +35,11 @@ from fdai.core.hil_resume import (
 from fdai.core.licensing import LicenseEntitlementAuthority
 from fdai.core.ontology_platform import EffectReconciliationRequestSink, compile_interfaces
 from fdai.core.ontology_platform.operational_functions import operational_function_types
-from fdai.core.quality_gate import (
-    HashedRuleEmbeddingIndex,
-    QualityGate,
-    QualityGateConfig,
-    RagGroundingSource,
-    RuleBasedVerifier,
-)
 from fdai.core.rca import (
     CausalRuntimeCoordinator,
     KnowledgeEvidenceGatherer,
     RcaCoordinator,
     TelemetryEvidenceGatherer,
-    TemporalCausalityAnalyzer,
 )
 from fdai.core.risk_gate import (
     GovernedPreconditionEvaluator,
@@ -90,6 +82,7 @@ from fdai.rule_catalog.schema.signal_type import load_signal_type_registry_from_
 from fdai.rule_catalog.schema.workflow import load_workflow_catalog
 from fdai.runtime.adaptive_telemetry import build_adaptive_telemetry_from_container
 from fdai.runtime.alert_noise_control import AlertWorkflowBindings, build_alert_workflow_bindings
+from fdai.runtime.causal_bindings import build_causal_runtime_coordinator
 from fdai.runtime.configuration import _resolve_catalog_root, _resolve_policies_root
 from fdai.runtime.control_loop_catalogs import (
     load_parameter_relaxation_policies as _load_parameter_relaxation_policies,
@@ -157,6 +150,7 @@ from .control_loop_auxiliary import (
 from .control_loop_auxiliary import (
     build_irp_event_handler as _build_irp_event_handler,
 )
+from .control_loop_auxiliary import build_t2_quality_gate as build_t2_quality_gate
 from .control_loop_auxiliary import rca_catalog_revision as _rca_catalog_revision
 
 __all__ = [
@@ -435,19 +429,11 @@ def _build_control_loop(
         ),
     )
     rules_by_id = {rule.id: rule for rule in active_rules}
-    quality_gate = QualityGate(
-        verifier=RuleBasedVerifier(rules_by_id=rules_by_id),
-        cross_check_models=llm_bindings.cross_check_models,
-        grounding=RagGroundingSource(
-            rules=rules_by_id,
-            embedding_index=HashedRuleEmbeddingIndex(),
-        ),
-        rubric_evaluator=llm_bindings.rubric_evaluator,
+    quality_gate = build_t2_quality_gate(
+        container,
+        rules_by_id=rules_by_id,
+        action_modes=promotion_registry,
         deterministic_evidence_verifiers=_resolve_t2_deterministic_evidence_verifiers(container),
-        config=QualityGateConfig(
-            confidence_threshold=container.config.llm.quality_gate_confidence_threshold,
-            require_cross_check_quorum=container.config.llm.quality_gate_quorum,
-        ),
     )
     t2 = T2Tier(
         proposer=llm_bindings.require_t2_proposer(),
@@ -603,21 +589,12 @@ def _build_control_loop(
         if ontology_instance_store is not None
         else None
     )
-    if causal_runtime_coordinator is None and container.temporal_causal_evidence_provider:
-        if (
-            container.temporal_causality_config is None
-            or container.causal_hypothesis_projection is None
-        ):
-            raise RuntimeError(
-                "temporal causal evidence requires config and Forseti-owned projection"
-            )
-        causal_runtime_coordinator = CausalRuntimeCoordinator(
-            evidence_provider=container.temporal_causal_evidence_provider,
-            analyzer=TemporalCausalityAnalyzer(container.temporal_causality_config),
-            projector=container.causal_hypothesis_projection,
+    if causal_runtime_coordinator is None:
+        causal_runtime_coordinator = build_causal_runtime_coordinator(
+            container=container,
+            ontology_instance_store=ontology_instance_store,
+            audit_store=audit_store,
             method_version=_TEMPORAL_CAUSAL_METHOD_VERSION,
-            intervention_receipt_verifier=container.causal_intervention_receipt_verifier,
-            decision_evidence_provider=container.decision_evidence_admission_provider,
         )
     if dynamic_runtime_coordinator is None and container.dynamic_simulation_request_provider:
         if (

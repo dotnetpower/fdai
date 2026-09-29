@@ -1,11 +1,13 @@
 ---
 title: 채널과 알림(Channels and Notifications)
 translation_of: channels-and-notifications.md
-translation_source_sha: 1b5aab142a601284f2dd3e3b2df7b9327083a930
-translation_revised: 2026-09-28
+translation_source_sha: 57ba5cbdbdda2788b897388a820401f79f1f8380
+translation_revised: 2026-09-29
 ---
 
 # 채널과 알림(Channels and Notifications)
+
+Post-turn review request intake는 Core runtime task로 supervised되지만 channel delivery, notification, approval topic과 분리되어 있습니다.
 
 FDAI가 Teams, Slack, 이메일, 웹훅, paging 서비스, SMS, Direct Line 사용자 지정 채널 및
 명시적 선택 브라우저 알림을 통해 사람과 소통하는 방법. 이 문서는 **채널 추상화, 신뢰 레벨, 카테고리 경계, 라우팅
@@ -103,6 +105,13 @@ Teams Workflows 웹훅 바인딩은
   루프는 학습된 T1 재사용을 Action을 만들기 전에 멈추므로 어떤 채널도 이에 대한 승인을 전달하지
   않음. [학습 및 예측 결과 경계](../agents/agent-pantheon-implementation-ko.md#학습-및-예측-결과-경계)
   참고.
+- **T2 루브릭 판정은 A1 요청을 만들지 않음.** 검증된 영수증이 ActionType에 대해 루브릭 구간을
+  강제 적용하더라도 구간은 신뢰도를 낮추거나 T2 후보를 보류할 뿐이며, T2 후보는 통제된 하위 연결이
+  생기기 전까지 Action이 되지 않음. [환각 루브릭 게이트](../decisioning/hallucination-rubric-gate-ko.md)
+  참고.
+- **인과 가설은 A1 요청을 만들지 않음.** 투영되거나 종결된 `CausalHypothesis` 개정은 Forseti
+  판단의 근거일 뿐임. 런타임의 Forseti 투영과 Thor ActionRun 영수증 확인기는 채널 메시지를
+  보내거나 승인 요청을 만들지 않음.
 
 ### 3.1 A3 명령 롤 게이팅
 

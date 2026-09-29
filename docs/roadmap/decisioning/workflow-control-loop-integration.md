@@ -5,37 +5,6 @@ title: Workflow Control-Loop Integration
 # Workflow Control-Loop Integration
 
 > Focused owner document extracted from [process-automation.md](process-automation.md) section 4.
-
-## Implementation status
-
-### Implementation scope
-
-| Area | State | Evidence | Notes |
-|------|-------|----------|-------|
-| Shadow and typed enforce orchestration | implemented | [`test_orchestrator.py`](../../../services/core-control-plane/tests/core/workflow/test_orchestrator.py), [`test_coordinator.py`](../../../services/core-control-plane/tests/core/workflow/test_coordinator.py) | Shadow cannot mutate, and enforce proposals re-enter typed ingress with attempt-scoped identity. |
-| Durable journal, projection, and approval | implemented | [`test_projection.py`](../../../services/core-control-plane/tests/core/workflow/test_projection.py), [`test_workflow_approval.py`](../../../services/core-control-plane/tests/delivery/persistence/test_workflow_approval.py) | Revisioned Process state, retryable projection, quorum, timeout, and no-self-approval have focused coverage. |
-| Compensation and durable target hold | implemented | [`test_automation_hold.py`](../../../services/core-control-plane/tests/core/workflow/test_automation_hold.py), [`test_orchestrator.py`](../../../services/core-control-plane/tests/core/workflow/test_orchestrator.py), [`test_control_loop_authority.py`](../../../services/core-control-plane/tests/core/test_control_loop_authority.py), [`test_gate.py`](../../../services/core-control-plane/tests/core/risk_gate/test_gate.py) | Incomplete recovery creates a restart-safe, duplicate-safe hold that denies ordinary forward dispatch. Only matching verified recovery can release it. |
-| Guard evaluation | implemented | [Guard evaluation](#42-guard-evaluation-seam), [`test_guard_fail_closed.py`](../../../services/core-control-plane/tests/core/workflow/test_guard_fail_closed.py) | The runtime binds `ChangeWindowWorkflowGuardEvaluator` over the architecture-review gate. Missing, stale, malformed, and unavailable evidence all block the step and record a bounded `guard_error`. |
-| Governed Python, schedule, command, and shell paths | in-progress | [Governed tasks and schedules](#45-governed-python-tasks-and-cron-schedules) | Validation and bounded sandbox mechanics exist, but live executor and production scale-out evidence remain incomplete. |
-
-### Implementation history
-
-| Date | State | Change | Evidence | Remaining |
-|------|-------|--------|----------|-----------|
-| 2026-09-14 | implemented | Aligned the local workflow example with the paired Azure CLI authentication confirmation required by the Operator boundary. | `current change`; `tools.console`; focused launcher environment tests. | No workflow authority changed. |
-| 2026-08-14 | in-progress | Adopted the implementation ledger without reconstructing earlier provenance. | `current change`; current source and focused tests listed in the scope table. | Complete policy binding and production concurrency evidence. |
-| 2026-08-14 | implemented | Recorded the validated FDAI-CONST-009 control-loop boundary: incomplete compensation issues a durable hold, ordinary dispatch is denied, and matching recovery remains Human approval-gated until verified release. | `228f0779e`; focused hold, compensation, control-loop, and risk-gate checks passed 10 tests; centralized validation passed. | Complete the unrelated guard binding, distributed dispatch evidence, and governed task work below. |
-| 2026-08-14 | implemented | Made bound guard evaluation fail closed: a stale evaluation clock, a raising or unavailable evaluator, and a non-boolean result each block the step and record a bounded `guard_error` in the `workflow.step` audit row. | `current change`; `workflow_step_executor.py` and `test_guard_fail_closed.py`; focused workflow checks passed 101 cases; task-scoped Ruff and strict mypy passed. | Complete the multi-replica dispatch evidence and governed Python-task executor work below. |
-
-### Remaining work
-
-- [x] The concrete `ChangeWindowWorkflowGuardEvaluator` binding is tested end to end, and missing,
-  stale, malformed, and unavailable evidence each block the step fail-closed.
-- [ ] Retain multi-replica locking and duplicate-delivery evidence proving one forward dispatch per
-  Process step and attempt.
-- [ ] Complete the governed Python-task live executor and retain sandbox, outcome, and recovery
-  receipts without granting the Operator API executor identity.
-
 ## 4. Control-loop integration
 
 A compiled workflow does not run in a side channel. The
@@ -79,6 +48,12 @@ verified applied steps. Compensation intent is committed before typed dispatch, 
 compensation receipts close the Process as `compensated`. A missing dispatcher, verifier, receipt,
 or failed guard holds or fails the Process closed. Control-only workflows such as ARB persist real approval and decision
 transitions without gaining resource mutation authority.
+Before an enforce action step is republished, competing workflow replicas write an attempt-scoped
+dispatch claim with a short lease. Only the current claimant publishes, and it records the single
+`action.dispatched` record afterward. Duplicate event delivery and a stale claimant cannot create a
+second dispatch record for the same Process step attempt. A claimant that crashes after publication
+is replaced after lease expiry by a replica that republishes the same attempt-scoped idempotency
+key.
 Every missing, failed, or unscorable compensation path also issues a durable target automation
 hold before closing recovery as incomplete. A reconstructed ledger reads the same active hold, and
 duplicate delivery does not replace its original process, reason, revision, or audit entry. The
@@ -424,3 +399,9 @@ supported. Shell artifacts themselves still do not execute: `BashSyntaxChecker`
 only parses, while `BubblewrapCommandRunner` runs catalog-resolved argv. A future
 shell-artifact compiler must add ShellCheck, convert every external operation to
 a command id, and produce audit receipts before a complete script can run.
+
+## Related docs
+
+| To learn about | Read |
+|----------------|------|
+| Delivery status and remaining work | [Implementation ledger](../../roadmap-implementation/decisioning/workflow-control-loop-integration.md) |

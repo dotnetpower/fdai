@@ -1,6 +1,6 @@
 ---
 translation_of: runtime-deployment-profiles.md
-translation_source_sha: 58d9456bdbc5e2dc9e0c46b0aba1ca9e0ebe4be9
+translation_source_sha: 5f319f41ea7f4f90bec2b4aa4b001ea6337625d0
 translation_revised: 2026-09-29
 ---
 # 런타임 배포 프로파일
@@ -46,6 +46,11 @@ facade로 import를 모아도 AKS 관측, Cost Governance 활성화, 배포 권�
 `postgres-aks`는 `runtime_platform=aks`일 때만 사용할 수 있습니다. 클러스터 내부 프로파일이
 영역 손실, 백업, 특정 시점 복구, 업그레이드에 대한 독립 근거를 확보할 때까지 프로덕션에서는
 `postgres-flex`를 사용합니다.
+
+배포가 범위가 제한된 시계열을 연결하면 모든 제품 표면은 같은 인과 근거 경로를 사용합니다.
+이 경로는 런타임 온톨로지 저장소 위의 Forseti `CausalHypothesis` 투영과 Thor ActionRun 영수증
+확인기로 구성됩니다. 인과 개정은 자문 근거로만 남으며 추가 기능을 선택하거나 승인을 충족하거나
+자율성을 높이지 않습니다.
 
 런타임, 데이터베이스, 환경, 포크 상태 및 패키지 존재 여부는 제품 추가 기능을 선택하지 않습니다. 공유 불변 프로필은 명시적 선택과 `authority_granted: false`만 포함합니다.
 기본값은 Graph, 승인, enforce 승격, 롤백 또는 권한 있는 실행기 바인딩을 조립하지 않으며, 선택했지만 불완전한 추가 기능은 안전하게 차단됩니다. `read-only-console`과 `governed-execution`은 `enterprise-identity-governance`를 요구하고, 모든 런타임은 컴파일된 프로필을 자신의 워크로드까지 전달하므로 조립이 선택과 어긋나지 않습니다. full-authority 개발 프로필은 정확한 폐기 가능 범위를 위한 별도의 선택적 권한 입력이며 이 제품 축에서 상속되지 않습니다. 선택적 dev operations gateway는 인증을 사용하므로 명시적인 Operator API audience가 필요하며 없으면 계획을 거부합니다.
@@ -325,6 +330,10 @@ replica-local TCP sidecar로 포함합니다. 루트는 읽기 전용으로 유�
 임시 경로에만 크기가 제한된 `emptyDir` 볼륨을 제공합니다. restricted namespace에서는 워크로드,
 init container, sidecar, 예약 작업의 Pod와 container 범위 모두에 `runAsNonRoot`가 필요합니다.
 Pod 범위 설정만으로는 admission을 통과하지 못합니다.
+
+선택적인 운영 근거 검증기는 자체 user-assigned Managed Identity를 사용하는 별도 내부 워크로드입니다.
+기본 5개 서비스 준비 상태 집합에 포함되지 않으며 실행기 신원을 받지 않습니다. 호출자 인증기, 실행기
+계열 앵커 사전 점검, 증명 저장소 작성자 재확인, Azure 자체 역할 재확인이 모두 통과한 뒤에만 시작합니다.
 
 예약 작업은 `concurrencyPolicy=Forbid`, 완료 수 1, 병렬 작업자 1, 제한된 active deadline, 재시도
 한도, 제한된 이력을 사용합니다. 수동 작업은 별도로 승인된 요청으로만 만들며 영구 desired-state

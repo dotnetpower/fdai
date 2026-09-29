@@ -1,8 +1,8 @@
 ---
 title: 규칙 거버넌스(Rule Governance)
 translation_of: rule-governance.md
-translation_source_sha: 02b4d1b4dbc7dfbb8cb64da3ed85796a91f60a4c
-translation_revised: 2026-09-27
+translation_source_sha: 2d7dafc95cf7e475b81934c9e7169e62f777a4b7
+translation_revised: 2026-09-29
 ---
 
 # 규칙 거버넌스(Rule 거버넌스)
@@ -25,20 +25,6 @@ shadow-before-enforce 및 안전 불변식을 유지합니다.
 > 고객-비종속: 아래 모든 식별자, 스코프, 값은
 > [generic-scope.instructions.md](../../../.github/instructions/generic-scope.instructions.md) 에
 > 따라 합성 자리 표시자.
-
-> **구현 상태**: 효과/범위/배정/rule-set 도메인 모델, strict YAML loaders, 디렉터리
-> 카탈로그 로더, 효과/적용 전이 CI 및 T0 런타임 배정 소비가 구현되어 있습니다.
-> 시작 시 하나의 불변 거버넌스 카탈로그를 로드하고 T0는 일반 권한 부여와 안전성
-> 검토 전에 해석된 범위, 제외, 선택기, 효과, 적용, 파라미터 및 우선순위를 적용합니다.
-> 같은 카탈로그가 strict Azure-shaped exemption을 로드해 안전성 검토에 바인딩하고,
-> 구성된 exemption 최대 기간을 강제하며, 주입 가능한 notifier와 표준 append-only
-> 감사 경계를 통해 만료 전 알림을 라이프사이클 감사 증거와 함께 예약합니다.
-> 카탈로그는 resource-group-이하 범위의 `scope://` 주소에 바인딩된 strict 재정의도
-> 로드하고, 배정의 효과 위에 가장 좁은 범위의 재정의를 해석하며 T0에서
-> `disabled` / `severity-downgrade` / `parameter-relaxation` 을 적용합니다.
-> parameter-relaxation 재정의의 키와 한계는 별도로 리뷰된 정책 파일과 대조해
-> 카탈로그 로드 경계에서 검사되며, 그렇지 않으면 fail closed 됩니다. Pull request
-> 신원 검사는 구현됐으며 trusted verifier 배포는 외부 작업입니다.
 
 ## 카탈로그 검색
 
@@ -123,62 +109,6 @@ Azure Policy는 *정의* 를 *할당* 과 *예외* 에서 분리. FDAI가 이를
   `deny` 는 글로벌 비상 정지 또는 time-boxed exemption으로 복구 가능(그 영향 범위는
   *정당한 변경을 블록* ); `remediate` PR은 멱등 - 재평가된 발견 사항은 중복 오픈이 아니라 열린
   PR 업데이트.
-
-> **구현 상태**: 효과 기반은
-> [`rule_catalog/schema/effect.py`](../../../services/core-control-plane/src/fdai/rule_catalog/schema/effect.py) 에 ship 됨 -
-> `Effect` (`disabled` / `audit` / `deny` / `remediate`) 와 `Enforcement`
-> (`enforce` / `do-not-enforce`) enum, 충돌하는 배정 를 해소하는 strictest-effect 우선순위
-> (`deny` > `remediate` > `audit` > `disabled`), 그리고 위 전이 표를 강제하는
-> `validate_effect_transition` (강제 적용 효과 로의 상향은 별도 승격 승인 필요). 범위 선택
-> 계층도 [`rule_catalog/schema/scope.py`](../../../services/core-control-plane/src/fdai/rule_catalog/schema/scope.py) 에 함께
-> ship 됨 - `ScopeLevel` 계층, `ScopeSelector` (resource-type / tag / resource-id, 선언된 것들의
-> AND), exclusions, `Scope.covers`, 그리고 `most_specific` 우선순위 헬퍼. `Assignment` 산출물 와
-> `resolve_assignments` 충돌 해소기 (strictest 효과 승; 가장 구체적인 범위 가 매개변수 제공;
-> specificity 동점 는 HIL 플래그; loser 는 감사 기록)는
-> [`rule_catalog/schema/assignment.py`](../../../services/core-control-plane/src/fdai/rule_catalog/schema/assignment.py) 에
-> ship 됨. `RuleSet` (initiative) 그룹 - version-pin 된 구성원 + per-rule `default_effect` +
-> `assignment_from_rule_set` - 는
-> [`rule_catalog/schema/rule_set.py`](../../../services/core-control-plane/src/fdai/rule_catalog/schema/rule_set.py) 에 ship 됨.
-> 거버넌스 모델 계층(효과 / 범위 / 배정 / rule-set)은 in-memory 로 완성. 배정
-> catalog-as-code 로더도 ship 됨:
-> [`assignment.schema.json`](../../../services/core-control-plane/src/fdai/rule_catalog/schema/assignment.schema.json) +
-> `load_assignment_from_mapping`
-> ([`governance_loader.py`](../../../services/core-control-plane/src/fdai/rule_catalog/schema/governance_loader.py)) - YAML
-> 배정 를 검증해 도메인 객체를 빌드하고, 모든 스키마 이슈를 경계에서 한 번에 실패시킴.
-> rule-set 로더 (`rule_set.schema.json` + `load_rule_set_from_mapping`)도 같은 모듈에 ship 됨.
-> 디렉토리 로더
-> ([`governance_catalog.py`](../../../services/core-control-plane/src/fdai/rule_catalog/schema/governance_catalog.py),
-> `load_governance_catalog`)는 catalog-as-code 트리 전체(`assignments/` + `rule-sets/`)를 읽어
-> 모든 파일의 이슈를 집계함. 배정 은 명시적 `target_rule_ids` 목록 또는 `rule_set`(id)를
-> 바인딩함: 로더는 rule-set 참조를 로드된 rule-set 에 대해 해석하고 `assignment_from_rule_set` 으로
-> 펼쳐(rule-set 의 룰별 `default_effect` 를 재정의 로 실음), "rule-set 을 범위 에 적용"이 종단 간
-> 로 동작함; 해석되지 않는 참조는 로드 경계에서 실패. CI 전이 게이트 핵심도 ship 됨: `validate_catalog_transition`
-> ([`governance_transitions.py`](../../../services/core-control-plane/src/fdai/rule_catalog/schema/governance_transitions.py))
-> 은 이전과 현재 `GovernanceCatalog` 를 비교해, 허용 테이블을 벗어난 룰 별 유효 효과 전이를
-> 모두 거부함 - 신규 배정/룰 은 강제 기본값 `audit` 에서 전이한 것으로 검증하고, 강제 적용
-> 효과(`deny` / `remediate`)로 올리려면 배정 id 가 `promotions_approved` 에 있어야 함.
-> **적용** `do-not-enforce` -> `enforce` 활성화(enforce-tier 효과 를 shadow 에서 꺼내는
-> go-live 플립)도 같은 승인이 필요해서, 2단계 `deny(shadow)` 후 `deny(enforce)` 로 미검토 프로덕션
-> 진입이 불가함.
-> 검증기를 감싸는 얇은 `git`-diff CI 스크립트
-> ([`check-governance-transitions.py`](../../../scripts/governance/check-governance-transitions.py))도 ship 됨:
-> base 참조 와 working 트리 의 카탈로그 를 materialize 해 거부된 전이가 있으면 빌드를 실패시킴.
-> 게이트는 **효과 + 적용** 전이를 관장하며 범위 / blast-radius **확대**는 플래그하지 않음(낮은
-> specificity 범위 는 더 타이트한 `selector` 로 상쇄될 수 있어, 건전한 확대 검사는 specificity
-> 휴리스틱이 아닌 커버리지 분석이 필요) - 이는 별도 future 검사. 런타임 시작은 이
-> 카탈로그를 한 번 로드하고 T0는 각 발견 사항을 불변 배정 튜플에 대해 해석합니다.
-> `audit`/`disabled` 및 비적용 결정은 관찰 전용으로 남고, 파라미터 동점은 사람 검토가
-> 필요하며, `remediate+enforce`도 실행 권한 부여와 통합 안전성 검토를 통과합니다.
->
-> ship 된 catalog-as-code 스키마는 이제 아래 "YAML Shapes" 섹션과 일치함: 공유 `Provenance` 값 객체
-> ([`provenance.py`](../../../services/core-control-plane/src/fdai/rule_catalog/schema/provenance.py)), `kind`
-> ([`governance_kind.py`](../../../services/core-control-plane/src/fdai/rule_catalog/schema/governance_kind.py)) discriminator 와
-> 아티팩트 `version`, 정규 `scope://`
-> [`ScopeRef`](../../../services/core-control-plane/src/fdai/rule_catalog/schema/scope.py) 주소와 include/exclude
-> [`ScopeBinding`](../../../services/core-control-plane/src/fdai/rule_catalog/schema/scope.py) 폼(`ScopeMatcher` 프로토콜 뒤로
-> 통일), 그리고 룰별 `parameter_overrides` 가 모두 ship 됨. rule-set 은 `rule_set`(또는 명시적
-> `target_rule_ids` 리스트)로 바인딩되고 범위 좁히기는 더 풍부한 `selector`(`resource_types` /
-> `tags` / `resource_ids`)를 씀.
 
 ## 스코프(범위)
 
@@ -557,57 +487,6 @@ provenance:
 > 위 할당은 의도적으로 **완전히 shadow에 유지** - 룰 집합의
 > `object-storage.public-access.deny` 에 대한 `deny` 기본이 `audit` 로 오버라이드되고 별도
 > 승격 승인이 flip할 때까지 `enforcement` 는 `do-not-enforce`.
-
-## 구현 상태
-
-### 구현 범위
-
-| 영역 | 상태 | 근거 | 참고 |
-|------|------|------|------|
-| 효과, 범위, 배정, rule-set 계약 | implemented | `services/core-control-plane/src/fdai/rule_catalog/schema/effect.py`; `scope.py`; `assignment.py`; `rule_set.py`; 집중 스키마 테스트 | 엄격한 모델이 잘못된 범위, 참조, 효과, rule-set 확장을 거부합니다. |
-| 거버넌스 카탈로그 및 전이 CI | implemented | `services/core-control-plane/src/fdai/rule_catalog/schema/governance_catalog.py`; `governance_transitions.py`; `scripts/governance/check-governance-transitions.py`; `.github/workflows/ci.yml` | 디렉터리 로딩과 검토된 효과/적용 전이 검사가 연결되어 있습니다. |
-| Exemption 및 만료 | implemented | `services/core-control-plane/src/fdai/rule_catalog/schema/exemption.py`; `exemption_lifecycle.py`; `governance_catalog.py`; `shared/config/models.py`(`RuleGovernanceConfig`); `delivery/catalog_exemption.py`; `delivery/exemption_lifecycle.py`; `shared/providers/exemption_lifecycle.py`; `runtime/control_loop.py`; `scripts/governance/exemption-expire.py`; 집중 로더, 설정, 라이프사이클, 코디네이터, 안전성 검토, 런타임 테스트 | 시작 시 구성된 최대 기간을 강제하고 exemption을 안전성 검토에 바인딩합니다. 예약 만료 메커니즘과 만료 전 알림은 순수 판단 코어에 idempotent 하고 감사되는 코디네이터를 더한 것이며, 실제 예약 및 프로덕션 notifier는 배포 작업으로 남습니다. |
-| 재정의 아티팩트 및 해석 | implemented | `services/core-control-plane/src/fdai/rule_catalog/schema/override.py`; `override.schema.json`; `parameter_relaxation_policy.py`; `governance_loader.py`; `governance_catalog.py`; `rule-catalog/overrides/`; `rule-catalog/override-parameter-bounds.yaml`; `core/control_loop/_execution.py`, `_helpers.py`, `_process.py`, `_audit_helpers.py`, `_boundary.py`, `orchestrator.py`; 집중 스키마, 로더, 카탈로그, 파이프라인 테스트 | 디렉터리 로더, resource-group-이하 범위 강제, no-stacking, 서로 다른 승인자, 리뷰된 parameter-relaxation-bounds 정책 모두 카탈로그 로드에서 fail closed 됩니다. `resolve_override` 와 T0 소비가 배정 해석 위에 `disabled` / `severity-downgrade` / `parameter-relaxation` 을 적용하고 모든 해석을 감사합니다. |
-| T0 배정 소비 | implemented | `services/core-control-plane/src/fdai/runtime/control_loop.py`; `services/core-control-plane/src/fdai/core/control_loop/_execution.py`; `services/core-control-plane/src/fdai/core/control_loop/_process.py`; 집중 거버넌스 및 파이프라인 테스트 | 하나의 불변 시작 카탈로그가 범위, 제외, 선택기, 효과, 적용, 파라미터 및 우선순위를 제공합니다. 적용되는 remediation도 실행 권한 부여와 통합 안전성 검토를 통과합니다. |
-| 거버넌스 pull request 신원 검사 | implemented | `services/core-control-plane/src/fdai/rule_catalog/schema/governance_review_authority.py`; `services/core-control-plane/src/fdai/delivery/gitops_pr/governance_review.py`; `scripts/governance/check-governance-review-authority.py`; `.github/workflows/ci.yml`; 집중 권한, 메타데이터, CLI 및 workflow 테스트 | CI는 exact-head GitHub commit, review, Check Run 사실을 수집하고 구성된 trusted verifier App의 identity 근거만 수락합니다. 강제 적용 승격, 예외, 재정의 및 A1 라우팅은 정족수 2를 요구하고 제안자, 공동 작성자 또는 커미터의 자기 승인을 차단합니다. 구성이나 attestation이 없으면 관리되는 변경을 차단합니다. |
-| Rule 활성화 세대 및 채널 | implemented | `packages/service-contracts/src/fdai_service_contracts/rule_activation*.py`; `services/core-control-plane/src/fdai/core/rule_activation/`; `services/core-control-plane/src/fdai/runtime/rule_activation.py`; Operator 활성화 경로, outbox, receipt migration 및 Console Rules workspace; 집중 계약, Core, Operator, migration 및 Console 검사 | PostgreSQL이 하나의 CAS 선택 세대를 소유합니다. 검토된 profile PR, 별도 승인이 필요한 인증된 직접 요청 및 서명된 오프라인 profile이 같은 세대 계약으로 수렴합니다. 각 Core replica는 메모리 멤버십을 현재 pointer에 맞춰 조정합니다. 멤버십은 enforce 또는 실행 권한을 부여하지 않습니다. |
-| 탐지 및 라우팅 절대 범위 | implemented | `shared/contracts/ontology/detection-routing-bounds.json`; `shared/ontology/threshold_bounds.py`; 집중 임계값 테스트 | LLM 제어 7개와 인시던트 제어 5개가 버전이 지정된 의미 범위에 정확하게 결속됩니다. 활성 값은 구성에 남고 어떤 범위도 권한을 부여하지 않습니다. |
-
-### 구현 이력
-
-| 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
-|------|------|------|------|-----------|
-| 2026-09-22 | implemented | 신뢰하는 활성화 receipt에 대한 Operator의 직접 쓰기 권한을 제거했습니다. 잠긴 `SECURITY DEFINER` trigger가 이제 `state_kv`의 인증된 활성화 proposal만 캡처하며 Operator는 Core receipt table을 직접 insert, update, delete 또는 read할 수 없습니다. | `current change`; 실제 일회용 loopback PostgreSQL role 테스트 통과; migration inventory 73개 통과; strict mypy 및 Ruff 통과. | 전달 근거를 주장하기 전에 pushed-SHA CI에서 같은 role-bound receipt 검사를 보존합니다. |
-| 2026-09-22 | implemented | commit 이후 runtime 실패와 다중 replica 수렴 공백을 닫았습니다. 승인 재처리는 이제 권위 있는 현재 세대로부터 실패한 메모리 교체를 복구하고, 각 Core replica는 정확한 설치 아티팩트 검증 후에만 pointer 변경을 반영하는 필수 bounded reconciler를 실행합니다. | `current change`; `services/core-control-plane/src/fdai/core/rule_activation/coordinator.py`; `services/core-control-plane/src/fdai/runtime/rule_activation.py`; 집중 coordinator, runtime, supervision, strict mypy 및 Ruff 검사 통과. | 운영 검증을 주장하기 전에 Core replica 2개가 같은 세대로 수렴하는 scaled deployment receipt를 보존합니다. |
-| 2026-09-22 | implemented | 불변 멤버십, 감사되는 단일 CAS pointer, 정확한 요청자 및 승인자 이력, 직접 Operator 요청/승인 전송, 검토된 profile 조정 및 서명된 오프라인 profile 메타데이터를 갖춘 배포 로컬 Rule 활성화 세대를 추가했습니다. 런타임은 완전한 판단 사이에서만 Rule 세대를 교체하며 멤버십을 enforce와 구분합니다. | `current change`; 집중 service-contract, Core ledger/coordinator/runtime, Operator workflow/outbox/migration, offline-kit 및 Console 검사. | 운영 검증을 주장하기 전에 인증된 직접 승인 end-to-end receipt와 서명된 disconnected 배포 receipt를 보존합니다. |
-| 2026-09-16 | implemented | 기존 이력을 다시 쓰지 않고 2026-08-19 적응형 임계값 행에 남아 있던 레지스트리 잔여를 닫았습니다. 새로 고정한 온톨로지 계약은 프로덕션 LLM 라우팅 제어 7개와 Heimdall 인시던트 제어 5개 모두의 형식, 단위, 적용 범위 및 절대 허용 구간을 선언합니다. AST 기반의 정확한 결속 테스트는 모든 활성 구성 범위를 온톨로지와 비교하고 추가되거나 누락된 항목을 거부하며 각 한계의 경계값 안팎을 검사합니다. | `current change`; `detection-routing-bounds.json`; `threshold_bounds.py`; `test_threshold_bounds.py`; 헌법 증명 선택자. | FDAI-CONST-004 소스 경계에 남은 작업은 없습니다. 활성 정책 값과 승격 근거는 별도의 버전이 지정된 기록으로 유지합니다. |
-| 2026-08-19 | implemented | 헌법 제4조에 맞춰 오래된 탐지 및 라우팅 threshold 잔여를 닫았습니다. Production T1, quality gate 및 self-consistency 값은 이미 versioned `config/1.0.0` schema에서 오고 Heimdall 반복 정책은 bounded Runtime Settings에서 옵니다. 남아 있던 Heimdall 보안 상관관계 literal 3개도 기본값을 바꾸지 않고 bounded startup setting을 사용합니다. AST 기반 테스트가 숫자 LLM consumer 7개와 Heimdall setting consumer 5개의 exact 집합을 고정하므로 새로운 unbound production threshold는 gate를 실패시킵니다. | [이슈 #219](https://github.com/dotnetpower/fdai/issues/219). Focused setting, runtime, framework layout, ingress 및 threshold 검사 134개가 통과했습니다. | Production composition의 routing 및 detection threshold bound에 남은 작업은 없습니다. 순수 detector constructor default는 active composition policy가 아니라 주입 가능한 algorithm default로 남습니다. |
-| 2026-08-19 | implemented | 마지막까지 남아 있던 미바운드 적응 임계값 2개를 선언했습니다. 출하되는 `ontology/action-type` 계약의 `promotion_gate`가 이제 `min_fidelity`와 `max_recurrence_rate`를 선택적 비율 범위로 선언하며, ActionType 승격 평가기가 읽지 않는 범위 선언 전용임을 문서화했습니다. `GraphModelPromotionPolicy`는 다시 적은 리터럴 `0.0 <= value <= 1.0` 대신 이 선언에서 허용 범위를 도출합니다. `UNBOUND_ADAPTIVE_THRESHOLDS`는 이제 비어 있고, focused 테스트가 발견된 모든 수치 임계값이 바인딩되었음을 단언합니다. 아울러 `544e80a72`가 `sre.*` 시나리오 3건을 추가하면서 갱신하지 않아 깨져 있던 `test_shadow_eval.py`의 고정 시나리오 개수도 바로잡았습니다. | `current change`, `tests/core/operational_learning/test_threshold_bounds.py`·`tests/core/assurance_twin`·`tests/contracts`·`tests/rule_catalog`·`tests/core/measurement`가 focused 1640건 통과, 작업 범위 Ruff·format·mypy 통과, `check-core-imports`와 `check-property-semantic-coverage` 통과 | promotion gate 밖의 탐지·라우팅 임계값까지 등록부를 넓혀야 합니다. 그 값들은 아직 사용 지점의 리터럴입니다. |
-| 2026-08-14 | in-progress | 이전 출처를 재구성하지 않고 구현 원장을 도입했습니다. | `current change`; 구현 범위 표의 현재 소스, CI 연결, 집중 테스트. | T0 소비를 연결하고 exemption 운영을 완성하며 관리되는 재정의와 PR 신원 검사를 구현합니다. |
-| 2026-08-17 | in-progress | 순수 거버넌스 pull request 검토 권한 결정을 추가했습니다: 운영자 객체 신원, 변경 클래스별 필수 역량, 서로 다른 승인자 정족수, 고위험 phishing-resistant 승인, 리비전에 바인딩된 신선도, 작성자·공동 작성자·커미터 자기 승인 방지. | `current change`; `services/core-control-plane/src/fdai/rule_catalog/schema/governance_review_authority.py`; `PYTHONPATH="$PWD/services/core-control-plane/src:$PWD/packages/service-contracts/src" .venv/bin/python -m pytest -q --no-cov services/core-control-plane/tests/rule_catalog/schema/test_governance_review_authority.py` 가 16개 테스트를 통과했습니다. | 이 결정을 거버넌스 CI 게이트의 실제 pull request 리뷰 메타데이터에 연결하고 차단 후 해소된 근거 기록 하나를 보존합니다. |
-| 2026-08-17 | in-progress | 절대 시각이 아닌 head 커밋 시각이 실패 시 닫히도록 검토 권한 결정을 강화했습니다: 모호한 시점과 신선도를 비교하지 않으며 어떤 승인도 정족수에 포함되지 않습니다. | `current change`; `PYTHONPATH="$PWD/services/core-control-plane/src:$PWD/packages/service-contracts/src" .venv/bin/python -m pytest -q --no-cov services/core-control-plane/tests/rule_catalog/schema/test_governance_review_authority.py` 가 17개 테스트를 통과했습니다. | 이 결정을 거버넌스 CI 게이트의 실제 pull request 리뷰 메타데이터에 연결하고 차단 후 해소된 근거 기록 하나를 보존합니다. |
-| 2026-08-18 | in-progress | `shared/ontology/threshold_bounds.py`를 추가해 제공되는 `ontology/action-type` 계약에서 promotion gate의 수치 범위를 읽고 단일 검사기를 제공합니다. `ShadowDwellThresholds`는 하한과 정확도 상한을 직접 명시하지 않고 그 선언에서 도출하며, focused sweep 하나가 등록된 모든 적응형 임계값이 선언된 범위 안에 머문다는 점과 pydantic `PromotionGate` 모델과 JSON 계약이 서로 어긋나질 수 없음을 증명합니다. 온톨로지 선언이 없는 `GraphModelPromotionPolicy` 비율 임계값 2개는 숨기지 않고 명시적 공백으로 기록했습니다. | `current change`, `tests/core/operational_learning` focused 테스트 88건 통과, `tests/core/risk_gate`·`tests/core/measurement`·`tests/core/assurance_twin`·`tests/rule_catalog` 1716건 통과, 작업 범위 Ruff·format·strict mypy 통과 | `min_fidelity`와 `max_recurrence_rate`의 온톨로지 범위를 선언해 unbound 집합에서 제외하고, 등록부를 promotion gate 밖의 탐지·라우팅 임계값까지 확장해야 합니다. |
-| 2026-08-23 | in-progress | GitHub 리뷰 상태, exact commit, 시각을 배포에서 검증한 Entra OID, FDAI 역할, phishing-resistant assurance와 결합하는 엄격한 전달 경계를 추가했습니다. 최신 decisive review 상태를 사용하고 오래된 revision은 순수 권한 결정에 그대로 전달하며 누락되거나 이른 attestation은 실패 시 닫힙니다. | `current change`; `delivery/gitops_pr/governance_review.py`; 집중 메타데이터 및 권한 테스트 23개 통과 | 배포 소유 identity/assurance provider와 실제 pull request 메타데이터 collector를 CI에 연결한 뒤 차단 후 해소된 근거 record를 보존합니다. |
-| 2026-08-23 | implemented | 권한 결정을 GitHub의 exact-head PR, commit, review, Check Run 메타데이터에 연결했습니다. 구성된 verifier App이 성공한 exact-head Check Run에 범위가 제한된 Entra principal bundle을 게시해야 합니다. App id 부재, 누락되거나 실패한 check, 오래된 revision, 검증되지 않은 역할, 약한 assurance, 자기 승인, 정족수 부족은 CI를 차단합니다. Assignment 변경은 transition intent가 독립적으로 입증될 때까지 더 엄격한 enforce-promotion 등급을 사용합니다. | `current change`; `scripts/governance/check-governance-review-authority.py`; `.github/workflows/ci.yml`; 집중 governance CLI, bridge, 권한 및 workflow 테스트 69개 통과 | Trusted Entra verifier GitHub App을 배포하고 차단 후 해소된 관리 PR 근거 record 하나를 보존합니다. |
-| 2026-08-23 | in-progress | 불변 T0 배정 소비를 완료하고 strict exemption 아티팩트를 시작 거버넌스 카탈로그와 안전성 검토에 통합했습니다. JSON 중복 키 탐지, UTC 및 terminal 상태 검증, 알 수 없는 룰과 중복 활성 범위 차단, exact 리소스 identity, 정규 ARM 범위 parsing, 구독 격리, 결정론적 fallback 및 두 registry의 terminal revocation을 하드닝했습니다. | `current change`; 집중 거버넌스 로더, exemption 모델/CLI, catalog/fallback registry, 런타임 조립, 안전성 검토 및 T0 파이프라인 검사가 통과했습니다. 12개 적대적 하드닝 라운드 후 이 구현 범위에 Medium 이상 finding이 남지 않았습니다. | 최대 exemption 기간과 알림 lead time을 구성한 뒤 예약 만료, 알림 및 라이프사이클 감사 전달을 연결합니다. 재정의 전달과 trusted-verifier 배포는 별도입니다. |
-| 2026-08-28 | implemented | 거버넌스 PR 멱등성을 안정적인 `source_event_id`에 연결하고 correlation은 감사 그룹화에만 유지했으며 같은 출처 이벤트의 콘텐츠 변화를 차단하고 게시 전에 이전 키를 조회해 기존 열린 PR을 계속 찾을 수 있게 했습니다. CI 사전 필터는 `rule-catalog/retirements/`를 포함하므로 retirement만 바뀐 변경도 인증된 검토 분류에 들어갑니다. | `current change`; 집중 거버넌스 publisher 및 검토 권한 경계 검사 21개, Ruff 및 strict mypy 통과. | trusted verifier를 배포하고 retirement 전용 PR의 인증된 검사 증적을 보존합니다. |
-| 2026-08-28 | implemented | PR 어댑터가 기존 거버넌스 PR을 보고했지만 일치하는 라이프사이클 증적이 없으면 실패 시 닫히도록 했습니다. 이제 이 복구는 재시도 다이제스트와 출처 이벤트 신원을 검증되지 않은 기존 패치에 연결하지 않고 명시적 조정을 요구합니다. | `current change`; 집중 거버넌스 publisher 검사 15개, Ruff 및 strict mypy 통과. | 자동화하기 전에 원격 콘텐츠를 검증하는 조정 어댑터를 추가합니다. |
-| 2026-08-28 | implemented | CI 거버넌스 사전 필터가 변경 경로를 열거할 때 rename 탐지를 끕니다. retirement를 거버넌스 디렉터리 밖으로 옮겨도 거버넌스 대상 삭제와 추가로 남아 인증된 검토를 우회할 수 없습니다. | `current change`; 집중 거버넌스 검토 권한 검사 7개 통과. | 거버넌스 경로 rename의 인증된 CI 증적을 보존합니다. |
-| 2026-08-29 | implemented | 최대 exemption 기간과 만료 전 알림 lead time을 상호 검증되는 bounded `AppConfig.rule_governance` 설정으로 구성했습니다; 거버넌스 카탈로그 로더는 이제 기간을 초과하는 exemption을 fail closed 합니다. 순수 `plan_exemption_lifecycle` 판단 코어, 주입 가능한 `ExemptionLifecycleNotifier` 계약(안전한 로그 전용 기본), state store의 원자적 claim-and-audit 기본 연산을 통해 exemption당 최대 한 번만 알림을 전달하고 alert/이미-만료 판단 모두에 라이프사이클 감사 근거를 남기는 `ExemptionLifecycleCoordinator`를 추가했습니다; `exemption-expire.py`는 알림 패스를 오프라인으로 실행합니다. 재정의 아티팩트를 end-to-end로 완성했습니다: `Override` 모델 + `override.schema.json` + `load_override_from_mapping` + `<root>/overrides/` 디렉터리 로더가 카탈로그 로드 경계에서 resource-group-이하 범위, 서로 다른 승인자, 모드별 필드 불변식, no-stacking을 강제합니다; 별도로 리뷰된 `override-parameter-bounds.yaml` allowlist가 `parameter-relaxation`을 게이트하며 목록에 없는 키나 한계 초과 값에 대해 카탈로그 로드를 fail closed 합니다(그 위반에는 런타임 HIL 폴백이 없습니다). `resolve_override`와 `apply_governance_override_to_rule`을 T0에 연결해 배정 해석 위에 재정의가 적용되도록 했고(`disabled`는 강제된 `deny` 아래에서도 `governance_observe`로 라우팅; `severity-downgrade`와 `parameter-relaxation`은 디스패치되는 규칙에 병합됨) 기존 `DiscoverySignalKind.OVERRIDE` discovery-loop 입력 모양에 맞춘 `governance.override_resolved` 감사 엔트리를 추가했습니다. 이 변경이 새로 추가한 `overrides/` 콘텐츠 자체에 대한 검토 권한 게이트를 조용히 건너뛰게 만들었을 존재하지 않는 `rule-catalog/governance/...` 중첩을 기대하던 governance-runtime-contracts CI 경로 정규식을 실제 flat `rule-catalog/{assignments,exemptions,overrides}/` 관례에 맞게 수정했습니다. | `current change`; `services/core-control-plane/tests/config/test_rule_governance_config.py`; `tests/exemption/test_exemption_max_duration.py`; `tests/rule_catalog/schema/test_exemption_lifecycle.py`, `test_override.py`, `test_override_loader.py`, `test_parameter_relaxation_policy.py`, `test_override_parameter_bounds_file.py`, `test_governance_catalog.py`; `tests/providers/test_exemption_lifecycle_notifier.py`; `tests/delivery/test_exemption_lifecycle.py`; `tests/core/test_control_loop_governance_override.py`; `tests/pipeline/test_control_loop_e2e.py`(`test_override_disabled_suppresses_an_enforced_deny_assignment`, `test_override_outside_its_scope_does_not_apply`); `tests/runtime/test_control_loop_parameter_relaxation_policies.py`, `test_thor_execution_port.py`; `tests/integration/scripts/test_exemption_expire.py` 모두 통과했습니다; 작업 범위 Ruff와 mypy가 통과했습니다. | Trusted Entra verifier GitHub App 배포(이 변경과 무관한 기존 외부 항목; 아래 참조). exemption-lifecycle 코디네이터를 실제 예약 트리거와 프로덕션 notifier에 연결하고, `DiscoverySignalKind.OVERRIDE`를 위한 구체적 `DiscoverySignalSource`를 바인딩하는 작업은 이 변경 범위 밖의 배포/composition-root 작업으로 남습니다. |
-| 2026-08-29 | implemented | 하드닝 6-16차에서 중복 만료 감사, 실패한 알림 손실, 배정에 종속된 재정의 적용, 대소문자 별칭, 비유한 완화 값, 범위 일치 불일치를 수정했습니다. 또한 감사된 재정의 사용을 임계값 기반 발견 신호 소스에 연결했습니다. 최종 검토 두 번에서 Medium 이상 구현 문제는 남지 않았습니다. | `current change`; 범위/재정의 64개, 매개 변수 정책/카탈로그 44개, exemption 수명 주기 재시도 테스트를 포함한 집중 검사가 통과했습니다. Ruff와 strict mypy도 통과했습니다. | Trusted Entra verifier 배포와 관리되는 실제 근거는 운영 작업으로 남습니다. |
-| 2026-08-31 | implemented | A1 채널 라우팅 변경을 기존 고위험 재정의 검토 등급에 추가했습니다. 작업 흐름 사전 필터와 권한 스크립트는 서로 다른 권한 보유 검토자 2명을 요구하고 제안자, 공동 작성자 및 커미터 분리를 적용합니다. | `current change`, 집중 거버넌스 권한 테스트. | 신뢰할 수 있는 Entra 검증기를 배포하고 차단 후 통과 근거를 보존합니다. |
-
-### 남은 작업
-
-- [x] 시작 시 하나의 불변 거버넌스 카탈로그를 로드하고 T0가 안전성 검토를 우회하지 않으면서 해석된 효과, 적용, 범위, 제외, 우선순위를 적용함을 증명했습니다. 집중 파이프라인 검사는 `remediate+enforce`도 통합 안전성 결정을 따름을 증명합니다.
-- [x] 최대 exemption 기간과 알림 lead time을 구성하고 적용한 뒤 만료 일정을 실행하고 라이프사이클 감사 근거와 함께 만료 전 알림을 전달합니다. `plan_exemption_lifecycle` + `ExemptionLifecycleCoordinator` 집중 테스트로 증명됩니다; 코디네이터를 실제 예약 트리거(Container Apps Job / CronJob) 와 프로덕션 ChatOps/email notifier에 연결하는 작업은 설계 공백이 아니라 배포 구성 작업입니다.
-- [x] 리소스 그룹 이하 범위 검사와 함께 범위가 제한된 재정의 스키마, 로더, 우선순위 해석기, 런타임 소비를 구현합니다. `services/core-control-plane/tests/rule_catalog/schema/test_override.py`, `test_override_loader.py`, `test_governance_catalog.py`, `tests/pipeline/test_control_loop_e2e.py`의 재정의 우선순위 e2e 사례로 증명됩니다.
-- [x] 결정론적 pull request 검토 권한 결정이 운영자 신원, 변경 클래스별 필수 역량, 서로 다른 승인자 정족수, 고위험 phishing-resistant 승인, 리비전에 바인딩된 승인 신선도, 작성자·공동 작성자·커미터 자기 승인 방지를 적용하며, `services/core-control-plane/tests/rule_catalog/schema/test_governance_review_authority.py` 로 증명됩니다.
-- [x] 결정을 exact-head pull request, commit, review, trusted verifier Check Run 메타데이터에 연결했습니다. Trusted attestation이 없으면 실패 시 닫히며 집중 CLI 및 workflow 테스트가 수락, 정족수 미달, 자기 승인, 신뢰하지 않는 App 사례를 검증합니다.
-- [x] `config/notifications-matrix.yaml`의 A1 변경을 같은 정족수 2 재정의 결정으로 라우팅하고
-  제안자, 공동 작성자 및 커미터의 자기 승인을 차단합니다.
-- [ ] Trusted Entra verifier GitHub App을 배포하고 `FDAI_GOVERNANCE_IDENTITY_APP_ID`를 구성한 뒤 자기 승인 또는 정족수 미달 변경이 차단되고 수정된 변경이 통과한 근거 기록 하나를 보존합니다.
-
 ## 열림 Decisions
 
 - [x] T0 런타임에서 이벤트의 정규화된 조직, 계정, 리소스 그룹, 리소스 계층을 사용해
@@ -640,3 +519,9 @@ provenance:
       100건을 요구합니다. `OverrideDiscoverySignalSource`는
       `governance.override_resolved` 감사 레코드에 구성 가능한 양수 임계값을 적용하고
       비활성 `DiscoverySignalKind.OVERRIDE` 근거만 내보냅니다.
+
+## 관련 문서
+
+| 알아볼 내용 | 읽을 문서 |
+|-------------|-----------|
+| 구현 상태 및 남은 작업 | [구현 원장](../../roadmap-implementation/rules-and-detection/rule-governance.md) |

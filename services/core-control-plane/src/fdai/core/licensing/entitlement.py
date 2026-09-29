@@ -47,6 +47,17 @@ class LicenseVerifier(Protocol):
     def verify(self, document: bytes, signature: bytes) -> bool: ...
 
 
+class TrialEntitlementSource(Protocol):
+    """Resolve durable Trial state into an entitlement at an exact time.
+
+    Declared here so the token path never imports Trial storage. The concrete
+    resolver lives in `trial_entitlement.py` and decides only from a committed,
+    installation-bound record.
+    """
+
+    def resolve(self, *, now: datetime) -> Entitlement: ...
+
+
 @dataclass(frozen=True, slots=True)
 class DeploymentBinding:
     """Non-secret distribution identity and deployment digests."""
@@ -96,6 +107,7 @@ class LicenseEntitlementAuthority:
     binding: DeploymentBinding = UNBOUND
     require_license: bool = True
     issuer_workstation: bool = False
+    trial: TrialEntitlementSource | None = None
 
     def resolve(self, *, now: datetime) -> Entitlement:
         """Return the availability decision that applies at ``now``."""
@@ -108,7 +120,7 @@ class LicenseEntitlementAuthority:
                 available_capability_ids=_all_ids(self.catalog),
                 reason="matching local issuer key bypasses the token requirement",
             )
-        return resolve_entitlement(
+        entitlement = resolve_entitlement(
             catalog=self.catalog,
             token=self.token,
             verifier=self.verifier,
@@ -116,6 +128,20 @@ class LicenseEntitlementAuthority:
             binding=self.binding,
             require_license=self.require_license,
         )
+        if self.trial is None:
+            return entitlement
+        # Read-only capabilities always remain available, so a Trial is consulted by
+        # whether acting capability is missing, not by whether the set is empty.
+        if entitlement.available_capability_ids > _read_only_ids(self.catalog):
+            return entitlement
+        # A Trial substitutes for an absent or lapsed token; it never rescues one that
+        # was rejected, misbound, or not yet valid.
+        if entitlement.status not in {LicenseStatus.ABSENT, LicenseStatus.EXPIRED}:
+            return entitlement
+        trial_entitlement = self.trial.resolve(now=now)
+        if not trial_entitlement.available_capability_ids:
+            return entitlement
+        return trial_entitlement
 
 
 def resolve_entitlement(

@@ -296,6 +296,7 @@ async def _proposal(
                 idempotency_key=idempotency_key,
                 correlation_id=correlation_id,
                 payload=body,
+                principal_roles=tuple(sorted(role.value for role in principal.roles)),
             )
         )
     except ProposalConflictError:
@@ -361,6 +362,7 @@ async def _webhook(
                 idempotency_key=idempotency_key,
                 correlation_id=correlation_id,
                 payload=payload,
+                principal_roles=(),
             )
         )
     except ProposalConflictError:

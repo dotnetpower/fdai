@@ -1,44 +1,13 @@
 ---
 title: Workflow Control-Loop Integration
 translation_of: workflow-control-loop-integration.md
-translation_source_sha: 89ed69d51a17eed67f20d169387bd53cad1f316e
-translation_revised: 2026-09-14
+translation_source_sha: ac24908295c6d9ae1dbe5d51a97500c48e5075d9
+translation_revised: 2026-09-29
 ---
 
 # 작업 흐름 Control-Loop 통합
 
 > [process-automation-ko.md](process-automation-ko.md) 섹션 4에서 분리한 focused 소유자 문서입니다.
-
-## 구현 상태
-
-### 구현 범위
-
-| 영역 | 상태 | 근거 | 참고 |
-|------|------|------|------|
-| Shadow 및 타입이 지정된 적용 오케스트레이션 | implemented | [`test_orchestrator.py`](../../../services/core-control-plane/tests/core/workflow/test_orchestrator.py), [`test_coordinator.py`](../../../services/core-control-plane/tests/core/workflow/test_coordinator.py) | Shadow는 변경할 수 없으며 적용 제안은 시도별 신원으로 타입이 지정된 유입 경로에 재진입합니다. |
-| 영속 저널, 변환 결과 및 승인 | implemented | [`test_projection.py`](../../../services/core-control-plane/tests/core/workflow/test_projection.py), [`test_workflow_approval.py`](../../../services/core-control-plane/tests/delivery/persistence/test_workflow_approval.py) | 리비전이 지정된 Process 상태, 재시도 가능한 변환, 정족수, 시간 초과 및 자기 승인 방지에 집중 테스트가 있습니다. |
-| 보상 및 영속 대상 hold | implemented | [`test_automation_hold.py`](../../../services/core-control-plane/tests/core/workflow/test_automation_hold.py), [`test_orchestrator.py`](../../../services/core-control-plane/tests/core/workflow/test_orchestrator.py), [`test_control_loop_authority.py`](../../../services/core-control-plane/tests/core/test_control_loop_authority.py), [`test_gate.py`](../../../services/core-control-plane/tests/core/risk_gate/test_gate.py) | 불완전한 복구는 재시작과 중복 전달에 안전한 hold를 만들고 일반 정방향 전달을 차단합니다. 일치하는 검증된 복구만 hold를 해제할 수 있습니다. |
-| 가드 평가 | implemented | [가드 평가](#42-가드-평가-경계), [`test_guard_fail_closed.py`](../../../services/core-control-plane/tests/core/workflow/test_guard_fail_closed.py) | 런타임은 architecture-review 게이트 위에 `ChangeWindowWorkflowGuardEvaluator`를 연결합니다. 누락, 오래됨, 형식 오류 및 사용할 수 없는 근거는 모두 단계를 차단하고 범위가 제한된 `guard_error`를 기록합니다. |
-| 통제된 Python, 예약, 명령 및 shell 경로 | in-progress | [통제된 작업 및 예약](#45-통제된-python-작업-및-cron-예약) | 검증과 제한된 샌드박스 동작은 있지만 실제 실행기와 운영 확장 근거는 불완전합니다. |
-
-### 구현 이력
-
-| 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
-|------|------|------|------|-----------|
-| 2026-09-14 | implemented | 로컬 워크플로 예시를 Operator 경계가 요구하는 Azure CLI 인증 확인 값 쌍과 맞췄습니다. | `current change`; `tools.console`; 집중 실행기 환경 테스트. | 워크플로 권한은 변경되지 않았습니다. |
-| 2026-08-14 | in-progress | 이전 출처 이력을 재구성하지 않고 구현 원장을 도입했습니다. | `current change`; 구현 범위 표의 현재 소스와 집중 테스트입니다. | 정책 연결과 운영 동시성 근거를 완료해야 합니다. |
-| 2026-08-14 | implemented | 검증된 FDAI-CONST-009 컨트롤 루프 경계를 기록했습니다. 불완전한 보상은 영속 hold를 발행하고 일반 전달은 차단되며, 일치하는 복구는 검증된 해제 전까지 사람 승인으로 제한됩니다. | `228f0779e`; 집중 hold, 보상, control-loop 및 risk-gate 검사 10개가 통과했고 중앙 검증도 통과했습니다. | 아래의 관련 없는 가드 연결, 분산 전달 근거 및 통제된 작업을 완료해야 합니다. |
-| 2026-08-14 | implemented | 연결된 가드 평가를 실패 시 차단으로 만들었습니다. 오래된 평가 시점, 예외를 던지거나 사용할 수 없는 평가기, 불리언이 아닌 결과는 각각 단계를 차단하고 `workflow.step` 감사 행에 범위가 제한된 `guard_error`를 기록합니다. | `current change`; `workflow_step_executor.py`와 `test_guard_fail_closed.py`; 집중 workflow 검사 101건이 통과했고 작업 범위 Ruff와 strict mypy가 통과했습니다. | 아래의 다중 replica 전달 근거와 통제된 Python 작업 실행기 작업을 완료해야 합니다. |
-
-### 남은 작업
-
-- [x] 구체적인 `ChangeWindowWorkflowGuardEvaluator` 연결을 종단 간으로 테스트했으며, 누락, 오래됨,
-  형식 오류 및 사용할 수 없는 근거는 각각 실패 시 차단으로 단계를 막습니다.
-- [ ] Process 단계와 시도마다 정방향 전달이 하나뿐임을 증명하는 다중 replica 잠금 및 중복
-  전달 근거를 보존합니다.
-- [ ] Operator API에 실행기 신원을 부여하지 않고 통제된 Python 작업 실제 실행기를 완료하고
-  샌드박스, 결과 및 복구 증적을 보존합니다.
-
 ## 4. 컨트롤 루프 통합
 
 컴파일된 워크플로는 side 채널 에서 실행되지 않는다.
@@ -82,6 +51,11 @@ ActionType 승격, risk, HIL, Thor 실행을 계속 통과합니다. 명시적�
 `compensated`로 닫습니다. 디스패처, 검증기, 증적이 없거나 가드가 실패하면 프로세스는
 보류 또는 실패 시 차단됩니다. ARB 같은 control-only 작업 흐름은 리소스
 변경 권한 없이 실제 승인 및 결정 전이를 저장할 수 있습니다.
+강제 적용 액션 단계를 다시 게시하기 전에 경쟁하는 작업 흐름 복제본은 시도 범위의 디스패치
+claim을 짧은 lease와 함께 기록합니다. 현재 claim 보유자만 게시하며, 게시한 뒤 단일
+`action.dispatched` 레코드를 기록합니다. 중복 이벤트 전달이나 claim을 잃은 복제본은 같은
+Process 단계 시도에 대해 두 번째 디스패치 레코드를 만들 수 없습니다. 게시 후 중단된 claim
+보유자는 lease가 만료된 뒤 같은 시도 범위 멱등성 키로 다시 게시하는 복제본으로 대체됩니다.
 누락, 실패 또는 채점 불가능한 모든 보상 경로는 복구를 미완료로 종료하기 전에 영속 대상
 자동화 hold도 발행합니다. 다시 구성된 ledger는 같은 활성 hold를 읽으며 중복 전달은 원래의
 프로세스, 사유, 개정 번호 또는 감사 항목을 바꾸지 않습니다. Headless control loop는 일반
@@ -415,3 +389,9 @@ privileged `bash -c` 명령 는 지원하지 않습니다. 셸 산출물 자체�
 catalog-resolved argv 를 실행합니다. Future shell-artifact 컴파일러 는 완전한 스크립트
 실행 전에 ShellCheck 를 추가하고 모든 외부 연산 을 명령 id 로 변환하며
 감사 증적 를 생성해야 합니다.
+
+## 관련 문서
+
+| 알아볼 내용 | 읽을 문서 |
+|-------------|-----------|
+| 구현 상태 및 남은 작업 | [구현 원장](../../roadmap-implementation/decisioning/workflow-control-loop-integration.md) |

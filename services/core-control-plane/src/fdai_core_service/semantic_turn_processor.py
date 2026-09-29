@@ -3,14 +3,12 @@
 from __future__ import annotations
 
 import asyncio
-import hashlib
 import json
 import logging
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, replace
 from datetime import UTC, datetime
 from typing import Any, Protocol, cast
-from uuid import UUID, uuid5
 
 from fdai.core.conversation.adaptive_service import AdaptiveBudgetTelemetry
 from fdai.core.conversation.intent_graph import resolve_execution_authority
@@ -82,6 +80,10 @@ from fdai_service_contracts.ontology_query import (
     TaskStatus,
     content_digest,
 )
+from fdai_service_contracts.semantic_projection import (
+    pantheon_assurance_evidence_digest,
+    semantic_projection_id,
+)
 from fdai_service_contracts.semantic_work_progress import WorkProgressShape
 from fdai_service_contracts.test_context import TestContextDraft
 
@@ -101,6 +103,7 @@ from .semantic_answer_presentation import (
     readable_timestamp,
 )
 from .semantic_assurance_projection import project_semantic_assurance
+from .semantic_context_shadow import SemanticContextShadow
 from .semantic_incident_answer import render_incident_answer
 from .semantic_instance_candidates import project_instance_candidates, render_instance_candidates
 from .semantic_logical_service_answer import render_logical_service_current_state_answer
@@ -153,7 +156,6 @@ from .semantic_work_progress_projection import applied_context_receipts, work_pr
 
 _LOGGER = logging.getLogger(__name__)
 _PROCESSING_STARTED_AT_FIELD = "_fdai_processing_started_at"
-_PROJECTION_NAMESPACE = UUID("00000000-0000-0000-0000-000000000000")
 _MAX_REQUEST_LIFETIME_SECONDS = 90.0
 # Mirrors the per-item bound of the terminal ``SemanticTurnResult.evidence_refs`` contract,
 # which is stricter than the 512-character ``GoalTaskReceipt`` reference bound.
@@ -312,6 +314,7 @@ class SemanticTurnProcessor:
         answer_continuity_enabled: bool = False,
         runtime_settings: RuntimeSettingsReader | None = None,
         runtime_readiness: SemanticRuntimeReadiness | None = None,
+        context_selection_shadow: SemanticContextShadow | None = None,
         now: Callable[[], datetime] | None = None,
     ) -> None:
         if not purpose:
@@ -326,6 +329,7 @@ class SemanticTurnProcessor:
         self._answer_continuity_enabled = answer_continuity_enabled
         self._runtime_settings = runtime_settings
         self._runtime_readiness = runtime_readiness
+        self._context_selection_shadow = context_selection_shadow
         self._now = now or (lambda: datetime.now(UTC))
 
     def bind_pantheon_assurance(self, runtime: PantheonAssuranceRuntime) -> None:
@@ -812,9 +816,17 @@ class SemanticTurnProcessor:
             runtime_kwargs["conversation_model_tier"] = request.conversation_model_tier
         if request.document_context is not None:
             runtime_kwargs["document_context"] = request.document_context
+        prior_turns = _prior_turns(request, requested_at=requested_at)
+        if self._context_selection_shadow is not None:
+            await self._context_selection_shadow.schedule(
+                session_id=request.session_id,
+                principal=principal,
+                utterance=request.utterance,
+                prior_turns=prior_turns,
+            )
         return await runtime.handle(
             utterance=request.utterance,
-            prior_turns=_prior_turns(request, requested_at=requested_at),
+            prior_turns=prior_turns,
             principal=principal,
             locale=request.locale,
             target_agent=request.target_agent,
@@ -1052,13 +1064,7 @@ class SemanticTurnProcessor:
             )
         result = dict(await runtime.evaluate(request, case_id=case_id))
         _validate_pantheon_assurance_result(result)
-        evidence_digest = content_digest(
-            {
-                "assessment_id": result["assessment_id"],
-                "trace_receipt_id": result["trace_receipt_id"],
-                "pantheon_diagnostic": result["pantheon_diagnostic"],
-            }
-        )
+        evidence_digest = pantheon_assurance_evidence_digest(result)
         projection_time = _aware_utc(self._now(), field="semantic processor clock")
         recorded_at = projection_time.replace(
             microsecond=(projection_time.microsecond // 1000) * 1000,
@@ -5835,19 +5841,11 @@ def _request_digest(
 
 
 def _semantic_projection_id(projection: Mapping[str, object]) -> str:
-    """Bind projection identity to the complete immutable event content."""
-    request_id = projection.get("request_id")
-    if not isinstance(request_id, str):
-        raise ValueError("semantic projection request_id MUST be a string")
-    encoded = json.dumps(
-        projection,
-        allow_nan=False,
-        ensure_ascii=True,
-        separators=(",", ":"),
-        sort_keys=True,
-    ).encode()
-    projection_digest = hashlib.sha256(encoded).hexdigest()
-    return str(uuid5(_PROJECTION_NAMESPACE, f"{request_id}\0{projection_digest}"))
+    """Bind projection identity to the complete immutable event content.
+
+    The shared contract function is the one the Operator recomputes before durable projection.
+    """
+    return semantic_projection_id(projection)
 
 
 async def _release_claim(

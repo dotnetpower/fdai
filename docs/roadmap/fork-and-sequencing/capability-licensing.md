@@ -42,11 +42,21 @@ last-observed UTC time; a clock regression creates a persistent blocked state, n
 The first observation at or after expiry blocks new acting requests without stopping observation,
 diagnosis, audit, export, or safety-required in-flight completion and recovery.
 
-The initial implementation adds only the inert record and deterministic transition contract.
-Runtime availability remains on the existing signed-token path until atomic persistent storage,
-authenticated initialization, cross-process readback, and all-path execution gating are connected
-and tested. Missing or inconsistent retained records never authorize reinitialization. Malformed
-or expired signed credentials must not create a fresh Trial fallback.
+One resolver turns a committed, installation-bound record into an entitlement, and the shared
+license entitlement authority consults it wherever a token grants no acting capability. Every
+execution path already resolves through that authority, so PR-native, direct-API and tool-call
+paths inherit the same answer rather than each carrying a Trial check.
+
+A Trial substitutes for an absent or lapsed token and never rescues one that was rejected,
+misbound, or not yet valid, so malformed or expired signed credentials create no Trial fallback.
+Read-only capability stays unconditional, so an ended window blocks new acting work while
+observation, diagnosis, audit, and export continue. Absence, a record bound to another
+installation, a detected clock regression, an observation older than the moment being decided,
+and unreachable storage each deny rather than grant. Missing or inconsistent retained records
+never authorize reinitialization.
+
+Persistence remains separate: the store that commits observations with a compare-and-set on the
+complete previous revision, and initializes the record at installation time, is still open.
 
 A future versioned entitlement can remove the Trial restriction; the current signed-token
 30-day ceiling remains unchanged until that contract is implemented. A signed deployment kit

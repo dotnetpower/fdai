@@ -1,7 +1,7 @@
 ---
 translation_of: automation-blueprints.md
-translation_source_sha: b5ec4b68d3aa456233d2fd3a04821818bd7123ec
-translation_revised: 2026-09-12
+translation_source_sha: 4726a14d963c3e65d8814ca3a272c0fd81c85d9d
+translation_revised: 2026-09-29
 ---
 # Reviewable 자동화 Blueprints
 
@@ -21,57 +21,6 @@ translation_revised: 2026-09-12
 후보는 출처 텍스트 대신 근거 지문을 저장하고 narrow 범위, 예약, 이벤트 타입,
 전달 의도, 도구, default-deny 격리, estimated 비용, 확신도, 제안자, 만료를 가집니다.
 선택적 off-path drafting은 범위가 제한된 display 텍스트만 변경할 수 있습니다.
-
-## 구현 상태
-
-### 구현 범위
-
-| 영역 | 상태 | 근거 | 참고 |
-|------|------|------|------|
-| 근거 계약 및 결정론적 반복 집계 | implemented | `services/core-control-plane/src/fdai/core/scheduler/blueprints/models.py`; `services/core-control-plane/src/fdai/core/scheduler/blueprints/aggregator.py`; `services/core-control-plane/tests/core/scheduler/test_blueprint_aggregator.py` | focused test는 inert 기본값, 임계값과 순서 독립성, 중복 제거, 범위와 권한 분리, 결과 안정성, 예약 실패 차단, 재귀 차단, 입력 검증을 다룹니다. |
-| 검토, 구체화, 범위가 제한된 초안 작성, 감사 이벤트, 메트릭 집계 | implemented | `services/core-control-plane/src/fdai/core/scheduler/blueprints/review.py`; `services/core-control-plane/src/fdai/core/scheduler/blueprints/text.py`; `services/core-control-plane/tests/core/scheduler/test_blueprint_review.py` | focused test는 권한 확인, 자체 검토 차단, 최종 상태 억제, 만료, 텍스트 한계, 명령을 통한 재시도 안전 구체화, 감사 이벤트, 실제 사용량 집계를 입증합니다. |
-| 제안 조정 및 구성 검토 변환 | in-progress | `services/core-control-plane/src/fdai/core/scheduler/blueprints/suggestion.py`; `services/core-control-plane/src/fdai/core/scheduler/blueprints/configuration_review.py` | 별도 경로 제안 서비스와 inert 구성 검토 변환은 있지만, 운영 근거 피드, composition 연결, focused orchestration test는 없습니다. |
-| PostgreSQL 내구성 및 compare-and-swap 전환 | implemented | `alembic/versions/20260720_0043_automation_blueprint.py`; `services/core-control-plane/src/fdai/delivery/persistence/postgres_automation_blueprint.py`; `services/core-control-plane/tests/persistence/test_automation_blueprint.py`; legacy migration `20260831_0089 (head)`; Core service migration `core_resource_change_sources_20260912 (head)`; focused PostgreSQL test (`2 passed`) | 현재 서비스 소유 로컬 PostgreSQL 스키마에서 synthetic 저장소 없이 생성, accepted 전환, 오래된 예상 상태 거부, 다시 읽기를 입증했습니다. 이 근거는 운영 검토 또는 예약 권한을 연결하지 않습니다. |
-| 읽기 전용 Console 경로 및 응답 decoder | implemented | `console/src/routes/automation-blueprints.tsx`; `console/src/routes/automation-blueprints.test.ts`; `console/src/panel-sources.ts` | 경로는 inert 후보와 메트릭 필드를 표시하고 모순된 응답을 거부하며 변경 control을 제공하지 않습니다. 이 상태는 end-to-end Operator API 출처를 주장하지 않습니다. |
-| Operator API의 권위 있는 읽기 변환 결과 | implemented | `services/operator-service/src/fdai_operator_service/runtime_projection_reader.py`; `services/operator-service/src/fdai_operator_service/composition.py`; `services/operator-service/tests/test_runtime_projection_reader.py`; `services/operator-service/tests/test_operator_operations_family.py` | 운영 composition은 PostgreSQL runtime reader를 연결합니다. Focused test는 범위가 제한된 비어 있지 않은 후보, 집계 metric, `mutation_controls=false`, Reader 권한, 민감 값 가림, unavailable 실패를 입증합니다. |
-| 권한이 적용된 ChatOps 검토 경로 | in-progress | `services/operator-service/src/fdai_operator_service/families/operations/manifest.py`; `services/operator-service/tests/test_operator_operations_family.py` | Approver 이상 권한의 `POST /automation-blueprints/{accept,reject,materialize}` 경로는 idempotency 키를 요구하고 영속 제안을 대기시키며 충돌을 거부합니다. 제안을 `AutomationBlueprintReviewService`에 연결하는 작업은 열려 있습니다. |
-
-### 구현 이력
-
-| 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
-|------|-------|------|------|-----------|
-| 2026-08-14 | in-progress | 이전 출처를 재구성하지 않고 구현 ledger를 도입했습니다. focused test로 뒷받침되는 집계, 검토, 구체화, 초안 작성, 메트릭, Console decoder를 implemented로 기록하고, 연결되지 않은 조정, 입증되지 않은 PostgreSQL 내구성, 누락된 운영자 화면을 분리했습니다. | `current change`; 범위 표에 나열된 소스 및 focused test; `uv run pytest -q --no-cov services/core-control-plane/tests/core/scheduler/test_blueprint_aggregator.py services/core-control-plane/tests/core/scheduler/test_blueprint_review.py services/core-control-plane/tests/persistence/test_automation_blueprint.py` (`FDAI_DATABASE_URL`이 설정되지 않아 `12 passed, 1 skipped`); `npm --prefix console test -- --run src/routes/automation-blueprints.test.ts` (`2 passed`) | `validated`를 주장하기 전에 운영 서비스를 연결하고, 데이터베이스 기반 전환을 입증하고, 거버넌스가 적용된 Operator API 및 ChatOps 경로를 제공하고, 런타임 근거를 수집합니다. |
-| 2026-08-14 | in-progress | Reader 역할로 제한된 `GET /automation-blueprints` 변환 결과를 Operator operations family에 등록해, Console 패널 출처가 선언만 되고 없는 경로 대신 실제 읽기 전용 경로로 해석되도록 했습니다. | `current change`; `services/operator-service/src/fdai_operator_service/families/operations/manifest.py`; `services/operator-service/tests/test_operator_operations_family.py`; Operator Service suite 240개와 `npm --prefix console test -- --run src/routes/automation-blueprints.test.ts` 2개가 통과했습니다. | 별도로 권한이 적용된 ChatOps 수락, 거절, 구체화 경로를 추가하고, 운영 연결에서 권위 있는 변환 결과를 구체화하며, 런타임 근거를 수집합니다. |
-| 2026-08-14 | in-progress | 별도로 권한이 적용된 수락, 거절, 구체화 검토 경로를 영속 제안으로 등록해, 후보를 읽을 수 있는 reader가 그 후보에 조치할 수 없게 하고 어느 경로도 인라인으로 검토하거나 구체화하지 않도록 했습니다. | `current change`; `services/operator-service/src/fdai_operator_service/families/operations/manifest.py`; `services/operator-service/tests/test_operator_operations_family.py`; Operator Service suite 244개와 경로 동등성 통합 검사 54개가 통과했습니다. | 대기한 제안을 `AutomationBlueprintReviewService`에 연결하고, 운영 연결에서 권위 있는 변환 결과를 구체화하며, 런타임 근거를 수집합니다. |
-| 2026-08-14 | in-progress | 세 개의 검토 경로를 공용 contributor 권한에서 approver 이상 권한으로 올리고, 모든 제안 경로가 reader를 결코 포함할 수 없는 명시적 역할 집합을 갖도록 했습니다. | `current change`; `families/operations/manifest.py`, `families/operations/factory.py`, `test_operator_operations_family.py`; Operator Service suite 257개가 통과했습니다. | 대기한 제안을 `AutomationBlueprintReviewService`에 연결하고, 권위 있는 변환 결과를 구체화하며, 런타임 근거를 수집합니다. |
-| 2026-09-12 | implemented | 서비스 소유 로컬 스키마에서 PostgreSQL 저장소를 입증하고, accepted 후보를 바꾸지 않으면서 오래된 예상 상태 전환을 거부하도록 focused test를 확장했습니다. | `current change`; `services/core-control-plane/tests/persistence/test_automation_blueprint.py`; `FDAI_DATABASE_URL=\"$FDAI_STATE_STORE_DSN\" .venv/bin/pytest -q services/core-control-plane/tests/persistence/test_automation_blueprint.py` (`2 passed`). | 운영 제안, 검토, 변환 결과, 예약, metric 경로를 연결하며 런타임 근거는 별도로 유지합니다. |
-| 2026-09-12 | implemented | 독립 critique에서 focused store test만으로는 로컬 스키마가 head에 있음을 입증하지 못한다는 점을 확인한 뒤 누락된 migration-current 근거를 추가했습니다. | `current change`; legacy `alembic current --check-heads` (`20260831_0089 (head)`); Core service `migrate.py core-control-plane current` (`core_resource_change_sources_20260912 (head)`). | 운영 제안, 검토, 변환 결과, 예약, metric 경로를 연결하며 런타임 근거는 별도로 유지합니다. |
-| 2026-09-12 | implemented | 검증 결과를 바꾸지 않고 기록된 shell 명령 표기를 바로잡았습니다. | 생성된 로컬 runtime 환경을 불러온 뒤 `FDAI_DATABASE_URL="$FDAI_STATE_STORE_DSN" .venv/bin/pytest -q services/core-control-plane/tests/persistence/test_automation_blueprint.py`를 실행합니다(`2 passed`). | 운영 제안, 검토, 변환 결과, 예약, metric 경로를 연결하며 런타임 근거는 별도로 유지합니다. |
-| 2026-09-12 | implemented | 변경 control을 추가하지 않고 이미 연결된 운영 PostgreSQL 읽기 변환 결과를 정합화하고 비어 있지 않은 후보와 metric 검증을 추가했습니다. | `current change`; `runtime_projection_reader.py`; `composition.py`; focused Operator 변환 결과 및 경로 test (`7 passed`). | 대기 중인 검토 제안, 운영 제안 및 예약, 거버넌스가 적용된 runtime 근거를 연결합니다. |
-
-### 남은 작업
-
-- [ ] 운영 근거 피드, 제안 서비스, PostgreSQL 저장소, 권한 확인기, 감사 게시자,
-  `CreateScheduledTaskCommand`를 연결한 뒤, 조건을 충족하는 완료된 운영자 turn 세 개가
-  재귀 입력 없이 하나의 inert 영속 후보로 바뀜을 입증하는 통합 테스트를 통과합니다.
-- [x] 서비스 소유 로컬 PostgreSQL 데이터베이스에 이행을 적용하고 `FDAI_DATABASE_URL`을
-  설정하여 `test_postgres_blueprint_store_persists_and_cas_transitions`를 통과했습니다.
-  이 테스트는 오래된 상태의 compare-and-swap 거부를 포함합니다(`2 passed`).
-- [x] Reader 역할로 제한된 Operator Service `GET /automation-blueprints` 변환 결과가
-  등록되어 경계가 제한되고 민감 값이 가려지며 실패 시 차단하며, Console decoder 테스트도
-  그대로 통과합니다.
-- [x] 별도로 권한이 적용된 `POST /automation-blueprints/{accept,reject,materialize}` 경로가
-  등록되어 approver 이상 권한과 idempotency 키를 요구하며 제안만 남깁니다. API 통합 테스트가
-  reader와 contributor가 거부되고 어느 경로도 인라인으로 검토하거나 구체화하지 않음을 입증합니다.
-- [ ] 대기한 수락, 거절, 구체화 제안을 `AutomationBlueprintReviewService`에 연결해, 권한이
-  있는 결정이 경로에 권한을 주지 않은 채로 영속 후보에 도달하도록 합니다.
-- [x] 운영 PostgreSQL 연결에서 권위 있는 `automation_blueprint.list` 변환 결과를
-  구체화하고, focused test에서 범위가 제한된 비어 있지 않은 후보, 집계 metric,
-  `mutation_controls=false`를 입증했습니다(`7 passed`).
-- [ ] 운영 연결에서 문서화된 blueprint 메트릭을 내보내고, 범위 행을 `validated`로 변경하기
-  전에 제안, 검토, 구체화, 예약 실행, 실제 사용량 귀속에 대한 거버넌스 적용 런타임 근거를
-  기록합니다.
-
 ## 근거 and recurrence
 
 `AutomationBlueprintEvidence`는 신원, 예약, 이벤트 타입, 리소스 범위, 전달, 도구,
@@ -98,8 +47,10 @@ draft -> accepted -> materialized
   +-> expired <-+
 ```
 
-검토에는 authorized principal, 사유, 제안자와 다른 검토자가 필요합니다. 거부와 만료는
-최종입니다. Same-evidence 재제출은 최종 기록을 반환하고 새 후보에는 strict 지문
+검토에는 authorized principal, 사유, 제안자와 다른 검토자가 필요합니다. Operator accept, reject,
+materialize 경로는 server-recorded reviewer role을 가진 no-authority 제안만 저장하고, Core
+automation-blueprint binding이 durable 후보를 바꾸기 전에 이를 다시 authorize합니다. 거부와
+만료는 최종입니다. Same-evidence 재제출은 최종 기록을 반환하고 새 후보에는 strict 지문
 superset이 필요합니다.
 
 구체화는 reviewing principal로 `CreateScheduledTaskCommand`를 호출하며 스케줄러 저장소를
@@ -121,7 +72,10 @@ zero 변경 도구를 가진 비활성화된, shadow-only 후보를 제출합니
 
 이행 `20260720_0043`은 active-dedup 부분 unique 인덱스가 있는
 `automation_blueprint_candidate`를 생성합니다. PostgreSQL은 권한 필드, 지문, 상태,
-검토 사유, 작업 ID, realized 사용량 개수를 저장하며 상태 변경은 compare-and-swap입니다.
+검토 사유, 작업 ID, realized 사용량 개수를 저장합니다. 일회성 tick binding은 명시적인
+blueprint-evidence payload가 있을 때만 durable semantic result projection에서 completed
+operator-turn 근거를 읽으므로 deployment-owned 입력이 없으면 suggestion을 만들어내지 않고
+fail closed합니다. 상태 변경은 compare-and-swap입니다.
 
 만료는 상태를 바꾸고 근거를 삭제하지 않습니다. 최종 행은 감사와 suppression을 위해
 남고 출처 대화가 아니라 해시와 범위가 제한된 메타데이터만 포함합니다. 출처 턴은 별도
@@ -151,10 +105,11 @@ occurrence가 관찰된 뒤에만 증가합니다.
 suppression/new 근거, 권한 확인, no-self-review, 만료, 텍스트 한계치, 멱등적
 구체화, PostgreSQL codec/CAS, 검토 API, 콘솔 디코딩, metrics를 포함합니다.
 
-## Related docs
+## 관련 문서
 
 | To learn about | 읽기 |
 |----------------|------|
+| 구현 상태 및 남은 작업 | [구현 원장](../../roadmap-implementation/decisioning/automation-blueprints.md) |
 | 스케줄러 실행과 격리 | [프로세스 자동화](process-automation-ko.md) |
 | Console 및 ChatOps 경계 | [Operator Console](../interfaces/operator-console-ko.md) |
 | Post-turn 제안 충족 여부 | [Post-turn Improvement 검토](post-turn-improvement-review-ko.md) |

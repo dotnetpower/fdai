@@ -123,9 +123,44 @@
       ],
       "sources": [
         {
-          "source_id": "operational-evidence.forecast-slice-admissions",
+          "source_id": "core-control-plane.action-audit",
           "role": "authoritative",
-          "anchor_id": "anchor:operational-evidence-verifier"
+          "anchor_id": "anchor:core-runtime"
+        },
+        {
+          "source_id": "inventory.observation-journal",
+          "role": "authoritative",
+          "anchor_id": "anchor:inventory"
+        },
+        {
+          "source_id": "inventory.incarnation-ledger",
+          "role": "authoritative",
+          "anchor_id": "anchor:inventory"
+        },
+        {
+          "source_id": "core-control-plane.change-window-history",
+          "role": "authoritative",
+          "anchor_id": "anchor:core-runtime"
+        },
+        {
+          "source_id": "azure.activity-log",
+          "role": "corroborating",
+          "anchor_id": "anchor:azure-platform"
+        },
+        {
+          "source_id": "azure.resource-graph-changes",
+          "role": "corroborating",
+          "anchor_id": "anchor:azure-platform"
+        },
+        {
+          "source_id": "azure.resource-existence",
+          "role": "corroborating",
+          "anchor_id": "anchor:azure-platform"
+        },
+        {
+          "source_id": "operating-intent.source-revisions",
+          "role": "corroborating",
+          "anchor_id": "anchor:operating-intent-source"
         }
       ],
       "freshness_policy": {

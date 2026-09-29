@@ -1,8 +1,8 @@
 ---
 title: 리포팅 서브시스템
 translation_of: reporting-subsystem.md
-translation_source_sha: 747ec67d886d6cc4b5e1a56f8c5f9bf85ce2a62a
-translation_revised: 2026-09-28
+translation_source_sha: 9f51576067edc9597b22417ab95fdc80da07fd4d
+translation_revised: 2026-09-29
 ---
 # 리포팅 서브시스템
 
@@ -90,9 +90,9 @@ Chaos Enforce Results 리포트는 완료된 장애 주입 결과를 측정된 �
 제공합니다. 시나리오 실행기는 정확한 필드, 형식, 타임스탬프, 크기 및 중복 키
 검증을 통과한 범위가 제한된 리포트만 가져옵니다. Core는 각 결과를
 `report_signal`로 보존합니다. 이 가져오기는 Incident, 감사 항목, 추적, 승격 결정
-또는 자동 해결 주장을 만들지 않습니다. 이 리포트를 만들던 기존 참조 sweep
-드라이버는 통제된 카오스 어댑터 위로 이관될 때까지 모든 실제 실행을 거부하므로,
-그동안 새 측정 결과는 들어오지 않습니다.
+또는 자동 해결 주장을 만들지 않습니다. 통제된 카탈로그 실행기와 탐지 지연 드라이버는 `GovernedChaosExecutionAdapter`가
+측정된 실험을 반환한 뒤에만 이 레코드를 만듭니다. 거부되었거나 재생되었거나
+시간이 기록되지 않은 실행은 합성 지연 시간 근거를 만들지 않습니다.
 
 독립 Operator Service는 `operator_chaos_report_signal` 보안 장벽 보기를 통해 이
 레코드를 읽습니다. 서비스 역할은 Core의 `report_signal` 테이블이 아니라 보기에
@@ -100,6 +100,11 @@ Chaos Enforce Results 리포트는 완료된 장애 주입 결과를 측정된 �
 원본을 표시하며, 명시적인 `synthetic: false` 출처와 변경 권한이 없는 1일, 7일
 또는 30일 구간을 렌더링합니다. Live, Incident, Audit 및 Trace 화면은 이 관측 근거를
 복사하지 않고 각 화면의 권위 있는 계약을 유지합니다.
+
+이 권한 방식은 테이블마다 기록 소유자 하나를 지정하는 공용 소유권 manifest에
+기록합니다. 이 하위 시스템이 기록하지도 투영하지도 않는 테이블, 예를 들어 Core가
+소유한 `licensing_trial` 단일 행도 거기에 나타나지만 리포트 원본이 되지는 않습니다.
+manifest는 소유권을 정의할 뿐 리포트 노출을 정의하지 않습니다.
 
 ## 위젯 카탈로그
 
@@ -612,7 +617,7 @@ shipped된 서브시스템을 OWASP + `app-shape` 관점에서 체계적으로
   가능한 리포트를 기록하므로, 남은 것은 그 리포트를 만들어 낼 실행입니다. 배포가
   `fdai.governed_chaos` 프로바이더를 설치하고 시나리오가 승격되어야 하며, 그렇지 않으면 모든
   실행이 기반에 닿기 전에 거부됩니다. 두 항목은
-  [recovery-and-chaos-enforcement](../decisioning/recovery-and-chaos-enforcement-ko.md#남은-작업)의
+  [recovery-and-chaos-enforcement](../../roadmap-implementation/decisioning/recovery-and-chaos-enforcement.md#remaining-work)의
   남은 작업으로 추적합니다.
 - [ ] 각 프로덕션 데이터 원본에 대해 source 신원, cutoff, 최신성, 사용 불가 및 시간 초과 동작, 부분 widget 격리 및 synthetic-to-live 대체 부재를 보여주는 관리되는 render 증적을 보존합니다.
 - [ ] Report inventory, 명시적 사용 불가 report 선택, variable 차단, 알 수 없는 format, render 오류 격리 및 읽기 전용 method 적용에 대한 인증된 Operator API 및 Console 증적을 보존합니다.

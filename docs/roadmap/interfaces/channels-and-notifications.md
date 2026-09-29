@@ -3,6 +3,8 @@ title: Channels and Notifications
 ---
 # Channels and Notifications
 
+Post-turn review request intake is supervised as a Core runtime task but remains separate from channel delivery, notification, and approval topics.
+
 How FDAI talks to humans through Teams, Slack, email, webhooks, paging services, SMS,
 a Direct Line custom channel, and opt-in browser notifications. This file is authoritative
 for the **channel abstraction, trust levels, category boundaries, routing policy, and
@@ -103,6 +105,13 @@ equivalence or conversion between the enum families.
   ActionType-free Verdicts, and the control loop stops T1 learned reuse before it builds an Action,
   so no channel carries an approval for them. See the
   [learned and predicted output boundary](../agents/agent-pantheon-implementation.md#learned-and-predicted-output-boundary).
+- **A T2 rubric verdict creates no A1 request.** The rubric leg only lowers confidence or holds a
+  T2 candidate, even when a verified receipt enforces it for an ActionType, and T2 candidates do
+  not become Actions until the gated downstream bridge exists. See the
+  [Hallucination Rubric Gate](../decisioning/hallucination-rubric-gate.md).
+- **Causal hypotheses create no A1 request.** A projected or closed `CausalHypothesis` revision is
+  evidence for Forseti's judgment only. Neither the runtime's Forseti projection nor its Thor
+  ActionRun receipt resolver sends a channel message or opens an approval request.
 
 ### 3.1 A3 command role gating
 

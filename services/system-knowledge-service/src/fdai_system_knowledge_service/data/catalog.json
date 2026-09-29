@@ -1,7 +1,7 @@
 {
-  "catalog_digest": "sha256:ac2a5b58616d5c27fef92e6971df4e0c56c2cc17fd597b4279ccd4ec4a2af1b9",
+  "catalog_digest": "sha256:6698a1c4b302ece42a802a51b6e5ed7f2c4e8c96de55bc92a0e397c7bc7ba87f",
   "execution_authority": false,
-  "generated_at": "2026-09-29T03:44:30.246056Z",
+  "generated_at": "2026-09-29T12:11:18.222097Z",
   "records": [
     {
       "designed_behavior": [
@@ -106,11 +106,11 @@
         "What is Bragi responsible for?",
         "Bragi는 무엇을 담당하나요?"
       ],
-      "record_digest": "sha256:c8aee1195a6a6ee0b5dfc2066ce2fe0b6f94c8ae8871f171dce640a6946e085e",
+      "record_digest": "sha256:d2b8c3da890e2f11833511fbfbaeca82a97c0267dc120a392e8d0264dfb276cf",
       "sources": [
         {
           "authority_role": "design",
-          "blob_sha": "8d4e80dbcd2e9ff51cc093235439160c48c675b7",
+          "blob_sha": "7217826c1c8c0aa448c8a525ba1b2e13e285f7ef",
           "line_end": 29,
           "line_start": 29,
           "path": "docs/roadmap/agents/agent-pantheon.md",
@@ -336,11 +336,11 @@
         "How are FDAI agents organized?",
         "FDAI agent 조직은 어떻게 구성되나요?"
       ],
-      "record_digest": "sha256:1f7132f4324f0faf54f73acabc3213f53446cc629a4eae9f2d01d601224a50cc",
+      "record_digest": "sha256:b29fd570adb28da67c867cbbeff2df32de13d1c142c4341a36326a5b362ec32f",
       "sources": [
         {
           "authority_role": "design",
-          "blob_sha": "8d4e80dbcd2e9ff51cc093235439160c48c675b7",
+          "blob_sha": "7217826c1c8c0aa448c8a525ba1b2e13e285f7ef",
           "line_end": 18,
           "line_start": 18,
           "path": "docs/roadmap/agents/agent-pantheon.md",
@@ -379,14 +379,14 @@
         "How does FDAI perform root cause analysis?",
         "FDAI는 근본 원인 분석을 어떻게 수행하나요?"
       ],
-      "record_digest": "sha256:78432add543c3dd21624530848c7a9f0b1204ef5693ccf35abd6f3a2d0b3ac1d",
+      "record_digest": "sha256:0554cf7c0f2a8b0fccf362c0884ea15b0a25d0bca2fa35a615390cf21f3e823a",
       "sources": [
         {
           "authority_role": "verification",
-          "blob_sha": "d958e12ac31a28fc215265089d4c298a15bddb1a",
-          "line_end": 12,
-          "line_start": 12,
-          "path": "docs/roadmap/rules-and-detection/root-cause-analysis.md",
+          "blob_sha": "6cf2c29d80d9a6228e1f6cb1cc1a9baea6debb5c",
+          "line_end": 6,
+          "line_start": 6,
+          "path": "docs/roadmap-implementation/rules-and-detection/root-cause-analysis.md",
           "source_kind": "doc",
           "symbol": "Implementation status"
         }
@@ -448,25 +448,25 @@
         "How are FDAI services separated?",
         "FDAI 서비스는 어떻게 분리되어 있나요?"
       ],
-      "record_digest": "sha256:bd74ac1df2ddddb95812604960e835d791aeb9b701378ceeae935ac381b4e2e5",
+      "record_digest": "sha256:42f0074abbe0c3302cdf0ca947b981d1344fb7a75c8af787ee2281f29fc76cac",
       "sources": [
         {
           "authority_role": "design",
-          "blob_sha": "4ba6aae475fafacabbd7bf1e98e38847415dc4ae",
-          "line_end": 110,
-          "line_start": 110,
-          "path": "docs/roadmap/architecture/service-graduation-and-ownership.md",
-          "source_kind": "doc",
-          "symbol": "Graduation scorecard"
-        },
-        {
-          "authority_role": "design",
-          "blob_sha": "f65737cc6e7bbea3494097ba9ed4cc102f19bdc8",
+          "blob_sha": "abb146564b07cb5f66047b5df5976411b8a4f376",
           "line_end": 87,
           "line_start": 87,
           "path": "docs/roadmap/interfaces/system-knowledge-service.md",
           "source_kind": "doc",
           "symbol": "Revised design"
+        },
+        {
+          "authority_role": "design",
+          "blob_sha": "c6725a2c903ca29ddbc2ba5c53d723a2dbf6fa36",
+          "line_end": 110,
+          "line_start": 110,
+          "path": "docs/roadmap/architecture/service-graduation-and-ownership.md",
+          "source_kind": "doc",
+          "symbol": "Graduation scorecard"
         }
       ],
       "status": "in_progress",
@@ -491,11 +491,11 @@
         "How does the FDAI system knowledge bot work?",
         "FDAI 시스템 지식 봇은 어떻게 동작하나요?"
       ],
-      "record_digest": "sha256:8c6fb70c84d55314b6fb1e83b0bbd131a33017bfa99b923aa00bcb74cebd29fc",
+      "record_digest": "sha256:dbc6060854fd6517e6c1d6e84ed99af3b95742cb2c6c61052c6ac3eba4b005a7",
       "sources": [
         {
           "authority_role": "design",
-          "blob_sha": "f65737cc6e7bbea3494097ba9ed4cc102f19bdc8",
+          "blob_sha": "abb146564b07cb5f66047b5df5976411b8a4f376",
           "line_end": 87,
           "line_start": 87,
           "path": "docs/roadmap/interfaces/system-knowledge-service.md",
@@ -553,5 +553,5 @@
     }
   ],
   "schema_version": "1.0.0",
-  "source_revision": "7a401899fe04f1516552b561247dd8ce6fc73b14"
+  "source_revision": "70d89aa50149840f003e219f82ff30b6d3bfb071"
 }

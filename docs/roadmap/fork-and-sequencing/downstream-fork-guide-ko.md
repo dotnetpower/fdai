@@ -1,7 +1,7 @@
 ---
 title: Downstream Fork 가이드
 translation_of: downstream-fork-guide.md
-translation_source_sha: a449c850ec96e6d0de1479d44c647b4c7f9d7ad9
+translation_source_sha: 66bf1defd4bdac83fdce4d11c894c166dc9ae295
 translation_revised: 2026-09-26
 ---
 
@@ -85,7 +85,9 @@ repository-integrity 검사만 활성화하며 런타임 코드는 이 값을 �
 
 연결된 소스 배포와 무키 Trial 목표는 업스트림과 포크에 동일하게 적용합니다. 포크 표시,
 변경 없는 체크아웃, 산출물 서명은 사용권을 부여하거나 새 Trial을 시작하지 않습니다.
-업그레이드할 때 설치에 연결된 기록을 보존해야 합니다. 원자적인 저장과 런타임 적용은
+업그레이드할 때 설치에 연결된 기록을 보존해야 합니다. 다른 설치에 바인딩된 기록을 제공하는
+포크는 어떤 권한도 받지 못하며, 런타임 적용은 포크가 제공하는 검사가 아니라 공용 라이선스
+사용권 판정기를 통해 이뤄집니다. 원자적인 저장은
 [기능 라이선싱](capability-licensing-ko.md#영속적인-무키-trial-목표)의 별도 구현 과제로 남아 있습니다.
 
 선택적 버티컬 패키지도 포크 경계와 독립적입니다. 예를 들어

@@ -21,6 +21,10 @@ record rather than duplicated user-facing design prose.
 - Append material transitions to implementation history without editing recorded rows.
 - Cite reviewable repository paths, focused checks, issues, commits, or governed receipts.
 - Keep each ledger at or below 400 lines. Split append-only history before exceeding the bound.
+- Keep one authoritative status source. While an owner still has an inline `## Implementation
+  status` section, that section stays authoritative, and
+  `scripts/quality/architecture/check-roadmap-implementation-tracking.py` rejects any edit to its
+  mirrored ledger. Migrate the owner before you record work in the ledger.
 
 ## Migration command
 

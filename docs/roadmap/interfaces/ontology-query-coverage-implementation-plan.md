@@ -6,6 +6,7 @@ title: Ontology Query Coverage Implementation Plan
 This plan closes the implementation gap between FDAI's bounded conversation and ontology foundations and the target non-keyword path for operator questions. It records the verified current baseline, service and agent ownership, dependency-ordered work packages, cutover gates, and rollback units for 100% structural query coverage.
 
 Governed cloud-reference queries use source-spanned scalar applicability and preserve source dates; the [lifecycle owner](cloud-resource-knowledge-lifecycle.md) defines as-of and live-current behavior.
+Workflow trigger vocabulary loading now separates observation `SignalType` references from request and command workflow events, so typed workflow triggers do not widen T0 rule dispatch or ontology query coverage.
 The [structured retrieval owner](cloud-resource-knowledge-structured-rag.md) defines v1.2 query/utterance binding, unavailable outcomes and legacy compatibility; terms never expand applicability or access. Frame-model schemas omit the server-bound query field.
 Coverage-inventory regeneration follows question-bank source changes, including navigation and trace-label catalogs, and refreshes source digests, not measured coverage. A merged Console catalog change requires rebuilding the question bank before its dependent semantic inventory; source-only repairs preserve the 400-question cohort and its existing validation gaps.
 The instance-candidate Function binds server principal scope, object read sets, the original release, query, result digest, and bounded accounting. Default bootstrap uses the same declaration as semantic composition and injects controlled-identity workers into Pantheon. Authenticated enrollment drives supervised off-path preparation, audited cold-cache restoration, and source-change withdrawal/rebuild; it never performs query-path embedding builds. Missing model identity keeps the binding unavailable and real semantic qualification remains required. Exact-ID reads retain current graph authorization. Core's dedicated bilingual terminal projection verifies the candidate bindings and displays only identities, types, and revisions, without arbitrary property bags. It reports a partial, non-exhaustive result: an empty candidate list never proves absence. Authenticated live Console evidence remains separate.
@@ -252,7 +253,8 @@ objects are selected only by authoritative reads after plan verification.
 
 Authority-bearing transitions remain event-bus messages. Read-only query execution may use a
 purpose-bound immutable projection, but one service never imports another service's implementation.
-No new agent is introduced.
+No new agent is introduced. The Operator renders a terminal query answer only after it recomputes
+the evidence digest and projection identity that Core committed, using the shared contract SDK.
 
 ## Target contracts
 

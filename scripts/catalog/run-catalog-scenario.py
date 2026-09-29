@@ -3,9 +3,9 @@
 This driver loads scenarios from `rule-catalog/chaos-scenarios/` and dispatches
 each through the :class:`~fdai.core.chaos.factory.ScenarioFactory`. It is the
 runtime answer to "the catalog says X; does the delivery layer know how to
-execute X?", and it is the only live chaos path: the retired raw drivers were
-removed, and `scripts/catalog/measure-detection-latency.py` still refuses every
-live run until its measurement is ported onto the governed adapter.
+execute X?", and it is the primary live chaos path: the retired raw reference
+driver was removed, and `scripts/catalog/measure-detection-latency.py` now
+uses the same governed adapter for one bounded measurement.
 
 Usage:
 

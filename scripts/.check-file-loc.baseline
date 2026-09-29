@@ -6,9 +6,6 @@
 871 services/core-control-plane/src/fdai/core/conversation/semantic_runtime.py
 # Pre-existing main-branch adaptive-contract debt; growth blocked until tracker #14 extraction.
 931 services/core-control-plane/src/fdai/core/read_investigation/adaptive_contract.py
-# Pre-existing main-branch workflow-executor debt; action-outcome resolution was extracted,
-# so the cap ratchets down from 843 and blocks regrowth.
-825 services/core-control-plane/src/fdai/core/workflow/workflow_step_executor.py
 # Pre-existing main-branch analyzer-tick debt; growth blocked until tracker #14 extraction.
 850 services/core-control-plane/src/fdai/delivery/analyzer_tick.py
 # Pre-existing main-branch postgres background-task debt; growth blocked until tracker #14 extraction.

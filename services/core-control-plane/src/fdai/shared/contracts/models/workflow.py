@@ -16,7 +16,13 @@ from typing import Annotated
 from pydantic import Field, model_validator
 
 from ._base import SemVer, _Base
-from .enums import CeilingRole, Mode, WorkflowStepKind, WorkflowTriggerKind
+from .enums import (
+    CeilingRole,
+    Mode,
+    WorkflowStepKind,
+    WorkflowTriggerKind,
+    WorkflowTriggerSignalReferenceKind,
+)
 from .ontology import PromotionGate
 
 
@@ -25,6 +31,7 @@ class WorkflowTrigger(_Base):
 
     kind: WorkflowTriggerKind
     signal_type: str | None = None
+    signal_reference_kind: WorkflowTriggerSignalReferenceKind | None = None
     schedule: str | None = None
 
     @model_validator(mode="after")

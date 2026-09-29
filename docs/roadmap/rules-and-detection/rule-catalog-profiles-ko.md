@@ -1,8 +1,8 @@
 ---
 title: Rule-catalog profile 및 collector
 translation_of: rule-catalog-profiles.md
-translation_source_sha: deef722c960e580777884a0587497dff3ee74ed2
-translation_revised: 2026-08-29
+translation_source_sha: 89f2a4865a85fbd0351e5fcc070a4a9bd66aadbc
+translation_revised: 2026-09-29
 ---
 # Rule-catalog 프로파일 및 수집기
 
@@ -165,38 +165,6 @@ rules:
 > 시작 진단에 보고될 뿐 실행 권한을 부여하지 않으며, 실행 권한은 정본 승격 레지스트리에
 > 남습니다. 워크플로 guard 참조도 같은 활성 집합으로 검증되므로, guard Rule을 제외하는
 > 프로파일은 첫 디스패치에서 실패하는 대신 부팅을 차단합니다.
-
-## 구현 상태
-
-### 구현 범위
-
-| 영역 | 상태 | 근거 | 참고 |
-|------|------|------|------|
-| 프로파일 계약 및 결정론적 해석 | implemented | `services/core-control-plane/src/fdai/core/rule_catalog_profiles/models.py`; `registry.py`; `services/core-control-plane/tests/core/rule_catalog_profiles/test_registry.py` | 상속, 재정의 우선순위, 순환 거부, 심각도 하한, 안정된 정렬을 검증합니다. |
-| 정본 업스트림 프로파일 | implemented | `rule-catalog/profiles/baseline.yaml`; `recommended.yaml`; `strict.yaml`; `services/core-control-plane/tests/core/rule_catalog_profiles/test_full_profile_resolution.py` | 세 프로파일 모두 현재 알려진 Rule id를 기준으로 해석됩니다. |
-| 가져온 규정 준수 프로파일 | implemented | `rule-catalog/profiles/collected/`; `services/core-control-plane/tests/core/rule_catalog_profiles/test_full_profile_resolution.py` | 수집된 프로파일은 참조 묶음으로 유지되며, 포함된 Rule은 구성원이라는 이유로 적용 권한을 얻지 않습니다. |
-| 런타임 프로파일 선택 | implemented | `services/core-control-plane/src/fdai/runtime/rule_profile.py`; `services/core-control-plane/src/fdai/runtime/control_loop.py`; `services/core-control-plane/tests/runtime/test_rule_profile.py` | 시작 시 한 번의 해석이 T0 색인이 담는 Rule 튜플을 만들고, 결정론 계층과 안전성 검토가 같은 객체를 읽습니다. 배포 런타임 근거는 아직 남아 있습니다. |
-| 예약된 파서 지원 | not-applicable | `rule-catalog/sources/*/manifest.yaml`; 파서 레지스트리 및 집중 선택 테스트 | 승인된 모든 제공 매니페스트는 구현된 파서를 선택합니다. `checkov-yaml`과 `gatekeeper-templates`는 향후 승인된 소스가 선택할 때까지 명시적인 차단 기본 자리표시자로 유지합니다. |
-
-### 구현 이력
-
-| 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
-|------|------|------|------|-----------|
-| 2026-08-14 | in-progress | 이전 출처를 재구성하지 않고 구현 원장을 도입했습니다. | `current change`; 구현 범위 표의 현재 소스, 카탈로그, 집중 테스트. | 런타임 프로파일 선택을 연결하고 제공 대상으로 선택한 파서 플러그인만 구현합니다. |
-| 2026-08-15 | implemented | 시작 시 `FDAI_PROFILE_ID`를 한 번 해석해 바인딩하고, 선택과 등급 조정을 차단 기본으로 처리하며, 프로파일 id와 다이제스트와 개수만 노출하는 시작 진단을 추가했습니다. | `current change`; `services/core-control-plane/src/fdai/runtime/rule_profile.py`; `services/core-control-plane/src/fdai/runtime/control_loop.py`; `pytest services/core-control-plane/tests/runtime/test_rule_profile.py` (12 passed). | 바인딩된 프로파일의 배포 런타임 근거. 예약 파서는 계속 미구현입니다. |
-| 2026-08-29 | not-applicable | 승인된 모든 제공 소스 매니페스트를 파서 레지스트리와 대조했습니다. 예약 파서를 선택하는 소스가 없으므로 차단 기본 자리표시자가 미완성 구현이 아니라 현재 범위의 완전한 동작입니다. | `current change`; 소스 매니페스트, `parser.py`, 집중 파서 선택 검사. | 향후 승인된 소스 매니페스트와 함께만 예약 파서를 구현합니다. |
-| 2026-08-29 | implemented | 수집된 프로파일 provenance 주장을 바로잡았습니다. 프로파일 265개는 검토된 정적 가져오기 결과이며 initiative-intent helper는 오프라인이고 등록되지 않았습니다. 실행 가능한 매니페스트-파서 선택 검사를 추가했습니다. | `current change`; `azure_policy_initiative.py`; `test_parse.py`; 집중 파서 및 프로파일 검사. | 향후 자동 initiative 새로 고침에는 승인된 소스와 GUID-to-Rule 컴파일러가 필요합니다. |
-| 2026-08-29 | implemented | 하드닝 17-20차에서 프로파일 해석, 런타임 연결, 파서 선택, 과거 provenance를 검증했습니다. 도달할 수 없는 initiative helper 주장을 바로잡은 뒤 최종 검토에서 Low를 넘는 문제는 없었습니다. | `current change`; 집중 프로파일 및 파서 검사 58개 통과. | 배포 런타임 근거는 운영 검증으로 남습니다. |
-
-### 남은 작업
-
-- [x] 시작 바인더가 관리되는 프로파일 id를 한 번 읽고, 안전성 검토도 함께 읽는 T0 색인에 해석된 Rule 튜플을 전달합니다. `services/core-control-plane/tests/runtime/test_rule_profile.py`가 이를 증명합니다.
-- [x] 시작 진단은 프로파일 id와 다이제스트와 개수만 노출합니다. Rule 매개변수는 다이제스트에는 기여하지만 로그 레코드에는 남지 않으며, 같은 집중 테스트 모듈이 이를 증명합니다.
-- [ ] 고정된 리비전에서 바인딩된 프로파일 id와 다이제스트를 보여 주는 배포 런타임 영수증을 확보합니다.
-- [x] 승인된 모든 제공 소스는 구현된 파서를 선택합니다. 예약 파서 이름은
-  `ParserNotImplementedError`를 계속 반환하며 향후 승인된 소스 매니페스트와 집중 픽스처가
-  함께 있을 때만 구현을 시작합니다.
-
 ## 5. 이 문서가 아닌 것
 
 - Rule authoring guide 아님 - 그것은
@@ -206,3 +174,9 @@ rules:
   [`docs/roadmap/phases/`](../phases) 아래 존재.
 - 포크 템플릿 아님 - 포크 scaffolding 은
   [`downstream-fork-guide.md`](../fork-and-sequencing/downstream-fork-guide-ko.md) 아래 존재.
+
+## 관련 문서
+
+| 알아볼 내용 | 읽을 문서 |
+|-------------|-----------|
+| 구현 상태 및 남은 작업 | [구현 원장](../../roadmap-implementation/rules-and-detection/rule-catalog-profiles.md) |

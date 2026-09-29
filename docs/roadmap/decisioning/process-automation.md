@@ -101,10 +101,17 @@ Field rules the loader enforces:
 
 ### 2.1 Known limitations (P1)
 
-- **`signal_type` is a free string.** The trigger `signal_type` is not
-  cross-referenced against a signal-type registry (none exists upstream yet),
-  so a typo is not caught at load. Treat it as documentation until the
-  `SignalType` ontology promotion lands.
+- **Resolved `signal_type` typing.** A `kind: signal` trigger now must resolve at
+  catalog load to exactly one registered observation `SignalType` or one reviewed
+  `workflow-trigger-events.yaml` request, command, or Workflow-only observation event. Unknown values fail
+  closed, exact duplicates across the two vocabularies are ambiguous, and the
+  loaded `WorkflowTrigger` records which vocabulary resolved the reference.
+  Observation-style triggers such as `object.drift` stay in the existing
+  `SignalType` registry, while request and command triggers such as
+  `chaos.experiment.requested` stay out of T0 rule dispatch. The
+  `object.capacity-forecast` workflow trigger is cataloged as a Workflow-only
+  observation so it can start operational planning without widening `SignalType`
+  dispatch.
 - **`on_failure` also runs on the success path.** The compiled Runbook runner
   walks every declared step in order; an `on_failure` target is a normal step
   that runs on success too, and additionally runs as the fallback on failure.
@@ -291,6 +298,13 @@ Action dispatch and step journal identity include an explicit positive `attempt`
 compatibility default. `STEP_STARTED`, `ACTION_DISPATCHED`, branch, waiting, completion, failure,
 terminal, and audit ids include that attempt, and `WorkflowActionDispatcher` uses it in the typed
 proposal idempotency key. Two attempts therefore cannot collapse into one event or proposal.
+Before the dispatcher publishes an enforce action, a replica writes an attempt-scoped
+`action.dispatch-claimed` lease and publishes only while that claim is current. It records the single
+durable `ACTION_DISPATCHED` record with the returned reference after publication. A replica that
+loses its claim stops before publication. If a claimant crashes after publication but before
+recording, redelivery after lease expiry republishes the same attempt-scoped idempotency key, and
+the journal still admits only one forward dispatch record for that Process step attempt. A claim
+without a dispatch record blocks retry because publication may already have happened.
 
 `POST /workflows/{process_id}/retry` starts a new attempt from `failed`, or from `timed_out` only
 when the terminal reason is `approval_timed_out`, and accepts no body. The terminal attempt must
@@ -319,8 +333,13 @@ coordinator would bypass quorum accounting, duplicate-approver refusal, and requ
 now refuses a decision whose normalized principal equals the recorded `requester_principal` while `no_self_approval` is set. That
 refusal applies identically to the Operator callback, a replayed decision event, and a console tool. The consumer routes only an
 `approve` or `reject` value and dead-letters any other before routing, and the HIL coordinator itself refuses a decision other than
-approve, reject, or timeout before it reads a park. The consumer checks the value, not the publisher: an ordinary park keeps the
-existing trust in the topic's publishers, while an Owner-only development park re-reads the durable Operator receipt at admission.
+approve, reject, or timeout before it reads a park. The broker message is transport, not authority. The Operator writes its durable
+decision receipt in the same transaction that locks and validates the pending park, before it publishes. Before any route is read,
+the consumer requires that receipt to record the same approval, park idempotency key, receipt reference, decision, approver,
+justification, decision instant, and development attestation. A missing or divergent receipt dead-letters the message without
+touching the park, the quorum slot, or an executor. A store failure is not a refusal: the consumer retries the read briefly, and a
+store that stays unreadable fails the consumer without acknowledging the message, so the broker redelivers it after restart. An
+Owner-only development park still re-reads the same receipt at admission.
 
 Workflow audit uses each ActionType's `x-fdai-redact` paths. Redacted fields render as `[REDACTED]` and never enter the Process
 journal. Because the workflow runtime has no secret custody provider, an enforce action whose resolved params include a redacted

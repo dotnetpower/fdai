@@ -128,6 +128,15 @@ export function decodeAutonomyPayload(value: unknown): AutonomyPayload {
   );
   const metricSamples = decodeMetricSamples(root["metric_samples"]);
   const measurementGaps = decodeMeasurementGaps(root["measurement_gaps"]);
+  const provenance = root["provenance"] === undefined
+    ? undefined
+    : decodeMeasurementProvenance(root["provenance"], sampleSize);
+  if (
+    measurementGaps.includes("unknown_synthetic_marker")
+    !== ((provenance?.synthetic_marker.unknown ?? 0) > 0)
+  ) {
+    throw contractError("autonomy measurement unknown synthetic marker gap is inconsistent");
+  }
   const disagreement = decodeMetric(
     leading["mixed_model_disagreement_rate"],
     "leading.mixed_model_disagreement_rate",
@@ -237,6 +246,9 @@ export function decodeAutonomyPayload(value: unknown): AutonomyPayload {
   ) {
     throw contractError("autonomy measurement.tier.mix is inconsistent");
   }
+  const tierCounts = tier["counts"] === undefined
+    ? undefined
+    : decodeTierCounts(tier["counts"], tierMix, sampleSize);
   const tierBands = Object.fromEntries(
     Object.entries(bands).map(([key, raw]) => {
       if (
@@ -287,6 +299,7 @@ export function decodeAutonomyPayload(value: unknown): AutonomyPayload {
     },
     metric_samples: metricSamples,
     measurement_gaps: measurementGaps,
+    ...(provenance !== undefined ? { provenance } : {}),
     leading: {
       mixed_model_disagreement_rate: disagreement,
       verifier_failure_rate: verifierFailure,
@@ -315,6 +328,7 @@ export function decodeAutonomyPayload(value: unknown): AutonomyPayload {
     verticals,
     tier: {
       mix: tierMix,
+      ...(tierCounts !== undefined ? { counts: tierCounts } : {}),
       bands: tierBands,
     },
     trend: Object.fromEntries(
@@ -356,6 +370,52 @@ function decodeMetricSamples(value: unknown): AutonomyPayload["metric_samples"] 
   return result;
 }
 
+function decodeMeasurementProvenance(
+  value: unknown,
+  sampleSize: number,
+): NonNullable<AutonomyPayload["provenance"]> {
+  const context = "autonomy measurement.provenance";
+  const provenance = apiRecord(value, context);
+  if (provenance["qualification"] !== "observation") {
+    throw contractError(`${context}.qualification MUST be observation`);
+  }
+  const marker = apiRecord(provenance["synthetic_marker"], `${context}.synthetic_marker`);
+  const declared = apiNonNegativeInteger(marker, "declared_non_synthetic", `${context}.synthetic_marker`);
+  const unknown = apiNonNegativeInteger(marker, "unknown", `${context}.synthetic_marker`);
+  if (Object.keys(marker).length !== 2 || declared + unknown !== sampleSize) {
+    throw contractError(`${context}.synthetic_marker MUST account for every sampled event`);
+  }
+  return {
+    qualification: "observation",
+    synthetic_marker: { declared_non_synthetic: declared, unknown },
+  };
+}
+
+function decodeTierCounts(
+  value: unknown,
+  mix: Readonly<Record<string, number>>,
+  sampleSize: number,
+): Record<string, number> {
+  const context = "autonomy measurement.tier.counts";
+  const raw = apiRecord(value, context);
+  const counts = Object.fromEntries(
+    Object.keys(raw).map((key) => [key, apiNonNegativeInteger(raw, key, context)]),
+  );
+  const keys = Object.keys(counts).sort();
+  const mixKeys = Object.keys(mix).sort();
+  const total = Object.values(counts).reduce((sum, count) => sum + count, 0);
+  if (
+    keys.join(",") !== mixKeys.join(",")
+    || total > sampleSize
+    || Object.entries(counts).some(([key, count]) =>
+      count < 1 || Math.abs((mix[key] ?? -1) - count / sampleSize) > 1e-12
+    )
+  ) {
+    throw contractError(`${context} MUST match the reported tier mix`);
+  }
+  return counts;
+}
+
 function decodeMeasurementGaps(value: unknown): readonly string[] {
   if (!Array.isArray(value) || value.some((item) => typeof item !== "string" || !item)) {
     throw contractError("autonomy measurement.measurement_gaps MUST be non-empty strings");
@@ -370,7 +430,7 @@ function decodeMeasurementGaps(value: unknown): readonly string[] {
     "attributed_cost_usd",
   ]);
   for (const gap of gaps) {
-    if (gap === "unattributed_human_input") continue;
+    if (gap === "unattributed_human_input" || gap === "unknown_synthetic_marker") continue;
     const [reason, metricId, extra] = gap.split(":");
     if (
       extra !== undefined

@@ -59,6 +59,11 @@ closed.
 `postgres-flex` until the in-cluster profile has independent zone-loss, backup, point-in-time
 recovery, and upgrade evidence.
 
+When a deployment binds bounded temporal series, every product surface gets the same causal
+evidence path: Forseti's `CausalHypothesis` projection over the runtime ontology store and the Thor
+ActionRun receipt resolver. Causal revisions stay advisory evidence; they never select an add-on,
+satisfy an approval, or raise autonomy.
+
 Runtime, database, environment, fork status, and package presence do not select product add-ons. The shared immutable profile contains only explicit selections and `authority_granted: false`.
 The default constructs no Graph, approval, promotion-to-enforce, rollback, or privileged executor binding. A selected but incomplete add-on fails closed: `read-only-console` and
 `governed-execution` require `enterprise-identity-governance`, and every runtime carries the compiled profile to its own workloads so composition never diverges from the selection.
@@ -363,6 +368,11 @@ deployment. Document API and Worker use distinct workload identities, role-scope
 the shared ADLS account and the `fdai.pipeline.stages` entity. The Worker Pod includes the existing
 digest-pinned ClamAV image as a replica-local TCP sidecar. Its root remains read-only and only the
 declared database, run and temporary paths receive size-limited `emptyDir` volumes. The restricted namespace requires `runAsNonRoot` at both Pod and container scope for workloads, init containers, sidecars, and scheduled jobs; a Pod-level setting alone does not satisfy admission.
+
+The optional operational evidence verifier is a separate internal workload with its own user-assigned
+Managed Identity. It is not part of the baseline five-service readiness set, receives no executor
+identity, and starts only after its caller authenticator, executor-class anchor preflight, proof-store
+writer readback, and Azure own-role readback pass.
 
 Scheduled jobs use `concurrencyPolicy=Forbid`, one completion, one parallel worker, a bounded active deadline,
 a retry limit, and bounded history. Manual jobs require a separate approval and are not perpetual desired-state resources.

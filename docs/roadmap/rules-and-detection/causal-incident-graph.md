@@ -10,15 +10,6 @@ time-consistent graph while keeping execution authority in the existing control 
 > **Authority boundary:** A causal graph is evidence for a decision, not permission to act. The
 > rule verifier, safety check, approval policy, executor, and audit ledger remain authoritative.
 >
-> **Implementation status (2026-08-01):** The typed hypothesis lifecycle, weakest-link scoring,
-> bounded time-consistent graph materializer, support/refutation and closure links, immutable
-> ontology projector, lagged temporal analyzer, runtime coordinator, shadow control-loop caller,
-> independent closure classifier, and regression tests are implemented. The control loop analyzes
-> and audits in shadow but does not write the ontology as Forseti. Deployments bind bounded temporal
-> series, a Forseti-owned projection publisher, independent outcome provider, and causal receipt
-> resolver. Pre-routing temporal analysis has a bounded timeout, and only a scope- and time-matched
-> verified intervention receipt can confirm closure. No causal result grants execution.
-
 ## Design at a glance
 
 FDAI builds an incident subgraph as of one evidence cutoff, generates bounded root-cause
@@ -270,6 +261,11 @@ measures the effect after Thor executes or Loki's approved experiment runs. Clos
 observed direction, magnitude, affected set, and time window with those predictions.
 The verified intervention execution time must be strictly later than the hypothesis evidence
 cutoff. Equality remains inconclusive because the pre-intervention evidence window is not separated.
+An intervention receipt resolves only against Thor's durable ActionRun named by the closure. That
+run must have declared the hypothesis in `params.causal_hypothesis_ref` before it executed, left
+shadow mode, succeeded, and carry the exact execution-closure or effect-verification receipt. Its
+effect verification time must fall between the intervention execution and the independent
+observation. Any other receipt leaves the closure inconclusive.
 
 - **Confirmed:** Required effects match and prohibited effects do not occur.
 - **Refuted:** A required effect moves in the opposite direction or does not appear with complete
@@ -318,49 +314,16 @@ Implementation can proceed in independently testable slices:
 2. Project existing structured T1 causal chains into immutable hypothesis revisions.
 3. Add support/refutation query contracts and evidence-completeness scoring.
 4. Bind `IncidentMemberSource` and the dependency graph in production composition. Azure deployment
-   history now supplies the T1 change roots, while the broader temporal-series path remains open.
+   history supplies the T1 change roots. When a deployment binds bounded temporal series, the
+   runtime completes the path with Forseti's `CausalHypothesis` projection over its ontology store
+   and the Thor ActionRun receipt resolver unless the deployment supplies its own.
 5. Add independent closure from `ObservedOutcome` and demotion on refutation or unsafe impact.
 6. Feed eligible causal evidence into recovery and chaos promotion without raising autonomy.
-
-## Implementation status
-
-### Implementation scope
-
-| Area | State | Evidence | Notes |
-|------|-------|----------|-------|
-| Hypothesis lifecycle and ontology projection | implemented | `services/core-control-plane/src/fdai/core/rca/hypothesis.py`; `projection.py`; `tests/core/rca/test_hypothesis.py`; `test_hypothesis_lineage_projection.py` | Immutable revisions, closure states, and evidence-only graph projection are covered by focused tests. |
-| Time-consistent incident graph | implemented | `services/core-control-plane/src/fdai/core/rca/incident_graph.py`; `tests/core/rca/test_incident_graph.py` | Traversal is bounded by depth, count, time, and size and reports truncation. |
-| Candidate generation and causal scoring | implemented | `services/core-control-plane/src/fdai/core/rca/t0.py`; `t1.py`; `evidence.py`; `tests/core/rca/test_coordinator.py`; `test_evidence.py` | Deterministic candidates, weakest-link scoring, support, and refutation paths are implemented. |
-| Adaptive observation selection | implemented | `services/core-control-plane/src/fdai/core/rca/discrimination_contract.py`; `discrimination.py`; `tests/core/rca/test_discrimination.py` | Exact-frame candidates are content-addressed and ranked by pair separation without granting query or execution authority. |
-| Adaptive investigation session and review surface | implemented | `core/read_investigation/adaptive*.py`; `core/rca/discrimination_shadow.py`; `core/operational_learning/investigation_strategy*.py`; `core/operational_planning/investigation_handoff.py`; `runtime/adaptive_investigation_runtime.py`; Operator and Console Process projections | The integrated session is bounded, replay-stable, shadow-aware, authority-free, and visible through the existing authenticated Process route. This is implementation evidence, not a governed live validation claim. |
-| Shadow runtime and independent closure | implemented | `services/core-control-plane/src/fdai/core/rca/runtime.py`; `tests/core/rca/test_runtime.py`; `test_temporal_causality.py` | The upstream path remains shadow and evidence-only; no result grants execution authority. |
-| Grade demotion and shadow retention | implemented | `services/core-control-plane/src/fdai/core/rca/hypothesis.py` (`close_causal_hypothesis`, `causal_action_mode`); `runtime.py` (`CausalRuntimeResult.action_mode`); `tests/core/rca/test_hypothesis.py`; `test_runtime.py` | Unsafe and refuting closure lowers the grade to `association`, no closure except verified `confirmed` may raise a grade, and every unresolved or contested revision resolves to `shadow`. The runtime exposes the derived mode; no promotion or execution consumer binds it yet, because the causal path is still shadow-only. |
-| Azure T1 deployment binding | implemented | `delivery/azure/deployment_history.py`; `runtime/rca_bindings.py`; topology-history, Azure, runtime, and control-loop tests | Event-time inventory identity and bitemporal topology history produce one matching-generation Incident context. Canonical lifecycle matching, dedicated read identity, sovereign-cloud binding, and one complete deadline fail closed. |
-| Operational causal closure evidence | in-progress | [Delivery slices](#delivery-slices); current change source audit | Bounded temporal-series, publisher, outcome, and receipt seams still require deployment binding and governed closure receipts before validation can be claimed. |
-
-### Implementation history
-
-| Date | State | Change | Evidence | Remaining |
-|------|-------|--------|----------|-----------|
-| 2026-09-04 | implemented | Replaced startup-pinned T1 topology with one event-cutoff `IncidentRcaContext`. Historical inventory identity, append-only topology, lifecycle reopen intervals, and provider members must share one generation, while one timeout covers read, analysis, and audit. | `current change`; focused topology, provider, lifecycle, timeout, identity hydration, plan guard, Ruff, strict mypy, and Terraform checks. | Bind the broader temporal-series closure path and retain governed interventional evidence. |
-| 2026-09-04 | implemented | Added the Azure T1 change-root binding and current dependency-generation guard. Provider identity remains inside delivery, only successful exact-scope mutations become change events, and graph drift disables T1 instead of enabling unscoped correlation. | `current change`; focused deployment-history, dependency-generation, member-source, and control-loop tests (`28 passed`), Ruff, and strict mypy. | Bind the broader temporal-series closure path and retain governed interventional evidence. |
-| 2026-08-14 | in-progress | Adopted the implementation ledger without reconstructing earlier provenance. | `current change`; current source and focused tests listed in the scope table. | Bind the production evidence path and retain governed interventional closure evidence. |
-| 2026-08-16 | implemented | Made unsafe closure demote the evidence grade, blocked any non-confirmed closure from raising a grade, and added the deterministic `causal_action_mode` derivation that keeps refuted, unsafe, inconclusive, contested, and weakly graded revisions in `shadow`. | `current change`; `services/core-control-plane/src/fdai/core/rca/hypothesis.py`; `services/core-control-plane/tests/core/rca/test_hypothesis.py`; focused run `pytest services/core-control-plane/tests/core/rca` passed 215 tests. | Bind the deployment evidence path and retain one governed interventional replay. |
-| 2026-08-16 | implemented | Exposed the derived mode as `CausalRuntimeResult.action_mode` so the shadow decision is observable on the runtime path, and qualified the scope row: no promotion or execution consumer binds the mode yet. | `current change`; `services/core-control-plane/src/fdai/core/rca/runtime.py`; `services/core-control-plane/tests/core/rca/test_runtime.py`; focused run `pytest services/core-control-plane/tests/core/rca` passed 216 tests. | Bind the deployment evidence path and retain one governed interventional replay. |
-| 2026-08-30 | implemented | Added replay-stable adaptive observation selection over exact-frame, pre-verified read-only candidates. Selection maximizes hypothesis-pair separation, records stale or incomplete candidates, and returns authority-free selected or held receipts. | `current change`; `services/core-control-plane/src/fdai/core/rca/discrimination_contract.py`; `discrimination.py`; focused discriminator tests, Ruff, and strict mypy. | Bind candidate production to the verified ontology query path and retain governed investigation evidence before claiming operational validation. |
-| 2026-08-30 | implemented | Added the bounded adaptive investigation runtime, Process journal, exact verified-query gateway, active/challenger comparison, Norns-to-Mimir inert strategy review path, separate planning proposal, Operator projection, and Console Investigation Room. | `current change`; focused core, agent, runtime, Operator, Console, and Playwright checks. | Bind deployment-owned candidate and revision sources and retain governed live evidence before selector promotion. |
-| 2026-08-30 | implemented | Completed 22 tracked critique and hardening rounds plus a final independent release review. The rounds hardened immutable identity, deadlines, cancellation, query authority, Process replay, shadow isolation, learning cohorts, planning handoff, Operator projection, Console overflow, large-result hashing, cold import, and at-least-once deduplication until only Low or no findings remained. | `current change`; 646 Core tests, 46 Operator tests, 19 Console tests, three Playwright viewport scenarios, Ruff, strict mypy, and the final task-only review. | Retain governed live evidence before selector promotion; local implementation evidence does not claim deployed validation. |
-
-### Remaining work
-
-- [ ] Bind bounded temporal series, the Forseti-owned projection publisher, independent outcomes, and causal receipt resolution in a deployment integration test.
-- [ ] Retain one governed replay that proves a verified intervention closes or refutes a hypothesis without granting action authority.
-- [x] Unsafe or refuting evidence lowers the hypothesis grade and keeps the related action or experiment in `shadow`, evidenced by `close_causal_hypothesis` and `causal_action_mode` in `services/core-control-plane/src/fdai/core/rca/hypothesis.py` and the focused cases in `services/core-control-plane/tests/core/rca/test_hypothesis.py`.
-
 ## Related docs
 
 | To learn about | Read |
 |----------------|------|
+| Delivery status and remaining work | [Implementation ledger](../../roadmap-implementation/rules-and-detection/causal-incident-graph.md) |
 | Shared operational objects and ownership | [FDAI Operating Ontology](../architecture/operating-ontology.md) |
 | Detection, correlation, and current RCA | [Observability and Detection](observability-and-detection.md) |
 | Action safety and execution contracts | [Action Ontology](../decisioning/action-ontology.md) |

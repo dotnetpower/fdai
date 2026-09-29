@@ -1,8 +1,8 @@
 ---
 title: 인과 incident graph
 translation_of: causal-incident-graph.md
-translation_source_sha: ac4cc8800a6f22b81dc13455ba712ab13d7fae79
-translation_revised: 2026-09-16
+translation_source_sha: c07e9533cda945f1d7451f89496fedc6419bc271
+translation_revised: 2026-09-29
 ---
 # 인과 인시던트 그래프
 
@@ -13,15 +13,6 @@ Event 상관관계와 root-cause analysis(RCA)를 온톨로지 기반의 time-co
 > **권한 경계:** Causal 그래프는 결정을 위한 근거이며 실행 허가가 아닙니다. Rule 검증기,
 > 안전성 검사, 승인 정책, 실행기, 감사 원장이 계속 권한을 가집니다.
 >
-> **구현 상태(2026-08-01):** 타입이 지정된 가설 수명 주기, weakest-link 채점, 범위가 제한된
-> time-consistent 그래프 materializer, support/refutation 및 종결 링크, 변경할 수 없는 온톨로지
-> projector, lagged temporal analyzer, 런타임 조정기, shadow control-loop 호출자,
-> 독립적인 종결 classifier 및 회귀 테스트를 구현했습니다. 컨트롤 루프는 shadow에서
-> 분석하고 감사하지만 Forseti 대신 온톨로지를 쓰지 않습니다. 배포는 범위가 제한된 temporal
-> series, Forseti-owned 변환 결과 발행기, 독립적인 결과 프로바이더, causal 증적 해석기를
-> 연결합니다. Pre-routing temporal analysis에는 범위가 제한된 시간 초과가 있으며 범위와 시간이 일치하는
-> 검증된 intervention 증적만 종결을 confirm할 수 있습니다. Causal 결과는 실행을 허가하지 않습니다.
-
 ## 설계 개요
 
 FDAI는 하나의 근거 기준 시점을 기준으로 인시던트 subgraph를 구성하고, 범위가 제한된 root-cause
@@ -266,6 +257,11 @@ Refuting 근거가 도착하면 근거 grade가 낮아질 수 있습니다. 낮�
 관찰된 direction, magnitude, affected 집합, 시간 구간을 prediction과 비교합니다.
 검증된 intervention 실행 시간은 가설 근거 기준 시점보다 엄격히 이후여야 합니다.
 같은 시각이면 pre-intervention 근거 구간이 분리되지 않았으므로 inconclusive입니다.
+개입 영수증은 종결이 지정한 Thor의 영속 ActionRun에 대해서만 확인됩니다. 해당 실행은
+실행 전에 `params.causal_hypothesis_ref`에 가설을 선언했고, shadow 모드를 벗어났고,
+성공했으며, 정확한 실행 종결 또는 효과 검증 영수증을 가져야 합니다. 효과 검증 시각은
+개입 실행과 독립 관측 사이에 있어야 합니다. 그 밖의 영수증이면 종결은 inconclusive로
+남습니다.
 
 - **Confirmed:** 필수 효과가 일치하고 prohibited 효과가 발생하지 않았습니다.
 - **Refuted:** 완전한 텔레메트리에서 필수 효과가 반대 방향으로 움직이거나 나타나지
@@ -313,52 +309,19 @@ Causal 경로는 불확실할 때 더 안전한 결과를 선택합니다.
 1. `CausalHypothesis`와 7개 LinkType을 로더 및 competency-query 테스트와 함께 추가합니다.
 2. 기존 구조화된 T1 causal 체인을 변경할 수 없는 가설 개정 번호로 project합니다.
 3. Support/refutation 조회 계약과 evidence-completeness 채점을 추가합니다.
-4. 운영 조립에 `IncidentMemberSource`와 의존성 그래프를 연결합니다. 이제 Azure 배포 이력이
-   T1 변경 root를 제공하며 더 넓은 시계열 경로는 계속 남아 있습니다.
+4. 운영 조립에 `IncidentMemberSource`와 의존성 그래프를 연결합니다. Azure 배포 이력이
+   T1 변경 root를 제공합니다. 배포가 범위가 제한된 시계열을 연결하면, 배포가 자체 구현을
+   제공하지 않는 한 런타임이 온톨로지 저장소 위의 Forseti `CausalHypothesis` 투영과 Thor
+   ActionRun 영수증 확인기로 경로를 완성합니다.
 5. `ObservedOutcome`의 독립적인 종결과 refutation 또는 unsafe 영향에 따른 demotion을
    추가합니다.
 6. 자율성을 높이지 않으면서 조건을 충족한 causal 근거를 복구와 chaos 승격에
    제공합니다.
-
-## 구현 상태
-
-### 구현 범위
-
-| 영역 | 상태 | 근거 | 참고 |
-|------|------|------|------|
-| 가설 수명 주기 및 온톨로지 변환 결과 | implemented | `services/core-control-plane/src/fdai/core/rca/hypothesis.py`; `projection.py`; `tests/core/rca/test_hypothesis.py`; `test_hypothesis_lineage_projection.py` | 불변 수정본, 종결 상태, 근거 전용 그래프 변환 결과를 집중 테스트로 검증합니다. |
-| Time-consistent 인시던트 그래프 | implemented | `services/core-control-plane/src/fdai/core/rca/incident_graph.py`; `tests/core/rca/test_incident_graph.py` | 탐색은 깊이, 개수, 시간, 크기로 제한되며 잘림을 보고합니다. |
-| 후보 생성 및 causal 채점 | implemented | `services/core-control-plane/src/fdai/core/rca/t0.py`; `t1.py`; `evidence.py`; `tests/core/rca/test_coordinator.py`; `test_evidence.py` | 결정론적 후보, 최약 연결 채점, 지지 및 반증 경로가 구현되어 있습니다. |
-| 적응형 관측 선택 | implemented | `services/core-control-plane/src/fdai/core/rca/discrimination_contract.py`; `discrimination.py`; `tests/core/rca/test_discrimination.py` | 정확한 프레임에 속한 후보를 내용 기반 주소로 식별하고, 조회 또는 실행 권한을 부여하지 않은 채 가설 쌍 구분 능력으로 순위를 정합니다. |
-| 적응형 조사 세션 및 검토 화면 | implemented | `core/read_investigation/adaptive*.py`; `core/rca/discrimination_shadow.py`; `core/operational_learning/investigation_strategy*.py`; `core/operational_planning/investigation_handoff.py`; `runtime/adaptive_investigation_runtime.py`; Operator 및 Console Process 변환 결과 | 통합 세션은 범위가 제한되고 재생 가능하며 shadow 비교를 지원하고 권한을 부여하지 않습니다. 기존 인증된 Process 경로에서 확인할 수 있습니다. 이는 구현 근거이며 관리되는 실시간 검증 주장이 아닙니다. |
-| Shadow 런타임 및 독립 종결 | implemented | `services/core-control-plane/src/fdai/core/rca/runtime.py`; `tests/core/rca/test_runtime.py`; `test_temporal_causality.py` | 업스트림 경로는 shadow 및 근거 전용으로 유지되며 어떤 결과도 실행 권한을 부여하지 않습니다. |
-| 등급 demotion 및 shadow 유지 | implemented | `services/core-control-plane/src/fdai/core/rca/hypothesis.py`(`close_causal_hypothesis`, `causal_action_mode`); `runtime.py`(`CausalRuntimeResult.action_mode`); `tests/core/rca/test_hypothesis.py`; `test_runtime.py` | 안전하지 않거나 반증하는 종결은 등급을 `association`으로 낮추고, 검증된 `confirmed` 외에는 어떤 종결도 등급을 올릴 수 없으며, 확정되지 않았거나 다투는 개정 번호는 모두 `shadow`로 귀결됩니다. 런타임은 도출된 모드를 노출하지만, causal 경로가 아직 shadow 전용이므로 승격이나 실행 소비자는 연결되어 있지 않습니다. |
-| Azure T1 배포 연결 | implemented | `delivery/azure/deployment_history.py`, `runtime/rca_bindings.py`, topology history, Azure, 런타임 및 control-loop 테스트 | Event-time 인벤토리 신원과 bitemporal topology history가 세대가 일치하는 Incident 맥락 하나를 만듭니다. Canonical lifecycle 매칭, 전용 읽기 신원, sovereign cloud 연결 및 전체 deadline이 실패 시 차단됩니다. |
-| 운영 인과 종결 근거 | in-progress | [전달 구획](#전달-구획), 현재 변경의 소스 감사 | 검증 완료를 주장하려면 범위가 제한된 시계열, 게시자, 결과 및 증적 경계를 배포에서 연결하고 관리되는 종결 증적을 보존해야 합니다. |
-
-### 구현 이력
-
-| 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
-|------|------|------|------|-----------|
-| 2026-09-04 | implemented | Startup에 고정된 T1 topology를 이벤트 기준 시각의 `IncidentRcaContext`로 교체했습니다. Historical 인벤토리 신원, append-only topology, lifecycle 재개 구간 및 프로바이더 멤버는 한 세대를 공유해야 하며, 하나의 timeout이 읽기, 분석 및 감사를 포함합니다. | `current change`; 집중 topology, 프로바이더, lifecycle, timeout, identity hydration, plan guard, Ruff, strict mypy 및 Terraform 검사. | 더 넓은 시계열 종결 경로를 연결하고 관리되는 개입 근거를 보존합니다. |
-| 2026-09-04 | implemented | Azure T1 변경 root 연결과 현재 의존성 세대 보호를 추가했습니다. 프로바이더 신원은 delivery 안에 유지하고 성공한 정확한 범위의 변경만 변경 이벤트가 되며, 그래프가 바뀌면 범위 없는 상관관계를 허용하지 않고 T1을 비활성화합니다. | `current change`; 집중 배포 이력, 의존성 세대, 멤버 출처 및 control-loop 테스트 28건, Ruff, strict mypy가 통과했습니다. | 더 넓은 시계열 종결 경로를 연결하고 관리되는 개입 근거를 보존합니다. |
-| 2026-08-14 | in-progress | 이전 출처를 재구성하지 않고 구현 원장을 도입했습니다. | `current change`; 구현 범위 표의 현재 소스와 집중 테스트. | 운영 근거 경로를 연결하고 관리되는 개입 종결 근거를 보존합니다. |
-| 2026-08-16 | implemented | 안전하지 않은 종결이 근거 등급을 낮추도록 만들고, `confirmed`가 아닌 종결이 등급을 올리지 못하게 막았으며, 반증·안전하지 않음·미확정·다툼·낮은 등급 개정 번호를 `shadow`에 유지하는 결정론적 `causal_action_mode` 도출을 추가했습니다. | `current change`; `services/core-control-plane/src/fdai/core/rca/hypothesis.py`; `services/core-control-plane/tests/core/rca/test_hypothesis.py`; 집중 실행 `pytest services/core-control-plane/tests/core/rca` 215개 통과. | 배포 근거 경로를 연결하고 관리되는 개입 재현 기록 하나를 보존합니다. |
-| 2026-08-16 | implemented | 도출된 모드를 `CausalRuntimeResult.action_mode`로 노출해 shadow 판단을 런타임 경로에서 관찰할 수 있게 했고, 아직 어떤 승격·실행 소비자도 이 모드를 연결하지 않는다는 점을 구현 범위 행에 명시했습니다. | `current change`; `services/core-control-plane/src/fdai/core/rca/runtime.py`; `services/core-control-plane/tests/core/rca/test_runtime.py`; 집중 실행 `pytest services/core-control-plane/tests/core/rca` 216개 통과. | 배포 근거 경로를 연결하고 관리되는 개입 재현 기록 하나를 보존합니다. |
-| 2026-08-30 | implemented | 정확한 프레임에 속하고 미리 검증된 읽기 전용 후보를 대상으로 재생 가능한 적응형 관측 선택을 추가했습니다. 선택기는 가설 쌍 구분 능력을 최대화하고, 오래되었거나 불완전한 후보를 기록하며, 권한이 없는 선택 또는 보류 증적을 반환합니다. | `current change`; `services/core-control-plane/src/fdai/core/rca/discrimination_contract.py`; `discrimination.py`; 판별 선택기 집중 테스트, Ruff 및 strict mypy. | 운영 검증을 주장하기 전에 후보 생성을 검증된 온톨로지 조회 경로에 연결하고 관리되는 조사 근거를 보존합니다. |
-| 2026-08-30 | implemented | 범위가 제한된 적응형 조사 런타임, Process journal, 정확한 검증 조회 게이트웨이, 활성 및 도전 선택기 비교, Norns에서 Mimir로 이어지는 비활성 전략 검토 경로, 별도 계획 제안, Operator 변환 결과 및 Console 조사 공간을 추가했습니다. | `current change`; 집중 core, agent, runtime, Operator, Console 및 Playwright 검사. | 선택기를 승격하기 전에 배포 소유 후보 및 개정 번호 소스를 연결하고 관리되는 실시간 근거를 보존합니다. |
-| 2026-08-30 | implemented | 추적된 비평 및 하드닝 22라운드와 최종 독립 release 검토를 완료했습니다. 변경할 수 없는 신원, 마감, 취소, 조회 권한, Process 재생, shadow 격리, 학습 집단, 계획 전달, Operator 변환 결과, Console 오버플로, 대규모 결과 해시, cold import 및 at-least-once 중복 제거를 Low 이하의 결과만 남을 때까지 보강했습니다. | `current change`; Core 테스트 646개, Operator 테스트 46개, Console 테스트 19개, Playwright viewport 시나리오 3개, Ruff, strict mypy 및 최종 작업 범위 검토. | 선택기를 승격하기 전에 관리되는 실시간 근거를 보존합니다. 로컬 구현 근거는 배포 검증을 의미하지 않습니다. |
-
-### 남은 작업
-
-- [ ] 범위가 제한된 시계열, Forseti 소유 변환 결과 게시자, 독립 결과, causal 증적 해석을 배포 통합 테스트에서 연결합니다.
-- [ ] 검증된 개입이 실행 권한을 부여하지 않으면서 가설을 확정하거나 반증하는 관리되는 재현 기록 하나를 보존합니다.
-- [x] 안전하지 않거나 반증하는 근거가 가설 등급을 낮추고 관련 작업 또는 실험을 `shadow`로 유지합니다. 근거는 `services/core-control-plane/src/fdai/core/rca/hypothesis.py`의 `close_causal_hypothesis`와 `causal_action_mode`, 그리고 `services/core-control-plane/tests/core/rca/test_hypothesis.py`의 집중 사례입니다.
-
 ## 관련 문서
 
 | 알아볼 내용 | 문서 |
 |-------------|------|
+| 구현 상태 및 남은 작업 | [구현 원장](../../roadmap-implementation/rules-and-detection/causal-incident-graph.md) |
 | 공유 operational 객체와 소유권 | [FDAI 운영 온톨로지](../architecture/operating-ontology-ko.md) |
 | Detection, 상관관계 및 현재 RCA | [관측성 및 감지](observability-and-detection-ko.md) |
 | 액션 안전성과 실행 계약 | [액션 온톨로지](../decisioning/action-ontology-ko.md) |

@@ -10,36 +10,6 @@ mixed-family review, durable deduplication, governed routing, and read-only oper
 
 > **Scope:** The review proposes operator memory, runtime skills, or rule hints. It never changes
 > runtime behavior, grants authority, approves its own output, or delays the completed response.
-
-## Implementation status
-
-### Implementation scope
-
-| Area | State | Evidence | Notes |
-|------|-------|----------|-------|
-| Eligibility and bounded input contract | implemented | [`test_eligibility.py`](../../../services/core-control-plane/tests/core/learning/test_eligibility.py), [`test_norns_post_turn.py`](../../../services/core-control-plane/tests/agents/test_norns_post_turn.py) | Consent, producer ownership, evidence bounds, and deterministic eligibility have focused coverage. |
-| Independent review and governed routing | implemented | [`test_consensus.py`](../../../services/core-control-plane/tests/core/learning/test_consensus.py), [`test_routing.py`](../../../services/core-control-plane/tests/core/learning/test_routing.py), [`test_workshop.py`](../../../services/core-control-plane/tests/core/skills/test_workshop.py), [`test_postgres_skill_proposal.py`](../../../services/core-control-plane/tests/persistence/test_postgres_skill_proposal.py) | Exact mixed-family agreement routes only inert memory, skill, or rule-hint drafts. Skill drafts bind canonical verified evidence references into proposal identity, durable storage, and audit events. |
-| Durable deduplication and runtime wiring | implemented | [`test_service.py`](../../../services/core-control-plane/tests/core/learning/test_service.py), [`test_post_turn_review.py`](../../../services/core-control-plane/tests/runtime/test_post_turn_review.py) | Terminal records and duplicate suppression are tested without delaying the response path. |
-| Bragi publisher boundary | implemented | `agents/_framework/bragi_publication.py`; `test_bragi_publications.py`; `test_norns_post_turn.py` | A validated `PostTurnReviewInput` becomes one Bragi-owned `object.post-turn-review` envelope and reaches Norns off path. The deployed Operator queue binding remains open. |
-| Operational scenario evidence | in-progress | [Verification](#verification) | Focused mechanics exist, but the three end-to-end learning scenarios and deployed multi-service receipts are not retained here. |
-
-### Implementation history
-
-| Date | State | Change | Evidence | Remaining |
-|------|-------|--------|----------|-----------|
-| 2026-09-20 | implemented | Added the typed Bragi publisher for consent-filtered `PostTurnReviewInput` and corrected the canonical transport topic from `object.turn` to `object.post-turn-review`. | `current change`; focused Bragi ownership and Norns intake checks. | Bind the deployed Operator non-blocking queue to this publisher and retain restart-safe duplicate-delivery evidence. |
-| 2026-09-12 | implemented | Extracted and tested the production bootstrap binding that places Norns post-turn rule hints behind the current discovery-activation publication gate. | `current change`; focused bootstrap binding checks (`2 passed`). | Retain the full Bragi envelope scenario and deployed duplicate-delivery receipt. |
-| 2026-09-12 | implemented | Bound verified post-turn evidence references into runtime skill draft identity, Operator-owned PostgreSQL persistence, restart readback, and audit metadata without activating the skill. | `current change`; migration `operator_skill_proposal_evidence_20260912`; focused skill, routing, and PostgreSQL checks (`12 passed`). | Retain bootstrap-composed scenario evidence and deployed duplicate-delivery receipts. |
-| 2026-08-14 | in-progress | Adopted the implementation ledger without reconstructing earlier provenance. | `current change`; current source and focused tests listed in the scope table. | Retain end-to-end scenario and deployed transport evidence. |
-
-### Remaining work
-
-- [ ] Retain end-to-end evidence for complex-tool recovery, explicit-correction discovery, and
-  repeated-procedure rule-hint routing with no active-policy mutation.
-- [ ] Retain a deployed Bragi-to-Norns transport and restart receipt proving duplicate delivery
-  produces one terminal review record.
-- [ ] Bind the deployed Operator non-blocking queue to Bragi's typed post-turn publisher.
-
 ## Design at a glance
 
 Bragi publishes one bounded completed-turn envelope on `object.post-turn-review`. Norns,
@@ -70,7 +40,8 @@ not part of the contract.
 
 Bragi remains the single writer of `object.post-turn-review`. Its typed publisher accepts only an
 already validated, consent-filtered `PostTurnReviewInput`. The Operator API must submit to a bounded
-queue and call that boundary; it does not instantiate a reviewer or label itself as Bragi or Norns.
+queue that publishes an Operator-owned request; Core ingress calls the Bragi boundary. The Operator
+does not instantiate a reviewer or label itself as Bragi or Norns.
 
 Norns subscribes to consent-filtered `post_turn_review` envelopes on `object.post-turn-review`. It rejects an
 envelope whose `producer_principal` is not `Bragi`, strictly parses the review mapping, and invokes
@@ -80,6 +51,11 @@ Azure transport sends every Pantheon logical object topic through the configured
 topic with `MultiplexedEventBus`. The headless runtime and Operator API therefore share the same
 logical-to-physical mapping. Process-local transport keeps the same logical contract without
 inventing Azure evidence.
+Production Operator composition now offers terminal answered semantic turns to a bounded
+asynchronous post-turn queue, which publishes an Operator-owned
+`operator.post-turn-review.requests` envelope through the configured semantic transport without
+blocking turn projection. Core consumes that request, validates it, and invokes Bragi's typed
+publisher so only Bragi writes `object.post-turn-review`.
 
 ## Eligibility
 
@@ -178,6 +154,7 @@ layout. The repository gate remains `scripts/verify.sh`.
 
 | To learn about | Read |
 |----------------|------|
+| Delivery status and remaining work | [Implementation ledger](../../roadmap-implementation/decisioning/post-turn-improvement-review.md) |
 | Pantheon ownership and topics | [Agent Pantheon](../agents/agent-pantheon.md) |
 | Operator memory and runtime skills | [Prompt Composition](prompt-composition.md) |
 | Consent and conversation persistence | [Operator Console](../interfaces/operator-console.md) |

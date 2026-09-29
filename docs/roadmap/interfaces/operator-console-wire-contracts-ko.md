@@ -1,8 +1,8 @@
 ---
 title: Operator Console - Data and Wire Contracts
 translation_of: operator-console-wire-contracts.md
-translation_source_sha: 94beb66c99ffbbe9a8894d971523c26b87bea97b
-translation_revised: 2026-09-29
+translation_source_sha: 35b3687591dc9b639b43f20ef24ce6d4bf09f6ab
+translation_revised: 2026-09-30
 ---
 
 # Operator Console - 데이터 and Wire Contracts
@@ -132,7 +132,14 @@ receipt 없이 `semantic_evidence_incomplete`로 보류됩니다. 따라서 최�
 참조를 인용하지 않습니다. 256자 한도는 Core `SemanticTurnResult` 계약에서 정합니다. 이 한도는 게시된
 `core-operator-projection` JSON 스키마 1.2.0부터 1.7.0까지의 `semantic_result.evidence_refs` 항목
 한도인 512자보다 엄격합니다. 따라서 해당 스키마가 허용하는 257자에서 512자 사이의 참조도 Core는
-`semantic_evidence_incomplete`로 보류합니다.
+`semantic_evidence_incomplete`로 보류합니다. Operator는 받은 모든 결과를 같은 공유 `SemanticTurnResult`
+모델로 검증하므로 257자 참조도 거부합니다. 게시된 스키마 한도는 다음 `core-operator-projection`
+버전에서 좁힙니다.
+Operator는 영속 투영 전에 Core의 약속값을 검증합니다. 공유 `fdai_service_contracts.semantic_projection`
+함수로 의미 결과에 대한 `evidence_digest`, Pantheon 보증 턴이면 평가, trace receipt, Pantheon 진단에
+대한 `evidence_digest`를 다시 계산하고, 내용에 결속된 `projection_id`도 다시 계산합니다. 결과, 매니페스트,
+receipt 또는 payload가 더 이상 일치하지 않는 투영은 격리되며 렌더링되지 않습니다. Operator가 직접 만든
+보류 투영에는 Core의 약속값이 없으므로 보류 상태만 허용하는 별도 로컬 경로를 사용합니다.
 Core는 의미 요청 결속, 인시던트 근거 변환, 현지화된 인시던트 답변 렌더링을 전용 모듈에
 유지하며 의미 턴 프로세서는 조정을 계속 담당합니다. 이 분리는 모든 wire 필드, 행 한도,
 로케일, 근거 참조 및 권한 없음 값을 보존합니다.

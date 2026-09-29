@@ -965,18 +965,29 @@ def test_runner_scripts_fail_before_external_commands_without_authority() -> Non
 @pytest.mark.parametrize(
     ("driver", "reason"),
     [
-        ("measure-detection-latency.py", "raw_injection_driver_retired"),
+        ("measure-detection-latency.py", "governed_execution_unbound"),
     ],
 )
-def test_raw_reference_drivers_refuse_live_runs_until_ported(driver: str, reason: str) -> None:
+def test_catalog_drivers_refuse_live_runs_without_governed_bindings(
+    driver: str,
+    reason: str,
+    tmp_path: Path,
+) -> None:
     script = REPO_ROOT / "scripts" / "catalog" / driver
+    # The refusal report is written under the working directory, so keep it out of the checkout.
     result = subprocess.run(  # noqa: S603 - fixed repository script and interpreter.
-        [sys.executable, str(script), "aks-pod-kill"],
-        cwd=REPO_ROOT,
+        [sys.executable, str(script), "--scenario", "aks-pod-kill", "--confirm-enforce"],
+        cwd=tmp_path,
         capture_output=True,
         text=True,
         check=False,
-        env={"PATH": os.environ.get("PATH", "")},
+        env={
+            "PATH": os.environ.get("PATH", ""),
+            "PYTHONPATH": (
+                f"{REPO_ROOT / 'services' / 'core-control-plane' / 'src'}:"
+                f"{REPO_ROOT / 'packages' / 'service-contracts' / 'src'}"
+            ),
+        },
     )
 
     refusal = json.loads(result.stderr)
@@ -984,7 +995,7 @@ def test_raw_reference_drivers_refuse_live_runs_until_ported(driver: str, reason
     assert refusal["outcome"] == "refused"
     assert refusal["reason"] == reason
     assert refusal["mutation_attempted"] is False
-    assert "GovernedChaosExecutionAdapter" in refusal["detail"]
+    assert "fdai.governed_chaos" in refusal["detail"]
     assert result.stdout == ""
 
 

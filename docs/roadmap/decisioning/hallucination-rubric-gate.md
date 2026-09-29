@@ -11,35 +11,6 @@ verifier stays the sole execution authority. This doc specifies the design and
 its DI seams; it extends the T2 gate rules in
 [llm-strategy.md](../architecture/llm-strategy.md) and
 [phase-2-quality-and-t1.md](../phases/phase-2-quality-and-t1.md).
-
-## Implementation status
-
-### Implementation scope
-
-| Area | State | Evidence | Notes |
-|------|-------|----------|-------|
-| Rubric reduction and subtractive gate behavior | implemented | [`rubric.py`](../../../services/core-control-plane/src/fdai/core/quality_gate/rubric.py), [`gate.py`](../../../services/core-control-plane/src/fdai/core/quality_gate/gate.py), [`test_rubric_gate.py`](../../../services/core-control-plane/tests/core/quality_gate/test_rubric_gate.py) | Focused checks prove complete criterion coverage, fail-closed outcomes, shadow isolation, and `min()`-only confidence folding. |
-| Independent judge and prompt catalog constraints | implemented | [`llm_resolver.py`](../../../services/core-control-plane/src/fdai/rule_catalog/schema/llm_resolver.py), [`t2-rubric.v1.yaml`](../../../rule-catalog/prompts/base/t2-rubric.v1.yaml), [`test_mixed_model_cross_check.py`](../../../services/core-control-plane/tests/quality_gate/test_mixed_model_cross_check.py) | Resolver checks prevent a resolved rubric judge from sharing the primary reasoner's publisher, and catalog checks bind the prompt to the rubric capability. |
-| Runtime binding and control-loop audit projection | implemented | [`control_loop.py`](../../../services/core-control-plane/src/fdai/runtime/control_loop.py), [`_audit_helpers.py`](../../../services/core-control-plane/src/fdai/core/control_loop/_audit_helpers.py), [`test_control_loop_rubric_audit.py`](../../../services/core-control-plane/tests/core/test_control_loop_rubric_audit.py) | An end-to-end consultation with a bound rubric evaluator persists bounded `rubric_*` provenance in the `control_loop.t2_evaluate` row while the judge's rationale stays excluded. |
-| Azure judge adapter and strict response parsing | implemented | [`rubric.py`](../../../services/core-control-plane/src/fdai/delivery/azure/llm/rubric.py), [`test_rubric.py`](../../../services/core-control-plane/tests/delivery/azure/llm/test_rubric.py) | Mocked transport checks cover configuration-owned thresholds, strict parsing, and malformed-response failure. They are not real-model evidence. |
-| Self-consistency cascade integration | implemented | [`self_consistency.py`](../../../services/core-control-plane/src/fdai/core/quality_gate/self_consistency.py), [`tier.py`](../../../services/core-control-plane/src/fdai/core/tiers/t2_reasoning/tier.py), [`test_tier.py`](../../../services/core-control-plane/tests/core/tiers/t2_reasoning/test_tier.py), [`test_self_consistency_binding.py`](../../../services/core-control-plane/tests/runtime/test_self_consistency_binding.py) | `SelfConsistencyCascade` is an optional T2 binding built from `llm.self_consistency_*` configuration. An unstable result reaches the quality decision and audit record but holds the tier outcome at escalate. |
-| Metric-driven promotion and operational validation | not-started | [Promotion metrics](#promotion-metrics), [Limits](#limits-what-this-does-not-do) | The repository has no automatic rubric promotion registry or governed shadow receipt proving catch rate, false-positive rate, latency, token cost, and zero policy escapes on a pinned revision. |
-
-### Implementation history
-
-| Date | State | Change | Evidence | Remaining |
-|------|-------|--------|----------|-----------|
-| 2026-08-13 | in-progress | Adopted an evidence-bounded implementation ledger without reconstructing earlier delivery history. | `current change`; current source and focused checks listed in the scope table; rubric-focused checks passed 103 cases. | Wire the self-consistency cascade, prove end-to-end audit persistence, and retain governed shadow and promotion evidence. |
-| 2026-08-14 | implemented | Invoked the self-consistency cascade from the production T2 path behind opt-in configuration, and proved end-to-end rubric provenance persistence without untrusted rationale. | `current change`; `tier.py`, `self_consistency.py`, `control_loop.py`, `models.py`; focused checks passed 172 quality-gate and T2 cases, 3 control-loop audit cases, and 11 runtime binding cases; task-scoped Ruff and strict mypy passed. | Retain governed shadow receipts for catch rate, false-positive rate, latency, token cost, and zero escapes, then decide the promotion transition. |
-| 2026-08-16 | implemented | Corrected a safety-relevant description, not behavior. This document and the `gate.py` module docstring both described a path where a debate `PROCEED` resolves a cross-check disagreement. No such path exists: `cross_check_below_quorum` is never removed from `reasons`, so the outcome is unconditionally `DISAGREE`. Reading either text as a specification would have invited an implementer to flip `DISAGREE` to `ELIGIBLE` and weaken the mixed-model safeguard. | `current change`; `gate.py` outcome selection reads `if any(r.startswith("cross_check_below_quorum") ...)` before any other branch; `test_debate_proceed_keeps_disagreement_for_human_review` already asserts `DISAGREE` and the retained reason. | None for this correction. |
-
-### Remaining work
-
-- [x] The production T2 path invokes the cascade when `llm.self_consistency_samples` is positive; focused tests prove an unstable result reaches the quality decision and audit record while the tier outcome is held at escalate.
-- [x] An end-to-end control-loop test binds a rubric evaluator and proves bounded `rubric_*` provenance is persisted while untrusted rationale stays excluded.
-- [ ] Evaluate a pinned baseline and treatment on a frozen labeled scenario set, then retain governed receipts for hallucination-catch rate, false-positive rate, added latency, token cost, and zero policy-violation escapes.
-- [ ] Implement metric-driven shadow promotion and regression demotion, or record an approved decision that keeps this transition manual, before changing the default shadow posture.
-
 ## Why a rubric leg
 
 The existing quality gate already blocks most hallucination with four legs:
@@ -277,10 +248,18 @@ cannot make an ungrounded action safe. Residual softness (some now mitigated):
   threshold. This is a deliberate simplification: `min()` only ever lowers, so
   the axis mismatch cannot raise eligibility - but a fork tuning the threshold
   should know both feed it.
-- **No automatic promotion registry.** Unlike ActionTypes (which have a
-  `promotion_gate` evaluated by `ActionPromotionRegistry`), the rubric's
-  shadow -> enforce transition is a manual `QualityGateConfig.rubric_shadow`
-  flip. Automatic, metric-driven promotion / demotion is future work.
+- **Receipt-driven promotion, per ActionType.** `QualityGateConfig.rubric_shadow`
+  is the deployment ceiling: while it forces shadow, nothing lifts the rubric
+  leg. Below the ceiling, a bound `RubricPromotionRegistry` decides the leg's
+  mode per ActionType. It enforces only when that ActionType already enforces
+  and a current, independently verified rubric receipt binds the same
+  revision, scenario set, and ActionType identity. A missing, expired,
+  rejected, mismatched, or regressed receipt, or a resolver error, keeps or
+  returns the leg to shadow, and the audit records the resolver's reason.
+  The production runtime binds the registry, and lowers the ceiling, only
+  when the deployment supplies the receipt source and verifier pair; without
+  that pair the leg stays in shadow. A fork that builds `QualityGate`
+  without a resolver keeps the configured mode.
 - **Real-model contract is prompt-enforced, not schema-enforced.** Tests use
   httpx mocks; `response_format=json_object` guarantees valid JSON, not the
   rubric schema. The adapter's strict parser + `RubricScore` validation catch a
@@ -333,3 +312,9 @@ needed for a later promotion decision.
 | Where the gate sits in the phase plan | [phases/phase-2-quality-and-t1.md](../phases/phase-2-quality-and-t1.md) |
 | The prompt catalog and role x layer matrix | [prompt-composition.md](prompt-composition.md) |
 | The untrusted-input threat model | [security-and-identity.md](../architecture/security-and-identity.md) |
+
+## Related docs
+
+| To learn about | Read |
+|----------------|------|
+| Delivery status and remaining work | [Implementation ledger](../../roadmap-implementation/decisioning/hallucination-rubric-gate.md) |

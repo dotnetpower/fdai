@@ -120,6 +120,7 @@ from .enums import (
     TriggerKind,
     WorkflowStepKind,
     WorkflowTriggerKind,
+    WorkflowTriggerSignalReferenceKind,
 )
 from .event import Event
 from .executor_transport import (
@@ -245,6 +246,7 @@ __all__ = [
     "TelemetryCompleteness",
     "TriggerKind",
     "WorkflowTriggerKind",
+    "WorkflowTriggerSignalReferenceKind",
     "WorkflowStepKind",
     # aliases + base
     "ContractBase",
