@@ -666,9 +666,7 @@ async def test_effect_free_failure_retries_with_distinct_attempt_identity() -> N
     )
     assert retry_event.attempt == 2
     assert retry_event.payload["prior_safeguard_bundle_digests"] == ()
-    assert dispatch_event.payload["proposal_ref"] == (
-        f"{failed.process_id}:step:auto_step:attempt:2"
-    )
+    assert dispatch_event.payload["proposal_ref"] == "proposal-1"
     assert ":attempt:2:" in dispatch_event.idempotency_key
 
 
@@ -754,8 +752,11 @@ async def test_retry_rejects_ambiguous_dispatch_failure_without_local_receipt() 
             actor_oid="owner-1",
         )
 
+    events = await process_store.events(failed.process_id)
     assert failed.status is ProcessStatus.FAILED
     assert error.value.kind == "retry_requires_recovery"
+    assert any(event.kind is ProcessEventKind.ACTION_DISPATCH_CLAIMED for event in events)
+    assert not any(event.kind is ProcessEventKind.ACTION_DISPATCHED for event in events)
 
 
 async def test_retry_rejects_terminal_attempt_limit() -> None:

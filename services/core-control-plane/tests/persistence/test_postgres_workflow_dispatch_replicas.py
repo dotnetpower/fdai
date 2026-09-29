@@ -200,9 +200,19 @@ class _SucceededVerifier:
         return outcome == "succeeded"
 
 
-class _CancelAfterClaimStore:
-    def __init__(self, inner: PostgresProcessRuntimeStore) -> None:
+class _CrashingStore:
+    """Raise ``CancelledError`` around one journal append to model a replica crash."""
+
+    def __init__(
+        self,
+        inner: PostgresProcessRuntimeStore,
+        *,
+        crash_kind: ProcessEventKind,
+        after_append: bool,
+    ) -> None:
         self._inner = inner
+        self._crash_kind = crash_kind
+        self._after_append = after_append
         self.cancelled = False
 
     async def create(
@@ -237,8 +247,13 @@ class _CancelAfterClaimStore:
         return await self._inner.events(process_id)
 
     async def append_event(self, event: ProcessEvent) -> bool:
+        if event.kind is not self._crash_kind:
+            return await self._inner.append_event(event)
+        if not self._after_append:
+            self.cancelled = True
+            raise asyncio.CancelledError
         created = await self._inner.append_event(event)
-        if created and event.kind is ProcessEventKind.ACTION_DISPATCH_CLAIMED:
+        if created:
             self.cancelled = True
             raise asyncio.CancelledError
         return created
@@ -267,6 +282,7 @@ def _replica(
     *,
     verifier: _SucceededVerifier | None = None,
     store: ProcessRuntimeStore | None = None,
+    lease: timedelta = timedelta(seconds=30),
 ) -> _Replica:
     process_store = store or PostgresProcessRuntimeStore(
         config=PostgresProcessRuntimeStoreConfig(dsn=dsn)
@@ -279,7 +295,7 @@ def _replica(
         process_store=process_store,
         action_dispatcher=dispatcher,
         outcome_verifier=verifier,
-        action_dispatch_claim_lease=timedelta(milliseconds=25),
+        action_dispatch_claim_lease=lease,
     )
     coordinator = WorkflowTriggerCoordinator(
         index=WorkflowTriggerIndex.build([workflow]),
@@ -374,10 +390,12 @@ async def test_postgres_workflow_replica_claim_crash_redelivery_takes_over_once(
     workflow = _workflow(f"replica-claim-restart-{uuid.uuid4().hex}")
     trigger_ts = datetime(2026, 9, 29, 13, 0, tzinfo=UTC)
     event = _event(resource_ref=f"res-{uuid.uuid4().hex}", detected_at=trigger_ts)
-    crashing_store = _CancelAfterClaimStore(
-        PostgresProcessRuntimeStore(config=PostgresProcessRuntimeStoreConfig(dsn=dsn))
+    crashing_store = _CrashingStore(
+        PostgresProcessRuntimeStore(config=PostgresProcessRuntimeStoreConfig(dsn=dsn)),
+        crash_kind=ProcessEventKind.ACTION_DISPATCH_CLAIMED,
+        after_append=True,
     )
-    crashing = _replica(dsn, workflow, store=crashing_store)
+    crashing = _replica(dsn, workflow, store=crashing_store, lease=timedelta(milliseconds=25))
 
     with pytest.raises(asyncio.CancelledError):
         await _run_from_event(crashing, workflow, event)
@@ -414,3 +432,45 @@ async def test_postgres_workflow_replica_claim_crash_redelivery_takes_over_once(
         )
         == 1
     )
+
+
+async def test_postgres_workflow_replica_crash_after_publish_republishes_same_identity() -> None:
+    dsn = _requires_live_db()
+    _upgrade_head()
+    workflow = _workflow(f"replica-publish-restart-{uuid.uuid4().hex}")
+    trigger_ts = datetime(2026, 9, 29, 14, 0, tzinfo=UTC)
+    event = _event(resource_ref=f"res-{uuid.uuid4().hex}", detected_at=trigger_ts)
+    crashing_store = _CrashingStore(
+        PostgresProcessRuntimeStore(config=PostgresProcessRuntimeStoreConfig(dsn=dsn)),
+        crash_kind=ProcessEventKind.ACTION_DISPATCHED,
+        after_append=False,
+    )
+    crashing = _replica(dsn, workflow, store=crashing_store, lease=timedelta(milliseconds=25))
+
+    with pytest.raises(asyncio.CancelledError):
+        await _run_from_event(crashing, workflow, event)
+    assert crashing_store.cancelled is True
+    assert len(crashing.dispatcher.proposals) == 1
+    await asyncio.sleep(0.05)
+
+    restarted = _replica(dsn, workflow, verifier=_SucceededVerifier())
+    await _run_from_event(restarted, workflow, event)
+    await _run_from_event(restarted, workflow, event)
+
+    process_id = derive_process_id(
+        workflow_name=workflow.name,
+        target_resource_id=event.resource_ref or "event:object.drift",
+        trigger_ts=trigger_ts,
+    )
+    reader = PostgresProcessRuntimeStore(config=PostgresProcessRuntimeStoreConfig(dsn=dsn))
+    events = await reader.events(process_id)
+    claims = [event for event in events if event.kind is ProcessEventKind.ACTION_DISPATCH_CLAIMED]
+    dispatches = [event for event in events if event.kind is ProcessEventKind.ACTION_DISPATCHED]
+    terminal = [event for event in events if event.kind is ProcessEventKind.PROCESS_COMPLETED]
+
+    assert [claim.payload["generation"] for claim in claims] == [1, 2]
+    assert restarted.dispatcher.proposals == crashing.dispatcher.proposals
+    assert len(dispatches) == 1
+    assert dispatches[0].causation_id == claims[1].event_id
+    assert dispatches[0].payload["proposal_ref"] == crashing.dispatcher.proposals[0]
+    assert len(terminal) == 1

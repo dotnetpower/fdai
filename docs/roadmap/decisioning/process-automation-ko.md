@@ -1,7 +1,7 @@
 ---
 title: 프로세스 자동화(Process Automation)
 translation_of: process-automation.md
-translation_source_sha: 029885cb6ab3833e1c5fb244116fe57a7afa8538
+translation_source_sha: 37532bd1991ad0162eae6d4ef35f1b1e55a40b47
 translation_revised: 2026-09-29
 ---
 # 프로세스 자동화(프로세스 자동화)
@@ -295,10 +295,12 @@ creation 이벤트를 다시 읽고 작업 흐름 이름 및 버전과 derived �
 기본값은 `1`입니다. `STEP_STARTED`, `ACTION_DISPATCHED`, 가지, waiting, 완료, 실패,
 최종, 감사 id는 시도를 포함하고 `WorkflowActionDispatcher`는 타입이 지정된 제안 멱등성
 키에 이를 사용합니다. 따라서 두 시도가 하나의 이벤트 또는 제안으로 합쳐지지 않습니다.
-디스패처가 강제 적용 액션을 게시하기 전에 replica들은 먼저 attempt 범위의
-`action.dispatch-claimed` lease를 기록한 뒤 단일 영속 `ACTION_DISPATCHED` 레코드를 기록한다.
-중복 전달, claim 만료, restart redelivery는 stale claimant를 교체할 수 있지만, 저널은 같은
-Process step attempt에 대해 forward dispatch 레코드를 하나만 허용한다.
+디스패처가 강제 적용 액션을 게시하기 전에 복제본은 시도 범위의 `action.dispatch-claimed`
+lease를 기록하고, 그 claim이 현재 claim인 동안에만 게시합니다. 게시한 뒤에는 반환된 참조로 단일
+영속 `ACTION_DISPATCHED` 레코드를 기록합니다. claim을 잃은 복제본은 게시하기 전에 멈춥니다.
+claim 보유자가 게시 후 기록 전에 중단되면 lease가 만료된 뒤의 재전달이 같은 시도 범위 멱등성
+키로 다시 게시하며, 저널은 해당 Process 단계 시도에 대해 정방향 디스패치 레코드를 여전히 하나만
+허용합니다. 디스패치 레코드가 없는 claim은 이미 게시되었을 수 있으므로 재시도를 차단합니다.
 
 `POST /workflows/{process_id}/retry`는 `failed` 상태에서 새 시도를 시작하거나 최종 사유가
 `approval_timed_out`인 경우에만 `timed_out` 상태에서 시작하며 본문을 받지 않습니다. 최종

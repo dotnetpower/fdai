@@ -49,9 +49,11 @@ compensation receipts close the Process as `compensated`. A missing dispatcher, 
 or failed guard holds or fails the Process closed. Control-only workflows such as ARB persist real approval and decision
 transitions without gaining resource mutation authority.
 Before an enforce action step is republished, competing workflow replicas write an attempt-scoped
-dispatch claim with a short lease and then a single `action.dispatched` record; duplicate event
-delivery, claim expiry, and restart redelivery cannot create a second forward dispatch for the
-same Process step attempt.
+dispatch claim with a short lease. Only the current claimant publishes, and it records the single
+`action.dispatched` record afterward. Duplicate event delivery and a stale claimant cannot create a
+second dispatch record for the same Process step attempt. A claimant that crashes after publication
+is replaced after lease expiry by a replica that republishes the same attempt-scoped idempotency
+key.
 Every missing, failed, or unscorable compensation path also issues a durable target automation
 hold before closing recovery as incomplete. A reconstructed ledger reads the same active hold, and
 duplicate delivery does not replace its original process, reason, revision, or audit entry. The

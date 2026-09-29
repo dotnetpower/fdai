@@ -390,6 +390,9 @@ class ShadowWorkflowStepExecutor:
             return step_result(
                 step, RunbookStepOutcome.WAITING, "waiting_for_action_dispatch_claim"
             )
+        # Publish only while this replica's claim is current, then record what was published.
+        # A claimant that stalls or crashes after publication is replaced after lease expiry;
+        # the replacement republishes the same attempt-scoped idempotency key.
         if not await claim_is_current(
             self._process_store,
             process_id=self._process_id,
@@ -400,18 +403,6 @@ class ShadowWorkflowStepExecutor:
             return step_result(
                 step, RunbookStepOutcome.WAITING, "waiting_for_action_dispatch_claim"
             )
-        dispatch_recorded = await record_action_dispatched(
-            self._process_store,
-            process_id=self._process_id,
-            step=step,
-            attempt=self._attempt,
-            correlation_id=self._snapshot.correlation_id,
-            proposal_ref=proposal_ref,
-            params=dict(self._params.get(step.id, {})),
-            claim=claim,
-        )
-        if not dispatch_recorded:
-            return step_result(step, RunbookStepOutcome.WAITING, "waiting_for_action_outcome")
         try:
             returned_ref = await self._action_dispatcher.dispatch(
                 process_id=self._process_id,
@@ -434,6 +425,16 @@ class ShadowWorkflowStepExecutor:
                 RunbookStepOutcome.FAILURE,
                 "action_dispatch_returned_no_reference",
             )
+        await record_action_dispatched(
+            self._process_store,
+            process_id=self._process_id,
+            step=step,
+            attempt=self._attempt,
+            correlation_id=self._snapshot.correlation_id,
+            proposal_ref=returned_ref,
+            params=dict(self._params.get(step.id, {})),
+            claim=claim,
+        )
         return step_result(step, RunbookStepOutcome.WAITING, "waiting_for_action_outcome")
 
     async def _control_result(
