@@ -30,6 +30,8 @@ from fdai_operator_service.families.conversation.postgres_document_refs import (
 )
 from fdai_operator_service.families.workflow.contracts import (
     ProjectionProvenance,
+    WorkflowMutationRequest,
+    WorkflowMutationResult,
     WorkflowOperation,
     WorkflowProposal,
     WorkflowProposalReceipt,
@@ -48,6 +50,7 @@ from fdai_operator_service.postgres_family_store import (
     PostgresProposalConflict,
 )
 from fdai_operator_service.postgres_semantic_turn_store import rule_search_projection_key
+from fdai_operator_service.postgres_workflow_authoring import PostgresWorkflowAuthoringStore
 from fdai_operator_service.postgres_workflow_definitions import PostgresWorkflowDefinitionCatalog
 from fdai_operator_service.process_transition_projection import (
     ProcessControlUnavailableError,
@@ -363,6 +366,49 @@ class PostgresWorkflowAdapters:
             duplicate=stored.duplicate,
         )
 
+    async def mutate(self, request: WorkflowMutationRequest) -> WorkflowMutationResult:
+        """Commit principal-owned authoring records without granting runtime authority."""
+        writer = PostgresWorkflowAuthoringStore(self.store)
+        try:
+            if request.operation is WorkflowOperation.WORKFLOW_DEFINITION_CREATE_PROPOSAL:
+                result = await writer.create_definition(
+                    principal_id=request.principal_id,
+                    idempotency_key=request.idempotency_key,
+                    expected_revision=request.expected_revision,
+                    payload=request.payload,
+                )
+            elif request.operation is WorkflowOperation.WORKFLOW_BINDING_CREATE_PROPOSAL:
+                result = await writer.create_binding(
+                    principal_id=request.principal_id,
+                    idempotency_key=request.idempotency_key,
+                    expected_revision=request.expected_revision,
+                    payload=request.payload,
+                )
+            elif request.operation is WorkflowOperation.WORKFLOW_BINDING_UPDATE_PROPOSAL:
+                result = await writer.update_binding(
+                    principal_id=request.principal_id,
+                    binding_id=request.path_parameters.get("binding_id", ""),
+                    idempotency_key=request.idempotency_key,
+                    expected_revision=request.expected_revision,
+                    payload=request.payload,
+                )
+            elif request.operation is WorkflowOperation.WORKFLOW_BINDING_DELETE_PROPOSAL:
+                result = await writer.delete_binding(
+                    principal_id=request.principal_id,
+                    binding_id=request.path_parameters.get("binding_id", ""),
+                    idempotency_key=request.idempotency_key,
+                    expected_revision=request.expected_revision,
+                )
+            else:
+                raise HTTPException(status_code=405, detail="workflow mutation is unsupported")
+        except PostgresFamilyStoreUnavailable as exc:
+            raise HTTPException(status_code=503, detail=str(exc)) from exc
+        return WorkflowMutationResult(
+            payload=result.payload,
+            revision=result.revision,
+            status_code=result.status_code,
+        )
+
 
 class UnavailableWorkflowAdapters:
     """Fail every workflow route closed while preserving route registration."""
@@ -374,6 +420,10 @@ class UnavailableWorkflowAdapters:
     async def submit(self, proposal: WorkflowProposal) -> WorkflowProposalReceipt:
         del proposal
         raise HTTPException(status_code=503, detail="workflow proposal outbox is unavailable")
+
+    async def mutate(self, request: WorkflowMutationRequest) -> WorkflowMutationResult:
+        del request
+        raise HTTPException(status_code=503, detail="workflow authoring store is unavailable")
 
 
 __all__ = [

@@ -11,6 +11,8 @@ import pytest
 from fdai_operator_service.families.workflow import (
     WORKFLOW_FAMILY_ROUTE_MANIFEST,
     ProjectionProvenance,
+    WorkflowMutationRequest,
+    WorkflowMutationResult,
     WorkflowOperation,
     WorkflowProposal,
     WorkflowProposalReceipt,
@@ -142,6 +144,49 @@ class RecordingProposalWriter:
             self.receipts[proposal.idempotency_key] = receipt
             return receipt
         return WorkflowProposalReceipt(receipt.proposal_id, receipt.revision, duplicate=True)
+
+    async def mutate(self, request: WorkflowMutationRequest) -> WorkflowMutationResult:
+        self.proposals.append(
+            WorkflowProposal(
+                operation=request.operation,
+                principal_id=request.principal_id,
+                idempotency_key=request.idempotency_key,
+                expected_revision=request.expected_revision,
+                request_source="committed-test",
+                path_parameters=request.path_parameters,
+                payload=request.payload,
+            )
+        )
+        if request.operation is WorkflowOperation.WORKFLOW_DEFINITION_CREATE_PROPOSAL:
+            return WorkflowMutationResult(
+                payload={
+                    "valid": True,
+                    "definition": {
+                        "definition_id": "definition-1",
+                        "workflow_name": "workflow-one",
+                        "lifecycle": "draft",
+                    },
+                    "revision": "revision-1",
+                },
+                revision="revision-1",
+                status_code=201,
+            )
+        return WorkflowMutationResult(
+            payload={
+                "binding_id": request.path_parameters.get("binding_id", "binding-1"),
+                "definition_id": request.payload.get("definition_id", "definition-1"),
+                "trigger": request.payload.get("trigger", "deck_open"),
+                "enabled": False,
+                "cron_expression": None,
+                "timezone": None,
+                "signal_type": None,
+                "scope_ref": None,
+                "parameters": {},
+                "revision": 1,
+            },
+            revision="1",
+            status_code=201,
+        )
 
 
 def _client(
@@ -1130,6 +1175,53 @@ def test_mutation_routes_require_revision_and_idempotency_before_submission() ->
     assert proposals.proposals[0].expected_revision == "workflow-revision-2"
     assert proposals.proposals[0].request_source == "operator-http:handler"
     assert proposals.proposals[0].principal_roles == (OperatorRole.CONTRIBUTOR.value,)
+
+
+def test_workflow_definition_create_returns_committed_private_draft() -> None:
+    client, _, _, proposals = _client(role=OperatorRole.CONTRIBUTOR)
+
+    response = client.post(
+        "/workflows/definitions",
+        headers={"Idempotency-Key": "draft-1", "If-Match": "new"},
+        json={
+            "confirmed": True,
+            "workflow": {
+                "schema_version": "1.0.0",
+                "name": "workflow-one",
+                "version": "1.0.0",
+                "default_mode": "shadow",
+                "trigger": {"kind": "signal", "signal_type": "object.event"},
+                "promotion_gate": {
+                    "min_shadow_days": 1,
+                    "min_samples": 1,
+                    "min_accuracy": 1,
+                    "max_policy_escapes": 0,
+                },
+                "steps": [{"id": "notify", "action_type_ref": "tool.notify"}],
+            },
+        },
+    )
+
+    assert response.status_code == 201
+    assert response.json()["definition"]["lifecycle"] == "draft"
+    assert response.headers["x-fdai-revision"] == "revision-1"
+    assert proposals.proposals[0].operation is WorkflowOperation.WORKFLOW_DEFINITION_CREATE_PROPOSAL
+    assert proposals.proposals[0].expected_revision == "new"
+
+
+def test_workflow_binding_create_returns_committed_record() -> None:
+    client, _, _, proposals = _client(role=OperatorRole.CONTRIBUTOR)
+
+    response = client.post(
+        "/workflows/bindings",
+        headers={"Idempotency-Key": "binding-1", "If-Match": "new"},
+        json={"confirmed": True, "definition_id": "definition-1", "trigger": "deck_open"},
+    )
+
+    assert response.status_code == 201
+    assert response.json()["binding_id"] == "binding-1"
+    assert response.json()["revision"] == 1
+    assert proposals.proposals[0].operation is WorkflowOperation.WORKFLOW_BINDING_CREATE_PROPOSAL
 
 
 def test_enforce_request_is_rejected_without_calling_proposal_writer() -> None:

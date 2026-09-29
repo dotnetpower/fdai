@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { createWorkflowDefinition } from "./validate";
+import { createWorkflowDefinition, mutationIdempotencyKey } from "./validate";
 
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -14,6 +14,7 @@ describe("workflow definition creation", () => {
         workflow_name: "cost-review",
         lifecycle: "draft",
       },
+      revision: "revision-1",
     }), { status: 201, headers: { "content-type": "application/json" } }));
     vi.stubGlobal("fetch", fetchMock);
 
@@ -21,6 +22,14 @@ describe("workflow definition creation", () => {
       definitionId: "definition-1",
       workflowName: "cost-review",
       lifecycle: "draft",
+      revision: "revision-1",
+    });
+    expect(fetchMock.mock.calls[0]?.[1]?.headers).toMatchObject({
+      "if-match": "new",
+      "idempotency-key": mutationIdempotencyKey("POST", "/workflows/definitions", {
+        workflow: { name: "cost-review" },
+        confirmed: true,
+      }),
     });
     expect(JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body))).toEqual({
       workflow: { name: "cost-review" },

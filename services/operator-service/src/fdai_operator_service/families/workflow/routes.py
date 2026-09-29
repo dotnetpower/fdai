@@ -14,6 +14,8 @@ from collections.abc import Awaitable, Callable, Mapping
 from typing import Annotated, Literal, cast
 
 from fdai_operator_service.families.workflow.contracts import (
+    WorkflowMutationRequest,
+    WorkflowMutationWriter,
     WorkflowOperation,
     WorkflowPrincipalAuthorizer,
     WorkflowProposal,
@@ -152,6 +154,42 @@ def _build_endpoint(
                 },
             )
 
+        idempotency_key = ""
+        expected_revision = ""
+        if spec.operation in _DIRECT_AUTHORING_OPERATIONS:
+            mutation_writer = _mutation_writer(proposal_writer)
+            idempotency_key = _required_header(
+                request,
+                "Idempotency-Key",
+                maximum=_MAX_IDEMPOTENCY_CHARS,
+            )
+            expected_revision = _required_header(
+                request,
+                "If-Match",
+                maximum=_MAX_REVISION_CHARS,
+            )
+            mutation_result = await mutation_writer.mutate(
+                WorkflowMutationRequest(
+                    operation=spec.operation,
+                    principal_id=principal.subject_id,
+                    idempotency_key=idempotency_key,
+                    expected_revision=expected_revision,
+                    path_parameters=path_parameters,
+                    payload=body or {},
+                )
+            )
+            if spec.operation is WorkflowOperation.WORKFLOW_BINDING_DELETE_PROPOSAL:
+                return JSONResponse(
+                    mutation_result.payload,
+                    status_code=mutation_result.status_code,
+                    headers={"X-FDAI-Revision": mutation_result.revision},
+                )
+            return JSONResponse(
+                redact_mapping(mutation_result.payload),
+                status_code=mutation_result.status_code,
+                headers={"X-FDAI-Revision": mutation_result.revision},
+            )
+
         _require_shadow(body)
         idempotency_key = _required_header(
             request,
@@ -198,6 +236,22 @@ def _build_endpoint(
 
     endpoint.__name__ = spec.name
     return endpoint
+
+
+_DIRECT_AUTHORING_OPERATIONS = frozenset(
+    {
+        WorkflowOperation.WORKFLOW_DEFINITION_CREATE_PROPOSAL,
+        WorkflowOperation.WORKFLOW_BINDING_CREATE_PROPOSAL,
+        WorkflowOperation.WORKFLOW_BINDING_UPDATE_PROPOSAL,
+        WorkflowOperation.WORKFLOW_BINDING_DELETE_PROPOSAL,
+    }
+)
+
+
+def _mutation_writer(proposal_writer: WorkflowProposalWriter) -> WorkflowMutationWriter:
+    if not hasattr(proposal_writer, "mutate"):
+        raise HTTPException(status_code=503, detail="workflow authoring store is unavailable")
+    return cast(WorkflowMutationWriter, proposal_writer)
 
 
 def _sha256(value: str) -> bool:

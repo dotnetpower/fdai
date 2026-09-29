@@ -18,6 +18,9 @@ Run as a route family within the independently deployed Operator Service.
 
 from fdai_operator_service.families.workflow.contracts import (
     ProjectionProvenance,
+    WorkflowMutationRequest,
+    WorkflowMutationResult,
+    WorkflowMutationWriter,
     WorkflowOperation,
     WorkflowPrincipalAuthorizer,
     WorkflowProposal,
@@ -36,6 +39,9 @@ from fdai_operator_service.families.workflow.routes import build_workflow_family
 __all__ = [
     "ProjectionProvenance",
     "WORKFLOW_FAMILY_ROUTE_MANIFEST",
+    "WorkflowMutationRequest",
+    "WorkflowMutationResult",
+    "WorkflowMutationWriter",
     "WorkflowOperation",
     "WorkflowPrincipalAuthorizer",
     "WorkflowProposal",

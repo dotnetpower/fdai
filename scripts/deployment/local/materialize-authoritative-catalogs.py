@@ -562,6 +562,96 @@ async def materialize(repo_root: Path) -> None:
         statement_timeout_ms=CATALOG_STATEMENT_TIMEOUT_MS,
         connect_timeout_s=CATALOG_CONNECT_TIMEOUT_S,
     )
+    await _seed_builtin_workflow_definitions(dsn, snapshots=snapshots)
+
+
+async def _seed_builtin_workflow_definitions(
+    dsn: str,
+    *,
+    snapshots: Mapping[str, Mapping[str, object]],
+) -> None:
+    """Materialize reviewed upstream Workflow catalog rows for local and deployed readers."""
+
+    workflow_snapshot = snapshots[WORKFLOW_CATALOG_KEY]
+    workflows = workflow_snapshot.get("workflows")
+    if not isinstance(workflows, Sequence) or isinstance(workflows, (str, bytes)):
+        raise RuntimeError("workflow catalog snapshot workflows MUST be a sequence")
+    action_catalog_digest = str(snapshots[ACTION_TYPE_LIST_KEY]["_revision"])
+    async with await psycopg.AsyncConnection.connect(dsn, row_factory=dict_row) as connection:
+        async with connection.transaction():
+            await connection.execute(
+                "SELECT set_config('statement_timeout', %s, true)",
+                (str(CATALOG_STATEMENT_TIMEOUT_MS),),
+            )
+            for workflow in workflows:
+                document = _builtin_workflow_document(workflow)
+                name = str(document["name"])
+                version = str(document["version"])
+                definition_id = f"workflow-definition:upstream:{name}:{version}"
+                definition_hash = _sha256_document(document)
+                action_versions = _workflow_action_versions(document)
+                await connection.execute(
+                    """
+                    INSERT INTO workflow_definition (
+                        definition_id, workflow_name, workflow_version, schema_version,
+                        definition_hash, action_catalog_digest, resolved_action_versions,
+                        workflow_document, origin, visibility, lifecycle, owner_ref,
+                        derived_from, source_ref, created_at
+                    ) VALUES (%s, %s, %s, %s, %s, %s, %s::jsonb, %s::jsonb, 'upstream',
+                        'global', 'shadow', NULL, NULL, %s, NOW())
+                    ON CONFLICT (definition_id) DO UPDATE
+                    SET definition_hash=EXCLUDED.definition_hash,
+                        action_catalog_digest=EXCLUDED.action_catalog_digest,
+                        resolved_action_versions=EXCLUDED.resolved_action_versions,
+                        workflow_document=EXCLUDED.workflow_document,
+                        lifecycle='shadow',
+                        source_ref=EXCLUDED.source_ref
+                    WHERE workflow_definition.origin='upstream'
+                    """,
+                    (
+                        definition_id,
+                        name,
+                        version,
+                        str(document["schema_version"]),
+                        definition_hash,
+                        action_catalog_digest,
+                        json.dumps(action_versions, sort_keys=True, separators=(",", ":")),
+                        json.dumps(document, sort_keys=True, separators=(",", ":")),
+                        f"rule-catalog/workflows/{name}.yaml",
+                    ),
+                )
+
+
+def _builtin_workflow_document(workflow: object) -> dict[str, object]:
+    if not isinstance(workflow, Mapping):
+        raise RuntimeError("workflow catalog entry MUST be a mapping")
+    document = {key: value for key, value in workflow.items() if key not in {"step_count", "yaml"}}
+    for field in ("schema_version", "name", "version", "trigger", "default_mode", "steps"):
+        if field not in document:
+            raise RuntimeError(f"workflow catalog entry missing {field}")
+    return dict(document)
+
+
+def _sha256_document(document: Mapping[str, object]) -> str:
+    encoded = json.dumps(
+        dict(document),
+        allow_nan=False,
+        ensure_ascii=False,
+        separators=(",", ":"),
+        sort_keys=True,
+    ).encode("utf-8")
+    return "sha256:" + hashlib.sha256(encoded).hexdigest()
+
+
+def _workflow_action_versions(document: Mapping[str, object]) -> dict[str, str]:
+    steps = document.get("steps")
+    if not isinstance(steps, Sequence) or isinstance(steps, (str, bytes)):
+        raise RuntimeError("workflow document steps MUST be a sequence")
+    refs: set[str] = set()
+    for step in steps:
+        if isinstance(step, Mapping) and isinstance(step.get("action_type_ref"), str):
+            refs.add(str(step["action_type_ref"]))
+    return {ref: "catalog" for ref in sorted(refs)}
 
 
 async def _retained_ontology_releases(

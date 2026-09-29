@@ -147,6 +147,7 @@ def test_every_legacy_table_has_one_migrator_and_one_write_contract() -> None:
         "cost_disclosure_ceiling",
         "operator_background_task_progress",
         "operator_background_task_projection",
+        "operator_workflow_authoring_audit",
         "operator_read_investigation_completion",
         "operator_incident_projection",
         "inventory_observation_checkpoint",

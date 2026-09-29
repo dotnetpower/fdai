@@ -549,7 +549,11 @@ wired in the local dev harness so the view renders out of the box.
 The console keeps the privileged read-only invariant ([app-shape.instructions.md](../../../.github/instructions/app-shape.instructions.md)):
 the palette and catalog are GETs through the GET-only `OperatorApiClient`, validation is pure, and saving writes only a principal-owned
 private authoring record. The save route never receives the executor identity and cannot publish, bind, enable, or run the definition. A
-valid draft also yields YAML the operator can propose at `rule-catalog/workflows/<name>.yaml` through the git-native path. New catalog
+committed draft or binding returns the Operator store revision and appears only in that principal's
+Mine or My automations read projection; built-in rows are seeded from the reviewed workflow catalog
+and remain read-only to principals. Database triggers refuse any Operator-role definition insert other
+than a private user draft, and any Operator-role binding that references another principal's private
+definition. A valid draft also yields YAML the operator can propose at `rule-catalog/workflows/<name>.yaml` through the git-native path. New catalog
 entries remain locked to `shadow`; promotion to enforce stays the separate governance PR of [section 6](#6-governance).
 
 ### 8.2 Dynamic runtime view

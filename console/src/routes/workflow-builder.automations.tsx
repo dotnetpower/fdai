@@ -87,7 +87,7 @@ export function WorkflowAutomations({
     if (!window.confirm(t("workflow.automations.removeConfirm", { workflow: workflowName }))) return;
     setSaving(true);
     try {
-      await deleteWorkflowBinding(binding.binding_id);
+      await deleteWorkflowBinding(binding.binding_id, binding.revision);
       onDeleted(binding.binding_id);
       setError(null);
     } catch (caught) {
