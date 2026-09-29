@@ -398,7 +398,7 @@
     "services/core-control-plane/src/fdai/core/conversation/semantic_judgment_assembly.py": "623e3379a7c214c8ca5cc9b8cd1955a5db0731edcb09dd1b76c83640322a0a02",
     "services/core-control-plane/src/fdai/core/conversation/semantic_judgment_bounds.py": "b625f8b7635c55bad39a9e1beb2b71903ab075f33e956cd9a88705e6e9ca02b1",
     "services/core-control-plane/src/fdai/core/conversation/semantic_judgment_capabilities.py": "a39a4bb9d273fb2c88abf8bce404ebe8f4e3acef5b9f3e90a17323c7c105b855",
-    "services/core-control-plane/src/fdai/core/conversation/semantic_judgment_coverage.py": "313ffccaa5b4d15d0faee1768e5051389c033d40672ccd3a2f9810a630db5c9c",
+    "services/core-control-plane/src/fdai/core/conversation/semantic_judgment_coverage.py": "2a0aaa4923cf9e92d33008d51a221fc12b0280d4443980cadc74f7a91269369e",
     "services/core-control-plane/src/fdai/core/conversation/semantic_judgment_grounding.py": "2d869cd21453ab25b35d7783d5c2340ffe9b96fdae9f5cc529105d080956706a",
     "services/core-control-plane/src/fdai/core/conversation/semantic_judgment_rejections.py": "2eb0f4bff9f1a8ef649ecc0b5b6f120ca9b2ed71804b13b09827a44afb33e624",
     "services/core-control-plane/src/fdai/core/conversation/semantic_judgment_review.py": "a69fcdcfc1d396aa925f46ed125221093eb6e7c6db791f934514217c8090a1cf",

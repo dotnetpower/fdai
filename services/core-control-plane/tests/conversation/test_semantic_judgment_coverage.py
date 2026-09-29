@@ -478,3 +478,25 @@ def test_rejection_logs_keep_only_bounded_feedback_metadata(
     logged = caplog.records[-1].__dict__["validation_reason"]
     assert "실행" not in logged
     assert "utterance[0:5]" in logged
+
+
+def test_a_target_stretched_over_another_target_covers_no_restriction() -> None:
+    utterance = "실행 중인 VM만 보여줘"
+    extraction = resolve_extraction(
+        _reading(utterance, ("restricts", "실행 중인"), ("names", "VM")), utterance
+    )
+    assert extraction is not None
+    proposal = SemanticJudgmentProposal.model_validate(
+        _proposal(
+            primary_intent="query.contextual_resources",
+            targets=[
+                _target(utterance, "resource_type_filter", "실행 중인 VM"),
+                _target(utterance, "resource_type_filter", "VM"),
+            ],
+            requested_facets=["resource_collection", "list"],
+        )
+    )
+
+    uncovered = uncovered_constraint_spans(proposal, extraction, utterance)
+
+    assert [utterance[span.start : span.end] for span in uncovered] == ["실행 중인"]
