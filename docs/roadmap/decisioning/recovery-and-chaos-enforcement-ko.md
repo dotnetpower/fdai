@@ -1,7 +1,7 @@
 ---
 title: Recovery 및 chaos enforcement
 translation_of: recovery-and-chaos-enforcement.md
-translation_source_sha: 8fcfd33d40315fac512abbc716090b4ba091a7bd
+translation_source_sha: bf77c088a8a597e4ace3096447bad230dec30822
 translation_revised: 2026-09-29
 ---
 # 복구 및 chaos 적용
@@ -275,6 +275,13 @@ chaos 도구의 `GovernedChaosExecution` 연결 지점을 구현한 `GovernedCha
 제출하지만, 여전히 어댑터를 직접 호출합니다. Core 제안, 위험 게이트, Var 승인, Thor 파이프라인을 통한
 라우팅은 남은 작업입니다. 원시 참조 sweep 드라이버는 삭제했고, 탐지 지연 드라이버는 측정이 어댑터
 위로 이관될 때까지 모든 실제 실행을 거부합니다.
+
+**탐지 지연 측정 (2026-09-29 결정).** 통제된 하네스는 fault 유지 중에 예상 신호를 폴링하지
+않습니다. 유지 중 폴링은 영향 범위 안에 probe 트래픽을 더하고, 중지 조건 guard와 경합하며,
+`detected`의 의미를 바꿉니다. 대신 지연은 주입 시작 시각과, 예상 신호에 대해 탐지기 자체가 기록한
+권위 있는 최초 관측 시각의 차이입니다. 이 시각은 유지가 끝난 뒤 `[주입 시작, 유지 종료]` 구간
+안에서 읽습니다. 권위 있는 시각을 반환할 수 없는 probe는 지연을 알 수 없음으로 보고하며, 유지
+시간이나 자신이 읽은 시각으로 대체하지 않습니다. `detected` 판정은 현재 의미를 유지합니다.
 
 - **선택:** `--run`은 카탈로그 id와 참조 시나리오 id를 모두 받고, `--run-sweep`은 참조 sweep을 데모
   순서대로 선택합니다. `fdai.core.chaos.reference_sweep`는 각 참조 시나리오를 같은

@@ -1,8 +1,8 @@
 ---
 title: Execution 모델
 translation_of: execution-model.md
-translation_source_sha: 1fbb6942d0e6a2d9f7190e031dce75b661467bc1
-translation_revised: 2026-09-17
+translation_source_sha: b13357336d9d94323b3276c2b95c5e51ba602111
+translation_revised: 2026-09-29
 ---
 
 # 실행 모델
@@ -496,6 +496,15 @@ final_path = strictest(requested_path, forced_path)
 아래로 절대 이동 못 함. 포크 는 env 축 를 통해 prod 의 모든 전달 를
 `pr_manual` 로 강제 가능. 업스트림 은 절대 아래로부터 강제 안 함 (속도를
 위해 `pr_manual` 을 `direct_api` 로 lift 안 함).
+
+**`pr_manual` 도달 가능성 (2026-09-29 결정).** 업스트림은 `forced_execution_path`
+seam은 제공하지만 좁히는 축 producer는 제공하지 않으며, 출시된 ActionType 중
+`pr_manual`을 선언한 것도 없습니다. 따라서 업스트림 기본 구성에서는 이 경로에
+도달할 수 없습니다. ActionType이 이 경로를 선언하거나, 포크가 프로덕션 전달을
+수동 병합으로 강제하는 것과 같은 좁히는 축을 바인딩할 때만 도달할 수 있습니다.
+어떤 환경에 수동 병합이 필요한지는 제품 기본값이 아니라 배포 정책이므로 업스트림은
+기본 producer를 추가하지 않습니다. 경로 동등성 근거는 출시된 경로를 주장하는 대신
+합성 좁히는 축으로 `pr_manual`을 실행합니다.
 
 **대체 경로 멱등성.** `direct_api`는 side-effect 전 또는 권위 있는 no-effect 증적 후에만 고정된 멱등성 키로 `pr_manual` 대체 경로할 수 있습니다. 시간 초과, lost 응답 또는 accepted
 비동기 요청은 연산 기록, 대상 잠금 및 pending 결과를 유지하며 권위 있는 상태를
