@@ -213,6 +213,11 @@
     "designNew": "Design a new workflow",
     "authorPython": "Author Python VM task",
     "pythonUnavailable": "Python task authoring is not wired on this deployment.",
+    "pythonUnavailableReported": "The Operator reports that Python task authoring is unavailable.",
+    "pythonUnavailableReason": {
+      "validator": "No Python task validation owner is bound.",
+      "vmTaskRunner": "No VM task runner is bound."
+    },
     "catalogRevision": "Catalog revision",
     "ownership": "Workflow ownership",
     "reviewControls": "Workflow review controls",

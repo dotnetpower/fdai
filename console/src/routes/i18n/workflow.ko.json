@@ -213,6 +213,11 @@
     "designNew": "새 워크플로 설계",
     "authorPython": "Python VM 작업 작성",
     "pythonUnavailable": "이 배포에는 Python 작업 작성 기능이 연결되지 않았습니다.",
+    "pythonUnavailableReported": "Operator가 Python 작업 작성 기능을 사용할 수 없다고 보고했습니다.",
+    "pythonUnavailableReason": {
+      "validator": "Python 작업 검증 담당 구성 요소가 연결되지 않았습니다.",
+      "vmTaskRunner": "VM 작업 실행기가 연결되지 않았습니다."
+    },
     "catalogRevision": "카탈로그 리비전",
     "ownership": "워크플로 소유권",
     "reviewControls": "워크플로 검토 컨트롤",

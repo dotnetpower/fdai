@@ -1,8 +1,8 @@
 ---
 title: 고객 워크플로 자동화 제공 계획
 translation_of: customer-workflow-automation-plan.md
-translation_source_sha: 9ddba5bff1bbf222ef60b59de1044d1a570d7191
-translation_revised: 2026-09-17
+translation_source_sha: d5836ff7d6a4620a5ec1d767fea408a82e0810e8
+translation_revised: 2026-09-29
 ---
 
 # 고객 워크플로 자동화 제공 계획
@@ -19,6 +19,8 @@ translation_revised: 2026-09-17
 > 워크플로 상태 시뮬레이션 및 통제된 작업 제안 전달은 구현되어 있습니다. 광범위한 리소스
 > 변경, 스테이징 동등성 및 고객 시스템 어댑터는 완성되지 않았습니다. 따라서 도입은 관찰 모드에서 시작하고, 측정된
 > 프로세스를 한 번에 하나씩 승격하는 것이 좋습니다.
+> 독립 Operator 서비스는 저장된 워크플로 정의를 읽지만 Console 초안이나 바인딩을 아직 쓰지
+> 않습니다. [#1664](https://github.com/dotnetpower/fdai/issues/1664)가 이 writer를 추적합니다.
 
 ## 구현 상태
 
@@ -28,13 +30,14 @@ translation_revised: 2026-09-17
 |------|------|------|------|
 | 웨이브 0-2 카탈로그, 관찰, 저널 및 승인 | implemented | [`test_workflow_catalog.py`](../../../services/core-control-plane/tests/rule_catalog/test_workflow_catalog.py), [`test_orchestrator.py`](../../../services/core-control-plane/tests/core/workflow/test_orchestrator.py), [`test_workflow_approval.py`](../../../services/core-control-plane/tests/delivery/persistence/test_workflow_approval.py) | 구조 검증, shadow 실행, 영속 Process 상태 및 승인 동작에 집중 테스트가 있습니다. |
 | 웨이브 3 동작 시뮬레이션 및 제한된 변경 | in-progress | [`workflow-builder.simulation.ts`](../../../console/src/routes/workflow-builder.simulation.ts), [`workflow-builder.simulation.test.ts`](../../../console/src/routes/workflow-builder.simulation.test.ts), [웨이브 3](#웨이브-3---제한된-기반-변경-추가) | 빌더는 사용자 범위의 영속 Process 이력에서 정확한 관측 대상과 워크플로 상태 결과를 요약합니다. 권한을 부여하지 않고 실제 기반 환경 변경 미리 보기와 명시적으로 구분합니다. 제한된 변경과 스테이징 동등성은 남아 있습니다. |
-| 웨이브 4 저작 및 운영 경험 | in-progress | [`workflow-builder.structure.ts`](../../../console/src/routes/workflow-builder.structure.ts), [`process_transition_projection.py`](../../../services/operator-service/src/fdai_operator_service/process_transition_projection.py), [`workflow-process-transitions.spec.ts`](../../../console/tests/e2e/workflow-process-transitions.spec.ts), [웨이브 4](#웨이브-4---저작-및-운영-경험-완성) | 작업과 다섯 가지 런타임 제어 단계 유형의 저작 및 principal 범위 운영 요청을 지원합니다. 검토된 카탈로그 제안, Process 수신함 필터 및 통제된 런타임 진행 근거는 남아 있습니다. |
+| 웨이브 4 저작 및 운영 경험 | in-progress | [`workflow-builder.structure.ts`](../../../console/src/routes/workflow-builder.structure.ts), [`process_transition_projection.py`](../../../services/operator-service/src/fdai_operator_service/process_transition_projection.py), [`workflow-process-transitions.spec.ts`](../../../console/tests/e2e/workflow-process-transitions.spec.ts), [웨이브 4](#웨이브-4---저작-및-운영-경험-완성) | 작업과 다섯 가지 런타임 제어 단계 유형의 저작 및 principal 범위 운영 요청을 지원합니다. 검토된 카탈로그 제안, Process 수신함 필터 및 통제된 런타임 진행 근거는 남아 있습니다. 빌더는 principal 범위의 Shared 및 Mine 정의를 읽지만, 초안이나 바인딩을 저장하는 Operator writer는 아직 없습니다([#1664](https://github.com/dotnetpower/fdai/issues/1664)). |
 | 웨이브 5 확장, SLI 및 자동 강등 | not-started | [웨이브 5](#웨이브-5---확장-및-운영-인수인계) | 분산 잠금, 범위별 backpressure, 운영 SLI 또는 자동 강등 근거가 보존되지 않았습니다. |
 
 ### 구현 이력
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-29 | in-progress | 빌더의 영속 정의 읽기를 복구했습니다. Operator 서비스 분리 이후 `GET /workflows/definitions`가 HTTP `503`을 반환해 Shared와 Mine이 표시되지 않았습니다([#1655](https://github.com/dotnetpower/fdai/issues/1655)). 이제 Operator는 표시 가능한 정의와 호출자 자신의 바인딩을 principal 범위로 제한해 직접 읽으며, Python 작업 컨트롤은 보고된 사용 불가 상태를 설명합니다. 정의 및 바인딩 writer는 아직 없습니다. | `current change`; `postgres_workflow_definitions.py`, `family_adapters.py`, `20260929_operator_workflow_definition_read.py` 및 Console `workflow-builder*`; 집중 Operator, 실제 PostgreSQL 및 Console 검사. | **비공개 초안 저장**이 성공하려면 먼저 [#1664](https://github.com/dotnetpower/fdai/issues/1664)에서 추적하는 writer와 기본 제공 정의 시드를 연결해야 합니다. |
 | 2026-09-09 | in-progress | 워크플로 빌더에 범위가 제한된 과거 동작 시뮬레이션을 추가했습니다. 사용자 범위의 영속 비합성 Process 이력만 허용하고 일치하는 최신 Process 20개로 근거를 제한하며 정확한 과거 대상과 관측된 워크플로 상태를 보고합니다. 구조 검증 및 실제 기반 환경 변경 미리 보기와 명시적으로 분리합니다. | `current change`; `console/src/routes/workflow-builder.simulation.ts`; 집중 시뮬레이션, 빌더, 형식 검사, 지역화 및 로드맵 검사. | 웨이브 3 완료 전에 상태 차이의 스테이징 동등성을 보존하고 별도로 통제되는 실제 기반 환경 변경 어댑터를 구현합니다. |
 | 2026-08-31 | implemented | 배포에서 기존 URL 참조만 제공할 때 알림 스텝에 사용할 Teams 및 Slack 바인딩을 구성에서 파생하도록 추가했습니다. 명시적 바인딩 JSON은 계속 우선하며, 파생된 레지스트리는 Workflow, ActionType, 승인 또는 실행 권한을 변경하지 않고 전달 경로만 추가합니다. | `current change`; `delivery/notifications/bindings.py`, `runtime/delivery.py` 및 알림 바인딩과 런타임 Settings 집중 테스트입니다. | 런타임 검증을 선언하기 전에 승격된 워크플로 알림의 통제된 전달 증적을 보존해야 합니다. |
 | 2026-08-14 | in-progress | 이전 출처 이력을 재구성하지 않고 구현 원장을 도입하고 현재 상태를 웨이브 근거와 맞췄습니다. | `current change`; 구현 범위 표의 현재 소스와 집중 테스트입니다. | 웨이브 3-5를 완료하고 프로세스별 승격 근거를 보존해야 합니다. |
@@ -56,6 +59,9 @@ translation_revised: 2026-09-17
   통제된 런타임 진행 증적은 별도의 운영 근거로 남아 있습니다.
 - [ ] 초안에 실행 권한을 부여하지 않는 저작 화면의 검토된 카탈로그 제안 및 deep-link 검토를
   완료합니다.
+- [ ] 검토된 Operator writer로 Console에서 작성한 비공개 초안과 바인딩을 영속화하고 기본 제공
+  정의를 시드한 뒤([#1664](https://github.com/dotnetpower/fdai/issues/1664)), 저장한 초안이 소유자의
+  Mine에만 표시됨을 보여 줍니다.
 - [ ] 웨이브 5 종료 전에 다중 replica shadow 캠페인에서 분산 잠금, 제한된 backpressure,
   프로세스 SLI 및 자동 강등을 입증합니다.
 

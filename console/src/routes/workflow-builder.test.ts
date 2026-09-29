@@ -17,6 +17,7 @@ import {
 import type { ActionTypePaletteEntry } from "../workflow/validate";
 import type { WorkflowBindingEntry } from "../workflow/validate";
 import { buildDraft, catalogToForm } from "./workflow-builder.helpers";
+import { pythonTaskUnavailableMessage } from "./workflow-builder.catalog";
 
 describe("workflow catalog wire tolerance", () => {
   test("preserves step parameters through catalog clone and draft assembly", () => {
@@ -165,6 +166,54 @@ describe("workflow catalog wire tolerance", () => {
       panel: async () => { throw new OperatorApiError(503, "Service Unavailable"); },
     } as never);
     expect(availability).toBeNull();
+  });
+
+  test("keeps a server-reported Python task unavailable state and its reasons", async () => {
+    const availability = await loadPythonTaskAvailability({
+      panel: async () => ({
+        schema_version: "1.0.0",
+        available: false,
+        unavailable_reasons: ["python_task_validator_not_bound", "python_task_vm_runner_not_bound"],
+        operations: {
+          generate: false,
+          validate: false,
+          stage: false,
+          test: false,
+          request_run: false,
+          schedule: false,
+        },
+        vm_task_runner: { bound: false },
+        execution_authority: false,
+      }),
+    } as never);
+    expect(availability).toEqual({
+      available: false,
+      reasons: ["python_task_validator_not_bound", "python_task_vm_runner_not_bound"],
+    });
+    expect(pythonTaskUnavailableMessage(availability)).toBe(
+      "The Operator reports that Python task authoring is unavailable. "
+      + "No Python task validation owner is bound. No VM task runner is bound.",
+    );
+  });
+
+  test("distinguishes an absent capability route from a reported unavailable state", () => {
+    expect(pythonTaskUnavailableMessage(null)).toBe(
+      "Python task authoring is not wired on this deployment.",
+    );
+    expect(pythonTaskUnavailableMessage({ available: false, reasons: ["future_reason"] })).toBe(
+      "The Operator reports that Python task authoring is unavailable.",
+    );
+    expect(pythonTaskUnavailableMessage({
+      available: true,
+      operations: {
+        generate: false,
+        validate: true,
+        stage: true,
+        test: true,
+        request_run: false,
+        schedule: false,
+      },
+    })).toBeNull();
   });
 
   test("keeps the ownership group in step drilldowns", () => {
