@@ -308,6 +308,11 @@ def _explained(code: str, where: str) -> str | None:
             "mention {0} shares words with an earlier mention; each word belongs to at most "
             "one mention, so quote each named thing on its own"
         ),
+        "qualifier_not_instance": (
+            "mention {0} has a qualifier, but a qualifier only places one named resource inside "
+            "another named resource; state a kind or state of the results as a filter, and what "
+            "they relate to as the goal's relation"
+        ),
         "scope_anchor_conflict": (
             "goal {0} cites one group as both its scope filter and its relation anchor; keep "
             "only the scope filter, which covers members at any depth, or only the relation, "

@@ -28,6 +28,8 @@ including a repeated greeting after earlier turns.
 
 The preflight also runs on the first turn. An explicit or context-dependent operational signal
 enters the verified semantic path without paying for the adaptive explanation planner first. A
+turn whose preflight sets no operational, knowledge, thread, or social signal requests nothing
+typed, so it also enters the verified path; the adaptive planner never answers it without a read. A
 mixed request remains adaptive so its knowledge and operational goals stay separate. For reviewed
 families, including one exact Resource current-state request, preflight can propose source-grounded targets and bounded facets. Core reuses that
 proposal only when the turn is explicit, context-independent, at least 0.75 confidence, bound to the
@@ -140,6 +142,12 @@ A successful evidence read still cannot support prose that the reviewer omitted 
 while supported knowledge remains visible. Bounded raw-evidence fallback includes Markdown delimiters in its output limit. Governed handoffs retain model observations without counting them twice.
 Outstanding review issues keep quality incomplete even when goal coverage is complete, so a
 permitted refinement is not skipped merely because the reviewer also marked coverage complete.
+A read that the adaptive plan hands back to the semantic path, with the `legacy` route and no action
+request, is an ordinary semantic turn: it keeps that path's own stage bounds and the turn's remaining
+deadline instead of the adaptive five-call ceiling. Under that ceiling the handoff was left with
+four calls for preflight, judgment repair, frame, and plan, and the turn held as budget exhaustion. Governed
+action handoffs and their explanations keep the shared budget. An adaptive answer also records the
+routing preflight call that preceded it, so the turn's model trace lists every call.
 
 ## Implementation status
 
@@ -169,6 +177,7 @@ permitted refinement is not skipped merely because the reviewer also marked cove
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-29 | implemented | A turn whose preflight sets no operational, knowledge, thread, or social signal now enters the verified path; in a long Console conversation such a turn for a Key Vault list had reached the adaptive planner, which answered from the conversation without a read. A read the adaptive plan hands back keeps the semantic path's own stage bounds. | `test_explicit_operational_preflight_bypasses_adaptive_planning` (explicit and no-signal cases); `test_a_read_handed_back_to_the_semantic_path_keeps_its_own_stage_bounds`; dev discuss traces counted 9 no-signal preflights among 129 traced preflights. | None beyond the listed remaining work. |
 | 2026-09-27 | validated | Retained authenticated local Console turns after restarting the full stack on the committed change. Korean and English AKS list questions listed only `kubernetes-cluster` Resources through the reused preflight judgment with one T1 call and stated the partial source scope. A readable ObjectType list rendered declaration names with its display limit instead of a row count, and the preflight rejection reason appeared in the plain local log. | Authenticated Browser Entra Console turns on the local full stack; Core log events `semantic_planning_judgment_reused_preflight` and `promotion_rejection_reason`; the 2026-09-27 implemented row above. | Korean current-state wording and declaration count and detail controls remain open. |
 | 2026-09-27 | implemented | Fixed a Korean AKS list question that returned a verified ObjectType row count. Preflight v5 keeps subtype lists as Resource collections, and judgment v5 adds candidate `stated_values` plus a subtype-collection objective. Core holds a targetless schema proposal that leaves a stated Resource type unexplained, the stated-filter compiler no longer drops a stated state, secondary intent, or name fragment, and manifest lists render readable declaration names instead of a row count. The preflight rejection reason now reaches the plain local log. | `current change`; `semantic_catalog_value_mentions.py`, `semantic_manifest_planning.py`, `semantic_target_candidate_planning.py`, `semantic_resource_state_planning.py`, `semantic_ontology_answers.py`, `capture-local-service-log.py`, and three prompt artifacts; 4018 focused Core tests and 2 log-capture tests passed, and the new cases fail against the previous code; bounded live T1 with one pinned deployment and no provider errors: preflight 56/60 against 49/60, including the reported question 3/3 against 0/3; judgment with preflight bypassed 53/60 against 49/60 on the final text, all 24 subtype trials correct, and no control answered with a Resource list. | Korean current-state wording is still sometimes dropped by T1 judgment and is held rather than answered; declaration-count and declaration-detail controls fail in both profiles; retain authenticated post-restart Console receipts. |
 | 2026-09-20 | implemented | Added a closed canonical declaration-list prompt and skipped unnecessary schema repair only for its complete single-kind shape. Counts, details, and extra facets retain their own paths. | `current change`; 227 focused judgment, manifest, prompt, and registry tests passed; strict mypy and Ruff passed; fixed-capability T1 treatment produced ten exact EN/KO lists and preserved count/detail intent in two controls. | Retain authenticated full-manifest query receipts. The small model cohort is not durable-index or production relevance certification. |

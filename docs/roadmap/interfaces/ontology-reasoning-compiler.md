@@ -119,9 +119,11 @@ The model states only that `aks-prod-01` is the dependency and the results are i
 Bragi admits a form only when every span matches the utterance without cutting through a longer identifier, every goal meets the confidence floor, no
 alternative survives, both relation roles are the ends of one sense, every declared mention is used, no two mentions share words, no group is both a
 goal's scope and its relation anchor unless the relation is a transitive containment from that group to its members, which only restates the scope's
-whole membership, and the level fits every mention domain. Otherwise it returns one clarification or sends a low-confidence field to one independent
-T2 review of closed fields. An admitted atom that no reviewed builder reads, such as a qualifier or a stated counterpart, returns a typed unsupported
-reason; it is never ignored.
+whole membership, every qualifier places one named instance inside another named instance, and the level fits every mention domain. A kind, a
+state, or a container of the results stated as a qualifier is a structural fault with one repair that restates it as a filter or as the goal's
+relation, unless the qualifier sits on a goal subject and names one of that goal's own filters, as in running VMs with a running filter; the
+filter reads it, so the qualifier restates it and drops nothing. Otherwise it returns one clarification or sends a low-confidence field to one independent T2 review of closed fields. An admitted atom
+that no reviewed builder reads, such as a qualifier or a stated counterpart, returns a typed unsupported reason; it is never ignored.
 
 **Utterance span accounting**: Every letter, digit, and math or currency symbol of the utterance must lie inside a mention, a goal, filter, relation,
 time, or measure cue, a context quote, or an unsupported constraint. Core checks this only by Unicode category and never classifies what a word means.
@@ -157,7 +159,9 @@ mention a name-fragment filter reads, is used verbatim, so its quote must equal 
 reader decides where a literal ends. An uncovered constraint gets one review repair that may only add information, checked against the same
 extraction. Its violation names a mention that quotes part of the constraint, and a literal operand's quote must stay exact, so the other words go to
 the cue that cites it. A merged mention or a disagreeing literal is held without a repair, because such a repair cannot split a mention or move a
-literal. A missing, empty, unlocated, uncovered, merged, or disagreeing extraction releases nothing.
+literal. A missing, empty, unlocated, uncovered, merged, or disagreeing extraction releases nothing. Every question states at
+least what it asks and every quote comes from the question alone, so an empty extraction made beside earlier turns is asked once
+more without them; live traces showed the extractor returning nothing for a standalone question after several long answers.
 
 **Direction confirmation**: A reversed relation answers the opposite question, and open-ended extraction named relation starts too rarely to catch it.
 After a faithful review, each goal whose relation has a direction, unless it is stated as either, gets one focused call to a reasoning model, because
@@ -214,7 +218,9 @@ lookup table, and an explicit root candidate stands for resources in general. Fu
   answer, including general resources against one exact type, clarifies with
   `concept_disagreement`. Without the second family nothing binds. Each chooser answers through a
   schema closed over the presented mention ids, candidate ids, and shard digest, so a text answer or
-  an invented identifier cannot parse.
+  an invented identifier cannot parse. The secret and identifier scan of a reviewed shard runs once
+  per shard digest rather than for every chooser, shard, and retry, so presenting a complete catalog
+  does not block the event loop.
 
 ### Anchor binding
 
@@ -481,7 +487,47 @@ never filters its members, and where no second reader runs a frame that drops th
 widening the list. A state collection needs T2 review only when a stated state lacks a reviewed state concept, as the fourth approved
 decision requires, and a collection whose typed targets are grounded states is planned as a state collection. A proposal that copies
 one span as two targets is repaired. Relationship questions about one named instance remain unexpressible on this path and wait for
-the relation compiler.
+the relation compiler. A judgment that ends ambiguous now ends the turn with its clarification once the deterministic pre-frame checks
+have run; the frame model no longer reinterprets the utterance without the judgment and its constraint review.
+
+**Local compiled answers**: In the local development profile the launcher also sets `FDAI_SEMANTIC_COMPILED_ANSWERS=1`, which needs
+the second reader, and the composition honors the flag only in the local execution venue. The planner then starts the form path beside
+the judgment on every unbound operational turn that needs no document evidence, with its own provider calls and budget scope, an
+absolute deadline, and anchor reads under the same role, purpose, and principal scope as the turn's executor. The planner consults the
+path only after the deterministic pre-frame checks, and an ambiguous judgment's clarification wins over it. The path answers only when
+it is released and its single retained compilation holds exactly one goal compiled into one verified batch, with no continuation and no
+limitation. The planner then stamps the plan with the gateway's current cutoff, verifies it again, and answers from that compiled
+frame and plan instead of the judgment path's frame and plan stages. When the judgment leaves a stated constraint uncovered, such a
+compilation may answer instead of the hold. Every other outcome leaves the current path to answer the turn: a typed unsupported
+reason, a clarification, a held review, a continuation, a timeout, or a provider failure. Ending or cancelling the turn cancels the
+path, and the owner loop drains its provider calls. The path emits one content-free decision event for every outcome, including a
+skip, cancellation, timeout, or failure, with its pass dispositions, review outcome, per-goal statuses, reasons, and limitations, so
+`dev discuss` shows why a question was or was not compiled. The form comes from a separate call beside the turn, so these records are
+the experiment that production shadow wiring excludes from promotion evidence, and no family is promoted by them.
+A goal whose relation sides span several batches answers as one plan only when every side fits one intent graph; a
+shared anchor read may repeat only with identical content. One plan names at most eight outputs, so beyond eight sides
+the traversals that reach one ObjectType stay as nodes and one union of them becomes the output, which reads every side
+and keeps each reached endpoint once. A Resource state filter binds through
+a reviewed state catalog built from the state inventory function's declared concepts and labels, and the collection is
+read through that function, whose state concepts V-PROV and V-SEM check against the bound state. A state filter on
+another ObjectType stays `filter_unsupported:state`, because no reviewed reader holds that lifecycle.
+A count grouped by container groups members by their direct parent, the `from` end of `contains`, and V-SEM rejects
+an aggregate whose grouping differs from the stated one. The routing preflight's context now also yields newest-first
+within its smaller bound: before, a context longer than that bound skipped the preflight, so after a few long
+answers a standalone question went to the adaptive planner, which could answer it from general knowledge. A trimmed
+context records the kept and dropped item counts as a decision event.
+A declined path also records the one selection rule it failed, such as `not_released`, `goal_not_compiled`, or
+`merge_over_budget`, and its batch count. An invalid review records why the extraction could not serve, such as an
+empty extraction or a quote that is not in the question, without the quote. When the released reading holds a goal
+that no builder compiles, it names what the question needs. The current path may then still answer through its own
+typed builders, but a filter recovered only from the judgment's words, such as a stated type, would answer a narrower
+question, for example every storage account when the question also states a region. The planner therefore returns
+`semantic_stated_constraint_unsupported` for such a recovered plan and records the unsupported reasons, instead of
+presenting a verified answer to a question the operator did not ask. Only a reason that names an unsupported atom
+counts; a data outcome, such as an incomplete anchor read, says nothing about the question. A parsed reading of any
+pass, released or not, also holds such a plan when it asks more than one filtered Resource list answers: a state,
+region, grouping, relation other than a named container's members, time, schema level, second goal, or competing
+reading. The form's first shape token records that verdict.
 
 ## Approved decisions
 

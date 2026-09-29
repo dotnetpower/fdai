@@ -1,7 +1,7 @@
 ---
 title: Operator Console - Data and Wire Contracts
 translation_of: operator-console-wire-contracts.md
-translation_source_sha: 36c286eb3cb871aeba798af214b476d3dd4951b7
+translation_source_sha: 1274df8235470a5db2a66faa84aa50b638c67a3a
 translation_revised: 2026-09-30
 ---
 
@@ -145,6 +145,9 @@ receipt 또는 payload가 더 이상 일치하지 않는 투영은 격리되며 
 Core는 의미 요청 결속, 인시던트 근거 변환, 현지화된 인시던트 답변 렌더링을 전용 모듈에
 유지하며 의미 턴 프로세서는 조정을 계속 담당합니다. 이 분리는 모든 wire 필드, 행 한도,
 로케일, 근거 참조 및 권한 없음 값을 보존합니다.
+로컬 개발 진단 채널이 활성화되어 있으면 프로세서는 각 projection을 만든 뒤 내용이 없는
+[의미 판단 추적](../deployment/developer-workflow-assurance-ko.md#의미-판단-추적)도 기록합니다.
+추적은 Core 프로세스 안에만 남으며 projection, 스키마 버전, 모든 wire 필드는 바뀌지 않습니다.
 온톨로지 매니페스트 선언 목록과 개수도 전용 모듈에서 렌더링합니다. 선언 목록은 읽을 수 있는 각
 선언의 이름과 버전을 표시하고 표시 한도와 원본 완전성 한계를 밝힙니다. 요청한 종류의 사용 가능하고
 권한 없는 선언이 아닌 행이 있으면 일반 행 개수 대신 범위가 제한된 사용 불가 답변을 표시합니다.

@@ -21,7 +21,10 @@ async def request_profile(
     timeout_seconds: float = 35,
 ) -> DevelopmentProfilePacket:
     """Request one snapshot or bounded capture and verify the returned packet."""
-    reader, writer = await asyncio.wait_for(asyncio.open_unix_connection(socket_path), timeout=2)
+    reader, writer = await asyncio.wait_for(
+        asyncio.open_unix_connection(socket_path, limit=_MAX_RESPONSE_BYTES + 1),
+        timeout=2,
+    )
     request: dict[str, Any] = {
         "schema_version": "1.0.0",
         "command": "snapshot" if duration_ms == 0 else "capture",

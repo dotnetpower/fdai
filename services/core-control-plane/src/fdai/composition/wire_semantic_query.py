@@ -702,7 +702,7 @@ def build_semantic_query_runtime(
         ),
         inventory_query_language=inventory_query_language,
         resource_freshness_seconds=resource_freshness_seconds,
-        **planner_arguments(second_reader),
+        **planner_arguments(second_reader, gateway, purpose, evaluation_cutoff),
     )
 
     def executor_for(

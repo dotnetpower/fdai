@@ -6,6 +6,10 @@ is the first resolved narrator deployment. The second reader is the first later
 narrator deployment outside the completion-token (reasoning) request family, so its
 closed choices and constraint quotes do not spend their bounded output on reasoning.
 Without such a deployment no second reader exists and nothing binds through it.
+
+The local launcher also sets ``FDAI_SEMANTIC_COMPILED_ANSWERS=1``, which adds the
+question-form path that answers a released compilation. Relation directions are then
+confirmed by the first later reasoning deployment, because direction turns on syntax.
 """
 
 from __future__ import annotations
@@ -13,11 +17,17 @@ from __future__ import annotations
 import asyncio
 import logging
 import os
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from pathlib import Path
 
 import httpx
+from fdai_service_contracts.venue import (
+    ExecutionVenue,
+    ExecutionVenueError,
+    resolve_execution_venue,
+)
 
+from fdai.core.conversation.semantic_compiled_answers import CompiledAnswerPath
 from fdai.core.conversation.semantic_judgment_coverage import JudgmentCoverageReview
 from fdai.core.conversation.semantic_second_reader import SemanticSecondReader
 from fdai.core.conversation.semantic_type_grounding import ResourceTypeGrounding
@@ -34,6 +44,7 @@ from fdai.shared.providers.workload_identity import WorkloadIdentity
 from .semantic_query_model_targets import t1_model_targets
 
 SECOND_READER_ENV = "FDAI_SEMANTIC_SECOND_READER"
+COMPILED_ANSWERS_ENV = "FDAI_SEMANTIC_COMPILED_ANSWERS"
 _LOGGER = logging.getLogger(__name__)
 
 
@@ -66,10 +77,14 @@ def build_second_reader(
     form_prompt = compose_static_selection(prompts.resolve("semantic.question_form"))
     concept_prompt = compose_static_selection(prompts.resolve("semantic.concept_selection"))
     extraction_prompt = compose_static_selection(prompts.resolve("semantic.constraint_extraction"))
-    reader = AzureOpenAIQuestionFormModel(
-        identity=identity,
-        http_client=http_client,
-        config=AzureOpenAIQuestionFormConfig(
+    compiled = compiled_answers_enabled()
+    direction_prompt = (
+        compose_static_selection(prompts.resolve("semantic.direction_check")) if compiled else None
+    )
+
+    def reader_config(with_direction: bool) -> AzureOpenAIQuestionFormConfig:
+        direction = direction_prompt if with_direction else None
+        return AzureOpenAIQuestionFormConfig(
             candidates=targets[:1],
             form_system_prompt=form_prompt.system_text,
             form_prompt_manifest=form_prompt.replay_manifest(),
@@ -78,12 +93,75 @@ def build_second_reader(
             extraction_system_prompt=extraction_prompt.system_text,
             extraction_prompt_manifest=extraction_prompt.replay_manifest(),
             extraction_candidates=(second,),
-            timeout_seconds=40.0,
-        ),
+            direction_system_prompt=direction.system_text if direction is not None else None,
+            direction_prompt_manifest=direction.replay_manifest()
+            if direction is not None
+            else None,
+            direction_candidates=(direction_reader_target(targets) or second,),
+            direction_max_tokens=2_048 if direction is not None else 64,
+            timeout_seconds=60.0 if direction is not None else 40.0,
+        )
+
+    try:
+        config = reader_config(compiled)
+    except ValueError:
+        # An invalid optional path never disables the second reader or the semantic runtime.
+        _LOGGER.warning("semantic_compiled_answers_disabled", extra={"reason": "config_invalid"})
+        compiled = False
+        config = reader_config(False)
+    reader = AzureOpenAIQuestionFormModel(
+        identity=identity,
+        http_client=http_client,
+        config=config,
     )
     return SemanticSecondReader(
         type_grounding=ResourceTypeGrounding(chooser=reader, owner_loop=owner_loop),
         coverage_review=JudgmentCoverageReview(extractor=reader, owner_loop=owner_loop),
+        compiled_answers=(
+            (
+                lambda gateway, purpose, clock: CompiledAnswerPath(
+                    model=reader,
+                    owner_loop=owner_loop,
+                    gateway=gateway,
+                    purpose=purpose,
+                    clock=clock,
+                )
+            )
+            if compiled
+            else None
+        ),
+    )
+
+
+def compiled_answers_enabled(environment: Mapping[str, str] | None = None) -> bool:
+    """Return whether the local profile enabled compiled answers; other venues never do."""
+
+    source = os.environ if environment is None else environment
+    if source.get(COMPILED_ANSWERS_ENV) != "1":
+        return False
+    try:
+        venue = resolve_execution_venue(source)
+    except ExecutionVenueError:
+        return False
+    if venue is not ExecutionVenue.LOCAL:
+        _LOGGER.warning("semantic_compiled_answers_ignored", extra={"reason": "venue_not_local"})
+        return False
+    return True
+
+
+def direction_reader_target(
+    targets: tuple[ModelRequestTarget, ...],
+) -> ModelRequestTarget | None:
+    """Return the first later reasoning deployment, which confirms relation directions."""
+
+    return next(
+        (
+            target
+            for target in targets[1:]
+            if target.deployment != targets[0].deployment
+            and uses_completion_token_budget(target.deployment)
+        ),
+        None,
     )
 
 
@@ -103,4 +181,11 @@ def second_reader_target(
     )
 
 
-__all__ = ["SECOND_READER_ENV", "build_second_reader", "second_reader_target"]
+__all__ = [
+    "COMPILED_ANSWERS_ENV",
+    "SECOND_READER_ENV",
+    "build_second_reader",
+    "compiled_answers_enabled",
+    "direction_reader_target",
+    "second_reader_target",
+]

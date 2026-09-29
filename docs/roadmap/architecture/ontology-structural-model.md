@@ -235,6 +235,15 @@ which meaning-level role, such as the container at the `from` end of a containme
 from a stated role; a LinkType whose stored direction contradicts that convention MUST NOT carry the
 trait.
 
+Every LinkType with a Resource endpoint now carries at least one reviewed trait, because a one-sense
+relation otherwise reports each untraited LinkType as a completeness limitation. Records about a
+Resource, such as changes, findings, observations, signals, and plans, carry `evidence` with the
+record at the `from` end. A Kubernetes owner reference carries `dependency`, because Kubernetes calls
+the owned object a dependent of its owner and stores it at the `from` end. Pod scheduling and
+workload hosting carry `attachment`, Service selection and telemetry routing carry `traffic`, and a
+Service's Endpoints carry `connectivity` like its EndpointSlice. A focused test keeps new Resource
+LinkTypes from entering the catalog without a reviewed trait.
+
 Provider relationship mappings also carry a reviewed cardinality. Candidate materialization MUST
 match that catalog cardinality, LinkType, endpoint orientation, source property path, and source
 schema identity before it can enter a versioned proposal generation; an omitted catalog value uses

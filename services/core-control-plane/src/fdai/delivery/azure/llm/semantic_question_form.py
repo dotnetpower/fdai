@@ -16,6 +16,7 @@ import copy
 import hashlib
 import json
 import logging
+from collections import OrderedDict
 from collections.abc import Mapping
 from dataclasses import dataclass
 from functools import partial
@@ -62,6 +63,7 @@ from fdai.shared.providers.workload_identity import WorkloadIdentity
 
 _LOGGER = logging.getLogger(__name__)
 _MAX_CANDIDATES = 8
+_MAX_SHARD_VERDICTS = 64
 _MAX_PROMPT_CHARS = 32_768
 _MAX_RESPONSE_BYTES = 65_536
 _MAX_REQUEST_TOKENS = 131_072
@@ -201,6 +203,28 @@ class AzureOpenAIQuestionFormModel:
         self._config = config
         self._form_schema = question_form_proposal_schema()
         self._extraction_schema = extraction_schema()
+        self._shard_verdicts: OrderedDict[str, bool] = OrderedDict()
+
+    def _shard_is_safe(self, shard: ConceptShard, payload: Mapping[str, Any]) -> bool:
+        """Scan one reviewed catalog shard once per content digest, not once per call.
+
+        Every leaf of a shard is decoded and scanned; repeating that for each chooser,
+        shard, and retry blocked the event loop, and the verdict depends only on the
+        content the digest names.
+        """
+
+        verdict = self._shard_verdicts.get(shard.digest)
+        if verdict is None:
+            verdict = not any(
+                secret_spans(leaf) or _hides_secret(leaf) or _hides_identity(leaf)
+                for leaf in _string_leaves(payload)
+            )
+            self._shard_verdicts[shard.digest] = verdict
+            while len(self._shard_verdicts) > _MAX_SHARD_VERDICTS:
+                self._shard_verdicts.popitem(last=False)
+        else:
+            self._shard_verdicts.move_to_end(shard.digest)
+        return verdict
 
     async def propose_form(
         self,
@@ -275,10 +299,7 @@ class AzureOpenAIQuestionFormModel:
         # Catalog strings are reviewed data, but any that decodes to a secret or an exact
         # identifier holds the call rather than being altered, and so does operator text
         # whose secret or identifier only decoding or record structure reveals.
-        if any(
-            secret_spans(leaf) or _hides_secret(leaf) or _hides_identity(leaf)
-            for leaf in _string_leaves(shard_payload)
-        ) or any(
+        if not self._shard_is_safe(shard, shard_payload) or any(
             # Operator text with any secret is withheld whole, never partly redacted.
             secret_spans(leaf) or _hides_secret(leaf) or _hides_identity(leaf)
             for leaf in _string_leaves([utterance, list(mentions)])
@@ -326,21 +347,11 @@ class AzureOpenAIQuestionFormModel:
         if any(_exposes_secret(text) for text in (utterance, *context)):
             _held("input_redacted", name="semantic-constraint-extraction", raise_error=True)
         mask = IdentityMask(utterance, context)
-        payload: dict[str, Any] = {
-            "utterance": mask.utterance,
-            "context": list(mask.context),
-            "locale": locale,
-        }
-        extraction = await self._complete(
-            system_prompt=self._config.extraction_system_prompt,
-            user_payload=payload,
-            schema=self._extraction_schema,
-            name="semantic-constraint-extraction",
-            max_tokens=self._config.extraction_max_tokens,
-            manifest=self._config.extraction_prompt_manifest,
-            require_verbatim=True,
-            candidates=self._config.extraction_candidates or None,
-        )
+        extraction = await self._extract(mask, mask.context, locale)
+        if extraction is not None and extraction.get("constraints") == [] and mask.context:
+            # Every question states at least what it asks, and every quote comes from the
+            # question alone; an empty reading beside earlier turns is asked once without them.
+            extraction = await self._extract(mask, (), locale)
         if extraction is None:
             return None
         constraints = extraction.get("constraints")
@@ -367,6 +378,20 @@ class AzureOpenAIQuestionFormModel:
                 else {}
             ),
         }
+
+    async def _extract(
+        self, mask: IdentityMask, context: tuple[str, ...], locale: str
+    ) -> Mapping[str, Any] | None:
+        return await self._complete(
+            system_prompt=str(self._config.extraction_system_prompt),
+            user_payload={"utterance": mask.utterance, "context": list(context), "locale": locale},
+            schema=self._extraction_schema,
+            name="semantic-constraint-extraction",
+            max_tokens=self._config.extraction_max_tokens,
+            manifest=self._config.extraction_prompt_manifest,
+            require_verbatim=True,
+            candidates=self._config.extraction_candidates or None,
+        )
 
     async def check_direction(
         self,

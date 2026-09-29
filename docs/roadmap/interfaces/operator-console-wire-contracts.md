@@ -155,6 +155,10 @@ path that accepts only a held status.
 Core keeps semantic request binding, Incident evidence projection, and localized Incident answer
 rendering in dedicated modules while the semantic turn processor retains orchestration.
 The split preserves every wire field, row limit, locale, evidence reference, and no-authority value.
+When the local development diagnostic channel is enabled, the processor also records a
+content-free [semantic decision trace](../deployment/developer-workflow-assurance.md#semantic-decision-traces)
+after it builds each projection. The trace stays in the Core process, and the projection, its
+schema version, and every wire field remain unchanged.
 Ontology manifest declaration lists and counts also render from a dedicated module. A declaration
 list names each readable declaration with its version and states display and source-completeness
 limits. A row that is not an available, no-authority declaration of the requested kind renders a

@@ -50,6 +50,10 @@ DIRECT_SOCIAL_ACTS = frozenset(
         SocialAct.SELF_INTRODUCTION,
     }
 )
+# Social acts whose turn goes to the verified path when no operational, knowledge, or
+# thread signal is set. A turn that requests nothing typed is not general knowledge, so
+# the adaptive planner never answers it without a read.
+VERIFIED_SOCIAL_ACTS = DIRECT_SOCIAL_ACTS | {SocialAct.NONE}
 
 SOCIAL_NARRATOR_CAPABILITY_IDS = MappingProxyType(
     {

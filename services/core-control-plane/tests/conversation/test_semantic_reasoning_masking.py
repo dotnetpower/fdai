@@ -1426,3 +1426,41 @@ def test_flag_counter_reference_and_empty_records_are_not_held(text: str) -> Non
     from fdai.delivery.azure.llm.semantic_question_form import _exposes_secret
 
     assert not _exposes_secret(text)
+
+
+async def test_a_reviewed_catalog_shard_is_scanned_once_per_digest(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import fdai.delivery.azure.llm.semantic_question_form as adapter_module
+    from fdai.core.conversation.semantic_reasoning_concepts import ConceptCandidate, ConceptShard
+    from fdai.core.conversation.semantic_reasoning_form import MentionDomain
+
+    scanned: list[str] = []
+    original = adapter_module._hides_identity
+
+    def counting(text: str) -> bool:
+        scanned.append(text)
+        return original(text)
+
+    monkeypatch.setattr(adapter_module, "_hides_identity", counting)
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json={"choices": [{"message": {"content": "{}"}}]})
+
+    shard = ConceptShard(
+        domain=MentionDomain.RESOURCE_TYPE,
+        index=0,
+        total=1,
+        candidates=(
+            ConceptCandidate(id="value:x", values=("x",), labels=("reviewed catalog label",)),
+        ),
+        catalog_digest="sha256:" + "0" * 64,
+    )
+    adapter = _adapter(handler)
+
+    for _ in range(3):
+        await adapter.choose_concepts(
+            utterance="VM 목록", mentions=({"mention": "m1", "text": "VM"},), shard=shard
+        )
+
+    assert scanned.count("reviewed catalog label") == 1

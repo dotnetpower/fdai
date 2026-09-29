@@ -74,6 +74,7 @@ from .semantic_reasoning_review import (
     unacknowledged_constraints,
     uncovered_constraints,
 )
+from .semantic_reasoning_shape import form_shape
 
 MAX_FORM_PASSES = 3
 
@@ -161,6 +162,7 @@ class ShadowPass:
     reference_digest: str | None = None
     # Mentions grounded in the sibling kind lane, whose domain the form now carries.
     regrounded: tuple[str, ...] = ()
+    shape: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -376,13 +378,20 @@ async def run_reasoning_shadow(
                 except Exception as exc:  # noqa: BLE001 - shadow work must never fail the turn
                     shadow_pass, compilation, admitted = _failed_pass(len(passes), exc), None, None
                 passes.append(shadow_pass)
-                if admitted is not None and shadow_pass.disposition == "admitted":
+                repaired_whole = compilation is None or not compilation.needs_continuation
+                if (
+                    admitted is not None
+                    and shadow_pass.disposition == "admitted"
+                    and repaired_whole
+                ):
                     review = review_forms((admitted,), raw, utterance=utterance)
                     reviewed = (admitted,)
                     if retain_compilations and compilation is not None:
                         compilations = [compilation]
                 else:
+                    # A repair that reads only part of the question releases nothing.
                     complete = False
+                    pending = pending or not repaired_whole
             if complete and review is not None and review.faithful:
                 review = await _confirm_directions(
                     counting,
@@ -624,6 +633,7 @@ async def _run_pass(
                 resolution.form.digest,
                 repair=proposal.repair,
                 repaired_reasons=proposal.repaired_reasons,
+                shape=form_shape(resolution.form),
             ),
             (),
             None,
@@ -694,6 +704,7 @@ async def _run_pass(
         proposal.repaired_reasons,
         references.digest if references.bindings else None,
         grounding.regrounded,
+        form_shape(form),
     )
     return shadow_pass, goals, compilation, form
 
