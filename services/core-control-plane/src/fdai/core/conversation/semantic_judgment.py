@@ -785,6 +785,9 @@ def _validate_intent_target_compatibility(proposal: SemanticJudgmentProposal) ->
         target.kind == "resource_group" for target in proposal.targets
     ):
         raise ValueError("semantic current-state intent requires a Resource target")
+    spans = [(target.source_start, target.source_end) for target in proposal.targets]
+    if len(spans) != len(set(spans)):
+        raise ValueError("semantic targets MUST NOT copy one span twice")
 
 
 __all__ = [

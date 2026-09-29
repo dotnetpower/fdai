@@ -110,7 +110,9 @@ planning from two narrator deployments: two blind choosers ground unbound Resour
 closed choice, and a blind constraint reading checks that the typed judgment copies every stated
 restriction. Only the local launcher sets `FDAI_SEMANTIC_SECOND_READER=1`; deployed venues keep
 the single-reader path until the reader is promoted. Repair feedback may repeat the judged words to
-the model, but rejection logs keep only its location, type, and reason.
+the model, but rejection logs keep only its location, type, and reason. `semantic_judgment_review.py`
+owns both the second-tier review requirement and the promotion of a grounded state collection, so
+the review decision and the planned family cannot diverge.
 
 **Initial design.** Physically move every flat Core subsystem under `pipeline`, `incident`,
 `operator`, `knowledge`, or `platform`, then rewrite every import in one codemod.
