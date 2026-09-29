@@ -1,7 +1,7 @@
 ---
 translation_of: ontology-query-coverage-implementation-plan.md
-translation_source_sha: 99b8d33f59367ac9b563f29972ccbe3de483f505
-translation_revised: 2026-09-28
+translation_source_sha: 3798e7c4dd49ec608876ab21436071e648eaea4f
+translation_revised: 2026-09-29
 ---
 # 온톨로지 조회 커버리지 구현 계획
 
@@ -265,7 +265,8 @@ v1.2 검색어/발화 결속, 사용 불가 결과 및 이전 버전 호환성�
 
 Authority-bearing 전이는 event-bus 메시지로 유지합니다. 읽기 전용 조회 실행은
 purpose-bound 변경할 수 없는 변환 결과를 사용할 수 있지만 한 서비스가 다른 서비스 구현을 가져오기하지
-않습니다. 새 에이전트를 추가하지 않습니다.
+않습니다. 새 에이전트를 추가하지 않습니다. Operator는 Core가 약속한 근거 digest와 projection 신원을
+공유 계약 SDK로 다시 계산한 뒤에만 최종 조회 답변을 렌더링합니다.
 
 ## 목표 계약
 

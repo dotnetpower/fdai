@@ -40,7 +40,7 @@ from fdai_service_contracts.semantic_work_progress import conversation_model_tie
 from pydantic import ValidationError
 
 from .test_semantic_query_progress_relay import _progress
-from .test_semantic_turn_bridge import _MemorySemanticStore, _projection, _proposal
+from .test_semantic_turn_bridge import _committed, _MemorySemanticStore, _projection, _proposal
 
 GOLDEN = Path(__file__).parent / "fixtures" / "semantic_work_progress_trajectory.json"
 _RECORDED = datetime(2026, 9, 28, 10, 41, 6, 296_000, tzinfo=UTC)
@@ -306,7 +306,7 @@ async def _replayed_events(after_event_id: str | None = None) -> list[Any]:
             "planned_reads": 1,
         }
     }
-    await SemanticTurnProjectionConsumer(store).consume(projection)
+    await SemanticTurnProjectionConsumer(store).consume(_committed(projection))
     stream = await bridge.open(
         ConversationStreamRequest(
             operation="chat.stream",

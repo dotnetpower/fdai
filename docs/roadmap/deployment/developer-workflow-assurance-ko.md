@@ -1,6 +1,6 @@
 ---
 translation_of: developer-workflow-assurance.md
-translation_source_sha: 46b5c8937aa766c4c1b7daf8d28284e13af2db28
+translation_source_sha: 93e7ae725fe964d4367c5d2372d3ed25a6737cdb
 translation_revised: 2026-09-29
 ---
 
@@ -114,7 +114,8 @@ Operator semantic runtime은 제품 projection을 위해 assurance 답변 생성
 probe, packet, export 또는 Copilot 검토에 들어가지 않습니다.
 Runtime은 내용이 제거된 조회 활동 변환과 검증된 문서 답변 구체화를 전용 모듈에 위임합니다.
 이벤트 순서, 재생 cursor, 진행 단조성, 기한 보류, 진단 timing 및 실행 권한 없음은 영속 runtime이
-계속 소유합니다.
+계속 소유합니다. Runtime이 직접 만든 기한 보류는 별도 로컬 보류 경로로 영속화합니다. 수집 단계가 다시
+계산하는 근거 digest와 projection 신원은 Core projection에만 있기 때문입니다.
 
 모든 패킷은 Git 리비전, 로컬 서비스 입력 digest, worktree patch digest, 프로세스 신원,
 runtime-scope receipt digest, 시간 구간 및 패킷 digest를 연결합니다. 캡처 허용 여부는 정식
