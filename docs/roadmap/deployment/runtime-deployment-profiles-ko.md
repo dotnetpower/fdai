@@ -1,6 +1,6 @@
 ---
 translation_of: runtime-deployment-profiles.md
-translation_source_sha: afcd2d064034b6a19cdc523c34ab37296defae08
+translation_source_sha: 5f319f41ea7f4f90bec2b4aa4b001ea6337625d0
 translation_revised: 2026-09-29
 ---
 # 런타임 배포 프로파일
@@ -330,6 +330,10 @@ replica-local TCP sidecar로 포함합니다. 루트는 읽기 전용으로 유�
 임시 경로에만 크기가 제한된 `emptyDir` 볼륨을 제공합니다. restricted namespace에서는 워크로드,
 init container, sidecar, 예약 작업의 Pod와 container 범위 모두에 `runAsNonRoot`가 필요합니다.
 Pod 범위 설정만으로는 admission을 통과하지 못합니다.
+
+선택적인 운영 근거 검증기는 자체 user-assigned Managed Identity를 사용하는 별도 내부 워크로드입니다.
+기본 5개 서비스 준비 상태 집합에 포함되지 않으며 실행기 신원을 받지 않습니다. 호출자 인증기, 실행기
+계열 앵커 사전 점검, 증명 저장소 작성자 재확인, Azure 자체 역할 재확인이 모두 통과한 뒤에만 시작합니다.
 
 예약 작업은 `concurrencyPolicy=Forbid`, 완료 수 1, 병렬 작업자 1, 제한된 active deadline, 재시도
 한도, 제한된 이력을 사용합니다. 수동 작업은 별도로 승인된 요청으로만 만들며 영구 desired-state

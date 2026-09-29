@@ -41,6 +41,12 @@ variable "enable_ohl_scale_out_evidence_target" {
   default     = false
 }
 
+variable "enable_operational_evidence_verifier" {
+  description = "Provision the dedicated non-executor identity used by the independent operational evidence verifier. The workload remains opt-in and disabled by default."
+  type        = bool
+  default     = false
+}
+
 variable "ohl_scale_out_evidence_ssh_public_key" {
   description = "Non-secret SSH public key required by Azure for the OHL evidence VMSS model. Supply only when enable_ohl_scale_out_evidence_target is true."
   type        = string

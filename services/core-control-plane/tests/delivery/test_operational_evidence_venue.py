@@ -52,14 +52,18 @@ def _workload_env(tmp_path: Path, **values: str) -> dict[str, str]:
 def test_verifier_starts_only_in_the_resolved_local_venue(tmp_path: Path) -> None:
     root = tmp_path
     local = build_verifier_workload(_workload_env(tmp_path), root=root)
-    assert local.local_producer_principal == "fdai_core"
-    for values in (
-        {"FDAI_EXECUTION_VENUE": "deployed", _ANCHORS: _duplicated_venue()},
-        {"FDAI_EXECUTION_VENUE": "deployed"},
-        {"FDAI_EXECUTION_VENUE": ""},
-    ):
-        with pytest.raises(RuntimeError, match="workload caller authenticator"):
-            build_verifier_workload(_workload_env(tmp_path, **values), root=root)
+    assert local.deployed_venue is False
+    with pytest.raises(RuntimeError, match="executor anchors"):
+        build_verifier_workload(
+            _workload_env(
+                tmp_path,
+                FDAI_EXECUTION_VENUE="deployed",
+                **{_ANCHORS: anchors_json(venue="deployed", evidence_class="live")},
+            ),
+            root=root,
+        )
+    with pytest.raises(RegistryUnavailableError):
+        build_verifier_workload(_workload_env(tmp_path, FDAI_EXECUTION_VENUE=""), root=root)
     with pytest.raises(RegistryUnavailableError, match="repeats a key"):
         build_verifier_workload(
             _workload_env(tmp_path, **{_ANCHORS: _duplicated_venue()}), root=root
