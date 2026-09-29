@@ -28,6 +28,7 @@ from fdai_service_contracts import SemanticQueryProgress
 from fdai_service_contracts.semantic_work_progress import SemanticWorkProgress, WorkProgressShape
 from fdai_service_contracts.venue import ExecutionVenue, resolve_execution_venue
 
+from .semantic_context_shadow import build_semantic_context_shadow
 from .semantic_turn_processor import (
     OperationalEvidenceProjectionReader,
     RuntimeSettingsReader,
@@ -247,8 +248,10 @@ def build_semantic_turn_processor(
         answer_continuity_enabled=answer_continuity_enabled,
         runtime_settings=runtime_settings,
         runtime_readiness=runtime_readiness,
-        context_selection_policy_authority=context_selection_policy_authority,
-        context_selection_shadow_runner=context_selection_shadow_runner,
+        context_selection_shadow=build_semantic_context_shadow(
+            context_selection_policy_authority,
+            context_selection_shadow_runner,
+        ),
     )
 
 
