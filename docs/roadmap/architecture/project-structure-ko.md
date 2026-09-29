@@ -1,12 +1,12 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 56a1dae567346ac5bbfca531a068395333f43531
+translation_source_sha: bafa8f3c04c0d09ba289cf29e2bdfe7869e9c094
 translation_revised: 2026-09-29
 ---
 # 프로젝트 구조
 
-Post-turn review seam은 이제 Operator request topic과 Bragi의 Pantheon topic을 분리하여 service boundary와 single-writer ownership을 보존합니다.
+Post-turn review seam은 Operator request topic과 Bragi의 Pantheon topic을 분리하여 service boundary와 single-writer ownership을 보존합니다.
 
 공유 `fdai_service_contracts.post_turn_review` 모듈은 Bragi 소유 post-turn review 묶음을 위한 versioned cross-service wire seam입니다. Operator composition이 이를 발행할 수 있지만 검토, 라우팅, 소유권은 Core와 Pantheon에 남습니다.
 이 시스템은 하나의 웹 앱이 아니라 **headless 컨트롤 플레인 + 얇은 콘솔 + ChatOps**입니다. 이 문서는 검증된 5개 서비스 기준선과 독립 패키지 시스템 지식 서비스 후보의 모듈 경계, 의존성 방향, 조립 및 저장소 규칙을 정의합니다. 공유 서비스 계약 SDK는 권한을 부여하지 않는 `RuntimeScopeReceipt`를 소유하며, 서비스가 소유하는 모든 진입점은 시작 전에 이 증적을 하나 내보내 제품 목적, 실행 위치 및 허용된 완전한 기능 행을 결속하되 프로바이더 상태나 성공을 주장하지 않습니다. 공유 온톨로지 코드는 프로덕션 라우팅 및 탐지 제어의 고정된 절대 범위 레지스트리를 소유하고, 런타임과 전달 계층은 활성 값을 버전이 지정된 구성에 유지하며 새 권한 경로를 가져오지 않습니다. Post-turn 런타임 스킬 초안은 스킬을 활성화하지 않고 정규화된 검증 근거 참조를 제안 식별자, 영속 저장소 및 감사 메타데이터에 보존합니다. Bootstrap은 후보를 평가하거나 게시하기 전에 Norns 룰 힌트를 현재 discovery-activation 결정 뒤에 결속합니다. 패키지 release 카탈로그는 도달 가능한 소스 개정 번호에만 고정하며 파생 소스 게이트는 커밋 전과 CI에서 기록된 모든 소스 blob을 비교합니다. 소유 설계 원본만 바뀌면 upstream 통합 뒤에 다시 생성하여 카탈로그 레코드는 유지하고 원본 약속값과 집계 다이제스트만 최종 병합 blob 및 도달 가능한 보호 main 개정 번호에 맞춥니다. 질문은행과 CQAS 산출물도 정확한 원본 카탈로그에서 의존성 순서에 따라 전체를 다시 생성하며 다이제스트만 수동으로 수정하지 않습니다. 확인된 인시던트 생성은 전용 논리 토픽의 버전이 지정된 권한 없는 요청으로 Operator/Core 경계를 통과합니다. Operator는 인증, 원본 초안 재검증 및 영속 수락을 소유하고 Core만 인시던트 수명 주기와 감사 레코드를 기록합니다. 물리 패키지 소유권은 [다중 서비스 저장소 레이아웃](multi-service-repository-layout-ko.md), 로컬 및 배포 topology는 [App 형태](../../../.github/instructions/app-shape.instructions.md)를 참조하세요.

@@ -126,3 +126,25 @@ async def test_core_ingress_missing_bragi_fails_closed_without_publish() -> None
 
 class _NoBragiRuntime:
     agents: dict[str, Any] = {}
+
+
+async def test_core_ingress_dead_letters_a_failed_bragi_publish_without_stopping() -> None:
+    bus = InMemoryEventBus()
+    consumer = PostTurnReviewRequestConsumer(_FailingBragiRuntime())
+
+    accepted = await consumer.handle(bus=bus, envelope=_request_envelope())
+
+    assert accepted is False
+    dlq = [
+        event async for event in bus.subscribe(f"{POST_TURN_REVIEW_REQUEST_TOPIC}.dlq", "assert")
+    ]
+    assert [event.payload["reason"] for event in dlq] == ["post_turn_review_publish_failed"]
+
+
+class _FailingBragi:
+    async def publish_post_turn_review(self, review: object) -> bool:
+        raise ConnectionError("bus unavailable")
+
+
+class _FailingBragiRuntime:
+    agents: dict[str, Any] = {"Bragi": _FailingBragi()}

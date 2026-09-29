@@ -4,8 +4,6 @@ title: Ontology-Grounded FinOps Package Architecture
 
 # Ontology-Grounded FinOps Package Architecture
 
-The corrected Operator post-turn request topic remains outside Cost Governance package activation, Njord publication, cost data access, and action authority.
-
 This document defines how FDAI can package Cost Governance as an independently built
 `fdai-cost-governance` distribution while keeping the operating ontology and the fixed 15-agent
 organization at the center of autonomous operation. Packaging changes ownership of replaceable

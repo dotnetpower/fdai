@@ -1,12 +1,10 @@
 ---
 title: WARA 근거 기반 평가
 translation_of: wara-assessment.md
-translation_source_sha: e23243b718e12abe25c6bf813edbad583342d9b0
+translation_source_sha: 670a81f1da690450dcb0acfd065958404928ae84
 translation_revised: 2026-09-29
 ---
 # WARA 근거 기반 평가
-
-수정된 post-turn request topic과 Core Bragi ingress는 WARA scope, APRL measurement, assessment admission, authority의 범위 밖에 남습니다.
 
 Post-turn review 묶음도 WARA scope, APRL measurement, assessment admission, authority에서 제외됩니다.
 

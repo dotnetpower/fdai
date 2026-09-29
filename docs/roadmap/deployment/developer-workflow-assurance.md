@@ -1,6 +1,6 @@
 # Developer workflow assurance
 
-The corrected post-turn ingress path changes runtime supervision only; it does not add developer workflow authority or a diagnostic shortcut.
+The post-turn review ingress adds only a supervised Core runtime task; it adds no developer workflow authority or diagnostic shortcut.
 
 This document defines the repository controls that keep concurrent FDAI development fast,
 resumable, and fail-closed. It owns developer workflow diagnostics and latency evidence, not the

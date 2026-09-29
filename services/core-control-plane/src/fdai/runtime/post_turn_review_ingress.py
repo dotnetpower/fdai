@@ -27,7 +27,11 @@ class BragiPostTurnPublisher(Protocol):
 
 @dataclass(slots=True)
 class PostTurnReviewRequestConsumer:
-    """Validate Operator requests and re-publish them only through Bragi."""
+    """Validate Operator requests and re-publish them only through Bragi.
+
+    Review is best-effort learning input: a publish failure is dead-lettered and logged instead
+    of stopping the required intake task, and an absent Bragi fails closed without publishing.
+    """
 
     runtime: Any | None
     group_id: str = POST_TURN_REVIEW_REQUEST_CONSUMER_GROUP
@@ -56,7 +60,25 @@ class PostTurnReviewRequestConsumer:
                 )
                 return False
             review_input = review_input_from_mapping(request.review.to_wire_mapping())
-            published = await bragi.publish_post_turn_review(review_input)
+            try:
+                published = await bragi.publish_post_turn_review(review_input)
+            except asyncio.CancelledError:
+                raise
+            except Exception as exc:  # noqa: BLE001 - best-effort review must not stop intake
+                _LOGGER.warning(
+                    "post_turn_review_bragi_publish_failed",
+                    extra={
+                        "idempotency_key": request.idempotency_key,
+                        "error_type": type(exc).__name__,
+                    },
+                )
+                await bus.dead_letter(
+                    POST_TURN_REVIEW_REQUEST_TOPIC,
+                    envelope.key,
+                    {"reason": "post_turn_review_publish_failed", "execution_authority": False},
+                    "post_turn_review_publish_failed",
+                )
+                return False
             if not published:
                 _LOGGER.warning(
                     "post_turn_review_bragi_publish_unavailable",
