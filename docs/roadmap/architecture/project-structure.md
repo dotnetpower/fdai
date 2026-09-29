@@ -7,6 +7,8 @@ The system is a **headless control plane + thin console + ChatOps**, not one web
 Workflow authoring commits are delegated to a focused Operator PostgreSQL module with its own audit table and service-migration ownership entry; the family facade only routes the committed draft or binding request and still grants no executor, publication, or promotion authority.
 
 ## Design at a glance
+Test-context choices extend the shared service-contract SDK with a no-authority projection schema. Operator owns authentication and choice rendering; Core remains the admission and lifecycle authority.
+
 
 The Assurance Twin's production composition binds Heimdall's retained Inventory posture producer, durable evidence repository,
 and content-free request outbox when the fixed Pantheon roles and state store are present. The producer reuses the control

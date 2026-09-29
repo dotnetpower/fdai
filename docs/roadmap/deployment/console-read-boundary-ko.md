@@ -1,7 +1,7 @@
 ---
 title: Console 읽기 경계
 translation_of: console-read-boundary.md
-translation_source_sha: 209c1392d7ac009d4c6adc4c64e15dac93acd303
+translation_source_sha: 93802f5e3f6b8c5a9099739f32b17811503cb147
 translation_revised: 2026-09-29
 ---
 # Console 읽기 경계
@@ -11,6 +11,8 @@ translation_revised: 2026-09-29
 신원을 부여하지 않습니다.
 
 ## 구현 상태
+테스트 맥락 선택지 엔드포인트는 배포 환경이 제공한 검토된 grant 위의 읽기 경계 projection입니다. grant registry가 없거나 오래되었거나 철회되었거나 모호하면 사용 불가를 반환하며 브라우저에서 사례 범위를 계산하지 않습니다.
+
 
 ### 구현 범위
 

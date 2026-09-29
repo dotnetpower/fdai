@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 7eeeae2b8b6113ddec7f5646f98476ede4641e35
+translation_source_sha: 9a4b788572a261a41f651eb1e25ea57a18431886
 translation_revised: 2026-09-30
 ---
 # 프로젝트 구조
@@ -10,6 +10,8 @@ translation_revised: 2026-09-30
 작업 흐름 작성 커밋은 자체 감사 테이블과 서비스 마이그레이션 소유권 항목을 가진 전용 Operator PostgreSQL 모듈에 위임됩니다. 제품군 facade는 커밋된 초안 또는 바인딩 요청만 라우팅하며 여전히 실행기, 게시 또는 승격 권한을 부여하지 않습니다.
 
 ## 설계 개요
+테스트 맥락 선택지는 권한이 없는 projection schema로 공유 service-contract SDK를 확장합니다. Operator는 인증과 선택지 렌더링을 소유하고, Core는 계속 허용 및 수명 주기 권한을 유지합니다.
+
 
 Assurance Twin의 프로덕션 조립은 고정된 Pantheon 역할과 상태 저장소가 있을 때 Heimdall의 보관 인벤토리 자세
 생산자, 영속 근거 저장소 및 내용 없는 요청 아웃박스를 연결합니다. 생산자는 이벤트 루프 밖에서 컨트롤 루프의 변경할 수 없는 T0/OPA

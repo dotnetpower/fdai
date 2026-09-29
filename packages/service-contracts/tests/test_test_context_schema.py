@@ -17,6 +17,12 @@ from fdai_service_contracts import (
     TestContextApplication as ContextApplication,
 )
 from fdai_service_contracts import (
+    TestContextChoiceProjection as ContextChoiceProjection,
+)
+from fdai_service_contracts import (
+    TestContextPolicyChoice as ContextPolicyChoice,
+)
+from fdai_service_contracts import (
     TestContextCommand as ContextCommand,
 )
 from fdai_service_contracts import (
@@ -59,7 +65,12 @@ def _command() -> dict:
 
 @pytest.mark.parametrize(
     "name",
-    ["test-context-draft", "test-context-command", "test-context-application"],
+    [
+        "test-context-draft",
+        "test-context-command",
+        "test-context-application",
+        "test-context-choices",
+    ],
 )
 def test_test_context_schemas_are_available_from_the_public_registry(name: str) -> None:
     registry = PackageResourceSchemaRegistry()
@@ -98,11 +109,25 @@ def test_registered_context_schemas_preserve_typed_roundtrips() -> None:
         context_digest="sha256:" + "c" * 64,
     )
     assert application.matches(command)
+    choices = ContextChoiceProjection(
+        source_revision="sha256:" + "d" * 64 + "#7",
+        choices=(
+            ContextPolicyChoice(
+                case_scope_id="case-one",
+                access_scope_digest="a" * 64,
+                target_selectors=("example-resource",),
+                policy_revision="policy-v1",
+                source_revision="sha256:" + "d" * 64 + "#7",
+                allowed_operations=("propose", "review", "revoke"),
+            ),
+        ),
+    )
     assert TEST_CONTEXT_RESULT_TOPIC == "core.test-context.projections"
     for name, model in (
         ("test-context-command", command),
         ("test-context-draft", draft),
         ("test-context-application", application),
+        ("test-context-choices", choices),
     ):
         payload = json.loads(model.model_dump_json())
         validator.validate(name, payload, version="1.0.0")

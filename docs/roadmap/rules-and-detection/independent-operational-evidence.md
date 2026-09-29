@@ -435,6 +435,7 @@ tracks what remains.
   that context and its prior record; any other cited admission is `replay_substituted`. `admit` rechecks each
   retained record against its exact verifier binding and that binding's readiness under the current anchors. The
   `operational-test-observation`, `case-history-read`, and `current-case-reuse` remain unbound: the observation provider is not yet available under verifier identity, case-history lacks the durable semantic receipt table and end-to-end codec path, and current reuse lacks independent inventory/Muninn/safety receipt sources. Forecast-history and forecast-context purposes also have no bound source readback.
+- **Shared grant validation.** The case-scope grant registry loader and authorization model are packaged in the shared service-contract SDK and re-exported by Core. Operator's test-context choice projection uses that same loader with a content pin instead of maintaining a parallel grant validator.
 - **Capability and handoff.** `delivery/operational_evidence_readiness.py` adds one Settings row per purpose. Runtime
   Settings materialization observes the verifier readiness endpoint once, through a bounded read that treats every
   failure as unobserved, and passes the typed `OperationalEvidenceVerifierReadiness` snapshot into the projection. A
