@@ -25,7 +25,6 @@ from .semantic_reasoning_form import (
     GroupBy,
     MeasureKind,
     MentionDomain,
-    RelationReach,
     RelationSense,
     SubjectPosition,
     SubjectScope,
@@ -348,18 +347,13 @@ def _relation_goal(goal: FormGoal, ctx: CompileContext) -> OperatorResult:
     group = group_by(goal)
     if isinstance(group, OperatorResult):
         return group
-    # A scope on the relation's own group states its whole membership, which a one-hop
-    # containment from that group only restates, so the read covers the whole membership.
-    scoped = any(
-        item.role is FilterRole.SCOPE and item.mention == anchored.anchor for item in goal.filters
-    )
     selection = select_relation_sides(
         ctx.manifest.descriptors,
         anchor_type=RESOURCE_OBJECT_TYPE,
         sense=anchored.sense,
         scope=anchored.scope,
         position=anchored.position,
-        reach=RelationReach.TRANSITIVE if scoped else anchored.reach,
+        reach=anchored.reach,
     )
     limitations = [f"link_sense_unmapped:{name}" for name in selection.unmapped_link_types]
     if goal.effective_operation is GoalOperation.IMPACT:

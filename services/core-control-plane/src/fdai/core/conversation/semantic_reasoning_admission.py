@@ -25,6 +25,7 @@ from .semantic_reasoning_form import (
     GoalOperation,
     MentionDomain,
     MentionForm,
+    RelationReach,
     RelationScope,
     RelationSense,
     SemanticQuestionForm,
@@ -435,6 +436,22 @@ def _overlapping_mentions(form: SemanticQuestionForm) -> list[str]:
             reasons.append(f"mention_overlap:{mention.id}")
         seen.append((start, end))
     return reasons
+
+
+def relation_reach(goal: FormGoal) -> RelationReach:
+    """Return the reach a goal's relation is read with.
+
+    A scope names its group's whole membership, and a containment from that same group
+    to its members only restates it, so such a relation is read with transitive reach.
+    """
+
+    relation = goal.relation
+    if relation is None:
+        return RelationReach.ONE_HOP
+    scoped = any(
+        item.role is FilterRole.SCOPE and item.mention == relation.anchor for item in goal.filters
+    )
+    return RelationReach.TRANSITIVE if scoped and _restates_scope(goal) else relation.reach
 
 
 def _restates_scope(goal: FormGoal) -> bool:

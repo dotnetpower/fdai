@@ -26,7 +26,7 @@ from fdai_service_contracts.ontology_query import (
 
 from fdai.core.ontology_platform.resource_state_queries import RESOURCE_STATE_FUNCTION_NAME
 
-from .semantic_reasoning_admission import FormAdmission
+from .semantic_reasoning_admission import FormAdmission, relation_reach
 from .semantic_reasoning_binding import AnchorBindingReceipt, AnchorOutcome
 from .semantic_reasoning_concepts import ConceptOutcome, ConceptSelectionReceipt
 from .semantic_reasoning_form import (
@@ -359,7 +359,7 @@ def _coverage_violations(
         if compiled != expected:
             violations.append("sem_relation_sides_differ")
         reach = (
-            goal.relation.reach
+            relation_reach(goal)
             if goal.relation is not None and goal.effective_operation is not GoalOperation.IMPACT
             else RelationReach.ONE_HOP
         )
@@ -605,7 +605,7 @@ def _anchor_end(
     else:
         return None
     sense = relation.sense if relation.scope is RelationScope.ONE_SENSE else None
-    return position, sense, relation.scope, relation.reach
+    return position, sense, relation.scope, relation_reach(goal)
 
 
 def _expected_lookback(goal: FormGoal, default_seconds: int) -> int | None:

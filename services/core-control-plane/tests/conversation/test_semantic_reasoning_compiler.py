@@ -1726,3 +1726,51 @@ def test_a_relation_anchored_on_its_own_named_subject_is_repaired_not_read() -> 
 
     # The relation states nothing beyond its subject, so the one repair drops or moves it.
     assert "relation_anchor_is_subject:g1" in admitted(form, utterance).reasons
+
+
+def test_one_membership_stated_as_scope_and_containment_is_read_as_the_whole_group() -> None:
+    utterance = "rg-app에 있는 VM 목록"
+    form = {
+        "mentions": [
+            _anchor(utterance, "rg-app"),
+            {
+                "id": "m2",
+                "form": "concept",
+                "domain": "resource_type",
+                "span": span(utterance, "VM"),
+            },
+        ],
+        "goals": [
+            {
+                "id": "g1",
+                "level": "instance",
+                "operation": "select",
+                "subject": "m2",
+                "subject_scope": "collection",
+                "filters": [{"role": "scope", "mention": "m1"}],
+                "relation": {
+                    "sense": "containment",
+                    "anchor": "m1",
+                    "anchor_role": "container",
+                    "result_role": "member",
+                    "cue": span(utterance, "에 있는"),
+                },
+                "cue": span(utterance, "목록"),
+                "confidence": 0.9,
+            }
+        ],
+    }
+
+    goal = _compile(
+        utterance, form, concepts(("m2", MentionDomain.RESOURCE_TYPE, ("compute.vm",)))
+    ).goals[0]
+
+    # The scope states the group's whole membership; the one-hop containment restates it.
+    assert goal.status is GoalStatus.COMPILED, goal.reasons
+    depths = {
+        node.arguments.get("max_depth")
+        for batch in goal.batches
+        for node in batch.plan.nodes
+        if node.kind.value == "relationship_traversal"
+    }
+    assert depths == {5}
