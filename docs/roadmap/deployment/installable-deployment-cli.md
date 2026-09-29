@@ -43,6 +43,16 @@ The public source command resumes these checkpoints using the shared private coo
 new interactive source installations confirm settings at startup only; later stages and JSON
 execution never prompt. `--approval-file <path>` explicitly supplies an existing
 private human approval to the shared verifier. Without it, retained ambient approvals are ignored.
+The public command never opens an interactive checkpoint prompt itself, so `--approval-file` is the
+only way to advance past a checkpoint that returned review state. Produce that record with
+`scripts/deployment/azure/genesis_approval_prompt.py --status <work-dir>/foundation/status.json
+--output <path>`, which reads the exact checkpoint the run reached and, under constitution Article
+1, treats the operator's invocation as approval of the evidence it prints. The record binds the
+authenticated operator and expires 30 minutes after issuance, so reissue it if a resume starts
+later.
+Resuming a run repeats its sealed intent. Cost and profile arguments belong to that intent, so a
+resume that omits or changes one is refused and names the differing fields rather than failing
+opaquely.
 `--foundation-workload <token>` selects the naming token for a new source installation and defaults
 to `fdai`. Use a distinct token when canonical application or operations groups already exist.
 The token is sealed into source preparation, retained variables, the run binding, and every exact

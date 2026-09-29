@@ -506,3 +506,58 @@ def test_initial_scope_options_cannot_be_ignored(monkeypatch, capsys, arguments)
     monkeypatch.setattr(cli, "plan_source_installation", lambda **_: pytest.fail("no execution"))
     assert cli.main(["provision", "azure", *arguments, "--setup-cost-ceiling", "300"]) == 3
     assert "initial scope options require" in capsys.readouterr().err
+
+
+def test_changed_resume_intent_names_the_differing_fields(tmp_path, monkeypatch) -> None:
+    """A resumed run must say which original values to repeat, not just that they differ."""
+
+    from fdai_deployment_cli import source_deploy
+    from fdai_deployment_cli.contracts import canonical_bytes
+
+    work_dir = tmp_path / "run"
+    work_dir.mkdir(mode=0o700)
+    source_root = tmp_path / "src"
+    source_root.mkdir()
+    profile = RuntimeDeploymentProfile.create(
+        runtime_platform="aks", database_placement="postgres-flex"
+    )
+    source_mapping = {"provenance": "operator-selected-source"}
+    monkeypatch.setattr(
+        source_deploy,
+        "inspect_source",
+        lambda root: SimpleNamespace(
+            root=source_root,
+            digest="d" * 64,
+            commit="c" * 40,
+            to_mapping=lambda: source_mapping,
+        ),
+    )
+    # Seal the intent the earlier run would have retained, at a different cost ceiling.
+    write_private_bytes(
+        work_dir / "source-intent.json",
+        canonical_bytes(
+            {
+                "schema_version": "fdai.source-deployment-intent.v1",
+                "source": source_mapping,
+                "source_input_digest": "d" * 64,
+                "runtime_profile": profile.to_mapping(),
+                "environment": "dev",
+                "region": "eastus",
+                "monthly_cost_ceiling": 2000,
+            }
+        ),
+    )
+
+    with pytest.raises(ValueError) as failure:
+        source_deploy.prepare_source_deployment(
+            source_root=source_root,
+            work_dir=work_dir,
+            runtime_profile=profile,
+            region="eastus",
+            monthly_cost_ceiling=1500,
+        )
+
+    message = str(failure.value)
+    assert "retained source deployment intent differs" in message
+    assert "monthly_cost_ceiling" in message
+    assert "region" not in message

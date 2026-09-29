@@ -90,8 +90,12 @@ def prepare_source_deployment(
                 read_private_bytes(intent_path, max_bytes=65_536), label="source intent"
             )
             if prior != intent:
+                changed = sorted(
+                    key for key in set(prior) | set(intent) if prior.get(key) != intent.get(key)
+                )
                 raise ValueError(
-                    "retained source deployment intent differs; preserve the existing run"
+                    "retained source deployment intent differs; preserve the existing run. "
+                    f"Repeat the original values for: {', '.join(changed)}"
                 )
         else:
             if {path.name for path in work_dir.iterdir()} != {"source.lock"}:
