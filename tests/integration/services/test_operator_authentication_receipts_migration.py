@@ -116,12 +116,20 @@ def test_receipt_store_is_insert_only_and_exact_function_detects_rows(
         "groups": ["group-one"],
     }
     with psycopg.connect(_role(dsn, "fdai_operator")) as operator:
-        operator.execute(
-            "INSERT INTO operator_authentication_receipt "
-            "(receipt_digest, request_id, principal_id, receipt) VALUES (%s, %s, %s, %s)",
-            (digest, "semantic-request-one", "operator-one", Jsonb(receipt)),
-        )
+        for request_id in ("semantic-request-one", "semantic-request-two"):
+            operator.execute(
+                "INSERT INTO operator_authentication_receipt "
+                "(receipt_digest, request_id, principal_id, receipt) VALUES (%s, %s, %s, %s)",
+                (digest, request_id, "operator-one", Jsonb(receipt)),
+            )
         operator.commit()
+        with pytest.raises(psycopg.errors.UniqueViolation):
+            operator.execute(
+                "INSERT INTO operator_authentication_receipt "
+                "(receipt_digest, request_id, principal_id, receipt) VALUES (%s, %s, %s, %s)",
+                (digest, "semantic-request-one", "operator-one", Jsonb(receipt)),
+            )
+        operator.rollback()
         for statement in (
             "UPDATE operator_authentication_receipt SET receipt = receipt "
             "WHERE receipt_digest = %s",
@@ -136,12 +144,15 @@ def test_receipt_store_is_insert_only_and_exact_function_detects_rows(
             operator.execute("SELECT receipt FROM operator_authentication_receipt")
 
     with psycopg.connect(_role(dsn, "fdai_operational_evidence_verifier")) as verifier:
-        rows = verifier.execute(
+        lookup = (
             "SELECT request_id, principal_id, receipt "
-            "FROM fdai_operator_authentication_receipts_for_digest(%s)",
-            (digest,),
-        ).fetchall()
-        assert rows == [("semantic-request-one", "operator-one", receipt)]
+            "FROM fdai_operator_authentication_receipt_for_request(%s, %s)"
+        )
+        for request_id in ("semantic-request-one", "semantic-request-two"):
+            rows = verifier.execute(lookup, (digest, request_id)).fetchall()
+            assert rows == [(request_id, "operator-one", receipt)]
+        assert verifier.execute(lookup, (digest, "semantic-request-three")).fetchall() == []
+        assert verifier.execute(lookup, ("not-a-digest", "semantic-request-one")).fetchall() == []
         with pytest.raises(psycopg.errors.InsufficientPrivilege):
             verifier.execute("SELECT receipt FROM operator_authentication_receipt")
 

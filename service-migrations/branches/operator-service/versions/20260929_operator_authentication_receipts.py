@@ -25,14 +25,13 @@ def upgrade() -> None:
     op.execute(
         """
         CREATE TABLE operator_authentication_receipt (
-            receipt_digest TEXT PRIMARY KEY CHECK (receipt_digest ~ '^sha256:[0-9a-f]{64}$'),
+            receipt_digest TEXT NOT NULL CHECK (receipt_digest ~ '^sha256:[0-9a-f]{64}$'),
             request_id TEXT NOT NULL CHECK (char_length(request_id) BETWEEN 1 AND 256),
             principal_id TEXT NOT NULL CHECK (char_length(principal_id) BETWEEN 1 AND 256),
             receipt JSONB NOT NULL CHECK (jsonb_typeof(receipt) = 'object'),
-            recorded_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            recorded_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            PRIMARY KEY (receipt_digest, request_id)
         );
-        CREATE INDEX operator_authentication_receipt_request_idx
-            ON operator_authentication_receipt (request_id, recorded_at DESC);
 
         CREATE FUNCTION fdai_operator_authentication_receipt_writer()
         RETURNS TRIGGER LANGUAGE plpgsql

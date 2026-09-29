@@ -2,10 +2,11 @@
 
 Core owns every verifier source function so that a Core rollback drops the function before the
 verifier role it grants. The function is a fixed-parameter SECURITY DEFINER lookup with a pinned
-search_path and no dynamic SQL; it returns at most two rows for one exact receipt digest so the
-readback can detect a duplicate without probing any other receipt. The body is not validated at
-creation, so Core can migrate before the Operator creates the receipt table; until then every call
-fails and the verifier reports the receipt source unavailable.
+search_path and no dynamic SQL; it returns at most two rows for one exact receipt digest and request
+id, because one bearer token's receipt is retained once per semantic request that carried it, and
+the readback can detect a duplicate without probing any other receipt or request. The body is not
+validated at creation, so Core can migrate before the Operator creates the receipt table; until
+then every call fails and the verifier reports the receipt source unavailable.
 """
 
 from __future__ import annotations
@@ -32,7 +33,10 @@ def upgrade() -> None:
     op.execute(
         """
         SET LOCAL check_function_bodies = off;
-        CREATE FUNCTION fdai_operator_authentication_receipts_for_digest(p_receipt_digest TEXT)
+        CREATE FUNCTION fdai_operator_authentication_receipt_for_request(
+            p_receipt_digest TEXT,
+            p_request_id TEXT
+        )
         RETURNS TABLE (
             receipt_digest TEXT,
             request_id TEXT,
@@ -45,13 +49,15 @@ def upgrade() -> None:
                    source.receipt, source.recorded_at
               FROM public.operator_authentication_receipt AS source
              WHERE p_receipt_digest ~ '^sha256:[0-9a-f]{64}$'
+               AND char_length(p_request_id) BETWEEN 1 AND 256
                AND source.receipt_digest = p_receipt_digest
+               AND source.request_id = p_request_id
              ORDER BY source.recorded_at DESC
              LIMIT 2
         $$;
-        REVOKE ALL ON FUNCTION fdai_operator_authentication_receipts_for_digest(TEXT)
+        REVOKE ALL ON FUNCTION fdai_operator_authentication_receipt_for_request(TEXT, TEXT)
             FROM PUBLIC;
-        GRANT EXECUTE ON FUNCTION fdai_operator_authentication_receipts_for_digest(TEXT)
+        GRANT EXECUTE ON FUNCTION fdai_operator_authentication_receipt_for_request(TEXT, TEXT)
             TO fdai_operational_evidence_verifier;
         """
     )
@@ -61,8 +67,8 @@ def downgrade() -> None:
     """Revoke and drop the receipt lookup before the verifier role can be dropped."""
     op.execute(
         """
-        REVOKE ALL ON FUNCTION fdai_operator_authentication_receipts_for_digest(TEXT)
+        REVOKE ALL ON FUNCTION fdai_operator_authentication_receipt_for_request(TEXT, TEXT)
             FROM fdai_operational_evidence_verifier;
-        DROP FUNCTION fdai_operator_authentication_receipts_for_digest(TEXT);
+        DROP FUNCTION fdai_operator_authentication_receipt_for_request(TEXT, TEXT);
         """
     )

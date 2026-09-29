@@ -41,6 +41,7 @@ AUDIT_ROW_BOUND = MAX_AUDIT_DIGESTS + 1
 _PROBE_KEY = "fdai-readiness-probe"
 _PROBE_HISTORY_KEY = "test-context-target:v1:" + "0" * 64
 _PROBE_DIGEST = "sha256:" + "0" * 64
+_PROBE_REQUEST_ID = "fdai-readiness-probe"
 _HEALTH_FAILURES = (OSError, PermissionError, RuntimeError, ValueError, psycopg.Error)
 
 
@@ -163,17 +164,17 @@ class PostgresSemanticAuthenticationReceiptSource:
             raise ValueError("semantic authentication source requires the verifier role")
         self._config = config
 
-    async def receipts_for_digest(
-        self, receipt_digest: str
+    async def receipts_for_request(
+        self, receipt_digest: str, request_id: str
     ) -> tuple[SemanticAuthenticationReceiptRow, ...]:
-        """Return retained receipts for one exact digest, one past the duplicate bound."""
+        """Return the receipt retained for one exact request, one past the duplicate bound."""
 
         async with role_bound_connection(self._config) as connection:
             rows = await (
                 await connection.execute(
                     "SELECT receipt_digest, request_id, principal_id, receipt, recorded_at "
-                    "FROM public.fdai_operator_authentication_receipts_for_digest(%s)",
-                    (receipt_digest,),
+                    "FROM public.fdai_operator_authentication_receipt_for_request(%s, %s)",
+                    (receipt_digest, request_id),
                 )
             ).fetchall()
         return tuple(
@@ -195,8 +196,8 @@ class PostgresSemanticAuthenticationReceiptSource:
                 await (
                     await connection.execute(
                         "SELECT count(*) AS rows "
-                        "FROM public.fdai_operator_authentication_receipts_for_digest(%s)",
-                        (_PROBE_DIGEST,),
+                        "FROM public.fdai_operator_authentication_receipt_for_request(%s, %s)",
+                        (_PROBE_DIGEST, _PROBE_REQUEST_ID),
                     )
                 ).fetchone()
         except _HEALTH_FAILURES:

@@ -38,9 +38,24 @@ from tests.core.operational_evidence.support import (
 class _ReceiptSource:
     rows: tuple[SemanticAuthenticationReceiptRow, ...]
 
-    async def receipts_for_digest(
-        self, receipt_digest: str
+    async def receipts_for_request(
+        self, receipt_digest: str, request_id: str
     ) -> tuple[SemanticAuthenticationReceiptRow, ...]:
+        return tuple(
+            row
+            for row in self.rows
+            if row.receipt_digest == receipt_digest and row.request_id == request_id
+        )
+
+
+@dataclass
+class _UnfilteredReceiptSource:
+    rows: tuple[SemanticAuthenticationReceiptRow, ...]
+
+    async def receipts_for_request(
+        self, receipt_digest: str, request_id: str
+    ) -> tuple[SemanticAuthenticationReceiptRow, ...]:
+        del request_id
         return tuple(row for row in self.rows if row.receipt_digest == receipt_digest)
 
 
@@ -69,7 +84,10 @@ def _registry(*, grant_overrides: dict[str, object] | None = None):
 
 
 def _request(
-    receipt_ref: str, *, group: str = REQUESTER_GROUP
+    receipt_ref: str,
+    *,
+    group: str = REQUESTER_GROUP,
+    request_ref: str = "semantic-request-1",
 ) -> OperationalEvidenceIssuanceRequest:
     arguments = {
         "access_scope_digest": SCOPE,
@@ -108,7 +126,7 @@ def _request(
             purpose_id="case-history-read",
             coordinates={
                 "principal_ref": REQUESTER,
-                "request_ref": evidence_digest,
+                "request_ref": request_ref,
                 "case_scope_digest": "sha256:" + SCOPE,
                 "authentication_receipt_ref": receipt_ref,
                 "principal_groups_digest": content_digest([group]),
@@ -210,3 +228,71 @@ async def test_case_history_read_rejects_stale_receipt() -> None:
 
     assert response.status is OperationalEvidenceIssuanceStatus.REJECTED
     assert proofs.rejections[0].rejection_class is OperationalEvidenceRejectionClass.STALE
+
+
+def _row(auth, request_id: str) -> SemanticAuthenticationReceiptRow:
+    return SemanticAuthenticationReceiptRow(
+        receipt_digest=auth.receipt_digest,
+        request_id=request_id,
+        principal_id=REQUESTER,
+        receipt=auth.model_dump(mode="json"),
+        recorded_at=NOW,
+    )
+
+
+def _engine(source, proofs: MemoryProofStore) -> OperationalEvidenceVerifierEngine:
+    return OperationalEvidenceVerifierEngine(
+        identity=VerifierIdentity("operational-evidence-verifier", "1.0.0"),
+        history=_registry,
+        anchors=anchors(),
+        readbacks=(CaseHistoryReadback(receipts=source),),
+        writer=proofs,
+        clock=lambda: NOW,
+    )
+
+
+async def test_case_history_read_resolves_one_token_receipt_per_request() -> None:
+    """One bearer token's receipt serves every request that retained it, each exactly once."""
+    auth = receipt(REQUESTER, REQUESTER_GROUP, ("Reader",), issued_at=NOW)
+    source = _ReceiptSource((_row(auth, "semantic-request-1"), _row(auth, "semantic-request-2")))
+    proofs = MemoryProofStore()
+
+    response = await _engine(source, proofs).issue(
+        _request(auth.receipt_digest, request_ref="semantic-request-2"),
+        caller_principal="fdai_core",
+    )
+
+    assert response.status is OperationalEvidenceIssuanceStatus.ISSUED
+
+
+async def test_case_history_read_rejects_a_receipt_retained_for_another_request() -> None:
+    auth = receipt(REQUESTER, REQUESTER_GROUP, ("Reader",), issued_at=NOW)
+    proofs = MemoryProofStore()
+
+    response = await _engine(_ReceiptSource((_row(auth, "semantic-request-1"),)), proofs).issue(
+        _request(auth.receipt_digest, request_ref="semantic-request-2"),
+        caller_principal="fdai_core",
+    )
+
+    assert response.status is OperationalEvidenceIssuanceStatus.REJECTED
+    assert proofs.rejections[0].rejection_class is OperationalEvidenceRejectionClass.PARTIAL
+    assert proofs.rejections[0].reason_codes == ("authentication_receipt_missing",)
+
+
+async def test_case_history_read_rejects_a_source_row_for_another_request() -> None:
+    """A source that ignores the request key cannot substitute another request's receipt."""
+    auth = receipt(REQUESTER, REQUESTER_GROUP, ("Reader",), issued_at=NOW)
+    proofs = MemoryProofStore()
+
+    response = await _engine(
+        _UnfilteredReceiptSource((_row(auth, "semantic-request-1"),)), proofs
+    ).issue(
+        _request(auth.receipt_digest, request_ref="semantic-request-2"),
+        caller_principal="fdai_core",
+    )
+
+    assert response.status is OperationalEvidenceIssuanceStatus.REJECTED
+    assert (
+        proofs.rejections[0].rejection_class is OperationalEvidenceRejectionClass.REPLAY_SUBSTITUTED
+    )
+    assert proofs.rejections[0].reason_codes == ("authentication_receipt_request_mismatch",)

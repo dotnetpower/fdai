@@ -38,8 +38,8 @@ class SemanticAuthenticationReceiptRow:
 class SemanticAuthenticationReceiptSource(Protocol):
     """Read retained authentication receipts through a fixed exact-key source."""
 
-    async def receipts_for_digest(
-        self, receipt_digest: str
+    async def receipts_for_request(
+        self, receipt_digest: str, request_id: str
     ) -> tuple[SemanticAuthenticationReceiptRow, ...]: ...
 
 
@@ -59,12 +59,15 @@ class CaseHistoryReadback:
         principal_groups_digest = context.request.locator.coordinate("principal_groups_digest")
         if purpose != "operations-review":
             return reject(_R.CROSS_SCOPE, "purpose_mismatch")
-        rows = await self._receipts.receipts_for_digest(receipt_ref)
+        request_ref = context.request.locator.coordinate("request_ref")
+        rows = await self._receipts.receipts_for_request(receipt_ref, request_ref)
         if not rows:
             return reject(_R.PARTIAL, "authentication_receipt_missing")
         if len(rows) > 1:
             return reject(_R.CONFLICTING, "duplicate_authentication_receipt")
         row = rows[0]
+        if row.request_id != request_ref:
+            return reject(_R.REPLAY_SUBSTITUTED, "authentication_receipt_request_mismatch")
         try:
             receipt = OperatorAuthenticationReceipt.model_validate(row.receipt)
         except (ValidationError, ValueError):
