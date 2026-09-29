@@ -533,7 +533,9 @@ save 는 principal 소유 비공개 authoring 기록 만 씁니다. Save 경로 
 신원 를 받지 않으며 정의 을 publish, 연결, 활성화 또는 실행 할 수 없습니다.
 커밋된 초안 또는 바인딩은 Operator 저장소 리비전을 반환하고 해당 principal 의 Mine 또는
 My automations 읽기 projection 에만 표시됩니다. 기본 제공 행은 검토된 워크플로 카탈로그에서
-시드되며 principal 에게는 읽기 전용으로 남습니다.
+시드되며 principal 에게는 읽기 전용으로 남습니다. 데이터베이스 트리거는 비공개 사용자 초안이 아닌
+Operator 역할의 정의 삽입과 다른 principal 의 비공개 정의를 참조하는 Operator 역할의 바인딩을
+거부합니다.
 유효한 초안 는 `rule-catalog/workflows/<name>.yaml` 에 제안할 YAML 도 제공합니다.
 새 카탈로그 항목 는 `shadow` 로 잠기며 강제 적용 승격은 [6절](#6-거버넌스) 의 별도
 거버넌스 PR 로 유지됩니다.

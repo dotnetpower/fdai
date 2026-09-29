@@ -11,9 +11,7 @@
       "consumer_revision": "operator_forecast_retention_20260917",
       "provider_service": "core-control-plane",
       "provider_revision": "core_runtime_role_20260809",
-      "schema_prerequisites": [
-        "case_history"
-      ],
+      "schema_prerequisites": ["case_history"],
       "provider_rollback": "blocked-until-operator-forecast-retention-rollback"
     },
     {
@@ -21,9 +19,7 @@
       "consumer_revision": "core_handover_review_read_20260914",
       "provider_service": "document-processing-worker",
       "provider_revision": "document_worker_outbox_20260808",
-      "schema_prerequisites": [
-        "knowledge_chunk"
-      ],
+      "schema_prerequisites": ["knowledge_chunk"],
       "provider_rollback": "blocked-until-core-handover-review-read-rollback"
     },
     {
@@ -31,9 +27,7 @@
       "consumer_revision": "operator_handover_admission_20260914",
       "provider_service": "document-ingestion-api",
       "provider_revision": "ingestion_api_outbox_20260808",
-      "schema_prerequisites": [
-        "document_version"
-      ],
+      "schema_prerequisites": ["document_version"],
       "provider_rollback": "blocked-until-operator-handover-admission-rollback"
     },
     {
@@ -41,9 +35,7 @@
       "consumer_revision": "core_handover_admission_20260914",
       "provider_service": "document-ingestion-api",
       "provider_revision": "ingestion_api_outbox_20260808",
-      "schema_prerequisites": [
-        "document_version"
-      ],
+      "schema_prerequisites": ["document_version"],
       "provider_rollback": "blocked-until-core-handover-admission-rollback"
     },
     {
@@ -51,9 +43,7 @@
       "consumer_revision": "operator_assignment_receipts_20260914",
       "provider_service": "core-control-plane",
       "provider_revision": "core_assignment_receipts_20260914",
-      "schema_prerequisites": [
-        "operator_assignment_receipt"
-      ],
+      "schema_prerequisites": ["operator_assignment_receipt"],
       "provider_rollback": "blocked-while-assignment-receipts-and-guards-are-retained"
     },
     {
@@ -61,9 +51,7 @@
       "consumer_revision": "operator_rule_activation_receipts_20260922",
       "provider_service": "core-control-plane",
       "provider_revision": "core_rule_activation_receipts_20260922",
-      "schema_prerequisites": [
-        "operator_rule_activation_receipt"
-      ],
+      "schema_prerequisites": ["operator_rule_activation_receipt"],
       "provider_rollback": "blocked-while-rule-activation-receipts-are-retained"
     },
     {

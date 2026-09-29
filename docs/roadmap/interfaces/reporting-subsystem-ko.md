@@ -1,7 +1,7 @@
 ---
 title: 리포팅 서브시스템
 translation_of: reporting-subsystem.md
-translation_source_sha: bd963f0c8954d03c924223d686688ad37d0e393e
+translation_source_sha: fbd6d8c1a583340c274767e14864ec3c4213304d
 translation_revised: 2026-09-29
 ---
 # 리포팅 서브시스템
@@ -25,8 +25,7 @@ translation_revised: 2026-09-29
 보완하며, 여기서 실제로 shipping되는 카탈로그는 제품 관련성을
 가진 유한 부분집합입니다.
 
-
-워크플로 정의 authoring 도 같은 read-projection 원칙을 사용합니다. 커밋된 비공개 초안, 바인딩, Built-in 카탈로그 seed 는 Console 이 Mine, Built-in 또는 My automations 를 렌더하기 전에 Operator projection 입력이 됩니다.
+서비스 테이블 소유권은 Operator 소유의 `operator_workflow_authoring_audit` 원장도 선언합니다. 이 원장은 Workflow 초안과 바인딩 커밋을 기록하며 보고서 원천이 아니고 보고 변환을 추가하지 않습니다.
 
 ## 왜 존재하는가
 

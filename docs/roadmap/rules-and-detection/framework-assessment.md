@@ -14,8 +14,7 @@ guidance, observed evidence, human approval, and operational authority separate.
 > **Initial mode:** Every assessment is read-only shadow work. An assessment result cannot authorize
 > risk, approval, promotion, remediation, deployment, or execution.
 
-
-The shared workflow catalog materialization path also seeds Built-in WorkflowDefinition rows from reviewed catalog content; those rows support Console browsing and binding only, and they do not authorize assessment execution or promotion.
+The shared catalog materialization job that publishes this assessment's catalogs also seeds Built-in `WorkflowDefinition` rows from the reviewed workflow catalog, and the shared workflow family now commits principal-owned private drafts and bindings. Neither path grants assessment execution or promotion authority.
 
 ## Design at a glance
 
