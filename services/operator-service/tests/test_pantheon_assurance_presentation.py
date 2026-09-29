@@ -1,5 +1,6 @@
 """Pantheon assurance terminal projection tests."""
 
+import copy
 from typing import Any, cast
 
 import pytest
@@ -10,6 +11,10 @@ from fdai_operator_service.families.conversation.semantic_turn_runtime import (
     SemanticTurnProjectionConsumer,
 )
 from fdai_operator_service.postgres_family_store import StoredSemanticResult
+from fdai_service_contracts.semantic_projection import (
+    pantheon_assurance_evidence_digest,
+    semantic_projection_id,
+)
 
 
 def _assurance() -> dict[str, object]:
@@ -181,18 +186,12 @@ class _Store:
         return cast(StoredSemanticResult, object())
 
 
-async def test_projection_consumer_accepts_valid_pantheon_assurance_extension() -> None:
+async def test_projection_consumer_rejects_a_pantheon_trace_changed_after_commitment() -> None:
     store = _Store()
     consumer = SemanticTurnProjectionConsumer(store=cast(Any, store))
     assurance = _assurance()
-    assurance["answer_generation"] = {
-        "mode": "semantic_model",
-        "model_identity": "narrator-gpt-5-4-mini",
-        "model_family": None,
-    }
-    projection = {
+    projection: dict[str, object] = {
         "schema_version": "1.4.0",
-        "projection_id": "00000000-0000-0000-0000-000000000001",
         "request_id": "00000000-0000-0000-0000-000000000002",
         "correlation_id": "correlation-one",
         "idempotency_key": "idempotency-one",
@@ -203,9 +202,46 @@ async def test_projection_consumer_accepts_valid_pantheon_assurance_extension() 
             "request_digest": "sha256:" + ("b" * 64),
             "pantheon_assurance": assurance,
         },
-        "evidence_digest": "sha256:" + ("c" * 64),
+        "evidence_digest": pantheon_assurance_evidence_digest(assurance),
         "semantic_result": _semantic_fallback(),
     }
+    projection["projection_id"] = semantic_projection_id(projection)
+    tampered = copy.deepcopy(projection)
+    cast(dict[str, Any], tampered["payload"])["pantheon_assurance"]["trace_receipt_id"] = (
+        "trace-receipt-forged"
+    )
+
+    with pytest.raises(ValueError, match="evidence_digest_mismatch"):
+        await consumer.consume(tampered)
+
+    assert store.projection is None
+
+
+async def test_projection_consumer_accepts_valid_pantheon_assurance_extension() -> None:
+    store = _Store()
+    consumer = SemanticTurnProjectionConsumer(store=cast(Any, store))
+    assurance = _assurance()
+    assurance["answer_generation"] = {
+        "mode": "semantic_model",
+        "model_identity": "narrator-gpt-5-4-mini",
+        "model_family": None,
+    }
+    projection: dict[str, object] = {
+        "schema_version": "1.4.0",
+        "request_id": "00000000-0000-0000-0000-000000000002",
+        "correlation_id": "correlation-one",
+        "idempotency_key": "idempotency-one",
+        "status": "held",
+        "recorded_at": "2026-08-30T12:00:00Z",
+        "payload": {
+            "request_kind": "pantheon_conversation_assurance",
+            "request_digest": "sha256:" + ("b" * 64),
+            "pantheon_assurance": assurance,
+        },
+        "evidence_digest": pantheon_assurance_evidence_digest(assurance),
+        "semantic_result": _semantic_fallback(),
+    }
+    projection["projection_id"] = semantic_projection_id(projection)
 
     await consumer.consume(projection)
 
