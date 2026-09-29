@@ -77,6 +77,9 @@ _TRANSITIVE_DEPTH = 5
 _REQUIRED_FUNCTIONS: Mapping[tuple[GoalLevel, GoalOperation], frozenset[str]] = {
     (GoalLevel.INSTANCE, GoalOperation.LOOKUP): frozenset({"query.resource_current_state"}),
     (GoalLevel.INSTANCE, GoalOperation.HISTORY): frozenset({"query.resource_change_activity"}),
+    (GoalLevel.INSTANCE, GoalOperation.EXPLAIN_CAUSE): frozenset(
+        {"query.resource_current_state", "query.resource_change_activity"}
+    ),
     (GoalLevel.SCHEMA, GoalOperation.DESCRIBE_SCHEMA): frozenset(
         {"query.ontology_declaration", "query.ontology_relationships"}
     ),

@@ -70,6 +70,63 @@ def verified_rows_table(output: Mapping[str, object], *, korean: bool) -> list[s
     return lines
 
 
+# Reviewed limitation notices a compiled frame requires its answer to state. They restate the
+# read, never an operational fact, and each maps to one frame evidence requirement.
+_WINDOW_NOTICES = {
+    "applied": ("조회 기간: 질문에서 밝힌 최근 {span}", "Read window: the last {span}, as stated."),
+    "default": (
+        "조회 기간: 기간을 밝히지 않아 적용한 기본값인 최근 {span}",
+        "Read window: no period was stated, so the default, the last {span}, was read.",
+    ),
+    "model_judged": (
+        "조회 기간: 질문의 표현에서 판단한 최근 {span}",
+        "Read window: the last {span}, as judged from the question's wording.",
+    ),
+}
+_CAUSE_NOTICE = (
+    "원인은 확정하지 않았습니다. 아래는 현재 상태와 조회 기간에 기록된 작업이며, "
+    "어느 작업이 원인인지는 판단하지 않았습니다.",
+    "The cause is not established. The tables show the current state and the operations "
+    "recorded in the window; none of them is identified as the cause.",
+)
+
+
+def with_stated_notices(answer: str, requirements: tuple[str, ...], *, locale: str) -> str:
+    """Insert the reviewed notices a compiled frame requires right after the answer heading."""
+
+    korean = locale.casefold().startswith("ko")
+    notices: list[str] = []
+    for requirement in requirements:
+        if requirement == "cause.not_established":
+            notices.append(_CAUSE_NOTICE[0] if korean else _CAUSE_NOTICE[1])
+            continue
+        kind, _, seconds = requirement.removeprefix("window.").partition(".")
+        templates = _WINDOW_NOTICES.get(kind) if requirement.startswith("window.") else None
+        if templates is None or not seconds.isdigit():
+            continue
+        text = templates[0] if korean else templates[1]
+        notices.append(text.format(span=_window_span(int(seconds), korean=korean)))
+    if not notices:
+        return answer
+    heading, _, rest = answer.partition("\n")
+    return "\n".join([heading, "", *(f"- {notice}" for notice in notices), rest])
+
+
+def _window_span(seconds: int, *, korean: bool) -> str:
+    for unit_seconds, korean_unit, english_unit in (
+        (604_800, "주", "week"),
+        (86_400, "일", "day"),
+        (3_600, "시간", "hour"),
+        (60, "분", "minute"),
+    ):
+        if seconds % unit_seconds == 0:
+            count = seconds // unit_seconds
+            if korean:
+                return f"{count}{korean_unit}"
+            return f"{count} {english_unit}{'' if count == 1 else 's'}"
+    return f"{seconds}초" if korean else f"{seconds} seconds"
+
+
 def _bounded(cell: str, korean: bool) -> str:
     # A long value is named, not cut, so a shown cell never displays a partial value.
     if len(cell) <= _MAX_CELL_CHARS:

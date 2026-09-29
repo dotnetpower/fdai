@@ -13,7 +13,7 @@ from collections.abc import Sequence
 from dataclasses import dataclass, replace
 from datetime import datetime
 from enum import StrEnum
-from typing import Literal
+from typing import Any, Literal
 
 from fdai_service_contracts.ontology_query import (
     OntologyQueryPlan,
@@ -25,7 +25,7 @@ from fdai.core.ontology_platform import OntologyQueryPlanVerifier, QueryManifest
 
 from .semantic_planning_alignment import verify_frame_plan_alignment
 from .semantic_planning_frame_core import build_semantic_frame
-from .semantic_planning_models import SemanticFrameProposal
+from .semantic_planning_models import SemanticFrameProposal, SemanticOutputShape
 from .semantic_reasoning_admission import AdmissionDisposition, FormAdmission
 from .semantic_reasoning_binding import AnchorBindingReceipt
 from .semantic_reasoning_concepts import ConceptSelectionReceipt
@@ -214,19 +214,28 @@ def _verified_batches(
     batches: list[CompiledBatch] = []
     for index, spec in enumerate(specs):
         try:
+            shape = spec.output_shape
+            reviewed_shape = isinstance(shape, SemanticOutputShape)
             frame = build_semantic_frame(
                 SemanticFrameProposal(
                     operation=spec.operation,
                     subject_constraints=spec.subject_constraints,
                     measure_concepts=spec.measure_concepts,
                     temporal_scope={},
-                    output_shape=spec.output_shape,
+                    output_shape=(
+                        shape
+                        if isinstance(shape, SemanticOutputShape)
+                        else SemanticOutputShape.RESOURCE_LIST
+                    ),
+                    evidence_requirements=spec.evidence_requirements,
                     investigation=None,
                     confidence=confidence,
                 ),
                 utterance=utterance,
                 context=context,
             )
+            if not reviewed_shape:
+                frame = compiler_frame(frame, output_shape=str(shape))
             plan = _plan(spec, frame=frame, ctx=ctx)
             verifier.verify(plan, manifest=ctx.manifest)
             verify_frame_plan_alignment(frame, plan, descriptors=ctx.manifest.descriptors)
@@ -234,6 +243,33 @@ def _verified_batches(
             return [], (f"plan_verification_failed:{type(exc).__name__}",)
         batches.append(CompiledBatch(index=index, total=len(specs), frame=frame, plan=plan))
     return batches, ()
+
+
+def compiler_frame(frame: SemanticProblemFrame, *, output_shape: str) -> SemanticProblemFrame:
+    """Return the frame with a compiler-only output shape and its recomputed digest."""
+
+    body: dict[str, Any] = {
+        "schema_version": frame.schema_version,
+        "operation": frame.operation.value,
+        "subject_constraints": frame.subject_constraints,
+        "measure_concepts": frame.measure_concepts,
+        "temporal_scope": frame.temporal_scope,
+        "output_shape": output_shape,
+        "evidence_requirements": frame.evidence_requirements,
+        "unresolved_terms": frame.unresolved_terms,
+        "input_digest": frame.input_digest,
+        "authority": frame.authority,
+        "execution_authority": False,
+    }
+    if frame.investigation_intent_digest is not None:
+        body["investigation_intent_digest"] = frame.investigation_intent_digest
+    return SemanticProblemFrame.model_validate(
+        {
+            **frame.model_dump(mode="json", exclude={"frame_digest", "output_shape"}),
+            "output_shape": output_shape,
+            "frame_digest": content_digest(body),
+        }
+    )
 
 
 def _plan(spec: PlanSpec, *, frame: SemanticProblemFrame, ctx: CompileContext) -> OntologyQueryPlan:

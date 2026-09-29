@@ -10,6 +10,9 @@ Without such a deployment no second reader exists and nothing binds through it.
 The local launcher also sets ``FDAI_SEMANTIC_COMPILED_ANSWERS=1``, which adds the
 question-form path that answers a released compilation. Relation directions are then
 confirmed by the first later reasoning deployment, because direction turns on syntax.
+``FDAI_SEMANTIC_TYPED_ONLY=1`` makes that path the only way an operational read answers; it
+needs both other settings in the local venue, and the composition refuses to start without
+them instead of silently answering from the legacy path.
 """
 
 from __future__ import annotations
@@ -27,7 +30,10 @@ from fdai_service_contracts.venue import (
     resolve_execution_venue,
 )
 
-from fdai.core.conversation.semantic_compiled_answers import CompiledAnswerPath
+from fdai.core.conversation.semantic_compiled_answers import (
+    CompiledAnswerPath,
+    CompiledAnswerSettings,
+)
 from fdai.core.conversation.semantic_judgment_coverage import JudgmentCoverageReview
 from fdai.core.conversation.semantic_second_reader import SemanticSecondReader
 from fdai.core.conversation.semantic_type_grounding import ResourceTypeGrounding
@@ -45,6 +51,7 @@ from .semantic_query_model_targets import t1_model_targets
 
 SECOND_READER_ENV = "FDAI_SEMANTIC_SECOND_READER"
 COMPILED_ANSWERS_ENV = "FDAI_SEMANTIC_COMPILED_ANSWERS"
+TYPED_ONLY_ENV = "FDAI_SEMANTIC_TYPED_ONLY"
 _LOGGER = logging.getLogger(__name__)
 
 
@@ -61,6 +68,7 @@ def build_second_reader(
 ) -> SemanticSecondReader | None:
     """Return the second reader when the typed setting enables it, otherwise ``None``."""
 
+    typed_only = typed_only_enabled()
     if os.environ.get(SECOND_READER_ENV) != "1":
         return None
     targets = t1_model_targets(
@@ -71,6 +79,8 @@ def build_second_reader(
     )
     second = second_reader_target(targets)
     if second is None:
+        if typed_only:
+            raise ValueError("typed-only answering requires a second reader deployment")
         _LOGGER.info("semantic_second_reader_disabled", extra={"reason": "second_model_absent"})
         return None
     prompts = FileSystemPromptRegistry(catalog_root)
@@ -105,6 +115,8 @@ def build_second_reader(
     try:
         config = reader_config(compiled)
     except ValueError:
+        if typed_only:
+            raise
         # An invalid optional path never disables the second reader or the semantic runtime.
         _LOGGER.warning("semantic_compiled_answers_disabled", extra={"reason": "config_invalid"})
         compiled = False
@@ -125,6 +137,7 @@ def build_second_reader(
                     gateway=gateway,
                     purpose=purpose,
                     clock=clock,
+                    settings=CompiledAnswerSettings(typed_only=typed_only),
                 )
             )
             if compiled
@@ -146,6 +159,20 @@ def compiled_answers_enabled(environment: Mapping[str, str] | None = None) -> bo
     if venue is not ExecutionVenue.LOCAL:
         _LOGGER.warning("semantic_compiled_answers_ignored", extra={"reason": "venue_not_local"})
         return False
+    return True
+
+
+def typed_only_enabled(environment: Mapping[str, str] | None = None) -> bool:
+    """Return whether typed-only answering is on; fail closed when its path cannot exist."""
+
+    source = os.environ if environment is None else environment
+    if source.get(TYPED_ONLY_ENV) != "1":
+        return False
+    if source.get(SECOND_READER_ENV) != "1" or not compiled_answers_enabled(source):
+        raise ValueError(
+            "typed-only answering requires the second reader and compiled answers in the "
+            "local venue"
+        )
     return True
 
 
@@ -186,6 +213,7 @@ __all__ = [
     "SECOND_READER_ENV",
     "build_second_reader",
     "compiled_answers_enabled",
+    "typed_only_enabled",
     "direction_reader_target",
     "second_reader_target",
 ]

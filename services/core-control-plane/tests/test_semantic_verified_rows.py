@@ -57,3 +57,23 @@ def test_a_long_value_is_named_not_cut_and_the_table_stays_bounded() -> None:
     assert lines[3] == "| (see technical details) | compute.vm |"
     assert sum(len(line) for line in lines) < 4_200
     assert lines[-1] == "- 60 more verified rows are in technical details."
+
+
+def test_stated_notices_lead_the_answer_and_restate_only_the_read() -> None:
+    from fdai_core_service.semantic_verified_rows import with_stated_notices
+
+    answer = "## 검증된 결과\n\n- 전체 1개 행 중 1개를 검증했습니다."
+    korean = with_stated_notices(
+        answer, ("cause.not_established", "window.default.86400"), locale="ko"
+    )
+    english = with_stated_notices(
+        "## Verified result\n\n- rows", ("window.applied.259200",), locale="en"
+    )
+
+    lines = korean.splitlines()
+    assert lines[0] == "## 검증된 결과"
+    assert lines[2].startswith("- 원인은 확정하지 않았습니다.")
+    assert lines[3] == "- 조회 기간: 기간을 밝히지 않아 적용한 기본값인 최근 1일"
+    assert "Read window: the last 3 days, as stated." in english
+    # A frame without a reviewed notice requirement leaves the answer untouched.
+    assert with_stated_notices(answer, ("governed_documents.optional",), locale="ko") == answer

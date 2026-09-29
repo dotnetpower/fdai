@@ -66,6 +66,8 @@ class CompiledAnswerSettings:
     default_lookback_seconds: int = 86_400
     deadline_seconds: float = 45.0
     budget: ShadowBudget = field(default_factory=ShadowBudget)
+    # Typed-only answering: a read answers only from the form path, never the legacy cascade.
+    typed_only: bool = False
 
     def __post_init__(self) -> None:
         if not 60 <= self.default_lookback_seconds <= 31 * 86_400:
@@ -100,6 +102,7 @@ class CompiledAnswerTicket:
         verifier: OntologyQueryPlanVerifier,
         cutoff: Callable[[], datetime],
         clock: Callable[[], float] = time.monotonic,
+        typed_only: bool = False,
     ) -> None:
         self._future = future
         self._collector = collector
@@ -110,6 +113,9 @@ class CompiledAnswerTicket:
         self._clock = clock
         self._settled = False
         self._unsupported: tuple[str, ...] = ()
+        self.typed_only = typed_only
+        # The tagged terminal decision, set once the path is consumed or cancelled.
+        self.decision: str | None = None
 
     def outcome(
         self,
@@ -126,10 +132,12 @@ class CompiledAnswerTicket:
             observation = self._future.result(timeout=max(0.0, self._deadline - self._clock()))
         except concurrent.futures.TimeoutError:
             self._future.cancel()
+            self.decision = "unavailable"
             _log_completion("timeout")
             return None
         except Exception as exc:  # noqa: BLE001 - provider details stay inside the adapter
             self._future.cancel()
+            self.decision = "unavailable"
             _log_completion("failed", failure_type=type(exc).__name__)
             return None
         finally:
@@ -137,6 +145,7 @@ class CompiledAnswerTicket:
         selected = _single_compiled_batch(observation)
         if isinstance(selected, str):
             self._unsupported = _held_word_recovery_reasons(observation)
+            self.decision = _decline_decision(selected, observation)
             _log_completion("declined", observation=observation, decline_reason=selected)
             return None
         batch, confidence = selected
@@ -147,8 +156,10 @@ class CompiledAnswerTicket:
             self._verifier.verify(plan, manifest=self._manifest)
             verify_frame_plan_alignment(batch.frame, plan, descriptors=self._manifest.descriptors)
         except (PermissionError, ValueError) as exc:
+            self.decision = "unverified"
             _log_completion("failed", observation=observation, failure_type=type(exc).__name__)
             return None
+        self.decision = "selected"
         _log_completion("selected", observation=observation)
         _LOGGER.info(
             "semantic_planning_stage_completed",
@@ -196,6 +207,7 @@ class CompiledAnswerTicket:
         if not self._settled:
             self._settled = True
             self._future.cancel()
+            self.decision = "superseded"
             _log_completion("cancelled")
 
 
@@ -218,6 +230,10 @@ class CompiledAnswerPath:
         self._purpose = purpose
         self._clock = clock
         self._settings = settings or CompiledAnswerSettings()
+
+    @property
+    def typed_only(self) -> bool:
+        return self._settings.typed_only
 
     def start(
         self,
@@ -275,6 +291,7 @@ class CompiledAnswerPath:
             manifest=manifest,
             verifier=verifier,
             cutoff=self._clock,
+            typed_only=self._settings.typed_only,
         )
 
 
@@ -304,7 +321,50 @@ def compiled_answer_or(
     if ticket is None:
         return outcome
     compiled = ticket.outcome(manifest_digest=manifest_digest, observations=observations)
-    return compiled if compiled is not None else outcome
+    if compiled is not None:
+        return compiled
+    return (
+        typed_only_outcome(ticket, manifest_digest=manifest_digest)
+        if ticket.typed_only
+        else outcome
+    )
+
+
+# Each tagged form-path decision ends a typed-only turn with one typed planner outcome.
+_TYPED_ONLY_OUTCOMES: dict[str, tuple[SemanticPlanningDisposition, str]] = {
+    "unsupported": (
+        SemanticPlanningDisposition.UNSUPPORTED,
+        "semantic_stated_constraint_unsupported",
+    ),
+    "clarification": (SemanticPlanningDisposition.UNAVAILABLE, "semantic_reading_ambiguous"),
+    "continuation": (
+        SemanticPlanningDisposition.UNAVAILABLE,
+        "semantic_reading_continuation_required",
+    ),
+    "limited": (SemanticPlanningDisposition.UNAVAILABLE, "semantic_reading_limited"),
+    "unverified": (SemanticPlanningDisposition.UNAVAILABLE, "semantic_reading_unverified"),
+    "unavailable": (SemanticPlanningDisposition.UNAVAILABLE, "semantic_reading_unavailable"),
+}
+
+
+def typed_only_outcome(
+    ticket: CompiledAnswerTicket | None,
+    *,
+    manifest_digest: str,
+) -> SemanticPlanningOutcome:
+    """End a typed-only read that the form path did not answer, never the legacy cascade.
+
+    A turn whose form path never started, such as a bound-resource read, is unavailable
+    rather than answered from the judgment's words.
+    """
+
+    decision = ticket.decision if ticket is not None and ticket.decision else "unavailable"
+    disposition, reason = _TYPED_ONLY_OUTCOMES.get(decision, _TYPED_ONLY_OUTCOMES["unavailable"])
+    _LOGGER.info(
+        "semantic_typed_only_outcome",
+        extra={"decision": decision, "reason": reason, "disposition": disposition.value},
+    )
+    return _outcome(disposition, reason, manifest_digest=manifest_digest)
 
 
 async def _run_form_path(
@@ -339,7 +399,7 @@ def _single_compiled_batch(
     goal = goals[0]
     if goal.status is not GoalStatus.COMPILED:
         return "goal_not_compiled"
-    if goal.limitations:
+    if not _limitations_stated(goal.limitations, goal.batches):
         return "goal_limited"
     if not goal.batches or goal.confidence is None:
         return "goal_unbatched"
@@ -349,6 +409,62 @@ def _single_compiled_batch(
         return "batch_order"
     merged = _merged_batch(goal.batches)
     return (merged, goal.confidence) if isinstance(merged, CompiledBatch) else merged
+
+
+# Reviewed limitations an answer states as catalog notices, keyed by limitation code.
+_STATED_LIMITATIONS = {
+    "default_window_applied": "window.default",
+    "time_window_applied": "window.applied",
+    "time_window_model_judged": "window.model_judged",
+    "cause_not_established": "cause.not_established",
+}
+
+
+def _limitations_stated(limitations: tuple[str, ...], batches: tuple[CompiledBatch, ...]) -> bool:
+    """Return whether every limitation is one each frame requires its answer to state."""
+
+    for limitation in limitations:
+        code, _, value = limitation.partition(":")
+        prefix = _STATED_LIMITATIONS.get(code)
+        if prefix is None:
+            return False
+        requirement = f"{prefix}.{value}" if value else prefix
+        if any(requirement not in batch.frame.evidence_requirements for batch in batches):
+            return False
+    return True
+
+
+_CONTINUATION_DECLINES = frozenset(
+    {"continuation_pending", "compilation_count", "goal_count", "merge_over_budget"}
+)
+_UNAVAILABLE_PASSES = frozenset({"model_unavailable", "shadow_error", "input_held"})
+
+
+def _decline_decision(reason: str, observation: ReasoningShadowObservation) -> str:
+    """Return the tagged decision for one declined form path."""
+
+    if reason == "not_released":
+        dispositions = {item.disposition for item in observation.passes}
+        if not dispositions or dispositions <= _UNAVAILABLE_PASSES:
+            return "unavailable"
+        if "invalid" in dispositions:
+            return "unverified"
+        if dispositions & {"clarify", "review"}:
+            return "clarification"
+        return "unavailable" if observation.review == "unavailable" else "unverified"
+    if reason in _CONTINUATION_DECLINES:
+        return "continuation"
+    if reason == "goal_limited":
+        return "limited"
+    if reason == "goal_not_compiled":
+        statuses = {
+            goal.status for compilation in observation.compilations for goal in compilation.goals
+        }
+        if GoalStatus.UNSUPPORTED in statuses:
+            return "unsupported"
+        if GoalStatus.CLARIFY in statuses:
+            return "clarification"
+    return "unverified"
 
 
 def _held_word_recovery_reasons(observation: ReasoningShadowObservation) -> tuple[str, ...]:
@@ -498,4 +614,5 @@ __all__ = [
     "CompiledAnswerTicket",
     "compiled_answer_or",
     "start_compiled_answer",
+    "typed_only_outcome",
 ]

@@ -2013,9 +2013,12 @@
       "concepts": {},
       "expect": {
         "g1": {
-          "status": "unsupported",
-          "reasons": [
-            "want_unsupported:cause"
+          "status": "compiled",
+          "function": "query.resource_change_activity",
+          "lookback_seconds": 86400,
+          "limitations": [
+            "cause_not_established",
+            "default_window_applied:86400"
           ]
         }
       }
@@ -2054,9 +2057,12 @@
       "concepts": {},
       "expect": {
         "g1": {
-          "status": "unsupported",
-          "reasons": [
-            "want_unsupported:cause"
+          "status": "compiled",
+          "function": "query.resource_change_activity",
+          "lookback_seconds": 86400,
+          "limitations": [
+            "cause_not_established",
+            "default_window_applied:86400"
           ]
         }
       }

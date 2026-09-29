@@ -39,6 +39,7 @@ from .semantic_compiled_answers import (
     CompiledAnswerTicket,
     compiled_answer_or,
     start_compiled_answer,
+    typed_only_outcome,
 )
 from .semantic_judgment import SemanticJudgmentBoundary, SemanticJudgmentObservation
 from .semantic_judgment_assembly import judge_with_prompt_assembly
@@ -459,6 +460,10 @@ class SemanticPlanningService(SemanticPlanningPreflightMixin):
             )
             if compiled is not None:
                 return preflight_router.finish(compiled)
+            if self._compiled_answers is not None and self._compiled_answers.typed_only:
+                return preflight_router.finish(
+                    typed_only_outcome(ticket, manifest_digest=manifest_digest)
+                )
             stage = "frame_proposal"
             frame_result = deterministic_pre_frame_selection(
                 judgment=judgment_proposal,

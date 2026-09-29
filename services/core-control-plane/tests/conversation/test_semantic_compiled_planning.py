@@ -46,6 +46,8 @@ class _Ticket:
         self.vetoed_sources: list[str] = []
         self.consumed = False
         self.cancelled = False
+        self.typed_only = False
+        self.decision: str | None = None
 
     def outcome(self, *, manifest_digest: str, observations: list[Any]) -> Any:
         self.consumed = True
@@ -62,8 +64,12 @@ class _Ticket:
 
 
 class _Path:
-    def __init__(self, result: SemanticPlanningOutcome | None = _COMPILED) -> None:
+    def __init__(
+        self, result: SemanticPlanningOutcome | None = _COMPILED, *, typed_only: bool = False
+    ) -> None:
         self.ticket = _Ticket(result)
+        self.ticket.typed_only = typed_only
+        self.typed_only = typed_only
         self.starts: list[dict[str, Any]] = []
 
     def start(self, **arguments: Any) -> _Ticket:
@@ -218,3 +224,52 @@ def test_a_released_unsupported_reading_holds_the_word_recovered_plan() -> None:
     )
     assert answered.disposition is SemanticPlanningDisposition.PLANNED
     assert kept.ticket.vetoed_sources == ["server_stated_filter"]
+
+
+def test_typed_only_ends_a_declined_read_with_its_decision_and_never_the_legacy_cascade() -> None:
+    path = _Path(result=None, typed_only=True)
+    path.ticket.decision = "unsupported"
+    outcome, model = _plan(
+        _Boundary(SemanticJudgmentDisposition.ACCEPTED, proposal=_accepted()), path
+    )
+
+    # The stated-filter recovery would have answered this list from the judgment's words.
+    assert outcome.disposition is SemanticPlanningDisposition.UNSUPPORTED
+    assert outcome.reason == "semantic_stated_constraint_unsupported"
+    assert (model.frame_calls, model.plan_calls) == (0, 0)
+    assert path.ticket.vetoed_sources == []
+
+    unverified = _Path(result=None, typed_only=True)
+    unverified.ticket.decision = "unverified"
+    held, _model = _plan(
+        _Boundary(SemanticJudgmentDisposition.ACCEPTED, proposal=_accepted()), unverified
+    )
+    assert held.disposition is SemanticPlanningDisposition.UNAVAILABLE
+    assert held.reason == "semantic_reading_unverified"
+
+
+def test_typed_only_holds_a_read_whose_form_path_never_started() -> None:
+    path = _Path(result=None, typed_only=True)
+    outcome, model = _plan(
+        _Boundary(SemanticJudgmentDisposition.ACCEPTED, proposal=_accepted()),
+        path,
+        required_document_evidence=True,
+    )
+
+    assert path.starts == []
+    assert outcome.disposition is SemanticPlanningDisposition.UNAVAILABLE
+    assert outcome.reason == "semantic_reading_unavailable"
+    assert (model.frame_calls, model.plan_calls) == (0, 0)
+
+
+def test_typed_only_still_ends_an_ambiguous_judgment_with_its_clarification() -> None:
+    ambiguous = _accepted().model_copy(
+        update={"ambiguous": True, "clarification": "Which VM scope should I read?"}
+    )
+    path = _Path(typed_only=True)
+    outcome, _model = _plan(
+        _Boundary(SemanticJudgmentDisposition.CLARIFICATION, proposal=ambiguous), path
+    )
+
+    assert outcome.disposition is SemanticPlanningDisposition.CLARIFICATION
+    assert path.ticket.cancelled

@@ -14,15 +14,22 @@ from types import SimpleNamespace
 from typing import Any
 
 import pytest
-from fdai.composition.semantic_query_type_grounding import compiled_answers_enabled
+from fdai.composition.semantic_query_type_grounding import (
+    compiled_answers_enabled,
+    typed_only_enabled,
+)
 from fdai.core.conversation import semantic_compiled_answers
 from fdai.core.conversation.semantic_compiled_answers import (
     CompiledAnswerPath,
     CompiledAnswerTicket,
     compiled_answer_or,
     start_compiled_answer,
+    typed_only_outcome,
 )
-from fdai.core.conversation.semantic_planning_models import SemanticPlanningDisposition
+from fdai.core.conversation.semantic_planning_models import (
+    SemanticPlanningDisposition,
+    SemanticPlanningOutcome,
+)
 from fdai.core.conversation.semantic_reasoning_compiler import (
     GoalCompilation,
     GoalStatus,
@@ -385,6 +392,26 @@ def test_compiled_answers_are_composed_only_in_the_local_venue() -> None:
     assert not compiled_answers_enabled({"FDAI_EXECUTION_VENUE": "local"})
 
 
+def test_typed_only_answering_needs_its_whole_path_or_refuses_to_start() -> None:
+    complete = {
+        "FDAI_SEMANTIC_TYPED_ONLY": "1",
+        "FDAI_SEMANTIC_SECOND_READER": "1",
+        "FDAI_SEMANTIC_COMPILED_ANSWERS": "1",
+        "FDAI_EXECUTION_VENUE": "local",
+    }
+
+    assert typed_only_enabled(complete)
+    assert not typed_only_enabled(
+        {key: value for key, value in complete.items() if "TYPED" not in key}
+    )
+    # Without the form path a typed-only read would silently answer from the legacy path.
+    for missing in ("FDAI_SEMANTIC_SECOND_READER", "FDAI_SEMANTIC_COMPILED_ANSWERS"):
+        with pytest.raises(ValueError, match="typed-only"):
+            typed_only_enabled({key: value for key, value in complete.items() if key != missing})
+    with pytest.raises(ValueError, match="typed-only"):
+        typed_only_enabled({**complete, "FDAI_EXECUTION_VENUE": "deployed"})
+
+
 def _relation_compilation(scope: str) -> ReasoningCompilation:
     from tests.conversation.test_semantic_reasoning_compiler import _compile, _relation_form
 
@@ -484,3 +511,106 @@ def test_batches_with_clashing_node_ids_are_declined(
 
     assert _ticket(observation).outcome(manifest_digest="d", observations=[]) is None
     assert _decline_reasons(caplog) == ["merge_node_conflict"]
+
+
+@pytest.mark.parametrize(
+    ("observation", "decision"),
+    [
+        (_observation(released=False, passes=()), "unavailable"),
+        (
+            _observation(
+                released=False, passes=(ShadowPass(0, "clarify", ("competing_reading:g1",)),)
+            ),
+            "clarification",
+        ),
+        (_observation(released=False, passes=(ShadowPass(0, "invalid"),)), "unverified"),
+        (
+            _observation(released=False, review="unfaithful", passes=(ShadowPass(0, "admitted"),)),
+            "unverified",
+        ),
+        (_observation(continuation_pending=True), "continuation"),
+    ],
+)
+def test_every_declined_path_ends_with_one_tagged_decision(
+    observation: ReasoningShadowObservation, decision: str
+) -> None:
+    ticket = _ticket(observation)
+    assert ticket.outcome(manifest_digest="d", observations=[]) is None
+    assert ticket.decision == decision
+
+
+def test_typed_only_maps_each_decision_to_one_typed_outcome() -> None:
+    unsupported = _ticket(_unsupported_observation())
+    unsupported.outcome(manifest_digest="d", observations=[])
+    limited_goal = replace(_compilation().goals[0], limitations=("time_window_applied:3600",))
+    limited = _ticket(_observation(compilations=(replace(_compilation(), goals=(limited_goal,)),)))
+    limited.outcome(manifest_digest="d", observations=[])
+    timed_out = _ticket(None, deadline=1.0)
+    timed_out._deadline = 0.0  # noqa: SLF001 - the deadline has already passed
+    timed_out.outcome(manifest_digest="d", observations=[])
+
+    outcomes = {
+        name: typed_only_outcome(ticket, manifest_digest="d")
+        for name, ticket in (
+            ("unsupported", unsupported),
+            ("limited", limited),
+            ("timeout", timed_out),
+        )
+    }
+
+    assert outcomes["unsupported"].disposition is SemanticPlanningDisposition.UNSUPPORTED
+    assert outcomes["unsupported"].reason == "semantic_stated_constraint_unsupported"
+    assert outcomes["limited"].reason == "semantic_reading_limited"
+    assert outcomes["timeout"].reason == "semantic_reading_unavailable"
+    # A turn whose form path never started is unavailable, never a legacy answer.
+    assert typed_only_outcome(None, manifest_digest="d").reason == "semantic_reading_unavailable"
+
+
+def test_a_typed_only_hold_replaces_the_judgment_hold_and_a_cancel_is_superseded() -> None:
+    hold = SemanticPlanningOutcome(
+        disposition=SemanticPlanningDisposition.UNAVAILABLE, reason="judgment_hold"
+    )
+    ticket = _ticket(_unsupported_observation())
+    ticket.typed_only = True
+    replaced = compiled_answer_or(ticket, hold, manifest_digest="d", observations=[])
+    cancelled = _ticket(_observation())
+    cancelled.cancel()
+
+    assert replaced.reason == "semantic_stated_constraint_unsupported"
+    assert cancelled.decision == "superseded"
+
+
+def _cause_compilation() -> ReasoningCompilation:
+    from tests.conversation.test_semantic_reasoning_compiler import _cause_form, _compile
+
+    utterance = "Why is vm-app-01 stopped?"
+    return _compile(utterance, _cause_form(utterance))
+
+
+def test_a_compilation_answers_with_the_limitations_its_frame_states(
+    caplog: pytest.LogCaptureFixture, events: list[dict[str, Any]]
+) -> None:
+    compilation = _cause_compilation()
+
+    outcome = _ticket(_observation(compilations=(compilation,))).outcome(
+        manifest_digest="d", observations=[]
+    )
+
+    # The cause-not-established and window limitations are stated as reviewed notices.
+    assert outcome is not None and outcome.frame is not None
+    assert outcome.frame.output_shape == "cause_context"
+    assert "cause.not_established" in outcome.frame.evidence_requirements
+    assert _completions(caplog) == ["selected"]
+
+
+def test_a_limitation_no_notice_states_keeps_the_compilation_from_answering(
+    caplog: pytest.LogCaptureFixture, events: list[dict[str, Any]]
+) -> None:
+    compilation = _cause_compilation()
+    goal = compilation.goals[0]
+    unstated = replace(goal, limitations=(*goal.limitations, "prior_result_truncated"))
+    ticket = _ticket(_observation(compilations=(replace(compilation, goals=(unstated,)),)))
+
+    assert ticket.outcome(manifest_digest="d", observations=[]) is None
+    assert _decline_reasons(caplog) == ["goal_limited"]
+    assert ticket.decision == "limited"

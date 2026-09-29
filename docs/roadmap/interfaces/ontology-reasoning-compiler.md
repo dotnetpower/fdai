@@ -529,6 +529,100 @@ pass, released or not, also holds such a plan when it asks more than one filtere
 region, grouping, relation other than a named container's members, time, schema level, second goal, or competing
 reading. The form's first shape token records that verdict.
 
+## Typed-only answers and causal context
+
+This section records the 2026-09-30 audit of lexical meaning on the answer path and the next stage it
+proposes. The stage changes behavior only in the local development profile.
+
+### Lexical meaning audit
+
+Five groups of runtime code on the current judgment path still derive meaning from the operator's words.
+
+| Group | Examples | Meaning derived from words |
+|-------|----------|----------------------------|
+| Keyword signal tables | `query_signal_matches`, `query_target_cardinality`, and `query_term_spans` over the inventory query language catalog | Collection or single-item requests, counts, mutations, relationships, locations, activity, and causal diagnosis |
+| Stated-value matching | `stated_value_filters`, `stated_value_term_spans`, and `stated_subject_fragment` | Resource types, names, and property values found as words in the utterance |
+| Recovery fallbacks | Stated resource filter, current-state, and target-candidate recoveries | A filtered list or state lookup built from those matches when the judgment or frame is incomplete |
+| Investigation and time normalization | Slowness, CPU, MySQL, network, and application hypothesis normalizers; activity and service-health normalizers | Causal hypotheses, symptoms, negation, and lookback windows |
+| Clarification builders | Resource-target and filter-meaning clarifications | Ambiguity decided from word overlap |
+
+No answer template states an operational fact. Answers render verified evidence tables and reviewed
+catalog notices. The model-authored answer and V-CLAIM remain round R8 work.
+
+### Typed-only answering
+
+In the local profile, `FDAI_SEMANTIC_TYPED_ONLY=1` makes the question-form path the only way an
+operational read can answer. The flag requires compiled answers and the local execution venue, and the
+composition refuses to start when either is missing. The planner keeps its current order: the
+preflight, the judgment and its coverage review, verified denials, action-draft boundaries, and
+deterministic clarifications run first, then the judgment's own clarification, then the form path.
+None of those earlier stages answers a read. The only change is what happens after the form path:
+
+1. A released compilation that the selection rules accept answers the turn.
+2. Otherwise the form path's tagged decision ends the turn with a typed outcome. The turn never reaches
+   the legacy frame and plan cascade, its keyword signals, stated-value matching, recoveries, or the
+   frame model.
+
+| Decision | Planner outcome | Meaning |
+|----------|-----------------|---------|
+| `unsupported` | unsupported, `semantic_stated_constraint_unsupported` | A released reading states an atom no reviewed builder reads |
+| `clarification` | held, `semantic_reading_ambiguous` | The reading has competing readings, an unused mention, or a constraint no field expresses |
+| `continuation` | held, `semantic_reading_continuation_required` | The reading needs another pass or more plans than one answer holds |
+| `limited` | held, `semantic_reading_limited` | A goal carries a limitation that no reviewed notice can state |
+| `unverified` | held, `semantic_reading_unverified` | The form was invalid, or the blind review found it unfaithful |
+| `unavailable` | held, `semantic_reading_unavailable` | The path timed out, failed, or never started for this turn |
+
+A turn for which the form path never started, such as a bound-resource or document-evidence read,
+also ends as `unavailable` instead of falling through to the legacy path. Direct social responses,
+one-shot general knowledge, adaptive knowledge answers, and action drafts keep their paths. A
+misclassified operational question on those paths remains a known gap that R9 promotion measures.
+With the flag off, the planner behaves exactly as before. Deployed venues keep the current path until
+each family is promoted in R9, and R10 deletes the lexical helpers of promoted families only after a
+rollback release.
+
+A selected compilation may carry only reviewed limitations that the answer states as catalog notices:
+the applied, default, or model-judged history window, and a cause that is not established. The compiler
+records each as a frame evidence requirement, so the frame, plan digest, and rendered notice agree. Any
+other limitation keeps the compilation from answering.
+
+### Causal context
+
+A question such as why aks-app is stopped is a `cause` want about one named Resource. Admission
+accepts it only as an `explain_cause` goal with `want: cause` over one anchor, with an optional state
+measure and time window; any other combination of the operation and the want is a structural fault
+with one repair.
+
+The current-state reader reports when a state was observed, not when it changed, and local
+state-transition coverage is often missing. Timing alone therefore cannot even support an
+`association` grade here. Until transition coverage, a mechanism catalog, and refutation queries
+exist, the compiler answers such a goal as causal context, never as candidate causes. The plan reads
+the anchor's current state through `query.resource_current_state` and the control-plane operations
+recorded on the anchor within the stated or default window through `query.resource_change_activity`,
+each row with its recorded status. The frame uses the compiler-only `cause_context` output shape,
+which the frame model's schema never offers, so the legacy frame path cannot propose it.
+
+The answer leads with the reviewed notice that the cause is not established and restates the window.
+It shows both verified tables with their completeness, names no operation as a cause, and assigns no
+evidence grade. An incomplete read, such as an activity read that reached its row bound, stays marked
+incomplete. A history goal uses the compiler-only `change_activity` shape the same way, so its
+operations are never shown as a Resource list. State-transition change points, paging the full window
+with a pinned continuation, dependency-neighbourhood context, mechanism fit, refutation checks,
+evidence grades, and model-authored cause claims gated by V-CLAIM remain R7 and R8 work. No new
+FunctionType is added, so the ontology release does not change.
+
+| Critique finding | Revision |
+|------------------|----------|
+| Temporal precedence to a state observation is not association | Causal context only; no candidates and no evidence grade |
+| Activity records include failed and read-only events | Each row keeps its recorded status; none is ranked |
+| No `no_known_cause` baseline | The answer leads with "cause not established" |
+| Bounded activity reads drop rows | Incomplete tables stay incomplete; full paging is remaining work |
+| Typed-only fails open for turns without a ticket | Such a turn ends `unavailable` |
+| Moving compilation before pre-frame guards skips safety checks | The order is unchanged; only the post-decision fallthrough changes |
+| Decline codes too coarse | Tagged decisions with a typed outcome each |
+| History and cause goals always carry limitations | Reviewed limitations become frame evidence requirements with notices |
+| A new FunctionType changes the global release | No new FunctionType |
+| Two encodings of a cause question | One canonical `explain_cause` with `want: cause` |
+
 ## Approved decisions
 
 The Owner approved these decisions on 2026-09-28.

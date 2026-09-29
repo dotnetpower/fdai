@@ -540,12 +540,12 @@ async def test_a_reference_too_large_for_one_plan_node_is_unsupported() -> None:
 
 async def test_a_stale_handle_never_asks_to_clarify_what_stays_unsupported() -> None:
     expired = (_handle(expires_at=NOW),)
-    cause = _show_first(want="cause")
-    explained, _ = await _compile(_SHOW_FIRST, cause, expired)
+    verification = _show_first(want="verification")
+    explained, _ = await _compile(_SHOW_FIRST, verification, expired)
     # A fresh one-row answer would anchor this lookup, so a stale handle clarifies it.
     lookup, _ = await _compile(_AGAIN, _again_form("lookup"), expired)
 
-    assert explained.goals[0].reasons == ("want_unsupported:cause",)
+    assert explained.goals[0].reasons == ("want_unsupported:verification",)
     assert lookup.goals[0].reasons == ("prior_result_expired",)
 
 

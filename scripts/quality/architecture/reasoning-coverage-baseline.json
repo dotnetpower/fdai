@@ -41,6 +41,7 @@
     "instance.count.traffic.either.one_hop",
     "instance.count.traffic.receiver.one_hop",
     "instance.count.traffic.sender.one_hop",
+    "instance.explain_cause",
     "instance.history.change.current",
     "instance.history.change.unspecified",
     "instance.history.change.window",
@@ -140,6 +141,7 @@
     "schema.select.declaration_kind"
   ],
   "reason_counts": {
+    "cause_form_inconsistent:g1": 1,
     "count_side_budget_exceeded": 2,
     "endpoint_filter_unreadable": 2,
     "filter_unsupported:health": 6,
@@ -160,7 +162,6 @@
     "operation_unsupported:diagnose": 1,
     "operation_unsupported:diff_versions": 1,
     "operation_unsupported:draft_action": 1,
-    "operation_unsupported:explain_cause": 1,
     "operation_unsupported:path": 60,
     "operation_unsupported:rank": 1,
     "operation_unsupported:verify_evidence": 1,
@@ -178,13 +179,12 @@
     "time_unsupported:as_of": 2,
     "time_unsupported:two_windows": 2,
     "time_unsupported:versions": 2,
-    "want_unsupported:cause": 1,
     "want_unsupported:verification": 1
   },
   "status_counts": {
-    "compiled": 137,
-    "inadmissible": 7,
-    "unsupported": 289
+    "compiled": 138,
+    "inadmissible": 8,
+    "unsupported": 287
   },
   "version": 1
 }

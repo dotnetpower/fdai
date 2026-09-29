@@ -460,8 +460,8 @@ def test_schema_goal_reads_declarations_and_never_instances() -> None:
             },
             "relation_not_transitive",
         ),
-        ({"want": "cause"}, "want_unsupported:cause"),
-        ({"operation": "explain_cause"}, "operation_unsupported:explain_cause"),
+        # A cause question reads causal context of one anchor; a stated relation is not read yet.
+        ({"operation": "explain_cause", "want": "cause"}, "cause_context_atom_unsupported"),
     ),
 )
 def test_unexpressible_atoms_return_typed_reasons_instead_of_a_substitute(
@@ -545,7 +545,12 @@ def test_dependent_goal_is_blocked_when_its_dependency_fails() -> None:
     form = _relation_form(
         utterance, anchor="sql-app", sense="dependency", position="target", cue="depends on"
     )
-    first = {**form["goals"][0], "operation": "explain_cause", "cue": span(utterance, "Why")}
+    first = {
+        **form["goals"][0],
+        "operation": "explain_cause",
+        "want": "cause",
+        "cue": span(utterance, "Why"),
+    }
     second = {**form["goals"][0], "id": "g2", "depends_on": ["g1"]}
     form["goals"] = [first, second]
 
@@ -1633,3 +1638,76 @@ def test_a_count_grouped_by_container_groups_members_by_their_direct_parent() ->
     (batch,) = goal.batches
     aggregate = batch.plan.nodes[-1]
     assert aggregate.arguments == {"operation": "count", "group_by": ["properties.parent_id"]}
+
+
+def _cause_form(utterance: str, *, measure: str | None = "state", **goal: Any) -> dict[str, Any]:
+    body: dict[str, Any] = {
+        "id": "g1",
+        "level": "instance",
+        "operation": "explain_cause",
+        "want": "cause",
+        "subject": "m1",
+        "subject_scope": "anchor",
+        "cue": span(utterance, "Why"),
+        "confidence": 0.9,
+    }
+    if measure is not None:
+        body["measure"] = {"kind": measure}
+    body.update(goal)
+    return {"mentions": [_anchor(utterance, "vm-app-01")], "goals": [body]}
+
+
+def test_a_why_question_compiles_to_causal_context_that_names_no_cause() -> None:
+    utterance = "Why is vm-app-01 stopped?"
+
+    goal = _compile(utterance, _cause_form(utterance)).goals[0]
+
+    assert goal.status is GoalStatus.COMPILED, goal.reasons
+    (batch,) = goal.batches
+    functions = [
+        node.arguments["function_name"]
+        for node in batch.plan.nodes
+        if node.kind.value == "function"
+    ]
+    # The effect as observed now and the operations recorded before it, nothing ranked.
+    assert functions == ["query.resource_current_state", "query.resource_change_activity"]
+    assert len(batch.plan.output_node_ids) == 2
+    assert batch.frame.output_shape == "cause_context"
+    assert batch.frame.evidence_requirements == ("cause.not_established", "window.default.86400")
+    assert goal.limitations == ("cause_not_established", "default_window_applied:86400")
+
+
+def test_a_stated_window_bounds_the_causal_context_and_is_restated() -> None:
+    utterance = "Why did vm-app-01 change in the last 3 days?"
+    window = {
+        "kind": "window",
+        "value": {"duration": {"amount": 3, "unit": "day"}},
+        "cue": span(utterance, "last 3 days"),
+    }
+
+    goal = _compile(utterance, _cause_form(utterance, measure="change", time=window)).goals[0]
+
+    (batch,) = goal.batches
+    activity = batch.plan.nodes[-1].arguments
+    assert activity["arguments"] == {"lookback_seconds": 259_200}
+    assert "window.applied.259200" in batch.frame.evidence_requirements
+
+
+def test_a_cause_is_read_only_in_its_canonical_form() -> None:
+    utterance = "Why is vm-app-01 stopped?"
+    fact = _cause_form(utterance, want="fact")
+    history = _cause_form(utterance, operation="history", measure="change")
+
+    # A why question has one reading, so no other goal can drop its cause atom silently.
+    assert "cause_form_inconsistent:g1" in admitted(fact, utterance).reasons
+    assert "cause_form_inconsistent:g1" in admitted(history, utterance).reasons
+
+
+def test_a_history_goal_reads_activity_as_activity_and_states_its_window() -> None:
+    utterance = "What changed on vm-app-01 in the last 3 days?"
+
+    goal = _compile(utterance, _history_form(utterance, "last 3 days", 3)).goals[0]
+
+    (batch,) = goal.batches
+    assert batch.frame.output_shape == "change_activity"
+    assert batch.frame.evidence_requirements == ("window.applied.259200",)

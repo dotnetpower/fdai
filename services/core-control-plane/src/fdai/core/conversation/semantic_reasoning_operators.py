@@ -64,6 +64,17 @@ from .semantic_reasoning_relations import RelationSide, select_relation_sides
 from .semantic_reasoning_schema import schema_goal
 
 MAX_SIDES_PER_BATCH = 3
+# Compiler-only output shapes, rendered as verified evidence tables with reviewed notices.
+CAUSE_CONTEXT_SHAPE = "cause_context"
+CHANGE_ACTIVITY_SHAPE = "change_activity"
+CAUSE_NOT_ESTABLISHED = "cause.not_established"
+CURRENT_STATE_FUNCTION = "query.resource_current_state"
+CHANGE_ACTIVITY_FUNCTION = "query.resource_change_activity"
+_WINDOW_LIMITATIONS = {
+    "default": "default_window_applied",
+    "applied": "time_window_applied",
+    "model_judged": "time_window_model_judged",
+}
 # An anchor read, one traversal per side, and the aggregate fit one intent graph of 16 goals.
 MAX_COUNT_SIDES = 12
 MIN_LOOKBACK_SECONDS = 60
@@ -88,7 +99,10 @@ def compile_goal(goal: FormGoal, ctx: CompileContext) -> OperatorResult:
         return OperatorResult(
             unsupported=(f"subject_scope_unavailable:{goal.subject_scope.value}",)
         )
-    if goal.want in {Want.CAUSE, Want.VERIFICATION}:
+    # A cause is read only as causal context of one explain_cause goal, never as a fact.
+    if goal.want is Want.VERIFICATION or (
+        goal.want is Want.CAUSE and goal.effective_operation is not GoalOperation.EXPLAIN_CAUSE
+    ):
         return OperatorResult(unsupported=(f"want_unsupported:{goal.want.value}",))
     compiled = _SCHEMA_OPERATIONS if goal.level is GoalLevel.SCHEMA else _INSTANCE_OPERATIONS
     if goal.effective_operation not in compiled:
@@ -117,6 +131,8 @@ def compile_goal(goal: FormGoal, ctx: CompileContext) -> OperatorResult:
         return _lookup_goal(goal, ctx)
     if goal.effective_operation is GoalOperation.HISTORY:
         return _history_goal(goal, ctx)
+    if goal.effective_operation is GoalOperation.EXPLAIN_CAUSE:
+        return _cause_goal(goal, ctx)
     return OperatorResult(unsupported=(f"operation_unsupported:{goal.effective_operation.value}",))
 
 
@@ -149,6 +165,7 @@ _INSTANCE_OPERATIONS = frozenset(
         GoalOperation.IMPACT,
         GoalOperation.LOOKUP,
         GoalOperation.HISTORY,
+        GoalOperation.EXPLAIN_CAUSE,
     }
 )
 _SCHEMA_OPERATIONS = frozenset(
@@ -164,6 +181,7 @@ _READ_MEASURES: dict[GoalOperation, frozenset[MeasureKind]] = {
     GoalOperation.COUNT: frozenset({MeasureKind.COUNT}),
     GoalOperation.LOOKUP: frozenset({MeasureKind.STATE}),
     GoalOperation.HISTORY: frozenset({MeasureKind.CHANGE}),
+    GoalOperation.EXPLAIN_CAUSE: frozenset({MeasureKind.STATE, MeasureKind.CHANGE}),
     GoalOperation.SELECT: frozenset(),
     GoalOperation.TRAVERSE: frozenset(),
     GoalOperation.IMPACT: frozenset(),
@@ -482,27 +500,91 @@ def _history_goal(goal: FormGoal, ctx: CompileContext) -> OperatorResult:
         return OperatorResult(unsupported=("filter_unsupported_for_operation:history",))
     if goal.measure is not None and goal.measure.kind is not MeasureKind.CHANGE:
         return OperatorResult(unsupported=(f"measure_unsupported:{goal.measure.kind.value}",))
-    lookback = history_lookback_seconds(goal, default_seconds=ctx.default_lookback_seconds)
-    if isinstance(lookback, str):
-        return OperatorResult(unsupported=(lookback,))
-    seconds, defaulted = lookback
+    window = _stated_window(goal, ctx)
+    if isinstance(window, str):
+        return OperatorResult(unsupported=(window,))
+    seconds, limitation, requirement = window
     result = _anchored_function(
         goal,
         ctx,
         function_name="query.resource_change_activity",
         arguments={"lookback_seconds": seconds},
-        output_shape=SemanticOutputShape.RESOURCE_LIST,
+        output_shape=CHANGE_ACTIVITY_SHAPE,
+        evidence_requirements=(requirement,),
     )
-    if defaulted and result.specs:
-        return OperatorResult(
-            specs=result.specs, limitations=(f"default_window_applied:{seconds}",)
+    # Every applied window is restated by the notice its frame requirement names.
+    return OperatorResult(specs=result.specs, limitations=(limitation,)) if result.specs else result
+
+
+def _cause_goal(goal: FormGoal, ctx: CompileContext) -> OperatorResult:
+    """Read causal context for one anchor: its current state and the operations before it.
+
+    The current-state reader reports when a state was observed, not when it changed, so
+    no recorded operation can be ranked as a cause. The answer states that the cause is
+    not established and shows both verified reads.
+    """
+
+    if goal.want is not Want.CAUSE:
+        return OperatorResult(unsupported=("cause_want_required",))
+    if goal.subject is None or goal.subject_scope is not SubjectScope.ANCHOR:
+        return OperatorResult(unsupported=("anchor_missing",))
+    if goal.filters or goal.relation is not None:
+        return OperatorResult(unsupported=("cause_context_atom_unsupported",))
+    window = _stated_window(goal, ctx)
+    if isinstance(window, str):
+        return OperatorResult(unsupported=(window,))
+    seconds, limitation, requirement = window
+    for name in (CURRENT_STATE_FUNCTION, CHANGE_ACTIVITY_FUNCTION):
+        if not function_declared(ctx, name):
+            return OperatorResult(unsupported=(f"function_unavailable:{name}",))
+    anchor = anchor_node(f"{goal.id}-anchor", goal.subject, ctx, FUNCTION_ANCHOR_LIMIT)
+    if isinstance(anchor, OperatorResult):
+        return anchor
+    reads = tuple(
+        OntologyQueryNode(
+            node_id=f"{goal.id}-{suffix}",
+            kind=QueryNodeKind.FUNCTION,
+            depends_on=(anchor.node_id,),
+            arguments_json=canonical_json(
+                {
+                    "function_name": name,
+                    "arguments": arguments,
+                    "dependency_arguments": {anchor.node_id: "query_result"},
+                }
+            ),
+            output_kind="query.table",
         )
-    # Every applied window is restated; one read from words without digits is the model's.
-    if result.specs:
-        judged = goal.id in ctx.admission.judged_times
-        code = "time_window_model_judged" if judged else "time_window_applied"
-        return OperatorResult(specs=result.specs, limitations=(f"{code}:{seconds}",))
-    return result
+        for suffix, name, arguments in (
+            ("state", CURRENT_STATE_FUNCTION, {}),
+            ("activity", CHANGE_ACTIVITY_FUNCTION, {"lookback_seconds": seconds}),
+        )
+    )
+    spec = plan_spec(
+        goal,
+        (anchor, *reads),
+        tuple(node.node_id for node in reads),
+        ctx,
+        subjects=(RESOURCE_OBJECT_TYPE,),
+        output_shape=CAUSE_CONTEXT_SHAPE,
+        evidence_requirements=(CAUSE_NOT_ESTABLISHED, requirement),
+    )
+    return OperatorResult(specs=(spec,), limitations=("cause_not_established", limitation))
+
+
+def _stated_window(goal: FormGoal, ctx: CompileContext) -> tuple[int, str, str] | str:
+    """Return the trusted lookback, its limitation, and the notice requirement that states it."""
+
+    lookback = history_lookback_seconds(goal, default_seconds=ctx.default_lookback_seconds)
+    if isinstance(lookback, str):
+        return lookback
+    seconds, defaulted = lookback
+    if defaulted:
+        kind = "default"
+    else:
+        # One window read from words without digits is the model's reading, stated as such.
+        kind = "model_judged" if goal.id in ctx.admission.judged_times else "applied"
+    code = _WINDOW_LIMITATIONS[kind]
+    return seconds, f"{code}:{seconds}", f"window.{kind}.{seconds}"
 
 
 def history_lookback_seconds(
@@ -532,7 +614,8 @@ def _anchored_function(
     *,
     function_name: str,
     arguments: dict[str, Any],
-    output_shape: SemanticOutputShape,
+    output_shape: SemanticOutputShape | str,
+    evidence_requirements: tuple[str, ...] = (),
 ) -> OperatorResult:
     if goal.subject is None:
         return OperatorResult(unsupported=("anchor_missing",))
@@ -563,12 +646,16 @@ def _anchored_function(
                 ctx,
                 subjects=(RESOURCE_OBJECT_TYPE,),
                 output_shape=output_shape,
+                evidence_requirements=evidence_requirements,
             ),
         )
     )
 
 
 __all__ = [
+    "CAUSE_CONTEXT_SHAPE",
+    "CAUSE_NOT_ESTABLISHED",
+    "CHANGE_ACTIVITY_SHAPE",
     "MAX_COUNT_SIDES",
     "MAX_LOOKBACK_SECONDS",
     "MAX_SIDES_PER_BATCH",

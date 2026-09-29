@@ -86,10 +86,14 @@ class PlanSpec:
 
     nodes: tuple[OntologyQueryNode, ...]
     output_node_ids: tuple[str, ...]
-    output_shape: SemanticOutputShape
+    # A reviewed compiler-only shape, such as causal context, is a plain string the frame
+    # model's enum never offers, so the legacy frame path cannot propose it.
+    output_shape: SemanticOutputShape | str
     operation: SemanticOperation
     subject_constraints: tuple[str, ...]
     measure_concepts: tuple[str, ...]
+    # Reviewed limitations the answer states as catalog notices, such as the applied window.
+    evidence_requirements: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -346,8 +350,9 @@ def plan_spec(
     ctx: CompileContext,
     *,
     subjects: tuple[str, ...],
-    output_shape: SemanticOutputShape | None = None,
+    output_shape: SemanticOutputShape | str | None = None,
     measure_concepts: tuple[str, ...] = (),
+    evidence_requirements: tuple[str, ...] = (),
 ) -> PlanSpec:
     aggregate = any(node.kind is QueryNodeKind.AGGREGATE for node in nodes)
     shape = output_shape or (
@@ -360,6 +365,7 @@ def plan_spec(
         operation=SemanticOperation.AGGREGATE if aggregate else SemanticOperation.SELECT,
         subject_constraints=tuple(dict.fromkeys(subjects)),
         measure_concepts=measure_concepts or (f"reasoning.{goal.effective_operation.value}",),
+        evidence_requirements=evidence_requirements,
     )
 
 

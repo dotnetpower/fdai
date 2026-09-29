@@ -206,6 +206,7 @@ case "$service" in
       FDAI_RUNTIME_LOCK_FILE="$repo_root/.fdai/core-runtime.lock"
       FDAI_SEMANTIC_SECOND_READER=1
       FDAI_SEMANTIC_COMPILED_ANSWERS=1
+      FDAI_SEMANTIC_TYPED_ONLY=1
       PYTHONPATH="$service_pythonpath"
       "$repo_root/.venv/bin/fdai-core-control-plane"
     )

@@ -34,6 +34,7 @@ from .semantic_reasoning_form import (
     SubjectRole,
     SubjectScope,
     TimeKind,
+    Want,
 )
 
 DEFAULT_CONFIDENCE_FLOOR = 0.75
@@ -458,6 +459,9 @@ def _restates_scope(goal: FormGoal) -> bool:
 
 def _goal_shape_failures(goal: FormGoal, form: SemanticQuestionForm) -> list[str]:
     failures: list[str] = []
+    # A why question has one canonical reading, so no other goal can drop its cause atom.
+    if (goal.operation is GoalOperation.EXPLAIN_CAUSE) != (goal.want is Want.CAUSE):
+        failures.append(f"cause_form_inconsistent:{goal.id}")
     scopes = {item.mention for item in goal.filters if item.role is FilterRole.SCOPE}
     if (
         goal.relation is not None
