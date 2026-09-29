@@ -19,6 +19,7 @@ from fdai_service_contracts.venue import (
     resolve_execution_venue,
 )
 
+from fdai.core.operational_evidence.deployment_preflight import ExecutorClassAnchorInputs
 from fdai.core.operational_evidence.grant_registry_loader import load_grant_registry
 from fdai.core.operational_evidence.registry_json import RegistryUnavailableError
 from fdai.core.operational_evidence.revision_history import RegistryHistory, RegistryRevision
@@ -42,7 +43,18 @@ READER_DSN_ENV = "FDAI_OPERATIONAL_EVIDENCE_READER_DSN"
 READER_ROLE_ENV = "FDAI_OPERATIONAL_EVIDENCE_READER_ROLE"
 VERIFIER_DSN_ENV = "FDAI_OPERATIONAL_EVIDENCE_VERIFIER_DSN"
 EXECUTOR_PRINCIPALS_ENV = "FDAI_OPERATIONAL_EVIDENCE_EXECUTOR_PRINCIPALS_JSON"
+CORE_EXECUTOR_PRINCIPAL_ENV = "FDAI_OPERATIONAL_EVIDENCE_CORE_EXECUTOR_PRINCIPAL_ID"
+ISOLATED_EXECUTOR_PRINCIPAL_ENV = "FDAI_OPERATIONAL_EVIDENCE_ISOLATED_EXECUTOR_PRINCIPAL_ID"
+DEV_GATEWAY_EXECUTOR_PRINCIPAL_ENV = "FDAI_OPERATIONAL_EVIDENCE_DEV_GATEWAY_EXECUTOR_PRINCIPAL_ID"
+VERTICAL_EXECUTOR_PRINCIPALS_ENV = "FDAI_OPERATIONAL_EVIDENCE_VERTICAL_EXECUTOR_PRINCIPALS_JSON"
+DEPLOY_RUNNER_PRINCIPAL_ENV = "FDAI_OPERATIONAL_EVIDENCE_DEPLOY_RUNNER_PRINCIPAL_ID"
 WRITER_MEMBERS_ENV = "FDAI_OPERATIONAL_EVIDENCE_WRITER_MEMBERS_JSON"
+CALLER_TOKEN_ISSUER_ENV = "FDAI_OPERATIONAL_EVIDENCE_CALLER_TOKEN_ISSUER"  # noqa: S105
+CALLER_TOKEN_AUDIENCE_ENV = "FDAI_OPERATIONAL_EVIDENCE_CALLER_TOKEN_AUDIENCE"  # noqa: S105
+CALLER_TOKEN_JWKS_ENV = "FDAI_OPERATIONAL_EVIDENCE_CALLER_TOKEN_JWKS_JSON"  # noqa: S105
+OWN_ROLE_ASSIGNMENTS_ENV = "FDAI_OPERATIONAL_EVIDENCE_OWN_ROLE_ASSIGNMENTS_JSON"
+OWN_ROLE_READBACK_SCOPES_ENV = "FDAI_OPERATIONAL_EVIDENCE_ROLE_READBACK_SCOPES_JSON"
+OWN_ROLE_ALLOWED_SCOPES_ENV = "FDAI_OPERATIONAL_EVIDENCE_ALLOWED_ROLE_SCOPES_JSON"
 DEFAULT_TRUST_REGISTRY = "config/operational-evidence-trust-registry.json"
 VERIFIER_ID = "operational-evidence-verifier"
 VERIFIER_VERSION = "1.0.0"
@@ -71,7 +83,18 @@ class OperationalEvidenceSettings:
     reader_role: str
     verifier_dsn: str
     executor_principals_json: str
+    core_executor_principal: str
+    isolated_executor_principal: str
+    dev_gateway_executor_principal: str
+    vertical_executor_principals_json: str
+    deploy_runner_principal: str
     writer_members_json: str
+    caller_token_issuer: str
+    caller_token_audience: str
+    caller_token_jwks_json: str
+    own_role_assignments_json: str
+    role_readback_scopes_json: str
+    allowed_role_scopes_json: str
     execution_venue: ExecutionVenue | None
 
     @classmethod
@@ -95,7 +118,18 @@ class OperationalEvidenceSettings:
             reader_role=env.get(READER_ROLE_ENV, "").strip() or "fdai_core",
             verifier_dsn=env.get(VERIFIER_DSN_ENV, "").strip(),
             executor_principals_json=env.get(EXECUTOR_PRINCIPALS_ENV, "").strip(),
+            core_executor_principal=env.get(CORE_EXECUTOR_PRINCIPAL_ENV, "").strip(),
+            isolated_executor_principal=env.get(ISOLATED_EXECUTOR_PRINCIPAL_ENV, "").strip(),
+            dev_gateway_executor_principal=env.get(DEV_GATEWAY_EXECUTOR_PRINCIPAL_ENV, "").strip(),
+            vertical_executor_principals_json=env.get(VERTICAL_EXECUTOR_PRINCIPALS_ENV, "").strip(),
+            deploy_runner_principal=env.get(DEPLOY_RUNNER_PRINCIPAL_ENV, "").strip(),
             writer_members_json=env.get(WRITER_MEMBERS_ENV, "").strip(),
+            caller_token_issuer=env.get(CALLER_TOKEN_ISSUER_ENV, "").strip(),
+            caller_token_audience=env.get(CALLER_TOKEN_AUDIENCE_ENV, "").strip(),
+            caller_token_jwks_json=env.get(CALLER_TOKEN_JWKS_ENV, "").strip(),
+            own_role_assignments_json=env.get(OWN_ROLE_ASSIGNMENTS_ENV, "").strip(),
+            role_readback_scopes_json=env.get(OWN_ROLE_READBACK_SCOPES_ENV, "").strip(),
+            allowed_role_scopes_json=env.get(OWN_ROLE_ALLOWED_SCOPES_ENV, "").strip(),
             execution_venue=venue,
         )
 
@@ -110,6 +144,20 @@ class OperationalEvidenceSettings:
             VERIFIER_URL_ENV: bool(self.verifier_url),
             READER_DSN_ENV: bool(self.reader_dsn.strip()),
         }
+
+    def executor_anchor_inputs(self) -> ExecutorClassAnchorInputs:
+        """Return explicit deployed-venue executor anchor inputs."""
+
+        return ExecutorClassAnchorInputs(
+            core_runtime_executor=self.core_executor_principal,
+            isolated_executor=self.isolated_executor_principal,
+            dev_operations_gateway_executor=self.dev_gateway_executor_principal,
+            vertical_effect_executors=string_list(
+                self.vertical_executor_principals_json,
+                label="vertical effect executor principals",
+            ),
+            deploy_runner=self.deploy_runner_principal,
+        )
 
 
 def load_registry_history(settings: OperationalEvidenceSettings, *, root: Path) -> RegistryHistory:
@@ -194,10 +242,21 @@ def _read(root: Path, reference: str) -> bytes:
 
 __all__ = [
     "ANCHORS_ENV",
+    "CALLER_TOKEN_AUDIENCE_ENV",
+    "CALLER_TOKEN_ISSUER_ENV",
+    "CALLER_TOKEN_JWKS_ENV",
+    "CORE_EXECUTOR_PRINCIPAL_ENV",
     "DEFAULT_TRUST_REGISTRY",
+    "DEPLOY_RUNNER_PRINCIPAL_ENV",
+    "DEV_GATEWAY_EXECUTOR_PRINCIPAL_ENV",
     "ENABLED_ENV",
+    "ISOLATED_EXECUTOR_PRINCIPAL_ENV",
+    "OWN_ROLE_ASSIGNMENTS_ENV",
+    "OWN_ROLE_ALLOWED_SCOPES_ENV",
+    "OWN_ROLE_READBACK_SCOPES_ENV",
     "PRODUCER_ID",
     "PRODUCER_VERSION",
+    "VERTICAL_EXECUTOR_PRINCIPALS_ENV",
     "VERIFIER_ID",
     "VERIFIER_VERSION",
     "OperationalEvidenceConfigurationError",
