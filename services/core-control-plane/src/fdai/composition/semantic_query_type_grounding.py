@@ -81,10 +81,10 @@ def build_second_reader(
     direction_prompt = (
         compose_static_selection(prompts.resolve("semantic.direction_check")) if compiled else None
     )
-    reader = AzureOpenAIQuestionFormModel(
-        identity=identity,
-        http_client=http_client,
-        config=AzureOpenAIQuestionFormConfig(
+
+    def reader_config(with_direction: bool) -> AzureOpenAIQuestionFormConfig:
+        direction = direction_prompt if with_direction else None
+        return AzureOpenAIQuestionFormConfig(
             candidates=targets[:1],
             form_system_prompt=form_prompt.system_text,
             form_prompt_manifest=form_prompt.replay_manifest(),
@@ -93,16 +93,26 @@ def build_second_reader(
             extraction_system_prompt=extraction_prompt.system_text,
             extraction_prompt_manifest=extraction_prompt.replay_manifest(),
             extraction_candidates=(second,),
-            direction_system_prompt=(
-                direction_prompt.system_text if direction_prompt is not None else None
-            ),
-            direction_prompt_manifest=(
-                direction_prompt.replay_manifest() if direction_prompt is not None else None
-            ),
+            direction_system_prompt=direction.system_text if direction is not None else None,
+            direction_prompt_manifest=direction.replay_manifest()
+            if direction is not None
+            else None,
             direction_candidates=(direction_reader_target(targets) or second,),
-            direction_max_tokens=2_048,
-            timeout_seconds=60.0 if compiled else 40.0,
-        ),
+            direction_max_tokens=2_048 if direction is not None else 64,
+            timeout_seconds=60.0 if direction is not None else 40.0,
+        )
+
+    try:
+        config = reader_config(compiled)
+    except ValueError:
+        # An invalid optional path never disables the second reader or the semantic runtime.
+        _LOGGER.warning("semantic_compiled_answers_disabled", extra={"reason": "config_invalid"})
+        compiled = False
+        config = reader_config(False)
+    reader = AzureOpenAIQuestionFormModel(
+        identity=identity,
+        http_client=http_client,
+        config=config,
     )
     return SemanticSecondReader(
         type_grounding=ResourceTypeGrounding(chooser=reader, owner_loop=owner_loop),
