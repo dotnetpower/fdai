@@ -454,7 +454,7 @@
     "services/core-control-plane/src/fdai/core/conversation/semantic_reasoning_handles.py": "2910a41a99aa8ff76576978c59de694c672f5a795a7f09eae00301590f3c6e79",
     "services/core-control-plane/src/fdai/core/conversation/semantic_reasoning_kinds.py": "2f91ce5cf4c365c239d544eb45423b41d791f82cec3df9df69d946976ee60bcf",
     "services/core-control-plane/src/fdai/core/conversation/semantic_reasoning_nodes.py": "7e702390c0ccf4861969ccf9f05ebba1ee80cd5c6946207c7c8e711de30e1608",
-    "services/core-control-plane/src/fdai/core/conversation/semantic_reasoning_operators.py": "38d955c7cd748da08096813c372ce50fc5f19bd4535c1cce8e3c559c927ccae9",
+    "services/core-control-plane/src/fdai/core/conversation/semantic_reasoning_operators.py": "88b44bc0e66ff72c3a143347a0a13ed2c27003fa155176e12c61ab9065f499e2",
     "services/core-control-plane/src/fdai/core/conversation/semantic_reasoning_proposal.py": "3baedada4ccd995966b70142a08aae7590c9e78aef3115ab0f064969c012cec6",
     "services/core-control-plane/src/fdai/core/conversation/semantic_reasoning_relabel.py": "06096f777350c762a427816c612a932ac6e1fc467329bf9391bffc771c016c27",
     "services/core-control-plane/src/fdai/core/conversation/semantic_reasoning_relations.py": "32ff252b54b6d564b549e7fe2192bc822c589ff9c8371da4354c0f6dec30b88b",

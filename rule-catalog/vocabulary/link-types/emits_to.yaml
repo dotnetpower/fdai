@@ -10,10 +10,11 @@ version: "1.0.0"
 from_type: Resource
 to_type: Resource
 cardinality: many_to_many
+semantic_traits: [traffic]
 description: A Resource routes telemetry to an observability Resource.
 provenance:
   source_url: https://github.com/dotnetpower/fdai
   resolved_ref: link-type:emits_to@1.0.0
-  content_hash: sha256:705ee7cd1104753c1aa63d843b7160f9fd10a836b8c0f79ec5ff62448afff7b2
+  content_hash: sha256:8fa416bf73482fc1f380c8f6783fac61646817b066efcb2bd9ade289e7e06f87
   license: MIT
   retrieved_at: "2026-07-29T00:00:00Z"

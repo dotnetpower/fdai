@@ -164,9 +164,23 @@ def test_every_relation_sense_has_a_reviewed_trait_decision() -> None:
 @pytest.mark.parametrize(
     ("position", "expected"),
     (
-        (SubjectPosition.TARGET, {("depends_on", "incoming")}),
-        (SubjectPosition.SOURCE, {("depends_on", "outgoing")}),
-        (SubjectPosition.EITHER, {("depends_on", "incoming"), ("depends_on", "outgoing")}),
+        (
+            SubjectPosition.TARGET,
+            {("depends_on", "incoming"), ("kubernetes_owned_by", "incoming")},
+        ),
+        (
+            SubjectPosition.SOURCE,
+            {("depends_on", "outgoing"), ("kubernetes_owned_by", "outgoing")},
+        ),
+        (
+            SubjectPosition.EITHER,
+            {
+                ("depends_on", "incoming"),
+                ("depends_on", "outgoing"),
+                ("kubernetes_owned_by", "incoming"),
+                ("kubernetes_owned_by", "outgoing"),
+            },
+        ),
     ),
 )
 def test_subject_position_selects_the_stored_side(
@@ -182,7 +196,18 @@ def test_subject_position_selects_the_stored_side(
     )
 
     assert {(side.link_type, side.direction) for side in selection.sides} == expected
-    assert "emits_to" in selection.unmapped_link_types
+    assert selection.unmapped_link_types == ()
+
+
+def test_every_resource_link_type_has_a_reviewed_semantic_trait() -> None:
+    unreviewed = [
+        descriptor["name"]
+        for descriptor in production_manifest().descriptors
+        if descriptor.get("kind") == "link"
+        and "Resource" in {descriptor.get("from_type"), descriptor.get("to_type")}
+        and not descriptor.get("semantic_traits")
+    ]
+    assert unreviewed == []
 
 
 def test_transitive_reach_keeps_only_self_composable_links() -> None:
@@ -206,7 +231,7 @@ def test_transitive_reach_keeps_only_self_composable_links() -> None:
 
     assert [(side.link_type, side.max_depth) for side in containment.sides] == [("contains", 5)]
     assert dependency.sides == ()
-    assert dependency.intransitive_link_types == ("depends_on",)
+    assert dependency.intransitive_link_types == ("depends_on", "kubernetes_owned_by")
 
 
 def test_all_kinds_reads_every_link_side_including_unmapped_links() -> None:

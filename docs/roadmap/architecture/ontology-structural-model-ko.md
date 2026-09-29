@@ -1,7 +1,7 @@
 ---
 title: 온톨로지 구조 모델
 translation_of: ontology-structural-model.md
-translation_source_sha: 99920cca065da28a6dedb5076c423459c92d52d8
+translation_source_sha: 90ea23275b190f7296c18ad148735b5276c17f4b
 translation_revised: 2026-09-29
 ---
 # 온톨로지 구조 모델
@@ -239,6 +239,15 @@ Operator는 안정적인 UID와 관측 revision 필드를 검증하고 Console�
 의미 역할을 맡는지도 정합니다. 예를 들어 포함 링크의 `from` 끝은 container입니다. 따라서
 [온톨로지 추론 컴파일러](../interfaces/ontology-reasoning-compiler-ko.md)는 밝힌 역할로 조회
 방향을 고를 수 있으며, 저장 방향이 이 규약과 어긋나는 LinkType은 그 특성을 가져서는 안 됩니다.
+
+이제 Resource를 끝점으로 가진 모든 LinkType은 검토된 특성을 하나 이상 가집니다. 특성이 없으면
+한 의미의 관계를 읽을 때 그런 LinkType마다 완전성 제한이 보고되기 때문입니다. 변경, 발견 사항,
+관측, 신호, 계획처럼 Resource에 관한 기록은 기록을 `from` 끝에 두고 `evidence`를 가집니다.
+Kubernetes 소유자 참조는 `dependency`를 가집니다. Kubernetes가 소유된 객체를 소유자의 종속
+객체(dependent)라고 부르며 `from` 끝에 저장하기 때문입니다. Pod 배치와 워크로드 호스팅은
+`attachment`를, Service 선택과 원격 분석 전송은 `traffic`을 가지며, Service의 Endpoints는
+EndpointSlice처럼 `connectivity`를 가집니다. 집중 테스트는 검토된 특성이 없는 새 Resource
+LinkType이 카탈로그에 들어오지 못하게 합니다.
 
 Provider 관계 mapping은 검토된 cardinality도 보존합니다. 후보 materialization은 versioned
 proposal generation에 들어가기 전에 카탈로그 cardinality, LinkType, endpoint orientation,

@@ -59,7 +59,8 @@ from .semantic_reasoning_relations import RelationSide, select_relation_sides
 from .semantic_reasoning_schema import schema_goal
 
 MAX_SIDES_PER_BATCH = 3
-MAX_COUNT_SIDES = 8
+# An anchor read, one traversal per side, and the aggregate fit one intent graph of 16 goals.
+MAX_COUNT_SIDES = 12
 MIN_LOOKBACK_SECONDS = 60
 MAX_LOOKBACK_SECONDS = 604_800
 _UNIT_SECONDS = {

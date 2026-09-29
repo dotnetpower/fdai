@@ -2,7 +2,7 @@
   "schema_version": "1.0.0",
   "profile_id": "cost-governance.semantic-profile",
   "profile_version": "1.0.0",
-  "ontology_release_digest": "sha256:8e6007da3793883e781cda1500e63012f9bfa484874f9dbd93e51139b72815c1",
+  "ontology_release_digest": "sha256:58b15138f5c23ca8d6f45b5de802f59c3dafeacd7bfa53556263c401227cbcca",
   "declarations": [
     {
       "kind": "action",
@@ -116,7 +116,7 @@
       "kind": "link",
       "name": "sizing_recommendation_targets_resource",
       "version": "1.0.0",
-      "declaration_digest": "sha256:98959393b0a4179fc66905b072e8e8b61ceed72b17e11760fe1159c0d90281fa"
+      "declaration_digest": "sha256:ab9e5f92bad6c30c0d84b70092356fe2a2ab0ae63230000e56bcb07e6bb4df27"
     },
     {
       "kind": "link",
@@ -128,7 +128,7 @@
       "kind": "link",
       "name": "workload_runs_on",
       "version": "1.0.0",
-      "declaration_digest": "sha256:4ec57be30162f22ad595936f2d9b71681087aba4abc8c831499f8df0e6721bc3"
+      "declaration_digest": "sha256:a522ccb94d45c8f11ba6f4394417f5955b49cb5561b8f9f760b14bcc9cc96ad8"
     },
     {
       "kind": "object",
@@ -494,5 +494,5 @@
     "execution_authority": false,
     "promotion_authority": false
   },
-  "canonical_sha256": "sha256:d120ddd7aee1ca045d09c6cb49cd1692206420cd0e0252acfb949b241d3258e0"
+  "canonical_sha256": "sha256:ce5af10025383d8f240574e2398729b57c7ccf94c84a4f50bd86d6bfe52a4f56"
 }

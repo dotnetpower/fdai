@@ -18,9 +18,7 @@
     "instance.count.dependency.dependency.one_hop",
     "instance.count.dependency.dependent.one_hop",
     "instance.count.dependency.either.one_hop",
-    "instance.count.evidence.either.one_hop",
     "instance.count.evidence.evidence.one_hop",
-    "instance.count.evidence.evidenced.one_hop",
     "instance.count.none.name_fragment",
     "instance.count.none.none",
     "instance.count.none.scope",
@@ -29,6 +27,8 @@
     "instance.count.object_type.none",
     "instance.count.object_type.scope",
     "instance.count.object_type.type",
+    "instance.count.ownership.either.one_hop",
+    "instance.count.ownership.owned.one_hop",
     "instance.count.prior_result",
     "instance.count.prior_result.ordinal",
     "instance.count.resource_type.name_fragment",
@@ -75,6 +75,8 @@
     "instance.select.object_type.none",
     "instance.select.object_type.scope",
     "instance.select.object_type.type",
+    "instance.select.ownership.either.one_hop",
+    "instance.select.ownership.owned.one_hop",
     "instance.select.prior_result",
     "instance.select.prior_result.ordinal",
     "instance.select.resource_type.name_fragment",
@@ -119,6 +121,8 @@
     "instance.traverse.evidence.either.one_hop",
     "instance.traverse.evidence.evidence.one_hop",
     "instance.traverse.evidence.evidenced.one_hop",
+    "instance.traverse.ownership.either.one_hop",
+    "instance.traverse.ownership.owned.one_hop",
     "instance.traverse.prior_result.ordinal",
     "instance.traverse.prior_result.subset",
     "instance.traverse.traffic.either.one_hop",
@@ -130,7 +134,8 @@
     "schema.select.declaration_kind"
   ],
   "reason_counts": {
-    "endpoint_filter_unreadable": 1,
+    "count_side_budget_exceeded": 2,
+    "endpoint_filter_unreadable": 2,
     "filter_unsupported:health": 6,
     "filter_unsupported:region": 6,
     "filter_unsupported:state": 6,
@@ -155,12 +160,12 @@
     "operation_unsupported:rank": 1,
     "operation_unsupported:verify_evidence": 1,
     "prior_result_multiple_anchors_unsupported": 1,
-    "relation_not_transitive": 54,
+    "relation_not_transitive": 63,
     "relation_required:g1": 3,
     "relation_sense_unmapped:authorization": 20,
     "relation_sense_unmapped:classification": 4,
     "relation_sense_unmapped:composition": 20,
-    "relation_sense_unmapped:ownership": 20,
+    "relation_sense_unmapped:ownership": 4,
     "schema_operation_unsupported:count": 1,
     "schema_operation_unsupported:select": 1,
     "schema_subject_unsupported:declaration_kind": 1,
@@ -172,9 +177,9 @@
     "want_unsupported:verification": 1
   },
   "status_counts": {
-    "compiled": 127,
+    "compiled": 131,
     "inadmissible": 7,
-    "unsupported": 299
+    "unsupported": 295
   },
   "version": 1
 }
