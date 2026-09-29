@@ -47,8 +47,10 @@ draft -> accepted -> materialized
 ```
 
 Review requires an authorized principal, a reason, and a reviewer distinct from the proposer.
-Reject and expiry are terminal. Same-evidence re-submission returns the terminal record; a new
-candidate requires a strict fingerprint superset.
+The Operator accept, reject, and materialize routes persist no-authority proposals with
+server-recorded reviewer roles; the Core automation-blueprint binding re-authorizes them before
+changing the durable candidate. Reject and expiry are terminal. Same-evidence re-submission
+returns the terminal record; a new candidate requires a strict fingerprint superset.
 
 Materialization calls `CreateScheduledTaskCommand` with the reviewing principal. It never writes
 the scheduler store directly. A stable task ID makes retry idempotent and conflicting content
@@ -69,7 +71,10 @@ isolation, delivery, autonomy, and risk remain deterministic fields.
 
 Migration `20260720_0043` creates `automation_blueprint_candidate` with an active-dedup partial
 unique index. PostgreSQL stores authority fields, fingerprints, state, review reason, task ID, and
-realized usage count. State changes use compare-and-swap.
+realized usage count. The one-shot tick binding reads completed operator-turn evidence from the
+durable semantic result projection only when an explicit blueprint-evidence payload is present, so
+missing deployment-owned inputs fail closed instead of manufacturing suggestions. State changes use
+compare-and-swap.
 
 Expiry changes state but does not delete evidence. Terminal rows remain for audit and suppression.
 They contain hashes and bounded metadata, not source conversations. Source turns follow separate

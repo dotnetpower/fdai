@@ -1,6 +1,6 @@
 ---
 translation_of: automation-blueprints.md
-translation_source_sha: f91e732b24a3f1b6622e958b7fb283d35f60d44a
+translation_source_sha: 4726a14d963c3e65d8814ca3a272c0fd81c85d9d
 translation_revised: 2026-09-29
 ---
 # Reviewable 자동화 Blueprints
@@ -47,8 +47,10 @@ draft -> accepted -> materialized
   +-> expired <-+
 ```
 
-검토에는 authorized principal, 사유, 제안자와 다른 검토자가 필요합니다. 거부와 만료는
-최종입니다. Same-evidence 재제출은 최종 기록을 반환하고 새 후보에는 strict 지문
+검토에는 authorized principal, 사유, 제안자와 다른 검토자가 필요합니다. Operator accept, reject,
+materialize 경로는 server-recorded reviewer role을 가진 no-authority 제안만 저장하고, Core
+automation-blueprint binding이 durable 후보를 바꾸기 전에 이를 다시 authorize합니다. 거부와
+만료는 최종입니다. Same-evidence 재제출은 최종 기록을 반환하고 새 후보에는 strict 지문
 superset이 필요합니다.
 
 구체화는 reviewing principal로 `CreateScheduledTaskCommand`를 호출하며 스케줄러 저장소를
@@ -70,7 +72,10 @@ zero 변경 도구를 가진 비활성화된, shadow-only 후보를 제출합니
 
 이행 `20260720_0043`은 active-dedup 부분 unique 인덱스가 있는
 `automation_blueprint_candidate`를 생성합니다. PostgreSQL은 권한 필드, 지문, 상태,
-검토 사유, 작업 ID, realized 사용량 개수를 저장하며 상태 변경은 compare-and-swap입니다.
+검토 사유, 작업 ID, realized 사용량 개수를 저장합니다. 일회성 tick binding은 명시적인
+blueprint-evidence payload가 있을 때만 durable semantic result projection에서 completed
+operator-turn 근거를 읽으므로 deployment-owned 입력이 없으면 suggestion을 만들어내지 않고
+fail closed합니다. 상태 변경은 compare-and-swap입니다.
 
 만료는 상태를 바꾸고 근거를 삭제하지 않습니다. 최종 행은 감사와 suppression을 위해
 남고 출처 대화가 아니라 해시와 범위가 제한된 메타데이터만 포함합니다. 출처 턴은 별도

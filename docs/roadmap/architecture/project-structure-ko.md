@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: a7274fd7ab1b9b8da3f809bc88c599e5d1cbe5b6
+translation_source_sha: bcb692c44a957b75298b6148a11575ce8e48b270
 translation_revised: 2026-09-30
 ---
 # 프로젝트 구조
@@ -24,7 +24,7 @@ Core는 계약 하위 모듈이 아니라 공유 계약 파사드를 통해 Rule
 Operator 운영 조립 파사드는 런타임 배선을 유지합니다. 목적별 인접 모듈은 수명 주기와 리소스
 정리, 경로 계열 조립 및 읽기 출처 선언을 소유합니다. 호환 내보내기는 기존 가져오기를 보존하며,
 이 분리는 서비스, 신원, 데이터 소유자, wire 계약 또는 권한을 바꾸지 않습니다. 범위가 제한된 의미 후보 선택은 크기가 큰 서술자 축을 생략하고 기능 byte 한도에 맞는 순위 접두사를 보존하며 요청을 실패시키지 않습니다.
-Core package는 배포된 `fdai-operational-catalog-review` entry point를 소유합니다. 기존 durable Pantheon, Saga audit 및 GitHub App delivery adapter를 Core runtime 경계 안에서 조립하며 새 service, executor identity, catalog 활성화, merge 또는 관리 리소스 권한을 추가하지 않습니다.
+Core package는 배포된 `fdai-operational-catalog-review` entry point를 소유합니다. 기존 durable Pantheon, Saga audit 및 GitHub App delivery adapter를 Core runtime 경계 안에서 조립하며 새 service, executor identity, catalog 활성화, merge 또는 관리 리소스 권한을 추가하지 않습니다. Core package는 `fdai.delivery.automation_blueprint_tick_cli` binding도 소유하며, PostgreSQL blueprint evidence, candidate, proposal, audit 및 scheduler store를 아직 배포가 예약하지 않은 하나의 inert 일회성 tick으로 조립하되 Operator route나 tick에 관리 리소스 executor identity를 부여하지 않습니다.
 Core는 활성 Rule 세대 교체를 쓰기 전용 장벽 뒤에 두고, 완결된 결정은 동시 읽기 임대를 공유합니다. 따라서 결정 하나는 세대 하나만 사용하면서 서로 다른 리소스의 처리를 직렬화하지 않습니다. 목적별 모듈은 이 장벽, 의미 사전 판정, 이벤트 버스 payload 코덱, 조립된 런타임 모델, 사람 승인 레지스트리 연결 및 카탈로그 로더를 소유하며 공개 파사드는 기존 가져오기와 권한 경계를 보존합니다. `runtime/control_loop.py` 파사드는 초기화와 집중 테스트를 위해 기존 카탈로그 로더 이름을 명시적으로 다시 내보냅니다. Core wheel 인벤토리와 서비스 테스트 묶음 매니페스트는 새 런타임 모듈 및 Rule 활성화 테스트마다 하나의 소유 배포판을 지정하며 5개 서비스 경계나 System Knowledge 후보를 변경하지 않습니다. 목적별 `runtime/causal_bindings.py` 소유자는 배포의 범위가 제한된 시계열에 런타임 온톨로지 저장소 위의 Forseti `CausalHypothesis` 투영과 Thor ActionRun 영수증용 `delivery/persistence/state_store_causal_receipts.py` 확인기를 연결하며, 인과 개정은 근거로만 남습니다.
 공유 Operator 계열 어댑터 파사드는 이제 workflow 영속 처리와 호환 내보내기를 유지합니다.
 대화 영속 처리, 운영 변환 결과와 webhook 처리 및 순수 workflow 카탈로그 렌더링은 각각 목적별
