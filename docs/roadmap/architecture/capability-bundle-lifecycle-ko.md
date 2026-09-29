@@ -1,7 +1,7 @@
 ---
 title: 기능 번들 수명 주기
 translation_of: capability-bundle-lifecycle.md
-translation_source_sha: 482d6a259488502644ab8ee71a7887b0641e4f14
+translation_source_sha: 4b9aaf4ac923ac745f8b291f841459d4b9481e29
 translation_revised: 2026-09-29
 ---
 # 기능 번들 수명 주기
@@ -110,7 +110,7 @@ source-keyed Ed25519 검증기를 제공하므로 서명은 산출물 종류, �
 
 통제된 multi-skill 매니페스트는 별도 `skill_bundle` 산출물 종류와
 `fdai.skill-bundle-signature.v1` 도메인을 사용합니다. 시작은 스킬을 번들보다 먼저 재구성해
-shared 런타임 스냅샷 publish 전에 exact 구성원 버전과 활성 상태를 검증합니다. 운영 조립 도우미는
+shared 런타임 스냅샷 publish 전에 exact 구성원 버전과 활성 상태를 검증합니다. 조립 시작 도우미는
 두 후보 스냅샷을 모두 준비한 뒤에야 둘 중 하나를 publish하므로 변조된 번들 기록은 안전하게
 차단되고 이전 공개 상태는 그대로 유지됩니다. 세 읽기 화면은 이 스냅샷 하나를 공유합니다.
 스냅샷을 다시 publish하면 Bragi 명령, 읽기 범위
