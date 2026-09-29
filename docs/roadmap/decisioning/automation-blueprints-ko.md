@@ -1,7 +1,7 @@
 ---
 translation_of: automation-blueprints.md
-translation_source_sha: 4726a14d963c3e65d8814ca3a272c0fd81c85d9d
-translation_revised: 2026-09-29
+translation_source_sha: e1597b6681ffa9c67ccdd54ebe9841e249f66d1d
+translation_revised: 2026-09-30
 ---
 # Reviewable 자동화 Blueprints
 
@@ -75,7 +75,10 @@ zero 변경 도구를 가진 비활성화된, shadow-only 후보를 제출합니
 검토 사유, 작업 ID, realized 사용량 개수를 저장합니다. 일회성 tick binding은 명시적인
 blueprint-evidence payload가 있을 때만 durable semantic result projection에서 completed
 operator-turn 근거를 읽으므로 deployment-owned 입력이 없으면 suggestion을 만들어내지 않고
-fail closed합니다. 상태 변경은 compare-and-swap입니다.
+fail closed합니다. 상태 변경은 compare-and-swap입니다. 배포는
+`automation_blueprint_cron_expression`으로 켜는 선택형 Container Apps 작업으로 tick을
+실행합니다. 이 값은 기본적으로 비어 있고, 작업은 스케줄러 ID와 상태 저장소 DSN 비밀을
+재사용하며 실행 권한 없이 실행마다 한 번의 처리만 수행합니다.
 
 만료는 상태를 바꾸고 근거를 삭제하지 않습니다. 최종 행은 감사와 suppression을 위해
 남고 출처 대화가 아니라 해시와 범위가 제한된 메타데이터만 포함합니다. 출처 턴은 별도

@@ -1,7 +1,7 @@
 ---
 translation_of: runtime-deployment-profiles.md
-translation_source_sha: 5f319f41ea7f4f90bec2b4aa4b001ea6337625d0
-translation_revised: 2026-09-29
+translation_source_sha: 2030b1d15ba0f5b67de5b547617e732680762125
+translation_revised: 2026-09-30
 ---
 # 런타임 배포 프로파일
 
@@ -298,6 +298,10 @@ Container Apps 렌더러는 명세를 Container Apps와 Container Apps Jobs로 �
 사용합니다. 출력이 없으면 기존 Container Apps 서비스 FQDN 조회를 유지합니다. 게시기는 선택한
 HTTPS 기준 URL을 동일한 Console 빌드 계약에 전달합니다. 런타임 선택으로 브라우저 경로를 다시
 작성하거나 Operator API 경로를 변경하지 않습니다.
+선택형 Core tick 작업은 cron 변수를 설정하지 않으면 꺼진 상태로 남습니다. 자동화 청사진
+작업(`automation_blueprint_cron_expression`)은 observation-first 기본값을 포함한 모든 프로필에서
+이 규칙을 따릅니다. 이 작업은 스케줄러 ID와 상태 저장소 비밀을 재사용하며 실행기 ID를 받지
+않습니다.
 
 두 렌더러 모두 `FDAI_OPERATING_MODEL_TOPIC`을 통해 Core를 `fdai.operating-model` 논리 토픽에
 연결합니다. 이 토픽은 기존 의미 physical Event Hub와 Managed Identity 전송을 공유하며 별도

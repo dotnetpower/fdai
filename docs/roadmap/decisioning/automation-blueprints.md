@@ -74,7 +74,9 @@ unique index. PostgreSQL stores authority fields, fingerprints, state, review re
 realized usage count. The one-shot tick binding reads completed operator-turn evidence from the
 durable semantic result projection only when an explicit blueprint-evidence payload is present, so
 missing deployment-owned inputs fail closed instead of manufacturing suggestions. State changes use
-compare-and-swap.
+compare-and-swap. Deployments run the tick through the opt-in Container Apps Job set by
+`automation_blueprint_cron_expression`; it is empty by default, reuses the scheduler identity and the
+state-store DSN secret, and runs one pass per fire without execution authority.
 
 Expiry changes state but does not delete evidence. Terminal rows remain for audit and suppression.
 They contain hashes and bounded metadata, not source conversations. Source turns follow separate
