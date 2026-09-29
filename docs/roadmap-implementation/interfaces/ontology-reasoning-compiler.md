@@ -171,6 +171,10 @@ Live evaluation evidence is session-local and is summarized, not retained, as re
   suite in `test_semantic_reasoning_masking.py` passes against the chosen detector.
 - [ ] On the current path, give relationship questions about one named instance a typed plan through the relation compiler, and
   compare the T2 state review on meaning axes rather than facet tokens, so neither holds a question the ontology can answer.
+- [ ] Keep standalone questions on the verified path inside long conversations: a live probe after the current-path fixes saw the
+  router mark standalone service-health and Key Vault questions as thread-dependent, which sent one to an ambiguous hold and one to
+  an advisory reading, and saw one judgment type `인시던트` as a Resource subtype instead of the Incident ObjectType. Exit: the same
+  questions asked late in a 20-turn conversation reach the same verified answers as in a fresh one across two repeats.
 - [ ] Complete R9: record one promotion receipt and one SRE Agent parity receipt per operation
   family, and retire frame and plan prompts only for promoted families.
 - [ ] Complete R10: remove lexical re-derivation and template renderers from promoted paths after
