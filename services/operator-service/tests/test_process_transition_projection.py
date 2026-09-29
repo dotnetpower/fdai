@@ -5,6 +5,7 @@ from __future__ import annotations
 from datetime import UTC, datetime, timedelta
 
 import pytest
+from fdai_operator_service.process_retry_admission import retry_is_permitted
 from fdai_operator_service.process_transition_projection import (
     ProcessControlUnavailableError,
     ProcessTransitionDeniedError,
@@ -330,3 +331,16 @@ def test_enforce_requires_owner_and_retry_requires_effect_free_terminal_evidence
             expected_revision="3",
             state=state,
         )
+
+
+def test_retry_admission_treats_a_dispatch_claim_as_possible_publication() -> None:
+    failed = {
+        "kind": "step.failed",
+        "step_id": "apply",
+        "attempt": 1,
+        "payload": {"reason": "gate_blocked"},
+    }
+    claim = {"kind": "action.dispatch-claimed", "step_id": "apply", "attempt": 1, "payload": {}}
+
+    assert retry_is_permitted(status="failed", events=[failed], attempt=1) is True
+    assert retry_is_permitted(status="failed", events=[claim, failed], attempt=1) is False

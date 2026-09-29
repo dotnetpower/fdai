@@ -745,15 +745,18 @@ async def test_retry_rejects_ambiguous_dispatch_failure_without_local_receipt() 
         mode=Mode.ENFORCE,
     )
 
-    with pytest.raises(WorkflowRetryError, match="effect-free") as error:
+    with pytest.raises(WorkflowRetryError, match="dispatch") as error:
         await orchestrator.retry(
             process_id=failed.process_id,
             workflows={workflow.name: workflow},
             actor_oid="owner-1",
         )
 
+    events = await process_store.events(failed.process_id)
     assert failed.status is ProcessStatus.FAILED
     assert error.value.kind == "retry_requires_recovery"
+    assert any(event.kind is ProcessEventKind.ACTION_DISPATCH_CLAIMED for event in events)
+    assert not any(event.kind is ProcessEventKind.ACTION_DISPATCHED for event in events)
 
 
 async def test_retry_rejects_terminal_attempt_limit() -> None:
@@ -1374,6 +1377,7 @@ async def test_action_step_attempt_is_recorded_in_dispatch_and_journal() -> None
     events = (await process_store.events("p-attempt"))[1:]
     assert [event.kind for event in events] == [
         ProcessEventKind.STEP_STARTED,
+        ProcessEventKind.ACTION_DISPATCH_CLAIMED,
         ProcessEventKind.ACTION_DISPATCHED,
         ProcessEventKind.STEP_WAITING,
     ]

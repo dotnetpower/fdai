@@ -17,6 +17,7 @@ These Protocols keep the harness portable and provably safe by default:
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
+from datetime import datetime
 from typing import Protocol, runtime_checkable
 
 from fdai.core.chaos.contract import ExperimentResult
@@ -60,6 +61,22 @@ class SignalProbe(Protocol):
 
     async def observed(self, *, signal: str, targets: Sequence[str]) -> bool:
         """True iff ``signal`` was detected for any of ``targets``."""
+        ...
+
+
+@runtime_checkable
+class TimedSignalProbe(SignalProbe, Protocol):
+    """Report the detector's authoritative first observation time for a signal."""
+
+    async def first_observed_at(
+        self,
+        *,
+        signal: str,
+        targets: Sequence[str],
+        window_start: datetime,
+        window_end: datetime,
+    ) -> datetime | None:
+        """Return the first detector-owned signal time inside the supplied window."""
         ...
 
 
@@ -141,4 +158,5 @@ __all__ = [
     "NoSignalProbe",
     "ShadowFaultInjector",
     "SignalProbe",
+    "TimedSignalProbe",
 ]

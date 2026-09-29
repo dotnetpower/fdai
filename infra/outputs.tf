@@ -25,6 +25,15 @@ output "rca_reader_identity" {
   }
 }
 
+output "operational_evidence_verifier_identity" {
+  description = "Dedicated non-executor verifier identity. Null while the opt-in workload is disabled."
+  value = var.enable_operational_evidence_verifier ? {
+    resource_id  = module.operational_evidence_verifier_identity[0].resource_id
+    client_id    = module.operational_evidence_verifier_identity[0].client_id
+    principal_id = module.operational_evidence_verifier_identity[0].principal_id
+  } : null
+}
+
 output "isolated_executor_shadow" {
   description = "Shadow-only isolated Executor deployment handles. Null while disabled."
   value = var.enable_isolated_executor ? {

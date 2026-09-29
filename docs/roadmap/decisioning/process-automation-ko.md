@@ -1,7 +1,7 @@
 ---
 title: 프로세스 자동화(Process Automation)
 translation_of: process-automation.md
-translation_source_sha: c4588203f96fb045eb2bf0ef14c0e3962c498ec0
+translation_source_sha: 8f1139fefe8c46aa23ddb203a5cf659b756583fa
 translation_revised: 2026-09-29
 ---
 # 프로세스 자동화(프로세스 자동화)
@@ -101,10 +101,15 @@ anti_scope: >-                          # 선택적; 워크플로가 의도적�
 
 ### 2.1 알려진 한계 (P1)
 
-- **`signal_type` 는 자유 문자열이다.** 트리거 `signal_type` 은 signal-type
-  레지스트리에 대해 cross-reference 되지 않으므로 (업스트림 에 아직 없음) 오타가
-  로드 시 잡히지 않는다. `SignalType` 온톨로지 승격이 도착하기 전까지는 문서로
-  취급하라.
+- **해결된 `signal_type` 형식화.** `kind: signal` 트리거는 이제 카탈로그 로드
+  시 등록된 관찰 `SignalType` 하나 또는 검토된 `workflow-trigger-events.yaml`
+  요청, 명령 또는 워크플로 전용 관찰 이벤트 하나로 정확히 해석되어야 합니다. 알 수 없는 값은 실패 시
+  차단되고, 두 어휘에 모두 정확히 있는 값은 모호한 값으로 거부되며, 로드된
+  `WorkflowTrigger`는 어떤 어휘가 참조를 해석했는지 기록합니다. `object.drift` 같은
+  관찰 스타일 트리거는 기존 `SignalType` 레지스트리에 남고,
+  `chaos.experiment.requested` 같은 요청 및 명령 트리거는 T0 룰 전달에 들어가지
+  않습니다. `object.capacity-forecast` 워크플로 트리거는 `SignalType` 전달을 넓히지
+  않고 운영 계획을 시작할 수 있도록 워크플로 전용 관찰로 카탈로그화됩니다.
 - **`on_failure` 는 성공 경로에서도 실행된다.** 컴파일된 런북 러너는 선언된
   모든 스텝을 순서대로 걷는다; `on_failure` 대상은 성공 시에도 실행되는 일반
   스텝이며, 추가로 실패 시 대체 경로 으로도 실행된다. 조건부 분기가 구현되고 테스트되기
@@ -295,6 +300,12 @@ creation 이벤트를 다시 읽고 작업 흐름 이름 및 버전과 derived �
 기본값은 `1`입니다. `STEP_STARTED`, `ACTION_DISPATCHED`, 가지, waiting, 완료, 실패,
 최종, 감사 id는 시도를 포함하고 `WorkflowActionDispatcher`는 타입이 지정된 제안 멱등성
 키에 이를 사용합니다. 따라서 두 시도가 하나의 이벤트 또는 제안으로 합쳐지지 않습니다.
+디스패처가 강제 적용 액션을 게시하기 전에 복제본은 시도 범위의 `action.dispatch-claimed`
+lease를 기록하고, 그 claim이 현재 claim인 동안에만 게시합니다. 게시한 뒤에는 반환된 참조로 단일
+영속 `ACTION_DISPATCHED` 레코드를 기록합니다. claim을 잃은 복제본은 게시하기 전에 멈춥니다.
+claim 보유자가 게시 후 기록 전에 중단되면 lease가 만료된 뒤의 재전달이 같은 시도 범위 멱등성
+키로 다시 게시하며, 저널은 해당 Process 단계 시도에 대해 정방향 디스패치 레코드를 여전히 하나만
+허용합니다. 디스패치 레코드가 없는 claim은 이미 게시되었을 수 있으므로 재시도를 차단합니다.
 
 `POST /workflows/{process_id}/retry`는 `failed` 상태에서 새 시도를 시작하거나 최종 사유가
 `approval_timed_out`인 경우에만 `timed_out` 상태에서 시작하며 본문을 받지 않습니다. 최종

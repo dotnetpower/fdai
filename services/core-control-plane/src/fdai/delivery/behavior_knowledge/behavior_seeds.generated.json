@@ -399,13 +399,13 @@
         "What checks does a T2 proposal pass?",
         "T2 제안은 어떤 검증을 통과해야 하나요?"
       ],
-      "source_manifest_hash": "ba9c51a4c02004336ffba8fa2faa499b626185eb2997e955d02e3d1f9f367bb4",
+      "source_manifest_hash": "7d4dc3286c2db4adb0cb6bfcfb746024eea58ed22dbf9c58b4ea6b62e7e85285",
       "sources": [
         {
           "authority_role": "implementation",
-          "blob_sha": "30758f0766e71a6ad7de5ec73f6b17645ca3dafe",
-          "line_end": 690,
-          "line_start": 420,
+          "blob_sha": "30ed6628eb3e1adf121737d49e2dbf064442e1f9",
+          "line_end": 717,
+          "line_start": 446,
           "path": "services/core-control-plane/src/fdai/core/quality_gate/gate.py",
           "source_kind": "code",
           "symbol": "QualityGate.evaluate"

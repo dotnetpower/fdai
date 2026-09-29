@@ -27,6 +27,7 @@ def test_shipped_signal_types_resolve_exact_and_baseline_events() -> None:
     assert registry.resolve("unknown.provider.event") == frozenset(
         {"resource.configuration.observed"}
     )
+    assert registry.resolve_declared("unknown.provider.event") == frozenset()
 
 
 def test_signal_type_registry_requires_one_baseline() -> None:

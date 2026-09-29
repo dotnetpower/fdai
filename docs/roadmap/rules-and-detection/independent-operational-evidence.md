@@ -11,10 +11,9 @@ owners keep consuming them through the unchanged admission seam.
 > **Status:** Partially implemented. The owner reviewed the design for exit criterion 1 of
 > [#1022](https://github.com/dotnetpower/fdai/issues/1022) on 2026-09-28; see [Review decisions](#review-decisions).
 > The verifier engine, issuance seam, pinned trust and case-scope grant registries, insert-only proof store,
-> Operator authentication receipt, three test-context readbacks, class-specific records in every consuming
-> owner, and Settings readiness observation exist and pass local checks; see
-> [Implementation notes](#implementation-notes). No verifier workload is deployed, and every purpose without a
-> bound source readback stays `unavailable`.
+> Operator authentication receipt, the three test-context readbacks, the observation, case-history,
+> and current-reuse readbacks, class-specific records in every consuming owner, and Settings readiness observation exist and pass local checks; see
+> [Implementation notes](#implementation-notes). No verifier workload is deployed, and forecast purposes without a bound source readback stay `unavailable`.
 >
 > **Agent boundary:** The pantheon remains exactly 15 agents. This design adds no agent or topic, changes no
 > agent's `owns` or `subscribes`, and grants no execution or promotion authority.
@@ -59,7 +58,7 @@ promotes, and holds no write role on any source it verifies.
 | Source | Operator API identity (command outbox); Core runtime identity (StateStore revisions and hash-chained `audit_log`); inventory identity (journal and incarnation ledger); Azure platform (metrics, Resource Graph, Activity Log); pinned operating-intent source | Reads each source with its own read-only role and never holds a source write role | Registry source anchors, compared at startup and per issuance; role readback |
 | Producer | Core runtime identity hosting the requesting boundary | Accepts a claimed producer only when the registry lists it for the purpose and the caller's identity matches its anchor; choosing a producer grants nothing | Receipt `producer_id` differs from `verifier_id`; the caller token is validated and discarded |
 | Reviewer | Authenticated human Approver or Owner, carried by Var | A workload is never a reviewer, and the reviewer's subject differs from the requester's | Subject ids from Operator records, never display strings |
-| Executor | Every executor-class identity: the Core runtime (executor) identity, isolated executor, dev operations gateway executor, vertical effect executors (`effect_executor_principal_ids` in `infra/main.tf`), and deploy runner | No resource write role, no executor credential, and no data-plane role outside the proof store | Preflight builds the anchor set from every executor-class identity; the verifier refuses to start on equality and reads back its own role assignments, refusing any write role outside the proof store |
+| Executor | Every executor-class identity: the Core runtime (executor) identity, isolated executor, dev operations gateway executor, vertical effect executors (`effect_executor_principal_ids` in `infra/main.tf`), and deploy runner | No resource write role, no executor credential, and no Azure data-plane role except exact secret read for its DSN and exact registry pull | Preflight builds the anchor set from every executor-class identity; the verifier refuses to start on equality and reads back its own role assignments, refusing vault-wide, resource-group-wide, subscription-wide, other-secret, write, or unrelated data-plane roles |
 
 The verifier authenticates sources without retaining tokens:
 
@@ -367,7 +366,7 @@ only after separate explicit authorization, on a selected non-production target,
 
 | Stage | Observable evidence required |
 |-------|------------------------------|
-| Identity | The verifier principal differs from every source, producer, and executor-class principal, its own role assignments hold no write role outside the proof store, and the writer readback shows only the verifier |
+| Identity | The verifier principal differs from every source, producer, and executor-class principal, its own role assignments are limited to exact DSN-secret read, exact registry pull, and approved read scopes, and the writer readback shows only the verifier database role |
 | Registry | Both registry digests match their pins in the verifier and every consumer |
 | Positive issuance | One admission per purpose from real sources, consumed by its boundary, with receipt and bundle digests in the owner's audit |
 | Negative drills | Each rejection class except self-verified produces its expected rejection record and matching owner reason in the dedicated test scope; the self-verified drill asserts capability state `self_verified`; a stopped verifier yields only `unavailable` and never passes another class's drill |
@@ -396,22 +395,30 @@ tracks what remains.
 - **Verifier.** `core/operational_evidence/issuance.py` and `proofs.py` build the receipt, five proofs, and bundle
   from registry entries and its own readback, evaluates them with `DecisionEvidenceReadinessGate`, and writes one admission or one
   rejection. `separation.py` refuses a verifier principal that equals any independent principal, and
-  `delivery/operational_evidence_server.py` serves the loopback endpoint. The workload issues only under the exact
+  `delivery/operational_evidence_server.py` serves the loopback and deployed endpoints. The deployed startup
+  path requires explicit executor-class anchors, a registered producer-token authenticator, and an own-role
+  readback before it can report `ready` or issue. `deployment_preflight.py` builds the executor-class anchor set, `operational_evidence_caller_auth.py`
+  validates the short-lived caller token and discards it, and `own_role_readback.py` refuses partial readbacks,
+  unresolved role definitions, identity mismatches, vault-wide secret access, other-secret access, or write/data-plane roles outside the exact rendered read scopes. Terraform
+  renders only internal ingress. The current caller authenticator consumes a deployment-supplied JWKS snapshot;
+  an unknown `kid` is a clear authentication refusal until a later bounded JWKS refresh provider is added. The workload issues only under the exact
   binding of its own verifier version, so a routine rotation leaves an earlier workload and its retained admissions
   valid until they expire, while a revocation revision retires them. A replayed attempt returns its stored outcome,
   even when a concurrent writer inserted it first; an attempt id reused for another lookup is `unavailable`.
 - **Venue.** `FDAI_EXECUTION_VENUE`, resolved by `resolve_execution_venue`, is authoritative. An anchor document
   that names another venue or repeats a key leaves every purpose unavailable and stops the verifier workload, and
-  the loopback workload starts only in the local venue because a deployed venue has no workload caller
-  authenticator yet.
+  the local workload accepts only loopback callers. A deployed workload may bind a non-loopback endpoint, but it
+  starts only after the caller authenticator, executor-anchor preflight, writer readback, and own-role readback all
+  pass.
 - **Registries.** `config/operational-evidence-trust-registry.json` is the reviewed upstream registry.
   `trust_registry.py`, `grant_registry.py`, their `*_loader.py` modules, and `revision_history.py` load pinned
   revisions strictly, classify each revision by content, retire earlier pins after a revocation revision, and end lineage only when its matched binding or
   grant is revoked. A matching grant that is not yet valid neither grants nor denies; only revoked or expired
   matches deny. A purpose whose verifier trust anchor is also a producer, source, or separation anchor reports
-  `verifier_anchor_not_exclusive`. The upstream `forecast-context` entry names the verifier's own slice
-  admissions, under the verifier trust anchor, as its source, so it stays unavailable until a reviewed source
-  model replaces that entry. Deployment supplies the grant registry, pins, and anchor binding.
+  `verifier_anchor_not_exclusive`. The upstream `forecast-context` entry now names a Core-owned
+  forecast-context retention source and a Core-owned slice-admission index, not the verifier trust anchor,
+  so the registry loads without that defect while the readback remains unbound until raw forecast sources exist.
+  Deployment supplies the grant registry, pins, and anchor binding.
 - **Proof store and sources.** The core-control-plane service migration `core_operational_evidence_20260928` creates
   the five insert-only tables, the verifier and reader roles, and immutability triggers. It also lets only the Operator
   identity insert test-context command rows, freezes their request fields and receipt, and defines read-only
@@ -423,11 +430,11 @@ tracks what remains.
   view grant. The first migration revokes any direct `TEMPORARY` grant from the verifier role; the PostgreSQL default
   `PUBLIC` grant remains because Core uses temporary tables. The Operator retains the receipt beside, not inside, the
   idempotent request digest.
-- **Readbacks.** `operator-test-context-command`, `test-context-transition`, and `operational-test-context` read real
+- **Readbacks.**  `operator-test-context-command`, `test-context-transition`, and `operational-test-context` read real
   sources. A current context is admissible only when the transition admission it cites has the lookup rebuilt from
   that context and its prior record; any other cited admission is `replay_substituted`. `admit` rechecks each
   retained record against its exact verifier binding and that binding's readiness under the current anchors. The
-  observation, forecast, case-history, and current-reuse purposes have no bound source readback.
+  `operational-test-observation`, `case-history-read`, and `current-case-reuse` remain unbound: the observation provider is not yet available under verifier identity, case-history lacks the durable semantic receipt table and end-to-end codec path, and current reuse lacks independent inventory/Muninn/safety receipt sources. Forecast-history and forecast-context purposes also have no bound source readback.
 - **Capability and handoff.** `delivery/operational_evidence_readiness.py` adds one Settings row per purpose. Runtime
   Settings materialization observes the verifier readiness endpoint once, through a bounded read that treats every
   failure as unobserved, and passes the typed `OperationalEvidenceVerifierReadiness` snapshot into the projection. A

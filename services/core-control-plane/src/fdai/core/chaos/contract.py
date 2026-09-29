@@ -102,6 +102,10 @@ class ExperimentResult:
     injected: bool
     """An injection was attempted, so a fault may be live; a raised call counts."""
     stopped: bool
+    injected_at: datetime | None = None
+    """Time the last approved target's injection call returned."""
+    detection_observed_at: datetime | None = None
+    """Detector-owned first observation time for the expected signal."""
     error: str | None = None
     stop_reason: str | None = None
 
@@ -109,6 +113,17 @@ class ExperimentResult:
     def reverted(self) -> bool:
         """True iff the perturbation was stopped/rolled back (or never made)."""
         return self.stopped or not self.injected
+
+    @property
+    def detection_latency_seconds(self) -> float | None:
+        """Seconds from injection to authoritative first detection, when known."""
+
+        if self.injected_at is None or self.detection_observed_at is None:
+            return None
+        if self.injected_at.utcoffset() is None or self.detection_observed_at.utcoffset() is None:
+            return None
+        latency = (self.detection_observed_at - self.injected_at).total_seconds()
+        return latency if latency >= 0 else None
 
 
 __all__ = [

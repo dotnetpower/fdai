@@ -1,7 +1,7 @@
 ---
 title: 보안과 아이덴티티
 translation_of: security-and-identity.md
-translation_source_sha: a3d26784aef1c7afcfb0b50749c045885f086239
+translation_source_sha: 4bdbbeb3f5531168c2dcf28f2f22dec4642e5071
 translation_revised: 2026-09-29
 ---
 
@@ -167,9 +167,12 @@ Reader`를 파생합니다. 역할을 직접 선택하거나 묶을 수 없습�
   루프 외 사용은 비활성화.
 - [독립 운영 근거](../rules-and-detection/independent-operational-evidence-ko.md) 검증기는 별도의
   실행기가 아닌 워크로드 아이덴티티입니다. 자신의 principal이 출처, 생산자, 검토자, 실행기 계열
-  principal 중 하나와 같으면 시작을 거부하며, 삽입 전용 증명 저장소 작성자 역할과 고정 매개변수
-  `SECURITY DEFINER` 출처 함수에 대한 `EXECUTE` 권한만 보유하고, 출처 뷰나 테이블을 직접 `SELECT`하지
-  않습니다.
+  principal 중 하나와 같으면 시작을 거부하고, 배포된 발급 호출은 등록된 생산자 워크로드 신원에서 온
+  것만 받으며, 시작 시 자신의 Azure 역할을 다시 읽습니다. 삽입 전용 증명 저장소 작성자 역할과 고정
+  매개변수 `SECURITY DEFINER` 출처 함수에 대한 `EXECUTE` 권한만 보유하고, 출처 뷰나 테이블을 직접
+  `SELECT`하지 않습니다. 용도는 다른 principal이 작성하는 저장소를 검증기 자신의 아이덴티티로 읽을 때만
+  연결됩니다. 생산자나 Operator가 쓸 수 있는 행은 플랫폼이나 인벤토리 출처를 대신하지 못하므로, 그런
+  출처가 없는 읽기 확인은 연결하지 않은 상태로 남습니다.
 - **credential-free 인증 선호**: 워크로드 신원 federation / OIDC 토큰 교환으로 실행기가
   장기 시크릿을 보유하지 않음. 시크릿이 불가피한 곳에서는 단명·자동 로테이트(Secrets and
   구성 참조).
@@ -379,6 +382,10 @@ PostgreSQL 근거 공급자는 다음 경계를 따릅니다.
   참고하세요.
   Core 종료 시 진행 중인 비교 평가에 5초를 허용한 뒤 남은 작업을 취소하고 상태 저장소를
   닫습니다. 중단된 비교는 승격 근거가 될 수 없습니다.
+- T2 환각 루브릭 구간도 같은 근거 규칙을 따르며 권한을 얻지 않습니다. 구간 모드는 배포가 영수증
+  원본과 검증기를 바인딩한 경우에만 독립 검증된 영수증으로 ActionType별로 정해집니다. 영수증이
+  없거나 만료, 거부, 불일치하면 shadow로 유지되며, 강제 적용 모드에서도 신뢰도를 낮출 수만
+  있습니다. [환각 루브릭 게이트](../decisioning/hallucination-rubric-gate-ko.md)를 참고하세요.
 
 ## 사람 승인 무결성
 

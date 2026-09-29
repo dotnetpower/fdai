@@ -87,9 +87,9 @@ measured, read-only evidence. The scenario runner imports only a bounded report
 that passes exact field, type, timestamp, size, and duplicate-key validation.
 Core retains each result as a `report_signal`; this import does not create an
 Incident, audit entry, trace, promotion decision, or auto-resolution claim. The
-legacy reference-sweep driver that produced these reports now refuses every
-live run until it is ported onto the governed chaos adapter, so no new measured
-results arrive in the meantime.
+governed catalog runner and detection-latency driver now produce these records
+only after `GovernedChaosExecutionAdapter` returns a measured experiment. A
+refused, replayed, or untimed run does not create synthetic latency evidence.
 
 The independent Operator Service reads those records through the
 `operator_chaos_report_signal` security-barrier view. Its service role receives

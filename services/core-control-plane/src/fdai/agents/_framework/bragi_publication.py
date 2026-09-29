@@ -7,6 +7,13 @@ import json
 from datetime import UTC, datetime
 from typing import Any
 
+from fdai_service_contracts.post_turn_review import (
+    PostTurnReviewInputWire,
+)
+from fdai_service_contracts.post_turn_review import (
+    post_turn_review_event_payload as shared_post_turn_review_event_payload,
+)
+
 from fdai.core.learning import PostTurnReviewInput, review_input_to_mapping
 from fdai.shared.providers.user_context import UserPreferenceRecord
 
@@ -64,13 +71,9 @@ def user_preference_event_payload(preference: UserPreferenceRecord) -> dict[str,
 
 def post_turn_review_event_payload(review: PostTurnReviewInput) -> dict[str, Any]:
     """Return the consent-filtered review envelope consumed by Norns."""
-    return {
-        "producer_principal": "Bragi",
-        "kind": "post_turn_review",
-        "correlation_id": review.review_id,
-        "idempotency_key": f"post-turn-review:{review.review_id}",
-        "review": review_input_to_mapping(review),
-    }
+    return shared_post_turn_review_event_payload(
+        PostTurnReviewInputWire.model_validate(review_input_to_mapping(review))
+    )
 
 
 def turn_event_payload(

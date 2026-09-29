@@ -46,6 +46,17 @@ from tests.delivery.test_operational_evidence_readiness import _environment, rea
 _BOUND = {f"operational-evidence.{purpose}" for purpose in BOUND_READBACK_PURPOSES}
 _OUTBOX = "operator-service.test-context-outbox"
 _STORE = "core-control-plane.test-context-store"
+_ALL_HEALTHY = {
+    "azure-monitor.metrics": OperationalEvidenceSourceHealth.HEALTHY,
+    "core-control-plane.case-history": OperationalEvidenceSourceHealth.HEALTHY,
+    "core-control-plane.safety-receipts": OperationalEvidenceSourceHealth.HEALTHY,
+    "core-control-plane.test-context-store": OperationalEvidenceSourceHealth.HEALTHY,
+    "deployment.case-scope-grants": OperationalEvidenceSourceHealth.HEALTHY,
+    "inventory.current-snapshot": OperationalEvidenceSourceHealth.HEALTHY,
+    "operating-scope.dependency-health": OperationalEvidenceSourceHealth.HEALTHY,
+    "operator-service.authentication-receipts": OperationalEvidenceSourceHealth.HEALTHY,
+    "operator-service.test-context-outbox": OperationalEvidenceSourceHealth.HEALTHY,
+}
 
 
 def _rows(env: dict[str, str], readiness: object) -> dict[str, dict[str, Any]]:
@@ -265,10 +276,7 @@ async def test_verifier_endpoint_snapshot_makes_bound_purposes_available(tmp_pat
         state="ready",
         reasons=(),
         probed_at=NOW - timedelta(seconds=5),
-        source_health={
-            _OUTBOX: OperationalEvidenceSourceHealth.HEALTHY,
-            _STORE: OperationalEvidenceSourceHealth.HEALTHY,
-        },
+        source_health=dict(_ALL_HEALTHY),
     )
     runner = web.AppRunner(
         build_verifier_app(
