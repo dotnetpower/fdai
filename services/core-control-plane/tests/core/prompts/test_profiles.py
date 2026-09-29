@@ -43,7 +43,7 @@ def test_shipped_active_profiles_pin_exact_versions() -> None:
 
     assert judgment.profile is not None
     assert judgment.profile.mode is PromptProfileMode.ACTIVE
-    assert (judgment.root.id, judgment.root.version) == ("semantic-judgment-core", 1)
+    assert (judgment.root.id, judgment.root.version) == ("semantic-judgment-core", 2)
     assert judgment.profile.dynamic
     assert (frame.root.id, frame.root.version) == ("semantic-query-frame-core", 1)
     assert (plan.root.id, plan.root.version) == ("semantic-query-plan-core", 1)

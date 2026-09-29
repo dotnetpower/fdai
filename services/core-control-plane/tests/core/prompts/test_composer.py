@@ -394,7 +394,7 @@ async def test_semantic_judgment_uses_model_authored_direct_response_prompt() ->
     out = await composer.compose(capability_id="semantic.judgment")
     assembler = composer.assembler(capability_id="semantic.judgment")
 
-    assert (selection.root.id, selection.root.version) == ("semantic-judgment-core", 1)
+    assert (selection.root.id, selection.root.version) == ("semantic-judgment-core", 2)
     assert out.system_text.startswith(selection.root.body)
     assert out.system_text == assembler.complete.system_text
     assert out.assembly is not None and out.assembly.mode.value == "complete"

@@ -13,6 +13,7 @@ SAFE_SEMANTIC_JUDGMENT_REJECTION_REASONS = frozenset(
         "semantic judgment clarification MUST be one question",
         "semantic judgment confidence MUST be finite",
         "semantic current-state intent requires a Resource target",
+        "semantic proposal omits a stated constraint",
         "semantic direct response answer MUST be one paragraph",
         "semantic direct response answer MUST be trimmed",
         "semantic direct response answer MUST remain unambiguous and advisory",

@@ -3,8 +3,9 @@
 from __future__ import annotations
 
 import json
+import logging
 import re
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any
 
@@ -78,6 +79,9 @@ _OPERATIONAL_DESCRIPTOR_NAMES = {
     ),
 }
 _MAX_JUDGMENT_CAPABILITY_BYTES = 32 * 1024
+# Optional property identities stay small so every judgment request keeps its budget.
+_CAPABILITY_DETAIL_BYTES = 20 * 1024
+_LOGGER = logging.getLogger(__name__)
 _PRIMARY_OPERATIONAL_OUTPUT_INTENTS: dict[str, str] = {
     "resource_configuration_changes": "query.resource_configuration_changes",
     "gateway_diagnostic_evidence": "query.gateway_diagnostic_evidence",
@@ -119,6 +123,8 @@ _RESOURCE_STATE_LIST_FACETS = frozenset(
         "resource_group",
         "resource_inventory",
         "resource_name",
+        "resource_type",
+        "state",
         "state_change_history",
         "subscription",
     }
@@ -222,7 +228,11 @@ def _semantic_judgment_capabilities(
 ) -> tuple[dict[str, Any], ...]:
     """Project principal-scoped identity and reviewed intent semantics without authority.
 
-    With an utterance, the ``Resource`` capability may carry candidate-only
+    Every declaration identity is presented; the byte bound never hides an intent or a
+    subject. Property-level canonical identities are secondary detail: they are added
+    per ObjectType in link-degree order within a smaller detail allowance, so a request
+    keeps its model budget, and an ObjectType without them still offers its own name as
+    its identity. With an utterance, the ``Resource`` capability may carry candidate-only
     ``stated_values`` when that never changes which capabilities fit the byte bound.
     """
 
@@ -234,6 +244,7 @@ def _semantic_judgment_capabilities(
         "object": "object_type",
     }
     capabilities: list[dict[str, Any]] = []
+    property_identities: dict[int, list[str]] = {}
     encoded_bytes = 2
     for descriptor in descriptors:
         kind = descriptor.get("kind")
@@ -267,26 +278,63 @@ def _semantic_judgment_capabilities(
                     property_names.remove(key)
                     property_names.insert(0, key)
                 if len(property_names) <= 32:
-                    capability["canonical_values"] = [
+                    property_identities[len(capabilities)] = [
                         name,
                         *(f"{name}.{property_name}" for property_name in property_names),
                     ]
-        capability_bytes = len(
-            json.dumps(
-                capability,
-                ensure_ascii=False,
-                separators=(",", ":"),
-                sort_keys=True,
-            ).encode("utf-8")
-        )
-        candidate_bytes = encoded_bytes + int(bool(capabilities)) + capability_bytes
+        candidate_bytes = encoded_bytes + int(bool(capabilities)) + _encoded_size(capability)
         if candidate_bytes > _MAX_JUDGMENT_CAPABILITY_BYTES:
+            _LOGGER.warning(
+                "semantic_judgment_capability_identities_exceed_bound",
+                extra={"presented": len(capabilities), "descriptor_count": len(descriptors)},
+            )
             break
         capabilities.append(capability)
         encoded_bytes = candidate_bytes
-    if utterance is None:
-        return tuple(capabilities)
-    return _with_stated_values(tuple(capabilities), utterance=utterance, descriptors=descriptors)
+    if utterance is not None:
+        # Candidate stated values are presented before optional property identities.
+        capabilities = list(
+            _with_stated_values(tuple(capabilities), utterance=utterance, descriptors=descriptors)
+        )
+        encoded_bytes = _encoded_list_size(capabilities)
+    degree = _link_degree(descriptors)
+    for index in sorted(
+        (item for item in property_identities if item < len(capabilities)),
+        key=lambda item: (-degree.get(capabilities[item]["name"], 0), capabilities[item]["name"]),
+    ):
+        enriched = {**capabilities[index], "canonical_values": property_identities[index]}
+        grown = encoded_bytes + _encoded_size(enriched) - _encoded_size(capabilities[index])
+        if grown > _CAPABILITY_DETAIL_BYTES:
+            continue
+        capabilities[index] = enriched
+        encoded_bytes = grown
+    return tuple(capabilities)
+
+
+def _encoded_list_size(capabilities: Sequence[Mapping[str, Any]]) -> int:
+    return 2 + sum(_encoded_size(item) for item in capabilities) + max(len(capabilities) - 1, 0)
+
+
+def _encoded_size(capability: Mapping[str, Any]) -> int:
+    return len(
+        json.dumps(capability, ensure_ascii=False, separators=(",", ":"), sort_keys=True).encode(
+            "utf-8"
+        )
+    )
+
+
+def _link_degree(descriptors: Sequence[Mapping[str, Any]]) -> dict[str, int]:
+    """Count reviewed LinkType endpoints per ObjectType, a structural presentation order."""
+
+    degree: dict[str, int] = {}
+    for descriptor in descriptors:
+        if descriptor.get("kind") != "link":
+            continue
+        for field in ("from_type", "to_type"):
+            endpoint = descriptor.get(field)
+            if isinstance(endpoint, str):
+                degree[endpoint] = degree.get(endpoint, 0) + 1
+    return degree
 
 
 def _with_stated_values(
@@ -430,6 +478,17 @@ def _descriptors_for_judgment(
     if not required <= {descriptor.get("name") for descriptor in selected}:
         return descriptors
     return selected
+
+
+def _narrowed_descriptors(
+    complete: tuple[dict[str, Any], ...],
+    ranked: tuple[dict[str, Any], ...],
+    narrow: Callable[[tuple[dict[str, Any], ...]], tuple[dict[str, Any], ...]],
+) -> tuple[dict[str, Any], ...]:
+    """Narrow from the complete manifest so a ranked omission never hides a declaration."""
+
+    narrowed = narrow(complete)
+    return narrowed if narrowed is not complete else narrow(ranked)
 
 
 def _descriptors_for_operational_intent(

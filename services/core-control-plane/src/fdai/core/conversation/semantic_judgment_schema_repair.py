@@ -71,6 +71,12 @@ def normalize_identity_ambiguity(
     )
 
 
+def names_schema_family(raw: object) -> bool:
+    """Return whether one raw primary reading proposed a schema-family intent."""
+
+    return isinstance(raw, dict) and raw.get("primary_intent") in _SCHEMA_INTENTS
+
+
 def repair_required(proposal: SemanticJudgmentProposal) -> bool:
     """Return whether a no-authority schema-family proposal needs one repair pass."""
 
@@ -147,11 +153,17 @@ def repair_feedback(
             for error in exc.errors(include_input=False, include_url=False)[:_MAX_SCHEMA_ERRORS]
         )
     reason = str(exc)
+    # An uncovered constraint names its spans and the utterance words already judged.
+    location = getattr(exc, "location", "")
+    quote = getattr(exc, "quote", None)
+    required = getattr(exc, "required", None)
     return (
         {
-            "location": "",
+            "location": location[:256] if isinstance(location, str) else "",
             "type": "value_error" if isinstance(exc, ValueError) else "type_error",
             **({"reason": reason} if reason in _SAFE_REJECTION_REASONS else {}),
+            **({"quote": quote[:256]} if isinstance(quote, str) and quote else {}),
+            **({"required": required[:512]} if isinstance(required, str) and required else {}),
         },
     )
 

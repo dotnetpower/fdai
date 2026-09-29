@@ -461,6 +461,19 @@ experiment that promotion excludes. Either wiring must meet these conditions, fr
 - Records carry a keyed sample identifier instead of an unsalted digest of the utterance or principal, go to a durable sink, and are enabled only by a
   typed configuration setting that defaults to off.
 
+**Interim current-path fixes (R2)**: Until families are promoted, the current judgment path applies the same principles where a
+live defect showed a wrong or empty answer. A `resource_group` target always means its exact container, so members are read through
+`contains` whatever collection facets accompany it, and subtype filters beside it narrow the members rather than the subscription. The
+judgment is offered every declaration identity instead of a ranked slice; property-level identities are optional detail within a
+smaller allowance. The preflight router no longer stands in for the judgment on a Resource collection, and no fixed product-specific
+clarification remains. Prior-turn context yields newest-first when a request would exceed its budget. In the local profile an
+independent second reader of another narrator deployment grounds unbound subtype words by closed choice with two blind choosers, and a
+blind constraint reading must see every stated restriction, negation, comparison, order, or time in a copied span: an uncovered one
+returns to the judgment as repair feedback and otherwise holds the turn as `semantic_constraint_uncovered`. A named thing standing apart
+from every copied span is offered to the same closed choice as a possibly omitted subtype. A state collection needs T2 review only when
+a stated state lacks a reviewed state concept, as the fourth approved decision requires. Relationship questions about one named
+instance remain unexpressible on this path and wait for the relation compiler.
+
 ## Approved decisions
 
 The Owner approved these decisions on 2026-09-28.

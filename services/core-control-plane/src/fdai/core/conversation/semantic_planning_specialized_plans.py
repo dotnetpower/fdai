@@ -223,7 +223,7 @@ def build_stated_value_filter_plan(
     fragment_only = fragment_property is not None and "name" in frame.measure_concepts
     if not filters and not fragment_only and allowed_properties != frozenset({"parent_id"}):
         return None
-    predicates = []
+    predicates: list[dict[str, Any]] = []
     if fragment_property is not None:
         predicates.append({"property": fragment_property, "operator": "exists"})
     if fragment_property == "parent_id":
@@ -235,6 +235,13 @@ def build_stated_value_filter_plan(
             }
             for resource_type in OPERATIONAL_RESOURCE_EXCLUDED_TYPES
         )
+        member_types = _member_type_values(frame.subject_constraints, subject_fragment, descriptors)
+        if member_types is None:
+            return None
+        if len(member_types) == 1:
+            predicates.append({"property": "type", "operator": "equals", "equals": member_types[0]})
+        elif member_types:
+            predicates.append({"property": "type", "operator": "in", "values": list(member_types)})
     predicates.extend(
         {"property": property_name, "operator": "exists"}
         for filter_type, property_name in sorted(filters)
@@ -294,6 +301,31 @@ def build_stated_value_filter_plan(
             evaluation_time=evaluation_time,
         )
     return plan
+
+
+def _member_type_values(
+    subject_constraints: tuple[str, ...],
+    group: str | None,
+    descriptors: tuple[dict[str, Any], ...],
+) -> tuple[str, ...] | None:
+    """Return the Resource types that typed member filters beside one group bind to.
+
+    Only the judgment's own subtype phrases, carried after the group, narrow members;
+    words that describe the container never do. A phrase that binds nothing voids
+    the plan rather than widening the members.
+    """
+
+    object_names = {str(item.get("name")) for item in descriptors if item.get("kind") == "object"}
+    values: list[str] = []
+    for phrase in subject_constraints:
+        if phrase == group or phrase in object_names:
+            continue
+        bound = stated_value_filters(phrase, descriptors, allowed_properties=frozenset({"type"}))
+        types = bound.get(("Resource", "type"), ())
+        if not types:
+            return None
+        values.extend(item for item in types if item not in values)
+    return tuple(values)
 
 
 def _resource_group_membership_plan(
