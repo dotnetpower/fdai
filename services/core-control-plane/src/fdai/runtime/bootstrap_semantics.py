@@ -455,6 +455,8 @@ async def build_semantic_runtime(
         ),
         runtime_settings=runtime_settings,
         runtime_readiness=model_identity_readiness,
+        context_selection_policy_authority=container.context_selection_policy_authority,
+        context_selection_shadow_runner=container.context_selection_shadow_runner,
         operational_evidence=(
             SemanticOperationalEvidenceReader(
                 service=operational_evidence_read_service,

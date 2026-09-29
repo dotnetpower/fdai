@@ -1,7 +1,7 @@
 ---
 title: FDAI Console 대화
 translation_of: operator-console.md
-translation_source_sha: 78e15f65f64e672c680c181d99aec79d56ccc794
+translation_source_sha: 2b74bee76f3739d0b4dcbe5d891b23846e8d5ef9
 translation_revised: 2026-09-29
 ---
 # FDAI Console 대화
@@ -101,7 +101,7 @@ FDAI Console 대화 표면은 **판단 권한을 가지지 않습니다**. FDAI�
 
 완료된 답변은 off-path [대화 Assurance](../decisioning/conversation-assurance-ko.md) 루프에도 들어갑니다. 단일 질문 개선 turn은 같은 인증된 `/chat/stream` 요청을 사용하고 6단계 Run Record, content-free 동적 프롬프트 manifest, Pantheon 참여자 및 평가자 프롬프트 프로필, 답변 준비 전환을 서로 다른 표현 gate로 노출합니다. 펼친 Run Record는 profile id, version, hash, situation 및 budget만 표시하며 SYSTEM text는 표시하지 않습니다. JSON과 SSE 어댑터는 타입이 지정된 conversation-turn 서비스와 분리된 요청 설정, 근거, 진행 상황, 검증 및 terminal-delivery 보조 로직을 공유하면서 기존 wire 계약을 유지합니다. 브라우저 assurance 파서와 근거 게이트 회귀 검사는 Console Vitest 테스트 모음에 등록되므로 저장소 전체 Console 수집과 집중 검사가 같은 실행기 계약을 검증합니다.
 최종 intake는 exact 검증 사유와 evidence-manifest 완전성을 보존합니다. 결과 요약, 맥락 선택, Azure 조사, 영속 전달 및 첨부 근거는 타입이 지정된 프로바이더가 계속 소유하고 어댑터 모듈은 표현과 영속성만 조정합니다.
-Core는 의미 요청 결속, 범위가 제한된 인시던트 근거 변환, 현지화된 인시던트 답변 렌더링을 전용 모듈로 분리합니다. 의미 턴 프로세서는 이 모듈들을 조정합니다. 이 내부 분리는 wire 필드, 근거 한도, 인용, 로케일 또는 권한을 바꾸지 않습니다.
+Core는 의미 요청 결속, 범위가 제한된 인시던트 근거 변환, 현지화된 인시던트 답변 렌더링을 전용 모듈로 분리합니다. 의미 턴 프로세서는 이 모듈들을 조정합니다. 이 내부 분리는 wire 필드, 근거 한도, 인용, 로케일 또는 권한을 바꾸지 않습니다. 조립된 컨텍스트 선택 연결이 있으면 프로세서는 이전 의미 턴에서 shadow 정책 비교도 예약하지만, 의미 변환 결과를 바꾸거나 브라우저 조작 권한을 부여하지 않습니다.
 Operator도 변경 불가능한 PostgreSQL 제품군 레코드, 범위가 제한된 행 변환 및 엄격한 인벤토리 근거 디코딩을 조회와 발신함 조정에서 분리합니다. Facade는 기존 import, principal 범위, 제안 멱등성, wire 값, 재생 순서 및 권한 없음 동작을 보존합니다.
 Operator IAM도 액세스 및 할당 제안 디코딩, 런타임 및 모델 구성 지속성, 구성 변환, 사람 승인 지속성을 공유 PostgreSQL 어댑터 facade에서 분리합니다. 잘못된 중첩 할당 duty와 goal 참조는 생략하지 않고 닫힌 상태로 실패하며, 공개 port, 리비전 fencing, 제안 멱등성, 승인 ID 및 `execution_authority: false`는 그대로 유지합니다.
 기존 Slack 인계 경로 세 개의 메서드와 경로 조합은 각각 IAM 경로군에 한 번씩만 속합니다. 전체 경로 검사는 소유권과 등록 개수를 고정하며 새 승인 권한이나 실행 권한을 부여하지 않습니다.
