@@ -19,8 +19,14 @@ _LEADING_FIELDS = ("name", "type", "status", "location", "operation", "value", "
 _DETAIL_FIELDS = frozenset({"id", "object_type"})
 
 
-def verified_rows_table(output: Mapping[str, object], *, korean: bool) -> list[str]:
-    """Return markdown table lines for one verified output, or nothing without rows."""
+def verified_rows_table(
+    output: Mapping[str, object], *, korean: bool, leading: tuple[str, ...] = ()
+) -> list[str]:
+    """Return markdown table lines for one verified output, or nothing without rows.
+
+    ``leading`` names the measure fields the frame reads, such as a reader's declared
+    state fields, so the fields that answer the question show before receipt fields.
+    """
 
     rows = output.get("rows")
     values = [
@@ -36,8 +42,11 @@ def verified_rows_table(output: Mapping[str, object], *, korean: bool) -> list[s
             if isinstance(key, str):
                 seen.setdefault(key, None)
     named = "name" in seen
-    columns = [key for key in _LEADING_FIELDS if key in seen] + [
-        key for key in seen if key not in _LEADING_FIELDS and not (named and key in _DETAIL_FIELDS)
+    first = ["name"] if named else []
+    ordered = [*first, *(key for key in (*leading, *_LEADING_FIELDS) if key in seen)]
+    ordered = list(dict.fromkeys(ordered))
+    columns = ordered + [
+        key for key in seen if key not in ordered and not (named and key in _DETAIL_FIELDS)
     ]
     shown_columns = columns[:_MAX_COLUMNS]
     lines = ["", "| " + " | ".join(shown_columns) + " |", "|" + "---|" * len(shown_columns)]
@@ -98,17 +107,28 @@ _IMPACT_NOTICE = (
 )
 
 
+_UNIQUENESS_NOTICE = (
+    "인벤토리 수집이 완료되지 않은 상태에서 이름으로 찾은 리소스입니다. 같은 이름의 다른 "
+    "리소스가 아직 반영되지 않았을 수 있습니다.",
+    "This resource was matched by name while the inventory was incomplete, so another "
+    "resource with the same name may not be reflected yet.",
+)
+_FIXED_NOTICES = {
+    "cause.not_established": _CAUSE_NOTICE,
+    "impact.possible_not_observed": _IMPACT_NOTICE,
+    "anchor.uniqueness_unproven": _UNIQUENESS_NOTICE,
+}
+
+
 def with_stated_notices(answer: str, requirements: tuple[str, ...], *, locale: str) -> str:
     """Insert the reviewed notices a compiled frame requires right after the answer heading."""
 
     korean = locale.casefold().startswith("ko")
     notices: list[str] = []
     for requirement in requirements:
-        if requirement == "cause.not_established":
-            notices.append(_CAUSE_NOTICE[0] if korean else _CAUSE_NOTICE[1])
-            continue
-        if requirement == "impact.possible_not_observed":
-            notices.append(_IMPACT_NOTICE[0] if korean else _IMPACT_NOTICE[1])
+        fixed = _FIXED_NOTICES.get(requirement)
+        if fixed is not None:
+            notices.append(fixed[0] if korean else fixed[1])
             continue
         kind, _, seconds = requirement.removeprefix("window.").partition(".")
         templates = _WINDOW_NOTICES.get(kind) if requirement.startswith("window.") else None

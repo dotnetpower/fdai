@@ -42,7 +42,11 @@ from fdai.core.conversation.semantic_reasoning_shadow import (
     ShadowPass,
 )
 from fdai.core.conversation.session import Principal, Role
-from fdai_service_contracts.ontology_query import QueryNodeKind
+from fdai_service_contracts.ontology_query import (
+    MAX_INTENT_GOAL_DEPENDENCIES,
+    QueryNodeKind,
+    project_intent_graph,
+)
 
 from tests.conversation.semantic_reasoning_support import (
     DEFAULT_LOOKBACK_SECONDS,
@@ -468,8 +472,15 @@ def test_sides_beyond_eight_outputs_are_united_so_none_is_dropped(
     # endpoint type becomes one union output, verified and aligned like any other plan.
     assert outcome is not None and outcome.plan is not None
     unions = [node for node in outcome.plan.nodes if node.kind is QueryNodeKind.UNION]
-    assert [node.node_id for node in unions] == list(outcome.plan.output_node_ids)
-    assert sorted(item for node in unions for item in node.depends_on) == sorted(sides)
+    roots = [node.node_id for node in unions if node.node_id in outcome.plan.output_node_ids]
+    assert roots == list(outcome.plan.output_node_ids)
+    union_ids = {node.node_id for node in unions}
+    read = [item for node in unions for item in node.depends_on if item not in union_ids]
+    assert sorted(read) == sorted(sides)
+    # No union reads more dependencies than one Console intent goal can show.
+    assert all(len(node.depends_on) <= MAX_INTENT_GOAL_DEPENDENCIES for node in unions)
+    assert outcome.intent_graph is not None
+    assert project_intent_graph(outcome.intent_graph)["goals"]
     assert len(outcome.plan.nodes) <= 16
     assert _completions(caplog) == ["selected"]
 

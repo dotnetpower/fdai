@@ -633,6 +633,94 @@ FunctionType is added, so the ontology release does not change.
 | A new FunctionType changes the global release | No new FunctionType |
 | Two encodings of a cause question | One canonical `explain_cause` with `want: cause` |
 
+### Reading reliability and incomplete coverage
+
+Typed-only probe rounds T4 to T11 on 28 to 30 live Console questions answered 19 to 21 each. The
+remaining holds came from three families: readings that failed only as forms, reads the compiler did
+not bind, and inventory states that made every anchored read incomplete. This stage addresses each
+family; code still reads no meaning from words.
+
+**Readings**
+
+- **Direction majority**: The proposer states both relation roles, and one blind reader of another
+  model family answers which role the named anchor plays. When that reading is clear and differs, a
+  third blind reader answers the same closed question. The third reader belongs to neither the first
+  reader's family nor the proposer's, because the proposer's role is already one vote; without such a
+  family, the dispute holds. Two agreeing concrete readings decide. Either the form stands, or its two roles swap to
+  the readers' reading and the form is admitted again. A mutual, unclear, or missing third reading
+  holds the turn. Settlement runs before compilation, so a swapped reading is compiled, reviewed, and
+  verified like any other.
+- **Quote occurrence**: A mention whose stated occurrence lies inside another mention moves to the
+  only occurrence of the same words that no other mention holds. When no such occurrence exists,
+  admission rejects the overlap.
+- **Measure words**: A concept mention that only names an ungrouped measure, such as the word for
+  events, and that nothing else cites becomes that measure's cue. A named resource, a literal, and a
+  state, health, or metric value always stay mentions. Code moves a quote between two fields of the
+  form and reads no word.
+- **Aligned contracts**: The form contract defines each measure kind, and the extraction contract
+  lists events and operations among measures, so the two blind readers classify the same words the
+  same way. A thing the extractor finds named still needs a mention. A count measure may restate the
+  type filter of a goal that has no subject.
+- **Bounded retries**: An unusable extraction, such as one quoting words the question lacks, is read
+  once more by the same extractor under the same review rules. A reading whose only fault is a
+  concept that no reviewed value matches is resampled like other mislabels.
+
+**Reads**
+
+- **Collection history**: "What changed" over Resources in general, or with no subject stated, reads
+  `query.recent_resource_changes` over the typed window, bounded by the reader's declared row
+  maximum, and renders as `resource_changes`. A stated kind is unsupported because that reader cannot
+  restrict it. A window with more changed Resources than the bound, or with unverified change
+  coverage, stays incomplete.
+- **Event history**: An anchored history with an `event` measure reads `query.resource_event_history`
+  for every reviewed event family within the reader's declared lookback maximum. A longer window is
+  unsupported.
+- **Verification**: V-SEM derives the one read each history goal requires: collection changes,
+  events, or activity. V-PROV requires the collection read's absolute window to end at the trusted
+  compile clock, to span the expected lookback, and to use the declared row bound.
+- **Declared bounds**: Builders read row and lookback bounds from the FunctionType input schema
+  instead of keeping their own copies.
+- **Union fan-in**: Every union reads at most seven dependencies, the most one Console intent goal
+  can show, and a wider fan-in becomes parts that are united again. A relation count reads at most
+  eleven sides, so its union tree and aggregate still fit one intent graph, and a plan whose intent
+  graph the Console cannot show holds before it answers.
+- **Answer tables**: A causal context table leads with the state reader's declared measure fields,
+  such as the running status, before receipt fields.
+
+**Incomplete coverage**
+
+- **Scoped exact reads**: The inventory marks every Resource read incomplete while any observation
+  is unprojected, such as a provider-managed load balancer that is written every few minutes. An
+  exact-id object read without relationships now counts only the pending observations of the
+  requested ids, including a pending creation of one of them. Every other gap stays global.
+- **Unproven uniqueness**: Under incomplete coverage, one verified name match binds with its
+  uniqueness unproven. The answer is partial and states the reviewed notice that another resource with
+  the same name may not be reflected yet. No match never proves absence, and a truncated read never
+  binds. The
+  exact-case name read is pushed to the store, so it still returns its match when the
+  case-insensitive scan returns nothing under incomplete coverage.
+- **Typed reasons**: An anchor that stays unbound reports `candidate_limit`, `source_incomplete`,
+  `generation_changed`, or `extensions_unread`.
+
+**Diagnostics**
+
+- dev discuss keeps the closed code prefix of a server reason that ends in a span, and the local
+  prompt-source check writes its diagnostics to standard error, so an input digest on standard output
+  stays parseable.
+
+The design critique of this stage raised eight findings, five High and three Medium.
+
+| Critique finding | Revision |
+|------------------|----------|
+| A mutual or unclear third direction reading counted for the proposer | Only a concrete role joins a side; any other third reading holds |
+| The tie-break could reuse the proposer's model family | The tie-break family is neither the first reader's nor the proposer's; without one, the dispute holds |
+| Moving a measure mention to its cue could erase a named resource | Only a concept mention moves; a thing named in a measure cue still needs a mention |
+| Reading a scope written as a value as a name could change its meaning | Removed; an anchor written as a value is resampled as a mislabel |
+| A released reading overrode a real ambiguity the judgment found | Removed; the judgment's clarification still wins until a closed ambiguity reader exists |
+| An absolute history window was not tied to trusted time | V-PROV requires the window to end at the compile clock |
+| Twelve counted sides exceeded one intent graph once unions became a tree | Eleven sides at most, and the node budget is checked after the tree is built |
+| An answer read from an anchor with unproven uniqueness was labeled verified | Such an answer is partial |
+
 ## Approved decisions
 
 The Owner approved these decisions on 2026-09-28.

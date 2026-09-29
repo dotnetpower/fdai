@@ -1,17 +1,21 @@
-"""Blind two-reader check of relation direction.
+"""Blind reader majority for relation direction.
 
 A reversed relation answers the opposite question, and open-ended extraction named
 relation starts too rarely to catch a reversal. So each admitted goal whose relation
 has a direction gets one focused, closed question to another model family: the
 question text, the named start, the relation sense, and that sense's two roles in the
 fixed order the ontology declares them. The reader never learns which role the proposer
-chose. Core compares the chosen role with the form's; a disagreement, an unclear
-reading, or a missing answer holds the turn, and no code interprets any word.
+chose. Core compares the chosen role with the form's. When a clear reading differs, a
+third blind reader of another family answers the same closed question, and two of the
+three readings decide: the form stands, or its two roles swap to the readers' reading.
+An unclear or missing reading, or three different readings, hold the turn, and no code
+interprets any word.
 """
 
 from __future__ import annotations
 
-from collections.abc import Mapping, Sequence
+import asyncio
+from collections.abc import Awaitable, Callable, Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any
 
@@ -116,18 +120,125 @@ def direction_reasons(
         raise ValueError("direction answers MUST cover every direction question")
     reasons: list[str] = []
     for question, answer in zip(questions, answers, strict=True):
-        reading = answer.get("reading") if isinstance(answer, Mapping) else None
-        if reading not in _READINGS:
-            reasons.append(f"review_direction_unavailable:{question.goal_id}")
-        elif reading == "unclear" or (reading == "either" and not question.mutual):
-            reasons.append(f"review_direction_unclear:{question.goal_id}")
-        elif reading == "either":
-            # The reader finds the relation mutual, and its reciprocal LinkType is read on
-            # both sides whatever role was stated.
-            continue
-        elif (question.first if reading == "first" else question.second) is not question.stated:
-            reasons.append(f"review_direction_differs:{question.goal_id}")
+        role = _reading_role(question, answer)
+        if isinstance(role, SubjectRole):
+            if role is not question.stated:
+                reasons.append(f"review_direction_differs:{question.goal_id}")
+        elif role is not None:
+            reasons.append(f"{role}:{question.goal_id}")
     return tuple(reasons)
+
+
+DirectionCheck = Callable[["DirectionQuestion", bool], Awaitable[Mapping[str, Any] | None]]
+
+
+@dataclass(frozen=True, slots=True)
+class DirectionSettlement:
+    """The form whose directions two agreeing readings decide, or the hold reasons."""
+
+    form: SemanticQuestionForm
+    reasons: tuple[str, ...] = ()
+    # Goals whose two roles now follow two blind readers that outvoted the proposer.
+    swapped: tuple[str, ...] = ()
+    calls: int = 0
+
+
+async def settle_directions(
+    form: SemanticQuestionForm,
+    *,
+    utterance: str,
+    descriptors: Sequence[Mapping[str, Any]],
+    check: DirectionCheck,
+) -> DirectionSettlement:
+    """Decide each directional relation by two agreeing readings of three at most.
+
+    The first blind reader confirms or disputes the proposer's role. Only a clear
+    dispute asks one more blind reader of another family, with ``True`` as the second
+    argument of ``check``; its reading sides with one of the two. The proposer's form is
+    never shown to either reader, and code compares closed roles only.
+    """
+
+    questions = direction_questions((form,), utterance=utterance, descriptors=descriptors)
+    if not questions:
+        return DirectionSettlement(form)
+    first = await asyncio.gather(
+        *(check(question, False) for question in questions), return_exceptions=True
+    )
+    reasons: list[str] = []
+    disputed: list[tuple[DirectionQuestion, SubjectRole]] = []
+    for question, answer in zip(questions, first, strict=True):
+        role = _reading_role(question, answer if isinstance(answer, Mapping) else None)
+        if isinstance(role, SubjectRole):
+            if role is not question.stated:
+                disputed.append((question, role))
+        elif role is not None:
+            reasons.append(f"{role}:{question.goal_id}")
+    if reasons or not disputed:
+        return DirectionSettlement(form, tuple(reasons), calls=len(questions))
+    third = await asyncio.gather(
+        *(check(question, True) for question, _role in disputed), return_exceptions=True
+    )
+    swaps: dict[str, SubjectRole] = {}
+    for (question, role), answer in zip(disputed, third, strict=True):
+        tiebreak = _reading_role(question, answer if isinstance(answer, Mapping) else None)
+        # Only a concrete role joins a side; a mutual or unclear third reading decides nothing.
+        if tiebreak is role:
+            swaps[question.goal_id] = role
+        elif tiebreak is not question.stated:
+            reasons.append(f"review_direction_differs:{question.goal_id}")
+    calls = len(questions) + len(disputed)
+    if reasons:
+        return DirectionSettlement(form, tuple(reasons), calls=calls)
+    if not swaps:
+        return DirectionSettlement(form, calls=calls)
+    return DirectionSettlement(_swapped(form, swaps), swapped=tuple(sorted(swaps)), calls=calls)
+
+
+def _reading_role(
+    question: DirectionQuestion, answer: Mapping[str, Any] | None
+) -> SubjectRole | str | None:
+    """Return the anchor role one reading states, ``None`` when it leaves the stated
+    direction standing, or the plain-string reason it cannot decide.
+
+    ``SubjectRole`` is itself a string enum, so callers test for it first.
+    """
+
+    reading = answer.get("reading") if isinstance(answer, Mapping) else None
+    if reading not in _READINGS:
+        return "review_direction_unavailable"
+    if reading == "unclear" or (reading == "either" and not question.mutual):
+        return "review_direction_unclear"
+    if reading == "either":
+        # The reader finds the relation mutual, and its reciprocal LinkType is read on both
+        # sides whatever role was stated.
+        return None
+    return question.first if reading == "first" else question.second
+
+
+def _swapped(form: SemanticQuestionForm, swaps: Mapping[str, SubjectRole]) -> SemanticQuestionForm:
+    """Return the form with each disputed goal's roles set to the agreeing readings."""
+
+    goals = []
+    for goal in form.goals:
+        relation = goal.relation
+        role = swaps.get(goal.id)
+        if relation is None or role is None:
+            goals.append(goal)
+            continue
+        first, second = SENSE_ROLES[relation.sense]
+        result = second if role is first else first
+        goals.append(
+            goal.model_copy(
+                update={
+                    "relation": relation.model_copy(
+                        update={"anchor_role": role, "result_role": result}
+                    )
+                }
+            )
+        )
+    return SemanticQuestionForm.model_validate(
+        form.model_copy(update={"goals": tuple(goals)}).model_dump(mode="json")
+    )
 
 
 def _senses(
@@ -150,8 +261,11 @@ def _senses(
 
 __all__ = [
     "MAX_DIRECTION_QUESTIONS",
+    "DirectionCheck",
     "DirectionQuestion",
+    "DirectionSettlement",
     "direction_questions",
     "direction_reasons",
     "direction_schema",
+    "settle_directions",
 ]

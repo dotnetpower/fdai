@@ -1861,3 +1861,231 @@ def test_a_stated_failure_premise_of_an_impact_goal_is_read_as_the_impact() -> N
         "impact.possible_not_observed" in batch.frame.evidence_requirements
         for batch in goal.batches
     )
+
+
+def _collection_history_form(
+    utterance: str, subject: str, cue: str, *, amount: int, unit: str, measure: str = "change"
+) -> dict[str, Any]:
+    return {
+        "mentions": [
+            {
+                "id": "m1",
+                "form": "concept",
+                "domain": "resource_type",
+                "span": span(utterance, subject),
+            }
+        ],
+        "goals": [
+            {
+                "id": "g1",
+                "level": "instance",
+                "operation": "history",
+                "subject": "m1",
+                "subject_scope": "collection",
+                "measure": {"kind": measure},
+                "time": {
+                    "kind": "window",
+                    "value": {"duration": {"amount": amount, "unit": unit}},
+                    "cue": span(utterance, cue),
+                },
+                "cue": span(utterance, "changed"),
+                "confidence": 0.9,
+            }
+        ],
+    }
+
+
+def test_a_collection_history_reads_the_newest_change_of_every_resource_in_the_window() -> None:
+    utterance = "Which resources changed in the last 24 hours?"
+    form = _collection_history_form(utterance, "resources", "last 24 hours", amount=24, unit="hour")
+
+    goal = _compile(utterance, form, concepts(("m1", MentionDomain.RESOURCE_TYPE, ()))).goals[0]
+
+    assert goal.status is GoalStatus.COMPILED, goal.reasons
+    (batch,) = goal.batches
+    (read,) = batch.plan.nodes
+    arguments = read.arguments["arguments"]
+    assert read.arguments["function_name"] == "query.recent_resource_changes"
+    assert arguments["end_at"] == arguments["known_at"] == NOW.isoformat()
+    # The row bound is the reader's declared maximum, never a builder's own copy.
+    assert arguments["limit"] == 20
+    assert batch.frame.output_shape == "resource_changes"
+    assert goal.limitations == ("time_window_applied:86400",)
+    assert "window.applied.86400" in batch.frame.evidence_requirements
+
+
+@pytest.mark.parametrize(
+    ("measure", "values", "reason"),
+    (
+        ("change", ("compute.vm",), "recent_change_kind_unsupported"),
+        ("event", (), "collection_history_unsupported:event"),
+    ),
+)
+def test_a_collection_history_the_reader_cannot_restrict_is_unsupported(
+    measure: str, values: tuple[str, ...], reason: str
+) -> None:
+    utterance = "Which resources changed in the last 24 hours?"
+    form = _collection_history_form(
+        utterance, "resources", "last 24 hours", amount=24, unit="hour", measure=measure
+    )
+
+    goal = _compile(utterance, form, concepts(("m1", MentionDomain.RESOURCE_TYPE, values))).goals[0]
+
+    assert goal.status is GoalStatus.UNSUPPORTED
+    assert goal.reasons == (reason,)
+
+
+def _event_form(utterance: str, cue: str, *, amount: int, unit: str) -> dict[str, Any]:
+    return {
+        "mentions": [_anchor(utterance, "vm-app-01")],
+        "goals": [
+            {
+                "id": "g1",
+                "level": "instance",
+                "operation": "history",
+                "subject": "m1",
+                "subject_scope": "anchor",
+                "measure": {"kind": "event"},
+                "time": {
+                    "kind": "window",
+                    "value": {"duration": {"amount": amount, "unit": unit}},
+                    "cue": span(utterance, cue),
+                },
+                "cue": span(utterance, "events"),
+                "confidence": 0.9,
+            }
+        ],
+    }
+
+
+def test_an_event_history_reads_every_reviewed_event_family_of_the_anchor() -> None:
+    utterance = "What events did vm-app-01 have in the last 3 hours?"
+
+    goal = _compile(utterance, _event_form(utterance, "last 3 hours", amount=3, unit="hour"))
+    (compiled,) = goal.goals
+
+    assert compiled.status is GoalStatus.COMPILED, compiled.reasons
+    (batch,) = compiled.batches
+    read = batch.plan.nodes[-1].arguments
+    assert read["function_name"] == "query.resource_event_history"
+    assert read["arguments"] == {
+        "event_families": ["resource_event.kubernetes", "resource_event.resource_health"],
+        "lookback_seconds": 10_800,
+    }
+    assert batch.frame.output_shape == "resource_event_history"
+
+
+def test_an_event_window_beyond_the_reader_bound_is_unsupported() -> None:
+    utterance = "What events did vm-app-01 have in the last 3 days?"
+
+    goal = _compile(utterance, _event_form(utterance, "last 3 days", amount=3, unit="day"))
+
+    assert goal.goals[0].status is GoalStatus.UNSUPPORTED
+    assert goal.goals[0].reasons == ("event_window_unsupported",)
+
+
+@pytest.mark.parametrize("width", (2, 7, 8, 15, 50))
+def test_a_union_tree_reads_every_member_once_within_one_console_goal_fan_in(width: int) -> None:
+    from fdai.core.conversation.semantic_reasoning_nodes import union_tree
+    from fdai_service_contracts.ontology_query import MAX_INTENT_GOAL_DEPENDENCIES
+
+    members = [f"side-{index}" for index in range(1, width + 1)]
+
+    nodes = union_tree("g1-union", members)
+
+    ids = {node.node_id for node in nodes}
+    assert nodes[-1].node_id == "g1-union" and len(ids) == len(nodes)
+    assert all(2 <= len(node.depends_on) <= MAX_INTENT_GOAL_DEPENDENCIES for node in nodes)
+    read = [item for node in nodes for item in node.depends_on if item not in ids]
+    assert sorted(read) == sorted(members)
+    # A union that already fits keeps its single node and id.
+    assert (len(nodes) == 1) == (width <= MAX_INTENT_GOAL_DEPENDENCIES)
+
+
+def test_what_changed_with_no_kind_stated_reads_resources_in_general() -> None:
+    utterance = "What changed in the last 6 hours?"
+    form = {
+        "mentions": [],
+        "goals": [
+            {
+                "id": "g1",
+                "level": "instance",
+                "operation": "history",
+                "subject_scope": "collection",
+                "measure": {"kind": "change"},
+                "time": {
+                    "kind": "window",
+                    "value": {"duration": {"amount": 6, "unit": "hour"}},
+                    "cue": span(utterance, "last 6 hours"),
+                },
+                "cue": span(utterance, "What changed"),
+                "confidence": 0.9,
+            }
+        ],
+    }
+
+    goal = _compile(utterance, form).goals[0]
+
+    assert goal.status is GoalStatus.COMPILED, goal.reasons
+    (read,) = goal.batches[0].plan.nodes
+    assert read.arguments["function_name"] == "query.recent_resource_changes"
+    assert goal.limitations == ("time_window_applied:21600",)
+
+
+def test_a_count_measure_may_restate_the_type_filter_of_a_goal_without_a_subject() -> None:
+    utterance = "How many virtual machines are there?"
+    form = {
+        "mentions": [
+            {
+                "id": "m1",
+                "form": "concept",
+                "domain": "resource_type",
+                "span": span(utterance, "virtual machines"),
+            }
+        ],
+        "goals": [
+            {
+                "id": "g1",
+                "level": "instance",
+                "operation": "count",
+                "subject_scope": "collection",
+                "filters": [{"role": "type", "mention": "m1"}],
+                "measure": {"kind": "count", "mention": "m1"},
+                "cue": span(utterance, "How many"),
+                "confidence": 0.9,
+            }
+        ],
+    }
+
+    goal = _compile(utterance, form, concepts(("m1", MentionDomain.RESOURCE_TYPE, ("compute.vm",))))
+
+    assert goal.goals[0].status is GoalStatus.COMPILED, goal.goals[0].reasons
+
+
+def test_an_absolute_history_window_must_end_at_the_trusted_compile_clock() -> None:
+    from datetime import timedelta
+
+    from fdai.core.conversation.semantic_reasoning_verification import verify_goal_semantics
+
+    utterance = "Which resources changed in the last 24 hours?"
+    form = _collection_history_form(utterance, "resources", "last 24 hours", amount=24, unit="hour")
+    receipt = concepts(("m1", MentionDomain.RESOURCE_TYPE, ()))
+    admission = admitted(form, utterance)
+    goal = _compile(utterance, form, receipt).goals[0]
+    plans = tuple(batch.plan for batch in goal.batches)
+
+    def violations(evaluation_time: Any) -> tuple[str, ...]:
+        return verify_goal_semantics(
+            admission.form.goals[0],
+            admission=admission,
+            concepts=receipt,
+            descriptors=production_manifest().descriptors,
+            plans=plans,
+            default_lookback_seconds=DEFAULT_LOOKBACK_SECONDS,
+            evaluation_time=evaluation_time,
+        )
+
+    assert violations(NOW) == ()
+    # A window of the right length that ends anywhere else is not the stated recent window.
+    assert violations(NOW + timedelta(days=1)) == ("prov_function_arguments:g1-changes",)
+    assert violations(None) == ("prov_function_arguments:g1-changes",)

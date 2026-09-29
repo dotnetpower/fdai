@@ -798,3 +798,136 @@ async def test_an_unusable_accounting_repair_still_releases_no_unstated_restrict
     assert observation.passes[0].repair == "original_unaccounted"
     assert observation.review == "unfaithful" and observation.released is False
     assert "review_uncovered:restricts:6-13" in observation.review_reasons
+
+
+def _count_by_group_form(occurrence: int) -> dict[str, Any]:
+    return {
+        "mentions": [
+            {
+                "id": "m1",
+                "form": "concept",
+                "domain": "resource_type",
+                "span": _quote("리소스 그룹"),
+            },
+            {
+                "id": "m2",
+                "form": "concept",
+                "domain": "resource_type",
+                "span": _quote("리소스", occurrence),
+            },
+        ],
+        "goals": [
+            {
+                "id": "g1",
+                "level": "instance",
+                "operation": "count",
+                "subject": "m2",
+                "subject_scope": "collection",
+                "measure": {"kind": "count", "group_by": "container", "mention": "m1"},
+                "cue": _quote("개수"),
+                "confidence": 0.9,
+            }
+        ],
+    }
+
+
+def test_a_repeated_quote_inside_another_mention_moves_to_its_only_free_occurrence() -> None:
+    utterance = "리소스 그룹별 리소스 개수"
+
+    form = resolve_question_form(_count_by_group_form(1), utterance=utterance).form
+
+    assert form is not None
+    spans = {mention.id: (mention.span.start, mention.span.end) for mention in form.mentions}
+    assert spans == {"m1": (0, 6), "m2": (8, 11)}
+    assert utterance[8:11] == "리소스"
+    # The stated occurrence already outside the other mention is kept as given.
+    kept = resolve_question_form(_count_by_group_form(2), utterance=utterance).form
+    assert kept is not None and kept.mentions[1].span.start == 8
+
+
+def test_a_quote_with_no_free_occurrence_stays_and_admission_rejects_the_overlap() -> None:
+    utterance = "리소스 그룹 개수"
+    raw = _count_by_group_form(1)
+
+    form = resolve_question_form(raw, utterance=utterance).form
+
+    assert form is not None and form.mentions[1].span.start == 0
+    admission = admit_question_form(
+        form, utterance=utterance, accounting=SpanAccounting(required=False)
+    )
+    assert admission.disposition is AdmissionDisposition.INVALID
+    assert "mention_overlap:m2" in admission.reasons
+
+
+def _event_form(measure: dict[str, Any], mentions: list[dict[str, Any]]) -> dict[str, Any]:
+    return {
+        "mentions": mentions,
+        "goals": [
+            {
+                "id": "g1",
+                "level": "instance",
+                "operation": "history",
+                "subject": "m1",
+                "subject_scope": "anchor",
+                "measure": measure,
+                "cue": _quote("보여줘"),
+                "confidence": 0.9,
+            }
+        ],
+    }
+
+
+def test_a_mention_that_only_names_its_measure_becomes_the_measure_cue() -> None:
+    utterance = "aks-app의 이벤트 보여줘"
+    anchor = {"id": "m1", "form": "name", "domain": "instance", "span": _quote("aks-app")}
+    events = {"id": "m2", "form": "concept", "domain": "resource_type", "span": _quote("이벤트")}
+
+    form = resolve_question_form(
+        _event_form({"kind": "event", "mention": "m2"}, [anchor, events]), utterance=utterance
+    ).form
+
+    assert form is not None and [item.id for item in form.mentions] == ["m1"]
+    measure = form.goals[0].measure
+    assert measure is not None and measure.mention is None
+    assert measure.cue is not None and utterance[measure.cue.start : measure.cue.end] == "이벤트"
+    # A state value of the measure's own kind is a reviewed measure mention and stays.
+    running = {"id": "m2", "form": "value", "domain": "state", "span": _quote("이벤트")}
+    kept = resolve_question_form(
+        _event_form({"kind": "state", "mention": "m2"}, [anchor, running]), utterance=utterance
+    ).form
+    assert kept is not None and kept.goals[0].measure is not None
+    assert kept.goals[0].measure.mention == "m2"
+
+
+def test_a_measure_cue_that_holds_its_mention_absorbs_it() -> None:
+    utterance = "aks-app의 발생한 이벤트 보여줘"
+    anchor = {"id": "m1", "form": "name", "domain": "instance", "span": _quote("aks-app")}
+    events = {"id": "m2", "form": "concept", "domain": "instance", "span": _quote("이벤트")}
+    raw = _event_form(
+        {"kind": "event", "mention": "m2", "cue": _quote("발생한 이벤트")}, [anchor, events]
+    )
+
+    form = resolve_question_form(raw, utterance=utterance).form
+
+    assert form is not None and [item.id for item in form.mentions] == ["m1"]
+    measure = form.goals[0].measure
+    assert measure is not None and measure.mention is None
+    assert (
+        measure.cue is not None
+        and utterance[measure.cue.start : measure.cue.end] == "발생한 이벤트"
+    )
+
+
+def test_a_named_resource_or_literal_cited_by_a_measure_is_never_moved_to_its_cue() -> None:
+    utterance = "aks-app의 이벤트 보여줘"
+    anchor = {"id": "m1", "form": "name", "domain": "instance", "span": _quote("aks-app")}
+    named = {"id": "m2", "form": "name", "domain": "instance", "span": _quote("이벤트")}
+
+    form = resolve_question_form(
+        _event_form({"kind": "event", "mention": "m2"}, [anchor, named]), utterance=utterance
+    ).form
+
+    # A named thing keeps its mention, so the compiler rejects the measure mention instead
+    # of silently reading a broader history.
+    assert form is not None and [item.id for item in form.mentions] == ["m1", "m2"]
+    assert form.goals[0].measure is not None and form.goals[0].measure.mention == "m2"

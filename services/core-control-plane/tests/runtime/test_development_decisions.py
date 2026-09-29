@@ -375,6 +375,7 @@ def test_the_compiled_answer_event_keeps_closed_reasons_and_points_a_cue_at_it()
                 "result": "declined",
                 "released": False,
                 "review": "uncovered",
+                "review_reasons": ["review_uncovered:asks:3-5", "kv-a:quoted"],
                 "pass_dispositions": ["admitted"],
                 "goal_statuses": ["unsupported"],
                 "goal_reasons": ["operation_unsupported:rank", "rg-fdai-dev-krc quoted"],
@@ -399,6 +400,8 @@ def test_the_compiled_answer_event_keeps_closed_reasons_and_points_a_cue_at_it()
         item for item in trace.steps if item.stage == "event.semantic_compiled_answer_completed"
     )
     assert step.attributes["goal_reasons"] == ("operation_unsupported:rank", "~")
+    # A server code keeps its closed prefix; a span suffix is dropped, never shown.
+    assert step.attributes["review_reasons"] == ("review_uncovered:asks", "~")
     assert step.attributes["released"] is False
     assert step.attributes["model_calls"] == 5
     assert step.attributes["decline_reason"] == "not_released"

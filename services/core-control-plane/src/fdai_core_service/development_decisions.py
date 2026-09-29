@@ -62,6 +62,7 @@ _SERVER_EVENT_KEYS = frozenset(
 )
 _SERVER_EVENT_LIST_KEYS = frozenset(
     {
+        "direction_swaps",
         "failed_preconditions",
         "form_shapes",
         "goal_limitations",
@@ -685,8 +686,16 @@ def _predicates(
 
 
 def _server_token(value: object) -> str:
-    if isinstance(value, str) and _CLOSED_TOKEN.fullmatch(value):
-        return value
+    if isinstance(value, str):
+        if _CLOSED_TOKEN.fullmatch(value):
+            return value
+        # A server code with a span suffix, such as review_uncovered:asks:3-5, keeps its closed
+        # code prefix; the suffix is dropped, never shown.
+        head = value
+        while ":" in head:
+            head = head.rsplit(":", 1)[0]
+            if _CLOSED_TOKEN.fullmatch(head):
+                return head
     return "none" if value is None else _REDACTED
 
 

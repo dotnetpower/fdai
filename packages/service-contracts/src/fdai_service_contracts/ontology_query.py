@@ -19,6 +19,8 @@ _MAX_PLAN_NODES = 32
 _MAX_CONSOLE_ARGUMENT_ARRAY_ITEMS = 32
 _MAX_CONSOLE_MEMBERSHIP_VALUES = 64
 MAX_INTENT_GRAPH_GOALS = 16
+# The Console v2 intent graph shows at most this many dependencies of one goal.
+MAX_INTENT_GOAL_DEPENDENCIES = 7
 
 
 class QueryContract(BaseModel):
@@ -432,7 +434,7 @@ def project_intent_graph(graph: IntentGraph) -> dict[str, Any]:
     for goal in graph.goals:
         if re.fullmatch(r"[a-z][a-z0-9_-]{0,63}", goal.goal_id) is None:
             raise ValueError("Console intent goal id is invalid")
-        if len(goal.depends_on) > 7 or len(goal.alternatives) > 4:
+        if len(goal.depends_on) > MAX_INTENT_GOAL_DEPENDENCIES or len(goal.alternatives) > 4:
             raise ValueError("Console intent goal arrays exceed bounds")
         _validate_console_json(goal.arguments, depth=0, counter=[0])
     return {
@@ -566,6 +568,7 @@ def _validate_console_membership_values(
 
 
 __all__ = [
+    "MAX_INTENT_GOAL_DEPENDENCIES",
     "MAX_INTENT_GRAPH_GOALS",
     "AnswerEvidenceMode",
     "EvidenceAuthority",

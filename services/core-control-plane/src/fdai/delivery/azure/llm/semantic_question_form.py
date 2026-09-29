@@ -400,14 +400,18 @@ class AzureOpenAIQuestionFormModel:
         context: tuple[str, ...],
         locale: str,
         question: DirectionQuestion,
+        tiebreak: bool = False,
     ) -> Mapping[str, Any] | None:
         """Ask the other model family which declared role the named start plays.
 
         The reader sees the masked question, the named start, the relation sense, and the
-        sense's two roles in their declared order, never the role the proposer chose.
+        sense's two roles in their declared order, never the role the proposer chose or
+        another reader's answer. A tie-break goes to a family the first reader is not.
         """
 
         candidates = self._config.direction_candidates or self._config.extraction_candidates
+        if tiebreak:
+            candidates = _tiebreak_candidates(self._config, candidates)
         if self._config.direction_system_prompt is None or not candidates:
             return None
         context = context[-_MAX_CONTEXT_ITEMS:]
@@ -570,6 +574,22 @@ class AzureOpenAIQuestionFormModel:
                     failure["status_code"] = exc.response.status_code
                 _LOGGER.warning("question_form_candidate_failed", extra=failure)
         return None
+
+
+def _tiebreak_candidates(
+    config: AzureOpenAIQuestionFormConfig, first: tuple[ModelRequestTarget, ...]
+) -> tuple[ModelRequestTarget, ...]:
+    """Return a family that is neither the first direction reader nor the proposer.
+
+    The proposer's role is already one vote, so its family never votes again; without a
+    third family no tie-break is asked and the disagreement holds.
+    """
+
+    used = {target.deployment for target in (*first, *config.candidates)}
+    for family in (config.extraction_candidates, config.direction_candidates):
+        if family and not used & {target.deployment for target in family}:
+            return family
+    return ()
 
 
 def _exposes_secret(text: str) -> bool:

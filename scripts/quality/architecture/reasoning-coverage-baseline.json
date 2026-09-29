@@ -48,6 +48,8 @@
     "instance.history.change.current",
     "instance.history.change.unspecified",
     "instance.history.change.window",
+    "instance.history.event.current",
+    "instance.history.event.unspecified",
     "instance.history.none.current",
     "instance.history.none.unspecified",
     "instance.history.none.window",
@@ -150,13 +152,14 @@
     "cause_form_inconsistent:g1": 1,
     "count_side_budget_exceeded": 2,
     "endpoint_filter_unreadable": 2,
+    "event_window_unsupported": 1,
     "filter_unsupported:health": 6,
     "history_future_time:g1": 4,
     "impact_relation_unsupported": 59,
     "measure_unsupported:change": 1,
     "measure_unsupported:cost": 1,
     "measure_unsupported:count": 1,
-    "measure_unsupported:event": 7,
+    "measure_unsupported:event": 1,
     "measure_unsupported:forecast": 1,
     "measure_unsupported:health": 1,
     "measure_unsupported:metric": 1,
@@ -181,15 +184,15 @@
     "schema_operation_unsupported:select": 1,
     "schema_subject_unsupported:declaration_kind": 1,
     "schema_subject_unsupported:resource_type": 3,
-    "time_unsupported:as_of": 2,
-    "time_unsupported:two_windows": 2,
-    "time_unsupported:versions": 2,
+    "time_unsupported:as_of": 3,
+    "time_unsupported:two_windows": 3,
+    "time_unsupported:versions": 3,
     "want_unsupported:verification": 1
   },
   "status_counts": {
-    "compiled": 144,
+    "compiled": 146,
     "inadmissible": 8,
-    "unsupported": 281
+    "unsupported": 279
   },
   "version": 1
 }

@@ -42,3 +42,21 @@ def test_clean_prompt_source_has_no_paths(monkeypatch, tmp_path: Path) -> None:
     monkeypatch.setattr(module, "_git_paths", lambda _root, *_args: ())
 
     assert module.dirty_prompt_paths(tmp_path) == ()
+
+
+def test_diagnostics_never_reach_stdout(monkeypatch, capsys, tmp_path: Path) -> None:
+    module = _module()
+    monkeypatch.setattr(
+        module, "dirty_prompt_paths", lambda _root: ("rule-catalog/prompts/a.yaml",)
+    )
+
+    monkeypatch.setenv("FDAI_LOCAL_ALLOW_DIRTY_PROMPTS", "1")
+    assert module.main() == 0
+    allowed = capsys.readouterr()
+    monkeypatch.delenv("FDAI_LOCAL_ALLOW_DIRTY_PROMPTS")
+    assert module.main() == 1
+    blocked = capsys.readouterr()
+
+    # A caller reading an input digest from stdout sees only the digest.
+    assert allowed.out == "" and blocked.out == ""
+    assert "opt-in is active" in allowed.err and "start blocked" in blocked.err

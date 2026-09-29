@@ -17,6 +17,7 @@ from typing import Any, Literal
 
 from fdai_service_contracts.ontology_query import (
     OntologyQueryPlan,
+    QueryNodeKind,
     SemanticProblemFrame,
     content_digest,
 )
@@ -27,10 +28,10 @@ from .semantic_planning_alignment import verify_frame_plan_alignment
 from .semantic_planning_frame_core import build_semantic_frame
 from .semantic_planning_models import SemanticFrameProposal, SemanticOutputShape
 from .semantic_reasoning_admission import AdmissionDisposition, FormAdmission
-from .semantic_reasoning_binding import AnchorBindingReceipt
+from .semantic_reasoning_binding import AnchorBindingReceipt, AnchorOutcome
 from .semantic_reasoning_concepts import ConceptSelectionReceipt
 from .semantic_reasoning_handles import ReferenceReceipt, reference_mention
-from .semantic_reasoning_nodes import CompileContext, PlanSpec
+from .semantic_reasoning_nodes import CompileContext, OperatorResult, PlanSpec
 from .semantic_reasoning_operators import compile_goal
 from .semantic_reasoning_verification import verify_goal_semantics
 
@@ -141,7 +142,7 @@ def compile_question_form(
         if blocked:
             outcomes[goal.id] = GoalCompilation(goal.id, GoalStatus.BLOCKED, blocked)
             continue
-        result = compile_goal(goal, ctx)
+        result = _with_unproven_anchors(compile_goal(goal, ctx), ctx)
         reference = ctx.references.binding(reference_mention(admission, goal.id))
         if reference is not None and reference.bound and reference.truncated:
             # The earlier answer showed only part of its rows, so them means only what was seen.
@@ -179,6 +180,7 @@ def compile_question_form(
                 default_lookback_seconds=default_lookback_seconds,
                 anchors=ctx.anchors,
                 references=ctx.references,
+                evaluation_time=evaluation_time,
             )
         )
         outcomes[goal.id] = (
@@ -200,6 +202,49 @@ def compile_question_form(
         goals=tuple(outcomes[goal.id] for goal in admission.form.goals),
         needs_continuation=admission.needs_continuation,
     )
+
+
+UNIQUENESS_UNPROVEN = "anchor_uniqueness_unproven"
+UNIQUENESS_REQUIREMENT = "anchor.uniqueness_unproven"
+
+
+def _with_unproven_anchors(result: OperatorResult, ctx: CompileContext) -> OperatorResult:
+    """State that an anchor matched under incomplete coverage may not be the only match.
+
+    Every batch of the goal carries the notice requirement, so the frame, the plan, and
+    the rendered answer agree on the limitation.
+    """
+
+    unproven = {
+        binding.object_id
+        for binding in ctx.anchors.bindings
+        if binding.outcome is AnchorOutcome.BOUND
+        and not binding.uniqueness_proven
+        and binding.object_id is not None
+    }
+    if not unproven or not any(_reads_anchor(spec, unproven) for spec in result.specs):
+        return result
+    specs = tuple(
+        replace(spec, evidence_requirements=(*spec.evidence_requirements, UNIQUENESS_REQUIREMENT))
+        for spec in result.specs
+    )
+    return replace(result, specs=specs, limitations=(*result.limitations, UNIQUENESS_UNPROVEN))
+
+
+def _reads_anchor(spec: PlanSpec, object_ids: set[str]) -> bool:
+    for node in spec.nodes:
+        definition = (
+            node.arguments.get("definition") if node.kind is QueryNodeKind.OBJECT_SET else None
+        )
+        predicates = definition.get("predicates") if isinstance(definition, dict) else None
+        for predicate in predicates or ():
+            if (
+                predicate.get("property") == "id"
+                and predicate.get("operator") == "equals"
+                and predicate.get("equals") in object_ids
+            ):
+                return True
+    return False
 
 
 def _verified_batches(

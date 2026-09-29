@@ -106,6 +106,8 @@ async def _query_objects(
         objects,
         requires_resource_coverage="Resource" in object_types,
         expresses_relationships=include_relationships and (bool(links) or len(objects) > 1),
+        # Only the requested objects' own pending observations can change an exact-id read.
+        exact_subjects=object_ids if object_ids and not include_relationships else (),
     )
     return OntologyGraphSnapshot(
         objects=objects,

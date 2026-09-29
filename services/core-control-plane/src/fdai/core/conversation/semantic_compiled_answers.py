@@ -24,6 +24,7 @@ from fdai_service_contracts.ontology_query import (
     OntologyQueryPlan,
     QueryNodeKind,
     content_digest,
+    project_intent_graph,
 )
 
 from fdai.core.ontology_platform import OntologyQueryPlanVerifier, QueryManifest
@@ -40,6 +41,7 @@ from .semantic_planning_models import SemanticPlanningDisposition, SemanticPlann
 from .semantic_planning_support import _outcome, _refresh_object_set_cutoffs
 from .semantic_reasoning_binding import GatewayAnchorResolver
 from .semantic_reasoning_compiler import CompiledBatch, GoalStatus
+from .semantic_reasoning_nodes import union_tree
 from .semantic_reasoning_shadow import (
     QuestionFormModel,
     ReasoningShadowObservation,
@@ -155,6 +157,9 @@ class CompiledAnswerTicket:
             plan = _refresh_object_set_cutoffs(batch.plan, execution_time=self._cutoff())
             self._verifier.verify(plan, manifest=self._manifest)
             verify_frame_plan_alignment(batch.frame, plan, descriptors=self._manifest.descriptors)
+            intent_graph = build_intent_graph(frame=batch.frame, plan=plan, confidence=confidence)
+            # The Console shows the graph it answers from, so a graph it cannot show holds.
+            project_intent_graph(intent_graph)
         except (PermissionError, ValueError) as exc:
             self.decision = "unverified"
             _log_completion("failed", observation=observation, failure_type=type(exc).__name__)
@@ -175,7 +180,7 @@ class CompiledAnswerTicket:
             manifest_digest=manifest_digest,
             frame=batch.frame,
             plan=plan,
-            intent_graph=build_intent_graph(frame=batch.frame, plan=plan, confidence=confidence),
+            intent_graph=intent_graph,
         )
 
     def veto(self, plan_source: str, *, manifest_digest: str) -> SemanticPlanningOutcome | None:
@@ -394,9 +399,15 @@ async def _run_form_path(
     )
 
 
-# Compiler reasons that name one mislabeled mention of an otherwise answerable reading.
+# Compiler reasons that name one mislabeled mention of an otherwise answerable reading. A
+# concept no reviewed value matches can be a question word quoted as a kind of thing.
 _FORM_MISLABELS = frozenset(
-    {"measure_mention_unsupported", "result_instance_unsupported", "anchor_form_unsupported"}
+    {
+        "measure_mention_unsupported",
+        "result_instance_unsupported",
+        "anchor_form_unsupported",
+        "concept_not_found",
+    }
 )
 
 
@@ -457,6 +468,7 @@ _STATED_LIMITATIONS = {
     "time_window_model_judged": "window.model_judged",
     "cause_not_established": "cause.not_established",
     "possible_impact_not_observed": "impact.possible_not_observed",
+    "anchor_uniqueness_unproven": "anchor.uniqueness_unproven",
 }
 
 
@@ -597,14 +609,10 @@ def _united_outputs(nodes: dict[str, OntologyQueryNode], outputs: list[str]) -> 
             united.append(members[0])
             continue
         union_id = f"union-{index}"
-        if union_id in nodes:
+        created = union_tree(union_id, members)
+        if any(node.node_id in nodes for node in created):
             return None
-        nodes[union_id] = OntologyQueryNode(
-            node_id=union_id,
-            kind=QueryNodeKind.UNION,
-            depends_on=tuple(members),
-            output_kind="query.table",
-        )
+        nodes.update((node.node_id, node) for node in created)
         united.append(union_id)
     return united if len(united) <= _MAX_PLAN_OUTPUTS else None
 
@@ -649,6 +657,9 @@ def _log_completion(
                 "model_calls": observation.model_calls,
                 "elapsed_ms": observation.elapsed_ms,
                 "notes": list(observation.notes[:_MAX_EVENT_ITEMS]),
+                "direction_swaps": [
+                    goal for item in observation.passes for goal in item.direction_swaps
+                ][:_MAX_EVENT_ITEMS],
                 "form_shapes": list(
                     observation.passes[-1].shape[:_MAX_SHAPE_ITEMS] if observation.passes else ()
                 ),

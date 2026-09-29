@@ -1450,6 +1450,7 @@ def _project_runtime_result(
             if candidates_found
             or optional_document_evidence_degraded(planning, execution)
             or _execution_output_incomplete(execution)
+            or "anchor.uniqueness_unproven" in evidence_requirements
             else "semantic_answer_verified"
         ),
         semantic_route="verified_query_plan",
@@ -3458,7 +3459,7 @@ def _render_general_query_answer(
                 if korean
                 else f"- Verified {returned} of {total} rows."
             )
-            lines.extend(verified_rows_table(output, korean=korean))
+            lines.extend(verified_rows_table(output, korean=korean, leading=measure_concepts))
     lines.extend(
         [
             "",

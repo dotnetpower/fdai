@@ -1,7 +1,7 @@
 ---
 title: Operator Console - Data and Wire Contracts
 translation_of: operator-console-wire-contracts.md
-translation_source_sha: 534055db886edf0c49341b8ae844230c84f3313e
+translation_source_sha: d5e37a961757e0f9e2f34afbca49462a824f0dfe
 translation_revised: 2026-09-30
 ---
 
@@ -432,6 +432,11 @@ Operator는 스트림마다 첫 조회 `activity`보다 먼저 이 이벤트를 
 최종 `done` 이벤트의 `trajectory_detail`에는 `work_progress_shape`, `turn_budget`,
 `context_receipts`가 들어갈 수 있습니다. Operator는 필드마다 따로 검증하고 잘못된 필드만 버립니다.
 활동은 60 KiB 안에서 최대 8개까지 유지하고 나머지는 `omitted.activities`로 셉니다.
+
+컴파일된 답변은 조회 기간, 확정되지 않은 원인, 가능한 영향, 인벤토리 수집 범위가 불완전해 이름의 유일성이
+입증되지 않은 앵커처럼 프레임의 검토된 제한을 제목 바로 뒤에 밝힙니다. 그런 앵커에서 읽은 답변은
+`semantic_answer_partial` 사유 코드를 유지하며, 검증된 표는 영수증 필드보다 reader가 선언한 측정 필드를
+먼저 보여 줍니다.
 
 ## 구현 상태
 

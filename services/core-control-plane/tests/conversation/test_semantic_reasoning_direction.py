@@ -207,6 +207,17 @@ async def test_the_other_family_reads_a_masked_question_without_the_choice() -> 
         utterance=utterance, context=(), locale="en", question=question
     )
     assert "reasoning-model" in sent[1][0]
+    # A tie-break reader is neither the first reader's family nor the proposer's: the
+    # extractor's when the reasoning model read first, and none when the extractor did.
+    await adapter(True, "reasoning-model").check_direction(
+        utterance=utterance, context=(), locale="en", question=question, tiebreak=True
+    )
+    unasked = await adapter(True).check_direction(
+        utterance=utterance, context=(), locale="en", question=question, tiebreak=True
+    )
+    assert "review-model" in sent[2][0] and unasked is None and len(sent) == 3
+    tiebreak_payload = json.loads(sent[2][1]["messages"][-1]["content"])
+    assert set(tiebreak_payload) == {"utterance", "locale", "anchor", "sense", "first", "second"}
 
 
 def test_the_direction_prompt_composes_within_its_budget() -> None:
@@ -215,3 +226,72 @@ def test_the_direction_prompt_composes_within_its_budget() -> None:
     composed = compose_static_selection(registry.resolve("semantic.direction_check"))
 
     assert composed.system_text
+
+
+def _connectivity_form(utterance: str) -> Any:
+    from fdai.core.conversation.semantic_reasoning_form import SemanticQuestionForm
+
+    start = utterance.index("aks-app")
+    cue = utterance.index("connected to")
+    return SemanticQuestionForm.model_validate(
+        {
+            "mentions": [
+                {
+                    "id": "m1",
+                    "form": "name",
+                    "domain": "instance",
+                    "span": {"start": start, "end": start + len("aks-app")},
+                }
+            ],
+            "goals": [
+                {
+                    "id": "g1",
+                    "level": "instance",
+                    "operation": "traverse",
+                    "subject": "m1",
+                    "subject_scope": "anchor",
+                    "relation": {
+                        "sense": "connectivity",
+                        "anchor_role": "sender",
+                        "result_role": "receiver",
+                        "cue": {"start": cue, "end": cue + len("connected to")},
+                    },
+                    "cue": {"start": 0, "end": 4},
+                    "confidence": 0.9,
+                }
+            ],
+        }
+    )
+
+
+@pytest.mark.parametrize(
+    ("third", "swapped", "held"),
+    (("first", (), False), ("second", ("g1",), False), ("either", (), True), (None, (), True)),
+)
+async def test_a_disputed_direction_needs_two_concrete_agreeing_readings(
+    third: str | None, swapped: tuple[str, ...], held: bool
+) -> None:
+    from fdai.core.conversation.semantic_reasoning_direction import settle_directions
+
+    utterance = "What is connected to aks-app?"
+    # Connectivity has a directed and a reciprocal LinkType, so either is a possible reading.
+    descriptors = (
+        {"kind": "link", "semantic_traits": ["connectivity"]},
+        {"kind": "link", "semantic_traits": ["connectivity", "reciprocal"]},
+    )
+    asked: list[bool] = []
+
+    async def check(question: Any, tiebreak: bool) -> dict[str, Any] | None:
+        asked.append(tiebreak)
+        if not tiebreak:
+            return {"reading": "second"}
+        return None if third is None else {"reading": third}
+
+    settled = await settle_directions(
+        _connectivity_form(utterance), utterance=utterance, descriptors=descriptors, check=check
+    )
+
+    # The proposer said sender and the first reader receiver; "first" sides with the proposer,
+    # "second" with the reader, and a mutual or missing third reading decides nothing.
+    assert bool(settled.reasons) is held and settled.swapped == swapped
+    assert asked == [False, True]

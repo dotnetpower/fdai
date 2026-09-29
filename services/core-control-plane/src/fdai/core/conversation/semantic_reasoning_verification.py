@@ -16,6 +16,7 @@ or invents an operand.
 from __future__ import annotations
 
 from collections.abc import Iterable, Mapping, Sequence
+from datetime import datetime
 from typing import Any
 
 from fdai_service_contracts.ontology_query import (
@@ -24,6 +25,7 @@ from fdai_service_contracts.ontology_query import (
     QueryNodeKind,
 )
 
+from fdai.core.ontology_platform.resource_event_queries import RESOURCE_EVENT_MEASURE_CONCEPTS
 from fdai.core.ontology_platform.resource_state_queries import RESOURCE_STATE_FUNCTION_NAME
 
 from .semantic_reasoning_admission import FormAdmission, relation_reach, restated_relation
@@ -37,12 +39,14 @@ from .semantic_reasoning_form import (
     GoalLevel,
     GoalOperation,
     GroupBy,
+    MeasureKind,
     MentionDomain,
     RelationReach,
     RelationScope,
     RelationSense,
     SubjectPosition,
     SubjectRole,
+    SubjectScope,
     TimeKind,
 )
 from .semantic_reasoning_handles import ReferenceReceipt, reference_mention
@@ -101,8 +105,12 @@ def verify_goal_semantics(
     default_lookback_seconds: int,
     anchors: AnchorBindingReceipt | None = None,
     references: ReferenceReceipt | None = None,
+    evaluation_time: datetime | None = None,
 ) -> tuple[str, ...]:
-    """Return every V-SEM, V-PROV, and V-LEVEL violation for one goal."""
+    """Return every V-SEM, V-PROV, and V-LEVEL violation for one goal.
+
+    ``evaluation_time`` is the trusted compile clock; an absolute read window must end there.
+    """
 
     if not plans:
         return ("sem_no_plan",)
@@ -119,7 +127,11 @@ def verify_goal_semantics(
         if not (_read_starts_at(goal, reference.mention_id) and len(reference.row_ids) == 1):
             allowed.prior_rows = reference.row_ids
     for node in nodes:
-        violations.extend(_operand_violations(node, allowed, goal, default_lookback_seconds))
+        violations.extend(
+            _operand_violations(
+                node, allowed, goal, default_lookback_seconds, descriptors, evaluation_time
+            )
+        )
     violations.extend(
         _coverage_violations(
             goal, plans, allowed, descriptors, admission, anchors or AnchorBindingReceipt()
@@ -229,6 +241,8 @@ def _operand_violations(
     allowed: _Allowed,
     goal: FormGoal,
     default_lookback_seconds: int,
+    descriptors: Sequence[Mapping[str, Any]] = (),
+    evaluation_time: datetime | None = None,
 ) -> list[str]:
     arguments = node.arguments
     if node.kind is QueryNodeKind.OBJECT_SET:
@@ -241,7 +255,9 @@ def _operand_violations(
             node.node_id, arguments.get("endpoint_predicates") or (), allowed
         )
     if node.kind is QueryNodeKind.FUNCTION:
-        return _function_violations(node, allowed, goal, default_lookback_seconds)
+        return _function_violations(
+            node, allowed, goal, default_lookback_seconds, descriptors, evaluation_time
+        )
     if node.kind in {QueryNodeKind.AGGREGATE, QueryNodeKind.UNION}:
         return []
     return [f"prov_unexpected_node:{node.node_id}:{node.kind.value}"]
@@ -287,6 +303,8 @@ def _function_violations(
     allowed: _Allowed,
     goal: FormGoal,
     default_lookback_seconds: int,
+    descriptors: Sequence[Mapping[str, Any]] = (),
+    evaluation_time: datetime | None = None,
 ) -> list[str]:
     name = _function_name(node)
     static = node.arguments.get("arguments") or {}
@@ -295,6 +313,22 @@ def _function_violations(
         expected = {}
     elif name == "query.resource_change_activity":
         expected = {"lookback_seconds": _expected_lookback(goal, default_lookback_seconds)}
+    elif name == "query.resource_event_history":
+        expected = {
+            "event_families": sorted(RESOURCE_EVENT_MEASURE_CONCEPTS),
+            "lookback_seconds": _expected_lookback(goal, default_lookback_seconds),
+        }
+    elif name == "query.recent_resource_changes":
+        lookback = _expected_lookback(goal, default_lookback_seconds)
+        limit = _declared_maximum(descriptors, name, "limit")
+        if (
+            lookback is None
+            or limit is None
+            or evaluation_time is None
+            or not _window_matches(static, lookback, limit, evaluation_time)
+        ):
+            return [f"prov_function_arguments:{node.node_id}"]
+        return []
     elif name == "query.ontology_declaration":
         names = sorted(allowed.object_types)
         expected = (
@@ -313,6 +347,46 @@ def _function_violations(
     if expected is None or dict(static) != dict(expected):
         return [f"prov_function_arguments:{node.node_id}"]
     return []
+
+
+def _window_matches(
+    arguments: Mapping[str, Any], lookback: int, limit: int, evaluation_time: datetime
+) -> bool:
+    """Return whether an absolute window ends at the trusted clock and spans the lookback."""
+
+    if set(arguments) != {"start_at", "end_at", "known_at", "limit"} or arguments["limit"] != limit:
+        return False
+    try:
+        start, end, known = (
+            datetime.fromisoformat(str(arguments[key]))
+            for key in ("start_at", "end_at", "known_at")
+        )
+    except ValueError:
+        return False
+    if any(item.tzinfo is None for item in (start, end, known)):
+        return False
+    return end == known == evaluation_time and (end - start).total_seconds() == lookback
+
+
+def _declared_maximum(
+    descriptors: Sequence[Mapping[str, Any]], function_name: str, argument: str
+) -> int | None:
+    for descriptor in descriptors:
+        if descriptor.get("kind") == "function" and descriptor.get("name") == function_name:
+            properties = (descriptor.get("input_schema") or {}).get("properties") or {}
+            maximum = (properties.get(argument) or {}).get("maximum")
+            return maximum if isinstance(maximum, int) and not isinstance(maximum, bool) else None
+    return None
+
+
+def _history_reads(goal: FormGoal) -> frozenset[str]:
+    """Return the one read a history goal requires: collection changes, events, or activity."""
+
+    if goal.subject_scope is SubjectScope.COLLECTION:
+        return frozenset({"query.recent_resource_changes"})
+    if goal.measure is not None and goal.measure.kind is MeasureKind.EVENT:
+        return frozenset({"query.resource_event_history"})
+    return frozenset({"query.resource_change_activity"})
 
 
 def _coverage_violations(
@@ -345,6 +419,10 @@ def _coverage_violations(
         name for plan in plans for node in plan.nodes if (name := _function_name(node)) is not None
     }
     required = _REQUIRED_FUNCTIONS.get((goal.level, goal.effective_operation))
+    if (goal.level, goal.effective_operation) == (GoalLevel.INSTANCE, GoalOperation.HISTORY):
+        required = _history_reads(goal)
+        if functions != required:
+            violations.append("sem_history_read_differs")
     if required is not None and functions.isdisjoint(required):
         violations.append("sem_operation_read_missing")
     if goal.level is GoalLevel.SCHEMA:

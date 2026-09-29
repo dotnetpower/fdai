@@ -77,3 +77,34 @@ def test_stated_notices_lead_the_answer_and_restate_only_the_read() -> None:
     assert "Read window: the last 3 days, as stated." in english
     # A frame without a reviewed notice requirement leaves the answer untouched.
     assert with_stated_notices(answer, ("governed_documents.optional",), locale="ko") == answer
+    unproven = with_stated_notices(answer, ("anchor.uniqueness_unproven",), locale="en")
+    assert "another resource with the same name may not be reflected yet" in unproven
+
+
+def test_measure_fields_the_frame_reads_lead_the_table_before_receipt_fields() -> None:
+    from fdai_core_service.semantic_verified_rows import verified_rows_table
+
+    output = {
+        "rows": [
+            {
+                "values": {
+                    "assessment_scope": "exact_target_only",
+                    "execution_authority": False,
+                    "inventory_read_at": "2026-09-29T20:14:12+00:00",
+                    "name": "aks-app",
+                    "provisioning_status": "Succeeded",
+                    "related_resources_assessed": False,
+                    "running_status": "Stopped",
+                    "target_state_assessment": "observed_not_running",
+                }
+            }
+        ]
+    }
+
+    lines = verified_rows_table(
+        output, korean=False, leading=("provisioning_status", "running_status", "revision_name")
+    )
+
+    header = [cell.strip() for cell in lines[1].strip("|").split("|")]
+    assert header[:3] == ["name", "provisioning_status", "running_status"]
+    assert "Stopped" in lines[3]
