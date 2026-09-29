@@ -17,6 +17,7 @@ from fdai.delivery.azure.operational_evidence import (
     AzureTemporalCausalEvidenceProvider,
     AzureTemporalPolicy,
 )
+from fdai.delivery.azure.operational_evidence_readbacks import AzureMonitorTestObservationProvider
 from fdai.shared.contracts.models import Event
 from fdai.shared.providers.decision_evidence_verifier import DecisionEvidenceAdmission
 from fdai.shared.providers.metric import MetricPoint, StaticMetricProvider
@@ -182,6 +183,43 @@ async def test_current_reuse_verifier_combines_snapshot_and_safety_evidence() ->
     assert result.policy_allowed is True
     assert result.dry_run_passed is True
     assert result.decision_evidence is None
+
+
+async def test_azure_monitor_test_observation_provider_uses_exact_scope_sources() -> None:
+    class _Metrics:
+        async def sample(self, **values):  # type: ignore[no-untyped-def]
+            assert values["target_ref"] == _RESOURCE
+            assert values["metric_name"] == "cpu_percent"
+            return {"value": 80.0}
+
+    class _Scope:
+        async def scope_state(self, **_values):  # type: ignore[no-untyped-def]
+            return {
+                "access_scope_digest": "a" * 64,
+                "metric_name": "cpu_percent",
+                "dimensions": {"resource_id": _RESOURCE.casefold()},
+                "aggregation": "avg",
+                "service_impact": "none",
+                "protected_signal": False,
+                "operating_scope_coverage": "complete",
+                "dependency_health": "healthy",
+                "policy_revision": "policy:test:1",
+            }
+
+    provider = AzureMonitorTestObservationProvider(
+        metrics=_Metrics(), scope=_Scope(), source_anchor="anchor:azure-platform"
+    )
+
+    record = await provider.observation(
+        target_ref=_RESOURCE,
+        signal_code="cpu_percent",
+        observed_at=_NOW.isoformat(),
+        policy_revision="policy:test:1",
+    )
+
+    assert record is not None
+    assert record["observed_value"] == 80.0
+    assert record["source_anchor"] == "anchor:azure-platform"
 
 
 async def test_current_reuse_adapter_requests_exact_independent_admission() -> None:

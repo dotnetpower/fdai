@@ -169,7 +169,10 @@ Administrator`, Graph application permissions, and every write role remain outsi
   verifier is a separate non-executor workload identity. It refuses to start when its principal equals
   any source, producer, reviewer, or executor-class principal, and it holds only the insert-only
   proof-store writer role and `EXECUTE` on fixed-parameter `SECURITY DEFINER` source functions, never a
-  direct `SELECT` on a source view or table.
+  direct `SELECT` on a source view or table. A purpose is bound only when its source is read under the
+  verifier's own identity from a store another principal writes; rows that the producer or Operator can
+  write never stand in for a platform or inventory source, so readbacks without such a source stay
+  unbound.
 - Prefer **credential-free auth**: workload identity federation / OIDC token exchange so the
   executor holds no long-lived secret. Where a secret is unavoidable it is short-lived and
   auto-rotated (see Secrets and Config).
@@ -386,6 +389,11 @@ The PostgreSQL evidence provider follows these boundaries:
   invariant violation. See [Context Selection Policy](../decisioning/context-selection-policy.md).
   Core shutdown gives pending comparisons five seconds to finish before cancelling them and
   closing the state store. An interrupted comparison cannot become promotion evidence.
+- The T2 hallucination rubric leg follows the same evidence rule and gains no authority. Its mode
+  is resolved per ActionType from an independently verified receipt, and only when the deployment
+  binds the receipt source and verifier. A missing, expired, rejected, or mismatched receipt keeps
+  it in shadow, and in enforce mode it can only lower confidence. See
+  [Hallucination Rubric Gate](../decisioning/hallucination-rubric-gate.md).
 
 ## Human Approval Integrity
 

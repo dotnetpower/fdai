@@ -509,10 +509,19 @@ class RubricPromotionEvaluator:
 
 
 class ActionModeRecordView(Protocol):
-    fdai_revision: str | None
-    scenario_set_version: str | None
-    action_type_version: str | None
-    action_type_digest: str | None
+    """Read-only authority identity; frozen promotion records satisfy it structurally."""
+
+    @property
+    def fdai_revision(self) -> str | None: ...
+
+    @property
+    def scenario_set_version(self) -> str | None: ...
+
+    @property
+    def action_type_version(self) -> str | None: ...
+
+    @property
+    def action_type_digest(self) -> str | None: ...
 
 
 @runtime_checkable
