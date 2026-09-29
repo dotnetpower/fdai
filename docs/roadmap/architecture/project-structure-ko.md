@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 0d0e59b206320bc71f2a100fe1939be1b1b512fa
+translation_source_sha: d5f19d4ec4eecba36361738b23419f8196ebed64
 translation_revised: 2026-09-29
 ---
 # 프로젝트 구조
@@ -604,6 +604,9 @@ Muninn은 게시와 원본 소유 legacy 정리에 하나의 Core 소유 cohort 
   `core-operator-projection` 1.4는 닫힌 사회적 의도를 전달하는 타입 지정 `direct_response`
   최종 처리 결과를 추가합니다. 범위가 제한된 텍스트는 스키마로 검증된 의미 판단 모델에서 오며
   조회 digest, 근거 참조, 검증 주장 또는 권한을 포함하지 않습니다.
+  `fdai_service_contracts.semantic_projection`은 모든 Core 의미 projection의 약속값인 내용 결속
+  `projection_id`와 요청 종류별 `evidence_digest`를 소유합니다. Core는 이 모듈로 두 값을 계산하고,
+  Operator는 영속 투영 전에 두 값을 다시 계산합니다.
   바인딩된 인시던트 읽기 경로는 canonical `incident_id`와 감사 `correlation_id`를 서로 다른
   `query.incident_evidence` 인자로 전달하고 두 신원을 권한 없는 결과에 모두 보존합니다.
   리소스 검색도 불변 `DiscoveryIntent`, `DiscoveryQueryPlan`, 프로바이더 관찰, 실행 증적,

@@ -618,6 +618,9 @@ Deployment Preflight keeps its publication decision in `core/deploy_preflight/pr
   `core-operator-projection` 1.4 adds the typed `direct_response` terminal disposition for a closed
   social intent. Its bounded text comes from the schema-validated semantic judgment model and
   carries no query digests, evidence references, verification claims, or authority.
+  `fdai_service_contracts.semantic_projection` owns the commitments of every Core semantic
+  projection: the content-bound `projection_id` and the per-request-kind `evidence_digest`. Core
+  computes both with it, and the Operator recomputes both before durable projection.
   The bound incident read path passes canonical `incident_id` and audit `correlation_id` as
   separate `query.incident_evidence` arguments and preserves both in its no-authority result.
   Resource discovery similarly separates immutable `DiscoveryIntent`, `DiscoveryQueryPlan`,
