@@ -385,14 +385,13 @@ class ShadowWorkflowStepExecutor:
             correlation_id=self._snapshot.correlation_id,
             proposal_ref=proposal_ref,
             lease=self._action_dispatch_claim_lease,
+            now=datetime.now(tz=UTC),
         )
         if claim is None:
             return step_result(
                 step, RunbookStepOutcome.WAITING, "waiting_for_action_dispatch_claim"
             )
-        # Publish only while this replica's claim is current, then record what was published.
-        # A claimant that stalls or crashes after publication is replaced after lease expiry;
-        # the replacement republishes the same attempt-scoped idempotency key.
+        # Publish only under a current claim; a post-publication crash republishes the same key.
         if not await claim_is_current(
             self._process_store,
             process_id=self._process_id,
@@ -434,6 +433,7 @@ class ShadowWorkflowStepExecutor:
             proposal_ref=returned_ref,
             params=dict(self._params.get(step.id, {})),
             claim=claim,
+            recorded_at=datetime.now(tz=UTC),
         )
         return step_result(step, RunbookStepOutcome.WAITING, "waiting_for_action_outcome")
 

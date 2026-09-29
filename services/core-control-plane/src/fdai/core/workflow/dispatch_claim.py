@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import UTC, datetime, timedelta
+from datetime import datetime, timedelta
 
 from fdai.core.runbook.models import RunbookStep
 from fdai.core.workflow.workflow_runtime import event_id
@@ -43,8 +43,13 @@ async def claim_action_dispatch(
     correlation_id: str,
     proposal_ref: str,
     lease: timedelta,
+    now: datetime,
 ) -> ProcessEvent | None:
-    now = datetime.now(tz=UTC)
+    """Append the next claim generation, or return ``None`` while another claim is current.
+
+    The caller supplies ``now`` from the step executor's clock so claim and dispatch records share
+    one time source.
+    """
     events = await store.events(process_id)
     if dispatch_event(events, step, attempt=attempt) is not None:
         return None
@@ -106,6 +111,7 @@ async def record_action_dispatched(
     proposal_ref: str,
     params: dict[str, object],
     claim: ProcessEvent,
+    recorded_at: datetime,
 ) -> bool:
     return await store.append_event(
         ProcessEvent(
@@ -113,7 +119,7 @@ async def record_action_dispatched(
             process_id=process_id,
             kind=ProcessEventKind.ACTION_DISPATCHED,
             idempotency_key=f"{process_id}:step:{step.id}:attempt:{attempt}:action-dispatched",
-            recorded_at=datetime.now(tz=UTC),
+            recorded_at=recorded_at,
             correlation_id=correlation_id,
             causation_id=claim.event_id,
             step_id=step.id,
