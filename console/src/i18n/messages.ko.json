@@ -2739,9 +2739,18 @@
     "generalExamples": "질문 예시",
     "generalStarterSendHint": "이 질문을 바로 전송합니다: {prompt}",
     "generalStarters": {
-      "explain": { "label": "개념 설명", "prompt": "SLI, SLO, SLA의 차이를 예시와 함께 설명해 줘." },
-      "compare": { "label": "비교하기", "prompt": "블루-그린 배포와 카나리 배포의 장단점을 비교해 줘." },
-      "summarize": { "label": "문서 요약", "prompt": "문서 요약을 도와줘. 요약할 내용을 먼저 물어봐 줘." }
+      "explain": {
+        "label": "개념 설명",
+        "prompt": "SLI, SLO, SLA의 차이를 예시와 함께 설명해 줘."
+      },
+      "compare": {
+        "label": "비교하기",
+        "prompt": "블루-그린 배포와 카나리 배포의 장단점을 비교해 줘."
+      },
+      "summarize": {
+        "label": "문서 요약",
+        "prompt": "문서 요약을 도와줘. 요약할 내용을 먼저 물어봐 줘."
+      }
     },
     "screenTitle": "화면 대화",
     "screenOpen": "{route}에 대해 질문하기",
@@ -3187,14 +3196,53 @@
       "unavailable": "로그인한 principal과 증적 ID에 해당하는 명령을 확인할 수 없습니다.",
       "error": "명령 상태를 검증할 수 없습니다. 요청의 성공이나 실패를 가정하지 말고 다시 확인하세요.",
       "command": "{operation} 명령:",
-      "operations": { "propose": "제안", "review": "검토", "revoke": "철회" },
+      "operations": {
+        "propose": "제안",
+        "review": "검토",
+        "revoke": "철회"
+      },
       "delivery": "전달",
-      "deliveryStates": { "pending": "대기 중", "claimed": "전달 중", "published": "브로커에서 수용함(적용 아님)", "rejected": "전달 거부됨" },
+      "deliveryStates": {
+        "pending": "대기 중",
+        "claimed": "전달 중",
+        "published": "브로커에서 수용함(적용 아님)",
+        "rejected": "전달 거부됨"
+      },
       "application": "감사된 정책 적용",
-      "applicationStates": { "unknown": "알 수 없음", "recorded": "기록됨(과거)", "proposed": "제안됨", "reviewed": "검토됨", "revoked": "철회됨" },
+      "applicationStates": {
+        "unknown": "알 수 없음",
+        "recorded": "기록됨(과거)",
+        "proposed": "제안됨",
+        "reviewed": "검토됨",
+        "revoked": "철회됨"
+      },
       "revision": "개정",
       "authorization": "현재 승인 상태",
-      "authorizationStates": { "not_evaluated": "평가되지 않음", "unavailable": "확인 불가", "pending": "대기 중", "revoked": "철회됨", "expired": "만료됨" }
+      "authorizationStates": {
+        "not_evaluated": "평가되지 않음",
+        "unavailable": "확인 불가",
+        "pending": "대기 중",
+        "revoked": "철회됨",
+        "expired": "만료됨",
+        "active": "활성"
+      },
+      "choice": "검토된 범위 및 정책",
+      "sourceRevision": "Grant registry 개정",
+      "noChoices": "로그인한 principal에 대해 이 초안을 포함하는 검토된 선택지가 없습니다. 브라우저에서 요청을 제출할 수 없습니다.",
+      "choicesUnavailable": "검토된 선택지를 사용할 수 없습니다. 제안, 검토 또는 철회 컨트롤을 활성화하지 않습니다.",
+      "submitProposal": "제안 제출",
+      "boundStatus": "상태는 제출된 명령에 결합됨",
+      "lifecycleControls": "독립 수명 주기 컨트롤",
+      "review": "검토 기록",
+      "revoke": "컨텍스트 철회",
+      "submitStates": {
+        "unavailable": "제출을 사용할 수 없습니다.",
+        "conflict": "명령이 변경되었거나 다른 내용으로 이미 제출되었습니다. 새로 고친 뒤 다시 시도하세요.",
+        "error": "제출에 실패했습니다. 상태 변경을 가정하지 않습니다."
+      },
+      "manualLookupBoundary": "수동 조회는 검토 또는 복구용입니다. 반환된 요청이 표시된 초안과 일치하지 않으면 이 초안에 결합된 상태가 아닙니다.",
+      "reviewing": "검토 중인 요청",
+      "selfReviewBlocked": "원래 요청자만 검토 또는 철회가 차단됩니다. 서버가 해당 작업 권한을 부여한 이후 검토자는 철회할 수 있습니다."
     },
     "investigation": {
       "label": "조사 활동",

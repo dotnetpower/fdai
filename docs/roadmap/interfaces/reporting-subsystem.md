@@ -21,6 +21,8 @@ Complements the survey of the industry reference in
 the shipping catalog here is a bounded, product-relevant subset.
 
 ## Why it exists
+Test-context lifecycle controls are not reporting widgets. They share the Console shell and Operator route assembly, but their proposal, review, revocation, and status contracts stay in the conversation/test-context family.
+
 
 The console pull-surface has always shipped one-off `ReadPanel`
 handlers (KPI dashboard, audit log, HIL queue,

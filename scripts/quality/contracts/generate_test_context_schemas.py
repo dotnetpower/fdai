@@ -9,6 +9,7 @@ from pathlib import Path
 
 from fdai_service_contracts.test_context import (
     TestContextApplication,
+    TestContextChoiceProjection,
     TestContextCommand,
     TestContextDraft,
 )
@@ -19,6 +20,7 @@ OUTPUT = ROOT / "packages/service-contracts/src/fdai_service_contracts/schemas"
 MODELS: dict[str, type[BaseModel]] = {
     "test-context-application": TestContextApplication,
     "test-context-command": TestContextCommand,
+    "test-context-choices": TestContextChoiceProjection,
     "test-context-draft": TestContextDraft,
 }
 

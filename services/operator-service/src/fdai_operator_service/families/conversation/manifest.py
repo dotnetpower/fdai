@@ -103,6 +103,13 @@ CONVERSATION_ROUTE_MANIFEST: tuple[ConversationRouteSpec, ...] = (
     ConversationRouteSpec("GET", "/me/context", "context", "user.context", "read"),
     ConversationRouteSpec(
         "GET",
+        "/test-context/choices",
+        "test_context_choices",
+        "test-context.choices",
+        "read",
+    ),
+    ConversationRouteSpec(
+        "GET",
         "/test-context/commands/{proposal_id:str}",
         "test_context_command_status",
         "test-context.command-status",

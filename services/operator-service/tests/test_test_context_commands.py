@@ -3,6 +3,7 @@ from datetime import UTC, datetime, timedelta
 import pytest
 from fdai_operator_service.postgres_test_context import PostgresTestContextOutbox
 from fdai_operator_service.test_context_runtime import command_from_record
+from fdai_service_contracts.test_context import TestContextRequest
 
 
 def _record():
@@ -38,6 +39,14 @@ def _record():
             "body": body,
         },
     }
+
+
+def _context_lifecycle_request(operation: str, *, expected_revision: int) -> dict[str, object]:
+    request = dict(_record()["payload"]["body"])
+    for key in ("expected_min", "expected_max", "effective_from", "effective_to"):
+        request.pop(key)
+    request.update(operation=operation, expected_revision=expected_revision)
+    return request
 
 
 def test_outbox_uses_authenticated_principal_and_original_request_time():
@@ -389,3 +398,371 @@ async def test_context_outbox_real_postgres_replay_claim_and_lease_recovery():
                 "SELECT COUNT(*) FROM information_schema.schemata WHERE schema_name=%s", (schema,)
             )
             assert await cursor.fetchone() == (0,)
+
+
+def _choice_registry(
+    *,
+    duplicate_scope: bool = False,
+    command_revoked: bool = False,
+    transition_revoked: bool = False,
+    transition_expired: bool = False,
+    transition_not_yet_valid: bool = False,
+    case_history_only: bool = False,
+) -> str:
+    import json
+
+    def grant(
+        grant_id: str,
+        *,
+        operation: str,
+        purpose: str,
+        role: str = "Contributor",
+        revoked: bool = False,
+        expired: bool = False,
+        not_yet_valid: bool = False,
+    ) -> dict[str, object]:
+        return {
+            "grant_id": grant_id,
+            "selector": {"kind": "app_role", "value": role},
+            "case_scopes": ["case-one"],
+            "operations": [operation],
+            "purposes": [purpose],
+            "reviewer": "reviewer-example",
+            "valid_from": "2026-10-01T00:00:00Z" if not_yet_valid else "2026-01-01T00:00:00Z",
+            "valid_until": "2026-01-02T00:00:00Z" if expired else "2027-01-01T00:00:00Z",
+            "revoked": revoked,
+        }
+
+    scope = {
+        "case_scope_id": "case-one",
+        "access_scope_digest": "a" * 64,
+        "resource_selectors": ["resource-example"],
+        "purposes": ["case-history-read"]
+        if case_history_only
+        else ["operator-test-context-command", "test-context-transition"],
+        "policy_revision": "policy:example",
+        "valid_from": "2026-01-01T00:00:00Z",
+        "valid_until": "2027-01-01T00:00:00Z",
+        "revoked": False,
+    }
+    grants = [
+        grant(
+            "grant-command",
+            operation="test-context.propose",
+            purpose="operator-test-context-command",
+            revoked=command_revoked,
+        ),
+        grant(
+            "grant-propose-transition",
+            operation="test-context.propose",
+            purpose="test-context-transition",
+            revoked=transition_revoked,
+            expired=transition_expired,
+            not_yet_valid=transition_not_yet_valid,
+        ),
+        grant(
+            "grant-review",
+            operation="test-context.review",
+            purpose="test-context-transition",
+            role="Approver",
+        ),
+        grant(
+            "grant-revoke",
+            operation="test-context.revoke",
+            purpose="test-context-transition",
+            role="Approver",
+        ),
+    ]
+    if case_history_only:
+        grants = [
+            grant("grant-history", operation="case-history.read", purpose="case-history-read")
+        ]
+    scopes = [scope, {**scope, "case_scope_id": "case-two"}] if duplicate_scope else [scope]
+    return json.dumps(
+        {
+            "schema_version": "1.0.0",
+            "registry_id": "fdai.operational-evidence.case-scope-grants",
+            "revision": 7,
+            "case_scopes": scopes,
+            "principal_grants": grants,
+            "reuse_grants": [],
+        },
+        separators=(",", ":"),
+    )
+
+
+def _transition_only_registry() -> str:
+    import json
+
+    document = json.loads(_choice_registry())
+    document["principal_grants"] = [
+        grant
+        for grant in document["principal_grants"]
+        if grant["selector"]["value"] == "Approver"
+        and grant["purposes"] == ["test-context-transition"]
+    ]
+    return json.dumps(document, separators=(",", ":"))
+
+
+def _many_scope_registry(count: int = 129) -> str:
+    import json
+
+    scopes = []
+    case_scope_ids = []
+    for index in range(count):
+        scope_id = f"case-{index:03d}"
+        case_scope_ids.append(scope_id)
+        scopes.append(
+            {
+                "case_scope_id": scope_id,
+                "access_scope_digest": f"{index + 1:064x}",
+                "resource_selectors": [f"resource-{index:03d}"],
+                "purposes": ["operator-test-context-command", "test-context-transition"],
+                "policy_revision": "policy:example",
+                "valid_from": "2026-01-01T00:00:00Z",
+                "valid_until": "2027-01-01T00:00:00Z",
+                "revoked": False,
+            }
+        )
+    grants = []
+    for batch, start_index in enumerate(range(0, count, 64)):
+        scope_batch = case_scope_ids[start_index : start_index + 64]
+        grants.extend(
+            [
+                {
+                    "grant_id": f"grant-command-{batch}",
+                    "selector": {"kind": "app_role", "value": "Contributor"},
+                    "case_scopes": scope_batch,
+                    "operations": ["test-context.propose"],
+                    "purposes": ["operator-test-context-command"],
+                    "reviewer": "reviewer-example",
+                    "valid_from": "2026-01-01T00:00:00Z",
+                    "valid_until": "2027-01-01T00:00:00Z",
+                    "revoked": False,
+                },
+                {
+                    "grant_id": f"grant-transition-{batch}",
+                    "selector": {"kind": "app_role", "value": "Contributor"},
+                    "case_scopes": scope_batch,
+                    "operations": ["test-context.propose"],
+                    "purposes": ["test-context-transition"],
+                    "reviewer": "reviewer-example",
+                    "valid_from": "2026-01-01T00:00:00Z",
+                    "valid_until": "2027-01-01T00:00:00Z",
+                    "revoked": False,
+                },
+            ]
+        )
+    return json.dumps(
+        {
+            "schema_version": "1.0.0",
+            "registry_id": "fdai.operational-evidence.case-scope-grants",
+            "revision": 8,
+            "case_scopes": scopes,
+            "principal_grants": grants,
+            "reuse_grants": [],
+        },
+        separators=(",", ":"),
+    )
+
+
+async def test_context_choices_are_principal_scoped_and_source_revisioned():
+    from fdai_operator_service.families.conversation.contracts import (
+        ConversationQuery,
+        PrincipalScope,
+    )
+    from fdai_operator_service.family_adapters import PostgresConversationAdapters
+    from fdai_operator_service.test_context_choices import TestContextChoiceSource
+
+    adapter = PostgresConversationAdapters(
+        None,  # type: ignore[arg-type]
+        test_context_choices=TestContextChoiceSource.from_json_text(_choice_registry()),
+    )
+    allowed = await adapter.read(
+        ConversationQuery(
+            operation="test-context.choices",
+            scope=PrincipalScope("operator-one", roles=frozenset({"Contributor"})),
+        )
+    )
+    denied = await adapter.read(
+        ConversationQuery(
+            operation="test-context.choices",
+            scope=PrincipalScope("operator-two", roles=frozenset({"Reader"})),
+        )
+    )
+    assert allowed.body["source_revision"].startswith("sha256:")
+    assert allowed.body["choices"] == [
+        {
+            "case_scope_id": "case-one",
+            "access_scope_digest": "a" * 64,
+            "target_selectors": ["resource-example"],
+            "policy_revision": "policy:example",
+            "source_revision": allowed.body["source_revision"],
+            "allowed_operations": ["propose"],
+            "execution_authority": False,
+        }
+    ]
+    assert denied.body["choices"] == []
+    assert "grant_missing" in denied.body["unavailable_reasons"]
+
+
+async def test_approver_transition_only_grant_does_not_match_core_review_admission() -> None:
+    from fdai_operator_service.families.conversation.contracts import (
+        ConversationQuery,
+        PrincipalScope,
+    )
+    from fdai_operator_service.family_adapters import PostgresConversationAdapters
+    from fdai_operator_service.test_context_choices import TestContextChoiceSource
+
+    source = TestContextChoiceSource.from_json_text(_transition_only_registry())
+    query = ConversationQuery(
+        operation="test-context.choices",
+        scope=PrincipalScope("approver-one", roles=frozenset({"Approver"})),
+    )
+    response = await PostgresConversationAdapters(
+        None,  # type: ignore[arg-type]
+        test_context_choices=source,
+    ).read(query)
+    assert response.body["choices"] == []
+    assert (
+        source.may_transition(
+            query.scope,
+            TestContextRequest.model_validate(
+                _context_lifecycle_request("review", expected_revision=1)
+            ),
+        )
+        is False
+    )
+
+
+async def test_context_choices_match_core_grant_admission_for_proposal() -> None:
+    from fdai.core.operational_evidence.grant_registry_loader import load_grant_registry
+    from fdai.core.operational_evidence.registry_json import content_pin
+    from fdai_operator_service.families.conversation.contracts import (
+        ConversationQuery,
+        PrincipalScope,
+    )
+    from fdai_operator_service.family_adapters import PostgresConversationAdapters
+    from fdai_operator_service.test_context_choices import TestContextChoiceSource
+
+    query = ConversationQuery(
+        operation="test-context.choices",
+        scope=PrincipalScope("operator-one", roles=frozenset({"Contributor"})),
+    )
+    for text, allowed in (
+        (_choice_registry(), True),
+        (_choice_registry(transition_revoked=True), False),
+        (_choice_registry(transition_expired=True), False),
+        (_choice_registry(transition_not_yet_valid=True), False),
+    ):
+        data = text.encode("utf-8")
+        core = load_grant_registry(data, expected_pin=content_pin(data))
+        assert bool(core.case_scopes)
+        response = await PostgresConversationAdapters(
+            None,  # type: ignore[arg-type]
+            test_context_choices=TestContextChoiceSource.from_json_text(text),
+        ).read(query)
+        assert bool(response.body["choices"]) is allowed
+
+
+async def test_context_choices_fail_closed_on_ambiguous_or_invalid_registry():
+    from fdai_operator_service.families.conversation.contracts import (
+        ConversationQuery,
+        PrincipalScope,
+    )
+    from fdai_operator_service.family_adapters import PostgresConversationAdapters
+    from fdai_operator_service.test_context_choices import TestContextChoiceSource
+
+    query = ConversationQuery(
+        operation="test-context.choices",
+        scope=PrincipalScope("operator-one", roles=frozenset({"Contributor"})),
+    )
+    ambiguous = await PostgresConversationAdapters(
+        None,  # type: ignore[arg-type]
+        test_context_choices=TestContextChoiceSource.from_json_text(
+            _choice_registry(duplicate_scope=True)
+        ),
+    ).read(query)
+    expired_transition = await PostgresConversationAdapters(
+        None,  # type: ignore[arg-type]
+        test_context_choices=TestContextChoiceSource.from_json_text(
+            _choice_registry(transition_expired=True)
+        ),
+    ).read(query)
+    future_transition = await PostgresConversationAdapters(
+        None,  # type: ignore[arg-type]
+        test_context_choices=TestContextChoiceSource.from_json_text(
+            _choice_registry(transition_not_yet_valid=True)
+        ),
+    ).read(query)
+    revoked_transition = await PostgresConversationAdapters(
+        None,  # type: ignore[arg-type]
+        test_context_choices=TestContextChoiceSource.from_json_text(
+            _choice_registry(transition_revoked=True)
+        ),
+    ).read(query)
+    case_history_only = await PostgresConversationAdapters(
+        None,  # type: ignore[arg-type]
+        test_context_choices=TestContextChoiceSource.from_json_text(
+            _choice_registry(case_history_only=True)
+        ),
+    ).read(query)
+    invalid = await PostgresConversationAdapters(
+        None,  # type: ignore[arg-type]
+        test_context_choices=TestContextChoiceSource.from_json_text("{}"),
+    ).read(query)
+    assert ambiguous.body["choices"] == []
+    assert ambiguous.body["unavailable_reasons"] == ["grant_registry_invalid"]
+    assert expired_transition.body["choices"] == []
+    assert expired_transition.body["unavailable_reasons"]
+    assert future_transition.body["choices"] == []
+    assert "grant_missing" in future_transition.body["unavailable_reasons"]
+    assert revoked_transition.body["choices"] == []
+    assert "grant_revoked" in revoked_transition.body["unavailable_reasons"]
+    assert case_history_only.body["choices"] == []
+    assert case_history_only.body["unavailable_reasons"] == ["no_test_context_scope"]
+    assert invalid.body["choices"] == []
+    assert invalid.body["unavailable_reasons"] == ["grant_registry_invalid"]
+
+
+async def test_context_choices_bound_more_than_projection_limit_without_truncation() -> None:
+    from fdai_operator_service.families.conversation.contracts import (
+        ConversationQuery,
+        PrincipalScope,
+    )
+    from fdai_operator_service.family_adapters import PostgresConversationAdapters
+    from fdai_operator_service.test_context_choices import TestContextChoiceSource
+
+    response = await PostgresConversationAdapters(
+        None,  # type: ignore[arg-type]
+        test_context_choices=TestContextChoiceSource.from_json_text(_many_scope_registry()),
+    ).read(
+        ConversationQuery(
+            operation="test-context.choices",
+            scope=PrincipalScope("operator-one", roles=frozenset({"Contributor"})),
+        )
+    )
+    assert response.body["choices"] == []
+    assert response.body["unavailable_reasons"] == ["principal_scope_too_large"]
+
+
+async def test_context_choices_bound_oversized_principal_scope_without_500() -> None:
+    from fdai_operator_service.families.conversation.contracts import (
+        ConversationQuery,
+        PrincipalScope,
+    )
+    from fdai_operator_service.family_adapters import PostgresConversationAdapters
+    from fdai_operator_service.test_context_choices import TestContextChoiceSource
+
+    roles = frozenset({"Contributor", "Approver", "Owner", "Reader", "R1", "R2", "R3", "R4", "R5"})
+    response = await PostgresConversationAdapters(
+        None,  # type: ignore[arg-type]
+        test_context_choices=TestContextChoiceSource.from_json_text(_choice_registry()),
+    ).read(
+        ConversationQuery(
+            operation="test-context.choices",
+            scope=PrincipalScope("operator-one", roles=roles),
+        )
+    )
+    assert response.body["choices"] == []
+    assert response.body["unavailable_reasons"] == ["principal_scope_too_large"]

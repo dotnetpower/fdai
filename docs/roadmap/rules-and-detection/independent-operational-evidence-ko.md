@@ -1,6 +1,6 @@
 ---
 translation_of: independent-operational-evidence.md
-translation_source_sha: 14601108d591c5fb888143e5d72200c55bd10333
+translation_source_sha: dbf27650ee39367d367da91626495a3a611ba34c
 translation_revised: 2026-09-29
 ---
 # 독립 운영 근거 발급
