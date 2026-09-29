@@ -400,6 +400,10 @@ The PostgreSQL evidence provider follows these boundaries:
   approval ends as a no-op plus an audit entry. Silence never creates approval. A standing approval
   applies only through the bounded A3-E contract in
   [Escalation and Standing Authority](../decisioning/escalation-and-standing-authority.md).
+- A decision message on the event bus is transport, not approval. The Operator records its durable
+  decision receipt in the same transaction that validates the pending approval, and Core routes a
+  decision only when the message matches that receipt. A forged or rewritten message is refused
+  before any park, quorum slot, or executor is touched.
 
 ## Auditability
 
