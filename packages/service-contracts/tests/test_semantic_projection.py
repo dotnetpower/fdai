@@ -28,7 +28,7 @@ def _semantic_projection() -> dict[str, Any]:
         "schema_version": "1.4.0",
         "request_id": "request-1",
         "correlation_id": "correlation-1",
-        "idempotency_key": "idempotency-1",
+        "idempotency_key": "turn-retry-1",
         "status": "answered",
         "recorded_at": "2026-09-29T01:00:00.000+00:00",
         "payload": {"request_kind": SEMANTIC_QUERY_REQUEST_KIND, "request_digest": "d1"},
@@ -50,7 +50,7 @@ def _pantheon_projection() -> dict[str, Any]:
         "schema_version": "1.4.0",
         "request_id": "request-2",
         "correlation_id": "correlation-2",
-        "idempotency_key": "idempotency-2",
+        "idempotency_key": "turn-retry-2",
         "status": "held",
         "recorded_at": "2026-09-29T01:00:00.000+00:00",
         "payload": {
