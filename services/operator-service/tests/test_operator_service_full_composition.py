@@ -189,12 +189,12 @@ def test_aggregate_manifest_and_registered_routes_have_exact_unique_ownership() 
     identities = {(item.method, item.path) for item in manifest}
     owner_counts = Counter(item.owner for item in manifest)
 
-    assert len(manifest) == len(identities) == 234
+    assert len(manifest) == len(identities) == 235
     assert ("GET", "/observer-deployment-proposals") in identities
     assert ("GET", "/handover/readiness") in identities
     assert owner_counts == {
         "minimal": 17,
-        "conversation": 44,
+        "conversation": 45,
         "iam": 59,
         "workflow": 47,
         "operations": 43,
@@ -215,8 +215,9 @@ def test_aggregate_manifest_and_registered_routes_have_exact_unique_ownership() 
     }
     app = cast(Starlette, _client().app)
     assert _registered_identities(app) == identities
-    assert len(app.router.routes) == 234
+    assert len(app.router.routes) == 235
     assert {
+        ("GET", "/test-context/choices"),
         ("POST", "/test-context/proposals"),
         ("POST", "/test-context/reviews"),
         ("POST", "/test-context/revocations"),
@@ -282,6 +283,54 @@ def _context_request():
     }
 
 
+def _context_review_registry(*, other_scope: bool = False) -> str:
+    import json
+
+    access_scope = "d" * 64 if other_scope else "a" * 64
+    return json.dumps(
+        {
+            "schema_version": "1.0.0",
+            "registry_id": "fdai.operational-evidence.case-scope-grants",
+            "revision": 11,
+            "case_scopes": [
+                {
+                    "case_scope_id": "case-one",
+                    "access_scope_digest": access_scope,
+                    "resource_selectors": ["resource-example"],
+                    "purposes": ["operator-test-context-command", "test-context-transition"],
+                    "policy_revision": "policy:example",
+                    "valid_from": "2026-01-01T00:00:00Z",
+                    "valid_until": "2027-01-01T00:00:00Z",
+                    "revoked": False,
+                }
+            ],
+            "principal_grants": [
+                {
+                    "grant_id": "grant-review",
+                    "selector": {"kind": "app_role", "value": "Approver"},
+                    "case_scopes": ["case-one"],
+                    "operations": ["test-context.review", "test-context.revoke"],
+                    "purposes": ["operator-test-context-command", "test-context-transition"],
+                    "reviewer": "reviewer-example",
+                    "valid_from": "2026-01-01T00:00:00Z",
+                    "valid_until": "2027-01-01T00:00:00Z",
+                    "revoked": False,
+                }
+            ],
+            "reuse_grants": [],
+        },
+        separators=(",", ":"),
+    )
+
+
+def _context_lifecycle_request(operation: str, *, expected_revision: int) -> dict[str, object]:
+    body = _context_request()
+    for key in ("expected_min", "expected_max", "effective_from", "effective_to"):
+        body.pop(key)
+    body.update(operation=operation, expected_revision=expected_revision)
+    return body
+
+
 @pytest.mark.parametrize(
     "operation,path,role,status",
     [
@@ -308,7 +357,11 @@ def test_context_routes_authenticate_role_before_durable_acceptance(
     )
     monkeypatch.setattr(PostgresFamilyStore, "append_proposal", captured)
     client = _client(
-        {DATABASE_URL_ENV: "postgresql://example.invalid/fdai", DATABASE_ROLE_ENV: "fdai_operator"}
+        {
+            DATABASE_URL_ENV: "postgresql://example.invalid/fdai",
+            DATABASE_ROLE_ENV: "fdai_operator",
+            "FDAI_TEST_CONTEXT_GRANT_REGISTRY_JSON": _context_review_registry(),
+        }
     )
     body = _context_request()
     if operation != "propose":
@@ -342,6 +395,8 @@ def test_context_status_returns_only_own_delivery_and_never_claims_policy_applic
         "operation": "test-context.propose",
         "dispatch_status": "published",
         "accepted_at": "2026-09-15T00:00:00+00:00",
+        "principal_id": "contributor-operator",
+        "request": _context_request(),
     }
     read = AsyncMock(return_value=stored if owner else None)
     monkeypatch.setattr(PostgresTestContextOutbox, "read_test_context_command", read)
@@ -353,7 +408,10 @@ def test_context_status_returns_only_own_delivery_and_never_claims_policy_applic
     )
     assert response.status_code == (200 if owner else 404)
     read.assert_awaited_once_with(
-        proposal_id="operator-example", principal_id="contributor-operator"
+        proposal_id="operator-example",
+        principal_id="contributor-operator",
+        reviewer=False,
+        include_requester=True,
     )
     if owner:
         assert response.json()["policy_application"] == "unknown"
@@ -385,6 +443,8 @@ def test_context_status_keeps_historical_revocation_separate_from_current_author
             "operation": "test-context.revoke",
             "dispatch_status": "published",
             "accepted_at": "2026-09-15T00:00:00+00:00",
+            "principal_id": "contributor-operator",
+            "request": _context_lifecycle_request("revoke", expected_revision=2),
             "context_application": application,
         }
     )
@@ -404,9 +464,106 @@ def test_context_status_keeps_historical_revocation_separate_from_current_author
     assert body["context_application"]["revision"] == 3
     assert body["current_authorization"] == "not_evaluated"
     assert body["execution_authority"] is False
+    assert body["request"]["target_ref"] == "resource-example"
+    assert "expected_min" not in body["request"]
+    assert "effective_from" not in body["request"]
     assert not {"actor_id", "target_ref", "access_scope_digest", "request_key"} & set(
         body["context_application"]
     )
+
+
+def test_context_reviewer_can_read_other_principal_command_status(monkeypatch):
+    from unittest.mock import AsyncMock
+
+    read = AsyncMock(
+        return_value={
+            "proposal_id": "operator-example",
+            "operation": "test-context.propose",
+            "dispatch_status": "published",
+            "accepted_at": "2026-09-15T00:00:00+00:00",
+            "principal_id": "contributor-operator",
+            "request": _context_request(),
+            "context_application": {
+                "schema_version": "1.0.0",
+                "command_digest": "sha256:" + "a" * 64,
+                "actor_id": "contributor-operator",
+                "request_key": "request-example",
+                "context_id": "context-example",
+                "access_scope_digest": "b" * 64,
+                "target_ref": "resource-example",
+                "policy_revision": "policy:example",
+                "revision": 1,
+                "state": "proposed",
+                "context_digest": "sha256:" + "c" * 64,
+                "execution_authority": False,
+            },
+        }
+    )
+    monkeypatch.setattr(PostgresTestContextOutbox, "read_test_context_command", read)
+    client = _client(
+        {
+            DATABASE_URL_ENV: "postgresql://example.invalid/fdai",
+            DATABASE_ROLE_ENV: "fdai_operator",
+            "FDAI_TEST_CONTEXT_GRANT_REGISTRY_JSON": _context_review_registry(),
+        }
+    )
+    response = client.get(
+        "/test-context/commands/operator-example",
+        headers={"Authorization": "Bearer approver"},
+    )
+    assert response.status_code == 200
+    read.assert_awaited_once_with(
+        proposal_id="operator-example",
+        principal_id="approver-operator",
+        reviewer=True,
+        include_requester=True,
+    )
+    assert response.json()["context_application"]["state"] == "proposed"
+
+
+@pytest.mark.parametrize(
+    "registry",
+    [None, _context_review_registry(other_scope=True), "{}"],
+)
+def test_context_reviewer_without_matching_grant_cannot_read_command_status(monkeypatch, registry):
+    from unittest.mock import AsyncMock
+
+    read = AsyncMock(
+        return_value={
+            "proposal_id": "operator-example",
+            "operation": "test-context.propose",
+            "dispatch_status": "published",
+            "accepted_at": "2026-09-15T00:00:00+00:00",
+            "principal_id": "contributor-operator",
+            "request": _context_request(),
+            "context_application": {
+                "schema_version": "1.0.0",
+                "command_digest": "sha256:" + "a" * 64,
+                "actor_id": "contributor-operator",
+                "request_key": "request-example",
+                "context_id": "context-example",
+                "access_scope_digest": "b" * 64,
+                "target_ref": "resource-example",
+                "policy_revision": "policy:example",
+                "revision": 1,
+                "state": "proposed",
+                "context_digest": "sha256:" + "c" * 64,
+                "execution_authority": False,
+            },
+        }
+    )
+    monkeypatch.setattr(PostgresTestContextOutbox, "read_test_context_command", read)
+    env = {
+        DATABASE_URL_ENV: "postgresql://example.invalid/fdai",
+        DATABASE_ROLE_ENV: "fdai_operator",
+    }
+    if registry is not None:
+        env["FDAI_TEST_CONTEXT_GRANT_REGISTRY_JSON"] = registry
+    response = _client(env).get(
+        "/test-context/commands/operator-example",
+        headers={"Authorization": "Bearer approver"},
+    )
+    assert response.status_code == 404
 
 
 def test_context_http_rejects_actor_injection_before_outbox(monkeypatch):
@@ -517,3 +674,55 @@ def test_configured_postgres_adapters_dispatch_reads_and_typed_proposals(
             },
         }
     ]
+
+
+def test_context_choices_route_returns_stable_unavailable_reasons(monkeypatch):
+    from unittest.mock import AsyncMock
+
+    monkeypatch.setattr(PostgresFamilyStore, "read_projection", AsyncMock(return_value={}))
+    missing = _client(
+        {DATABASE_URL_ENV: "postgresql://example.invalid/fdai", DATABASE_ROLE_ENV: "fdai_operator"}
+    ).get("/test-context/choices", headers={"Authorization": "Bearer contributor"})
+    malformed = _client(
+        {
+            DATABASE_URL_ENV: "postgresql://example.invalid/fdai",
+            DATABASE_ROLE_ENV: "fdai_operator",
+            "FDAI_TEST_CONTEXT_GRANT_REGISTRY_JSON": "{}",
+        }
+    ).get("/test-context/choices", headers={"Authorization": "Bearer contributor"})
+    assert missing.status_code == malformed.status_code == 200
+    assert missing.json()["unavailable_reasons"] == ["grant_registry_unavailable"]
+    assert malformed.json()["unavailable_reasons"] == ["grant_registry_invalid"]
+
+
+def test_context_proposals_derive_distinct_identity_and_replay_first(monkeypatch):
+
+    calls: list[dict[str, object]] = []
+
+    async def append_proposal(self: PostgresFamilyStore, **kwargs: object) -> StoredProposal:
+        del self
+        calls.append(dict(kwargs))
+        return StoredProposal(
+            proposal_id=f"proposal-{len(calls)}",
+            accepted_at="2026-09-15T00:00:00+00:00",
+            duplicate=len(calls) == 3,
+            record={},
+        )
+
+    monkeypatch.setattr(PostgresFamilyStore, "append_proposal", append_proposal)
+    client = _client(
+        {DATABASE_URL_ENV: "postgresql://example.invalid/fdai", DATABASE_ROLE_ENV: "fdai_operator"}
+    )
+    first = _context_request()
+    second = {**first, "semantic_receipt": "sha256:" + "c" * 64, "source_ref": "turn:second"}
+    for body in (first, second, first):
+        response = client.post(
+            "/test-context/proposals",
+            headers={"Authorization": "Bearer contributor"},
+            json=body,
+        )
+        assert response.status_code == 202
+    assert calls[0]["idempotency_key"] != calls[1]["idempotency_key"]
+    assert calls[0]["idempotency_key"] == calls[2]["idempotency_key"]
+    assert calls[0]["payload"] != calls[1]["payload"]
+    assert calls[0]["payload"] == calls[2]["payload"]
