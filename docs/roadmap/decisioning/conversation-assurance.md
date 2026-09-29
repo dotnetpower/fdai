@@ -46,7 +46,7 @@ The fixed census contains 230 balanced cases:
 
 Every measured turn binds prompt-profile, route, evidence, verification, T1/T2, budget, metering, timing, and terminal-state data in one trace receipt; private question and answer bodies remain outside tracked evidence.
 An explicitly started local campaign also writes owner-only `.fdai/conversation-assurance/transcripts.jsonl` with bounded questions, accepted answers, source revision, answer-generation and evaluator attribution, output availability, assessment reasons, score, and verdict. A sensitivity finding replaces the affected body with its digest and omission reason. Transcript content grants no qualification, policy-promotion, audit, or execution authority.
-Core records schema-v2 timing across durable queue and Pantheon assurance phases, and Operator returns the same phases with trace latency while marking a deferred phase degraded. A UUID-shaped deployment scope records `hidden_scope_leak` as a hard-zero violation; the sensitivity scan may also record `sensitive_output`.
+Core records schema-v2 timing across durable queue and Pantheon assurance phases, and Operator returns the same phases with trace latency while marking a deferred phase degraded. A UUID-shaped deployment scope records `hidden_scope_leak` as a hard-zero violation; the sensitivity scan may also record `sensitive_output`. Seeded manifest parity also exercises semantic answers, Pantheon assurance traces, multi-source authority answers, governed-document citations, and Teams and Slack channel adapters through the Core-to-Operator commitments. Issue #63 still requires live qualification evidence before it counts answer-path parity.
 
 ### Explicit campaign operation
 

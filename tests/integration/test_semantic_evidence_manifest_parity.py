@@ -4,7 +4,8 @@ Each turn crosses the real semantic runtime, query executor, Core processor, pro
 Operator ingest, and ``done`` compiler; only the model planner and query data plane are fakes. The
 Operator must render exactly the server manifest, cite nothing outside it, and resolve every
 manifest reference to a completed receipt. Producer digests must recompute unchanged from the
-ingested projection, although Operator ingest does not yet enforce them.
+ingested projection, and Operator ingest enforces the shared ``evidence_digest`` and
+``projection_id`` commitments before any terminal event is rendered.
 """
 
 from __future__ import annotations
@@ -38,6 +39,13 @@ from fdai.core.ontology_platform import (
 )
 from fdai.core.ontology_platform.query_values import QueryRow, QueryTable
 from fdai_core_service.semantic_turn_processor import SemanticTurnProcessor
+from fdai_operator_service.families.conversation.channel_edge.presentation import (
+    normalize_terminal_presentation,
+)
+from fdai_operator_service.families.conversation.channel_edge.renderers import (
+    SlackPresentationRenderer,
+    TeamsPresentationRenderer,
+)
 from fdai_operator_service.families.conversation.contracts import (
     ConversationProposal,
     PrincipalScope,
@@ -57,6 +65,12 @@ from fdai_service_contracts.ontology_query import (
     QueryNodeKind,
     SemanticOperation,
     content_digest,
+)
+from fdai_service_contracts.semantic_projection import (
+    PANTHEON_ASSURANCE_REQUEST_KIND,
+    pantheon_assurance_evidence_digest,
+    semantic_projection_evidence_digest,
+    semantic_projection_id,
 )
 
 SEED = 0x0FDA1
@@ -79,6 +93,8 @@ INCOMPLETE = ("held", "semantic_evidence_incomplete")
 HELD = ("held", "semantic_evidence_held")
 EXPECTED = {
     **dict.fromkeys(("verified", "max_refs", "max_ref_chars", "inherited"), VERIFIED),
+    "multi_source_authority": VERIFIED,
+    "governed_document_citations": ("answered", "semantic_answer_partial"),
     **dict.fromkeys(("overflow_turn", "overflow_goal", "held_overflow", "long_ref"), INCOMPLETE),
     **dict.fromkeys(("unavailable", "failed", "inherited_conflict"), HELD),
     "partial_source": ("answered", "semantic_answer_partial"),
@@ -86,6 +102,10 @@ EXPECTED = {
     "conflict": ("held", "semantic_evidence_authority_conflict"),
 }
 OUTCOMES = frozenset({"ok", "incomplete", "held", "failed", "derived_conflict"})
+BASE_GENERATED_KINDS = frozenset(EXPECTED) - {
+    "governed_document_citations",
+    "multi_source_authority",
+}
 
 
 @dataclass(frozen=True, slots=True)
@@ -95,6 +115,10 @@ class Node:
     authority: EvidenceAuthority | None
     outcome: str = "ok"
     depends_on: tuple[str, ...] = ()
+    authority_inputs: tuple[EvidenceAuthority, ...] = ()
+    rows: tuple[Mapping[str, object], ...] | None = None
+    kind: QueryNodeKind = QueryNodeKind.OBJECT_SET
+    arguments: Mapping[str, object] | None = None
 
     def __post_init__(self) -> None:
         if self.outcome not in OUTCOMES:
@@ -109,6 +133,9 @@ class Turn:
     nodes: tuple[Node, ...]
     authority: EvidenceAuthority
     manifest: tuple[str, ...]
+    output_shape: SemanticOutputShape = SemanticOutputShape.RESOURCE_LIST
+    evidence_requirements: tuple[str, ...] = ()
+    output_node_ids: tuple[str, ...] = ()
 
 
 def seeded(seed: int) -> random.Random:
@@ -124,7 +151,7 @@ def generate(
 ) -> Turn:
     """Build one seeded turn; ``manifest`` is the oracle for the exact terminal manifest."""
     assert failure is None or (kind == "held_overflow" and failure in {"held", "failed"})
-    kind = kind or rng.choice(sorted(EXPECTED))
+    kind = kind or rng.choice(sorted(BASE_GENERATED_KINDS))
     authority = rng.choice(AUTHORITIES)
     nodes: list[Node] = []
     for position in range(rng.randint(1, 3)):
@@ -175,6 +202,90 @@ def generate(
     return Turn(index, kind, "ko" if index % 2 else "en", tuple(nodes), authority, manifest)
 
 
+def generate_multi_source(rng: random.Random, index: int) -> Turn:
+    """Build one completed answer whose output nodes retain separate authorities."""
+    power_refs = _refs(rng, index, rng.randint(1, 3), 0)
+    health_refs = _refs(rng, index, rng.randint(1, 3), 8)
+    nodes = (
+        Node(
+            "resource-condition-scope",
+            (f"resource-condition-scope:{index}",),
+            EvidenceAuthority.SERVER_INVENTORY_GRAPH,
+        ),
+        Node(
+            "resource-condition-power",
+            power_refs,
+            EvidenceAuthority.SERVER_INVENTORY_GRAPH,
+            depends_on=("resource-condition-scope",),
+            kind=QueryNodeKind.FUNCTION,
+            arguments={"function_name": "query.resource_state_inventory"},
+        ),
+        Node(
+            "resource-condition-health",
+            health_refs,
+            EvidenceAuthority.SERVER_RESOURCE_HEALTH,
+            depends_on=("resource-condition-scope",),
+            authority_inputs=(EvidenceAuthority.SERVER_INVENTORY_GRAPH,),
+            kind=QueryNodeKind.FUNCTION,
+            arguments={"function_name": "query.resource_health_inventory"},
+        ),
+    )
+    return Turn(
+        index,
+        "multi_source_authority",
+        "ko" if index % 2 else "en",
+        nodes,
+        EvidenceAuthority.SERVER_RESOURCE_HEALTH,
+        unique_refs(list(nodes)),
+        output_shape=SemanticOutputShape.RESOURCE_CONDITION_SECTIONS,
+        output_node_ids=("resource-condition-power", "resource-condition-health"),
+    )
+
+
+def generate_governed_document(rng: random.Random, index: int) -> Turn:
+    """Build one governed-document answer with rendered citation lines."""
+    refs = _refs(rng, index, rng.randint(1, 3), 0)
+    rows: list[Mapping[str, object]] = [
+        {
+            "record_kind": "summary",
+            "access_scope_digest": "sha256:" + "c" * 64,
+            "index_generation": index,
+            "retrieval_mode": "semantic",
+            "source_complete": True,
+            "source_limitation": None,
+        }
+    ]
+    rows.extend(
+        {
+            "record_kind": "excerpt",
+            "source_name": f"governed-document-{index}-{position}",
+            "locator": f"section-{position}",
+            "document_revision": f"rev-{index}-{position}",
+            "evidence_ref": ref,
+            "text": f"Bounded governed document excerpt {index}-{position}.",
+            "display_content_digest": "sha256:" + f"{index:032x}{position:032x}",
+            "redaction_applied": False,
+        }
+        for position, ref in enumerate(refs)
+    )
+    node = Node(
+        "governed-documents",
+        refs,
+        EvidenceAuthority.SERVER_GOVERNED_DOCUMENT,
+        rows=tuple(rows),
+    )
+    return Turn(
+        index,
+        "governed_document_citations",
+        "ko" if index % 2 else "en",
+        (node,),
+        EvidenceAuthority.SERVER_GOVERNED_DOCUMENT,
+        refs,
+        output_shape=SemanticOutputShape.GOVERNED_DOCUMENT_EXCERPTS,
+        evidence_requirements=("governed_documents.optional",),
+    )
+
+
 def unique_refs(nodes: list[Node]) -> tuple[str, ...]:
     return tuple(dict.fromkeys(ref for node in nodes for ref in node.refs))
 
@@ -187,7 +298,10 @@ class Pipeline:
         runtime = SemanticConversationRuntime(
             planner=cast(Any, _Planner(self)),
             executor=OntologyQueryPlanExecutor(
-                handlers={QueryNodeKind.OBJECT_SET: self._handle},
+                handlers={
+                    QueryNodeKind.FUNCTION: self._handle,
+                    QueryNodeKind.OBJECT_SET: self._handle,
+                },
                 now=lambda: NOW,
             ),
             purpose=PURPOSE,
@@ -235,12 +349,25 @@ class Pipeline:
         if spec.outcome == "failed":
             raise RuntimeError("provider read failed")
         complete = spec.outcome != "incomplete"
+        rows = (
+            tuple(
+                QueryRow.from_values(f"{node.node_id}-row-{position}", dict(values))
+                for position, values in enumerate(spec.rows)
+            )
+            if spec.rows is not None
+            else (QueryRow.from_values(f"{node.node_id}-row", {"state": "ready"}),)
+        )
         table = QueryTable(
-            rows=(QueryRow.from_values(f"{node.node_id}-row", {"state": "ready"}),),
+            rows=rows,
             complete=complete,
             truncation_reason=None if complete else "source_page_limit",
         )
-        return QueryNodeResult(value=table, evidence_refs=spec.refs, authority=spec.authority)
+        return QueryNodeResult(
+            value=table,
+            evidence_refs=spec.refs,
+            authority=spec.authority,
+            authority_inputs=spec.authority_inputs,
+        )
 
 
 class _Planner:
@@ -258,7 +385,8 @@ class _Planner:
         frame = build_semantic_frame(
             SemanticFrameProposal(
                 operation=SemanticOperation.SELECT,
-                output_shape=SemanticOutputShape.RESOURCE_LIST,
+                output_shape=turn.output_shape,
+                evidence_requirements=turn.evidence_requirements,
                 investigation=None,
                 confidence=1.0,
             ),
@@ -268,8 +396,15 @@ class _Planner:
         nodes = tuple(
             OntologyQueryNode(
                 node_id=node.node_id,
-                kind=QueryNodeKind.OBJECT_SET,
+                kind=node.kind,
                 depends_on=node.depends_on,
+                arguments_json=json.dumps(
+                    dict(node.arguments or {}),
+                    allow_nan=False,
+                    ensure_ascii=True,
+                    separators=(",", ":"),
+                    sort_keys=True,
+                ),
                 output_kind="object_set",
             )
             for node in turn.nodes
@@ -280,7 +415,7 @@ class _Planner:
             "problem_frame_digest": frame.frame_digest,
             "purpose": PURPOSE,
             "caller_role": principal.role.value,
-            "output_node_ids": tuple(node.node_id for node in nodes),
+            "output_node_ids": turn.output_node_ids or tuple(node.node_id for node in nodes),
         }
         wire_nodes = [node.model_dump(mode="json") for node in nodes]
         digest = content_digest(
@@ -375,6 +510,7 @@ def violations(turn: Turn, projection: Mapping[str, Any], done: Mapping[str, Any
         "partial_source_not_consistent": turn.kind == "partial_source"
         and verification["status"] != "consistent",
         "server_authority_not_preserved": answered
+        and turn.kind not in {"multi_source_authority"}
         and (verification["authority"], done["source"]) != (turn.authority.value,) * 2,
     }
     return [name for name, failed in checks.items() if failed]
@@ -395,7 +531,7 @@ def test_generated_turn_stream_covers_every_kind_locale_and_failure_mode() -> No
     assert len(turns) == TURNS
     partitions = [turns[partition::PARTITIONS] for partition in range(PARTITIONS)]
     assert sorted(turn.index for part in partitions for turn in part) == list(range(TURNS))
-    assert set(kinds) == set(EXPECTED) and min(kinds.values()) >= 40
+    assert set(kinds) == BASE_GENERATED_KINDS and min(kinds.values()) >= 40
     assert Counter(turn.locale for turn in turns) == Counter({"en": TURNS // 2, "ko": TURNS // 2})
     assert held_modes == {"held", "failed"}
 
@@ -409,5 +545,249 @@ async def test_generated_turns_keep_evidence_references_and_manifest_in_parity(
     for turn in generated_turns()[partition::PARTITIONS]:
         projection, done = await pipeline.run(turn)
         failures.update((turn.kind, name) for name in violations(turn, projection, done))
+
+    assert not failures
+
+
+@cache
+def multi_source_turns() -> tuple[Turn, ...]:
+    """Return deterministic multi-authority turns independent of processing order."""
+    rng = seeded(SEED ^ 0xA710)
+    return tuple(generate_multi_source(rng, index) for index in range(TURNS))
+
+
+@cache
+def governed_document_turns() -> tuple[Turn, ...]:
+    """Return deterministic governed-document citation turns."""
+    rng = seeded(SEED ^ 0xD0C5)
+    return tuple(generate_governed_document(rng, index) for index in range(TURNS))
+
+
+def _authority_receipts(
+    projection: Mapping[str, Any],
+) -> dict[str, tuple[str, ...]]:
+    goals = projection["semantic_result"]["intent_graph_evidence"]["goals"]
+    return {
+        goal["authority"]: tuple(goal.get("evidence_refs", ()))
+        for goal in goals
+        if goal.get("status") == "completed" and goal.get("authority")
+    }
+
+
+@pytest.mark.parametrize("partition", range(PARTITIONS))
+async def test_multi_source_authority_answers_keep_each_authority_receipted(
+    partition: int,
+) -> None:
+    pipeline = Pipeline()
+    failures: Counter[tuple[str, str]] = Counter()
+    for turn in multi_source_turns()[partition::PARTITIONS]:
+        projection, done = await pipeline.run(turn)
+        failures.update((turn.kind, name) for name in violations(turn, projection, done))
+        receipts = _authority_receipts(projection)
+        verification = done["verification"]
+        source_verifications = verification.get("source_verifications", [])
+        source_authorities = {
+            item.get("authority") for item in source_verifications if isinstance(item, Mapping)
+        }
+        checks = {
+            "multi_source_not_declared": verification["authority"]
+            != "multiple_authoritative_sources",
+            "inventory_authority_missing": EvidenceAuthority.SERVER_INVENTORY_GRAPH.value
+            not in receipts,
+            "health_authority_missing": EvidenceAuthority.SERVER_RESOURCE_HEALTH.value
+            not in receipts,
+            "inventory_receipt_substituted": not set(
+                receipts[EvidenceAuthority.SERVER_INVENTORY_GRAPH.value]
+            )
+            <= set(turn.manifest),
+            "health_receipt_substituted": not set(
+                receipts[EvidenceAuthority.SERVER_RESOURCE_HEALTH.value]
+            )
+            <= set(turn.manifest),
+            "source_verifications_not_authority_scoped": source_authorities
+            != {
+                EvidenceAuthority.SERVER_INVENTORY_GRAPH.value,
+                EvidenceAuthority.SERVER_RESOURCE_HEALTH.value,
+            },
+        }
+        failures.update((turn.kind, name) for name, failed in checks.items() if failed)
+
+    assert not failures
+
+
+def _pantheon_assurance(index: int) -> dict[str, object]:
+    trace_digest = "a" * 64 if index % 2 == 0 else "b" * 64
+    prompt_digest = "c" * 64 if index % 2 == 0 else "d" * 64
+    return {
+        "schema_version": "1.0.0",
+        "answer": f"Bounded Pantheon assurance answer {index}.",
+        "answer_generation": {
+            "mode": "agent_projection",
+            "model_identity": None,
+            "model_family": None,
+        },
+        "pantheon_evaluator_models": [],
+        "assessment_id": f"conversation-assessment:{index}",
+        "assessment_state": "completed",
+        "assessment_reasons": ["deterministic_seeded_consensus"],
+        "trace_receipt_id": f"trace-receipt-{index}",
+        "pantheon_trace": {"receipt_digest": trace_digest, "latency_ms": index % 97},
+        "pantheon_observations": {"read_only": True, "case_index": index},
+        "pantheon_semantic_reviews": [],
+        "pantheon_prompt_profiles": {
+            "answer_participants": [
+                {
+                    "agent": "Odin",
+                    "prompt_version": "odin-v1",
+                    "system_text_sha256": prompt_digest,
+                    "situation": "audience=operator;phase=direct;tier=T1;locale=en",
+                }
+            ],
+            "evaluator_profiles": [],
+        },
+        "pantheon_diagnostic": {
+            "score": 30,
+            "verdict": "passed",
+            "case_index": index,
+        },
+        "execution_authority": False,
+    }
+
+
+class _PantheonRuntime:
+    async def evaluate(self, request: object, *, case_id: str) -> Mapping[str, object]:
+        del request
+        return _pantheon_assurance(int(case_id.removeprefix("case-")))
+
+
+class PantheonPipeline:
+    """Core Pantheon assurance processor path plus Operator ingest and presentation."""
+
+    def __init__(self) -> None:
+        self._builder = SemanticTurnEnvelopeBuilder(clock=lambda: NOW)
+        self._processor = SemanticTurnProcessor(
+            runtime=None,
+            results=_Results(),
+            pantheon_assurance=cast(Any, _PantheonRuntime()),
+            now=lambda: NOW,
+        )
+        self._consumer = SemanticTurnProjectionConsumer(cast(Any, _OperatorStore()))
+
+    async def run(self, index: int) -> tuple[dict[str, Any], dict[str, Any]]:
+        envelope = self._builder.build(
+            ConversationProposal(
+                operation="chat.stream",
+                scope=PrincipalScope("operator-1", frozenset({"Reader"})),
+                idempotency_key=f"pantheon-parity-{index}",
+                body={
+                    "prompt": "Run bounded Pantheon assurance.",
+                    "conversation_id": f"pantheon-conversation-{index}",
+                    "turn_sequence": 1,
+                    "locale": "en",
+                    "purpose": f"conversation-assurance:case-{index}",
+                },
+            )
+        )
+        wire = await self._processor.process(envelope)
+        stored = await self._consumer.consume(json.loads(wire))
+        done = semantic_done_event_data(stored.data, locale="en")
+        return dict(stored.data), json.loads(json.dumps(done, ensure_ascii=False))
+
+
+@pytest.mark.parametrize("partition", range(PARTITIONS))
+async def test_pantheon_assurance_traces_keep_core_operator_commitments(
+    partition: int,
+) -> None:
+    pipeline = PantheonPipeline()
+    failures: Counter[tuple[int, str]] = Counter()
+    for index in range(partition, TURNS, PARTITIONS):
+        projection, done = await pipeline.run(index)
+        payload = cast(Mapping[str, object], projection["payload"])
+        assurance = cast(Mapping[str, object], payload["pantheon_assurance"])
+        checks = {
+            "request_kind_not_pantheon": payload.get("request_kind")
+            != PANTHEON_ASSURANCE_REQUEST_KIND,
+            "evidence_digest_not_recomputable": projection["evidence_digest"]
+            != semantic_projection_evidence_digest(projection),
+            "projection_id_not_recomputable": projection["projection_id"]
+            != semantic_projection_id(projection),
+            "pantheon_digest_not_recomputable": projection["evidence_digest"]
+            != pantheon_assurance_evidence_digest(assurance),
+            "trace_receipt_substituted": done.get("trace_receipt_id")
+            != assurance["trace_receipt_id"],
+            "diagnostic_substituted": done.get("pantheon_diagnostic")
+            != assurance["pantheon_diagnostic"],
+            "answer_substituted": done.get("answer") != assurance["answer"],
+            "execution_authority_granted": done.get("execution_authority") is not False,
+        }
+        failures.update((index, name) for name, failed in checks.items() if failed)
+
+    assert not failures
+
+
+def _fallback_evidence_refs(text: str) -> tuple[str, ...]:
+    marker = "\n\nEvidence:\n"
+    if marker not in text:
+        return ()
+    evidence = text.split(marker, 1)[1].split("\n\nAuthority:", 1)[0]
+    if evidence == "- none recorded":
+        return ()
+    return tuple(line.removeprefix("- ") for line in evidence.splitlines())
+
+
+@pytest.mark.parametrize("partition", range(PARTITIONS))
+async def test_channel_adapters_render_exact_terminal_manifest_without_extra_citations(
+    partition: int,
+) -> None:
+    pipeline = Pipeline()
+    slack = SlackPresentationRenderer()
+    teams = TeamsPresentationRenderer()
+    failures: Counter[tuple[str, str]] = Counter()
+    for turn in generated_turns()[partition::PARTITIONS]:
+        projection, done = await pipeline.run(turn)
+        failures.update((turn.kind, name) for name in violations(turn, projection, done))
+        envelope = normalize_terminal_presentation(done)
+        slack_payload = slack.render(envelope)
+        teams_payload = teams.render(envelope)
+        checks = {
+            "channel_envelope_manifest_differs": envelope.evidence_refs != turn.manifest,
+            "slack_manifest_differs": _fallback_evidence_refs(slack_payload.fallback_text)
+            != turn.manifest,
+            "teams_manifest_differs": _fallback_evidence_refs(teams_payload.fallback_text)
+            != turn.manifest,
+            "slack_payload_omitted_mandatory_refs": not all(
+                ref in json.dumps(slack_payload.body, ensure_ascii=False) for ref in turn.manifest
+            ),
+            "teams_payload_omitted_mandatory_refs": not all(
+                ref in json.dumps(teams_payload.body, ensure_ascii=False) for ref in turn.manifest
+            ),
+        }
+        failures.update((turn.kind, name) for name, failed in checks.items() if failed)
+
+    assert not failures
+
+
+@pytest.mark.parametrize("partition", range(PARTITIONS))
+async def test_governed_document_citations_resolve_to_manifest_and_receipts(
+    partition: int,
+) -> None:
+    pipeline = Pipeline()
+    failures: Counter[tuple[str, str]] = Counter()
+    for turn in governed_document_turns()[partition::PARTITIONS]:
+        projection, done = await pipeline.run(turn)
+        failures.update((turn.kind, name) for name in violations(turn, projection, done))
+        answer = done["answer"]
+        cited_refs = tuple(ref for ref in turn.manifest if f"`{ref}`" in answer)
+        receipts = _authority_receipts(projection)
+        checks = {
+            "governed_document_authority_missing": done["verification"]["authority"]
+            != EvidenceAuthority.SERVER_GOVERNED_DOCUMENT.value,
+            "citation_not_rendered": cited_refs != turn.manifest,
+            "governed_receipt_missing": receipts.get(
+                EvidenceAuthority.SERVER_GOVERNED_DOCUMENT.value
+            )
+            != turn.manifest,
+        }
+        failures.update((turn.kind, name) for name, failed in checks.items() if failed)
 
     assert not failures
