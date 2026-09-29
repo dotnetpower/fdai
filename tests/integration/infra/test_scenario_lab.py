@@ -971,11 +971,13 @@ def test_runner_scripts_fail_before_external_commands_without_authority() -> Non
 def test_catalog_drivers_refuse_live_runs_without_governed_bindings(
     driver: str,
     reason: str,
+    tmp_path: Path,
 ) -> None:
     script = REPO_ROOT / "scripts" / "catalog" / driver
+    # The refusal report is written under the working directory, so keep it out of the checkout.
     result = subprocess.run(  # noqa: S603 - fixed repository script and interpreter.
         [sys.executable, str(script), "--scenario", "aks-pod-kill", "--confirm-enforce"],
-        cwd=REPO_ROOT,
+        cwd=tmp_path,
         capture_output=True,
         text=True,
         check=False,
