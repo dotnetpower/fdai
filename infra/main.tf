@@ -495,7 +495,8 @@ locals {
   )
   scheduler_job_enabled = (
     var.vm_task_enabled ||
-    var.scheduler_tick_cron_expression != ""
+    var.scheduler_tick_cron_expression != "" ||
+    var.automation_blueprint_cron_expression != ""
   )
 }
 
@@ -2854,6 +2855,7 @@ module "compute" {
     ? "* * * * *"
     : var.scheduler_tick_cron_expression
   )
+  automation_blueprint_cron_expression = var.automation_blueprint_cron_expression
 
   tags = local.tags
 

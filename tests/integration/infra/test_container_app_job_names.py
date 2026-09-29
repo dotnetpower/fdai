@@ -8,6 +8,7 @@ _ROOT = Path(__file__).resolve().parents[3]
 _MODULE = _ROOT / "infra/modules/compute/container-apps"
 _SUFFIXES = {
     "analyzer": "analyzer",
+    "blueprint": "blueprint",
     "canary": "canary",
     "forecast": "forecast",
     "inventory": "inventory",
@@ -55,6 +56,7 @@ def test_every_environment_emits_bounded_job_names() -> None:
 def test_terraform_resources_use_the_shared_bounded_name_map() -> None:
     for key, filename in (
         ("analyzer", "analyzer_tick_job.tf"),
+        ("blueprint", "automation_blueprint_job.tf"),
         ("canary", "canary_job.tf"),
         ("forecast", "forecast_tick_job.tf"),
         ("inventory", "inventory_job.tf"),

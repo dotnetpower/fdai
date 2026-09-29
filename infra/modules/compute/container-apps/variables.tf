@@ -723,6 +723,12 @@ variable "scheduler_cron_expression" {
   default     = ""
 }
 
+variable "automation_blueprint_cron_expression" {
+  description = "Cron for the automation blueprint tick Container Apps Job that suggests inert candidates and applies queued review proposals. Empty string disables the job (default)."
+  type        = string
+  default     = ""
+}
+
 
 # ---------------------------------------------------------------------------
 # Analyzer tick job - drives the reference threshold analyzers
