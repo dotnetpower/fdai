@@ -57,7 +57,7 @@ _SERVER_EVENT_KEYS = frozenset(
     }
 )
 _SERVER_EVENT_LIST_KEYS = frozenset(
-    {"failed_preconditions", "route_keys", "temporal_keys", "uncovered_keys"}
+    {"failed_preconditions", "route_keys", "temporal_keys", "uncovered_keys", "uncovered_roles"}
 )
 _MODEL_EVENT_KEYS = frozenset(
     {"family", "operation", "output_shape", "primary_intent", "social_act", "target_kind"}
@@ -163,7 +163,11 @@ def semantic_decision_steps(
     graph = semantic_result.get("intent_graph")
     if isinstance(graph, Mapping):
         trace.add_intent_graph(graph)
-    trace.add_outcome(semantic_result, dropped + max(0, len(events) - _MAX_EVENT_STEPS))
+    trace.add_outcome(
+        semantic_result,
+        dropped + max(0, len(events) - _MAX_EVENT_STEPS),
+        planning=(turn.planning_disposition, turn.planning_reason),
+    )
     return trace.steps, trace.cues
 
 
@@ -400,7 +404,13 @@ class _TraceBuilder:
             }
         )
 
-    def add_outcome(self, semantic_result: Mapping[str, Any], dropped_events: int) -> None:
+    def add_outcome(
+        self,
+        semantic_result: Mapping[str, Any],
+        dropped_events: int,
+        *,
+        planning: tuple[object, object] = (None, None),
+    ) -> None:
         index = len(self.steps)
         disposition = _server_token(semantic_result.get("disposition"))
         reason_code = _server_token(semantic_result.get("reason_code"))
@@ -408,6 +418,8 @@ class _TraceBuilder:
             "route": _server_token(semantic_result.get("semantic_route")),
             "disposition": disposition,
             "reason_code": reason_code,
+            "planning_disposition": _server_token(planning[0]),
+            "planning_reason": _server_token(planning[1]),
             "checks_completed": _count(semantic_result.get("checks_completed")),
             "checks_total": _count(semantic_result.get("checks_total")),
             "plan_bound": semantic_result.get("plan_digest") is not None,

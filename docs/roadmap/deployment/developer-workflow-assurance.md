@@ -131,6 +131,10 @@ The planner already emits structured decision events for judgment retries, rejec
 unresolved target spans, T2 escalation, recovery, grounding, and the selected plan source. The
 semantic turn consumer binds one bounded collector to each turn, and a logging handler that exists
 only in the enabled channel copies those events into it. Each event keeps only allowlisted fields.
+A rejected judgment event names the closed constraint roles, such as `times` or `restricts`, that
+the independent constraint reading found uncovered. The outcome step also keeps the planner's own
+disposition and reason code, because the public projection can reduce several planner reasons to
+one generic hold.
 
 A trace keeps only typed machine values:
 

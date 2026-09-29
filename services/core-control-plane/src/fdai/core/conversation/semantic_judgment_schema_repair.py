@@ -196,7 +196,7 @@ def log_rejection(
 ) -> None:
     """Log only bounded schema metadata and allowlisted fixed contract reasons."""
 
-    rejection: dict[str, str] = {"failure_type": type(exc).__name__}
+    rejection: dict[str, object] = {"failure_type": type(exc).__name__}
     if isinstance(exc, ValidationError):
         # Repair feedback may quote the utterance; logs keep only its bounded metadata.
         rejection["validation_reason"] = json.dumps(
@@ -209,6 +209,10 @@ def log_rejection(
         )
     elif str(exc) in _SAFE_REJECTION_REASONS:
         rejection["reason"] = str(exc)
+    roles = getattr(exc, "roles", ())
+    if roles:
+        # Closed constraint roles only; the uncovered quotes stay out of logs.
+        rejection["uncovered_roles"] = list(roles)
     logger.warning("semantic_judgment_proposal_rejected", extra=rejection)
 
 

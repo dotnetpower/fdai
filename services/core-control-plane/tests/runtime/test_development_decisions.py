@@ -4,6 +4,7 @@ import json
 import logging
 from collections.abc import Iterator
 from dataclasses import dataclass, field
+from types import SimpleNamespace
 from typing import Any
 
 import pytest
@@ -187,7 +188,14 @@ def _record_turn() -> None:
             },
         )
         _PLANNER.info("semantic_plan_rejected", extra={"validation_reason": "rg-fdai-dev-krc"})
-        record_decision_observations(_observations())
+        _PLANNER.warning(
+            "semantic_judgment_proposal_rejected",
+            extra={"failure_type": "UncoveredConstraintError", "uncovered_roles": ["times"]},
+        )
+        record_decision_observations(
+            _observations(),
+            SimpleNamespace(disposition=SimpleNamespace(value="planned"), reason="plan_verified"),
+        )
         projection = {"semantic_result": _semantic_result()}
         observe_semantic_decision(projection)
         observe_semantic_decision(projection)
@@ -213,6 +221,7 @@ def test_a_turn_records_one_content_free_trace_with_step_bound_cues() -> None:
         "event.semantic_judgment_proposal_retry",
         "event.semantic_planning_stage_completed",
         "event.semantic_plan_rejected",
+        "event.semantic_judgment_proposal_rejected",
         "intent_graph",
         "outcome",
     ]
@@ -232,17 +241,27 @@ def test_a_turn_records_one_content_free_trace_with_step_bound_cues() -> None:
         "stage": "plan_verify",
     }
     assert trace.steps[5].attributes == {"validation_reason": "~"}
-    graph = trace.steps[6].attributes
+    assert trace.steps[6].attributes == {
+        "failure_type": "UncoveredConstraintError",
+        "uncovered_roles": ("times",),
+    }
+    graph = trace.steps[7].attributes
     assert graph["predicates"] == (
         "name:equals",
         "type:equals:compute.container-app",
         "type:equals",
+    )
+    outcome = trace.steps[-1].attributes
+    assert (outcome["planning_disposition"], outcome["planning_reason"]) == (
+        "planned",
+        "plan_verified",
     )
     cues = {(cue.code, trace.steps[cue.step].stage) for cue in trace.cues}
     assert cues == {
         ("unreviewed_model_token", "judgment"),
         ("judgment_retry", "event.semantic_judgment_proposal_retry"),
         ("plan_rejected", "event.semantic_plan_rejected"),
+        ("judgment_rejected", "event.semantic_judgment_proposal_rejected"),
         ("preflight_target_uncovered", "preflight"),
         ("partial_answer", "outcome"),
         ("evidence_incomplete", "outcome"),

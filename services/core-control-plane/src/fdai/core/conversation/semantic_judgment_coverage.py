@@ -61,7 +61,8 @@ class UncoveredConstraintError(ValueError):
 
     ``location`` names each code-point span, ``quote`` repeats the exact words there,
     and ``required`` lists every constraint to keep; all are words of the judged
-    utterance, so they add no new input.
+    utterance, so they add no new input. ``roles`` names the closed constraint roles
+    left uncovered, which diagnostics may record without any utterance text.
     """
 
     def __init__(
@@ -70,9 +71,11 @@ class UncoveredConstraintError(ValueError):
         *,
         utterance: str,
         required: tuple[SourceSpan, ...] = (),
+        roles: tuple[str, ...] = (),
     ) -> None:
         super().__init__(UNCOVERED_CONSTRAINT_REASON)
         self.spans = spans
+        self.roles = roles
         self.location = ",".join(f"utterance[{span.start}:{span.end}]" for span in spans)
         self.quote = " | ".join(utterance[span.start : span.end] for span in spans)
         self.required = " | ".join(utterance[span.start : span.end] for span in required)
@@ -101,7 +104,14 @@ class JudgmentCoverage:
                 for item in extraction.constraints
                 if item.role in HARD_ROLES or item.role is ConstraintRole.NAMES
             )
-            raise UncoveredConstraintError(uncovered, utterance=self.utterance, required=required)
+            roles = tuple(
+                sorted(
+                    {item.role.value for item in extraction.constraints if item.quote in uncovered}
+                )
+            )
+            raise UncoveredConstraintError(
+                uncovered, utterance=self.utterance, required=required, roles=roles
+            )
 
     def reading(self) -> ConstraintExtraction | None:
         """Return the located blind reading, or ``None`` when it cannot review."""

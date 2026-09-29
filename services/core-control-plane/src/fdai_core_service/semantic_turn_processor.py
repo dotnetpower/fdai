@@ -1792,7 +1792,7 @@ def _semantic_model_extensions(
         Sequence[_ObservedModelCall],
         getattr(result.planning, "model_observations", ()),
     )
-    record_decision_observations(observations)
+    record_decision_observations(observations, getattr(result, "planning", None))
     social_act = getattr(result.planning, "social_act", None)
     social_act_value = getattr(social_act, "value", None)
     if not observations and not isinstance(social_act_value, str):

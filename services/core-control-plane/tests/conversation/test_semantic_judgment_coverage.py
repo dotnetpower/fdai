@@ -567,3 +567,41 @@ def test_one_span_copied_as_two_kinds_is_repaired() -> None:
     assert result.proposal is not None
     assert [target.kind for target in result.proposal.targets] == ["resource_group"]
     assert model.schema_repairs[1][0]["reason"] == "semantic targets MUST NOT copy one span twice"
+
+
+def test_an_uncovered_constraint_names_only_its_closed_roles_in_the_rejection_log(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    import logging
+
+    from fdai.core.conversation.semantic_judgment_coverage import UncoveredConstraintError
+    from fdai.core.conversation.semantic_judgment_schema_repair import log_rejection
+
+    utterance = "지난 24시간 동안 koreacentral의 VM 목록"
+    coverage = _coverage(
+        utterance,
+        _reading(
+            utterance,
+            ("times", "지난 24시간 동안"),
+            ("restricts", "koreacentral"),
+            ("names", "VM"),
+        ),
+    )
+    proposal = SemanticJudgmentProposal.model_validate(
+        _proposal(
+            primary_intent="query.contextual_resources",
+            targets=[_target(utterance, "resource_type_filter", "VM")],
+            requested_facets=["resource_collection", "list"],
+        )
+    )
+
+    with pytest.raises(UncoveredConstraintError) as raised:
+        coverage.check(proposal)
+    assert raised.value.roles == ("restricts", "times")
+    logger = logging.getLogger("tests.coverage.rejection")
+    with caplog.at_level(logging.WARNING, logger=logger.name):
+        log_rejection(raised.value, validation_reason=(), logger=logger)
+    record = caplog.records[-1]
+    assert record.uncovered_roles == ["restricts", "times"]
+    assert "koreacentral" not in repr(record.__dict__)
+    assert "24" not in str(record.uncovered_roles)

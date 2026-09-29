@@ -32,6 +32,8 @@ class DecisionTurn:
 
     events: list[tuple[str, Mapping[str, object]]] = field(default_factory=list)
     observations: tuple[object, ...] = ()
+    planning_disposition: object = None
+    planning_reason: object = None
     dropped_events: int = 0
     recorded: bool = False
     lock: Lock = field(default_factory=Lock, repr=False)
@@ -90,12 +92,15 @@ def bind_decision_events() -> Iterator[DecisionTurn | None]:
         _TURN.reset(token)
 
 
-def record_decision_observations(observations: Sequence[object]) -> None:
-    """Attach the turn's model-call observations to the bound collector."""
+def record_decision_observations(observations: Sequence[object], planning: object = None) -> None:
+    """Attach the turn's model-call observations and internal planning outcome."""
 
     turn = _TURN.get()
     if turn is not None:
         turn.observations = tuple(observations)
+        disposition = getattr(planning, "disposition", None)
+        turn.planning_disposition = getattr(disposition, "value", disposition)
+        turn.planning_reason = getattr(planning, "reason", None)
 
 
 def current_decision_turn() -> DecisionTurn | None:
