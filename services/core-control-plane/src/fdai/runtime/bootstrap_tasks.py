@@ -83,6 +83,7 @@ class RuntimeTaskConfiguration:
     assignment_intake_consumer: Any = None
     rule_activation_consumer: Any = None
     rule_activation_reconciliation: Any = None
+    post_turn_review_request_consumer: Any = None
     assignment_outcome_consumer: Any = None
     human_access_reconciliation: Any = None
     t1_mini_probe: T1MiniProbe | None = None
@@ -649,6 +650,20 @@ async def run_runtime_tasks(
         if config.rule_activation_reconciliation is not None
         else None
     )
+    post_turn_review_request_task = (
+        asyncio.create_task(
+            config.readiness.run_when_ready(
+                config.stop,
+                lambda: config.post_turn_review_request_consumer.run(
+                    bus=config.bus,
+                    stop=config.stop,
+                ),
+            ),
+            name="post-turn-review-request-intake",
+        )
+        if config.post_turn_review_request_consumer is not None
+        else None
+    )
     ontology_index_task = schedule_ontology_index_reconciliation(
         binding=config.ontology_index_runtime,
         runtime=config.pantheon_runtime,
@@ -721,6 +736,7 @@ async def run_runtime_tasks(
             assignment_intake_task,
             rule_activation_task,
             rule_activation_reconciliation_task,
+            post_turn_review_request_task,
             *assurance_twin_writer_tasks,
             *assurance_twin_tasks,
         ),

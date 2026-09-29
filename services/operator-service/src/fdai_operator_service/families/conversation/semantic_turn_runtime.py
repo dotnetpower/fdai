@@ -16,6 +16,7 @@ from uuid import UUID, uuid5
 
 from fdai_operator_service.adaptive_relationship import AdaptiveRelationshipResolution
 from fdai_operator_service.contract_codecs import CORE_PROJECTION_CONSUMER_V17
+from fdai_operator_service.families.conversation import post_turn_review as ptrq
 from fdai_operator_service.families.conversation.contracts import (
     ConversationBoundaryError,
     ConversationEventStream,
@@ -642,6 +643,7 @@ class SemanticTurnProjectionConsumer:
     """Validate v1.2 result codecs and persist principal-scoped terminal projections."""
 
     store: SemanticTurnStore
+    post_turn_reviews: ptrq.NonBlockingPostTurnReviewQueue | None = None
 
     async def consume(self, payload: Mapping[str, object]) -> StoredSemanticResult:
         """Reject malformed, evidence-incomplete, or uncommitted Core results before projection.
@@ -677,6 +679,7 @@ class SemanticTurnProjectionConsumer:
             TestContextDraft.model_validate(context_draft)
         if decoded.get("status") != result.disposition.value:
             raise ValueError("semantic projection status MUST match result disposition")
+        enqueue_post_turn = result.disposition is SemanticTurnDisposition.ANSWERED
         operational_evidence = extension_payload.get("operational_evidence")
         if operational_evidence is not None:
             if result.disposition is not SemanticTurnDisposition.ANSWERED:
@@ -686,7 +689,10 @@ class SemanticTurnProjectionConsumer:
         rule_search = extension_payload.get("rule_search")
         if rule_search is not None:
             RuleSearchProjection.model_validate(rule_search)
-        return await self.store.project_semantic_turn_result(projection=decoded)
+        stored = await self.store.project_semantic_turn_result(projection=decoded)
+        if enqueue_post_turn and self.post_turn_reviews is not None:
+            self.post_turn_reviews.enqueue_terminal(stored)
+        return stored
 
 
 @dataclass(frozen=True, slots=True)
@@ -831,6 +837,7 @@ class SemanticTurnBridge:
         progress_group: str = SEMANTIC_PROGRESS_GROUP,
         retry_seconds: float = 1.0,
         runtime_call_observer: RuntimeCallEndpointObserver | None = None,
+        post_turn_reviews: ptrq.NonBlockingPostTurnReviewQueue | None = None,
     ) -> None:
         if (publisher is None) != (result_source is None):
             raise ValueError("semantic publisher and result source MUST be bound together")
@@ -846,7 +853,8 @@ class SemanticTurnBridge:
         self._builder = builder or SemanticTurnEnvelopeBuilder()
         self._relationship_resolver = relationship_resolver
         self._acceptance_started = False
-        self._consumer = SemanticTurnProjectionConsumer(store)
+        self._post_turn_reviews = post_turn_reviews
+        self._consumer = SemanticTurnProjectionConsumer(store, post_turn_reviews)
         self._progress_relay = _SemanticProgressRelay()
         self._degraded_workers: set[str] = set()
         self._drainer = (
@@ -999,7 +1007,10 @@ class SemanticTurnBridge:
 
     def workers_ready(self) -> bool:
         """Return whether both configured background workers remain active."""
-        return len(self._tasks) == 2 and all(not task.done() for task in self._tasks)
+        queue_ready = self._post_turn_reviews is None or self._post_turn_reviews.running()
+        return (
+            len(self._tasks) == 2 and queue_ready and all(not task.done() for task in self._tasks)
+        )
 
     def _observe_worker(self, worker: str, succeeded: bool) -> None:
         """Retain content-free worker degradation until that worker succeeds."""
@@ -1014,6 +1025,8 @@ class SemanticTurnBridge:
         self._acceptance_started = True
         if self._tasks or self._drainer is None or self._result_source is None:
             return
+        if self._post_turn_reviews is not None:
+            await self._post_turn_reviews.start()
         self._tasks = (
             asyncio.create_task(self._run_drainer(), name="operator-semantic-outbox"),
             asyncio.create_task(self._run_consumer(), name="operator-semantic-results"),
@@ -1026,6 +1039,8 @@ class SemanticTurnBridge:
             task.cancel()
         if tasks:
             await asyncio.gather(*tasks, return_exceptions=True)
+        if self._post_turn_reviews is not None:
+            await self._post_turn_reviews.aclose()
 
     async def _resolve_relationship(
         self, request: SemanticTurnRequest

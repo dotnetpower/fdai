@@ -47,6 +47,9 @@ from fdai_operator_service.families.conversation.contracts import (
 from fdai_operator_service.families.conversation.document_export import (
     ConversationDocumentExporter,
 )
+from fdai_operator_service.families.conversation.post_turn_review import (
+    NonBlockingPostTurnReviewQueue,
+)
 from fdai_operator_service.families.conversation.semantic_turn import SemanticTurnEnvelopeBuilder
 from fdai_operator_service.families.conversation.semantic_turn_presentation import (
     semantic_done_event_data,
@@ -103,6 +106,7 @@ from fdai_service_contracts.incident_creation import (
     build_incident_creation_draft,
 )
 from fdai_service_contracts.ontology_query import QueryNodeKind, content_digest
+from fdai_service_contracts.post_turn_review import POST_TURN_REVIEW_REQUEST_TOPIC
 from fdai_service_contracts.semantic_projection import (
     SEMANTIC_QUERY_REQUEST_KIND,
     semantic_projection_evidence_digest,
@@ -745,13 +749,14 @@ def test_semantic_envelope_rejects_partial_incident_context(
 
 
 class _MemorySemanticStore:
-    def __init__(self) -> None:
+    def __init__(self, *, share_with_learner: bool = True) -> None:
         self.turns: dict[str, StoredSemanticTurn] = {}
         self.results: dict[str, StoredSemanticResult] = {}
         self.claim: SemanticTurnClaim | None = None
         self.claim_available = False
         self.releases = 0
         self.published = 0
+        self.share_with_learner = share_with_learner
 
     async def append_semantic_turn(
         self,
@@ -828,6 +833,25 @@ class _MemorySemanticStore:
     ) -> StoredSemanticTurn | None:
         stored = self.turns.get(proposal_id)
         return stored if stored is not None and stored.principal_id == principal_id else None
+
+    async def read_semantic_turn_by_request_id(
+        self,
+        *,
+        principal_id: str,
+        request_id: str,
+    ) -> StoredSemanticTurn | None:
+        return next(
+            (
+                turn
+                for turn in self.turns.values()
+                if turn.principal_id == principal_id and turn.request_id == request_id
+            ),
+            None,
+        )
+
+    async def read_post_turn_review_consent(self, *, principal_id: str) -> bool:
+        del principal_id
+        return self.share_with_learner
 
     async def project_semantic_turn_result(
         self,
@@ -1273,6 +1297,23 @@ class _FailOncePublisher:
         self.calls += 1
         if self.calls == 1:
             raise RuntimeError("transport unavailable")
+        return object()
+
+
+class _ReviewPublisher:
+    def __init__(self, *, fail: bool = False) -> None:
+        self.fail = fail
+        self.messages: list[tuple[str, str, Mapping[str, object]]] = []
+
+    async def publish(
+        self,
+        topic: str,
+        key: str,
+        payload: Mapping[str, object],
+    ) -> object:
+        if self.fail:
+            raise RuntimeError("review transport unavailable")
+        self.messages.append((topic, key, dict(payload)))
         return object()
 
 
@@ -2750,6 +2791,135 @@ async def test_valid_answered_result_projects_idempotently() -> None:
     assert first.duplicate is False
     assert duplicate.duplicate is True
     assert len(store.results) == 1
+
+
+async def test_consented_answered_result_enqueues_one_post_turn_review_input() -> None:
+    store = _MemorySemanticStore(share_with_learner=True)
+    publisher = _ReviewPublisher()
+    queue = NonBlockingPostTurnReviewQueue(source=store, publisher=publisher)
+    envelope = SemanticTurnEnvelopeBuilder(clock=lambda: datetime(2026, 8, 11, tzinfo=UTC)).build(
+        _proposal(body={"prompt": "Use the evidence query for this incident."})
+    )
+    await store.append_semantic_turn(
+        principal_id="operator-1",
+        idempotency_key="turn-retry-1",
+        request_digest="digest",
+        envelope=envelope,
+    )
+    projection = _projection(envelope, disposition="answered", answered_evidence=True)
+    projection["payload"] = {
+        "post_turn_review": {
+            "operator_body": "Use the evidence query for this incident.",
+            "tool_receipts": [
+                {
+                    "tool_name": "query.function",
+                    "status": "success",
+                    "evidence_ref": "evidence-1",
+                }
+            ],
+            "validation_outcomes": ["verified"],
+            "explicit_corrections": ["Use the incident-scoped query next time."],
+            "failure_recovered": True,
+        }
+    }
+
+    await SemanticTurnProjectionConsumer(store, queue).consume(_committed(projection))
+
+    assert queue.snapshot.enqueued == 1
+    assert publisher.messages == []
+    assert await queue.drain_once() is True
+    assert queue.snapshot.published == 1
+    [(topic, key, payload)] = publisher.messages
+    review = cast(Mapping[str, object], payload["review"])
+    assert topic == POST_TURN_REVIEW_REQUEST_TOPIC
+    assert key == f"operator-post-turn-review:{review['review_id']}"
+    assert "producer_principal" not in payload
+    assert payload["kind"] == "post_turn_review_request"
+    assert review["operator_body"] == "Use the evidence query for this incident."
+    assert review["assistant_body"] == "Semantic result: answered"
+    assert review["failure_recovered"] is True
+
+
+@pytest.mark.parametrize(
+    ("share_with_learner", "disposition", "answered_evidence"),
+    [
+        (False, "answered", True),
+        (True, "held", False),
+    ],
+)
+async def test_nonconsented_or_incomplete_turn_enqueues_no_post_turn_review_input(
+    share_with_learner: bool,
+    disposition: str,
+    answered_evidence: bool,
+) -> None:
+    store = _MemorySemanticStore(share_with_learner=share_with_learner)
+    publisher = _ReviewPublisher()
+    queue = NonBlockingPostTurnReviewQueue(source=store, publisher=publisher)
+    envelope = SemanticTurnEnvelopeBuilder(clock=lambda: datetime(2026, 8, 11, tzinfo=UTC)).build(
+        _proposal()
+    )
+    await store.append_semantic_turn(
+        principal_id="operator-1",
+        idempotency_key="turn-retry-1",
+        request_digest="digest",
+        envelope=envelope,
+    )
+
+    await SemanticTurnProjectionConsumer(store, queue).consume(
+        _projection(envelope, disposition=disposition, answered_evidence=answered_evidence)
+    )
+
+    assert queue.snapshot.enqueued == (1 if disposition == "answered" else 0)
+    assert await queue.drain_once() is (disposition == "answered")
+    assert publisher.messages == []
+    assert queue.snapshot.skipped == (1 if disposition == "answered" else 0)
+
+
+async def test_post_turn_queue_publish_failure_never_fails_terminal_projection() -> None:
+    store = _MemorySemanticStore(share_with_learner=True)
+    queue = NonBlockingPostTurnReviewQueue(source=store, publisher=_ReviewPublisher(fail=True))
+    envelope = SemanticTurnEnvelopeBuilder(clock=lambda: datetime(2026, 8, 11, tzinfo=UTC)).build(
+        _proposal()
+    )
+    await store.append_semantic_turn(
+        principal_id="operator-1",
+        idempotency_key="turn-retry-1",
+        request_digest="digest",
+        envelope=envelope,
+    )
+
+    stored = await SemanticTurnProjectionConsumer(store, queue).consume(
+        _projection(envelope, disposition="answered", answered_evidence=True)
+    )
+
+    assert stored.request_id == envelope["request_id"]
+    assert await queue.drain_once() is True
+    assert queue.snapshot.failed == 1
+
+
+async def test_duplicate_terminal_projection_publishes_one_post_turn_review_request() -> None:
+    store = _MemorySemanticStore(share_with_learner=True)
+    publisher = _ReviewPublisher()
+    queue = NonBlockingPostTurnReviewQueue(source=store, publisher=publisher)
+    envelope = SemanticTurnEnvelopeBuilder(clock=lambda: datetime(2026, 8, 11, tzinfo=UTC)).build(
+        _proposal()
+    )
+    await store.append_semantic_turn(
+        principal_id="operator-1",
+        idempotency_key="turn-retry-1",
+        request_digest="digest",
+        envelope=envelope,
+    )
+    projection = _projection(envelope, disposition="answered", answered_evidence=True)
+    consumer = SemanticTurnProjectionConsumer(store, queue)
+
+    await consumer.consume(projection)
+    await consumer.consume(projection)
+    await queue.drain_once()
+
+    assert len(publisher.messages) == 1
+    assert queue.snapshot.enqueued == 1
+    assert queue.snapshot.skipped == 1
 
 
 @pytest.mark.parametrize(
