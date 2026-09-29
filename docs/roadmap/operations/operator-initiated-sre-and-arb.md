@@ -44,7 +44,9 @@ principal-owned projection, then publishes a versioned `IncidentCreationRequest`
 durable outbox and `ActionConfirmationBridge` to a dedicated logical topic. Core consumes the
 request through `IncidentLifecycleWorkflow`; it does not route this record operation through Thor
 or depend on an ActionType promotion mode. The process-local `OperatorProposalDispatcher` remains
-a focused coordinator test seam. Core supervises Incident creation and approval expiry as
+a focused coordinator test seam. Semantic turn processing may schedule context-selection shadow
+comparison for prior turns before the runtime call, but that comparison is evidence-only and does not
+change the Incident draft, confirmation path, or lifecycle owner. Core supervises Incident creation and approval expiry as
 independent runtime tasks. An Incident transport outage cannot stop expired approval parks from
 converging to audited no-op outcomes, and expiry reconciliation cannot create an Incident.
 

@@ -1,6 +1,6 @@
 ---
 translation_of: continuous-operational-instance-graph.md
-translation_source_sha: cdbb63b30d45f751dc9cb4e14f81888d1d165811
+translation_source_sha: 94e27b47865529b690bbb6b1beda58d9220d8d7b
 translation_revised: 2026-09-29
 ---
 # 지속형 운영 인스턴스 그래프
@@ -67,7 +67,7 @@ Azure CLI로 대체하지 않습니다. 로컬 자격 증명 정책은 그대로
   호출하므로 두 영속성 경로의 보존 근거가 달라지지 않습니다.
 - **그래프 우선:** 일반 질문은 공급자 API보다 먼저 현재 운영 그래프를 읽습니다. 필요한 근거가 누락되거나 오래되거나 불완전하거나 충돌하거나, 범위가 제한된 조회 정책에 따라 명시적으로 요청된 경우에만 실시간 공급자 조회를 허용합니다. 모든 일반 의미 새로 고침 평가는 완전, 불완전, 오래됨, 충돌, 사용 불가 상태와 결정론적인 무권한 결정을 표준 감사 체인에 추가합니다. 정확한 revision 인증 작업은 같은 범위가 좁은 변환 Protocol을 제공해 이 정책을 실행할 수 있지만 조립, 관측, 변경 또는 실행 권한을 얻지 않습니다.
   생성된 질문은행은 모든 원본 blob 다이제스트를 결속하므로 원본 카탈로그가 바뀌면 전체를 결정론적으로 다시 생성해야 하며, 변경되지 않은 질문 레코드는 그래프 최신성, 완전성 또는 실행 권한을 부여하지 않습니다. 현지화된 Service Health 표시는 보존된 machine 값을 변경하지 않고 검토된 이벤트 메타데이터와 원본 완전성을 표시어로 변환하며, 공급자 권고 제목은 원문 그대로 유지합니다.
-  비공개 AKS assurance 문구는 명시적으로 요청한 Azure CLI 목록에서 시작할 수 있지만 target admission에는 exact active-inventory provider reference와 검토된 `workload_runs_on` 및 `implemented_by` 경로가 필요합니다. CLI 이름은 그래프 fact를 만들거나 최신성을 입증하지 않습니다.
+  비공개 AKS assurance 문구는 명시적으로 요청한 Azure CLI 목록에서 시작할 수 있지만 target admission에는 exact active-inventory provider reference와 검토된 `workload_runs_on` 및 `implemented_by` 경로가 필요합니다. CLI 이름은 그래프 fact를 만들거나 최신성을 입증하지 않습니다. 의미 턴 컨텍스트 선택 shadow 비교는 정책 근거로 공유 StateStore에 영속될 수 있지만, 이 기록은 프롬프트 선택 근거일 뿐 그래프 사실, 최신성 또는 완전성을 만들지 않습니다.
 - **안전한 보강:** 실시간 조회는 현재 답변을 지원할 수 있으며 같은 ingress를 통해 타입이
   지정된 관측을 게시합니다. 부분 조회는 완전한 세대를 대체하거나 관측하지 않은 객체 또는
   관계를 삭제할 수 없습니다. 요청한 리소스 유형만 포함하는 스냅샷은 전역 인벤토리 세대로 승격할 수 없습니다. 정확한 revision 인증은 해당 인증 작업이 소유하는 격리 저장소 안에서만 이 범위가 제한된 스냅샷을 승격할 수 있습니다. 인증 증적은 관측 권한이나 작업 권한을 갖지 않으며 정확한 정리 절차가 저장소를 제거합니다. 런타임 환경 바인딩은 메모리 안에서 정확한 신원으로 관계를

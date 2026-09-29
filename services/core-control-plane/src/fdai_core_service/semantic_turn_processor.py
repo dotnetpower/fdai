@@ -102,6 +102,7 @@ from .semantic_answer_presentation import (
     readable_timestamp,
 )
 from .semantic_assurance_projection import project_semantic_assurance
+from .semantic_context_shadow import SemanticContextShadow
 from .semantic_incident_answer import render_incident_answer
 from .semantic_instance_candidates import project_instance_candidates, render_instance_candidates
 from .semantic_logical_service_answer import render_logical_service_current_state_answer
@@ -311,6 +312,7 @@ class SemanticTurnProcessor:
         answer_continuity_enabled: bool = False,
         runtime_settings: RuntimeSettingsReader | None = None,
         runtime_readiness: SemanticRuntimeReadiness | None = None,
+        context_selection_shadow: SemanticContextShadow | None = None,
         now: Callable[[], datetime] | None = None,
     ) -> None:
         if not purpose:
@@ -325,6 +327,7 @@ class SemanticTurnProcessor:
         self._answer_continuity_enabled = answer_continuity_enabled
         self._runtime_settings = runtime_settings
         self._runtime_readiness = runtime_readiness
+        self._context_selection_shadow = context_selection_shadow
         self._now = now or (lambda: datetime.now(UTC))
 
     def bind_pantheon_assurance(self, runtime: PantheonAssuranceRuntime) -> None:
@@ -811,9 +814,17 @@ class SemanticTurnProcessor:
             runtime_kwargs["conversation_model_tier"] = request.conversation_model_tier
         if request.document_context is not None:
             runtime_kwargs["document_context"] = request.document_context
+        prior_turns = _prior_turns(request, requested_at=requested_at)
+        if self._context_selection_shadow is not None:
+            await self._context_selection_shadow.schedule(
+                session_id=request.session_id,
+                principal=principal,
+                utterance=request.utterance,
+                prior_turns=prior_turns,
+            )
         return await runtime.handle(
             utterance=request.utterance,
-            prior_turns=_prior_turns(request, requested_at=requested_at),
+            prior_turns=prior_turns,
             principal=principal,
             locale=request.locale,
             target_agent=request.target_agent,

@@ -269,6 +269,14 @@ Routing it through the Core proposal, risk gate, Var approval, and Thor pipeline
 raw reference-sweep driver was removed, and the detection-latency driver refuses every live run
 until its measurement is ported onto the adapter.
 
+**Detection-latency measurement (decided 2026-09-29).** The governed harness does not poll for the
+expected signal during the fault hold. In-fault polling would add probe traffic to the blast window,
+contend with the stop-condition guard, and change what `detected` means. Latency is instead the
+difference between the injection start and the detector's own authoritative first-observation time
+for the expected signal, read after the hold within the `[injection start, hold end]` window. A
+probe that cannot return that authoritative time reports latency as unknown. It never substitutes
+the hold duration or its own read time, and the `detected` verdict keeps its current meaning.
+
 - **Selection:** `--run` accepts a catalog id or a reference scenario id, and `--run-sweep` selects
   the reference sweep in demo order. `fdai.core.chaos.reference_sweep` maps each reference scenario
   to the `mild` catalog entry that raises the same `expected_signal`, and the catalog entry's

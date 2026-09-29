@@ -1,7 +1,7 @@
 ---
 title: 오퍼레이터 시작 SRE 및 아키텍처 리뷰
 translation_of: operator-initiated-sre-and-arb.md
-translation_source_sha: 45550ba71d06501eeaf25d0da77344c474d665a0
+translation_source_sha: 3e8849dc6394183ef96cc19011ec91256d2c19e8
 translation_revised: 2026-09-29
 ---
 
@@ -48,7 +48,9 @@ FDAI는 모든 작업 단위에 하나의 추적 신원을 사용하고, 근거�
 `IncidentCreationRequest`를 전용 논리 토픽에 게시합니다. Core는
 `IncidentLifecycleWorkflow`로 요청을 소비합니다. 이 레코드 작업은 Thor를 거치거나
 ActionType 승격 모드에 의존하지 않습니다. 프로세스 내부
-`OperatorProposalDispatcher`는 집중 조정기 테스트 경계로 유지합니다. Core는 인시던트
+`OperatorProposalDispatcher`는 집중 조정기 테스트 경계로 유지합니다. 의미 턴 처리는 런타임
+호출 전에 이전 턴에 대한 컨텍스트 선택 shadow 비교를 예약할 수 있지만, 이 비교는 근거 전용이며
+인시던트 초안, 확인 경로 또는 수명 주기 소유자를 바꾸지 않습니다. Core는 인시던트
 생성과 승인 만료를 서로 독립된 런타임 작업으로 감독합니다. 인시던트 전송 장애는 만료된 승인
 대기가 감사되는 무작업 결과로 수렴하는 것을 막을 수 없으며, 만료 수렴 작업은 인시던트를
 생성할 수 없습니다.
