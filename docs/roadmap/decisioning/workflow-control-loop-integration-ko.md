@@ -1,7 +1,7 @@
 ---
 title: Workflow Control-Loop Integration
 translation_of: workflow-control-loop-integration.md
-translation_source_sha: cac4b11f687f3773796ce6bb0d1bc63157c8d499
+translation_source_sha: 13c1aa69cac90a15ed4cd1ec4183d28ddd0d8d1a
 translation_revised: 2026-09-29
 ---
 
@@ -51,6 +51,10 @@ ActionType 승격, risk, HIL, Thor 실행을 계속 통과합니다. 명시적�
 `compensated`로 닫습니다. 디스패처, 검증기, 증적이 없거나 가드가 실패하면 프로세스는
 보류 또는 실패 시 차단됩니다. ARB 같은 control-only 작업 흐름은 리소스
 변경 권한 없이 실제 승인 및 결정 전이를 저장할 수 있습니다.
+강제 적용 액션 단계를 다시 게시하기 전에 경쟁하는 작업 흐름 replica들은 attempt 범위의
+dispatch claim을 짧은 lease와 함께 기록한 뒤 단일 `action.dispatched` 레코드를 기록한다.
+중복 이벤트 전달, claim 만료, restart redelivery는 같은 Process step attempt에 대해 두 번째
+forward dispatch를 만들 수 없다.
 누락, 실패 또는 채점 불가능한 모든 보상 경로는 복구를 미완료로 종료하기 전에 영속 대상
 자동화 hold도 발행합니다. 다시 구성된 ledger는 같은 활성 hold를 읽으며 중복 전달은 원래의
 프로세스, 사유, 개정 번호 또는 감사 항목을 바꾸지 않습니다. Headless control loop는 일반

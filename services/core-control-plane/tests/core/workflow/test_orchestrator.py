@@ -666,7 +666,9 @@ async def test_effect_free_failure_retries_with_distinct_attempt_identity() -> N
     )
     assert retry_event.attempt == 2
     assert retry_event.payload["prior_safeguard_bundle_digests"] == ()
-    assert dispatch_event.payload["proposal_ref"] == "proposal-1"
+    assert dispatch_event.payload["proposal_ref"] == (
+        f"{failed.process_id}:step:auto_step:attempt:2"
+    )
     assert ":attempt:2:" in dispatch_event.idempotency_key
 
 
@@ -745,7 +747,7 @@ async def test_retry_rejects_ambiguous_dispatch_failure_without_local_receipt() 
         mode=Mode.ENFORCE,
     )
 
-    with pytest.raises(WorkflowRetryError, match="effect-free") as error:
+    with pytest.raises(WorkflowRetryError, match="dispatch") as error:
         await orchestrator.retry(
             process_id=failed.process_id,
             workflows={workflow.name: workflow},
@@ -1374,6 +1376,7 @@ async def test_action_step_attempt_is_recorded_in_dispatch_and_journal() -> None
     events = (await process_store.events("p-attempt"))[1:]
     assert [event.kind for event in events] == [
         ProcessEventKind.STEP_STARTED,
+        ProcessEventKind.ACTION_DISPATCH_CLAIMED,
         ProcessEventKind.ACTION_DISPATCHED,
         ProcessEventKind.STEP_WAITING,
     ]

@@ -1,7 +1,7 @@
 ---
 title: 프로세스 자동화(Process Automation)
 translation_of: process-automation.md
-translation_source_sha: c4588203f96fb045eb2bf0ef14c0e3962c498ec0
+translation_source_sha: 029885cb6ab3833e1c5fb244116fe57a7afa8538
 translation_revised: 2026-09-29
 ---
 # 프로세스 자동화(프로세스 자동화)
@@ -295,6 +295,10 @@ creation 이벤트를 다시 읽고 작업 흐름 이름 및 버전과 derived �
 기본값은 `1`입니다. `STEP_STARTED`, `ACTION_DISPATCHED`, 가지, waiting, 완료, 실패,
 최종, 감사 id는 시도를 포함하고 `WorkflowActionDispatcher`는 타입이 지정된 제안 멱등성
 키에 이를 사용합니다. 따라서 두 시도가 하나의 이벤트 또는 제안으로 합쳐지지 않습니다.
+디스패처가 강제 적용 액션을 게시하기 전에 replica들은 먼저 attempt 범위의
+`action.dispatch-claimed` lease를 기록한 뒤 단일 영속 `ACTION_DISPATCHED` 레코드를 기록한다.
+중복 전달, claim 만료, restart redelivery는 stale claimant를 교체할 수 있지만, 저널은 같은
+Process step attempt에 대해 forward dispatch 레코드를 하나만 허용한다.
 
 `POST /workflows/{process_id}/retry`는 `failed` 상태에서 새 시도를 시작하거나 최종 사유가
 `approval_timed_out`인 경우에만 `timed_out` 상태에서 시작하며 본문을 받지 않습니다. 최종

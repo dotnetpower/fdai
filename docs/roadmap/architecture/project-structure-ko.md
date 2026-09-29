@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 92c8315d7995194940c5aac60d5c0048a2b763c5
+translation_source_sha: 7c7e269baa8f050288a2f57eed707aa1f8cf79bf
 translation_revised: 2026-09-29
 ---
 # 프로젝트 구조
@@ -28,6 +28,9 @@ Core는 활성 Rule 세대 교체를 쓰기 전용 장벽 뒤에 두고, 완결�
 대화 영속 처리, 운영 변환 결과와 webhook 처리 및 순수 workflow 카탈로그 렌더링은 각각 목적별
 소유자를 가집니다. 이 분리는 principal 범위, 영속 제안 멱등성, 사용 불가 동작 및 실행기 없음
 경계를 보존합니다.
+Workflow dispatch fencing은 Core의 workflow runtime과 공유 ProcessRuntimeStore 계약 안에 남습니다.
+replica들은 attempt 범위 저널 claim으로 조정하고, 전달 어댑터는 PostgreSQL CAS 및 멱등 replay
+의미를 그 provider 경계 뒤에 유지합니다.
 공유 인증 및 변환 결과 응답 모듈이 구조화된 예외 매핑을 소유하므로, 집계 경로 파사드는 경계
 정규화를 다시 구현하지 않고 처리기를 조립합니다.
 
