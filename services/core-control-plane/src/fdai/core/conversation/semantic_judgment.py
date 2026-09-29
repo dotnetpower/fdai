@@ -241,6 +241,7 @@ class SemanticJudgmentBoundary:
         schema_fallback_proposal: SemanticJudgmentProposal | None = None
         # The schema-repair prompt repairs only a schema-family reading, never another family.
         schema_family_read = False
+        uncovered_seen = False
         review_primary_binding: SemanticJudgmentBinding | None = None
         review_primary_proposal: SemanticJudgmentProposal | None = None
         observations: list[SemanticJudgmentObservation] = []
@@ -375,6 +376,7 @@ class SemanticJudgmentBoundary:
                         coverage.check(proposal)
                 except (TypeError, ValueError, ValidationError) as exc:
                     uncovered = isinstance(exc, coverage_policy.UncoveredConstraintError)
+                    uncovered_seen = uncovered_seen or uncovered
                     recovered_trace = (
                         None
                         if strict_grounding or uncovered
@@ -429,7 +431,8 @@ class SemanticJudgmentBoundary:
                     )
                     final_disposition = SemanticJudgmentDisposition.MALFORMED
                     final_reason = "proposal_invalid"
-                    if uncovered:
+                    # A stated constraint once left uncovered keeps the hold over later failures.
+                    if uncovered_seen:
                         final_reason = coverage_policy.UNCOVERED_CONSTRAINT_CODE
                     if attempt + 1 < _MAX_SCHEMA_ATTEMPTS_PER_BINDING:
                         _LOGGER.info(

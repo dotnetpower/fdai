@@ -369,3 +369,112 @@ def test_a_reviewed_name_filter_facet_without_any_operand_is_dropped() -> None:
         }
     )
     assert settled_proposal(reviewed, named) is named
+
+
+@pytest.mark.parametrize(
+    ("utterance", "targets", "negation"),
+    (
+        (
+            "실행 중인 VM만 보여줘",
+            (("resource_state_filter", "실행 중인"), ("resource_type_filter", "VM")),
+            "만",
+        ),
+        (
+            "list only running VMs",
+            (("resource_state_filter", "running"), ("resource_type_filter", "VMs")),
+            "only",
+        ),
+        (
+            "show VMs that are not running",
+            (("resource_type_filter", "VMs"), ("resource_state_exclusion_filter", "running")),
+            "not",
+        ),
+    ),
+)
+def test_a_negation_word_touching_its_copied_operand_is_covered(
+    utterance: str,
+    targets: tuple[tuple[str, str], ...],
+    negation: str,
+) -> None:
+    extraction = resolve_extraction(_reading(utterance, ("negates", negation)), utterance)
+    assert extraction is not None
+    proposal = SemanticJudgmentProposal.model_validate(
+        _proposal(
+            primary_intent="query.contextual_resources",
+            targets=[_target(utterance, kind, value) for kind, value in targets],
+            requested_facets=["resource_collection", "list"],
+        )
+    )
+
+    assert uncovered_constraint_spans(proposal, extraction, utterance) == ()
+
+
+def test_a_negation_standing_apart_from_every_operand_stays_uncovered() -> None:
+    utterance = "VM 목록, 단 실행 중이 아닌 것"
+    extraction = resolve_extraction(_reading(utterance, ("negates", "아닌")), utterance)
+    assert extraction is not None
+    proposal = SemanticJudgmentProposal.model_validate(
+        _proposal(
+            primary_intent="query.contextual_resources",
+            targets=[_target(utterance, "resource_type_filter", "VM")],
+            requested_facets=["resource_collection", "list"],
+        )
+    )
+
+    assert len(uncovered_constraint_spans(proposal, extraction, utterance)) == 1
+
+
+def test_an_uncovered_constraint_keeps_its_hold_when_later_attempts_fail_otherwise() -> None:
+    listing = _proposal(
+        primary_intent="query.contextual_resources",
+        targets=[_target(_STATE, "resource_type_filter", "VM")],
+        requested_facets=["resource_collection", "list"],
+    )
+    model = _SequenceModel([listing, {"primary_intent": 7}, {"primary_intent": 7}])
+    coverage = _coverage(_STATE, _reading(_STATE, ("restricts", "실행 중인"), ("names", "VM")))
+
+    result = _boundary(model).judge(
+        utterance=_STATE,
+        context=(),
+        capabilities=({"kind": "function_type", "name": "query.contextual_resources"},),
+        coverage=coverage,
+    )
+
+    assert result.accepted is False
+    assert result.receipt.reason_code == UNCOVERED_CONSTRAINT_CODE
+
+
+def test_rejection_logs_keep_only_bounded_feedback_metadata(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    import logging
+
+    from fdai.core.conversation.semantic_judgment_schema_repair import log_rejection
+    from pydantic import BaseModel, ValidationError
+
+    class _Strict(BaseModel):
+        value: int
+
+    try:
+        _Strict.model_validate({"value": "x"})
+    except ValidationError as exc:
+        error = exc
+    logger = logging.getLogger("coverage-log-test")
+    with caplog.at_level(logging.WARNING, logger="coverage-log-test"):
+        log_rejection(
+            error,
+            validation_reason=(
+                {
+                    "location": "utterance[0:5]",
+                    "type": "value_error",
+                    "reason": "semantic proposal omits a stated constraint",
+                    "quote": "실행 중인",
+                    "required": "실행 중인 | VM",
+                },
+            ),
+            logger=logger,
+        )
+
+    logged = caplog.records[-1].__dict__["validation_reason"]
+    assert "실행" not in logged
+    assert "utterance[0:5]" in logged

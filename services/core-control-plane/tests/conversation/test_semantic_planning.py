@@ -6364,3 +6364,114 @@ def test_typed_state_collection_plans_whatever_state_facet_token_it_carries(
 
     assert outcome.disposition is SemanticPlanningDisposition.PLANNED
     assert outcome.frame is not None and outcome.frame.output_shape == "resource_state_list"
+
+
+def _group_judgment(utterance: str, *members: str) -> SemanticJudgmentProposal:
+    return SemanticJudgmentProposal(
+        primary_intent="query.contextual_resources",
+        targets=(
+            SemanticTarget(
+                kind="resource_group", value="rg-example", source_start=0, source_end=10
+            ),
+            *(
+                SemanticTarget(
+                    kind="resource_type_filter",
+                    value=member,
+                    source_start=utterance.index(member),
+                    source_end=utterance.index(member) + len(member),
+                )
+                for member in members
+            ),
+        ),
+        requested_facets=("resource_collection", "list"),
+        confidence=0.97,
+        ambiguous=False,
+        action_posture="advise_only",
+        action_subject="none",
+        authority="candidate_only",
+        execution_authority=False,
+    )
+
+
+@pytest.mark.parametrize("member", ("프로비저너", "frobnicators"))
+def test_group_membership_with_an_unbound_member_phrase_never_reads_every_resource(
+    member: str,
+) -> None:
+    utterance = f"rg-example의 {member} 목록"
+    manifest, _definition = _typed_fixture(
+        groups=(_RESOURCE_GROUP_GROUP, _VM_GROUP),
+        extra_values=("authorization.role-assignment",),
+        include_parent_id=True,
+    )
+
+    outcome = _service(
+        _Model(frame=None, plan=None),
+        manifest,
+        semantic_judgment=_JudgmentBoundary(_group_judgment(utterance, member)),
+    ).plan(
+        utterance=utterance,
+        prior_turns=(),
+        principal=Principal(id="operator", role=Role.READER),
+        purpose="operations-review",
+    )
+
+    if outcome.plan is not None:
+        anchor = outcome.plan.nodes[0].arguments["definition"]["predicates"]
+        assert {"property": "name", "operator": "equals_ignore_case", "equals": "rg-example"} in (
+            anchor
+        )
+
+
+def test_the_containers_own_kind_word_never_filters_its_members() -> None:
+    utterance = "rg-example 리소스 그룹에는 어떤 리소스가 있어?"
+    manifest, _definition = _typed_fixture(
+        groups=(_RESOURCE_GROUP_GROUP,),
+        extra_values=("authorization.role-assignment",),
+        include_parent_id=True,
+    )
+
+    outcome = _service(
+        _Model(frame=None, plan=None),
+        manifest,
+        semantic_judgment=_JudgmentBoundary(_group_judgment(utterance, "리소스 그룹")),
+    ).plan(
+        utterance=utterance,
+        prior_turns=(),
+        principal=Principal(id="operator", role=Role.READER),
+        purpose="operations-review",
+    )
+
+    assert outcome.disposition is SemanticPlanningDisposition.PLANNED
+    assert outcome.plan is not None
+    _anchor, members = outcome.plan.nodes
+    assert all(
+        item.get("equals") != "resource-group" or item.get("operator") != "equals"
+        for item in members.arguments["endpoint_predicates"]
+    )
+
+
+def test_related_resource_filter_holds_when_the_frame_drops_the_relation_operand() -> None:
+    manifest, definition = _typed_fixture(groups=(_RESOURCE_GROUP_GROUP, _VM_GROUP))
+    model = _Model(
+        frame=_frame(
+            subject_constraints=["Resource"],
+            measure_concepts=["type"],
+            output_shape="property_filtered_resources",
+        ),
+        plan=_plan(definition),
+    )
+    query_language = _inventory_query_language().model_copy(
+        update={"signals": {"resource_name_relation": QueryTerms(terms=("관련",))}}
+    )
+
+    outcome = _service(model, manifest, inventory_query_language=query_language).plan(
+        utterance="FDAI 관련 리소스 그룹이 뭐가 있어?",
+        prior_turns=(),
+        principal=Principal(id="operator", role=Role.READER),
+        purpose="operations-review",
+    )
+
+    assert outcome.disposition is SemanticPlanningDisposition.UNAVAILABLE
+    assert outcome.reason == "semantic_constraint_uncovered"
+    assert outcome.plan is None
+    assert outcome.clarification is None

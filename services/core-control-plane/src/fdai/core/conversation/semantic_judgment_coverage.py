@@ -215,7 +215,13 @@ def uncovered_constraint_spans(
         for constraint in extraction.constraints
         if constraint.role in HARD_ROLES
         and not any(
-            _shares_meaning(utterance, constraint.quote, start, end) for start, end in copied
+            _shares_meaning(utterance, constraint.quote, start, end)
+            # "only", "not", or "만" is quoted alone but binds the operand it touches.
+            or (
+                constraint.role is ConstraintRole.NEGATES
+                and _touches(utterance, constraint.quote, start, end)
+            )
+            for start, end in copied
         )
     )
 

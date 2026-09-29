@@ -186,9 +186,11 @@ def build_stated_value_filter_plan(
     if len(object_types) != 1:
         return None
     object_type = next(iter(object_types))
+    membership = allowed_properties == frozenset({"parent_id"})
+    # A membership frame carries its group first; member subtype phrases never compete with it.
     subject_fragment = stated_subject_fragment(
         utterance,
-        frame.subject_constraints,
+        frame.subject_constraints[:2] if membership else frame.subject_constraints,
         descriptors,
     )
     fragment_property = None
@@ -219,6 +221,9 @@ def build_stated_value_filter_plan(
         )
         if fragment_property is None:
             return None
+    if membership and fragment_property != "parent_id":
+        # Without its exact group a membership frame would read every Resource in scope.
+        return None
     # A name-filtered list frame may narrow by its verbatim fragment alone.
     fragment_only = fragment_property is not None and "name" in frame.measure_concepts
     if not filters and not fragment_only and allowed_properties != frozenset({"parent_id"}):
@@ -324,6 +329,9 @@ def _member_type_values(
         types = bound.get(("Resource", "type"), ())
         if not types:
             return None
+        # The container's own kind word describes the group; groups never contain groups.
+        if set(types) == {_RESOURCE_GROUP_TYPE}:
+            continue
         values.extend(item for item in types if item not in values)
     return tuple(values)
 

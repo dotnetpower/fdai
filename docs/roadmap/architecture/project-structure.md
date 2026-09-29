@@ -109,7 +109,8 @@ loop rewrites it when its snapshot or freshness changes, only when
 planning from two narrator deployments: two blind choosers ground unbound Resource subtype words by
 closed choice, and a blind constraint reading checks that the typed judgment copies every stated
 restriction. Only the local launcher sets `FDAI_SEMANTIC_SECOND_READER=1`; deployed venues keep
-the single-reader path until the reader is promoted.
+the single-reader path until the reader is promoted. Repair feedback may repeat the judged words to
+the model, but rejection logs keep only its location, type, and reason.
 
 **Initial design.** Physically move every flat Core subsystem under `pipeline`, `incident`,
 `operator`, `knowledge`, or `platform`, then rewrite every import in one codemod.

@@ -469,8 +469,11 @@ smaller allowance. The preflight router no longer stands in for the judgment on 
 clarification remains. Prior-turn context yields newest-first when a request would exceed its budget. In the local profile an
 independent second reader of another narrator deployment grounds unbound subtype words by closed choice with two blind choosers, and a
 blind constraint reading must see every stated restriction, negation, comparison, order, or time in a copied span: an uncovered one
-returns to the judgment as repair feedback and otherwise holds the turn as `semantic_constraint_uncovered`. A named thing standing apart
-from every copied span is offered to the same closed choice as a possibly omitted subtype. A state collection needs T2 review only when
+returns to the judgment as repair feedback and otherwise holds the turn as `semantic_constraint_uncovered`; a negation word such as
+only or not is covered by the copied operand it touches. A named thing standing apart from every copied span is offered to the same
+closed choice as a possibly omitted subtype. A membership frame never compiles without its exact group, the container's own kind word
+never filters its members, and where no second reader runs a frame that drops the operand of a stated relation holds instead of
+widening the list. A state collection needs T2 review only when
 a stated state lacks a reviewed state concept, as the fourth approved decision requires. Relationship questions about one named
 instance remain unexpressible on this path and wait for the relation compiler.
 
