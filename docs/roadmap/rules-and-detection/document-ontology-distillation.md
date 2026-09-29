@@ -20,21 +20,6 @@ revision.
 > instances remain in governed deployment storage. Upstream ships only generic contracts,
 > deterministic gates, and provider seams.
 >
-> **Implementation status (2026-08-03):** D0-D4 contracts, claim inventory, strict proposal
-> compilation, deterministic gates, review packages, lifecycle plans, and frozen-corpus scoring are
-> implemented. D4b adds the canonical `DocumentEnvelope` provenance bridge, structured Office and
-> PDF locators, OCR fallback, and synthetic cross-format conformance. D4c adds real-document
-> parsing, provider conformance, and annotated public-corpus evaluation. D4b results do not prove
-> production extraction quality. D4d adds a tool-free T2 ontology model council with blind ballots,
-> deterministic consensus, and bounded disagreement evidence. D5 promotion assessment remains
-> evidence-only; no live-shadow evidence or automatic promotion is claimed.
-> D4e adds synthetic English native-PDF, Office, and OCR coverage plus Korean Office and
-> OCR-backed scanned-PDF coverage. A bound deterministic provider passes every required synthetic
-> partition without turning that result into production extraction evidence.
-> D4f moves production native-PDF parsing into a spawned worker with wall-time, CPU, address-space,
-> page, and character ceilings. A malformed, over-budget, timed-out, or terminated parser returns a
-> typed unsafe-package result and cannot terminate the document processing service.
-
 ## Design at a glance
 
 The model proposes bounded source ranges, and Core inventories the exact structural units inside
@@ -558,48 +543,11 @@ cost-required assessment and deployment availability remain unpassed until prici
 | Replay | The same inputs and release produce the same proposal and gate digests. |
 | Lifecycle | Revision, deletion, outage, ACL, supersession, and rollback are bounded and audited. |
 | Customer isolation | Upstream code, fixtures, and docs contain no deployment document content. |
-
-## Implementation status
-
-### Implementation scope
-
-| Area | State | Evidence | Notes |
-|------|-------|----------|-------|
-| Handover envelope compatibility and JSON fidelity | implemented | [Provenance bridge](../../../services/core-control-plane/src/fdai/rule_catalog/pipeline/distill/ontology_ingestion.py); [runtime binding](../../../services/core-control-plane/src/fdai/runtime/handover_semantics.py); [recorded SEM evidence](../../internals/handover-lifecycle-hardening-20260914.md#reboot-recovery-and-semantic-compilation-critique-checkpoint) | Legacy and independent-worker envelopes preserve original locators and JSON values. Current Core goal/reviewer/admission/retrieval bindings feed Norns and independent Mimir review. Source-private lifecycle is connected; operational conformance is not completed. |
-| Private handover package retirement | implemented | [Retention policy](../../../services/core-control-plane/src/fdai/rule_catalog/pipeline/distill/handover_retention.py); [SQL packages](../../../services/core-control-plane/src/fdai/delivery/persistence/postgres_handover_semantics.py); [final semantic/retention/Core runtime selection: 61 passed](../../internals/handover-lifecycle-hardening-20260914.md#final-integrated-critique-after-remaining-source-implementation) | Mimir owns monotonic retirement and exact current legal-hold-gated scrubbing on its existing subscription. Missing/unknown policy or outage never erases; a released hold cannot revive a package. No active graph, catalog, mutation, or promotion authority is added. |
-| Final handover source critique | implemented | [FI-01 through FI-12](../../internals/handover-lifecycle-hardening-20260914.md#final-integrated-critique-after-remaining-source-implementation) | Twelve distinct integrated rounds followed remaining source implementation; no unresolved confirmed Medium/High source finding. Translation refresh, canonical generation, hooks, publication/CI, full UI/assistive evidence, and live conformance remain separate and open. |
-| Proposal, claim inventory, and deterministic gates | implemented | `services/core-control-plane/src/fdai/rule_catalog/pipeline/distill/ontology_claims.py`; `ontology_verify.py`; `ontology_review.py`; focused tests in `tests/rule_catalog/pipeline/distill/` | D0-D4 contracts and fail-closed review packaging are implemented. Structural inventory remains unclassified until model and governed evidence supply meaning. |
-| Envelope provenance and format equivalence | implemented | `services/core-control-plane/src/fdai/rule_catalog/pipeline/distill/ontology_ingestion.py`; `ontology_evaluation.py`; `tests/rule_catalog/pipeline/distill/test_ontology_format_equivalence.py` | Structured locators and normalized proposal identities are covered with synthetic cross-format evidence. |
-| Real-corpus extraction conformance | in-progress | `services/core-control-plane/src/fdai/rule_catalog/pipeline/distill/ontology_conformance.py`; `ontology_conformance_models.py`; `ontology_corpus_gate.py`; `tests/rule_catalog/pipeline/distill/test_ontology_conformance.py` | The exact production profile and independent source/cost verification are fail closed. English Markdown and SGML are covered; deployed PDF, Office, OCR, and Korean evidence remains open. |
-| T2 ontology model council | implemented | `services/core-control-plane/src/fdai/rule_catalog/pipeline/distill/ontology_council.py`; `ontology_council_reducer.py`; `tests/rule_catalog/pipeline/distill/test_ontology_council.py` | Blind ballots, deterministic consensus, disagreement evidence, and bounded receipts are implemented without authority. |
-| Shadow measurement and promotion assessment | in-progress | `services/core-control-plane/src/fdai/rule_catalog/pipeline/distill/ontology_evaluation.py`; `ontology_shadow_evidence.py`; `ontology_shadow_evidence_io.py`; [Evaluation and promotion](#evaluation-and-promotion) | Governed collection, content-addressed publication, restart loading, manifest verification, and sealed assessment are implemented and remain review-only. The required elapsed duration and proposal volume are not present. |
-
-### Implementation history
-
-| Date | State | Change | Evidence | Remaining |
-|------|-------|--------|----------|-----------|
-| 2026-09-15 | implemented | Extended the existing provenance bridge to independent-worker envelopes and preserved significant whitespace inside typed JSON values after reproducing a changed Rule parameter. | `current change`; focused bridge and compiler selection:28 passed before the later source-order and locator hardening; updated compiler and actual SQL selection:37 passed; [SEM checkpoint](../../internals/handover-lifecycle-hardening-20260914.md#reboot-recovery-and-semantic-compilation-critique-checkpoint). | Complete the handover integration's private-package retention and lifecycle checks and retain provider conformance; no ontology projection or promotion occurred. |
-| 2026-08-14 | in-progress | Adopted the implementation ledger without reconstructing earlier provenance. | `current change`; current source, hardening record, and focused tests listed in the scope table. | Close the missing corpus partitions and retain governed shadow evidence. |
-| 2026-08-21 | implemented | Removed lexical semantic and authority inference from structural claim inventory. Model-cited source ranges remain content-addressed and replayable, but claims stay unclassified and non-critical until model output and governed evidence classify them. Provider-observation verification now requires an explicitly classified claim plus a fresh external receipt. | `current change`; focused ontology format, verifier, semantic investigation, and public-corpus regressions passed within the 304-case slice; diff-scoped changed tests passed 3176 cases with 7 environment-gated skips. | Keep missing PDF, Office, OCR, and Korean provider partitions and live-shadow promotion evidence open. |
-| 2026-09-15 | implemented | Superseded the earlier private-package retention gap: current Core source bindings, Norns compilation, independent Mimir review, monotonic retirement, and conditional scrubbing are source-connected without graph authority. | `current change`; source paths above; [RET-01 through RET-14](../../internals/handover-lifecycle-hardening-20260914.md#semantic-retention-review-evidence) record 60 focused policy/compiler/actual-SQL/agent tests. Earlier semantic counts remain their recorded overlapping selections, not a new total. | Live source/ACL/hold-release evidence, provider conformance, cohorts, and promotion remain open. Final integrated critiques, static/docs reconciliation, and delivery are unfinished; neither this task nor production is validated. |
-| 2026-09-15 | implemented | Completed 12 distinct final integrated handover critique rounds after remaining source implementation; no unresolved confirmed Medium/High source finding. | `current change`; [FI-01 through FI-12](../../internals/handover-lifecycle-hardening-20260914.md#final-integrated-critique-after-remaining-source-implementation), including 61 semantic/retention/Core runtime checks; selections overlap and are not summed. | Translation SHA refresh, canonical generation, local hooks, publication/CI, full UI/assistive evidence, and live source/conformance/cohort/promotion evidence remain pending; #458 remains open. |
-
-### Remaining work
-
-- [x] Connect private handover package retirement and exact current legal-hold-gated scrubbing
-  while preserving retry identity and audit; see the [recorded retention checkpoint](../../internals/handover-lifecycle-hardening-20260914.md#semantic-retention-review-evidence).
-- [x] Complete 12 distinct final integrated source critiques after remaining implementation; [the final record](../../internals/handover-lifecycle-hardening-20260914.md#final-integrated-critique-after-remaining-source-implementation) leaves no unresolved confirmed Medium/High source finding.
-- [ ] Complete EN/KO review, translation SHA refresh, canonical generation, local hooks, publication, and exact-pushed-SHA CI; full UI/assistive evidence remains separately open in the [handover plan](../interfaces/human-agent-assignment-implementation-plan.md#current-change-evidence-and-remaining-scope).
-- [ ] Retain deployed source ACL, hold-release/deletion, and cohort evidence under [#458](https://github.com/dotnetpower/fdai/issues/458) and [#424](https://github.com/dotnetpower/fdai/issues/424).
-- [x] Add synthetic annotations for the required PDF, Office, OCR, and Korean partitions and pass the corpus gate with a deterministic bound provider (`47 passed`).
-- [x] Run untrusted native-PDF parsing in the documented isolated-worker boundary and retain fail-closed malformed and page-budget evidence.
-- [ ] [#1118](https://github.com/dotnetpower/fdai/issues/1118): Retain at least 30 distinct live-shadow days and 500 eligible reviewed proposals with zero guard violations before promotion review.
-- [x] Keep deployment availability unpassed when current independently verified model pricing is absent; stale, fabricated, cost-optional, or context-mismatched evidence cannot pass the gate.
-
 ## Related docs
 
 | To learn about | Read |
 |----------------|------|
+| Delivery status and remaining work | [Implementation ledger](../../roadmap-implementation/rules-and-detection/document-ontology-distillation.md) |
 | Upload protection and governed storage | [Document ingestion](../interfaces/document-ingestion.md) |
 | Existing manual compilation pipeline | [Manual distillation](manual-distillation.md) |
 | Shared semantic and authority model | [FDAI operating ontology](../architecture/operating-ontology.md) |

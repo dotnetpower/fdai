@@ -1,8 +1,8 @@
 ---
 title: 시스템 지식 서비스
 translation_of: system-knowledge-service.md
-translation_source_sha: f65737cc6e7bbea3494097ba9ed4cc102f19bdc8
-translation_revised: 2026-09-20
+translation_source_sha: abb146564b07cb5f66047b5df5976411b8a4f376
+translation_revised: 2026-09-29
 ---
 # 시스템 지식 서비스
 
@@ -171,6 +171,9 @@ A3-E 원장 표 복구도 원본 고정값만 갱신합니다. 승인 검증기�
 설계를 기록할 뿐, 배포 환경의 롤백이나 중복 전달 증적을 제공하지 않습니다.
 인용한 신원 소유 문서의 표현만 바뀐 경우에도 같은 규칙을 따릅니다. 컴파일러는 IAM 사실,
 검색 동작 또는 운영 권한을 추가하지 않고 해당 원본 blob 고정값과 전체 다이제스트만 갱신합니다.
+설계 소유 문서의 인라인 구현 상태가 대응하는 구현 원장으로 옮겨지면 검증 원본도 그 원장의
+`Implementation status` 제목으로 옮깁니다. 이 갱신은 원본 고정값과 카탈로그 다이제스트만
+바꾸며 새로운 구현이나 런타임 증적을 주장하지 않습니다.
 
 컴파일한 카탈로그는 중복 식별자, 중복 exact alias, 추적되지 않는 경로, 잘못된 소스 범위,
 digest 불일치 및 소스 없는 레코드를 차단합니다. 소스 본문은 런타임 응답에 포함하지 않습니다.

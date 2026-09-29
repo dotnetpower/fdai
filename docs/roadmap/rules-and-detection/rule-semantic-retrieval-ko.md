@@ -1,6 +1,6 @@
 ---
 translation_of: rule-semantic-retrieval.md
-translation_source_sha: c19245a6d36678e93211348fe5e0a9b66d6be502
+translation_source_sha: 9ec0bcc122070e98ed398f03aee1ef9761c0e3f0
 translation_revised: 2026-09-29
 ---
 # Rule 의미 검색
@@ -43,116 +43,6 @@ PostgreSQL은 후보를 반환하기 전에 활성 세대 식별자를 계속 �
 평가기 자체가 빠진 필수 집단마다 이름이 포함된 실패 코드를 기록하고 `HOLD`를 발행합니다. 영어 사례 일부의 통과가 필수 한국어 근거를 대신할 수 없습니다. 기존 정책과 증적의 신원은 바뀌지 않으며, 이 검사는 충분한 표본 수나 실제 임베딩 품질을 입증하지 않습니다.
 
 평가 정책 `1.1.0`은 2부터 10,000 사이의 `min_samples_per_metric`을 명시하도록 요구합니다. 평가기와 독립 검토기는 측정한 재현율, 역순위 및 일치 없음 지표 각각에 이 최소 표본 수를 적용합니다. 양성 사례가 많더라도 음성 사례 하나의 부족을 메울 수 없습니다. 기존 `1.0.0`의 정확한 다이제스트와 증적은 유지하지만 새 필드를 넣거나 새 정책 다이제스트의 적격성을 대신할 수 없습니다. 운영 정책을 자동으로 올리거나 과거 승격 산출물을 다시 쓰지 않으며, 설정한 최소 표본 수에도 독립 검토된 평가 데이터와 실제 임베딩 근거가 필요합니다.
-
-## 구현 상태
-
-### 구현 범위
-
-| 영역 | 상태 | 근거 | 참고 |
-|------|------|------|------|
-| 버전이 지정된 지표별 최소 표본 수 | implemented | 평가 정책 스키마 `1.1.0`, 평가기·정책 로더·승격 검토 테스트, 입력 해시가 같은 관련 검사 49개 통과 | 명시한 지표별 최소 표본 수를 평가 단계에서 강제하고 검토 단계에서 다시 검사합니다. 기존 정책 다이제스트를 정확히 유지하며 활성 `1.0.0` 구성과 과거 승격 증적은 바꾸지 않습니다. 새 적격성 정책 선택과 독립 검토된 실제 임베딩 근거 수집은 남아 있습니다. |
-| 정확한 세대 Rule 질의 | implemented | `core/ontology_platform/catalog_queries.py`; `tests/core/ontology_platform/test_catalog_queries.py` | 실행 권한 없이 후보 전용 결과와 내용 기반 주소를 가진 검색 및 호출 증적을 반환합니다. |
-| 선택적 의미 런타임 바인딩 | implemented | `composition/wire_semantic_query.py`; `tests/composition/test_wire_semantic_query.py` | 의미 인덱스와 정확한 카탈로그 다이제스트를 함께 요구합니다. |
-| Planner 가용성 계상 | implemented | `core/ontology_platform/query_manifest.py`; `tests/core/ontology_platform/test_query_manifest.py`; current change focused checks | 읽을 수 있지만 바인딩되지 않은 함수는 구조 커버리지에 `runtime_binding_unavailable`로 남고 planning에서는 숨겨집니다. |
-| 이중 언어 held-out 평가기 계약 | implemented | `rule_catalog/schema/rule_semantic_evaluation.py`; `tests/rule_catalog/test_rule_semantic_evaluation.py`; current change focused check | 영어 및 한국어 양성 사례와 명시적 no-match 고정본이 검증 전용 집단 근거를 생성합니다. 두 언어 모두에서 training 질의 재사용을 거부합니다. 검색 실패는 `HOLD`를 생성하고 양성 사례를 실패로 계산하며 no-match 정밀도 근거로 사용하지 않습니다. 부분 검색 성능 저하는 집단별로 측정되며 승격 검토 대상이 되지 않습니다. 증적 스키마 `1.1.0`은 평가한 정확한 세대와 카탈로그 다이제스트를 고정합니다. |
-| 카탈로그 기반 승격 보증 | implemented | `rule-catalog/surfaces/kubernetes-node-pool.multi-zone.ko.yaml`; `rule-catalog/surface-validation-receipts/`; `tests/rule_catalog/test_discovery_catalog_search.py`; current change 집중 검사 | 현재 활성 Rule 50개 세대는 영어, 한국어, 모호성, 적대적 no-match, 코퍼스 격리 및 정확한 세대로 통제된 집단 7개를 모두 통과합니다. 승격된 한국어 표면은 정확한 통과 검증 전용 증적을 replay하고 후보 형식과 동일한 세대를 생성합니다. 발견 문서는 활성 결과에 유출되지 않습니다. 이는 구현 근거이며 통제된 실제 런타임 근거가 아닙니다. |
-| 검증 증적 카탈로그 | implemented | `rule_catalog/schema/rule_semantic_validation_receipt_catalog.py`; `rule_semantic_validation_receipt.schema.json`; `tests/rule_catalog/test_rule_semantic_validation_receipt_catalog.py`; current change 집중 검사 | 내용 기반 주소를 가진 JSON에서 통과 증적 전체 본문을 strict하게 로드합니다. 증적이 없거나, malformed, 변조되었거나, 통과하지 않았거나, 권한을 포함하거나, 대상이 다르거나, 정책이 오래된 경우 승격된 표면을 안전하게 차단합니다. |
-| 통제된 승격 검토 | implemented | `config/rule-semantic-evaluation.json`; `rule_catalog/schema/rule_semantic_evaluation_policy.py`; `rule_catalog/schema/rule_semantic_promotion_review.py`; current change 집중 검사 | 내용 기반 주소를 가진 통제된 구성에서 임계값과 필수 집단을 로드합니다. 검토 자격은 오래된 정책, 세대 또는 카탈로그 ID, 누락되거나 이름이 바뀐 메트릭, 알 수 없는 증적 스키마, 실패한 집단, 권한을 포함한 근거 및 현재 임계값 미만의 값을 안전하게 보류합니다. 자격은 승격 또는 실행 권한을 부여하지 않습니다. |
-| In-memory 세대 및 검증 | implemented | `delivery/catalog_search/in_memory.py`; `delivery/catalog_search/generation.py`; `tests/delivery/catalog_search/test_ontology_generation.py`; `tests/rule_catalog/test_discovery_catalog_search.py` | 결정론적 off-path 세대, 독립적인 활성 및 발견 포인터, 코퍼스별 롤백 및 영속 어댑터와 같은 활성화 compare-and-swap을 지원합니다. |
-| 코퍼스 규모 세대 식별자 | implemented | `shared/providers/catalog_search.py`; `delivery/catalog_search/generation.py`; `delivery/catalog_search/in_memory.py`; 집중 세대 및 Rule 카탈로그 테스트 | 프로바이더 중립 메타데이터는 개수, 계층형 루트, 범위가 제한된 순서가 있는 청크 및 작은 세대의 인라인 다이제스트를 포함합니다. 세대 생성, 검증 증적, 준비, 활성화, 활성 조회, 검색, 롤백 및 롤백 증적은 식별자 차이를 거부합니다. |
-| 영속 PostgreSQL 인덱스 | implemented | `delivery/catalog_search/postgres.py`; migration `0077` 및 `0080`; `tests/delivery/catalog_search/test_postgres.py`; `test_postgres_integration.py`; `test_postgres_rule_corpora_integration.py` | 정확한 세대 매니페스트를 저장하고 다시 검증하며 코퍼스별 세대를 원자적으로 준비, 활성화, 검색 및 롤백합니다. PostgreSQL에서 활성 문서 50개와 발견 문서 8,487개 전체의 수명 주기 격리를 증명합니다. |
-| 독립 세대 스냅샷 | implemented | `shared/providers/catalog_search.py`; `delivery/catalog_search/in_memory.py`; `delivery/catalog_search/postgres.py`; 집중 단위 및 실제 PostgreSQL 수명 주기 검사 | 읽기 전용 스냅샷을 통해 정확한 준비 상태 메타데이터와 정규 순서의 행을 노출합니다. 두 어댑터는 검증, 승격 또는 실행 권한을 부여하지 않으면서 수명 주기, 행 식별자, 내용 해시, 순서, 개수 또는 매니페스트 차이를 거부합니다. |
-| 운영 세대 reconciliation | implemented | `runtime/rule_generation_documents.py`; `delivery/catalog_search/rule_generation_worker.py`; `agents/mimir.py`; `agents/heimdall.py`; 집중 worker, 런타임, 활성화 및 bootstrap 검사 | 시작할 때 엄격하게 검증한 승격 표면 문서를 고정하고 활성 세대가 없거나 오래되었거나 접근할 수 없으면 replay가 동일한 요청 하나를 영속화합니다. Mimir와 Heimdall은 소유 topic으로 빌드와 검증을 전달하며 활성화 명령을 발행하기 전에 정확한 증적을 연결합니다. |
-| 통제된 세대 활성화 | implemented | `core/rule_semantic_generation/activation.py`, `core/rule_semantic_generation/ledger.py`, 프로바이더와 delivery 활성화 계약, 집중 활성화 및 실제 PostgreSQL 검사 | 활성화는 변경 경계 안에서 정확한 대상 다이제스트와 검증 증적을 예상 이전 활성 식별자에 연결합니다. 완료된 명령의 replay는 프로바이더 접근 전에 영속 최종 결과를 반환하며 첫 결과와 발행 대기 outbox 레코드는 원자적으로 커밋됩니다. |
-| 영속 활성화 결과 발행 및 변환 결과 | implemented | `core/rule_semantic_generation/publication.py`; `agents/mimir.py`; `agents/_framework/runtime.py`; `runtime/bootstrap.py`; 집중 발행, Mimir, 런타임 및 bootstrap 검사 | 제한 시간이 있고 lease로 격리된 발행기는 의미 인덱스 준비 상태와 독립적으로 최종 결과를 발행합니다. Mimir만 활성화 명령을 소비하고 인덱스 또는 실행 권한을 얻지 않은 채 최종 결과를 변환합니다. 운영 구성은 binder와 발행기가 하나의 영속 ledger를 공유하게 합니다. |
-| 운영 bootstrap 연결 | implemented | `runtime/bootstrap.py`; `runtime/bootstrap_lifecycle.py`; `composition/wire_semantic_query.py`; `tests/runtime/test_catalog_semantic_bootstrap.py`; 집중 bootstrap 및 구성 검사(`46 passed`) | 시작 시 정확한 활성 세대만 연결합니다. 상태가 없거나 오래되거나 접근할 수 없거나 사용할 수 없으면 안정적인 선택적 준비 상태 사유를 만들고 Rule 검색을 등록하지 않습니다. 통제된 실제 근거는 남아 있습니다. |
-| Operator Rule 검색 변환 결과 | implemented | `packages/service-contracts/src/fdai_service_contracts/semantic_turn.py`; `services/core-control-plane/src/fdai_core_service/semantic_turn_processor.py`; Operator Service workflow 어댑터 및 경로; current change 집중 검사 | `POST /rules/search`는 검증된 정확한 함수 호출 증적과 정규 다이제스트를 포함하는 개정 번호가 있는 구체화된 변환 결과를 읽습니다. 공유 계약은 내용, 다이제스트, 작업, 의도, 기능 및 최종 상태 차이를 거부합니다. 직접 Core 호출이나 정책, 승인, 변경 또는 실행 권한을 추가하지 않습니다. |
-
-### 구현 이력
-
-2026-09-20 후속 근거: 기존 정책 다이제스트를 바꾸지 않고 버전이 지정된 지표별 최소 표본 수와 독립 검토 검사를 추가했습니다. 한국어·오래된 원본 테스트가 실제 집단을 정책에 명시하도록 수정했습니다. 이 두 사례는 앞서 보고한 14개 통과와 불일치를 드러냈으므로 이전 결과를 최종 근거로 재사용하지 않습니다. 수정 후 평가기, 로더, 검토, 스키마, 증적 카탈로그 및 검색 검사 49개가 동일한 전후 입력 해시로 통과했고 Ruff와 strict mypy도 통과했습니다. 검토된 정책과 충분한 고정 평가 사례를 채택한 뒤 새로 승인된 제한된 실제 임베딩 측정이 필요합니다. 기존 증적과 활성 정책은 다시 쓰지 않았습니다.
-
-2026-09-20 추가 근거: `rule_semantic_evaluation.py`에서 증적의 `PASS` 발행 전에 필수 집단 존재 여부를 검사하도록 수정했습니다. 한국어 집단 누락 회귀는 수정 전에 실패했고, 수정 후 평가기 테스트 14개와 Ruff 및 strict mypy가 통과했습니다. 충분한 평가 표본 기준과 실제 임베딩 관련성 근거는 남아 있으며 기존 집단별 1개 사례를 늘린 변경은 아닙니다.
-
-알림 ActionType 추가 이후의 소스 재평가를 포함한 최신 근거는
-[영문 정본 이력](rule-semantic-retrieval.md#implementation-history)을 확인하세요.
-
-| 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
-|------|------|------|------|-----------|
-| 2026-09-16 | implemented | `BusinessService`와 `Workload`에 선택적인 승인 alias가 추가된 후 소스 참조를 다시 평가했습니다. 생성기는 release digest만 갱신하지 않고 변경하지 않은 Cost Governance 선언 집합을 정확한 active 참조에 다시 결속하며, 이전 증적을 보존하고 평가 전용 사례 7개와 F1-F8 고정본 16개를 다시 실행해 새 한국어 표면 검증 전용 증적 하나를 기록합니다. | [이슈 #1170](https://github.com/dotnetpower/fdai/issues/1170), `current change`, 증적 `7116098edcd3b8cc5ea95bc75fc51b8db5955334288e544943a806feebe243b4`, 정확한 CI 회귀 및 생성기 검사 24개 통과, 두 번째 생성기 검사 `changed=0`. | 정확한 최신 head의 보호된 CI가 권위 있는 근거입니다. 배포 인덱스, package 활성화, 승격 레지스트리, 데이터 접근 또는 실행 권한은 변경하지 않았습니다. |
-| 2026-09-12 | implemented | 역사적 Rule 62개 inventory 기록은 다시 쓰지 않고 현재 코퍼스 근거를 활성 문서 50개와 발견 문서 8,487개로 정합화했습니다. | `current change`; in-memory 코퍼스 검사(`12 passed`); 로컬 PostgreSQL 전체 코퍼스 수명 주기(`1 passed`). | 통제된 실제 런타임 근거는 별도로 보존합니다. |
-| 2026-08-13 | in-progress | 구현 ledger를 도입하고 근거 없는 운영 바인딩 주장을 수정했습니다. 선택적 정확한 다이제스트 구성과 바인딩되지 않은 Rule 검색의 타입이 지정된 planner unavailable 처리를 추가했습니다. 이전 이력은 재구성하지 않았습니다. | `current change`; `PYTHONPATH="$PWD/services/core-control-plane/src:$PWD/packages/service-contracts/src" .venv/bin/pytest -q services/core-control-plane/tests/composition/test_wire_semantic_query.py services/core-control-plane/tests/core/ontology_platform/test_query_manifest.py`에서 focused 테스트 19개가 통과했습니다. | 영속 운영 인덱스, 운영 bootstrap 바인딩, Core-to-Operator 변환 결과 발행 및 실제 증적을 추가합니다. |
-| 2026-08-13 | in-progress | 최대 256개 행의 세대에는 순서가 있는 인라인 다이제스트를 유지하면서 코퍼스 규모 세대에 범위가 제한된 계층형 문서 식별자를 추가했습니다. | `current change`; 집중 `test_rule_semantic_retrieval.py` 모음에서 8,549개 행과 청크 34개 매니페스트, 256/257개 행 경계 및 실패 시 안전하게 닫히는 변조 사례를 포함한 테스트 17개가 통과했습니다. | 매니페스트를 제공 메타데이터와 통합하고 활성 및 발견 코퍼스의 독립적인 활성화와 롤백을 증명합니다. |
-| 2026-08-13 | implemented | In-memory 활성 및 발견 세대가 독립적인 포인터를 통해 준비, 활성화, 검색 및 롤백됨을 보여 주는 집중 근거를 추가했습니다. 준비된 발견 데이터는 보이지 않으며 발견 롤백은 활성 결과를 바꾸지 않습니다. | `current change`; 집중 `test_active_and_discovery_generation_pointers_are_independent` 테스트가 통과했습니다. | 전체 코퍼스에 대한 수명 주기 증명을 영속 운영 어댑터에서 반복합니다. |
-| 2026-08-13 | in-progress | 실제 발견 레코드 8,487개를 권한이 없는 후보 전용 검색 문서로 구체화하고 하나의 in-memory 인덱스에서 전체 활성 62개와 발견 8,487개의 수명 주기 격리를 검증했습니다. 발견 세대를 교체하거나 롤백해도 활성 메타데이터와 결과는 바뀌지 않습니다. | 커밋 `fea694a32` 및 `c136a7231`; `test_discovery_catalog_search.py`에서 빈 입력, 잘못된 입력 및 중복을 안전하게 차단하는 사례와 전체 코퍼스 준비, 활성화, 검색, 교체 및 롤백을 포함한 테스트 4개가 통과했습니다. Ruff 및 strict mypy가 통과했습니다. | 개수, 루트 및 청크를 제공 메타데이터에 연결한 다음 영속 PostgreSQL 어댑터에서 수명 주기 증명을 반복합니다. |
-| 2026-08-13 | implemented | 정규 문서 매니페스트를 프로바이더 중립 세대 메타데이터에 연결하고 모든 in-memory 수명 주기 경계에서 순서가 있는 정확한 행을 다시 검증했습니다. 세대 다이제스트는 이제 모든 메타데이터 및 매니페스트 필드를 자체 검증하며, 검증 및 롤백 증적은 청크 식별자를 고정하고 Rule 검색 문서 변환 공식은 v3으로 갱신되었습니다. 적대적 14차에서 채택한 비정규 세대 다이제스트 문제를 해결했으며, 영속 어댑터 공백은 별도 잔여 작업입니다. | `current change`; 집중 세대, 정확한 질의, 검색, 전체 코퍼스 및 구성 검사에서 테스트 41개가 통과했습니다. 소스 파일 5개에서 strict mypy가 통과했고 소스 및 테스트 파일 9개에서 Ruff 검사가 통과했으며 편집기 진단은 깨끗했습니다. | 영속 PostgreSQL 어댑터에 같은 매니페스트를 저장하고 다시 검증한 다음 실제 데이터베이스 수명 주기 근거를 기록합니다. |
-| 2026-08-13 | implemented | 영속 PostgreSQL 세대 어댑터와 예상 이전 활성 세대가 정확히 일치해야 하는 활성화 compare-and-swap을 추가했습니다. 활성화는 같은 코퍼스 잠금 안에서 포인터를 변경하기 전에 대상 다이제스트, 이전 활성 ID와 다이제스트, 수명 주기 상태, 재실행 식별자 및 시간 순서를 확인합니다. 전체 활성 및 발견 코퍼스는 교체와 롤백 과정에서도 격리됩니다. | `current change`; 전체 활성 62개와 발견 8,487개 코퍼스 검사를 포함한 집중 PostgreSQL 단위 및 실제 데이터베이스 수명 주기 검사가 통과했습니다. 집중 활성화 동등성 검사에서 테스트 42개가 통과했고 변경한 수명 주기 파일에서 Ruff와 strict mypy가 통과했습니다. | 운영 bootstrap에서 어댑터를 구성하고 수명 주기 및 검색 변환 결과를 발행한 다음 통제된 런타임 근거를 기록합니다. |
-| 2026-08-13 | implemented | held-out 평가기 계약에 읽을 수 있는 한국어 양성 사례와 명시적 no-match 고정본을 추가하고, 한국어 training 및 evaluation 격리를 증명했으며, 표면과 증적이 실행 권한 없음 및 검증 전용 권한을 유지하는지 확인했습니다. | `current change`; `PYTHONPATH="$PWD/services/core-control-plane/src:$PWD/packages/service-contracts/src" .venv/bin/python -m pytest -q --no-cov services/core-control-plane/tests/rule_catalog/test_rule_semantic_evaluation.py`에서 테스트 5개가 통과했습니다. | 배포된 카탈로그와 실제 의미 인덱스를 대상으로 필수 집단을 실행한 다음, 측정된 구성 임계값을 통제된 승격에 연결합니다. |
-| 2026-08-13 | implemented | 정확한 활성 세대 ID 검사와 선택적 준비 상태 저하 뒤에서 운영 시작 시 영속 의미 인덱스를 구성했습니다. Rule 카탈로그, 의미 스키마, 온톨로지 release 및 embedder 차원이 일치한 뒤에만 인덱스와 카탈로그 다이제스트를 구성에 전달합니다. | `current change`; 집중 런타임 bootstrap 및 의미 구성 검사에서 테스트 46개가 통과했습니다. 변경한 운영 파일 3개에서 Ruff와 strict mypy가 통과했습니다. | 증적 기반 Operator 변환 결과를 발행하고 검증을 주장하기 전에 통제된 실제 바인딩 근거를 기록합니다. |
-| 2026-08-13 | implemented | 배포된 활성 Rule 62개 세대를 실제 in-memory 의미 인덱스로 통과시키는 이중 언어 승격 probe를 실행했습니다. 정확한 영어 재현율은 1.0, 한국어 양성 재현율은 0.0, 한국어 no-match 정밀도는 1.0이었으며, 평가기는 한국어 집단 실패 코드와 함께 `HOLD`를 반환했습니다. | 커밋 `d1787f4d8`; `PYTHONPATH="$PWD/services/core-control-plane/src:$PWD/packages/service-contracts/src" .venv/bin/python -m pytest -q --no-cov services/core-control-plane/tests/rule_catalog/test_discovery_catalog_search.py`에서 테스트 9개가 통과했습니다. | 통제된 한국어 표면을 추가하고 승격 전에 나머지 실제 인덱스 집단을 완료합니다. |
-| 2026-08-13 | implemented | 검색 상태가 오래되거나 사용할 수 없을 때 held-out 평가가 안전하게 보류되도록 변경했습니다. 프로바이더 실패는 검증 전용 `HOLD` 근거를 생성하고 양성 재현율과 순위를 낮추며, 실패한 음성 질의를 성공한 no-match 근거로 바꾸지 않습니다. | `current change`; 집중 평가기 및 실제 카탈로그 모듈에서 테스트 15개가 통과했습니다. 변경한 평가기 범위에서 Ruff, strict mypy 및 편집기 진단이 통과했습니다. | 실제 의미 인덱스에서 오래된 상태를 검증하고 전체 집단 증적을 구성 기반의 통제된 승격에 연결합니다. |
-| 2026-08-13 | implemented | 배포 카탈로그 승격 probe에 영어 모호성, 적대적 입력, 코퍼스 격리 및 실제 인덱스의 오래된 세대 집단을 추가했습니다. 영어 모호성 재현율과 순위는 1.0이었습니다. 관련 없는 활성 Rule이 lexical 오탐으로 남아 적대적 입력과 발견 전용 no-match 정밀도는 0.0이었지만 발견 문서가 활성 결과로 넘어오지는 않았습니다. 오래된 카탈로그 다이제스트는 검색 오류, 양성 재현율과 순위 0, 음성 no-match 근거 없음 및 검증 전용 `HOLD`를 생성했습니다. | `current change`; `tests/rule_catalog/test_discovery_catalog_search.py`; 집중 모듈에서 테스트 10개가 통과했고 Ruff 및 형식 검사가 통과했으며 편집기 진단은 깨끗했습니다. | 통제된 한국어 표면을 추가하고, 측정된 활성 코퍼스 오탐을 제거하며, 준비 완료를 주장하기 전에 구성 기반 임계값을 통제된 승격에 연결합니다. |
-| 2026-08-13 | implemented | 검증된 Rule 세대를 위한 정확한 활성화 binder를 추가했습니다. 프로바이더 변경 경계 안에서 대상 검증 증적과 예상 이전 식별자를 확인하고, 완료된 명령이 프로바이더에 다시 전달되지 않게 하며, 프로바이더 오류 후 관찰된 효과를 조정하고, 하나의 안정적인 최종 결과와 outbox 레코드를 영속 종결합니다. | `current change`, 통과한 집중 활성화, ledger, 세대 및 실제 PostgreSQL 검사, 변경한 수명 주기 파일의 Ruff와 strict mypy 통과 | EventBus를 통해 영속 outbox를 발행하고, 책임 agent 소유권을 구성하며, 통제된 런타임 근거를 기록합니다. |
-| 2026-08-13 | implemented | lease로 격리된 영속 활성화 결과 발행, Mimir 소유 명령 유입 및 결과 변환, 운영 환경의 공유 ledger 구성과 준비 상태에 독립적인 backlog 발행을 추가했습니다. 해제에 성공한 broker 실패는 재시도하되 receipt 계약 또는 ledger 실패는 숨기지 않습니다. 통합 런타임 증명은 명령 전달부터 활성화, outbox 발행 및 변환 전용 결과 저장까지 다룹니다. | `current change`; 집중 bootstrap, 런타임, Mimir, 활성화 및 발행 선택 검사에서 재시작, 중복, lease 만료, 취소, broker 실패 재시도, 치명적 receipt topic 불일치, 확인된 전달 및 통합 명령-변환 결과 사례를 포함한 테스트 32개가 통과했습니다. | 이 영역을 `validated`로 변경하기 전에 통제된 실제 런타임 근거를 기록합니다. 별도 검색 및 함수 호출 변환 결과 작업은 열려 있습니다. |
-| 2026-08-13 | implemented | 내용 기반 주소를 가진 평가 정책 로딩과 결정론적인 검토 전용 승격 평가를 추가했습니다. 평가는 검토 자격을 반환하기 전에 증적 및 정책 ID, 정확한 현재 메트릭과 임계값, 필수 집단, 검증 전용 권한 및 실행 권한 없음 경계를 다시 검증합니다. | `current change`; 집중 평가 정책, 증적, 승격 검토, 검색 및 배포 카탈로그 모음에서 테스트 42개가 통과했습니다. 변경한 운영 모듈에서 Ruff와 strict mypy가 통과했습니다. | 통과 증적이 검토 자격을 얻기 전에 통제된 한국어 표면을 추가하고 측정된 lexical 오탐을 제거합니다. 검증을 주장하기 전에 통제된 실제 근거를 별도로 기록합니다. |
-| 2026-08-13 | implemented | 검증된 정확한 함수 호출 증적을 Core-to-Operator 변환 결과 경계 전체에서 보존했습니다. strict 공유 계약은 정규 증적 다이제스트, 질의 작업, 함수 의도, 기능 및 완료 상태를 연결하며 Operator 저장은 원자성과 범위 격리를 유지합니다. | `current change`; 공유 계약, Core 변환 결과 처리기, Operator bridge 및 workflow-family 모음에서 테스트 94개가 통과했습니다. 변경한 운영 모듈에서 Ruff와 strict mypy가 통과했습니다. | 이 영역을 `validated`로 변경하기 전에 Reader 범위의 실제 변환 결과 근거를 기록합니다. |
-| 2026-08-13 | implemented | held-out 검색에 명시적인 부분 성능 저하 회귀 검사를 추가했습니다. 양성 집단의 요청 2개 중 1개가 실패하면 검색 성공률 `0.5`, 검증 전용 `HOLD`, 승격 또는 실행 권한이 없는 검토 전용 승격 `HOLD`가 생성됩니다. | `current change`; `PYTHONPATH="$PWD/services/core-control-plane/src:$PWD/packages/service-contracts/src" .venv/bin/python -m pytest -q --no-cov services/core-control-plane/tests/rule_catalog/test_rule_semantic_evaluation.py`에서 테스트 11개가 통과했습니다. 작업 소유 테스트 파일에서 Ruff, 형식 및 편집기 진단이 통과했습니다. | 통제된 한국어 표면을 추가하고 측정된 활성 코퍼스 lexical 오탐을 제거합니다. 검증을 주장하기 전에 통제된 실제 근거를 별도로 기록합니다. |
-| 2026-08-13 | implemented | 구분하지 못하는 영어 기능어, 카탈로그 전체에 공통인 `rule` 및 숫자 조각만으로 발생한 활성 코퍼스 오탐을 제거했습니다. 정확한 ID 일치, 도메인 용어, 의미 점수 및 구성 임계값은 변경하지 않았습니다. 적대적 no-match와 발견 전용 no-match 집단은 이제 각각 `1.0`이며, 배포 카탈로그 증적은 한국어 양성 재현율과 순위에 대해서만 `HOLD`를 유지합니다. | `current change`; 전체 배포 활성 및 발견 카탈로그 모듈에서 테스트 11개, 카탈로그 질의 및 구성 소비자에서 테스트 21개가 통과했습니다. 변경한 운영 어댑터에서 strict mypy가 통과했고 편집기 진단은 깨끗했습니다. | 통제된 한국어 표면을 추가하고 검증을 주장하기 전에 통제된 실제 근거를 별도로 기록합니다. |
-| 2026-08-13 | implemented | 의미 표면 증적의 식별자 순환을 제거했습니다. 검증 증적은 변경 불가능한 후보 형식의 의미 대상을 연결하고, 승격된 Git 아티팩트는 수명 주기 상태와 증적 참조를 포함하는 별도 다이제스트를 유지합니다. 기존 후보 증적 식별자는 변경되지 않습니다. | `current change`; 집중 의미 검색 및 평가 계약 모음에서 테스트 30개가 통과했습니다. 작업 소유 운영 및 테스트 파일에서 Ruff, 형식 및 strict mypy가 통과했습니다. | 승격 검토 전에 통제된 한국어 표면과 실제 통과 held-out 증적을 추가하고 재현합니다. 검증을 주장하기 전에 통제된 실제 근거를 별도로 기록합니다. |
-| 2026-08-13 | implemented | 각 표면 검증 증적을 평가에 사용한 정확한 검색 세대와 카탈로그에 연결했습니다. 이제 승격 검토는 오래된 세대 또는 오래된 카탈로그 ID를 각각 독립적으로 보류하며, 증적 스키마 `1.1.0`은 두 ID를 검증과 내용 기반 다이제스트 변환 결과에 포함합니다. | `current change`; 전체 의미 증적, 검색 및 배포 카탈로그 범위에서 테스트 42개가 통과했습니다. 작업 소유 파일 6개에서 Ruff와 형식 검사가 통과했고 운영 계약 3개에서 strict mypy가 통과했으며 편집기 진단은 깨끗했습니다. | 승격 검토 전에 통제된 한국어 표면과 실제 통과 held-out 증적을 추가하고 재현합니다. 검증을 주장하기 전에 통제된 실제 근거를 별도로 기록합니다. |
-| 2026-08-13 | implemented | 실제 통제된 한국어 표면을 추가하고 전체 통과 증적을 다시 계산한 내용 주소에 저장했습니다. 승격된 표면 로딩은 이제 정확한 후보 대상, 현재 정책, 통과 결정, 빈 실패 및 검증 전용 권한을 확인합니다. 검색 변환 v5는 변경 불가능한 대상 ID를 사용하므로 후보와 승격 형식이 정확히 같은 Rule 62개 세대를 replay합니다. | `current change`; 의미 검색, 평가, 정책, 승격된 표면, 증적 카탈로그 및 배포 카탈로그 집중 모음에서 테스트 61개가 통과했습니다. 작업 소유 Python 범위에서 Ruff와 strict mypy가 통과했습니다. | 이 기능을 `validated`로 변경하기 전에 통제된 실제 런타임 근거를 별도로 기록합니다. |
-| 2026-08-13 | implemented | 앞선 근거 개수를 정정했습니다. 최종 증적 카탈로그 하드닝에서 symlink 및 FIFO 아티팩트를 차단하는 일반 파일 검사를 추가했으며 기능 상태는 변경되지 않았습니다. | 커밋 `8571ea53a`; 집중 의미 검색 6개 모듈 모음에서 특수 파일 사례 2개를 포함해 테스트 63개가 통과했습니다. | 이 기능을 `validated`로 변경하기 전에 통제된 실제 런타임 근거를 계속 기록해야 합니다. |
-| 2026-08-13 | in-progress | 통제된 실제 운영 근거의 선행 조건을 다시 감사하고 누락된 세대 빌드 worker가 드러나도록 ledger를 정정했습니다. 빌드 및 이벤트 계약은 있지만 `build_rule_semantic_generation`을 호출하는 운영 subscriber는 없습니다. | `current change`; 저장소 호출 지점 감사에서 빌더는 정의와 테스트에서만 발견됐으며, 집중 의미 검색 6개 모듈 모음은 계속 테스트 63개를 통과합니다. | 통제된 실제 런타임 근거를 수집하기 전에 Mimir 소유의 기계적 빌드 및 검증 subscriber를 구현합니다. |
-| 2026-08-13 | implemented | 독립 Heimdall 검증에 필요한 읽기 전용 준비 상태 세대 스냅샷을 추가했습니다. In-memory 및 PostgreSQL 어댑터는 반환 전에 정확한 순서의 행을 다시 로드하고 범위가 제한된 매니페스트와 비교하여 검증합니다. | `current change`; 집중 단위 검사 19개와 로컬 PostgreSQL 수명 주기 검사가 통과했고 Ruff 및 운영 모듈 3개의 strict mypy가 통과했습니다. | Mimir 빌더와 Heimdall 검증기 subscriber를 연결한 뒤 통제된 실제 근거를 보존합니다. |
-| 2026-08-13 | in-progress | 영속 기계적 빌드와 독립 검증 worker primitive를 추가했습니다. 첫 결과의 원자적 영속성은 동시 전달 및 재시작에서 안정적인 이벤트 하나를 반환하며, 프로바이더 실패는 재시도 가능하게 유지되고 누락되거나 잘못된 준비 상태 스냅샷은 검증 전용 실패로 종결됩니다. | `current change`; 집중 worker 검사 5개와 worker, 이벤트 계약 및 활성화 통합 검사 19개가 통과했고 Ruff 및 strict mypy가 통과했습니다. | 소유 topic을 통해 Mimir와 Heimdall을 연결하고 운영 reconciliation trigger를 추가한 뒤 통제된 실제 근거를 보존합니다. |
-| 2026-08-13 | in-progress | Mimir 소유의 빌드 요청/결과 topic을 영속 빌더에 연결하고 Heimdall 소유의 독립 검증을 기존 RetrievalValidation topic에 연결했습니다. Mimir는 검증 근거를 권한 없는 변환 결과로 저장하며 Muninn은 이를 검색 실패 피드백으로 변환하지 않습니다. | `current change`; 집중 Pantheon 소유권, 동등성, handler 및 런타임 검사 221개와 exact chain 및 위조/미연결 검사가 통과했고 Ruff 및 strict mypy가 통과했습니다. | 운영 카탈로그 resolver와 reconciliation trigger를 추가한 뒤 독립 근거에 따라 exact 활성화 명령을 발행합니다. |
-| 2026-08-13 | implemented | endpoint binding에서 파생한 임베딩 식별자, 엄격한 승격 표면 문서 로딩, replay가 동일한 요청 영속성, 정확한 준비 상태 증적 연결 및 Heimdall 검증 뒤의 Mimir 소유 활성화 명령 발행으로 운영 세대 reconciliation을 완료했습니다. 질의 바인딩도 다른 임베딩 공간 또는 모델 버전의 활성 세대를 거부합니다. | `current change`; `rule_generation_documents.py`, 의미 인덱스 어댑터, `mimir.py`, `activation.py` 및 집중 문서, worker, 런타임, 활성화, bootstrap 검사 | 이 기능을 `validated`로 변경하기 전에 통제된 실제 빌드, 검증, 활성화 및 Reader 범위 변환 결과 근거를 기록합니다. |
-| 2026-08-29 | implemented | 하드닝 18차에서 운영 연결, 조정, 활성화 게시, Mimir/Heimdall 소유권, Reader 범위 변환 결과를 다시 감사했습니다. 저장소 구현에는 Low를 넘는 문제가 없었고 유일한 남은 항목은 관리되는 실제 근거입니다. | `current change`; 집중 의미 검색, 부팅, 활성화, 게시 및 변환 결과 검사. | 저장소 권한을 바꾸지 않고 관리되는 실제 근거를 기록합니다. |
-| 2026-09-15 | implemented | 기존 ActionType 수정으로 온톨로지 release가 바뀌어 [#946](https://github.com/dotnetpower/fdai/issues/946) / [PR #1014](https://github.com/dotnetpower/fdai/pull/1014)의 소스 참조만 갱신했습니다. 실제 메모리 내 어휘 검색으로 동일한 평가 전용 사례 7개에서 한국어 증적을 다시 계산했습니다. 필수 집단마다 표본은 1개이며, 직접 작성한 표면의 승격 상태, 학습 자료, 현재 임계값과 이전 증적은 유지했습니다. | `current change`; [새 한국어 증적](../../../rule-catalog/surface-validation-receipts/3e44e952cbe8bbed633e91a1482ddd0380241895c1d51c5d494fecdb29a7d187.json); 변경하지 않은 데이터셋 `sha256:1307e83d264c8c0b6fdc4342f840b51cebe18f930ca4bd9242387052da54d6de`. 구현 세션 결과: 정본 증적 로딩과 [`test_korean_surface_candidate_passes_exact_inactive_generation_review`](../../../services/core-control-plane/tests/rule_catalog/test_discovery_catalog_search.py)가 통과했고, 강화한 [생성기 회귀 검사](../../../tests/integration/scripts/test_refresh_release_derived_pins.py)는 `9 passed`, 두 번째 기본 검사는 `measured=7 fixtures=16 changed=0`을 기록했습니다. 이번 문서 편집에서는 다시 실행하지 않았습니다. | [일반 CI 실행 34921323157의 시도 1](https://github.com/dotnetpower/fdai/actions/runs/34921323157/attempts/1)은 head `c8edd`에서 실패했습니다. 로컬 수정은 새 커밋과 해당 head의 CI를 기다립니다. 운영 연결과 Reader 범위 변환 결과의 통제된 실제 근거는 미완료로 유지합니다. 배포 인덱스나 승격 레지스트리를 활성화하거나 변경하지 않았습니다. |
-| 2026-09-29 | implemented | Rule 생성을 거버넌스 카탈로그 release에 다시 바인딩했습니다([#1656](https://github.com/dotnetpower/fdai/issues/1656)). 런타임이 운영 release에 소스 파생 FunctionType을 선언하기 시작한 뒤로 시작 시 Rule 의미 매니페스트를 그 release로 만들었고, 거버넌스 release에 고정된 승격 표면이 더는 맞지 않아 `rule_generation_reconciliation_unavailable`이 매번 reconciliation을 연결하지 못하게 했습니다. 이제 시작 시 같은 카탈로그 루트에서 거버넌스 release를 불러와 운영 release가 여기에 function 선언만 더한 것과 같을 때만 받아들이고, 매니페스트, 요청, 세대, 인덱스 바인딩을 이 release에 묶습니다. | `test_rule_generation_documents.py`가 실제 런타임 control loop를 만들어 거버넌스 release를 바인딩하고 운영 release는 실패함을 보이며, 불일치와 시작 시 성능 저하 회귀 테스트를 포함합니다. | 없음. |
-
-### 남은 작업
-
-- [x] 프로바이더 중립 제공 메타데이터는 정확한 문서 개수, 계층형 루트 및 순서가 있는 청크
-  식별자를 연결합니다. 집중 준비, 활성화, 조회, 검색, 롤백 및 증적 테스트에서 식별자 차이를
-  거부합니다.
-- [x] 영속 PostgreSQL `CatalogSemanticIndex`는 정확한 매니페스트를 저장하고 다시
-  검증합니다. 집중 실제 데이터베이스 세대, 활성화, 롤백, 정확한 세대 검색 및 전체
-  코퍼스 격리 검사는 [빌드 및 의미 확장 수명
-  주기](#빌드-및-의미-확장-수명-주기)에 따라 통과했습니다.
-- [x] 두 의미 인덱스 어댑터는 읽기 전용 준비 상태 세대 검증 스냅샷을 노출하며, 독립
-  검증기에 정확한 행을 반환하기 전에 수명 주기, 행 식별자, 내용 해시, 순서, 개수 또는
-  매니페스트 차이를 거부합니다.
-- [x] 운영 bootstrap은 영속 어댑터를 구성하고 선택적 세대 준비 상태를 등록합니다. 시작할 때
-  정확한 현재 Rule 카탈로그, 의미 스키마, 거버넌스 카탈로그 온톨로지 release 및 embedder 차원만
-  연결합니다.
-  상태가 없거나 오래되거나 접근할 수 없거나 사용할 수 없을 때 안정적인 성능 저하 사유를
-  제공하며 집중 bootstrap 및 구성 검사에서 테스트 46개가 통과했습니다.
-- [x] 제한 시간이 있는 EventBus worker가 영속 활성화 결과를 발행하며 Mimir만 책임 명령 및
-  결과 subscriber로 동작합니다. 집중 재시작, 중복 전달, lease 만료, 취소, broker 실패,
-  확인된 전달 및 통합 런타임 검사는 인덱스 또는 실행 권한을 부여하지 않고 통과했습니다.
-- [x] Core는 검증된 정확한 함수 호출 증적과 정규 다이제스트를 Operator 변환 결과로
-  발행합니다. `POST /rules/search`는 직접 Core 호출 없이 strict 증적 기반 변환 결과를 읽고
-  [질의 수명 주기](#질의-수명-주기)를 보존합니다.
-- [x] 운영 시작 시 Mimir 및 Heimdall worker를 바인딩하고 reconciliation이 필요할 때 replay가
-  동일한 `RuleGenerationBuildRequestEvent` 하나를 생성하며 정확한 통제 문서를 로드하고 독립
-  증적을 원자적으로 연결한 뒤 Mimir 소유 활성화 명령을 발행합니다. 집중 중복, 재시작,
-  프로바이더 실패, 오래된 식별자 및 최종 활성화 검사는 정책 또는 실행 권한을 부여하지 않고
-  통과합니다.
-- [ ] 이 기능의 상태를 `implemented`에서 `validated`로 변경하기 전에 운영 바인딩 및
-  Reader 범위 변환 결과의 통제된 실제 근거를 기록하고
-  [CatalogRetrievalReceipt](#catalogretrievalreceipt)에 정의된 신원을 보존합니다.
-- [x] 배포된 카탈로그 probe는 영어 및 한국어 양성, 모호성, 적대적 입력, 코퍼스 격리 및
-  실제 인덱스의 오래된 세대 집단을 포함합니다. 적대적 입력과 발견 전용 no-match 정밀도는
-  `1.0`이며 발견 문서는 활성 결과와 격리됩니다.
-- [x] 통제된 한국어 표면과 내용 기반 주소를 가진 전체 검증 증적이 현재 Rule 50개 세대에서
-  replay됩니다. 정확한 세대, no-match 및 코퍼스 격리 검사를 약화하지 않고 필수 집단 7개가
-  모두 통과하며 후보와 승격의 변환 결과가 동일함을 명시적으로 검사합니다.
-- [x] 평가 임계값과 필수 집단을 내용 기반 주소를 가진 통제된 구성에서 로드합니다. 결정론적인
-  검토 전용 게이트는 오래된 정책 ID, 실패하거나 불완전한 근거, 알 수 없는 증적 스키마,
-  권한을 포함한 증적 및 현재 임계값 미만의 값을 거부하며 승격 또는 실행 권한을 부여하지
-  않습니다.
-
 ## 설계 개요
 
 FDAI는 Rule 순위를 정하기 전에 의미를 해석합니다. 정확한 카탈로그 ID와 검토된 온톨로지
@@ -468,6 +358,7 @@ unavailable 응답을 반환합니다. 이 경로는 Core 함수 레지스트리
 
 | 학습 내용 | 문서 |
 |-----------|------|
+| 구현 상태 및 남은 작업 | [구현 원장](../../roadmap-implementation/rules-and-detection/rule-semantic-retrieval.md) |
 | Rule 원본, 파싱 및 licensing | [Rule 카탈로그 수집](rule-catalog-collection-ko.md) |
 | Rule 수명 주기 및 human 컨트롤 | [Rule 거버넌스](rule-governance-ko.md) |
 | 타입이 지정된 온톨로지 및 time-consistent 맥락 | [FDAI Operating 온톨로지](../architecture/operating-ontology-ko.md) |

@@ -1,7 +1,7 @@
 {
-  "catalog_digest": "sha256:f97697e92528921526f8937f5cc1a0b416646f313a80c6ded37b8cba3eeff6e2",
+  "catalog_digest": "sha256:6303c2d7b913a46c56e8286581d0a7dcdecd00c5f10e934c2505ab7854a9c816",
   "execution_authority": false,
-  "generated_at": "2026-09-29T10:16:02.090834Z",
+  "generated_at": "2026-09-29T10:30:46.389680Z",
   "records": [
     {
       "designed_behavior": [
@@ -379,14 +379,14 @@
         "How does FDAI perform root cause analysis?",
         "FDAI는 근본 원인 분석을 어떻게 수행하나요?"
       ],
-      "record_digest": "sha256:78432add543c3dd21624530848c7a9f0b1204ef5693ccf35abd6f3a2d0b3ac1d",
+      "record_digest": "sha256:0554cf7c0f2a8b0fccf362c0884ea15b0a25d0bca2fa35a615390cf21f3e823a",
       "sources": [
         {
           "authority_role": "verification",
-          "blob_sha": "d958e12ac31a28fc215265089d4c298a15bddb1a",
-          "line_end": 12,
-          "line_start": 12,
-          "path": "docs/roadmap/rules-and-detection/root-cause-analysis.md",
+          "blob_sha": "6cf2c29d80d9a6228e1f6cb1cc1a9baea6debb5c",
+          "line_end": 6,
+          "line_start": 6,
+          "path": "docs/roadmap-implementation/rules-and-detection/root-cause-analysis.md",
           "source_kind": "doc",
           "symbol": "Implementation status"
         }
@@ -448,8 +448,17 @@
         "How are FDAI services separated?",
         "FDAI 서비스는 어떻게 분리되어 있나요?"
       ],
-      "record_digest": "sha256:182ffb5e91d4f6e1d2fdff325a0ce7feb11b90da7afab446a0e0d52474e5d8f8",
+      "record_digest": "sha256:42f0074abbe0c3302cdf0ca947b981d1344fb7a75c8af787ee2281f29fc76cac",
       "sources": [
+        {
+          "authority_role": "design",
+          "blob_sha": "abb146564b07cb5f66047b5df5976411b8a4f376",
+          "line_end": 87,
+          "line_start": 87,
+          "path": "docs/roadmap/interfaces/system-knowledge-service.md",
+          "source_kind": "doc",
+          "symbol": "Revised design"
+        },
         {
           "authority_role": "design",
           "blob_sha": "c6725a2c903ca29ddbc2ba5c53d723a2dbf6fa36",
@@ -458,15 +467,6 @@
           "path": "docs/roadmap/architecture/service-graduation-and-ownership.md",
           "source_kind": "doc",
           "symbol": "Graduation scorecard"
-        },
-        {
-          "authority_role": "design",
-          "blob_sha": "f65737cc6e7bbea3494097ba9ed4cc102f19bdc8",
-          "line_end": 87,
-          "line_start": 87,
-          "path": "docs/roadmap/interfaces/system-knowledge-service.md",
-          "source_kind": "doc",
-          "symbol": "Revised design"
         }
       ],
       "status": "in_progress",
@@ -491,11 +491,11 @@
         "How does the FDAI system knowledge bot work?",
         "FDAI 시스템 지식 봇은 어떻게 동작하나요?"
       ],
-      "record_digest": "sha256:8c6fb70c84d55314b6fb1e83b0bbd131a33017bfa99b923aa00bcb74cebd29fc",
+      "record_digest": "sha256:dbc6060854fd6517e6c1d6e84ed99af3b95742cb2c6c61052c6ac3eba4b005a7",
       "sources": [
         {
           "authority_role": "design",
-          "blob_sha": "f65737cc6e7bbea3494097ba9ed4cc102f19bdc8",
+          "blob_sha": "abb146564b07cb5f66047b5df5976411b8a4f376",
           "line_end": 87,
           "line_start": 87,
           "path": "docs/roadmap/interfaces/system-knowledge-service.md",

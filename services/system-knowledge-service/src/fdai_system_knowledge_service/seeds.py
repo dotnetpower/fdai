@@ -350,7 +350,7 @@ REFERENCE_SEEDS = (
         ),
         sources=(
             _doc(
-                "docs/roadmap/rules-and-detection/root-cause-analysis.md",
+                "docs/roadmap-implementation/rules-and-detection/root-cause-analysis.md",
                 "Implementation status",
                 SystemKnowledgeAuthorityRole.VERIFICATION,
             ),
