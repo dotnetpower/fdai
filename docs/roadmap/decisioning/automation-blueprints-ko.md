@@ -1,6 +1,6 @@
 ---
 translation_of: automation-blueprints.md
-translation_source_sha: a78645588f6aebf7c86e7f070740fe8bc8c08bc3
+translation_source_sha: 4726a14d963c3e65d8814ca3a272c0fd81c85d9d
 translation_revised: 2026-09-29
 ---
 # Reviewable 자동화 Blueprints
@@ -72,7 +72,7 @@ zero 변경 도구를 가진 비활성화된, shadow-only 후보를 제출합니
 
 이행 `20260720_0043`은 active-dedup 부분 unique 인덱스가 있는
 `automation_blueprint_candidate`를 생성합니다. PostgreSQL은 권한 필드, 지문, 상태,
-검토 사유, 작업 ID, realized 사용량 개수를 저장합니다. Production binding은 명시적인
+검토 사유, 작업 ID, realized 사용량 개수를 저장합니다. 일회성 tick binding은 명시적인
 blueprint-evidence payload가 있을 때만 durable semantic result projection에서 completed
 operator-turn 근거를 읽으므로 deployment-owned 입력이 없으면 suggestion을 만들어내지 않고
 fail closed합니다. 상태 변경은 compare-and-swap입니다.

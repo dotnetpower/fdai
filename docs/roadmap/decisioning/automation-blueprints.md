@@ -71,7 +71,7 @@ isolation, delivery, autonomy, and risk remain deterministic fields.
 
 Migration `20260720_0043` creates `automation_blueprint_candidate` with an active-dedup partial
 unique index. PostgreSQL stores authority fields, fingerprints, state, review reason, task ID, and
-realized usage count. The production binding reads completed operator-turn evidence from the
+realized usage count. The one-shot tick binding reads completed operator-turn evidence from the
 durable semantic result projection only when an explicit blueprint-evidence payload is present, so
 missing deployment-owned inputs fail closed instead of manufacturing suggestions. State changes use
 compare-and-swap.
