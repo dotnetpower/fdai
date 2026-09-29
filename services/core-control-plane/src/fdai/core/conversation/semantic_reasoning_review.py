@@ -147,9 +147,9 @@ def review_forms(
 
     if raw is None:
         return FormReview("unavailable", ("review_unavailable",))
-    extraction = resolve_extraction(raw, utterance)
-    if extraction is None:
-        return FormReview("invalid", ("review_invalid",))
+    extraction = _resolved(raw, utterance)
+    if isinstance(extraction, str):
+        return FormReview("invalid", ("review_invalid", f"review_invalid:{extraction}"))
     uncovered = uncovered_constraints(forms, extraction, utterance)
     unacknowledged = unacknowledged_constraints(forms, extraction, utterance)
     merged = merged_constraints(forms, extraction)
@@ -174,35 +174,42 @@ def review_forms(
 def resolve_extraction(raw: Mapping[str, Any], utterance: str) -> ConstraintExtraction | None:
     """Return the located extraction, or None when it cannot serve as a review."""
 
+    resolved = _resolved(raw, utterance)
+    return None if isinstance(resolved, str) else resolved
+
+
+def _resolved(raw: Mapping[str, Any], utterance: str) -> ConstraintExtraction | str:
+    """Return the located extraction, or the typed reason it cannot serve as a review."""
+
     try:
         payload = copy.deepcopy(dict(raw))
     except (TypeError, ValueError):
-        return None
+        return "payload"
     constraints = payload.get("constraints")
     if not isinstance(constraints, list) or not constraints:
         # Every question states at least what it asks, so an empty extraction is no review.
-        return None
+        return "constraints_empty"
     for item in constraints:
         if not isinstance(item, dict):
-            return None
+            return "constraint_shape"
         span = _locate(item.get("quote"), utterance)
         if span is None:
-            return None
+            return "constraint_quote_unlocated"
         item["quote"] = {"start": span[0], "end": span[1]}
     literals = payload.get("literals", [])
     if not isinstance(literals, list):
-        return None
+        return "literal_shape"
     located_literals = []
     for quote in literals:
         span = _locate(quote, utterance)
         if span is None:
-            return None
+            return "literal_quote_unlocated"
         located_literals.append({"start": span[0], "end": span[1]})
     payload["literals"] = located_literals
     try:
         return ConstraintExtraction.model_validate(payload)
     except ValidationError:
-        return None
+        return "schema"
 
 
 def uncovered_constraints(

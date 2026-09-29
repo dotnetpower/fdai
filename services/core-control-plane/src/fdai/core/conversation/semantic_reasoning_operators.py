@@ -10,7 +10,10 @@ from typing import Any
 
 from fdai_service_contracts.ontology_query import OntologyQueryNode, QueryNodeKind, canonical_json
 
+from fdai.core.ontology_platform.resource_state_queries import RESOURCE_STATE_FUNCTION_NAME
+
 from .semantic_planning_models import SemanticOutputShape
+from .semantic_reasoning_admission import restates_filter
 from .semantic_reasoning_anchoring import anchored_relation
 from .semantic_reasoning_form import (
     DurationUnit,
@@ -43,6 +46,7 @@ from .semantic_reasoning_nodes import (
     OperatorResult,
     PlanSpec,
     anchor_node,
+    concept_values,
     containment_side,
     count_node,
     endpoint_predicates,
@@ -52,6 +56,7 @@ from .semantic_reasoning_nodes import (
     object_set_node,
     plan_spec,
     readable,
+    state_filter_node,
     subject_selection,
     traversal_node,
 )
@@ -59,7 +64,8 @@ from .semantic_reasoning_relations import RelationSide, select_relation_sides
 from .semantic_reasoning_schema import schema_goal
 
 MAX_SIDES_PER_BATCH = 3
-MAX_COUNT_SIDES = 8
+# An anchor read, one traversal per side, and the aggregate fit one intent graph of 16 goals.
+MAX_COUNT_SIDES = 12
 MIN_LOOKBACK_SECONDS = 60
 MAX_LOOKBACK_SECONDS = 604_800
 _UNIT_SECONDS = {
@@ -178,7 +184,7 @@ def _unread_atom(goal: FormGoal, ctx: CompileContext) -> str | None:
             return "counterpart_unsupported"
         if operation in {GoalOperation.LOOKUP, GoalOperation.HISTORY}:
             return f"relation_unsupported_for_operation:{operation.value}"
-    if any(item is not None and ctx.mention(item).qualifier is not None for item in cited):
+    if any(item is not None and _unread_qualifier(goal, item, ctx) for item in cited):
         return "qualified_mention_unsupported"
     if goal.level is GoalLevel.SCHEMA and goal.time.kind not in _CURRENT_TIMES:
         return f"time_unsupported:{goal.time.kind.value}"
@@ -193,6 +199,17 @@ def _unread_atom(goal: FormGoal, ctx: CompileContext) -> str | None:
     if measure.group_by is not GroupBy.NONE and operation is not GoalOperation.COUNT:
         return f"group_by_unsupported_for_operation:{operation.value}"
     return None
+
+
+def _unread_qualifier(goal: FormGoal, mention_id: str, ctx: CompileContext) -> bool:
+    """Return whether a cited mention's qualifier states an atom no builder reads.
+
+    A qualifier on the subject that names one of the goal's own filters only restates
+    that filter, which the goal already reads.
+    """
+
+    qualifier = ctx.mention(mention_id).qualifier
+    return qualifier is not None and not restates_filter((goal,), mention_id, qualifier.mention)
 
 
 def _restates_measure(goal: FormGoal, measure: FormMeasure, ctx: CompileContext) -> bool:
@@ -212,9 +229,14 @@ def _restates_measure(goal: FormGoal, measure: FormMeasure, ctx: CompileContext)
 def _collection_goal(goal: FormGoal, ctx: CompileContext) -> OperatorResult:
     if goal.time.kind not in _CURRENT_TIMES:
         return OperatorResult(unsupported=(f"time_unsupported:{goal.time.kind.value}",))
-    selector, predicates, failure = subject_selection(goal, ctx)
+    states = _stated_states(goal, ctx)
+    if isinstance(states, OperatorResult):
+        return states
+    selector, predicates, failure = subject_selection(goal, ctx, state_stage=bool(states))
     if failure is not None:
         return failure
+    if states and selector != RESOURCE_OBJECT_TYPE:
+        return OperatorResult(unsupported=("state_filter_requires_resource",))
     scopes = [item for item in goal.filters if item.role is FilterRole.SCOPE]
     if len(scopes) > 1:
         return OperatorResult(unsupported=("multiple_scopes_unsupported",))
@@ -238,10 +260,15 @@ def _collection_goal(goal: FormGoal, ctx: CompileContext) -> OperatorResult:
         member = traversal_node(f"{prefix}-members", anchor.node_id, side, predicates, ctx)
         nodes = [anchor, member]
         output = member.node_id
+    if states:
+        state = state_filter_node(f"{prefix}-state", output, states)
+        nodes.append(state)
+        output = state.node_id
     if goal.effective_operation is GoalOperation.COUNT:
         count = count_node(f"{prefix}-count", output, group)
         nodes.append(count)
         output = count.node_id
+    listed_states = states and goal.effective_operation is not GoalOperation.COUNT
     return OperatorResult(
         specs=(
             plan_spec(
@@ -250,9 +277,34 @@ def _collection_goal(goal: FormGoal, ctx: CompileContext) -> OperatorResult:
                 (output,),
                 ctx,
                 subjects=(selector,),
+                output_shape=SemanticOutputShape.RESOURCE_STATE_LIST if listed_states else None,
+                measure_concepts=states if listed_states else (),
             ),
         )
     )
+
+
+def _stated_states(goal: FormGoal, ctx: CompileContext) -> tuple[str, ...] | OperatorResult:
+    """Return the reviewed state concepts every state filter binds, in stable order."""
+
+    concepts: list[str] = []
+    stated = [item for item in goal.filters if item.role is FilterRole.STATE]
+    if stated and goal.subject is not None:
+        # Reviewed states describe Resources; another ObjectType's lifecycle has no reader here.
+        subject = ctx.mention(goal.subject)
+        values, _failure = concept_values(goal.subject, ctx)
+        if subject.domain is MentionDomain.OBJECT_TYPE and values != (RESOURCE_OBJECT_TYPE,):
+            return OperatorResult(unsupported=("filter_unsupported:state",))
+    for item in stated:
+        if ctx.mention(item.mention).domain is not MentionDomain.STATE:
+            return OperatorResult(unsupported=("state_filter_domain_unsupported",))
+        values, failure = concept_values(item.mention, ctx)
+        if failure is not None:
+            return failure
+        concepts.extend(values)
+    if concepts and not function_declared(ctx, RESOURCE_STATE_FUNCTION_NAME):
+        return OperatorResult(unsupported=(f"function_unavailable:{RESOURCE_STATE_FUNCTION_NAME}",))
+    return tuple(sorted(set(concepts)))
 
 
 def _relation_goal(goal: FormGoal, ctx: CompileContext) -> OperatorResult:

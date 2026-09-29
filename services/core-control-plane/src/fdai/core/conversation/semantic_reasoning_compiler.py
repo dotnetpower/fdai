@@ -59,6 +59,8 @@ class GoalCompilation:
     reasons: tuple[str, ...] = ()
     limitations: tuple[str, ...] = ()
     batches: tuple[CompiledBatch, ...] = ()
+    # The admitted goal's own confidence, carried only by a compiled goal.
+    confidence: float | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -183,7 +185,12 @@ def compile_question_form(
             GoalCompilation(goal.id, GoalStatus.UNSUPPORTED, violations, result.limitations)
             if violations
             else GoalCompilation(
-                goal.id, GoalStatus.COMPILED, (), result.limitations, tuple(batches)
+                goal.id,
+                GoalStatus.COMPILED,
+                (),
+                result.limitations,
+                tuple(batches),
+                confidence=goal.confidence,
             )
         )
     return ReasoningCompilation(

@@ -6,10 +6,11 @@ to_type: Resource
 cardinality: many_to_one
 forward_role: recommends_size_for
 reverse_role: has_sizing_recommendation
+semantic_traits: [evidence]
 description: Exact Resource revision addressed by one advisory SizingRecommendation.
 provenance:
   source_url: https://github.com/dotnetpower/fdai
   resolved_ref: link-type:sizing_recommendation_targets_resource@1.0.0
-  content_hash: sha256:ce9f6b86c44cfc5107b2e3fea137169f2401e5ced1a7575498e99a90e25290c0
+  content_hash: sha256:d62d7ad12ad4a1310d660a0015418a830a0c0443cbb9f31752ea162da14f8d7c
   license: MIT
   retrieved_at: "2026-08-28T00:00:00Z"

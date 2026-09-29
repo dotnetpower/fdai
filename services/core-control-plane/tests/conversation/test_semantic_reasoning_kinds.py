@@ -147,7 +147,12 @@ async def test_a_kind_found_only_in_the_sibling_catalog_takes_that_domain() -> N
     # The incident kind binds, and the unsupported state filter is now what the turn says.
     assert goal.status.value == "unsupported"
     assert goal.reasons == ("filter_unsupported:state",)
-    assert {shard.domain.value for shard in model.shards} == {"resource_type", "object_type"}
+    # The stated state is grounded in its own reviewed state catalog.
+    assert {shard.domain.value for shard in model.shards} == {
+        "resource_type",
+        "object_type",
+        "state",
+    }
 
 
 async def test_a_kind_found_in_its_stated_catalog_never_reads_the_sibling() -> None:
@@ -156,7 +161,7 @@ async def test_a_kind_found_in_its_stated_catalog_never_reads_the_sibling() -> N
     observation = await _shadow(model, _INCIDENTS)
 
     assert observation.passes[0].regrounded == ()
-    assert {shard.domain.value for shard in model.shards} == {"object_type"}
+    assert {shard.domain.value for shard in model.shards} == {"object_type", "state"}
 
 
 async def test_a_kind_neither_catalog_holds_still_clarifies() -> None:

@@ -28,6 +28,8 @@ SERVICE_LAUNCHERS = {
 }
 SEVERITIES = ("low", "medium", "high", "critical")
 MAX_PACKETS = 20
+# Identity-bound sockets older than the newest few belong to replaced processes.
+MAX_SOCKET_CANDIDATES = 32
 MAX_FILE_BYTES = 1024 * 1024
 MAX_LEDGER_BYTES = 1024 * 1024
 _HEX64 = re.compile(r"^[0-9a-f]{64}$")
@@ -49,6 +51,10 @@ def _parser() -> argparse.ArgumentParser:
     imported.add_argument("--result", required=True, type=Path)
     report = commands.add_parser("report")
     report.add_argument("--top", type=int, default=20)
+    explain = commands.add_parser("explain")
+    explain.add_argument("--service", choices=SERVICES, default="core-control-plane")
+    explain.add_argument("--last", type=int, default=10)
+    explain.add_argument("--json", action="store_true")
     return parser
 
 
@@ -135,6 +141,53 @@ def _state(root: Path) -> Path:
     return path
 
 
+def _socket_candidates(root: Path, service: str) -> tuple[Path, ...]:
+    """Return the legacy service socket and every identity-bound socket, newest first.
+
+    A launcher binds each server socket to its full runtime identity under ``.fdai/r``,
+    so the service name alone cannot select it; the live server's packet names it.
+    """
+
+    legacy = root / ".fdai" / "runtime-diagnostics" / f"{service}.sock"
+    bound = root / ".fdai" / "r"
+    identity_bound = sorted(
+        (path for path in bound.glob("*.sock") if path.is_socket()) if bound.is_dir() else (),
+        key=lambda path: path.stat().st_mtime,
+        reverse=True,
+    )[:MAX_SOCKET_CANDIDATES]
+    return (legacy, *identity_bound)
+
+
+async def _service_snapshot(
+    root: Path, service: str
+) -> tuple[Path, DevelopmentProfilePacket] | None:
+    """Return the socket whose live server answers for ``service`` and its snapshot packet."""
+
+    for socket_path in _socket_candidates(root, service):
+        if not socket_path.is_socket():
+            continue
+        try:
+            packet = await request_profile(
+                socket_path,
+                duration_ms=0,
+                cpu=False,
+                heap=False,
+                timeout_seconds=2,
+            )
+        except (OSError, TimeoutError, RuntimeError, ValueError):
+            continue
+        if packet.service_id == service:
+            return socket_path, packet
+    return None
+
+
+async def _service_socket(root: Path, service: str) -> Path | None:
+    """Return the one socket whose live server answers for ``service``."""
+
+    found = await _service_snapshot(root, service)
+    return found[0] if found is not None else None
+
+
 async def _capture(
     root: Path,
     *,
@@ -145,14 +198,18 @@ async def _capture(
 ) -> DevelopmentProfilePacket:
     if not 0 <= duration_ms <= 30_000:
         raise ValueError("duration MUST be between 0 and 30000 ms")
-    socket_path = root / ".fdai" / "runtime-diagnostics" / f"{service}.sock"
-    packet = await request_profile(
-        socket_path,
-        duration_ms=duration_ms,
-        cpu=cpu,
-        heap=heap,
-        timeout_seconds=max(5.0, duration_ms / 1000 + 5.0),
-    )
+    found = await _service_snapshot(root, service)
+    if found is None:
+        raise ValueError(f"no live development diagnostic server answers for {service}")
+    socket_path, packet = found
+    if duration_ms:
+        packet = await request_profile(
+            socket_path,
+            duration_ms=duration_ms,
+            cpu=cpu,
+            heap=heap,
+            timeout_seconds=max(5.0, duration_ms / 1000 + 5.0),
+        )
     if packet.service_input_digest != _service_input_digest(root, service):
         raise ValueError("running service inputs do not match the workspace")
     return packet
@@ -357,27 +414,8 @@ def _prune(directory: Path, pattern: str) -> None:
         path.unlink()
 
 
-async def _socket_available(socket_path: Path) -> bool:
-    if not socket_path.is_socket():
-        return False
-    try:
-        await request_profile(
-            socket_path,
-            duration_ms=0,
-            cpu=False,
-            heap=False,
-            timeout_seconds=2,
-        )
-    except (OSError, TimeoutError, RuntimeError, ValueError):
-        return False
-    return True
-
-
 async def _status(root: Path) -> int:
-    sockets = root / ".fdai" / "runtime-diagnostics"
-    availability = await asyncio.gather(
-        *(_socket_available(sockets / f"{service}.sock") for service in SERVICES)
-    )
+    availability = [await _service_socket(root, service) is not None for service in SERVICES]
     value = dict(zip(SERVICES, availability, strict=True))
     print(json.dumps(value, sort_keys=True))
     return 0 if any(value.values()) else 1
@@ -395,10 +433,73 @@ def _report(root: Path, top: int) -> int:
     return 0
 
 
+def _explain(packet: DevelopmentProfilePacket, profile_path: Path, last: int, as_json: bool) -> int:
+    """Render retained decision traces and their review cues without adding any content."""
+    if not 1 <= last <= 50:
+        raise ValueError("--last MUST be between 1 and 50")
+    traces = packet.decisions[-last:]
+    cue_counts: dict[str, int] = {}
+    outcomes: dict[str, int] = {}
+    for trace in traces:
+        for cue in trace.cues:
+            cue_counts[cue.code] = cue_counts.get(cue.code, 0) + 1
+        outcome = trace.steps[-1].attributes
+        key = f"{outcome.get('disposition', '~')}/{outcome.get('reason_code', '~')}"
+        outcomes[key] = outcomes.get(key, 0) + 1
+    summary = {
+        "packet": str(profile_path),
+        "retained": len(packet.decisions),
+        "shown": len(traces),
+        "evicted": packet.decisions_evicted,
+        "rejected": packet.decisions_rejected,
+        "cues": dict(sorted(cue_counts.items(), key=lambda item: (-item[1], item[0]))),
+        "outcomes": dict(sorted(outcomes.items(), key=lambda item: (-item[1], item[0]))),
+    }
+    if as_json:
+        rendered = [trace.model_dump(mode="json") for trace in traces]
+        print(json.dumps({**summary, "traces": rendered}, ensure_ascii=True, indent=2))
+        return 0
+    print(json.dumps(summary, ensure_ascii=True))
+    for trace in traces:
+        cues_by_step: dict[int, list[str]] = {}
+        for cue in trace.cues:
+            cues_by_step.setdefault(cue.step, []).append(cue.code)
+        print(
+            f"\n#{trace.sequence} session={trace.session} turn={trace.turn_sequence} "
+            f"recorded={trace.recorded_at.isoformat(timespec='seconds')}"
+        )
+        for index, step in enumerate(trace.steps):
+            values = " ".join(
+                f"{key}={_render_value(value)}"
+                for key, value in step.attributes.items()
+                if not (key == "status" and value == "completed")
+            )
+            marker = f"  <- {','.join(cues_by_step[index])}" if index in cues_by_step else ""
+            print(f"  [{index:02d}] {step.stage:<44} {values}{marker}")
+    return 0
+
+
+def _render_value(value: object) -> str:
+    if isinstance(value, bool):
+        return "true" if value else "false"
+    if isinstance(value, tuple | list):
+        return ",".join(str(item) for item in value) or "-"
+    return str(value)
+
+
 async def _main_async(options: argparse.Namespace) -> int:
     root = _root()
     if options.command == "status":
         return await _status(root)
+    if options.command == "explain":
+        packet = await _capture(
+            root,
+            service=options.service,
+            duration_ms=0,
+            cpu=False,
+            heap=False,
+        )
+        return _explain(packet, _write_packet(root, packet), options.last, options.json)
     if options.command == "report":
         return _report(root, options.top)
     if options.command == "copilot-import":

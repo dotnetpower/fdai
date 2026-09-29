@@ -148,11 +148,19 @@ def test_a_missing_empty_or_unlocated_extraction_releases_nothing() -> None:
     typed = _typed(_aks_form("List", context=[_quote("the AKS")]))
 
     assert review_forms((typed,), None, utterance=_AKS).outcome == "unavailable"
-    assert review_forms((typed,), {"constraints": []}, utterance=_AKS).outcome == "invalid"
-    unlocated = {"constraints": [_constraint("EKS", "names")]}
-    assert review_forms((typed,), unlocated, utterance=_AKS).outcome == "invalid"
-    unknown_role = {"constraints": [_constraint("AKS", "vibes")]}
-    assert review_forms((typed,), unknown_role, utterance=_AKS).outcome == "invalid"
+    empty = review_forms((typed,), {"constraints": []}, utterance=_AKS)
+    unlocated = review_forms(
+        (typed,), {"constraints": [_constraint("EKS", "names")]}, utterance=_AKS
+    )
+    unknown_role = review_forms(
+        (typed,), {"constraints": [_constraint("AKS", "vibes")]}, utterance=_AKS
+    )
+
+    # The typed reason names the rule the extraction broke and never quotes its text.
+    assert empty.reasons == ("review_invalid", "review_invalid:constraints_empty")
+    assert unlocated.reasons == ("review_invalid", "review_invalid:constraint_quote_unlocated")
+    assert unknown_role.reasons == ("review_invalid", "review_invalid:schema")
+    assert {empty.outcome, unlocated.outcome, unknown_role.outcome} == {"invalid"}
     assert extraction_schema()["$defs"]["SourceSpan"]["required"] == ["text", "occurrence"]
 
 
@@ -261,6 +269,40 @@ async def test_the_extractor_sees_only_the_masked_question_on_its_own_model() ->
     assert disabled is None
 
 
+async def test_an_empty_extraction_beside_earlier_turns_is_asked_once_without_them() -> None:
+    utterance = "How many VMs are there?"
+    sent: list[dict[str, Any]] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        payload = json.loads(json.loads(request.content)["messages"][-1]["content"])
+        sent.append(payload)
+        constraints = [] if payload["context"] else [{"quote": _quote("How many"), "role": "asks"}]
+        content = {"constraints": constraints, "literals": []}
+        return httpx.Response(
+            200, json={"choices": [{"message": {"content": json.dumps(content)}}]}
+        )
+
+    def empty(request: httpx.Request) -> httpx.Response:
+        sent.append(json.loads(json.loads(request.content)["messages"][-1]["content"]))
+        content = {"constraints": [], "literals": []}
+        return httpx.Response(
+            200, json={"choices": [{"message": {"content": json.dumps(content)}}]}
+        )
+
+    extraction = await _adapter(handler).extract_constraints(
+        utterance=utterance, context=("List the VMs",), locale="en"
+    )
+    alone = await _adapter(empty).extract_constraints(utterance=utterance, context=(), locale="en")
+
+    # Every quote comes from the question, so the second reading drops only the history;
+    # a question read without history is asked once, and its empty reading voids the review.
+    assert [item["context"] for item in sent] == [["List the VMs"], [], []]
+    assert extraction is not None and extraction["constraints"] == [
+        {"quote": _quote("How many"), "role": "asks"}
+    ]
+    assert alone is not None and alone["constraints"] == []
+
+
 _GROUPED = "Count VMs by type"
 
 
@@ -326,6 +368,19 @@ async def test_one_review_repair_states_the_uncovered_constraint_and_releases() 
     )
     assert observation.review == "faithful" and observation.released is True
     assert len(model.review_calls) == 1
+
+
+async def test_a_review_repair_that_reads_only_part_of_the_question_releases_nothing() -> None:
+    stated = _grouped_form(measure={"kind": "count", "group_by": "type", "cue": _quote("by type")})
+    stated["context"] = []
+    stated["remaining_goals"] = True
+    model = _Model([_grouped_form(), stated], {}, extraction=_GROUPED_EXTRACTION)
+
+    observation = await _grouped(model)
+
+    assert observation.passes[-1].repair == "review_applied"
+    assert observation.released is False
+    assert observation.continuation_pending is True
 
 
 async def test_a_review_repair_that_rewrites_meaning_or_fails_releases_nothing() -> None:
@@ -625,8 +680,12 @@ def test_a_literal_the_extractor_cannot_locate_voids_the_review() -> None:
     unlocated = {**_FRAGMENT_EXTRACTION, "literals": [_quote("app-prod")]}
     malformed = {**_FRAGMENT_EXTRACTION, "literals": "app-dev"}
 
-    assert review_forms((typed,), unlocated, utterance=_FRAGMENT).outcome == "invalid"
-    assert review_forms((typed,), malformed, utterance=_FRAGMENT).outcome == "invalid"
+    assert review_forms((typed,), unlocated, utterance=_FRAGMENT).reasons[1:] == (
+        "review_invalid:literal_quote_unlocated",
+    )
+    assert review_forms((typed,), malformed, utterance=_FRAGMENT).reasons[1:] == (
+        "review_invalid:literal_shape",
+    )
 
 
 async def test_a_review_repair_never_moves_a_name_that_a_fragment_filter_reads() -> None:

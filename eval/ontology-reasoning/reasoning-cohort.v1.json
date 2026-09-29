@@ -2609,14 +2609,15 @@
       "concepts": {
         "m1": [
           "compute.vm"
+        ],
+        "m2": [
+          "resource_state.stopped"
         ]
       },
       "expect": {
         "g1": {
-          "status": "unsupported",
-          "reasons": [
-            "filter_unsupported:state"
-          ]
+          "status": "compiled",
+          "function": "query.resource_state_inventory"
         }
       }
     },
@@ -2662,14 +2663,15 @@
       "concepts": {
         "m1": [
           "compute.vm"
+        ],
+        "m2": [
+          "resource_state.stopped"
         ]
       },
       "expect": {
         "g1": {
-          "status": "unsupported",
-          "reasons": [
-            "filter_unsupported:state"
-          ]
+          "status": "compiled",
+          "function": "query.resource_state_inventory"
         }
       }
     },

@@ -689,12 +689,6 @@ def _as_lookup(form: dict[str, Any], **updates: Any) -> None:
     ("mutate", "reason"),
     (
         (
-            lambda form: form["mentions"][1].update(
-                qualifier={"mention": "m1", "sense": "containment"}
-            ),
-            "qualified_mention_unsupported",
-        ),
-        (
             lambda form: form["goals"][0].update(measure={"kind": "state"}),
             "measure_unsupported:state",
         ),
@@ -1257,7 +1251,7 @@ def test_a_declaration_count_grouped_by_type_counts_each_kind() -> None:
     assert [node.kind.value for node in batch.plan.nodes] == ["function", "aggregate"]
 
 
-def test_a_qualifier_on_a_measure_mention_is_never_dropped() -> None:
+def test_a_qualifier_on_a_state_mention_is_rejected_at_admission() -> None:
     utterance = "What is the state of aks-prod-01 in rg-app?"
     form = {
         "mentions": [
@@ -1285,10 +1279,12 @@ def test_a_qualifier_on_a_measure_mention_is_never_dropped() -> None:
         ],
     }
 
-    goal = _compile(utterance, form).goals[0]
+    admission = admitted(form, utterance)
 
-    assert goal.status is GoalStatus.UNSUPPORTED
-    assert goal.reasons == ("qualified_mention_unsupported",)
+    # A qualifier only places one named resource inside another, so a qualified state is
+    # rejected at admission with a reason its one repair can act on; it is never dropped.
+    assert admission.disposition.value == "invalid"
+    assert "qualifier_not_instance:m3" in admission.reasons
 
 
 def _kind_mention(utterance: str, text: str, mention_id: str) -> dict[str, Any]:
@@ -1505,3 +1501,135 @@ async def test_a_peering_answers_from_either_end_whatever_direction_is_stated(
 
     assert compilation.goals[0].status is GoalStatus.COMPILED, compilation.goals[0].reasons
     assert await _endpoint_names(compilation) == {"vnet-app"}
+
+
+def _state_form(utterance: str, *, operation: str = "select") -> dict[str, Any]:
+    return {
+        "mentions": [
+            {
+                "id": "m1",
+                "form": "concept",
+                "domain": "resource_type",
+                "span": span(utterance, "VMs"),
+            },
+            {"id": "m2", "form": "concept", "domain": "state", "span": span(utterance, "running")},
+        ],
+        "goals": [
+            {
+                "id": "g1",
+                "level": "instance",
+                "operation": operation,
+                "subject": "m1",
+                "subject_scope": "collection",
+                "filters": [{"role": "state", "mention": "m2"}],
+                "cue": span(utterance, "running"),
+                "confidence": 0.93,
+            }
+        ],
+    }
+
+
+def test_a_stated_state_filters_the_collection_through_the_state_inventory() -> None:
+    utterance = "List the running VMs"
+    compilation = _compile(
+        utterance,
+        _state_form(utterance),
+        concepts(
+            ("m1", MentionDomain.RESOURCE_TYPE, ("compute.vm",)),
+            ("m2", MentionDomain.STATE, ("resource_state.running",)),
+        ),
+    )
+
+    goal = compilation.goals[0]
+    assert goal.status is GoalStatus.COMPILED, goal.reasons
+    (batch,) = goal.batches
+    kinds = [node.kind.value for node in batch.plan.nodes]
+    assert kinds == ["object_set", "function"]
+    state = batch.plan.nodes[1]
+    assert state.arguments["function_name"] == "query.resource_state_inventory"
+    assert state.arguments["arguments"] == {"state_concepts": ["resource_state.running"]}
+    assert batch.frame.output_shape == "resource_state_list"
+    assert batch.frame.measure_concepts == ("resource_state.running",)
+
+
+def test_a_counted_state_and_an_unbound_state_never_widen_the_read() -> None:
+    utterance = "How many running VMs"
+    counted = _compile(
+        utterance,
+        _state_form(utterance, operation="count"),
+        concepts(
+            ("m1", MentionDomain.RESOURCE_TYPE, ("compute.vm",)),
+            ("m2", MentionDomain.STATE, ("resource_state.running",)),
+        ),
+    )
+    unbound = _compile(
+        utterance,
+        _state_form(utterance, operation="count"),
+        concepts(("m1", MentionDomain.RESOURCE_TYPE, ("compute.vm",))),
+    )
+
+    (batch,) = counted.goals[0].batches
+    assert [node.kind.value for node in batch.plan.nodes] == ["object_set", "function", "aggregate"]
+    assert unbound.goals[0].status is not GoalStatus.COMPILED
+
+
+def test_a_qualifier_that_restates_the_subject_filter_is_read_with_the_filter() -> None:
+    utterance = "How many running VMs"
+    restating = _state_form(utterance, operation="count")
+    restating["mentions"][0]["qualifier"] = {"mention": "m2", "sense": "classification"}
+    unfiltered = _state_form(utterance, operation="count")
+    unfiltered["mentions"][0]["qualifier"] = {"mention": "m2", "sense": "classification"}
+    unfiltered["goals"][0]["filters"] = []
+    unfiltered["goals"][0]["measure"] = {"kind": "count", "mention": "m2"}
+
+    counted = _compile(
+        utterance,
+        restating,
+        concepts(
+            ("m1", MentionDomain.RESOURCE_TYPE, ("compute.vm",)),
+            ("m2", MentionDomain.STATE, ("resource_state.running",)),
+        ),
+    )
+
+    # Running VMs states the same state as a qualifier and as the goal's filter; the
+    # filter reads it, so the qualifier drops nothing. Without that filter it is misplaced.
+    (batch,) = counted.goals[0].batches
+    assert [node.kind.value for node in batch.plan.nodes] == ["object_set", "function", "aggregate"]
+    assert "qualifier_not_instance:m1" in admitted(unfiltered, utterance).reasons
+
+
+def test_a_count_grouped_by_container_groups_members_by_their_direct_parent() -> None:
+    utterance = "Count resources by resource group"
+    form = {
+        "mentions": [
+            {
+                "id": "m1",
+                "form": "concept",
+                "domain": "resource_type",
+                "span": span(utterance, "resources"),
+            }
+        ],
+        "goals": [
+            {
+                "id": "g1",
+                "level": "instance",
+                "operation": "count",
+                "subject": "m1",
+                "subject_scope": "collection",
+                "measure": {
+                    "kind": "count",
+                    "group_by": "container",
+                    "cue": span(utterance, "by resource group"),
+                },
+                "cue": span(utterance, "Count"),
+                "confidence": 0.9,
+            }
+        ],
+    }
+    compilation = _compile(utterance, form, concepts(("m1", MentionDomain.RESOURCE_TYPE, ())))
+
+    goal = compilation.goals[0]
+    assert goal.status is GoalStatus.COMPILED, goal.reasons
+    (batch,) = goal.batches
+    aggregate = batch.plan.nodes[-1]
+    assert aggregate.arguments == {"operation": "count", "group_by": ["properties.parent_id"]}

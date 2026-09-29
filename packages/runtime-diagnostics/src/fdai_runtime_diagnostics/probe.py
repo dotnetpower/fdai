@@ -16,6 +16,7 @@ from pathlib import Path
 from typing import cast
 
 from fdai_runtime_diagnostics.config import DevelopmentDiagnosticsConfig
+from fdai_runtime_diagnostics.decisions import decision_snapshot
 from fdai_runtime_diagnostics.metrics import stage_snapshot
 from fdai_runtime_diagnostics.models import (
     CpuProfileEntry,
@@ -105,6 +106,10 @@ class RuntimeProbe:
             limitations.append("python_heap_no_repository_growth")
         if cpu and not cpu_rows:
             limitations.append("cpu_no_repository_samples")
+        decisions = decision_snapshot()
+        if decisions.recent_rejections:
+            limitations.append("decision_traces_rejected")
+        carries_decisions = bool(decisions.traces or decisions.evicted or decisions.rejected)
         measured_ms = max(0, (time.monotonic_ns() - started_ns) // 1_000_000)
         event_loop_lag = (
             max(
@@ -118,7 +123,7 @@ class RuntimeProbe:
             max(0, after.rss_bytes - heap_current_after) if heap_current_after is not None else None
         )
         return DevelopmentProfilePacket.build(
-            schema_version="1.0.0",
+            schema_version="1.1.0" if carries_decisions else "1.0.0",
             profile_id=str(uuid.uuid4()),
             service_id=self._config.service_id,
             capture_kind="profile" if duration_ms else "snapshot",
@@ -144,6 +149,9 @@ class RuntimeProbe:
             complete=not limitations,
             external_state_authority=False,
             execution_authority=False,
+            decisions=decisions.traces,
+            decisions_evicted=decisions.evicted,
+            decisions_rejected=decisions.rejected,
         )
 
 

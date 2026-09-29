@@ -95,6 +95,7 @@ from .contract_codecs import (
     OPERATOR_PROJECTION_PRODUCER_V16,
     OPERATOR_PROJECTION_PRODUCER_V17,
 )
+from .development_decisions import observe_semantic_decision, record_decision_observations
 from .semantic_answer_presentation import (
     authority_line,
     completeness_text,
@@ -150,6 +151,7 @@ from .semantic_turn_request import (
 from .semantic_turn_request import (
     prior_turns as _prior_turns,
 )
+from .semantic_verified_rows import verified_rows_table
 from .semantic_work_progress_projection import applied_context_receipts, work_progress_payload
 
 _LOGGER = logging.getLogger(__name__)
@@ -1018,6 +1020,7 @@ class SemanticTurnProcessor:
             "semantic_result": semantic_result,
         }
         projection["projection_id"] = _semantic_projection_id(projection)
+        observe_semantic_decision(projection)
         encoded_size = len(
             json.dumps(
                 projection,
@@ -1796,6 +1799,7 @@ def _semantic_model_extensions(
         Sequence[_ObservedModelCall],
         getattr(result.planning, "model_observations", ()),
     )
+    record_decision_observations(observations, getattr(result, "planning", None))
     social_act = getattr(result.planning, "social_act", None)
     social_act_value = getattr(social_act, "value", None)
     if not observations and not isinstance(social_act_value, str):
@@ -3453,6 +3457,7 @@ def _render_general_query_answer(
                 if korean
                 else f"- Verified {returned} of {total} rows."
             )
+            lines.extend(verified_rows_table(output, korean=korean))
     lines.extend(
         [
             "",

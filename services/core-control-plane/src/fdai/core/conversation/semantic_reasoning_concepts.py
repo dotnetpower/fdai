@@ -17,6 +17,11 @@ from typing import Any
 
 from fdai_service_contracts.ontology_query import content_digest
 
+from fdai.core.ontology_platform.resource_state_queries import (
+    RESOURCE_STATE_FUNCTION_NAME,
+    RESOURCE_STATE_MEASURE_CONCEPTS,
+)
+
 from .semantic_reasoning_admission import AdmissionDisposition, FormAdmission
 from .semantic_reasoning_form import MentionDomain, MentionForm
 
@@ -137,7 +142,38 @@ def concept_catalogs(
         # Reviewed type groups are the resource classes a mention can bind today.
         catalogs[MentionDomain.RESOURCE_TYPE] = resource_types
         catalogs[MentionDomain.RESOURCE_CLASS] = resource_types
+    states = _state_candidates(descriptors)
+    if states:
+        catalogs[MentionDomain.STATE] = states
     return catalogs
+
+
+def _state_candidates(descriptors: Sequence[Mapping[str, Any]]) -> tuple[ConceptCandidate, ...]:
+    """Return the reviewed state concepts the declared state inventory function can filter."""
+
+    function = next(
+        (
+            item
+            for item in descriptors
+            if item.get("kind") == "function" and item.get("name") == RESOURCE_STATE_FUNCTION_NAME
+        ),
+        None,
+    )
+    schema = function.get("output_schema") if isinstance(function, Mapping) else None
+    if not isinstance(schema, Mapping) or not isinstance(
+        schema.get("x-fdai-measure-concepts"), list
+    ):
+        return ()
+    declared = set(schema["x-fdai-measure-concepts"]) & set(RESOURCE_STATE_MEASURE_CONCEPTS)
+    labels: dict[str, tuple[str, ...]] = {}
+    for group in schema.get("x-fdai-measure-value-groups") or ():
+        if isinstance(group, Mapping) and group.get("concept") in declared:
+            terms = tuple(str(item) for item in group.get("terms") or () if str(item).strip())
+            labels[str(group["concept"])] = terms
+    return tuple(
+        ConceptCandidate(f"state:{concept}", (concept,), labels.get(concept) or (concept,))
+        for concept in sorted(declared)
+    )
 
 
 def shard_catalog(

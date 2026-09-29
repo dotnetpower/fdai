@@ -47,6 +47,9 @@ _MAX_UTTERANCE_CHARS = 32_000
 _MAX_SCHEMA_ATTEMPTS_PER_BINDING = 3
 _MACHINE_TOKEN_SEPARATOR = re.compile(r"[^a-z0-9_.-]+")
 _LOGGER = logging.getLogger(__name__)
+_PROPOSAL_KEPT = frozenset(
+    {SemanticJudgmentDisposition.LOW_CONFIDENCE, SemanticJudgmentDisposition.CLARIFICATION}
+)
 
 
 class SemanticJudgmentModel(Protocol):
@@ -489,6 +492,7 @@ class SemanticJudgmentBoundary:
                 if proposal.ambiguous:
                     final_disposition = SemanticJudgmentDisposition.CLARIFICATION
                     final_reason = "clarification_required"
+                    final_binding, final_proposal = binding, proposal
                     if binding is not bindings[-1]:
                         break
                     if schema_fallback_binding is not None and schema_fallback_proposal is not None:
@@ -574,16 +578,9 @@ class SemanticJudgmentBoundary:
             capability_digest=capability_digest,
             disposition=final_disposition,
             reason_code=final_reason,
-            binding=(
-                final_binding
-                if final_disposition is SemanticJudgmentDisposition.LOW_CONFIDENCE
-                else None
-            ),
-            proposal=(
-                final_proposal
-                if final_disposition is SemanticJudgmentDisposition.LOW_CONFIDENCE
-                else None
-            ),
+            # A low-confidence candidate or an ambiguous reading keeps its proposal and question.
+            binding=final_binding if final_disposition in _PROPOSAL_KEPT else None,
+            proposal=final_proposal if final_disposition in _PROPOSAL_KEPT else None,
             observations=tuple(observations),
         )
 

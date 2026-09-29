@@ -1,6 +1,6 @@
 schema_version: 1.0.0
 surface_id: surface.assurance.kubernetes-node-pool.multi-zone.ko
-manifest_digest: sha256:4b5e9184f7aa3e70ead21c722dc4276edf9ad7265fe2711340babc4faee72a93
+manifest_digest: sha256:92038acf87616807e1ccebd5fb569fefe148ec4bf6f6ce32ce30929389e2a1cb
 locale: ko
 origin: authored
 intent_ids:
@@ -18,4 +18,4 @@ producer_ref: assurance:shipped-catalog-ko@1
 evidence_refs:
 - rule:kubernetes-node-pool.multi-zone@1.0.0
 state: promoted
-validation_receipt_digest: sha256:988def323c18b2412c2ef43c80ac23f0e055f1283f09feaecd682e51770faabb
+validation_receipt_digest: sha256:2eaa30e48a779c1584aa2d3ff5b200e706ae47d5565593dfa464f31f86bbbb26

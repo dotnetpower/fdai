@@ -99,8 +99,9 @@ managed-resource route reaches this socket.
 The observer-proposal consumer is a normal application lifecycle worker, not a diagnostic channel.
 Its readiness joins the Operator worker checks; its GET projection neither reaches this socket nor authorizes a stack restart or live provider probe.
 
-The `status` command sends a bounded protocol request to each socket. A socket path left behind by
-an interrupted process is unavailable, not healthy.
+The `status` and `capture` commands find each service's identity-bound socket by sending a bounded
+protocol request to the newest candidates and keeping the one whose live server names that service.
+A socket path left behind by an interrupted process is unavailable, not healthy.
 
 The process-local probe retains bounded latency aggregates and reads content-free process state.
 An explicit capture can run `cProfile` and `tracemalloc` for at most 30 seconds, one capture per
@@ -118,6 +119,96 @@ materialization to focused modules. Event ordering, replay cursors, progress mon
 holds, diagnostic timing, and no-execution authority remain owned by the durable runtime. A deadline
 hold that the runtime builds itself persists through a separate local-hold path, because only a Core
 projection carries the evidence digest and projection identity that ingest recomputes.
+
+### Semantic decision traces
+
+A timing profile shows where a turn spent time, not why the runtime understood a question the way
+it did. When the channel is enabled, Core keeps one content-free decision trace for each completed
+semantic turn in a process-local buffer. A trace records these steps in order:
+
+1. The routing preflight or adaptive plan.
+2. Each recorded judgment attempt.
+3. The closed-choice grounding calls.
+4. The planner's own decision events.
+5. The executed intent graph.
+6. The outcome.
+
+The planner already emits structured decision events for judgment retries, rejected proposals,
+unresolved target spans, T2 escalation, recovery, grounding, and the selected plan source. The
+semantic turn consumer binds one bounded collector to each turn, and a logging handler that exists
+only in the enabled channel copies those events into it. Each event keeps only allowlisted fields.
+A rejected judgment event names the closed constraint roles, such as `times` or `restricts`, that
+the independent constraint reading found uncovered. The outcome step also keeps the planner's own
+disposition and reason code, because the public projection can reduce several planner reasons to
+one generic hold.
+
+A trace keeps only typed machine values:
+
+- Model-authored tokens, such as the operational family, request topics, context dependency, target
+  kinds, intents, facets, and output shapes, are kept only when they belong to the reviewed
+  vocabulary. That vocabulary contains the words in the customer-agnostic prompt and vocabulary
+  catalogs. Any other model-authored token becomes the constant `~` marker, and the step counts
+  and flags it for review.
+- Server-constructed tokens, such as reason codes, dispositions, plan sources, capabilities,
+  ObjectType, LinkType, and FunctionType names, and evidence posture, must pass the closed-token
+  grammar. That grammar rejects hyphens, spaces, quotes, and non-ASCII text.
+- Counts, flags, and target kinds in order. Source offsets are compared inside the process to
+  derive the uncovered-target cue and never leave it.
+- Predicate property and operator pairs. A predicate value is kept only for a `type` predicate
+  whose value is a reviewed resource type identifier.
+- Process-local aliases in place of model deployment names and session identifiers. An alias
+  neither reveals its value nor links traces across processes.
+
+A trace never keeps question or answer text, target or canonical values, quotes, other predicate
+values, clarification or draft text, evidence rows, resource identifiers, request or response
+bodies, or hidden reasoning. The packet schema checks the token grammar again and validates that
+every cue points at an existing step. Recording is bounded best effort. It waits at most ten
+milliseconds for the buffer lock, catches its own failures, and never raises into or blocks the
+product turn. The buffer keeps at most 50 traces of at most 16,000 bytes each. It starts empty after
+a restart and leaves the process only in an explicit owner-only capture or export. Each packet
+reports cumulative evicted and rejected counts. A rejection among the last 50 recording attempts
+adds the `decision_traces_rejected` limitation, and reading a snapshot changes no state. A packet
+without decision data keeps the schema `1.0.0` wire shape, and a packet with decision data uses
+schema `1.1.0`. The collector records a trace when the semantic turn ends, from the last projection
+the turn built, so a later hold, such as a wire-budget or result-store hold, replaces an earlier
+answered projection.
+
+Each cue names a code and the step to inspect. Cues cover:
+
+- An adaptive routing takeover or an active-thread dependency.
+- A judgment retry, rejection, ambiguity, or unreviewed model token.
+- A preflight target that no judgment target covers, or a type target without a bound type
+  predicate.
+- A model frame or plan call, unresolved frame terms, or a rejected plan.
+- T2 escalation or withholding.
+- A clarification, held, unsupported, advisory, or partial outcome, no ontology read, or incomplete
+  evidence.
+- A compiled-answer outcome, or a word-recovered plan held by the released typed reading.
+
+A compiled-answer event also names the one selection rule a declined compilation failed, its batch
+count, and the shape of the last form pass. The shape lists each mention and goal only by its
+form-local id and closed values, such as `m1:instance:name`, `qualifier:m2:m1:containment`, or
+`measure:g1:count:container`, so a reviewer can see that a kind was stated as a qualifier without
+reading the question. An invalid review names why the extraction could not serve, such as a quote
+that is not in the question, without the quote.
+
+A cue is a review pointer, not a causal conclusion. `dev-discuss explain` captures a snapshot and
+prints each trace with its cues. The reviewer compares them with the questions they asked, because
+those questions never enter the packet. Frame and plan provenance appears as model call counts
+and the planner's reported plan source.
+
+| Critique | Revision |
+|----------|----------|
+| The token grammar alone is not a privacy boundary, because model-authored open tokens can echo a resource name. | Model-authored tokens require reviewed vocabulary membership; value-bearing fields are never read. |
+| Re-parsing model responses cannot show every decision, because some responses are blank, truncated, or never observed. | The planner's own structured decision events are captured per turn, and unparsed calls are marked instead of guessed. |
+| Truncated digests of deployment names and sessions can be guessed or linked. | Process-local aliases replace both values. |
+| Exact target offsets disclose question structure. | Offsets stay in the process; traces keep target kinds and the derived uncovered-target cue. |
+| A recording defect or lock wait could affect the product turn. | Recording catches its own failures, waits at most ten milliseconds, and assigns sequence and position under one lock. |
+| Retained history could be mistaken for capture-window evidence, and one rejection could mark every later packet incomplete. | Packets carry cumulative evicted and rejected counts; only a rejection among the last 50 attempts adds a limitation, and each trace keeps its recording time. |
+| A new packet field could break schema `1.0.0` readers. | Packets without decision data keep the `1.0.0` wire shape and digest. |
+| A bare cue cannot show which step to inspect. | Each cue carries a validated step index. |
+| Implementation review: socket discovery's snapshot consumed the rejection watermark, so the saved packet looked complete. | Snapshots are side-effect free, and a snapshot capture reuses the discovery packet. |
+| Implementation review: the first projection was recorded even when the turn delivered a later hold. | The collector records at turn end from the last projection built. |
 
 Every packet binds the Git revision, local service input digest, worktree patch digest, process
 identity, runtime-scope receipt digest, time window, and packet digest. Capture admission compares
@@ -439,6 +530,9 @@ The remaining Low risks are explicit and bounded:
 | 2026-08-16 | validated | Central validation accepted the integrated bounded wait revision and the outgoing range was pushed to `origin/main`. | `validation_queue.py check-range origin/main..HEAD` passed for revision `85c5aadf4`, and the push reused that exact receipt and the structural evidence. | Complete issue #122 and synchronize the project board. |
 | 2026-08-17 | implemented | Removed centralized validation from the mandatory developer path while preserving focused checks, path reservations, commit scoping, structural pre-push gates, and SHA-addressed CI. | `current change`; issue #148; focused hook, dispatcher, and constitution tests. | Observe CI and push latency after adoption; keep the queue available only for explicit diagnostics. |
 | 2026-09-12 | in-progress | Reconciled validation stages, removed unscoped route defaults, scoped translation checks, and stopped implicit whole-suite execution. The read-only baseline contains 12 completed CI runs at 265-391 seconds (mean 337.2) and six supply-chain runs at 168-281 seconds (mean 192.2). These are workflow elapsed times, not queue-only measurements or proof of a 90% waiting ratio. | `current change`; focused selector, facade, routing, and text-gate tests; baseline CI run `34663201915` and supply-chain run `34663201914`. | Finish local cache integration and focused checks; measure comparable runs only after an authorized push. |
+| 2026-09-29 | implemented | Restored `dev discuss` status and capture. Since the socket-path shortening in #1418 the launcher binds each Core and Operator socket under `.fdai/r` by its complete runtime identity, but the command still looked for `.fdai/runtime-diagnostics/<service>.sock`, so it reported both services unavailable while their probes were live. The command now asks the newest identity-bound candidates which service answers and keeps the legacy path. A 25-second Core profile taken while a Console question ran then attributed a 23-second answer mostly to model calls and found the second reader scanning every reviewed catalog shard leaf for secrets on each chooser call, 1.3 seconds of CPU on the event loop with 543 ms of loop lag; the scan now runs once per shard digest. | `test_status_and_capture_find_an_identity_bound_launcher_socket` fails on the previous command; `test_a_reviewed_catalog_shard_is_scanned_once_per_digest`; live `dev-discuss status` true for both services and a digest-bound 25-second capture. | None. |
+| 2026-09-29 | implemented | Added content-free semantic decision traces to `dev discuss` so a developer can see why a question was understood the way it was. Core keeps one trace per completed semantic turn in a 50-trace process-local buffer: routing, each judgment attempt, grounding calls, the planner's own structured decision events, the executed intent graph, the outcome with the planner's internal reason, and review cues that point at a step. Model-authored tokens need reviewed vocabulary membership, deployment names and sessions become process-local aliases, offsets and values never leave the process, and packets without traces keep the schema 1.0.0 wire shape. `dev-discuss explain` renders the traces, `copilot-export` carries them, and a coverage rejection now logs only the closed constraint roles it found uncovered. The design was critiqued before implementation and all eight findings were revised. | `test_decision_traces.py`; `test_development_decisions.py`; `test_dev_discuss.py` explain test; `test_an_uncovered_constraint_names_only_its_closed_roles_in_the_rejection_log`; 1,145 related conversation tests; two live Console runs with 20 traced turns, no rejected trace, and no tenant name or non-ASCII text in the exported packet; imported review `sha256:f2be8aca0c1320734a0d781bb2ac4d2ef34cb0e597d5967dcce6774a90845ed0`. | The traced misunderstanding patterns are recorded in the [reasoning compiler ledger](../../roadmap-implementation/interfaces/ontology-reasoning-compiler.md). |
+| 2026-09-29 | implemented | Extended the compiled-answer decision event for the local compiled-answer rounds: a declined compilation names the one selection rule it failed and its batch count, an invalid review names why the extraction could not serve without quoting it, a word-recovered plan held by the typed reading emits its own cue, and the last form pass carries a content-free shape of mention and goal ids with closed domain, form, operation, measure, filter, relation, and time values. | `test_the_compiled_answer_event_keeps_closed_reasons_and_points_a_cue_at_it`; `test_semantic_reasoning_shape.py`; typed decline and review-reason tests; live traces over rounds 7 to 10 and imported review `sha256:a566db4ef38ca7d46ccb47f99761a6496821395a6f0d9c46dae43ee9486df4cc`. | The remaining conversation gaps are recorded in the [reasoning compiler ledger](../../roadmap-implementation/interfaces/ontology-reasoning-compiler.md). |
 
 ### Remaining work
 

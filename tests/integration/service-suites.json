@@ -63,6 +63,7 @@
           "services/core-control-plane/tests/test_semantic_subscription_scope_answer.py",
           "services/core-control-plane/tests/test_semantic_target_suggestions.py",
           "services/core-control-plane/tests/test_semantic_turn_processor.py",
+          "services/core-control-plane/tests/test_semantic_verified_rows.py",
           "services/core-control-plane/tests/test_semantic_work_progress.py",
           "services/core-control-plane/tests/verticals"
         ],

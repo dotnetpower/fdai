@@ -79,6 +79,7 @@ _CONCEPT_VALUES = {
     MentionDomain.RESOURCE_TYPE: ("compute.vm",),
     MentionDomain.OBJECT_TYPE: ("Resource",),
     MentionDomain.DECLARATION_KIND: ("object",),
+    MentionDomain.STATE: ("resource_state.running",),
 }
 
 

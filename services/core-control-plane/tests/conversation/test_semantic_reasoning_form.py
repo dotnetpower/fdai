@@ -164,9 +164,23 @@ def test_every_relation_sense_has_a_reviewed_trait_decision() -> None:
 @pytest.mark.parametrize(
     ("position", "expected"),
     (
-        (SubjectPosition.TARGET, {("depends_on", "incoming")}),
-        (SubjectPosition.SOURCE, {("depends_on", "outgoing")}),
-        (SubjectPosition.EITHER, {("depends_on", "incoming"), ("depends_on", "outgoing")}),
+        (
+            SubjectPosition.TARGET,
+            {("depends_on", "incoming"), ("kubernetes_owned_by", "incoming")},
+        ),
+        (
+            SubjectPosition.SOURCE,
+            {("depends_on", "outgoing"), ("kubernetes_owned_by", "outgoing")},
+        ),
+        (
+            SubjectPosition.EITHER,
+            {
+                ("depends_on", "incoming"),
+                ("depends_on", "outgoing"),
+                ("kubernetes_owned_by", "incoming"),
+                ("kubernetes_owned_by", "outgoing"),
+            },
+        ),
     ),
 )
 def test_subject_position_selects_the_stored_side(
@@ -182,7 +196,18 @@ def test_subject_position_selects_the_stored_side(
     )
 
     assert {(side.link_type, side.direction) for side in selection.sides} == expected
-    assert "emits_to" in selection.unmapped_link_types
+    assert selection.unmapped_link_types == ()
+
+
+def test_every_resource_link_type_has_a_reviewed_semantic_trait() -> None:
+    unreviewed = [
+        descriptor["name"]
+        for descriptor in production_manifest().descriptors
+        if descriptor.get("kind") == "link"
+        and "Resource" in {descriptor.get("from_type"), descriptor.get("to_type")}
+        and not descriptor.get("semantic_traits")
+    ]
+    assert unreviewed == []
 
 
 def test_transitive_reach_keeps_only_self_composable_links() -> None:
@@ -206,7 +231,7 @@ def test_transitive_reach_keeps_only_self_composable_links() -> None:
 
     assert [(side.link_type, side.max_depth) for side in containment.sides] == [("contains", 5)]
     assert dependency.sides == ()
-    assert dependency.intransitive_link_types == ("depends_on",)
+    assert dependency.intransitive_link_types == ("depends_on", "kubernetes_owned_by")
 
 
 def test_all_kinds_reads_every_link_side_including_unmapped_links() -> None:
@@ -390,6 +415,97 @@ def test_two_mentions_never_share_words() -> None:
 
     assert admission.disposition is AdmissionDisposition.INVALID
     assert "mention_overlap:m2" in admission.reasons
+
+
+def _qualified_count(utterance: str, kind: str, qualifier_domain: str, text: str) -> Any:
+    return _admit(
+        {
+            "mentions": [
+                {
+                    "id": "m1",
+                    "form": "concept",
+                    "domain": "resource_type",
+                    "span": span(utterance, kind),
+                    "qualifier": {"mention": "m2", "sense": "containment"},
+                },
+                {
+                    "id": "m2",
+                    "form": "value" if qualifier_domain == "state" else "name",
+                    "domain": qualifier_domain,
+                    "span": span(utterance, text),
+                },
+            ],
+            "goals": [
+                {
+                    "id": "g1",
+                    "level": "instance",
+                    "operation": "count",
+                    "subject": "m1",
+                    "subject_scope": "collection",
+                    "measure": {"kind": "count"},
+                    "cue": span(utterance, "How many"),
+                    "confidence": 0.9,
+                }
+            ],
+        },
+        utterance,
+    )
+
+
+@pytest.mark.parametrize(
+    ("utterance", "kind", "domain", "text"),
+    (
+        ("How many running VMs are there?", "VMs", "state", "running"),
+        ("How many VMs in rg-app are there?", "VMs", "instance", "rg-app"),
+    ),
+)
+def test_a_qualifier_only_places_a_named_resource_in_another(
+    utterance: str, kind: str, domain: str, text: str
+) -> None:
+    admission = _qualified_count(utterance, kind, domain, text)
+
+    # A kind or a state of the results is a filter and a container is the goal's relation;
+    # as a qualifier it reaches no builder, so admission asks for the one repair instead.
+    assert admission.disposition is AdmissionDisposition.INVALID
+    assert "qualifier_not_instance:m1" in admission.reasons
+
+
+def test_a_named_resource_qualified_by_its_container_is_admitted() -> None:
+    utterance = "What is the state of aks-prod-01 in rg-app?"
+    admission = _admit(
+        {
+            "mentions": [
+                {
+                    "id": "m1",
+                    "form": "name",
+                    "domain": "instance",
+                    "span": span(utterance, "aks-prod-01"),
+                    "qualifier": {"mention": "m2", "sense": "containment"},
+                },
+                {
+                    "id": "m2",
+                    "form": "name",
+                    "domain": "instance",
+                    "span": span(utterance, "rg-app"),
+                },
+            ],
+            "goals": [
+                {
+                    "id": "g1",
+                    "level": "instance",
+                    "operation": "lookup",
+                    "subject": "m1",
+                    "subject_scope": "anchor",
+                    "measure": {"kind": "state"},
+                    "cue": span(utterance, "What is"),
+                    "confidence": 0.9,
+                }
+            ],
+        },
+        utterance,
+    )
+
+    assert not any(reason.startswith("qualifier_not_instance") for reason in admission.reasons)
 
 
 def test_one_group_is_never_both_the_scope_and_the_relation_anchor() -> None:

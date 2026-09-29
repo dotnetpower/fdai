@@ -352,3 +352,155 @@ for index in range(30):
     assert {row["id"] for row in rows} == {
         f"{prefix}-{index}" for prefix in ("alpha", "bravo") for index in range(30)
     }
+
+
+async def test_status_and_capture_find_an_identity_bound_launcher_socket(
+    capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The launcher names each socket by runtime identity under .fdai/r, not by service."""
+
+    module = _load()
+    short_root = Path(tempfile.mkdtemp(prefix="fdai-dd-bound-"))
+    config = DevelopmentDiagnosticsConfig(
+        service_id="core-control-plane",
+        execution_venue="local",
+        socket_path=short_root / ".fdai" / "r" / "0123456789ab.sock",
+        source_root=short_root,
+        source_revision=REVISION,
+        service_input_digest=INPUT_DIGEST,
+        worktree_digest=WORKTREE_DIGEST,
+        runtime_scope_receipt_digest=RECEIPT,
+    )
+    server = DevelopmentDiagnosticServer(config)
+    monkeypatch.setattr(module, "_git_revision", lambda _root: REVISION)
+    monkeypatch.setattr(module, "_service_input_digest", lambda _root, _service: INPUT_DIGEST)
+    await server.start()
+    try:
+        result = await module._status(short_root)
+        packet = await module._capture(
+            short_root,
+            service="core-control-plane",
+            duration_ms=0,
+            cpu=False,
+            heap=False,
+        )
+        with pytest.raises(ValueError, match="no live development diagnostic server"):
+            await module._capture(
+                short_root,
+                service="operator-service",
+                duration_ms=0,
+                cpu=False,
+                heap=False,
+            )
+    finally:
+        await server.aclose()
+        shutil.rmtree(short_root)
+
+    assert result == 0
+    assert json.loads(capsys.readouterr().out) == {
+        "core-control-plane": True,
+        "operator-service": False,
+    }
+    assert packet.service_id == "core-control-plane"
+
+
+def _decision_profile() -> DevelopmentProfilePacket:
+    values = _profile().model_dump(mode="json", exclude={"packet_digest"})
+    trace = {
+        "sequence": 7,
+        "recorded_at": datetime.now(UTC).isoformat(),
+        "session": "s2",
+        "turn_sequence": 3,
+        "steps": [
+            {
+                "stage": "preflight",
+                "attributes": {
+                    "family": "resource_collection",
+                    "target_kinds": ["resource_type_filter", "resource_group"],
+                    "status": "completed",
+                },
+            },
+            {
+                "stage": "outcome",
+                "attributes": {
+                    "disposition": "clarification",
+                    "reason_code": "semantic_clarification_required",
+                    "read_performed": False,
+                },
+            },
+        ],
+        "cues": [
+            {"code": "preflight_target_uncovered", "step": 0},
+            {"code": "clarification_outcome", "step": 1},
+        ],
+    }
+    return DevelopmentProfilePacket.build(
+        **{**values, "schema_version": "1.1.0", "decisions": [trace], "decisions_evicted": 2}
+    )
+
+
+def test_explain_renders_typed_steps_cues_and_summary(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    module = _load()
+    packet = _decision_profile()
+    assert module._explain(packet, tmp_path / "profile.json", 10, False) == 0
+    lines = capsys.readouterr().out.splitlines()
+    summary = json.loads(lines[0])
+    assert summary["retained"] == 1
+    assert summary["evicted"] == 2
+    assert summary["cues"] == {"clarification_outcome": 1, "preflight_target_uncovered": 1}
+    assert summary["outcomes"] == {"clarification/semantic_clarification_required": 1}
+    assert lines[2].startswith("#7 session=s2 turn=3")
+    assert "target_kinds=resource_type_filter,resource_group" in lines[3]
+    assert "status=" not in lines[3]
+    assert lines[3].endswith("<- preflight_target_uncovered")
+    assert "read_performed=false" in lines[4]
+    assert module._explain(packet, tmp_path / "profile.json", 1, True) == 0
+    rendered = json.loads(capsys.readouterr().out)
+    assert rendered["traces"][0]["cues"][1] == {"code": "clarification_outcome", "step": 1}
+    with pytest.raises(ValueError, match="--last"):
+        module._explain(packet, tmp_path / "profile.json", 0, False)
+
+
+async def test_discovery_does_not_hide_a_recent_trace_rejection(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from fdai_runtime_diagnostics.decisions import observe_decision, reset_decision_traces
+
+    module = _load()
+    monkeypatch.setenv("FDAI_DEVELOPMENT_DIAGNOSTICS", "1")
+    reset_decision_traces()
+    short_root = Path(tempfile.mkdtemp(prefix="fdai-dd-reject-"))
+    config = DevelopmentDiagnosticsConfig(
+        service_id="core-control-plane",
+        execution_venue="local",
+        socket_path=short_root / ".fdai" / "r" / "0123456789ab.sock",
+        source_root=short_root,
+        source_revision=REVISION,
+        service_input_digest=INPUT_DIGEST,
+        worktree_digest=WORKTREE_DIGEST,
+        runtime_scope_receipt_digest=RECEIPT,
+    )
+    server = DevelopmentDiagnosticServer(config)
+    monkeypatch.setattr(module, "_git_revision", lambda _root: REVISION)
+    monkeypatch.setattr(module, "_service_input_digest", lambda _root, _service: INPUT_DIGEST)
+    assert not observe_decision(session="s1", turn_sequence=1, steps=[{"stage": 5}])
+    await server.start()
+    try:
+        await module._status(short_root)
+        first = await module._capture(
+            short_root, service="core-control-plane", duration_ms=0, cpu=False, heap=False
+        )
+        second = await module._capture(
+            short_root, service="core-control-plane", duration_ms=0, cpu=False, heap=False
+        )
+    finally:
+        await server.aclose()
+        shutil.rmtree(short_root)
+        reset_decision_traces()
+    for packet in (first, second):
+        assert packet.decisions_rejected == 1
+        assert packet.limitations == ("decision_traces_rejected",)
+        assert packet.complete is False

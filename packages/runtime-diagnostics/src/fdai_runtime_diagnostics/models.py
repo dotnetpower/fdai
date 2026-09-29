@@ -65,8 +65,60 @@ class HeapProfileEntry(ProfileModel):
     current_size_bytes: Annotated[int, Field(ge=0)]
 
 
+DecisionToken = Annotated[
+    str,
+    Field(min_length=1, max_length=96, pattern=r"^[A-Za-z0-9~][A-Za-z0-9_.:@~/-]{0,95}$"),
+]
+DecisionKey = Annotated[str, Field(min_length=1, max_length=48, pattern=r"^[a-z][a-z0-9_]{0,47}$")]
+DecisionNumber = Annotated[int, Field(ge=-1, le=10_000_000)]
+DecisionValue = (
+    bool
+    | DecisionNumber
+    | DecisionToken
+    | Annotated[tuple[DecisionToken | DecisionNumber, ...], Field(max_length=32)]
+)
+
+
+class DecisionStep(ProfileModel):
+    """One typed decision point; tokens, numbers, and flags only, never text."""
+
+    stage: Annotated[str, Field(min_length=1, max_length=64, pattern=r"^[a-z][a-z0-9_.-]{0,63}$")]
+    attributes: Annotated[dict[DecisionKey, DecisionValue], Field(max_length=32)]
+
+
+class DecisionCue(ProfileModel):
+    """One deterministic review cue that points at the step to inspect."""
+
+    code: Annotated[str, Field(min_length=1, max_length=64, pattern=r"^[a-z][a-z0-9_]{0,63}$")]
+    step: Annotated[int, Field(ge=0, lt=64)]
+
+
+class DecisionTrace(ProfileModel):
+    """Content-free decision chain of one completed semantic turn."""
+
+    sequence: Annotated[int, Field(ge=1)]
+    recorded_at: datetime
+    session: Annotated[str, Field(pattern=r"^s[0-9]{1,6}$")]
+    turn_sequence: Annotated[int, Field(ge=0, le=1_000_000)] | None
+    steps: Annotated[tuple[DecisionStep, ...], Field(min_length=1, max_length=64)]
+    cues: Annotated[tuple[DecisionCue, ...], Field(max_length=32)]
+
+    @field_validator("recorded_at")
+    @classmethod
+    def _utc(cls, value: datetime) -> datetime:
+        if value.tzinfo is None or value.utcoffset() is None:
+            raise ValueError("decision trace time MUST be timezone-aware")
+        return value.astimezone(UTC)
+
+    @model_validator(mode="after")
+    def _cues_point_at_steps(self) -> Self:
+        if any(cue.step >= len(self.steps) for cue in self.cues):
+            raise ValueError("decision cue MUST point at an existing step")
+        return self
+
+
 class _DevelopmentProfilePacketBody(ProfileModel):
-    schema_version: Literal["1.0.0"]
+    schema_version: Literal["1.0.0", "1.1.0"]
     profile_id: Annotated[
         str,
         Field(
@@ -102,6 +154,12 @@ class _DevelopmentProfilePacketBody(ProfileModel):
     complete: bool
     external_state_authority: Literal[False]
     execution_authority: Literal[False]
+    decisions: Annotated[
+        tuple[DecisionTrace, ...],
+        Field(max_length=50, exclude_if=lambda value: not value),
+    ] = ()
+    decisions_evicted: Annotated[int, Field(ge=0, exclude_if=lambda value: not value)] = 0
+    decisions_rejected: Annotated[int, Field(ge=0, exclude_if=lambda value: not value)] = 0
 
     @field_validator("started_at", "completed_at")
     @classmethod
@@ -120,6 +178,10 @@ class _DevelopmentProfilePacketBody(ProfileModel):
             raise ValueError("profile capture MUST have a positive duration")
         if self.complete is bool(self.limitations):
             raise ValueError("development profile completeness conflicts with limitations")
+        if self.schema_version == "1.0.0" and (
+            self.decisions or self.decisions_evicted or self.decisions_rejected
+        ):
+            raise ValueError("development profile schema 1.0.0 cannot carry decision traces")
         return self
 
 
@@ -149,6 +211,9 @@ def _digest(value: object) -> str:
 
 __all__ = [
     "CpuProfileEntry",
+    "DecisionCue",
+    "DecisionStep",
+    "DecisionTrace",
     "DevelopmentProfilePacket",
     "HeapProfileEntry",
     "ProcessSnapshot",
