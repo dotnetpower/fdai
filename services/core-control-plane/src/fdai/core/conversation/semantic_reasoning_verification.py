@@ -24,6 +24,8 @@ from fdai_service_contracts.ontology_query import (
     QueryNodeKind,
 )
 
+from fdai.core.ontology_platform.resource_state_queries import RESOURCE_STATE_FUNCTION_NAME
+
 from .semantic_reasoning_admission import FormAdmission
 from .semantic_reasoning_binding import AnchorBindingReceipt, AnchorOutcome
 from .semantic_reasoning_concepts import ConceptOutcome, ConceptSelectionReceipt
@@ -158,6 +160,7 @@ class _Allowed:
         self.type_sets: list[frozenset[str]] = []
         self.object_types: set[str] = set()
         self.declaration_kinds: set[str] = set()
+        self.state_concepts: set[str] = set()
         self.relation_object_type = False
         # The rows an earlier answer showed, when an anaphor makes them the goal's subject.
         self.prior_rows: tuple[str, ...] = ()
@@ -209,6 +212,8 @@ def _allowed_operands(
             allowed.object_types.update(concept.values)
         elif mention.domain is MentionDomain.DECLARATION_KIND:
             allowed.declaration_kinds.update(concept.values)
+        elif mention.domain is MentionDomain.STATE and role is FilterRole.STATE:
+            allowed.state_concepts.update(concept.values)
     return allowed
 
 
@@ -292,6 +297,8 @@ def _function_violations(
         expected = {"object_types": sorted(allowed.object_types), "limit": 100}
     elif name == "query.manifest":
         expected = {"kinds": sorted(allowed.declaration_kinds), "limit": 1000}
+    elif name == RESOURCE_STATE_FUNCTION_NAME:
+        expected = {"state_concepts": sorted(allowed.state_concepts)}
     else:
         return [f"prov_unexpected_function:{node.node_id}:{name}"]
     if expected is None or dict(static) != dict(expected):
@@ -481,6 +488,14 @@ def _filter_coverage(
         prior = {"property": "id", "operator": "in", "values": sorted(allowed.prior_rows)}
         if allowed.prior_rows and prior not in predicates:
             violations.append("sem_prior_result_unrestricted")
+    stated = sorted(allowed.state_concepts)
+    if stated and not any(
+        _function_name(node) == RESOURCE_STATE_FUNCTION_NAME
+        and (node.arguments.get("arguments") or {}).get("state_concepts") == stated
+        for plan in plans
+        for node in plan.nodes
+    ):
+        violations.append("sem_state_filter_missing")
     return violations
 
 

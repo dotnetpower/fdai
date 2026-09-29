@@ -1,6 +1,6 @@
 ---
 translation_of: ontology-reasoning-compiler.md
-translation_source_sha: 568cdc2c94dca456d9290b0c99724ff5ac4566d4
+translation_source_sha: 244c9317fef07a025676ffab657d28eff99c020d
 translation_revised: 2026-09-29
 ---
 # 온톨로지 추론 컴파일러
@@ -536,6 +536,11 @@ second reader가 필요하며, 구성은 로컬 실행 위치에서만 이 설�
 판단 이벤트 하나를 남깁니다. 이 이벤트에는 패스별 처리 결과, 검토 결과, 목표별 상태, 이유, 제한이 들어 있으므로
 `dev discuss`로 질문이 컴파일되었거나 되지 않은 이유를 볼 수 있습니다. form은 턴 옆에서 별도로 호출해 얻으므로 이 기록은
 production shadow 연결이 승격 근거에서 제외하는 실험이며, 이 기록으로 승격되는 계열은 없습니다.
+관계의 여러 측면이 여러 배치로 나뉜 목표는 그 합집합이 의도 그래프 하나와 계획 출력 8개 안에 들어갈 때만 하나의
+계획으로 답합니다. 공유 앵커 읽기는 내용이 같을 때만 반복될 수 있습니다. Resource 상태 필터는 상태 인벤토리
+함수가 선언한 개념과 레이블로 만든 검토된 상태 카탈로그로 바인딩되고, 수집은 그 함수로 읽습니다. V-PROV와
+V-SEM은 그 함수의 상태 개념을 바인딩된 상태와 대조합니다. 다른 ObjectType의 상태 필터는 그 생애 주기를 읽는
+검토된 reader가 없으므로 계속 `filter_unsupported:state`입니다.
 
 ## 승인된 결정
 

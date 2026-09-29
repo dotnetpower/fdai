@@ -284,3 +284,70 @@ def test_compiled_answers_are_composed_only_in_the_local_venue() -> None:
         {"FDAI_SEMANTIC_COMPILED_ANSWERS": "1", "FDAI_EXECUTION_VENUE": "deployed"}
     )
     assert not compiled_answers_enabled({"FDAI_EXECUTION_VENUE": "local"})
+
+
+def _relation_compilation(scope: str) -> ReasoningCompilation:
+    from tests.conversation.test_semantic_reasoning_compiler import _compile, _relation_form
+
+    utterance = "What is connected to aks-prod-01?"
+    return _compile(
+        utterance,
+        _relation_form(
+            utterance,
+            anchor="aks-prod-01",
+            sense="connectivity",
+            position="either",
+            cue="connected to",
+            scope=scope,
+        ),
+    )
+
+
+def test_relation_sides_split_across_batches_answer_as_one_plan() -> None:
+    compilation = _relation_compilation("one_sense")
+    goal = compilation.goals[0]
+    assert goal.status is GoalStatus.COMPILED, goal.reasons
+    assert len(goal.batches) > 1
+    outputs = [node for batch in goal.batches for node in batch.plan.output_node_ids]
+
+    outcome = _ticket(_observation(compilations=(compilation,))).outcome(
+        manifest_digest="d", observations=[]
+    )
+    if len(outputs) > 8:
+        # One plan names at most eight outputs, so this read is left to the current path.
+        assert outcome is None
+        fewer = replace(goal, batches=goal.batches[:2])
+        fewer = replace(
+            fewer,
+            batches=tuple(replace(batch, total=2) for batch in fewer.batches),
+        )
+        outputs = [node for batch in fewer.batches for node in batch.plan.output_node_ids]
+        compilation = replace(compilation, goals=(fewer,))
+        outcome = _ticket(_observation(compilations=(compilation,))).outcome(
+            manifest_digest="d", observations=[]
+        )
+
+    assert outcome is not None and outcome.plan is not None
+    assert list(outcome.plan.output_node_ids) == outputs
+    assert len({node.node_id for node in outcome.plan.nodes}) == len(outcome.plan.nodes)
+    assert len(outcome.plan.nodes) <= 16
+
+
+def test_batches_with_clashing_node_ids_are_declined() -> None:
+    compilation = _relation_compilation("one_sense")
+    goal = compilation.goals[0]
+    first, second = goal.batches[0], goal.batches[1]
+    clashing = second.plan.model_copy(
+        update={
+            "nodes": tuple(
+                node.model_copy(update={"arguments_json": node.arguments_json.replace("1", "2")})
+                if node.node_id in {item.node_id for item in first.plan.nodes}
+                else node
+                for node in second.plan.nodes
+            )
+        }
+    )
+    broken = replace(goal, batches=(first, replace(second, plan=clashing), *goal.batches[2:]))
+    observation = _observation(compilations=(replace(compilation, goals=(broken,)),))
+
+    assert _ticket(observation).outcome(manifest_digest="d", observations=[]) is None

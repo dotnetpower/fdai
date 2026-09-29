@@ -22,10 +22,12 @@
     "instance.count.none.name_fragment",
     "instance.count.none.none",
     "instance.count.none.scope",
+    "instance.count.none.state",
     "instance.count.none.type",
     "instance.count.object_type.name_fragment",
     "instance.count.object_type.none",
     "instance.count.object_type.scope",
+    "instance.count.object_type.state",
     "instance.count.object_type.type",
     "instance.count.ownership.either.one_hop",
     "instance.count.ownership.owned.one_hop",
@@ -34,6 +36,7 @@
     "instance.count.resource_type.name_fragment",
     "instance.count.resource_type.none",
     "instance.count.resource_type.scope",
+    "instance.count.resource_type.state",
     "instance.count.resource_type.type",
     "instance.count.traffic.either.one_hop",
     "instance.count.traffic.receiver.one_hop",
@@ -70,10 +73,12 @@
     "instance.select.none.name_fragment",
     "instance.select.none.none",
     "instance.select.none.scope",
+    "instance.select.none.state",
     "instance.select.none.type",
     "instance.select.object_type.name_fragment",
     "instance.select.object_type.none",
     "instance.select.object_type.scope",
+    "instance.select.object_type.state",
     "instance.select.object_type.type",
     "instance.select.ownership.either.one_hop",
     "instance.select.ownership.owned.one_hop",
@@ -82,6 +87,7 @@
     "instance.select.resource_type.name_fragment",
     "instance.select.resource_type.none",
     "instance.select.resource_type.scope",
+    "instance.select.resource_type.state",
     "instance.select.resource_type.type",
     "instance.select.results.attachment.attached",
     "instance.select.results.attachment.host",
@@ -138,7 +144,6 @@
     "endpoint_filter_unreadable": 2,
     "filter_unsupported:health": 6,
     "filter_unsupported:region": 6,
-    "filter_unsupported:state": 6,
     "history_future_time:g1": 4,
     "impact_relation_unsupported": 59,
     "measure_unsupported:change": 1,
@@ -177,9 +182,9 @@
     "want_unsupported:verification": 1
   },
   "status_counts": {
-    "compiled": 131,
+    "compiled": 137,
     "inadmissible": 7,
-    "unsupported": 295
+    "unsupported": 289
   },
   "version": 1
 }

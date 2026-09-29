@@ -500,6 +500,11 @@ path, and the owner loop drains its provider calls. The path emits one content-f
 skip, cancellation, timeout, or failure, with its pass dispositions, review outcome, per-goal statuses, reasons, and limitations, so
 `dev discuss` shows why a question was or was not compiled. The form comes from a separate call beside the turn, so these records are
 the experiment that production shadow wiring excludes from promotion evidence, and no family is promoted by them.
+A goal whose relation sides span several batches answers as one plan only when their union fits one intent graph and
+eight plan outputs; a shared anchor read may repeat only with identical content. A Resource state filter binds through
+a reviewed state catalog built from the state inventory function's declared concepts and labels, and the collection is
+read through that function, whose state concepts V-PROV and V-SEM check against the bound state. A state filter on
+another ObjectType stays `filter_unsupported:state`, because no reviewed reader holds that lifecycle.
 
 ## Approved decisions
 

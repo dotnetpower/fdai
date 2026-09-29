@@ -19,6 +19,7 @@ from fdai_service_contracts.ontology_query import (
 )
 
 from fdai.core.ontology_platform import QueryManifest
+from fdai.core.ontology_platform.resource_state_queries import RESOURCE_STATE_FUNCTION_NAME
 
 from .semantic_planning_models import SemanticOutputShape
 from .semantic_reasoning_admission import FormAdmission
@@ -100,7 +101,7 @@ class OperatorResult:
 
 
 def subject_selection(
-    goal: FormGoal, ctx: CompileContext
+    goal: FormGoal, ctx: CompileContext, *, state_stage: bool = False
 ) -> tuple[str, list[dict[str, Any]], OperatorResult | None]:
     selector = RESOURCE_OBJECT_TYPE
     type_values: tuple[str, ...] = ()
@@ -119,7 +120,9 @@ def subject_selection(
         else:
             unsupported = OperatorResult(unsupported=(f"subject_unsupported:{domain.value}",))
             return selector, [], unsupported
-    predicates, failure = endpoint_predicates(goal, ctx, extra_types=type_values, selector=selector)
+    predicates, failure = endpoint_predicates(
+        goal, ctx, extra_types=type_values, selector=selector, state_stage=state_stage
+    )
     if failure is not None:
         return selector, [], failure
     if selector != RESOURCE_OBJECT_TYPE and has_type_predicate(predicates):
@@ -135,6 +138,7 @@ def endpoint_predicates(
     *,
     extra_types: tuple[str, ...] = (),
     selector: str = RESOURCE_OBJECT_TYPE,
+    state_stage: bool = False,
 ) -> tuple[list[dict[str, Any]], OperatorResult | None]:
     """Return the endpoint predicates every stated restriction requires.
 
@@ -146,7 +150,8 @@ def endpoint_predicates(
     type_sets: list[frozenset[str]] = [frozenset(extra_types)] if extra_types else []
     predicates: list[dict[str, Any]] = []
     for item in goal.filters:
-        if item.role is FilterRole.SCOPE:
+        # A state restriction is read by the state inventory stage that follows this read.
+        if item.role is FilterRole.SCOPE or (state_stage and item.role is FilterRole.STATE):
             continue
         if item.role is FilterRole.TYPE:
             values, failure = concept_values(item.mention, ctx)
@@ -276,6 +281,26 @@ def traversal_node(
     )
 
 
+def state_filter_node(
+    node_id: str, source_id: str, state_concepts: tuple[str, ...]
+) -> OntologyQueryNode:
+    """Filter one Resource read to the reviewed state concepts the goal states."""
+
+    return OntologyQueryNode(
+        node_id=node_id,
+        kind=QueryNodeKind.FUNCTION,
+        depends_on=(source_id,),
+        arguments_json=canonical_json(
+            {
+                "function_name": RESOURCE_STATE_FUNCTION_NAME,
+                "arguments": {"state_concepts": list(state_concepts)},
+                "dependency_arguments": {source_id: "query_result"},
+            }
+        ),
+        output_kind="query.table",
+    )
+
+
 def count_node(node_id: str, source_id: str, group: list[str]) -> OntologyQueryNode:
     arguments: dict[str, Any] = {"operation": "count"}
     if group:
@@ -317,6 +342,7 @@ def plan_spec(
     *,
     subjects: tuple[str, ...],
     output_shape: SemanticOutputShape | None = None,
+    measure_concepts: tuple[str, ...] = (),
 ) -> PlanSpec:
     aggregate = any(node.kind is QueryNodeKind.AGGREGATE for node in nodes)
     shape = output_shape or (
@@ -328,7 +354,7 @@ def plan_spec(
         output_shape=shape,
         operation=SemanticOperation.AGGREGATE if aggregate else SemanticOperation.SELECT,
         subject_constraints=tuple(dict.fromkeys(subjects)),
-        measure_concepts=(f"reasoning.{goal.effective_operation.value}",),
+        measure_concepts=measure_concepts or (f"reasoning.{goal.effective_operation.value}",),
     )
 
 
@@ -378,6 +404,7 @@ def function_declared(ctx: CompileContext, name: str) -> bool:
 
 
 __all__ = [
+    "state_filter_node",
     "COLLECTION_LIMIT",
     "FUNCTION_ANCHOR_LIMIT",
     "RESOURCE_OBJECT_TYPE",

@@ -17,6 +17,13 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any
 
+from fdai_service_contracts.ontology_query import (
+    MAX_INTENT_GRAPH_GOALS,
+    OntologyQueryNode,
+    OntologyQueryPlan,
+    content_digest,
+)
+
 from fdai.core.ontology_platform import OntologyQueryPlanVerifier, QueryManifest
 from fdai.core.ontology_platform.query_gateway import SecuredObjectSetQueryGateway
 from fdai.shared.contracts.models import CeilingRole
@@ -26,10 +33,11 @@ from .adaptive_call_scope import bind_adaptive_model_budget
 from .intent_graph import build_intent_graph
 from .model_observation import ConversationModelObservation
 from .semantic_manifest import semantic_principal_scope_digest
+from .semantic_planning_alignment import verify_frame_plan_alignment
 from .semantic_planning_models import SemanticPlanningDisposition, SemanticPlanningOutcome
 from .semantic_planning_support import _outcome, _refresh_object_set_cutoffs
 from .semantic_reasoning_binding import GatewayAnchorResolver
-from .semantic_reasoning_compiler import GoalStatus
+from .semantic_reasoning_compiler import CompiledBatch, GoalStatus
 from .semantic_reasoning_shadow import (
     QuestionFormModel,
     ReasoningShadowObservation,
@@ -41,6 +49,8 @@ from .session import Principal
 _LOGGER = logging.getLogger(__name__)
 COMPILED_PLAN_SOURCE = "compiled_question_form"
 _MAX_EVENT_ITEMS = 16
+# One ontology query plan names at most eight output nodes.
+_MAX_PLAN_OUTPUTS = 8
 
 
 @dataclass(frozen=True, slots=True)
@@ -127,6 +137,7 @@ class CompiledAnswerTicket:
         try:
             plan = _refresh_object_set_cutoffs(batch.plan, execution_time=self._cutoff())
             self._verifier.verify(plan, manifest=self._manifest)
+            verify_frame_plan_alignment(batch.frame, plan, descriptors=self._manifest.descriptors)
         except (PermissionError, ValueError) as exc:
             _log_completion("failed", observation=observation, failure_type=type(exc).__name__)
             return None
@@ -276,8 +287,12 @@ async def _run_form_path(
 
 def _single_compiled_batch(
     observation: ReasoningShadowObservation,
-) -> tuple[Any, float] | None:
-    """Return the one verified batch of a released single-goal compilation, else ``None``."""
+) -> tuple[CompiledBatch, float] | None:
+    """Return the verified read of a released single-goal compilation, else ``None``.
+
+    A goal whose relation sides span several batches is read as one plan with every
+    batch's output when the union fits one intent graph; otherwise it is declined.
+    """
 
     if not observation.released or observation.continuation_pending:
         return None
@@ -286,12 +301,46 @@ def _single_compiled_batch(
     goals = observation.compilations[0].goals
     if len(goals) != 1 or goals[0].status is not GoalStatus.COMPILED or goals[0].limitations:
         return None
-    if len(goals[0].batches) != 1 or goals[0].confidence is None:
+    goal = goals[0]
+    if not goal.batches or goal.confidence is None:
         return None
-    batch = goals[0].batches[0]
-    if (batch.index, batch.total) != (0, 1):
+    if [(batch.index, batch.total) for batch in goal.batches] != [
+        (index, len(goal.batches)) for index in range(len(goal.batches))
+    ]:
         return None
-    return batch, goals[0].confidence
+    merged = _merged_batch(goal.batches)
+    return (merged, goal.confidence) if merged is not None else None
+
+
+def _merged_batch(batches: tuple[CompiledBatch, ...]) -> CompiledBatch | None:
+    if len(batches) == 1:
+        return batches[0]
+    frame = batches[0].frame
+    if any(batch.frame.frame_digest != frame.frame_digest for batch in batches):
+        return None
+    nodes: dict[str, OntologyQueryNode] = {}
+    outputs: list[str] = []
+    for batch in batches:
+        for node in batch.plan.nodes:
+            # A shared anchor read repeats with identical content; any other id clash is unsafe.
+            if node.node_id in nodes and nodes[node.node_id] != node:
+                return None
+            nodes.setdefault(node.node_id, node)
+        outputs.extend(batch.plan.output_node_ids)
+    if (
+        len(nodes) > MAX_INTENT_GRAPH_GOALS
+        or len(outputs) > _MAX_PLAN_OUTPUTS
+        or len(set(outputs)) != len(outputs)
+    ):
+        return None
+    first = batches[0].plan
+    body = {
+        **first.model_dump(mode="json", exclude={"nodes", "output_node_ids", "plan_digest"}),
+        "nodes": [node.model_dump(mode="json") for node in nodes.values()],
+        "output_node_ids": outputs,
+    }
+    plan = OntologyQueryPlan.model_validate({**body, "plan_digest": content_digest(body)})
+    return CompiledBatch(index=0, total=1, frame=frame, plan=plan)
 
 
 def _log_completion(

@@ -1505,3 +1505,73 @@ async def test_a_peering_answers_from_either_end_whatever_direction_is_stated(
 
     assert compilation.goals[0].status is GoalStatus.COMPILED, compilation.goals[0].reasons
     assert await _endpoint_names(compilation) == {"vnet-app"}
+
+
+def _state_form(utterance: str, *, operation: str = "select") -> dict[str, Any]:
+    return {
+        "mentions": [
+            {
+                "id": "m1",
+                "form": "concept",
+                "domain": "resource_type",
+                "span": span(utterance, "VMs"),
+            },
+            {"id": "m2", "form": "concept", "domain": "state", "span": span(utterance, "running")},
+        ],
+        "goals": [
+            {
+                "id": "g1",
+                "level": "instance",
+                "operation": operation,
+                "subject": "m1",
+                "subject_scope": "collection",
+                "filters": [{"role": "state", "mention": "m2"}],
+                "cue": span(utterance, "running"),
+                "confidence": 0.93,
+            }
+        ],
+    }
+
+
+def test_a_stated_state_filters_the_collection_through_the_state_inventory() -> None:
+    utterance = "List the running VMs"
+    compilation = _compile(
+        utterance,
+        _state_form(utterance),
+        concepts(
+            ("m1", MentionDomain.RESOURCE_TYPE, ("compute.vm",)),
+            ("m2", MentionDomain.STATE, ("resource_state.running",)),
+        ),
+    )
+
+    goal = compilation.goals[0]
+    assert goal.status is GoalStatus.COMPILED, goal.reasons
+    (batch,) = goal.batches
+    kinds = [node.kind.value for node in batch.plan.nodes]
+    assert kinds == ["object_set", "function"]
+    state = batch.plan.nodes[1]
+    assert state.arguments["function_name"] == "query.resource_state_inventory"
+    assert state.arguments["arguments"] == {"state_concepts": ["resource_state.running"]}
+    assert batch.frame.output_shape == "resource_state_list"
+    assert batch.frame.measure_concepts == ("resource_state.running",)
+
+
+def test_a_counted_state_and_an_unbound_state_never_widen_the_read() -> None:
+    utterance = "How many running VMs"
+    counted = _compile(
+        utterance,
+        _state_form(utterance, operation="count"),
+        concepts(
+            ("m1", MentionDomain.RESOURCE_TYPE, ("compute.vm",)),
+            ("m2", MentionDomain.STATE, ("resource_state.running",)),
+        ),
+    )
+    unbound = _compile(
+        utterance,
+        _state_form(utterance, operation="count"),
+        concepts(("m1", MentionDomain.RESOURCE_TYPE, ("compute.vm",))),
+    )
+
+    (batch,) = counted.goals[0].batches
+    assert [node.kind.value for node in batch.plan.nodes] == ["object_set", "function", "aggregate"]
+    assert unbound.goals[0].status is not GoalStatus.COMPILED
