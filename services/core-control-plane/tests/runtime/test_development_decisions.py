@@ -341,3 +341,27 @@ def test_adaptive_takeover_and_thread_dependency_point_at_the_adaptive_plan() ->
     cues = {(cue.code, cue.step) for cue in trace.cues}
     assert {("adaptive_takeover", 0), ("active_thread_dependency", 0)} <= cues
     assert ("advisory_response_outcome", 1) in cues
+
+
+def test_the_trace_records_the_projection_the_turn_delivers() -> None:
+    answered = _semantic_result()
+    held = {
+        **_semantic_result(),
+        "disposition": "held",
+        "reason_code": "operational_evidence_over_budget",
+        "assurance_observation": None,
+        "intent_graph": None,
+    }
+    with bind_decision_events():
+        record_decision_observations(_observations())
+        observe_semantic_decision({"semantic_result": answered})
+        observe_semantic_decision({"semantic_result": held})
+        assert decision_snapshot().traces == ()
+    traces = decision_snapshot().traces
+    assert len(traces) == 1
+    outcome = traces[0].steps[-1].attributes
+    assert (outcome["disposition"], outcome["reason_code"]) == (
+        "held",
+        "operational_evidence_over_budget",
+    )
+    assert "held_outcome" in {cue.code for cue in traces[0].cues}

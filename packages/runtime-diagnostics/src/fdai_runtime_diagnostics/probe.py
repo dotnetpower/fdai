@@ -107,7 +107,7 @@ class RuntimeProbe:
         if cpu and not cpu_rows:
             limitations.append("cpu_no_repository_samples")
         decisions = decision_snapshot()
-        if decisions.new_rejections:
+        if decisions.recent_rejections:
             limitations.append("decision_traces_rejected")
         carries_decisions = bool(decisions.traces or decisions.evicted or decisions.rejected)
         measured_ms = max(0, (time.monotonic_ns() - started_ns) // 1_000_000)

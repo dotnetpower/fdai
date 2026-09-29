@@ -78,7 +78,7 @@ def test_a_typed_trace_is_retained_in_order_with_step_bound_cues() -> None:
     assert observe_decision(session=SESSION, turn_sequence=3, steps=_steps(), cues=(cue,))
     assert observe_decision(session=SESSION, turn_sequence=4, steps=_steps())
     snapshot = decision_snapshot()
-    assert (snapshot.evicted, snapshot.rejected, snapshot.new_rejections) == (0, 0, False)
+    assert (snapshot.evicted, snapshot.rejected, snapshot.recent_rejections) == (0, 0, 0)
     assert [trace.turn_sequence for trace in snapshot.traces] == [3, 4]
     assert [trace.sequence for trace in snapshot.traces] == [1, 2]
     assert snapshot.traces[0].cues[0].step == 1
@@ -114,8 +114,18 @@ def test_an_oversized_or_malformed_trace_is_dropped_without_raising() -> None:
     assert not observe_decision(session="0123456789ab", turn_sequence=1, steps=_steps())
     assert not observe_decision(session=SESSION, turn_sequence=1, steps=[{"stage": 5}])
     snapshot = decision_snapshot()
-    assert (snapshot.traces, snapshot.rejected, snapshot.new_rejections) == ((), 3, True)
-    assert decision_snapshot().new_rejections is False
+    assert (snapshot.traces, snapshot.rejected, snapshot.recent_rejections) == ((), 3, 3)
+    assert decision_snapshot() == snapshot
+
+
+def test_a_rejection_leaves_the_recent_window_after_fifty_accepted_attempts() -> None:
+    assert not observe_decision(session=SESSION, turn_sequence=1, steps=[{"stage": 5}])
+    for index in range(49):
+        observe_decision(session=SESSION, turn_sequence=index, steps=_steps())
+    assert decision_snapshot().recent_rejections == 1
+    observe_decision(session=SESSION, turn_sequence=50, steps=_steps())
+    snapshot = decision_snapshot()
+    assert (snapshot.rejected, snapshot.recent_rejections) == (1, 0)
 
 
 def test_recording_is_disabled_outside_the_channel(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -153,8 +163,7 @@ async def test_snapshot_packet_carries_traces_and_new_rejection_limitation(tmp_p
     with pytest.raises(ValidationError, match="digest"):
         DevelopmentProfilePacket.model_validate(tampered)
     later = await probe.capture()
-    assert later.limitations == ()
-    assert later.complete is True
+    assert later.limitations == ("decision_traces_rejected",)
     assert later.decisions_rejected == 1
 
 

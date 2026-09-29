@@ -21,17 +21,19 @@ _LOCK_TIMEOUT_SECONDS = 0.01
 
 @dataclass(frozen=True)
 class DecisionSnapshot:
-    """Retained traces, oldest first, and cumulative loss counters."""
+    """Retained traces, oldest first, cumulative loss counters, and recent rejections."""
 
     traces: tuple[DecisionTrace, ...]
     evicted: int
     rejected: int
-    new_rejections: bool
+    recent_rejections: int
 
 
 _traces: deque[DecisionTrace] = deque(maxlen=_MAX_TRACES)
+# One flag per recent recording attempt, so a snapshot can report recent loss without state.
+_attempts: deque[bool] = deque(maxlen=_MAX_TRACES)
 _lock = Lock()
-_state = {"sequence": 0, "evicted": 0, "rejected": 0, "reported_rejected": 0}
+_state = {"sequence": 0, "evicted": 0, "rejected": 0}
 
 
 def decision_traces_enabled() -> bool:
@@ -75,7 +77,9 @@ def observe_decision(
             trace = None
         if trace is None or len(trace.model_dump_json()) > _MAX_TRACE_BYTES:
             _state["rejected"] += 1
+            _attempts.append(False)
             return False
+        _attempts.append(True)
         _state["sequence"] += 1
         if len(_traces) == _MAX_TRACES:
             _state["evicted"] += 1
@@ -86,20 +90,23 @@ def observe_decision(
 
 
 def decision_snapshot() -> DecisionSnapshot:
-    """Return retained traces and report rejections that occurred since the last snapshot."""
+    """Return retained traces and rejections among the last 50 attempts, without side effects."""
     if not decision_traces_enabled():
-        return DecisionSnapshot((), 0, 0, False)
+        return DecisionSnapshot((), 0, 0, 0)
     with _lock:
-        rejected = _state["rejected"]
-        new_rejections = rejected > _state["reported_rejected"]
-        _state["reported_rejected"] = rejected
-        return DecisionSnapshot(tuple(_traces), _state["evicted"], rejected, new_rejections)
+        return DecisionSnapshot(
+            tuple(_traces),
+            _state["evicted"],
+            _state["rejected"],
+            sum(1 for accepted in _attempts if not accepted),
+        )
 
 
 def reset_decision_traces() -> None:
     """Clear retained traces; used by tests and never by the product path."""
     with _lock:
         _traces.clear()
+        _attempts.clear()
         for key in _state:
             _state[key] = 0
 

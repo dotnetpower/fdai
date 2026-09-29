@@ -160,9 +160,12 @@ every cue points at an existing step. Recording is bounded best effort. It waits
 milliseconds for the buffer lock, catches its own failures, and never raises into or blocks the
 product turn. The buffer keeps at most 50 traces of at most 16,000 bytes each. It starts empty after
 a restart and leaves the process only in an explicit owner-only capture or export. Each packet
-reports cumulative evicted and rejected counts. Rejections since the previous capture add the
-`decision_traces_rejected` limitation. A packet without decision data keeps the schema `1.0.0` wire
-shape, and a packet with decision data uses schema `1.1.0`.
+reports cumulative evicted and rejected counts. A rejection among the last 50 recording attempts
+adds the `decision_traces_rejected` limitation, and reading a snapshot changes no state. A packet
+without decision data keeps the schema `1.0.0` wire shape, and a packet with decision data uses
+schema `1.1.0`. The collector records a trace when the semantic turn ends, from the last projection
+the turn built, so a later hold, such as a wire-budget or result-store hold, replaces an earlier
+answered projection.
 
 Each cue names a code and the step to inspect. Cues cover:
 
@@ -187,9 +190,11 @@ and the planner's reported plan source.
 | Truncated digests of deployment names and sessions can be guessed or linked. | Process-local aliases replace both values. |
 | Exact target offsets disclose question structure. | Offsets stay in the process; traces keep target kinds and the derived uncovered-target cue. |
 | A recording defect or lock wait could affect the product turn. | Recording catches its own failures, waits at most ten milliseconds, and assigns sequence and position under one lock. |
-| Retained history could be mistaken for capture-window evidence, and one rejection could mark every later packet incomplete. | Packets carry cumulative evicted and rejected counts; only new rejections add a limitation, and each trace keeps its recording time. |
+| Retained history could be mistaken for capture-window evidence, and one rejection could mark every later packet incomplete. | Packets carry cumulative evicted and rejected counts; only a rejection among the last 50 attempts adds a limitation, and each trace keeps its recording time. |
 | A new packet field could break schema `1.0.0` readers. | Packets without decision data keep the `1.0.0` wire shape and digest. |
 | A bare cue cannot show which step to inspect. | Each cue carries a validated step index. |
+| Implementation review: socket discovery's snapshot consumed the rejection watermark, so the saved packet looked complete. | Snapshots are side-effect free, and a snapshot capture reuses the discovery packet. |
+| Implementation review: the first projection was recorded even when the turn delivered a later hold. | The collector records at turn end from the last projection built. |
 
 Every packet binds the Git revision, local service input digest, worktree patch digest, process
 identity, runtime-scope receipt digest, time window, and packet digest. Capture admission compares

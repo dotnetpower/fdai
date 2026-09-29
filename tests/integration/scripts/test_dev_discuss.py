@@ -462,3 +462,45 @@ def test_explain_renders_typed_steps_cues_and_summary(
     assert rendered["traces"][0]["cues"][1] == {"code": "clarification_outcome", "step": 1}
     with pytest.raises(ValueError, match="--last"):
         module._explain(packet, tmp_path / "profile.json", 0, False)
+
+
+async def test_discovery_does_not_hide_a_recent_trace_rejection(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from fdai_runtime_diagnostics.decisions import observe_decision, reset_decision_traces
+
+    module = _load()
+    monkeypatch.setenv("FDAI_DEVELOPMENT_DIAGNOSTICS", "1")
+    reset_decision_traces()
+    short_root = Path(tempfile.mkdtemp(prefix="fdai-dd-reject-"))
+    config = DevelopmentDiagnosticsConfig(
+        service_id="core-control-plane",
+        execution_venue="local",
+        socket_path=short_root / ".fdai" / "r" / "0123456789ab.sock",
+        source_root=short_root,
+        source_revision=REVISION,
+        service_input_digest=INPUT_DIGEST,
+        worktree_digest=WORKTREE_DIGEST,
+        runtime_scope_receipt_digest=RECEIPT,
+    )
+    server = DevelopmentDiagnosticServer(config)
+    monkeypatch.setattr(module, "_git_revision", lambda _root: REVISION)
+    monkeypatch.setattr(module, "_service_input_digest", lambda _root, _service: INPUT_DIGEST)
+    assert not observe_decision(session="s1", turn_sequence=1, steps=[{"stage": 5}])
+    await server.start()
+    try:
+        await module._status(short_root)
+        first = await module._capture(
+            short_root, service="core-control-plane", duration_ms=0, cpu=False, heap=False
+        )
+        second = await module._capture(
+            short_root, service="core-control-plane", duration_ms=0, cpu=False, heap=False
+        )
+    finally:
+        await server.aclose()
+        shutil.rmtree(short_root)
+        reset_decision_traces()
+    for packet in (first, second):
+        assert packet.decisions_rejected == 1
+        assert packet.limitations == ("decision_traces_rejected",)
+        assert packet.complete is False

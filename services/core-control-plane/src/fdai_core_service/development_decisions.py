@@ -21,11 +21,11 @@ from typing import Any
 
 from fdai.shared.telemetry.decision_events import (
     DecisionTurn,
+    PendingDecision,
     bind_decision_events,
     current_decision_turn,
     record_decision_observations,
 )
-from fdai_runtime_diagnostics import observe_decision
 
 _LOGGER = logging.getLogger(__name__)
 # Identifiers, enum values, and dotted catalog names. Hyphens, spaces, quotes, and non-ASCII
@@ -137,21 +137,27 @@ _alias_counters = {"model": 0, "session": 0}
 
 
 def observe_semantic_decision(projection: Mapping[str, Any]) -> None:
-    """Record the bound turn's decision trace once; never raise into the product turn."""
+    """Stage the bound turn's decision trace; the last staged projection is recorded.
+
+    A turn can build a second projection, such as a hold after a wire-budget or result-store
+    failure, so the collector records only when the semantic turn ends. This never raises
+    into the product turn.
+    """
 
     turn = current_decision_turn()
-    if turn is None or turn.recorded:
+    if turn is None:
         return
-    turn.recorded = True
     try:
         semantic_result = projection.get("semantic_result")
         if not isinstance(semantic_result, Mapping):
             return
         steps, cues = semantic_decision_steps(turn, semantic_result)
         turn_sequence = semantic_result.get("turn_sequence")
-        observe_decision(
+        turn.pending = PendingDecision(
             session=_alias("session", semantic_result.get("session_id")),
-            turn_sequence=turn_sequence if _is_count(turn_sequence) else None,
+            turn_sequence=turn_sequence
+            if isinstance(turn_sequence, int) and _is_count(turn_sequence)
+            else None,
             steps=steps,
             cues=cues,
         )

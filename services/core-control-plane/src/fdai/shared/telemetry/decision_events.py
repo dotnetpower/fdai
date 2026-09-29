@@ -16,7 +16,7 @@ from contextvars import ContextVar
 from dataclasses import dataclass, field
 from threading import Lock
 
-from fdai_runtime_diagnostics.decisions import decision_traces_enabled
+from fdai_runtime_diagnostics.decisions import decision_traces_enabled, observe_decision
 
 _MAX_EVENTS = 48
 _LOGGER_NAMES = ("fdai", "fdai_core_service")
@@ -24,6 +24,16 @@ _EVENT_PREFIXES = ("semantic_", "conversation_")
 _STANDARD_RECORD_FIELDS = frozenset(
     logging.LogRecord("", logging.INFO, "", 0, "", (), None).__dict__
 ) | {"message", "asctime", "taskName"}
+
+
+@dataclass(frozen=True)
+class PendingDecision:
+    """The content-free trace of the latest projection built in a turn."""
+
+    session: str
+    turn_sequence: int | None
+    steps: Sequence[Mapping[str, object]]
+    cues: Sequence[Mapping[str, object]]
 
 
 @dataclass
@@ -35,7 +45,8 @@ class DecisionTurn:
     planning_disposition: object = None
     planning_reason: object = None
     dropped_events: int = 0
-    recorded: bool = False
+    # The last projection built in the turn is the one delivered; it replaces earlier ones.
+    pending: PendingDecision | None = None
     lock: Lock = field(default_factory=Lock, repr=False)
 
 
@@ -90,6 +101,22 @@ def bind_decision_events() -> Iterator[DecisionTurn | None]:
         yield turn
     finally:
         _TURN.reset(token)
+        _flush(turn)
+
+
+def _flush(turn: DecisionTurn) -> None:
+    pending = turn.pending
+    if pending is None:
+        return
+    try:
+        observe_decision(
+            session=pending.session,
+            turn_sequence=pending.turn_sequence,
+            steps=pending.steps,
+            cues=pending.cues,
+        )
+    except Exception:  # noqa: BLE001 - diagnostics must never change the product turn.
+        logging.getLogger(__name__).warning("development_decision_trace_flush_skipped")
 
 
 def record_decision_observations(observations: Sequence[object], planning: object = None) -> None:
@@ -111,6 +138,7 @@ def current_decision_turn() -> DecisionTurn | None:
 
 __all__ = [
     "DecisionTurn",
+    "PendingDecision",
     "bind_decision_events",
     "current_decision_turn",
     "record_decision_observations",

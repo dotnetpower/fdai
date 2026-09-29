@@ -158,8 +158,10 @@ def _socket_candidates(root: Path, service: str) -> tuple[Path, ...]:
     return (legacy, *identity_bound)
 
 
-async def _service_socket(root: Path, service: str) -> Path | None:
-    """Return the one socket whose live server answers for ``service``."""
+async def _service_snapshot(
+    root: Path, service: str
+) -> tuple[Path, DevelopmentProfilePacket] | None:
+    """Return the socket whose live server answers for ``service`` and its snapshot packet."""
 
     for socket_path in _socket_candidates(root, service):
         if not socket_path.is_socket():
@@ -175,8 +177,15 @@ async def _service_socket(root: Path, service: str) -> Path | None:
         except (OSError, TimeoutError, RuntimeError, ValueError):
             continue
         if packet.service_id == service:
-            return socket_path
+            return socket_path, packet
     return None
+
+
+async def _service_socket(root: Path, service: str) -> Path | None:
+    """Return the one socket whose live server answers for ``service``."""
+
+    found = await _service_snapshot(root, service)
+    return found[0] if found is not None else None
 
 
 async def _capture(
@@ -189,16 +198,18 @@ async def _capture(
 ) -> DevelopmentProfilePacket:
     if not 0 <= duration_ms <= 30_000:
         raise ValueError("duration MUST be between 0 and 30000 ms")
-    socket_path = await _service_socket(root, service)
-    if socket_path is None:
+    found = await _service_snapshot(root, service)
+    if found is None:
         raise ValueError(f"no live development diagnostic server answers for {service}")
-    packet = await request_profile(
-        socket_path,
-        duration_ms=duration_ms,
-        cpu=cpu,
-        heap=heap,
-        timeout_seconds=max(5.0, duration_ms / 1000 + 5.0),
-    )
+    socket_path, packet = found
+    if duration_ms:
+        packet = await request_profile(
+            socket_path,
+            duration_ms=duration_ms,
+            cpu=cpu,
+            heap=heap,
+            timeout_seconds=max(5.0, duration_ms / 1000 + 5.0),
+        )
     if packet.service_input_digest != _service_input_digest(root, service):
         raise ValueError("running service inputs do not match the workspace")
     return packet
