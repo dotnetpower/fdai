@@ -509,6 +509,16 @@ can never move it down for latency. A fork can force every dispatch in
 prod to `pr_manual` via the env axis. The upstream never forces from
 below (never lifts `pr_manual` to `direct_api` for speed).
 
+**`pr_manual` reachability (decided 2026-09-29).** Upstream ships the
+`forced_execution_path` seam but no narrowing-axis producer, and no shipped
+ActionType declares `pr_manual`. The path therefore stays unreachable in the
+upstream default: it becomes reachable only when an ActionType declares it or
+a fork binds a narrowing axis, such as one that forces production dispatches
+to manual merge. Upstream adds no default producer, because which
+environments require manual merge is deployment policy, not a product
+default. Path-parity evidence exercises `pr_manual` through a synthetic
+narrowing axis instead of claiming a shipped route.
+
 **Fallback idempotency.** `direct_api` may degrade to `pr_manual` only before a side-effect attempt
 or after an authoritative no-effect receipt; fallback reuses the stable idempotency key. A timeout,
 lost response, or accepted asynchronous request is ambiguous: keep the operation record, target
