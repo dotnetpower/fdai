@@ -1,7 +1,7 @@
 ---
 title: 설치형 배포 CLI
 translation_of: installable-deployment-cli.md
-translation_source_sha: 9192272c8820e7a46f719b80fc9fdb854a958c57
+translation_source_sha: 8635f09a828b4f097f09b767ac8c2b2e6cbd9ab9
 translation_revised: 2026-09-28
 ---
 
@@ -45,7 +45,15 @@ GitHub Actions는 소스를 검증하고 이미지를 빌드하며 선택적으�
 설정을 확인하며 이후 단계와 JSON 실행에서는 입력을 요청하지 않습니다.
 `--approval-file <path>`는 기존의 비공개 사람 승인 파일을 공유 검증기에 명시적으로
 전달합니다. 이 옵션이 없으면 보존된 다른 승인 파일은 사용하지 않습니다. 초기 설정 확인은
-이 승인과 별개입니다. `--foundation-workload <token>`은 신규 소스 설치의 이름 토큰을
+이 승인과 별개입니다. 공개 명령은 체크포인트 승인 프롬프트를 직접 열지 않으므로, 검토 상태를
+반환한 체크포인트를 통과하는 방법은 `--approval-file`뿐입니다. 이 레코드는
+`scripts/deployment/azure/genesis_approval_prompt.py --status <work-dir>/foundation/status.json
+--output <path>`로 만듭니다. 이 명령은 실행이 도달한 정확한 체크포인트를 읽고, 헌법 제1조에
+따라 운영자의 호출 자체를 그 명령이 출력한 증거에 대한 승인으로 취급합니다. 레코드는 인증된
+운영자에 바인딩되며 발급 후 30분이 지나면 만료되므로, 재개가 늦어지면 다시 발급합니다.
+실행을 재개하면 봉인된 의도를 그대로 반복합니다. 비용과 프로파일 인자는 그 의도에 속하므로,
+하나라도 빠지거나 달라진 재개는 거부되며 어떤 항목이 다른지 함께 알려줍니다.
+`--foundation-workload <token>`은 신규 소스 설치의 이름 토큰을
 선택하며 기본값은 `fdai`입니다. 표준 애플리케이션 또는 운영 그룹이 이미 있으면 다른 토큰을
 사용합니다. 이 토큰은 소스 준비, 보존 변수, 실행 바인딩, 모든 정확한 Foundation 계획에
 봉인되며 승인 재개 시 동일하게 반복해야 합니다. 기존 리소스의 소유권, 삭제, 도입 권한을
