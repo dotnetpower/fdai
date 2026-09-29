@@ -431,6 +431,7 @@ async def test_empty_automation_blueprint_table_is_authoritative(monkeypatch: An
                     "expired": 0,
                     "materialized": 0,
                     "realized_usage": 0,
+                    "rejection_reasons": {},
                 }
             ]
         return []
@@ -457,6 +458,7 @@ async def test_empty_automation_blueprint_table_is_authoritative(monkeypatch: An
             "realized_usage": 0,
             "candidate_precision": 0.0,
             "acceptance_rate": 0.0,
+            "rejection_reasons": {},
         },
     }
 
@@ -483,6 +485,7 @@ async def test_nonempty_automation_blueprint_projection_is_bounded_and_read_only
                     "expired": 0,
                     "materialized": 1,
                     "realized_usage": 5,
+                    "rejection_reasons": {},
                 }
             ]
         return [
@@ -546,6 +549,7 @@ async def test_nonempty_automation_blueprint_projection_is_bounded_and_read_only
             "realized_usage": 5,
             "candidate_precision": 0.5,
             "acceptance_rate": 1.0,
+            "rejection_reasons": {},
         },
     }
     assert statements[0].rstrip().endswith("LIMIT 200")

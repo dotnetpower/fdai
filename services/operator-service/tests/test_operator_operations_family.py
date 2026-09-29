@@ -409,6 +409,7 @@ def test_blueprint_review_routes_are_separately_authorized_proposals(
             idempotency_key="idem-1",
             correlation_id="corr-1",
             payload={"candidate_id": "cand-1", "reason": "recurring and bounded"},
+            principal_roles=("Approver",),
         )
     ]
     assert dependencies.queries == []
@@ -790,6 +791,7 @@ def test_read_investigation_only_writes_durable_event_proposal() -> None:
                 "resource_name": "service-one",
                 "explicit_deep": False,
             },
+            principal_roles=("Contributor",),
         )
     ]
 
