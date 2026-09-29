@@ -1,7 +1,7 @@
 ---
 title: Provisioning 실행 Profile
 translation_of: provisioning-execution-profiles.md
-translation_source_sha: 597f2012f35302e2ce189c875057a4e7004cac42
+translation_source_sha: 59fee9d9b3399a068183d52d6883d9da52adc2c2
 translation_revised: 2026-09-28
 ---
 # 프로비저닝 실행 프로파일
@@ -36,7 +36,7 @@ Parser handler, 출력 계약, 정확한 승인 요건 및 변경 권한은 바�
 | 감사되는 Run Command 비공개 중계 | implemented | `execution_bundle.py`, `run_command_receiver.py`, `run_command_private_relay.py`, 고정 초기 구성 및 조정 모듈, 집중 테스트 25개 통과 | 적격 Linux 배포 호스트 하나가 클라우드 산출물 저장소 없이 피어링된 WSL 호스트 하나로 digest가 고정된 묶음을 staging할 수 있습니다. 실제 Azure 전송 근거와 자동 접근 프로파일 라우팅은 남아 있습니다. |
 | 범위 지정 Run Command Terraform | validated | `scripts/deployment/azure/scoped_terraform.py`, `scoped_terraform_receiver.py`, 집중 테스트 36개, 실제 dev `aks-container-insights` 적용 증적 1건 | 일반 PC가 비공개 네트워크 경로 없이 Action Run Command로 관리형 호스트에서 등록된 Terraform 범위 하나를 실행합니다. 첫 dev 적용은 대상 범위 무변경 확인과 독립 ARM 재조회를 통과했습니다. staging과 production은 계속 차단합니다. |
 | 신규 구독 로컬 조정기 | implemented | `fdaictl provision azure`, `fdai-up.sh`, 서명 키트, 기반 계층, Bastion, 관리 호스트, 승인, 라이선스, 마이그레이션 및 수렴 모듈과 라우팅된 수명 주기 테스트 | 하나의 `dev` 프로세스가 활성 Azure CLI 사용자에서 대상을 결정하고 상태 변경 전이를 직렬로 유지합니다. 대상 환경 배포에는 GitHub 전송 계층이 없습니다. 통제된 Azure 증적과 완전한 구독 보증 근거는 남아 있습니다. |
-| 사전 빌드 OCI 배포 어플라이언스 사용 | in-progress | `run-deployment-appliance.sh`, 집중 스크립트 및 CLI 테스트 | 테넌트 프로비저닝은 release에서 게시하고 digest로 고정한 어플라이언스에서 공개 산출물 대체 경로 없이 수동 standalone 조정기를 시작할 수 있습니다. 통제된 아티팩트 오프라인 Azure 증적은 남아 있으며 테넌트 배포는 이미지를 만들지 않습니다. |
+| 사전 빌드 OCI 배포 어플라이언스 사용 | not-applicable | 헌법 제1조(배포 배포판) | 설치는 기여자 소스 배포와 서명된 오프라인 패키지 두 경로만 지원하며 다른 게이트를 추가하지 않습니다. 어플라이언스 빌더와 진입점을 삭제했고 어떤 release 단계도 이미지를 만들지 않습니다. |
 | 서명된 오프라인 Python 패키지 | validated | `build-signed-python-package.sh`, 패키지 정책 v3, 실제 OpenSSL/checksum 검증 및 pip 빈 환경 설치 | 6.9 MB wheel 모음에 CLI와 의존성이 들어 있습니다. Detached Ed25519 서명 하나만 패키지 전용 보증 통제로 사용합니다. |
 | 안정 Network API 기반 Foundation 검색 | validated | PR #926, `deployment-v0.1.0-r4`, [이슈 #803 근거](https://github.com/dotnetpower/fdai/issues/803#issuecomment-5653340906) | 게시된 서명 번들로 West US 2의 모든 Foundation 입력 조회를 통과했습니다. 계획, 적용, 복구 또는 배포 준비 완료 주장은 만들지 않았습니다. |
 | Temporary 공개 접근 정리 | not-started | 이 문서의 접근 선호 설정 계약 | 범위가 제한된 생성, 자동 정리, 정리 실패 시 불완전 상태 및 감사 종결을 입증하는 조립 명령이 없습니다. |
@@ -475,7 +475,7 @@ Online 전달은 선택적인 배포판 경로입니다. 공개 `fdai-deployment
 runtime image 및 migration wheel만 사용합니다.
 
 운영 검증에는 이 게시 경로가 필요하지 않습니다. 로컬에서 빌드하고 독립적으로 검증한 완전한
-서명 키트 하나를 로컬 조정기와 배포 어플라이언스에 함께 제공할 수 있습니다.
+서명 키트 하나를 로컬 조정기에 제공하며, 어플라이언스 이미지는 만들지 않습니다.
 
 목표 release 작업 흐름은 읽기 전용 작업에서 휠과 출처 분포를 한 번만 빌드하고 Python과
 번들 버전이 일치하는지 검사합니다. 일치하는 signed 번들을 게시한 후에만 같은 산출물을

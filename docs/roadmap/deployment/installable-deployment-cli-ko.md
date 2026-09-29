@@ -1,7 +1,7 @@
 ---
 title: 설치형 배포 CLI
 translation_of: installable-deployment-cli.md
-translation_source_sha: 8635f09a828b4f097f09b767ac8c2b2e6cbd9ab9
+translation_source_sha: 310a4c5302a4411c152b40460f02a48bd9cc056e
 translation_revised: 2026-09-28
 ---
 
@@ -29,7 +29,7 @@ Host에서 실행됩니다.
 | 대상 선택 | 활성 대화형 Azure CLI 사용자 |
 | 적용 위치 | 대상 VNet 내부의 Managed Host |
 | 연결된 산출물 원본 | 승인된 정확한 리비전 이미지 매니페스트와 깨끗한 소스. 선택적 `--online` 키트 획득은 완전한 오프라인 호환 폐쇄 집합 사용 |
-| 폐쇄망 산출물 원본 | digest 고정 배포 어플라이언스에 포함된 완전한 오프라인 프로필 |
+| 폐쇄망 산출물 원본 | 서명된 키트 하나에 담긴 완전한 오프라인 프로필. 어플라이언스 이미지는 만들지 않습니다 |
 | 승인 | 각 정확한 계획 digest에 연결된 현재 사람 승인 |
 | 런타임 신원 | 기본값은 범위가 제한된 읽기 전용 관찰 신원이며, 권한 있는 실행기는 명시적 `governed-execution` 추가 기능에서만 사용 |
 | GitHub 의존성 | 대상 환경 배포에는 없음 |
@@ -388,7 +388,7 @@ python -m pip install --no-index --find-links wheels -r requirements.txt
 개를 제외한 모든 포함 파일은 `SHA256SUMS`에 나열되며, workspace 경로 의존성은 빌드된 wheel로
 포함됩니다. 런타임 이미지,
 Terraform 입력 및 다른 배포 페이로드는 이후 배포 명령에서 선택하며 Python 패키지 설치 요구
-사항이 아닙니다. 어플라이언스는 선택적 전송 래퍼이며 두 번째 패키지 인증 경로가 아닙니다.
+사항이 아닙니다. 어플라이언스 이미지는 만들지 않습니다.
 
 명령은 활성 Azure CLI 사용자에서만 tenant와 subscription을 결정합니다. GitHub 계정, Git
 remote, 저장소 변수, 저장소 비밀, workflow dispatch 또는 등록된 GitHub runner가 필요하지
@@ -538,7 +538,7 @@ Git 상태가 깨끗하다는 사실만으로 소스 신원을 입증하지 않�
 충족하는 역할, 충족하지 못한 보관 요건을 보고하며 키 자체는 출력하지 않으므로 키가 있을 만한
 어느 위치에서도 안전하게 실행할 수 있습니다. 두 빌드 거부 메시지 모두 이 검사기를 안내합니다.
 개발 프로필은 완전 키트와 번들 역할에 서명자 하나를 고정하므로 파일 하나로 `--signing-key`를
-충족하며, 라이선스 발급자는 별도 키로 남습니다. 선택적 배포 어플라이언스를 포함해 빌드 전체는
+충족하며, 라이선스 발급자는 별도 키로 남습니다. 빌드 전체는
 3시간 예산과
 단계별 시간 제한 및 진행 없음 기한을 공유합니다. 중첩 감독기는 부모보다 짧은 정리 유예
 시간으로 취소를 전달합니다. 성공에는 유효한 아카이브 체크섬과 요청한 모든 산출물 단계의
@@ -618,19 +618,10 @@ HTTP 상태, 연결 실패, 로컬 경로 충돌, 권한, 저장 공간 부족�
 
 ## 배포 어플라이언스
 
-폐쇄망 release는 선택적 OCI 배포 어플라이언스를 게시할 수 있습니다. 어플라이언스 생성은
-업스트림 release 작업이며 Python 패키지 설치 또는 테넌트 프로비저닝 요구 사항이 아닙니다.
-패키지 완료는 어플라이언스, SBOM, 출처 문서 또는 별도 어플라이언스 배포 증적에 의존하지
-않습니다.
-
-이미지 진입점은 대화형 Azure 인증 또는 명시적으로 선택한 사용자 할당 Managed Identity를
-사용합니다. 공개 산출물 대체 경로를 차단하고
-`fdaictl provision azure --offline-kit /opt/fdai/kit.tar.gz`를 호출합니다.
-`FDAI_DEPLOYMENT_APPLIANCE_KIT`은 다른 비공개 일반 아카이브를 선택할 수 있고,
-`FDAI_DEPLOYMENT_APPLIANCE_WORK_DIR`은 다른 절대 private 작업 디렉터리를 선택할 수 있습니다.
-Managed Identity 모드에는 `FDAI_DEPLOYMENT_APPLIANCE_USE_MANAGED_IDENTITY=1`과 정확한
-`FDAI_DEPLOYMENT_APPLIANCE_MI_CLIENT_ID`가 모두 필요합니다. 포함된 런타임 또는 인프라
-페이로드는 배포 소유자가 관리하며 패키지 보증 요구 사항을 추가하지 않습니다.
+제거했습니다. 헌법 제1조는 설치 경로를 키 보유자의 기여자 소스 배포와 서명된 오프라인 패키지
+두 가지로만 정의하며, 설치 도구가 다른 게이트를 추가하지 않는다고 규정합니다. 어플라이언스
+이미지는 같은 키트를 세 번째로 포장한 것이므로 빌더와 실행기를 삭제했고, 어떤 release 단계도
+이를 만들지 않습니다.
 
 ## 결과 계약
 

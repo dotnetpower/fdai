@@ -26,7 +26,7 @@ inside the target virtual network.
 | Target selection | Active interactive Azure CLI user |
 | Apply location | Managed deployment host inside the target VNet |
 | Connected artifact source | Clean source plus an approved exact-revision image manifest; optional `--online` kit acquisition uses the complete offline-compatible closure |
-| Disconnected artifact source | Complete offline profile embedded in a digest-pinned deployment appliance |
+| Disconnected artifact source | Complete offline profile in one signed kit; no appliance image is produced |
 | Approval | Current human approval bound to each exact plan digest |
 | Runtime identity | Scoped read-only observation identity by default; privileged executor only for the explicit governed-execution add-on |
 | GitHub dependency | None for tenant deployment |
@@ -391,7 +391,7 @@ The 6.9 MB wheelhouse installs `fdaictl` without a source checkout or network ca
 file except the signature pair is listed in `SHA256SUMS`, and workspace path dependencies ship as
 built wheels. Runtime images,
 Terraform inputs, and other deployment payloads are selected later by the deployment command and
-are not Python package-installation requirements. An appliance is an optional transport wrapper,
+are not Python package-installation requirements. No appliance image is produced,
 not a second package-certification path.
 
 The command derives tenant and subscription only from the active Azure CLI user. It does not
@@ -542,7 +542,7 @@ emits no key material so it stays safe to run wherever the key might be. Both bu
 it. The development profile pins one signer for the complete-kit and bundle roles, so one file
 satisfies `--signing-key`; the license issuer stays a separate key. The build shares a three-hour
 total budget with per-stage and
-no-progress deadlines, including an optional deployment appliance. Nested supervisors forward
+no-progress deadlines. Nested supervisors forward
 cancellation with shorter cleanup grace than their parent. Success requires a valid archive checksum
 and completion of every requested artifact stage; interruption cannot continue to later signing.
 
@@ -620,19 +620,10 @@ human approval, executor identity, and effect verification remain separate contr
 
 ## Deployment appliance
 
-A disconnected release may publish an optional OCI deployment appliance. Appliance construction is
-an upstream release responsibility and is not a Python package installation or tenant provisioning
-requirement. Package completion does not depend on an appliance, SBOM, provenance document, or
-separate appliance deployment receipt.
-
-The image entry point accepts either interactive Azure authentication or a specifically selected
-user-assigned managed identity. It invokes
-`fdaictl provision azure --offline-kit /opt/fdai/kit.tar.gz` and blocks all public artifact
-fallback. `FDAI_DEPLOYMENT_APPLIANCE_KIT` can select another private regular archive, and
-`FDAI_DEPLOYMENT_APPLIANCE_WORK_DIR` can select another absolute private work directory. Managed
-Identity mode requires both `FDAI_DEPLOYMENT_APPLIANCE_USE_MANAGED_IDENTITY=1` and the exact
-`FDAI_DEPLOYMENT_APPLIANCE_MI_CLIENT_ID`. Any embedded runtime or infrastructure payload remains a
-deployment-owner concern and does not add package-assurance requirements.
+Removed. Constitution Article 1 defines exactly two installation paths, a key holder's contributor
+source deployment and a signed offline package, and states that installation tooling adds no other
+gate. An appliance image was a third packaging of the same kit, so its builder and runner are gone
+and no release step produces one.
 
 ## Result contract
 
