@@ -6475,3 +6475,32 @@ def test_related_resource_filter_holds_when_the_frame_drops_the_relation_operand
     assert outcome.reason == "semantic_constraint_uncovered"
     assert outcome.plan is None
     assert outcome.clarification is None
+
+
+def test_group_membership_binds_a_member_phrase_carrying_a_particle() -> None:
+    """A member phrase such as VM들 binds members without competing with the group."""
+
+    utterance = "rg-example의 VM들 보여줘"
+    manifest, _definition = _typed_fixture(
+        groups=(_RESOURCE_GROUP_GROUP, _VM_GROUP),
+        extra_values=("authorization.role-assignment",),
+        include_parent_id=True,
+    )
+
+    outcome = _service(
+        _Model(frame=None, plan=None),
+        manifest,
+        semantic_judgment=_JudgmentBoundary(_group_judgment(utterance, "VM들")),
+    ).plan(
+        utterance=utterance,
+        prior_turns=(),
+        principal=Principal(id="operator", role=Role.READER),
+        purpose="operations-review",
+    )
+
+    assert outcome.disposition is SemanticPlanningDisposition.PLANNED
+    assert outcome.plan is not None
+    _anchor, members = outcome.plan.nodes
+    assert {"property": "type", "operator": "equals", "equals": "compute.vm"} in members.arguments[
+        "endpoint_predicates"
+    ]

@@ -435,7 +435,7 @@
     "services/core-control-plane/src/fdai/core/conversation/semantic_planning_preflight.py": "b528c2d4ae9a734fd73551d103a09a19b4866f689f8a513663f9c48981cc903e",
     "services/core-control-plane/src/fdai/core/conversation/semantic_planning_preflight_router.py": "53a86d258622bbc1c9c372e1f80b3c5fa2fe9b5ad2f2c18bcbbe756c6dd725cb",
     "services/core-control-plane/src/fdai/core/conversation/semantic_planning_preflight_service.py": "1b47dadfddbf081dad2956ae6935f1a0bd6f3f86da67a45e188e593ac7b09d0f",
-    "services/core-control-plane/src/fdai/core/conversation/semantic_planning_specialized_plans.py": "481c4b967f3d915a0ff7f3e382e1f6da073bf4a4896141d93e49ae6d853808e1",
+    "services/core-control-plane/src/fdai/core/conversation/semantic_planning_specialized_plans.py": "b39e376766bd5464f0378a396e9b821f92426dc02a0248fbe62e1d302ead8394",
     "services/core-control-plane/src/fdai/core/conversation/semantic_planning_support.py": "85448f420c7ea35ad4674985ff8976b7557214dff565c35cefa0fb70ac863691",
     "services/core-control-plane/src/fdai/core/conversation/semantic_planning_temporal_frames.py": "6cb741cd53b472e84c59a64bd0558072cadd62153c5c077e5bab2e81d3d80490",
     "services/core-control-plane/src/fdai/core/conversation/semantic_planning_topology_normalization.py": "1b9a2021dd410f27e7098c8ee053217b72642c6a24541e0a1ef8a75019a20793",

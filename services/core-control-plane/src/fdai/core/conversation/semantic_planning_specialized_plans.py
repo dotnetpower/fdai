@@ -284,7 +284,9 @@ def build_stated_value_filter_plan(
         plan,
         utterance=utterance,
         descriptors=descriptors,
-        subject_constraints=frame.subject_constraints,
+        subject_constraints=frame.subject_constraints[:2]
+        if membership
+        else frame.subject_constraints,
         allowed_properties=allowed_properties,
     )
     required_grounding = {

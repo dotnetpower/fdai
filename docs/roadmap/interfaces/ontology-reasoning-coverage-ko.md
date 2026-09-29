@@ -1,6 +1,6 @@
 ---
 translation_of: ontology-reasoning-coverage.md
-translation_source_sha: 55f27f5b874c4c47d28884d1ef2b8021ab2a32be
+translation_source_sha: bbd79872bd50656388a9e8904904cb98cc4f4550
 translation_revised: 2026-09-29
 ---
 # 온톨로지 추론 커버리지
@@ -109,7 +109,7 @@ Owner가 2026-09-28에 다음 지시를 정했습니다.
 | 탐색 한도 | 타입 경로 기본 100, 단계마다 최대 1,000, 루트 최대 1,000 | 한 컨테이너에 직접 자식 191개, 연결 유입 최대 57개 | 저하: 잘린 관계 | 컴파일된 단계별 한도와 계보를 유지하는 저장소 쪽 경로 pushdown |
 | 현재 상태 게이트웨이 | 보안 읽기는 기준 시점에서 5초 이내의 `as_of`만 받음 | 버전과 비교 질문 | 과거 경로에서 차단 | 과거 경로는 보존된 토폴로지 리비전을 읽음 |
 | 정확한 이름 앵커 | 이름 일치만 사용 | 이름 63개를 Resource 219개가 공유하고, 한 이름에 최대 30개 | 저하: 잦은 명확화 | 컨테이너나 타입으로 해석하는 한정 언급 |
-| 어휘적 그룹 소속 | `parent_id contains <그룹 이름>` | 그룹 63개 중 31개에서 `contains` 링크와 다르고, 추가 73개와 누락 209개가 발생 | 차단: 현재 답변에 틀린 소속이 나옴 | R2에서 정확한 그룹 앵커와 `contains` 폐포 사용 |
+| 어휘적 그룹 소속 | `parent_id contains <그룹 이름>` | 그룹 63개 중 31개에서 `contains` 링크와 다르고, 추가 73개와 누락 209개가 발생하며, 조사가 붙은 검토된 구성원 term이 그룹 anchor와 경쟁할 수 있음 | 차단: 틀린 구성원이나 지원되지 않는 membership 답변이 나옴 | R2에서 정확한 그룹 anchor와 `contains` 폐포를 쓰고, group-only subject에서 member filter를 근거화 |
 | 보증 주어 타입 지정 | 보증 projection은 주어 피연산자를 검토된 선언 식별자로 분류해야 함 | 한국어 복수형 VM 표현처럼 그룹 옆의 자유 텍스트가 최종 주어에 들어가면 계약 검증에 실패할 수 있음 | 차단: 타입 보류나 검증된 답변 대신 턴이 중단됨 | ASCII 선언 식별자만 보증 주어 타입으로 받고, 자유 텍스트는 타입 constraint와 근거화 검사에 남김 |
 | 어휘 신호와 정규식 | `inventory-query-language.yaml` 용어 목록, `query_signal_matches` 호출 17곳, 의미 모듈의 `re.compile` 16곳 | 검토된 용어 목록 50개 이상 | 지시에 따라 차단 | 모델 근거화와 타입 값, 레인 L5에서 제거 |
 | 템플릿 답변 렌더러 | `semantic_turn_processor.py`의 형태별 답변 문장 | 컴파일되는 모든 형태 | 지시에 따라 차단 | V-CLAIM을 쓰는 근거 기반 작성 |
