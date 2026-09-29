@@ -150,6 +150,7 @@ class CoreRuntime:
             assignment_intake_consumer=self.assignment_intake_consumer,
             rule_activation_consumer=self.rule_activation_consumer,
             rule_activation_reconciliation=self.rule_activation_reconciliation,
+            post_turn_review_request_consumer=self.pantheon.post_turn_review_request_consumer,
             assignment_outcome_consumer=self.assignment_outcome_consumer,
             human_access_reconciliation=self.human_access_reconciliation,
             assurance_twin_publishers=self.assurance_twin_publishers,
