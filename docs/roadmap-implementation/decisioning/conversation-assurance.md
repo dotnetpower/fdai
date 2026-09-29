@@ -61,6 +61,7 @@ from the same family cannot review that answer.
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
 | 2026-09-29 | implemented | Extended the seeded manifest parity generator across Pantheon assurance traces, multi-source authority answers, governed-document citations, and channel adapter rendering. Every path completed at least 1,000 deterministic turns with zero parity violations while still faking only the model planner and provider data plane. | `current change`; `test_semantic_evidence_manifest_parity.py`; `uv run --no-sync pytest -q --no-cov tests/integration/test_semantic_evidence_manifest_parity.py` passed 51 tests covering 1,000 turns for the existing semantic path plus 1,000 turns each for Pantheon assurance, multi-source authority, governed-document citations, and channel adapters; `uv run --no-sync ruff check tests/integration/test_semantic_evidence_manifest_parity.py` and `uv run --no-sync ruff format tests/integration/test_semantic_evidence_manifest_parity.py` passed. | None for this seeded parity item; Issue #63 still requires the separately listed live qualification and Browser Entra evidence. |
+| 2026-09-29 | in-progress | Marked the successor qualification input contract as deferred for an owner decision: it needs predeclared per-metric point and confidence thresholds, and the qualification runs that would consume it (#301) closed as not planned. Labeled the #301, #298, and #399 items as unscheduled live evidence. | `current change`; `core/conversation_assurance/quality_qualification.py` still emits `locale_statistical_evidence_missing`; issue closure comments dated 2026-09-28. | Parity-generator extension; the fresh Browser Entra run and the unscheduled live qualification items. |
 | 2026-09-29 | implemented | Bound Operator semantic projection ingest to Core's commitments. `fdai_service_contracts.semantic_projection` now owns the projection identity and the per-request-kind evidence digest, Core delegates to it, and the Operator recomputes both before durable projection. A changed result, manifest, receipt, answer, Pantheon trace, or payload is quarantined and never rendered. Operator-built held projections, which carry no Core commitment, use a separate local path that accepts only a held status. Added a regression proving the Operator's shared result model already refuses a 257-character evidence reference. | `current change`; `semantic_projection.py`, `semantic_turn_processor.py`, `semantic_turn_runtime.py`; `uv run pytest -q --no-cov` over `test_semantic_projection.py` (18 passed), the Operator bridge, Pantheon presentation, work-progress, and progress-relay suites, `test_semantic_turn_processor.py`, and the Core-to-Operator parity and roundtrip integration suites (450 passed); a conversation-scoped Operator and integration selection passed 1,185 cases. | Tighten the published `evidence_refs` schema bound with the next `core-operator-projection` version. |
 | 2026-09-28 | implemented | Added a seeded 1,000-turn Core-to-Operator parity generator for semantic answer evidence references and the terminal evidence manifest, and repaired the two terminal-manifest defects it found. A held execution projection no longer truncates more than 12 deduplicated receipt references while its retained goal receipts still cite them, and a receipt reference longer than the 256-character manifest bound now holds as typed `semantic_evidence_incomplete` instead of `semantic_runtime_failed`. | `current change`; `test_semantic_evidence_manifest_parity.py` generated 1,000 turns across 14 scenario kinds, 500 English and 500 Korean, with zero parity violations; every held-overflow turn is a real held or failed execution. Without the processor repair the run reported 67 truncated held manifests and 69 untyped runtime failures, and each focused regression failed for both held and failed receipts. The parity, regression, round-trip, and owning semantic processor tests passed (`362 passed`); Ruff, format, and strict mypy passed for the touched modules. | Operator ingest still does not recompute `evidence_digest` or `projection_id`. The published `core-operator-projection` JSON schemas 1.2.0 through 1.7.0 still allow 512-character references. Pantheon assurance, multi-source authority, governed-document, and channel paths are not generated. No live model, Azure, or #63 qualification evidence is claimed. |
 | 2026-09-26 | implemented | Preserved bounded typed query-hold reasons in owner-only runtime readiness instead of collapsing graph freshness and completeness holds into provider unavailability. | `current change`; focused runtime readiness tests (`17 passed`); Ruff and strict mypy. | Restart Core, inspect the current reason codes, and repair the actual evidence source condition before selecting more questions. |
@@ -191,14 +192,17 @@ from the same family cannot review that answer.
    Use a new immutable question, one `/chat/stream` request, a completed or explicitly held
    assessment, all six Run Record phases, prompt-manifest checks, Preparing answer transition
    evidence, and no retry of `conversation-answer-hardening-20260923-01`.
-- [ ] Define and review a successor qualification input contract that binds per-locale raw
-   success and trial counts for every statistical metric and the exact `predeclared-binomial-v1`
-   calculation. Until then schema `1.0.0` emits `locale_statistical_evidence_missing`.
+- [ ] Deferred (owner decision): define and review a successor qualification input contract that
+   binds per-locale raw success and trial counts for every statistical metric and the exact
+   `predeclared-binomial-v1` calculation. The owner must first predeclare each metric's point and
+   confidence thresholds, which the current contract does not state, and the qualification runs that
+   would consume it (#301) closed as not planned on 2026-09-28. Until then schema `1.0.0` emits
+   `locale_statistical_evidence_missing`.
 - [x] Run one explicitly authorized live 10-question SRE child on a pinned revision. Retain one
    answer attempt per question, the completed child receipt, and mode-`0600` question, evaluation,
    and regression ledgers. Campaign `campaign-20260910t002818z-1210810-a8153612` completed 10
    distinct questions with 0 cycle holds and 0 hardenings.
-- [ ] [#301](https://github.com/dotnetpower/fdai/issues/301): Run the complete 50-item bilingual
+- [ ] Unscheduled live evidence ([#301](https://github.com/dotnetpower/fdai/issues/301) closed as not planned on 2026-09-28): Run the complete 50-item bilingual
    qualification scorecard three times on one pinned revision and configuration, retain per-item
    worst-run results that prove every hard-check and semantic-rubric threshold, and bind the batch
    to a current independently verified `DecisionCriticalEvidenceReceipt` bundle.
@@ -206,14 +210,14 @@ from the same family cannot review that answer.
    escapes and no locale regression before reporting a promoted policy.
 - [ ] Exercise one governed automatic rollback after a measured regression and retain the policy
    transition, restored immutable version, and audit receipts.
-- [ ] [#298](https://github.com/dotnetpower/fdai/issues/298): After #301 qualifies, run the
+- [ ] Unscheduled live evidence ([#298](https://github.com/dotnetpower/fdai/issues/298) closed as not planned on 2026-09-28): After #301 qualifies, run the
    official 30-day production-like soak on the same pinned `dev` commit and declared model, runtime,
    channel, corpus, evaluator, trace, and policy configuration. Retain daily repository-safe
    availability, latency, trace, safety, fallback, truncation, channel, attachment, and approval
    evidence; any qualifying-path change or P0/P1 correction restarts day one, a missing day never
    counts as success, and the window must end with no unresolved P0 or P1 defect in the measured
    paths.
-- [ ] [#399](https://github.com/dotnetpower/fdai/issues/399): Run the 230-case Pantheon census
+- [ ] Unscheduled live evidence ([#399](https://github.com/dotnetpower/fdai/issues/399) closed as not planned on 2026-09-28): Run the 230-case Pantheon census
    against the real authenticated Operator API on a pinned revision and retain explicit-route
    accuracy, owner-routing F1, missed and unnecessary T2 rates, per-locale score floors, and zero
    hard-safety escapes.
