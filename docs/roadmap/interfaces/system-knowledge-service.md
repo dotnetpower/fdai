@@ -172,6 +172,9 @@ the reviewed design, not a deployed rollback or duplicate-delivery receipt.
 Presentation-only updates to a cited identity owner follow the same rule. The compiler refreshes
 its source blob pin and aggregate digest without adding IAM facts, retrieval behavior, or
 operational authority.
+When a design owner's inline implementation status moves to its mirrored delivery ledger, the
+verification source moves to that ledger's `Implementation status` heading. The refresh changes
+source pins and the catalog digest only; it claims no new implementation or runtime evidence.
 
 The compiled catalog rejects duplicate identifiers, duplicate exact aliases, untracked paths,
 invalid source ranges, digest mismatch, and records without sources. Source bodies are not part of
