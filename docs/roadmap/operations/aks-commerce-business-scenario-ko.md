@@ -1,14 +1,15 @@
 ---
 translation_of: aks-commerce-business-scenario.md
-translation_source_sha: 578af19c9931c2105b15363a3c60e312829e58af
-translation_revised: 2026-09-21
+translation_source_sha: 75d3c6e07a73c22fcd0094f5c17d79d4d7fb4367
+translation_revised: 2026-09-29
 ---
 # AKS 상거래 비즈니스 시나리오
 
 이 문서는 공개 Azure Kubernetes Service(AKS) 스토어프런트를 비즈니스 서비스 목표,
 워크로드 근거, 결정론적 진단, 통제된 복구에 연결하는 재사용 가능한 상거래 시나리오를
 정의합니다. 고정된 FDAI 에이전트 판테온을 사용하며 클러스터 신원, 도메인, 인증서,
-엔드포인트, 자격 증명, 승격 상태는 배포 구성에 둡니다.
+엔드포인트, 자격 증명, 승격 상태는 배포 구성에 둡니다. Scenario-lab 검사는 바인딩되지
+않은 탐지 지연 실행을 기반 환경 접근 전의 통제된 거부로 다룹니다.
 
 > **범위:** 이 시나리오는 일반적인 상품 탐색 및 주문 처리 서비스의 복원력을
 > 시연합니다. 상위 AKS Store Demo를 운영 환경용 참조 아키텍처로 간주하지 않습니다.

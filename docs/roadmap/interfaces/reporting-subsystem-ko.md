@@ -1,8 +1,8 @@
 ---
 title: 리포팅 서브시스템
 translation_of: reporting-subsystem.md
-translation_source_sha: bf250f9585c27a9c64310161a893eed60dae40db
-translation_revised: 2026-09-29
+translation_source_sha: b1d80246d3f8340385e5da860f3347fad0788a17
+translation_revised: 2026-09-30
 ---
 # 리포팅 서브시스템
 
@@ -90,9 +90,9 @@ Chaos Enforce Results 리포트는 완료된 장애 주입 결과를 측정된 �
 제공합니다. 시나리오 실행기는 정확한 필드, 형식, 타임스탬프, 크기 및 중복 키
 검증을 통과한 범위가 제한된 리포트만 가져옵니다. Core는 각 결과를
 `report_signal`로 보존합니다. 이 가져오기는 Incident, 감사 항목, 추적, 승격 결정
-또는 자동 해결 주장을 만들지 않습니다. 이 리포트를 만들던 기존 참조 sweep
-드라이버는 통제된 카오스 어댑터 위로 이관될 때까지 모든 실제 실행을 거부하므로,
-그동안 새 측정 결과는 들어오지 않습니다.
+또는 자동 해결 주장을 만들지 않습니다. 통제된 카탈로그 실행기와 탐지 지연 드라이버는 `GovernedChaosExecutionAdapter`가
+측정된 실험을 반환한 뒤에만 이 레코드를 만듭니다. 거부되었거나 재생되었거나
+시간이 기록되지 않은 실행은 합성 지연 시간 근거를 만들지 않습니다.
 
 독립 Operator Service는 `operator_chaos_report_signal` 보안 장벽 보기를 통해 이
 레코드를 읽습니다. 서비스 역할은 Core의 `report_signal` 테이블이 아니라 보기에
