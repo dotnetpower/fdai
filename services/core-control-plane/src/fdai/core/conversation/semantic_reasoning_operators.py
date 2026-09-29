@@ -13,6 +13,7 @@ from fdai_service_contracts.ontology_query import OntologyQueryNode, QueryNodeKi
 from fdai.core.ontology_platform.resource_state_queries import RESOURCE_STATE_FUNCTION_NAME
 
 from .semantic_planning_models import SemanticOutputShape
+from .semantic_reasoning_admission import restates_filter
 from .semantic_reasoning_anchoring import anchored_relation
 from .semantic_reasoning_form import (
     DurationUnit,
@@ -183,7 +184,7 @@ def _unread_atom(goal: FormGoal, ctx: CompileContext) -> str | None:
             return "counterpart_unsupported"
         if operation in {GoalOperation.LOOKUP, GoalOperation.HISTORY}:
             return f"relation_unsupported_for_operation:{operation.value}"
-    if any(item is not None and ctx.mention(item).qualifier is not None for item in cited):
+    if any(item is not None and _unread_qualifier(goal, item, ctx) for item in cited):
         return "qualified_mention_unsupported"
     if goal.level is GoalLevel.SCHEMA and goal.time.kind not in _CURRENT_TIMES:
         return f"time_unsupported:{goal.time.kind.value}"
@@ -198,6 +199,17 @@ def _unread_atom(goal: FormGoal, ctx: CompileContext) -> str | None:
     if measure.group_by is not GroupBy.NONE and operation is not GoalOperation.COUNT:
         return f"group_by_unsupported_for_operation:{operation.value}"
     return None
+
+
+def _unread_qualifier(goal: FormGoal, mention_id: str, ctx: CompileContext) -> bool:
+    """Return whether a cited mention's qualifier states an atom no builder reads.
+
+    A qualifier on the subject that names one of the goal's own filters only restates
+    that filter, which the goal already reads.
+    """
+
+    qualifier = ctx.mention(mention_id).qualifier
+    return qualifier is not None and not restates_filter((goal,), mention_id, qualifier.mention)
 
 
 def _restates_measure(goal: FormGoal, measure: FormMeasure, ctx: CompileContext) -> bool:

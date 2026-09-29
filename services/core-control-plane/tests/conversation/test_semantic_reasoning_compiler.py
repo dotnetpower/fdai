@@ -1573,6 +1573,31 @@ def test_a_counted_state_and_an_unbound_state_never_widen_the_read() -> None:
     assert unbound.goals[0].status is not GoalStatus.COMPILED
 
 
+def test_a_qualifier_that_restates_the_subject_filter_is_read_with_the_filter() -> None:
+    utterance = "How many running VMs"
+    restating = _state_form(utterance, operation="count")
+    restating["mentions"][0]["qualifier"] = {"mention": "m2", "sense": "classification"}
+    unfiltered = _state_form(utterance, operation="count")
+    unfiltered["mentions"][0]["qualifier"] = {"mention": "m2", "sense": "classification"}
+    unfiltered["goals"][0]["filters"] = []
+    unfiltered["goals"][0]["measure"] = {"kind": "count", "mention": "m2"}
+
+    counted = _compile(
+        utterance,
+        restating,
+        concepts(
+            ("m1", MentionDomain.RESOURCE_TYPE, ("compute.vm",)),
+            ("m2", MentionDomain.STATE, ("resource_state.running",)),
+        ),
+    )
+
+    # Running VMs states the same state as a qualifier and as the goal's filter; the
+    # filter reads it, so the qualifier drops nothing. Without that filter it is misplaced.
+    (batch,) = counted.goals[0].batches
+    assert [node.kind.value for node in batch.plan.nodes] == ["object_set", "function", "aggregate"]
+    assert "qualifier_not_instance:m1" in admitted(unfiltered, utterance).reasons
+
+
 def test_a_count_grouped_by_container_groups_members_by_their_direct_parent() -> None:
     utterance = "Count resources by resource group"
     form = {

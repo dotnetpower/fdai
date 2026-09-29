@@ -121,7 +121,8 @@ alternative survives, both relation roles are the ends of one sense, every decla
 goal's scope and its relation anchor unless the relation is a transitive containment from that group to its members, which only restates the scope's
 whole membership, every qualifier places one named instance inside another named instance, and the level fits every mention domain. A kind, a
 state, or a container of the results stated as a qualifier is a structural fault with one repair that restates it as a filter or as the goal's
-relation. Otherwise it returns one clarification or sends a low-confidence field to one independent T2 review of closed fields. An admitted atom
+relation, unless the qualifier sits on a goal subject and names one of that goal's own filters, as in running VMs with a running filter; the
+filter reads it, so the qualifier restates it and drops nothing. Otherwise it returns one clarification or sends a low-confidence field to one independent T2 review of closed fields. An admitted atom
 that no reviewed builder reads, such as a qualifier or a stated counterpart, returns a typed unsupported reason; it is never ignored.
 
 **Utterance span accounting**: Every letter, digit, and math or currency symbol of the utterance must lie inside a mention, a goal, filter, relation,
@@ -158,7 +159,9 @@ mention a name-fragment filter reads, is used verbatim, so its quote must equal 
 reader decides where a literal ends. An uncovered constraint gets one review repair that may only add information, checked against the same
 extraction. Its violation names a mention that quotes part of the constraint, and a literal operand's quote must stay exact, so the other words go to
 the cue that cites it. A merged mention or a disagreeing literal is held without a repair, because such a repair cannot split a mention or move a
-literal. A missing, empty, unlocated, uncovered, merged, or disagreeing extraction releases nothing.
+literal. A missing, empty, unlocated, uncovered, merged, or disagreeing extraction releases nothing. Every question states at
+least what it asks and every quote comes from the question alone, so an empty extraction made beside earlier turns is asked once
+more without them; live traces showed the extractor returning nothing for a standalone question after several long answers.
 
 **Direction confirmation**: A reversed relation answers the opposite question, and open-ended extraction named relation starts too rarely to catch it.
 After a faithful review, each goal whose relation has a direction, unless it is stated as either, gets one focused call to a reasoning model, because

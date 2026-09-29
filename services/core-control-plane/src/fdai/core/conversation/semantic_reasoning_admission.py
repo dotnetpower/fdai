@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import string
 import unicodedata
+from collections.abc import Sequence
 from dataclasses import dataclass, field
 from enum import StrEnum
 
@@ -392,7 +393,9 @@ def _qualifier_failures(form: SemanticQuestionForm) -> list[str]:
     """Return a reason for each qualifier that does not place one named resource in another.
 
     A kind, state, or relation of the results is a filter or a relation; stated as a
-    qualifier it would reach no builder, so the one repair names the misplaced atom.
+    qualifier it would reach no builder, so the one repair names the misplaced atom. A
+    qualifier on a goal subject that names one of that goal's own filters only restates
+    the filter, so it is read with it.
     """
 
     domains = {mention.id: mention.domain for mention in form.mentions}
@@ -400,11 +403,21 @@ def _qualifier_failures(form: SemanticQuestionForm) -> list[str]:
         f"qualifier_not_instance:{mention.id}"
         for mention in form.mentions
         if mention.qualifier is not None
+        and not restates_filter(form.goals, mention.id, mention.qualifier.mention)
         and (
             mention.domain is not MentionDomain.INSTANCE
             or domains.get(mention.qualifier.mention) is not MentionDomain.INSTANCE
         )
     ]
+
+
+def restates_filter(goals: Sequence[FormGoal], mention_id: str, qualifier_id: str) -> bool:
+    """Return whether a qualifier on a goal subject names one of that goal's filters."""
+
+    return any(
+        goal.subject == mention_id and any(item.mention == qualifier_id for item in goal.filters)
+        for goal in goals
+    )
 
 
 def _overlapping_mentions(form: SemanticQuestionForm) -> list[str]:

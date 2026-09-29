@@ -269,6 +269,40 @@ async def test_the_extractor_sees_only_the_masked_question_on_its_own_model() ->
     assert disabled is None
 
 
+async def test_an_empty_extraction_beside_earlier_turns_is_asked_once_without_them() -> None:
+    utterance = "How many VMs are there?"
+    sent: list[dict[str, Any]] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        payload = json.loads(json.loads(request.content)["messages"][-1]["content"])
+        sent.append(payload)
+        constraints = [] if payload["context"] else [{"quote": _quote("How many"), "role": "asks"}]
+        content = {"constraints": constraints, "literals": []}
+        return httpx.Response(
+            200, json={"choices": [{"message": {"content": json.dumps(content)}}]}
+        )
+
+    def empty(request: httpx.Request) -> httpx.Response:
+        sent.append(json.loads(json.loads(request.content)["messages"][-1]["content"]))
+        content = {"constraints": [], "literals": []}
+        return httpx.Response(
+            200, json={"choices": [{"message": {"content": json.dumps(content)}}]}
+        )
+
+    extraction = await _adapter(handler).extract_constraints(
+        utterance=utterance, context=("List the VMs",), locale="en"
+    )
+    alone = await _adapter(empty).extract_constraints(utterance=utterance, context=(), locale="en")
+
+    # Every quote comes from the question, so the second reading drops only the history;
+    # a question read without history is asked once, and its empty reading voids the review.
+    assert [item["context"] for item in sent] == [["List the VMs"], [], []]
+    assert extraction is not None and extraction["constraints"] == [
+        {"quote": _quote("How many"), "role": "asks"}
+    ]
+    assert alone is not None and alone["constraints"] == []
+
+
 _GROUPED = "Count VMs by type"
 
 

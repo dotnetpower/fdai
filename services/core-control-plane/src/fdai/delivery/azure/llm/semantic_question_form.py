@@ -347,21 +347,11 @@ class AzureOpenAIQuestionFormModel:
         if any(_exposes_secret(text) for text in (utterance, *context)):
             _held("input_redacted", name="semantic-constraint-extraction", raise_error=True)
         mask = IdentityMask(utterance, context)
-        payload: dict[str, Any] = {
-            "utterance": mask.utterance,
-            "context": list(mask.context),
-            "locale": locale,
-        }
-        extraction = await self._complete(
-            system_prompt=self._config.extraction_system_prompt,
-            user_payload=payload,
-            schema=self._extraction_schema,
-            name="semantic-constraint-extraction",
-            max_tokens=self._config.extraction_max_tokens,
-            manifest=self._config.extraction_prompt_manifest,
-            require_verbatim=True,
-            candidates=self._config.extraction_candidates or None,
-        )
+        extraction = await self._extract(mask, mask.context, locale)
+        if extraction is not None and extraction.get("constraints") == [] and mask.context:
+            # Every question states at least what it asks, and every quote comes from the
+            # question alone; an empty reading beside earlier turns is asked once without them.
+            extraction = await self._extract(mask, (), locale)
         if extraction is None:
             return None
         constraints = extraction.get("constraints")
@@ -388,6 +378,20 @@ class AzureOpenAIQuestionFormModel:
                 else {}
             ),
         }
+
+    async def _extract(
+        self, mask: IdentityMask, context: tuple[str, ...], locale: str
+    ) -> Mapping[str, Any] | None:
+        return await self._complete(
+            system_prompt=str(self._config.extraction_system_prompt),
+            user_payload={"utterance": mask.utterance, "context": list(context), "locale": locale},
+            schema=self._extraction_schema,
+            name="semantic-constraint-extraction",
+            max_tokens=self._config.extraction_max_tokens,
+            manifest=self._config.extraction_prompt_manifest,
+            require_verbatim=True,
+            candidates=self._config.extraction_candidates or None,
+        )
 
     async def check_direction(
         self,
