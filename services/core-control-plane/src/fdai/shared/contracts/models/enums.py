@@ -334,6 +334,13 @@ class WorkflowTriggerKind(StrEnum):
     SCHEDULE = "schedule"
 
 
+class WorkflowTriggerSignalReferenceKind(StrEnum):
+    """Catalog that resolved a signal-trigger reference."""
+
+    SIGNAL_TYPE = "signal_type"
+    WORKFLOW_TRIGGER_EVENT = "workflow_trigger_event"
+
+
 class WorkflowStepKind(StrEnum):
     """Typed behavior of one Workflow step."""
 
@@ -381,5 +388,6 @@ __all__ = [
     "IncidentSeverity",
     # workflow
     "WorkflowTriggerKind",
+    "WorkflowTriggerSignalReferenceKind",
     "WorkflowStepKind",
 ]

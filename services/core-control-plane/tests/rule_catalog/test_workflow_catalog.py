@@ -16,21 +16,32 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+import yaml
 from fdai.core.workflow import compile_workflow
 from fdai.rule_catalog.schema.action_type import load_action_type_catalog
+from fdai.rule_catalog.schema.signal_type import load_signal_type_registry_from_mapping
 from fdai.rule_catalog.schema.workflow import (
     WorkflowCatalogError,
     load_workflow_catalog,
     load_workflow_from_mapping,
     workflow_names,
 )
-from fdai.shared.contracts.models import Mode, WorkflowStepKind
+from fdai.rule_catalog.schema.workflow_trigger_event import (
+    WorkflowTriggerEventRegistryError,
+    load_workflow_trigger_event_registry_from_mapping,
+)
+from fdai.shared.contracts.models import (
+    Mode,
+    WorkflowStepKind,
+    WorkflowTriggerSignalReferenceKind,
+)
 from fdai.shared.contracts.registry import PackageResourceSchemaRegistry
 
 REPO_ROOT = Path(__file__).resolve().parents[4]
 ACTION_TYPES_ROOT = REPO_ROOT / "rule-catalog" / "action-types"
 PROBES_ROOT = REPO_ROOT / "rule-catalog" / "probes"
 WORKFLOWS_ROOT = REPO_ROOT / "rule-catalog" / "workflows"
+VOCABULARY_ROOT = REPO_ROOT / "rule-catalog" / "vocabulary"
 
 
 def _registry() -> PackageResourceSchemaRegistry:
@@ -44,6 +55,18 @@ def _action_type_names() -> set[str]:
         probes_root=PROBES_ROOT if PROBES_ROOT.is_dir() else None,
     )
     return {a.name for a in catalog}
+
+
+def _signal_types():  # type: ignore[no-untyped-def]
+    raw = yaml.safe_load((VOCABULARY_ROOT / "signal-types.yaml").read_text(encoding="utf-8"))
+    return load_signal_type_registry_from_mapping(raw)
+
+
+def _workflow_trigger_events():  # type: ignore[no-untyped-def]
+    raw = yaml.safe_load(
+        (VOCABULARY_ROOT / "workflow-trigger-events.yaml").read_text(encoding="utf-8")
+    )
+    return load_workflow_trigger_event_registry_from_mapping(raw)
 
 
 def _base_mapping() -> dict[str, Any]:
@@ -70,6 +93,8 @@ def test_shipped_workflows_load() -> None:
         WORKFLOWS_ROOT,
         schema_registry=_registry(),
         action_type_names=_action_type_names(),
+        signal_types=_signal_types(),
+        workflow_trigger_events=_workflow_trigger_events(),
     )
     names = workflow_names(catalog)
     assert {
@@ -78,6 +103,17 @@ def test_shipped_workflows_load() -> None:
         "planned-vm-start-change",
     } <= names
     assert "cost-aware-remediation" not in names
+    reference_kinds = {
+        item.trigger.signal_type: item.trigger.signal_reference_kind for item in catalog
+    }
+    assert (
+        reference_kinds["object.capacity-forecast"]
+        is WorkflowTriggerSignalReferenceKind.WORKFLOW_TRIGGER_EVENT
+    )
+    assert (
+        reference_kinds["architecture.review.requested"]
+        is WorkflowTriggerSignalReferenceKind.WORKFLOW_TRIGGER_EVENT
+    )
 
 
 def test_planned_vm_change_pins_window_approval_and_compensation() -> None:
@@ -96,6 +132,86 @@ def test_planned_vm_change_pins_window_approval_and_compensation() -> None:
     assert workflow.steps[2].action_type_ref == "ops.start-vm"
     assert workflow.steps[2].compensated_by == "ops.deallocate-vm"
     assert workflow.steps[3].action_type_ref == "ops.publish-change-summary"
+
+
+def test_unknown_signal_trigger_fails_load_when_vocabularies_are_supplied() -> None:
+    raw = _base_mapping()
+    raw["trigger"]["signal_type"] = "workflow.trigger.unknown"
+
+    with pytest.raises(WorkflowCatalogError) as info:
+        load_workflow_from_mapping(
+            raw,
+            schema_registry=_registry(),
+            action_type_names={"remediate.tag-add"},
+            signal_types=_signal_types(),
+            workflow_trigger_events=_workflow_trigger_events(),
+        )
+
+    joined = " ".join(issue.message for issue in info.value.issues).lower()
+    assert "unknown workflow trigger signal_type 'workflow.trigger.unknown'" in joined
+
+
+def test_signal_type_trigger_records_signal_registry_reference() -> None:
+    raw = _base_mapping()
+
+    model = load_workflow_from_mapping(
+        raw,
+        schema_registry=_registry(),
+        action_type_names={"remediate.tag-add"},
+        signal_types=_signal_types(),
+        workflow_trigger_events=_workflow_trigger_events(),
+    )
+
+    assert model.trigger.signal_reference_kind is WorkflowTriggerSignalReferenceKind.SIGNAL_TYPE
+
+
+def test_ambiguous_signal_trigger_fails_load() -> None:
+    raw = _base_mapping()
+    raw["trigger"]["signal_type"] = "resource.metric.observed"
+    shipped_events = _workflow_trigger_events()
+    events = load_workflow_trigger_event_registry_from_mapping(
+        {
+            "schema_version": "1.0.0",
+            "events": [
+                *(item.model_dump(mode="json") for item in shipped_events.events),
+                {
+                    "id": "resource.metric.observed",
+                    "semantics": "request",
+                    "description": "Ambiguous test-only duplicate.",
+                    "owner": "workflow.runtime",
+                },
+            ],
+        }
+    )
+
+    with pytest.raises(WorkflowCatalogError) as info:
+        load_workflow_from_mapping(
+            raw,
+            schema_registry=_registry(),
+            action_type_names={"remediate.tag-add"},
+            signal_types=_signal_types(),
+            workflow_trigger_events=events,
+        )
+
+    joined = " ".join(issue.message for issue in info.value.issues).lower()
+    assert "ambiguous workflow trigger signal_type 'resource.metric.observed'" in joined
+
+
+def test_workflow_trigger_event_registry_rejects_malformed_entries() -> None:
+    with pytest.raises(WorkflowTriggerEventRegistryError, match="semantics"):
+        load_workflow_trigger_event_registry_from_mapping(
+            {
+                "schema_version": "1.0.0",
+                "events": [
+                    {
+                        "id": "change.request.submitted",
+                        "semantics": "observation",
+                        "description": "Wrong semantics.",
+                        "owner": "workflow.runtime",
+                    }
+                ],
+            }
+        )
 
 
 def test_every_shipped_workflow_defaults_to_shadow() -> None:

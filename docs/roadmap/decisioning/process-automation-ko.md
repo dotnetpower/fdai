@@ -1,7 +1,7 @@
 ---
 title: 프로세스 자동화(Process Automation)
 translation_of: process-automation.md
-translation_source_sha: c4588203f96fb045eb2bf0ef14c0e3962c498ec0
+translation_source_sha: 3f281f3ae56462e39119dd9ac979fb913204fcbb
 translation_revised: 2026-09-29
 ---
 # 프로세스 자동화(프로세스 자동화)
@@ -101,10 +101,15 @@ anti_scope: >-                          # 선택적; 워크플로가 의도적�
 
 ### 2.1 알려진 한계 (P1)
 
-- **`signal_type` 는 자유 문자열이다.** 트리거 `signal_type` 은 signal-type
-  레지스트리에 대해 cross-reference 되지 않으므로 (업스트림 에 아직 없음) 오타가
-  로드 시 잡히지 않는다. `SignalType` 온톨로지 승격이 도착하기 전까지는 문서로
-  취급하라.
+- **해결된 `signal_type` 형식화.** `kind: signal` 트리거는 이제 카탈로그 로드
+  시 등록된 관찰 `SignalType` 하나 또는 검토된 `workflow-trigger-events.yaml`
+  요청/명령 이벤트 하나로 정확히 해석되어야 합니다. 알 수 없는 값은 실패 시
+  차단되고, 두 어휘에 모두 정확히 있는 값은 모호한 값으로 거부되며, 로드된
+  `WorkflowTrigger`는 어떤 어휘가 참조를 해석했는지 기록합니다. `object.drift` 같은
+  관찰 스타일 트리거는 기존 `SignalType` 레지스트리에 남고,
+  `chaos.experiment.requested` 같은 요청 및 명령 트리거는 T0 룰 전달에 들어가지
+  않습니다. `object.capacity-forecast` 워크플로 트리거는 `SignalType` 전달을 넓히지
+  않고 워크플로를 시작할 수 있도록 운영 계획 명령으로 카탈로그화됩니다.
 - **`on_failure` 는 성공 경로에서도 실행된다.** 컴파일된 런북 러너는 선언된
   모든 스텝을 순서대로 걷는다; `on_failure` 대상은 성공 시에도 실행되는 일반
   스텝이며, 추가로 실패 시 대체 경로 으로도 실행된다. 조건부 분기가 구현되고 테스트되기

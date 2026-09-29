@@ -49,11 +49,11 @@ class SignalTypeRegistry(BaseModel):
     def ids(self) -> frozenset[str]:
         return frozenset(item.id for item in self.types)
 
-    def resolve(self, event_type: str | None) -> frozenset[str]:
-        """Resolve a raw event type to exact semantic types or the baseline."""
+    def resolve_declared(self, event_type: str | None) -> frozenset[str]:
+        """Resolve only explicitly declared ids or patterns, without baseline fallback."""
 
         value = (event_type or "").strip().casefold()
-        exact = {
+        return frozenset(
             item.id
             for item in self.types
             if value == item.id
@@ -61,7 +61,12 @@ class SignalTypeRegistry(BaseModel):
                 fnmatch.fnmatchcase(value, pattern.casefold())
                 for pattern in item.event_type_patterns
             )
-        }
+        )
+
+    def resolve(self, event_type: str | None) -> frozenset[str]:
+        """Resolve a raw event type to exact semantic types or the baseline."""
+
+        exact = self.resolve_declared(event_type)
         if exact:
             return frozenset(exact)
         return frozenset(
