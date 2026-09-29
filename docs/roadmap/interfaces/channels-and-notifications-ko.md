@@ -1,7 +1,7 @@
 ---
 title: 채널과 알림(Channels and Notifications)
 translation_of: channels-and-notifications.md
-translation_source_sha: 3f92110ccc80ff26a4655b7c04e8b5904ae44e9d
+translation_source_sha: d6abfc1de9927c007fcf0500408db405e9a8e486
 translation_revised: 2026-09-29
 ---
 
@@ -107,6 +107,9 @@ Teams Workflows 웹훅 바인딩은
   강제 적용하더라도 구간은 신뢰도를 낮추거나 T2 후보를 보류할 뿐이며, T2 후보는 통제된 하위 연결이
   생기기 전까지 Action이 되지 않음. [환각 루브릭 게이트](../decisioning/hallucination-rubric-gate-ko.md)
   참고.
+- **인과 가설은 A1 요청을 만들지 않음.** 투영되거나 종결된 `CausalHypothesis` 개정은 Forseti
+  판단의 근거일 뿐임. 런타임의 Forseti 투영과 Thor ActionRun 영수증 확인기는 채널 메시지를
+  보내거나 승인 요청을 만들지 않음.
 
 ### 3.1 A3 명령 롤 게이팅
 

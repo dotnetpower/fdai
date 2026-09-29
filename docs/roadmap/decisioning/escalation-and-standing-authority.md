@@ -242,6 +242,8 @@ the risk gate answers by checking a standing authorization the same way it check
 any other rule - and execution eligibility is still granted by that deterministic
 verification, never by a model
 ([architecture.instructions.md § LLM Quality Gate](../../../.github/instructions/architecture.instructions.md#llm-quality-gate-required-for-t2)).
+A confirmed `CausalHypothesis` closure is likewise evidence only: it never satisfies a standing
+authorization condition, envelope, or `hil` requirement by itself.
 
 ```yaml
 # Matches the shipped schema; shadow-only (see Rollout below).

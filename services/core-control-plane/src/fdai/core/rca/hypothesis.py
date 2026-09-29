@@ -141,6 +141,12 @@ class CausalHypothesisRecord:
             raise ValueError("causal hypothesis creation MUST NOT precede evidence cutoff")
 
     def to_ontology_object(self) -> OntologyObjectRecord:
+        """Project the revision; an open revision omits the optional ``closure`` property.
+
+        The governed ``CausalHypothesis`` ObjectType types ``closure`` as a string, so a null
+        value would be rejected by every validating ontology store.
+        """
+        closure = {"closure": self.closure.value} if self.closure is not None else {}
         return OntologyObjectRecord(
             id=self.hypothesis_id,
             object_type="CausalHypothesis",
@@ -158,7 +164,7 @@ class CausalHypothesisRecord:
                 "evidence_cutoff": self.evidence_cutoff,
                 "method_version": self.method_version,
                 "created_at": self.created_at,
-                "closure": self.closure.value if self.closure is not None else None,
+                **closure,
             },
         )
 
