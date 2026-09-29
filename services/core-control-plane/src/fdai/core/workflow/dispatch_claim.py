@@ -122,8 +122,6 @@ async def record_action_dispatched(
                 "proposal_ref": proposal_ref,
                 "action_type": step.action_type,
                 "params": params,
-                "claim_event_id": claim.event_id,
-                "claim_generation": claim_generation(claim),
             },
         )
     )
