@@ -39,6 +39,7 @@ class ProcessEventKind(StrEnum):
     PROCESS_STARTED = "process.started"
     STEP_STARTED = "step.started"
     ACTION_PRE_BUNDLE_COMMITTED = "action.pre-bundle-committed"
+    ACTION_DISPATCH_CLAIMED = "action.dispatch-claimed"
     ACTION_DISPATCHED = "action.dispatched"
     STEP_WAITING = "step.waiting"
     EVIDENCE_ATTACHED = "evidence.attached"
