@@ -109,9 +109,9 @@ def test_separation_checks_skip_only_anchors_used_exclusively_by_verifier_bindin
         )
 
 
-def test_upstream_forecast_context_reuses_the_verifier_anchor_and_stays_unavailable() -> None:
+def test_upstream_forecast_context_uses_a_reviewed_non_verifier_source_model() -> None:
     registry = _load(json.loads(trust_bytes()))
-    assert registry.defects == {"forecast-context": ("verifier_anchor_not_exclusive",)}
+    assert registry.defects == {}
     assert_verifier_separation(
         registry,
         anchors(),
