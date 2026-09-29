@@ -1,6 +1,6 @@
 ---
 translation_of: independent-operational-evidence.md
-translation_source_sha: b9dee86c456194d0dd6425f4fed30898cccb588b
+translation_source_sha: 39d2d48320a33c1cb03cecee586eb251f3d61d32
 translation_revised: 2026-09-30
 ---
 # 독립 운영 근거 발급
@@ -431,7 +431,7 @@ Core 경로는 `services/core-control-plane/src/fdai/` 기준 상대 경로입�
 - **재확인.**  `operator-test-context-command`, `test-context-transition`, `operational-test-context`는 실제 출처를
   읽습니다. 현재 맥락은 인용한 전이 발급 기록의 조회가 그 맥락과 직전 기록으로 다시 만든 조회와 같을 때만 인정되며,
   다른 발급 기록을 인용하면 `replay_substituted`입니다. `admit`은 보관된 기록마다 정확한 검증기 바인딩과 현재 앵커
-  기준의 그 바인딩 준비 상태를 다시 확인합니다. `operational-test-observation`, `case-history-read`, `current-case-reuse`는 아직 연결되지 않았습니다. 관측 공급자는 검증기 신원으로 사용할 수 없습니다. 사례 이력에는 이제 삽입 전용 Operator semantic 인증 증적 스키마, `operator-core-request` `1.9.0` 증적 참조, Core에서 Bragi로 이어지는 참조 전파, 연결되지 않은 정확한 재확인 모듈이 있지만, Operator 스트림 경로는 아직 영속 증적 테이블을 채우지 않으며 실제 codec, Core, Bragi, `OperatingPatternQuery._read`, 연결된 검증기를 통과하는 긍정 발급도 증명하지 못했습니다. Operator 설정 `FDAI_SEMANTIC_AUTHENTICATION_RECEIPT_REF_ENABLED`는 기본적으로 꺼져 있으며, `operator-core-request` `1.9.0`을 수용하는 Core가 배포된 뒤에만 켤 수 있습니다. 현재 재사용에는 독립 인벤토리, Muninn, 안전 증적 출처가 없습니다. 출처별 예측 이력과 `forecast-context` 목적에도 아직 연결된 출처 재확인이 없습니다.
+  기준의 그 바인딩 준비 상태를 다시 확인합니다. `operational-test-observation`과 `current-case-reuse`는 아직 연결되지 않았습니다. 관측 공급자는 검증기 신원으로 사용할 수 없습니다. 사례 이력에는 이제 삽입 전용 Operator semantic 인증 증적 스키마, `operator-core-request` `1.9.0` 증적 참조, Core에서 Bragi로 이어지는 참조 전파, 연결된 정확한 재확인 모듈이 있습니다. Operator 설정 `FDAI_SEMANTIC_AUTHENTICATION_RECEIPT_REF_ENABLED`는 기본적으로 꺼져 있으며, `operator-core-request` `1.9.0`을 수용하는 Core가 배포된 뒤에만 켤 수 있습니다. 이 설정을 켜면 Operator가 참조를 보내기 전에 본문 없는 증적을 기록하므로 Core는 해소할 수 없는 참조를 받지 않습니다. 현재 재사용에는 독립 인벤토리, Muninn, 안전 증적 출처가 없습니다. 출처별 예측 이력과 `forecast-context` 목적에도 아직 연결된 출처 재확인이 없습니다.
 - **공유 권한 부여 검증.** 사례 범위 권한 부여 레지스트리 로더와 권한 부여 모델은 공유 서비스 계약 SDK에 포함되며 Core가 이를 다시 내보냅니다. Operator의 테스트 컨텍스트 선택 변환은 별도 권한 부여 검증기를 두지 않고 같은 로더를 콘텐츠 고정값과 함께 사용합니다.
 - **기능 상태와 인계.** `delivery/operational_evidence_readiness.py`는 목적마다 Settings 행 하나를 추가합니다. 런타임
   Settings 구체화는 모든 실패를 관측되지 않음으로 처리하는 제한된 읽기로 검증기 준비 상태 엔드포인트를 한 번

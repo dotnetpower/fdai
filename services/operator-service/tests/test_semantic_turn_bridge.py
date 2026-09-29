@@ -23,6 +23,7 @@ from fdai_operator_service.environment import (
     GROUP_ENV,
     KAFKA_BOOTSTRAP_SERVERS_ENV,
     LOCAL_AZURE_NARRATOR_ENV,
+    SEMANTIC_AUTHENTICATION_RECEIPT_REF_ENV,
     SEMANTIC_CONSUMER_GROUP_ENV,
     SEMANTIC_KAFKA_CLIENT_ID_ENV,
     SEMANTIC_PROJECTION_TOPIC_ENV,
@@ -42,6 +43,7 @@ from fdai_operator_service.families.conversation.contracts import (
     ConversationResponse,
     ConversationStreamRequest,
     JsonObject,
+    OutboxReceipt,
     PrincipalScope,
     StreamEvent,
 )
@@ -50,6 +52,9 @@ from fdai_operator_service.families.conversation.document_export import (
 )
 from fdai_operator_service.families.conversation.post_turn_review import (
     NonBlockingPostTurnReviewQueue,
+)
+from fdai_operator_service.families.conversation.semantic_authentication_receipts import (
+    AuthenticationReceiptRetainingOutbox,
 )
 from fdai_operator_service.families.conversation.semantic_turn import SemanticTurnEnvelopeBuilder
 from fdai_operator_service.families.conversation.semantic_turn_presentation import (
@@ -418,6 +423,69 @@ def test_semantic_envelope_uses_1_9_when_receipt_ref_switch_is_on() -> None:
     semantic_turn = cast(dict[str, object], envelope["semantic_turn"])
     assert semantic_turn["authentication_receipt_ref"] == receipt.receipt_digest
     assert "local-session-token" not in json.dumps(envelope)
+
+
+async def test_receipt_retaining_outbox_writes_before_delegating() -> None:
+    principal = OperatorPrincipal(
+        subject_id="operator-1",
+        roles=frozenset({OperatorRole.READER}),
+        groups=frozenset(),
+    )
+    receipt = local_authentication_receipt(
+        principal,
+        session_token="local-session-token",
+        group_ids={OperatorRole.READER: "reader-group"},
+        now=datetime(2026, 8, 11, tzinfo=UTC),
+    )
+    proposal = _proposal(authentication_receipt=receipt.model_dump(mode="json"))
+
+    class _Writer:
+        retained: list[tuple[str, str, str]] = []
+
+        async def retain(self, **kwargs: object) -> None:
+            self.retained.append(
+                (
+                    str(kwargs["receipt_digest"]),
+                    str(kwargs["request_id"]),
+                    str(kwargs["principal_id"]),
+                )
+            )
+
+    class _Delegate:
+        calls = 0
+
+        async def append(self, received: ConversationProposal) -> OutboxReceipt:
+            self.calls += 1
+            assert received is proposal
+            return OutboxReceipt(
+                proposal_id="semantic-request",
+                duplicate=False,
+                response=ConversationResponse(body={"accepted": True}, status_code=202),
+            )
+
+    writer = _Writer()
+    delegate = _Delegate()
+    builder = SemanticTurnEnvelopeBuilder(
+        clock=lambda: datetime(2026, 8, 11, tzinfo=UTC),
+        emit_authentication_receipt_ref=True,
+    )
+    expected_request_id = str(builder.build(proposal)["request_id"])
+    outbox = AuthenticationReceiptRetainingOutbox(
+        delegate=delegate,
+        writer=writer,
+        builder=builder,
+    )
+
+    await outbox.append(proposal)
+
+    assert delegate.calls == 1
+    assert writer.retained == [
+        (
+            receipt.receipt_digest,
+            expected_request_id,
+            "operator-1",
+        )
+    ]
 
 
 @pytest.mark.parametrize(
@@ -6163,3 +6231,99 @@ def test_incident_overview_states_an_unrecorded_status_instead_of_omitting_it() 
         "value": "not recorded",
         "tone": "attention",
     }
+
+
+async def test_receipt_retaining_outbox_sends_nothing_when_the_write_fails() -> None:
+    """A reference Core could not resolve is never published after a failed retention."""
+    principal = OperatorPrincipal(
+        subject_id="operator-1",
+        roles=frozenset({OperatorRole.READER}),
+        groups=frozenset(),
+    )
+    receipt = local_authentication_receipt(
+        principal,
+        session_token="local-session-token",
+        group_ids={OperatorRole.READER: "reader-group"},
+        now=datetime(2026, 8, 11, tzinfo=UTC),
+    )
+
+    class _FailingWriter:
+        async def retain(self, **_kwargs: object) -> None:
+            raise ConversationBoundaryError(
+                503,
+                "authentication_receipt_unavailable",
+                "semantic authentication receipt retention is unavailable",
+            )
+
+    class _Delegate:
+        calls = 0
+
+        async def append(self, _received: ConversationProposal) -> OutboxReceipt:
+            self.calls += 1
+            raise AssertionError("the semantic proposal MUST NOT be forwarded")
+
+    delegate = _Delegate()
+    outbox = AuthenticationReceiptRetainingOutbox(
+        delegate=delegate,
+        writer=_FailingWriter(),
+        builder=SemanticTurnEnvelopeBuilder(emit_authentication_receipt_ref=True),
+    )
+
+    with pytest.raises(ConversationBoundaryError) as failure:
+        await outbox.append(_proposal(authentication_receipt=receipt.model_dump(mode="json")))
+
+    assert failure.value.status_code == 503
+    assert delegate.calls == 0
+
+
+@pytest.mark.parametrize("enabled", [False, True])
+def test_production_composition_retains_receipts_only_when_the_reference_is_enabled(
+    enabled: bool,
+) -> None:
+    runtime = ProductionOperatorComposition(
+        verifier_factory=lambda _environment: (
+            lambda _token: {"oid": "operator-1", "roles": ["Reader"]}
+        )
+    ).build_runtime(
+        {
+            TENANT_ENV: "tenant",
+            AUDIENCE_ENV: "audience",
+            DATABASE_URL_ENV: "postgresql://example.invalid/fdai",
+            DATABASE_ROLE_ENV: "fdai_operator",
+            KAFKA_BOOTSTRAP_SERVERS_ENV: "example.servicebus.windows.net:9093",
+            SEMANTIC_REQUEST_TOPIC_ENV: "semantic.requests",
+            SEMANTIC_PROJECTION_TOPIC_ENV: "semantic.projections",
+            SEMANTIC_CONSUMER_GROUP_ENV: "semantic-group",
+            SEMANTIC_KAFKA_CLIENT_ID_ENV: "semantic-client",
+            SEMANTIC_AUTHENTICATION_RECEIPT_REF_ENV: "true" if enabled else "false",
+            **{key: f"group-{index}" for index, key in enumerate(GROUP_ENV.values())},
+        }
+    )
+
+    semantic = runtime.route_families.conversation.projections
+    assert isinstance(semantic, SemanticTurnConversationAdapters)
+    if not enabled:
+        assert semantic.semantic_outbox is None
+        return
+    outbox = semantic.semantic_outbox
+    assert isinstance(outbox, AuthenticationReceiptRetainingOutbox)
+    assert outbox.delegate is semantic.bridge
+    principal = OperatorPrincipal(
+        subject_id="operator-1",
+        roles=frozenset({OperatorRole.READER}),
+        groups=frozenset(),
+    )
+    receipt = local_authentication_receipt(
+        principal,
+        session_token="local-session-token",
+        group_ids={OperatorRole.READER: "reader-group"},
+        now=datetime(2026, 8, 11, tzinfo=UTC),
+    )
+    proposal = _proposal(authentication_receipt=receipt.model_dump(mode="json"))
+    retained = outbox.builder.build(proposal)
+    published = semantic.bridge._builder.build(proposal)
+    assert retained["request_id"] == published["request_id"]
+    retained_turn = cast(Mapping[str, object], retained["semantic_turn"])
+    published_turn = cast(Mapping[str, object], published["semantic_turn"])
+    assert retained_turn["authentication_receipt_ref"] == receipt.receipt_digest
+    assert published_turn["authentication_receipt_ref"] == receipt.receipt_digest

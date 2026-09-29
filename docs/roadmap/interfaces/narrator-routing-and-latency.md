@@ -96,6 +96,11 @@ invalid, or expired routing data cannot change semantic transport availability o
 healthy model. Health availability remains the semantic bridge's transport readiness, not a
 successful inference or verified answer.
 
+When `FDAI_SEMANTIC_AUTHENTICATION_RECEIPT_REF_ENABLED` is on, each semantic turn first performs one
+bounded PostgreSQL insert of its content-free authentication receipt (10-second connect and
+20-second statement limits) before the bridge accepts it. That write adds to turn acceptance latency
+but does not change narrator routing, preferences, or health.
+
 The Console keeps the persistent connection badge concise and places deployment identity and
 candidate timing details in its tooltip. The tooltip distinguishes sample counts and measured,
 stale, unmeasured, or failed status. An open, visible Command Deck polls health every 30 seconds;

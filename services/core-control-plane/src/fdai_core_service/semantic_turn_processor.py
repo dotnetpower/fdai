@@ -351,7 +351,7 @@ class SemanticTurnProcessor:
         processing_started_at = _aware_utc(self._now(), field="semantic processor clock")
         timed_envelope = dict(envelope)
         timed_envelope[_PROCESSING_STARTED_AT_FIELD] = processing_started_at.isoformat()
-        principal = _principal(request)
+        principal = _principal(request, request_ref=str(envelope["request_id"]))
         assurance_case_id = _pantheon_assurance_case_id(request.purpose)
         if request.purpose != self._purpose and assurance_case_id is None:
             raise SemanticTurnRejectedError("semantic_purpose_not_allowed")

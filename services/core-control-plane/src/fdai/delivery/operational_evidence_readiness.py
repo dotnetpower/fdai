@@ -43,6 +43,7 @@ from fdai.delivery.repo_assets import repo_asset_root
 
 BOUND_READBACK_PURPOSES = frozenset(
     {
+        "case-history-read",
         "operational-test-context",
         "operator-test-context-command",
         "test-context-transition",
@@ -51,9 +52,6 @@ BOUND_READBACK_PURPOSES = frozenset(
 READINESS_MAX_AGE = timedelta(seconds=120)
 READINESS_MAX_SKEW = timedelta(seconds=30)
 _SOURCE_LIMITATIONS = {
-    "case-history-read": (
-        "semantic authentication receipt source is implemented but not end-to-end bound"
-    ),
     "current-case-reuse": "verifier-identity current-case provider readback is unavailable",
     "forecast-context": "the four forecast-history slices cannot be issued yet",
     "operational-test-observation": "verifier-identity provider readback is unavailable",

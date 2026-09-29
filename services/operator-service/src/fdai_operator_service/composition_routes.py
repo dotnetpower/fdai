@@ -18,6 +18,11 @@ from fdai_operator_service.conversation_assurance_reader import (
 from fdai_operator_service.environment import OperatorEnvironment
 from fdai_operator_service.families.conversation import ConversationFamilyDependencies
 from fdai_operator_service.families.conversation.document_export import ConversationDocumentExporter
+from fdai_operator_service.families.conversation.semantic_authentication_receipts import (
+    AuthenticationReceiptRetainingOutbox,
+    PostgresAuthenticationReceiptWriter,
+)
+from fdai_operator_service.families.conversation.semantic_turn import SemanticTurnEnvelopeBuilder
 from fdai_operator_service.families.conversation.semantic_turn_runtime import (
     SemanticTurnBridge,
     SemanticTurnConversationAdapters,
@@ -176,6 +181,22 @@ def _build_route_families(
             fallback_projections=conversation,
             fallback_outbox=postgres_conversation,
             fallback_streams=postgres_conversation,
+            semantic_outbox=(
+                AuthenticationReceiptRetainingOutbox(
+                    delegate=semantic_bridge,
+                    builder=SemanticTurnEnvelopeBuilder(
+                        selection_registry=context_selection_registry,
+                        emit_authentication_receipt_ref=True,
+                    ),
+                    writer=PostgresAuthenticationReceiptWriter(
+                        dsn=store._config.dsn,
+                        connect_timeout_s=store._config.connect_timeout_s,
+                        statement_timeout_ms=store._config.statement_timeout_ms,
+                    ),
+                )
+                if environment.semantic_authentication_receipt_ref_enabled
+                else None
+            ),
             document_exporter=ConversationDocumentExporter(
                 store=store,
                 pdf_encoder=report_pdf_encoder,

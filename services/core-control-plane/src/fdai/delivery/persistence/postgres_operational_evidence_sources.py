@@ -18,6 +18,7 @@ from fdai_service_contracts.operational_evidence import OperationalEvidenceSourc
 from fdai.core.operational_context.test_context_lifecycle import context_history_key
 from fdai.core.operational_evidence.readback.case_history_read import (
     AUTHENTICATION_SOURCE,
+    GRANT_SOURCE,
     SemanticAuthenticationReceiptRow,
 )
 from fdai.core.operational_evidence.readback.test_context_sources import (
@@ -201,8 +202,14 @@ class PostgresSemanticAuthenticationReceiptSource:
                     )
                 ).fetchone()
         except _HEALTH_FAILURES:
-            return {AUTHENTICATION_SOURCE: OperationalEvidenceSourceHealth.UNAVAILABLE}
-        return {AUTHENTICATION_SOURCE: OperationalEvidenceSourceHealth.HEALTHY}
+            return {
+                AUTHENTICATION_SOURCE: OperationalEvidenceSourceHealth.UNAVAILABLE,
+                GRANT_SOURCE: OperationalEvidenceSourceHealth.HEALTHY,
+            }
+        return {
+            AUTHENTICATION_SOURCE: OperationalEvidenceSourceHealth.HEALTHY,
+            GRANT_SOURCE: OperationalEvidenceSourceHealth.HEALTHY,
+        }
 
 
 def operator_command_key(idempotency_key: str) -> str:

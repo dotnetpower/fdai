@@ -70,8 +70,12 @@ def decode_request(
         raise SemanticTurnRejectedError("semantic_request_invalid") from exc
 
 
-def principal(request: SemanticTurnRequest) -> Principal:
-    """Bind the highest ordinary role without granting BreakGlass authority."""
+def principal(request: SemanticTurnRequest, *, request_ref: str | None = None) -> Principal:
+    """Bind the highest ordinary role without granting BreakGlass authority.
+
+    ``request_ref`` is the Operator request id of the envelope that carried the request; the
+    verifier looks up the retained authentication receipt by that id and the receipt digest.
+    """
     ordinary_roles = [role for role in _ROLE_ORDER if role in request.principal.roles]
     if not ordinary_roles:
         raise SemanticTurnRejectedError("semantic_break_glass_only")
@@ -81,6 +85,7 @@ def principal(request: SemanticTurnRequest) -> Principal:
         role=_ROLE_MAP[selected],
         groups=frozenset(request.principal.groups),
         authentication_receipt_ref=request.authentication_receipt_ref,
+        authentication_request_ref=request_ref,
     )
 
 

@@ -747,6 +747,7 @@ async def test_full_bus_groups_by_fingerprint_and_emits_balanced_candidate_once(
         principal_ref="operator-one",
         principal_scope_digest="sha256:" + "f" * 64,
         authentication_receipt_ref="sha256:" + "e" * 64,
+        authentication_request_ref="semantic-request-test",
         purposes=("operations-review",),
     )
     result = await reader.read(

@@ -6759,3 +6759,22 @@ def test_incident_next_step_names_notification_route_configuration() -> None:
         "알림 전달을 다시 시도하기 전에 notification registry에 운영 알림 채널을 하나 이상 "
         "구성하세요."
     )
+
+
+async def test_processor_binds_the_operator_request_and_receipt_to_the_principal() -> None:
+    """The verifier's case-history lookup keys come from the decoded envelope, not a test stub."""
+    payload = _request()
+    payload["schema_version"] = "1.9.0"
+    receipt_ref = f"sha256:{'c' * 64}"
+    payload["semantic_turn"] = {
+        **cast(dict[str, object], payload["semantic_turn"]),
+        "authentication_receipt_ref": receipt_ref,
+    }
+    runtime = _Runtime()
+
+    await _processor(runtime).process(payload)
+
+    assert runtime.calls == 1
+    principal = runtime.principals[0]
+    assert principal.authentication_receipt_ref == receipt_ref
+    assert principal.authentication_request_ref == payload["request_id"]

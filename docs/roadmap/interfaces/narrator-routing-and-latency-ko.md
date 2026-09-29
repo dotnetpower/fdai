@@ -1,8 +1,8 @@
 ---
 title: 서술기 라우팅과 지연 시간
 translation_of: narrator-routing-and-latency.md
-translation_source_sha: 252ffd65405804ad992f84ad44e34004e2a1a4b0
-translation_revised: 2026-09-29
+translation_source_sha: e8ea66578b41c6692cc17c81bbd064a8ad83fe2a
+translation_revised: 2026-09-30
 ---
 # 서술기 라우팅과 지연 시간
 
@@ -93,6 +93,10 @@ Operator는 구조와 최신성을 한도 안에서 검증한 뒤에만 이 변�
 없거나 잘못되었거나 만료되어도 의미 전송의 사용 가능 상태를 바꾸거나 모델이 정상이라고 꾸며낼 수
 없습니다. 상태의 사용 가능 여부는 의미 브리지의 전송 준비 상태를 뜻하며, 추론 성공이나 검증된
 답변을 뜻하지 않습니다.
+
+`FDAI_SEMANTIC_AUTHENTICATION_RECEIPT_REF_ENABLED`가 켜져 있으면 각 의미 턴은 브리지가 받기 전에 콘텐츠가
+없는 인증 영수증을 PostgreSQL에 한 번 삽입하며, 이 삽입은 연결 10초와 문장 20초 제한을 받습니다. 이
+쓰기는 턴 수락 지연 시간을 늘리지만 내레이터 라우팅, 기본 설정, 상태는 바꾸지 않습니다.
 
 Console은 지속적으로 보이는 연결 배지를 간결하게 유지하고 배포 신원과 후보 처리 시간 상세를
 도구 설명에 배치합니다. 도구 설명은 표본 수와 측정 완료, 오래됨, 미측정, 실패 상태를

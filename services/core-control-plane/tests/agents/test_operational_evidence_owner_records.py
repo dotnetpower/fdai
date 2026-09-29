@@ -464,6 +464,7 @@ async def test_pattern_read_status_names_the_class_and_reads_no_state(
         principal_ref="operator-one",
         principal_scope_digest="sha256:" + "f" * 64,
         authentication_receipt_ref="sha256:" + "e" * 64,
+        authentication_request_ref="semantic-request-test",
         purposes=("operations-review",),
     )
     arguments = {
