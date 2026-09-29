@@ -1,7 +1,7 @@
 ---
 title: Operator Console - Data and Wire Contracts
 translation_of: operator-console-wire-contracts.md
-translation_source_sha: d5e37a961757e0f9e2f34afbca49462a824f0dfe
+translation_source_sha: e3c9e7edcd4b7b7d6e0191931dff8ebcea2138b8
 translation_revised: 2026-09-30
 ---
 
@@ -437,6 +437,10 @@ Operator는 스트림마다 첫 조회 `activity`보다 먼저 이 이벤트를 
 입증되지 않은 앵커처럼 프레임의 검토된 제한을 제목 바로 뒤에 밝힙니다. 그런 앵커에서 읽은 답변은
 `semantic_answer_partial` 사유 코드를 유지하며, 검증된 표는 영수증 필드보다 reader가 선언한 측정 필드를
 먼저 보여 줍니다.
+
+### 13.12 의미 턴 인증 영수증 참조
+
+Operator는 `FDAI_SEMANTIC_AUTHENTICATION_RECEIPT_REF_ENABLED`가 켜진 경우에만 `operator-core-request` 1.9.0에 콘텐츠가 없는 선택적 `authentication_receipt_ref`를 보냅니다. 이 설정의 기본값은 꺼짐이며, 꺼져 있으면 모든 envelope는 이전 버전과 바이트를 그대로 유지합니다. 1.9.0을 받는 Core를 먼저 배포한 뒤에만 켜십시오. 이 참조 자체는 권한을 부여하지 않습니다. 설정을 켜면 Operator API와 채널 edge는 참조를 보내기 전에 의미 요청마다 콘텐츠가 없는 영수증을 보존하고, 검증기는 바로 그 요청에 보존된 영수증으로 `case-history-read`를 확인합니다. 설정이 꺼져 있으면 Pattern 읽기는 계속 실패 시 차단됩니다.
 
 ## 구현 상태
 

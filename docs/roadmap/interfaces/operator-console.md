@@ -508,6 +508,8 @@ Split into focused owner documents:
 - [operator-console-wire-contracts.md](operator-console-wire-contracts.md) - audit entry, CLI REPL, approval callback (13.1-13.3), semantic Incident creation, managed-action submission status, Python VM workbench, grounded code, and ontology projection (13.6-13.9).
 - [operator-console-view-snapshot.md](operator-console-view-snapshot.md) - the self-describing screen contract (13.4).
 - [operator-console-incident-roster.md](operator-console-incident-roster.md) - incident roster, fix history, catalog-reused queued/applied status, bounded HTTP `202` revalidation, and the no-authority Huginn-to-Saga guidance audit path (13.5).
+Authenticated semantic turns may carry a content-free authentication receipt reference in `operator-core-request` 1.9.0 only when the default-off Operator setting `FDAI_SEMANTIC_AUTHENTICATION_RECEIPT_REF_ENABLED` is on; the reference never reaches the browser as authority, and see [13.12](operator-console-wire-contracts.md#1312-semantic-turn-authentication-receipt-reference) for the rollout order. With the setting on, the Operator retains that receipt for the exact request before it publishes the turn, so the verifier can check `case-history-read` against it. A retention failure fails the turn instead of sending a reference that Core cannot resolve.
+
 ## 14. MCP delivery and managed catalog
 
 FDAI's only shipped MCP integration is a single fixed-transport, read-only Azure MCP client

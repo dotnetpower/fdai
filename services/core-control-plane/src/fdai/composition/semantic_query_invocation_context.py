@@ -29,6 +29,8 @@ def semantic_query_invocation_context(
             principal=principal,
             purpose=purpose,
         ),
+        authentication_receipt_ref=principal.authentication_receipt_ref,
+        authentication_request_ref=principal.authentication_request_ref,
         document_refs=document_context.citations if document_context is not None else (),
         document_context_source=(
             document_context.source.value if document_context is not None else None

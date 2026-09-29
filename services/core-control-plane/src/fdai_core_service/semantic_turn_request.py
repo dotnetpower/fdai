@@ -15,7 +15,7 @@ from fdai.core.conversation.semantic_planning_models import (
 from fdai.core.conversation.session import Principal, Role, Turn
 from fdai_service_contracts import OperatorRole, SemanticTurnRequest
 
-from .contract_codecs import OPERATOR_REQUEST_CONSUMER_V18
+from .contract_codecs import OPERATOR_REQUEST_CONSUMER_V19
 
 _ROLE_ORDER = (
     OperatorRole.READER,
@@ -47,7 +47,7 @@ def decode_request(
 ) -> tuple[dict[str, Any], SemanticTurnRequest, datetime]:
     """Decode one semantic request envelope and validate its temporal bindings."""
     try:
-        envelope = OPERATOR_REQUEST_CONSUMER_V18.decode_mapping(payload)
+        envelope = OPERATOR_REQUEST_CONSUMER_V19.decode_mapping(payload)
         if envelope.get("request_kind") != "semantic_query":
             raise SemanticTurnRejectedError("semantic_request_kind_required")
         semantic_turn = envelope.get("semantic_turn")
@@ -70,8 +70,12 @@ def decode_request(
         raise SemanticTurnRejectedError("semantic_request_invalid") from exc
 
 
-def principal(request: SemanticTurnRequest) -> Principal:
-    """Bind the highest ordinary role without granting BreakGlass authority."""
+def principal(request: SemanticTurnRequest, *, request_ref: str | None = None) -> Principal:
+    """Bind the highest ordinary role without granting BreakGlass authority.
+
+    ``request_ref`` is the Operator request id of the envelope that carried the request; the
+    verifier looks up the retained authentication receipt by that id and the receipt digest.
+    """
     ordinary_roles = [role for role in _ROLE_ORDER if role in request.principal.roles]
     if not ordinary_roles:
         raise SemanticTurnRejectedError("semantic_break_glass_only")
@@ -80,6 +84,8 @@ def principal(request: SemanticTurnRequest) -> Principal:
         id=request.principal.subject_id,
         role=_ROLE_MAP[selected],
         groups=frozenset(request.principal.groups),
+        authentication_receipt_ref=request.authentication_receipt_ref,
+        authentication_request_ref=request_ref,
     )
 
 

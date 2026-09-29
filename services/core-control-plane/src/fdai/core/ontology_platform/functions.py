@@ -44,6 +44,10 @@ class FunctionInvocationContext(ContractBase):
     principal_ref: Annotated[str, Field(min_length=1, max_length=256)] | None = None
     principal_groups: tuple[Annotated[str, Field(min_length=1, max_length=256)], ...] = ()
     principal_scope_digest: Annotated[str, Field(pattern=r"^sha256:[a-f0-9]{64}$")] | None = None
+    authentication_receipt_ref: Annotated[str, Field(pattern=r"^sha256:[a-f0-9]{64}$")] | None = (
+        None
+    )
+    authentication_request_ref: Annotated[str, Field(min_length=1, max_length=256)] | None = None
     document_refs: tuple[
         Annotated[
             str,
@@ -103,6 +107,9 @@ class FunctionInvocationReceipt(ContractBase):
     caller_role: CeilingRole
     purposes: tuple[str, ...] = ()
     principal_scope_digest: Annotated[str, Field(pattern=r"^sha256:[a-f0-9]{64}$")] | None = None
+    authentication_receipt_ref: Annotated[str, Field(pattern=r"^sha256:[a-f0-9]{64}$")] | None = (
+        None
+    )
     input_digest: str = Field(pattern=r"^sha256:[a-f0-9]{64}$")
     output_digest: str = Field(pattern=r"^sha256:[a-f0-9]{64}$")
     seed: int | None = None

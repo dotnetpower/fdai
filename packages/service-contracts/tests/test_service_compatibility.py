@@ -266,7 +266,7 @@ def test_matrix_covers_every_release_pair_for_every_contract() -> None:
 
 @pytest.mark.parametrize(
     ("contract_id", "expected_version"),
-    (("operator-core-request", "1.8.0"), ("core-operator-projection", "1.7.0")),
+    (("operator-core-request", "1.9.0"), ("core-operator-projection", "1.7.0")),
 )
 def test_adaptive_wire_negotiates_versions_without_dropping_semantic_fields(
     contract_id: str,

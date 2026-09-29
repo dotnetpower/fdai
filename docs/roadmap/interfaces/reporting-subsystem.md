@@ -22,6 +22,8 @@ the shipping catalog here is a bounded, product-relevant subset.
 
 Service table ownership also declares the Operator-owned `operator_workflow_authoring_audit` ledger. It records Workflow draft and binding commits, is not a report source, and adds no reporting projection.
 
+The insert-only Operator semantic authentication receipt table is not a report source either. Operator route assembly wraps the semantic outbox with receipt retention only when `FDAI_SEMANTIC_AUTHENTICATION_RECEIPT_REF_ENABLED` is on, and the table adds no reporting projection, widget, or route.
+
 ## Why it exists
 Test-context lifecycle controls are not reporting widgets. They share the Console shell and Operator route assembly, but their proposal, review, revocation, and status contracts stay in the conversation/test-context family.
 

@@ -34,6 +34,7 @@ from fdai_service_contracts.generated.contracts import (
     OperatorCoreRequestV1_6_0,
     OperatorCoreRequestV1_7_0,
     OperatorCoreRequestV1_8_0,
+    OperatorCoreRequestV1_9_0,
 )
 
 __all__ = (
@@ -70,4 +71,5 @@ __all__ = (
     "OperatorCoreRequestV1_6_0",
     "OperatorCoreRequestV1_7_0",
     "OperatorCoreRequestV1_8_0",
+    "OperatorCoreRequestV1_9_0",
 )

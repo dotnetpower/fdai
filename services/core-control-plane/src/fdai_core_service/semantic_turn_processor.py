@@ -351,7 +351,7 @@ class SemanticTurnProcessor:
         processing_started_at = _aware_utc(self._now(), field="semantic processor clock")
         timed_envelope = dict(envelope)
         timed_envelope[_PROCESSING_STARTED_AT_FIELD] = processing_started_at.isoformat()
-        principal = _principal(request)
+        principal = _principal(request, request_ref=str(envelope["request_id"]))
         assurance_case_id = _pantheon_assurance_case_id(request.purpose)
         if request.purpose != self._purpose and assurance_case_id is None:
             raise SemanticTurnRejectedError("semantic_purpose_not_allowed")
@@ -5831,13 +5831,16 @@ def _request_digest(
     envelope: Mapping[str, Any],
     request: SemanticTurnRequest,
 ) -> str:
+    semantic_turn = request.model_dump(mode="json")
+    if semantic_turn.get("authentication_receipt_ref") is None:
+        semantic_turn.pop("authentication_receipt_ref", None)
     return content_digest(
         {
             "request_id": envelope["request_id"],
             "correlation_id": envelope["correlation_id"],
             "resource_ref": envelope.get("resource_ref"),
             "requested_at": envelope["requested_at"],
-            "semantic_turn": request.model_dump(mode="json"),
+            "semantic_turn": semantic_turn,
         }
     )
 

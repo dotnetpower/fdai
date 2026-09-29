@@ -1372,6 +1372,112 @@ export interface OperatorCoreRequestV1_8_0 {
   readonly semantic_turn?: OperatorCoreRequestV1_8_0SemanticTurn;
 }
 
+export interface OperatorCoreRequestV1_9_0SemanticTurnPrincipal {
+  readonly subject_id: string;
+  readonly principal_kind?: "human" | "workload";
+  readonly roles: ReadonlyArray<"Reader" | "Contributor" | "Approver" | "Owner" | "BreakGlass">;
+  readonly groups?: ReadonlyArray<string>;
+}
+
+export interface OperatorCoreRequestV1_9_0SemanticTurnBoundContext {
+  readonly kind: "incident" | "screen" | "resource_group";
+  readonly incident_id?: string;
+  readonly correlation_id?: string;
+  readonly screen_id?: string;
+  readonly resource_group_id?: string;
+  readonly selection_token?: string;
+  readonly resource_ids?: ReadonlyArray<string>;
+  readonly principal_id?: string;
+  readonly principal_scope_digest?: string;
+  readonly ontology_release_digest?: string;
+  readonly source_generation?: string;
+  readonly selection_digest?: string;
+  readonly complete?: boolean;
+}
+
+export interface OperatorCoreRequestV1_9_0SemanticTurnInvestigationContinuation {
+  readonly schema_version: "1.0.0";
+  readonly source_session_id: string;
+  readonly source_turn_id: string;
+  readonly source_turn_sequence: number;
+  readonly target_type: string;
+  readonly target_value: string;
+  readonly recovery_measure_concepts: ReadonlyArray<string>;
+  readonly baseline_start: string;
+  readonly baseline_end: string;
+  readonly initial_observation_cutoff: string;
+  readonly ontology_release_digest: string;
+  readonly principal_manifest_digest: string;
+  readonly source_frame_digest: string;
+  readonly source_plan_digest: string;
+  readonly source_execution_receipt_digest: string;
+  readonly execution_authority: false;
+}
+
+export interface OperatorCoreRequestV1_9_0SemanticTurnPriorTurnsItem {
+  readonly role: "user" | "assistant";
+  readonly content: string;
+}
+
+export interface OperatorCoreRequestV1_9_0AdaptiveRelationshipProof {
+  readonly target_agent: "Odin" | "Heimdall" | "Huginn" | "Forseti" | "Var" | "Thor" | "Vidar" | "Saga" | "Bragi" | "Njord" | "Freyr" | "Loki" | "Mimir" | "Norns" | "Muninn";
+  readonly principal_id: string;
+  readonly kind: "steward" | "collaborator";
+  readonly source_revision: string;
+  readonly verified_at: string;
+  readonly expires_at: string;
+  readonly execution_authority?: false;
+}
+
+export interface OperatorCoreRequestV1_9_0SemanticDocumentContext {
+  readonly schema_version?: "1.0.0";
+  readonly source: "channel_attachment" | "web_reference";
+  readonly principal_ref: string;
+  readonly conversation_ref: string;
+  readonly citations: ReadonlyArray<string>;
+  readonly authorization_digest: string;
+  readonly receipt_digests?: ReadonlyArray<string>;
+  readonly context_digest: string;
+  readonly execution_authority?: false;
+}
+
+export interface OperatorCoreRequestV1_9_0SemanticTurn {
+  readonly utterance: string;
+  readonly principal: OperatorCoreRequestV1_9_0SemanticTurnPrincipal;
+  readonly session_id: string;
+  readonly turn_id: string;
+  readonly turn_sequence: number;
+  readonly locale: string;
+  readonly purpose: string;
+  readonly deadline_at: string;
+  readonly view_context_digest?: string;
+  readonly bound_context?: OperatorCoreRequestV1_9_0SemanticTurnBoundContext;
+  readonly investigation_continuation?: OperatorCoreRequestV1_9_0SemanticTurnInvestigationContinuation;
+  readonly prior_turns: ReadonlyArray<OperatorCoreRequestV1_9_0SemanticTurnPriorTurnsItem>;
+  readonly planning_profile?: "interactive" | "golden_campaign_no_t2";
+  readonly include_model_trace?: boolean;
+  readonly cancelled?: boolean;
+  readonly execution_authority: false;
+  readonly target_agent?: "Odin" | "Heimdall" | "Huginn" | "Forseti" | "Var" | "Thor" | "Vidar" | "Saga" | "Bragi" | "Njord" | "Freyr" | "Loki" | "Mimir" | "Norns" | "Muninn";
+  readonly relationship_proof?: OperatorCoreRequestV1_9_0AdaptiveRelationshipProof | null;
+  readonly relationship_unknown_reason?: string | null;
+  readonly conversation_model_tier?: "t1" | "t2" | null;
+  readonly document_context?: OperatorCoreRequestV1_9_0SemanticDocumentContext | null;
+  readonly authentication_receipt_ref?: string | null;
+}
+
+export interface OperatorCoreRequestV1_9_0 {
+  readonly schema_version: "1.9.0";
+  readonly request_id: string;
+  readonly correlation_id: string;
+  readonly idempotency_key: string;
+  readonly resource_ref: string;
+  readonly request_kind: "query" | "proposal" | "semantic_query";
+  readonly requested_at: string;
+  readonly context_digest?: string;
+  readonly semantic_turn?: OperatorCoreRequestV1_9_0SemanticTurn;
+}
+
 export type FdaiServiceContract =
   | AlertNoiseCommandV0_0_0
   | AlertNoiseCommandV1_0_0
@@ -1405,4 +1511,5 @@ export type FdaiServiceContract =
   | OperatorCoreRequestV1_5_0
   | OperatorCoreRequestV1_6_0
   | OperatorCoreRequestV1_7_0
-  | OperatorCoreRequestV1_8_0;
+  | OperatorCoreRequestV1_8_0
+  | OperatorCoreRequestV1_9_0;

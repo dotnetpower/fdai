@@ -30,6 +30,7 @@ KAFKA_BOOTSTRAP_ENV = "FDAI_KAFKA_BOOTSTRAP_SERVERS"
 SEMANTIC_REQUEST_TOPIC_ENV = "FDAI_SEMANTIC_TURN_REQUEST_TOPIC"
 SEMANTIC_PROJECTION_TOPIC_ENV = "FDAI_SEMANTIC_TURN_PROJECTION_TOPIC"
 SEMANTIC_PHYSICAL_TOPIC_ENV = "FDAI_SEMANTIC_TURN_PHYSICAL_TOPIC"
+SEMANTIC_AUTHENTICATION_RECEIPT_REF_ENV = "FDAI_SEMANTIC_AUTHENTICATION_RECEIPT_REF_ENABLED"
 SEMANTIC_CONSUMER_GROUP_ENV = "FDAI_CHANNEL_EDGE_SEMANTIC_CONSUMER_GROUP_ID"
 SEMANTIC_CLIENT_ID_ENV = "FDAI_CHANNEL_EDGE_SEMANTIC_CLIENT_ID"
 PRINCIPAL_SCOPES_ENV = "FDAI_CHANNEL_EDGE_PRINCIPAL_SCOPES_JSON"
@@ -140,6 +141,7 @@ class ChannelEdgeEnvironment:
     semantic_request_topic: str
     semantic_projection_topic: str
     semantic_physical_topic: str | None
+    semantic_authentication_receipt_ref_enabled: bool
     semantic_consumer_group: str
     semantic_client_id: str
     managed_identity_client_id: str | None
@@ -176,6 +178,10 @@ class ChannelEdgeEnvironment:
                 "semantic request and projection topics MUST differ"
             )
         semantic_physical_topic = values.get(SEMANTIC_PHYSICAL_TOPIC_ENV, "").strip() or None
+        semantic_authentication_receipt_ref_enabled = _operator_boolean(
+            values,
+            SEMANTIC_AUTHENTICATION_RECEIPT_REF_ENV,
+        )
         attachments_enabled = _binary_flag(values, ATTACHMENTS_ENABLED_ENV)
         principal_scopes = _principal_scopes(_required(values, PRINCIPAL_SCOPES_ENV))
         slack = (
@@ -209,6 +215,9 @@ class ChannelEdgeEnvironment:
             semantic_request_topic=semantic_request_topic,
             semantic_projection_topic=semantic_projection_topic,
             semantic_physical_topic=semantic_physical_topic,
+            semantic_authentication_receipt_ref_enabled=(
+                semantic_authentication_receipt_ref_enabled
+            ),
             semantic_consumer_group=(
                 values.get(SEMANTIC_CONSUMER_GROUP_ENV, "").strip() or DEFAULT_SEMANTIC_GROUP
             ),
@@ -666,6 +675,16 @@ def _bounded_int(
     if not minimum <= value <= maximum:
         raise ChannelEdgeConfigurationError(f"{key} is outside the allowed range")
     return value
+
+
+def _operator_boolean(values: Mapping[str, str], key: str) -> bool:
+    """Parse a setting shared with the Operator API exactly as the Operator API does."""
+    raw = values.get(key, "0").strip().lower()
+    if raw in {"1", "true", "yes", "on"}:
+        return True
+    if raw in {"0", "false", "no", "off"}:
+        return False
+    raise ChannelEdgeConfigurationError(f"{key} MUST be a boolean")
 
 
 def _binary_flag(values: Mapping[str, str], key: str) -> bool:

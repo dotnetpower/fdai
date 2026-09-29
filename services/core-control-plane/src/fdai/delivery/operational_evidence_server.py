@@ -52,6 +52,7 @@ from fdai.core.operational_evidence.own_role_readback import (
     VerifierOwnRoleReadbackError,
     evaluate_verifier_own_roles,
 )
+from fdai.core.operational_evidence.readback.case_history_read import CaseHistoryReadback
 from fdai.core.operational_evidence.readback.test_context_command import (
     OperatorTestContextCommandReadback,
 )
@@ -95,6 +96,7 @@ from fdai.delivery.persistence.postgres_operational_evidence_grants import (
     read_proof_store_grants,
 )
 from fdai.delivery.persistence.postgres_operational_evidence_sources import (
+    PostgresSemanticAuthenticationReceiptSource,
     PostgresTestContextEvidenceSources,
 )
 
@@ -248,6 +250,7 @@ def build_verifier_workload(
         dsn=settings.verifier_dsn, expected_role=VERIFIER_ROLE
     )
     sources = PostgresTestContextEvidenceSources(store)
+    semantic_receipts = PostgresSemanticAuthenticationReceiptSource(store)
     readiness = VerifierReadiness()
     members = string_list(settings.writer_members_json, label="writer members")
     caller = caller_authenticator or (
@@ -312,7 +315,10 @@ def build_verifier_workload(
                     role_reasons = ("role_readback_unavailable",)
                 if role_reasons:
                     state, reasons = "unavailable", role_reasons
-        source_health = await sources.source_health()
+        source_health = {
+            **(await sources.source_health()),
+            **(await semantic_receipts.source_health()),
+        }
         readiness.state = state
         readiness.reasons = reasons
         readiness.source_health = source_health
@@ -327,6 +333,7 @@ def build_verifier_workload(
         history=lambda: history,
         anchors=anchors,
         readbacks=(
+            CaseHistoryReadback(receipts=semantic_receipts),
             OperatorTestContextCommandReadback(commands=sources),
             ContextTransitionReadback(commands=sources, history=sources, audit=sources),
             OperationalTestContextReadback(commands=sources, history=sources, audit=sources),
