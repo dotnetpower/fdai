@@ -12,6 +12,7 @@ from datetime import UTC, datetime
 from typing import Any
 
 from fdai_service_contracts.ontology_query import (
+    MAX_INTENT_GOAL_DEPENDENCIES,
     OntologyQueryNode,
     QueryNodeKind,
     SemanticOperation,
@@ -86,10 +87,14 @@ class PlanSpec:
 
     nodes: tuple[OntologyQueryNode, ...]
     output_node_ids: tuple[str, ...]
-    output_shape: SemanticOutputShape
+    # A reviewed compiler-only shape, such as causal context, is a plain string the frame
+    # model's enum never offers, so the legacy frame path cannot propose it.
+    output_shape: SemanticOutputShape | str
     operation: SemanticOperation
     subject_constraints: tuple[str, ...]
     measure_concepts: tuple[str, ...]
+    # Reviewed limitations the answer states as catalog notices, such as the applied window.
+    evidence_requirements: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -165,6 +170,17 @@ def endpoint_predicates(
             predicates.append(
                 {"property": "name", "operator": "contains", "equals": ctx.text(item.mention)}
             )
+        elif item.role is FilterRole.REGION:
+            regions, failure = concept_values(item.mention, ctx)
+            if failure is not None:
+                return [], failure
+            if ctx.mention(item.mention).domain is not MentionDomain.REGION or not regions:
+                return [], OperatorResult(unsupported=("region_filter_domain_unsupported",))
+            predicates.append(
+                {"property": "location", "operator": "equals", "equals": regions[0]}
+                if len(regions) == 1
+                else {"property": "location", "operator": "in", "values": sorted(regions)}
+            )
         else:
             return [], OperatorResult(unsupported=(f"filter_unsupported:{item.role.value}",))
     required = sorted(frozenset.intersection(*type_sets)) if type_sets else []
@@ -186,6 +202,79 @@ def endpoint_predicates(
                     {"property": "type", "operator": "not_equals", "equals": excluded}
                 )
     return predicates, None
+
+
+def union_tree(root_id: str, members: Sequence[str]) -> tuple[OntologyQueryNode, ...]:
+    """Unite two or more member outputs under ``root_id``, the returned last node.
+
+    Each union reads at most the dependencies one Console intent goal can show, so a
+    wider fan-in becomes parts united again; every member is still read exactly once.
+    """
+
+    if len(members) < 2:
+        raise ValueError("a union needs at least two members")
+    created: list[OntologyQueryNode] = []
+    level = list(members)
+    while len(level) > MAX_INTENT_GOAL_DEPENDENCIES:
+        chunks = [
+            level[start : start + MAX_INTENT_GOAL_DEPENDENCIES]
+            for start in range(0, len(level), MAX_INTENT_GOAL_DEPENDENCIES)
+        ]
+        level = []
+        for chunk in chunks:
+            if len(chunk) == 1:
+                level.append(chunk[0])
+                continue
+            part = OntologyQueryNode(
+                node_id=f"{root_id}-part-{len(created) + 1}",
+                kind=QueryNodeKind.UNION,
+                depends_on=tuple(chunk),
+                output_kind="query.table",
+            )
+            created.append(part)
+            level.append(part.node_id)
+    root = OntologyQueryNode(
+        node_id=root_id,
+        kind=QueryNodeKind.UNION,
+        depends_on=tuple(level),
+        output_kind="query.table",
+    )
+    return (*created, root)
+
+
+def declared_maximum(ctx: CompileContext, function_name: str, argument: str) -> int | None:
+    """Return the maximum a declared FunctionType admits for one integer input, if any.
+
+    Bounds come from the reviewed declaration in the manifest, so a builder never states
+    its own copy of a reader's limit.
+    """
+
+    for descriptor in ctx.manifest.descriptors:
+        if descriptor.get("kind") != "function" or descriptor.get("name") != function_name:
+            continue
+        schema = descriptor.get("input_schema") or {}
+        properties = schema.get("properties") if isinstance(schema, Mapping) else None
+        spec = properties.get(argument) if isinstance(properties, Mapping) else None
+        maximum = spec.get("maximum") if isinstance(spec, Mapping) else None
+        if isinstance(maximum, int) and not isinstance(maximum, bool) and maximum > 0:
+            return maximum
+        return None
+    return None
+
+
+def declared_measures(ctx: CompileContext, function_name: str) -> tuple[str, ...]:
+    """Return the measure fields a declared FunctionType's output names, in declared order."""
+
+    for descriptor in ctx.manifest.descriptors:
+        if descriptor.get("kind") == "function" and descriptor.get("name") == function_name:
+            schema = descriptor.get("output_schema") or {}
+            measures = (
+                schema.get("x-fdai-measure-concepts") if isinstance(schema, Mapping) else None
+            )
+            if isinstance(measures, list) and all(isinstance(item, str) for item in measures):
+                return tuple(measures)
+            return ()
+    return ()
 
 
 def concept_values(
@@ -223,7 +312,9 @@ def anchor_node(
     if binding.outcome is AnchorOutcome.AMBIGUOUS:
         return OperatorResult(clarify=(f"anchor_ambiguous:{mention_id}",))
     if binding.outcome is not AnchorOutcome.BOUND or binding.object_id is None:
-        return OperatorResult(unsupported=("anchor_resolution_incomplete",))
+        # The typed read reason, such as read_incomplete, tells data state from a reading.
+        suffix = f":{binding.reason}" if binding.reason else ""
+        return OperatorResult(unsupported=(f"anchor_resolution_incomplete{suffix}",))
     predicate = {"property": "id", "operator": "equals", "equals": binding.object_id}
     if not readable(ctx, RESOURCE_OBJECT_TYPE, [predicate]):
         return OperatorResult(unsupported=("anchor_property_unreadable",))
@@ -346,8 +437,9 @@ def plan_spec(
     ctx: CompileContext,
     *,
     subjects: tuple[str, ...],
-    output_shape: SemanticOutputShape | None = None,
+    output_shape: SemanticOutputShape | str | None = None,
     measure_concepts: tuple[str, ...] = (),
+    evidence_requirements: tuple[str, ...] = (),
 ) -> PlanSpec:
     aggregate = any(node.kind is QueryNodeKind.AGGREGATE for node in nodes)
     shape = output_shape or (
@@ -360,6 +452,7 @@ def plan_spec(
         operation=SemanticOperation.AGGREGATE if aggregate else SemanticOperation.SELECT,
         subject_constraints=tuple(dict.fromkeys(subjects)),
         measure_concepts=measure_concepts or (f"reasoning.{goal.effective_operation.value}",),
+        evidence_requirements=evidence_requirements,
     )
 
 

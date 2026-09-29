@@ -339,7 +339,7 @@ def _resource_object(
         conflicts=verdict.conflicts,
         freshness_ceiling_seconds=freshness_ceiling_seconds,
     )
-    for lifted in ("name", "parent_id"):
+    for lifted in ("name", "parent_id", "location"):
         value = verdict.agreed_properties.get(lifted)
         if isinstance(value, str) and value.strip():
             properties[lifted] = value

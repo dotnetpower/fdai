@@ -45,7 +45,10 @@ async def test_a_contract_fault_gets_one_repair_with_authored_violations() -> No
 
     (only_pass,) = observation.passes
     assert only_pass.repair == "applied"
-    assert only_pass.repaired_reasons == ("form_contract_invalid:form",)
+    assert only_pass.repaired_reasons == (
+        "form_contract_invalid:form",
+        "form_contract_rule:form_goal_cites_an_undeclared_mention",
+    )
     assert [goal.status for goal in only_pass.goals] == ["compiled"]
     repair = model.form_calls[1]["repair"]
     assert isinstance(repair, FormRepair)
@@ -77,7 +80,8 @@ async def test_a_repair_that_drops_a_quoted_operand_is_rejected() -> None:
 
     assert observation.passes[0].disposition == "invalid"
     assert observation.passes[0].repair == "operand_dropped"
-    assert observation.passes[0].reasons == ("form_contract_invalid:form",)
+    assert observation.passes[0].reasons[0] == "form_contract_invalid:form"
+    assert observation.passes[0].reasons[1].startswith("form_contract_rule:")
     assert observation.compilations == ()
 
 

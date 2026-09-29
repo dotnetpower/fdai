@@ -456,6 +456,12 @@ The terminal `done` event's `trajectory_detail` may carry `work_progress_shape`,
 `context_receipts`. Operator validates each field separately and drops a malformed field alone. It
 keeps at most eight activities within 60 KiB and counts the rest in `omitted.activities`.
 
+A compiled answer states each reviewed limitation of its frame right after its heading, such as the
+read window, a cause that is not established, a possible impact, or an anchor whose name uniqueness is
+unproven under incomplete inventory coverage. An answer read from such an anchor keeps the
+`semantic_answer_partial` reason code, and a verified table leads with the reader's declared measure
+fields before its receipt fields.
+
 ### 13.12 Semantic turn authentication receipt reference
 
 The Operator emits the optional content-free `authentication_receipt_ref` in `operator-core-request` 1.9.0 only when `FDAI_SEMANTIC_AUTHENTICATION_RECEIPT_REF_ENABLED` is on. The setting defaults off, and with it off every envelope keeps its earlier version and bytes. Enable it only after a Core that accepts 1.9.0 is deployed. The reference grants no authority by itself. With the setting on, the Operator API and the channel edge retain the content-free receipt for each semantic request before they send the reference, and the verifier checks `case-history-read` against the receipt retained for that exact request. With it off, Pattern reads still fail closed.

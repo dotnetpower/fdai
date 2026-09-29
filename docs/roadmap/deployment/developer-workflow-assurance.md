@@ -194,7 +194,11 @@ count, and the shape of the last form pass. The shape lists each mention and goa
 form-local id and closed values, such as `m1:instance:name`, `qualifier:m2:m1:containment`, or
 `measure:g1:count:container`, so a reviewer can see that a kind was stated as a qualifier without
 reading the question. An invalid review names why the extraction could not serve, such as a quote
-that is not in the question, without the quote.
+that is not in the question, without the quote. A server reason that ends in a span, such as an
+uncovered constraint with its offsets, keeps its closed code prefix and drops the span, and the event
+lists the goals whose relation roles two blind readers swapped. The local prompt-source check writes
+its diagnostics to standard error, so `dev-discuss explain` can still read the service input digest
+while an explicit uncommitted-prompt opt-in is active.
 
 A cue is a review pointer, not a causal conclusion. `dev-discuss explain` captures a snapshot and
 prints each trace with its cues. The reviewer compares them with the questions they asked, because

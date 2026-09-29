@@ -14,15 +14,22 @@ from types import SimpleNamespace
 from typing import Any
 
 import pytest
-from fdai.composition.semantic_query_type_grounding import compiled_answers_enabled
+from fdai.composition.semantic_query_type_grounding import (
+    compiled_answers_enabled,
+    typed_only_enabled,
+)
 from fdai.core.conversation import semantic_compiled_answers
 from fdai.core.conversation.semantic_compiled_answers import (
     CompiledAnswerPath,
     CompiledAnswerTicket,
     compiled_answer_or,
     start_compiled_answer,
+    typed_only_outcome,
 )
-from fdai.core.conversation.semantic_planning_models import SemanticPlanningDisposition
+from fdai.core.conversation.semantic_planning_models import (
+    SemanticPlanningDisposition,
+    SemanticPlanningOutcome,
+)
 from fdai.core.conversation.semantic_reasoning_compiler import (
     GoalCompilation,
     GoalStatus,
@@ -35,7 +42,11 @@ from fdai.core.conversation.semantic_reasoning_shadow import (
     ShadowPass,
 )
 from fdai.core.conversation.session import Principal, Role
-from fdai_service_contracts.ontology_query import QueryNodeKind
+from fdai_service_contracts.ontology_query import (
+    MAX_INTENT_GOAL_DEPENDENCIES,
+    QueryNodeKind,
+    project_intent_graph,
+)
 
 from tests.conversation.semantic_reasoning_support import (
     DEFAULT_LOOKBACK_SECONDS,
@@ -385,6 +396,26 @@ def test_compiled_answers_are_composed_only_in_the_local_venue() -> None:
     assert not compiled_answers_enabled({"FDAI_EXECUTION_VENUE": "local"})
 
 
+def test_typed_only_answering_needs_its_whole_path_or_refuses_to_start() -> None:
+    complete = {
+        "FDAI_SEMANTIC_TYPED_ONLY": "1",
+        "FDAI_SEMANTIC_SECOND_READER": "1",
+        "FDAI_SEMANTIC_COMPILED_ANSWERS": "1",
+        "FDAI_EXECUTION_VENUE": "local",
+    }
+
+    assert typed_only_enabled(complete)
+    assert not typed_only_enabled(
+        {key: value for key, value in complete.items() if "TYPED" not in key}
+    )
+    # Without the form path a typed-only read would silently answer from the legacy path.
+    for missing in ("FDAI_SEMANTIC_SECOND_READER", "FDAI_SEMANTIC_COMPILED_ANSWERS"):
+        with pytest.raises(ValueError, match="typed-only"):
+            typed_only_enabled({key: value for key, value in complete.items() if key != missing})
+    with pytest.raises(ValueError, match="typed-only"):
+        typed_only_enabled({**complete, "FDAI_EXECUTION_VENUE": "deployed"})
+
+
 def _relation_compilation(scope: str) -> ReasoningCompilation:
     from tests.conversation.test_semantic_reasoning_compiler import _compile, _relation_form
 
@@ -441,8 +472,15 @@ def test_sides_beyond_eight_outputs_are_united_so_none_is_dropped(
     # endpoint type becomes one union output, verified and aligned like any other plan.
     assert outcome is not None and outcome.plan is not None
     unions = [node for node in outcome.plan.nodes if node.kind is QueryNodeKind.UNION]
-    assert [node.node_id for node in unions] == list(outcome.plan.output_node_ids)
-    assert sorted(item for node in unions for item in node.depends_on) == sorted(sides)
+    roots = [node.node_id for node in unions if node.node_id in outcome.plan.output_node_ids]
+    assert roots == list(outcome.plan.output_node_ids)
+    union_ids = {node.node_id for node in unions}
+    read = [item for node in unions for item in node.depends_on if item not in union_ids]
+    assert sorted(read) == sorted(sides)
+    # No union reads more dependencies than one Console intent goal can show.
+    assert all(len(node.depends_on) <= MAX_INTENT_GOAL_DEPENDENCIES for node in unions)
+    assert outcome.intent_graph is not None
+    assert project_intent_graph(outcome.intent_graph)["goals"]
     assert len(outcome.plan.nodes) <= 16
     assert _completions(caplog) == ["selected"]
 
@@ -484,3 +522,163 @@ def test_batches_with_clashing_node_ids_are_declined(
 
     assert _ticket(observation).outcome(manifest_digest="d", observations=[]) is None
     assert _decline_reasons(caplog) == ["merge_node_conflict"]
+
+
+@pytest.mark.parametrize(
+    ("observation", "decision"),
+    [
+        (_observation(released=False, passes=()), "unavailable"),
+        (
+            _observation(
+                released=False, passes=(ShadowPass(0, "clarify", ("competing_reading:g1",)),)
+            ),
+            "clarification",
+        ),
+        (_observation(released=False, passes=(ShadowPass(0, "invalid"),)), "unverified"),
+        (
+            _observation(released=False, review="unfaithful", passes=(ShadowPass(0, "admitted"),)),
+            "unverified",
+        ),
+        (_observation(continuation_pending=True), "continuation"),
+    ],
+)
+def test_every_declined_path_ends_with_one_tagged_decision(
+    observation: ReasoningShadowObservation, decision: str
+) -> None:
+    ticket = _ticket(observation)
+    assert ticket.outcome(manifest_digest="d", observations=[]) is None
+    assert ticket.decision == decision
+
+
+def test_typed_only_maps_each_decision_to_one_typed_outcome() -> None:
+    unsupported = _ticket(_unsupported_observation())
+    unsupported.outcome(manifest_digest="d", observations=[])
+    limited_goal = replace(_compilation().goals[0], limitations=("time_window_applied:3600",))
+    limited = _ticket(_observation(compilations=(replace(_compilation(), goals=(limited_goal,)),)))
+    limited.outcome(manifest_digest="d", observations=[])
+    timed_out = _ticket(None, deadline=1.0)
+    timed_out._deadline = 0.0  # noqa: SLF001 - the deadline has already passed
+    timed_out.outcome(manifest_digest="d", observations=[])
+
+    outcomes = {
+        name: typed_only_outcome(ticket, manifest_digest="d")
+        for name, ticket in (
+            ("unsupported", unsupported),
+            ("limited", limited),
+            ("timeout", timed_out),
+        )
+    }
+
+    assert outcomes["unsupported"].disposition is SemanticPlanningDisposition.UNSUPPORTED
+    assert outcomes["unsupported"].reason == "semantic_stated_constraint_unsupported"
+    assert outcomes["limited"].reason == "semantic_reading_limited"
+    assert outcomes["timeout"].reason == "semantic_reading_unavailable"
+    # A turn whose form path never started is unavailable, never a legacy answer.
+    assert typed_only_outcome(None, manifest_digest="d").reason == "semantic_reading_unavailable"
+
+
+def test_a_typed_only_hold_replaces_the_judgment_hold_and_a_cancel_is_superseded() -> None:
+    hold = SemanticPlanningOutcome(
+        disposition=SemanticPlanningDisposition.UNAVAILABLE, reason="judgment_hold"
+    )
+    ticket = _ticket(_unsupported_observation())
+    ticket.typed_only = True
+    replaced = compiled_answer_or(ticket, hold, manifest_digest="d", observations=[])
+    cancelled = _ticket(_observation())
+    cancelled.cancel()
+
+    assert replaced.reason == "semantic_stated_constraint_unsupported"
+    assert cancelled.decision == "superseded"
+
+
+def _cause_compilation() -> ReasoningCompilation:
+    from tests.conversation.test_semantic_reasoning_compiler import _cause_form, _compile
+
+    utterance = "Why is vm-app-01 stopped?"
+    return _compile(utterance, _cause_form(utterance))
+
+
+def test_a_compilation_answers_with_the_limitations_its_frame_states(
+    caplog: pytest.LogCaptureFixture, events: list[dict[str, Any]]
+) -> None:
+    compilation = _cause_compilation()
+
+    outcome = _ticket(_observation(compilations=(compilation,))).outcome(
+        manifest_digest="d", observations=[]
+    )
+
+    # The cause-not-established and window limitations are stated as reviewed notices.
+    assert outcome is not None and outcome.frame is not None
+    assert outcome.frame.output_shape == "cause_context"
+    assert "cause.not_established" in outcome.frame.evidence_requirements
+    assert _completions(caplog) == ["selected"]
+
+
+def test_a_limitation_no_notice_states_keeps_the_compilation_from_answering(
+    caplog: pytest.LogCaptureFixture, events: list[dict[str, Any]]
+) -> None:
+    compilation = _cause_compilation()
+    goal = compilation.goals[0]
+    unstated = replace(goal, limitations=(*goal.limitations, "prior_result_truncated"))
+    ticket = _ticket(_observation(compilations=(replace(compilation, goals=(unstated,)),)))
+
+    assert ticket.outcome(manifest_digest="d", observations=[]) is None
+    assert _decline_reasons(caplog) == ["goal_limited"]
+    assert ticket.decision == "limited"
+
+
+def test_a_data_outcome_is_unavailable_and_an_unsupported_atom_is_unsupported() -> None:
+    compilation = _compilation()
+    incomplete = GoalCompilation("g1", GoalStatus.UNSUPPORTED, ("anchor_resolution_incomplete",))
+    data = _ticket(_observation(compilations=(replace(compilation, goals=(incomplete,)),)))
+    data.outcome(manifest_digest="d", observations=[])
+    atom = _ticket(_unsupported_observation())
+    atom.outcome(manifest_digest="d", observations=[])
+
+    # An incomplete anchor read says nothing about what the question asks.
+    assert data.decision == "unavailable"
+    assert atom.decision == "unsupported"
+
+
+async def test_a_failed_form_is_read_once_more_and_never_more_than_twice(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    invalid = _observation(released=False, passes=(ShadowPass(0, "invalid"),), compilations=())
+    samples = [invalid, _observation()]
+    calls: list[int] = []
+
+    async def shadow(**_arguments: Any) -> ReasoningShadowObservation:
+        calls.append(1)
+        return samples.pop(0)
+
+    monkeypatch.setattr(semantic_compiled_answers, "run_reasoning_shadow", shadow)
+    collector = semantic_compiled_answers._ObservationCollector()
+
+    result = await semantic_compiled_answers._run_form_path(object(), collector)  # type: ignore[arg-type]
+
+    # The second sample passes the same release and selection rules as the first.
+    assert len(calls) == 2
+    assert result.released and "form_resampled" in result.notes
+    assert result.model_calls == invalid.model_calls + 4
+
+
+async def test_an_answerable_or_unsupported_reading_is_never_resampled(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls: list[str] = []
+    samples = {"answerable": _observation(), "unsupported": _unsupported_observation()}
+
+    for name, first in samples.items():
+
+        async def shadow(
+            _first: ReasoningShadowObservation = first, _name: str = name, **_arguments: Any
+        ) -> ReasoningShadowObservation:
+            calls.append(_name)
+            return _first
+
+        monkeypatch.setattr(semantic_compiled_answers, "run_reasoning_shadow", shadow)
+        collector = semantic_compiled_answers._ObservationCollector()
+        await semantic_compiled_answers._run_form_path(object(), collector)  # type: ignore[arg-type]
+
+    # An unsupported atom stays unsupported in any sample, so no call is spent on it.
+    assert calls == ["answerable", "unsupported"]

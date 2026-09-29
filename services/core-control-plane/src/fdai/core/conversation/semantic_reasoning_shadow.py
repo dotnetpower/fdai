@@ -39,8 +39,7 @@ from .semantic_reasoning_concepts import (
 )
 from .semantic_reasoning_direction import (
     DirectionQuestion,
-    direction_questions,
-    direction_reasons,
+    settle_directions,
 )
 from .semantic_reasoning_form import SemanticQuestionForm
 from .semantic_reasoning_handles import (
@@ -115,6 +114,7 @@ class QuestionFormModel(Protocol):
         context: tuple[str, ...],
         locale: str,
         question: DirectionQuestion,
+        tiebreak: bool = False,
     ) -> Mapping[str, Any] | None: ...
 
 
@@ -163,6 +163,8 @@ class ShadowPass:
     # Mentions grounded in the sibling kind lane, whose domain the form now carries.
     regrounded: tuple[str, ...] = ()
     shape: tuple[str, ...] = ()
+    # Goals whose relation roles follow two blind readers that outvoted the proposer.
+    direction_swaps: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -201,6 +203,7 @@ class ReasoningShadowObservation:
                     "repair": item.repair,
                     "repaired_reasons": list(item.repaired_reasons),
                     "regrounded": list(item.regrounded),
+                    "direction_swaps": list(item.direction_swaps),
                     "goals": [
                         {
                             "goal": goal.goal_id,
@@ -346,7 +349,6 @@ async def run_reasoning_shadow(
             bool(passes) and not pending and all(item.disposition == "admitted" for item in passes)
         )
         review: FormReview | None = None
-        reviewed: tuple[SemanticQuestionForm, ...] = tuple(admitted_forms)
         if complete:
             raw, failure = await extraction
             review = (
@@ -354,6 +356,18 @@ async def run_reasoning_shadow(
                 if failure is not None
                 else review_forms(admitted_forms, raw, utterance=utterance)
             )
+            if review.outcome == "invalid":
+                # An unusable extraction, such as a quote not in the question, is read once
+                # more by the same blind extractor; its answer is reviewed by the same rules.
+                notes.append("review_reextracted")
+                raw, failure = await _extract(
+                    counting, utterance=utterance, context=context, locale=locale
+                )
+                review = (
+                    FormReview("unavailable", (failure,))
+                    if failure is not None
+                    else review_forms(admitted_forms, raw, utterance=utterance)
+                )
             repair = _review_repair(
                 review, raw, admitted_forms, passes, limits, utterance=utterance
             )
@@ -385,22 +399,12 @@ async def run_reasoning_shadow(
                     and repaired_whole
                 ):
                     review = review_forms((admitted,), raw, utterance=utterance)
-                    reviewed = (admitted,)
                     if retain_compilations and compilation is not None:
                         compilations = [compilation]
                 else:
                     # A repair that reads only part of the question releases nothing.
                     complete = False
                     pending = pending or not repaired_whole
-            if complete and review is not None and review.faithful:
-                review = await _confirm_directions(
-                    counting,
-                    reviewed,
-                    utterance=utterance,
-                    context=context,
-                    locale=locale,
-                    descriptors=manifest.descriptors,
-                )
         else:
             extraction.cancel()
             with contextlib.suppress(asyncio.CancelledError):
@@ -516,35 +520,6 @@ async def _propose_review_repair(
         )
         return FormProposal(resolution, relaxed, "review_applied_unaccounted", repair.reasons)
     return FormProposal(resolution, admission, "review_applied", repair.reasons)
-
-
-async def _confirm_directions(
-    model: _CountingModel,
-    forms: tuple[SemanticQuestionForm, ...],
-    *,
-    utterance: str,
-    context: tuple[str, ...],
-    locale: str,
-    descriptors: Any,
-) -> FormReview:
-    """Confirm each directional relation with a blind reader, holding any disagreement."""
-
-    questions = direction_questions(forms, utterance=utterance, descriptors=descriptors)
-    if not questions:
-        return FormReview("faithful")
-    answers = await asyncio.gather(
-        *(
-            model.check_direction(
-                utterance=utterance, context=context, locale=locale, question=question
-            )
-            for question in questions
-        ),
-        return_exceptions=True,
-    )
-    reasons = direction_reasons(
-        questions, [answer if isinstance(answer, Mapping) else None for answer in answers]
-    )
-    return FormReview("unfaithful", reasons) if reasons else FormReview("faithful")
 
 
 async def _extract(
@@ -664,7 +639,26 @@ async def _run_pass(
     )
     # One grounded form replaces the proposal everywhere after this point.
     admission, receipt = grounding.admission, grounding.receipt
+    settled = await settle_directions(
+        admission.form,
+        utterance=utterance,
+        descriptors=compile_args["manifest"].descriptors,
+        check=lambda question, tiebreak: model.check_direction(
+            utterance=utterance,
+            context=context,
+            locale=locale,
+            question=question,
+            tiebreak=tiebreak,
+        ),
+    )
+    reasons = settled.reasons
+    if settled.swapped:
+        admission = admit_question_form(settled.form, utterance=utterance, accounting=accounting)
+        if admission.disposition is not AdmissionDisposition.ADMITTED:
+            reasons = admission.reasons
     form = admission.form
+    if reasons:
+        return ShadowPass(index, "direction_held", reasons, shape=form_shape(form)), (), None, None
     anchors = await bind_anchors(admission, resolver, utterance=utterance)
     arguments = dict(compile_args)
     references = bind_references(
@@ -705,6 +699,7 @@ async def _run_pass(
         references.digest if references.bindings else None,
         grounding.regrounded,
         form_shape(form),
+        settled.swapped,
     )
     return shadow_pass, goals, compilation, form
 

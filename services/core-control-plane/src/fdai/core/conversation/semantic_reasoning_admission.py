@@ -34,6 +34,7 @@ from .semantic_reasoning_form import (
     SubjectRole,
     SubjectScope,
     TimeKind,
+    Want,
 )
 
 DEFAULT_CONFIDENCE_FLOOR = 0.75
@@ -437,6 +438,39 @@ def _overlapping_mentions(form: SemanticQuestionForm) -> list[str]:
     return reasons
 
 
+def restated_relation(goal: FormGoal) -> bool:
+    """Return whether a goal's relation only restates its own named subject.
+
+    A lookup, history, or cause goal reads one named resource, so a relation anchored on
+    that same resource, such as the in of operations in aks-app, names nothing more.
+    """
+
+    return (
+        goal.relation is not None
+        and goal.subject is not None
+        and goal.relation.anchor == goal.subject
+        and goal.relation.counterpart is None
+        and goal.effective_operation
+        in {GoalOperation.LOOKUP, GoalOperation.HISTORY, GoalOperation.EXPLAIN_CAUSE}
+    )
+
+
+def relation_reach(goal: FormGoal) -> RelationReach:
+    """Return the reach a goal's relation is read with.
+
+    A scope names its group's whole membership, and a containment from that same group
+    to its members only restates it, so such a relation is read with transitive reach.
+    """
+
+    relation = goal.relation
+    if relation is None:
+        return RelationReach.ONE_HOP
+    scoped = any(
+        item.role is FilterRole.SCOPE and item.mention == relation.anchor for item in goal.filters
+    )
+    return RelationReach.TRANSITIVE if scoped and _restates_scope(goal) else relation.reach
+
+
 def _restates_scope(goal: FormGoal) -> bool:
     """Return whether a relation states exactly its scope group's whole membership.
 
@@ -445,12 +479,13 @@ def _restates_scope(goal: FormGoal) -> bool:
     """
 
     relation = goal.relation
+    # A one-hop containment from the scope's own group also only restates that membership:
+    # the compiler reads it as the scope's whole membership, the reading of "in the group".
     return (
         relation is not None
         and relation.anchor is not None
         and relation.sense is RelationSense.CONTAINMENT
         and relation.scope is RelationScope.ONE_SENSE
-        and relation.reach is RelationReach.TRANSITIVE
         and relation.anchor_position is SubjectPosition.SOURCE
         and goal.subject_scope is SubjectScope.COLLECTION
     )
@@ -458,6 +493,9 @@ def _restates_scope(goal: FormGoal) -> bool:
 
 def _goal_shape_failures(goal: FormGoal, form: SemanticQuestionForm) -> list[str]:
     failures: list[str] = []
+    # A why question has one canonical reading, so no other goal can drop its cause atom.
+    if (goal.operation is GoalOperation.EXPLAIN_CAUSE) != (goal.want is Want.CAUSE):
+        failures.append(f"cause_form_inconsistent:{goal.id}")
     scopes = {item.mention for item in goal.filters if item.role is FilterRole.SCOPE}
     if (
         goal.relation is not None

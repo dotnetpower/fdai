@@ -1,6 +1,6 @@
 ---
 translation_of: developer-workflow-assurance.md
-translation_source_sha: 7d16d05a536b12e0ac3d7648e605c3c01f0db8f5
+translation_source_sha: 9a596fd9ff32f28fbdc9f452e8ca720fe4dfc279
 translation_revised: 2026-09-30
 ---
 
@@ -192,7 +192,10 @@ Runtime은 내용이 제거된 조회 활동 변환과 검증된 문서 답변 �
 형태도 기록합니다. 형태는 각 언급과 목표를 form 안의 식별자와 닫힌 값으로만 나타냅니다. 예를 들어
 `m1:instance:name`, `qualifier:m2:m1:containment`, `measure:g1:count:container`와 같으므로 검토자는
 질문을 읽지 않고도 종류를 한정자로 밝혔다는 사실을 볼 수 있습니다. 검토가 무효이면 추출이 검토 역할을
-할 수 없는 이유(질문에 없는 인용 등)를 인용 없이 기록합니다.
+할 수 없는 이유(질문에 없는 인용 등)를 인용 없이 기록합니다. 오프셋이 붙은 포함되지 않은 제약처럼 범위
+표기로 끝나는 서버 사유는 닫힌 코드 접두사만 남기고 범위를 버리며, 이벤트는 두 블라인드 reader가 관계
+역할을 맞바꾼 목표를 나열합니다. 로컬 프롬프트 원본 검사는 진단을 표준 오류로 기록하므로, 커밋하지 않은
+프롬프트를 명시적으로 허용한 상태에서도 `dev-discuss explain`이 서비스 입력 다이제스트를 읽을 수 있습니다.
 
 신호는 검토할 위치를 가리킬 뿐 원인에 대한 결론이 아닙니다. `dev-discuss explain`은 스냅샷을
 캡처하고 각 추적을 신호와 함께 출력합니다. 질문은 패킷에 들어가지 않으므로 검토자는 자신이 한

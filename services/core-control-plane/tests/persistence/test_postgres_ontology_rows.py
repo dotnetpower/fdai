@@ -269,7 +269,9 @@ async def test_pending_reconciliation_is_scoped_to_the_active_snapshot() -> None
         "JOIN inventory_observation_journal AS pending ON pending.scope_ref=pending_scope.scope"
     ) in connection.statement
     assert "pending.scope_ref IN" not in connection.statement
-    assert connection.params == ("inventory-ontology:active-scope-checkpoint",)
+    # No exact subjects: every pending object observation in the active scopes counts.
+    assert connection.params == ([], [], "inventory-ontology:active-scope-checkpoint")
+    assert "cardinality(%s::text[])=0 OR (pending.subject_kind='object'" in connection.statement
     assert "active_checkpoint.value->'scope_refs'=snapshot.scopes" in connection.statement
     assert "marker.key = 'inventory-relationship-reconciliation:' || active_scope.scope" in (
         connection.statement
@@ -488,3 +490,28 @@ def test_object_row_decode_rejects_unavailable_pinned_release() -> None:
             },
             releases={latest.digest: latest},
         )
+
+
+async def test_an_exact_id_read_counts_only_its_own_pending_observations() -> None:
+    from fdai.delivery.persistence.postgres_ontology_source_coverage import (
+        resource_graph_source_coverage_detail,
+    )
+
+    connection = _CoverageConnection()
+
+    await resource_graph_source_coverage_detail(
+        connection,  # type: ignore[arg-type]
+        (),
+        requires_resource_coverage=True,
+        expresses_relationships=False,
+        exact_subjects=("object-a", "object-b"),
+    )
+
+    # A pending creation of a requested id still counts, because the ids are the requested
+    # ones, not only those the read returned.
+    assert connection.params == (
+        ["object-a", "object-b"],
+        ["object-a", "object-b"],
+        "inventory-ontology:active-scope-checkpoint",
+    )
+    assert "pending.subject_ref=ANY(%s::text[])" in connection.statement

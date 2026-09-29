@@ -6,14 +6,21 @@ reason instead of a broader or substitute read.
 
 from __future__ import annotations
 
+from datetime import UTC, timedelta
 from typing import Any
 
-from fdai_service_contracts.ontology_query import OntologyQueryNode, QueryNodeKind, canonical_json
+from fdai_service_contracts.ontology_query import (
+    MAX_INTENT_GRAPH_GOALS,
+    OntologyQueryNode,
+    QueryNodeKind,
+    canonical_json,
+)
 
+from fdai.core.ontology_platform.resource_event_queries import RESOURCE_EVENT_MEASURE_CONCEPTS
 from fdai.core.ontology_platform.resource_state_queries import RESOURCE_STATE_FUNCTION_NAME
 
 from .semantic_planning_models import SemanticOutputShape
-from .semantic_reasoning_admission import restates_filter
+from .semantic_reasoning_admission import restated_relation, restates_filter
 from .semantic_reasoning_anchoring import anchored_relation
 from .semantic_reasoning_form import (
     DurationUnit,
@@ -41,6 +48,7 @@ from .semantic_reasoning_nodes import (
     COLLECTION_LIMIT,
     FUNCTION_ANCHOR_LIMIT,
     RESOURCE_OBJECT_TYPE,
+    RESOURCE_TYPE_DOMAINS,
     TRAVERSAL_ANCHOR_LIMIT,
     CompileContext,
     OperatorResult,
@@ -49,6 +57,8 @@ from .semantic_reasoning_nodes import (
     concept_values,
     containment_side,
     count_node,
+    declared_maximum,
+    declared_measures,
     endpoint_predicates,
     function_declared,
     group_by,
@@ -59,13 +69,31 @@ from .semantic_reasoning_nodes import (
     state_filter_node,
     subject_selection,
     traversal_node,
+    union_tree,
 )
 from .semantic_reasoning_relations import RelationSide, select_relation_sides
 from .semantic_reasoning_schema import schema_goal
 
 MAX_SIDES_PER_BATCH = 3
-# An anchor read, one traversal per side, and the aggregate fit one intent graph of 16 goals.
-MAX_COUNT_SIDES = 12
+# Compiler-only output shapes, rendered as verified evidence tables with reviewed notices.
+CAUSE_CONTEXT_SHAPE = "cause_context"
+CHANGE_ACTIVITY_SHAPE = "change_activity"
+CAUSE_NOT_ESTABLISHED = "cause.not_established"
+IMPACT_POSSIBLE_ONLY = "impact.possible_not_observed"
+CURRENT_STATE_FUNCTION = "query.resource_current_state"
+CHANGE_ACTIVITY_FUNCTION = "query.resource_change_activity"
+RECENT_CHANGES_FUNCTION = "query.recent_resource_changes"
+EVENT_HISTORY_FUNCTION = "query.resource_event_history"
+# Every reviewed event family; the form has no narrower event kind to state.
+EVENT_FAMILIES = tuple(sorted(RESOURCE_EVENT_MEASURE_CONCEPTS))
+_WINDOW_LIMITATIONS = {
+    "default": "default_window_applied",
+    "applied": "time_window_applied",
+    "model_judged": "time_window_model_judged",
+}
+# An anchor read, one traversal per side, their union tree, and the aggregate fit one intent
+# graph of 16 goals: eleven sides need two union parts and a root union.
+MAX_COUNT_SIDES = 11
 MIN_LOOKBACK_SECONDS = 60
 MAX_LOOKBACK_SECONDS = 604_800
 _UNIT_SECONDS = {
@@ -88,7 +116,10 @@ def compile_goal(goal: FormGoal, ctx: CompileContext) -> OperatorResult:
         return OperatorResult(
             unsupported=(f"subject_scope_unavailable:{goal.subject_scope.value}",)
         )
-    if goal.want in {Want.CAUSE, Want.VERIFICATION}:
+    # A cause is read only as causal context of one explain_cause goal, never as a fact.
+    if goal.want is Want.VERIFICATION or (
+        goal.want is Want.CAUSE and goal.effective_operation is not GoalOperation.EXPLAIN_CAUSE
+    ):
         return OperatorResult(unsupported=(f"want_unsupported:{goal.want.value}",))
     compiled = _SCHEMA_OPERATIONS if goal.level is GoalLevel.SCHEMA else _INSTANCE_OPERATIONS
     if goal.effective_operation not in compiled:
@@ -117,6 +148,8 @@ def compile_goal(goal: FormGoal, ctx: CompileContext) -> OperatorResult:
         return _lookup_goal(goal, ctx)
     if goal.effective_operation is GoalOperation.HISTORY:
         return _history_goal(goal, ctx)
+    if goal.effective_operation is GoalOperation.EXPLAIN_CAUSE:
+        return _cause_goal(goal, ctx)
     return OperatorResult(unsupported=(f"operation_unsupported:{goal.effective_operation.value}",))
 
 
@@ -149,6 +182,7 @@ _INSTANCE_OPERATIONS = frozenset(
         GoalOperation.IMPACT,
         GoalOperation.LOOKUP,
         GoalOperation.HISTORY,
+        GoalOperation.EXPLAIN_CAUSE,
     }
 )
 _SCHEMA_OPERATIONS = frozenset(
@@ -163,10 +197,13 @@ _SCHEMA_OPERATIONS = frozenset(
 _READ_MEASURES: dict[GoalOperation, frozenset[MeasureKind]] = {
     GoalOperation.COUNT: frozenset({MeasureKind.COUNT}),
     GoalOperation.LOOKUP: frozenset({MeasureKind.STATE}),
-    GoalOperation.HISTORY: frozenset({MeasureKind.CHANGE}),
+    GoalOperation.HISTORY: frozenset({MeasureKind.CHANGE, MeasureKind.EVENT}),
+    GoalOperation.EXPLAIN_CAUSE: frozenset({MeasureKind.STATE, MeasureKind.CHANGE}),
     GoalOperation.SELECT: frozenset(),
     GoalOperation.TRAVERSE: frozenset(),
-    GoalOperation.IMPACT: frozenset(),
+    # An impact goal reads what could be affected if its anchor fails; a stated failure
+    # state or health only restates that premise.
+    GoalOperation.IMPACT: frozenset({MeasureKind.STATE, MeasureKind.HEALTH}),
     GoalOperation.DESCRIBE_SCHEMA: frozenset(),
 }
 
@@ -178,7 +215,7 @@ def _unread_atom(goal: FormGoal, ctx: CompileContext) -> str | None:
     cited = [goal.subject, *(item.mention for item in goal.filters)]
     if goal.measure is not None:
         cited.append(goal.measure.mention)
-    if goal.relation is not None:
+    if goal.relation is not None and not restated_relation(goal):
         cited.append(goal.relation.anchor)
         if goal.relation.counterpart is not None:
             return "counterpart_unsupported"
@@ -215,12 +252,18 @@ def _unread_qualifier(goal: FormGoal, mention_id: str, ctx: CompileContext) -> b
 def _restates_measure(goal: FormGoal, measure: FormMeasure, ctx: CompileContext) -> bool:
     """Return whether a measure mention only names what the goal already reads.
 
-    It may restate the goal subject, as in counting ObjectTypes, or name the measure
-    itself, as a state mention names a state lookup. Any other measure mention would
-    be a restriction that no builder reads, so it is not accepted.
+    It may restate the goal subject, as in counting ObjectTypes, or the type filter of a
+    goal without a subject, or name the measure itself, as a state mention names a state
+    lookup. Any other measure mention would be a restriction that no builder reads, so it
+    is not accepted.
     """
 
     if measure.mention == goal.subject:
+        return True
+    # With no subject, the kind the goal reads is its type filter, as VMs in how many VMs.
+    if goal.subject is None and any(
+        item.role is FilterRole.TYPE and item.mention == measure.mention for item in goal.filters
+    ):
         return True
     domain = ctx.mention(str(measure.mention)).domain
     return domain.value == measure.kind.value and domain in _MEASURE_DOMAINS
@@ -391,6 +434,11 @@ def _relation_goal(goal: FormGoal, ctx: CompileContext) -> OperatorResult:
                 tuple(node.node_id for node in traversals),
                 ctx,
                 subjects=(RESOURCE_OBJECT_TYPE,),
+                evidence_requirements=(
+                    (IMPACT_POSSIBLE_ONLY,)
+                    if goal.effective_operation is GoalOperation.IMPACT
+                    else ()
+                ),
             )
         )
     return OperatorResult(specs=tuple(specs), limitations=tuple(limitations))
@@ -433,16 +481,15 @@ def _relation_count(
     nodes: list[OntologyQueryNode] = [anchor, *traversals]
     source = traversals[0].node_id
     if len(traversals) > 1:
-        union = OntologyQueryNode(
-            node_id=f"{goal.id}-union",
-            kind=QueryNodeKind.UNION,
-            depends_on=tuple(node.node_id for node in traversals),
-            output_kind="query.table",
-        )
-        nodes.append(union)
-        source = union.node_id
+        unions = union_tree(f"{goal.id}-union", [node.node_id for node in traversals])
+        nodes.extend(unions)
+        source = unions[-1].node_id
     count = count_node(f"{goal.id}-count", source, group)
     nodes.append(count)
+    if len(nodes) > MAX_INTENT_GRAPH_GOALS:
+        return OperatorResult(
+            unsupported=("count_side_budget_exceeded",), limitations=tuple(limitations)
+        )
     return OperatorResult(
         specs=(
             plan_spec(
@@ -476,33 +523,172 @@ def _lookup_goal(goal: FormGoal, ctx: CompileContext) -> OperatorResult:
 
 
 def _history_goal(goal: FormGoal, ctx: CompileContext) -> OperatorResult:
-    if goal.subject is None:
+    """Read what happened in a window: one anchor's operations or events, or the newest
+    provider-observed change of every Resource when the subject is a collection."""
+
+    # What changed, with no kind stated, ranges over Resources in general.
+    if goal.subject is None and goal.subject_scope is not SubjectScope.COLLECTION:
         return OperatorResult(unsupported=("anchor_missing",))
     if goal.filters:
         return OperatorResult(unsupported=("filter_unsupported_for_operation:history",))
-    if goal.measure is not None and goal.measure.kind is not MeasureKind.CHANGE:
-        return OperatorResult(unsupported=(f"measure_unsupported:{goal.measure.kind.value}",))
+    kind = goal.measure.kind if goal.measure is not None else MeasureKind.CHANGE
+    window = _stated_window(goal, ctx)
+    if isinstance(window, str):
+        return OperatorResult(unsupported=(window,))
+    seconds, limitation, requirement = window
+    if goal.subject_scope is SubjectScope.COLLECTION:
+        if kind is not MeasureKind.CHANGE:
+            return OperatorResult(unsupported=(f"collection_history_unsupported:{kind.value}",))
+        result = _recent_changes(goal, ctx, seconds, requirement)
+    elif kind is MeasureKind.EVENT:
+        maximum = declared_maximum(ctx, EVENT_HISTORY_FUNCTION, "lookback_seconds")
+        if maximum is not None and seconds > maximum:
+            return OperatorResult(unsupported=("event_window_unsupported",))
+        result = _anchored_function(
+            goal,
+            ctx,
+            function_name=EVENT_HISTORY_FUNCTION,
+            arguments={"event_families": list(EVENT_FAMILIES), "lookback_seconds": seconds},
+            output_shape=SemanticOutputShape.RESOURCE_EVENT_HISTORY,
+            evidence_requirements=(requirement,),
+        )
+    else:
+        result = _anchored_function(
+            goal,
+            ctx,
+            function_name=CHANGE_ACTIVITY_FUNCTION,
+            arguments={"lookback_seconds": seconds},
+            output_shape=CHANGE_ACTIVITY_SHAPE,
+            evidence_requirements=(requirement,),
+        )
+    # Every applied window is restated by the notice its frame requirement names.
+    return OperatorResult(specs=result.specs, limitations=(limitation,)) if result.specs else result
+
+
+def _recent_changes(
+    goal: FormGoal, ctx: CompileContext, seconds: int, requirement: str
+) -> OperatorResult:
+    """Read the newest provider-observed change of each Resource in the window.
+
+    The reader has no kind restriction, so only Resources in general are read; a stated
+    kind is unsupported rather than silently widened. The reader's declared row bound
+    applies, and a window with more changed Resources stays marked incomplete.
+    """
+
+    if goal.subject is not None:
+        values, failure = concept_values(goal.subject, ctx)
+        if failure is not None:
+            return failure
+        domain = ctx.mention(goal.subject).domain
+        general = (domain in RESOURCE_TYPE_DOMAINS and not values) or (
+            domain is MentionDomain.OBJECT_TYPE and values == (RESOURCE_OBJECT_TYPE,)
+        )
+        if not general:
+            return OperatorResult(unsupported=("recent_change_kind_unsupported",))
+    limit = declared_maximum(ctx, RECENT_CHANGES_FUNCTION, "limit")
+    if limit is None:
+        return OperatorResult(unsupported=(f"function_unavailable:{RECENT_CHANGES_FUNCTION}",))
+    end = ctx.evaluation_time.astimezone(UTC)
+    node = OntologyQueryNode(
+        node_id=f"{goal.id}-changes",
+        kind=QueryNodeKind.FUNCTION,
+        arguments_json=canonical_json(
+            {
+                "function_name": RECENT_CHANGES_FUNCTION,
+                "arguments": {
+                    "start_at": (end - timedelta(seconds=seconds)).isoformat(),
+                    "end_at": end.isoformat(),
+                    "known_at": end.isoformat(),
+                    "limit": limit,
+                },
+                "dependency_arguments": {},
+            }
+        ),
+        output_kind="query.table",
+    )
+    spec = plan_spec(
+        goal,
+        (node,),
+        (node.node_id,),
+        ctx,
+        subjects=(RESOURCE_OBJECT_TYPE,),
+        output_shape=SemanticOutputShape.RESOURCE_CHANGES,
+        evidence_requirements=(requirement,),
+    )
+    return OperatorResult(specs=(spec,))
+
+
+def _cause_goal(goal: FormGoal, ctx: CompileContext) -> OperatorResult:
+    """Read causal context for one anchor: its current state and the operations before it.
+
+    The current-state reader reports when a state was observed, not when it changed, so
+    no recorded operation can be ranked as a cause. The answer states that the cause is
+    not established and shows both verified reads.
+    """
+
+    if goal.want is not Want.CAUSE:
+        return OperatorResult(unsupported=("cause_want_required",))
+    if goal.subject is None or goal.subject_scope is not SubjectScope.ANCHOR:
+        return OperatorResult(unsupported=("anchor_missing",))
+    if goal.filters or (goal.relation is not None and not restated_relation(goal)):
+        return OperatorResult(unsupported=("cause_context_atom_unsupported",))
+    window = _stated_window(goal, ctx)
+    if isinstance(window, str):
+        return OperatorResult(unsupported=(window,))
+    seconds, limitation, requirement = window
+    for name in (CURRENT_STATE_FUNCTION, CHANGE_ACTIVITY_FUNCTION):
+        if not function_declared(ctx, name):
+            return OperatorResult(unsupported=(f"function_unavailable:{name}",))
+    anchor = anchor_node(f"{goal.id}-anchor", goal.subject, ctx, FUNCTION_ANCHOR_LIMIT)
+    if isinstance(anchor, OperatorResult):
+        return anchor
+    reads = tuple(
+        OntologyQueryNode(
+            node_id=f"{goal.id}-{suffix}",
+            kind=QueryNodeKind.FUNCTION,
+            depends_on=(anchor.node_id,),
+            arguments_json=canonical_json(
+                {
+                    "function_name": name,
+                    "arguments": arguments,
+                    "dependency_arguments": {anchor.node_id: "query_result"},
+                }
+            ),
+            output_kind="query.table",
+        )
+        for suffix, name, arguments in (
+            ("state", CURRENT_STATE_FUNCTION, {}),
+            ("activity", CHANGE_ACTIVITY_FUNCTION, {"lookback_seconds": seconds}),
+        )
+    )
+    spec = plan_spec(
+        goal,
+        (anchor, *reads),
+        tuple(node.node_id for node in reads),
+        ctx,
+        subjects=(RESOURCE_OBJECT_TYPE,),
+        output_shape=CAUSE_CONTEXT_SHAPE,
+        # The state reader's declared fields lead the answer table, before its receipt fields.
+        measure_concepts=declared_measures(ctx, CURRENT_STATE_FUNCTION),
+        evidence_requirements=(CAUSE_NOT_ESTABLISHED, requirement),
+    )
+    return OperatorResult(specs=(spec,), limitations=("cause_not_established", limitation))
+
+
+def _stated_window(goal: FormGoal, ctx: CompileContext) -> tuple[int, str, str] | str:
+    """Return the trusted lookback, its limitation, and the notice requirement that states it."""
+
     lookback = history_lookback_seconds(goal, default_seconds=ctx.default_lookback_seconds)
     if isinstance(lookback, str):
-        return OperatorResult(unsupported=(lookback,))
+        return lookback
     seconds, defaulted = lookback
-    result = _anchored_function(
-        goal,
-        ctx,
-        function_name="query.resource_change_activity",
-        arguments={"lookback_seconds": seconds},
-        output_shape=SemanticOutputShape.RESOURCE_LIST,
-    )
-    if defaulted and result.specs:
-        return OperatorResult(
-            specs=result.specs, limitations=(f"default_window_applied:{seconds}",)
-        )
-    # Every applied window is restated; one read from words without digits is the model's.
-    if result.specs:
-        judged = goal.id in ctx.admission.judged_times
-        code = "time_window_model_judged" if judged else "time_window_applied"
-        return OperatorResult(specs=result.specs, limitations=(f"{code}:{seconds}",))
-    return result
+    if defaulted:
+        kind = "default"
+    else:
+        # One window read from words without digits is the model's reading, stated as such.
+        kind = "model_judged" if goal.id in ctx.admission.judged_times else "applied"
+    code = _WINDOW_LIMITATIONS[kind]
+    return seconds, f"{code}:{seconds}", f"window.{kind}.{seconds}"
 
 
 def history_lookback_seconds(
@@ -532,7 +718,8 @@ def _anchored_function(
     *,
     function_name: str,
     arguments: dict[str, Any],
-    output_shape: SemanticOutputShape,
+    output_shape: SemanticOutputShape | str,
+    evidence_requirements: tuple[str, ...] = (),
 ) -> OperatorResult:
     if goal.subject is None:
         return OperatorResult(unsupported=("anchor_missing",))
@@ -563,12 +750,17 @@ def _anchored_function(
                 ctx,
                 subjects=(RESOURCE_OBJECT_TYPE,),
                 output_shape=output_shape,
+                evidence_requirements=evidence_requirements,
             ),
         )
     )
 
 
 __all__ = [
+    "CAUSE_CONTEXT_SHAPE",
+    "CAUSE_NOT_ESTABLISHED",
+    "CHANGE_ACTIVITY_SHAPE",
+    "EVENT_FAMILIES",
     "MAX_COUNT_SIDES",
     "MAX_LOOKBACK_SECONDS",
     "MAX_SIDES_PER_BATCH",

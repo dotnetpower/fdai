@@ -81,6 +81,8 @@ def resolve_question_form(raw: Mapping[str, Any], *, utterance: str) -> FormReso
     for index, mention in enumerate(mentions):
         if isinstance(mention, dict):
             _bind(mention, "span", utterance, failures, notes, f"mentions.{index}.span")
+    if not failures:
+        separate_mentions(mentions, utterance)
     for index, goal in enumerate(goals):
         if not isinstance(goal, dict):
             continue
@@ -109,6 +111,7 @@ def resolve_question_form(raw: Mapping[str, Any], *, utterance: str) -> FormReso
                 quotes[index] = holder["span"]
     if failures:
         return FormResolution(None, tuple(dict.fromkeys(failures)), tuple(notes[:16]))
+    measure_words_to_cue(mentions, goals)
     try:
         return FormResolution(SemanticQuestionForm.model_validate(payload), ())
     except ValidationError as exc:
@@ -116,9 +119,14 @@ def resolve_question_form(raw: Mapping[str, Any], *, utterance: str) -> FormReso
         fields = sorted({_path(error["loc"]) for error in errors})
         # Messages are authored by the contract, never copied from the model's values.
         messages = sorted({f"{_path(error['loc'])}: {error['msg']}" for error in errors})
+        # A whole-form rule names itself as a closed code, so a trace shows which rule failed.
+        rules = sorted({_rule_code(str(error["msg"])) for error in errors if not error["loc"]})
         return FormResolution(
             None,
-            tuple(f"form_contract_invalid:{field}" for field in fields[:8]),
+            (
+                *(f"form_contract_invalid:{field}" for field in fields[:8]),
+                *(f"form_contract_rule:{rule}" for rule in rules[:4] if rule),
+            ),
             tuple(messages[:16]),
         )
 
@@ -134,6 +142,124 @@ def locate_quote(text: str, occurrence: int, utterance: str) -> tuple[int, int] 
         if start < 0:
             return None
     return start, start + len(text)
+
+
+def separate_mentions(mentions: list[Any], utterance: str) -> None:
+    """Move a mention that repeats words off another mention's span, when only one fits.
+
+    One mention grounds one thing, so a quote whose stated occurrence lies inside another
+    mention, as the first 리소스 inside 리소스 그룹 in 리소스 그룹별 리소스 개수, points at words
+    already grounded. When exactly one verbatim occurrence of the same words overlaps no
+    other mention, the quote can only mean that occurrence, so the span moves there. Code
+    compares positions only; a quote with no such occurrence stays and fails admission.
+    """
+
+    spans = [
+        (item["span"]["start"], item["span"]["end"])
+        if isinstance(item, dict) and isinstance(item.get("span"), dict)
+        else None
+        for item in mentions
+    ]
+    for _ in range(len(spans)):
+        moved = False
+        for index, span in enumerate(spans):
+            others = [other for position, other in enumerate(spans) if position != index and other]
+            if span is None or not any(_overlaps(span, other) for other in others):
+                continue
+            text = utterance[span[0] : span[1]]
+            free = [
+                found
+                for occurrence in range(1, MAX_OCCURRENCE + 1)
+                if (found := locate_quote(text, occurrence, utterance)) is not None
+                and not any(_overlaps(found, other) for other in others)
+            ]
+            if len(free) == 1:
+                spans[index] = free[0]
+                mentions[index]["span"] = {"start": free[0][0], "end": free[0][1]}
+                moved = True
+        if not moved:
+            return
+
+
+_MEASURE_VALUE_DOMAINS = frozenset({"state", "health", "metric"})
+
+
+def measure_words_to_cue(mentions: list[Any], goals: list[Any]) -> None:
+    """Quote a mention that only names its goal's measure as that measure's cue.
+
+    A measure mention may restate the goal subject or cite a state, health, or metric
+    value. A concept mention outside those value domains that nothing but one ungrouped
+    measure cites, as 이벤트 for an event measure, is the measure's own name, so its words
+    become the measure cue and the mention is dropped. A named resource or a literal is
+    never moved. Code moves a quote between two fields and reads no word.
+    """
+
+    cited: dict[object, int] = {}
+    for mention in mentions:
+        qualifier = mention.get("qualifier") if isinstance(mention, dict) else None
+        if isinstance(qualifier, dict):
+            cited[qualifier.get("mention")] = cited.get(qualifier.get("mention"), 0) + 1
+    for goal in goals:
+        if not isinstance(goal, dict):
+            continue
+        refs = [goal.get("subject")]
+        refs.extend(
+            item.get("mention") for item in goal.get("filters") or () if isinstance(item, dict)
+        )
+        relation = goal.get("relation")
+        if isinstance(relation, dict):
+            refs.extend((relation.get("anchor"), relation.get("counterpart")))
+        measure = goal.get("measure")
+        if isinstance(measure, dict):
+            refs.append(measure.get("mention"))
+        for ref in refs:
+            cited[ref] = cited.get(ref, 0) + 1
+    dropped: set[object] = set()
+    for goal in goals:
+        measure = goal.get("measure") if isinstance(goal, dict) else None
+        # A grouping's mention may name the kind grouped by, so only an ungrouped measure moves.
+        if not isinstance(measure, dict) or measure.get("group_by", "none") != "none":
+            continue
+        mention_id = measure.get("mention")
+        mention = next(
+            (item for item in mentions if isinstance(item, dict) and item.get("id") == mention_id),
+            None,
+        )
+        cue = measure.get("cue")
+        # An existing cue keeps its words; it absorbs the mention only when it holds its span.
+        if cue is not None and not (mention is not None and _holds(cue, mention.get("span"))):
+            continue
+        if (
+            mention is None
+            or mention_id == goal.get("subject")
+            or cited.get(mention_id) != 1
+            or mention.get("qualifier") is not None
+            # Only a general word names a measure; a named resource or a literal stays a mention,
+            # and a state, health, or metric value is a restriction, never a measure's name.
+            or mention.get("form") != "concept"
+            or mention.get("domain") in _MEASURE_VALUE_DOMAINS
+        ):
+            continue
+        measure["cue"] = cue if cue is not None else mention.get("span")
+        measure["mention"] = None
+        dropped.add(mention_id)
+    if dropped:
+        mentions[:] = [
+            item for item in mentions if not (isinstance(item, dict) and item.get("id") in dropped)
+        ]
+
+
+def _holds(outer: object, inner: object) -> bool:
+    return (
+        isinstance(outer, dict)
+        and isinstance(inner, dict)
+        and outer.get("start", 1) <= inner.get("start", 0)
+        and inner.get("end", 1) <= outer.get("end", 0)
+    )
+
+
+def _overlaps(first: tuple[int, int], second: tuple[int, int]) -> bool:
+    return first[0] < second[1] and second[0] < first[1]
 
 
 def _bind(
@@ -167,6 +293,14 @@ def _bind(
     container[key] = {"start": span[0], "end": span[1]}
 
 
+def _rule_code(message: str) -> str:
+    """Return a contract-authored validator message as one closed snake_case code."""
+
+    text = message.removeprefix("Value error, ").casefold()
+    words = "".join(char if char.isascii() and char.isalnum() else " " for char in text).split()
+    return "_".join(words)[:60].rstrip("_")
+
+
 def _path(location: tuple[int | str, ...]) -> str:
     return ".".join(str(part) for part in location) or "form"
 
@@ -177,6 +311,8 @@ __all__ = [
     "FormInputHeldError",
     "FormResolution",
     "locate_quote",
+    "measure_words_to_cue",
     "question_form_proposal_schema",
     "resolve_question_form",
+    "separate_mentions",
 ]

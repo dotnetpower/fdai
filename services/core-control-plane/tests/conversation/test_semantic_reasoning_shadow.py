@@ -90,12 +90,15 @@ class _Model:
         extraction: dict[str, Any] | None = None,
         second_picks: dict[str, list[str]] | None = None,
         direction: str | None = "agree",
+        tiebreak: str | None = "agree",
     ) -> None:
         self.forms = forms
         self.picks = picks
         self.second_picks = picks if second_picks is None else second_picks
         self.extraction = extraction
         self.direction = direction
+        self.tiebreak = tiebreak
+        self.tiebreak_calls: list[Any] = []
         self.direction_calls: list[Any] = []
         self.form_calls: list[dict[str, Any]] = []
         self.review_calls: list[dict[str, Any]] = []
@@ -114,16 +117,22 @@ class _Model:
         self.form_calls.append(kwargs)
         return self.forms.pop(0) if self.forms else None
 
-    async def check_direction(self, *, question: Any, **kwargs: Any) -> dict[str, Any] | None:
-        """Agree with the form's role by default; a test may disagree or stay unclear."""
+    async def check_direction(
+        self, *, question: Any, tiebreak: bool = False, **kwargs: Any
+    ) -> dict[str, Any] | None:
+        """Agree with the form's role by default; a test may disagree or stay unclear.
 
-        self.direction_calls.append(question)
-        if self.direction is None:
+        A tie-break call answers as ``tiebreak`` says, relative to the stated role.
+        """
+
+        (self.tiebreak_calls if tiebreak else self.direction_calls).append(question)
+        behaviour = self.tiebreak if tiebreak else self.direction
+        if behaviour is None:
             return None
-        if self.direction == "unclear":
+        if behaviour == "unclear":
             return {"reading": "unclear"}
         agrees = question.first is question.stated
-        if self.direction == "disagree":
+        if behaviour == "disagree":
             agrees = not agrees
         return {"reading": "first" if agrees else "second"}
 
@@ -651,21 +660,57 @@ async def test_cancelling_the_shadow_never_leaves_the_extraction_running() -> No
 
 
 @pytest.mark.parametrize(
-    ("direction", "reason"),
+    ("direction", "tiebreak", "reason"),
     (
-        ("disagree", "review_direction_differs:g1"),
-        ("unclear", "review_direction_unclear:g1"),
-        (None, "review_direction_unavailable:g1"),
+        ("disagree", "unclear", "review_direction_differs:g1"),
+        ("disagree", None, "review_direction_differs:g1"),
+        ("unclear", "agree", "review_direction_unclear:g1"),
+        (None, "agree", "review_direction_unavailable:g1"),
     ),
 )
-async def test_a_relation_direction_the_blind_reader_does_not_confirm_is_held(
-    direction: str | None, reason: str
+async def test_a_relation_direction_no_two_readers_agree_on_is_held(
+    direction: str | None, tiebreak: str | None, reason: str
 ) -> None:
     vms = {"m2": ["value:compute.vm", "group:compute.vm"]}
-    observation = await _run(_Model([_quoted_form()], vms, direction=direction))
+    model = _Model([_quoted_form()], vms, direction=direction, tiebreak=tiebreak)
+    observation = await _run(model)
 
-    assert observation.review == "unfaithful" and observation.released is False
-    assert observation.review_reasons == (reason,)
+    (only_pass,) = observation.passes
+    assert only_pass.disposition == "direction_held" and observation.released is False
+    assert only_pass.reasons == (reason,)
+    # Only a clear dispute asks the tie-break reader.
+    assert len(model.tiebreak_calls) == (1 if direction == "disagree" else 0)
+
+
+async def test_two_blind_readers_that_outvote_the_proposer_swap_the_relation_roles() -> None:
+    vms = {"m2": ["value:compute.vm", "group:compute.vm"]}
+    model = _Model([_quoted_form()], vms, direction="disagree", tiebreak="disagree")
+
+    observation = await _run(model)
+
+    (only_pass,) = observation.passes
+    assert only_pass.disposition == "admitted" and only_pass.direction_swaps == ("g1",)
+    assert "roles:g1:dependent:dependency" in only_pass.shape
+    assert observation.summary()["passes"][0]["direction_swaps"] == ["g1"]
+    assert observation.model_calls == (
+        1
+        + len(model.shards)
+        + len(model.review_calls)
+        + len(model.direction_calls)
+        + len(model.tiebreak_calls)
+    )
+
+
+async def test_a_tiebreak_that_sides_with_the_proposer_keeps_the_form() -> None:
+    vms = {"m2": ["value:compute.vm", "group:compute.vm"]}
+    model = _Model([_quoted_form()], vms, direction="disagree", tiebreak="agree")
+
+    observation = await _run(model)
+
+    (only_pass,) = observation.passes
+    assert only_pass.disposition == "admitted" and only_pass.direction_swaps == ()
+    assert "roles:g1:dependency:dependent" in only_pass.shape
+    assert len(model.tiebreak_calls) == 1
 
 
 async def test_the_direction_reader_sees_both_roles_in_declared_order_never_the_choice() -> None:
@@ -682,3 +727,43 @@ async def test_the_direction_reader_sees_both_roles_in_declared_order_never_the_
         "second": "dependency",
     }
     assert "stated" not in payload and question.stated.value == "dependency"
+
+
+class _SequencedExtraction(_Model):
+    """Answer each extraction call with the next configured extraction."""
+
+    def __init__(self, extractions: list[dict[str, Any]], *args: Any, **kwargs: Any) -> None:
+        super().__init__(*args, **kwargs)
+        self.extractions = extractions
+
+    async def extract_constraints(self, **kwargs: Any) -> dict[str, Any] | None:
+        self.review_calls.append(kwargs)
+        return self.extractions.pop(0) if self.extractions else None
+
+
+async def test_an_unusable_extraction_is_read_once_more_by_the_same_extractor() -> None:
+    unlocated = {
+        "constraints": [{"quote": {"text": "absent words", "occurrence": 1}, "role": "names"}]
+    }
+    usable = {"constraints": [{"quote": {"text": "How many", "occurrence": 1}, "role": "asks"}]}
+    vms = {"m2": ["value:compute.vm", "group:compute.vm"]}
+    model = _SequencedExtraction([unlocated, usable], [_quoted_form()], vms)
+
+    observation = await _run(model)
+
+    assert len(model.review_calls) == 2
+    assert "review_reextracted" in observation.notes
+    assert observation.review == "faithful" and observation.released is True
+
+
+async def test_a_second_unusable_extraction_still_releases_nothing() -> None:
+    unlocated = {
+        "constraints": [{"quote": {"text": "absent words", "occurrence": 1}, "role": "names"}]
+    }
+    vms = {"m2": ["value:compute.vm", "group:compute.vm"]}
+    model = _SequencedExtraction([unlocated, unlocated], [_quoted_form()], vms)
+
+    observation = await _run(model)
+
+    assert len(model.review_calls) == 2
+    assert observation.review == "invalid" and observation.released is False

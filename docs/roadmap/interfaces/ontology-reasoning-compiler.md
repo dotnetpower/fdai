@@ -118,8 +118,10 @@ The model states only that `aks-prod-01` is the dependency and the results are i
 
 Bragi admits a form only when every span matches the utterance without cutting through a longer identifier, every goal meets the confidence floor, no
 alternative survives, both relation roles are the ends of one sense, every declared mention is used, no two mentions share words, no group is both a
-goal's scope and its relation anchor unless the relation is a transitive containment from that group to its members, which only restates the scope's
-whole membership, every qualifier places one named instance inside another named instance, and the level fits every mention domain. A kind, a
+goal's scope and its relation anchor unless the relation is a containment from that group to its members, which only restates the scope's whole
+membership and is read as that membership, every qualifier places one named instance inside another named instance, and the level fits every
+mention domain. A relation anchored on the named subject of a lookup, history, or cause goal only restates that subject, as in the operations
+in aks-app, and a stated failure state of an impact goal only restates its premise; neither is an unread atom. A kind, a
 state, or a container of the results stated as a qualifier is a structural fault with one repair that restates it as a filter or as the goal's
 relation, unless the qualifier sits on a goal subject and names one of that goal's own filters, as in running VMs with a running filter; the
 filter reads it, so the qualifier restates it and drops nothing. Otherwise it returns one clarification or sends a low-confidence field to one independent T2 review of closed fields. An admitted atom
@@ -308,9 +310,10 @@ self-composable, depth at most five.
   effective, event, and recorded time distinct, and uses a version-pinned default for `unspecified`.
 - **Plan batches**: Goals beyond one plan's 32 nodes or 8 outputs compile into ordered plan batches
   under one turn budget; remaining batches continue as a bounded continuation of verified segments.
-- **Unsupported atoms**: A `region` filter compiles only after a declared `Resource.location`
-  property exists, and a `diagnose` goal without an applicable recipe never reuses another type's
-  recipe. Both return a typed unsupported atom instead of a name predicate or a substitute.
+- **Unsupported atoms**: A `region` filter compiles to a `Resource.location` predicate only when two
+  blind choosers ground its mention to the same codes of the reviewed region vocabulary, and a
+  `diagnose` goal without an applicable recipe never reuses another type's recipe. An unbound region
+  and a missing recipe return a typed reason instead of a name predicate or a substitute.
 - **Schema reads**: A schema relation is answered only by the one-hop `query.ontology_relationships`
   read of the subject ObjectType's own LinkTypes in both directions, and a manifest count groups only
   by declaration kind. A LinkType subject scoped to one ObjectType, as in the LinkTypes in Workload,
@@ -528,6 +531,198 @@ counts; a data outcome, such as an incomplete anchor read, says nothing about th
 pass, released or not, also holds such a plan when it asks more than one filtered Resource list answers: a state,
 region, grouping, relation other than a named container's members, time, schema level, second goal, or competing
 reading. The form's first shape token records that verdict.
+
+## Typed-only answers and causal context
+
+This section records the 2026-09-30 audit of lexical meaning on the answer path and the next stage it
+proposes. The stage changes behavior only in the local development profile.
+
+### Lexical meaning audit
+
+Five groups of runtime code on the current judgment path still derive meaning from the operator's words.
+
+| Group | Examples | Meaning derived from words |
+|-------|----------|----------------------------|
+| Keyword signal tables | `query_signal_matches`, `query_target_cardinality`, and `query_term_spans` over the inventory query language catalog | Collection or single-item requests, counts, mutations, relationships, locations, activity, and causal diagnosis |
+| Stated-value matching | `stated_value_filters`, `stated_value_term_spans`, and `stated_subject_fragment` | Resource types, names, and property values found as words in the utterance |
+| Recovery fallbacks | Stated resource filter, current-state, and target-candidate recoveries | A filtered list or state lookup built from those matches when the judgment or frame is incomplete |
+| Investigation and time normalization | Slowness, CPU, MySQL, network, and application hypothesis normalizers; activity and service-health normalizers | Causal hypotheses, symptoms, negation, and lookback windows |
+| Clarification builders | Resource-target and filter-meaning clarifications | Ambiguity decided from word overlap |
+
+No answer template states an operational fact. Answers render verified evidence tables and reviewed
+catalog notices. The model-authored answer and V-CLAIM remain round R8 work.
+
+### Typed-only answering
+
+In the local profile, `FDAI_SEMANTIC_TYPED_ONLY=1` makes the question-form path the only way an
+operational read can answer. The flag requires compiled answers and the local execution venue, and the
+composition refuses to start when either is missing. The planner keeps its current order: the
+preflight, the judgment and its coverage review, verified denials, action-draft boundaries, and
+deterministic clarifications run first, then the judgment's own clarification, then the form path.
+None of those earlier stages answers a read. The only change is what happens after the form path:
+
+1. A released compilation that the selection rules accept answers the turn.
+2. Otherwise the form path's tagged decision ends the turn with a typed outcome. The turn never reaches
+   the legacy frame and plan cascade, its keyword signals, stated-value matching, recoveries, or the
+   frame model.
+
+| Decision | Planner outcome | Meaning |
+|----------|-----------------|---------|
+| `unsupported` | unsupported, `semantic_stated_constraint_unsupported` | A released reading states an atom no reviewed builder reads |
+| `clarification` | held, `semantic_reading_ambiguous` | The reading has competing readings, an unused mention, or a constraint no field expresses |
+| `continuation` | held, `semantic_reading_continuation_required` | The reading needs another pass or more plans than one answer holds |
+| `limited` | held, `semantic_reading_limited` | A goal carries a limitation that no reviewed notice can state |
+| `unverified` | held, `semantic_reading_unverified` | The form was invalid, or the blind review found it unfaithful |
+| `unavailable` | held, `semantic_reading_unavailable` | The path timed out, failed, never started for this turn, or a goal could not bind its data, such as an incomplete anchor read |
+
+A turn for which the form path never started, such as a bound-resource or document-evidence read,
+also ends as `unavailable` instead of falling through to the legacy path. Direct social responses,
+one-shot general knowledge, adaptive knowledge answers, and action drafts keep their paths. A
+misclassified operational question on those paths remains a known gap that R9 promotion measures.
+With the flag off, the planner behaves exactly as before. Deployed venues keep the current path until
+each family is promoted in R9, and R10 deletes the lexical helpers of promoted families only after a
+rollback release.
+
+When the first reading fails only as a form, because it was invalid, clarified by an unused mention or a
+competing reading, not faithful to the blind review, or mislabeled one mention's kind, the path reads the
+question once more. The second sample passes the same admission, grounding, review, and selection
+rules and never lowers the bar; a reading with an unsupported atom is never resampled, and no turn takes
+more than two samples.
+
+A selected compilation may carry only reviewed limitations that the answer states as catalog notices:
+the applied, default, or model-judged history window, a cause that is not established, and an impact
+that is possible rather than observed. The compiler
+records each as a frame evidence requirement, so the frame, plan digest, and rendered notice agree. Any
+other limitation keeps the compilation from answering.
+
+### Causal context
+
+A question such as why aks-app is stopped is a `cause` want about one named Resource. Admission
+accepts it only as an `explain_cause` goal with `want: cause` over one anchor, with an optional state
+measure and time window; any other combination of the operation and the want is a structural fault
+with one repair.
+
+The current-state reader reports when a state was observed, not when it changed, and local
+state-transition coverage is often missing. Timing alone therefore cannot even support an
+`association` grade here. Until transition coverage, a mechanism catalog, and refutation queries
+exist, the compiler answers such a goal as causal context, never as candidate causes. The plan reads
+the anchor's current state through `query.resource_current_state` and the control-plane operations
+recorded on the anchor within the stated or default window through `query.resource_change_activity`,
+each row with its recorded status. The frame uses the compiler-only `cause_context` output shape,
+which the frame model's schema never offers, so the legacy frame path cannot propose it.
+
+The answer leads with the reviewed notice that the cause is not established and restates the window.
+It shows both verified tables with their completeness, names no operation as a cause, and assigns no
+evidence grade. An incomplete read, such as an activity read that reached its row bound, stays marked
+incomplete. A history goal uses the compiler-only `change_activity` shape the same way, so its
+operations are never shown as a Resource list. State-transition change points, paging the full window
+with a pinned continuation, dependency-neighbourhood context, mechanism fit, refutation checks,
+evidence grades, and model-authored cause claims gated by V-CLAIM remain R7 and R8 work. No new
+FunctionType is added, so the ontology release does not change.
+
+| Critique finding | Revision |
+|------------------|----------|
+| Temporal precedence to a state observation is not association | Causal context only; no candidates and no evidence grade |
+| Activity records include failed and read-only events | Each row keeps its recorded status; none is ranked |
+| No `no_known_cause` baseline | The answer leads with "cause not established" |
+| Bounded activity reads drop rows | Incomplete tables stay incomplete; full paging is remaining work |
+| Typed-only fails open for turns without a ticket | Such a turn ends `unavailable` |
+| Moving compilation before pre-frame guards skips safety checks | The order is unchanged; only the post-decision fallthrough changes |
+| Decline codes too coarse | Tagged decisions with a typed outcome each |
+| History and cause goals always carry limitations | Reviewed limitations become frame evidence requirements with notices |
+| A new FunctionType changes the global release | No new FunctionType |
+| Two encodings of a cause question | One canonical `explain_cause` with `want: cause` |
+
+### Reading reliability and incomplete coverage
+
+Typed-only probe rounds T4 to T11 on 28 to 30 live Console questions answered 19 to 21 each. The
+remaining holds came from three families: readings that failed only as forms, reads the compiler did
+not bind, and inventory states that made every anchored read incomplete. This stage addresses each
+family; code still reads no meaning from words.
+
+**Readings**
+
+- **Direction majority**: The proposer states both relation roles, and one blind reader of another
+  model family answers which role the named anchor plays. When that reading is clear and differs, a
+  third blind reader answers the same closed question. The third reader belongs to neither the first
+  reader's family nor the proposer's, because the proposer's role is already one vote; without such a
+  family, the dispute holds. Two agreeing concrete readings decide. Either the form stands, or its two roles swap to
+  the readers' reading and the form is admitted again. A mutual, unclear, or missing third reading
+  holds the turn. Settlement runs before compilation, so a swapped reading is compiled, reviewed, and
+  verified like any other.
+- **Quote occurrence**: A mention whose stated occurrence lies inside another mention moves to the
+  only occurrence of the same words that no other mention holds. When no such occurrence exists,
+  admission rejects the overlap.
+- **Measure words**: A concept mention that only names an ungrouped measure, such as the word for
+  events, and that nothing else cites becomes that measure's cue. A named resource, a literal, and a
+  state, health, or metric value always stay mentions. Code moves a quote between two fields of the
+  form and reads no word.
+- **Aligned contracts**: The form contract defines each measure kind, and the extraction contract
+  lists events and operations among measures, so the two blind readers classify the same words the
+  same way. A thing the extractor finds named still needs a mention. A count measure may restate the
+  type filter of a goal that has no subject.
+- **Bounded retries**: An unusable extraction, such as one quoting words the question lacks, is read
+  once more by the same extractor under the same review rules. A reading whose only fault is a
+  concept that no reviewed value matches is resampled like other mislabels.
+- **No word-matching gate**: In typed-only mode, the pre-frame gate that finds a catalog value among
+  the utterance's words no longer holds a read, so only a typed reading decides what a read question
+  states. A broken whole-form rule is named as a closed `form_contract_rule` code in the trace.
+
+**Reads**
+
+- **Collection history**: "What changed" over Resources in general, or with no subject stated, reads
+  `query.recent_resource_changes` over the typed window, bounded by the reader's declared row
+  maximum, and renders as `resource_changes`. A stated kind is unsupported because that reader cannot
+  restrict it. A window with more changed Resources than the bound, or with unverified change
+  coverage, stays incomplete.
+- **Event history**: An anchored history with an `event` measure reads `query.resource_event_history`
+  for every reviewed event family within the reader's declared lookback maximum. A longer window is
+  unsupported.
+- **Verification**: V-SEM derives the one read each history goal requires: collection changes,
+  events, or activity. V-PROV requires the collection read's absolute window to end at the trusted
+  compile clock, to span the expected lookback, and to use the declared row bound.
+- **Declared bounds**: Builders read row and lookback bounds from the FunctionType input schema
+  instead of keeping their own copies.
+- **Union fan-in**: Every union reads at most seven dependencies, the most one Console intent goal
+  can show, and a wider fan-in becomes parts that are united again. A relation count reads at most
+  eleven sides, so its union tree and aggregate still fit one intent graph, and a plan whose intent
+  graph the Console cannot show holds before it answers.
+- **Answer tables**: A causal context table leads with the state reader's declared measure fields,
+  such as the running status, before receipt fields.
+
+**Incomplete coverage**
+
+- **Scoped exact reads**: The inventory marks every Resource read incomplete while any observation
+  is unprojected, such as a provider-managed load balancer that is written every few minutes. An
+  exact-id object read without relationships now counts only the pending observations of the
+  requested ids, including a pending creation of one of them. Every other gap stays global.
+- **Unproven uniqueness**: Under incomplete coverage, one verified name match binds with its
+  uniqueness unproven. The answer is partial and states the reviewed notice that another resource with
+  the same name may not be reflected yet. No match never proves absence, and a truncated read never
+  binds. The
+  exact-case name read is pushed to the store, so it still returns its match when the
+  case-insensitive scan returns nothing under incomplete coverage.
+- **Typed reasons**: An anchor that stays unbound reports `candidate_limit`, `source_incomplete`,
+  `generation_changed`, or `extensions_unread`.
+
+**Diagnostics**
+
+- dev discuss keeps the closed code prefix of a server reason that ends in a span, and the local
+  prompt-source check writes its diagnostics to standard error, so an input digest on standard output
+  stays parseable.
+
+The design critique of this stage raised eight findings, five High and three Medium.
+
+| Critique finding | Revision |
+|------------------|----------|
+| A mutual or unclear third direction reading counted for the proposer | Only a concrete role joins a side; any other third reading holds |
+| The tie-break could reuse the proposer's model family | The tie-break family is neither the first reader's nor the proposer's; without one, the dispute holds |
+| Moving a measure mention to its cue could erase a named resource | Only a concept mention moves; a thing named in a measure cue still needs a mention |
+| Reading a scope written as a value as a name could change its meaning | Removed; an anchor written as a value is resampled as a mislabel |
+| A released reading overrode a real ambiguity the judgment found | Removed; the judgment's clarification still wins until a closed ambiguity reader exists |
+| An absolute history window was not tied to trusted time | V-PROV requires the window to end at the compile clock |
+| Twelve counted sides exceeded one intent graph once unions became a tree | Eleven sides at most, and the node budget is checked after the tree is built |
+| An answer read from an anchor with unproven uniqueness was labeled verified | Such an answer is partial |
 
 ## Approved decisions
 

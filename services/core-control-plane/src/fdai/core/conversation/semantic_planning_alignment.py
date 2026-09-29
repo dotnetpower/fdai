@@ -176,6 +176,9 @@ def _function_matches_output_shape(
     expected = _SPECIALIZED_FUNCTION_OUTPUT_SHAPES[function_name]
     if output_shape == expected:
         return True
+    # Compiled causal context shows the current state beside the operations recorded before it.
+    if output_shape == "cause_context" and function_name == "query.resource_current_state":
+        return True
     return output_shape == "resource_condition_sections" and function_name in {
         "query.resource_health_inventory",
         "query.resource_state_inventory",

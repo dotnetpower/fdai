@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import replace
 from datetime import timedelta
 from typing import Any
 
@@ -95,6 +96,11 @@ async def test_an_absent_anchor_clarifies_instead_of_reading_text() -> None:
             AnchorBinding("m1", AnchorOutcome.INCOMPLETE),
             GoalStatus.UNSUPPORTED,
             "anchor_resolution_incomplete",
+        ),
+        (
+            AnchorBinding("m1", AnchorOutcome.INCOMPLETE, reason="generation_changed"),
+            GoalStatus.UNSUPPORTED,
+            "anchor_resolution_incomplete:generation_changed",
         ),
         (
             AnchorBinding("m1", AnchorOutcome.UNAVAILABLE),
@@ -236,8 +242,12 @@ async def test_a_differently_cased_name_binds_the_same_object() -> None:
 class _Spy:
     """Record every read and answer the name read with the given objects."""
 
-    def __init__(self, names: tuple[str, ...]) -> None:
+    def __init__(
+        self, names: tuple[str, ...], *, source_complete: bool = True, truncated: bool = False
+    ) -> None:
         self.names = names
+        self.source_complete = source_complete
+        self.truncated = truncated
         self.definitions: list[Any] = []
 
     async def materialize(self, definition: Any, *, projection_request: Any) -> Any:
@@ -251,7 +261,12 @@ class _Spy:
             else []
         )
         return SimpleNamespace(
-            receipt=SimpleNamespace(complete=True, source_generation="spy-generation"),
+            receipt=SimpleNamespace(
+                complete=self.source_complete and not self.truncated,
+                source_complete=self.source_complete,
+                truncated=self.truncated,
+                source_generation="spy-generation",
+            ),
             materialization=SimpleNamespace(graph=SimpleNamespace(objects=objects)),
         )
 
@@ -280,6 +295,7 @@ async def test_names_that_differ_only_in_case_are_ambiguous_and_reads_stay_bound
         (item.predicates[0].property, item.predicates[0].operator) for item in spy.definitions
     ] == [
         ("id", ObjectPredicateOperator.EQUALS),
+        ("name", ObjectPredicateOperator.EQUALS),
         ("name", ObjectPredicateOperator.EQUALS_IGNORE_CASE),
     ]
     assert all(item.limit == ANCHOR_CANDIDATE_LIMIT for item in spy.definitions)
@@ -311,4 +327,55 @@ async def test_a_resolver_reads_at_the_gateway_clock_and_names_a_stale_read() ->
     assert (
         AnchorBindingReceipt((unbound,)).digest
         != AnchorBindingReceipt((AnchorBinding("m1", AnchorOutcome.UNAVAILABLE),)).digest
+    )
+
+
+@pytest.mark.parametrize(
+    ("names", "truncated", "outcome", "reason", "proven"),
+    (
+        (("app-1",), False, AnchorOutcome.BOUND, None, False),
+        ((), False, AnchorOutcome.INCOMPLETE, "source_incomplete", True),
+        (("app-1",), True, AnchorOutcome.INCOMPLETE, "candidate_limit", True),
+        (("app-1", "App-1"), False, AnchorOutcome.AMBIGUOUS, None, True),
+    ),
+)
+async def test_incomplete_coverage_binds_one_verified_match_but_never_proves_absence(
+    names: tuple[str, ...],
+    truncated: bool,
+    outcome: AnchorOutcome,
+    reason: str | None,
+    proven: bool,
+) -> None:
+    request = ProjectionRequest(
+        caller_role=CeilingRole.READER, declared_purposes=frozenset({PURPOSE})
+    )
+    spy = _Spy(names, source_complete=False, truncated=truncated)
+    resolver = GatewayAnchorResolver(
+        spy,  # type: ignore[arg-type]
+        projection_request=request,
+        purpose=PURPOSE,
+        as_of=NOW,
+    )
+
+    binding = await resolver.resolve("m1", "app-1")
+
+    assert (binding.outcome, binding.reason, binding.uniqueness_proven) == (outcome, reason, proven)
+    # An unproven uniqueness changes the receipt digest, so a replay can tell it apart.
+    proven_digest = AnchorBindingReceipt((replace(binding, uniqueness_proven=True),)).digest
+    assert (AnchorBindingReceipt((binding,)).digest == proven_digest) == proven
+
+
+def test_a_read_from_an_unproven_anchor_states_its_uniqueness_limitation() -> None:
+    utterance = "Which resources depend on sql-app?"
+    admission = admitted(_form(utterance, "sql-app"), utterance)
+    anchors = AnchorBindingReceipt(
+        (AnchorBinding("m1", AnchorOutcome.BOUND, object_id="object-m1", uniqueness_proven=False),)
+    )
+
+    goal = _compile(admission, utterance, anchors).goals[0]
+
+    assert goal.status is GoalStatus.COMPILED, goal.reasons
+    assert goal.limitations[-1] == "anchor_uniqueness_unproven"
+    assert all(
+        "anchor.uniqueness_unproven" in batch.frame.evidence_requirements for batch in goal.batches
     )

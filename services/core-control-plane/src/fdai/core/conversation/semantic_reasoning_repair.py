@@ -308,6 +308,10 @@ def _explained(code: str, where: str) -> str | None:
             "mention {0} shares words with an earlier mention; each word belongs to at most "
             "one mention, so quote each named thing on its own"
         ),
+        "cause_form_inconsistent": (
+            "goal {0} mixes a cause with another reading; a question about why something happened "
+            "is operation explain_cause with want cause, and any other goal has want fact"
+        ),
         "qualifier_not_instance": (
             "mention {0} has a qualifier, but a qualifier only places one named resource inside "
             "another named resource; state a kind or state of the results as a filter, and what "

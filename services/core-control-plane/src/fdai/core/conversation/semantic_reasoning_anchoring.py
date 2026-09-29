@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from .semantic_reasoning_admission import relation_reach
 from .semantic_reasoning_form import (
     FormGoal,
     FormRelation,
@@ -83,7 +84,7 @@ def anchored_relation(goal: FormGoal, ctx: CompileContext) -> AnchoredRelation |
         position=position,
         sense=relation.sense if relation.scope is RelationScope.ONE_SENSE else None,
         scope=relation.scope,
-        reach=relation.reach,
+        reach=relation_reach(goal),
         subject_types=subject_types,
         endpoint_object_type=endpoint_object_type,
     )

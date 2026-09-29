@@ -145,7 +145,36 @@ def concept_catalogs(
     states = _state_candidates(descriptors)
     if states:
         catalogs[MentionDomain.STATE] = states
+    regions = _region_candidates(descriptors)
+    if regions:
+        catalogs[MentionDomain.REGION] = regions
     return catalogs
+
+
+def _region_candidates(descriptors: Sequence[Mapping[str, Any]]) -> tuple[ConceptCandidate, ...]:
+    """Return every reviewed region code of `Resource.location`, labeled by its name."""
+
+    resource = next(
+        (
+            item
+            for item in descriptors
+            if item.get("kind") == "object" and item.get("name") == _RESOURCE_OBJECT_TYPE
+        ),
+        None,
+    )
+    properties = resource.get("properties") if isinstance(resource, Mapping) else None
+    domain = properties.get("location") if isinstance(properties, Mapping) else None
+    if not isinstance(domain, Mapping) or not isinstance(domain.get("values"), list):
+        return ()
+    names = {
+        str(group["id"]): tuple(str(term) for term in group.get("terms") or ())
+        for group in domain.get("value_groups") or ()
+        if isinstance(group, Mapping) and isinstance(group.get("id"), str)
+    }
+    return tuple(
+        ConceptCandidate(f"region:{value}", (str(value),), (str(value), *names.get(str(value), ())))
+        for value in sorted(str(item) for item in domain["values"])
+    )
 
 
 def _state_candidates(descriptors: Sequence[Mapping[str, Any]]) -> tuple[ConceptCandidate, ...]:

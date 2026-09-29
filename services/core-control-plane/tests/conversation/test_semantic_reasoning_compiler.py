@@ -460,8 +460,8 @@ def test_schema_goal_reads_declarations_and_never_instances() -> None:
             },
             "relation_not_transitive",
         ),
-        ({"want": "cause"}, "want_unsupported:cause"),
-        ({"operation": "explain_cause"}, "operation_unsupported:explain_cause"),
+        # A cause question reads causal context of one anchor; a stated relation is not read yet.
+        ({"operation": "explain_cause", "want": "cause"}, "cause_context_atom_unsupported"),
     ),
 )
 def test_unexpressible_atoms_return_typed_reasons_instead_of_a_substitute(
@@ -545,7 +545,12 @@ def test_dependent_goal_is_blocked_when_its_dependency_fails() -> None:
     form = _relation_form(
         utterance, anchor="sql-app", sense="dependency", position="target", cue="depends on"
     )
-    first = {**form["goals"][0], "operation": "explain_cause", "cue": span(utterance, "Why")}
+    first = {
+        **form["goals"][0],
+        "operation": "explain_cause",
+        "want": "cause",
+        "cue": span(utterance, "Why"),
+    }
     second = {**form["goals"][0], "id": "g2", "depends_on": ["g1"]}
     form["goals"] = [first, second]
 
@@ -699,20 +704,6 @@ def _as_lookup(form: dict[str, Any], **updates: Any) -> None:
         (
             lambda form: _as_lookup(form, measure={"kind": "state", "group_by": "type"}),
             "group_by_unsupported_for_operation:lookup",
-        ),
-        (
-            lambda form: _as_lookup(
-                form,
-                measure={"kind": "state"},
-                relation={
-                    "sense": "containment",
-                    "anchor": "m1",
-                    "anchor_role": "container",
-                    "result_role": "member",
-                    "cue": span("How many VMs are in rg-app?", "are in"),
-                },
-            ),
-            "relation_unsupported_for_operation:lookup",
         ),
     ),
 )
@@ -1633,3 +1624,468 @@ def test_a_count_grouped_by_container_groups_members_by_their_direct_parent() ->
     (batch,) = goal.batches
     aggregate = batch.plan.nodes[-1]
     assert aggregate.arguments == {"operation": "count", "group_by": ["properties.parent_id"]}
+
+
+def _cause_form(utterance: str, *, measure: str | None = "state", **goal: Any) -> dict[str, Any]:
+    body: dict[str, Any] = {
+        "id": "g1",
+        "level": "instance",
+        "operation": "explain_cause",
+        "want": "cause",
+        "subject": "m1",
+        "subject_scope": "anchor",
+        "cue": span(utterance, "Why"),
+        "confidence": 0.9,
+    }
+    if measure is not None:
+        body["measure"] = {"kind": measure}
+    body.update(goal)
+    return {"mentions": [_anchor(utterance, "vm-app-01")], "goals": [body]}
+
+
+def test_a_why_question_compiles_to_causal_context_that_names_no_cause() -> None:
+    utterance = "Why is vm-app-01 stopped?"
+
+    goal = _compile(utterance, _cause_form(utterance)).goals[0]
+
+    assert goal.status is GoalStatus.COMPILED, goal.reasons
+    (batch,) = goal.batches
+    functions = [
+        node.arguments["function_name"]
+        for node in batch.plan.nodes
+        if node.kind.value == "function"
+    ]
+    # The effect as observed now and the operations recorded before it, nothing ranked.
+    assert functions == ["query.resource_current_state", "query.resource_change_activity"]
+    assert len(batch.plan.output_node_ids) == 2
+    assert batch.frame.output_shape == "cause_context"
+    assert batch.frame.evidence_requirements == ("cause.not_established", "window.default.86400")
+    assert goal.limitations == ("cause_not_established", "default_window_applied:86400")
+
+
+def test_a_stated_window_bounds_the_causal_context_and_is_restated() -> None:
+    utterance = "Why did vm-app-01 change in the last 3 days?"
+    window = {
+        "kind": "window",
+        "value": {"duration": {"amount": 3, "unit": "day"}},
+        "cue": span(utterance, "last 3 days"),
+    }
+
+    goal = _compile(utterance, _cause_form(utterance, measure="change", time=window)).goals[0]
+
+    (batch,) = goal.batches
+    activity = batch.plan.nodes[-1].arguments
+    assert activity["arguments"] == {"lookback_seconds": 259_200}
+    assert "window.applied.259200" in batch.frame.evidence_requirements
+
+
+def test_a_cause_is_read_only_in_its_canonical_form() -> None:
+    utterance = "Why is vm-app-01 stopped?"
+    fact = _cause_form(utterance, want="fact")
+    history = _cause_form(utterance, operation="history", measure="change")
+
+    # A why question has one reading, so no other goal can drop its cause atom silently.
+    assert "cause_form_inconsistent:g1" in admitted(fact, utterance).reasons
+    assert "cause_form_inconsistent:g1" in admitted(history, utterance).reasons
+
+
+def test_a_history_goal_reads_activity_as_activity_and_states_its_window() -> None:
+    utterance = "What changed on vm-app-01 in the last 3 days?"
+
+    goal = _compile(utterance, _history_form(utterance, "last 3 days", 3)).goals[0]
+
+    (batch,) = goal.batches
+    assert batch.frame.output_shape == "change_activity"
+    assert batch.frame.evidence_requirements == ("window.applied.259200",)
+
+
+def test_a_relation_on_its_own_named_subject_restates_a_history_read() -> None:
+    utterance = "What changed on vm-app-01 in the last 3 days?"
+    form = _history_form(utterance, "last 3 days", 3)
+    form["goals"][0]["relation"] = {
+        "sense": "containment",
+        "anchor": "m1",
+        "anchor_role": "container",
+        "result_role": "member",
+        "cue": span(utterance, "on"),
+    }
+    traverse = _relation_form(
+        "What depends on sql-app?",
+        anchor="sql-app",
+        sense="dependency",
+        position="target",
+        cue="depends on",
+    )
+    traverse["goals"][0]["subject"] = "m1"
+
+    history = _compile(utterance, form).goals[0]
+    traversal = _compile("What depends on sql-app?", traverse).goals[0]
+
+    # The operations in vm-app-01 are its own history; nothing more is related.
+    assert history.status is GoalStatus.COMPILED, history.reasons
+    # A traversal from a named subject that is also its anchor stays an ordinary read.
+    assert traversal.status is GoalStatus.COMPILED, traversal.reasons
+
+
+def test_one_membership_stated_as_scope_and_containment_is_read_as_the_whole_group() -> None:
+    utterance = "rg-app에 있는 VM 목록"
+    form = {
+        "mentions": [
+            _anchor(utterance, "rg-app"),
+            {
+                "id": "m2",
+                "form": "concept",
+                "domain": "resource_type",
+                "span": span(utterance, "VM"),
+            },
+        ],
+        "goals": [
+            {
+                "id": "g1",
+                "level": "instance",
+                "operation": "select",
+                "subject": "m2",
+                "subject_scope": "collection",
+                "filters": [{"role": "scope", "mention": "m1"}],
+                "relation": {
+                    "sense": "containment",
+                    "anchor": "m1",
+                    "anchor_role": "container",
+                    "result_role": "member",
+                    "cue": span(utterance, "에 있는"),
+                },
+                "cue": span(utterance, "목록"),
+                "confidence": 0.9,
+            }
+        ],
+    }
+
+    goal = _compile(
+        utterance, form, concepts(("m2", MentionDomain.RESOURCE_TYPE, ("compute.vm",)))
+    ).goals[0]
+
+    # The scope states the group's whole membership; the one-hop containment restates it.
+    assert goal.status is GoalStatus.COMPILED, goal.reasons
+    depths = {
+        node.arguments.get("max_depth")
+        for batch in goal.batches
+        for node in batch.plan.nodes
+        if node.kind.value == "relationship_traversal"
+    }
+    assert depths == {5}
+
+
+def test_a_stated_region_filters_by_the_reviewed_location_code() -> None:
+    utterance = "koreacentral 리전에 있는 스토리지 계정"
+    form = {
+        "mentions": [
+            {
+                "id": "m1",
+                "form": "value",
+                "domain": "region",
+                "span": span(utterance, "koreacentral"),
+            },
+            {
+                "id": "m2",
+                "form": "concept",
+                "domain": "resource_type",
+                "span": span(utterance, "스토리지 계정"),
+            },
+        ],
+        "goals": [
+            {
+                "id": "g1",
+                "level": "instance",
+                "operation": "select",
+                "subject": "m2",
+                "subject_scope": "collection",
+                "filters": [
+                    {"role": "region", "mention": "m1", "cue": span(utterance, "리전에 있는")}
+                ],
+                "cue": span(utterance, "스토리지 계정"),
+                "confidence": 0.9,
+            }
+        ],
+    }
+    bound = concepts(
+        ("m1", MentionDomain.REGION, ("koreacentral",)),
+        ("m2", MentionDomain.RESOURCE_TYPE, ("object-storage",)),
+    )
+
+    goal = _compile(utterance, form, bound).goals[0]
+    unbound = _compile(
+        utterance, form, concepts(("m2", MentionDomain.RESOURCE_TYPE, ("object-storage",)))
+    ).goals[0]
+
+    assert goal.status is GoalStatus.COMPILED, goal.reasons
+    predicates = batch_predicates(goal)
+    assert {"property": "location", "operator": "equals", "equals": "koreacentral"} in predicates
+    # A region that no two choosers ground never widens the read to every region.
+    assert unbound.status is not GoalStatus.COMPILED
+
+
+def batch_predicates(goal: Any) -> list[dict[str, Any]]:
+    return [
+        predicate
+        for batch in goal.batches
+        for node in batch.plan.nodes
+        if node.kind.value == "object_set"
+        for predicate in node.arguments["definition"].get("predicates") or ()
+    ]
+
+
+def test_a_stated_failure_premise_of_an_impact_goal_is_read_as_the_impact() -> None:
+    utterance = "What is affected if sql-app fails?"
+    form = {
+        "mentions": [_anchor(utterance, "sql-app")],
+        "goals": [
+            {
+                "id": "g1",
+                "level": "instance",
+                "operation": "impact",
+                "subject": "m1",
+                "subject_scope": "anchor",
+                "measure": {"kind": "state", "cue": span(utterance, "fails")},
+                "cue": span(utterance, "What is affected"),
+                "confidence": 0.9,
+            }
+        ],
+    }
+
+    goal = _compile(utterance, form).goals[0]
+
+    assert goal.status is GoalStatus.COMPILED, goal.reasons
+    assert "possible_impact_not_observed" in goal.limitations
+    # The answer states that the rows are possible impact, never observed impact.
+    assert all(
+        "impact.possible_not_observed" in batch.frame.evidence_requirements
+        for batch in goal.batches
+    )
+
+
+def _collection_history_form(
+    utterance: str, subject: str, cue: str, *, amount: int, unit: str, measure: str = "change"
+) -> dict[str, Any]:
+    return {
+        "mentions": [
+            {
+                "id": "m1",
+                "form": "concept",
+                "domain": "resource_type",
+                "span": span(utterance, subject),
+            }
+        ],
+        "goals": [
+            {
+                "id": "g1",
+                "level": "instance",
+                "operation": "history",
+                "subject": "m1",
+                "subject_scope": "collection",
+                "measure": {"kind": measure},
+                "time": {
+                    "kind": "window",
+                    "value": {"duration": {"amount": amount, "unit": unit}},
+                    "cue": span(utterance, cue),
+                },
+                "cue": span(utterance, "changed"),
+                "confidence": 0.9,
+            }
+        ],
+    }
+
+
+def test_a_collection_history_reads_the_newest_change_of_every_resource_in_the_window() -> None:
+    utterance = "Which resources changed in the last 24 hours?"
+    form = _collection_history_form(utterance, "resources", "last 24 hours", amount=24, unit="hour")
+
+    goal = _compile(utterance, form, concepts(("m1", MentionDomain.RESOURCE_TYPE, ()))).goals[0]
+
+    assert goal.status is GoalStatus.COMPILED, goal.reasons
+    (batch,) = goal.batches
+    (read,) = batch.plan.nodes
+    arguments = read.arguments["arguments"]
+    assert read.arguments["function_name"] == "query.recent_resource_changes"
+    assert arguments["end_at"] == arguments["known_at"] == NOW.isoformat()
+    # The row bound is the reader's declared maximum, never a builder's own copy.
+    assert arguments["limit"] == 20
+    assert batch.frame.output_shape == "resource_changes"
+    assert goal.limitations == ("time_window_applied:86400",)
+    assert "window.applied.86400" in batch.frame.evidence_requirements
+
+
+@pytest.mark.parametrize(
+    ("measure", "values", "reason"),
+    (
+        ("change", ("compute.vm",), "recent_change_kind_unsupported"),
+        ("event", (), "collection_history_unsupported:event"),
+    ),
+)
+def test_a_collection_history_the_reader_cannot_restrict_is_unsupported(
+    measure: str, values: tuple[str, ...], reason: str
+) -> None:
+    utterance = "Which resources changed in the last 24 hours?"
+    form = _collection_history_form(
+        utterance, "resources", "last 24 hours", amount=24, unit="hour", measure=measure
+    )
+
+    goal = _compile(utterance, form, concepts(("m1", MentionDomain.RESOURCE_TYPE, values))).goals[0]
+
+    assert goal.status is GoalStatus.UNSUPPORTED
+    assert goal.reasons == (reason,)
+
+
+def _event_form(utterance: str, cue: str, *, amount: int, unit: str) -> dict[str, Any]:
+    return {
+        "mentions": [_anchor(utterance, "vm-app-01")],
+        "goals": [
+            {
+                "id": "g1",
+                "level": "instance",
+                "operation": "history",
+                "subject": "m1",
+                "subject_scope": "anchor",
+                "measure": {"kind": "event"},
+                "time": {
+                    "kind": "window",
+                    "value": {"duration": {"amount": amount, "unit": unit}},
+                    "cue": span(utterance, cue),
+                },
+                "cue": span(utterance, "events"),
+                "confidence": 0.9,
+            }
+        ],
+    }
+
+
+def test_an_event_history_reads_every_reviewed_event_family_of_the_anchor() -> None:
+    utterance = "What events did vm-app-01 have in the last 3 hours?"
+
+    goal = _compile(utterance, _event_form(utterance, "last 3 hours", amount=3, unit="hour"))
+    (compiled,) = goal.goals
+
+    assert compiled.status is GoalStatus.COMPILED, compiled.reasons
+    (batch,) = compiled.batches
+    read = batch.plan.nodes[-1].arguments
+    assert read["function_name"] == "query.resource_event_history"
+    assert read["arguments"] == {
+        "event_families": ["resource_event.kubernetes", "resource_event.resource_health"],
+        "lookback_seconds": 10_800,
+    }
+    assert batch.frame.output_shape == "resource_event_history"
+
+
+def test_an_event_window_beyond_the_reader_bound_is_unsupported() -> None:
+    utterance = "What events did vm-app-01 have in the last 3 days?"
+
+    goal = _compile(utterance, _event_form(utterance, "last 3 days", amount=3, unit="day"))
+
+    assert goal.goals[0].status is GoalStatus.UNSUPPORTED
+    assert goal.goals[0].reasons == ("event_window_unsupported",)
+
+
+@pytest.mark.parametrize("width", (2, 7, 8, 15, 50))
+def test_a_union_tree_reads_every_member_once_within_one_console_goal_fan_in(width: int) -> None:
+    from fdai.core.conversation.semantic_reasoning_nodes import union_tree
+    from fdai_service_contracts.ontology_query import MAX_INTENT_GOAL_DEPENDENCIES
+
+    members = [f"side-{index}" for index in range(1, width + 1)]
+
+    nodes = union_tree("g1-union", members)
+
+    ids = {node.node_id for node in nodes}
+    assert nodes[-1].node_id == "g1-union" and len(ids) == len(nodes)
+    assert all(2 <= len(node.depends_on) <= MAX_INTENT_GOAL_DEPENDENCIES for node in nodes)
+    read = [item for node in nodes for item in node.depends_on if item not in ids]
+    assert sorted(read) == sorted(members)
+    # A union that already fits keeps its single node and id.
+    assert (len(nodes) == 1) == (width <= MAX_INTENT_GOAL_DEPENDENCIES)
+
+
+def test_what_changed_with_no_kind_stated_reads_resources_in_general() -> None:
+    utterance = "What changed in the last 6 hours?"
+    form = {
+        "mentions": [],
+        "goals": [
+            {
+                "id": "g1",
+                "level": "instance",
+                "operation": "history",
+                "subject_scope": "collection",
+                "measure": {"kind": "change"},
+                "time": {
+                    "kind": "window",
+                    "value": {"duration": {"amount": 6, "unit": "hour"}},
+                    "cue": span(utterance, "last 6 hours"),
+                },
+                "cue": span(utterance, "What changed"),
+                "confidence": 0.9,
+            }
+        ],
+    }
+
+    goal = _compile(utterance, form).goals[0]
+
+    assert goal.status is GoalStatus.COMPILED, goal.reasons
+    (read,) = goal.batches[0].plan.nodes
+    assert read.arguments["function_name"] == "query.recent_resource_changes"
+    assert goal.limitations == ("time_window_applied:21600",)
+
+
+def test_a_count_measure_may_restate_the_type_filter_of_a_goal_without_a_subject() -> None:
+    utterance = "How many virtual machines are there?"
+    form = {
+        "mentions": [
+            {
+                "id": "m1",
+                "form": "concept",
+                "domain": "resource_type",
+                "span": span(utterance, "virtual machines"),
+            }
+        ],
+        "goals": [
+            {
+                "id": "g1",
+                "level": "instance",
+                "operation": "count",
+                "subject_scope": "collection",
+                "filters": [{"role": "type", "mention": "m1"}],
+                "measure": {"kind": "count", "mention": "m1"},
+                "cue": span(utterance, "How many"),
+                "confidence": 0.9,
+            }
+        ],
+    }
+
+    goal = _compile(utterance, form, concepts(("m1", MentionDomain.RESOURCE_TYPE, ("compute.vm",))))
+
+    assert goal.goals[0].status is GoalStatus.COMPILED, goal.goals[0].reasons
+
+
+def test_an_absolute_history_window_must_end_at_the_trusted_compile_clock() -> None:
+    from datetime import timedelta
+
+    from fdai.core.conversation.semantic_reasoning_verification import verify_goal_semantics
+
+    utterance = "Which resources changed in the last 24 hours?"
+    form = _collection_history_form(utterance, "resources", "last 24 hours", amount=24, unit="hour")
+    receipt = concepts(("m1", MentionDomain.RESOURCE_TYPE, ()))
+    admission = admitted(form, utterance)
+    goal = _compile(utterance, form, receipt).goals[0]
+    plans = tuple(batch.plan for batch in goal.batches)
+
+    def violations(evaluation_time: Any) -> tuple[str, ...]:
+        return verify_goal_semantics(
+            admission.form.goals[0],
+            admission=admission,
+            concepts=receipt,
+            descriptors=production_manifest().descriptors,
+            plans=plans,
+            default_lookback_seconds=DEFAULT_LOOKBACK_SECONDS,
+            evaluation_time=evaluation_time,
+        )
+
+    assert violations(NOW) == ()
+    # A window of the right length that ends anywhere else is not the stated recent window.
+    assert violations(NOW + timedelta(days=1)) == ("prov_function_arguments:g1-changes",)
+    assert violations(None) == ("prov_function_arguments:g1-changes",)

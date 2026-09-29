@@ -19,8 +19,14 @@ _LEADING_FIELDS = ("name", "type", "status", "location", "operation", "value", "
 _DETAIL_FIELDS = frozenset({"id", "object_type"})
 
 
-def verified_rows_table(output: Mapping[str, object], *, korean: bool) -> list[str]:
-    """Return markdown table lines for one verified output, or nothing without rows."""
+def verified_rows_table(
+    output: Mapping[str, object], *, korean: bool, leading: tuple[str, ...] = ()
+) -> list[str]:
+    """Return markdown table lines for one verified output, or nothing without rows.
+
+    ``leading`` names the measure fields the frame reads, such as a reader's declared
+    state fields, so the fields that answer the question show before receipt fields.
+    """
 
     rows = output.get("rows")
     values = [
@@ -36,8 +42,11 @@ def verified_rows_table(output: Mapping[str, object], *, korean: bool) -> list[s
             if isinstance(key, str):
                 seen.setdefault(key, None)
     named = "name" in seen
-    columns = [key for key in _LEADING_FIELDS if key in seen] + [
-        key for key in seen if key not in _LEADING_FIELDS and not (named and key in _DETAIL_FIELDS)
+    first = ["name"] if named else []
+    ordered = [*first, *(key for key in (*leading, *_LEADING_FIELDS) if key in seen)]
+    ordered = list(dict.fromkeys(ordered))
+    columns = ordered + [
+        key for key in seen if key not in ordered and not (named and key in _DETAIL_FIELDS)
     ]
     shown_columns = columns[:_MAX_COLUMNS]
     lines = ["", "| " + " | ".join(shown_columns) + " |", "|" + "---|" * len(shown_columns)]
@@ -68,6 +77,84 @@ def verified_rows_table(output: Mapping[str, object], *, korean: bool) -> list[s
             else f"- {hidden_columns} more verified fields are in technical details."
         )
     return lines
+
+
+# Reviewed limitation notices a compiled frame requires its answer to state. They restate the
+# read, never an operational fact, and each maps to one frame evidence requirement.
+_WINDOW_NOTICES = {
+    "applied": ("조회 기간: 질문에서 밝힌 최근 {span}", "Read window: the last {span}, as stated."),
+    "default": (
+        "조회 기간: 기간을 밝히지 않아 적용한 기본값인 최근 {span}",
+        "Read window: no period was stated, so the default, the last {span}, was read.",
+    ),
+    "model_judged": (
+        "조회 기간: 질문의 표현에서 판단한 최근 {span}",
+        "Read window: the last {span}, as judged from the question's wording.",
+    ),
+}
+_CAUSE_NOTICE = (
+    "원인은 확정하지 않았습니다. 아래는 현재 상태와 조회 기간에 기록된 작업이며, "
+    "어느 작업이 원인인지는 판단하지 않았습니다.",
+    "The cause is not established. The tables show the current state and the operations "
+    "recorded in the window; none of them is identified as the cause.",
+)
+
+
+_IMPACT_NOTICE = (
+    "아래는 관측된 영향이 아니라, 의존 관계로 볼 때 영향을 받을 수 있는 리소스입니다.",
+    "The rows below are resources that could be affected through their dependencies, "
+    "not an observed impact.",
+)
+
+
+_UNIQUENESS_NOTICE = (
+    "인벤토리 수집이 완료되지 않은 상태에서 이름으로 찾은 리소스입니다. 같은 이름의 다른 "
+    "리소스가 아직 반영되지 않았을 수 있습니다.",
+    "This resource was matched by name while the inventory was incomplete, so another "
+    "resource with the same name may not be reflected yet.",
+)
+_FIXED_NOTICES = {
+    "cause.not_established": _CAUSE_NOTICE,
+    "impact.possible_not_observed": _IMPACT_NOTICE,
+    "anchor.uniqueness_unproven": _UNIQUENESS_NOTICE,
+}
+
+
+def with_stated_notices(answer: str, requirements: tuple[str, ...], *, locale: str) -> str:
+    """Insert the reviewed notices a compiled frame requires right after the answer heading."""
+
+    korean = locale.casefold().startswith("ko")
+    notices: list[str] = []
+    for requirement in requirements:
+        fixed = _FIXED_NOTICES.get(requirement)
+        if fixed is not None:
+            notices.append(fixed[0] if korean else fixed[1])
+            continue
+        kind, _, seconds = requirement.removeprefix("window.").partition(".")
+        templates = _WINDOW_NOTICES.get(kind) if requirement.startswith("window.") else None
+        if templates is None or not seconds.isdigit():
+            continue
+        text = templates[0] if korean else templates[1]
+        notices.append(text.format(span=_window_span(int(seconds), korean=korean)))
+    if not notices:
+        return answer
+    heading, _, rest = answer.partition("\n")
+    return "\n".join([heading, "", *(f"- {notice}" for notice in notices), rest])
+
+
+def _window_span(seconds: int, *, korean: bool) -> str:
+    for unit_seconds, korean_unit, english_unit in (
+        (604_800, "주", "week"),
+        (86_400, "일", "day"),
+        (3_600, "시간", "hour"),
+        (60, "분", "minute"),
+    ):
+        if seconds % unit_seconds == 0:
+            count = seconds // unit_seconds
+            if korean:
+                return f"{count}{korean_unit}"
+            return f"{count} {english_unit}{'' if count == 1 else 's'}"
+    return f"{seconds}초" if korean else f"{seconds} seconds"
 
 
 def _bounded(cell: str, korean: bool) -> str:

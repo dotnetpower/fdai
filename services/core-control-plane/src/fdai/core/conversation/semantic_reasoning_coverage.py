@@ -80,6 +80,7 @@ _CONCEPT_VALUES = {
     MentionDomain.OBJECT_TYPE: ("Resource",),
     MentionDomain.DECLARATION_KIND: ("object",),
     MentionDomain.STATE: ("resource_state.running",),
+    MentionDomain.REGION: ("koreacentral",),
 }
 
 
@@ -265,9 +266,11 @@ def _cells() -> Iterator[tuple[str, dict[str, Any]]]:
                 _form("history", subject="anchor", measure=history_measure, time=time),
             )
     for operation in _OTHER_OPERATIONS:
+        # A why question is admitted only in its canonical explain_cause and cause-want form.
+        want = "cause" if operation is GoalOperation.EXPLAIN_CAUSE else "fact"
         yield (
             f"instance.{operation.value}",
-            _form(operation.value, subject="anchor", measure="state"),
+            _form(operation.value, subject="anchor", measure="state", want=want),
         )
     for want in ("cause", "verification", "completeness"):
         relation = {

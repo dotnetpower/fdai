@@ -151,7 +151,7 @@ from .semantic_turn_request import (
 from .semantic_turn_request import (
     prior_turns as _prior_turns,
 )
-from .semantic_verified_rows import verified_rows_table
+from .semantic_verified_rows import verified_rows_table, with_stated_notices
 from .semantic_work_progress_projection import applied_context_receipts, work_progress_payload
 
 _LOGGER = logging.getLogger(__name__)
@@ -1450,6 +1450,7 @@ def _project_runtime_result(
             if candidates_found
             or optional_document_evidence_degraded(planning, execution)
             or _execution_output_incomplete(execution)
+            or "anchor.uniqueness_unproven" in evidence_requirements
             else "semantic_answer_verified"
         ),
         semantic_route="verified_query_plan",
@@ -2994,22 +2995,20 @@ def _render_query_answer(
         if outputs != [candidate_output]:
             return None, None
         return render_instance_candidates(request.locale, candidate_output), technical_details
-    answer = (
-        render_incident_answer(request, outputs[0])
-        if projected_incident and len(outputs) == 1
-        else (
-            render_ontology_relationship_answer(request.locale, outputs[0])
-            if projected_relationships and len(outputs) == 1
-            else _render_general_query_answer(
-                request,
-                outputs,
-                output_shape=output_shape,
-                subject_constraints=subject_constraints,
-                measure_concepts=measure_concepts,
-                evidence_requirements=evidence_requirements,
-            )
+    if projected_incident and len(outputs) == 1:
+        answer = render_incident_answer(request, outputs[0])
+    elif projected_relationships and len(outputs) == 1:
+        answer = render_ontology_relationship_answer(request.locale, outputs[0])
+    else:
+        answer = _render_general_query_answer(
+            request,
+            outputs,
+            output_shape=output_shape,
+            subject_constraints=subject_constraints,
+            measure_concepts=measure_concepts,
+            evidence_requirements=evidence_requirements,
         )
-    )
+    answer = with_stated_notices(answer, evidence_requirements, locale=request.locale)
     return (answer, technical_details) if len(answer) <= 64_000 else (None, None)
 
 
@@ -3457,7 +3456,7 @@ def _render_general_query_answer(
                 if korean
                 else f"- Verified {returned} of {total} rows."
             )
-            lines.extend(verified_rows_table(output, korean=korean))
+            lines.extend(verified_rows_table(output, korean=korean, leading=measure_concepts))
     lines.extend(
         [
             "",

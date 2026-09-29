@@ -4,7 +4,9 @@ The model quotes a resource as it was written; it does not know whether that
 text is a name or a provider identifier. Core reads both properties in one
 bounded snapshot, the identifier exactly and the name without regard to case, as
 operators type names in any case, and binds the anchor to the single object found,
-or reports absence, ambiguity, or incompleteness. Two names that differ only in
+or reports absence, ambiguity, or incompleteness. One match under incomplete source
+coverage binds with its uniqueness unproven, which the answer states, because missing
+coverage can hide another object but never the verified one. Two names that differ only in
 case are ambiguous and never bind. A quote that touches other characters of
 its whitespace-delimited token, such as a particle or a parenthesis, may be the
 start or end of a longer name, so every longer exact form within that token is
@@ -42,9 +44,12 @@ ANCHOR_CANDIDATE_LIMIT = 7
 MAX_EXTENSION_CHARS = 16
 _ANCHOR_FORMS = frozenset({MentionForm.IDENTIFIER, MentionForm.NAME})
 _RESOURCE = "Resource"
-# The identifier compares exactly; a name compares without regard to case, pushed to the store.
+# The identifier compares exactly; a name compares without regard to case. The exact-case name
+# read is pushed to the store, so it still returns its verified match while source coverage is
+# incomplete and a case-insensitive scan returns nothing.
 _IDENTITY_READS = (
     ("id", ObjectPredicateOperator.EQUALS),
+    ("name", ObjectPredicateOperator.EQUALS),
     ("name", ObjectPredicateOperator.EQUALS_IGNORE_CASE),
 )
 
@@ -66,6 +71,9 @@ class AnchorBinding:
     source_generation: str | None = None
     # Why a read left the anchor unbound, as a typed code; never read text.
     reason: str | None = None
+    # False when one object matched but incomplete source coverage cannot prove that no
+    # other object carries the same text; the answer then states that limitation.
+    uniqueness_proven: bool = True
 
 
 @dataclass(frozen=True, slots=True)
@@ -88,6 +96,7 @@ class AnchorBindingReceipt:
                     "candidates": list(item.candidates),
                     "source_generation": item.source_generation,
                     "reason": item.reason,
+                    **({} if item.uniqueness_proven else {"uniqueness_proven": False}),
                 }
                 for item in self.bindings
             ]
@@ -201,7 +210,8 @@ class GatewayAnchorResolver:
     ) -> AnchorBinding:
         found: dict[str, None] = {}
         longer: set[str] = set()
-        complete = True
+        source_complete = True
+        truncated = False
         generations: set[str] = set()
         reads = [
             ObjectPredicate(property=property_name, operator=operator, equals=text)
@@ -216,7 +226,9 @@ class GatewayAnchorResolver:
                 )
             except ValueError:
                 # Too many longer forms to read exactly, so the quote's boundary stays unproven.
-                return AnchorBinding(mention_id, AnchorOutcome.INCOMPLETE)
+                return AnchorBinding(
+                    mention_id, AnchorOutcome.INCOMPLETE, reason="extensions_unread"
+                )
         for predicate in reads:
             definition = ObjectSetDefinition(
                 selector=ObjectSelector(kind=ObjectSelectorKind.OBJECT_TYPE, name=_RESOURCE),
@@ -235,7 +247,8 @@ class GatewayAnchorResolver:
             except Exception as exc:  # noqa: BLE001 - any failed read leaves the anchor unbound
                 reason = f"anchor_read_failed:{type(exc).__name__}"
                 return AnchorBinding(mention_id, AnchorOutcome.UNAVAILABLE, reason=reason)
-            complete = complete and secured.receipt.complete
+            source_complete = source_complete and secured.receipt.source_complete
+            truncated = truncated or secured.receipt.truncated
             if secured.receipt.source_generation is not None:
                 generations.add(secured.receipt.source_generation)
             for record in secured.materialization.graph.objects:
@@ -246,14 +259,20 @@ class GatewayAnchorResolver:
         # Sorted identities keep the receipt digest independent of store return order.
         identities = tuple(sorted(found))
         if len(generations) > 1:
-            return AnchorBinding(mention_id, AnchorOutcome.INCOMPLETE)
-        # An incomplete read can hide a second object with the same text, so it never binds.
-        if len(identities) >= ANCHOR_CANDIDATE_LIMIT or not complete:
+            return AnchorBinding(mention_id, AnchorOutcome.INCOMPLETE, reason="generation_changed")
+        # A read cut at its bound can hide a second object with the same text, and missing
+        # source coverage never proves absence, so neither binds nor reports absence.
+        if (
+            truncated
+            or len(identities) >= ANCHOR_CANDIDATE_LIMIT
+            or not (identities or source_complete)
+        ):
             return AnchorBinding(
                 mention_id,
                 AnchorOutcome.INCOMPLETE,
                 candidates=identities[: ANCHOR_CANDIDATE_LIMIT - 1],
                 source_generation=generation,
+                reason="candidate_limit" if identities else "source_incomplete",
             )
         if not identities:
             return AnchorBinding(mention_id, AnchorOutcome.ABSENT, source_generation=generation)
@@ -265,11 +284,14 @@ class GatewayAnchorResolver:
                 candidates=identities,
                 source_generation=generation,
             )
+        # One verified positive match binds; under incomplete coverage its uniqueness is
+        # unproven, which the answer states instead of claiming no other object exists.
         return AnchorBinding(
             mention_id,
             AnchorOutcome.BOUND,
             object_id=identities[0],
             source_generation=generation,
+            uniqueness_proven=source_complete,
         )
 
 

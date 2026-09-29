@@ -739,6 +739,9 @@
       "docs_update": [
         "docs/roadmap/rules-and-detection/independent-operational-evidence.md"
       ],
+      "docs_update_routes": [
+        "semantic-assurance-corpus"
+      ],
       "must_read": [
         ".github/instructions/architecture.instructions.md",
         ".github/instructions/agent-pantheon.instructions.md",
@@ -2636,8 +2639,7 @@
         "docs/roadmap/architecture/operating-ontology.md",
         "docs/roadmap/architecture/operating-ontology-platform.md",
         "docs/roadmap/architecture/continuous-operational-instance-graph.md",
-        "docs/roadmap/interfaces/ontology-reasoning-compiler.md",
-        "docs/roadmap/interfaces/ontology-reasoning-coverage.md"
+        "docs/roadmap/interfaces/ontology-reasoning-compiler.md"
       ],
       "docs_update_routes": [
         "conversation-attachments",
