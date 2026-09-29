@@ -2995,22 +2995,19 @@ def _render_query_answer(
         if outputs != [candidate_output]:
             return None, None
         return render_instance_candidates(request.locale, candidate_output), technical_details
-    answer = (
-        render_incident_answer(request, outputs[0])
-        if projected_incident and len(outputs) == 1
-        else (
-            render_ontology_relationship_answer(request.locale, outputs[0])
-            if projected_relationships and len(outputs) == 1
-            else _render_general_query_answer(
-                request,
-                outputs,
-                output_shape=output_shape,
-                subject_constraints=subject_constraints,
-                measure_concepts=measure_concepts,
-                evidence_requirements=evidence_requirements,
-            )
+    if projected_incident and len(outputs) == 1:
+        answer = render_incident_answer(request, outputs[0])
+    elif projected_relationships and len(outputs) == 1:
+        answer = render_ontology_relationship_answer(request.locale, outputs[0])
+    else:
+        answer = _render_general_query_answer(
+            request,
+            outputs,
+            output_shape=output_shape,
+            subject_constraints=subject_constraints,
+            measure_concepts=measure_concepts,
+            evidence_requirements=evidence_requirements,
         )
-    )
     answer = with_stated_notices(answer, evidence_requirements, locale=request.locale)
     return (answer, technical_details) if len(answer) <= 64_000 else (None, None)
 
