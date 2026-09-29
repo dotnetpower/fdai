@@ -1,8 +1,8 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: 68990c8c74aa420e563024c0659f2c29a680da87
-translation_revised: 2026-09-29
+translation_source_sha: 0a86ec6280f59fe268ca3660ee8bc8ca2cf9c24c
+translation_revised: 2026-09-30
 ---
 # 배포와 온보딩(Deploy and Onboard)
 Azure 구독에 FDAI를 프로비저닝하고 첫 온보딩을 완료해 시스템이 관측 준비되도록 하는 방법. 이 문서는 **구체적 배포 인벤토리, 부트스트랩 순서, 분포/배포 책임 분리**의 정본(source of truth)입니다; 배포 라이프사이클(CI/CD, progressive 전달, 롤백, DR)은 [deployment-ko.md](deployment-ko.md)에 남습니다.
@@ -155,6 +155,9 @@ Protected-plan 삭제 게이트는 broad PostgreSQL Azure-services firewall 경�
 Scheduled driver는 Terraform이 관리합니다. `SCHEDULER_TICK_CRON_EXPRESSION` 및 `ANALYZER_TICK_CRON_EXPRESSION`은 기존 작업을 설정하고, `forecast_tick_cron_expression`과
 `forecast_targets_json`은 예측 작업을 명시적 선택하고 `FDAI_FORECAST_TARGETS_JSON`을 주입합니다.
 예측 작업은 raw 틱만 publish하며 Huginn이 이를 Heimdall 평가 및 종결용으로 정규화합니다.
+`automation_blueprint_cron_expression`은 자동화 청사진 작업을 명시적으로 선택합니다. 이 작업은
+스케줄러 ID와 상태 저장소 비밀을 재사용하며, 각 실행은 inert 후보를 제안하거나 대기 중인 검토
+제안을 적용하기만 합니다.
 각 대상 항목은 `target_kind`를 지정하고 저장소가 관리하는 기간, 신뢰수준, 샘플 하한, 적합도 하한과 일치합니다. Core는 예측 대상을 사용하지 않을 때도 이 정책을 로드하므로 정책이 없거나 형식이 잘못되면 관리되지 않는 대상 경로를 남기지 않고 시작을 차단합니다.
 인벤토리 조정 작업은 코어와 같은 필수 non-secret 런타임 구성을 상속해
 recovery-delta forwarding이 부분 구성 없이 타입이 지정된 Event 버스 발행기를 열게 합니다.

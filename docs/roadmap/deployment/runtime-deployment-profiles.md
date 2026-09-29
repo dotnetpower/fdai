@@ -340,6 +340,10 @@ AKS renderer maps it to typed Kubernetes `Deployment`, `Service`, `ServiceAccoun
 `HorizontalPodAutoscaler`, `PodDisruptionBudget`, `NetworkPolicy`, and `CronJob` resources. The
 first AKS implementation keeps two replicas for each long-running service and does not require
 Knative or KEDA. Console publication uses an exposed browser gateway base URL; otherwise, it retains the existing Container Apps FQDN without changing browser or API routes.
+Optional Core tick Jobs stay off unless their cron variable is set. The automation blueprint Job
+(`automation_blueprint_cron_expression`) follows that rule under every profile, including the
+observation-first default. It reuses the scheduler identity and state-store secret and never
+receives an executor identity.
 
 Both renderers bind Core to the `fdai.operating-model` logical topic through
 `FDAI_OPERATING_MODEL_TOPIC`. The topic shares the existing semantic physical Event Hub and its

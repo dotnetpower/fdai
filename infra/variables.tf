@@ -460,6 +460,12 @@ variable "scheduler_tick_cron_expression" {
   default     = ""
 }
 
+variable "automation_blueprint_cron_expression" {
+  description = "Container Apps Job cadence for the automation blueprint tick. It proposes inert candidates from completed operator turns and applies queued review proposals under the scheduler identity. Empty disables it."
+  type        = string
+  default     = ""
+}
+
 variable "baseline_measurement_enabled" {
   description = "Create the automated baseline regression measurement Job."
   type        = bool
