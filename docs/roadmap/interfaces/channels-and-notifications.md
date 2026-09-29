@@ -103,6 +103,9 @@ equivalence or conversion between the enum families.
   ActionType-free Verdicts, and the control loop stops T1 learned reuse before it builds an Action,
   so no channel carries an approval for them. See the
   [learned and predicted output boundary](../agents/agent-pantheon-implementation.md#learned-and-predicted-output-boundary).
+- **Causal hypotheses create no A1 request.** A projected or closed `CausalHypothesis` revision is
+  evidence for Forseti's judgment only. Neither the runtime's Forseti projection nor its Thor
+  ActionRun receipt resolver sends a channel message or opens an approval request.
 
 ### 3.1 A3 command role gating
 

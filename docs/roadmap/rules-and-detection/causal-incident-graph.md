@@ -261,6 +261,11 @@ measures the effect after Thor executes or Loki's approved experiment runs. Clos
 observed direction, magnitude, affected set, and time window with those predictions.
 The verified intervention execution time must be strictly later than the hypothesis evidence
 cutoff. Equality remains inconclusive because the pre-intervention evidence window is not separated.
+An intervention receipt resolves only against Thor's durable ActionRun named by the closure. That
+run must have declared the hypothesis in `params.causal_hypothesis_ref` before it executed, left
+shadow mode, succeeded, and carry the exact execution-closure or effect-verification receipt. Its
+effect verification time must fall between the intervention execution and the independent
+observation. Any other receipt leaves the closure inconclusive.
 
 - **Confirmed:** Required effects match and prohibited effects do not occur.
 - **Refuted:** A required effect moves in the opposite direction or does not appear with complete
@@ -309,7 +314,9 @@ Implementation can proceed in independently testable slices:
 2. Project existing structured T1 causal chains into immutable hypothesis revisions.
 3. Add support/refutation query contracts and evidence-completeness scoring.
 4. Bind `IncidentMemberSource` and the dependency graph in production composition. Azure deployment
-   history now supplies the T1 change roots, while the broader temporal-series path remains open.
+   history supplies the T1 change roots. When a deployment binds bounded temporal series, the
+   runtime completes the path with Forseti's `CausalHypothesis` projection over its ontology store
+   and the Thor ActionRun receipt resolver unless the deployment supplies its own.
 5. Add independent closure from `ObservedOutcome` and demotion on refutation or unsafe impact.
 6. Feed eligible causal evidence into recovery and chaos promotion without raising autonomy.
 ## Related docs
