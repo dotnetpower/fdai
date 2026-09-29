@@ -20,6 +20,7 @@ and resumable work while the roadmap owner remains focused on normative design.
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-29 | in-progress | Recorded the detection-latency design decision. The governed harness never polls during the fault hold. Latency is the detector's authoritative first-observation time for the expected signal minus the injection start, read after the hold within the fault window, and a probe without that time reports `unknown` instead of the hold duration. | `current change`; [Governed execution path](../../roadmap/decisioning/recovery-and-chaos-enforcement.md#governed-execution-path); `core/chaos/injector.py` `SignalProbe` contract. | Port the driver with a timestamped probe observation; route catalog runs through the Core pipeline. |
 | 2026-08-14 | in-progress | Adopted the implementation ledger without reconstructing earlier provenance and separated tested mechanics from operational enforcement evidence. | `current change`; current source, focused tests, and constitutional traceability listed in the scope table. | Bind the governed executor and complete the frozen recovery and chaos campaign. |
 | 2026-09-28 | implemented | Replaced the catalog runner's direct `FaultInjectionHarness` enforce path with `GovernedChaosExecutionAdapter`, which delegates each typed `tool.run-chaos-experiment` request to `GovernedChaosRunner` over a Saga-audited run store. Deployment-owned `GovernedChaosBindings` supply promotion, Var approval verification, the run plan, Thor recovery dispatch, independent recovery evidence, and target locks; an unbound checkout refuses with a structured report. No scenario, ActionType, or Workflow was promoted. | `current change` in `services/core-control-plane/src/fdai/delivery/chaos/governed*.py`, `scripts/catalog/run-catalog-scenario.py`, and the linked focused tests; `uv run pytest -q --no-cov services/core-control-plane/tests/delivery/chaos/test_governed.py services/core-control-plane/tests/delivery/chaos/test_governed_recovery.py tests/integration/scripts/test_run_catalog_scenario.py` passed 47 tests for success, denial, duplicate, forced-stop, rollback, and restart; Ruff and strict mypy passed. | Supply a deployment provider and runtime binding, collect shadow-only evidence on an approved disposable target, then complete promotion and the S1-S14 campaign. |
 | 2026-09-28 | in-progress | Hardened the governed catalog path after independent review. Bindings now require a distributed target lock; a durable per-target claim denies new runs while any non-terminal run holds the target; only the writer whose compare-and-swap applies `injecting` may run the harness; catalog targets are the canonical identities of the resources each scenario mutates, and every factory-built injector declares its mutation scope; the ActionType tier ceiling denies T1 and T2 requests; and recovery and detection are reported separately, so an undetected fault fails the run. The raw reference-sweep and detection-latency drivers now refuse every live run, so the protected scenario-lab sweep fails closed until they are ported. | `current change` in `services/core-control-plane/src/fdai/core/chaos/`, `services/core-control-plane/src/fdai/delivery/chaos/`, `scripts/catalog/`, and the linked tests; `uv run pytest -q --no-cov services/core-control-plane/tests/delivery/chaos services/core-control-plane/tests/core/chaos tests/integration/scripts/test_run_catalog_scenario.py tests/integration/scripts/test_chaos_raw_path_guard.py tests/integration/infra/test_scenario_lab.py` passed 331 tests, including 200-seed concurrent-interleaving and orphaned-run tests; Ruff and strict mypy passed. | Route catalog submissions through the Core pipeline with the adapter bound in `runtime/delivery.py`, port the raw drivers, supply a deployment provider, then collect shadow-only evidence before any promotion. |
@@ -66,14 +67,14 @@ and resumable work while the roadmap owner remains focused on normative design.
 - [ ] Route catalog CLI submissions through the Core proposal, risk gate, Var approval, Thor, and
   `tool.run-chaos-experiment` pipeline with `GovernedChaosExecutionAdapter` bound in
   `runtime/delivery.py`, instead of calling the adapter directly.
-- [ ] Decide whether the governed harness may observe the expected signal *during* the fault hold,
-  then port the detection-latency driver (`scripts/catalog/measure-detection-latency.py`) onto
-  `GovernedChaosExecutionAdapter`. It refuses every live run until then. The blocker is structural,
-  not a missing field: `FaultInjectionHarness` injects, holds for the authored duration while the
-  impact guard polls only stop conditions, and probes the expected signal once afterwards, so the
-  only interval it can report is the hold itself. Measuring latency honestly requires in-fault
-  polling, which adds probe traffic to the fault window, interacts with the guard loop, and changes
-  what `detected` means, so it needs an owner design rather than a new timestamp field.
+- [x] Decide whether the governed harness may observe the expected signal *during* the fault hold.
+  It does not: latency is the detector's own authoritative first-observation time minus the
+  injection start, read after the hold, and an unknown time stays unknown
+  ([Governed execution path](../../roadmap/decisioning/recovery-and-chaos-enforcement.md#governed-execution-path)).
+- [ ] Port the detection-latency driver (`scripts/catalog/measure-detection-latency.py`) onto
+  `GovernedChaosExecutionAdapter` with an optional timestamped probe observation. Exit: a focused
+  test proves an authoritative first-observation time inside the window yields latency, while a
+  missing, out-of-window, or non-authoritative time yields `unknown` and never the hold duration.
 - [ ] Collect shadow-only governed chaos evidence on one registered disposable target at a time,
   without promoting `tool.run-chaos-experiment`, a scenario, an ActionType, or a Workflow.
 - [ ] Execute the frozen S1-S14 campaign with approved impact envelopes, continuous stop guards,
