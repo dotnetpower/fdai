@@ -319,8 +319,13 @@ coordinator would bypass quorum accounting, duplicate-approver refusal, and requ
 now refuses a decision whose normalized principal equals the recorded `requester_principal` while `no_self_approval` is set. That
 refusal applies identically to the Operator callback, a replayed decision event, and a console tool. The consumer routes only an
 `approve` or `reject` value and dead-letters any other before routing, and the HIL coordinator itself refuses a decision other than
-approve, reject, or timeout before it reads a park. The consumer checks the value, not the publisher: an ordinary park keeps the
-existing trust in the topic's publishers, while an Owner-only development park re-reads the durable Operator receipt at admission.
+approve, reject, or timeout before it reads a park. The broker message is transport, not authority. The Operator writes its durable
+decision receipt in the same transaction that locks and validates the pending park, before it publishes. Before any route is read,
+the consumer requires that receipt to record the same approval, park idempotency key, receipt reference, decision, approver,
+justification, decision instant, and development attestation. A missing or divergent receipt dead-letters the message without
+touching the park, the quorum slot, or an executor. A store failure is not a refusal: the consumer retries the read briefly, and a
+store that stays unreadable fails the consumer without acknowledging the message, so the broker redelivers it after restart. An
+Owner-only development park still re-reads the same receipt at admission.
 
 Workflow audit uses each ActionType's `x-fdai-redact` paths. Redacted fields render as `[REDACTED]` and never enter the Process
 journal. Because the workflow runtime has no secret custody provider, an enforce action whose resolved params include a redacted

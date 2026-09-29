@@ -30,6 +30,7 @@ from fdai_service_contracts.development_approval import (
 from pydantic import ValidationError
 
 from fdai.core.hil_resume.delegation import DelegationDecision, DelegationMode
+from fdai.core.hil_resume.operator_receipt import OPERATOR_RECEIPT_PREFIX, operator_receipt_key
 from fdai.core.hil_resume.results import ResolveOutcome, ResolveResult
 from fdai.core.measurement.operational_promotion import action_type_digest
 from fdai.shared.contracts.development_authority import (
@@ -60,7 +61,6 @@ from fdai.shared.providers.hil_channel import HilDecision
 from fdai.shared.providers.state_store import StateStore
 from fdai.shared.providers.target_revision import TargetRevisionReader
 
-OPERATOR_RECEIPT_PREFIX = "operator-hil-decision:"
 DEVELOPMENT_ADMISSION_ACTOR = "system:development-admission"
 
 
@@ -205,7 +205,7 @@ async def admit_development_self_approval(
         now=now,
     ):
         return _deny("authentication_not_fresh")
-    receipt = await state_store.read_state(OPERATOR_RECEIPT_PREFIX + approval_id)
+    receipt = await state_store.read_state(operator_receipt_key(approval_id))
     if (
         not isinstance(receipt, Mapping)
         or receipt.get("decision") != "approve"
