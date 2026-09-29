@@ -252,7 +252,8 @@ objects are selected only by authoritative reads after plan verification.
 
 Authority-bearing transitions remain event-bus messages. Read-only query execution may use a
 purpose-bound immutable projection, but one service never imports another service's implementation.
-No new agent is introduced.
+No new agent is introduced. The Operator renders a terminal query answer only after it recomputes
+the evidence digest and projection identity that Core committed, using the shared contract SDK.
 
 ## Target contracts
 

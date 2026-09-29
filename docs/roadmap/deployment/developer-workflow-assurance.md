@@ -111,7 +111,9 @@ attribution, and a held assessment state for the product projection. Those field
 conversation data and never enter the diagnostic probe, packet, export, or Copilot review.
 The runtime delegates content-redacted query activity projection and verified document-answer
 materialization to focused modules. Event ordering, replay cursors, progress monotonicity, deadline
-holds, diagnostic timing, and no-execution authority remain owned by the durable runtime.
+holds, diagnostic timing, and no-execution authority remain owned by the durable runtime. A deadline
+hold that the runtime builds itself persists through a separate local-hold path, because only a Core
+projection carries the evidence digest and projection identity that ingest recomputes.
 
 Every packet binds the Git revision, local service input digest, worktree patch digest, process
 identity, runtime-scope receipt digest, time window, and packet digest. Capture admission compares

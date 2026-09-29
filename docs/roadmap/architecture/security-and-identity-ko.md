@@ -1,7 +1,7 @@
 ---
 title: 보안과 아이덴티티
 translation_of: security-and-identity.md
-translation_source_sha: 5b54d46a0e00b0096019aa1d96ef32814c37bd63
+translation_source_sha: 2b0bb3ec34cbbec968e00200cec2e0107f207c06
 translation_revised: 2026-09-29
 ---
 
@@ -394,6 +394,9 @@ PostgreSQL 근거 공급자는 다음 경계를 따릅니다.
   no-op 및 감사 엔트리로 종료됩니다. 침묵은 승인을 만들지 않습니다. 상시 승인은
   [에스컬레이션 및 상시 권한](../decisioning/escalation-and-standing-authority-ko.md)의 제한된
   A3-E 계약을 통해서만 적용됩니다.
+- 이벤트 버스의 결정 메시지는 전달 수단일 뿐 승인이 아닙니다. Operator는 대기 중인 승인을 검증하는
+  같은 트랜잭션에서 영속 결정 영수증을 기록하고, Core는 메시지가 그 영수증과 일치할 때만 결정을
+  라우팅합니다. 위조되거나 변경된 메시지는 park, 정족수 슬롯, 실행기에 닿기 전에 거부됩니다.
 
 ## 감사가능성(Auditability)
 

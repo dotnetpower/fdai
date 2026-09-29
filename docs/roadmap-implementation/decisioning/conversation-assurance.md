@@ -60,6 +60,7 @@ from the same family cannot review that answer.
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-29 | implemented | Bound Operator semantic projection ingest to Core's commitments. `fdai_service_contracts.semantic_projection` now owns the projection identity and the per-request-kind evidence digest, Core delegates to it, and the Operator recomputes both before durable projection. A changed result, manifest, receipt, answer, Pantheon trace, or payload is quarantined and never rendered. Operator-built held projections, which carry no Core commitment, use a separate local path that accepts only a held status. Added a regression proving the Operator's shared result model already refuses a 257-character evidence reference. | `current change`; `semantic_projection.py`, `semantic_turn_processor.py`, `semantic_turn_runtime.py`; `uv run pytest -q --no-cov` over `test_semantic_projection.py` (18 passed), the Operator bridge, Pantheon presentation, work-progress, and progress-relay suites, `test_semantic_turn_processor.py`, and the Core-to-Operator parity and roundtrip integration suites (450 passed); a conversation-scoped Operator and integration selection passed 1,185 cases. | Tighten the published `evidence_refs` schema bound with the next `core-operator-projection` version. |
 | 2026-09-28 | implemented | Added a seeded 1,000-turn Core-to-Operator parity generator for semantic answer evidence references and the terminal evidence manifest, and repaired the two terminal-manifest defects it found. A held execution projection no longer truncates more than 12 deduplicated receipt references while its retained goal receipts still cite them, and a receipt reference longer than the 256-character manifest bound now holds as typed `semantic_evidence_incomplete` instead of `semantic_runtime_failed`. | `current change`; `test_semantic_evidence_manifest_parity.py` generated 1,000 turns across 14 scenario kinds, 500 English and 500 Korean, with zero parity violations; every held-overflow turn is a real held or failed execution. Without the processor repair the run reported 67 truncated held manifests and 69 untyped runtime failures, and each focused regression failed for both held and failed receipts. The parity, regression, round-trip, and owning semantic processor tests passed (`362 passed`); Ruff, format, and strict mypy passed for the touched modules. | Operator ingest still does not recompute `evidence_digest` or `projection_id`. The published `core-operator-projection` JSON schemas 1.2.0 through 1.7.0 still allow 512-character references. Pantheon assurance, multi-source authority, governed-document, and channel paths are not generated. No live model, Azure, or #63 qualification evidence is claimed. |
 | 2026-09-26 | implemented | Preserved bounded typed query-hold reasons in owner-only runtime readiness instead of collapsing graph freshness and completeness holds into provider unavailability. | `current change`; focused runtime readiness tests (`17 passed`); Ruff and strict mypy. | Restart Core, inspect the current reason codes, and repair the actual evidence source condition before selecting more questions. |
 | 2026-09-26 | implemented | Aligned Resource state and Resource Health readiness with the state-bearing Resource applicability boundary, preventing unrelated inventory objects and the 1,000-result ceiling from making the probe permanently incomplete. | `current change`; focused semantic composition regression plus readiness and graph diagnostics. | Restart Core and verify current evidence readiness before selecting new state or health questions. |
@@ -166,18 +167,21 @@ from the same family cannot review that answer.
 | 2026-08-28 | in-progress | Added deterministic answer format, section-order, detail-level, and word-budget comparisons for items 7-8. | `current change`; focused answer observation tests (`3 passed`). | Add the remaining answer-quality observations and non-functional dimensions under Issue #297. |
 | 2026-08-28 | in-progress | Added terminal citation-set support, explicit evidence-state, and security-owned injection-escape comparisons for items 12, 14, and 15. | `current change`; focused grounding observation tests (`4 passed`). | Add the remaining non-functional dimensions under Issue #297. |
 
-
 ### Remaining work
 
-- [ ] Bind Operator semantic projection ingest to the producer commitments. Recompute
+- [x] Bind Operator semantic projection ingest to the producer commitments. The Operator recomputes
    `evidence_digest` over `semantic_result`, or over the Pantheon assurance body, and the
-   content-bound `projection_id`, then reject a mismatch before durable projection. Exit: a focused
-   regression proves that a projection whose manifest or receipts differ from its committed digest is
-   never rendered.
+   content-bound `projection_id` with the shared `fdai_service_contracts.semantic_projection`
+   functions that Core uses, and quarantines a mismatch before durable projection
+   ([`test_semantic_projection.py`](../../../packages/service-contracts/tests/test_semantic_projection.py),
+   `test_projection_changed_after_core_commitment_is_never_rendered`).
 - [ ] With the service-contracts package owner, tighten the `semantic_result.evidence_refs` item
    `maxLength` from 512 to 256 in the next `core-operator-projection` schema version so the published
-   wire schema matches the Core `SemanticTurnResult` bound. Exit: that schema version rejects a
-   257-character reference, and the Core producer and Operator consumer codecs pin it.
+   wire schema matches the Core `SemanticTurnResult` bound. The Operator already refuses a
+   257-character reference through the shared result model
+   (`test_consumer_enforces_the_256_character_evidence_reference_bound`), so the tightening rides the
+   next version bump instead of forcing an ordered rollout on its own. Exit: that schema version
+   rejects a 257-character reference, and the Core producer and Operator consumer codecs pin it.
 - [ ] Extend the seeded manifest parity generator to Pantheon assurance traces, multi-source
    authority, governed-document citations, and channel adapters. Exit: each path reports zero
    parity violations across at least 1,000 generated turns before Issue #63 counts its parity

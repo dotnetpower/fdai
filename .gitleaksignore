@@ -1,2 +1,5 @@
 # Removed synthetic PEM marker; ignore only this historical PR fingerprint.
 9e63872dc32308db122934a9866d75869c050159:packages/deployment-cli/tests/test_catalog_review_profile.py:private-key:25
+# Replaced low-value idempotency fixtures; ignore only these historical PR fingerprints.
+0f5524a7ede387aa5f74c308ec8137797d17e4d9:packages/service-contracts/tests/test_semantic_projection.py:generic-api-key:31
+0f5524a7ede387aa5f74c308ec8137797d17e4d9:packages/service-contracts/tests/test_semantic_projection.py:generic-api-key:53

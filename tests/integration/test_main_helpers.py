@@ -456,8 +456,12 @@ def test_consume_preserves_offset_when_dead_letter_fails() -> None:
 
 
 class _RecordingHilCoordinator:
-    def __init__(self) -> None:
+    def __init__(self, receipts: dict[str, dict[str, object]] | None = None) -> None:
         self.calls: list[dict[str, object]] = []
+        self.receipts = receipts or {}
+
+    async def read_operator_decision_receipt(self, approval_id: str) -> dict[str, object] | None:
+        return self.receipts.get(approval_id)
 
     async def resolve(self, **kwargs: object) -> None:
         self.calls.append(dict(kwargs))
@@ -465,19 +469,19 @@ class _RecordingHilCoordinator:
 
 def test_hil_decision_consumer_resolves_durable_park() -> None:
     bus = InMemoryEventBus()
-    coordinator = _RecordingHilCoordinator()
+    decision = {
+        "approval_id": "approval-1",
+        "idempotency_key": "park-key-1",
+        "decision": "approve",
+        "approver_oid": "approver-1",
+        "justification": "Reviewed.",
+        "receipt_ref": "operator-receipt-1",
+        "decided_at": "2026-09-29T01:00:00+00:00",
+    }
+    coordinator = _RecordingHilCoordinator({"approval-1": dict(decision)})
 
     async def _run() -> None:
-        await bus.publish(
-            "hil-decisions",
-            "approval-1",
-            {
-                "approval_id": "approval-1",
-                "decision": "approve",
-                "approver_oid": "approver-1",
-                "justification": "Reviewed.",
-            },
-        )
+        await bus.publish("hil-decisions", "approval-1", decision)
         await _consume_hil_decisions(
             bus=bus,
             topic="hil-decisions",

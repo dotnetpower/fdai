@@ -103,6 +103,11 @@ from fdai_service_contracts.incident_creation import (
     build_incident_creation_draft,
 )
 from fdai_service_contracts.ontology_query import QueryNodeKind, content_digest
+from fdai_service_contracts.semantic_projection import (
+    SEMANTIC_QUERY_REQUEST_KIND,
+    semantic_projection_evidence_digest,
+    semantic_projection_id,
+)
 from pydantic import ValidationError
 
 _TEST_NAMESPACE = UUID(int=0)
@@ -1360,17 +1365,38 @@ def _projection(
             }
         )
     request_id = cast(str, envelope["request_id"])
-    return {
-        "schema_version": "1.4.0" if disposition == "direct_response" else "1.2.0",
-        "projection_id": str(uuid5(_TEST_NAMESPACE, f"{disposition}:{request_id}")),
-        "request_id": request_id,
-        "correlation_id": envelope["correlation_id"],
-        "idempotency_key": envelope["idempotency_key"],
-        "status": disposition,
-        "recorded_at": envelope["requested_at"],
-        "payload": {},
-        "semantic_result": result,
+    return _committed(
+        {
+            "schema_version": "1.4.0" if disposition == "direct_response" else "1.2.0",
+            "request_id": request_id,
+            "correlation_id": envelope["correlation_id"],
+            "idempotency_key": envelope["idempotency_key"],
+            "status": disposition,
+            "recorded_at": envelope["requested_at"],
+            "payload": {},
+            "semantic_result": result,
+        }
+    )
+
+
+def _committed(projection: Mapping[str, object]) -> dict[str, object]:
+    """Return ``projection`` with the request kind and commitments Core adds before publishing.
+
+    Call it again after mutating a projection, exactly as Core computes the commitments over the
+    final content; a test that proves tamper refusal mutates the committed copy instead.
+    """
+    payload = projection.get("payload")
+    committed_payload = dict(payload) if isinstance(payload, Mapping) else {}
+    committed_payload.setdefault("request_kind", SEMANTIC_QUERY_REQUEST_KIND)
+    committed = {
+        key: value
+        for key, value in projection.items()
+        if key not in {"evidence_digest", "projection_id"}
     }
+    committed["payload"] = committed_payload
+    committed["evidence_digest"] = semantic_projection_evidence_digest(committed)
+    committed["projection_id"] = semantic_projection_id(committed)
+    return committed
 
 
 def _operational_evidence_projection() -> dict[str, object]:
@@ -2681,7 +2707,7 @@ async def test_result_consumer_rejects_authority_bearing_rule_search_payload() -
     }
 
     with pytest.raises(ValidationError):
-        await SemanticTurnProjectionConsumer(store).consume(projection)
+        await SemanticTurnProjectionConsumer(store).consume(_committed(projection))
 
     assert store.results == {}
 
@@ -2726,6 +2752,74 @@ async def test_valid_answered_result_projects_idempotently() -> None:
     assert len(store.results) == 1
 
 
+@pytest.mark.parametrize(
+    ("field", "value", "violation"),
+    [
+        ("principal_manifest_digest", "sha256:" + ("f" * 64), "evidence_digest_mismatch"),
+        ("evidence_refs", ["evidence-forged"], "evidence_digest_mismatch"),
+        ("answer", "A forged answer.", "evidence_digest_mismatch"),
+    ],
+)
+async def test_projection_changed_after_core_commitment_is_never_rendered(
+    field: str,
+    value: object,
+    violation: str,
+) -> None:
+    store = _MemorySemanticStore()
+    envelope = SemanticTurnEnvelopeBuilder(clock=lambda: datetime(2026, 8, 11, tzinfo=UTC)).build(
+        _proposal()
+    )
+    await store.append_semantic_turn(
+        principal_id="operator-1",
+        idempotency_key="turn-retry-1",
+        request_digest="digest",
+        envelope=envelope,
+    )
+    projection = _projection(envelope, disposition="answered", answered_evidence=True)
+    tampered = dict(projection)
+    tampered["semantic_result"] = {
+        **cast(dict[str, object], projection["semantic_result"]),
+        field: value,
+    }
+
+    with pytest.raises(ValueError, match=violation):
+        await SemanticTurnProjectionConsumer(store).consume(tampered)
+    renamed = {**projection, "payload": {"request_kind": "semantic_query", "extra": True}}
+    with pytest.raises(ValueError, match="projection_id_mismatch"):
+        await SemanticTurnProjectionConsumer(store).consume(renamed)
+
+    assert store.results == {}
+
+
+async def test_consumer_enforces_the_256_character_evidence_reference_bound() -> None:
+    """Schemas 1.2.0-1.7.0 accept 512 characters; the shared result model still refuses 257."""
+    store = _MemorySemanticStore()
+    envelope = SemanticTurnEnvelopeBuilder(clock=lambda: datetime(2026, 8, 11, tzinfo=UTC)).build(
+        _proposal()
+    )
+    await store.append_semantic_turn(
+        principal_id="operator-1",
+        idempotency_key="turn-retry-1",
+        request_digest="digest",
+        envelope=envelope,
+    )
+    projection = _projection(envelope, disposition="answered", answered_evidence=True)
+    oversized = _committed(
+        {
+            **projection,
+            "semantic_result": {
+                **cast(dict[str, object], projection["semantic_result"]),
+                "evidence_refs": ["r" * 257],
+            },
+        }
+    )
+
+    with pytest.raises(ValidationError, match="at most 256 characters"):
+        await SemanticTurnProjectionConsumer(store).consume(oversized)
+
+    assert store.results == {}
+
+
 async def test_result_consumer_retains_admitted_operational_evidence() -> None:
     store = _MemorySemanticStore()
     envelope = SemanticTurnEnvelopeBuilder(clock=lambda: datetime(2026, 8, 11, tzinfo=UTC)).build(
@@ -2742,7 +2836,7 @@ async def test_result_consumer_retains_admitted_operational_evidence() -> None:
         _operational_evidence_projection()
     )
 
-    stored = await SemanticTurnProjectionConsumer(store).consume(projection)
+    stored = await SemanticTurnProjectionConsumer(store).consume(_committed(projection))
     done = semantic_turn_runtime_module._done_event_data(stored.data)
 
     assert (
@@ -2771,7 +2865,7 @@ async def test_result_consumer_rejects_wrong_principal_operational_context() -> 
     cast(dict[str, object], projection["payload"])["operational_evidence"] = operational_evidence
 
     with pytest.raises(ValidationError, match="principal_ref"):
-        await SemanticTurnProjectionConsumer(store).consume(projection)
+        await SemanticTurnProjectionConsumer(store).consume(_committed(projection))
 
     assert store.results == {}
 
@@ -2857,7 +2951,7 @@ async def test_advisory_stream_and_replay_preserve_goal_metadata_without_blanket
             mode="json", exclude_none=True
         ),
     )
-    await SemanticTurnProjectionConsumer(store).consume(projection)
+    await SemanticTurnProjectionConsumer(store).consume(_committed(projection))
     terminals = []
     for _ in range(2):
         stream = await bridge.open(
@@ -3534,7 +3628,7 @@ async def test_answered_replay_emits_observed_lifecycle_before_readable_terminal
             ],
         },
     }
-    await SemanticTurnProjectionConsumer(store).consume(projection)
+    await SemanticTurnProjectionConsumer(store).consume(_committed(projection))
 
     stream = await bridge.open(
         ConversationStreamRequest(
@@ -3668,7 +3762,7 @@ async def test_answered_replay_does_not_confirm_locally_unverified_evidence() ->
     evidence = cast(dict[str, object], semantic_result["intent_graph_evidence"])
     goals = cast(list[dict[str, object]], evidence["goals"])
     goals[0].pop("authority")
-    await SemanticTurnProjectionConsumer(store).consume(projection)
+    await SemanticTurnProjectionConsumer(store).consume(_committed(projection))
 
     stream = await bridge.open(
         ConversationStreamRequest(
@@ -4608,7 +4702,7 @@ async def test_receipt_backed_goal_carries_verified_object_set_and_row_counts() 
             "outputs": [{"node_id": "resources", "returned_rows": 20, "total_rows": 42}]
         }
     }
-    await SemanticTurnProjectionConsumer(store).consume(projection)
+    await SemanticTurnProjectionConsumer(store).consume(_committed(projection))
 
     stream = await bridge.open(
         ConversationStreamRequest(
@@ -4716,7 +4810,7 @@ async def test_evidence_step_omits_a_command_when_the_plan_has_several_goals() -
             {"goal_id": "goal-2", "intent": "aggregate", "arguments": {"b": 2}},
         ]
     }
-    await SemanticTurnProjectionConsumer(store).consume(projection)
+    await SemanticTurnProjectionConsumer(store).consume(_committed(projection))
 
     stream = await bridge.open(
         ConversationStreamRequest(
@@ -5271,10 +5365,10 @@ async def test_result_consumer_quarantines_a_permanent_projection_conflict_once(
         _proposal()
     )
     valid_projection = _projection(envelope)
-    conflicting_projection = {
-        **valid_projection,
-        "projection_id": "00000000-0000-0000-0000-0000000009f2",
-    }
+    # A different, correctly committed result for the same request conflicts in the store.
+    conflicting_projection = _committed(
+        {**valid_projection, "recorded_at": "2026-08-11T00:00:01+00:00"}
+    )
     consumed = asyncio.Event()
 
     class ConflictStore(_MemorySemanticStore):
