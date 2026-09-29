@@ -1,6 +1,6 @@
 ---
 translation_of: ontology-reasoning-compiler.md
-translation_source_sha: 1d6ae026e284a9cca26f70d515f348154b1b6671
+translation_source_sha: b53eb17311ec3369d99488c87615e3cb81887161
 translation_revised: 2026-09-29
 ---
 # 온톨로지 추론 컴파일러
@@ -344,6 +344,11 @@ Core는 결정론적 렌더링 뒤에 `ResultSetHandle`을 발급하므로 운�
 정확한 식별자를 현재 기준 시점에 다시 읽고 답변을 현재 상태로 표시하며, `snapshot_reference`는
 보존된 스냅샷으로만 답합니다. 핸들이 없거나 만료되었거나, 다른 대화의 것이거나, 삭제되었거나,
 범위를 벗어나면 명확화 하나를 반환합니다.
+
+긴 대화 안에서도 독립 질문은 타입 판단이 순서 표현, 지시 표현 또는 명시적인 이전 결과 참조를 인용하지
+않는 한 독립 질문으로 남습니다. multi-turn routing은 대화 길이에서 이를 추론하지 않고 참조 바인딩을
+증명해야 하며, 동등성 probe는 같은 질문을 새 대화와 20턴 대화 맥락에서 비교하여 독립 답변이 조언이나
+모호한 보류로 흔들리지 않게 합니다.
 
 shadow 실행기는 바인딩의 핵심을 구현합니다. `ResultSetHandle`은 표시된 행을 표시된 순서대로 담고, 대화,
 principal, 목적, `QueryManifest.manifest_digest`, 시간대가 있는 만료 시각에 묶이며, 중복 없는 행 식별자를

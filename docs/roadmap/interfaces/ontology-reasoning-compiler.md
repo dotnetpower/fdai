@@ -321,6 +321,11 @@ versions. An `ordinal` or `anaphor` mention binds to handle rows after reauthori
 cutoff and labels the answer as current; `snapshot_reference` answers only from the retained snapshot. A missing, expired, cross-conversation,
 deleted, or out-of-range reference returns one clarification.
 
+Standalone questions in a long conversation remain standalone unless the typed judgment cites an
+ordinal, anaphor, or explicit prior-result reference. Multi-turn routing must prove the reference
+binding rather than infer it from conversation length, and parity probes compare the same question in
+fresh and 20-turn contexts so a standalone answer cannot drift into an advisory or ambiguous hold.
+
 The shadow runner implements the binding core. A `ResultSetHandle` holds the rows shown, in order, bound to the conversation, principal, purpose,
 `QueryManifest.manifest_digest`, and a timezone-aware expiry, with at most 1,000 unique row ids and a truncation flag. A follow-up binds only the most
 recent handle, and each mismatch returns one typed clarification: `prior_result_unavailable`, `_foreign`, `_changed`, `_expired`, `_empty`,
