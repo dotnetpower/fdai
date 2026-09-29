@@ -1,10 +1,12 @@
 ---
 title: 에이전트 판테온
 translation_of: agent-pantheon.md
-translation_source_sha: 8d4e80dbcd2e9ff51cc093235439160c48c675b7
-translation_revised: 2026-09-27
+translation_source_sha: 7217826c1c8c0aa448c8a525ba1b2e13e285f7ef
+translation_revised: 2026-09-29
 ---
 # 에이전트 판테온
+
+Bragi의 post-turn review publisher는 typed `object.post-turn-review` 묶음만 계속 소유합니다. Norns는 비활성 초안을 평가하고 라우팅하는 learner로 남습니다.
 FDAI의 고정된 15개 명명 에이전트 조직이 cloud-operations 런타임을 소유합니다. 에이전트는 schema-checked 이벤트로 관측, 판단, 계획, 승인, 실행, 검증, 복구, 감사, 학습합니다. 운영 온톨로지는 타입이 지정된 meaning과 범위가 제한된 맥락을 제공하며 행위자, 권한 또는 실행기가 아닙니다. 판테온은 업스트림에서 정의되고 포크는 에이전트를 추가하거나 이름을 바꾸지 않습니다.
 
 > **범위:** 판테온은 고객-무관이다. 아래에 언급된 모든 에이전트 이름, 객체 타입, 액션 은 범용 이다. 고객별 바인딩은 포크 에서 관리 ([generic-scope.instructions.md](../../../.github/instructions/generic-scope.instructions.md)).

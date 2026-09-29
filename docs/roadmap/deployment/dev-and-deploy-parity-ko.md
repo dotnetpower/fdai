@@ -1,10 +1,14 @@
 ---
 title: Runtime Parity - Authoritative Local Development 및 Test Fixture
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: dfdee075898273ff67fefa7eed1b4a2555edd7e8
+translation_source_sha: af89dec648968ae587521788c5799d7182770a4d
 translation_revised: 2026-09-29
 ---
 # 런타임 동등성 - 권위 있는 로컬 개발 및 테스트 고정본
+
+Local profile과 deployed profile 모두 Core Bragi가 Pantheon topic을 쓰기 전에 `operator.post-turn-review.requests`를 통해 Operator post-turn review를 라우팅합니다.
+
+Post-turn review는 로컬과 semantic transport가 구성된 경우 모두 같은 logical `object.post-turn-review` 묶음을 사용합니다. Local mechanics 근거는 deployed restart 또는 transport receipt를 대체하지 않습니다.
 **목표**: 자동화 테스트는 결정론적이고 시크릿 없이 실행하며, 기본 로컬 및 배포 런타임은 같은 헤드리스 관찰 우선 SRE Agent입니다. 읽기 전용 Console과 엔터프라이즈 신원 추가 기능을 명시적으로 선택한 경우에만 대화형 Console이 권위 있는 Azure 상태를 표시합니다. Azure 배포는 **배포자 권한과 리전 카탈로그로 프로비저닝할 리소스를 선택**합니다. 별도 `docs site: serve (4321)` 작업은 루프백에서 공개 문서만 미리 보여 주며 런타임 권한을 부여하지 않습니다. 세 명제가 동시에 참입니다:
 - **자동화 테스트 truth**: pytest와 committed mock은 결정론적 가짜를 사용할 수 있습니다. 명시적 test-fixture 빌더를 사용하며 Azure 관측 상태로 표현하지 않습니다.
 - **Full-stack 로컬 truth**: `Console Web: Full Stack`은 명시적 추가 기능 프로필이며 배포와 같은 App 역할 검사를 적용하는 브라우저 Entra sign-in을 사용합니다. 기본 헤드리스 프로필에는 테넌트 id, 브라우저 시크릿, Graph 권한, HIL 채널 또는 실행기 바인딩이 필요하지 않습니다. Azure CLI는 읽기 프로바이더 자격 증명만 제공합니다. 출처가 없으면 사용 불가 또는 명시적 빈으로 표시하며 생성 예제로 대체하지 않습니다.

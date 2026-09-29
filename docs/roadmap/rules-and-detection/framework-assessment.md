@@ -46,7 +46,7 @@ Its explicitly allowlisted logical topic, requests, and readiness state do not e
 scope, evidence admission, replay, or results.
 The assignment outbox uses the same transport lifecycle with separate logical topics and immutable
 request receipts. Its case review, role claims, and PR result cannot satisfy WAF/CAF evidence or
-alter an assessment result; a goal observation is not admitted manual evidence.
+alter an assessment result; a goal observation is not admitted manual evidence. Post-turn review envelopes share transport mechanics only; they cannot satisfy framework evidence, change an assessment result, or activate remediation.
 
 [Alert noise governance](../operations/alert-noise-governance.md) adds distinct alert-quality routes,
 operation-filtered outbox claims, and a signed result consumer to the shared host. Alert evidence,
