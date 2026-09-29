@@ -1,7 +1,7 @@
 ---
 title: Near-real-time detection paths
 translation_of: near-real-time-detection-paths.md
-translation_source_sha: 151f1270fd5c3a4e5addac773cc4abd9ff8b9825
+translation_source_sha: 0623ba98272d2548c7b04c765573dd0c87c224ae
 translation_revised: 2026-09-29
 ---
 
@@ -219,11 +219,16 @@ Forseti는 이후 권한을 낮출 수 있습니다. 누락되거나 오래되�
   액션 그룹 웹훅은 Bearer 헤더를 추가하지 않습니다. 포크는 토큰을 주입하는 trusted
   proxy 또는 Entra-authenticated secure 웹훅 연결을 제공해야 합니다.
 
-- **관리형 alert-rule authoring 파이프라인**. 경로 #1의 Terraform
-  모듈은 기본 요소; shipped 룰 카탈로그에서 룰을 materialize하는
-  rule-catalog-driven generator는 별개 스코프.
-
-관리형 작성 파이프라인은 구현된 push 전송과 별도 범위로 남아 있습니다.
+관리형 경보 규칙 작성 파이프라인은 이제 push 전송과 별도로 제공됩니다. 배포는 검토된 정적
+임계값 경보를
+[`rule-catalog/metric-alerts/`](../../../rule-catalog/metric-alerts/README.md)에 나열하고,
+`alert_rule_authoring_cli` 생성기는 이를 경로 #1 Terraform 모듈의 입력으로 만듭니다. 각
+항목은 검토된 Azure Monitor Metrics API 템플릿 카탈로그의 CSP 중립 메트릭, 정적 비교, Azure가
+지원하는 평가 구간과 주기를 지정합니다. 생성기는 전부 아니면 전무 방식으로 동작합니다. 알 수 없는
+메트릭, 차원 필터나 배포 범위가 필요한 템플릿, 누락되거나 충돌하는 리소스 유형, 지원하지 않는
+비교를 거부하며, 하나라도 거부되면 아무것도 쓰지 않습니다. 출력에는 콘텐츠 다이제스트가 있어
+같은 카탈로그는 항상 같은 바이트를 만듭니다. 업스트림 카탈로그에는 항목이 없으며, 생성된 모든
+경보는 탐지, 승인, 실행 권한 없이 shadow 모드 Event로만 FDAI에 도달합니다.
 
 ## 관련 문서
 

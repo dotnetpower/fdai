@@ -230,12 +230,17 @@ composition binding, and path #1 also requires an authentication bridge.
 - **External Action Group receiver for path #1.** The FDAI-side HMAC bridge is implemented, but
   the shipped Action Group webhook does not add the Bearer header. A fork must supply a trusted
   token-injecting proxy or an Entra-authenticated secure-webhook binding.
-- **Managed alert-rule authoring pipeline.** Path #1's Terraform
-  module is the primitive; a rule-catalog-driven generator that
-  materializes rules from the shipped rule catalog is a separate
-  scope.
-
-The managed authoring pipeline remains separate from the implemented push transports.
+The managed authoring pipeline is now shipped separately from the push transports. A deployment
+lists reviewed static-threshold alerts under
+[`rule-catalog/metric-alerts/`](../../../rule-catalog/metric-alerts/README.md), and the
+`alert_rule_authoring_cli` generator materializes them into inputs for the path #1 Terraform
+module. Each entry names a CSP-neutral metric from the reviewed Azure Monitor Metrics API template
+catalog, a static comparison, and an Azure-supported window and frequency. The generator is
+all-or-nothing: it refuses unknown metrics, dimension-filtered or deployment-scoped templates,
+missing or conflicting resource types, and unsupported comparisons, and it writes nothing when any
+entry is refused. The output carries a content digest, so the same catalog always yields identical
+bytes. The upstream catalog ships no entries, and every materialized alert still reaches FDAI as a
+shadow-mode Event with no detection, approval, or execution authority.
 
 ## Related docs
 
