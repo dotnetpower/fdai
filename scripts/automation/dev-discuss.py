@@ -28,6 +28,8 @@ SERVICE_LAUNCHERS = {
 }
 SEVERITIES = ("low", "medium", "high", "critical")
 MAX_PACKETS = 20
+# Identity-bound sockets older than the newest few belong to replaced processes.
+MAX_SOCKET_CANDIDATES = 32
 MAX_FILE_BYTES = 1024 * 1024
 MAX_LEDGER_BYTES = 1024 * 1024
 _HEX64 = re.compile(r"^[0-9a-f]{64}$")
@@ -135,6 +137,44 @@ def _state(root: Path) -> Path:
     return path
 
 
+def _socket_candidates(root: Path, service: str) -> tuple[Path, ...]:
+    """Return the legacy service socket and every identity-bound socket, newest first.
+
+    A launcher binds each server socket to its full runtime identity under ``.fdai/r``,
+    so the service name alone cannot select it; the live server's packet names it.
+    """
+
+    legacy = root / ".fdai" / "runtime-diagnostics" / f"{service}.sock"
+    bound = root / ".fdai" / "r"
+    identity_bound = sorted(
+        (path for path in bound.glob("*.sock") if path.is_socket()) if bound.is_dir() else (),
+        key=lambda path: path.stat().st_mtime,
+        reverse=True,
+    )[:MAX_SOCKET_CANDIDATES]
+    return (legacy, *identity_bound)
+
+
+async def _service_socket(root: Path, service: str) -> Path | None:
+    """Return the one socket whose live server answers for ``service``."""
+
+    for socket_path in _socket_candidates(root, service):
+        if not socket_path.is_socket():
+            continue
+        try:
+            packet = await request_profile(
+                socket_path,
+                duration_ms=0,
+                cpu=False,
+                heap=False,
+                timeout_seconds=2,
+            )
+        except (OSError, TimeoutError, RuntimeError, ValueError):
+            continue
+        if packet.service_id == service:
+            return socket_path
+    return None
+
+
 async def _capture(
     root: Path,
     *,
@@ -145,7 +185,9 @@ async def _capture(
 ) -> DevelopmentProfilePacket:
     if not 0 <= duration_ms <= 30_000:
         raise ValueError("duration MUST be between 0 and 30000 ms")
-    socket_path = root / ".fdai" / "runtime-diagnostics" / f"{service}.sock"
+    socket_path = await _service_socket(root, service)
+    if socket_path is None:
+        raise ValueError(f"no live development diagnostic server answers for {service}")
     packet = await request_profile(
         socket_path,
         duration_ms=duration_ms,
@@ -357,27 +399,8 @@ def _prune(directory: Path, pattern: str) -> None:
         path.unlink()
 
 
-async def _socket_available(socket_path: Path) -> bool:
-    if not socket_path.is_socket():
-        return False
-    try:
-        await request_profile(
-            socket_path,
-            duration_ms=0,
-            cpu=False,
-            heap=False,
-            timeout_seconds=2,
-        )
-    except (OSError, TimeoutError, RuntimeError, ValueError):
-        return False
-    return True
-
-
 async def _status(root: Path) -> int:
-    sockets = root / ".fdai" / "runtime-diagnostics"
-    availability = await asyncio.gather(
-        *(_socket_available(sockets / f"{service}.sock") for service in SERVICES)
-    )
+    availability = [await _service_socket(root, service) is not None for service in SERVICES]
     value = dict(zip(SERVICES, availability, strict=True))
     print(json.dumps(value, sort_keys=True))
     return 0 if any(value.values()) else 1

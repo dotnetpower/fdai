@@ -214,7 +214,9 @@ lookup table, and an explicit root candidate stands for resources in general. Fu
   answer, including general resources against one exact type, clarifies with
   `concept_disagreement`. Without the second family nothing binds. Each chooser answers through a
   schema closed over the presented mention ids, candidate ids, and shard digest, so a text answer or
-  an invented identifier cannot parse.
+  an invented identifier cannot parse. The secret and identifier scan of a reviewed shard runs once
+  per shard digest rather than for every chooser, shard, and retry, so presenting a complete catalog
+  does not block the event loop.
 
 ### Anchor binding
 

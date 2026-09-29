@@ -352,3 +352,54 @@ for index in range(30):
     assert {row["id"] for row in rows} == {
         f"{prefix}-{index}" for prefix in ("alpha", "bravo") for index in range(30)
     }
+
+
+async def test_status_and_capture_find_an_identity_bound_launcher_socket(
+    capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The launcher names each socket by runtime identity under .fdai/r, not by service."""
+
+    module = _load()
+    short_root = Path(tempfile.mkdtemp(prefix="fdai-dd-bound-"))
+    config = DevelopmentDiagnosticsConfig(
+        service_id="core-control-plane",
+        execution_venue="local",
+        socket_path=short_root / ".fdai" / "r" / "0123456789ab.sock",
+        source_root=short_root,
+        source_revision=REVISION,
+        service_input_digest=INPUT_DIGEST,
+        worktree_digest=WORKTREE_DIGEST,
+        runtime_scope_receipt_digest=RECEIPT,
+    )
+    server = DevelopmentDiagnosticServer(config)
+    monkeypatch.setattr(module, "_git_revision", lambda _root: REVISION)
+    monkeypatch.setattr(module, "_service_input_digest", lambda _root, _service: INPUT_DIGEST)
+    await server.start()
+    try:
+        result = await module._status(short_root)
+        packet = await module._capture(
+            short_root,
+            service="core-control-plane",
+            duration_ms=0,
+            cpu=False,
+            heap=False,
+        )
+        with pytest.raises(ValueError, match="no live development diagnostic server"):
+            await module._capture(
+                short_root,
+                service="operator-service",
+                duration_ms=0,
+                cpu=False,
+                heap=False,
+            )
+    finally:
+        await server.aclose()
+        shutil.rmtree(short_root)
+
+    assert result == 0
+    assert json.loads(capsys.readouterr().out) == {
+        "core-control-plane": True,
+        "operator-service": False,
+    }
+    assert packet.service_id == "core-control-plane"

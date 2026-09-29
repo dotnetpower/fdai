@@ -95,8 +95,9 @@ managed-resource route reaches this socket.
 The observer-proposal consumer is a normal application lifecycle worker, not a diagnostic channel.
 Its readiness joins the Operator worker checks; its GET projection neither reaches this socket nor authorizes a stack restart or live provider probe.
 
-The `status` command sends a bounded protocol request to each socket. A socket path left behind by
-an interrupted process is unavailable, not healthy.
+The `status` and `capture` commands find each service's identity-bound socket by sending a bounded
+protocol request to the newest candidates and keeping the one whose live server names that service.
+A socket path left behind by an interrupted process is unavailable, not healthy.
 
 The process-local probe retains bounded latency aggregates and reads content-free process state.
 An explicit capture can run `cProfile` and `tracemalloc` for at most 30 seconds, one capture per
