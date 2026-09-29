@@ -30,7 +30,20 @@ from typing import Any
 import yaml
 from jsonschema import Draft202012Validator
 
-from fdai.shared.contracts.models import Workflow, WorkflowStepKind
+from fdai.rule_catalog.schema.signal_type import (
+    SignalTypeRegistry,
+    load_signal_type_registry_from_mapping,
+)
+from fdai.rule_catalog.schema.workflow_trigger_event import (
+    WorkflowTriggerEventRegistry,
+    load_workflow_trigger_event_registry_from_mapping,
+)
+from fdai.shared.contracts.models import (
+    Workflow,
+    WorkflowStepKind,
+    WorkflowTriggerKind,
+    WorkflowTriggerSignalReferenceKind,
+)
 from fdai.shared.contracts.registry import SchemaRegistry
 
 _WORKFLOW_SCHEMA_NAME = "workflow"
@@ -63,6 +76,8 @@ def _cross_reference_issues(
     origin: str,
     action_type_names: set[str],
     rule_ids: set[str] | None,
+    signal_types: SignalTypeRegistry | None,
+    workflow_trigger_events: WorkflowTriggerEventRegistry | None,
 ) -> list[WorkflowIssue]:
     """Resolve every step reference against the supplied catalogs.
 
@@ -73,6 +88,49 @@ def _cross_reference_issues(
     cross-check rather than fail spuriously.
     """
     issues: list[WorkflowIssue] = []
+    if (
+        workflow.trigger.kind is WorkflowTriggerKind.SIGNAL
+        and workflow.trigger.signal_type is not None
+    ):
+        signal_id_matches = (
+            {workflow.trigger.signal_type} & signal_types.ids()
+            if signal_types is not None
+            else frozenset()
+        )
+        signal_matches = (
+            signal_types.resolve_declared(workflow.trigger.signal_type)
+            if signal_types is not None
+            else frozenset()
+        )
+        workflow_trigger_matches = (
+            workflow_trigger_events.ids() & {workflow.trigger.signal_type}
+            if workflow_trigger_events is not None
+            else frozenset()
+        )
+        counted_signal_matches = signal_id_matches or (
+            frozenset() if workflow_trigger_matches else signal_matches
+        )
+        match_count = len(counted_signal_matches) + len(workflow_trigger_matches)
+        if match_count == 0 and (signal_types is not None or workflow_trigger_events is not None):
+            issues.append(
+                WorkflowIssue(
+                    key=f"{origin}:trigger.signal_type",
+                    message=(
+                        f"unknown workflow trigger signal_type {workflow.trigger.signal_type!r} "
+                        "(not registered in SignalType or workflow-trigger-events vocabularies)"
+                    ),
+                )
+            )
+        elif match_count > 1:
+            issues.append(
+                WorkflowIssue(
+                    key=f"{origin}:trigger.signal_type",
+                    message=(
+                        f"ambiguous workflow trigger signal_type {workflow.trigger.signal_type!r} "
+                        "resolved in more than one trigger vocabulary"
+                    ),
+                )
+            )
     for step in workflow.steps:
         if step.kind is WorkflowStepKind.ACTION and step.action_type_ref not in action_type_names:
             issues.append(
@@ -117,6 +175,8 @@ def load_workflow_from_mapping(
     schema_registry: SchemaRegistry,
     action_type_names: set[str],
     rule_ids: set[str] | None = None,
+    signal_types: SignalTypeRegistry | None = None,
+    workflow_trigger_events: WorkflowTriggerEventRegistry | None = None,
     origin: str = "<mapping>",
 ) -> Workflow:
     """Validate a single Workflow mapping and return the pydantic model.
@@ -156,9 +216,51 @@ def load_workflow_from_mapping(
         origin=origin,
         action_type_names=action_type_names,
         rule_ids=rule_ids,
+        signal_types=signal_types,
+        workflow_trigger_events=workflow_trigger_events,
     )
     if xref:
         raise WorkflowCatalogError(xref)
+
+    if (
+        model.trigger.kind is WorkflowTriggerKind.SIGNAL
+        and model.trigger.signal_type is not None
+        and model.trigger.signal_reference_kind is None
+    ):
+        signal_matches = (
+            signal_types.resolve_declared(model.trigger.signal_type)
+            if signal_types is not None
+            else frozenset()
+        )
+        workflow_trigger_matches = (
+            workflow_trigger_events.ids() & {model.trigger.signal_type}
+            if workflow_trigger_events is not None
+            else frozenset()
+        )
+        if signal_matches and not workflow_trigger_matches:
+            model = model.model_copy(
+                update={
+                    "trigger": model.trigger.model_copy(
+                        update={
+                            "signal_reference_kind": (
+                                WorkflowTriggerSignalReferenceKind.SIGNAL_TYPE
+                            )
+                        }
+                    )
+                }
+            )
+        elif workflow_trigger_matches:
+            model = model.model_copy(
+                update={
+                    "trigger": model.trigger.model_copy(
+                        update={
+                            "signal_reference_kind": (
+                                WorkflowTriggerSignalReferenceKind.WORKFLOW_TRIGGER_EVENT
+                            )
+                        }
+                    )
+                }
+            )
 
     return model
 
@@ -170,12 +272,43 @@ def _iter_yaml_files(root: Path) -> Iterator[Path]:
         yield path
 
 
+def _load_default_signal_types(root: Path) -> SignalTypeRegistry | None:
+    path = root.parent / "vocabulary" / "signal-types.yaml"
+    if not path.is_file():
+        return None
+    raw = _yaml_load(path)
+    if not isinstance(raw, Mapping):
+        raise WorkflowCatalogError(
+            [WorkflowIssue(key=str(path), message="signal-type top-level must be a mapping")]
+        )
+    return load_signal_type_registry_from_mapping(raw)
+
+
+def _load_default_workflow_trigger_events(root: Path) -> WorkflowTriggerEventRegistry | None:
+    path = root.parent / "vocabulary" / "workflow-trigger-events.yaml"
+    if not path.is_file():
+        return None
+    raw = _yaml_load(path)
+    if not isinstance(raw, Mapping):
+        raise WorkflowCatalogError(
+            [
+                WorkflowIssue(
+                    key=str(path),
+                    message="workflow-trigger-event top-level must be a mapping",
+                )
+            ]
+        )
+    return load_workflow_trigger_event_registry_from_mapping(raw)
+
+
 def load_workflow_catalog(
     root: Path,
     *,
     schema_registry: SchemaRegistry,
     action_type_names: set[str],
     rule_ids: set[str] | None = None,
+    signal_types: SignalTypeRegistry | None = None,
+    workflow_trigger_events: WorkflowTriggerEventRegistry | None = None,
 ) -> tuple[Workflow, ...]:
     """Load every Workflow YAML under ``root`` (non-recursive), fail-closed.
 
@@ -187,6 +320,10 @@ def load_workflow_catalog(
     aggregated: list[WorkflowIssue] = []
     loaded: list[Workflow] = []
     seen_names: dict[str, str] = {}
+    if signal_types is None:
+        signal_types = _load_default_signal_types(root)
+    if workflow_trigger_events is None:
+        workflow_trigger_events = _load_default_workflow_trigger_events(root)
 
     for path in _iter_yaml_files(root):
         try:
@@ -207,6 +344,8 @@ def load_workflow_catalog(
                 schema_registry=schema_registry,
                 action_type_names=action_type_names,
                 rule_ids=rule_ids,
+                signal_types=signal_types,
+                workflow_trigger_events=workflow_trigger_events,
                 origin=path.name,
             )
         except WorkflowCatalogError as exc:

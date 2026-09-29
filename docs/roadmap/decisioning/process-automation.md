@@ -101,10 +101,17 @@ Field rules the loader enforces:
 
 ### 2.1 Known limitations (P1)
 
-- **`signal_type` is a free string.** The trigger `signal_type` is not
-  cross-referenced against a signal-type registry (none exists upstream yet),
-  so a typo is not caught at load. Treat it as documentation until the
-  `SignalType` ontology promotion lands.
+- **Resolved `signal_type` typing.** A `kind: signal` trigger now must resolve at
+  catalog load to exactly one registered observation `SignalType` or one reviewed
+  `workflow-trigger-events.yaml` request, command, or Workflow-only observation event. Unknown values fail
+  closed, exact duplicates across the two vocabularies are ambiguous, and the
+  loaded `WorkflowTrigger` records which vocabulary resolved the reference.
+  Observation-style triggers such as `object.drift` stay in the existing
+  `SignalType` registry, while request and command triggers such as
+  `chaos.experiment.requested` stay out of T0 rule dispatch. The
+  `object.capacity-forecast` workflow trigger is cataloged as a Workflow-only
+  observation so it can start operational planning without widening `SignalType`
+  dispatch.
 - **`on_failure` also runs on the success path.** The compiled Runbook runner
   walks every declared step in order; an `on_failure` target is a normal step
   that runs on success too, and additionally runs as the fallback on failure.

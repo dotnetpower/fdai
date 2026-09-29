@@ -1,0 +1,38 @@
+schema_version: "1.0.0"
+events:
+- id: chaos.experiment.requested
+  semantics: request
+  owner: workflow.runtime
+  description: Request to start a governed chaos validation workflow in shadow mode.
+- id: change.request.submitted
+  semantics: request
+  owner: workflow.runtime
+  description: Request to evaluate a planned change through the process automation workflow.
+- id: release.ready
+  semantics: command
+  owner: workflow.runtime
+  description: Command that a release candidate is ready for the deployment release workflow.
+- id: architecture.review.requested
+  semantics: request
+  owner: workflow.runtime
+  description: Request to run the architecture review workflow for a proposed change.
+- id: alert_noise.routing.proposed
+  semantics: request
+  owner: alert.noise
+  description: Request to review a proposed alert routing governance change.
+- id: alert_noise.evaluation.proposed
+  semantics: request
+  owner: alert.noise
+  description: Request to review a proposed alert evaluation governance change.
+- id: alert_noise.suppression.proposed
+  semantics: request
+  owner: alert.noise
+  description: Request to review a proposed alert notification-window governance change.
+- id: control_plane.defect
+  semantics: request
+  owner: control.plane
+  description: Request to start the SRE-for-SRE self-debug workflow for a control-plane defect.
+- id: object.capacity-forecast
+  semantics: observation
+  owner: operational.planning
+  description: Bounded capacity-forecast evidence that starts operational planning; it is a Workflow-only trigger, not a T0 SignalType, so T0 dispatch stays unchanged.
