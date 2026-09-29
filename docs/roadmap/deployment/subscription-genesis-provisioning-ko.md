@@ -1,7 +1,7 @@
 ---
 title: 구독 초기 프로비저닝
 translation_of: subscription-genesis-provisioning.md
-translation_source_sha: c1dca82a811b585d9f57f9155d2c206b03abcb7a
+translation_source_sha: 03dd4a370a841415c42050544e81638600415f0b
 translation_revised: 2026-09-27
 ---
 # 구독 초기 프로비저닝
@@ -159,11 +159,14 @@ Storage 생성 및 상태 읽기를 각각 동시에 실행합니다. 도구 준
 
 기반 계층 적용은 Marketplace 이미지 버전, 초기 구성 산출물, Terraform 실행 파일, 도구 체인
 체크섬을 고정하고 검증한 뒤 컨트롤 플레인 재확인과 변경 없음 계획을 수행합니다. 그 계획을
-실행하기 전에, 적용된 상태에서 실제로 관측한 운영 공인 IP 태그를 결합합니다. 일부 구독은 생성
-시점에 모든 공인 IP에 `FirstPartyUsage=/Unprivileged`를 부여하는데 정확한 계획은 이를 예측할
-수 없습니다. 이 결합이 없으면 적용 후 계획이 매번 Bastion과 NAT 주소의 교체를 요구하므로 신규
-설치가 수렴할 수 없습니다. 빈 값이거나 정확히 그 정책 태그인 경우만 허용하며, 다른 태그는
-받아들이지 않고 실행을 중단합니다. 등록 단계는
+실행하기 전에, 적용된 상태에서 실제로 관측한 정책 적용 설정을 결합합니다. 운영 공인 IP
+태그와 runner의 게스트 패치 선택입니다. 일부 구독은 생성 시점에 모든 공인 IP에
+`FirstPartyUsage=/Unprivileged`를 부여하고, 일부 테넌트는 모든 Linux VM에
+`AutomaticByPlatform` 게스트 패치를 강제하는데 정확한 계획은 어느 쪽도 예측할 수 없습니다.
+이 결합이 없으면 적용 후 계획이 매번 Bastion과 NAT 주소의 교체나 runner의 갱신을 요구하므로
+신규 설치가 수렴할 수 없습니다. 각 변수는 지원하는 선택만 허용합니다. 빈 값이거나 정확히 그
+정책 태그여야 하고, 패치 모드는 지원 목록에 있어야 하며 안전 점검 우회는 플랫폼 패치를
+전제로 합니다. 다른 값은 받아들이지 않고 실행을 중단합니다. 등록 단계는
 단기 GitHub 토큰을 정확한
 Bastion 터널의 SSH 표준 입력으로만 전달한 뒤 신원, 서비스, 레이블, GitHub 상태를 검증합니다.
 상태 인계는 관측한 동일한 공인 IP 태그를 runner에도 전달합니다. runner가 같은 변경 없음

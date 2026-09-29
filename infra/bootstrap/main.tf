@@ -184,6 +184,12 @@ resource "azurerm_linux_virtual_machine" "runner" {
     public_key = var.runner_ssh_public_key
   }
 
+  # Some tenants enforce platform-managed guest patching on every Linux VM. Declaring
+  # the observed selection keeps the post-apply plan zero-change; an empty selection
+  # preserves the provider default.
+  patch_mode                                             = var.runner_patch_mode
+  bypass_platform_safety_checks_on_user_schedule_enabled = var.runner_patch_mode == "AutomaticByPlatform" ? var.runner_bypass_platform_safety_checks : null
+
   os_disk {
     caching = "ReadOnly"
     # Azure requires a storage type in the VM model, but Local placement creates

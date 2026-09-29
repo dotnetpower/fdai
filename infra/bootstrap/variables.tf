@@ -296,3 +296,21 @@ variable "enable_public_egress" {
   type        = bool
   default     = true
 }
+
+variable "runner_patch_mode" {
+  description = "Exact observed guest patch mode for the runner VM. Empty preserves the provider default; any selection requires a reviewed plan."
+  type        = string
+  default     = null
+
+  validation {
+    condition     = var.runner_patch_mode == null || contains(["ImageDefault", "AutomaticByPlatform"], coalesce(var.runner_patch_mode, "ImageDefault"))
+    error_message = "runner_patch_mode must be null, ImageDefault or AutomaticByPlatform."
+  }
+}
+
+variable "runner_bypass_platform_safety_checks" {
+  description = "Exact observed platform-safety-check bypass for platform-managed runner patching."
+  type        = bool
+  default     = false
+  nullable    = false
+}

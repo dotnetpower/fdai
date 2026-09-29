@@ -1,7 +1,7 @@
 ---
 title: 배포 리소스 규약
 translation_of: deployment-resource-conventions.md
-translation_source_sha: 8790dec2c2cf083d1e1708c6cf3a777af43f9143
+translation_source_sha: 41f210a1097e6aecf7948254ad7cfa38c468e057
 translation_revised: 2026-09-28
 ---
 # 배포 리소스 규약
@@ -29,6 +29,13 @@ bootstrap-reconcile`은 해당 이름을 검토된 프로필 및 소스 커밋�
 별도로 승인된 기반 단계가 비공개 `tfstate` 및 `deployment-plans` 컨테이너 생성과 원격 상태
 인계를 소유합니다. 애플리케이션 계획 전용 실행은 두 컨테이너를 전제 조건으로 취급하며,
 하나라도 없으면 중지합니다. 계획의 부수 효과로 기반 리소스를 만들지 않습니다.
+
+기반 리소스는 테넌트 정책이 생성 시점에 부여할 수 있는 설정도 함께 선언해 적용 후 계획이 변경
+없음이 되도록 합니다. 운영 공인 IP는 정책이 소유한 `ip_tags`를 받고, runner 가상 머신은 게스트
+패치 모드와 플랫폼 안전 점검 우회를 선언합니다. 각 값은 기본값이 아니라 정확히 관측한 입력입니다.
+선택이 비어 있으면 공급자 동작을 유지하고, 지원하지 않는 값은 받아들이지 않고 실행을 중단합니다.
+이 선언이 없으면 모든 공인 IP에 태그를 부여하는 구독이나 플랫폼 관리 패치를 강제하는 테넌트에서
+신규 설치가 수렴할 수 없습니다.
 
 초기 구성 호스트의 임시 OS 디스크는 AzureRM의 `diff_disk_settings` 요구에 따라 `ReadOnly`
 캐시를 사용합니다. 범위가 포함된 역할 정의 식별자는 GUID 부분만 추출해 ABAC `GuidEquals`로
