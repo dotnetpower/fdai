@@ -44,6 +44,7 @@ SEMANTIC_REQUEST_TOPIC_ENV = "FDAI_SEMANTIC_TURN_REQUEST_TOPIC"
 SEMANTIC_PROJECTION_TOPIC_ENV = "FDAI_SEMANTIC_TURN_PROJECTION_TOPIC"
 SEMANTIC_PHYSICAL_TOPIC_ENV = "FDAI_SEMANTIC_TURN_PHYSICAL_TOPIC"
 SEMANTIC_OUTBOX_NAMESPACE_ENV = "FDAI_SEMANTIC_TURN_OUTBOX_NAMESPACE"
+SEMANTIC_AUTHENTICATION_RECEIPT_REF_ENV = "FDAI_SEMANTIC_AUTHENTICATION_RECEIPT_REF_ENABLED"
 SEMANTIC_CONSUMER_GROUP_ENV = "FDAI_SEMANTIC_TURN_CONSUMER_GROUP_ID"
 SEMANTIC_KAFKA_CLIENT_ID_ENV = "FDAI_SEMANTIC_TURN_KAFKA_CLIENT_ID"
 READ_INVESTIGATION_REQUEST_TOPIC_ENV = "FDAI_READ_INVESTIGATION_REQUEST_TOPIC"
@@ -118,6 +119,7 @@ class OperatorEnvironment:
     semantic_projection_topic: str | None
     semantic_physical_topic: str | None
     semantic_outbox_namespace: str | None
+    semantic_authentication_receipt_ref_enabled: bool
     semantic_consumer_group_id: str
     semantic_kafka_client_id: str
     read_investigation_request_topic: str | None
@@ -258,6 +260,11 @@ class OperatorEnvironment:
         semantic_projection_topic = values.get(SEMANTIC_PROJECTION_TOPIC_ENV, "").strip() or None
         semantic_physical_topic = values.get(SEMANTIC_PHYSICAL_TOPIC_ENV, "").strip() or None
         semantic_outbox_namespace = values.get(SEMANTIC_OUTBOX_NAMESPACE_ENV, "").strip() or None
+        semantic_authentication_receipt_ref_enabled = _boolean(
+            values,
+            SEMANTIC_AUTHENTICATION_RECEIPT_REF_ENV,
+            default=False,
+        )
         if (
             semantic_outbox_namespace is not None
             and _SEMANTIC_OUTBOX_NAMESPACE_PATTERN.fullmatch(semantic_outbox_namespace) is None
@@ -432,6 +439,9 @@ class OperatorEnvironment:
             semantic_projection_topic=semantic_projection_topic,
             semantic_physical_topic=semantic_physical_topic,
             semantic_outbox_namespace=semantic_outbox_namespace,
+            semantic_authentication_receipt_ref_enabled=(
+                semantic_authentication_receipt_ref_enabled
+            ),
             semantic_consumer_group_id=semantic_consumer_group_id,
             semantic_kafka_client_id=semantic_kafka_client_id,
             read_investigation_request_topic=read_investigation_request_topic,
@@ -527,6 +537,7 @@ __all__ = [
     "SEMANTIC_PROJECTION_TOPIC_ENV",
     "SEMANTIC_PHYSICAL_TOPIC_ENV",
     "SEMANTIC_OUTBOX_NAMESPACE_ENV",
+    "SEMANTIC_AUTHENTICATION_RECEIPT_REF_ENV",
     "SEMANTIC_REQUEST_TOPIC_ENV",
     "TENANT_ENV",
     "TEST_CONTEXT_GRANT_REGISTRY_JSON_ENV",

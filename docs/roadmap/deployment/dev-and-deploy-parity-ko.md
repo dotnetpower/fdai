@@ -1,8 +1,8 @@
 ---
 title: Runtime Parity - Authoritative Local Development 및 Test Fixture
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: af89dec648968ae587521788c5799d7182770a4d
-translation_revised: 2026-09-29
+translation_source_sha: c30273c00c62645a9234e31503f517aeaf8478ea
+translation_revised: 2026-09-30
 ---
 # 런타임 동등성 - 권위 있는 로컬 개발 및 테스트 고정본
 
@@ -516,6 +516,8 @@ auto-open도 비활성화하므로 결정론적 동등성 테스트가 Azure CLI
 프로바이더 중립적인 조정기를 PostgreSQL 및 injected 실행기 `WorkloadIdentity`에 연결하며 Azure
 어댑터는 `delivery/azure/` 아래에 유지합니다.
 [거버넌스 적용 실행 백엔드](../interfaces/execution-backends-ko.md)를 참조하세요.
+
+의미 인증 영수증 참조도 같은 동등성 규칙을 따릅니다. Operator는 `FDAI_SEMANTIC_AUTHENTICATION_RECEIPT_REF_ENABLED`가 켜진 경우에만 `operator-core-request` 1.9.0에 콘텐츠가 없는 선택적 `authentication_receipt_ref`를 보냅니다. 이 설정의 기본값은 꺼짐이며, 꺼져 있으면 모든 envelope는 이전 버전과 바이트를 그대로 유지합니다. 1.9.0을 받는 Core를 먼저 배포한 뒤에만 켜십시오. 이 참조는 권한을 부여하지 않으며, 검증기가 구체적인 영수증 출처를 연결할 때까지 `case-history-read`는 연결되지 않은 상태로 남습니다.
 
 ## 배포자-스코프 LLM 프로비저닝
 

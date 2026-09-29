@@ -1,7 +1,7 @@
 ---
 title: FDAI Console 대화
 translation_of: operator-console.md
-translation_source_sha: d71699b17315dde40a3050d02f6a6f78f1fe0a1d
+translation_source_sha: 74eae9762bd2abcfb05f9b63703cceff98856e71
 translation_revised: 2026-09-30
 ---
 # FDAI Console 대화
@@ -505,6 +505,8 @@ focused 소유자 문서로 분리했습니다:
 - [operator-console-wire-contracts-ko.md](operator-console-wire-contracts-ko.md) - 감사 항목, CLI REPL, 승인 콜백(13.1-13.3), 의미 기반 인시던트 생성, 관리 작업 제출 상태, Python VM 작업 영역, 근거 기반 코드, 온톨로지 변환 결과(13.6-13.9).
 - [operator-console-view-snapshot-ko.md](operator-console-view-snapshot-ko.md) - self-describing 화면 계약(13.4).
 - [operator-console-incident-roster-ko.md](operator-console-incident-roster-ko.md) - 인시던트 목록, 교정 이력, 카탈로그를 재사용하는 대기/적용 상태, 제한된 HTTP `202` 재조회, 권한을 부여하지 않는 Huginn-to-Saga 지침 감사 경로(13.5).
+인증된 의미 턴은 기본값이 꺼진 Operator 설정 `FDAI_SEMANTIC_AUTHENTICATION_RECEIPT_REF_ENABLED`가 켜진 경우에만 `operator-core-request` 1.9.0에 콘텐츠가 없는 인증 영수증 참조를 담을 수 있습니다. 이 참조는 브라우저에 권한으로 전달되지 않으며, 배포 순서는 [13.12](operator-console-wire-contracts-ko.md#1312-의미-턴-인증-영수증-참조)를 참고하십시오.
+
 ## 14. MCP 전달 및 managed 카탈로그
 
 FDAI가 현재 shipped 상태로 제공하는 유일한 MCP 통합은 단일 fixed-transport 읽기 전용 Azure MCP 클라이언트

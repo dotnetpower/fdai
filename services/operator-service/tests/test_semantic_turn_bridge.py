@@ -13,6 +13,7 @@ from uuid import UUID, uuid5
 
 import fdai_operator_service.composition as composition_module
 import pytest
+from fdai_operator_service.authentication_receipt import local_authentication_receipt
 from fdai_operator_service.composition import ProductionOperatorComposition
 from fdai_operator_service.context_selection import ContextSelectionRegistry
 from fdai_operator_service.environment import (
@@ -87,6 +88,8 @@ from fdai_service_contracts import (
     ContractValidationError,
     GoalTaskReceipt,
     OperationalEvidenceProjection,
+    OperatorPrincipal,
+    OperatorRole,
     RuleSearchProjection,
     RuleSearchReceipt,
     SemanticDocumentContext,
@@ -137,12 +140,17 @@ def test_verified_answer_chunks_preserve_large_text_within_confirmed_segment_bou
     assert "".join(chunks) == answer
 
 
-def _proposal(*, body: JsonObject | None = None) -> ConversationProposal:
+def _proposal(
+    *,
+    body: JsonObject | None = None,
+    authentication_receipt: JsonObject | None = None,
+) -> ConversationProposal:
     return ConversationProposal(
         operation="chat.stream",
         scope=PrincipalScope("operator-1", frozenset({"Reader", "Approver"})),
         idempotency_key="turn-retry-1",
         body=body or {"prompt": "Show the current incident evidence."},
+        authentication_receipt=authentication_receipt,
     )
 
 
@@ -333,6 +341,83 @@ def test_semantic_envelope_uses_1_8_for_exact_document_context() -> None:
     semantic_turn = envelope["semantic_turn"]
     assert isinstance(semantic_turn, dict)
     assert semantic_turn["document_context"] == context.model_dump(mode="json")
+
+
+def test_semantic_envelope_keeps_existing_version_when_receipt_ref_switch_is_off() -> None:
+    principal = OperatorPrincipal(
+        subject_id="operator-1",
+        roles=frozenset({OperatorRole.READER}),
+        groups=frozenset(),
+    )
+    receipt = local_authentication_receipt(
+        principal,
+        session_token="local-session-token",
+        group_ids={OperatorRole.READER: "reader-group"},
+        now=datetime(2026, 8, 11, tzinfo=UTC),
+    )
+
+    builder = SemanticTurnEnvelopeBuilder(clock=lambda: datetime(2026, 8, 11, tzinfo=UTC))
+    baseline = builder.build(_proposal())
+    envelope = builder.build(_proposal(authentication_receipt=receipt.model_dump(mode="json")))
+
+    assert envelope == baseline
+    assert envelope["schema_version"] == "1.5.0"
+    semantic_turn = cast(dict[str, object], envelope["semantic_turn"])
+    assert "authentication_receipt_ref" not in semantic_turn
+    assert "local-session-token" not in json.dumps(envelope)
+
+
+def test_semantic_envelope_keeps_1_8_document_context_when_receipt_switch_is_off() -> None:
+    principal = OperatorPrincipal(
+        subject_id="operator-1",
+        roles=frozenset({OperatorRole.READER}),
+        groups=frozenset(),
+    )
+    receipt = local_authentication_receipt(
+        principal,
+        session_token="local-session-token",
+        group_ids={OperatorRole.READER: "reader-group"},
+        now=datetime(2026, 8, 11, tzinfo=UTC),
+    )
+    context = _channel_document_context()
+
+    envelope = SemanticTurnEnvelopeBuilder(clock=lambda: datetime(2026, 8, 11, tzinfo=UTC)).build(
+        _proposal(
+            body={
+                "prompt": "Summarize the attached evidence.",
+                "conversation_id": "conversation-example",
+                "document_context": context.model_dump(mode="json"),
+            },
+            authentication_receipt=receipt.model_dump(mode="json"),
+        )
+    )
+
+    assert envelope["schema_version"] == "1.8.0"
+    assert "authentication_receipt_ref" not in cast(dict[str, object], envelope["semantic_turn"])
+
+
+def test_semantic_envelope_uses_1_9_when_receipt_ref_switch_is_on() -> None:
+    principal = OperatorPrincipal(
+        subject_id="operator-1",
+        roles=frozenset({OperatorRole.READER}),
+        groups=frozenset(),
+    )
+    receipt = local_authentication_receipt(
+        principal,
+        session_token="local-session-token",
+        group_ids={OperatorRole.READER: "reader-group"},
+        now=datetime(2026, 8, 11, tzinfo=UTC),
+    )
+
+    envelope = SemanticTurnEnvelopeBuilder(
+        clock=lambda: datetime(2026, 8, 11, tzinfo=UTC),
+        emit_authentication_receipt_ref=True,
+    ).build(_proposal(authentication_receipt=receipt.model_dump(mode="json")))
+
+    assert envelope["schema_version"] == "1.9.0"
+    semantic_turn = cast(dict[str, object], envelope["semantic_turn"])
+    assert semantic_turn["authentication_receipt_ref"] == receipt.receipt_digest
+    assert "local-session-token" not in json.dumps(envelope)
 
 
 @pytest.mark.parametrize(
@@ -766,8 +851,9 @@ class _MemorySemanticStore:
         request_digest: str,
         envelope: Mapping[str, object],
         source_request_id: str | None = None,
+        authentication_receipt: Mapping[str, object] | None = None,
     ) -> StoredSemanticTurn:
-        del request_digest
+        del request_digest, authentication_receipt
         request_id = cast(str, envelope["request_id"])
         proposal_id = f"semantic-{request_id}"
         existing = self.turns.get(proposal_id)

@@ -1,6 +1,6 @@
 ---
 translation_of: developer-workflow-assurance.md
-translation_source_sha: 998915b24eabbbd5db70befbec8f6a9dac5ab03a
+translation_source_sha: 6020dbfb7e5ce53fa7e1b18166bc869bebfcf2be
 translation_revised: 2026-09-30
 ---
 
@@ -104,6 +104,9 @@ CI 범위 해석기는 결정론적으로 동작하며 안전한 쪽을 선택�
 이 소켓에 접근할 수 없습니다.
 관측 제안 소비자는 진단 채널이 아니라 일반 애플리케이션 수명 주기 워커입니다.
 Operator 워커 준비 검사에 참여하지만 GET 표시 경로로 진단 소켓에 접근하거나 스택 재시작·실제 공급자 점검을 허가하지는 않습니다.
+
+Operator 조립은 기본값이 꺼진 의미 인증 영수증 참조 설정도 읽습니다. 이 설정은 진단 소켓, 실행기, 캡처 범위
+또는 개발자 검증 권한을 바꾸지 않습니다.
 
 `status`와 `capture` 명령은 최신 후보 소켓에 범위가 제한된 프로토콜 요청을 보내고, 살아 있는
 서버가 해당 서비스 이름을 알려 주는 소켓만 사용해 각 서비스의 실행 식별자 소켓을 찾습니다. 중단된

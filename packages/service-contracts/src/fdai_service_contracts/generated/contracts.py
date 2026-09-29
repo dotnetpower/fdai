@@ -1378,6 +1378,112 @@ class OperatorCoreRequestV1_8_0(TypedDict):
     context_digest: NotRequired[str]
     semantic_turn: NotRequired[OperatorCoreRequestV1_8_0SemanticTurn]
 
+
+class OperatorCoreRequestV1_9_0SemanticTurnPrincipal(TypedDict):
+    subject_id: str
+    principal_kind: NotRequired[Literal['human', 'workload']]
+    roles: tuple[Literal['Reader', 'Contributor', 'Approver', 'Owner', 'BreakGlass'], ...]
+    groups: NotRequired[tuple[str, ...]]
+
+
+class OperatorCoreRequestV1_9_0SemanticTurnBoundContext(TypedDict):
+    kind: Literal['incident', 'screen', 'resource_group']
+    incident_id: NotRequired[str]
+    correlation_id: NotRequired[str]
+    screen_id: NotRequired[str]
+    resource_group_id: NotRequired[str]
+    selection_token: NotRequired[str]
+    resource_ids: NotRequired[tuple[str, ...]]
+    principal_id: NotRequired[str]
+    principal_scope_digest: NotRequired[str]
+    ontology_release_digest: NotRequired[str]
+    source_generation: NotRequired[str]
+    selection_digest: NotRequired[str]
+    complete: NotRequired[bool]
+
+
+class OperatorCoreRequestV1_9_0SemanticTurnInvestigationContinuation(TypedDict):
+    schema_version: Literal['1.0.0']
+    source_session_id: str
+    source_turn_id: str
+    source_turn_sequence: int
+    target_type: str
+    target_value: str
+    recovery_measure_concepts: tuple[str, ...]
+    baseline_start: str
+    baseline_end: str
+    initial_observation_cutoff: str
+    ontology_release_digest: str
+    principal_manifest_digest: str
+    source_frame_digest: str
+    source_plan_digest: str
+    source_execution_receipt_digest: str
+    execution_authority: Literal[False]
+
+
+class OperatorCoreRequestV1_9_0SemanticTurnPriorTurnsItem(TypedDict):
+    role: Literal['user', 'assistant']
+    content: str
+
+
+class OperatorCoreRequestV1_9_0AdaptiveRelationshipProof(TypedDict):
+    target_agent: Literal['Odin', 'Heimdall', 'Huginn', 'Forseti', 'Var', 'Thor', 'Vidar', 'Saga', 'Bragi', 'Njord', 'Freyr', 'Loki', 'Mimir', 'Norns', 'Muninn']
+    principal_id: str
+    kind: Literal['steward', 'collaborator']
+    source_revision: str
+    verified_at: str
+    expires_at: str
+    execution_authority: NotRequired[Literal[False]]
+
+
+class OperatorCoreRequestV1_9_0SemanticDocumentContext(TypedDict):
+    schema_version: NotRequired[Literal['1.0.0']]
+    source: Literal['channel_attachment', 'web_reference']
+    principal_ref: str
+    conversation_ref: str
+    citations: tuple[str, ...]
+    authorization_digest: str
+    receipt_digests: NotRequired[tuple[str, ...]]
+    context_digest: str
+    execution_authority: NotRequired[Literal[False]]
+
+
+class OperatorCoreRequestV1_9_0SemanticTurn(TypedDict):
+    utterance: str
+    principal: OperatorCoreRequestV1_9_0SemanticTurnPrincipal
+    session_id: str
+    turn_id: str
+    turn_sequence: int
+    locale: str
+    purpose: str
+    deadline_at: str
+    view_context_digest: NotRequired[str]
+    bound_context: NotRequired[OperatorCoreRequestV1_9_0SemanticTurnBoundContext]
+    investigation_continuation: NotRequired[OperatorCoreRequestV1_9_0SemanticTurnInvestigationContinuation]
+    prior_turns: tuple[OperatorCoreRequestV1_9_0SemanticTurnPriorTurnsItem, ...]
+    planning_profile: NotRequired[Literal['interactive', 'golden_campaign_no_t2']]
+    include_model_trace: NotRequired[bool]
+    cancelled: NotRequired[bool]
+    execution_authority: Literal[False]
+    target_agent: NotRequired[Literal['Odin', 'Heimdall', 'Huginn', 'Forseti', 'Var', 'Thor', 'Vidar', 'Saga', 'Bragi', 'Njord', 'Freyr', 'Loki', 'Mimir', 'Norns', 'Muninn']]
+    relationship_proof: NotRequired[OperatorCoreRequestV1_9_0AdaptiveRelationshipProof | None]
+    relationship_unknown_reason: NotRequired[str | None]
+    conversation_model_tier: NotRequired[Literal['t1', 't2'] | None]
+    document_context: NotRequired[OperatorCoreRequestV1_9_0SemanticDocumentContext | None]
+    authentication_receipt_ref: NotRequired[str | None]
+
+
+class OperatorCoreRequestV1_9_0(TypedDict):
+    schema_version: Literal['1.9.0']
+    request_id: str
+    correlation_id: str
+    idempotency_key: str
+    resource_ref: str
+    request_kind: Literal['query', 'proposal', 'semantic_query']
+    requested_at: str
+    context_digest: NotRequired[str]
+    semantic_turn: NotRequired[OperatorCoreRequestV1_9_0SemanticTurn]
+
 __all__ = (
     "AlertNoiseCommandV0_0_0",
     "AlertNoiseCommandV1_0_0",
@@ -1412,5 +1518,6 @@ __all__ = (
     "OperatorCoreRequestV1_6_0",
     "OperatorCoreRequestV1_7_0",
     "OperatorCoreRequestV1_8_0",
+    "OperatorCoreRequestV1_9_0",
 )
 # fmt: on

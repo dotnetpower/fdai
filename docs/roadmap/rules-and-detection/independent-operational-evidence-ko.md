@@ -1,7 +1,7 @@
 ---
 translation_of: independent-operational-evidence.md
-translation_source_sha: dbf27650ee39367d367da91626495a3a611ba34c
-translation_revised: 2026-09-29
+translation_source_sha: b9dee86c456194d0dd6425f4fed30898cccb588b
+translation_revised: 2026-09-30
 ---
 # 독립 운영 근거 발급
 
@@ -13,8 +13,8 @@ translation_revised: 2026-09-29
 > **상태:** 일부 구현되었습니다. 소유자가 2026-09-28에 [#1022](https://github.com/dotnetpower/fdai/issues/1022)
 > 종료 조건 1에 대한 설계 검토를 마쳤으며, 내용은 [검토 결정](#검토-결정)에 있습니다.
 > 검증기 엔진, 발급 경로, 고정된 신뢰 레지스트리와 사례 범위 권한 부여 레지스트리, 삽입 전용 증명 저장소,
-> Operator 인증 증적, 세 가지 테스트 맥락 재확인, 관측, 사례 이력, 현재 재사용 재확인,
-> 모든 소비 소유자의 유형별 기록, Settings 준비 상태 관측이 구현되어 로컬 검사를 통과합니다.
+> Operator 인증 증적, 세 가지 테스트 맥락 재확인, 연결되지 않은 사례 이력
+> 재확인 모듈, 모든 소비 소유자의 유형별 기록, Settings 준비 상태 관측이 구현되어 로컬 검사를 통과합니다.
 > [구현 참고 사항](#구현-참고-사항)을 확인하세요. 배포된 검증기 워크로드는 없으며, 출처 재확인이 연결되지 않은 예측 목적은 `unavailable` 상태를 유지합니다.
 >
 > **에이전트 경계:** 판테온은 정확히 15개 에이전트로 유지합니다. 이 설계는 에이전트나 토픽을 추가하지 않고,
@@ -431,7 +431,8 @@ Core 경로는 `services/core-control-plane/src/fdai/` 기준 상대 경로입�
 - **재확인.**  `operator-test-context-command`, `test-context-transition`, `operational-test-context`는 실제 출처를
   읽습니다. 현재 맥락은 인용한 전이 발급 기록의 조회가 그 맥락과 직전 기록으로 다시 만든 조회와 같을 때만 인정되며,
   다른 발급 기록을 인용하면 `replay_substituted`입니다. `admit`은 보관된 기록마다 정확한 검증기 바인딩과 현재 앵커
-  기준의 그 바인딩 준비 상태를 다시 확인합니다. `operational-test-observation`, `case-history-read`, `current-case-reuse`는 아직 연결되지 않았습니다. 관측 공급자는 검증기 신원으로 사용할 수 없고, 사례 이력은 영속 의미 증적 테이블과 end-to-end 코덱 경로가 없으며, 현재 재사용은 독립 인벤토리, Muninn, 안전 증적 출처가 없습니다. 출처별 예측 이력과 `forecast-context` 목적에도 아직 연결된 출처 재확인이 없습니다.
+  기준의 그 바인딩 준비 상태를 다시 확인합니다. `operational-test-observation`, `case-history-read`, `current-case-reuse`는 아직 연결되지 않았습니다. 관측 공급자는 검증기 신원으로 사용할 수 없습니다. 사례 이력에는 이제 삽입 전용 Operator semantic 인증 증적 스키마, `operator-core-request` `1.9.0` 증적 참조, Core에서 Bragi로 이어지는 참조 전파, 연결되지 않은 정확한 재확인 모듈이 있지만, Operator 스트림 경로는 아직 영속 증적 테이블을 채우지 않으며 실제 codec, Core, Bragi, `OperatingPatternQuery._read`, 연결된 검증기를 통과하는 긍정 발급도 증명하지 못했습니다. Operator 설정 `FDAI_SEMANTIC_AUTHENTICATION_RECEIPT_REF_ENABLED`는 기본적으로 꺼져 있으며, `operator-core-request` `1.9.0`을 수용하는 Core가 배포된 뒤에만 켤 수 있습니다. 현재 재사용에는 독립 인벤토리, Muninn, 안전 증적 출처가 없습니다. 출처별 예측 이력과 `forecast-context` 목적에도 아직 연결된 출처 재확인이 없습니다.
+- **공유 권한 부여 검증.** 사례 범위 권한 부여 레지스트리 로더와 권한 부여 모델은 공유 서비스 계약 SDK에 포함되며 Core가 이를 다시 내보냅니다. Operator의 테스트 컨텍스트 선택 변환은 별도 권한 부여 검증기를 두지 않고 같은 로더를 콘텐츠 고정값과 함께 사용합니다.
 - **기능 상태와 인계.** `delivery/operational_evidence_readiness.py`는 목적마다 Settings 행 하나를 추가합니다. 런타임
   Settings 구체화는 모든 실패를 관측되지 않음으로 처리하는 제한된 읽기로 검증기 준비 상태 엔드포인트를 한 번
   관측하고, 형식이 지정된 `OperationalEvidenceVerifierReadiness` 스냅샷을 프로젝션에 전달합니다. 행은 스냅샷이

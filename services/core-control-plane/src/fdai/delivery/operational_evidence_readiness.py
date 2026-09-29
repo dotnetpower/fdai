@@ -42,12 +42,18 @@ from fdai.delivery.operational_evidence_transport import read_verifier_readiness
 from fdai.delivery.repo_assets import repo_asset_root
 
 BOUND_READBACK_PURPOSES = frozenset(
-    {"operational-test-context", "operator-test-context-command", "test-context-transition"}
+    {
+        "operational-test-context",
+        "operator-test-context-command",
+        "test-context-transition",
+    }
 )
 READINESS_MAX_AGE = timedelta(seconds=120)
 READINESS_MAX_SKEW = timedelta(seconds=30)
 _SOURCE_LIMITATIONS = {
-    "case-history-read": "semantic authentication receipt source is not durably bound",
+    "case-history-read": (
+        "semantic authentication receipt source is implemented but not end-to-end bound"
+    ),
     "current-case-reuse": "verifier-identity current-case provider readback is unavailable",
     "forecast-context": "the four forecast-history slices cannot be issued yet",
     "operational-test-observation": "verifier-identity provider readback is unavailable",

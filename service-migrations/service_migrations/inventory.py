@@ -30,7 +30,7 @@ _TRIGGER_TABLE = re.compile(
     r"(?:public\.)?([a-zA-Z_][a-zA-Z0-9_]*)",
     re.IGNORECASE | re.DOTALL,
 )
-_SQL_NON_TABLE_TOKENS = frozenset({"OF", "ON", "SET"})
+_SQL_NON_TABLE_TOKENS = frozenset({"OF", "ON", "SET", "TABLE"})
 _TABLE_ARG_BY_OPERATION = {
     "add_column": 0,
     "alter_column": 0,

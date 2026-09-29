@@ -5829,13 +5829,16 @@ def _request_digest(
     envelope: Mapping[str, Any],
     request: SemanticTurnRequest,
 ) -> str:
+    semantic_turn = request.model_dump(mode="json")
+    if semantic_turn.get("authentication_receipt_ref") is None:
+        semantic_turn.pop("authentication_receipt_ref", None)
     return content_digest(
         {
             "request_id": envelope["request_id"],
             "correlation_id": envelope["correlation_id"],
             "resource_ref": envelope.get("resource_ref"),
             "requested_at": envelope["requested_at"],
-            "semantic_turn": request.model_dump(mode="json"),
+            "semantic_turn": semantic_turn,
         }
     )
 

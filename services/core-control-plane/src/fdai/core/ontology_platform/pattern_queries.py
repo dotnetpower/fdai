@@ -72,6 +72,7 @@ class OperatingPatternQuery:
         if (
             not context.principal_ref
             or not context.principal_scope_digest
+            or not context.authentication_receipt_ref
             or context.purposes != ("operations-review",)
         ):
             raise PermissionError(
@@ -123,6 +124,9 @@ class OperatingPatternQuery:
                 "principal_ref": context.principal_ref,
                 "request_ref": digest,
                 "case_scope_digest": "sha256:" + scope,
+                "authentication_receipt_ref": context.authentication_receipt_ref,
+                "principal_groups_digest": content_digest(list(context.principal_groups)),
+                "purpose": context.purposes[0],
             },
             clock=self._clock,
         )

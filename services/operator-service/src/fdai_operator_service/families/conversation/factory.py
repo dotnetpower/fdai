@@ -18,6 +18,7 @@ from fdai_operator_service.families.conversation.contracts import (
     ConversationStreamReader,
     ConversationStreamRequest,
     JsonObject,
+    PrincipalScope,
 )
 from fdai_operator_service.families.conversation.document_refs import (
     DocumentContextResolver,
@@ -46,6 +47,7 @@ from fdai_operator_service.streaming.shutdown import (
     shutdown_event,
     shutting_down,
 )
+from fdai_service_contracts.operator_authentication import OperatorAuthenticationReceipt
 from fdai_service_contracts.test_context import TestContextRequest
 from pydantic import ValidationError
 from starlette.requests import Request
@@ -164,7 +166,14 @@ def _proposal_endpoint(
                     else None
                 )
             else:
-                scope = await dependencies.authorizer.authorize(request, operation=spec.operation)
+                scope, auth_receipt = await _authorize_with_receipt(
+                    dependencies.authorizer, request, operation=spec.operation
+                )
+                receipt = (
+                    cast(JsonObject, auth_receipt.model_dump(mode="json"))
+                    if auth_receipt is not None
+                    else None
+                )
             body = (
                 await read_json_body(request, maximum=spec.max_body_bytes)
                 if spec.max_body_bytes
@@ -226,7 +235,9 @@ def _stream_endpoint(
         if dependencies.streams is None:
             return unavailable_response("conversation event stream")
         try:
-            scope = await dependencies.authorizer.authorize(request, operation=spec.operation)
+            scope, auth_receipt = await _authorize_with_receipt(
+                dependencies.authorizer, request, operation=spec.operation
+            )
             body = (
                 await read_json_body(request, maximum=spec.max_body_bytes)
                 if spec.max_body_bytes
@@ -281,6 +292,11 @@ def _stream_endpoint(
                         body=body,
                         query=query,
                         path_params=path_params,
+                        authentication_receipt=(
+                            auth_receipt.model_dump(mode="json")
+                            if auth_receipt is not None
+                            else None
+                        ),
                     )
                 )
                 proposal_id = receipt.proposal_id
@@ -321,6 +337,17 @@ def _stream_endpoint(
         )
 
     return endpoint
+
+
+async def _authorize_with_receipt(
+    authorizer: ConversationAuthorizer,
+    request: Request,
+    *,
+    operation: str,
+) -> tuple[PrincipalScope, OperatorAuthenticationReceipt | None]:
+    if isinstance(authorizer, ConversationReceiptAuthorizer):
+        return await authorizer.authorize_with_receipt(request, operation=operation)
+    return await authorizer.authorize(request, operation=operation), None
 
 
 __all__ = ["ConversationFamilyDependencies", "build_conversation_routes"]

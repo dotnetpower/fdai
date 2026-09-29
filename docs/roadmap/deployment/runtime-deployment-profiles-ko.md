@@ -1,6 +1,6 @@
 ---
 translation_of: runtime-deployment-profiles.md
-translation_source_sha: 2030b1d15ba0f5b67de5b547617e732680762125
+translation_source_sha: 23b9e2d7bb3184cbe1e06557cc87db7adc371f97
 translation_revised: 2026-09-30
 ---
 # 런타임 배포 프로파일
@@ -277,6 +277,8 @@ DB 및 애플리케이션 준비는 모두 소유자 전용 kubeconfig를 [`kube
 공용 계획 검토기는 기존 `substrate`, `runtime`, `database`, `application` 단계에 같은
 정확한 digest·만료·파괴적 변경 확인 조건을 적용합니다. AKS 단계를 허용한다고 승인하거나
 선행 단계를 생략할 권한을 부여하지는 않습니다.
+
+배포 순서: Operator는 `FDAI_SEMANTIC_AUTHENTICATION_RECEIPT_REF_ENABLED`가 켜진 경우에만 `operator-core-request` 1.9.0에 콘텐츠가 없는 선택적 `authentication_receipt_ref`를 보냅니다. 이 설정의 기본값은 꺼짐이며, 꺼져 있으면 모든 envelope는 이전 버전과 바이트를 그대로 유지합니다. 1.9.0을 받는 Core를 먼저 배포한 뒤에만 켜십시오. 이 참조는 권한을 부여하지 않으며, 검증기가 구체적인 영수증 출처를 연결할 때까지 `case-history-read`는 연결되지 않은 상태로 남습니다.
 
 ## 런타임 렌더링
 

@@ -38,6 +38,7 @@ for generator in \
   generate_cluster_connector_schemas.py \
   generate_conversation_model_schema.py \
   generate_document_context_schema.py \
+  generate_authentication_receipt_ref_schema.py \
   generate_document_context_projection_schema.py \
   generate_test_context_schemas.py; do
   run uv run python "scripts/quality/contracts/$generator" "${check_flag[@]}"
