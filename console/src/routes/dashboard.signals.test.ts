@@ -24,3 +24,30 @@ describe("Living Rules provenance", () => {
     });
   });
 });
+
+describe("Measured evidence provenance", () => {
+  const source = { name: "postgresql:operational_measurements", kind: "measurement", as_of: null } as const;
+
+  test("labels unknown synthetic markers as observed, not measured", () => {
+    expect(livingRulesProvenance({
+      synthetic: false,
+      source,
+      provenance: {
+        qualification: "observation",
+        synthetic_marker: { declared_non_synthetic: 3, unknown: 1 },
+      },
+    }).kind).toBe("observed");
+  });
+
+  test("keeps fully declared non-synthetic evidence measured", () => {
+    expect(livingRulesProvenance({
+      synthetic: false,
+      source,
+      provenance: {
+        qualification: "observation",
+        synthetic_marker: { declared_non_synthetic: 4, unknown: 0 },
+      },
+    }).kind).toBe("measured");
+    expect(livingRulesProvenance({ synthetic: false, source }).kind).toBe("measured");
+  });
+});

@@ -172,6 +172,12 @@ def test_explicit_synthetic_classification_is_not_live_evidence() -> None:
     assert result.events[0].synthetic is True
 
 
+@pytest.mark.parametrize("marker", [False, None])
+def test_synthetic_marker_is_preserved_without_relabelling_unknown(marker: bool | None) -> None:
+    result = decode_dashboard_snapshot(snapshot(row(classification(synthetic=marker))))
+    assert result.events[0].synthetic is marker
+
+
 def test_human_input_uses_exact_event_or_parked_action_identity() -> None:
     human = {"action_kind": "hil.requested", "approval_id": "approval-a"}
     result = decode_dashboard_snapshot(

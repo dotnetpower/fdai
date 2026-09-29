@@ -217,3 +217,11 @@ export function controlOutcomeGroup(outcome: string): (typeof CONTROL_OUTCOME_OR
   ) return "deny";
   return "other";
 }
+
+/** Name the evidence state without turning unknown provenance into a measured claim. */
+export function measurementEvidenceKind(
+  autonomy: Pick<AutonomyPayload, "synthetic" | "provenance">,
+): "simulated" | "observed" | "measured" {
+  if (autonomy.synthetic) return "simulated";
+  return (autonomy.provenance?.synthetic_marker.unknown ?? 0) > 0 ? "observed" : "measured";
+}

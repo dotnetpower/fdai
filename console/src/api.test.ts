@@ -96,6 +96,47 @@ describe("Operator API response decoders", () => {
     })).toThrow(OperatorApiError);
   });
 
+  test("keeps unknown synthetic markers visible as observation provenance", () => {
+    const provenance = {
+      qualification: "observation",
+      synthetic_marker: { declared_non_synthetic: 0, unknown: 1 },
+    };
+    const decoded = decodeAutonomyPayload({
+      ...autonomy,
+      measurement_gaps: ["unknown_synthetic_marker"],
+      provenance,
+      tier: { mix: { t0: 1 }, counts: { t0: 1 }, bands: autonomy.tier.bands },
+    });
+    expect(decoded.provenance?.synthetic_marker.unknown).toBe(1);
+    expect(decoded.tier.counts).toEqual({ t0: 1 });
+    expect(() => decodeAutonomyPayload({ ...autonomy, provenance })).toThrow(OperatorApiError);
+    expect(() => decodeAutonomyPayload({
+      ...autonomy,
+      measurement_gaps: ["unknown_synthetic_marker"],
+    })).toThrow(OperatorApiError);
+    expect(() => decodeAutonomyPayload({
+      ...autonomy,
+      provenance: { ...provenance, qualification: "qualification" },
+      measurement_gaps: ["unknown_synthetic_marker"],
+    })).toThrow(OperatorApiError);
+    expect(() => decodeAutonomyPayload({
+      ...autonomy,
+      provenance: {
+        qualification: "observation",
+        synthetic_marker: { declared_non_synthetic: 1, unknown: 1 },
+      },
+      measurement_gaps: ["unknown_synthetic_marker"],
+    })).toThrow(OperatorApiError);
+    expect(() => decodeAutonomyPayload({
+      ...autonomy,
+      tier: { mix: { t0: 1 }, counts: { t0: 2 }, bands: autonomy.tier.bands },
+    })).toThrow(OperatorApiError);
+    expect(() => decodeAutonomyPayload({
+      ...autonomy,
+      tier: { mix: { t0: 1 }, counts: { t1: 1 }, bands: autonomy.tier.bands },
+    })).toThrow(OperatorApiError);
+  });
+
   test("keeps unobserved audit-derived measurements unavailable", () => {
     const decoded = decodeAutonomyPayload({
       ...autonomy,
