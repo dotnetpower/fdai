@@ -19,6 +19,7 @@ from .semantic_governed_document_planning import (
 )
 from .semantic_incident_creation import incident_creation_intent_from_judgment
 from .semantic_investigation import VerifiedInvestigationIntent
+from .semantic_judgment_coverage import UNCOVERED_CONSTRAINT_CODE
 from .semantic_manifest_planning import normalize_ontology_manifest_count_frame
 from .semantic_planning_frame import (
     is_completed_change_outcome_frame as _is_completed_change_outcome_frame,
@@ -88,6 +89,7 @@ from .semantic_target_candidate_planning import (
     normalize_decision_outcome_relationship,
     normalize_operating_relationship_temporal_scope,
     property_filter_has_stated_subject,
+    property_filter_omits_stated_relation,
     resolve_resource_target_candidates,
 )
 
@@ -360,6 +362,18 @@ def normalize_and_gate_frame(
         context=context,
         descriptors=descriptors,
     )
+    if property_filter_omits_stated_relation(
+        proposal,
+        utterance=utterance,
+        inventory_query_language=inventory_query_language,
+    ):
+        # A dropped relation operand would widen the list; hold instead of answering it.
+        return _outcome(
+            SemanticPlanningDisposition.UNAVAILABLE,
+            UNCOVERED_CONSTRAINT_CODE,
+            manifest_digest=manifest_digest,
+            frame=frame,
+        )
     resource_type_filters = tuple(
         target.value
         for target in (() if judgment is None else judgment.targets)

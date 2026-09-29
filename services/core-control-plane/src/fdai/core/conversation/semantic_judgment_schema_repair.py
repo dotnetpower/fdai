@@ -14,6 +14,7 @@ from .semantic_judgment_rejections import (
 )
 
 _MAX_SCHEMA_ERRORS = 16
+_LOGGED_FEEDBACK_KEYS = frozenset({"location", "type", "reason"})
 _SCHEMA_INTENTS = frozenset(
     {"query.manifest", "query.ontology_declaration", "query.ontology_relationships"}
 )
@@ -197,8 +198,12 @@ def log_rejection(
 
     rejection: dict[str, str] = {"failure_type": type(exc).__name__}
     if isinstance(exc, ValidationError):
+        # Repair feedback may quote the utterance; logs keep only its bounded metadata.
         rejection["validation_reason"] = json.dumps(
-            validation_reason,
+            [
+                {key: value for key, value in item.items() if key in _LOGGED_FEEDBACK_KEYS}
+                for item in validation_reason
+            ],
             separators=(",", ":"),
             sort_keys=True,
         )

@@ -637,6 +637,29 @@ def normalize_resource_list_temporal_scope(
     return proposal.model_copy(update={"temporal_scope": {}})
 
 
+def property_filter_omits_stated_relation(
+    proposal: SemanticFrameProposal,
+    *,
+    utterance: str,
+    inventory_query_language: InventoryQueryLanguageRegistry | None,
+) -> bool:
+    """Report a filtered-resource frame that dropped the operand of a stated relation.
+
+    Existing migration debt: the relation word list is catalog vocabulary, kept only so a
+    single reader cannot widen a "related to X" list; the outcome is a typed hold.
+    """
+
+    return (
+        proposal.output_shape == SemanticOutputShape.PROPERTY_FILTERED_RESOURCES
+        and query_signal_matches(
+            utterance,
+            inventory_query_language,
+            "resource_name_relation",
+        )
+        and len(proposal.subject_constraints) < 2
+    )
+
+
 def property_filter_has_stated_subject(
     proposal: SemanticFrameProposal | SemanticProblemFrame,
     *,

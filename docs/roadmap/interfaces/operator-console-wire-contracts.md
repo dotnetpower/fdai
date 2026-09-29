@@ -125,7 +125,8 @@ and does not send natural language directly to a write endpoint. A sole `resourc
 unresolved term with a typed subject or resource-identity requirement is rendered as a locale-specific request for the exact resource
 name or ID; the internal token remains on the machine contract and is not shown as interface copy.
 No clarification is fixed to one product or resource kind: a stated constraint the typed judgment
-omits is repaired or held as `semantic_constraint_uncovered`, never replaced by preset question text.
+omits, including the operand of a stated relation that a frame drops, is repaired or held as
+`semantic_constraint_uncovered`, never replaced by preset question text.
 Concurrent semantic requests share one durable processing claim. A waiter retries the claim after
 its lease expires, so a failed owner cannot strand the request until its outer deadline. A result
 store failure while waiting returns an explicit held projection.

@@ -1,7 +1,7 @@
 ---
 title: Operator Console - Data and Wire Contracts
 translation_of: operator-console-wire-contracts.md
-translation_source_sha: f458967e9ff058374276351a890c6111246da93b
+translation_source_sha: 345da59ab48190ccfe00ef1ed6ca31a5e3c393f5
 translation_revised: 2026-09-29
 ---
 
@@ -117,8 +117,9 @@ strict JSON-schema `TurnPlan`을 반환합니다. 브라우저는 액션 의도�
 분류하지 않으며 자연어를 쓰기 엔드포인트에 직접 보내지 않습니다. 타입이 지정된 subject 또는
 리소스 신원 요구 사항과 함께 `resource_identity` 미확정 항목 하나만 있으면 정확한 리소스 이름 또는 ID를 요청하는 locale별
 문구로 표시하며, 내부 토큰은 machine 계약에만 유지하고 인터페이스 문구로 노출하지 않습니다.
-확인 질문은 특정 제품이나 리소스 종류에 고정되지 않습니다. 형식화된 판단이 빠뜨린 명시적 제약은 수정하거나
-`semantic_constraint_uncovered`로 보류하며, 미리 정한 질문 문구로 대신하지 않습니다.
+확인 질문은 특정 제품이나 리소스 종류에 고정되지 않습니다. 형식화된 판단이 빠뜨린 명시적 제약은, 프레임이
+명시된 관계의 피연산자를 빠뜨린 경우를 포함해 수정하거나 `semantic_constraint_uncovered`로 보류하며, 미리 정한
+질문 문구로 대신하지 않습니다.
 동시 의미 기반 요청은 하나의 영속 처리 claim을 공유합니다. 대기자는 lease가 만료되면 claim을
 다시 시도하므로 실패한 소유자가 요청을 외부 기한까지 멈추게 할 수 없습니다. 대기 중 결과
 저장소가 실패하면 명시적인 보류 변환 결과를 반환합니다.

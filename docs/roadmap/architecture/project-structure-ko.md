@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: e9640da353360f2c92ebf98827ab704268ae7b02
+translation_source_sha: f6d934f24c376556abf79af8912fbf1744ab6148
 translation_revised: 2026-09-29
 ---
 # 프로젝트 구조
@@ -112,7 +112,8 @@ Resource 수집 청크의 인코딩은 `delivery/inventory_collection.py`에 둡
 계획의 독립 두 번째 판독기를 결속합니다. 서로 모르는 두 선택기가 결속되지 않은 Resource 하위 유형
 표현을 닫힌 선택으로 근거화하고, 블라인드 제약 판독이 형식화된 판단이 명시된 모든 제한을 복사했는지
 확인합니다. `FDAI_SEMANTIC_SECOND_READER=1`은 로컬 실행기만 설정하며, 배포 환경은 이 판독기가 승격될
-때까지 단일 판독기 경로를 유지합니다.
+때까지 단일 판독기 경로를 유지합니다. 수정 피드백은 판단한 발화의 단어를 모델에 다시 보여 줄 수 있지만, 거부
+로그에는 위치, 유형, 사유만 남깁니다.
 
 **초기 설계.** 모든 평면 Core 하위 시스템을 `pipeline`, `incident`, `operator`, `knowledge`
 또는 `platform` 아래로 실제 이동한 뒤 한 번의 코드 변경 도구로 모든 가져오기를 다시 작성합니다.
