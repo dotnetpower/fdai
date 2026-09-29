@@ -43,6 +43,7 @@ from fdai.core.chaos.injector import (
     NoSignalProbe,
     ShadowFaultInjector,
     SignalProbe,
+    TimedSignalProbe,
 )
 from fdai.core.chaos.promotion_guard import ChaosPromotionGuard, ChaosPromotionObservation
 from fdai.core.chaos.run_state import ChaosRunSnapshot, ChaosRunState, transition_chaos_run
@@ -104,6 +105,7 @@ __all__ = [
     "NoSignalProbe",
     "ShadowFaultInjector",
     "SignalProbe",
+    "TimedSignalProbe",
     "SreScenarioContract",
     "default_scenarios",
     "evaluate_chaos_eligibility",

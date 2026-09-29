@@ -1,7 +1,7 @@
 ---
 title: Recovery 및 chaos enforcement
 translation_of: recovery-and-chaos-enforcement.md
-translation_source_sha: bf77c088a8a597e4ace3096447bad230dec30822
+translation_source_sha: e5bbf0f7cb3665c5102a20010746c8d133e6b0cf
 translation_revised: 2026-09-29
 ---
 # 복구 및 chaos 적용
@@ -273,8 +273,8 @@ out-of-envelope 영향, missed stop, 롤백 실패, stale 그래프 또는 자�
 chaos 도구의 `GovernedChaosExecution` 연결 지점을 구현한 `GovernedChaosExecutionAdapter`만 거칩니다.
 이 명령은 chaos 도구의 적용 경로가 위임하는 것과 같은 타입의 `tool.run-chaos-experiment` 요청을
 제출하지만, 여전히 어댑터를 직접 호출합니다. Core 제안, 위험 게이트, Var 승인, Thor 파이프라인을 통한
-라우팅은 남은 작업입니다. 원시 참조 sweep 드라이버는 삭제했고, 탐지 지연 드라이버는 측정이 어댑터
-위로 이관될 때까지 모든 실제 실행을 거부합니다.
+라우팅은 남은 작업입니다. 원시 참조 sweep 드라이버는 삭제했고, 탐지 지연 드라이버는 배포 바인딩이
+있을 때 선택한 카탈로그 또는 참조 시나리오 하나를 같은 어댑터를 통해 실행합니다.
 
 **탐지 지연 측정 (2026-09-29 결정).** 통제된 하네스는 fault 유지 중에 예상 신호를 폴링하지
 않습니다. 유지 중 폴링은 영향 범위 안에 probe 트래픽을 더하고, 중지 조건 guard와 경합하며,
