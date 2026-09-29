@@ -1,8 +1,8 @@
 ---
 title: 사용자 RBAC와 Entra 아이덴티티
 translation_of: user-rbac-and-identity.md
-translation_source_sha: ce9a1542e01c0fb275061415e5fde7c2c3d1ab05
-translation_revised: 2026-09-28
+translation_source_sha: 7b5923ed0ca24151287a98a7e6c0aee181fe12bc
+translation_revised: 2026-09-29
 ---
 
 # 사용자 RBAC와 Entra 아이덴티티
@@ -51,6 +51,8 @@ Console, ChatOps 및 catalog-as-code 저장소에서 인증, 인가 및 감사�
 새 이력은 [영문 구현 이력](user-rbac-and-identity.md#implementation-history)에만 추가하며 아래 기존 번역 이력은 그대로 보존합니다.
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-29 | implemented | Console 경로, Slack 및 Teams 콜백 서비스와 결정 트랜잭션에서 보류된 범주 전용 거부에 대해 개발 Owner의 증명된 자기 승인 외의 모든 승인을 거부하고, 다른 권한 있는 승인자의 반려는 허용했습니다. | `current change`; `families/iam/hil_callback_decision.py`, `families/iam/hil_development_approval.py`, `postgres_hil_decision.py`, `projection_logic.py`; `services/operator-service/tests/test_hil_development_owner_only.py` 통과. | [#1623](https://github.com/dotnetpower/fdai/issues/1623)에서 실제 Owner 실행 기록 하나를 보존합니다. |
+| 2026-09-29 | implemented | Console 경로, Slack 및 Teams 콜백 서비스와 결정 트랜잭션에서 요청한 개발 Owner가 보류된 범주 전용 거부를 반려할 수 있게 했습니다. 반려는 권한을 부여하지 않으며 승인은 기존 규칙을 모두 유지합니다. | `current change`; `families/iam/hil_callback_decision.py`, `postgres_hil_decision.py`; `services/operator-service/tests/test_hil_development_owner_only.py` 통과. | [#1623](https://github.com/dotnetpower/fdai/issues/1623)에서 실제 Owner 실행 기록 하나를 보존합니다. |
 | 2026-09-26 | 구현됨 | 브라우저에 행위자, 역할, 해시 또는 권한을 주지 않고 Slack A1 아웃바운드 단추를 서명된 서버 출처 브라우저 인계에 연결했습니다. | `current change`, `slack_adapter.py`, `test_slack_hil_interactivity.py` 및 집중 Operator/Console 검사. | #943을 위해 실제 Slack 클릭, 현재 매핑, 클릭 이후의 서명된 `auth_time`, PostgreSQL nonce 동시성 검사 및 작성자 확인을 보존합니다. |
 | 2026-09-26 | 진행 중 | 서명된 Slack 상호작용과 일회용 행위자/작업 인계를 기존 결정 서비스에 추가했습니다. 브라우저 데이터는 행위자나 권한을 선택할 수 없습니다. | `current change`, `slack_handoff.py`, `hil-queue.tsx`, 집중 IAM 및 Console 검사. | API 토큰의 서명된 Entra `auth_time`을 구성하고 확인하며, 인증된 브라우저와 Slack 클릭 증적 및 채널 전달을 검증한 뒤 #943 기준 3을 완료합니다. |
 | 2026-09-14 | implemented | 현재 역할 그룹에 근거한 Reader 검토, 엄격한 문서 허용, 정확한 Operator SQL 역할 검사, 최초/이전 검토의 재검증을 추가했습니다. 대상 잠금, 독립 실행기 연결, IAM 결과 수신은 미완료 소스 작업으로 분류를 바로잡았습니다. | `current change`; `test_handover_reviewer_groups.py`, `test_entra_directory.py` 및 수락 검사 35개 통과; 실제 SQL 수명 주기/검토자 검사 48개 통과 | 실제 그룹/ACL 근거는 별도로 보존합니다. H10, 대체 Core 연결, 의미 컴파일, 긴급도, 실행 소스 연결은 미완료이며 IAM 결과나 승격을 활성화하지 않았습니다. |
@@ -347,7 +349,7 @@ Entra OID를 no-self-approval과 감사 상관관계 검사까지 전달합니�
   안정적인 `decided_at`이며 정확한 재시도는 첫 준비/완료 감사 시각을 보존합니다. Operator는
   게시 전에 결정 보낼 편지함을 영속화하고 브로커가 수락한 뒤에만 전달 완료로 표시합니다.
   게시 실패는 재시도 가능한 `503`을 반환합니다.
-- 자기 승인 차단은 서버가 인증한 Entra OID와 pending 항목의 제출자 OID를 비교하며, 사람 승인 기능 검사에서는 BreakGlass를 제외합니다. full-authority 개발 프로필만 동일한 사람을 요청자와 승인자로 허용하며, 허용, 감사 및 대체 규칙은 [위험 분류](../decisioning/risk-classification-ko.md#전권-개발-프로필)가 소유합니다.
+- 자기 승인 차단은 서버가 인증한 Entra OID와 pending 항목의 제출자 OID를 비교하며, 사람 승인 기능 검사에서는 BreakGlass를 제외합니다. full-authority 개발 프로필만 동일한 사람을 요청자와 승인자로 허용합니다. 보류된 범주 전용 거부는 해당 Owner 본인의 승인 외에는 어떤 승인도 받지 않지만, 해당 Owner를 포함한 모든 권한 있는 승인자는 이를 반려할 수 있습니다. 허용, 감사 및 대체 규칙은 [위험 분류](../decisioning/risk-classification-ko.md#전권-개발-프로필)가 소유합니다.
 
 ## 8. 감사 상관관계
 

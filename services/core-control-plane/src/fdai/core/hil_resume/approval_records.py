@@ -7,12 +7,26 @@ from datetime import datetime
 from typing import Any
 
 from fdai.core.oncall import OnCallResolution
+from fdai.shared.providers.hil_channel import HilDecision
 
 _PARK_PREFIX = "hil_park:"
+# Only these decisions may end a park; PENDING or any unknown value never changes one.
+_RESOLVABLE_DECISIONS = frozenset({HilDecision.APPROVE, HilDecision.REJECT, HilDecision.TIMEOUT})
 
 
 def park_key(approval_id: str) -> str:
     return f"{_PARK_PREFIX}{approval_id}"
+
+
+def resolvable_decision(decision: object) -> HilDecision | None:
+    """Return the terminal decision a park may resolve with, or ``None`` for any other value."""
+    if not isinstance(decision, str):
+        return None
+    try:
+        parsed = HilDecision(decision)
+    except ValueError:
+        return None
+    return parsed if parsed in _RESOLVABLE_DECISIONS else None
 
 
 def approval_expired(parked: Mapping[str, Any], *, now: datetime) -> bool:

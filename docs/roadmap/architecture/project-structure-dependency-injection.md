@@ -205,7 +205,15 @@ it records each server-prepared binding once with audit and verifies only a curr
 `runtime/development_authority.py` composes it, with the Azure target-revision reader, into the
 ControlLoop, the Pantheon, and the HIL coordinator. `core/hil_resume/development.py` owns the
 park block with the bound facts the Owner sees and the Owner self-approval admission behind the
-`DevelopmentBindingPreparer` and `TargetRevisionReader` ports; Core never imports the registry. The focused
+`DevelopmentBindingPreparer` and `TargetRevisionReader` ports; Core never imports the registry. The
+preparer also returns the scope an action needs, its target location widened to its declared blast
+radius, or the whole subscription when that radius is undeclared or graph-derived, so admission refuses a
+recorded binding narrower than that scope. `core/risk_gate/category_denial.py`
+owns the one category-only denial definition shared by the ControlLoop park and the Pantheon
+confirmation path. The ControlLoop binds itself into the HIL coordinator as the
+`DevelopmentCategoryRevalidator`, so an admitted Owner self-approval of a category park reruns the
+ControlLoop's own current evaluation before dispatch; a coordinator without that binding never
+dispatches such a park. The focused
 `core/risk_gate/development_profile.py` module owns profile-scoped promotion and current-authority
 verification while `gate.py` preserves the public registry and risk-gate API. Contract models
 cross subsystem boundaries only through `fdai.shared.contracts.models`; digest helpers stay in a

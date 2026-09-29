@@ -423,6 +423,8 @@ export interface HilQueueItem {
   readonly ttl_expires_at: string | null;
   readonly decision_requestable: boolean;
   readonly decision_unavailable_reason: string | null;
+  /** Whether only the Core-selected development Owner may approve; anyone authorized may reject. */
+  readonly development_owner_only: boolean;
   /** Whether the caller is the Core-selected Owner who may self-approve after a fresh sign-in. */
   readonly development_self_approval_available: boolean;
   /** Exact bound facts the development Owner confirms; absent for every other caller. */

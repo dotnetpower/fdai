@@ -242,6 +242,7 @@ describe("Operator API response decoders", () => {
         ttl_expires_at: "2026-07-15T10:30:00Z",
         decision_requestable: true,
         decision_unavailable_reason: null,
+        development_owner_only: true,
         development_self_approval_available: true,
         development_binding: {
           binding_digest: `sha256:${"a".repeat(64)}`,
@@ -252,6 +253,12 @@ describe("Operator API response decoders", () => {
       }],
       total: 1,
     }).items[0];
+    expect(legacyItem?.development_owner_only).toBe(false);
+    expect(enrichedItem?.development_owner_only).toBe(true);
+    expect(() => decodeHilQueuePage({
+      items: [{ ...legacy, development_owner_only: "yes" }],
+      total: 1,
+    })).toThrow(/development_owner_only/);
     expect(legacyItem?.development_self_approval_available).toBe(false);
     expect(enrichedItem?.development_self_approval_available).toBe(true);
     expect(legacyItem?.development_binding).toBeNull();

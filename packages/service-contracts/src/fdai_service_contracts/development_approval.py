@@ -8,6 +8,7 @@ self-approval only after revalidating it against durable state and its selected 
 from __future__ import annotations
 
 import hashlib
+from collections.abc import Mapping
 from datetime import datetime, timedelta
 from typing import Annotated, Literal, Self
 
@@ -15,6 +16,7 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 DEVELOPMENT_PARK_BLOCK_FIELD = "development_authority"
 DEVELOPMENT_APPROVAL_ATTESTATION_FIELD = "development_attestation"
+DEVELOPMENT_OWNER_ONLY_FIELD = "owner_self_approval_only"
 MAX_DEVELOPMENT_AUTHENTICATION_AGE = timedelta(minutes=10)
 MAX_DEVELOPMENT_CLOCK_SKEW = timedelta(seconds=60)
 
@@ -79,12 +81,27 @@ def fresh_development_authentication(
     )
 
 
+def development_owner_only(parked: Mapping[str, object]) -> bool:
+    """Return whether a park admits no approval except its Owner's attested self-approval.
+
+    Core marks a parked category-only denial this way. A block that carries the marker with any
+    value, or that records an original ``deny``, counts as Owner-only, so an unexpected value can
+    only narrow who may approve. Any authorized human may still reject such a park.
+    """
+    block = parked.get(DEVELOPMENT_PARK_BLOCK_FIELD)
+    return isinstance(block, Mapping) and (
+        DEVELOPMENT_OWNER_ONLY_FIELD in block or block.get("original_level") == "deny"
+    )
+
+
 __all__ = [
     "DEVELOPMENT_APPROVAL_ATTESTATION_FIELD",
+    "DEVELOPMENT_OWNER_ONLY_FIELD",
     "DEVELOPMENT_PARK_BLOCK_FIELD",
     "MAX_DEVELOPMENT_AUTHENTICATION_AGE",
     "MAX_DEVELOPMENT_CLOCK_SKEW",
     "DevelopmentApprovalAttestation",
     "development_authentication_evidence_digest",
+    "development_owner_only",
     "fresh_development_authentication",
 ]

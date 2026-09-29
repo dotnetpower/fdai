@@ -257,6 +257,7 @@ class ControlLoop(
                 profile=development_profile,
                 bindings=development_binding_source,
                 revisions=development_revision_reader,
+                category_revalidator=self,
             )
         self._executor = executor
         self._audit_store = audit_store

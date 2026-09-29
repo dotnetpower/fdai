@@ -489,6 +489,7 @@ function ApprovalCard({
   readonly onDecisionRecorded: (receipt: HilDecisionReceipt) => void;
 }) {
   const ownDevelopment = item.development_self_approval_available;
+  const approvable = approvalCanApprove(item);
   const [reauthenticated, setReauthenticated] = useState(
     () => ownDevelopment && hasDevelopmentReauthentication(item.approval_id),
   );
@@ -498,6 +499,8 @@ function ApprovalCard({
   const [decisionError, setDecisionError] = useState<string | null>(null);
   const [intent, setIntent] = useState<MutationIntentIdentity | null>(null);
   const canDecide = !decisionRecorded && approvalCanDecide(item, now, dataMode);
+  // The Owner signs in again before approving; rejecting a category-only park grants nothing.
+  const awaitingSignIn = ownDevelopment && !reauthenticated;
   const reasons = [...new Set(item.reasons.length > 0 ? item.reasons : [item.reason])];
   const blastRadius = item.blast_radius_summary || [
     item.blast_radius_count !== null
@@ -655,7 +658,7 @@ function ApprovalCard({
             </a>
           </nav>
         ) : null}
-        {canDecide && ownDevelopment && !reauthenticated ? (
+        {canDecide && awaitingSignIn && item.development_owner_only !== true ? (
           <div class="approval-decision-form">
             <p class="muted">{t("approvals.developmentNote")}</p>
             {decisionError !== null ? (
@@ -680,9 +683,14 @@ function ApprovalCard({
             class="approval-decision-form"
             onSubmit={(event) => event.preventDefault()}
           >
-            {ownDevelopment ? (
+            {awaitingSignIn ? (
+              <p class="muted">{t("approvals.developmentNote")}</p>
+            ) : ownDevelopment ? (
               <p class="muted" role="status">{t("approvals.developmentReady")}</p>
             ) : null}
+            {approvable ? null : (
+              <p class="muted" role="status">{t("approvals.developmentOwnerOnly")}</p>
+            )}
             <label>
               <span>{t("approvals.justification")}</span>
               <textarea
@@ -696,17 +704,31 @@ function ApprovalCard({
               <div class="state-block state-error" role="alert">{decisionError}</div>
             ) : null}
             <div class="approval-decision-actions">
-              <button
-                type="button"
-                class="btn btn-primary"
-                disabled={pendingDecision !== null}
-                onClick={() => void submitDecision("approve")}
-              >
-                {pendingDecision === "approve"
-                  ? t("approvals.recordingDecision")
-                  : ownDevelopment ? t("approvals.developmentApprove") : t("approvals.approve")}
-              </button>
-              {ownDevelopment ? null : (
+              {awaitingSignIn ? (
+                <button
+                  type="button"
+                  class="btn btn-primary"
+                  disabled={!auth.interactiveSignIn || pendingDecision !== null}
+                  onClick={() => {
+                    markDevelopmentReauthentication(item.approval_id);
+                    void auth.signIn({ reauthenticate: true });
+                  }}
+                >
+                  {t("approvals.developmentReauthenticate")}
+                </button>
+              ) : approvable ? (
+                <button
+                  type="button"
+                  class="btn btn-primary"
+                  disabled={pendingDecision !== null}
+                  onClick={() => void submitDecision("approve")}
+                >
+                  {pendingDecision === "approve"
+                    ? t("approvals.recordingDecision")
+                    : ownDevelopment ? t("approvals.developmentApprove") : t("approvals.approve")}
+                </button>
+              ) : null}
+              {approvalCanReject(item) ? (
                 <button
                   type="button"
                   class="btn"
@@ -717,7 +739,7 @@ function ApprovalCard({
                     ? t("approvals.recordingDecision")
                     : t("approvals.reject")}
                 </button>
-              )}
+              ) : null}
             </div>
           </form>
         ) : item.decision_unavailable_reason !== null && dataMode === "live" ? (
@@ -728,6 +750,16 @@ function ApprovalCard({
       </div>
     </article>
   );
+}
+
+/** A parked category-only denial offers approval only to its development Owner. */
+export function approvalCanApprove(item: HilQueueItem): boolean {
+  return item.development_owner_only !== true || item.development_self_approval_available === true;
+}
+
+/** The requesting Owner may reject only a category-only park; everyone else may always reject. */
+export function approvalCanReject(item: HilQueueItem): boolean {
+  return item.development_self_approval_available !== true || item.development_owner_only === true;
 }
 
 export function approvalCanDecide(

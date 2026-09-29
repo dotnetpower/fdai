@@ -4,7 +4,9 @@ Core writes the ``development_authority`` block when it parks an Owner's own req
 selected full-authority development profile. The Operator admits that Owner's self-approval only
 from the Console, only for an approve decision, and only after a signed ``auth_time`` claim proves
 a sign-in after the park. The resulting attestation is evidence, not authority: the decision
-transaction and Core each revalidate it before anything executes.
+transaction and Core each revalidate it before anything executes. A block that Core marked
+Owner-only, a parked category-only denial, admits no other approval at all, although any
+authorized approver, including its requester, may reject it.
 """
 
 from __future__ import annotations
@@ -17,6 +19,7 @@ from fdai_service_contracts.development_approval import (
     DEVELOPMENT_PARK_BLOCK_FIELD,
     DevelopmentApprovalAttestation,
     development_authentication_evidence_digest,
+    development_owner_only,
     fresh_development_authentication,
 )
 from pydantic import ValidationError
@@ -30,16 +33,28 @@ _METADATA_FIELDS = {
 }
 
 
+OWNER_ONLY_METADATA_FIELD = "development_owner_only"
+
+
 def development_metadata(state: Mapping[str, object]) -> dict[str, str]:
-    """Flatten a complete Core-written park block into callback metadata strings."""
+    """Flatten a complete Core-written park block into callback metadata strings.
+
+    The Owner-only marker is kept even for an incomplete block, so a malformed block can only
+    remove the Owner's self-approval, never admit another approver.
+    """
+    owner_only = {OWNER_ONLY_METADATA_FIELD: "true"} if development_owner_only(state) else {}
     block = state.get(DEVELOPMENT_PARK_BLOCK_FIELD)
     parked_at = state.get("parked_at")
     if not isinstance(block, Mapping) or not isinstance(parked_at, str) or not parked_at:
-        return {}
+        return owner_only
     fields = {name: block.get(source) for name, source in _METADATA_FIELDS.items()}
     if not all(isinstance(value, str) and value for value in fields.values()):
-        return {}
-    return {**{name: str(value) for name, value in fields.items()}, "parked_at": parked_at}
+        return owner_only
+    return {
+        **owner_only,
+        **{name: str(value) for name, value in fields.items()},
+        "parked_at": parked_at,
+    }
 
 
 def _instant(value: object) -> datetime | None:
@@ -145,6 +160,7 @@ def development_self_approval_admitted(
 
 
 __all__ = [
+    "OWNER_ONLY_METADATA_FIELD",
     "development_attestation",
     "development_metadata",
     "development_self_approval_admitted",

@@ -144,6 +144,11 @@ class RiskRule:
             return True
         return all(c.matches(lookup) for c in self.conditions)
 
+    @property
+    def dimensions(self) -> frozenset[str]:
+        """Return the feature dimensions this rule's conditions reference."""
+        return frozenset(condition.key for condition in self.conditions)
+
 
 @dataclass(frozen=True, slots=True)
 class RiskTableVerdict:

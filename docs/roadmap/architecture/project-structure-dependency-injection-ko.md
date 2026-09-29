@@ -1,6 +1,6 @@
 ---
 translation_of: project-structure-dependency-injection.md
-translation_source_sha: 59e47759bf76d7ac7cefb3528c95a1b796e2f691
+translation_source_sha: fd6b7939b0f7b510531af29565c5bda7f495fbed
 translation_revised: 2026-09-29
 ---
 
@@ -222,7 +222,14 @@ privileged I/O 전에 확인하는 실제 상한을 제공합니다. 어느 계�
 `runtime/development_authority.py`가 이를 Azure 대상 revision 판독기와 함께 ControlLoop, Pantheon 및
 HIL 조정자에 조립합니다. `core/hil_resume/development.py`는 `DevelopmentBindingPreparer`와
 `TargetRevisionReader` 포트 뒤에서 Owner에게 보여 줄 결속 사실을 담은 보류 블록과 Owner 자기 승인 허용을
-소유하며, Core는 delivery 레지스트리를 가져오지 않습니다. 집중된 `core/risk_gate/development_profile.py` 모듈은
+소유하며, Core는 delivery 레지스트리를 가져오지 않습니다. 준비기는 작업에 필요한 범위, 즉 대상 위치를
+선언된 영향 범위까지 넓힌 범위를 반환하고, 영향 범위가 선언되지 않았거나 그래프에서 파생되면 구독 전체를
+반환하므로 허용 단계는 그보다 좁게 기록된 결속을 거부합니다.
+`core/risk_gate/category_denial.py`는
+ControlLoop 보류와 Pantheon 확인 경로가 함께 쓰는 하나의 범주 전용 거부 정의를 소유합니다.
+ControlLoop는 자신을 `DevelopmentCategoryRevalidator`로 HIL 조정자에 결속하므로, 범주 보류에 대해 허용된
+Owner 자기 승인은 디스패치 전에 ControlLoop 자체의 현재 평가를 다시 실행합니다. 이 결속이 없는 조정자는
+이러한 보류를 디스패치하지 않습니다. 집중된 `core/risk_gate/development_profile.py` 모듈은
 프로필 범위 승격과 현재 권한 검증을 소유하며, `gate.py`는 공개 레지스트리와 risk-gate
 API를 유지합니다. 계약 모델은 `fdai.shared.contracts.models` 공개 facade를 통해서만 하위
 시스템 경계를 통과합니다. 다이제스트 도우미는 모델이 아닌 권한 facade에 남으며 권한을

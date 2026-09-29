@@ -29,6 +29,9 @@ Safety invariants preserved
   ``APPROVE``; a missing / expired / consumed park never executes.
 - **No self-approval.** ``approver_oid == submitter_oid`` is refused
   before any execution (the parked ``submitter_oid`` is the authority).
+- **Owner-only development park.** A parked category-only denial admits
+  no approval except the development Owner's attested, revalidated
+  self-approval; any other approver is refused, and anyone may reject.
 - **Idempotent.** The park's ``status`` flips to ``resolved`` on the
   first terminal decision; re-delivery of the same decision is a no-op,
   a conflicting decision is refused - re-execution can never happen.
@@ -48,6 +51,8 @@ from collections.abc import Awaitable, Callable, Mapping, Sequence
 from datetime import UTC, datetime
 from typing import Any, cast
 
+from fdai_service_contracts.development_approval import development_owner_only
+
 from fdai.core.executor import (
     DirectApiExecutionPort,
     MutationDependencyReadiness,
@@ -66,13 +71,17 @@ from fdai.core.hil_resume.approval_records import (
 from fdai.core.hil_resume.approval_records import (
     park_key as _park_key,
 )
+from fdai.core.hil_resume.approval_records import resolvable_decision
 from fdai.core.hil_resume.audit import HilAuditMixin
 from fdai.core.hil_resume.delegation import (
     DelegationMode,
     DelegationRefusal,
     evaluate_hil_delegation,
 )
-from fdai.core.hil_resume.development import HilDevelopmentApprovalMixin
+from fdai.core.hil_resume.development import (
+    DevelopmentCategoryRevalidator,
+    HilDevelopmentApprovalMixin,
+)
 from fdai.core.hil_resume.dispatch import HilDispatchMixin
 from fdai.core.hil_resume.escalation_supervisor import (
     EscalationRung,
@@ -211,6 +220,7 @@ class HilResumeCoordinator(
         self._development_profile: FullAuthorityDevelopmentProfile | None = None
         self._development_bindings: DevelopmentAuthorityBindingSource | None = None
         self._development_revisions: TargetRevisionReader | None = None
+        self._development_category_revalidator: DevelopmentCategoryRevalidator | None = None
         self._report_line_hil = (
             ReportLineHilCoordinator(
                 store=state_store,
@@ -238,13 +248,19 @@ class HilResumeCoordinator(
         profile: FullAuthorityDevelopmentProfile,
         bindings: DevelopmentAuthorityBindingSource | None,
         revisions: TargetRevisionReader | None,
+        category_revalidator: DevelopmentCategoryRevalidator | None = None,
     ) -> None:
-        """Bind the selected development profile once; its absence keeps no-self-approval."""
+        """Bind the selected development profile once; its absence keeps no-self-approval.
+
+        ``category_revalidator`` reruns the full current evaluation before an admitted Owner
+        self-approval of a category park dispatches; without it such parks never dispatch.
+        """
         if self._development_profile is not None:
             raise RuntimeError("development authority is already bound")
         self._development_profile = profile
         self._development_bindings = bindings
         self._development_revisions = revisions
+        self._development_category_revalidator = category_revalidator
 
     # ------------------------------------------------------------------
     # resolve (approve -> execute | reject | timeout)
@@ -277,7 +293,24 @@ class HilResumeCoordinator(
         Owner approving their own request under the selected development profile. It lifts
         the self-approval refusal only after
         :func:`~fdai.core.hil_resume.development.admit_development_self_approval` admits it.
+        A park marked Owner-only refuses every other approval without closing the park.
+        A decision that may not resolve a park, such as ``pending``, is refused before any read.
         """
+        resolvable = resolvable_decision(decision)
+        if resolvable is None:
+            await self._audit(
+                action_kind="hil.resolve.decision_refused",
+                idempotency_key=f"{approval_id}:hil_resolve_decision_refused",
+                approval_id=approval_id,
+                correlation_id=approval_id,
+                detail={"attempted_decision": str(decision), "approver_oid": approver_oid},
+            )
+            return ResolveResult(
+                outcome=ResolveOutcome.DECISION_REFUSED,
+                approval_id=approval_id,
+                reason="decision_not_resolvable",
+            )
+        decision = resolvable
         parked = await self._state_store.read_state(_park_key(approval_id))
         if parked is None:
             _LOGGER.warning("hil_resolve_unknown_park", extra={"approval_id": approval_id})
@@ -456,6 +489,21 @@ class HilResumeCoordinator(
                 if isinstance(admitted, ResolveResult):
                     return admitted
                 delegation = admitted
+            elif delegation.allowed and development_owner_only(parked):
+                # A parked category-only denial admits no approval but the Owner's own.
+                await self._audit(
+                    action_kind="hil.resolve.development_owner_only_refused",
+                    idempotency_key=f"{idem}:hil_development_owner_only",
+                    approval_id=approval_id,
+                    correlation_id=correlation_id,
+                    detail={"approver_oid": approver_oid, "assignee_oid": assignee_oid},
+                )
+                return ResolveResult(
+                    outcome=ResolveOutcome.OWNER_SELF_APPROVAL_REQUIRED,
+                    approval_id=approval_id,
+                    reason="development_owner_self_approval_required",
+                    assignee_oid=assignee_oid,
+                )
             if not delegation.allowed:
                 if delegation.refusal is DelegationRefusal.MISSING_CAPABILITY:
                     await self._audit(
@@ -518,8 +566,21 @@ class HilResumeCoordinator(
                 return await self._race_result(approval_id, attempted=decision)
             return ResolveResult(outcome=ResolveOutcome.TIMED_OUT, approval_id=approval_id)
 
-        # decision is APPROVE and the delegation gate allowed it -> re-dispatch.
-        is_delegated = delegation is not None and delegation.is_delegated
+        # Only an approval that cleared the delegation gate above may claim and dispatch.
+        if decision is not HilDecision.APPROVE or delegation is None or not delegation.allowed:
+            await self._audit(
+                action_kind="hil.resolve.dispatch_refused",
+                idempotency_key=f"{idem}:hil_dispatch_refused",
+                approval_id=approval_id,
+                correlation_id=correlation_id,
+                detail={"attempted_decision": str(decision), "approver_oid": approver_oid},
+            )
+            return ResolveResult(
+                outcome=ResolveOutcome.DECISION_REFUSED,
+                approval_id=approval_id,
+                reason="approval_not_admitted",
+            )
+        is_delegated = delegation.is_delegated
         action = Action.model_validate(parked["action"])
         rule = self._resolve_rule(parked, action=action)
         # Mark resolved BEFORE executing so a concurrent duplicate decision

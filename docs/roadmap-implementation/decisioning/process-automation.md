@@ -51,6 +51,7 @@ and resumable work while the roadmap owner remains focused on normative design.
 | 2026-08-14 | implemented | Made `on_failure` branching failure-only so a declared fallback no longer executes as an ordinary forward step on the success path. | `current change`; [`runner.py`](../../../services/core-control-plane/src/fdai/core/runbook/runner.py), [`test_runbook_runner.py`](../../../services/core-control-plane/tests/core/runbook/test_runbook_runner.py); focused runbook and workflow checks passed 114 cases. | Promote a `SignalType` vocabulary that covers request and command triggers before adding the load-time cross-check, and retain the independent workflow promotion evidence. |
 | 2026-08-27 | implemented | Routed the declared governance promotion ActionType through an inert direct-action dispatcher that requires a separately approved distinct-approver transition. | `current change`; `runtime/delivery.py`, `delivery/promotion.py`, and focused governance dispatch tests passed. | Deployment review and merge evidence remain external and no local route grants authority. |
 | 2026-08-27 | implemented | Kept current active-rule projections consistent through runtime, HIL resume, and frozen measurement replay; serialized GitOps path segments and query values before remote access. | `current change`; focused HIL, scenario-replay, and GitOps tests passed. | Deployment evidence remains external. |
+| 2026-09-29 | implemented | Routed only `approve` or `reject` values from `fdai.hil.decisions`; `pending`, `timeout`, and any other value dead-letter before routing. The HIL coordinator refuses a decision other than approve, reject, or timeout before it reads a park, and it claims and dispatches only an approval that cleared its delegation gate. The Operator decision store records only an approve or reject value. The consumer checks the value, not the publisher: an Owner-only development park re-reads the durable Operator receipt at admission, and an ordinary park keeps the existing publisher trust. | `current change`; `runtime/consumers.py`, `core/hil_resume/coordinator.py`, `core/hil_resume/approval_records.py`, the Operator `postgres_hil_decision.py`; `test_resolvable_decisions.py`, `test_report_line_contact_consumer.py`, and `test_hil_development_owner_only.py` passed. | Bind an ordinary park's decision to its durable Operator receipt or an authenticated publisher; retain the promoted workflow scenario listed under remaining work. |
 ### Remaining work
 - [x] Durable target holds now cover missing, failed, and unscorable compensation, survive restart
   and duplicate delivery, deny later forward dispatch, and release only through matching verified
@@ -114,5 +115,10 @@ and resumable work while the roadmap owner remains focused on normative design.
 - [x] Failure-only `on_failure` branching is implemented, with runtime tests proving the success
   path skips an untriggered fallback, an unrelated failure does not trigger it, and an explicit
   resume can still re-enter at it.
+- [ ] Bind each `fdai.hil.decisions` approval of an ordinary park to its durable Operator receipt, or to
+  an authenticated publisher, before the HIL coordinator dispatches it. The consumer checks only the
+  decision value, and only an Owner-only development park re-reads the receipt at admission. Exit: a
+  focused test refuses an approval published without a matching durable receipt before dispatch
+  ([Saga compensation](../../roadmap/decisioning/process-automation.md#5-saga-compensation)).
 - [ ] Retain a promoted workflow scenario with independent effect and recovery closure on one
   pinned Workflow and ActionType catalog revision.

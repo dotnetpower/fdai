@@ -17,6 +17,9 @@ from fdai.delivery.development_bindings import (
 from fdai.shared.contracts.development_authority import evaluate_development_authority
 from fdai.shared.contracts.models import (
     Action,
+    ActionBlastRadius,
+    BlastRadiusComputation,
+    BlastRadiusScope,
     ExecutionPath,
     FullAuthorityDevelopmentProfile,
     OntologyActionType,
@@ -148,6 +151,103 @@ async def test_preparation_refuses_targets_outside_the_profile_scope(target: str
 
     with pytest.raises(ValueError, match="scope|Azure resource ID"):
         await _prepare(registry, _operation(target), action_type)
+
+
+def _subscription_bound(
+    profile: FullAuthorityDevelopmentProfile,
+) -> FullAuthorityDevelopmentProfile:
+    raw = profile.model_dump(mode="json")
+    raw["scope"] = {**raw["scope"], "resource_group_digests": []}
+    return FullAuthorityDevelopmentProfile.model_validate(raw)
+
+
+@pytest.mark.parametrize("declared_on", ["action_type", "action"])
+async def test_a_subscription_blast_radius_needs_a_subscription_bound_profile(
+    declared_on: str,
+) -> None:
+    subscription_wide = declared_on == "action_type"
+    action_type = _action_type(
+        scope=BlastRadiusScope.SUBSCRIPTION if subscription_wide else BlastRadiusScope.RESOURCE
+    )
+    action = _operation()
+    if not subscription_wide:
+        action = action.model_copy(
+            update={
+                "blast_radius": action.blast_radius.model_copy(
+                    update={"scope": BlastRadiusScope.SUBSCRIPTION}
+                )
+            }
+        )
+    store = InMemoryStateStore()
+    group_bound = _registry(_profile_for(action_type), store, [NOW])
+
+    with pytest.raises(ValueError, match="blast radius is outside the profile scope"):
+        await _prepare(group_bound, action, action_type)
+    assert await group_bound.read_verification(str(action.action_id)) is None
+
+    registry = _registry(_subscription_bound(_profile_for(action_type)), store, [NOW])
+    verification = await _prepare(registry, action, action_type)
+    assert verification.binding.scope.resource_group_digests == ()
+    assert registry.required_scope(action=action, action_type=action_type) == (
+        verification.binding.scope
+    )
+
+
+@pytest.mark.parametrize("bucket", [BlastRadiusScope.RESOURCE, BlastRadiusScope.RESOURCE_GROUP])
+async def test_a_declared_resource_or_group_blast_radius_keeps_the_target_resource_group(
+    bucket: BlastRadiusScope,
+) -> None:
+    action_type = _action_type(scope=bucket)
+    profile = _profile_for(action_type)
+    registry = _registry(profile, InMemoryStateStore(), [NOW])
+
+    verification = await _prepare(registry, _operation(), action_type)
+
+    assert verification.binding.scope == target_scope(profile, TARGET)
+    assert registry.required_scope(action=_operation(), action_type=action_type) == (
+        verification.binding.scope
+    )
+
+
+def _unbounded(case: str) -> OntologyActionType:
+    """Return an ActionType whose blast radius the target location cannot bound."""
+    if case == "undeclared":
+        return _action_type().model_copy(update={"blast_radius": None})
+    if case == "graph_derived":
+        return _action_type(graph_derived=True)
+    blast_radius = ActionBlastRadius(
+        computation=(
+            BlastRadiusComputation.GRAPH_DERIVED
+            if case == "graph_derived_with_bucket"
+            else BlastRadiusComputation.STATIC_ENUM
+        ),
+        static_bucket=BlastRadiusScope.RESOURCE if case == "graph_derived_with_bucket" else None,
+    )
+    return _action_type().model_copy(update={"blast_radius": blast_radius})
+
+
+@pytest.mark.parametrize(
+    "case",
+    ["undeclared", "graph_derived", "graph_derived_with_bucket", "static_without_bucket"],
+)
+async def test_an_unbounded_blast_radius_needs_the_whole_subscription(case: str) -> None:
+    action_type = _unbounded(case)
+    action = _operation()
+    store = InMemoryStateStore()
+    group_bound = _registry(_profile_for(action_type), store, [NOW])
+
+    # The Action itself still reads resource-scoped, so only the ActionType reveals the reach.
+    assert action.blast_radius.scope is BlastRadiusScope.RESOURCE
+    with pytest.raises(ValueError, match="blast radius is outside the profile scope"):
+        await _prepare(group_bound, action, action_type)
+    assert await group_bound.read_verification(str(action.action_id)) is None
+
+    registry = _registry(_subscription_bound(_profile_for(action_type)), store, [NOW])
+    verification = await _prepare(registry, action, action_type)
+    assert verification.binding.scope.resource_group_digests == ()
+    assert registry.required_scope(action=action, action_type=action_type) == (
+        verification.binding.scope
+    )
 
 
 async def test_preparation_refuses_an_unregistered_action_type() -> None:
