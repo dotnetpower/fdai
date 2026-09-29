@@ -70,7 +70,7 @@ from fdai.core.quality_gate.deterministic_evidence import (
     DeterministicVerifierEvidence,
     quality_candidate_digest,
 )
-from fdai.shared.contracts.models import Rule
+from fdai.shared.contracts.models import Mode, Rule
 
 if TYPE_CHECKING:
     # Broken circular import: debate + debate_router + rubric all import
@@ -79,6 +79,7 @@ if TYPE_CHECKING:
     from fdai.core.quality_gate.debate import DebateOrchestrator
     from fdai.core.quality_gate.debate_router import DebateRouterConfig
     from fdai.core.quality_gate.escalation_ladder import EscalationLadderConfig
+    from fdai.core.quality_gate.promotion import RubricModeResolver
     from fdai.core.quality_gate.rubric import RubricEvaluator, RubricScore
 
 
@@ -211,6 +212,12 @@ class QualityDecision:
     """Whether the rubric ran judge-and-log only (shadow) for this
     decision. ``True`` means the rubric verdict did NOT influence the
     outcome or confidence - it was recorded for measurement only."""
+
+    rubric_mode_reason: str | None = None
+    """Why a bound rubric mode resolver chose the leg's mode for this
+    candidate's ActionType (for example ``rubric_receipt_ready`` or
+    ``rubric_receipt_missing``). ``None`` when no resolver is bound or the
+    configured ceiling already forces shadow."""
 
     escalation_route: str | None = None
     """The escalation-ladder route (``escalate`` / ``stop``) recorded when
@@ -350,6 +357,7 @@ class QualityGate:
         debate_orchestrator: DebateOrchestrator | None = None,
         debate_router_config: DebateRouterConfig | None = None,
         rubric_evaluator: RubricEvaluator | None = None,
+        rubric_mode_resolver: RubricModeResolver | None = None,
         escalation_ladder_config: EscalationLadderConfig | None = None,
         escalated_available: bool = False,
         deterministic_evidence_verifiers: (
@@ -401,6 +409,7 @@ class QualityGate:
         self._debate_orchestrator = debate_orchestrator
         self._debate_router_config = debate_router_config
         self._rubric_evaluator = rubric_evaluator
+        self._rubric_mode_resolver = rubric_mode_resolver
         self._escalation_ladder_config = escalation_ladder_config
         self._escalated_available = escalated_available
         if deterministic_evidence_verifiers is not None:
@@ -416,6 +425,23 @@ class QualityGate:
             else None
         )
         self._evidence_clock = evidence_clock or (lambda: datetime.now(tz=UTC))
+
+    def _rubric_mode(self, action_type: str) -> tuple[bool, str | None]:
+        """Return whether the rubric leg shadows this candidate, and the resolver's reason.
+
+        ``QualityGateConfig.rubric_shadow`` is the deployment ceiling: while it forces shadow, no
+        resolver is consulted. Below the ceiling, a bound resolver decides per ActionType from
+        verified receipts and fails closed to shadow; without one, the configured mode applies.
+        """
+        if self._rubric_evaluator is None or self._config.rubric_shadow:
+            return self._config.rubric_shadow, None
+        if self._rubric_mode_resolver is None:
+            return False, None
+        try:
+            decision = self._rubric_mode_resolver.resolve(action_type)
+        except Exception as exc:  # noqa: BLE001 - rubric mode resolution fails closed to shadow
+            return True, f"rubric_mode_resolver_error:{type(exc).__name__}"
+        return decision.mode is not Mode.ENFORCE, decision.reason
 
     async def evaluate(
         self,
@@ -582,7 +608,7 @@ class QualityGate:
         rubric_scores: tuple[RubricScore, ...] = ()
         rubric_min_score: float | None = None
         rubric_verdict_value: str | None = None
-        rubric_shadow = self._config.rubric_shadow
+        rubric_shadow, rubric_mode_reason = self._rubric_mode(candidate.action_type)
         if self._rubric_evaluator is not None:
             from fdai.core.quality_gate.rubric import (
                 RubricCriterion,
@@ -683,6 +709,7 @@ class QualityGate:
             rubric_min_score=rubric_min_score,
             rubric_verdict=rubric_verdict_value,
             rubric_shadow=rubric_shadow if self._rubric_evaluator is not None else False,
+            rubric_mode_reason=(rubric_mode_reason if self._rubric_evaluator is not None else None),
             escalation_route=escalation_route,
             escalation_reason=escalation_reason,
             escalation_metadata=escalation_metadata,
