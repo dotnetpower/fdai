@@ -14,8 +14,8 @@ from fdai.core.learning import (
     review_input_to_mapping,
 )
 from fdai.core.operator_memory import InMemoryOperatorMemoryStore
+from fdai.delivery.post_turn_review_ingress import PostTurnReviewRequestConsumer
 from fdai.runtime.post_turn_review import build_post_turn_review_runtime
-from fdai.runtime.post_turn_review_ingress import PostTurnReviewRequestConsumer
 from fdai.shared.providers.event_bus import EventEnvelope
 from fdai.shared.providers.testing.event_bus import InMemoryEventBus
 from fdai.shared.providers.testing.state_store import InMemoryStateStore

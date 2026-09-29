@@ -57,6 +57,7 @@ from fdai.delivery.persistence import (
     StateStoreSemanticFeedbackCandidateStore,
 )
 from fdai.delivery.persistence.state_store_forecast_context import StateStoreForecastContextProvider
+from fdai.delivery.post_turn_review_ingress import PostTurnReviewRequestConsumer
 from fdai.delivery.prospective_lineage import (
     OperationalPlanningProspectiveFinalizer,
     StateStoreProspectiveLineageMaterializer,
@@ -92,7 +93,6 @@ from fdai.runtime.post_turn_review import (
     build_post_turn_review_runtime,
     post_turn_review_dsn,
 )
-from fdai.runtime.post_turn_review_ingress import PostTurnReviewRequestConsumer
 from fdai.runtime.providers import _build_resource_lock
 from fdai.runtime.readiness import RuntimeReadinessState
 from fdai.runtime.rule_generation_documents import RuleGenerationReconciliation
