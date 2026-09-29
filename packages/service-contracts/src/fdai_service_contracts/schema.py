@@ -31,6 +31,7 @@ from fdai_service_contracts.observer_deployment import (
 from fdai_service_contracts.runtime_scope import RuntimeScopeReceipt
 from fdai_service_contracts.test_context import (
     TestContextApplication,
+    TestContextChoiceProjection,
     TestContextCommand,
     TestContextDraft,
 )
@@ -151,6 +152,7 @@ _PACKAGE_SCHEMAS: dict[tuple[str, str], str] = {
     ("semantic-work-progress", "1.0.0"): "schemas/semantic-work-progress/1.0.0.json",
     ("service-upgrade-receipt", "1.0.0"): "schemas/service-upgrade-receipt/1.0.0.json",
     ("test-context-application", "1.0.0"): "schemas/test-context-application/1.0.0.json",
+    ("test-context-choices", "1.0.0"): "schemas/test-context-choices/1.0.0.json",
     ("test-context-command", "1.0.0"): "schemas/test-context-command/1.0.0.json",
     ("test-context-draft", "1.0.0"): "schemas/test-context-draft/1.0.0.json",
 }
@@ -280,6 +282,8 @@ class JsonSchemaContractValidator:
             if schema_name == "test-context-application"
             else TestContextCommand
             if schema_name == "test-context-command"
+            else TestContextChoiceProjection
+            if schema_name == "test-context-choices"
             else TestContextDraft
             if schema_name == "test-context-draft"
             else ConnectorEvidence

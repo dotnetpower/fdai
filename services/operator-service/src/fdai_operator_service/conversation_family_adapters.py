@@ -6,7 +6,7 @@ from collections.abc import AsyncIterator
 from dataclasses import asdict, dataclass
 from typing import cast
 
-from fdai_service_contracts.test_context import TestContextApplication
+from fdai_service_contracts.test_context import TestContextApplication, TestContextRequest
 from starlette.exceptions import HTTPException
 
 from fdai_operator_service.families.conversation.background_tasks import (
@@ -42,6 +42,7 @@ from fdai_operator_service.postgres_family_store import (
     PostgresProposalConflict,
 )
 from fdai_operator_service.postgres_test_context import PostgresTestContextOutbox
+from fdai_operator_service.test_context_choices import TestContextChoiceSource
 
 
 class _ConversationEventIterator(AsyncIterator[StreamEvent]):
@@ -66,17 +67,28 @@ class PostgresConversationAdapters:
     """Read conversation projections and append typed proposals through PostgreSQL."""
 
     store: PostgresFamilyStore
+    test_context_choices: TestContextChoiceSource | None = None
 
     async def read(self, query: ConversationQuery) -> ConversationResponse:
         """Read an explicitly materialized conversation projection."""
+        if query.operation == "test-context.choices":
+            source = self.test_context_choices or TestContextChoiceSource.unavailable(
+                "grant_registry_unavailable"
+            )
+            return ConversationResponse(
+                body=cast(JsonObject, source.choices_for(query.scope).model_dump(mode="json"))
+            )
         if query.operation == "test-context.command-status":
             proposal_id = query.path_params.get("proposal_id")
             if not isinstance(proposal_id, str) or not 1 <= len(proposal_id) <= 256:
                 raise HTTPException(status_code=400, detail="invalid context proposal identity")
+            reviewer = bool(query.scope.roles & {"Approver", "Owner"})
             try:
                 status = await PostgresTestContextOutbox(self.store).read_test_context_command(
                     proposal_id=proposal_id,
                     principal_id=query.scope.subject_id,
+                    reviewer=reviewer,
+                    include_requester=True,
                 )
             except PostgresFamilyStoreUnavailable as exc:
                 raise HTTPException(
@@ -86,6 +98,24 @@ class PostgresConversationAdapters:
                 raise HTTPException(status_code=404, detail="context command not found")
             if status.get("dispatch_status") not in {"pending", "claimed", "published", "rejected"}:
                 raise HTTPException(status_code=503, detail="context command status is invalid")
+            request_body = status.get("request")
+            try:
+                request_model = TestContextRequest.model_validate(request_body)
+            except ValueError as exc:
+                raise HTTPException(
+                    status_code=503, detail="context command request is invalid"
+                ) from exc
+            requester = status.get("principal_id")
+            if not isinstance(requester, str) or not requester:
+                raise HTTPException(status_code=503, detail="context command requester is invalid")
+            transition_allowed = False
+            if requester != query.scope.subject_id:
+                source = self.test_context_choices or TestContextChoiceSource.unavailable(
+                    "grant_registry_unavailable"
+                )
+                transition_allowed = source.may_transition(query.scope, request_model)
+                if not transition_allowed:
+                    raise HTTPException(status_code=404, detail="context command not found")
             application = status.get("context_application")
             if application is not None:
                 try:
@@ -94,7 +124,7 @@ class PostgresConversationAdapters:
                     raise HTTPException(
                         status_code=503, detail="context application is invalid"
                     ) from exc
-                if applied.actor_id != query.scope.subject_id:
+                if applied.actor_id != query.scope.subject_id and not reviewer:
                     raise HTTPException(
                         status_code=503, detail="context application principal mismatch"
                     )
@@ -105,6 +135,13 @@ class PostgresConversationAdapters:
                         exclude={"actor_id", "target_ref", "access_scope_digest", "request_key"},
                     ),
                 }
+            public_status = {key: value for key, value in status.items() if key != "principal_id"}
+            status = {
+                **public_status,
+                "request": request_model.model_dump(mode="json", exclude_none=True),
+                "reviewer_transition_allowed": transition_allowed,
+                "requester_is_current_principal": requester == query.scope.subject_id,
+            }
             return ConversationResponse(
                 body=cast(
                     JsonObject,

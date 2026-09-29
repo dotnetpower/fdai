@@ -8,6 +8,8 @@ declarations, authentication, workload evidence, and inventory queries authorita
 read-only, without giving the Operator API an executor identity.
 
 ## Implementation status
+The test-context choices endpoint is a read-boundary projection over deployment-supplied reviewed grants. It returns unavailable when the grant registry is absent, stale, revoked, or ambiguous and never derives case scope in the browser.
+
 
 ### Implementation scope
 

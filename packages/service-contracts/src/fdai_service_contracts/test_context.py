@@ -87,6 +87,48 @@ class TestContextRequest(BaseModel):
         return self
 
 
+class TestContextPolicyChoice(BaseModel):
+    """Server-owned scope and policy choice; display only, no browser authority."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+    case_scope_id: Text
+    access_scope_digest: Digest
+    target_selectors: Annotated[tuple[Text, ...], Field(min_length=1, max_length=64)]
+    policy_revision: Text
+    source_revision: Text
+    allowed_operations: Annotated[
+        tuple[Literal["propose", "review", "revoke"], ...], Field(min_length=1, max_length=3)
+    ]
+    execution_authority: Literal[False] = False
+
+    @field_validator("allowed_operations")
+    @classmethod
+    def _ordered_operations(
+        cls, values: tuple[Literal["propose", "review", "revoke"], ...]
+    ) -> tuple[Literal["propose", "review", "revoke"], ...]:
+        if len(set(values)) != len(values):
+            raise ValueError("test context choice operations must be unique")
+        order = {"propose": 0, "review": 1, "revoke": 2}
+        return tuple(sorted(values, key=order.__getitem__))
+
+
+class TestContextChoiceProjection(BaseModel):
+    """Authenticated principal-scoped choices from the reviewed grant registry."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+    schema_version: Literal["1.0.0"] = "1.0.0"
+    source_revision: Text | None = None
+    choices: Annotated[tuple[TestContextPolicyChoice, ...], Field(max_length=128)] = ()
+    unavailable_reasons: Annotated[tuple[Text, ...], Field(max_length=16)] = ()
+    execution_authority: Literal[False] = False
+
+    @model_validator(mode="after")
+    def _reason_when_empty(self) -> TestContextChoiceProjection:
+        if not self.choices and not self.unavailable_reasons:
+            raise ValueError("empty test context choices require an explicit reason")
+        return self
+
+
 class TestContextCommand(BaseModel):
     """Operator-authenticated command, still requiring Core admission before any state change."""
 

@@ -1,6 +1,6 @@
 ---
 translation_of: developer-workflow-assurance.md
-translation_source_sha: 63715ee31e7b3da97771a0bdaac83a114e0fbaba
+translation_source_sha: 998915b24eabbbd5db70befbec8f6a9dac5ab03a
 translation_revised: 2026-09-30
 ---
 
@@ -23,6 +23,8 @@ Local post-turn review mechanics 테스트는 loopback PostgreSQL과 in-memory e
 > 존재 여부로 선택할 수 없습니다.
 
 ## 설계 개요
+테스트 맥락 선택지 경로는 다른 로컬 진단 화면과 같은 Operator 경로 패밀리 조립 방식을 사용합니다. 이 추가는 개발자 워크플로 소켓, 검증 대기열 동작 또는 로컬 실행 권한을 변경하지 않습니다.
+
 
 FDAI는 로컬 스크립트 전반에서 하나의 읽기 전용 개발 워크플로 진단 표면을 사용합니다. 이
 표면은 공유 쓰기, 검증, 문맥, 인계, 테스트 격리, hook, 브라우저 검사, 로컬 서비스, 편집기

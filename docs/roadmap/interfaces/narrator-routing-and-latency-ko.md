@@ -1,8 +1,8 @@
 ---
 title: 서술기 라우팅과 지연 시간
 translation_of: narrator-routing-and-latency.md
-translation_source_sha: 20605155464d2cc0f8706e08370f817d6f84792a
-translation_revised: 2026-09-27
+translation_source_sha: 252ffd65405804ad992f84ad44e34004e2a1a4b0
+translation_revised: 2026-09-29
 ---
 # 서술기 라우팅과 지연 시간
 
