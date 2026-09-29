@@ -520,6 +520,7 @@ class EventProposal:
     idempotency_key: str
     correlation_id: str | None
     payload: Mapping[str, object]
+    principal_roles: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)

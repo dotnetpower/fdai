@@ -61,6 +61,7 @@ from fdai_operator_service.process_transition_projection import (
 _WORKFLOW_CATALOG_KEY = "operator-projection:workflow:workflow.catalog"
 _ASSURANCE_TWIN_REVIEW_PREFIX = "runtime:assurance-twin-review:"
 _ASSURANCE_TWIN_REVIEW_KEY_MAX_CHARS = 256
+_AUTOMATION_BLUEPRINT_AGGREGATE_SQL = "SELECT COUNT(*) AS proposed, COUNT(*) FILTER (WHERE state = 'accepted') AS accepted, COUNT(*) FILTER (WHERE state = 'rejected') AS rejected, COUNT(*) FILTER (WHERE state = 'expired') AS expired, COUNT(*) FILTER (WHERE state = 'materialized') AS materialized, COALESCE(SUM(realized_usage_count), 0)::bigint AS realized_usage, COALESCE(jsonb_object_agg(review_reason, reason_count) FILTER (WHERE review_reason IS NOT NULL), '{}'::jsonb) AS rejection_reasons FROM (SELECT state, realized_usage_count, CASE WHEN state = 'rejected' THEN review_reason ELSE NULL END AS review_reason, COUNT(*) OVER (PARTITION BY CASE WHEN state = 'rejected' THEN review_reason END) AS reason_count FROM automation_blueprint_candidate) AS aggregate_source"  # noqa: E501
 
 
 @dataclass(frozen=True, slots=True)
@@ -310,15 +311,7 @@ class RuntimeProjectionReader:
             "mutation_tool_ids, realized_usage_count "
             "FROM automation_blueprint_candidate ORDER BY created_at DESC, candidate_id LIMIT 200",
         )
-        aggregate_rows = await self._fetch_all(
-            "SELECT COUNT(*) AS proposed, "
-            "COUNT(*) FILTER (WHERE state = 'accepted') AS accepted, "
-            "COUNT(*) FILTER (WHERE state = 'rejected') AS rejected, "
-            "COUNT(*) FILTER (WHERE state = 'expired') AS expired, "
-            "COUNT(*) FILTER (WHERE state = 'materialized') AS materialized, "
-            "COALESCE(SUM(realized_usage_count), 0)::bigint AS realized_usage "
-            "FROM automation_blueprint_candidate"
-        )
+        aggregate_rows = await self._fetch_all(_AUTOMATION_BLUEPRINT_AGGREGATE_SQL)
         if len(aggregate_rows) != 1:
             raise ProjectionUnavailableError("automation blueprint aggregate is unavailable")
         aggregate = aggregate_rows[0]
@@ -369,6 +362,7 @@ class RuntimeProjectionReader:
                 "realized_usage": realized_usage,
                 "candidate_precision": materialized / resolved if resolved else 0.0,
                 "acceptance_rate": (accepted + materialized) / proposed if proposed else 0.0,
+                "rejection_reasons": _json_mapping(aggregate["rejection_reasons"]),
             },
         }
 
