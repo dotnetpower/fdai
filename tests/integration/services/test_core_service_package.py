@@ -85,6 +85,7 @@ EXPECTED_RUNTIME_MODULES = {
     "conversation_assurance.py",
     "conversation_assurance_lifecycle.py",
     "conversation_assurance_readiness.py",
+    "causal_bindings.py",
     "delivery.py",
     "development_authority.py",
     "development_diagnostics.py",

@@ -109,6 +109,8 @@ composition publishes an empty fail-closed snapshot when no durable skill store 
 Governed multi-skill manifests use the separate `skill_bundle` artifact kind and
 `fdai.skill-bundle-signature.v1` domain. Startup rebuilds skills before bundles so exact member
 versions and enabled state are validated before the shared runtime snapshot is published. The
+composition startup helper prepares both candidate snapshots before publishing either one,
+so a tampered bundle record fails closed and leaves the prior disclosure intact. The
 three read surfaces share that one snapshot: republishing it moves the Bragi commands, the read-
 scoped `skill_bundles.*` RPC operations, and the Skills panel inspection payload together. Every
 bundle rejection returns one stable content-free reason drawn from a fixed English token
