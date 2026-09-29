@@ -37,7 +37,16 @@ _FORECAST_COORDINATES = frozenset(
     {"access_scope_digest", "target_digest", "horizon_started_at", "horizon_ended_at"}
 )
 LOCATOR_COORDINATES: dict[str, frozenset[str]] = {
-    "case-history-read": frozenset({"principal_ref", "request_ref", "case_scope_digest"}),
+    "case-history-read": frozenset(
+        {
+            "principal_ref",
+            "request_ref",
+            "case_scope_digest",
+            "authentication_receipt_ref",
+            "principal_groups_digest",
+            "purpose",
+        }
+    ),
     "current-case-reuse": frozenset({"case_ref", "resource_ref", "event_id"}),
     "forecast-context": _FORECAST_COORDINATES,
     "forecast-history-actions": _FORECAST_COORDINATES,

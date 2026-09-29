@@ -463,6 +463,7 @@ class SemanticInvestigationContinuation(QueryContract):
 class SemanticTurnRequest(QueryContract):
     """One bounded ordinary-language request with no execution authority."""
 
+    authentication_receipt_ref: Digest | None = None
     utterance: Annotated[str, Field(min_length=1, max_length=32_000)]
     principal: SemanticTurnPrincipal
     session_id: BoundedId

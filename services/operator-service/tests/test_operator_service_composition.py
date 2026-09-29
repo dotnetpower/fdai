@@ -40,6 +40,7 @@ from fdai_operator_service.environment import (
     NARRATOR_PROBE_INTERVAL_ENV,
     PORT_ENV,
     READ_INVESTIGATION_REQUEST_TOPIC_ENV,
+    SEMANTIC_AUTHENTICATION_RECEIPT_REF_ENV,
     SEMANTIC_CONSUMER_GROUP_ENV,
     SEMANTIC_KAFKA_CLIENT_ID_ENV,
     SEMANTIC_OUTBOX_NAMESPACE_ENV,
@@ -1653,6 +1654,16 @@ def test_live_stage_consumer_group_preserves_default_and_override() -> None:
 
     assert default_environment.live_stage_consumer_group_id == DEFAULT_LIVE_STAGE_CONSUMER_GROUP
     assert overridden_environment.live_stage_consumer_group_id == "operator-live-replica"
+
+
+def test_authentication_receipt_ref_emission_defaults_off_and_is_explicit() -> None:
+    default_environment = OperatorEnvironment.parse(BASE_ENV)
+    enabled_environment = OperatorEnvironment.parse(
+        {**BASE_ENV, SEMANTIC_AUTHENTICATION_RECEIPT_REF_ENV: "true"}
+    )
+
+    assert default_environment.semantic_authentication_receipt_ref_enabled is False
+    assert enabled_environment.semantic_authentication_receipt_ref_enabled is True
 
 
 def test_composition_forwards_live_stage_consumer_group(

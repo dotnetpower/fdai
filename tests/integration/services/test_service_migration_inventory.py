@@ -101,6 +101,7 @@ def test_every_legacy_table_has_one_migrator_and_one_write_contract() -> None:
         "licensing_trial",
         "operator_assignment_receipt",
         "operator_rule_activation_receipt",
+        "operator_authentication_receipt",
         "document_knowledge_source",
         "document_knowledge_check",
         "document_knowledge_release",

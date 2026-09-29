@@ -72,6 +72,7 @@ class Principal:
     role: Role
     display_name: str = ""
     groups: frozenset[str] = frozenset()
+    authentication_receipt_ref: str | None = None
 
     def __post_init__(self) -> None:
         if not self.id:
@@ -80,6 +81,11 @@ class Principal:
             not group.strip() or len(group) > 256 for group in self.groups
         ):
             raise ValueError("Principal.groups MUST contain at most 64 bounded values")
+        if self.authentication_receipt_ref is not None and (
+            not self.authentication_receipt_ref.startswith("sha256:")
+            or len(self.authentication_receipt_ref) != 71
+        ):
+            raise ValueError("Principal.authentication_receipt_ref MUST be a sha256 digest")
 
 
 TurnDirection = Literal["inbound", "outbound", "tool_call", "tool_result", "system"]

@@ -94,6 +94,33 @@ def local_authentication_receipt(
     )
 
 
+def channel_authentication_receipt(
+    principal: OperatorPrincipal,
+    *,
+    issuer: str,
+    audience: str,
+    tenant_ref: str,
+    verification_ref: str,
+    issued_at: datetime,
+) -> OperatorAuthenticationReceipt:
+    """Return a token-free receipt for a signed channel-edge request."""
+
+    return OperatorAuthenticationReceipt.create(
+        evidence_class=OperatorAuthenticationEvidenceClass.LIVE,
+        issuer=issuer,
+        audience=audience,
+        tenant_digest=tenant_digest(tenant_ref),
+        subject_id=principal.subject_id,
+        principal_kind=principal.principal_kind.value,
+        groups=tuple(principal.groups),
+        token_id_digest=token_id_digest(verification_ref),
+        issued_at=issued_at,
+        expires_at=issued_at + _LOCAL_RECEIPT_LIFETIME,
+        roles=tuple(role.value for role in principal.roles),
+        role_mapping_revision=role_mapping_revision({}),
+    )
+
+
 def _mapping_revision(group_ids: Mapping[OperatorRole, str]) -> str:
     return role_mapping_revision({role.value: group for role, group in group_ids.items()})
 
@@ -115,4 +142,8 @@ def _epoch(value: object) -> datetime | None:
         return None
 
 
-__all__ = ["live_authentication_receipt", "local_authentication_receipt"]
+__all__ = [
+    "channel_authentication_receipt",
+    "live_authentication_receipt",
+    "local_authentication_receipt",
+]

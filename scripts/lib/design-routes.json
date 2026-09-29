@@ -280,7 +280,8 @@
         "aks-commerce-business-scenario",
         "development-diagnostic-channel",
         "reporting-subsystem",
-        "narrator-preference-persistence"
+        "narrator-preference-persistence",
+        "operational-evidence-issuance"
       ],
       "docs_update": [
         "docs/roadmap/architecture/continuous-operational-instance-graph.md",
@@ -506,6 +507,9 @@
       "validate": [
         "python3 scripts/quality/architecture/check-design-routes.py",
         "python3 scripts/quality/architecture/check-roadmap-implementation-tracking.py"
+      ],
+      "docs_update_routes": [
+        "operational-evidence-issuance"
       ]
     },
     {
@@ -704,7 +708,33 @@
         "config/operational-evidence-trust-registry.json",
         "services/operator-service/src/fdai_operator_service/auth.py",
         "services/operator-service/src/fdai_operator_service/authentication_receipt.py",
-        "services/operator-service/src/fdai_operator_service/test_context_runtime.py"
+        "services/operator-service/src/fdai_operator_service/test_context_runtime.py",
+        "eval/golden-dataset/corpus-manifest.json",
+        "packages/service-contracts/src/fdai_service_contracts/generated/**",
+        "packages/service-contracts/src/fdai_service_contracts/schemas/operator-core-request/**",
+        "packages/service-contracts/tests/fixtures/services/wire-payloads.json",
+        "scripts/automation/refresh-derived-artifacts.sh",
+        "scripts/quality/contracts/generate_authentication_receipt_ref_schema.py",
+        "service-migrations/ownership.json",
+        "service-migrations/branches/operator-service/versions/*authentication_receipts*.py",
+        "tests/integration/services/test_operator_authentication_receipts_migration.py",
+        "tests/integration/services/test_service_migration_inventory.py",
+        "services/operator-service/src/fdai_operator_service/adapters/semantic_kafka.py",
+        "services/operator-service/src/fdai_operator_service/composition.py",
+        "services/operator-service/src/fdai_operator_service/contract_codecs.py",
+        "services/operator-service/src/fdai_operator_service/environment.py",
+        "services/operator-service/src/fdai_operator_service/families/conversation/channel_edge/pipeline.py",
+        "services/operator-service/src/fdai_operator_service/families/conversation/factory.py",
+        "services/operator-service/src/fdai_operator_service/families/conversation/semantic_turn.py",
+        "services/operator-service/tests/test_operator_service_composition.py",
+        "services/operator-service/tests/test_semantic_turn_bridge.py",
+        "services/core-control-plane/tests/test_semantic_turn_processor.py",
+        "packages/service-contracts/src/fdai_service_contracts/schema.py",
+        "packages/service-contracts/src/fdai_service_contracts/semantic_turn.py",
+        "services/core-control-plane/src/fdai/core/conversation/session.py",
+        "services/core-control-plane/src/fdai/core/ontology_platform/functions.py",
+        "services/core-control-plane/src/fdai_core_service/contract_codecs.py",
+        "services/core-control-plane/src/fdai_core_service/semantic_turn_request.py"
       ],
       "docs_update": [
         "docs/roadmap/rules-and-detection/independent-operational-evidence.md"
@@ -843,7 +873,8 @@
         "slack-a1-request-outbox",
         "aks-commerce-business-scenario",
         "development-diagnostic-channel",
-        "reporting-subsystem"
+        "reporting-subsystem",
+        "operational-evidence-issuance"
       ],
       "docs_update": [
         "docs/roadmap/architecture/project-structure.md",
@@ -898,7 +929,8 @@
       ],
       "docs_update_routes": [
         "conversation-attachments",
-        "reporting-subsystem"
+        "reporting-subsystem",
+        "operational-evidence-issuance"
       ],
       "docs_update": [
         "docs/roadmap/architecture/project-structure.md",
@@ -1129,7 +1161,8 @@
         "docs/roadmap/architecture/project-structure.md"
       ],
       "docs_update_routes": [
-        "conversation-attachments"
+        "conversation-attachments",
+        "operational-evidence-issuance"
       ],
       "docs_update": [
         "docs/roadmap/architecture/operating-ontology-platform.md",
@@ -1579,7 +1612,8 @@
       "docs_update_routes": [
         "conversation-attachments",
         "development-diagnostic-channel",
-        "reporting-subsystem"
+        "reporting-subsystem",
+        "operational-evidence-issuance"
       ],
       "docs_update": [
         "docs/roadmap/interfaces/production-a3-channel-runtime.md",
@@ -2007,7 +2041,8 @@
         "development-diagnostic-channel",
         "ontology-query-coverage",
         "reporting-subsystem",
-        "narrator-preference-persistence"
+        "narrator-preference-persistence",
+        "operational-evidence-issuance"
       ],
       "docs_update": [
         "docs/roadmap/interfaces/conversation-attachments.md",
@@ -2336,7 +2371,8 @@
         "docs/roadmap/interfaces/reporting-subsystem.md"
       ],
       "docs_update_routes": [
-        "narrator-preference-persistence"
+        "narrator-preference-persistence",
+        "operational-evidence-issuance"
       ],
       "docs_update": [
         "docs/roadmap/interfaces/reporting-subsystem.md"
@@ -2485,6 +2521,9 @@
       "validate": [
         "uv run python scripts/automation/build_semantic_assurance_corpus.py --check",
         "uv run pytest -q --no-cov tests/integration/evaluation/test_semantic_assurance_corpus.py tests/integration/evaluation/test_golden_dataset.py -o addopts=''"
+      ],
+      "docs_update_routes": [
+        "operational-evidence-issuance"
       ]
     },
     {
@@ -2517,7 +2556,8 @@
       ],
       "docs_update_routes": [
         "conversation-attachments",
-        "human-report-lines"
+        "human-report-lines",
+        "operational-evidence-issuance"
       ],
       "docs_update": [
         "docs/roadmap/interfaces/hierarchical-conversation-planning.md",
@@ -2601,7 +2641,8 @@
       ],
       "docs_update_routes": [
         "conversation-attachments",
-        "development-diagnostic-channel"
+        "development-diagnostic-channel",
+        "operational-evidence-issuance"
       ],
       "docs_update": [
         "docs/roadmap/interfaces/ontology-query-coverage-implementation-plan.md",
@@ -2922,7 +2963,8 @@
         "development-diagnostic-channel",
         "reporting-subsystem",
         "slack-a1-request-outbox",
-        "narrator-preference-persistence"
+        "narrator-preference-persistence",
+        "operational-evidence-issuance"
       ],
       "docs_update": [
         "docs/roadmap/operations/operator-initiated-sre-and-arb.md",
@@ -3786,7 +3828,8 @@
         "aks-commerce-business-scenario",
         "development-diagnostic-channel",
         "reporting-subsystem",
-        "narrator-preference-persistence"
+        "narrator-preference-persistence",
+        "operational-evidence-issuance"
       ],
       "docs_update": [
         "docs/roadmap/rules-and-detection/framework-assessment.md",
@@ -3849,7 +3892,8 @@
         "aks-commerce-business-scenario",
         "development-diagnostic-channel",
         "reporting-subsystem",
-        "narrator-preference-persistence"
+        "narrator-preference-persistence",
+        "operational-evidence-issuance"
       ],
       "docs_update": [
         "docs/roadmap/rules-and-detection/wara-assessment.md",

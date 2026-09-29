@@ -3144,6 +3144,17 @@ def test_core_decodes_exact_document_context_from_1_8_request() -> None:
     assert request.document_context.conversation_ref == "session-1"
 
 
+def test_request_digest_ignores_absent_authentication_receipt_ref_for_1_8() -> None:
+    payload = _request(document_context=_document_context_payload())
+    _envelope, request, _requested_at = _decode_request(payload)
+    baseline = _request_digest(payload, request)
+    semantic = dict(cast(dict[str, object], payload["semantic_turn"]))
+    semantic["authentication_receipt_ref"] = None
+    with_none = SemanticTurnRequest.model_validate(semantic)
+
+    assert _request_digest(payload, with_none) == baseline
+
+
 def test_core_rejects_tampered_document_context_digest() -> None:
     document_context = _document_context_payload()
     document_context["context_digest"] = f"sha256:{'0' * 64}"

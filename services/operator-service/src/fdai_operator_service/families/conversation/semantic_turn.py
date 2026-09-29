@@ -52,10 +52,12 @@ class SemanticTurnEnvelopeBuilder:
         *,
         clock: Clock | None = None,
         selection_registry: ContextSelectionRegistry | None = None,
+        emit_authentication_receipt_ref: bool = False,
     ) -> None:
         self._clock = clock or (lambda: datetime.now(UTC))
         self._validator = JsonSchemaContractValidator(PackageResourceSchemaRegistry())
         self._selection_registry = selection_registry
+        self._emit_authentication_receipt_ref = emit_authentication_receipt_ref
 
     def build(
         self,
@@ -95,6 +97,12 @@ class SemanticTurnEnvelopeBuilder:
         roles = _authorized_roles(proposal)
         purpose = _optional_text(proposal.body, "purpose", default="operations-review")
         semantic_turn = SemanticTurnRequest(
+            authentication_receipt_ref=(
+                str(proposal.authentication_receipt["receipt_digest"])
+                if self._emit_authentication_receipt_ref
+                and proposal.authentication_receipt is not None
+                else None
+            ),
             utterance=_required_text(proposal.body, "prompt"),
             principal=SemanticTurnPrincipal(
                 subject_id=proposal.scope.subject_id,
@@ -129,7 +137,9 @@ class SemanticTurnEnvelopeBuilder:
         )
         semantic_payload = semantic_turn.model_dump(mode="json", exclude_none=True)
         schema_version = (
-            "1.8.0"
+            "1.9.0"
+            if semantic_turn.authentication_receipt_ref is not None
+            else "1.8.0"
             if semantic_turn.document_context is not None
             else "1.7.0"
             if semantic_turn.conversation_model_tier is not None

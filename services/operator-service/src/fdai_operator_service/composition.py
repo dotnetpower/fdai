@@ -228,6 +228,9 @@ class ProductionOperatorComposition:
             )
         semantic_bridge = _semantic_bridge(
             family_store,
+            emit_authentication_receipt_ref=(
+                environment.semantic_authentication_receipt_ref_enabled
+            ),
             publisher=publisher,
             result_source=result_source,
             request_topic=environment.semantic_request_topic or SEMANTIC_REQUEST_TOPIC,
@@ -594,6 +597,7 @@ def _postgres_family_store(environment: OperatorEnvironment) -> PostgresFamilySt
 def _semantic_bridge(
     store: PostgresFamilyStore | None,
     *,
+    emit_authentication_receipt_ref: bool,
     publisher: SemanticTurnEventPublisher | None,
     result_source: SemanticTurnResultSource | None,
     request_topic: str,
@@ -627,6 +631,7 @@ def _semantic_bridge(
         result_group=result_group,
         builder=SemanticTurnEnvelopeBuilder(
             selection_registry=context_selection_registry,
+            emit_authentication_receipt_ref=emit_authentication_receipt_ref,
         ),
         relationship_resolver=relationship_resolver,
         runtime_call_observer=runtime_call_observer,

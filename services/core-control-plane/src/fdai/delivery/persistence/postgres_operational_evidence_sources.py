@@ -16,6 +16,10 @@ import psycopg
 from fdai_service_contracts.operational_evidence import OperationalEvidenceSourceHealth
 
 from fdai.core.operational_context.test_context_lifecycle import context_history_key
+from fdai.core.operational_evidence.readback.case_history_read import (
+    AUTHENTICATION_SOURCE,
+    SemanticAuthenticationReceiptRow,
+)
 from fdai.core.operational_evidence.readback.test_context_sources import (
     MAX_TARGET_COMMANDS,
     OPERATOR_OUTBOX_SOURCE,
@@ -149,6 +153,57 @@ class PostgresTestContextEvidenceSources:
         return health
 
 
+class PostgresSemanticAuthenticationReceiptSource:
+    """Read semantic authentication receipts through the Operator-owned definer function."""
+
+    source_ids = (AUTHENTICATION_SOURCE,)
+
+    def __init__(self, config: PostgresOperationalEvidenceConfig) -> None:
+        if config.expected_role != VERIFIER_ROLE:
+            raise ValueError("semantic authentication source requires the verifier role")
+        self._config = config
+
+    async def receipts_for_digest(
+        self, receipt_digest: str
+    ) -> tuple[SemanticAuthenticationReceiptRow, ...]:
+        """Return retained receipts for one exact digest, one past the duplicate bound."""
+
+        async with role_bound_connection(self._config) as connection:
+            rows = await (
+                await connection.execute(
+                    "SELECT receipt_digest, request_id, principal_id, receipt, recorded_at "
+                    "FROM public.fdai_operator_authentication_receipts_for_digest(%s)",
+                    (receipt_digest,),
+                )
+            ).fetchall()
+        return tuple(
+            SemanticAuthenticationReceiptRow(
+                receipt_digest=str(row["receipt_digest"]),
+                request_id=str(row["request_id"]),
+                principal_id=str(row["principal_id"]),
+                receipt=row["receipt"],
+                recorded_at=row["recorded_at"],
+            )
+            for row in rows[:2]
+        )
+
+    async def source_health(self) -> dict[str, OperationalEvidenceSourceHealth]:
+        """Probe the exact function without reading an existing receipt."""
+
+        try:
+            async with role_bound_connection(self._config) as connection:
+                await (
+                    await connection.execute(
+                        "SELECT count(*) AS rows "
+                        "FROM public.fdai_operator_authentication_receipts_for_digest(%s)",
+                        (_PROBE_DIGEST,),
+                    )
+                ).fetchone()
+        except _HEALTH_FAILURES:
+            return {AUTHENTICATION_SOURCE: OperationalEvidenceSourceHealth.UNAVAILABLE}
+        return {AUTHENTICATION_SOURCE: OperationalEvidenceSourceHealth.HEALTHY}
+
+
 def operator_command_key(idempotency_key: str) -> str:
     """Return the Operator outbox key that one conversation idempotency key addresses."""
 
@@ -170,5 +225,6 @@ __all__ = [
     "MAX_AUDIT_DIGESTS",
     "TARGET_ROW_BOUND",
     "PostgresTestContextEvidenceSources",
+    "PostgresSemanticAuthenticationReceiptSource",
     "operator_command_key",
 ]

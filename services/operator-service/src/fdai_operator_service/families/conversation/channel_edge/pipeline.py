@@ -7,6 +7,7 @@ from collections.abc import Callable, Mapping
 from datetime import UTC, datetime
 from uuid import UUID, uuid5
 
+from fdai_operator_service.authentication_receipt import channel_authentication_receipt
 from fdai_operator_service.families.conversation.channel_delivery_models import (
     ChannelBindingState,
     ChannelBreakerMode,
@@ -54,7 +55,7 @@ from fdai_operator_service.families.conversation.contracts import (
     JsonObject,
     JsonValue,
 )
-from fdai_service_contracts import DocumentPurpose
+from fdai_service_contracts import DocumentPurpose, OperatorPrincipal, OperatorRole
 
 _IDENTITY_NAMESPACE = UUID("00000000-0000-0000-0000-000000000000")
 
@@ -148,6 +149,7 @@ class ChannelDeliveryPipeline:
                         conversation_id=binding.conversation_id,
                         idempotency_key=inbound_key,
                         attachment_result=attachment_result,
+                        now=now,
                     )
                 except Exception:
                     if attachment_result is None:
@@ -266,6 +268,7 @@ class ChannelDeliveryPipeline:
         context: ChannelPrincipalContext,
         conversation_id: str,
         idempotency_key: str,
+        now: datetime,
         attachment_result: ChannelAttachmentIngestionResult | None = None,
     ) -> JsonObject:
         body: JsonObject = {
@@ -275,12 +278,26 @@ class ChannelDeliveryPipeline:
         }
         if attachment_result is not None:
             body["document_context"] = attachment_result.document_context.model_dump(mode="json")
+        auth_receipt = channel_authentication_receipt(
+            OperatorPrincipal(
+                subject_id=context.scope.subject_id,
+                roles=frozenset(OperatorRole(role) for role in context.scope.roles),
+                principal_kind=context.scope.principal_kind,
+                groups=context.scope.groups,
+            ),
+            issuer=f"channel-edge:{authenticated.turn.channel_kind.value}",
+            audience="operator-service.channel-edge",
+            tenant_ref=context.scope_ref,
+            verification_ref=authenticated.verification_ref,
+            issued_at=now,
+        )
         receipt = await self._semantic_outbox.append(
             ConversationProposal(
                 operation="chat.stream",
                 scope=context.scope,
                 idempotency_key=idempotency_key,
                 body=body,
+                authentication_receipt=auth_receipt.model_dump(mode="json"),
             )
         )
         stream = await self._semantic_streams.open(
