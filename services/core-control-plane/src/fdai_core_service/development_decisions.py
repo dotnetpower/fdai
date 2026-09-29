@@ -43,6 +43,7 @@ _JUDGMENT_KINDS = frozenset({"semantic-judgment", "semantic-judgment-repair"})
 _GROUNDING_KINDS = frozenset({"semantic-concept-selection", "semantic-constraint-extraction"})
 _SERVER_EVENT_KEYS = frozenset(
     {
+        "decline_reason",
         "disposition",
         "failure_type",
         "result",
@@ -102,6 +103,7 @@ _TYPE_EVENT_LIST_KEYS = frozenset({"canonical_target_types"})
 _NUMERIC_EVENT_KEYS = frozenset(
     {
         "attempt",
+        "batch_count",
         "clarification_count",
         "compiled_goals",
         "context_items_dropped",
@@ -134,6 +136,7 @@ _EVENT_CUES = {
     "conversation_preflight_model_failed": "preflight_model_failed",
     "conversation_preflight_operational_promotion_rejected": "preflight_promotion_rejected",
     "conversation_preflight_operational_shape_rejected": "preflight_shape_rejected",
+    "semantic_compiled_answer_veto": "compiled_answer_veto",
     "semantic_direct_response_blocked_by_preflight": "direct_response_blocked",
     "semantic_judgment_assembly_fallback": "prompt_assembly_fallback",
     "semantic_judgment_coverage_unavailable": "coverage_unavailable",

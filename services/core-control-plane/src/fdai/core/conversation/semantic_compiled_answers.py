@@ -51,6 +51,8 @@ COMPILED_PLAN_SOURCE = "compiled_question_form"
 _MAX_EVENT_ITEMS = 16
 # One ontology query plan names at most eight output nodes.
 _MAX_PLAN_OUTPUTS = 8
+# Plans recovered from words the judgment stated, not from a typed reading of the question.
+_LEXICAL_PLAN_SOURCES = frozenset({"server_stated_filter", "server_resource_target_candidates"})
 
 
 @dataclass(frozen=True, slots=True)
@@ -103,6 +105,7 @@ class CompiledAnswerTicket:
         self._cutoff = cutoff
         self._clock = clock
         self._settled = False
+        self._unsupported: tuple[str, ...] = ()
 
     def outcome(
         self,
@@ -128,8 +131,9 @@ class CompiledAnswerTicket:
         finally:
             observations.extend(self._collector.observations)
         selected = _single_compiled_batch(observation)
-        if selected is None:
-            _log_completion("declined", observation=observation)
+        if isinstance(selected, str):
+            self._unsupported = _released_unsupported_reasons(observation)
+            _log_completion("declined", observation=observation, decline_reason=selected)
             return None
         batch, confidence = selected
         # Compilation ran seconds ago; the gateway accepts only a current cutoff, so the plan
@@ -157,6 +161,28 @@ class CompiledAnswerTicket:
             frame=batch.frame,
             plan=plan,
             intent_graph=build_intent_graph(frame=batch.frame, plan=plan, confidence=confidence),
+        )
+
+    def veto(self, plan_source: str, *, manifest_digest: str) -> SemanticPlanningOutcome | None:
+        """Hold a word-recovered plan when the released typed reading states an unread atom.
+
+        A reviewed reading that no builder can compile names what the question needs; a
+        filter recovered from the judgment's words would answer a narrower question.
+        """
+
+        if not self._unsupported or plan_source not in _LEXICAL_PLAN_SOURCES:
+            return None
+        _LOGGER.info(
+            "semantic_compiled_answer_veto",
+            extra={
+                "plan_source": plan_source,
+                "goal_reasons": list(self._unsupported[:_MAX_EVENT_ITEMS]),
+            },
+        )
+        return _outcome(
+            SemanticPlanningDisposition.UNSUPPORTED,
+            "semantic_stated_constraint_unsupported",
+            manifest_digest=manifest_digest,
         )
 
     def cancel(self) -> None:
@@ -287,52 +313,74 @@ async def _run_form_path(
 
 def _single_compiled_batch(
     observation: ReasoningShadowObservation,
-) -> tuple[CompiledBatch, float] | None:
-    """Return the verified read of a released single-goal compilation, else ``None``.
+) -> tuple[CompiledBatch, float] | str:
+    """Return the verified read of a released single-goal compilation, else a decline reason.
 
     A goal whose relation sides span several batches is read as one plan with every
     batch's output when the union fits one intent graph; otherwise it is declined.
     """
 
-    if not observation.released or observation.continuation_pending:
-        return None
-    if len(observation.compilations) != 1 or observation.compilations[0].needs_continuation:
-        return None
+    if not observation.released:
+        return "not_released"
+    if observation.continuation_pending or any(
+        compilation.needs_continuation for compilation in observation.compilations
+    ):
+        return "continuation_pending"
+    if len(observation.compilations) != 1:
+        return "compilation_count"
     goals = observation.compilations[0].goals
-    if len(goals) != 1 or goals[0].status is not GoalStatus.COMPILED or goals[0].limitations:
-        return None
+    if len(goals) != 1:
+        return "goal_count"
     goal = goals[0]
+    if goal.status is not GoalStatus.COMPILED:
+        return "goal_not_compiled"
+    if goal.limitations:
+        return "goal_limited"
     if not goal.batches or goal.confidence is None:
-        return None
+        return "goal_unbatched"
     if [(batch.index, batch.total) for batch in goal.batches] != [
         (index, len(goal.batches)) for index in range(len(goal.batches))
     ]:
-        return None
+        return "batch_order"
     merged = _merged_batch(goal.batches)
-    return (merged, goal.confidence) if merged is not None else None
+    return (merged, goal.confidence) if isinstance(merged, CompiledBatch) else merged
 
 
-def _merged_batch(batches: tuple[CompiledBatch, ...]) -> CompiledBatch | None:
+def _released_unsupported_reasons(observation: ReasoningShadowObservation) -> tuple[str, ...]:
+    """Return the typed reasons of a released reading's unsupported goals, else nothing."""
+
+    if not observation.released or observation.continuation_pending:
+        return ()
+    return tuple(
+        dict.fromkeys(
+            reason
+            for compilation in observation.compilations
+            for goal in compilation.goals
+            if goal.status is GoalStatus.UNSUPPORTED
+            for reason in goal.reasons
+        )
+    )
+
+
+def _merged_batch(batches: tuple[CompiledBatch, ...]) -> CompiledBatch | str:
     if len(batches) == 1:
         return batches[0]
     frame = batches[0].frame
     if any(batch.frame.frame_digest != frame.frame_digest for batch in batches):
-        return None
+        return "merge_frame_mismatch"
     nodes: dict[str, OntologyQueryNode] = {}
     outputs: list[str] = []
     for batch in batches:
         for node in batch.plan.nodes:
             # A shared anchor read repeats with identical content; any other id clash is unsafe.
             if node.node_id in nodes and nodes[node.node_id] != node:
-                return None
+                return "merge_node_conflict"
             nodes.setdefault(node.node_id, node)
         outputs.extend(batch.plan.output_node_ids)
-    if (
-        len(nodes) > MAX_INTENT_GRAPH_GOALS
-        or len(outputs) > _MAX_PLAN_OUTPUTS
-        or len(set(outputs)) != len(outputs)
-    ):
-        return None
+    if len(set(outputs)) != len(outputs):
+        return "merge_node_conflict"
+    if len(nodes) > MAX_INTENT_GRAPH_GOALS or len(outputs) > _MAX_PLAN_OUTPUTS:
+        return "merge_over_budget"
     first = batches[0].plan
     body = {
         **first.model_dump(mode="json", exclude={"nodes", "output_node_ids", "plan_digest"}),
@@ -348,10 +396,13 @@ def _log_completion(
     *,
     observation: ReasoningShadowObservation | None = None,
     failure_type: str | None = None,
+    decline_reason: str | None = None,
 ) -> None:
     extra: dict[str, object] = {"result": result}
     if failure_type is not None:
         extra["failure_type"] = failure_type
+    if decline_reason is not None:
+        extra["decline_reason"] = decline_reason
     if observation is not None:
         goals = [goal for compilation in observation.compilations for goal in compilation.goals]
         extra.update(
@@ -373,6 +424,7 @@ def _log_completion(
                     for reason in goal.reasons
                 ][:_MAX_EVENT_ITEMS],
                 "compiled_goals": len(goals),
+                "batch_count": sum(len(goal.batches) for goal in goals),
                 "goal_limitations": [
                     limitation for goal in goals for limitation in goal.limitations
                 ][:_MAX_EVENT_ITEMS],

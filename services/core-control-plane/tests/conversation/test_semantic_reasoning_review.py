@@ -148,11 +148,19 @@ def test_a_missing_empty_or_unlocated_extraction_releases_nothing() -> None:
     typed = _typed(_aks_form("List", context=[_quote("the AKS")]))
 
     assert review_forms((typed,), None, utterance=_AKS).outcome == "unavailable"
-    assert review_forms((typed,), {"constraints": []}, utterance=_AKS).outcome == "invalid"
-    unlocated = {"constraints": [_constraint("EKS", "names")]}
-    assert review_forms((typed,), unlocated, utterance=_AKS).outcome == "invalid"
-    unknown_role = {"constraints": [_constraint("AKS", "vibes")]}
-    assert review_forms((typed,), unknown_role, utterance=_AKS).outcome == "invalid"
+    empty = review_forms((typed,), {"constraints": []}, utterance=_AKS)
+    unlocated = review_forms(
+        (typed,), {"constraints": [_constraint("EKS", "names")]}, utterance=_AKS
+    )
+    unknown_role = review_forms(
+        (typed,), {"constraints": [_constraint("AKS", "vibes")]}, utterance=_AKS
+    )
+
+    # The typed reason names the rule the extraction broke and never quotes its text.
+    assert empty.reasons == ("review_invalid", "review_invalid:constraints_empty")
+    assert unlocated.reasons == ("review_invalid", "review_invalid:constraint_quote_unlocated")
+    assert unknown_role.reasons == ("review_invalid", "review_invalid:schema")
+    assert {empty.outcome, unlocated.outcome, unknown_role.outcome} == {"invalid"}
     assert extraction_schema()["$defs"]["SourceSpan"]["required"] == ["text", "occurrence"]
 
 
@@ -638,8 +646,12 @@ def test_a_literal_the_extractor_cannot_locate_voids_the_review() -> None:
     unlocated = {**_FRAGMENT_EXTRACTION, "literals": [_quote("app-prod")]}
     malformed = {**_FRAGMENT_EXTRACTION, "literals": "app-dev"}
 
-    assert review_forms((typed,), unlocated, utterance=_FRAGMENT).outcome == "invalid"
-    assert review_forms((typed,), malformed, utterance=_FRAGMENT).outcome == "invalid"
+    assert review_forms((typed,), unlocated, utterance=_FRAGMENT).reasons[1:] == (
+        "review_invalid:literal_quote_unlocated",
+    )
+    assert review_forms((typed,), malformed, utterance=_FRAGMENT).reasons[1:] == (
+        "review_invalid:literal_shape",
+    )
 
 
 async def test_a_review_repair_never_moves_a_name_that_a_fragment_filter_reads() -> None:

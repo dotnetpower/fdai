@@ -36,8 +36,14 @@ _COMPILED = SemanticPlanningOutcome(
 
 
 class _Ticket:
-    def __init__(self, result: SemanticPlanningOutcome | None) -> None:
+    def __init__(
+        self,
+        result: SemanticPlanningOutcome | None,
+        veto: SemanticPlanningOutcome | None = None,
+    ) -> None:
         self.result = result
+        self.veto_result = veto
+        self.vetoed_sources: list[str] = []
         self.consumed = False
         self.cancelled = False
 
@@ -45,6 +51,10 @@ class _Ticket:
         self.consumed = True
         observations.append(SimpleNamespace(model="form-model", usage=None, trace_call={}))
         return self.result
+
+    def veto(self, plan_source: str, *, manifest_digest: str) -> Any:
+        self.vetoed_sources.append(plan_source)
+        return self.veto_result
 
     def cancel(self) -> None:
         if not self.consumed:
@@ -182,3 +192,29 @@ def test_a_turn_that_needs_document_evidence_never_starts_the_form_path() -> Non
         required_document_evidence=True,
     )
     assert path.starts == []
+
+
+def test_a_released_unsupported_reading_holds_the_word_recovered_plan() -> None:
+    vetoed = SemanticPlanningOutcome(
+        disposition=SemanticPlanningDisposition.UNSUPPORTED,
+        reason="semantic_stated_constraint_unsupported",
+    )
+    path = _Path(result=None)
+    path.ticket.veto_result = vetoed
+    outcome, _model = _plan(
+        _Boundary(SemanticJudgmentDisposition.ACCEPTED, proposal=_accepted()), path
+    )
+
+    # The recovered plan was built and verified, then held because the reviewed reading
+    # of the same question states an atom that plan never reads.
+    assert outcome.disposition is SemanticPlanningDisposition.UNSUPPORTED
+    assert outcome.reason == "semantic_stated_constraint_unsupported"
+    assert [item.model for item in outcome.model_observations] == ["form-model"]
+    assert path.ticket.vetoed_sources == ["server_stated_filter"]
+
+    kept = _Path(result=None)
+    answered, _model = _plan(
+        _Boundary(SemanticJudgmentDisposition.ACCEPTED, proposal=_accepted()), kept
+    )
+    assert answered.disposition is SemanticPlanningDisposition.PLANNED
+    assert kept.ticket.vetoed_sources == ["server_stated_filter"]

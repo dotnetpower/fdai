@@ -689,12 +689,6 @@ def _as_lookup(form: dict[str, Any], **updates: Any) -> None:
     ("mutate", "reason"),
     (
         (
-            lambda form: form["mentions"][1].update(
-                qualifier={"mention": "m1", "sense": "containment"}
-            ),
-            "qualified_mention_unsupported",
-        ),
-        (
             lambda form: form["goals"][0].update(measure={"kind": "state"}),
             "measure_unsupported:state",
         ),
@@ -1257,7 +1251,7 @@ def test_a_declaration_count_grouped_by_type_counts_each_kind() -> None:
     assert [node.kind.value for node in batch.plan.nodes] == ["function", "aggregate"]
 
 
-def test_a_qualifier_on_a_measure_mention_is_never_dropped() -> None:
+def test_a_qualifier_on_a_state_mention_is_rejected_at_admission() -> None:
     utterance = "What is the state of aks-prod-01 in rg-app?"
     form = {
         "mentions": [
@@ -1285,10 +1279,12 @@ def test_a_qualifier_on_a_measure_mention_is_never_dropped() -> None:
         ],
     }
 
-    goal = _compile(utterance, form).goals[0]
+    admission = admitted(form, utterance)
 
-    assert goal.status is GoalStatus.UNSUPPORTED
-    assert goal.reasons == ("qualified_mention_unsupported",)
+    # A qualifier only places one named resource inside another, so a qualified state is
+    # rejected at admission with a reason its one repair can act on; it is never dropped.
+    assert admission.disposition.value == "invalid"
+    assert "qualifier_not_instance:m3" in admission.reasons
 
 
 def _kind_mention(utterance: str, text: str, mention_id: str) -> dict[str, Any]:

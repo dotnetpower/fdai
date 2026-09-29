@@ -417,6 +417,97 @@ def test_two_mentions_never_share_words() -> None:
     assert "mention_overlap:m2" in admission.reasons
 
 
+def _qualified_count(utterance: str, kind: str, qualifier_domain: str, text: str) -> Any:
+    return _admit(
+        {
+            "mentions": [
+                {
+                    "id": "m1",
+                    "form": "concept",
+                    "domain": "resource_type",
+                    "span": span(utterance, kind),
+                    "qualifier": {"mention": "m2", "sense": "containment"},
+                },
+                {
+                    "id": "m2",
+                    "form": "value" if qualifier_domain == "state" else "name",
+                    "domain": qualifier_domain,
+                    "span": span(utterance, text),
+                },
+            ],
+            "goals": [
+                {
+                    "id": "g1",
+                    "level": "instance",
+                    "operation": "count",
+                    "subject": "m1",
+                    "subject_scope": "collection",
+                    "measure": {"kind": "count"},
+                    "cue": span(utterance, "How many"),
+                    "confidence": 0.9,
+                }
+            ],
+        },
+        utterance,
+    )
+
+
+@pytest.mark.parametrize(
+    ("utterance", "kind", "domain", "text"),
+    (
+        ("How many running VMs are there?", "VMs", "state", "running"),
+        ("How many VMs in rg-app are there?", "VMs", "instance", "rg-app"),
+    ),
+)
+def test_a_qualifier_only_places_a_named_resource_in_another(
+    utterance: str, kind: str, domain: str, text: str
+) -> None:
+    admission = _qualified_count(utterance, kind, domain, text)
+
+    # A kind or a state of the results is a filter and a container is the goal's relation;
+    # as a qualifier it reaches no builder, so admission asks for the one repair instead.
+    assert admission.disposition is AdmissionDisposition.INVALID
+    assert "qualifier_not_instance:m1" in admission.reasons
+
+
+def test_a_named_resource_qualified_by_its_container_is_admitted() -> None:
+    utterance = "What is the state of aks-prod-01 in rg-app?"
+    admission = _admit(
+        {
+            "mentions": [
+                {
+                    "id": "m1",
+                    "form": "name",
+                    "domain": "instance",
+                    "span": span(utterance, "aks-prod-01"),
+                    "qualifier": {"mention": "m2", "sense": "containment"},
+                },
+                {
+                    "id": "m2",
+                    "form": "name",
+                    "domain": "instance",
+                    "span": span(utterance, "rg-app"),
+                },
+            ],
+            "goals": [
+                {
+                    "id": "g1",
+                    "level": "instance",
+                    "operation": "lookup",
+                    "subject": "m1",
+                    "subject_scope": "anchor",
+                    "measure": {"kind": "state"},
+                    "cue": span(utterance, "What is"),
+                    "confidence": 0.9,
+                }
+            ],
+        },
+        utterance,
+    )
+
+    assert not any(reason.startswith("qualifier_not_instance") for reason in admission.reasons)
+
+
 def test_one_group_is_never_both_the_scope_and_the_relation_anchor() -> None:
     utterance = "rg-app의 모든 리소스를 보여줘"
     raw = {

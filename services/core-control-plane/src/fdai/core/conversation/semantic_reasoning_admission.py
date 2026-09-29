@@ -135,6 +135,7 @@ def admit_question_form(
         invalid.extend(_position_failures(mention, text))
         mention_text[mention.id] = text
     invalid.extend(_overlapping_mentions(form))
+    invalid.extend(_qualifier_failures(form))
     judged: set[str] = set()
     fractional: list[str] = []
     for goal in form.goals:
@@ -385,6 +386,25 @@ def allowed_filter_domains(role: FilterRole, *, schema: bool) -> tuple[MentionDo
 
     table = _SCHEMA_FILTER_DOMAINS if schema else _FILTER_DOMAINS
     return tuple(sorted(table.get(role, frozenset()), key=lambda item: item.value))
+
+
+def _qualifier_failures(form: SemanticQuestionForm) -> list[str]:
+    """Return a reason for each qualifier that does not place one named resource in another.
+
+    A kind, state, or relation of the results is a filter or a relation; stated as a
+    qualifier it would reach no builder, so the one repair names the misplaced atom.
+    """
+
+    domains = {mention.id: mention.domain for mention in form.mentions}
+    return [
+        f"qualifier_not_instance:{mention.id}"
+        for mention in form.mentions
+        if mention.qualifier is not None
+        and (
+            mention.domain is not MentionDomain.INSTANCE
+            or domains.get(mention.qualifier.mention) is not MentionDomain.INSTANCE
+        )
+    ]
 
 
 def _overlapping_mentions(form: SemanticQuestionForm) -> list[str]:

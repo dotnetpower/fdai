@@ -661,6 +661,9 @@ class SemanticPlanningService(SemanticPlanningPreflightMixin):
             investigation_intent = dispatch_result.investigation_intent
             plan = dispatch_result.plan
             plan_source = dispatch_result.plan_source
+            vetoed = ticket.veto(plan_source, manifest_digest=manifest_digest) if ticket else None
+            if vetoed is not None:
+                return preflight_router.finish(vetoed)
             if frame.output_shape == SemanticOutputShape.PROPERTY_FILTERED_RESOURCES:
                 verify_frame_plan_alignment(
                     frame,

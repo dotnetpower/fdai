@@ -119,9 +119,10 @@ The model states only that `aks-prod-01` is the dependency and the results are i
 Bragi admits a form only when every span matches the utterance without cutting through a longer identifier, every goal meets the confidence floor, no
 alternative survives, both relation roles are the ends of one sense, every declared mention is used, no two mentions share words, no group is both a
 goal's scope and its relation anchor unless the relation is a transitive containment from that group to its members, which only restates the scope's
-whole membership, and the level fits every mention domain. Otherwise it returns one clarification or sends a low-confidence field to one independent
-T2 review of closed fields. An admitted atom that no reviewed builder reads, such as a qualifier or a stated counterpart, returns a typed unsupported
-reason; it is never ignored.
+whole membership, every qualifier places one named instance inside another named instance, and the level fits every mention domain. A kind, a
+state, or a container of the results stated as a qualifier is a structural fault with one repair that restates it as a filter or as the goal's
+relation. Otherwise it returns one clarification or sends a low-confidence field to one independent T2 review of closed fields. An admitted atom
+that no reviewed builder reads, such as a qualifier or a stated counterpart, returns a typed unsupported reason; it is never ignored.
 
 **Utterance span accounting**: Every letter, digit, and math or currency symbol of the utterance must lie inside a mention, a goal, filter, relation,
 time, or measure cue, a context quote, or an unsupported constraint. Core checks this only by Unicode category and never classifies what a word means.
@@ -510,6 +511,14 @@ an aggregate whose grouping differs from the stated one. The routing preflight's
 within its smaller bound: before, a context longer than that bound skipped the preflight, so after a few long
 answers a standalone question went to the adaptive planner, which could answer it from general knowledge. A trimmed
 context records the kept and dropped item counts as a decision event.
+A declined path also records the one selection rule it failed, such as `not_released`, `goal_not_compiled`, or
+`merge_over_budget`, and its batch count. An invalid review records why the extraction could not serve, such as an
+empty extraction or a quote that is not in the question, without the quote. When the released reading holds a goal
+that no builder compiles, it names what the question needs. The current path may then still answer through its own
+typed builders, but a filter recovered only from the judgment's words, such as a stated type, would answer a narrower
+question, for example every storage account when the question also states a region. The planner therefore returns
+`semantic_stated_constraint_unsupported` for such a recovered plan and records the unsupported reasons, instead of
+presenting a verified answer to a question the operator did not ask.
 
 ## Approved decisions
 

@@ -134,6 +134,14 @@ def _completions(caplog: pytest.LogCaptureFixture) -> list[str]:
     ]
 
 
+def _decline_reasons(caplog: pytest.LogCaptureFixture) -> list[str]:
+    return [
+        record.decline_reason
+        for record in caplog.records
+        if record.msg == "semantic_compiled_answer_completed" and record.result == "declined"
+    ]
+
+
 def test_a_released_single_goal_answers_with_a_fresh_cutoff(
     caplog: pytest.LogCaptureFixture, events: list[dict[str, Any]]
 ) -> None:
@@ -156,15 +164,18 @@ def test_a_released_single_goal_answers_with_a_fresh_cutoff(
 
 
 @pytest.mark.parametrize(
-    "overrides",
+    ("overrides", "reason"),
     [
-        {"released": False},
-        {"continuation_pending": True},
-        {"compilations": ()},
+        ({"released": False}, "not_released"),
+        ({"continuation_pending": True}, "continuation_pending"),
+        ({"compilations": ()}, "compilation_count"),
     ],
 )
 def test_an_unreleased_or_incomplete_path_leaves_the_turn_to_the_current_path(
-    overrides: dict[str, Any], caplog: pytest.LogCaptureFixture, events: list[dict[str, Any]]
+    overrides: dict[str, Any],
+    reason: str,
+    caplog: pytest.LogCaptureFixture,
+    events: list[dict[str, Any]],
 ) -> None:
     recorded: list[Any] = []
     outcome = _ticket(_observation(**overrides)).outcome(
@@ -173,9 +184,12 @@ def test_an_unreleased_or_incomplete_path_leaves_the_turn_to_the_current_path(
     assert outcome is None
     assert len(recorded) == 1
     assert _completions(caplog) == ["declined"]
+    assert _decline_reasons(caplog) == [reason]
 
 
-def test_a_second_goal_limitation_or_batch_is_never_answered_as_complete() -> None:
+def test_a_second_goal_limitation_or_batch_is_never_answered_as_complete(
+    caplog: pytest.LogCaptureFixture, events: list[dict[str, Any]]
+) -> None:
     compilation = _compilation()
     goal = compilation.goals[0]
     sibling = GoalCompilation("g2", GoalStatus.UNSUPPORTED, ("operation_unsupported:rank",))
@@ -190,6 +204,52 @@ def test_a_second_goal_limitation_or_batch_is_never_answered_as_complete() -> No
         assert _ticket(observation).outcome(manifest_digest="d", observations=[]) is None
     two = _observation(compilations=(compilation, compilation))
     assert _ticket(two).outcome(manifest_digest="d", observations=[]) is None
+    # Every decline names the one rule that kept the compilation from answering.
+    assert _decline_reasons(caplog) == [
+        "goal_count",
+        "goal_limited",
+        "batch_order",
+        "continuation_pending",
+        "compilation_count",
+    ]
+
+
+def _unsupported_observation(*, released: bool = True) -> ReasoningShadowObservation:
+    compilation = _compilation()
+    goal = GoalCompilation("g1", GoalStatus.UNSUPPORTED, ("filter_unsupported:region",))
+    return _observation(released=released, compilations=(replace(compilation, goals=(goal,)),))
+
+
+@pytest.mark.parametrize(
+    "plan_source", ["server_stated_filter", "server_resource_target_candidates"]
+)
+def test_a_released_unsupported_reading_holds_a_word_recovered_plan(
+    plan_source: str, caplog: pytest.LogCaptureFixture, events: list[dict[str, Any]]
+) -> None:
+    ticket = _ticket(_unsupported_observation())
+    assert ticket.outcome(manifest_digest="d", observations=[]) is None
+
+    vetoed = ticket.veto(plan_source, manifest_digest="d")
+
+    # The reviewed reading states a region the filter recovered from words would drop.
+    assert vetoed is not None
+    assert vetoed.disposition is SemanticPlanningDisposition.UNSUPPORTED
+    assert vetoed.reason == "semantic_stated_constraint_unsupported"
+    vetoes = [r for r in caplog.records if r.msg == "semantic_compiled_answer_veto"]
+    assert [record.goal_reasons for record in vetoes] == [["filter_unsupported:region"]]
+
+
+def test_a_typed_plan_or_an_unreleased_reading_is_never_held() -> None:
+    released = _ticket(_unsupported_observation())
+    released.outcome(manifest_digest="d", observations=[])
+    unreleased = _ticket(_unsupported_observation(released=False))
+    unreleased.outcome(manifest_digest="d", observations=[])
+    unconsumed = _ticket(_unsupported_observation())
+
+    # A typed builder reads its own stated atoms, and an unreviewed reading holds nothing.
+    assert released.veto("server_recent_resource_changes", manifest_digest="d") is None
+    assert unreleased.veto("server_stated_filter", manifest_digest="d") is None
+    assert unconsumed.veto("server_stated_filter", manifest_digest="d") is None
 
 
 def test_a_timeout_or_failure_cancels_the_path_and_consumes_the_ticket_once(
@@ -303,7 +363,9 @@ def _relation_compilation(scope: str) -> ReasoningCompilation:
     )
 
 
-def test_relation_sides_split_across_batches_answer_as_one_plan() -> None:
+def test_relation_sides_split_across_batches_answer_as_one_plan(
+    caplog: pytest.LogCaptureFixture, events: list[dict[str, Any]]
+) -> None:
     compilation = _relation_compilation("one_sense")
     goal = compilation.goals[0]
     assert goal.status is GoalStatus.COMPILED, goal.reasons
@@ -316,6 +378,7 @@ def test_relation_sides_split_across_batches_answer_as_one_plan() -> None:
     if len(outputs) > 8:
         # One plan names at most eight outputs, so this read is left to the current path.
         assert outcome is None
+        assert _decline_reasons(caplog) == ["merge_over_budget"]
         fewer = replace(goal, batches=goal.batches[:2])
         fewer = replace(
             fewer,
@@ -333,7 +396,9 @@ def test_relation_sides_split_across_batches_answer_as_one_plan() -> None:
     assert len(outcome.plan.nodes) <= 16
 
 
-def test_batches_with_clashing_node_ids_are_declined() -> None:
+def test_batches_with_clashing_node_ids_are_declined(
+    caplog: pytest.LogCaptureFixture, events: list[dict[str, Any]]
+) -> None:
     compilation = _relation_compilation("one_sense")
     goal = compilation.goals[0]
     first, second = goal.batches[0], goal.batches[1]
@@ -351,3 +416,4 @@ def test_batches_with_clashing_node_ids_are_declined() -> None:
     observation = _observation(compilations=(replace(compilation, goals=(broken,)),))
 
     assert _ticket(observation).outcome(manifest_digest="d", observations=[]) is None
+    assert _decline_reasons(caplog) == ["merge_node_conflict"]
