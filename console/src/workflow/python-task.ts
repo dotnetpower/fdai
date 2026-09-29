@@ -22,6 +22,14 @@ export interface PythonTaskAvailability {
   readonly operations: PythonTaskOperations;
 }
 
+/** Server-reported explicit unavailability; every workbench operation stays disabled. */
+export interface PythonTaskUnavailable {
+  readonly available: false;
+  readonly reasons: readonly string[];
+}
+
+export type PythonTaskCapabilityReport = PythonTaskAvailability | PythonTaskUnavailable;
+
 export interface PythonTaskFileDraft {
   readonly path: string;
   readonly content: string;
@@ -93,24 +101,55 @@ export function pythonTaskDraftKey(task: PythonTaskDraft): string {
   return JSON.stringify(task);
 }
 
-export function decodePythonTaskAvailability(value: unknown): PythonTaskAvailability {
+const PYTHON_TASK_OPERATION_KEYS = [
+  "generate",
+  "validate",
+  "stage",
+  "test",
+  "request_run",
+  "schedule",
+] as const;
+const MAX_UNAVAILABLE_REASONS = 16;
+const MAX_UNAVAILABLE_REASON_CHARS = 128;
+
+function invalidPythonTaskCapability(): Error {
+  return new Error("Python task capability API returned an invalid response.");
+}
+
+/** Decode the capability report. An explicit unavailable report must disable every
+ * operation and name at least one reason; a contradictory report fails closed. */
+export function decodePythonTaskAvailability(value: unknown): PythonTaskCapabilityReport {
   if (value === null || typeof value !== "object" || Array.isArray(value)) {
-    throw new Error("Python task capability API returned an invalid response.");
+    throw invalidPythonTaskCapability();
   }
   const record = value as Record<string, unknown>;
   const operations = record["operations"];
-  if (
-    record["available"] !== true
-    || operations === null
-    || typeof operations !== "object"
-    || Array.isArray(operations)
-  ) {
-    throw new Error("Python task capability API returned an invalid response.");
+  if (operations === null || typeof operations !== "object" || Array.isArray(operations)) {
+    throw invalidPythonTaskCapability();
   }
   const operationRecord = operations as Record<string, unknown>;
-  const keys = ["generate", "validate", "stage", "test", "request_run", "schedule"] as const;
-  if (keys.some((key) => typeof operationRecord[key] !== "boolean")) {
-    throw new Error("Python task capability API returned an invalid response.");
+  if (PYTHON_TASK_OPERATION_KEYS.some((key) => typeof operationRecord[key] !== "boolean")) {
+    throw invalidPythonTaskCapability();
+  }
+  if (record["available"] === false) {
+    const reasons = record["unavailable_reasons"];
+    if (
+      PYTHON_TASK_OPERATION_KEYS.some((key) => operationRecord[key] !== false)
+      || !Array.isArray(reasons)
+      || reasons.length === 0
+      || reasons.length > MAX_UNAVAILABLE_REASONS
+      || reasons.some((reason) =>
+        typeof reason !== "string"
+        || reason.length === 0
+        || reason.length > MAX_UNAVAILABLE_REASON_CHARS
+      )
+    ) {
+      throw invalidPythonTaskCapability();
+    }
+    return { available: false, reasons: [...(reasons as string[])] };
+  }
+  if (record["available"] !== true) {
+    throw invalidPythonTaskCapability();
   }
   return {
     available: true,

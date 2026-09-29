@@ -1,7 +1,7 @@
 ---
 title: Operator Console - Data and Wire Contracts
 translation_of: operator-console-wire-contracts.md
-translation_source_sha: 1356f96066eb90f31289943ae5b2c93471be37f7
+translation_source_sha: 2f4f8f69af439bb0c8f9811284a27a713035aed4
 translation_revised: 2026-09-29
 ---
 
@@ -225,7 +225,7 @@ trajectory를 전용 renderer에 위임하며 필드, 상한, 로케일, 근거 
 ### 13.7 Python VM 작업 workbench
 
 작업 흐름 빌더 는
-[`python_tasks.py`](../../../services/operator-service/src/fdai_operator_service/) 의 여섯
+Operator [워크플로 경로 계열](../../../services/operator-service/src/fdai_operator_service/families/workflow/manifest.py) 의 여섯
 변경 경로 와 읽기 전용 `GET /python-tasks/capabilities` 경로 를 사용하는
 multi-file Python 작업 workbench 를 포함합니다.
 Operator 는 출처 파일 을 편집하고 entrypoint 를 선택하며 모듈 및 호스트
@@ -236,6 +236,18 @@ shadow 계획 을 수행할 수 있습니다.
 없으면 workbench 를 열지 않으며 어댑터, submitter 또는 예약 저장소 가 연결되지 않은
 연산 을 비활성화합니다. 따라서 사용 불가 경로 가 범용 `404` 로 실패하는 실행 가능한
 컨트롤 처럼 표시되지 않습니다.
+
+Operator 조립 구성은
+[`python_task_capability.py`](../../../services/operator-service/src/fdai_operator_service/python_task_capability.py)에서
+이 응답을 소유합니다. 정적 검증기와 VM 작업 실행기가 연결된 경우에만 workbench를 사용할 수
+있습니다. 그렇지 않으면 경로는 `available: false`, 모든 작업의 비활성화 상태, 그리고 누락된 담당
+구성 요소를 나타내는 `unavailable_reasons`(`python_task_validator_not_bound` 또는
+`python_task_vm_runner_not_bound`)를 HTTP `200`으로 반환합니다. 현재 독립 Operator는 둘 다
+연결하지 않으므로 모든 실행 환경에서 사용 불가를 보고하며, `execution_authority`는 항상
+`false`입니다. Console은 이 보고를 경로가 없는 경우처럼 처리하고 사유를 알립니다. Operator가 이
+보고를 소유하는 이유는
+[Console 읽기 경계](../deployment/console-read-boundary-ko.md#워크플로-정의-및-python-작업-기능)에
+기록되어 있습니다.
 
 Workbench 는 콘솔 신원 경계 를 유지합니다.
 
@@ -420,7 +432,7 @@ Operator는 스트림마다 첫 조회 `activity`보다 먼저 이 이벤트를 
 | 증적 기반 런타임 Context snapshot | in-progress | 온톨로지 플랫폼의 보안 ObjectSet 및 Context 계약, 기존 Console 사용 불가 상태 | 워크벤치는 카탈로그 선언과 런타임 인스턴스를 병합하지 않습니다. principal 범위 Context 증적은 별도 전달 작업으로 남아 있습니다. |
 | HIL callback 계약 | implemented | Operator IAM family 경로; `services/operator-service/tests/test_operator_iam_family.py`; full-composition 테스트 | 서명, 재생 구간, 역할, 자기 승인 금지, 정확한 pending id 및 멱등적 결정 동작이 구현됐습니다. |
 | Slack 브라우저 인계 | implemented | `families/iam/slack_handoff.py`, `slack_adapter.py`, `test_slack_hil_interactivity.py`, `console/tests/e2e/approvals-sample.spec.ts` | 실제 렌더링된 Block Kit 단추가 서명된 일회용 행위자/작업 인계로 이어짐을 합성 교차 서비스 검사로 확인했습니다. 새로 로그인한 시각을 담은 서명된 `auth_time`이 없으면 결정은 차단됩니다. 실제 Entra, Slack 게시 및 PostgreSQL 동시성 증적은 확인하지 않았습니다. |
-| Python task workbench 및 근거 기반 code | implemented | `services/core-control-plane/src/fdai/core/python_task/`; `services/core-control-plane/tests/core/python_task/`; Operator workflow family; Console Python task 테스트 | 정적 검증, inert 산출물, 기능 및 chat 실행 부재 경계에 focused 검사가 있습니다. |
+| Python task workbench 및 근거 기반 code | in-progress | `services/core-control-plane/src/fdai/core/python_task/`; `services/core-control-plane/tests/core/python_task/`; Operator workflow family; `python_task_capability.py`; Console Python task 테스트 | Core 정적 검증, inert 산출물, 기능 보고 및 chat 실행 부재 경계에 focused 검사가 있습니다. Operator 서비스 분리 이후 여섯 가지 workbench 작업을 제공하는 Operator 담당 구성 요소가 없으며, 기능 경로가 이 상태를 명시적으로 보고합니다. |
 | 인시던트 생성 초안 및 타입이 지정된 확인 | implemented | `fdai_service_contracts.incident_creation`, Core 의미 기반 변환 결과 및 인시던트 생성 소비자, Operator 확인 경로 및 보낼 편지함 브리지, Console 확인 클라이언트, 서비스 테스트 묶음 소유권, 집중 교차 서비스 및 CI 계약 테스트 | 브라우저는 공개 초안 필드 네 개만 보냅니다. Operator는 정확한 원본을 다시 읽고 버전이 지정된 권한 없는 요청을 대기열에 넣으며, Core는 감사되는 인시던트 하나를 생성하거나 재사용합니다. HTTP `202`는 `/incidents`에서 레코드를 확인할 때까지 대기 상태입니다. |
 | 관리 리소스 의미 기반 작업 확인 | in-progress | 기존 `OntologyActionIntent` 검증, 확인 경로 및 작업 확인 작업자 | Core는 아직 확인 가능한 비인시던트 작업 의도를 변환하지 않습니다. 이 원본을 완료하려면 독립적으로 검토된 ActionType 초안과 요청부터 감사까지의 증적이 필요합니다. |
 | CLI, Teams 및 Slack wire 동등성 | in-progress | `cli/`; channel 어댑터 및 테스트 | 공유 presentation 계약은 있습니다. 현재 관리되는 다중 채널 동등성 증적은 여기에 보존되지 않았습니다. |
@@ -431,6 +443,7 @@ Operator는 스트림마다 첫 조회 `activity`보다 먼저 이 이벤트를 
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-29 | in-progress | Python task workbench 상태를 정정했습니다. Operator 서비스 분리(`8f67c5d76`) 이후 여섯 가지 workbench 작업을 제공하는 Operator 담당 구성 요소가 없으며, `GET /python-tasks/capabilities`는 아무도 쓰지 않는 변환 결과 때문에 HTTP `503`을 반환했습니다([#1655](https://github.com/dotnetpower/fdai/issues/1655)). 이제 Operator 조립 구성이 기능 보고를 소유하며 `available: false`와 누락된 각 담당 구성 요소를 HTTP `200`으로 반환합니다. Console은 workbench를 닫은 상태로 유지하고 그 사유를 알립니다. | `current change`; `python_task_capability.py`, `family_adapters.py` 및 Console `python-task.ts`와 `workflow-builder.catalog.tsx`; `test_python_task_capability.py`, `test_workflow_definition_catalog.py` 및 Console 디코더와 경로 테스트 통과. | 기능이 사용 가능으로 보고되기 전에 통제된 Python 작업 검증기, VM 작업 실행기 및 아티팩트 저장소를 Operator 서비스에 연결합니다. |
 | 2026-09-29 | implemented | 각 HIL 대기열 항목에 `development_owner_only`를 추가하고, Console 결정 경로, Slack 및 Teams 콜백 서비스와 결정 트랜잭션에서 보류된 범주 전용 거부에 대해 증명된 개발 Owner 본인의 승인 외의 모든 승인을 거부했습니다. 다른 권한 있는 승인자는 계속 반려할 수 있습니다. | `current change`; `projection_logic.py`, `families/iam/hil_callback_decision.py`, `postgres_hil_decision.py`; `services/operator-service/tests/test_hil_development_owner_only.py`와 Console `api.test.ts` 통과. | [#1623](https://github.com/dotnetpower/fdai/issues/1623)에서 실제 Owner 실행 기록 하나를 보존합니다. |
 | 2026-09-29 | implemented | Console 결정 경로, Slack 및 Teams 콜백 서비스와 결정 트랜잭션에서 요청한 개발 Owner가 보류된 범주 전용 거부를 반려할 수 있게 하고, 결정 저장소가 영수증이나 outbox 레코드를 쓰기 전에 사람의 approve 또는 reject 외의 값을 거부하도록 했습니다. | `current change`; `families/iam/hil_callback_decision.py`, `postgres_hil_decision.py`; `services/operator-service/tests/test_hil_development_owner_only.py`와 `tests/integration/services/test_hil_development_decision_postgres.py` 통과. | [#1623](https://github.com/dotnetpower/fdai/issues/1623)에서 실제 Owner 실행 기록 하나를 보존합니다. |
 | 2026-09-28 | implemented | 선택적인 의미 `work_progress` 스트림 이벤트와 `trajectory_detail`에 저장되는 작업 진행 필드를 추가하고, Console이 받아들이는 한도 안으로 제한했습니다. | `current change`; Operator `semantic_turn_runtime.py`, `semantic_progress_relay.py`, `semantic_trajectory_presentation.py`, `semantic_work_progress_presentation.py`; `services/operator-service/tests/test_semantic_work_progress.py`(`15 passed`); `npm --prefix console test -- --run src/deck`(`1036 passed`) | Console에서 실시간 프레임을 사용해야 합니다. |
