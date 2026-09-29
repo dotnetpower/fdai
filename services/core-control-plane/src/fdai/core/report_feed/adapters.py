@@ -84,6 +84,11 @@ def signal_from_experiment(result: ExperimentResult) -> ReportSignal:
             "reverted": str(result.reverted).lower(),
             "injected": str(result.injected).lower(),
             "stopped": str(result.stopped).lower(),
+            "detection_latency_seconds": (
+                "unknown"
+                if result.detection_latency_seconds is None
+                else str(result.detection_latency_seconds)
+            ),
         },
     )
 
