@@ -1,7 +1,7 @@
 ---
 title: 인과 incident graph
 translation_of: causal-incident-graph.md
-translation_source_sha: 6ea83a34b35bf4b998a4f2c1a6a07158a106f48e
+translation_source_sha: c07e9533cda945f1d7451f89496fedc6419bc271
 translation_revised: 2026-09-29
 ---
 # 인과 인시던트 그래프
@@ -257,6 +257,11 @@ Refuting 근거가 도착하면 근거 grade가 낮아질 수 있습니다. 낮�
 관찰된 direction, magnitude, affected 집합, 시간 구간을 prediction과 비교합니다.
 검증된 intervention 실행 시간은 가설 근거 기준 시점보다 엄격히 이후여야 합니다.
 같은 시각이면 pre-intervention 근거 구간이 분리되지 않았으므로 inconclusive입니다.
+개입 영수증은 종결이 지정한 Thor의 영속 ActionRun에 대해서만 확인됩니다. 해당 실행은
+실행 전에 `params.causal_hypothesis_ref`에 가설을 선언했고, shadow 모드를 벗어났고,
+성공했으며, 정확한 실행 종결 또는 효과 검증 영수증을 가져야 합니다. 효과 검증 시각은
+개입 실행과 독립 관측 사이에 있어야 합니다. 그 밖의 영수증이면 종결은 inconclusive로
+남습니다.
 
 - **Confirmed:** 필수 효과가 일치하고 prohibited 효과가 발생하지 않았습니다.
 - **Refuted:** 완전한 텔레메트리에서 필수 효과가 반대 방향으로 움직이거나 나타나지
@@ -304,8 +309,10 @@ Causal 경로는 불확실할 때 더 안전한 결과를 선택합니다.
 1. `CausalHypothesis`와 7개 LinkType을 로더 및 competency-query 테스트와 함께 추가합니다.
 2. 기존 구조화된 T1 causal 체인을 변경할 수 없는 가설 개정 번호로 project합니다.
 3. Support/refutation 조회 계약과 evidence-completeness 채점을 추가합니다.
-4. 운영 조립에 `IncidentMemberSource`와 의존성 그래프를 연결합니다. 이제 Azure 배포 이력이
-   T1 변경 root를 제공하며 더 넓은 시계열 경로는 계속 남아 있습니다.
+4. 운영 조립에 `IncidentMemberSource`와 의존성 그래프를 연결합니다. Azure 배포 이력이
+   T1 변경 root를 제공합니다. 배포가 범위가 제한된 시계열을 연결하면, 배포가 자체 구현을
+   제공하지 않는 한 런타임이 온톨로지 저장소 위의 Forseti `CausalHypothesis` 투영과 Thor
+   ActionRun 영수증 확인기로 경로를 완성합니다.
 5. `ObservedOutcome`의 독립적인 종결과 refutation 또는 unsafe 영향에 따른 demotion을
    추가합니다.
 6. 자율성을 높이지 않으면서 조건을 충족한 causal 근거를 복구와 chaos 승격에

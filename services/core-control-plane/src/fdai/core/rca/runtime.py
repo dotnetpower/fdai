@@ -207,6 +207,8 @@ class CausalClosureObservation:
     predicted_effect_ref: str | None = None
     prohibited_effects_absent: bool | None = None
     endpoint_objects: tuple[OntologyObjectRecord, ...] = ()
+    intervention_action_ref: str | None = None
+    """Thor ActionRun correlation id that the receipt resolver reads; never an authority."""
 
     def __post_init__(self) -> None:
         if not self.finding_id or not self.outcome_ref:
@@ -248,6 +250,12 @@ class CausalClosureObservation:
                 raise ValueError("causal closure intervention execution time is invalid")
             if not self.intervention_target_ref or not self.predicted_effect_ref:
                 raise ValueError("causal closure intervention refs MUST be non-empty")
+        if self.intervention_action_ref is not None and (
+            self.intervention_receipt_digest is None
+            or not self.intervention_action_ref.strip()
+            or len(self.intervention_action_ref) > 256
+        ):
+            raise ValueError("causal closure intervention action ref requires a bounded receipt")
 
 
 class CausalRuntimeCoordinator:

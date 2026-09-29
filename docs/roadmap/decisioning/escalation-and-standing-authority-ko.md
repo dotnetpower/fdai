@@ -1,7 +1,7 @@
 ---
 title: 에스컬레이션과 상시 권한(감독형 OODA 루프)
 translation_of: escalation-and-standing-authority.md
-translation_source_sha: c56aa25ff90745e0368f0489d18c97a57e90b83f
+translation_source_sha: b8fc3850e41a7fae85fe3081da8e7c206ffcaef5
 translation_revised: 2026-09-29
 ---
 
@@ -194,6 +194,8 @@ min_effective_ttl_seconds: 60    # starvation 바닥
 수 있는가?"* 를 물으면, 리스크 게이트는 다른 규칙을 검사하듯 상시 권한을 검사해 답한다 -
 그리고 실행 자격은 여전히 그 결정론적 검증이 부여하며, 모델이 부여하지 않는다
 ([architecture.instructions.md § LLM Quality 게이트](../../../.github/instructions/architecture.instructions.md#llm-quality-gate-required-for-t2)).
+확정된 `CausalHypothesis` 종결도 마찬가지로 근거일 뿐이며, 그 자체로 상시 권한 조건, 범위
+또는 `hil` 요구 사항을 충족하지 않는다.
 
 ```yaml
 # 배포된 스키마와 일치 (shadow 전용; 아래 롤아웃 참고).

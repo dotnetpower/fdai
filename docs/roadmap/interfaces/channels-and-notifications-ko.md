@@ -1,8 +1,8 @@
 ---
 title: 채널과 알림(Channels and Notifications)
 translation_of: channels-and-notifications.md
-translation_source_sha: 1b5aab142a601284f2dd3e3b2df7b9327083a930
-translation_revised: 2026-09-28
+translation_source_sha: aa5009234c3422e4dbf2323d419263b786cc132a
+translation_revised: 2026-09-29
 ---
 
 # 채널과 알림(Channels and Notifications)
@@ -103,6 +103,9 @@ Teams Workflows 웹훅 바인딩은
   루프는 학습된 T1 재사용을 Action을 만들기 전에 멈추므로 어떤 채널도 이에 대한 승인을 전달하지
   않음. [학습 및 예측 결과 경계](../agents/agent-pantheon-implementation-ko.md#학습-및-예측-결과-경계)
   참고.
+- **인과 가설은 A1 요청을 만들지 않음.** 투영되거나 종결된 `CausalHypothesis` 개정은 Forseti
+  판단의 근거일 뿐임. 런타임의 Forseti 투영과 Thor ActionRun 영수증 확인기는 채널 메시지를
+  보내거나 승인 요청을 만들지 않음.
 
 ### 3.1 A3 명령 롤 게이팅
 
