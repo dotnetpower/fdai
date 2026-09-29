@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
+from datetime import UTC, datetime, timedelta
 
 import pytest
 from fdai.core.chaos import (
@@ -14,6 +15,7 @@ from fdai.core.chaos import (
     default_scenarios,
 )
 from fdai.core.chaos.contract import FaultScenario
+from fdai.core.chaos.guard import ChaosStopEvent
 from fdai.core.chaos.injector import DetectionOnlyInjector
 from fdai.shared.contracts.models import Mode
 
@@ -44,6 +46,43 @@ class _AlwaysProbe:
 
     async def observed(self, *, signal: str, targets: Sequence[str]) -> bool:  # noqa: ARG002
         return self._result
+
+
+class _TimedProbe(_AlwaysProbe):
+    def __init__(self, *, result: bool, observed_at: datetime | None, fail: bool = False) -> None:
+        super().__init__(result=result)
+        self._observed_at = observed_at
+        self._fail = fail
+        self.timed_calls = 0
+        self.detected_calls = 0
+
+    async def observed(self, *, signal: str, targets: Sequence[str]) -> bool:
+        self.detected_calls += 1
+        return await super().observed(signal=signal, targets=targets)
+
+    async def first_observed_at(
+        self,
+        *,
+        signal: str,
+        targets: Sequence[str],
+        window_start: datetime,
+        window_end: datetime,
+    ) -> datetime | None:
+        del signal, targets, window_start, window_end
+        self.timed_calls += 1
+        if self._fail:
+            raise RuntimeError("timing source unavailable")
+        return self._observed_at
+
+
+class _SequenceClock:
+    def __init__(self, *values: datetime) -> None:
+        self._values = list(values)
+
+    def __call__(self) -> datetime:
+        if len(self._values) == 1:
+            return self._values[0]
+        return self._values.pop(0)
 
 
 async def _noop_sleep(_seconds: float) -> None:
@@ -131,6 +170,155 @@ async def test_enforce_not_detected_is_a_detection_gap() -> None:
 
     assert result.outcome is ExperimentOutcome.NOT_DETECTED
     assert injector.stopped == ["pod-a"]
+
+
+@pytest.mark.asyncio
+async def test_timed_probe_inside_window_yields_exact_latency() -> None:
+    injector = _RecordingInjector(fault_type="cpu_stress")
+    injected_at = datetime(2026, 9, 29, 0, 0, 1, tzinfo=UTC)
+    observed_at = injected_at + timedelta(seconds=4.25)
+    probe = _TimedProbe(result=True, observed_at=observed_at)
+    harness = FaultInjectionHarness(
+        injectors=(injector,),
+        probe=probe,
+        sleeper=_noop_sleep,
+        wall_clock=_SequenceClock(
+            datetime(2026, 9, 29, 0, 0, 0, tzinfo=UTC),
+            injected_at,
+            injected_at + timedelta(seconds=10),
+            injected_at + timedelta(seconds=11),
+        ),
+    )
+
+    result = await harness.run(AKS_POD_CPU_SPIKE, approved_targets=("pod-a",), mode=Mode.ENFORCE)
+
+    assert result.outcome is ExperimentOutcome.VALIDATED
+    assert result.detected is True
+    assert result.injected_at == injected_at
+    assert result.detection_observed_at == observed_at
+    assert result.detection_latency_seconds == 4.25
+    assert probe.timed_calls == 1
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "observed_at",
+    [
+        None,
+        datetime(2026, 9, 29, 0, 0, 0, tzinfo=UTC),
+        datetime(2026, 9, 29, 0, 0, 20, tzinfo=UTC),
+        datetime(2026, 9, 29, 0, 0, 5),
+    ],
+)
+async def test_timed_probe_invalid_or_missing_time_keeps_latency_unknown(
+    observed_at: datetime | None,
+) -> None:
+    injector = _RecordingInjector(fault_type="cpu_stress")
+    injected_at = datetime(2026, 9, 29, 0, 0, 1, tzinfo=UTC)
+    probe = _TimedProbe(result=True, observed_at=observed_at)
+    harness = FaultInjectionHarness(
+        injectors=(injector,),
+        probe=probe,
+        sleeper=_noop_sleep,
+        wall_clock=_SequenceClock(
+            datetime(2026, 9, 29, 0, 0, 0, tzinfo=UTC),
+            injected_at,
+            injected_at + timedelta(seconds=10),
+            injected_at + timedelta(seconds=11),
+        ),
+    )
+
+    result = await harness.run(AKS_POD_CPU_SPIKE, approved_targets=("pod-a",), mode=Mode.ENFORCE)
+
+    assert result.outcome is ExperimentOutcome.VALIDATED
+    assert result.detected is True
+    assert result.detection_observed_at is None
+    assert result.detection_latency_seconds is None
+
+
+@pytest.mark.asyncio
+async def test_timed_probe_error_keeps_detected_unchanged_and_latency_unknown() -> None:
+    injector = _RecordingInjector(fault_type="cpu_stress")
+    injected_at = datetime(2026, 9, 29, 0, 0, 1, tzinfo=UTC)
+    probe = _TimedProbe(result=True, observed_at=None, fail=True)
+    harness = FaultInjectionHarness(
+        injectors=(injector,),
+        probe=probe,
+        sleeper=_noop_sleep,
+        wall_clock=_SequenceClock(
+            datetime(2026, 9, 29, 0, 0, 0, tzinfo=UTC),
+            injected_at,
+            injected_at + timedelta(seconds=10),
+            injected_at + timedelta(seconds=11),
+        ),
+    )
+
+    result = await harness.run(AKS_POD_CPU_SPIKE, approved_targets=("pod-a",), mode=Mode.ENFORCE)
+
+    assert result.outcome is ExperimentOutcome.VALIDATED
+    assert result.detected is True
+    assert result.error is None
+    assert result.detection_latency_seconds is None
+
+
+@pytest.mark.asyncio
+async def test_plain_signal_probe_keeps_latency_unknown() -> None:
+    injector = _RecordingInjector(fault_type="cpu_stress")
+    harness = FaultInjectionHarness(
+        injectors=(injector,),
+        probe=_AlwaysProbe(result=True),
+        sleeper=_noop_sleep,
+    )
+
+    result = await harness.run(AKS_POD_CPU_SPIKE, approved_targets=("pod-a",), mode=Mode.ENFORCE)
+
+    assert result.outcome is ExperimentOutcome.VALIDATED
+    assert result.detected is True
+    assert result.detection_latency_seconds is None
+
+
+@pytest.mark.asyncio
+async def test_harness_does_not_call_detection_probe_during_hold() -> None:
+    injector = _RecordingInjector(fault_type="cpu_stress")
+    injected_at = datetime(2026, 9, 29, 0, 0, 1, tzinfo=UTC)
+    probe = _TimedProbe(result=True, observed_at=injected_at + timedelta(seconds=1))
+    guard_calls = 0
+
+    async def guard(_elapsed: float) -> ChaosStopEvent | None:
+        nonlocal guard_calls
+        guard_calls += 1
+        assert probe.detected_calls == 0
+        assert probe.timed_calls == 0
+        return None
+
+    async def sleeper(_seconds: float) -> None:
+        assert probe.detected_calls == 0
+        assert probe.timed_calls == 0
+
+    harness = FaultInjectionHarness(
+        injectors=(injector,),
+        probe=probe,
+        sleeper=sleeper,
+        wall_clock=_SequenceClock(
+            datetime(2026, 9, 29, 0, 0, 0, tzinfo=UTC),
+            injected_at,
+            injected_at + timedelta(seconds=10),
+            injected_at + timedelta(seconds=11),
+        ),
+    )
+
+    result = await harness.run(
+        AKS_POD_CPU_SPIKE,
+        approved_targets=("pod-a",),
+        mode=Mode.ENFORCE,
+        impact_guard=guard,
+        guard_interval_seconds=1,
+    )
+
+    assert result.detected is True
+    assert guard_calls > 0
+    assert probe.detected_calls == 1
+    assert probe.timed_calls == 1
 
 
 @pytest.mark.asyncio
