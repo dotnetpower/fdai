@@ -7,7 +7,7 @@ from collections.abc import Sequence
 from alembic import op
 
 revision: str = "operator_authentication_receipts_20260929"
-down_revision: str | Sequence[str] | None = "operator_workflow_definition_read_20260929"
+down_revision: str | Sequence[str] | None = "operator_workflow_authoring_20260929"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
@@ -15,7 +15,7 @@ migration_owner = "operator-service"
 owned_tables: tuple[str, ...] = ("operator_authentication_receipt",)
 rollback = {
     "strategy": "drop-empty-operator-authentication-receipts-after-operator-and-verifier-stop",
-    "restores": "operator_workflow_definition_read_20260929",
+    "restores": "operator_workflow_authoring_20260929",
     "requires": "core-operator-receipt-source-function-rolled-back-and-operator-stopped",
 }
 
