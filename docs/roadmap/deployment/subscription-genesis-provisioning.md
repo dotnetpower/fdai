@@ -159,12 +159,15 @@ repeats apply, registration, transfer, or migration.
 
 Foundation apply pins the Marketplace image version, bootstrap artifacts, Terraform executable,
 and toolchain checksums, then performs control-plane readback and a zero-change plan. Before that
-plan runs, apply binds the operations public IP tags it actually observes in the applied state.
+plan runs, apply binds the policy-assigned settings it actually observes in the applied state:
+the operations public IP tags and the runner's guest patch selection.
 Some subscriptions attach `FirstPartyUsage=/Unprivileged` to every public IP at creation time,
-which an exact plan cannot predict, so without this binding the post-apply plan would demand a
-replacement of the Bastion and NAT addresses on every attempt and a fresh installation could never
-converge. Only an empty map or exactly that policy tag is accepted; any other tag stops the run
-rather than being adopted. Enrollment sends the short-lived
+and some tenants enforce `AutomaticByPlatform` guest patching on every Linux VM. An exact plan
+cannot predict either, so without these bindings the post-apply plan would demand a replacement
+of the Bastion and NAT addresses, or an update of the runner, on every attempt, and a fresh
+installation could never converge. Each variable accepts only its supported selection: an empty
+map or exactly that policy tag, and a supported patch mode whose safety-check bypass requires
+platform patching. Any other value stops the run rather than being adopted. Enrollment sends the short-lived
 GitHub token only through SSH standard input over the exact Bastion tunnel, then verifies identity,
 services, labels, and GitHub state. State handoff sends the same observed public IP tags to the runner, because it repeats that
 zero-change plan remotely and would otherwise diverge for the same reason. It compares local

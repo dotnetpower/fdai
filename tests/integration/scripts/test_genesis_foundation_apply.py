@@ -541,3 +541,96 @@ def test_a_missing_applied_state_is_not_treated_as_a_tag_observation(tmp_path: P
     )
 
     assert variables.read_bytes() == before
+
+
+def _runner_state(attributes: dict[str, object]) -> dict[str, object]:
+    """Build one applied state carrying the retained runner VM."""
+
+    return {
+        "version": 4,
+        "serial": 1,
+        "lineage": "00000000-0000-0000-0000-000000000004",
+        "resources": [
+            {
+                "module": "module.bootstrap",
+                "mode": "managed",
+                "type": "azurerm_linux_virtual_machine",
+                "name": "runner",
+                "instances": [{"index_key": 0, "attributes": {"id": "/vm/runner", **attributes}}],
+            }
+        ],
+    }
+
+
+def test_platform_managed_runner_patching_is_bound_before_the_zero_change_plan(
+    tmp_path: Path,
+) -> None:
+    """A tenant that enforces platform patching must still reach a zero-change plan."""
+
+    work = tmp_path / "plan"
+    work.mkdir(mode=0o700)
+    state = work / "terraform.tfstate"
+    variables = work / ".foundation-apply-input.json"
+    _write_private(
+        state,
+        _runner_state(
+            {
+                "patch_mode": "AutomaticByPlatform",
+                "bypass_platform_safety_checks_on_user_schedule_enabled": True,
+            }
+        ),
+    )
+    _write_private(variables, {"region": "eastus"})
+
+    apply._bind_observed_public_ip_tags(state_path=state, normalized_variables=variables)
+
+    bound = json.loads(variables.read_text(encoding="ascii"))
+    assert bound["runner_patch_mode"] == "AutomaticByPlatform"
+    assert bound["runner_bypass_platform_safety_checks"] is True
+
+
+def test_an_image_default_runner_records_no_safety_bypass(tmp_path: Path) -> None:
+    work = tmp_path / "plan"
+    work.mkdir(mode=0o700)
+    state = work / "terraform.tfstate"
+    variables = work / ".foundation-apply-input.json"
+    _write_private(state, _runner_state({"patch_mode": "ImageDefault"}))
+    _write_private(variables, {"region": "eastus"})
+
+    apply._bind_observed_public_ip_tags(state_path=state, normalized_variables=variables)
+
+    bound = json.loads(variables.read_text(encoding="ascii"))
+    assert bound["runner_patch_mode"] == "ImageDefault"
+    assert bound["runner_bypass_platform_safety_checks"] is False
+
+
+def test_an_unsupported_runner_patch_mode_is_refused(tmp_path: Path) -> None:
+    work = tmp_path / "plan"
+    work.mkdir(mode=0o700)
+    state = work / "terraform.tfstate"
+    variables = work / ".foundation-apply-input.json"
+    _write_private(state, _runner_state({"patch_mode": "Manual"}))
+    _write_private(variables, {"region": "eastus"})
+
+    with pytest.raises(ValueError, match="guest patch mode is unsupported"):
+        apply._bind_observed_public_ip_tags(state_path=state, normalized_variables=variables)
+
+
+def test_a_safety_bypass_without_platform_patching_is_refused(tmp_path: Path) -> None:
+    work = tmp_path / "plan"
+    work.mkdir(mode=0o700)
+    state = work / "terraform.tfstate"
+    variables = work / ".foundation-apply-input.json"
+    _write_private(
+        state,
+        _runner_state(
+            {
+                "patch_mode": "ImageDefault",
+                "bypass_platform_safety_checks_on_user_schedule_enabled": True,
+            }
+        ),
+    )
+    _write_private(variables, {"region": "eastus"})
+
+    with pytest.raises(ValueError, match="requires platform patching"):
+        apply._bind_observed_public_ip_tags(state_path=state, normalized_variables=variables)

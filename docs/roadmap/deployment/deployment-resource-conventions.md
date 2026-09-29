@@ -29,6 +29,14 @@ The separately approved foundation phase owns creation of the private `tfstate` 
 both containers as prerequisites and stops when either is absent. It never creates foundation
 resources as an incidental planning side effect.
 
+Foundation resources also declare the settings a tenant policy may attach at creation, so the
+post-apply plan can be zero-change. The operations public IPs accept policy-owned `ip_tags`, and the
+runner virtual machine declares its guest patch mode and platform-safety-check bypass. Each is an
+exact observed input rather than a default: an empty selection preserves provider behavior, and an
+unsupported value stops the run instead of being adopted. Without these declarations a subscription
+that tags every public IP, or a tenant that enforces platform-managed patching, could never converge
+a fresh installation.
+
 The bootstrap host's ephemeral OS disk uses `ReadOnly` caching, as required by AzureRM for
 `diff_disk_settings`. Scoped role-definition identifiers are reduced to their GUID component before
 ABAC `GuidEquals` comparison; the observation delegate retains only Cost Management Reader,
