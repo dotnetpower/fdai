@@ -1,7 +1,7 @@
 ---
 title: FDAI Console 대화
 translation_of: operator-console.md
-translation_source_sha: 8426ca296780f8e58713fdb83d1ff7ff42e0b870
+translation_source_sha: b0513f8200148632f1b4cb4fb9ba1683e0b19b83
 translation_revised: 2026-09-29
 ---
 # FDAI Console 대화
@@ -489,6 +489,11 @@ FDAI Console은 `console/src/generated/service-contracts.ts`의 생성 TypeScrip
 Operator 서비스는 계속 기준 스키마로 와이어 페이로드를 검증하며 Console에는 배포, 승인, 변경 또는 실행 권한이 없습니다.
 감사 작업 영역은 추가적인 `summary=true` 묶음을 요청합니다. 현재 Operator는 보존 중인 조회 범위 수치, 기록 맥락 및 무결성 관측을 반환하고 이전 Operator는 Console이 요약 근거를 사용할 수 없는 상태로 처리하는 페이지 전용 묶음을 유지합니다.
 Incident, Agent Activity 및 Trace 읽기는 이 활성화 설정을 보내지 않고 범위가 제한된 페이지 비용을 유지합니다.
+워크플로 빌더는 Operator가 소유한 정의 저장소에서 정의 카탈로그를 직접 읽고 모든 행을 인증된
+principal 범위로 제한합니다. Python 작업 기능은 Operator 조립 구성에서 제공되며, Python 작업
+담당 구성 요소가 연결되지 않은 동안에는 명시적인 사용 불가 상태를 보고합니다.
+[Console 읽기 경계](../deployment/console-read-boundary-ko.md#워크플로-정의-및-python-작업-기능)가
+두 출처 결정을 모두 소유합니다.
 
 focused 소유자 문서로 분리했습니다:
 

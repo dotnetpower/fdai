@@ -7,7 +7,7 @@ import type {
   WorkflowCatalogEntry,
   WorkflowDefinitionCatalogResponse,
 } from "../workflow/validate";
-import type { PythonTaskAvailability } from "../workflow/python-task";
+import type { PythonTaskCapabilityReport } from "../workflow/python-task";
 import { WorkflowAutomations } from "./workflow-builder.automations";
 import { WorkflowDetail } from "./workflow-builder.detail";
 import {
@@ -23,6 +23,25 @@ function groupLabel(group: WorkflowGroup): string {
   if (group === "built_in") return t("workflow.catalog.group.builtIn");
   if (group === "shared") return t("workflow.catalog.group.shared");
   return t("workflow.catalog.group.mine");
+}
+
+const PYTHON_UNAVAILABLE_REASON_KEYS: Readonly<Record<string, string>> = {
+  python_task_validator_not_bound: "workflow.catalog.pythonUnavailableReason.validator",
+  python_task_vm_runner_not_bound: "workflow.catalog.pythonUnavailableReason.vmTaskRunner",
+};
+
+/** Explain why Python task authoring is off. A missing capability route and a
+ * server-reported unavailable state are distinct; unknown reasons stay generic. */
+export function pythonTaskUnavailableMessage(
+  report: PythonTaskCapabilityReport | null,
+): string | null {
+  if (report === null) return t("workflow.catalog.pythonUnavailable");
+  if (report.available) return null;
+  const details = report.reasons
+    .map((reason) => PYTHON_UNAVAILABLE_REASON_KEYS[reason])
+    .filter((key): key is string => key !== undefined)
+    .map((key) => t(key));
+  return [t("workflow.catalog.pythonUnavailableReported"), ...details].join(" ");
 }
 
 export function workflowAuthorityGateCount(
@@ -53,13 +72,14 @@ export function BuiltInList({
   readonly workflows: readonly WorkflowCatalogEntry[];
   readonly definitions: WorkflowDefinitionCatalogResponse;
   readonly palette: readonly ActionTypePaletteEntry[];
-  readonly pythonTasks: PythonTaskAvailability | null;
+  readonly pythonTasks: PythonTaskCapabilityReport | null;
   readonly onNew: () => void;
   readonly onPython: () => void;
   readonly onCatalogRevision: (revision: string | null) => void;
 }) {
   const initialGroup = workflowGroup(currentRoute().search.get("group"));
   const [group, setGroup] = useState<WorkflowGroup>(initialGroup);
+  const pythonUnavailable = pythonTaskUnavailableMessage(pythonTasks);
   const groupedWorkflows = group === "built_in"
     ? workflows
     : definitions.groups[group].map(workflowFromDefinition);
@@ -200,7 +220,7 @@ export function BuiltInList({
           <button type="button" class="btn" onClick={onNew}>
             + {t("workflow.catalog.designNew")}
           </button>
-          {pythonTasks ? (
+          {pythonTasks !== null && pythonTasks.available ? (
             <Tooltip>
             <button
               type="button"
@@ -211,9 +231,9 @@ export function BuiltInList({
             </button>
             </Tooltip>
           ) : null}
-          {pythonTasks === null ? (
+          {pythonUnavailable !== null ? (
             <span id="python-task-unavailable" class="sr-only" role="status">
-              {t("workflow.catalog.pythonUnavailable")}
+              {pythonUnavailable}
             </span>
           ) : null}
         </div>

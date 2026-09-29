@@ -14,7 +14,7 @@ import type {
   WorkflowDefinitionEntry,
   WorkflowStepKind,
 } from "../workflow/validate";
-import type { PythonTaskAvailability } from "../workflow/python-task";
+import type { PythonTaskCapabilityReport } from "../workflow/python-task";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -81,12 +81,13 @@ export interface FormState {
 }
 
 /** Combined payload for the read-only list view (palette + shipped
- * catalog) - both loaded in parallel on route entry. */
+ * catalog) - both loaded in parallel on route entry. `pythonTasks` is null
+ * only when the capability route itself is absent or unavailable. */
 export interface CombinedData {
   readonly palette: readonly ActionTypePaletteEntry[];
   readonly workflows: readonly WorkflowCatalogEntry[];
   readonly definitions: WorkflowDefinitionCatalogResponse;
-  readonly pythonTasks: PythonTaskAvailability | null;
+  readonly pythonTasks: PythonTaskCapabilityReport | null;
 }
 
 export type WorkflowGroup = "built_in" | "shared" | "mine";

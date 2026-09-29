@@ -240,7 +240,7 @@ evidence authority, or the fixed no-execution contract.
 
 The Workflow Builder includes a multi-file Python task workbench backed by the
 six mutation routes and the read-only `GET /python-tasks/capabilities` route in
-[`python_tasks.py`](../../../services/operator-service/src/fdai_operator_service/).
+the Operator [workflow route family](../../../services/operator-service/src/fdai_operator_service/families/workflow/manifest.py).
 Operators can edit source files, choose an entrypoint, declare modules and host
 capabilities, validate, stage an immutable artifact, and render a shadow plan
 for an inventory Resource.
@@ -249,6 +249,18 @@ The capability response reports each optional operation separately. The console
 doesn't open the workbench when the route is absent and disables any operation
 whose adapter, submitter, or schedule store isn't wired, so an unavailable path
 never appears as an executable control that fails with a generic `404`.
+
+The Operator composition owns this response in
+[`python_task_capability.py`](../../../services/operator-service/src/fdai_operator_service/python_task_capability.py).
+The workbench is available only when a static validator and a VM task runner are
+bound. Otherwise the route returns HTTP `200` with `available: false`, every
+operation disabled, and `unavailable_reasons` naming each missing owner
+(`python_task_validator_not_bound` or `python_task_vm_runner_not_bound`). The
+independent Operator binds neither today, so it reports unavailable in every
+venue, and `execution_authority` is always `false`. The console treats that report
+like an absent route and announces the reasons. The
+[Console Read Boundary](../deployment/console-read-boundary.md#workflow-definitions-and-python-task-capability)
+records why the Operator owns this report.
 
 The workbench preserves the console identity boundary:
 
@@ -440,7 +452,7 @@ keeps at most eight activities within 60 KiB and counts the rest in `omitted.act
 | Receipt-bound runtime Context snapshot | in-progress | Secured ObjectSet and Context contracts in the ontology platform; existing Console unavailable state | The workbench does not merge catalog declarations with runtime instances. A principal-scoped Context receipt remains separate delivery work. |
 | HIL callback contract | implemented | Operator IAM family routes; `services/operator-service/tests/test_operator_iam_family.py`; full-composition tests | Signature, replay window, role, no-self-approval, exact pending id, and idempotent decision behavior are implemented. |
 | Slack browser handoff | implemented | `families/iam/slack_handoff.py`; `slack_adapter.py`; `test_slack_hil_interactivity.py`; `console/tests/e2e/approvals-sample.spec.ts` | Real rendered Block Kit actions reach the signed, one-use actor/action handoff in synthetic cross-service checks. The decision fails closed without fresh signed `auth_time`; live Entra, Slack posting, and a real PostgreSQL race receipt remain unverified. |
-| Python task workbench and grounded code | implemented | `services/core-control-plane/src/fdai/core/python_task/`; `services/core-control-plane/tests/core/python_task/`; Operator workflow family; Console Python task tests | Static validation, inert artifacts, capabilities, and no-chat-execution boundaries have focused coverage. |
+| Python task workbench and grounded code | in-progress | `services/core-control-plane/src/fdai/core/python_task/`; `services/core-control-plane/tests/core/python_task/`; Operator workflow family; `python_task_capability.py`; Console Python task tests | Core static validation, inert artifacts, the capability report, and no-chat-execution boundaries have focused coverage. Since the Operator service split, no Operator owner serves the six workbench operations, and the capability route reports that state explicitly. |
 | Incident creation draft and typed confirmation | implemented | `fdai_service_contracts.incident_creation`; Core semantic projection and Incident creation consumer; Operator confirmation route and outbox bridge; Console confirmation client; service-suite ownership; focused cross-service and CI contract tests | The browser sends only the four public draft fields. Operator reloads the exact source, queues a versioned no-authority request, and Core opens or reuses one audited Incident. HTTP `202` remains pending until `/incidents` observes the record. |
 | Managed-resource semantic action confirmation | in-progress | Existing `OntologyActionIntent` validation, confirmation route, and action-confirmation worker | Core does not yet project a confirmable non-Incident action intent. Completing that source requires an independently reviewed ActionType draft and request-to-audit receipt. |
 | CLI, Teams, and Slack wire parity | in-progress | `cli/`; channel adapters and tests | Shared presentation contracts exist. No current governed multi-channel parity receipt is retained here. |
@@ -451,6 +463,7 @@ keeps at most eight activities within 60 KiB and counts the rest in `omitted.act
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-29 | in-progress | Corrected the Python task workbench state. Since the Operator service split (`8f67c5d76`), no Operator owner serves the six workbench operations, and `GET /python-tasks/capabilities` answered HTTP `503` from a projection that nothing writes ([#1655](https://github.com/dotnetpower/fdai/issues/1655)). The Operator composition now owns the capability report and returns HTTP `200` with `available: false` and each missing owner. The console keeps the workbench closed and announces those reasons. | `current change`; `python_task_capability.py`, `family_adapters.py`, and Console `python-task.ts` and `workflow-builder.catalog.tsx`; `test_python_task_capability.py`, `test_workflow_definition_catalog.py`, and Console decoder and route tests passed. | Bind a governed Python task validator, VM task runner, and artifact store to the Operator service before the capability can report available. |
 | 2026-09-29 | implemented | Added `development_owner_only` to each HIL queue item and refused every approval of a parked category-only denial except the attested development Owner's own at the Console decision route, the Slack and Teams callback service, and the decision transaction; any other authorized approver may still reject it. | `current change`; `projection_logic.py`, `families/iam/hil_callback_decision.py`, `postgres_hil_decision.py`; `services/operator-service/tests/test_hil_development_owner_only.py` and Console `api.test.ts` passed. | Retain one live Owner run under [#1623](https://github.com/dotnetpower/fdai/issues/1623). |
 | 2026-09-29 | implemented | Let the requesting development Owner reject a parked category-only denial at the Console decision route, the Slack and Teams callback service, and the decision transaction, and made the decision store refuse any value other than a human approve or reject before it writes a receipt or outbox record. | `current change`; `families/iam/hil_callback_decision.py`, `postgres_hil_decision.py`; `services/operator-service/tests/test_hil_development_owner_only.py` and `tests/integration/services/test_hil_development_decision_postgres.py` passed. | Retain one live Owner run under [#1623](https://github.com/dotnetpower/fdai/issues/1623). |
 | 2026-09-28 | implemented | Added the optional semantic `work_progress` stream event and the persisted work progress fields in `trajectory_detail`, bounded to the Console envelope. | `current change`; Operator `semantic_turn_runtime.py`, `semantic_progress_relay.py`, `semantic_trajectory_presentation.py`, and `semantic_work_progress_presentation.py`; `services/operator-service/tests/test_semantic_work_progress.py` (`15 passed`); `npm --prefix console test -- --run src/deck` (`1036 passed`) | Consume the live frame in the Console. |
