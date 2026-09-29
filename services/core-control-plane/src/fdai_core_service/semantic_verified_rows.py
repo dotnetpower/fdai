@@ -91,6 +91,13 @@ _CAUSE_NOTICE = (
 )
 
 
+_IMPACT_NOTICE = (
+    "아래는 관측된 영향이 아니라, 의존 관계로 볼 때 영향을 받을 수 있는 리소스입니다.",
+    "The rows below are resources that could be affected through their dependencies, "
+    "not an observed impact.",
+)
+
+
 def with_stated_notices(answer: str, requirements: tuple[str, ...], *, locale: str) -> str:
     """Insert the reviewed notices a compiled frame requires right after the answer heading."""
 
@@ -99,6 +106,9 @@ def with_stated_notices(answer: str, requirements: tuple[str, ...], *, locale: s
     for requirement in requirements:
         if requirement == "cause.not_established":
             notices.append(_CAUSE_NOTICE[0] if korean else _CAUSE_NOTICE[1])
+            continue
+        if requirement == "impact.possible_not_observed":
+            notices.append(_IMPACT_NOTICE[0] if korean else _IMPACT_NOTICE[1])
             continue
         kind, _, seconds = requirement.removeprefix("window.").partition(".")
         templates = _WINDOW_NOTICES.get(kind) if requirement.startswith("window.") else None

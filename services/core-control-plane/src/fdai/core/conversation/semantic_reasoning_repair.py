@@ -308,11 +308,6 @@ def _explained(code: str, where: str) -> str | None:
             "mention {0} shares words with an earlier mention; each word belongs to at most "
             "one mention, so quote each named thing on its own"
         ),
-        "relation_anchor_is_subject": (
-            "goal {0} relates its subject to itself; a relation's anchor is another named "
-            "resource the results relate to, so keep the named resource as subject or anchor, "
-            "not both, and drop a relation that states nothing more"
-        ),
         "cause_form_inconsistent": (
             "goal {0} mixes a cause with another reading; a question about why something happened "
             "is operation explain_cause with want cause, and any other goal has want fact"

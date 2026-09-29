@@ -417,6 +417,7 @@ _STATED_LIMITATIONS = {
     "time_window_applied": "window.applied",
     "time_window_model_judged": "window.model_judged",
     "cause_not_established": "cause.not_established",
+    "possible_impact_not_observed": "impact.possible_not_observed",
 }
 
 
@@ -457,13 +458,23 @@ def _decline_decision(reason: str, observation: ReasoningShadowObservation) -> s
     if reason == "goal_limited":
         return "limited"
     if reason == "goal_not_compiled":
-        statuses = {
-            goal.status for compilation in observation.compilations for goal in compilation.goals
-        }
-        if GoalStatus.UNSUPPORTED in statuses:
+        failed = [
+            goal
+            for compilation in observation.compilations
+            for goal in compilation.goals
+            if goal.status is not GoalStatus.COMPILED
+        ]
+        # Only a reason that names an unsupported atom says the question asks for something
+        # no builder reads; an incomplete anchor read or an unbound concept is about data.
+        if any(
+            goal.status is GoalStatus.UNSUPPORTED
+            and any(item.split(":", 1)[0].endswith("_unsupported") for item in goal.reasons)
+            for goal in failed
+        ):
             return "unsupported"
-        if GoalStatus.CLARIFY in statuses:
+        if any(goal.status is GoalStatus.CLARIFY for goal in failed):
             return "clarification"
+        return "unavailable"
     return "unverified"
 
 

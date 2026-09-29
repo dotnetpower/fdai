@@ -119,8 +119,9 @@ The model states only that `aks-prod-01` is the dependency and the results are i
 Bragi admits a form only when every span matches the utterance without cutting through a longer identifier, every goal meets the confidence floor, no
 alternative survives, both relation roles are the ends of one sense, every declared mention is used, no two mentions share words, no group is both a
 goal's scope and its relation anchor unless the relation is a containment from that group to its members, which only restates the scope's whole
-membership and is read as that membership, no relation anchors on its own named subject, every qualifier places one named instance inside
-another named instance, and the level fits every mention domain. A kind, a
+membership and is read as that membership, every qualifier places one named instance inside another named instance, and the level fits every
+mention domain. A relation anchored on the named subject of a lookup, history, or cause goal only restates that subject, as in the operations
+in aks-app, and a stated failure state of an impact goal only restates its premise; neither is an unread atom. A kind, a
 state, or a container of the results stated as a qualifier is a structural fault with one repair that restates it as a filter or as the goal's
 relation, unless the qualifier sits on a goal subject and names one of that goal's own filters, as in running VMs with a running filter; the
 filter reads it, so the qualifier restates it and drops nothing. Otherwise it returns one clarification or sends a low-confidence field to one independent T2 review of closed fields. An admitted atom
@@ -572,7 +573,7 @@ None of those earlier stages answers a read. The only change is what happens aft
 | `continuation` | held, `semantic_reading_continuation_required` | The reading needs another pass or more plans than one answer holds |
 | `limited` | held, `semantic_reading_limited` | A goal carries a limitation that no reviewed notice can state |
 | `unverified` | held, `semantic_reading_unverified` | The form was invalid, or the blind review found it unfaithful |
-| `unavailable` | held, `semantic_reading_unavailable` | The path timed out, failed, or never started for this turn |
+| `unavailable` | held, `semantic_reading_unavailable` | The path timed out, failed, never started for this turn, or a goal could not bind its data, such as an incomplete anchor read |
 
 A turn for which the form path never started, such as a bound-resource or document-evidence read,
 also ends as `unavailable` instead of falling through to the legacy path. Direct social responses,
@@ -583,7 +584,8 @@ each family is promoted in R9, and R10 deletes the lexical helpers of promoted f
 rollback release.
 
 A selected compilation may carry only reviewed limitations that the answer states as catalog notices:
-the applied, default, or model-judged history window, and a cause that is not established. The compiler
+the applied, default, or model-judged history window, a cause that is not established, and an impact
+that is possible rather than observed. The compiler
 records each as a frame evidence requirement, so the frame, plan digest, and rendered notice agree. Any
 other limitation keeps the compilation from answering.
 

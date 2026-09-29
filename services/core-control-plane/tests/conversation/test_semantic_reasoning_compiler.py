@@ -1699,33 +1699,32 @@ def test_a_history_goal_reads_activity_as_activity_and_states_its_window() -> No
     assert batch.frame.evidence_requirements == ("window.applied.259200",)
 
 
-def test_a_relation_anchored_on_its_own_named_subject_is_repaired_not_read() -> None:
-    utterance = "How many VMs are in rg-app?"
-    form = {
-        "mentions": [_anchor(utterance, "rg-app")],
-        "goals": [
-            {
-                "id": "g1",
-                "level": "instance",
-                "operation": "lookup",
-                "subject": "m1",
-                "subject_scope": "anchor",
-                "measure": {"kind": "state"},
-                "relation": {
-                    "sense": "containment",
-                    "anchor": "m1",
-                    "anchor_role": "container",
-                    "result_role": "member",
-                    "cue": span(utterance, "are in"),
-                },
-                "cue": span(utterance, "How many"),
-                "confidence": 0.9,
-            }
-        ],
+def test_a_relation_on_its_own_named_subject_restates_a_history_read() -> None:
+    utterance = "What changed on vm-app-01 in the last 3 days?"
+    form = _history_form(utterance, "last 3 days", 3)
+    form["goals"][0]["relation"] = {
+        "sense": "containment",
+        "anchor": "m1",
+        "anchor_role": "container",
+        "result_role": "member",
+        "cue": span(utterance, "on"),
     }
+    traverse = _relation_form(
+        "What depends on sql-app?",
+        anchor="sql-app",
+        sense="dependency",
+        position="target",
+        cue="depends on",
+    )
+    traverse["goals"][0]["subject"] = "m1"
 
-    # The relation states nothing beyond its subject, so the one repair drops or moves it.
-    assert "relation_anchor_is_subject:g1" in admitted(form, utterance).reasons
+    history = _compile(utterance, form).goals[0]
+    traversal = _compile("What depends on sql-app?", traverse).goals[0]
+
+    # The operations in vm-app-01 are its own history; nothing more is related.
+    assert history.status is GoalStatus.COMPILED, history.reasons
+    # A traversal from a named subject that is also its anchor stays an ordinary read.
+    assert traversal.status is GoalStatus.COMPILED, traversal.reasons
 
 
 def test_one_membership_stated_as_scope_and_containment_is_read_as_the_whole_group() -> None:
@@ -1833,3 +1832,32 @@ def batch_predicates(goal: Any) -> list[dict[str, Any]]:
         if node.kind.value == "object_set"
         for predicate in node.arguments["definition"].get("predicates") or ()
     ]
+
+
+def test_a_stated_failure_premise_of_an_impact_goal_is_read_as_the_impact() -> None:
+    utterance = "What is affected if sql-app fails?"
+    form = {
+        "mentions": [_anchor(utterance, "sql-app")],
+        "goals": [
+            {
+                "id": "g1",
+                "level": "instance",
+                "operation": "impact",
+                "subject": "m1",
+                "subject_scope": "anchor",
+                "measure": {"kind": "state", "cue": span(utterance, "fails")},
+                "cue": span(utterance, "What is affected"),
+                "confidence": 0.9,
+            }
+        ],
+    }
+
+    goal = _compile(utterance, form).goals[0]
+
+    assert goal.status is GoalStatus.COMPILED, goal.reasons
+    assert "possible_impact_not_observed" in goal.limitations
+    # The answer states that the rows are possible impact, never observed impact.
+    assert all(
+        "impact.possible_not_observed" in batch.frame.evidence_requirements
+        for batch in goal.batches
+    )

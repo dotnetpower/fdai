@@ -26,7 +26,7 @@ from fdai_service_contracts.ontology_query import (
 
 from fdai.core.ontology_platform.resource_state_queries import RESOURCE_STATE_FUNCTION_NAME
 
-from .semantic_reasoning_admission import FormAdmission, relation_reach
+from .semantic_reasoning_admission import FormAdmission, relation_reach, restated_relation
 from .semantic_reasoning_binding import AnchorBindingReceipt, AnchorOutcome
 from .semantic_reasoning_concepts import ConceptOutcome, ConceptSelectionReceipt
 from .semantic_reasoning_form import (
@@ -352,7 +352,8 @@ def _coverage_violations(
     if goal.level is GoalLevel.INSTANCE:
         violations.extend(_filter_coverage(goal, plans, allowed))
     if goal.level is GoalLevel.INSTANCE and (
-        goal.relation is not None or goal.effective_operation is GoalOperation.IMPACT
+        (goal.relation is not None and not restated_relation(goal))
+        or goal.effective_operation is GoalOperation.IMPACT
     ):
         expected = _expected_sides(goal, descriptors, allowed, admission)
         compiled = {

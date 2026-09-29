@@ -13,7 +13,7 @@ from fdai_service_contracts.ontology_query import OntologyQueryNode, QueryNodeKi
 from fdai.core.ontology_platform.resource_state_queries import RESOURCE_STATE_FUNCTION_NAME
 
 from .semantic_planning_models import SemanticOutputShape
-from .semantic_reasoning_admission import restates_filter
+from .semantic_reasoning_admission import restated_relation, restates_filter
 from .semantic_reasoning_anchoring import anchored_relation
 from .semantic_reasoning_form import (
     DurationUnit,
@@ -68,6 +68,7 @@ MAX_SIDES_PER_BATCH = 3
 CAUSE_CONTEXT_SHAPE = "cause_context"
 CHANGE_ACTIVITY_SHAPE = "change_activity"
 CAUSE_NOT_ESTABLISHED = "cause.not_established"
+IMPACT_POSSIBLE_ONLY = "impact.possible_not_observed"
 CURRENT_STATE_FUNCTION = "query.resource_current_state"
 CHANGE_ACTIVITY_FUNCTION = "query.resource_change_activity"
 _WINDOW_LIMITATIONS = {
@@ -184,7 +185,9 @@ _READ_MEASURES: dict[GoalOperation, frozenset[MeasureKind]] = {
     GoalOperation.EXPLAIN_CAUSE: frozenset({MeasureKind.STATE, MeasureKind.CHANGE}),
     GoalOperation.SELECT: frozenset(),
     GoalOperation.TRAVERSE: frozenset(),
-    GoalOperation.IMPACT: frozenset(),
+    # An impact goal reads what could be affected if its anchor fails; a stated failure
+    # state or health only restates that premise.
+    GoalOperation.IMPACT: frozenset({MeasureKind.STATE, MeasureKind.HEALTH}),
     GoalOperation.DESCRIBE_SCHEMA: frozenset(),
 }
 
@@ -196,7 +199,7 @@ def _unread_atom(goal: FormGoal, ctx: CompileContext) -> str | None:
     cited = [goal.subject, *(item.mention for item in goal.filters)]
     if goal.measure is not None:
         cited.append(goal.measure.mention)
-    if goal.relation is not None:
+    if goal.relation is not None and not restated_relation(goal):
         cited.append(goal.relation.anchor)
         if goal.relation.counterpart is not None:
             return "counterpart_unsupported"
@@ -409,6 +412,11 @@ def _relation_goal(goal: FormGoal, ctx: CompileContext) -> OperatorResult:
                 tuple(node.node_id for node in traversals),
                 ctx,
                 subjects=(RESOURCE_OBJECT_TYPE,),
+                evidence_requirements=(
+                    (IMPACT_POSSIBLE_ONLY,)
+                    if goal.effective_operation is GoalOperation.IMPACT
+                    else ()
+                ),
             )
         )
     return OperatorResult(specs=tuple(specs), limitations=tuple(limitations))
@@ -528,7 +536,7 @@ def _cause_goal(goal: FormGoal, ctx: CompileContext) -> OperatorResult:
         return OperatorResult(unsupported=("cause_want_required",))
     if goal.subject is None or goal.subject_scope is not SubjectScope.ANCHOR:
         return OperatorResult(unsupported=("anchor_missing",))
-    if goal.filters or goal.relation is not None:
+    if goal.filters or (goal.relation is not None and not restated_relation(goal)):
         return OperatorResult(unsupported=("cause_context_atom_unsupported",))
     window = _stated_window(goal, ctx)
     if isinstance(window, str):

@@ -614,3 +614,16 @@ def test_a_limitation_no_notice_states_keeps_the_compilation_from_answering(
     assert ticket.outcome(manifest_digest="d", observations=[]) is None
     assert _decline_reasons(caplog) == ["goal_limited"]
     assert ticket.decision == "limited"
+
+
+def test_a_data_outcome_is_unavailable_and_an_unsupported_atom_is_unsupported() -> None:
+    compilation = _compilation()
+    incomplete = GoalCompilation("g1", GoalStatus.UNSUPPORTED, ("anchor_resolution_incomplete",))
+    data = _ticket(_observation(compilations=(replace(compilation, goals=(incomplete,)),)))
+    data.outcome(manifest_digest="d", observations=[])
+    atom = _ticket(_unsupported_observation())
+    atom.outcome(manifest_digest="d", observations=[])
+
+    # An incomplete anchor read says nothing about what the question asks.
+    assert data.decision == "unavailable"
+    assert atom.decision == "unsupported"

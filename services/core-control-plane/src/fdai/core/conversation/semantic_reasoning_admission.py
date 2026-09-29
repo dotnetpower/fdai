@@ -438,6 +438,23 @@ def _overlapping_mentions(form: SemanticQuestionForm) -> list[str]:
     return reasons
 
 
+def restated_relation(goal: FormGoal) -> bool:
+    """Return whether a goal's relation only restates its own named subject.
+
+    A lookup, history, or cause goal reads one named resource, so a relation anchored on
+    that same resource, such as the in of operations in aks-app, names nothing more.
+    """
+
+    return (
+        goal.relation is not None
+        and goal.subject is not None
+        and goal.relation.anchor == goal.subject
+        and goal.relation.counterpart is None
+        and goal.effective_operation
+        in {GoalOperation.LOOKUP, GoalOperation.HISTORY, GoalOperation.EXPLAIN_CAUSE}
+    )
+
+
 def relation_reach(goal: FormGoal) -> RelationReach:
     """Return the reach a goal's relation is read with.
 
@@ -479,15 +496,6 @@ def _goal_shape_failures(goal: FormGoal, form: SemanticQuestionForm) -> list[str
     # A why question has one canonical reading, so no other goal can drop its cause atom.
     if (goal.operation is GoalOperation.EXPLAIN_CAUSE) != (goal.want is Want.CAUSE):
         failures.append(f"cause_form_inconsistent:{goal.id}")
-    # A relation relates its results to another named thing, never a named subject to itself;
-    # a reference to earlier rows may start its own read, so it is the one exception.
-    if (
-        goal.relation is not None
-        and goal.subject is not None
-        and goal.relation.anchor == goal.subject
-        and goal.subject_scope is not SubjectScope.PRIOR_RESULT
-    ):
-        failures.append(f"relation_anchor_is_subject:{goal.id}")
     scopes = {item.mention for item in goal.filters if item.role is FilterRole.SCOPE}
     if (
         goal.relation is not None
