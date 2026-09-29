@@ -35,13 +35,6 @@ from fdai.core.hil_resume import (
 from fdai.core.licensing import LicenseEntitlementAuthority
 from fdai.core.ontology_platform import EffectReconciliationRequestSink, compile_interfaces
 from fdai.core.ontology_platform.operational_functions import operational_function_types
-from fdai.core.quality_gate import (
-    HashedRuleEmbeddingIndex,
-    QualityGate,
-    QualityGateConfig,
-    RagGroundingSource,
-    RuleBasedVerifier,
-)
 from fdai.core.rca import (
     CausalRuntimeCoordinator,
     KnowledgeEvidenceGatherer,
@@ -157,6 +150,7 @@ from .control_loop_auxiliary import (
 from .control_loop_auxiliary import (
     build_irp_event_handler as _build_irp_event_handler,
 )
+from .control_loop_auxiliary import build_t2_quality_gate as build_t2_quality_gate
 from .control_loop_auxiliary import rca_catalog_revision as _rca_catalog_revision
 
 __all__ = [
@@ -435,19 +429,11 @@ def _build_control_loop(
         ),
     )
     rules_by_id = {rule.id: rule for rule in active_rules}
-    quality_gate = QualityGate(
-        verifier=RuleBasedVerifier(rules_by_id=rules_by_id),
-        cross_check_models=llm_bindings.cross_check_models,
-        grounding=RagGroundingSource(
-            rules=rules_by_id,
-            embedding_index=HashedRuleEmbeddingIndex(),
-        ),
-        rubric_evaluator=llm_bindings.rubric_evaluator,
+    quality_gate = build_t2_quality_gate(
+        container,
+        rules_by_id=rules_by_id,
+        action_modes=promotion_registry,
         deterministic_evidence_verifiers=_resolve_t2_deterministic_evidence_verifiers(container),
-        config=QualityGateConfig(
-            confidence_threshold=container.config.llm.quality_gate_confidence_threshold,
-            require_cross_check_quorum=container.config.llm.quality_gate_quorum,
-        ),
     )
     t2 = T2Tier(
         proposer=llm_bindings.require_t2_proposer(),
