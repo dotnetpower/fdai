@@ -13,6 +13,7 @@ from typing import Any, Protocol, cast
 from uuid import UUID, uuid5
 
 from fdai.core.conversation.adaptive_service import AdaptiveBudgetTelemetry
+from fdai.core.conversation.context_bridge import assemble_turn_context
 from fdai.core.conversation.intent_graph import resolve_execution_authority
 from fdai.core.conversation.semantic_investigation import InvestigationEntityRole
 from fdai.core.conversation.semantic_planning_cascade import (
@@ -29,7 +30,7 @@ from fdai.core.conversation.semantic_runtime import (
     SemanticTurnResult as RuntimeSemanticTurnResult,
 )
 from fdai.core.conversation.semantic_runtime import optional_document_evidence_degraded
-from fdai.core.conversation.session import Principal, Turn
+from fdai.core.conversation.session import ConversationSession, Principal, Turn
 from fdai.core.conversation.work_progress import (
     WorkProgressRecorder,
     record_semantic_work_progress,
@@ -52,6 +53,9 @@ from fdai.core.ontology_platform.recent_resource_changes import (
     ARG_RESOURCE_CHANGE_SOURCE_IDENTITY,
 )
 from fdai.core.prompts.types import PromptReplayManifest
+from fdai.core.working_context.governance import ContextSelectionPolicyAuthority
+from fdai.core.working_context.shadow import ContextSelectionShadowRunner
+from fdai.core.working_context.types import ContextBudget
 from fdai_service_contracts import (
     MAX_SEMANTIC_EVIDENCE_REFS,
     OperationalEvidenceProjection,
@@ -184,6 +188,7 @@ _SEMANTIC_PLANNER_UNAVAILABLE_REASONS = {
     "general_answer_route_unverified",
     "semantic_frame_unavailable",
 }
+_SEMANTIC_TURN_CONTEXT_BUDGET = ContextBudget()
 
 
 @dataclass(frozen=True, slots=True)
@@ -310,6 +315,8 @@ class SemanticTurnProcessor:
         answer_continuity_enabled: bool = False,
         runtime_settings: RuntimeSettingsReader | None = None,
         runtime_readiness: SemanticRuntimeReadiness | None = None,
+        context_selection_policy_authority: ContextSelectionPolicyAuthority | None = None,
+        context_selection_shadow_runner: ContextSelectionShadowRunner | None = None,
         now: Callable[[], datetime] | None = None,
     ) -> None:
         if not purpose:
@@ -324,6 +331,8 @@ class SemanticTurnProcessor:
         self._answer_continuity_enabled = answer_continuity_enabled
         self._runtime_settings = runtime_settings
         self._runtime_readiness = runtime_readiness
+        self._context_selection_policy_authority = context_selection_policy_authority
+        self._context_selection_shadow_runner = context_selection_shadow_runner
         self._now = now or (lambda: datetime.now(UTC))
 
     def bind_pantheon_assurance(self, runtime: PantheonAssuranceRuntime) -> None:
@@ -810,9 +819,15 @@ class SemanticTurnProcessor:
             runtime_kwargs["conversation_model_tier"] = request.conversation_model_tier
         if request.document_context is not None:
             runtime_kwargs["document_context"] = request.document_context
+        prior_turns = _prior_turns(request, requested_at=requested_at)
+        await self._schedule_context_selection_shadow(
+            request=request,
+            principal=principal,
+            prior_turns=prior_turns,
+        )
         return await runtime.handle(
             utterance=request.utterance,
-            prior_turns=_prior_turns(request, requested_at=requested_at),
+            prior_turns=prior_turns,
             principal=principal,
             locale=request.locale,
             target_agent=request.target_agent,
@@ -821,6 +836,38 @@ class SemanticTurnProcessor:
             bound_investigation_continuation=_bound_investigation_continuation(request),
             **runtime_kwargs,
         )
+
+    async def _schedule_context_selection_shadow(
+        self,
+        *,
+        request: SemanticTurnRequest,
+        principal: Principal,
+        prior_turns: tuple[Turn, ...],
+    ) -> None:
+        """Schedule composed context-selection comparison without changing the turn."""
+
+        if (
+            self._context_selection_policy_authority is None
+            or self._context_selection_shadow_runner is None
+        ):
+            return
+        session = ConversationSession(
+            session_id=request.session_id,
+            principal=principal,
+            channel_id="semantic-turn",
+        )
+        for turn in prior_turns:
+            session.append(turn)
+        try:
+            await assemble_turn_context(
+                session=session,
+                utterance=request.utterance,
+                budget=_SEMANTIC_TURN_CONTEXT_BUDGET,
+                policy_authority=self._context_selection_policy_authority,
+                shadow_runner=self._context_selection_shadow_runner,
+            )
+        except Exception:  # noqa: BLE001 - shadow evidence must not affect active turn
+            _LOGGER.warning("context_selection_shadow_schedule_failed", exc_info=True)
 
     async def _escalation_policy(
         self,

@@ -1,6 +1,6 @@
 ---
 translation_of: context-selection-policy.md
-translation_source_sha: bb33684f856506da16f10d88b247394ebac6b83d
+translation_source_sha: 4f27344d50efcf0a835acf5d466bf24571284916
 translation_revised: 2026-09-29
 ---
 # 컨텍스트 선택 정책
@@ -92,6 +92,10 @@ operator-memory 경계로 항목을 준비하고 하나의 입력을 고정하�
 운영 어댑터는 기존 `StateStore` tracked-state 접두사 아래에 이 기록을 저장합니다. PostgreSQL
 내구성과 atomic 생성 의미 규칙을 재사용하므로 새 표이나 Alembic 이행이 필요하지
 않습니다. 동시 확산, pending 실행, 시간 초과는 모두 제한됩니다.
+
+의미 턴 프로세서는 두 연결이 모두 있을 때 조립된 정책 권한과 shadow 실행기를 기존
+턴 맥락 조립 경계에 전달합니다. 반환된 working 맥락은 shadow 근거로만 남으며, 의미
+결과 변환과 활성 매니페스트는 기존 경로를 유지합니다.
 
 `bind_context_selection_shadow`는 실행기를 연결하는 composition 경계입니다. 실행기가 영속 저장소를
 직접 소유하므로, 기록할 곳 없이 평가만 예약하는 배포는 불가능합니다.

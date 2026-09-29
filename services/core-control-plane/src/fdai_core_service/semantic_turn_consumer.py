@@ -20,6 +20,8 @@ from fdai.core.conversation.semantic_runtime import (
 )
 from fdai.core.conversation.work_progress import bind_semantic_work_progress_publisher
 from fdai.core.ontology_platform.query_execution import QueryNodeProgress
+from fdai.core.working_context.governance import ContextSelectionPolicyAuthority
+from fdai.core.working_context.shadow import ContextSelectionShadowRunner
 from fdai.shared.providers.event_bus import EventBus, subscription
 from fdai.shared.providers.state_store import StateStore
 from fdai_service_contracts import SemanticQueryProgress
@@ -228,6 +230,8 @@ def build_semantic_turn_processor(
     answer_continuity_enabled: bool = False,
     runtime_settings: RuntimeSettingsReader | None = None,
     runtime_readiness: SemanticRuntimeReadiness | None = None,
+    context_selection_policy_authority: ContextSelectionPolicyAuthority | None = None,
+    context_selection_shadow_runner: ContextSelectionShadowRunner | None = None,
 ) -> SemanticTurnProcessor:
     """Bind the durable store and an optional composed semantic runtime.
 
@@ -243,6 +247,8 @@ def build_semantic_turn_processor(
         answer_continuity_enabled=answer_continuity_enabled,
         runtime_settings=runtime_settings,
         runtime_readiness=runtime_readiness,
+        context_selection_policy_authority=context_selection_policy_authority,
+        context_selection_shadow_runner=context_selection_shadow_runner,
     )
 
 
@@ -256,6 +262,8 @@ def semantic_turn_binding_from_config(
     answer_continuity_enabled: bool = False,
     runtime_settings: RuntimeSettingsReader | None = None,
     runtime_readiness: SemanticRuntimeReadiness | None = None,
+    context_selection_policy_authority: ContextSelectionPolicyAuthority | None = None,
+    context_selection_shadow_runner: ContextSelectionShadowRunner | None = None,
 ) -> SemanticTurnConsumerBinding | None:
     """Build the consumer only when both transport topics are configured.
 
@@ -300,6 +308,8 @@ def semantic_turn_binding_from_config(
             answer_continuity_enabled=answer_continuity_enabled,
             runtime_settings=runtime_settings,
             runtime_readiness=runtime_readiness,
+            context_selection_policy_authority=context_selection_policy_authority,
+            context_selection_shadow_runner=context_selection_shadow_runner,
         ),
         available=runtime is not None,
         unavailable_reason=(
