@@ -99,6 +99,11 @@ then advertises the source only when that reader is bound, and renders bounded
 mutation authority. Live, Incident, Audit, and Trace screens keep their own
 authoritative contracts instead of copying this observational evidence.
 
+That grant pattern is recorded in the shared ownership manifest, which names one
+write owner per table. A table this subsystem neither writes nor projects, such as
+the Core-owned `licensing_trial` singleton, appears there without becoming a report
+source: the manifest defines ownership, not reporting visibility.
+
 ## Widget catalog
 
 36 upstream builders across nine families, plus the engine-special `group` and

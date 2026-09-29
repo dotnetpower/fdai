@@ -1,6 +1,6 @@
 ---
 translation_of: service-graduation-and-ownership.md
-translation_source_sha: 4ba6aae475fafacabbd7bf1e98e38847415dc4ae
+translation_source_sha: c6725a2c903ca29ddbc2ba5c53d723a2dbf6fa36
 translation_revised: 2026-09-15
 ---
 # 서비스 승격과 데이터 소유권
@@ -191,6 +191,7 @@ Logical 기록 또는 수명 주기 전이 하나에는 쓰기 담당 하나만 
 | `document_worker_outbox` | 워커 소유 수명 주기 이벤트의 문서 처리 워커 | 워커 발신함 drainer | 문서 처리 워커 이행 가지 |
 | `executor_receipt_outbox` | 최종 증적 전달의 Isolated 실행기 | 실행기 증적 drainer | Isolated 실행기 이행 가지 |
 | `operator_assignment_receipt` | Operator가 인증된 명령과 발신 제안을 원자적으로 추가하며 런타임 수정·삭제는 금지 | Core의 정확한 참조 읽기 | Core의 `core_assignment_receipts_20260914`와 이에 의존하는 Operator 추가·읽기 권한 |
+| `licensing_trial` | Core가 단일 행을 한 번 활성화하고 리비전 조건으로 관측을 진행하며, 트리거가 활성화 시각·바인딩·시계 거부를 불변으로 유지하고 어떤 역할도 DELETE를 받지 않음 | 없음. 사용권 해석기가 Core를 통해 읽음 | Core의 `core_licensing_trial_20260929` |
 | `state_kv` `human_assignment:` | Core의 감사된 배정 수명 주기이며 데이터베이스가 Operator 쓰기를 거부 | Operator의 정확한 사례 효과 조회와 발신함 리비전 확인 | Core가 공유 테이블과 추가 방어를 소유하며 증적이 남아 있으면 파괴적 롤백은 차단 |
 | `state_kv` namespaced 기록 | 각 키 이름 공간이 이름으로 지정한 subsystem | 해당 subsystem 프로바이더 계약이 명시한 변환 결과 | Alembic 이행 작업 |
 | `state_kv` `runtime:detection-lifecycle:` 기록 | Pod 수명 주기 기록기를 통한 Core analyzer tick | 인증된 Operator API `/detection-readiness` 수명 주기 프로젝션, 읽기 전용 | Alembic 이행 작업 |
