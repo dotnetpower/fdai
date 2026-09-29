@@ -16,12 +16,12 @@ owned_tables: tuple[str, ...] = ("operator_authentication_receipt",)
 rollback = {
     "strategy": "drop-empty-operator-authentication-receipts-after-operator-and-verifier-stop",
     "restores": "operator_workflow_definition_read_20260929",
-    "requires": "operator-runtime-and-operational-evidence-verifier-stopped",
+    "requires": "core-operator-receipt-source-function-rolled-back-and-operator-stopped",
 }
 
 
 def upgrade() -> None:
-    """Create an insert-only receipt table and exact verifier source function."""
+    """Create the insert-only receipt table; Core owns the verifier's lookup function."""
     op.execute(
         """
         CREATE TABLE operator_authentication_receipt (
@@ -68,33 +68,12 @@ def upgrade() -> None:
         REVOKE ALL PRIVILEGES ON TABLE operator_authentication_receipt FROM PUBLIC, fdai_operator;
         GRANT INSERT ON TABLE operator_authentication_receipt TO fdai_operator;
 
-        CREATE FUNCTION fdai_operator_authentication_receipts_for_digest(p_receipt_digest TEXT)
-        RETURNS TABLE (
-            receipt_digest TEXT,
-            request_id TEXT,
-            principal_id TEXT,
-            receipt JSONB,
-            recorded_at TIMESTAMPTZ
-        ) LANGUAGE SQL STABLE SECURITY DEFINER
-        SET search_path = pg_catalog, pg_temp AS $$
-            SELECT source.receipt_digest, source.request_id, source.principal_id,
-                   source.receipt, source.recorded_at
-              FROM public.operator_authentication_receipt AS source
-             WHERE p_receipt_digest ~ '^sha256:[0-9a-f]{64}$'
-               AND source.receipt_digest = p_receipt_digest
-             ORDER BY source.recorded_at DESC
-             LIMIT 2
-        $$;
-        REVOKE ALL ON FUNCTION fdai_operator_authentication_receipts_for_digest(TEXT)
-            FROM PUBLIC;
-        GRANT EXECUTE ON FUNCTION fdai_operator_authentication_receipts_for_digest(TEXT)
-            TO fdai_operational_evidence_verifier;
         """
     )
 
 
 def downgrade() -> None:
-    """Drop the exact source function and the empty receipt table."""
+    """Drop the empty receipt table after Core has dropped its lookup function."""
     op.execute(
         """
         LOCK TABLE operator_authentication_receipt IN ACCESS EXCLUSIVE MODE;
@@ -105,9 +84,6 @@ def downgrade() -> None:
             END IF;
         END
         $guard$;
-        REVOKE ALL ON FUNCTION fdai_operator_authentication_receipts_for_digest(TEXT)
-            FROM fdai_operational_evidence_verifier;
-        DROP FUNCTION fdai_operator_authentication_receipts_for_digest(TEXT);
         DROP TRIGGER operator_auth_receipt_delete_immutable ON operator_authentication_receipt;
         DROP TRIGGER operator_auth_receipt_update_immutable ON operator_authentication_receipt;
         DROP TRIGGER operator_authentication_receipt_writer ON operator_authentication_receipt;

@@ -8,16 +8,6 @@
   "migration_dependencies": [
     {
       "consumer_service": "operator-service",
-      "consumer_revision": "operator_authentication_receipts_20260929",
-      "provider_service": "core-control-plane",
-      "provider_revision": "core_operational_evidence_20260928",
-      "schema_prerequisites": [
-        "fdai_operational_evidence_verifier"
-      ],
-      "provider_rollback": "blocked-until-operator-authentication-receipts-rollback"
-    },
-    {
-      "consumer_service": "operator-service",
       "consumer_revision": "operator_forecast_retention_20260917",
       "provider_service": "core-control-plane",
       "provider_revision": "core_runtime_role_20260809",
