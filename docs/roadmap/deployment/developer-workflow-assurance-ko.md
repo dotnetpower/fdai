@@ -1,7 +1,7 @@
 ---
 translation_of: developer-workflow-assurance.md
-translation_source_sha: 4249c4b6107b87b8c176b92aef0cc20c148e1b69
-translation_revised: 2026-09-27
+translation_source_sha: 46b5c8937aa766c4c1b7daf8d28284e13af2db28
+translation_revised: 2026-09-29
 ---
 
 # 개발 워크플로 보증
@@ -148,9 +148,11 @@ Azure OpenAI 배포를 선택하거나 호출하지 않습니다.
 포함됩니다. 관련 입력이 바뀌면 오래된 프로세스를 교체하지만 관련 없는 commit이나 worktree
 편집 때문에 재시작하지는 않습니다. 로컬 준비
 상태 검사는 서비스 소유 Core 실행기를 프로세스 소유자로 인식하고 새로운 semantic consumer
-진행 뒤의 새로운 heartbeat를 허용합니다. 또한 75초보다 오래되지 않은 primary 변경 consumer의
-타임스탬프가 있는 진행을 요구하고, 관측된 각 partition의 최신 lag를 합산하며, 근거가 없거나 합계가
-1,000건을 넘으면 준비되지 않은 상태로 유지합니다. 인벤토리 세대가 ontology checkpoint 변환보다 먼저 바뀌면 로컬 analyzer는 준비되지
+진행 뒤의 새로운 heartbeat를 허용합니다. 또한 관측된 각 partition마다 타임스탬프가 있는 primary 변경
+consumer 진행을 요구하고, 최신 lag를 합산하며, 근거가 없거나 합계가 1,000건을 넘으면 준비되지 않은
+상태로 유지합니다. event bus가 backlog가 있는 측정을 1분마다 보고하므로 그런 측정은 75초보다
+오래되지 않아야 합니다. offset이 멈춘 따라잡은 partition은 event bus가 5분마다만 다시 보고하므로
+lag가 0인 측정은 375초 동안 유효하며, 유휴 상태의 스택이 멈춘 것처럼 보이지 않습니다. 인벤토리 세대가 ontology checkpoint 변환보다 먼저 바뀌면 로컬 analyzer는 준비되지
 않은 상태를 유지하지만 전체 loop interval을 기다리지 않고 5초 안에 target resolution을 다시
 시도합니다.
 프로파일링된 Core 런타임은 공유 StateStore에 대해 범위가 제한된 비동기 connection pool 하나를

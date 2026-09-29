@@ -271,6 +271,8 @@ def _core_log_lines(root: Path) -> tuple[str, ...]:
 
 _CORE_CHANGE_LAG_LIMIT = 1_000
 _CORE_CHANGE_PROGRESS_MAX_AGE_SECONDS = 75.0
+# The event bus re-reports a caught-up idle partition only every 300 seconds.
+_CORE_CHANGE_IDLE_PROGRESS_MAX_AGE_SECONDS = 375.0
 _CORE_CHANGE_PROGRESS = re.compile(
     r'event_bus_consumer_progress .*topic="fdai\.change\.events".*'
     r'consumer_group="fdai-local-[^"]+-core".*consumer_lag=(?P<lag>[0-9]+)'
@@ -278,27 +280,41 @@ _CORE_CHANGE_PROGRESS = re.compile(
 
 
 def _core_change_consumer_ready(root: Path, *, now: datetime | None = None) -> bool:
-    """Reject a measured primary Core backlog above the local readiness bound."""
+    """Reject a measured primary Core backlog above the local readiness bound.
+
+    The latest measurement of each partition decides. A measurement with backlog must be
+    recent, because the event bus reports it every interval. A caught-up partition whose
+    offsets stop moving is re-reported only every idle interval, so an idle consumer stays
+    ready instead of looking stalled once the stack goes quiet.
+    """
 
     current = now or datetime.now(UTC)
     if current.tzinfo is None:
         raise ValueError("core lag readiness time MUST be timezone-aware")
-    partition_lags: dict[int, int] = {}
+    latest: dict[int, tuple[int, float]] = {}
     for line in reversed(_core_log_lines(root)):
         match = _CORE_CHANGE_PROGRESS.search(line)
-        if match is not None:
-            observed = _log_timestamp(line)
-            if observed is None:
-                continue
-            age_seconds = (current - observed.astimezone(UTC)).total_seconds()
-            if not -1.0 <= age_seconds <= _CORE_CHANGE_PROGRESS_MAX_AGE_SECONDS:
-                continue
-            partition_match = re.search(r"partition=(?P<partition>[0-9]+)", line)
-            if partition_match is None:
-                continue
-            partition = int(partition_match.group("partition"))
-            partition_lags.setdefault(partition, int(match.group("lag")))
-    return bool(partition_lags) and sum(partition_lags.values()) <= _CORE_CHANGE_LAG_LIMIT
+        if match is None:
+            continue
+        observed = _log_timestamp(line)
+        partition_match = re.search(r"partition=(?P<partition>[0-9]+)", line)
+        if observed is None or partition_match is None:
+            continue
+        age_seconds = (current - observed.astimezone(UTC)).total_seconds()
+        partition = int(partition_match.group("partition"))
+        latest.setdefault(partition, (int(match.group("lag")), age_seconds))
+    measured = all(-1.0 <= age <= _change_progress_max_age(lag) for lag, age in latest.values())
+    return (
+        bool(latest)
+        and measured
+        and sum(lag for lag, _age in latest.values()) <= _CORE_CHANGE_LAG_LIMIT
+    )
+
+
+def _change_progress_max_age(lag: int) -> float:
+    if lag == 0:
+        return _CORE_CHANGE_IDLE_PROGRESS_MAX_AGE_SECONDS
+    return _CORE_CHANGE_PROGRESS_MAX_AGE_SECONDS
 
 
 def _analyzer_tick_ready(root: Path) -> bool:

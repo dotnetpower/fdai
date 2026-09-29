@@ -146,8 +146,11 @@ the runtime-diagnostics package. A relevant input change replaces the stale proc
 restarting it for an unrelated commit or worktree edit.
 Local readiness recognizes the service-owned Core executable as the process owner and
 accepts fresh semantic-consumer progress followed by a fresh heartbeat. It also requires
-timestamped primary change-consumer progress no older than 75 seconds, aggregates the newest lag
-for every observed partition, and rejects missing evidence or a total above 1,000 records. When an inventory
+timestamped primary change-consumer progress for every observed partition, sums the newest lag, and
+rejects missing evidence or a total above 1,000 records. A measurement with backlog must be no older
+than 75 seconds, because the event bus reports it every minute. The event bus re-reports a caught-up
+partition whose offsets stopped moving only every five minutes, so a zero-lag measurement stays
+current for 375 seconds and an idle stack no longer looks stalled. When an inventory
 generation changes before its ontology checkpoint is projected, the local analyzer remains
 unready but retries target resolution within five seconds instead of waiting its full loop interval.
 The profiled Core runtime also owns one bounded asynchronous pool for its shared StateStore and

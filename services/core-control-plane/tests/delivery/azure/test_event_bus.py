@@ -1058,6 +1058,52 @@ async def test_consumer_heartbeat_skips_unchanged_caught_up_partition(
     assert len(progress) == 1
 
 
+@pytest.mark.asyncio
+async def test_consumer_heartbeat_re_reports_an_idle_partition_each_idle_interval(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    topic_partition = TopicPartition("fdai.change.events", 0)
+    reports = 0
+    re_reported = asyncio.Event()
+
+    class _IdleConsumer:
+        def assignment(self) -> set[TopicPartition]:
+            return {topic_partition}
+
+        async def end_offsets(
+            self, _partitions: tuple[TopicPartition, ...]
+        ) -> dict[TopicPartition, int]:
+            return {topic_partition: 30}
+
+        async def committed(self, _partition: TopicPartition) -> int:
+            nonlocal reports
+            reports += 1
+            if reports == 2:
+                re_reported.set()
+            return 30
+
+    caplog.set_level(logging.INFO, logger=event_bus_module.__name__)
+    monitor = asyncio.create_task(
+        event_bus_module._monitor_consumer_progress(
+            _IdleConsumer(),
+            topic="fdai.change.events",
+            group_id="fdai-local-example-core",
+            interval_seconds=0.001,
+            idle_interval_seconds=0.02,
+        )
+    )
+    # A caught-up idle partition stays observable, at the idle cadence, not every interval.
+    await asyncio.wait_for(re_reported.wait(), timeout=1)
+    monitor.cancel()
+    await asyncio.gather(monitor, return_exceptions=True)
+
+    progress = [
+        record for record in caplog.records if record.message == "event_bus_consumer_progress"
+    ]
+    assert len(progress) == reports == 2
+    assert all(record.consumer_lag == 0 for record in progress)
+
+
 async def _wait_for_log(caplog: pytest.LogCaptureFixture, message: str) -> None:
     while not any(record.message == message for record in caplog.records):
         await asyncio.sleep(0)
