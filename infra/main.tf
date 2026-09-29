@@ -471,6 +471,22 @@ module "rca_reader_identity" {
   tags                = local.tags
 }
 
+module "operational_evidence_verifier_identity" {
+  count               = var.enable_operational_evidence_verifier ? 1 : 0
+  source              = "./modules/identity/user-assigned-mi"
+  name                = "id-${var.workload}${local.full_suffix}-evidence-verifier"
+  resource_group_name = module.resource_group.name
+  location            = var.region
+  tags                = merge(local.tags, { "fdai:component" = "operational-evidence-verifier" })
+}
+
+resource "azurerm_role_assignment" "operational_evidence_verifier_acr_pull" {
+  count                = var.enable_operational_evidence_verifier ? 1 : 0
+  scope                = module.container_registry.id
+  role_definition_name = "AcrPull"
+  principal_id         = module.operational_evidence_verifier_identity[0].principal_id
+}
+
 locals {
   measurement_runners_enabled = (
     var.baseline_measurement_enabled ||
