@@ -303,14 +303,16 @@ def _execute_selected(args: argparse.Namespace) -> dict[str, object]:
                     ),
                     timeout=60,
                 )
-                archive_absent = tunnel.ssh(
-                    ("/usr/bin/test", "!", "-e", remote_archive), timeout=60
-                )
-                work_absent = tunnel.ssh(("/usr/bin/test", "!", "-e", remote_work), timeout=60)
-                if any(
-                    result.returncode != 0 for result in (preflight, archive_absent, work_absent)
-                ):
+                if preflight.returncode != 0:
                     raise ValueError("Foundation remote state preflight is not clean")
+                _clear_abandoned_remote_work(
+                    tunnel,
+                    migration_program=migration_program,
+                    remote_arguments=remote_arguments,
+                    remote_archive=remote_archive,
+                    remote_work=remote_work,
+                    work_id=work_id,
+                )
                 if recovery is not None:
                     recovery.verify_configuration()
                     actor_digest = recovery.require_approval()
@@ -463,6 +465,41 @@ def _execute_selected(args: argparse.Namespace) -> dict[str, object]:
         json.dumps(final_receipt, sort_keys=True, separators=(",", ":")) + "\n",
     )
     return final_receipt
+
+
+def _clear_abandoned_remote_work(
+    tunnel: object,
+    *,
+    migration_program: tuple[str, ...],
+    remote_arguments: tuple[str, ...],
+    remote_archive: str,
+    remote_work: str,
+    work_id: str,
+) -> None:
+    """Clear transient remote work left by an abandoned attempt, or stop.
+
+    `work_id` is derived from the Foundation and enrollment receipts, so a retry
+    reuses the same remote paths. Without this, one failed migration would block
+    every later attempt even after the local claim is released. Only the remote
+    program's own `cleanup` may remove them, and its completion marker must
+    appear, so an unexplained remnant still stops the run.
+    """
+
+    archive_absent = tunnel.ssh(("/usr/bin/test", "!", "-e", remote_archive), timeout=60)
+    work_absent = tunnel.ssh(("/usr/bin/test", "!", "-e", remote_work), timeout=60)
+    if archive_absent.returncode == 0 and work_absent.returncode == 0:
+        return
+    cleanup = tunnel.ssh((*migration_program, "cleanup", *remote_arguments), timeout=300)
+    marker = f"state_handoff_cleanup_complete work_ref={work_id[:24]}"
+    if cleanup.returncode != 0 or marker not in cleanup.stdout.splitlines():
+        raise ValueError(
+            "Foundation remote state preflight is not clean: "
+            f"{_remote_failure_summary(cleanup, marker_present=False)}"
+        )
+    recheck_archive = tunnel.ssh(("/usr/bin/test", "!", "-e", remote_archive), timeout=60)
+    recheck_work = tunnel.ssh(("/usr/bin/test", "!", "-e", remote_work), timeout=60)
+    if recheck_archive.returncode != 0 or recheck_work.returncode != 0:
+        raise ValueError("Foundation remote state preflight is not clean after cleanup")
 
 
 def _remote_failure_summary(

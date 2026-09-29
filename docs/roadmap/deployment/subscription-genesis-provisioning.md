@@ -172,7 +172,11 @@ and remote lineage, serial,
 addresses, identities, and a zero-change remote plan before remote authority permits local-state
 deletion. A refused remote migration reports the remote exit status, whether the completion
 marker appeared, any recognized status token, and the remote program's own prefixed diagnostic,
-so the cause is visible without forwarding raw remote output. Portable status omits resource IDs, SSH paths, state paths, tokens, and raw plans.
+so the cause is visible without forwarding raw remote output. Because the remote work id is
+derived from the Foundation and enrollment receipts, a retry reuses the same remote paths, so a
+released claim first clears transient remote work through the remote program's own cleanup and
+re-checks absence. A remnant that survives cleanup, or a cleanup without its completion marker,
+still stops the run. Portable status omits resource IDs, SSH paths, state paths, tokens, and raw plans.
 
 Each transition prints an ASCII progress bar, percentage, completed-stage count, skipped-stage
 count, and remaining-stage count. Identifier-free state is replaced atomically in a mode-`0600`
