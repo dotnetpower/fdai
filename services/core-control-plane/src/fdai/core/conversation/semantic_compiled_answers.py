@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import asyncio
 import concurrent.futures
+import json
 import logging
 import time
 from collections.abc import Callable, MutableSequence
@@ -21,6 +22,7 @@ from fdai_service_contracts.ontology_query import (
     MAX_INTENT_GRAPH_GOALS,
     OntologyQueryNode,
     OntologyQueryPlan,
+    QueryNodeKind,
     content_digest,
 )
 
@@ -44,6 +46,7 @@ from .semantic_reasoning_shadow import (
     ShadowBudget,
     run_reasoning_shadow,
 )
+from .semantic_reasoning_shape import BEYOND_LIST_READING
 from .session import Principal
 
 _LOGGER = logging.getLogger(__name__)
@@ -133,7 +136,7 @@ class CompiledAnswerTicket:
             observations.extend(self._collector.observations)
         selected = _single_compiled_batch(observation)
         if isinstance(selected, str):
-            self._unsupported = _released_unsupported_reasons(observation)
+            self._unsupported = _held_word_recovery_reasons(observation)
             _log_completion("declined", observation=observation, decline_reason=selected)
             return None
         batch, confidence = selected
@@ -165,10 +168,11 @@ class CompiledAnswerTicket:
         )
 
     def veto(self, plan_source: str, *, manifest_digest: str) -> SemanticPlanningOutcome | None:
-        """Hold a word-recovered plan when the released typed reading states an unread atom.
+        """Hold a word-recovered plan that answers a narrower question than the typed reading.
 
-        A reviewed reading that no builder can compile names what the question needs; a
-        filter recovered from the judgment's words would answer a narrower question.
+        A reviewed reading that no builder can compile names what the question needs, and
+        any parsed reading may show a grouping, state, relation, or schema level that one
+        filtered list recovered from the judgment's words never reads.
         """
 
         if not self._unsupported or plan_source not in _LEXICAL_PLAN_SOURCES:
@@ -347,20 +351,27 @@ def _single_compiled_batch(
     return (merged, goal.confidence) if isinstance(merged, CompiledBatch) else merged
 
 
-def _released_unsupported_reasons(observation: ReasoningShadowObservation) -> tuple[str, ...]:
-    """Return the typed reasons of a released reading's unsupported goals, else nothing."""
+def _held_word_recovery_reasons(observation: ReasoningShadowObservation) -> tuple[str, ...]:
+    """Return why a word-recovered plan would answer a narrower question, else nothing.
 
-    if not observation.released or observation.continuation_pending:
-        return ()
-    return tuple(
-        dict.fromkeys(
+    A released reading's unsupported goal names a stated atom no builder reads; a data
+    outcome, such as an incomplete anchor read, says nothing about the question. A parsed
+    reading of any pass that asks more than one filtered list also holds such a plan.
+    """
+
+    reasons: list[str] = []
+    if observation.released and not observation.continuation_pending:
+        reasons.extend(
             reason
             for compilation in observation.compilations
             for goal in compilation.goals
             if goal.status is GoalStatus.UNSUPPORTED
             for reason in goal.reasons
+            if reason.split(":", 1)[0].endswith("_unsupported")
         )
-    )
+    if any(BEYOND_LIST_READING in item.shape for item in observation.passes):
+        reasons.append("reading_beyond_list")
+    return tuple(dict.fromkeys(reasons))
 
 
 def _merged_batch(batches: tuple[CompiledBatch, ...]) -> CompiledBatch | str:
@@ -380,7 +391,12 @@ def _merged_batch(batches: tuple[CompiledBatch, ...]) -> CompiledBatch | str:
         outputs.extend(batch.plan.output_node_ids)
     if len(set(outputs)) != len(outputs):
         return "merge_node_conflict"
-    if len(nodes) > MAX_INTENT_GRAPH_GOALS or len(outputs) > _MAX_PLAN_OUTPUTS:
+    if len(outputs) > _MAX_PLAN_OUTPUTS:
+        united = _united_outputs(nodes, outputs)
+        if united is None:
+            return "merge_over_budget"
+        outputs = united
+    if len(nodes) > MAX_INTENT_GRAPH_GOALS:
         return "merge_over_budget"
     first = batches[0].plan
     body = {
@@ -390,6 +406,41 @@ def _merged_batch(batches: tuple[CompiledBatch, ...]) -> CompiledBatch | str:
     }
     plan = OntologyQueryPlan.model_validate({**body, "plan_digest": content_digest(body)})
     return CompiledBatch(index=0, total=1, frame=frame, plan=plan)
+
+
+def _united_outputs(nodes: dict[str, OntologyQueryNode], outputs: list[str]) -> list[str] | None:
+    """Unite traversal outputs that reach one ObjectType, so every side is still read.
+
+    One plan names at most eight outputs; the traversals stay as nodes and a union of
+    those reaching the same endpoint type becomes one output, which keeps each reached
+    endpoint exactly once instead of declining the sides beyond the eighth.
+    """
+
+    groups: dict[str, list[str]] = {}
+    for node_id in outputs:
+        node = nodes[node_id]
+        if node.kind is not QueryNodeKind.RELATIONSHIP_TRAVERSAL:
+            return None
+        selector = json.loads(node.arguments_json).get("selector")
+        if not isinstance(selector, dict) or not isinstance(selector.get("name"), str):
+            return None
+        groups.setdefault(selector["name"], []).append(node_id)
+    united: list[str] = []
+    for index, members in enumerate(groups.values(), start=1):
+        if len(members) == 1:
+            united.append(members[0])
+            continue
+        union_id = f"union-{index}"
+        if union_id in nodes:
+            return None
+        nodes[union_id] = OntologyQueryNode(
+            node_id=union_id,
+            kind=QueryNodeKind.UNION,
+            depends_on=tuple(members),
+            output_kind="query.table",
+        )
+        united.append(union_id)
+    return united if len(united) <= _MAX_PLAN_OUTPUTS else None
 
 
 def _log_completion(

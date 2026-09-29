@@ -501,8 +501,10 @@ path, and the owner loop drains its provider calls. The path emits one content-f
 skip, cancellation, timeout, or failure, with its pass dispositions, review outcome, per-goal statuses, reasons, and limitations, so
 `dev discuss` shows why a question was or was not compiled. The form comes from a separate call beside the turn, so these records are
 the experiment that production shadow wiring excludes from promotion evidence, and no family is promoted by them.
-A goal whose relation sides span several batches answers as one plan only when their union fits one intent graph and
-eight plan outputs; a shared anchor read may repeat only with identical content. A Resource state filter binds through
+A goal whose relation sides span several batches answers as one plan only when every side fits one intent graph; a
+shared anchor read may repeat only with identical content. One plan names at most eight outputs, so beyond eight sides
+the traversals that reach one ObjectType stay as nodes and one union of them becomes the output, which reads every side
+and keeps each reached endpoint once. A Resource state filter binds through
 a reviewed state catalog built from the state inventory function's declared concepts and labels, and the collection is
 read through that function, whose state concepts V-PROV and V-SEM check against the bound state. A state filter on
 another ObjectType stays `filter_unsupported:state`, because no reviewed reader holds that lifecycle.
@@ -518,7 +520,11 @@ that no builder compiles, it names what the question needs. The current path may
 typed builders, but a filter recovered only from the judgment's words, such as a stated type, would answer a narrower
 question, for example every storage account when the question also states a region. The planner therefore returns
 `semantic_stated_constraint_unsupported` for such a recovered plan and records the unsupported reasons, instead of
-presenting a verified answer to a question the operator did not ask.
+presenting a verified answer to a question the operator did not ask. Only a reason that names an unsupported atom
+counts; a data outcome, such as an incomplete anchor read, says nothing about the question. A parsed reading of any
+pass, released or not, also holds such a plan when it asks more than one filtered Resource list answers: a state,
+region, grouping, relation other than a named container's members, time, schema level, second goal, or competing
+reading. The form's first shape token records that verdict.
 
 ## Approved decisions
 

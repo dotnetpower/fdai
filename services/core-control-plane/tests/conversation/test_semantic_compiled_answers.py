@@ -35,6 +35,7 @@ from fdai.core.conversation.semantic_reasoning_shadow import (
     ShadowPass,
 )
 from fdai.core.conversation.session import Principal, Role
+from fdai_service_contracts.ontology_query import QueryNodeKind
 
 from tests.conversation.semantic_reasoning_support import (
     DEFAULT_LOOKBACK_SECONDS,
@@ -253,6 +254,30 @@ def test_a_released_unsupported_reading_holds_a_word_recovered_plan(
     assert [record.goal_reasons for record in vetoes] == [["filter_unsupported:region"]]
 
 
+def test_a_data_outcome_never_holds_but_a_wider_parsed_reading_does() -> None:
+    compilation = _compilation()
+    incomplete = GoalCompilation("g1", GoalStatus.UNSUPPORTED, ("anchor_resolution_incomplete",))
+    data = _ticket(_observation(compilations=(replace(compilation, goals=(incomplete,)),)))
+    data.outcome(manifest_digest="d", observations=[])
+    grouped = _ticket(
+        _observation(
+            released=False,
+            passes=(ShadowPass(0, "clarify", shape=("reading:beyond_list", "m1:instance:name")),),
+        )
+    )
+    grouped.outcome(manifest_digest="d", observations=[])
+    listed = _ticket(
+        _observation(released=False, passes=(ShadowPass(0, "invalid", shape=("reading:list",)),))
+    )
+    listed.outcome(manifest_digest="d", observations=[])
+
+    # An incomplete anchor read is about data, not about what the question states.
+    assert data.veto("server_stated_filter", manifest_digest="d") is None
+    held = grouped.veto("server_stated_filter", manifest_digest="d")
+    assert held is not None and held.reason == "semantic_stated_constraint_unsupported"
+    assert listed.veto("server_stated_filter", manifest_digest="d") is None
+
+
 def test_a_typed_plan_or_an_unreleased_reading_is_never_held() -> None:
     released = _ticket(_unsupported_observation())
     released.outcome(manifest_digest="d", observations=[])
@@ -384,30 +409,58 @@ def test_relation_sides_split_across_batches_answer_as_one_plan(
     goal = compilation.goals[0]
     assert goal.status is GoalStatus.COMPILED, goal.reasons
     assert len(goal.batches) > 1
-    outputs = [node for batch in goal.batches for node in batch.plan.output_node_ids]
+    fewer = replace(
+        goal,
+        batches=tuple(replace(batch, total=2) for batch in goal.batches[:2]),
+    )
+    outputs = [node for batch in fewer.batches for node in batch.plan.output_node_ids]
 
-    outcome = _ticket(_observation(compilations=(compilation,))).outcome(
+    outcome = _ticket(_observation(compilations=(replace(compilation, goals=(fewer,)),))).outcome(
         manifest_digest="d", observations=[]
     )
-    if len(outputs) > 8:
-        # One plan names at most eight outputs, so this read is left to the current path.
-        assert outcome is None
-        assert _decline_reasons(caplog) == ["merge_over_budget"]
-        fewer = replace(goal, batches=goal.batches[:2])
-        fewer = replace(
-            fewer,
-            batches=tuple(replace(batch, total=2) for batch in fewer.batches),
-        )
-        outputs = [node for batch in fewer.batches for node in batch.plan.output_node_ids]
-        compilation = replace(compilation, goals=(fewer,))
-        outcome = _ticket(_observation(compilations=(compilation,))).outcome(
-            manifest_digest="d", observations=[]
-        )
 
     assert outcome is not None and outcome.plan is not None
     assert list(outcome.plan.output_node_ids) == outputs
     assert len({node.node_id for node in outcome.plan.nodes}) == len(outcome.plan.nodes)
     assert len(outcome.plan.nodes) <= 16
+
+
+def test_sides_beyond_eight_outputs_are_united_so_none_is_dropped(
+    caplog: pytest.LogCaptureFixture, events: list[dict[str, Any]]
+) -> None:
+    compilation = _relation_compilation("one_sense")
+    goal = compilation.goals[0]
+    sides = [node for batch in goal.batches for node in batch.plan.output_node_ids]
+    assert len(sides) > 8
+
+    outcome = _ticket(_observation(compilations=(compilation,))).outcome(
+        manifest_digest="d", observations=[]
+    )
+
+    # One plan names at most eight outputs; every side is still read and each reached
+    # endpoint type becomes one union output, verified and aligned like any other plan.
+    assert outcome is not None and outcome.plan is not None
+    unions = [node for node in outcome.plan.nodes if node.kind is QueryNodeKind.UNION]
+    assert [node.node_id for node in unions] == list(outcome.plan.output_node_ids)
+    assert sorted(item for node in unions for item in node.depends_on) == sorted(sides)
+    assert len(outcome.plan.nodes) <= 16
+    assert _completions(caplog) == ["selected"]
+
+
+def test_a_relation_read_beyond_one_intent_graph_is_declined_as_over_budget(
+    caplog: pytest.LogCaptureFixture, events: list[dict[str, Any]]
+) -> None:
+    compilation = _relation_compilation("all_kinds")
+    goal = compilation.goals[0]
+    assert goal.status is GoalStatus.COMPILED, goal.reasons
+    assert sum(len(batch.plan.output_node_ids) for batch in goal.batches) > 15
+
+    outcome = _ticket(_observation(compilations=(compilation,))).outcome(
+        manifest_digest="d", observations=[]
+    )
+
+    assert outcome is None
+    assert _decline_reasons(caplog) == ["merge_over_budget"]
 
 
 def test_batches_with_clashing_node_ids_are_declined(
