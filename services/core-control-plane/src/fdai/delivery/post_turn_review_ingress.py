@@ -6,7 +6,7 @@ import asyncio
 import logging
 from collections import deque
 from dataclasses import dataclass, field
-from typing import Any, Protocol, cast
+from typing import Protocol, cast
 
 from fdai_service_contracts.post_turn_review import (
     POST_TURN_REVIEW_REQUEST_CONSUMER_GROUP,
@@ -31,9 +31,11 @@ class PostTurnReviewRequestConsumer:
 
     Review is best-effort learning input: a publish failure is dead-lettered and logged instead
     of stopping the required intake task, and an absent Bragi fails closed without publishing.
+    The composition root resolves Bragi and injects it, so this relay never inspects Pantheon
+    agent instances.
     """
 
-    runtime: Any | None
+    publisher: object | None
     group_id: str = POST_TURN_REVIEW_REQUEST_CONSUMER_GROUP
     _seen: set[str] = field(default_factory=set)
     _order: deque[str] = field(default_factory=deque)
@@ -97,13 +99,9 @@ class PostTurnReviewRequestConsumer:
             return False
 
     def _bragi(self) -> BragiPostTurnPublisher | None:
-        if self.runtime is None:
+        if getattr(self.publisher, "publish_post_turn_review", None) is None:
             return None
-        candidate = self.runtime.agents.get("Bragi")
-        publisher = getattr(candidate, "publish_post_turn_review", None)
-        if publisher is None:
-            return None
-        return cast(BragiPostTurnPublisher, candidate)
+        return cast(BragiPostTurnPublisher, self.publisher)
 
     def _remember(self, key: str) -> None:
         self._seen.add(key)

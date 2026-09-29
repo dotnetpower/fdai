@@ -5,7 +5,6 @@ from __future__ import annotations
 import asyncio
 from contextlib import suppress
 from datetime import UTC, datetime
-from typing import Any
 
 from fdai.agents import PantheonRuntime
 from fdai.core.learning import (
@@ -67,7 +66,7 @@ async def test_core_ingress_republishes_once_through_bragi_and_duplicate_is_term
         raw_event_topic="runtime.raw-events",
         post_turn_review=runtime.coordinator,
     )
-    consumer = PostTurnReviewRequestConsumer(pantheon)
+    consumer = PostTurnReviewRequestConsumer(pantheon.agents.get("Bragi"))
     envelope = _request_envelope()
 
     assert await consumer.handle(bus=bus, envelope=envelope) is True
@@ -98,7 +97,7 @@ async def test_core_ingress_republishes_once_through_bragi_and_duplicate_is_term
 async def test_core_ingress_dead_letters_malformed_request() -> None:
     bus = InMemoryEventBus()
     pantheon = PantheonRuntime.build(provider=bus, raw_event_topic="runtime.raw-events")
-    consumer = PostTurnReviewRequestConsumer(pantheon)
+    consumer = PostTurnReviewRequestConsumer(pantheon.agents.get("Bragi"))
 
     accepted = await consumer.handle(
         bus=bus,
@@ -116,7 +115,7 @@ async def test_core_ingress_dead_letters_malformed_request() -> None:
 
 async def test_core_ingress_missing_bragi_fails_closed_without_publish() -> None:
     bus = InMemoryEventBus()
-    consumer = PostTurnReviewRequestConsumer(_NoBragiRuntime())
+    consumer = PostTurnReviewRequestConsumer(None)
 
     accepted = await consumer.handle(bus=bus, envelope=_request_envelope())
 
@@ -124,13 +123,9 @@ async def test_core_ingress_missing_bragi_fails_closed_without_publish() -> None
     assert [event async for event in bus.subscribe(POST_TURN_REVIEW_TOPIC, "assert-empty")] == []
 
 
-class _NoBragiRuntime:
-    agents: dict[str, Any] = {}
-
-
 async def test_core_ingress_dead_letters_a_failed_bragi_publish_without_stopping() -> None:
     bus = InMemoryEventBus()
-    consumer = PostTurnReviewRequestConsumer(_FailingBragiRuntime())
+    consumer = PostTurnReviewRequestConsumer(_FailingBragi())
 
     accepted = await consumer.handle(bus=bus, envelope=_request_envelope())
 
@@ -144,7 +139,3 @@ async def test_core_ingress_dead_letters_a_failed_bragi_publish_without_stopping
 class _FailingBragi:
     async def publish_post_turn_review(self, review: object) -> bool:
         raise ConnectionError("bus unavailable")
-
-
-class _FailingBragiRuntime:
-    agents: dict[str, Any] = {"Bragi": _FailingBragi()}

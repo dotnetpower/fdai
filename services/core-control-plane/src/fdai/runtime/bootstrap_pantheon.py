@@ -783,7 +783,9 @@ async def initialize_pantheon(
         t2_recovery_maintenance=t2_recovery_maintenance,
         discovery_activation=discovery_activation,
         alert_noise_handler=alert_noise_handler,
-        post_turn_review_request_consumer=PostTurnReviewRequestConsumer(pantheon_runtime),
+        post_turn_review_request_consumer=PostTurnReviewRequestConsumer(
+            pantheon_runtime.agents.get("Bragi")
+        ),
     )
 
 
