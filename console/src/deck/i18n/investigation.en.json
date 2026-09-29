@@ -1,0 +1,31 @@
+{
+  "stopped": "Stopped",
+  "not_completed": "Not completed",
+  "planned": "Planned: {waves}, {reads}",
+  "waveOne": "1 wave",
+  "wavesMany": "{count} waves",
+  "readOne": "1 read",
+  "readsMany": "{count} reads",
+  "budgetUsed": "Used: {usage}",
+  "budgetCalls": "{used} of {maximum} model calls",
+  "budgetTokens": "{used} of {maximum} tokens",
+  "budgetTokensReserved": "{used} plus {reserved} reserved of {maximum} tokens",
+  "budgetElapsed": "{used} of {maximum}",
+  "budgetReached": {
+    "deadline": "Turn deadline reached: {usage}",
+    "model_calls": "Model call limit reached: {usage}",
+    "tokens": "Token limit reached: {usage}",
+    "rate_limited": "Rate limited: {usage}",
+    "cancelled": "Cancelled: {usage}"
+  },
+  "budgetIncomplete": "{text}, measurement incomplete",
+  "contextApplied": "Context applied",
+  "noCurrentPreference": "No current preference",
+  "contextOnly": "Context only: it shapes the presentation and is not evidence or instructions.",
+  "freshness": {
+    "fresh": "Current",
+    "stale": "Stale",
+    "superseded": "Superseded"
+  },
+  "receiptObserved": "Observed {time}"
+}

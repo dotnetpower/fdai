@@ -12,6 +12,10 @@ import {
 
 const SHA = "a".repeat(64);
 const styles = readFileSync(fileURLToPath(new URL("../styles.css", import.meta.url)), "utf8");
+const conversationLayer = readFileSync(
+  fileURLToPath(new URL("../../../ui/calm-slate-deck-conversation.css", import.meta.url)),
+  "utf8",
+);
 
 function call(id: string, start: string, completed: string | null) {
   return {
@@ -102,12 +106,19 @@ describe("buildModelTraceBars", () => {
       format: "json",
       text: '{\n  "matched": true\n}',
     });
-    expect(styles).toContain("scrollbar-color: #68737e #101820;");
-    expect(styles).toContain(".deck-model-trace-messages pre::-webkit-scrollbar-thumb,");
+    // Message payloads scroll inside the shared code surface with a themed thin scrollbar.
+    expect(conversationLayer).toMatch(
+      /\.cs-deck-code-scroll \{[^}]*max-height: 260px;[^}]*overflow: auto;[^}]*color-scheme: dark;[^}]*scrollbar-width: thin;/s,
+    );
+    expect(styles).not.toContain(".deck-model-trace");
   });
 
   it("keeps standalone traces on the compact run-record type scale", () => {
-    expect(styles).toMatch(/\.deck-trajectory,\s*\.deck-model-trace\s*{[^}]*--deck-font-heading: 13px;[^}]*--deck-font-body: 12px;[^}]*--deck-font-small: 11px;[^}]*--deck-font-label: 11px;/s);
+    expect(conversationLayer).toMatch(
+      /\.cs-run-timeline-title,\s*\.cs-model-trace-title \{[^}]*font: 600 var\(--cs-type-compact-size\)\/var\(--cs-type-compact-line-height\) var\(--cs-font\);/s,
+    );
+    expect(conversationLayer).toMatch(/\.cs-model-trace-hash \{[^}]*font: var\(--cs-type-label-size\)\/1\.45 var\(--cs-font\);/s);
+    expect(styles).toMatch(/\.deck-trajectory \{[^}]*--deck-font-small: 12px;[^}]*--deck-font-label: 12px;/s);
   });
 
   it("renders content-free prompt profile and ordered layer evidence", () => {
@@ -116,11 +127,12 @@ describe("buildModelTraceBars", () => {
       "utf8",
     );
 
-    expect(source).toContain("deck-model-trace-prompt-manifest");
-    expect(source).toContain("call.prompt_manifest.system_text_sha256");
-    expect(source).toContain("call.prompt_manifest.profile_digest");
-    expect(source).toContain("call.prompt_manifest.layers.map");
-    expect(source).not.toContain("prompt_manifest.system_text:");
+    expect(source).toContain('aria-label={t("deck.modelTrace.promptManifest")}');
+    expect(source).toContain("const manifest = call.prompt_manifest;");
+    expect(source).toContain("manifest.system_text_sha256");
+    expect(source).toContain("manifest.profile_digest");
+    expect(source).toContain("manifest.layers.map");
+    expect(source).not.toContain("system_text:");
   });
 
   it("expands escaped JSON inside a model request message", () => {

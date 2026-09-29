@@ -72,7 +72,7 @@ test("all static chart tooltip variants consume shared semantic tokens", async (
     readFile(join(uiRoot, "assets/finops-resource-efficiency.css"), "utf8"),
     readFile(join(uiRoot, "assets/dashboard-resources.css"), "utf8"),
     readFile(join(uiRoot, "service-map.html"), "utf8"),
-    readFile(join(uiRoot, "deck.html"), "utf8"),
+    readFile(join(uiRoot, "assets/deck-study.css"), "utf8"),
   ]);
   const [tokens, shared, finops, resources, serviceMap, deck] = files;
   for (const token of [
@@ -93,7 +93,7 @@ test("all static chart tooltip variants consume shared semantic tokens", async (
     assert.match(source, /var\(--cs-tooltip-shadow,/);
   }
   assert.doesNotMatch(shared, /\.cs-(?:chart-mark-tip|live-chart-tooltip)[^}]*background:\s*var\(--cs-navy\)/);
-  assert.doesNotMatch(deck, /\.dk-tt[^}]*background:\s*var\(--cs-navy\)/);
+  assert.doesNotMatch(deck, /\.ds-tooltip[^}]*background:\s*var\(--cs-navy\)/);
 });
 
 test("Live chart tooltip follows light and dark themes with readable contrast", { timeout: 30000 }, async () => {
@@ -189,7 +189,7 @@ test("route-local chart tooltips share the same theme surfaces", { timeout: 6000
     const probes = [
       ["dashboard-v2.html", "#resource-hover-preview"],
       ["finops-resource-efficiency.html", "#cost-chart-tooltip"],
-      ["deck.html", ".dk-tt"],
+      ["deck.html", ".ds-tooltip"],
       ["components.html", ".cs-tooltip-content"],
     ];
     for (const [path, selector] of probes) {

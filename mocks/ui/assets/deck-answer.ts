@@ -124,8 +124,11 @@ function markdown(host: HTMLElement, text: string, options: AnswerOptions): void
   }
 }
 
-function structuredTable(data: PresentationTableData, options: AnswerOptions): HTMLElement {
-  return table(data.columns.map(column => column.label), data.rows.map(row => data.columns.map(column => row[column.key] ?? "")), undefined, options);
+// A block's table is named by its block title, which the block heading already shows.
+function structuredTable(data: PresentationTableData, label: string, options: AnswerOptions): HTMLElement {
+  const wrapper = table(data.columns.map(column => column.label), data.rows.map(row => data.columns.map(column => row[column.key] ?? "")), undefined, options);
+  wrapper.querySelector("table")?.setAttribute("aria-label", label);
+  return wrapper;
 }
 
 function blockBody(block: PresentationBlock, options: AnswerOptions): HTMLElement {
@@ -151,7 +154,7 @@ function blockBody(block: PresentationBlock, options: AnswerOptions): HTMLElemen
       body.append(paragraph);
     }
   } else if (block.kind === "table" || block.kind === "threshold_table" || block.kind === "list") {
-    body.append(structuredTable(block.data, options));
+    body.append(structuredTable(block.data, block.title, options));
   } else if (block.kind === "evidence") {
     const facts = element("dl");
     for (const item of block.data.items) {
@@ -161,7 +164,7 @@ function blockBody(block: PresentationBlock, options: AnswerOptions): HTMLElemen
     }
     body.append(facts);
   } else if ("exactTable" in block.data) {
-    body.append(structuredTable(block.data.exactTable, options));
+    body.append(structuredTable(block.data.exactTable, block.title, options));
   } else {
     body.append(code(JSON.stringify(block.data, null, 2), "json"));
   }

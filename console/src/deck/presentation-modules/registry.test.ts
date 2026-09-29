@@ -52,10 +52,17 @@ describe("presentation module registry", () => {
 
     expect(shell).toContain("PresentationModuleView");
     expect(shell).not.toMatch(/block\.kind\s*===/);
-    expect(css).toContain(".deck-presentation-exact-values");
-    expect(css).toMatch(/\.deck-presentation-exact-values > summary \{[^}]*min-height: 44px;/s);
-    expect(css).toMatch(/\.deck-presentation-block\.is-collapsible > summary \{[^}]*min-height: 44px;/s);
-    expect(css).toContain(".deck-presentation-exact-values > summary:focus-visible");
+    // Exact values and collapsed blocks open as the conversation layer's quiet disclosure, which
+    // keeps a visible focus ring and a 44px touch target on narrow screens.
+    const charts = readFileSync(fileURLToPath(new URL("./charts.tsx", import.meta.url)), "utf8");
+    const layer = readFileSync(
+      fileURLToPath(new URL("../../../../ui/calm-slate-deck-conversation.css", import.meta.url)),
+      "utf8",
+    );
+    expect(charts).toContain('<details class="deck-presentation-exact-values cs-deck-disclosure">');
+    expect(shell).toContain('class="deck-presentation-block is-collapsible cs-deck-disclosure"');
+    expect(layer).toMatch(/\.cs-deck-disclosure-summary:focus-visible \{[^}]*outline: 2px solid var\(--cs-steel\);/s);
+    expect(layer).toMatch(/@media \(max-width: 640px\) \{\s*:is\([^)]*\.cs-deck-disclosure-summary\) \{\s*min-height: 44px;/);
     expect(chartCss).toContain(".fd-chart-point:focus-visible");
     expect(chartCss).toContain(".fd-bar-track:focus-visible");
     expect(css).toContain(".deck-presentation-comparison-track:focus-visible");

@@ -24,19 +24,12 @@ export function settleCancelledTurns(turns: readonly Turn[]): readonly Turn[] {
   return turns.map((turn) => {
     if (!turn.streaming) return turn;
     if (turn.kind === "activity") {
+      // Reads keep their last observed status; the turn records that the operator stopped them.
       return {
         ...turn,
         streaming: false,
         terminal: true,
-        ...(turn.activities
-          ? {
-              activities: turn.activities.map((activity) =>
-                activity.status === "pending" || activity.status === "running"
-                  ? { ...activity, status: "unavailable" as const }
-                  : activity
-              ),
-            }
-          : {}),
+        stopped: true,
         ...(turn.branches
           ? {
               branches: turn.branches.map((branch) =>

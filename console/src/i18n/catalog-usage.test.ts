@@ -20,6 +20,8 @@ import ontologyCatalog from "../routes/i18n/ontology.en.json";
 import processesCatalog from "../routes/i18n/processes.en.json";
 import provisionCatalog from "../routes/i18n/provision.en.json";
 import workflowCatalog from "../routes/i18n/workflow.en.json";
+import investigationCatalog from "../deck/i18n/investigation.en.json";
+import conversationLayerCatalog from "../deck/i18n/conversation-layer.en.json";
 
 const SOURCE_ROOT = join(process.cwd(), "src");
 const STATIC_TRANSLATION = /\bt\(\s*["']([^"']+)["']/g;
@@ -142,6 +144,8 @@ describe("console static translation keys", () => {
       ...catalogKeys(workflowCatalog),
       ...catalogKeys({ workflow: workflowCatalog }),
     ]);
+    const investigationKeys = catalogKeys({ deck: { investigation: investigationCatalog } });
+    const conversationLayerKeys = catalogKeys({ deck: conversationLayerCatalog });
     const missing: string[] = [];
 
     for (const file of sourceFiles(SOURCE_ROOT)) {
@@ -185,6 +189,10 @@ describe("console static translation keys", () => {
             ? processesKeys
           : catalogImport.includes("i18n/provision")
             ? provisionKeys
+          : catalogImport.includes('from "./i18n/investigation"')
+            ? investigationKeys
+          : catalogImport.includes('i18n/conversation-layer"')
+            ? conversationLayerKeys
             : new Set<string>();
       const expected = new Set([...mainKeys, ...routeKeys]);
       for (const key of staticKeys(source)) {

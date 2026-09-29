@@ -33,13 +33,14 @@ async function openStudy(browser, query = {}, options = {}) {
   const errors = [];
   page.on("pageerror", (error) => errors.push(String(error)));
   page.on("response", (response) => { if (response.status() >= 400) errors.push(`${response.status()} ${response.url()}`); });
-  const search = new URLSearchParams(query).toString();
-  await page.goto(`${origin}/?deck-adaptive=${Date.now()}#mocks/ui/deck-adaptive.html${search ? `?${search}` : ""}`,
+  // The investigation form of the one Command deck page replays the adaptive fixtures.
+  const search = new URLSearchParams({ form: "investigation", ...query }).toString();
+  await page.goto(`${origin}/?deck-adaptive=${Date.now()}#mocks/ui/deck.html?${search}`,
     { waitUntil: "load" });
   await page.waitForFunction(() => {
     const frame = document.querySelector("#preview-frame");
     return frame?.contentDocument?.readyState === "complete"
-      && frame.contentWindow.location.pathname === "/mocks/ui/deck-adaptive.html";
+      && frame.contentWindow.location.pathname === "/mocks/ui/deck.html";
   });
   const frame = await (await page.locator("#preview-frame").elementHandle()).contentFrame();
   return { context, page, frame, errors };
@@ -69,13 +70,17 @@ function expectedActivityStatuses(doc) {
 }
 
 test("study page replays every shared synthetic fixture", async () => {
-  const [{ index, byName }, html] = await Promise.all([fixtures(), readFile(join(uiRoot, "deck-adaptive.html"), "utf8")]);
-  assert.match(html, /<body[^>]*\bdata-study="adaptive"/);
+  const [{ index, byName }, html, engine, retired] = await Promise.all([fixtures(),
+    readFile(join(uiRoot, "deck.html"), "utf8"), readFile(join(uiRoot, "assets/deck-sources.js"), "utf8"),
+    readFile(join(uiRoot, "deck-adaptive.html"), "utf8")]);
+  assert.match(html, /<button type="button" data-form="investigation"/);
   assert.match(html, /assets\/deck-sources\.js\?v=/);
   assert.match(html, /calm-slate-deck-conversation\.css\?v=/);
   assert.doesNotMatch(html, /\sstyle="/);
-  const buttons = [...html.matchAll(/data-scenario="([a-z-]+)"/g)].map((match) => match[1]);
-  assert.deepEqual(buttons, index.scenarios.map((entry) => entry.scenario));
+  // The retired study URL keeps working: it opens the investigation form with its parameters.
+  assert.match(retired, /query\.set\("form", "investigation"\)/);
+  const order = JSON.parse(engine.match(/var INVESTIGATIONS = (\[[^\]]+\]);/)[1]);
+  assert.deepEqual(order, index.scenarios.map((entry) => entry.scenario));
   for (const [name, { text, doc }] of Object.entries(byName)) {
     assert.equal(doc.schema, "fdai.mock.adaptive-investigation/1", name);
     assert.equal(doc.scenario, name);

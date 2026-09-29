@@ -6,7 +6,7 @@ export function ListModule({ block }: PresentationModuleProps) {
   return (
     <div class="deck-presentation-list">
       {block.data.rows.map((row, index) => (
-        <dl key={index}>
+        <dl key={index} class="cs-run-facts">
           {block.data.columns.map((column) => (
             <div key={column.key}>
               <dt>{column.label}</dt>

@@ -27,7 +27,7 @@
       "owner": "Console design system",
       "api": "cp-scheme / --cs-*",
       "source": "ui/calm-slate-tokens.css",
-      "routes": [{"label": "Adaptive chat mock", "href": "deck-sources-v2.html"}],
+      "routes": [{"label": "Command deck mock", "href": "deck.html"}],
       "states": ["current light theme", "current dark theme", "copy success", "clipboard unavailable", "measured contrast"],
       "interaction_roles": ["standard_action"],
       "use_when": "Compare the same chat, buttons, and status labels across the current light and dark themes before changing shared tokens.",

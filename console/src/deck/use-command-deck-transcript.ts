@@ -3,9 +3,12 @@ import { matchingTurnIndexes } from "./command-deck-session";
 import type { Turn } from "./command-deck-presenters";
 import type { ConversationSummary } from "./conversation-sessions";
 import {
-  contentResizeScrollTop,
+  followAfterScroll,
+  followStepScrollTop,
+  followTargetScrollTop,
   isNearBottom,
-  revealTargetScrollTop,
+  jumpToLatestVisible,
+  type FollowState,
 } from "./scroll-stick";
 import { serializeTurns, transcriptKeyFor } from "./transcript-store";
 import { sessionStore } from "./use-command-deck-sessions";
@@ -33,74 +36,105 @@ export function useCommandDeckTranscript({
 }: UseCommandDeckTranscriptOptions) {
   const [searchQuery, setSearchQuery] = useState("");
   const [activeSearchMatch, setActiveSearchMatch] = useState(0);
-  const [stuck, setStuck] = useState(true);
+  const [jumpVisible, setJumpVisible] = useState(false);
   const scrollerRef = useRef<HTMLDivElement | null>(null);
-  const scrollFrameRef = useRef<number | null>(null);
-  const anchoredUntilRef = useRef(0);
-  const stuckRef = useRef(true);
+  const followFrameRef = useRef<number | null>(null);
+  const followRef = useRef<FollowState>({ following: true, mode: "bottom", expected: 0 });
+  // The question being answered and, once the turn settles, the element to reveal below it.
+  const pinRef = useRef<string | null>(null);
+  const revealRef = useRef<{ readonly turnId: string; readonly childSelector: string } | null>(null);
+
+  const followTarget = useCallback((scroller: HTMLElement): number => {
+    const scrollerTop = scroller.getBoundingClientRect().top;
+    const contentTop = (element: Element) =>
+      element.getBoundingClientRect().top - scrollerTop + scroller.scrollTop;
+    const pin = pinRef.current ? document.getElementById(`deck-turn-${pinRef.current}`) : null;
+    const revealTurn = revealRef.current
+      ? document.getElementById(`deck-turn-${revealRef.current.turnId}`)
+      : null;
+    const reveal = revealTurn && revealRef.current
+      ? revealTurn.querySelector(revealRef.current.childSelector) ?? revealTurn
+      : null;
+    return followTargetScrollTop(followRef.current.mode, {
+      maxScrollTop: scroller.scrollHeight - scroller.clientHeight,
+      clientHeight: scroller.clientHeight,
+      pinTop: pin && scroller.contains(pin) ? contentTop(pin) : null,
+      revealBottom: reveal && scroller.contains(reveal)
+        ? contentTop(reveal) + reveal.getBoundingClientRect().height
+        : null,
+    });
+  }, []);
+
+  // Only real content counts as newer below; the transcript's bottom padding is blank.
+  const updateJump = useCallback((scroller: HTMLElement) => {
+    const last = scroller.firstElementChild?.lastElementChild;
+    const contentBelow = last
+      ? last.getBoundingClientRect().bottom - scroller.getBoundingClientRect().bottom
+      : 0;
+    setJumpVisible(jumpToLatestVisible(
+      scroller.scrollHeight - scroller.clientHeight - scroller.scrollTop,
+      contentBelow,
+    ));
+  }, []);
+
+  const applyFollow = useCallback(() => {
+    const scroller = scrollerRef.current;
+    if (!scroller) return;
+    const next = followStepScrollTop(followRef.current, scroller.scrollTop, followTarget(scroller));
+    if (next !== null) scroller.scrollTop = next;
+    followRef.current = { ...followRef.current, expected: scroller.scrollTop };
+    updateJump(scroller);
+  }, [followTarget, updateJump]);
+
+  const scheduleFollow = useCallback(() => {
+    if (followFrameRef.current !== null) cancelAnimationFrame(followFrameRef.current);
+    followFrameRef.current = requestAnimationFrame(() => {
+      followFrameRef.current = null;
+      applyFollow();
+    });
+  }, [applyFollow]);
+
+  useEffect(() => () => {
+    if (followFrameRef.current !== null) cancelAnimationFrame(followFrameRef.current);
+  }, []);
 
   const lastTurnLength = turns.length > 0
     ? (turns[turns.length - 1]?.text.length ?? 0)
     : 0;
   useEffect(() => {
-    if (!stuck) return;
-    if (scrollFrameRef.current !== null) cancelAnimationFrame(scrollFrameRef.current);
-    scrollFrameRef.current = requestAnimationFrame(() => {
-      scrollFrameRef.current = null;
-      const scroller = scrollerRef.current;
-      if (!scroller) return;
-      const gap = scroller.scrollHeight - scroller.clientHeight - scroller.scrollTop;
-      if (gap > 1) scroller.scrollTop = scroller.scrollHeight;
-    });
-    return () => {
-      if (scrollFrameRef.current !== null) {
-        cancelAnimationFrame(scrollFrameRef.current);
-        scrollFrameRef.current = null;
-      }
-    };
-  }, [lastTurnLength, stuck, turns.length]);
+    scheduleFollow();
+  }, [lastTurnLength, scheduleFollow, turns.length]);
+
+  // A different conversation starts at its newest content.
+  useEffect(() => {
+    pinRef.current = null;
+    revealRef.current = null;
+    followRef.current = { following: true, mode: "bottom", expected: 0 };
+    scheduleFollow();
+  }, [scheduleFollow, sessionKey]);
 
   useEffect(() => {
     if (!open) return;
     const scroller = scrollerRef.current;
     const content = scroller?.firstElementChild;
     if (!scroller || !content || typeof ResizeObserver === "undefined") return;
-
-    let resizeFrame: number | null = null;
-    const observer = new ResizeObserver(() => {
-      if (resizeFrame !== null) cancelAnimationFrame(resizeFrame);
-      resizeFrame = requestAnimationFrame(() => {
-        resizeFrame = null;
-        scroller.scrollTop = contentResizeScrollTop(
-          stuckRef.current,
-          scroller.scrollTop,
-          scroller.scrollHeight,
-        );
-      });
-    });
+    const observer = new ResizeObserver(() => scheduleFollow());
     observer.observe(content);
-    return () => {
-      observer.disconnect();
-      if (resizeFrame !== null) cancelAnimationFrame(resizeFrame);
-    };
-  }, [open]);
+    return () => observer.disconnect();
+  }, [open, scheduleFollow]);
 
   const onTranscriptScroll = useCallback(() => {
     const scroller = scrollerRef.current;
     if (!scroller) return;
-    if (performance.now() < anchoredUntilRef.current) {
-      stuckRef.current = false;
-      setStuck(false);
-      return;
-    }
-    const nextStuck = isNearBottom(
+    const next = followAfterScroll(
+      followRef.current,
       scroller.scrollTop,
-      scroller.scrollHeight,
-      scroller.clientHeight,
+      followTarget(scroller),
+      isNearBottom(scroller.scrollTop, scroller.scrollHeight, scroller.clientHeight),
     );
-    stuckRef.current = nextStuck;
-    setStuck(nextStuck);
-  }, []);
+    followRef.current = next;
+    updateJump(scroller);
+  }, [followTarget, updateJump]);
 
   useEffect(() => {
     turnsRef.current = turns;
@@ -125,45 +159,36 @@ export function useCommandDeckTranscript({
   const jumpToLatest = useCallback(() => {
     const scroller = scrollerRef.current;
     if (!scroller) return;
+    followRef.current = { following: true, mode: "bottom", expected: scroller.scrollTop };
     scroller.scrollTop = scroller.scrollHeight;
-    stuckRef.current = true;
-    setStuck(true);
-  }, []);
+    applyFollow();
+  }, [applyFollow]);
 
-  const pinTranscriptToLatest = useCallback(() => {
-    stuckRef.current = true;
-    setStuck(true);
-    requestAnimationFrame(() => {
-      requestAnimationFrame(() => {
-        const scroller = scrollerRef.current;
-        if (scroller) scroller.scrollTop = scroller.scrollHeight;
-      });
-    });
-  }, []);
+  /** A new question is pinned: the view follows its answer without lifting the question away. */
+  const followQuestion = useCallback((turnId: string) => {
+    pinRef.current = turnId;
+    revealRef.current = null;
+    followRef.current = {
+      following: true,
+      mode: "pin",
+      expected: scrollerRef.current?.scrollTop ?? 0,
+    };
+    scheduleFollow();
+  }, [scheduleFollow]);
 
+  /** New live content arrived; a follower moves toward it, a reader who scrolled away stays put. */
+  const followLatestContent = useCallback(() => {
+    requestAnimationFrame(() => scheduleFollow());
+  }, [scheduleFollow]);
+
+  /** A settled turn reveals its verification row when the view is still following. */
   const revealCompletedWork = useCallback((
     turnId: string,
-    childSelector?: string,
+    childSelector: string,
   ) => {
-    anchoredUntilRef.current = performance.now() + 1000;
-    stuckRef.current = false;
-    setStuck(false);
-    requestAnimationFrame(() => {
-      requestAnimationFrame(() => {
-        const scroller = scrollerRef.current;
-        const turn = document.getElementById(`deck-turn-${turnId}`);
-        const target = childSelector
-          ? turn?.querySelector<HTMLElement>(childSelector) ?? turn
-          : turn;
-        if (!scroller || !target || !scroller.contains(target)) return;
-        scroller.scrollTop = revealTargetScrollTop(
-          scroller.scrollTop,
-          scroller.getBoundingClientRect().top,
-          target.getBoundingClientRect().top,
-        );
-      });
-    });
-  }, []);
+    revealRef.current = { turnId, childSelector };
+    requestAnimationFrame(() => scheduleFollow());
+  }, [scheduleFollow]);
 
   const searchMatches = useMemo(
     () => matchingTurnIndexes(turns, searchQuery),
@@ -195,16 +220,17 @@ export function useCommandDeckTranscript({
 
   return {
     activeSearchMatch,
+    followLatestContent,
+    followQuestion,
     jumpToLatest,
+    jumpVisible,
     moveSearch,
     onTranscriptScroll,
-    pinTranscriptToLatest,
     revealCompletedWork,
     scrollerRef,
     searchMatches,
     searchQuery,
     setActiveSearchMatch,
     setSearchQuery,
-    stuck,
   };
 }

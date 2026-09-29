@@ -8,21 +8,21 @@ const read = (path) => readFileSync(join(uiRoot, path), "utf8");
 const correlation = "sample-query-connected-resources-01";
 
 test("Command Deck exposes one bounded Resource context and honest evidence posture", () => {
-  const deck = read("deck.html");
-  assert.match(deck, /Selected Resource<\/span><strong>checkout-api/);
-  assert.match(deck, new RegExp(correlation));
-  assert.match(deck, /total response 7\.8 s/);
-  assert.match(deck, /Verified facts/);
-  assert.match(deck, /Unavailable evidence/);
-  assert.match(deck, /Not claimed/);
-  assert.match(deck, /runtime-environment<\/td><td><code>contains/);
-  assert.match(deck, /six direct typed relationships/i);
-  assert.match(deck, /What changed recently for this service/);
-  assert.match(deck, /Event time[\s\S]*Known at[\s\S]*Sources/);
-  assert.doesNotMatch(
-    deck.match(/<section class="flow-featured-query"[\s\S]*?<\/section>/)?.[0] || "",
-    /<button[^>]*>\s*(Approve|Execute|Apply)/i,
-  );
+  // The connected-resources scenario of the deck's answer form carries the shared correlation.
+  const forms = read("assets/deck-forms.js");
+  const scenario = forms.slice(forms.indexOf("var CONNECTED = {"), forms.indexOf("// ---------- Incident form"));
+  assert.match(scenario, /question: "Show me the resources connected to checkout-api\."/);
+  assert.match(scenario, /screen: \{ route: "inventory", resource: "checkout-api" \}/);
+  assert.match(scenario, new RegExp(`correlation: "${correlation}"`));
+  assert.match(scenario, /title: "Verified facts"/);
+  assert.match(scenario, /title: "Unavailable evidence"/);
+  assert.match(scenario, /title: "Not claimed"/);
+  assert.match(scenario, /\["runtime-environment", "contains", "Incoming", "02:31 UTC"\]/);
+  assert.match(scenario, /six direct typed relationships/i);
+  assert.match(scenario, /What changed recently for this service\?/);
+  assert.match(scenario, /\["Event time",[\s\S]*\["Known at",[\s\S]*\["Sources",/);
+  assert.doesNotMatch(scenario, /label: "(?:Approve|Execute|Apply)\b/i);
+  assert.doesNotMatch(scenario, /type: "(?:proposal|consent)"/);
 });
 
 test("Ontology Instances embeds the actual 2D mock behind the existing tab", () => {

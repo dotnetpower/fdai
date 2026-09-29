@@ -4,7 +4,7 @@ import { PresentationValue } from "./value";
 export function EvidenceModule({ block }: PresentationModuleProps) {
   if (block.kind !== "evidence") return null;
   return (
-    <dl class="deck-presentation-evidence">
+    <dl class="deck-presentation-evidence cs-run-facts">
       {block.data.items.map((item) => (
         <div key={item.label}>
           <dt>{item.label}</dt>

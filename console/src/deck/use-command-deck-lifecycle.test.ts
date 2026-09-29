@@ -12,7 +12,7 @@ const baseTurn = {
 } satisfies Partial<Turn>;
 
 describe("settleCancelledTurns", () => {
-  it("preserves observed investigation activity text and evidence", () => {
+  it("records the stop and keeps each read's last observed status", () => {
     const activity: Turn = {
       ...baseTurn,
       role: "deck",
@@ -37,12 +37,13 @@ describe("settleCancelledTurns", () => {
       }],
     };
 
+    // The read never reported an end, so it is shown as stopped rather than as unavailable.
     expect(settleCancelledTurns([activity])).toEqual([
       {
         ...activity,
         streaming: false,
         terminal: true,
-        activities: [{ ...activity.activities![0], status: "unavailable" }],
+        stopped: true,
         branches: [{ ...activity.branches![0], status: "cancelled" }],
       },
     ]);

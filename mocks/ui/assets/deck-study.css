@@ -1,4 +1,4 @@
-/* Page chrome for the Command deck conversation studies (sources and adaptive investigation).
+/* Page chrome for the Command deck study (deck.html), which replays every response form.
    Conversation roles live in ui/calm-slate-deck-conversation.css; these ds-* rules only frame the
    synthetic preview and are not part of the portable layer. */
 .ds-page {
@@ -54,6 +54,12 @@
   gap: 12px;
   padding: 12px 14px 14px;
   border-top: 1px solid var(--cs-hairline);
+}
+
+/* The Answer form's common answer preview keeps the preview body's rhythm. */
+.ds-answer-tool:not([hidden]) {
+  display: grid;
+  gap: 12px;
 }
 
 .ds-preview-lead {
@@ -149,7 +155,7 @@
 .ds-header {
   min-width: 0;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(180px, 320px) auto;
+  grid-template-columns: minmax(0, 1fr) minmax(180px, 280px) auto;
   align-items: center;
   gap: 8px 12px;
   padding: 8px 12px 8px 16px;
@@ -279,6 +285,163 @@
 }
 
 .ds-body-grid { grid-template-rows: minmax(0, 1fr); }
+
+/* A header toggle with a count stays one control; its pressed state uses the same quiet tint. */
+.ds-header-actions .ds-history {
+  width: auto;
+  min-width: 34px;
+  gap: 4px;
+  display: inline-flex;
+  align-items: center;
+  padding: 0 8px;
+}
+
+.ds-history-count {
+  color: var(--cs-text-soft);
+  font: 600 var(--cs-type-label-size)/1 var(--cs-font);
+  font-variant-numeric: tabular-nums;
+}
+
+.ds-icon-button.is-active {
+  border-color: color-mix(in srgb, var(--cs-steel) 35%, var(--cs-hairline));
+  background: color-mix(in srgb, var(--cs-steel) 8%, var(--cs-card));
+  color: var(--cs-text);
+}
+
+/* History and screen-context panels reuse the Console shell geometry from the shared primitives. */
+.ds-panel {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px;
+  overflow-y: auto;
+}
+
+.ds-panel[hidden] { display: none; }
+
+/* The shared shell shows the scrim as an overlay layer; a closed history panel must not keep it. */
+.ds-body-grid > .cs-deck-conversation-scrim[hidden] { display: none; }
+
+.ds-panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.ds-panel-title {
+  margin: 0;
+  color: var(--cs-text);
+  font: 650 var(--cs-type-compact-size)/var(--cs-type-compact-line-height) var(--cs-font);
+}
+
+.ds-panel-filter {
+  width: 100%;
+  min-height: 32px;
+  box-sizing: border-box;
+  padding: 4px 10px;
+  border: 1px solid color-mix(in srgb, var(--cs-text) 48%, var(--cs-hairline));
+  border-radius: var(--cs-radius-sm);
+  background: var(--cs-bg);
+  color: var(--cs-text);
+  font: var(--cs-type-compact-size) var(--cs-font);
+}
+
+.ds-panel-filter:focus-visible {
+  border-color: var(--cs-steel);
+  outline: 2px solid color-mix(in srgb, var(--cs-steel) 30%, transparent);
+}
+
+.ds-conversation-groups { display: grid; gap: 12px; }
+.ds-conversation-group[hidden] { display: none; }
+
+.ds-conversation-group-title {
+  margin: 0 0 4px;
+  color: var(--cs-text-soft);
+  font: 600 var(--cs-type-label-size)/var(--cs-type-label-line-height) var(--cs-font);
+}
+
+.ds-conversation-list {
+  display: grid;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ds-conversation-list > li[hidden] { display: none; }
+
+.ds-conversation-item {
+  width: 100%;
+  min-height: 44px;
+  box-sizing: border-box;
+  display: grid;
+  gap: 1px;
+  padding: 6px 8px;
+  border: 1px solid transparent;
+  border-radius: var(--cs-radius-sm);
+  background: transparent;
+  color: var(--cs-text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.ds-conversation-item:hover { background: color-mix(in srgb, var(--cs-text) 4%, var(--cs-card)); }
+.ds-conversation-item:focus-visible { outline: 2px solid var(--cs-steel); outline-offset: 1px; }
+
+.ds-conversation-item[aria-current="true"] {
+  border-color: color-mix(in srgb, var(--cs-steel) 35%, var(--cs-hairline));
+  background: color-mix(in srgb, var(--cs-steel) 8%, var(--cs-card));
+}
+
+.ds-conversation-title {
+  font-size: var(--cs-type-compact-size);
+  font-weight: 600;
+  line-height: var(--cs-type-compact-line-height);
+  overflow-wrap: anywhere;
+}
+
+.ds-conversation-meta,
+.ds-panel-empty,
+.ds-digest-time,
+.ds-digest-note {
+  margin: 0;
+  color: var(--cs-text-soft);
+  font-size: var(--cs-type-label-size);
+  line-height: var(--cs-type-label-line-height);
+}
+
+.ds-digest-body {
+  display: grid;
+  justify-items: start;
+  gap: 10px;
+}
+
+.ds-digest-state {
+  margin: 0;
+  color: var(--cs-text);
+  font: 600 var(--cs-type-compact-size)/var(--cs-type-compact-line-height) var(--cs-font);
+}
+
+.ds-digest-state.is-off { color: var(--cs-text-soft); }
+
+.ds-digest-facts {
+  width: 100%;
+  display: grid;
+  gap: 6px;
+  margin: 0;
+}
+
+.ds-digest-facts > div {
+  display: grid;
+  grid-template-columns: 84px minmax(0, 1fr);
+  gap: 8px;
+}
+
+.ds-digest-facts dt { color: var(--cs-text-soft); font-size: var(--cs-type-label-size); }
+.ds-digest-facts dd { margin: 0; font-size: var(--cs-type-compact-size); overflow-wrap: anywhere; }
 :is(.ds-header, .ds-body-grid, .ds-composer, .ds-closed)[hidden] { display: none; }
 
 .ds-agent-icon {
@@ -352,11 +515,11 @@
   max-width: min(320px, calc(100vw - 16px));
   box-sizing: border-box;
   padding: 6px 9px;
-  border: 1px solid var(--cs-tooltip-border);
+  border: 1px solid var(--cs-tooltip-border, var(--cs-hairline));
   border-radius: 6px;
-  background: var(--cs-tooltip-bg);
-  color: var(--cs-tooltip-text);
-  box-shadow: var(--cs-tooltip-shadow);
+  background: var(--cs-tooltip-bg, var(--cs-card));
+  color: var(--cs-tooltip-text, var(--cs-text));
+  box-shadow: var(--cs-tooltip-shadow, 0 8px 24px rgba(24, 31, 38, .14));
   font: var(--cs-type-label-size)/1.4 var(--cs-font);
   overflow-wrap: anywhere;
   pointer-events: none;
@@ -374,6 +537,17 @@
   .ds-tooltip { transition: none; }
 }
 
+/* The shared shell hides the context panel where the history panel becomes an overlay. */
+@media (max-width: 1100px) {
+  .ds-digest-toggle { display: none; }
+}
+
+/* The conversation title is the header's identity, so the search narrows before the title truncates. */
+@container ds-workspace (max-width: 900px) {
+  .ds-header { grid-template-columns: minmax(0, 1fr) minmax(160px, 220px) auto; }
+  .ds-kbd { display: none; }
+}
+
 @container ds-workspace (max-width: 720px) {
   .ds-header { grid-template-columns: minmax(0, 1fr) minmax(140px, 220px) auto; }
   .ds-header-route,
@@ -389,8 +563,9 @@
   .ds-page { padding: 8px 10px 12px; }
   .ds-icon-button,
   .ds-header-actions .ds-icon-button { width: 44px; height: 44px; }
-  .ds-search { min-height: 48px; }
-  .ds-search-input { height: 40px; }
+  .ds-search { min-height: 50px; }
+  .ds-search-input { height: 44px; }
+  .ds-panel-filter { min-height: 44px; }
   .ds-preview-label { min-width: 0; flex-basis: 100%; }
 }
 
@@ -464,7 +639,8 @@ body[data-sources-layout="readable"] .ds-services > summary {
   align-items: center;
   gap: 6px 12px;
   min-height: 28px;
-  padding: 2px 16px;
+  /* The summary shares the transcript and composer column, as the readiness strip does. */
+  padding: 2px max(16px, calc((100% - 900px) / 2));
   box-sizing: border-box;
   cursor: pointer;
 }
@@ -572,4 +748,12 @@ body[data-sources-layout="readable"][data-sources-overflow="expanded"] .cs-deck-
   body[data-sources-layout="readable"] :is(.cs-deck-tool, .cs-deck-context-chip, .cs-deck-jump, .ds-evidence-return, .cs-deck-source-open, .cs-deck-composer-send, .cs-deck-composer-input) { min-height: 44px; }
   body[data-sources-layout="readable"] .cs-deck-tool-icon { min-width: 44px; }
   body[data-sources-layout="readable"] .ds-preview > summary { min-height: 44px; }
+}
+
+/* The Command deck header carries more actions than the sources study, so on a phone the readable
+   title takes its own row instead of wrapping one character per line beside them. */
+@container ds-workspace (max-width: 440px) {
+  body[data-sources-layout="readable"] .ds-header { grid-template-columns: minmax(0, 1fr); }
+  body[data-sources-layout="readable"] .ds-header-actions { justify-self: end; }
+  body[data-sources-layout="readable"] .ds-header[data-search-open="true"] .ds-search { grid-row: 3; }
 }

@@ -496,6 +496,43 @@ describe("serializeTurns", () => {
     expect(parsed[0]?.activities?.[0]?.execution?.output).toContain("available");
   });
 
+  it("keeps a stopped investigation's plan pin and stop marker", () => {
+    const stopped = {
+      id: "activity-stopped",
+      role: "deck" as const,
+      kind: "activity" as const,
+      text: "Check health",
+      at: "10:00:00",
+      terminal: true,
+      stopped: true,
+      workProgressShape: { schema_version: 1 as const, density: "procedural" as const, waves: 2, planned_reads: 3 },
+      activities: [{
+        activityId: "health",
+        kind: "ontology_query",
+        status: "running" as const,
+        label: "Check health",
+        completed: 0,
+        total: 1,
+      }],
+    };
+    const [restored] = parseTurns(serializeTurns([stopped]));
+
+    expect(restored?.stopped).toBe(true);
+    expect(restored?.workProgressShape).toEqual(stopped.workProgressShape);
+    expect(restored?.activities?.[0]?.status).toBe("running");
+    // A malformed pin is dropped on its own; the stop marker belongs only to activity turns.
+    const [malformed] = parseTurns(JSON.stringify([{
+      ...stopped,
+      workProgressShape: { ...stopped.workProgressShape, waves: 9 },
+    }]));
+    expect(malformed?.workProgressShape).toBeUndefined();
+    expect(malformed?.stopped).toBe(true);
+    const [message] = parseTurns(JSON.stringify([{
+      id: "message", role: "deck", text: "Answer", at: "10:00:01", terminal: true, stopped: true,
+    }]));
+    expect(message?.stopped).toBeUndefined();
+  });
+
   it("drops browser-local activities with contradictory execution provenance", () => {
     const serialized = JSON.stringify([{
       id: "activity",
