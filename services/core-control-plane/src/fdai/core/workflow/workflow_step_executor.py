@@ -11,6 +11,18 @@ from fdai.core.workflow.approval import StepApproval
 from fdai.core.workflow.approval_admission import (
     workflow_approval_admission_rejection_reasons,
 )
+from fdai.core.workflow.dispatch_claim import (
+    DEFAULT_ACTION_DISPATCH_CLAIM_LEASE,
+    claim_action_dispatch,
+    claim_is_current,
+    dispatch_event,
+    record_action_dispatched,
+)
+from fdai.core.workflow.step_helpers import (
+    branch_event,
+    redacted_params,
+    timed_out,
+)
 from fdai.core.workflow.workflow_action_outcome import (
     ActionOutcomeDisposition,
     resolve_action_outcome,
@@ -31,7 +43,6 @@ from fdai.core.workflow.workflow_runtime import (
     step_result,
     truthy,
 )
-from fdai.rule_catalog.schema.action_type import argument_schema_redaction_paths
 from fdai.shared.contracts.models import Mode, OntologyActionType, WorkflowStepKind
 from fdai.shared.providers.decision_evidence_verifier import (
     DecisionEvidenceAdmissionProvider,
@@ -75,6 +86,7 @@ class ShadowWorkflowStepExecutor:
         "_context",
         "_now",
         "_guard_evidence_max_age",
+        "_action_dispatch_claim_lease",
         "_mode",
         "_target_resource_id",
         "_attempt",
@@ -101,6 +113,7 @@ class ShadowWorkflowStepExecutor:
         context: Mapping[str, str] | None = None,
         now: datetime | None = None,
         guard_evidence_max_age: timedelta = DEFAULT_GUARD_EVIDENCE_MAX_AGE,
+        action_dispatch_claim_lease: timedelta = DEFAULT_ACTION_DISPATCH_CLAIM_LEASE,
         mode: Mode = Mode.SHADOW,
         target_resource_id: str = "",
         attempt: int = 1,
@@ -109,6 +122,8 @@ class ShadowWorkflowStepExecutor:
             raise ValueError("workflow step attempt MUST be >= 1")
         if guard_evidence_max_age <= timedelta(0):
             raise ValueError("guard_evidence_max_age MUST be positive")
+        if action_dispatch_claim_lease <= timedelta(0):
+            raise ValueError("action_dispatch_claim_lease MUST be positive")
         self._process_id = process_id
         self._action_types = action_types
         self._action_dispatcher = action_dispatcher
@@ -126,6 +141,7 @@ class ShadowWorkflowStepExecutor:
         self._context = context or {}
         self._now = now or datetime.now(tz=UTC)
         self._guard_evidence_max_age = guard_evidence_max_age
+        self._action_dispatch_claim_lease = action_dispatch_claim_lease
         self._mode = mode
         self._target_resource_id = target_resource_id or snapshot.target_resource_id
         self._attempt = attempt
@@ -193,7 +209,7 @@ class ShadowWorkflowStepExecutor:
         known = step.kind is not WorkflowStepKind.ACTION or step.action_type in self._action_types
         guard_ref = self._guards.get(step.id)
         step_params = dict(self._params.get(step.id, {}))
-        redacted_params, redacted_paths = self._redacted_params(step, step_params)
+        safe_params, redacted_paths = redacted_params(step, step_params, self._action_types)
 
         guard_evaluated = False
         guard_passed: bool | None = None
@@ -232,7 +248,7 @@ class ShadowWorkflowStepExecutor:
                 "guard_evaluated": guard_evaluated,
                 "guard_passed": guard_passed,
                 "guard_error": guard_error,
-                "params": redacted_params,
+                "params": safe_params,
                 "params_redacted": sorted(redacted_paths),
                 "recorded_at": datetime.now(tz=UTC).isoformat(),
             }
@@ -315,34 +331,11 @@ class ShadowWorkflowStepExecutor:
         )
         return result
 
-    def _redacted_params(
-        self,
-        step: RunbookStep,
-        params: Mapping[str, object],
-    ) -> tuple[dict[str, object], frozenset[str]]:
-        action_type = self._action_types.get(step.action_type)
-        if action_type is None:
-            return dict(params), frozenset()
-        configured = argument_schema_redaction_paths(action_type)
-        present = frozenset(path for path in configured if path in params)
-        return {
-            key: "[REDACTED]" if key in present else value for key, value in params.items()
-        }, present
-
     async def _dispatch_action(self, step: RunbookStep) -> RunbookStepResult:
         events = await self._process_store.events(self._process_id)
-        dispatch_event = next(
-            (
-                event
-                for event in events
-                if event.kind is ProcessEventKind.ACTION_DISPATCHED
-                and event.step_id == step.id
-                and event.attempt == self._attempt
-            ),
-            None,
-        )
-        if dispatch_event is not None:
-            proposal_ref = str(dispatch_event.payload.get("proposal_ref") or "").strip()
+        dispatch_record = dispatch_event(events, step, attempt=self._attempt)
+        if dispatch_record is not None:
+            proposal_ref = str(dispatch_record.payload.get("proposal_ref") or "").strip()
             if not proposal_ref or self._outcome_verifier is None:
                 return step_result(
                     step,
@@ -383,8 +376,34 @@ class ShadowWorkflowStepExecutor:
                 RunbookStepOutcome.FAILURE,
                 "enforce_action_dispatcher_not_configured",
             )
+        proposal_ref = f"{self._process_id}:step:{step.id}:attempt:{self._attempt}"
+        claim = await claim_action_dispatch(
+            self._process_store,
+            process_id=self._process_id,
+            step=step,
+            attempt=self._attempt,
+            correlation_id=self._snapshot.correlation_id,
+            proposal_ref=proposal_ref,
+            lease=self._action_dispatch_claim_lease,
+            now=datetime.now(tz=UTC),
+        )
+        if claim is None:
+            return step_result(
+                step, RunbookStepOutcome.WAITING, "waiting_for_action_dispatch_claim"
+            )
+        # Publish only under a current claim; a post-publication crash republishes the same key.
+        if not await claim_is_current(
+            self._process_store,
+            process_id=self._process_id,
+            claim=claim,
+            step=step,
+            attempt=self._attempt,
+        ):
+            return step_result(
+                step, RunbookStepOutcome.WAITING, "waiting_for_action_dispatch_claim"
+            )
         try:
-            proposal_ref = await self._action_dispatcher.dispatch(
+            returned_ref = await self._action_dispatcher.dispatch(
                 process_id=self._process_id,
                 correlation_id=self._snapshot.correlation_id,
                 step=step,
@@ -399,33 +418,22 @@ class ShadowWorkflowStepExecutor:
                 RunbookStepOutcome.FAILURE,
                 f"action_dispatch_failed:{type(exc).__name__}",
             )
-        if not proposal_ref.strip():
+        if not returned_ref.strip():
             return step_result(
                 step,
                 RunbookStepOutcome.FAILURE,
                 "action_dispatch_returned_no_reference",
             )
-        await self._process_store.append_event(
-            ProcessEvent(
-                event_id=event_id(
-                    self._process_id,
-                    f"step:{step.id}:attempt:{self._attempt}:action-dispatched",
-                ),
-                process_id=self._process_id,
-                kind=ProcessEventKind.ACTION_DISPATCHED,
-                idempotency_key=(
-                    f"{self._process_id}:step:{step.id}:attempt:{self._attempt}:action-dispatched"
-                ),
-                recorded_at=datetime.now(tz=UTC),
-                correlation_id=self._snapshot.correlation_id,
-                step_id=step.id,
-                attempt=self._attempt,
-                payload={
-                    "proposal_ref": proposal_ref,
-                    "action_type": step.action_type,
-                    "params": dict(self._params.get(step.id, {})),
-                },
-            )
+        await record_action_dispatched(
+            self._process_store,
+            process_id=self._process_id,
+            step=step,
+            attempt=self._attempt,
+            correlation_id=self._snapshot.correlation_id,
+            proposal_ref=returned_ref,
+            params=dict(self._params.get(step.id, {})),
+            claim=claim,
+            recorded_at=datetime.now(tz=UTC),
         )
         return step_result(step, RunbookStepOutcome.WAITING, "waiting_for_action_outcome")
 
@@ -443,7 +451,7 @@ class ShadowWorkflowStepExecutor:
         if step.kind is WorkflowStepKind.PARALLEL:
             return await self._parallel_result(step)
         if step.kind is WorkflowStepKind.WAIT:
-            if self._timed_out(step):
+            if timed_out(step, context=self._context, now=self._now):
                 return step_result(step, RunbookStepOutcome.FAILURE, "wait_timed_out")
             satisfied = truthy(self._context.get(f"signal.{step.wait_for}"))
             return step_result(
@@ -473,7 +481,7 @@ class ShadowWorkflowStepExecutor:
         return step_result(step, RunbookStepOutcome.FAILURE, "unsupported_step_kind")
 
     def _simulated_approval_result(self, step: RunbookStep) -> RunbookStepResult:
-        if self._timed_out(step):
+        if timed_out(step, context=self._context, now=self._now):
             return step_result(step, RunbookStepOutcome.FAILURE, "approval_timed_out")
         return self._approval_result(
             step,
@@ -699,17 +707,21 @@ class ShadowWorkflowStepExecutor:
     async def _parallel_result(self, step: RunbookStep) -> RunbookStepResult:
         async def run_branch(branch: str) -> bool:
             await self._process_store.append_event(
-                self._branch_event(
+                branch_event(
+                    process_id=self._process_id,
                     step=step,
                     branch=branch,
                     kind=ProcessEventKind.PARALLEL_BRANCH_STARTED,
                     suffix="started",
                     recorded_at=datetime.now(tz=UTC),
+                    correlation_id=self._snapshot.correlation_id,
+                    attempt=self._attempt,
                 )
             )
             failed = self._context.get(f"parallel.{step.id}.{branch}", "success") == "failed"
             await self._process_store.append_event(
-                self._branch_event(
+                branch_event(
+                    process_id=self._process_id,
                     step=step,
                     branch=branch,
                     kind=(
@@ -719,6 +731,8 @@ class ShadowWorkflowStepExecutor:
                     ),
                     suffix="failed" if failed else "completed",
                     recorded_at=datetime.now(tz=UTC),
+                    correlation_id=self._snapshot.correlation_id,
+                    attempt=self._attempt,
                 )
             )
             return not failed
@@ -729,45 +743,6 @@ class ShadowWorkflowStepExecutor:
             RunbookStepOutcome.SUCCESS if all(outcomes) else RunbookStepOutcome.FAILURE,
             "parallel_branches_completed" if all(outcomes) else "parallel_branch_failed",
         )
-
-    def _branch_event(
-        self,
-        *,
-        step: RunbookStep,
-        branch: str,
-        kind: ProcessEventKind,
-        suffix: str,
-        recorded_at: datetime,
-    ) -> ProcessEvent:
-        return ProcessEvent(
-            event_id=event_id(
-                self._process_id,
-                f"step:{step.id}:attempt:{self._attempt}:branch:{branch}:{suffix}",
-            ),
-            process_id=self._process_id,
-            kind=kind,
-            idempotency_key=(
-                f"{self._process_id}:step:{step.id}:attempt:{self._attempt}:"
-                f"branch:{branch}:{suffix}"
-            ),
-            recorded_at=recorded_at,
-            correlation_id=self._snapshot.correlation_id,
-            step_id=step.id,
-            attempt=self._attempt,
-            payload={"branch": branch},
-        )
-
-    def _timed_out(self, step: RunbookStep) -> bool:
-        if step.timeout_seconds is None:
-            return False
-        raw = self._context.get(f"started_at.{step.id}")
-        if raw is None:
-            return False
-        try:
-            started = datetime.fromisoformat(raw.replace("Z", "+00:00"))
-        except ValueError:
-            return True
-        return (self._now - started).total_seconds() >= step.timeout_seconds
 
     @staticmethod
     def _result_transition(

@@ -90,7 +90,15 @@ async def test_postgres_process_create_transition_and_replay() -> None:
         current_step="collect-evidence",
         event=started_event,
     )
-    jobs = await store.claim_projections(now=now + timedelta(seconds=2))
+    expected_projection_events = {created_event.event_id, started_event.event_id}
+    seen_projection_events: set[str] = set()
+    for _ in range(10):
+        jobs = await store.claim_projections(now=now + timedelta(seconds=2), limit=1000)
+        seen_projection_events.update(job.event.event_id for job in jobs)
+        for job in jobs:
+            await store.complete_projection(job.event.event_id)
+        if seen_projection_events >= expected_projection_events:
+            break
 
     assert is_new is True
     assert is_replay_new is False
@@ -100,13 +108,7 @@ async def test_postgres_process_create_transition_and_replay() -> None:
         ProcessEventKind.PROCESS_CREATED,
         ProcessEventKind.STEP_STARTED,
     ]
-    assert {job.event.event_id for job in jobs} >= {
-        created_event.event_id,
-        started_event.event_id,
-    }
-    for job in jobs:
-        if job.event.process_id == process_id:
-            await store.complete_projection(job.event.event_id)
+    assert seen_projection_events >= expected_projection_events
 
 
 async def test_postgres_process_concurrent_duplicate_append_is_idempotent() -> None:

@@ -110,6 +110,13 @@ class PostgresProcessRuntimeStore:
                     raise ProcessRuntimeError(f"unknown process {process_id!r}")
                 current = _snapshot_from_row(row)
                 if current.revision != expected_revision:
+                    duplicate = await self._event_by_key(connection, event.idempotency_key)
+                    if duplicate is not None:
+                        if duplicate.process_id != process_id:
+                            raise ProcessRuntimeError(
+                                "process event idempotency key belongs to another process"
+                            )
+                        return current
                     raise ProcessRevisionConflictError(
                         f"process {process_id!r} revision mismatch: "
                         f"expected {expected_revision}, current {current.revision}"
