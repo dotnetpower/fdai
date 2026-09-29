@@ -14,7 +14,7 @@ import json
 import logging
 import time
 from collections.abc import Callable, MutableSequence
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import datetime
 from typing import Any
 
@@ -372,8 +372,47 @@ async def _run_form_path(
     collector: _ObservationCollector,
     **arguments: Any,
 ) -> ReasoningShadowObservation:
+    """Read the question once, and once more only when the first reading failed as a form.
+
+    A second sample passes the same admission, grounding, blind review, and selection
+    rules, so it never lowers the bar; it only replaces a reading whose form was invalid,
+    unreviewed, or mislabeled one mention's kind. At most two samples are taken.
+    """
+
     async with bind_adaptive_model_budget(collector):
-        return await run_reasoning_shadow(model=model, retain_compilations=True, **arguments)
+        first = await run_reasoning_shadow(model=model, retain_compilations=True, **arguments)
+        if not _resample_worthy(first):
+            return first
+        second = await run_reasoning_shadow(model=model, retain_compilations=True, **arguments)
+    if isinstance(_single_compiled_batch(second), str):
+        return replace(first, notes=(*first.notes, "form_resampled_unanswered"))
+    return replace(
+        second,
+        model_calls=first.model_calls + second.model_calls,
+        elapsed_ms=first.elapsed_ms + second.elapsed_ms,
+        notes=(*second.notes, "form_resampled"),
+    )
+
+
+# Compiler reasons that name one mislabeled mention of an otherwise answerable reading.
+_FORM_MISLABELS = frozenset(
+    {"measure_mention_unsupported", "result_instance_unsupported", "anchor_form_unsupported"}
+)
+
+
+def _resample_worthy(observation: ReasoningShadowObservation) -> bool:
+    decline = _single_compiled_batch(observation)
+    if not isinstance(decline, str):
+        return False
+    if decline == "not_released":
+        dispositions = {item.disposition for item in observation.passes}
+        return bool(dispositions) and not dispositions <= _UNAVAILABLE_PASSES
+    return decline == "goal_not_compiled" and any(
+        reason.split(":", 1)[0] in _FORM_MISLABELS
+        for compilation in observation.compilations
+        for goal in compilation.goals
+        for reason in goal.reasons
+    )
 
 
 def _single_compiled_batch(

@@ -583,6 +583,12 @@ With the flag off, the planner behaves exactly as before. Deployed venues keep t
 each family is promoted in R9, and R10 deletes the lexical helpers of promoted families only after a
 rollback release.
 
+When the first reading fails only as a form, because it was invalid, clarified by an unused mention or a
+competing reading, not faithful to the blind review, or mislabeled one mention's kind, the path reads the
+question once more. The second sample passes the same admission, grounding, review, and selection
+rules and never lowers the bar; a reading with an unsupported atom is never resampled, and no turn takes
+more than two samples.
+
 A selected compilation may carry only reviewed limitations that the answer states as catalog notices:
 the applied, default, or model-judged history window, a cause that is not established, and an impact
 that is possible rather than observed. The compiler

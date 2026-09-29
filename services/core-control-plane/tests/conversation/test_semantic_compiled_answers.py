@@ -627,3 +627,47 @@ def test_a_data_outcome_is_unavailable_and_an_unsupported_atom_is_unsupported() 
     # An incomplete anchor read says nothing about what the question asks.
     assert data.decision == "unavailable"
     assert atom.decision == "unsupported"
+
+
+async def test_a_failed_form_is_read_once_more_and_never_more_than_twice(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    invalid = _observation(released=False, passes=(ShadowPass(0, "invalid"),), compilations=())
+    samples = [invalid, _observation()]
+    calls: list[int] = []
+
+    async def shadow(**_arguments: Any) -> ReasoningShadowObservation:
+        calls.append(1)
+        return samples.pop(0)
+
+    monkeypatch.setattr(semantic_compiled_answers, "run_reasoning_shadow", shadow)
+    collector = semantic_compiled_answers._ObservationCollector()
+
+    result = await semantic_compiled_answers._run_form_path(object(), collector)  # type: ignore[arg-type]
+
+    # The second sample passes the same release and selection rules as the first.
+    assert len(calls) == 2
+    assert result.released and "form_resampled" in result.notes
+    assert result.model_calls == invalid.model_calls + 4
+
+
+async def test_an_answerable_or_unsupported_reading_is_never_resampled(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls: list[str] = []
+    samples = {"answerable": _observation(), "unsupported": _unsupported_observation()}
+
+    for name, first in samples.items():
+
+        async def shadow(
+            _first: ReasoningShadowObservation = first, _name: str = name, **_arguments: Any
+        ) -> ReasoningShadowObservation:
+            calls.append(_name)
+            return _first
+
+        monkeypatch.setattr(semantic_compiled_answers, "run_reasoning_shadow", shadow)
+        collector = semantic_compiled_answers._ObservationCollector()
+        await semantic_compiled_answers._run_form_path(object(), collector)  # type: ignore[arg-type]
+
+    # An unsupported atom stays unsupported in any sample, so no call is spent on it.
+    assert calls == ["answerable", "unsupported"]
