@@ -1,7 +1,7 @@
 ---
 translation_of: operational-planning.md
-translation_source_sha: ad35b08d06e95beb14924fbd761d65cf3e86fdc5
-translation_revised: 2026-08-30
+translation_source_sha: 3bec57d26b09815255b7e7e70e43d2645cb3fea8
+translation_revised: 2026-09-29
 ---
 # 운영 계획
 
@@ -17,67 +17,6 @@ DecisionCase, ActionOption, 타입이 지정된 온톨로지 함수, Assurance T
 > 대화형 숙의는 같은 증거를 설명할 수 있지만, 그 텍스트는 프로세스를 진행하거나 DecisionCase를
 > 변경하지 않습니다.
 >
-> **구현 상태:** P1-P4 코어 경로가 구현되었습니다. 정본 release가 함수 선언을
-> 고정하고, authorized 호출이 replay-stable 증적을 발행하며, operational 계획 수립은 Pareto
-> pruning 및 weighted 선택 전에 hard 제약을 적용하고, ordered 계획 수립 단계는 기존
-> 프로세스 저널에 덧붙이기합니다. Forseti는 선택적 조정기로 기존 비용 및 용량 토픽을
-> enrich할 수 있습니다. Programmatic simulator는 exact 검토된 출처를 범위가 제한된 파이프라인 샌드박스에서
-> 실행하고 시간 초과 또는 malformed 출력을 unscorable로 처리합니다. P5는 읽기 전용 Twin 어댑터,
-> exact selected-option MutationPlan compilation, 독립적인 ResponseOutcome 종결을 추가합니다.
-> P6는 기존 프로세스 상세 경로 안에 strict 읽기 전용 계획 수립 Room 변환 결과를 추가합니다.
-> P7은 영속 프로세스 recorder, shadow-only 계획 수립 작업 흐름, 검증된 dimension 8개와 명시적인
-> release-evidence proxy 1개를 가진 9개 차원의 고정된 시나리오 매니페스트, 결정론적
-> constitutional 제약 검사, conditional 운영 런타임 연결을
-> 추가합니다. 런타임은 exact 온톨로지 release, operational 맥락, 프로세스 저장소, 활성
-> effect-model 읽기 담당, causal 검증기가 모두 있을 때만 계획 수립을 연결합니다. Staging 부분
-> 실행 증명과 live graph shadow 측정은 완료된 live claim이 아니라 release 근거로 남습니다.
-> Production graph evidence와 개발 `ops.scale-out` VM Scale Set 실행기 연결은 구현되어 focused
-> test로 검증됩니다. Independent Core 및 Operator service HIL binding, 보호된 러너 훈련,
-> Heimdall 소유 verified independent effect observer, 독립 종결 및 전체 recurrence window는 아직
-> 남아 있습니다. Forseti는 Odin이 선택한 옵션을 typed argument로 확정하고 content-addressed
-> `ProspectiveLineage`를 발행합니다. 운영 구성은 Muninn을 통해 subgraph를 materialize하고 Saga를
-> 통해 봉인합니다. Core runtime은 두 증적이 일치하기 전에는 현재 proposal의 실행을 거부합니다.
-
-## 구현 상태
-
-### 구현 범위
-
-| 영역 | 상태 | 근거 | 참고 |
-|------|------|------|------|
-| P1-P7 operational-planning core | implemented | `services/core-control-plane/src/fdai/core/operational_planning/` 및 focused planning test | 계획은 A0로 유지되고 기존 Process 및 권한 경로를 재사용합니다. |
-| Production graph evidence 및 scale-out executor binding | implemented | `services/core-control-plane/src/fdai/delivery/azure/` 및 focused composition/delivery test | Code와 test만으로는 live outcome evidence가 되지 않습니다. |
-| 인자 연결 prospective lineage 및 Verdict 전달 | implemented | `core/decision_case/`, `core/operational_planning/prospective_lineage.py`, `delivery/prospective_lineage.py`, `agents/{forseti,muninn,saga,thor}.py` 및 focused finalization, materialization, agent-chain 테스트 | Specialist proposal은 canonical typed argument를 전달합니다. Forseti가 Odin의 옵션을 확정하고 exact V2 plan을 commit하며 Verdict 전에 ProspectiveLineage를 발행합니다. Thor는 권한을 얻지 않고 두 immutable 참조를 보존합니다. |
-| Exact kinetic handoff 및 독립 효과 관측 런타임 연결 | in-progress | `core/operational_planning/kinetic_safety.py`, `delivery/{kinetic_safety,reconciliation_artifacts,prospective_lineage}.py`, `runtime/{control_loop,bootstrap_pantheon}.py` 및 focused dispatch, HIL, artifact, runtime 테스트 | Core는 exact plan lineage를 다시 검증하고 모든 현재 proposal이 Thor 소유 실행기에 도달하기 전에 일치하는 Muninn materialization과 Saga seal을 요구합니다. Heimdall 소유 verified observer와 통제된 런타임 근거는 아직 남아 있습니다. |
-| Independent-service HIL binding | in-progress | `config/ohl-scale-out-evidence.json` 및 배포된 Core/Operator environment contract | Approval이 action을 park하고 resolve하기 전에 service root가 HIL channel 및 callback signing secret을 bind해야 합니다. |
-| OHL Lane F live evidence | in-progress | `docs/runbooks/ohl-scale-out-evidence-ko.md` | Protected execution, independent closure, sample 100개 및 14일 recurrence window가 열려 있습니다. |
-
-### 구현 이력
-
-| 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
-|------|------|------|------|-----------|
-| 2026-08-30 | implemented | 늦은 선택적 argument 해석을 운영 Forseti 소유 prospective 경로로 대체했습니다. PlanCandidate와 ActionOption은 canonical typed argument binding을 보존하고, Process 기록 전에 Odin의 선택을 확정합니다. Forseti는 Verdict 전에 content-addressed ProspectiveLineage를 발행하고, Muninn은 exact subgraph를 materialize하며, Saga는 같은 digest를 봉인합니다. Predispatch는 두 증적이 일치하기 전까지 차단합니다. Reconciliation은 observed multi-effect closure의 유일한 권한으로 남습니다. | `current change`, focused planning, proposal, prospective materialization, Forseti-Thor, kinetic readiness, observed-lineage 검사 | Verified independent observer를 연결하고 통제된 Lane F campaign에서 pinned prospective-to-observed replay 하나를 보존합니다. |
-| 2026-08-13 | in-progress | 이전 provenance를 재구성하지 않고 implementation ledger를 도입하고 independent-service HIL binding residual을 드러냈습니다. | current change, `services/core-control-plane/tests/scenarios/operational-planning/test_manifest.py` 결과 7 passed | 두 service root에 HIL을 bind하고 exact revision을 배포한 뒤 live evidence campaign을 완료합니다. |
-| 2026-08-14 | in-progress | 누락된 exact-plan writer와 verified independent effect observer를 별도 Lane F runtime residual로 드러냈습니다. | `current change`, Lane F contract, runbook gate, artifact-store test 및 manifest test | Plan을 reconstruct하거나 executor/provider receipt로 대체하지 않고 두 source를 모두 연결합니다. |
-| 2026-08-14 | implemented | Authority-free argument-bound kinetic proposal contract를 추가하고 valid proposal을 Thor의 durable ActionRun까지 보존했습니다. | `current change`, focused kinetic-proposal, Thor dispatch, persistence 및 role-invariant 검사 | Runtime residual을 제거하기 전에 Forseti 소유 producer와 Core pre-dispatch consumer를 추가합니다. |
-| 2026-08-14 | implemented | Delivery 소유 exact proposal 생성과 선택적 Forseti source 해석을 조정이 해결된 Verdict와 사람 검토 Verdict 양쪽에 추가했습니다. Proposal이 없으면 기존 Verdict를 유지하고 source failure, corruption 또는 lineage substitution이 있으면 Verdict를 deny로 낮춥니다. | `current change`, `kinetic_proposal.py`, `forseti.py`, `test_kinetic_proposal.py`, `test_decision_case_e2e.py` 및 집중 producer, Forseti, Thor, factory, framework 검사 | 운영 조립에서 source를 연결하고 pre-dispatch kinetic safety receipt를 저장한 뒤 통제된 실제 운영 근거를 보존합니다. |
-| 2026-08-14 | implemented | Action이나 plan을 재구성하지 않고 모든 Core Thor 실행기 전에 exact-proposal kinetic safety writer를 연결했습니다. Proposal이 없으면 legacy no-op이고 malformed, conflicting, orphaned, late 또는 substituted evidence는 provider dispatch 전에 invariant rejection을 반환합니다. | `current change`, `core/operational_planning/kinetic_safety.py`, `delivery/kinetic_safety.py`, `delivery/kinetic_proposal.py`, `runtime/control_loop.py` 및 집중 dispatch, HIL, artifact, proposal, runtime 검사 115개 통과 | 운영 Forseti 조립에서 proposal source를 연결하고 verified independent observer를 추가한 뒤 통제된 실제 운영 근거를 보존합니다. |
-| 2026-08-14 | implemented | Dispatch-time resolution에서 영속 OperationalPlan identity와 Process, selected option, correlation, target, selected ActionType 및 plan lineage를 내부적으로 valid한 proposal body와 다시 검증했습니다. | `current change`, `delivery/kinetic_proposal.py`, adversarial cross-record substitution 테스트 및 집중 kinetic suite 119개 통과 | 운영 Forseti 조립에서 proposal source를 연결하고 verified independent observer를 추가한 뒤 통제된 실제 운영 근거를 보존합니다. |
-
-### 남은 작업
-
-- [x] 완전한 operational plan에서만 `KineticActionProposal`을 생성하고 기존 typed Verdict 경로의
-  Forseti 선택적 source를 통해 해석하며 proposal이 없을 때 legacy Action이 변경되지 않음을 입증합니다.
-- [x] 모든 Core Thor 실행기 전에 기존 proposal의 exact V2 plan을 저장하고 proposal이 없으면
-  legacy 동작을 유지하며 malformed 또는 substituted evidence가 dispatch를 차단함을 입증합니다.
-- [x] 운영 Forseti prospective finalization, Muninn materialization, Saga sealing, predispatch
-  readiness를 연결하고 Action에서 plan을 재구성하지 않도록 합니다.
-- [ ] Heimdall 소유 verified independent effect observer를 연결하고 executor 또는 provider
-  receipt로 observed outcome을 대체하지 않는 통제된 end-to-end 근거를 보존합니다.
-- [ ] Core HIL channel 및 Operator callback signing secret을 bind하고 검증해 서로 다른 human
-  approver가 하나의 `ops.scale-out` proposal을 park, resolve 및 resume하도록 합니다.
-- [ ] Protected-runner drill을 완료하고 independent graph closure, live-shadow sample 100개,
-  policy escape 0, rollback/cleanup 및 전체 14일 recurrence window를 기록합니다.
-
 ## 한눈에 보는 설계
 
 운영 계획 실행은 버전이 고정된 작업 흐름 인스턴스입니다. 프로세스 저널이 진행 상태를 기록하고,
@@ -371,6 +310,7 @@ repeated loser에게 범위가 제한된 가중을 주고 반대편 승리 한 �
 
 | 알아볼 내용 | 읽을 문서 |
 |-------------|-----------|
+| 구현 상태 및 남은 작업 | [구현 원장](../../roadmap-implementation/decisioning/operational-planning.md) |
 | 공유 결정 및 효과 의미 | [FDAI 운영 온톨로지](../architecture/operating-ontology-ko.md) |
 | 타입이 지정된 함수 및 변경 계획 | [FDAI 온톨로지 안전 인프라](../architecture/operating-ontology-platform-ko.md) |
 | 작업 흐름 및 프로세스 런타임 | [프로세스 자동화](process-automation-ko.md) |

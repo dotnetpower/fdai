@@ -615,7 +615,7 @@ never crash serialization or misorder a chart. Each item is covered in
   importable report, so what remains is a run that produces one: a deployment must install the
   `fdai.governed_chaos` provider and a scenario must be promoted, or every run refuses before
   substrate access. Both are tracked as remaining work in
-  [recovery-and-chaos-enforcement](../decisioning/recovery-and-chaos-enforcement.md#remaining-work).
+  [recovery-and-chaos-enforcement](../../roadmap-implementation/decisioning/recovery-and-chaos-enforcement.md#remaining-work).
 - [ ] Retain governed render receipts for each production datasource showing source identity, cutoff, freshness, unavailable and timeout behavior, partial-widget isolation, and no synthetic-to-live substitution.
 - [ ] Retain authenticated Operator API and Console receipts for report inventory, explicit unavailable report selection, variable rejection, unknown format, render error isolation, and read-only method enforcement.
 - [x] Implement an optional PDF delivery module, registry binding, package extra, authenticated GET-only control, and focused escaping, digest, pagination, unavailable-section, no-analysis, and no-network tests before advertising `pdf`.
