@@ -117,10 +117,11 @@ The model states only that `aks-prod-01` is the dependency and the results are i
 ## Admission
 
 Bragi admits a form only when every span matches the utterance without cutting through a longer identifier, every goal meets the confidence floor, no
-alternative survives, both relation roles are the ends of one sense, every declared mention is used, no two mentions share words, no group is both
-a goal's scope and its relation anchor, and the level fits every mention domain.
-Otherwise it returns one clarification or sends a low-confidence field to one independent T2 review of closed fields. An admitted atom that no
-reviewed builder reads, such as a qualifier or a stated counterpart, returns a typed unsupported reason; it is never ignored.
+alternative survives, both relation roles are the ends of one sense, every declared mention is used, no two mentions share words, no group is both a
+goal's scope and its relation anchor unless the relation is a transitive containment from that group to its members, which only restates the scope's
+whole membership, and the level fits every mention domain. Otherwise it returns one clarification or sends a low-confidence field to one independent
+T2 review of closed fields. An admitted atom that no reviewed builder reads, such as a qualifier or a stated counterpart, returns a typed unsupported
+reason; it is never ignored.
 
 **Utterance span accounting**: Every letter, digit, and math or currency symbol of the utterance must lie inside a mention, a goal, filter, relation,
 time, or measure cue, a context quote, or an unsupported constraint. Core checks this only by Unicode category and never classifies what a word means.
