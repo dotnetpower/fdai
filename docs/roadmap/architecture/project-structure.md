@@ -93,7 +93,7 @@ uses its declared byte ceiling. Scope-and-generation jitter is replay-stable and
 maximum poll interval. These bounds do not yet establish a shared cross-source rolling byte budget
 or a disk-backed generation stream.
 
-Inventory also bounds retained normalized generation bytes independently from transport buffers. The PostgreSQL facade delegates batched replacement to `postgres_ontology_replacement.py`; versioned activation, copy-on-write publication and retention have focused persistence owners under the same Core writer. The four `ontology_*_version`/`ontology_graph_control` tables are Core-owned; their inactive migration changes no Operator, document or conversation writer. Explicit activation preserves read grants and reference identities, while materialization restores the latest version. Helpers gain no independent authority. Pure journal parameter conversion and observed-state validation stay in the existing record modules, preserving facade imports and evidence semantics. Journal writes, active-snapshot readers, and correction closure may likewise live in focused persistence siblings while the established modules re-export their compatibility surface and retain transaction, lock, and writer ownership. Semantic capability projection emits only complete ranked descriptors within its byte budget; an oversized property axis is omitted rather than partially represented.
+Inventory also bounds retained normalized generation bytes independently from transport buffers. The PostgreSQL facade delegates batched replacement to `postgres_ontology_replacement.py`; versioned activation, copy-on-write publication and retention have focused persistence owners under the same Core writer. The four `ontology_*_version`/`ontology_graph_control` tables are Core-owned; their inactive migration changes no Operator, document or conversation writer. Explicit activation preserves read grants and reference identities, while materialization restores the latest version. Helpers gain no independent authority. Pure journal parameter conversion and observed-state validation stay in the existing record modules, preserving facade imports and evidence semantics. Journal writes, active-snapshot readers, and correction closure may likewise live in focused persistence siblings while the established modules re-export their compatibility surface and retain transaction, lock, and writer ownership. Semantic capability projection offers the judgment every declaration identity, never a ranked slice of the catalog; property-level canonical identities are optional detail added per ObjectType in link-degree order within a smaller byte allowance, and an oversized property axis is omitted rather than partially represented.
 
 ## Core domain navigation decision
 
@@ -105,6 +105,11 @@ batch writer. These helpers neither own promotion nor grant provider continuatio
 the active snapshot; local preparation writes it after a full refresh, and the local reconciliation
 loop rewrites it when its snapshot or freshness changes, only when
 `FDAI_INVENTORY_OPERATOR_GRAPH_PROJECTION=1`, which deployed venues never set.
+`composition/semantic_query_type_grounding.py` binds the independent second reader of semantic
+planning from two narrator deployments: two blind choosers ground unbound Resource subtype words by
+closed choice, and a blind constraint reading checks that the typed judgment copies every stated
+restriction. Only the local launcher sets `FDAI_SEMANTIC_SECOND_READER=1`; deployed venues keep
+the single-reader path until the reader is promoted.
 
 **Initial design.** Physically move every flat Core subsystem under `pipeline`, `incident`,
 `operator`, `knowledge`, or `platform`, then rewrite every import in one codemod.

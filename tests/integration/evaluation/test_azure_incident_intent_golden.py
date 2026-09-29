@@ -299,7 +299,7 @@ def test_judgment_capability_projection_preserves_ranked_prefix_within_byte_cap(
                 "name": f"Object{index:03d}",
                 "properties": {f"property_{item:02d}": {} for item in range(32)},
             }
-            for index in range(512)
+            for index in range(1024)
         ),
     )
 

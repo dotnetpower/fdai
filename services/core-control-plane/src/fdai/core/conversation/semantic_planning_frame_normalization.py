@@ -346,20 +346,22 @@ def build_named_resource_group_membership_frame(
     context: tuple[str, ...],
     descriptors: tuple[dict[str, Any], ...],
 ) -> tuple[SemanticFrameProposal, SemanticProblemFrame] | None:
-    """Build one parent-scoped frame from an accepted resource-group judgment."""
+    """Build one parent-scoped frame from an accepted resource-group judgment.
+
+    A ``resource_group`` target names one exact container whatever facets accompany it.
+    """
 
     if (
         judgment is None
         or judgment.primary_intent != "query.contextual_resources"
         or judgment.action_posture != "advise_only"
-        or {"resource_collection", "list"} <= set(judgment.requested_facets)
         or judgment.ambiguous
         or judgment.unresolved_terms
-        or len(judgment.targets) != 1
+        or sum(item.kind != "resource_type_filter" for item in judgment.targets) != 1
         or not _resource_parent_id_available(descriptors)
     ):
         return None
-    target = judgment.targets[0]
+    target = next(item for item in judgment.targets if item.kind != "resource_type_filter")
     target_type_filters = stated_value_filters(target.value, descriptors)
     if (
         target.kind != "resource_group"
@@ -367,9 +369,10 @@ def build_named_resource_group_membership_frame(
         or "resource-group" in target_type_filters.get(("Resource", "type"), ())
     ):
         return None
+    members = tuple(item.value for item in judgment.targets if item.kind == "resource_type_filter")
     resolved = SemanticFrameProposal(
         operation=SemanticOperation.SELECT,
-        subject_constraints=("Resource", target.value),
+        subject_constraints=("Resource", target.value, *members),
         measure_concepts=("parent_id", "type"),
         temporal_scope={},
         output_shape=SemanticOutputShape.PROPERTY_FILTERED_RESOURCES,

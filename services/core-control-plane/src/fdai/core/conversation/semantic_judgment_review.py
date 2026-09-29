@@ -8,6 +8,10 @@ from typing import Any
 from fdai_service_contracts.ontology_query import content_digest
 from fdai_service_contracts.semantic_judgment import SemanticJudgmentProposal
 
+from fdai.core.ontology_platform.resource_state_queries import RESOURCE_STATE_MEASURE_CONCEPTS
+
+_STATE_TARGET_KINDS = frozenset({"resource_state_exclusion_filter", "resource_state_filter"})
+
 
 def validate_independent_bindings(primary: Any, reviewer: Any) -> None:
     """Reject a reviewer that reuses the primary model or configuration identity."""
@@ -24,7 +28,18 @@ def validate_independent_bindings(primary: Any, reviewer: Any) -> None:
 
 
 def requires_independent_review(proposal: SemanticJudgmentProposal) -> bool:
-    return proposal.primary_intent == "query.resource_state_inventory"
+    """Require a second tier only when a stated Resource state is not catalog-grounded.
+
+    A state collection whose every stated condition carries one reviewed state concept
+    is already a closed choice; a missing or unreviewed concept still needs review.
+    """
+
+    if proposal.primary_intent != "query.resource_state_inventory":
+        return False
+    states = [target for target in proposal.targets if target.kind in _STATE_TARGET_KINDS]
+    return not states or any(
+        target.canonical_value not in RESOURCE_STATE_MEASURE_CONCEPTS for target in states
+    )
 
 
 def proposals_match(

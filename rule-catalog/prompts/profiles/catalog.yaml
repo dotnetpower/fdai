@@ -265,10 +265,10 @@ profiles:
       - docs/roadmap/decisioning/prompt-composition.md
     provenance: {source: docs/roadmap/decisioning/prompt-composition.md}
   - id: active.semantic-judgment
-    version: 7
+    version: 8
     capability_id: semantic.judgment
     mode: active
-    root: {id: semantic-judgment-core, version: 1, layer: base}
+    root: {id: semantic-judgment-core, version: 2, layer: base}
     packs:
       - id: semantic-topic-resource-inventory
         version: 1
@@ -276,7 +276,7 @@ profiles:
         when_any: [topic:resource_inventory]
         covers: [intent:inventory.select_resources, intent:query.contextual_resources, intent:query.resource_health_inventory, intent:query.resource_state_inventory]
       - {id: semantic-resource-name-filter, version: 1, layer: pack, when_any: [topic:resource_inventory]}
-      - {id: semantic-resource-collection, version: 1, layer: pack, when_any: [topic:resource_inventory]}
+      - {id: semantic-resource-collection, version: 2, layer: pack, when_any: [topic:resource_inventory]}
       - {id: semantic-ontology-manifest-list, version: 2, layer: pack, when_any: [topic:ontology_schema, topic:resource_inventory]}
       - id: semantic-topic-ontology-schema
         version: 2

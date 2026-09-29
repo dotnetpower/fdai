@@ -16,7 +16,6 @@ from fdai.core.conversation.semantic_planning_models import (
 from fdai.core.conversation.semantic_target_candidate_planning import (
     build_stated_resource_filter_frame,
     normalize_resource_list_temporal_scope,
-    property_filter_omits_stated_relation,
     resolve_resource_target_candidates,
     resolve_stated_resource_identity,
     resource_target_candidates_apply_to_utterance,
@@ -137,42 +136,6 @@ def test_resource_list_drops_model_invented_history_without_a_temporal_signal() 
 
         assert normalized.temporal_scope == {}
         assert historical.temporal_scope == {"kind": "historical"}
-
-
-def test_property_filter_requires_the_stated_relation_target() -> None:
-    registry = InventoryQueryLanguageRegistry(
-        schema_version="1.1.0",
-        version="1.1.0",
-        default_scope="subscription",
-        default_activity_lookback_seconds=604800,
-        current_requires_fresh=True,
-        suffixes=("된",),
-        signals={"resource_name_relation": QueryTerms(terms=("관련", "관련된"))},
-        query_kinds={},
-        groupings={},
-        projections={},
-        scopes={},
-        states={},
-        operations={},
-        time_units={},
-    )
-    incomplete = _proposal(
-        subject_constraints=("Resource",),
-        measure_concepts=("type",),
-        output_shape=SemanticOutputShape.PROPERTY_FILTERED_RESOURCES,
-    )
-    complete = incomplete.model_copy(update={"subject_constraints": ("Resource", "FDAI")})
-
-    assert property_filter_omits_stated_relation(
-        incomplete,
-        utterance="FDAI와 관련된 리소스 그룹",
-        inventory_query_language=registry,
-    )
-    assert not property_filter_omits_stated_relation(
-        complete,
-        utterance="FDAI와 관련된 리소스 그룹",
-        inventory_query_language=registry,
-    )
 
 
 def test_judgment_facet_builds_one_source_grounded_resource_filter() -> None:

@@ -59,6 +59,7 @@ from ._helpers import Container
 from .resolved_models_revision import resolved_models_for_binding
 from .semantic_query_instance_candidates import declare_instance_candidate_query
 from .semantic_query_model_targets import t1_model_targets, t2_model_targets
+from .semantic_query_type_grounding import build_second_reader
 from .semantic_query_value_domains import resource_type_value_domains
 from .wire_adaptive_conversation import build_adaptive_conversation_service
 
@@ -250,6 +251,16 @@ def compose_azure_semantic_query_runtime(
             resource_freshness_seconds=resource_freshness_seconds,
             governed_document_reader=container.governed_document_reader,
             instance_candidate_query=instance_candidate_query,
+            second_reader=build_second_reader(
+                resolved=resolved,
+                identity=identity,
+                http_client=http_client,
+                endpoint=endpoint,
+                endpoint_resolver=endpoint_resolver,
+                catalog_root=catalog_root,
+                owner_loop=owner_loop,
+                held_capabilities=container.held_model_capabilities,
+            ),
             property_values=_resource_type_property_values(catalog_root),
             inventory_query_language=_inventory_query_language(catalog_root),
             purpose=purpose,

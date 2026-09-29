@@ -22,6 +22,7 @@ from fdai.core.conversation.semantic_planning import SemanticPlanningService
 from fdai.core.conversation.semantic_planning_models import (
     SemanticPlanningModel,
 )
+from fdai.core.conversation.semantic_second_reader import SemanticSecondReader, planner_arguments
 from fdai.core.conversation.session import Principal
 from fdai.core.ontology_platform import (
     METRIC_ARGUMENT_SCHEMAS,
@@ -262,6 +263,7 @@ def build_semantic_query_runtime(
     governed_document_reader: GovernedDocumentReader | None = None,
     instance_candidate_query: InstanceCandidateQuery | None = None,
     state_store: StateStore | None = None,
+    second_reader: SemanticSecondReader | None = None,
 ) -> current_evidence.SemanticQueryConversationRuntime:
     """Build a read-only runtime over one exact catalog release and instance store."""
 
@@ -700,6 +702,7 @@ def build_semantic_query_runtime(
         ),
         inventory_query_language=inventory_query_language,
         resource_freshness_seconds=resource_freshness_seconds,
+        **planner_arguments(second_reader),
     )
 
     def executor_for(

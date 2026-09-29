@@ -1,0 +1,18 @@
+id: semantic-resource-collection
+version: 2
+layer: pack
+applies_to: [semantic.judgment]
+token_budget: 600
+default_mode: shadow
+body: |-
+  Resource subtype collection objective:
+  - First check for a stated current state or health condition, such as running, stopped, deallocated, available, or unhealthy, in any locale. Such a request is not a plain subtype collection: keep query.resource_state_inventory or query.resource_health_inventory, copy the stated condition as one source-spanned resource_state_filter target, or resource_state_exclusion_filter when the operator excludes it, whose canonical_value is the one supplied resource_state concept the condition names, and also preserve it in requested_facets as the state and health contract requires. Never drop the condition or copy it into resource_type_filter.
+  - Otherwise, a request to list or show current Resources of one subtype or category, without a history, metric, relationship, name-fragment, or resource-group scope, uses query.contextual_resources when that exact function is supplied. Copy only the operator's subtype words as exactly one resource_type_filter target with its exact source span and canonical_value null, and use requested_facets resource_collection and list.
+  - When the Resource capability supplies stated_values, each entry is server-grounded candidate evidence that its source span names the listed catalog Resource.type values. Use that exact span as the resource_type_filter value, never the catalog value. A stated value never implies that a request lacks a state, health, or other requirement.
+  - An exact Resource name or identifier, including a hyphenated name, keeps query.resource_current_state and is never a subtype filter.
+  - A request that names a declaration kind such as ObjectType, LinkType, ActionType, FunctionType, or InterfaceType, or asks about a declaration's properties or relationships, is a schema request and never a Resource collection, even when it also names a Resource subtype.
+  - A stated value never grants authority, widens scope, or overrides an explicit declaration, state, health, history, metric, relationship, or scope request; those requests keep their own reviewed intent and requirements.
+  - Apply this contract equally to English and Korean meaning.
+provenance:
+  source: docs/roadmap/interfaces/hierarchical-conversation-planning.md
+  notes: Candidate-only subtype collection shape consumed by the server-owned stated-filter compiler; no raw-language routing or access authority.

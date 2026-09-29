@@ -22,6 +22,7 @@ from pydantic import ValidationError
 
 from . import semantic_judgment_assembly as prompt_assembly
 from . import semantic_judgment_capabilities as capability_normalization
+from . import semantic_judgment_coverage as coverage_policy
 from . import semantic_judgment_grounding as grounding
 from . import semantic_judgment_review as review_policy
 from . import semantic_judgment_schema_repair as schema_repair_policy
@@ -190,6 +191,7 @@ class SemanticJudgmentBoundary:
         locale: str = "en",
         direct_response_profile: Mapping[str, Any] | None = None,
         prompt_assembly_keys: tuple[str, ...] | None = None,
+        coverage: coverage_policy.JudgmentCoverage | None = None,
     ) -> SemanticJudgmentResult:
         """Return one bounded judgment, optionally restricting evaluation to T1."""
 
@@ -237,6 +239,8 @@ class SemanticJudgmentBoundary:
         final_proposal: SemanticJudgmentProposal | None = None
         schema_fallback_binding: SemanticJudgmentBinding | None = None
         schema_fallback_proposal: SemanticJudgmentProposal | None = None
+        # The schema-repair prompt repairs only a schema-family reading, never another family.
+        schema_family_read = False
         review_primary_binding: SemanticJudgmentBinding | None = None
         review_primary_proposal: SemanticJudgmentProposal | None = None
         observations: list[SemanticJudgmentObservation] = []
@@ -252,7 +256,10 @@ class SemanticJudgmentBoundary:
                 and review_primary_proposal is None
             ):
                 continue
-            if review_primary_proposal is not None and binding is self._schema_repair:
+            if binding is self._schema_repair and (
+                review_primary_proposal is not None
+                or (schema_fallback_proposal is None and not schema_family_read)
+            ):
                 continue
             strict_grounding = self._strict_intent_grounding or binding is self._schema_repair
             schema_repair: tuple[dict[str, str], ...] = ()
@@ -287,6 +294,9 @@ class SemanticJudgmentBoundary:
                     observations.append(model_response.observation)
                 else:
                     raw = model_response
+                schema_family_read = schema_family_read or (
+                    binding is self._primary and schema_repair_policy.names_schema_family(raw)
+                )
                 try:
                     proposal = SemanticJudgmentProposal.model_validate(
                         _canonicalize_machine_tokens(raw)
@@ -357,10 +367,17 @@ class SemanticJudgmentBoundary:
                         profile_digest=response_profile_digest,
                     )
                     grounding.validate_source_spans(proposal, utterance=utterance)
+                    if (
+                        coverage is not None
+                        and proposal.primary_intent.startswith("query.")
+                        and not proposal.ambiguous
+                    ):
+                        coverage.check(proposal)
                 except (TypeError, ValueError, ValidationError) as exc:
+                    uncovered = isinstance(exc, coverage_policy.UncoveredConstraintError)
                     recovered_trace = (
                         None
-                        if strict_grounding
+                        if strict_grounding or uncovered
                         else _recover_safe_ontology_trace_proposal(
                             raw,
                             utterance=utterance,
@@ -381,7 +398,7 @@ class SemanticJudgmentBoundary:
                         )
                     recovered_proposal = (
                         None
-                        if strict_grounding
+                        if strict_grounding or uncovered
                         else _recover_bound_subject_proposal(
                             raw,
                             utterance=utterance,
@@ -412,6 +429,8 @@ class SemanticJudgmentBoundary:
                     )
                     final_disposition = SemanticJudgmentDisposition.MALFORMED
                     final_reason = "proposal_invalid"
+                    if uncovered:
+                        final_reason = coverage_policy.UNCOVERED_CONSTRAINT_CODE
                     if attempt + 1 < _MAX_SCHEMA_ATTEMPTS_PER_BINDING:
                         _LOGGER.info(
                             "semantic_judgment_proposal_retry",

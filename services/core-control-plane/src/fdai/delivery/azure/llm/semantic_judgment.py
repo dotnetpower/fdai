@@ -39,6 +39,7 @@ from fdai.delivery.azure.llm.model_trace import (
     prepare_model_messages,
     start_model_trace,
 )
+from fdai.delivery.azure.llm.request_context_fit import fit_context_to_budget
 from fdai.delivery.azure.llm.request_target import ModelRequestTarget
 from fdai.shared.providers.workload_identity import WorkloadIdentity
 
@@ -199,18 +200,6 @@ class AzureOpenAISemanticJudgmentModel:
             "profile_version": profile_version,
             "schema_repair": schema_repair,
         }
-        try:
-            encoded = json.dumps(
-                {"untrusted_input": payload},
-                allow_nan=False,
-                ensure_ascii=False,
-                separators=(",", ":"),
-                sort_keys=True,
-            )
-        except (TypeError, ValueError):
-            return {"invalid_semantic_judgment_input": True}
-        if len(encoded.encode()) > _MAX_REQUEST_BYTES:
-            return {"invalid_semantic_judgment_input": True}
         system_prompt = self._config.system_prompt
         prompt_manifest = self._config.system_prompt_manifest
         assembler = self._config.system_prompt_assembler
@@ -218,20 +207,36 @@ class AzureOpenAISemanticJudgmentModel:
             assembled = assembler.assemble(prompt_assembly_keys)
             system_prompt = assembled.system_text
             prompt_manifest = assembled.replay_manifest()
+        proposal_schema = _semantic_judgment_proposal_schema(
+            intent_hardening_enabled=self._config.intent_hardening_enabled,
+            document_query_enabled=_document_query_prompt_enabled(prompt_manifest)
+            and any(
+                capability.get("kind") == "function_type"
+                and capability.get("name") == "query.governed_documents"
+                for capability in capabilities
+            ),
+            source_locale=locale,
+        )
+        try:
+            fitted = fit_context_to_budget(
+                context,
+                encode=partial(_encoded_input, payload),
+                system_prompt=system_prompt,
+                response_format=_strict_response_format(proposal_schema, name="semantic-judgment"),
+                reserved_output_tokens=self._config.max_tokens,
+                budget=prompt_manifest.request_token_budget if prompt_manifest else None,
+                call_kind="semantic-judgment",
+            )
+            encoded = _encoded_input(payload, fitted)
+        except (TypeError, ValueError):
+            return {"invalid_semantic_judgment_input": True}
+        if len(encoded.encode()) > _MAX_REQUEST_BYTES:
+            return {"invalid_semantic_judgment_input": True}
         future = asyncio.run_coroutine_threadsafe(
             self._complete(
                 encoded,
                 input_digest=input_digest,
-                proposal_schema=_semantic_judgment_proposal_schema(
-                    intent_hardening_enabled=self._config.intent_hardening_enabled,
-                    document_query_enabled=_document_query_prompt_enabled(prompt_manifest)
-                    and any(
-                        capability.get("kind") == "function_type"
-                        and capability.get("name") == "query.governed_documents"
-                        for capability in capabilities
-                    ),
-                    source_locale=locale,
-                ),
+                proposal_schema=proposal_schema,
                 system_prompt=system_prompt,
                 prompt_manifest=prompt_manifest,
                 call_kind="semantic-judgment",
@@ -274,14 +279,21 @@ class AzureOpenAISemanticJudgmentModel:
             "direct_response_profile_digest": direct_response_profile_digest,
             "schema_repair": schema_repair,
         }
+        preflight_manifest = self._config.preflight_prompt_manifest
+        proposal_schema = _preflight_proposal_schema(preflight_manifest)
         try:
-            encoded = json.dumps(
-                {"untrusted_input": payload},
-                allow_nan=False,
-                ensure_ascii=False,
-                separators=(",", ":"),
-                sort_keys=True,
+            fitted = fit_context_to_budget(
+                context,
+                encode=partial(_encoded_input, payload),
+                system_prompt=self._config.preflight_system_prompt,
+                response_format=_strict_response_format(
+                    proposal_schema, name="conversation-preflight"
+                ),
+                reserved_output_tokens=min(self._config.max_tokens, _MAX_PREFLIGHT_TOKENS),
+                budget=preflight_manifest.request_token_budget if preflight_manifest else None,
+                call_kind="conversation-preflight",
             )
+            encoded = _encoded_input(payload, fitted)
         except (TypeError, ValueError):
             return None
         if len(encoded.encode()) > _MAX_REQUEST_BYTES:
@@ -291,7 +303,7 @@ class AzureOpenAISemanticJudgmentModel:
             self._complete(
                 encoded,
                 input_digest=input_digest,
-                proposal_schema=_preflight_proposal_schema(self._config.preflight_prompt_manifest),
+                proposal_schema=proposal_schema,
                 system_prompt=self._config.preflight_system_prompt,
                 prompt_manifest=self._config.preflight_prompt_manifest,
                 call_kind="conversation-preflight",
@@ -580,6 +592,16 @@ def _response_mapping(
         payload if isinstance(payload, Mapping) else {"invalid_semantic_judgment_response": True}
     )
     return proposal, content, bounded_provider_usage
+
+
+def _encoded_input(payload: Mapping[str, Any], context: tuple[str, ...]) -> str:
+    return json.dumps(
+        {"untrusted_input": {**payload, "context": context}},
+        allow_nan=False,
+        ensure_ascii=False,
+        separators=(",", ":"),
+        sort_keys=True,
+    )
 
 
 def _strict_response_format(

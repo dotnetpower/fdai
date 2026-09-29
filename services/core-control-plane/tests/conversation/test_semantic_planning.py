@@ -300,6 +300,21 @@ class _JudgmentBoundary:
         )
 
 
+class _CountingJudgment:
+    """Delegate to one typed judgment and count full judgment calls."""
+
+    def __init__(self, inner: _JudgmentBoundary) -> None:
+        self._inner = inner
+        self.judge_calls = 0
+
+    def preflight(self, **kwargs: Any) -> Any:
+        return self._inner.preflight(**kwargs)
+
+    def judge(self, **kwargs: Any) -> Any:
+        self.judge_calls += 1
+        return self._inner.judge(**kwargs)
+
+
 def _resource_collection_judgment(
     proposal: ConversationPreflightProposal,
 ) -> _JudgmentBoundary:
@@ -1575,20 +1590,27 @@ def test_name_fragment_without_a_type_compiles_a_model_free_object_only_list() -
     assert model.plan_calls == 0
 
 
-def test_resource_group_target_with_collection_facets_filters_group_objects() -> None:
+def test_group_name_fragment_with_group_type_filters_group_objects() -> None:
     utterance = "fdai 관련 리소스 그룹은?"
     manifest, _definition = _typed_fixture(
         groups=(_RESOURCE_GROUP_GROUP,),
         include_parent_id=True,
     )
+    group_type = "리소스 그룹"
     judgment = SemanticJudgmentProposal(
         primary_intent="query.contextual_resources",
         targets=(
             SemanticTarget(
-                kind="resource_group",
+                kind="resource_name_filter",
                 value="fdai",
                 source_start=0,
                 source_end=len("fdai"),
+            ),
+            SemanticTarget(
+                kind="resource_type_filter",
+                value=group_type,
+                source_start=utterance.index(group_type),
+                source_end=utterance.index(group_type) + len(group_type),
             ),
         ),
         requested_facets=("resource_collection", "list", "name_filter"),
@@ -1732,6 +1754,132 @@ def test_named_group_judgment_stabilizes_repeated_membership_frames(
     )
     assert model.frame_calls == 0
     assert model.plan_calls == 0
+
+
+@pytest.mark.parametrize(
+    ("utterance", "facets", "frame_shape"),
+    (
+        (
+            "rg-example 리소스 그룹에는 어떤 리소스가 있어?",
+            ("resource_collection", "list", "name_filter"),
+            "property_filtered_resources",
+        ),
+        (
+            "rg-example 리소스 그룹에 뭐가 있어?",
+            ("resource_collection", "list", "name_filter", "details"),
+            "contextual_resource_list",
+        ),
+        (
+            "rg-example 리소스 그룹에 있는 리소스 목록 보여줘",
+            ("resource_collection", "list", "details", "name_filter"),
+            "property_filtered_resources",
+        ),
+    ),
+)
+def test_group_target_with_collection_facets_reads_the_exact_group_members(
+    utterance: str,
+    facets: tuple[str, ...],
+    frame_shape: str,
+) -> None:
+    """Collection facets never turn one exact group target into a group-name filter."""
+
+    manifest, _definition = _typed_fixture(
+        groups=(_RESOURCE_GROUP_GROUP,),
+        extra_values=("authorization.role-assignment",),
+        include_parent_id=True,
+    )
+    judgment = SemanticJudgmentProposal(
+        primary_intent="query.contextual_resources",
+        targets=(
+            SemanticTarget(
+                kind="resource_group",
+                value="rg-example",
+                source_start=0,
+                source_end=len("rg-example"),
+            ),
+        ),
+        requested_facets=facets,
+        confidence=0.98,
+        ambiguous=False,
+        action_posture="advise_only",
+        action_subject="none",
+        authority="candidate_only",
+        execution_authority=False,
+    )
+    model = _Model(
+        frame=_frame(
+            subject_constraints=["Resource"],
+            measure_concepts=[],
+            output_shape=frame_shape,
+        ),
+        plan=None,
+    )
+
+    _assert_group_membership_plan(
+        model,
+        manifest,
+        utterance,
+        semantic_judgment=_JudgmentBoundary(judgment),
+    )
+    assert model.frame_calls == 0
+    assert model.plan_calls == 0
+
+
+def test_group_membership_keeps_a_stated_subtype_as_an_endpoint_filter() -> None:
+    """A subtype beside one exact group narrows the group's members, never the subscription."""
+
+    utterance = "rg-example에 있는 vm 목록"
+    manifest, _definition = _typed_fixture(
+        groups=(_RESOURCE_GROUP_GROUP, _VM_GROUP),
+        extra_values=("authorization.role-assignment",),
+        include_parent_id=True,
+    )
+    judgment = SemanticJudgmentProposal(
+        primary_intent="query.contextual_resources",
+        targets=(
+            SemanticTarget(
+                kind="resource_group",
+                value="rg-example",
+                source_start=0,
+                source_end=len("rg-example"),
+            ),
+            SemanticTarget(
+                kind="resource_type_filter",
+                value="vm",
+                source_start=utterance.index("vm"),
+                source_end=utterance.index("vm") + len("vm"),
+            ),
+        ),
+        requested_facets=("resource_collection", "list"),
+        confidence=0.98,
+        ambiguous=False,
+        action_posture="advise_only",
+        action_subject="none",
+        authority="candidate_only",
+        execution_authority=False,
+    )
+    model = _Model(frame=None, plan=None)
+
+    outcome = _service(model, manifest, semantic_judgment=_JudgmentBoundary(judgment)).plan(
+        utterance=utterance,
+        prior_turns=(),
+        principal=Principal(id="operator", role=Role.READER),
+        purpose="operations-review",
+    )
+
+    assert outcome.disposition is SemanticPlanningDisposition.PLANNED
+    assert outcome.plan is not None
+    anchor, members = outcome.plan.nodes
+    assert anchor.arguments["definition"]["predicates"][0] == {
+        "property": "name",
+        "operator": "equals_ignore_case",
+        "equals": "rg-example",
+    }
+    assert members.kind is QueryNodeKind.RELATIONSHIP_TRAVERSAL
+    assert {"property": "type", "operator": "equals", "equals": "compute.vm"} in members.arguments[
+        "endpoint_predicates"
+    ]
+    assert model.frame_calls == model.plan_calls == 0
 
 
 def test_named_group_normalization_preserves_required_document_evidence() -> None:
@@ -1992,7 +2140,9 @@ def test_verified_recent_state_change_preflight_skips_full_semantic_judgment() -
     assert model.frame_calls == model.plan_calls == 0
 
 
-def test_verified_resource_collection_skips_full_semantic_judgment_after_grounding() -> None:
+def test_verified_resource_collection_is_typed_by_the_full_semantic_judgment() -> None:
+    """A router reading can omit a stated constraint, so the judgment types collections."""
+
     manifest, _definition = _typed_fixture(
         groups=(_SQL_SERVER_GROUP,),
         include_resource_state=True,
@@ -2033,15 +2183,13 @@ def test_verified_resource_collection_skips_full_semantic_judgment_after_groundi
         prompt_digest=DIGEST,
     )
 
-    class _NoFullJudgment:
-        def judge(self, **_kwargs: Any) -> Any:
-            raise AssertionError("grounded Resource collection must skip full semantic judgment")
+    judgment = _CountingJudgment(_resource_collection_judgment(proposal))
 
     outcome = _service(
         model,
         manifest,
         inventory_query_language=_inventory_query_language(),
-        semantic_judgment=_NoFullJudgment(),
+        semantic_judgment=judgment,
     ).plan(
         utterance=utterance,
         prior_turns=(),
@@ -2068,9 +2216,10 @@ def test_verified_resource_collection_skips_full_semantic_judgment_after_groundi
         "state_concepts": ["resource_state.running"]
     }
     assert model.frame_calls == model.plan_calls == 0
+    assert judgment.judge_calls == 1
 
 
-def test_verified_state_only_collection_skips_full_semantic_judgment() -> None:
+def test_verified_state_only_collection_is_typed_by_the_full_semantic_judgment() -> None:
     manifest, _definition = _typed_fixture(
         groups=(_VM_GROUP,),
         include_resource_state=True,
@@ -2104,15 +2253,13 @@ def test_verified_state_only_collection_skips_full_semantic_judgment() -> None:
         prompt_digest=DIGEST,
     )
 
-    class _NoFullJudgment:
-        def judge(self, **_kwargs: Any) -> Any:
-            raise AssertionError("grounded state collection must skip full semantic judgment")
+    judgment = _CountingJudgment(_resource_collection_judgment(proposal))
 
     outcome = _service(
         model,
         manifest,
         inventory_query_language=_inventory_query_language(),
-        semantic_judgment=_NoFullJudgment(),
+        semantic_judgment=judgment,
     ).plan(
         utterance=utterance,
         prior_turns=(),
@@ -2128,6 +2275,7 @@ def test_verified_state_only_collection_skips_full_semantic_judgment() -> None:
         "state_concepts": ["resource_state.deallocated", "resource_state.stopped"]
     }
     assert model.frame_calls == model.plan_calls == 0
+    assert judgment.judge_calls == 1
 
 
 def test_verified_type_collection_requires_full_semantic_judgment() -> None:
@@ -3434,34 +3582,59 @@ def test_unstated_frame_subject_never_becomes_a_filter_operand() -> None:
     assert model.plan_calls == 0
 
 
-def test_related_resource_filter_holds_when_model_drops_the_relation_target() -> None:
-    manifest, definition = _typed_fixture(groups=(_RESOURCE_GROUP_GROUP, _VM_GROUP))
+def test_related_resource_filter_keeps_the_judgment_name_operand() -> None:
+    """The typed judgment, not a relation word list, keeps the stated name operand."""
+
+    utterance = "FDAI 관련 리소스 그룹이 뭐가 있어?"
+    manifest, _definition = _typed_fixture(groups=(_RESOURCE_GROUP_GROUP, _VM_GROUP))
+    group_type = "리소스 그룹"
+    judgment = SemanticJudgmentProposal(
+        primary_intent="query.contextual_resources",
+        targets=(
+            SemanticTarget(
+                kind="resource_name_filter",
+                value="FDAI",
+                source_start=0,
+                source_end=len("FDAI"),
+            ),
+            SemanticTarget(
+                kind="resource_type_filter",
+                value=group_type,
+                source_start=utterance.index(group_type),
+                source_end=utterance.index(group_type) + len(group_type),
+            ),
+        ),
+        requested_facets=("resource_collection", "list", "name_filter"),
+        confidence=0.98,
+        ambiguous=False,
+        action_posture="advise_only",
+        action_subject="none",
+        authority="candidate_only",
+        execution_authority=False,
+    )
     model = _Model(
         frame=_frame(
             subject_constraints=["Resource"],
             measure_concepts=["type"],
             output_shape="property_filtered_resources",
         ),
-        plan=_plan(definition),
-    )
-    query_language = _inventory_query_language().model_copy(
-        update={"signals": {"resource_name_relation": QueryTerms(terms=("관련",))}}
+        plan=None,
     )
 
-    outcome = _service(
+    predicates = _grounded_predicates(
         model,
         manifest,
-        inventory_query_language=query_language,
-    ).plan(
-        utterance="FDAI 관련 리소스 그룹이 뭐가 있어?",
-        prior_turns=(),
-        principal=Principal(id="operator", role=Role.READER),
-        purpose="operations-review",
+        utterance,
+        semantic_judgment=_JudgmentBoundary(judgment),
+        require_object_only=True,
     )
 
-    assert outcome.disposition is SemanticPlanningDisposition.CLARIFICATION
-    assert outcome.reason == "semantic_clarification_required"
-    assert "이름이나 태그" in (outcome.clarification or "")
+    assert predicates == [
+        {"property": "name", "operator": "contains", "equals": "FDAI"},
+        {"property": "type", "operator": "equals", "equals": "resource-group"},
+    ]
+    assert model.frame_calls == 0
+    assert model.plan_calls == 0
 
 
 def test_stated_value_group_with_several_values_narrows_to_a_membership_predicate() -> None:
@@ -6139,3 +6312,55 @@ async def test_semantic_runtime_executes_verified_plan_and_projects_terminal_gra
     assert result.intent_graph_evidence["status"] == "completed"
     assert result.intent_graph_evidence["goals"][0]["authority"] == "server_inventory_graph"
     assert result.intent_graph_evidence["goals"][0]["evidence_refs"] == ["inventory:1"]
+
+
+@pytest.mark.parametrize(
+    "facets",
+    (
+        ("resource_collection", "list", "state"),
+        ("resource_collection", "list", "state", "resource_type"),
+        ("resource_collection", "list", "current_state"),
+    ),
+)
+def test_typed_state_collection_plans_whatever_state_facet_token_it_carries(
+    facets: tuple[str, ...],
+) -> None:
+    """A typed state target, not one facet spelling, makes the state collection."""
+
+    utterance = "실행 중인 VM 보여줘"
+    manifest, _definition = _typed_fixture(groups=(_VM_GROUP,), include_resource_state=True)
+    judgment = SemanticJudgmentProposal(
+        primary_intent="query.resource_state_inventory",
+        targets=(
+            SemanticTarget(
+                kind="resource_state_filter",
+                value="실행 중인",
+                canonical_value="resource_state.running",
+                source_start=0,
+                source_end=5,
+            ),
+            SemanticTarget(kind="resource_type_filter", value="VM", source_start=6, source_end=8),
+        ),
+        requested_facets=facets,
+        confidence=0.95,
+        ambiguous=False,
+        action_posture="advise_only",
+        action_subject="none",
+        authority="candidate_only",
+        execution_authority=False,
+    )
+
+    outcome = _service(
+        _Model(frame=None, plan=None),
+        manifest,
+        inventory_query_language=_inventory_query_language(),
+        semantic_judgment=_JudgmentBoundary(judgment),
+    ).plan(
+        utterance=utterance,
+        prior_turns=(),
+        principal=Principal(id="operator", role=Role.READER),
+        purpose="operations-review",
+    )
+
+    assert outcome.disposition is SemanticPlanningDisposition.PLANNED
+    assert outcome.frame is not None and outcome.frame.output_shape == "resource_state_list"

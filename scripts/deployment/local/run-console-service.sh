@@ -204,6 +204,7 @@ case "$service" in
       env -u AZURE_CONFIG_DIR
       FDAI_PANTHEON_HEARTBEAT_SECONDS=2
       FDAI_RUNTIME_LOCK_FILE="$repo_root/.fdai/core-runtime.lock"
+      FDAI_SEMANTIC_SECOND_READER=1
       PYTHONPATH="$service_pythonpath"
       "$repo_root/.venv/bin/fdai-core-control-plane"
     )

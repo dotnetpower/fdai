@@ -102,6 +102,9 @@ _EXPECTED_FILES = frozenset(
         # Projects the catalog resource-type vocabulary as a planner value
         # domain so the semantic wire keeps one binding responsibility.
         "semantic_query_value_domains.py",
+        # Binds the opt-in independent second reader, subtype grounding and
+        # judgment coverage, without growing the Azure semantic composition.
+        "semantic_query_type_grounding.py",
         # Derives Resource Health groups from inventory query semantics so the
         # public semantic wire remains below its enforced LOC ceiling.
         "semantic_query_health_values.py",

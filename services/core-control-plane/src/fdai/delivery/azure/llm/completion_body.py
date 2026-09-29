@@ -22,4 +22,10 @@ def completion_body_params(
     return {"temperature": temperature, "max_tokens": max_tokens}
 
 
-__all__ = ["completion_body_params"]
+def uses_completion_token_budget(model_family_or_deployment: str) -> bool:
+    """Return whether a family bounds output with completion tokens that include reasoning."""
+
+    return bool(_COMPLETION_TOKEN_FAMILY.search(model_family_or_deployment.strip().lower()))
+
+
+__all__ = ["completion_body_params", "uses_completion_token_budget"]
