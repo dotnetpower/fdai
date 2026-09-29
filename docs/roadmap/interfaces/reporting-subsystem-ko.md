@@ -1,7 +1,7 @@
 ---
 title: 리포팅 서브시스템
 translation_of: reporting-subsystem.md
-translation_source_sha: 747ec67d886d6cc4b5e1a56f8c5f9bf85ce2a62a
+translation_source_sha: e20283893cb064d94e8a5fc8f9708881d3d40784
 translation_revised: 2026-09-28
 ---
 # 리포팅 서브시스템
@@ -100,6 +100,11 @@ Chaos Enforce Results 리포트는 완료된 장애 주입 결과를 측정된 �
 원본을 표시하며, 명시적인 `synthetic: false` 출처와 변경 권한이 없는 1일, 7일
 또는 30일 구간을 렌더링합니다. Live, Incident, Audit 및 Trace 화면은 이 관측 근거를
 복사하지 않고 각 화면의 권위 있는 계약을 유지합니다.
+
+이 권한 방식은 테이블마다 기록 소유자 하나를 지정하는 공용 소유권 manifest에
+기록합니다. 이 하위 시스템이 기록하지도 투영하지도 않는 테이블, 예를 들어 Core가
+소유한 `licensing_trial` 단일 행도 거기에 나타나지만 리포트 원본이 되지는 않습니다.
+manifest는 소유권을 정의할 뿐 리포트 노출을 정의하지 않습니다.
 
 ## 위젯 카탈로그
 

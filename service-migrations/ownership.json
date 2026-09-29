@@ -238,6 +238,7 @@
   "table_migrations": {
     "core-control-plane": [
       "handover_semantic_package",
+      "licensing_trial",
       "operator_assignment_receipt",
       "operator_rule_activation_receipt",
       "operational_evidence_admission",
@@ -464,6 +465,7 @@
   "whole_table_writers": {
     "core-control-plane": [
       "handover_semantic_package",
+      "licensing_trial",
       "operational_evidence_admission",
       "operational_evidence_authentication",
       "operational_evidence_bundle",
