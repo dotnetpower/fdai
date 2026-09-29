@@ -92,6 +92,7 @@ from fdai.runtime.post_turn_review import (
     build_post_turn_review_runtime,
     post_turn_review_dsn,
 )
+from fdai.runtime.post_turn_review_ingress import PostTurnReviewRequestConsumer
 from fdai.runtime.providers import _build_resource_lock
 from fdai.runtime.readiness import RuntimeReadinessState
 from fdai.runtime.rule_generation_documents import RuleGenerationReconciliation
@@ -172,6 +173,7 @@ class PantheonInitializationResult:
     t2_recovery_maintenance: Any = None
     discovery_activation: DiscoveryActivationRuntime | None = None
     alert_noise_handler: Any = None
+    post_turn_review_request_consumer: PostTurnReviewRequestConsumer | None = None
 
 
 def _pantheon_enforce_enabled(
@@ -781,6 +783,7 @@ async def initialize_pantheon(
         t2_recovery_maintenance=t2_recovery_maintenance,
         discovery_activation=discovery_activation,
         alert_noise_handler=alert_noise_handler,
+        post_turn_review_request_consumer=PostTurnReviewRequestConsumer(pantheon_runtime),
     )
 
 

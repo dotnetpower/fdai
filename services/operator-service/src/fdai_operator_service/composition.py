@@ -15,7 +15,7 @@ from fdai_service_contracts import (
     OperatorReadModel,
     OperatorTokenVerifier,
 )
-from fdai_service_contracts.post_turn_review import POST_TURN_REVIEW_TOPIC
+from fdai_service_contracts.post_turn_review import POST_TURN_REVIEW_REQUEST_TOPIC
 from fdai_service_contracts.venue import (
     bus_security_protocol,
     resolve_execution_venue,
@@ -652,7 +652,7 @@ def _build_semantic_bus(environment: OperatorEnvironment) -> OperatorSemanticKaf
             request_topic=environment.semantic_request_topic or "operator.semantic-turn.requests",
             projection_topic=environment.semantic_projection_topic
             or "core.semantic-turn.projections",
-            post_turn_review_topic=POST_TURN_REVIEW_TOPIC,
+            post_turn_review_topic=POST_TURN_REVIEW_REQUEST_TOPIC,
             read_investigation_topic=environment.read_investigation_request_topic,
             read_investigation_completion_topic=(environment.read_investigation_completion_topic),
             background_task_projection_topic=environment.background_task_projection_topic,

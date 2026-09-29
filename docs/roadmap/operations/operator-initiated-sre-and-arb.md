@@ -4,6 +4,8 @@ title: Operator-Initiated SRE and Architecture Review
 
 # Operator-Initiated SRE and Architecture Review
 
+The corrected post-turn ingress path cannot create, confirm, or mutate Incident or ARB records because Core only republishes a Bragi review envelope.
+
 This plan defines how FDAI identifies operational work that is not an incident, turns an
 operator's SRE request into a governed incident response, and runs the Architecture Review Board
 (ARB) process as an observable workflow. It also defines the safety boundary for shadow and

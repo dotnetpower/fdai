@@ -1,9 +1,11 @@
 ---
 translation_of: continuous-operational-instance-graph.md
-translation_source_sha: d8623fc5d15d66916b7f746089506f56b6af2e2d
+translation_source_sha: 009d9c91baaff26026a373e53c44c2ed76a36e11
 translation_revised: 2026-09-29
 ---
 # 지속형 운영 인스턴스 그래프
+
+후속 post-turn ingress 수정은 Operator 요청을 graph observation 밖에 두고 Core Bragi만 Pantheon review topic을 발행하게 합니다.
 
 Operator post-turn review 큐는 최종 semantic projection을 completed-turn 학습 근거로만 관찰하며, observed graph fact, provider read, 실행 권한을 만들지 않습니다.
 

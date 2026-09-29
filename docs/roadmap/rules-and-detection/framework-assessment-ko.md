@@ -1,10 +1,12 @@
 ---
 title: WAF 및 CAF 근거 기반 평가
 translation_of: framework-assessment.md
-translation_source_sha: ec1b4ae67ea2709051a8aee0d8057dd4bdc5adbc
+translation_source_sha: 7f5a7d8d4c451118534e457d8ef4c910a3f45b6d
 translation_revised: 2026-09-29
 ---
 # WAF 및 CAF 근거 기반 평가
+
+수정된 post-turn request topic과 Core Bragi ingress는 WAF/CAF evidence, assessment result, remediation activation의 범위 밖에 남습니다.
 
 Post-turn review 묶음은 transport mechanics만 공유합니다. Framework evidence를 충족하거나 assessment result를 바꾸거나 remediation을 활성화할 수 없습니다.
 

@@ -106,6 +106,7 @@ from fdai_service_contracts.incident_creation import (
     build_incident_creation_draft,
 )
 from fdai_service_contracts.ontology_query import QueryNodeKind, content_digest
+from fdai_service_contracts.post_turn_review import POST_TURN_REVIEW_REQUEST_TOPIC
 from fdai_service_contracts.semantic_projection import (
     SEMANTIC_QUERY_REQUEST_KIND,
     semantic_projection_evidence_digest,
@@ -2829,11 +2830,11 @@ async def test_consented_answered_result_enqueues_one_post_turn_review_input() -
     assert await queue.drain_once() is True
     assert queue.snapshot.published == 1
     [(topic, key, payload)] = publisher.messages
-    assert topic == "object.post-turn-review"
-    assert key.startswith("principal-")
     review = cast(Mapping[str, object], payload["review"])
-    assert payload["producer_principal"] == "Bragi"
-    assert payload["kind"] == "post_turn_review"
+    assert topic == POST_TURN_REVIEW_REQUEST_TOPIC
+    assert key == f"operator-post-turn-review:{review['review_id']}"
+    assert "producer_principal" not in payload
+    assert payload["kind"] == "post_turn_review_request"
     assert review["operator_body"] == "Use the evidence query for this incident."
     assert review["assistant_body"] == "Semantic result: answered"
     assert review["failure_recovered"] is True
@@ -2896,7 +2897,7 @@ async def test_post_turn_queue_publish_failure_never_fails_terminal_projection()
     assert queue.snapshot.failed == 1
 
 
-async def test_duplicate_terminal_projection_publishes_one_post_turn_review_input() -> None:
+async def test_duplicate_terminal_projection_publishes_one_post_turn_review_request() -> None:
     store = _MemorySemanticStore(share_with_learner=True)
     publisher = _ReviewPublisher()
     queue = NonBlockingPostTurnReviewQueue(source=store, publisher=publisher)

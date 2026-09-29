@@ -15,11 +15,11 @@ from fdai_operator_service.postgres_semantic_turn_store import (
 )
 from fdai_service_contracts import SemanticTurnDisposition, SemanticTurnResult
 from fdai_service_contracts.post_turn_review import (
-    POST_TURN_REVIEW_TOPIC,
+    POST_TURN_REVIEW_REQUEST_TOPIC,
     MemoryScopeKind,
     PostTurnReviewInputWire,
     PostTurnToolReceipt,
-    post_turn_review_event_payload,
+    post_turn_review_request_payload,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -33,7 +33,7 @@ class PostTurnReviewSource(Protocol):
 
 
 class PostTurnReviewPublisher(Protocol):
-    """Publish one Bragi-owned post-turn event through the configured transport."""
+    """Publish one Operator-owned post-turn request through the configured transport."""
 
     async def publish(
         self,
@@ -81,7 +81,7 @@ class NonBlockingPostTurnReviewQueue:
         *,
         source: PostTurnReviewSource,
         publisher: PostTurnReviewPublisher,
-        topic: str = POST_TURN_REVIEW_TOPIC,
+        topic: str = POST_TURN_REVIEW_REQUEST_TOPIC,
         max_size: int = _MAX_QUEUE_SIZE,
     ) -> None:
         if max_size < 1:
@@ -159,8 +159,8 @@ class NonBlockingPostTurnReviewQueue:
                 return
             await self._publisher.publish(
                 self._topic,
-                review_input.principal_scope,
-                post_turn_review_event_payload(review_input),
+                f"operator-post-turn-review:{review_input.review_id}",
+                post_turn_review_request_payload(review_input),
             )
             self._bump("published")
         except Exception as exc:  # noqa: BLE001 - async review MUST NOT affect the turn

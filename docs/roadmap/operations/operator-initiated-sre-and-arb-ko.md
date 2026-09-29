@@ -1,11 +1,13 @@
 ---
 title: 오퍼레이터 시작 SRE 및 아키텍처 리뷰
 translation_of: operator-initiated-sre-and-arb.md
-translation_source_sha: 45550ba71d06501eeaf25d0da77344c474d665a0
+translation_source_sha: 31580330692a295b7c7440982bf1927e2f462702
 translation_revised: 2026-09-29
 ---
 
 # 오퍼레이터 시작 SRE 및 아키텍처 리뷰
+
+수정된 post-turn ingress 경로는 Core가 Bragi review 묶음만 다시 발행하므로 Incident 또는 ARB record를 생성, 확인, 변경할 수 없습니다.
 
 Operator post-turn review 발행은 projection 이후 완료된 semantic turn만 관찰하며 Incident 또는 ARB workflow를 생성, 확인, 변경할 수 없습니다.
 

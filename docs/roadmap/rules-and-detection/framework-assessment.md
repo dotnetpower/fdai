@@ -3,6 +3,8 @@ title: WAF and CAF Evidence-Governed Assessment
 ---
 # WAF and CAF Evidence-Governed Assessment
 
+The corrected post-turn request topic and Core Bragi ingress remain outside WAF/CAF evidence, assessment results, and remediation activation.
+
 This design turns the pinned Azure Well-Architected Framework (WAF) and Microsoft Cloud Adoption
 Framework (CAF) catalogs into scope-bound, replayable shadow assessments. It keeps advisory
 guidance, observed evidence, human approval, and operational authority separate.

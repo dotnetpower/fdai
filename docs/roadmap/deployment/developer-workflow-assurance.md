@@ -1,5 +1,7 @@
 # Developer workflow assurance
 
+The corrected post-turn ingress path changes runtime supervision only; it does not add developer workflow authority or a diagnostic shortcut.
+
 This document defines the repository controls that keep concurrent FDAI development fast,
 resumable, and fail-closed. It owns developer workflow diagnostics and latency evidence, not the
 product control plane or its execution authority.

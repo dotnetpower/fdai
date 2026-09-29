@@ -8,6 +8,8 @@ from typing import Annotated, Final, Literal
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 POST_TURN_REVIEW_TOPIC: Final = "object.post-turn-review"
+POST_TURN_REVIEW_REQUEST_TOPIC: Final = "operator.post-turn-review.requests"
+POST_TURN_REVIEW_REQUEST_CONSUMER_GROUP: Final = "core-post-turn-review-v1"
 POST_TURN_REVIEW_KIND: Final = "post_turn_review"
 POST_TURN_REVIEW_PRODUCER: Final = "Bragi"
 
@@ -107,6 +109,36 @@ class BragiPostTurnReviewEnvelope(BaseModel):
         }
 
 
+class OperatorPostTurnReviewRequestEnvelope(BaseModel):
+    """Operator-to-Core request for Bragi-owned post-turn publication."""
+
+    model_config = ConfigDict(frozen=True)
+
+    kind: Literal["post_turn_review_request"] = "post_turn_review_request"
+    idempotency_key: Annotated[
+        str,
+        Field(
+            min_length=1,
+            max_length=300,
+            pattern=r"^operator-post-turn-review:[A-Za-z0-9._:-]+$",
+        ),
+    ]
+    review: PostTurnReviewInputWire
+
+    @property
+    def request_id(self) -> str:
+        return self.idempotency_key.removeprefix("operator-post-turn-review:")
+
+    def to_wire_mapping(self) -> dict[str, object]:
+        """Return a plain mapping suitable for Operator-to-Core transport."""
+
+        return {
+            "kind": self.kind,
+            "idempotency_key": self.idempotency_key,
+            "review": self.review.to_wire_mapping(),
+        }
+
+
 def post_turn_review_event_payload(review: PostTurnReviewInputWire) -> dict[str, object]:
     """Build the shared Bragi-owned event payload for one validated input."""
 
@@ -117,12 +149,25 @@ def post_turn_review_event_payload(review: PostTurnReviewInputWire) -> dict[str,
     ).to_wire_mapping()
 
 
+def post_turn_review_request_payload(review: PostTurnReviewInputWire) -> dict[str, object]:
+    """Build the Operator-owned request payload for Core Bragi ingress."""
+
+    return OperatorPostTurnReviewRequestEnvelope(
+        idempotency_key=f"operator-post-turn-review:{review.review_id}",
+        review=review,
+    ).to_wire_mapping()
+
+
 __all__ = [
     "BragiPostTurnReviewEnvelope",
+    "OperatorPostTurnReviewRequestEnvelope",
+    "POST_TURN_REVIEW_REQUEST_CONSUMER_GROUP",
+    "POST_TURN_REVIEW_REQUEST_TOPIC",
     "POST_TURN_REVIEW_KIND",
     "POST_TURN_REVIEW_PRODUCER",
     "POST_TURN_REVIEW_TOPIC",
     "PostTurnReviewInputWire",
     "PostTurnToolReceipt",
     "post_turn_review_event_payload",
+    "post_turn_review_request_payload",
 ]

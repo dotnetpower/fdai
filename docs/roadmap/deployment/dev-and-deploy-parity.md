@@ -2,6 +2,8 @@
 title: Runtime Parity - Authoritative Local Development and Test Fixtures
 ---
 # Runtime Parity - Authoritative Local Development and Test Fixtures
+
+Both local and deployed profiles route Operator post-turn review through `operator.post-turn-review.requests` before Core Bragi writes the Pantheon topic.
 **Goal**: automated tests remain deterministic and secret-free, while the default local and deployed runtime is the same headless observation-first SRE Agent. Explicit Console sessions show authoritative Azure state only when the read-only Console and enterprise identity add-ons are selected. Azure deployment uses the **deployer's permissions and region catalog to select provisioned resources**. The separate `docs site: serve (4321)` task previews public documentation on loopback only; it starts no backend or channel edge and grants no runtime authority. Three truths hold at the same time:
 - **Automated-test truth**: pytest and committed mocks may bind deterministic fakes. They use an explicit test-fixture builder and never represent observed Azure state.
 - **Full-stack local truth**: `Console Web: Full Stack` is an explicit add-on profile. It uses browser Entra sign-in with the same App Role checks as deployment. The default headless profile needs no tenant id, browser secret, Graph permission, HIL channel, or executor binding. Azure CLI supplies read-provider credentials only. Missing sources render unavailable or explicitly empty; the Console never substitutes generated examples.

@@ -3,6 +3,8 @@ title: WARA Evidence-Governed Assessment
 ---
 # WARA Evidence-Governed Assessment
 
+The corrected post-turn request topic and Core Bragi ingress remain outside WARA scope, APRL measurement, assessment admission, and authority.
+
 This design turns the pinned Azure Well-Architected Reliability Assessment (WARA) and Azure
 Proactive Resiliency Library (APRL) inventory into a scope-aware, read-only assessment. It keeps
 guidance, evidence, and authority separate: a recommendation can produce a shadow finding, but it
