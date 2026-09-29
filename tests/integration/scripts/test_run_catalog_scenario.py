@@ -61,10 +61,20 @@ from fdai.shared.providers.tool import ToolCallRequest
 
 _REPO_ROOT = Path(__file__).resolve().parents[3]
 _SCRIPT_PATH = _REPO_ROOT / "scripts" / "catalog" / "run-catalog-scenario.py"
+_MEASURE_SCRIPT_PATH = _REPO_ROOT / "scripts" / "catalog" / "measure-detection-latency.py"
 
 
 def _load_script() -> ModuleType:
     spec = importlib.util.spec_from_file_location("run_catalog_scenario", _SCRIPT_PATH)
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+def _load_measure_script() -> ModuleType:
+    spec = importlib.util.spec_from_file_location("measure_detection_latency", _MEASURE_SCRIPT_PATH)
     assert spec is not None and spec.loader is not None
     module = importlib.util.module_from_spec(spec)
     sys.modules[spec.name] = module
@@ -168,6 +178,19 @@ class _Probe:
         return self._detects
 
 
+class _LatencyProbe(_Probe):
+    async def first_observed_at(
+        self,
+        *,
+        signal: str,
+        targets: Sequence[str],
+        window_start: datetime,
+        window_end: datetime,
+    ) -> datetime | None:
+        del signal, targets, window_end
+        return window_start + timedelta(milliseconds=1)
+
+
 class _SpyFactory(ScenarioFactory):
     """Scopes the fake injector exactly like the production factory builders."""
 
@@ -192,6 +215,12 @@ class _SpyFactory(ScenarioFactory):
                 ),
             )
         return ScopedInjector(self._injector, resources=lambda: (kubernetes_pods_ref(context),))
+
+
+class _LatencyFactory(_SpyFactory):
+    def __init__(self, injector: _Injector) -> None:
+        super().__init__(injector)
+        self.register_probe("pod_restart", lambda _entry, _context: _LatencyProbe(detects=True))
 
 
 class _DistributedLock(ResourceLockManager):
@@ -541,6 +570,62 @@ def test_enforce_refuses_structurally_before_any_governed_request(
     assert factory.builds == []
     assert injector.injected == []
     assert list(store.audit_entries) == []
+
+
+def test_measure_detection_latency_refuses_unbound_before_substrate_access(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    module = _load_measure_script()
+    runner = module._load_catalog_runner()
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(runner, "load_governed_chaos_bindings", lambda _environment: None)
+
+    def _unexpected_substrate() -> dict[str, Any]:
+        raise AssertionError("substrate context must not be read before binding")
+
+    monkeypatch.setattr(runner, "_substrate_context", _unexpected_substrate)
+
+    result = module.main(["--scenario", "chaos.test.pod-kill", "--confirm-enforce"])
+
+    stderr = capsys.readouterr().err
+    payload = json.loads(stderr)
+    assert result == 3
+    assert payload["outcome"] == "refused"
+    assert payload["reason"] == "governed_execution_unbound"
+    assert payload["mutation_attempted"] is False
+
+
+def test_measure_detection_latency_prints_governed_latency_record(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    module = _load_measure_script()
+    runner = module._load_catalog_runner()
+    monkeypatch.chdir(tmp_path)
+    for name, value in _ENV.items():
+        monkeypatch.setenv(name, value)
+    monkeypatch.setenv("FDAI_ENFORCE_APPROVAL_REF", _APPROVAL_REF)
+    entries = [_entry("chaos.test.pod-kill")]
+    bindings = _bindings(entries, store=InMemoryStateStore())
+    injector = _Injector()
+    monkeypatch.setattr(runner, "default_factory", lambda: _LatencyFactory(injector))
+    monkeypatch.setattr(runner, "load_all", lambda: list(entries))
+    monkeypatch.setattr(runner, "load_promoted", lambda: list(entries))
+    monkeypatch.setattr(runner, "load_governed_chaos_bindings", lambda _environment: bindings)
+
+    result = module.main(["--scenario", "chaos.test.pod-kill", "--confirm-enforce"])
+
+    payload = json.loads(capsys.readouterr().out)
+    assert result == 0
+    assert payload["driver"] == "measure-detection-latency"
+    assert payload["scenario"] == "chaos.test.pod-kill"
+    assert payload["outcome"] == "succeeded"
+    assert payload["detected"] is True
+    assert payload["detection_latency_seconds"] == 0.001
+    assert injector.injected == [_PODS_TARGET]
 
 
 def test_enforce_delegates_to_governed_adapter_and_replays_duplicate_runs(

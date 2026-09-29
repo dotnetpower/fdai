@@ -6,7 +6,8 @@ title: AKS Commerce Business Scenario
 This document defines a reusable commerce scenario that connects a public Azure Kubernetes Service
 (AKS) storefront to business-service objectives, workload evidence, deterministic diagnosis, and
 governed recovery. It uses the fixed FDAI agent pantheon and keeps cluster identities, domains,
-certificates, endpoints, credentials, and promotion state in deployment configuration.
+certificates, endpoints, credentials, and promotion state in deployment configuration. Scenario-lab
+checks treat an unbound detection-latency run as a governed refusal before substrate access.
 
 > **Scope:** The scenario demonstrates resilience for a generic browse and order-fulfillment
 > service. It does not make the upstream AKS Store Demo a production reference architecture.

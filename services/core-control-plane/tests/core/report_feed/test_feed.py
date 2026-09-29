@@ -198,6 +198,7 @@ def test_signal_from_experiment_flags_detection_gap() -> None:
         "reverted": "true",
         "injected": "true",
         "stopped": "true",
+        "detection_latency_seconds": "unknown",
     }
 
 

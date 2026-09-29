@@ -42,6 +42,9 @@ _REQUIRED_RESULT_FIELDS = frozenset(
         "targets",
     }
 )
+_OPTIONAL_RESULT_FIELDS = frozenset(
+    {"detection_latency_seconds", "detection_observed_at", "injected_at"}
+)
 
 
 def load_enforce_report(path: Path) -> tuple[ReportSignal, ...]:
@@ -98,10 +101,17 @@ def enforce_report_record(
         "expected_signal": result.expected_signal,
         "experiment_id": result.experiment_id,
         "injected": result.injected,
+        "injected_at": result.injected_at.isoformat() if result.injected_at is not None else None,
         "mode": result.mode.value,
         "outcome": result.outcome.value,
         "reverted": result.reverted,
         "scenario_id": result.scenario_id,
+        "detection_latency_seconds": result.detection_latency_seconds,
+        "detection_observed_at": (
+            result.detection_observed_at.isoformat()
+            if result.detection_observed_at is not None
+            else None
+        ),
         "started_at": result.started_at.isoformat(),
         "stop_reason": result.stop_reason,
         "stopped": result.stopped,
@@ -110,7 +120,9 @@ def enforce_report_record(
 
 
 def _signal_from_record(record: Mapping[str, Any]) -> ReportSignal:
-    if set(record) != _REQUIRED_RESULT_FIELDS:
+    required = set(_REQUIRED_RESULT_FIELDS)
+    optional = set(_OPTIONAL_RESULT_FIELDS)
+    if not required.issubset(record) or set(record) - required - optional:
         raise ValueError("enforce report run fields do not match the supported contract")
     result = ExperimentResult(
         experiment_id=_text(record, "experiment_id"),
@@ -124,6 +136,8 @@ def _signal_from_record(record: Mapping[str, Any]) -> ReportSignal:
         ended_at=_timestamp(record, "ended_at"),
         injected=_boolean(record, "injected"),
         stopped=_boolean(record, "stopped"),
+        injected_at=_optional_timestamp(record, "injected_at"),
+        detection_observed_at=_optional_timestamp(record, "detection_observed_at"),
         error=_optional_text(record, "error"),
         stop_reason=_optional_text(record, "stop_reason"),
     )
@@ -134,6 +148,13 @@ def _signal_from_record(record: Mapping[str, Any]) -> ReportSignal:
     elapsed = record["elapsed_seconds"]
     if isinstance(elapsed, bool) or not isinstance(elapsed, (int, float)) or elapsed < 0:
         raise ValueError("enforce report elapsed_seconds must be non-negative")
+    latency = record.get("detection_latency_seconds")
+    if latency is not None and (
+        isinstance(latency, bool) or not isinstance(latency, (int, float)) or latency < 0
+    ):
+        raise ValueError("enforce report detection_latency_seconds must be non-negative or null")
+    if latency != result.detection_latency_seconds:
+        raise ValueError("enforce report detection latency conflicts with the result")
     approval_ref = _text(record, "approval_ref")
     if len(approval_ref) > 256:
         raise ValueError("enforce report approval_ref exceeds the supported bound")
@@ -173,6 +194,15 @@ def _optional_text(record: Mapping[str, Any], key: str) -> str | None:
     if not isinstance(value, str) or len(value) > 2_048:
         raise ValueError(f"enforce report {key} must be bounded text or null")
     return value
+
+
+def _optional_timestamp(record: Mapping[str, Any], key: str) -> datetime | None:
+    value = record.get(key)
+    if value is None:
+        return None
+    if not isinstance(value, str):
+        raise ValueError(f"enforce report {key} must be an RFC 3339 timestamp or null")
+    return _timestamp(record, key)
 
 
 def _boolean(record: Mapping[str, Any], key: str) -> bool:

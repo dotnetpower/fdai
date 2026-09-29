@@ -266,8 +266,8 @@ Live catalog runs from `scripts/catalog/run-catalog-scenario.py --run`, `--run-s
 `GovernedChaosExecution` seam. The command submits the same typed `tool.run-chaos-experiment`
 request that the chaos tool's enforce path delegates, but it still calls the adapter directly.
 Routing it through the Core proposal, risk gate, Var approval, and Thor pipeline remains open. The
-raw reference-sweep driver was removed, and the detection-latency driver refuses every live run
-until its measurement is ported onto the adapter.
+raw reference-sweep driver was removed, and the detection-latency driver now runs one selected
+catalog or reference scenario through the same adapter when deployment bindings are present.
 
 **Detection-latency measurement (decided 2026-09-29).** The governed harness does not poll for the
 expected signal during the fault hold. In-fault polling would add probe traffic to the blast window,

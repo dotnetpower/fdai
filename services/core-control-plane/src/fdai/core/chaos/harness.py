@@ -34,6 +34,7 @@ from fdai.core.chaos.injector import (
     InMemoryExperimentRecorder,
     NoSignalProbe,
     SignalProbe,
+    TimedSignalProbe,
 )
 from fdai.shared.contracts.models import Mode
 
@@ -206,6 +207,8 @@ class FaultInjectionHarness:
         # change, may still have applied the fault, so it is rolled back too.
         attempted_targets: list[str] = []
         detected = False
+        injected_at: datetime | None = None
+        detection_observed_at: datetime | None = None
         error: str | None = None
         stop_event: ChaosStopEvent | None = None
         cancelled = False
@@ -216,6 +219,7 @@ class FaultInjectionHarness:
                     injector.inject(target=target, params=scenario.params),
                     timeout=self._op_timeout,
                 )
+            injected_at = self._wall_clock()
             # Cap time-in-fault: an over-large authored duration cannot hold
             # the perturbation past the harness ceiling.
             hold = min(scenario.duration_seconds, self._max_hold)
@@ -229,6 +233,14 @@ class FaultInjectionHarness:
                     self._probe.observed(signal=scenario.expected_signal, targets=targets),
                     timeout=self._op_timeout,
                 )
+                hold_end = self._wall_clock()
+                if detected:
+                    detection_observed_at = await self._first_observed_at(
+                        signal=scenario.expected_signal,
+                        targets=targets,
+                        window_start=injected_at,
+                        window_end=hold_end,
+                    )
             else:
                 error = f"impact_guard:{stop_event.reason.value}"
         except asyncio.CancelledError:
@@ -278,6 +290,8 @@ class FaultInjectionHarness:
             detected=detected,
             injected=injected,
             stopped=stopped,
+            injected_at=injected_at if injected else None,
+            detection_observed_at=detection_observed_at,
             error=error,
             stop_reason=stop_event.reason.value if stop_event is not None else None,
         )
@@ -325,6 +339,36 @@ class FaultInjectionHarness:
             stop = await observe(elapsed)
             if stop is not None:
                 return stop
+        return None
+
+    async def _first_observed_at(
+        self,
+        *,
+        signal: str,
+        targets: tuple[str, ...],
+        window_start: datetime,
+        window_end: datetime,
+    ) -> datetime | None:
+        """Read authoritative detector timing after the hold without guessing."""
+
+        if not isinstance(self._probe, TimedSignalProbe):
+            return None
+        try:
+            observed_at = await asyncio.wait_for(
+                self._probe.first_observed_at(
+                    signal=signal,
+                    targets=targets,
+                    window_start=window_start,
+                    window_end=window_end,
+                ),
+                timeout=self._op_timeout,
+            )
+        except Exception:  # noqa: BLE001 - detection timing is optional evidence
+            return None
+        if observed_at is None or observed_at.utcoffset() is None:
+            return None
+        if window_start <= observed_at <= window_end:
+            return observed_at
         return None
 
     async def _run_detection_only(
@@ -411,6 +455,8 @@ class FaultInjectionHarness:
         detected: bool,
         injected: bool,
         stopped: bool,
+        injected_at: datetime | None = None,
+        detection_observed_at: datetime | None = None,
         error: str | None = None,
         stop_reason: str | None = None,
     ) -> ExperimentResult:
@@ -426,6 +472,8 @@ class FaultInjectionHarness:
             ended_at=self._wall_clock(),
             injected=injected,
             stopped=stopped,
+            injected_at=injected_at,
+            detection_observed_at=detection_observed_at,
             error=error,
             stop_reason=stop_reason,
         )
