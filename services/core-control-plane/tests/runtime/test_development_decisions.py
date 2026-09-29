@@ -179,6 +179,17 @@ def _record_turn() -> None:
         assert turn is not None
         _PLANNER.info("semantic_judgment_proposal_retry", extra={"attempt": 2, "tier": "t1"})
         _PLANNER.info(
+            "semantic_planning_judgment_advise_only",
+            extra={
+                "disposition": "accepted",
+                "primary_intent": "query.contextual_resources",
+                "requested_facets": "resource_collection,list",
+                "target_kinds": "resource_group,resource_type_filter",
+                "target_count": 2,
+                "canonical_target_types": "compute.container-app,rg-fdai-dev-krc",
+            },
+        )
+        _PLANNER.info(
             "semantic_planning_stage_completed",
             extra={
                 "stage": "plan_verify",
@@ -219,6 +230,7 @@ def test_a_turn_records_one_content_free_trace_with_step_bound_cues() -> None:
         "judgment",
         "grounding",
         "event.semantic_judgment_proposal_retry",
+        "event.semantic_planning_judgment_advise_only",
         "event.semantic_planning_stage_completed",
         "event.semantic_plan_rejected",
         "event.semantic_judgment_proposal_rejected",
@@ -234,18 +246,26 @@ def test_a_turn_records_one_content_free_trace_with_step_bound_cues() -> None:
     assert judgment["unresolved_terms"] == 1
     assert grounding["calls"] == 2
     assert len(set(grounding["models"])) == 2
-    stage_event = trace.steps[4].attributes
+    assert trace.steps[4].attributes == {
+        "canonical_target_types": ("compute.container-app", "~"),
+        "disposition": "accepted",
+        "primary_intent": "query.contextual_resources",
+        "requested_facets": ("resource_collection", "list"),
+        "target_count": 2,
+        "target_kinds": ("resource_group", "resource_type_filter"),
+    }
+    stage_event = trace.steps[5].attributes
     assert stage_event == {
         "output_shape": "property_filtered_resources",
         "plan_source": "server_stated_filter",
         "stage": "plan_verify",
     }
-    assert trace.steps[5].attributes == {"validation_reason": "~"}
-    assert trace.steps[6].attributes == {
+    assert trace.steps[6].attributes == {"validation_reason": "~"}
+    assert trace.steps[7].attributes == {
         "failure_type": "UncoveredConstraintError",
         "uncovered_roles": ("times",),
     }
-    graph = trace.steps[7].attributes
+    graph = trace.steps[8].attributes
     assert graph["predicates"] == (
         "name:equals",
         "type:equals:compute.container-app",

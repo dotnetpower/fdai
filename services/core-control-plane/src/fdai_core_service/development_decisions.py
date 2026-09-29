@@ -43,6 +43,7 @@ _JUDGMENT_KINDS = frozenset({"semantic-judgment", "semantic-judgment-repair"})
 _GROUNDING_KINDS = frozenset({"semantic-concept-selection", "semantic-constraint-extraction"})
 _SERVER_EVENT_KEYS = frozenset(
     {
+        "disposition",
         "failure_type",
         "plan_source",
         "promotion_rejection_reason",
@@ -60,7 +61,16 @@ _SERVER_EVENT_LIST_KEYS = frozenset(
     {"failed_preconditions", "route_keys", "temporal_keys", "uncovered_keys", "uncovered_roles"}
 )
 _MODEL_EVENT_KEYS = frozenset(
-    {"family", "operation", "output_shape", "primary_intent", "social_act", "target_kind"}
+    {
+        "action_posture",
+        "discourse_mode",
+        "family",
+        "operation",
+        "output_shape",
+        "primary_intent",
+        "social_act",
+        "target_kind",
+    }
 )
 _MODEL_EVENT_LIST_KEYS = frozenset(
     {
@@ -68,9 +78,12 @@ _MODEL_EVENT_LIST_KEYS = frozenset(
         "grounded_properties",
         "measure_concepts",
         "proposal_object_subjects",
+        "requested_facets",
+        "secondary_intents",
         "target_kinds",
     }
 )
+_TYPE_EVENT_LIST_KEYS = frozenset({"canonical_target_types"})
 _NUMERIC_EVENT_KEYS = frozenset(
     {
         "attempt",
@@ -92,6 +105,7 @@ _NUMERIC_EVENT_KEYS = frozenset(
         "service_impact_matches",
         "symptom_span_available",
         "target_available",
+        "target_count",
         "target_index",
     }
 )
@@ -366,6 +380,11 @@ class _TraceBuilder:
                 attributes[key] = redact.token(value)
             elif key in _MODEL_EVENT_LIST_KEYS:
                 attributes[key] = redact.tokens(value)
+            elif key in _TYPE_EVENT_LIST_KEYS:
+                attributes[key] = tuple(
+                    item if isinstance(item, str) and item in _resource_type_ids() else _REDACTED
+                    for item in _items(value)
+                )
             elif key in _NUMERIC_EVENT_KEYS and (_is_count(value) or isinstance(value, bool)):
                 attributes[key] = value
         if redact.count:
@@ -639,7 +658,11 @@ def _server_tokens(values: object) -> tuple[str, ...]:
 
 
 def _items(values: object) -> list[object]:
-    if isinstance(values, Iterable) and not isinstance(values, str | bytes | Mapping):
+    if isinstance(values, str):
+        # Planner log events join closed tokens with commas.
+        parts: list[object] = [item for item in values.split(",") if item]
+        return parts[:_MAX_ITEMS]
+    if isinstance(values, Iterable) and not isinstance(values, bytes | Mapping):
         return list(values)[:_MAX_ITEMS]
     return []
 
