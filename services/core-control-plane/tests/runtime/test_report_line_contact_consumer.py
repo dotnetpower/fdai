@@ -5,6 +5,7 @@ from datetime import UTC, datetime
 from unittest.mock import AsyncMock
 
 from fdai.runtime.consumers import _consume_hil_decisions
+from fdai.shared.providers.hil_channel import HilDecision
 from fdai.shared.providers.testing import InMemoryEventBus
 from fdai_service_contracts import build_report_line_contact_command
 
@@ -73,3 +74,30 @@ async def test_hil_consumer_forwards_only_a_mapping_development_attestation() ->
         call.kwargs["development_attestation"] for call in coordinator.resolve.await_args_list
     ]
     assert attestations == [{"approval_id": "approval-1"}, None]
+
+
+async def test_hil_consumer_routes_only_a_recorded_human_decision() -> None:
+    bus = InMemoryEventBus()
+    coordinator = AsyncMock()
+    for index, decision in enumerate(("approve", "reject", "pending", "timeout", "bogus")):
+        await bus.publish(
+            "hil-decisions",
+            f"approval-{index}",
+            {
+                "approval_id": f"approval-{index}",
+                "decision": decision,
+                "approver_oid": "approver-1",
+            },
+        )
+
+    await _consume_hil_decisions(
+        bus=bus,
+        topic="hil-decisions",
+        coordinator=coordinator,
+        stop=asyncio.Event(),
+    )
+
+    routed = [call.kwargs["decision"] for call in coordinator.resolve.await_args_list]
+    assert routed == [HilDecision.APPROVE, HilDecision.REJECT]
+    dead = [envelope.payload async for envelope in bus.subscribe("hil-decisions.dlq", "test")]
+    assert [item["payload"]["decision"] for item in dead] == ["pending", "timeout", "bogus"]

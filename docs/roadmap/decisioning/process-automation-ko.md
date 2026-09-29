@@ -1,8 +1,8 @@
 ---
 title: 프로세스 자동화(Process Automation)
 translation_of: process-automation.md
-translation_source_sha: efc3a7cfab3d9a7c6d4884e5ffd2cce8c5b26753
-translation_revised: 2026-09-28
+translation_source_sha: a7e6dddff9a3eaf3eb4d4388de1b76ee525d48de
+translation_revised: 2026-09-29
 ---
 # 프로세스 자동화(프로세스 자동화)
 
@@ -317,6 +317,9 @@ Approval 점유 CAS 재시도는 fixed contention 한계 대신 변경할 수 �
 경로만이 실행기에 도달할 수 있습니다. 슬롯을 코디네이터로 보내면 정족수 집계, 중복 승인자 거부, 요청자 자기 승인 거부를
 우회하게 되므로, 이제 레지스트리 자체가 `no_self_approval`이 설정된 상태에서 정규화된 principal이 기록된
 `requester_principal`과 같은 결정을 거부합니다. 이 거부는 Operator 콜백, 재생된 결정 이벤트, 콘솔 도구에 동일하게 적용됩니다.
+소비자는 `approve` 또는 `reject` 값만 라우팅하고 다른 값은 라우팅 전에 dead-letter로 보내며, HIL 코디네이터도 park를 읽기 전에
+approve, reject, timeout 외의 결정을 거부합니다. 소비자는 게시자가 아니라 값만 검사하므로, 일반 park는 기존처럼 토픽 게시자를
+신뢰하고 Owner 전용 개발 park는 승인을 허용할 때 영속 Operator 영수증을 다시 읽습니다.
 
 작업 흐름 감사는 각 ActionType의 `x-fdai-redact` 경로를 사용합니다. 민감정보가 제거된 필드는 `[REDACTED]`로 표시되며 프로세스
 저널에 들어가지 않습니다. 작업 흐름 런타임에는 시크릿 보관 프로바이더가 없으므로 resolved params에 민감정보가 제거된 필드가 있는

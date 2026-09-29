@@ -286,7 +286,11 @@ async def _consume_hil_decisions(
     bypass quorum accounting, duplicate-approver refusal, and self-approval
     refusal, and would mark a slot park terminal without a claim. Only an
     ``action`` park resumes through the coordinator, which is the sole path
-    that can reach an executor.
+    that can reach an executor. Only an ``approve`` or ``reject`` value is
+    routed; ``pending``, ``timeout``, and any other value dead-letter. The
+    consumer checks the value, not the publisher: an Owner-only development park
+    re-reads the durable Operator receipt when its approval is admitted, and an
+    ordinary park keeps the existing trust in the topic's publishers.
     """
     from fdai_service_contracts import ReportLineContactCommand
 
@@ -311,7 +315,10 @@ async def _consume_hil_decisions(
                     )
                     continue
                 approval_id = str(payload["approval_id"])
-                decision = HilDecision(str(payload["decision"]))
+                # Only an approve or reject value is routed; PENDING, TIMEOUT, and any other
+                # value dead-letter before routing, so none can resume or dispatch a park.
+                human_decision = HilApprovalDecision(str(payload["decision"]))
+                decision = HilDecision(human_decision.value)
                 approver_oid = str(payload["approver_oid"])
                 justification = str(payload.get("justification") or "")
                 if not approval_id or not approver_oid:
@@ -332,7 +339,7 @@ async def _consume_hil_decisions(
                     await _record_workflow_decision(
                         registry=workflow_registry,
                         approval_id=approval_id,
-                        decision=HilApprovalDecision(decision.value),
+                        decision=human_decision,
                         approver_oid=approver_oid,
                         justification=justification,
                         payload=payload,

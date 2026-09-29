@@ -491,6 +491,9 @@ export function decodeHilQueuePage(value: unknown): HilQueuePage {
         ttl_expires_at: ttlExpiresAt,
         decision_requestable: decisionRequestable,
         decision_unavailable_reason: decisionUnavailableReason,
+        development_owner_only: item["development_owner_only"] === undefined
+          ? false
+          : apiBoolean(item, "development_owner_only", "HIL queue item"),
         development_self_approval_available:
           item["development_self_approval_available"] === undefined
             ? false

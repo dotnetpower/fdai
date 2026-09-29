@@ -69,6 +69,8 @@ class UnifiedRiskDecision:
     winning_side: str  # "gate" | "authority" | "gate+authority"
     gate: RiskDecision
     authority: ExecutionAuthorityDecision | None
+    evidence_conflict_clear: bool = True
+    """False when current evidence conflicts, or could not be read, for the target."""
 
     @property
     def decision(self) -> str:

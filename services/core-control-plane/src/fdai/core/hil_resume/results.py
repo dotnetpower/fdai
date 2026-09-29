@@ -72,6 +72,12 @@ class ResolveOutcome(StrEnum):
     SELF_APPROVAL_REFUSED = "self_approval_refused"
     """The requester attempted to approve their own action."""
 
+    OWNER_SELF_APPROVAL_REQUIRED = "owner_self_approval_required"
+    """Only the development Owner's attested self-approval may approve this park."""
+
+    DECISION_REFUSED = "decision_refused"
+    """The decision may not resolve a park, such as ``pending``; nothing changed."""
+
     MISSING_CAPABILITY = "missing_capability"
     """The approver lacks the required capability."""
 

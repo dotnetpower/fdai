@@ -108,6 +108,18 @@ class OperatorRequestHost(Protocol):
         initiator: object,
     ) -> dict[str, Any] | None: ...
 
+    async def _park_development_category_denial(
+        self,
+        *,
+        event: Event,
+        action: Action,
+        rule: Rule,
+        authorization: ExecutionAuthorizationResult | None,
+        unified: UnifiedRiskDecision,
+        initiator: object,
+        correlation_id: str,
+    ) -> bool: ...
+
     async def _notify_decision(
         self,
         *,
@@ -220,6 +232,20 @@ async def process_operator_request(
         },
     )
     if unified.is_denied:
+        # Inside the development profile, only a category-only denial of the Owner's own
+        # request parks, and only the Owner can approve it; every other denial stays denied.
+        if await host._park_development_category_denial(
+            event=event,
+            action=action,
+            rule=rule,
+            authorization=authorization,
+            unified=unified,
+            initiator=initiator,
+            correlation_id=correlation_id,
+        ):
+            return await _finish_terminal(
+                host, event, correlation_id, resource_type, rule, ControlLoopOutcome.HIL, "hil"
+            )
         return await _finish_terminal(
             host, event, correlation_id, resource_type, rule, ControlLoopOutcome.DENIED, "deny"
         )

@@ -45,6 +45,9 @@ from fdai_operator_service.families.iam.hil_callback_authority import (
 from fdai_operator_service.families.iam.hil_callback_context import (
     HilCallbackContextReader,
 )
+from fdai_operator_service.families.iam.hil_development_approval import (
+    OWNER_ONLY_METADATA_FIELD,
+)
 from fdai_operator_service.families.iam.http import error_response, family_error
 from fdai_service_contracts import OperatorRole
 from fdai_service_contracts.development_approval import DevelopmentApprovalAttestation
@@ -287,7 +290,8 @@ class HilCallbackDecisionService:
         """Record one server-authenticated Console decision without channel impersonation.
 
         ``development_attestation`` lets the Owner of a Core-marked development park approve
-        their own request; every other self-approval stays refused.
+        their own request; every other self-approval stays refused. The requester may reject a
+        parked category-only denial, because a rejection grants nothing.
         """
         return await self._decide_authenticated(
             session,
@@ -337,14 +341,33 @@ class HilCallbackDecisionService:
                 outcome=HilCallbackOutcome.INVALID,
                 actor=actor,
             )
-        if _normalize(context.submitter_oid) == actor.oid and not _development_self_approval(
-            context, actor=actor, decision=decision, attestation=development_attestation
+        if _normalize(context.submitter_oid) == actor.oid and not (
+            _owner_only_rejection(context, decision=decision)
+            or _development_self_approval(
+                context, actor=actor, decision=decision, attestation=development_attestation
+            )
         ):
             return await session.finish(
                 error_response(
                     403,
                     "no_self_approval - approval actor equals submitter",
                     kind="self_approval_forbidden",
+                ),
+                outcome=HilCallbackOutcome.INVALID,
+                actor=actor,
+            )
+        if (
+            decision is HilApprovalDecision.APPROVE
+            and context.metadata.get(OWNER_ONLY_METADATA_FIELD)
+            and _normalize(context.submitter_oid) != actor.oid
+        ):
+            # A parked category-only denial admits only the development Owner's self-approval;
+            # any authorized human may still reject it.
+            return await session.finish(
+                error_response(
+                    403,
+                    "development_owner_only - only the development Owner may approve this park",
+                    kind="development_owner_only",
                 ),
                 outcome=HilCallbackOutcome.INVALID,
                 actor=actor,
@@ -513,6 +536,13 @@ class HilCallbackDecisionService:
             metadata=original.metadata,
             receipt=receipt,
         )
+
+
+def _owner_only_rejection(context: _ApprovalContext, *, decision: HilApprovalDecision) -> bool:
+    """Let the requester reject a parked category-only denial; a rejection grants nothing."""
+    return decision is HilApprovalDecision.REJECT and bool(
+        context.metadata.get(OWNER_ONLY_METADATA_FIELD)
+    )
 
 
 def _development_self_approval(

@@ -3,20 +3,28 @@
 Core writes the ``development_authority`` park block when it parks an Owner's own request, inside
 the park's request fingerprint. At resolve time the Owner's self-approval is admitted only when
 the Operator's durable decision receipt carries the same fresh-authentication attestation, the
-durable binding still matches the exact parked action and its re-read target revision, and the
-shared development evaluator admits it. Any other case keeps the no-self-approval refusal.
+durable binding still matches the exact parked action and its re-read target revision, its scope
+holds the action's whole declared blast radius inside the profile, and the shared development
+evaluator admits it. Any other case keeps the no-self-approval refusal.
+
+A parked category-only denial is Owner-only: no other approval counts, and the admitted Owner
+self-approval dispatches only after the bound category revalidator reruns the full current
+evaluation and still finds the same category-only denial.
 """
 
 from __future__ import annotations
 
 from collections.abc import Callable, Mapping
+from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any
+from typing import Any, Protocol
 
 from fdai_service_contracts.development_approval import (
     DEVELOPMENT_APPROVAL_ATTESTATION_FIELD,
+    DEVELOPMENT_OWNER_ONLY_FIELD,
     DEVELOPMENT_PARK_BLOCK_FIELD,
     DevelopmentApprovalAttestation,
+    development_owner_only,
     fresh_development_authentication,
 )
 from pydantic import ValidationError
@@ -39,6 +47,7 @@ from fdai.shared.contracts.models import (
     ExecutionPath,
     FullAuthorityDevelopmentProfile,
     OntologyActionType,
+    Rule,
 )
 from fdai.shared.providers.development_authority import (
     DevelopmentAuthorityBindingRequest,
@@ -55,6 +64,32 @@ OPERATOR_RECEIPT_PREFIX = "operator-hil-decision:"
 DEVELOPMENT_ADMISSION_ACTOR = "system:development-admission"
 
 
+@dataclass(frozen=True, slots=True)
+class CategoryRevalidation:
+    """Result of rerunning the full current evaluation for one admitted category park."""
+
+    eligible: bool
+    reason_code: str
+    detail: Mapping[str, Any] = field(default_factory=dict)
+
+
+class DevelopmentCategoryRevalidator(Protocol):
+    """Rerun the current evaluation that parked one category-only denial.
+
+    The ControlLoop implements it with its own kill switch, degradation, evidence, execution
+    authorization, risk evaluation, and target-revision reads. Only an unchanged category-only
+    denial with an unchanged target revision is eligible.
+    """
+
+    async def revalidate_category_park(
+        self,
+        parked: Mapping[str, Any],
+        *,
+        action: Action,
+        rule: Rule,
+    ) -> CategoryRevalidation: ...
+
+
 def development_park_block(
     *,
     profile: FullAuthorityDevelopmentProfile,
@@ -62,8 +97,14 @@ def development_park_block(
     original_level: str,
     original_quorum: int,
     executor_identity_ref: str,
+    category_denial: Mapping[str, Any] | None = None,
+    evaluation_event: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
-    """Return the Core-written park block that records the original requirement exactly."""
+    """Return the Core-written park block that records the original requirement exactly.
+
+    ``category_denial`` marks a parked category-only denial as Owner-only and keeps the exact
+    event it was evaluated on, so resolve can rerun that evaluation against current state.
+    """
     binding = verification.binding
     body: dict[str, Any] = {
         "schema_version": "1.0.0",
@@ -80,6 +121,12 @@ def development_park_block(
         "executor_identity_ref": executor_identity_ref,
         "expires_at": verification.expires_at.isoformat(),
     }
+    if category_denial is not None:
+        if evaluation_event is None:
+            raise ValueError("a category park MUST keep the event it was evaluated on")
+        body[DEVELOPMENT_OWNER_ONLY_FIELD] = True
+        body["category_denial"] = dict(category_denial)
+        body["evaluation_event"] = dict(evaluation_event)
     return {**body, "block_digest": canonical_authority_digest(body)}
 
 
@@ -184,6 +231,14 @@ async def admit_development_self_approval(
         != (binding.action_type, binding.action_type_version, binding.action_type_digest)
     ):
         return _deny("current_action_type_mismatch")
+    # A binding authorizes only its recorded scope, which must hold the whole declared blast
+    # radius; the shared evaluator then refuses any scope the profile does not cover.
+    try:
+        required_scope = bindings.required_scope(action=action, action_type=current)
+    except ValueError:
+        return _deny("binding_scope_mismatch")
+    if binding.scope != required_scope:
+        return _deny("binding_scope_mismatch")
     try:
         resolve_development_binding(
             RecordedDevelopmentBinding(verification),
@@ -238,6 +293,10 @@ class HilDevelopmentApprovalMixin:
     _development_profile: FullAuthorityDevelopmentProfile | None
     _development_bindings: DevelopmentAuthorityBindingSource | None
     _development_revisions: TargetRevisionReader | None
+    _development_category_revalidator: DevelopmentCategoryRevalidator | None
+
+    def _resolve_rule(self, parked: Mapping[str, object], *, action: Action) -> Rule | None:
+        raise NotImplementedError
 
     async def _audit(
         self,
@@ -275,6 +334,7 @@ class HilDevelopmentApprovalMixin:
 
         The Operator records the Owner's decision as the approval's only receipt, so a refused
         development self-approval would otherwise leave the park undecidable until it expires.
+        An Owner-only category park is admitted only after its full current revalidation.
         """
         bindings = self._development_bindings
         decision = await admit_development_self_approval(
@@ -288,6 +348,12 @@ class HilDevelopmentApprovalMixin:
             attestation=attestation,
             now=self._request_clock(),
         )
+        owner_only = development_owner_only(parked)
+        revalidation: CategoryRevalidation | None = None
+        if owner_only and decision.eligible and decision.grant is not None:
+            revalidation = await self._revalidate_development_category_park(parked)
+            if not revalidation.eligible:
+                decision = DevelopmentAuthorityDecision(False, revalidation.reason_code)
         approval_id = str(parked.get("approval_id") or "")
         admitted = decision.eligible and decision.grant is not None
         await self._audit(
@@ -305,6 +371,22 @@ class HilDevelopmentApprovalMixin:
                 **development_authority_audit(decision),
                 "approver_oid": approver_oid,
                 "original_level": (park_block(parked) or {}).get("original_level"),
+                **(
+                    {
+                        "owner_self_approval_only": True,
+                        "category_revalidation": (
+                            {
+                                "eligible": revalidation.eligible,
+                                "reason_code": revalidation.reason_code,
+                                **dict(revalidation.detail),
+                            }
+                            if revalidation is not None
+                            else None
+                        ),
+                    }
+                    if owner_only
+                    else {}
+                ),
             },
         )
         if admitted:
@@ -324,10 +406,31 @@ class HilDevelopmentApprovalMixin:
             reason=decision.reason_code,
         )
 
+    async def _revalidate_development_category_park(
+        self, parked: Mapping[str, Any]
+    ) -> CategoryRevalidation:
+        """Rerun the bound current evaluation for one admitted category park, failing closed."""
+        revalidator = self._development_category_revalidator
+        if revalidator is None:
+            return CategoryRevalidation(False, "category_revalidation_unwired")
+        try:
+            action = Action.model_validate(parked["action"])
+        except (KeyError, TypeError, ValueError, ValidationError):
+            return CategoryRevalidation(False, "parked_action_invalid")
+        rule = self._resolve_rule(parked, action=action)
+        if rule is None:
+            return CategoryRevalidation(False, "rule_not_in_catalog")
+        try:
+            return await revalidator.revalidate_category_park(parked, action=action, rule=rule)
+        except Exception:  # noqa: BLE001 - an unreadable current evaluation never dispatches
+            return CategoryRevalidation(False, "category_revalidation_failed")
+
 
 __all__ = [
     "DEVELOPMENT_ADMISSION_ACTOR",
     "OPERATOR_RECEIPT_PREFIX",
+    "CategoryRevalidation",
+    "DevelopmentCategoryRevalidator",
     "HilDevelopmentApprovalMixin",
     "admit_development_self_approval",
     "development_park_block",
