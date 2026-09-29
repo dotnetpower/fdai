@@ -1,7 +1,7 @@
 ---
 title: 프로세스 자동화(Process Automation)
 translation_of: process-automation.md
-translation_source_sha: a7e6dddff9a3eaf3eb4d4388de1b76ee525d48de
+translation_source_sha: c4588203f96fb045eb2bf0ef14c0e3962c498ec0
 translation_revised: 2026-09-29
 ---
 # 프로세스 자동화(프로세스 자동화)
@@ -318,8 +318,12 @@ Approval 점유 CAS 재시도는 fixed contention 한계 대신 변경할 수 �
 우회하게 되므로, 이제 레지스트리 자체가 `no_self_approval`이 설정된 상태에서 정규화된 principal이 기록된
 `requester_principal`과 같은 결정을 거부합니다. 이 거부는 Operator 콜백, 재생된 결정 이벤트, 콘솔 도구에 동일하게 적용됩니다.
 소비자는 `approve` 또는 `reject` 값만 라우팅하고 다른 값은 라우팅 전에 dead-letter로 보내며, HIL 코디네이터도 park를 읽기 전에
-approve, reject, timeout 외의 결정을 거부합니다. 소비자는 게시자가 아니라 값만 검사하므로, 일반 park는 기존처럼 토픽 게시자를
-신뢰하고 Owner 전용 개발 park는 승인을 허용할 때 영속 Operator 영수증을 다시 읽습니다.
+approve, reject, timeout 외의 결정을 거부합니다. 브로커 메시지는 전달 수단일 뿐 권한이 아닙니다. Operator는 대기 중인 park를
+잠그고 검증하는 같은 트랜잭션에서 영속 결정 영수증을 기록한 뒤에 게시합니다. 소비자는 라우트를 읽기 전에 이 영수증이 같은 승인,
+park 멱등 키, 영수증 참조, 결정, 승인자, 사유, 결정 시각, 개발 증명을 기록하고 있는지 확인합니다. 영수증이 없거나 내용이 다르면
+park, 정족수 슬롯, 실행기를 건드리지 않고 메시지를 dead-letter로 보냅니다. 저장소 오류는 거부가 아닙니다. 소비자는 읽기를 잠시
+재시도하고, 저장소를 계속 읽을 수 없으면 메시지를 확인 처리하지 않은 채 소비자를 실패시키므로 브로커가 재시작 후 메시지를 다시
+전달합니다. Owner 전용 개발 park는 승인을 허용할 때 같은 영수증을 다시 읽습니다.
 
 작업 흐름 감사는 각 ActionType의 `x-fdai-redact` 경로를 사용합니다. 민감정보가 제거된 필드는 `[REDACTED]`로 표시되며 프로세스
 저널에 들어가지 않습니다. 작업 흐름 런타임에는 시크릿 보관 프로바이더가 없으므로 resolved params에 민감정보가 제거된 필드가 있는
