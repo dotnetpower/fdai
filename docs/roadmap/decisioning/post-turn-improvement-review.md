@@ -40,7 +40,8 @@ not part of the contract.
 
 Bragi remains the single writer of `object.post-turn-review`. Its typed publisher accepts only an
 already validated, consent-filtered `PostTurnReviewInput`. The Operator API must submit to a bounded
-queue and call that boundary; it does not instantiate a reviewer or label itself as Bragi or Norns.
+queue that publishes an Operator-owned request; Core ingress calls the Bragi boundary. The Operator
+does not instantiate a reviewer or label itself as Bragi or Norns.
 
 Norns subscribes to consent-filtered `post_turn_review` envelopes on `object.post-turn-review`. It rejects an
 envelope whose `producer_principal` is not `Bragi`, strictly parses the review mapping, and invokes
@@ -50,6 +51,11 @@ Azure transport sends every Pantheon logical object topic through the configured
 topic with `MultiplexedEventBus`. The headless runtime and Operator API therefore share the same
 logical-to-physical mapping. Process-local transport keeps the same logical contract without
 inventing Azure evidence.
+Production Operator composition now offers terminal answered semantic turns to a bounded
+asynchronous post-turn queue, which publishes an Operator-owned
+`operator.post-turn-review.requests` envelope through the configured semantic transport without
+blocking turn projection. Core consumes that request, validates it, and invokes Bragi's typed
+publisher so only Bragi writes `object.post-turn-review`.
 
 ## Eligibility
 
