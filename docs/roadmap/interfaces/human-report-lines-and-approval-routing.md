@@ -235,7 +235,9 @@ the approved eligible route. Channel fallback never selects a governed Direct Li
 startup refuses one on any failover route, and Direct Line carries only A2 and A4 notifications.
 
 Eligibility, graph revision, consent expiry, action integrity, and no-self-approval are rechecked
-when a decision arrives and immediately before dispatch.
+when a decision arrives and immediately before dispatch. Before any of those checks, the arriving
+decision must match the Operator's durable decision receipt, so a route decision cannot come from a
+message that the Operator never recorded.
 
 The report-line policy and runtime accept quorum `1` only. Higher-quorum ActionTypes remain on
 their existing workflow or human-access approval path until a separately reviewed multi-slot

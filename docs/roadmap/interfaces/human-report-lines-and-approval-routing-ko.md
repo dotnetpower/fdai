@@ -1,7 +1,7 @@
 ---
 translation_of: human-report-lines-and-approval-routing.md
-translation_source_sha: 50d4a6c3e6e9f73f8fc4b39d900e8cf7aee1e41e
-translation_revised: 2026-09-28
+translation_source_sha: ccee1f6cb4de1650a7b85a87c086cdac3bf8be4f
+translation_revised: 2026-09-29
 title: 사람 보고선 및 승인 라우팅
 ---
 # 사람 보고선 및 승인 라우팅
@@ -228,7 +228,8 @@ governed Direct Line 사용자 지정 채널을 선택하지 않습니다. 시�
 채널을 거부하며, Direct Line은 A2 및 A4 알림만 전달합니다.
 
 결정이 도착할 때와 실행 직전에 적격성, 그래프 리비전, 동의 만료, Action 무결성 및 자기 승인
-금지를 다시 검사합니다.
+금지를 다시 검사합니다. 이 검사들보다 먼저 도착한 결정이 Operator의 영속 결정 영수증과 일치해야
+하므로, Operator가 기록한 적 없는 메시지로는 경로 결정을 내릴 수 없습니다.
 
 Report-line 정책과 런타임은 quorum `1`만 허용합니다. 더 높은 quorum이 필요한 ActionType은
 별도로 검토된 다중 slot report-line 계약이 구현될 때까지 기존 workflow 또는 human-access
