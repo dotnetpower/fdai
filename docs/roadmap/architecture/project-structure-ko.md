@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: b4e084b19383ad3608e74ae966d5738681662a1f
+translation_source_sha: 226a52b70b99556625b8a9ede4e0af24234e34f5
 translation_revised: 2026-09-29
 ---
 # 프로젝트 구조
@@ -530,7 +530,7 @@ Muninn은 게시와 원본 소유 legacy 정리에 하나의 Core 소유 cohort 
   fast** - degraded 상태로 시작하지 않습니다. 비활성화된 선택 패키지는 필수 설정이 아닙니다.
   관련 없는 완전한 경로는 정상적으로 시작하고 해당 기능만 사용할 수 없음으로 보고할 수 있습니다.
   패키지를 활성화하면 선언된 바인딩이 필수가 되며 안전하게 차단됩니다.
-- 선택적 full-authority 개발 프로필은 별도의 권한 입력입니다. 조립 경계는
+- Owner 전용 범주 보류를 포함한 선택적 full-authority 개발 프로필은 별도의 권한 입력이며,
   [프로젝트 구조 의존성 주입](project-structure-dependency-injection-ko.md#full-authority-개발-프로필-조립)이 소유합니다.
 - `governed-execution` 추가 기능을 선택하지 않으면 학습 및 예측 입력은 ActionType 없는 근거로만
   남습니다. 이 경계는 [에이전트 판테온 계획](../agents/agent-pantheon-implementation-ko.md#학습-및-예측-결과-경계)이 소유합니다.

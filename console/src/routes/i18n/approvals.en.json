@@ -40,6 +40,7 @@
   "developmentReauthenticate": "Sign in again to approve",
   "developmentReady": "You signed in again. Record your approval within 10 minutes.",
   "developmentApprove": "Approve your request",
+  "developmentOwnerOnly": "Only the development Owner who requested this action can approve it. Other approvers can reject it.",
   "fieldTargetRevision": "Target revision",
   "fieldDryRunDigest": "Dry-run digest",
   "fieldScopeDigest": "Scope digest",

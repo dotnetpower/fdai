@@ -317,7 +317,10 @@ The workflow approval registry is the **only** owner of a quorum slot decision. 
 `action` park resumes through the HIL coordinator, which is the sole path that can reach an executor. Routing a slot to the
 coordinator would bypass quorum accounting, duplicate-approver refusal, and requester self-approval refusal, so the registry itself
 now refuses a decision whose normalized principal equals the recorded `requester_principal` while `no_self_approval` is set. That
-refusal applies identically to the Operator callback, a replayed decision event, and a console tool.
+refusal applies identically to the Operator callback, a replayed decision event, and a console tool. The consumer routes only an
+`approve` or `reject` value and dead-letters any other before routing, and the HIL coordinator itself refuses a decision other than
+approve, reject, or timeout before it reads a park. The consumer checks the value, not the publisher: an ordinary park keeps the
+existing trust in the topic's publishers, while an Owner-only development park re-reads the durable Operator receipt at admission.
 
 Workflow audit uses each ActionType's `x-fdai-redact` paths. Redacted fields render as `[REDACTED]` and never enter the Process
 journal. Because the workflow runtime has no secret custody provider, an enforce action whose resolved params include a redacted

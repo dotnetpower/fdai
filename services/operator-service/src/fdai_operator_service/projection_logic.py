@@ -8,6 +8,7 @@ from datetime import datetime
 from typing import Any, Final, cast
 
 from fdai_service_contracts import JsonObject, JsonValue
+from fdai_service_contracts.development_approval import development_owner_only
 
 from fdai_operator_service.redaction import redact_projection
 
@@ -306,6 +307,8 @@ def hil_item(row: Mapping[str, Any]) -> JsonObject | None:
             "ttl_expires_at": _nonempty(context.get("expires_at")),
             "decision_requestable": decision_unavailable_reason is None,
             "decision_unavailable_reason": decision_unavailable_reason,
+            # A parked category-only denial admits no approval but the Owner's own.
+            "development_owner_only": development_owner_only(parked),
             # Core names the only Owner who may self-approve after a fresh sign-in.
             "development_self_approval_owner": (
                 _nonempty(development.get("owner_principal"))

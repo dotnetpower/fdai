@@ -40,6 +40,7 @@
   "developmentReauthenticate": "다시 로그인하고 승인",
   "developmentReady": "다시 로그인했습니다. 10분 안에 승인을 기록하세요.",
   "developmentApprove": "내 요청 승인",
+  "developmentOwnerOnly": "이 작업은 요청한 개발 프로필 Owner만 승인할 수 있습니다. 다른 승인자는 반려할 수 있습니다.",
   "fieldTargetRevision": "대상 revision",
   "fieldDryRunDigest": "Dry-run 다이제스트",
   "fieldScopeDigest": "범위 다이제스트",

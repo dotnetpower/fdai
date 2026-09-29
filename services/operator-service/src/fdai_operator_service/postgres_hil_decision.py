@@ -11,7 +11,10 @@ from typing import Any, Protocol
 
 import psycopg
 from fdai_service_contracts import OperatorRole
-from fdai_service_contracts.development_approval import DEVELOPMENT_APPROVAL_ATTESTATION_FIELD
+from fdai_service_contracts.development_approval import (
+    DEVELOPMENT_APPROVAL_ATTESTATION_FIELD,
+    development_owner_only,
+)
 from psycopg.rows import dict_row
 
 from fdai_operator_service.families.iam.hil_development_approval import (
@@ -35,6 +38,9 @@ class PostgresHilDecisionNotFoundError(RuntimeError):
 
 class PostgresHilDecisionPermissionError(RuntimeError):
     """The guarded approval context rejects the authenticated human."""
+
+
+_HUMAN_DECISIONS = frozenset({"approve", "reject"})
 
 
 class HilDecisionStore(Protocol):
@@ -85,6 +91,9 @@ class PostgresHilDecisionStore:
         """Fence one pending approval and atomically retain its decision plus outbox."""
         if decided_at.tzinfo is None or expected_expires_at.tzinfo is None:
             raise ValueError("HIL decision timestamps MUST be timezone-aware")
+        if decision not in _HUMAN_DECISIONS:
+            # Only an approve or reject value may reach the receipt or the outbox.
+            raise ValueError("HIL decision MUST be approve or reject")
         decision_payload = {
             "approval_id": approval_id,
             "idempotency_key": idempotency_key,
@@ -330,18 +339,29 @@ def _validate_hil_decision_park(
         raise PostgresFamilyStoreUnavailable("HIL approval submitter identity is unavailable")
     if submitter.strip().casefold() != expected_submitter_oid.strip().casefold():
         raise PostgresProposalConflict("HIL approval submitter changed before decision")
-    if submitter.strip().casefold() == approver_oid.strip().casefold() and not (
-        isinstance(database_now, datetime)
-        and development_self_approval_admitted(
-            parked,
-            approver_oid=approver_oid,
-            approver_roles=approver_roles,
-            decision=decision,
-            attestation=development_attestation,
-            now=database_now,
+    self_decision = submitter.strip().casefold() == approver_oid.strip().casefold()
+    # The requester may reject a parked category-only denial, since a rejection grants nothing;
+    # every other self-decision needs the admitted development self-approval.
+    if (
+        self_decision
+        and not (decision == "reject" and development_owner_only(parked))
+        and not (
+            isinstance(database_now, datetime)
+            and development_self_approval_admitted(
+                parked,
+                approver_oid=approver_oid,
+                approver_roles=approver_roles,
+                decision=decision,
+                attestation=development_attestation,
+                now=database_now,
+            )
         )
     ):
         raise PostgresHilDecisionPermissionError("requester MUST NOT approve their own request")
+    if decision != "reject" and development_owner_only(parked) and not self_decision:
+        raise PostgresHilDecisionPermissionError(
+            "only the development Owner may approve a parked category-only denial"
+        )
 
     context = parked.get("approval_context")
     if not isinstance(context, Mapping):

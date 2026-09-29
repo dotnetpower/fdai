@@ -14,6 +14,7 @@ from fdai.shared.contracts.development_authority import (
 )
 from fdai.shared.contracts.models import (
     Action,
+    DevelopmentAuthorityScope,
     DevelopmentBindingVerification,
     OntologyActionType,
 )
@@ -131,6 +132,16 @@ class DevelopmentBindingPreparer(Protocol):
 
     async def read_verification(self, action_id: str) -> DevelopmentBindingVerification | None:
         """Return the durable recorded binding of one action, never a cached copy."""
+        ...
+
+    def required_scope(
+        self, *, action: Action, action_type: OntologyActionType
+    ) -> DevelopmentAuthorityScope:
+        """Return the target location widened to the declared blast radius, or raise.
+
+        A recorded binding authorizes only this exact scope, so admission refuses a binding
+        whose scope is narrower than the blast radius of the action it approves.
+        """
         ...
 
 

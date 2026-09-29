@@ -3,6 +3,8 @@ import { describe, expect, test } from "vitest";
 import { OperatorApiError } from "../api";
 import type { HilQueueItem } from "../types";
 import {
+  approvalCanApprove,
+  approvalCanReject,
   approvalCanDecide,
   approvalSearchText,
   loadHilQueueState,
@@ -84,6 +86,7 @@ describe("approval search evidence", () => {
       ttl_expires_at: null,
       decision_requestable: false,
       decision_unavailable_reason: "missing_expiry",
+      development_owner_only: false,
       development_self_approval_available: false,
       development_binding: null,
     } satisfies HilQueueItem;
@@ -102,6 +105,28 @@ describe("approval decision availability", () => {
     decision_unavailable_reason: null,
   } as HilQueueItem;
   const now = Date.parse("2026-07-17T09:00:00Z");
+
+  test("offers approval of an Owner-only development park only to its Owner", () => {
+    expect(approvalCanApprove(requestable)).toBe(true);
+    expect(approvalCanApprove({ ...requestable, development_owner_only: true })).toBe(false);
+    expect(approvalCanApprove({
+      ...requestable,
+      development_owner_only: true,
+      development_self_approval_available: true,
+    })).toBe(true);
+    const source = readFileSync(new URL("./hil-queue.tsx", import.meta.url), "utf8");
+    expect(source).toContain("approvals.developmentOwnerOnly");
+  });
+
+  test("lets the requesting Owner reject only an Owner-only development park", () => {
+    const ownPark = { ...requestable, development_self_approval_available: true };
+    expect(approvalCanReject(requestable)).toBe(true);
+    expect(approvalCanReject({ ...requestable, development_owner_only: true })).toBe(true);
+    expect(approvalCanReject(ownPark)).toBe(false);
+    expect(approvalCanReject({ ...ownPark, development_owner_only: true })).toBe(true);
+    const source = readFileSync(new URL("./hil-queue.tsx", import.meta.url), "utf8");
+    expect(source).toContain("approvalCanReject(item)");
+  });
 
   test("requires authoritative live requestability and a future expiry", () => {
     expect(approvalCanDecide(requestable, now, "live")).toBe(true);

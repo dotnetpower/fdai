@@ -23,6 +23,10 @@ from datetime import UTC, datetime
 from typing import Any
 
 from fdai.core.measurement.operational_promotion import action_type_digest
+from fdai.core.risk_gate.category_denial import (
+    category_only_denial,
+    development_evidence_unsafe,
+)
 from fdai.core.risk_gate.ceiling import (
     AxisLevel,
     Env,
@@ -46,7 +50,6 @@ from fdai.shared.contracts.development_authority import (
     evaluate_development_authority,
 )
 from fdai.shared.contracts.models import (
-    ActionInterface,
     DevelopmentActionConfirmation,
     FullAuthorityDevelopmentProfile,
     OntologyActionType,
@@ -289,20 +292,15 @@ def evaluate_execution_authority(
                 now=now,
                 original_quorum=ceiling.final_quorum,
             )
-        unsafe_evidence = (
-            policy_violation
-            or _graph_evidence_missing(
-                action_type,
-                graph_stale=graph_stale,
-                graph_affected=graph_affected,
-            )
-            or system_degraded
-            or kill_switch_engaged
-            or _live_probe_evidence_stale(
-                action_type,
-                live_probe_observation,
-                live_probe_failure_streak,
-            )
+        unsafe_evidence = development_evidence_unsafe(
+            action_type,
+            policy_violation=policy_violation,
+            graph_stale=graph_stale,
+            graph_affected=graph_affected,
+            system_degraded=system_degraded,
+            kill_switch_engaged=kill_switch_engaged,
+            live_probe_observation=live_probe_observation,
+            live_probe_failure_streak=live_probe_failure_streak,
         )
         if not development_decision.eligible or unsafe_evidence:
             final_level = AxisLevel.DENY
@@ -311,10 +309,9 @@ def evaluate_execution_authority(
                     eligible=False,
                     reason_code="safety_or_evidence_prerequisite_failed",
                 )
-        elif ceiling.final_level in {
-            AxisLevel.ENFORCE_AUTO,
-            AxisLevel.ENFORCE_HIL,
-        } or _category_only_deny(ceiling, verdict):
+        elif ceiling.final_level in {AxisLevel.ENFORCE_AUTO, AxisLevel.ENFORCE_HIL} or (
+            category_only_denial(table=table, feature=feature, ceiling=ceiling) is not None
+        ):
             final_level = AxisLevel.ENFORCE_HIL
             effective_quorum = 1
     return ExecutionAuthorityDecision(
@@ -336,59 +333,6 @@ def evaluate_execution_authority(
         ),
         development_authority=development_decision,
     )
-
-
-def _category_only_deny(
-    ceiling: ResolvedCeiling,
-    verdict: RiskTableVerdict,
-) -> bool:
-    """Return whether subscription impact category is the only deny source."""
-
-    if verdict.rule_id != "deny-subscription-blast":
-        return False
-    denying_axes = {axis.name for axis in ceiling.axes if axis.level is AxisLevel.DENY}
-    category_axes = {"risk_table", "static_blast"}
-    return (
-        bool(denying_axes)
-        and denying_axes <= category_axes
-        and all(
-            axis.name in category_axes or axis.level >= AxisLevel.ENFORCE_HIL
-            for axis in ceiling.axes
-        )
-    )
-
-
-def _live_probe_evidence_stale(
-    action_type: OntologyActionType,
-    observation: LiveProbeObservation | None,
-    failure_streak: int,
-) -> bool:
-    """Keep unavailable, stale, substituted, or degraded required evidence closed."""
-
-    ref = action_type.live_probe_ref
-    if ref is None:
-        return False
-    return (
-        failure_streak > 0
-        or observation is None
-        or observation.probe_id != ref
-        or observation.degraded
-        or not observation.is_fresh
-    )
-
-
-def _graph_evidence_missing(
-    action_type: OntologyActionType,
-    *,
-    graph_stale: bool | None,
-    graph_affected: int | None,
-) -> bool:
-    requires_fresh = ActionInterface.REQUIRES_INVENTORY_FRESH in action_type.interfaces
-    graph_derived = (
-        action_type.blast_radius is not None
-        and action_type.blast_radius.computation.value == "graph_derived"
-    )
-    return requires_fresh and graph_stale is not False or graph_derived and graph_affected is None
 
 
 __all__ = ["CeilingInputs", "ExecutionAuthorityDecision", "evaluate_execution_authority"]

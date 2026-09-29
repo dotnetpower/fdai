@@ -21,6 +21,8 @@ from fdai.shared.contracts.development_authority import (
 )
 from fdai.shared.contracts.models import (
     Action,
+    BlastRadiusComputation,
+    BlastRadiusScope,
     DevelopmentActionBinding,
     DevelopmentActionSafeguards,
     DevelopmentAuthorityScope,
@@ -40,6 +42,8 @@ AUDIT_CONTRACT = "fdai.saga.two-phase-audit@1"
 # Constitution Article 7: inside the development profile, disposable-resource recreation or
 # teardown is the bounded recovery path for every bound resource.
 DISPOSABLE_RECOVERY_CONTRACT = "fdai.development.disposable-recreation@1"
+# A static blast radius of these scopes stays inside the target's resource group.
+_TARGET_BOUNDED_SCOPES = frozenset({BlastRadiusScope.RESOURCE, BlastRadiusScope.RESOURCE_GROUP})
 
 
 def azure_scope_value_digest(value: str) -> str:
@@ -70,6 +74,33 @@ def target_scope(
         tenant_digest=profile.scope.tenant_digest,
         subscription_digest=azure_scope_value_digest(subscription),
         resource_group_digests=groups,
+    )
+
+
+def action_scope(
+    profile: FullAuthorityDevelopmentProfile,
+    action: Action,
+    action_type: OntologyActionType,
+) -> DevelopmentAuthorityScope:
+    """Return the scope ``action`` needs: its target location widened to its declared blast radius.
+
+    Only a static resource or resource-group blast radius, on both the ActionType and the Action,
+    stays inside the target's location. A subscription-wide radius needs the whole subscription,
+    and so, failing closed, does an undeclared or graph-derived one whose reach this scope cannot
+    bound; a profile that binds only resource groups covers neither.
+    """
+    scope = target_scope(profile, action.target_resource_ref)
+    declared = action_type.blast_radius
+    if (
+        declared is not None
+        and declared.computation is BlastRadiusComputation.STATIC_ENUM
+        and declared.static_bucket in _TARGET_BOUNDED_SCOPES
+        and action.blast_radius.scope in _TARGET_BOUNDED_SCOPES
+    ):
+        return scope
+    return DevelopmentAuthorityScope(
+        tenant_digest=scope.tenant_digest,
+        subscription_digest=scope.subscription_digest,
     )
 
 
@@ -128,9 +159,9 @@ class PreparedDevelopmentBindingRegistry:
         profile = self._profile
         if action.action_type != action_type.name or not _registered(profile, action_type):
             raise ValueError("development action type is not registered in the profile")
-        scope = target_scope(profile, action.target_resource_ref)
+        scope = action_scope(profile, action, action_type)
         if not profile.scope.covers(scope):
-            raise ValueError("development target is outside the profile scope")
+            raise ValueError("development target or blast radius is outside the profile scope")
         target_digest = authority_text_digest(action.target_resource_ref)
         binding = DevelopmentActionBinding.build(
             action_type=action_type.name,
@@ -232,6 +263,12 @@ class PreparedDevelopmentBindingRegistry:
             dry_run_digest=direct_api_dry_run_digest(action),
         )
 
+    def required_scope(
+        self, *, action: Action, action_type: OntologyActionType
+    ) -> DevelopmentAuthorityScope:
+        """Return the scope the exact action needs, so admission rechecks a recorded binding."""
+        return action_scope(self._profile, action, action_type)
+
     async def read_verification(self, action_id: str) -> DevelopmentBindingVerification | None:
         """Read the durable binding of ``action_id`` for this profile, bypassing the index."""
         row = await self._store.read_state(BINDING_PREFIX + action_id)
@@ -288,6 +325,7 @@ __all__ = [
     "DISPOSABLE_RECOVERY_CONTRACT",
     "SOURCE_ID",
     "PreparedDevelopmentBindingRegistry",
+    "action_scope",
     "azure_scope_value_digest",
     "direct_api_dry_run_digest",
     "target_scope",

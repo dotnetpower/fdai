@@ -538,8 +538,8 @@ Deployment Preflight keeps its publication decision in `core/deploy_preflight/pr
   optional package is not required configuration: it can report capability-scoped unavailability
   while unrelated complete paths start normally. Enabling that package makes its declared
   bindings required and fail-closed.
-- The optional full-authority development profile is a separate authority input. Its composition
-  boundary is owned by [Project Structure Dependency Injection](project-structure-dependency-injection.md#full-authority-development-profile-composition).
+- The optional full-authority development profile, including its Owner-only category park, is a
+  separate authority input owned by [Project Structure Dependency Injection](project-structure-dependency-injection.md#full-authority-development-profile-composition).
 - Without the `governed-execution` add-on, learned and predicted input stays ActionType-free
   evidence; the [Agent Pantheon plan](../agents/agent-pantheon-implementation.md#learned-and-predicted-output-boundary) owns the boundary.
 - The default environment provider and the optional bounded `YamlFileConfigProvider` both enter the

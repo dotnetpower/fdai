@@ -7,8 +7,8 @@ import logging
 from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import replace
 from datetime import UTC, datetime
-from typing import Any
 
+from fdai.core.control_loop._development import ControlLoopDevelopmentMixin
 from fdai.core.control_loop._execution_effects import ControlLoopExecutionEffectsMixin
 from fdai.core.control_loop._governance import ControlLoopGovernanceMixin
 from fdai.core.control_loop._helpers import (
@@ -17,7 +17,6 @@ from fdai.core.control_loop._helpers import (
     evaluate_unified,
 )
 from fdai.core.control_loop._safeguard_commitment import ControlLoopSafeguardCommitmentMixin
-from fdai.core.control_loop.development_request import prepare_development_park
 from fdai.core.executor import ExecutionResult, ExecutorOutcome, ShadowExecutor
 from fdai.core.executor.direct_api import DirectApiExecutionResult
 from fdai.core.executor.port import DirectApiExecutionPort
@@ -79,6 +78,7 @@ class ControlLoopExecutionMixin(
     ControlLoopExecutionEffectsMixin,
     ControlLoopGovernanceMixin,
     ControlLoopSafeguardCommitmentMixin,
+    ControlLoopDevelopmentMixin,
 ):
     """Resolve governance, execution authority, and executor selection."""
 
@@ -459,26 +459,6 @@ class ControlLoopExecutionMixin(
             reason=f"evidence conflict requires shadow-only: {disposition.value}",
         )
 
-    async def _development_park_block(
-        self,
-        *,
-        action: Action,
-        authorization: ExecutionAuthorizationResult | None,
-        unified: UnifiedRiskDecision,
-        initiator: object,
-    ) -> dict[str, Any] | None:
-        """Return the development park block for the Owner's own exact action, if eligible."""
-        return await prepare_development_park(
-            profile=self._development_profile,
-            bindings=self._development_binding_source,
-            revisions=self._development_revision_reader,
-            initiator=initiator,
-            action=action,
-            action_type=self._action_types_by_name.get(action.action_type),
-            authorization=authorization,
-            unified=unified,
-        )
-
     async def _evaluate_and_audit(
         self,
         *,
@@ -618,12 +598,15 @@ class ControlLoopExecutionMixin(
                             level=AxisLevel.SHADOW_ONLY,
                             winning_side="evidence_conflict",
                         )
+                    if conflicts or ceiling is MscpAuthorityCeiling.HOLD:
+                        unified = replace(unified, evidence_conflict_clear=False)
                     conflict_revision_refs = [item.revision_ref for item in conflicts]
                 except Exception:  # noqa: BLE001 - unreadable current conflict fails closed
                     unified = replace(
                         unified,
                         level=min(unified.level, AxisLevel.SHADOW_ONLY),
                         winning_side="evidence_conflict_unavailable",
+                        evidence_conflict_clear=False,
                     )
                     conflict_disposition = EvidenceConflictDisposition.EXPIRED_UNRESOLVED
             entry = _unified_audit_dict(event=event, action=action, unified=unified)
