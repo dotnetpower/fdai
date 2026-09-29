@@ -132,11 +132,12 @@ pass that sets `remaining_goals` defers the check to the final pass, which may r
 their context, and no compilation is released until the final pass is admitted. A repair of unaccounted words may add mentions, goals, filters, cue
 reach, context, and values left at their defaults, but it never changes or removes a stated value. A word still unaccounted after that repair is left
 to the blind constraint review, because accounting only makes the proposer consider every word; the review decides whether a word states a constraint.
-When that repair rewrites or breaks a proposal whose only fault was accounting, the proposal stands as it was and its unplaced words go to the same
-review, and the words a review repair leaves unplaced go to the review that reads its form again. A particle attached to an instance name or
-identifier in the same word is accounted with it, and no repair may change the quote of such a mention, because it is an exact lookup key that a
-widened quote would look up as another name; the review still judges any restriction the particle states. Reach words that stand apart from the
-relation words, such as all the way down, are quoted in the relation's `reach_cue`.
+When that repair reads every goal as the proposal did, except for quotes, but changes a quote a placement may not change, the proposal stands as it
+was and its unplaced words go to the same review; a repair that reads a goal differently, such as a count for a list, or that does not parse is a
+competing or missing reading and holds the turn, and the words a review repair leaves unplaced go to the review that reads its form again. A particle
+attached to an instance name or identifier in the same word is accounted with it, and no repair may change the quote of such a mention, because it is
+an exact lookup key that a widened quote would look up as another name; the review still judges any restriction the particle states. Reach words that
+stand apart from the relation words, such as all the way down, are quoted in the relation's `reach_cue`.
 
 **Blind constraint review**: A second T1 call of another model family reads only the question, beside the judgment call, and extracts every constraint
 with a closed role. Core compares the two outputs structurally: every letter and digit of each extracted constraint must lie in a span that states

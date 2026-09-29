@@ -98,8 +98,6 @@ async def propose_with_repair(
         reason.startswith("span_unaccounted:") for reason in faulted
     )
     if repaired.form is None:
-        if placing:
-            return _kept_original(resolution, utterance, faulted)
         return FormProposal(repaired, None, "invalid", faulted)
     form = repaired.form
     if resolution.form is not None:
@@ -108,7 +106,7 @@ async def propose_with_repair(
     if not repair_keeps_operands(
         raw, form, utterance=utterance, typed=resolution.form, extension_only=placing
     ):
-        if placing:
+        if placing and resolution.form is not None and same_reading(resolution.form, form):
             return _kept_original(resolution, utterance, faulted)
         return FormProposal(resolution, admission, "operand_dropped", faulted)
     admission = _admit(repaired, utterance, accounting)
@@ -125,14 +123,49 @@ async def propose_with_repair(
     return FormProposal(repaired, admission, "applied", faulted)
 
 
+def same_reading(before: SemanticQuestionForm, after: SemanticQuestionForm) -> bool:
+    """Return whether a repair reads every goal exactly as the proposal did.
+
+    Only quotes may differ: every goal field other than its cue spans and confidence,
+    the pending-goals signal, and the absence of competing readings must match, and
+    the repair may declare no unsupported constraint the proposal lacked. A repair that
+    asks a different question, such as a count for a list, is a competing reading.
+    """
+
+    return (
+        _goal_readings(before) == _goal_readings(after)
+        and before.remaining_goals == after.remaining_goals
+        and not before.alternatives
+        and not after.alternatives
+        and set(after.unsupported_constraints) <= set(before.unsupported_constraints)
+    )
+
+
+def _goal_readings(form: SemanticQuestionForm) -> list[dict[str, Any]]:
+    readings: list[dict[str, Any]] = []
+    for goal in form.goals:
+        reading = goal.model_dump(mode="json", exclude={"cue", "confidence"})
+        for key in ("relation", "time", "measure"):
+            nested = reading.get(key)
+            if isinstance(nested, dict):
+                nested.pop("cue", None)
+                nested.pop("reach_cue", None)
+        for item in reading.get("filters") or ():
+            item.pop("cue", None)
+        readings.append(reading)
+    return readings
+
+
 def _kept_original(
     resolution: FormResolution, utterance: str, faulted: tuple[str, ...]
 ) -> FormProposal:
     """Keep a proposal whose only fault was accounting when its repair is unusable.
 
-    The model was asked once to place its leftover words. A repair that rewrote or
-    broke the form adds nothing trustworthy, so the proposal stands as it was, and
-    whether a leftover word states a constraint is for the blind constraint review.
+    The model was asked once to place its leftover words, and its repair read every
+    goal the same way but changed a quote a placement may not change. The proposal
+    then stands as it was, and whether a leftover word states a constraint is for the
+    blind constraint review. A repair that reads a goal differently, or that does not
+    parse, is a competing or missing reading, so the turn holds instead.
     """
 
     relaxed = _admit(resolution, utterance, SpanAccounting(required=False))
@@ -679,4 +712,5 @@ __all__ = [
     "propose_with_repair",
     "repair_for",
     "repair_keeps_operands",
+    "same_reading",
 ]

@@ -318,11 +318,7 @@ async def run_reasoning_shadow(
                     compile_args=compile_args,
                 )
             except Exception as exc:  # noqa: BLE001 - shadow work must never fail the turn
-                held = exc.reason if isinstance(exc, FormInputHeldError) else None
-                reason = held or f"shadow_error:{type(exc).__name__}"
-                passes.append(
-                    ShadowPass(index, "input_held" if held else "shadow_error", (reason,))
-                )
+                passes.append(_failed_pass(index, exc))
                 if pending:
                     notes.append("continuation_failed")
                 break
@@ -360,22 +356,25 @@ async def run_reasoning_shadow(
                 review, raw, admitted_forms, passes, limits, utterance=utterance
             )
             if repair is not None:
-                shadow_pass, _goals, compilation, admitted = await _run_pass(
-                    counting,
-                    index=len(passes),
-                    utterance=utterance,
-                    context=context,
-                    locale=locale,
-                    prior_goals=(),
-                    catalogs=catalogs,
-                    concept_budget=limits.max_concept_calls - counting.concept_calls,
-                    max_shard_bytes=limits.max_shard_bytes,
-                    repairs=0,
-                    resolver=resolver,
-                    compile_args=compile_args,
-                    accounting=SpanAccounting(required=account_spans),
-                    review_repair=repair,
-                )
+                try:
+                    shadow_pass, _goals, compilation, admitted = await _run_pass(
+                        counting,
+                        index=len(passes),
+                        utterance=utterance,
+                        context=context,
+                        locale=locale,
+                        prior_goals=(),
+                        catalogs=catalogs,
+                        concept_budget=limits.max_concept_calls - counting.concept_calls,
+                        max_shard_bytes=limits.max_shard_bytes,
+                        repairs=0,
+                        resolver=resolver,
+                        compile_args=compile_args,
+                        accounting=SpanAccounting(required=account_spans),
+                        review_repair=repair,
+                    )
+                except Exception as exc:  # noqa: BLE001 - shadow work must never fail the turn
+                    shadow_pass, compilation, admitted = _failed_pass(len(passes), exc), None, None
                 passes.append(shadow_pass)
                 if admitted is not None and shadow_pass.disposition == "admitted":
                     review = review_forms((admitted,), raw, utterance=utterance)
@@ -413,6 +412,14 @@ async def run_reasoning_shadow(
         if not extraction.done():
             extraction.cancel()
         await asyncio.gather(extraction, return_exceptions=True)
+
+
+def _failed_pass(index: int, exc: Exception) -> ShadowPass:
+    """Record a pass that raised, as held input or a shadow error, instead of failing."""
+
+    held = exc.reason if isinstance(exc, FormInputHeldError) else None
+    reason = held or f"shadow_error:{type(exc).__name__}"
+    return ShadowPass(index, "input_held" if held else "shadow_error", (reason,))
 
 
 @dataclass(frozen=True, slots=True)
