@@ -298,6 +298,13 @@ Action dispatch and step journal identity include an explicit positive `attempt`
 compatibility default. `STEP_STARTED`, `ACTION_DISPATCHED`, branch, waiting, completion, failure,
 terminal, and audit ids include that attempt, and `WorkflowActionDispatcher` uses it in the typed
 proposal idempotency key. Two attempts therefore cannot collapse into one event or proposal.
+Before the dispatcher publishes an enforce action, a replica writes an attempt-scoped
+`action.dispatch-claimed` lease and publishes only while that claim is current. It records the single
+durable `ACTION_DISPATCHED` record with the returned reference after publication. A replica that
+loses its claim stops before publication. If a claimant crashes after publication but before
+recording, redelivery after lease expiry republishes the same attempt-scoped idempotency key, and
+the journal still admits only one forward dispatch record for that Process step attempt. A claim
+without a dispatch record blocks retry because publication may already have happened.
 
 `POST /workflows/{process_id}/retry` starts a new attempt from `failed`, or from `timed_out` only
 when the terminal reason is `approval_timed_out`, and accepts no body. The terminal attempt must

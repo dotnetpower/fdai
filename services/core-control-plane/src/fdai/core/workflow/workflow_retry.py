@@ -105,6 +105,7 @@ class WorkflowRetryCoordinator:
             )
         attempt_events = tuple(event for event in events if event.attempt == failed_attempt)
         blocked = {
+            ProcessEventKind.ACTION_DISPATCH_CLAIMED,
             ProcessEventKind.ACTION_DISPATCHED,
             ProcessEventKind.COMPENSATION_STARTED,
             ProcessEventKind.COMPENSATION_DISPATCHED,

@@ -26,6 +26,9 @@ The shared Operator family-adapter facade now retains workflow persistence and c
 exports. Conversation persistence, operations projection and webhook handling, and pure workflow
 catalog rendering have focused owners. This split preserves principal scope, durable proposal
 idempotency, unavailable behavior, and the no-executor boundary.
+Workflow dispatch fencing stays inside Core's workflow runtime and shared `ProcessRuntimeStore`
+contract: replicas coordinate through attempt-scoped journal claims, while delivery adapters keep the
+PostgreSQL CAS and idempotent replay semantics behind that provider boundary.
 Shared authentication and projection response modules own structured exception mapping, so the
 aggregate route facade assembles handlers without reimplementing boundary normalization.
 

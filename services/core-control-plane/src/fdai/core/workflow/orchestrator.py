@@ -8,7 +8,7 @@ step executor remain re-exported here for compatibility.
 from __future__ import annotations
 
 from collections.abc import Mapping
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 from fdai.core.runbook.models import RunbookStepOutcome
 from fdai.core.runbook.runner import RunbookRunner
@@ -16,6 +16,7 @@ from fdai.core.workflow.approval import WorkflowApprovalPlanner
 from fdai.core.workflow.automation_hold import StateStoreAutomationHoldLedger
 from fdai.core.workflow.compensation import WorkflowCompensationCoordinator
 from fdai.core.workflow.compiler import compile_workflow
+from fdai.core.workflow.dispatch_claim import DEFAULT_ACTION_DISPATCH_CLAIM_LEASE
 from fdai.core.workflow.recovery_coordinator import WorkflowRecoveryCoordinator
 from fdai.core.workflow.workflow_cancellation import (
     WorkflowCancellationCoordinator,
@@ -92,6 +93,7 @@ class WorkflowOrchestrator:
         "_outcome_verifier",
         "_process_store",
         "_recovery_coordinator",
+        "_action_dispatch_claim_lease",
     )
 
     def __init__(
@@ -109,6 +111,7 @@ class WorkflowOrchestrator:
         outcome_verifier: WorkflowOutcomeVerifier | None = None,
         recovery_coordinator: WorkflowRecoveryCoordinator | None = None,
         automation_holds: StateStoreAutomationHoldLedger | None = None,
+        action_dispatch_claim_lease: timedelta | None = None,
     ) -> None:
         self._planner = planner
         self._action_types = action_types
@@ -122,6 +125,7 @@ class WorkflowOrchestrator:
         self._outcome_verifier = outcome_verifier
         self._process_store = process_store
         self._recovery_coordinator = recovery_coordinator
+        self._action_dispatch_claim_lease = action_dispatch_claim_lease
 
     def with_action_dispatcher(
         self,
@@ -141,6 +145,7 @@ class WorkflowOrchestrator:
             outcome_verifier=self._outcome_verifier,
             recovery_coordinator=self._recovery_coordinator,
             automation_holds=self._automation_holds,
+            action_dispatch_claim_lease=self._action_dispatch_claim_lease,
         )
 
     def with_evidence_dispatcher(
@@ -161,6 +166,7 @@ class WorkflowOrchestrator:
             outcome_verifier=self._outcome_verifier,
             recovery_coordinator=self._recovery_coordinator,
             automation_holds=self._automation_holds,
+            action_dispatch_claim_lease=self._action_dispatch_claim_lease,
         )
 
     async def resume_metadata(
@@ -483,6 +489,11 @@ class WorkflowOrchestrator:
             snapshot=snapshot,
             context=context,
             now=now,
+            action_dispatch_claim_lease=(
+                self._action_dispatch_claim_lease
+                if self._action_dispatch_claim_lease is not None
+                else DEFAULT_ACTION_DISPATCH_CLAIM_LEASE
+            ),
             mode=mode,
             target_resource_id=target_resource_id,
             attempt=attempt,
