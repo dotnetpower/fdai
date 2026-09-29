@@ -1,6 +1,6 @@
 ---
 translation_of: ontology-reasoning-compiler.md
-translation_source_sha: 5d93ff871c82ec5f80c22e8781ff61c3988db693
+translation_source_sha: d21f0b56e88b2199eb6bd9bd9ca3e82a062a1fda
 translation_revised: 2026-09-30
 ---
 # 온톨로지 추론 컴파일러
@@ -332,9 +332,10 @@ LinkType에만 허용되며 깊이는 최대 5입니다.
   구분하며, `unspecified`에는 버전이 고정된 기본값을 씁니다.
 - **계획 묶음**: 계획 하나의 노드 32개나 출력 8개를 넘는 목표는 턴 예산 하나 안의 순서가 있는 계획
   묶음으로 컴파일되고, 남은 묶음은 검증된 구간을 이어서 보내는 범위가 제한된 후속 실행으로 계속됩니다.
-- **지원되지 않는 원자**: `region` 필터는 선언된 `Resource.location` 속성이 생긴 뒤에만 컴파일되고,
-  적용 가능한 레시피가 없는 `diagnose` 목표는 다른 타입의 레시피를 재사용하지 않습니다. 둘 다 이름
-  조건식이나 대체 기능 대신 타입이 지정된 지원되지 않는 원자를 반환합니다.
+- **지원되지 않는 원자**: `region` 필터는 두 블라인드 선택자가 그 언급을 검토된 리전 어휘의 같은
+  코드로 근거화할 때만 `Resource.location` 조건식으로 컴파일되고, 적용 가능한 레시피가 없는 `diagnose`
+  목표는 다른 타입의 레시피를 재사용하지 않습니다. 근거화되지 않은 리전과 없는 레시피는 이름 조건식이나
+  대체 기능 대신 타입이 지정된 사유를 반환합니다.
 - **스키마 읽기**: 스키마 관계에는 주어 ObjectType 자신의 LinkType을 양방향으로 한 단계만 읽는
   `query.ontology_relationships`로만 답하고, manifest 개수는 선언 종류별로만 묶습니다. Workload 안의
   LinkType처럼 ObjectType 하나로 범위를 좁힌 LinkType 주어는 같은 조회이므로 그 ObjectType의 관계

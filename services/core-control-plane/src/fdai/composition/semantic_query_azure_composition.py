@@ -46,6 +46,7 @@ from fdai.rule_catalog.schema.inventory_query_language import (
     load_inventory_query_language_from_mapping,
 )
 from fdai.rule_catalog.schema.ontology_catalog import load_ontology_catalog
+from fdai.rule_catalog.schema.provider_region import load_provider_region_registry_from_mapping
 from fdai.rule_catalog.schema.resource_type import load_resource_type_registry_from_mapping
 from fdai.shared.config.models import LlmMode
 from fdai.shared.contracts.models import OntologyRelease
@@ -60,7 +61,10 @@ from .resolved_models_revision import resolved_models_for_binding
 from .semantic_query_instance_candidates import declare_instance_candidate_query
 from .semantic_query_model_targets import t1_model_targets, t2_model_targets
 from .semantic_query_type_grounding import build_second_reader
-from .semantic_query_value_domains import resource_type_value_domains
+from .semantic_query_value_domains import (
+    resource_location_value_domains,
+    resource_type_value_domains,
+)
 from .wire_adaptive_conversation import build_adaptive_conversation_service
 
 if TYPE_CHECKING:
@@ -310,7 +314,12 @@ def _resource_type_property_values(catalog_root: Path) -> tuple[PropertyValueDom
     registry = load_resource_type_registry_from_mapping(
         yaml.safe_load(vocabulary.read_text(encoding="utf-8"))
     )
-    return resource_type_value_domains(registry)
+    regions = load_provider_region_registry_from_mapping(
+        yaml.safe_load(
+            (catalog_root / "vocabulary" / "provider-regions.yaml").read_text(encoding="utf-8")
+        )
+    )
+    return (*resource_type_value_domains(registry), *resource_location_value_domains(regions))
 
 
 def _inventory_query_language(catalog_root: Path) -> InventoryQueryLanguageRegistry:

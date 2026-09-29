@@ -309,9 +309,10 @@ self-composable, depth at most five.
   effective, event, and recorded time distinct, and uses a version-pinned default for `unspecified`.
 - **Plan batches**: Goals beyond one plan's 32 nodes or 8 outputs compile into ordered plan batches
   under one turn budget; remaining batches continue as a bounded continuation of verified segments.
-- **Unsupported atoms**: A `region` filter compiles only after a declared `Resource.location`
-  property exists, and a `diagnose` goal without an applicable recipe never reuses another type's
-  recipe. Both return a typed unsupported atom instead of a name predicate or a substitute.
+- **Unsupported atoms**: A `region` filter compiles to a `Resource.location` predicate only when two
+  blind choosers ground its mention to the same codes of the reviewed region vocabulary, and a
+  `diagnose` goal without an applicable recipe never reuses another type's recipe. An unbound region
+  and a missing recipe return a typed reason instead of a name predicate or a substitute.
 - **Schema reads**: A schema relation is answered only by the one-hop `query.ontology_relationships`
   read of the subject ObjectType's own LinkTypes in both directions, and a manifest count groups only
   by declaration kind. A LinkType subject scoped to one ObjectType, as in the LinkTypes in Workload,

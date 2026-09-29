@@ -267,6 +267,12 @@ Resource subtype operands come from the reviewed `Resource.type` value domain. I
 groups may hold up to 192 groups so that each reviewed subtype can bind its own bilingual terms;
 the terms ground stated operands only and never add an ObjectType or capability.
 
+`Resource` 1.1.0 also declares the readable `location` property, which inventory projection lifts
+from the adapter property bag. Its value domain is the reviewed provider-region vocabulary in
+`rule-catalog/vocabulary/provider-regions.yaml`: every Azure physical region code plus `global`, each
+with its display name. A stated region is grounded by closed choice against that complete list, and
+the display names are context for the choosing model, never a lookup table.
+
 Resource-state queries accept only catalog-declared state concepts and exact bounded resource
 collections. A concrete state concept takes precedence over the generic observed-state sentinel.
 Empty or incomplete results preserve row-count and source limitations and never prove that matching

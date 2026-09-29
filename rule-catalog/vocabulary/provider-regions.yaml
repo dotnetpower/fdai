@@ -1,0 +1,143 @@
+# Reviewed provider-region value domain for `Resource.location`.
+#
+# `Resource.location` stores the provider's region code as the inventory adapter
+# reports it, such as koreacentral, or `global` for a resource without a region.
+# A question that states a region is grounded by closed choice against this
+# complete list, so a planner never invents a region operand. Display names are
+# context for the choosing model, never a lookup table.
+#
+# Source: the public Azure physical region list (`az account list-locations`,
+# regionType Physical) on 2026-09-30, plus `global`. Region codes are public
+# provider metadata, not tenant data. Add a region through a governance PR.
+schema_version: "1.0.0"
+version: "1.0.0"
+provider: azure
+regions:
+  - id: australiacentral
+    display_name: "Australia Central"
+  - id: australiacentral2
+    display_name: "Australia Central 2"
+  - id: australiaeast
+    display_name: "Australia East"
+  - id: australiasoutheast
+    display_name: "Australia Southeast"
+  - id: austriaeast
+    display_name: "Austria East"
+  - id: belgiumcentral
+    display_name: "Belgium Central"
+  - id: brazilsouth
+    display_name: "Brazil South"
+  - id: brazilsoutheast
+    display_name: "Brazil Southeast"
+  - id: canadacentral
+    display_name: "Canada Central"
+  - id: canadaeast
+    display_name: "Canada East"
+  - id: centralindia
+    display_name: "Central India"
+  - id: centralus
+    display_name: "Central US"
+  - id: centraluseuap
+    display_name: "Central US EUAP"
+  - id: chilecentral
+    display_name: "Chile Central"
+  - id: denmarkeast
+    display_name: "Denmark East"
+  - id: eastasia
+    display_name: "East Asia"
+  - id: eastus
+    display_name: "East US"
+  - id: eastus2
+    display_name: "East US 2"
+  - id: eastus2euap
+    display_name: "East US 2 EUAP"
+  - id: eastusstg
+    display_name: "East US STG"
+  - id: francecentral
+    display_name: "France Central"
+  - id: francesouth
+    display_name: "France South"
+  - id: germanynorth
+    display_name: "Germany North"
+  - id: germanywestcentral
+    display_name: "Germany West Central"
+  - id: global
+    display_name: "Global (no region)"
+  - id: indiasouthcentral
+    display_name: "India South Central"
+  - id: indonesiacentral
+    display_name: "Indonesia Central"
+  - id: israelcentral
+    display_name: "Israel Central"
+  - id: italynorth
+    display_name: "Italy North"
+  - id: japaneast
+    display_name: "Japan East"
+  - id: japanwest
+    display_name: "Japan West"
+  - id: jioindiacentral
+    display_name: "Jio India Central"
+  - id: jioindiawest
+    display_name: "Jio India West"
+  - id: koreacentral
+    display_name: "Korea Central"
+  - id: koreasouth
+    display_name: "Korea South"
+  - id: malaysiawest
+    display_name: "Malaysia West"
+  - id: mexicocentral
+    display_name: "Mexico Central"
+  - id: newzealandnorth
+    display_name: "New Zealand North"
+  - id: northcentralus
+    display_name: "North Central US"
+  - id: northeurope
+    display_name: "North Europe"
+  - id: norwayeast
+    display_name: "Norway East"
+  - id: norwaywest
+    display_name: "Norway West"
+  - id: polandcentral
+    display_name: "Poland Central"
+  - id: qatarcentral
+    display_name: "Qatar Central"
+  - id: southafricanorth
+    display_name: "South Africa North"
+  - id: southafricawest
+    display_name: "South Africa West"
+  - id: southcentralus
+    display_name: "South Central US"
+  - id: southcentralusstg
+    display_name: "South Central US STG"
+  - id: southeastasia
+    display_name: "Southeast Asia"
+  - id: southindia
+    display_name: "South India"
+  - id: spaincentral
+    display_name: "Spain Central"
+  - id: swedencentral
+    display_name: "Sweden Central"
+  - id: switzerlandnorth
+    display_name: "Switzerland North"
+  - id: switzerlandwest
+    display_name: "Switzerland West"
+  - id: uaecentral
+    display_name: "UAE Central"
+  - id: uaenorth
+    display_name: "UAE North"
+  - id: uksouth
+    display_name: "UK South"
+  - id: ukwest
+    display_name: "UK West"
+  - id: westcentralus
+    display_name: "West Central US"
+  - id: westeurope
+    display_name: "West Europe"
+  - id: westindia
+    display_name: "West India"
+  - id: westus
+    display_name: "West US"
+  - id: westus2
+    display_name: "West US 2"
+  - id: westus3
+    display_name: "West US 3"

@@ -1774,3 +1774,62 @@ def test_one_membership_stated_as_scope_and_containment_is_read_as_the_whole_gro
         if node.kind.value == "relationship_traversal"
     }
     assert depths == {5}
+
+
+def test_a_stated_region_filters_by_the_reviewed_location_code() -> None:
+    utterance = "koreacentral 리전에 있는 스토리지 계정"
+    form = {
+        "mentions": [
+            {
+                "id": "m1",
+                "form": "value",
+                "domain": "region",
+                "span": span(utterance, "koreacentral"),
+            },
+            {
+                "id": "m2",
+                "form": "concept",
+                "domain": "resource_type",
+                "span": span(utterance, "스토리지 계정"),
+            },
+        ],
+        "goals": [
+            {
+                "id": "g1",
+                "level": "instance",
+                "operation": "select",
+                "subject": "m2",
+                "subject_scope": "collection",
+                "filters": [
+                    {"role": "region", "mention": "m1", "cue": span(utterance, "리전에 있는")}
+                ],
+                "cue": span(utterance, "스토리지 계정"),
+                "confidence": 0.9,
+            }
+        ],
+    }
+    bound = concepts(
+        ("m1", MentionDomain.REGION, ("koreacentral",)),
+        ("m2", MentionDomain.RESOURCE_TYPE, ("object-storage",)),
+    )
+
+    goal = _compile(utterance, form, bound).goals[0]
+    unbound = _compile(
+        utterance, form, concepts(("m2", MentionDomain.RESOURCE_TYPE, ("object-storage",)))
+    ).goals[0]
+
+    assert goal.status is GoalStatus.COMPILED, goal.reasons
+    predicates = batch_predicates(goal)
+    assert {"property": "location", "operator": "equals", "equals": "koreacentral"} in predicates
+    # A region that no two choosers ground never widens the read to every region.
+    assert unbound.status is not GoalStatus.COMPILED
+
+
+def batch_predicates(goal: Any) -> list[dict[str, Any]]:
+    return [
+        predicate
+        for batch in goal.batches
+        for node in batch.plan.nodes
+        if node.kind.value == "object_set"
+        for predicate in node.arguments["definition"].get("predicates") or ()
+    ]

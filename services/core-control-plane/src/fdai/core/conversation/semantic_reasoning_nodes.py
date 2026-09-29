@@ -169,6 +169,17 @@ def endpoint_predicates(
             predicates.append(
                 {"property": "name", "operator": "contains", "equals": ctx.text(item.mention)}
             )
+        elif item.role is FilterRole.REGION:
+            regions, failure = concept_values(item.mention, ctx)
+            if failure is not None:
+                return [], failure
+            if ctx.mention(item.mention).domain is not MentionDomain.REGION or not regions:
+                return [], OperatorResult(unsupported=("region_filter_domain_unsupported",))
+            predicates.append(
+                {"property": "location", "operator": "equals", "equals": regions[0]}
+                if len(regions) == 1
+                else {"property": "location", "operator": "in", "values": sorted(regions)}
+            )
         else:
             return [], OperatorResult(unsupported=(f"filter_unsupported:{item.role.value}",))
     required = sorted(frozenset.intersection(*type_sets)) if type_sets else []

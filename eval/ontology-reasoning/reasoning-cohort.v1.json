@@ -1809,14 +1809,14 @@
       "concepts": {
         "m1": [
           "compute.vm"
+        ],
+        "m2": [
+          "koreacentral"
         ]
       },
       "expect": {
         "g1": {
-          "status": "unsupported",
-          "reasons": [
-            "filter_unsupported:region"
-          ]
+          "status": "compiled"
         }
       }
     },
@@ -1862,14 +1862,14 @@
       "concepts": {
         "m1": [
           "compute.vm"
+        ],
+        "m2": [
+          "koreacentral"
         ]
       },
       "expect": {
         "g1": {
-          "status": "unsupported",
-          "reasons": [
-            "filter_unsupported:region"
-          ]
+          "status": "compiled"
         }
       }
     },

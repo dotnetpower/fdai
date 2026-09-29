@@ -13,7 +13,10 @@ from typing import Any
 
 import yaml
 from fdai.composition.semantic_query_instance_candidates import declare_instance_candidate_query
-from fdai.composition.semantic_query_value_domains import resource_type_value_domains
+from fdai.composition.semantic_query_value_domains import (
+    resource_location_value_domains,
+    resource_type_value_domains,
+)
 from fdai.core.conversation.semantic_reasoning_admission import (
     FormAdmission,
     SpanAccounting,
@@ -53,6 +56,7 @@ from fdai.core.ontology_platform.query_source_handlers import (
     SecuredRelationshipTraversalNodeHandler,
 )
 from fdai.rule_catalog.schema.ontology_catalog import OntologyCatalog, load_ontology_catalog
+from fdai.rule_catalog.schema.provider_region import load_provider_region_registry_from_mapping
 from fdai.rule_catalog.schema.resource_type import load_resource_type_registry_from_mapping
 from fdai.shared.contracts.models import CeilingRole
 from fdai.shared.contracts.registry import PackageResourceSchemaRegistry
@@ -139,7 +143,18 @@ def production_manifest(role: CeilingRole = CeilingRole.READER) -> QueryManifest
         action_types=catalog.action_types,
         functions=functions,
         bound_function_names=tuple(function.name for function in functions),
-        property_values=resource_type_value_domains(registry),
+        property_values=(
+            *resource_type_value_domains(registry),
+            *resource_location_value_domains(
+                load_provider_region_registry_from_mapping(
+                    yaml.safe_load(
+                        (ROOT / "rule-catalog" / "vocabulary" / "provider-regions.yaml").read_text(
+                            encoding="utf-8"
+                        )
+                    )
+                )
+            ),
+        ),
     )
 
 

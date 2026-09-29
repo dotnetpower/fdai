@@ -7,12 +7,13 @@
 # `docs/roadmap/architecture/llm-strategy.md § Ontology Foundation`.
 #
 # Property list is deliberately minimal - it covers the fields the core
-# dispatch layer relies on (`id`, `type`, `parent_id`). A fork MAY add a
-# fork-local ObjectType subtype for a specialized resource class instead
-# of extending this declaration.
+# dispatch layer relies on (`id`, `type`, `parent_id`) plus the readable
+# `location` an operator filters by. A fork MAY add a fork-local ObjectType
+# subtype for a specialized resource class instead of extending this
+# declaration.
 schema_version: "1.0.0"
 name: Resource
-version: "1.0.0"
+version: "1.1.0"
 key: id
 description: A target under governance; typically a CSP resource populated by the inventory adapter.
 properties:
@@ -32,13 +33,17 @@ properties:
     type: string
     required: false
     description: Optional parent Resource id used by the `contains` link (subscription -> resource-group -> resource).
+  location:
+    type: string
+    required: false
+    description: Provider-reported region code of the resource, such as koreacentral, or global for a resource without a region; lifted from the adapter property bag so it can be read and filtered against the reviewed region vocabulary.
   properties:
     type: object
     required: false
     description: Open-shape bag of adapter-projected resource properties consumed by policy-as-code (Rego) and the assurance twin.
 provenance:
   source_url: https://github.com/dotnetpower/fdai
-  resolved_ref: object-type:Resource@1.0.0
-  content_hash: sha256:a2fd216d183ec34a33fb414f2f384835d7f3e239e91d23535e3355d3deefad5b
+  resolved_ref: object-type:Resource@1.1.0
+  content_hash: sha256:4702e502dc1cb0f0e5e2ee70808b6c4ee83efe5d87f8e565e30a01262743a8b2
   license: MIT
   retrieved_at: "2026-07-29T00:00:00Z"

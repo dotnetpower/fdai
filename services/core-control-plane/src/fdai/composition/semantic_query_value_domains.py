@@ -9,6 +9,7 @@ vocabulary to that property.
 from __future__ import annotations
 
 from fdai.core.ontology_platform.property_values import PropertyValueDomain, PropertyValueGroup
+from fdai.rule_catalog.schema.provider_region import ProviderRegionRegistry
 from fdai.rule_catalog.schema.resource_type import ResourceTypeRegistry
 
 _RESOURCE_OBJECT_TYPE = "Resource"
@@ -71,4 +72,22 @@ def resource_type_value_domains(
     )
 
 
-__all__ = ["resource_type_value_domains"]
+def resource_location_value_domains(
+    registry: ProviderRegionRegistry,
+) -> tuple[PropertyValueDomain, ...]:
+    """Return the `Resource.location` domain: every reviewed region code and its name."""
+
+    return (
+        PropertyValueDomain(
+            object_type=_RESOURCE_OBJECT_TYPE,
+            property_name="location",
+            values=tuple(item.id for item in registry.regions),
+            groups=tuple(
+                PropertyValueGroup(id=item.id, values=(item.id,), terms=(item.display_name,))
+                for item in registry.regions
+            ),
+        ),
+    )
+
+
+__all__ = ["resource_location_value_domains", "resource_type_value_domains"]

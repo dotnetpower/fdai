@@ -165,6 +165,7 @@ class _Allowed:
         self.object_types: set[str] = set()
         self.declaration_kinds: set[str] = set()
         self.state_concepts: set[str] = set()
+        self.regions: set[str] = set()
         self.relation_object_type = False
         # The rows an earlier answer showed, when an anaphor makes them the goal's subject.
         self.prior_rows: tuple[str, ...] = ()
@@ -218,6 +219,8 @@ def _allowed_operands(
             allowed.declaration_kinds.update(concept.values)
         elif mention.domain is MentionDomain.STATE and role is FilterRole.STATE:
             allowed.state_concepts.update(concept.values)
+        elif mention.domain is MentionDomain.REGION and role is FilterRole.REGION:
+            allowed.regions.update(concept.values)
     return allowed
 
 
@@ -267,6 +270,8 @@ def _predicate_violations(
             permitted = allowed.fragments
         elif prop == "type" and operator in {"equals", "in"}:
             permitted = set(allowed.required_types)
+        elif prop == "location" and operator in {"equals", "in"}:
+            permitted = allowed.regions
         elif prop == "type" and operator == "not_equals":
             permitted = set(OPERATIONAL_RESOURCE_EXCLUDED_TYPES)
         else:

@@ -1,7 +1,7 @@
 ---
 title: 온톨로지 구조 모델
 translation_of: ontology-structural-model.md
-translation_source_sha: 5c2cd870f92d26bdbae6ea8e85b7a02d89d4fbd2
+translation_source_sha: adb65e87ffee63ed8decd8d549aa1d2cb9781216
 translation_revised: 2026-09-30
 ---
 # 온톨로지 구조 모델
@@ -273,6 +273,12 @@ source property path 및 source schema identity와 일치해야 합니다. 카�
 Resource 하위 유형 피연산자는 검토된 `Resource.type` 값 도메인에서 가져옵니다. 요청 용어 그룹은
 검토된 각 하위 유형이 한국어와 영어 용어를 따로 결속할 수 있도록 최대 192개까지 둘 수 있으며,
 이 용어는 발화에 나온 피연산자의 근거만 확인하고 ObjectType이나 기능을 추가하지 않습니다.
+
+`Resource` 1.1.0은 읽을 수 있는 `location` 속성도 선언하며, 인벤토리 투영이 어댑터 속성 묶음에서 이 값을
+끌어올립니다. 값 도메인은 `rule-catalog/vocabulary/provider-regions.yaml`의 검토된 공급자 리전
+어휘로, Azure의 모든 물리 리전 코드와 `global`을 각각의 표시 이름과 함께 담습니다. 발화에 나온 리전은 이
+전체 목록에 대한 닫힌 선택으로 근거를 확인하며, 표시 이름은 선택하는 모델을 위한 맥락일 뿐 조회 표가
+아닙니다.
 
 리소스 상태 조회는 카탈로그에 선언된 상태 개념과 정확하고 범위가 제한된 리소스 집합만 받습니다.
 구체적인 상태 개념은 일반 관측 상태 표시자보다 우선합니다. 비어 있거나 불완전한 결과는 행 개수와
