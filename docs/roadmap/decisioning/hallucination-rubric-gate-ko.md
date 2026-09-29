@@ -1,7 +1,7 @@
 ---
 title: Hallucination Rubric Gate
 translation_of: hallucination-rubric-gate.md
-translation_source_sha: 8b8b698d5c03ce1d475809242e237dfd4a654fdd
+translation_source_sha: 127e9db6b4a3e9d6709ac756c05482a80df369d6
 translation_revised: 2026-09-29
 ---
 # Hallucination 평가 기준 게이트 (환각 루브릭 게이트)
@@ -227,9 +227,14 @@ HIL로 보낼 수 있지만, ungrounded 액션을 안전하게 만들 수는 없
   임계값으로 비교된다. 이는 의도된 단순화다: `min()` 은 낮추기만 하므로 축 불일치가
   자격을 올릴 수 없다 - 다만 임계값을 튜닝하는 포크는 둘 다 이 값에 들어감을 알아야
   한다.
-- **자동 승격 레지스트리가 없다.** ActionType(=`promotion_gate` 를 `ActionPromotionRegistry`
-  가 평가)과 달리, 루브릭의 shadow -> 강제 적용 전환은 수동 `QualityGateConfig.rubric_shadow`
-  플립이다. 지표 기반 자동 승격/강등은 향후 작업이다.
+- **승격은 ActionType별 영수증으로만 이루어진다.** `QualityGateConfig.rubric_shadow` 는 배포
+  상한이다. 상한이 shadow를 강제하는 동안에는 어떤 것도 루브릭 구간을 올리지 못한다. 상한 아래에서는
+  바인딩된 `RubricPromotionRegistry` 가 ActionType별로 구간 모드를 정한다. 해당 ActionType이 이미
+  강제 적용 중이고, 같은 리비전, 시나리오 집합, ActionType 신원에 결속된 현재의 독립 검증 루브릭
+  영수증이 있을 때만 강제 적용한다. 영수증이 없거나 만료, 거부, 불일치, 회귀했거나 resolver 오류가
+  나면 구간을 shadow로 유지하거나 되돌리고, 감사 기록에 resolver 사유를 남긴다. 프로덕션 런타임은
+  배포가 영수증 원본과 검증기 쌍을 제공할 때만 레지스트리를 바인딩하고 상한을 낮춘다. 이 쌍이 없으면
+  구간은 shadow로 남는다. resolver 없이 `QualityGate` 를 만드는 포크는 구성된 모드를 유지한다.
 - **실모델 계약은 스키마가 아니라 프롬프트로 강제된다.** 테스트는 httpx mock을 쓰고,
   `response_format=json_object` 는 유효 JSON을 보장하지 유효 루브릭 스키마를 보장하지
   않는다. 어댑터의 엄격 파서 + `RubricScore` 검증이 잘못된 실모델 응답을 잡아 실패 시 차단

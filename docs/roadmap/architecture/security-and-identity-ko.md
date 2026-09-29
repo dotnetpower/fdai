@@ -1,7 +1,7 @@
 ---
 title: 보안과 아이덴티티
 translation_of: security-and-identity.md
-translation_source_sha: cb529c796e9e9cf8bb911e113d1b50cbd978bdef
+translation_source_sha: 5b54d46a0e00b0096019aa1d96ef32814c37bd63
 translation_revised: 2026-09-29
 ---
 
@@ -379,6 +379,10 @@ PostgreSQL 근거 공급자는 다음 경계를 따릅니다.
   참고하세요.
   Core 종료 시 진행 중인 비교 평가에 5초를 허용한 뒤 남은 작업을 취소하고 상태 저장소를
   닫습니다. 중단된 비교는 승격 근거가 될 수 없습니다.
+- T2 환각 루브릭 구간도 같은 근거 규칙을 따르며 권한을 얻지 않습니다. 구간 모드는 배포가 영수증
+  원본과 검증기를 바인딩한 경우에만 독립 검증된 영수증으로 ActionType별로 정해집니다. 영수증이
+  없거나 만료, 거부, 불일치하면 shadow로 유지되며, 강제 적용 모드에서도 신뢰도를 낮출 수만
+  있습니다. [환각 루브릭 게이트](../decisioning/hallucination-rubric-gate-ko.md)를 참고하세요.
 
 ## 사람 승인 무결성
 
