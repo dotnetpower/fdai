@@ -1,7 +1,7 @@
 ---
 title: WAF 및 CAF 근거 기반 평가
 translation_of: framework-assessment.md
-translation_source_sha: ec1b4ae67ea2709051a8aee0d8057dd4bdc5adbc
+translation_source_sha: 8f04382de3cb33b036a7c13e74e39c5558c7f217
 translation_revised: 2026-09-29
 ---
 # WAF 및 CAF 근거 기반 평가
@@ -18,6 +18,8 @@ Framework(CAF) 카탈로그를 범위에 결합되고 재현 가능한 shadow �
 >
 > **초기 모드:** 모든 평가는 읽기 전용 shadow 작업입니다. 평가 결과는 위험, 승인, 승격,
 > 수정, 배포 또는 실행 권한을 부여할 수 없습니다.
+
+이 평가의 카탈로그를 게시하는 공유 카탈로그 구체화 작업은 검토된 작업 흐름 카탈로그에서 Built-in `WorkflowDefinition` 행도 시드하며, 공유 작업 흐름 제품군은 이제 principal 소유의 비공개 초안과 바인딩을 커밋합니다. 두 경로 모두 평가 실행 또는 승격 권한을 부여하지 않습니다.
 
 ## 설계 요약
 

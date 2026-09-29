@@ -101,6 +101,8 @@ export interface WorkflowDefinitionEntry {
   readonly definition_id: string;
   readonly workflow_name: string;
   readonly workflow_version: string;
+  readonly definition_hash: string;
+  readonly action_catalog_digest: string;
   readonly origin: "upstream" | "tenant" | "user";
   readonly visibility: "global" | "team" | "private";
   readonly lifecycle: string;
@@ -149,6 +151,7 @@ export interface SavedWorkflowDraft {
   readonly definitionId: string;
   readonly workflowName: string;
   readonly lifecycle: string;
+  readonly revision: string;
 }
 
 let authContext: AuthContext | null = null;
@@ -170,7 +173,7 @@ export async function createWorkflowDefinition(
   const payload = await workflowMutation("/workflows/definitions", "POST", {
     workflow,
     confirmed: true,
-  });
+  }, { expectedRevision: "new" });
   if (payload["valid"] !== true || !isRecord(payload["definition"])) {
     throw new Error("Workflow draft creation returned an invalid response.");
   }
@@ -179,6 +182,7 @@ export async function createWorkflowDefinition(
     definitionId: requiredResponseString(definition, "definition_id"),
     workflowName: requiredResponseString(definition, "workflow_name"),
     lifecycle: requiredResponseString(definition, "lifecycle"),
+    revision: requiredResponseString(payload, "revision"),
   };
 }
 
@@ -194,13 +198,15 @@ export async function createWorkflowBinding(input: {
   return await workflowMutation("/workflows/bindings", "POST", {
     ...input,
     confirmed: true,
-  }) as unknown as WorkflowBindingEntry;
+  }, { expectedRevision: "new" }) as unknown as WorkflowBindingEntry;
 }
 
-export async function deleteWorkflowBinding(bindingId: string): Promise<void> {
+export async function deleteWorkflowBinding(bindingId: string, revision: number): Promise<void> {
   await workflowMutation(
     `/workflows/bindings/${encodeURIComponent(bindingId)}`,
     "DELETE",
+    undefined,
+    { expectedRevision: String(revision) },
   );
 }
 
@@ -208,11 +214,14 @@ async function workflowMutation(
   path: string,
   method: "POST" | "DELETE",
   body?: Readonly<Record<string, unknown>>,
+  options?: { readonly expectedRevision?: string },
 ): Promise<Record<string, unknown>> {
   const cfg = loadConfig();
   const base = cfg.operatorApiBaseUrl || (typeof window !== "undefined" ? window.location.origin : "");
   const headers: Record<string, string> = { accept: "application/json" };
   if (body !== undefined) headers["content-type"] = "application/json";
+  headers["if-match"] = options?.expectedRevision ?? "new";
+  headers["idempotency-key"] = mutationIdempotencyKey(method, path, body ?? {});
   const authHeader = authContext ? await authContext.getAuthorizationHeader() : null;
   if (authHeader !== null) headers.authorization = authHeader;
   const response = await fetch(`${base.replace(/\/$/, "")}${path}`, {
@@ -243,6 +252,14 @@ async function workflowMutation(
   return await response.json() as Record<string, unknown>;
 }
 
+export function mutationIdempotencyKey(
+  method: string,
+  path: string,
+  body: Readonly<Record<string, unknown>>,
+): string {
+  return `console-${method.toLowerCase()}-${hashText(`${path}:${stableJson(body)}`)}`;
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === "object" && !Array.isArray(value);
 }
@@ -253,6 +270,25 @@ function requiredResponseString(value: Record<string, unknown>, key: string): st
     throw new Error("Workflow draft creation returned an invalid response.");
   }
   return field;
+}
+
+function stableJson(value: unknown): string {
+  if (Array.isArray(value)) return `[${value.map(stableJson).join(",")}]`;
+  if (isRecord(value)) {
+    return `{${Object.keys(value).sort().map((key) => `${JSON.stringify(key)}:${stableJson(value[key])}`).join(",")}}`;
+  }
+  return JSON.stringify(value);
+}
+
+function hashText(value: string): string {
+  let first = 0x811c9dc5;
+  let second = 0x01000193;
+  for (let index = 0; index < value.length; index += 1) {
+    const code = value.charCodeAt(index);
+    first = Math.imul(first ^ code, 0x01000193);
+    second = Math.imul(second ^ code, 0x811c9dc5);
+  }
+  return `${(first >>> 0).toString(16).padStart(8, "0")}${(second >>> 0).toString(16).padStart(8, "0")}`;
 }
 
 function validateUrl(): string {

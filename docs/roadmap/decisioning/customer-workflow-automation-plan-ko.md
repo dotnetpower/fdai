@@ -1,7 +1,7 @@
 ---
 title: 고객 워크플로 자동화 제공 계획
 translation_of: customer-workflow-automation-plan.md
-translation_source_sha: 9ad2864d6d5c9aa05e171eb98fc256f107124cbe
+translation_source_sha: 7bba8bda605ddf0b0f3eec47a0c2aca8b6616bbe
 translation_revised: 2026-09-29
 ---
 
@@ -16,11 +16,11 @@ translation_revised: 2026-09-29
 > customer-agnostic 상태를 유지합니다.
 
 > **현재 상태.** 워크플로 저작, 검증, 지속성, 트리거, 프로세스 저널, 제어 스텝, 과거
-> 워크플로 상태 시뮬레이션 및 통제된 작업 제안 전달은 구현되어 있습니다. 광범위한 리소스
-> 변경, 스테이징 동등성 및 고객 시스템 어댑터는 완성되지 않았습니다. 따라서 도입은 관찰 모드에서 시작하고, 측정된
-> 프로세스를 한 번에 하나씩 승격하는 것이 좋습니다.
-> 독립 Operator 서비스는 저장된 워크플로 정의를 읽지만 Console 초안이나 바인딩을 아직 쓰지
-> 않습니다. [#1655](https://github.com/dotnetpower/fdai/issues/1655)가 이 writer를 추적합니다.
+> 워크플로 상태 시뮬레이션, 통제된 작업 제안 전달, Operator 소유의 비공개 초안 및 바인딩
+> 커밋은 구현되어 있습니다. 기본 제공 정의는 권위 있는 카탈로그 materialization 경로가 검토된
+> 워크플로 카탈로그에서 시드합니다. 광범위한 리소스 변경, 스테이징 동등성 및 고객 시스템
+> 어댑터는 완성되지 않았습니다. 따라서 도입은 관찰 모드에서 시작하고, 측정된 프로세스를
+> 한 번에 하나씩 승격하는 것이 좋습니다.
 ## 설계 요약
 
 고객 워크플로 자동화는 프로세스를 발견하고, 버전이 지정된 `Workflow`로 표현하고, 변경 없이

@@ -21,6 +21,8 @@ or a second source of provider truth.
 >
 > Model selection may share a publisher only across distinct families; same-family pairs fail before invocation. Publisher, family, provider, API style, and synthesized routes remain deployment metadata, not ontology identity or authority. Model capability selection may qualify a catalog family by publisher. Resolver enrichment can append narrator or primary-pool candidates only while preserving the complete deployment record, including its binding policy and seal. These fields remain deployment metadata, not ontology identity, and cannot grant model invocation or execution authority. Provider kind and API style remain endpoint metadata under the same boundary.
 
+Workflow authoring records remain outside ontology identity. Saved private drafts, bindings, and catalog-seeded Built-in definitions are Operator authoring records and projections; they cannot create a Resource, ObjectType, LinkType, or action authority.
+
 ## Design at a glance
 
 ![Design at a glance. The main stages are Resource, ResourceType, ResourceClass, Query, Exploratory traversal, Ordered typed path, LinkType, Forward and reverse roles, Semantic traits.](../../diagrams/generated/fdai-roadmap-architecture-ontology-structural-model-01.en.svg)

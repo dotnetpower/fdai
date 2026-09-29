@@ -14,11 +14,11 @@ bounded enforcement.
 > downstream distribution. The upstream repository remains customer-agnostic.
 
 > **Current posture.** Workflow authoring, validation, persistence, triggers, process journals,
-> control steps, historical workflow-state simulation, and governed action proposal dispatch are
-> implemented. Broad resource mutation, staging parity, and customer-system adapters are not complete.
-> The independent Operator service reads saved workflow definitions but doesn't yet write Console
-> drafts or bindings; [#1655](https://github.com/dotnetpower/fdai/issues/1655) tracks that writer. Adoption should therefore
-> start in observation mode, then promote one measured process at a time.
+> control steps, historical workflow-state simulation, governed action proposal dispatch, and
+> Operator-owned private draft and binding commits are implemented. Built-in definitions are seeded
+> from the reviewed workflow catalog by the authoritative catalog materialization path. Broad
+> resource mutation, staging parity, and customer-system adapters are not complete. Adoption should
+> therefore start in observation mode, then promote one measured process at a time.
 ## Design at a glance
 
 Customer workflow automation is ready only when a process can be discovered, expressed as a
