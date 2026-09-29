@@ -825,3 +825,36 @@ async def test_governed_draft_keeps_plan_observations_without_duplicate_usage(
     assert (query_model.frame_calls, query_model.plan_calls) == (1, 0)
     assert len(result.planning.model_observations) == (3 if explanation else 1)
     assert result.execution_authority is False
+
+
+@pytest.mark.parametrize(("action_requested", "bound"), [(False, False), (True, True)])
+async def test_a_read_handed_back_to_the_semantic_path_keeps_its_own_stage_bounds(
+    monkeypatch: pytest.MonkeyPatch, action_requested: bool, bound: bool
+) -> None:
+    from fdai.core.conversation import semantic_runtime
+
+    entered: list[object] = []
+    original = semantic_runtime.bind_adaptive_model_budget
+
+    def spy(budget: object, **kwargs: object) -> object:
+        entered.append(budget)
+        return original(budget, **kwargs)  # type: ignore[arg-type]
+
+    monkeypatch.setattr(semantic_runtime, "bind_adaptive_model_budget", spy)
+    manifest, definition = _fixture()
+    query_model = QueryModel(frame=_frame(), plan=query_plan(definition))
+    model = AnswerModel(
+        plan={**answer_plan(), "route": "legacy", "action_requested": action_requested, "goals": []}
+    )
+    runtime = SemanticConversationRuntime(
+        planner=query_service(query_model, manifest),
+        executor=OntologyQueryPlanExecutor(handlers={}),
+        adaptive_service=answer_service(model),
+    )
+    await runtime.handle(
+        utterance="Read the current state.",
+        prior_turns=(),
+        principal=Principal(id="operator", role=Role.READER),
+    )
+
+    assert bool(entered) is bound

@@ -6,7 +6,7 @@ import pytest
 from fdai.core.conversation.semantic_recent_resource_change_planning import (
     build_recent_resource_change_frame,
 )
-from fdai_service_contracts.semantic_judgment import SemanticJudgmentProposal
+from fdai_service_contracts.semantic_judgment import SemanticJudgmentProposal, SemanticTarget
 
 
 def _judgment() -> SemanticJudgmentProposal:
@@ -41,3 +41,36 @@ def test_stated_window_sets_the_recent_change_lookback(
     proposal, frame = result
     assert proposal.temporal_scope == {"lookback_seconds": lookback_seconds}
     assert frame.temporal_scope["lookback_seconds"] == lookback_seconds
+
+
+def test_a_stated_period_copied_as_one_time_target_still_plans_the_collection() -> None:
+    utterance = "지난 24시간 동안 변경된 리소스"
+    period = "지난 24시간"
+    timed = _judgment().model_copy(
+        update={
+            "targets": (
+                SemanticTarget(
+                    kind="time_range",
+                    value=period,
+                    source_start=0,
+                    source_end=len(period),
+                ),
+            )
+        }
+    )
+
+    result = build_recent_resource_change_frame(timed, utterance=utterance, context=())
+
+    assert result is not None
+    assert result[0].temporal_scope == {"lookback_seconds": 86_400}
+
+
+def test_a_resource_target_or_a_second_period_leaves_the_collection_frame() -> None:
+    utterance = "지난 24시간 동안 kv-app에서 변경된 리소스"
+    time_target = SemanticTarget(
+        kind="time_range", value="지난 24시간", source_start=0, source_end=7
+    )
+    resource = SemanticTarget(kind="resource", value="kv-app", source_start=14, source_end=20)
+    for targets in ((resource,), (time_target, time_target), (time_target, resource)):
+        judgment = _judgment().model_copy(update={"targets": targets})
+        assert build_recent_resource_change_frame(judgment, utterance=utterance, context=()) is None

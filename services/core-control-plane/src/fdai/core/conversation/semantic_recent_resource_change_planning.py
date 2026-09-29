@@ -63,7 +63,9 @@ def recent_resource_change_limit(judgment: SemanticJudgmentProposal | None) -> i
         or judgment.action_posture != "advise_only"
         or judgment.action_subject != "none"
         or judgment.secondary_intents
-        or judgment.targets
+        # The constraint review needs a stated period copied as its one time_range target.
+        or len(judgment.targets) > 1
+        or any(target.kind != "time_range" for target in judgment.targets)
         or judgment.ambiguous
         or judgment.unresolved_terms
     ):

@@ -5,7 +5,7 @@ from __future__ import annotations
 import asyncio
 import json
 from collections.abc import Callable, Iterator, Mapping
-from contextlib import contextmanager
+from contextlib import contextmanager, nullcontext
 from contextvars import ContextVar
 from dataclasses import dataclass, replace
 from types import MappingProxyType
@@ -331,6 +331,7 @@ class SemanticConversationRuntime:
             )
 
         proposal = preflight_result.proposal if preflight_result is not None else None
+        preflight_observations = preflight_result.observations if preflight_result else ()
         general_route_eligible = (
             bound_incident is None
             and bound_investigation_continuation is None
@@ -434,10 +435,15 @@ class SemanticConversationRuntime:
                 needs_explanation = outcome.plan.action_requested and any(
                     goal.kind == "knowledge" for goal in outcome.plan.goals
                 )
+                # A read handed back to the semantic path keeps that path's own stage bounds.
+                read_handoff = outcome.plan.route == "legacy" and not outcome.plan.action_requested
                 try:
-                    async with bind_adaptive_model_budget(
-                        outcome.budget,
-                        reserved_calls=2 if needs_explanation else 0,
+                    async with (
+                        nullcontext()
+                        if read_handoff
+                        else bind_adaptive_model_budget(
+                            outcome.budget, reserved_calls=2 if needs_explanation else 0
+                        )
                     ):
                         governed = await await_adaptive_call(
                             verified(utterance),
@@ -493,7 +499,8 @@ class SemanticConversationRuntime:
                     planning=SemanticPlanningOutcome(
                         disposition=SemanticPlanningDisposition.ADVISORY_RESPONSE,
                         reason="semantic_advisory_response",
-                        model_observations=outcome.observations,
+                        # The routing preflight that preceded the adaptive answer is a call too.
+                        model_observations=(*preflight_observations, *outcome.observations),
                     ),
                     adaptive_answer=outcome.answer,
                 )
