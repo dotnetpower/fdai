@@ -149,6 +149,27 @@ class WorkflowProposalReceipt:
             raise ValueError("proposal receipt id and revision MUST be non-empty")
 
 
+@dataclass(frozen=True, slots=True)
+class WorkflowMutationRequest:
+    """Principal-scoped write request that commits only private authoring records."""
+
+    operation: WorkflowOperation
+    principal_id: str
+    idempotency_key: str
+    expected_revision: str
+    path_parameters: Mapping[str, str]
+    payload: JsonObject
+
+
+@dataclass(frozen=True, slots=True)
+class WorkflowMutationResult:
+    """Committed authoring result with its authoritative revision."""
+
+    payload: JsonObject
+    revision: str
+    status_code: int = 200
+
+
 class WorkflowReadStore(Protocol):
     """Read authoritative workflow-family projections without fabricating fallback data."""
 
@@ -159,6 +180,12 @@ class WorkflowProposalWriter(Protocol):
     """Persist or publish inert proposals without executing or promoting them."""
 
     async def submit(self, proposal: WorkflowProposal) -> WorkflowProposalReceipt: ...
+
+
+class WorkflowMutationWriter(Protocol):
+    """Commit principal-owned private Workflow drafts and bindings only."""
+
+    async def mutate(self, request: WorkflowMutationRequest) -> WorkflowMutationResult: ...
 
 
 class WorkflowPrincipalAuthorizer(Protocol):
@@ -174,6 +201,9 @@ class WorkflowPrincipalAuthorizer(Protocol):
 __all__ = [
     "ProjectionProvenance",
     "WorkflowOperation",
+    "WorkflowMutationRequest",
+    "WorkflowMutationResult",
+    "WorkflowMutationWriter",
     "WorkflowPrincipalAuthorizer",
     "WorkflowProposal",
     "WorkflowProposalReceipt",

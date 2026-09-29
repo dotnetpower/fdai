@@ -388,6 +388,7 @@ WORKFLOW_FAMILY_ROUTE_MANIFEST: tuple[WorkflowRouteSpec, ...] = (
         "create_definition",
         WorkflowOperation.WORKFLOW_DEFINITION_CREATE_PROPOSAL,
         "proposal",
+        required_roles=CONTRIBUTOR_ROLES,
         maximum_body_bytes=262_144,
     ),
     WorkflowRouteSpec(
@@ -396,6 +397,7 @@ WORKFLOW_FAMILY_ROUTE_MANIFEST: tuple[WorkflowRouteSpec, ...] = (
         "create_binding",
         WorkflowOperation.WORKFLOW_BINDING_CREATE_PROPOSAL,
         "proposal",
+        required_roles=CONTRIBUTOR_ROLES,
         maximum_body_bytes=262_144,
     ),
     WorkflowRouteSpec(
@@ -404,6 +406,7 @@ WORKFLOW_FAMILY_ROUTE_MANIFEST: tuple[WorkflowRouteSpec, ...] = (
         "update_binding",
         WorkflowOperation.WORKFLOW_BINDING_UPDATE_PROPOSAL,
         "proposal",
+        required_roles=CONTRIBUTOR_ROLES,
         maximum_body_bytes=262_144,
     ),
     WorkflowRouteSpec(
@@ -412,6 +415,7 @@ WORKFLOW_FAMILY_ROUTE_MANIFEST: tuple[WorkflowRouteSpec, ...] = (
         "delete_binding",
         WorkflowOperation.WORKFLOW_BINDING_DELETE_PROPOSAL,
         "proposal",
+        required_roles=CONTRIBUTOR_ROLES,
     ),
 )
 
