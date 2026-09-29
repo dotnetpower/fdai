@@ -101,6 +101,10 @@ Resource collection chunk encoding lives in `delivery/inventory_collection.py`. 
 snapshot facade delegates atomic chunk/checkpoint persistence and bounded replay to
 `delivery/persistence/postgres_inventory_chunks.py`; both paths reuse the support-owned candidate
 batch writer. These helpers neither own promotion nor grant provider continuation authority.
+`delivery/inventory_operator_graph.py` builds the bounded Console inventory graph projection from
+the active snapshot; local preparation writes it after a full refresh, and the local reconciliation
+loop rewrites it when its snapshot or freshness changes, only when
+`FDAI_INVENTORY_OPERATOR_GRAPH_PROJECTION=1`, which deployed venues never set.
 
 **Initial design.** Physically move every flat Core subsystem under `pipeline`, `incident`,
 `operator`, `knowledge`, or `platform`, then rewrite every import in one codemod.

@@ -23,6 +23,14 @@ _SCRIPT = _REPO_ROOT / "scripts/deployment/azure/prepare-local-runtime-env.sh"
 _FULL_STACK_SCRIPT = _REPO_ROOT / "scripts/deployment/local/prepare-console-full-stack.sh"
 _BASH = shutil.which("bash") or "bash"
 _OPERATING_MODEL_TOPIC = "fdai.operating-model"
+_PRODUCT_PROFILE_JSON = (
+    '{"add_ons":["enterprise-identity-governance",'
+    '"governed-execution","notifications","read-only-console"],'
+    '"authority_granted":false,"name":"observation-first",'
+    '"observation_permissions":{"base_role":"Reader","selected_sources":'
+    '["aks","azure-monitor","cost-management","evidence-store","log-analytics"]},'
+    '"schema_version":"fdai.product-profile.v1"}'
+)
 
 
 def test_validation_database_uses_an_isolated_local_postgres_cluster() -> None:
@@ -243,6 +251,22 @@ def test_prepares_local_transport_without_copying_stale_transport(
         else "resolved-models.json"
     )
     values = output.read_text(encoding="utf-8").splitlines()
+    # Local launchers load this file with `set -a; source`, so the product profile must
+    # survive bash quote removal as the exact JSON object the service parses.
+    sourced = subprocess.run(  # noqa: S603 - resolved binary with test-controlled arguments
+        [
+            _BASH,
+            "-c",
+            'set -a; source "$1" >/dev/null; printf "%s" "$FDAI_PRODUCT_PROFILE_JSON"',
+            "_",
+            output,
+        ],
+        check=True,
+        capture_output=True,
+        text=True,
+        env={"PATH": os.environ.get("PATH", "")},
+    )
+    assert json.loads(sourced.stdout) == json.loads(_PRODUCT_PROFILE_JSON)
     core_state_store = next(value for value in values if value.startswith("FDAI_STATE_STORE_DSN="))
     assert core_state_store.endswith("?options=-c%20role%3Dfdai_core")
     values[values.index(core_state_store)] = core_state_store.removesuffix(
@@ -308,14 +332,7 @@ def test_prepares_local_transport_without_copying_stale_transport(
         f"FDAI_WEB_SEARCH_ENABLED={expected_web_search_enabled}",
         "RUNTIME_ENV=dev",
         "AUTONOMY_MODE_DEFAULT=shadow",
-        (
-            'FDAI_PRODUCT_PROFILE_JSON={"add_ons":["enterprise-identity-governance",'
-            '"governed-execution","notifications","read-only-console"],'
-            '"authority_granted":false,"name":"observation-first",'
-            '"observation_permissions":{"base_role":"Reader","selected_sources":'
-            '["aks","azure-monitor","cost-management","evidence-store","log-analytics"]},'
-            '"schema_version":"fdai.product-profile.v1"}'
-        ),
+        f"FDAI_PRODUCT_PROFILE_JSON='{_PRODUCT_PROFILE_JSON}'",
         "FDAI_START_CONSUMER=1",
         "FDAI_START_PANTHEON=1",
         "FDAI_TEAMS_NOTIFICATION_ACTIVATION=1",
@@ -977,3 +994,63 @@ def test_local_runtime_requires_explicit_valid_scope_before_provider_access(
     assert "FDAI_LOCAL_RESOURCE_GROUP MUST" in completed.stderr
     assert "provider-access-must-not-run" not in completed.stderr
     assert not output.exists()
+
+
+def _shell_function(source: str, name: str) -> str:
+    start = source.index(f"{name}() {{")
+    return source[start : source.index("\n}\n", start) + 3]
+
+
+def test_database_backed_stages_rebind_after_whole_database_recreation(tmp_path: Path) -> None:
+    source = _FULL_STACK_SCRIPT.read_text(encoding="utf-8")
+    markers = tmp_path / "markers"
+    markers.mkdir()
+    (markers / "database-volumes.sha256").write_text("volumes\n", encoding="utf-8")
+    oid_file = tmp_path / "oid"
+    docker = tmp_path / "bin/docker"
+    docker.parent.mkdir()
+    # The fake engine answers each database's OID; recreation changes the runtime one.
+    docker.write_text(
+        "#!/usr/bin/env bash\n"
+        'if [[ "$2" == fdai-postgres ]]; then cat "$OID_FILE"; else echo 16400; fi\n',
+        encoding="utf-8",
+    )
+    docker.chmod(0o755)
+    script = "\n".join(
+        [
+            'run_bounded() { shift; "$@"; }',
+            _shell_function(source, "write_database_incarnation"),
+            f'stage_marker_dir="{markers}"',
+            "write_database_incarnation",
+            'cat "$stage_marker_dir/database-incarnation.sha256"',
+        ]
+    )
+    environment = {
+        "PATH": f"{docker.parent}:{os.environ.get('PATH', '')}",
+        "OID_FILE": str(oid_file),
+    }
+
+    def incarnation(oid: str) -> str:
+        oid_file.write_text(f"{oid}\n", encoding="utf-8")
+        completed = subprocess.run(  # noqa: S603 - resolved binary with test-controlled script
+            [_BASH, "-euo", "pipefail", "-c", script],
+            check=True,
+            capture_output=True,
+            text=True,
+            env=environment,
+        )
+        return completed.stdout.strip()
+
+    assert incarnation("16384") == incarnation("16384")
+    assert incarnation("16384") != incarnation("24576")
+    for name in ("inventory_inputs=(", "settings_inputs=(", "catalog_inputs=("):
+        block = source[source.index(name) : source.index(")\n", source.index(name))]
+        assert '"$database_incarnation"' in block
+        assert '"$database_identity"' not in block
+    # The incarnation is taken after local-state, which is where recreation happens.
+    local_state = source.index("run_stage \\\n  local-state")
+    assert (
+        local_state
+        < source.index("\nwrite_database_incarnation\n")
+        < source.index("run_stage \\\n  runtime-environment")
+    )

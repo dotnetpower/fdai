@@ -417,7 +417,9 @@ fi
   printf 'FDAI_WEB_SEARCH_ENABLED=%s\n' "$resolved_web_search_enabled"
   printf 'RUNTIME_ENV=dev\n'
   printf 'AUTONOMY_MODE_DEFAULT=shadow\n'
-  printf '%s\n' 'FDAI_PRODUCT_PROFILE_JSON={"add_ons":["enterprise-identity-governance","governed-execution","notifications","read-only-console"],"authority_granted":false,"name":"observation-first","observation_permissions":{"base_role":"Reader","selected_sources":["aks","azure-monitor","cost-management","evidence-store","log-analytics"]},"schema_version":"fdai.product-profile.v1"}'
+  # Local launchers source this file, and bash removes unquoted double quotes, so the
+  # JSON object is single-quoted to reach the service byte for byte.
+  printf "FDAI_PRODUCT_PROFILE_JSON='%s'\n" '{"add_ons":["enterprise-identity-governance","governed-execution","notifications","read-only-console"],"authority_granted":false,"name":"observation-first","observation_permissions":{"base_role":"Reader","selected_sources":["aks","azure-monitor","cost-management","evidence-store","log-analytics"]},"schema_version":"fdai.product-profile.v1"}'
   printf 'FDAI_START_CONSUMER=1\n'
   printf 'FDAI_START_PANTHEON=1\n'
   printf 'FDAI_TEAMS_NOTIFICATION_ACTIVATION=%s\n' "$local_teams_notification_activation"
