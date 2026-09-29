@@ -61,6 +61,7 @@ locals {
   core_job_name_prefix = var.core_job_name_prefix == "" ? var.core_app_name : var.core_job_name_prefix
   core_job_names = {
     analyzer     = length("${var.core_app_name}-analyzer") <= 32 ? "${var.core_app_name}-analyzer" : "${local.core_job_name_prefix}-analyzer"
+    blueprint    = length("${var.core_app_name}-blueprint") <= 32 ? "${var.core_app_name}-blueprint" : "${local.core_job_name_prefix}-blueprint"
     canary       = length("${var.core_app_name}-canary") <= 32 ? "${var.core_app_name}-canary" : "${local.core_job_name_prefix}-canary"
     forecast     = length("${var.core_app_name}-forecast") <= 32 ? "${var.core_app_name}-forecast" : "${local.core_job_name_prefix}-forecast"
     inventory    = length("${var.core_app_name}-inventory") <= 32 ? "${var.core_app_name}-inventory" : "${local.core_job_name_prefix}-inventory"
