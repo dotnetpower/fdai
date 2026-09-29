@@ -3557,6 +3557,7 @@
       "asOfLabel": "해당 시각 기준 근거 열기",
       "latestAuditLabel": "최근 감사 근거 열기",
       "simulated": "시뮬레이션",
+      "observed": "관측값, 출처 미검증",
       "measured": "실측",
       "window": "{days}일",
       "sample": "이벤트 {samples}건",

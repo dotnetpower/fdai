@@ -71,7 +71,11 @@ def _projection() -> dict[str, object]:
                 "monthly_savings": 0.0,
             }
         ],
-        "tier": {"mix": {"t0": 1.0}, "bands": {}},
+        "provenance": {
+            "qualification": "observation",
+            "synthetic_marker": {"declared_non_synthetic": 1, "unknown": 0},
+        },
+        "tier": {"mix": {"t0": 1.0}, "counts": {"t0": 1}, "bands": {}},
         "trend": {},
     }
 
@@ -186,6 +190,45 @@ def test_rejects_metric_value_without_a_metric_sample() -> None:
 def test_rejects_unknown_measurement_gap(gap: str) -> None:
     projection = deepcopy(_projection())
     projection["measurement_gaps"] = [gap]
+
+    with pytest.raises(ProjectionUnavailableError):
+        validate_autonomy_measurement(projection)
+
+
+def test_accepts_unknown_marker_only_with_its_explicit_gap() -> None:
+    projection = _projection()
+    projection["provenance"] = {
+        "qualification": "observation",
+        "synthetic_marker": {"declared_non_synthetic": 0, "unknown": 1},
+    }
+    projection["measurement_gaps"] = [
+        *projection["measurement_gaps"],  # type: ignore[misc]
+        "unknown_synthetic_marker",
+    ]
+
+    assert validate_autonomy_measurement(projection) == projection
+
+
+@pytest.mark.parametrize(
+    "mutate",
+    [
+        lambda value: value.pop("provenance"),
+        lambda value: value["provenance"].update(qualification="qualification"),
+        lambda value: value["provenance"]["synthetic_marker"].update(unknown=1),
+        lambda value: value["provenance"]["synthetic_marker"].pop("unknown"),
+        lambda value: value["measurement_gaps"].append("unknown_synthetic_marker"),
+        lambda value: value["provenance"]["synthetic_marker"].update(
+            declared_non_synthetic=0, unknown=1
+        ),
+        lambda value: value["tier"].pop("counts"),
+        lambda value: value["tier"].update(counts={"t0": 2}),
+        lambda value: value["tier"].update(counts={"t1": 1}),
+        lambda value: value["tier"].update(counts={"t0": 0}),
+    ],
+)
+def test_rejects_unaccounted_provenance_or_tier_counts(mutate) -> None:  # type: ignore[no-untyped-def]
+    projection = deepcopy(_projection())
+    mutate(projection)
 
     with pytest.raises(ProjectionUnavailableError):
         validate_autonomy_measurement(projection)

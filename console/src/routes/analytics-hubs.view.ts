@@ -94,6 +94,18 @@ export function buildOperatingOutcomeViewSnapshot({
         group: "evidence",
       },
       { key: "confidence", label: "Confidence", value: autonomy.confidence, group: "evidence" },
+      {
+        key: "evidence_qualification",
+        label: "Evidence qualification",
+        value: autonomy.provenance?.qualification ?? null,
+        group: "evidence",
+      },
+      {
+        key: "unknown_synthetic_marker_events",
+        label: "Events with an unknown synthetic marker",
+        value: autonomy.provenance?.synthetic_marker.unknown ?? null,
+        group: "evidence",
+      },
       { key: "source", label: "Evidence source", value: autonomy.source.name, group: "evidence" },
       { key: "source_kind", value: autonomy.source.kind, group: "evidence" },
       { key: "source_as_of", label: "Evidence as of", value: autonomy.source.as_of, group: "evidence" },

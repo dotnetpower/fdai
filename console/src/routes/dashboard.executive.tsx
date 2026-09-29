@@ -1,7 +1,7 @@
 import type { AutonomyPayload, DashboardKpi, MetricVsBaseline } from "../types";
 import { getLocale, t } from "../i18n";
 import { routeHref } from "../router";
-import { auditSampleParams, type OverviewHealth } from "./dashboard.model";
+import { auditSampleParams, measurementEvidenceKind, type OverviewHealth } from "./dashboard.model";
 import { tDashboard } from "./i18n/dashboard-essential";
 import { EvidenceLoading, EvidenceSummary } from "./dashboard.evidence";
 
@@ -140,7 +140,7 @@ export function ExecutiveStatus({
           {autonomy ? (
             <>
               <EvidenceLink href={outcomesHref} label={t("overview.evidence.stateLabel")}>
-                <strong>{t(autonomy.synthetic ? "overview.evidence.simulated" : "overview.evidence.measured")}</strong>
+                <strong>{t(`overview.evidence.${measurementEvidenceKind(autonomy)}`)}</strong>
               </EvidenceLink>
               <EvidenceLink
                 href={routeHref("audit", { params: { ...sampleParams, window: `${autonomy.window_days}d` } })}

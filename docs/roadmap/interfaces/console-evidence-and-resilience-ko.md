@@ -1,8 +1,8 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: cced66a791d7296cab7a5e67c876f351809178d6
-translation_revised: 2026-09-27
+translation_source_sha: e67978419a7f1e07b852933ac1e717bdcbc2938a
+translation_revised: 2026-09-29
 ---
 # 콘솔 근거 및 복원력
 이 문서는 운영자 콘솔의 근거 출처 이력, localization, 스트림 복구, 영속 재생 및 아키텍처 지도 복원력 계약을 소유합니다. 대화형 도구 및 RBAC 계약은 [operator-console-ko.md](operator-console-ko.md)에 유지됩니다. 지식 전체 현황은 [클라우드 참조 수명 주기](cloud-resource-knowledge-lifecycle-ko.md)의 날짜, 가장 제한적인 출처 최신성, 정확한 바이트의 패키지 검토와 확인된 롤백 요청을 표시합니다. 원본 상태와 오프라인 패키지 접수를 분리하고, 신뢰 자료를 받지 않으면서 배포에서 관리하는 설정을 안내하며, 거부된 읽기 전용 검사는 다시 시도할 수 있게 유지하되 불확실한 쓰기는 권위 있는 상태를 다시 불러오게 합니다. 반입이나 색인 검증 대기를 검색 활성화로 표시하지 않으며 원본 URL은 표시용으로 유지합니다. 만료된 정책은 이력을 숨기지 않고 쓰기 작업을 차단합니다. 대소문자를 구분하지 않는 JSON 파일명 검사는 파일 형식만 검증하며 대화 의도를 해석하지 않습니다.
@@ -165,6 +165,7 @@ Command Deck 스냅샷으로 제공합니다. 영역별 분석은 자동 해결�
 Auto-resolution 비율은 정본 합계 observed-event denominator를 유지하므로 pending 및 기타
 non-auto 이벤트가 비율에서 사라지지 않습니다. 분류, 결과 및 지표 payload 시각이 영속 감사 시각보다 5분 넘게 미래이면 측정 근거로 사용하지 않고 변환 결과를 사용 불가로 처리합니다.
 Operator는 하나의 기준 시점에서 범위가 제한된 정본 측정 스트림으로 이 읽기 전용 변환 결과를 구성한 다음, 완전하고 일관되며 비합성인 묶음을 검증합니다. 개수와 유효 기준 시점은 서로 일치해야 하며, 형식이 잘못되었거나 일부만 읽힌 스냅샷을 일반 감사 행 또는 대체 상태로 복구하지 않습니다.
+이 묶음은 `provenance.qualification`이 `observation`으로 고정된 이동 구간 관측값이며 배포된 런타임을 인증하지 않습니다. 명시적인 `synthetic=true` 분류만 표본에서 제외합니다. 출처가 표시를 선언하지 않은 분류는 관측 개수에 `unknown`으로 남고 `unknown_synthetic_marker` 측정 공백을 추가하며, Console은 이 근거를 `실측` 대신 `관측값, 출처 미검증`으로 표시합니다. `provenance.synthetic_marker`는 표본의 모든 이벤트를 설명하고, `tier.counts`는 `tier.mix`의 근거인 티어별 관측 개수를 보고합니다.
 버티컬 귀속은 먼저 명시적으로 기록된 버티컬을 사용하고, 그다음 강한 복원력 또는
 비용 거버넌스 액션/리소스 힌트만 사용합니다. 추측 없이 귀속할 수 없는 근거는
 `unattributed` 행에 남고 global denominator에 포함되며 표시되는 귀속 커버리지를 낮춥니다.

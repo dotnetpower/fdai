@@ -383,6 +383,14 @@ export interface AutonomyPayload {
     readonly cost_per_resolved_event_usd: number;
   };
   readonly measurement_gaps: readonly string[];
+  /** Observation provenance; unknown synthetic markers are never verified evidence. */
+  readonly provenance?: {
+    readonly qualification: "observation";
+    readonly synthetic_marker: {
+      readonly declared_non_synthetic: number;
+      readonly unknown: number;
+    };
+  };
   readonly leading: {
     readonly mixed_model_disagreement_rate: MetricVsBaseline;
     readonly verifier_failure_rate: MetricVsBaseline;
@@ -394,6 +402,7 @@ export interface AutonomyPayload {
   readonly verticals: readonly VerticalSummary[];
   readonly tier: {
     readonly mix: Record<string, number>;
+    readonly counts?: Record<string, number>;
     readonly bands: Record<string, readonly [number, number]>;
   };
   readonly trend: Record<string, readonly number[]>;

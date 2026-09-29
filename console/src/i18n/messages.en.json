@@ -3557,6 +3557,7 @@
       "asOfLabel": "Open evidence as of this time",
       "latestAuditLabel": "Open the latest audit evidence",
       "simulated": "Simulated",
+      "observed": "Observed, provenance unverified",
       "measured": "Measured",
       "window": "{days} days",
       "sample": "{samples} events",
