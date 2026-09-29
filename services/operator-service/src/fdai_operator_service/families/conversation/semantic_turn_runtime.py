@@ -81,6 +81,7 @@ from fdai_service_contracts.adaptive_relationship import (
     AdaptiveRelationshipProof,
     AdaptiveRelationshipUnknownReason,
 )
+from fdai_service_contracts.semantic_projection import semantic_projection_commitment_violation
 from fdai_service_contracts.test_context import TestContextDraft
 from fdai_service_contracts.venue import ExecutionVenue, resolve_execution_venue
 from pydantic import TypeAdapter, ValidationError
@@ -377,7 +378,7 @@ class _SemanticEventIterator(AsyncIterator[StreamEvent]):
             remaining = (self._request.deadline_at - datetime.now(UTC)).total_seconds()
             if remaining <= 0:
                 try:
-                    await self._consumer.consume(
+                    await self._consumer.consume_local_hold(
                         _held_projection(
                             self._stored.envelope,
                             recorded_at=datetime.now(UTC),
@@ -643,8 +644,25 @@ class SemanticTurnProjectionConsumer:
     store: SemanticTurnStore
 
     async def consume(self, payload: Mapping[str, object]) -> StoredSemanticResult:
-        """Reject malformed or evidence-incomplete results before durable projection."""
+        """Reject malformed, evidence-incomplete, or uncommitted Core results before projection.
+
+        The recomputed ``evidence_digest`` and ``projection_id`` must equal what Core committed,
+        so a result, manifest, receipt, or payload changed after Core published is never rendered.
+        """
         decoded = CORE_PROJECTION_CONSUMER_V17.decode_mapping(payload)
+        violation = semantic_projection_commitment_violation(decoded)
+        if violation is not None:
+            raise ValueError(f"semantic projection commitment is invalid: {violation}")
+        return await self._project(decoded)
+
+    async def consume_local_hold(self, projection: Mapping[str, object]) -> StoredSemanticResult:
+        """Persist a held projection that this Operator built, which carries no Core commitment."""
+        decoded = CORE_PROJECTION_CONSUMER_V17.decode_mapping(projection)
+        if decoded.get("status") != SemanticTurnDisposition.HELD.value:
+            raise ValueError("an Operator-built semantic projection MUST be held")
+        return await self._project(decoded)
+
+    async def _project(self, decoded: dict[str, Any]) -> StoredSemanticResult:
         semantic_payload = decoded.get("semantic_result")
         extension_payload = decoded.get("payload")
         if not isinstance(extension_payload, dict):
@@ -905,7 +923,7 @@ class SemanticTurnBridge:
         dispatch_status = "pending"
         if self._publisher is None:
             try:
-                await self._consumer.consume(_held_projection(stored.envelope))
+                await self._consumer.consume_local_hold(_held_projection(stored.envelope))
             except SemanticTurnTerminalClosedError:
                 _LOGGER.info(
                     "semantic_projection_late_ignored",
