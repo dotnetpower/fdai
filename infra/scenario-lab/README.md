@@ -30,10 +30,11 @@ paths, while S14 uses the existing alert ingress and investigation path.
 Use an existing self-hosted runner labeled `fdai-deploy`, `fdai-deploy-candidate`, and
 `fdai-scenario-lab`. The workflow selects all three labels, so only runners that carry the
 additive `fdai-scenario-lab` label run lab jobs; other workflows ignore that label. The label exists
-because two lab `terraform plan` runs failed only on a runner built from a different image, while
-every plan on the specialized-image runners succeeded. Add it only to a runner built from the same
-specialized image as the runners that already carry it, and remove it from any runner whose
-environment is in doubt.
+because two lab `terraform plan` runs failed only on a runner built from the Genesis runner image,
+whose Terraform 1.9.8 predates the version this root and provider `azurerm` 4.81.0 were validated
+with, while every plan on the specialized-image runners (Terraform 1.16.1) succeeded. Add it only to
+a runner built from the same specialized image as the runners that already carry it, and remove it
+from any runner whose environment is in doubt.
 The runner must have `az`, `terraform`,
 `kubectl`, `helm`, and `jq`, and must reach the private state account and the peered lab VNet. The
 protected workflow installs a checksum-pinned `kubelogin` in runner-temporary storage so Azure RBAC
