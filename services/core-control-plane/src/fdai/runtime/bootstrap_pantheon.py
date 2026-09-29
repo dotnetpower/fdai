@@ -57,6 +57,7 @@ from fdai.delivery.persistence import (
     StateStoreSemanticFeedbackCandidateStore,
 )
 from fdai.delivery.persistence.state_store_forecast_context import StateStoreForecastContextProvider
+from fdai.delivery.post_turn_review_ingress import PostTurnReviewRequestConsumer
 from fdai.delivery.prospective_lineage import (
     OperationalPlanningProspectiveFinalizer,
     StateStoreProspectiveLineageMaterializer,
@@ -172,6 +173,7 @@ class PantheonInitializationResult:
     t2_recovery_maintenance: Any = None
     discovery_activation: DiscoveryActivationRuntime | None = None
     alert_noise_handler: Any = None
+    post_turn_review_request_consumer: PostTurnReviewRequestConsumer | None = None
 
 
 def _pantheon_enforce_enabled(
@@ -781,6 +783,9 @@ async def initialize_pantheon(
         t2_recovery_maintenance=t2_recovery_maintenance,
         discovery_activation=discovery_activation,
         alert_noise_handler=alert_noise_handler,
+        post_turn_review_request_consumer=PostTurnReviewRequestConsumer(
+            pantheon_runtime.agents.get("Bragi")
+        ),
     )
 
 

@@ -1,7 +1,7 @@
 ---
 title: Post-Turn 개선 검토
 translation_of: post-turn-improvement-review.md
-translation_source_sha: a5a75815cdb0a8ca29ff2c7a7a221cdd532b71a4
+translation_source_sha: 187fbfaff243ffa194054e7648dd42b187ff08f5
 translation_revised: 2026-09-29
 ---
 
@@ -42,7 +42,8 @@ hidden reasoning, unrestricted 프로세스 상태, unrestricted 도구 출력�
 
 Bragi는 계속 `object.post-turn-review`의 single 쓰기 담당입니다. Typed publisher는 이미 검증되고
 동의가 확인된 `PostTurnReviewInput`만 받습니다. Operator API는 범위가 제한된 큐에 제출하고 해당
-경계를 호출해야 하며 검토자를 만들거나 자신을 Bragi 또는 Norns로 표시하지 않습니다.
+큐는 Operator 소유 요청을 발행합니다. Core ingress가 Bragi 경계를 호출하며, Operator는
+검토자를 만들거나 자신을 Bragi 또는 Norns로 표시하지 않습니다.
 
 Norns는 `object.post-turn-review`의 consent-filtered `post_turn_review` 묶음을 구독합니다.
 `producer_principal`이 `Bragi`가 아닌 묶음을 차단하고 검토 대응을 엄격하게 parse한 뒤
@@ -53,6 +54,11 @@ Azure 전송 계층은 모든 Pantheon logical 객체 토픽을 `MultiplexedEven
 physical 객체 토픽으로 보냅니다. 따라서 headless 런타임과 Operator API는 같은
 logical-to-physical 대응을 사용합니다. Process-local 전송 계층도 Azure 근거를 만들지 않고
 같은 logical 계약을 유지합니다.
+Production Operator 구성은 이제 최종 answered semantic turn을 범위가 제한된 asynchronous
+post-turn 큐에 제공하며, 이 큐는 turn projection을 차단하지 않고 Operator 소유
+`operator.post-turn-review.requests` 묶음을 구성된 semantic transport로 발행합니다.
+Core는 이 요청을 소비하고 검증한 뒤 Bragi의 typed publisher를 호출하므로 Bragi만
+`object.post-turn-review`를 씁니다.
 
 ## 충족 여부
 

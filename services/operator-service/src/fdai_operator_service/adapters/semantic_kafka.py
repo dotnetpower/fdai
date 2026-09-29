@@ -25,6 +25,7 @@ from fdai_service_contracts.incident_intervention import (
     INCIDENT_INTERVENTION_REQUEST_TOPIC,
 )
 from fdai_service_contracts.observer_deployment import OBSERVER_PROPOSAL_TOPIC
+from fdai_service_contracts.post_turn_review import POST_TURN_REVIEW_REQUEST_TOPIC
 from fdai_service_contracts.rule_activation_transport import RULE_ACTIVATION_REQUEST_TOPIC
 from fdai_service_contracts.semantic_turn import (
     LOGICAL_TOPIC_FIELD,
@@ -80,6 +81,7 @@ class OperatorSemanticKafkaConfig:
     assignment_projection_topic: str = ASSIGNMENT_PROJECTION_TOPIC
     rule_activation_request_topic: str = RULE_ACTIVATION_REQUEST_TOPIC
     observer_proposal_topic: str = OBSERVER_PROPOSAL_TOPIC
+    post_turn_review_topic: str = POST_TURN_REVIEW_REQUEST_TOPIC
     client_id: str = "fdai-operator-service"
     auto_offset_reset: str = "earliest"
     dlq_suffix: str = ".dlq"
@@ -103,6 +105,11 @@ class OperatorSemanticKafkaConfig:
             self.observer_proposal_topic,
             occupied=configured_topics,
             error_message="observer proposal topic MUST be distinct and valid",
+        )
+        _require_distinct_topic(
+            self.post_turn_review_topic,
+            occupied=configured_topics,
+            error_message="post-turn review topic MUST be distinct and valid",
         )
         for assignment_topic in (self.assignment_request_topic, self.assignment_projection_topic):
             _require_distinct_topic(
@@ -267,6 +274,7 @@ class OperatorSemanticKafkaBus:
         allowed.add(self._config.rule_activation_request_topic)
         allowed.add(f"{self._config.assignment_projection_topic}{self._config.dlq_suffix}")
         allowed.add(f"{self._config.observer_proposal_topic}{self._config.dlq_suffix}")
+        allowed.add(self._config.post_turn_review_topic)
         if topic not in allowed:
             raise ValueError("semantic Kafka publish topic is not configured")
         producer = await self._get_producer()

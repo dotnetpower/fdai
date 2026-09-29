@@ -65,6 +65,11 @@ def quality_decision_audit_fields(
         "rubric_verdict": decision.rubric_verdict,
         "rubric_min_score": decision.rubric_min_score,
         "rubric_shadow": decision.rubric_shadow,
+        **(
+            {"rubric_mode_reason": decision.rubric_mode_reason}
+            if decision.rubric_mode_reason is not None
+            else {}
+        ),
         "rubric_scores": [
             {
                 "criterion": score.criterion,

@@ -1,10 +1,12 @@
 ---
 title: WAF 및 CAF 근거 기반 평가
 translation_of: framework-assessment.md
-translation_source_sha: 7e2b131483270f837af6a5dc114f6a0a1f8a36f8
+translation_source_sha: 8f04382de3cb33b036a7c13e74e39c5558c7f217
 translation_revised: 2026-09-29
 ---
 # WAF 및 CAF 근거 기반 평가
+
+Post-turn review 묶음은 transport mechanics만 공유합니다. Framework evidence를 충족하거나 assessment result를 바꾸거나 remediation을 활성화할 수 없습니다.
 
 이 설계는 고정된 Azure Well-Architected Framework(WAF) 및 Microsoft Cloud Adoption
 Framework(CAF) 카탈로그를 범위에 결합되고 재현 가능한 shadow 평가로 전환합니다. 권고

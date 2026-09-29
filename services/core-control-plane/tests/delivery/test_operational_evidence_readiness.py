@@ -59,8 +59,15 @@ def readiness_snapshot(env: dict[str, str], **overrides: object) -> dict[str, ob
         "grant_registry_pin": env["FDAI_OPERATIONAL_EVIDENCE_GRANT_REGISTRY_PIN"],
         "bound_purposes": sorted(BOUND_READBACK_PURPOSES),
         "source_health": {
+            "core-control-plane.case-history": "healthy",
+            "core-control-plane.safety-receipts": "healthy",
             "core-control-plane.test-context-store": "healthy",
+            "deployment.case-scope-grants": "healthy",
+            "inventory.current-snapshot": "healthy",
+            "operating-scope.dependency-health": "healthy",
+            "operator-service.authentication-receipts": "healthy",
             "operator-service.test-context-outbox": "healthy",
+            "azure-monitor.metrics": "healthy",
         },
         "probed_at": (NOW - timedelta(seconds=30)).isoformat(),
     }
@@ -112,8 +119,6 @@ def test_bound_purposes_become_available_only_with_observed_writer_exclusive_rea
 def test_shared_verifier_identity_or_foreign_writer_reports_self_verified(tmp_path: Path) -> None:
     shared_env = _environment(tmp_path, **{"anchor:operational-evidence-verifier": "fdai_core"})
     shared = _rows(shared_env, verifier_readiness=readiness_snapshot(shared_env))
-    aggregate = shared.pop("operational-evidence.forecast-context")
-    assert aggregate["reason"] == "the pinned registry entry or its anchors are unavailable"
     assert {row["capability_state"] for row in shared.values()} == {"self_verified"}
     env = _environment(tmp_path)
     foreign = _rows(

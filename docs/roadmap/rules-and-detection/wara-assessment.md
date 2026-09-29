@@ -40,7 +40,7 @@ Immutable records, row projections, and these evidence decoders are separate int
 split changes no WARA scope, query, projection, evidence, replay, or authority contract.
 Assignment request/result topics share the Operator transport but not WARA's evidence or state.
 An accepted human review, ownership PR, or handover goal observation is not an APRL measurement
-and cannot change recommendation applicability, assessment admission, or operational authority.
+and cannot change recommendation applicability, assessment admission, or operational authority. Post-turn review envelopes are also excluded from WARA scope, APRL measurement, assessment admission, and authority.
 
 ## Crosswalk and applicability
 
