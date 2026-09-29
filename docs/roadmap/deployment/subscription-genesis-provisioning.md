@@ -166,9 +166,13 @@ replacement of the Bastion and NAT addresses on every attempt and a fresh instal
 converge. Only an empty map or exactly that policy tag is accepted; any other tag stops the run
 rather than being adopted. Enrollment sends the short-lived
 GitHub token only through SSH standard input over the exact Bastion tunnel, then verifies identity,
-services, labels, and GitHub state. State handoff compares local and remote lineage, serial,
+services, labels, and GitHub state. State handoff sends the same observed public IP tags to the runner, because it repeats that
+zero-change plan remotely and would otherwise diverge for the same reason. It compares local
+and remote lineage, serial,
 addresses, identities, and a zero-change remote plan before remote authority permits local-state
-deletion. Portable status omits resource IDs, SSH paths, state paths, tokens, and raw plans.
+deletion. A refused remote migration reports the remote exit status, whether the completion
+marker appeared, any recognized status token, and the remote program's own prefixed diagnostic,
+so the cause is visible without forwarding raw remote output. Portable status omits resource IDs, SSH paths, state paths, tokens, and raw plans.
 
 Each transition prints an ASCII progress bar, percentage, completed-stage count, skipped-stage
 count, and remaining-stage count. Identifier-free state is replaced atomically in a mode-`0600`

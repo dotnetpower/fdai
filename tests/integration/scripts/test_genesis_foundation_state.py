@@ -1339,3 +1339,58 @@ def test_new_state_handoff_entrypoints_remain_python_310_compatible() -> None:
         source = path.read_text(encoding="utf-8")
         assert "from datetime import UTC" not in source
         compile(source, str(path), "exec")
+
+
+def _completed(returncode: int, stdout: str = "", stderr: str = ""):
+    return subprocess.CompletedProcess(
+        args=("remote",), returncode=returncode, stdout=stdout, stderr=stderr
+    )
+
+
+def test_remote_handoff_failure_reports_the_exact_remote_cause() -> None:
+    """A refused handoff must name the remote cause instead of a bare sentence."""
+
+    summary = state_command._remote_failure_summary(
+        _completed(
+            3,
+            stderr="fdai-migrate-foundation-state: Foundation remote plan is not zero-change\n",
+        ),
+        marker_present=False,
+    )
+
+    assert "remote exit status 3" in summary
+    assert "completion marker absent" in summary
+    assert "Foundation remote plan is not zero-change" in summary
+
+
+def test_remote_handoff_failure_forwards_only_the_prefixed_diagnostic() -> None:
+    """Unprefixed remote output may carry paths or identifiers and is never forwarded."""
+
+    summary = state_command._remote_failure_summary(
+        _completed(
+            3,
+            stdout="/home/operator/private/state.tfstate\n",
+            stderr="ssh: /run/secret/path leaked\nfdai-migrate-foundation-state: backend denied\n",
+        ),
+        marker_present=False,
+    )
+
+    assert "backend denied" in summary
+    assert "/home/operator" not in summary
+    assert "/run/secret/path" not in summary
+
+
+def test_remote_handoff_failure_without_a_diagnostic_still_reports_status() -> None:
+    summary = state_command._remote_failure_summary(_completed(255), marker_present=False)
+
+    assert "remote exit status 255" in summary
+    assert "no recognized remote status token was reported" in summary
+
+
+def test_remote_handoff_failure_reports_a_recognized_status_token() -> None:
+    summary = state_command._remote_failure_summary(
+        _completed(3, stdout="remote_backend_denied work_ref=abc\n"),
+        marker_present=False,
+    )
+
+    assert "remote status tokens: remote_backend_denied" in summary
