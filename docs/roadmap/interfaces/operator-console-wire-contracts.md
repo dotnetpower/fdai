@@ -140,7 +140,16 @@ event therefore cites no evidence reference outside its manifest. The 256-charac
 from the Core `SemanticTurnResult` contract. It is stricter than the 512-character item bound for
 `semantic_result.evidence_refs` in the published `core-operator-projection` JSON schemas 1.2.0
 through 1.7.0, so Core holds a 257- to 512-character reference as `semantic_evidence_incomplete`
-even though those schemas accept it.
+even though those schemas accept it. The Operator validates every received result with the same
+shared `SemanticTurnResult` model, so it also refuses a 257-character reference. The published
+schema bound tightens with the next `core-operator-projection` version.
+The Operator verifies Core's commitments before durable projection. With the shared
+`fdai_service_contracts.semantic_projection` functions, it recomputes `evidence_digest` over the
+semantic result, or over the assessment, trace receipt, and Pantheon diagnostic of a Pantheon
+assurance turn, and recomputes the content-bound `projection_id`. A projection whose result,
+manifest, receipts, or payload no longer matches is quarantined and never rendered. A held
+projection that the Operator builds itself carries no Core commitment and uses a separate local
+path that accepts only a held status.
 Core keeps semantic request binding, Incident evidence projection, and localized Incident answer
 rendering in dedicated modules while the semantic turn processor retains orchestration.
 The split preserves every wire field, row limit, locale, evidence reference, and no-authority value.

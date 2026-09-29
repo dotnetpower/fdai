@@ -3,14 +3,12 @@
 from __future__ import annotations
 
 import asyncio
-import hashlib
 import json
 import logging
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, replace
 from datetime import UTC, datetime
 from typing import Any, Protocol, cast
-from uuid import UUID, uuid5
 
 from fdai.core.conversation.adaptive_service import AdaptiveBudgetTelemetry
 from fdai.core.conversation.context_bridge import assemble_turn_context
@@ -86,6 +84,10 @@ from fdai_service_contracts.ontology_query import (
     TaskStatus,
     content_digest,
 )
+from fdai_service_contracts.semantic_projection import (
+    pantheon_assurance_evidence_digest,
+    semantic_projection_id,
+)
 from fdai_service_contracts.semantic_work_progress import WorkProgressShape
 from fdai_service_contracts.test_context import TestContextDraft
 
@@ -155,7 +157,6 @@ from .semantic_work_progress_projection import applied_context_receipts, work_pr
 
 _LOGGER = logging.getLogger(__name__)
 _PROCESSING_STARTED_AT_FIELD = "_fdai_processing_started_at"
-_PROJECTION_NAMESPACE = UUID("00000000-0000-0000-0000-000000000000")
 _MAX_REQUEST_LIFETIME_SECONDS = 90.0
 # Mirrors the per-item bound of the terminal ``SemanticTurnResult.evidence_refs`` contract,
 # which is stricter than the 512-character ``GoalTaskReceipt`` reference bound.
@@ -1096,13 +1097,7 @@ class SemanticTurnProcessor:
             )
         result = dict(await runtime.evaluate(request, case_id=case_id))
         _validate_pantheon_assurance_result(result)
-        evidence_digest = content_digest(
-            {
-                "assessment_id": result["assessment_id"],
-                "trace_receipt_id": result["trace_receipt_id"],
-                "pantheon_diagnostic": result["pantheon_diagnostic"],
-            }
-        )
+        evidence_digest = pantheon_assurance_evidence_digest(result)
         projection_time = _aware_utc(self._now(), field="semantic processor clock")
         recorded_at = projection_time.replace(
             microsecond=(projection_time.microsecond // 1000) * 1000,
@@ -5877,19 +5872,11 @@ def _request_digest(
 
 
 def _semantic_projection_id(projection: Mapping[str, object]) -> str:
-    """Bind projection identity to the complete immutable event content."""
-    request_id = projection.get("request_id")
-    if not isinstance(request_id, str):
-        raise ValueError("semantic projection request_id MUST be a string")
-    encoded = json.dumps(
-        projection,
-        allow_nan=False,
-        ensure_ascii=True,
-        separators=(",", ":"),
-        sort_keys=True,
-    ).encode()
-    projection_digest = hashlib.sha256(encoded).hexdigest()
-    return str(uuid5(_PROJECTION_NAMESPACE, f"{request_id}\0{projection_digest}"))
+    """Bind projection identity to the complete immutable event content.
+
+    The shared contract function is the one the Operator recomputes before durable projection.
+    """
+    return semantic_projection_id(projection)
 
 
 async def _release_claim(
