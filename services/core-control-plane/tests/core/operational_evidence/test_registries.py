@@ -67,9 +67,7 @@ def _trust_document() -> dict[str, Any]:
 def test_upstream_registry_covers_every_purpose_with_logical_identifiers_only() -> None:
     _data, registry = _trust()
     assert set(registry.purposes) | set(registry.defects) == set(OPERATIONAL_EVIDENCE_PURPOSES)
-    # The aggregate names the verifier's own slice admissions as its source, which reuses the
-    # verifier trust anchor; that purpose stays unavailable until its source model changes.
-    assert registry.defects == {"forecast-context": ("verifier_anchor_not_exclusive",)}
+    assert registry.defects == {}
     text = trust_bytes().decode()
     for forbidden in ("https://", "subscriptions/", ".azure.com", "password", "secret"):
         assert forbidden not in text

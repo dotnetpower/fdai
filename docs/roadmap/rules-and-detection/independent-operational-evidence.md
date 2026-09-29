@@ -11,10 +11,9 @@ owners keep consuming them through the unchanged admission seam.
 > **Status:** Partially implemented. The owner reviewed the design for exit criterion 1 of
 > [#1022](https://github.com/dotnetpower/fdai/issues/1022) on 2026-09-28; see [Review decisions](#review-decisions).
 > The verifier engine, issuance seam, pinned trust and case-scope grant registries, insert-only proof store,
-> Operator authentication receipt, three test-context readbacks, class-specific records in every consuming
-> owner, and Settings readiness observation exist and pass local checks; see
-> [Implementation notes](#implementation-notes). No verifier workload is deployed, and every purpose without a
-> bound source readback stays `unavailable`.
+> Operator authentication receipt, the three test-context readbacks, the observation, case-history,
+> and current-reuse readbacks, class-specific records in every consuming owner, and Settings readiness observation exist and pass local checks; see
+> [Implementation notes](#implementation-notes). No verifier workload is deployed, and forecast purposes without a bound source readback stay `unavailable`.
 >
 > **Agent boundary:** The pantheon remains exactly 15 agents. This design adds no agent or topic, changes no
 > agent's `owns` or `subscribes`, and grants no execution or promotion authority.
@@ -409,9 +408,10 @@ tracks what remains.
   revisions strictly, classify each revision by content, retire earlier pins after a revocation revision, and end lineage only when its matched binding or
   grant is revoked. A matching grant that is not yet valid neither grants nor denies; only revoked or expired
   matches deny. A purpose whose verifier trust anchor is also a producer, source, or separation anchor reports
-  `verifier_anchor_not_exclusive`. The upstream `forecast-context` entry names the verifier's own slice
-  admissions, under the verifier trust anchor, as its source, so it stays unavailable until a reviewed source
-  model replaces that entry. Deployment supplies the grant registry, pins, and anchor binding.
+  `verifier_anchor_not_exclusive`. The upstream `forecast-context` entry now names a Core-owned
+  forecast-context retention source and a Core-owned slice-admission index, not the verifier trust anchor,
+  so the registry loads without that defect while the readback remains unbound until raw forecast sources exist.
+  Deployment supplies the grant registry, pins, and anchor binding.
 - **Proof store and sources.** The core-control-plane service migration `core_operational_evidence_20260928` creates
   the five insert-only tables, the verifier and reader roles, and immutability triggers. It also lets only the Operator
   identity insert test-context command rows, freezes their request fields and receipt, and defines read-only
@@ -423,11 +423,11 @@ tracks what remains.
   view grant. The first migration revokes any direct `TEMPORARY` grant from the verifier role; the PostgreSQL default
   `PUBLIC` grant remains because Core uses temporary tables. The Operator retains the receipt beside, not inside, the
   idempotent request digest.
-- **Readbacks.** `operator-test-context-command`, `test-context-transition`, and `operational-test-context` read real
+- **Readbacks.**  `operator-test-context-command`, `test-context-transition`, and `operational-test-context` read real
   sources. A current context is admissible only when the transition admission it cites has the lookup rebuilt from
   that context and its prior record; any other cited admission is `replay_substituted`. `admit` rechecks each
   retained record against its exact verifier binding and that binding's readiness under the current anchors. The
-  observation, forecast, case-history, and current-reuse purposes have no bound source readback.
+  `operational-test-observation`, `case-history-read`, and `current-case-reuse` remain unbound: the observation provider is not yet available under verifier identity, case-history lacks the durable semantic receipt table and end-to-end codec path, and current reuse lacks independent inventory/Muninn/safety receipt sources. Forecast-history and forecast-context purposes also have no bound source readback.
 - **Capability and handoff.** `delivery/operational_evidence_readiness.py` adds one Settings row per purpose. Runtime
   Settings materialization observes the verifier readiness endpoint once, through a bounded read that treats every
   failure as unobserved, and passes the typed `OperationalEvidenceVerifierReadiness` snapshot into the projection. A
