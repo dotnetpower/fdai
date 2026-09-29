@@ -55,6 +55,7 @@ and resumable work while the roadmap owner remains focused on normative design.
 | 2026-08-14 | implemented | Added the bounded GitHub skill-source delivery adapter without changing quarantine, approval, or runtime prompt eligibility. | `current change`; concrete adapter and focused rejection-path tests listed in the scope table. | Compose the scheduled source owner and retain governed refresh, approval, and revocation evidence. |
 | 2026-08-14 | implemented | Hardened external source delivery with strict ETag validation and redacted credential-provider failures while preserving quarantine and disabled-first prompt eligibility. | `current change`; focused skill-source adapter tests `28 passed`. | Scheduled composition and governed lifecycle evidence remain open. |
 | 2026-08-14 | in-progress | Added the upstream second-approval evidence the fork-first channel depends on: a bounded approval window, a replay-safe entry identity derived from the approval, and exhaustive no-self-approval coverage. | `current change`; [`hil_pipeline.py`](../../../services/core-control-plane/src/fdai/core/operator_memory/hil_pipeline.py), [`test_hil_pipeline.py`](../../../services/core-control-plane/tests/core/operator_memory/test_hil_pipeline.py); focused operator-memory and bridge checks passed 76 cases; strict mypy and task-scoped Ruff passed. | Build the fork-first channel that invokes the materializer, then enable the pipeline slice. |
+| 2026-09-29 | in-progress | Recorded why the state-inventory availability, exact-Resource change attribution, and web-snippet items stay open: each changes live conversation reasoning or the T2 tool manifest, and this owner accepts such changes only after a measured model-backed A/B, which this campaign did not run. | `current change`; the remaining-work items below. | Run an authorized model-backed A/B for each change before promotion. |
 
 ### Remaining work
 
@@ -62,9 +63,10 @@ and resumable work while the roadmap owner remains focused on normative design.
 - [ ] Validate the promoted dynamic judgment in the authenticated local Console
   ([#1548](https://github.com/dotnetpower/fdai/issues/1548) tracks this last exit criterion).
 - [ ] Keep state-inventory answers available when the required independent T2 review is
-  unavailable, or report that dependency explicitly instead of a generic unavailable hold.
+  unavailable, or report that dependency explicitly instead of a generic unavailable hold. Like
+  every change to live conversation reasoning here, acceptance needs a measured model-backed A/B.
 - [ ] Plan exact-Resource change attribution without a temporal-comparison or invalid target-activity
-  frame.
+  frame. Acceptance needs the same measured model-backed A/B.
 - [x] Remove the measured request-budget overruns; they came from plan requests above the former
   65,536 budget, not from frame requests.
 - [x] Split the frame prompt by accepted judgment intent and the plan prompt by verified frame
@@ -73,7 +75,8 @@ and resumable work while the roadmap owner remains focused on normative design.
 - [ ] Retain an authorized model-backed active-versus-compact cohort for judgment, frame, and plan;
   require no safety or authority regression before changing an active profile digest.
 - [ ] Thread sanitized, allowlisted web snippets into the core T2 tool manifest with exact source
-  receipts, prompt digest replay, and negative injection tests.
+  receipts, prompt digest replay, and negative injection tests. This changes the T2 tool manifest,
+  so it also needs a measured model-backed run before promotion.
 - [x] The upstream second-approval step proves distinct-principal, no-self-approval, a bounded
   approval window, and replay: a redelivery refuses with `already_materialized` and materializes
   exactly once.
