@@ -754,14 +754,15 @@ async def test_post_stream_document_refs_fail_before_outbox_without_resolver() -
 def test_manifest_is_complete_without_legacy_route_sources() -> None:
     manifest = {(item.method, item.path, item.name) for item in CONVERSATION_ROUTE_MANIFEST}
 
-    assert len(CONVERSATION_ROUTE_MANIFEST) == 44
+    assert len(CONVERSATION_ROUTE_MANIFEST) == 45
     assert {
+        ("GET", "/test-context/choices", "test_context_choices"),
         ("POST", "/test-context/proposals", "propose_test_context"),
         ("POST", "/test-context/reviews", "review_test_context"),
         ("POST", "/test-context/revocations", "revoke_test_context"),
         ("GET", "/test-context/commands/{proposal_id:str}", "test_context_command_status"),
     } <= manifest
-    assert len(manifest) == 44
+    assert len(manifest) == 45
     assert {
         ("GET", "/chat/health", "handler"),
         (

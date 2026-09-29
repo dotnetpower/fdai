@@ -547,6 +547,8 @@ from fdai_service_contracts.system_knowledge import (
 from fdai_service_contracts.test_context import (
     TEST_CONTEXT_RESULT_TOPIC,
     TestContextApplication,
+    TestContextChoiceProjection,
+    TestContextPolicyChoice,
     TestContextCommand,
     TestContextDraft,
     TestContextRequest,
@@ -955,6 +957,8 @@ __all__ = [
     "SystemKnowledgeStatus",
     "TaskStatus",
     "TestContextApplication",
+    "TestContextChoiceProjection",
+    "TestContextPolicyChoice",
     "TestContextCommand",
     "TestContextDraft",
     "TestContextRequest",

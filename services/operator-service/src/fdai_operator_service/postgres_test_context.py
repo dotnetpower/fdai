@@ -23,25 +23,37 @@ class PostgresTestContextOutbox:
         )
 
     async def read_test_context_command(
-        self, *, proposal_id: str, principal_id: str
+        self,
+        *,
+        proposal_id: str,
+        principal_id: str,
+        reviewer: bool = False,
+        include_requester: bool = False,
     ) -> dict[str, object] | None:
-        """Read the requesting human's delivery metadata, never request bodies or policy success."""
+        """Read principal-visible delivery metadata without policy-success inference."""
+        owner_filter = "" if reviewer else "AND value->>'principal_id'=%(principal_id)s "
         rows = await self._store._fetch_all(
             "SELECT value->>'proposal_id' AS proposal_id, value->>'operation' AS operation, "
             "value->>'dispatch_status' AS dispatch_status, value->>'accepted_at' AS accepted_at, "
-            "value->'context_application' AS context_application "
+            "value->'context_application' AS context_application, "
+            "value->>'principal_id' AS principal_id, "
+            "value->'payload'->'body' AS request "
             "FROM state_kv WHERE key LIKE %(prefix)s AND value->>'family'='conversation' "
             "AND value->>'operation' IN "
             "('test-context.propose','test-context.review','test-context.revoke') "
-            "AND value->>'proposal_id'=%(proposal_id)s "
-            "AND value->>'principal_id'=%(principal_id)s LIMIT 1",
+            "AND value->>'proposal_id'=%(proposal_id)s " + owner_filter + "LIMIT 1",
             {
                 "prefix": "operator-proposal:%",
                 "proposal_id": proposal_id,
                 "principal_id": principal_id,
             },
         )
-        return dict(rows[0]) if rows else None
+        if not rows:
+            return None
+        result = dict(rows[0])
+        if not include_requester:
+            result.pop("principal_id", None)
+        return result
 
     async def record_application(self, result: TestContextApplication) -> None:
         """Attach only an exact result to its original human command; conflicting replay fails."""

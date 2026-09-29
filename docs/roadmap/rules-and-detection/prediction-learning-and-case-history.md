@@ -134,17 +134,24 @@ Accepted `create.test_context` semantic judgments produce a typed `TestContextDr
 ordinary chat projection. Exact source spans bind the target, signal, range, and explicit aware
 times; unresolved fields require clarification. Drafts grant no scope or review authority.
 The shared SDK exposes the existing draft, command, and application models and their version `1.0.0` schemas. JSON Schema checks structure; `JsonSchemaContractValidator` also runs typed range, interval, role, and proposal/review constraints. Neither check authenticates a principal or grants admission. Generate the standalone schemas with `scripts/quality/contracts/generate_test_context_schemas.py`; broker compatibility, consumer rollout, and operational proof remain separate qualification requirements.
-Console decoding and replay retain valid drafts. The Deck now displays their exact source-bound
-fields and offers an explicit read-only lookup of the requesting principal's existing command
-receipt. It distinguishes broker delivery, historical Saga-audited application, and unevaluated
-current authorization; the looked-up command is not proven to belong to the displayed draft.
-No reviewed principal-to-case-scope and policy choice mapping or independent proof issuer is
-available. The Console therefore exposes no proposal, review, or revocation control, and status
-metadata cannot authorize an exception. Those selection and submission workflows remain open.
+Console decoding and replay retain valid drafts. The Deck displays their exact source-bound fields,
+reads the authenticated principal's reviewed case-scope and policy choices from the Operator API,
+and lets the operator submit only one of those server-owned choices through the existing proposal
+route. It distinguishes broker delivery, historical Saga-audited application, and the current
+authorization field, which remains `not_evaluated` in the current Operator projection. The rendered
+status is bound to the returned proposal id rather than to an unrelated manual lookup. A manual
+lookup is labeled as review or recovery state, not as proof that it belongs to the displayed draft.
+The Console also exposes review and revocation submissions for principals whose server-owned
+choices include those operations, using the immutable expected revision from the recorded
+application status. The browser still supplies no authority: the Operator outbox, Var,
+Mimir, Saga, and the independent operational-evidence admissions decide whether a proposal,
+review, or revocation is accepted. Missing, invalid, duplicate-scope, revoked, expired,
+not-yet-valid, or unavailable grants yield no choice or only the operations Core would admit, with
+an explicit reason. Status metadata cannot authorize an exception.
 Authenticated `POST /test-context/proposals`, `/test-context/reviews`, and `/test-context/revocations`
 persist commands in the Operator outbox. Huginn normalizes ingress, Var publishes independent
 reviews, Mimir records policy revisions, and Saga audits them. Thor ignores these non-action reviews.
-`GET /test-context/commands/{proposal_id}` exposes only the requesting principal's delivery and application metadata.
+`GET /test-context/commands/{proposal_id}` exposes delivery and application metadata to the requester and to reviewers who hold the required review or revoke grants for that command's case scope.
 After auditing Mimir's exact revision, Saga publishes the result through `core.test-context.projections`.
 Operator atomically binds it to the original actor, command digest, target, policy, and revision.
 `published` means broker acceptance; `policy_application=recorded` requires that audited result.

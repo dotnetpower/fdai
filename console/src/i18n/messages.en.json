@@ -2739,9 +2739,18 @@
     "generalExamples": "Example questions",
     "generalStarterSendHint": "Send this question now: {prompt}",
     "generalStarters": {
-      "explain": { "label": "Explain a concept", "prompt": "Explain the difference between SLI, SLO, and SLA with examples." },
-      "compare": { "label": "Compare options", "prompt": "Compare blue-green and canary deployments, including their trade-offs." },
-      "summarize": { "label": "Summarize a document", "prompt": "Help me summarize a document. Ask me for the content to summarize." }
+      "explain": {
+        "label": "Explain a concept",
+        "prompt": "Explain the difference between SLI, SLO, and SLA with examples."
+      },
+      "compare": {
+        "label": "Compare options",
+        "prompt": "Compare blue-green and canary deployments, including their trade-offs."
+      },
+      "summarize": {
+        "label": "Summarize a document",
+        "prompt": "Help me summarize a document. Ask me for the content to summarize."
+      }
     },
     "screenTitle": "Screen conversation",
     "screenOpen": "Ask about {route}",
@@ -3187,14 +3196,53 @@
       "unavailable": "No command is available for this signed-in principal and receipt ID.",
       "error": "Command status could not be verified. Retry without assuming the request failed or succeeded.",
       "command": "{operation} command:",
-      "operations": { "propose": "Proposal", "review": "Review", "revoke": "Revocation" },
+      "operations": {
+        "propose": "Proposal",
+        "review": "Review",
+        "revoke": "Revocation"
+      },
       "delivery": "Delivery",
-      "deliveryStates": { "pending": "Pending", "claimed": "Delivery in progress", "published": "Broker accepted (not applied)", "rejected": "Delivery rejected" },
+      "deliveryStates": {
+        "pending": "Pending",
+        "claimed": "Delivery in progress",
+        "published": "Broker accepted (not applied)",
+        "rejected": "Delivery rejected"
+      },
       "application": "Audited policy application",
-      "applicationStates": { "unknown": "Unknown", "recorded": "Recorded (historical)", "proposed": "Proposed", "reviewed": "Reviewed", "revoked": "Revoked" },
+      "applicationStates": {
+        "unknown": "Unknown",
+        "recorded": "Recorded (historical)",
+        "proposed": "Proposed",
+        "reviewed": "Reviewed",
+        "revoked": "Revoked"
+      },
       "revision": "revision",
       "authorization": "Current authorization",
-      "authorizationStates": { "not_evaluated": "Not evaluated", "unavailable": "Unavailable", "pending": "Pending", "revoked": "Revoked", "expired": "Expired" }
+      "authorizationStates": {
+        "not_evaluated": "Not evaluated",
+        "unavailable": "Unavailable",
+        "pending": "Pending",
+        "revoked": "Revoked",
+        "expired": "Expired",
+        "active": "Active"
+      },
+      "choice": "Reviewed scope and policy",
+      "sourceRevision": "Grant registry revision",
+      "noChoices": "No reviewed choice covers this draft for the signed-in principal. The request cannot be submitted from the browser.",
+      "choicesUnavailable": "Reviewed choices are unavailable. No proposal, review, or revocation control is enabled.",
+      "submitProposal": "Submit proposal",
+      "boundStatus": "Status is bound to submitted command",
+      "lifecycleControls": "Independent lifecycle controls",
+      "review": "Record review",
+      "revoke": "Revoke context",
+      "submitStates": {
+        "unavailable": "Submission is unavailable.",
+        "conflict": "The command changed or was already submitted with different content. Refresh before retrying.",
+        "error": "Submission failed. No state change is assumed."
+      },
+      "manualLookupBoundary": "Manual lookup is for review or recovery only. It is not bound to the displayed draft unless the returned request matches it.",
+      "reviewing": "Request under review",
+      "selfReviewBlocked": "Only the original requester is barred from review or revocation. A later reviewer may revoke when the server grants that operation."
     },
     "investigation": {
       "label": "Investigation activity",
