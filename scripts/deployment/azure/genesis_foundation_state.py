@@ -371,7 +371,10 @@ def _execute_selected(args: argparse.Namespace) -> dict[str, object]:
             )
             marker = f"state_handoff_complete work_ref={work_id[:24]}"
             if result.returncode != 0 or marker not in result.stdout.splitlines():
-                raise ValueError("Foundation remote state handoff did not complete")
+                raise ValueError(
+                    "Foundation remote state handoff did not complete: "
+                    f"{_remote_failure_summary(result, marker_present=False)}"
+                )
             evidence = _retrieve_evidence(tunnel, directory, remote_work, work_id)
             comparison = compare_foundation_state(
                 _read_json_object(local_state, label="Foundation local state"),
@@ -462,6 +465,53 @@ def _execute_selected(args: argparse.Namespace) -> dict[str, object]:
     return final_receipt
 
 
+def _remote_failure_summary(
+    result: subprocess.CompletedProcess[str], *, marker_present: bool
+) -> str:
+    """Summarize one failed remote migration without echoing remote content.
+
+    The remote program prints fixed, identifier-free status tokens. Reporting the
+    exit status and those recognized tokens keeps the failure diagnosable while
+    never forwarding raw remote output, which can carry paths or identifiers.
+    """
+
+    recognized = {
+        "state_handoff_complete",
+        "state_handoff_migrated",
+        "state_handoff_verified",
+        "remote_backend_unavailable",
+        "remote_backend_denied",
+        "remote_state_mismatch",
+        "remote_plan_not_zero_change",
+        "remote_toolchain_missing",
+    }
+    seen = sorted(
+        {
+            token
+            for line in result.stdout.splitlines()
+            for token in (line.split(maxsplit=1)[0] if line.split() else "",)
+            if token in recognized
+        }
+    )
+    parts = [f"remote exit status {result.returncode}"]
+    parts.append("completion marker absent" if not marker_present else "completion marker present")
+    if seen:
+        parts.append(f"remote status tokens: {', '.join(seen)}")
+    else:
+        parts.append("no recognized remote status token was reported")
+    # The remote program prefixes its own diagnostic; forward only that fixed prefix's
+    # message, bounded, so an operator learns the cause without raw remote output.
+    prefix = "fdai-migrate-foundation-state: "
+    reported = [
+        line[len(prefix) :].strip()
+        for line in result.stderr.splitlines()
+        if line.startswith(prefix)
+    ]
+    if reported:
+        parts.append(f"remote reported: {reported[-1][:200]}")
+    return "; ".join(parts)
+
+
 def _prepare_archive(
     *,
     args: argparse.Namespace,
@@ -490,6 +540,11 @@ def _prepare_archive(
     try:
         if snapshot.infra_root / "terraform.tfstate" != local_state:
             raise ValueError("Foundation local state reference does not match the verified root")
+        # The runner repeats the zero-change plan, so it needs the same policy-assigned
+        # public IP tags the local apply observed; otherwise its plan never converges.
+        foundation_apply._bind_observed_public_ip_tags(
+            state_path=local_state, normalized_variables=normalized
+        )
         return create_foundation_state_archive(
             terraform_root=snapshot.infra_root,
             provider_mirror=snapshot.mirror,
