@@ -98,6 +98,7 @@ from fdai.core.hil_resume.load_control import (
     ApprovalLoadController,
     ApprovalReminderDispatcher,
 )
+from fdai.core.hil_resume.operator_receipt import operator_receipt_key
 from fdai.core.hil_resume.reconciliation import produce_effect_reconciliation_request
 from fdai.core.hil_resume.report_line import ReportLineHilCoordinator
 from fdai.core.hil_resume.request import HilRequestMixin
@@ -261,6 +262,15 @@ class HilResumeCoordinator(
         self._development_bindings = bindings
         self._development_revisions = revisions
         self._development_category_revalidator = category_revalidator
+
+    async def read_operator_decision_receipt(self, approval_id: str) -> Mapping[str, Any] | None:
+        """Read the Operator's durable decision receipt from the store that holds the park.
+
+        The decision consumer compares a published decision with this receipt before routing it,
+        so a message that the Operator never recorded cannot reach :meth:`resolve`. A store error
+        propagates; the caller must not treat an unreadable receipt as a match.
+        """
+        return await self._state_store.read_state(operator_receipt_key(approval_id))
 
     # ------------------------------------------------------------------
     # resolve (approve -> execute | reject | timeout)

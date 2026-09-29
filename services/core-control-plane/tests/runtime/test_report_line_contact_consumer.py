@@ -43,25 +43,43 @@ async def test_hil_consumer_routes_contact_consent_without_action_decision() -> 
     coordinator.resolve.assert_not_called()
 
 
+def _recording_coordinator(receipts: dict[str, dict[str, object]]) -> AsyncMock:
+    """Return a coordinator double that reads Operator receipts from ``receipts``."""
+    coordinator = AsyncMock()
+
+    async def _read(approval_id: str) -> dict[str, object] | None:
+        return receipts.get(approval_id)
+
+    coordinator.read_operator_decision_receipt.side_effect = _read
+    return coordinator
+
+
+def _decision(approval_id: str, decision: str, approver_oid: str) -> dict[str, object]:
+    return {
+        "approval_id": approval_id,
+        "idempotency_key": f"park-key:{approval_id}",
+        "decision": decision,
+        "approver_oid": approver_oid,
+        "receipt_ref": f"operator-receipt:{approval_id}",
+        "decided_at": "2026-09-29T01:00:00+00:00",
+    }
+
+
 async def test_hil_consumer_forwards_only_a_mapping_development_attestation() -> None:
     bus = InMemoryEventBus()
-    coordinator = AsyncMock()
-    decision = {
-        "approval_id": "approval-1",
-        "decision": "approve",
-        "approver_oid": "owner-1",
+    first = {
+        **_decision("approval-1", "approve", "owner-1"),
         "justification": "Verified the exact development action.",
+        "development_attestation": {"approval_id": "approval-1"},
     }
-    await bus.publish(
-        "hil-decisions",
-        "approval-1",
-        {**decision, "development_attestation": {"approval_id": "approval-1"}},
-    )
-    await bus.publish(
-        "hil-decisions",
-        "approval-2",
-        {**decision, "approval_id": "approval-2", "development_attestation": "x"},
-    )
+    second = {
+        **_decision("approval-2", "approve", "owner-1"),
+        "justification": "Verified the exact development action.",
+        "development_attestation": "x",
+    }
+    coordinator = _recording_coordinator({"approval-1": first, "approval-2": second})
+    await bus.publish("hil-decisions", "approval-1", first)
+    await bus.publish("hil-decisions", "approval-2", second)
 
     await _consume_hil_decisions(
         bus=bus,
@@ -73,22 +91,21 @@ async def test_hil_consumer_forwards_only_a_mapping_development_attestation() ->
     attestations = [
         call.kwargs["development_attestation"] for call in coordinator.resolve.await_args_list
     ]
-    assert attestations == [{"approval_id": "approval-1"}, None]
+    assert attestations == [{"approval_id": "approval-1"}]
+    dead = [envelope.payload async for envelope in bus.subscribe("hil-decisions.dlq", "test")]
+    assert [item["reason"] for item in dead] == [
+        "hil_decision_receipt_refused:attestation_mismatch"
+    ]
 
 
 async def test_hil_consumer_routes_only_a_recorded_human_decision() -> None:
     bus = InMemoryEventBus()
-    coordinator = AsyncMock()
+    receipts: dict[str, dict[str, object]] = {}
     for index, decision in enumerate(("approve", "reject", "pending", "timeout", "bogus")):
-        await bus.publish(
-            "hil-decisions",
-            f"approval-{index}",
-            {
-                "approval_id": f"approval-{index}",
-                "decision": decision,
-                "approver_oid": "approver-1",
-            },
-        )
+        payload = _decision(f"approval-{index}", decision, "approver-1")
+        receipts[f"approval-{index}"] = payload
+        await bus.publish("hil-decisions", f"approval-{index}", payload)
+    coordinator = _recording_coordinator(receipts)
 
     await _consume_hil_decisions(
         bus=bus,
