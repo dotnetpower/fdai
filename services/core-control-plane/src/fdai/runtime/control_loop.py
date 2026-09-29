@@ -131,7 +131,6 @@ from fdai.runtime.providers import (
     _build_safeguard_lifecycle_coordinator,
 )
 from fdai.runtime.rule_profile import bind_rule_profile
-from fdai.runtime.t2_quality_gate import build_t2_quality_gate
 from fdai.shared.contracts.models import ResponseOutcome, Rule
 from fdai.shared.ontology.release import build_ontology_release
 from fdai.shared.providers.event_bus import EventBus
@@ -151,6 +150,7 @@ from .control_loop_auxiliary import (
 from .control_loop_auxiliary import (
     build_irp_event_handler as _build_irp_event_handler,
 )
+from .control_loop_auxiliary import build_t2_quality_gate as build_t2_quality_gate
 from .control_loop_auxiliary import rca_catalog_revision as _rca_catalog_revision
 
 __all__ = [

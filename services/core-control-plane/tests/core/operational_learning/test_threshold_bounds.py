@@ -274,7 +274,7 @@ def test_every_production_routing_and_detection_threshold_has_a_versioned_bound(
                 encoding="utf-8"
             )
         )
-        for name in ("control_loop.py", "control_loop_auxiliary.py", "t2_quality_gate.py")
+        for name in ("control_loop.py", "control_loop_auxiliary.py")
     ]
     llm_thresholds = {
         node.attr

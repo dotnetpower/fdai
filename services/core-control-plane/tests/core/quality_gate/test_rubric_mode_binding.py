@@ -15,7 +15,7 @@ from fdai.core.quality_gate.testing import (
     MatchTypeCrossCheckModel,
     StaticVerifier,
 )
-from fdai.runtime.t2_quality_gate import build_rubric_mode_resolver
+from fdai.runtime.control_loop_auxiliary import build_rubric_mode_resolver
 from fdai.shared.contracts.models import Mode
 
 from .test_rubric_gate import _CRITERIA, _candidate, _failing_rubric, _rule
