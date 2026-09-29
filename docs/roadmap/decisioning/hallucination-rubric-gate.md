@@ -248,10 +248,18 @@ cannot make an ungrounded action safe. Residual softness (some now mitigated):
   threshold. This is a deliberate simplification: `min()` only ever lowers, so
   the axis mismatch cannot raise eligibility - but a fork tuning the threshold
   should know both feed it.
-- **No automatic promotion registry.** Unlike ActionTypes (which have a
-  `promotion_gate` evaluated by `ActionPromotionRegistry`), the rubric's
-  shadow -> enforce transition is a manual `QualityGateConfig.rubric_shadow`
-  flip. Automatic, metric-driven promotion / demotion is future work.
+- **Receipt-driven promotion, per ActionType.** `QualityGateConfig.rubric_shadow`
+  is the deployment ceiling: while it forces shadow, nothing lifts the rubric
+  leg. Below the ceiling, a bound `RubricPromotionRegistry` decides the leg's
+  mode per ActionType. It enforces only when that ActionType already enforces
+  and a current, independently verified rubric receipt binds the same
+  revision, scenario set, and ActionType identity. A missing, expired,
+  rejected, mismatched, or regressed receipt, or a resolver error, keeps or
+  returns the leg to shadow, and the audit records the resolver's reason.
+  The production runtime binds the registry, and lowers the ceiling, only
+  when the deployment supplies the receipt source and verifier pair; without
+  that pair the leg stays in shadow. A fork that builds `QualityGate`
+  without a resolver keeps the configured mode.
 - **Real-model contract is prompt-enforced, not schema-enforced.** Tests use
   httpx mocks; `response_format=json_object` guarantees valid JSON, not the
   rubric schema. The adapter's strict parser + `RubricScore` validation catch a
