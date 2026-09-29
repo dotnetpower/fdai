@@ -446,3 +446,98 @@ def test_independent_readback_requires_private_keyless_state_and_exact_runner_id
     monkeypatch.setattr(apply, "_capture", foreign_group)
     with pytest.raises(ValueError, match="group or state protection"):
         apply._independent_readback(handoff, tmp_path)
+
+
+def _public_ip_state(tags: object) -> dict[str, object]:
+    """Build one applied state carrying the bastion and NAT operations addresses."""
+
+    def instance(address: str) -> dict[str, object]:
+        module, _, rest = address.rpartition(".azurerm_public_ip.")
+        name = rest.removesuffix("[0]")
+        return {
+            "module": module,
+            "mode": "managed",
+            "type": "azurerm_public_ip",
+            "name": name,
+            "instances": [
+                {
+                    "index_key": 0,
+                    "attributes": {"id": f"/pip/{name}", "ip_tags": tags},
+                }
+            ],
+        }
+
+    return {
+        "version": 4,
+        "serial": 1,
+        "lineage": "00000000-0000-0000-0000-000000000003",
+        "resources": [
+            instance("module.bootstrap.azurerm_public_ip.bastion[0]"),
+            instance("module.bootstrap.azurerm_public_ip.nat[0]"),
+        ],
+    }
+
+
+def _write_private(path: Path, value: object) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+    path.write_text(json.dumps(value, sort_keys=True) + "\n", encoding="ascii")
+    path.chmod(0o600)
+
+
+def test_policy_assigned_public_ip_tags_are_bound_before_the_zero_change_plan(
+    tmp_path: Path,
+) -> None:
+    """A subscription that tags every public IP must still reach a zero-change plan."""
+
+    work = tmp_path / "plan"
+    work.mkdir(mode=0o700)
+    state = work / "terraform.tfstate"
+    variables = work / ".foundation-apply-input.json"
+    _write_private(state, _public_ip_state({"FirstPartyUsage": "/Unprivileged"}))
+    _write_private(variables, {"region": "eastus"})
+
+    apply._bind_observed_public_ip_tags(state_path=state, normalized_variables=variables)
+
+    bound = json.loads(variables.read_text(encoding="ascii"))
+    assert bound["operations_public_ip_tags"] == {"FirstPartyUsage": "/Unprivileged"}
+    assert bound["region"] == "eastus"
+
+
+def test_untagged_public_ips_leave_the_apply_input_unchanged(tmp_path: Path) -> None:
+    work = tmp_path / "plan"
+    work.mkdir(mode=0o700)
+    state = work / "terraform.tfstate"
+    variables = work / ".foundation-apply-input.json"
+    _write_private(state, _public_ip_state(None))
+    _write_private(variables, {"region": "eastus"})
+    before = variables.read_bytes()
+
+    apply._bind_observed_public_ip_tags(state_path=state, normalized_variables=variables)
+
+    assert variables.read_bytes() == before
+
+
+def test_an_unexpected_public_ip_tag_is_refused_rather_than_adopted(tmp_path: Path) -> None:
+    work = tmp_path / "plan"
+    work.mkdir(mode=0o700)
+    state = work / "terraform.tfstate"
+    variables = work / ".foundation-apply-input.json"
+    _write_private(state, _public_ip_state({"FirstPartyUsage": "/Privileged"}))
+    _write_private(variables, {"region": "eastus"})
+
+    with pytest.raises(ValueError):
+        apply._bind_observed_public_ip_tags(state_path=state, normalized_variables=variables)
+
+
+def test_a_missing_applied_state_is_not_treated_as_a_tag_observation(tmp_path: Path) -> None:
+    work = tmp_path / "plan"
+    work.mkdir(mode=0o700)
+    variables = work / ".foundation-apply-input.json"
+    _write_private(variables, {"region": "eastus"})
+    before = variables.read_bytes()
+
+    apply._bind_observed_public_ip_tags(
+        state_path=work / "absent.tfstate", normalized_variables=variables
+    )
+
+    assert variables.read_bytes() == before

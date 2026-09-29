@@ -460,6 +460,45 @@ def _claim(*, review: dict[str, object], target_binding: str) -> dict[str, objec
     }
 
 
+def _bind_observed_public_ip_tags(*, state_path: Path, normalized_variables: Path) -> None:
+    """Record policy-assigned operations public IP tags before the zero-change plan.
+
+    Some subscriptions attach `FirstPartyUsage=/Unprivileged` to every public IP at
+    creation time. The exact plan cannot predict that, so the applied addresses carry a
+    tag the configuration does not declare and the post-apply plan would demand a
+    replacement forever. Binding the observed value mirrors the reviewed recovery
+    behavior; the variable still accepts only an empty map or exactly that policy tag,
+    so an unexpected tag stops the run instead of being adopted.
+    """
+
+    from genesis_foundation_recovery import select_public_ip_tags
+
+    try:
+        state = load_json_object(
+            read_private_bytes(state_path, max_bytes=64 * 1024 * 1024),
+            label="Foundation applied state",
+            max_bytes=64 * 1024 * 1024,
+        )
+    except FileNotFoundError:
+        return
+    observed = select_public_ip_tags(state)
+    if not observed:
+        return
+    values = load_json_object(
+        read_private_bytes(normalized_variables, max_bytes=1_048_576),
+        label="Foundation apply input",
+    )
+    if values.get("operations_public_ip_tags") == observed:
+        return
+    values["operations_public_ip_tags"] = observed
+    # write_private_output creates exclusively, so replace the transient input in place.
+    normalized_variables.unlink()
+    write_private_output(
+        normalized_variables,
+        json.dumps(values, sort_keys=True, separators=(",", ":")) + "\n",
+    )
+
+
 def _verify_foundation_effect(
     *,
     snapshot: VerifiedSnapshot,
@@ -488,6 +527,10 @@ def _verify_foundation_effect(
     else:
         write_private_output(handoff_path, handoff_raw.rstrip() + "\n")
     _independent_readback(handoff, plan_directory)
+    _bind_observed_public_ip_tags(
+        state_path=snapshot.infra_root / "terraform.tfstate",
+        normalized_variables=normalized_variables,
+    )
     no_change = run_with_heartbeat(
         [
             str(snapshot.terraform),
