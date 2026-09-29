@@ -24,6 +24,10 @@ from fdai.agents import ShadowDivergenceLedger
 from fdai.composition.readiness import OperationalReadinessEventHandler
 from fdai.core.control_loop import ControlLoop, ControlLoopOutcome, ControlLoopResult
 from fdai.core.hil_resume import HilResumeCoordinator
+from fdai.core.hil_resume.operator_receipt import (
+    OperatorReceiptRefusal,
+    operator_receipt_refusal,
+)
 from fdai.delivery.notifications import NotificationDeliveryReceiptApplier
 from fdai.rule_catalog.schema.resource_type import ResourceTypeRegistry
 from fdai.shared.providers.event_bus import EventBus, subscription
@@ -287,10 +291,18 @@ async def _consume_hil_decisions(
     refusal, and would mark a slot park terminal without a claim. Only an
     ``action`` park resumes through the coordinator, which is the sole path
     that can reach an executor. Only an ``approve`` or ``reject`` value is
-    routed; ``pending``, ``timeout``, and any other value dead-letter. The
-    consumer checks the value, not the publisher: an Owner-only development park
-    re-reads the durable Operator receipt when its approval is admitted, and an
-    ordinary park keeps the existing trust in the topic's publishers.
+    routed; ``pending``, ``timeout``, and any other value dead-letter.
+
+    The broker message is transport, not authority. Before any route is read, the
+    decision must match the Operator's durable receipt for the same approval, park
+    idempotency key, receipt reference, decision, approver, justification, and
+    development attestation, which the coordinator reads from the shared store. A
+    missing or divergent receipt dead-letters the message without touching the park,
+    the quorum slot, or an executor. A store that stays unreadable after a bounded
+    retry raises :class:`HilDecisionReceiptUnavailableError` instead, so the broker
+    never commits the decision and redelivers it once the consumer restarts. An
+    Owner-only development park still re-reads the same receipt when its approval is
+    admitted.
     """
     from fdai_service_contracts import ReportLineContactCommand
 
@@ -323,6 +335,12 @@ async def _consume_hil_decisions(
                 justification = str(payload.get("justification") or "")
                 if not approval_id or not approver_oid:
                     raise ValueError("approval_id and approver_oid MUST be non-empty")
+                refusal = operator_receipt_refusal(
+                    await _read_decision_receipt(coordinator, approval_id, stop),
+                    payload,
+                )
+                if refusal is not None:
+                    raise _OperatorReceiptRefusedError(refusal)
                 route = (
                     await workflow_registry.get_decision_route(approval_id)
                     if workflow_registry is not None
@@ -355,6 +373,20 @@ async def _consume_hil_decisions(
                         attestation if isinstance(attestation, Mapping) else None
                     ),
                 )
+            except HilDecisionReceiptUnavailableError:
+                raise
+            except _OperatorReceiptRefusedError as refused:
+                _LOOP_LOGGER.warning(
+                    "hil_decision_receipt_refused",
+                    extra={"approval_key": envelope.key, "reason": refused.refusal.value},
+                )
+                await bus.dead_letter(
+                    envelope.topic,
+                    envelope.key,
+                    envelope.payload,
+                    f"hil_decision_receipt_refused:{refused.refusal.value}",
+                )
+                continue
             except Exception as exc:  # noqa: BLE001 - broker boundary isolation
                 reason = f"hil_decision_consume_error:{type(exc).__name__}"
                 await bus.dead_letter(
@@ -364,6 +396,52 @@ async def _consume_hil_decisions(
                     reason,
                 )
                 continue
+
+
+class _OperatorReceiptRefusedError(Exception):
+    """A published HIL decision has no matching durable Operator receipt."""
+
+    def __init__(self, refusal: OperatorReceiptRefusal) -> None:
+        super().__init__(refusal.value)
+        self.refusal = refusal
+
+
+class HilDecisionReceiptUnavailableError(RuntimeError):
+    """The shared store could not return a decision receipt within the bounded retry."""
+
+
+_RECEIPT_READ_ATTEMPTS = 4
+_RECEIPT_READ_BACKOFF_SECONDS = 0.5
+
+
+async def _read_decision_receipt(
+    coordinator: HilResumeCoordinator,
+    approval_id: str,
+    stop: asyncio.Event,
+) -> Mapping[str, Any] | None:
+    """Read one receipt, retrying a store failure with a short exponential backoff.
+
+    A store failure is not a refusal: acknowledging the message would drop a legitimate
+    decision. After the last attempt, or once shutdown starts, the failure propagates.
+    """
+    delay = _RECEIPT_READ_BACKOFF_SECONDS
+    for attempt in range(1, _RECEIPT_READ_ATTEMPTS + 1):
+        try:
+            return await coordinator.read_operator_decision_receipt(approval_id)
+        except asyncio.CancelledError:
+            raise
+        except Exception as exc:  # noqa: BLE001 - any store failure is retried, then raised
+            if attempt == _RECEIPT_READ_ATTEMPTS or stop.is_set():
+                raise HilDecisionReceiptUnavailableError(
+                    f"HIL decision receipt is unreadable after {attempt} attempt(s)"
+                ) from exc
+            _LOOP_LOGGER.warning(
+                "hil_decision_receipt_read_retry",
+                extra={"attempt": attempt, "error_type": type(exc).__name__},
+            )
+            await asyncio.sleep(delay)
+            delay *= 2
+    raise AssertionError("unreachable")  # pragma: no cover - the loop always returns or raises
 
 
 async def _record_workflow_decision(
