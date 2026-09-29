@@ -47,7 +47,6 @@ from fdai.core.rca import (
     KnowledgeEvidenceGatherer,
     RcaCoordinator,
     TelemetryEvidenceGatherer,
-    TemporalCausalityAnalyzer,
 )
 from fdai.core.risk_gate import (
     GovernedPreconditionEvaluator,
@@ -90,6 +89,7 @@ from fdai.rule_catalog.schema.signal_type import load_signal_type_registry_from_
 from fdai.rule_catalog.schema.workflow import load_workflow_catalog
 from fdai.runtime.adaptive_telemetry import build_adaptive_telemetry_from_container
 from fdai.runtime.alert_noise_control import AlertWorkflowBindings, build_alert_workflow_bindings
+from fdai.runtime.causal_bindings import build_causal_runtime_coordinator
 from fdai.runtime.configuration import _resolve_catalog_root, _resolve_policies_root
 from fdai.runtime.control_loop_catalogs import (
     load_parameter_relaxation_policies as _load_parameter_relaxation_policies,
@@ -603,21 +603,12 @@ def _build_control_loop(
         if ontology_instance_store is not None
         else None
     )
-    if causal_runtime_coordinator is None and container.temporal_causal_evidence_provider:
-        if (
-            container.temporal_causality_config is None
-            or container.causal_hypothesis_projection is None
-        ):
-            raise RuntimeError(
-                "temporal causal evidence requires config and Forseti-owned projection"
-            )
-        causal_runtime_coordinator = CausalRuntimeCoordinator(
-            evidence_provider=container.temporal_causal_evidence_provider,
-            analyzer=TemporalCausalityAnalyzer(container.temporal_causality_config),
-            projector=container.causal_hypothesis_projection,
+    if causal_runtime_coordinator is None:
+        causal_runtime_coordinator = build_causal_runtime_coordinator(
+            container=container,
+            ontology_instance_store=ontology_instance_store,
+            audit_store=audit_store,
             method_version=_TEMPORAL_CAUSAL_METHOD_VERSION,
-            intervention_receipt_verifier=container.causal_intervention_receipt_verifier,
-            decision_evidence_provider=container.decision_evidence_admission_provider,
         )
     if dynamic_runtime_coordinator is None and container.dynamic_simulation_request_provider:
         if (
