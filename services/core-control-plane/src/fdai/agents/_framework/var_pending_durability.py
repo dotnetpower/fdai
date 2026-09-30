@@ -135,7 +135,8 @@ def durable_approval_evidence_available(store: StateStore | None) -> bool:
     return any(
         key.startswith(prefix)
         and isinstance(value, Mapping)
-        and value.get("status", value.get("publication_status")) in {"pending", "published"}
+        and value.get("status", value.get("publication_status"))
+        in {"pending", "publishing", "published"}
         for key, value in state.items()
     )
 

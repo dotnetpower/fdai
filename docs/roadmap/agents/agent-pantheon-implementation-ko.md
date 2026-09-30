@@ -1,7 +1,7 @@
 ---
 title: 에이전트 판테온 구현 계획
 translation_of: agent-pantheon-implementation.md
-translation_source_sha: 720b3aed9ca72f17795649e621ab6415eb07148c
+translation_source_sha: af7904da91c9d96e8a1dbc9e580e6a4f8d223ce7
 translation_revised: 2026-09-30
 ---
 
@@ -256,9 +256,13 @@ Thor는 Forseti가 전달한 `auto` 또는 `hil` 판정에 보호 장치가 하�
 Thor는 실행 가능한 상태로 `verdicted`를 떠나기 전에 ActionType 의미에서 되돌릴 수 없는 작업의
 정족수를 다시 계산합니다. 사람 승인은 정확한 `ActionRun` 신원, Var producer 근거, 승인 멱등성
 키, 승인자 집합 및 정족수 근거에 결속됩니다. 영속 Var 재조회가 설정되어 있으면 Thor는 전이
-전에 현재 저장된 승인을 요구합니다. Var도 ActionType 의미에서 정족수를 다시 계산하고, 알 수
-없거나 카탈로그가 없는 작업은 되돌릴 수 없는 작업의 최소값이 필요한 것으로 처리합니다. Vidar는
-Thor가 소유한 `ActionRun` 메시지 중 신원과 롤백 근거가 일치하는 경우에만 롤백을 받아들입니다.
+전에 현재 저장된 승인을 요구합니다. Var는 게시를 점유하기 전에 결정을 영속화하고 소비자는 게시
+도중에 승인을 받을 수 있으므로, 재조회는 Var 보낼 편지함의 `pending`, `publishing`,
+`published` 상태를 모두 받아들입니다. Thor가 캐시한 `ActionRun` 신원은 읽을 때마다 수명 주기
+동안 고정되어야 하는 모든 필드를 다시 검증하므로, 승인이나 롤백이 `ActionRun`에 더 이상 없는
+파라미터에 결속되지 않습니다. Var도 ActionType 의미에서 정족수를 다시 계산하고, 알 수 없거나
+카탈로그가 없는 작업은 되돌릴 수 없는 작업의 최소값이 필요한 것으로 처리합니다. Vidar는 Thor가
+소유한 `ActionRun` 메시지 중 신원과 롤백 근거가 일치하는 경우에만 롤백을 받아들입니다.
 
 Forseti는 `auto`를 상한으로만 취급합니다. 거버넌스가 적용된 되돌릴 수 있는 ActionType 의미가
 없거나 판정에 정족수 `>= 2`가 필요하면 런타임은 결정을 사람 승인(`hil`)으로 낮춥니다. 판단 표는

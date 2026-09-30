@@ -258,10 +258,14 @@ cross-resource, ordering.
 Thor re-derives the irreversible-action quorum from ActionType semantics before leaving
 `verdicted` for any executable state. Human approvals bind to the exact `ActionRun` identity, Var
 producer evidence, approval idempotency key, approver set, and quorum evidence; when durable Var
-readback is configured, Thor requires the current stored approval before it advances. Var also
-re-derives quorum from ActionType semantics and treats unknown or catalog-missing actions as
-requiring the irreversible minimum. Vidar admits rollback only for Thor-owned `ActionRun` messages
-with matching identity and rollback evidence.
+readback is configured, Thor requires the current stored approval before it advances. The readback
+accepts Var's `pending`, `publishing`, and `published` outbox states, because Var persists the
+decision before it claims publication and a consumer can receive the approval mid-publication.
+Thor's cached `ActionRun` identity revalidates every lifecycle-stable field on each read, so an
+approval or rollback never binds parameters the run no longer carries. Var also re-derives quorum
+from ActionType semantics and treats unknown or catalog-missing actions as requiring the
+irreversible minimum. Vidar admits rollback only for Thor-owned `ActionRun` messages with matching
+identity and rollback evidence.
 
 Forseti treats `auto` as an upper bound. Without governed reversible ActionType semantics, or when
 the verdict requires quorum `>= 2`, the runtime caps the decision to human approval (`hil`). The

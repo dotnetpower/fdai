@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 from typing import Any
 
+import pytest
 from fdai.agents._framework.action_run_identity import (
     action_run_identity_digest,
     approval_matches_action_run,
@@ -14,6 +15,7 @@ from fdai.agents._framework.bus import InMemoryBus
 from fdai.agents._framework.registry import load_pantheon
 from fdai.agents.forseti import Forseti
 from fdai.agents.thor import ActionRunState, Thor, _positive_quorum
+from fdai.agents.var import Var
 from fdai.agents.vidar import Vidar
 from fdai.shared.contracts.models import Autonomy
 from fdai.shared.providers.testing.state_store import InMemoryStateStore
@@ -149,6 +151,81 @@ def test_thor_rejects_approval_without_var_durable_readback() -> None:
     assert run.state is ActionRunState.REJECTED
     assert run.outcome == "approval_readback_rejected"
     assert thor.behavior_snapshot()["approval:readback_rejected"] == 1
+
+
+def test_thor_readback_accepts_var_approval_while_its_publication_claim_is_in_flight() -> None:
+    """Var claims ``publishing`` before it publishes; a fast consumer must still read it."""
+
+    executed: list[str] = []
+
+    async def _executor(context: dict[str, Any]) -> bool:
+        executed.append(context["run"].correlation_id)
+        return True
+
+    async def _drive() -> Any:
+        store = InMemoryStateStore()
+        bus = _bus()
+        thor = Thor(
+            bus=bus,
+            executor=_executor,
+            action_semantics_catalog=_reversible_semantics(),
+            approval_state_store=store,
+            approver_authorizer=lambda _principal, _action_type: True,
+        )
+        var = Var(bus=bus, state_store=store, action_semantics=_reversible_semantics())
+        bus.subscribe("object.action-run", "Var", var.on_typed_message)
+        bus.subscribe("object.approval", "Thor", thor.on_typed_message)
+        run = await thor.dispatch_verdict(
+            _verdict(
+                correlation_id="approval-in-flight",
+                idempotency_key="approval-in-flight-key",
+                risk_verdict="hil",
+                resolved_autonomy_ceiling=Autonomy.ENFORCE_HIL.value,
+            )
+        )
+        assert run.state is ActionRunState.HIL_PENDING
+        approval = await var.decide(
+            run.correlation_id,
+            approver="approver@example.com",
+            decision="approve",
+        )
+        assert approval is not None
+        return thor, run
+
+    thor, run = asyncio.run(_drive())
+
+    assert run.outcome != "approval_readback_rejected"
+    assert "approval:readback_rejected" not in thor.behavior_snapshot()
+    assert executed == ["approval-in-flight"]
+
+
+def test_thor_rejects_original_approval_after_the_run_params_change() -> None:
+    executed: list[str] = []
+
+    async def _executor(context: dict[str, Any]) -> bool:
+        executed.append(context["run"].correlation_id)
+        return True
+
+    thor = Thor(bus=_bus(), executor=_executor, action_semantics_catalog=_reversible_semantics())
+    run = asyncio.run(
+        thor.dispatch_verdict(
+            _verdict(
+                correlation_id="params-drift",
+                idempotency_key="params-drift-key",
+                risk_verdict="hil",
+                resolved_autonomy_ceiling=Autonomy.ENFORCE_HIL.value,
+                params={"replicas": 2},
+            )
+        )
+    )
+    approval = _approval_for_run(run)
+    run.params["replicas"] = 10
+
+    with pytest.raises(ValueError, match="approval identity"):
+        asyncio.run(thor.on_typed_message("object.approval", approval))
+
+    assert executed == []
+    assert thor.behavior_snapshot()["approval:identity_mismatch"] == 1
 
 
 def test_approval_identity_requires_var_idempotency_and_approver_evidence() -> None:

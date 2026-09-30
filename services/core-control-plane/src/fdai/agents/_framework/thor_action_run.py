@@ -109,15 +109,23 @@ class ActionRun:
     def action_run_identity(self) -> str:
         """Return the cached identity digest for lifecycle-stable fields."""
 
+        payload = self.publication_identity_payload()
         if self._action_run_identity is None:
-            self._action_run_identity = action_run_identity_digest(
-                self.publication_identity_payload()
-            )
+            self._action_run_identity = action_run_identity_digest(payload)
         return self._action_run_identity
 
     def publication_identity_payload(self) -> dict[str, Any]:
-        """Return the transition-stable ActionRun payload fields."""
+        """Return the transition-stable ActionRun payload fields.
 
+        The cache is revalidated by equality on every read, so a changed stable field
+        rebuilds the payload and identity instead of letting an approval, rollback, or
+        publication bind content the run no longer carries.
+        """
+
+        cached = self._publication_identity_payload
+        if cached is not None and not self._stable_fields_match(cached):
+            self._publication_identity_payload = None
+            self._action_run_identity = None
         if self._publication_identity_payload is None:
             payload = {
                 "action_idempotency_key": self.idempotency_key,
@@ -142,6 +150,28 @@ class ActionRun:
                 payload["action_id"] = self.action_id
             self._publication_identity_payload = payload
         return self._publication_identity_payload
+
+    def _stable_fields_match(self, payload: dict[str, Any]) -> bool:
+        return (
+            payload["action_idempotency_key"] == self.idempotency_key
+            and payload["action_type"] == self.action_type
+            and payload["correlation_id"] == self.correlation_id
+            and payload["decision_case"] == self.decision_case
+            and payload["development_authority"] == self.development_authority
+            and payload["effective_quorum_required"] == self.effective_quorum_required
+            and payload["initiator_principal"] == self.initiator_principal
+            and payload["kinetic_proposal"] == self.kinetic_proposal
+            and payload["operational_context"] == self.operational_context
+            and payload["original_quorum_required"] == self.original_quorum_required
+            and payload["params"] == self.params
+            and payload["prospective_lineage"] == self.prospective_lineage
+            and payload["quorum_required"] == self.quorum_required
+            and payload["resource_id"] == self.resource_id
+            and payload["rollback_contract"] == self.rollback_contract
+            and payload["verdict"] == self.verdict
+            and payload["workflow_action"] == self.workflow_action
+            and payload.get("action_id") == self.action_id
+        )
 
     def to_dict(self) -> dict[str, Any]:
         """Serialize for a durable :class:`ActionRunStore` backend."""

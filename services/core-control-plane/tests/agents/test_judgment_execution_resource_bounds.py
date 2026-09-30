@@ -168,6 +168,26 @@ def test_approval_identity_match_uses_cached_action_run_identity(
         assert approval_matches_action_run(approval, run_identity)
 
 
+def test_cached_action_run_identity_rebuilds_when_a_stable_field_changes() -> None:
+    run = ActionRun(
+        correlation_id="resource-bound-drift",
+        action_type="ops.restart-service",
+        resource_id="resource:drift",
+        state=ActionRunState.HIL_PENDING,
+        verdict="hil",
+        idempotency_key="resource-bound-drift:action",
+        params={"replicas": 1},
+    )
+    original = run.action_run_identity()
+
+    run.params["replicas"] = 2
+
+    assert run.action_run_identity() != original
+    assert run.publication_identity_payload()["params"] == {"replicas": 2}
+    run.params["replicas"] = 1
+    assert run.action_run_identity() == original
+
+
 async def test_vidar_rollback_locks_are_removed_after_terminal_rollbacks() -> None:
     async def executor(_command: dict[str, Any]) -> str:
         return "rollback:resource-bound"
