@@ -152,6 +152,7 @@ class GitHubIssue:
     fingerprint: str
     title: str
     body: str
+    labels: list[str] = field(default_factory=list)
     comments: list[str] = field(default_factory=list)
     open: bool = True
     closed_by_pr: str | None = None
@@ -167,6 +168,7 @@ class IssueTrackerAdapter(Protocol):
         fingerprint: str,
         title: str,
         body: str,
+        labels: tuple[str, ...] = (),
     ) -> tuple[GitHubIssue, bool] | Awaitable[tuple[GitHubIssue, bool]]: ...
 
     def close(
@@ -188,6 +190,7 @@ class IdempotentIssueTrackerAdapter(IssueTrackerAdapter, Protocol):
         fingerprint: str,
         title: str,
         body: str,
+        labels: tuple[str, ...] = (),
     ) -> tuple[GitHubIssue, bool] | Awaitable[tuple[GitHubIssue, bool]]:
         """Replay one result, and reject an operation id/content collision."""
         ...
@@ -214,9 +217,12 @@ class InMemoryGithubIssueAdapter:
         fingerprint: str,
         title: str,
         body: str,
+        labels: tuple[str, ...] = (),
     ) -> tuple[GitHubIssue, bool]:
         existing = self.issues.get(fingerprint)
         if existing is not None and existing.open:
+            existing.body = body
+            existing.labels = list(labels)
             existing.comments.append(body)
             return existing, False
         number = self.next_number
@@ -226,6 +232,7 @@ class InMemoryGithubIssueAdapter:
             fingerprint=fingerprint,
             title=title,
             body=body,
+            labels=list(labels),
         )
         self.issues[fingerprint] = issue
         return issue, True
@@ -237,6 +244,7 @@ class InMemoryGithubIssueAdapter:
         fingerprint: str,
         title: str,
         body: str,
+        labels: tuple[str, ...] = (),
     ) -> tuple[GitHubIssue, bool]:
         """Return one atomic idempotent mutation result per operation id."""
         if not operation_id:
@@ -251,6 +259,7 @@ class InMemoryGithubIssueAdapter:
             fingerprint=fingerprint,
             title=title,
             body=body,
+            labels=labels,
         )
         self.operation_results[operation_id] = (
             fingerprint,

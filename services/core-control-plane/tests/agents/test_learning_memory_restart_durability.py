@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 from datetime import UTC, datetime
 
 from fdai.agents._framework.bus import InMemoryBus
@@ -108,7 +109,7 @@ async def test_muninn_digest_conversation_projection_rehydrates_from_durable_sto
             "conversation_id": "conversation-1",
             "correlation_id": "turn-corr",
             "idempotency_key": "turn:1",
-            "user_id": "user-a",
+            "principal_scope": "sha256:" + hashlib.sha256(b"user-a").hexdigest(),
             "question": "raw text must not persist",
             "answer": "raw answer must not persist",
             "question_sha256": "a" * 64,

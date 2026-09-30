@@ -65,8 +65,10 @@ async def test_bragi_routes_to_composed_heimdall_read_responder() -> None:
     assert turn.answer["answer"] == "Investigated: Who stopped vm-01?"
     assert turn.answer["facts"]["status"] == "matched"
     assert len(contexts) == 1
-    assert contexts[0]["session_id"] == "session-one"
-    assert contexts[0]["user_id"] == "principal-one"
+    assert str(contexts[0]["session_ref"]).startswith("sha256:")
+    assert str(contexts[0]["principal_scope"]).startswith("sha256:")
+    assert "session-one" not in str(contexts[0])
+    assert "principal-one" not in str(contexts[0])
     assert contexts[0]["agent_system_prompt"] == heimdall.spec.conversation.system_prompt
     assert contexts[0]["agent_allowed_tools"] == heimdall.spec.conversation.tools
 

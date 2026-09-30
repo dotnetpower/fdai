@@ -226,7 +226,7 @@ async def test_saga_issue_fingerprint_index_uses_durable_store_after_restart() -
     )
 
     assert result["issue_number"] == replay["issue_number"]
-    assert second_github.issues == {}
+    assert second_github.issues["fp-1"].body.count("Occurrence count: 2") == 1
 
 
 async def test_state_store_audit_chain_adapter_continues_hash_chain_after_restart() -> None:

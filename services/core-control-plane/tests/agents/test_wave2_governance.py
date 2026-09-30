@@ -745,6 +745,8 @@ def test_muninn_indexes_conversation_turns() -> None:
                 "turn_id": "t1",
                 "correlation_id": "corr-t1",
                 "idempotency_key": "turn:t1",
+                "principal_scope": "sha256:"
+                "2bd806c97f0e00af1a1fc3328fa763a9269723c8db8fac4f93af71db186d6e90",
                 "question_ref": "question-ref",
                 "question_sha256": "a" * 64,
                 "answer_ref": "answer-ref",
@@ -754,7 +756,7 @@ def test_muninn_indexes_conversation_turns() -> None:
             },
         )
     )
-    stored = muninn.get_context("conversation_turns", "t1")
+    stored = muninn.get_context("conversation_turns", "t1", requester_user_id="alice")
     assert stored is not None
     assert stored["question_ref"] == "question-ref"
     assert stored["question_sha256"] == "a" * 64

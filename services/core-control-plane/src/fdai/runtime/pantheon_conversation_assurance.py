@@ -290,6 +290,9 @@ class RuntimePantheonConversationAssurance:
             fixed_assurance_facts=(
                 _trusted_t2_scenario_facts(case) if case.case_id in self._fixed_case_ids else None
             ),
+            fixed_assurance_scenario_id=(
+                "conversation-assurance-census-v1" if case.case_id in self._fixed_case_ids else None
+            ),
         )
         answer = _deliberation_answer(result)
         participants, evidence_refs = _deliberation_participants(

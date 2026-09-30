@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
 
 import pytest
 from fdai.agents._framework.bus import InMemoryBus
@@ -80,7 +81,7 @@ def test_muninn_retains_bragi_turn_digest_only_and_blocks_cross_user_read() -> N
                 "turn_id": "turn-1",
                 "correlation_id": "corr-turn-1",
                 "idempotency_key": "turn:1",
-                "user_id": "user-a",
+                "principal_scope": "sha256:" + hashlib.sha256(b"user-a").hexdigest(),
                 "question": "raw question must not be retained",
                 "answer": "raw answer must not be retained",
                 "question_ref": "question-ref",
@@ -115,7 +116,7 @@ def test_muninn_indexes_bragi_conversation_and_user_preference_projections() -> 
                 "conversation_id": "conversation-1",
                 "correlation_id": "session-1",
                 "idempotency_key": "conversation:1",
-                "principal_scope": "sha256:user-a",
+                "principal_scope": "sha256:" + hashlib.sha256(b"user-a").hexdigest(),
                 "status": "active",
             },
         )
@@ -128,15 +129,15 @@ def test_muninn_indexes_bragi_conversation_and_user_preference_projections() -> 
                 "id": "preference-1",
                 "correlation_id": "preference-corr",
                 "idempotency_key": "preference:1",
-                "principal_scope": "sha256:user-a",
+                "principal_scope": "sha256:" + hashlib.sha256(b"user-a").hexdigest(),
                 "preference_digest": "sha256:" + "c" * 64,
                 "locale": "ko",
             },
         )
     )
 
-    conversation = muninn.get_context("conversations", "conversation-1")
-    preference = muninn.get_context("user_preferences", "preference-1")
+    conversation = muninn.get_context("conversations", "conversation-1", requester_user_id="user-a")
+    preference = muninn.get_context("user_preferences", "preference-1", requester_user_id="user-a")
     assert conversation is not None
     assert preference is not None
     assert conversation["payload_digest"]

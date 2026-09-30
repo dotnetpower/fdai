@@ -37,8 +37,8 @@ class RuntimeConversationPort:
         question: str,
         locale: str = "en",
         initiator_role: str | None = None,
-        allow_action_proposal: bool = True,
-        materialize_handoff: bool = True,
+        allow_action_proposal: bool = False,
+        materialize_handoff: bool = False,
     ) -> Turn | None:
         """Operator conversational-port entry point.
 
@@ -121,8 +121,10 @@ class RuntimeConversationPort:
         question: str,
         requester: str,
         correlation_id: str = "",
+        locale: str = "en",
         reuse_semantic_route: bool = True,
         fixed_assurance_facts: Mapping[str, Mapping[str, object]] | None = None,
+        fixed_assurance_scenario_id: str | None = None,
     ) -> dict[str, Any]:
         """Run bounded read-only T1/T2 discussion through Bragi."""
         if self._bragi is None:
@@ -137,8 +139,10 @@ class RuntimeConversationPort:
             question=question,
             requester=requester,
             correlation_id=correlation_id,
+            locale=locale,
             reuse_semantic_route=reuse_semantic_route,
             fixed_assurance_facts=fixed_assurance_facts,
+            fixed_assurance_scenario_id=fixed_assurance_scenario_id,
         )
 
     def plan_conversation_tools(

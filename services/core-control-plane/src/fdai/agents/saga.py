@@ -16,6 +16,7 @@ from fdai_service_contracts.test_context import TestContextApplication
 from fdai.agents._framework.action_semantics import RESULT_VALUES, outcome_result
 from fdai.agents._framework.adapters import (
     AuditEntry,
+    GitHubIssue,
     IdempotentIssueTrackerAdapter,
     InMemoryAuditChain,
     InMemoryGithubIssueAdapter,
@@ -463,20 +464,37 @@ class Saga(Agent, HandoverKnowledgeMixin):
         escalation_id = str(payload.get("escalation_id") or payload.get("id") or "")
         emitting_agent = str(payload.get("emitting_agent") or "")
         intent_category = str(payload.get("intent_category") or "")
+        resource_type = str(payload.get("resource_type") or "")
         failure_reason = str(payload.get("failure_reason_code") or "")
         normalized_selector = str(payload.get("normalized_selector") or "")
+        supplied_fingerprint = str(payload.get("problem_fingerprint") or "")
         if not all(
             (escalation_id, correlation_id, emitting_agent, intent_category, failure_reason)
         ):
             self.record_behavior("handoff:invalid")
             return
+        if not resource_type:
+            if supplied_fingerprint:
+                self.record_behavior("handoff:invalid")
+                return
+            resource_type = "unknown"
+        if not normalized_selector:
+            if supplied_fingerprint:
+                self.record_behavior("handoff:invalid")
+                return
+            normalized_selector = "sha256:" + hashlib.sha256(escalation_id.encode()).hexdigest()
+        if not supplied_fingerprint:
+            self.record_behavior("handoff:legacy_fingerprint_computed")
         fingerprint = compute_fingerprint(
             intent_category=intent_category,
-            resource_type=str(payload.get("resource_type") or ""),
+            resource_type=resource_type,
             normalized_selector=normalized_selector,
             primary_agent=emitting_agent,
             failure_reason_code=failure_reason,
         )
+        if supplied_fingerprint and supplied_fingerprint != fingerprint:
+            self.record_behavior("handoff:fingerprint_mismatch")
+            return
         operation_id = f"handoff:{escalation_id}"
         await self._handoff_journal.claim(
             escalation_id=escalation_id,
@@ -500,6 +518,7 @@ class Saga(Agent, HandoverKnowledgeMixin):
                 intent_category=intent_category,
                 failure_reason_code=failure_reason,
                 correlation_id=correlation_id,
+                emitted_at=str(payload.get("emitted_at") or ""),
                 require_idempotent=True,
             )
             checkpoint = HandoffIssueCheckpoint(
@@ -785,20 +804,62 @@ class Saga(Agent, HandoverKnowledgeMixin):
         intent_category: str,
         failure_reason_code: str,
         correlation_id: str,
+        emitted_at: str = "",
         context: dict[str, Any] | None = None,
         require_idempotent: bool = False,
     ) -> tuple[int, bool, int]:
         durable_prior = await self._load_durable_fingerprint(fingerprint)
+        prior = durable_prior or self._fingerprint_index.get(fingerprint)
+        replay = bool(prior and prior.get("last_correlation_id") == correlation_id)
+        observed_at = emitted_at or "unknown"
+        first_seen = str(prior.get("first_seen") or observed_at) if prior else observed_at
+        prior_count = int(prior.get("occurrence_count", 0)) if prior is not None else 0
+        occurrence_count = prior_count if replay else (prior_count + 1 if prior else 1)
+        last_seen = str(prior.get("last_seen") or observed_at) if replay and prior else observed_at
+        labels = _fingerprint_labels(fingerprint)
+        title = f"[{intent_category}] {emitting_agent} handoff"
+        body_lines = [
+            f"Fingerprint: `{fingerprint}`",
+            f"First seen: {first_seen}",
+            f"Last seen: {last_seen}",
+            f"Occurrence count: {occurrence_count}",
+            f"Emitting agent: {emitting_agent}",
+            f"Failure reason: {failure_reason_code}",
+            f"Correlation id: {correlation_id}",
+        ]
+        if context:
+            for k, v in sorted(context.items()):
+                body_lines.append(f"- {k}: {v}")
+        body = "\n".join(body_lines)
         if durable_prior is not None:
             await self.rehydrate_issue_tracker()
+            if not isinstance(self.github, IdempotentIssueTrackerAdapter):
+                raise RuntimeError("Saga durable handoff requires an idempotent issue adapter")
+            issue_result = _create_or_comment_once(
+                self.github,
+                operation_id=operation_id,
+                fingerprint=fingerprint,
+                title=title,
+                body=body,
+                labels=labels,
+            )
+            if inspect.isawaitable(issue_result):
+                issue, _created = await asyncio.wait_for(
+                    issue_result,
+                    timeout=self._issue_timeout_seconds,
+                )
+            else:
+                issue, _created = issue_result
             updated = await self._increment_durable_fingerprint(
                 fingerprint,
                 last_correlation_id=correlation_id,
+                first_seen=first_seen,
+                last_seen=last_seen,
             )
             if updated is None:
                 raise RuntimeError("durable issue fingerprint disappeared during increment")
             self._fingerprint_index.set(fingerprint, updated)
-            return int(updated["issue_number"]), False, int(updated["occurrence_count"])
+            return issue.number, False, int(updated["occurrence_count"])
         if self._durable_state_store is not None and not await self._claim_fingerprint_creation(
             fingerprint,
             operation_id=operation_id,
@@ -816,6 +877,8 @@ class Saga(Agent, HandoverKnowledgeMixin):
                     updated = await self._increment_durable_fingerprint(
                         fingerprint,
                         last_correlation_id=correlation_id,
+                        first_seen=first_seen,
+                        last_seen=last_seen,
                     )
                     if updated is None:
                         raise RuntimeError("durable issue fingerprint disappeared during increment")
@@ -827,32 +890,24 @@ class Saga(Agent, HandoverKnowledgeMixin):
                     )
                 self.record_behavior("handoff:fingerprint_claim_busy")
                 raise RuntimeError("issue fingerprint mutation is already in progress")
-        title = f"[{intent_category}] {emitting_agent} handoff"
-        body_lines = [
-            f"Fingerprint: `{fingerprint}`",
-            f"Emitting agent: {emitting_agent}",
-            f"Failure reason: {failure_reason_code}",
-            f"Correlation id: {correlation_id}",
-        ]
-        if context:
-            for k, v in sorted(context.items()):
-                body_lines.append(f"- {k}: {v}")
-        body = "\n".join(body_lines)
-
         if isinstance(self.github, IdempotentIssueTrackerAdapter):
-            issue_result = self.github.create_or_comment_once(
+            issue_result = _create_or_comment_once(
+                self.github,
                 operation_id=operation_id,
                 fingerprint=fingerprint,
                 title=title,
                 body=body,
+                labels=labels,
             )
         elif require_idempotent:
             raise RuntimeError("Saga handoff requires an idempotent issue-tracker adapter")
         else:
-            issue_result = self.github.create_or_comment(
+            issue_result = _create_or_comment(
+                self.github,
                 fingerprint=fingerprint,
                 title=title,
                 body=body,
+                labels=labels,
             )
         if inspect.isawaitable(issue_result):
             try:
@@ -870,6 +925,8 @@ class Saga(Agent, HandoverKnowledgeMixin):
             "issue_number": issue.number,
             "occurrence_count": occurrence_count,
             "last_correlation_id": correlation_id,
+            "first_seen": first_seen,
+            "last_seen": last_seen,
             "open": issue.open,
         }
         self._put_fingerprint_index(fingerprint, fingerprint_state)
@@ -938,6 +995,8 @@ class Saga(Agent, HandoverKnowledgeMixin):
         fingerprint: str,
         *,
         last_correlation_id: str,
+        first_seen: str,
+        last_seen: str,
     ) -> dict[str, Any] | None:
         if self._durable_state_store is None:
             return None
@@ -954,6 +1013,8 @@ class Saga(Agent, HandoverKnowledgeMixin):
                 **current,
                 "occurrence_count": int(current["occurrence_count"]) + 1,
                 "last_correlation_id": last_correlation_id,
+                "first_seen": first_seen,
+                "last_seen": last_seen,
             }
             advanced = await self._durable_state_store.compare_and_set_state(
                 key,
@@ -1146,7 +1207,7 @@ def compute_fingerprint(
     primary_agent: str,
     failure_reason_code: str,
 ) -> str:
-    """Deterministic fingerprint per `agent-pantheon.md` \u00a76.4."""
+    """Deterministic SHA-256 fingerprint over the §6.4 handoff components."""
     material = "|".join(
         (
             intent_category,
@@ -1156,7 +1217,66 @@ def compute_fingerprint(
             failure_reason_code,
         )
     )
-    return hashlib.sha1(material.encode("utf-8")).hexdigest()  # noqa: S324 - fingerprint id, not security
+    return hashlib.sha256(material.encode("utf-8")).hexdigest()
+
+
+def _fingerprint_labels(fingerprint: str) -> tuple[str, ...]:
+    if len(fingerprint) == 64 and all(character in "0123456789abcdef" for character in fingerprint):
+        return (f"fdai:fp:{fingerprint}",)
+    return ()
+
+
+def _create_or_comment_once(
+    github: IdempotentIssueTrackerAdapter,
+    *,
+    operation_id: str,
+    fingerprint: str,
+    title: str,
+    body: str,
+    labels: tuple[str, ...],
+) -> tuple[GitHubIssue, bool] | Awaitable[tuple[GitHubIssue, bool]]:
+    try:
+        return github.create_or_comment_once(
+            operation_id=operation_id,
+            fingerprint=fingerprint,
+            title=title,
+            body=body,
+            labels=labels,
+        )
+    except TypeError as exc:
+        if "labels" not in str(exc):
+            raise
+        return github.create_or_comment_once(
+            operation_id=operation_id,
+            fingerprint=fingerprint,
+            title=title,
+            body=body,
+        )
+
+
+def _create_or_comment(
+    github: IssueTrackerAdapter,
+    *,
+    fingerprint: str,
+    title: str,
+    body: str,
+    labels: tuple[str, ...],
+) -> tuple[GitHubIssue, bool] | Awaitable[tuple[GitHubIssue, bool]]:
+    try:
+        return github.create_or_comment(
+            fingerprint=fingerprint,
+            title=title,
+            body=body,
+            labels=labels,
+        )
+    except TypeError as exc:
+        if "labels" not in str(exc):
+            raise
+        return github.create_or_comment(
+            fingerprint=fingerprint,
+            title=title,
+            body=body,
+        )
 
 
 def _audit_outbox_key(payload: Mapping[str, Any]) -> str:

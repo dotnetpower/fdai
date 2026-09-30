@@ -12,6 +12,7 @@ import hashlib
 import logging
 import math
 from collections.abc import Awaitable, Callable, Collection, Mapping
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from fdai_service_contracts.semantic_judgment import (
@@ -86,11 +87,12 @@ _MAX_PROGRESS_KEYS = 5_000
 #: append without limit, so the per-correlation list is bounded too - not just
 #: the key count.
 _MAX_PROGRESS_STEPS = 64
-_MAX_CONTRIBUTORS = 3
-_CONTRIBUTOR_TIMEOUT_SECONDS = 2.0
+_MAX_CONTRIBUTORS = 2
+_CONTRIBUTOR_TIMEOUT_SECONDS = 1.2
 _RESPONDER_TIMEOUT_SECONDS = 2.0
 _PROPOSAL_TIMEOUT_SECONDS = 5.0
 _SEMANTIC_JUDGMENT_TIMEOUT_SECONDS = 2.0
+_SESSION_INACTIVITY_LIMIT = timedelta(minutes=30)
 
 
 #: Entry RBAC gate for execute-class conversational requests. A console
@@ -121,6 +123,7 @@ class Bragi(BragiPublicationMixin, Agent):
         proposal_timeout_seconds: float = _PROPOSAL_TIMEOUT_SECONDS,
         semantic_judgment_timeout_seconds: float = _SEMANTIC_JUDGMENT_TIMEOUT_SECONDS,
         state_store: StateStore | None = None,
+        clock: Callable[[], datetime] | None = None,
     ) -> None:
         if responder_timeout_seconds <= 0:
             raise ValueError("responder timeout MUST be positive")
@@ -162,6 +165,8 @@ class Bragi(BragiPublicationMixin, Agent):
         # _MAX_PROGRESS_STEPS, with redelivered steps deduped.
         self._progress: dict[str, list[dict[str, Any]]] = {}
         self._state_store = state_store
+        self._clock: Callable[[], datetime] = clock or (lambda: datetime.now(tz=UTC))
+        self._a2a_turn_indexes: dict[tuple[str, str], int] = {}
 
     # ---- registration --------------------------------------------------
 
@@ -260,12 +265,9 @@ class Bragi(BragiPublicationMixin, Agent):
         Thor). Returns a status envelope with the ``correlation_id`` the
         operator can track; it NEVER executes the action itself.
 
-        When ``initiator_role`` is supplied (the console session's Entra role),
-        an entry RBAC gate refuses a request below the execute floor
-        (``Contributor``) before the proposal enters the pipeline - so a Reader
-        cannot submit any action. ``None`` skips the entry gate (a
-        pantheon-internal caller with no console role); Forseti's principal RBAC
-        still applies downstream.
+        ``initiator_role`` is mandatory for action re-entry. A missing or
+        insufficient role refuses before proposal construction, so read-only
+        channels cannot accidentally submit a typed action.
         """
         proposal, status = build_action_proposal(
             session_id=session_id,
@@ -280,7 +282,7 @@ class Bragi(BragiPublicationMixin, Agent):
             self.record_behavior(f"proposal:{status.get('abstain_reason', 'not_submitted')}")
             return status
         try:
-            await asyncio.wait_for(
+            sink_result = await asyncio.wait_for(
                 self._proposal_sink(proposal),
                 timeout=self._proposal_timeout_seconds,
             )
@@ -298,6 +300,9 @@ class Bragi(BragiPublicationMixin, Agent):
             )
             self.record_behavior("proposal:sink_error")
             return {**status, "submitted": False, "abstain_reason": "proposal_sink_error"}
+        if sink_result is None:
+            self.record_behavior("proposal:deduplicated")
+            return {**status, "submitted": False, "deduplicated": True}
         correlation_id = str(status["correlation_id"])
         action_type = str(status["action_type"])
         append_submitted(
@@ -390,10 +395,24 @@ class Bragi(BragiPublicationMixin, Agent):
             raise ValueError(f"unknown requester agent: {requester!r}")
         if agent_name not in PANTHEON_NAMES:
             raise ValueError(f"unknown target agent: {agent_name!r}")
+        caller_context = context or {}
+        if caller_context.get("nested_round") is True:
+            self.record_behavior("a2a:nested_refused")
+            return {
+                "primary_agent": agent_name,
+                "answer": None,
+                "facts": {},
+                "abstain_reason": "nested_round_refused",
+                "requester": requester,
+                "trace_ref": str(caller_context.get("correlation_id") or ""),
+            }
         ctx: dict[str, Any] = {"requester": requester, "a2a": True}
-        correlation_id = (context or {}).get("correlation_id")
+        correlation_id = caller_context.get("correlation_id")
         if isinstance(correlation_id, str) and 0 < len(correlation_id) <= 256:
             ctx["correlation_id"] = correlation_id
+        locale = caller_context.get("locale")
+        if _locale_is_supported(locale):
+            ctx["locale"] = locale
         normalized, response_error = await self._call_responder(
             agent_name,
             question,
@@ -417,6 +436,7 @@ class Bragi(BragiPublicationMixin, Agent):
             target_agent=agent_name,
             question=question,
             response=response,
+            turn_index=self._next_a2a_turn_index(requester, agent_name),
         )
         return response
 
@@ -426,8 +446,10 @@ class Bragi(BragiPublicationMixin, Agent):
         question: str,
         requester: str,
         correlation_id: str = "",
+        locale: str = "en",
         reuse_semantic_route: bool = True,
         fixed_assurance_facts: Mapping[str, Mapping[str, object]] | None = None,
+        fixed_assurance_scenario_id: str | None = None,
     ) -> dict[str, Any]:
         """Delegate one bounded read-only discussion to the framework orchestrator."""
         _validate_question(question)
@@ -475,8 +497,10 @@ class Bragi(BragiPublicationMixin, Agent):
             question=question,
             requester=requester,
             correlation_id=correlation_id,
-            routing_decision=(self.route(judgment) if reuse_semantic_route else None),
+            locale=locale,
+            routing_decision=self.route(judgment),
             fixed_assurance_facts=fixed_assurance_facts,
+            fixed_assurance_scenario_id=fixed_assurance_scenario_id,
         )
 
     # ---- routing -------------------------------------------------------
@@ -529,8 +553,8 @@ class Bragi(BragiPublicationMixin, Agent):
         question: str,
         locale: str = "en",
         initiator_role: str | None = None,
-        allow_action_proposal: bool = True,
-        materialize_handoff: bool = True,
+        allow_action_proposal: bool = False,
+        materialize_handoff: bool = False,
     ) -> Turn:
         """Route + call primary + record the turn.
 
@@ -543,24 +567,48 @@ class Bragi(BragiPublicationMixin, Agent):
         """
         _validate_question(question)
         session_lock = self._session_locks.setdefault(session_id, asyncio.Lock())
+        ended_session: ConversationSession | None = None
         async with session_lock:
+            now = self._clock()
             session = self._sessions.setdefault(
                 session_id,
-                ConversationSession(session_id=session_id, user_id=user_id),
+                ConversationSession(
+                    session_id=session_id,
+                    user_id=user_id,
+                    created_at=now,
+                    last_active_at=now,
+                ),
             )
             if session.user_id != user_id:
                 raise PermissionError(f"session {session_id!r} belongs to a different user")
+            last_active = session.last_active_at or session.created_at or now
+            if session.turns and now - last_active >= _SESSION_INACTIVITY_LIMIT:
+                session.ended_at = last_active + _SESSION_INACTIVITY_LIMIT
+                ended_session = session
+                session = ConversationSession(
+                    session_id=session_id,
+                    user_id=user_id,
+                    created_at=now,
+                    last_active_at=now,
+                    generation=ended_session.generation + 1,
+                )
+                self._sessions[session_id] = session
+                self.record_behavior("session:expired")
             publish_conversation = (
                 not session.conversation_published and not session.conversation_publication_inflight
             )
             if publish_conversation:
                 session.conversation_publication_inflight = True
             turn_index = await self._reserve_turn_index(session_id, session)
-            prior_questions = tuple(turn.question for turn in session.turns[-8:])
+            prior_turns_ref = _prior_turns_ref(session)
+            semantic_context = (prior_turns_ref,) if prior_turns_ref else ()
+            session.last_active_at = now
             # Bound the session map so a long-lived narrator cannot leak one entry
             # per session id forever (evicts oldest, never the active session).
             evict_oldest(self._sessions, _MAX_SESSIONS, keep=session_id)
             evict_oldest(self._session_locks, _MAX_SESSIONS, keep=session_id)
+        if ended_session is not None:
+            await self._publish_conversation(ended_session, status="ended")
         if publish_conversation:
             try:
                 conversation_published = await self._publish_conversation(session)
@@ -571,7 +619,7 @@ class Bragi(BragiPublicationMixin, Agent):
                 async with session_lock:
                     session.conversation_published = True
         judgment_result, judgment_status = await self._judge_async(
-            question, context=prior_questions
+            question, context=semantic_context
         )
         judgment = (
             judgment_result.proposal
@@ -623,7 +671,7 @@ class Bragi(BragiPublicationMixin, Agent):
             )
             async with session_lock:
                 _append_turn(session, turn)
-            await self._publish_turn(session_id=session_id, turn=turn)
+            await self._publish_turn(session=session, turn=turn)
             return turn
         decision = (
             self.route(judgment, question=question)
@@ -668,9 +716,10 @@ class Bragi(BragiPublicationMixin, Agent):
                     decision.primary_agent,
                     question,
                     {
-                        "session_id": session_id,
-                        "user_id": user_id,
+                        "session_ref": _session_ref(session_id, session.generation),
+                        "principal_scope": _principal_scope(user_id),
                         "locale": locale,
+                        **({"prior_turns_ref": prior_turns_ref} if prior_turns_ref else {}),
                         "semantic_action_posture": judgment.action_posture,
                         "semantic_requested_facets": judgment.requested_facets,
                         "semantic_primary_intent": judgment.primary_intent,
@@ -805,7 +854,10 @@ class Bragi(BragiPublicationMixin, Agent):
                 session_id=session_id,
                 question=question,
                 turn_index=turn_index,
-                reason=str(answer.get("abstain_reason") or "no_route"),
+                intent_category=(judgment.primary_intent if judgment is not None else "unknown"),
+                resource_type=_resource_type_from_proposal(judgment),
+                primary_agent=decision.primary_agent or "unassigned",
+                failure_reason_code=str(answer.get("abstain_reason") or "no_route"),
             )
         turn = Turn(
             turn_index=turn_index,
@@ -814,14 +866,14 @@ class Bragi(BragiPublicationMixin, Agent):
             answer=answer,
             decision=decision,
         )
-        await self._checkpoint_turn_payload(session_id=session_id, turn=turn)
+        await self._checkpoint_turn_payload(session=session, turn=turn)
         async with session_lock:
             _append_turn(session, turn)
-        await self._publish_turn(session_id=session_id, turn=turn)
+        await self._publish_turn(session=session, turn=turn)
         return turn
 
-    async def _publish_turn(self, *, session_id: str, turn: Turn) -> None:
-        payload = await self._checkpoint_turn_payload(session_id=session_id, turn=turn)
+    async def _publish_turn(self, *, session: ConversationSession, turn: Turn) -> None:
+        payload = await self._checkpoint_turn_payload(session=session, turn=turn)
         if self.bus is None:
             self.record_behavior("turn:publication_pending")
             return
@@ -877,20 +929,24 @@ class Bragi(BragiPublicationMixin, Agent):
                 return next_index
         raise RuntimeError("Bragi turn sequence CAS retry limit exceeded")
 
-    async def _checkpoint_turn_payload(self, *, session_id: str, turn: Turn) -> dict[str, Any]:
+    async def _checkpoint_turn_payload(
+        self, *, session: ConversationSession, turn: Turn
+    ) -> dict[str, Any]:
         payload = turn_event_payload(
-            session_id=session_id,
+            session_id=session.session_id,
+            user_id=session.user_id,
+            session_generation=session.generation,
             turn=turn,
             contributor_limit=_MAX_CONTRIBUTORS,
         )
         if self._state_store is None:
             return payload
-        key = _turn_outbox_key(session_id, turn.turn_index)
+        key = _turn_outbox_key(str(payload["session_ref"]), turn.turn_index)
         record = {
             "schema_version": "1.0.0",
             "revision": 1,
             "status": "pending",
-            "session_id": session_id,
+            "session_ref": payload["session_ref"],
             "turn_index": turn.turn_index,
             "payload": payload,
         }
@@ -918,7 +974,7 @@ class Bragi(BragiPublicationMixin, Agent):
     async def _claim_turn_publication(self, payload: Mapping[str, Any]) -> bool:
         if self._state_store is None:
             return True
-        key = _turn_outbox_key(str(payload["session_id"]), int(payload["turn_index"]))
+        key = _turn_outbox_key(str(payload["session_ref"]), int(payload["turn_index"]))
         for _attempt in range(16):
             stored = await self._state_store.read_state(key)
             if stored is None:
@@ -941,7 +997,7 @@ class Bragi(BragiPublicationMixin, Agent):
     async def _mark_turn_published(self, payload: Mapping[str, Any]) -> None:
         if self._state_store is None:
             return
-        key = _turn_outbox_key(str(payload["session_id"]), int(payload["turn_index"]))
+        key = _turn_outbox_key(str(payload["session_ref"]), int(payload["turn_index"]))
         for _attempt in range(16):
             stored = await self._state_store.read_state(key)
             if stored is None or stored.get("status") == "published":
@@ -1007,7 +1063,10 @@ class Bragi(BragiPublicationMixin, Agent):
         session_id: str,
         question: str,
         turn_index: int,
-        reason: str,
+        intent_category: str,
+        resource_type: str,
+        primary_agent: str,
+        failure_reason_code: str,
     ) -> str:
         if self.bus is None:
             self.record_behavior("handoff:transport_unavailable")
@@ -1020,7 +1079,11 @@ class Bragi(BragiPublicationMixin, Agent):
                     session_id=session_id,
                     question=question,
                     turn_index=turn_index,
-                    reason=reason,
+                    intent_category=intent_category,
+                    resource_type=resource_type,
+                    primary_agent=primary_agent,
+                    failure_reason_code=failure_reason_code,
+                    emitted_at=self._clock(),
                 ),
             )
         except Exception as exc:  # noqa: BLE001 - bounded operator degradation
@@ -1030,8 +1093,8 @@ class Bragi(BragiPublicationMixin, Agent):
                 extra={"error_type": type(exc).__name__},
             )
             return "publish_failed"
-        self.record_behavior("handoff:published")
-        return "published"
+        self.record_behavior("handoff:requested")
+        return "requested"
 
     def prior_turns(self, session_id: str, *, limit: int = 5) -> tuple[Turn, ...]:
         session = self._sessions.get(session_id)
@@ -1041,6 +1104,12 @@ class Bragi(BragiPublicationMixin, Agent):
 
     def sessions_for(self, user_id: str) -> tuple[ConversationSession, ...]:
         return tuple(s for s in self._sessions.values() if s.user_id == user_id)
+
+    def _next_a2a_turn_index(self, requester: str, target_agent: str) -> int:
+        key = (requester, target_agent)
+        turn_index = self._a2a_turn_indexes.get(key, 0)
+        self._a2a_turn_indexes[key] = turn_index + 1
+        return turn_index
 
     async def introspect(self, question: str, context: dict[str, Any]) -> IntrospectionResult:
         roster = {spec.name: list(spec.question_domains) for spec in PANTHEON_SPECS}
@@ -1057,6 +1126,10 @@ class Bragi(BragiPublicationMixin, Agent):
 def _validate_question(question: str) -> None:
     if len(question) > _MAX_QUESTION_CHARS:
         raise ValueError("question MUST be at most 2000 characters")
+
+
+def _locale_is_supported(locale: object) -> bool:
+    return locale == "en" or locale == "ko"
 
 
 def _validate_tool_answer_envelope(agent_name: str, answer: Mapping[str, Any]) -> str | None:
@@ -1094,12 +1167,53 @@ def _session_digest(session_id: str) -> str:
     return hashlib.sha256(session_id.encode("utf-8")).hexdigest()
 
 
+def _session_ref(session_id: str, generation: int) -> str:
+    return f"sha256:{hashlib.sha256(f'{session_id}\0{generation}'.encode()).hexdigest()}"
+
+
+def _principal_scope(user_id: str) -> str:
+    return f"sha256:{hashlib.sha256(user_id.encode('utf-8')).hexdigest()}"
+
+
+def _prior_turns_ref(session: ConversationSession, *, limit: int = 8) -> str:
+    if not session.turns:
+        return ""
+    principal_scope = _principal_scope(session.user_id)
+    session_ref = _session_ref(session.session_id, session.generation)
+    material = [
+        {
+            "turn_index": turn.turn_index,
+            "question_sha256": hashlib.sha256(turn.question.encode("utf-8")).hexdigest(),
+            "answer_sha256": hashlib.sha256(
+                repr(sorted(turn.answer.items())).encode("utf-8")
+            ).hexdigest(),
+        }
+        for turn in session.turns[-limit:]
+    ]
+    digest = hashlib.sha256(repr((principal_scope, session_ref, material)).encode()).hexdigest()
+    return f"bragi-prior-turns:{principal_scope}:{session_ref}:sha256:{digest}"
+
+
+def _resource_type_from_proposal(judgment: SemanticJudgmentProposal | None) -> str:
+    if judgment is None:
+        return "unknown"
+    for target in judgment.targets:
+        if target.kind in {"object_type", "resource_type"}:
+            return str(target.canonical_value or target.value)
+    for target in judgment.targets:
+        if target.kind == "resource":
+            return "Resource"
+    return "unknown"
+
+
 def _session_sequence_key(session_id: str) -> str:
     return f"{_BRAGI_STATE_PREFIX}/session/{_session_digest(session_id)}/sequence"
 
 
-def _turn_outbox_key(session_id: str, turn_index: int) -> str:
-    return f"{_BRAGI_STATE_PREFIX}/turn-outbox/{_session_digest(session_id)}/{turn_index:020d}"
+def _turn_outbox_key(session_ref: str, turn_index: int, generation: int | None = None) -> str:
+    del generation
+    digest = hashlib.sha256(session_ref.encode("utf-8")).hexdigest()
+    return f"{_BRAGI_STATE_PREFIX}/turn-outbox/{digest}/{turn_index:020d}"
 
 
 __all__ = ["Bragi", "RoutingDecision", "Turn", "ConversationSession"]

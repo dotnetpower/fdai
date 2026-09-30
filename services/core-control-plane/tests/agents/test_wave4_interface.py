@@ -451,6 +451,7 @@ def test_bragi_surfaces_unavailable_handoff_transport() -> None:
             session_id="handoff-unavailable",
             user_id="operator@example.com",
             question="unowned request with no deterministic route",
+            materialize_handoff=True,
         )
     )
 
@@ -475,6 +476,7 @@ def test_bragi_records_handoff_publish_failure_on_the_turn() -> None:
             session_id="handoff-publish-failed",
             user_id="operator@example.com",
             question="unowned request with no deterministic route",
+            materialize_handoff=True,
         )
     )
 

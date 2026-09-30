@@ -151,9 +151,15 @@ class _Harness:
         self.bus.subscribe("object.action-run", "Bragi", self.bragi.on_typed_message)
         self.bus.subscribe("object.approval", "Thor", self.thor.on_typed_message)
 
-    def ask(self, question: str, *, user: str = _OPERATOR, role: str | None = None):
+    def ask(self, question: str, *, user: str = _OPERATOR, role: str | None = "Contributor"):
         return asyncio.run(
-            self.bragi.ask(session_id="s1", user_id=user, question=question, initiator_role=role)
+            self.bragi.ask(
+                session_id="s1",
+                user_id=user,
+                question=question,
+                initiator_role=role,
+                allow_action_proposal=True,
+            )
         )
 
     def bragi_published(self) -> list:

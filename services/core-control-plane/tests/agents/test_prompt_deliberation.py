@@ -640,6 +640,7 @@ def test_fixed_assurance_facts_control_t2_admission_without_prose_inference() ->
             question="Compare the fixed cost and capacity scenario.",
             requester="Forseti",
             correlation_id="corr-fixed-scenario",
+            fixed_assurance_scenario_id="conversation-assurance-census-v1",
             fixed_assurance_facts={
                 "Njord": {
                     "scope_ref": "fixed-t2-scenario",
@@ -676,6 +677,7 @@ def test_fixed_assurance_facts_reject_unknown_agent() -> None:
                 question="Compare the fixed cost and capacity scenario.",
                 requester="Forseti",
                 correlation_id="corr-invalid-scenario",
+                fixed_assurance_scenario_id="conversation-assurance-census-v1",
                 fixed_assurance_facts={
                     "Unknown": {
                         "scope_ref": "fixed-t2-scenario",

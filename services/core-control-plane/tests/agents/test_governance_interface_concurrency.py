@@ -144,7 +144,12 @@ async def test_bragi_handoff_publish_does_not_block_same_session_turn_reservatio
     bragi.bind_bus(bus)
 
     first = asyncio.create_task(
-        bragi.ask(session_id="session-handoff", user_id="operator", question="unknown first")
+        bragi.ask(
+            session_id="session-handoff",
+            user_id="operator",
+            question="unknown first",
+            materialize_handoff=True,
+        )
     )
     await bus.wait_for("object.handoff-escalation")
     second = await bragi.ask(

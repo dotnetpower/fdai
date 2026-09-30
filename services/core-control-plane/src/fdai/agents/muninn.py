@@ -250,8 +250,8 @@ class Muninn(MuninnPatternReadMixin, Agent, HandoverKnowledgeMixin):
             "schema_version": "1.0.0",
             "turn_id": turn_id,
             "conversation_id": str(payload.get("conversation_id") or ""),
-            "session_id": str(payload.get("session_id") or ""),
-            "user_id": str(payload.get("user_id") or payload.get("principal_scope") or ""),
+            "session_ref": str(payload.get("session_ref") or payload.get("session_id") or ""),
+            "principal_scope": str(payload.get("principal_scope") or ""),
             "turn_index": payload.get("turn_index"),
             "correlation_id": correlation_id,
             "idempotency_key": idempotency_key,
@@ -968,18 +968,15 @@ class Muninn(MuninnPatternReadMixin, Agent, HandoverKnowledgeMixin):
         requester_user_id: str | None = None,
     ) -> Any | None:
         value = self.state_store.get(bucket, key)
-        if (
-            bucket in {"conversation_turns", "conversations", "user_preferences"}
-            and isinstance(value, dict)
-            and requester_user_id is not None
+        if bucket in {"conversation_turns", "conversations", "user_preferences"} and isinstance(
+            value, dict
         ):
-            owner = str(
-                value.get("user_id")
-                or value.get("principal_scope")
-                or value.get("session_id")
-                or ""
-            )
-            if owner and owner != requester_user_id:
+            if not requester_user_id:
+                self.record_behavior("conversation_context:unscoped_refused")
+                return None
+            owner = str(value.get("principal_scope") or "")
+            requester_scope = _principal_scope(requester_user_id)
+            if not owner or owner != requester_scope:
                 self.record_behavior("conversation_context:cross_user_refused")
                 return None
         return value
@@ -1071,6 +1068,10 @@ def _payload_digest(payload: Mapping[str, Any]) -> str:
     return hashlib.sha256(
         json.dumps(payload, separators=(",", ":"), sort_keys=True, default=str).encode()
     ).hexdigest()
+
+
+def _principal_scope(principal_id: str) -> str:
+    return f"sha256:{hashlib.sha256(principal_id.encode('utf-8')).hexdigest()}"
 
 
 __all__ = ["Muninn"]

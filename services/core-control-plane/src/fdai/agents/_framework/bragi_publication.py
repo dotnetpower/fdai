@@ -21,21 +21,32 @@ from .bragi_models import ConversationSession, Turn
 from .introspection import canonical_json
 
 
-def conversation_event_payload(session: ConversationSession) -> dict[str, Any]:
+def conversation_event_payload(
+    session: ConversationSession, *, status: str = "active"
+) -> dict[str, Any]:
     """Return a content-addressed Conversation without exposing user identity."""
-    session_digest = hashlib.sha256(session.session_id.encode()).hexdigest()
+    session_digest = hashlib.sha256(
+        f"{session.session_id}\0{session.generation}".encode()
+    ).hexdigest()
     principal_digest = hashlib.sha256(session.user_id.encode()).hexdigest()
     conversation_id = f"conversation-{session_digest[:32]}"
-    return {
+    payload = {
         "producer_principal": "Bragi",
         "id": conversation_id,
         "conversation_id": conversation_id,
-        "correlation_id": session.session_id,
+        "correlation_id": conversation_id,
         "idempotency_key": f"conversation:{session_digest}",
-        "session_id": session.session_id,
+        "session_ref": f"sha256:{session_digest}",
         "principal_scope": f"sha256:{principal_digest}",
-        "status": "active",
+        "status": status,
     }
+    if session.created_at is not None:
+        payload["created_at"] = session.created_at.isoformat()
+    if session.last_active_at is not None:
+        payload["last_active_at"] = session.last_active_at.isoformat()
+    if session.ended_at is not None:
+        payload["ended_at"] = session.ended_at.isoformat()
+    return payload
 
 
 def user_preference_event_payload(preference: UserPreferenceRecord) -> dict[str, Any]:
@@ -70,8 +81,37 @@ def user_preference_event_payload(preference: UserPreferenceRecord) -> dict[str,
     }
 
 
-def post_turn_review_event_payload(review: PostTurnReviewInput) -> dict[str, Any]:
+def post_turn_review_event_payload(
+    review: PostTurnReviewInput,
+    *,
+    preference: UserPreferenceRecord | None = None,
+) -> dict[str, Any]:
     """Return the consent-filtered review envelope consumed by Norns."""
+    body_allowed = (
+        preference is not None
+        and preference.share_with_learner is True
+        and f"sha256:{hashlib.sha256(preference.principal_id.encode()).hexdigest()}"
+        == review.principal_scope
+    )
+    if not body_allowed and (review.operator_body is not None or review.assistant_body is not None):
+        review = PostTurnReviewInput(
+            review_id=review.review_id,
+            principal_scope=review.principal_scope,
+            operator_turn_id=review.operator_turn_id,
+            assistant_turn_id=review.assistant_turn_id,
+            completed_at=review.completed_at,
+            operator_body=None,
+            assistant_body=None,
+            tool_receipts=review.tool_receipts,
+            validation_outcomes=review.validation_outcomes,
+            explicit_corrections=review.explicit_corrections,
+            evidence_refs=review.evidence_refs,
+            memory_scope_kind=review.memory_scope_kind,
+            memory_scope_ref=review.memory_scope_ref,
+            failure_recovered=review.failure_recovered,
+            procedure_fingerprint=review.procedure_fingerprint,
+            repeated_procedure_count=review.repeated_procedure_count,
+        )
     return shared_post_turn_review_event_payload(
         PostTurnReviewInputWire.model_validate(review_input_to_mapping(review))
     )
@@ -80,17 +120,20 @@ def post_turn_review_event_payload(review: PostTurnReviewInput) -> dict[str, Any
 def turn_event_payload(
     *,
     session_id: str,
+    user_id: str,
+    session_generation: int,
     turn: Turn,
     contributor_limit: int,
 ) -> dict[str, Any]:
     """Return the bounded ``object.turn`` payload for an operator session."""
-    session_digest = hashlib.sha256(session_id.encode()).hexdigest()
+    session_digest = hashlib.sha256(f"{session_id}\0{session_generation}".encode()).hexdigest()
+    principal_digest = hashlib.sha256(user_id.encode()).hexdigest()
     question_digest = hashlib.sha256(turn.question.encode()).hexdigest()
     answer_json = canonical_json(turn.answer)
     answer_digest = hashlib.sha256(answer_json.encode()).hexdigest()
-    trace_ref = str(turn.answer.get("trace_ref") or turn.answer.get("correlation_id") or session_id)
     turn_key = f"{session_digest}:{turn.turn_index}"
     turn_id = f"turn-{hashlib.sha256(turn_key.encode()).hexdigest()[:32]}"
+    trace_ref = str(turn.answer.get("trace_ref") or turn.answer.get("correlation_id") or turn_id)
     contributors = turn.answer.get("contributors")
     safe_contributors = (
         [item for item in contributors[:contributor_limit] if isinstance(item, str)]
@@ -103,7 +146,8 @@ def turn_event_payload(
         "turn_id": turn_id,
         "correlation_id": trace_ref,
         "idempotency_key": f"turn:{session_digest}:{turn.turn_index}",
-        "session_id": session_id,
+        "session_ref": f"sha256:{session_digest}",
+        "principal_scope": f"sha256:{principal_digest}",
         "turn_index": turn.turn_index,
         "question_ref": f"bragi-session:sha256:{session_digest}:turn:{turn.turn_index}:question",
         "question_sha256": question_digest,
@@ -129,6 +173,7 @@ def a2a_turn_event_payload(
     target_agent: str,
     question: str,
     response: dict[str, Any],
+    turn_index: int,
 ) -> dict[str, Any]:
     """Return the content-addressed ``object.turn`` payload for agent introspection."""
     question_digest = hashlib.sha256(question.encode()).hexdigest()
@@ -140,14 +185,16 @@ def a2a_turn_event_payload(
     ).hexdigest()
     turn_id = f"turn-{identity[:32]}"
     session_digest = hashlib.sha256(f"{requester}:{target_agent}".encode()).hexdigest()
+    principal_digest = hashlib.sha256(requester.encode()).hexdigest()
     return {
         "producer_principal": "Bragi",
         "id": turn_id,
         "turn_id": turn_id,
         "correlation_id": trace_ref or turn_id,
         "idempotency_key": f"a2a-turn:{identity}",
-        "session_id": f"a2a-{session_digest[:32]}",
-        "turn_index": 0,
+        "session_ref": f"a2a:sha256:{session_digest}",
+        "principal_scope": f"sha256:{principal_digest}",
+        "turn_index": turn_index,
         "question_ref": f"a2a:sha256:{question_digest}:question",
         "question_sha256": question_digest,
         "primary_agent": target_agent,
@@ -164,36 +211,66 @@ def handoff_event_payload(
     session_id: str,
     question: str,
     turn_index: int,
-    reason: str,
+    intent_category: str | None = None,
+    resource_type: str = "unknown",
+    primary_agent: str = "unassigned",
+    failure_reason_code: str | None = None,
+    emitted_at: datetime | None = None,
+    reason: str | None = None,
 ) -> dict[str, Any]:
     """Return the content-free ``object.handoff-escalation`` payload."""
+    if reason is not None:
+        intent_category = intent_category or reason
+        failure_reason_code = failure_reason_code or reason
+    intent_category = intent_category or "unknown"
+    failure_reason_code = failure_reason_code or "no_route"
+    emitted_at = emitted_at or datetime.fromtimestamp(0, tz=UTC)
     normalized = " ".join(question.split()).casefold()
     selector_digest = hashlib.sha256(normalized.encode()).hexdigest()
+    normalized_selector = f"sha256:{selector_digest}"
+    problem_fingerprint = hashlib.sha256(
+        "|".join(
+            (
+                intent_category,
+                resource_type,
+                normalized_selector,
+                primary_agent,
+                failure_reason_code,
+            )
+        ).encode("utf-8")
+    ).hexdigest()
     escalation_id = hashlib.sha256(
-        f"{session_id}\0{turn_index}\0{reason}\0{selector_digest}".encode()
+        f"{session_id}\0{turn_index}\0{problem_fingerprint}".encode()
     ).hexdigest()
     return {
         "producer_principal": "Bragi",
         "id": f"handoff-{escalation_id[:32]}",
         "escalation_id": f"handoff-{escalation_id[:32]}",
-        "correlation_id": session_id,
+        "correlation_id": f"handoff-{escalation_id[:32]}",
         "idempotency_key": f"handoff:{escalation_id}",
-        "emitting_agent": "Bragi",
-        "intent_category": reason,
-        "normalized_selector": f"sha256:{selector_digest}",
-        "failure_reason_code": reason,
-        "emitted_at": datetime.now(UTC).isoformat(),
+        "emitting_agent": primary_agent,
+        "primary_agent": primary_agent,
+        "intent_category": intent_category,
+        "resource_type": resource_type,
+        "normalized_selector": normalized_selector,
+        "failure_reason_code": failure_reason_code,
+        "problem_fingerprint": problem_fingerprint,
+        "emitted_at": emitted_at.isoformat(),
     }
 
 
 class BragiPublicationMixin:
     """Typed publication methods shared by Bragi's operator and A2A paths."""
 
-    async def _publish_conversation(self, session: ConversationSession) -> bool:
+    async def _publish_conversation(
+        self, session: ConversationSession, *, status: str = "active"
+    ) -> bool:
         bus = getattr(self, "bus", None)
         if bus is None:
             return False
-        await bus.publish("Bragi", "object.conversation", conversation_event_payload(session))
+        await bus.publish(
+            "Bragi", "object.conversation", conversation_event_payload(session, status=status)
+        )
         return True
 
     async def _publish_a2a_turn(
@@ -203,6 +280,7 @@ class BragiPublicationMixin:
         target_agent: str,
         question: str,
         response: dict[str, Any],
+        turn_index: int,
     ) -> None:
         bus = getattr(self, "bus", None)
         if bus is None:
@@ -215,6 +293,7 @@ class BragiPublicationMixin:
                 target_agent=target_agent,
                 question=question,
                 response=response,
+                turn_index=turn_index,
             ),
         )
 
@@ -229,13 +308,18 @@ class BragiPublicationMixin:
         )
         return True
 
-    async def publish_post_turn_review(self, review: PostTurnReviewInput) -> bool:
+    async def publish_post_turn_review(
+        self,
+        review: PostTurnReviewInput,
+        *,
+        preference: UserPreferenceRecord | None = None,
+    ) -> bool:
         bus = getattr(self, "bus", None)
         if bus is None:
             return False
         await bus.publish(
             "Bragi",
             "object.post-turn-review",
-            post_turn_review_event_payload(review),
+            post_turn_review_event_payload(review, preference=preference),
         )
         return True
