@@ -138,7 +138,7 @@
         "When does Odin intervene?",
         "Odin이 개입하지 않는 경우는 언제인가요?"
       ],
-      "source_manifest_hash": "2fd04027d179ee8273ee678e4c712f60497dbe0aa1346922d33b4327ccb25faf",
+      "source_manifest_hash": "6398bf7cdd7bcbbe4ec782fd77b009130c810b9ec787b8b7d6b44618455d778b",
       "sources": [
         {
           "authority_role": "implementation",
@@ -151,9 +151,9 @@
         },
         {
           "authority_role": "implementation",
-          "blob_sha": "a93218a0bc8cc5d11419cf9a6ef2980c1a336830",
-          "line_end": 338,
-          "line_start": 257,
+          "blob_sha": "c1e3265160752b19f420dd54eeafe3743009da61",
+          "line_end": 364,
+          "line_start": 283,
           "path": "services/core-control-plane/src/fdai/agents/odin.py",
           "source_kind": "code",
           "symbol": "Odin.arbitrate"
@@ -246,20 +246,20 @@
         "How are repeated Issues handled?",
         "Issue 중복은 어떻게 처리하나요?"
       ],
-      "source_manifest_hash": "2b4257105e25dd59fe6b12141b5141bb36e162ff204e890b4a7b3ac195d60f76",
+      "source_manifest_hash": "f6addf60ed9ecf0866360461f2e78a070e54641b133e2c575a056afd43d1db6e",
       "sources": [
         {
           "authority_role": "implementation",
-          "blob_sha": "e4e57b0245d67e1eb0402d422a75c872c91f50ca",
-          "line_end": 870,
-          "line_start": 831,
+          "blob_sha": "e93fc90eb5b2adf80a85b186929c7ded26750334",
+          "line_end": 933,
+          "line_start": 894,
           "path": "services/core-control-plane/src/fdai/agents/saga.py",
           "source_kind": "code",
           "symbol": "Saga.escalate_to_github_issue"
         },
         {
           "authority_role": "verification",
-          "blob_sha": "37372bdcc1ce65cc186825a475d966b3945a0819",
+          "blob_sha": "71289889efb1d22ad6016e1e61222610c3546140",
           "line_end": 211,
           "line_start": 177,
           "path": "services/core-control-plane/tests/agents/test_wave2_governance.py",
@@ -840,13 +840,13 @@
         "How does Vidar handle rollback?",
         "Vidar는 롤백을 어떻게 처리하나요?"
       ],
-      "source_manifest_hash": "b4965945485f49a50a61fb3e5b19d5baa12f620eeae2713d9994f9bee05edfed",
+      "source_manifest_hash": "ca76fb79c97526e6d3cd60fde490f49cc07c8b530e1f35284518d632168da66c",
       "sources": [
         {
           "authority_role": "implementation",
-          "blob_sha": "f1172e63b03e350db5233b6408026d99a741a81f",
-          "line_end": 236,
-          "line_start": 214,
+          "blob_sha": "4d84ae8469d9dcfb837a5003c11fbd8a18d7c319",
+          "line_end": 311,
+          "line_start": 289,
           "path": "services/core-control-plane/src/fdai/agents/vidar.py",
           "source_kind": "code",
           "symbol": "Vidar.rollback"
@@ -921,13 +921,13 @@
         "Can Bragi execute a command?",
         "Bragi는 명령을 직접 실행하나요?"
       ],
-      "source_manifest_hash": "bba0d2a617d525d1dafbc0b8d51c5227295a85414945e0e3119203ea66304f57",
+      "source_manifest_hash": "12c110c941650e78949f88048a5aa7037b0b1a380364c578a7d133fc75ea837e",
       "sources": [
         {
           "authority_role": "implementation",
-          "blob_sha": "f75464b5977a1214931410dddb067dd9deb80b2d",
-          "line_end": 883,
-          "line_start": 557,
+          "blob_sha": "778bcfb52ba2a17c4afef74502c2b344bf044d0b",
+          "line_end": 887,
+          "line_start": 561,
           "path": "services/core-control-plane/src/fdai/agents/bragi.py",
           "source_kind": "code",
           "symbol": "Bragi.ask"
