@@ -16,6 +16,7 @@ from fdai.shared.providers import EventBus, EventEnvelope, StateStore
 from fdai_service_contracts.semantic_turn import multiplexed_consumer_group
 
 from tests.agents.test_operating_pattern_learning_e2e import (
+    _case_clock,
     _learning_chain,
     _operational_input,
     _operational_raw,
@@ -97,6 +98,7 @@ async def test_pinned_broker_restart_and_redrive_preserve_throttled_candidate(
     throttled = Norns(
         case_history_materializer=materializer,
         operational_state_store=state_store,
+        clock=_case_clock,
     )
     throttled.bind_bus(output_bus)
     throttled.bind_candidate_publication_gate(lambda: False)
@@ -144,6 +146,7 @@ async def test_pinned_broker_restart_and_redrive_preserve_throttled_candidate(
     restarted = Norns(
         case_history_materializer=materializer,
         operational_state_store=state_store,
+        clock=_case_clock,
     )
     restarted.bind_bus(restarted_bus)
     assert await restarted.recover_operational_candidates() == 1
@@ -182,6 +185,7 @@ async def test_pinned_broker_restart_and_redrive_preserve_throttled_candidate(
     after_deletion = Norns(
         case_history_materializer=materializer,
         operational_state_store=state_store,
+        clock=_case_clock,
     )
     after_deletion.bind_bus(deleted_bus)
     after_deletion_group = f"{consumer_prefix}.redrive-after-deletion"
