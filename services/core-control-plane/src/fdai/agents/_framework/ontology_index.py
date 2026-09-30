@@ -3,12 +3,12 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import json
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from typing import Any, Literal
 
-from fdai_service_contracts.ontology_query import content_digest
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from .base import Agent
@@ -87,10 +87,17 @@ class ContextIndexMessage(BaseModel):
     def _owner_and_content(self) -> ContextIndexMessage:
         if self.producer_principal != _OWNERS[self.phase]:
             raise ValueError("ontology ContextIndex phase has the wrong publishing owner")
-        encoded = json.dumps(self.body, ensure_ascii=False, allow_nan=False).encode("utf-8")
+        encoded = _canonical_body_bytes(self.body)
         if len(encoded) > 262_144:
             raise ValueError("ontology ContextIndex body exceeds its byte bound")
-        if self.idempotency_key != self.content_key:
+        content_key = _content_key(
+            phase=self.phase,
+            producer_principal=self.producer_principal,
+            correlation_id=self.correlation_id,
+            body=self.body,
+            body_bytes=encoded,
+        )
+        if self.idempotency_key != content_key:
             raise ValueError("ontology ContextIndex message content identity mismatch")
         return self
 
@@ -100,13 +107,13 @@ class ContextIndexMessage(BaseModel):
 
     @property
     def content_key(self) -> str:
-        return "ontology-context-index:" + content_digest(
-            {
-                "phase": self.phase,
-                "producer_principal": self.producer_principal,
-                "correlation_id": self.correlation_id,
-                "body": self.body,
-            }
+        body_bytes = _canonical_body_bytes(self.body)
+        return _content_key(
+            phase=self.phase,
+            producer_principal=self.producer_principal,
+            correlation_id=self.correlation_id,
+            body=self.body,
+            body_bytes=body_bytes,
         )
 
     @classmethod
@@ -118,13 +125,13 @@ class ContextIndexMessage(BaseModel):
         body: dict[str, Any],
     ) -> ContextIndexMessage:
         owner = _OWNERS[phase]
-        key = "ontology-context-index:" + content_digest(
-            {
-                "phase": phase,
-                "producer_principal": owner,
-                "correlation_id": correlation_id,
-                "body": body,
-            }
+        body_bytes = _canonical_body_bytes(body)
+        key = _content_key(
+            phase=phase,
+            producer_principal=owner,
+            correlation_id=correlation_id,
+            body=body,
+            body_bytes=body_bytes,
         )
         return cls(
             phase=phase,
@@ -179,7 +186,7 @@ def owned_context_index_handler(
         }
         async with asyncio.timeout(120):
             result = await callbacks[agent.spec.name](message)
-        result = ContextIndexMessage.model_validate_json(result.model_dump_json())
+        result = ContextIndexMessage.model_validate(result)
         if (
             result.phase != next_step[1]
             or result.producer_principal != agent.spec.name
@@ -212,10 +219,43 @@ async def recover_context_index_publications(
             if len(pending) > 64:
                 raise ValueError("ontology ContextIndex recovery batch exceeds its bound")
             for message in pending:
-                message = ContextIndexMessage.model_validate_json(message.model_dump_json())
+                message = ContextIndexMessage.model_validate(message)
                 if message.producer_principal != owner:
                     raise ValueError("ontology ContextIndex recovery crossed publishing ownership")
                 await agent.bus.publish(owner, message.topic, message.model_dump(mode="json"))
                 await bindings.published(message)
                 published += 1
     return published
+
+
+def _canonical_body_bytes(body: dict[str, Any]) -> bytes:
+    return json.dumps(
+        body,
+        ensure_ascii=True,
+        allow_nan=False,
+        separators=(",", ":"),
+        sort_keys=True,
+    ).encode("utf-8")
+
+
+def _content_key(
+    *,
+    phase: str,
+    producer_principal: str,
+    correlation_id: str,
+    body: dict[str, Any],
+    body_bytes: bytes,
+) -> str:
+    prefix = (
+        b'{"body":'
+        + body_bytes
+        + b',"correlation_id":'
+        + json.dumps(correlation_id, ensure_ascii=True, separators=(",", ":")).encode("utf-8")
+        + b',"phase":'
+        + json.dumps(phase, ensure_ascii=True, separators=(",", ":")).encode("utf-8")
+        + b',"producer_principal":'
+        + json.dumps(producer_principal, ensure_ascii=True, separators=(",", ":")).encode("utf-8")
+        + b"}"
+    )
+    del body
+    return "ontology-context-index:sha256:" + hashlib.sha256(prefix).hexdigest()

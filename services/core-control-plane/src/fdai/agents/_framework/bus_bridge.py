@@ -58,6 +58,7 @@ Payload = Mapping[str, object]
 Handler = Callable[[str, dict[str, object]], Awaitable[None]]
 PayloadValidator = Callable[[str, Mapping[str, object]], None]
 ConsumerStateObserver = Callable[[str, str, str], None]
+DEFAULT_REDRIVE_BATCH_SIZE = 100
 """Optional publish-side contract check (topic, payload) -> None; raises on
 an invalid payload. Wire a ContractValidator-backed callable here to reject
 a malformed record at the publish boundary (fail closed)."""
@@ -107,6 +108,7 @@ class EventBusBridge:
     handler_observer: AgentHandlerObserver | None = None
     consumer_state_observer: ConsumerStateObserver | None = None
     halt_state_store: StateStore | None = None
+    redrive_batch_size: int = DEFAULT_REDRIVE_BATCH_SIZE
     _subs: dict[str, list[tuple[str, Handler]]] = field(default_factory=lambda: defaultdict(list))
     _tasks: list[asyncio.Task[None]] = field(default_factory=list)
     _consumer_states: dict[str, str] = field(default_factory=dict)
@@ -736,6 +738,9 @@ class EventBusBridge:
         """
         if max_records is not None and max_records <= 0:
             raise ValueError("max_records MUST be greater than zero when provided")
+        limit = max_records if max_records is not None else self.redrive_batch_size
+        if limit <= 0:
+            raise ValueError("redrive_batch_size MUST be greater than zero")
         dlq_topic = f"{topic}.dlq"
         gid = group_id or f"{self.consumer_group_prefix}.redrive.{topic}"
         redriven = 0
@@ -767,7 +772,7 @@ class EventBusBridge:
                         payload=payload,
                         reason=f"redrive failed: {type(exc).__name__}",
                     )
-                if max_records is not None and (redriven + failed) >= max_records:
+                if (redriven + failed) >= limit:
                     break
         finally:
             aclose = getattr(dlq_stream, "aclose", None)
@@ -780,4 +785,10 @@ class EventBusBridge:
         return {"redriven": redriven, "failed": failed}
 
 
-__all__ = ["AgentHandlerObserver", "AgentHandlerPhase", "BridgeMetrics", "EventBusBridge"]
+__all__ = [
+    "AgentHandlerObserver",
+    "AgentHandlerPhase",
+    "BridgeMetrics",
+    "DEFAULT_REDRIVE_BATCH_SIZE",
+    "EventBusBridge",
+]

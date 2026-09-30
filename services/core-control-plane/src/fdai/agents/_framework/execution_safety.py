@@ -159,6 +159,7 @@ async def maintain_agents(
     interval: float,
     *,
     tick_timeout: float = 5.0,
+    max_in_flight: int | None = None,
 ) -> None:
     """Run isolated per-agent maintenance while consumers stay active.
 
@@ -170,11 +171,15 @@ async def maintain_agents(
     not cancel sibling ticks.
     """
 
+    in_flight: dict[tuple[str, str], asyncio.Task[Any]] = {}
+    in_flight_limit = max_in_flight if max_in_flight is not None else max(1, len(agents) * 2)
+    if in_flight_limit < 1:
+        raise ValueError("max_in_flight MUST be >= 1")
     while True:
         await asyncio.sleep(interval)
         tasks = [
             asyncio.create_task(
-                _run_agent_maintenance(agent, tick_timeout),
+                _run_agent_maintenance(agent, tick_timeout, in_flight, in_flight_limit),
                 name=f"pantheon-maintenance.{name}",
             )
             for name, agent in agents.items()
@@ -183,13 +188,21 @@ async def maintain_agents(
             await asyncio.gather(*tasks, return_exceptions=True)
 
 
-async def _run_agent_maintenance(agent: Agent, tick_timeout: float) -> None:
+async def _run_agent_maintenance(
+    agent: Agent,
+    tick_timeout: float,
+    in_flight: dict[tuple[str, str], asyncio.Task[Any]] | None = None,
+    in_flight_limit: int = 1,
+) -> None:
+    in_flight = in_flight if in_flight is not None else {}
     try:
         if isinstance(agent, Thor):
             if not await _run_maintenance_step(
                 agent,
                 agent.expire_pending_approvals(),
                 tick_timeout,
+                in_flight,
+                in_flight_limit,
                 step="expire_pending_approvals",
             ):
                 return
@@ -197,6 +210,8 @@ async def _run_agent_maintenance(agent: Agent, tick_timeout: float) -> None:
             agent,
             agent.maintenance_tick(),
             tick_timeout,
+            in_flight,
+            in_flight_limit,
             step="maintenance_tick",
         ):
             return
@@ -210,16 +225,30 @@ async def _run_maintenance_step(
     agent: Agent,
     operation: Awaitable[Any],
     tick_timeout: float,
+    in_flight: dict[tuple[str, str], asyncio.Task[Any]],
+    in_flight_limit: int,
     *,
     step: str,
 ) -> bool:
     """Run one maintenance step with a deadline that does not cancel commits."""
 
+    key = (agent.spec.name, step)
+    existing = in_flight.get(key)
+    if existing is not None and not existing.done():
+        agent.record_behavior("maintenance_tick:skipped_in_flight")
+        _close_unscheduled(operation)
+        return False
+    if len([task for task in in_flight.values() if not task.done()]) >= in_flight_limit:
+        agent.record_behavior("maintenance_tick:skipped_capacity")
+        _close_unscheduled(operation)
+        return False
     task: asyncio.Future[Any] = asyncio.ensure_future(operation)
     if isinstance(task, asyncio.Task):
         task.set_name(f"pantheon-maintenance.{agent.spec.name}.{step}")
+        in_flight[key] = task
     try:
         await asyncio.wait_for(asyncio.shield(task), tick_timeout)
+        in_flight.pop(key, None)
         return True
     except TimeoutError:
         agent.record_behavior("maintenance_tick:timeout")
@@ -227,11 +256,22 @@ async def _run_maintenance_step(
             "pantheon_agent_maintenance_timeout",
             extra={"agent": agent.spec.name, "step": step},
         )
-        task.add_done_callback(lambda done: _observe_timed_out_maintenance(agent, step, done))
+        task.add_done_callback(
+            lambda done: _observe_timed_out_maintenance(agent, step, done, in_flight)
+        )
         return False
+    except Exception:
+        in_flight.pop(key, None)
+        raise
 
 
-def _observe_timed_out_maintenance(agent: Agent, step: str, task: asyncio.Future[Any]) -> None:
+def _observe_timed_out_maintenance(
+    agent: Agent,
+    step: str,
+    task: asyncio.Future[Any],
+    in_flight: dict[tuple[str, str], asyncio.Task[Any]],
+) -> None:
+    in_flight.pop((agent.spec.name, step), None)
     try:
         task.result()
     except Exception:  # noqa: BLE001 - late failure is observability only
@@ -240,6 +280,12 @@ def _observe_timed_out_maintenance(agent: Agent, step: str, task: asyncio.Future
             "pantheon_agent_maintenance_late_failed",
             extra={"agent": agent.spec.name, "step": step},
         )
+
+
+def _close_unscheduled(operation: Awaitable[Any]) -> None:
+    close = getattr(operation, "close", None)
+    if callable(close):
+        close()
 
 
 async def run_with_maintenance(

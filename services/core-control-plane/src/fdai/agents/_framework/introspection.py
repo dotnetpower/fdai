@@ -21,6 +21,7 @@ from __future__ import annotations
 import hashlib
 import json
 import re
+from collections.abc import Mapping
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
@@ -83,8 +84,13 @@ def mentioned(question: str, candidates: Any) -> list[str]:
     (e.g. "cost for rg-abc" -> the ``rg-abc`` scope). Order follows
     ``candidates`` for determinism.
     """
-    identifiers = set(_IDENTIFIER_RE.findall(question[:_MAX_QUESTION_LEN].lower()))
-    return [c for c in candidates if str(c).lower() in identifiers]
+    identifiers = tuple(dict.fromkeys(_IDENTIFIER_RE.findall(question[:_MAX_QUESTION_LEN].lower())))
+    if isinstance(candidates, Mapping):
+        return [identifier for identifier in identifiers if identifier in candidates]
+    if isinstance(candidates, set | frozenset):
+        return [identifier for identifier in identifiers if identifier in candidates]
+    identifier_set = set(identifiers)
+    return [c for c in candidates if str(c).lower() in identifier_set]
 
 
 def semantic_intents(context: dict[str, Any]) -> frozenset[str]:

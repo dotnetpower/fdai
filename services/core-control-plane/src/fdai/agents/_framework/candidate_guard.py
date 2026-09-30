@@ -167,7 +167,9 @@ class CandidateGuard:
         )
         now = self._clock()
         cutoff = now - self._source_window_seconds
-        events = self._source_events.get(source_key) or deque()
+        events = self._source_events.get(source_key) or deque(
+            maxlen=self._max_source_candidates + 1
+        )
         while events and events[0] <= cutoff:
             events.popleft()
         events.append(now)

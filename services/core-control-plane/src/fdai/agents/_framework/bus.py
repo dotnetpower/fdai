@@ -18,6 +18,7 @@ import asyncio
 import logging
 from collections import defaultdict
 from collections.abc import Awaitable, Callable, Mapping
+from copy import deepcopy
 from dataclasses import dataclass, field
 from typing import Any, Protocol, runtime_checkable
 
@@ -35,6 +36,7 @@ _LOG = logging.getLogger(__name__)
 Payload = dict[str, Any]
 Handler = Callable[[str, Payload], Awaitable[None]]
 PayloadValidator = Callable[[str, Payload], None]
+_DEFAULT_HISTORY_LIMIT = 100_000
 
 
 @runtime_checkable
@@ -94,6 +96,11 @@ class InMemoryBus:
     - it halts ordered mutation topics after a poison handler by default,
       matching the bridge's poison-halt semantics so a later mutation cannot
       overtake an earlier failed mutation in local tests.
+
+    Diagnostic history is bounded by ``history_limit`` and
+    ``dead_letter_limit`` (default 100,000 each). The default is deliberately
+    generous for existing long assertions while preventing local runs from
+    retaining unbounded payload history.
     """
 
     registry: PantheonRegistry
@@ -105,6 +112,8 @@ class InMemoryBus:
     halt_ordered_topic_on_poison: bool = True
     duplicate_delivery_count: int = 1
     payload_validator: PayloadValidator | None = None
+    history_limit: int = _DEFAULT_HISTORY_LIMIT
+    dead_letter_limit: int = _DEFAULT_HISTORY_LIMIT
     subscribers: dict[str, list[tuple[str, Handler]]] = field(
         default_factory=lambda: defaultdict(list)
     )
@@ -118,12 +127,21 @@ class InMemoryBus:
     envelope_violations: int = 0
     duplicate_deliveries: int = 0
     _halted_topics: set[str] = field(default_factory=set)
+    _published_by_topic: dict[str, list[PublishedMessage]] = field(
+        default_factory=lambda: defaultdict(list)
+    )
+    history_overflows: int = 0
+    dead_letter_overflows: int = 0
 
     def __post_init__(self) -> None:
         if self.handler_max_retries < 0:
             raise ValueError("handler_max_retries MUST be >= 0")
         if self.duplicate_delivery_count < 1:
             raise ValueError("duplicate_delivery_count MUST be >= 1")
+        if self.history_limit < 1:
+            raise ValueError("history_limit MUST be >= 1")
+        if self.dead_letter_limit < 1:
+            raise ValueError("dead_letter_limit MUST be >= 1")
 
     def subscribe(self, topic: str, agent_name: str, handler: Handler) -> None:
         if topic.startswith("object.") and topic not in OWNED_OBJECT_TOPICS:
@@ -178,15 +196,12 @@ class InMemoryBus:
         key = partition_key_for(topic, enriched)
         if not key:
             self.empty_partition_keys += 1
-        self.published.append(
-            PublishedMessage(topic=topic, payload=dict(enriched), principal=principal, key=key)
-        )
+        snapshot = deepcopy(enriched)
+        message = PublishedMessage(topic=topic, payload=snapshot, principal=principal, key=key)
+        self._append_published(message)
         for agent_name, handler in self.subscribers.get(topic, []):
-            # Hand each subscriber its own copy so a handler that mutates the
-            # payload cannot contaminate later subscribers or the caller's
-            # object (the Kafka-backed bridge copies per delivery too).
             try:
-                await self._deliver(topic, handler, enriched)
+                await self._deliver(topic, handler, snapshot)
             except Exception as exc:  # noqa: BLE001 - isolation mirrors the bridge DLQ
                 self.handler_errors += 1
                 if not self.isolate_handlers:
@@ -199,14 +214,14 @@ class InMemoryBus:
                         "error_type": type(exc).__name__,
                     },
                 )
-                self.dead_letters.append(
+                self._append_dead_letter(
                     PublishedMessage(
                         topic=topic,
-                        payload=dict(enriched),
+                        payload=snapshot,
                         principal=principal,
                         key=key,
                         failing_consumer=agent_name,
-                    )
+                    ),
                 )
                 if self.halt_ordered_topic_on_poison and topic in {
                     "object.action-run",
@@ -216,7 +231,7 @@ class InMemoryBus:
                     self._halted_topics.add(topic)
                     break
 
-    async def _deliver(self, topic: str, handler: Handler, payload: Payload) -> None:
+    async def _deliver(self, topic: str, handler: Handler, payload: Mapping[str, Any]) -> None:
         for duplicate_index in range(self.duplicate_delivery_count):
             if duplicate_index:
                 self.duplicate_deliveries += 1
@@ -224,10 +239,11 @@ class InMemoryBus:
             for attempt in range(self.handler_max_retries + 1):
                 try:
                     timeout = self.handler_timeouts.get(topic, self.handler_timeout)
+                    view = deepcopy(dict(payload))
                     if timeout is not None:
-                        await asyncio.wait_for(handler(topic, dict(payload)), timeout)
+                        await asyncio.wait_for(handler(topic, view), timeout)
                     else:
-                        await handler(topic, dict(payload))
+                        await handler(topic, view)
                     break
                 except Exception as exc:  # noqa: BLE001 - retry then isolate/propagate
                     last_exc = exc
@@ -241,6 +257,7 @@ class InMemoryBus:
     def clear_history(self) -> None:
         self.published.clear()
         self.dead_letters.clear()
+        self._published_by_topic.clear()
         self.empty_partition_keys = 0
         self.handler_errors = 0
         self.handler_retries = 0
@@ -248,10 +265,30 @@ class InMemoryBus:
         self.schema_violations = 0
         self.envelope_violations = 0
         self.duplicate_deliveries = 0
+        self.history_overflows = 0
+        self.dead_letter_overflows = 0
         self._halted_topics.clear()
 
     def messages_on(self, topic: str) -> list[PublishedMessage]:
-        return [m for m in self.published if m.topic == topic]
+        return list(self._published_by_topic.get(topic, ()))
+
+    def _append_published(self, message: PublishedMessage) -> None:
+        self.published.append(message)
+        self._published_by_topic[message.topic].append(message)
+        while len(self.published) > self.history_limit:
+            self.history_overflows += 1
+            removed = self.published.pop(0)
+            topic_messages = self._published_by_topic.get(removed.topic)
+            if topic_messages:
+                topic_messages.pop(0)
+                if not topic_messages:
+                    self._published_by_topic.pop(removed.topic, None)
+
+    def _append_dead_letter(self, message: PublishedMessage) -> None:
+        self.dead_letters.append(message)
+        while len(self.dead_letters) > self.dead_letter_limit:
+            self.dead_letter_overflows += 1
+            self.dead_letters.pop(0)
 
 
 __all__ = ["InMemoryBus", "PantheonBus", "PublishedMessage", "Payload", "Handler"]

@@ -26,6 +26,7 @@ budget, or rejects without counting when either is exhausted. This avoids the
 from __future__ import annotations
 
 import asyncio
+import heapq
 import time
 from collections import deque
 from collections.abc import Callable, Mapping
@@ -58,6 +59,8 @@ class RateLimiter:
         "_state_store",
         "_state_key",
         "_reservations",
+        "_reservation_minute_heap",
+        "_reservation_hour_heap",
         "_reservation_sequence",
     )
 
@@ -82,6 +85,8 @@ class RateLimiter:
         self._state_store = state_store
         self._state_key = f"{_STATE_PREFIX}/{scope}"
         self._reservations: dict[str, float] = {}
+        self._reservation_minute_heap: list[tuple[float, str]] = []
+        self._reservation_hour_heap: list[tuple[float, str]] = []
         self._reservation_sequence = 0
         if self._state_store is None:
             self._load_durable_windows()
@@ -140,12 +145,9 @@ class RateLimiter:
         t = self._now()
         _evict_expired(self._minute_events, t - _MINUTE_SECONDS)
         _evict_expired(self._hour_events, t - _HOUR_SECONDS)
-        active_reservations = sum(
-            1 for reserved_at in self._reservations.values() if reserved_at > t - _HOUR_SECONDS
-        )
-        minute_reservations = sum(
-            1 for reserved_at in self._reservations.values() if reserved_at > t - _MINUTE_SECONDS
-        )
+        self._evict_expired_reservations(t)
+        active_reservations = len(self._reservation_hour_heap)
+        minute_reservations = len(self._reservation_minute_heap)
         if (
             len(self._minute_events) + minute_reservations >= self._per_minute
             or len(self._hour_events) + active_reservations >= self._per_hour
@@ -153,6 +155,8 @@ class RateLimiter:
             return None
         token = self._next_reservation_token(t)
         self._reservations[token] = t
+        heapq.heappush(self._reservation_minute_heap, (t, token))
+        heapq.heappush(self._reservation_hour_heap, (t, token))
         return RateLimitReservation(self, token, False)
 
     async def _reserve_durable(self) -> RateLimitReservation | None:
@@ -160,8 +164,8 @@ class RateLimiter:
         for _attempt in range(16):
             t = self._now()
             record = _normalize_record(await store.read_state(self._state_key))
-            minute_events = deque(record["minute_events"])
-            hour_events = deque(record["hour_events"])
+            minute_events = _events_from_record(record, "minute")
+            hour_events = _events_from_record(record, "hour")
             reservations = dict(record["reservations"])
             _evict_expired(minute_events, t - _MINUTE_SECONDS)
             _evict_expired(hour_events, t - _HOUR_SECONDS)
@@ -212,8 +216,8 @@ class RateLimiter:
             reserved_at = reservations.pop(token, None)
             if reserved_at is None:
                 return
-            minute_events = deque(record["minute_events"])
-            hour_events = deque(record["hour_events"])
+            minute_events = _events_from_record(record, "minute")
+            hour_events = _events_from_record(record, "hour")
             minute_events.append(reserved_at)
             hour_events.append(reserved_at)
             if await self._store_record(
@@ -238,8 +242,8 @@ class RateLimiter:
                 return
             reservations.pop(token, None)
             if await self._store_record(
-                minute_events=deque(record["minute_events"]),
-                hour_events=deque(record["hour_events"]),
+                minute_events=_events_from_record(record, "minute"),
+                hour_events=_events_from_record(record, "hour"),
                 reservations=reservations,
                 expected_revision=int(record["revision"]),
             ):
@@ -257,10 +261,10 @@ class RateLimiter:
     ) -> bool:
         store = self._durable_store()
         value = {
-            "schema_version": "1.0.0",
+            "schema_version": "2.0.0",
             "revision": expected_revision + 1,
-            "minute_events": list(minute_events),
-            "hour_events": list(hour_events),
+            "minute_buckets": _bucket_counts(minute_events),
+            "hour_buckets": _bucket_counts(hour_events),
             "reservations": reservations,
         }
         if expected_revision == 0:
@@ -286,6 +290,12 @@ class RateLimiter:
             return
         minute_events = record.get("minute_events")
         hour_events = record.get("hour_events")
+        if isinstance(record.get("minute_buckets"), dict) and isinstance(
+            record.get("hour_buckets"), dict
+        ):
+            self._minute_events = _events_from_record(record, "minute")
+            self._hour_events = _events_from_record(record, "hour")
+            return
         if not isinstance(minute_events, list) or not isinstance(hour_events, list):
             raise RuntimeError("durable proposal rate-limit window is malformed")
         try:
@@ -301,12 +311,34 @@ class RateLimiter:
             self._state_store,
             self._state_key,
             {
-                "schema_version": "1.0.0",
+                "schema_version": "2.0.0",
                 "revision": 1,
-                "minute_events": list(self._minute_events),
-                "hour_events": list(self._hour_events),
+                "minute_buckets": _bucket_counts(self._minute_events),
+                "hour_buckets": _bucket_counts(self._hour_events),
                 "reservations": {},
             },
+        )
+
+    def _evict_expired_reservations(self, timestamp: float) -> None:
+        hour_cutoff = timestamp - _HOUR_SECONDS
+        while self._reservation_hour_heap:
+            reserved_at, token = self._reservation_hour_heap[0]
+            if reserved_at > hour_cutoff:
+                break
+            heapq.heappop(self._reservation_hour_heap)
+            if self._reservations.get(token) == reserved_at:
+                self._reservations.pop(token, None)
+        minute_cutoff = timestamp - _MINUTE_SECONDS
+        _evict_reservation_heap(
+            self._reservation_minute_heap,
+            self._reservations,
+            cutoff=minute_cutoff,
+        )
+        _evict_reservation_heap(
+            self._reservation_hour_heap,
+            self._reservations,
+            cutoff=hour_cutoff,
+            remove_tokens=False,
         )
 
 
@@ -334,28 +366,89 @@ class RateLimitReservation:
 
 def _normalize_record(record: Mapping[str, Any] | None) -> dict[str, Any]:
     if record is None:
-        return {"revision": 0, "minute_events": [], "hour_events": [], "reservations": {}}
-    minute_events = record.get("minute_events")
-    hour_events = record.get("hour_events")
+        return {
+            "revision": 0,
+            "minute_buckets": {},
+            "hour_buckets": {},
+            "minute_events": [],
+            "hour_events": [],
+            "reservations": {},
+        }
+    minute_events = record.get("minute_events", [])
+    hour_events = record.get("hour_events", [])
+    minute_buckets = record.get("minute_buckets", {})
+    hour_buckets = record.get("hour_buckets", {})
     reservations = record.get("reservations", {})
-    if (
-        not isinstance(minute_events, list)
-        or not isinstance(hour_events, list)
-        or not isinstance(reservations, dict)
-    ):
+    if not isinstance(reservations, dict):
         raise RuntimeError("durable proposal rate-limit window is malformed")
     try:
         normalized_reservations = {
             str(token): float(value) for token, value in reservations.items()
         }
+        normalized: dict[str, Any] = {
+            "revision": int(record.get("revision", 0)),
+            "reservations": normalized_reservations,
+        }
+        if isinstance(minute_buckets, dict) and isinstance(hour_buckets, dict):
+            normalized["minute_buckets"] = {
+                str(bucket): int(count) for bucket, count in minute_buckets.items()
+            }
+            normalized["hour_buckets"] = {
+                str(bucket): int(count) for bucket, count in hour_buckets.items()
+            }
+            normalized["minute_events"] = []
+            normalized["hour_events"] = []
+            return normalized
+        if not isinstance(minute_events, list) or not isinstance(hour_events, list):
+            raise RuntimeError("durable proposal rate-limit window is malformed")
         return {
             "revision": int(record.get("revision", 0)),
             "minute_events": [float(item) for item in minute_events],
             "hour_events": [float(item) for item in hour_events],
+            "minute_buckets": {},
+            "hour_buckets": {},
             "reservations": normalized_reservations,
         }
     except (TypeError, ValueError) as exc:
         raise RuntimeError("durable proposal rate-limit window is malformed") from exc
+
+
+def _bucket_counts(events: deque[float]) -> dict[str, int]:
+    buckets: dict[str, int] = {}
+    for event in events:
+        bucket = str(int(event))
+        buckets[bucket] = buckets.get(bucket, 0) + 1
+    return buckets
+
+
+def _events_from_record(record: Mapping[str, Any], window: str) -> deque[float]:
+    buckets = record.get(f"{window}_buckets")
+    if isinstance(buckets, dict) and buckets:
+        events: deque[float] = deque()
+        for bucket, count in sorted(buckets.items(), key=lambda item: int(item[0])):
+            events.extend(float(bucket) for _ in range(int(count)))
+        return events
+    return deque(float(item) for item in record.get(f"{window}_events", ()))
+
+
+def _evict_reservation_heap(
+    heap: list[tuple[float, str]],
+    reservations: dict[str, float],
+    *,
+    cutoff: float,
+    remove_tokens: bool = False,
+) -> None:
+    while heap:
+        reserved_at, token = heap[0]
+        current = reservations.get(token)
+        if current != reserved_at:
+            heapq.heappop(heap)
+            continue
+        if reserved_at > cutoff:
+            break
+        heapq.heappop(heap)
+        if remove_tokens:
+            reservations.pop(token, None)
 
 
 def _read_sync_state(store: StateStore | None, key: str) -> dict[str, Any] | None:
