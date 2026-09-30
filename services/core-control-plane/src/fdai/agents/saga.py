@@ -26,7 +26,7 @@ from fdai.agents._framework.adapters import (
 )
 from fdai.agents._framework.assignment_workflow import seal_assignment
 from fdai.agents._framework.base import Agent
-from fdai.agents._framework.bounded import BoundedLruDict
+from fdai.agents._framework.bounded import BoundedLruDict, BoundedLruSet
 from fdai.agents._framework.handover_knowledge import HandoverKnowledgeMixin
 from fdai.agents._framework.human_access_workflow import seal_human_access
 from fdai.agents._framework.introspection import (
@@ -51,6 +51,7 @@ _AUDIT_OUTBOX_PENDING_SCAN_LIMIT = 5_000
 # Published outbox tombstones retain only digests long enough to suppress
 # duplicate redelivery across restarts while keeping prefix scans bounded.
 _AUDIT_OUTBOX_TOMBSTONE_RETENTION = 1_024
+_FORECAST_AUDIT_FENCE_SIZE = 10_000
 _MAX_FINGERPRINT_INDEX = 50_000
 _FINGERPRINT_RETENTION = 10_000
 _ISSUE_CLOSE_CLEAN_WINDOW = timedelta(hours=24)
@@ -134,6 +135,7 @@ class Saga(Agent, HandoverKnowledgeMixin):
         self._audit_outbox_pending = 0
         self._last_audit_outbox_recovered = 0
         self._last_chain_verified_entries = 0
+        self._forecast_audit_keys: BoundedLruSet[str] = BoundedLruSet(_FORECAST_AUDIT_FENCE_SIZE)
 
     @property
     def durable_audit(self) -> bool:
@@ -370,12 +372,6 @@ class Saga(Agent, HandoverKnowledgeMixin):
         look like a valid audit fact.
         """
 
-        if (
-            topic == "object.event"
-            and payload.get("event_type") != INCIDENT_INTERVENTION_EVENT_TYPE
-        ):
-            self.record_behavior("typed_message:ignored")
-            return
         if topic.startswith("object.") and require_topic_owner(
             self,
             topic,
@@ -386,6 +382,12 @@ class Saga(Agent, HandoverKnowledgeMixin):
         principal = str(payload.get("producer_principal", "unknown"))
         correlation_id = str(payload.get("correlation_id") or "")
         self.record_behavior("typed_message:accepted")
+        if (
+            topic == "object.event"
+            and payload.get("event_type") != INCIDENT_INTERVENTION_EVENT_TYPE
+        ):
+            await self._append_ingress_retention_audit(payload, correlation_id)
+            return
         await self._append_audit(
             principal=principal,
             topic=topic,
@@ -436,6 +438,9 @@ class Saga(Agent, HandoverKnowledgeMixin):
                 },
             )
         if topic == "object.handoff-escalation":
+            if payload.get("kind") == "operator_proposal_denied":
+                self.record_behavior("handoff:operator_proposal_denied_audited")
+                return
             await self._materialize_handoff(payload, correlation_id)
         if topic == "object.prospective-lineage":
             await self._republish_prospective_lineage(payload, correlation_id)
@@ -618,7 +623,13 @@ class Saga(Agent, HandoverKnowledgeMixin):
             if supplied_fingerprint:
                 self.record_behavior("handoff:invalid")
                 return
-            normalized_selector = "sha256:" + hashlib.sha256(escalation_id.encode()).hexdigest()
+            normalized_selector = stable_idempotency_key(
+                "handoff-legacy-selector",
+                intent_category,
+                resource_type,
+                emitting_agent,
+                failure_reason,
+            )
         if not supplied_fingerprint:
             self.record_behavior("handoff:legacy_fingerprint_computed")
         fingerprint = compute_fingerprint(
@@ -679,10 +690,11 @@ class Saga(Agent, HandoverKnowledgeMixin):
             )
             checkpoint = checkpoint.with_audit_recorded()
             await self._handoff_journal.write_checkpoint(escalation_id, checkpoint)
-        if self.bus is None:
-            self.record_behavior("handoff:publication_pending")
-            raise RuntimeError("Saga issue publication bus is unavailable")
         if not checkpoint.published:
+            if self.bus is None:
+                self.record_behavior("handoff:publication_pending")
+                await self._handoff_journal.write_checkpoint(escalation_id, checkpoint)
+                raise RuntimeError("Saga issue publication bus is unavailable")
             await self._publish_issue(
                 fingerprint=fingerprint,
                 issue_number=checkpoint.issue_number,
@@ -695,13 +707,75 @@ class Saga(Agent, HandoverKnowledgeMixin):
         await self._handoff_journal.complete(escalation_id, checkpoint)
         self.record_behavior("handoff:materialized")
 
+    async def recover_handoff_issue_publications(self) -> int:
+        """Republish Saga-owned issue records whose checkpoint survived a crash."""
+
+        if self.bus is None:
+            return 0
+        recovered = 0
+        for escalation_id, checkpoint in await self._handoff_journal.pending_publications():
+            if checkpoint.published:
+                continue
+            operation_id = f"handoff:{escalation_id}"
+            await self._publish_issue(
+                fingerprint=checkpoint.fingerprint,
+                issue_number=checkpoint.issue_number,
+                created=checkpoint.created,
+                correlation_id=checkpoint.correlation_id,
+                operation_id=operation_id,
+            )
+            checkpoint = checkpoint.with_published()
+            await self._handoff_journal.write_checkpoint(escalation_id, checkpoint)
+            await self._handoff_journal.complete(escalation_id, checkpoint)
+            recovered += 1
+        if recovered:
+            self.record_behavior("handoff:publication_recovered", recovered)
+        return recovered
+
+    async def _append_ingress_retention_audit(
+        self,
+        payload: dict[str, Any],
+        correlation_id: str,
+    ) -> None:
+        if not correlation_id:
+            correlation_id = stable_idempotency_key(
+                "ingress-retention-correlation",
+                str(payload.get("idempotency_key") or ""),
+                str(payload.get("event_type") or ""),
+                str(payload.get("resource_id") or ""),
+            )
+        receipt = {
+            "producer_principal": "Saga",
+            "kind": "normalized_ingress_retention",
+            "audited_topic": "object.event",
+            "correlation_id": correlation_id,
+            "idempotency_key": stable_idempotency_key(
+                "audit-entry:normalized-ingress-retention",
+                correlation_id,
+                str(payload.get("idempotency_key") or ""),
+                str(payload.get("event_type") or ""),
+            ),
+            "event_type": str(payload.get("event_type") or "unknown"),
+            "resource_id": str(payload.get("resource_id") or ""),
+            "source_id": str(payload.get("source_id") or payload.get("id") or ""),
+            "judgment_state": "retained_for_replay",
+            "execution_authority": False,
+        }
+        await self._append_audit(
+            principal="Saga",
+            topic="object.audit-entry",
+            correlation_id=correlation_id,
+            payload=receipt,
+        )
+        self.record_behavior("ingress_retention:audit_recorded")
+
     async def _republish_forecast_outcome(
         self,
         payload: dict[str, Any],
         correlation_id: str,
     ) -> None:
         """Seal a bounded forecast result onto Saga's public audit stream."""
-        if self.bus is None:
+        if self.bus is None and self._durable_state_store is None:
             self.record_behavior("forecast_outcome_audit:transport_unavailable")
             return
         if not correlation_id:
@@ -715,13 +789,19 @@ class Saga(Agent, HandoverKnowledgeMixin):
         if not outcome_id:
             self.record_behavior("forecast_outcome_audit:missing_outcome_id")
             return
-        await self.bus.publish(
-            "Saga",
-            "object.audit-entry",
+        audit_idempotency_key = stable_idempotency_key(
+            "audit-entry:forecast-outcome",
+            outcome_id,
+            idempotency_key,
+        )
+        if audit_idempotency_key in self._forecast_audit_keys:
+            self.record_behavior("forecast_outcome_audit:duplicate")
+            return
+        await self._publish_audit_entry_with_outbox(
             {
                 "producer_principal": "Saga",
                 "correlation_id": correlation_id,
-                "idempotency_key": idempotency_key,
+                "idempotency_key": audit_idempotency_key,
                 "audited_topic": "object.forecast-outcome",
                 "action_kind": "forecast.outcome.closed",
                 "outcome_id": outcome_id,
@@ -738,6 +818,7 @@ class Saga(Agent, HandoverKnowledgeMixin):
                 "mode": str(payload.get("mode") or "shadow"),
             },
         )
+        self._forecast_audit_keys.add(audit_idempotency_key)
 
     async def _republish_document_decision(
         self, payload: dict[str, Any], correlation_id: str

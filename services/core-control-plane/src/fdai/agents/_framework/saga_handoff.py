@@ -23,6 +23,8 @@ class LocalHandoffStateStore(Protocol):
 
     def delete(self, bucket: str, key: str) -> None: ...
 
+    def scan(self, bucket: str) -> Mapping[str, Any]: ...
+
 
 @dataclass(frozen=True, slots=True)
 class HandoffIssueCheckpoint:
@@ -225,6 +227,28 @@ class SagaHandoffJournal:
             raise ValueError("handoff mutation checkpoint is malformed")
         return stored
 
+    async def pending_publications(self) -> tuple[tuple[str, HandoffIssueCheckpoint], ...]:
+        """Return checkpoints that still need the Saga-owned issue publication."""
+        pending: list[tuple[str, HandoffIssueCheckpoint]] = []
+        if self._durable is not None:
+            rows, _total = await self._durable.read_state_page(
+                _STATE_PREFIX,
+                limit=1_024,
+                field="published",
+                value="false",
+            )
+            for row in rows:
+                escalation_id = str(row.get("escalation_id") or "")
+                checkpoint = HandoffIssueCheckpoint.from_state(row)
+                pending.append((escalation_id or checkpoint.fingerprint, checkpoint))
+            return tuple(reversed(pending))
+        for escalation_id, stored in self._local.scan(_CHECKPOINT_BUCKET).items():
+            if not isinstance(stored, HandoffIssueCheckpoint):
+                raise ValueError("handoff mutation checkpoint is malformed")
+            if not stored.published:
+                pending.append((str(escalation_id), stored))
+        return tuple(pending)
+
     async def write_checkpoint(
         self,
         escalation_id: str,
@@ -233,6 +257,7 @@ class SagaHandoffJournal:
         if self._durable is not None:
             key = _state_key(escalation_id, "checkpoint")
             next_state = checkpoint.to_state()
+            next_state["escalation_id"] = escalation_id
             for _attempt in range(16):
                 stored = await self._durable.read_state(key)
                 if stored is None:

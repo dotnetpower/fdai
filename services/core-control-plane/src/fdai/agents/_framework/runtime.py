@@ -560,6 +560,16 @@ class PantheonRuntime(RuntimeConversationPort):
         for name, item in agent_health.items():
             if item.get("status") == "error":
                 unavailable_sources.setdefault(name, set()).add("health_probe")
+            learning = item.get("learning")
+            if (
+                name == "Norns"
+                and isinstance(learning, dict)
+                and isinstance(learning.get("post_turn_review"), dict)
+                and learning["post_turn_review"].get("status") == "unavailable"
+                and isinstance(item.get("behavior"), dict)
+                and item["behavior"].get("post_turn_review_unavailable", 0)
+            ):
+                unavailable_sources.setdefault(name, set()).add("post_turn_review_unbound")
         unavailable_agents = {
             *runtime_health.derive_unavailable_agents(
                 disabled=self.disabled, continuity_failures=self._continuity_failures

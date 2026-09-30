@@ -326,7 +326,12 @@ class Norns(Agent, HandoverKnowledgeMixin, NornsCandidateDeliveryMixin):
         if topic == "object.issue":
             if require_topic_owner(self, topic, payload, behavior="issue:invalid_producer"):
                 return
+            fingerprint = str(payload.get("fingerprint") or "")
             await self._issue_deduplicator.observe(self, payload)
+            if fingerprint:
+                self.record_behavior("issue_learning:observed")
+                if self.occurrences(fingerprint) < self._promotion_threshold:
+                    self.record_behavior("issue_learning:collecting")
         elif topic == "object.audit-entry":
             if require_topic_owner(
                 self,
@@ -1037,6 +1042,11 @@ class Norns(Agent, HandoverKnowledgeMixin, NornsCandidateDeliveryMixin):
         terminal_total = sum(self._candidate_terminal_counts.values())
         pattern_total = sum(self._pattern_validation_counts.values())
         status = "ok" if durable_learning else "degraded"
+        post_turn_status = "enabled" if self._post_turn_review is not None else "unavailable"
+        if self._post_turn_review is None and self.behavior_snapshot().get(
+            "post_turn_review_unavailable", 0
+        ):
+            status = "degraded"
         return {
             "agent": self.spec.name,
             "status": status,
@@ -1046,6 +1056,12 @@ class Norns(Agent, HandoverKnowledgeMixin, NornsCandidateDeliveryMixin):
                 "durability": "durable" if durable_learning else "process_local",
                 "warning": None if durable_learning else "learning_state_process_local",
                 "recovered": self._learning_state_recovered,
+                "post_turn_review": {
+                    "status": post_turn_status,
+                    "warning": None
+                    if post_turn_status == "enabled"
+                    else "post_turn_review_coordinator_unbound",
+                },
             },
             "candidate_delivery": {
                 "journal_durability": (

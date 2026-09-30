@@ -10,8 +10,9 @@ from __future__ import annotations
 
 import asyncio
 import re
+import threading
 from collections import deque
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any
@@ -79,6 +80,7 @@ _RULE_GENERATION_COMMAND_PREFIX = "mimir:rule-generation-activation-command:"
 _GOVERNANCE_PREFIX = "pantheon/mimir/governance"
 _RULE_STATE_PREFIX = f"{_GOVERNANCE_PREFIX}/rules"
 _ISSUE_FINGERPRINT_PREFIX = f"{_GOVERNANCE_PREFIX}/issue-fingerprints"
+_RULE_PUBLICATION_PREFIX = f"{_GOVERNANCE_PREFIX}/rule-publications"
 _DEFAULT_PROVIDER_TIMEOUT_SECONDS = 5.0
 _REVIEWED_REPOSITORY_PREFIX = re.compile(
     r"^https://(?P<host>[A-Za-z0-9.-]{1,253})/"
@@ -110,6 +112,10 @@ def _rule_state_key(rule_id: str) -> str:
 
 def _issue_fingerprint_key(fingerprint: str) -> str:
     return f"{_ISSUE_FINGERPRINT_PREFIX}/{fingerprint}"
+
+
+def _rule_publication_key(idempotency_key: str) -> str:
+    return f"{_RULE_PUBLICATION_PREFIX}/{idempotency_key}"
 
 
 def _reviewed_package_digest(
@@ -166,6 +172,27 @@ def _valid_review_host(host: str) -> bool:
         re.fullmatch(r"[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?", label) is not None
         for label in labels
     )
+
+
+def _run_coroutine_blocking(awaitable: Any) -> Any:
+    try:
+        asyncio.get_running_loop()
+    except RuntimeError:
+        return asyncio.run(awaitable)
+    result: dict[str, Any] = {}
+
+    def runner() -> None:
+        try:
+            result["value"] = asyncio.run(awaitable)
+        except BaseException as exc:  # noqa: BLE001 - re-raise in caller thread
+            result["error"] = exc
+
+    thread = threading.Thread(target=runner, name="mimir-promotion-sync")
+    thread.start()
+    thread.join()
+    if "error" in result:
+        raise result["error"]
+    return result.get("value")
 
 
 def _promotion_topic(rule_id: str, source: str) -> str:
@@ -275,6 +302,7 @@ class Mimir(MimirContextMixin, Agent, HandoverKnowledgeMixin, MimirCatalogReview
             return 0
         restored = 0
         restored += await self._recover_rule_rows(store)
+        restored += await self._recover_rule_publications(store)
         restored += await self._recover_issue_rows(store)
         restored += await self._catalog_governance_store.recover(
             investigation_candidates=self._investigation_candidates,
@@ -299,6 +327,7 @@ class Mimir(MimirContextMixin, Agent, HandoverKnowledgeMixin, MimirCatalogReview
             try:
                 async with lock:
                     await self._handle_rule_candidate(payload)
+                    await self._refresh_issue_candidate_counts_for_candidate(payload)
             finally:
                 if not lock.locked() and self._review_locks.get(lock_key) is lock:
                     self._review_locks.pop(lock_key, None)
@@ -382,6 +411,30 @@ class Mimir(MimirContextMixin, Agent, HandoverKnowledgeMixin, MimirCatalogReview
         self.record_behavior("governance_recovery:issues_deferred")
         return restored
 
+    async def _recover_rule_publications(self, store: StateStore) -> int:
+        if self.bus is None:
+            return 0
+        rows, _total = await store.read_state_page(
+            f"{_RULE_PUBLICATION_PREFIX}/",
+            limit=_GOVERNANCE_RECOVERY_PAGE,
+            field="status",
+            value="pending",
+        )
+        published = 0
+        for row in reversed(rows):
+            payload = row.get("payload")
+            topic = str(row.get("topic") or "")
+            idempotency_key = str(row.get("idempotency_key") or "")
+            if not isinstance(payload, dict) or topic not in {"object.rule", "object.policy"}:
+                raise ValueError("Mimir durable rule publication row is invalid")
+            await self.bus.publish("Mimir", topic, dict(payload))
+            await self._mark_rule_publication_published(idempotency_key)
+            self._published_promotion_keys.add(idempotency_key)
+            published += 1
+        if published:
+            self.record_behavior("promotion:publication_recovered", published)
+        return published
+
     async def _handle_issue(self, payload: dict[str, Any]) -> None:
         """Retain Saga-owned issue fingerprints for candidate closure linkage."""
         if payload.get("producer_principal") != "Saga":
@@ -418,6 +471,36 @@ class Mimir(MimirContextMixin, Agent, HandoverKnowledgeMixin, MimirCatalogReview
             if isinstance(evidence, dict) and evidence.get("fingerprint") == fingerprint:
                 count += 1
         return count
+
+    async def _refresh_issue_candidate_counts_for_candidate(
+        self,
+        candidate: dict[str, Any],
+    ) -> None:
+        evidence = candidate.get("evidence")
+        fingerprint = str(evidence.get("fingerprint") or "") if isinstance(evidence, dict) else ""
+        if not fingerprint or self._issue_fingerprints.get(fingerprint) is None:
+            return
+        await self._refresh_issue_candidate_count(fingerprint)
+
+    async def _refresh_issue_candidate_counts_for_rule(self, _rule_id: str) -> None:
+        for fingerprint, record in tuple(self._issue_fingerprints.items()):
+            count = self._candidate_count_for_fingerprint(fingerprint)
+            if record.get("candidate_count") != count:
+                updated = {**record, "candidate_count": count}
+                self._issue_fingerprints.set(fingerprint, updated)
+                await self._persist_issue_fingerprint(updated)
+
+    async def _refresh_issue_candidate_count(self, fingerprint: str) -> None:
+        record = self._issue_fingerprints.get(fingerprint)
+        if record is None:
+            return
+        count = self._candidate_count_for_fingerprint(fingerprint)
+        if record.get("candidate_count") == count:
+            return
+        updated = {**record, "candidate_count": count}
+        self._issue_fingerprints.set(fingerprint, updated)
+        await self._persist_issue_fingerprint(updated)
+        self.record_behavior("issue_fingerprint:candidate_count_updated")
 
     async def request_rule_generation(self, request: RuleGenerationBuildRequestEvent) -> None:
         """Publish one exact no-authority generation build request as Mimir."""
@@ -752,13 +835,19 @@ class Mimir(MimirContextMixin, Agent, HandoverKnowledgeMixin, MimirCatalogReview
         promo = RulePromotion(
             rule_id=rule_id, state="enforce", source=source, updated_at=updated_at
         )
+        try:
+            _run_coroutine_blocking(
+                self._apply_promotion(
+                    promo,
+                    reviewed_change_ref=reviewed_change_ref,
+                    reviewed_package_digest=package_digest,
+                )
+            )
+        except Exception:
+            self._promotions.pop(rule_id, None)
+            self._promotion_fail_count += 1
+            raise
         self._promotions[rule_id] = promo
-        self._persist_promotion(promo)
-        self._publish_rule_or_policy_promotion(
-            promo,
-            reviewed_change_ref=reviewed_change_ref,
-            reviewed_package_digest=package_digest,
-        )
         self._pending_candidates = deque(
             (
                 candidate
@@ -766,6 +855,7 @@ class Mimir(MimirContextMixin, Agent, HandoverKnowledgeMixin, MimirCatalogReview
                 if candidate.get("target_rule_id") != rule_id
             ),
         )
+        _run_coroutine_blocking(self._refresh_issue_candidate_counts_for_rule(rule_id))
         self._rebuild_candidate_indexes()
         self._promotion_pass_count += 1
         self.record_behavior("promotion:passed")
@@ -786,12 +876,25 @@ class Mimir(MimirContextMixin, Agent, HandoverKnowledgeMixin, MimirCatalogReview
         promo = RulePromotion(
             rule_id=rule_id, state="retired", source="manual", updated_at=updated_at
         )
+        _run_coroutine_blocking(self._apply_promotion(promo))
         self._promotions[rule_id] = promo
-        self._persist_promotion(promo)
-        self._publish_rule_or_policy_promotion(promo)
         return promo
 
-    def _publish_rule_or_policy_promotion(
+    async def _apply_promotion(
+        self,
+        promotion: RulePromotion,
+        *,
+        reviewed_change_ref: str | None = None,
+        reviewed_package_digest: str | None = None,
+    ) -> None:
+        await self._persist_promotion_record(promotion)
+        await self._publish_rule_or_policy_promotion(
+            promotion,
+            reviewed_change_ref=reviewed_change_ref,
+            reviewed_package_digest=reviewed_package_digest,
+        )
+
+    async def _publish_rule_or_policy_promotion(
         self,
         promotion: RulePromotion,
         *,
@@ -834,20 +937,22 @@ class Mimir(MimirContextMixin, Agent, HandoverKnowledgeMixin, MimirCatalogReview
         if self.bus is None:
             self.record_behavior("promotion:publication_transport_unavailable")
             return
-        self._published_promotion_keys.add(idempotency_key)
-        try:
-            loop = asyncio.get_running_loop()
-        except RuntimeError:
-            try:
-                asyncio.run(self.bus.publish("Mimir", topic, payload))
-            except Exception:
-                self.record_behavior("promotion:publication_failed")
-                raise
-            self.record_behavior("promotion:published")
+        if not await self._checkpoint_rule_publication(
+            topic=topic,
+            payload=payload,
+            idempotency_key=idempotency_key,
+        ):
+            self._published_promotion_keys.add(idempotency_key)
+            self.record_behavior("promotion:publication_duplicate")
             return
-        task = loop.create_task(self.bus.publish("Mimir", topic, payload))
-        self._promotion_publish_tasks.add(task)
-        task.add_done_callback(self._promotion_publish_done)
+        try:
+            await self.bus.publish("Mimir", topic, payload)
+        except Exception:
+            self.record_behavior("promotion:publication_failed")
+            raise
+        await self._mark_rule_publication_published(idempotency_key)
+        self._published_promotion_keys.add(idempotency_key)
+        self.record_behavior("promotion:published")
 
     def _promotion_publish_done(self, task: asyncio.Task[Any]) -> None:
         self._promotion_publish_tasks.discard(task)
@@ -857,6 +962,71 @@ class Mimir(MimirContextMixin, Agent, HandoverKnowledgeMixin, MimirCatalogReview
             self.record_behavior("promotion:publication_failed")
             return
         self.record_behavior("promotion:published")
+
+    async def _checkpoint_rule_publication(
+        self,
+        *,
+        topic: str,
+        payload: dict[str, Any],
+        idempotency_key: str,
+    ) -> bool:
+        store = self._governance_state_store
+        if store is None:
+            return True
+        key = _rule_publication_key(idempotency_key)
+        record = {
+            "kind": "mimir_rule_publication",
+            "revision": 1,
+            "status": "pending",
+            "topic": topic,
+            "idempotency_key": idempotency_key,
+            "correlation_id": str(payload.get("correlation_id") or ""),
+            "payload": dict(payload),
+        }
+        created = await store.write_state_if_absent(key, record)
+        if created:
+            return True
+        stored = await store.read_state(key)
+        if not isinstance(stored, Mapping):
+            raise RuntimeError("Mimir rule publication row disappeared")
+        if stored.get("status") == "published":
+            if stored.get("payload") not in (None, record["payload"]):
+                raise RuntimeError("Mimir rule publication idempotency collision")
+            return False
+        if stored.get("payload") != record["payload"]:
+            raise RuntimeError("Mimir rule publication idempotency collision")
+        return True
+
+    async def _mark_rule_publication_published(self, idempotency_key: str) -> None:
+        store = self._governance_state_store
+        if store is None:
+            return
+        key = _rule_publication_key(idempotency_key)
+        for _attempt in range(_MAX_PROMOTION_PERSIST_ATTEMPTS):
+            stored = await store.read_state(key)
+            if stored is None or stored.get("status") == "published":
+                return
+            revision = int(stored.get("revision", 1))
+            advanced = await store.compare_and_set_state(
+                key,
+                {
+                    "kind": "mimir_rule_publication",
+                    "revision": revision + 1,
+                    "status": "published",
+                    "topic": str(stored.get("topic") or ""),
+                    "idempotency_key": idempotency_key,
+                    "correlation_id": str(stored.get("correlation_id") or ""),
+                    "payload": dict(stored.get("payload") or {}),
+                },
+                expected_revision=revision,
+            )
+            if advanced:
+                await store.delete_states_beyond(
+                    f"{_RULE_PUBLICATION_PREFIX}/",
+                    retain_newest=_MAX_PROMOTION_PERSIST_QUEUE,
+                )
+                return
+        raise RuntimeError("Mimir rule publication CAS did not converge")
 
     def status(self, rule_id: str) -> RulePromotion | None:
         return self._promotions.get(rule_id)

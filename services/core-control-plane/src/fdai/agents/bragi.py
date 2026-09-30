@@ -307,6 +307,12 @@ class Bragi(BragiPublicationMixin, Agent):
                     "error_type": type(exc).__name__,
                 },
             )
+            await self._publish_denied_proposal(
+                status=status,
+                user_id=user_id,
+                reason="proposal_sink_error",
+                error_type=type(exc).__name__,
+            )
             self.record_behavior("proposal:sink_error")
             return {**status, "submitted": False, "abstain_reason": "proposal_sink_error"}
         if sink_result is None:
@@ -1085,8 +1091,9 @@ class Bragi(BragiPublicationMixin, Agent):
                         await asyncio.shield(self._mark_turn_published(payload))
                         raise
                     published += 1
+        recovered_publications = await self.recover_bragi_publications()
         self._turn_outbox_pending = max(0, self._turn_outbox_pending - published)
-        return progress, published
+        return progress, published + recovered_publications
 
     async def maintenance_tick(self) -> None:
         await super().maintenance_tick()
@@ -1143,24 +1150,18 @@ class Bragi(BragiPublicationMixin, Agent):
         primary_agent: str,
         failure_reason_code: str,
     ) -> str:
-        if self.bus is None:
-            self.record_behavior("publication:unavailable")
-            return "transport_unavailable"
+        payload = handoff_event_payload(
+            session_id=session_id,
+            question=question,
+            turn_index=turn_index,
+            intent_category=intent_category,
+            resource_type=resource_type,
+            primary_agent=primary_agent,
+            failure_reason_code=failure_reason_code,
+            emitted_at=self._clock(),
+        )
         try:
-            await self.bus.publish(
-                "Bragi",
-                "object.handoff-escalation",
-                handoff_event_payload(
-                    session_id=session_id,
-                    question=question,
-                    turn_index=turn_index,
-                    intent_category=intent_category,
-                    resource_type=resource_type,
-                    primary_agent=primary_agent,
-                    failure_reason_code=failure_reason_code,
-                    emitted_at=self._clock(),
-                ),
-            )
+            published = await self.publish_handoff_event(payload)
         except Exception as exc:  # noqa: BLE001 - bounded operator degradation
             self.record_behavior("publication:unavailable")
             _LOG.warning(
@@ -1168,8 +1169,57 @@ class Bragi(BragiPublicationMixin, Agent):
                 extra={"error_type": type(exc).__name__},
             )
             return "publish_failed"
+        if not published:
+            self.record_behavior("publication:unavailable")
+            return "transport_unavailable"
         self.record_behavior("handoff:materialized")
         return "requested"
+
+    async def _publish_denied_proposal(
+        self,
+        *,
+        status: Mapping[str, Any],
+        user_id: str,
+        reason: str,
+        error_type: str,
+    ) -> None:
+        principal_digest = hashlib.sha256(user_id.encode()).hexdigest()
+        correlation_id = str(status.get("correlation_id") or "")
+        action_type = str(status.get("action_type") or "")
+        if not correlation_id:
+            correlation_id = (
+                "proposal-denied-"
+                + hashlib.sha256(
+                    f"{principal_digest}\0{action_type}\0{reason}".encode()
+                ).hexdigest()[:32]
+            )
+        payload = {
+            "producer_principal": "Bragi",
+            "kind": "operator_proposal_denied",
+            "id": f"proposal-denied-{hashlib.sha256(correlation_id.encode()).hexdigest()[:32]}",
+            "correlation_id": correlation_id,
+            "idempotency_key": f"operator-proposal-denied:{correlation_id}:{reason}",
+            "emitting_agent": "Bragi",
+            "primary_agent": "Bragi",
+            "intent_category": "operator_action_reentry",
+            "resource_type": str(status.get("resource_type") or "unknown"),
+            "failure_reason_code": reason,
+            "action_type": action_type,
+            "principal_scope": f"sha256:{principal_digest}",
+            "error_type": error_type,
+            "execution_authority": False,
+        }
+        try:
+            if await self.publish_handoff_event(payload):
+                self.record_behavior("proposal:denial_audited")
+            else:
+                self.record_behavior("proposal:denial_audit_unavailable")
+        except Exception as exc:  # noqa: BLE001 - original proposal failure remains isolated
+            _LOG.warning(
+                "bragi_proposal_denial_audit_failed",
+                extra={"error_type": type(exc).__name__},
+            )
+            self.record_behavior("proposal:denial_audit_failed")
 
     def prior_turns(self, session_id: str, *, limit: int = 5) -> tuple[Turn, ...]:
         session = self._sessions.get(session_id)

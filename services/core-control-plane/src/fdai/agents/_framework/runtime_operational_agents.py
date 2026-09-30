@@ -163,6 +163,12 @@ async def rehydrate_operational_agents(
                 "pantheon_saga_audit_outbox_recovered",
                 extra={"published": audit_published},
             )
+        issue_published = await saga.recover_handoff_issue_publications()
+        if issue_published:
+            _LOG.info(
+                "pantheon_saga_handoff_issue_publications_recovered",
+                extra={"published": issue_published},
+            )
     var = agents.get("Var")
     if isinstance(var, Var):
         finalized, published = await var.recover_approvals()

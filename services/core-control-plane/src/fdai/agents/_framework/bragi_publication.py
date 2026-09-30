@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import json
+from collections.abc import Mapping
 from datetime import UTC, datetime
 from typing import Any
 
@@ -20,6 +22,10 @@ from fdai.shared.providers.user_context import UserPreferenceRecord
 
 from .bragi_models import ConversationSession, Turn
 from .introspection import canonical_json
+
+_BRAGI_PUBLICATION_OUTBOX_PREFIX = "pantheon/bragi/publication-outbox/"
+_BRAGI_PUBLICATION_OUTBOX_SCAN_LIMIT = 5_000
+_BRAGI_PUBLICATION_TOMBSTONE_RETENTION = 1_024
 
 
 def conversation_event_payload(
@@ -332,11 +338,184 @@ class BragiPublicationMixin:
         preference: UserPreferenceRecord | None = None,
     ) -> bool:
         bus = getattr(self, "bus", None)
+        state_store = getattr(self, "_state_store", None)
+        payload = post_turn_review_event_payload(review, preference=preference)
+        if state_store is not None:
+            await _checkpoint_publication(
+                state_store,
+                topic="object.post-turn-review",
+                payload=payload,
+            )
         if bus is None:
             return False
-        await bus.publish(
-            "Bragi",
-            "object.post-turn-review",
-            post_turn_review_event_payload(review, preference=preference),
-        )
+        if state_store is not None and not await _claim_publication(state_store, payload):
+            return True
+        try:
+            await bus.publish("Bragi", "object.post-turn-review", payload)
+        except Exception:
+            if state_store is not None:
+                await _reset_publication_pending(state_store, payload)
+            raise
+        if state_store is not None:
+            await _mark_publication_published(state_store, payload)
         return True
+
+    async def publish_handoff_event(self, payload: dict[str, Any]) -> bool:
+        bus = getattr(self, "bus", None)
+        state_store = getattr(self, "_state_store", None)
+        if state_store is not None:
+            await _checkpoint_publication(
+                state_store,
+                topic="object.handoff-escalation",
+                payload=payload,
+            )
+        if bus is None:
+            return False
+        if state_store is not None and not await _claim_publication(state_store, payload):
+            return True
+        try:
+            await bus.publish("Bragi", "object.handoff-escalation", payload)
+        except Exception:
+            if state_store is not None:
+                await _reset_publication_pending(state_store, payload)
+            raise
+        if state_store is not None:
+            await _mark_publication_published(state_store, payload)
+        return True
+
+    async def recover_bragi_publications(self) -> int:
+        bus = getattr(self, "bus", None)
+        state_store = getattr(self, "_state_store", None)
+        if bus is None or state_store is None:
+            return 0
+        rows, _total = await state_store.read_state_page(
+            _BRAGI_PUBLICATION_OUTBOX_PREFIX,
+            limit=_BRAGI_PUBLICATION_OUTBOX_SCAN_LIMIT,
+            field="status",
+            value="pending",
+        )
+        published = 0
+        for row in reversed(rows):
+            topic = str(row.get("topic") or "")
+            payload = row.get("payload")
+            if topic not in {"object.handoff-escalation", "object.post-turn-review"}:
+                raise RuntimeError("Bragi publication outbox topic is invalid")
+            if not isinstance(payload, Mapping):
+                raise RuntimeError("Bragi publication outbox row is malformed")
+            if await _claim_publication(state_store, payload):
+                publish_task = asyncio.create_task(bus.publish("Bragi", topic, dict(payload)))
+                try:
+                    await asyncio.shield(publish_task)
+                    await asyncio.shield(_mark_publication_published(state_store, payload))
+                except asyncio.CancelledError:
+                    await asyncio.shield(publish_task)
+                    await asyncio.shield(_mark_publication_published(state_store, payload))
+                    raise
+                except Exception:
+                    await _reset_publication_pending(state_store, payload)
+                    raise
+                published += 1
+        return published
+
+
+def _publication_key(payload: Mapping[str, Any]) -> str:
+    correlation_id = str(payload.get("correlation_id") or "")
+    idempotency_key = str(payload.get("idempotency_key") or "")
+    if not correlation_id or not idempotency_key:
+        raise RuntimeError("Bragi publication payload requires correlation_id and idempotency_key")
+    digest = hashlib.sha256(f"{correlation_id}\0{idempotency_key}".encode()).hexdigest()
+    return f"{_BRAGI_PUBLICATION_OUTBOX_PREFIX}{digest}"
+
+
+async def _checkpoint_publication(
+    state_store: Any,
+    *,
+    topic: str,
+    payload: Mapping[str, Any],
+) -> None:
+    key = _publication_key(payload)
+    record = {
+        "schema_version": "1.0.0",
+        "revision": 1,
+        "status": "pending",
+        "topic": topic,
+        "correlation_id": str(payload.get("correlation_id") or ""),
+        "idempotency_key": str(payload.get("idempotency_key") or ""),
+        "payload": dict(payload),
+    }
+    created = await state_store.write_state_if_absent(key, record)
+    if created:
+        return
+    stored = await state_store.read_state(key)
+    if not isinstance(stored, Mapping):
+        raise RuntimeError("Bragi publication outbox row disappeared")
+    if stored.get("status") == "published":
+        return
+    if stored.get("payload") != record["payload"]:
+        raise RuntimeError("Bragi publication outbox idempotency collision")
+
+
+async def _claim_publication(state_store: Any, payload: Mapping[str, Any]) -> bool:
+    key = _publication_key(payload)
+    for _attempt in range(16):
+        stored = await state_store.read_state(key)
+        if stored is None:
+            raise RuntimeError("Bragi publication outbox row disappeared")
+        if stored.get("status") == "published":
+            return False
+        if stored.get("status") == "publishing":
+            return False
+        revision = int(stored.get("revision", 1))
+        if await state_store.compare_and_set_state(
+            key,
+            {**dict(stored), "status": "publishing", "revision": revision + 1},
+            expected_revision=revision,
+        ):
+            return True
+    raise RuntimeError("Bragi publication claim CAS retry limit exceeded")
+
+
+async def _mark_publication_published(state_store: Any, payload: Mapping[str, Any]) -> None:
+    key = _publication_key(payload)
+    for _attempt in range(16):
+        stored = await state_store.read_state(key)
+        if stored is None or stored.get("status") == "published":
+            return
+        revision = int(stored.get("revision", 1))
+        if await state_store.compare_and_set_state(
+            key,
+            {
+                "schema_version": "1.0.0",
+                "revision": revision + 1,
+                "status": "published",
+                "topic": str(stored.get("topic") or ""),
+                "correlation_id": str(stored.get("correlation_id") or ""),
+                "idempotency_key": str(stored.get("idempotency_key") or ""),
+                "payload": dict(stored.get("payload") or {}),
+            },
+            expected_revision=revision,
+        ):
+            await state_store.delete_states_beyond(
+                _BRAGI_PUBLICATION_OUTBOX_PREFIX,
+                retain_newest=(
+                    _BRAGI_PUBLICATION_OUTBOX_SCAN_LIMIT + _BRAGI_PUBLICATION_TOMBSTONE_RETENTION
+                ),
+            )
+            return
+    raise RuntimeError("Bragi publication mark CAS retry limit exceeded")
+
+
+async def _reset_publication_pending(state_store: Any, payload: Mapping[str, Any]) -> None:
+    key = _publication_key(payload)
+    for _attempt in range(16):
+        stored = await state_store.read_state(key)
+        if stored is None or stored.get("status") == "published":
+            return
+        revision = int(stored.get("revision", 1))
+        if await state_store.compare_and_set_state(
+            key,
+            {**dict(stored), "status": "pending", "revision": revision + 1},
+            expected_revision=revision,
+        ):
+            return
+    raise RuntimeError("Bragi publication reset CAS retry limit exceeded")
