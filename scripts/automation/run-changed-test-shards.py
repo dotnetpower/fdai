@@ -16,6 +16,15 @@ from concurrent.futures import ThreadPoolExecutor
 from dataclasses import asdict, dataclass
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+
+from scripts.automation.local_validation_inputs import (  # noqa: E402
+    dependency_digest,
+    digest,
+    git,
+    installed_digest,
+)
+
 
 @dataclass(frozen=True)
 class ShardResult:
@@ -25,6 +34,81 @@ class ShardResult:
     status: int
     duration_seconds: float
     cached: bool
+
+
+def _workspace_file_digest(root: Path, relative: str) -> str:
+    path = root / relative
+    if not path.exists() and not path.is_symlink():
+        raise ValueError(f"validation input is missing: {relative}")
+    if path.is_symlink():
+        value: object = {"kind": "symlink", "target": os.readlink(path)}
+    elif path.is_file():
+        value = {
+            "kind": "file",
+            "sha256": hashlib.sha256(path.read_bytes()).hexdigest(),
+        }
+    else:
+        raise ValueError(f"validation input is not a regular file: {relative}")
+    return digest(value)
+
+
+def _tracked_python_sources(root: Path) -> dict[str, str]:
+    files: dict[str, str] = {}
+    for raw_path in git(root, "ls-files", "-z", "--", "*.py").split(b"\0"):
+        if not raw_path:
+            continue
+        relative = os.fsdecode(raw_path)
+        files[relative] = _workspace_file_digest(root, relative)
+    if not files:
+        raise ValueError("tracked Python source tree is empty")
+    return files
+
+
+def _selected_test_files(root: Path, tests: list[str]) -> dict[str, str]:
+    selected: dict[str, str] = {}
+    for item in tests:
+        relative = item.split("::", 1)[0]
+        path = root / relative
+        if path.is_dir():
+            for raw_path in git(root, "ls-files", "-z", "--", relative).split(b"\0"):
+                if raw_path:
+                    nested = os.fsdecode(raw_path)
+                    selected[nested] = _workspace_file_digest(root, nested)
+        else:
+            selected[relative] = _workspace_file_digest(root, relative)
+    if not selected:
+        raise ValueError("selected test inputs are empty")
+    return selected
+
+
+def _workspace_identity(root: Path, tests: list[str]) -> str:
+    dependency_inputs = {
+        relative: _workspace_file_digest(root, relative)
+        for relative in ("pyproject.toml", "uv.lock")
+    }
+    return digest(
+        {
+            "schema_version": 1,
+            "scope": "changed-test-shard-workspace",
+            "selected_tests": _selected_test_files(root, tests),
+            "python_sources": _tracked_python_sources(root),
+            "dependency": dependency_digest(dependency_inputs),
+            "installed": installed_digest(root / ".venv"),
+        }
+    )
+
+
+def _try_workspace_identity(root: Path, tests: list[str]) -> str | None:
+    try:
+        return _workspace_identity(root, tests)
+    except (OSError, ValueError, subprocess.SubprocessError) as error:
+        detail = str(error).strip() or "no details"
+        print(
+            "changed-test-shards: cache=unavailable "
+            f"reason={type(error).__name__}: {detail}; shard will run",
+            file=sys.stderr,
+        )
+        return None
 
 
 def _atomic_json(path: Path, payload: object) -> None:
@@ -51,12 +135,15 @@ def _clean_environment() -> dict[str, str]:
 
 
 def _command_digest(command: list[str], environment: dict[str, str]) -> str:
-    digest = hashlib.sha256()
-    digest.update(json.dumps(command, separators=(",", ":")).encode())
-    for name in ("PYTHONPATH", "FDAI_PYTEST_SHARD_COUNT", "FDAI_PYTEST_SHARD_INDEX"):
-        digest.update(name.encode())
-        digest.update(environment.get(name, "").encode())
-    return digest.hexdigest()
+    return digest(
+        {
+            "command": command,
+            "environment": {
+                name: environment.get(name, "")
+                for name in ("PYTHONPATH", "FDAI_PYTEST_SHARD_COUNT", "FDAI_PYTEST_SHARD_INDEX")
+            },
+        }
+    )
 
 
 def _shard_basetemp(cache_root: Path, index: int) -> Path:
@@ -74,6 +161,7 @@ def _run_shard(
     cache_root: Path,
     result_root: Path,
     environment: dict[str, str],
+    workspace_identity: str | None = None,
 ) -> tuple[ShardResult, str]:
     cache_dir = cache_root / f"shard-{index}"
     basetemp = _shard_basetemp(cache_root, index)
@@ -99,9 +187,26 @@ def _run_shard(
         shard_environment["FDAI_PYTEST_SHARD_INDEX"] = str(index)
     command.extend(tests)
     command_digest = _command_digest(command, shard_environment)
+    shard_identity = (
+        digest(
+            {
+                "schema_version": 1,
+                "scope": "changed-test-shard-pass",
+                "workspace": workspace_identity,
+                "command": command_digest,
+                "shard_index": index,
+                "shard_count": count,
+            }
+        )
+        if workspace_identity is not None
+        else None
+    )
     marker = result_root / f"shard-{index}.pass"
     try:
-        if marker.read_text(encoding="utf-8").strip() == command_digest:
+        if (
+            shard_identity is not None
+            and marker.read_text(encoding="utf-8").strip() == shard_identity
+        ):
             return ShardResult(index, 0, 0.0, True), ""
     except OSError:
         pass
@@ -118,9 +223,9 @@ def _run_shard(
         check=False,
     )
     duration = round(time.monotonic() - started, 3)
-    if completed.returncode in {0, 5}:
+    if completed.returncode in {0, 5} and shard_identity is not None:
         marker.parent.mkdir(parents=True, exist_ok=True)
-        marker.write_text(command_digest + "\n", encoding="utf-8")
+        marker.write_text(shard_identity + "\n", encoding="utf-8")
     output = completed.stdout + completed.stderr
     return ShardResult(index, completed.returncode, duration, False), output
 
@@ -199,6 +304,7 @@ def run(
     """Run all non-integration shards and optional integration tests."""
     environment = _clean_environment()
     database_url = os.environ.get("FDAI_DATABASE_URL", "")
+    workspace_identity = _try_workspace_identity(Path.cwd(), tests)
     started = time.monotonic()
     with ThreadPoolExecutor(max_workers=shard_count) as executor:
         futures = [
@@ -210,6 +316,7 @@ def run(
                 cache_root=cache_root,
                 result_root=result_root,
                 environment=environment,
+                workspace_identity=workspace_identity,
             )
             for index in range(1, shard_count + 1)
         ]
