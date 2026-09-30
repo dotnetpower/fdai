@@ -1,7 +1,7 @@
 ---
 translation_of: project-structure-dependency-injection.md
-translation_source_sha: fd6b7939b0f7b510531af29565c5bda7f495fbed
-translation_revised: 2026-09-29
+translation_source_sha: 9d296d2152caf0e9e1d7c7cd7b912ceec1f6bcc3
+translation_revised: 2026-09-30
 ---
 
 # 프로젝트 구조 의존성 주입
@@ -198,6 +198,11 @@ Terraform 계획은 검토 입력이 아닙니다.
 
 공유 `MetricProviderError` 계약은 범위가 제한된 실패 메타데이터를 소유합니다. Azure 전송 계층이 실패를 분류하고 Analyzer가 식별자를 제거합니다.
 [메트릭 진단 계약](aks-diagnostic-evidence-plane-ko.md#안전한-메트릭-실패-진단)은 기존 공급자와 빈 결과의 동작을 유지하며, 실패 시 안전한 쪽으로 처리를 중단합니다.
+
+로컬 개발 `EventBus`는 모든 기록을 무기한 보존하지 않고 토픽별 범위가 제한된 재생 구간을
+유지합니다. 압축은 알려진 모든 구독 그룹이 해당 기록 이후로 진행한 뒤에만 기록을 제거하므로,
+느린 구독 그룹은 아직 소비하지 않은 트래픽을 잃지 않습니다. 나중에 구독한 그룹은 보존된 구간에서
+시작하며 그 범위 안에 아직 남아 있는 기록을 재생합니다.
 
 시작 준비 상태의 프로바이더 중립 실행 예산, 탐색 시간 제한 및 파생 근거 수명은 `core/readiness`가
 소유합니다. 런타임은 범위가 제한된 새로 고침을 예약하고 기존 만료 시점에 처리를 닫으며, Thor가

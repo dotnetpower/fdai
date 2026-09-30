@@ -392,6 +392,11 @@ tracks what remains.
   excludes scoring with an `operational_evidence_*` class in `ForecastOutcome` schema `1.2.0` and an
   `operational-evidence-rejection:` evidence reference, whether scoring or slice retention was rejected; the T1
   reason codes and the Pattern read's refusal name the class and cite the record.
+- **Forseti judgment table.** Forseti reads rule and risk outcomes from an injectable
+  digest-stamped judgment table, and each deterministic decision records the table digest and a
+  stable decision key. An `auto` decision remains only an upper bound: Forseti lowers it to human
+  approval (`hil`) when governed reversible `ActionType` semantics are unavailable, when the action
+  is unknown, when the required quorum is `>= 2`, or when the matching rule is retired or revoked.
 - **Verifier.** `core/operational_evidence/issuance.py` and `proofs.py` build the receipt, five proofs, and bundle
   from registry entries and its own readback, evaluates them with `DecisionEvidenceReadinessGate`, and writes one admission or one
   rejection. `separation.py` refuses a verifier principal that equals any independent principal, and

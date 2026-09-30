@@ -1,7 +1,7 @@
 ---
 title: 에이전트 판테온
 translation_of: agent-pantheon.md
-translation_source_sha: 6c6a45ff2f448fb7ce502d37003a347db6f28745
+translation_source_sha: 27fbb2b9f102aa1ed11dca0d3fd87c167495f5fe
 translation_revised: 2026-09-30
 ---
 # 에이전트 판테온
@@ -451,6 +451,9 @@ Command Deck은 공개 `PantheonRuntime` 대화 메서드를 사용합니다. �
 
 소유 데이터, T0, T1으로 답할 수 없는 에이전트는 T2로 추측하지 않고 Bragi에 판단 보류를 반환합니다. Bragi만 `HandoffEscalation`을 게시하며 Saga가 `escalate_to_github_issue`로 GitHub 이슈를 만듭니다.
 EventBus가 없으면 Bragi는 `handoff_status: transport_unavailable`을 기록하고 해당 동작 횟수를 늘리며 생성되지 않은 에스컬레이션을 성공으로 보고하지 않습니다.
+대화 품질 보증 census 인계도 같은 보고 체계 경계를 사용합니다. gap은 실행기를 권한 우회로로
+삼지 않고 소유자 라인의 서로 다른 peer로 라우팅합니다. Var는 승인자로 유지되며 Thor를 대신해
+말하지 않으므로, 진단 인계가 승인 신원과 실행 신원을 결합할 수 없습니다.
 
 중복 제거는 `problem_fingerprint` 사용:
 
@@ -523,6 +526,10 @@ proposed  (initiator agent)
 
 모든 최종 상태는 종결 전에 `AuditEntry`를 씁니다. 감사 재생은 판단 전용이며 Saga는 과거 결정을 재구성할 뿐 다시 실행하지 않습니다.
 리소스가 활성 run 또는 승인 대기 run에 이미 점유되어 있거나, 다른 작업이 같은 상관관계를 다른 멱등성 키로 재사용하려고 하면 Thor는 보이는 최종 `ActionRun` 차단 결과를 기록합니다. 이 경우는 더 이상 dead-letter 큐로 조용히 사라지지 않습니다.
+Thor는 실행 전이 전에 verdict 위험 어휘와 정족수 필드도 검증합니다. 알 수 없는 위험 단어나
+잘못된 정족수 값은 범위가 제한된 동작 근거를 가진 보이는 비실행 차단 결과가 됩니다.
+Heimdall은 필요한 상관관계 신원이 없으면 Anomaly를 게시하지 않습니다. 관찰자는 상관관계 누락
+no-op을 기록하고, 상관관계가 없는 근거가 incident 또는 작업 소비자에게 전달되지 않게 합니다.
 
 ### 7.3 파라미터 검증과 멱등성
 
@@ -557,6 +564,11 @@ proposed  (initiator agent)
 
 `irreversible: true` 작업에는 일반적으로 HIL, 서로 다른 승인자 2명 이상, 자기 승인 금지가 필요하며 Forseti가 `quorum_required: 2`를 첨부하고 Var가 적용합니다. 명시적으로 주입한 전권 개발 프로필만 예외이며, 현재 인증된 Owner 한 명이 정확한 작업과 보호 장치를 확인한 뒤 개발 환경의 유효 정족수를 충족할 수 있습니다. Var는 다른 사람을 만들어 내지 않고 원래 정족수와 유효 정족수를 모두 기록하며, Thor와 Vidar는 실행 또는 롤백 전에 같은 프로필, 확인, 작업 신원, 별도 실행기, 만료, 영속 감사, 잠금, 멱등성 및 관찰자 결속을 다시 검증합니다. 에이전트 역할과 토픽은 바뀌지 않으며 프로필 범위 승격은 프로덕션 준비 상태를 입증하지 않습니다.
 Forseti는 `auto`를 상한으로만 취급합니다. 거버넌스가 적용된 되돌릴 수 있는 ActionType 의미가 없거나 판정에 정족수 `>= 2`가 필요하면 런타임은 결정을 사람 승인(`hil`)으로 낮춥니다.
+판단 표는 주입되며 digest가 찍힙니다. Forseti는 맨 상관관계로 대체하지 않고 이벤트 신원과
+작업에서 결정론적 verdict 키를 기록합니다. retired 또는 revoked 규칙도 `auto`를 `hil`로
+낮춥니다. 중재 결정은 Odin이 보낸 경우에만 수락하며, 해결된 중재 verdict를 내보내기 전에
+영역별 처리 결과를 반영합니다. 해결된 중재 verdict에는 결과 자율성 상한과 Thor가 강제할 작업
+멱등성 키가 포함됩니다.
 
 ### 7.6 타입이 지정된 전달로서의 인계
 

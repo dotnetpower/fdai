@@ -1,8 +1,8 @@
 ---
 title: 에스컬레이션과 상시 권한(감독형 OODA 루프)
 translation_of: escalation-and-standing-authority.md
-translation_source_sha: b8fc3850e41a7fae85fe3081da8e7c206ffcaef5
-translation_revised: 2026-09-29
+translation_source_sha: ac446d624a58d5c724c695ca2e79176c742523eb
+translation_revised: 2026-09-30
 ---
 
 # 에스컬레이션과 상시 권한(감독형 OODA 루프)
@@ -39,6 +39,10 @@ translation_revised: 2026-09-29
 경계를 바꾸지 않습니다.
 
 - 등록된 ActionType이 있는 실행 가능한 `hil` 판정은 TTL이 있는 승인 요청을 생성합니다.
+  거버넌스가 적용된 되돌릴 수 있는 ActionType 의미가 없거나, 작업을 알 수 없거나, 유효 정족수가
+  둘 이상이거나, 일치한 규칙이 retired 또는 revoked이면 Forseti는 원래 자동 처리할 수 있던 판정도
+  사람 승인으로 낮춥니다. 이렇게 낮아진 결정은 다른 `hil` 결정과 같은 승인 수명 주기를 만들고,
+  자동 경로를 실행 가능하다고 보지 않고 결정론적 사유를 기록합니다.
   알림 채널이 구성되지 않아도 TTL 만료는 항상 **종단 무작업 + 감사** 상태로 수렴합니다.
   정확한 이유가 `no_rule_match` 또는 `anomaly_action_unavailable`인 작업 없는 shadow 사람
   검토 판정은 Odin과 Saga가 처리할 수 있도록 Verdict 스트림에 남지만, Thor는 `ActionRun`이나

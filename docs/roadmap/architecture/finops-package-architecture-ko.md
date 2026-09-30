@@ -1,7 +1,7 @@
 ---
 title: 온톨로지 기반 FinOps 패키지 아키텍처
 translation_of: finops-package-architecture.md
-translation_source_sha: 7f1a8a40101fc910a4ee5120699af1fadda08911
+translation_source_sha: 0757793b10b773b8f78f8918303b18af137dec38
 translation_revised: 2026-09-30
 ---
 
@@ -457,6 +457,13 @@ enablement나 `ActionType` 또는 `Workflow` mode를 변경할 수 없습니다.
 알 수 없는 상태로 만들며 권한을 높일 수 없습니다. 전체 온톨로지 탐색, 에이전트 순서, 제한된 복구
 순서, 효과 정산 및 학습 루프는 [FinOps 자율 운영](finops-autonomous-operations-ko.md)에
 정의되어 있습니다.
+
+비용 및 용량 전문가는 Huginn이 검증한 시각과 신원만 소비합니다. `occurred_at`을 먼저 사용하고
+그다음 신뢰된 `ingested_at`을 사용하며, 이벤트 묶음의 `resource_id`를 권위 있는 값으로 봅니다.
+속성 사본은 묶음 값과 같을 때만 수락합니다. 리소스 신원이 충돌하면 보이는 동작 근거와 함께
+거부합니다. Njord는 활성화 판독기가 연결되지 않으면 안전하게 닫히고, Freyr는 Njord 비용 근거가
+최신이며 graduation 범위와 상관관계가 있을 때만 용량 권고에 첨부합니다. 각 전문가는 health에
+유입 상태와 거부 카운터를 보고합니다.
 
 ## 호환성과 롤백
 

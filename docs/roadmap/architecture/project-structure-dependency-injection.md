@@ -184,6 +184,11 @@ index.
 The shared `MetricProviderError` contract owns bounded failure metadata; Azure transports classify it and the Analyzer redacts identities.
 The [metric diagnostics contract](aks-diagnostic-evidence-plane.md#safe-metric-failure-diagnostics) preserves legacy providers, empty results, and fail-closed behavior.
 
+The local development `EventBus` keeps a bounded per-topic replay window instead of retaining every
+record indefinitely. Compaction removes a record only after every known subscribed group has
+advanced beyond it, so a slow subscribed group does not lose unconsumed traffic. A group that
+subscribes later starts from the retained window and replays the records still inside that bound.
+
 Startup readiness keeps provider-neutral pass budgets, probe timeouts, and derived evidence lifetimes in `core/readiness`. Runtime schedules
 bounded refresh, closes at original expiry, and exposes the live ceiling that Thor checks before privileged I/O; no layer can raise
 deployment authority. The coordinator binds the complete reduced report to a shared decision-evidence admission before persistence and

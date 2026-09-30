@@ -455,6 +455,10 @@ Command Deck uses public `PantheonRuntime` conversation methods. Delivery adapte
 
 An agent unable to answer through owned data, T0, or T1 abstains to Bragi rather than guessing through T2. Bragi alone publishes `HandoffEscalation`; Saga creates the GitHub issue through `escalate_to_github_issue`.
 Without EventBus, Bragi records `handoff_status: transport_unavailable` and increments its behavior counter, never reports an unmaterialized escalation as successful.
+Conversation-assurance census handoffs use the same reporting-line boundary: a gap is routed to a
+distinct peer on the owner's line, never to the executor as an authority shortcut. Var remains the
+approver and refuses to speak for Thor, so a diagnostic handoff cannot combine approval and
+execution identity.
 
 Deduplication uses a `problem_fingerprint`:
 
@@ -531,6 +535,12 @@ Every terminal state writes an `AuditEntry` before closure. Audit replay is judg
 Thor records visible terminal `ActionRun` rejections when a resource is already held by an active or
 approval-parked run, or when a second action tries to reuse a correlation with a different
 idempotency key. Those cases no longer disappear into a dead-letter queue.
+Thor also validates verdict risk vocabulary and quorum fields before any execution transition.
+Unknown risk words or malformed quorum values become visible non-executing rejections with
+bounded behavior evidence.
+Heimdall refuses to publish an Anomaly without the required correlation identity. The observer
+records the missing-correlation no-op instead of letting uncorrelated evidence reach incident or
+action consumers.
 
 ### 7.3 Parameter validation and idempotency
 
@@ -568,6 +578,11 @@ Every ActionType, including irreversible actions, declares a live `rollback_cont
 An `irreversible: true` action normally requires HIL, at least two distinct approvers, and no self-approval. Forseti attaches `quorum_required: 2`; Var enforces it. The only exception is an explicitly injected full-authority development profile with one currently authenticated Owner and exact action safeguards. Var records original and effective quorum without inventing another person; Thor and Vidar revalidate the same profile, confirmation, action identity, distinct executor, expiry, durable audit, lock, idempotency, and observer before execution or rollback. Roles and topics stay fixed, and profile-scoped promotion never establishes production readiness.
 Forseti treats `auto` as an upper bound. Without governed reversible ActionType semantics, or when
 the verdict requires quorum `>= 2`, the runtime caps the decision to human approval (`hil`).
+The judgment table is injected and digest-stamped; Forseti records deterministic verdict keys from
+the event identity and action instead of falling back to a bare correlation. Retired or revoked
+rules also cap `auto` to `hil`. Arbitration decisions are accepted only from Odin, and per-domain
+dispositions are honored before a resolved arbitration verdict is emitted. Resolved arbitration
+verdicts carry the resulting autonomy ceiling and the action idempotency key Thor will enforce.
 
 ### 7.6 Handoff as typed delivery
 

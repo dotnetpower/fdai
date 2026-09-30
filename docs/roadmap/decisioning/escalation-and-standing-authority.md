@@ -38,6 +38,11 @@ outbox. This adds another safe response surface; it does not change the escalati
 standing-authority rules, or Thor's execution boundary.
 
 - An actionable `hil` verdict with a registered ActionType fires an approval request with a TTL.
+  Forseti also lowers an otherwise automatic verdict to human approval when the governed reversible
+  ActionType semantics are absent, the action is unknown, the effective quorum is two or more, or
+  the matched rule has been retired or revoked. That lowering creates the same approval lifecycle as
+  any other `hil` decision and records the deterministic reason instead of treating the automatic
+  path as executable.
   TTL expiry always converges to a **terminal no-op + audit**, even when no notification channel
   is configured. An actionless shadow Human-review Verdict whose exact reason is
   `no_rule_match` or `anomaly_action_unavailable` remains on the Verdict stream for Odin and Saga,
