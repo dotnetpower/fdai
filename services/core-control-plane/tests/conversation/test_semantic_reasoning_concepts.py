@@ -5,6 +5,11 @@ from __future__ import annotations
 from typing import Any
 
 import pytest
+import yaml
+from fdai.core.conversation.semantic_manifest import (
+    CatalogQueryManifestProvider,
+    ConceptVocabularies,
+)
 from fdai.core.conversation.semantic_reasoning_concepts import (
     ConceptBinding,
     ConceptCandidate,
@@ -17,8 +22,21 @@ from fdai.core.conversation.semantic_reasoning_concepts import (
     shard_catalog,
 )
 from fdai.core.conversation.semantic_reasoning_form import MentionDomain
+from fdai.core.conversation.session import Principal, Role
+from fdai.core.ontology_platform.operational_functions import operational_function_types
+from fdai.core.ontology_platform.resource_health_values import resource_health_state_values
+from fdai.rule_catalog.schema.inventory_query_language import (
+    load_inventory_query_language_from_mapping,
+)
+from fdai.shared.ontology.release import build_ontology_release
 
-from tests.conversation.semantic_reasoning_support import admitted, production_manifest, span
+from tests.conversation.semantic_reasoning_support import (
+    ROOT,
+    admitted,
+    production_catalog,
+    production_manifest,
+    span,
+)
 
 _UTTERANCE = "List the VMs and the AKS clusters"
 
@@ -396,3 +414,71 @@ def test_metric_concepts_ground_over_the_reviewed_registry_only_with_their_reade
     assert unbound.metric_labels == () and MentionDomain.METRIC not in concept_catalogs(
         unbound.descriptors, metric_labels=dict(unbound.metric_labels)
     )
+
+
+_HEALTH_GROUPS = (
+    ("resource_health.degraded", ("degraded",)),
+    ("resource_health.unavailable", ("unavailable",)),
+)
+
+
+def test_health_concepts_ground_over_the_reviewed_groups_only_with_their_reader() -> None:
+    plain = production_manifest()
+    offered = production_manifest(health_labels=_HEALTH_GROUPS)
+    unbound = production_manifest(
+        health_labels=_HEALTH_GROUPS, unbound=("query.resource_health_inventory",)
+    )
+
+    catalog = concept_catalogs(offered.descriptors, health_labels=dict(offered.health_labels))
+    by_value = {candidate.values: candidate for candidate in catalog[MentionDomain.HEALTH]}
+
+    # Each candidate binds exactly one reviewed concept; its provider states are labels only.
+    assert set(by_value) == {("resource_health.degraded",), ("resource_health.unavailable",)}
+    assert by_value[("resource_health.degraded",)].labels == (
+        "resource_health.degraded",
+        "degraded",
+    )
+    # The digest binds the offered concepts, and no reader means no health catalog.
+    assert offered.manifest_digest != plain.manifest_digest
+    assert unbound.health_labels == () and MentionDomain.HEALTH not in concept_catalogs(
+        unbound.descriptors, health_labels=dict(unbound.health_labels)
+    )
+
+
+def test_the_manifest_provider_offers_the_reviewed_health_groups() -> None:
+    language = load_inventory_query_language_from_mapping(
+        yaml.safe_load(
+            (ROOT / "rule-catalog" / "vocabulary" / "inventory-query-language.yaml").read_text(
+                encoding="utf-8"
+            )
+        )
+    )
+    catalog = production_catalog()
+    functions = operational_function_types(catalog.function_types)
+    release = build_ontology_release(
+        object_types=catalog.object_types,
+        link_types=catalog.link_types,
+        action_types=catalog.action_types,
+        interface_types=catalog.interface_types,
+        function_types=functions,
+    )
+    provider = CatalogQueryManifestProvider(
+        release=release,
+        object_types=catalog.object_types,
+        link_types=catalog.link_types,
+        interfaces=catalog.interface_types,
+        action_types=catalog.action_types,
+        functions=functions,
+        bound_function_names=tuple(function.name for function in functions),
+        vocabularies=ConceptVocabularies(inventory_query_language=language),
+    )
+
+    manifest = provider.manifest_for(
+        principal=Principal(id="operator", role=Role.READER), purpose="operations-review"
+    )
+
+    groups = resource_health_state_values(language)
+    assert groups and {key: tuple(values) for key, values in manifest.health_labels} == groups
+    # Without reviewed vocabularies, no measure concept is offered.
+    assert ConceptVocabularies().health_labels() == {}
+    assert ConceptVocabularies().metric_labels() == {}

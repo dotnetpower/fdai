@@ -26,6 +26,7 @@ from fdai_service_contracts.ontology_query import (
 )
 
 from fdai.core.ontology_platform.resource_event_queries import RESOURCE_EVENT_MEASURE_CONCEPTS
+from fdai.core.ontology_platform.resource_health_queries import RESOURCE_HEALTH_FUNCTION_NAME
 from fdai.core.ontology_platform.resource_state_queries import RESOURCE_STATE_FUNCTION_NAME
 
 from .semantic_reasoning_admission import FormAdmission, relation_reach, restated_relation
@@ -181,6 +182,7 @@ class _Allowed:
         self.object_types: set[str] = set()
         self.declaration_kinds: set[str] = set()
         self.state_concepts: set[str] = set()
+        self.health_concepts: set[str] = set()
         self.metric_concepts: set[str] = set()
         self.regions: set[str] = set()
         self.relation_object_type = False
@@ -236,6 +238,8 @@ def _allowed_operands(
             allowed.declaration_kinds.update(concept.values)
         elif mention.domain is MentionDomain.STATE and role is FilterRole.STATE:
             allowed.state_concepts.update(concept.values)
+        elif mention.domain is MentionDomain.HEALTH and role is FilterRole.HEALTH:
+            allowed.health_concepts.update(concept.values)
         elif mention.domain is MentionDomain.REGION and role is FilterRole.REGION:
             allowed.regions.update(concept.values)
     measure = goal.measure
@@ -357,6 +361,9 @@ def _function_violations(
         expected = {"kinds": sorted(allowed.declaration_kinds), "limit": 1000}
     elif name == RESOURCE_STATE_FUNCTION_NAME:
         expected = {"state_concepts": sorted(allowed.state_concepts)}
+    elif name == RESOURCE_HEALTH_FUNCTION_NAME:
+        health = sorted(allowed.health_concepts)
+        expected = {"health_concepts": health, "state_concepts": []} if health else None
     elif name == METRIC_READER:
         window = _expected_metric_window(goal, descriptors)
         expected = (
@@ -634,6 +641,14 @@ def _filter_coverage(
         for node in plan.nodes
     ):
         violations.append("sem_state_filter_missing")
+    health = sorted(allowed.health_concepts)
+    if health and not any(
+        _function_name(node) == RESOURCE_HEALTH_FUNCTION_NAME
+        and (node.arguments.get("arguments") or {}).get("health_concepts") == health
+        for plan in plans
+        for node in plan.nodes
+    ):
+        violations.append("sem_health_filter_missing")
     return violations
 
 

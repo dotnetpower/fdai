@@ -1,6 +1,6 @@
 ---
 translation_of: ontology-query-coverage-implementation-plan.md
-translation_source_sha: 6a8c8cb7fb9732e17ff682537ac9ae3e1e6ee8c8
+translation_source_sha: 0867c8e99b6b0d78bc04dc8d0a3bfdde4576f6fb
 translation_revised: 2026-09-30
 ---
 # 온톨로지 조회 커버리지 구현 계획
@@ -243,7 +243,7 @@ v1.2 검색어/발화 결속, 사용 불가 결과 및 이전 버전 호환성�
 | Console 의도 그래프 | Core는 검증된 계획에서 범위가 제한된 그래프/증적 근거를 만들고 Operator는 Console-compatible 최종 프레임으로 이를 스트림합니다. | 새 인증된 randomized 실행이 실제 운영 근거에 대해 visible 브라우저 경로를 검증해야 합니다. |
 | 의미 interpretation | Azure OpenAI 어댑터는 bearer-token authentication과 resolved-candidate 대체 경로를 통해 `SemanticProblemFrame` 및 타입이 지정된 DAG를 strict 범위가 제한된 JSON 객체 두 개로 제안합니다. Core는 신원을 부여하고 Pydantic 스키마와 principal 매니페스트를 검증하며 exact 요청 역할로 실행하고 Operator는 결정론적 근거에 묶인 답변을 스트림합니다. | 서술자 한계를 넘으면 complete-manifest 선택자가 보류합니다. |
 | 객체 조회 | `OntologyQueryPlan`은 이제 변경할 수 없는 내용 기반 주소를 가진 표 위에서 secured ObjectSet, 집합 algebra, 정렬, 변환 결과, grouped 집계 및 타입이 지정된 읽기 전용 함수를 구성합니다. | Temporal 스냅샷, 메트릭 series 및 근거 결합에는 등록된 확장 핸들러가 필요합니다. |
-| 조회 매니페스트 | principal 범위로 한정된 내용 기반 주소를 가진 빌더가 ObjectType/filtered 속성, LinkType 양쪽 엔드포인트 side, Interface, 읽기 전용 함수 및 초안 전용 ActionType을 변환 결과합니다. 읽을 수 있는 각 ObjectType의 검토된 설명도 다이제스트에 묶인 서술자 밖에 개념 선택자 레이블로 담으므로 어떤 계획 프롬프트도 커지지 않습니다. | 운영 서술기는 아직 매니페스트를 사용하지 않으며 완전한 운영자/근거 가용성 서술자가 남아 있습니다. |
+| 조회 매니페스트 | principal 범위로 한정된 내용 기반 주소를 가진 빌더가 ObjectType/filtered 속성, LinkType 양쪽 엔드포인트 side, Interface, 읽기 전용 함수 및 초안 전용 ActionType을 변환 결과합니다. 읽을 수 있는 각 ObjectType의 검토된 설명도 다이제스트에 묶인 서술자 밖에 개념 선택자 레이블로 담으므로 어떤 계획 프롬프트도 커지지 않으며, 검토된 지표와 Resource Health 개념은 그 reader가 읽을 수 있고 바인딩된 서술자일 때만 개념 선택자에게 제공하고 다이제스트가 그것을 묶습니다. | 운영 서술기는 아직 매니페스트를 사용하지 않으며 완전한 운영자/근거 가용성 서술자가 남아 있습니다. |
 | Interface | 운영 카탈로그 로딩은 `Identifiable`, 출처 이력 및 모든 현재 ObjectType의 명시적 연결을 검증합니다. 런타임 조립은 이를 compile하고 exact release에 pin합니다. | 추가 기능 Interface와 운영 ObjectSet 조회 연결은 남아 있습니다. |
 | 관계 | 모든 directed LinkType은 엔드포인트, cardinality, causal, transitive 및 temporal 메타데이터와 함께 결정론적 `<name>.outgoing`/`<name>.incoming` 머신 조회 id를 변환 결과합니다. | 이 side를 사용하는 범용 계획 검증기와 플래너 연결은 남아 있습니다. |
 | 의미 세대 | 구체적인 service-owned atomic in-memory 인덱스와 off-path full/incremental 온톨로지 세대 발행기가 선언 및 조건을 충족한 deployment-local 객체를 독립적인 검증과 함께 다룹니다. | 영속 PostgreSQL 어댑터, scheduled 발행기 프로세스 및 운영 의미 서술자 선택자는 남아 있습니다. |

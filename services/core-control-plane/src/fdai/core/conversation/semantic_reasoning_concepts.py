@@ -124,13 +124,16 @@ def concept_catalogs(
     *,
     object_labels: Mapping[str, str] | None = None,
     metric_labels: Mapping[str, str] | None = None,
+    health_labels: Mapping[str, Sequence[str]] | None = None,
 ) -> dict[MentionDomain, tuple[ConceptCandidate, ...]]:
     """Return complete candidate catalogs for the domains the manifest declares.
 
     ``object_labels`` holds reviewed ObjectType descriptions; each follows its name as a
     label, so a chooser can tell Resource from ResourceType by meaning. ``metric_labels``
     holds the reviewed metric concepts the bound metric reader accepts, each with its
-    reviewed description. A label is context for the chooser, never a lookup key.
+    reviewed description. ``health_labels`` holds the reviewed Resource Health concepts the
+    bound health reader accepts, each with the provider states it groups. A label is
+    context for the chooser, never a lookup key.
     """
 
     described = object_labels or {}
@@ -152,6 +155,11 @@ def concept_catalogs(
         catalogs[MentionDomain.METRIC] = tuple(
             ConceptCandidate(f"metric:{concept}", (concept,), (concept, description))
             for concept, description in sorted(metric_labels.items())
+        )
+    if health_labels:
+        catalogs[MentionDomain.HEALTH] = tuple(
+            ConceptCandidate(f"health:{concept}", (concept,), (concept, *states))
+            for concept, states in sorted(health_labels.items())
         )
     kinds = sorted({str(item.get("kind")) for item in descriptors} & set(_DECLARATION_KINDS))
     catalogs[MentionDomain.DECLARATION_KIND] = tuple(

@@ -2180,3 +2180,107 @@ def test_a_stated_metric_window_is_read_within_the_reader_bounds() -> None:
     assert short.status is GoalStatus.UNSUPPORTED
     assert short.reasons == ("metric_window_out_of_bounds",)
     assert unbound.status is not GoalStatus.COMPILED
+
+
+def _health_form(utterance: str, *, operation: str = "select", state: str = "") -> dict[str, Any]:
+    mentions: list[dict[str, Any]] = [
+        {"id": "m1", "form": "concept", "domain": "resource_type", "span": span(utterance, "VMs")},
+        {"id": "m2", "form": "concept", "domain": "health", "span": span(utterance, "unhealthy")},
+    ]
+    filters = [{"role": "health", "mention": "m2"}]
+    if state:
+        mentions.append(
+            {"id": "m3", "form": "concept", "domain": "state", "span": span(utterance, state)}
+        )
+        filters.append({"role": "state", "mention": "m3"})
+    return {
+        "mentions": mentions,
+        "goals": [
+            {
+                "id": "g1",
+                "level": "instance",
+                "operation": operation,
+                "subject": "m1",
+                "subject_scope": "collection",
+                "filters": filters,
+                "cue": span(utterance, "unhealthy"),
+                "confidence": 0.93,
+            }
+        ],
+    }
+
+
+_UNHEALTHY = concepts(
+    ("m1", MentionDomain.RESOURCE_TYPE, ("compute.vm",)),
+    ("m2", MentionDomain.HEALTH, ("resource_health.unhealthy",)),
+)
+
+
+def test_a_stated_health_filters_the_collection_through_the_health_inventory() -> None:
+    utterance = "List the unhealthy VMs"
+
+    goal = _compile(utterance, _health_form(utterance), _UNHEALTHY).goals[0]
+
+    assert goal.status is GoalStatus.COMPILED, goal.reasons
+    (batch,) = goal.batches
+    collection, health = batch.plan.nodes
+    assert collection.kind is QueryNodeKind.OBJECT_SET
+    assert {
+        "property": "type",
+        "operator": "equals",
+        "equals": "compute.vm",
+    } in collection.arguments["definition"]["predicates"]
+    assert json.loads(health.arguments_json) == {
+        "function_name": "query.resource_health_inventory",
+        "arguments": {"health_concepts": ["resource_health.unhealthy"], "state_concepts": []},
+        "dependency_arguments": {"g1-collection": "query_result"},
+    }
+    assert batch.frame.output_shape == "resource_health_list"
+    assert batch.frame.measure_concepts == ("resource_health.unhealthy",)
+
+
+def test_a_health_filter_never_counts_never_mixes_with_state_and_needs_its_reader() -> None:
+    counted = "How many unhealthy VMs"
+    mixed = "List the stopped unhealthy VMs"
+    listing = "List the unhealthy VMs"
+    admission = admitted(_health_form(listing), listing)
+
+    count = _compile(counted, _health_form(counted, operation="count"), _UNHEALTHY).goals[0]
+    both = _compile(
+        mixed,
+        _health_form(mixed, state="stopped"),
+        concepts(
+            ("m1", MentionDomain.RESOURCE_TYPE, ("compute.vm",)),
+            ("m2", MentionDomain.HEALTH, ("resource_health.unhealthy",)),
+            ("m3", MentionDomain.STATE, ("resource_state.stopped",)),
+        ),
+    ).goals[0]
+    unbound = compile_question_form(
+        admission,
+        concepts=_UNHEALTHY,
+        manifest=production_manifest(unbound=("query.resource_health_inventory",)),
+        verifier=plan_verifier(),
+        purpose=PURPOSE,
+        evaluation_time=NOW,
+        default_lookback_seconds=DEFAULT_LOOKBACK_SECONDS,
+        utterance=listing,
+        anchors=synthetic_anchors(admission),
+    ).goals[0]
+    ungrounded = _compile(
+        listing,
+        _health_form(listing),
+        concepts(("m1", MentionDomain.RESOURCE_TYPE, ("compute.vm",))),
+    ).goals[0]
+
+    # Health rows also report unknown coverage, so a row count is not a count of matches.
+    assert (count.status, count.reasons) == (GoalStatus.UNSUPPORTED, ("health_count_unsupported",))
+    # The health reader unions state rows, while stated restrictions intersect.
+    assert (both.status, both.reasons) == (
+        GoalStatus.UNSUPPORTED,
+        ("state_and_health_filter_unsupported",),
+    )
+    assert (unbound.status, unbound.reasons) == (
+        GoalStatus.UNSUPPORTED,
+        ("function_unavailable:query.resource_health_inventory",),
+    )
+    assert ungrounded.status is not GoalStatus.COMPILED

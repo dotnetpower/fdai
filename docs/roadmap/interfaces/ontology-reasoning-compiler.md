@@ -810,6 +810,18 @@ re-derives the window. An ungrounded metric, too many concepts for one read, or 
 bounds returns a typed unsupported reason, and a metric the provider cannot read for that Resource stays
 incomplete.
 
+**Health filters**
+
+When the Resource Health reader is a readable, bound declaration, the manifest also offers the reviewed
+Resource Health groups, each with the provider states it groups, and the digest binds them. A list whose
+filter is a stated health reads the collection or scope members and then `query.resource_health_inventory`
+with exactly the grounded concepts and no state concepts. The health reader also returns rows for unknown
+coverage and for other unavailable states, so a health-filtered count returns a typed unsupported reason
+instead of counting rows as matches. The reader unions the state rows it is given, while stated
+restrictions intersect, so a goal that states both a state and a health also returns a typed unsupported
+reason. V-SEM requires the health reader with the grounded concepts, and V-PROV requires exactly those
+concepts and no state concepts.
+
 ## Approved decisions
 
 The Owner approved these decisions on 2026-09-28.

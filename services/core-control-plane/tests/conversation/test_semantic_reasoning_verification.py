@@ -516,3 +516,37 @@ def test_a_metric_read_must_name_the_grounded_concept_and_the_reviewed_window() 
     assert "sem_metric_read_differs" in _violations(
         admission, _CPU, _rewrite(plan, "g1-read", state_instead)
     )
+
+
+def test_a_health_read_must_keep_exactly_the_grounded_health_concepts() -> None:
+    from tests.conversation.test_semantic_reasoning_compiler import _UNHEALTHY, _health_form
+
+    utterance = "List the unhealthy VMs"
+    admission = admitted(_health_form(utterance), utterance)
+    compilation = compile_question_form(
+        admission,
+        concepts=_UNHEALTHY,
+        manifest=production_manifest(),
+        verifier=plan_verifier(),
+        purpose=PURPOSE,
+        evaluation_time=NOW,
+        default_lookback_seconds=DEFAULT_LOOKBACK_SECONDS,
+        utterance=utterance,
+        anchors=synthetic_anchors(admission),
+    )
+    plan = compilation.goals[0].batches[0].plan
+
+    def widened(arguments: dict[str, Any]) -> None:
+        arguments["arguments"]["health_concepts"] = ["resource_health.degraded"]
+
+    def with_states(arguments: dict[str, Any]) -> None:
+        arguments["arguments"]["state_concepts"] = ["resource_state.stopped"]
+
+    assert _violations(admission, _UNHEALTHY, plan) == ()
+    swapped = _violations(admission, _UNHEALTHY, _rewrite(plan, "g1-health", widened))
+    assert "prov_function_arguments:g1-health" in swapped
+    assert "sem_health_filter_missing" in swapped
+    # State rows the health reader would union in were never stated.
+    assert "prov_function_arguments:g1-health" in _violations(
+        admission, _UNHEALTHY, _rewrite(plan, "g1-health", with_states)
+    )

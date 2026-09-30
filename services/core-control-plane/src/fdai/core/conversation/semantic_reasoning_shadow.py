@@ -282,6 +282,7 @@ async def run_reasoning_shadow(
         manifest.descriptors,
         object_labels=dict(manifest.object_labels),
         metric_labels=dict(manifest.metric_labels),
+        health_labels=dict(manifest.health_labels),
     )
     pending = False
     notes: list[str] = []

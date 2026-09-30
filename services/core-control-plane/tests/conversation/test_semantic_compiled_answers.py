@@ -882,3 +882,26 @@ def test_a_compiled_metric_lookup_answers_with_its_default_window_notice(
     assert outcome.frame.output_shape == "target_resource_metric"
     assert "window.default.900" in outcome.frame.evidence_requirements
     assert _completions(caplog) == ["selected"]
+
+
+def test_a_compiled_health_filtered_list_answers_as_a_health_list(
+    caplog: pytest.LogCaptureFixture, events: list[dict[str, Any]]
+) -> None:
+    from tests.conversation.test_semantic_reasoning_compiler import (
+        _UNHEALTHY,
+        _compile,
+        _health_form,
+    )
+
+    utterance = "List the unhealthy VMs"
+    compilation = _compile(utterance, _health_form(utterance), _UNHEALTHY)
+
+    outcome = _ticket(_observation(compilations=(compilation,))).outcome(
+        manifest_digest="d", observations=[]
+    )
+
+    # The frame, plan, and intent graph verify again under the current path's health shape.
+    assert outcome is not None and outcome.frame is not None
+    assert outcome.frame.output_shape == "resource_health_list"
+    assert outcome.frame.measure_concepts == ("resource_health.unhealthy",)
+    assert _completions(caplog) == ["selected"]

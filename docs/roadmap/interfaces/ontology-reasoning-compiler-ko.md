@@ -1,6 +1,6 @@
 ---
 translation_of: ontology-reasoning-compiler.md
-translation_source_sha: bbaf5130bad7886cf76c0376779e163316316a75
+translation_source_sha: d133a23b5872b1c57cda54df5f2af8893b3aabba
 translation_revised: 2026-09-30
 ---
 # 온톨로지 추론 컴파일러
@@ -820,6 +820,17 @@ release는 바뀌지 않습니다.
 reader를 요구하고 현재 상태 조회로는 답하지 않게 하며, V-PROV는 개념이 그 바인딩에서 왔는지 확인하고 기간을
 다시 계산합니다. 근거화되지 않은 지표, 한 번에 읽을 수 있는 수보다 많은 개념, 범위를 벗어난 기간은 타입이
 지정된 지원되지 않음 이유를 돌려주며, 제공자가 그 Resource에 대해 읽지 못한 지표는 불완전으로 남습니다.
+
+**Resource Health 필터**
+
+Resource Health reader가 읽을 수 있고 바인딩된 선언이면, 매니페스트는 검토된 Resource Health 그룹과 각
+그룹이 묶는 제공자 상태도 제공하며 다이제스트가 그것을 묶습니다. 밝힌 Resource Health로 거르는 목록은
+컬렉션이나 범위의 구성원을 읽은 뒤, 근거화된 개념만으로 상태 개념 없이 `query.resource_health_inventory`를
+읽습니다. 이 reader는 수집 범위를 알 수 없는 행과 다른 사용 불가 상태의 행도 돌려주므로, Resource Health로
+거른 개수 질문은 행을 일치 항목으로 세지 않고 타입이 지정된 지원되지 않음 이유를 돌려줍니다. 또한 reader는
+받은 상태 행을 합집합으로 더하지만 밝힌 제한은 교집합이므로, 상태와 Resource Health를 함께 밝힌 목표도 타입이
+지정된 지원되지 않음 이유를 돌려줍니다. V-SEM은 근거화된 개념을 읽는 Resource Health reader를 요구하고,
+V-PROV는 정확히 그 개념만 있고 상태 개념은 없는지 확인합니다.
 
 ## 승인된 결정
 

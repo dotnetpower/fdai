@@ -76,12 +76,14 @@
     "instance.select.evidence.either.one_hop",
     "instance.select.evidence.evidence.one_hop",
     "instance.select.evidence.evidenced.one_hop",
+    "instance.select.none.health",
     "instance.select.none.name_fragment",
     "instance.select.none.none",
     "instance.select.none.region",
     "instance.select.none.scope",
     "instance.select.none.state",
     "instance.select.none.type",
+    "instance.select.object_type.health",
     "instance.select.object_type.name_fragment",
     "instance.select.object_type.none",
     "instance.select.object_type.region",
@@ -92,6 +94,7 @@
     "instance.select.ownership.owned.one_hop",
     "instance.select.prior_result",
     "instance.select.prior_result.ordinal",
+    "instance.select.resource_type.health",
     "instance.select.resource_type.name_fragment",
     "instance.select.resource_type.none",
     "instance.select.resource_type.region",
@@ -153,7 +156,7 @@
     "count_side_budget_exceeded": 2,
     "endpoint_filter_unreadable": 2,
     "event_window_unsupported": 1,
-    "filter_unsupported:health": 6,
+    "health_count_unsupported": 3,
     "history_future_time:g1": 4,
     "impact_relation_unsupported": 59,
     "measure_unsupported:change": 1,
@@ -190,9 +193,9 @@
     "want_unsupported:verification": 1
   },
   "status_counts": {
-    "compiled": 146,
+    "compiled": 149,
     "inadmissible": 8,
-    "unsupported": 279
+    "unsupported": 276
   },
   "version": 1
 }

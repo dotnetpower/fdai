@@ -17,7 +17,6 @@ from fdai_service_contracts.ontology_query import (
 )
 
 from fdai.core.ontology_platform.resource_event_queries import RESOURCE_EVENT_MEASURE_CONCEPTS
-from fdai.core.ontology_platform.resource_state_queries import RESOURCE_STATE_FUNCTION_NAME
 
 from .semantic_planning_models import SemanticOutputShape
 from .semantic_reasoning_admission import restated_relation, restates_filter
@@ -44,6 +43,7 @@ from .semantic_reasoning_handles import (
     reference_mention,
     starts_from_reference,
 )
+from .semantic_reasoning_measures import stated_measure
 from .semantic_reasoning_metrics import METRIC_READER, metric_read
 from .semantic_reasoning_nodes import (
     COLLECTION_LIMIT,
@@ -67,7 +67,6 @@ from .semantic_reasoning_nodes import (
     object_set_node,
     plan_spec,
     readable,
-    state_filter_node,
     subject_selection,
     traversal_node,
     union_tree,
@@ -273,14 +272,15 @@ def _restates_measure(goal: FormGoal, measure: FormMeasure, ctx: CompileContext)
 def _collection_goal(goal: FormGoal, ctx: CompileContext) -> OperatorResult:
     if goal.time.kind not in _CURRENT_TIMES:
         return OperatorResult(unsupported=(f"time_unsupported:{goal.time.kind.value}",))
-    states = _stated_states(goal, ctx)
-    if isinstance(states, OperatorResult):
-        return states
-    selector, predicates, failure = subject_selection(goal, ctx, state_stage=bool(states))
+    measure = stated_measure(goal, ctx)
+    if isinstance(measure, OperatorResult):
+        return measure
+    staged = measure.role if measure is not None else None
+    selector, predicates, failure = subject_selection(goal, ctx, staged=staged)
     if failure is not None:
         return failure
-    if states and selector != RESOURCE_OBJECT_TYPE:
-        return OperatorResult(unsupported=("state_filter_requires_resource",))
+    if measure is not None and selector != RESOURCE_OBJECT_TYPE:
+        return OperatorResult(unsupported=(f"{measure.role.value}_filter_requires_resource",))
     scopes = [item for item in goal.filters if item.role is FilterRole.SCOPE]
     if len(scopes) > 1:
         return OperatorResult(unsupported=("multiple_scopes_unsupported",))
@@ -304,15 +304,15 @@ def _collection_goal(goal: FormGoal, ctx: CompileContext) -> OperatorResult:
         member = traversal_node(f"{prefix}-members", anchor.node_id, side, predicates, ctx)
         nodes = [anchor, member]
         output = member.node_id
-    if states:
-        state = state_filter_node(f"{prefix}-state", output, states)
-        nodes.append(state)
-        output = state.node_id
+    if measure is not None:
+        stage = measure.node(f"{prefix}-{measure.role.value}", output)
+        nodes.append(stage)
+        output = stage.node_id
     if goal.effective_operation is GoalOperation.COUNT:
         count = count_node(f"{prefix}-count", output, group)
         nodes.append(count)
         output = count.node_id
-    listed_states = states and goal.effective_operation is not GoalOperation.COUNT
+    listed = measure if goal.effective_operation is not GoalOperation.COUNT else None
     return OperatorResult(
         specs=(
             plan_spec(
@@ -321,34 +321,11 @@ def _collection_goal(goal: FormGoal, ctx: CompileContext) -> OperatorResult:
                 (output,),
                 ctx,
                 subjects=(selector,),
-                output_shape=SemanticOutputShape.RESOURCE_STATE_LIST if listed_states else None,
-                measure_concepts=states if listed_states else (),
+                output_shape=listed.output_shape if listed is not None else None,
+                measure_concepts=listed.concepts if listed is not None else (),
             ),
         )
     )
-
-
-def _stated_states(goal: FormGoal, ctx: CompileContext) -> tuple[str, ...] | OperatorResult:
-    """Return the reviewed state concepts every state filter binds, in stable order."""
-
-    concepts: list[str] = []
-    stated = [item for item in goal.filters if item.role is FilterRole.STATE]
-    if stated and goal.subject is not None:
-        # Reviewed states describe Resources; another ObjectType's lifecycle has no reader here.
-        subject = ctx.mention(goal.subject)
-        values, _failure = concept_values(goal.subject, ctx)
-        if subject.domain is MentionDomain.OBJECT_TYPE and values != (RESOURCE_OBJECT_TYPE,):
-            return OperatorResult(unsupported=("filter_unsupported:state",))
-    for item in stated:
-        if ctx.mention(item.mention).domain is not MentionDomain.STATE:
-            return OperatorResult(unsupported=("state_filter_domain_unsupported",))
-        values, failure = concept_values(item.mention, ctx)
-        if failure is not None:
-            return failure
-        concepts.extend(values)
-    if concepts and not function_declared(ctx, RESOURCE_STATE_FUNCTION_NAME):
-        return OperatorResult(unsupported=(f"function_unavailable:{RESOURCE_STATE_FUNCTION_NAME}",))
-    return tuple(sorted(set(concepts)))
 
 
 def _relation_goal(goal: FormGoal, ctx: CompileContext) -> OperatorResult:

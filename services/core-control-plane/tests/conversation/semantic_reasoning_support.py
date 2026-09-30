@@ -119,6 +119,7 @@ def production_manifest(
     role: CeilingRole = CeilingRole.READER,
     *,
     metric_labels: tuple[tuple[str, str], ...] = (),
+    health_labels: tuple[tuple[str, tuple[str, ...]], ...] = (),
     unbound: tuple[str, ...] = (),
 ) -> QueryManifest:
     catalog = production_catalog()
@@ -151,6 +152,7 @@ def production_manifest(
             function.name for function in functions if function.name not in unbound
         ),
         metric_labels=dict(metric_labels),
+        health_labels=dict(health_labels),
         property_values=(
             *resource_type_value_domains(registry),
             *resource_location_value_domains(
