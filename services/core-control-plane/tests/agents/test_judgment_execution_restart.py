@@ -46,6 +46,12 @@ def _run(
     )
 
 
+def _thor_action_run(run: ActionRun) -> dict[str, object]:
+    payload = run.to_dict()
+    payload["producer_principal"] = "Thor"
+    return payload
+
+
 def _semantics() -> ActionSemanticsCatalog:
     return ActionSemanticsCatalog(
         irreversible_by_id={
@@ -205,7 +211,7 @@ async def test_vidar_startup_recovers_unpublished_terminal_rollback() -> None:
         calls += 1
         return "rollback:ok"
 
-    action = _run("corr-vidar").to_dict()
+    action = _thor_action_run(_run("corr-vidar"))
     vidar = Vidar(executors={"state_forward_only": rollback}, state_store=state)
     await vidar.rollback(action)
 
@@ -227,9 +233,9 @@ async def test_vidar_process_local_terminal_fence_survives_lru_eviction() -> Non
 
     vidar = Vidar(executors={"state_forward_only": rollback}, allow_process_local_rollback=True)
     vidar._MAX_RECORDS = 1  # noqa: SLF001
-    action = _run("corr-vidar-local").to_dict()
+    action = _thor_action_run(_run("corr-vidar-local"))
     await vidar.rollback(action)
-    await vidar.rollback(_run("corr-vidar-new").to_dict())
+    await vidar.rollback(_thor_action_run(_run("corr-vidar-new")))
     await vidar.rollback(action)
 
     assert calls == ["corr-vidar-local", "corr-vidar-new"]
@@ -242,7 +248,7 @@ async def test_vidar_health_reports_recovered_durable_publication_backlog() -> N
         return "rollback:ok"
 
     await Vidar(executors={"state_forward_only": rollback}, state_store=state).rollback(
-        _run("corr-health").to_dict()
+        _thor_action_run(_run("corr-health"))
     )
     vidar = Vidar(state_store=state)
     await vidar.recover_rollbacks()

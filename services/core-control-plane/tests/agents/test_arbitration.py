@@ -266,6 +266,7 @@ def test_forseti_aggregates_cross_domain_conflict() -> None:
         forseti.on_typed_message(
             "object.cost-anomaly",
             {
+                "producer_principal": "Njord",
                 "correlation_id": "corr-cross-domain",
                 "resource_id": "vm-1",
                 "recommendation": "scale_down",
@@ -278,6 +279,7 @@ def test_forseti_aggregates_cross_domain_conflict() -> None:
         forseti.on_typed_message(
             "object.capacity-forecast",
             {
+                "producer_principal": "Freyr",
                 "correlation_id": "corr-cross-domain",
                 "resource_id": "vm-1",
                 "recommendation": "scale_up",
@@ -295,13 +297,13 @@ def test_forseti_no_conflict_when_capacity_holds() -> None:
     asyncio.run(
         forseti.on_typed_message(
             "object.cost-anomaly",
-            {"resource_id": "vm-2", "recommendation": "scale_down"},
+            {"producer_principal": "Njord", "resource_id": "vm-2", "recommendation": "scale_down"},
         )
     )
     asyncio.run(
         forseti.on_typed_message(
             "object.capacity-forecast",
-            {"resource_id": "vm-2", "recommendation": "hold"},
+            {"producer_principal": "Freyr", "resource_id": "vm-2", "recommendation": "hold"},
         )
     )
     assert bus.messages_on("object.arbitration-request") == []
@@ -451,6 +453,7 @@ def test_forseti_forwards_impacts_from_signals() -> None:
         forseti.on_typed_message(
             "object.cost-anomaly",
             {
+                "producer_principal": "Njord",
                 "correlation_id": "corr-impact",
                 "resource_id": "vm-1",
                 "recommendation": "scale_down",
@@ -462,6 +465,7 @@ def test_forseti_forwards_impacts_from_signals() -> None:
         forseti.on_typed_message(
             "object.capacity-forecast",
             {
+                "producer_principal": "Freyr",
                 "correlation_id": "corr-impact",
                 "resource_id": "vm-1",
                 "recommendation": "scale_up",
@@ -521,6 +525,7 @@ def test_forseti_prefers_specialist_impact_over_raw_ratio() -> None:
         forseti.on_typed_message(
             "object.cost-anomaly",
             {
+                "producer_principal": "Njord",
                 "correlation_id": "corr-specialist-impact",
                 "resource_id": "vm-1",
                 "recommendation": "scale_down",
@@ -533,6 +538,7 @@ def test_forseti_prefers_specialist_impact_over_raw_ratio() -> None:
         forseti.on_typed_message(
             "object.capacity-forecast",
             {
+                "producer_principal": "Freyr",
                 "correlation_id": "corr-specialist-impact",
                 "resource_id": "vm-1",
                 "recommendation": "scale_up",
@@ -1398,6 +1404,7 @@ def test_escalated_arbitration_reaches_a_human_verdict_end_to_end() -> None:
         forseti.on_typed_message(
             "object.cost-anomaly",
             {
+                "producer_principal": "Njord",
                 "correlation_id": "corr-close",
                 "resource_id": "vm-close",
                 "recommendation": "scale_down",
@@ -1411,6 +1418,7 @@ def test_escalated_arbitration_reaches_a_human_verdict_end_to_end() -> None:
         forseti.on_typed_message(
             "object.capacity-forecast",
             {
+                "producer_principal": "Freyr",
                 "correlation_id": "corr-close",
                 "resource_id": "vm-close",
                 "recommendation": "scale_up",

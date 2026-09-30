@@ -15,13 +15,13 @@ from __future__ import annotations
 
 import asyncio
 from collections.abc import Awaitable, Callable, Mapping
-from copy import deepcopy
 from datetime import UTC, datetime, timedelta
 from typing import Any
 from weakref import WeakValueDictionary
 
 from fdai.agents._framework import (
     action_run_lineage,
+    action_semantics,
     thor_dispatch_validation,
     thor_execution,
     thor_introspection,
@@ -40,10 +40,12 @@ from fdai.agents._framework.action_run_state import (
 )
 from fdai.agents._framework.action_run_state import ActionRunState
 from fdai.agents._framework.advisory_verdicts import is_non_action_verdict
+from fdai.agents._framework.approval_readback import read_current_action_approval
 from fdai.agents._framework.base import Agent
 from fdai.agents._framework.bus import PantheonBus
 from fdai.agents._framework.introspection import IntrospectionResult
 from fdai.agents._framework.pantheon import _THOR
+from fdai.agents._framework.producer_auth import require_topic_owner
 from fdai.agents._framework.thor_action_run import (
     ActionRun,
     ActionRunStore,
@@ -73,9 +75,12 @@ from fdai.shared.contracts.models import (
 )
 from fdai.shared.providers.development_authority import DevelopmentAuthorityBindingSource
 from fdai.shared.providers.resource_lock import ResourceLock
+from fdai.shared.providers.state_store import StateStore
 
 _resolved_autonomy_ceiling = thor_dispatch_validation.resolved_autonomy_ceiling
 _selected_action_matches = thor_dispatch_validation.selected_action_matches
+_bounded_params = thor_dispatch_validation.bounded_params
+_missing_wire_safeguards = thor_dispatch_validation.missing_wire_safeguards
 _ACCEPTED_RISK_VERDICTS = frozenset({"auto", "hil", "deny", "shadow"})
 
 ActionExecutor = Callable[[dict[str, Any]], Awaitable[bool]]
@@ -83,6 +88,9 @@ ActionExecutor = Callable[[dict[str, Any]], Awaitable[bool]]
 
 ExecutionAuditRecorder = Callable[["ActionRun"], Awaitable[str]]
 """Persist one Saga-owned pre-execution intent and return its receipt id."""
+
+ApproverAuthorizer = Callable[[str, str], bool | Awaitable[bool]]
+OwnerAuthorizer = Callable[[str], bool | Awaitable[bool]]
 
 
 class _ReentrantAsyncLock:
@@ -144,6 +152,10 @@ class Thor(ThorDevelopmentAuthorityMixin, ThorEffectVerificationMixin, Agent):
         clock: Callable[[], datetime] | None = None,
         execution_resource_lock: ResourceLock | None = None,
         require_execution_resource_lock: bool = False,
+        action_semantics_catalog: action_semantics.ActionSemanticsCatalog | None = None,
+        approval_state_store: StateStore | None = None,
+        approver_authorizer: ApproverAuthorizer | None = None,
+        owner_authorizer: OwnerAuthorizer | None = None,
         development_profile: FullAuthorityDevelopmentProfile | None = None,
         development_executor_principal: str | None = None,
         development_binding_source: DevelopmentAuthorityBindingSource | None = None,
@@ -172,6 +184,10 @@ class Thor(ThorDevelopmentAuthorityMixin, ThorEffectVerificationMixin, Agent):
         self._require_execution_resource_lock = (
             require_execution_resource_lock or development_profile is not None
         )
+        self._action_semantics = action_semantics_catalog
+        self._approval_state_store = approval_state_store
+        self._approver_authorizer = approver_authorizer
+        self._owner_authorizer = owner_authorizer
         self._initialize_development_authority(
             development_profile,
             development_executor_principal,
@@ -234,6 +250,27 @@ class Thor(ThorDevelopmentAuthorityMixin, ThorEffectVerificationMixin, Agent):
         self._execution_resource_lock = resource_lock
         self._require_execution_resource_lock = required or self._development_profile is not None
 
+    def set_action_semantics(
+        self,
+        catalog: action_semantics.ActionSemanticsCatalog | None,
+    ) -> None:
+        """Bind ActionType-derived execution semantics for quorum rechecks."""
+
+        self._action_semantics = catalog
+
+    def set_approval_readback(
+        self,
+        store: StateStore | None,
+        *,
+        approver_authorizer: ApproverAuthorizer | None,
+        owner_authorizer: OwnerAuthorizer | None = None,
+    ) -> None:
+        """Bind Var durable approval readback for non-shadow HIL execution."""
+
+        self._approval_state_store = store
+        self._approver_authorizer = approver_authorizer
+        self._owner_authorizer = owner_authorizer
+
     async def rehydrate(self) -> int:
         return await thor_persistence.rehydrate(self)
 
@@ -283,6 +320,17 @@ class Thor(ThorDevelopmentAuthorityMixin, ThorEffectVerificationMixin, Agent):
             self.record_behavior("assignment_non_action_ignored")
             return
         if topic == "object.verdict":
+            if require_topic_owner(
+                self,
+                topic,
+                payload,
+                behavior="verdict:rejected_owner",
+            ):
+                await self._emit_terminal_rejection(
+                    payload,
+                    outcome="verdict_producer_not_forseti",
+                )
+                return
             if payload.get("kind") == "document_ingestion":
                 self.record_behavior("document_verdict_ignored")
                 return
@@ -298,6 +346,13 @@ class Thor(ThorDevelopmentAuthorityMixin, ThorEffectVerificationMixin, Agent):
                 return
             await self.dispatch_verdict(payload)
         elif topic == "object.approval":
+            if require_topic_owner(
+                self,
+                topic,
+                payload,
+                behavior="approval:rejected_owner",
+            ):
+                return
             if payload.get("kind") == "test_context_review":
                 self.record_behavior("test_context_approval_ignored")
                 return
@@ -309,8 +364,22 @@ class Thor(ThorDevelopmentAuthorityMixin, ThorEffectVerificationMixin, Agent):
                 return
             await self._handle_approval(payload)
         elif topic == "object.rollback":
+            if require_topic_owner(
+                self,
+                topic,
+                payload,
+                behavior="rollback:rejected_owner",
+            ):
+                return
             await self._handle_rollback(payload)
         elif topic == "object.recovery-effect-observation":
+            if require_topic_owner(
+                self,
+                topic,
+                payload,
+                behavior="effect_observation:rejected_owner",
+            ):
+                return
             await self._handle_effect_observation(payload)
 
     async def dispatch_verdict(self, verdict: dict[str, Any]) -> ActionRun:
@@ -363,7 +432,13 @@ class Thor(ThorDevelopmentAuthorityMixin, ThorEffectVerificationMixin, Agent):
         raw_decision_case = verdict.get("decision_case")
         decision_case = action_run_lineage.bounded_decision_case(raw_decision_case)
         raw_params = verdict.get("params")
-        params = deepcopy(dict(raw_params)) if isinstance(raw_params, Mapping) else {}
+        params = _bounded_params(raw_params)
+        if params is None:
+            self.record_behavior("dispatch:invalid_params")
+            return await self._emit_terminal_rejection(
+                verdict,
+                outcome="invalid_params",
+            )
         operational_context = _bounded_operational_context(verdict.get("operational_context"))
         if verdict.get("operational_context") is not None and operational_context is None:
             resolved_autonomy_ceiling = Autonomy.SHADOW_ONLY
@@ -497,6 +572,20 @@ class Thor(ThorDevelopmentAuthorityMixin, ThorEffectVerificationMixin, Agent):
             or self._must_shadow()
             or not (self._saga_available and self._vidar_available)
         )
+        if (
+            risk_verdict in {"auto", "hil"}
+            and not shadow_mode
+            and verdict.get("producer_principal") is not None
+            and "safeguards" in verdict
+        ):
+            missing_safeguards = _missing_wire_safeguards(verdict)
+            if missing_safeguards:
+                self.record_behavior("dispatch:missing_safeguards")
+                return await self._emit_terminal_rejection(
+                    verdict,
+                    outcome="missing_safeguards",
+                    params_extra={"missing_safeguards": list(missing_safeguards)},
+                )
 
         # Propagate the approval quorum the judge set (2 for irreversible
         # actions, agent-pantheon.md 4.6). Floor at 1 so a forged / malformed
@@ -504,15 +593,23 @@ class Thor(ThorDevelopmentAuthorityMixin, ThorEffectVerificationMixin, Agent):
         # action execute with no approver; Thor MUST NOT hard-code 1 and drop
         # the judge's two-approver requirement.
         try:
+            required_quorum = (
+                action_semantics.quorum_for(action_type, self._action_semantics)
+                if self._action_semantics is not None
+                or (verdict.get("producer_principal") is not None and "safeguards" in verdict)
+                else 1
+            )
             original_quorum = _positive_quorum(
                 verdict.get(
                     "original_quorum_required",
                     verdict.get("quorum_required", 1),
                 )
             )
+            original_quorum = max(original_quorum, required_quorum)
             effective_quorum = _positive_quorum(
                 verdict.get("effective_quorum_required", original_quorum),
             )
+            effective_quorum = max(effective_quorum, original_quorum)
         except (TypeError, ValueError):
             self.record_behavior("dispatch:invalid_quorum")
             return await self._emit_terminal_rejection(
@@ -526,7 +623,11 @@ class Thor(ThorDevelopmentAuthorityMixin, ThorEffectVerificationMixin, Agent):
             verdict.get("action_id"),
             field_name="action_id",
         )
-        rollback_contract = str(verdict.get("rollback_contract", "state_forward_only"))
+        rollback_contract = (
+            action_semantics.rollback_contract_for(action_type, self._action_semantics)
+            if self._action_semantics is not None
+            else str(verdict.get("rollback_contract", "state_forward_only"))
+        )
         authority = self._admit_development_verdict(
             evidence=verdict.get("development_authority"),
             action={
@@ -688,8 +789,7 @@ class Thor(ThorDevelopmentAuthorityMixin, ThorEffectVerificationMixin, Agent):
             or verdict.get("idempotency_key")
             or run_correlation
         )
-        raw_params = verdict.get("params")
-        params = deepcopy(dict(raw_params)) if isinstance(raw_params, Mapping) else {}
+        params = _bounded_params(verdict.get("params")) or {}
         if params_extra:
             params.update(dict(params_extra))
         run = ActionRun(
@@ -737,6 +837,13 @@ class Thor(ThorDevelopmentAuthorityMixin, ThorEffectVerificationMixin, Agent):
         if run is None:
             self.record_behavior("approval:unknown_run")
             return None
+        if require_topic_owner(
+            self,
+            "object.approval",
+            approval,
+            behavior="approval:rejected_owner",
+        ):
+            return None
         if not approval_matches_action_run(approval, run.to_dict()):
             self.record_behavior("approval:identity_mismatch")
             raise ValueError("approval identity does not match the current ActionRun")
@@ -762,6 +869,32 @@ class Thor(ThorDevelopmentAuthorityMixin, ThorEffectVerificationMixin, Agent):
             await self._expire_approval(run)
             return None
         if approval.get("state") == "approved":
+            if not run.shadow_mode and self._approval_state_store is not None:
+                if self._approver_authorizer is None:
+                    run.transition(ActionRunState.REJECTED)
+                    run.outcome = "approval_readback_unavailable"
+                    await self._emit_action_run(run)
+                    self.record_behavior("approval:readback_unavailable")
+                    self._release_lock(run.resource_id)
+                    return None
+                try:
+                    await read_current_action_approval(
+                        store=self._approval_state_store,
+                        action_run=run.to_dict(),
+                        can_approve=self._approver_authorizer,
+                        clock=self._now,
+                        development_profile=self._development_profile,
+                        development_executor_principal=self._development_executor_principal,
+                        development_binding_source=self._development_binding_source,
+                        can_own=self._owner_authorizer,
+                    )
+                except (PermissionError, ValueError):
+                    run.transition(ActionRunState.REJECTED)
+                    run.outcome = "approval_readback_rejected"
+                    await self._emit_action_run(run)
+                    self.record_behavior("approval:readback_rejected")
+                    self._release_lock(run.resource_id)
+                    return None
             run.transition(ActionRunState.APPROVED)
             return run
         else:
@@ -837,6 +970,13 @@ class Thor(ThorDevelopmentAuthorityMixin, ThorEffectVerificationMixin, Agent):
         *,
         correlation: str,
     ) -> None:
+        if require_topic_owner(
+            self,
+            "object.rollback",
+            rollback,
+            behavior="rollback:rejected_owner",
+        ):
+            return
         run = self.action_runs.get(correlation)
         if run is not None and not rollback_matches_action_run(rollback, run.to_dict()):
             self.record_behavior("rollback:identity_mismatch")

@@ -492,6 +492,7 @@ async def test_forseti_architecture_review_timeout_publishes_hold() -> None:
     await forseti.on_typed_message(
         "object.change",
         {
+            "producer_principal": "Huginn",
             "id": "change-timeout",
             "correlation_id": "corr-change-timeout",
             "idempotency_key": "change-timeout:key",
@@ -516,6 +517,7 @@ async def test_forseti_change_assessment_timeout_fails_closed() -> None:
             raise AssertionError("assessment should not run after evidence timeout")
 
     event = {
+        "producer_principal": "Huginn",
         "event_type": "change.detected",
         "correlation_id": "change-assess-timeout",
         "idempotency_key": "change-assess-timeout:key",

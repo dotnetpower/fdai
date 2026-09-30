@@ -1509,8 +1509,10 @@ def _conflict_event(
     """
 
     return {
+        "producer_principal": "Huginn",
         "event_type": "cross_objective_conflict",
         "correlation_id": spec["correlation_id"],
+        "idempotency_key": f"{spec['correlation_id']}:conflict",
         "resource_id": shared_target_id,
         "detected_at": observed_at,
         "domain_advice": {

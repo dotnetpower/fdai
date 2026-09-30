@@ -55,6 +55,7 @@ from fdai.agents._framework.introspection import (
     semantic_intents,
 )
 from fdai.agents._framework.pantheon import _FORSETI
+from fdai.agents._framework.producer_auth import require_topic_owner
 from fdai.agents._framework.role_answers import forseti_role_answer
 from fdai.agents._framework.specialist_ingress import SPECIALIST_EVENT_PREFIX
 from fdai.core.architecture_review import (
@@ -269,6 +270,32 @@ class Forseti(
             return
         if await self._alert_noise_message(topic, payload):
             return
+        if (
+            topic == "object.event"
+            and payload.get("event_type") == INCIDENT_INTERVENTION_EVENT_TYPE
+            and payload.get("producer_principal") not in {None, "Huginn"}
+        ):
+            raise ValueError("incident guidance requires the Huginn-owned normalized Event")
+        owner_rejection_behaviors = {
+            "object.change": "typed_input:rejected_owner",
+            "object.event": "typed_input:rejected_owner",
+            "object.anomaly": "typed_input:rejected_owner",
+            "object.drift": "typed_input:rejected_owner",
+            "object.forecast": "typed_input:rejected_owner",
+            "object.resilience-score": "typed_input:rejected_owner",
+            "object.cost-anomaly": "specialist_advice:rejected_owner",
+            "object.capacity-forecast": "specialist_advice:rejected_owner",
+            "object.capacity-graduation-recommendation": "typed_input:rejected_owner",
+            "object.arbitration-decision": "arbitration_decision:rejected_owner",
+            "object.rule": "rule_state:rejected_owner",
+        }
+        if topic in owner_rejection_behaviors and require_topic_owner(
+            self,
+            topic,
+            payload,
+            behavior=owner_rejection_behaviors[topic],
+        ):
+            return
         if is_cross_vertical_candidate(topic, payload):
             await self._ingest_cross_vertical_candidate(topic, payload)
             return
@@ -318,14 +345,8 @@ class Forseti(
                 return
             await self.judge(payload)
         elif topic == "object.cost-anomaly":
-            if payload.get("producer_principal") not in {None, "Njord"}:
-                self.record_behavior("specialist_advice:rejected_owner")
-                return
             await self._ingest_domain_signal("cost", payload)
         elif topic == "object.capacity-forecast":
-            if payload.get("producer_principal") not in {None, "Freyr"}:
-                self.record_behavior("specialist_advice:rejected_owner")
-                return
             await self._ingest_domain_signal("capacity", payload)
         elif topic == "object.capacity-graduation-recommendation":
             await self._judge_capacity_graduation(payload)

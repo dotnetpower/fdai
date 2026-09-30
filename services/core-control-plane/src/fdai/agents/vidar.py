@@ -31,6 +31,7 @@ from fdai.agents._framework.introspection import (
     capability_facts,
 )
 from fdai.agents._framework.pantheon import _VIDAR
+from fdai.agents._framework.producer_auth import require_topic_owner
 from fdai.shared.contracts.models import (
     FullAuthorityDevelopmentProfile,
 )
@@ -168,6 +169,13 @@ class Vidar(Agent):
         if topic != "object.action-run":
             self.record_behavior("typed_message:ignored")
             return
+        if require_topic_owner(
+            self,
+            topic,
+            payload,
+            behavior="rollback:rejected_owner",
+        ):
+            return
         if payload.get("state") != "failed":
             self.record_behavior("action_run:ignored")
             return
@@ -177,6 +185,13 @@ class Vidar(Agent):
             self.record_behavior("rollback:action_identity_mismatch")
 
     async def rollback(self, action_run: dict[str, Any]) -> RollbackRecord | None:
+        if require_topic_owner(
+            self,
+            "object.action-run",
+            action_run,
+            behavior="rollback:rejected_owner",
+        ):
+            return None
         correlation_id = str(action_run.get("correlation_id", ""))
         action_run_identity = validate_action_run_identity(action_run)
         lock_key = (correlation_id, action_run_identity)

@@ -80,6 +80,7 @@ async def _capacity_conflict(forseti: Forseti) -> None:
         await forseti.on_typed_message(
             topic,
             {
+                "producer_principal": "Njord" if topic == "object.cost-anomaly" else "Freyr",
                 "correlation_id": "corr-gate",
                 "resource_id": "vm-gate",
                 "recommendation": recommendation,
@@ -217,6 +218,8 @@ async def test_concurrent_decision_and_owner_closure_publish_one_advisory_verdic
         }
         for recommendation, impact in (("scale_down", 0.5), ("scale_up", 0.62))
     )
+    cost["producer_principal"] = "Njord"
+    capacity["producer_principal"] = "Freyr"
     await forseti.on_typed_message("object.cost-anomaly", cost)
     # The fail-closed owner closure starts publishing and is held inside the publication.
     closure = asyncio.create_task(forseti.on_typed_message("object.capacity-forecast", capacity))

@@ -181,6 +181,7 @@ def test_vidar_refuses_process_local_rollback_without_explicit_opt_in() -> None:
     record = asyncio.run(
         vidar.rollback(
             {
+                "producer_principal": "Thor",
                 "correlation_id": "corr-vidar-local",
                 "action_type": "ops.restart-service",
                 "resource_id": "vm-1",

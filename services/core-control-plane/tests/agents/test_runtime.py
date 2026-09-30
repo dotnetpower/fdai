@@ -659,6 +659,7 @@ async def test_forseti_judges_forecast_finding() -> None:
     await forseti.on_typed_message(
         "object.forecast",
         {
+            "producer_principal": "Heimdall",
             "correlation_id": "corr-forecast",
             "idempotency_key": "forecast-1",
             "resource_id": "resource-1",

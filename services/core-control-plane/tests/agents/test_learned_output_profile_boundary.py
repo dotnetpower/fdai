@@ -223,6 +223,7 @@ async def _capacity_conflict(forseti: Forseti) -> None:
         await forseti.on_typed_message(
             topic,
             {
+                "producer_principal": "Njord" if topic == "object.cost-anomaly" else "Freyr",
                 "correlation_id": "correlation-example",
                 "resource_id": "resource-example",
                 "recommendation": recommendation,

@@ -167,8 +167,28 @@ def approval_matches_action_run(
     """Return whether an approval is bound to this exact ActionRun."""
 
     identity = approval.get("action_run_identity")
+    approvers = approval.get("approvers")
+    approval_state = approval.get("state")
+    requires_approval_evidence = str(approval.get("idempotency_key") or "").startswith("approval:")
+    has_approval_evidence = (
+        approval_state != "approved"
+        or not requires_approval_evidence
+        or isinstance(approvers, list)
+        and 1 <= len(approvers) <= 10
+        and all(
+            isinstance(person, str) and person and person == person.strip().casefold()
+            for person in approvers
+        )
+        and len(set(approvers)) == len(approvers)
+    )
     return (
-        is_action_run_identity(identity)
+        approval.get("producer_principal") == "Var"
+        and approval.get("kind") == "action"
+        and approval_state in {"approved", "rejected"}
+        and isinstance(approval.get("idempotency_key"), str)
+        and bool(str(approval.get("idempotency_key")).strip())
+        and has_approval_evidence
+        and is_action_run_identity(identity)
         and identity == action_run_identity_digest(action_run)
         and approval.get("action_type") == action_run.get("action_type")
         and approval.get("resource_id") == action_run.get("resource_id")

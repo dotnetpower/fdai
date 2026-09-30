@@ -759,6 +759,7 @@ def test_forseti_emits_verdict_auto_on_rule_match() -> None:
         f.on_typed_message(
             "object.event",
             {
+                "producer_principal": "Huginn",
                 "event_type": "public_network_enabled",
                 "resource_id": "sa-1",
                 "correlation_id": "c",
@@ -996,6 +997,7 @@ def test_forseti_rbac_deny_emits_security_event() -> None:
         f.on_typed_message(
             "object.event",
             {
+                "producer_principal": "Huginn",
                 "event_type": "public_network_enabled",
                 "resource_id": "sa-1",
                 "correlation_id": "c",
@@ -1021,9 +1023,11 @@ def test_forseti_unconfigured_rbac_grants_no_operator_authority() -> None:
         f.on_typed_message(
             "object.event",
             {
+                "producer_principal": "Huginn",
                 "event_type": "public_network_enabled",
                 "resource_id": "service-1",
                 "correlation_id": "unconfigured-rbac",
+                "idempotency_key": "unconfigured-rbac:key",
                 "initiator_principal": "operator@example.com",
                 "operator_initiated": True,
             },
@@ -1105,6 +1109,7 @@ def test_thor_ignores_repeated_actionless_triage_verdicts() -> None:
             await thor.on_typed_message(
                 "object.verdict",
                 {
+                    "producer_principal": "Forseti",
                     "correlation_id": correlation_id,
                     "idempotency_key": correlation_id,
                     "resource_id": "resource-1",
@@ -1223,6 +1228,7 @@ def test_forseti_conflicting_domain_signals_raise_weighted_arbitration() -> None
         f.on_typed_message(
             "object.cost-anomaly",
             {
+                "producer_principal": "Njord",
                 "correlation_id": "weighted-arbitration",
                 "resource_id": "vm-7",
                 "recommendation": "scale_down",
@@ -1234,6 +1240,7 @@ def test_forseti_conflicting_domain_signals_raise_weighted_arbitration() -> None
         f.on_typed_message(
             "object.capacity-forecast",
             {
+                "producer_principal": "Freyr",
                 "correlation_id": "weighted-arbitration",
                 "resource_id": "vm-7",
                 "recommendation": "scale_up",
@@ -1279,6 +1286,7 @@ def test_forseti_signal_impact_falls_back_on_non_numeric_fields() -> None:
         f.on_typed_message(
             "object.cost-anomaly",
             {
+                "producer_principal": "Njord",
                 "correlation_id": "fallback-impact",
                 "resource_id": "vm-8",
                 "recommendation": "scale_down",
@@ -1291,6 +1299,7 @@ def test_forseti_signal_impact_falls_back_on_non_numeric_fields() -> None:
         f.on_typed_message(
             "object.capacity-forecast",
             {
+                "producer_principal": "Freyr",
                 "resource_id": "vm-8",
                 "correlation_id": "fallback-impact",
                 "recommendation": "scale_up",
@@ -1747,6 +1756,7 @@ def test_vidar_rollback_is_idempotent_per_correlation() -> None:
     bus = InMemoryBus(registry=reg)
     vidar = Vidar(bus=bus)
     failed = {
+        "producer_principal": "Thor",
         "correlation_id": "c-dup",
         "action_type": "remediate.delete-storage",
         "resource_id": "sa-1",
@@ -1789,6 +1799,7 @@ def test_vidar_retries_publication_without_repeating_rollback() -> None:
         allow_process_local_rollback=True,
     )
     failed = {
+        "producer_principal": "Thor",
         "correlation_id": "c-publish-retry",
         "action_type": "ops.restart-service",
         "resource_id": "vm-3",
@@ -1820,6 +1831,7 @@ def test_vidar_replays_durable_terminal_result_after_restart() -> None:
 
     store = InMemoryStateStore()
     failed = {
+        "producer_principal": "Thor",
         "correlation_id": "c-durable-restart",
         "action_type": "ops.restart-service",
         "resource_id": "vm-3",
@@ -1857,6 +1869,7 @@ def test_vidar_isolates_changed_rollback_command_inputs() -> None:
 
     store = InMemoryStateStore()
     original = {
+        "producer_principal": "Thor",
         "correlation_id": "c-command-identity",
         "action_type": "ops.restore-database",
         "action_id": "action-1",
@@ -1956,6 +1969,7 @@ def test_vidar_rejects_noncanonical_durable_terminal_state(
 
     store = InMemoryStateStore()
     failed = {
+        "producer_principal": "Thor",
         "correlation_id": "c-malformed-terminal",
         "action_type": "ops.restart-service",
         "resource_id": "vm-3",
@@ -2010,6 +2024,7 @@ def test_vidar_marks_interrupted_durable_claim_execution_unknown() -> None:
 
     store = InMemoryStateStore()
     failed = {
+        "producer_principal": "Thor",
         "correlation_id": "c-interrupted-claim",
         "action_type": "ops.failover-primary",
         "resource_id": "db-1",
@@ -2073,6 +2088,7 @@ def test_vidar_keeps_another_live_replica_claim_retryable() -> None:
             claim_lease=timedelta(minutes=1),
         )
         failed = {
+            "producer_principal": "Thor",
             "correlation_id": "c-live-claim",
             "action_type": "ops.restart-service",
             "resource_id": "vm-3",
@@ -2110,6 +2126,7 @@ def test_vidar_serializes_concurrent_rollback_delivery() -> None:
         state_store=InMemoryStateStore(),
     )
     failed = {
+        "producer_principal": "Thor",
         "correlation_id": "c-concurrent",
         "action_type": "ops.restart-service",
         "resource_id": "vm-3",

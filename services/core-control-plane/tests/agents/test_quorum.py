@@ -128,6 +128,7 @@ class TestThorPropagatesQuorum:
             thor.dispatch_verdict(
                 {
                     "correlation_id": "c-3",
+                    "idempotency_key": "c-3-key",
                     "action_type": "remediate.delete-storage",
                     "risk_verdict": "hil",
                     "resource_id": "sa-1",

@@ -526,11 +526,12 @@ async def test_vidar_revalidates_same_action_identity_before_rollback() -> None:
         clock=lambda: NOW,
         allow_process_local_rollback=True,
     )
-    record = await vidar.rollback(run.to_dict())
+    record = await vidar.rollback(_action_run_payload(run))
     assert record is not None
     assert record.state == "succeeded"
 
     substituted = run.to_dict()
+    substituted["producer_principal"] = "Thor"
     substituted["params"] = {"restart": False}
     with pytest.raises(ValueError, match="malformed"):
         await vidar.rollback(substituted)

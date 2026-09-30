@@ -46,6 +46,18 @@ def _restart_semantics() -> ActionSemanticsCatalog:
     )
 
 
+def _safeguards(idempotency_key: str) -> dict[str, object]:
+    return {
+        "stop_condition": "stop when postcondition is false",
+        "tested_rollback_contract": "state_forward_only:test-receipt",
+        "blast_radius_limit": {"scope": "resource", "max_targets": 1},
+        "dry_run_receipt": "sha256:" + "1" * 64,
+        "logical_target_lock": "lock:resource:test",
+        "stable_idempotency_key": idempotency_key,
+        "two_phase_audit_intent": "audit-intent:test",
+    }
+
+
 def _table() -> JudgmentTable:
     return JudgmentTable(
         rule_match={"test.event": "test.auto"},
@@ -163,7 +175,16 @@ def test_no_rule_match_repeats_are_folded_with_health_counter() -> None:
 def test_forseti_records_unbound_architecture_review_in_health() -> None:
     f = Forseti()
 
-    asyncio.run(f.on_typed_message("object.change", {"correlation_id": "change-1"}))
+    asyncio.run(
+        f.on_typed_message(
+            "object.change",
+            {
+                "producer_principal": "Huginn",
+                "correlation_id": "change-1",
+                "idempotency_key": "change-1-key",
+            },
+        )
+    )
 
     assert f.health()["architecture_review_bound"] is False
     assert f.behavior_snapshot()["architecture_review:unbound"] == 1
@@ -252,6 +273,7 @@ def test_thor_lowers_auto_quorum_two_and_rejects_keyless_verdict_visibly() -> No
                 "resolved_autonomy_ceiling": Autonomy.ENFORCE_AUTO.value,
                 "resource_id": "r-quorum",
                 "quorum_required": 2,
+                "safeguards": _safeguards("quorum-key"),
             }
         )
     )
@@ -360,6 +382,8 @@ def test_forseti_defers_owner_scoped_observations_and_rejects_bad_incident_owner
                 {
                     "event_type": INCIDENT_INTERVENTION_EVENT_TYPE,
                     "producer_principal": "Bragi",
+                    "correlation_id": "bad-incident",
+                    "idempotency_key": "bad-incident-key",
                 },
             )
         )
@@ -369,20 +393,42 @@ def test_forseti_defers_owner_scoped_observations_and_rejects_bad_incident_owner
             {
                 "event_type": INCIDENT_INTERVENTION_EVENT_TYPE,
                 "producer_principal": "Huginn",
+                "correlation_id": "good-incident",
+                "idempotency_key": "good-incident-key",
             },
         )
     )
     asyncio.run(
         f.on_typed_message(
             "object.event",
-            {"event_type": "control_plane.t2_proposer_failure"},
+            {
+                "producer_principal": "Huginn",
+                "event_type": "control_plane.t2_proposer_failure",
+                "correlation_id": "t2-proposer",
+                "idempotency_key": "t2-proposer-key",
+            },
         )
     )
-    asyncio.run(f.on_typed_message("object.event", {"event_type": "specialist.cost.sample"}))
     asyncio.run(
         f.on_typed_message(
             "object.event",
-            {"event_type": "detection.readiness.observed"},
+            {
+                "producer_principal": "Huginn",
+                "event_type": "specialist.cost.sample",
+                "correlation_id": "specialist-sample",
+                "idempotency_key": "specialist-sample-key",
+            },
+        )
+    )
+    asyncio.run(
+        f.on_typed_message(
+            "object.event",
+            {
+                "producer_principal": "Huginn",
+                "event_type": "detection.readiness.observed",
+                "correlation_id": "readiness",
+                "idempotency_key": "readiness-key",
+            },
         )
     )
 
@@ -468,12 +514,32 @@ def test_forseti_architecture_review_failure_duplicate_and_publish_paths() -> No
 
     bus = _bus()
     failing = Forseti(bus=bus, architecture_review_loop=_FailingLoop())  # type: ignore[arg-type]
-    asyncio.run(failing.on_typed_message("object.change", {"id": "change-1"}))
+    asyncio.run(
+        failing.on_typed_message(
+            "object.change",
+            {
+                "producer_principal": "Huginn",
+                "id": "change-1",
+                "correlation_id": "change-failed",
+                "idempotency_key": "change-failed-key",
+            },
+        )
+    )
     assert failing.behavior_snapshot()["architecture_review:failed"] == 1
     assert bus.messages_on("object.verdict")
 
     replayed = Forseti(architecture_review_loop=_ReplayedLoop())  # type: ignore[arg-type]
-    asyncio.run(replayed.on_typed_message("object.change", {"id": "change-1"}))
+    asyncio.run(
+        replayed.on_typed_message(
+            "object.change",
+            {
+                "producer_principal": "Huginn",
+                "id": "change-1",
+                "correlation_id": "change-replayed",
+                "idempotency_key": "change-replayed-key",
+            },
+        )
+    )
     assert replayed.behavior_snapshot()["architecture_review:duplicate"] == 1
 
 
@@ -571,6 +637,7 @@ def test_thor_expired_approval_on_delivery_rejects_run() -> None:
         "rollback_contract": run.rollback_contract,
         "action_run_identity": action_run_identity_digest(run.to_dict()),
         "state": "approved",
+        "approvers": ["approver@example.com"],
     }
 
     asyncio.run(thor.on_typed_message("object.approval", approval))
@@ -618,6 +685,7 @@ def test_thor_late_successful_rollback_reopens_failed_terminal() -> None:
     thor.action_runs[run.correlation_id] = run
     thor._resource_locks.add("r")  # noqa: SLF001
     rollback = {
+        "producer_principal": "Vidar",
         "correlation_id": run.correlation_id,
         "action_type": run.action_type,
         "resource_id": run.resource_id,
@@ -649,6 +717,7 @@ def test_thor_terminal_rollback_redelivery_finalizes_replay_paths() -> None:
         )
         run.terminal_published = published
         rollback = {
+            "producer_principal": "Vidar",
             "correlation_id": run.correlation_id,
             "action_type": run.action_type,
             "resource_id": run.resource_id,
@@ -819,7 +888,11 @@ def test_thor_counts_duplicate_verified_effect_observation() -> None:
 
 def test_failed_action_run_publication_carries_observed_time() -> None:
     bus = _bus()
-    thor = Thor(bus=bus, executor=lambda _context: asyncio.sleep(0, result=False))
+    thor = Thor(
+        bus=bus,
+        executor=lambda _context: asyncio.sleep(0, result=False),
+        action_semantics_catalog=_semantics(reversible=True),
+    )
 
     run = asyncio.run(
         thor.dispatch_verdict(
@@ -830,6 +903,7 @@ def test_failed_action_run_publication_carries_observed_time() -> None:
                 "risk_verdict": "auto",
                 "resolved_autonomy_ceiling": Autonomy.ENFORCE_AUTO.value,
                 "resource_id": "failed-resource",
+                "safeguards": _safeguards("failed-timestamp-key"),
             }
         )
     )
@@ -842,7 +916,11 @@ def test_failed_action_run_publication_carries_observed_time() -> None:
 
 def _failed_action_run_payload(correlation_id: str = "rollback-c") -> dict[str, object]:
     bus = _bus()
-    thor = Thor(bus=bus, executor=lambda _context: asyncio.sleep(0, result=False))
+    thor = Thor(
+        bus=bus,
+        executor=lambda _context: asyncio.sleep(0, result=False),
+        action_semantics_catalog=_semantics(reversible=True),
+    )
     asyncio.run(
         thor.dispatch_verdict(
             {
@@ -852,6 +930,7 @@ def _failed_action_run_payload(correlation_id: str = "rollback-c") -> dict[str, 
                 "risk_verdict": "auto",
                 "resolved_autonomy_ceiling": Autonomy.ENFORCE_AUTO.value,
                 "resource_id": f"{correlation_id}-resource",
+                "safeguards": _safeguards(f"{correlation_id}-key"),
             }
         )
     )
