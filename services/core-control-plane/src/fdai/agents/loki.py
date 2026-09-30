@@ -12,7 +12,9 @@ is capped by :pyattr:`blast_radius_cap`.
 from __future__ import annotations
 
 from collections import deque
+from collections.abc import Callable
 from dataclasses import dataclass
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from fdai.agents._framework.base import Agent
@@ -51,6 +53,7 @@ _CHAOS_EVIDENCE_FIELDS = (
     "recovery_plan_id",
     "dry_run_receipt",
 )
+_DEFAULT_RESERVATION_TTL = timedelta(minutes=30)
 
 
 @dataclass
@@ -67,6 +70,13 @@ class ChaosProposal:
     recovery_plan_id: str = ""
 
 
+@dataclass(frozen=True, slots=True)
+class _Reservation:
+    action_type: str
+    targets: tuple[str, ...]
+    reserved_at: datetime
+
+
 class Loki(Agent):
     """Wave-5 Loki: chaos scheduler with blast-radius cap."""
 
@@ -76,12 +86,18 @@ class Loki(Agent):
         bus: PantheonBus | None = None,
         blast_radius_cap: int = 3,
         state_store: StateStore | None = None,
+        clock: Callable[[], datetime] | None = None,
+        reservation_ttl: timedelta = _DEFAULT_RESERVATION_TTL,
     ) -> None:
         super().__init__(spec=_LOKI)
+        if reservation_ttl <= timedelta(0):
+            raise ValueError("reservation_ttl MUST be positive")
         self.bus = bus
         self._cap = blast_radius_cap
+        self._clock: Callable[[], datetime] = clock or (lambda: datetime.now(tz=UTC))
+        self._reservation_ttl = reservation_ttl
         self._in_flight_targets: set[str] = set()
-        self._reservations: dict[str, tuple[str, tuple[str, ...]]] = {}
+        self._reservations: dict[str, _Reservation] = {}
         self._reservation_journal = (
             LokiReservationJournal(state_store, blast_radius_cap=blast_radius_cap)
             if state_store is not None
@@ -203,6 +219,7 @@ class Loki(Agent):
                 experiment_id=experiment_id,
                 action_type=action_type,
                 targets=targets,
+                reserved_at=self._now().isoformat(),
             )
             self._in_flight_targets = set(reservation.occupied)
             selected = reservation.targets
@@ -231,7 +248,11 @@ class Loki(Agent):
             self.proposals.append(proposal)
             return proposal
         self._in_flight_targets.update(selected)
-        self._reservations[experiment_id] = (action_type, selected)
+        self._reservations[experiment_id] = _Reservation(
+            action_type=action_type,
+            targets=selected,
+            reserved_at=self._now(),
+        )
         proposal = ChaosProposal(
             experiment_id=experiment_id,
             action_type=action_type,
@@ -300,6 +321,12 @@ class Loki(Agent):
         for t in targets:
             self._in_flight_targets.discard(t)
 
+    def _now(self) -> datetime:
+        current = self._clock()
+        if current.tzinfo is None or current.utcoffset() is None:
+            raise ValueError("Loki clock MUST return a timezone-aware datetime")
+        return current
+
     def _remember_resilience_score(self, candidate: dict[str, Any]) -> None:
         resource_id = str(candidate["resource_id"])
         if (
@@ -333,11 +360,34 @@ class Loki(Agent):
         existing = self._reservations.get(experiment_id)
         if existing is None:
             return False
-        if existing != (action_type, targets):
+        if existing.action_type != action_type or existing.targets != targets:
             raise ValueError("chaos completion does not match its reservation")
         self._release_targets(targets)
         del self._reservations[experiment_id]
         return True
+
+    async def maintenance_tick(self) -> None:
+        await super().maintenance_tick()
+        cutoff = self._now() - self._reservation_ttl
+        if self._reservation_journal is not None:
+            expired = await self._reservation_journal.expire_stale(cutoff=cutoff.isoformat())
+            if expired.targets:
+                self._in_flight_targets = set(expired.occupied)
+                self.record_behavior("chaos_reservation:expired", len(expired.targets))
+            return
+        expired_experiments = [
+            experiment_id
+            for experiment_id, reservation in self._reservations.items()
+            if reservation.reserved_at <= cutoff
+        ]
+        if not expired_experiments:
+            return
+        expired_targets: list[str] = []
+        for experiment_id in expired_experiments:
+            reservation = self._reservations.pop(experiment_id)
+            expired_targets.extend(reservation.targets)
+        self._release_targets(tuple(expired_targets))
+        self.record_behavior("chaos_reservation:expired", len(expired_targets))
 
     def health(self) -> dict[str, Any]:
         return {

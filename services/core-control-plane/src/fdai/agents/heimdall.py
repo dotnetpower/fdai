@@ -305,10 +305,12 @@ class Heimdall(
         result = await handler.handle(build_result)
         if self.bus is None:
             raise RuntimeError("Heimdall retrieval validation bus is unavailable")
+        result_payload = result.model_dump(mode="json")
+        result_payload["correlation_id"] = build_result.request.correlation_id
         await self.bus.publish(
             "Heimdall",
             "object.retrieval-validation",
-            result.model_dump(mode="json"),
+            result_payload,
         )
         self.record_behavior("rule_generation_validation:published")
 

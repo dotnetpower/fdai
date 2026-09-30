@@ -16,6 +16,7 @@ import pytest
 from fdai.agents._framework.action_semantics import ActionSemanticsCatalog
 from fdai.agents._framework.bus import InMemoryBus
 from fdai.agents._framework.registry import load_pantheon
+from fdai.agents._framework.topics import stable_idempotency_key
 from fdai.agents._framework.workflows import WORKFLOWS, workflow
 from fdai.agents.forseti import Forseti
 from fdai.agents.freyr import Freyr
@@ -224,6 +225,7 @@ def test_workflow_handoff_capability_promotes_and_closes_issue() -> None:
                 {
                     "producer_principal": "Saga",
                     "correlation_id": f"corr-{i}",
+                    "idempotency_key": stable_idempotency_key("issue", fp, f"corr-{i}"),
                     "fingerprint": fp,
                 },
             )
@@ -236,6 +238,11 @@ def test_workflow_handoff_capability_promotes_and_closes_issue() -> None:
             {
                 "producer_principal": "Norns",
                 "correlation_id": "corr-cand",
+                "idempotency_key": stable_idempotency_key(
+                    "rule-candidate",
+                    "corr-cand",
+                    norns.pending_candidates[0],
+                ),
                 "target_rule_id": "auto.route.capacity",
                 **norns.pending_candidates[0],
             },

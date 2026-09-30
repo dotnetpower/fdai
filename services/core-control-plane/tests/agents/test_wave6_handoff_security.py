@@ -17,6 +17,7 @@ import pytest
 from fdai.agents import AdminCard, GitHubIssue
 from fdai.agents._framework.bus import InMemoryBus
 from fdai.agents._framework.registry import load_pantheon
+from fdai.agents._framework.topics import stable_idempotency_key
 from fdai.agents.bragi import Bragi
 from fdai.agents.forseti import Forseti
 from fdai.agents.heimdall import Heimdall
@@ -328,6 +329,7 @@ def test_bragi_abstain_creates_saga_issue_and_promotes_via_norns() -> None:
                 {
                     "producer_principal": "Saga",
                     "correlation_id": f"corr-{i}",
+                    "idempotency_key": stable_idempotency_key("issue", fp, f"corr-{i}"),
                     "fingerprint": fp,
                     "issue_number": outcome["issue_number"],
                 },
@@ -349,6 +351,11 @@ def test_bragi_abstain_creates_saga_issue_and_promotes_via_norns() -> None:
             {
                 "producer_principal": "Norns",
                 "correlation_id": "corr-cand",
+                "idempotency_key": stable_idempotency_key(
+                    "rule-candidate",
+                    "corr-cand",
+                    norns.pending_candidates[0],
+                ),
                 "target_rule_id": "auto.gen.route",
                 **norns.pending_candidates[0],
             },

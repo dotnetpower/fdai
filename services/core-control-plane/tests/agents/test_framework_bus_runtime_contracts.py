@@ -45,6 +45,14 @@ class _Clock:
         self.t += seconds
 
 
+def _verdict_payload(correlation_id: str = "c", **extra: object) -> dict[str, object]:
+    return {
+        "correlation_id": correlation_id,
+        "idempotency_key": f"verdict:{correlation_id}",
+        **extra,
+    }
+
+
 def _spec(name: str) -> Any:
     return next(spec for spec in PANTHEON_SPECS if spec.name == name)
 
@@ -104,13 +112,13 @@ def test_inmemory_bus_validator_retry_duplicate_and_ordered_poison_halt() -> Non
     )
     bus.subscribe("object.verdict", "Thor", flaky)
 
-    asyncio.run(bus.publish("Forseti", "object.verdict", {"correlation_id": "c"}))
+    asyncio.run(bus.publish("Forseti", "object.verdict", _verdict_payload()))
 
     assert len(calls) == 3
     assert bus.handler_retries == 1
     assert bus.duplicate_deliveries == 1
     with pytest.raises(ValueError, match="bad payload"):
-        asyncio.run(bus.publish("Forseti", "object.verdict", {"correlation_id": "c2", "bad": True}))
+        asyncio.run(bus.publish("Forseti", "object.verdict", _verdict_payload("c2", bad=True)))
     assert bus.schema_violations == 1
 
     async def poison(_topic: str, _payload: dict[str, Any]) -> None:
@@ -147,7 +155,7 @@ def test_bridge_snapshot_reports_idle_consumer_delivery_count_and_time() -> None
         task = asyncio.create_task(bridge.run())
         await asyncio.sleep(0)
         idle_snapshot = bridge.snapshot()
-        await bridge.publish("Forseti", "object.verdict", {"correlation_id": "c"})
+        await bridge.publish("Forseti", "object.verdict", _verdict_payload())
         for _ in range(20):
             await asyncio.sleep(0)
             if bridge.snapshot()["consumer_deliveries"].get("Thor:object.verdict") == 1:

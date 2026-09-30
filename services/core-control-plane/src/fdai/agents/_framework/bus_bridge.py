@@ -37,6 +37,7 @@ from fdai.agents._framework.topics import (
     MUTATION_TOPICS,
     OWNED_OBJECT_TOPICS,
     missing_mutation_envelope_fields,
+    normalize_owned_object_envelope,
     partition_key_for,
 )
 from fdai.shared.providers.event_bus import EventBus, PublishReceipt
@@ -231,16 +232,33 @@ class EventBusBridge:
         return receipt
 
     def _check_envelope(self, topic: str, payload: Mapping[str, object], principal: str) -> None:
-        """Count shared-envelope gaps and reject incomplete mutations.
+        """Count shared-envelope gaps and reject incomplete owned objects.
 
         The wire contract (agent-pantheon.md 6.1) says every message carries
-        ``correlation_id`` and ``idempotency_key``. A missing field is a
-        data-quality signal - it breaks correlation (tracing) or dedup
-        (at-least-once safety) downstream - so it is counted and warned
-        here rather than silently accepted. Mutation records fail closed
-        because missing correlation, resource ordering, or idempotency can
-        turn at-least-once delivery into an unsafe duplicate or reorder.
+        a stripped, bounded ``correlation_id`` and ``idempotency_key``.
+        Missing or oversized keys break tracing or at-least-once dedup
+        downstream, so every owned object topic fails closed. Mutation
+        records keep the extra ``resource_id`` requirement for ordering.
         """
+        mutable_payload = payload if isinstance(payload, dict) else dict(payload)
+        invalid = list(normalize_owned_object_envelope(topic, mutable_payload))
+        if topic in MUTATION_TOPICS and not str(mutable_payload.get("resource_id", "")).strip():
+            invalid.append("resource_id")
+        if invalid:
+            self.metrics.invalid_envelope_fields += len(invalid)
+            self.metrics.publish_errors += 1
+            if "correlation_id" in invalid:
+                self.metrics.missing_correlation_id += 1
+            if "idempotency_key" in invalid:
+                self.metrics.missing_idempotency_key += 1
+            if "resource_id" in invalid:
+                self.metrics.missing_resource_id += 1
+            fields = ", ".join(invalid)
+            raise ValueError(
+                f"refusing to publish owned object topic {topic!r}: invalid required "
+                f"envelope field(s): {fields}"
+            )
+        payload = mutable_payload
         missing = missing_mutation_envelope_fields(topic, payload)
         if not str(payload.get("correlation_id", "")).strip():
             self.metrics.missing_correlation_id += 1

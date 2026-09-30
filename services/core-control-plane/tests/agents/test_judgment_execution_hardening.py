@@ -356,6 +356,34 @@ def test_forseti_rule_state_rejects_bad_owner_and_invalid_payload() -> None:
     assert f.health()["rule_state_cached"] == 1
 
 
+async def test_forseti_maintenance_reports_rule_cache_staleness_without_changing_verdict() -> None:
+    now = datetime(2028, 1, 2, tzinfo=UTC)
+    f = Forseti(
+        judgment_table=_table(),
+        action_semantics=_semantics(reversible=True),
+        test_context_clock=lambda: now,
+        rule_staleness_window=timedelta(minutes=5),
+    )
+    fresh = await f.judge({"event_type": "test.event", "resource_id": "r", "correlation_id": "c"})
+    assert fresh is not None
+    assert fresh["risk_verdict"] == "auto"
+
+    now = now + timedelta(minutes=6)
+    await f.maintenance_tick()
+    stale = await f.judge({"event_type": "test.event", "resource_id": "r", "correlation_id": "c2"})
+
+    assert stale is not None
+    assert stale["risk_verdict"] == "auto"
+    assert f.health()["rule_cache_fresh"] is False
+    assert f.behavior_snapshot()["rule_cache:stale"] == 1
+
+    await f.on_typed_message(
+        "object.rule",
+        {"producer_principal": "Mimir", "action_type": "test.auto", "state": "promoted"},
+    )
+    assert f.health()["rule_cache_fresh"] is True
+
+
 def test_forseti_architecture_review_failure_duplicate_and_publish_paths() -> None:
     class _FailingLoop:
         async def evaluate(self, payload: dict[str, object]) -> ArchitectureReviewObservation:

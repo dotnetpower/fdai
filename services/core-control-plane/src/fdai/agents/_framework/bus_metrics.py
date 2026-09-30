@@ -33,6 +33,7 @@ class BridgeMetrics:
     missing_correlation_id: int = 0
     missing_resource_id: int = 0
     missing_idempotency_key: int = 0
+    invalid_envelope_fields: int = 0
     producer_principal_mismatch: int = 0
     ordered_poison_halts: int = 0
     schema_violations: int = 0
@@ -55,6 +56,7 @@ class BridgeMetrics:
             "missing_correlation_id": self.missing_correlation_id,
             "missing_resource_id": self.missing_resource_id,
             "missing_idempotency_key": self.missing_idempotency_key,
+            "invalid_envelope_fields": self.invalid_envelope_fields,
             "producer_principal_mismatch": self.producer_principal_mismatch,
             "ordered_poison_halts": self.ordered_poison_halts,
             "schema_violations": self.schema_violations,

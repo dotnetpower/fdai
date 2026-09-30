@@ -19,6 +19,14 @@ class ReservationResult:
     duplicate: bool = False
 
 
+@dataclass(frozen=True, slots=True)
+class ReservationRecord:
+    action_type: str
+    requested_targets: tuple[str, ...]
+    selected_targets: tuple[str, ...]
+    reserved_at: str
+
+
 class LokiReservationJournal:
     """Atomically reserve and release proposal targets across replicas."""
 
@@ -37,6 +45,7 @@ class LokiReservationJournal:
         experiment_id: str,
         action_type: str,
         targets: tuple[str, ...],
+        reserved_at: str,
     ) -> ReservationResult:
         for _ in range(_MAX_CAS_ATTEMPTS):
             current = await self._store.read_state(_STATE_KEY)
@@ -44,11 +53,10 @@ class LokiReservationJournal:
             self._validate_cap(stored_cap)
             existing = experiments.get(experiment_id)
             if existing is not None:
-                existing_action, requested_targets, selected_targets = existing
-                if existing_action != action_type or requested_targets != targets:
+                if existing.action_type != action_type or existing.requested_targets != targets:
                     raise ValueError("chaos experiment identity conflicts with its reservation")
                 return ReservationResult(
-                    targets=selected_targets,
+                    targets=existing.selected_targets,
                     occupied=_occupied(experiments),
                     duplicate=True,
                 )
@@ -58,7 +66,12 @@ class LokiReservationJournal:
             if not selected:
                 return ReservationResult(targets=(), occupied=occupied)
             next_experiments = dict(experiments)
-            next_experiments[experiment_id] = (action_type, targets, selected)
+            next_experiments[experiment_id] = ReservationRecord(
+                action_type=action_type,
+                requested_targets=targets,
+                selected_targets=selected,
+                reserved_at=reserved_at,
+            )
             next_record = _encode(revision + 1, self._cap, next_experiments)
             audit = {
                 "actor": "Loki",
@@ -102,8 +115,7 @@ class LokiReservationJournal:
             existing = experiments.get(experiment_id)
             if existing is None:
                 return None
-            existing_action, _, selected_targets = existing
-            if existing_action != action_type or selected_targets != targets:
+            if existing.action_type != action_type or existing.selected_targets != targets:
                 raise ValueError("chaos completion does not match its reservation")
             next_experiments = dict(experiments)
             del next_experiments[experiment_id]
@@ -124,6 +136,43 @@ class LokiReservationJournal:
                 return ReservationResult(targets=targets, occupied=_occupied(next_experiments))
         raise RuntimeError("chaos release contention exceeded the bounded retry limit")
 
+    async def expire_stale(self, *, cutoff: str) -> ReservationResult:
+        for _ in range(_MAX_CAS_ATTEMPTS):
+            current = await self._store.read_state(_STATE_KEY)
+            revision, stored_cap, experiments = _decode(current)
+            self._validate_cap(stored_cap)
+            next_experiments = {
+                experiment_id: reservation
+                for experiment_id, reservation in experiments.items()
+                if not reservation.reserved_at or reservation.reserved_at > cutoff
+            }
+            if len(next_experiments) == len(experiments):
+                return ReservationResult(targets=(), occupied=_occupied(experiments))
+            next_record = _encode(revision + 1, self._cap, next_experiments)
+            expired_targets = tuple(
+                target
+                for experiment_id, reservation in experiments.items()
+                if experiment_id not in next_experiments
+                for target in reservation.selected_targets
+            )
+            written = await self._store.compare_and_set_state_with_audit(
+                _STATE_KEY,
+                next_record,
+                expected_revision=revision,
+                audit_entry={
+                    "actor": "Loki",
+                    "action_kind": "chaos.reservation.expired",
+                    "revision": revision + 1,
+                    "target_count": len(expired_targets),
+                },
+            )
+            if written:
+                return ReservationResult(
+                    targets=expired_targets,
+                    occupied=_occupied(next_experiments),
+                )
+        raise RuntimeError("chaos reservation expiry contention exceeded the bounded retry limit")
+
     def _validate_cap(self, stored_cap: int | None) -> None:
         if stored_cap is not None and stored_cap != self._cap:
             raise ValueError("chaos reservation blast-radius cap conflicts with durable state")
@@ -131,7 +180,7 @@ class LokiReservationJournal:
 
 def _decode(
     record: Mapping[str, Any] | None,
-) -> tuple[int, int | None, dict[str, tuple[str, tuple[str, ...], tuple[str, ...]]]]:
+) -> tuple[int, int | None, dict[str, ReservationRecord]]:
     if record is None:
         return 0, None, {}
     revision = record.get("revision")
@@ -147,13 +196,14 @@ def _decode(
         raise ValueError("chaos reservation blast-radius cap must be a positive integer")
     if not isinstance(raw_experiments, Mapping):
         raise ValueError("chaos reservation experiments must be an object")
-    experiments: dict[str, tuple[str, tuple[str, ...], tuple[str, ...]]] = {}
+    experiments: dict[str, ReservationRecord] = {}
     for experiment_id, raw in raw_experiments.items():
         if not isinstance(experiment_id, str) or not experiment_id or not isinstance(raw, Mapping):
             raise ValueError("chaos reservation experiment is malformed")
         action_type = raw.get("action_type")
         raw_requested = raw.get("requested_targets")
         raw_targets = raw.get("targets")
+        reserved_at = raw.get("reserved_at", "")
         if (
             not isinstance(action_type, str)
             or not action_type
@@ -173,7 +223,14 @@ def _decode(
             or not set(targets).issubset(requested)
         ):
             raise ValueError("chaos reservation targets are malformed")
-        experiments[experiment_id] = (action_type, requested, targets)
+        if not isinstance(reserved_at, str):
+            raise ValueError("chaos reservation reserved_at is malformed")
+        experiments[experiment_id] = ReservationRecord(
+            action_type=action_type,
+            requested_targets=requested,
+            selected_targets=targets,
+            reserved_at=reserved_at,
+        )
     _occupied(experiments)
     return revision, blast_radius_cap, experiments
 
@@ -181,7 +238,7 @@ def _decode(
 def _encode(
     revision: int,
     blast_radius_cap: int,
-    experiments: dict[str, tuple[str, tuple[str, ...], tuple[str, ...]]],
+    experiments: dict[str, ReservationRecord],
 ) -> dict[str, Any]:
     return {
         "schema_version": "1.0.0",
@@ -189,22 +246,25 @@ def _encode(
         "blast_radius_cap": blast_radius_cap,
         "experiments": {
             experiment_id: {
-                "action_type": action_type,
-                "requested_targets": list(requested),
-                "targets": list(targets),
+                "action_type": reservation.action_type,
+                "requested_targets": list(reservation.requested_targets),
+                "targets": list(reservation.selected_targets),
+                "reserved_at": reservation.reserved_at,
             }
-            for experiment_id, (action_type, requested, targets) in sorted(experiments.items())
+            for experiment_id, reservation in sorted(experiments.items())
         },
     }
 
 
 def _occupied(
-    experiments: dict[str, tuple[str, tuple[str, ...], tuple[str, ...]]],
+    experiments: dict[str, ReservationRecord],
 ) -> frozenset[str]:
-    targets = tuple(target for _, _, reserved in experiments.values() for target in reserved)
+    targets = tuple(
+        target for reservation in experiments.values() for target in reservation.selected_targets
+    )
     if len(set(targets)) != len(targets):
         raise ValueError("chaos reservation targets overlap")
     return frozenset(targets)
 
 
-__all__ = ["LokiReservationJournal", "ReservationResult"]
+__all__ = ["LokiReservationJournal", "ReservationRecord", "ReservationResult"]

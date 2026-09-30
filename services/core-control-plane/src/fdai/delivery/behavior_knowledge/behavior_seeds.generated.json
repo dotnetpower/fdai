@@ -246,7 +246,7 @@
         "How are repeated Issues handled?",
         "Issue 중복은 어떻게 처리하나요?"
       ],
-      "source_manifest_hash": "b43e540f46fafd62fe731cd975ebfe1a7475f45a9e958f68b242500ecd339c95",
+      "source_manifest_hash": "50cd13aa87fe709ed330887f90878fc889ac22f818c6eb792e1be7d68cef5f35",
       "sources": [
         {
           "authority_role": "implementation",
@@ -259,9 +259,9 @@
         },
         {
           "authority_role": "verification",
-          "blob_sha": "a4b4893bcf1bbbaf55330d7b87ad4965d9d3da44",
-          "line_end": 201,
-          "line_start": 167,
+          "blob_sha": "485116dea33e0c8119402db601ff007befbfc0ae",
+          "line_end": 202,
+          "line_start": 168,
           "path": "services/core-control-plane/tests/agents/test_wave2_governance.py",
           "source_kind": "test",
           "symbol": "test_saga_issue_dedup_creates_once_and_appends_comment_on_repeat"

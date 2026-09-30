@@ -8,7 +8,7 @@ from __future__ import annotations
 import asyncio
 import logging
 from collections.abc import Callable, Iterable, Mapping
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from fdai_service_contracts.incident_intervention import INCIDENT_INTERVENTION_EVENT_TYPE
@@ -101,6 +101,7 @@ _LOGGER = logging.getLogger(__name__)
 # An absent deployment policy grants no operator authority. Tests and composition
 # roots that need an allowed principal inject an explicit mapping.
 _DEFAULT_RBAC: dict[str, frozenset[str]] = {}
+_DEFAULT_RULE_STALENESS_WINDOW = timedelta(hours=1)
 
 # LRU cap on the per-resource domain-advice maps, so a long-lived judge that
 # sees advice for many resources without a conflict cannot leak memory.
@@ -152,9 +153,12 @@ class Forseti(
         development_executor_principal: str | None = None,
         development_action_types: Mapping[str, RegisteredDevelopmentAction] | None = None,
         governed_execution_selected: bool = False,
+        rule_staleness_window: timedelta = _DEFAULT_RULE_STALENESS_WINDOW,
     ) -> None:
         if cross_vertical_timeout_seconds <= 0.0 or cross_vertical_timeout_seconds > 300.0:
             raise ValueError("cross_vertical_timeout_seconds MUST be in (0, 300]")
+        if rule_staleness_window <= timedelta(0):
+            raise ValueError("rule_staleness_window MUST be positive")
         super().__init__(spec=_FORSETI)
         self.bus = bus
         # Observation-first by default: learned and predicted input stays advisory (#1541).
@@ -170,6 +174,10 @@ class Forseti(
         self._test_context_source = test_context_source
         self._test_context_admission = test_context_admission
         self._test_context_clock = test_context_clock or (lambda: datetime.now(tz=UTC))
+        self._rule_staleness_window = rule_staleness_window
+        self._rule_staleness_started_at = self._now()
+        self._last_owner_rule_update_at: datetime | None = None
+        self._rule_cache_stale = False
         self._decision_coordinator = decision_coordinator or DomainDecisionCoordinator()
         self._operational_planner = operational_planner
         self._kinetic_proposal_source = kinetic_proposal_source
@@ -434,14 +442,27 @@ class Forseti(
     def health(self) -> dict[str, Any]:
         return {
             "agent": "Forseti",
-            "status": "ok",
+            "status": "degraded" if self._rule_cache_stale else "ok",
             "judgment_table_digest": self._judgment_table.digest,
             "action_semantics_bound": self._action_semantics is not None,
             "architecture_review_bound": self._architecture_review_loop is not None,
             "rule_state_cached": len(self._rule_state),
+            "rule_cache_fresh": not self._rule_cache_stale,
+            "rule_staleness_window_seconds": self._rule_staleness_window.total_seconds(),
+            "last_owner_rule_update_at": (
+                self._last_owner_rule_update_at.isoformat()
+                if self._last_owner_rule_update_at is not None
+                else ""
+            ),
             "no_rule_folds": dict(self._no_rule_folds.items()),
             "behavior": self.behavior_snapshot(),
         }
+
+    def _now(self) -> datetime:
+        current = self._test_context_clock()
+        if current.tzinfo is None or current.utcoffset() is None:
+            raise ValueError("Forseti clock MUST return a timezone-aware datetime")
+        return current
 
     def _record_rule_state(self, payload: dict[str, Any]) -> None:
         if payload.get("producer_principal") != "Mimir":
@@ -466,7 +487,17 @@ class Forseti(
                 "correlation_id": str(payload.get("correlation_id") or ""),
             },
         )
+        self._last_owner_rule_update_at = self._now()
+        self._rule_cache_stale = False
         self.record_behavior(f"rule_state:{normalized}")
+
+    async def maintenance_tick(self) -> None:
+        await super().maintenance_tick()
+        reference = self._last_owner_rule_update_at or self._rule_staleness_started_at
+        stale = self._now() - reference > self._rule_staleness_window
+        self._rule_cache_stale = stale
+        if stale:
+            self.record_behavior("rule_cache:stale")
 
     async def introspect(self, question: str, context: dict[str, Any]) -> IntrospectionResult:
         facts = {

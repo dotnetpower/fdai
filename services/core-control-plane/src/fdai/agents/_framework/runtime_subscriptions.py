@@ -15,7 +15,7 @@ from fdai.agents._framework.ontology_index import (
     owned_context_index_handler,
 )
 from fdai.agents.heimdall import Heimdall
-from fdai.agents.huginn import Huginn
+from fdai.agents.huginn import Huginn, HuginnIngressRejectedError
 from fdai.agents.mimir import Mimir
 from fdai.core.human_assignment.execution_ports import HumanAccessAgentBindings
 from fdai.core.rule_semantic_generation import (
@@ -66,7 +66,7 @@ def build_ingress_handler(
     async def _ingress(_topic: str, payload: dict[str, Any]) -> None:
         try:
             await agent.ingest(payload)
-        except ValueError as exc:
+        except HuginnIngressRejectedError as exc:
             on_unkeyed(exc)
 
     return _ingress

@@ -23,6 +23,7 @@ from typing import Any
 # idempotency_key / producer_principal semantics), so consumers can gate
 # on it during a rolling upgrade.
 ENVELOPE_SCHEMA_VERSION = 1
+MAX_ENVELOPE_FIELD_CHARS = 512
 
 # Topics whose payloads mutate a resource - partition by `resource_id`
 # so concurrent writes to the same resource serialize. Public so the bus
@@ -138,6 +139,26 @@ def missing_mutation_envelope_fields(
     )
 
 
+def normalize_owned_object_envelope(
+    topic: str,
+    payload: dict[str, Any],
+) -> tuple[str, ...]:
+    """Strip and validate shared envelope keys for owned object topics."""
+    if topic not in OWNED_OBJECT_TOPICS:
+        return ()
+    invalid: list[str] = []
+    for field_name in ("correlation_id", "idempotency_key"):
+        value = str(payload.get(field_name, "")).strip()
+        if not value:
+            invalid.append(field_name)
+            continue
+        if len(value) > MAX_ENVELOPE_FIELD_CHARS:
+            invalid.append(field_name)
+            continue
+        payload[field_name] = value
+    return tuple(invalid)
+
+
 def stable_idempotency_key(kind: str, *parts: object) -> str:
     """Return a deterministic idempotency key for one logical publication.
 
@@ -175,7 +196,9 @@ __all__ = [
     "MUTATION_TOPICS",
     "CORRELATION_TOPICS",
     "ENVELOPE_SCHEMA_VERSION",
+    "MAX_ENVELOPE_FIELD_CHARS",
     "missing_mutation_envelope_fields",
+    "normalize_owned_object_envelope",
     "stable_idempotency_key",
     "topic_for_object_type",
     "partition_key_for",

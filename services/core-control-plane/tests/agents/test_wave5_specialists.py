@@ -677,6 +677,28 @@ def test_loki_release_targets_frees_slots() -> None:
     assert third.accepted
 
 
+async def test_loki_maintenance_expires_stale_process_local_reservations() -> None:
+    now = datetime(2028, 1, 2, tzinfo=UTC)
+    loki = Loki(
+        blast_radius_cap=1,
+        clock=lambda: now,
+        reservation_ttl=timedelta(minutes=5),
+    )
+    await loki.propose_experiment(
+        experiment_id="e1",
+        action_type="x",
+        targets=("t1",),
+        **_chaos_evidence(),
+    )
+    assert loki._in_flight_targets == {"t1"}  # noqa: SLF001
+
+    now = now + timedelta(minutes=6)
+    await loki.maintenance_tick()
+
+    assert loki._in_flight_targets == set()  # noqa: SLF001
+    assert loki.behavior_snapshot()["chaos_reservation:expired"] == 1
+
+
 async def test_loki_durable_reservations_survive_restart_and_release_on_safe_closure() -> None:
     store = InMemoryStateStore()
     first = Loki(blast_radius_cap=1, state_store=store)
@@ -714,6 +736,43 @@ async def test_loki_durable_reservations_survive_restart_and_release_on_safe_clo
         **_chaos_evidence(),
     )
     assert accepted.accepted
+
+
+async def test_loki_maintenance_expires_stale_durable_reservations() -> None:
+    now = datetime(2028, 1, 2, tzinfo=UTC)
+    store = InMemoryStateStore()
+    first = Loki(
+        blast_radius_cap=1,
+        state_store=store,
+        clock=lambda: now,
+        reservation_ttl=timedelta(minutes=5),
+    )
+    proposal = await first.propose_experiment(
+        experiment_id="experiment-1",
+        action_type="tool.run-chaos-experiment",
+        targets=("target-1",),
+        **_chaos_evidence(),
+    )
+    assert proposal.accepted
+
+    now = now + timedelta(minutes=6)
+    restarted = Loki(
+        blast_radius_cap=1,
+        state_store=store,
+        clock=lambda: now,
+        reservation_ttl=timedelta(minutes=5),
+    )
+    assert await restarted.rehydrate() == 1
+    await restarted.maintenance_tick()
+
+    accepted = await restarted.propose_experiment(
+        experiment_id="experiment-2",
+        action_type="tool.run-chaos-experiment",
+        targets=("target-2",),
+        **_chaos_evidence(),
+    )
+    assert accepted.accepted
+    assert restarted.behavior_snapshot()["chaos_reservation:expired"] == 1
 
 
 async def test_loki_keeps_reservation_for_failed_or_mismatched_closure() -> None:

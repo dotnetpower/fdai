@@ -26,6 +26,7 @@ from fdai.agents._framework.topics import (
     ENVELOPE_SCHEMA_VERSION,
     OWNED_OBJECT_TOPICS,
     missing_mutation_envelope_fields,
+    normalize_owned_object_envelope,
     partition_key_for,
 )
 
@@ -112,6 +113,7 @@ class InMemoryBus:
     handler_retries: int = 0
     ordered_poison_halts: int = 0
     schema_violations: int = 0
+    envelope_violations: int = 0
     duplicate_deliveries: int = 0
     _halted_topics: set[str] = field(default_factory=set)
 
@@ -145,6 +147,19 @@ class InMemoryBus:
         enriched["producer_principal"] = principal
         enriched.setdefault("schema_version", ENVELOPE_SCHEMA_VERSION)
         enriched["envelope_schema_version"] = ENVELOPE_SCHEMA_VERSION
+        invalid = list(normalize_owned_object_envelope(topic, enriched))
+        if (
+            topic in {"object.action-run", "object.rollback"}
+            and not str(enriched.get("resource_id", "")).strip()
+        ):
+            invalid.append("resource_id")
+        if invalid:
+            self.envelope_violations += 1
+            fields = ", ".join(invalid)
+            raise ValueError(
+                f"refusing to publish owned object topic {topic!r}: invalid required "
+                f"envelope field(s): {fields}"
+            )
         missing = missing_mutation_envelope_fields(topic, enriched)
         if missing:
             fields = ", ".join(missing)
@@ -224,6 +239,7 @@ class InMemoryBus:
         self.handler_retries = 0
         self.ordered_poison_halts = 0
         self.schema_violations = 0
+        self.envelope_violations = 0
         self.duplicate_deliveries = 0
         self._halted_topics.clear()
 
