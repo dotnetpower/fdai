@@ -30,6 +30,7 @@ from fdai.core.conversation.adaptive_call_scope import (
     stop_scoped_provider_retry,
 )
 from fdai.core.conversation.model_observation import ConversationModelObservation
+from fdai.core.conversation.semantic_reasoning_ambiguity import ambiguity_schema
 from fdai.core.conversation.semantic_reasoning_concepts import ConceptShard
 from fdai.core.conversation.semantic_reasoning_direction import DirectionQuestion, direction_schema
 from fdai.core.conversation.semantic_reasoning_proposal import (
@@ -130,11 +131,16 @@ class AzureOpenAIQuestionFormConfig:
     direction_prompt_manifest: PromptReplayManifest | None = None
     # Direction needs syntax, so a reasoning model may confirm it; defaults to the extractor's.
     direction_candidates: tuple[ModelRequestTarget, ...] = ()
+    # Without an ambiguity prompt and a third family, a judgment's clarification always wins.
+    ambiguity_system_prompt: str | None = None
+    ambiguity_prompt_manifest: PromptReplayManifest | None = None
+    ambiguity_candidates: tuple[ModelRequestTarget, ...] = ()
     timeout_seconds: float = 30.0
     form_max_tokens: int = 2_048
     concept_max_tokens: int = 512
     extraction_max_tokens: int = 1_024
     direction_max_tokens: int = 64
+    ambiguity_max_tokens: int = 64
     # Matches the active profiles' request budget; a manifest budget can only lower it.
     max_request_tokens: int = 32_768
 
@@ -154,6 +160,11 @@ class AzureOpenAIQuestionFormConfig:
                 if self.direction_system_prompt is not None
                 else ()
             ),
+            *(
+                ((self.ambiguity_system_prompt, self.ambiguity_prompt_manifest),)
+                if self.ambiguity_system_prompt is not None
+                else ()
+            ),
         ):
             if not prompt or len(prompt) > _MAX_PROMPT_CHARS:
                 raise ValueError("question form prompts MUST be non-empty and bounded")
@@ -168,8 +179,10 @@ class AzureOpenAIQuestionFormConfig:
             or not 1 <= self.concept_max_tokens <= 2_048
             or not 1 <= self.extraction_max_tokens <= 2_048
             or not 1 <= self.direction_max_tokens <= 2_048
+            or not 1 <= self.ambiguity_max_tokens <= 2_048
             or len(self.extraction_candidates) > _MAX_CANDIDATES
             or len(self.direction_candidates) > _MAX_CANDIDATES
+            or len(self.ambiguity_candidates) > _MAX_CANDIDATES
         ):
             raise ValueError("question form output token bounds are out of range")
         if not 1 <= self.max_request_tokens <= _MAX_REQUEST_TOKENS:
@@ -179,6 +192,7 @@ class AzureOpenAIQuestionFormConfig:
             (self.concept_prompt_manifest, self.concept_max_tokens),
             (self.extraction_prompt_manifest, self.extraction_max_tokens),
             (self.direction_prompt_manifest, self.direction_max_tokens),
+            (self.ambiguity_prompt_manifest, self.ambiguity_max_tokens),
         ):
             if (
                 manifest is not None
@@ -431,6 +445,39 @@ class AzureOpenAIQuestionFormModel:
             name="semantic-direction-check",
             max_tokens=self._config.direction_max_tokens,
             manifest=self._config.direction_prompt_manifest,
+            require_verbatim=False,
+            candidates=candidates,
+        )
+
+    async def check_ambiguity(
+        self,
+        *,
+        utterance: str,
+        context: tuple[str, ...],
+        locale: str,
+    ) -> Mapping[str, Any] | None:
+        """Ask a third model family whether the question has one plausible reading.
+
+        The reader sees only the masked question and its locale, never the judgment's
+        clarification or the released reading, so it cannot side with either reader.
+        Without a configured prompt or third family it returns nothing, and the
+        judgment's clarification stands.
+        """
+
+        del context
+        candidates = self._config.ambiguity_candidates
+        if self._config.ambiguity_system_prompt is None or not candidates:
+            return None
+        if _exposes_secret(utterance):
+            _held("input_redacted", name="semantic-ambiguity-check", raise_error=True)
+        mask = IdentityMask(utterance, ())
+        return await self._complete(
+            system_prompt=self._config.ambiguity_system_prompt,
+            user_payload={"utterance": mask.utterance, "locale": locale},
+            schema=ambiguity_schema(),
+            name="semantic-ambiguity-check",
+            max_tokens=self._config.ambiguity_max_tokens,
+            manifest=self._config.ambiguity_prompt_manifest,
             require_verbatim=False,
             candidates=candidates,
         )

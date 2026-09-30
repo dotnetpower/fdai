@@ -454,10 +454,18 @@ class SemanticPlanningService(SemanticPlanningPreflightMixin):
             )
             if pre_frame_outcome is not None:
                 return preflight_router.finish(pre_frame_outcome)
-            # An explicit clarification wins over the form path; the two readers disagreed.
+            # The two readers disagree, so a released reading answers over the judgment's
+            # clarification only when a third, closed ambiguity reader finds one reading.
             clarified = judgment_clarification_outcome(judgment_decision, manifest.manifest_digest)
             if clarified is not None:
-                return preflight_router.finish(clarified)
+                settled = (
+                    ticket.outcome_over_clarification(
+                        manifest_digest=manifest.manifest_digest, observations=model_observations
+                    )
+                    if ticket is not None
+                    else None
+                )
+                return preflight_router.finish(settled if settled is not None else clarified)
             compiled = (
                 ticket.outcome(
                     manifest_digest=manifest.manifest_digest, observations=model_observations

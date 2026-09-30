@@ -13,7 +13,7 @@ import concurrent.futures
 import json
 import logging
 import time
-from collections.abc import Callable, MutableSequence
+from collections.abc import Callable, Mapping, MutableSequence
 from dataclasses import dataclass, field, replace
 from datetime import datetime
 from typing import Any
@@ -44,6 +44,7 @@ from .semantic_planning_models import (
     hold_details,
 )
 from .semantic_planning_support import _outcome, _refresh_object_set_cutoffs
+from .semantic_reasoning_ambiguity import AmbiguityReader, ambiguity_verdict
 from .semantic_reasoning_binding import GatewayAnchorResolver
 from .semantic_reasoning_compiler import CompiledBatch, GoalStatus
 from .semantic_reasoning_nodes import union_tree
@@ -110,9 +111,11 @@ class CompiledAnswerTicket:
         cutoff: Callable[[], datetime],
         clock: Callable[[], float] = time.monotonic,
         typed_only: bool = False,
+        ambiguity: Callable[[], concurrent.futures.Future[Mapping[str, Any] | None]] | None = None,
     ) -> None:
         self._future = future
         self._collector = collector
+        self._ambiguity = ambiguity
         self._deadline = clock() + deadline_seconds
         self._manifest = manifest
         self._verifier = verifier
@@ -191,6 +194,45 @@ class CompiledAnswerTicket:
             intent_graph=intent_graph,
         )
 
+    def outcome_over_clarification(
+        self,
+        *,
+        manifest_digest: str,
+        observations: MutableSequence[Any],
+    ) -> SemanticPlanningOutcome | None:
+        """Answer over the judgment's clarification only when a third reader finds one reading.
+
+        The released reading must first pass every selection rule of ``outcome``. Then a
+        reader of another model family, which sees neither reading, says whether the
+        question has one plausible reading; any other answer, no answer, or a failure
+        leaves the clarification to end the turn.
+        """
+
+        compiled = self.outcome(manifest_digest=manifest_digest, observations=observations)
+        if compiled is None:
+            return None
+        verdict = "unavailable"
+        if self._ambiguity is not None:
+            recorded = len(self._collector.observations)
+            future = self._ambiguity()
+            try:
+                verdict = ambiguity_verdict(
+                    future.result(timeout=max(0.0, self._deadline - self._clock()))
+                )
+            except concurrent.futures.TimeoutError:
+                future.cancel()
+                verdict = "timeout"
+            except Exception as exc:  # noqa: BLE001 - provider details stay inside the adapter
+                future.cancel()
+                verdict = f"failed:{type(exc).__name__}"
+            finally:
+                observations.extend(self._collector.observations[recorded:])
+        _LOGGER.info("semantic_compiled_answer_ambiguity", extra={"verdict": verdict})
+        if verdict == "one":
+            return compiled
+        self.decision = "clarification"
+        return None
+
     def veto(
         self,
         plan_source: str,
@@ -247,8 +289,10 @@ class CompiledAnswerPath:
         purpose: str,
         clock: Callable[[], datetime],
         settings: CompiledAnswerSettings | None = None,
+        ambiguity_reader: AmbiguityReader | None = None,
     ) -> None:
         self._model = model
+        self._ambiguity_reader = ambiguity_reader
         self._owner_loop = owner_loop
         self._gateway = gateway
         self._purpose = purpose
@@ -308,6 +352,19 @@ class CompiledAnswerPath:
             ),
             self._owner_loop,
         )
+        reader = self._ambiguity_reader
+
+        def ambiguity() -> concurrent.futures.Future[Mapping[str, Any] | None]:
+            async def ask() -> Mapping[str, Any] | None:
+                if reader is None:
+                    return None
+                async with bind_adaptive_model_budget(collector):
+                    return await reader.check_ambiguity(
+                        utterance=utterance, context=context, locale=locale
+                    )
+
+            return asyncio.run_coroutine_threadsafe(ask(), self._owner_loop)
+
         return CompiledAnswerTicket(
             future,
             collector,
@@ -316,6 +373,7 @@ class CompiledAnswerPath:
             verifier=verifier,
             cutoff=self._clock,
             typed_only=self._settings.typed_only,
+            ambiguity=ambiguity if reader is not None else None,
         )
 
 

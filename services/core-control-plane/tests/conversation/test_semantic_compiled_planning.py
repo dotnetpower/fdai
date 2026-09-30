@@ -56,11 +56,17 @@ class _Ticket:
         self.typed_only = False
         self.decision: str | None = None
         self.details: tuple[str, ...] = ()
+        # What the closed ambiguity reader says about a question the judgment clarified.
+        self.one_reading = False
 
     def outcome(self, *, manifest_digest: str, observations: list[Any]) -> Any:
         self.consumed = True
         observations.append(SimpleNamespace(model="form-model", usage=None, trace_call={}))
         return self.result
+
+    def outcome_over_clarification(self, *, manifest_digest: str, observations: list[Any]) -> Any:
+        compiled = self.outcome(manifest_digest=manifest_digest, observations=observations)
+        return compiled if self.one_reading else None
 
     def veto(self, plan_source: str, *, manifest_digest: str, plan: Any = None) -> Any:
         self.vetoed_sources.append(plan_source)
@@ -184,7 +190,7 @@ def test_a_released_compilation_replaces_an_uncovered_constraint_hold() -> None:
     assert held.reason == UNCOVERED_CONSTRAINT_CODE
 
 
-def test_an_ambiguous_judgment_ends_with_its_clarification_and_cancels_the_path() -> None:
+def test_an_ambiguous_judgment_keeps_its_clarification_unless_one_reading_is_found() -> None:
     ambiguous = _accepted().model_copy(
         update={"ambiguous": True, "clarification": "Which VM scope should I read?"}
     )
@@ -192,11 +198,18 @@ def test_an_ambiguous_judgment_ends_with_its_clarification_and_cancels_the_path(
     outcome, model = _plan(
         _Boundary(SemanticJudgmentDisposition.CLARIFICATION, proposal=ambiguous), path
     )
+    settled = _Path()
+    settled.ticket.one_reading = True
+    answered, _model = _plan(
+        _Boundary(SemanticJudgmentDisposition.CLARIFICATION, proposal=ambiguous), settled
+    )
 
     assert outcome.disposition is SemanticPlanningDisposition.CLARIFICATION
     assert outcome.clarification == "Which VM scope should I read?"
     assert model.frame_calls == 0
-    assert path.ticket.cancelled and not path.ticket.consumed
+    assert path.ticket.consumed and not path.ticket.cancelled
+    # A third reader that finds one plausible reading lets the released reading answer.
+    assert answered.reason == "compiled_answer_marker"
 
 
 def test_a_turn_that_needs_document_evidence_never_starts_the_form_path() -> None:
@@ -349,4 +362,4 @@ def test_typed_only_still_ends_an_ambiguous_judgment_with_its_clarification() ->
     )
 
     assert outcome.disposition is SemanticPlanningDisposition.CLARIFICATION
-    assert path.ticket.cancelled
+    assert path.ticket.consumed

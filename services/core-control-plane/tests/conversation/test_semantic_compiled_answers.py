@@ -781,3 +781,52 @@ async def test_a_reading_that_needs_another_pass_is_never_resampled(
 
     # A continuation is not a failed form, so a second sample would only repeat it.
     assert calls == [1] and result is pending
+
+
+def _ambiguity_ticket(answer: Any) -> CompiledAnswerTicket:
+    ticket = _ticket(_observation())
+    collector = ticket._collector  # noqa: SLF001 - the ambiguity call records into the same turn
+
+    def ambiguity() -> concurrent.futures.Future[Any]:
+        future: concurrent.futures.Future[Any] = concurrent.futures.Future()
+        collector.observations.append(SimpleNamespace(model="ambiguity-model"))  # type: ignore[arg-type]
+        if isinstance(answer, BaseException):
+            future.set_exception(answer)
+        else:
+            future.set_result(answer)
+        return future
+
+    ticket._ambiguity = ambiguity  # noqa: SLF001 - the path binds the reader at start
+    return ticket
+
+
+@pytest.mark.parametrize(
+    ("answer", "answers"),
+    (
+        ({"readings": "one"}, True),
+        ({"readings": "several"}, False),
+        ({"readings": "unclear"}, False),
+        ({"readings": "maybe"}, False),
+        (None, False),
+        (RuntimeError("provider"), False),
+    ),
+)
+def test_a_released_reading_answers_a_clarified_question_only_with_one_reading(
+    answer: Any, answers: bool
+) -> None:
+    ticket = _ambiguity_ticket(answer)
+    recorded: list[Any] = []
+
+    outcome = ticket.outcome_over_clarification(manifest_digest="d", observations=recorded)
+
+    assert (outcome is not None) is answers
+    assert ticket.decision == ("selected" if answers else "clarification")
+    # The ambiguity call is accounted with the form path's calls.
+    assert [item.model for item in recorded] == ["form-model", "ambiguity-model"]
+
+
+def test_without_an_ambiguity_reader_the_clarification_always_wins() -> None:
+    ticket = _ticket(_observation())
+
+    assert ticket.outcome_over_clarification(manifest_digest="d", observations=[]) is None
+    assert ticket.decision == "clarification"

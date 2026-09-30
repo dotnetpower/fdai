@@ -84,6 +84,31 @@ def test_the_local_profile_composes_the_compiled_path_with_a_reasoning_direction
     assert [target.deployment for target in config.direction_candidates] == ["narrator-gpt-5-mini"]
     assert config.direction_system_prompt
     assert config.direction_max_tokens == 2_048
+    # The reasoning reader is a third family, so it also answers the closed ambiguity check.
+    assert [target.deployment for target in config.ambiguity_candidates] == ["narrator-gpt-5-mini"]
+    assert config.ambiguity_system_prompt and config.ambiguity_max_tokens == 2_048
+    path = reader.compiled_answers(SimpleNamespace(), "operations-review", lambda: None)
+    assert path._ambiguity_reader is reader.type_grounding._chooser  # noqa: SLF001
+
+
+def test_without_a_third_family_no_ambiguity_reader_is_configured() -> None:
+    targets = tuple(
+        SimpleNamespace(deployment=name)
+        for name in ("narrator-gpt-5-4-mini", "narrator-gpt-4-1-mini")
+    )
+    reasoning = SimpleNamespace(deployment="narrator-gpt-5-mini")
+
+    # Two families only: the judgment's and the blind reviewer's.
+    assert grounding.ambiguity_reader_target(targets, targets[1]) is None  # type: ignore[arg-type]
+    # The reasoning reader is the reviewer itself, so it is no third family.
+    assert (
+        grounding.ambiguity_reader_target((targets[0], reasoning), reasoning)  # type: ignore[arg-type]
+        is None
+    )
+    assert (
+        grounding.ambiguity_reader_target((*targets, reasoning), targets[1])  # type: ignore[arg-type]
+        is reasoning
+    )
 
 
 def test_a_deployed_venue_or_an_invalid_path_keeps_only_the_second_reader(

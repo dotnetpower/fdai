@@ -9,7 +9,10 @@ Without such a deployment no second reader exists and nothing binds through it.
 
 The local launcher also sets ``FDAI_SEMANTIC_COMPILED_ANSWERS=1``, which adds the
 question-form path that answers a released compilation. Relation directions are then
-confirmed by the first later reasoning deployment, because direction turns on syntax.
+confirmed by the first later reasoning deployment, because direction turns on syntax. When
+that deployment is neither the primary reader's nor the second reader's family, it also
+answers the closed ambiguity check that decides whether a released reading may answer a
+question the judgment asked to clarify; otherwise the clarification always wins.
 ``FDAI_SEMANTIC_TYPED_ONLY=1`` makes that path the only way an operational read answers; it
 needs both other settings in the local venue, and the composition refuses to start without
 them instead of silently answering from the legacy path.
@@ -91,9 +94,14 @@ def build_second_reader(
     direction_prompt = (
         compose_static_selection(prompts.resolve("semantic.direction_check")) if compiled else None
     )
+    ambiguity_prompt = (
+        compose_static_selection(prompts.resolve("semantic.ambiguity_check")) if compiled else None
+    )
+    third = ambiguity_reader_target(targets, second)
 
     def reader_config(with_direction: bool) -> AzureOpenAIQuestionFormConfig:
         direction = direction_prompt if with_direction else None
+        ambiguity = ambiguity_prompt if with_direction and third is not None else None
         return AzureOpenAIQuestionFormConfig(
             candidates=targets[:1],
             form_system_prompt=form_prompt.system_text,
@@ -109,6 +117,12 @@ def build_second_reader(
             else None,
             direction_candidates=(direction_reader_target(targets) or second,),
             direction_max_tokens=2_048 if direction is not None else 64,
+            ambiguity_system_prompt=ambiguity.system_text if ambiguity is not None else None,
+            ambiguity_prompt_manifest=(
+                ambiguity.replay_manifest() if ambiguity is not None else None
+            ),
+            ambiguity_candidates=(third,) if ambiguity is not None and third is not None else (),
+            ambiguity_max_tokens=2_048 if ambiguity is not None else 64,
             timeout_seconds=60.0 if direction is not None else 40.0,
         )
 
@@ -138,6 +152,7 @@ def build_second_reader(
                     purpose=purpose,
                     clock=clock,
                     settings=CompiledAnswerSettings(typed_only=typed_only),
+                    ambiguity_reader=reader,
                 )
             )
             if compiled
@@ -192,6 +207,23 @@ def direction_reader_target(
     )
 
 
+def ambiguity_reader_target(
+    targets: tuple[ModelRequestTarget, ...],
+    second: ModelRequestTarget,
+) -> ModelRequestTarget | None:
+    """Return a third family for the ambiguity check, or ``None`` when none exists.
+
+    The judgment and the question-form proposer read with the primary deployment, and the
+    blind review with the second reader, so the ambiguity reader is the direction reader
+    only when it is neither of them.
+    """
+
+    third = direction_reader_target(targets)
+    if third is None or third.deployment in {targets[0].deployment, second.deployment}:
+        return None
+    return third
+
+
 def second_reader_target(
     targets: tuple[ModelRequestTarget, ...],
 ) -> ModelRequestTarget | None:
@@ -211,6 +243,7 @@ def second_reader_target(
 __all__ = [
     "COMPILED_ANSWERS_ENV",
     "SECOND_READER_ENV",
+    "ambiguity_reader_target",
     "build_second_reader",
     "compiled_answers_enabled",
     "typed_only_enabled",
