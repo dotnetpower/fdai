@@ -162,12 +162,24 @@ def report_agent_kpis(
     """Report every active agent's declared KPIs with truthful evidence state."""
     for name, health in agent_health.items():
         values, metric_tags = _available_kpi_values(name, health)
-        collector.report_declared(
-            agent=name,
-            values=values,
-            tags={"source": "agent_health", "status": str(health.get("status", "unknown"))},
-            metric_tags=metric_tags,
-        )
+        tags = {"source": "agent_health", "status": str(health.get("status", "unknown"))}
+        try:
+            collector.report_declared(
+                agent=name,
+                values=values,
+                tags=tags,
+                metric_tags=metric_tags,
+            )
+        except ValueError as exc:
+            _LOG.warning(
+                "pantheon_agent_kpi_invalid",
+                extra={"agent": name, "error_type": type(exc).__name__},
+            )
+            collector.report_declared(
+                agent=name,
+                values={},
+                tags={**tags, "reason": f"invalid_kpi:{type(exc).__name__}"},
+            )
 
 
 def _available_kpi_values(
@@ -269,6 +281,10 @@ def _metric_tags_from_evidence(metric: str, evidence: Mapping[str, Any]) -> dict
         tags["sample_count"] = str(sample_count)
     if metric.endswith("_seconds"):
         tags["unit"] = "seconds"
+        if "sample_count" not in tags:
+            denominator = evidence.get("denominator")
+            if isinstance(denominator, int) and denominator > 0:
+                tags["sample_count"] = str(denominator)
     observed_at = evidence.get("observed_at")
     if isinstance(observed_at, str) and observed_at:
         tags["observed_at"] = observed_at
@@ -287,16 +303,16 @@ def _degradation_facts(agent: str) -> dict[str, object]:
         facts.update(
             {
                 "no_verdict_fallback": True,
-                "operator_alert": {"required": True, "status": "pending"},
+                "operator_alert": {"required": True, "evidence_state": "not_observed"},
                 "events_retained": True,
             }
         )
     elif agent == "Var":
         facts.update(
             {
-                "queue_preserved": True,
-                "timeouts_auto_extended": True,
-                "admin_alert": {"required": True, "status": "pending"},
+                "queue_preserved": {"value": None, "evidence_state": "not_observed"},
+                "timeouts_auto_extended": {"value": None, "evidence_state": "not_observed"},
+                "admin_alert": {"required": True, "evidence_state": "not_observed"},
                 "allowed_action_classes": ["A1", "A2"],
                 "blocked_action_classes": ["HIL", "A3-E"],
             }
@@ -304,7 +320,7 @@ def _degradation_facts(agent: str) -> dict[str, object]:
     elif agent == "Odin":
         facts.update(
             {
-                "terminal_hil_closure": True,
+                "terminal_hil_closure": {"value": None, "evidence_state": "not_observed"},
                 "terminal_hil_closure_count": {
                     "value": None,
                     "evidence_state": "not_observed",

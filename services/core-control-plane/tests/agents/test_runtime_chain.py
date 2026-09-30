@@ -1,17 +1,18 @@
-"""End-to-end multi-hop chain test over a live (polling) event bus.
+"""Runtime observer regression over a live (polling) event bus.
 
 The shipped :class:`InMemoryEventBus` snapshots its queue per
 ``subscribe`` call, so a single ``run`` pass only drains one hop - fine
 for unit checks but unable to prove the full fan-out chain. This module
 adds a minimal *live* polling bus (records published mid-run become
-visible to already-subscribed consumers) and drives the whole pantheon
-shadow chain through it:
+visible to already-subscribed consumers) and drives the catalog-backed
+shadow rejection path through it:
 
     raw event -> Huginn -> object.event -> Forseti -> object.verdict
               -> Thor (shadow) -> object.action-run -> Saga (audit)
 
-This is the concrete proof that the wired pantheon communicates across
-agents immediately over the real ``EventBus`` Protocol boundary.
+The successful authority-chain coverage lives in
+``test_runtime_end_to_end_delivery.py``; this file pins the rejected edge
+identity so aggregate bridge counters never hide the source verdict.
 """
 
 from __future__ import annotations
@@ -100,7 +101,7 @@ class LiveInMemoryEventBus(EventBus):
             )
 
 
-def test_full_shadow_chain_propagates_over_live_bus() -> None:
+def test_rejected_catalog_verdict_is_correlated_in_runtime_health() -> None:
     provider = LiveInMemoryEventBus()
     runtime = PantheonRuntime.build(
         provider=provider,
@@ -135,11 +136,14 @@ def test_full_shadow_chain_propagates_over_live_bus() -> None:
 
     asyncio.run(_drive())
 
-    # The catalog-backed auto remediation lacks wire safeguards, so the
-    # runtime bridge rejects it before Thor can dispatch an ActionRun.
     assert runtime.bridge.metrics.schema_violations >= 1
     assert runtime.shadow_decisions["verdict:auto"] == 0
     assert not any(k.startswith("shadow_action_run:") for k in runtime.shadow_decisions)
+    rejected = runtime.health()["recent_rejected_edges"]
+    assert rejected
+    assert rejected[-1]["correlation_id"] == "corr-chain"
+    assert rejected[-1]["topic"] == "object.verdict"
+    assert "schema violation" in rejected[-1]["reason"]
     saga = runtime.agents["Saga"]
     assert isinstance(saga, Saga)
     assert saga.replay_for_correlation("corr-chain") == []

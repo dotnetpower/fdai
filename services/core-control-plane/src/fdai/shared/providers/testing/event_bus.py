@@ -97,10 +97,16 @@ class InMemoryEventBus(EventBus):
     ) -> None:
         # Kafka has no native DLQ - enforce the <topic>.dlq convention.
         dlq_topic = f"{topic}.dlq"
+        metadata: dict[str, Any] = {}
+        original_payload = dict(payload)
+        raw_metadata = original_payload.pop("__fdai_dlq_metadata__", None)
+        if isinstance(raw_metadata, Mapping):
+            metadata = dict(raw_metadata)
         dlq_payload: dict[str, Any] = {
             "original_topic": topic,
+            **metadata,
             "reason": reason,
-            "payload": _freeze_mapping(deepcopy(dict(payload))),
+            "payload": _freeze_mapping(deepcopy(original_payload)),
         }
         with self._lock:
             queue = self._records.setdefault(dlq_topic, [])

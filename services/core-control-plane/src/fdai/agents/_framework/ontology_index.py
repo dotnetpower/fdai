@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import json
+import logging
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from typing import Any, Literal
@@ -13,6 +14,8 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from .base import Agent
 from .bus import Handler
+
+_LOG = logging.getLogger(__name__)
 
 IndexPhase = Literal[
     "prepare",
@@ -195,7 +198,17 @@ def owned_context_index_handler(
             raise ValueError("ontology ContextIndex worker crossed its owned transition")
         await agent.bus.publish(agent.spec.name, result.topic, result.model_dump(mode="json"))
         if bindings.published is not None:
-            await bindings.published(result)
+            try:
+                await bindings.published(result)
+            except Exception as exc:  # noqa: BLE001 - ack failure must not duplicate publish
+                _LOG.warning(
+                    "ontology_context_index_publish_ack_failed",
+                    extra={
+                        "owner": agent.spec.name,
+                        "phase": result.phase,
+                        "error_type": type(exc).__name__,
+                    },
+                )
 
     return handle
 
@@ -223,7 +236,17 @@ async def recover_context_index_publications(
                 if message.producer_principal != owner:
                     raise ValueError("ontology ContextIndex recovery crossed publishing ownership")
                 await agent.bus.publish(owner, message.topic, message.model_dump(mode="json"))
-                await bindings.published(message)
+                try:
+                    await bindings.published(message)
+                except Exception as exc:  # noqa: BLE001 - ack failure must not duplicate publish
+                    _LOG.warning(
+                        "ontology_context_index_recovery_ack_failed",
+                        extra={
+                            "owner": owner,
+                            "phase": message.phase,
+                            "error_type": type(exc).__name__,
+                        },
+                    )
                 published += 1
     return published
 

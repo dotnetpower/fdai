@@ -11,7 +11,12 @@ rates without reaching into consumer internals.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from collections import deque
+from dataclasses import dataclass, field
+from typing import Any
+
+_HANDLER_WINDOW = 32
+_RECENT_REJECTION_LIMIT = 32
 
 
 @dataclass
@@ -38,6 +43,45 @@ class BridgeMetrics:
     ordered_poison_halts: int = 0
     schema_violations: int = 0
     duplicate_deliveries: int = 0
+    _handler_windows: dict[str, deque[bool]] = field(default_factory=dict)
+    _recent_rejections: deque[dict[str, object]] = field(
+        default_factory=lambda: deque(maxlen=_RECENT_REJECTION_LIMIT)
+    )
+
+    def record_handler_result(self, agent: str, *, failed: bool) -> None:
+        window = self._handler_windows.setdefault(agent, deque(maxlen=_HANDLER_WINDOW))
+        window.append(failed)
+
+    def degraded_handler_agents(self) -> tuple[str, ...]:
+        return tuple(
+            sorted(agent for agent, window in self._handler_windows.items() if any(window))
+        )
+
+    def record_rejection(
+        self,
+        *,
+        topic: str,
+        reason: str,
+        payload: dict[str, Any],
+        principal: str = "",
+        group_id: str = "",
+        offset: int | None = None,
+    ) -> None:
+        self._recent_rejections.append(
+            {
+                "topic": topic,
+                "reason": reason,
+                "principal": principal,
+                "consumer_group": group_id,
+                "offset": offset,
+                "correlation_id": str(payload.get("correlation_id") or "")[:128],
+                "idempotency_key": str(payload.get("idempotency_key") or "")[:160],
+                "producer_principal": str(payload.get("producer_principal") or "")[:64],
+            }
+        )
+
+    def recent_rejections(self) -> tuple[dict[str, object], ...]:
+        return tuple(dict(item) for item in self._recent_rejections)
 
     def health_failures(self) -> tuple[str, ...]:
         """Return process-window counters that make bridge health degraded."""

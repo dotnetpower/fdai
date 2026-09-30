@@ -19,6 +19,11 @@ class LocalEventBus(EventBus):
     retention. Beyond the bound the oldest records are compacted, but never a
     record that a subscribed consumer group has not consumed yet; a lagging
     group therefore delays compaction instead of losing records.
+
+    Committed offsets remain in the bus instance after a subscriber closes, so
+    a normal consumer shutdown or runtime restart over the same instance resumes
+    after the last yielded record. Use :meth:`reset_offsets` for intentional
+    replay; inactive groups expire after ``group_idle_seconds``.
     """
 
     def __init__(
@@ -100,9 +105,8 @@ class LocalEventBus(EventBus):
                         self._compact_locked(topic)
         finally:
             async with condition:
-                self._offsets.pop(group_key, None)
-                self._group_last_seen.pop(group_key, None)
                 self._group_locks.pop(group_key, None)
+                self._group_last_seen[group_key] = self._loop_time()
                 self._compact_locked(topic)
 
     async def dead_letter(
@@ -112,15 +116,27 @@ class LocalEventBus(EventBus):
         payload: Mapping[str, Any],
         reason: str,
     ) -> None:
+        metadata = {}
+        original_payload = dict(payload)
+        raw_metadata = original_payload.pop("__fdai_dlq_metadata__", None)
+        if isinstance(raw_metadata, Mapping):
+            metadata = dict(raw_metadata)
         await self.publish(
             f"{topic}.dlq",
             key,
             {
                 "original_topic": topic,
+                **metadata,
                 "reason": reason,
-                "payload": _freeze_mapping(deepcopy(dict(payload))),
+                "payload": _freeze_mapping(deepcopy(original_payload)),
             },
         )
+
+    def reset_offsets(self, topic: str, group_id: str) -> None:
+        group_key = (topic, group_id)
+        self._offsets.pop(group_key, None)
+        self._group_last_seen.pop(group_key, None)
+        self._group_locks.pop(group_key, None)
 
     def _condition(self, topic: str) -> asyncio.Condition:
         condition = self._conditions.get(topic)

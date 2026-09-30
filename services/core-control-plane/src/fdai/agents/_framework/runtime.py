@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import logging
 from collections import Counter
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -93,6 +94,7 @@ _EXECUTABLE_VERDICTS = frozenset({"auto", "hil"})
 _VERDICT_EVIDENCE_KEYS = frozenset(
     {"arbitration", "change_assessment", "decision_case", "kind", "risk_verdict", "decision"}
 )
+RecoveryEffectObserver = Callable[[str, dict[str, Any]], Awaitable[None]]
 
 
 @dataclass
@@ -114,6 +116,7 @@ class PantheonRuntime(RuntimeConversationPort):
     _conversation_tools: AgentConversationToolRegistry | None = None
     _semantic_tool_planner: SemanticToolPlanner | None = None
     _continuity_failures: dict[str, str] = field(default_factory=dict)
+    _context_index_workers: runtime_subscriptions.ContextIndexWorkerBindings | None = None
 
     @classmethod
     def build(
@@ -188,6 +191,7 @@ class PantheonRuntime(RuntimeConversationPort):
         case_deletion_days: int = 60,
         action_types: tuple[OntologyActionType, ...] = (),
         handler_observer: AgentHandlerObserver | None = None,
+        recovery_effect_observer: RecoveryEffectObserver | None = None,
         conversation_semantic_judgment: SemanticJudgmentBoundary | None = None,
         conversation_embedding_model: EmbeddingModel | None = None,
         conversation_t2_synthesizer: T2ConversationSynthesizer | None = None,
@@ -332,6 +336,10 @@ class PantheonRuntime(RuntimeConversationPort):
             maybe_var.bind_action_semantics(action_semantics)
         if saga is not None:
             instantiated["Saga"] = saga
+        if context_index_workers is not None and not getattr(
+            instantiated["Saga"], "durable_audit", False
+        ):
+            raise RuntimeError("ontology ContextIndex requires durable Saga audit")
         assignment_runtime.bind_assignment_workflow(instantiated, assignment_workflow)
         heimdall = instantiated["Heimdall"]
         if read_investigation_hook is not None and isinstance(heimdall, Heimdall):
@@ -392,6 +400,10 @@ class PantheonRuntime(RuntimeConversationPort):
             if assignment_workflow is not None
             else None,
         )
+        subscription_count += runtime_subscriptions.bind_recovery_effect_observation(
+            bridge,
+            recovery_effect_observer,
+        )
 
         conversation_tools = AgentConversationToolRegistry(
             agents=agents,
@@ -443,6 +455,7 @@ class PantheonRuntime(RuntimeConversationPort):
             _bragi=bragi_ref,
             _conversation_tools=conversation_tools,
             _semantic_tool_planner=semantic_tool_planner,
+            _context_index_workers=context_index_workers,
         )
 
         runtime_health.bind_availability_probe(
@@ -512,7 +525,10 @@ class PantheonRuntime(RuntimeConversationPort):
         return await huginn.ingest(payload)
 
     async def _rehydrate(self) -> None:
-        await rehydrate_operational_agents(self.agents)
+        await rehydrate_operational_agents(
+            self.agents,
+            context_index_workers=self._context_index_workers,
+        )
 
     def health(self) -> dict[str, Any]:
         snap = self.bridge.snapshot()
@@ -589,6 +605,9 @@ class PantheonRuntime(RuntimeConversationPort):
         }
 
     def _observe_consumer_state(self, agent: str, topic: str, state: str) -> None:
+        if state == "stopped":
+            self._continuity_failures.pop(f"{agent}:{topic}", None)
+            return
         if agent not in PANTHEON_NAMES:
             arb_runtime.handle_architecture_review_consumer_state(
                 self.architecture_review_trace_observer,

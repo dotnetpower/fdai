@@ -10,6 +10,10 @@ from fdai.agents._framework.action_semantics import ActionSemanticsCatalog
 from fdai.agents._framework.anomaly_action import AnomalyActionSource
 from fdai.agents._framework.base import Agent
 from fdai.agents._framework.development_authority_runtime import DevelopmentRuntimeBindings
+from fdai.agents._framework.ontology_index import (
+    ContextIndexWorkerBindings,
+    recover_context_index_publications,
+)
 from fdai.agents._framework.vertical_precedence import InitialVerticalPrecedence
 from fdai.agents.bragi import Bragi
 from fdai.agents.forseti import Forseti
@@ -53,7 +57,11 @@ _LOG = logging.getLogger(__name__)
 _MAX_NORNS_STARTUP_RECOVERY = 5_000
 
 
-async def rehydrate_operational_agents(agents: dict[str, Agent]) -> None:
+async def rehydrate_operational_agents(
+    agents: dict[str, Agent],
+    *,
+    context_index_workers: ContextIndexWorkerBindings | None = None,
+) -> None:
     """Restore durable executor and learner work before consumers start."""
     huginn = agents.get("Huginn")
     if isinstance(huginn, Huginn):
@@ -178,6 +186,13 @@ async def rehydrate_operational_agents(agents: dict[str, Agent]) -> None:
             _LOG.info(
                 "pantheon_muninn_conversation_projections_rehydrated",
                 extra={"records": restored},
+            )
+    if context_index_workers is not None:
+        published = await recover_context_index_publications(agents, context_index_workers)
+        if published:
+            _LOG.info(
+                "pantheon_context_index_publications_recovered",
+                extra={"published": published},
             )
 
 

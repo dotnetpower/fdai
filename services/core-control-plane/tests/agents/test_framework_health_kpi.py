@@ -71,11 +71,12 @@ def test_degradation_facts_expose_workflow7_safe_effect_guarantees() -> None:
 
     assert facts["Forseti"]["no_verdict_fallback"] is True
     assert facts["Forseti"]["operator_alert"]["required"] is True
-    assert facts["Var"]["queue_preserved"] is True
-    assert facts["Var"]["timeouts_auto_extended"] is True
+    assert facts["Forseti"]["operator_alert"]["evidence_state"] == "not_observed"
+    assert facts["Var"]["queue_preserved"]["evidence_state"] == "not_observed"
+    assert facts["Var"]["timeouts_auto_extended"]["evidence_state"] == "not_observed"
     assert facts["Var"]["admin_alert"]["required"] is True
     assert facts["Var"]["allowed_action_classes"] == ["A1", "A2"]
-    assert facts["Odin"]["terminal_hil_closure"] is True
+    assert facts["Odin"]["terminal_hil_closure"]["evidence_state"] == "not_observed"
     assert facts["Odin"]["no_action_authority"] is True
     assert facts["Bragi"]["console_read_only_available"]["evidence_state"] == "not_observed"
     assert facts["Bragi"]["direct_audit_query_available"]["evidence_state"] == "not_observed"
@@ -152,15 +153,15 @@ def test_bridge_degrades_on_delivery_failure_counters() -> None:
     assert snapshot["health_window"] == {"scope": "process", "threshold": 1}
 
 
-def test_bridge_treats_stopped_consumers_as_unavailable() -> None:
+def test_bridge_treats_stopped_consumers_as_idle_without_intentional_stop() -> None:
     bridge = EventBusBridge(provider=InMemoryEventBus(), registry=load_pantheon())
 
     bridge._consumer_states["Saga:object.verdict"] = "stopped"  # noqa: SLF001 - health seam
     snapshot = bridge.snapshot()
 
-    assert snapshot["status"] == "degraded"
-    assert snapshot["unavailable_agents"] == ["Saga"]
-    assert snapshot["degraded_consumer_states"] == {"Saga:object.verdict": "stopped"}
+    assert snapshot["status"] == "healthy"
+    assert snapshot["unavailable_agents"] == []
+    assert snapshot["degraded_consumer_states"] == {}
 
 
 def test_runtime_degradation_uses_bridge_snapshot_unavailable_agents() -> None:

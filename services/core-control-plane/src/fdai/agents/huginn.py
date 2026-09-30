@@ -330,14 +330,18 @@ def _kpi_measured(
     numerator: int | float,
     denominator: int | float,
     unit: str = "ratio",
+    sample_count: int | None = None,
 ) -> dict[str, Any]:
-    return {
+    evidence = {
         "value": float(value),
         "evidence_state": "measured",
         "numerator": numerator,
         "denominator": denominator,
         "unit": unit,
     }
+    if sample_count is not None:
+        evidence["sample_count"] = sample_count
+    return evidence
 
 
 def _kpi_unavailable(evidence_state: str, reason: str, *, unit: str = "ratio") -> dict[str, Any]:
@@ -361,6 +365,7 @@ def _p99_kpi(samples: deque[float], *, unit: str, reason: str) -> dict[str, Any]
         numerator=len(ordered),
         denominator=len(ordered),
         unit=unit,
+        sample_count=len(ordered),
     )
 
 
