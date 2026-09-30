@@ -106,6 +106,7 @@ _LOGGER = logging.getLogger(__name__)
 # roots that need an allowed principal inject an explicit mapping.
 _DEFAULT_RBAC: dict[str, frozenset[str]] = {}
 _DEFAULT_RULE_STALENESS_WINDOW = timedelta(hours=1)
+_QUALITY_SAMPLE_LIMIT = 512
 
 # LRU cap on the per-resource domain-advice maps, so a long-lived judge that
 # sees advice for many resources without a conflict cannot leak memory.
@@ -274,6 +275,22 @@ class Forseti(
         )
         self._rule_state: BoundedLruDict[str, dict[str, str]] = BoundedLruDict(_MAX_RESOURCES)
         self._no_rule_folds: BoundedLruDict[str, int] = BoundedLruDict(_MAX_RESOURCES)
+        self._verdict_quality_samples: BoundedLruDict[str, dict[str, str]] = BoundedLruDict(
+            _QUALITY_SAMPLE_LIMIT
+        )
+        self._last_verdict_coherence: dict[str, object] = {
+            "evidence_state": "not_observed",
+            "sample_size": 0,
+            "disagreements": 0,
+            "unit": "count",
+        }
+        self._last_novelty_drift: dict[str, object] = {
+            "evidence_state": "not_observed",
+            "sample_size": 0,
+            "tier_mix": {"T0": 0, "T1": 0, "T2": 0},
+            "t2_ratio": None,
+            "unit": "ratio",
+        }
 
     def bind_bus(self, bus: PantheonBus) -> None:
         self.bus = bus
@@ -566,6 +583,8 @@ class Forseti(
                 "grounding_missing": grounding_missing,
                 "model_disagreements": model_disagreements,
             },
+            "verdict_coherence_self_test": dict(self._last_verdict_coherence),
+            "novelty_drift_signal": dict(self._last_novelty_drift),
             "kpis": {
                 "t2_escalation_rate": _ratio_kpi(t2_escalations, verdicts),
                 "mixed_model_disagreement_rate": _ratio_kpi(model_disagreements, verdicts),
@@ -665,6 +684,73 @@ class Forseti(
         self._rule_cache_stale = stale
         if stale:
             self.record_behavior("rule_cache:stale")
+        self._run_verdict_coherence_self_test()
+        self._refresh_novelty_drift_signal()
+
+    def _remember_verdict_for_quality(
+        self,
+        event: Mapping[str, Any],
+        verdict: Mapping[str, Any],
+    ) -> None:
+        correlation_id = str(verdict.get("correlation_id") or event.get("correlation_id") or "")
+        idempotency_key = str(verdict.get("idempotency_key") or "")
+        key = correlation_id or idempotency_key
+        if not key:
+            return
+        tier = str(event.get("judgment_tier") or event.get("source_tier") or "T0").upper()
+        if tier not in {"T0", "T1", "T2"}:
+            tier = "T0"
+        self._verdict_quality_samples.set(
+            key,
+            {
+                "event_type": str(event.get("event_type") or ""),
+                "action_type": str(verdict.get("action_type") or ""),
+                "risk_verdict": str(verdict.get("risk_verdict") or ""),
+                "tier": tier,
+            },
+        )
+
+    def _run_verdict_coherence_self_test(self) -> None:
+        disagreements = 0
+        sample_size = 0
+        for _key, sample in self._verdict_quality_samples.items():
+            sample_size += 1
+            action_type = sample["action_type"] or self._judgment_table.rule_match.get(
+                sample["event_type"],
+                "",
+            )
+            expected = self._judgment_table.risk_verdict.get(action_type, "hil")
+            if sample["risk_verdict"] != expected:
+                disagreements += 1
+        self._last_verdict_coherence = {
+            "evidence_state": "measured" if sample_size else "insufficient_sample",
+            "sample_size": sample_size,
+            "disagreements": disagreements,
+            "unit": "count",
+        }
+        if disagreements:
+            self.record_behavior("verdict_coherence:disagreement", disagreements)
+        else:
+            self.record_behavior("verdict_coherence:checked")
+
+    def _refresh_novelty_drift_signal(self) -> None:
+        tier_mix = {"T0": 0, "T1": 0, "T2": 0}
+        for _key, sample in self._verdict_quality_samples.items():
+            tier = sample["tier"]
+            tier_mix[tier] = tier_mix.get(tier, 0) + 1
+        sample_size = sum(tier_mix.values())
+        t2_ratio = (tier_mix["T2"] / sample_size) if sample_size else None
+        self._last_novelty_drift = {
+            "evidence_state": "measured" if sample_size else "insufficient_sample",
+            "sample_size": sample_size,
+            "tier_mix": tier_mix,
+            "t2_ratio": t2_ratio,
+            "unit": "ratio",
+        }
+        if t2_ratio is not None and t2_ratio > 0.1:
+            self.record_behavior("novelty_drift:t2_ratio_high")
+        else:
+            self.record_behavior("novelty_drift:checked")
 
     async def introspect(self, question: str, context: dict[str, Any]) -> IntrospectionResult:
         facts = {

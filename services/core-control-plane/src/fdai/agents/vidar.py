@@ -144,6 +144,7 @@ class Vidar(Agent):
         clock: Callable[[], datetime] | None = None,
         claim_lease: timedelta = _DEFAULT_CLAIM_LEASE,
         rollback_executor_timeout_seconds: float | None = None,
+        rollback_contracts_by_action_type: Mapping[str, str] | None = None,
         development_profile: FullAuthorityDevelopmentProfile | None = None,
         development_executor_principal: str | None = None,
         development_binding_source: DevelopmentAuthorityBindingSource | None = None,
@@ -153,9 +154,21 @@ class Vidar(Agent):
             raise ValueError("claim_lease MUST be greater than zero and at most one hour")
         if rollback_executor_timeout_seconds is not None and rollback_executor_timeout_seconds <= 0:
             raise ValueError("rollback_executor_timeout_seconds MUST be positive")
+        if rollback_contracts_by_action_type is not None and (
+            len(rollback_contracts_by_action_type) > self._MAX_RECORDS
+            or any(
+                not str(action_type).strip()
+                or len(str(action_type)) > 256
+                or not str(contract).strip()
+                or len(str(contract)) > 128
+                for action_type, contract in rollback_contracts_by_action_type.items()
+            )
+        ):
+            raise ValueError("rollback contracts must be bounded and non-empty")
         super().__init__(spec=_VIDAR)
         self.bus = bus
         self._executors = dict(executors or {})
+        self._rollback_contracts_by_action_type = dict(rollback_contracts_by_action_type or {})
         self._state_store = state_store
         self._allow_process_local_rollback = allow_process_local_rollback
         self._clock = clock or (lambda: datetime.now(tz=UTC))
@@ -186,10 +199,72 @@ class Vidar(Agent):
             tuple[str, str],
             str,
         ] = BoundedLruDict(self._MAX_RECORDS)
+        self._rollback_path_validations: BoundedLruDict[str, dict[str, object]] = BoundedLruDict(
+            self._MAX_RECORDS
+        )
+        self._last_dr_readiness: dict[str, object] = {
+            "evidence_state": "not_observed",
+            "coverage_ratio": None,
+            "durable_store_ready": self._state_store is not None,
+            "validated_action_types": 0,
+            "missing_action_types": 0,
+            "unit": "ratio",
+        }
         self._durable_publication_pending = 0
 
     def bind_bus(self, bus: PantheonBus) -> None:
         self.bus = bus
+
+    async def maintenance_tick(self) -> None:
+        await super().maintenance_tick()
+        self._validate_rollback_paths()
+
+    def bind_rollback_contracts(self, contracts_by_action_type: Mapping[str, str]) -> None:
+        if len(contracts_by_action_type) > self._MAX_RECORDS or any(
+            not str(action_type).strip()
+            or len(str(action_type)) > 256
+            or not str(contract).strip()
+            or len(str(contract)) > 128
+            for action_type, contract in contracts_by_action_type.items()
+        ):
+            raise ValueError("rollback contracts must be bounded and non-empty")
+        self._rollback_contracts_by_action_type = dict(contracts_by_action_type)
+
+    def _validate_rollback_paths(self) -> None:
+        durable_ready = self._state_store is not None or self._allow_process_local_rollback
+        validated = 0
+        missing = 0
+        self._rollback_path_validations = BoundedLruDict(self._MAX_RECORDS)
+        for action_type, contract in sorted(self._rollback_contracts_by_action_type.items()):
+            executor_bound = contract in self._executors
+            ready = executor_bound and durable_ready
+            if ready:
+                validated += 1
+            else:
+                missing += 1
+            self._rollback_path_validations.set(
+                action_type,
+                {
+                    "action_type": action_type,
+                    "rollback_contract": contract,
+                    "executor_bound": executor_bound,
+                    "durable_store_ready": durable_ready,
+                    "ready": ready,
+                },
+            )
+        total = validated + missing
+        self._last_dr_readiness = {
+            "evidence_state": "measured" if total else "insufficient_sample",
+            "coverage_ratio": (validated / total) if total else None,
+            "durable_store_ready": durable_ready,
+            "validated_action_types": validated,
+            "missing_action_types": missing,
+            "unit": "ratio",
+        }
+        if missing:
+            self.record_behavior("rollback_path_validation:failed", missing)
+        else:
+            self.record_behavior("rollback_path_validation:checked")
 
     async def on_typed_message(self, topic: str, payload: dict[str, Any]) -> None:
         # Vidar only reacts on failed ActionRuns.
@@ -740,6 +815,18 @@ class Vidar(Agent):
             for rec in terminal_records
             if rec.state == "failed" and "validation" in rec.notes.lower()
         )
+        readiness_validated = self._last_dr_readiness.get("validated_action_types", 0)
+        readiness_missing = self._last_dr_readiness.get("missing_action_types", 0)
+        if not isinstance(readiness_validated, int):
+            readiness_validated = 0
+        if not isinstance(readiness_missing, int):
+            readiness_missing = 0
+        if readiness_validated + readiness_missing:
+            path_failure_numerator = readiness_missing
+            path_failure_denominator = readiness_validated + readiness_missing
+        else:
+            path_failure_numerator = validation_failures
+            path_failure_denominator = len(terminal_records)
         durable_ready = self._state_store is not None or self._allow_process_local_rollback
         executor_ready = bool(self._executors)
         status = "ok" if durable_ready and executor_ready else "degraded"
@@ -754,6 +841,11 @@ class Vidar(Agent):
                 local_publication_pending,
                 self._durable_publication_pending,
             ),
+            "rollback_path_validation": {
+                "evidence_state": self._last_dr_readiness["evidence_state"],
+                "paths": dict(self._rollback_path_validations.items()),
+            },
+            "dr_readiness_score": dict(self._last_dr_readiness),
             "rollback_outcomes": {
                 "attempts": len(terminal_records),
                 "succeeded": succeeded,
@@ -771,8 +863,8 @@ class Vidar(Agent):
             "kpis": {
                 "rollback_success_rate": _kpi_ratio(succeeded, len(terminal_records)),
                 "rollback_path_validation_failure_rate": _kpi_ratio(
-                    validation_failures,
-                    len(terminal_records),
+                    path_failure_numerator,
+                    path_failure_denominator,
                 ),
             },
             "behavior": self.behavior_snapshot(),

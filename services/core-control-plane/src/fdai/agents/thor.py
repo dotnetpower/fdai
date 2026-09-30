@@ -42,6 +42,7 @@ from fdai.agents._framework.action_run_state import ActionRunState
 from fdai.agents._framework.advisory_verdicts import is_non_action_verdict
 from fdai.agents._framework.approval_readback import read_current_action_approval
 from fdai.agents._framework.base import Agent
+from fdai.agents._framework.bounded import BoundedLruDict
 from fdai.agents._framework.bus import PantheonBus
 from fdai.agents._framework.introspection import IntrospectionResult
 from fdai.agents._framework.pantheon import _THOR
@@ -216,6 +217,7 @@ class Thor(ThorDevelopmentAuthorityMixin, ThorEffectVerificationMixin, Agent):
         self.action_runs: dict[str, ActionRun] = {}
         self._idempotency_runs: dict[str, ActionRun] = {}
         self._resource_locks: set[str] = set()
+        self._retry_strategy_cache: BoundedLruDict[str, dict[str, object]] = BoundedLruDict(8)
         self._correlation_locks: WeakValueDictionary[str, _ReentrantAsyncLock] = (
             WeakValueDictionary()
         )
@@ -339,6 +341,27 @@ class Thor(ThorDevelopmentAuthorityMixin, ThorEffectVerificationMixin, Agent):
             self.record_behavior("authority:unavailable")
             return True
 
+    async def maintenance_tick(self) -> None:
+        await super().maintenance_tick()
+        self._warm_retry_strategy_cache()
+
+    def _warm_retry_strategy_cache(self) -> None:
+        unavailable = self._unavailable_dependencies()
+        capabilities = {
+            "executor_bound": self._executor is not _default_executor,
+            "execution_audit_recorder_bound": self._execution_audit_recorder is not None,
+            "execution_audit_required": self._require_execution_audit,
+            "execution_resource_lock_bound": self._execution_resource_lock is not None,
+            "execution_resource_lock_required": self._require_execution_resource_lock,
+            "action_semantics_bound": self._action_semantics is not None,
+            "saga_available": "Saga" not in unavailable,
+            "vidar_available": "Vidar" not in unavailable,
+            "shadow_forced": self._shadow_by_default or bool(unavailable),
+            "recorded_at": self._now().isoformat(),
+        }
+        self._retry_strategy_cache.set("executor_capabilities", capabilities)
+        self.record_behavior("retry_strategy_cache:warmed")
+
     def health(self) -> dict[str, Any]:
         """Expose dispatcher state for Heimdall's probe / runtime health."""
         active = sum(1 for r in self.action_runs.values() if r.state not in _TERMINAL_STATES)
@@ -380,6 +403,14 @@ class Thor(ThorDevelopmentAuthorityMixin, ThorEffectVerificationMixin, Agent):
             "saga_available": "Saga" not in unavailable,
             "vidar_available": "Vidar" not in unavailable,
             "dependency_failure": sorted(unavailable),
+            "retry_strategy_cache": self._retry_strategy_cache.get(
+                "executor_capabilities",
+                {
+                    "evidence_state": "not_observed",
+                    "executor_bound": False,
+                    "action_semantics_bound": self._action_semantics is not None,
+                },
+            ),
             "execution_outcomes": {
                 "terminal": len(terminal),
                 "succeeded": successes,
