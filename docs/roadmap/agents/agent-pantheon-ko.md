@@ -1,7 +1,7 @@
 ---
 title: 에이전트 판테온
 translation_of: agent-pantheon.md
-translation_source_sha: 091c3baadbe3b48088f11d7993e929711b63eb2d
+translation_source_sha: e839a6f0f04e41ecb61194ad032ad498030eb62d
 translation_revised: 2026-09-30
 ---
 # 에이전트 판테온
@@ -395,12 +395,16 @@ Partitioning:
 ### 6.2 Conversational 포트
 
 Bragi를 포함한 15개 에이전트 모두 정본 이름 또는 도메인 라우팅으로 도달할 수 있습니다.
-질문은 2,000자로 제한하고 세션마다 단조 증가 턴 100개를 보존합니다. 알 수 없음 A2A 요청자 또는 대상 이름은 거부합니다. 포트 간에는 상관관계 추적만 전달하며 기본 응답과 contributor 응답은 검증된 동일 운영자 로케일, 범위가 제한된 시간 초과 및 같은 소유자·크기·민감도 정규화를 사용합니다.
+질문은 2,000자로 제한하고 세션마다 단조 증가 턴 100개를 보존합니다. Bragi는 모델 기반 의미
+단계 전에 문자 수, 요청자 명단, 상관관계 한계를 확인합니다. 알 수 없는 A2A 요청자 또는 대상
+이름은 거부하고, 중첩 A2A 라운드는 허용하지 않으며, 포트 간에는 상관관계 추적만 전달합니다.
+기본 응답과 기여자 응답은 검증된 동일 운영자 로케일, 범위가 제한된 시간 초과 및 같은
+소유자·크기·민감도 정규화를 사용합니다.
 
 각 `AgentSpec`은 고유하고 변경할 수 없으며 versioned된 `ConversationCharter`를 요구합니다. Charter는 role-specific prohibition이 있는 범위가 제한된 서버가 소유한 system instruction, reporting/소유권/토픽/액션 연결/모델 정책/hard-dependency/제안 예산을 정확히 생성한 역할 계약, 해당 에이전트 결정의 mechanics를 명시하는 역할 directive, 영어/한국어 조회 예시, 용도 및 owned-fact 범위가 있는 읽기 도구를 가집니다. 의미 동등성 테스트는 15개 역할 경계를 모두 pin합니다. 런타임은 호출자 정책을 덮어쓰고 각 도구를 고유한 사실 범위로 변환 결과하며 instruction을 노출하지 않고 버전과 별도의 프롬프트 및 full-charter SHA-256 다이제스트를 귀속합니다. 답변은 owned 상태에 근거하며 타입이 지정된 정책이 권위를 유지합니다. 결정론적 공용 표현 도우미는 각 에이전트의 정규화된 자체 사실과 정확한 근거 참조만 받아 기존 상태 용어를 보존하며 소유권이나 권한을 부여하지 않습니다. Charter 프롬프트는 프롬프트 전체가 아니라 조립의 바닥면입니다. 모든 턴은 그 기준선에 해당 턴이 선택한 situational 계층(peer 대 운영자 대상, 숙의 단계와 계층, 도구 범위, 운영자 로케일, 근거 공백, 명령 의도)를 더해 실제 프롬프트를 조립합니다. 조립은 가산적이고 결정론적하므로 situation은 charter를 조일 수는 있어도 느슨하게 만들 수 없고, 기록된 턴은 정확히 재생됩니다. Turn 맥락은 계층을 선택만 하고 프롬프트 텍스트를 공급하지 않으므로 위조된 맥락이 instruction을 주입할 수 없습니다. 응답은 계층 매니페스트, situation 키, 조립된 프롬프트 다이제스트를 전달하며 텍스트 자체는 전달하지 않습니다. [conversational-deliberation-ko.md](conversational-deliberation-ko.md)를 참조하세요.
 
 Bragi는 범위가 제한된 턴마다 스키마로 검증된 의미 판단 하나를 얻습니다. `draft_only` 작업은 운영자를 시작 주체로 유지한 채 타입 지정 파이프라인에 다시 들어가며 채팅은 실행하지 않습니다.
-읽기 도구는 모델 기반 의미 계획과 정확한 정본 도구 ID 소유권 검사를 사용합니다. 연결되지 않았거나 실패한 모델은 사용 불가를 반환하고 구문 사전으로 대체하지 않습니다. 소유 상태의 범위를 좁힐 때는 질문 안에서 내부 `.`, `_`, `-`를 포함한 완전한 정본 식별자만 매칭하며 더 긴 식별자의 접두사는 허용하지 않습니다.
+읽기 도구는 모델 기반 의미 계획과 정확한 정본 도구 ID 소유권 검사를 사용합니다. 연결되지 않았거나 실패했거나 시간 초과된 모델 및 임베딩 호출은 사용 불가 또는 검토 필요 상태를 반환하고 구문 사전으로 대체하지 않습니다. 소유 상태의 범위를 좁힐 때는 질문 안에서 내부 `.`, `_`, `-`를 포함한 완전한 정본 식별자만 매칭하며 더 긴 식별자의 접두사는 허용하지 않습니다.
 Forseti 읽기 도구 하나는 검토된 적응형 telemetry recipe id와 카탈로그 다이제스트를
 노출합니다. KQL, 작업 영역, 테이블, 엔드포인트, lookback 또는 필터를 받지 않으며
 `query_execution_authority: false`를 유지합니다. recipe 실행은 검증된 적응형 Process
@@ -410,17 +414,21 @@ Forseti 읽기 도구 하나는 검토된 적응형 telemetry recipe id와 카�
 `PantheonRuntime.introspect`는 귀속되는 읽기 전용 peer 변환 결과와 digest-only Bragi Turn을 제공하며 제한된 표현 discussion은 [conversational-deliberation-ko.md](conversational-deliberation-ko.md)에 정의합니다.
 
 `AgentConversationToolRegistry`는 모든 declared id를 단일 소유자에 연결하고 잘못된 호출을 거부하며 시간과
-데이터를 제한합니다. 도구 결과는 `agent`, `evidence_refs`, declared 사실 키만 노출하며 undeclared `_ref` 예외가 없습니다. Direct 및 tool-routed 결과는 영속 참조가 없으면 정규화된 사실 기반 내용 기반 주소를 가진 `agent-state` 참조를 사용하며 `agent-spec`을 런타임 점유로 표시하지 않습니다.
+데이터를 제한합니다. 도구 결과는 `agent`, `evidence_refs`, declared 사실 키만 노출하며 undeclared `_ref` 예외가 없습니다. 모든 declared 사실 키는 소유 값이나 명시적 부재로 생성되므로 누락된 사실이 생략된 범위처럼 보이지 않습니다. Direct 및 tool-routed 결과는 영속 참조가 없으면 정규화된 사실 기반 내용 기반 주소를 가진 `agent-state` 참조를 사용하며 `agent-spec`을 런타임 점유로 표시하지 않습니다.
+근거 참조와 턴 다이제스트는 정본 JSON을 사용합니다. JSON 값이 아닌 항목, NaN, Infinity, 프로세스별 문자열 표현은 해시하거나 표시하지 않고 보류합니다.
 오류와 민감한 출력은 값 없이 보류하고, unbound 변환 결과는 unrelated 사실 대신 사용 불가를 명시합니다. Health는 가용성과 counter를 보고합니다. Conversational 포트만 사용하므로 액션은 실행기 또는 cloud SDK에 도달하지 않습니다. 완료된 각 Bragi turn은 프롬프트, 라우팅, 근거, 검증 및 T1/T2 다이제스트가 있는 콘텐츠 없는 진단 조각도 생성하며, 응답 경로 밖의 평가기는 캠페인 기대값과 독립적인 의미 검토를 연결한 뒤 점수를 생성합니다.
 
 ### 6.3 NL 조회 오케스트레이션
 
 Bragi는 라우터이지 answerer가 아닙니다. 영어, 한국어, 혼합 언어 턴은 같은 구조화된 의미 판단
-경계를 사용하며 토픽, 에이전트 신원, 실행 권한을 추가하지 않습니다.
+경계를 사용하며 토픽, 에이전트 신원, 실행 권한을 추가하지 않습니다. 의미는 원시 질문 텍스트에서
+나오지 않습니다. 원시 텍스트는 구조화된 의미 판단이 검증하는 원본 구간만 제공합니다. 문자 수,
+요청자, 상관관계 한계는 모델 호출 전에 확인하며, 의미 판단 또는 임베딩 시간 초과는 어휘 기반
+대체 대신 사용 불가 또는 검토 필요 결과를 냅니다.
 
 1. **현재 화면의 근거.** 화면이 사실/기록을 제공하는 데이터 질문은 Bragi T0에 유지하고 전문가 위임과 의미 기반 웹 분류는 끕니다. 요청 필드가 없으면 모델 기억으로 대체하지 않고 부재를 명시합니다.
 2. **정본 용어집 조회.** `ActionType`이나 한국어 조사가 붙은 `ActionType이` 같은 공유 온톨로지/컨트롤 루프 용어의 정의는 에이전트 채점 전에 근거 있는 용어집으로 답합니다. 같은 어간만으로 위임하지 않습니다.
-3. **구조화된 의미 판단.** 범위가 제한된 T1은 정본 의도, 대상, 요청 항목, 확신도, 모호성, 담화 모드, 작업 처리 방식을 반환합니다. Core는 원본 구간, 기능 신원, 확신도, 무권한 필드를 검증하고 정확한 `question_domains`, 소유 ObjectType, 에이전트 이름, 도구 ID만 변환합니다. 에이전트 담당 채점에는 정본 기본·보조 의도와 정확한 소유 ObjectType 대상만 사용합니다. 요청 항목은 답변 형상 제약으로만 유지하며 질문 도메인 담당을 만들어낼 수 없습니다.
+3. **구조화된 의미 판단.** 범위가 제한된 T1은 정본 의도, 대상, 요청 항목, 확신도, 모호성, 담화 모드, 작업 처리 방식을 반환합니다. Core는 원본 구간, 기능 신원, 확신도, 무권한 필드를 검증하고 정확한 `question_domains`, 소유 ObjectType, 에이전트 이름, 도구 ID만 변환합니다. 단 하나의 정확한 `question_domains` 식별자는 기여자에게 요청을 보내지 않고 해당 소유자로 바로 라우팅합니다. 에이전트 담당 채점에는 정본 기본·보조 의도와 정확한 소유 ObjectType 대상만 사용합니다. 요청 항목은 답변 형상 제약으로만 유지하며 질문 도메인 담당을 만들어낼 수 없습니다.
 4. **범위가 제한된 T2 재시도.** 사용 불가, 잘못된 형식, 모호성, 낮은 확신도의 T1 출력은 설정된 T2로 한 번 재시도할 수 있습니다. 최종 실패는 명확화 질문 하나 또는 사용 불가를 반환하며 어휘 매칭을 사용하지 않습니다.
 5. **인계.** 두 계층이 판단을 보류하거나 정확한 기능이 남지 않으면 `HandoffEscalation` (§6.4)을 게시하고 추측 대신 GitHub 이슈를 만듭니다.
 
@@ -460,16 +468,18 @@ EventBus가 없으면 Bragi는 `handoff_status: transport_unavailable`을 기록
 삼지 않고 소유자 라인의 서로 다른 peer로 라우팅합니다. Var는 승인자로 유지되며 Thor를 대신해
 말하지 않으므로, 진단 인계가 승인 신원과 실행 신원을 결합할 수 없습니다.
 
-중복 제거는 `problem_fingerprint` 사용:
+중복 제거는 정본 실패 튜플의 SHA-256 `problem_fingerprint`를 사용합니다.
 
 ```
-fingerprint = sha1(
+fingerprint = sha256(
     intent_category + resource_type + normalized_selector
-  + primary_agent + failure_reason_code
+  + failed_primary_agent + failure_reason_code
 )
 ```
 
-Saga 는 `fingerprint -> github_issue_number` 로컬 인덱스를 Muninn 에 유지.
+실패한 기본 에이전트는 턴에 선택된 에이전트이며 번역자인 Bragi가 아닙니다. Bragi는 전송이
+수락된 뒤 인계를 요청됨으로 보고하고, Saga가 이슈를 만들거나 갱신하기 전에는 생성됨으로 보고하지
+않습니다. Saga는 `fingerprint -> github_issue_number` 로컬 인덱스를 Muninn에 유지합니다.
 
 - **최초 발생** 은 라벨 `fdai:fp:<hash>` 로 issue 생성.
 - **반복 발생**은 같은 이슈에 새 `correlation_id`와 맥락으로 댓글을 남깁니다. 본문은 `first_seen`, `last_seen`, `occurrence_count`를 유지하고 댓글은 각 재발을 기록합니다.
@@ -482,11 +492,11 @@ Saga 는 `fingerprint -> github_issue_number` 로컬 인덱스를 Muninn 에 유
 Bragi는 `Conversation`, `Turn`, `UserPreference`, `PostTurnReview`를
 소유합니다. 상태는 `user_id`로 파티션합니다.
 
-- **세션.** `Conversation`은 첫 턴에 시작하고 30분 유휴 후 끝납니다. 각 턴은 불변 `Turn`으로 덧붙이며 `object.turn`은 본문 참조, SHA-256 다이제스트, 라우팅 메타데이터, 상관관계 추적만 담고 원시 질문/답변은 담지 않습니다.
-- **다중 턴 맥락.** Bragi는 요청한 `user_id` 범위의 최근 N개 턴을 `prior_turns_ref`로 기본 에이전트에 전달합니다.
+- **세션.** `Conversation`은 첫 턴에 시작하고 Bragi에 주입된 시계에서 30분 유휴 후 끝납니다. 각 턴은 불변 `Turn`으로 덧붙이며 `object.turn`은 본문 참조, SHA-256 다이제스트, 라우팅 메타데이터, 상관관계 추적만 담고 원시 질문/답변은 담지 않습니다. 세션 식별자는 범위가 지정된 다이제스트로만 게시합니다.
+- **다중 턴 맥락.** Bragi는 요청한 `user_id` 범위의 최근 N개 턴을 다이제스트 전용 `prior_turns_ref`로 의미 경계와 기본 에이전트에 전달합니다. 원시 이전 본문은 이 경계를 넘지 않습니다.
 - **메모리 변환 결과.** Muninn은 `Conversation`, `Turn`, `UserPreference`를 다이제스트가 있는 본문 없는 변환 결과로만 소비합니다. 검색용 범위 지정 메타데이터를 보존하고 원시 대화 본문은 거부합니다.
-- **RBAC.** Muninn은 사용자 간 읽기에 빈 결과를 반환하며 Saga는 다른 사용자의 대화를 읽으려는 시도를 기록합니다.
-- **학습기 경계.** Norns는 기본적으로 메타데이터만 받습니다 (`UserPreference.share_with_learner: false`). 명시적 동의가 있으면 턴 본문으로 패턴을 추출할 수 있습니다. 배치 실행 이력 수집은 검토된 집계만 허용하며 원시 턴/실행 이력 본문은 받지 않습니다. 완료되고 동의가 확인된 대화는 `object.post-turn-review`를 사용하며 별도 `object.turn` 형태를 만들지 않습니다.
+- **RBAC.** Muninn은 하나의 정본 principal 범위 다이제스트를 비교하고 범위가 없거나 사용자 간 읽기에는 빈 결과를 반환합니다. Saga는 다른 사용자의 대화를 읽으려는 시도를 기록합니다.
+- **학습기 경계.** Norns는 기본적으로 메타데이터만 받습니다 (`UserPreference.share_with_learner: false`). 원시 post-turn 본문은 일치하는 `share_with_learner` 동의가 있어야 패턴 추출에 사용할 수 있습니다. 배치 실행 이력 수집은 검토된 집계만 허용하며 원시 턴/실행 이력 본문은 받지 않습니다. 완료되고 동의가 확인된 대화는 `object.post-turn-review`를 사용하며 별도 `object.turn` 형태를 만들지 않습니다.
 - **보존.** 활성 대화는 30일, 저빈도 저장소는 추가 60일이며 총 90일 뒤 삭제합니다. 집계된 익명 지표는 Saga 감사 스트림에 남습니다.
 
 ## 7. 온톨로지 액션
@@ -583,12 +593,20 @@ Forseti는 `auto`를 상한으로만 취급합니다. 거버넌스가 적용된 
 
 ### 7.7 Conversational 포트 MUST-NOT-Bypass 규칙
 
-Conversational 포트 는 액션 을 시작할 수 있지만 스스로 실행할 수는 없다.
-오퍼레이터가 Bragi 에게 "vm-1 재시작해줘" 라고 말하면, Bragi 는 의도 를
-`initiator_principal` 이 오퍼레이터 (Bragi 아님) 인 `ActionProposal` 로
-번역하여 타입이 지정된 파이프라인에 넘긴다. Forseti, Var, Thor 는 정상 단계를 실행.
-Bragi 는 오퍼레이터에게 진행 상황만 렌더링. Bragi 가 실행기 를 직접
-호출하도록 하는 어떤 구현도 defect.
+Conversational 포트는 기본적으로 읽기 전용입니다. `allow_action_proposal`과
+`materialize_handoff`는 신뢰된 운영자 진입점에서 명시적으로 선택해야 합니다. 이 opt-in이
+있을 때만 포트가 액션을 시작할 수 있지만 스스로 실행할 수는 없습니다. 운영자가 Bragi에게
+"vm-1 재시작해줘"라고 말하면 Bragi는 의도를 `initiator_principal`이 운영자(Bragi 아님)인
+`ActionProposal`로 번역하여 타입이 지정된 파이프라인에 넘깁니다. Forseti, Var, Thor는 정상
+단계를 실행합니다. Bragi는 운영자에게 진행 상황만 렌더링합니다. Bragi가 실행기를 직접
+호출하도록 하는 구현은 수정이 필요합니다.
+
+액션 재진입은 호출자가 액션 가능 역할을 제공하고 의미 경로가 ActionType에 필요한 대상을
+연결한 경우에만 진행합니다. 누락된 역할이나 읽기 전용 역할은 제안 생성 전에 멈추며, 연결되지
+않은 대상은 파이프라인에 들어가지 않고 명확화로 보류합니다. 제안 싱크는 수락, 중복 제거, 사용
+불가 결과를 구분해 보고합니다. 시작 주체 principal은 멱등성 재료에 포함되며, 타입 지정
+파라미터는 대화 계보에 대한 다이제스트 또는 참조와 액션 인자만 담고 원시 질문 텍스트나 원시
+세션 식별자를 담지 않습니다.
 
 정확한 제안 싱크, 운영자 RBAC, 위조 방어 및 계보 전달은
 [에이전트 판테온 구현 계획](agent-pantheon-implementation-ko.md#대화형-액션-재진입)을 따릅니다.

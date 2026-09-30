@@ -400,12 +400,17 @@ Partitioning:
 ### 6.2 Conversational port
 
 All 15 agents, including Bragi, expose a request-response interface by canonical name or domain
-routing. Questions cap at 2,000 characters and each session retains 100 monotonic turns. Unknown A2A requester or target names are rejected; only the correlation trace crosses ports, and primary and contributor responses receive the same validated operator locale while using bounded timeouts plus the same owner, size, and sensitivity normalization.
+routing. Questions cap at 2,000 characters and each session retains 100 monotonic turns. Bragi
+checks the character cap, requester roster, and correlation bounds before any model-backed semantic
+step. Unknown A2A requester or target names are rejected, nested A2A rounds are refused, and only
+the correlation trace crosses ports. Primary and contributor responses receive the same validated
+operator locale while using bounded timeouts plus the same owner, size, and sensitivity
+normalization.
 
 Each `AgentSpec` requires a unique immutable, versioned `ConversationCharter`: bounded server-owned system instructions with role-specific prohibitions, an exact generated role contract for reporting, ownership, topics, action bindings, model policy, hard-dependency status, and proposal budgets, a role directive that states the mechanics of the agent's own decision, English/Korean query examples, and read tools with purpose and owned-fact scopes. Semantic parity tests pin all 15 role boundaries. The runtime overwrites caller policy, projects each tool onto its distinct fact scope, and attributes the version plus separate prompt and full-charter SHA-256 digests without exposing instructions. Each agent grounds answers in owned state; typed policy remains the authority. Deterministic shared renderers receive only each agent's normalized owned facts and exact evidence reference, preserve established status vocabulary, and grant no ownership or authority. The charter prompt is the composition floor, not the whole prompt. Every turn composes its effective prompt from that baseline plus the situational layers the turn selects (peer versus operator audience, deliberation phase and tier, tool scope, operator locale, evidence gap, command intent). Composition is additive and deterministic, so a situation can tighten the charter but never loosen it, and a recorded turn replays exactly. The turn context selects layers only; it never supplies prompt text, so a forged context cannot inject instructions. Responses carry the layer manifest, situation key, and composed prompt digest - never the text. See [conversational-deliberation.md](conversational-deliberation.md).
 
 Bragi obtains one schema-validated semantic judgment per bounded turn. `draft_only` actions re-enter the typed pipeline with the operator as initiator; chat never executes.
-Read tools use model-backed semantic planning and exact canonical tool-id ownership checks. Unbound/failed models return unavailable, never a phrase-dictionary fallback. Owned-state narrowing matches complete canonical identifiers, including internal `.`, `_`, or `-`, never a shorter prefix of an identifier in the bounded question.
+Read tools use model-backed semantic planning and exact canonical tool-id ownership checks. Unbound, failed, or timed-out model and embedding calls return unavailable or held-for-review status, never a phrase-dictionary fallback. Owned-state narrowing matches complete canonical identifiers, including internal `.`, `_`, or `-`, never a shorter prefix of an identifier in the bounded question.
 A Forseti read tool exposes the reviewed adaptive telemetry recipe ids and catalog digest. It never
 accepts KQL, a workspace, a table, an endpoint, a lookback, or a filter and carries
 `query_execution_authority: false`. Recipe execution remains a typed Heimdall observation behind
@@ -415,16 +420,20 @@ A single exact `question_domains` identifier also disambiguates the schema-valid
 `PantheonRuntime.introspect` supports attributed read-only peer projections and digest-only Bragi Turns; bounded presentation discussion is specified in [conversational-deliberation.md](conversational-deliberation.md).
 
 `AgentConversationToolRegistry` binds every declared id to one owner, rejects invalid calls, bounds time
-and data, and holds errors or sensitive output without values. Tool results expose only `agent`, `evidence_refs`, and declared fact keys, with no undeclared `_ref` exception. Direct and tool-routed results without durable refs receive the same content-addressed `agent-state` ref over normalized facts, never an `agent-spec` runtime claim. Unbound projections state unavailable instead of exposing unrelated facts. Health reports tool availability and counters. Calls use only the conversational port, so actions cannot reach an executor or cloud SDK. Each completed Bragi turn also emits a content-free diagnostic fragment with prompt, route, evidence, verification, and T1/T2 digests; the off-path evaluator binds campaign expectations and independent semantic reviews before scoring it.
+and data, and holds errors or sensitive output without values. Tool results expose only `agent`, `evidence_refs`, and declared fact keys, with no undeclared `_ref` exception. Every declared fact key is produced with an owned value or explicit absence, so missing facts never masquerade as omitted scope. Direct and tool-routed results without durable refs receive the same content-addressed `agent-state` ref over normalized, JSON-native, finite facts, never an `agent-spec` runtime claim. Evidence refs and Turn digests use canonical JSON; non-JSON values, NaN, Infinity, and process-specific string representations are held instead of hashed or displayed. Unbound projections state unavailable instead of exposing unrelated facts. Health reports tool availability and counters. Calls use only the conversational port, so actions cannot reach an executor or cloud SDK. Each completed Bragi turn also emits a content-free diagnostic fragment with prompt, route, evidence, verification, and T1/T2 digests; the off-path evaluator binds campaign expectations and independent semantic reviews before scoring it.
 
 ### 6.3 NL query orchestration
 
 Bragi is the router, not the answerer. English, Korean, and mixed-language turns use the same
-structured judgment boundary without adding a topic, agent identity, or execution authority:
+structured judgment boundary without adding a topic, agent identity, or execution authority.
+Meaning never comes from raw question text: raw text supplies only source spans that the structured
+semantic judgment validates. Character, requester, and correlation bounds are checked before model
+calls, and semantic judgment or embedding timeouts produce unavailable or held-for-review outcomes
+instead of lexical fallback:
 
 1. **Current-screen authority.** Screen-supplied facts/records keep data questions at Bragi T0, with specialist delegation and semantic web classification off. Missing requested fields produce explicit absence, never model-memory fallback.
 2. **Canonical glossary lookup.** Direct shared ontology/control-loop definitions, including `ActionType` with a Korean particle (`ActionType이`), use grounded glossary evidence before agent scoring, never delegation based merely on a shared word stem.
-3. **Structured semantic judgment.** Bounded T1 returns canonical intent, targets, requested facets, confidence, ambiguity, discourse mode, and action posture. Core validates source spans, capability identities, confidence, and no-authority fields; only exact `question_domains`, owned ObjectTypes, agent names, and tool ids are projected. Agent ownership scoring uses canonical primary and secondary intents plus exact owned ObjectType targets. Requested facets remain answer-shape constraints and cannot manufacture question-domain ownership.
+3. **Structured semantic judgment.** Bounded T1 returns canonical intent, targets, requested facets, confidence, ambiguity, discourse mode, and action posture. Core validates source spans, capability identities, confidence, and no-authority fields; only exact `question_domains`, owned ObjectTypes, agent names, and tool ids are projected. A single exact `question_domains` identifier routes directly to its owner without contributor fan-out. Agent ownership scoring uses canonical primary and secondary intents plus exact owned ObjectType targets. Requested facets remain answer-shape constraints and cannot manufacture question-domain ownership.
 4. **Bounded T2 retry.** Unavailable, malformed, ambiguous, or low-confidence T1 output may retry once through configured T2. Terminal failure asks one clarification or reports unavailable, never lexical matching.
 5. **Handoff.** If both tiers abstain or no exact capability remains, emit `HandoffEscalation` (§6.4) and file a GitHub issue rather than guess.
 
@@ -465,16 +474,19 @@ distinct peer on the owner's line, never to the executor as an authority shortcu
 approver and refuses to speak for Thor, so a diagnostic handoff cannot combine approval and
 execution identity.
 
-Deduplication uses a `problem_fingerprint`:
+Deduplication uses a SHA-256 `problem_fingerprint` over the canonical failure tuple:
 
 ```
-fingerprint = sha1(
+fingerprint = sha256(
     intent_category + resource_type + normalized_selector
-  + primary_agent + failure_reason_code
+  + failed_primary_agent + failure_reason_code
 )
 ```
 
-Saga keeps a local `fingerprint -> github_issue_number` index in Muninn.
+The failed primary agent is the agent selected for the turn, not Bragi as translator. Bragi reports
+the handoff as requested after transport acceptance and does not report materialization until Saga
+creates or updates the issue. Saga keeps a local `fingerprint -> github_issue_number` index in
+Muninn.
 
 - **First occurrence** creates the issue with label `fdai:fp:<hash>`.
 - **Repeat occurrence** comments on the same issue with new `correlation_id` and context; the body retains `first_seen`, `last_seen`, and `occurrence_count`, and comments record each recurrence.
@@ -487,13 +499,13 @@ Fingerprint labels are hashes only, never customer identifiers; detailed values 
 Bragi owns `Conversation`, `Turn`, `UserPreference`, and `PostTurnReview`.
 State is partitioned by `user_id`:
 
-- **Session.** `Conversation` starts at the first turn and ends after 30 inactive minutes. Each turn is appended immutably as a `Turn`; `object.turn` carries only body references, SHA-256 digests, routing metadata, and correlation trace, never raw questions/answers.
-- **Multi-turn context.** Bragi gives the primary agent the last N turns as `prior_turns_ref`, scoped to the requesting `user_id`.
+- **Session.** `Conversation` starts at the first turn and ends after 30 inactive minutes on Bragi's injected clock. Each turn is appended immutably as a `Turn`; `object.turn` carries only body references, SHA-256 digests, routing metadata, and correlation trace, never raw questions/answers. Session identifiers are published only as scoped digests.
+- **Multi-turn context.** Bragi gives the semantic boundary and the primary agent the last N turns as a digest-only `prior_turns_ref`, scoped to the requesting `user_id`. Raw prior bodies never cross that boundary.
 - **Memory projection.** Muninn consumes `Conversation`, `Turn`, and `UserPreference` only as
   digest-bearing, content-free projections. It retains scoped metadata for retrieval and refuses
   raw conversation bodies.
-- **RBAC.** Muninn refuses cross-user reads with an empty result; Saga records attempts to read another user's conversation.
-- **Learner boundary.** Norns receives metadata by default (`UserPreference.share_with_learner: false`); opt-in permits turn-body pattern extraction. Batch trajectory intake accepts reviewed aggregates only, never raw turn/trajectory bodies. Completed consent-filtered exchanges use `object.post-turn-review`, never a second `object.turn` shape.
+- **RBAC.** Muninn compares one canonical principal-scope digest and refuses unscoped or cross-user reads with an empty result; Saga records attempts to read another user's conversation.
+- **Learner boundary.** Norns receives metadata by default (`UserPreference.share_with_learner: false`); raw post-turn bodies require a matching `share_with_learner` opt-in before pattern extraction. Batch trajectory intake accepts reviewed aggregates only, never raw turn/trajectory bodies. Completed consent-filtered exchanges use `object.post-turn-review`, never a second `object.turn` shape.
 - **Retention.** Active conversations: 30 days, then 60 days cold storage, then deletion at 90 days. Aggregated anonymized metrics survive in Saga's audit stream.
 
 ## 7. Ontology actions
@@ -597,10 +609,20 @@ The live issue tracker remains an injected delivery adapter, preserving typed ow
 
 ### 7.7 Conversational port MUST-NOT-Bypass rule
 
-The conversational port CAN start an action but MUST NOT execute one on its own. When an operator says "restart vm-1" or the Korean
-equivalent to Bragi, Bragi translates the intent into an `ActionProposal` whose `initiator_principal` is the operator (not Bragi) and hands
-it to the typed pipeline. Forseti, Var, and Thor run their normal steps. Bragi only renders progress back to the operator. Any
+The conversational port is read-only by default. `allow_action_proposal` and `materialize_handoff`
+are explicit opt-ins for trusted operator entry points. The port can start an action only when that
+opt-in is present, but it never executes one on its own. When an operator says "restart vm-1" or the
+Korean equivalent to Bragi, Bragi translates the intent into an `ActionProposal` whose
+`initiator_principal` is the operator (not Bragi) and hands it to the typed pipeline. Forseti, Var,
+and Thor run their normal steps. Bragi only renders progress back to the operator. Any
 implementation that lets Bragi call an executor directly is a defect.
+
+Action re-entry fails closed unless the caller supplies an action-capable role and the semantic
+route binds the target required by the ActionType. Missing or read-only roles stop before proposal
+construction, and unbound targets hold as clarification rather than entering the pipeline. Proposal
+sinks report accepted, deduplicated, or unavailable outcomes separately. The initiator principal
+participates in idempotency material, and typed params carry only action arguments plus digests or
+refs for conversational lineage, never raw question text or raw session identifiers.
 
 The exact proposal sink, operator RBAC, spoofing defense, and lineage propagation are specified in
 the [Agent Pantheon implementation plan](agent-pantheon-implementation.md#conversational-action-re-entry).

@@ -1,8 +1,8 @@
 ---
 title: 판테온 대화형 숙의
 translation_of: conversational-deliberation.md
-translation_source_sha: 78efe798daf0a1020f9bb3bf925024ef2709c642
-translation_revised: 2026-09-19
+translation_source_sha: 437a265c500e78fd8400054756a5d39d6a4ec14c
+translation_revised: 2026-09-30
 ---
 # 판테온 대화형 숙의
 
@@ -25,10 +25,11 @@ directive까지 14개 계층으로 조립합니다. Charter는 bilingual 라우�
 situational 계층을 더해 자신의 프롬프트를 조립합니다.
 [상황별 프롬프트 조립](#상황별-prompt-조립)을 참조하세요.
 
-`PantheonRuntime.deliberate`는 명시적인 discussion API를 제공합니다. T1 의미 participant
-선택을 요구하고 기본 position 하나와 peer 비평을 실행합니다. 결정론적 답변 평가는 같은
-identity의 범위가 제한된 high-signal fact를 비교합니다. 검증된 충돌이 있을 때만 선택적인
-composition-bound T2 synthesizer를 호출할 수 있습니다.
+`PantheonRuntime.deliberate`는 명시적인 discussion API를 제공합니다. 턴의 검증된 의미 경로를
+재사용하고, 검증된 운영자 로케일을 각 participant에 전달하며, 기본 position 하나와 peer 비평을
+실행합니다. 결정론적 답변 평가는 같은 identity의 범위가 제한된 high-signal fact를 비교합니다.
+검증된 충돌이 있을 때만 선택적인 composition-bound T2 synthesizer를 호출할 수 있으며, 모든 T2
+종합은 예산, 시간 초과, 출력 크기, 민감도 검사로 제한됩니다.
 
 명시적 대화 품질 보증 캠페인도 같은 공개 Bragi 경계를 사용합니다. 콘텐츠가 없는 추적은
 성공적으로 참여한 각 에이전트의 유효 프롬프트 다이제스트를 기록합니다. T2 추적은 주입된 계량
@@ -37,9 +38,9 @@ composition-bound T2 synthesizer를 호출할 수 있습니다.
 
 고정 T2 census 사례는 범위가 제한되고 서버가 소유한 `fixed_assurance_facts`를 결정론적 T1
 답변 평가기에 제공할 수도 있습니다. 이 입력은 질문 텍스트에서 충돌을 추론하지 않고 검토된 충돌
-시나리오를 재현합니다. 기본 제공 품질 보증 census로 범위가 제한되며 participant 답변이나 근거
-참조를 대체하지 않고 운영 근거가 되지 않습니다. 일반 숙의와 비공개 외부 corpus는 계속 에이전트가
-소유한 사실에서만 T1 신호를 도출합니다.
+시나리오를 재현합니다. 내부 기본 제공 품질 보증 시나리오로 범위가 제한되며 participant 답변이나
+근거 참조를 대체하지 않고 운영 근거가 되지 않습니다. 일반 숙의와 비공개 외부 corpus는 계속
+에이전트가 소유한 사실에서만 T1 신호를 도출합니다.
 
 ## 상황별 프롬프트 조립
 
@@ -480,6 +481,7 @@ charter가 같은 participant에 귀속되도록 유지합니다.
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-30 | implemented | 검증된 의미 경로 재사용, 로케일 전달, T2 종합 제한, 고정 품질 보증 사실의 내부 시나리오 한정을 포함하는 5라운드 대화형 포트 동작을 문서화했습니다. | `current change`, `services/core-control-plane/tests/agents/test_conversation_port_boundaries.py`, `services/core-control-plane/tests/agents/test_conversation_tool_fact_contract.py`, `services/core-control-plane/tests/agents/test_bragi_session_handoff_reentry.py` | 라이브 모델 대화 검증은 로컬 근거 범위에서 제외합니다. |
 | 2026-09-19 | implemented | 의미 라우팅 신원과 최종 답변 저작자를 분리하고 거부된 모델 신원은 범위가 제한된 진단에만 유지했습니다. | `current change`, 집중 Wave 4, Pantheon assurance 및 presentation 테스트가 468개 테스트 묶음에서 통과했고 Ruff와 strict mypy가 통과했습니다. | Assurance 성공을 주장하기 전에 독립적인 의미 검토가 유효한 새로운 실제 운영 사례를 보존합니다. |
 | 2026-09-03 | implemented | 버전이 지정된 판단 프롬프트에 명시적인 함수 기반 컬렉션 의미를 추가하고 결정론적인 타입 기반 프레임 재사용을 구현했습니다. | `current change`, 의미 판단 프롬프트 레지스트리 및 집중 의미 계획 검사 | Console 시작 질문 5개에 대해 인증된 이중 언어 런타임 증적을 보존합니다. |
 | 2026-08-13 | in-progress | 구현 원장을 도입했으며 이전 출처는 재구성하지 않았습니다. 결정론적 테스트를 운영 검증으로 취급하지 않고 테스트된 charter, 프롬프트, T1 및 보호된 T2 주입 지점을 implemented로 분류했습니다. | 현재 변경, 구현 범위 표에 나열한 소스 및 아래 집중 명령(`6 passed in 0.11s`). | 구체적인 계측형 T2 종합기를 바인딩하고 실행하며, 승인된 런타임 경계를 통해 숙의 경로를 호출하고, 통제된 런타임 근거를 기록합니다. |
