@@ -116,6 +116,24 @@ _DEFAULT_RULE_STALENESS_WINDOW = timedelta(hours=1)
 # second arbiter or drift from the fixed pantheon.
 
 
+def _ratio_kpi(numerator: int, denominator: int, *, unit: str = "ratio") -> dict[str, object]:
+    if denominator <= 0:
+        return {
+            "value": None,
+            "evidence_state": "insufficient_sample",
+            "numerator": numerator,
+            "denominator": denominator,
+            "unit": unit,
+        }
+    return {
+        "value": numerator / denominator,
+        "evidence_state": "measured",
+        "numerator": numerator,
+        "denominator": denominator,
+        "unit": unit,
+    }
+
+
 class Forseti(
     Agent,
     ForsetiDevelopmentAuthorityMixin,
@@ -502,6 +520,24 @@ class Forseti(
         return bool(self.arbitrations or self._detection_readiness or self._unresolved_arbitrations)
 
     def health(self) -> dict[str, Any]:
+        behavior = self.behavior_snapshot()
+        unavailable_peers: tuple[str, ...] = ()
+        if self._agent_availability is not None:
+            try:
+                unavailable_peers = tuple(sorted(str(name) for name in self._agent_availability()))
+            except Exception:  # noqa: BLE001 - health must stay bounded
+                unavailable_peers = ("availability_probe_unavailable",)
+        t2_escalations = int(behavior.get("t2:escalated", 0) or 0)
+        verdicts = sum(
+            int(count)
+            for key, count in behavior.items()
+            if isinstance(key, str) and key.startswith("verdict:") and isinstance(count, int)
+        )
+        grounding_missing = int(behavior.get("grounding:missing", 0) or 0) + len(
+            self._no_rule_folds
+        )
+        model_disagreements = int(behavior.get("model:disagreement", 0) or 0)
+        fallback_closures = int(behavior.get("arbitration:fallback_terminal_hil", 0) or 0)
         return {
             "agent": "Forseti",
             "status": "degraded" if self._rule_cache_stale else "ok",
@@ -516,8 +552,29 @@ class Forseti(
                 if self._last_owner_rule_update_at is not None
                 else ""
             ),
+            "unavailable_required_peers": list(unavailable_peers),
+            "open_arbitrations": len(self._unresolved_arbitrations),
+            "fallback_terminal_hil_closures": fallback_closures,
+            "operator_alert": {
+                "required": "Odin" in unavailable_peers,
+                "status": "pending" if "Odin" in unavailable_peers else "not_required",
+            },
+            "no_verdict_fallback": "Forseti" in unavailable_peers,
+            "judgment_counters": {
+                "verdicts": verdicts,
+                "t2_escalations": t2_escalations,
+                "grounding_missing": grounding_missing,
+                "model_disagreements": model_disagreements,
+            },
+            "kpis": {
+                "t2_escalation_rate": _ratio_kpi(t2_escalations, verdicts),
+                "mixed_model_disagreement_rate": _ratio_kpi(model_disagreements, verdicts),
+                "grounding_missing_rate": _ratio_kpi(
+                    grounding_missing, verdicts + grounding_missing
+                ),
+            },
             "no_rule_folds": dict(self._no_rule_folds.items()),
-            "behavior": self.behavior_snapshot(),
+            "behavior": behavior,
         }
 
     def _now(self) -> datetime:

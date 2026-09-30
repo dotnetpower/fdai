@@ -229,7 +229,7 @@ async def test_vidar_duplicate_terminal_replay_skips_rollback_command_copy(
         assert await vidar.rollback(action_run) is None
 
     assert deepcopy_calls == 0
-    assert vidar.behavior_snapshot()["rollback:publication_unavailable"] == 101
+    assert vidar.behavior_snapshot()["publication:unavailable"] == 101
 
 
 async def test_forseti_recovery_pages_more_than_resource_bound_completions() -> None:

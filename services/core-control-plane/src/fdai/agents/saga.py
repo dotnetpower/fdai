@@ -125,6 +125,9 @@ class Saga(Agent, HandoverKnowledgeMixin):
         self.github = github or InMemoryGithubIssueAdapter()
         self._clock = clock
         self._issue_timeout_seconds = issue_timeout_seconds
+        self._audit_outbox_pending = 0
+        self._last_audit_outbox_recovered = 0
+        self._last_chain_verified_entries = 0
 
     @property
     def durable_audit(self) -> bool:
@@ -150,6 +153,7 @@ class Saga(Agent, HandoverKnowledgeMixin):
             field="status",
             value="pending",
         )
+        self._audit_outbox_pending = _total
         published = 0
         for row in reversed(rows):
             payload = row.get("payload")
@@ -167,6 +171,8 @@ class Saga(Agent, HandoverKnowledgeMixin):
                     await asyncio.shield(self._mark_audit_outbox_published(dict(payload)))
                     raise
                 published += 1
+        self._last_audit_outbox_recovered = published
+        self._audit_outbox_pending = max(0, self._audit_outbox_pending - published)
         return published
 
     async def _append_audit(
@@ -221,6 +227,8 @@ class Saga(Agent, HandoverKnowledgeMixin):
             "payload": dict(payload),
         }
         created = await self._durable_state_store.write_state_if_absent(key, record)
+        if created:
+            self._audit_outbox_pending += 1
         if created:
             return
         stored = await self._durable_state_store.read_state(key)
@@ -1179,7 +1187,49 @@ class Saga(Agent, HandoverKnowledgeMixin):
         verify = getattr(self.audit_chain, "verify", None)
         if callable(verify):
             verify()
-        self.record_behavior("maintenance_tick:audit_chain_verified")
+        self._last_chain_verified_entries = len(self.audit_chain.entries)
+        if self._last_chain_verified_entries:
+            self.record_behavior("maintenance_tick:audit_chain_verified")
+
+    def health(self) -> dict[str, Any]:
+        entries = len(self.audit_chain.entries)
+        durable = self.durable_audit
+        verified_entries = self._last_chain_verified_entries
+        integrity_kpi = (
+            {
+                "value": 1.0,
+                "evidence_state": "measured",
+                "numerator": verified_entries,
+                "denominator": entries,
+                "unit": "ratio",
+            }
+            if durable and entries > 0 and verified_entries >= entries
+            else {
+                "value": None,
+                "evidence_state": "insufficient_sample",
+                "numerator": verified_entries,
+                "denominator": entries,
+                "unit": "ratio",
+            }
+        )
+        return {
+            "agent": self.spec.name,
+            "status": "ok" if durable else "degraded",
+            "status_reason": "ready" if durable else "audit_not_durable",
+            "audit_durability": "durable" if durable else "process_local",
+            "audit_backend_available": True,
+            "audit_entries": entries,
+            "chain_verification": {
+                "verified_entries": verified_entries,
+                "entries": entries,
+                "evidence_state": integrity_kpi["evidence_state"],
+            },
+            "pending_audit_outbox": self._audit_outbox_pending,
+            "last_audit_outbox_recovered": self._last_audit_outbox_recovered,
+            "audit_outbox_scan_limit": _AUDIT_OUTBOX_PENDING_SCAN_LIMIT,
+            "kpis": {"audit_chain_integrity_rate": integrity_kpi},
+            "behavior": self.behavior_snapshot(),
+        }
 
     def conversation_evidence_available(self, context: dict[str, Any]) -> bool:
         """Audit answers rest on chain entries; an empty chain proves nothing."""

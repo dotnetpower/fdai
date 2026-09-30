@@ -197,6 +197,63 @@ class Odin(Agent, HandoverKnowledgeMixin):
         self._verdict_outcomes[outcome] += 1
         self.record_behavior(f"portfolio_outcome:{outcome}")
 
+    def health(self) -> dict[str, Any]:
+        total = self._verdicts_observed
+        favorable = self._verdict_outcomes["auto"] + self._verdict_outcomes["admit"]
+        hil = self._verdict_outcomes["hil"] + self._verdict_outcomes["hold"]
+        portfolio_kpi = (
+            {
+                "value": favorable / total,
+                "evidence_state": "measured",
+                "numerator": favorable,
+                "denominator": total,
+                "unit": "ratio",
+            }
+            if total
+            else {
+                "value": None,
+                "evidence_state": "insufficient_sample",
+                "numerator": 0,
+                "denominator": 0,
+                "unit": "ratio",
+            }
+        )
+        tie_break_kpi = (
+            {
+                "value": hil / total,
+                "evidence_state": "measured",
+                "numerator": hil,
+                "denominator": total,
+                "unit": "ratio",
+            }
+            if total
+            else {
+                "value": None,
+                "evidence_state": "insufficient_sample",
+                "numerator": 0,
+                "denominator": 0,
+                "unit": "ratio",
+            }
+        )
+        return {
+            "agent": self.spec.name,
+            "status": "ok",
+            "arbitration_durability": "durable"
+            if self._state_store is not None
+            else "process_local",
+            "retained_decision_count": 1 if self._last_decision is not None else 0,
+            "portfolio_window": total,
+            "portfolio_outcomes": dict(self._verdict_outcomes),
+            "fallback_closure_count": int(
+                self.behavior_snapshot().get("arbitration:fallback_terminal_hil", 0) or 0
+            ),
+            "kpis": {
+                "portfolio_target_attainment_ratio": portfolio_kpi,
+                "tie_break_recurrence_rate": tie_break_kpi,
+            },
+            "behavior": self.behavior_snapshot(),
+        }
+
     async def arbitrate(self, request: dict[str, Any]) -> ArbitrationDecision:
         correlation_id = str(request.get("correlation_id", ""))
         if correlation_id:

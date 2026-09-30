@@ -22,6 +22,7 @@ from fdai.agents._framework.introspection import IntrospectionResult
 from fdai.agents._framework.pantheon import _VAR
 from fdai.agents._framework.producer_auth import require_topic_owner
 from fdai.agents._framework.thor_dispatch_validation import bounded_params
+from fdai.agents._framework.var_admin import deliver_admin_card as _deliver_admin_card
 from fdai.agents._framework.var_decisions import (
     ApprovalDecisionState,
     TestContextReviewMixin,
@@ -43,6 +44,7 @@ from fdai.agents._framework.var_final_approval import (
 from fdai.agents._framework.var_final_approval import (
     validate_final_record,
 )
+from fdai.agents._framework.var_health import health as _var_health
 from fdai.agents._framework.var_introspection import evidence_available as _var_evidence_available
 from fdai.agents._framework.var_introspection import introspect_var as _introspect_var
 from fdai.agents._framework.var_pending_durability import (
@@ -171,8 +173,7 @@ class Var(VarDevelopmentAuthorityMixin, TestContextReviewMixin, AssignmentReview
             return
         state = str(payload.get("state") or "")
         if state != "hil_pending":
-            ignored_state = state if state in {"verdicted", "approved", "succeeded"} else "other"
-            self.record_behavior(f"action_run:ignored_state:{ignored_state}")
+            self.record_behavior("action_run:ignored_non_hil")
             return
         correlation = str(payload.get("correlation_id", ""))
         if not correlation:
@@ -608,7 +609,7 @@ class Var(VarDevelopmentAuthorityMixin, TestContextReviewMixin, AssignmentReview
             )
             return None
         if self.bus is None:
-            self.record_behavior("approval:transport_unavailable")
+            self.record_behavior("publication:unavailable")
             if self._state_store is not None:
                 _remove_pending_ticket(
                     self._pending,
@@ -766,23 +767,8 @@ class Var(VarDevelopmentAuthorityMixin, TestContextReviewMixin, AssignmentReview
     def _record_blocked_attempt(self, key: str, correlation_id: str, approver: str) -> None:
         _record_blocked_attempt_once(self, key, correlation_id, approver)
 
-    async def deliver_admin_card(self, payload: dict[str, Any]) -> AdminCard:
-        initiator = str(payload.get("initiator_principal", ""))
-        action = str(payload.get("attempted_action", ""))
-        severity = str(payload.get("severity", "high"))
-        counter = int(payload.get("counter", 1))
-        key = (initiator, action)
-        card = AdminCard(
-            severity=severity,
-            initiator_principal=initiator,
-            attempted_action=action,
-            counter=counter,
-        )
-        delivery = self.admin_channel.upsert(key, card)
-        delivered = await delivery if inspect.isawaitable(delivery) else delivery
-        self._last_cards[key] = delivered
-        _evict_oldest_ticket(self._last_cards, self._MAX_CARDS, keep=key)
-        return delivered
+    deliver_admin_card = _deliver_admin_card
+    health = _var_health
 
     def conversation_evidence_available(self, context: dict[str, Any]) -> bool:
         return _var_evidence_available(self)

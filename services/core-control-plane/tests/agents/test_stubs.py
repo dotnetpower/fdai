@@ -33,7 +33,7 @@ def test_stub_health_returns_stub_status() -> None:
         # Most agents still return the base stub; agents with real state
         # (Thor / Huginn) override to "ok". Either way health carries an
         # agent name + a status.
-        assert health["status"] in {"stub", "ok"}
+        assert health["status"] in {"stub", "ok", "degraded"}
 
 
 def test_conversation_port_answers_capability_from_spec() -> None:

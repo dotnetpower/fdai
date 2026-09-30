@@ -149,6 +149,20 @@ def _available_kpi_values(agent: str, health: Mapping[str, Any]) -> dict[str, fl
     behavior = health.get("behavior")
     if not isinstance(behavior, Mapping):
         return {}
+    kpis = health.get("kpis")
+    if isinstance(kpis, Mapping):
+        measured: dict[str, float] = {}
+        for metric, evidence in kpis.items():
+            if not isinstance(metric, str) or not isinstance(evidence, Mapping):
+                continue
+            if evidence.get("evidence_state") != "measured":
+                continue
+            value = evidence.get("value")
+            if isinstance(value, bool) or not isinstance(value, int | float):
+                continue
+            measured[metric] = float(value)
+        if measured:
+            return measured
     if agent == "Saga":
         verified = behavior.get("maintenance_tick:audit_chain_verified")
         failed = behavior.get("maintenance_tick:failed")

@@ -171,6 +171,7 @@ class Bragi(BragiPublicationMixin, Agent):
         self._state_store = state_store
         self._clock: Callable[[], datetime] = clock or (lambda: datetime.now(tz=UTC))
         self._a2a_turn_indexes: dict[tuple[str, str], int] = {}
+        self._turn_outbox_pending = 0
 
     # ---- registration --------------------------------------------------
 
@@ -960,6 +961,7 @@ class Bragi(BragiPublicationMixin, Agent):
         }
         created = await self._state_store.write_state_if_absent(key, record)
         if created:
+            self._turn_outbox_pending += 1
             return payload
         stored = await self._state_store.read_state(key)
         if not isinstance(stored, Mapping):
@@ -981,6 +983,7 @@ class Bragi(BragiPublicationMixin, Agent):
         )
         if not advanced:
             raise RuntimeError("Bragi turn outbox update conflicted")
+        self._turn_outbox_pending += 1
         return payload
 
     async def _claim_turn_publication(self, payload: Mapping[str, Any]) -> bool:
@@ -1022,6 +1025,7 @@ class Bragi(BragiPublicationMixin, Agent):
             )
             if advanced:
                 await self._compact_turn_outbox_tombstones()
+                self._turn_outbox_pending = max(0, self._turn_outbox_pending - 1)
                 return
         raise RuntimeError("Bragi turn publication CAS retry limit exceeded")
 
@@ -1060,6 +1064,7 @@ class Bragi(BragiPublicationMixin, Agent):
                 field="status",
                 value="pending",
             )
+            self._turn_outbox_pending = _total
             for row in reversed(rows):
                 payload = row.get("payload")
                 if not isinstance(payload, Mapping):
@@ -1076,6 +1081,7 @@ class Bragi(BragiPublicationMixin, Agent):
                         await asyncio.shield(self._mark_turn_published(payload))
                         raise
                     published += 1
+        self._turn_outbox_pending = max(0, self._turn_outbox_pending - published)
         return progress, published
 
     async def _publish_handoff(
@@ -1090,7 +1096,7 @@ class Bragi(BragiPublicationMixin, Agent):
         failure_reason_code: str,
     ) -> str:
         if self.bus is None:
-            self.record_behavior("handoff:transport_unavailable")
+            self.record_behavior("publication:unavailable")
             return "transport_unavailable"
         try:
             await self.bus.publish(
@@ -1108,13 +1114,13 @@ class Bragi(BragiPublicationMixin, Agent):
                 ),
             )
         except Exception as exc:  # noqa: BLE001 - bounded operator degradation
-            self.record_behavior("handoff:publish_failed")
+            self.record_behavior("publication:unavailable")
             _LOG.warning(
                 "handoff_publish_failed",
                 extra={"error_type": type(exc).__name__},
             )
             return "publish_failed"
-        self.record_behavior("handoff:requested")
+        self.record_behavior("handoff:materialized")
         return "requested"
 
     def prior_turns(self, session_id: str, *, limit: int = 5) -> tuple[Turn, ...]:
@@ -1125,6 +1131,47 @@ class Bragi(BragiPublicationMixin, Agent):
 
     def sessions_for(self, user_id: str) -> tuple[ConversationSession, ...]:
         return tuple(s for s in self._sessions.values() if s.user_id == user_id)
+
+    def health(self) -> dict[str, Any]:
+        behavior = self.behavior_snapshot()
+        materialized = int(behavior.get("handoff:materialized", 0) or 0)
+        failed = int(behavior.get("publication:unavailable", 0) or 0)
+        total = materialized + failed
+        handoff_kpi = (
+            {
+                "value": materialized / total,
+                "evidence_state": "measured",
+                "numerator": materialized,
+                "denominator": total,
+                "unit": "ratio",
+            }
+            if total
+            else {
+                "value": None,
+                "evidence_state": "insufficient_sample",
+                "numerator": 0,
+                "denominator": 0,
+                "unit": "ratio",
+            }
+        )
+        return {
+            "agent": self.spec.name,
+            "status": "ok",
+            "session_durability": "durable" if self._state_store is not None else "process_local",
+            "active_sessions": len(self._sessions),
+            "pending_turn_outbox": self._turn_outbox_pending,
+            "handoff_publication": {
+                "materialized": materialized,
+                "failed": failed,
+                "denominator": total,
+            },
+            "fallback": {
+                "console_read_only_available": "unknown",
+                "direct_audit_query_available": "unknown",
+            },
+            "kpis": {"handoff_rate": handoff_kpi},
+            "behavior": behavior,
+        }
 
     def _next_a2a_turn_index(self, requester: str, target_agent: str) -> int:
         key = (requester, target_agent)

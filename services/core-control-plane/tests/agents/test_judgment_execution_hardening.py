@@ -977,7 +977,7 @@ def test_vidar_records_unavailable_and_duplicate_rollback_publication() -> None:
     rec = asyncio.run(unavailable.rollback(payload))
 
     assert rec is not None
-    assert unavailable.behavior_snapshot()["rollback:publication_unavailable"] == 1
+    assert unavailable.behavior_snapshot()["publication:unavailable"] == 1
     assert unavailable.health()["rollback_publication_pending"] == 1
 
     bus = _bus()

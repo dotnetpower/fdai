@@ -2827,7 +2827,7 @@ def test_var_quorum_met_without_bus_keeps_ticket_pending_for_publication() -> No
     assert result is not None
     assert result["state"] == "approved"
     assert var.pending_tickets()[0].correlation_id == "c-nobus"
-    assert var.behavior_snapshot()["approval:transport_unavailable"] == 1
+    assert var.behavior_snapshot()["publication:unavailable"] == 1
 
 
 def test_var_bind_bus_late_binds_the_publisher() -> None:

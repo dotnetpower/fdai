@@ -196,6 +196,7 @@ async def close_unowned_arbitration(
         return None
     degradation = evaluate_degradation(set(unavailable) & set(AGENT_DEGRADATION_POLICIES))
     host.record_behavior("arbitration_owner_unavailable")
+    host.record_behavior("arbitration:fallback_terminal_hil")
     verdict = await host._escalate_arbitration(
         correlation_id,
         {"winning_domain": "", "losing_domains": list(domains), "margin": None},

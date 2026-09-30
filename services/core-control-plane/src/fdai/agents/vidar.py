@@ -75,6 +75,24 @@ _ROLLBACK_COMMAND_FIELDS = (
 )
 
 
+def _kpi_ratio(numerator: int, denominator: int, *, unit: str = "ratio") -> dict[str, object]:
+    if denominator <= 0:
+        return {
+            "value": None,
+            "evidence_state": "insufficient_sample",
+            "numerator": numerator,
+            "denominator": denominator,
+            "unit": unit,
+        }
+    return {
+        "value": numerator / denominator,
+        "evidence_state": "measured",
+        "numerator": numerator,
+        "denominator": denominator,
+        "unit": unit,
+    }
+
+
 @dataclass(frozen=True, slots=True)
 class RollbackRecord:
     correlation_id: str
@@ -686,7 +704,7 @@ class Vidar(Agent):
 
     async def _publish_rollback(self, rec: RollbackRecord) -> bool:
         if self.bus is None:
-            self.record_behavior("rollback:publication_unavailable")
+            self.record_behavior("publication:unavailable")
             return False
         await self.bus.publish(
             "Vidar",
@@ -713,15 +731,50 @@ class Vidar(Agent):
             if rec.correlation_id
             and (rec.correlation_id, rec.action_run_identity) not in self._published_rollbacks
         )
+        terminal_records = [
+            rec for rec in self.records if rec.state in {"succeeded", "failed", "execution_unknown"}
+        ]
+        succeeded = sum(1 for rec in terminal_records if rec.state == "succeeded")
+        validation_failures = sum(
+            1
+            for rec in terminal_records
+            if rec.state == "failed" and "validation" in rec.notes.lower()
+        )
+        durable_ready = self._state_store is not None or self._allow_process_local_rollback
+        executor_ready = bool(self._executors)
+        status = "ok" if durable_ready and executor_ready else "degraded"
         return {
             "agent": self.spec.name,
-            "status": "stub",
+            "status": status,
+            "status_reason": "ready" if status == "ok" else "rollback_dependency_incomplete",
             "rollback_durability": durability,
             "process_local_rollback_allowed": self._allow_process_local_rollback,
+            "rollback_executor_bound": executor_ready,
             "rollback_publication_pending": max(
                 local_publication_pending,
                 self._durable_publication_pending,
             ),
+            "rollback_outcomes": {
+                "attempts": len(terminal_records),
+                "succeeded": succeeded,
+                "failed": sum(1 for rec in terminal_records if rec.state == "failed"),
+                "execution_unknown": sum(
+                    1 for rec in terminal_records if rec.state == "execution_unknown"
+                ),
+                "validation_failures": validation_failures,
+            },
+            "mttr_samples": {
+                "count": 0,
+                "unit": "seconds",
+                "evidence_state": "not_observed",
+            },
+            "kpis": {
+                "rollback_success_rate": _kpi_ratio(succeeded, len(terminal_records)),
+                "rollback_path_validation_failure_rate": _kpi_ratio(
+                    validation_failures,
+                    len(terminal_records),
+                ),
+            },
             "behavior": self.behavior_snapshot(),
         }
 

@@ -14,7 +14,7 @@ Hard dependencies (per pantheon 4.3):
 from __future__ import annotations
 
 import asyncio
-from collections.abc import Awaitable, Callable, Mapping
+from collections.abc import Awaitable, Callable, Iterable, Mapping
 from datetime import UTC, datetime, timedelta
 from typing import Any
 from weakref import WeakValueDictionary
@@ -91,6 +91,24 @@ ExecutionAuditRecorder = Callable[["ActionRun"], Awaitable[str]]
 
 ApproverAuthorizer = Callable[[str, str], bool | Awaitable[bool]]
 OwnerAuthorizer = Callable[[str], bool | Awaitable[bool]]
+
+
+def _kpi_ratio(numerator: int, denominator: int, *, unit: str) -> dict[str, object]:
+    if denominator <= 0:
+        return {
+            "value": None,
+            "evidence_state": "insufficient_sample",
+            "numerator": numerator,
+            "denominator": denominator,
+            "unit": unit,
+        }
+    return {
+        "value": numerator / denominator,
+        "evidence_state": "measured",
+        "numerator": numerator,
+        "denominator": denominator,
+        "unit": unit,
+    }
 
 
 class _ReentrantAsyncLock:
@@ -173,6 +191,7 @@ class Thor(ThorDevelopmentAuthorityMixin, ThorEffectVerificationMixin, Agent):
         self._shadow_by_default = shadow_by_default
         self._saga_available = saga_available
         self._vidar_available = vidar_available
+        self._agent_availability: Callable[[], Iterable[str]] | None = None
         self._state_store = state_store
         self._execution_audit_recorder = execution_audit_recorder
         self._require_execution_audit = require_execution_audit or development_profile is not None
@@ -291,8 +310,28 @@ class Thor(ThorDevelopmentAuthorityMixin, ThorEffectVerificationMixin, Agent):
         """Bind a live fail-closed authority predicate for future execution."""
         self._shadow_required = predicate
 
+    def bind_agent_availability(self, probe: Callable[[], Iterable[str]]) -> None:
+        """Bind runtime hard-dependency health for Saga/Vidar truthfulness."""
+        self._agent_availability = probe
+
+    def _unavailable_dependencies(self) -> frozenset[str]:
+        unavailable: set[str] = set()
+        if not self._saga_available:
+            unavailable.add("Saga")
+        if not self._vidar_available:
+            unavailable.add("Vidar")
+        if self._agent_availability is not None:
+            try:
+                unavailable.update(str(name) for name in self._agent_availability())
+            except Exception:  # noqa: BLE001 - health probe failure must fail closed
+                self.record_behavior("dependency_probe:unavailable")
+                unavailable.update({"Saga", "Vidar"})
+        return frozenset(name for name in unavailable if name in {"Saga", "Vidar"})
+
     def _must_shadow(self) -> bool:
         if self._shadow_by_default:
+            return True
+        if self._unavailable_dependencies():
             return True
         try:
             return self._shadow_required()
@@ -303,13 +342,56 @@ class Thor(ThorDevelopmentAuthorityMixin, ThorEffectVerificationMixin, Agent):
     def health(self) -> dict[str, Any]:
         """Expose dispatcher state for Heimdall's probe / runtime health."""
         active = sum(1 for r in self.action_runs.values() if r.state not in _TERMINAL_STATES)
+        unavailable = self._unavailable_dependencies()
+        shadow_forced = self._shadow_by_default or bool(unavailable)
+        terminal = [r for r in self.action_runs.values() if r.state in _TERMINAL_STATES]
+        successes = sum(1 for r in terminal if r.state is ActionRunState.SUCCEEDED)
+        rollback_triggers = sum(
+            1
+            for r in self.action_runs.values()
+            if r.state
+            in {ActionRunState.FAILED, ActionRunState.ROLLED_BACK, ActionRunState.ROLLBACK_FAILED}
+        )
+        race_failures = self.behavior_snapshot().get("dispatch:lock_contention", 0)
+        race_denominator = len(self.action_runs)
+        kpis: dict[str, dict[str, object]] = {
+            "execution_success_rate": _kpi_ratio(successes, len(terminal), unit="ratio"),
+            "rollback_trigger_rate": _kpi_ratio(
+                rollback_triggers,
+                len(self.action_runs),
+                unit="ratio",
+            ),
+            "race_failure_rate": _kpi_ratio(
+                int(race_failures) if isinstance(race_failures, int) else 0,
+                race_denominator,
+                unit="ratio",
+            ),
+        }
         return {
             "agent": "Thor",
-            "status": "ok",
+            "status": "degraded" if shadow_forced else "ok",
+            "status_reason": ("hard_dependency_unavailable" if unavailable else "shadow_forced")
+            if shadow_forced
+            else "ready",
             "active_runs": active,
             "retained_runs": len(self.action_runs),
             "locked_resources": len(self._resource_locks),
-            "shadow_forced": self._shadow_by_default,
+            "shadow_forced": shadow_forced,
+            "saga_available": "Saga" not in unavailable,
+            "vidar_available": "Vidar" not in unavailable,
+            "dependency_failure": sorted(unavailable),
+            "execution_outcomes": {
+                "terminal": len(terminal),
+                "succeeded": successes,
+                "rollback_triggers": rollback_triggers,
+                "race_failures": race_failures if isinstance(race_failures, int) else 0,
+            },
+            "latency_samples": {
+                "count": 0,
+                "unit": "seconds",
+                "evidence_state": "not_observed",
+            },
+            "kpis": kpis,
             "behavior": self.behavior_snapshot(),
         }
 
@@ -734,7 +816,7 @@ class Thor(ThorDevelopmentAuthorityMixin, ThorEffectVerificationMixin, Agent):
                 # Distinguish a policy shadow (forced) from a degraded shadow (a
                 # hard dependency - Saga/Vidar - is down), so a scenario can see
                 # a safety-relevant degradation, not just "shadow".
-                if not (self._saga_available and self._vidar_available):
+                if self._unavailable_dependencies():
                     self.record_behavior("dispatch:degraded")
 
             if risk_verdict == "deny":
@@ -761,7 +843,7 @@ class Thor(ThorDevelopmentAuthorityMixin, ThorEffectVerificationMixin, Agent):
             # action on it (permanent dispatch:lock_contention). Release and
             # re-raise. The HIL path returns normally, so its intentional lock
             # hold is unaffected by this guard.
-            self.record_behavior("dispatch:publication_failed")
+            self.record_behavior("publication:unavailable")
             if run.state is ActionRunState.VERDICTED and not run.resource_claimed:
                 self.action_runs.pop(run.correlation_id, None)
                 if self._idempotency_runs.get(run.idempotency_key) is run:

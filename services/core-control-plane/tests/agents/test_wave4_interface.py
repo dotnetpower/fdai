@@ -457,7 +457,7 @@ def test_bragi_surfaces_unavailable_handoff_transport() -> None:
 
     assert turn.answer["handoff_needed"] is True
     assert turn.answer["handoff_status"] == "transport_unavailable"
-    assert bragi.behavior_snapshot()["handoff:transport_unavailable"] == 1
+    assert bragi.behavior_snapshot()["publication:unavailable"] == 1
 
 
 def test_bragi_records_handoff_publish_failure_on_the_turn() -> None:
@@ -482,7 +482,7 @@ def test_bragi_records_handoff_publish_failure_on_the_turn() -> None:
 
     assert turn.answer["handoff_needed"] is True
     assert turn.answer["handoff_status"] == "publish_failed"
-    assert bragi.behavior_snapshot()["handoff:publish_failed"] == 1
+    assert bragi.behavior_snapshot()["publication:unavailable"] == 1
     assert [message.topic for message in bus.published] == [
         "object.conversation",
         "object.turn",

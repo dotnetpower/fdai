@@ -77,9 +77,7 @@ async def test_var_records_ignored_invalid_duplicate_and_missing_authority_paths
 
     behavior = var.behavior_snapshot()
     assert behavior["typed_message:ignored"] == 1
-    assert behavior["action_run:ignored_state:verdicted"] == 1
-    assert behavior["action_run:ignored_state:approved"] == 1
-    assert behavior["action_run:ignored_state:succeeded"] == 1
+    assert behavior["action_run:ignored_non_hil"] == 3
     assert behavior["ticket_invalid_correlation"] == 1
     assert behavior["ticket_duplicate"] == 1
     assert behavior["decision:missing_ticket"] == 1
