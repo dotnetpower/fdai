@@ -48,6 +48,8 @@ def resilience_score_candidate(event: Mapping[str, Any]) -> dict[str, Any] | Non
         "effects": attributes.get("effects"),
         "evidence_refs": attributes.get("evidence_refs"),
         "source_freshness": attributes.get("source_freshness"),
+        "experiment_id": attributes.get("experiment_id"),
+        "observation_phase": attributes.get("observation_phase"),
     }
     try:
         validate_cross_vertical_candidate("object.resilience-score", candidate)

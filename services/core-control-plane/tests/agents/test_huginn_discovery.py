@@ -119,12 +119,11 @@ def test_discovery_dedup_eviction_allows_old_key_redelivery() -> None:
 def test_health_exposes_unobserved_discovery_signals() -> None:
     health = Huginn().health()
 
-    assert health["discovery"] == {
-        "projection": "not_bound",
-        "cursor": "not_observed",
-        "backpressure": "not_observed",
-        "source_health": "not_observed",
-    }
+    assert health["discovery"]["projection"] == "not_bound"
+    assert health["discovery"]["cursor"]["value"] is None
+    assert health["discovery"]["cursor"]["evidence_state"] == "not_connected"
+    assert health["discovery"]["backpressure"]["value"] is None
+    assert health["discovery"]["source_health"]["value"] is None
 
 
 async def test_durable_dedup_recovers_pending_publication_after_lease_expiry() -> None:

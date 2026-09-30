@@ -504,7 +504,7 @@ async def test_njord_rejects_forged_or_non_utc_cost_samples() -> None:
     assert bus.messages_on("object.cost-anomaly") == []
     behavior = njord.behavior_snapshot()
     assert behavior["cost_sample:invalid_producer"] == 1
-    assert behavior["cost_sample:disabled"] == 1
+    assert behavior["cost_sample:invalid_time"] == 1
 
 
 async def test_freyr_rejects_forged_event_inputs_and_digests_unsafe_cost_evidence() -> None:

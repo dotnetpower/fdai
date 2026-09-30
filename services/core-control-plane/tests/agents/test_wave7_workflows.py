@@ -100,7 +100,8 @@ def test_workflow_cost_aware_remediation_shadow_trace() -> None:
     )
     # Njord provides the cost impact independently (advisor hook).
     est = njord.cost_impact("remediate.disable-public-access")
-    assert est.monthly_delta_usd == 0.0
+    assert est.monthly_delta_usd is None
+    assert est.evidence_state == "not_connected"
     # Verdict must have been auto-executed by Thor and audited by Saga.
     assert any(m.payload["state"] == "succeeded" for m in bus.messages_on("object.action-run"))
     saga.audit_chain.verify()
@@ -115,8 +116,14 @@ def test_workflow_predictive_scale_shadow_trace() -> None:
     reg = load_pantheon()
     bus = InMemoryBus(registry=reg)
     freyr = Freyr(bus=bus, scale_up_threshold=0.75)
-    for u in (0.7, 0.8, 0.85, 0.9):
-        asyncio.run(freyr.ingest_utilization(resource_id="vm-hot", utilization=u))
+    for index, u in enumerate((0.7, 0.8, 0.85, 0.9)):
+        asyncio.run(
+            freyr.ingest_utilization(
+                resource_id="vm-hot",
+                utilization=u,
+                observed_at=f"2028-01-02T00:0{index}:00+00:00",
+            )
+        )
     advice = freyr.sizing_advice("vm-hot")
     assert advice.action == "scale_up"
     forecasts = bus.messages_on("object.capacity-forecast")

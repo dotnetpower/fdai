@@ -2030,11 +2030,19 @@ def test_introspect_facts_lists_are_capped() -> None:
 def test_introspect_freyr_facts_lists_are_capped() -> None:
     # Freyr exposes tracked resource ids; the list is bounded with a true
     # count, consistent with the other domain agents (H5).
+    from datetime import UTC, datetime, timedelta
+
     from fdai.agents.freyr import Freyr
 
     freyr = Freyr()
     for i in range(30):
-        asyncio.run(freyr.ingest_utilization(resource_id=f"res-{i:02d}", utilization=0.5))
+        asyncio.run(
+            freyr.ingest_utilization(
+                resource_id=f"res-{i:02d}",
+                utilization=0.5,
+                observed_at=(datetime(2028, 1, 2, tzinfo=UTC) + timedelta(minutes=i)).isoformat(),
+            )
+        )
     result = asyncio.run(freyr.on_conversation_turn("capacity overview", {}))
     assert result["facts"]["tracked_resources"] == []
     assert result["facts"]["tracked_resources_count"] == 30

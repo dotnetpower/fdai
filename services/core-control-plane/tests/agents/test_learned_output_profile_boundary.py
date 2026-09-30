@@ -303,6 +303,7 @@ def test_freyr_prediction_settles_as_advisory_evidence_end_to_end() -> None:
             resource_id="resource-1",
             utilization=0.9,
             correlation_id="specialist-conflict",
+            observed_at=_NOW.isoformat(),
         )
     )
 

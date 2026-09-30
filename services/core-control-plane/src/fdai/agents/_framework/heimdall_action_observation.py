@@ -17,6 +17,7 @@ class HeimdallActionObservationMixin:
 
     bus: PantheonBus | None
     _action_observation_hook: ActionObservationHook | None
+    _pending_effect_observations: int
 
     if TYPE_CHECKING:
 
@@ -24,6 +25,9 @@ class HeimdallActionObservationMixin:
 
     async def _observe_action_run(self, payload: dict[str, Any]) -> None:
         if self._action_observation_hook is None:
+            pending = getattr(self, "_pending_effect_observations", 0)
+            if isinstance(pending, int):
+                self._pending_effect_observations = pending + 1
             self.record_behavior("action_effect_observation:unavailable")
             return
         try:

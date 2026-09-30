@@ -117,6 +117,61 @@ _PENDING_READINESS_PREFIX = "pantheon/heimdall/sensing-state/readiness-pending/"
 _PUBLICATION_PREFIX = "pantheon/heimdall/publications/"
 _RULE_VALIDATION_TIMEOUT_SECONDS = 5.0
 _FULL_SNAPSHOT_LIMIT = 128
+_MAX_KPI_SAMPLES = 512
+
+
+def _kpi_measured(
+    value: float,
+    *,
+    numerator: int | float,
+    denominator: int | float,
+    unit: str = "ratio",
+) -> dict[str, Any]:
+    return {
+        "value": float(value),
+        "evidence_state": "measured",
+        "numerator": numerator,
+        "denominator": denominator,
+        "unit": unit,
+    }
+
+
+def _kpi_unavailable(evidence_state: str, reason: str, *, unit: str = "ratio") -> dict[str, Any]:
+    return {
+        "value": None,
+        "evidence_state": evidence_state,
+        "reason": reason,
+        "numerator": 0,
+        "denominator": 0,
+        "unit": unit,
+    }
+
+
+def _ratio_kpi(numerator: object, denominator: object, *, reason: str) -> dict[str, Any]:
+    if (
+        isinstance(numerator, bool)
+        or isinstance(denominator, bool)
+        or not isinstance(numerator, int | float)
+        or not isinstance(denominator, int | float)
+        or denominator <= 0
+    ):
+        return _kpi_unavailable("insufficient_sample", reason)
+    return _kpi_measured(
+        float(numerator) / float(denominator),
+        numerator=numerator,
+        denominator=denominator,
+    )
+
+
+def _mean_kpi(samples: deque[float], *, reason: str, unit: str) -> dict[str, Any]:
+    if not samples:
+        return _kpi_unavailable("insufficient_sample", reason, unit=unit)
+    return _kpi_measured(
+        sum(samples) / len(samples),
+        numerator=len(samples),
+        denominator=len(samples),
+        unit=unit,
+    )
 
 
 class Heimdall(
@@ -198,6 +253,12 @@ class Heimdall(
         self._dirty_readiness_resources: set[str] = set()
         self._dirty_pending_readiness: set[tuple[str, str]] = set()
         self._publication_lock_refs: dict[str, int] = {}
+        self._anomaly_outcomes = Counter[str]()
+        self._forecast_absolute_percentage_errors: deque[float] = deque(maxlen=_MAX_KPI_SAMPLES)
+        self._readiness_observed_dimensions = 0
+        self._readiness_expected_dimensions = 0
+        self._stale_inventory_delays_seconds: deque[float] = deque(maxlen=_MAX_KPI_SAMPLES)
+        self._pending_effect_observations = 0
 
     def bind_bus(self, bus: PantheonBus) -> None:
         self.bus = bus
@@ -332,6 +393,76 @@ class Heimdall(
         """Bind a bounded read-only Event evidence collector."""
 
         self._operational_evidence_hook = hook
+
+    def record_anomaly_outcome(self, outcome: str) -> None:
+        """Retain an authoritative anomaly label for KPI denominators."""
+        if outcome not in {"true_positive", "false_positive", "false_negative", "missed_critical"}:
+            raise ValueError("unsupported anomaly outcome label")
+        self._anomaly_outcomes[outcome] += 1
+
+    def record_forecast_absolute_percentage_error(self, error: float) -> None:
+        if isinstance(error, bool) or error < 0:
+            raise ValueError("forecast absolute percentage error MUST be nonnegative")
+        self._forecast_absolute_percentage_errors.append(float(error))
+
+    def health(self) -> dict[str, Any]:
+        store_durability = "durable" if self._state_store is not None else "process_local"
+        dependencies = {
+            "action_observation_hook": (
+                "bound" if self._action_observation_hook is not None else "unavailable"
+            ),
+            "forecast_store": "bound" if self._forecast_store is not None else "unavailable",
+            "forecast_evaluator": (
+                "bound" if self._forecast_evaluator is not None else "unavailable"
+            ),
+            "incident_candidate_hook": (
+                "bound" if self._incident_candidate_hook is not None else "unavailable"
+            ),
+            "state_store": store_durability,
+        }
+        degraded = (
+            self._action_observation_hook is None
+            or self._forecast_store is None
+            or self._state_store is None
+        )
+        return {
+            "agent": "Heimdall",
+            "status": "degraded" if degraded else "ok",
+            "dependencies": dependencies,
+            "backlog": {
+                "recent_episode_windows": len(self._recent_events),
+                "pending_detection_readiness_passes": len(self._detection_readiness_pending),
+                "pending_effect_observations": self._pending_effect_observations,
+            },
+            "degradation": {
+                "state_changes_needing_observation": (
+                    "blocked" if self._action_observation_hook is None else "observable"
+                ),
+                "safe_effect": "rule_only_judgment_continues" if degraded else "none",
+            },
+            "kpis": {
+                "anomaly_precision": self._anomaly_precision_kpi(),
+                "anomaly_recall": self._anomaly_recall_kpi(),
+                "forecast_mape": self._forecast_mape_kpi(),
+                "discovery_coverage_detection_rate": _ratio_kpi(
+                    self._readiness_observed_dimensions,
+                    self._readiness_expected_dimensions,
+                    reason="no_detection_readiness_denominator",
+                ),
+                "false_positive_rate": self._false_positive_rate_kpi(),
+                "missed_critical_rate": _ratio_kpi(
+                    self._anomaly_outcomes["missed_critical"],
+                    sum(self._anomaly_outcomes.values()),
+                    reason="no_critical_outcome_denominator",
+                ),
+                "stale_inventory_detection_delay_seconds": _mean_kpi(
+                    self._stale_inventory_delays_seconds,
+                    reason="no_stale_inventory_delay_samples",
+                    unit="seconds",
+                ),
+            },
+            "behavior": self.behavior_snapshot(),
+        }
 
     def bind_rule_generation_validation_handler(
         self,
@@ -820,6 +951,8 @@ class Heimdall(
         observations = self._detection_readiness_pending.setdefault(pending_key, {})
         _evict_oldest(self._detection_readiness_pending, _MAX_TRACKED_KEYS, keep=pending_key)
         observations[observation.dimension.value] = observation
+        self._readiness_observed_dimensions += 1
+        self._readiness_expected_dimensions += len(DetectionReadinessDimension)
         self._dirty_pending_readiness.add(pending_key)
         if len(observations) != len(DetectionReadinessDimension):
             await self._persist_state()
@@ -827,6 +960,14 @@ class Heimdall(
             return
         latest_pass = self._detection_readiness_pass_order.get(resource_id)
         pass_observed_at = max(item.observed_at for item in observations.values())
+        now = self._forecast_clock()
+        if now.tzinfo is None or now.utcoffset() is None:
+            raise ValueError("Heimdall forecast clock MUST be timezone-aware")
+        stale_delay = max(
+            0.0,
+            (now - min(item.observed_at for item in observations.values())).total_seconds(),
+        )
+        self._stale_inventory_delays_seconds.append(stale_delay)
         if latest_pass is not None and pass_observed_at <= latest_pass[1]:
             self._detection_readiness_pending.pop(pending_key, None)
             await self._persist_state()
@@ -1086,6 +1227,40 @@ class Heimdall(
             "operational_evidence:available" if evidence else "operational_evidence:not_applicable"
         )
         return evidence
+
+    def _anomaly_precision_kpi(self) -> dict[str, Any]:
+        true_positive = self._anomaly_outcomes["true_positive"]
+        false_positive = self._anomaly_outcomes["false_positive"]
+        return _ratio_kpi(
+            true_positive,
+            true_positive + false_positive,
+            reason="no_precision_outcome_denominator",
+        )
+
+    def _anomaly_recall_kpi(self) -> dict[str, Any]:
+        true_positive = self._anomaly_outcomes["true_positive"]
+        false_negative = self._anomaly_outcomes["false_negative"]
+        return _ratio_kpi(
+            true_positive,
+            true_positive + false_negative,
+            reason="no_recall_outcome_denominator",
+        )
+
+    def _false_positive_rate_kpi(self) -> dict[str, Any]:
+        true_positive = self._anomaly_outcomes["true_positive"]
+        false_positive = self._anomaly_outcomes["false_positive"]
+        return _ratio_kpi(
+            false_positive,
+            true_positive + false_positive,
+            reason="no_false_positive_denominator",
+        )
+
+    def _forecast_mape_kpi(self) -> dict[str, Any]:
+        return _mean_kpi(
+            self._forecast_absolute_percentage_errors,
+            reason="no_forecast_error_samples",
+            unit="percent",
+        )
 
     async def _maybe_classify_severity(self, event: dict[str, Any]) -> str:
         self._security_recent.append(event)

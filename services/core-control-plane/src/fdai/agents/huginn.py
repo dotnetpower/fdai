@@ -94,6 +94,8 @@ _TRACE_CONTINUITY_FIELDS = (
 )
 _MAX_OPERATIONAL_CASE_ERRORS = 32
 _DISCOVERY_PROJECTOR_TIMEOUT_SECONDS = 5.0
+_MAX_KPI_SAMPLES = 512
+_MIN_P99_SAMPLES = 2
 
 DiscoveryProjector = Callable[[Mapping[str, Any]], Awaitable[object]]
 """Injected durable inventory projector; cloud and database I/O stay outside Huginn."""
@@ -322,6 +324,62 @@ def _event_occurred_at(
     return observed_at.isoformat()
 
 
+def _kpi_measured(
+    value: float,
+    *,
+    numerator: int | float,
+    denominator: int | float,
+    unit: str = "ratio",
+) -> dict[str, Any]:
+    return {
+        "value": float(value),
+        "evidence_state": "measured",
+        "numerator": numerator,
+        "denominator": denominator,
+        "unit": unit,
+    }
+
+
+def _kpi_unavailable(evidence_state: str, reason: str, *, unit: str = "ratio") -> dict[str, Any]:
+    return {
+        "value": None,
+        "evidence_state": evidence_state,
+        "reason": reason,
+        "numerator": 0,
+        "denominator": 0,
+        "unit": unit,
+    }
+
+
+def _p99_kpi(samples: deque[float], *, unit: str, reason: str) -> dict[str, Any]:
+    if len(samples) < _MIN_P99_SAMPLES:
+        return _kpi_unavailable("insufficient_sample", reason, unit=unit)
+    ordered = sorted(samples)
+    index = max(0, min(len(ordered) - 1, int(len(ordered) * 0.99) - 1))
+    return _kpi_measured(
+        ordered[index],
+        numerator=len(ordered),
+        denominator=len(ordered),
+        unit=unit,
+    )
+
+
+def _ratio_kpi(numerator: object, denominator: object, *, reason: str) -> dict[str, Any]:
+    if (
+        isinstance(numerator, bool)
+        or isinstance(denominator, bool)
+        or not isinstance(numerator, int | float)
+        or not isinstance(denominator, int | float)
+        or denominator <= 0
+    ):
+        return _kpi_unavailable("insufficient_sample", reason)
+    return _kpi_measured(
+        float(numerator) / float(denominator),
+        numerator=numerator,
+        denominator=denominator,
+    )
+
+
 class HuginnIngressRejectedError(ValueError):
     """Ingress input was rejected before a normalized Event could be published."""
 
@@ -481,6 +539,11 @@ class Huginn(Agent):
         self._ingress_locks: OrderedDict[str, asyncio.Lock] = OrderedDict()
         self._ingress_lock_refs: dict[str, int] = {}
         self._operational_case_errors: deque[str] = deque(maxlen=_MAX_OPERATIONAL_CASE_ERRORS)
+        self._event_latency_seconds: deque[float] = deque(maxlen=_MAX_KPI_SAMPLES)
+        self._discovery_latency_seconds: deque[float] = deque(maxlen=_MAX_KPI_SAMPLES)
+        self._dedup_correct_decisions = 0
+        self._dedup_collision_decisions = 0
+        self._last_checkpoint_read_at: datetime | None = None
 
     def bind_bus(self, bus: PantheonBus) -> None:
         self.bus = bus
@@ -498,22 +561,83 @@ class Huginn(Agent):
         self._seen_keys = OrderedDict(
             (key, None) for key in await self._dedup_journal.published_keys()
         )
+        self._last_checkpoint_read_at = self._clock()
         return len(self._seen_keys)
 
     def health(self) -> dict[str, Any]:
         """Expose ingress / dedup state for Heimdall's probe."""
+        checkpoint_durability = "durable" if self._dedup_journal is not None else "process_local"
+        status = "ok" if self._dedup_journal is not None else "degraded"
+        checkpoint_age_seconds: dict[str, Any]
+        if self._last_checkpoint_read_at is None:
+            checkpoint_age_seconds = _kpi_unavailable(
+                "not_observed" if self._dedup_journal is not None else "not_connected",
+                "checkpoint_resume_not_read",
+                unit="seconds",
+            )
+        else:
+            now = self._clock()
+            checkpoint_age_seconds = _kpi_measured(
+                max(0.0, (now - self._last_checkpoint_read_at).total_seconds()),
+                numerator=1,
+                denominator=1,
+                unit="seconds",
+            )
         return {
             "agent": "Huginn",
-            "status": "ok",
+            "status": status,
             "discovery": {
                 "projection": "bound" if self._discovery_projector is not None else "not_bound",
-                "cursor": "not_observed",
-                "backpressure": "not_observed",
-                "source_health": "not_observed",
+                "cursor": _kpi_unavailable(
+                    "not_observed" if self._discovery_projector is not None else "not_connected",
+                    "delivery_cursor_not_bound",
+                    unit="seconds",
+                ),
+                "backpressure": _kpi_unavailable(
+                    "not_observed" if self._discovery_projector is not None else "not_connected",
+                    "delivery_backpressure_not_bound",
+                ),
+                "source_health": _kpi_unavailable(
+                    "not_observed" if self._discovery_projector is not None else "not_connected",
+                    "delivery_source_health_not_bound",
+                ),
+            },
+            "checkpoint": {
+                "durability": checkpoint_durability,
+                "retained_cursor_source": "state_store"
+                if self._dedup_journal is not None
+                else None,
+                "last_checkpoint_age_seconds": checkpoint_age_seconds,
             },
             "dedup_size": len(self._seen_keys),
             "dedup_capacity": self._dedup_capacity,
             "operational_case_errors": list(self._operational_case_errors),
+            "kpis": {
+                "event_processing_latency_p99_seconds": _p99_kpi(
+                    self._event_latency_seconds,
+                    unit="seconds",
+                    reason="no_ingest_latency_samples",
+                ),
+                "discovery_delivery_latency_p99_seconds": _p99_kpi(
+                    self._discovery_latency_seconds,
+                    unit="seconds",
+                    reason="no_discovery_projection_samples",
+                ),
+                "dedup_accuracy": self._dedup_accuracy_kpi(),
+                "schema_match_failure_rate": _ratio_kpi(
+                    self.behavior_snapshot().get("raw_ingress_rejected:invalid_type", 0)
+                    + self.behavior_snapshot().get("raw_ingress_rejected:invalid_string", 0),
+                    self.behavior_snapshot().get("ingested", 0)
+                    + self.behavior_snapshot().get("raw_ingress_rejected:invalid_type", 0)
+                    + self.behavior_snapshot().get("raw_ingress_rejected:invalid_string", 0),
+                    reason="no_schema_validation_denominator",
+                ),
+                "discovery_cursor_lag_seconds": _kpi_unavailable(
+                    "not_observed" if self._discovery_projector is not None else "not_connected",
+                    "delivery_cursor_not_bound",
+                    unit="seconds",
+                ),
+            },
             "behavior": self.behavior_snapshot(),
         }
 
@@ -580,7 +704,8 @@ class Huginn(Agent):
             self._seen_keys.move_to_end(key)
             self.record_behavior("deduped")
             return None
-        ingested_at = self._clock()
+        processing_started_at = self._clock()
+        ingested_at = processing_started_at
         if ingested_at.tzinfo is None or ingested_at.utcoffset() is None:
             raise ValueError("Huginn clock MUST return a timezone-aware datetime")
         event_payload = raw.get("payload")
@@ -716,14 +841,20 @@ class Huginn(Agent):
         if change_projection is not None:
             payload["normalized_change"] = dict(change_projection)
         if self._dedup_journal is not None:
-            claim = await self._dedup_journal.claim(
-                idempotency_key=key,
-                request_digest=raw_request_digest,
-                payload=payload,
-                change_projection=change_projection,
-            )
+            try:
+                claim = await self._dedup_journal.claim(
+                    idempotency_key=key,
+                    request_digest=raw_request_digest,
+                    payload=payload,
+                    change_projection=change_projection,
+                )
+            except ValueError:
+                self._dedup_collision_decisions += 1
+                self.record_behavior("dedup:key_collision")
+                raise
             if claim.duplicate:
                 self._remember_key(key)
+                self._dedup_correct_decisions += 1
                 self.record_behavior("deduped")
                 return None
             payload = claim.payload
@@ -732,10 +863,14 @@ class Huginn(Agent):
         # scenario can see an ingress flood (the flooding concern one layer up
         # from the judge). Recorded on the decision to emit, before publish.
         self.record_behavior("ingested")
+        if self._dedup_journal is not None:
+            self._dedup_correct_decisions += 1
         if "inventory_change" in payload and self._discovery_projector is not None:
             try:
+                discovery_started_at = self._clock()
                 async with asyncio.timeout(_DISCOVERY_PROJECTOR_TIMEOUT_SECONDS):
                     await self._discovery_projector(payload)
+                self._record_latency(self._discovery_latency_seconds, discovery_started_at)
                 self.record_behavior("discovery_projected")
             except TimeoutError:
                 self.record_behavior("discovery_projection:timeout")
@@ -763,9 +898,27 @@ class Huginn(Agent):
                 self.record_behavior("dedup_completion:cancelled")
                 publish_cancelled = True
         self._remember_key(key)
+        self._record_latency(self._event_latency_seconds, processing_started_at)
         if publish_cancelled:
             raise asyncio.CancelledError
         return payload
+
+    def _record_latency(self, target: deque[float], started_at: datetime) -> None:
+        ended_at = self._clock()
+        if ended_at.tzinfo is None or ended_at.utcoffset() is None:
+            raise ValueError("Huginn clock MUST return a timezone-aware datetime")
+        target.append(max(0.0, (ended_at - started_at).total_seconds()))
+
+    def _dedup_accuracy_kpi(self) -> dict[str, Any]:
+        total = self._dedup_correct_decisions + self._dedup_collision_decisions
+        if total == 0:
+            return _kpi_unavailable("not_measured", "no_authoritative_dedup_decisions")
+        return _kpi_measured(
+            self._dedup_correct_decisions / total,
+            numerator=self._dedup_correct_decisions,
+            denominator=total,
+            unit="ratio",
+        )
 
     async def _publish_event_change(
         self,

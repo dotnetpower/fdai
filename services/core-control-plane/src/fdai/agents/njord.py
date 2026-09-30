@@ -49,8 +49,10 @@ _ADVISORY_TIMEOUT_SECONDS = 5.0
 @dataclass(frozen=True, slots=True)
 class CostEstimate:
     action_type: str
-    monthly_delta_usd: float
-    confidence: float
+    monthly_delta_usd: float | None
+    confidence: float | None
+    evidence_state: str = "measured"
+    reason: str = ""
 
 
 class Njord(Agent):
@@ -82,6 +84,10 @@ class Njord(Agent):
         self._accepted_sample_digests: OrderedDict[str, str] = OrderedDict()
         self._scope_locks: dict[str, asyncio.Lock] = {}
         self._scope_lock_refs: dict[str, int] = {}
+        self._cost_forecast_errors: list[float] = []
+        self._realized_savings_usd: list[float] = []
+        self._budget_breach_hits = 0
+        self._budget_breach_misses = 0
         for sample in initial_samples:
             self._remember_initial_sample(sample)
 
@@ -111,7 +117,7 @@ class Njord(Agent):
             return
         accepted_at = _parse_time(signal.observed_at)
         if accepted_at is None:
-            self.record_behavior("cost_sample:disabled")
+            self.record_behavior("cost_sample:invalid_time")
             return
         attributes = payload.get("attributes")
         if not isinstance(attributes, dict):
@@ -137,7 +143,6 @@ class Njord(Agent):
             self.record_behavior("cost_sample:invalid_evidence")
             return
         if not await self._message_enabled(activation_revision):
-            self.record_behavior("cost_sample:disabled")
             return
         try:
             sample = CostAnalysisSample(
@@ -181,7 +186,14 @@ class Njord(Agent):
             or not source_authority
             or not ontology_release_digest
         ):
-            self.record_behavior("cost_sample:disabled")
+            if parsed_at is None:
+                self.record_behavior("cost_sample:invalid_time")
+            elif not self._package_enabled:
+                self.record_behavior("cost_sample:package_disabled")
+            elif self._advisory_provider is None:
+                self.record_behavior("cost_sample:provider_unbound")
+            else:
+                self.record_behavior("cost_sample:invalid_evidence")
             return None
         sample = CostAnalysisSample(
             scope_id=scope,
@@ -427,6 +439,11 @@ class Njord(Agent):
 
     async def _message_enabled(self, activation_revision: object) -> bool:
         if not self._package_enabled or self._advisory_provider is None:
+            self.record_behavior(
+                "cost_sample:package_disabled"
+                if not self._package_enabled
+                else "cost_sample:provider_unbound"
+            )
             return False
         if self._activation_reader is None:
             if self._allow_unbound_activation_reader:
@@ -435,29 +452,56 @@ class Njord(Agent):
             self.record_behavior("cost_sample:activation_reader_unbound")
             return False
         if isinstance(activation_revision, bool) or not isinstance(activation_revision, int):
+            self.record_behavior("cost_sample:invalid_activation_revision")
             return False
         snapshot = await self._activation_reader.read_cost_activation(_PACKAGE_ID)
         if snapshot is None:
+            self.record_behavior("cost_sample:activation_unavailable")
             return False
         permitted = snapshot.permits_activation_revision(activation_revision)
         if permitted and activation_revision != snapshot.revision:
             self.record_behavior("cost_sample:drained_after_disable")
+        if not permitted:
+            self.record_behavior("cost_sample:activation_disabled")
         return permitted
 
     # ---- advisor hook --------------------------------------------------
 
     def cost_impact(self, action_type: str) -> CostEstimate:
-        """Return a package advisory or a zero-confidence abstention."""
+        """Return a package advisory or explicit unavailable evidence."""
         estimate = (
             self._advisory_provider.estimate_cost_effect(action_type)
             if self._package_enabled and self._advisory_provider is not None
             else None
         )
+        if estimate is None:
+            reason = "not_connected" if self._advisory_provider is None else "not_measured"
+            return CostEstimate(
+                action_type=action_type,
+                monthly_delta_usd=None,
+                confidence=None,
+                evidence_state=reason,
+                reason="cost_effect_estimate_unavailable",
+            )
         return CostEstimate(
             action_type=action_type,
-            monthly_delta_usd=float(estimate.monthly_delta_usd) if estimate else 0.0,
-            confidence=float(estimate.confidence) if estimate else 0.0,
+            monthly_delta_usd=float(estimate.monthly_delta_usd),
+            confidence=float(estimate.confidence),
         )
+
+    def record_cost_forecast_outcome(self, *, forecast_usd: float, actual_usd: float) -> None:
+        if forecast_usd <= 0 or actual_usd < 0:
+            raise ValueError("cost forecast observations require positive forecast and actual >= 0")
+        self._cost_forecast_errors.append(abs(actual_usd - forecast_usd) / forecast_usd)
+
+    def record_savings_realized(self, *, savings_usd: float) -> None:
+        self._realized_savings_usd.append(float(savings_usd))
+
+    def record_budget_breach_outcome(self, *, missed: bool) -> None:
+        if missed:
+            self._budget_breach_misses += 1
+        else:
+            self._budget_breach_hits += 1
 
     def health(self) -> dict[str, Any]:
         ingress_active = (
@@ -475,14 +519,36 @@ class Njord(Agent):
             reason = "explicit_unbound_activation_reader"
         else:
             reason = "activation_reader_bound"
+        status = "ok" if ingress_active and self._budget_data_available else "degraded"
         return {
             "agent": "Njord",
-            "status": "ok",
+            "status": status,
             "ingress": {
                 "cost_sample": "active" if ingress_active else "disabled",
                 "reason": reason,
             },
+            "degradation": {
+                "domain_actions": "hil" if status != "ok" else "advisory_available",
+                "budget_data": "bound" if self._budget_data_available else "unavailable",
+            },
             "tracked_scopes": len(self._latest),
+            "kpis": {
+                "cost_forecast_mape": _mean_kpi(
+                    self._cost_forecast_errors,
+                    reason="no_cost_forecast_outcomes",
+                    unit="percent",
+                ),
+                "savings_realized_usd": _sum_kpi(
+                    self._realized_savings_usd,
+                    reason="no_realized_savings_observations",
+                    unit="usd",
+                ),
+                "budget_breach_miss_rate": _ratio_kpi(
+                    self._budget_breach_misses,
+                    self._budget_breach_hits + self._budget_breach_misses,
+                    reason="no_budget_breach_denominator",
+                ),
+            },
             "behavior": self.behavior_snapshot(),
         }
 
@@ -629,6 +695,71 @@ def _parse_time(value: str) -> datetime | None:
     if parsed.utcoffset() != timedelta(0):
         return None
     return parsed.astimezone(UTC)
+
+
+def _kpi_measured(
+    value: float,
+    *,
+    numerator: int | float,
+    denominator: int | float,
+    unit: str = "ratio",
+) -> dict[str, Any]:
+    return {
+        "value": float(value),
+        "evidence_state": "measured",
+        "numerator": numerator,
+        "denominator": denominator,
+        "unit": unit,
+    }
+
+
+def _kpi_unavailable(evidence_state: str, reason: str, *, unit: str = "ratio") -> dict[str, Any]:
+    return {
+        "value": None,
+        "evidence_state": evidence_state,
+        "reason": reason,
+        "numerator": 0,
+        "denominator": 0,
+        "unit": unit,
+    }
+
+
+def _ratio_kpi(numerator: object, denominator: object, *, reason: str) -> dict[str, Any]:
+    if (
+        isinstance(numerator, bool)
+        or isinstance(denominator, bool)
+        or not isinstance(numerator, int | float)
+        or not isinstance(denominator, int | float)
+        or denominator <= 0
+    ):
+        return _kpi_unavailable("insufficient_sample", reason)
+    return _kpi_measured(
+        float(numerator) / float(denominator),
+        numerator=numerator,
+        denominator=denominator,
+    )
+
+
+def _mean_kpi(samples: list[float], *, reason: str, unit: str) -> dict[str, Any]:
+    if not samples:
+        return _kpi_unavailable("insufficient_sample", reason, unit=unit)
+    return _kpi_measured(
+        sum(samples) / len(samples),
+        numerator=len(samples),
+        denominator=len(samples),
+        unit=unit,
+    )
+
+
+def _sum_kpi(samples: list[float], *, reason: str, unit: str) -> dict[str, Any]:
+    if not samples:
+        return _kpi_unavailable("insufficient_sample", reason, unit=unit)
+    return _kpi_measured(
+        sum(samples),
+        numerator=sum(samples),
+        denominator=len(samples),
+        unit=unit,
+    )
 
 
 def _sample_key(sample: CostAnalysisSample) -> str:

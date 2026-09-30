@@ -119,6 +119,9 @@ class Loki(Agent):
         self.proposals: deque[ChaosProposal] = deque(maxlen=_MAX_PROPOSALS)
         self._held_proposals: deque[ChaosProposal] = deque(maxlen=_MAX_HELD_PROPOSALS)
         self._resilience_scores: dict[str, tuple[float, str]] = {}
+        self._blast_radius_attempts = 0
+        self._blast_radius_adherent_attempts = 0
+        self._resilience_experiment_scores: dict[str, dict[str, float]] = {}
         self._reservation_lock = asyncio.Lock()
         self._publication_locks: dict[str, asyncio.Lock] = {}
         self._publication_lock_refs: dict[str, int] = {}
@@ -307,6 +310,9 @@ class Loki(Agent):
                 available = self._cap - len(self._in_flight_targets)
                 selected = tuple(t for t in targets if t not in self._in_flight_targets)[:available]
             targets_truncated = len(selected) < requested_target_count
+            self._blast_radius_attempts += 1
+            if not targets_truncated and selected:
+                self._blast_radius_adherent_attempts += 1
             if targets_truncated and selected:
                 self.record_behavior("chaos_reservation:targets_truncated")
             if not selected:
@@ -497,6 +503,12 @@ class Loki(Agent):
         if existing is not None and parsed_observed_at < _parse_time(existing[1]):
             self.record_behavior("resilience_score:stale")
             return False
+        experiment_id = str(candidate.get("experiment_id") or "")
+        phase = str(candidate.get("observation_phase") or "")
+        if experiment_id and phase in {"baseline", "post"}:
+            self._resilience_experiment_scores.setdefault(experiment_id, {})[phase] = float(
+                candidate["score"]
+            )
         next_scores = dict(self._resilience_scores)
         if len(next_scores) >= _MAX_RESILIENCE_SCORES and resource_id not in next_scores:
             next_scores.pop(next(iter(next_scores)))
@@ -571,9 +583,20 @@ class Loki(Agent):
             self.record_behavior("chaos_reservation:expired", len(expired_targets))
 
     def health(self) -> dict[str, Any]:
+        durable = self._reservation_journal is not None
+        oldest_age = None
+        if self._reservations:
+            now = self._now()
+            oldest_age = max(
+                0.0,
+                max(
+                    (now - reservation.reserved_at).total_seconds()
+                    for reservation in self._reservations.values()
+                ),
+            )
         return {
             "agent": "Loki",
-            "status": "ok",
+            "status": "ok" if durable else "degraded",
             "ingress": {
                 "chaos_schedule": "active",
                 "resilience_score": "active",
@@ -585,10 +608,50 @@ class Loki(Agent):
                 else "process_local",
                 "blast_radius_cap": self._cap,
                 "in_flight_target_count": len(self._in_flight_targets),
+                "oldest_active_age_seconds": oldest_age,
+            },
+            "degradation": {
+                "domain_actions": "hil" if not durable else "advisory_available",
             },
             "held_proposals": len(self._held_proposals),
+            "kpis": {
+                "blast_radius_adherence_rate": _ratio_kpi(
+                    self._blast_radius_adherent_attempts,
+                    self._blast_radius_attempts,
+                    reason="no_chaos_experiment_attempts",
+                ),
+                "resilience_improvement_delta": self._resilience_delta_kpi(),
+                "unplanned_side_effect_rate": _ratio_kpi(
+                    self.behavior_snapshot().get("chaos_proposal:side_effect", 0),
+                    len(self.proposals),
+                    reason="no_side_effect_denominator",
+                ),
+                "experiment_failure_rate": _ratio_kpi(
+                    self.behavior_snapshot().get("chaos_proposal:publication_unavailable", 0),
+                    len(self.proposals),
+                    reason="no_experiment_failure_denominator",
+                ),
+            },
             "behavior": self.behavior_snapshot(),
         }
+
+    def _resilience_delta_kpi(self) -> dict[str, Any]:
+        deltas = [
+            values["post"] - values["baseline"]
+            for values in self._resilience_experiment_scores.values()
+            if "baseline" in values and "post" in values
+        ]
+        if not deltas:
+            return _kpi_unavailable(
+                "insufficient_sample",
+                "missing_experiment_bound_baseline_or_post_observation",
+            )
+        return _kpi_measured(
+            sum(deltas) / len(deltas),
+            numerator=len(deltas),
+            denominator=len(deltas),
+            unit="score_delta",
+        )
 
     # ---- conversational port -------------------------------------------
 
@@ -744,6 +807,49 @@ def _parse_time(value: str) -> datetime:
     if parsed.tzinfo is None or parsed.utcoffset() is None:
         raise ValueError("Loki observed_at MUST be timezone-aware")
     return parsed.astimezone(UTC)
+
+
+def _kpi_measured(
+    value: float,
+    *,
+    numerator: int | float,
+    denominator: int | float,
+    unit: str = "ratio",
+) -> dict[str, Any]:
+    return {
+        "value": float(value),
+        "evidence_state": "measured",
+        "numerator": numerator,
+        "denominator": denominator,
+        "unit": unit,
+    }
+
+
+def _kpi_unavailable(evidence_state: str, reason: str, *, unit: str = "ratio") -> dict[str, Any]:
+    return {
+        "value": None,
+        "evidence_state": evidence_state,
+        "reason": reason,
+        "numerator": 0,
+        "denominator": 0,
+        "unit": unit,
+    }
+
+
+def _ratio_kpi(numerator: object, denominator: object, *, reason: str) -> dict[str, Any]:
+    if (
+        isinstance(numerator, bool)
+        or isinstance(denominator, bool)
+        or not isinstance(numerator, int | float)
+        or not isinstance(denominator, int | float)
+        or denominator <= 0
+    ):
+        return _kpi_unavailable("insufficient_sample", reason)
+    return _kpi_measured(
+        float(numerator) / float(denominator),
+        numerator=numerator,
+        denominator=denominator,
+    )
 
 
 def _digest(value: str) -> str:

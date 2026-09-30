@@ -95,6 +95,12 @@ class HeimdallForecastMixin:
         try:
             async with asyncio.timeout(_FORECAST_PROVIDER_TIMEOUT_SECONDS):
                 evaluated = await self._forecast_evaluator.evaluate(now=now)
+                errors = getattr(self._forecast_evaluator, "absolute_percentage_errors", None)
+                recorder = getattr(self, "record_forecast_absolute_percentage_error", None)
+                if callable(recorder) and isinstance(errors, tuple | list):
+                    for error in errors:
+                        if isinstance(error, int | float) and not isinstance(error, bool):
+                            recorder(float(error))
         except TimeoutError:
             self.record_behavior("forecast_episode:evaluation_timeout")
         try:

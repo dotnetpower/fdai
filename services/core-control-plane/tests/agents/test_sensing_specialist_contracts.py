@@ -190,16 +190,15 @@ async def test_freyr_records_ignored_inputs_and_transport_unavailable() -> None:
     assert behavior["capacity_forecast:transport_unavailable"] == 1
 
 
-async def test_freyr_fills_missing_observed_at_before_publishing_forecast() -> None:
+async def test_freyr_holds_missing_observed_at_as_freshness_gap() -> None:
     bus = _bus()
     freyr = Freyr(bus=bus, clock=lambda: NOW)
 
     await freyr.ingest_utilization(resource_id="resource:capacity", utilization=0.8)
 
-    (forecast,) = bus.messages_on("object.capacity-forecast")
-    assert forecast.payload["observed_at"] == NOW.isoformat()
-    assert forecast.payload["idempotency_key"]
-    assert freyr.behavior_snapshot()["capacity_sample:filled_observed_at"] == 1
+    assert bus.messages_on("object.capacity-forecast") == []
+    assert freyr.behavior_snapshot()["capacity_sample:source_time_missing"] == 1
+    assert freyr.health()["state"]["source_time_missing_samples"] == 1
 
 
 async def test_freyr_omits_stale_or_uncorrelated_cost_evidence() -> None:

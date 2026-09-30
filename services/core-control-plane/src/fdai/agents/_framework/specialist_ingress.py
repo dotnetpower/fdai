@@ -76,7 +76,7 @@ def parse_capacity_sample(payload: Mapping[str, Any]) -> CapacitySampleSignal | 
         resource_id=resource_id,
         utilization=utilization,
         correlation_id=_correlation_id(payload),
-        observed_at=_observed_at(payload),
+        observed_at=_source_observed_at(payload),
     )
 
 
@@ -163,6 +163,11 @@ def _observed_at(payload: Mapping[str, Any]) -> str:
     value = _bounded_string(payload.get("occurred_at"), required=False) or _bounded_string(
         payload.get("ingested_at"), required=False
     )
+    return value or ""
+
+
+def _source_observed_at(payload: Mapping[str, Any]) -> str:
+    value = _bounded_string(payload.get("occurred_at"), required=False)
     return value or ""
 
 

@@ -120,8 +120,8 @@ def test_disabled_or_absent_provider_produces_zero_analysis_and_publications() -
 
     assert advisory.calls == 0
     assert bus.messages_on("object.cost-anomaly") == []
-    assert disabled.behavior_snapshot()["cost_sample:disabled"] == 1
-    assert absent.behavior_snapshot()["cost_sample:disabled"] == 1
+    assert disabled.behavior_snapshot()["cost_sample:activation_disabled"] == 1
+    assert absent.behavior_snapshot()["cost_sample:provider_unbound"] == 1
 
 
 def test_njord_fails_closed_without_activation_reader_unless_explicitly_opted_in() -> None:
@@ -191,7 +191,7 @@ def test_broker_accepted_sample_drains_after_disable_but_new_sample_is_ignored()
     assert len(bus.messages_on("object.cost-anomaly")) == 1
     snapshot = njord.behavior_snapshot()
     assert snapshot["cost_sample:drained_after_disable"] == 1
-    assert snapshot["cost_sample:disabled"] == 1
+    assert snapshot["cost_sample:activation_disabled"] == 1
 
 
 def test_runtime_injects_optional_provider_without_removing_any_agent() -> None:

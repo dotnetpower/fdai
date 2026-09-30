@@ -87,6 +87,11 @@ class Freyr(Agent):
         self._state_store = state_store
         self._accepted_sample_keys: BoundedLruSet[str] = BoundedLruSet(_MAX_TRACKED_RESOURCES * 4)
         self._latest_observed_at: dict[str, datetime] = {}
+        self._source_time_missing_samples = 0
+        self._forecast_errors: list[float] = []
+        self._over_provisioned = 0
+        self._under_provisioned = 0
+        self._provisioning_observations = 0
         self._resource_locks: dict[str, asyncio.Lock] = {}
         self._resource_lock_refs: dict[str, int] = {}
         self._cost_evidence_lock = asyncio.Lock()
@@ -344,6 +349,31 @@ class Freyr(Agent):
                 self.record_behavior("capacity_forecast:transport_unavailable")
             await self._complete_sample(normalized_key, resource_id, observed_at)
 
+    def record_capacity_forecast_outcome(
+        self,
+        *,
+        resource_id: str,
+        forecast_utilization: float,
+        actual_utilization: float,
+        provisioned: str = "right_sized",
+    ) -> None:
+        if (
+            not resource_id
+            or not 0 <= forecast_utilization <= 1
+            or not 0 <= actual_utilization <= 1
+        ):
+            raise ValueError(
+                "capacity outcome requires a resource and utilization values in [0, 1]"
+            )
+        self._forecast_errors.append(abs(actual_utilization - forecast_utilization))
+        self._provisioning_observations += 1
+        if provisioned == "over":
+            self._over_provisioned += 1
+        elif provisioned == "under":
+            self._under_provisioned += 1
+        elif provisioned != "right_sized":
+            raise ValueError("provisioned MUST be over, under, or right_sized")
+
     async def _publish_capacity_forecast(
         self,
         *,
@@ -478,11 +508,9 @@ class Freyr(Agent):
 
     def _normalize_observed_at(self, observed_at: str) -> str:
         if not observed_at:
-            self.record_behavior("capacity_sample:filled_observed_at")
-            current = self._clock()
-            if current.tzinfo is None or current.utcoffset() is None:
-                raise ValueError("Freyr clock MUST return a timezone-aware datetime")
-            return current.isoformat()
+            self._source_time_missing_samples += 1
+            self.record_behavior("capacity_sample:source_time_missing")
+            return ""
         try:
             parsed = datetime.fromisoformat(observed_at.replace("Z", "+00:00"))
         except ValueError:
@@ -541,21 +569,61 @@ class Freyr(Agent):
         return bool(len(self._samples))
 
     def health(self) -> dict[str, Any]:
+        durable_state = "durable" if self._state_store is not None else "process_local"
+        controller_bound = self._graduation_controller is not None
+        status = "ok" if controller_bound and self._state_store is not None else "degraded"
         return {
             "agent": "Freyr",
-            "status": "ok",
+            "status": status,
             "ingress": {
                 "capacity_sample": "active",
-                "capacity_graduation": (
-                    "active" if self._graduation_controller is not None else "disabled"
-                ),
+                "capacity_graduation": ("active" if controller_bound else "disabled"),
                 "reason": (
                     "graduation_controller_bound"
-                    if self._graduation_controller is not None
+                    if controller_bound
                     else "graduation_controller_unbound"
                 ),
             },
+            "state": {
+                "forecast_durability": durable_state,
+                "source_time_missing_samples": self._source_time_missing_samples,
+            },
+            "degradation": {
+                "domain_actions": "hil" if status != "ok" else "advisory_available",
+            },
             "tracked_resources": len(self._samples),
+            "kpis": {
+                "capacity_forecast_error": _mean_kpi(
+                    self._forecast_errors,
+                    reason="no_capacity_forecast_outcomes",
+                    unit="absolute_utilization_delta",
+                ),
+                "over_provisioning_rate": _ratio_kpi(
+                    self._over_provisioned,
+                    self._provisioning_observations,
+                    reason="no_provisioning_denominator",
+                ),
+                "under_provisioning_rate": _ratio_kpi(
+                    self._under_provisioned,
+                    self._provisioning_observations,
+                    reason="no_provisioning_denominator",
+                ),
+                "scale_race_rate": _ratio_kpi(
+                    self.behavior_snapshot().get(
+                        "capacity_graduation:cost_evidence_uncorrelated", 0
+                    ),
+                    self.behavior_snapshot().get("capacity_graduation:cost_evidence_retained", 0)
+                    + self.behavior_snapshot().get(
+                        "capacity_graduation:cost_evidence_uncorrelated", 0
+                    ),
+                    reason="no_scale_race_denominator",
+                ),
+                "throttle_event_rate": _ratio_kpi(
+                    self.behavior_snapshot().get("capacity_sample:stale", 0),
+                    self.behavior_snapshot().get("capacity_sample:accepted", 0),
+                    reason="no_throttle_denominator",
+                ),
+            },
             "behavior": self.behavior_snapshot(),
         }
 
@@ -671,6 +739,60 @@ def _parse_observed_at(value: str) -> datetime | None:
     if parsed.tzinfo is None or parsed.utcoffset() is None:
         return None
     return parsed.astimezone(UTC)
+
+
+def _kpi_measured(
+    value: float,
+    *,
+    numerator: int | float,
+    denominator: int | float,
+    unit: str = "ratio",
+) -> dict[str, Any]:
+    return {
+        "value": float(value),
+        "evidence_state": "measured",
+        "numerator": numerator,
+        "denominator": denominator,
+        "unit": unit,
+    }
+
+
+def _kpi_unavailable(evidence_state: str, reason: str, *, unit: str = "ratio") -> dict[str, Any]:
+    return {
+        "value": None,
+        "evidence_state": evidence_state,
+        "reason": reason,
+        "numerator": 0,
+        "denominator": 0,
+        "unit": unit,
+    }
+
+
+def _ratio_kpi(numerator: object, denominator: object, *, reason: str) -> dict[str, Any]:
+    if (
+        isinstance(numerator, bool)
+        or isinstance(denominator, bool)
+        or not isinstance(numerator, int | float)
+        or not isinstance(denominator, int | float)
+        or denominator <= 0
+    ):
+        return _kpi_unavailable("insufficient_sample", reason)
+    return _kpi_measured(
+        float(numerator) / float(denominator),
+        numerator=numerator,
+        denominator=denominator,
+    )
+
+
+def _mean_kpi(samples: list[float], *, reason: str, unit: str) -> dict[str, Any]:
+    if not samples:
+        return _kpi_unavailable("insufficient_sample", reason, unit=unit)
+    return _kpi_measured(
+        sum(samples) / len(samples),
+        numerator=len(samples),
+        denominator=len(samples),
+        unit=unit,
+    )
 
 
 def _accepted_key(sample_key: str) -> str:

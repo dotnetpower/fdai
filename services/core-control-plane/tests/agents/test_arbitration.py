@@ -323,7 +323,13 @@ def test_njord_cost_anomaly_carries_recommendation() -> None:
 def test_freyr_capacity_forecast_carries_recommendation() -> None:
     bus = _bus()
     freyr = Freyr(bus=bus, scale_up_threshold=0.75)
-    asyncio.run(freyr.ingest_utilization(resource_id="vm-1", utilization=0.9))
+    asyncio.run(
+        freyr.ingest_utilization(
+            resource_id="vm-1",
+            utilization=0.9,
+            observed_at=_COST_NOW.isoformat(),
+        )
+    )
     msgs = bus.messages_on("object.capacity-forecast")
     assert msgs[-1].payload["recommendation"] == "scale_up"
 
@@ -344,7 +350,13 @@ def test_domain_signals_drive_arbitration_end_to_end() -> None:
         _ingest_cost(njord, scope="s", amount_usd=100.0, resource_id="vm-1")
     _ingest_cost(njord, scope="s", amount_usd=1000.0, resource_id="vm-1")
     # Freyr: high utilization on vm-1 (recommends scale_up) -> conflict.
-    asyncio.run(freyr.ingest_utilization(resource_id="vm-1", utilization=0.95))
+    asyncio.run(
+        freyr.ingest_utilization(
+            resource_id="vm-1",
+            utilization=0.95,
+            observed_at=_COST_NOW.isoformat(),
+        )
+    )
 
     decisions = bus.messages_on("object.arbitration-decision")
     assert len(decisions) >= 1
@@ -510,7 +522,13 @@ def test_freyr_publishes_normalized_impact_on_forecast() -> None:
     """Freyr owns capacity normalization: attaches impact = clamp(forecast_util)."""
     bus = _bus()
     freyr = Freyr(bus=bus, scale_up_threshold=0.75)
-    asyncio.run(freyr.ingest_utilization(resource_id="vm-1", utilization=0.9))
+    asyncio.run(
+        freyr.ingest_utilization(
+            resource_id="vm-1",
+            utilization=0.9,
+            observed_at=_COST_NOW.isoformat(),
+        )
+    )
     payload = bus.messages_on("object.capacity-forecast")[-1].payload
     # smoothed(alpha=0.3, prev=0.9) starts equal to first sample -> 0.9.
     assert payload["forecast_util"] == payload["impact"]

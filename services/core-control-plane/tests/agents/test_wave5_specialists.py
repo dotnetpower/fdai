@@ -236,6 +236,7 @@ def test_specialist_advice_reaches_a_human_review_verdict() -> None:
             resource_id="resource-1",
             utilization=0.9,
             correlation_id="specialist-conflict",
+            observed_at=_COST_NOW.isoformat(),
         )
     )
 
@@ -349,8 +350,9 @@ def test_njord_cost_impact_returns_table_value() -> None:
 def test_njord_cost_impact_defaults_low_confidence_for_unknown() -> None:
     n = _njord()
     est = n.cost_impact("unknown.thing")
-    assert est.monthly_delta_usd == 0.0
-    assert est.confidence < 0.5
+    assert est.monthly_delta_usd is None
+    assert est.confidence is None
+    assert est.evidence_state == "not_measured"
 
 
 def test_njord_introspect_scopes_to_named_scope() -> None:
@@ -410,8 +412,14 @@ def test_freyr_forecast_recommends_scale_up_on_high_util() -> None:
     reg = load_pantheon()
     bus = InMemoryBus(registry=reg)
     f = Freyr(bus=bus, scale_up_threshold=0.75)
-    for u in (0.6, 0.7, 0.8, 0.85, 0.9):
-        asyncio.run(f.ingest_utilization(resource_id="vm-1", utilization=u))
+    for index, u in enumerate((0.6, 0.7, 0.8, 0.85, 0.9)):
+        asyncio.run(
+            f.ingest_utilization(
+                resource_id="vm-1",
+                utilization=u,
+                observed_at=(_COST_NOW + timedelta(minutes=index)).isoformat(),
+            )
+        )
     advice = f.sizing_advice("vm-1")
     assert advice.action == "scale_up"
 
@@ -420,8 +428,14 @@ def test_freyr_recommends_scale_down_on_low_util() -> None:
     reg = load_pantheon()
     bus = InMemoryBus(registry=reg)
     f = Freyr(bus=bus, scale_down_threshold=0.25)
-    for u in (0.3, 0.2, 0.15, 0.1, 0.1):
-        asyncio.run(f.ingest_utilization(resource_id="vm-2", utilization=u))
+    for index, u in enumerate((0.3, 0.2, 0.15, 0.1, 0.1)):
+        asyncio.run(
+            f.ingest_utilization(
+                resource_id="vm-2",
+                utilization=u,
+                observed_at=(_COST_NOW + timedelta(minutes=index)).isoformat(),
+            )
+        )
     advice = f.sizing_advice("vm-2")
     assert advice.action == "scale_down"
 
@@ -430,8 +444,14 @@ def test_freyr_publishes_capacity_forecast_events() -> None:
     reg = load_pantheon()
     bus = InMemoryBus(registry=reg)
     f = Freyr(bus=bus)
-    for u in (0.4, 0.5, 0.6):
-        asyncio.run(f.ingest_utilization(resource_id="vm-3", utilization=u))
+    for index, u in enumerate((0.4, 0.5, 0.6)):
+        asyncio.run(
+            f.ingest_utilization(
+                resource_id="vm-3",
+                utilization=u,
+                observed_at=(_COST_NOW + timedelta(minutes=index)).isoformat(),
+            )
+        )
     events = bus.messages_on("object.capacity-forecast")
     assert len(events) == 3
     assert events[-1].payload["resource_id"] == "vm-3"
@@ -482,8 +502,13 @@ def test_freyr_sample_history_is_bounded() -> None:
     # sample per tick forever.
     f = Freyr()
     for i in range(_FREYR_MAX_SAMPLES * 2):
-        asyncio.run(f.ingest_utilization(resource_id="vm-soak", utilization=0.5))
-        _ = i
+        asyncio.run(
+            f.ingest_utilization(
+                resource_id="vm-soak",
+                utilization=0.5,
+                observed_at=(_COST_NOW + timedelta(minutes=i)).isoformat(),
+            )
+        )
     assert len(f._samples.get("vm-soak") or []) == _FREYR_MAX_SAMPLES  # noqa: SLF001
 
 
