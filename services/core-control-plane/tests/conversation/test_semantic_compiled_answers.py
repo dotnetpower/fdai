@@ -657,7 +657,11 @@ def test_a_typed_hold_carries_the_closed_codes_that_say_why() -> None:
         _observation(
             released=False,
             review="unfaithful",
-            review_reasons=("review_uncovered:times:4-12", "review_merged:0-3"),
+            review_reasons=(
+                "review_answer_kind:location",
+                "review_uncovered:times:4-12",
+                "review_merged:0-3",
+            ),
             passes=(ShadowPass(0, "admitted"),),
         )
     )
@@ -674,7 +678,7 @@ def test_a_typed_hold_carries_the_closed_codes_that_say_why() -> None:
     assert unsupported.hold_details == ("filter_unsupported:region",)
     # A review reason keeps only its constraint role; a quote position never travels.
     assert unverified.reason == "semantic_reading_unverified"
-    assert unverified.hold_details == ("role:times", "review_merged")
+    assert unverified.hold_details == ("answer_kind:location", "role:times", "review_merged")
     assert ambiguous.hold_details == ("competing_reading",)
     # A word-recovered plan held by a released reading names the atom it cannot read.
     vetoed = atom.veto("server_stated_filter", manifest_digest="d")

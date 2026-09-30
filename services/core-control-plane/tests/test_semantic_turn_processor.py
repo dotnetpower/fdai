@@ -3480,6 +3480,17 @@ async def test_an_unsupported_stated_constraint_names_its_atoms_in_korean() -> N
     assert "질문에 밝힌 조건(상태 조건, 그룹 기준)을" in semantic["answer"]
 
 
+async def test_a_reading_of_another_kind_of_question_is_named_as_such() -> None:
+    held = _reading_hold("held", "semantic_reading_unverified", ("answer_kind:location",))
+
+    projection = _projection(await _processor(_Runtime(held)).process(_request()))
+
+    assert projection["semantic_result"]["answer"] == (
+        "The request was held because an independent review found that the reading did not "
+        "match the question (the reading answers another kind of question than the one asked)."
+    )
+
+
 async def test_a_plan_that_reads_no_stated_grouping_names_it_in_korean() -> None:
     held = _reading_hold("held", "semantic_plan_constraint_uncovered", ("role:groups",))
 

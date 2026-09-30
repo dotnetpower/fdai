@@ -747,7 +747,7 @@ def test_a_literal_operand_must_equal_a_literal_the_extractor_quoted_alone() -> 
     assert _fragment_verdict(named, "app-dev") == FormReview("faithful")
     assert _fragment_verdict(stated, "app-dev가").reasons == ("review_literal_differs:4-11",)
     assert _fragment_verdict(named).reasons == ("review_literal_differs:4-11",)
-    assert extraction_schema()["required"] == ["constraints", "literals"]
+    assert extraction_schema()["required"] == ["answer_kind", "constraints", "literals"]
 
 
 def test_a_literal_the_extractor_cannot_locate_voids_the_review() -> None:
@@ -1109,3 +1109,95 @@ def test_a_references_position_words_are_never_a_merged_restriction() -> None:
     assert review_forms((_typed(form, utterance),), extraction, utterance=utterance) == (
         FormReview("faithful")
     )
+
+
+_WHERE = "Where is subnet-a located?"
+
+
+def _where_form(goal: dict[str, Any]) -> SemanticQuestionForm:
+    raw = {
+        "mentions": [
+            {"id": "m1", "form": "name", "domain": "instance", "span": _quote("subnet-a")}
+        ],
+        "goals": [
+            {
+                "id": "g1",
+                "level": "instance",
+                "subject": "m1",
+                "subject_scope": "anchor",
+                "cue": _quote("Where is"),
+                "confidence": 0.9,
+                **goal,
+            }
+        ],
+    }
+    return _typed(raw, _WHERE)
+
+
+def _where_extraction(answer_kind: str | None) -> dict[str, Any]:
+    extraction: dict[str, Any] = {
+        "constraints": [_constraint("Where is", "asks"), _constraint("subnet-a", "names")]
+    }
+    if answer_kind is not None:
+        extraction["answer_kind"] = answer_kind
+    return extraction
+
+
+def test_a_reading_that_answers_another_kind_of_question_is_held() -> None:
+    state = _where_form(
+        {"operation": "lookup", "measure": {"kind": "state", "cue": _quote("located")}}
+    )
+    container = _where_form(
+        {
+            "operation": "traverse",
+            "relation": {
+                "sense": "containment",
+                "anchor_role": "member",
+                "result_role": "container",
+                "cue": _quote("located"),
+            },
+        }
+    )
+
+    # A current-state lookup does not say where the subnet is located.
+    assert review_forms((state,), _where_extraction("location"), utterance=_WHERE) == (
+        FormReview("unfaithful", ("review_answer_kind:location",))
+    )
+    # The container it sits in does, and an unnamed or other kind is never judged.
+    assert review_forms((container,), _where_extraction("location"), utterance=_WHERE).faithful
+    assert review_forms((state,), _where_extraction(None), utterance=_WHERE).faithful
+    assert review_forms((state,), _where_extraction("other"), utterance=_WHERE).faithful
+    assert review_forms((state,), _where_extraction("state"), utterance=_WHERE).faithful
+
+
+def test_a_list_does_not_answer_a_count_but_a_state_filtered_list_answers_a_state() -> None:
+    utterance = "How many VMs are running?"
+    raw = {
+        "mentions": [
+            {"id": "m1", "form": "concept", "domain": "resource_type", "span": _quote("VMs")},
+            {"id": "m2", "form": "value", "domain": "state", "span": _quote("running")},
+        ],
+        "goals": [
+            {
+                "id": "g1",
+                "level": "instance",
+                "operation": "select",
+                "subject": "m1",
+                "subject_scope": "collection",
+                "filters": [{"role": "state", "mention": "m2"}],
+                "cue": _quote("How many"),
+                "confidence": 0.9,
+            }
+        ],
+    }
+    listed = _typed(raw, utterance)
+    extraction: dict[str, Any] = {
+        "constraints": [_constraint("VMs", "names"), _constraint("running", "restricts")],
+        "literals": [_quote("running")],
+    }
+
+    def verdict(kind: str) -> FormReview:
+        return review_forms((listed,), {**extraction, "answer_kind": kind}, utterance=utterance)
+
+    assert verdict("count").reasons == ("review_answer_kind:count",)
+    assert verdict("list").faithful and verdict("state").faithful

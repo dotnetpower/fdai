@@ -30,11 +30,17 @@ from typing import Annotated, Any, Literal
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from .semantic_reasoning_form import (
+    FilterRole,
+    FormGoal,
+    GoalLevel,
     GoalOperation,
+    MeasureKind,
     MentionDomain,
     MentionForm,
+    RelationSense,
     SemanticQuestionForm,
     SourceSpan,
+    SubjectRole,
 )
 from .semantic_reasoning_proposal import MAX_OCCURRENCE, locate_quote
 
@@ -90,6 +96,35 @@ _UNEXPRESSIBLE: dict[ConstraintRole, frozenset[GoalOperation]] = {
 }
 
 
+class AnswerKind(StrEnum):
+    """The closed kind of answer a question asks for, named by the blind reader."""
+
+    LIST = "list"
+    COUNT = "count"
+    STATE = "state"
+    VALUE = "value"
+    LOCATION = "location"
+    RELATION = "relation"
+    HISTORY = "history"
+    CAUSE = "cause"
+    SCHEMA = "schema"
+    OTHER = "other"
+
+
+# Operations whose answer kind the review does not judge, such as a comparison or a draft.
+_UNJUDGED_OPERATIONS = frozenset(
+    {
+        GoalOperation.COMPARE_WINDOWS,
+        GoalOperation.COMPARE_ENTITIES,
+        GoalOperation.DIFF_VERSIONS,
+        GoalOperation.VERIFY_EVIDENCE,
+        GoalOperation.DRAFT_ACTION,
+    }
+)
+_STATE_MEASURES = frozenset({MeasureKind.STATE, MeasureKind.HEALTH})
+_VALUE_MEASURES = frozenset({MeasureKind.METRIC, MeasureKind.COST, MeasureKind.FORECAST})
+
+
 class _ExtractionModel(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
@@ -110,6 +145,8 @@ class ConstraintExtraction(_ExtractionModel):
         tuple[ExtractedConstraint, ...], Field(max_length=MAX_EXTRACTED_CONSTRAINTS)
     ]
     literals: Annotated[tuple[SourceSpan, ...], Field(max_length=MAX_EXTRACTED_LITERALS)] = ()
+    # The kind of answer asked; an older payload without it, or null, is not judged.
+    answer_kind: AnswerKind | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -133,7 +170,7 @@ def extraction_schema() -> dict[str, Any]:
         raise ValueError("constraint extraction schema has no SourceSpan definition")
     definitions["SourceSpan"] = copy.deepcopy(_QUOTE_SCHEMA)
     # Strict structured output requires every property, so the extractor always answers.
-    schema["required"] = sorted({*schema.get("required", ()), "literals"})
+    schema["required"] = sorted({*schema.get("required", ()), "literals", "answer_kind"})
     return schema
 
 
@@ -154,8 +191,10 @@ def review_forms(
     unacknowledged = unacknowledged_constraints(forms, extraction, utterance)
     merged = merged_constraints(forms, extraction)
     differing = literal_disagreements(forms, extraction)
-    if uncovered or unacknowledged or merged or differing:
+    other_kind = answer_kind_unanswered(forms, extraction)
+    if uncovered or unacknowledged or merged or differing or other_kind is not None:
         reasons = (
+            *(() if other_kind is None else (f"review_answer_kind:{other_kind.value}",)),
             *(
                 f"review_uncovered:{item.role.value}:{item.quote.start}-{item.quote.end}"
                 for item in uncovered
@@ -169,6 +208,76 @@ def review_forms(
         )
         return FormReview("unfaithful", tuple(dict.fromkeys(reasons))[:MAX_REVIEW_REASONS])
     return FormReview("faithful")
+
+
+def answer_kind_unanswered(
+    forms: Sequence[SemanticQuestionForm], extraction: ConstraintExtraction
+) -> AnswerKind | None:
+    """Return the answer kind the blind reader named when no goal answers that kind.
+
+    A form can be faithful to every quoted constraint and still answer another question,
+    such as a current-state lookup for a question asking where a subnet is located. Only
+    closed values decide this: the reader's kind and each goal's operation, measure,
+    level, filters, and relation roles.
+    """
+
+    kind = extraction.answer_kind
+    if kind is None or kind is AnswerKind.OTHER:
+        return None
+    goals = [goal for form in forms for goal in form.goals]
+    if not goals or any(
+        goal.effective_operation in _UNJUDGED_OPERATIONS or kind in answer_kinds(goal)
+        for goal in goals
+    ):
+        return None
+    return kind
+
+
+def answer_kinds(goal: FormGoal) -> frozenset[AnswerKind]:
+    """Return the closed answer kinds one goal's typed reading can answer."""
+
+    if goal.level is GoalLevel.SCHEMA or goal.operation is GoalOperation.DESCRIBE_SCHEMA:
+        return frozenset(
+            {AnswerKind.SCHEMA, AnswerKind.LIST, AnswerKind.COUNT, AnswerKind.RELATION}
+        )
+    operation = goal.effective_operation
+    measure = goal.measure.kind if goal.measure is not None else None
+    if operation is GoalOperation.COUNT or (
+        operation is GoalOperation.AGGREGATE and measure is MeasureKind.COUNT
+    ):
+        return frozenset({AnswerKind.COUNT})
+    if operation is GoalOperation.AGGREGATE:
+        return frozenset({AnswerKind.COUNT, AnswerKind.VALUE})
+    if operation in {GoalOperation.SELECT, GoalOperation.RANK}:
+        kinds = {AnswerKind.LIST}
+        # A list filtered by a state answers whether its members are in that state.
+        if any(item.role in {FilterRole.STATE, FilterRole.HEALTH} for item in goal.filters):
+            kinds.add(AnswerKind.STATE)
+        return frozenset(kinds)
+    if operation in {GoalOperation.TRAVERSE, GoalOperation.PATH, GoalOperation.IMPACT}:
+        kinds = {AnswerKind.LIST, AnswerKind.RELATION}
+        relation = goal.relation
+        # The container a thing sits in is where it is located.
+        if (
+            relation is not None
+            and relation.sense is RelationSense.CONTAINMENT
+            and relation.result_role is SubjectRole.CONTAINER
+        ):
+            kinds.add(AnswerKind.LOCATION)
+        return frozenset(kinds)
+    if operation is GoalOperation.LOOKUP:
+        if measure in _STATE_MEASURES:
+            return frozenset({AnswerKind.STATE})
+        if measure in _VALUE_MEASURES:
+            return frozenset({AnswerKind.VALUE})
+        return frozenset({AnswerKind.STATE, AnswerKind.VALUE})
+    if operation is GoalOperation.HISTORY:
+        return frozenset({AnswerKind.HISTORY, AnswerKind.LIST})
+    if operation is GoalOperation.EXPLAIN_CAUSE:
+        return frozenset({AnswerKind.CAUSE})
+    if operation is GoalOperation.DIAGNOSE:
+        return frozenset({AnswerKind.CAUSE, AnswerKind.STATE})
+    return frozenset(AnswerKind)
 
 
 def resolve_extraction(raw: Mapping[str, Any], utterance: str) -> ConstraintExtraction | None:
@@ -559,10 +668,13 @@ def _locate(quote: object, utterance: str) -> tuple[int, int] | None:
 
 __all__ = [
     "MAX_EXTRACTED_CONSTRAINTS",
+    "AnswerKind",
     "ConstraintExtraction",
     "ConstraintRole",
     "ExtractedConstraint",
     "FormReview",
+    "answer_kind_unanswered",
+    "answer_kinds",
     "describe_merged",
     "describe_uncovered",
     "describe_unexpressible",

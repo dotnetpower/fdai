@@ -599,6 +599,8 @@ def _decision_details(decision: str, observation: ReasoningShadowObservation) ->
                 codes.append(f"role:{role}")
             elif kind == "review_unexpressible" and role:
                 codes.append(f"unexpressible:{role}")
+            elif kind == "review_answer_kind" and role:
+                codes.append(f"answer_kind:{role}")
             else:
                 codes.append(kind)
     elif decision == "unavailable":

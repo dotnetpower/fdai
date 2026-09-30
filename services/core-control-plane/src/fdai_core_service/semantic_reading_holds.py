@@ -165,6 +165,10 @@ _KIND_LABELS: dict[str, tuple[str, str]] = {
         "이름으로 지정한 리소스를 읽을 수 없습니다",
         "a named resource could not be read",
     ),
+    "answer_kind": (
+        "해석이 질문이 묻는 것과 다른 종류의 답을 읽습니다",
+        "the reading answers another kind of question than the one asked",
+    ),
     "review_merged": (
         "하나의 표현에 여러 조건이 합쳐져 있습니다",
         "one phrase merged more than one condition",
