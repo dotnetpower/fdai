@@ -6,7 +6,7 @@ import asyncio
 import hashlib
 from collections.abc import Sequence
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal, InvalidOperation
 from typing import Any
 
@@ -20,6 +20,7 @@ from fdai.agents._framework.introspection import (
     semantic_intents,
 )
 from fdai.agents._framework.pantheon import _NJORD
+from fdai.agents._framework.producer_auth import require_topic_owner
 from fdai.agents._framework.specialist_ingress import (
     COST_SAMPLE_EVENT,
     has_resource_id_conflict,
@@ -86,6 +87,13 @@ class Njord(Agent):
     async def on_typed_message(self, topic: str, payload: dict[str, Any]) -> None:
         if topic != "object.event":
             self.record_behavior("typed_message:ignored")
+            return
+        if require_topic_owner(
+            self,
+            topic,
+            payload,
+            behavior="cost_sample:invalid_producer",
+        ):
             return
         if payload.get("event_type") != COST_SAMPLE_EVENT:
             self.record_behavior("cost_sample:ignored_event")
@@ -588,6 +596,8 @@ def _parse_time(value: str) -> datetime | None:
     except ValueError:
         return None
     if parsed.tzinfo is None or parsed.utcoffset() is None:
+        return None
+    if parsed.utcoffset() != timedelta(0):
         return None
     return parsed.astimezone(UTC)
 

@@ -135,7 +135,7 @@ def test_workflow_dr_drill_orchestration_respects_blast_radius() -> None:
     proposal = asyncio.run(
         loki.propose_experiment(
             experiment_id="drill-1",
-            action_type="ops.failover-primary",
+            action_type="tool.run-chaos-experiment",
             targets=("dc-1", "dc-2", "dc-3", "dc-4"),
             causal_hypothesis_ref="causal-drill",
             refutation_query_ref="query-drill",
@@ -314,7 +314,7 @@ def test_workflow_rollback_rehearsal_uses_loki_and_leaves_no_flight_targets() ->
     proposal = asyncio.run(
         loki.propose_experiment(
             experiment_id="rehearsal-1",
-            action_type="ops.restart-service",
+            action_type="tool.run-chaos-experiment",
             targets=("target-a",),
             causal_hypothesis_ref="causal-1",
             refutation_query_ref="query-1",
@@ -329,7 +329,7 @@ def test_workflow_rollback_rehearsal_uses_loki_and_leaves_no_flight_targets() ->
     followup = asyncio.run(
         loki.propose_experiment(
             experiment_id="rehearsal-2",
-            action_type="ops.restart-service",
+            action_type="tool.run-chaos-experiment",
             targets=("target-b",),
             causal_hypothesis_ref="causal-2",
             refutation_query_ref="query-2",

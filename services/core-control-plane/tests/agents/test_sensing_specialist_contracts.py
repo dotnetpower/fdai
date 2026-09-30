@@ -153,7 +153,7 @@ async def test_huginn_change_projection_rejects_malformed_source_time() -> None:
             }
         )
     except HuginnIngressRejected as exc:
-        assert "occurred_at MUST be RFC 3339" in str(exc)
+        assert exc.reason_code == "timestamp_not_rfc3339"
     else:  # pragma: no cover - assertion clarity
         raise AssertionError("Huginn accepted a malformed source timestamp")
 
@@ -256,7 +256,15 @@ async def test_loki_records_ignored_inputs_and_invalid_closures() -> None:
     loki = Loki()
 
     await loki.on_typed_message("object.verdict", {})
-    await loki.on_typed_message("object.event", {"event_type": "specialist.other"})
+    await loki.on_typed_message(
+        "object.event",
+        {
+            "producer_principal": "Huginn",
+            "correlation_id": "other:corr",
+            "idempotency_key": "other:key",
+            "event_type": "specialist.other",
+        },
+    )
     await loki.on_typed_message(
         "object.action-run",
         {"producer_principal": "Forseti", "state": "rolled_back", "params": {}},

@@ -400,7 +400,7 @@ class _NoFindingAdvisory:
 async def _propose(loki: Loki) -> Any:
     return await loki.propose_experiment(
         experiment_id="experiment-a",
-        action_type="ops.restart-service",
+        action_type="tool.run-chaos-experiment",
         targets=("resource-a",),
         causal_hypothesis_ref="causal-a",
         refutation_query_ref="query-a",

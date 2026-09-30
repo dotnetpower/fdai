@@ -418,7 +418,7 @@ class PantheonRuntime(RuntimeConversationPort):
             bragi_ref.register_tool_answer(answer_with_owned_tools)
             maybe_huginn = agents.get(_INGRESS_PRINCIPAL)
             if isinstance(maybe_huginn, Huginn):
-                bragi_ref.register_proposal_sink(maybe_huginn.ingest)
+                bragi_ref.register_proposal_sink(maybe_huginn.ingest_operator_proposal)
 
         huginn_active = _INGRESS_PRINCIPAL in agents
         runtime = cls(

@@ -499,7 +499,7 @@ def test_loki_respects_blast_radius_cap() -> None:
     proposal = asyncio.run(
         loki.propose_experiment(
             experiment_id="ex-1",
-            action_type="ops.restart-service",
+            action_type="tool.run-chaos-experiment",
             targets=("a", "b", "c", "d"),
             **_chaos_evidence(),
         )
@@ -545,7 +545,7 @@ def test_chaos_proposal_flows_through_heimdall_and_forseti_as_hil() -> None:
     asyncio.run(
         loki.propose_experiment(
             experiment_id="experiment-1",
-            action_type="ops.restart-service",
+            action_type="tool.run-chaos-experiment",
             targets=("resource-1",),
             causal_hypothesis_ref="causal-1",
             refutation_query_ref="query-1",
@@ -603,7 +603,7 @@ def test_incomplete_chaos_proposal_is_held_before_reservation_or_approval() -> N
     proposal = asyncio.run(
         loki.propose_experiment(
             experiment_id="experiment-1",
-            action_type="ops.restart-service",
+            action_type="tool.run-chaos-experiment",
             targets=("resource-1",),
         )
     )
@@ -639,7 +639,7 @@ def test_loki_refuses_further_proposals_when_radius_full() -> None:
     asyncio.run(
         loki.propose_experiment(
             experiment_id="ex-1",
-            action_type="x.y",
+            action_type="tool.run-chaos-experiment",
             targets=("t1",),
             **_chaos_evidence(),
         )
@@ -647,7 +647,7 @@ def test_loki_refuses_further_proposals_when_radius_full() -> None:
     second = asyncio.run(
         loki.propose_experiment(
             experiment_id="ex-2",
-            action_type="x.y",
+            action_type="tool.run-chaos-experiment",
             targets=("t2",),
             **_chaos_evidence(),
         )
@@ -663,7 +663,7 @@ def test_loki_release_targets_frees_slots() -> None:
     asyncio.run(
         loki.propose_experiment(
             experiment_id="e1",
-            action_type="x",
+            action_type="tool.run-chaos-experiment",
             targets=("t1",),
             **_chaos_evidence(),
         )
@@ -672,7 +672,7 @@ def test_loki_release_targets_frees_slots() -> None:
     third = asyncio.run(
         loki.propose_experiment(
             experiment_id="e2",
-            action_type="x",
+            action_type="tool.run-chaos-experiment",
             targets=("t2",),
             **_chaos_evidence(),
         )
@@ -689,7 +689,7 @@ async def test_loki_maintenance_expires_stale_process_local_reservations() -> No
     )
     await loki.propose_experiment(
         experiment_id="e1",
-        action_type="x",
+        action_type="tool.run-chaos-experiment",
         targets=("t1",),
         **_chaos_evidence(),
     )
@@ -886,7 +886,7 @@ def test_loki_proposals_log_is_bounded() -> None:
         asyncio.run(
             loki.propose_experiment(
                 experiment_id=f"e{i}",
-                action_type="x",
+                action_type="tool.run-chaos-experiment",
                 targets=(f"t{i}",),
                 **_chaos_evidence(),
             )

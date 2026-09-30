@@ -302,7 +302,7 @@ def test_huginn_preserves_a_valid_source_event_time() -> None:
 def test_huginn_rejects_a_malformed_source_event_time() -> None:
     huginn = Huginn()
 
-    with pytest.raises(ValueError, match="detected_at MUST be RFC 3339"):
+    with pytest.raises(HuginnIngressRejected) as exc:
         asyncio.run(
             huginn.ingest(
                 {
@@ -313,23 +313,25 @@ def test_huginn_rejects_a_malformed_source_event_time() -> None:
                 }
             )
         )
+    assert exc.value.reason_code == "timestamp_not_rfc3339"
 
 
 def test_huginn_rejects_a_source_time_after_ingestion() -> None:
     huginn = Huginn(clock=lambda: datetime(2026, 9, 14, 2, 0, tzinfo=UTC))
 
-    with pytest.raises(ValueError, match="after trusted ingestion time"):
+    with pytest.raises(HuginnIngressRejected) as exc:
         asyncio.run(
             huginn.ingest(
                 {
                     "id": "evt-time-1",
                     "resource_id": "vm-1",
                     "event_type": "cpu_spike",
-                    "detected_at": "2026-09-14T02:00:01Z",
+                    "detected_at": "2026-09-14T02:10:01Z",
                     "ingested_at": "2099-01-01T00:00:00Z",
                 }
             )
         )
+    assert exc.value.reason_code == "timestamp_future"
 
 
 def test_huginn_rejects_a_naive_ingestion_clock() -> None:
@@ -354,23 +356,20 @@ def test_huginn_bounds_pathological_attributes() -> None:
     from fdai.agents.huginn import _MAX_ATTR_KEYS, _MAX_FIELD_CHARS
 
     huginn = Huginn()
-    payload = asyncio.run(
-        huginn.ingest(
-            {
-                "id": "evt-huge",
-                "event_type": "generic",
-                "attributes": {
-                    **{f"k{i}": "v" for i in range(_MAX_ATTR_KEYS + 100)},
-                    "big": "x" * (_MAX_FIELD_CHARS + 1000),
-                },
-            }
+    with pytest.raises(HuginnIngressRejected) as exc:
+        asyncio.run(
+            huginn.ingest(
+                {
+                    "id": "evt-huge",
+                    "event_type": "generic",
+                    "attributes": {
+                        **{f"k{i}": "v" for i in range(_MAX_ATTR_KEYS + 100)},
+                        "big": "x" * (_MAX_FIELD_CHARS + 1000),
+                    },
+                }
+            )
         )
-    )
-    assert payload is not None
-    attrs = payload["attributes"]
-    assert len(attrs) == _MAX_ATTR_KEYS
-    # Any surviving string value is truncated to the field cap.
-    assert all(len(v) <= _MAX_FIELD_CHARS for v in attrs.values() if isinstance(v, str))
+    assert exc.value.reason_code == "raw_object_too_large"
 
 
 def test_huginn_publishes_on_bound_bus() -> None:
@@ -411,7 +410,7 @@ def test_huginn_derives_stable_key_when_source_omits_one() -> None:
 
 def test_huginn_raises_dedicated_rejection_for_malformed_event_time() -> None:
     huginn = Huginn(clock=lambda: datetime(2026, 9, 14, 2, 0, 1, tzinfo=UTC))
-    with pytest.raises(HuginnIngressRejected, match="event occurred_at MUST be RFC 3339"):
+    with pytest.raises(HuginnIngressRejected) as exc:
         asyncio.run(
             huginn.ingest(
                 {
@@ -422,6 +421,7 @@ def test_huginn_raises_dedicated_rejection_for_malformed_event_time() -> None:
                 }
             )
         )
+    assert exc.value.reason_code == "timestamp_not_rfc3339"
 
 
 # ---------------------------------------------------------------------------

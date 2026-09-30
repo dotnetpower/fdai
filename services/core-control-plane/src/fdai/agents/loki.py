@@ -34,7 +34,9 @@ from fdai.agents._framework.loki_resilience import (
     resilience_score_candidate,
 )
 from fdai.agents._framework.pantheon import _LOKI
+from fdai.agents._framework.producer_auth import require_topic_owner
 from fdai.agents._framework.specialist_ingress import (
+    CHAOS_ACTION_TYPES,
     CHAOS_SCHEDULE_EVENT,
     parse_chaos_schedule,
 )
@@ -60,6 +62,8 @@ _DEFAULT_RESERVATION_TTL = timedelta(minutes=30)
 _CHAOS_OUTBOX_PREFIX = "pantheon/loki/chaos-outbox/"
 _HELD_PREFIX = "pantheon/loki/held-proposals/"
 _RESILIENCE_PREFIX = "pantheon/loki/resilience-scores/"
+_MAX_CHAOS_TARGETS = 32
+_MAX_CHAOS_IDENTIFIER_CHARS = 512
 
 
 @dataclass
@@ -126,6 +130,14 @@ class Loki(Agent):
             return
         if topic != "object.event":
             self.record_behavior("typed_message:ignored")
+            return
+        event_type = str(payload.get("event_type") or "")
+        owner_behavior = (
+            "chaos_schedule:invalid_producer"
+            if event_type == CHAOS_SCHEDULE_EVENT
+            else "resilience_score:invalid"
+        )
+        if require_topic_owner(self, topic, payload, behavior=owner_behavior):
             return
         if payload.get("event_type") == RESILIENCE_SCORE_EVENT:
             candidate = resilience_score_candidate(payload)
@@ -229,6 +241,32 @@ class Loki(Agent):
         dry_run_receipt: str = "",
     ) -> ChaosProposal:
         requested_target_count = len(targets)
+        if action_type not in CHAOS_ACTION_TYPES:
+            proposal = ChaosProposal(
+                experiment_id=experiment_id,
+                action_type=action_type,
+                targets=(),
+                accepted=False,
+                reason="invalid_action_type",
+                requested_target_count=requested_target_count,
+            )
+            self.proposals.append(proposal)
+            self.record_behavior("chaos_proposal:invalid_action_type")
+            return proposal
+        bounded_targets = _bounded_targets(targets)
+        if bounded_targets is None:
+            proposal = ChaosProposal(
+                experiment_id=experiment_id,
+                action_type=action_type,
+                targets=(),
+                accepted=False,
+                reason="invalid_targets",
+                requested_target_count=requested_target_count,
+            )
+            self.proposals.append(proposal)
+            self.record_behavior("chaos_proposal:invalid_targets")
+            return proposal
+        targets = bounded_targets
         evidence = {
             "causal_hypothesis_ref": causal_hypothesis_ref,
             "refutation_query_ref": refutation_query_ref,
@@ -686,3 +724,23 @@ def _parse_time(value: str) -> datetime:
 
 def _digest(value: str) -> str:
     return hashlib.sha256(value.encode()).hexdigest()
+
+
+def _bounded_targets(targets: tuple[str, ...]) -> tuple[str, ...] | None:
+    if not 1 <= len(targets) <= _MAX_CHAOS_TARGETS:
+        return None
+    normalized: list[str] = []
+    for target in targets:
+        if not isinstance(target, str):
+            return None
+        stripped = target.strip()
+        if (
+            not stripped
+            or len(stripped) > _MAX_CHAOS_IDENTIFIER_CHARS
+            or any((ord(char) < 32 and char not in "\t") or ord(char) == 127 for char in stripped)
+        ):
+            return None
+        normalized.append(stripped)
+    if len(set(normalized)) != len(normalized):
+        return None
+    return tuple(normalized)

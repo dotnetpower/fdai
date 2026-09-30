@@ -316,7 +316,7 @@ async def test_loki_suppresses_replayed_chaos_publication_and_restores_holds() -
     first = Loki(bus=bus, state_store=store)
     await first.propose_experiment(
         experiment_id="experiment-a",
-        action_type="ops.restart-service",
+        action_type="tool.run-chaos-experiment",
         targets=("target-a",),
         correlation_id="chaos:a",
         causal_hypothesis_ref="hypothesis:a",
@@ -327,7 +327,7 @@ async def test_loki_suppresses_replayed_chaos_publication_and_restores_holds() -
     )
     held = await first.propose_experiment(
         experiment_id="experiment-held",
-        action_type="ops.restart-service",
+        action_type="tool.run-chaos-experiment",
         targets=("target-b",),
         correlation_id="chaos:held",
     )
@@ -336,7 +336,7 @@ async def test_loki_suppresses_replayed_chaos_publication_and_restores_holds() -
     await restarted.rehydrate()
     await restarted.propose_experiment(
         experiment_id="experiment-a",
-        action_type="ops.restart-service",
+        action_type="tool.run-chaos-experiment",
         targets=("target-a",),
         correlation_id="chaos:a",
         causal_hypothesis_ref="hypothesis:a",
@@ -364,7 +364,7 @@ async def test_loki_resilience_score_rehydrates_and_rejects_stale_overwrite() ->
         "resource_id": "resource-a",
         "attributes": {
             "score": 0.8,
-            "action_type": "ops.restart-service",
+            "action_type": "tool.run-chaos-experiment",
             "effects": [
                 {
                     "objective_id": "objective.availability",

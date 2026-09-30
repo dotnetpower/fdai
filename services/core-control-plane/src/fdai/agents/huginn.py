@@ -9,6 +9,8 @@ behind a provider protocol added in a later wave.
 from __future__ import annotations
 
 import asyncio
+import hashlib
+import re
 from collections import OrderedDict, deque
 from collections.abc import Awaitable, Callable, Mapping
 from datetime import UTC, datetime, timedelta
@@ -42,6 +44,33 @@ _DEDUP_CAPACITY = 100_000
 #: the pipeline / audit or become a huge bus partition key. Applies to every
 #: ingested event, not just operator proposals.
 _MAX_FIELD_CHARS = 512
+_MAX_RAW_DEPTH = 6
+_MAX_RAW_LIST_ITEMS = 128
+_MAX_SOURCE_PAST_AGE = timedelta(days=366)
+_MAX_SOURCE_FUTURE_SKEW = timedelta(minutes=5)
+_SAFE_IDENTITY_RE = re.compile(r"^[A-Za-z0-9_.:-]+$")
+_AUTHORITY_FIELDS = frozenset(
+    {
+        "operator_initiated",
+        "initiator_principal",
+        "action_type",
+        "human_approval_required",
+        "risk",
+        "risk_hint",
+        "risk_hints",
+        "params",
+    }
+)
+_UNOWNED_AUTHORITY_FIELDS = frozenset(
+    {
+        "resolved_autonomy_ceiling",
+        "risk_verdict",
+        "quorum_required",
+        "risk",
+        "risk_hint",
+        "risk_hints",
+    }
+)
 
 #: Bound the free-form ``attributes`` map at ingress: cap the key count and
 #: truncate string values, so a pathological or forged signal cannot smuggle a
@@ -72,6 +101,151 @@ DiscoveryProjector = Callable[[Mapping[str, Any]], Awaitable[object]]
 def _bound(value: Any) -> Any:
     """Truncate a string value to the ingress field cap; pass non-strings."""
     return value[:_MAX_FIELD_CHARS] if isinstance(value, str) else value
+
+
+def _has_control_characters(value: str) -> bool:
+    return any((ord(char) < 32 and char not in "\t") or ord(char) == 127 for char in value)
+
+
+def _safe_string(value: Any, *, field: str, required: bool = False) -> str | None:
+    if value is None or value == "":
+        if required:
+            raise HuginnIngressRejected("invalid_string", field=field)
+        return None
+    if not isinstance(value, str):
+        raise HuginnIngressRejected("invalid_string", field=field)
+    if len(value) > _MAX_FIELD_CHARS or _has_control_characters(value):
+        raise HuginnIngressRejected("invalid_string", field=field)
+    return value
+
+
+def _safe_identity(value: Any, *, field: str, default: str | None = None) -> str:
+    candidate = _safe_string(value, field=field) if value is not None else default
+    if candidate is None:
+        candidate = ""
+    if not candidate or not _SAFE_IDENTITY_RE.fullmatch(candidate):
+        raise HuginnIngressRejected("invalid_identity", field=field)
+    return candidate
+
+
+def _raw_payload_digest(value: Any) -> str:
+    hasher = hashlib.sha256()
+
+    def feed(item: Any, depth: int) -> None:
+        if depth > _MAX_RAW_DEPTH:
+            hasher.update(b"<depth>")
+            return
+        if isinstance(item, Mapping):
+            hasher.update(f"dict:{len(item)}".encode())
+            for key, nested in list(item.items())[:_MAX_ATTR_KEYS]:
+                key_text = key if isinstance(key, str) else type(key).__name__
+                hasher.update(
+                    hashlib.sha256(key_text.encode(errors="replace")).hexdigest().encode()
+                )
+                feed(nested, depth + 1)
+            return
+        if isinstance(item, list | tuple):
+            hasher.update(f"list:{len(item)}".encode())
+            for nested in item[:_MAX_RAW_LIST_ITEMS]:
+                feed(nested, depth + 1)
+            return
+        if isinstance(item, str):
+            hasher.update(f"str:{len(item)}:".encode())
+            hasher.update(hashlib.sha256(item.encode(errors="replace")).hexdigest().encode())
+            return
+        if isinstance(item, datetime):
+            hasher.update(b"datetime")
+            return
+        hasher.update(type(item).__name__.encode())
+
+    feed(value, 0)
+    return hasher.hexdigest()
+
+
+def _validate_raw_value(value: Any, *, path: str, depth: int = 0) -> None:
+    if depth > _MAX_RAW_DEPTH:
+        raise HuginnIngressRejected("raw_depth_exceeded", field=path)
+    if value is None or isinstance(value, bool | int | float | datetime):
+        return
+    if isinstance(value, str):
+        if len(value) > _MAX_FIELD_CHARS or _has_control_characters(value):
+            raise HuginnIngressRejected("invalid_string", field=path)
+        return
+    if isinstance(value, Mapping):
+        if len(value) > _MAX_ATTR_KEYS:
+            raise HuginnIngressRejected("raw_object_too_large", field=path)
+        for key, nested in value.items():
+            if not isinstance(key, str):
+                raise HuginnIngressRejected("invalid_field_name", field=path)
+            if len(key) > _MAX_FIELD_CHARS or _has_control_characters(key):
+                raise HuginnIngressRejected("invalid_field_name", field=path)
+            _validate_raw_value(nested, path=f"{path}.{key}", depth=depth + 1)
+        return
+    if isinstance(value, list | tuple):
+        if len(value) > _MAX_RAW_LIST_ITEMS:
+            raise HuginnIngressRejected("raw_list_too_large", field=path)
+        for index, nested in enumerate(value):
+            _validate_raw_value(nested, path=f"{path}[{index}]", depth=depth + 1)
+        return
+    raise HuginnIngressRejected("invalid_type", field=path)
+
+
+def _validate_raw_ingress(raw: Mapping[str, Any]) -> None:
+    for field in ("idempotency_key", "id", "event_id"):
+        value = raw.get(field)
+        if value in (None, ""):
+            continue
+        if not isinstance(value, str):
+            raise HuginnIngressRejected("invalid_idempotency_key", field=field)
+        if len(value.strip()) > _MAX_FIELD_CHARS or _has_control_characters(value):
+            raise HuginnIngressRejected("invalid_idempotency_key", field=field)
+    _validate_raw_value(raw, path="raw")
+    for field in ("event_type", "source", "resource_type"):
+        if field in raw and raw[field] not in (None, ""):
+            _safe_identity(raw[field], field=field)
+    for field in ("correlation_id",):
+        if field in raw and raw[field] not in (None, ""):
+            _safe_string(raw[field], field=field)
+
+
+def _validated_operator_request_fields(
+    raw: Mapping[str, Any],
+    *,
+    channel: str,
+) -> dict[str, Any]:
+    initiator = _safe_string(raw.get("initiator_principal"), field="initiator_principal")
+    action_type = _safe_identity(raw.get("action_type"), field="action_type")
+    if initiator is None:
+        raise HuginnIngressRejected(
+            "operator_request_initiator_missing", field="initiator_principal"
+        )
+    params = raw.get("params")
+    if params is not None and not isinstance(params, Mapping):
+        raise HuginnIngressRejected("operator_request_params_invalid", field="params")
+    operator_initiated = raw.get("operator_initiated")
+    payload: dict[str, Any] = {
+        "initiator_principal": initiator,
+        "action_type": action_type,
+        "operator_request_channel": channel,
+    }
+    if isinstance(params, Mapping):
+        payload["params"] = _copy_validated_json(params)
+    if isinstance(operator_initiated, bool):
+        payload["operator_initiated"] = operator_initiated
+    elif operator_initiated is not None:
+        payload["operator_initiated"] = False
+    human_approval_required = raw.get("human_approval_required")
+    if isinstance(human_approval_required, bool):
+        payload["human_approval_required"] = human_approval_required
+    return payload
+
+
+def _copy_validated_json(value: Any) -> Any:
+    if isinstance(value, Mapping):
+        return {str(key): _copy_validated_json(item) for key, item in value.items()}
+    if isinstance(value, list | tuple):
+        return [_copy_validated_json(item) for item in value]
+    return value
 
 
 def _bound_attributes(attrs: Any) -> dict[str, Any]:
@@ -125,25 +299,50 @@ def _event_occurred_at(
             try:
                 observed_at = datetime.fromisoformat(value.replace("Z", "+00:00"))
             except ValueError as exc:
-                raise HuginnIngressRejected(f"event {field} MUST be RFC 3339") from exc
+                raise HuginnIngressRejected("timestamp_not_rfc3339", field=field) from exc
         else:
-            raise HuginnIngressRejected(f"event {field} MUST be RFC 3339")
+            raise HuginnIngressRejected("timestamp_not_rfc3339", field=field)
         observed_field = field
         break
     if observed_at is None:
         return None
     if observed_at.tzinfo is None or observed_at.utcoffset() is None:
-        raise HuginnIngressRejected(f"event {observed_field} MUST be timezone-aware")
+        raise HuginnIngressRejected("timestamp_naive", field=observed_field)
 
-    if observed_at > ingested_at:
+    observed_at = observed_at.astimezone(UTC)
+    trusted_ingested_at = ingested_at.astimezone(UTC)
+    if observed_at > trusted_ingested_at + _MAX_SOURCE_FUTURE_SKEW:
         raise HuginnIngressRejected(
-            f"event {observed_field} MUST NOT be after trusted ingestion time"
+            "timestamp_future",
+            field=observed_field,
         )
+    if observed_at < trusted_ingested_at - _MAX_SOURCE_PAST_AGE:
+        raise HuginnIngressRejected("timestamp_too_old", field=observed_field)
     return observed_at.isoformat()
 
 
 class HuginnIngressRejectedError(ValueError):
     """Ingress input was rejected before a normalized Event could be published."""
+
+    def __init__(
+        self,
+        reason_code: str,
+        *,
+        field: str = "",
+        payload_digest: str = "",
+    ) -> None:
+        super().__init__(f"Huginn raw ingress rejected: {reason_code}")
+        self.reason_code = reason_code
+        self.field = field[:_MAX_FIELD_CHARS]
+        self.payload_digest = payload_digest
+
+    def rejection_record(self) -> dict[str, str]:
+        return {
+            "schema_version": "1.0.0",
+            "kind": "huginn.raw_ingress_rejection",
+            "reason_code": self.reason_code,
+            "payload_digest": self.payload_digest,
+        }
 
 
 HuginnIngressRejected = HuginnIngressRejectedError
@@ -190,27 +389,26 @@ def _change_projection(
     try:
         parsed_at = datetime.fromisoformat(occurred_at.replace("Z", "+00:00"))
     except ValueError as exc:
-        raise HuginnIngressRejected("change occurred_at MUST be RFC 3339") from exc
+        raise HuginnIngressRejected("change_timestamp_not_rfc3339", field="occurred_at") from exc
     if parsed_at.tzinfo is None:
-        raise HuginnIngressRejected("change occurred_at MUST be timezone-aware")
+        raise HuginnIngressRejected("change_timestamp_naive", field="occurred_at")
 
     target_ref = str(value("target_ref", event_payload.get("resource_id")) or "").strip()
     if not target_ref:
-        raise HuginnIngressRejected("change target_ref MUST be non-empty")
+        raise HuginnIngressRejected("change_target_missing", field="target_ref")
     actor = canonical_payload.get("actor")
     actor_ref = value(
         "actor_ref",
-        raw.get("initiator_principal"),
         actor.get("principal_id") if isinstance(actor, Mapping) else actor,
         raw.get("source"),
     )
     actor_ref = str(actor_ref or "").strip()
     if not actor_ref:
-        raise HuginnIngressRejected("change actor_ref MUST be non-empty")
+        raise HuginnIngressRejected("change_actor_missing", field="actor_ref")
 
     change_id = str(value("id", event_payload.get("event_id")) or "").strip()
     if not change_id:
-        raise HuginnIngressRejected("change id MUST be non-empty")
+        raise HuginnIngressRejected("change_id_missing", field="id")
     default_status = "observed" if inferred_activity else "planned"
     default_intent = "detected" if inferred_activity else "planned"
     projection: dict[str, Any] = {
@@ -324,19 +522,57 @@ class Huginn(Agent):
         one is bound). Duplicates by ``idempotency_key`` are dropped
         and return ``None``.
         """
-        if (
-            raw.get("event_type") in ALERT_NOISE_EVENT_TYPES
-            or raw.get("source") == "operator-alert-noise"
-        ):
-            if self._alert_noise_verifier is None:
-                raise HuginnIngressRejected("alert ingress verifier is unavailable")
-            self._alert_noise_verifier(raw)
-        key = self._ingress_key(raw)
-        key = key[:_MAX_FIELD_CHARS]
-        async with self._lock_for_key(key):
-            return await self._ingest_locked(raw, key=key)
+        try:
+            _validate_raw_ingress(raw)
+            if (
+                raw.get("event_type") in ALERT_NOISE_EVENT_TYPES
+                or raw.get("source") == "operator-alert-noise"
+            ):
+                if self._alert_noise_verifier is None:
+                    raise HuginnIngressRejected("alert_verifier_unavailable")
+                self._alert_noise_verifier(raw)
+            key = self._ingress_key(raw)
+            async with self._lock_for_key(key):
+                return await self._ingest_locked(raw, key=key)
+        except HuginnIngressRejectedError as exc:
+            if not exc.payload_digest:
+                exc.payload_digest = _raw_payload_digest(raw)
+            self.record_behavior(f"raw_ingress_rejected:{exc.reason_code}")
+            raise
 
-    async def _ingest_locked(self, raw: dict[str, Any], *, key: str) -> dict[str, Any] | None:
+    async def ingest_operator_proposal(self, proposal: dict[str, Any]) -> dict[str, Any] | None:
+        """Normalize Bragi's authenticated in-process operator proposal."""
+
+        try:
+            _validate_raw_ingress(proposal)
+            if proposal.get("event_type") != "operator_request":
+                raise HuginnIngressRejected("operator_proposal_event_type", field="event_type")
+            if proposal.get("operator_initiated") is not True:
+                raise HuginnIngressRejected(
+                    "operator_proposal_initiator", field="operator_initiated"
+                )
+            for field in ("initiator_principal", "action_type"):
+                _safe_string(proposal.get(field), field=field, required=True)
+            key = self._ingress_key(proposal)
+            async with self._lock_for_key(key):
+                return await self._ingest_locked(
+                    proposal,
+                    key=key,
+                    trusted_operator_proposal=True,
+                )
+        except HuginnIngressRejectedError as exc:
+            if not exc.payload_digest:
+                exc.payload_digest = _raw_payload_digest(proposal)
+            self.record_behavior(f"operator_proposal_rejected:{exc.reason_code}")
+            raise
+
+    async def _ingest_locked(
+        self,
+        raw: dict[str, Any],
+        *,
+        key: str,
+        trusted_operator_proposal: bool = False,
+    ) -> dict[str, Any] | None:
         raw_request_digest = request_digest(raw) if self._dedup_journal is not None else ""
         if key in self._seen_keys:
             self._seen_keys.move_to_end(key)
@@ -354,9 +590,9 @@ class Huginn(Agent):
         )
         resource: Mapping[str, Any] = resource_value if isinstance(resource_value, Mapping) else {}
 
-        event_type = str(raw.get("event_type", "generic"))[:_MAX_FIELD_CHARS]
+        event_type = _safe_identity(raw.get("event_type") or "generic", field="event_type")
         attributes = _bound_attributes(raw.get("attributes", {}))
-        correlation_id = str(raw.get("correlation_id") or key)[:_MAX_FIELD_CHARS]
+        correlation_id = _safe_string(raw.get("correlation_id"), field="correlation_id") or key
         if event_type == "case_history.operational_case.v1":
             raw_attributes = raw.get("attributes")
             if isinstance(raw_attributes, Mapping):
@@ -374,15 +610,22 @@ class Huginn(Agent):
             "incident_correlation": (
                 "none"
                 if str(raw.get("event_type", "")).startswith("inventory.")
-                else str(raw.get("incident_correlation", "correlate"))[:_MAX_FIELD_CHARS]
+                else _safe_string(raw.get("incident_correlation"), field="incident_correlation")
+                or "correlate"
             ),
             "idempotency_key": key,
-            "event_id": _bound(raw.get("event_id") or key),
-            "source": _bound(raw.get("source") or "unknown"),
+            "event_id": _safe_string(raw.get("event_id"), field="event_id") or key,
+            "source": _safe_identity(raw.get("source") or "unknown", field="source"),
             "resource_id": _bound(
                 raw.get("resource_id") or raw.get("resource_ref") or resource.get("resource_id")
             ),
-            "resource_type": _bound(raw.get("resource_type") or resource.get("type")),
+            "resource_type": (
+                _safe_identity(
+                    raw.get("resource_type") or resource.get("type"), field="resource_type"
+                )
+                if raw.get("resource_type") or resource.get("type")
+                else None
+            ),
             "event_type": event_type,
             "attributes": attributes,
             "ingested_at": ingested_at.isoformat(),
@@ -395,7 +638,8 @@ class Huginn(Agent):
             signed = SignedAlertCommand.model_validate(canonical_payload.get("alert_noise"))
             if signed.command.operation != event_type or raw.get("mode") != "shadow":
                 raise HuginnIngressRejected(
-                    "alert quality ingress is mismatched or authority-bearing"
+                    "alert_authority_mismatch",
+                    field="alert_noise",
                 )
             payload["alert_noise"] = signed.model_dump(mode="json")
             payload["incident_correlation"] = "none"
@@ -428,24 +672,19 @@ class Huginn(Agent):
                 for field in _TRACE_CONTINUITY_FIELDS
                 if field in canonical_payload
             }
-        # Operator-proposal fields (`initiator_principal`, `action_type`,
-        # `params`) are honored ONLY for an explicit operator request
-        # (``event_type == "operator_request"``). This is the trust gate: a
-        # rule-fired or external signal (Activity Log, anomaly) on the same
-        # ingress topic can never carry operator-proposal semantics even if a
-        # forged payload includes these keys - so an external producer cannot
-        # spoof an initiator / a direct ActionType / the operator flag into the
-        # judge pipeline. ``operator_initiated`` is coerced to a strict bool so
-        # a truthy string ("false", "0") cannot flip the fail-closed RBAC logic.
         if payload["event_type"] == "operator_request":
-            for passthrough in ("initiator_principal", "action_type", "params"):
-                value = raw.get(passthrough)
-                if value is not None:
-                    payload[passthrough] = _bound(value)
-            payload["operator_initiated"] = raw.get("operator_initiated") is True
+            payload.update(
+                _validated_operator_request_fields(
+                    raw,
+                    channel="conversation" if trusted_operator_proposal else "ingress",
+                )
+            )
+            stripped = _UNOWNED_AUTHORITY_FIELDS.intersection(raw)
+            if stripped:
+                self.record_behavior("operator_request:unowned_authority_fields_stripped")
             workflow_action = raw.get("workflow_action")
             if isinstance(workflow_action, Mapping):
-                payload["workflow_action"] = _bound_json(workflow_action)
+                payload["workflow_action"] = _copy_validated_json(workflow_action)
         if payload["event_type"] == "human.assignment.iam_apply_requested":
             payload["attributes"]["iam_request"] = {
                 field: _bound_json(canonical_payload[field])
@@ -567,18 +806,38 @@ class Huginn(Agent):
         return lock
 
     def _ingress_key(self, raw: Mapping[str, Any]) -> str:
-        provided = str(raw.get("idempotency_key") or raw.get("id") or raw.get("event_id") or "")
-        if provided.strip():
-            return provided.strip()
-        event_type = str(raw.get("event_type") or "generic")[:_MAX_FIELD_CHARS]
-        source = str(raw.get("source") or "unknown")[:_MAX_FIELD_CHARS]
-        resource = str(raw.get("resource_id") or raw.get("resource_ref") or "")[:_MAX_FIELD_CHARS]
-        time_basis = str(
-            raw.get("occurred_at") or raw.get("detected_at") or raw.get("created_at") or ""
-        )[:_MAX_FIELD_CHARS]
+        for field in ("idempotency_key", "id", "event_id"):
+            provided = raw.get(field)
+            if provided in (None, ""):
+                continue
+            if not isinstance(provided, str):
+                raise HuginnIngressRejected("invalid_idempotency_key", field=field)
+            normalized = provided.strip()
+            if (
+                not normalized
+                or len(normalized) > _MAX_FIELD_CHARS
+                or _has_control_characters(normalized)
+            ):
+                raise HuginnIngressRejected("invalid_idempotency_key", field=field)
+            return normalized
+        event_type = _safe_identity(raw.get("event_type") or "generic", field="event_type")
+        source = _safe_identity(raw.get("source") or "unknown", field="source")
+        resource = (
+            _safe_string(
+                raw.get("resource_id") or raw.get("resource_ref") or "",
+                field="resource_id",
+            )
+            or ""
+        )
+        time_value = raw.get("occurred_at") or raw.get("detected_at") or raw.get("created_at") or ""
+        time_basis = (
+            time_value.isoformat()
+            if isinstance(time_value, datetime)
+            else (_safe_string(time_value, field="occurred_at") or "")
+        )
         attributes = _bound_attributes(raw.get("attributes", {}))
         if not any((event_type, source, resource, time_basis, attributes)):
-            raise HuginnIngressRejected("event lacks a stable identity for idempotency")
+            raise HuginnIngressRejected("missing_stable_identity")
         return stable_idempotency_key(
             "huginn-event",
             event_type,

@@ -10,6 +10,8 @@ from fdai.shared.providers.state_store import StateStore
 
 _STATE_KEY = "pantheon/loki/chaos-reservations"
 _MAX_CAS_ATTEMPTS = 8
+_MAX_IDENTIFIER_CHARS = 512
+_MAX_TARGETS = 32
 
 
 @dataclass(frozen=True, slots=True)
@@ -47,6 +49,7 @@ class LokiReservationJournal:
         targets: tuple[str, ...],
         reserved_at: str,
     ) -> ReservationResult:
+        _validate_reservation_identity(experiment_id, action_type, targets)
         for _ in range(_MAX_CAS_ATTEMPTS):
             current = await self._store.read_state(_STATE_KEY)
             revision, stored_cap, experiments = _decode(current)
@@ -108,6 +111,7 @@ class LokiReservationJournal:
         action_type: str,
         targets: tuple[str, ...],
     ) -> ReservationResult | None:
+        _validate_reservation_identity(experiment_id, action_type, targets)
         for _ in range(_MAX_CAS_ATTEMPTS):
             current = await self._store.read_state(_STATE_KEY)
             revision, stored_cap, experiments = _decode(current)
@@ -198,7 +202,11 @@ def _decode(
         raise ValueError("chaos reservation experiments must be an object")
     experiments: dict[str, ReservationRecord] = {}
     for experiment_id, raw in raw_experiments.items():
-        if not isinstance(experiment_id, str) or not experiment_id or not isinstance(raw, Mapping):
+        if (
+            not isinstance(experiment_id, str)
+            or not _safe_identifier(experiment_id)
+            or not isinstance(raw, Mapping)
+        ):
             raise ValueError("chaos reservation experiment is malformed")
         action_type = raw.get("action_type")
         raw_requested = raw.get("requested_targets")
@@ -206,16 +214,25 @@ def _decode(
         reserved_at = raw.get("reserved_at", "")
         if (
             not isinstance(action_type, str)
-            or not action_type
+            or not _safe_identifier(action_type)
             or not isinstance(raw_requested, list)
             or not isinstance(raw_targets, list)
         ):
             raise ValueError("chaos reservation fields are malformed")
-        requested = tuple(target for target in raw_requested if isinstance(target, str) and target)
-        targets = tuple(target for target in raw_targets if isinstance(target, str) and target)
+        requested = tuple(
+            target.strip()
+            for target in raw_requested
+            if isinstance(target, str) and _safe_identifier(target)
+        )
+        targets = tuple(
+            target.strip()
+            for target in raw_targets
+            if isinstance(target, str) and _safe_identifier(target)
+        )
         if (
             len(requested) != len(raw_requested)
             or not requested
+            or len(requested) > _MAX_TARGETS
             or len(set(requested)) != len(requested)
             or len(targets) != len(raw_targets)
             or not targets
@@ -265,6 +282,31 @@ def _occupied(
     if len(set(targets)) != len(targets):
         raise ValueError("chaos reservation targets overlap")
     return frozenset(targets)
+
+
+def _safe_identifier(value: str) -> bool:
+    stripped = value.strip()
+    return (
+        bool(stripped)
+        and stripped == value
+        and len(stripped) <= _MAX_IDENTIFIER_CHARS
+        and not any((ord(char) < 32 and char not in "\t") or ord(char) == 127 for char in stripped)
+    )
+
+
+def _validate_reservation_identity(
+    experiment_id: str,
+    action_type: str,
+    targets: tuple[str, ...],
+) -> None:
+    if not _safe_identifier(experiment_id) or not _safe_identifier(action_type):
+        raise ValueError("chaos reservation identity is malformed")
+    if not 1 <= len(targets) <= _MAX_TARGETS:
+        raise ValueError("chaos reservation targets are malformed")
+    if any(not isinstance(target, str) or not _safe_identifier(target) for target in targets):
+        raise ValueError("chaos reservation targets are malformed")
+    if len(set(target.strip() for target in targets)) != len(targets):
+        raise ValueError("chaos reservation targets are malformed")
 
 
 __all__ = ["LokiReservationJournal", "ReservationRecord", "ReservationResult"]

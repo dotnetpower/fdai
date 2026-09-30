@@ -68,8 +68,9 @@ from fdai.agents._framework.introspection import (
     semantic_intents,
 )
 from fdai.agents._framework.pantheon import _HEIMDALL
+from fdai.agents._framework.producer_auth import require_topic_owner
 from fdai.agents._framework.role_answers import heimdall_role_answer
-from fdai.agents._framework.specialist_ingress import SPECIALIST_EVENT_PREFIX
+from fdai.agents._framework.specialist_ingress import CHAOS_ACTION_TYPES, SPECIALIST_EVENT_PREFIX
 from fdai.agents._framework.topics import stable_idempotency_key
 from fdai.core.detection.forecast_closure import ForecastClosureCoordinator
 from fdai.core.detection.forecast_episode import ForecastEpisodeStore
@@ -318,6 +319,13 @@ class Heimdall(
                 return
             await self._maybe_emit_anomaly(payload)
         elif topic == "object.chaos-experiment":
+            if require_topic_owner(
+                self,
+                topic,
+                payload,
+                behavior="chaos_experiment:invalid_producer",
+            ):
+                return
             await self._observe_chaos_experiment(payload)
         elif topic == "object.security-event":
             severity = await self._maybe_classify_severity(payload)
@@ -400,12 +408,26 @@ class Heimdall(
         experiment_id = str(proposal.get("experiment_id") or "")
         action_type = str(proposal.get("action_type") or "")
         raw_targets = proposal.get("targets")
-        targets = (
-            tuple(str(item) for item in raw_targets if isinstance(item, str) and item.strip())
-            if isinstance(raw_targets, list)
-            else ()
-        )
-        if not experiment_id or not action_type or not targets:
+        targets: tuple[str, ...] = ()
+        if isinstance(raw_targets, list) and 1 <= len(raw_targets) <= 32:
+            targets = tuple(
+                item.strip()
+                for item in raw_targets
+                if isinstance(item, str)
+                and item.strip()
+                and len(item.strip()) <= 512
+                and not any(
+                    (ord(char) < 32 and char not in "\t") or ord(char) == 127
+                    for char in item.strip()
+                )
+            )
+        if (
+            not experiment_id
+            or action_type not in CHAOS_ACTION_TYPES
+            or not targets
+            or len(targets) != len(raw_targets or ())
+            or len(set(targets)) != len(targets)
+        ):
             self.record_behavior("chaos_experiment:invalid")
             return
         evidence_fields = (

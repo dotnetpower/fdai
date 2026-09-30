@@ -21,7 +21,7 @@ from fdai.agents._framework.bus import InMemoryBus
 from fdai.agents._framework.registry import load_pantheon
 from fdai.agents.bragi import Bragi
 from fdai.agents.forseti import Forseti
-from fdai.agents.huginn import Huginn
+from fdai.agents.huginn import Huginn, HuginnIngressRejected
 from fdai.agents.thor import ActionRunState, Thor
 from fdai.agents.var import Var
 from fdai.core.conversation.semantic_judgment import (
@@ -143,7 +143,7 @@ class _Harness:
         )
         # Wire the conversational-port entry: Bragi submits proposals through
         # Huginn (sole writer of object.event). Bragi never publishes / executes.
-        self.bragi.register_proposal_sink(self.huginn.ingest)
+        self.bragi.register_proposal_sink(self.huginn.ingest_operator_proposal)
         self.bus.subscribe("object.event", "Forseti", self.forseti.on_typed_message)
         self.bus.subscribe("object.verdict", "Thor", self.thor.on_typed_message)
         self.bus.subscribe("object.verdict", "Bragi", self.bragi.on_typed_message)
@@ -175,6 +175,10 @@ def test_auto_action_submitted_judged_and_shadow_executed() -> None:
     assert answer["submitted"] is True
     assert answer["action_type"] == "ops.restart-service"
     corr = answer["correlation_id"]
+    event = h.bus.messages_on("object.event")[0].payload
+    assert event["initiator_principal"] == _OPERATOR
+    assert event["operator_initiated"] is True
+    assert event["action_type"] == "ops.restart-service"
 
     # Forseti judged auto; Thor executed in shadow (judged-and-logged only).
     run = h.thor.action_runs[corr]
@@ -342,7 +346,7 @@ def test_forged_external_signal_cannot_carry_operator_fields() -> None:
     assert "operator_initiated" not in published
 
 
-def test_operator_request_honors_operator_fields_with_strict_bool() -> None:
+def test_raw_operator_request_keeps_validated_operator_fields_with_ingress_channel() -> None:
     bus = _bus()
     huginn = Huginn(bus=bus)
     asyncio.run(
@@ -366,6 +370,8 @@ def test_operator_request_honors_operator_fields_with_strict_bool() -> None:
     published = bus.messages_on("object.event")[0].payload
     assert published["action_type"] == "ops.restart-service"
     assert published["operator_initiated"] is False
+    assert published["initiator_principal"] == "operator@example.com"
+    assert published["operator_request_channel"] == "ingress"
     assert published["workflow_action"]["process_id"] == "process-1"
 
 
@@ -490,21 +496,21 @@ def test_var_clamps_quorum_to_a_floor_of_one() -> None:
 def test_huginn_bounds_oversized_ingress_fields() -> None:
     bus = _bus()
     huginn = Huginn(bus=bus)
-    asyncio.run(
-        huginn.ingest(
-            {
-                "id": "e-big",
-                "event_type": "operator_request",
-                "action_type": "x" * 5_000,
-                "initiator_principal": "op@example.com",
-                "operator_initiated": True,
-                "resource_id": "r" * 5_000,
-            }
+    with pytest.raises(HuginnIngressRejected) as exc:
+        asyncio.run(
+            huginn.ingest(
+                {
+                    "id": "e-big",
+                    "event_type": "operator_request",
+                    "action_type": "x" * 5_000,
+                    "initiator_principal": "op@example.com",
+                    "operator_initiated": True,
+                    "resource_id": "r" * 5_000,
+                }
+            )
         )
-    )
-    payload = bus.messages_on("object.event")[0].payload
-    assert len(payload["action_type"]) <= 512
-    assert len(payload["resource_id"]) <= 512
+    assert exc.value.reason_code == "invalid_string"
+    assert bus.messages_on("object.event") == []
 
 
 def test_var_pending_map_is_bounded() -> None:

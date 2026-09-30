@@ -23,6 +23,7 @@ from fdai.agents._framework.introspection import (
     mentioned,
 )
 from fdai.agents._framework.pantheon import _FREYR
+from fdai.agents._framework.producer_auth import require_topic_owner
 from fdai.agents._framework.specialist_ingress import (
     CAPACITY_GRADUATION_EVENT,
     CAPACITY_SAMPLE_EVENT,
@@ -46,6 +47,7 @@ _COST_EVIDENCE_MAX_AGE = timedelta(hours=1)
 _RESOURCE_PREFIX = "pantheon/freyr/capacity-resources/"
 _ACCEPTED_PREFIX = "pantheon/freyr/accepted-samples/"
 _COST_PREFIX = "pantheon/freyr/cost-evidence/"
+_MAX_RETAINED_IDENTIFIER_CHARS = 128
 
 
 @dataclass(frozen=True, slots=True)
@@ -91,10 +93,24 @@ class Freyr(Agent):
 
     async def on_typed_message(self, topic: str, payload: dict[str, Any]) -> None:
         if topic == "object.cost-anomaly":
+            if require_topic_owner(
+                self,
+                topic,
+                payload,
+                behavior="capacity_graduation:invalid_cost_owner",
+            ):
+                return
             await self._retain_cost_evidence(payload)
             return
         if topic != "object.event":
             self.record_behavior("typed_message:ignored")
+            return
+        if require_topic_owner(
+            self,
+            topic,
+            payload,
+            behavior="capacity_sample:invalid_producer",
+        ):
             return
         if payload.get("event_type") == CAPACITY_GRADUATION_EVENT:
             await self._evaluate_graduation(payload)
@@ -201,12 +217,9 @@ class Freyr(Agent):
         )
 
     async def _retain_cost_evidence(self, payload: dict[str, Any]) -> None:
-        if payload.get("producer_principal") != "Njord":
-            self.record_behavior("capacity_graduation:invalid_cost_owner")
-            return
-        target_ref = str(payload.get("resource_id") or payload.get("target_ref") or "")
-        evidence_ref = str(payload.get("evidence_ref") or payload.get("id") or "")
-        correlation_id = str(payload.get("correlation_id") or "")
+        target_ref = _retained_identifier(payload.get("resource_id") or payload.get("target_ref"))
+        evidence_ref = _retained_identifier(payload.get("evidence_ref") or payload.get("id"))
+        correlation_id = _retained_identifier(payload.get("correlation_id"))
         raw_observed = payload.get("observed_at") or payload.get("detected_at")
         if (
             not target_ref
@@ -633,3 +646,19 @@ def _accepted_key(sample_key: str) -> str:
 
 def _digest(value: str) -> str:
     return hashlib.sha256(value.encode()).hexdigest()
+
+
+def _retained_identifier(value: object) -> str:
+    if not isinstance(value, str):
+        return ""
+    normalized = value.strip()
+    if not normalized:
+        return ""
+    unsafe = (
+        len(normalized) > _MAX_RETAINED_IDENTIFIER_CHARS
+        or "://" in normalized
+        or any((ord(char) < 32 and char not in "\t") or ord(char) == 127 for char in normalized)
+    )
+    if unsafe:
+        return "sha256:" + _digest(normalized)
+    return normalized

@@ -15,9 +15,10 @@ CAPACITY_SAMPLE_EVENT = "specialist.capacity_sample"
 CAPACITY_GRADUATION_EVENT = "specialist.capacity_graduation_evidence"
 CHAOS_SCHEDULE_EVENT = "specialist.chaos_schedule"
 SPECIALIST_EVENT_PREFIX = "specialist."
+CHAOS_ACTION_TYPES = frozenset({"tool.run-chaos-experiment"})
 
 _MAX_FIELD_CHARS = 512
-_MAX_TARGETS = 128
+_MAX_TARGETS = 32
 
 
 @dataclass(frozen=True, slots=True)
@@ -107,6 +108,7 @@ def parse_chaos_schedule(payload: Mapping[str, Any]) -> ChaosScheduleSignal | No
     if (
         experiment_id is None
         or action_type is None
+        or action_type not in CHAOS_ACTION_TYPES
         or not isinstance(raw_targets, Sequence)
         or isinstance(raw_targets, str | bytes)
         or not 1 <= len(raw_targets) <= _MAX_TARGETS
@@ -136,7 +138,11 @@ def _bounded_string(value: object, *, required: bool = True) -> str | None:
     if not isinstance(value, str):
         return None
     normalized = value.strip()
-    if not normalized or len(normalized) > _MAX_FIELD_CHARS:
+    if (
+        not normalized
+        or len(normalized) > _MAX_FIELD_CHARS
+        or any((ord(char) < 32 and char not in "\t") or ord(char) == 127 for char in normalized)
+    ):
         return None
     return normalized
 
@@ -193,6 +199,7 @@ def has_resource_id_conflict(payload: Mapping[str, Any]) -> bool:
 __all__ = [
     "CAPACITY_SAMPLE_EVENT",
     "CAPACITY_GRADUATION_EVENT",
+    "CHAOS_ACTION_TYPES",
     "CHAOS_SCHEDULE_EVENT",
     "COST_SAMPLE_EVENT",
     "SPECIALIST_EVENT_PREFIX",

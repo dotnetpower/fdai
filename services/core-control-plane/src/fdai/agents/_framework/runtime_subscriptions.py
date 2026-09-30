@@ -67,6 +67,7 @@ def build_ingress_handler(
         try:
             await agent.ingest(payload)
         except HuginnIngressRejectedError as exc:
+            agent.record_behavior(f"runtime_raw_ingress_rejected:{exc.reason_code}")
             on_unkeyed(exc)
 
     return _ingress
