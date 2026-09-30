@@ -7,11 +7,15 @@ from typing import Any, cast
 
 import pytest
 from fdai.core.conversation.semantic_plan_coverage import (
+    narrower_plan_outcome,
+    plan_answers_schema_for_instance,
     plan_reads_only_a_list,
     plan_uncovered_roles,
 )
+from fdai.core.conversation.semantic_planning_models import SemanticPlanningDisposition
 from fdai.core.conversation.semantic_reasoning_form import SourceSpan
 from fdai.core.conversation.semantic_reasoning_review import (
+    AnswerKind,
     ConstraintExtraction,
     ConstraintRole,
     ExtractedConstraint,
@@ -146,3 +150,63 @@ def test_a_stated_grouping_or_relation_must_shape_the_plan() -> None:
     # Without a blind reading, or with only a restriction, nothing is held here.
     assert plan_uncovered_roles(None, listed) == ()
     assert plan_uncovered_roles(_reading(ConstraintRole.RESTRICTS), listed) == ()
+
+
+def _asking(kind: AnswerKind | None) -> ConstraintExtraction:
+    return ConstraintExtraction(
+        constraints=(
+            ExtractedConstraint(quote=SourceSpan(start=0, end=1), role=ConstraintRole.NAMES),
+        ),
+        answer_kind=kind,
+    )
+
+
+def _declaration() -> OntologyQueryNode:
+    return _node(
+        "declaration",
+        QueryNodeKind.FUNCTION,
+        {"function_name": "query.ontology_declaration", "arguments": {"name": "Resource"}},
+    )
+
+
+@pytest.mark.parametrize(
+    ("kind", "held"),
+    (
+        (AnswerKind.STATE, True),
+        (AnswerKind.VALUE, True),
+        (AnswerKind.LOCATION, True),
+        (AnswerKind.HISTORY, True),
+        (AnswerKind.CAUSE, True),
+        (AnswerKind.SCHEMA, False),
+        (AnswerKind.LIST, False),
+        (AnswerKind.COUNT, False),
+        (AnswerKind.RELATION, False),
+        (AnswerKind.OTHER, False),
+        (None, False),
+    ),
+)
+def test_a_declaration_read_never_answers_what_an_instance_is(
+    kind: AnswerKind | None, held: bool
+) -> None:
+    declared = _plan(_declaration())
+    counted = _plan(_declaration(), _node("count", QueryNodeKind.AGGREGATE, {"operation": "count"}))
+    instances = _plan(_objects(_TYPE), _declaration())
+
+    expected = kind if held else None
+    assert plan_answers_schema_for_instance(_asking(kind), declared) == expected
+    assert plan_answers_schema_for_instance(_asking(kind), counted) == expected
+    # A plan that also reads instances is judged by the other checks, never this one.
+    assert plan_answers_schema_for_instance(_asking(kind), instances) is None
+
+
+def test_a_schema_answer_to_an_instance_question_holds_as_an_unverified_reading() -> None:
+    coverage = SimpleNamespace(settled_reading=lambda: _asking(AnswerKind.STATE))
+
+    outcome = narrower_plan_outcome(
+        None, cast(Any, coverage), "model_plan", _plan(_declaration()), "sha256:" + "a" * 64
+    )
+
+    assert outcome is not None
+    assert outcome.disposition is SemanticPlanningDisposition.UNAVAILABLE
+    assert outcome.reason == "semantic_reading_unverified"
+    assert outcome.hold_details == ("answer_kind:state",)

@@ -1,6 +1,6 @@
 ---
 translation_of: ontology-reasoning-compiler.md
-translation_source_sha: 457554a9489d3123a929db9a12d0d0c853c6be6c
+translation_source_sha: fcaef5f1d19727b4e814eca3b4905f282859ff2c
 translation_revised: 2026-09-30
 ---
 # 온톨로지 추론 컴파일러
@@ -795,6 +795,10 @@ release는 바뀌지 않습니다.
   밝혔는데 어떤 탐색, 경로, 함수, 컨테이너 그룹이나 필터도 관계를 읽지 않으면, 플래너는 턴을
   `semantic_plan_constraint_uncovered`로 보류합니다. 이 검사는 블라인드 해석이 도착한 뒤에만 읽습니다.
   제한은 판단의 적용 범위 검토와 형식 해석이 맡습니다.
+- **인스턴스 질문에 대한 스키마 답변**: 매니페스트, 선언, 관계 읽기와 그 집계로 온톨로지 선언만 읽는 계획은
+  유형이 무엇을 선언하는지에 답합니다. 블라인드 해석이 질문이 상태, 값, 위치, 이력, 원인을 묻는다고 하면,
+  플래너는 R2 중간 수준 검사로서 그 답변 종류와 함께 턴을 `semantic_reading_unverified`로 보류합니다.
+  스키마, 목록, 개수, 관계를 묻거나 답변 종류가 판단되지 않은 질문은 이 검사로 보류하지 않습니다.
 
 **보류**
 

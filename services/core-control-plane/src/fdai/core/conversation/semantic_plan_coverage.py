@@ -6,7 +6,9 @@ planned as one ungrouped count, or a region question planned as a list of every 
 of that kind. These checks compare closed structure only, never words. A plan that reads
 only a filtered list has no function, metric, path, order, grouping, or predicate beyond
 kind, name, and identity; a reading that asks more than such a list, or a blind reading
-that states a grouping or a relation, is then not what the plan answers.
+that states a grouping or a relation, is then not what the plan answers. A plan that reads
+only ontology declarations answers what a type declares, never a state, value, location,
+history, or cause of an instance that the blind reading says the question asks.
 """
 
 from __future__ import annotations
@@ -27,11 +29,28 @@ from .semantic_planning_models import (
     hold_details,
 )
 from .semantic_planning_support import _outcome
-from .semantic_reasoning_review import ConstraintExtraction, ConstraintRole
+from .semantic_reasoning_review import AnswerKind, ConstraintExtraction, ConstraintRole
 
 _LOGGER = logging.getLogger(__name__)
 
 PLAN_CONSTRAINT_UNCOVERED = "semantic_plan_constraint_uncovered"
+PLAN_READING_UNVERIFIED = "semantic_reading_unverified"
+# Declaration reads answer what the ontology declares, never what an instance is or did.
+_DECLARATION_READERS = frozenset(
+    {"query.manifest", "query.ontology_declaration", "query.ontology_relationships"}
+)
+_DERIVED_KINDS = frozenset({QueryNodeKind.AGGREGATE, QueryNodeKind.UNION, QueryNodeKind.PROJECT})
+# Kinds only an instance read answers; a declaration read answers a schema, list, count,
+# or relation question.
+_INSTANCE_ANSWERS = frozenset(
+    {
+        AnswerKind.STATE,
+        AnswerKind.VALUE,
+        AnswerKind.LOCATION,
+        AnswerKind.HISTORY,
+        AnswerKind.CAUSE,
+    }
+)
 # Properties a filtered list reads: its kind, a name part, an identity, and its container.
 _LIST_PROPERTIES = frozenset({"type", "name", "id", "parent_id"})
 _CONTAINMENT = "contains"
@@ -84,7 +103,20 @@ def narrower_plan_outcome(
     )
     if vetoed is not None:
         return vetoed
-    roles = plan_uncovered_roles(coverage.settled_reading() if coverage is not None else None, plan)
+    reading = coverage.settled_reading() if coverage is not None else None
+    asked = plan_answers_schema_for_instance(reading, plan)
+    if asked is not None:
+        _LOGGER.info(
+            "semantic_plan_level_differs",
+            extra={"plan_source": plan_source, "answer_kind": asked.value},
+        )
+        return _outcome(
+            SemanticPlanningDisposition.UNAVAILABLE,
+            PLAN_READING_UNVERIFIED,
+            manifest_digest=manifest_digest,
+            hold_details=hold_details((f"answer_kind:{asked.value}",)),
+        )
+    roles = plan_uncovered_roles(reading, plan)
     if not roles:
         return None
     _LOGGER.info(
@@ -129,6 +161,30 @@ def plan_uncovered_roles(
     if ConstraintRole.RELATES in roles and not any(_relational(node) for node in plan.nodes):
         uncovered.append(ConstraintRole.RELATES.value)
     return tuple(uncovered)
+
+
+def plan_answers_schema_for_instance(
+    extraction: ConstraintExtraction | None, plan: OntologyQueryPlan
+) -> AnswerKind | None:
+    """Return the instance answer kind a declaration-only plan cannot answer, if any.
+
+    The blind reading names the kind of answer the question asks; a plan that reads only
+    ontology declarations answers what a type declares, so a state, value, location,
+    history, or cause question it would answer gets a schema answer to an instance target.
+    """
+
+    if extraction is None or extraction.answer_kind not in _INSTANCE_ANSWERS:
+        return None
+    functions = [node for node in plan.nodes if node.kind is QueryNodeKind.FUNCTION]
+    declaration_only = bool(functions) and all(
+        node.kind in _DERIVED_KINDS
+        or (
+            node.kind is QueryNodeKind.FUNCTION
+            and node.arguments.get("function_name") in _DECLARATION_READERS
+        )
+        for node in plan.nodes
+    )
+    return extraction.answer_kind if declaration_only else None
 
 
 def _list_node(node: OntologyQueryNode) -> bool:
@@ -188,9 +244,11 @@ def _relational(node: OntologyQueryNode) -> bool:
 
 __all__ = [
     "PLAN_CONSTRAINT_UNCOVERED",
+    "PLAN_READING_UNVERIFIED",
     "BlindReading",
     "PlanVeto",
     "narrower_plan_outcome",
+    "plan_answers_schema_for_instance",
     "plan_reads_only_a_list",
     "plan_uncovered_roles",
 ]

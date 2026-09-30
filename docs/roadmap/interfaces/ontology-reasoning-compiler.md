@@ -782,6 +782,11 @@ rounds traced. Each stays in the local profile and grants no authority.
   one, the planner holds the turn as
   `semantic_plan_constraint_uncovered`. The check reads the blind reading only once it has arrived.
   Restrictions stay with the judgment's coverage review and the form reading.
+- **Schema answers to instance questions**: A plan that reads only ontology declarations, through the
+  manifest, declaration, or relationship reads and their aggregates, answers what a type declares. When
+  the blind reading says the question asks for a state, value, location, history, or cause, the planner
+  holds the turn as `semantic_reading_unverified` with the answer kind, as the R2 interim level check.
+  A schema, list, count, relation, or unjudged answer kind is not held by this check.
 
 **Holds**
 
