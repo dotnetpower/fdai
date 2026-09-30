@@ -22,6 +22,7 @@ from fdai.agents._framework.adapters import (
 )
 from fdai.agents._framework.assignment_workflow import seal_assignment
 from fdai.agents._framework.base import Agent
+from fdai.agents._framework.bounded import BoundedLruDict
 from fdai.agents._framework.handover_knowledge import HandoverKnowledgeMixin
 from fdai.agents._framework.human_access_workflow import seal_human_access
 from fdai.agents._framework.introspection import (
@@ -35,9 +36,14 @@ from fdai.agents._framework.saga_handoff import (
     HandoffIssueCheckpoint,
     SagaHandoffJournal,
 )
+from fdai.agents._framework.topics import stable_idempotency_key
 from fdai.shared.providers.state_store import StateStore
 
 _FINGERPRINT_BUCKET = "issue_fingerprint_index"
+_MAX_FINGERPRINT_INDEX = 50_000
+_NON_LEARNABLE_TERMINAL_STATES = frozenset(
+    {"deny_dropped", "rejected", "expired", "approval_expired"}
+)
 
 
 class SagaAuditChain(Protocol):
@@ -74,6 +80,9 @@ class Saga(Agent, HandoverKnowledgeMixin):
         self._handoff_journal = SagaHandoffJournal(
             local_store=self.state_store,
             durable_store=durable_state_store,
+        )
+        self._fingerprint_index: BoundedLruDict[str, dict[str, Any]] = BoundedLruDict(
+            _MAX_FINGERPRINT_INDEX
         )
         self._handoff_lock = asyncio.Lock()
         self.github = github or InMemoryGithubIssueAdapter()
@@ -113,11 +122,14 @@ class Saga(Agent, HandoverKnowledgeMixin):
             topic == "object.event"
             and payload.get("event_type") != INCIDENT_INTERVENTION_EVENT_TYPE
         ):
+            self.record_behavior("typed_message:ignored")
             return
         if topic == "object.event" and payload.get("producer_principal") != "Huginn":
+            self.record_behavior("typed_message:rejected")
             raise ValueError("incident guidance requires the Huginn-owned normalized Event")
         principal = str(payload.get("producer_principal", "unknown"))
         correlation_id = str(payload.get("correlation_id") or "")
+        self.record_behavior("typed_message:accepted")
         await self._append_audit(
             principal=principal,
             topic=topic,
@@ -454,6 +466,7 @@ class Saga(Agent, HandoverKnowledgeMixin):
         bus-less Saga (unit scenarios) simply records to the chain.
         """
         if self.bus is None:
+            self.record_behavior("action_run_audit:transport_unavailable")
             return
         # Self-loop guard (defensive): never republish a record that is
         # already a republished audit-entry. Saga does not subscribe
@@ -461,12 +474,14 @@ class Saga(Agent, HandoverKnowledgeMixin):
         # change wires that subscription, the audited_topic marker stops an
         # infinite audit-of-an-audit loop.
         if payload.get("audited_topic"):
+            self.record_behavior("action_run_audit:ignored_audit_entry")
             return
         # Empty correlation -> the audit-entry (a correlation-partitioned
         # topic) would carry an empty partition key, losing ordering, and
         # Norns cannot dedup it per action. The append-only chain already has
         # the record; skip the bus republish rather than emit an unkeyed one.
         if not correlation_id:
+            self.record_behavior("action_run_audit:missing_correlation")
             return
         result = outcome_result(str(payload.get("state", "")))
         # Prefer a directly-stamped canonical ``result`` when present (mirrors
@@ -478,22 +493,42 @@ class Saga(Agent, HandoverKnowledgeMixin):
         if direct in RESULT_VALUES:
             result = direct
         action_type = str(payload.get("action_type", ""))
-        if result is None or not action_type:
+        state = str(payload.get("state") or "").strip().lower()
+        non_learnable = result is None and state in _NON_LEARNABLE_TERMINAL_STATES
+        if not action_type:
+            self.record_behavior("action_run_audit:missing_action_type")
             return
+        if result is None and not non_learnable:
+            self.record_behavior("action_run_audit:unmappable_state")
+            return
+        shadow_mode = bool(payload.get("shadow_mode", False))
+        if shadow_mode and result is not None:
+            result = f"shadow_{result}"
+        idempotency_key = stable_idempotency_key(
+            "audit-entry:action-run",
+            correlation_id,
+            action_type,
+            state,
+            result,
+            shadow_mode,
+            payload.get("idempotency_key"),
+        )
         await self.bus.publish(
             "Saga",
             "object.audit-entry",
             {
                 "producer_principal": "Saga",
                 "correlation_id": correlation_id,
+                "idempotency_key": idempotency_key,
                 "audited_topic": "object.action-run",
                 "action_type": action_type,
-                "result": result,
+                **({"result": result} if result is not None else {}),
+                "non_learnable": non_learnable,
                 "resource_id": payload.get("resource_id"),
                 # Carry the shadow flag so the learner can tell a real
                 # execution from a judged-and-logged shadow one (a shadow
                 # 'success' is not evidence about the action's real safety).
-                "shadow_mode": bool(payload.get("shadow_mode", False)),
+                "shadow_mode": shadow_mode,
                 "shadow_observation_id": correlation_id,
                 "observed_at": str(payload.get("terminal_at") or ""),
                 "operator_reviewed": False,
@@ -501,6 +536,9 @@ class Saga(Agent, HandoverKnowledgeMixin):
                 "policy_escape": payload.get("policy_escape") is True,
                 "initiator_principal": payload.get("initiator_principal"),
             },
+        )
+        self.record_behavior(
+            "action_run_audit:non_learnable" if non_learnable else "action_run_audit:published"
         )
 
     async def escalate_to_github_issue(
@@ -585,16 +623,20 @@ class Saga(Agent, HandoverKnowledgeMixin):
             )
         issue, created = await issue_result if inspect.isawaitable(issue_result) else issue_result
         occurrence_count = 1 + len(issue.comments)
-        self.state_store.put(
-            _FINGERPRINT_BUCKET,
+        self._put_fingerprint_index(
             fingerprint,
             {
                 "issue_number": issue.number,
                 "occurrence_count": occurrence_count,
                 "last_correlation_id": correlation_id,
+                "open": issue.open,
             },
         )
         return issue.number, created, occurrence_count
+
+    def _put_fingerprint_index(self, fingerprint: str, value: dict[str, Any]) -> None:
+        self._fingerprint_index.set(fingerprint, value)
+        self.state_store.data[_FINGERPRINT_BUCKET] = dict(self._fingerprint_index.items())
 
     async def _append_issue_audit(
         self,
@@ -647,7 +689,8 @@ class Saga(Agent, HandoverKnowledgeMixin):
             await result
         state = self.state_store.get(_FINGERPRINT_BUCKET, fingerprint) or {}
         state["closed_by_pr"] = closed_by_pr
-        self.state_store.put(_FINGERPRINT_BUCKET, fingerprint, state)
+        state["open"] = False
+        self._put_fingerprint_index(fingerprint, state)
 
     def replay_for_correlation(self, correlation_id: str) -> list[AuditEntry]:
         return self.audit_chain.entries_for_correlation(correlation_id)
@@ -667,6 +710,7 @@ class Saga(Agent, HandoverKnowledgeMixin):
             "chain_head_hash": entries[-1].entry_hash if entries else None,
             "issues_total": len(self.github.issues),
             "issues_open": sum(1 for issue in self.github.issues.values() if issue.open),
+            "fingerprint_index_size": len(self._fingerprint_index),
         }
         known = {e.correlation_id for e in entries if e.correlation_id}
         corr = mentioned(question, known)

@@ -16,6 +16,7 @@ from datetime import UTC, datetime
 from typing import Any
 
 from fdai.agents._framework.base import Agent
+from fdai.agents._framework.bounded import BoundedLruDict
 from fdai.agents._framework.handover_knowledge import HandoverKnowledgeMixin
 from fdai.agents._framework.introspection import (
     IntrospectionResult,
@@ -64,6 +65,7 @@ from fdai.shared.providers.state_store import StateStore
 _MAX_QUARANTINE = 5_000
 _MAX_PENDING_CANDIDATES = 5_000
 _MAX_CATALOG_REVIEW_PACKAGES = 5_000
+_MAX_ISSUE_FINGERPRINTS = 50_000
 _OPERATIONAL_RULE_PREFIX = "learned.operational."
 _RULE_GENERATION_RECEIPT_PREFIX = "mimir:rule-generation-activation-result:"
 _RULE_GENERATION_VALIDATION_PREFIX = "mimir:rule-generation-validation-result:"
@@ -110,6 +112,9 @@ class Mimir(MimirContextMixin, Agent, HandoverKnowledgeMixin, MimirCatalogReview
         self._rule_generation_activation_binder: RuleGenerationActivationBinder | None = None
         self._rule_generation_state_store: StateStore | None = None
         self._clock = clock or (lambda: datetime.now(UTC))
+        self._issue_fingerprints: BoundedLruDict[str, dict[str, Any]] = BoundedLruDict(
+            _MAX_ISSUE_FINGERPRINTS
+        )
 
     def bind_rule_generation_build_handler(
         self,
@@ -141,7 +146,9 @@ class Mimir(MimirContextMixin, Agent, HandoverKnowledgeMixin, MimirCatalogReview
     async def on_typed_message(self, topic: str, payload: dict[str, Any]) -> None:
         if await self._test_context_message(topic, payload, self.record_behavior):
             return
-        if topic == "object.rule-candidate":
+        if topic == "object.issue":
+            self._handle_issue(payload)
+        elif topic == "object.rule-candidate":
             async with self._review_lock:
                 if await self._handover_message(topic, payload):
                     return
@@ -161,6 +168,42 @@ class Mimir(MimirContextMixin, Agent, HandoverKnowledgeMixin, MimirCatalogReview
             await binder.handle(command)
         elif topic == RULE_GENERATION_ACTIVATION_RESULT_TOPIC:
             await self._record_rule_generation_activation_result(payload)
+
+    def _handle_issue(self, payload: dict[str, Any]) -> None:
+        """Retain Saga-owned issue fingerprints for candidate closure linkage."""
+        if payload.get("producer_principal") != "Saga":
+            self.record_behavior("issue_fingerprint:rejected")
+            raise ValueError("Mimir issue fingerprints MUST be published by Saga")
+        fingerprint = str(payload.get("fingerprint") or "").strip()
+        issue_number = payload.get("issue_number")
+        correlation_id = str(payload.get("correlation_id") or "").strip()
+        if (
+            not fingerprint
+            or not correlation_id
+            or not isinstance(issue_number, int)
+            or isinstance(issue_number, bool)
+            or issue_number < 1
+        ):
+            self.record_behavior("issue_fingerprint:rejected")
+            raise ValueError("Mimir issue fingerprint payload is malformed")
+        record = {
+            "fingerprint": fingerprint,
+            "issue_number": issue_number,
+            "created": payload.get("created") is True,
+            "correlation_id": correlation_id,
+            "open": payload.get("open", True) is not False,
+            "candidate_count": self._candidate_count_for_fingerprint(fingerprint),
+        }
+        self._issue_fingerprints.set(fingerprint, record)
+        self.record_behavior("issue_fingerprint:accepted")
+
+    def _candidate_count_for_fingerprint(self, fingerprint: str) -> int:
+        count = 0
+        for candidate in self._pending_candidates:
+            evidence = candidate.get("evidence")
+            if isinstance(evidence, dict) and evidence.get("fingerprint") == fingerprint:
+                count += 1
+        return count
 
     async def request_rule_generation(self, request: RuleGenerationBuildRequestEvent) -> None:
         """Publish one exact no-authority generation build request as Mimir."""
@@ -190,10 +233,12 @@ class Mimir(MimirContextMixin, Agent, HandoverKnowledgeMixin, MimirCatalogReview
         result = await handler.handle(request)
         if self.bus is None:
             raise RuntimeError("Mimir Rule generation build transport is unavailable")
+        result_payload = result.model_dump(mode="json")
+        result_payload["correlation_id"] = request.correlation_id
         await self.bus.publish(
             "Mimir",
             RULE_GENERATION_BUILD_RESULT_TOPIC,
-            result.model_dump(mode="json"),
+            result_payload,
         )
         self.record_behavior("rule_generation_build_result_published")
 
@@ -374,6 +419,7 @@ class Mimir(MimirContextMixin, Agent, HandoverKnowledgeMixin, MimirCatalogReview
         rule_id: str,
         *,
         source: str,
+        reviewed_change_ref: str | None = None,
         updated_at: str | None = None,
     ) -> RulePromotion:
         operational_targets = {
@@ -401,6 +447,9 @@ class Mimir(MimirContextMixin, Agent, HandoverKnowledgeMixin, MimirCatalogReview
                 f"rule {rule_id} has a pending discovery-loop candidate whose shadow "
                 f"dwell evidence is insufficient: {', '.join(blocking_gaps)}"
             )
+        if not reviewed_change_ref or not reviewed_change_ref.strip():
+            self.record_behavior("promotion:reviewed_change_required")
+            raise ValueError("rule promotion requires a reviewed catalog-as-code reference")
         promo = RulePromotion(
             rule_id=rule_id, state="enforce", source=source, updated_at=updated_at
         )
@@ -449,6 +498,7 @@ class Mimir(MimirContextMixin, Agent, HandoverKnowledgeMixin, MimirCatalogReview
             "quarantined_candidates": len(self._quarantined_candidates),
             "catalog_review_packages": len(self._catalog_review_packages),
             "catalog_review_publication_receipts": len(self._published_reviews),
+            "open_issue_fingerprints": len(self._issue_fingerprints),
             "policy_history_available": False,
         }
         if "policy_history" in semantic_intents(context):

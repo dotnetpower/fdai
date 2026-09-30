@@ -82,6 +82,16 @@ class BoundedLruDict[K, V]:
     def __len__(self) -> int:
         return len(self._d)
 
+    def __iter__(self) -> Iterator[K]:
+        return iter(self._d)
+
+    def __eq__(self, other: object) -> bool:
+        if isinstance(other, BoundedLruDict):
+            return dict(self._d) == dict(other._d)
+        if isinstance(other, dict):
+            return dict(self._d) == other
+        return NotImplemented
+
     def get(self, key: K, default: V | None = None) -> V | None:
         if key in self._d:
             self._d.move_to_end(key)

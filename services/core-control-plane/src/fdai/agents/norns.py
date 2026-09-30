@@ -42,7 +42,7 @@ from __future__ import annotations
 
 import asyncio
 import hashlib
-from collections import Counter, deque
+from collections import deque
 from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
 from typing import Any
@@ -176,8 +176,8 @@ class Norns(Agent, HandoverKnowledgeMixin, NornsCandidateDeliveryMixin):
         # Outcome-threshold learner state.
         self._rollback_alarm_rate = rollback_alarm_rate
         self._min_outcome_samples = min_outcome_samples
-        self._outcomes: dict[str, dict[str, int]] = {}
-        self._outcome_proposed: set[str] = set()
+        self._outcomes: BoundedLruDict[str, dict[str, int]] = BoundedLruDict(_MAX_TRACKED)
+        self._outcome_proposed: BoundedLruSet[str] = BoundedLruSet(_MAX_TRACKED)
         # Correlation ids whose outcome has already been counted, so a single
         # action that emits multiple adverse terminal audits (Thor emits
         # FAILED then ROLLED_BACK for a failed action) is scored once, not
@@ -190,8 +190,8 @@ class Norns(Agent, HandoverKnowledgeMixin, NornsCandidateDeliveryMixin):
         self._counted_shadow_outcomes: BoundedLruSet[str] = BoundedLruSet(_MAX_TRACKED)
         # Override learner state.
         self._override_retire_threshold = override_retire_threshold
-        self._override_counter: Counter[str] = Counter()
-        self._override_proposed: set[str] = set()
+        self._override_counter: BoundedLruDict[str, int] = BoundedLruDict(_MAX_TRACKED)
+        self._override_proposed: BoundedLruSet[str] = BoundedLruSet(_MAX_TRACKED)
         # Approval-pattern learner state. Repeated HIL rejections of the same
         # action type mean humans consistently refuse it - a signal the action
         # is a poor fit; it proposes an inert `revision` candidate (the safe,
@@ -201,8 +201,8 @@ class Norns(Agent, HandoverKnowledgeMixin, NornsCandidateDeliveryMixin):
         # quality-gated decision. Dedup per correlation id (LRU) so a
         # re-delivered approval is scored once.
         self._rejection_revise_threshold = rejection_revise_threshold
-        self._approval_counts: dict[str, dict[str, int]] = {}
-        self._approval_proposed: set[str] = set()
+        self._approval_counts: BoundedLruDict[str, dict[str, int]] = BoundedLruDict(_MAX_TRACKED)
+        self._approval_proposed: BoundedLruSet[str] = BoundedLruSet(_MAX_TRACKED)
         self._counted_approvals: BoundedLruSet[str] = BoundedLruSet(_MAX_TRACKED)
         self._deployment_learning = NornsDeploymentLearning(
             coverage_aggregator=coverage_aggregator,
@@ -650,7 +650,7 @@ class Norns(Agent, HandoverKnowledgeMixin, NornsCandidateDeliveryMixin):
         return counts["rollback"] / total if total else None
 
     def override_count(self, rule_id: str) -> int:
-        return self._override_counter[rule_id]
+        return self._override_counter.get(rule_id) or 0
 
     def rejection_count(self, action_type: str) -> int:
         """Measured HIL rejection count for an action type (0 if unseen)."""

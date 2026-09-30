@@ -539,7 +539,9 @@ _MUNINN = AgentSpec(
     executes=(),
     initiates=(),
     subscribes=(
+        "object.conversation",
         "object.turn",
+        "object.user-preference",
         "object.audit-entry",
         "object.drift",
         "object.forecast-outcome",

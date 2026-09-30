@@ -192,6 +192,7 @@ def test_published_candidate_carries_its_dwell_evidence() -> None:
         async def publish(self, principal: str, topic: str, payload: dict[str, Any]) -> None:
             published.append(payload)
 
+    norns.bind_candidate_publication_gate(lambda: True)
     norns.bind_bus(_Recorder())  # type: ignore[arg-type]
     asyncio.run(norns.flush_candidates())
 
@@ -271,7 +272,11 @@ def test_promote_refuses_an_under_threshold_candidate() -> None:
 
 def test_promote_succeeds_once_the_dwell_is_proven() -> None:
     mimir = _mimir_with(_candidate(_sufficient_dwell()))
-    promotion = mimir.promote(_TARGET, source="handoff")
+    promotion = mimir.promote(
+        _TARGET,
+        source="handoff",
+        reviewed_change_ref="catalog-pr:shadow-dwell",
+    )
     assert promotion.state == "enforce"
     assert mimir.pending_candidates() == ()
 
@@ -279,7 +284,14 @@ def test_promote_succeeds_once_the_dwell_is_proven() -> None:
 def test_promote_is_unaffected_for_a_rule_with_no_pending_candidate() -> None:
     """The dwell gate guards the discovery loop, not every steward decision."""
     mimir = Mimir(shadow_dwell_thresholds=_THRESHOLDS)
-    assert mimir.promote("unrelated.rule", source="manual").state == "enforce"
+    assert (
+        mimir.promote(
+            "unrelated.rule",
+            source="manual",
+            reviewed_change_ref="catalog-pr:manual",
+        ).state
+        == "enforce"
+    )
 
 
 def test_end_to_end_shadow_dwell_closes_the_loop() -> None:
@@ -293,6 +305,7 @@ def test_end_to_end_shadow_dwell_closes_the_loop() -> None:
             published.append(payload)
             await mimir.on_typed_message(topic, payload)
 
+    norns.bind_candidate_publication_gate(lambda: True)
     norns.bind_bus(_Bridge())  # type: ignore[arg-type]
     _feed_shadow(norns, 120)
     for index in range(2):
@@ -305,4 +318,11 @@ def test_end_to_end_shadow_dwell_closes_the_loop() -> None:
 
     assert len(published) == 1
     assert len(mimir.promotion_ready_candidates()) == 1
-    assert mimir.promote(_TARGET, source="handoff").state == "enforce"
+    assert (
+        mimir.promote(
+            _TARGET,
+            source="handoff",
+            reviewed_change_ref="catalog-pr:shadow-dwell",
+        ).state
+        == "enforce"
+    )

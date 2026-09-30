@@ -22,6 +22,7 @@ from fdai.agents._framework.assignment_workflow import (
     materialize_assignment,
 )
 from fdai.agents._framework.base import Agent
+from fdai.agents._framework.bounded import BoundedLruDict
 from fdai.agents._framework.handover_knowledge import HandoverKnowledgeMixin
 from fdai.agents._framework.introspection import (
     IntrospectionResult,
@@ -32,6 +33,7 @@ from fdai.agents._framework.introspection import (
 )
 from fdai.agents._framework.muninn_patterns import MuninnPatternReadMixin
 from fdai.agents._framework.pantheon import _MUNINN
+from fdai.agents._framework.topics import stable_idempotency_key
 from fdai.core.case_history import (
     CaseHistoryMaterializer,
     CaseHistoryRetentionService,
@@ -78,6 +80,7 @@ def _readiness_generated_at(record: Mapping[str, Any]) -> datetime | None:
 
 
 _MAX_OPERATING_PATTERN_CASES = 100
+_MAX_CONVERSATION_PROJECTIONS = 50_000
 
 
 class Muninn(MuninnPatternReadMixin, Agent, HandoverKnowledgeMixin):
@@ -112,6 +115,15 @@ class Muninn(MuninnPatternReadMixin, Agent, HandoverKnowledgeMixin):
         self._prospective_lineage_materializer = prospective_lineage_materializer
         self._assignment_materializer: AssignmentMaterializer | None = None
         self._assignment_clock: AssignmentClock = assignment_clock
+        self._conversation_turns: BoundedLruDict[str, dict[str, Any]] = BoundedLruDict(
+            _MAX_CONVERSATION_PROJECTIONS
+        )
+        self._conversation_sessions: BoundedLruDict[str, dict[str, Any]] = BoundedLruDict(
+            _MAX_CONVERSATION_PROJECTIONS
+        )
+        self._user_preferences: BoundedLruDict[str, dict[str, Any]] = BoundedLruDict(
+            _MAX_CONVERSATION_PROJECTIONS
+        )
 
     def bind_assignment_materializer(
         self,
@@ -134,9 +146,11 @@ class Muninn(MuninnPatternReadMixin, Agent, HandoverKnowledgeMixin):
             async with asyncio.timeout(5):
                 await self._materialize_operating_pattern(payload)
         elif topic == "object.turn":
-            turn_id = str(payload.get("turn_id") or payload.get("id", ""))
-            if turn_id:
-                self.state_store.put("conversation_turns", turn_id, payload)
+            self._materialize_turn_projection(payload)
+        elif topic == "object.conversation":
+            self._materialize_conversation_projection(payload)
+        elif topic == "object.user-preference":
+            self._materialize_user_preference_projection(payload)
         elif topic == "object.drift" and payload.get("kind") == "detection_readiness":
             await self._materialize_detection_readiness(payload)
         elif (
@@ -187,6 +201,96 @@ class Muninn(MuninnPatternReadMixin, Agent, HandoverKnowledgeMixin):
             and payload.get("action_kind") == "prospective_lineage.sealed"
         ):
             await self._seal_prospective_lineage(payload)
+        else:
+            self.record_behavior("typed_message:ignored")
+
+    def _materialize_turn_projection(self, payload: dict[str, Any]) -> None:
+        if payload.get("producer_principal") != "Bragi":
+            self.record_behavior("conversation_turn:rejected")
+            raise ValueError("Muninn conversation turns MUST be published by Bragi")
+        turn_id = str(payload.get("turn_id") or payload.get("id", "")).strip()
+        correlation_id = str(payload.get("correlation_id") or "").strip()
+        idempotency_key = str(payload.get("idempotency_key") or "").strip()
+        if not turn_id or not correlation_id or not idempotency_key:
+            self.record_behavior("conversation_turn:rejected")
+            return
+        record = {
+            "schema_version": "1.0.0",
+            "turn_id": turn_id,
+            "conversation_id": str(payload.get("conversation_id") or ""),
+            "session_id": str(payload.get("session_id") or ""),
+            "user_id": str(payload.get("user_id") or payload.get("principal_scope") or ""),
+            "turn_index": payload.get("turn_index"),
+            "correlation_id": correlation_id,
+            "idempotency_key": idempotency_key,
+            "payload_digest": _payload_digest(payload),
+            "question_ref": str(payload.get("question_ref") or ""),
+            "question_sha256": str(payload.get("question_sha256") or ""),
+            "answer_ref": str(payload.get("answer_ref") or ""),
+            "answer_sha256": str(payload.get("answer_sha256") or ""),
+        }
+        self._conversation_turns.set(turn_id, record)
+        self._sync_projection_bucket("conversation_turns", self._conversation_turns)
+        self.record_behavior("conversation_turn:accepted")
+
+    def _materialize_conversation_projection(self, payload: dict[str, Any]) -> None:
+        if payload.get("producer_principal") != "Bragi":
+            self.record_behavior("conversation:rejected")
+            raise ValueError("Muninn conversations MUST be published by Bragi")
+        conversation_id = str(payload.get("conversation_id") or payload.get("id") or "").strip()
+        correlation_id = str(payload.get("correlation_id") or "").strip()
+        if not conversation_id or not correlation_id:
+            self.record_behavior("conversation:rejected")
+            return
+        record = {
+            "schema_version": "1.0.0",
+            "conversation_id": conversation_id,
+            "correlation_id": correlation_id,
+            "idempotency_key": str(
+                payload.get("idempotency_key")
+                or stable_idempotency_key("conversation-index", conversation_id, correlation_id)
+            ),
+            "principal_scope": str(payload.get("principal_scope") or ""),
+            "status": str(payload.get("status") or ""),
+            "payload_digest": _payload_digest(payload),
+        }
+        self._conversation_sessions.set(conversation_id, record)
+        self._sync_projection_bucket("conversations", self._conversation_sessions)
+        self.record_behavior("conversation:accepted")
+
+    def _materialize_user_preference_projection(self, payload: dict[str, Any]) -> None:
+        if payload.get("producer_principal") != "Bragi":
+            self.record_behavior("user_preference:rejected")
+            raise ValueError("Muninn user preferences MUST be published by Bragi")
+        preference_id = str(payload.get("id") or payload.get("principal_scope") or "").strip()
+        correlation_id = str(payload.get("correlation_id") or "").strip()
+        preference_digest = str(payload.get("preference_digest") or "").strip()
+        if not preference_id or not correlation_id or not preference_digest:
+            self.record_behavior("user_preference:rejected")
+            return
+        record = {
+            "schema_version": "1.0.0",
+            "id": preference_id,
+            "correlation_id": correlation_id,
+            "idempotency_key": str(
+                payload.get("idempotency_key")
+                or stable_idempotency_key("user-preference-index", preference_id, preference_digest)
+            ),
+            "principal_scope": str(payload.get("principal_scope") or ""),
+            "preference_digest": preference_digest,
+            "revision": payload.get("revision"),
+            "payload_digest": _payload_digest(payload),
+        }
+        self._user_preferences.set(preference_id, record)
+        self._sync_projection_bucket("user_preferences", self._user_preferences)
+        self.record_behavior("user_preference:accepted")
+
+    def _sync_projection_bucket(
+        self,
+        bucket: str,
+        projection: BoundedLruDict[str, dict[str, Any]],
+    ) -> None:
+        self.state_store.data[bucket] = dict(projection.items())
 
     async def _materialize_evidence_conflict(self, payload: dict[str, Any]) -> None:
         if self._evidence_conflict_sink is None:
@@ -667,7 +771,10 @@ class Muninn(MuninnPatternReadMixin, Agent, HandoverKnowledgeMixin):
             "stage": "indexing",
             "command": "index",
             "correlation_id": correlation_id,
-            "idempotency_key": str(audited.get("idempotency_key") or ""),
+            "idempotency_key": str(
+                audited.get("idempotency_key")
+                or stable_idempotency_key("document-index", correlation_id, document_id, upload_id)
+            ),
             "resource_id": document_id,
             "document_id": document_id,
             "upload_id": upload_id,
@@ -676,8 +783,29 @@ class Muninn(MuninnPatternReadMixin, Agent, HandoverKnowledgeMixin):
         if self.bus is not None:
             await self.bus.publish("Muninn", "object.context-index", command)
 
-    def get_context(self, bucket: str, key: str) -> Any | None:
-        return self.state_store.get(bucket, key)
+    def get_context(
+        self,
+        bucket: str,
+        key: str,
+        *,
+        requester_user_id: str | None = None,
+    ) -> Any | None:
+        value = self.state_store.get(bucket, key)
+        if (
+            bucket in {"conversation_turns", "conversations", "user_preferences"}
+            and isinstance(value, dict)
+            and requester_user_id is not None
+        ):
+            owner = str(
+                value.get("user_id")
+                or value.get("principal_scope")
+                or value.get("session_id")
+                or ""
+            )
+            if owner and owner != requester_user_id:
+                self.record_behavior("conversation_context:cross_user_refused")
+                return None
+        return value
 
     def put_context(self, bucket: str, key: str, value: Any) -> None:
         self.state_store.put(bucket, key, value)
@@ -757,6 +885,12 @@ def _operating_pattern_state_key(case_input: OperationalCaseInput) -> str:
 def _cohort_digest(cases: list[dict[str, Any]]) -> str:
     return hashlib.sha256(
         json.dumps(cases, separators=(",", ":"), sort_keys=True).encode()
+    ).hexdigest()
+
+
+def _payload_digest(payload: Mapping[str, Any]) -> str:
+    return hashlib.sha256(
+        json.dumps(payload, separators=(",", ":"), sort_keys=True, default=str).encode()
     ).hexdigest()
 
 

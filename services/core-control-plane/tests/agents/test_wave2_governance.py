@@ -739,12 +739,26 @@ def test_muninn_indexes_conversation_turns() -> None:
     asyncio.run(
         muninn.on_typed_message(
             "object.turn",
-            {"turn_id": "t1", "question": "hi", "answer": "hello"},
+            {
+                "producer_principal": "Bragi",
+                "turn_id": "t1",
+                "correlation_id": "corr-t1",
+                "idempotency_key": "turn:t1",
+                "question_ref": "question-ref",
+                "question_sha256": "a" * 64,
+                "answer_ref": "answer-ref",
+                "answer_sha256": "b" * 64,
+                "question": "hi",
+                "answer": "hello",
+            },
         )
     )
     stored = muninn.get_context("conversation_turns", "t1")
     assert stored is not None
-    assert stored["question"] == "hi"
+    assert stored["question_ref"] == "question-ref"
+    assert stored["question_sha256"] == "a" * 64
+    assert "question" not in stored
+    assert "answer" not in stored
 
 
 def test_muninn_requests_index_after_saga_sealed_document_admit() -> None:
@@ -835,7 +849,7 @@ def test_muninn_ignores_turn_without_id_and_other_topics() -> None:
     muninn = Muninn()
     # A turn payload with no id (neither turn_id nor id) is a no-op: nothing
     # is stored, so the conversation_turns bucket never materializes.
-    asyncio.run(muninn.on_typed_message("object.turn", {"question": "hi"}))
+    asyncio.run(muninn.on_typed_message("object.turn", {"producer_principal": "Bragi"}))
     # An unrelated topic is ignored entirely.
     asyncio.run(muninn.on_typed_message("object.verdict", {"turn_id": "t9"}))
     assert muninn.get_context("conversation_turns", "t9") is None
@@ -1069,7 +1083,11 @@ def test_mimir_accepts_and_drains_rule_candidates() -> None:
     )
     assert len(mimir.pending_candidates()) == 1
     assert len(mimir.promotion_ready_candidates()) == 1
-    mimir.promote("storage.public.deny", source="handoff")
+    mimir.promote(
+        "storage.public.deny",
+        source="handoff",
+        reviewed_change_ref="catalog-pr:storage-public-deny",
+    )
     status = mimir.status("storage.public.deny")
     assert status is not None
     assert status.state == "enforce"
@@ -1141,7 +1159,7 @@ def test_mimir_quarantine_is_bounded_against_poisoning_flood() -> None:
 
 def test_mimir_revoke_flips_state_to_retired() -> None:
     mimir = Mimir()
-    mimir.promote("r1", source="manual")
+    mimir.promote("r1", source="manual", reviewed_change_ref="catalog-pr:r1")
     mimir.revoke("r1")
     assert mimir.status("r1").state == "retired"
 
@@ -1320,6 +1338,7 @@ def test_norns_does_not_rebuild_delivered_candidate_after_restart() -> None:
         "idempotency_key": "handoff:delivered-candidate-operation",
     }
     first = Norns(promotion_threshold=1, issue_state_store=store)
+    first.bind_candidate_publication_gate(lambda: True)
     first.bind_bus(bus)
     asyncio.run(first.on_typed_message("object.issue", dict(payload)))
     assert len(bus.messages_on("object.rule-candidate")) == 1
@@ -1427,6 +1446,7 @@ def test_norns_saturated_recovery_does_not_deliver_an_unpublished_candidate() ->
         max_pending_candidates=1,
         issue_state_store=store,
     )
+    restarted.bind_candidate_publication_gate(lambda: True)
     restarted.bind_bus(bus)
 
     with pytest.raises(NornsCapacityError, match="capacity exhausted"):
@@ -1605,6 +1625,7 @@ def test_norns_publishes_candidate_to_mimir_when_bus_bound() -> None:
     bus = InMemoryBus(registry=reg)
     norns = Norns(promotion_threshold=2)
     mimir = Mimir()
+    norns.bind_candidate_publication_gate(lambda: True)
     norns.bind_bus(bus)
     bus.subscribe("object.rule-candidate", "Mimir", mimir.on_typed_message)
 
@@ -1634,6 +1655,7 @@ def test_norns_flush_is_idempotent_and_no_op_without_bus() -> None:
     # Bus bound: the candidate is published once; a re-flush republishes
     # nothing (cursor), so Mimir's flood guard never sees a duplicate.
     norns = Norns(promotion_threshold=1)
+    norns.bind_candidate_publication_gate(lambda: True)
     norns.bind_bus(bus)
     asyncio.run(norns.on_typed_message("object.issue", {"fingerprint": "fp-b"}))
     assert len(bus.messages_on("object.rule-candidate")) == 1
@@ -1657,6 +1679,7 @@ def test_norns_throttles_candidate_publication_at_the_rate_limit() -> None:
     reg = load_pantheon()
     bus = InMemoryBus(registry=reg)
     norns = Norns(promotion_threshold=1)
+    norns.bind_candidate_publication_gate(lambda: True)
     norns.bind_bus(bus)
     clock = _FakeClock()
     # Inject a tiny, clock-controlled budget: 2 proposals/minute.
@@ -1684,6 +1707,7 @@ def test_norns_pending_buffer_drops_published_candidates() -> None:
     reg = load_pantheon()
     bus = InMemoryBus(registry=reg)
     norns = Norns(promotion_threshold=1)
+    norns.bind_candidate_publication_gate(lambda: True)
     norns.bind_bus(bus)
     # Ten distinct candidates, all within the default 20/min budget -> every
     # one publishes and is dropped from the buffer.
@@ -1703,6 +1727,7 @@ def test_saga_escalate_publishes_object_issue_and_feeds_fingerprint_loop() -> No
     saga = Saga()
     saga.bind_bus(bus)
     norns = Norns(promotion_threshold=2)
+    norns.bind_candidate_publication_gate(lambda: True)
     norns.bind_bus(bus)
     mimir = Mimir()
     bus.subscribe("object.issue", "Norns", norns.on_typed_message)

@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from collections import Counter
 from collections.abc import Callable, Mapping
 from datetime import datetime, timedelta
 from typing import Any, Protocol
@@ -26,17 +25,17 @@ _SHADOW_INSTANT_KEYS = ("observed_at", "occurred_at", "recorded_at", "timestamp"
 class NornsLearningState(Protocol):
     """Minimum Norns-owned state required by deterministic learners."""
 
-    _approval_counts: dict[str, dict[str, int]]
-    _approval_proposed: set[str]
+    _approval_counts: BoundedLruDict[str, dict[str, int]]
+    _approval_proposed: BoundedLruSet[str]
     _counted_approvals: BoundedLruSet[str]
     _counted_correlations: BoundedLruSet[str]
     _counted_shadow_outcomes: BoundedLruSet[str]
     _fingerprint_counter: BoundedLruDict[str, int]
     _min_outcome_samples: int
-    _outcome_proposed: set[str]
-    _outcomes: dict[str, dict[str, int]]
-    _override_counter: Counter[str]
-    _override_proposed: set[str]
+    _outcome_proposed: BoundedLruSet[str]
+    _outcomes: BoundedLruDict[str, dict[str, int]]
+    _override_counter: BoundedLruDict[str, int]
+    _override_proposed: BoundedLruSet[str]
     _override_retire_threshold: int
     _promotion_threshold: int
     _proposed: BoundedLruSet[str]
@@ -157,6 +156,9 @@ def observe_outcome(state: NornsLearningState, payload: Mapping[str, Any]) -> No
     if payload.get("shadow_mode"):
         retain_shadow_dwell(state, target, payload)
         return
+    if payload.get("non_learnable") is True:
+        state.record_behavior("audit_outcome:non_learnable")
+        return
     result = str(payload.get("result", "")).lower()
     if not result:
         result = outcome_result(str(payload.get("state", ""))) or ""
@@ -174,8 +176,11 @@ def observe_outcome(state: NornsLearningState, payload: Mapping[str, Any]) -> No
         if outcome_key in state._counted_correlations:
             return
         state._counted_correlations.add(outcome_key)
-    counts = state._outcomes.setdefault(target, {"success": 0, "rollback": 0})
+    counts = state._outcomes.get(target)
+    if counts is None:
+        counts = {"success": 0, "rollback": 0}
     counts[bucket] += 1
+    state._outcomes.set(target, counts)
     total = counts["success"] + counts["rollback"]
     if total < state._min_outcome_samples or target in state._outcome_proposed:
         return
@@ -286,8 +291,11 @@ def observe_approval(state: NornsLearningState, payload: Mapping[str, Any]) -> N
         if correlation_id in state._counted_approvals:
             return
         state._counted_approvals.add(correlation_id)
-    counts = state._approval_counts.setdefault(action_type, {"approved": 0, "rejected": 0})
+    counts = state._approval_counts.get(action_type)
+    if counts is None:
+        counts = {"approved": 0, "rejected": 0}
     counts[decision] += 1
+    state._approval_counts.set(action_type, counts)
     if decision != "rejected" or action_type in state._approval_proposed:
         return
     if counts["rejected"] < state._rejection_revise_threshold:
@@ -315,11 +323,9 @@ def observe_override(state: NornsLearningState, payload: Mapping[str, Any]) -> N
     event = str(payload.get("event", "create")).lower()
     if not rule_id or event not in ("create", "modify"):
         return
-    state._override_counter[rule_id] += 1
-    if (
-        state._override_counter[rule_id] < state._override_retire_threshold
-        or rule_id in state._override_proposed
-    ):
+    count = (state._override_counter.get(rule_id) or 0) + 1
+    state._override_counter.set(rule_id, count)
+    if count < state._override_retire_threshold or rule_id in state._override_proposed:
         return
     state._override_proposed.add(rule_id)
     mode = str(payload.get("mode", ""))
@@ -329,7 +335,7 @@ def observe_override(state: NornsLearningState, payload: Mapping[str, Any]) -> N
             "source_signal": "recurring_override",
             "evidence": {
                 "rule_id": rule_id,
-                "override_count": state._override_counter[rule_id],
+                "override_count": count,
                 "latest_mode": mode,
             },
             "proposed_by": "Norns",

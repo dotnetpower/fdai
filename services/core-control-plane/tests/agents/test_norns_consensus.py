@@ -42,6 +42,7 @@ def test_norns_consensus_holds_ungrounded_or_autonomy_raising_candidates(
 async def test_norns_publishes_one_unanimous_consensus_result() -> None:
     bus = InMemoryBus(registry=load_pantheon())
     norns = Norns(promotion_threshold=1)
+    norns.bind_candidate_publication_gate(lambda: True)
     norns.bind_bus(bus)
 
     await norns.on_typed_message("object.issue", {"fingerprint": "fp-consensus"})
@@ -86,6 +87,7 @@ async def test_norns_publication_gate_preserves_candidate_until_enabled() -> Non
 async def test_norns_holds_candidate_when_one_perspective_disagrees() -> None:
     bus = InMemoryBus(registry=load_pantheon())
     norns = Norns()
+    norns.bind_candidate_publication_gate(lambda: True)
     norns.bind_bus(bus)
     hint = RuleCandidateHint(
         proposal_kind="promotion",
