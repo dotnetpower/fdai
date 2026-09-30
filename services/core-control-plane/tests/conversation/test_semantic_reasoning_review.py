@@ -480,6 +480,10 @@ def test_a_particle_attached_to_a_mention_belongs_to_that_mention() -> None:
     assert review_forms((_typed(uncued, utterance),), attached, utterance=utterance).reasons == (
         "review_uncovered:relates:0-15",
     )
+    # A selection that reads the containing group answers where the resource is located.
+    for kind in ("location", "relation", "list"):
+        located = {**attached, "answer_kind": kind}
+        assert review_forms((typed,), located, utterance=utterance).faithful
 
 
 def _one_mention_form(utterance: str, text: str, domain: str) -> SemanticQuestionForm:

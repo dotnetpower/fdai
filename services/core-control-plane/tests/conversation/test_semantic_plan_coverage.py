@@ -53,10 +53,25 @@ _REGION = {"property": "location", "operator": "equals", "equals": "koreacentral
                 _node(
                     "members",
                     QueryNodeKind.RELATIONSHIP_TRAVERSAL,
-                    {"link_types": ["contains"], "endpoint_predicates": [_TYPE]},
+                    {
+                        "link_types": ["contains"],
+                        "direction": "outgoing",
+                        "endpoint_predicates": [_TYPE],
+                    },
                 ),
             ),
             True,
+        ),
+        (
+            (
+                _objects(_TYPE),
+                _node(
+                    "container",
+                    QueryNodeKind.RELATIONSHIP_TRAVERSAL,
+                    {"link_types": ["contains"], "direction": "incoming"},
+                ),
+            ),
+            False,
         ),
         ((_objects(_TYPE, _REGION),), False),
         (
@@ -108,10 +123,26 @@ def test_a_stated_grouping_or_relation_must_shape_the_plan() -> None:
     )
     both = _reading(ConstraintRole.GROUPS, ConstraintRole.RELATES, ConstraintRole.RESTRICTS)
 
+    members = _plan(
+        _objects(_TYPE),
+        _node("members", QueryNodeKind.RELATIONSHIP_TRAVERSAL, {"link_types": ["contains"]}),
+    )
+    by_container = _plan(
+        _objects(_TYPE),
+        _node(
+            "count",
+            QueryNodeKind.AGGREGATE,
+            {"operation": "count", "group_by": ["properties.parent_id"]},
+        ),
+    )
+
     assert plan_uncovered_roles(both, listed) == ("groups", "relates")
-    # A grouping by container reads containment, so only a plain list misses a relation.
-    assert plan_uncovered_roles(both, grouped) == ()
+    # A grouping by type reads no relation, while one by container reads containment.
+    assert plan_uncovered_roles(both, grouped) == ("relates",)
+    assert plan_uncovered_roles(both, by_container) == ()
     assert plan_uncovered_roles(both, related) == ("groups",)
+    # A container's members read the inside relation, as in the VMs inside a group.
+    assert plan_uncovered_roles(_reading(ConstraintRole.RELATES), members) == ()
     # Without a blind reading, or with only a restriction, nothing is held here.
     assert plan_uncovered_roles(None, listed) == ()
     assert plan_uncovered_roles(_reading(ConstraintRole.RESTRICTS), listed) == ()

@@ -137,6 +137,58 @@ class CompiledAnswerTicket:
     ) -> SemanticPlanningOutcome | None:
         """Return the compiled answer when the path released one; record its calls either way."""
 
+        selected = self._select(observations)
+        if selected is None:
+            return None
+        return self._answer(*selected, manifest_digest=manifest_digest)
+
+    def outcome_over_clarification(
+        self,
+        *,
+        manifest_digest: str,
+        observations: MutableSequence[Any],
+    ) -> SemanticPlanningOutcome | None:
+        """Answer over the judgment's clarification only when a third reader finds one reading.
+
+        The released reading must first pass every selection rule of ``outcome``. Then a
+        reader of another model family, which sees neither reading, says whether the
+        question has one plausible reading; any other answer, no answer, or a failure
+        leaves the clarification to end the turn. The plan takes the gateway's cutoff only
+        after that verdict, because the gateway accepts an ``as_of`` only within seconds of
+        its own cutoff and the reader may take longer.
+        """
+
+        selected = self._select(observations)
+        if selected is None:
+            return None
+        verdict = "unavailable"
+        if self._ambiguity is not None:
+            recorded = len(self._collector.observations)
+            future = self._ambiguity()
+            try:
+                verdict = ambiguity_verdict(
+                    future.result(timeout=max(0.0, self._deadline - self._clock()))
+                )
+            except concurrent.futures.TimeoutError:
+                future.cancel()
+                verdict = "timeout"
+            except Exception as exc:  # noqa: BLE001 - provider details stay inside the adapter
+                future.cancel()
+                verdict = f"failed:{type(exc).__name__}"
+            finally:
+                observations.extend(self._collector.observations[recorded:])
+        _LOGGER.info("semantic_compiled_answer_ambiguity", extra={"verdict": verdict})
+        if verdict != "one":
+            self.decision = "clarification"
+            _log_completion("clarified", observation=selected[2])
+            return None
+        return self._answer(*selected, manifest_digest=manifest_digest)
+
+    def _select(
+        self, observations: MutableSequence[Any]
+    ) -> tuple[CompiledBatch, float, ReasoningShadowObservation] | None:
+        """Consume the path once and return its one answerable batch, or record the decline."""
+
         if self._settled:
             return None
         self._settled = True
@@ -162,6 +214,18 @@ class CompiledAnswerTicket:
             _log_completion("declined", observation=observation, decline_reason=selected)
             return None
         batch, confidence = selected
+        return batch, confidence, observation
+
+    def _answer(
+        self,
+        batch: CompiledBatch,
+        confidence: float,
+        observation: ReasoningShadowObservation,
+        *,
+        manifest_digest: str,
+    ) -> SemanticPlanningOutcome | None:
+        """Stamp the selected plan with the gateway's current cutoff, verify it, and answer."""
+
         # Compilation ran seconds ago; the gateway accepts only a current cutoff, so the plan
         # is stamped again and verified again before it can answer.
         try:
@@ -193,45 +257,6 @@ class CompiledAnswerTicket:
             plan=plan,
             intent_graph=intent_graph,
         )
-
-    def outcome_over_clarification(
-        self,
-        *,
-        manifest_digest: str,
-        observations: MutableSequence[Any],
-    ) -> SemanticPlanningOutcome | None:
-        """Answer over the judgment's clarification only when a third reader finds one reading.
-
-        The released reading must first pass every selection rule of ``outcome``. Then a
-        reader of another model family, which sees neither reading, says whether the
-        question has one plausible reading; any other answer, no answer, or a failure
-        leaves the clarification to end the turn.
-        """
-
-        compiled = self.outcome(manifest_digest=manifest_digest, observations=observations)
-        if compiled is None:
-            return None
-        verdict = "unavailable"
-        if self._ambiguity is not None:
-            recorded = len(self._collector.observations)
-            future = self._ambiguity()
-            try:
-                verdict = ambiguity_verdict(
-                    future.result(timeout=max(0.0, self._deadline - self._clock()))
-                )
-            except concurrent.futures.TimeoutError:
-                future.cancel()
-                verdict = "timeout"
-            except Exception as exc:  # noqa: BLE001 - provider details stay inside the adapter
-                future.cancel()
-                verdict = f"failed:{type(exc).__name__}"
-            finally:
-                observations.extend(self._collector.observations[recorded:])
-        _LOGGER.info("semantic_compiled_answer_ambiguity", extra={"verdict": verdict})
-        if verdict == "one":
-            return compiled
-        self.decision = "clarification"
-        return None
 
     def veto(
         self,

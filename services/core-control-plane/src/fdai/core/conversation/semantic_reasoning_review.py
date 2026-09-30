@@ -252,22 +252,13 @@ def answer_kinds(goal: FormGoal) -> frozenset[AnswerKind]:
     if operation is GoalOperation.AGGREGATE:
         return frozenset({AnswerKind.COUNT, AnswerKind.VALUE})
     if operation in {GoalOperation.SELECT, GoalOperation.RANK}:
-        kinds = {AnswerKind.LIST}
+        kinds = {AnswerKind.LIST, *_relation_kinds(goal)}
         # A list filtered by a state answers whether its members are in that state.
         if any(item.role in {FilterRole.STATE, FilterRole.HEALTH} for item in goal.filters):
             kinds.add(AnswerKind.STATE)
         return frozenset(kinds)
     if operation in {GoalOperation.TRAVERSE, GoalOperation.PATH, GoalOperation.IMPACT}:
-        kinds = {AnswerKind.LIST, AnswerKind.RELATION}
-        relation = goal.relation
-        # The container a thing sits in is where it is located.
-        if (
-            relation is not None
-            and relation.sense is RelationSense.CONTAINMENT
-            and relation.result_role is SubjectRole.CONTAINER
-        ):
-            kinds.add(AnswerKind.LOCATION)
-        return frozenset(kinds)
+        return frozenset({AnswerKind.LIST, AnswerKind.RELATION, *_relation_kinds(goal)})
     if operation is GoalOperation.LOOKUP:
         if measure in _STATE_MEASURES:
             return frozenset({AnswerKind.STATE})
@@ -281,6 +272,21 @@ def answer_kinds(goal: FormGoal) -> frozenset[AnswerKind]:
     if operation is GoalOperation.DIAGNOSE:
         return frozenset({AnswerKind.CAUSE, AnswerKind.STATE})
     return frozenset(AnswerKind)
+
+
+def _relation_kinds(goal: FormGoal) -> frozenset[AnswerKind]:
+    """Return the kinds a goal's relation answers; a selection with one reads the relation.
+
+    The container a thing sits in is where it is located, as in which group contains it.
+    """
+
+    relation = goal.relation
+    if relation is None:
+        return frozenset()
+    located = relation.result_role is SubjectRole.CONTAINER
+    if relation.sense is RelationSense.CONTAINMENT and located:
+        return frozenset({AnswerKind.RELATION, AnswerKind.LOCATION})
+    return frozenset({AnswerKind.RELATION})
 
 
 def resolve_extraction(raw: Mapping[str, Any], utterance: str) -> ConstraintExtraction | None:

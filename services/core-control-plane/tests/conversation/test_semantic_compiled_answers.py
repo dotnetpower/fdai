@@ -830,3 +830,32 @@ def test_without_an_ambiguity_reader_the_clarification_always_wins() -> None:
 
     assert ticket.outcome_over_clarification(manifest_digest="d", observations=[]) is None
     assert ticket.decision == "clarification"
+
+
+def test_a_settled_reading_takes_the_cutoff_after_the_ambiguity_verdict() -> None:
+    cutoffs = [_LATER]
+    future: concurrent.futures.Future[Any] = concurrent.futures.Future()
+    future.set_result(_observation())
+    ticket = CompiledAnswerTicket(
+        future,
+        semantic_compiled_answers._ObservationCollector(),
+        deadline_seconds=5.0,
+        manifest=production_manifest(),
+        verifier=plan_verifier(),
+        cutoff=lambda: cutoffs[-1],
+    )
+
+    def ambiguity() -> concurrent.futures.Future[Any]:
+        # The reader answers after the gateway's cutoff has moved on.
+        cutoffs.append(_LATER + timedelta(seconds=8))
+        answered: concurrent.futures.Future[Any] = concurrent.futures.Future()
+        answered.set_result({"readings": "one"})
+        return answered
+
+    ticket._ambiguity = ambiguity  # noqa: SLF001 - the path binds the reader at start
+
+    outcome = ticket.outcome_over_clarification(manifest_digest="d", observations=[])
+
+    assert outcome is not None and outcome.plan is not None
+    definition = json.loads(outcome.plan.nodes[0].arguments_json)["definition"]
+    assert definition["as_of"] == (_LATER + timedelta(seconds=8)).isoformat()

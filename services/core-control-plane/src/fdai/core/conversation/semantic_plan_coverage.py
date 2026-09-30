@@ -26,6 +26,19 @@ PLAN_CONSTRAINT_UNCOVERED = "semantic_plan_constraint_uncovered"
 # Properties a filtered list reads: its kind, a name part, an identity, and its container.
 _LIST_PROPERTIES = frozenset({"type", "name", "id", "parent_id"})
 _CONTAINMENT = "contains"
+_CONTAINER = "properties.parent_id"
+# Node kinds that follow links or read a relation inside a reviewed function.
+_RELATIONAL_KINDS = frozenset(
+    {
+        QueryNodeKind.RELATIONSHIP_TRAVERSAL,
+        QueryNodeKind.TYPED_PATH,
+        QueryNodeKind.ONTOLOGY_INSTANCE_PATH,
+        QueryNodeKind.FUNCTION,
+        QueryNodeKind.TOPOLOGY_AT,
+        QueryNodeKind.TOPOLOGY_DIFF,
+        QueryNodeKind.EVIDENCE_JOIN,
+    }
+)
 
 
 def plan_reads_only_a_list(plan: OntologyQueryPlan) -> bool:
@@ -43,9 +56,10 @@ def plan_uncovered_roles(
 ) -> tuple[str, ...]:
     """Return the closed roles a blind reading states that the plan's structure never reads.
 
-    A stated grouping needs a grouped aggregate, and a stated relation needs more than a
-    filtered list. Restrictions stay with the judgment's coverage review, because two
-    readers may fairly disagree on whether a word restricts or names the kind read.
+    A stated grouping needs a grouped aggregate, and a stated relation needs a read that
+    follows links or a container: a traversal, a typed path, a function, or a grouping or
+    filter by container. Restrictions stay with the judgment's coverage review, because
+    two readers may fairly disagree on whether a word restricts or names the kind read.
     """
 
     if extraction is None:
@@ -54,7 +68,7 @@ def plan_uncovered_roles(
     uncovered: list[str] = []
     if ConstraintRole.GROUPS in roles and not any(_grouped(node) for node in plan.nodes):
         uncovered.append(ConstraintRole.GROUPS.value)
-    if ConstraintRole.RELATES in roles and plan_reads_only_a_list(plan):
+    if ConstraintRole.RELATES in roles and not any(_relational(node) for node in plan.nodes):
         uncovered.append(ConstraintRole.RELATES.value)
     return tuple(uncovered)
 
@@ -71,9 +85,12 @@ def _list_node(node: OntologyQueryNode) -> bool:
             return False
         return _list_predicates(definition.get("predicates", ()))
     if node.kind is QueryNodeKind.RELATIONSHIP_TRAVERSAL:
-        # A containment read from a named container to its members only restates a scope.
-        return list(arguments.get("link_types", ())) == [_CONTAINMENT] and _list_predicates(
-            arguments.get("endpoint_predicates", ())
+        # A containment read from a named container to its members only restates a scope;
+        # a read from a member to what contains it answers where the member is.
+        return (
+            list(arguments.get("link_types", ())) == [_CONTAINMENT]
+            and arguments.get("direction") == "outgoing"
+            and _list_predicates(arguments.get("endpoint_predicates", ()))
         )
     return False
 
@@ -89,6 +106,26 @@ def _list_predicates(predicates: Any) -> bool:
 
 def _grouped(node: OntologyQueryNode) -> bool:
     return node.kind is QueryNodeKind.AGGREGATE and bool(node.arguments.get("group_by"))
+
+
+def _relational(node: OntologyQueryNode) -> bool:
+    """Return whether one node reads a relation: a link, a path, or a container."""
+
+    if node.kind in _RELATIONAL_KINDS:
+        return True
+    arguments = node.arguments
+    if node.kind is QueryNodeKind.AGGREGATE:
+        return _CONTAINER in (arguments.get("group_by") or ())
+    if node.kind is QueryNodeKind.OBJECT_SET:
+        definition = arguments.get("definition")
+        return isinstance(definition, Mapping) and (
+            definition.get("traversal") is not None
+            or any(
+                isinstance(item, Mapping) and item.get("property") == "parent_id"
+                for item in definition.get("predicates") or ()
+            )
+        )
+    return False
 
 
 __all__ = ["PLAN_CONSTRAINT_UNCOVERED", "plan_reads_only_a_list", "plan_uncovered_roles"]

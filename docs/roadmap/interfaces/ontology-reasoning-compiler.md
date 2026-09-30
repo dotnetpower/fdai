@@ -749,8 +749,10 @@ rounds traced. Each stays in the local profile and grants no authority.
 - **Answer kind**: The extraction also names one closed kind of answer the question asks for: list, count,
   state, value, location, relation, history, cause, schema, or other. A form whose goals cannot answer that
   kind is held as `review_answer_kind:<kind>`, so a current-state lookup never answers where a subnet is
-  located, while the container read that answers it stays faithful. A null or `other` kind, a comparison,
-  and a draft are not judged, and a list filtered by a state also answers a state question.
+  located, while the container read that answers it stays faithful. A selection or traversal with a
+  relation answers relation, and location for a containment whose result is the container. A null or
+  `other` kind, a comparison, and a draft are not judged, and a list filtered by a state also answers a
+  state question.
 - **Schema verbs**: The extraction has a closed `declares` role for a word that only says an ontology thing
   is declared or has declarations, such as declared or have. Such a word needs no span only when every goal
   is schema-level; beside an instance goal it is covered like a relation, and a word the reader labels a
@@ -759,7 +761,8 @@ rounds traced. Each stays in the local profile and grants no authority.
   that passes every selection rule, a reader of a third model family answers one closed question from the
   masked question alone, never seeing either reading: whether the question has one plausible reading,
   several, or is unclear. Only one lets the released reading answer; any other verdict, no answer, a
-  timeout, or a failure keeps the clarification. The composition gives the check to the reasoning direction
+  timeout, or a failure keeps the clarification. The plan takes the gateway's cutoff only after that
+  verdict, because the gateway accepts a cutoff only within seconds of its own. The composition gives the check to the reasoning direction
   reader only when it is neither the judgment and proposer's family nor the blind reviewer's; otherwise the
   clarification always wins.
 
@@ -767,10 +770,11 @@ rounds traced. Each stays in the local profile and grants no authority.
 
 - **List-only plans**: The veto holds any current-path plan, not only one recovered from the judgment's
   words, when a parsed form reading asks more than one filtered list answers and the plan reads only such a
-  list: object reads by kind, name part, identity, or container, their unions and projections, and an
-  ungrouped count.
+  list: object reads by kind, name part, identity, or container, a read from a container to its members,
+  their unions and projections, and an ungrouped count.
 - **Blind-reading roles**: When the judgment's blind reading states a grouping and the plan has no grouped
-  aggregate, or states a relation and the plan reads only a list, the planner holds the turn as
+  aggregate, or states a relation and no traversal, path, function, or container grouping or filter reads
+  one, the planner holds the turn as
   `semantic_plan_constraint_uncovered`. The check reads the blind reading only once it has arrived.
   Restrictions stay with the judgment's coverage review and the form reading.
 
