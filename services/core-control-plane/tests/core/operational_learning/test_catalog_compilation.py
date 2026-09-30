@@ -21,6 +21,14 @@ from fdai.core.operational_learning import (
 )
 from fdai.shared.contracts.models import OntologyActionType
 
+# Fixture cases end by 2026-08-02 and a review rejects evidence older than 90 days, so reviews
+# run at one fixed time instead of the wall clock, which passes that bound on 2026-10-30.
+_REVIEWED_AT = datetime(2026, 8, 3, tzinfo=UTC)
+
+
+def _review_clock() -> datetime:
+    return _REVIEWED_AT
+
 
 def _candidate() -> dict[str, object]:
     cases = (
@@ -161,6 +169,7 @@ class _PassingValidator:
 
 def _compiler() -> CatalogCandidateCompiler:
     return CatalogCandidateCompiler(
+        clock=_review_clock,
         validator=_PassingValidator(),
         catalog_version="catalog-v1",
         schema_version="2.0.0",
@@ -315,6 +324,7 @@ def test_any_absent_or_failed_check_fails_closed(failed_check: str) -> None:
             return replace(receipts, **{failed_check: replace(receipt, passed=False)})
 
     compiler = CatalogCandidateCompiler(
+        clock=_review_clock,
         validator=_FailingValidator(),
         catalog_version="catalog-v1",
         schema_version="2.0.0",
@@ -334,6 +344,7 @@ def test_replay_non_determinism_fails_closed() -> None:
             )
 
     compiler = CatalogCandidateCompiler(
+        clock=_review_clock,
         validator=_NonDeterministicValidator(),
         catalog_version="catalog-v1",
         schema_version="2.0.0",
@@ -353,6 +364,7 @@ def test_malformed_validator_receipt_fails_closed() -> None:
             )
 
     compiler = CatalogCandidateCompiler(
+        clock=_review_clock,
         validator=_MalformedValidator(),
         catalog_version="catalog-v1",
         schema_version="2.0.0",
@@ -373,6 +385,7 @@ def test_shadow_regression_and_policy_escape_fail_closed() -> None:
             )
 
     compiler = CatalogCandidateCompiler(
+        clock=_review_clock,
         validator=_UnsafeValidator(),
         catalog_version="catalog-v1",
         schema_version="2.0.0",

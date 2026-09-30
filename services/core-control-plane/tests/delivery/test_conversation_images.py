@@ -11,6 +11,14 @@ from fdai.delivery.conversation_images import (
     InMemoryConversationImageStore,
 )
 
+# Fixture images are created on 2026-08-05 and expire 90 days later, so each store reads them at
+# one fixed time instead of the wall clock, which passes that expiry on 2026-11-03.
+_READ_AT = datetime(2026, 8, 6, tzinfo=UTC)
+
+
+def _read_clock() -> datetime:
+    return _READ_AT
+
 
 def _image(
     *,
@@ -31,7 +39,7 @@ def _image(
 
 
 async def test_image_store_is_idempotent_and_principal_scoped() -> None:
-    store = InMemoryConversationImageStore()
+    store = InMemoryConversationImageStore(clock=_read_clock)
     image = _image()
 
     assert await store.put(image) == image
@@ -55,7 +63,7 @@ async def test_image_store_is_idempotent_and_principal_scoped() -> None:
 
 
 async def test_image_store_retry_ignores_new_attempt_timestamp() -> None:
-    store = InMemoryConversationImageStore()
+    store = InMemoryConversationImageStore(clock=_read_clock)
     image = _image()
     retry = replace(image, created_at=image.created_at + timedelta(seconds=1))
 
@@ -64,7 +72,7 @@ async def test_image_store_retry_ignores_new_attempt_timestamp() -> None:
 
 
 async def test_image_store_rejects_id_reuse_with_different_bytes() -> None:
-    store = InMemoryConversationImageStore()
+    store = InMemoryConversationImageStore(clock=_read_clock)
     await store.put(_image())
 
     with pytest.raises(ConversationImageConflictError):
@@ -72,7 +80,7 @@ async def test_image_store_rejects_id_reuse_with_different_bytes() -> None:
 
 
 async def test_image_store_batch_conflict_is_atomic() -> None:
-    store = InMemoryConversationImageStore()
+    store = InMemoryConversationImageStore(clock=_read_clock)
     await store.put(_image(image_id="att-existing"))
 
     with pytest.raises(ConversationImageConflictError):
@@ -94,7 +102,7 @@ async def test_image_store_batch_conflict_is_atomic() -> None:
 
 
 async def test_image_store_enforces_principal_count_quota_atomically() -> None:
-    store = InMemoryConversationImageStore(max_images_per_principal=1)
+    store = InMemoryConversationImageStore(max_images_per_principal=1, clock=_read_clock)
     await store.put(_image(image_id="att-first"))
 
     with pytest.raises(ConversationImageQuotaError, match="count quota"):
@@ -111,7 +119,7 @@ async def test_image_store_enforces_principal_count_quota_atomically() -> None:
 
 
 async def test_image_store_enforces_principal_byte_quota() -> None:
-    store = InMemoryConversationImageStore(max_bytes_per_principal=5)
+    store = InMemoryConversationImageStore(max_bytes_per_principal=5, clock=_read_clock)
     await store.put(_image(image_id="att-first", content=b"123"))
 
     with pytest.raises(ConversationImageQuotaError, match="byte quota"):

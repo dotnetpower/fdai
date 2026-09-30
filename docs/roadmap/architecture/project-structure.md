@@ -657,6 +657,10 @@ Deployment Preflight keeps its publication decision in `core/deploy_preflight/pr
 - Rule and policy changes ship with a regression test; the
   `services/core-control-plane/src/fdai/rule_catalog/pipeline/` promotion gate blocks on a failing regression
   suite or any policy-violation escape.
+- A test that exercises time-bounded evidence, such as case retention, review age, image expiry,
+  or grant windows, gives each component under test a fixed clock inside its fixtures' validity
+  window. Where the component takes no clock, the fixture dates are relative to the current time,
+  so no test depends on the date it runs.
 - CI enforces the gates referenced above-formatter/linter, secret scanning, dependency audit,
   coverage, and regression-before review; see
   [coding-conventions.instructions.md](../../../.github/instructions/coding-conventions.instructions.md).
