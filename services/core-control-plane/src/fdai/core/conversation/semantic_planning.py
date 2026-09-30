@@ -38,6 +38,7 @@ from .semantic_compiled_answers import (
     CompiledAnswerPath,
     CompiledAnswerTicket,
     compiled_answer_or,
+    settled_clarification,
     start_compiled_answer,
     typed_only_outcome,
 )
@@ -51,7 +52,7 @@ from .semantic_judgment_coverage import (
     start_coverage,
 )
 from .semantic_judgment_review import promoted_state_collection
-from .semantic_plan_coverage import PLAN_CONSTRAINT_UNCOVERED, plan_uncovered_roles
+from .semantic_plan_coverage import narrower_plan_outcome
 from .semantic_planning_alignment import verify_frame_plan_alignment
 from .semantic_planning_cascade import (
     BOUNDED_T2_ESCALATION_POLICY,
@@ -92,7 +93,6 @@ from .semantic_planning_models import (
     SemanticPlanningDisposition,
     SemanticPlanningModel,
     SemanticPlanningOutcome,
-    hold_details,
 )
 from .semantic_planning_plan_dispatch import PlanDispatchResult, dispatch_semantic_plan
 from .semantic_planning_preflight import (
@@ -357,9 +357,7 @@ class SemanticPlanningService(SemanticPlanningPreflightMixin):
                                 judgment_decision.reason_code,
                                 manifest_digest=manifest.manifest_digest,
                                 model_observations=tuple(model_observations),
-                                hold_details=hold_details(
-                                    f"role:{role}" for role in judgment_decision.uncovered_roles
-                                ),
+                                hold_details=judgment_decision.role_details,
                             ),
                             manifest_digest=manifest.manifest_digest,
                             observations=model_observations,
@@ -454,18 +452,12 @@ class SemanticPlanningService(SemanticPlanningPreflightMixin):
             )
             if pre_frame_outcome is not None:
                 return preflight_router.finish(pre_frame_outcome)
-            # The two readers disagree, so a released reading answers over the judgment's
-            # clarification only when a third, closed ambiguity reader finds one reading.
+            # A released reading answers over a clarification only on a third reader's verdict.
             clarified = judgment_clarification_outcome(judgment_decision, manifest.manifest_digest)
             if clarified is not None:
-                settled = (
-                    ticket.outcome_over_clarification(
-                        manifest_digest=manifest.manifest_digest, observations=model_observations
-                    )
-                    if ticket is not None
-                    else None
+                return preflight_router.finish(
+                    settled_clarification(ticket, clarified, manifest_digest, model_observations)
                 )
-                return preflight_router.finish(settled if settled is not None else clarified)
             compiled = (
                 ticket.outcome(
                     manifest_digest=manifest.manifest_digest, observations=model_observations
@@ -681,30 +673,9 @@ class SemanticPlanningService(SemanticPlanningPreflightMixin):
             investigation_intent = dispatch_result.investigation_intent
             plan = dispatch_result.plan
             plan_source = dispatch_result.plan_source
-            vetoed = (
-                ticket.veto(plan_source, manifest_digest=manifest_digest, plan=plan)
-                if ticket
-                else None
-            )
-            if vetoed is not None:
-                return preflight_router.finish(vetoed)
-            # A stated grouping or relation the blind reading found must shape the plan too.
-            uncovered_roles = plan_uncovered_roles(
-                coverage.settled_reading() if coverage is not None else None, plan
-            )
-            if uncovered_roles:
-                _LOGGER.info(
-                    "semantic_plan_constraint_uncovered",
-                    extra={"plan_source": plan_source, "roles": list(uncovered_roles)},
-                )
-                return preflight_router.finish(
-                    _outcome(
-                        SemanticPlanningDisposition.UNAVAILABLE,
-                        PLAN_CONSTRAINT_UNCOVERED,
-                        manifest_digest=manifest.manifest_digest,
-                        hold_details=hold_details(f"role:{role}" for role in uncovered_roles),
-                    )
-                )
+            held = narrower_plan_outcome(ticket, coverage, plan_source, plan, manifest_digest)
+            if held is not None:
+                return preflight_router.finish(held)
             if frame.output_shape == SemanticOutputShape.PROPERTY_FILTERED_RESOURCES:
                 verify_frame_plan_alignment(
                     frame,

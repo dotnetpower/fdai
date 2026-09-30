@@ -26,6 +26,7 @@ from .semantic_judgment import SemanticJudgmentObservation
 from .semantic_planning_models import (
     SemanticDirectResponseIntent,
     SemanticOutputShape,
+    hold_details,
 )
 
 
@@ -40,6 +41,12 @@ class _JudgmentDecision:
     observations: tuple[SemanticJudgmentObservation, ...] = ()
     accepted: bool = False
     uncovered_roles: tuple[str, ...] = ()
+
+    @property
+    def role_details(self) -> tuple[str, ...]:
+        """Return the uncovered constraint roles as closed hold details."""
+
+        return hold_details(f"role:{role}" for role in self.uncovered_roles)
 
 
 _OPERATIONAL_DESCRIPTOR_NAMES = {

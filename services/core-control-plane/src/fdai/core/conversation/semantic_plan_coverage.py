@@ -11,8 +11,9 @@ that states a grouping or a relation, is then not what the plan answers.
 
 from __future__ import annotations
 
+import logging
 from collections.abc import Iterable, Mapping
-from typing import Any
+from typing import Any, Protocol
 
 from fdai_service_contracts.ontology_query import (
     OntologyQueryNode,
@@ -20,7 +21,15 @@ from fdai_service_contracts.ontology_query import (
     QueryNodeKind,
 )
 
+from .semantic_planning_models import (
+    SemanticPlanningDisposition,
+    SemanticPlanningOutcome,
+    hold_details,
+)
+from .semantic_planning_support import _outcome
 from .semantic_reasoning_review import ConstraintExtraction, ConstraintRole
+
+_LOGGER = logging.getLogger(__name__)
 
 PLAN_CONSTRAINT_UNCOVERED = "semantic_plan_constraint_uncovered"
 # Properties a filtered list reads: its kind, a name part, an identity, and its container.
@@ -39,6 +48,55 @@ _RELATIONAL_KINDS = frozenset(
         QueryNodeKind.EVIDENCE_JOIN,
     }
 )
+
+
+class PlanVeto(Protocol):
+    def veto(
+        self,
+        plan_source: str,
+        *,
+        manifest_digest: str,
+        plan: OntologyQueryPlan | None = None,
+    ) -> SemanticPlanningOutcome | None: ...
+
+
+class BlindReading(Protocol):
+    def settled_reading(self) -> ConstraintExtraction | None: ...
+
+
+def narrower_plan_outcome(
+    ticket: PlanVeto | None,
+    coverage: BlindReading | None,
+    plan_source: str,
+    plan: OntologyQueryPlan,
+    manifest_digest: str,
+) -> SemanticPlanningOutcome | None:
+    """Return the hold for a current-path plan that reads less than the question asks.
+
+    The form path's veto runs first; then a grouping or relation the judgment's blind
+    reading states must shape the plan, or the turn holds with that closed role.
+    """
+
+    vetoed = (
+        ticket.veto(plan_source, manifest_digest=manifest_digest, plan=plan)
+        if ticket is not None
+        else None
+    )
+    if vetoed is not None:
+        return vetoed
+    roles = plan_uncovered_roles(coverage.settled_reading() if coverage is not None else None, plan)
+    if not roles:
+        return None
+    _LOGGER.info(
+        "semantic_plan_constraint_uncovered",
+        extra={"plan_source": plan_source, "roles": list(roles)},
+    )
+    return _outcome(
+        SemanticPlanningDisposition.UNAVAILABLE,
+        PLAN_CONSTRAINT_UNCOVERED,
+        manifest_digest=manifest_digest,
+        hold_details=hold_details(f"role:{role}" for role in roles),
+    )
 
 
 def plan_reads_only_a_list(plan: OntologyQueryPlan) -> bool:
@@ -128,4 +186,11 @@ def _relational(node: OntologyQueryNode) -> bool:
     return False
 
 
-__all__ = ["PLAN_CONSTRAINT_UNCOVERED", "plan_reads_only_a_list", "plan_uncovered_roles"]
+__all__ = [
+    "PLAN_CONSTRAINT_UNCOVERED",
+    "BlindReading",
+    "PlanVeto",
+    "narrower_plan_outcome",
+    "plan_reads_only_a_list",
+    "plan_uncovered_roles",
+]

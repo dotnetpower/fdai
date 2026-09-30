@@ -91,7 +91,6 @@ class SemanticJudgmentResult:
     proposal: SemanticJudgmentProposal | None
     receipt: SemanticJudgmentReceipt
     observations: tuple[SemanticJudgmentObservation, ...] = ()
-    # Closed constraint roles a proposal left uncovered, for a held reading's notice.
     uncovered_roles: tuple[str, ...] = ()
 
     @property
@@ -383,8 +382,7 @@ class SemanticJudgmentBoundary:
                 except (TypeError, ValueError, ValidationError) as exc:
                     uncovered = isinstance(exc, coverage_policy.UncoveredConstraintError)
                     uncovered_seen = uncovered_seen or uncovered
-                    if isinstance(exc, coverage_policy.UncoveredConstraintError):
-                        uncovered_roles.update(dict.fromkeys(exc.roles))
+                    uncovered_roles.update(dict.fromkeys(getattr(exc, "roles", ())))
                     recovered_trace = (
                         None
                         if strict_grounding or uncovered
@@ -587,11 +585,7 @@ class SemanticJudgmentBoundary:
             binding=final_binding if final_disposition in _PROPOSAL_KEPT else None,
             proposal=final_proposal if final_disposition in _PROPOSAL_KEPT else None,
             observations=tuple(observations),
-            uncovered_roles=(
-                tuple(uncovered_roles)
-                if final_reason == coverage_policy.UNCOVERED_CONSTRAINT_CODE
-                else ()
-            ),
+            uncovered_roles=tuple(uncovered_roles),
         )
 
     def _result(

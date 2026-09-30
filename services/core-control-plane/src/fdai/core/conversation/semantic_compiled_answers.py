@@ -10,7 +10,6 @@ from __future__ import annotations
 
 import asyncio
 import concurrent.futures
-import json
 import logging
 import time
 from collections.abc import Callable, Mapping, MutableSequence
@@ -19,11 +18,7 @@ from datetime import datetime
 from typing import Any
 
 from fdai_service_contracts.ontology_query import (
-    MAX_INTENT_GRAPH_GOALS,
-    OntologyQueryNode,
     OntologyQueryPlan,
-    QueryNodeKind,
-    content_digest,
     project_intent_graph,
 )
 
@@ -35,6 +30,13 @@ from fdai.shared.ontology.acl import ProjectionRequest
 from .adaptive_call_scope import bind_adaptive_model_budget
 from .intent_graph import build_intent_graph
 from .model_observation import ConversationModelObservation
+from .semantic_compiled_selection import (
+    decision_details,
+    decline_decision,
+    held_word_recovery_reasons,
+    resample_worthy,
+    single_compiled_batch,
+)
 from .semantic_manifest import semantic_principal_scope_digest
 from .semantic_plan_coverage import plan_reads_only_a_list
 from .semantic_planning_alignment import verify_frame_plan_alignment
@@ -46,22 +48,18 @@ from .semantic_planning_models import (
 from .semantic_planning_support import _outcome, _refresh_object_set_cutoffs
 from .semantic_reasoning_ambiguity import AmbiguityReader, ambiguity_verdict
 from .semantic_reasoning_binding import GatewayAnchorResolver
-from .semantic_reasoning_compiler import CompiledBatch, GoalStatus
-from .semantic_reasoning_nodes import union_tree
+from .semantic_reasoning_compiler import CompiledBatch
 from .semantic_reasoning_shadow import (
     QuestionFormModel,
     ReasoningShadowObservation,
     ShadowBudget,
     run_reasoning_shadow,
 )
-from .semantic_reasoning_shape import BEYOND_LIST_READING
 from .session import Principal
 
 _LOGGER = logging.getLogger(__name__)
 COMPILED_PLAN_SOURCE = "compiled_question_form"
 _MAX_EVENT_ITEMS = 16
-# One ontology query plan names at most eight output nodes.
-_MAX_PLAN_OUTPUTS = 8
 _MAX_SHAPE_ITEMS = 24
 # Plans recovered from words the judgment stated, not from a typed reading of the question.
 _LEXICAL_PLAN_SOURCES = frozenset({"server_stated_filter", "server_resource_target_candidates"})
@@ -206,11 +204,11 @@ class CompiledAnswerTicket:
             return None
         finally:
             observations.extend(self._collector.observations)
-        selected = _single_compiled_batch(observation)
+        selected = single_compiled_batch(observation)
         if isinstance(selected, str):
-            self._unsupported = _held_word_recovery_reasons(observation)
-            self.decision = _decline_decision(selected, observation)
-            self.details = _decision_details(self.decision, observation)
+            self._unsupported = held_word_recovery_reasons(observation)
+            self.decision = decline_decision(selected, observation)
+            self.details = decision_details(self.decision, observation)
             _log_completion("declined", observation=observation, decline_reason=selected)
             return None
         batch, confidence = selected
@@ -454,6 +452,24 @@ _TYPED_ONLY_OUTCOMES: dict[str, tuple[SemanticPlanningDisposition, str]] = {
 }
 
 
+def settled_clarification(
+    ticket: CompiledAnswerTicket | None,
+    clarified: SemanticPlanningOutcome,
+    manifest_digest: str,
+    observations: MutableSequence[Any],
+) -> SemanticPlanningOutcome:
+    """Keep the judgment's clarification unless a third reader finds one plausible reading."""
+
+    settled = (
+        ticket.outcome_over_clarification(
+            manifest_digest=manifest_digest, observations=observations
+        )
+        if ticket is not None
+        else None
+    )
+    return settled if settled is not None else clarified
+
+
 def typed_only_outcome(
     ticket: CompiledAnswerTicket | None,
     *,
@@ -494,10 +510,10 @@ async def _run_form_path(
 
     async with bind_adaptive_model_budget(collector):
         first = await run_reasoning_shadow(model=model, retain_compilations=True, **arguments)
-        if not _resample_worthy(first):
+        if not resample_worthy(first):
             return first
         second = await run_reasoning_shadow(model=model, retain_compilations=True, **arguments)
-    if isinstance(_single_compiled_batch(second), str):
+    if isinstance(single_compiled_batch(second), str):
         return replace(first, notes=(*first.notes, "form_resampled_unanswered"))
     return replace(
         second,
@@ -505,286 +521,6 @@ async def _run_form_path(
         elapsed_ms=first.elapsed_ms + second.elapsed_ms,
         notes=(*second.notes, "form_resampled"),
     )
-
-
-# Compiler reasons that name one mislabeled mention of an otherwise answerable reading. A
-# concept no reviewed value matches can be a question word quoted as a kind of thing.
-_FORM_MISLABELS = frozenset(
-    {
-        "measure_mention_unsupported",
-        "result_instance_unsupported",
-        "anchor_form_unsupported",
-        "concept_not_found",
-    }
-)
-
-
-def _resample_worthy(observation: ReasoningShadowObservation) -> bool:
-    decline = _single_compiled_batch(observation)
-    if not isinstance(decline, str):
-        return False
-    if decline == "not_released":
-        dispositions = {item.disposition for item in observation.passes}
-        return bool(dispositions) and not dispositions <= _UNAVAILABLE_PASSES
-    return decline == "goal_not_compiled" and any(
-        reason.split(":", 1)[0] in _FORM_MISLABELS
-        for compilation in observation.compilations
-        for goal in compilation.goals
-        for reason in goal.reasons
-    )
-
-
-def _single_compiled_batch(
-    observation: ReasoningShadowObservation,
-) -> tuple[CompiledBatch, float] | str:
-    """Return the verified read of a released single-goal compilation, else a decline reason.
-
-    A goal whose relation sides span several batches is read as one plan with every
-    batch's output when the union fits one intent graph; otherwise it is declined.
-    """
-
-    # A reading that needs another pass is a continuation, not a failed form, whether or
-    # not its later pass ran; it is never resampled as a form failure.
-    if observation.continuation_pending or any(
-        compilation.needs_continuation for compilation in observation.compilations
-    ):
-        return "continuation_pending"
-    if not observation.released:
-        return "not_released"
-    if len(observation.compilations) != 1:
-        return "compilation_count"
-    goals = observation.compilations[0].goals
-    if len(goals) != 1:
-        return "goal_count"
-    goal = goals[0]
-    if goal.status is not GoalStatus.COMPILED:
-        return "goal_not_compiled"
-    if not _limitations_stated(goal.limitations, goal.batches):
-        return "goal_limited"
-    if not goal.batches or goal.confidence is None:
-        return "goal_unbatched"
-    if [(batch.index, batch.total) for batch in goal.batches] != [
-        (index, len(goal.batches)) for index in range(len(goal.batches))
-    ]:
-        return "batch_order"
-    merged = _merged_batch(goal.batches)
-    return (merged, goal.confidence) if isinstance(merged, CompiledBatch) else merged
-
-
-# Reviewed limitations an answer states as catalog notices, keyed by limitation code.
-_STATED_LIMITATIONS = {
-    "default_window_applied": "window.default",
-    "time_window_applied": "window.applied",
-    "time_window_model_judged": "window.model_judged",
-    "cause_not_established": "cause.not_established",
-    "possible_impact_not_observed": "impact.possible_not_observed",
-    "anchor_uniqueness_unproven": "anchor.uniqueness_unproven",
-}
-
-
-def _limitations_stated(limitations: tuple[str, ...], batches: tuple[CompiledBatch, ...]) -> bool:
-    """Return whether every limitation is one each frame requires its answer to state."""
-
-    for limitation in limitations:
-        code, _, value = limitation.partition(":")
-        prefix = _STATED_LIMITATIONS.get(code)
-        if prefix is None:
-            return False
-        requirement = f"{prefix}.{value}" if value else prefix
-        if any(requirement not in batch.frame.evidence_requirements for batch in batches):
-            return False
-    return True
-
-
-_CONTINUATION_DECLINES = frozenset(
-    {"continuation_pending", "compilation_count", "goal_count", "merge_over_budget"}
-)
-_UNAVAILABLE_PASSES = frozenset({"model_unavailable", "shadow_error", "input_held"})
-
-
-def _decline_decision(reason: str, observation: ReasoningShadowObservation) -> str:
-    """Return the tagged decision for one declined form path."""
-
-    if reason == "not_released":
-        dispositions = {item.disposition for item in observation.passes}
-        if not dispositions or dispositions <= _UNAVAILABLE_PASSES:
-            return "unavailable"
-        if "invalid" in dispositions:
-            return "unverified"
-        if dispositions & {"clarify", "review"}:
-            return "clarification"
-        return "unavailable" if observation.review == "unavailable" else "unverified"
-    if reason in _CONTINUATION_DECLINES:
-        return "continuation"
-    if reason == "goal_limited":
-        return "limited"
-    if reason == "goal_not_compiled":
-        failed = [
-            goal
-            for compilation in observation.compilations
-            for goal in compilation.goals
-            if goal.status is not GoalStatus.COMPILED
-        ]
-        # Only a reason that names an unsupported atom says the question asks for something
-        # no builder reads; an incomplete anchor read or an unbound concept is about data.
-        if any(
-            goal.status is GoalStatus.UNSUPPORTED
-            and any(item.split(":", 1)[0].endswith("_unsupported") for item in goal.reasons)
-            for goal in failed
-        ):
-            return "unsupported"
-        if any(goal.status is GoalStatus.CLARIFY for goal in failed):
-            return "clarification"
-        return "unavailable"
-    return "unverified"
-
-
-def _decision_details(decision: str, observation: ReasoningShadowObservation) -> tuple[str, ...]:
-    """Return the closed codes that say why a declined reading ended with ``decision``.
-
-    Positions and mention ids stay out of a code the operator's notice may name: a review
-    reason keeps only its constraint role, and a clarification keeps only its kind.
-    """
-
-    goals = [
-        goal
-        for compilation in observation.compilations
-        for goal in compilation.goals
-        if goal.status is not GoalStatus.COMPILED
-    ]
-    codes: list[str] = []
-    if decision == "unsupported":
-        codes.extend(
-            reason
-            for goal in goals
-            if goal.status is GoalStatus.UNSUPPORTED
-            for reason in goal.reasons
-            if reason.split(":", 1)[0].endswith("_unsupported")
-        )
-    elif decision == "clarification":
-        codes.extend(
-            reason.split(":", 1)[0]
-            for item in observation.passes
-            if item.disposition in {"clarify", "review"}
-            for reason in item.reasons
-        )
-        codes.extend(
-            reason.split(":", 1)[0]
-            for goal in goals
-            if goal.status is GoalStatus.CLARIFY
-            for reason in goal.reasons
-        )
-    elif decision == "unverified":
-        for reason in observation.review_reasons:
-            kind, _, rest = reason.partition(":")
-            role = rest.split(":", 1)[0]
-            if kind == "review_uncovered" and role:
-                codes.append(f"role:{role}")
-            elif kind == "review_unexpressible" and role:
-                codes.append(f"unexpressible:{role}")
-            elif kind == "review_answer_kind" and role:
-                codes.append(f"answer_kind:{role}")
-            else:
-                codes.append(kind)
-    elif decision == "unavailable":
-        codes.extend(reason for goal in goals for reason in goal.reasons)
-    elif decision == "limited":
-        codes.extend(
-            limitation.split(":", 1)[0]
-            for compilation in observation.compilations
-            for goal in compilation.goals
-            for limitation in goal.limitations
-            if limitation.split(":", 1)[0] not in _STATED_LIMITATIONS
-        )
-    return hold_details(codes)
-
-
-def _held_word_recovery_reasons(observation: ReasoningShadowObservation) -> tuple[str, ...]:
-    """Return why a word-recovered plan would answer a narrower question, else nothing.
-
-    A released reading's unsupported goal names a stated atom no builder reads; a data
-    outcome, such as an incomplete anchor read, says nothing about the question. A parsed
-    reading of any pass that asks more than one filtered list also holds such a plan.
-    """
-
-    reasons: list[str] = []
-    if observation.released and not observation.continuation_pending:
-        reasons.extend(
-            reason
-            for compilation in observation.compilations
-            for goal in compilation.goals
-            if goal.status is GoalStatus.UNSUPPORTED
-            for reason in goal.reasons
-            if reason.split(":", 1)[0].endswith("_unsupported")
-        )
-    if any(BEYOND_LIST_READING in item.shape for item in observation.passes):
-        reasons.append("reading_beyond_list")
-    return tuple(dict.fromkeys(reasons))
-
-
-def _merged_batch(batches: tuple[CompiledBatch, ...]) -> CompiledBatch | str:
-    if len(batches) == 1:
-        return batches[0]
-    frame = batches[0].frame
-    if any(batch.frame.frame_digest != frame.frame_digest for batch in batches):
-        return "merge_frame_mismatch"
-    nodes: dict[str, OntologyQueryNode] = {}
-    outputs: list[str] = []
-    for batch in batches:
-        for node in batch.plan.nodes:
-            # A shared anchor read repeats with identical content; any other id clash is unsafe.
-            if node.node_id in nodes and nodes[node.node_id] != node:
-                return "merge_node_conflict"
-            nodes.setdefault(node.node_id, node)
-        outputs.extend(batch.plan.output_node_ids)
-    if len(set(outputs)) != len(outputs):
-        return "merge_node_conflict"
-    if len(outputs) > _MAX_PLAN_OUTPUTS:
-        united = _united_outputs(nodes, outputs)
-        if united is None:
-            return "merge_over_budget"
-        outputs = united
-    if len(nodes) > MAX_INTENT_GRAPH_GOALS:
-        return "merge_over_budget"
-    first = batches[0].plan
-    body = {
-        **first.model_dump(mode="json", exclude={"nodes", "output_node_ids", "plan_digest"}),
-        "nodes": [node.model_dump(mode="json") for node in nodes.values()],
-        "output_node_ids": outputs,
-    }
-    plan = OntologyQueryPlan.model_validate({**body, "plan_digest": content_digest(body)})
-    return CompiledBatch(index=0, total=1, frame=frame, plan=plan)
-
-
-def _united_outputs(nodes: dict[str, OntologyQueryNode], outputs: list[str]) -> list[str] | None:
-    """Unite traversal outputs that reach one ObjectType, so every side is still read.
-
-    One plan names at most eight outputs; the traversals stay as nodes and a union of
-    those reaching the same endpoint type becomes one output, which keeps each reached
-    endpoint exactly once instead of declining the sides beyond the eighth.
-    """
-
-    groups: dict[str, list[str]] = {}
-    for node_id in outputs:
-        node = nodes[node_id]
-        if node.kind is not QueryNodeKind.RELATIONSHIP_TRAVERSAL:
-            return None
-        selector = json.loads(node.arguments_json).get("selector")
-        if not isinstance(selector, dict) or not isinstance(selector.get("name"), str):
-            return None
-        groups.setdefault(selector["name"], []).append(node_id)
-    united: list[str] = []
-    for index, members in enumerate(groups.values(), start=1):
-        if len(members) == 1:
-            united.append(members[0])
-            continue
-        union_id = f"union-{index}"
-        created = union_tree(union_id, members)
-        if any(node.node_id in nodes for node in created):
-            return None
-        nodes.update((node.node_id, node) for node in created)
-        united.append(union_id)
-    return united if len(united) <= _MAX_PLAN_OUTPUTS else None
 
 
 def _log_completion(
@@ -844,6 +580,7 @@ __all__ = [
     "CompiledAnswerSettings",
     "CompiledAnswerTicket",
     "compiled_answer_or",
+    "settled_clarification",
     "start_compiled_answer",
     "typed_only_outcome",
 ]

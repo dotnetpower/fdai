@@ -51,28 +51,16 @@ from .semantic_reasoning_handles import (
 from .semantic_reasoning_kinds import ground_kinds
 from .semantic_reasoning_proposal import (
     FormInputHeldError,
-    FormResolution,
-    resolve_question_form,
 )
-from .semantic_reasoning_relabel import relabel_mentions
 from .semantic_reasoning_repair import (
-    FormProposal,
     FormRepair,
     propose_with_repair,
-    repair_keeps_operands,
 )
-from .semantic_reasoning_review import (
-    FormReview,
-    describe_merged,
-    describe_uncovered,
-    describe_unexpressible,
-    literal_disagreements,
-    merged_mentions,
-    quoted_form,
-    resolve_extraction,
-    review_forms,
-    unacknowledged_constraints,
-    uncovered_constraints,
+from .semantic_reasoning_review import FormReview, review_forms
+from .semantic_reasoning_review_repair import (
+    ReviewRepair,
+    propose_review_repair,
+    review_repair,
 )
 from .semantic_reasoning_shape import form_shape
 
@@ -388,8 +376,13 @@ async def run_reasoning_shadow(
                     if failure is not None
                     else review_forms(admitted_forms, raw, utterance=utterance)
                 )
-            repair = _review_repair(
-                review, raw, admitted_forms, passes, limits, utterance=utterance
+            repair = review_repair(
+                review,
+                raw,
+                admitted_forms,
+                passes=len(passes),
+                repairs=limits.repairs_per_pass,
+                utterance=utterance,
             )
             if repair is not None:
                 try:
@@ -467,104 +460,6 @@ def _failed_pass(index: int, exc: Exception) -> ShadowPass:
     return ShadowPass(index, "input_held" if held else "shadow_error", (reason,))
 
 
-@dataclass(frozen=True, slots=True)
-class _ReviewRepair:
-    """The admitted form the review found incomplete, and the constraints it must state."""
-
-    previous: Mapping[str, Any]
-    typed: SemanticQuestionForm
-    violations: tuple[str, ...]
-    reasons: tuple[str, ...]
-    # Mentions the independent reading found merging separate constraints; the repair
-    # replaces each with one mention per part.
-    split: frozenset[str] = frozenset()
-
-
-def _review_repair(
-    review: FormReview,
-    raw: Mapping[str, Any] | None,
-    forms: list[SemanticQuestionForm],
-    passes: list[ShadowPass],
-    limits: ShadowBudget,
-    *,
-    utterance: str,
-) -> _ReviewRepair | None:
-    """Return one repair for a single admitted pass whose review found uncovered words."""
-
-    if review.outcome != "unfaithful" or raw is None or limits.repairs_per_pass < 1:
-        return None
-    if len(forms) != 1 or len(passes) != 1:
-        return None
-    extraction = resolve_extraction(raw, utterance)
-    if extraction is None:
-        return None
-    uncovered = uncovered_constraints(forms, extraction, utterance)
-    unacknowledged = unacknowledged_constraints(forms, extraction, utterance)
-    merged = merged_mentions(forms, extraction)
-    # A repair only adds information, except that it may split a mention holding separate
-    # constraints along the independent reader's disjoint quotes; it never moves a literal,
-    # so that turn is held instead.
-    if not (uncovered or unacknowledged or merged) or literal_disagreements(forms, extraction):
-        return None
-    form = forms[0]
-    violations = (
-        *(
-            describe_merged(mention_id, form.mention(mention_id).span, parts, utterance)
-            for mention_id, parts in merged.items()
-        ),
-        *(describe_uncovered(item, utterance, forms) for item in uncovered),
-        *(describe_unexpressible(item, utterance) for item in unacknowledged),
-    )
-    return _ReviewRepair(
-        previous=quoted_form(form, utterance),
-        typed=form,
-        violations=tuple(dict.fromkeys(violations)),
-        reasons=review.reasons,
-        split=frozenset(merged),
-    )
-
-
-async def _propose_review_repair(
-    propose: Callable[..., Any],
-    repair: _ReviewRepair,
-    *,
-    utterance: str,
-    accounting: SpanAccounting,
-) -> FormProposal:
-    """Ask the proposer to state the uncovered constraints, adding information only."""
-
-    raw = await propose(repair=FormRepair(previous=repair.previous, violations=repair.violations))
-    if raw is None:
-        return FormProposal(None, None, "unavailable", repair.reasons)
-    resolution = resolve_question_form(raw, utterance=utterance)
-    if resolution.form is None:
-        return FormProposal(resolution, None, "invalid", repair.reasons)
-    form = relabel_mentions(repair.typed, resolution.form, split=repair.split)
-    resolution = replace(resolution, form=form)
-    if not repair_keeps_operands(
-        repair.previous,
-        form,
-        utterance=utterance,
-        typed=repair.typed,
-        extension_only=True,
-        split=repair.split,
-    ):
-        dropped = FormResolution(None, ("review_repair_operand_dropped",))
-        return FormProposal(dropped, None, "operand_dropped", repair.reasons)
-    applied = "review_split_applied" if repair.split else "review_applied"
-    admission = admit_question_form(form, utterance=utterance, accounting=accounting)
-    if admission.disposition is AdmissionDisposition.INVALID and all(
-        reason.startswith("span_unaccounted:") for reason in admission.reasons
-    ):
-        # This is the turn's one repair, and the review reads the repaired form again, so
-        # a word it leaves unplaced is judged there, as after a first-pass repair.
-        relaxed = admit_question_form(
-            form, utterance=utterance, accounting=SpanAccounting(required=False)
-        )
-        return FormProposal(resolution, relaxed, f"{applied}_unaccounted", repair.reasons)
-    return FormProposal(resolution, admission, applied, repair.reasons)
-
-
 async def _extract(
     model: _CountingModel,
     *,
@@ -597,7 +492,7 @@ async def _run_pass(
     resolver: AnchorResolver | None,
     compile_args: dict[str, Any],
     accounting: SpanAccounting,
-    review_repair: _ReviewRepair | None = None,
+    review_repair: ReviewRepair | None = None,
 ) -> tuple[
     ShadowPass,
     tuple[dict[str, Any], ...],
@@ -622,7 +517,7 @@ async def _run_pass(
             propose, utterance=utterance, repairs=repairs, accounting=accounting
         )
         if review_repair is None
-        else await _propose_review_repair(
+        else await propose_review_repair(
             propose, review_repair, utterance=utterance, accounting=accounting
         )
     )

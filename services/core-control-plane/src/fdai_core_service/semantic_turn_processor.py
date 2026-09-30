@@ -45,10 +45,6 @@ from fdai.core.ontology_platform.incident_queries import (
     INCIDENT_EVIDENCE_MAX_RECORDS,
 )
 from fdai.core.ontology_platform.query_values import QueryTable
-from fdai.core.ontology_platform.recent_resource_changes import (
-    ACTIVITY_LOG_RESOURCE_CHANGE_SOURCE_IDENTITY,
-    ARG_RESOURCE_CHANGE_SOURCE_IDENTITY,
-)
 from fdai.core.prompts.types import PromptReplayManifest
 from fdai_service_contracts import (
     MAX_SEMANTIC_EVIDENCE_REFS,
@@ -102,6 +98,8 @@ from .semantic_answer_presentation import (
     readable_resource_status,
     readable_timestamp,
 )
+from .semantic_answer_presentation import condition_rows as _condition_rows
+from .semantic_answer_presentation import inline_code as _inline_code
 from .semantic_assurance_projection import project_semantic_assurance
 from .semantic_context_shadow import SemanticContextShadow
 from .semantic_incident_answer import render_incident_answer
@@ -114,6 +112,7 @@ from .semantic_relationship_projection import (
     project_ontology_relationships,
     render_ontology_relationship_answer,
 )
+from .semantic_resource_change_answer import render_resource_change_answer
 from .semantic_service_health_answer import (
     render_service_health_answer as _render_service_health_answer,
 )
@@ -3317,7 +3316,7 @@ def _render_general_query_answer(
     )
     if resource_event_answer is not None:
         return resource_event_answer
-    resource_change_answer = _render_resource_change_answer(
+    resource_change_answer = render_resource_change_answer(
         outputs,
         korean=korean,
         output_shape=output_shape,
@@ -3860,120 +3859,6 @@ def _bounded_document_text(value: str, *, maximum: int) -> tuple[str, bool]:
     return _escape_document_text(normalized, maximum=maximum), truncated
 
 
-def _inline_code(value: str) -> str:
-    return value.replace("`", "'").replace("\r", " ").replace("\n", " ")[:512]
-
-
-def _render_resource_change_answer(
-    outputs: list[dict[str, object]],
-    *,
-    korean: bool,
-    output_shape: str | None,
-) -> str | None:
-    if output_shape != "resource_changes" or len(outputs) != 1:
-        return None
-    output = outputs[0]
-    rows = _condition_rows(output)
-    if rows is None:
-        verified_rows: list[Mapping[str, object]] = []
-        returned_rows = output.get("returned_rows")
-        unresolved = returned_rows if isinstance(returned_rows, int) else 1
-    else:
-        verified_rows = [row for row in rows if _verified_resource_change_row(row)]
-        unresolved = len(rows) - len(verified_rows)
-    complete = output.get("source_complete") is True
-    limitation = output.get("source_truncation_reason")
-    lines = [
-        "## 최근 관측된 리소스 변경" if korean else "## Recently observed resource changes",
-        "",
-    ]
-    for row in verified_rows[:20]:
-        subject = row.get("subject_name") or str(row.get("subject_ref") or "").rsplit("/", 1)[-1]
-        operation = row.get("operation") or row.get("mutation_kind") or "change"
-        status = row.get("operation_status")
-        occurred_at = row.get("occurred_at")
-        prefix = f"- `{_inline_code(str(subject or 'resource unavailable'))}`: "
-        lines.append(
-            prefix
-            + f"`{_inline_code(str(operation))}`"
-            + (f" / `{_inline_code(str(status))}`" if status else "")
-            + f" ({readable_timestamp(str(occurred_at)) if occurred_at else 'time unavailable'})"
-        )
-    if not verified_rows:
-        lines.append(
-            "- 검증된 전체 범위에서 최근 리소스 변경을 찾지 못했습니다."
-            if korean and complete
-            else "- 현재 확인 가능한 범위에서는 최근 리소스 변경을 찾지 못했습니다."
-            if korean
-            else "- No recent Resource changes were found in the complete verified scope."
-            if complete
-            else "- No recent Resource changes were found in the currently available scope."
-        )
-    if unresolved:
-        lines.append(
-            f"- 미확정 변경 근거: {unresolved}건"
-            if korean
-            else f"- Unresolved change evidence: {unresolved}"
-        )
-    source_total = output.get("source_total_rows")
-    listed = min(len(verified_rows), 20)
-    if (
-        isinstance(source_total, int)
-        and not isinstance(source_total, bool)
-        and source_total > listed + unresolved
-    ):
-        remaining = source_total - listed - unresolved
-        lines.append(
-            f"- 이 기간에 변경된 리소스 {source_total}개 중 {remaining}개는 목록에 없습니다."
-            if korean
-            else f"- {remaining} of the {source_total} changed resources in this window "
-            "are not listed."
-        )
-    lines.append(
-        f"- 원본 완전성: {completeness_text(complete, korean=True)}"
-        if korean
-        else f"- Source completeness: {completeness_text(complete, korean=False)}"
-    )
-    if isinstance(limitation, str) and limitation:
-        lines.append(
-            f"- 제한 사항: {source_limitation_text(limitation, korean=korean)}"
-            if korean
-            else f"- Limitation: {source_limitation_text(limitation, korean=korean)}"
-        )
-    lines.extend(["", authority_line(korean=korean)])
-    return "\n".join(lines)
-
-
-def _verified_resource_change_row(row: Mapping[str, object]) -> bool:
-    occurred_at = row.get("occurred_at")
-    source_identity = row.get("source_identity")
-    observation_kind = row.get("observation_kind")
-    operation = row.get("operation")
-    provider_change = (
-        source_identity == ARG_RESOURCE_CHANGE_SOURCE_IDENTITY
-        and observation_kind in {"full", "tombstone"}
-    ) or (
-        source_identity == ACTIVITY_LOG_RESOURCE_CHANGE_SOURCE_IDENTITY
-        and isinstance(operation, str)
-        and bool(operation)
-        and observation_kind in {"partial", "change_hint", "tombstone"}
-    )
-    if (
-        row.get("execution_authority") is not False
-        or row.get("mutation_kind") not in {"upsert", "delete"}
-        or not provider_change
-        or not isinstance(source_identity, str)
-        or not source_identity
-        or not isinstance(occurred_at, str)
-    ):
-        return False
-    try:
-        parsed = datetime.fromisoformat(occurred_at.replace("Z", "+00:00"))
-    except ValueError:
-        return False
-    return parsed.tzinfo is not None and parsed.utcoffset() is not None
-
-
 def _render_state_transition_answer(
     outputs: list[dict[str, object]],
     *,
@@ -4221,19 +4106,6 @@ def _render_resource_condition_answer(
         else "This result is read-only and has `execution_authority=false`."
     )
     return "\n".join(lines)
-
-
-def _condition_rows(output: Mapping[str, object]) -> tuple[Mapping[str, object], ...] | None:
-    rows = output.get("rows")
-    if not isinstance(rows, list):
-        return None
-    projected: list[Mapping[str, object]] = []
-    for row in rows:
-        values = row.get("values") if isinstance(row, Mapping) else None
-        if not isinstance(values, Mapping) or values.get("execution_authority") is not False:
-            return None
-        projected.append(values)
-    return tuple(projected)
 
 
 def _render_ontology_declaration_answer(
