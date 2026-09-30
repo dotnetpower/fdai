@@ -176,6 +176,10 @@ concurrent writes revalidate source eligibility after CAS contention. See the
 [completion and deletion contract](prediction-learning-and-case-history.md#completion-design)
 for layout bounds and remaining legacy, broker, and downstream deletion requirements.
 
+Deletion and review age are evaluated at the reading agent's clock. Tests of these paths therefore
+give Muninn, Norns, Mimir, and the catalog compiler one fixed clock inside the fixture cases'
+retention and review windows, so no test result depends on the date the tests run.
+
 This is why `learned_as` (`ObservedOutcome -> Pattern`) has no producible endpoint pair. A cohort
 cites sealed cases as `case-history:<case_id>:<revision>:<manifest_digest>` and never receives an
 `ObservedOutcome` identity, so the edge could only be fabricated. If it is ever declared it stays a
