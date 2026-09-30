@@ -11,6 +11,7 @@ is capped by :pyattr:`blast_radius_cap`.
 
 from __future__ import annotations
 
+import asyncio
 import hashlib
 from collections import deque
 from collections.abc import Callable
@@ -102,6 +103,7 @@ class Loki(Agent):
         self._reservation_ttl = reservation_ttl
         self._in_flight_targets: set[str] = set()
         self._reservations: dict[str, _Reservation] = {}
+        self._publishing_experiments: set[str] = set()
         self._reservation_journal = (
             LokiReservationJournal(state_store, blast_radius_cap=blast_radius_cap)
             if state_store is not None
@@ -111,6 +113,8 @@ class Loki(Agent):
         self.proposals: deque[ChaosProposal] = deque(maxlen=_MAX_PROPOSALS)
         self._held_proposals: deque[ChaosProposal] = deque(maxlen=_MAX_HELD_PROPOSALS)
         self._resilience_scores: dict[str, tuple[float, str]] = {}
+        self._reservation_lock = asyncio.Lock()
+        self._publication_locks: dict[str, asyncio.Lock] = {}
 
     def bind_bus(self, bus: PantheonBus) -> None:
         self.bus = bus
@@ -244,48 +248,49 @@ class Loki(Agent):
             await self._persist_held_proposal(proposal)
             self.record_behavior("chaos_proposal:held_incomplete")
             return proposal
-        # Enforce cap BEFORE emitting anything so a proposal storm does
-        # not exceed the declared radius.
-        if self._reservation_journal is not None:
-            reservation = await self._reservation_journal.reserve(
-                experiment_id=experiment_id,
+        async with self._reservation_lock:
+            # Enforce cap BEFORE emitting anything so a proposal storm does
+            # not exceed the declared radius.
+            if self._reservation_journal is not None:
+                reservation = await self._reservation_journal.reserve(
+                    experiment_id=experiment_id,
+                    action_type=action_type,
+                    targets=targets,
+                    reserved_at=self._now().isoformat(),
+                )
+                self._in_flight_targets = set(reservation.occupied)
+                selected = reservation.targets
+                if reservation.duplicate:
+                    self.record_behavior("chaos_reservation:replayed")
+            else:
+                available = self._cap - len(self._in_flight_targets)
+                selected = tuple(t for t in targets if t not in self._in_flight_targets)[:available]
+            targets_truncated = len(selected) < requested_target_count
+            if targets_truncated and selected:
+                self.record_behavior("chaos_reservation:targets_truncated")
+            if not selected:
+                proposal = ChaosProposal(
+                    experiment_id=experiment_id,
+                    action_type=action_type,
+                    targets=(),
+                    accepted=False,
+                    reason=(
+                        "blast_radius_full"
+                        if len(self._in_flight_targets) >= self._cap
+                        else "no_new_targets"
+                    ),
+                    requested_target_count=requested_target_count,
+                    targets_truncated=targets_truncated,
+                )
+                self.proposals.append(proposal)
+                self.record_behavior(f"chaos_proposal:{proposal.reason}")
+                return proposal
+            self._in_flight_targets.update(selected)
+            self._reservations[experiment_id] = _Reservation(
                 action_type=action_type,
-                targets=targets,
-                reserved_at=self._now().isoformat(),
+                targets=selected,
+                reserved_at=self._now(),
             )
-            self._in_flight_targets = set(reservation.occupied)
-            selected = reservation.targets
-            if reservation.duplicate:
-                self.record_behavior("chaos_reservation:replayed")
-        else:
-            available = self._cap - len(self._in_flight_targets)
-            selected = tuple(t for t in targets if t not in self._in_flight_targets)[:available]
-        targets_truncated = len(selected) < requested_target_count
-        if targets_truncated and selected:
-            self.record_behavior("chaos_reservation:targets_truncated")
-        if not selected:
-            proposal = ChaosProposal(
-                experiment_id=experiment_id,
-                action_type=action_type,
-                targets=(),
-                accepted=False,
-                reason=(
-                    "blast_radius_full"
-                    if len(self._in_flight_targets) >= self._cap
-                    else "no_new_targets"
-                ),
-                requested_target_count=requested_target_count,
-                targets_truncated=targets_truncated,
-            )
-            self.proposals.append(proposal)
-            self.record_behavior(f"chaos_proposal:{proposal.reason}")
-            return proposal
-        self._in_flight_targets.update(selected)
-        self._reservations[experiment_id] = _Reservation(
-            action_type=action_type,
-            targets=selected,
-            reserved_at=self._now(),
-        )
         proposal = ChaosProposal(
             experiment_id=experiment_id,
             action_type=action_type,
@@ -322,7 +327,20 @@ class Loki(Agent):
             "dry_run_receipt": dry_run_receipt,
             "human_approval_required": True,
         }
-        published = await self._publish_chaos_once(experiment_id, payload)
+        self._publishing_experiments.add(experiment_id)
+        published = False
+        try:
+            published = await self._publish_chaos_once(experiment_id, payload)
+        except asyncio.CancelledError:
+            await self._release_reservation(
+                experiment_id=experiment_id,
+                action_type=action_type,
+                targets=selected,
+            )
+            self.record_behavior("chaos_proposal:publication_cancelled")
+            raise
+        finally:
+            self._publishing_experiments.discard(experiment_id)
         if not published:
             await self._release_reservation(
                 experiment_id=experiment_id,
@@ -349,49 +367,50 @@ class Loki(Agent):
         return proposal
 
     async def _publish_chaos_once(self, experiment_id: str, payload: dict[str, Any]) -> bool:
-        if self._state_store is None:
-            return self.bus is None or await self._publish_proposal(
-                "object.chaos-experiment",
-                payload,
-            )
-        outbox_key = f"{_CHAOS_OUTBOX_PREFIX}{_digest(experiment_id)}"
-        existing = await self._state_store.read_state(outbox_key)
-        if existing is not None:
-            if existing.get("state") == "published":
-                self.record_behavior("chaos_proposal:duplicate_published")
+        async with self._lock_for_publication(experiment_id):
+            if self._state_store is None:
+                return self.bus is None or await self._publish_proposal(
+                    "object.chaos-experiment",
+                    payload,
+                )
+            outbox_key = f"{_CHAOS_OUTBOX_PREFIX}{_digest(experiment_id)}"
+            existing = await self._state_store.read_state(outbox_key)
+            if existing is not None:
+                if existing.get("state") == "published":
+                    self.record_behavior("chaos_proposal:duplicate_published")
+                    return True
+                stored_payload = existing.get("payload")
+                if not isinstance(stored_payload, dict):
+                    raise ValueError("Loki chaos outbox payload is malformed")
+                payload = dict(stored_payload)
+            else:
+                await self._state_store.write_state_if_absent(
+                    outbox_key,
+                    {
+                        "schema_version": "1.0.0",
+                        "revision": 1,
+                        "state": "pending",
+                        "experiment_id": experiment_id,
+                        "idempotency_key": str(payload.get("idempotency_key") or ""),
+                        "payload": dict(payload),
+                    },
+                )
+            if self.bus is None:
                 return True
-            stored_payload = existing.get("payload")
-            if not isinstance(stored_payload, dict):
-                raise ValueError("Loki chaos outbox payload is malformed")
-            payload = dict(stored_payload)
-        else:
-            await self._state_store.write_state_if_absent(
+            if not await self._publish_proposal("object.chaos-experiment", payload):
+                return False
+            await self._state_store.write_state(
                 outbox_key,
                 {
                     "schema_version": "1.0.0",
-                    "revision": 1,
-                    "state": "pending",
+                    "revision": 2,
+                    "state": "published",
                     "experiment_id": experiment_id,
                     "idempotency_key": str(payload.get("idempotency_key") or ""),
                     "payload": dict(payload),
                 },
             )
-        if self.bus is None:
             return True
-        if not await self._publish_proposal("object.chaos-experiment", payload):
-            return False
-        await self._state_store.write_state(
-            outbox_key,
-            {
-                "schema_version": "1.0.0",
-                "revision": 2,
-                "state": "published",
-                "experiment_id": experiment_id,
-                "idempotency_key": str(payload.get("idempotency_key") or ""),
-                "payload": dict(payload),
-            },
-        )
-        return True
 
     async def _persist_held_proposal(self, proposal: ChaosProposal) -> None:
         if self._state_store is None:
@@ -433,12 +452,10 @@ class Loki(Agent):
         if existing is not None and parsed_observed_at < _parse_time(existing[1]):
             self.record_behavior("resilience_score:stale")
             return False
-        if (
-            len(self._resilience_scores) >= _MAX_RESILIENCE_SCORES
-            and resource_id not in self._resilience_scores
-        ):
-            self._resilience_scores.pop(next(iter(self._resilience_scores)))
-        self._resilience_scores[resource_id] = (
+        next_scores = dict(self._resilience_scores)
+        if len(next_scores) >= _MAX_RESILIENCE_SCORES and resource_id not in next_scores:
+            next_scores.pop(next(iter(next_scores)))
+        next_scores[resource_id] = (
             float(candidate["score"]),
             observed_at,
         )
@@ -453,6 +470,7 @@ class Loki(Agent):
                     "observed_at": parsed_observed_at.isoformat(),
                 },
             )
+        self._resilience_scores = next_scores
         return True
 
     async def _release_reservation(
@@ -485,25 +503,27 @@ class Loki(Agent):
     async def maintenance_tick(self) -> None:
         await super().maintenance_tick()
         cutoff = self._now() - self._reservation_ttl
-        if self._reservation_journal is not None:
-            expired = await self._reservation_journal.expire_stale(cutoff=cutoff.isoformat())
-            if expired.targets:
-                self._in_flight_targets = set(expired.occupied)
-                self.record_behavior("chaos_reservation:expired", len(expired.targets))
-            return
-        expired_experiments = [
-            experiment_id
-            for experiment_id, reservation in self._reservations.items()
-            if reservation.reserved_at <= cutoff
-        ]
-        if not expired_experiments:
-            return
-        expired_targets: list[str] = []
-        for experiment_id in expired_experiments:
-            reservation = self._reservations.pop(experiment_id)
-            expired_targets.extend(reservation.targets)
-        self._release_targets(tuple(expired_targets))
-        self.record_behavior("chaos_reservation:expired", len(expired_targets))
+        async with self._reservation_lock:
+            if self._reservation_journal is not None:
+                expired = await self._reservation_journal.expire_stale(cutoff=cutoff.isoformat())
+                if expired.targets:
+                    self._in_flight_targets = set(expired.occupied)
+                    self.record_behavior("chaos_reservation:expired", len(expired.targets))
+                return
+            expired_experiments = [
+                experiment_id
+                for experiment_id, reservation in self._reservations.items()
+                if reservation.reserved_at <= cutoff
+                and experiment_id not in self._publishing_experiments
+            ]
+            if not expired_experiments:
+                return
+            expired_targets: list[str] = []
+            for experiment_id in expired_experiments:
+                reservation = self._reservations.pop(experiment_id)
+                expired_targets.extend(reservation.targets)
+            self._release_targets(tuple(expired_targets))
+            self.record_behavior("chaos_reservation:expired", len(expired_targets))
 
     def health(self) -> dict[str, Any]:
         return {
@@ -612,6 +632,13 @@ class Loki(Agent):
                 f"{facts['blast_radius_cap']}-target cap. Evidence: {evidence_ref}."
             )
         return IntrospectionResult(answer=answer, facts=facts)
+
+    def _lock_for_publication(self, experiment_id: str) -> asyncio.Lock:
+        lock = self._publication_locks.get(experiment_id)
+        if lock is None:
+            lock = asyncio.Lock()
+            self._publication_locks[experiment_id] = lock
+        return lock
 
 
 __all__ = ["Loki", "ChaosProposal"]

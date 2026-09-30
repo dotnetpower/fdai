@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import hashlib
 from collections.abc import Sequence
 from dataclasses import dataclass
@@ -29,6 +30,7 @@ from fdai.core.ontology_platform.functions import ontology_function_digest
 from fdai.shared.providers.cost_governance import (
     CostAdvisoryProvider,
     CostAnalysisSample,
+    CostAnomalyAdvisory,
     CostPackageActivationReader,
 )
 from fdai.shared.providers.state_store import StateStore
@@ -37,6 +39,7 @@ _PACKAGE_ID = "cost-governance"
 _MAX_TRACKED_SCOPES = 512
 _SAMPLE_PREFIX = "pantheon/njord/cost-samples/"
 _ACCEPTED_PREFIX = "pantheon/njord/accepted-samples/"
+_ADVISORY_TIMEOUT_SECONDS = 5.0
 
 
 @dataclass(frozen=True, slots=True)
@@ -73,6 +76,7 @@ class Njord(Agent):
         self._counts: dict[str, int] = {}
         self._accepted_sample_keys: set[str] = set()
         self._accepted_sample_digests: dict[str, str] = {}
+        self._scope_locks: dict[str, asyncio.Lock] = {}
         for sample in initial_samples:
             self._remember_initial_sample(sample)
 
@@ -207,7 +211,7 @@ class Njord(Agent):
             limit=_MAX_TRACKED_SCOPES * 4,
         ):
             sample_key = str(record.get("sample_key") or "")
-            if sample_key:
+            if sample_key and record.get("state", "completed") == "completed":
                 self._accepted_sample_keys.add(sample_key)
         return restored
 
@@ -221,20 +225,37 @@ class Njord(Agent):
             self.record_behavior("cost_sample:provider_absent")
             return None
         normalized_key = sample_key.strip() or _sample_key(sample)
-        sample_digest = _sample_digest(sample)
-        if not await self._claim_sample(normalized_key, sample, sample_digest=sample_digest):
-            return None
-        latest = self._latest.get(sample.scope_id)
-        if latest is not None:
-            latest_at = _parse_time(latest[1])
-            if latest_at is not None and sample.observed_at.astimezone(UTC) < latest_at:
-                self.record_behavior("cost_sample:stale")
+        async with self._lock_for_scope(sample.scope_id):
+            sample_digest = _sample_digest(sample)
+            if not await self._begin_sample(normalized_key, sample, sample_digest=sample_digest):
                 return None
-        finding = await self._advisory_provider.analyze_cost_sample(sample)
-        await self._remember_sample(sample)
-        if finding is None:
-            self.record_behavior("cost_sample:no_finding")
-            return None
+            latest = self._latest.get(sample.scope_id)
+            if latest is not None:
+                latest_at = _parse_time(latest[1])
+                if latest_at is not None and sample.observed_at.astimezone(UTC) < latest_at:
+                    self.record_behavior("cost_sample:stale")
+                    return None
+            try:
+                async with asyncio.timeout(_ADVISORY_TIMEOUT_SECONDS):
+                    finding = await self._advisory_provider.analyze_cost_sample(sample)
+            except TimeoutError:
+                self.record_behavior("cost_sample:provider_timeout")
+                return None
+            await self._remember_sample(sample)
+            if finding is None:
+                await self._complete_sample(normalized_key, sample, sample_digest=sample_digest)
+                self.record_behavior("cost_sample:no_finding")
+                return None
+            payload = self._cost_anomaly_payload(finding, sample)
+            await self._publish_proposal("object.cost-anomaly", payload)
+            await self._complete_sample(normalized_key, sample, sample_digest=sample_digest)
+            return payload
+
+    def _cost_anomaly_payload(
+        self,
+        finding: CostAnomalyAdvisory,
+        sample: CostAnalysisSample,
+    ) -> dict[str, Any]:
         anomaly_material = {
             "target_ref": finding.resource_id,
             "scope": finding.scope_id,
@@ -281,7 +302,6 @@ class Njord(Agent):
             "source_authority_ref": sample.source_authority,
             "synthetic": False,
         }
-        await self._publish_proposal("object.cost-anomaly", payload)
         return payload
 
     def _remember_initial_sample(self, sample: CostAnalysisSample) -> None:
@@ -292,7 +312,7 @@ class Njord(Agent):
         self._latest[sample.scope_id] = (float(sample.amount_usd), sample.observed_at.isoformat())
         self._counts[sample.scope_id] = self._counts.get(sample.scope_id, 0) + 1
 
-    async def _claim_sample(
+    async def _begin_sample(
         self,
         sample_key: str,
         sample: CostAnalysisSample,
@@ -309,9 +329,11 @@ class Njord(Agent):
             existing = await self._state_store.read_state(_accepted_key(sample_key))
             if existing is not None:
                 if existing.get("sample_digest") == sample_digest:
-                    self._accepted_sample_keys.add(sample_key)
-                    self.record_behavior("cost_sample:duplicate")
-                    return False
+                    if existing.get("state", "completed") == "completed":
+                        self._accepted_sample_keys.add(sample_key)
+                        self.record_behavior("cost_sample:duplicate")
+                        return False
+                    return True
                 self.record_behavior("cost_sample:key_collision")
                 return True
             created = await self._state_store.write_state_if_absent(
@@ -319,6 +341,7 @@ class Njord(Agent):
                 {
                     "schema_version": "1.0.0",
                     "revision": 1,
+                    "state": "pending",
                     "sample_key": sample_key,
                     "sample_digest": sample_digest,
                     "scope_id": sample.scope_id,
@@ -329,29 +352,57 @@ class Njord(Agent):
                 self._accepted_sample_keys.add(sample_key)
                 self.record_behavior("cost_sample:duplicate")
                 return False
-        self._accepted_sample_keys.add(sample_key)
-        self._accepted_sample_digests[sample_key] = sample_digest
         return True
 
+    async def _complete_sample(
+        self,
+        sample_key: str,
+        sample: CostAnalysisSample,
+        *,
+        sample_digest: str,
+    ) -> None:
+        if self._state_store is not None:
+            await self._state_store.write_state(
+                _accepted_key(sample_key),
+                {
+                    "schema_version": "1.0.0",
+                    "revision": 2,
+                    "state": "completed",
+                    "sample_key": sample_key,
+                    "sample_digest": sample_digest,
+                    "scope_id": sample.scope_id,
+                    "observed_at": sample.observed_at.astimezone(UTC).isoformat(),
+                },
+            )
+        self._accepted_sample_keys.add(sample_key)
+        self._accepted_sample_digests[sample_key] = sample_digest
+
     async def _remember_sample(self, sample: CostAnalysisSample) -> None:
-        if len(self._latest) >= _MAX_TRACKED_SCOPES and sample.scope_id not in self._latest:
-            oldest = next(iter(self._latest))
-            self._latest.pop(oldest, None)
-            self._counts.pop(oldest, None)
-        self._latest[sample.scope_id] = (float(sample.amount_usd), sample.observed_at.isoformat())
-        self._counts[sample.scope_id] = self._counts.get(sample.scope_id, 0) + 1
+        next_latest = dict(self._latest)
+        next_counts = dict(self._counts)
+        if len(next_latest) >= _MAX_TRACKED_SCOPES and sample.scope_id not in next_latest:
+            oldest = next(iter(next_latest))
+            next_latest.pop(oldest, None)
+            next_counts.pop(oldest, None)
+        next_counts[sample.scope_id] = next_counts.get(sample.scope_id, 0) + 1
+        next_latest[sample.scope_id] = (
+            float(sample.amount_usd),
+            sample.observed_at.isoformat(),
+        )
         if self._state_store is not None:
             await self._state_store.write_state(
                 f"{_SAMPLE_PREFIX}{_digest(sample.scope_id)}",
                 {
                     "schema_version": "1.0.0",
-                    "revision": self._counts[sample.scope_id],
+                    "revision": next_counts[sample.scope_id],
                     "scope_id": sample.scope_id,
                     "amount_usd": float(sample.amount_usd),
                     "observed_at": sample.observed_at.astimezone(UTC).isoformat(),
-                    "count": self._counts[sample.scope_id],
+                    "count": next_counts[sample.scope_id],
                 },
             )
+        self._latest = next_latest
+        self._counts = next_counts
 
     async def _message_enabled(self, activation_revision: object) -> bool:
         if not self._package_enabled or self._advisory_provider is None:
@@ -466,6 +517,7 @@ class Njord(Agent):
                 f"over {self._counts[scope]} accepted finding(s). Evidence: {evidence_ref}."
             )
             return IntrospectionResult(answer=answer, facts=facts)
+
         evidence_ref = agent_state_evidence_ref(self.spec.name, facts)
         facts["evidence_refs"] = [evidence_ref]
         if context.get("locale") == "ko":
@@ -510,6 +562,13 @@ class Njord(Agent):
                 )
             answer += f" Evidence: {evidence_ref}."
         return IntrospectionResult(answer=answer, facts=facts)
+
+    def _lock_for_scope(self, scope_id: str) -> asyncio.Lock:
+        lock = self._scope_locks.get(scope_id)
+        if lock is None:
+            lock = asyncio.Lock()
+            self._scope_locks[scope_id] = lock
+        return lock
 
 
 __all__ = ["Njord", "CostEstimate"]

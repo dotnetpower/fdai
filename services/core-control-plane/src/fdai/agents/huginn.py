@@ -8,6 +8,7 @@ behind a provider protocol added in a later wave.
 
 from __future__ import annotations
 
+import asyncio
 from collections import OrderedDict, deque
 from collections.abc import Awaitable, Callable, Mapping
 from datetime import UTC, datetime, timedelta
@@ -62,6 +63,7 @@ _TRACE_CONTINUITY_FIELDS = (
     "window_bucket",
 )
 _MAX_OPERATIONAL_CASE_ERRORS = 32
+_DISCOVERY_PROJECTOR_TIMEOUT_SECONDS = 5.0
 
 DiscoveryProjector = Callable[[Mapping[str, Any]], Awaitable[object]]
 """Injected durable inventory projector; cloud and database I/O stay outside Huginn."""
@@ -277,6 +279,7 @@ class Huginn(Agent):
         )
         # OrderedDict as an LRU set: key -> None, oldest first.
         self._seen_keys: OrderedDict[str, None] = OrderedDict()
+        self._ingress_locks: OrderedDict[str, asyncio.Lock] = OrderedDict()
         self._operational_case_errors: deque[str] = deque(maxlen=_MAX_OPERATIONAL_CASE_ERRORS)
 
     def bind_bus(self, bus: PantheonBus) -> None:
@@ -330,6 +333,10 @@ class Huginn(Agent):
             self._alert_noise_verifier(raw)
         key = self._ingress_key(raw)
         key = key[:_MAX_FIELD_CHARS]
+        async with self._lock_for_key(key):
+            return await self._ingest_locked(raw, key=key)
+
+    async def _ingest_locked(self, raw: dict[str, Any], *, key: str) -> dict[str, Any] | None:
         raw_request_digest = request_digest(raw) if self._dedup_journal is not None else ""
         if key in self._seen_keys:
             self._seen_keys.move_to_end(key)
@@ -486,22 +493,78 @@ class Huginn(Agent):
         self.record_behavior("ingested")
         if "inventory_change" in payload and self._discovery_projector is not None:
             try:
-                await self._discovery_projector(payload)
+                async with asyncio.timeout(_DISCOVERY_PROJECTOR_TIMEOUT_SECONDS):
+                    await self._discovery_projector(payload)
                 self.record_behavior("discovery_projected")
+            except TimeoutError:
+                self.record_behavior("discovery_projection:timeout")
+                raise
+            except asyncio.CancelledError:
+                self.record_behavior("discovery_projection:cancelled")
+                raise
             except Exception:
                 self.record_behavior("discovery_projection_failed")
                 raise
+        publish_cancelled = False
         if self.bus is not None:
-            await self.bus.publish("Huginn", "object.event", payload)
-            if change_projection is not None:
-                await self.bus.publish("Huginn", "object.change", change_projection)
+            publish_cancelled = await self._publish_event_change(payload, change_projection)
         if self._dedup_journal is not None:
-            await self._dedup_journal.complete(
-                idempotency_key=key,
-                request_digest=raw_request_digest,
+            complete_task = asyncio.create_task(
+                self._dedup_journal.complete(
+                    idempotency_key=key,
+                    request_digest=raw_request_digest,
+                )
             )
+            try:
+                await asyncio.shield(complete_task)
+            except asyncio.CancelledError:
+                await complete_task
+                self.record_behavior("dedup_completion:cancelled")
+                publish_cancelled = True
         self._remember_key(key)
+        if publish_cancelled:
+            raise asyncio.CancelledError
         return payload
+
+    async def _publish_event_change(
+        self,
+        payload: Mapping[str, Any],
+        change_projection: Mapping[str, Any] | None,
+    ) -> bool:
+        if self.bus is None:
+            return False
+        cancelled = False
+        event_task = asyncio.create_task(self.bus.publish("Huginn", "object.event", dict(payload)))
+        try:
+            await asyncio.shield(event_task)
+        except asyncio.CancelledError:
+            await event_task
+            self.record_behavior("event_publication:cancelled")
+            cancelled = True
+        if change_projection is not None:
+            change_task = asyncio.create_task(
+                self.bus.publish("Huginn", "object.change", dict(change_projection))
+            )
+            try:
+                await asyncio.shield(change_task)
+            except asyncio.CancelledError:
+                await change_task
+                self.record_behavior("change_publication:cancelled")
+                cancelled = True
+        return cancelled
+
+    def _lock_for_key(self, key: str) -> asyncio.Lock:
+        lock = self._ingress_locks.get(key)
+        if lock is None:
+            lock = asyncio.Lock()
+            self._ingress_locks[key] = lock
+        self._ingress_locks.move_to_end(key)
+        while len(self._ingress_locks) > self._dedup_capacity:
+            old_key, old_lock = next(iter(self._ingress_locks.items()))
+            if old_lock.locked():
+                break
+            self._ingress_locks.pop(old_key, None)
+        return lock
 
     def _ingress_key(self, raw: Mapping[str, Any]) -> str:
         provided = str(raw.get("idempotency_key") or raw.get("id") or raw.get("event_id") or "")

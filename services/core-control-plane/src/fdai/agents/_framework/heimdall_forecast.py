@@ -14,6 +14,7 @@ from fdai.core.detection.forecast_evaluation import ForecastEpisodeEvaluator
 from fdai.shared.contracts.models import ForecastOutcome
 
 _MAX_FORECAST_PUBLICATION_ATTEMPTS = 5
+_FORECAST_PROVIDER_TIMEOUT_SECONDS = 5.0
 
 
 class HeimdallForecastMixin:
@@ -89,8 +90,18 @@ class HeimdallForecastMixin:
         now = self._forecast_clock()
         if now.tzinfo is None:
             raise ValueError("Heimdall forecast clock MUST be timezone-aware")
-        evaluated = await self._forecast_evaluator.evaluate(now=now)
-        closed = await self._forecast_closer.close_due(now=now)
+        evaluated = 0
+        closed = 0
+        try:
+            async with asyncio.timeout(_FORECAST_PROVIDER_TIMEOUT_SECONDS):
+                evaluated = await self._forecast_evaluator.evaluate(now=now)
+        except TimeoutError:
+            self.record_behavior("forecast_episode:evaluation_timeout")
+        try:
+            async with asyncio.timeout(_FORECAST_PROVIDER_TIMEOUT_SECONDS):
+                closed = await self._forecast_closer.close_due(now=now)
+        except TimeoutError:
+            self.record_behavior("forecast_episode:closure_timeout")
         published = await self._publish_forecast_outbox(now=now)
         self.record_behavior("forecast_tick:completed")
         for _ in range(evaluated):
@@ -119,11 +130,21 @@ class HeimdallForecastMixin:
                 elif publication.topic != "object.forecast":
                     raise ValueError("forecast publication topic is unsupported")
                 await self.bus.publish("Heimdall", publication.topic, publication_payload)
-                await self._forecast_store.complete_publication(
-                    publication.publication_id,
-                    published_at=now,
+                complete_task = asyncio.create_task(
+                    self._forecast_store.complete_publication(
+                        publication.publication_id,
+                        published_at=now,
+                    )
                 )
+                try:
+                    await asyncio.shield(complete_task)
+                except asyncio.CancelledError:
+                    await complete_task
+                    self.record_behavior("forecast_publication:completion_cancelled")
+                    raise
                 published += 1
+            except asyncio.CancelledError:
+                raise
             except Exception as exc:
                 error = type(exc).__name__
                 if (

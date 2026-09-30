@@ -6,6 +6,7 @@ smoothing forecast, and exposes a sizing advisory hook.
 
 from __future__ import annotations
 
+import asyncio
 import hashlib
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -82,6 +83,8 @@ class Freyr(Agent):
         self._state_store = state_store
         self._accepted_sample_keys: set[str] = set()
         self._latest_observed_at: dict[str, datetime] = {}
+        self._resource_locks: dict[str, asyncio.Lock] = {}
+        self._cost_evidence_lock = asyncio.Lock()
 
     def bind_bus(self, bus: PantheonBus) -> None:
         self.bus = bus
@@ -222,40 +225,43 @@ class Freyr(Agent):
             self.record_behavior("capacity_graduation:invalid_cost_evidence")
             return
         retained_at = observed_at.astimezone(UTC)
-        existing = self._cost_evidence.get(target_ref)
-        if existing is not None and retained_at < existing[1]:
-            self.record_behavior("capacity_graduation:stale_cost_evidence")
-            return
-        cutoff = retained_at - _COST_EVIDENCE_MAX_AGE
-        for retained_target, (_, retained_observed_at, _) in list(self._cost_evidence.items()):
-            if retained_observed_at < cutoff:
-                self._cost_evidence.pop(retained_target, None)
-        if len(self._cost_evidence) >= _MAX_COST_EVIDENCE and target_ref not in self._cost_evidence:
-            oldest_target, oldest = min(
-                self._cost_evidence.items(),
-                key=lambda item: item[1][1],
-            )
-            if retained_at <= oldest[1]:
-                self.record_behavior("capacity_graduation:cost_evidence_retention_full")
+        async with self._cost_evidence_lock:
+            next_evidence = dict(self._cost_evidence)
+            existing = next_evidence.get(target_ref)
+            if existing is not None and retained_at < existing[1]:
+                self.record_behavior("capacity_graduation:stale_cost_evidence")
                 return
-            self._cost_evidence.pop(oldest_target, None)
-        self._cost_evidence[target_ref] = (
-            evidence_ref,
-            retained_at,
-            correlation_id,
-        )
-        if self._state_store is not None:
-            await self._state_store.write_state(
-                f"{_COST_PREFIX}{_digest(target_ref)}",
-                {
-                    "schema_version": "1.0.0",
-                    "revision": 1,
-                    "target_ref": target_ref,
-                    "evidence_ref": evidence_ref,
-                    "observed_at": retained_at.isoformat(),
-                    "correlation_id": correlation_id,
-                },
+            cutoff = retained_at - _COST_EVIDENCE_MAX_AGE
+            for retained_target, (_, retained_observed_at, _) in list(next_evidence.items()):
+                if retained_observed_at < cutoff:
+                    next_evidence.pop(retained_target, None)
+            if len(next_evidence) >= _MAX_COST_EVIDENCE and target_ref not in next_evidence:
+                oldest_target, oldest = min(
+                    next_evidence.items(),
+                    key=lambda item: item[1][1],
+                )
+                if retained_at <= oldest[1]:
+                    self.record_behavior("capacity_graduation:cost_evidence_retention_full")
+                    return
+                next_evidence.pop(oldest_target, None)
+            next_evidence[target_ref] = (
+                evidence_ref,
+                retained_at,
+                correlation_id,
             )
+            if self._state_store is not None:
+                await self._state_store.write_state(
+                    f"{_COST_PREFIX}{_digest(target_ref)}",
+                    {
+                        "schema_version": "1.0.0",
+                        "revision": 1,
+                        "target_ref": target_ref,
+                        "evidence_ref": evidence_ref,
+                        "observed_at": retained_at.isoformat(),
+                        "correlation_id": correlation_id,
+                    },
+                )
+            self._cost_evidence = next_evidence
         self.record_behavior("capacity_graduation:cost_evidence_retained")
 
     async def ingest_utilization(
@@ -281,28 +287,47 @@ class Freyr(Agent):
             observed_at,
             correlation_id,
         )
-        if not await self._claim_sample(normalized_key, resource_id, observed_at):
-            return
-        latest = self._latest_observed_at.get(resource_id)
-        if latest is not None and parsed_observed_at < latest:
-            self.record_behavior("capacity_sample:stale")
-            return
-        prev_value = self._smoothed.get(resource_id)
-        prev = utilization if prev_value is None else prev_value
-        smoothed = self._alpha * utilization + (1 - self._alpha) * prev
-        self._smoothed.set(resource_id, smoothed)
-        history = self._samples.get(resource_id)
-        if history is None:
-            history = []
+        async with self._lock_for_resource(resource_id):
+            if not await self._begin_sample(normalized_key, resource_id, observed_at):
+                return
+            latest = self._latest_observed_at.get(resource_id)
+            if latest is not None and parsed_observed_at < latest:
+                self.record_behavior("capacity_sample:stale")
+                return
+            prev_value = self._smoothed.get(resource_id)
+            prev = utilization if prev_value is None else prev_value
+            smoothed = self._alpha * utilization + (1 - self._alpha) * prev
+            prior_history = self._samples.get(resource_id) or []
+            history = [*prior_history, utilization]
+            # Trim in place to the rolling cap - only the tail and the length are
+            # read, so dropping older samples changes no decision but bounds
+            # memory on a long-lived capacity watcher.
+            history = history[-_MAX_SAMPLES:]
+            await self._persist_resource(resource_id, smoothed, history, parsed_observed_at)
+            self._smoothed.set(resource_id, smoothed)
             self._samples.set(resource_id, history)
-        history.append(utilization)
-        # Trim in place to the rolling cap - only the tail and the length are
-        # read, so dropping older samples changes no decision but bounds
-        # memory on a long-lived watcher.
-        if len(history) > _MAX_SAMPLES:
-            del history[:-_MAX_SAMPLES]
-        self._latest_observed_at[resource_id] = parsed_observed_at
-        await self._persist_resource(resource_id, smoothed, history, parsed_observed_at)
+            self._latest_observed_at[resource_id] = parsed_observed_at
+            if self.bus is not None:
+                await self._publish_capacity_forecast(
+                    resource_id=resource_id,
+                    correlation_id=correlation_id,
+                    observed_at=observed_at,
+                    smoothed=smoothed,
+                    history=history,
+                )
+            else:
+                self.record_behavior("capacity_forecast:transport_unavailable")
+            await self._complete_sample(normalized_key, resource_id, observed_at)
+
+    async def _publish_capacity_forecast(
+        self,
+        *,
+        resource_id: str,
+        correlation_id: str,
+        observed_at: str,
+        smoothed: float,
+        history: list[float],
+    ) -> None:
         if self.bus is not None:
             # Normalize the forecast into an impact magnitude in [0, 1] so
             # arbitration weighs the capacity signal by measured urgency, not
@@ -350,10 +375,8 @@ class Freyr(Agent):
                     "observed_at": observed_at,
                 },
             )
-        else:
-            self.record_behavior("capacity_forecast:transport_unavailable")
 
-    async def _claim_sample(
+    async def _begin_sample(
         self,
         sample_key: str,
         resource_id: str,
@@ -363,22 +386,44 @@ class Freyr(Agent):
             self.record_behavior("capacity_sample:duplicate")
             return False
         if self._state_store is not None:
-            created = await self._state_store.write_state_if_absent(
+            existing = await self._state_store.read_state(_accepted_key(sample_key))
+            if existing is not None and existing.get("state") == "completed":
+                self._accepted_sample_keys.add(sample_key)
+                self.record_behavior("capacity_sample:duplicate")
+                return False
+            if existing is None:
+                await self._state_store.write_state_if_absent(
+                    _accepted_key(sample_key),
+                    {
+                        "schema_version": "1.0.0",
+                        "revision": 1,
+                        "state": "pending",
+                        "sample_key": sample_key,
+                        "resource_id": resource_id,
+                        "observed_at": observed_at,
+                    },
+                )
+        return True
+
+    async def _complete_sample(
+        self,
+        sample_key: str,
+        resource_id: str,
+        observed_at: str,
+    ) -> None:
+        if self._state_store is not None:
+            await self._state_store.write_state(
                 _accepted_key(sample_key),
                 {
                     "schema_version": "1.0.0",
-                    "revision": 1,
+                    "revision": 2,
+                    "state": "completed",
                     "sample_key": sample_key,
                     "resource_id": resource_id,
                     "observed_at": observed_at,
                 },
             )
-            if not created:
-                self._accepted_sample_keys.add(sample_key)
-                self.record_behavior("capacity_sample:duplicate")
-                return False
         self._accepted_sample_keys.add(sample_key)
-        return True
 
     async def _persist_resource(
         self,
@@ -417,6 +462,13 @@ class Freyr(Agent):
             self.record_behavior("capacity_sample:invalid_observed_at")
             return ""
         return parsed.isoformat()
+
+    def _lock_for_resource(self, resource_id: str) -> asyncio.Lock:
+        lock = self._resource_locks.get(resource_id)
+        if lock is None:
+            lock = asyncio.Lock()
+            self._resource_locks[resource_id] = lock
+        return lock
 
     def sizing_advice(self, resource_id: str) -> SizingRecommendation:
         samples = self._samples.get(resource_id)

@@ -5,6 +5,7 @@ Admin notifications retain per-initiator/action deduplication; observation grant
 
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import json
 import logging
@@ -109,6 +110,7 @@ _SEVERITY_RANK = {
 _DETECTION_READINESS_EVENT = "detection.readiness.observed"
 _STATE_KEY = "pantheon/heimdall/sensing-state"
 _PUBLICATION_PREFIX = "pantheon/heimdall/publications/"
+_RULE_VALIDATION_TIMEOUT_SECONDS = 5.0
 
 
 class Heimdall(
@@ -185,6 +187,7 @@ class Heimdall(
             tuple[str, str], dict[str, DetectionReadinessObservation]
         ] = {}
         self._detection_readiness_pass_order: dict[str, tuple[str, datetime]] = {}
+        self._publication_locks: dict[str, asyncio.Lock] = {}
 
     def bind_bus(self, bus: PantheonBus) -> None:
         self.bus = bus
@@ -192,6 +195,7 @@ class Heimdall(
     async def _producer_topic_markers(self) -> None:
         if TYPE_CHECKING and self.bus is not None:
             await self.bus.publish("Heimdall", "object.evidence-conflict", {})
+            await self.bus.publish("Heimdall", "object.retrieval-validation", {})
 
     async def rehydrate(self) -> int:
         """Restore restart-sensitive sensing windows and duplicate fences."""
@@ -371,16 +375,25 @@ class Heimdall(
         handler = self._rule_generation_validation_handler
         if handler is None:
             raise RuntimeError("Heimdall Rule generation validator is unavailable")
-        result = await handler.handle(build_result)
+        try:
+            async with asyncio.timeout(_RULE_VALIDATION_TIMEOUT_SECONDS):
+                result = await handler.handle(build_result)
+        except TimeoutError:
+            self.record_behavior("rule_generation_validation:timeout")
+            return
         if self.bus is None:
             raise RuntimeError("Heimdall retrieval validation bus is unavailable")
         result_payload = result.model_dump(mode="json")
         result_payload["correlation_id"] = build_result.request.correlation_id
-        await self.bus.publish(
-            "Heimdall",
-            "object.retrieval-validation",
-            result_payload,
+        result_payload.setdefault(
+            "idempotency_key",
+            stable_idempotency_key(
+                "rule-generation-validation",
+                build_result.request.correlation_id,
+                result_payload,
+            ),
         )
+        await self._publish_once("object.retrieval-validation", result_payload)
         self.record_behavior("rule_generation_validation:published")
 
     async def _observe_chaos_experiment(self, proposal: dict[str, Any]) -> None:
@@ -442,38 +455,56 @@ class Heimdall(
             raise ValueError("Heimdall publication requires an idempotency_key")
         publication_digest = hashlib.sha256(f"{topic}:{idempotency_key}".encode()).hexdigest()
         state_key = f"{_PUBLICATION_PREFIX}{publication_digest}"
-        if self._state_store is not None:
-            existing = await self._state_store.read_state(state_key)
-            if existing is not None and existing.get("state") == "published":
-                self.record_behavior("publication:duplicate")
+        async with self._lock_for_publication(publication_digest):
+            if self._state_store is not None:
+                existing = await self._state_store.read_state(state_key)
+                if existing is not None and existing.get("state") == "published":
+                    self.record_behavior("publication:duplicate")
+                    return False
+                await self._state_store.write_state_if_absent(
+                    state_key,
+                    {
+                        "schema_version": "1.0.0",
+                        "revision": 1,
+                        "state": "pending",
+                        "topic": topic,
+                        "idempotency_key": idempotency_key,
+                        "payload": dict(payload),
+                    },
+                )
+            if self.bus is None:
                 return False
-            await self._state_store.write_state_if_absent(
-                state_key,
-                {
-                    "schema_version": "1.0.0",
-                    "revision": 1,
-                    "state": "pending",
-                    "topic": topic,
-                    "idempotency_key": idempotency_key,
-                    "payload": dict(payload),
-                },
-            )
-        if self.bus is None:
-            return False
-        await self.bus.publish("Heimdall", topic, payload)
-        if self._state_store is not None:
-            await self._state_store.write_state(
-                state_key,
-                {
-                    "schema_version": "1.0.0",
-                    "revision": 2,
-                    "state": "published",
-                    "topic": topic,
-                    "idempotency_key": idempotency_key,
-                    "payload": dict(payload),
-                },
-            )
-        return True
+            publish_cancelled = False
+            publish_task = asyncio.create_task(self.bus.publish("Heimdall", topic, payload))
+            try:
+                await asyncio.shield(publish_task)
+            except asyncio.CancelledError:
+                await publish_task
+                self.record_behavior("publication:publish_cancelled")
+                publish_cancelled = True
+            if self._state_store is not None:
+                complete_task = asyncio.create_task(
+                    self._state_store.write_state(
+                        state_key,
+                        {
+                            "schema_version": "1.0.0",
+                            "revision": 2,
+                            "state": "published",
+                            "topic": topic,
+                            "idempotency_key": idempotency_key,
+                            "payload": dict(payload),
+                        },
+                    )
+                )
+                try:
+                    await asyncio.shield(complete_task)
+                except asyncio.CancelledError:
+                    await complete_task
+                    self.record_behavior("publication:completion_cancelled")
+                    publish_cancelled = True
+            if publish_cancelled:
+                raise asyncio.CancelledError
+            return True
 
     async def _persist_state(self) -> None:
         if self._state_store is None:
@@ -954,6 +985,13 @@ class Heimdall(
         if self._alerter_hook is None:
             return
         await self._alerter_hook(payload)
+
+    def _lock_for_publication(self, publication_digest: str) -> asyncio.Lock:
+        lock = self._publication_locks.get(publication_digest)
+        if lock is None:
+            lock = asyncio.Lock()
+            self._publication_locks[publication_digest] = lock
+        return lock
 
     def conversation_evidence_available(self, context: dict[str, Any]) -> bool:
         """Observation answers rest on a populated window of signals.

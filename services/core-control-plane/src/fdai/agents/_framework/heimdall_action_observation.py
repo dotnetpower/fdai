@@ -2,12 +2,14 @@
 
 from __future__ import annotations
 
+import asyncio
 from collections.abc import Awaitable, Callable, Mapping
 from typing import TYPE_CHECKING, Any
 
 from fdai.agents._framework.bus import PantheonBus
 
 ActionObservationHook = Callable[[dict[str, Any]], Awaitable[bool | Mapping[str, Any]]]
+_ACTION_OBSERVATION_TIMEOUT_SECONDS = 5.0
 
 
 class HeimdallActionObservationMixin:
@@ -24,7 +26,12 @@ class HeimdallActionObservationMixin:
         if self._action_observation_hook is None:
             self.record_behavior("action_effect_observation:unavailable")
             return
-        observation = await self._action_observation_hook(payload)
+        try:
+            async with asyncio.timeout(_ACTION_OBSERVATION_TIMEOUT_SECONDS):
+                observation = await self._action_observation_hook(payload)
+        except TimeoutError:
+            self.record_behavior("action_effect_observation:timeout")
+            return
         recorded = bool(observation)
         if isinstance(observation, Mapping):
             if (
