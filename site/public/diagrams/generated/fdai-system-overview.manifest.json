@@ -7,7 +7,7 @@
     "en": {
       "title": "FDAI system architecture",
       "description": "Signals enter a governed control plane and leave through approval-aware delivery paths.",
-      "alt": "Azure changes, telemetry, operator requests, and scheduled probes enter Event Hubs through its Kafka endpoint on port 9093. The FDAI control plane ingests each event, selects a trust tier, verifies the decision, applies the risk gate, and either executes, requests approval, or holds. Outcomes are delivered through remediation pull requests and recorded in PostgreSQL for the read-only console."
+      "alt": "Azure changes, telemetry, operator requests, and scheduled probes enter Event Hubs through its Kafka endpoint on port 9093. The FDAI control plane ingests each event, selects a trust tier, verifies the decision, applies the safety check, and either executes, requests approval, or holds. Outcomes are delivered through fix pull requests and recorded in PostgreSQL for the read-only console."
     },
     "ko": {
       "title": "FDAI 시스템 아키텍처",
