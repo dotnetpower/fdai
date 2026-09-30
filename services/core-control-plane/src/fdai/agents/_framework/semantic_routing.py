@@ -16,12 +16,15 @@ from fdai.core.tiers.t1_lightweight.tier import EmbeddingModel
 class SemanticRouterConfig:
     cosine_threshold: float = 0.65
     margin_threshold: float = 0.08
+    embedding_timeout_seconds: float = 2.0
 
     def __post_init__(self) -> None:
         if not 0 < self.cosine_threshold <= 1:
             raise ValueError("semantic cosine_threshold MUST be in (0, 1]")
         if not 0 <= self.margin_threshold < 1:
             raise ValueError("semantic margin_threshold MUST be in [0, 1)")
+        if not math.isfinite(self.embedding_timeout_seconds) or self.embedding_timeout_seconds <= 0:
+            raise ValueError("semantic embedding timeout MUST be positive")
 
 
 class SemanticAgentRouter:
@@ -54,11 +57,13 @@ class SemanticAgentRouter:
         try:
             vectors = await self._domain_vectors()
             query = _validated_vector(
-                await self._embedding.embed(question),
+                await self._embed_bounded(question),
                 expected_dim=self._embedding.dim,
             )
         except asyncio.CancelledError:
             raise
+        except TimeoutError:
+            return _with_semantic_status(t0, provider_status="timeout")
         except Exception:
             return _with_semantic_status(t0, provider_status="error")
 
@@ -109,11 +114,17 @@ class SemanticAgentRouter:
                     )
                 )
                 vectors[spec.name] = _validated_vector(
-                    await self._embedding.embed(text),
+                    await self._embed_bounded(text),
                     expected_dim=self._embedding.dim,
                 )
             self._vectors = vectors
             return vectors
+
+    async def _embed_bounded(self, text: str) -> Sequence[float]:
+        return await asyncio.wait_for(
+            self._embedding.embed(text),
+            timeout=self.config.embedding_timeout_seconds,
+        )
 
 
 def _with_semantic_status(

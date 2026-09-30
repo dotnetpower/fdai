@@ -780,10 +780,7 @@ def _project_tool_result(
         return IntrospectionResult.abstain("no_tool_data", facts=facts)
     scoped_values = [facts[key] for key in tool.fact_keys if key in facts]
     if scoped_values and all(value is False or value is None for value in scoped_values):
-        return IntrospectionResult(
-            answer=f"{tool.purpose} No owned data is currently available.",
-            facts=facts,
-        )
+        return IntrospectionResult.abstain("no_tool_data", facts=facts)
     return IntrospectionResult(
         answer=f"{tool.purpose} {result.answer}",
         facts=facts,

@@ -255,7 +255,7 @@ def _bind_t1_recommendations(
         recommendation = recommendation_by_agent[agent_name]
         facts: dict[str, object] = {
             "resource_id": "resource-example",
-            "evidence_refs": [f"agent-state:{agent_name}"],
+            "evidence_refs": [_agent_state_ref(agent_name)],
         }
         if recommendation is not None:
             facts["recommendation"] = recommendation
@@ -298,11 +298,16 @@ def _agent_index(name: str) -> int:
     return next(index for index, spec in enumerate(PANTHEON_SPECS) if spec.name == name)
 
 
+def _agent_state_ref(agent: str) -> str:
+    digest = ("a" if agent == "Njord" else "b") * 64
+    return f"agent-state:{agent}:sha256:{digest}"
+
+
 def _test_claim(agent: str, digest_character: str) -> DeliberationClaim:
     return DeliberationClaim(
         agent=agent,
         answer=f"{agent} grounded evidence.",
-        evidence_refs=(f"agent-state:{agent}",),
+        evidence_refs=(_agent_state_ref(agent),),
         prompt_sha256=digest_character * 64,
     )
 
@@ -796,7 +801,7 @@ def test_unattributed_participants_see_the_budget_that_gates_synthesis() -> None
                 "facts": {
                     "resource_id": "resource-example",
                     "recommendation": ("scale_down" if agent_name == "Njord" else "scale_up"),
-                    "evidence_refs": [f"agent-state:{agent_name}"],
+                    "evidence_refs": [_agent_state_ref(agent_name)],
                 },
                 "conversation_policy": spec.conversation_policy(),
                 "prompt_composition": composition,

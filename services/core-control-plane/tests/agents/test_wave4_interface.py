@@ -269,9 +269,12 @@ def test_bragi_calls_and_aggregates_real_contributors() -> None:
 
     assert called == ["Freyr", "Njord"]
     assert turn.answer["contributors"] == ["Njord"]
-    assert turn.answer["contributor_answers"] == [
-        {"agent": "Njord", "answer": "Njord evidence", "facts": {"agent": "Njord"}}
-    ]
+    (contribution,) = turn.answer["contributor_answers"]
+    assert contribution["agent"] == "Njord"
+    assert contribution["answer"] == "Njord evidence"
+    assert contribution["facts"]["agent"] == "Njord"
+    assert contribution["evidence_refs"] == contribution["facts"]["evidence_refs"]
+    assert contribution["evidence_refs"][0].startswith("agent-state:Njord:sha256:")
     assert "Freyr: Freyr evidence" in turn.answer["answer"]
     assert "Njord: Njord evidence" in turn.answer["answer"]
 

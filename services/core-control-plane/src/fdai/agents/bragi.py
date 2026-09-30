@@ -10,6 +10,7 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import logging
+import math
 from collections.abc import Awaitable, Callable, Collection, Mapping
 from typing import Any
 
@@ -46,6 +47,7 @@ from fdai.agents._framework.introspection import (
     IntrospectionResult,
     agent_state_evidence_ref,
     capability_facts,
+    durable_evidence_refs,
 )
 from fdai.agents._framework.pantheon import _BRAGI, PANTHEON_NAMES, PANTHEON_SPECS
 from fdai.agents._framework.role_answers import bragi_role_answer
@@ -88,6 +90,7 @@ _MAX_CONTRIBUTORS = 3
 _CONTRIBUTOR_TIMEOUT_SECONDS = 2.0
 _RESPONDER_TIMEOUT_SECONDS = 2.0
 _PROPOSAL_TIMEOUT_SECONDS = 5.0
+_SEMANTIC_JUDGMENT_TIMEOUT_SECONDS = 2.0
 
 
 #: Entry RBAC gate for execute-class conversational requests. A console
@@ -116,12 +119,18 @@ class Bragi(BragiPublicationMixin, Agent):
         t2_model_key: str = "",
         responder_timeout_seconds: float = _RESPONDER_TIMEOUT_SECONDS,
         proposal_timeout_seconds: float = _PROPOSAL_TIMEOUT_SECONDS,
+        semantic_judgment_timeout_seconds: float = _SEMANTIC_JUDGMENT_TIMEOUT_SECONDS,
         state_store: StateStore | None = None,
     ) -> None:
         if responder_timeout_seconds <= 0:
             raise ValueError("responder timeout MUST be positive")
         if proposal_timeout_seconds <= 0:
             raise ValueError("proposal timeout MUST be positive")
+        if (
+            not math.isfinite(semantic_judgment_timeout_seconds)
+            or semantic_judgment_timeout_seconds <= 0
+        ):
+            raise ValueError("semantic judgment timeout MUST be positive")
         super().__init__(spec=_BRAGI)
         self._sessions: dict[str, ConversationSession] = {}
         self._session_locks: dict[str, asyncio.Lock] = {}
@@ -129,6 +138,7 @@ class Bragi(BragiPublicationMixin, Agent):
         self._proposal_sink: ProposalSink | None = None
         self._tool_answer: ToolAnswerFn | None = None
         self._semantic_judgment = semantic_judgment
+        self._semantic_judgment_timeout_seconds = semantic_judgment_timeout_seconds
         self._action_type_names = frozenset(action_type_names)
         self._semantic_router = semantic_router
         self._responder_timeout_seconds = responder_timeout_seconds
@@ -204,6 +214,32 @@ class Bragi(BragiPublicationMixin, Agent):
             self.record_behavior("responder:error")
             return None, "responder_error"
         return normalize_responder_answer(agent_name, raw_response)
+
+    async def _judge_async(
+        self,
+        question: str,
+        *,
+        context: tuple[str, ...],
+    ) -> tuple[Any | None, str]:
+        if self._semantic_judgment is None:
+            return None, "unbound"
+        try:
+            return (
+                await asyncio.wait_for(
+                    asyncio.to_thread(
+                        self._semantic_judgment.judge,
+                        utterance=question,
+                        context=context,
+                        capabilities=semantic_capabilities(self._action_type_names),
+                    ),
+                    timeout=self._semantic_judgment_timeout_seconds,
+                ),
+                "ok",
+            )
+        except TimeoutError:
+            self.record_behavior("semantic_judgment:timeout")
+            _LOG.warning("bragi_semantic_judgment_timeout")
+            return None, "timeout"
 
     # ---- action proposal (conversational-port re-entry, 7.7) -----------
 
@@ -394,6 +430,11 @@ class Bragi(BragiPublicationMixin, Agent):
         fixed_assurance_facts: Mapping[str, Mapping[str, object]] | None = None,
     ) -> dict[str, Any]:
         """Delegate one bounded read-only discussion to the framework orchestrator."""
+        _validate_question(question)
+        if requester not in PANTHEON_NAMES:
+            raise ValueError(f"unknown requester agent: {requester!r}")
+        if len(correlation_id) > 256:
+            raise ValueError("correlation_id MUST be at most 256 characters")
         if self._semantic_judgment is None:
             return {
                 "requester": requester,
@@ -403,13 +444,12 @@ class Bragi(BragiPublicationMixin, Agent):
                 "status": "abstain",
                 "reason": "semantic_unavailable",
             }
-        judgment_result = await asyncio.to_thread(
-            self._semantic_judgment.judge,
-            utterance=question,
-            context=(),
-            capabilities=semantic_capabilities(self._action_type_names),
+        judgment_result, judgment_status = await self._judge_async(question, context=())
+        judgment = (
+            judgment_result.proposal
+            if judgment_result is not None and judgment_result.accepted
+            else None
         )
-        judgment = judgment_result.proposal if judgment_result.accepted else None
         if judgment is None:
             return {
                 "requester": requester,
@@ -417,7 +457,9 @@ class Bragi(BragiPublicationMixin, Agent):
                 "authority": "presentation_only",
                 "rounds": [],
                 "status": "abstain",
-                "reason": "semantic_unavailable",
+                "reason": "semantic_timeout"
+                if judgment_status == "timeout"
+                else "semantic_unavailable",
             }
         if judgment.action_posture == "draft_only":
             return {
@@ -528,15 +570,8 @@ class Bragi(BragiPublicationMixin, Agent):
             if conversation_published:
                 async with session_lock:
                     session.conversation_published = True
-        judgment_result = (
-            await asyncio.to_thread(
-                self._semantic_judgment.judge,
-                utterance=question,
-                context=prior_questions,
-                capabilities=semantic_capabilities(self._action_type_names),
-            )
-            if self._semantic_judgment is not None
-            else None
+        judgment_result, judgment_status = await self._judge_async(
+            question, context=prior_questions
         )
         judgment = (
             judgment_result.proposal
@@ -601,7 +636,7 @@ class Bragi(BragiPublicationMixin, Agent):
                 provider_status=(
                     judgment_result.receipt.disposition.value
                     if judgment_result is not None
-                    else "unbound"
+                    else judgment_status
                 ),
             )
         )
@@ -620,6 +655,7 @@ class Bragi(BragiPublicationMixin, Agent):
                     "semantic_clarification_required" if clarification else "semantic_unavailable"
                 ),
                 "handoff_needed": True,
+                "routing_provider_status": decision.provider_status,
             }
         else:
             tool_answer = (
@@ -644,9 +680,14 @@ class Bragi(BragiPublicationMixin, Agent):
                     },
                 )
             else:
-                normalized_answer, response_error = normalize_responder_answer(
-                    decision.primary_agent,
-                    tool_answer,
+                tool_error = _validate_tool_answer_envelope(decision.primary_agent, tool_answer)
+                normalized_answer, response_error = (
+                    normalize_responder_answer(
+                        decision.primary_agent,
+                        tool_answer,
+                    )
+                    if tool_error is None
+                    else (None, tool_error)
                 )
                 if normalized_answer is not None:
                     normalized_answer["conversation_tools"] = list(
@@ -668,6 +709,18 @@ class Bragi(BragiPublicationMixin, Agent):
                     "abstain_reason": response_error or "response_invalid",
                     "handoff_needed": True,
                 }
+                if tool_answer is not None:
+                    results = tool_answer.get("conversation_tool_results")
+                    if isinstance(results, list):
+                        answer["conversation_tool_results"] = [
+                            dict(item) for item in results if isinstance(item, dict)
+                        ]
+                    plan = tool_answer.get("conversation_tool_plan")
+                    if isinstance(plan, dict):
+                        answer["conversation_tool_plan"] = dict(plan)
+                    tools = tool_answer.get("conversation_tools")
+                    if isinstance(tools, list):
+                        answer["conversation_tools"] = list(tools)
             else:
                 answer = normalized_answer
                 if not isinstance(answer.get("answer"), str):
@@ -1004,6 +1057,26 @@ class Bragi(BragiPublicationMixin, Agent):
 def _validate_question(question: str) -> None:
     if len(question) > _MAX_QUESTION_CHARS:
         raise ValueError("question MUST be at most 2000 characters")
+
+
+def _validate_tool_answer_envelope(agent_name: str, answer: Mapping[str, Any]) -> str | None:
+    facts = answer.get("facts")
+    if not isinstance(facts, Mapping):
+        return "tool_answer_invalid"
+    if not durable_evidence_refs(facts.get("evidence_refs"), agent_name=agent_name):
+        return "tool_evidence_incomplete"
+    results = answer.get("conversation_tool_results")
+    if not isinstance(results, list) or not results:
+        return "tool_evidence_incomplete"
+    for result in results:
+        if not isinstance(result, Mapping):
+            return "tool_evidence_incomplete"
+        if result.get("status") != "ok":
+            return str(result.get("reason") or "tool_evidence_incomplete")
+        count = result.get("evidence_ref_count")
+        if not isinstance(count, int) or count <= 0:
+            return "tool_evidence_incomplete"
+    return None
 
 
 def _next_turn_index(session: ConversationSession) -> int:

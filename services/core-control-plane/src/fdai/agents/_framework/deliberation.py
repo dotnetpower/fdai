@@ -19,6 +19,7 @@ from fdai.agents._framework.deliberation_evaluation import (
     evaluate_t1_answers,
     evaluation_signals,
 )
+from fdai.agents._framework.introspection import durable_evidence_refs
 from fdai.agents._framework.semantic_routing import SemanticAgentRouter
 from fdai.core.metering.budget import (
     BudgetChargingMeteringSink,
@@ -532,11 +533,7 @@ def _claim(agent_name: str, response: dict[str, Any] | None) -> DeliberationClai
         return None
     facts = response.get("facts")
     raw_refs = facts.get("evidence_refs") if isinstance(facts, dict) else None
-    evidence_refs = (
-        tuple(str(ref) for ref in raw_refs[:20] if str(ref))
-        if isinstance(raw_refs, list | tuple)
-        else ()
-    )
+    evidence_refs = durable_evidence_refs(raw_refs, agent_name=agent_name)
     if not evidence_refs:
         return None
     composition = response.get("prompt_composition")

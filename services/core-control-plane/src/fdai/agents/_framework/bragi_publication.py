@@ -18,6 +18,7 @@ from fdai.core.learning import PostTurnReviewInput, review_input_to_mapping
 from fdai.shared.providers.user_context import UserPreferenceRecord
 
 from .bragi_models import ConversationSession, Turn
+from .introspection import canonical_json
 
 
 def conversation_event_payload(session: ConversationSession) -> dict[str, Any]:
@@ -85,13 +86,7 @@ def turn_event_payload(
     """Return the bounded ``object.turn`` payload for an operator session."""
     session_digest = hashlib.sha256(session_id.encode()).hexdigest()
     question_digest = hashlib.sha256(turn.question.encode()).hexdigest()
-    answer_json = json.dumps(
-        turn.answer,
-        sort_keys=True,
-        ensure_ascii=False,
-        separators=(",", ":"),
-        default=str,
-    )
+    answer_json = canonical_json(turn.answer)
     answer_digest = hashlib.sha256(answer_json.encode()).hexdigest()
     trace_ref = str(turn.answer.get("trace_ref") or turn.answer.get("correlation_id") or session_id)
     turn_key = f"{session_digest}:{turn.turn_index}"
@@ -137,13 +132,7 @@ def a2a_turn_event_payload(
 ) -> dict[str, Any]:
     """Return the content-addressed ``object.turn`` payload for agent introspection."""
     question_digest = hashlib.sha256(question.encode()).hexdigest()
-    answer_json = json.dumps(
-        response,
-        sort_keys=True,
-        ensure_ascii=False,
-        separators=(",", ":"),
-        default=str,
-    )
+    answer_json = canonical_json(response)
     answer_digest = hashlib.sha256(answer_json.encode()).hexdigest()
     trace_ref = str(response.get("trace_ref") or "")
     identity = hashlib.sha256(

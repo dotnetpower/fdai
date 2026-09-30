@@ -118,15 +118,52 @@ def capped_list(items: Any) -> list[str]:
 def agent_state_evidence_ref(agent_name: str, facts: dict[str, Any]) -> str:
     """Return a deterministic reference for one normalized agent fact snapshot."""
     canonical_facts = {key: value for key, value in facts.items() if key != "evidence_refs"}
-    canonical = json.dumps(
-        canonical_facts,
+    canonical = canonical_json(canonical_facts)
+    digest = hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+    return f"agent-state:{agent_name}:sha256:{digest}"
+
+
+def canonical_json(value: Any) -> str:
+    """Serialize one JSON-native value with the canonical FDAI evidence encoding."""
+    return json.dumps(
+        value,
         ensure_ascii=False,
         sort_keys=True,
         separators=(",", ":"),
-        default=str,
+        allow_nan=False,
     )
-    digest = hashlib.sha256(canonical.encode("utf-8")).hexdigest()
-    return f"agent-state:{agent_name}:sha256:{digest}"
+
+
+def is_agent_state_evidence_ref(value: str, *, agent_name: str | None = None) -> bool:
+    """Return whether ``value`` is a content-addressed agent-state evidence ref."""
+    if agent_name is None:
+        pattern = r"^agent-state:[A-Za-z][A-Za-z0-9_-]{0,63}:sha256:[0-9a-f]{64}$"
+    else:
+        pattern = rf"^agent-state:{re.escape(agent_name)}:sha256:[0-9a-f]{{64}}$"
+    return re.fullmatch(pattern, value) is not None
+
+
+def durable_evidence_refs(value: Any, *, agent_name: str | None = None) -> tuple[str, ...]:
+    """Return allowlisted durable evidence refs from a normalized fact envelope."""
+    if not isinstance(value, list | tuple):
+        return ()
+    refs: list[str] = []
+    for item in value[:20]:
+        if not isinstance(item, str) or not item:
+            continue
+        if is_agent_state_evidence_ref(item, agent_name=agent_name) or item.startswith(
+            (
+                "audit:",
+                "saga:",
+                "process:",
+                "cost-snapshot:",
+                "metric:",
+                "bragi-session:sha256:",
+                "a2a:sha256:",
+            )
+        ):
+            refs.append(item)
+    return tuple(dict.fromkeys(refs))
 
 
 def attach_agent_state_evidence(agent_name: str, facts: dict[str, Any]) -> str:
@@ -190,9 +227,12 @@ __all__ = [
     "mentioned",
     "semantic_intents",
     "capped_list",
+    "canonical_json",
     "agent_state_evidence_ref",
     "attach_agent_state_evidence",
+    "durable_evidence_refs",
     "evidence_backed_result",
+    "is_agent_state_evidence_ref",
     "capability_facts",
     "capability_sentence",
 ]

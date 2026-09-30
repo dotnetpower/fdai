@@ -3,12 +3,11 @@
 from __future__ import annotations
 
 import hashlib
-import json
 from collections.abc import Mapping
 from typing import Any
 
 from fdai.agents._framework.bragi_models import RoutingDecision
-from fdai.agents._framework.introspection import agent_state_evidence_ref
+from fdai.agents._framework.introspection import agent_state_evidence_ref, canonical_json
 
 
 def attach_pantheon_diagnostics(
@@ -84,9 +83,14 @@ def attach_pantheon_diagnostics(
             )
             if len(participants) >= 3:
                 break
+    try:
+        expected_agent_state_ref = (
+            agent_state_evidence_ref(primary, dict(fact_mapping)) if primary is not None else None
+        )
+    except (TypeError, ValueError):
+        expected_agent_state_ref = None
     agent_state_verified = (
-        primary is not None
-        and agent_state_evidence_ref(primary, dict(fact_mapping)) in evidence_refs
+        expected_agent_state_ref is not None and expected_agent_state_ref in evidence_refs
     )
     verification_status = (
         "verified"
@@ -98,6 +102,12 @@ def attach_pantheon_diagnostics(
         if agent_state_verified
         else str(answer.get("verification_authority") or "agent_owned_projection")
     )
+    try:
+        evidence_manifest_digest = _digest(_canonical(fact_mapping))
+        evidence_manifest_status = "ok"
+    except (TypeError, ValueError):
+        evidence_manifest_digest = _digest("manifest_unavailable")
+        evidence_manifest_status = "manifest_unavailable"
     answer["pantheon_trace_fragment"] = {
         "schema_version": "1.0.0",
         "turn_digest": _digest(f"{session_id}\0{question}"),
@@ -113,7 +123,8 @@ def attach_pantheon_diagnostics(
         "participants": tuple(participants),
         "tool_ids": tool_ids,
         "evidence_ref_digests": tuple(_digest(value) for value in evidence_refs),
-        "evidence_manifest_digest": _digest(_canonical(fact_mapping)),
+        "evidence_manifest_digest": evidence_manifest_digest,
+        "evidence_manifest_status": evidence_manifest_status,
         "answer_digest": _digest(answer_text if isinstance(answer_text, str) else ""),
         "reported_verification_status": verification_status,
         "reported_verification_authority": verification_authority,
@@ -122,7 +133,7 @@ def attach_pantheon_diagnostics(
 
 
 def _canonical(value: object) -> str:
-    return json.dumps(value, ensure_ascii=False, separators=(",", ":"), sort_keys=True, default=str)
+    return canonical_json(value)
 
 
 def _digest(value: str) -> str:

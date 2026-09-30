@@ -28,7 +28,7 @@ from tests.agents.semantic_judgment_support import (
 def test_bragi_routes_bilingual_read_investigations_to_heimdall(question: str) -> None:
     decision = Bragi().route(semantic_test_proposal(question))
     assert decision.primary_agent == "Heimdall"
-    assert decision.tie_break == "score"
+    assert decision.tie_break == "canonical_question_domain"
     assert decision.contributors == ()
 
 

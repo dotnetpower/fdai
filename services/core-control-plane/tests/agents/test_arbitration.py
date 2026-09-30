@@ -1293,8 +1293,8 @@ def test_odin_arbitration_decision_tool_reports_unavailable_before_any_conflict(
         )
     )
 
-    assert envelope["abstain_reason"] is None
-    assert "No owned data is currently available." in envelope["answer"]
+    assert envelope["abstain_reason"] == "no_tool_data"
+    assert envelope["answer"] is None
 
 
 @pytest.mark.parametrize(

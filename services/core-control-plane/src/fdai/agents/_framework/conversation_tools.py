@@ -12,7 +12,7 @@ from enum import StrEnum
 from typing import Any, Final
 
 from fdai.agents._framework.base import Agent
-from fdai.agents._framework.introspection import agent_state_evidence_ref
+from fdai.agents._framework.introspection import agent_state_evidence_ref, durable_evidence_refs
 from fdai.agents._framework.pantheon import PANTHEON_SPECS
 from fdai.rule_catalog.pipeline.distill.sensitivity import scan_text
 
@@ -312,13 +312,7 @@ def _evidence_refs(
     *,
     agent_name: str,
 ) -> tuple[tuple[str, ...], int]:
-    refs: list[str] = []
-    raw = facts.get("evidence_refs")
-    if isinstance(raw, list | tuple):
-        refs.extend(item for item in raw if isinstance(item, str) and item)
-    for key, value in facts.items():
-        if (key.endswith("_ref") or key.endswith("_id")) and isinstance(value, str) and value:
-            refs.append(f"{key}:{value}")
+    refs = list(durable_evidence_refs(facts.get("evidence_refs"), agent_name=agent_name))
     if not refs:
         refs.append(agent_state_evidence_ref(agent_name, dict(facts)))
     unique = tuple(dict.fromkeys(refs))

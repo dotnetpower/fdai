@@ -9,7 +9,12 @@ import re
 from collections.abc import Awaitable, Callable, Mapping
 from typing import Any
 
-from fdai.agents._framework.introspection import REQUIRES_TYPED_PIPELINE
+from fdai.agents._framework.introspection import (
+    REQUIRES_TYPED_PIPELINE,
+    agent_state_evidence_ref,
+    canonical_json,
+    durable_evidence_refs,
+)
 from fdai.agents._framework.pantheon import PANTHEON_NAMES
 from fdai.rule_catalog.pipeline.distill.sensitivity import scan_text
 
@@ -55,22 +60,14 @@ def normalize_responder_answer(
     if requires_typed_pipeline:
         normalized_input["requires_typed_pipeline"] = True
     try:
-        encoded = json.dumps(
-            normalized_input,
-            ensure_ascii=False,
-            sort_keys=True,
-            default=str,
-        ).encode("utf-8")
+        if answer is not None and not durable_evidence_refs(safe_facts.get("evidence_refs")):
+            safe_facts["evidence_refs"] = [agent_state_evidence_ref(agent_name, safe_facts)]
+        encoded = canonical_json(normalized_input).encode("utf-8")
     except (TypeError, ValueError):
-        return None, "response_invalid"
+        return None, "non_serializable_output"
     if len(encoded) > _MAX_RESPONSE_BYTES:
         return None, "response_too_large"
-    sensitivity_input = json.dumps(
-        _mask_structured_digests(normalized_input),
-        ensure_ascii=False,
-        sort_keys=True,
-        default=str,
-    )
+    sensitivity_input = canonical_json(_mask_structured_digests(normalized_input))
     if scan_text(sensitivity_input):
         return None, "sensitive_output"
     normalized = json.loads(encoded)

@@ -1003,7 +1003,7 @@ def test_exact_canonical_domain_disambiguates_semantic_owner_without_prefix_matc
         runtime.ask(
             session_id="loki-domain-prefix",
             user_id="operator-one",
-            question="chaos_experiment_status_extra 영역의 현재 상태와 근거를 설명해 주세요.",
+            question="chaos_experiment_status_extra 영역의 근거를 설명해 주세요.",
             locale="ko",
         )
     )
@@ -1552,8 +1552,9 @@ def test_unbound_owned_projection_reports_unavailable(
 
     assert turn is not None
     assert turn.primary_agent == agent
-    assert turn.answer["facts"][availability_key] is False
-    assert "No " in turn.answer["answer"]
+    assert turn.answer["answer"] is None
+    assert turn.answer["abstain_reason"] == "tool_evidence_incomplete"
+    assert availability_key not in turn.answer["facts"]
 
 
 def test_read_only_ask_never_submits_action_proposal() -> None:
