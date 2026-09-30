@@ -221,6 +221,7 @@ class Norns(Agent, HandoverKnowledgeMixin, NornsCandidateDeliveryMixin):
         )
         self._post_turn_hint_proposed: BoundedLruSet[str] = BoundedLruSet(_MAX_TRACKED)
         self._reviewed_trajectory_manifests: BoundedLruSet[str] = BoundedLruSet(_MAX_TRACKED)
+        self._reviewed_post_turn_reviews: BoundedLruSet[str] = BoundedLruSet(_MAX_TRACKED)
         self._post_turn_review = post_turn_review
         self._forecast_error_threshold = forecast_error_threshold
         self._forecast_error_counts: BoundedLruDict[str, int] = BoundedLruDict(_MAX_TRACKED)
@@ -519,6 +520,15 @@ class Norns(Agent, HandoverKnowledgeMixin, NornsCandidateDeliveryMixin):
         raw = payload.get("review")
         if not isinstance(raw, dict):
             raise ValueError("post-turn review payload MUST contain a review object")
+        review_id = str(raw.get("review_id") or "")
+        idempotency_key = str(payload.get("idempotency_key") or "")
+        fence = idempotency_key or (f"post-turn-review:{review_id}" if review_id else "")
+        if not fence:
+            raise ValueError("post-turn review payload MUST carry an idempotency key or review id")
+        if fence in self._reviewed_post_turn_reviews:
+            self.record_behavior("post_turn_review_duplicate")
+            return
+        self._reviewed_post_turn_reviews.add(fence)
         await self._post_turn_review.review(review_input_from_mapping(raw))
         self.record_behavior("post_turn_review_completed")
 
@@ -828,7 +838,13 @@ class Norns(Agent, HandoverKnowledgeMixin, NornsCandidateDeliveryMixin):
 
     def conversation_evidence_available(self, context: dict[str, Any]) -> bool:
         """Discovery answers rest on observed patterns and proposed candidates."""
-        return bool(self._fingerprint_counter or self.pending_candidates)
+        return bool(
+            self._fingerprint_counter
+            or self.pending_candidates
+            or self._outcomes
+            or self._approval_counts
+            or self._forecast_error_counts
+        )
 
     async def introspect(self, question: str, context: dict[str, Any]) -> IntrospectionResult:
         facts = {

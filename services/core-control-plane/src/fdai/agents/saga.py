@@ -1072,6 +1072,8 @@ class Saga(Agent, HandoverKnowledgeMixin):
             "issues_total": len(self.github.issues),
             "issues_open": sum(1 for issue in self.github.issues.values() if issue.open),
             "fingerprint_index_size": len(self._fingerprint_index),
+            "correlation_id": None,
+            "matched_entries": [],
         }
         known = {e.correlation_id for e in entries if e.correlation_id}
         corr = mentioned(question, known)

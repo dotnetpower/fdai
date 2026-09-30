@@ -481,6 +481,13 @@ class Njord(Agent):
             "package_enabled": self._package_enabled,
             "advisory_provider_bound": self._advisory_provider is not None,
             "budget_data_available": self._budget_data_available,
+            "scope": None,
+            "sample_count": None,
+            "baseline_usd": None,
+            "latest_usd": None,
+            "action_type": None,
+            "monthly_delta_usd": None,
+            "confidence": None,
         }
         if "budget_status" in semantic_intents(context):
             evidence_ref = agent_state_evidence_ref(self.spec.name, facts)
@@ -506,6 +513,7 @@ class Njord(Agent):
                     "scope": scope,
                     "tracked_scopes": [scope],
                     "sample_count": self._counts[scope],
+                    "baseline_usd": None,
                     "latest_usd": latest,
                     "observed_at": observed_at,
                 }

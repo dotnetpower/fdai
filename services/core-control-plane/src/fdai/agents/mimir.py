@@ -684,6 +684,10 @@ class Mimir(MimirContextMixin, Agent, HandoverKnowledgeMixin, MimirCatalogReview
             "catalog_review_publication_receipts": len(self._published_reviews),
             "open_issue_fingerprints": len(self._issue_fingerprints),
             "policy_history_available": False,
+            "rule_id": None,
+            "state": None,
+            "source": None,
+            "updated_at": None,
         }
         if "policy_history" in semantic_intents(context):
             evidence_ref = agent_state_evidence_ref(self.spec.name, facts)

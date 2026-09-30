@@ -43,6 +43,11 @@ async def introspect_var(
         "pending_hil": len(pending),
         "correlations": capped_list(sorted(pending)),
         "durable_approval_evidence": durable_approval_evidence_available(state._state_store),
+        "correlation_id": None,
+        "action_type": None,
+        "quorum_required": None,
+        "approvals": None,
+        "rejected": None,
     }
     corr = mentioned(question, pending)
     if corr:

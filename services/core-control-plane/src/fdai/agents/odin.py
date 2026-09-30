@@ -43,6 +43,7 @@ from fdai.agents._framework.bus import PantheonBus
 from fdai.agents._framework.handover_knowledge import HandoverKnowledgeMixin
 from fdai.agents._framework.introspection import (
     IntrospectionResult,
+    agent_state_evidence_ref,
     capability_facts,
     semantic_intents,
 )
@@ -327,12 +328,13 @@ class Odin(Agent, HandoverKnowledgeMixin):
 
     async def introspect(self, question: str, context: dict[str, Any]) -> IntrospectionResult:
         last = self._last_decision
+        history_available = not isinstance(self._history, NoopDecisionHistory)
         facts = {
             **capability_facts(self.spec),
             "priority_order": list(self._priority),
             "temporal_policy": self._temporal_policy.name if self._temporal_policy else None,
             "history_window": self._history_window,
-            "arbitration_history_available": False,
+            "arbitration_history_available": history_available,
             # Latest arbitration grounding. Present-but-``None`` when nothing
             # has been arbitrated yet, so the tool projection reports "no owned
             # data" instead of abstaining on a missing key or implying an
@@ -347,9 +349,25 @@ class Odin(Agent, HandoverKnowledgeMixin):
             "verdict_outcomes": dict(self._verdict_outcomes),
             "portfolio_window": "process_local_since_start",
         }
-        if "arbitration_history" in semantic_intents(context):
+        if context.get(
+            "conversation_tool"
+        ) == "read_arbitration_history" or "arbitration_history" in semantic_intents(context):
+            evidence_ref = agent_state_evidence_ref(self.spec.name, facts)
+            facts["evidence_refs"] = [evidence_ref]
+            if history_available:
+                return IntrospectionResult(
+                    answer=(
+                        "A bounded arbitration history seam is bound; this read-only projection "
+                        "reports availability without exposing raw history rows. "
+                        f"Evidence: {evidence_ref}."
+                    ),
+                    facts=facts,
+                )
             return IntrospectionResult(
-                answer="No retained arbitration history is bound to this conversational port.",
+                answer=(
+                    "No retained arbitration history is bound to this conversational port. "
+                    f"Evidence: {evidence_ref}."
+                ),
                 facts=facts,
             )
         policy_note = (

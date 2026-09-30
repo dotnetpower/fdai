@@ -1000,6 +1000,8 @@ class Muninn(MuninnPatternReadMixin, Agent, HandoverKnowledgeMixin):
             "total_keys": sum(len(v) for v in data.values()),
             "case_history_available": self._case_history is not None,
             "case_history_retention_available": self._case_history_retention is not None,
+            "bucket": None,
+            "key_count": None,
         }
         buckets = mentioned(question, data)
         if buckets:

@@ -368,10 +368,13 @@ def test_njord_introspect_scopes_to_named_scope() -> None:
 
 def test_njord_introspect_scopes_to_named_action() -> None:
     # Signed cost effects are exposed through the typed advisor hook, not
-    # conversational matching over an internal table.
+    # conversational matching over an internal table. The declared tool
+    # fields remain explicit so a tool answer can state they are unavailable.
     n = _njord(cost_table={"restart": 12.5})
     result = asyncio.run(n.introspect("cost impact of restart?", {}))
-    assert "action_type" not in result.facts
+    assert result.facts["action_type"] is None
+    assert result.facts["monthly_delta_usd"] is None
+    assert result.facts["confidence"] is None
     assert n.cost_impact("restart").monthly_delta_usd == 12.5
 
 

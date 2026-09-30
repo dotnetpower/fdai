@@ -219,13 +219,6 @@
       "issue": 252
     },
     {
-      "path": "services/core-control-plane/src/fdai/agents/loki.py",
-      "disposition": "retain",
-      "owner": "pantheon-introspection",
-      "reason": "Retains exact typed event-kind routing over normalized machine payloads.",
-      "issue": 252
-    },
-    {
       "path": "services/core-control-plane/src/fdai/agents/mimir.py",
       "disposition": "retain",
       "owner": "pantheon-introspection",

@@ -599,6 +599,8 @@ class Forseti(
             "unresolved_arbitrations": len(self._unresolved_arbitrations),
             "readiness_limited_resources": len(self._detection_readiness),
             "rca_evidence_available": False,
+            "action_type": None,
+            "risk_verdict": None,
         }
         if "rca_evidence" in semantic_intents(context):
             statement = "No grounded RCA record is retained by this conversational projection"

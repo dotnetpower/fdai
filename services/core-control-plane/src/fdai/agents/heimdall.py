@@ -1021,6 +1021,9 @@ class Heimdall(
             "rate_window_seconds": self._rate_window,
             "forecast_evidence_available": False,
             "drift_evidence_available": False,
+            "resource_id": None,
+            "recent_event_count": None,
+            "recent_event_types": [],
         }
         intents = semantic_intents(context)
         if "forecast" in intents:

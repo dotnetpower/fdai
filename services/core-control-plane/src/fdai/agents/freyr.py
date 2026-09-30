@@ -520,6 +520,10 @@ class Freyr(Agent):
             "tracked_resources_count": len(self._samples),
             "scale_up_threshold": self._up,
             "scale_down_threshold": self._down,
+            "resource_id": None,
+            "current_util": None,
+            "forecast_util": None,
+            "recommendation": None,
         }
         resources = mentioned(question, tuple(resource for resource, _ in self._samples.items()))
         if resources:

@@ -705,6 +705,11 @@ class Vidar(Agent):
         facts = {
             **capability_facts(self.spec),
             "rollbacks_recorded": len(recs),
+            "last_correlation_id": None,
+            "last_action_type": None,
+            "last_state": None,
+            "last_contract": None,
+            "last_rollback_ref": None,
         }
         if recs:
             last = recs[-1]

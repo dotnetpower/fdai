@@ -26,6 +26,7 @@ from fdai.agents._framework.introspection import (
     agent_state_evidence_ref,
     capability_facts,
     mentioned,
+    semantic_intents,
 )
 from fdai.agents._framework.loki_reservations import LokiReservationJournal
 from fdai.agents._framework.loki_resilience import (
@@ -556,7 +557,7 @@ class Loki(Agent):
         facts = {
             **capability_facts(self.spec),
             "blast_radius_cap": self._cap,
-            "in_flight_targets": [],
+            "in_flight_targets": None if self._in_flight_targets else [],
             "in_flight_target_count": len(self._in_flight_targets),
             "proposals_total": len(self.proposals),
             "proposals_accepted": len(accepted),
@@ -566,9 +567,15 @@ class Loki(Agent):
             ),
             "resilience_score_available": bool(self._resilience_scores),
             "resilience_score_resource_count": len(self._resilience_scores),
+            "resource_id": None,
+            "resilience_score": None,
+            "observed_at": None,
         }
-        normalized_question = question.casefold()
-        if "resilience" in normalized_question and "score" in normalized_question:
+        selected_tool = context.get("conversation_tool")
+        intents = semantic_intents(context)
+        if selected_tool == "read_resilience_scores" or intents.intersection(
+            {"resilience_score", "resilience_scores"}
+        ):
             resources = mentioned(question, self._resilience_scores)
             if resources:
                 resource_id = resources[0]
