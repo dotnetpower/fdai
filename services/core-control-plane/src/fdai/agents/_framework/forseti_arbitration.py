@@ -6,7 +6,6 @@ import asyncio
 import logging
 from collections.abc import Callable, Iterable, Mapping
 from datetime import datetime
-from functools import lru_cache
 from typing import Any
 
 from fdai.agents._framework.action_semantics import (
@@ -22,6 +21,21 @@ from fdai.agents._framework.cross_vertical_candidates import (
     CandidateIntakeState,
     CrossVerticalCandidateAccumulator,
 )
+from fdai.agents._framework.forseti_arbitration_contract import (
+    arbitration_action_idempotency_key as _arbitration_action_idempotency_key,
+)
+from fdai.agents._framework.forseti_arbitration_contract import (
+    arbitration_owner as _arbitration_owner,
+)
+from fdai.agents._framework.forseti_arbitration_contract import (
+    autonomy_ceiling_for_risk_verdict as _autonomy_ceiling_for_risk_verdict,
+)
+from fdai.agents._framework.forseti_arbitration_contract import (
+    remember_arbitration_winner as _remember_winner,
+)
+from fdai.agents._framework.forseti_arbitration_contract import (
+    winning_domain_disposition_allows_resolution as _winning_domain_disposition_allows_resolution,
+)
 from fdai.agents._framework.forseti_decision_helpers import (
     change_assessment_mapping as _change_assessment_mapping,
 )
@@ -36,7 +50,6 @@ from fdai.agents._framework.forseti_decision_helpers import signal_impact as _si
 from fdai.agents._framework.forseti_decision_helpers import source_freshness as _source_freshness
 from fdai.agents._framework.forseti_judgment import RISK_VERDICT as _RISK_VERDICT
 from fdai.agents._framework.forseti_learned_outputs import ForsetiLearnedOutputMixin
-from fdai.agents._framework.registry import load_pantheon
 from fdai.agents._framework.runtime_health import AGENT_DEGRADATION_POLICIES, evaluate_degradation
 from fdai.agents._framework.topics import stable_idempotency_key
 from fdai.core.decision_case import (
@@ -64,13 +77,6 @@ _LOGGER = logging.getLogger(__name__)
 _MAX_RESOURCES = 10_000
 
 _DecisionProjection = DomainDecisionProjection | SpecialistPlanningProjection
-
-_ARBITRATION_DECISION_TOPIC = "object.arbitration-decision"
-
-
-@lru_cache(maxsize=1)
-def _arbitration_owner() -> str | None:
-    return load_pantheon().owner_of_topic(_ARBITRATION_DECISION_TOPIC)
 
 
 class ForsetiArbitrationMixin(ForsetiLearnedOutputMixin):
@@ -406,19 +412,23 @@ class ForsetiArbitrationMixin(ForsetiLearnedOutputMixin):
         )
 
     async def _record_arbitration(self, decision: dict[str, Any]) -> None:
+        if decision.get("producer_principal") != "Odin":
+            self.record_behavior("arbitration_decision:rejected_owner")
+            return
         correlation_id = str(decision.get("correlation_id", ""))
         if not correlation_id:
+            self.record_behavior("arbitration_decision:missing_correlation")
             return
-        self.arbitrations[correlation_id] = str(decision.get("winning_domain", ""))
-        # Bound the map: it is keyed by correlation id (one per arbitrated
-        # event, forever), so an unbounded dict would leak on a long-lived
-        # judge - the same reason _domain_advice / _domain_impact are LRU.
-        # Dict preserves insertion order, so the first key is the oldest; a
-        # re-recorded correlation updates in place (order unchanged) and never
-        # triggers a spurious eviction.
-        if len(self.arbitrations) > _MAX_RESOURCES:
-            self.arbitrations.pop(next(iter(self.arbitrations)))
+        if correlation_id in self.arbitrations:
+            self.record_behavior("arbitration_decision:duplicate")
+            return
         escalated = decision.get("escalate_hil") is True
+        winning_domain = str(decision.get("winning_domain") or "")
+        if not escalated and not _winning_domain_disposition_allows_resolution(
+            decision, winning_domain
+        ):
+            escalated = True
+            self.record_behavior("arbitration_decision:disposition_escalated")
         outcome = "escalated" if escalated else "resolved"
         if await self._settle_advisory_arbitration(correlation_id, decision, outcome=outcome):
             return
@@ -437,7 +447,6 @@ class ForsetiArbitrationMixin(ForsetiLearnedOutputMixin):
         if change_assessment is not None and change_assessment.get("review_required") is True:
             await self._escalate_arbitration(correlation_id, decision)
             return
-        winning_domain = str(decision.get("winning_domain") or "")
         option = projection.option_for_domain(winning_domain)
         eligible_options = {
             option_id for option_id, _score in projection.selection.objective_scores
@@ -456,6 +465,7 @@ class ForsetiArbitrationMixin(ForsetiLearnedOutputMixin):
             action_type=option.action_type,
             planning_invalid=planning_invalid,
         )
+        _remember_winner(self.arbitrations, correlation_id, winning_domain, _MAX_RESOURCES)
 
     async def _finalize_planning_projection(
         self,
@@ -562,6 +572,7 @@ class ForsetiArbitrationMixin(ForsetiLearnedOutputMixin):
         )
         if invalid_kinetic_proposal or planning_invalid:
             risk_verdict = "deny"
+        resource_id = self._arbitration_resources.get(correlation_id) or ""
         verdict = {
             "producer_principal": "Forseti",
             "correlation_id": correlation_id,
@@ -571,9 +582,17 @@ class ForsetiArbitrationMixin(ForsetiLearnedOutputMixin):
                 action_type,
                 self._arbitration_resources.get(correlation_id) or "",
             ),
-            "resource_id": self._arbitration_resources.get(correlation_id) or "",
+            "action_idempotency_key": _arbitration_action_idempotency_key(
+                correlation_id,
+                action_type,
+                projection.selection.selected_option_id or "",
+                resource_id,
+                kinetic_proposal.proposal_id if kinetic_proposal is not None else "",
+            ),
+            "resource_id": resource_id,
             "action_type": action_type,
             "risk_verdict": risk_verdict,
+            "resolved_autonomy_ceiling": _autonomy_ceiling_for_risk_verdict(risk_verdict),
             "reason": "arbitration_resolved",
             "arbitration": {
                 "winning_domain": decision.get("winning_domain"),
@@ -610,20 +629,10 @@ class ForsetiArbitrationMixin(ForsetiLearnedOutputMixin):
     ) -> dict[str, Any] | None:
         """Turn an unresolved arbitration into a human-visible verdict.
 
-        Odin flags a near-tie, an unknown domain, or a non-finite impact
-        rather than auto-picking; the arbitration owner may also be
-        unreachable, in which case no decision will ever arrive. Recording
-        the winner and stopping there would drop the conflict: the
-        accumulated domain advice is already consumed, so nothing else
-        would ever surface it, and the escalation would exist only inside
-        Odin's payload. Fail toward safety instead
-        (``agent-pantheon.md`` 3.1) and issue the ``hil`` verdict that puts
-        the conflict in front of a human.
-
-        Idempotent by correlation id: a redelivered decision re-records the
-        winner but does not publish a second verdict, and a decision that
-        arrives after a fail-closed closure cannot reopen it. A default-profile
-        arbitration fed by a prediction settles as advisory evidence instead.
+        Near-ties, unknown domains, invalid impacts, and unavailable arbitration
+        ownership fail toward safety as HIL. Idempotency is by correlation:
+        once unresolved or settled, redelivery cannot publish another verdict
+        or reopen the closure.
         """
         if await self._settle_advisory_arbitration(
             correlation_id,
@@ -706,6 +715,8 @@ class ForsetiArbitrationMixin(ForsetiLearnedOutputMixin):
             verdict["prospective_lineage"] = prospective_lineage.model_dump(mode="json")
         if self.bus is not None:
             await self.bus.publish("Forseti", "object.verdict", verdict)
+        if winning_domain:
+            _remember_winner(self.arbitrations, correlation_id, winning_domain, _MAX_RESOURCES)
         return verdict
 
     async def _resolve_kinetic_proposal(

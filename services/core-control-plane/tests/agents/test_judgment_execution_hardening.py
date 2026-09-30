@@ -13,7 +13,16 @@ from fdai.agents._framework.forseti_judgment import JudgmentTable
 from fdai.agents._framework.registry import load_pantheon
 from fdai.agents.forseti import Forseti
 from fdai.agents.thor import ActionRunState, Thor
+from fdai.agents.vidar import Vidar, _rollback_request_digest, _rollback_state_key
 from fdai.core.architecture_review import ArchitectureReviewObservation
+from fdai.core.decision_case import (
+    ActionOption,
+    DecisionCase,
+    DecisionSelection,
+    DomainDecisionProjection,
+    ObjectiveEffect,
+)
+from fdai.core.workflow.recovery_effect_ingress import RECOVERY_EFFECT_OBSERVATION_EVENT_TYPE
 from fdai.shared.contracts.models import Autonomy
 from fdai.shared.providers.testing.state_store import InMemoryStateStore
 from fdai_service_contracts.incident_intervention import INCIDENT_INTERVENTION_EVENT_TYPE
@@ -30,11 +39,66 @@ def _semantics(*, reversible: bool = True) -> ActionSemanticsCatalog:
     )
 
 
+def _restart_semantics() -> ActionSemanticsCatalog:
+    return ActionSemanticsCatalog(
+        irreversible_by_id={"ops.restart-service": False},
+        rollback_by_id={"ops.restart-service": "state_forward_only"},
+    )
+
+
 def _table() -> JudgmentTable:
     return JudgmentTable(
         rule_match={"test.event": "test.auto"},
         risk_verdict={"test.auto": "auto"},
         source="test-judgment-table",
+    )
+
+
+def _effect() -> ObjectiveEffect:
+    return ObjectiveEffect(
+        objective_id="availability",
+        utility=0.7,
+        confidence=0.9,
+        metric="availability",
+        expected_min=0.0,
+        expected_max=1.0,
+        observation_window_seconds=60,
+    )
+
+
+def _projection(
+    *,
+    correlation_id: str,
+    action_type: str = "ops.restart-service",
+) -> DomainDecisionProjection:
+    option = ActionOption(
+        option_id="capacity:restart",
+        action_type=action_type,
+        effects=(_effect(),),
+        evidence_refs=("evidence:capacity",),
+    )
+    case = DecisionCase(
+        case_id=f"case:{correlation_id}",
+        correlation_id=correlation_id,
+        context_snapshot_id="context:1",
+        created_at=datetime(2030, 1, 1, tzinfo=UTC),
+        no_action_effects=(_effect(),),
+        options=(option,),
+        protected_objective_ids=("availability",),
+        active_constraint_ids=(),
+        evidence_refs=("evidence:case",),
+    )
+    selection = DecisionSelection(
+        selected_option_id=option.option_id,
+        objective_scores=((option.option_id, 0.9),),
+        margin=0.5,
+        requires_human_approval=False,
+        reason="selected",
+    )
+    return DomainDecisionProjection(
+        case=case,
+        selection=selection,
+        option_by_domain=(("capacity", option.option_id),),
     )
 
 
@@ -596,3 +660,348 @@ def test_thor_terminal_rollback_redelivery_finalizes_replay_paths() -> None:
         asyncio.run(thor.on_typed_message("object.rollback", rollback))
 
         assert run.state is ActionRunState.DENY_DROPPED
+
+
+def test_thor_rejects_unknown_risk_verdict_before_execution() -> None:
+    bus = _bus()
+    thor = Thor(bus=bus)
+
+    run = asyncio.run(
+        thor.dispatch_verdict(
+            {
+                "producer_principal": "Forseti",
+                "correlation_id": "risk-bogus",
+                "idempotency_key": "risk-bogus-key",
+                "action_type": "test.auto",
+                "risk_verdict": "bogus",
+                "resolved_autonomy_ceiling": Autonomy.ENFORCE_AUTO.value,
+                "resource_id": "risk-resource",
+            }
+        )
+    )
+
+    assert run.state is ActionRunState.DENY_DROPPED
+    assert run.outcome == "invalid_risk_verdict"
+    assert thor.behavior_snapshot()["dispatch:invalid_risk_verdict"] == 1
+    assert "executing" not in [msg.payload["state"] for msg in bus.messages_on("object.action-run")]
+
+
+@pytest.mark.parametrize("field", ["quorum_required", "effective_quorum_required"])
+def test_thor_rejects_malformed_quorum_as_visible_noop(field: str) -> None:
+    thor = Thor(bus=_bus())
+    verdict = {
+        "producer_principal": "Forseti",
+        "correlation_id": f"bad-{field}",
+        "idempotency_key": f"bad-{field}-key",
+        "action_type": "test.auto",
+        "risk_verdict": "hil",
+        "resource_id": f"r-{field}",
+        field: "two",
+    }
+
+    run = asyncio.run(thor.dispatch_verdict(verdict))
+
+    assert run.state is ActionRunState.DENY_DROPPED
+    assert run.outcome == "invalid_quorum"
+    assert thor.behavior_snapshot()["dispatch:invalid_quorum"] == 1
+
+
+def test_thor_records_unknown_approval_and_effect_observation_noops() -> None:
+    thor = Thor()
+
+    asyncio.run(
+        thor.on_typed_message(
+            "object.approval",
+            {"kind": "action", "correlation_id": "missing", "producer_principal": "Var"},
+        )
+    )
+    asyncio.run(
+        thor.on_typed_message(
+            "object.recovery-effect-observation",
+            {
+                "producer_principal": "Heimdall",
+                "schema_version": "1.0.0",
+                "event_type": "unsupported.effect",
+                "correlation_id": "missing",
+            },
+        )
+    )
+    asyncio.run(
+        thor.on_typed_message(
+            "object.recovery-effect-observation",
+            {
+                "producer_principal": "Heimdall",
+                "schema_version": "1.0.0",
+                "event_type": "action.execution.effect_verified.v1",
+                "correlation_id": "missing",
+            },
+        )
+    )
+
+    behavior = thor.behavior_snapshot()
+    assert behavior["approval:unknown_run"] == 1
+    assert behavior["effect_observation:ignored_event_type"] == 1
+    assert behavior["effect_observation:unknown_run"] == 1
+
+
+def test_thor_accepts_recovery_effect_event_type_as_explicit_contract_path() -> None:
+    thor = Thor()
+    run = asyncio.run(
+        thor.dispatch_verdict(
+            {
+                "correlation_id": "effect-contract",
+                "idempotency_key": "effect-contract-key",
+                "action_type": "test.auto",
+                "risk_verdict": "hil",
+                "resource_id": "effect-resource",
+            }
+        )
+    )
+
+    with pytest.raises(ValueError, match="verified effect does not match"):
+        asyncio.run(
+            thor.on_typed_message(
+                "object.recovery-effect-observation",
+                {
+                    "producer_principal": "Heimdall",
+                    "schema_version": "1.0.0",
+                    "event_type": RECOVERY_EFFECT_OBSERVATION_EVENT_TYPE,
+                    "correlation_id": run.correlation_id,
+                    "resource_id": run.resource_id,
+                },
+            )
+        )
+
+    assert "effect_observation:ignored_event_type" not in thor.behavior_snapshot()
+
+
+def test_thor_counts_duplicate_verified_effect_observation() -> None:
+    thor = Thor()
+    run = asyncio.run(
+        thor.dispatch_verdict(
+            {
+                "correlation_id": "effect-duplicate",
+                "idempotency_key": "effect-duplicate-key",
+                "action_type": "test.auto",
+                "risk_verdict": "deny",
+                "resource_id": "effect-duplicate-resource",
+            }
+        )
+    )
+    run.state = ActionRunState.SUCCEEDED
+    run.shadow_mode = False
+    run.outcome = "independent_effect_verified"
+    run.effect_verification_ref = "sha256:" + "1" * 64
+    run.execution_closure_ref = "sha256:" + "2" * 64
+    run.effect_verified_at = datetime(2030, 1, 1, tzinfo=UTC)
+
+    asyncio.run(
+        thor.on_typed_message(
+            "object.recovery-effect-observation",
+            {
+                "producer_principal": "Heimdall",
+                "schema_version": "1.0.0",
+                "event_type": "action.execution.effect_verified.v1",
+                "correlation_id": run.correlation_id,
+                "action_type": run.action_type,
+                "resource_id": run.resource_id,
+                "action_idempotency_key": run.idempotency_key,
+                "params": run.params,
+                "effect_verification_ref": run.effect_verification_ref,
+                "execution_closure_ref": run.execution_closure_ref,
+                "observed_at": run.effect_verified_at.isoformat(),
+            },
+        )
+    )
+
+    assert thor.behavior_snapshot()["effect_observation:duplicate_verified"] == 1
+
+
+def test_failed_action_run_publication_carries_observed_time() -> None:
+    bus = _bus()
+    thor = Thor(bus=bus, executor=lambda _context: asyncio.sleep(0, result=False))
+
+    run = asyncio.run(
+        thor.dispatch_verdict(
+            {
+                "correlation_id": "failed-timestamp",
+                "idempotency_key": "failed-timestamp-key",
+                "action_type": "test.auto",
+                "risk_verdict": "auto",
+                "resolved_autonomy_ceiling": Autonomy.ENFORCE_AUTO.value,
+                "resource_id": "failed-resource",
+            }
+        )
+    )
+
+    failed = bus.messages_on("object.action-run")[-1].payload
+    assert run.state is ActionRunState.FAILED
+    assert failed["state"] == "failed"
+    assert failed["terminal_at"].endswith("Z")
+
+
+def _failed_action_run_payload(correlation_id: str = "rollback-c") -> dict[str, object]:
+    bus = _bus()
+    thor = Thor(bus=bus, executor=lambda _context: asyncio.sleep(0, result=False))
+    asyncio.run(
+        thor.dispatch_verdict(
+            {
+                "correlation_id": correlation_id,
+                "idempotency_key": f"{correlation_id}-key",
+                "action_type": "test.auto",
+                "risk_verdict": "auto",
+                "resolved_autonomy_ceiling": Autonomy.ENFORCE_AUTO.value,
+                "resource_id": f"{correlation_id}-resource",
+            }
+        )
+    )
+    return dict(bus.messages_on("object.action-run")[-1].payload)
+
+
+def test_vidar_records_active_durable_rollback_claim_as_hold() -> None:
+    now = datetime(2030, 1, 1, tzinfo=UTC)
+    store = InMemoryStateStore()
+    payload = _failed_action_run_payload("rollback-held")
+    contract = str(payload["rollback_contract"])
+    identity = str(payload["action_run_identity"])
+    request_digest = _rollback_request_digest(payload, contract=contract)
+    asyncio.run(
+        store.write_state(
+            _rollback_state_key(str(payload["correlation_id"]), "state", identity),
+            {
+                "schema_version": "1.0.0",
+                "revision": 1,
+                "status": "in_progress",
+                "correlation_id": payload["correlation_id"],
+                "action_run_identity": identity,
+                "request_digest": request_digest,
+                "owner_token": "a" * 32,
+                "claimed_at": now.isoformat(),
+                "lease_expires_at": (now + timedelta(minutes=5)).isoformat(),
+                "action_type": payload["action_type"],
+                "resource_id": payload["resource_id"],
+                "contract": contract,
+            },
+        )
+    )
+    vidar = Vidar(state_store=store, clock=lambda: now)
+
+    assert asyncio.run(vidar.rollback(payload)) is None
+    assert vidar.behavior_snapshot()["rollback:claim_in_progress"] == 1
+    assert vidar.records[-1].state == "execution_unknown"
+
+
+def test_vidar_records_unavailable_and_duplicate_rollback_publication() -> None:
+    payload = _failed_action_run_payload("rollback-publish")
+    unavailable = Vidar(allow_process_local_rollback=True)
+
+    rec = asyncio.run(unavailable.rollback(payload))
+
+    assert rec is not None
+    assert unavailable.behavior_snapshot()["rollback:publication_unavailable"] == 1
+    assert unavailable.health()["rollback_publication_pending"] == 1
+
+    bus = _bus()
+    duplicate = Vidar(bus=bus, allow_process_local_rollback=True)
+    asyncio.run(duplicate.rollback(payload))
+    asyncio.run(duplicate.rollback(payload))
+
+    assert len(bus.messages_on("object.rollback")) == 1
+    assert duplicate.behavior_snapshot()["rollback:duplicate_publication"] == 1
+
+
+def test_forseti_rejects_unauthenticated_arbitration_decisions() -> None:
+    forseti = Forseti()
+
+    asyncio.run(
+        forseti.on_typed_message(
+            "object.arbitration-decision",
+            {
+                "producer_principal": "Mallory",
+                "correlation_id": "arb-bad-owner",
+                "winning_domain": "capacity",
+            },
+        )
+    )
+    asyncio.run(
+        forseti.on_typed_message(
+            "object.arbitration-decision",
+            {"producer_principal": "Odin", "correlation_id": "", "winning_domain": "capacity"},
+        )
+    )
+
+    assert forseti.arbitrations == {}
+    behavior = forseti.behavior_snapshot()
+    assert behavior["arbitration_decision:rejected_owner"] == 1
+    assert behavior["arbitration_decision:missing_correlation"] == 1
+
+
+def test_forseti_does_not_record_unbound_arbitration_winner() -> None:
+    forseti = Forseti()
+
+    asyncio.run(
+        forseti.on_typed_message(
+            "object.arbitration-decision",
+            {
+                "producer_principal": "Odin",
+                "correlation_id": "arb-stale",
+                "winning_domain": "capacity",
+                "escalate_hil": False,
+            },
+        )
+    )
+
+    assert forseti.arbitrations == {}
+
+
+def test_forseti_honors_selected_domain_disposition() -> None:
+    bus = _bus()
+    forseti = Forseti(bus=bus)
+
+    asyncio.run(
+        forseti.on_typed_message(
+            "object.arbitration-decision",
+            {
+                "producer_principal": "Odin",
+                "correlation_id": "arb-disposition",
+                "winning_domain": "capacity",
+                "losing_domains": ["cost"],
+                "escalate_hil": False,
+                "dispositions": {"capacity": "hil", "cost": "defer"},
+            },
+        )
+    )
+
+    verdict = bus.messages_on("object.verdict")[0].payload
+    assert verdict["risk_verdict"] == "hil"
+    assert verdict["reason"] == "arbitration_unresolved"
+    assert forseti.behavior_snapshot()["arbitration_decision:disposition_escalated"] == 1
+
+
+def test_resolved_arbitration_verdict_carries_ceiling_and_action_identity() -> None:
+    bus = _bus()
+    forseti = Forseti(bus=bus, action_semantics=_restart_semantics())
+    correlation_id = "arb-resolved"
+    forseti._pending_decision_cases.set(  # noqa: SLF001
+        correlation_id,
+        _projection(correlation_id=correlation_id),
+    )
+    forseti._arbitration_resources.set(correlation_id, "arb-resource")  # noqa: SLF001
+
+    decision = {
+        "producer_principal": "Odin",
+        "correlation_id": correlation_id,
+        "winning_domain": "capacity",
+        "losing_domains": ["cost"],
+        "escalate_hil": False,
+        "dispositions": {"capacity": "win", "cost": "lose"},
+    }
+    asyncio.run(forseti.on_typed_message("object.arbitration-decision", dict(decision)))
+    asyncio.run(forseti.on_typed_message("object.arbitration-decision", dict(decision)))
+
+    verdict = bus.messages_on("object.verdict")[0].payload
+    assert verdict["risk_verdict"] == "auto"
+    assert verdict["resolved_autonomy_ceiling"] == Autonomy.ENFORCE_AUTO.value
+    assert verdict["action_idempotency_key"].startswith("forseti-arbitration-action:")
+    assert verdict["action_idempotency_key"] != verdict["idempotency_key"]
+    assert len(bus.messages_on("object.verdict")) == 1

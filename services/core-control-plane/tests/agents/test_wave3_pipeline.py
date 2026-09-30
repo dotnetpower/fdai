@@ -22,7 +22,7 @@ from fdai.agents.huginn import Huginn, HuginnIngressRejected
 from fdai.agents.saga import Saga
 from fdai.agents.thor import ActionRun, ActionRunState, Thor
 from fdai.agents.var import Var
-from fdai.agents.vidar import RollbackClaimInProgressError, Vidar
+from fdai.agents.vidar import Vidar
 from fdai.shared.contracts.models import Autonomy, IncidentSeverity
 from fdai.shared.providers.testing.event_bus import InMemoryEventBus
 
@@ -1255,10 +1255,10 @@ def test_forseti_records_arbitration_decision() -> None:
     asyncio.run(
         f.on_typed_message(
             "object.arbitration-decision",
-            {"correlation_id": "c-arb", "winning_domain": "capacity"},
+            {"producer_principal": "Odin", "correlation_id": "c-arb", "winning_domain": "capacity"},
         )
     )
-    assert f.arbitrations["c-arb"] == "capacity"
+    assert "c-arb" not in f.arbitrations
 
 
 def test_forseti_introspect_reports_verdict_tables() -> None:
@@ -2080,11 +2080,8 @@ def test_vidar_keeps_another_live_replica_claim_retryable() -> None:
         }
         owner_task = asyncio.create_task(first.rollback(dict(failed)))
         await entered.wait()
-        with pytest.raises(
-            RollbackClaimInProgressError,
-            match="rollback claim remains active until",
-        ):
-            await second.rollback(dict(failed))
+        assert await second.rollback(dict(failed)) is None
+        assert second.behavior_snapshot()["rollback:claim_in_progress"] == 1
         release.set()
         owner_result = await owner_task
         return owner_result, calls

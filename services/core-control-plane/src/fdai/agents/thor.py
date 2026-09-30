@@ -76,6 +76,7 @@ from fdai.shared.providers.resource_lock import ResourceLock
 
 _resolved_autonomy_ceiling = thor_dispatch_validation.resolved_autonomy_ceiling
 _selected_action_matches = thor_dispatch_validation.selected_action_matches
+_ACCEPTED_RISK_VERDICTS = frozenset({"auto", "hil", "deny", "shadow"})
 
 ActionExecutor = Callable[[dict[str, Any]], Awaitable[bool]]
 """Callable that mutates the target and returns True on success."""
@@ -108,6 +109,18 @@ class _ReentrantAsyncLock:
         if self._depth == 0:
             self._owner = None
             self._lock.release()
+
+
+def _positive_quorum(value: object) -> int:
+    if isinstance(value, bool):
+        raise TypeError("quorum MUST be an integer")
+    if isinstance(value, int):
+        parsed = value
+    elif isinstance(value, str):
+        parsed = int(value)
+    else:
+        raise TypeError("quorum MUST be an integer")
+    return max(1, parsed)
 
 
 class Thor(ThorDevelopmentAuthorityMixin, ThorEffectVerificationMixin, Agent):
@@ -316,9 +329,17 @@ class Thor(ThorDevelopmentAuthorityMixin, ThorEffectVerificationMixin, Agent):
         correlation = str(verdict.get("correlation_id", ""))
         action_type = str(verdict.get("action_type", ""))
         risk_verdict = str(verdict.get("risk_verdict", "hil"))
+        if risk_verdict not in _ACCEPTED_RISK_VERDICTS:
+            self.record_behavior("dispatch:invalid_risk_verdict")
+            return await self._emit_terminal_rejection(
+                verdict,
+                outcome="invalid_risk_verdict",
+            )
         resolved_autonomy_ceiling = _resolved_autonomy_ceiling(verdict)
         if resolved_autonomy_ceiling is Autonomy.ENFORCE_HIL and risk_verdict == "auto":
             risk_verdict = "hil"
+        if risk_verdict == "shadow":
+            resolved_autonomy_ceiling = Autonomy.SHADOW_ONLY
         resource_id = verdict.get("resource_id")
         raw_decision_case = verdict.get("decision_case")
         decision_case = action_run_lineage.bounded_decision_case(raw_decision_case)
@@ -463,22 +484,25 @@ class Thor(ThorDevelopmentAuthorityMixin, ThorEffectVerificationMixin, Agent):
         # verdict can never yield a zero-or-negative quorum that would let an
         # action execute with no approver; Thor MUST NOT hard-code 1 and drop
         # the judge's two-approver requirement.
-        original_quorum = max(
-            1,
-            int(
+        try:
+            original_quorum = _positive_quorum(
                 verdict.get(
                     "original_quorum_required",
                     verdict.get("quorum_required", 1),
                 )
-            ),
-        )
+            )
+            effective_quorum = _positive_quorum(
+                verdict.get("effective_quorum_required", original_quorum),
+            )
+        except (TypeError, ValueError):
+            self.record_behavior("dispatch:invalid_quorum")
+            return await self._emit_terminal_rejection(
+                verdict,
+                outcome="invalid_quorum",
+            )
         if risk_verdict == "auto" and original_quorum >= 2:
             risk_verdict = "hil"
             self.record_behavior("dispatch:auto_quorum_lowered")
-        effective_quorum = max(
-            1,
-            int(verdict.get("effective_quorum_required", original_quorum)),
-        )
         action_id = action_run_lineage.optional_bounded_text(
             verdict.get("action_id"),
             field_name="action_id",
@@ -688,6 +712,7 @@ class Thor(ThorDevelopmentAuthorityMixin, ThorEffectVerificationMixin, Agent):
     ) -> None:
         run = self.action_runs.get(correlation)
         if run is None:
+            self.record_behavior("approval:unknown_run")
             return
         if not approval_matches_action_run(approval, run.to_dict()):
             self.record_behavior("approval:identity_mismatch")

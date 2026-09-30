@@ -8,6 +8,11 @@ from typing import TYPE_CHECKING, Any, TypedDict
 
 from fdai.agents._framework import action_run_lineage
 from fdai.agents._framework.action_run_state import ActionRunState
+from fdai.core.workflow.recovery_effect_ingress import RECOVERY_EFFECT_OBSERVATION_EVENT_TYPE
+
+_SUPPORTED_EFFECT_EVENT_TYPES = frozenset(
+    {"action.execution.effect_verified.v1", RECOVERY_EFFECT_OBSERVATION_EVENT_TYPE}
+)
 
 if TYPE_CHECKING:
     from fdai.agents.thor import ActionRun
@@ -101,7 +106,8 @@ class ThorEffectVerificationMixin:
 
     async def _handle_effect_observation(self, observation: dict[str, Any]) -> None:
         """Terminalize only the exact ActionRun named by a Heimdall verified-effect event."""
-        if observation.get("event_type") != "action.execution.effect_verified.v1":
+        if observation.get("event_type") not in _SUPPORTED_EFFECT_EVENT_TYPES:
+            self.record_behavior("effect_observation:ignored_event_type")
             return
         if (
             observation.get("producer_principal") != "Heimdall"
@@ -111,6 +117,7 @@ class ThorEffectVerificationMixin:
         correlation = str(observation.get("correlation_id") or "")
         run = self.action_runs.get(correlation)
         if run is None:
+            self.record_behavior("effect_observation:unknown_run")
             return
         if (
             observation.get("action_id") != run.action_id
@@ -149,6 +156,7 @@ class ThorEffectVerificationMixin:
         ):
             raise ValueError("ActionRun already binds different effect verification")
         if run.state is ActionRunState.SUCCEEDED:
+            self.record_behavior("effect_observation:duplicate_verified")
             return
         run.effect_verification_ref = effect_ref
         run.execution_closure_ref = closure_ref

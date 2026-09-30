@@ -10,6 +10,7 @@ from decimal import Decimal
 import pytest
 from fdai.agents._framework.action_semantics import ActionSemanticsCatalog
 from fdai.agents._framework.bus import InMemoryBus
+from fdai.agents._framework.forseti_arbitration_contract import remember_arbitration_winner
 from fdai.agents._framework.registry import load_pantheon
 from fdai.agents._framework.vertical_precedence import InitialVerticalPrecedence
 from fdai.agents.forseti import Forseti
@@ -203,10 +204,10 @@ def test_forseti_records_arbitration_decision() -> None:
     asyncio.run(
         forseti.on_typed_message(
             "object.arbitration-decision",
-            {"correlation_id": "c", "winning_domain": "cost"},
+            {"producer_principal": "Odin", "correlation_id": "c", "winning_domain": "cost"},
         )
     )
-    assert forseti.arbitrations["c"] == "cost"
+    assert "c" not in forseti.arbitrations
 
 
 def test_arbitration_loop_end_to_end() -> None:
@@ -232,7 +233,10 @@ def test_arbitration_loop_end_to_end() -> None:
     decisions = bus.messages_on("object.arbitration-decision")
     assert len(decisions) == 1
     assert decisions[0].payload["winning_domain"] == "cost"
-    assert forseti.arbitrations.get("corr-arb") == "cost"
+    verdict = bus.messages_on("object.verdict")[0].payload
+    assert verdict["reason"] == "governed_execution_unselected"
+    assert verdict["arbitration"]["outcome"] == "resolved"
+    assert verdict["arbitration"]["winning_domain"] == "cost"
 
 
 def test_forseti_arbitrations_map_is_bounded() -> None:
@@ -242,11 +246,7 @@ def test_forseti_arbitrations_map_is_bounded() -> None:
 
     forseti = Forseti()
     for i in range(_MAX_RESOURCES + 100):
-        asyncio.run(
-            forseti._record_arbitration(  # noqa: SLF001
-                {"correlation_id": f"c{i}", "winning_domain": "cost"}
-            )
-        )
+        remember_arbitration_winner(forseti.arbitrations, f"c{i}", "cost", _MAX_RESOURCES)
     assert len(forseti.arbitrations) == _MAX_RESOURCES
     # The oldest correlations were evicted; the newest is retained.
     assert forseti.arbitrations.get(f"c{_MAX_RESOURCES + 100 - 1}") == "cost"
@@ -1440,18 +1440,24 @@ def test_settled_arbitration_issues_no_escalation_verdict() -> None:
     asyncio.run(
         forseti.on_typed_message(
             "object.arbitration-decision",
-            {"correlation_id": "corr-clear", "winning_domain": "cost", "escalate_hil": False},
+            {
+                "producer_principal": "Odin",
+                "correlation_id": "corr-clear",
+                "winning_domain": "cost",
+                "escalate_hil": False,
+            },
         )
     )
 
     assert bus.messages_on("object.verdict") == []
-    assert forseti.arbitrations["corr-clear"] == "cost"
+    assert "corr-clear" not in forseti.arbitrations
 
 
 def test_redelivered_escalation_does_not_publish_a_second_verdict() -> None:
     bus = _bus()
     forseti = Forseti(bus=bus)
     decision = {
+        "producer_principal": "Odin",
         "correlation_id": "corr-dup",
         "winning_domain": "cost",
         "losing_domains": ["capacity"],
@@ -1479,7 +1485,12 @@ def test_event_on_an_unresolved_correlation_never_judges_auto() -> None:
     asyncio.run(
         forseti.on_typed_message(
             "object.arbitration-decision",
-            {"correlation_id": "corr-gate", "winning_domain": "cost", "escalate_hil": True},
+            {
+                "producer_principal": "Odin",
+                "correlation_id": "corr-gate",
+                "winning_domain": "cost",
+                "escalate_hil": True,
+            },
         )
     )
     gated = asyncio.run(forseti.judge(dict(event)))

@@ -21,6 +21,8 @@ from fdai.agents._framework.thor_action_run import ActionRun, ActionRunStore
 from fdai.agents._framework.thor_effect_verification import effect_publication_fields
 from fdai.shared.contracts.models import Autonomy
 
+_TIMESTAMPED_ACTION_RUN_STATES = _TERMINAL_STATES | frozenset({ActionRunState.FAILED})
+
 
 class ThorPersistenceHost(Protocol):
     bus: PantheonBus | None
@@ -252,7 +254,7 @@ async def emit_action_run(host: ThorPersistenceHost, run: ActionRun) -> None:
     if run.evidence_rejection_ref is not None:
         payload["evidence_rejection_ref"] = run.evidence_rejection_ref
     payload["action_run_identity"] = action_run_identity_digest(payload)
-    if run.state in _TERMINAL_STATES:
+    if run.state in _TIMESTAMPED_ACTION_RUN_STATES:
         payload["terminal_at"] = host._now().isoformat().replace("+00:00", "Z")
     await host.bus.publish("Thor", "object.action-run", payload)
     if run.state in _TERMINAL_STATES:

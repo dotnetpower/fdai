@@ -317,9 +317,23 @@ class Vidar(Agent):
         elif stored.get("status") == "in_progress":
             claim_owner_token, lease_expires_at = _rollback_claim_lease(stored)
             if _clock_now(self._clock) < lease_expires_at:
-                raise RollbackClaimInProgressError(
-                    f"rollback claim remains active until {lease_expires_at.isoformat()}"
+                self.record_behavior("rollback:claim_in_progress")
+                self._remember_rollback_hold(
+                    RollbackRecord(
+                        correlation_id=correlation_id,
+                        action_run_identity=str(stored.get("action_run_identity") or ""),
+                        action_type=str(stored.get("action_type") or ""),
+                        resource_id=(
+                            str(stored["resource_id"])
+                            if stored.get("resource_id") is not None
+                            else None
+                        ),
+                        contract=str(stored.get("contract") or ""),
+                        state="execution_unknown",
+                        notes="rollback held by an active durable claim",
+                    )
                 )
+                return None
             rec = RollbackRecord(
                 correlation_id=correlation_id,
                 action_run_identity=str(stored.get("action_run_identity") or ""),
@@ -452,11 +466,18 @@ class Vidar(Agent):
             keep_from = len(self.records) - (self._MAX_RECORDS * 3 // 4)
             del self.records[:keep_from]
 
+    def _remember_rollback_hold(self, rec: RollbackRecord) -> None:
+        self.records.append(rec)
+        if len(self.records) > self._MAX_RECORDS:
+            keep_from = len(self.records) - (self._MAX_RECORDS * 3 // 4)
+            del self.records[:keep_from]
+
     async def _publish_rollback_once(self, rec: RollbackRecord) -> bool:
         if rec.correlation_id and await self._rollback_was_published(
             rec.correlation_id,
             rec.action_run_identity,
         ):
+            self.record_behavior("rollback:duplicate_publication")
             return False
         published = await self._publish_rollback(rec)
         if not published:
@@ -510,6 +531,7 @@ class Vidar(Agent):
 
     async def _publish_rollback(self, rec: RollbackRecord) -> bool:
         if self.bus is None:
+            self.record_behavior("rollback:publication_unavailable")
             return False
         await self.bus.publish(
             "Vidar",
@@ -535,6 +557,12 @@ class Vidar(Agent):
             "status": "stub",
             "rollback_durability": durability,
             "process_local_rollback_allowed": self._allow_process_local_rollback,
+            "rollback_publication_pending": sum(
+                1
+                for rec in self.records
+                if rec.correlation_id
+                and (rec.correlation_id, rec.action_run_identity) not in self._published_rollbacks
+            ),
             "behavior": self.behavior_snapshot(),
         }
 
